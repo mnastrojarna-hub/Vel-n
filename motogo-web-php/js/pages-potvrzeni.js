@@ -49,6 +49,24 @@
     catch(e){ return false; }
   }
 
+  // CMS-aware překlad pro body kontext: pro adminy obalí výsledek do
+  // `<span data-cms-key="web.layout.<klíč>">…</span>`, aby cms-admin.js
+  // (pravý-klik = inline editor) mohl saved value uložit do cms_variables.
+  // Reálná stránka i mock preview čtou stejný cms_variables klíč, takže
+  // úprava ve Velíně i na webu se projeví okamžitě v obou kontextech.
+  // Pro atributy (title, aria-label, href) a placeholder-bearing texty
+  // (např. `thanks` s `{name}`) používej dál `esc(I18N.X)`.
+  function tc(jsKey){
+    var raw = I18N[jsKey];
+    if (raw == null) raw = '';
+    var safe = esc(raw);
+    if (!isCmsAdmin()) return safe;
+    var map = window.MOTOGO_CONFIRM_CMS_KEYS || {};
+    var cmsKey = map[jsKey];
+    if (!cmsKey) return safe;
+    return '<span class="mg-cms-text" data-cms-key="web.layout.' + cmsKey + '">' + safe + '</span>';
+  }
+
   // Google Ads conversion via GTM dataLayer. Vystřelí jen jednou per
   // transaction_id (sessionStorage guard) — refresh /potvrzeni nebo opětovné
   // dotažení dat nezpůsobí dvojí započtení konverze v Google Ads.
@@ -226,95 +244,100 @@
 
   function sleep(ms){ return new Promise(function(ok){ setTimeout(ok, ms); }); }
 
-  function summaryRow(label, value){
-    return '<p><strong>' + esc(label) + ':</strong> ' + value + '</p>';
-  }
-
+  // Položky `items` přicházejí jako pole [jsKey, ...], aby každá <li> mohla mít
+  // vlastní data-cms-key (jinak by inline edit nahradil všechny kroky najednou).
   function nextStepsList(items){
     if(!items || !items.length) return '';
-    var lis = items.map(function(t){ return '<li>' + esc(t) + '</li>'; }).join('');
+    var lis = items.map(function(jsKey){
+      var v = I18N[jsKey];
+      if (!v) return '';
+      return '<li>' + tc(jsKey) + '</li>';
+    }).filter(Boolean).join('');
+    if (!lis) return '';
     return '<div class="confirm-next">' +
-      '<h3>' + esc(I18N.nextTitle || '') + '</h3>' +
+      '<h3>' + tc('nextTitle') + '</h3>' +
       '<ol>' + lis + '</ol>' +
       '</div>';
   }
 
   function backHomeBtn(){
     return '<p style="margin-top:1.5rem">' +
-      '<a class="btn btngreen" href="' + esc(HOME) + '">' + esc(I18N.backHome || 'Home') + '</a></p>';
+      '<a class="btn btngreen" href="' + esc(HOME) + '">' + tc('backHome') + '</a></p>';
+  }
+
+  // summaryRow s podporou inline editace popisku (label) — value je dynamická
+  // hodnota z DB (jméno, datum), nikdy se needituje.
+  function summaryRowTc(jsKey, value){
+    return '<p><strong>' + tc(jsKey) + ':</strong> ' + value + '</p>';
   }
 
   function renderBookingSuccess(b){
     var name = (b && b.customer_name) || '';
-    var greet = name ? fmt(I18N.thanks || '', {name: esc(name)}) : (I18N.thanksAnon || '');
+    // `thanks` má placeholder `{name}` → wrapping span by uložil rendered text
+    // s konkrétním jménem zákazníka. Necháme bez data-cms-key; admin edituje
+    // šablonu ve Velíně.
+    var greet = name ? fmt(I18N.thanks || '', {name: esc(name)}) : (I18N.thanksAnon ? tc('thanksAnon') : '');
     var shortId = b && b.id ? String(b.id).slice(-8).toUpperCase() : '';
 
     var summary = '<div class="confirm-summary">' +
-      '<h3>' + esc(I18N.summaryTitle || 'Summary') + '</h3>' +
-      (shortId ? summaryRow(I18N.bookingNumber, '<strong>#' + esc(shortId) + '</strong>') : '') +
-      (b && b.start_date ? summaryRow(I18N.period, esc(fmtDate(b.start_date)) + ' – ' + esc(fmtDate(b.end_date))) : '') +
-      (b && b.total_price != null ? summaryRow(I18N.total, esc(fmtPrice(b.total_price))) : '') +
-      summaryRow(I18N.paid, '✓') +
-      (b && b.customer_email ? summaryRow(I18N.email, esc(b.customer_email)) : '') +
+      '<h3>' + tc('summaryTitle') + '</h3>' +
+      (shortId ? summaryRowTc('bookingNumber', '<strong>#' + esc(shortId) + '</strong>') : '') +
+      (b && b.start_date ? summaryRowTc('period', esc(fmtDate(b.start_date)) + ' – ' + esc(fmtDate(b.end_date))) : '') +
+      (b && b.total_price != null ? summaryRowTc('total', esc(fmtPrice(b.total_price))) : '') +
+      summaryRowTc('paid', '✓') +
+      (b && b.customer_email ? summaryRowTc('email', esc(b.customer_email)) : '') +
       '</div>';
 
     return '<div class="confirm-page confirm-success">' +
       '<div class="confirm-icon" aria-hidden="true">✔</div>' +
-      '<h1>' + esc(I18N.successBookingTitle || 'Booking confirmed!') + '</h1>' +
+      '<h1>' + tc('successBookingTitle') + '</h1>' +
       '<p class="confirm-lead">' + greet + '</p>' +
       summary +
-      '<p class="confirm-emailed">' + esc(I18N.emailSentBooking || '') + '</p>' +
-      nextStepsList([
-        I18N.nextBookingDocs,
-        I18N.nextBookingCodes,
-        I18N.nextBookingPickup,
-        I18N.nextContact
-      ].filter(Boolean)) +
-      (I18N.seeYouSoon ? '<p class="confirm-see-you" style="margin-top:1rem;font-weight:600">' + esc(I18N.seeYouSoon) + '</p>' : '') +
+      '<p class="confirm-emailed">' + tc('emailSentBooking') + '</p>' +
+      nextStepsList(['nextBookingDocs', 'nextBookingCodes', 'nextBookingPickup', 'nextContact']) +
+      (I18N.seeYouSoon ? '<p class="confirm-see-you" style="margin-top:1rem;font-weight:600">' + tc('seeYouSoon') + '</p>' : '') +
       backHomeBtn() +
       '</div>';
   }
 
   function renderShopSuccess(order){
     var name = (order && order.customer_name) || '';
-    var greet = name ? fmt(I18N.thanks || '', {name: esc(name)}) : (I18N.thanksAnon || '');
+    var greet = name ? fmt(I18N.thanks || '', {name: esc(name)}) : (I18N.thanksAnon ? tc('thanksAnon') : '');
 
     var summary = '<div class="confirm-summary">' +
-      '<h3>' + esc(I18N.summaryTitle || 'Summary') + '</h3>' +
-      (order && order.order_number ? summaryRow(I18N.orderNumber, '<strong>' + esc(order.order_number) + '</strong>') : '') +
-      (order && order.total != null ? summaryRow(I18N.total, esc(fmtPrice(order.total))) : '') +
-      summaryRow(I18N.paid, '✓') +
-      (order && order.customer_email ? summaryRow(I18N.email, esc(order.customer_email)) : '') +
+      '<h3>' + tc('summaryTitle') + '</h3>' +
+      (order && order.order_number ? summaryRowTc('orderNumber', '<strong>' + esc(order.order_number) + '</strong>') : '') +
+      (order && order.total != null ? summaryRowTc('total', esc(fmtPrice(order.total))) : '') +
+      summaryRowTc('paid', '✓') +
+      (order && order.customer_email ? summaryRowTc('email', esc(order.customer_email)) : '') +
       '</div>';
 
     return '<div class="confirm-page confirm-success">' +
       '<div class="confirm-icon" aria-hidden="true">✔</div>' +
-      '<h1>' + esc(I18N.successOrderTitle || 'Order paid!') + '</h1>' +
+      '<h1>' + tc('successOrderTitle') + '</h1>' +
       '<p class="confirm-lead">' + greet + '</p>' +
       summary +
-      '<p class="confirm-emailed">' + esc(I18N.emailSentOrder || '') + '</p>' +
-      nextStepsList([
-        I18N.nextOrderShip,
-        I18N.nextContact
-      ].filter(Boolean)) +
+      '<p class="confirm-emailed">' + tc('emailSentOrder') + '</p>' +
+      nextStepsList(['nextOrderShip', 'nextContact']) +
       '<p style="margin-top:1.5rem">' +
-        '<a class="btn btngreen" href="' + esc(SHOP) + '">' + esc(I18N.continueShopping || 'Shop') + '</a>' +
-        '&nbsp;<a class="btn btndark" href="' + esc(HOME) + '">' + esc(I18N.backHome || 'Home') + '</a>' +
+        '<a class="btn btngreen" href="' + esc(SHOP) + '">' + tc('continueShopping') + '</a>' +
+        '&nbsp;<a class="btn btndark" href="' + esc(HOME) + '">' + tc('backHome') + '</a>' +
       '</p>' +
       '</div>';
   }
 
   function renderVoucherSuccess(order, vouchers){
     var name = (order && order.customer_name) || '';
-    var greet = name ? fmt(I18N.thanks || '', {name: esc(name)}) : (I18N.thanksAnon || '');
+    var greet = name ? fmt(I18N.thanks || '', {name: esc(name)}) : (I18N.thanksAnon ? tc('thanksAnon') : '');
 
     var voucherHtml = '';
     if(vouchers && vouchers.length){
       voucherHtml = '<div class="confirm-vouchers">';
       vouchers.forEach(function(v){
         var validUntil = v.valid_until ? fmtDate(v.valid_until) : '—';
+        // `validUntil` má placeholder `{date}` → necháme bez data-cms-key.
         voucherHtml += '<div class="confirm-voucher-card">' +
-          '<div class="confirm-voucher-label">' + esc(I18N.voucherCode || 'Voucher code') + '</div>' +
+          '<div class="confirm-voucher-label">' + tc('voucherCode') + '</div>' +
           '<div class="confirm-voucher-code">' + esc(v.code || '') + '</div>' +
           '<div class="confirm-voucher-amount">' + esc(fmtPrice(v.amount)) + '</div>' +
           '<div class="confirm-voucher-validity">' + esc(fmt(I18N.validUntil || 'Valid until {date}', {date: validUntil})) + '</div>' +
@@ -324,25 +347,21 @@
     }
 
     var summary = '<div class="confirm-summary">' +
-      '<h3>' + esc(I18N.summaryTitle || 'Summary') + '</h3>' +
-      (order && order.order_number ? summaryRow(I18N.orderNumber, '<strong>' + esc(order.order_number) + '</strong>') : '') +
-      (order && order.total != null ? summaryRow(I18N.total, esc(fmtPrice(order.total))) : '') +
-      summaryRow(I18N.paid, '✓') +
-      (order && order.customer_email ? summaryRow(I18N.email, esc(order.customer_email)) : '') +
+      '<h3>' + tc('summaryTitle') + '</h3>' +
+      (order && order.order_number ? summaryRowTc('orderNumber', '<strong>' + esc(order.order_number) + '</strong>') : '') +
+      (order && order.total != null ? summaryRowTc('total', esc(fmtPrice(order.total))) : '') +
+      summaryRowTc('paid', '✓') +
+      (order && order.customer_email ? summaryRowTc('email', esc(order.customer_email)) : '') +
       '</div>';
 
     return '<div class="confirm-page confirm-success">' +
       '<div class="confirm-icon" aria-hidden="true">✔</div>' +
-      '<h1>' + esc(I18N.successVoucherTitle || 'Voucher paid!') + '</h1>' +
+      '<h1>' + tc('successVoucherTitle') + '</h1>' +
       '<p class="confirm-lead">' + greet + '</p>' +
       voucherHtml +
       summary +
-      '<p class="confirm-emailed">' + esc(I18N.emailSentVoucher || '') + '</p>' +
-      nextStepsList([
-        I18N.nextVoucherEmail,
-        I18N.nextVoucherPrint,
-        I18N.nextContact
-      ].filter(Boolean)) +
+      '<p class="confirm-emailed">' + tc('emailSentVoucher') + '</p>' +
+      nextStepsList(['nextVoucherEmail', 'nextVoucherPrint', 'nextContact']) +
       backHomeBtn() +
       '</div>';
   }
@@ -353,24 +372,22 @@
     if(rec){
       rowsHtml += '<div class="confirm-summary">';
       if(kind === 'booking'){
-        if(rec.start_date) rowsHtml += summaryRow(I18N.period, esc(fmtDate(rec.start_date)) + ' – ' + esc(fmtDate(rec.end_date)));
+        if(rec.start_date) rowsHtml += summaryRowTc('period', esc(fmtDate(rec.start_date)) + ' – ' + esc(fmtDate(rec.end_date)));
       } else {
-        if(rec.order_number) rowsHtml += summaryRow(I18N.orderNumber, '<strong>' + esc(rec.order_number) + '</strong>');
+        if(rec.order_number) rowsHtml += summaryRowTc('orderNumber', '<strong>' + esc(rec.order_number) + '</strong>');
       }
       rowsHtml += '</div>';
     }
-    var nextSteps = [I18N.pendingNextStep1, I18N.pendingNextStep2, I18N.pendingNextStep3].filter(Boolean);
-    var stepsHtml = nextSteps.length ? '<div class="confirm-next">' +
-      '<h3>' + esc(I18N.pendingNextTitle || I18N.nextTitle || '') + '</h3>' +
-      '<ol>' + nextSteps.map(function(s){ return '<li>' + esc(s) + '</li>'; }).join('') + '</ol>' +
+    var stepKeys = ['pendingNextStep1', 'pendingNextStep2', 'pendingNextStep3'].filter(function(k){ return I18N[k]; });
+    var stepsHtml = stepKeys.length ? '<div class="confirm-next">' +
+      '<h3>' + (I18N.pendingNextTitle ? tc('pendingNextTitle') : tc('nextTitle')) + '</h3>' +
+      '<ol>' + stepKeys.map(function(k){ return '<li>' + tc(k) + '</li>'; }).join('') + '</ol>' +
       '</div>' : '';
-    var reasons = [
-      I18N.pendingReason1, I18N.pendingReason2, I18N.pendingReason3,
-      I18N.pendingReason4, I18N.pendingReason5, I18N.pendingReason6
-    ].filter(Boolean);
-    var reasonsHtml = reasons.length ? '<details class="confirm-reasons" style="margin-top:1.25rem">' +
-      '<summary style="cursor:pointer;font-weight:600">' + esc(I18N.pendingFailIntro || '') + '</summary>' +
-      '<ul style="margin-top:.5rem">' + reasons.map(function(r){ return '<li>' + esc(r) + '</li>'; }).join('') + '</ul>' +
+    var reasonKeys = ['pendingReason1','pendingReason2','pendingReason3','pendingReason4','pendingReason5','pendingReason6']
+      .filter(function(k){ return I18N[k]; });
+    var reasonsHtml = reasonKeys.length ? '<details class="confirm-reasons" style="margin-top:1.25rem">' +
+      '<summary style="cursor:pointer;font-weight:600">' + tc('pendingFailIntro') + '</summary>' +
+      '<ul style="margin-top:.5rem">' + reasonKeys.map(function(k){ return '<li>' + tc(k) + '</li>'; }).join('') + '</ul>' +
       '</details>' : '';
 
     var retryUrl = '';
@@ -379,21 +396,22 @@
     } else if(kind === 'order'){
       retryUrl = (I18N.cartUrl || SHOP);
     }
-    var retryBtn = retryUrl ? '<a class="btn btngreen" href="' + esc(retryUrl) + '">' + esc(I18N.retryPayment || I18N.errorTryAgain || 'Try again') + '</a>&nbsp;' : '';
+    var retryLabel = I18N.retryPayment ? tc('retryPayment') : (I18N.errorTryAgain ? tc('errorTryAgain') : esc('Try again'));
+    var retryBtn = retryUrl ? '<a class="btn btngreen" href="' + esc(retryUrl) + '">' + retryLabel + '</a>&nbsp;' : '';
     var phone = I18N.errorContactPhone || '+420 774 256 271';
-    var contactHtml = '<p style="margin-top:.75rem">' + esc(I18N.errorContactPrefix || '') + ' <a href="tel:' + esc(phone.replace(/\s+/g, '')) + '">' + esc(phone) + '</a></p>';
+    var contactHtml = '<p style="margin-top:.75rem">' + tc('errorContactPrefix') + ' <a href="tel:' + esc(phone.replace(/\s+/g, '')) + '">' + tc('errorContactPhone') + '</a></p>';
 
     return '<div class="confirm-page confirm-pending">' +
       '<div class="confirm-icon" aria-hidden="true">⏳</div>' +
-      '<h1>' + esc(I18N.pendingTitle || 'Payment pending') + '</h1>' +
-      '<p>' + esc(I18N.pendingText1 || '') + '</p>' +
-      '<p>' + esc(I18N.pendingText2 || '') + '</p>' +
+      '<h1>' + tc('pendingTitle') + '</h1>' +
+      '<p>' + tc('pendingText1') + '</p>' +
+      '<p>' + tc('pendingText2') + '</p>' +
       rowsHtml +
       stepsHtml +
       reasonsHtml +
       contactHtml +
       '<p style="margin-top:1.25rem">' + retryBtn +
-        '<a class="btn btndark" href="' + esc(HOME) + '">' + esc(I18N.backHome || 'Home') + '</a>' +
+        '<a class="btn btndark" href="' + esc(HOME) + '">' + tc('backHome') + '</a>' +
       '</p>' +
       '</div>';
   }
@@ -401,14 +419,18 @@
   function renderError(msg){
     var phone = I18N.errorContactPhone || '+420 774 256 271';
     var phoneHref = phone.replace(/\s+/g, '');
+    // `msg` je defaultně I18N.errorMissingId (jediný error msg, který se sem
+    // posílá) — wrapni ho přes tc, ať admin může editovat. Pokud volající
+    // pošle jiný msg, fallback na esc.
+    var msgHtml = (msg === I18N.errorMissingId) ? tc('errorMissingId') : esc(msg);
     return '<div class="confirm-page confirm-error">' +
       '<div class="confirm-icon" aria-hidden="true">⚠</div>' +
-      '<h1>' + esc(I18N.errorTitle || 'Error') + '</h1>' +
-      '<p>' + esc(msg) + '</p>' +
-      '<p>' + esc(I18N.errorContactPrefix || 'Contact us at') + ' <a href="tel:' + esc(phoneHref) + '">' + esc(phone) + '</a></p>' +
+      '<h1>' + tc('errorTitle') + '</h1>' +
+      '<p>' + msgHtml + '</p>' +
+      '<p>' + tc('errorContactPrefix') + ' <a href="tel:' + esc(phoneHref) + '">' + tc('errorContactPhone') + '</a></p>' +
       '<p style="margin-top:1.5rem">' +
-        '<a class="btn btngreen" href="' + esc(REZ) + '">' + esc(I18N.errorTryAgain || 'Try again') + '</a>' +
-        '&nbsp;<a class="btn btndark" href="' + esc(HOME) + '">' + esc(I18N.backHome || 'Home') + '</a>' +
+        '<a class="btn btngreen" href="' + esc(REZ) + '">' + tc('errorTryAgain') + '</a>' +
+        '&nbsp;<a class="btn btndark" href="' + esc(HOME) + '">' + tc('backHome') + '</a>' +
       '</p>' +
       '</div>';
   }

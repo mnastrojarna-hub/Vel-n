@@ -85,6 +85,61 @@ $confirmI18n = [
     'errorMissingId'      => t('confirm.error.missingId'),
 ];
 
+// Mapa jsKey → CMS klíč (bez prefixu `web.layout.`) pro inline edit přes
+// cms-admin.js. Stejné pořadí/keys jako $confirmI18n; cms-admin.js si na webu
+// najde elementy přes `data-cms-key="web.layout.<value>"` a obalí inline editor.
+$confirmCmsKeys = [
+    'verifying'           => 'confirm.verifying',
+    'successBookingTitle' => 'confirm.success.bookingTitle',
+    'successOrderTitle'   => 'confirm.success.orderTitle',
+    'successVoucherTitle' => 'confirm.success.voucherTitle',
+    'thanks'              => 'confirm.success.thanks',
+    'thanksAnon'          => 'confirm.success.thanksAnon',
+    'summaryTitle'        => 'confirm.success.summaryTitle',
+    'period'              => 'confirm.success.period',
+    'total'               => 'confirm.success.total',
+    'paid'                => 'confirm.success.paid',
+    'email'               => 'confirm.success.email',
+    'orderNumber'         => 'confirm.success.orderNumber',
+    'bookingNumber'       => 'confirm.success.bookingNumber',
+    'voucherCode'         => 'confirm.success.voucherCode',
+    'validUntil'          => 'confirm.success.validUntil',
+    'emailSentBooking'    => 'confirm.success.emailSentBooking',
+    'emailSentOrder'      => 'confirm.success.emailSentOrder',
+    'emailSentVoucher'    => 'confirm.success.emailSentVoucher',
+    'nextTitle'           => 'confirm.success.nextTitle',
+    'nextBookingDocs'     => 'confirm.success.nextBookingDocs',
+    'nextBookingCodes'    => 'confirm.success.nextBookingCodes',
+    'nextBookingPickup'   => 'confirm.success.nextBookingPickup',
+    'nextOrderShip'       => 'confirm.success.nextOrderShip',
+    'nextVoucherEmail'    => 'confirm.success.nextVoucherEmail',
+    'nextVoucherPrint'    => 'confirm.success.nextVoucherPrint',
+    'nextContact'         => 'confirm.success.nextContact',
+    'seeYouSoon'          => 'confirm.success.seeYouSoon',
+    'backHome'            => 'confirm.success.backHome',
+    'continueShopping'    => 'confirm.success.continueShopping',
+    'pendingTitle'        => 'confirm.pending.title',
+    'pendingText1'        => 'confirm.pending.text1',
+    'pendingText2'        => 'confirm.pending.text2',
+    'pendingNextTitle'    => 'confirm.pending.nextTitle',
+    'pendingNextStep1'    => 'confirm.pending.nextStep1',
+    'pendingNextStep2'    => 'confirm.pending.nextStep2',
+    'pendingNextStep3'    => 'confirm.pending.nextStep3',
+    'pendingFailIntro'    => 'confirm.pending.failIntro',
+    'pendingReason1'      => 'confirm.pending.reason1',
+    'pendingReason2'      => 'confirm.pending.reason2',
+    'pendingReason3'      => 'confirm.pending.reason3',
+    'pendingReason4'      => 'confirm.pending.reason4',
+    'pendingReason5'      => 'confirm.pending.reason5',
+    'pendingReason6'      => 'confirm.pending.reason6',
+    'retryPayment'        => 'confirm.pending.retry',
+    'errorTitle'          => 'confirm.error.title',
+    'errorContactPrefix'  => 'confirm.error.contactPrefix',
+    'errorContactPhone'   => 'confirm.error.contactPhone',
+    'errorTryAgain'       => 'confirm.error.tryAgain',
+    'errorMissingId'      => 'confirm.error.missingId',
+];
+
 // Supabase SDK + JS pro polling
 $potvrzeniJs = '<script>
 window.MOTOGO_CONFIG = {
@@ -93,6 +148,7 @@ window.MOTOGO_CONFIG = {
   CURRENCY: ' . json_encode(function_exists('currencyJsConfig') ? currencyJsConfig() : ['current'=>'CZK','rates'=>[]], JSON_UNESCAPED_UNICODE) . '
 };
 window.MOTOGO_CONFIRM_I18N = ' . json_encode($confirmI18n, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . ';
+window.MOTOGO_CONFIRM_CMS_KEYS = ' . json_encode($confirmCmsKeys, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . ';
 </script>
 <script src="' . assetUrl('/js/supabase-sdk.js') . '"></script>
 <script src="' . assetUrl('/js/supabase-init.js') . '"></script>
