@@ -192,8 +192,10 @@ serve(async (req) => {
             refund_amount = Math.round(booking.total_price * (refund_percent || 0) / 100)
           }
 
-          // Auto Stripe refund ONLY if not already refunded
-          if (!alreadyRefunded && wasPaid && booking.stripe_payment_intent_id && refund_amount > 0) {
+          // Process-refund je idempotentní: pro paid+nepoužitý refund udělá Stripe refund + dobropis,
+          // pro already_refunded (předchozí pokus padl po Stripe kroku) jen dohraje PDF dobropis.
+          // Voláme tedy bez guardu na alreadyRefunded — díky tomu se i recovery scenario doplní příloha.
+          if ((wasPaid || alreadyRefunded) && booking.stripe_payment_intent_id && (refund_amount > 0 || alreadyRefunded)) {
             try {
               const hdrs = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`, 'apikey': SUPABASE_SERVICE_KEY }
               const refundRes = await fetch(`${SUPABASE_URL}/functions/v1/process-refund`, {
@@ -202,65 +204,38 @@ serve(async (req) => {
               })
               const refundData = await refundRes.json().catch(() => ({}))
               if (refundData.success) {
-                console.log(`Stripe refund processed: ${refund_amount} CZK (${refund_percent}%)`)
+                console.log(`Refund OK (already=${refundData.already_refunded ? 'yes' : 'no'}, amount=${refund_amount})`)
+              } else {
+                console.warn('process-refund returned error:', refundData.code || refundData.error)
               }
             } catch (e) { console.warn('Auto Stripe refund failed:', e) }
           }
 
-          // Fetch existing storno doklad OR generate dobropis.
-          // Hledáme buď `type='credit_note' source='refund'` (Velín storno přes generateCreditNote)
-          // nebo `type='payment_receipt' source='cancellation'` (legacy negativní DP z této fn).
-          let foundExistingReceipt = false
-          try {
-            const { data: existingReceipts } = await supabase.from('invoices')
-              .select('id, number, pdf_path, type, source')
-              .eq('booking_id', booking_id)
-              .or('type.eq.credit_note,and(type.eq.payment_receipt,source.eq.cancellation)')
-              .neq('status', 'cancelled')
-              .order('created_at', { ascending: false }).limit(1)
-            if (existingReceipts?.length && existingReceipts[0].pdf_path) {
-              const b64 = await downloadAsBase64(supabase, existingReceipts[0].pdf_path)
-              if (b64) {
-                const ext = /\.pdf$/i.test(existingReceipts[0].pdf_path) ? 'pdf' : 'html'
-                attachments.push({ content: b64, filename: `Dobropis-${existingReceipts[0].number || 'DB'}.${ext}` })
-                foundExistingReceipt = true
-              }
-            }
-          } catch { /* ignore */ }
-
-          // Pokud existující dobropis neexistuje, vygeneruj nový — pouze když byla rezervace
-          // zaplacená A reálně něco vracíme (`refund_amount > 0`).
-          // Storno podmínky pro web zákazníka (auto dopočet výše):
-          //   ≥ 7 dní před startem  → 100 % refund → dobropis 100 %
-          //   2–7 dní před startem  → 50 % refund  → dobropis 50 %
-          //   < 2 dny před startem  → 0 % refund   → ŽÁDNÝ dobropis (nic se nevrací)
+          // Fetch the credit_note created by process-refund (source='refund') and attach it.
+          // Pokud chybí pdf_path (starý záznam před PDFShift refactorem), vyrenderuje ho proces-refund
+          // při dalším pokusu, ale tady už neumíme nic — necháme přílohu prázdnou a poslání nepadne.
+          // Storno podmínky:
+          //   ≥ 7 dní před startem  → 100 % refund → credit_note 100 %
+          //   2–7 dní před startem  → 50 % refund  → credit_note 50 %
+          //   < 2 dny před startem  → 0 % refund   → ŽÁDNÝ credit_note (nic se nevrací)
           // Velín admin storno posílá `refund_percent: 100` natvrdo (ignoruje storno podmínky).
-          if (wasPaid && !foundExistingReceipt && refund_amount > 0) {
+          if (refund_amount > 0) {
             try {
-              const hdrs = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`, 'apikey': SUPABASE_SERVICE_KEY }
-              const stornoLabel = refund_percent === 50
-                ? `Dobropis — storno rezervace (vrácení 50 %, tj. ${refund_amount} Kč)`
-                : `Dobropis — storno rezervace (vrácení 100 %, tj. ${refund_amount} Kč)`
-              const dpRes = await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
-                method: 'POST', headers: hdrs,
-                body: JSON.stringify({
-                  type: 'payment_receipt',
-                  booking_id,
-                  send_email: false,
-                  source: 'cancellation',
-                  extra_items: [{ description: stornoLabel, qty: 1, unit_price: -(refund_amount || 0) }],
-                }),
-              })
-              const dpData = await dpRes.json().catch(() => ({}))
-              if (dpData.success && dpData.invoice_id) {
-                const path = dpData.pdf_path || `invoices/${dpData.invoice_id}.html`
+              const { data: creditNotes } = await supabase.from('invoices')
+                .select('id, number, pdf_path')
+                .eq('booking_id', booking_id)
+                .or('type.eq.credit_note,and(type.eq.payment_receipt,source.eq.cancellation)')
+                .neq('status', 'cancelled')
+                .order('created_at', { ascending: false }).limit(1)
+              if (creditNotes?.length && creditNotes[0].pdf_path) {
+                const path = creditNotes[0].pdf_path as string
                 const b64 = await downloadAsBase64(supabase, path)
                 if (b64) {
-                  const ext = /\.pdf$/i.test(path) ? 'pdf' : 'html'
-                  attachments.push({ content: b64, filename: `Dobropis-${dpData.number || 'DB'}.${ext}` })
+                  const ext = path.toLowerCase().endsWith('.pdf') ? 'pdf' : 'html'
+                  attachments.push({ content: b64, filename: `Dobropis-${creditNotes[0].number || 'DB'}.${ext}` })
                 }
               }
-            } catch { /* ignore */ }
+            } catch (e) { console.warn('Credit note attachment lookup failed:', (e as Error).message) }
           }
         }
       } catch (e) { console.warn('Auto-refund lookup failed:', e) }

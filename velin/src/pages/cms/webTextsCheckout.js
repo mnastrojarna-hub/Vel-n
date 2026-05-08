@@ -101,12 +101,15 @@ export const PAGE_POTVRZENI = {
   id: 'potvrzeni', label: 'Děkovací stránka', icon: '✅', url: '/potvrzeni',
   description: 'Stránka po platbě: úspěch / pending / chyba. JS-driven, texty přes _i18nCmsOverlay. Web bez ID platby spadne do error stavu — pro náhled používá CMS mock režim aktivovaný `cms_admin` tokenem (přepínač variant níže).',
   previewVariants: [
-    { id: 'booking', label: 'Rezervace', icon: '🏍️' },
+    { id: 'booking', label: 'Rezervace (obecná)', icon: '🏍️' },
+    { id: 'booking_codes', label: 'Rezervace + kódy připraveny', icon: '🔑' },
+    { id: 'booking_nocodes', label: 'Rezervace bez kódů (čeká na doklady)', icon: '⏳' },
     { id: 'order', label: 'Objednávka', icon: '🛒' },
     { id: 'voucher', label: 'Poukaz', icon: '🎁' },
     { id: 'pending', label: 'Pending (rezervace)', icon: '⏳' },
     { id: 'pending_order', label: 'Pending (objednávka)', icon: '⏳' },
     { id: 'pending_voucher', label: 'Pending (poukaz)', icon: '⏳' },
+    { id: 'payment_failed', label: 'Neúspěšná platba', icon: '❌' },
     { id: 'error', label: 'Chyba', icon: '⚠️' },
   ],
   sections: [

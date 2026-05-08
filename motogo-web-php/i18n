@@ -4,7 +4,7 @@
 //
 // Doménová strategie (Google-friendly multi-regional):
 //   motogo24.cz  → Czech homebase. Default vždy 'cs'.
-//   motogo24.com → International. Default 'en'. Accept-Language pro ostatní jazyky.
+//   motogo24.com → International (en). Accept-Language jen pro jazyky bez vlastní TLD.
 //   motogo24.at  → Německá verze. Default 'de'.
 //   motogo24.es  → Španělská verze. Default 'es'.
 //   motogo24.pl  → Polská verze. Default 'pl'.
@@ -504,7 +504,7 @@ function renderLanguageSwitcher() {
 
     $items = '';
     foreach (I18N_LANGUAGES as $code => $info) {
-        // Cross-domain URL pro daný jazyk (cs → .cz, ostatní → .com).
+        // Cross-domain URL pro daný jazyk (každý jazyk má vlastní TLD dle I18N_DOMAIN_MAP).
         // forceLangQuery=true → vždy připojí ?lang=xx, aby se cookie `mg_web_lang`
         // refreshla i při přepnutí na doménový default (jinak by stará cookie
         // přebila novou volbu — přesně to byl bug s nefunkčním přepínáním na EN).
