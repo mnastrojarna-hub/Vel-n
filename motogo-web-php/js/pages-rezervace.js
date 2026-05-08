@@ -586,6 +586,8 @@ MG._rezInit = async function(){
       });
       var rezLicenseGroup = (bd.license_group && bd.license_group.length) ? bd.license_group[0] : '';
       var rezPickupTime = bd.pickup_time ? String(bd.pickup_time).slice(0,5) : '';
+      // license_expiry je v profilu jako DATE — ořež případný čas
+      var rezLicenseExpiry = bd.license_expiry ? String(bd.license_expiry).slice(0,10) : '';
       MG._rez = {
         startDate: bd.start_date ? bd.start_date.split('T')[0] : null,
         endDate: bd.end_date ? bd.end_date.split('T')[0] : null,
@@ -595,9 +597,9 @@ MG._rezInit = async function(){
         discountAmt: bd.discount_amount || 0,
         bookingId: bd.booking_id, userId: bd.user_id, bookingAmount: bd.total_price,
         _isResume: true,
-        _docsValidated: bd.has_id_number && bd.has_license_number,
-        _docNumber: bd.has_id_number ? '(vyplněno)' : '',
-        _licenseNumber: bd.has_license_number ? '(vyplněno)' : '',
+        _docsValidated: !!(bd.has_id_number && bd.has_license_number),
+        _docNumber: bd.id_number || '',
+        _licenseNumber: bd.license_number || '',
         sizes: { rider: rezRiderSizes, passenger: rezPassengerSizes },
         formData: {
           motoId: bd.moto_id,
@@ -616,7 +618,8 @@ MG._rezInit = async function(){
           discountAmt: bd.discount_amount || 0,
           riderSizes: rezRiderSizes,
           passengerSizes: rezPassengerSizes,
-          _licGroup: rezLicenseGroup
+          _licGroup: rezLicenseGroup,
+          _licExpiry: rezLicenseExpiry
         }
       };
       // Mobil v resume režimu MUSÍ vždy ukázat step 2 (sumarizace + doprodej +
