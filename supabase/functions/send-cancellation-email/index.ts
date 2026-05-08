@@ -291,11 +291,12 @@ serve(async (req) => {
 
     let templateHtml = ''
     let subject = ''
+    let dbAttachmentsList: string[] = []
 
     for (const trySlug of slugsToTry) {
       const { data: tpl } = await supabase
         .from('email_templates')
-        .select('slug, name, subject, body_html, active, subject_translations, body_translations')
+        .select('slug, name, subject, body_html, active, attachments, subject_translations, body_translations')
         .eq('slug', trySlug)
         .eq('active', true)
         .maybeSingle()
@@ -307,8 +308,35 @@ serve(async (req) => {
         const dbBody = dbBodyT[custLang] || tpl.body_html
         templateHtml = renderTemplate(dbBody, vars)
         subject = renderTemplate(dbSubj, vars)
+        if (Array.isArray(tpl.attachments)) {
+          dbAttachmentsList = tpl.attachments as string[]
+        }
         break
       }
+    }
+
+    // Velín admin-configured attachments z email_templates.attachments — etalon ve Velíně.
+    // Hardcoded refund flow výše už zkusil přiložit dobropis za určitých podmínek (wasPaid + refund_amount > 0
+    // nebo 0%). Pokud admin v UI zaškrtl "Dobropis" a v mailu ještě není, dohledej cokoliv co se kvalifikuje.
+    if (dbAttachmentsList.includes('Dobropis')
+        && booking_id
+        && !attachments.some(a => /dobropis|credit/i.test(a.filename))) {
+      try {
+        const { data: cn } = await supabase.from('invoices')
+          .select('id, number, pdf_path, type')
+          .eq('booking_id', booking_id)
+          .or('type.eq.credit_note,and(type.eq.payment_receipt,source.eq.cancellation)')
+          .neq('status', 'cancelled')
+          .order('created_at', { ascending: false })
+          .limit(1)
+        if (cn?.length && cn[0].pdf_path) {
+          const b64 = await downloadAsBase64(supabase, cn[0].pdf_path)
+          if (b64) {
+            const ext = /\.pdf$/i.test(cn[0].pdf_path) ? 'pdf' : 'html'
+            attachments.push({ content: b64, filename: `Dobropis-${cn[0].number || 'DB'}.${ext}` })
+          }
+        }
+      } catch { /* ignore */ }
     }
 
     // i18n hardcoded p\u0159eklady (priorita 2 \u2014 booking_cancelled je v _shared/i18n.ts)

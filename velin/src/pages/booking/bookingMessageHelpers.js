@@ -95,6 +95,7 @@ export async function cancelBookingFromVelin(booking, reasonText, sourceCode) {
           end_date: booking.end_date,
           cancellation_reason: reasonText,
           cancelled_by_source: sourceCode,
+          source: booking.booking_source || 'app',
           ...(wasPaid ? { refund_amount: booking.total_price, refund_percent: 100 } : {}),
         },
       })
