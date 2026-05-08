@@ -40,6 +40,15 @@
     return params.get(key) || '';
   }
 
+  // CMS admin režim — index.php po ověření `?cms_admin=<token>` nastaví cookie
+  // `mg_cms_admin=1` a token z URL stripne (redirect). Preview tedy nesmíme
+  // detekovat podle URL parametru, ale podle cookie — jinak po redirectu
+  // pages-potvrzeni.js spadne do error stavu „Chybí identifikátor platby".
+  function isCmsAdmin(){
+    try { return /(?:^|;\s*)mg_cms_admin=1(?:;|$)/.test(document.cookie); }
+    catch(e){ return false; }
+  }
+
   // Google Ads conversion via GTM dataLayer. Vystřelí jen jednou per
   // transaction_id (sessionStorage guard) — refresh /potvrzeni nebo opětovné
   // dotažení dat nezpůsobí dvojí započtení konverze v Google Ads.
@@ -122,7 +131,7 @@
   }
 
   async function init(){
-    if(getParam('cms_admin')){
+    if(isCmsAdmin() || getParam('cms_admin')){
       renderPreview();
       return;
     }
