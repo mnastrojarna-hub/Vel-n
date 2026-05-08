@@ -207,50 +207,58 @@ serve(async (req) => {
             } catch (e) { console.warn('Auto Stripe refund failed:', e) }
           }
 
-          // Fetch existing storno doklad OR generate dobropis
+          // Fetch existing storno doklad OR generate dobropis.
+          // Hledáme buď `type='credit_note' source='refund'` (Velín storno přes generateCreditNote)
+          // nebo `type='payment_receipt' source='cancellation'` (legacy negativní DP z této fn).
           let foundExistingReceipt = false
           try {
             const { data: existingReceipts } = await supabase.from('invoices')
-              .select('id, number, pdf_path')
+              .select('id, number, pdf_path, type, source')
               .eq('booking_id', booking_id)
-              .eq('type', 'payment_receipt')
-              .eq('source', 'cancellation')
+              .or('type.eq.credit_note,and(type.eq.payment_receipt,source.eq.cancellation)')
               .neq('status', 'cancelled')
               .order('created_at', { ascending: false }).limit(1)
             if (existingReceipts?.length && existingReceipts[0].pdf_path) {
               const b64 = await downloadAsBase64(supabase, existingReceipts[0].pdf_path)
               if (b64) {
-                attachments.push({ content: b64, filename: `Dobropis-${existingReceipts[0].number || 'DB'}.html` })
+                const ext = /\.pdf$/i.test(existingReceipts[0].pdf_path) ? 'pdf' : 'html'
+                attachments.push({ content: b64, filename: `Dobropis-${existingReceipts[0].number || 'DB'}.${ext}` })
                 foundExistingReceipt = true
               }
             }
           } catch { /* ignore */ }
 
-          // If no existing receipt found, generate dobropis.
-          // Pouze pokud byla rezervace skutečně zaplacená — jinak není z čeho refundovat
-          // ani strhávat storno poplatek, a DP/dobropis by neměl vzniknout (auto-cancel
-          // nezaplacených rezervací posílá refund_percent=0, což by jinak nesprávně spustilo generování).
-          if (wasPaid && !foundExistingReceipt && (refund_amount > 0 || refund_percent === 0)) {
+          // Pokud existující dobropis neexistuje, vygeneruj nový — pouze když byla rezervace
+          // zaplacená A reálně něco vracíme (`refund_amount > 0`).
+          // Storno podmínky pro web zákazníka (auto dopočet výše):
+          //   ≥ 7 dní před startem  → 100 % refund → dobropis 100 %
+          //   2–7 dní před startem  → 50 % refund  → dobropis 50 %
+          //   < 2 dny před startem  → 0 % refund   → ŽÁDNÝ dobropis (nic se nevrací)
+          // Velín admin storno posílá `refund_percent: 100` natvrdo (ignoruje storno podmínky).
+          if (wasPaid && !foundExistingReceipt && refund_amount > 0) {
             try {
               const hdrs = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`, 'apikey': SUPABASE_SERVICE_KEY }
-              const stornoLabel = refund_percent === 0
-                ? 'Storno poplatek (méně než 2 dny — bez vrácení)'
-                : refund_percent === 50
-                  ? `Dobropis — storno rezervace (vrácení 50 %, tj. ${refund_amount} Kč)`
-                  : `Dobropis — storno rezervace (vrácení 100 %, tj. ${refund_amount} Kč)`
+              const stornoLabel = refund_percent === 50
+                ? `Dobropis — storno rezervace (vrácení 50 %, tj. ${refund_amount} Kč)`
+                : `Dobropis — storno rezervace (vrácení 100 %, tj. ${refund_amount} Kč)`
               const dpRes = await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
                 method: 'POST', headers: hdrs,
                 body: JSON.stringify({
                   type: 'payment_receipt',
                   booking_id,
                   send_email: false,
+                  source: 'cancellation',
                   extra_items: [{ description: stornoLabel, qty: 1, unit_price: -(refund_amount || 0) }],
                 }),
               })
               const dpData = await dpRes.json().catch(() => ({}))
               if (dpData.success && dpData.invoice_id) {
-                const b64 = await downloadAsBase64(supabase, `invoices/${dpData.invoice_id}.html`)
-                if (b64) attachments.push({ content: b64, filename: `Dobropis-${dpData.number || 'DB'}.html` })
+                const path = dpData.pdf_path || `invoices/${dpData.invoice_id}.html`
+                const b64 = await downloadAsBase64(supabase, path)
+                if (b64) {
+                  const ext = /\.pdf$/i.test(path) ? 'pdf' : 'html'
+                  attachments.push({ content: b64, filename: `Dobropis-${dpData.number || 'DB'}.${ext}` })
+                }
               }
             } catch { /* ignore */ }
           }

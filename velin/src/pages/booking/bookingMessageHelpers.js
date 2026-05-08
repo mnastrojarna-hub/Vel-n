@@ -1,5 +1,4 @@
 import { supabase } from '../../lib/supabase'
-import { generateCreditNote } from '../../lib/invoiceUtils'
 
 export const MSG_TEMPLATES = {
   reserved: (b) => `Vaše rezervace motorky ${b.motorcycles?.model || ''} (${new Date(b.start_date).toLocaleDateString('cs-CZ')} – ${new Date(b.end_date).toLocaleDateString('cs-CZ')}) byla potvrzena. Smlouvu a fakturu najdete v sekci Dokumenty.`,
@@ -60,24 +59,17 @@ export async function cancelBookingFromVelin(booking, reasonText, sourceCode) {
       })
     } catch {}
 
-    let stripeRefundId = null
     if (booking.stripe_payment_intent_id) {
       try {
-        const { data: refundResult } = await supabase.functions.invoke('process-refund', {
+        await supabase.functions.invoke('process-refund', {
           body: { booking_id: booking.id, reason: 'cancellation' },
         })
-        if (refundResult?.success) stripeRefundId = refundResult.refund_id
       } catch (e) { console.error('[Stripe refund]', e.message) }
     }
 
-    try {
-      await generateCreditNote(booking.id, {
-        refundAmount: booking.total_price,
-        refundPercent: 100,
-        reason: reasonText,
-        stripeRefundId,
-      })
-    } catch (e) { console.error('[Credit note]', e.message) }
+    // Dobropis (PDF) generuje send-cancellation-email níže — má vlastní idempotentní flow
+    // přes generate-invoice s extra_items (negativní cena = dobropis). Přidá ho i jako přílohu mailu.
+    // Žádné samostatné generování ve Velínu — jeden zdroj pravdy.
   }
 
   await logAudit('booking_cancelled', { booking_id: booking.id, reason: reasonText, source: sourceCode, refund: wasPaid ? '100%' : 'n/a' })
