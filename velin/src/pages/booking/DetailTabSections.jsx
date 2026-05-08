@@ -1,6 +1,6 @@
 import Card from '../../components/ui/Card'
 import { InfoRow } from './BookingUIHelpers'
-import { CANCEL_REASONS, describeModification, paymentMethodInfo, stripePaymentIntentUrl } from './bookingConstants'
+import { CANCEL_REASONS, describeModification, paymentMethodInfo, stripePaymentIntentUrl, stripeRefundUrl, cardLabel } from './bookingConstants'
 import Button from '../../components/ui/Button'
 import { mapyLinkUrl, mapyNavigateUrl } from '../../lib/mapyCz'
 
@@ -236,8 +236,10 @@ export function DatesAndPaymentSection({ booking, bookingExtras, sosIncidents, o
 
   const pmInfo = paymentMethodInfo(booking.payment_method)
   const isPaid = booking.payment_status === 'paid' && booking.status !== 'pending'
-  const isRefunded = booking.payment_status === 'refunded'
+  const isRefunded = booking.payment_status === 'refunded' || booking.payment_status === 'partial_refund'
   const stripeUrl = stripePaymentIntentUrl(booking.stripe_payment_intent_id)
+  const refundUrl = stripeRefundUrl(booking.stripe_refund_id)
+  const cardText = cardLabel(booking.card_brand, booking.card_last4)
 
   return (
     <Card className="col-span-2">
@@ -322,6 +324,9 @@ export function DatesAndPaymentSection({ booking, bookingExtras, sosIncidents, o
               <span>{pmInfo.icon}</span>
               <span>{pmInfo.label}</span>
             </div>
+            {cardText && (
+              <div className="text-[11px] font-bold mt-0.5" style={{ color: '#4a5a52' }}>{cardText}</div>
+            )}
             {stripeUrl && (
               <a href={stripeUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 mt-1 text-[11px] font-extrabold rounded-btn"
                 style={{ padding: '2px 6px', background: '#ede9fe', color: '#6d28d9', textDecoration: 'none', border: '1px solid #ddd6fe' }}>
@@ -343,6 +348,33 @@ export function DatesAndPaymentSection({ booking, bookingExtras, sosIncidents, o
             </div>
           </div>
         </div>
+
+        {isRefunded && (booking.stripe_refund_id || cardText) && (
+          <div className="mt-3 rounded-lg p-2.5" style={{ background: '#fef2f2', border: '1px solid #fecaca' }}>
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div>
+                <div className="text-[11px] font-extrabold uppercase tracking-wider mb-1" style={{ color: '#991b1b' }}>Refund (vrácení peněz)</div>
+                <div className="text-sm font-extrabold" style={{ color: '#7f1d1d' }}>
+                  ↩️ Vráceno na {cardText || 'původní kartu'}
+                </div>
+                <div className="text-[11px] font-bold mt-0.5" style={{ color: '#991b1b' }}>
+                  Peníze obvykle dorazí do 5–7 pracovních dnů od refundu.
+                </div>
+              </div>
+              {refundUrl && (
+                <a href={refundUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[11px] font-extrabold rounded-btn"
+                  style={{ padding: '4px 10px', background: '#ede9fe', color: '#6d28d9', textDecoration: 'none', border: '1px solid #ddd6fe' }}>
+                  Stripe refund ↗
+                </a>
+              )}
+            </div>
+            {booking.stripe_refund_id && (
+              <div className="text-[11px] font-mono mt-1" style={{ color: '#991b1b', wordBreak: 'break-all' }}>
+                {booking.stripe_refund_id}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Příslušenství — přehledná tabulka */}

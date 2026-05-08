@@ -89,6 +89,20 @@ export function stripePaymentIntentUrl(piId) {
   return `https://dashboard.stripe.com/payments/${piId}`
 }
 
+// Stripe dashboard link pro Refund
+export function stripeRefundUrl(refundId) {
+  if (!refundId) return null
+  return `https://dashboard.stripe.com/refunds/${refundId}`
+}
+
+// Krátký label karty: „Visa **** 4242". Bezpečné pro chybějící hodnoty.
+export function cardLabel(brand, last4) {
+  if (!brand && !last4) return null
+  const b = brand ? String(brand).toUpperCase() : 'CARD'
+  const l4 = last4 || '****'
+  return `${b} **** ${l4}`
+}
+
 // Detekuje, zda byla skutečně objednána výbava spolujezdce.
 // Sám fakt, že je v `bookings` vyplněna `passenger_*_size`, neznamená objednávku
 // (může jít o pozůstatek/auto-vyplnění). Spolehlivý signál je položka v
