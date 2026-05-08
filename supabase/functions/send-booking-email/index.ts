@@ -9,6 +9,34 @@ const FROM_EMAIL = Deno.env.get('FROM_EMAIL') || 'noreply@motogo24.cz'
 const REPLY_TO = 'info@motogo24.cz'
 const SITE_URL = Deno.env.get('SITE_URL') || 'https://motogo24.cz'
 const PUBLIC_QR_TARGET = 'https://motogo24.cz'
+const FB_URL = 'https://www.facebook.com/profile.php?id=61581614672839'
+const IG_URL = 'https://www.instagram.com/moto.go24/'
+const GOOGLE_REVIEW_URL_DEFAULT = 'https://g.page/MotoGo24/review'
+
+const FOLLOW_US_LABEL: Record<string, string> = {
+  cs: 'SLEDUJTE NÁS', en: 'FOLLOW US', de: 'FOLGEN SIE UNS', nl: 'VOLG ONS',
+  es: 'SÍGUENOS', fr: 'SUIVEZ-NOUS', pl: 'OBSERWUJ NAS',
+}
+
+const REVIEW_BLOCK_LABELS: Record<string, { title: string; body: string; cta: string }> = {
+  cs: { title: 'Pomohlo by nám vaše hodnocení', body: 'Pokud jste byli spokojeni, prosíme zanechte nám recenzi na Googlu — pomáháte tím dalším motorkářům.', cta: '⭐ Ohodnotit na Google' },
+  en: { title: 'Your review would help us', body: 'If you were happy with our service, please leave us a review on Google — it helps fellow riders.', cta: '⭐ Review on Google' },
+  de: { title: 'Ihre Bewertung würde uns helfen', body: 'Wenn Sie zufrieden waren, hinterlassen Sie uns bitte eine Google-Bewertung — Sie helfen damit anderen Bikern.', cta: '⭐ Auf Google bewerten' },
+  nl: { title: 'Je review helpt ons enorm', body: 'Was je tevreden? Laat dan een review achter op Google — je helpt andere motorrijders.', cta: '⭐ Beoordeel op Google' },
+  es: { title: 'Tu reseña nos ayudaría mucho', body: 'Si quedaste satisfecho, déjanos una reseña en Google — ayudas a otros moteros.', cta: '⭐ Reseña en Google' },
+  fr: { title: 'Votre avis nous aiderait', body: 'Si vous étiez satisfait, laissez-nous un avis sur Google — vous aidez d\'autres motards.', cta: '⭐ Avis sur Google' },
+  pl: { title: 'Twoja recenzja by nam pomogła', body: 'Jeśli byłeś zadowolony, zostaw nam recenzję w Google — pomożesz innym motocyklistom.', cta: '⭐ Oceń w Google' },
+}
+
+function googleReviewBlock(lang: string, url: string): string {
+  const l = REVIEW_BLOCK_LABELS[lang] || REVIEW_BLOCK_LABELS.cs
+  const href = url || GOOGLE_REVIEW_URL_DEFAULT
+  return `<div style="background:#000000;border:2px solid #74FB71;border-radius:8px;padding:24px;margin:24px 0;text-align:center">
+  <div style="color:#74FB71;font-size:18px;font-weight:800;margin:0 0 8px">${l.title}</div>
+  <div style="color:#ffffff;font-size:13px;margin:0 0 16px">${l.body}</div>
+  <a href="${href}" target="_blank" rel="noopener" style="display:inline-block;background:#74FB71;color:#000000;font-size:13px;font-weight:700;text-decoration:none;padding:12px 28px;border-radius:24px">${l.cta}</a>
+</div>`
+}
 
 /** Send email with exponential backoff retry (max 3 attempts) */
 async function sendWithRetry(emailData: Record<string, unknown>, maxRetries = 3): Promise<{ success: boolean; provider_id?: string; error?: string }> {
@@ -91,6 +119,11 @@ function wrapInBrandedLayout(bodyHtml: string, lang: Lang = 'cs'): string {
         <div style="color:#9ca3af;font-size:10px;margin-top:6px">motogo24.cz</div>
       </td>
     </tr></table>
+    <div style="text-align:center;margin-top:18px;padding-top:16px;border-top:1px solid #1f3a2c">
+      <div style="color:#9ca3af;font-size:11px;letter-spacing:2px;margin-bottom:10px">${FOLLOW_US_LABEL[lang] || FOLLOW_US_LABEL.cs}</div>
+      <a href="${FB_URL}" style="display:inline-block;margin:0 6px;text-decoration:none" target="_blank" rel="noopener"><img src="${SITE_URL}/gfx/facebook-footer.svg" alt="Facebook" width="32" height="32" style="display:inline-block;border:0"/></a>
+      <a href="${IG_URL}" style="display:inline-block;margin:0 6px;text-decoration:none" target="_blank" rel="noopener"><img src="${SITE_URL}/gfx/instagram-footer.svg" alt="Instagram" width="32" height="32" style="display:inline-block;border:0"/></a>
+    </div>
   </div>`
 
   return `<!DOCTYPE html><html lang="${lang}"><head><meta charset="UTF-8"></head>
@@ -592,7 +625,10 @@ serve(async (req) => {
       }
 
       const dynSubject = renderTemplate(subjRaw, dynVars) || `Oznámení — MOTO GO 24`
-      const dynBody    = renderTemplate(bodyRaw, dynVars)
+      let dynBody      = renderTemplate(bodyRaw, dynVars)
+      if (template_slug === 'booking_completed' || template_slug === 'shop_order_shipped') {
+        dynBody = dynBody + googleReviewBlock(custLang2, google_review_url || '')
+      }
       const dynHtml    = wrapInBrandedLayout(dynBody, custLang2)
 
       // Auto-attachments dle attachments[] z DB šablony
@@ -648,7 +684,11 @@ serve(async (req) => {
         try {
           const csBodyRaw = bodyT['cs'] || tpl.body_html || ''
           const csSubjRaw = subjT['cs'] || tpl.subject || ''
-          const csHtml = wrapInBrandedLayout(renderTemplate(csBodyRaw, dynVars), 'cs')
+          let csBody = renderTemplate(csBodyRaw, dynVars)
+          if (template_slug === 'booking_completed' || template_slug === 'shop_order_shipped') {
+            csBody = csBody + googleReviewBlock('cs', google_review_url || '')
+          }
+          const csHtml = wrapInBrandedLayout(csBody, 'cs')
           const csSubj = renderTemplate(csSubjRaw, dynVars)
           await sendWithRetry({
             from: FROM_EMAIL, to: REPLY_TO,
@@ -930,7 +970,7 @@ ${vars.door_codes_block}
       } else if (type === 'booking_completed') {
         templateHtml = `<p>Dobr\u00fd den,</p>
 <p>d\u011bkujeme, \u017ee jste vyu\u017eili slu\u017eeb MotoGo24.</p>
-<p>Proto\u017ee je pro n\u00e1s zp\u011btn\u00e1 vazba velmi d\u016fle\u017eit\u00e1, budeme r\u00e1di, pokud n\u00e1m zanech\u00e1te recenzi na <a href="${vars.google_review_url || '#'}" style="color:#2563eb">Googlu</a> nebo na <a href="${vars.facebook_review_url || '#'}" style="color:#2563eb">Facebooku</a>.</p>
+<p>Proto\u017ee je pro n\u00e1s zp\u011btn\u00e1 vazba velmi d\u016fle\u017eit\u00e1, budeme r\u00e1di, pokud n\u00e1m zanech\u00e1te recenzi na <a href="${vars.google_review_url || GOOGLE_REVIEW_URL_DEFAULT}" style="color:#2563eb">Googlu</a> nebo na <a href="${vars.facebook_review_url || FB_URL}" style="color:#2563eb">Facebooku</a>.</p>
 <p>Pokud m\u00e1te n\u011bjak\u00e9 zaj\u00edmav\u00e9 fotografie nebo videa z va\u0161\u00ed cesty, kter\u00e9 byste s n\u00e1mi cht\u011bli sd\u00edlet, za\u0161lete n\u00e1m je, pros\u00edm, na e-mail: <a href="mailto:info@motogo24.cz" style="color:#2563eb">info@motogo24.cz</a>. R\u00e1di je p\u0159\u00edpadn\u011b zve\u0159ejn\u00edme na na\u0161em webu nebo soci\u00e1ln\u00edch s\u00edt\u00edch.</p>
 ${vars.discount_code ? `<div style="background:#dcfce7;border-radius:12px;padding:16px;margin:20px 0;border:1px solid #86efac"><p style="margin:0;font-size:14px;color:#166534">Jako mal\u00e9 pod\u011bkov\u00e1n\u00ed za poskytnutou d\u016fv\u011bru p\u0159ikl\u00e1d\u00e1me slevov\u00fd k\u00f3d <strong>200 K\u010d</strong> na va\u0161i p\u0159\u00ed\u0161t\u00ed rezervaci: <strong style="font-family:monospace;font-size:16px;letter-spacing:2px">${vars.discount_code}</strong></p></div>` : ''}
 <p>V p\u0159\u00edloze naleznete kone\u010dnou fakturu za va\u0161i rezervaci.</p>
@@ -1055,6 +1095,11 @@ ${vars.tracking_number ? `<table style="width:100%;border-collapse:collapse;marg
       }
     }
 
+    // Google review CTA button — appended for end-of-rental and shop final invoice emails
+    if (type === 'booking_completed' || type === 'shop_order_shipped') {
+      templateHtml = templateHtml + googleReviewBlock(custLang, vars.google_review_url)
+    }
+
     const html = wrapInBrandedLayout(templateHtml, custLang)
 
     // Admin kopie do info@motogo24.cz vždy v CZ (Velin admin čte v CZ).
@@ -1088,6 +1133,9 @@ ${vars.tracking_number ? `<table style="width:100%;border-collapse:collapse;marg
         csSubject = fallbackFn ? fallbackFn(vars) : `Oznámení — MOTO GO 24`
       }
       if (csTemplateHtml) {
+        if (type === 'booking_completed' || type === 'shop_order_shipped') {
+          csTemplateHtml = csTemplateHtml + googleReviewBlock('cs', vars.google_review_url)
+        }
         adminHtml = wrapInBrandedLayout(csTemplateHtml, 'cs')
         adminSubject = csSubject
       }
