@@ -838,6 +838,11 @@ body.mg-lb-open{overflow:hidden;overscroll-behavior:none}
 .rez-auth-email-hint{margin-top:.45rem;padding:.7rem .85rem;background:#fff8e6;border:1.5px solid #f5d680;border-radius:10px;font-size:.86rem;line-height:1.5;color:#5a3a00}
 .rez-auth-email-hint button{margin-left:.45rem;vertical-align:middle}
 
+/* OTP input — velký monospace pro 8-znakový kód */
+.rez-auth-otp-input{padding:.85rem .8rem !important;letter-spacing:.4em !important;font-family:'Courier New',monospace !important;font-size:1.5rem !important;font-weight:700 !important;text-align:center !important;text-transform:uppercase !important;color:#1a2e22 !important;background:#fff !important;border:2px solid #d4e8e0 !important;border-radius:10px !important}
+.rez-auth-otp-input:focus{outline:none !important;border-color:#74FB71 !important;box-shadow:0 0 0 3px rgba(116,251,113,.2) !important}
+.rez-auth-otp-input::placeholder{color:#c4d4cc;letter-spacing:.4em}
+
 /* Step 2 — banner pro ověřené doklady */
 .rez-section-docs-ok{background:#e6f4ec;border:1.5px solid #74FB71}
 .rez-section-docs-ok .rez-step-num{background:#1a8c1a;color:#fff}
