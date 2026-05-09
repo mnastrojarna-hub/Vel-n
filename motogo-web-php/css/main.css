@@ -238,6 +238,7 @@ main{background:#fff;min-height:60vh}
 
 /* "Dostupné" badge na moto kartě (v katalogu) */
 .moto-card-badge{position:absolute;top:.6rem;right:.6rem;z-index:4;background:#74FB71;color:#1a2e22;font-size:.7rem;font-weight:700;padding:.25rem .6rem;border-radius:10px;text-transform:uppercase;letter-spacing:.3px;box-shadow:0 2px 6px rgba(26,46,34,.25)}
+.moto-card-badge--soldout{background:#fee2e2;color:#dc2626}
 .moto-branch-line{color:#4a6b5a;font-size:.78rem;margin:.35rem 0 .15rem}
 
 /* ===== FOOTER ===== */

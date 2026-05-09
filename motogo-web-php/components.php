@@ -19,6 +19,14 @@ function sanitizeHtml($html, $allowIframe = false) {
     $html = preg_replace('#<script\b[^>]*/?>#is', '', $html);
     // <style> bloky pryč (nevíme, co by zanesly)
     $html = preg_replace('#<style\b[^>]*>.*?</style\s*>#is', '', $html);
+    // SEO: nesemanticke <b>/<i>/<font> -> semanticke <strong>/<em>/span (zachovat obsah).
+    // Tyto tagy generuje legacy execCommand('bold'/'italic'/'fontSize') v CMS editoru.
+    $html = preg_replace('#<b(\s[^>]*)?>#i', '<strong>', $html);
+    $html = preg_replace('#</b\s*>#i', '</strong>', $html);
+    $html = preg_replace('#<i(\s[^>]*)?>#i', '<em>', $html);
+    $html = preg_replace('#</i\s*>#i', '</em>', $html);
+    $html = preg_replace('#<font\b[^>]*>#i', '<span>', $html);
+    $html = preg_replace('#</font\s*>#i', '</span>', $html);
     // <iframe> pryč pokud není povolen
     if (!$allowIframe) {
         $html = preg_replace('#<iframe\b[^>]*>.*?</iframe\s*>#is', '', $html);
@@ -323,7 +331,7 @@ function renderProductCard($p) {
     $stock = (int)($p['stock_quantity'] ?? 0);
     $stockBadge = '';
     if ($stock <= 0) {
-        $stockBadge = '<span class="moto-card-badge" style="background:#fee2e2;color:#dc2626;">' . te('shop.soldOut') . '</span>';
+        $stockBadge = '<span class="moto-card-badge moto-card-badge--soldout">' . te('shop.soldOut') . '</span>';
     }
 
     return '<a class="moto-wrapper" href="' . BASE_URL . '/eshop/' . $id . '" aria-label="' . $name . '">' .

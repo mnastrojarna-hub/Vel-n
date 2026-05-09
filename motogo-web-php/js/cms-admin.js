@@ -213,8 +213,31 @@
     function exec(cmd, val) {
       try {
         targetEl.focus();
+        // SEO: prefer semantic <strong>/<em> over legacy <b>/<i> from execCommand.
+        // styleWithCSS=false + defaultParagraphSeparator preserves block structure.
+        try { document.execCommand('styleWithCSS', false, false); } catch (_) {}
         document.execCommand(cmd, false, val == null ? null : val);
+        if (cmd === 'bold' || cmd === 'italic') {
+          // Browsers still emit <b>/<i> in many cases; convert in-place.
+          replaceTagsInTarget(targetEl, { 'B': 'strong', 'I': 'em' });
+        }
       } catch (_) { /* noop */ }
+    }
+
+    function replaceTagsInTarget(root, map) {
+      if (!root || !root.querySelectorAll) return;
+      Object.keys(map).forEach(function (from) {
+        var nodes = root.querySelectorAll(from.toLowerCase());
+        for (var i = 0; i < nodes.length; i++) {
+          var n = nodes[i];
+          var rep = document.createElement(map[from]);
+          while (n.firstChild) rep.appendChild(n.firstChild);
+          // Zachovej style/class atributy (z execCommand obvykle prazdne)
+          if (n.getAttribute('style')) rep.setAttribute('style', n.getAttribute('style'));
+          if (n.getAttribute('class')) rep.setAttribute('class', n.getAttribute('class'));
+          n.parentNode.replaceChild(rep, n);
+        }
+      });
     }
 
     function makeBtn(label, title, onClick, opts) {

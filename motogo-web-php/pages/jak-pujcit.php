@@ -7,7 +7,7 @@ $defaults = [
     'seo' => [
         'title' => 'Jak si půjčit motorku | MotoGo24',
         'description' => 'Jak si půjčit motorku v Motogo24. Jednoduchý postup: výběr, rezervace, převzetí. Bez kauce, výbava v ceně, nonstop provoz.',
-        'keywords' => 'jak si půjčit motorku, postup půjčení, rezervace motorky, pronájem motorek Vysočina',
+        'keywords' => 'motopůjčovna',
     ],
     'h1' => 'Jak si půjčit motorku',
     'intro' => 'V <strong>Motogo24 – půjčovna motorek na Vysočině</strong> je půjčení jednoduché, rychlé a férové.',

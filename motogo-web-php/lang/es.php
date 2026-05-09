@@ -194,9 +194,9 @@ return [
 
     // ===== SEO meta defaults (por idioma) =====
     'seo.default.description' => 'Alquiler de motos en la región de Vysočina, República Checa — motos de turismo, sport, enduro e infantiles. Alquiler 24/7, sin depósito, equipo incluido, reserva online.',
-    'seo.default.keywords' => 'alquiler de motos República Checa, alquilar moto Pelhřimov, alquiler de motos sin depósito, reserva de motos online',
+    'seo.default.keywords' => 'alquiler de motos República Checa',
     'seo.home.description' => 'Alquila una moto en la región de Vysočina. Sin depósito, equipo incluido, servicio 24/7. Motos de turismo, sport, enduro e infantiles. Reserva online.',
-    'seo.home.keywords' => 'alquiler de motos República Checa, alquilar moto Pelhřimov, alquiler de motos sin depósito, reserva de motos online',
+    'seo.home.keywords' => 'alquiler de motos República Checa',
 
     // ===== Potvrzení =====
     'confirm.titleBooking' => 'Confirmación de reserva | MotoGo24',
@@ -206,7 +206,7 @@ return [
     // ===== Rezervace shell =====
     'rezervace.title' => 'Reserva online de moto | MotoGo24',
     'rezervace.description' => 'Reserva online de moto en Vysočina. Sin depósito, con equipo incluido en el precio y servicio 24/7. Elige moto, fecha y paga online.',
-    'rezervace.keywords' => 'reserva moto online, alquilar moto, alquiler de motos Vysočina, online booking',
+    'rezervace.keywords' => 'alquiler de motos República Checa',
     'rezervace.loading' => 'Cargando el sistema de reservas...',
 
     // ===== Reserva — encabezado / introducción =====
@@ -408,7 +408,7 @@ return [
 
     // ===== Katalog SEO =====
     'katalog.seo.description' => 'Catálogo de motos de alquiler en Vysočina. Filtro por categoría, permiso, potencia y precio. Motos de turismo, deportivas, enduro e infantiles. Reserva online.',
-    'katalog.seo.keywords' => 'catálogo de motos, motos de alquiler, motos de turismo, motos deportivas, enduro, motos infantiles, filtro de motos',
+    'katalog.seo.keywords' => 'alquiler de motos República Checa',
 
     // ===== Detail motorky =====
     'detail.notFoundTitle' => 'Moto no encontrada – Motogo24',
@@ -503,7 +503,7 @@ return [
     // ===== Blog =====
     'blog.title' => 'Blog y consejos para moteros | MotoGo24',
     'blog.description' => 'Blog Motogo24 – consejos sobre rutas en moto por Vysočina y la República Checa, novedades del alquiler, recomendaciones para una conducción segura y procedimientos prácticos.',
-    'blog.keywords' => 'blog motero, rutas en moto, consejos para moteros, novedades alquiler de motos, Vysočina, Český ráj',
+    'blog.keywords' => 'alquiler de motos República Checa',
     'blog.h1' => 'Blog y consejos',
     'blog.empty' => 'No hay artículos en esta categoría.',
     'blog.tagAll' => 'Todos ({count})',
@@ -515,7 +515,7 @@ return [
     // ===== Voucher form (poukazy-objednat) =====
     'voucher.pageTitle' => 'Alquiler de motos Vysočina - Comprar vale regalo',
     'voucher.description' => 'Pide un vale regalo para el alquiler de una moto de Motogo24. Validez 3 años, sin depósito, equipo incluido en el precio.',
-    'voucher.keywords' => 'comprar vale regalo moto, pedir voucher Motogo24, regalo alquiler de moto',
+    'voucher.keywords' => 'alquiler de motos República Checa',
     'voucher.title' => 'Vale regalo Motogo24',
     'voucher.lead' => '¡Regala la experiencia de montar en moto! El vale tiene una validez de 3 años y se puede canjear al hacer la reserva en esta web.',
     'voucher.contactSection' => 'Tus datos de contacto',
@@ -609,7 +609,7 @@ return [
     'shop.h1' => 'Tienda MotoGo24',
     'shop.intro' => 'Accesorios para motociclistas, merch y regalos para fans de MotoGo24. Enviamos a toda la República Checa.',
     'shop.description' => 'Tienda MotoGo24 — accesorios para motociclistas, ropa y merch. Pedido online, envío a toda Chequia.',
-    'shop.keywords' => 'tienda de motos, accesorios para motos, merch motogo24, ropa de moto',
+    'shop.keywords' => 'alquiler de motos República Checa',
     'shop.empty' => 'Actualmente no tenemos productos en stock. Síguenos en redes sociales.',
     'shop.unnamedProduct' => 'Producto',
     'shop.productAlt' => '{name} — Tienda MotoGo24',

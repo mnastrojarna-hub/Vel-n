@@ -49,6 +49,6 @@ return [
     'seo' => [
         'title' => 'Půjčovna motorek Vysočina – Jak si půjčit motorku – Co je v ceně nájmu',
         'description' => 'Zjisti, co obsahuje cena půjčení motorky u MotoGo24. Půjčovna motorek nabízí jasné podmínky, výbavu i služby bez skrytých poplatků. Rezervuj si motorku jednoduše online. Vyber termín, stroj i výbavu a vyraz na nezapomenutelnou jízdu s MotoGo24 na Vysočině.',
-        'keywords' => 'půjčovna motorek Vysočina, pronájem motorek Vysočina, půjčovna motorek Pelhřimov, půjčovna motorek bez kauce, nonstop půjčovna motorek, půjčovna cestovní motorky, pronájem sportovní motorky, půjčovna enduro motorek, půjčovna skútrů Vysočina, dětské motorky k pronájmu, rezervace motorky online, motorky k pronájmu Vysočina, motorbike rental Czech Republic, motorcycle hire Vysocina, rent a motorbike Pelhřimov',
+        'keywords' => 'motopůjčovna',
     ],
 ];

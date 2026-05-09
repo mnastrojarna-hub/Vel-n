@@ -8,7 +8,7 @@ $defaults = [
     'seo' => [
         'title' => 'O půjčovně motorek | MotoGo24',
         'description' => 'Půjčovna motorek Motogo24 na Vysočině. Bez kauce, s online rezervací a výbavou v ceně. Cestovní, sportovní, enduro i dětské motorky. Nonstop provoz.',
-        'keywords' => 'půjčovna motorek, pronájem motorek Vysočina, motorky bez kauce, nonstop půjčovna, výbava v ceně',
+        'keywords' => 'motopůjčovna',
     ],
     'breadcrumb' => [
         ['label' => 'Domů', 'href' => '/'],
