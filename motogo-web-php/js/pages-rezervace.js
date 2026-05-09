@@ -674,6 +674,19 @@ MG._rezInit = async function(){
 
   MG._rez = { startDate: preStart || null, endDate: preEnd || null, motos: [], motoId: mp, allBookings: {}, appliedCodes: [], discountAmt: 0 };
 
+  // 2026-05-09: Při refreshi stránky bez přihlášené session zapomenout
+  // dříve vyplněný formulář (anonymní zákazník začíná znovu od kroku 1).
+  // Přihlášený uživatel si data při refreshi zachová, aby nemusel přepisovat.
+  try {
+    var sessRes = await window.sb.auth.getSession();
+    var hasAuthSession = !!(sessRes && sessRes.data && sessRes.data.session && sessRes.data.session.user);
+    if(!hasAuthSession){
+      try { sessionStorage.removeItem('mg_rez_form'); } catch(e){}
+    }
+  } catch(e){
+    try { sessionStorage.removeItem('mg_rez_form'); } catch(e2){}
+  }
+
   // Restore from sessionStorage
   try {
     var saved = sessionStorage.getItem('mg_rez_form');
