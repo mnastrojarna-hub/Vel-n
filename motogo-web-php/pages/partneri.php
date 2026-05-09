@@ -107,7 +107,7 @@ curl https://vnwnqteskbykeucanlhk.supabase.co/functions/v1/public-api/api/v1/mot
 
 renderPage('Pro partnery a vývojáře | MotoGo24', $content, '/partneri', [
     'description' => 'Veřejné REST API, MCP server, llms.txt a JSON-LD pro AI agenty a integrátory MotoGo24. Hybrid auth, 9 endpointů, OpenAPI 3.1 spec.',
-    'keywords' => 'MotoGo24 API, REST API půjčovna motorek, MCP server motorcycle rental, motogo24 developer, Schema.org Vehicle Motorcycle',
+    'keywords' => 'motopůjčovna',
     'breadcrumbs' => [
         ['name' => t('breadcrumb.home'), 'url' => siteCanonicalUrl('/')],
         ['name' => 'Pro partnery a vývojáře', 'url' => siteCanonicalUrl('/partneri')],

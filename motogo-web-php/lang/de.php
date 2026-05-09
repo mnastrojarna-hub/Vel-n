@@ -193,9 +193,9 @@ return [
 
     // ===== SEO meta defaults (pro Sprache) =====
     'seo.default.description' => 'Motorradvermietung in der Region Vysočina, Tschechien — Touren-, Sport-, Enduro- und Kinder-Motorräder. 24/7-Vermietung, keine Kaution, Ausrüstung inklusive, Online-Buchung.',
-    'seo.default.keywords' => 'Motorradvermietung Tschechien, Motorrad mieten Pelhřimov, Motorradverleih ohne Kaution, Motorrad online buchen',
+    'seo.default.keywords' => 'Motorradvermietung Tschechien',
     'seo.home.description' => 'Mieten Sie ein Motorrad in der Region Vysočina. Keine Kaution, Ausrüstung im Preis, 24/7-Service. Touren-, Sport-, Enduro- und Kinder-Motorräder. Online buchen.',
-    'seo.home.keywords' => 'Motorradvermietung Tschechien, Motorrad mieten Pelhřimov, Motorradverleih ohne Kaution, Motorrad online buchen',
+    'seo.home.keywords' => 'Motorradvermietung Tschechien',
 
     // Confirm
     'confirm.titleBooking' => 'Reservierungsbestätigung | MotoGo24',
@@ -205,7 +205,7 @@ return [
     // Rezervace shell
     'rezervace.title' => 'Online-Motorradreservierung | MotoGo24',
     'rezervace.description' => 'Online-Motorradreservierung in Vysočina. Ohne Kaution, mit Ausrüstung im Preis und Rund-um-die-Uhr-Service. Wählen Sie Motorrad, Termin und zahlen Sie online.',
-    'rezervace.keywords' => 'Motorradreservierung online, Motorrad mieten, Motorradverleih Vysočina, Online-Buchung',
+    'rezervace.keywords' => 'Motorradvermietung Tschechien',
     'rezervace.loading' => 'Reservierungssystem wird geladen...',
 
     // ===== Reservierung — Header / Intro =====
@@ -525,7 +525,7 @@ return [
 
     // Katalog SEO
     'katalog.seo.description' => 'Motorradkatalog zur Miete in Vysočina. Filter nach Kategorie, Führerschein, Leistung und Preis. Touren-, Sport-, Enduro- und Kindermotorräder. Online-Reservierung.',
-    'katalog.seo.keywords' => 'Motorradkatalog, Motorräder zur Miete, Tourenmotorräder, Sportmotorräder, Enduro, Kindermotorräder, Motorradfilter',
+    'katalog.seo.keywords' => 'Motorradvermietung Tschechien',
 
     // Detail motorky
     'detail.notFoundTitle' => 'Motorrad nicht gefunden – Motogo24',
@@ -620,7 +620,7 @@ return [
     // Blog
     'blog.title' => 'Blog und Tipps für Motorradfahrer | MotoGo24',
     'blog.description' => 'Motogo24-Blog – Tipps zu Motorradrouten in Vysočina und in Tschechien, Neuigkeiten aus der Vermietung, Ratschläge für sicheres Fahren und praktische Anleitungen.',
-    'blog.keywords' => 'Motorradblog, Motorradrouten, Tipps für Motorradfahrer, Neuigkeiten Motorradvermietung, Vysočina, Český ráj',
+    'blog.keywords' => 'Motorradvermietung Tschechien',
     'blog.h1' => 'Blog und Tipps',
     'blog.empty' => 'Keine Artikel in dieser Kategorie.',
     'blog.tagAll' => 'Alle ({count})',
@@ -632,7 +632,7 @@ return [
     // Voucher form
     'voucher.pageTitle' => 'Motorradvermietung Vysočina – Geschenkgutschein kaufen',
     'voucher.description' => 'Bestellen Sie einen Geschenkgutschein für die Motorradmiete von Motogo24. Gültigkeit 3 Jahre, ohne Kaution, Ausrüstung im Preis.',
-    'voucher.keywords' => 'Geschenkgutschein Motorrad kaufen, Voucher Motogo24 bestellen, Geschenk Motorradverleih',
+    'voucher.keywords' => 'Motorradvermietung Tschechien',
     'voucher.title' => 'Geschenkgutschein Motogo24',
     'voucher.lead' => 'Verschenken Sie ein Motorraderlebnis! Der Gutschein ist 3 Jahre gültig und kann bei der Reservierung auf dieser Website eingelöst werden.',
     'voucher.contactSection' => 'Ihre Kontaktdaten',
@@ -726,7 +726,7 @@ return [
     'shop.h1' => 'MotoGo24 Shop',
     'shop.intro' => 'Motorradzubehör, Merch und Geschenke für MotoGo24-Fans. Wir liefern in die ganze Tschechische Republik.',
     'shop.description' => 'MotoGo24 Shop — Motorradzubehör, Bekleidung und Merch. Online-Bestellung mit Versand in ganz Tschechien.',
-    'shop.keywords' => 'Motorrad-Shop, Motorradzubehör, motogo24 Merch, Motorradbekleidung',
+    'shop.keywords' => 'Motorradvermietung Tschechien',
     'shop.empty' => 'Wir haben derzeit keine Produkte auf Lager. Folgen Sie uns in den sozialen Netzwerken.',
     'shop.unnamedProduct' => 'Produkt',
     'shop.productAlt' => '{name} — MotoGo24 Shop',

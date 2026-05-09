@@ -7,7 +7,7 @@ return [
             'seo' => [
                 'title' => 'Motorverhuur Vysočina – Hoe huren – Wat is bij de prijs inbegrepen',
                 'description' => 'Ontdek wat bij de huurprijs van MotoGo24 inbegrepen is. Duidelijke voorwaarden, uitrusting en service zonder verborgen kosten.',
-                'keywords' => 'motorverhuur Vysočina, motorverhuur Pelhřimov, huur zonder borg, 24/7 motorverhuur, online motor reserveren',
+                'keywords' => 'motorverhuur Tsjechië',
             ],
             'h1' => 'Wat is bij de huurprijs inbegrepen',
             'intro' => 'Bij <strong>MotoGo24 – motorverhuur in Vysočina</strong> krijg je eerlijke voorwaarden. <strong>Zonder borg, met rijderuitrusting in de prijs en 24/7 service</strong>. Alles voor een veilige en aangename rit is inbegrepen.',
@@ -28,7 +28,7 @@ return [
             'seo' => [
                 'title' => 'Motorverhuur Vysočina – Documenten en handleidingen',
                 'description' => 'Huurovereenkomst, voorwaarden en benodigde documenten voor het huren van een motor. Zonder borg, duidelijke regels, verzekering inbegrepen.',
-                'keywords' => 'huurovereenkomst motor, huurdocumenten, huurvoorwaarden, motorverzekering, MotoGo24',
+                'keywords' => 'motorverhuur Tsjechië',
             ],
             'h1' => 'Huurovereenkomst en borg – eerlijke voorwaarden zonder voorschot',
             'intro' => 'Bij <strong>MotoGo24</strong> staan eenvoud en eerlijkheid centraal. We verhuren <strong>zonder borg</strong>, met een <strong>duidelijke huurovereenkomst</strong>, <strong>verzekering inbegrepen</strong> en <strong>rijderuitrusting</strong>.',
@@ -53,7 +53,7 @@ return [
             'seo' => [
                 'title' => 'Motorbezorging | MotoGo24',
                 'description' => 'Motorbezorging tot bij jou. We brengen de motor naar het hotel, station of een ander adres. Tarief vanaf 290 Kč. 24/7 service.',
-                'keywords' => 'motorbezorging, motor afleveren, motor levering, motorverhuur Vysočina',
+                'keywords' => 'motorverhuur Tsjechië',
             ],
             'h1' => 'Motorbezorging – tot aan je deur',
             'intro' => 'Wil je vertrekken zonder naar de verhuur te moeten gaan? We zorgen voor <strong>motorbezorging</strong> op een <strong>afgesproken locatie</strong>.',
@@ -77,7 +77,7 @@ return [
             'seo' => [
                 'title' => 'Motor inleveren elders | MotoGo24',
                 'description' => 'Lever de motor buiten de verhuur in – vanuit het hotel, station of een ander adres. Ophalen in Vysočina en daarbuiten.',
-                'keywords' => 'motor inleveren elders, motor ophalen, inleveren buiten verhuur, motorverhuur Vysočina',
+                'keywords' => 'motorverhuur Tsjechië',
             ],
             'h1' => 'Motor inleveren elders – ophalen tot bij jou',
             'intro' => 'Je hoeft niet terug naar de verhuur. <strong>MotoGo24</strong> biedt <strong>motor ophalen</strong> vanaf de plek die jou uitkomt – hotel, station, eigen adres.',
@@ -101,7 +101,7 @@ return [
             'seo' => [
                 'title' => 'Veelgestelde vragen | MotoGo24',
                 'description' => 'Veelgestelde vragen over motorverhuur. Reservering, ophalen, inleveren, voorwaarden, bezorging, reizen naar het buitenland, cadeaubonnen.',
-                'keywords' => 'FAQ motorverhuur, vragen motor huren, huurvoorwaarden, borg, uitrusting',
+                'keywords' => 'motorverhuur Tsjechië',
             ],
             'h1' => 'Veelgestelde vragen – motorverhuur MotoGo24',
             'closing' => 'Onze <strong>motorverhuur in Vysočina</strong> is er voor iedereen die een <strong>onvergetelijke rit</strong> zonder onnodige complicaties wil beleven.',
@@ -114,7 +114,7 @@ return [
             'seo' => [
                 'title' => 'Motorverhuur in Vysočina | MotoGo24',
                 'description' => 'Huur een motor in Vysočina. Zonder borg, uitrusting inbegrepen, 24/7 service. Toer-, sport-, enduro- en kindermotoren. Online reserveren.',
-                'keywords' => 'motorverhuur Vysočina, motorverhuur Pelhřimov, motor huren zonder borg, 24/7 verhuur, motoren te huur, online motor reserveren',
+                'keywords' => 'motorverhuur Tsjechië',
                 'og_image' => NULL,
             ],
             'hero' => [
@@ -272,7 +272,7 @@ return [
             'seo' => [
                 'title' => 'Over de motorverhuur | MotoGo24',
                 'description' => 'Motogo24 motorverhuur in Vysočina. Zonder borg, met online reservering en uitrusting inbegrepen. Toer-, sport-, enduro- en kindermotoren. 24/7 service.',
-                'keywords' => 'motorverhuur, motorverhuur Vysočina, motoren zonder borg, 24/7 verhuur, uitrusting inbegrepen',
+                'keywords' => 'motorverhuur Tsjechië',
             ],
             'breadcrumb' => [
                 [
@@ -426,7 +426,7 @@ return [
             'seo' => [
                 'title' => 'Contact | MotoGo24 – motorverhuur Vysočina',
                 'description' => 'Contactgegevens van Motogo24 motorverhuur in Pelhřimov. Telefoon +420 774 256 271, e-mail info@motogo24.cz. 24/7 service, adres Mezná 9, 393 01 Pelhřimov.',
-                'keywords' => 'contact Motogo24, motorverhuur Pelhřimov, telefoon, adres, openingstijden, 24/7',
+                'keywords' => 'motorverhuur Tsjechië',
             ],
             'h1' => 'Contact – Motogo24 motorverhuur',
             'intro' => 'Heb je een vraag over <strong>motor huren</strong>, wil je een <strong>cadeaubon</strong> bestellen, hulp bij het kiezen of meteen een <strong>reservering maken</strong>? We zijn er elke dag voor je, <strong>24/7</strong>.',
@@ -452,7 +452,7 @@ return [
             'seo' => [
                 'title' => 'Hoe een motor huren | MotoGo24',
                 'description' => 'Hoe een motor huren bij Motogo24. Eenvoudig proces: keuze, reservering, ophalen. Zonder borg, uitrusting inbegrepen, 24/7 service.',
-                'keywords' => 'hoe motor huren, huurproces, motor reserveren, motorverhuur Vysočina',
+                'keywords' => 'motorverhuur Tsjechië',
             ],
             'h1' => 'Hoe een motor huren',
             'intro' => 'Bij <strong>Motogo24 – motorverhuur in Vysočina</strong> is huren eenvoudig, snel en eerlijk.',
@@ -461,7 +461,7 @@ return [
             'seo' => [
                 'title' => 'Huurproces motor | MotoGo24',
                 'description' => 'Huurproces motor bij Motogo24 stap voor stap. Online reservering, uitrusting inbegrepen, zonder borg, 24/7 service en bezorging.',
-                'keywords' => 'huurproces motor, hoe motor huren, motor reserveren, motorverhuur Pelhřimov',
+                'keywords' => 'motorverhuur Tsjechië',
             ],
             'h1' => 'Huurproces motor',
             'intro' => '<p>Bij <strong>Motogo24 – motorverhuur in Vysočina</strong> is huren eenvoudig, snel en eerlijk. <strong>Zonder borg, met uitrusting inbegrepen en 24/7 service</strong>.</p>',
@@ -481,7 +481,7 @@ return [
             'seo' => [
                 'title' => 'Ophalen van de motor bij verhuur | MotoGo24',
                 'description' => 'Ophalen motor bij verhuur Pelhřimov. 24/7 service, zonder borg, uitrusting inbegrepen. Wat meenemen en hoe de overdracht verloopt.',
-                'keywords' => 'motor ophalen verhuur, motor afhalen, verhuur Pelhřimov, 24/7 ophalen',
+                'keywords' => 'motorverhuur Tsjechië',
             ],
             'h1' => 'Ophalen van de motor bij verhuur – snel, eenvoudig en 24/7',
             'intro' => 'Bij <strong>Motogo24 – motorverhuur Vysočina</strong> is het <strong>ophalen van de motor</strong> in een paar minuten geregeld.',
@@ -505,7 +505,7 @@ return [
             'seo' => [
                 'title' => 'Motor inleveren bij verhuur | MotoGo24',
                 'description' => 'Motor inleveren direct bij de verhuur Pelhřimov. 24/7, zonder borg, zonder onnodige administratie.',
-                'keywords' => 'motor inleveren, inleveren bij verhuur, verhuur Pelhřimov, 24/7 inleveren',
+                'keywords' => 'motorverhuur Tsjechië',
             ],
             'h1' => 'Motor inleveren bij verhuur',
             'intro' => 'Lever de motor gemakkelijk in bij <strong>Motogo24 – motorverhuur in Vysočina</strong>. <strong>24/7 service</strong>, zonder stress.',
@@ -529,7 +529,7 @@ return [
             'seo' => [
                 'title' => 'Motorverhuur Vysočina – Cadeaubonnen',
                 'description' => 'Koop een cadeaubon voor motorverhuur. Geldigheid 3 jaar, zonder borg, uitrusting inbegrepen. Elektronische en gedrukte bon.',
-                'keywords' => 'cadeaubon motor, voucher motorverhuur, cadeau voor motorrijder, bon Motogo24',
+                'keywords' => 'motorverhuur Tsjechië',
                 'og_image' => 'https://motogo24.cz/gfx/darkovy-poukaz.jpg',
             ],
             'h1' => 'Koop een cadeaubon – geef een belevenis op twee wielen!',

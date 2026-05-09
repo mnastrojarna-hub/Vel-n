@@ -126,6 +126,20 @@ if ($path === '/sitemap.xml') {
     exit;
 }
 
+// robots.txt — fail-safe fallback (hosting normalne servis fyzicky soubor pres .htaccess,
+// ale nektere SEO testery zachycuji false-positive 404, pokud server returns text/html.
+// Tento route emituje text/plain s cache headers i kdyz fyzicky soubor nedostupny.)
+if ($path === '/robots.txt') {
+    $f = __DIR__ . '/robots.txt';
+    if (is_file($f)) {
+        header('Content-Type: text/plain; charset=utf-8');
+        header('Cache-Control: public, max-age=3600');
+        header('X-Robots-Tag: noindex, follow');
+        readfile($f);
+        exit;
+    }
+}
+
 // llms.txt — LLM-friendly katalog stránek (Jeremy Howard standard)
 // Per-language přes ?lang= nebo cookie. Vrací text/markdown.
 if ($path === '/llms.txt') {

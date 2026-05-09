@@ -334,7 +334,7 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
     // by Google na .com indexoval cizojazycne stranky s ceskym defaultnim popiskem.
     $defaultDesc = function_exists('t') ? t('seo.default.description') : 'Půjčovna motorek Vysočina – silniční, sportovní, enduro i dětské. Nonstop pronájem bez kauce, online rezervace a motorkářská výbava zdarma.';
     $description = $meta['description'] ?? $defaultDesc;
-    $keywords = $meta['keywords'] ?? (function_exists('t') ? t('seo.default.keywords') : 'půjčovna motorek Vysočina, pronájem motorek Pelhřimov, půjčovna motorek bez kauce, online rezervace motorky');
+    $keywords = $meta['keywords'] ?? (function_exists('t') ? t('seo.default.keywords') : 'motopůjčovna');
     // Canonical = doménová home pro aktuální jazyk (cs → .cz, ostatní → .com).
     // Tím Google indexuje českou verzi výhradně z motogo24.cz a anglickou/další
     // z motogo24.com — žádný duplicate-content stejného jazyka přes obě domény.
@@ -445,9 +445,6 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
   <meta name="geo.placename" content="Pelhřimov, Vysočina, Česko">
   <meta name="geo.position" content="49.4147;15.2953">
   <meta name="ICBM" content="49.4147, 15.2953">
-  <meta name="rating" content="general">
-  <meta name="distribution" content="global">
-  <meta name="revisit-after" content="3 days">
   <meta name="referrer" content="strict-origin-when-cross-origin">
 ' . renderWebmasterVerification() . renderHreflangAlternates($currentPath) . '
   <title>' . htmlspecialchars($title) . '</title>
@@ -477,7 +474,7 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
         "currenciesAccepted": "CZK, EUR, USD",
         "paymentAccepted": "Cash, Credit Card, Debit Card, Apple Pay, Google Pay",
         "knowsLanguage": ["cs","en","de","es","fr","nl","pl"],
-        "keywords": "půjčovna motorek Vysočina, pronájem motorek Pelhřimov, půjčovna motorek bez kauce, online rezervace motorky",
+        "keywords": "motopůjčovna",
         "address": {"@type":"PostalAddress","streetAddress":"Mezná 9","addressLocality":"Pelhřimov","postalCode":"393 01","addressRegion":"Vysočina","addressCountry":"CZ"},
         "geo": {"@type":"GeoCoordinates","latitude":49.4147,"longitude":15.2953},
         "hasMap": "https://mapy.cz/zakladni?q=Mezn%C3%A1%209%20Pelh%C5%99imov",
