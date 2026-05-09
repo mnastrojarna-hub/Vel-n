@@ -93,6 +93,7 @@ MG._rez = { startDate: null, endDate: null, motos: [], motoId: "", allBookings: 
 <script src="' . assetUrl('/js/api.js') . '"></script>
 <script src="' . assetUrl('/js/components.js') . '"></script>
 <script src="' . assetUrl('/js/pages-rezervace.js') . '"></script>
+<script src="' . assetUrl('/js/pages-rezervace-auth.js') . '"></script>
 <script src="' . assetUrl('/js/pages-rezervace-calendar.js') . '"></script>
 <script src="' . assetUrl('/js/pages-rezervace-pricing.js') . '"></script>
 <script src="' . assetUrl('/js/pages-rezervace-steps.js') . '"></script>
