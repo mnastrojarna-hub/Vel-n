@@ -170,6 +170,21 @@ MG._submitReservation = async function(){
     }
     var regData = regRes.data;
     if(regData && regData.error){
+      // ★ Anon zákazník zadal e-mail známého profilu → backend vrátil 'email_exists'.
+      // Aktivuj login panel s předvyplněným mailem (modul `pages-rezervace-auth.js`),
+      // místo aby zákazník dostal hláškou trápící alert.
+      if(regData.error === 'email_exists' && MG._rezAuth && typeof MG._rezAuth._activateLoginPanel === 'function'){
+        var msg = regData.message || T('rez.alert.emailExists','Tento e-mail u nás už máme. Pro pokračování se přihlaste, nebo si obnovte heslo.');
+        alert(msg);
+        MG._rezAuth._activateLoginPanel(email.value);
+        if(btn){btn.disabled=false;btn.textContent=T('rez.cta.continuePay');}
+        return;
+      }
+      if(regData.error === 'email_mismatch'){
+        alert(regData.message || T('rez.alert.emailMismatch','Přihlášený účet nesouhlasí se zadaným e-mailem.'));
+        if(btn){btn.disabled=false;btn.textContent=T('rez.cta.continuePay');}
+        return;
+      }
       alert(regData.error);
       if(btn){btn.disabled=false;btn.textContent=T('rez.cta.continuePay');}
       return;
@@ -586,6 +601,17 @@ MG._rezShowStep2 = function(){
   var payBtnLabel=isMob?'Ověřit doklady a zaplatit':'Pokračovat k platbě';
   var payBtnAction=isMob?'MG._rezShowMindeeStep()':'MG._rezSubmitPayment()';
 
+  // Vracející se zákazník s ověřenými doklady (přihlášený přes login panel
+  // v kroku 3) — přeskočí Sekci 1 (doc verifikace), Sekci 2 (Mindee scan)
+  // a Sekci 3 (heslo). Místo toho jen zelený banner „Doklady ověřeny".
+  // QR + doprodej + sumarizace zůstávají.
+  var docsVerified = !!(MG._rezAuth && MG._rezAuth.docsOk);
+  // Když docs OK, přepiš mobile pay button: rovnou Stripe (žádný Mindee).
+  if(docsVerified && isMob){
+    payBtnLabel = 'Pokračovat k platbě';
+    payBtnAction = 'MG._rezSubmitPayment()';
+  }
+
   // QR code section (desktop only) — allows customer to continue on mobile
   var qrSectionMarkup = '';
   if(!isMob && resumeLink){
@@ -605,6 +631,14 @@ MG._rezShowStep2 = function(){
     // Hero — fotka rezervované motorky (kompaktní galerie)
     '<div id="rez-moto-hero-wrap">'+MG._rezGalleryHtml(moto)+'</div>'+
 
+    // ★ Vracející se zákazník s ověřenými doklady → zelený banner místo Sekce 1+2+3.
+    (docsVerified ?
+      '<section class="rez-section rez-section-docs-ok">'+
+        '<div class="rez-section-head"><span class="rez-step-num">&#10004;</span><h2>Doklady jsou ověřené</h2></div>'+
+        '<p class="rez-section-sub">Vaše doklady (OP/pas + ŘP) máme z minulé rezervace. Žádné fotografie ani vyplňování — pokračujte rovnou k platbě.</p>'+
+        qrSectionMarkup+
+      '</section>'
+    :
     // Section 1 — Verifikace dokladů + ŘP
     '<section class="rez-section">'+
       '<div class="rez-section-head"><span class="rez-step-num">1</span><h2>Ověření totožnosti a řidičského oprávnění</h2></div>'+
@@ -708,7 +742,8 @@ MG._rezShowStep2 = function(){
         '</div>'+
       '</div>'+
       qrSectionMarkup+
-    '</section>'+
+    '</section>'
+    )+
 
     // Section 4 — Doprodej (e-shop produkty) — vždy (i v resume režimu na mobilu),
     // aby zákazník po scanu QR mohl přidat doplňky na mobilu
@@ -763,6 +798,9 @@ MG._rezShowStep2 = function(){
 
 // ===== LICENSE UI: chips for group + custom date picker =====
 MG._rezInitLicenseUI = function(){
+  // Skip pokud sekce 1 (license UI) v step 2 vůbec není (vracející se zákazník
+  // s ověřenými doklady — sekce nahrazena banerem „Doklady ověřené").
+  if(!document.getElementById('rez-license-group-chips')) return;
   // Inject styles once
   if(!document.getElementById('mg-lic-styles')){
     var st=document.createElement('style'); st.id='mg-lic-styles';

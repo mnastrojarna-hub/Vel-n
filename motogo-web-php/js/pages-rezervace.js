@@ -101,6 +101,8 @@ MG._rezFormHtml = function(){
     // ===== STEP A — Kontaktní údaje =====
     '<section class="rez-section">' +
       '<div class="rez-section-head"><span class="rez-step-num">3</span><h2>'+MG.t('rez.step.contact')+'</h2></div>' +
+      // Returning-customer panel (login + prefill). Modul `pages-rezervace-auth.js`.
+      ((MG._rezAuth && typeof MG._rezAuth.togglePanelHtml==='function') ? MG._rezAuth.togglePanelHtml() : '') +
       '<input type="text" id="rez-name" name="name" placeholder="'+MG.t('rez.contact.name')+'" required autocomplete="name">' +
       '<div class="gr2"><input type="text" id="rez-street" name="street-address" placeholder="'+MG.t('rez.contact.street')+'" required autocomplete="street-address">' +
       '<input type="text" id="rez-zip" name="postal-code" placeholder="'+MG.t('rez.contact.zip')+'" required autocomplete="postal-code"></div>' +
@@ -394,6 +396,12 @@ MG._rezInitFormEvents = function(){
 
   // Initial state for return-time visibility (delivery is unchecked by default)
   MG._rezUpdateReturnTimeVisibility();
+
+  // Returning-customer auth panel (login + prefill profilu). Inicializuje
+  // checkbox toggle, login/forgot/logout handlery a real-time email check na blur.
+  if(MG._rezAuth && typeof MG._rezAuth.init === 'function'){
+    try { MG._rezAuth.init(); } catch(e){ console.warn('[REZ] auth init failed:', e); }
+  }
 };
 
 // ===== FEATURE FLAG: inventory_v2 =====
