@@ -279,7 +279,7 @@ export default function BookingDetail() {
       {tab === 'Detail' && <DetailTab booking={booking} set={set} error={error} saving={saving} actions={actions} onAction={handleAction} navigate={navigate} promoUsage={promoUsage} voucherUsed={voucherUsed} onModify={() => setShowModifyModal(true)} />}
       {showModifyModal && booking && <BookingModifyModal booking={booking} onClose={() => setShowModifyModal(false)} onSaved={() => { setShowModifyModal(false); loadBooking() }} />}
       {tab === 'Kalendář motorky' && booking.motorcycles?.id && <BookingsCalendar motoId={booking.motorcycles.id} />}
-      {tab === 'Dokumenty' && <BookingDocumentsTab bookingId={id} />}
+      {tab === 'Dokumenty' && <BookingDocumentsTab bookingId={id} userId={booking?.user_id} />}
       {tab === 'Platby' && <BookingPaymentsTab bookingId={id} />}
       {tab === 'Reklamace' && <ComplaintsTab bookingId={id} booking={booking} setBooking={setBooking} />}
       {confirm && <ConfirmDialog open title={`${confirm.label}?`} message={`Změnit stav na "${confirm.label}"?`} danger={confirm.danger} onConfirm={() => changeStatus(confirm.status)} onCancel={() => setConfirm(null)} />}
