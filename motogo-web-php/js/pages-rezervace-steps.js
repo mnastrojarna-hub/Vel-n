@@ -728,19 +728,30 @@ MG._rezShowStep2 = function(){
     '</section>':'')+
 
     // Section 3 — Heslo pro správu rezervace
+    // Při QR resume na mobilu (nebo po PC auto-persistu) máme heslo už v DB.
+    // V tom případě místo prázdných polí ukážeme zelený banner — zákazník
+    // nemusí heslo psát znovu. Pole hesla se rendrují jen pokud `_passwordSet` neplatí.
     '<section class="rez-section">'+
       '<div class="rez-section-head"><span class="rez-step-num">'+(isMob?'2':'3')+'</span><h2>Heslo pro správu rezervace</h2></div>'+
-      '<div class="rez-pwd-section">'+
-        '<div class="rez-pwd-head">'+
-          '<span class="rez-pwd-ico">&#128274;</span>'+
-          '<div><div class="rez-pwd-title">Vytvořte si přístupové heslo</div>'+
-          '<p class="rez-pwd-sub">Pro úpravu rezervace a přihlášení do aplikace MotoGo24. Min. 8 znaků.</p></div>'+
-        '</div>'+
-        '<div class="rez-pwd-grid">'+
-          '<input type="password" id="rez-password" class="rez-input" name="new-password" placeholder="* Heslo (min. 8 znaků)" required autocomplete="new-password" minlength="8">'+
-          '<input type="password" id="rez-password-confirm" class="rez-input" name="new-password" placeholder="* Potvrzení hesla" required autocomplete="new-password" minlength="8">'+
-        '</div>'+
-      '</div>'+
+      (MG._rez._passwordSet ?
+        '<div class="rez-section-banner" style="background:#f0faf5;border:1px solid #d4e8e0;border-radius:10px;padding:.85rem 1rem;display:flex;align-items:center;gap:.75rem">'+
+          '<span style="font-size:1.4rem">&#10004;</span>'+
+          '<div><strong>Heslo je nastavené</strong>'+
+          '<div style="font-size:.85rem;color:#555">Použijete ho pro přihlášení do aplikace MotoGo24 a úpravu rezervace.</div></div>'+
+        '</div>'
+      :
+        '<div class="rez-pwd-section">'+
+          '<div class="rez-pwd-head">'+
+            '<span class="rez-pwd-ico">&#128274;</span>'+
+            '<div><div class="rez-pwd-title">Vytvořte si přístupové heslo</div>'+
+            '<p class="rez-pwd-sub">Pro úpravu rezervace a přihlášení do aplikace MotoGo24. Min. 8 znaků.</p></div>'+
+          '</div>'+
+          '<div class="rez-pwd-grid">'+
+            '<input type="password" id="rez-password" class="rez-input" name="new-password" placeholder="* Heslo (min. 8 znaků)" required autocomplete="new-password" minlength="8">'+
+            '<input type="password" id="rez-password-confirm" class="rez-input" name="new-password" placeholder="* Potvrzení hesla" required autocomplete="new-password" minlength="8">'+
+          '</div>'+
+        '</div>'
+      )+
       qrSectionMarkup+
     '</section>'
     )+
@@ -787,6 +798,11 @@ MG._rezShowStep2 = function(){
   MG._rezInitLicenseUI();
   MG._rezInitGallery();
   MG._rezRefreshInvoice();
+  // Auto-persist sekce 1 (doklady) + sekce 3 (heslo) na PC, aby zákazník po
+  // QR scanu na mobilu viděl vyplněná pole. Idempotentní, jen na desktopu.
+  if(typeof MG._rezBindStep2AutoPersist === 'function'){
+    try { MG._rezBindStep2AutoPersist(); } catch(e){ console.warn('[REZ] step2 auto-persist bind failed:', e); }
+  }
   // Lazy-load products and render upsell section (i v resume — viz Section 4 výše)
   MG._rezLoadProducts().then(function(){ MG._rezRefreshShopUi(); });
   // PC ↔ mobil realtime mirror: po platbě na mobilu PC redirect na děkovací stránku

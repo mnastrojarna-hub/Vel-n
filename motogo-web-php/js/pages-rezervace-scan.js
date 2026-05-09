@@ -208,6 +208,126 @@ MG._rezPersistDocs = async function(idNumber, licenseNumber, licenseGroup, licen
   return true;
 };
 
+// ===== AUTO-PERSIST STEP 2 (PC desktop) =====
+// Když zákazník na PC v kroku 2 vyplní sekci 1 (doklady) + sekci 3 (heslo)
+// a pak naskenuje QR pro pokračování na mobilu, mobil přes get_web_booking_resume
+// načte jen to, co je v DB. Bez auto-persistu se doklady i heslo ukládají
+// až při kliknutí na „Pokračovat k platbě" → mobil je nevidí a zákazník je
+// musí vypisovat znovu.
+//
+// Tato funkce se pokusí persistnout do DB jakmile jsou všechna povinná pole
+// validní. Idempotentní — flag `_step2AutoPersistPending` zabrání souběhu,
+// `_step2AutoPersistedKey` brání zbytečným opakovaným zápisům při dalším
+// blur eventu pro stejné hodnoty.
+MG._rezAutoPersistStep2 = async function(){
+  // Resume režim na mobilu: když má vrácený `has_password=true`, sekci 3
+  // vůbec nerenderujeme — nic není co persist. Ostatní sekce už persist
+  // dělá _rezPersistDocs až v Mindee/pay flow (mobil i tak přes Mindee).
+  if(MG._isMobile && MG._isMobile()) return;
+  if(!MG._rez || !MG._rez.bookingId || !MG._rez.userId) return;
+  if(MG._rez._step2AutoPersistPending) return;
+
+  var docNum   = document.getElementById('rez-doc-number');
+  var licNum   = document.getElementById('rez-license-number');
+  var licGroup = document.getElementById('rez-license-group');
+  var licExpiry= document.getElementById('rez-license-expiry');
+  var pwd      = document.getElementById('rez-password');
+  var pwdC     = document.getElementById('rez-password-confirm');
+
+  // Když step 3 nezobrazujeme (banner „Heslo nastaveno"), heslo už máme v DB
+  // — persist doklady v běžném _rezSubmitPayment flow stačí. Tady auto-persist
+  // přeskočíme, protože bez password fieldu nemůžeme volat set_web_booking_password.
+  if(!pwd || !pwdC) return;
+
+  var lg = (licGroup && licGroup.value) || '';
+  var isNoLic = (lg === 'N');
+
+  // Validace doc + license
+  if(!docNum || !docNum.value) return;
+  if(!lg) return;
+  if(!isNoLic){
+    if(!licNum || !licNum.value || licNum.value.trim().length < 4) return;
+    if(!licExpiry || !licExpiry.value) return;
+    if(typeof MG._isLicenseExpiryValid === 'function' && !MG._isLicenseExpiryValid(licExpiry.value)) return;
+  }
+  // Validace hesla
+  if(!pwd.value || pwd.value.length < 8) return;
+  if(!pwdC.value || pwd.value !== pwdC.value) return;
+
+  // Klíč pro deduplikaci — když uživatel po persistu změní třeba heslo,
+  // pustíme persist znovu (set_web_booking_password update přepíše password).
+  var key = [docNum.value, isNoLic?'':licNum.value, lg, isNoLic?'':licExpiry.value, pwd.value].join('|');
+  if(MG._rez._step2AutoPersistedKey === key) return;
+
+  MG._rez._step2AutoPersistPending = true;
+  MG._rez._password = pwd.value;
+  // _rezPersistDocs respektuje `_passwordSet` flag a přeskočí
+  // set_web_booking_password při druhém volání. Pro update hesla resetneme.
+  if(key !== MG._rez._step2AutoPersistedKey){
+    MG._rez._passwordSet = false;
+  }
+  if(MG._rez.formData){
+    MG._rez.formData._licGroup  = lg;
+    MG._rez.formData._licExpiry = isNoLic ? null : licExpiry.value;
+  }
+  MG._rez._docNumber     = docNum.value;
+  MG._rez._licenseNumber = isNoLic ? null : licNum.value;
+
+  try {
+    await MG._rezPersistDocs(
+      docNum.value,
+      isNoLic ? null : licNum.value,
+      lg,
+      isNoLic ? null : licExpiry.value
+    );
+    MG._rez._docsValidated = true;
+    MG._rez._step2AutoPersistedKey = key;
+    console.log('[REZ] auto-persist step 2 OK — doklady + heslo uloženy do DB pro QR resume');
+  } catch(e){
+    console.warn('[REZ] auto-persist step 2 failed:', e);
+  } finally {
+    MG._rez._step2AutoPersistPending = false;
+  }
+};
+
+// Připojí blur/change listenery na inputy sekce 1 (doklady) a sekce 3 (heslo)
+// kroku 2. Voláno z `_rezShowStep2`. Idempotentní přes data-attribute.
+MG._rezBindStep2AutoPersist = function(){
+  if(MG._isMobile && MG._isMobile()) return; // jen PC desktop
+  var trigger = function(){
+    // mikro-debounce, ať nevoláme persist 2× při tab-out na další pole
+    if(MG._rez._step2AutoPersistTimer) clearTimeout(MG._rez._step2AutoPersistTimer);
+    MG._rez._step2AutoPersistTimer = setTimeout(function(){
+      MG._rezAutoPersistStep2();
+    }, 250);
+  };
+  ['rez-doc-number','rez-license-number','rez-password','rez-password-confirm'].forEach(function(id){
+    var el = document.getElementById(id);
+    if(!el || el.dataset.autoPersistBound === '1') return;
+    el.dataset.autoPersistBound = '1';
+    el.addEventListener('blur', trigger);
+  });
+  var lc = document.getElementById('rez-license-confirm');
+  if(lc && lc.dataset.autoPersistBound !== '1'){
+    lc.dataset.autoPersistBound = '1';
+    lc.addEventListener('change', trigger);
+  }
+  // License group chips — applyGroup() v _rezInitLicenseUI nastaví hidden value
+  // synchronně, persist necháme až po malém timeoutu, aby další pole stihla blur.
+  document.querySelectorAll('#rez-license-group-chips .lic-chip').forEach(function(c){
+    if(c.dataset.autoPersistBound === '1') return;
+    c.dataset.autoPersistBound = '1';
+    c.addEventListener('click', trigger);
+  });
+  // Datum platnosti ŘP — 3× select
+  ['rez-lic-day','rez-lic-month','rez-lic-year'].forEach(function(id){
+    var s = document.getElementById(id);
+    if(!s || s.dataset.autoPersistBound === '1') return;
+    s.dataset.autoPersistBound = '1';
+    s.addEventListener('change', trigger);
+  });
+};
+
 // ===== MINDEE STEP (mobile: mandatory, desktop: optional) =====
 MG._rezShowMindeeStep = async function(){
   // ── Validace doc + license fields — jen pokud nejsou už uložené v profilu ──
