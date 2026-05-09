@@ -148,7 +148,7 @@ function normalizeMoto(&$m) {
     $stringFields = [
         'id','model','brand','description','category','engine_cc','engine_type',
         'transmission','drivetrain','fuel_consumption_l100km','ideal_usage',
-        'manual_url','color','year','power_kw','power_hp','torque_nm',
+        'manual_url','manual_external_url','color','year','power_kw','power_hp','torque_nm',
         'top_speed_kmh','fuel_type','fuel_tank_l','brake_type','weight_kg',
         'seat_height_mm','seats_count','license_required','min_rental_days',
         'max_rental_days','image_url','status','suitable_for',

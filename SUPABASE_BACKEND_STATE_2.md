@@ -132,6 +132,7 @@
 - weight_kg (INTEGER), seat_height_mm (TEXT)
 - license_required, has_abs, has_asc
 - description, ideal_usage, features, manual_url
+- **manual_external_url** (TEXT) — externí URL na návod (např. stránka výrobce); použije se pouze pokud není nahrán PDF (`manual_url` je prázdný). PDF má vždy přednost.
 - engine_type, power_hp
 - **branch_id** — pobočka (FK→branches)
 - **category** — kategorie motorky

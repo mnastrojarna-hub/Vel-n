@@ -18,6 +18,9 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
   const [migrating, setMigrating] = useState(false)
   const [manualUrl, setManualUrl] = useState(null)
   const [uploadingManual, setUploadingManual] = useState(false)
+  const [externalUrl, setExternalUrl] = useState(moto.manual_external_url || '')
+  const [savingExternal, setSavingExternal] = useState(false)
+  const [externalError, setExternalError] = useState('')
   const [sosIncidents, setSosIncidents] = useState([])
   const unit = moto.tracking_unit || 'km'
   const unitLabel = unit === 'mh' ? 'MH' : 'km'
@@ -81,6 +84,31 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
     await supabase.storage.from('media').upload(`motos/${moto.id}/manual/${file.name}`, file)
     await loadManual()
     setUploadingManual(false)
+  }
+
+  async function handleManualDelete() {
+    if (!confirm('Opravdu smazat nahraný PDF návod?')) return
+    setUploadingManual(true)
+    const { data: old } = await supabase.storage.from('media').list(`motos/${moto.id}/manual`)
+    if (old?.length) await supabase.storage.from('media').remove(old.map(f => `motos/${moto.id}/manual/${f.name}`))
+    await supabase.from('motorcycles').update({ manual_url: null }).eq('id', moto.id)
+    setManualUrl(null)
+    setUploadingManual(false)
+  }
+
+  async function handleExternalSave() {
+    setExternalError('')
+    const trimmed = (externalUrl || '').trim()
+    if (trimmed && !/^https?:\/\//i.test(trimmed)) {
+      setExternalError('URL musí začínat http:// nebo https://')
+      return
+    }
+    setSavingExternal(true)
+    const { error: updErr } = await supabase.from('motorcycles')
+      .update({ manual_external_url: trimmed || null }).eq('id', moto.id)
+    setSavingExternal(false)
+    if (updErr) { setExternalError(updErr.message); return }
+    if (!trimmed) setExternalUrl('')
   }
 
   async function handleMigrate() {
@@ -261,23 +289,63 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
           </div>
         </div>
 
-        {/* Manual upload */}
-        <div className="mt-5 p-3 rounded-lg" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Návod k motorce (PDF)</span>
-            <label className="rounded-btn text-sm font-extrabold cursor-pointer"
-              style={{ padding: '4px 14px', background: '#dbeafe', color: '#2563eb' }}>
-              {uploadingManual ? 'Nahrávám...' : manualUrl ? 'Aktualizovat' : '+ Nahrát'}
-              <input type="file" accept=".pdf" onChange={handleManualUpload} className="hidden" />
-            </label>
-            {manualUrl && (
-              <a href={manualUrl} target="_blank" rel="noopener noreferrer"
-                className="text-sm font-bold underline" style={{ color: '#1a8a18' }}>
-                Zobrazit PDF ↗
-              </a>
-            )}
+        {/* Manual — PDF nebo externí URL (PDF má přednost) */}
+        <div className="mt-5 p-3 rounded-lg space-y-3" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
+          <div>
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Návod k motorce (PDF)</span>
+              <label className="rounded-btn text-sm font-extrabold cursor-pointer"
+                style={{ padding: '4px 14px', background: '#dbeafe', color: '#2563eb' }}>
+                {uploadingManual ? 'Nahrávám...' : manualUrl ? 'Aktualizovat' : '+ Nahrát'}
+                <input type="file" accept=".pdf" onChange={handleManualUpload} className="hidden" />
+              </label>
+              {manualUrl && (
+                <>
+                  <a href={manualUrl} target="_blank" rel="noopener noreferrer"
+                    className="text-sm font-bold underline" style={{ color: '#1a8a18' }}>
+                    Zobrazit PDF ↗
+                  </a>
+                  <button type="button" onClick={handleManualDelete} disabled={uploadingManual}
+                    className="rounded-btn text-sm font-extrabold cursor-pointer"
+                    style={{ padding: '4px 10px', background: '#fee2e2', color: '#dc2626', border: 'none' }}>
+                    Smazat
+                  </button>
+                </>
+              )}
+            </div>
           </div>
-          <p className="text-sm mt-1" style={{ color: '#1a2e22' }}>Návod se zobrazí zákazníkům na webu i v aplikaci.</p>
+
+          <div className="border-t pt-3" style={{ borderColor: '#d4e8e0' }}>
+            <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>
+              Externí odkaz na návod
+            </label>
+            <div className="flex items-center gap-2 flex-wrap">
+              <input type="url" value={externalUrl} onChange={e => setExternalUrl(e.target.value)}
+                placeholder="https://www.priklad-vyrobce.cz/manual.html"
+                className="flex-1 min-w-[260px] rounded-btn text-sm outline-none"
+                style={{ padding: '8px 12px', background: '#fff', border: '1px solid #d4e8e0', color: '#0f1a14' }} />
+              <button type="button" onClick={handleExternalSave} disabled={savingExternal}
+                className="rounded-btn text-sm font-extrabold cursor-pointer"
+                style={{ padding: '8px 14px', background: '#74FB71', color: '#1a2e22', border: 'none' }}>
+                {savingExternal ? 'Ukládám…' : 'Uložit URL'}
+              </button>
+              {moto.manual_external_url && (
+                <a href={moto.manual_external_url} target="_blank" rel="noopener noreferrer"
+                  className="text-sm font-bold underline" style={{ color: '#1a8a18' }}>
+                  Otevřít ↗
+                </a>
+              )}
+            </div>
+            {externalError && <p className="text-sm mt-1" style={{ color: '#dc2626' }}>{externalError}</p>}
+          </div>
+
+          <p className="text-sm" style={{ color: '#1a2e22' }}>
+            Pokud je nahráno <strong>PDF</strong>, zobrazí se zákazníkům jako návod ke stažení. Pokud PDF není, použije se <strong>externí odkaz</strong>. {manualUrl
+              ? <span style={{ color: '#1a8a18' }}>Aktivní zdroj: PDF.</span>
+              : moto.manual_external_url
+                ? <span style={{ color: '#1a8a18' }}>Aktivní zdroj: externí odkaz.</span>
+                : <span style={{ color: '#b45309' }}>Žádný návod není nastaven.</span>}
+          </p>
         </div>
 
         <PhotoGallery motoId={moto.id} />

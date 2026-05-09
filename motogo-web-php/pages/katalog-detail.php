@@ -220,8 +220,10 @@ if (!empty($moto['ideal_usage'])) $specsRows[] = [t('detail.specIdealFor'), $mot
 // Popis — na celý řádek nahoře (desktop i mobil)
 $descSpecsHtml = '<section class="moto-desc-block">';
 $descSpecsHtml .= '<h2>' . te('detail.descTitle') . '</h2><p>' . htmlspecialchars($motoDesc !== '' ? $motoDesc : ($moto['model'] ?? '')) . '</p>';
-if (!empty($moto['manual_url'])) {
-    $descSpecsHtml .= '<p>&nbsp;</p><p><a class="btn btngreen" href="' . htmlspecialchars($moto['manual_url']) . '" target="_blank" rel="noopener">' . te('detail.userManual') . '</a></p>';
+// Návod: PDF (manual_url ze storage) má přednost před externím odkazem (manual_external_url).
+$manualHref = !empty($moto['manual_url']) ? $moto['manual_url'] : (!empty($moto['manual_external_url']) ? $moto['manual_external_url'] : '');
+if ($manualHref !== '') {
+    $descSpecsHtml .= '<p>&nbsp;</p><p><a class="btn btngreen" href="' . htmlspecialchars($manualHref) . '" target="_blank" rel="noopener">' . te('detail.userManual') . '</a></p>';
 }
 $descSpecsHtml .= '</section>';
 
