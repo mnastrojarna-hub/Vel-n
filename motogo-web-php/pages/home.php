@@ -191,9 +191,13 @@ $heroImgUrl = BASE_URL . '/' . ltrim($hero['image'], '/');
 $heroWebp = preg_replace('/\.(png|jpg|jpeg)$/i', '.webp', $heroImgUrl);
 $ctaP = $hero['cta_primary'];
 $ctaS = $hero['cta_secondary'];
+// Responsive srcset varianty pro hero — mobile sahne pro 480w (10 KB)
+// misto plnych 146 KB. Soubory generovany v repo, viz commit hero-resize.
+$heroBase = preg_replace('/\.webp$/i', '', $heroWebp);
+$heroSrcset = $heroBase . '-480.webp 480w, ' . $heroBase . '-768.webp 768w, ' . $heroBase . '-1500.webp 1500w, ' . $heroWebp . ' 1920w';
 $bannerHtml = '<div class="banner">' .
     '<picture>' .
-        '<source srcset="' . htmlspecialchars($heroWebp) . '" type="image/webp" sizes="(max-width:480px) 100vw,(max-width:1024px) 100vw,1920px">' .
+        '<source srcset="' . htmlspecialchars($heroSrcset) . '" type="image/webp" sizes="100vw">' .
         '<img fetchpriority="high" decoding="async" alt="' . htmlspecialchars($hero['alt']) . '" src="' . htmlspecialchars($heroImgUrl) . '" width="1920" height="480">' .
     '</picture>' .
     '<div class="banner-wrapper"><div class="container"><div class="banner-caption">' .
