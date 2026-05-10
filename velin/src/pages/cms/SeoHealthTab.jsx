@@ -15,36 +15,66 @@ import { analyzeSeo, severityColor, severityLabel, scoreColor } from '../../lib/
 // Cil: dat adminu jasny todo seznam co konkretne na webu opravit pred dalsim
 // SEO crawlem. Pri zelene barve = stranka v poradku.
 
+// Vsechny field defaulty z WEB_PAGES — pouzity pro 'Promote vse na zelene'
+const ALL_FIELDS = WEB_PAGES.flatMap(p => (p.sections || []).flatMap(s => s.fields || []))
+
 export default function SeoHealthTab({ onJumpToText }) {
   const [variables, setVariables] = useState({})
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all') // all | critical | important | tip | ok
   const [search, setSearch] = useState('')
+  const [seeding, setSeeding] = useState(false)
+  const [seedResult, setSeedResult] = useState(null)
+
+  async function loadVariables() {
+    const { data, error } = await supabase
+      .from('cms_variables')
+      .select('key, value')
+    if (error) {
+      console.error('SEO Health: cms_variables load error', error)
+      return
+    }
+    const map = {}
+    ;(data || []).forEach(row => {
+      if (row.key && typeof row.value === 'string') map[row.key] = row.value
+    })
+    setVariables(map)
+  }
 
   useEffect(() => {
     let cancelled = false
-    async function load() {
+    ;(async () => {
       setLoading(true)
-      // Nacti vsechny cms_variables s prefix 'web.' (struktura podle stranek)
-      const { data, error } = await supabase
-        .from('cms_variables')
-        .select('key, value')
-      if (cancelled) return
-      if (error) {
-        console.error('SEO Health: cms_variables load error', error)
-        setLoading(false)
-        return
-      }
-      const map = {}
-      ;(data || []).forEach(row => {
-        if (row.key && typeof row.value === 'string') map[row.key] = row.value
-      })
-      setVariables(map)
-      setLoading(false)
-    }
-    load()
+      await loadVariables()
+      if (!cancelled) setLoading(false)
+    })()
     return () => { cancelled = true }
   }, [])
+
+  // Hromadne ulozeni vsech default textu do DB ktere zatim chybi (sede -> zelene).
+  // Existujici hodnoty zustavaji (ON CONFLICT DO NOTHING ekvivalent — filter !values[f.key]).
+  async function promoteAllDefaults() {
+    if (!confirm('Uloží všechny výchozí (šedé) texty do DB. Existující ručně upravené (zelené) texty zůstanou beze změny. Pokračovat?')) return
+    setSeeding(true)
+    setSeedResult(null)
+    const missing = ALL_FIELDS.filter(f => !variables[f.key] && f.default != null && f.default !== '')
+    let inserted = 0, failed = 0
+    for (let i = 0; i < missing.length; i += 50) {
+      const batch = missing.slice(i, i + 50).map(f => ({
+        key: f.key, value: String(f.default), category: 'web'
+      }))
+      const { error } = await supabase.from('cms_variables').insert(batch)
+      if (error) {
+        console.error('Promote batch error', error)
+        failed += batch.length
+      } else {
+        inserted += batch.length
+      }
+    }
+    await loadVariables()
+    setSeedResult({ inserted, failed, total: missing.length })
+    setSeeding(false)
+  }
 
   // Pro kazdou stranku spocti SEO score
   const reports = useMemo(() => {
@@ -131,6 +161,52 @@ export default function SeoHealthTab({ onJumpToText }) {
         „Texty webu" a otevře pole co potřebuje doplnit.
         Po opravě se score automaticky aktualizuje.
       </div>
+
+      {/* Promote defaults — bulk save vsech default textu do DB */}
+      {(() => {
+        const missingCount = ALL_FIELDS.filter(f => !variables[f.key] && f.default != null && f.default !== '').length
+        if (missingCount === 0 && !seedResult) return null
+        return (
+          <div style={{
+            background: '#fffbeb', padding: 14, borderRadius: 8, marginBottom: 16,
+            borderLeft: '4px solid #f59e0b', display: 'flex', alignItems: 'center', gap: 12
+          }}>
+            <div style={{ flex: 1 }}>
+              {seedResult ? (
+                <div>
+                  <strong style={{ color: '#16a34a' }}>✓ Uloženo!</strong>{' '}
+                  Promotnuto {seedResult.inserted} výchozích textů do DB.
+                  {seedResult.failed > 0 && <span style={{ color: '#dc2626' }}> {seedResult.failed} chyb.</span>}
+                  {' '}Stránky byly aktualizovány — texty se nyní zobrazují jako zelené (uložené).
+                </div>
+              ) : (
+                <div>
+                  <strong>📌 {missingCount} výchozích textů ještě není v DB</strong> (zobrazují se ve Velíně jako <span style={{ color: '#6b7a72' }}>šedé</span>).
+                  <br />
+                  <span style={{ fontSize: 12, color: '#6b7a72' }}>
+                    Texty na webu fungují normálně (PHP fallback), ale pro inline-edit přes overlay
+                    a propagaci do CMS overlay-mergeru je doporučeno je uložit do DB.
+                    Klik níže = bulk INSERT, existující ručně upravené texty se NEPŘEPÍŠOU.
+                  </span>
+                </div>
+              )}
+            </div>
+            {!seedResult && (
+              <button
+                onClick={promoteAllDefaults}
+                disabled={seeding}
+                className="rounded-btn cursor-pointer"
+                style={{
+                  padding: '10px 18px', background: '#1a2e22', color: '#74FB71', border: 'none',
+                  fontWeight: 800, fontSize: 13, textTransform: 'uppercase', whiteSpace: 'nowrap'
+                }}
+              >
+                {seeding ? 'Ukládám…' : `Uložit ${missingCount} textů → zelené`}
+              </button>
+            )}
+          </div>
+        )
+      })()}
 
       {/* Tabulka stranek */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
