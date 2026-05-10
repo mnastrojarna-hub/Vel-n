@@ -69,7 +69,7 @@ function renderHeader($currentPath = '/') {
             '</div>' .
         '</div></div>' .
         '<div class="header"><div class="container dfcs">' .
-            '<div class="header-logo"><a href="' . BASE_URL . '/" aria-label="Motogo24"><img src="' . BASE_URL . '/' . LOGO_SVG . '" alt="' . te('header.logoAlt') . '" loading="lazy"></a></div>' .
+            '<div class="header-logo"><a href="' . BASE_URL . '/" aria-label="Motogo24"><img src="' . BASE_URL . '/' . LOGO_SVG . '" alt="' . te('header.logoAlt') . '" loading="eager" fetchpriority="high" width="168" height="44"></a></div>' .
             '<div class="header-menu dfje">' .
                 '<button class="nav-toggle" aria-label="' . te('header.menuOpen') . '" aria-expanded="false" aria-controls="mobile-menu" onclick="(function(){var m=document.getElementById(\'mobile-menu\');var open=!m.classList.contains(\'open\');m.classList.toggle(\'open\',open);document.body.classList.toggle(\'menu-open\',open);this.setAttribute(\'aria-expanded\',open?\'true\':\'false\');}).call(this)">' . tc('header.menuToggle') . '</button>' .
                 '<nav id="mobile-menu" class="mobile-menu-overlay" aria-label="' . te('header.menuLabel') . '">' .
@@ -99,7 +99,7 @@ function renderFooter() {
 
     return '<footer id="footer"><div class="container"><div class="gr4">' .
         '<div>' .
-            '<p><a href="' . BASE_URL . '/" aria-label="Motogo24"><img src="' . BASE_URL . '/' . LOGO_SVG . '" alt="Motogo24" loading="lazy"></a></p><p>&nbsp;</p>' .
+            '<p><a href="' . BASE_URL . '/" aria-label="Motogo24"><img src="' . BASE_URL . '/' . LOGO_SVG . '" alt="Motogo24" loading="lazy" width="168" height="44"></a></p><p>&nbsp;</p>' .
             '<p>' . tcRaw('footer.aboutText') . '</p>' .
         '</div>' .
         '<div><h3>' . tc('footer.aboutTitle') . '</h3><ul>' . $menuHtml . '</ul></div>' .
@@ -545,10 +545,9 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
   }
   </script>' . $breadcrumbSchema . $speakableSchema . ($extraSchema ? "\n" . $extraSchema : '') . '
 
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preconnect" href="' . SUPABASE_URL . '" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,300..900;1,300..900&display=swap" rel="stylesheet">';
+  <link rel="preload" href="' . assetUrl('/gfx/fonts/montserrat-vf-latin-ext.woff2') . '" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="' . assetUrl('/css/fonts.css') . '">';
 
     foreach ($preload as $p) {
         $attrs = '';
@@ -559,7 +558,17 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
   <link rel="preload"' . $attrs . '>';
     }
 
+    // Critical CSS — inline above-the-fold rezervace prostoru pro banner.
+    // Bez tohoto by browser pred nactenim main.css pouzil width/height attrs
+    // hero <img> (1920x480 = 4:1), na mobilu ~360x90, pak by main.css zvedl
+    // banner na 380px → CLS 0.241. Inline blok zaridi rezervaci hned.
     echo '
+  <style>
+body{font-family:Montserrat,"Segoe UI",sans-serif;margin:0;color:#1a2e22;background:#fff}
+.banner{position:relative;width:100%;min-height:380px;overflow:hidden;background:#1a3a2a}
+.banner>picture,.banner>picture>img,.banner>img{width:100%;height:380px;object-fit:cover;display:block}
+@media(min-width:769px){.banner{min-height:480px}.banner>picture,.banner>picture>img,.banner>img{height:480px}}
+  </style>
   <link rel="stylesheet" href="' . assetUrl('/css/main.css') . '">
   <link rel="stylesheet" href="' . assetUrl('/css/pages.css') . '">
 </head>
