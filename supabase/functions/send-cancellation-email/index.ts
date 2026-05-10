@@ -168,7 +168,7 @@ serve(async (req) => {
     // booking, který už storno mail dostal (cancel_booking_tracked nebo Stripe portal).
     // Pokud se mail za posledních 30 min úspěšně odeslal, druhý nepošleme.
     // Force=true v body request přepíše idempotency (admin manuální dotaz "pošli znovu").
-    const force = (body as any).force === true
+    const force = (reqBody as any).force === true
     if (booking_id && !force) {
       try {
         const { data: existing } = await supabase.from('sent_emails')
