@@ -191,6 +191,7 @@ if (typeof MG.t !== "function") {
 </script>
 <script src="' . assetUrl('/js/supabase-sdk.js') . '"></script>
 <script src="' . assetUrl('/js/supabase-init.js') . '"></script>
+<script src="' . assetUrl('/js/auth-idle-logout.js') . '"></script>
 <script src="' . assetUrl('/js/api.js') . '"></script>
 <script src="' . assetUrl('/js/components.js') . '"></script>
 <script src="' . assetUrl('/js/pages-rezervace-calendar.js') . '"></script>

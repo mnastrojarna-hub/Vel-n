@@ -13,11 +13,11 @@ const SAMPLE_VARS = {
   booking_number: 'A1B2C3D4', customer_name: ' Jan Novák', moto_model: 'BMW R 1200 GS Adventure',
   motorcycle: 'BMW R 1200 GS Adventure', start_date: '15. 6. 2026', end_date: '18. 6. 2026',
   total_price: '7 800', pickup_location: 'Mezná 9, 393 01 Mezná',
-  resume_link: 'https://motogo24.cz/#/rezervace?resume=abc123',
+  resume_link: 'https://www.motogo24.cz/#/rezervace?resume=abc123',
   voucher_code: 'MGABC123 (3 000 Kč)', voucher_amount: '3 000', voucher_value: '3 000',
   voucher_expiry: '15. 6. 2029', order_number: 'OBJ-2026-01001', discount_code: 'DIKY200',
   google_review_url: 'https://g.page/MotoGo24/review', facebook_review_url: 'https://facebook.com/MotoGo24/reviews',
-  site_url: 'https://motogo24.cz', price_difference: '-1 200',
+  site_url: 'https://www.motogo24.cz', price_difference: '-1 200',
   // Invoice email vars
   invoice_number: 'ZF-2026-0001', invoice_type: 'Zálohová faktura',
   issue_date: '15. 6. 2026', due_date: '29. 6. 2026', variable_symbol: 'ZF-2026-0001',
@@ -196,7 +196,7 @@ function wrapPreview(bodyHtml) {
 <body style="margin:0;padding:0;background:#d9dee2;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#0f1a14;-webkit-font-smoothing:antialiased">
   <div style="max-width:780px;margin:0 auto;background:#ffffff">
     <div style="background:#000000;padding:36px 24px;text-align:center">
-      <img src="https://motogo24.cz/gfx/logo-icon.png" alt="MotoGo24" width="110" height="110" style="display:inline-block;border:0;margin-bottom:16px"/>
+      <img src="https://www.motogo24.cz/gfx/logo-icon.png" alt="MotoGo24" width="110" height="110" style="display:inline-block;border:0;margin-bottom:16px"/>
       <div style="color:#ffffff;font-size:32px;font-weight:900;letter-spacing:3px;line-height:1">MOTO GO 24</div>
       <div style="color:#ffffff;font-size:11px;font-weight:400;letter-spacing:6px;margin-top:8px">PŮJČOVNA MOTOREK</div>
     </div>
@@ -220,7 +220,7 @@ function wrapPreview(bodyHtml) {
           </div>
         </td>
         <td style="vertical-align:top;width:130px;text-align:center">
-          <a href="https://motogo24.cz" style="text-decoration:none"><img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&amp;margin=8&amp;data=https%3A%2F%2Fmotogo24.cz" alt="motogo24.cz" width="120" height="120" style="display:block;background:#ffffff;padding:6px;border-radius:4px"/></a>
+          <a href="https://www.motogo24.cz" style="text-decoration:none"><img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&amp;margin=8&amp;data=https%3A%2F%2Fmotogo24.cz" alt="motogo24.cz" width="120" height="120" style="display:block;background:#ffffff;padding:6px;border-radius:4px"/></a>
           <div style="color:#9ca3af;font-size:10px;margin-top:6px">motogo24.cz</div>
         </td>
       </tr></table>

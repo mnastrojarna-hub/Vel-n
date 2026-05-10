@@ -12,6 +12,7 @@ export default function RichTextEditor({
   onChange,
   placeholder = 'Začněte psát…',
   minHeight = 300,
+  maxHeight = null, // pokud zadáno, contenteditable má vlastní scroll a toolbar zůstává nahoře
   variables = null, // volitelné: pole {label, value} tlačítek pro vložení proměnné
 }) {
   const editorRef = useRef(null)
@@ -43,7 +44,11 @@ export default function RichTextEditor({
   const exec = useCallback((cmd, val = null) => {
     editorRef.current?.focus()
     try {
+      // styleWithCSS=true → foreColor/hiliteColor produce <span style> instead of <font>
+      try { document.execCommand('styleWithCSS', false, true) } catch (_) {}
       document.execCommand(cmd, false, val)
+      // Browsers may still emit <b>/<i>/<font>; normalize to semantic tags.
+      replaceLegacyTags(editorRef.current)
     } catch (_) { /* ignore */ }
     emit()
   }, [emit])
@@ -107,12 +112,13 @@ export default function RichTextEditor({
     else if ((k === 'z' && e.shiftKey) || k === 'y') { e.preventDefault(); exec('redo') }
   }
 
-  // Lepší paste — bez stylů z Wordu
+  // Lepší paste — bez stylů z Wordu, plain text převedený na odstavce
   const onPaste = (e) => {
-    const text = e.clipboardData?.getData('text/html') || e.clipboardData?.getData('text/plain')
-    if (!text) return
+    const html = e.clipboardData?.getData('text/html')
+    const plain = e.clipboardData?.getData('text/plain')
+    if (!html && !plain) return
     e.preventDefault()
-    const cleaned = sanitizePastedHtml(text)
+    const cleaned = html ? sanitizePastedHtml(html) : plainTextToHtml(plain)
     insertHtml(cleaned)
   }
 
@@ -140,6 +146,7 @@ export default function RichTextEditor({
             border: 'none', borderTop: '1px solid #e2ece7', background: '#0f1a14',
             color: '#a7f3d0', fontFamily: 'ui-monospace,SFMono-Regular,Menlo,monospace',
             fontSize: 12, lineHeight: 1.55,
+            ...(maxHeight ? { maxHeight, overflow: 'auto' } : {}),
           }}
         />
       ) : (
@@ -163,6 +170,7 @@ export default function RichTextEditor({
             lineHeight: 1.6,
             color: '#0f1a14',
             overflowWrap: 'anywhere',
+            ...(maxHeight ? { maxHeight, overflowY: 'auto' } : {}),
           }}
         />
       )}
@@ -229,8 +237,8 @@ function Toolbar({ exec, setBlock, isActive, currentBlock, promptLink, promptIma
 
       <Sep />
 
-      <Btn onClick={() => exec('bold')} active={isActive('bold')} disabled={isHtmlMode} title="Tučně (Ctrl+B)"><b>B</b></Btn>
-      <Btn onClick={() => exec('italic')} active={isActive('italic')} disabled={isHtmlMode} title="Kurzíva (Ctrl+I)"><i>I</i></Btn>
+      <Btn onClick={() => exec('bold')} active={isActive('bold')} disabled={isHtmlMode} title="Tučně (Ctrl+B)"><strong>B</strong></Btn>
+      <Btn onClick={() => exec('italic')} active={isActive('italic')} disabled={isHtmlMode} title="Kurzíva (Ctrl+I)"><em>I</em></Btn>
       <Btn onClick={() => exec('underline')} active={isActive('underline')} disabled={isHtmlMode} title="Podtržení (Ctrl+U)"><span style={{ textDecoration: 'underline' }}>U</span></Btn>
       <Btn onClick={() => exec('strikeThrough')} active={isActive('strikeThrough')} disabled={isHtmlMode} title="Přeškrtnuto"><span style={{ textDecoration: 'line-through' }}>S</span></Btn>
 
@@ -272,10 +280,17 @@ function Toolbar({ exec, setBlock, isActive, currentBlock, promptLink, promptIma
         <select
           defaultValue=""
           onChange={e => { if (e.target.value) insertHtml(e.target.value); e.target.value = '' }}
-          title="Vložit proměnnou"
-          style={{ ...selectStyle, maxWidth: 220 }}
+          title="Vložit proměnnou (placeholder)"
+          style={{
+            ...selectStyle,
+            maxWidth: 240,
+            background: '#74FB71',
+            color: '#0f1a14',
+            border: '1px solid #5fdc5c',
+            fontWeight: 800,
+          }}
         >
-          <option value="">+ Proměnná…</option>
+          <option value="">+ Proměnná ({variables.length})</option>
           {variables.map(v => (
             <option key={v.value} value={v.value}>{v.label}</option>
           ))}
@@ -351,7 +366,7 @@ const wrapStyle = {
   border: '1px solid #d4e8e0',
   borderRadius: 12,
   background: '#fff',
-  overflow: 'hidden',
+  position: 'relative',
 }
 
 const toolbarStyle = {
@@ -362,6 +377,11 @@ const toolbarStyle = {
   padding: 6,
   background: '#f1faf7',
   borderBottom: '1px solid #e2ece7',
+  borderTopLeftRadius: 12,
+  borderTopRightRadius: 12,
+  position: 'sticky',
+  top: 0,
+  zIndex: 5,
 }
 
 const selectStyle = {
@@ -376,13 +396,15 @@ const selectStyle = {
   minWidth: 90,
 }
 
+// Shared CSS pro editor i preview iframe — co vidíš v editoru = co se vyrenderuje
+// jako PDF přes PDFShift. Exportováno přes `rteContentCss` níž.
 const rteCss = `
 .rte-content:empty:before {
   content: attr(data-placeholder);
   color: #9ab3a5;
   pointer-events: none;
 }
-.rte-content { tab-size: 4; }
+.rte-content { tab-size: 4; font-family: 'Segoe UI', system-ui, sans-serif; font-size: 14px; line-height: 1.6; color: #0f1a14; }
 .rte-content p { margin: 0 0 10px; }
 .rte-content h1 { font-size: 1.8em; font-weight: 800; margin: 14px 0 8px; }
 .rte-content h2 { font-size: 1.45em; font-weight: 800; margin: 12px 0 6px; }
@@ -406,7 +428,51 @@ const rteCss = `
 .rte-content table td, .rte-content table th { border: 1px solid #d4e8e0; padding: 4px 8px; }
 `
 
+// Export CSS pravidel + helper, který obalí HTML obsah do plného dokumentu pro
+// `iframe srcDoc`, takže náhled vypadá identicky jako editor.
+export const rteContentCss = rteCss
+export function buildPreviewHtml(content) {
+  const safe = content || '<p style="color:#9ab3a5">Prázdný obsah</p>'
+  return `<!DOCTYPE html><html lang="cs"><head><meta charset="utf-8"><style>
+html,body { margin: 0; padding: 24px; background: #fff; }
+${rteCss}
+</style></head><body class="rte-content">${safe}</body></html>`
+}
+
 // — utility —
+
+// Konvertuje legacy <b>/<i>/<font> tagy v rámci editovaného uzlu na sémantické
+// <strong>/<em>/<span style>. execCommand v některých prohlížečích produkuje
+// nesémantické tagy i když styleWithCSS=true.
+function replaceLegacyTags(root) {
+  if (!root || !root.querySelectorAll) return
+  const swap = (fromSel, toTag) => {
+    root.querySelectorAll(fromSel).forEach(n => {
+      const r = document.createElement(toTag)
+      while (n.firstChild) r.appendChild(n.firstChild)
+      if (n.getAttribute && n.getAttribute('style')) r.setAttribute('style', n.getAttribute('style'))
+      if (n.getAttribute && n.getAttribute('class')) r.setAttribute('class', n.getAttribute('class'))
+      n.parentNode.replaceChild(r, n)
+    })
+  }
+  swap('b', 'strong')
+  swap('i', 'em')
+  // <font color="#xxx" size="N" face="..." style="..."> → <span style="...">
+  root.querySelectorAll('font').forEach(n => {
+    const span = document.createElement('span')
+    const styles = []
+    const color = n.getAttribute('color')
+    const face = n.getAttribute('face')
+    const inline = n.getAttribute('style')
+    if (color) styles.push('color: ' + color)
+    if (face) styles.push('font-family: ' + face)
+    if (inline) styles.push(inline)
+    if (styles.length) span.setAttribute('style', styles.join('; '))
+    if (n.getAttribute('class')) span.setAttribute('class', n.getAttribute('class'))
+    while (n.firstChild) span.appendChild(n.firstChild)
+    n.parentNode.replaceChild(span, n)
+  })
+}
 
 function escapeHtml(s) {
   return String(s)
@@ -415,6 +481,16 @@ function escapeHtml(s) {
 }
 function escapeAttr(s) {
   return String(s).replace(/"/g, '&quot;')
+}
+
+// Plain text → HTML s odstavci a <br> (zachová zalomení řádků a prázdné řádky)
+function plainTextToHtml(text) {
+  if (!text) return ''
+  const blocks = String(text).replace(/\r\n/g, '\n').split(/\n{2,}/)
+  return blocks.map(b => {
+    const lines = b.split('\n').map(escapeHtml)
+    return `<p>${lines.join('<br>')}</p>`
+  }).join('')
 }
 
 // Velmi jednoduché čištění vloženého HTML — odstraní script/style, MS Office bloat, inline class/id atd.
@@ -430,5 +506,9 @@ function sanitizePastedHtml(html) {
   out = out.replace(/\s+mso-[^=]+="[^"]*"/gi, '')
   // odstraň prázdné spany
   out = out.replace(/<span>\s*<\/span>/gi, '')
+  // legacy nesémantické tagy → sémantické
+  out = out.replace(/<b(\s[^>]*)?>/gi, '<strong>').replace(/<\/b\s*>/gi, '</strong>')
+  out = out.replace(/<i(\s[^>]*)?>/gi, '<em>').replace(/<\/i\s*>/gi, '</em>')
+  out = out.replace(/<font\b[^>]*>/gi, '<span>').replace(/<\/font\s*>/gi, '</span>')
   return out
 }

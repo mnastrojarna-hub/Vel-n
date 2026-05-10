@@ -1,7 +1,7 @@
 // ===== INVOICE HTML TEMPLATE GENERATOR =====
 // Unified design — used for ZF / DP / KF / Shop / Credit note
 
-const SITE_URL = 'https://motogo24.cz'
+const SITE_URL = 'https://www.motogo24.cz'
 const LOGO_URL = `${SITE_URL}/gfx/logo-icon.png`
 const PUBLIC_QR_TARGET = SITE_URL
 const QR_URL = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=8&data=${encodeURIComponent(PUBLIC_QR_TARGET)}`

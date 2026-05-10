@@ -4,7 +4,7 @@
 
 return [
     'h1' => 'Převzetí v půjčovně – rychle, jednoduše a nonstop',
-    'intro' => 'V <strong>Motogo24 – půjčovně motorek na Vysočině</strong>&nbsp;převzetí motorky otázkou pár minut. Půjčujeme bez <strong>kauce, s výbavou pro řidiče v ceně a nonstop provozem</strong>. Přijď osobně do Pelhřimova a vyraz na cestu!',
+    'intro' => 'V <strong>Motogo24 – půjčovně motorek na Vysočině</strong> je převzetí motorky rychlé a jednoduché – otázkou pár minut. Půjčujeme bez kauce, s výbavou pro řidiče v ceně a v nonstop provozu. Přijď osobně do Pelhřimova a vyraz na cestu!',
     'top_cta' => [
         'label' => 'REZERVOVAT ONLINE',
         'href' => '/rezervace',

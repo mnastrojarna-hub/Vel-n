@@ -404,8 +404,8 @@ var CAL_I18N = {
       var bg,color,cursor="default",border="none";
       if(isPast||booked==="occupied"){bg="#444";color="#fff";cursor="not-allowed";}
       else if(booked==="unconfirmed"){bg="#fff";color="#333";cursor="not-allowed";border="2px solid #ccc";}
-      else if(isStart||isEnd){bg="#1a8c1a";color="#fff";cursor="pointer";border="2px solid #fff";}
-      else if(inRange){bg="#1a8c1a";color="#fff";cursor="pointer";}
+      else if(isStart||isEnd){bg="#0d6e0d";color="#fff";cursor="pointer";border="2px solid #fff";}
+      else if(inRange){bg="#0d6e0d";color="#fff";cursor="pointer";}
       else{bg="#74FB71";color="#0b0b0b";cursor="pointer";}
       var canClick=!isPast&&!booked;
       var style="background:"+bg+";color:"+color+";cursor:"+cursor+";border:"+border+";border-radius:12px;";
@@ -463,7 +463,7 @@ $content = '<main id="content"><div class="container">' . $bc .
 // brand, fotky, kategorie ŘP. Schema.org Motorcycle dědí z Vehicle.
 $minPrice = getMinPrice($moto);
 $availability = $isAvailableToday ? 'https://schema.org/InStock' : 'https://schema.org/PreOrder';
-$motoUrl = 'https://motogo24.cz/katalog/' . $motoId;
+$motoUrl = 'https://www.motogo24.cz/katalog/' . $motoId;
 
 // Sbírej všechny obrázky (ne jen mainImg)
 $schemaImages = [];
@@ -474,7 +474,7 @@ if (!empty($moto['images']) && is_array($moto['images'])) {
         if ($u && !in_array($u, $schemaImages, true)) $schemaImages[] = $u;
     }
 }
-if (empty($schemaImages)) $schemaImages[] = 'https://motogo24.cz/gfx/logo.svg';
+if (empty($schemaImages)) $schemaImages[] = 'https://www.motogo24.cz/gfx/logo.svg';
 
 // Per-day pricing → UnitPriceSpecification[]
 $dayMap = ['mon' => 'Monday', 'tue' => 'Tuesday', 'wed' => 'Wednesday', 'thu' => 'Thursday', 'fri' => 'Friday', 'sat' => 'Saturday', 'sun' => 'Sunday'];

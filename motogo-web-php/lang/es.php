@@ -67,7 +67,7 @@ return [
 
     // ===== Cookie consent banner =====
     'cookies.title' => 'Este sitio utiliza cookies',
-    'cookies.intro' => 'Utilizamos cookies para que el sitio funcione y — solo con su consentimiento — para análisis y marketing. El consentimiento es voluntario y puede cambiarlo en cualquier momento en el pie de página. Más en nuestra <a href="/gdpr">Política de privacidad</a>.',
+    'cookies.intro' => 'Utilizamos cookies para que el sitio funcione y — solo con su consentimiento — para análisis y marketing. El consentimiento es voluntario y puede cambiarlo en cualquier momento en el pie de página. Más en nuestra <a href="/dokumenty/zasady-ochrany-osobnich-udaju">Política de privacidad</a>.',
     'cookies.acceptAll' => 'Aceptar todo',
     'cookies.rejectAll' => 'Rechazar',
     'cookies.settings' => 'Configuración',
@@ -291,8 +291,8 @@ return [
     'rez.gear.item.return' => 'Devolución de la moto',
 
     // ===== Reserva — consentimientos =====
-    'rez.agree.terms' => '* Acepto los <a href="/obchodni-podminky">términos y condiciones</a>',
-    'rez.agree.gdpr' => 'Acepto el <a href="/gdpr">tratamiento de datos personales</a>',
+    'rez.agree.terms' => '* Acepto los <a href="/dokumenty/obchodni-podminky">términos y condiciones</a>',
+    'rez.agree.gdpr' => 'Acepto el <a href="/dokumenty/zasady-ochrany-osobnich-udaju">tratamiento de datos personales</a>',
     'rez.agree.marketing' => 'Acepto recibir comunicaciones de marketing',
     'rez.agree.photo' => 'Acepto el uso de fotos con fines de marketing',
 

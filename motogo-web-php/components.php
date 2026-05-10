@@ -27,6 +27,22 @@ function sanitizeHtml($html, $allowIframe = false) {
     $html = preg_replace('#</i\s*>#i', '</em>', $html);
     $html = preg_replace('#<font\b[^>]*>#i', '<span>', $html);
     $html = preg_replace('#</font\s*>#i', '</span>', $html);
+    // SEO: prazdne formatovaci tagy <strong></strong> / <em></em> / <span></span>
+    // (whitespace, &nbsp; nebo prazdny obsah). Seobility je hlasi jako 'Empty tags'.
+    // Vznikaji v CMS RichTextEditoru kdyz uzivatel klepne Bold a hned Unbold,
+    // nebo pri smazani textu ktery byl tucny. Iterujeme dokud uz neni co odstranit
+    // (vnorene prazdne tagy: <strong><em></em></strong> -> "" ve dvou prochodech).
+    do {
+        $prev = $html;
+        $html = preg_replace('#<(strong|em|b|i|u|s|span|mark|small)(\s[^>]*)?>\s*(?:&nbsp;|&#160;|\xC2\xA0)*\s*</\1\s*>#i', '', $html);
+    } while ($html !== $prev);
+    // SEO: vnoreny <h1> v CMS obsahu nesmi konkurovat hlavni <h1> ve sablone
+    // stranky (Seobility 'Multiple H1 in page'). Velin Editor umoznuje H1-H6,
+    // ale na webu jsou hlavicky stranky <h1>/<h2> rezervovane pro tvurce
+    // sablony — CMS-vlozeny <h1> demotujeme na <h2>, aby zustala jen jedna
+    // top-level hlavicka per stranka.
+    $html = preg_replace('#<h1(\s[^>]*)?>#i', '<h2$1>', $html);
+    $html = preg_replace('#</h1\s*>#i', '</h2>', $html);
     // <iframe> pryč pokud není povolen
     if (!$allowIframe) {
         $html = preg_replace('#<iframe\b[^>]*>.*?</iframe\s*>#is', '', $html);
@@ -349,20 +365,26 @@ function renderProductCard($p) {
 
 /**
  * Ikona box — odpovídá MG.renderWbox() v components.js.
+ *
+ * Ikona je sice dekorativní (význam přenáší <h3> + <p>), ale prázdný alt=""
+ * SEO crawlery hlásí jako "missing alt". Generujeme proto alt z titulku boxu
+ * (po strip_tags), zatímco aria-hidden=true ponechá ikonu skrytou pro screen
+ * readery — uživatelé asistivních technologií tak neslyší titulek dvakrát.
  */
 function renderWbox($icon, $title, $text) {
     $iconSrc = $icon ? BASE_URL . '/' . ltrim($icon, '/') : '';
+    $iconAlt = trim(strip_tags((string)$title));
     return '<div class="wbox">' .
-        ($icon ? '<div class="wbox-img"><img src="' . htmlspecialchars($iconSrc) . '" class="icon" alt="" aria-hidden="true" loading="lazy"></div>' : '') .
-        '<h3>' . $title . '</h3>' .
-        '<p>' . $text . '</p></div>';
+        ($icon ? '<div class="wbox-img"><img src="' . htmlspecialchars($iconSrc) . '" class="icon" alt="' . htmlspecialchars($iconAlt) . '" aria-hidden="true" loading="lazy"></div>' : '') .
+        '<h3>' . sanitizeHtml($title) . '</h3>' .
+        '<p>' . sanitizeHtml($text) . '</p></div>';
 }
 
 /**
  * FAQ accordion item — odpovídá MG.renderFaqItem() v components.js.
  */
 function renderFaqItem($question, $answer) {
-    return '<details class="faq-item"><summary>' . $question . '</summary><p>' . $answer . '</p></details>';
+    return '<details class="faq-item"><summary>' . sanitizeHtml($question) . '</summary><p>' . sanitizeHtml($answer) . '</p></details>';
 }
 
 /**
@@ -370,7 +392,7 @@ function renderFaqItem($question, $answer) {
  * ZMĚNA: moreLink bez # prefixu (čisté URL)
  */
 function renderFaqSection($title, $items, $moreLink = null) {
-    $html = '<section aria-labelledby="faq"><h2>' . $title . '</h2><div class="tab-content"><div class="tab-pane active" id="all"><div class="gr2">';
+    $html = '<section aria-labelledby="faq"><h2 id="faq">' . $title . '</h2><div class="tab-content"><div class="tab-pane active" id="all"><div class="gr2">';
     foreach ($items as $faq) {
         $html .= renderFaqItem($faq['q'], $faq['a']);
     }
@@ -387,10 +409,10 @@ function renderFaqSection($title, $items, $moreLink = null) {
  * ZMĚNA: href bez # prefixu (čisté URL)
  */
 function renderCta($title, $text, $buttons) {
-    $html = '<section aria-labelledby="cta"><h2>' . $title . '</h2><p>' . $text . '</p><p>&nbsp;</p><p>';
+    $html = '<section aria-labelledby="cta"><h2 id="cta">' . sanitizeHtml($title) . '</h2><p>' . sanitizeHtml($text) . '</p><p>&nbsp;</p><p>';
     foreach ($buttons as $btn) {
         $cls = $btn['cls'] ?? 'btndark';
-        $html .= '<a class="btn ' . $cls . '" href="' . BASE_URL . $btn['href'] . '">' . $btn['label'] . '</a>&nbsp;';
+        $html .= '<a class="btn ' . $cls . '" href="' . BASE_URL . $btn['href'] . '">' . sanitizeHtml($btn['label']) . '</a>&nbsp;';
     }
     $html .= '</p></section>';
     return $html;

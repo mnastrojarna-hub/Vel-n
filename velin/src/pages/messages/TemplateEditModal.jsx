@@ -23,8 +23,8 @@ const SAMPLE_VARS = {
   door_code_moto: '482917',
   door_code_gear: '613284',
   voucher_code: 'GIFT-ABC123',
-  review_link: 'https://motogo24.cz/review',
-  link: 'https://motogo24.cz',
+  review_link: 'https://www.motogo24.cz/review',
+  link: 'https://www.motogo24.cz',
   discount: '20%',
   price: '2 500 Kč',
 }

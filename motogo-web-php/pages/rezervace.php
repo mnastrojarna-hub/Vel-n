@@ -28,7 +28,7 @@ $rezKeys = [
     'pickup.title','pickup.sub','pickup.recommended','pickup.orCustom',
     'pickup.atRental','pickup.atRentalSub','pickup.delivery','pickup.deliverySub','pickup.deliveryTip',
     'pickup.deliveryAddr','pickup.sameAsDel','pickup.returnOther','pickup.returnTip','pickup.returnAddr','pickup.map','pickup.gps',
-    'return.title','return.sub',
+    'return.title','return.sub','return.stateTitle','return.stateText',
     'gear.intro','gear.rider','gear.riderSub','gear.riderFree','gear.riderOwn',
     'gear.passenger','gear.passengerSub','gear.passengerTip',
     'gear.bootsRider','gear.bootsPassenger','gear.bootsRiderSub','gear.bootsPassengerSub',
@@ -90,6 +90,7 @@ MG._rez = { startDate: null, endDate: null, motos: [], motoId: "", allBookings: 
 </script>
 <script src="' . assetUrl('/js/supabase-sdk.js') . '"></script>
 <script src="' . assetUrl('/js/supabase-init.js') . '"></script>
+<script src="' . assetUrl('/js/auth-idle-logout.js') . '"></script>
 <script src="' . assetUrl('/js/api.js') . '"></script>
 <script src="' . assetUrl('/js/components.js') . '"></script>
 <script src="' . assetUrl('/js/pages-rezervace.js') . '"></script>

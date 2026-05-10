@@ -530,7 +530,7 @@ return [
                 'title' => 'Wypożyczalnia motocykli Vysočina – Bony',
                 'description' => 'Kup bon prezentowy na wynajem motocykla. Ważność 3 lata, bez kaucji, wyposażenie w cenie. Bon elektroniczny i drukowany.',
                 'keywords' => 'wypożyczalnia motocykli Czechy',
-                'og_image' => 'https://motogo24.cz/gfx/darkovy-poukaz.jpg',
+                'og_image' => 'https://www.motogo24.cz/gfx/darkovy-poukaz.jpg',
             ],
             'h1' => 'Kup bon prezentowy – podaruj przygodę na dwóch kołach!',
             'cta' => [

@@ -24,30 +24,30 @@ return [
     ],
     'privacy' => [
         'title' => 'Osobní údaje a bezpečnost',
-        'text' => 'Osobní údaje zpracováváme pouze pro účely uzavření a plnění nájemní smlouvy (identifikace, komunikace, fakturace). Podrobnosti najdete v <a href="/cms/zasady-ochrany-osobnich-udaju">zásadách zpracování osobních údajů</a>.',
+        'text' => 'Osobní údaje zpracováváme pouze pro účely uzavření a plnění nájemní smlouvy (identifikace, komunikace, fakturace). Podrobnosti najdete v <a href="/dokumenty/zasady-ochrany-osobnich-udaju">zásadách zpracování osobních údajů</a>.',
     ],
     'documents' => [
         'title' => 'Dokumenty ke stažení',
         'items' => [
             [
                 'name' => 'Smlouva o pronájmu',
-                'href' => '/cms/smlouva-o-pronajmu',
-                'size' => '87.4kB',
+                'href' => '/dokumenty/smlouva-o-pronajmu',
             ],
             [
                 'name' => 'Předávací protokol',
-                'href' => '/cms/predavaci-protokol',
-                'size' => '47.6kB',
+                'href' => '/dokumenty/predavaci-protokol',
             ],
             [
                 'name' => 'Obchodní podmínky',
-                'href' => '/cms/obchodni-podminky',
-                'size' => '87.7kB',
+                'href' => '/dokumenty/obchodni-podminky',
             ],
             [
                 'name' => 'Zásady ochrany osobních údajů',
-                'href' => '/cms/zasady-ochrany-osobnich-udaju',
-                'size' => '76.3kB',
+                'href' => '/dokumenty/zasady-ochrany-osobnich-udaju',
+            ],
+            [
+                'name' => 'Protokol o poškození',
+                'href' => '/dokumenty/protokol-o-poskozeni',
             ],
         ],
     ],

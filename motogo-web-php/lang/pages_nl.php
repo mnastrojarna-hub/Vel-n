@@ -530,7 +530,7 @@ return [
                 'title' => 'Motorverhuur Vysočina – Cadeaubonnen',
                 'description' => 'Koop een cadeaubon voor motorverhuur. Geldigheid 3 jaar, zonder borg, uitrusting inbegrepen. Elektronische en gedrukte bon.',
                 'keywords' => 'motorverhuur Tsjechië',
-                'og_image' => 'https://motogo24.cz/gfx/darkovy-poukaz.jpg',
+                'og_image' => 'https://www.motogo24.cz/gfx/darkovy-poukaz.jpg',
             ],
             'h1' => 'Koop een cadeaubon – geef een belevenis op twee wielen!',
             'cta' => [

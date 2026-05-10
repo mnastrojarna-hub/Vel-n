@@ -50,6 +50,7 @@ return [
     'menu.reservation' => 'REZERVACE',
     'menu.editReservation' => 'Upravit rezervaci',
     'menu.editReservation.aria' => 'Upravit nebo zrušit rezervaci',
+    'menu.logout' => 'Odhlásit',
 
     // ===== Footer =====
     'footer.aboutTitle' => 'Půjčovna motorek',
@@ -67,7 +68,7 @@ return [
 
     // ===== Cookie consent banner (GDPR / ePrivacy) =====
     'cookies.title' => 'Tato stránka používá cookies',
-    'cookies.intro' => 'Soubory cookies používáme k zajištění funkčnosti webu a — pouze s vaším souhlasem — k měření návštěvnosti a marketingu. Souhlas je dobrovolný a můžete jej kdykoli změnit v zápatí stránky. Více v <a href="/gdpr">Zásadách ochrany osobních údajů</a>.',
+    'cookies.intro' => 'Soubory cookies používáme k zajištění funkčnosti webu a — pouze s vaším souhlasem — k měření návštěvnosti a marketingu. Souhlas je dobrovolný a můžete jej kdykoli změnit v zápatí stránky. Více v <a href="/dokumenty/zasady-ochrany-osobnich-udaju">Zásadách ochrany osobních údajů</a>.',
     'cookies.acceptAll' => 'Přijmout vše',
     'cookies.rejectAll' => 'Odmítnout',
     'cookies.settings' => 'Nastavení',
@@ -292,9 +293,9 @@ return [
 
     // ===== SEO meta defaults (per-jazyk) =====
     'seo.default.description' => 'Půjčovna motorek Vysočina – silniční, sportovní, enduro i dětské. Nonstop pronájem bez kauce, online rezervace a motorkářská výbava zdarma.',
-    'seo.default.keywords' => 'motopůjčovna',
+    'seo.default.keywords' => 'motopůjčovna, půjčovna motorek, půjčovna motorek Vysočina, půjčovna motorek Pelhřimov, pronájem motorky, půjčit motorku, půjčení motocyklu, motorka na pronájem, půjčovna motocyklů, motorka bez kauce, nonstop půjčovna motorek, online rezervace motorky, cestovní motorky, naked motorky, supermoto, enduro motorky, dětské motorky, motorkářská výbava, motorkářské doplňky, dárkový poukaz na motorku, motocyklové trasy Vysočina, MotoGo24',
     'seo.home.description' => 'Půjčte si motorku na Vysočině. Bez kauce, výbava v ceně, nonstop provoz. Cestovní, sportovní, enduro i dětské motorky. Online rezervace.',
-    'seo.home.keywords' => 'motopůjčovna',
+    'seo.home.keywords' => 'půjčovna motorek Vysočina, motopůjčovna Pelhřimov, půjčit motorku, pronájem motorky, půjčovna motocyklů, motorka bez kauce, nonstop půjčovna motorek, online rezervace motorky, cestovní motorky, naked motorky, supermoto, enduro, dětské motorky, motorka na víkend, motorkářská výbava v ceně, dárkový poukaz na motorku, motocyklové trasy Vysočina, MotoGo24',
 
     // ===== Potvrzení =====
     'confirm.titleBooking' => 'Potvrzení rezervace | MotoGo24',
@@ -360,6 +361,8 @@ return [
     'rez.pickup.gps' => 'Moje poloha',
     'rez.return.title' => 'Čas vrácení motorky',
     'rez.return.sub' => 'V kolik hodin vrátíte motorku na uvedené adrese?',
+    'rez.return.stateTitle' => 'V jakém stavu motorku vrátit?',
+    'rez.return.stateText' => 'Motorku stačí vrátit s palivem nad rezervou (kontrolka rezervy nesvítí). Mytí ani úklid neřešte — to je naše práce. Při vrácení s prázdnou nádrží účtujeme dotankování + servisní poplatek (viz VOP).',
 
     // ===== Rezervace — výbava =====
     'rez.gear.intro' => 'Vyberte velikosti kliknutím na čtverečky níže. Pokud velikost nezvolíte, vyzkoušíme ji na místě.',
@@ -390,8 +393,8 @@ return [
     'rez.gear.item.return' => 'Vrácení motorky',
 
     // ===== Rezervace — souhlasy =====
-    'rez.agree.terms' => '* Souhlasím s <a href="/obchodni-podminky">obchodními podmínkami</a>',
-    'rez.agree.gdpr' => 'Souhlasím se <a href="/gdpr">zpracováním osobních údajů</a>',
+    'rez.agree.terms' => '* Souhlasím s <a href="/dokumenty/obchodni-podminky">obchodními podmínkami</a>',
+    'rez.agree.gdpr' => 'Souhlasím se <a href="/dokumenty/zasady-ochrany-osobnich-udaju">zpracováním osobních údajů</a>',
     'rez.agree.marketing' => 'Souhlasím se zasíláním marketingových sdělení',
     'rez.agree.photo' => 'Souhlasím s využitím fotografií pro marketingové účely',
 
@@ -664,7 +667,7 @@ return [
     'editRez.postStripe.applying' => 'Platba potvrzena, dokončuji změnu rezervace…',
     'editRez.postStripe.error' => 'Platba proběhla, ale změnu rezervace se nepodařilo dokončit. Kontaktujte nás prosím.',
     'editRez.change.success' => 'Změna byla uložena.',
-    'editRez.change.successWithRefund' => 'Změna byla uložena. Vrátíme vám {amount} během několika minut.',
+    'editRez.change.successWithRefund' => 'Změna byla uložena. Vrácení {amount} jsme zahájili — peníze obvykle dorazí na původní kartu do 5–7 pracovních dnů.',
     'editRez.err.activeMotoLocked' => 'U probíhající rezervace nelze změnit motorku.',
     'editRez.loc.title' => 'Čas a místo — vyzvednutí / vrácení',
     'editRez.loc.help' => 'Změňte způsob, místo a čas vyzvednutí nebo vrácení. Cena za přistavení/odvoz se počítá podle vzdálenosti od pobočky Mezná (1 000 Kč základ + 40 Kč/km). Rozdíl se vrací 100 % bez ohledu na čas, nový poplatek doplatíte přes Stripe.',
@@ -718,7 +721,7 @@ return [
     'editRez.shorten.cta' => 'Zkrátit a vrátit peníze',
     'editRez.shorten.ctaNoRefund' => 'Zkrátit (bez vrácení peněz)',
     'editRez.shorten.confirming' => 'Zkracuji…',
-    'editRez.shorten.success' => 'Rezervace zkrácena. Vrácení {amount} Kč ({percent}%) na původní platební metodu.',
+    'editRez.shorten.success' => 'Rezervace zkrácena. Vrácení {amount} Kč ({percent}%) jsme zahájili — peníze obvykle dorazí na původní kartu do 5–7 pracovních dnů.',
     'editRez.shorten.successNoRefund' => 'Rezervace zkrácena. Refund dle storno podmínek nebyl možný.',
     'editRez.shorten.reasonLabel' => 'Důvod (volitelné)',
 
@@ -730,7 +733,7 @@ return [
     'editRez.cancel.reasonPlaceholder' => 'Např. změna plánů',
     'editRez.cancel.cta' => 'Stornovat rezervaci',
     'editRez.cancel.confirming' => 'Stornuji…',
-    'editRez.cancel.success' => 'Rezervace byla stornována. Vrácení {amount} Kč ({percent}%) proběhne během několika minut.',
+    'editRez.cancel.success' => 'Rezervace byla stornována. Vrácení {amount} Kč ({percent}%) jsme zahájili — peníze obvykle dorazí na původní kartu do 5–7 pracovních dnů.',
     'editRez.cancel.confirmTitle' => 'Opravdu chcete stornovat rezervaci?',
     'editRez.cancel.confirmYes' => 'Ano, stornovat',
     'editRez.cancel.confirmNo' => 'Zrušit',
@@ -1008,7 +1011,7 @@ return [
 
     // ===== Katalog SEO =====
     'katalog.seo.description' => 'Katalog motorek k pronájmu na Vysočině. Filtr dle kategorie, ŘP, výkonu a ceny. Cestovní, sportovní, enduro a dětské motorky. Online rezervace.',
-    'katalog.seo.keywords' => 'motopůjčovna',
+    'katalog.seo.keywords' => 'katalog motorek k pronájmu, půjčovna motorek Vysočina, půjčit motorku, pronájem motocyklu, cestovní motorky, naked motorky, supermoto, enduro, dětské motorky, motorka bez kauce, online rezervace motorky, MotoGo24 Pelhřimov',
 
     // ===== Galerie / Lightbox =====
     'gallery.openImage' => 'Otevřít fotku v galerii',
@@ -1142,7 +1145,8 @@ return [
     // ===== Voucher form (poukazy-objednat) =====
     'voucher.pageTitle' => 'Půjčovna motorek Vysočina - Koupit dárkový poukaz',
     'voucher.description' => 'Objednejte dárkový poukaz na pronájem motorky od Motogo24. Platnost 3 roky, bez kauce, výbava v ceně.',
-    'voucher.keywords' => 'motopůjčovna',
+    'voucher.keywords' => 'dárkový poukaz na motorku, dárek pro motorkáře, poukaz půjčovna motorek, voucher pronájem motorky, dárek motocykl, MotoGo24 poukaz, motorkářský dárek',
+    'poukazy.steps.aria' => 'Jak poukaz funguje',
     'voucher.title' => 'Dárkový poukaz Motogo24',
     'voucher.lead' => 'Darujte zážitek z jízdy na motorce! Poukaz je platný 3 roky a lze jej uplatnit při rezervaci na tomto webu.',
     'voucher.contactSection' => 'Vaše kontaktní údaje',
@@ -1191,6 +1195,12 @@ return [
     'confirm.success.emailSentVoucher' => 'Na váš e-mail jsme odeslali kód dárkového poukazu.',
     'confirm.success.nextTitle' => 'Co bude dál',
     'confirm.success.nextBookingDocs' => 'Nahrajte fotky občanky/pasu a řidičského průkazu — bez ověření nelze vydat přístupové kódy.',
+    'confirm.success.nextBookingDocsDone' => 'Doklady jsme ověřili — žádná akce není potřeba.',
+    'confirm.success.nextBookingDocsMissing' => 'Doklady zatím nejsou ověřené — můžete je ověřit dodatečně v úpravě rezervace (foto OP/pasu + ŘP) nebo osobně při vyzvednutí. Bez ověření vám nepošleme přístupové kódy předem; půjčíme motorku po kontrole dokladů na pobočce.',
+    'confirm.success.docsLabel' => 'Doklady',
+    'confirm.success.docsVerified' => 'Ověřeny',
+    'confirm.success.docsNotVerified' => 'Neověřeny',
+    'confirm.success.editReservation' => 'Upravit / zrušit rezervaci',
     'confirm.success.nextBookingCodes' => 'Po ověření dokladů obdržíte 6místné přístupové kódy k motorce i výbavě (e-mailem, SMS a WhatsAppem).',
     'confirm.success.nextBookingCodesDone' => '6místné přístupové kódy k motorce i výbavě vám pošleme e-mailem, SMS a WhatsAppem před začátkem rezervace.',
     'confirm.success.nextBookingPickup' => 'V den vyzvednutí přijeďte na pobočku — kódy odemknou dveře, motorka i výbava jsou připravené.',

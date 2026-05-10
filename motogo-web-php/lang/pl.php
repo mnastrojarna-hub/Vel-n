@@ -62,7 +62,7 @@ return [
 
     // ===== Cookie consent banner =====
     'cookies.title' => 'Ta strona używa plików cookies',
-    'cookies.intro' => 'Używamy plików cookies, aby strona działała, oraz — tylko za Twoją zgodą — do analityki i marketingu. Zgoda jest dobrowolna i możesz ją zmienić w stopce w dowolnej chwili. Więcej w naszej <a href="/gdpr">Polityce prywatności</a>.',
+    'cookies.intro' => 'Używamy plików cookies, aby strona działała, oraz — tylko za Twoją zgodą — do analityki i marketingu. Zgoda jest dobrowolna i możesz ją zmienić w stopce w dowolnej chwili. Więcej w naszej <a href="/dokumenty/zasady-ochrany-osobnich-udaju">Polityce prywatności</a>.',
     'cookies.acceptAll' => 'Zaakceptuj wszystkie',
     'cookies.rejectAll' => 'Odrzuć',
     'cookies.settings' => 'Ustawienia',
@@ -276,8 +276,8 @@ return [
     'rez.gear.item.return' => 'Zwrot motocykla',
 
     // ===== Rezerwacja — zgody =====
-    'rez.agree.terms' => '* Akceptuję <a href="/obchodni-podminky">regulamin</a>',
-    'rez.agree.gdpr' => 'Wyrażam zgodę na <a href="/gdpr">przetwarzanie danych osobowych</a>',
+    'rez.agree.terms' => '* Akceptuję <a href="/dokumenty/obchodni-podminky">regulamin</a>',
+    'rez.agree.gdpr' => 'Wyrażam zgodę na <a href="/dokumenty/zasady-ochrany-osobnich-udaju">przetwarzanie danych osobowych</a>',
     'rez.agree.marketing' => 'Wyrażam zgodę na otrzymywanie informacji marketingowych',
     'rez.agree.photo' => 'Wyrażam zgodę na wykorzystanie zdjęć w celach marketingowych',
 

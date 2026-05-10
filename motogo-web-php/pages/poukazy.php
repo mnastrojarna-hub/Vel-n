@@ -8,7 +8,7 @@ $defaults = [
         'title' => 'Půjčovna motorek Vysočina - Poukazy',
         'description' => 'Kupte dárkový poukaz na pronájem motorky. Platnost 3 roky, bez kauce, výbava v ceně. Elektronický i tištěný poukaz. Online objednávka.',
         'keywords' => 'motopůjčovna',
-        'og_image' => 'https://motogo24.cz/gfx/darkovy-poukaz.jpg',
+        'og_image' => 'https://www.motogo24.cz/gfx/darkovy-poukaz.jpg',
     ],
     'h1' => 'Kup dárkový poukaz – daruj zážitek na dvou kolech!',
     'intro_left' => '<p>Hledáš originální dárek pro partnera, kamaráda nebo tátu?</p><p>&nbsp;</p><p>Naše <strong>dárkové poukazy na pronájem motorky</strong> od Motogo24 – <strong>půjčovna motorek Vysočina</strong> – potěší začátečníky i zkušené jezdce.</p><p>&nbsp;</p><p>Vyber hodnotu poukazu nebo konkrétní motorku a daruj svobodu na dvou kolech.</p>',
@@ -67,7 +67,7 @@ $img = is_array($C['intro_image'] ?? null) ? $C['intro_image'] : ($defaults['int
 $imgSrc = BASE_URL . '/' . ltrim($img['src'] ?? '', '/');
 
 $intro_cta = is_array($C['intro_cta'] ?? null) ? $C['intro_cta'] : ($defaults['intro_cta']);
-$intro = '<section aria-labelledby="title"><h1 data-cms-key="' . $kp . '.h1">' . ($C['h1'] ?? '') . '</h1>' .
+$intro = '<section aria-labelledby="title"><h1 id="title" data-cms-key="' . $kp . '.h1">' . ($C['h1'] ?? '') . '</h1>' .
     '<div class="gr2"><div><div data-cms-key="' . $kp . '.intro_left">' . ($C['intro_left'] ?? '') . '</div>' .
     '<p>&nbsp;</p>' .
     '<p class="cta"><a aria-label="' . htmlspecialchars($intro_cta['aria'] ?? ($intro_cta['label'] ?? '')) . '" class="btn btngreen" href="' . BASE_URL . ($intro_cta['href'] ?? '#') . '" data-cms-key="' . $kp . '.intro_cta.label">' . ($intro_cta['label'] ?? '') . '</a></p>' .
@@ -76,7 +76,7 @@ $intro = '<section aria-labelledby="title"><h1 data-cms-key="' . $kp . '.h1">' .
     '<img alt="' . htmlspecialchars($img['alt'] ?? '') . '" class="imgres" loading="lazy" src="' . htmlspecialchars($imgSrc) . '">' .
     '</div></div></section>';
 
-$stepsHtml = '<section aria-labelledby="content"><div class="gr3">';
+$stepsHtml = '<section aria-label="' . htmlspecialchars(t('poukazy.steps.aria')) . '"><div class="gr3">';
 foreach ((is_array($C['steps'] ?? null) ? $C['steps'] : []) as $i => $s) {
     if (!is_array($s)) continue;
     $kBase = $kp . '.steps.' . $i;

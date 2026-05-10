@@ -16,7 +16,9 @@ header('Cache-Control: public, max-age=3600');
 header('X-Robots-Tag: noindex, follow');
 
 $lang = i18nDetectLanguage();
-$base = 'https://motogo24.cz';
+// Origin podle aktualne servirovane domény / jazyka — .cz jde s www prefixem
+// (Forpsi vynucuje www, jakákoli non-www URL by se redirectovala).
+$base = i18nOriginForLang($lang);
 $sb = new SupabaseClient();
 
 $titles = [
@@ -109,7 +111,7 @@ echo "- **{$T['address']}:** Mezná 9, 393 01 Pelhřimov, Vysočina, CZ\n";
 echo "- **{$T['phone']}:** +420 774 256 271\n";
 echo "- **{$T['email']}:** info@motogo24.cz\n";
 echo "- **GPS:** 49.4147 N, 15.2953 E\n";
-echo "- **Web:** https://motogo24.cz · https://motogo24.com\n\n";
+echo "- **Web:** https://www.motogo24.cz · https://motogo24.com\n\n";
 
 echo "## {$T['h2_catalog']}\n\n";
 echo "- [Katalog všech motorek]({$base}/katalog): kompletní nabídka motorek k pronájmu (cestovní, naked, supermoto, dětské)\n";
@@ -139,7 +141,7 @@ echo "- [Jak si půjčit motorku]({$base}/jak-pujcit): přehled celého procesu\
 echo "- [Postup půjčení (krok za krokem)]({$base}/jak-pujcit/postup): 12 kroků od výběru po vrácení\n";
 echo "- [Co je v ceně pronájmu]({$base}/jak-pujcit/co-v-cene): výbava, pojištění, sjezd do zahraničí\n";
 echo "- [Potřebné dokumenty]({$base}/jak-pujcit/dokumenty): OP/pas + ŘP (skupiny A1/A2/A nebo B pro dětské)\n";
-echo "- [Vyzvednutí motorky]({$base}/jak-pujcit/vyzvednuti): přístupové kódy, nonstop\n";
+echo "- [Vyzvednutí motorky]({$base}/jak-pujcit/prevzeti): přístupové kódy, nonstop\n";
 echo "- [Vrácení v půjčovně]({$base}/jak-pujcit/vraceni-pujcovna): postup vrácení v Mezné\n";
 echo "- [Vrácení jinde]({$base}/jak-pujcit/vraceni-jinde): vrácení mimo provozovnu (příplatek)\n";
 echo "- [Přistavení motorky]({$base}/jak-pujcit/pristaveni): doručení kamkoliv v ČR\n";
@@ -163,9 +165,9 @@ echo "\n";
 
 echo "## {$T['h2_legal']}\n\n";
 echo "- [Kontakt]({$base}/kontakt): telefon, e-mail, mapa, fakturační údaje\n";
-echo "- [Obchodní podmínky]({$base}/obchodni-podminky): VOP\n";
-echo "- [Smlouva o pronájmu]({$base}/smlouva): vzor smlouvy\n";
-echo "- [GDPR / Ochrana osobních údajů]({$base}/gdpr): zásady zpracování\n";
+echo "- [Obchodní podmínky]({$base}/dokumenty/obchodni-podminky): VOP\n";
+echo "- [Smlouva o pronájmu]({$base}/dokumenty/smlouva-o-pronajmu): vzor smlouvy\n";
+echo "- [GDPR / Ochrana osobních údajů]({$base}/dokumenty/zasady-ochrany-osobnich-udaju): zásady zpracování\n";
 echo "- [Mapa stránek]({$base}/mapa-stranek): kompletní seznam URL\n\n";
 
 echo "## {$T['h2_api']}\n\n";

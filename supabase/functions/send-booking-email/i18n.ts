@@ -343,6 +343,13 @@ ${v.door_codes_block || ''}
 <p>Prosíme, pro bezproblémové převzetí si připravte:</p>
 <ul><li>platný doklad totožnosti (který jste uvedli v rezervačním formuláři),</li><li>platný řidičský průkaz.</li></ul>
 <p>Na místě společně provedeme kontrolu dokladů, předání motocyklu i případné zapůjčené výbavy a podepíšeme Předávací protokol.</p>
+<h3 style="color:#1a2e22;font-size:15px;margin-top:24px">Vrácení motorky</h3>
+<p>Motorku stačí vrátit s palivem nad rezervou (kontrolka rezervy nesvítí). Mytí ani úklid neřešte — to je naše práce. Při vrácení s prázdnou nádrží účtujeme dotankování + servisní poplatek dle VOP.</p>
+<div style="background:#f0faf5;border:1px solid #d4e8e0;border-left:4px solid #74fb71;border-radius:8px;padding:14px 16px;margin:18px 0">
+<p style="margin:0 0 8px;font-weight:700;color:#0d6e0d">Potřebujete změnit termín, motorku nebo místo přistavení?</p>
+<p style="margin:0 0 10px;font-size:13px;color:#1a2e22">Rezervaci si můžete kdykoliv upravit nebo zrušit on-line — výpočet doplatku/refundu uvidíte hned.</p>
+<a href="https://motogo24.cz/upravit-rezervaci?id=${v.booking_id || ''}" style="display:inline-block;background:#74FB71;color:#0b0b0b;font-weight:700;text-decoration:none;padding:10px 22px;border-radius:22px;font-size:13px">Upravit / zrušit rezervaci →</a>
+</div>
 <p>${SIGN.cs}</p>`,
     en: v => `<p>${HELLO.en}</p>
 <p>thank you for your trust and your booking <strong>#${v.booking_number}</strong> at MOTO GO 24.</p>
@@ -814,7 +821,7 @@ function renderVoucherBody(lang: Lang, v: Vars): string {
           attached: ['dárkový poukaz,', 'doklad o přijetí platby za nákup dárkového poukazu.'],
           printed: 'Pokud jste si objednali tištěnou verzi poukazu, právě ji pro Vás připravujeme. V nejbližších dnech ji můžete očekávat ve své poštovní schránce.',
           usageH: 'Informace k uplatnění dárkového poukazu',
-          usage: ['Dárkový poukaz má platnost 3 roky od data vystavení a je možné jej uplatnit na zapůjčení motocyklu dle vlastního výběru. Obdarovaný si jednoduše rezervuje termín jízdy předem podle aktuální dostupnosti motorek prostřednictvím formuláře na webových stránkách <a href="https://motogo24.cz" style="color:#2563eb">motogo24.cz</a>.',
+          usage: ['Dárkový poukaz má platnost 3 roky od data vystavení a je možné jej uplatnit na zapůjčení motocyklu dle vlastního výběru. Obdarovaný si jednoduše rezervuje termín jízdy předem podle aktuální dostupnosti motorek prostřednictvím formuláře na webových stránkách <a href="https://www.motogo24.cz" style="color:#2563eb">motogo24.cz</a>.',
                   'Při rezervaci zadá do kolonky Slevový kód jedinečný kód uvedený na dárkovém poukazu. Jeho hodnota se automaticky odečte z ceny zapůjčení již během rezervace. Pokud je výsledná částka vyšší než hodnota poukazu, rozdíl lze pohodlně uhradit online prostřednictvím platební brány.',
                   'Dárkové poukazy je možné kombinovat a uplatnit více kódů současně. Dárkový poukaz je nutné vyčerpat jednorázově v rámci jedné rezervace.',
                   'Doporučujeme rezervovat termín s dostatečným předstihem, zejména v hlavní sezóně.'],
@@ -824,7 +831,7 @@ function renderVoucherBody(lang: Lang, v: Vars): string {
           attached: ['the gift voucher,', 'the receipt for the voucher purchase.'],
           printed: 'If you ordered a printed voucher, we\'re preparing it now. You can expect it in your mailbox within the next few days.',
           usageH: 'How to redeem the voucher',
-          usage: ['The gift voucher is valid for 3 years from issue date and can be used for any motorcycle rental of your choice. The recipient simply books a date in advance based on current motorcycle availability via the form at <a href="https://motogo24.cz" style="color:#2563eb">motogo24.cz</a>.',
+          usage: ['The gift voucher is valid for 3 years from issue date and can be used for any motorcycle rental of your choice. The recipient simply books a date in advance based on current motorcycle availability via the form at <a href="https://www.motogo24.cz" style="color:#2563eb">motogo24.cz</a>.',
                   'During booking, enter the unique code from the voucher in the Discount Code field. The value is automatically deducted from the rental price during booking. If the total exceeds the voucher value, the difference can be paid online via the payment gateway.',
                   'Vouchers can be combined and multiple codes redeemed simultaneously. A voucher must be used in full within a single booking.',
                   'We recommend booking well in advance, especially during peak season.'],
@@ -834,7 +841,7 @@ function renderVoucherBody(lang: Lang, v: Vars): string {
           attached: ['den Geschenkgutschein,', 'die Quittung für den Gutscheinkauf.'],
           printed: 'Falls Sie einen gedruckten Gutschein bestellt haben, bereiten wir ihn vor. Sie können ihn in den nächsten Tagen in Ihrem Briefkasten erwarten.',
           usageH: 'Einlösung des Gutscheins',
-          usage: ['Der Geschenkgutschein ist 3 Jahre ab Ausstellungsdatum gültig und kann für eine Motorradmiete Ihrer Wahl verwendet werden. Der Beschenkte bucht einen Termin im Voraus über das Formular auf <a href="https://motogo24.cz" style="color:#2563eb">motogo24.cz</a>.',
+          usage: ['Der Geschenkgutschein ist 3 Jahre ab Ausstellungsdatum gültig und kann für eine Motorradmiete Ihrer Wahl verwendet werden. Der Beschenkte bucht einen Termin im Voraus über das Formular auf <a href="https://www.motogo24.cz" style="color:#2563eb">motogo24.cz</a>.',
                   'Bei der Buchung den einmaligen Code aus dem Gutschein im Feld Rabattcode eingeben. Der Wert wird automatisch vom Mietpreis abgezogen. Übersteigt der Endbetrag den Gutscheinwert, kann die Differenz online über das Zahlungsportal bezahlt werden.',
                   'Gutscheine können kombiniert und mehrere Codes gleichzeitig eingelöst werden. Ein Gutschein muss innerhalb einer Buchung vollständig aufgebraucht werden.',
                   'Wir empfehlen, den Termin rechtzeitig zu buchen, besonders in der Hochsaison.'],
@@ -844,7 +851,7 @@ function renderVoucherBody(lang: Lang, v: Vars): string {
           attached: ['de cadeaubon,', 'de kwitantie voor de aankoop.'],
           printed: 'Als je een gedrukte bon hebt besteld bereiden we hem voor. Verwacht hem binnenkort in je brievenbus.',
           usageH: 'Hoe de bon te gebruiken',
-          usage: ['De cadeaubon is 3 jaar geldig vanaf uitgiftedatum en kan worden gebruikt voor elke motorhuur naar keuze. De ontvanger boekt eenvoudig een datum vooraf via het formulier op <a href="https://motogo24.cz" style="color:#2563eb">motogo24.cz</a>.',
+          usage: ['De cadeaubon is 3 jaar geldig vanaf uitgiftedatum en kan worden gebruikt voor elke motorhuur naar keuze. De ontvanger boekt eenvoudig een datum vooraf via het formulier op <a href="https://www.motogo24.cz" style="color:#2563eb">motogo24.cz</a>.',
                   'Voer bij het boeken de unieke code uit de bon in het veld Kortingscode in. De waarde wordt automatisch van de huurprijs afgetrokken. Bij een hoger totaal wordt het verschil online betaald.',
                   'Bonnen kunnen worden gecombineerd en meerdere codes tegelijk worden ingewisseld. Een bon moet binnen één boeking volledig worden besteed.',
                   'We adviseren om vroeg te boeken, vooral in het hoogseizoen.'],
@@ -854,7 +861,7 @@ function renderVoucherBody(lang: Lang, v: Vars): string {
           attached: ['el cheque regalo,', 'el recibo de la compra del cheque.'],
           printed: 'Si pediste el cheque impreso lo estamos preparando. Llegará a tu buzón en los próximos días.',
           usageH: 'Cómo canjear el cheque',
-          usage: ['El cheque regalo es válido durante 3 años desde su emisión y puede usarse para alquilar cualquier motocicleta. El destinatario reserva una fecha por adelantado mediante el formulario en <a href="https://motogo24.cz" style="color:#2563eb">motogo24.cz</a>.',
+          usage: ['El cheque regalo es válido durante 3 años desde su emisión y puede usarse para alquilar cualquier motocicleta. El destinatario reserva una fecha por adelantado mediante el formulario en <a href="https://www.motogo24.cz" style="color:#2563eb">motogo24.cz</a>.',
                   'Al reservar, introduce el código único del cheque en el campo Código de descuento. El valor se descuenta automáticamente. Si el total supera el valor del cheque, la diferencia se paga online.',
                   'Los cheques se pueden combinar y canjear varios códigos a la vez. Un cheque debe utilizarse íntegramente en una única reserva.',
                   'Recomendamos reservar con antelación, sobre todo en temporada alta.'],
@@ -864,7 +871,7 @@ function renderVoucherBody(lang: Lang, v: Vars): string {
           attached: ['le bon cadeau,', 'le reçu de l\'achat.'],
           printed: 'Si vous avez commandé une version imprimée, nous la préparons. Vous la recevrez dans votre boîte aux lettres sous quelques jours.',
           usageH: 'Comment utiliser le bon',
-          usage: ['Le bon cadeau est valable 3 ans à compter de la date d\'émission et peut être utilisé pour la location d\'une moto au choix. Le bénéficiaire réserve une date à l\'avance via le formulaire sur <a href="https://motogo24.cz" style="color:#2563eb">motogo24.cz</a>.',
+          usage: ['Le bon cadeau est valable 3 ans à compter de la date d\'émission et peut être utilisé pour la location d\'une moto au choix. Le bénéficiaire réserve une date à l\'avance via le formulaire sur <a href="https://www.motogo24.cz" style="color:#2563eb">motogo24.cz</a>.',
                   'Lors de la réservation, saisissez le code unique du bon dans le champ Code de réduction. La valeur est automatiquement déduite. Si le total dépasse la valeur du bon, le complément est réglé en ligne.',
                   'Les bons peuvent être combinés et plusieurs codes utilisés simultanément. Un bon doit être utilisé entièrement dans une seule réservation.',
                   'Nous recommandons de réserver à l\'avance, surtout en haute saison.'],
@@ -874,7 +881,7 @@ function renderVoucherBody(lang: Lang, v: Vars): string {
           attached: ['voucher prezentowy,', 'potwierdzenie zakupu vouchera.'],
           printed: 'Jeśli zamówiłeś wersję drukowaną, przygotowujemy ją. Spodziewaj się jej w skrzynce w najbliższych dniach.',
           usageH: 'Jak wykorzystać voucher',
-          usage: ['Voucher jest ważny 3 lata od daty wystawienia i można go wykorzystać na wynajem dowolnego motocykla. Obdarowany rezerwuje termin z wyprzedzeniem przez formularz na <a href="https://motogo24.cz" style="color:#2563eb">motogo24.cz</a>.',
+          usage: ['Voucher jest ważny 3 lata od daty wystawienia i można go wykorzystać na wynajem dowolnego motocykla. Obdarowany rezerwuje termin z wyprzedzeniem przez formularz na <a href="https://www.motogo24.cz" style="color:#2563eb">motogo24.cz</a>.',
                   'Podczas rezerwacji wpisz unikalny kod z vouchera w polu Kod rabatowy. Wartość zostanie automatycznie odjęta od ceny. Jeśli kwota przewyższa wartość vouchera, różnicę można dopłacić online.',
                   'Vouchery można łączyć i jednocześnie wymieniać kilka kodów. Voucher trzeba wykorzystać w całości w ramach jednej rezerwacji.',
                   'Polecamy rezerwować z wyprzedzeniem, zwłaszcza w wysokim sezonie.'],

@@ -5,14 +5,14 @@ Contact: mailto:info@motogo24.cz
 Contact: tel:+420774256271
 Expires: 2027-12-31T23:59:59.000Z
 Preferred-Languages: cs, en
-Canonical: https://motogo24.cz/.well-known/security.txt
-Policy: https://motogo24.cz/gdpr
+Canonical: https://www.motogo24.cz/.well-known/security.txt
+Policy: https://www.motogo24.cz/dokumenty/zasady-ochrany-osobnich-udaju
 
 # Bezpečnostní praxe:
 # - Stripe LIVE platby (PCI DSS compliant)
 # - Supabase backend s RLS (Row-Level Security)
 # - Šifrované přístupové kódy ke dveřím (per-rezervace)
 # - Mindee OCR pro ověření dokladů
-# - GDPR compliance: https://motogo24.cz/gdpr
+# - GDPR compliance: https://www.motogo24.cz/dokumenty/zasady-ochrany-osobnich-udaju
 
 # Děkujeme za odpovědné nahlašování zranitelností!

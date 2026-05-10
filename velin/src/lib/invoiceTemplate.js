@@ -7,7 +7,7 @@
  * Mirrors supabase/functions/generate-invoice/template.ts (1:1 design).
  */
 
-const LOGO_URL = 'https://motogo24.cz/gfx/logo-icon.png'
+const LOGO_URL = 'https://www.motogo24.cz/gfx/logo-icon.png'
 
 const COMPANY = {
   name: 'Bc. Petra Semorádová',

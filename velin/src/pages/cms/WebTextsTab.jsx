@@ -13,7 +13,7 @@ const TOTAL_FIELDS = ALL_FIELDS.length
 // Veřejná URL webu — používá se pro tlačítko „Otevřít na webu" u každého textu.
 // Default je .cz (česká verze = master jazyk; ostatní jazyky se z CS překládají).
 // Lze přepsat přes Vite env `VITE_WEB_BASE_URL`.
-const WEB_BASE_URL = (import.meta?.env?.VITE_WEB_BASE_URL || 'https://motogo24.cz').replace(/\/$/, '')
+const WEB_BASE_URL = (import.meta?.env?.VITE_WEB_BASE_URL || 'https://www.motogo24.cz').replace(/\/$/, '')
 
 // Sestaví URL na konkrétní stránku webu s admin tokenem a (volitelně) klíčem ke zvýraznění.
 // `extra` je objekt s dalšími query parametry (např. `{ preview: 'pending' }`).

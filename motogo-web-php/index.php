@@ -392,24 +392,32 @@ switch (true) {
         require __DIR__ . '/pages/kontakt.php';
         break;
 
-    // CMS stránky
+    // CMS stránky (legacy fallback — nově preferujeme /dokumenty/<slug>, který
+    // čte rovnou z `document_templates` ve Velíně). Tyto routy zůstávají pro SEO
+    // a backward-compat redirektují na nové URL.
     case $path === '/obchodni-podminky':
-        $_GET['cms_slug'] = 'obchodni-podminky';
-        $_GET['cms_title'] = 'Obchodní podmínky';
-        require __DIR__ . '/pages/cms.php';
-        break;
+        header('Location: ' . BASE_URL . '/dokumenty/obchodni-podminky', true, 301);
+        exit;
 
     case $path === '/gdpr':
-        $_GET['cms_slug'] = 'gdpr';
-        $_GET['cms_title'] = 'Zásady ochrany osobních údajů';
-        require __DIR__ . '/pages/cms.php';
-        break;
+        header('Location: ' . BASE_URL . '/dokumenty/zasady-ochrany-osobnich-udaju', true, 301);
+        exit;
 
     case $path === '/smlouva':
-        $_GET['cms_slug'] = 'smlouva-o-pronajmu';
-        $_GET['cms_title'] = 'Smlouva o pronájmu';
-        require __DIR__ . '/pages/cms.php';
+        header('Location: ' . BASE_URL . '/dokumenty/smlouva-o-pronajmu', true, 301);
+        exit;
+
+    // Veřejné dokumenty z Velínu (document_templates) — VOP, smlouva, GDPR,
+    // protokoly. `/dokumenty/<slug>` zobrazí obsah, `?format=pdf` vrátí print
+    // verzi (Ctrl+P → Save as PDF). Stará /cms/<slug> URL z dokumenty-content
+    // je teď přesměrována sem.
+    case preg_match('#^/dokumenty/([a-z0-9\-]+)$#', $path, $matches) === 1:
+        $_GET['doc_slug'] = $matches[1];
+        require __DIR__ . '/pages/dokumenty-detail.php';
         break;
+    case preg_match('#^/cms/([a-z0-9\-]+)$#', $path, $matches) === 1:
+        header('Location: ' . BASE_URL . '/dokumenty/' . $matches[1], true, 301);
+        exit;
 
     // Mapa stránek
     case $path === '/mapa-stranek':
