@@ -286,7 +286,7 @@ function renderWebmasterVerification() {
  * podporované jazyky (cs, en, de, es, fr, nl, pl) + x-default.
  *
  * Cross-domain mapping (Google-friendly):
- *   hreflang="cs" → https://motogo24.cz{path}
+ *   hreflang="cs" → https://www.motogo24.cz{path}  (Forpsi vynucuje www)
  *   hreflang="en" → https://motogo24.com{path}
  *   hreflang="de" → https://motogo24.at{path}
  *   hreflang="es" → https://motogo24.es{path}
@@ -315,7 +315,7 @@ function renderHreflangAlternates($path) {
 /**
  *   description  — meta description
  *   keywords     — meta keywords (přepíše default)
- *   canonical    — canonical URL (default https://motogo24.cz{path})
+ *   canonical    — canonical URL (default https://www.motogo24.cz{path} pro cs)
  *   og_image     — OG image URL
  *   og_type      — OG type (default website)
  *   robots       — robots directive (default index,follow)
