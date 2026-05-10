@@ -227,7 +227,9 @@ $suffix = (stripos($nameRaw, 'motogo') !== false) ? '| E-shop' : '| MotoGo24';
 renderPage($nameRaw . ' ' . $suffix, $content, '/eshop/' . htmlspecialchars($id), [
     'description' => mb_substr(strip_tags($descRaw !== '' ? $descRaw : $nameRaw), 0, 160),
     'og_type' => 'product',
-    'og_image' => $mainImg ?: null,
+    // SEO: og:image MAX 1200px / quality 85 (Facebook/Twitter optimal). Predtim
+    // raw URL z Supabase = 3-5 MB jpg (Seobility 'Large file size' issue).
+    'og_image' => $mainImgRaw ? imgUrlSized($mainImgRaw, 1200, 85) : null,
     'schema' => $productSchema,
     'breadcrumbs' => [
         ['name' => t('breadcrumb.home'), 'url' => siteCanonicalUrl('/')],
