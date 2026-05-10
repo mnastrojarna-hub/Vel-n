@@ -164,6 +164,35 @@ serve(async (req) => {
       })
     }
 
+    // Idempotency — webhook charge.refunded může spustit retry safety-net pro
+    // booking, který už storno mail dostal (cancel_booking_tracked nebo Stripe portal).
+    // Pokud se mail za posledních 30 min úspěšně odeslal, druhý nepošleme.
+    // Force=true v body request přepíše idempotency (admin manuální dotaz "pošli znovu").
+    const force = (body as any).force === true
+    if (booking_id && !force) {
+      try {
+        const { data: existing } = await supabase.from('sent_emails')
+          .select('id, sent_at, status')
+          .eq('booking_id', booking_id)
+          .eq('template_slug', 'booking_cancelled')
+          .eq('status', 'sent')
+          .gte('sent_at', new Date(Date.now() - 30 * 60 * 1000).toISOString())
+          .limit(1)
+        if (existing?.length) {
+          await supabase.from('debug_log').insert({
+            source: 'send-cancellation-email',
+            action: 'idempotent_skip',
+            status: 'info',
+            request_data: { booking_id, existing_email_id: existing[0].id, existing_sent_at: existing[0].sent_at },
+          }).then(() => {}, () => {})
+          return new Response(JSON.stringify({ success: true, skipped: 'already_sent', existing_id: existing[0].id }), {
+            status: 200,
+            headers: { ...CORS, 'Content-Type': 'application/json' },
+          })
+        }
+      } catch { /* non-fatal — continue to send */ }
+    }
+
     // ── Auto Stripe refund + dobropis ──
     const attachments: { content: string; filename: string }[] = []
 
