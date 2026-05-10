@@ -213,31 +213,48 @@
     function exec(cmd, val) {
       try {
         targetEl.focus();
-        // SEO: prefer semantic <strong>/<em> over legacy <b>/<i> from execCommand.
-        // styleWithCSS=false + defaultParagraphSeparator preserves block structure.
-        try { document.execCommand('styleWithCSS', false, false); } catch (_) {}
+        // SEO/A11y: prefer semantic <strong>/<em>/<span> over legacy <b>/<i>/<font>.
+        // styleWithCSS=true → foreColor/hiliteColor produce <span style> místo <font>.
+        var useCss = (cmd === 'foreColor' || cmd === 'hiliteColor' || cmd === 'backColor' || cmd === 'fontName');
+        try { document.execCommand('styleWithCSS', false, useCss); } catch (_) {}
         document.execCommand(cmd, false, val == null ? null : val);
-        if (cmd === 'bold' || cmd === 'italic') {
-          // Browsers still emit <b>/<i> in many cases; convert in-place.
-          replaceTagsInTarget(targetEl, { 'B': 'strong', 'I': 'em' });
-        }
+        // Browsers still emit <b>/<i>/<font> v některých případech; konvertuj in-place.
+        replaceLegacyTagsInTarget(targetEl);
       } catch (_) { /* noop */ }
     }
 
-    function replaceTagsInTarget(root, map) {
+    function replaceLegacyTagsInTarget(root) {
       if (!root || !root.querySelectorAll) return;
-      Object.keys(map).forEach(function (from) {
-        var nodes = root.querySelectorAll(from.toLowerCase());
+      function swap(fromSel, toTag) {
+        var nodes = root.querySelectorAll(fromSel);
         for (var i = 0; i < nodes.length; i++) {
           var n = nodes[i];
-          var rep = document.createElement(map[from]);
+          var rep = document.createElement(toTag);
           while (n.firstChild) rep.appendChild(n.firstChild);
-          // Zachovej style/class atributy (z execCommand obvykle prazdne)
           if (n.getAttribute('style')) rep.setAttribute('style', n.getAttribute('style'));
           if (n.getAttribute('class')) rep.setAttribute('class', n.getAttribute('class'));
           n.parentNode.replaceChild(rep, n);
         }
-      });
+      }
+      swap('b', 'strong');
+      swap('i', 'em');
+      // <font color size face style> → <span style>
+      var fonts = root.querySelectorAll('font');
+      for (var j = 0; j < fonts.length; j++) {
+        var f = fonts[j];
+        var span = document.createElement('span');
+        var styles = [];
+        var color = f.getAttribute('color');
+        var face = f.getAttribute('face');
+        var inline = f.getAttribute('style');
+        if (color) styles.push('color: ' + color);
+        if (face) styles.push('font-family: ' + face);
+        if (inline) styles.push(inline);
+        if (styles.length) span.setAttribute('style', styles.join('; '));
+        if (f.getAttribute('class')) span.setAttribute('class', f.getAttribute('class'));
+        while (f.firstChild) span.appendChild(f.firstChild);
+        f.parentNode.replaceChild(span, f);
+      }
     }
 
     function makeBtn(label, title, onClick, opts) {
@@ -345,8 +362,8 @@
 
     bar.appendChild(sep());
 
-    bar.appendChild(makeBtn('<b>B</b>', 'Tučně (Ctrl+B)', function () { exec('bold'); }));
-    bar.appendChild(makeBtn('<i>I</i>', 'Kurzíva (Ctrl+I)', function () { exec('italic'); }));
+    bar.appendChild(makeBtn('<strong>B</strong>', 'Tučně (Ctrl+B)', function () { exec('bold'); }));
+    bar.appendChild(makeBtn('<em>I</em>', 'Kurzíva (Ctrl+I)', function () { exec('italic'); }));
     bar.appendChild(makeBtn('<span style="text-decoration:underline">U</span>', 'Podtržení (Ctrl+U)', function () { exec('underline'); }));
     bar.appendChild(makeBtn('<span style="text-decoration:line-through">S</span>', 'Přeškrtnout', function () { exec('strikeThrough'); }));
 

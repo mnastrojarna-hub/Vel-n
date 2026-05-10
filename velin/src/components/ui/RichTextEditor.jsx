@@ -43,7 +43,11 @@ export default function RichTextEditor({
   const exec = useCallback((cmd, val = null) => {
     editorRef.current?.focus()
     try {
+      // styleWithCSS=true → foreColor/hiliteColor produce <span style> instead of <font>
+      try { document.execCommand('styleWithCSS', false, true) } catch (_) {}
       document.execCommand(cmd, false, val)
+      // Browsers may still emit <b>/<i>/<font>; normalize to semantic tags.
+      replaceLegacyTags(editorRef.current)
     } catch (_) { /* ignore */ }
     emit()
   }, [emit])
@@ -230,8 +234,8 @@ function Toolbar({ exec, setBlock, isActive, currentBlock, promptLink, promptIma
 
       <Sep />
 
-      <Btn onClick={() => exec('bold')} active={isActive('bold')} disabled={isHtmlMode} title="Tučně (Ctrl+B)"><b>B</b></Btn>
-      <Btn onClick={() => exec('italic')} active={isActive('italic')} disabled={isHtmlMode} title="Kurzíva (Ctrl+I)"><i>I</i></Btn>
+      <Btn onClick={() => exec('bold')} active={isActive('bold')} disabled={isHtmlMode} title="Tučně (Ctrl+B)"><strong>B</strong></Btn>
+      <Btn onClick={() => exec('italic')} active={isActive('italic')} disabled={isHtmlMode} title="Kurzíva (Ctrl+I)"><em>I</em></Btn>
       <Btn onClick={() => exec('underline')} active={isActive('underline')} disabled={isHtmlMode} title="Podtržení (Ctrl+U)"><span style={{ textDecoration: 'underline' }}>U</span></Btn>
       <Btn onClick={() => exec('strikeThrough')} active={isActive('strikeThrough')} disabled={isHtmlMode} title="Přeškrtnuto"><span style={{ textDecoration: 'line-through' }}>S</span></Btn>
 
@@ -409,6 +413,39 @@ const rteCss = `
 
 // — utility —
 
+// Konvertuje legacy <b>/<i>/<font> tagy v rámci editovaného uzlu na sémantické
+// <strong>/<em>/<span style>. execCommand v některých prohlížečích produkuje
+// nesémantické tagy i když styleWithCSS=true.
+function replaceLegacyTags(root) {
+  if (!root || !root.querySelectorAll) return
+  const swap = (fromSel, toTag) => {
+    root.querySelectorAll(fromSel).forEach(n => {
+      const r = document.createElement(toTag)
+      while (n.firstChild) r.appendChild(n.firstChild)
+      if (n.getAttribute && n.getAttribute('style')) r.setAttribute('style', n.getAttribute('style'))
+      if (n.getAttribute && n.getAttribute('class')) r.setAttribute('class', n.getAttribute('class'))
+      n.parentNode.replaceChild(r, n)
+    })
+  }
+  swap('b', 'strong')
+  swap('i', 'em')
+  // <font color="#xxx" size="N" face="..." style="..."> → <span style="...">
+  root.querySelectorAll('font').forEach(n => {
+    const span = document.createElement('span')
+    const styles = []
+    const color = n.getAttribute('color')
+    const face = n.getAttribute('face')
+    const inline = n.getAttribute('style')
+    if (color) styles.push('color: ' + color)
+    if (face) styles.push('font-family: ' + face)
+    if (inline) styles.push(inline)
+    if (styles.length) span.setAttribute('style', styles.join('; '))
+    if (n.getAttribute('class')) span.setAttribute('class', n.getAttribute('class'))
+    while (n.firstChild) span.appendChild(n.firstChild)
+    n.parentNode.replaceChild(span, n)
+  })
+}
+
 function escapeHtml(s) {
   return String(s)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -441,5 +478,9 @@ function sanitizePastedHtml(html) {
   out = out.replace(/\s+mso-[^=]+="[^"]*"/gi, '')
   // odstraň prázdné spany
   out = out.replace(/<span>\s*<\/span>/gi, '')
+  // legacy nesémantické tagy → sémantické
+  out = out.replace(/<b(\s[^>]*)?>/gi, '<strong>').replace(/<\/b\s*>/gi, '</strong>')
+  out = out.replace(/<i(\s[^>]*)?>/gi, '<em>').replace(/<\/i\s*>/gi, '</em>')
+  out = out.replace(/<font\b[^>]*>/gi, '<span>').replace(/<\/font\s*>/gi, '</span>')
   return out
 }
