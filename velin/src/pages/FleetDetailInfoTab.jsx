@@ -144,6 +144,7 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
               <option value="cestovni">Cestovní</option>
               <option value="sportovni">Sportovní</option>
               <option value="naked">Naked</option>
+              <option value="supermoto">Supermoto</option>
               <option value="chopper">Chopper</option>
               <option value="detske">Dětské</option>
             </select>
