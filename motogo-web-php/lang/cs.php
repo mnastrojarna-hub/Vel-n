@@ -50,6 +50,7 @@ return [
     'menu.reservation' => 'REZERVACE',
     'menu.editReservation' => 'Upravit rezervaci',
     'menu.editReservation.aria' => 'Upravit nebo zrušit rezervaci',
+    'menu.logout' => 'Odhlásit',
 
     // ===== Footer =====
     'footer.aboutTitle' => 'Půjčovna motorek',

@@ -33,6 +33,7 @@
 | `trg_auto_process_voucher_order` | shop_orders (BEFORE UPDATE OF payment_status, WHEN paid) | auto_process_voucher_order() — auto voucher kódy + in-app notifikace + status update |
 | `trg_sync_invoice_to_documents` | invoices (INSERT) | sync_invoice_to_documents() |
 | `trg_sync_invoice_pdf_update` | invoices (UPDATE pdf_path) | sync_invoice_pdf_update() |
+| `trg_cap_refund_to_paid` | invoices (BEFORE INSERT) | **NEW 2026-05-10** — `_cap_refund_to_paid()` pojistka, že žádný credit_note dobropis nepřekročí `bookings.total_price`. Doplňuje Stripe-side clamp v `process-refund` edge fn pro UI/účetní stranu. |
 | `trg_sync_generated_doc_to_documents` | generated_documents (INSERT) | sync_generated_doc_to_documents() |
 | `trg_sync_moto_day_prices` | moto_day_prices (INSERT/UPDATE) | sync_moto_day_prices_to_motorcycles() |
 | `trg_generate_final_invoice` | bookings (AFTER UPDATE OF status, WHEN active→completed) | generate_final_invoice_on_complete() — SECURITY DEFINER, EXCEPTION safe |
