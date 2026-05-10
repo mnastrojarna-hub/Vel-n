@@ -4,12 +4,14 @@ import { debugAction } from '../../lib/debugLog'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
-import RichTextEditor from '../../components/ui/RichTextEditor'
+import RichTextEditor, { buildPreviewHtml } from '../../components/ui/RichTextEditor'
 
 const CONTRACT_TYPES = [
   { type: 'vop', label: 'Obchodní podmínky (VOP)', icon: '📜', description: 'Všeobecné obchodní podmínky pro pronájem motocyklů' },
   { type: 'rental_contract', label: 'Nájemní smlouva', icon: '📋', description: 'Smlouva o pronájmu motocyklu s automatickým vyplněním údajů' },
   { type: 'handover_protocol', label: 'Předávací protokol', icon: '📝', description: 'Protokol o předání motocyklu včetně výbavových položek' },
+  { type: 'damage_protocol', label: 'Protokol o poškození', icon: '⚠️', description: 'Protokol o poškození motocyklu při vrácení (závady, fotodokumentace, odhad nákladů)' },
+  { type: 'gdpr', label: 'GDPR — souhlas se zpracováním', icon: '🔒', description: 'Informace a souhlas zákazníka se zpracováním osobních údajů (GDPR)' },
 ]
 
 const TEMPLATE_VARS = {
@@ -36,6 +38,16 @@ const TEMPLATE_VARS = {
     'booking_number', 'customer_name', 'customer_id_number', 'customer_license',
     'moto_model', 'moto_brand', 'moto_spz', 'moto_vin',
     'start_date', 'end_date', 'today',
+  ],
+  damage_protocol: [
+    'booking_number', 'customer_name', 'customer_id_number',
+    'moto_model', 'moto_brand', 'moto_spz', 'moto_vin',
+    'end_date', 'today',
+    'company_name', 'company_address', 'company_ico', 'company_dic',
+  ],
+  gdpr: [
+    'customer_name', 'customer_address', 'customer_email', 'today',
+    'company_name', 'company_address', 'company_ico', 'company_dic',
   ],
 }
 
@@ -162,13 +174,22 @@ function EditContractModal({ template, onClose, onSaved }) {
     setSaving(true); setErr(null)
     try {
       const { data: { user } } = await supabase.auth.getUser()
+      // updated_by je FK na admin_users(id). Pokusíme se ji nastavit jen pokud
+      // je uživatel reálně v admin_users (jinak by FK violation rozbila uložení).
+      let updatedBy = null
+      if (user?.id) {
+        const { data: adminRow } = await supabase
+          .from('admin_users').select('id').eq('id', user.id).maybeSingle()
+        if (adminRow) updatedBy = user.id
+      }
+
       if (isNew) {
         const payload = {
           name,
           type: template.type,
           content_html: content,
           version: 1,
-          updated_by: user?.id,
+          ...(updatedBy ? { updated_by: updatedBy } : {}),
         }
         const result = await debugAction('contractTemplate.create', 'EditContractModal', () =>
           supabase.from('document_templates').insert(payload).select().single()
@@ -177,13 +198,26 @@ function EditContractModal({ template, onClose, onSaved }) {
         await safeAudit('contract_template_created', { type: template.type })
       } else {
         const newVersion = (template.version || 1) + 1
-        const payload = { name, content_html: content, version: newVersion, updated_by: user?.id }
+        const payload = {
+          name,
+          content_html: content,
+          version: newVersion,
+          ...(updatedBy ? { updated_by: updatedBy } : {}),
+        }
+        // Bez .select() — vyhneme se PostgREST RETURNING přes RLS, které občas
+        // u `update` vrací prázdné pole i když řádek byl změněn.
         const result = await debugAction('contractTemplate.update', 'EditContractModal', () =>
-          supabase.from('document_templates').update(payload).eq('id', template.id).select()
+          supabase.from('document_templates').update(payload).eq('id', template.id)
         , { ...payload, content_html: `[${content.length} chars]` })
         if (result?.error) throw result.error
-        if (!result?.data || result.data.length === 0) {
-          throw new Error('Šablona se neuložila — žádný řádek nebyl změněn (RLS / oprávnění).')
+
+        // Ověření: znovu načteme řádek a zkontrolujeme, že version se navýšila.
+        // Pokud ne, RLS politika UPDATE filtruje řádek nebo trigger update potlačil.
+        const { data: verify, error: verifyErr } = await supabase
+          .from('document_templates').select('version, name').eq('id', template.id).maybeSingle()
+        if (verifyErr) throw verifyErr
+        if (!verify || verify.version !== newVersion) {
+          throw new Error('Šablona se neuložila. Zkontrolujte, že máte admin přístup (RLS politika `document_templates_admin`).')
         }
         await safeAudit('contract_template_updated', { template_id: template.id, type: template.type, version: newVersion })
       }
@@ -211,15 +245,14 @@ function EditContractModal({ template, onClose, onSaved }) {
 
         <div>
           <Label>Obsah</Label>
-          <div style={{ maxHeight: '55vh', overflow: 'auto', borderRadius: 12 }}>
-            <RichTextEditor
-              value={content}
-              onChange={setContent}
-              placeholder="Začněte psát obsah… Pomocí lišty formátujte text a z menu „+ Proměnná…“ vkládejte placeholdery."
-              minHeight={360}
-              variables={vars.length > 0 ? vars.map(v => ({ label: `{{${v}}}`, value: `{{${v}}}` })) : null}
-            />
-          </div>
+          <RichTextEditor
+            value={content}
+            onChange={setContent}
+            placeholder="Začněte psát obsah… Pomocí lišty formátujte text a z menu „+ Proměnná…“ vkládejte placeholdery."
+            minHeight={360}
+            maxHeight="55vh"
+            variables={vars.length > 0 ? vars.map(v => ({ label: `{{${v}}}`, value: `{{${v}}}` })) : null}
+          />
         </div>
 
         <div className="flex items-center gap-2 text-sm" style={{ color: '#1a2e22' }}>
@@ -246,7 +279,7 @@ function EditContractModal({ template, onClose, onSaved }) {
         <Modal open title="Náhled dokumentu" onClose={() => setShowPreview(false)} wide>
           <div className="border rounded-lg overflow-hidden" style={{ background: '#fff' }}>
             <iframe
-              srcDoc={content || '<p style="padding:24px;color:#9ab3a5;font-family:sans-serif">Prázdný obsah</p>'}
+              srcDoc={buildPreviewHtml(content)}
               style={{ width: '100%', height: '70vh', border: 'none', background: '#fff', display: 'block' }}
               title="Náhled"
             />
@@ -261,11 +294,12 @@ function EditContractModal({ template, onClose, onSaved }) {
 }
 
 function PreviewModal({ template, onClose }) {
+  const previewHtml = buildPreviewHtml(template.content_html)
   return (
     <Modal open title={`Náhled: ${template.name}`} onClose={onClose} wide>
       <div className="border rounded-lg overflow-hidden" style={{ background: '#fff' }}>
         <iframe
-          srcDoc={template.content_html || '<p style="padding:24px;color:#9ab3a5;font-family:sans-serif">Prázdný obsah</p>'}
+          srcDoc={previewHtml}
           style={{ width: '100%', height: '70vh', border: 'none', background: '#fff', display: 'block' }}
           title="Náhled"
         />
@@ -273,7 +307,7 @@ function PreviewModal({ template, onClose }) {
       <div className="flex justify-between mt-4">
         <Button onClick={() => {
           const win = window.open('', '_blank')
-          if (win) { win.document.write(template.content_html || ''); win.document.close(); win.onload = () => win.print() }
+          if (win) { win.document.write(previewHtml); win.document.close(); win.onload = () => win.print() }
         }}>Tisk / PDF</Button>
         <Button onClick={onClose}>Zavřít</Button>
       </div>
