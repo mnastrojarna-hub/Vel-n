@@ -166,14 +166,18 @@ function seoEnhanceHtml($content) {
         );
     }
 
-    // 5) Auto-promote h-skoky (h2->h4 skok prepise h4 na h3 atd.) — stack-based
-    //    aby open i close tagy zustaly parovane. Resi Seobility 'Structural
-    //    problem' u CMS RTE obsahu kde admin pouzil H4 misto H3.
+    // 5) Auto-promote h-skoky a demote multi-H1 — stack-based aby open/close
+    //    tagy zustaly parovane.
+    //    a) Hierarchie skoky h2->h4 -> h2->h3 (Seobility 'Structural problem')
+    //    b) Druhy a dalsi <h1> na strance se demotuji na <h2> (Seobility
+    //       'Use only one H1 heading on the page' Critical) — sablona stranky
+    //       drzi prvni <h1>, dalsi mohou prijit z CMS RTE (admin napsal H1
+    //       v document_template content_html). Idempotentni.
     if (preg_match('#</?h[1-6]\b#i', $content)) {
         $tokens = preg_split('#(<(?:/?)h[1-6](?:\b[^>]*)?>)#i', $content, -1, PREG_SPLIT_DELIM_CAPTURE);
-        $stack = [];      // hloubka aktualnich otevrenych
-        $lastSeen = 0;    // posledni renderovana uroven
-        $remap = [];      // open token index -> new level
+        $stack = [];      // bool[] - kolik tagu mame aktualne otevrenych
+        $lastSeen = 0;    // posledni renderovana uroven (po promote)
+        $h1Seen = false;  // prvni <h1> jsme uz emitovali?
         for ($i = 0; $i < count($tokens); $i++) {
             $t = $tokens[$i];
             if (!preg_match('#^<(/?)h([1-6])(\b[^>]*)?>$#i', $t, $m)) continue;
@@ -182,7 +186,15 @@ function seoEnhanceHtml($content) {
             $attrs = $m[3] ?? '';
             if (!$closing) {
                 $newLevel = $level;
-                if ($lastSeen > 0 && $level > $lastSeen + 1) {
+                // Multi-H1 demote: pokud uz jsme videli H1, druhy a dalsi -> H2
+                if ($level === 1 && $h1Seen) {
+                    $newLevel = 2;
+                }
+                if ($level === 1 && !$h1Seen) {
+                    $h1Seen = true;
+                }
+                // Hierarchie skoky h2->h4 -> h2->h3
+                if ($lastSeen > 0 && $newLevel > $lastSeen + 1) {
                     $newLevel = $lastSeen + 1;
                 }
                 $stack[] = ['origIdx' => $i, 'newLevel' => $newLevel];
@@ -191,10 +203,9 @@ function seoEnhanceHtml($content) {
                     $tokens[$i] = '<h' . $newLevel . $attrs . '>';
                 }
             } else {
-                // Najdi posledni match na stejne urovni
+                // Najdi posledni open na stacku, prepise close pokud bylo promote
                 for ($s = count($stack) - 1; $s >= 0; $s--) {
                     $entry = $stack[$s];
-                    $origToken = preg_match('#<h([1-6])\b#i', $tokens[$entry['origIdx']], $om);
                     $newOpenLevel = $entry['newLevel'];
                     if ($newOpenLevel !== $level) {
                         $tokens[$i] = '</h' . $newOpenLevel . '>';
