@@ -91,42 +91,74 @@ export default function WebTextsTab({ initialPageId }) {
 
   const page = WEB_PAGES.find(p => p.id === activePage)
   const totalFilled = ALL_FIELDS.filter(f => values[f.key]).length
+  // SEO note: missing = pole co MA neprazdny default a NENI ulozene v DB.
+  // Tyto si zaslouzi byt seedovany (klik na 'Naplnit vychozi texty').
+  const totalMissing = ALL_FIELDS.filter(f => !values[f.key] && f.default).length
+  // Optional pole (default: '' nebo null) PHP-fallback obslouzi — neni co seedovat.
+  const totalOptional = ALL_FIELDS.filter(f => !values[f.key] && (f.default === '' || f.default == null)).length
 
+  // SEO note: pole s `default: ''` (prazdny) jsou OPTIONAL — PHP ma vlastni
+  // fallback v data/*.php data souborech. Admin je nemusi vyplnovat, pokud
+  // mu PHP defaulty staci. Pocitame proto 3 kategorie:
+  //   - filled = realne ulozeno v cms_variables (zelene v UI)
+  //   - optional = empty default, PHP fallback se pouzije (sede ale OK)
+  //   - missing = pole s neprazdnym defaultem, ale neulozene v DB (sede a chce ulozit)
   function filledCount(p) {
-    let total = 0, filled = 0
+    let total = 0, filled = 0, optional = 0, missing = 0
     p.sections.forEach(s => {
-      s.fields.forEach(f => { total++; if (values[f.key]) filled++ })
+      s.fields.forEach(f => {
+        total++
+        const hasValue = !!values[f.key]
+        const isOptional = !hasValue && (f.default === '' || f.default == null)
+        if (hasValue) filled++
+        else if (isOptional) optional++
+        else missing++
+      })
     })
-    return { total, filled }
+    return { total, filled, optional, missing }
   }
 
   return (
     <div>
-      {/* Globální statistika */}
+      {/* Globální statistika — rozliseni filled/optional/missing */}
       <div className="flex items-center gap-4 mb-4 p-3 rounded-card" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
         <div className="flex-1">
-          <span className="text-sm font-extrabold" style={{ color: '#1a2e22' }}>
-            Texty webu: {totalFilled} / {TOTAL_FIELDS} uloženo v DB
-          </span>
-          <div className="mt-1 rounded-full overflow-hidden" style={{ height: 6, background: '#d4e8e0' }}>
-            <div
-              className="h-full rounded-full transition-all"
-              style={{ width: `${(totalFilled / TOTAL_FIELDS) * 100}%`, background: totalFilled === TOTAL_FIELDS ? '#22c55e' : '#74FB71' }}
-            />
+          <div className="text-sm font-extrabold" style={{ color: '#1a2e22' }}>
+            Texty webu:
+            <span style={{ color: '#16a34a' }}> {totalFilled} uloženo</span>
+            {totalMissing > 0 && <span style={{ color: '#dc2626' }}> · {totalMissing} k doplnění</span>}
+            {totalOptional > 0 && <span style={{ color: '#6b7a72' }}> · {totalOptional} volitelných</span>}
+            {' '}/ {TOTAL_FIELDS} celkem
+          </div>
+          <div className="mt-1 rounded-full overflow-hidden flex" style={{ height: 6, background: '#d4e8e0' }}>
+            <div className="h-full transition-all" style={{
+              width: `${(totalFilled / TOTAL_FIELDS) * 100}%`, background: '#22c55e'
+            }} />
+            <div className="h-full transition-all" style={{
+              width: `${(totalMissing / TOTAL_FIELDS) * 100}%`, background: '#dc2626'
+            }} />
+            <div className="h-full transition-all" style={{
+              width: `${(totalOptional / TOTAL_FIELDS) * 100}%`, background: '#9ca3af'
+            }} />
+          </div>
+          <div style={{ fontSize: 11, color: '#6b7a72', marginTop: 4 }}>
+            <span style={{ color: '#16a34a' }}>● Uloženo</span> = ručně přepsané z Velínu
+            <span style={{ marginLeft: 12, color: '#dc2626' }}>● K doplnění</span> = má výchozí text, ale ještě není v DB (klikni "Naplnit")
+            <span style={{ marginLeft: 12, color: '#6b7a72' }}>● Volitelné</span> = PHP fallback obsluhuje (není potřeba vyplňovat)
           </div>
         </div>
-        {totalFilled < TOTAL_FIELDS && (
+        {totalMissing > 0 && (
           <button
             onClick={seedDefaults}
             disabled={seeding || loading}
             className="rounded-btn text-xs font-extrabold uppercase cursor-pointer shrink-0"
             style={{ padding: '8px 16px', background: '#1a2e22', color: '#74FB71', border: 'none' }}
           >
-            {seeding ? 'Ukládám...' : 'Naplnit výchozí texty'}
+            {seeding ? 'Ukládám...' : `Naplnit ${totalMissing} výchozích`}
           </button>
         )}
-        {totalFilled === TOTAL_FIELDS && (
-          <span className="text-xs font-bold" style={{ color: '#22c55e' }}>Vše uloženo</span>
+        {totalMissing === 0 && (
+          <span className="text-xs font-bold" style={{ color: '#22c55e' }}>✓ Vše uloženo</span>
         )}
       </div>
 
@@ -150,9 +182,14 @@ export default function WebTextsTab({ initialPageId }) {
             Stránky webu ({WEB_PAGES.length})
           </div>
           {WEB_PAGES.map(p => {
-            const { total, filled } = filledCount(p)
+            const { total, filled, optional, missing } = filledCount(p)
             const active = p.id === activePage
-            const allDone = filled === total && !loading
+            // SEO: 'allDone' = vsechna pole s neprazdnym defaultem ulozena
+            // (volitelne pole s default:'' se nepocitaji — PHP fallback je obslouzi).
+            const allDone = missing === 0 && !loading
+            // Procento dokoncenosti = filled / (filled+missing). Volitelne pole vyloucena.
+            const required = filled + missing
+            const pct = required > 0 ? Math.round((filled / required) * 100) : 100
             return (
               <button
                 key={p.id}
@@ -169,9 +206,16 @@ export default function WebTextsTab({ initialPageId }) {
                   <span>{p.icon}</span>
                   <span className="flex-1 truncate">{p.label}</span>
                   {allDone && <span style={{ color: '#22c55e', fontSize: 11 }}>&#10003;</span>}
+                  {!allDone && missing > 0 && (
+                    <span style={{
+                      background: '#dc2626', color: '#fff', fontSize: 10,
+                      padding: '1px 5px', borderRadius: 8, fontWeight: 700
+                    }}>{missing}</span>
+                  )}
                 </div>
                 <div className="text-xs mt-0.5" style={{ color: active ? 'rgba(255,255,255,.4)' : '#9ab3a5' }}>
-                  {filled}/{total} textů
+                  {filled}/{required} povinných
+                  {optional > 0 && <span style={{ opacity: 0.6 }}> · {optional} volit.</span>}
                 </div>
               </button>
             )
