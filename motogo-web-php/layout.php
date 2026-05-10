@@ -617,6 +617,17 @@ body{font-family:Montserrat,"Segoe UI",sans-serif;margin:0;color:#1a2e22;backgro
     // až po souhlasu. Viz renderConsentManager() na konci stránky.
     echo renderHeader($currentPath);
     echo '<div id="app">';
+    // SEO defensive enhancers — pojistka napric celym webem aby cokoliv
+    // pridaneho z Velin CMS (motorky, blog, faq, texty stranek) prochazelo
+    // SEO checkem rovnou bez admin micromanage. Na non-admin requestu:
+    //  1) Strip prazdnych <hN></hN> (nech jen ne-prazdne)
+    //  2) Auto-extend kratke <h1> (<25 chars) o " | MotoGo24" pro context
+    //  3) Auto-set alt na <img> bez alt (z H1 textu nebo filename)
+    //  4) Cap pocet <strong> na 8 per stranka (preda zbytecne na <span>)
+    //  5) Auto-promote h3->h2 / h4->h3 kdyz chybi mezikrok
+    if (empty($_COOKIE['mg_cms_admin']) && !empty($content)) {
+        $content = seoEnhanceHtml($content);
+    }
     echo $content;
     echo '</div>';
     echo renderFooter();

@@ -218,7 +218,13 @@ $productSchema = '
   '}
   </script>';
 
-renderPage($nameRaw . ' | ' . t('shop.title'), $content, '/eshop/' . htmlspecialchars($id), [
+// SEO: Title kratsi suffix '| MotoGo24' misto plne 'E-shop MotoGo24 —
+// motorkarske doplnky a merch'. Externi SEO hlasil 'Title too long' +
+// 'Word repetition' kdyz produktovy nazev obsahuje 'MotoGo24' a suffix taky
+// (Truckerka MotoGo24 | E-shop MotoGo24 -> dvojite MotoGo24). Krátký
+// 'MotoGo24' suffix se vejde do 65 chars limit a brand neopakuje.
+$suffix = (stripos($nameRaw, 'motogo') !== false) ? '| E-shop' : '| MotoGo24';
+renderPage($nameRaw . ' ' . $suffix, $content, '/eshop/' . htmlspecialchars($id), [
     'description' => mb_substr(strip_tags($descRaw !== '' ? $descRaw : $nameRaw), 0, 160),
     'og_type' => 'product',
     'og_image' => $mainImg ?: null,

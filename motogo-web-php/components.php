@@ -55,6 +55,162 @@ function renderHeading($level, $text, $opts = []) {
 }
 
 /**
+ * SEO defensive HTML post-processor — beží na renderPage() output (mimo admin
+ * režim) a opravi typicke SEO chyby co Velín CMS / data soubory mohou nechat:
+ *
+ *  1) Strip prazdnych <hN></hN> (whitespace/&nbsp; only) — Seobility 'Empty heading'
+ *  2) Auto-extend kratke <h1> (<25 znaku, plain text) o ' | MotoGo24' pro
+ *     SEO kontext — Seobility 'H1 too short'
+ *  3) Auto-set alt na <img> bez alt nebo s alt="" (nedekorativni img bez
+ *     aria-hidden) — odvodi z page <h1> + filename
+ *  4) Cap <strong>/<b> na max 8 per stranka — pres tento limit je crawler hlasi
+ *     'Many tags', zbylé prepiseme na <span> (zachova vizualni vyznam, smaze
+ *     semantickou waight)
+ *  5) Auto-promote h4->h3 / h5->h4 / h6->h5 kdyz chybi mezikrok v hierarchii
+ *     (Seobility 'Structural problem' u h1->h2->h4 skoku)
+ *
+ * Bezpecne na ne-HTML obsah (pokud $content nezapocina '<') vraci nezmenene.
+ * V admin rezimu (cookie mg_cms_admin) tato funkce neni volana — admin musi
+ * videt original HTML aby mohl identifikovat co opravit ve Velinu.
+ */
+function seoEnhanceHtml($content) {
+    if (!is_string($content) || $content === '') return $content;
+
+    // 1) Strip prazdnych headings <hN></hN> (whitespace, &nbsp;, atd.)
+    $content = preg_replace(
+        '#<h([1-6])(?![^>]*\bdata-cms-empty=)[^>]*>(?:\s|&nbsp;|&\#160;|\xC2\xA0)*</h\1\s*>#i',
+        '',
+        $content
+    );
+
+    // 2) Auto-extend kratke <h1> textu o ' | MotoGo24' (SEO context).
+    //    Vyber prvni <h1>...</h1>, odeparuj plain text, pokud <25 znaku
+    //    a neobsahuje 'MotoGo24' tak append. Zachovej pripadne data-* atributy.
+    $pageH1 = '';
+    $content = preg_replace_callback(
+        '#<h1([^>]*)>(.+?)</h1>#is',
+        function ($m) use (&$pageH1) {
+            $attrs = $m[1];
+            $body = $m[2];
+            $plain = trim(strip_tags($body));
+            $pageH1 = $plain; // pro pouziti v alt-textech nize
+            // Pokud kratke a uz neobsahuje brand, append SEO context.
+            if (mb_strlen($plain, 'UTF-8') > 0 && mb_strlen($plain, 'UTF-8') < 25
+                && stripos($plain, 'motogo') === false) {
+                return '<h1' . $attrs . '>' . $body . ' – MotoGo24</h1>';
+            }
+            return $m[0];
+        },
+        $content,
+        1 // jen prvni h1
+    );
+
+    // 3) Auto-set alt na <img> bez alt nebo s alt="".
+    //    Decorative ikony (aria-hidden=true / role=presentation) preskoci.
+    //    Alt odvodi z $pageH1 + filename (po lomítku, bez ext).
+    $content = preg_replace_callback(
+        '#<img\b([^>]*)/?>#i',
+        function ($m) use ($pageH1) {
+            $attrs = $m[1];
+            // Decorative — neresime
+            if (preg_match('#\baria-hidden\s*=\s*["\']?true\b#i', $attrs)) return $m[0];
+            if (preg_match('#\brole\s*=\s*["\']?presentation\b#i', $attrs)) return $m[0];
+            // Ma uz neprazdny alt — neresime
+            if (preg_match('#\balt\s*=\s*"([^"]+)"#i', $attrs, $am) && trim($am[1]) !== '') return $m[0];
+            if (preg_match("#\balt\\s*=\\s*'([^']+)'#i", $attrs, $am) && trim($am[1]) !== '') return $m[0];
+            // Bez alt nebo prazdne alt — odvodime
+            $altGuess = '';
+            if (preg_match('#\bsrc\s*=\s*["\']([^"\']+)["\']#i', $attrs, $sm)) {
+                $src = $sm[1];
+                $name = basename(parse_url($src, PHP_URL_PATH) ?: $src);
+                $name = preg_replace('#\.[a-z0-9]{2,5}$#i', '', $name); // strip ext
+                $name = preg_replace('#[-_]+#', ' ', $name);
+                $name = preg_replace('#[0-9]+x[0-9]+#', '', $name); // strip 800x600
+                $name = trim(preg_replace('#\s+#', ' ', $name));
+                if ($name !== '') $altGuess = $name;
+            }
+            if ($altGuess === '' && $pageH1 !== '') $altGuess = $pageH1;
+            if ($altGuess === '') $altGuess = 'MotoGo24';
+            $altAttr = ' alt="' . htmlspecialchars($altGuess, ENT_QUOTES) . '"';
+            // Smaz pripadne empty alt="" pokud existuje
+            $cleaned = preg_replace('#\s*\balt\s*=\s*"(?:[^"]*)"#i', '', $attrs);
+            $cleaned = preg_replace("#\\s*\\balt\\s*=\\s*'(?:[^']*)'#i", '', $cleaned);
+            return '<img' . $cleaned . $altAttr . '>';
+        },
+        $content
+    );
+
+    // 4) Cap <strong> count na 8. Po pruzkumu Seobility 'Many tags' threshold
+    //    je ~10. Pri 9. <strong> a vice prepiseme na <span> (zachovava text,
+    //    bere semanticky vyznam). Track total <strong> opened (ne currently
+    //    open) + stack pro parovani close tagu se spravnym open level.
+    if (substr_count(strtolower($content), '<strong') > 8) {
+        $opened = 0;          // total <strong> opened doposud
+        $stack = [];          // bool[] - true=tento open byl prepsan na span
+        $content = preg_replace_callback(
+            '#<(/?)strong(\b[^>]*)?>#i',
+            function ($m) use (&$opened, &$stack) {
+                $closing = ($m[1] === '/');
+                $attrs = $m[2] ?? '';
+                if (!$closing) {
+                    $opened++;
+                    $isRewrite = ($opened > 8);
+                    $stack[] = $isRewrite;
+                    return $isRewrite ? '<span' . $attrs . '>' : $m[0];
+                }
+                // Close tag - pop posledni open
+                $isRewrite = !empty($stack) ? array_pop($stack) : false;
+                return $isRewrite ? '</span>' : $m[0];
+            },
+            $content
+        );
+    }
+
+    // 5) Auto-promote h-skoky (h2->h4 skok prepise h4 na h3 atd.) — stack-based
+    //    aby open i close tagy zustaly parovane. Resi Seobility 'Structural
+    //    problem' u CMS RTE obsahu kde admin pouzil H4 misto H3.
+    if (preg_match('#</?h[1-6]\b#i', $content)) {
+        $tokens = preg_split('#(<(?:/?)h[1-6](?:\b[^>]*)?>)#i', $content, -1, PREG_SPLIT_DELIM_CAPTURE);
+        $stack = [];      // hloubka aktualnich otevrenych
+        $lastSeen = 0;    // posledni renderovana uroven
+        $remap = [];      // open token index -> new level
+        for ($i = 0; $i < count($tokens); $i++) {
+            $t = $tokens[$i];
+            if (!preg_match('#^<(/?)h([1-6])(\b[^>]*)?>$#i', $t, $m)) continue;
+            $closing = ($m[1] === '/');
+            $level = (int)$m[2];
+            $attrs = $m[3] ?? '';
+            if (!$closing) {
+                $newLevel = $level;
+                if ($lastSeen > 0 && $level > $lastSeen + 1) {
+                    $newLevel = $lastSeen + 1;
+                }
+                $stack[] = ['origIdx' => $i, 'newLevel' => $newLevel];
+                $lastSeen = $newLevel;
+                if ($newLevel !== $level) {
+                    $tokens[$i] = '<h' . $newLevel . $attrs . '>';
+                }
+            } else {
+                // Najdi posledni match na stejne urovni
+                for ($s = count($stack) - 1; $s >= 0; $s--) {
+                    $entry = $stack[$s];
+                    $origToken = preg_match('#<h([1-6])\b#i', $tokens[$entry['origIdx']], $om);
+                    $newOpenLevel = $entry['newLevel'];
+                    if ($newOpenLevel !== $level) {
+                        $tokens[$i] = '</h' . $newOpenLevel . '>';
+                    }
+                    array_splice($stack, $s, 1);
+                    break;
+                }
+            }
+        }
+        $content = implode('', $tokens);
+    }
+
+    return $content;
+}
+
+/**
  * Sanitizuje HTML content z DB (blog, CMS stránky, wysiwyg výstup).
  * Odstraní <script>, <iframe> (pokud nejsou whitelistnuté), on* event
  * handler atributy, javascript:/data: URL v href/src. Zachovává běžné
