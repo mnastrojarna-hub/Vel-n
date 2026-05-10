@@ -245,15 +245,14 @@ function EditContractModal({ template, onClose, onSaved }) {
 
         <div>
           <Label>Obsah</Label>
-          <div style={{ maxHeight: '55vh', overflow: 'auto', borderRadius: 12 }}>
-            <RichTextEditor
-              value={content}
-              onChange={setContent}
-              placeholder="Začněte psát obsah… Pomocí lišty formátujte text a z menu „+ Proměnná…“ vkládejte placeholdery."
-              minHeight={360}
-              variables={vars.length > 0 ? vars.map(v => ({ label: `{{${v}}}`, value: `{{${v}}}` })) : null}
-            />
-          </div>
+          <RichTextEditor
+            value={content}
+            onChange={setContent}
+            placeholder="Začněte psát obsah… Pomocí lišty formátujte text a z menu „+ Proměnná…“ vkládejte placeholdery."
+            minHeight={360}
+            maxHeight="55vh"
+            variables={vars.length > 0 ? vars.map(v => ({ label: `{{${v}}}`, value: `{{${v}}}` })) : null}
+          />
         </div>
 
         <div className="flex items-center gap-2 text-sm" style={{ color: '#1a2e22' }}>

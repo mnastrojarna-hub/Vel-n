@@ -12,6 +12,7 @@ export default function RichTextEditor({
   onChange,
   placeholder = 'Začněte psát…',
   minHeight = 300,
+  maxHeight = null, // pokud zadáno, contenteditable má vlastní scroll a toolbar zůstává nahoře
   variables = null, // volitelné: pole {label, value} tlačítek pro vložení proměnné
 }) {
   const editorRef = useRef(null)
@@ -141,6 +142,7 @@ export default function RichTextEditor({
             border: 'none', borderTop: '1px solid #e2ece7', background: '#0f1a14',
             color: '#a7f3d0', fontFamily: 'ui-monospace,SFMono-Regular,Menlo,monospace',
             fontSize: 12, lineHeight: 1.55,
+            ...(maxHeight ? { maxHeight, overflow: 'auto' } : {}),
           }}
         />
       ) : (
@@ -164,6 +166,7 @@ export default function RichTextEditor({
             lineHeight: 1.6,
             color: '#0f1a14',
             overflowWrap: 'anywhere',
+            ...(maxHeight ? { maxHeight, overflowY: 'auto' } : {}),
           }}
         />
       )}
@@ -273,10 +276,17 @@ function Toolbar({ exec, setBlock, isActive, currentBlock, promptLink, promptIma
         <select
           defaultValue=""
           onChange={e => { if (e.target.value) insertHtml(e.target.value); e.target.value = '' }}
-          title="Vložit proměnnou"
-          style={{ ...selectStyle, maxWidth: 220 }}
+          title="Vložit proměnnou (placeholder)"
+          style={{
+            ...selectStyle,
+            maxWidth: 240,
+            background: '#74FB71',
+            color: '#0f1a14',
+            border: '1px solid #5fdc5c',
+            fontWeight: 800,
+          }}
         >
-          <option value="">+ Proměnná…</option>
+          <option value="">+ Proměnná ({variables.length})</option>
           {variables.map(v => (
             <option key={v.value} value={v.value}>{v.label}</option>
           ))}
@@ -352,7 +362,7 @@ const wrapStyle = {
   border: '1px solid #d4e8e0',
   borderRadius: 12,
   background: '#fff',
-  overflow: 'hidden',
+  position: 'relative',
 }
 
 const toolbarStyle = {
@@ -363,6 +373,11 @@ const toolbarStyle = {
   padding: 6,
   background: '#f1faf7',
   borderBottom: '1px solid #e2ece7',
+  borderTopLeftRadius: 12,
+  borderTopRightRadius: 12,
+  position: 'sticky',
+  top: 0,
+  zIndex: 5,
 }
 
 const selectStyle = {
