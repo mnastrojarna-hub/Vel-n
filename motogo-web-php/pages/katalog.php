@@ -302,8 +302,20 @@ if (!empty($listItems)) {
   </script>';
 }
 
+// SEO: per-kategorie unikatni meta description (Seobility hlasil 5 'Duplicate
+// meta description' na /katalog/{cestovni,naked,supermoto,detske} + /katalog).
+// Misto jedne sablonove vety pro vsech 5 stranek dame kazde kategorii vlastni
+// strucny popis se specifickymi klicovkami.
+$catDescriptions = [
+    'cestovni'  => 'Půjčovna cestovních motorek (touring, GT) na Vysočině. Adventure motorky pro dlouhé trasy a dálnice. Bez kauce, online rezervace.',
+    'naked'     => 'Půjčovna naked motorek na Vysočině. Sportovně-cestovní stroje pro každodenní jízdu. Bez kauce, výbava v ceně, online rezervace.',
+    'supermoto' => 'Půjčovna supermoto motorek na Vysočině. Lehké městské stroje s vysokým posedem. Bez kauce, výbava v ceně, online rezervace.',
+    'detske'    => 'Půjčovna dětských elektromotorek bez ŘP. Bezpečná zábava na zahradě i tábořištích. Doručení po ČR, online rezervace.',
+];
+$catDesc = $category && isset($catDescriptions[$category]) ? $catDescriptions[$category] : t('katalog.seo.description');
+
 renderPage($title . ' | MotoGo24', $content, $path, [
-    'description' => t('katalog.seo.description'),
+    'description' => $catDesc,
     'keywords' => t('katalog.seo.keywords'),
     'schema' => $itemListSchema,
     'breadcrumbs' => [

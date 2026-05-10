@@ -25,8 +25,11 @@ $sb = new SupabaseClient();
 // Cross-domain: každý jazyk má vlastní TLD (.cz/.com/.at/.es/.pl/.fr/.nl).
 function sitemapAlternates($path) {
     if (!defined('I18N_SUPPORTED')) return '';
+    $live = defined('I18N_HREFLANG_LIVE') ? I18N_HREFLANG_LIVE : [];
     $out = '';
     foreach (I18N_SUPPORTED as $code) {
+        // SEO: hreflang odkazy jen na zive domeny — viz I18N_HREFLANG_LIVE.
+        if (isset($live[$code]) && $live[$code] === false) continue;
         $href = i18nUrlForLang($code, $path);
         $out .= '    <xhtml:link rel="alternate" hreflang="' . htmlspecialchars($code) . '" href="' . htmlspecialchars($href) . '"/>' . "\n";
     }
