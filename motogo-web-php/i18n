@@ -146,9 +146,13 @@ function i18nOriginForLang($lang) {
 
 /**
  * Postaví kanonickou URL pro daný jazyk + cestu.
- *   cs  na .cz  → https://motogo24.cz{path}
- *   en  na .com → https://motogo24.com{path}
- *   de/fr/nl/pl/es na .com → https://motogo24.com{path}?lang=xx
+ *   cs            → https://www.motogo24.cz{path}      (Forpsi vynucuje www)
+ *   en  na .com   → https://motogo24.com{path}
+ *   de  na .at    → https://motogo24.at{path}
+ *   es  na .es    → https://motogo24.es{path}
+ *   pl  na .pl    → https://motogo24.pl{path}
+ *   fr  na .fr    → https://motogo24.fr{path}
+ *   nl  na .nl    → https://motogo24.nl{path}
  *
  * $forceLangQuery=true vždy přidá ?lang=xx (i pro doménový default). Používá
  * jen language switcher — díky tomu se vždy refreshne cookie `mg_web_lang`

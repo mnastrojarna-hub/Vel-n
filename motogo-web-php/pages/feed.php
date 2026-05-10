@@ -10,12 +10,12 @@ $sb = new SupabaseClient();
 $posts = $sb->fetchCmsPages();
 if (!is_array($posts)) $posts = [];
 
-// Dynamická base URL podle aktuální domény (motogo24.com / motogo24.cz)
-$host = $_SERVER['HTTP_HOST'] ?? 'motogo24.cz';
-$host = preg_replace('#^www\.#i', '', strtolower($host));
-$isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-    || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
-$siteOrigin = ($isHttps ? 'https://' : 'http://') . $host;
+// Dynamická base URL podle aktuálního jazyka. Pro .cz vždy www variantu
+// (Forpsi vynucuje www, jakákoli non-www URL by se redirectovala — RSS čtečky
+// + Search Console hlásí 'feed item URL redirected'). Pro ostatní TLD non-www.
+// i18nOriginForLang řeší per-doménu i www prefix napříč celým repem.
+$lang = function_exists('i18nDetectLanguage') ? i18nDetectLanguage() : 'cs';
+$siteOrigin = function_exists('i18nOriginForLang') ? i18nOriginForLang($lang) : 'https://www.motogo24.cz';
 
 header('Content-Type: application/rss+xml; charset=utf-8');
 header('Cache-Control: public, max-age=1800');

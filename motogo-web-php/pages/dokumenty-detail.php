@@ -54,7 +54,12 @@ body.doc-render table td, body.doc-render table th { border: 1px solid #d4e8e0; 
 }
 CSS;
 
-$tplHtml = $tpl && !empty($tpl['content_html']) ? $tpl['content_html'] : '';
+// SEO sanitace CMS obsahu z Velin RichTextEditor:
+//  - <b>/<i>/<font> -> <strong>/<em>/<span> (semantic)
+//  - prazdne <strong></strong>/<em></em>/<span></span> -> pryc (Seobility 'Empty tags')
+//  - vnoreny <h1> -> <h2> (Seobility 'Multiple H1 in page' — sablona uz ma jeden <h1>)
+//  - <iframe>/<script> raw HTML chrana (i kdyz Velin editor by je nemel pustit)
+$tplHtml = $tpl && !empty($tpl['content_html']) ? sanitizeHtml($tpl['content_html']) : '';
 
 // `format=pdf` → vrátí samostatný HTML dokument optimalizovaný pro tisk/uložení
 // jako PDF (Ctrl+P → Save as PDF). Žádné navigační prvky webu, jen čistý obsah.
@@ -106,7 +111,7 @@ if (!$tpl || empty($tplHtml)) {
               . ' &middot; aktualizováno ' . htmlspecialchars(date('d. m. Y', strtotime($tpl['updated_at']))) . '</p>';
     }
     $body .= '<div class="no-print" style="display:flex;gap:8px;margin:12px 0 20px">';
-    $body .= '<a class="btn btngreen" href="' . htmlspecialchars($pdfHref) . '" target="_blank" rel="noopener">'
+    $body .= '<a class="btn btngreen" href="' . htmlspecialchars($pdfHref) . '" target="_blank" rel="noopener nofollow">'
           .  '<img src="' . BASE_URL . '/gfx/ico-stahnout.svg" alt="" style="height:16px;vertical-align:middle;margin-right:6px">'
           .  'Stáhnout / Tisk (PDF)</a>';
     $body .= '</div>';

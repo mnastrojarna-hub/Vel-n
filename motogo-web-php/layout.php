@@ -323,13 +323,15 @@ function renderHreflangAlternates($path) {
  *   breadcrumbs  — pole pro BreadcrumbList schema [['name'=>'X','url'=>'Y'], ...]
  */
 function renderPage($title, $content, $currentPath = '/', $meta = []) {
-    // Dynamická base URL podle aktuální domény (motogo24.com nová /
-    // motogo24.cz stará) — www se strippuje, schéma dle HTTPS/proxy.
-    $host = $_SERVER['HTTP_HOST'] ?? 'motogo24.cz';
-    $host = preg_replace('#^www\.#i', '', strtolower($host));
-    $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-        || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
-    $siteOrigin = ($isHttps ? 'https://' : 'http://') . $host;
+    // Origin podle aktuálního jazyka (přes i18nOriginForLang). Pro .cz vždy
+    // www variantu — Forpsi vynucuje www, jakákoli non-www URL by se
+    // 301-redirectovala. Bez tohoto fixu og:image, twitter:image, manifest,
+    // RSS feed link, apple-touch-icon a všechny další $siteOrigin reference
+    // emitujou non-www URL → Seobility hlásí ~600 stránek × 8 different
+    // resources = 5000+ 'Internal redirects' a 'Image redirected'.
+    // (Předtím zde bylo: HTTP_HOST → strip www. → siteOrigin = non-www, špatně.)
+    $lang = function_exists('i18nDetectLanguage') ? i18nDetectLanguage() : 'cs';
+    $siteOrigin = function_exists('i18nOriginForLang') ? i18nOriginForLang($lang) : 'https://www.motogo24.cz';
 
     // Default description per-jazyk (cs/en/de/fr/es/nl/pl) — bez tohoto fallbacku
     // by Google na .com indexoval cizojazycne stranky s ceskym defaultnim popiskem.

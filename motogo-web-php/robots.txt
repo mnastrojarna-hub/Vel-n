@@ -7,162 +7,194 @@ User-agent: GPTBot
 Allow: /
 Disallow: /rezervace
 Disallow: /potvrzeni
+Disallow: /*?format=pdf
 
 User-agent: ChatGPT-User
 Allow: /
 Disallow: /rezervace
 Disallow: /potvrzeni
+Disallow: /*?format=pdf
 
 User-agent: OAI-SearchBot
 Allow: /
 Disallow: /rezervace
 Disallow: /potvrzeni
+Disallow: /*?format=pdf
 
 User-agent: ClaudeBot
 Allow: /
 Disallow: /rezervace
 Disallow: /potvrzeni
+Disallow: /*?format=pdf
 
 User-agent: Claude-User
 Allow: /
 Disallow: /rezervace
 Disallow: /potvrzeni
+Disallow: /*?format=pdf
 
 User-agent: Claude-SearchBot
 Allow: /
 Disallow: /rezervace
 Disallow: /potvrzeni
+Disallow: /*?format=pdf
 
 User-agent: anthropic-ai
 Allow: /
 Disallow: /rezervace
 Disallow: /potvrzeni
+Disallow: /*?format=pdf
 
 User-agent: PerplexityBot
 Allow: /
 Disallow: /rezervace
 Disallow: /potvrzeni
+Disallow: /*?format=pdf
 
 User-agent: Perplexity-User
 Allow: /
 Disallow: /rezervace
 Disallow: /potvrzeni
+Disallow: /*?format=pdf
 
 User-agent: Google-Extended
 Allow: /
 Disallow: /rezervace
 Disallow: /potvrzeni
+Disallow: /*?format=pdf
 
 User-agent: GoogleOther
 Allow: /
 Disallow: /rezervace
 Disallow: /potvrzeni
+Disallow: /*?format=pdf
 
 User-agent: Applebot-Extended
 Allow: /
 Disallow: /rezervace
 Disallow: /potvrzeni
+Disallow: /*?format=pdf
 
 User-agent: Meta-ExternalAgent
 Allow: /
 Disallow: /rezervace
 Disallow: /potvrzeni
+Disallow: /*?format=pdf
 
 User-agent: Meta-ExternalFetcher
 Allow: /
 Disallow: /rezervace
 Disallow: /potvrzeni
+Disallow: /*?format=pdf
 
 User-agent: FacebookBot
 Allow: /
 Disallow: /rezervace
 Disallow: /potvrzeni
+Disallow: /*?format=pdf
 
 User-agent: Bytespider
 Allow: /
 Disallow: /rezervace
 Disallow: /potvrzeni
+Disallow: /*?format=pdf
 
 User-agent: cohere-ai
 Allow: /
 Disallow: /rezervace
 Disallow: /potvrzeni
+Disallow: /*?format=pdf
 
 User-agent: DuckAssistBot
 Allow: /
 Disallow: /rezervace
 Disallow: /potvrzeni
+Disallow: /*?format=pdf
 
 User-agent: Amazonbot
 Allow: /
 Disallow: /rezervace
 Disallow: /potvrzeni
+Disallow: /*?format=pdf
 
 User-agent: Diffbot
 Allow: /
 Disallow: /rezervace
 Disallow: /potvrzeni
+Disallow: /*?format=pdf
 
 User-agent: YouBot
 Allow: /
 Disallow: /rezervace
 Disallow: /potvrzeni
+Disallow: /*?format=pdf
 
 User-agent: PetalBot
 Allow: /
 Disallow: /rezervace
 Disallow: /potvrzeni
+Disallow: /*?format=pdf
 
 User-agent: MistralAI-User
 Allow: /
 Disallow: /rezervace
 Disallow: /potvrzeni
+Disallow: /*?format=pdf
 
 User-agent: cohere-training-data-crawler
 Allow: /
 Disallow: /rezervace
 Disallow: /potvrzeni
+Disallow: /*?format=pdf
 
 User-agent: Timpibot
 Allow: /
 Disallow: /rezervace
 Disallow: /potvrzeni
+Disallow: /*?format=pdf
 
 User-agent: omgili
 Allow: /
 Disallow: /rezervace
 Disallow: /potvrzeni
+Disallow: /*?format=pdf
 
 User-agent: omgilibot
 Allow: /
 Disallow: /rezervace
 Disallow: /potvrzeni
+Disallow: /*?format=pdf
 
 User-agent: ImagesiftBot
 Allow: /
 Disallow: /rezervace
 Disallow: /potvrzeni
+Disallow: /*?format=pdf
 
 # === Tradiční vyhledávače — explicitně podpora SeznamBot (klíčové pro .cz trh) ===
 User-agent: SeznamBot
 Allow: /
 Disallow: /rezervace
 Disallow: /potvrzeni
+Disallow: /*?format=pdf
 
 User-agent: Seznam screenshot-generator
 Allow: /
 Disallow: /rezervace
 Disallow: /potvrzeni
+Disallow: /*?format=pdf
 
 User-agent: Googlebot
 Allow: /
 Disallow: /rezervace
 Disallow: /potvrzeni
+Disallow: /*?format=pdf
 
 User-agent: Googlebot-Image
 Allow: /
 Disallow: /rezervace
 Disallow: /potvrzeni
+Disallow: /*?format=pdf
 
 User-agent: Googlebot-News
 Allow: /
@@ -171,16 +203,19 @@ User-agent: Bingbot
 Allow: /
 Disallow: /rezervace
 Disallow: /potvrzeni
+Disallow: /*?format=pdf
 
 User-agent: DuckDuckBot
 Allow: /
 Disallow: /rezervace
 Disallow: /potvrzeni
+Disallow: /*?format=pdf
 
 User-agent: YandexBot
 Allow: /
 Disallow: /rezervace
 Disallow: /potvrzeni
+Disallow: /*?format=pdf
 
 User-agent: AhrefsBot
 Allow: /
@@ -193,6 +228,7 @@ User-agent: *
 Allow: /
 Disallow: /rezervace
 Disallow: /potvrzeni
+Disallow: /*?format=pdf
 
 # Žádné crawl-delay — máme rychlý hosting a chceme aktuální index.
 # Mapa stránek + LLM index
