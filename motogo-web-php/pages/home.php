@@ -100,7 +100,7 @@ $signHtml .= '</div></section>';
 
 // ---- Motorky
 $mo = $C['motos_section'];
-$motosHtml = '<section aria-labelledby="catalogue"><h2 data-cms-key="web.home.motos_section.title">' . $mo['title'] . '</h2>' .
+$motosHtml = '<section aria-labelledby="catalogue"><h2 id="catalogue" data-cms-key="web.home.motos_section.title">' . $mo['title'] . '</h2>' .
     '<p data-cms-key="web.home.motos_section.intro">' . $mo['intro'] . '</p><p>&nbsp;</p>' .
     '<div id="home-motos" class="gr4">';
 if (!empty($motos)) {
@@ -113,7 +113,7 @@ if (!empty($motos)) {
 $motosHtml .= '</div><p>&nbsp;</p><p class="text-center"><a class="btn btngreen" href="' . BASE_URL . $mo['cta_href'] . '" data-cms-key="web.home.motos_section.cta_label">' . $mo['cta_label'] . '</a></p></section>';
 
 // ---- Proces
-$processHtml = '<section aria-labelledby="process"><h2 data-cms-key="web.home.process.title">' . $C['process']['title'] . '</h2><div class="gr4">';
+$processHtml = '<section aria-labelledby="process"><h2 id="process" data-cms-key="web.home.process.title">' . $C['process']['title'] . '</h2><div class="gr4">';
 foreach ($C['process']['steps'] as $i => $s) {
     $kBase = 'web.home.process.steps.' . $i;
     $processHtml .= renderWbox(
@@ -156,7 +156,7 @@ $ctaHtml = renderCta(
 // ---- Reviews (zobrazí se jen pokud data existují)
 $reviewsHtml = '';
 if (!empty($reviews)) {
-    $reviewsHtml = '<section aria-labelledby="reviews"><h2 data-cms-key="web.home.reviews.title">' . htmlspecialchars($C['reviews']['title']) . '</h2>'
+    $reviewsHtml = '<section aria-labelledby="reviews"><h2 id="reviews" data-cms-key="web.home.reviews.title">' . htmlspecialchars($C['reviews']['title']) . '</h2>'
         . '<p data-cms-key="web.home.reviews.intro">' . htmlspecialchars($C['reviews']['intro']) . '</p><p>&nbsp;</p>'
         . '<div class="gr3">';
     foreach ($reviews as $r) {
@@ -175,7 +175,7 @@ if (!empty($reviews)) {
 
 // ---- Blog
 $bl = $C['blog'];
-$blogHtml = '<section aria-labelledby="blog"><h2 data-cms-key="web.home.blog.title">' . $bl['title'] . '</h2><div id="home-blog" class="gr3">';
+$blogHtml = '<section aria-labelledby="blog"><h2 id="blog" data-cms-key="web.home.blog.title">' . $bl['title'] . '</h2><div id="home-blog" class="gr3">';
 if (!empty($posts)) {
     foreach (array_slice($posts, 0, (int)($bl['limit'] ?? 3)) as $p) {
         $blogHtml .= renderBlogCard($p);

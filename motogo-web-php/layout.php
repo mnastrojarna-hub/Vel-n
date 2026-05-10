@@ -117,6 +117,7 @@ function renderFooter() {
     '<div class="copyright"><div class="container">' .
         '<p>' . tc('footer.copyright') . '</p>' .
         '<p><a href="' . BASE_URL . '/mapa-stranek">' . tc('footer.sitemap') . '</a><a href="#" data-cookie-prefs>' . tc('footer.cookies') . '</a><a href="' . BASE_URL . '/gdpr">' . tc('footer.gdpr') . '</a><a href="' . BASE_URL . '/obchodni-podminky">' . tc('footer.terms') . '</a><a href="' . BASE_URL . '/smlouva">' . tc('footer.contract') . '</a></p>' .
+        '<p class="footer-toplist"><a href="https://www.toplist.cz/stat/1841683" target="_blank" rel="nofollow noopener" aria-label="TOPlist"><img src="https://toplist.cz/count.asp?ID=1841683&amp;logo=mc" alt="TOPlist" width="88" height="31" loading="lazy"></a></p>' .
     '</div></div>' .
     '</footer>' .
     '<a id="Up" href="#" aria-label="' . te('footer.toTop') . '" onclick="window.scrollTo({top:0,behavior:\'smooth\'});return false"><img src="' . BASE_URL . '/gfx/arrow-top.svg" alt="' . te('footer.toTop') . '"></a>';
@@ -426,13 +427,15 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
   <meta property="og:image:width" content="1920">
   <meta property="og:image:height" content="1080">
   <meta property="og:image:alt" content="' . htmlspecialchars($title) . '">
+  <meta property="og:logo" content="' . $siteOrigin . '/gfx/logo.svg">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="' . htmlspecialchars($title) . '">
   <meta name="twitter:description" content="' . htmlspecialchars($description) . '">
   <meta name="twitter:image" content="' . htmlspecialchars($ogImage) . '">
   <link rel="canonical" href="' . htmlspecialchars($canonical) . '">
-  <link rel="icon" type="image/svg+xml" href="' . BASE_URL . '/favicon.svg">
-  <link rel="apple-touch-icon" href="' . BASE_URL . '/apple-touch-icon.png">
+  <link rel="icon" type="image/x-icon" href="' . $siteOrigin . '/images/favicon.ico">
+  <link rel="icon" type="image/svg+xml" href="' . $siteOrigin . '/favicon.svg">
+  <link rel="apple-touch-icon" href="' . $siteOrigin . '/apple-touch-icon.png">
   <link rel="manifest" href="' . BASE_URL . '/manifest.webmanifest">
   <link rel="alternate" type="application/rss+xml" title="MotoGo24 — Blog a tipy na trasy" href="' . $siteOrigin . '/feed.xml">
   <link rel="sitemap" type="application/xml" title="Sitemap" href="' . $siteOrigin . '/sitemap.xml">

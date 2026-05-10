@@ -91,7 +91,7 @@ foreach ((is_array($C['benefits']['buttons'] ?? null) ? $C['benefits']['buttons'
 }
 $benefitsHtml .= '</p></section>';
 
-$stepsHtml = '<section aria-labelledby="process"><h2 data-cms-key="web.pujcovna.process.title">' . ($C['process']['title'] ?? '') . '</h2><div class="gr4">';
+$stepsHtml = '<section aria-labelledby="process"><h2 id="process" data-cms-key="web.pujcovna.process.title">' . ($C['process']['title'] ?? '') . '</h2><div class="gr4">';
 foreach ((is_array($C['process']['steps'] ?? null) ? $C['process']['steps'] : []) as $i => $s) {
     if (!is_array($s)) continue;
     $kBase = 'web.pujcovna.process.steps.' . $i;

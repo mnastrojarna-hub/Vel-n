@@ -455,7 +455,10 @@ class SupabaseClient {
     public function fetchCmsPages($tag = null) {
         $filters = ['published=eq.true'];
         if ($tag) {
-            $filters[] = 'tags=cs.{' . $tag . '}';
+            // PostgREST array contains: tag s mezerami / diakritikou musí být
+            // v uvozovkách a celé URL-encodované, jinak ho parser rozsekne na
+            // víc elementů a filtr vrátí 0 řádků.
+            $filters[] = 'tags=cs.' . rawurlencode('{"' . $tag . '"}');
         }
         return $this->query('cms_pages', '*', $filters, 'created_at.desc');
     }

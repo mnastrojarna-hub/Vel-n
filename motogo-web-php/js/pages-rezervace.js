@@ -261,10 +261,10 @@ MG._rezFormHtml = function(){
     '<section class="rez-section">' +
       '<div class="rez-section-head"><span class="rez-step-num">6</span><h2>'+MG.t('rez.step.agreements')+'</h2></div>' +
       '<div class="rez-agreements">' +
-        '<label class="rez-agree"><input type="checkbox" id="rez-agree-vop" required checked><span>'+MG.t('rez.agree.terms')+'</span></label>' +
-        '<label class="rez-agree"><input type="checkbox" id="rez-agree-gdpr" checked><span>'+MG.t('rez.agree.gdpr')+'</span></label>' +
-        '<label class="rez-agree"><input type="checkbox" id="rez-agree-marketing" checked><span>'+MG.t('rez.agree.marketing')+'</span></label>' +
-        '<label class="rez-agree"><input type="checkbox" id="rez-agree-photo" checked><span>'+MG.t('rez.agree.photo')+'</span></label>' +
+        '<label class="rez-agree"><input type="checkbox" id="rez-agree-vop" required><span>'+MG.t('rez.agree.terms')+'</span></label>' +
+        '<label class="rez-agree"><input type="checkbox" id="rez-agree-gdpr"><span>'+MG.t('rez.agree.gdpr')+'</span></label>' +
+        '<label class="rez-agree"><input type="checkbox" id="rez-agree-marketing"><span>'+MG.t('rez.agree.marketing')+'</span></label>' +
+        '<label class="rez-agree"><input type="checkbox" id="rez-agree-photo"><span>'+MG.t('rez.agree.photo')+'</span></label>' +
       '</div>' +
     '</section>' +
 

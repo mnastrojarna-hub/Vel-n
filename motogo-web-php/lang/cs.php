@@ -292,9 +292,9 @@ return [
 
     // ===== SEO meta defaults (per-jazyk) =====
     'seo.default.description' => 'Půjčovna motorek Vysočina – silniční, sportovní, enduro i dětské. Nonstop pronájem bez kauce, online rezervace a motorkářská výbava zdarma.',
-    'seo.default.keywords' => 'motopůjčovna',
+    'seo.default.keywords' => 'motopůjčovna, půjčovna motorek, půjčovna motorek Vysočina, půjčovna motorek Pelhřimov, pronájem motorky, půjčit motorku, půjčení motocyklu, motorka na pronájem, půjčovna motocyklů, motorka bez kauce, nonstop půjčovna motorek, online rezervace motorky, cestovní motorky, naked motorky, supermoto, enduro motorky, dětské motorky, motorkářská výbava, motorkářské doplňky, dárkový poukaz na motorku, motocyklové trasy Vysočina, MotoGo24',
     'seo.home.description' => 'Půjčte si motorku na Vysočině. Bez kauce, výbava v ceně, nonstop provoz. Cestovní, sportovní, enduro i dětské motorky. Online rezervace.',
-    'seo.home.keywords' => 'motopůjčovna',
+    'seo.home.keywords' => 'půjčovna motorek Vysočina, motopůjčovna Pelhřimov, půjčit motorku, pronájem motorky, půjčovna motocyklů, motorka bez kauce, nonstop půjčovna motorek, online rezervace motorky, cestovní motorky, naked motorky, supermoto, enduro, dětské motorky, motorka na víkend, motorkářská výbava v ceně, dárkový poukaz na motorku, motocyklové trasy Vysočina, MotoGo24',
 
     // ===== Potvrzení =====
     'confirm.titleBooking' => 'Potvrzení rezervace | MotoGo24',
@@ -1008,7 +1008,7 @@ return [
 
     // ===== Katalog SEO =====
     'katalog.seo.description' => 'Katalog motorek k pronájmu na Vysočině. Filtr dle kategorie, ŘP, výkonu a ceny. Cestovní, sportovní, enduro a dětské motorky. Online rezervace.',
-    'katalog.seo.keywords' => 'motopůjčovna',
+    'katalog.seo.keywords' => 'katalog motorek k pronájmu, půjčovna motorek Vysočina, půjčit motorku, pronájem motocyklu, cestovní motorky, naked motorky, supermoto, enduro, dětské motorky, motorka bez kauce, online rezervace motorky, MotoGo24 Pelhřimov',
 
     // ===== Galerie / Lightbox =====
     'gallery.openImage' => 'Otevřít fotku v galerii',
@@ -1142,7 +1142,8 @@ return [
     // ===== Voucher form (poukazy-objednat) =====
     'voucher.pageTitle' => 'Půjčovna motorek Vysočina - Koupit dárkový poukaz',
     'voucher.description' => 'Objednejte dárkový poukaz na pronájem motorky od Motogo24. Platnost 3 roky, bez kauce, výbava v ceně.',
-    'voucher.keywords' => 'motopůjčovna',
+    'voucher.keywords' => 'dárkový poukaz na motorku, dárek pro motorkáře, poukaz půjčovna motorek, voucher pronájem motorky, dárek motocykl, MotoGo24 poukaz, motorkářský dárek',
+    'poukazy.steps.aria' => 'Jak poukaz funguje',
     'voucher.title' => 'Dárkový poukaz Motogo24',
     'voucher.lead' => 'Darujte zážitek z jízdy na motorce! Poukaz je platný 3 roky a lze jej uplatnit při rezervaci na tomto webu.',
     'voucher.contactSection' => 'Vaše kontaktní údaje',
