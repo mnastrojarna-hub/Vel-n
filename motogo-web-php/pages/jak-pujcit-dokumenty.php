@@ -80,19 +80,28 @@ $twoColHtml = '<div class="gr2">' .
 $privacyHtml = '<p>&nbsp;</p><h2 data-cms-key="' . $kp . '.privacy.title">' . ($C['privacy']['title'] ?? '') . '</h2>' .
     '<p data-cms-key="' . $kp . '.privacy.text">' . $linkFix($C['privacy']['text'] ?? '') . '</p><p>&nbsp;</p>';
 
-// Dokumenty PDF — boxwhitey karty
+// Dokumenty PDF — boxwhitey karty (zdroj pravdy: document_templates ve Velíně,
+// ikony /gfx/ico-pdf.svg + /gfx/ico-stahnout.svg s pevnou velikostí, aby se
+// nikdy nezobrazil jen alt text při pomalém načtení / chybějícím SVG).
 $docsCardsHtml = '<h2 data-cms-key="' . $kp . '.documents.title">' . ($C['documents']['title'] ?? '') . '</h2><div class="attachments attachments-columns gr2">';
 foreach ((is_array($C['documents']['items'] ?? null) ? $C['documents']['items'] : []) as $i => $d) {
     if (!is_array($d)) continue;
     $href = BASE_URL . ($d['href'] ?? '#');
     $name = htmlspecialchars($d['name'] ?? '');
-    $size = htmlspecialchars($d['size'] ?? '');
     $kBase = $kp . '.documents.items.' . $i;
-    $docsCardsHtml .= '<a class="boxwhitey dfac" href="' . $href . '" title="' . $name . '"><div class="gr3">' .
-        '<img src="' . BASE_URL . '/gfx/ico-pdf.svg" class="icon-big" alt="' . $name . '" title="' . $name . '" loading="lazy">' .
-        '<div><h3 data-cms-key="' . $kBase . '.name">' . ($d['name'] ?? '') . '</h3><br>(<span data-cms-key="' . $kBase . '.size">' . ($d['size'] ?? '') . '</span>)</div>' .
-        '<div><span class="btn btngreen-small"><img src="' . BASE_URL . '/gfx/ico-stahnout.svg" alt="' . te('common.download') . '" loading="lazy"><br>' . te('common.downloadCaps') . '</span></div>' .
-        '</div></a>';
+    $docsCardsHtml .= '<a class="boxwhitey doc-card" href="' . $href . '" title="' . $name . '" '
+        . 'style="display:flex;align-items:center;gap:14px;padding:14px 16px;text-decoration:none;color:inherit">'
+        . '<img src="' . BASE_URL . '/gfx/ico-pdf.svg" alt="" width="44" height="44" loading="lazy" '
+        . 'style="flex:0 0 44px;width:44px;height:44px;display:block">'
+        . '<div style="flex:1;min-width:0">'
+        .   '<h3 data-cms-key="' . $kBase . '.name" style="margin:0;font-size:15px;font-weight:700;color:#0f1a14">' . ($d['name'] ?? '') . '</h3>'
+        .   '<span style="display:block;font-size:12px;color:#6b7a72;margin-top:2px">PDF · zobrazit nebo uložit</span>'
+        . '</div>'
+        . '<span class="btn btngreen-small" style="flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;padding:8px 14px;font-size:13px;font-weight:800;text-transform:uppercase">'
+        .   '<img src="' . BASE_URL . '/gfx/ico-stahnout.svg" alt="" width="14" height="14" loading="lazy" style="display:block">'
+        .   te('common.downloadCaps')
+        . '</span>'
+        . '</a>';
 }
 $docsCardsHtml .= '</div>';
 
