@@ -90,3 +90,62 @@ RewriteRule ^wp-login\.php$ - [R=410,L]
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^(.*)$ index.php [QSA,L]
+
+# === 6. Security headers (Lighthouse Best Practices) ============================
+# Pridava security hlavicky bez nutnosti zasahu do PHP. mod_headers musi byt
+# povoleny na hostingu (Hosting90 ano). Pokud by neslo, hlavicky lze duplikovat
+# pres header() v index.php.
+<IfModule mod_headers.c>
+  # HSTS — vynuti HTTPS na 6 mesicu (po overeni navysit na 1 rok + preload).
+  # includeSubDomains lze pridat pozdeji, az budou vsechny subdomeny na HTTPS.
+  Header always set Strict-Transport-Security "max-age=15768000"
+
+  # Clickjacking ochrana — embed jen z vlastni domeny.
+  # CSP frame-ancestors je modernejsi nahrada za X-Frame-Options.
+  Header always set Content-Security-Policy "frame-ancestors 'self'"
+  Header always set X-Frame-Options "SAMEORIGIN"
+
+  # Cross-Origin Opener Policy — izolace top-level oken (chrani pred
+  # Spectre-like utoky a tabnabbing). same-origin-allow-popups pro Stripe
+  # checkout popup; pokud Stripe Checkout neni potreba, lze zpritvridit na same-origin.
+  Header always set Cross-Origin-Opener-Policy "same-origin-allow-popups"
+
+  # MIME sniffing ochrana.
+  Header always set X-Content-Type-Options "nosniff"
+
+  # Referrer policy — standardni hodnota: na cross-origin posila jen origin
+  # pres HTTPS, na HTTP nic.
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+
+  # Permissions Policy — zakazane zbytecne API (geolocation pres feature flag,
+  # ne globalne, takze povoleno; zbytek vypnuto).
+  Header always set Permissions-Policy "camera=(self), microphone=(), geolocation=(self), payment=(self), interest-cohort=()"
+</IfModule>
+
+# === 7. Cache lifetimes (vykon: Lighthouse "Use efficient cache lifetimes") =====
+<IfModule mod_expires.c>
+  ExpiresActive On
+  # Staticka aktiva s versionovanim v URL (assetUrl pridava ?v=...) — 1 rok, immutable
+  ExpiresByType text/css "access plus 1 year"
+  ExpiresByType application/javascript "access plus 1 year"
+  ExpiresByType image/svg+xml "access plus 6 months"
+  ExpiresByType image/png "access plus 6 months"
+  ExpiresByType image/jpeg "access plus 6 months"
+  ExpiresByType image/webp "access plus 6 months"
+  ExpiresByType image/avif "access plus 6 months"
+  ExpiresByType image/x-icon "access plus 6 months"
+  ExpiresByType font/woff2 "access plus 1 year"
+  ExpiresByType font/woff "access plus 1 year"
+  # HTML zustava no-cache (dynamicky obsah z DB)
+  ExpiresByType text/html "access plus 0 seconds"
+</IfModule>
+
+<IfModule mod_headers.c>
+  # immutable cache hint pro statiku s ?v= versionovanim
+  <FilesMatch "\.(css|js|woff2|woff)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+  <FilesMatch "\.(jpg|jpeg|png|gif|webp|avif|svg|ico)$">
+    Header set Cache-Control "public, max-age=15552000"
+  </FilesMatch>
+</IfModule>
