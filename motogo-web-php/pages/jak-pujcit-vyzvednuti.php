@@ -147,7 +147,7 @@ if (!empty($faqSchemaItems)) {
 renderPage($C['seo']['title'], $content, $pagePath, [
     'description' => $C['seo']['description'],
     'keywords' => $C['seo']['keywords'],
-    'canonical' => 'https://motogo24.cz/jak-pujcit/prevzeti',
+    'canonical' => 'https://www.motogo24.cz/jak-pujcit/prevzeti',
     'schema' => $faqSchema,
     'breadcrumbs' => [
         ['name' => t('breadcrumb.home'), 'url' => siteCanonicalUrl('/')],
