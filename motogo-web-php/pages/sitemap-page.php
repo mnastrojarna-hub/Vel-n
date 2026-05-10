@@ -25,9 +25,11 @@ $links = [
     ['href' => '/blog', 'label' => t('sitemap.links.blog')],
     ['href' => '/kontakt', 'label' => t('sitemap.links.contact')],
     ['href' => '/rezervace', 'label' => t('sitemap.links.reservation')],
-    ['href' => '/obchodni-podminky', 'label' => t('sitemap.links.terms')],
-    ['href' => '/gdpr', 'label' => t('sitemap.links.gdpr')],
-    ['href' => '/smlouva', 'label' => t('sitemap.links.contract')],
+    // SEO: linkujeme primo na cilove /dokumenty/<slug> URL aby crawler nemusel
+    // sledovat 301 redirect (Seobility hlasil 'Internal redirects' z mapa-stranek).
+    ['href' => '/dokumenty/obchodni-podminky', 'label' => t('sitemap.links.terms')],
+    ['href' => '/dokumenty/zasady-ochrany-osobnich-udaju', 'label' => t('sitemap.links.gdpr')],
+    ['href' => '/dokumenty/smlouva-o-pronajmu', 'label' => t('sitemap.links.contract')],
 ];
 
 $html = '<ul>';
