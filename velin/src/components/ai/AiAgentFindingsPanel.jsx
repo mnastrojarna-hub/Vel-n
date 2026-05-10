@@ -116,11 +116,11 @@ export default function AiAgentFindingsPanel() {
               </div>
               {isExpanded && (
                 <div style={{ padding: '6px 10px 8px 36px', borderTop: `1px solid ${sev.color}22`, fontSize: 11 }}>
-                  <div style={{ color: '#666', marginBottom: 2 }}><b>Agent:</b> {agent?.name} ({f.agentId})</div>
-                  <div style={{ color: '#666', marginBottom: 2 }}><b>Akce:</b> {f.action}</div>
-                  {detailCz(f) && <div style={{ color: sev.color, marginBottom: 2 }}><b>Detail:</b> {detailCz(f)}</div>}
-                  {f.input_summary && <div style={{ color: '#666', marginBottom: 2 }}><b>Vstup:</b> {f.input_summary}</div>}
-                  <div style={{ color: '#999' }}><b>Čas:</b> {f.timestamp ? new Date(f.timestamp).toLocaleString('cs-CZ') : '—'}</div>
+                  <div style={{ color: '#666', marginBottom: 2 }}><strong>Agent:</strong> {agent?.name} ({f.agentId})</div>
+                  <div style={{ color: '#666', marginBottom: 2 }}><strong>Akce:</strong> {f.action}</div>
+                  {detailCz(f) && <div style={{ color: sev.color, marginBottom: 2 }}><strong>Detail:</strong> {detailCz(f)}</div>}
+                  {f.input_summary && <div style={{ color: '#666', marginBottom: 2 }}><strong>Vstup:</strong> {f.input_summary}</div>}
+                  <div style={{ color: '#999' }}><strong>Čas:</strong> {f.timestamp ? new Date(f.timestamp).toLocaleString('cs-CZ') : '—'}</div>
                 </div>
               )}
             </div>
