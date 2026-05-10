@@ -308,8 +308,14 @@ function renderWebmasterVerification() {
  */
 function renderHreflangAlternates($path) {
     if (!defined('I18N_SUPPORTED')) return '';
+    $live = defined('I18N_HREFLANG_LIVE') ? I18N_HREFLANG_LIVE : [];
     $out = '';
     foreach (I18N_SUPPORTED as $code) {
+        // SEO: hreflang odkazy jen na domeny ktere jsou ZIVE. Mrtve domeny
+        // (motogo24.es, .nl) by Seobility hlasilo jako 'External link problem
+        // - Page is down' (tisice errors). I18N_HREFLANG_LIVE = ['es'=>false,
+        // 'nl'=>false] -> ten kod se preskoci dokud se domeny nerozjedou.
+        if (isset($live[$code]) && $live[$code] === false) continue;
         $href = i18nUrlForLang($code, $path);
         $out .= "\n  " . '<link rel="alternate" hreflang="' . htmlspecialchars($code) . '" href="' . htmlspecialchars($href) . '">';
     }
@@ -344,6 +350,28 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
     $defaultDesc = function_exists('t') ? t('seo.default.description') : 'Půjčovna motorek Vysočina – silniční, sportovní, enduro i dětské. Nonstop pronájem bez kauce, online rezervace a motorkářská výbava zdarma.';
     $description = $meta['description'] ?? $defaultDesc;
     $keywords = $meta['keywords'] ?? (function_exists('t') ? t('seo.default.keywords') : 'motopůjčovna');
+
+    // SEO defensive auto-truncate — at-render-time pojistka pred prilis dlouhymi
+    // <title> a <meta description> hodnotami z CMS / data souboru. Externi
+    // SEO checker hlasil 13 'Title too long' (>580 px) a 11 'Meta description
+    // too long' (>1000 px). Misto rucniho zkracovani textu napric Velin CMS
+    // zaroven se kazda hodnota kratsi nez SERP limit nebo se orizne na hranici
+    // posledniho slova + ' …'. Uzivatel ve Velinu pise jak chce dlouhy text,
+    // SEO render zustava optimalni.
+    $truncate = function ($s, $maxChars) {
+        $s = trim((string)$s);
+        if (mb_strlen($s, 'UTF-8') <= $maxChars) return $s;
+        // mb_strimwidth zkrati na max znaku, doplnime trojtecku.
+        $cut = mb_substr($s, 0, $maxChars - 1, 'UTF-8');
+        // Zarovnat na hranici slova (zpetne hledame mezeru).
+        $sp = mb_strrpos($cut, ' ', 0, 'UTF-8');
+        if ($sp !== false && $sp > $maxChars * 0.6) $cut = mb_substr($cut, 0, $sp, 'UTF-8');
+        return rtrim($cut, " \t\n\r\0\x0B,;:.-") . '…';
+    };
+    // Title cil 55-65 znaku (Google SERP). Meta description cil 150-160 znaku
+    // (~1000 px). Trochu rezerva ze ceske diakritiky (delsi byty).
+    $title = $truncate($title, 65);
+    $description = $truncate($description, 160);
     // Canonical = doménová home pro aktuální jazyk (cs → .cz, ostatní → .com).
     // Tím Google indexuje českou verzi výhradně z motogo24.cz a anglickou/další
     // z motogo24.com — žádný duplicate-content stejného jazyka přes obě domény.
