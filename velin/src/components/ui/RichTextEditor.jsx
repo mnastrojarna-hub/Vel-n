@@ -107,12 +107,13 @@ export default function RichTextEditor({
     else if ((k === 'z' && e.shiftKey) || k === 'y') { e.preventDefault(); exec('redo') }
   }
 
-  // Lepší paste — bez stylů z Wordu
+  // Lepší paste — bez stylů z Wordu, plain text převedený na odstavce
   const onPaste = (e) => {
-    const text = e.clipboardData?.getData('text/html') || e.clipboardData?.getData('text/plain')
-    if (!text) return
+    const html = e.clipboardData?.getData('text/html')
+    const plain = e.clipboardData?.getData('text/plain')
+    if (!html && !plain) return
     e.preventDefault()
-    const cleaned = sanitizePastedHtml(text)
+    const cleaned = html ? sanitizePastedHtml(html) : plainTextToHtml(plain)
     insertHtml(cleaned)
   }
 
@@ -415,6 +416,16 @@ function escapeHtml(s) {
 }
 function escapeAttr(s) {
   return String(s).replace(/"/g, '&quot;')
+}
+
+// Plain text → HTML s odstavci a <br> (zachová zalomení řádků a prázdné řádky)
+function plainTextToHtml(text) {
+  if (!text) return ''
+  const blocks = String(text).replace(/\r\n/g, '\n').split(/\n{2,}/)
+  return blocks.map(b => {
+    const lines = b.split('\n').map(escapeHtml)
+    return `<p>${lines.join('<br>')}</p>`
+  }).join('')
 }
 
 // Velmi jednoduché čištění vloženého HTML — odstraní script/style, MS Office bloat, inline class/id atd.
