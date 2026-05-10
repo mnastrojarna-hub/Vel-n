@@ -618,21 +618,51 @@ async function autoGenerateAttachments(
         }
       } catch { /* ignore */ }
     } else if (priceDifference < 0) {
-      // Zkrácení → dobropis + refund se řeší přes process-refund (volá ho velin modal),
-      // zde pouze přiložíme již vystavený dobropis (credit_note s source='refund') pokud existuje.
-      try {
-        const { data: cn } = await supabase.from('invoices')
-          .select('id, number, pdf_path')
-          .eq('booking_id', booking_id)
-          .eq('type', 'credit_note')
-          .neq('status', 'cancelled')
-          .order('created_at', { ascending: false })
-          .limit(1)
-        if (cn?.length && cn[0].pdf_path) {
-          const b64 = await downloadAsBase64(supabase, cn[0].pdf_path)
-          if (b64) atts.push({ content: b64, filename: `Dobropis-${cn[0].number || 'DB'}.${fileExt(cn[0].pdf_path)}`, storage_path: cn[0].pdf_path })
-        }
-      } catch { /* ignore */ }
+      // Zkrácení → dobropis + refund se řeší přes process-refund (volá ho RPC
+      // _apply_booking_changes_core / shorten_booking_with_refund), zde přiložíme
+      // vystavený dobropis (credit_note source='refund') s recovery retry pro
+      // případ, že PDFShift / Storage upload v process-refund tichoun selhal
+      // (stejná logika jako v send-cancellation-email od 2026-05-10).
+      const refundAmt = Math.abs(priceDifference)
+      let attached = false
+      for (let attempt = 0; attempt < 3 && !attached; attempt++) {
+        try {
+          const { data: cn } = await supabase.from('invoices')
+            .select('id, number, pdf_path')
+            .eq('booking_id', booking_id)
+            .eq('type', 'credit_note')
+            .neq('status', 'cancelled')
+            .order('created_at', { ascending: false })
+            .limit(1)
+          if (cn?.length && cn[0].pdf_path) {
+            const b64 = await downloadAsBase64(supabase, cn[0].pdf_path)
+            if (b64) {
+              atts.push({ content: b64, filename: `Dobropis-${cn[0].number || 'DB'}.${fileExt(cn[0].pdf_path)}`, storage_path: cn[0].pdf_path })
+              attached = true
+              break
+            }
+          }
+          // Recovery — vystavit / dovystavit PDF dobropisu přes process-refund (idempotentní)
+          if (attempt < 2) {
+            try {
+              await fetch(`${SUPABASE_URL}/functions/v1/process-refund`, {
+                method: 'POST', headers,
+                body: JSON.stringify({ booking_id, amount: refundAmt, reason: 'booking_modified_retry' }),
+              })
+            } catch { /* ignore */ }
+            await new Promise(r => setTimeout(r, 2500))
+          }
+        } catch { /* ignore — další iterace */ }
+      }
+      if (!attached) {
+        await supabase.from('debug_log').insert({
+          source: 'send-booking-email',
+          action: 'modified_credit_note_attach_failed',
+          status: 'error',
+          error_message: 'Credit note attachment missing after 3 retries (booking_modified flow)',
+          request_data: { booking_id, refundAmt, priceDifference },
+        }).then(() => {}, () => {})
+      }
     }
     // priceDifference === 0 → žádná nová faktura, jen aktualizovaná smlouva/VOP níže
 
