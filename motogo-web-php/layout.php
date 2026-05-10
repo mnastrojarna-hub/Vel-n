@@ -661,6 +661,20 @@ body{font-family:Montserrat,"Segoe UI",sans-serif;margin:0;color:#1a2e22;backgro
     // až po souhlasu. Viz renderConsentManager() na konci stránky.
     echo renderHeader($currentPath);
     echo '<div id="app">';
+    // SEO: post-process strip prazdnych nadpisu napric celym CMS contentem.
+    // Externi SEO checker hlasil 'Chybi text titulku' u <h2>/<h3> kde CMS klic
+    // (data-cms-key="web.X.title") nebyl naplneny z Velinu — sablony 10+ stranek
+    // primo vypisovaly `<h2>{$cms['title']}</h2>` bez guardu.
+    // Pravidla: smazat <h1-h6> pokud obsah je prazdny / whitespace / &nbsp;.
+    // Zachovat <hN data-cms-empty="1">[Doplnte titulek]</hN> z renderHeading()
+    // helperu (admin rezim placeholder pro inline edit).
+    if (empty($_COOKIE['mg_cms_admin'])) {
+        $content = preg_replace(
+            '#<h([1-6])(?![^>]*\bdata-cms-empty=)[^>]*>(?:\s|&nbsp;|&#160;|\xC2\xA0)*</h\1\s*>#i',
+            '',
+            $content
+        );
+    }
     echo $content;
     echo '</div>';
     echo renderFooter();
