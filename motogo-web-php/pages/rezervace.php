@@ -28,7 +28,7 @@ $rezKeys = [
     'pickup.title','pickup.sub','pickup.recommended','pickup.orCustom',
     'pickup.atRental','pickup.atRentalSub','pickup.delivery','pickup.deliverySub','pickup.deliveryTip',
     'pickup.deliveryAddr','pickup.sameAsDel','pickup.returnOther','pickup.returnTip','pickup.returnAddr','pickup.map','pickup.gps',
-    'return.title','return.sub',
+    'return.title','return.sub','return.stateTitle','return.stateText',
     'gear.intro','gear.rider','gear.riderSub','gear.riderFree','gear.riderOwn',
     'gear.passenger','gear.passengerSub','gear.passengerTip',
     'gear.bootsRider','gear.bootsPassenger','gear.bootsRiderSub','gear.bootsPassengerSub',

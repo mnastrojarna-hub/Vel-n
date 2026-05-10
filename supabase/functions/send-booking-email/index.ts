@@ -752,6 +752,7 @@ serve(async (req) => {
 
     const vars: Record<string, string> = {
       customer_name: customer_name || '',
+      booking_id: booking_id || '',
       booking_number: (booking_id || '').slice(-8).toUpperCase(),
       motorcycle: motorcycle || '',
       start_date: fmtDate(start_date),
