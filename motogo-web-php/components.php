@@ -7,6 +7,54 @@ require_once __DIR__ . '/i18n.php';
 require_once __DIR__ . '/supabase.php';
 
 /**
+ * Bezpečný render nadpisu (h1-h6) — neemittuje prázdné heading tagy ani
+ * defaultní fallback pro běžného návštěvníka. Externí SEO checker hlásil
+ * desítky 'Chybí text titulku' (prázdné <h2>/<h3>) na homepage, kde CMS
+ * klíče nebyly vyplněné z Velínu — render šablona slepě vypsala
+ * `<h2>{$cms['title']}</h2>` i pro prázdný řetězec.
+ *
+ * Pravidla:
+ *   - Pokud je `$text` prázdný a `$fallback` prázdný → vrátí '' (žádný tag).
+ *   - Pokud je `$text` prázdný a `$fallback` vyplněný → použije fallback.
+ *   - V CMS admin režimu (cookie `mg_cms_admin=1`) se prázdný heading
+ *     vyrenderuje s placeholderem 'Doplňte titulek' kvůli inline edit
+ *     overlayi (admin musí vidět co má vyplnit).
+ *
+ * @param int    $level  1-6
+ * @param string $text   Hlavní text (CMS hodnota nebo statický fallback)
+ * @param array  $opts   ['id'=>..., 'class'=>..., 'cmsKey'=>'web.home.foo',
+ *                        'fallback'=>'Default text', 'allowHtml'=>false]
+ * @return string  HTML <hN ...>...</hN> nebo '' pokud prázdné a není admin
+ */
+function renderHeading($level, $text, $opts = []) {
+    $level = max(1, min(6, (int)$level));
+    $tag = 'h' . $level;
+    $raw = is_string($text) ? trim(strip_tags($text)) : '';
+    $isAdmin = !empty($_COOKIE['mg_cms_admin']);
+    $fallback = isset($opts['fallback']) ? trim(strip_tags((string)$opts['fallback'])) : '';
+    $cmsKey = $opts['cmsKey'] ?? '';
+    $allowHtml = !empty($opts['allowHtml']);
+
+    if ($raw === '' && $fallback !== '') {
+        $text = $fallback;
+        $raw = $fallback;
+    }
+    if ($raw === '' && !$isAdmin) {
+        return '';
+    }
+    $attrs = '';
+    if (!empty($opts['id']))    $attrs .= ' id="' . htmlspecialchars($opts['id']) . '"';
+    if (!empty($opts['class'])) $attrs .= ' class="' . htmlspecialchars($opts['class']) . '"';
+    if ($cmsKey !== '')         $attrs .= ' data-cms-key="' . htmlspecialchars($cmsKey) . '"';
+
+    if ($raw === '' && $isAdmin) {
+        return '<' . $tag . $attrs . ' data-cms-empty="1"><span style="opacity:.4;font-style:italic">[Doplňte titulek]</span></' . $tag . '>';
+    }
+    $body = $allowHtml ? sanitizeHtml((string)$text) : htmlspecialchars((string)$text);
+    return '<' . $tag . $attrs . '>' . $body . '</' . $tag . '>';
+}
+
+/**
  * Sanitizuje HTML content z DB (blog, CMS stránky, wysiwyg výstup).
  * Odstraní <script>, <iframe> (pokud nejsou whitelistnuté), on* event
  * handler atributy, javascript:/data: URL v href/src. Zachovává běžné
@@ -239,7 +287,11 @@ function renderMotoCard($m) {
     $imgAlt = htmlspecialchars(t('common.motorcycleAlt', ['model' => $modelRaw]));
 
     $featHtml = '<ul>';
-    $featHtml .= '<li class="moto-card-model"><h2>' . $model . '</h2></li>';
+    // SEO: karty motorek jsou uvnitř <section> s vlastním <h2>, takze nazev
+    // motorky je sub-heading -> <h3>. Externi SEO checker hlasil 'Benelli TRK
+    // 502 X' jako h2, ktery konkuruje h2 sekce 'Nase motorky'. Hierarchia
+    // h1 (page) > h2 (section) > h3 (card) je teď konzistentni.
+    $featHtml .= '<li class="moto-card-model"><h3>' . $model . '</h3></li>';
     foreach ($features as $f) { $featHtml .= '<li>' . $f . '</li>'; }
     $featHtml .= '</ul>';
 
@@ -304,7 +356,7 @@ function renderBlogCard($post) {
     $imgAlt = htmlspecialchars(t('common.blogAlt', ['title' => $titleRaw]));
 
     return '<div><a class="blog-wrapper" href="' . BASE_URL . '/blog/' . $slug . '" aria-label="' . $title . '">' .
-        '<div class="blog-title"><h2>' . $title . '</h2></div>' .
+        '<div class="blog-title"><h3>' . $title . '</h3></div>' .
         '<div class="blog-img">' . ($img ? '<img src="' . htmlspecialchars($img) . '"'
             . ($imgSrcset ? ' srcset="' . htmlspecialchars($imgSrcset) . '" sizes="(max-width: 768px) 100vw, 33vw"' : '')
             . ' alt="' . $imgAlt . '" class="imgres" loading="lazy" decoding="async">' : '') . '</div>' .
@@ -356,7 +408,7 @@ function renderProductCard($p) {
                 . ($imgSrcset ? ' srcset="' . htmlspecialchars($imgSrcset) . '" sizes="(max-width: 768px) 50vw, 25vw"' : '')
                 . ' alt="' . $imgAlt . '" class="imgres" loading="lazy" decoding="async">' : '') .
             $stockBadge .
-            '<div class="moto-title"><h2>' . $name . '</h2></div>' .
+            '<div class="moto-title"><h3>' . $name . '</h3></div>' .
         '</div>' .
         '<div class="moto-desc">' . ($shortDesc ? '<p>' . htmlspecialchars($shortDesc) . '</p>' : '') . ($priceText ? '<p class="moto-price">' . htmlspecialchars($priceText) . '</p>' : '') . '</div>' .
         '<div class="moto-btn"><span class="btn btngreen-small">' . te('shop.detailButton') . '</span></div>' .
@@ -392,6 +444,13 @@ function renderFaqItem($question, $answer) {
  * ZMĚNA: moreLink bez # prefixu (čisté URL)
  */
 function renderFaqSection($title, $items, $moreLink = null) {
+    // SEO: pouzij renderHeading aby prazdny FAQ titulek nedostal prazdny <h2>.
+    // $title muze byt string nebo HTML span s data-cms-key wrapem - zachovame
+    // raw rendering, jen guardneme prazdny pripad.
+    $rawTitle = trim(strip_tags(is_string($title) ? $title : ''));
+    if ($rawTitle === '' && empty($_COOKIE['mg_cms_admin'])) {
+        $title = 'Často kladené otázky';
+    }
     $html = '<section aria-labelledby="faq"><h2 id="faq">' . $title . '</h2><div class="tab-content"><div class="tab-pane active" id="all"><div class="gr2">';
     foreach ($items as $faq) {
         $html .= renderFaqItem($faq['q'], $faq['a']);
@@ -409,6 +468,12 @@ function renderFaqSection($title, $items, $moreLink = null) {
  * ZMĚNA: href bez # prefixu (čisté URL)
  */
 function renderCta($title, $text, $buttons) {
+    // SEO: prazdny CTA titulek -> fallback (pri admin rezimu placeholder, jinak skrytý h2 bohuzel zlomi structure;
+    // takze pouzijeme nestranny default).
+    $rawTitle = trim(strip_tags(is_string($title) ? $title : ''));
+    if ($rawTitle === '' && empty($_COOKIE['mg_cms_admin'])) {
+        $title = 'Rezervujte si motorku';
+    }
     $html = '<section aria-labelledby="cta"><h2 id="cta">' . sanitizeHtml($title) . '</h2><p>' . sanitizeHtml($text) . '</p><p>&nbsp;</p><p>';
     foreach ($buttons as $btn) {
         $cls = $btn['cls'] ?? 'btndark';

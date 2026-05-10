@@ -83,16 +83,21 @@ $defaults = [
 $C = $sb->siteContent('home', $defaults);
 
 // ---- Signpost
+// SEO: pouzivame renderHeading() ktery prazdny <h2>/<h3> neemittuje (externi
+// SEO checker hlasil 'Chybi text titulku' u prazdnych signpost karet kdyz
+// CMS klic neni vyplneny). Fallback hodnota zajisti, ze pri uplnem prazdnem
+// CMS dostane visitor aspon nazev tlacitka jako titulek karty.
 $signpostTitle = $C['signposts_title'] ?? 'Rychlý rozcestník po Motogo24';
-$signHtml = '<section aria-labelledby="signpost-h"><h2 id="signpost-h" data-cms-key="web.home.signposts_title">' . htmlspecialchars($signpostTitle) . '</h2><p>&nbsp;</p><div class="gr3">';
+$signHtml = '<section aria-labelledby="signpost-h">' . renderHeading(2, $signpostTitle, ['id'=>'signpost-h', 'cmsKey'=>'web.home.signposts_title', 'fallback'=>'Rychlý rozcestník po Motogo24']) . '<p>&nbsp;</p><div class="gr3">';
 foreach ($C['signposts'] as $i => $s) {
     $iconSrc = BASE_URL . '/' . ltrim($s['icon'], '/');
     $titleText = trim(strip_tags($s['title'] ?? ''));
-    if ($titleText === '') $titleText = htmlspecialchars($s['btn'] ?? 'Informace');
+    $btnText = trim(strip_tags($s['btn'] ?? ''));
+    if ($titleText === '' && $btnText !== '') $titleText = $btnText;
     $kBase = 'web.home.signposts.' . $i;
     $signHtml .= '<a class="gbox" href="' . BASE_URL . $s['href'] . '">' .
         '<div class="gr2"><div class="gbox-img"><img src="' . htmlspecialchars($iconSrc) . '" class="icon" alt="" aria-hidden="true" loading="lazy" width="36" height="36"></div><div>' .
-        '<h3 data-cms-key="' . $kBase . '.title">' . sanitizeHtml($s['title'] !== '' ? $s['title'] : $titleText) . '</h3>' .
+        renderHeading(3, $titleText, ['cmsKey'=>$kBase.'.title', 'fallback'=>$btnText, 'allowHtml'=>true]) .
         '<p data-cms-key="' . $kBase . '.text">' . sanitizeHtml($s['text']) . '</p>' .
         '<div class="btn btngreen-small" data-cms-key="' . $kBase . '.btn">' . sanitizeHtml($s['btn']) . '</div></div></div></a>';
 }
@@ -100,7 +105,7 @@ $signHtml .= '</div></section>';
 
 // ---- Motorky
 $mo = $C['motos_section'];
-$motosHtml = '<section aria-labelledby="catalogue"><h2 id="catalogue" data-cms-key="web.home.motos_section.title">' . sanitizeHtml($mo['title']) . '</h2>' .
+$motosHtml = '<section aria-labelledby="catalogue">' . renderHeading(2, $mo['title'] ?? '', ['id'=>'catalogue', 'cmsKey'=>'web.home.motos_section.title', 'fallback'=>'Naše motorky', 'allowHtml'=>true]) .
     '<p data-cms-key="web.home.motos_section.intro">' . sanitizeHtml($mo['intro']) . '</p><p>&nbsp;</p>' .
     '<div id="home-motos" class="gr4">';
 if (!empty($motos)) {
@@ -113,7 +118,7 @@ if (!empty($motos)) {
 $motosHtml .= '</div><p>&nbsp;</p><p class="text-center"><a class="btn btngreen" href="' . BASE_URL . $mo['cta_href'] . '" data-cms-key="web.home.motos_section.cta_label">' . $mo['cta_label'] . '</a></p></section>';
 
 // ---- Proces
-$processHtml = '<section aria-labelledby="process"><h2 id="process" data-cms-key="web.home.process.title">' . sanitizeHtml($C['process']['title']) . '</h2><div class="gr4">';
+$processHtml = '<section aria-labelledby="process">' . renderHeading(2, $C['process']['title'] ?? '', ['id'=>'process', 'cmsKey'=>'web.home.process.title', 'fallback'=>'Jak si půjčit motorku', 'allowHtml'=>true]) . '<div class="gr4">';
 foreach ($C['process']['steps'] as $i => $s) {
     $kBase = 'web.home.process.steps.' . $i;
     $processHtml .= renderWbox(
@@ -156,7 +161,7 @@ $ctaHtml = renderCta(
 // ---- Reviews (zobrazí se jen pokud data existují)
 $reviewsHtml = '';
 if (!empty($reviews)) {
-    $reviewsHtml = '<section aria-labelledby="reviews"><h2 id="reviews" data-cms-key="web.home.reviews.title">' . htmlspecialchars($C['reviews']['title']) . '</h2>'
+    $reviewsHtml = '<section aria-labelledby="reviews">' . renderHeading(2, $C['reviews']['title'] ?? '', ['id'=>'reviews', 'cmsKey'=>'web.home.reviews.title', 'fallback'=>'Hodnocení zákazníků'])
         . '<p data-cms-key="web.home.reviews.intro">' . htmlspecialchars($C['reviews']['intro']) . '</p><p>&nbsp;</p>'
         . '<div class="gr3">';
     foreach ($reviews as $r) {
@@ -175,7 +180,7 @@ if (!empty($reviews)) {
 
 // ---- Blog
 $bl = $C['blog'];
-$blogHtml = '<section aria-labelledby="blog"><h2 id="blog" data-cms-key="web.home.blog.title">' . sanitizeHtml($bl['title']) . '</h2><div id="home-blog" class="gr3">';
+$blogHtml = '<section aria-labelledby="blog">' . renderHeading(2, $bl['title'] ?? '', ['id'=>'blog', 'cmsKey'=>'web.home.blog.title', 'fallback'=>'Z blogu', 'allowHtml'=>true]) . '<div id="home-blog" class="gr3">';
 if (!empty($posts)) {
     foreach (array_slice($posts, 0, (int)($bl['limit'] ?? 3)) as $p) {
         $blogHtml .= renderBlogCard($p);
