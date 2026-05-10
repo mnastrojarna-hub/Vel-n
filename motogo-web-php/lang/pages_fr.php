@@ -7,7 +7,7 @@ return [
             'seo' => [
                 'title' => 'Contact | MotoGo24 – Location de motos Vysočina',
                 'description' => 'Contacts pour la location de motos Motogo24 à Pelhřimov. Téléphone +420 774 256 271, e-mail info@motogo24.cz. Service 24h/24, adresse Mezná 9, 393 01 Pelhřimov.',
-                'keywords' => 'contact Motogo24, location de motos Pelhřimov, téléphone, adresse, horaires, 24h/24',
+                'keywords' => 'location moto République tchèque',
             ],
             'h1' => 'Contacts location de motos Motogo24',
             'intro' => 'Tu as une question sur la <strong>location d\'une moto</strong>, tu veux commander un <strong>bon cadeau</strong>, être conseillé dans ton choix ou directement <strong>convenir d\'une réservation</strong> ? Nous sommes là pour toi tous les jours, <strong>24h/24</strong>.',
@@ -84,7 +84,7 @@ return [
             'seo' => [
                 'title' => 'Comment louer une moto | MotoGo24',
                 'description' => 'Comment louer une moto chez Motogo24. Procédure simple : choix, réservation, prise en main. Sans caution, équipement inclus, service 24h/24.',
-                'keywords' => 'comment louer une moto, processus de location, réservation moto, location de motos Vysočina',
+                'keywords' => 'location moto République tchèque',
             ],
             'h1' => 'Comment louer une moto',
             'intro' => 'Chez <strong>Motogo24 – location de motos en Vysočina</strong>, louer est simple, rapide et équitable.',
@@ -127,7 +127,7 @@ return [
             'seo' => [
                 'title' => 'Processus de location | MotoGo24',
                 'description' => 'Processus de location d\'une moto chez Motogo24 étape par étape. Réservation en ligne, équipement inclus, sans caution, service 24h/24 et possibilité de livraison.',
-                'keywords' => 'processus de location moto, comment louer une moto, réservation moto, location de motos Pelhřimov',
+                'keywords' => 'location moto République tchèque',
             ],
             'h1' => 'Processus de location',
             'intro' => '<p>Chez <strong>Motogo24 – location de motos en Vysočina</strong>, louer est simple, rapide et équitable. <strong>Sans caution, avec équipement inclus et service 24h/24</strong>. Découvre comme c\'est facile.</p><p>&nbsp;</p><h2>Comment louer une moto – location Motogo24 Vysočina</h2><p>Chez la <strong>location de motos Motogo24</strong>, le <strong>processus de location</strong> est simple : <strong>réservation en ligne</strong>, <strong>équipement inclus</strong>, <strong>sans caution</strong>, <strong>service 24h/24</strong> et possibilité de <strong>livraison de moto</strong>. Que tu cherches une <strong>moto routière</strong> pour le week-end, une <strong>moto sportive</strong> pour l\'adrénaline ou une <strong>enduro</strong> pour le tout-terrain, tu trouveras chez nous la solution idéale.</p>',
@@ -214,7 +214,7 @@ return [
             'seo' => [
                 'title' => 'Prise en main de la moto à la location | MotoGo24',
                 'description' => 'Prise en main de la moto à la location de Pelhřimov. Service 24h/24, sans caution, équipement inclus. Que prendre avec soi et comment se déroule la remise.',
-                'keywords' => 'prise en main moto à la location, retrait de la moto, location Pelhřimov, prise en main 24h/24',
+                'keywords' => 'location moto République tchèque',
             ],
             'h1' => 'Prise en main de la moto à la location – rapide, simple et 24h/24',
             'intro' => 'Chez <strong>Motogo24 – location de motos Vysočina</strong>, la <strong>prise en main de la moto</strong> est l\'affaire de quelques minutes. Nous louons <strong>sans caution</strong>, avec <strong>équipement inclus</strong> et un <strong>service 24h/24</strong>.',
@@ -312,7 +312,7 @@ return [
             'seo' => [
                 'title' => 'Restitution de la moto à la location | MotoGo24',
                 'description' => 'Restitution de la moto directement à la location de Pelhřimov. 24h/24, sans caution, sans paperasse inutile. Comment se déroule la restitution étape par étape.',
-                'keywords' => 'restitution moto, restitution de la moto à la location, location Pelhřimov, restitution moto 24h/24',
+                'keywords' => 'location moto République tchèque',
             ],
             'h1' => 'Restitution de la moto à la location',
             'intro' => 'Tu rends la moto confortablement directement chez <strong>Motogo24 – location de motos en Vysočina</strong>. <strong>Service 24h/24</strong>, sans stress et conditions équitables.',
@@ -413,7 +413,7 @@ return [
             'seo' => [
                 'title' => 'Location de motos Vysočina - Bons cadeaux',
                 'description' => 'Achète un bon cadeau pour la location d\'une moto. Validité 3 ans, sans caution, équipement inclus. Bon électronique ou imprimé. Commande en ligne.',
-                'keywords' => 'bon cadeau moto, voucher location moto, cadeau pour motard, bon Motogo24, location de motos Vysočina',
+                'keywords' => 'location moto République tchèque',
                 'og_image' => 'https://motogo24.cz/gfx/darkovy-poukaz.jpg',
             ],
             'h1' => 'Achète un bon cadeau – offre une expérience sur deux roues !',
@@ -510,7 +510,7 @@ return [
             'seo' => [
                 'title' => 'Location de motos Vysočina – Comment louer – Ce qui est inclus',
                 'description' => 'Découvre ce qui est inclus dans le prix de location chez MotoGo24. Conditions claires, équipement et services sans frais cachés. Réserve ta moto en ligne facilement.',
-                'keywords' => 'location de motos Vysočina, location motos Pelhřimov, location sans caution, location 24h/24, réservation en ligne moto',
+                'keywords' => 'location moto République tchèque',
             ],
             'h1' => 'Ce qui est inclus dans le prix de location',
             'intro' => 'Chez <strong>MotoGo24 – location de motos en Vysočina</strong>, tu obtiens des conditions justes. <strong>Sans caution, avec équipement du conducteur inclus et service 24h/24</strong>. Tout ce dont tu as besoin pour rouler en sécurité est inclus.',
@@ -531,7 +531,7 @@ return [
             'seo' => [
                 'title' => 'Location de motos Vysočina – Documents et manuels',
                 'description' => 'Contrat de location, conditions et documents nécessaires pour louer une moto. Sans caution, règles claires, assurance incluse.',
-                'keywords' => 'contrat location moto, documents location, conditions location, assurance moto, MotoGo24',
+                'keywords' => 'location moto République tchèque',
             ],
             'h1' => 'Contrat de location et caution – conditions justes sans avance',
             'intro' => 'Chez <strong>MotoGo24</strong>, nous misons sur la simplicité et l\'équité. Nous louons <strong>sans caution</strong>, avec un <strong>contrat clair</strong>, <strong>assurance incluse</strong> et <strong>équipement du conducteur</strong>.',
@@ -556,7 +556,7 @@ return [
             'seo' => [
                 'title' => 'Livraison de la moto | MotoGo24',
                 'description' => 'Livraison de la moto à ta porte. Nous apportons la moto à ton hôtel, gare ou n\'importe quelle adresse. Tarif à partir de 290 Kč. Service 24h/24.',
-                'keywords' => 'livraison moto, apport moto, livraison motocycle, location motos Vysočina',
+                'keywords' => 'location moto République tchèque',
             ],
             'h1' => 'Livraison de la moto – directement à toi',
             'intro' => 'Tu veux partir sans devoir te déplacer à la location ? Nous organisons <strong>la livraison de la moto</strong> au <strong>lieu convenu</strong>.',
@@ -580,7 +580,7 @@ return [
             'seo' => [
                 'title' => 'Restitution de moto ailleurs | MotoGo24',
                 'description' => 'Rends la moto en dehors de la location – depuis l\'hôtel, gare ou autre adresse. Récupération en Vysočina et au-delà. Prix selon distance, service 24h/24.',
-                'keywords' => 'restitution moto ailleurs, récupération moto, restitution hors location, location motos Vysočina',
+                'keywords' => 'location moto République tchèque',
             ],
             'h1' => 'Restitution de moto ailleurs – récupération à toi',
             'intro' => 'Pas besoin de revenir à la location. <strong>MotoGo24</strong> propose la <strong>récupération de la moto</strong> depuis le lieu qui te convient – hôtel, gare, ton adresse.',
@@ -604,7 +604,7 @@ return [
             'seo' => [
                 'title' => 'Foire aux questions | MotoGo24',
                 'description' => 'Questions fréquentes sur la location de motos. Réservation, prise en charge, restitution, conditions, livraison, voyages à l\'étranger, bons cadeaux.',
-                'keywords' => 'FAQ location motos, questions location moto, conditions location, caution, équipement',
+                'keywords' => 'location moto République tchèque',
             ],
             'h1' => 'Foire aux questions – location de motos MotoGo24',
             'closing' => 'Notre <strong>location de motos en Vysočina</strong> est là pour tous ceux qui veulent vivre une <strong>balade inoubliable</strong> sans complications.',
@@ -617,7 +617,7 @@ return [
             'seo' => [
                 'title' => 'Location de motos en Vysočina | MotoGo24',
                 'description' => 'Loue une moto en Vysočina. Sans caution, équipement inclus, service 24h/24. Motos de tourisme, sport, enduro et pour enfants. Réservation en ligne.',
-                'keywords' => 'location motos Vysočina, location motos Pelhřimov, location sans caution, location 24h/24, motos à louer, réservation en ligne moto',
+                'keywords' => 'location moto République tchèque',
                 'og_image' => NULL,
             ],
             'hero' => [
@@ -775,7 +775,7 @@ return [
             'seo' => [
                 'title' => 'À propos de la location de motos | MotoGo24',
                 'description' => 'Location de motos Motogo24 en Vysočina. Sans caution, avec réservation en ligne et équipement inclus. Motos de tourisme, sport, enduro et pour enfants. Service 24h/24.',
-                'keywords' => 'location motos, location motos Vysočina, motos sans caution, location 24h/24, équipement inclus',
+                'keywords' => 'location moto République tchèque',
             ],
             'breadcrumb' => [
                 [

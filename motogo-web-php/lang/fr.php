@@ -193,9 +193,9 @@ return [
 
     // ===== SEO meta defaults (par langue) =====
     'seo.default.description' => 'Location de motos dans la région de Vysočina, République tchèque — motos de tourisme, sport, enduro et enfants. Location 24h/24, sans caution, équipement inclus, réservation en ligne.',
-    'seo.default.keywords' => 'location moto République tchèque, louer moto Pelhřimov, location moto sans caution, réservation moto en ligne',
+    'seo.default.keywords' => 'location moto République tchèque',
     'seo.home.description' => 'Louez une moto dans la région de Vysočina. Sans caution, équipement inclus, service 24h/24. Motos de tourisme, sport, enduro et enfants. Réservation en ligne.',
-    'seo.home.keywords' => 'location moto République tchèque, louer moto Pelhřimov, location moto sans caution, réservation moto en ligne',
+    'seo.home.keywords' => 'location moto République tchèque',
 
     // ===== Potvrzení =====
     'confirm.titleBooking' => 'Confirmation de réservation | MotoGo24',
@@ -205,7 +205,7 @@ return [
     // ===== Rezervace shell =====
     'rezervace.title' => 'Réservation de moto en ligne | MotoGo24',
     'rezervace.description' => 'Réservation de moto en ligne dans la région de Vysočina. Sans caution, équipement inclus et service 24h/24. Choisissez votre moto, votre date et payez en ligne.',
-    'rezervace.keywords' => 'réservation moto en ligne, louer une moto, location moto Vysočina, booking en ligne',
+    'rezervace.keywords' => 'location moto République tchèque',
     'rezervace.loading' => 'Chargement du système de réservation...',
 
     // ===== Réservation — en-tête / intro =====
@@ -407,7 +407,7 @@ return [
 
     // ===== Katalog SEO =====
     'katalog.seo.description' => 'Catalogue de motos à louer dans la région de Vysočina. Filtre par catégorie, permis, puissance et prix. Motos de tourisme, sportives, enduro et pour enfants. Réservation en ligne.',
-    'katalog.seo.keywords' => 'catalogue motos, motos à louer, motos de tourisme, motos sportives, enduro, motos pour enfants, filtre motos',
+    'katalog.seo.keywords' => 'location moto République tchèque',
 
     // ===== Detail motorky =====
     'detail.notFoundTitle' => 'Moto introuvable – Motogo24',
@@ -502,7 +502,7 @@ return [
     // ===== Blog =====
     'blog.title' => 'Blog et conseils pour motards | MotoGo24',
     'blog.description' => 'Blog Motogo24 – idées d\'itinéraires moto en Vysočina et en République tchèque, actualités de la location, conseils pour une conduite sécurisée et procédures pratiques.',
-    'blog.keywords' => 'blog moto, itinéraires moto, conseils pour motards, actualités location de motos, Vysočina, Český ráj',
+    'blog.keywords' => 'location moto République tchèque',
     'blog.h1' => 'Blog et conseils',
     'blog.empty' => 'Aucun article dans cette catégorie.',
     'blog.tagAll' => 'Tous ({count})',
@@ -514,7 +514,7 @@ return [
     // ===== Voucher form (poukazy-objednat) =====
     'voucher.pageTitle' => 'Location de motos Vysočina - Acheter un bon cadeau',
     'voucher.description' => 'Commandez un bon cadeau pour la location d\'une moto chez Motogo24. Validité 3 ans, sans caution, équipement inclus.',
-    'voucher.keywords' => 'acheter bon cadeau moto, commander voucher Motogo24, cadeau location moto',
+    'voucher.keywords' => 'location moto République tchèque',
     'voucher.title' => 'Bon cadeau Motogo24',
     'voucher.lead' => 'Offrez l\'expérience d\'une balade à moto ! Le bon est valable 3 ans et peut être utilisé lors d\'une réservation sur ce site.',
     'voucher.contactSection' => 'Vos coordonnées',
@@ -608,7 +608,7 @@ return [
     'shop.h1' => 'Boutique MotoGo24',
     'shop.intro' => 'Accessoires moto, merch et cadeaux pour les fans de MotoGo24. Livraison dans toute la République tchèque.',
     'shop.description' => 'Boutique MotoGo24 — accessoires moto, vêtements et merch. Commande en ligne, livraison partout en Tchéquie.',
-    'shop.keywords' => 'boutique moto, accessoires moto, merch motogo24, vêtements moto',
+    'shop.keywords' => 'location moto République tchèque',
     'shop.empty' => 'Nous n\'avons aucun produit en stock pour le moment. Suivez-nous sur les réseaux sociaux.',
     'shop.unnamedProduct' => 'Produit',
     'shop.productAlt' => '{name} — Boutique MotoGo24',

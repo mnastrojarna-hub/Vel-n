@@ -463,18 +463,15 @@ MG._editRez._submitForgot = async function(e){
   btn.disabled = true;
   btn.textContent = MG.t('editRez.forgot.submitting');
   try {
-    // Supabase v aktuální verzi posílá místo magic linku 8-znakový OTP kód
-    // (alfanumerický, expires 1h). Stejný flow jako mobilní app.
-    // resetPasswordForEmail spustí Reset Password e-mail s `{{ .Token }}` placeholderem.
-    var res = await window.sb.auth.resetPasswordForEmail(email);
-    if (res.error){
-      console.warn('[editRez] resetPassword err', res.error);
-      var st = res.error.status;
-      if (st === 500 || st >= 500){
-        MG._editRez._showError(MG.t('editRez.err.serverDown'));
-        return;
-      }
-      // 4xx — generický success (anti-enumeration).
+    // Místo Supabase Auth resetPasswordForEmail (rate-limited 3/h, SMTP template
+    // config) voláme náš edge fn `send-recovery-otp` — interně dělá generateLink
+    // + Resend mail z noreply@motogo24.cz. Anti-enumeration řešená v edge fn
+    // (vždy 200 success), takže nepotřebujeme klientský hint „neexistuje" / „existuje".
+    var res = await window.sb.functions.invoke('send-recovery-otp', { body: { email: email } });
+    if (res && res.error){
+      console.warn('[editRez] send-recovery-otp err', res.error);
+      MG._editRez._showError(MG.t('editRez.err.serverDown'));
+      return;
     }
     // Email byl odeslán — zobrazíme OTP formulář (zadej kód + nové heslo).
     MG._editRez._renderOtpReset(email);

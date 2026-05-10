@@ -193,9 +193,9 @@ return [
 
     // ===== SEO meta defaults (per language) =====
     'seo.default.description' => 'Motorcycle rental in the Vysočina region, Czech Republic — touring, sport, enduro and kids\' motorcycles. 24/7 rental, no deposit, gear included, online booking.',
-    'seo.default.keywords' => 'motorcycle rental Czech Republic, motorbike hire Pelhřimov, no deposit motorcycle rental, online motorcycle booking',
+    'seo.default.keywords' => 'motorcycle rental Czech Republic',
     'seo.home.description' => 'Rent a motorcycle in the Vysočina region. No deposit, gear included, 24/7 service. Touring, sport, enduro and kids\' bikes. Book online.',
-    'seo.home.keywords' => 'motorcycle rental Czech Republic, motorbike hire Pelhřimov, no deposit motorcycle rental, online motorcycle booking',
+    'seo.home.keywords' => 'motorcycle rental Czech Republic',
 
     // ===== Confirmation =====
     'confirm.titleBooking' => 'Booking confirmation | MotoGo24',
@@ -205,7 +205,7 @@ return [
     // ===== Booking shell =====
     'rezervace.title' => 'Online motorcycle booking | MotoGo24',
     'rezervace.description' => 'Online motorcycle booking in the Vysočina region. No deposit, gear included and 24/7 service. Choose a motorcycle, dates and pay online.',
-    'rezervace.keywords' => 'online motorcycle booking, rent a motorcycle, motorcycle rental Vysočina, online booking',
+    'rezervace.keywords' => 'motorcycle rental Czech Republic',
     'rezervace.loading' => 'Loading the booking system...',
 
     // ===== Booking — header / intro =====
@@ -612,7 +612,7 @@ return [
 
     // ===== Catalogue SEO =====
     'katalog.seo.description' => 'Motorcycle rental catalogue in the Vysočina region. Filter by category, licence, power and price. Touring, sport, enduro and kids\' motorcycles. Online booking.',
-    'katalog.seo.keywords' => 'motorcycle catalogue, motorcycles for rent, touring motorcycles, sport motorcycles, enduro, kids\' motorcycles, motorcycle filter',
+    'katalog.seo.keywords' => 'motorcycle rental Czech Republic',
 
     // ===== Motorcycle detail =====
     'detail.notFoundTitle' => 'Motorcycle not found – Motogo24',
@@ -707,7 +707,7 @@ return [
     // ===== Blog =====
     'blog.title' => 'Blog and tips for riders | MotoGo24',
     'blog.description' => 'Motogo24 blog – tips for motorcycle routes in the Vysočina region and the Czech Republic, rental news, advice for safe riding and practical guides.',
-    'blog.keywords' => 'motorcycle blog, motorcycle routes, tips for riders, motorcycle rental news, Vysočina, Český ráj',
+    'blog.keywords' => 'motorcycle rental Czech Republic',
     'blog.h1' => 'Blog and tips',
     'blog.empty' => 'No articles in this category.',
     'blog.tagAll' => 'All ({count})',
@@ -719,7 +719,7 @@ return [
     // ===== Voucher form (poukazy-objednat) =====
     'voucher.pageTitle' => 'Motorcycle rental Vysočina – Buy a gift voucher',
     'voucher.description' => 'Order a gift voucher for a motorcycle rental from Motogo24. Valid for 3 years, no deposit, gear included.',
-    'voucher.keywords' => 'buy gift voucher motorcycle, order voucher Motogo24, gift motorcycle rental',
+    'voucher.keywords' => 'motorcycle rental Czech Republic',
     'voucher.title' => 'Motogo24 gift voucher',
     'voucher.lead' => 'Give the experience of riding a motorcycle! The voucher is valid for 3 years and can be redeemed when booking on this website.',
     'voucher.contactSection' => 'Your contact details',
@@ -884,7 +884,7 @@ return [
     'shop.h1' => 'MotoGo24 Shop',
     'shop.intro' => 'Motorcycle accessories, merch and gifts for MotoGo24 fans. We deliver throughout the Czech Republic.',
     'shop.description' => 'MotoGo24 Shop — motorcycle accessories, clothing and merch. Order online with delivery throughout Czechia.',
-    'shop.keywords' => 'motorcycle shop, motorcycle accessories, motogo24 merch, motorcycle clothing',
+    'shop.keywords' => 'motorcycle rental Czech Republic',
     'shop.empty' => 'We currently have no products in stock. Follow us on social media.',
     'shop.unnamedProduct' => 'Product',
     'shop.productAlt' => '{name} — MotoGo24 Shop',

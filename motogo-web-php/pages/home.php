@@ -12,7 +12,7 @@ $defaults = [
     'seo' => [
         'title' => 'Půjčovna motorek na Vysočině | MotoGo24',
         'description' => 'Půjčte si motorku na Vysočině. Bez kauce, výbava v ceně, nonstop provoz. Cestovní, sportovní, enduro i dětské motorky. Online rezervace.',
-        'keywords' => 'půjčovna motorek Vysočina, pronájem motorek Pelhřimov, půjčovna motorek bez kauce, online rezervace motorky',
+        'keywords' => 'motopůjčovna',
         // og_image necháme na default v renderPage() — ten použije aktuální doménu
         'og_image' => null,
     ],

@@ -7,7 +7,7 @@ $defaults = [
     'seo' => [
         'title' => 'Kontakt | MotoGo24 – půjčovna motorek Vysočina',
         'description' => 'Kontakty na půjčovnu motorek Motogo24 v Pelhřimově. Telefon ' . PHONE . ', e-mail ' . EMAIL_FULL . '. Nonstop provoz, adresa ' . ADDRESS . '.',
-        'keywords' => 'kontakt Motogo24, půjčovna motorek Pelhřimov, telefon, adresa, provozní doba, nonstop',
+        'keywords' => 'motopůjčovna',
     ],
     'h1' => 'Kontakty půjčovna motorek Motogo24',
     'intro' => 'Máte dotaz k <strong>půjčení motorky</strong>, chcete si objednat <strong>dárkový poukaz</strong>, poradit s výběrem nebo si rovnou <strong>domluvit rezervaci</strong>? Jsme tu pro vás každý den, <strong>nonstop</strong>.',

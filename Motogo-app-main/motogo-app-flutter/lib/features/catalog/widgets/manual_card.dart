@@ -11,11 +11,16 @@ class ManualCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fileName = moto.manualUrl?.split('/').last ?? t(context).tr('manualDefaultTitle');
+    // PDF (manualUrl) má přednost před externím odkazem (manualExternalUrl).
+    final activeUrl = moto.activeManualUrl;
+    final isPdf = moto.hasManualPdf;
+    final fileName = isPdf
+        ? (moto.manualUrl?.split('/').last ?? t(context).tr('manualDefaultTitle'))
+        : t(context).tr('manualDefaultTitle');
 
     void openManual(LaunchMode mode) {
-      if (moto.manualUrl != null) {
-        launchUrl(Uri.parse(moto.manualUrl!), mode: mode);
+      if (activeUrl != null) {
+        launchUrl(Uri.parse(activeUrl), mode: mode);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(t(context).tr('manualNotAvailable')),
@@ -60,32 +65,42 @@ class ManualCard extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        Row(children: [
-          _ManualBtn(
-            icon: Icons.visibility_outlined,
-            label: t(context).tr('manualView'),
-            onTap: () => openManual(LaunchMode.inAppBrowserView),
-          ),
-          const SizedBox(width: 8),
-          _ManualBtn(
-            icon: Icons.search,
-            label: t(context).tr('manualSearch'),
-            onTap: () => openManual(LaunchMode.inAppBrowserView),
-          ),
-          const SizedBox(width: 8),
-          GestureDetector(
-            onTap: () => openManual(LaunchMode.externalApplication),
-            child: Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: MotoGoColors.green,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(Icons.download, size: 18, color: Colors.black),
+        if (isPdf)
+          Row(children: [
+            _ManualBtn(
+              icon: Icons.visibility_outlined,
+              label: t(context).tr('manualView'),
+              onTap: () => openManual(LaunchMode.inAppBrowserView),
             ),
-          ),
-        ]),
+            const SizedBox(width: 8),
+            _ManualBtn(
+              icon: Icons.search,
+              label: t(context).tr('manualSearch'),
+              onTap: () => openManual(LaunchMode.inAppBrowserView),
+            ),
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: () => openManual(LaunchMode.externalApplication),
+              child: Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: MotoGoColors.green,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.download, size: 18, color: Colors.black),
+              ),
+            ),
+          ])
+        else
+          // Externí odkaz — jen otevřít v prohlížeči, žádný download.
+          Row(children: [
+            _ManualBtn(
+              icon: Icons.open_in_new,
+              label: t(context).tr('manualView'),
+              onTap: () => openManual(LaunchMode.externalApplication),
+            ),
+          ]),
       ]),
     );
   }

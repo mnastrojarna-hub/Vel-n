@@ -64,13 +64,25 @@ MG._rezAuth.togglePanelHtml = function(){
     '</div>'+
     '<div id="rez-auth-forgot" class="rez-auth-card" style="display:none">'+
       '<h3 class="rez-auth-h">'+T('rez.auth.forgot.title','Obnovit heslo')+'</h3>'+
-      '<p class="rez-auth-help">'+T('rez.auth.forgot.help','Pošleme vám e-mail s odkazem pro nastavení nového hesla. Po obnově se sem vraťte a přihlaste.')+'</p>'+
+      '<p class="rez-auth-help">'+T('rez.auth.forgot.help','Pošleme vám e-mail s 8-znakovým ověřovacím kódem. Po odeslání ho zadáte spolu s novým heslem.')+'</p>'+
       '<form id="rez-auth-forgot-form" class="rez-auth-form" novalidate onsubmit="return false">'+
         '<input type="email" id="rez-auth-forgot-email" placeholder="'+T('rez.auth.email','E-mail')+'" required autocomplete="email" inputmode="email">'+
-        '<button type="submit" class="btn btngreen" id="rez-auth-forgot-btn">'+T('rez.auth.forgot.submit','Odeslat odkaz')+'</button>'+
+        '<button type="submit" class="btn btngreen" id="rez-auth-forgot-btn">'+T('rez.auth.forgot.submit','Odeslat ověřovací kód')+'</button>'+
       '</form>'+
       '<div id="rez-auth-forgot-msg" class="rez-auth-msg" style="display:none"></div>'+
-      '<p class="rez-auth-forgot"><a href="#" id="rez-auth-forgot-back">'+T('rez.auth.forgot.back','Zpět na přihlášení')+'</a></p>'+
+      '<p class="rez-auth-forgot"><a href="#" id="rez-auth-forgot-back">'+T('rez.auth.forgot.back','← Zpět na přihlášení')+'</a></p>'+
+    '</div>'+
+    '<div id="rez-auth-otp" class="rez-auth-card" style="display:none">'+
+      '<h3 class="rez-auth-h">'+T('rez.auth.otp.title','Zadejte ověřovací kód a nové heslo')+'</h3>'+
+      '<p class="rez-auth-help" id="rez-auth-otp-help">'+T('rez.auth.otp.help','Kód jsme poslali e-mailem. Platí 1 hodinu.')+'</p>'+
+      '<form id="rez-auth-otp-form" class="rez-auth-form" novalidate onsubmit="return false" autocomplete="off">'+
+        '<input type="text" id="rez-auth-otp-code" class="rez-auth-otp-input" placeholder="XXXXXXXX" required autocomplete="one-time-code" inputmode="text" maxlength="10" pattern="[0-9A-Za-z]+">'+
+        '<input type="password" id="rez-auth-otp-pw1" placeholder="'+T('rez.auth.otp.password','Nové heslo (min. 6 znaků)')+'" required autocomplete="new-password" minlength="6">'+
+        '<input type="password" id="rez-auth-otp-pw2" placeholder="'+T('rez.auth.otp.password2','Nové heslo znovu')+'" required autocomplete="new-password" minlength="6">'+
+        '<button type="submit" class="btn btngreen" id="rez-auth-otp-btn">'+T('rez.auth.otp.submit','Nastavit heslo a přihlásit')+'</button>'+
+      '</form>'+
+      '<div id="rez-auth-otp-msg" class="rez-auth-msg" style="display:none"></div>'+
+      '<p class="rez-auth-forgot"><a href="#" id="rez-auth-otp-back">'+T('rez.auth.forgot.back','← Zpět na přihlášení')+'</a></p>'+
     '</div>'+
   '</div>'+
   '<div id="rez-auth-loggedin" class="rez-auth-loggedin" style="display:none">'+
@@ -125,6 +137,23 @@ MG._rezAuth.init = function(){
   var forgotForm = document.getElementById('rez-auth-forgot-form');
   if(forgotForm) forgotForm.addEventListener('submit', MG._rezAuth._submitForgot);
 
+  // OTP reset (po doručení kódu mailem)
+  var otpForm = document.getElementById('rez-auth-otp-form');
+  if(otpForm) otpForm.addEventListener('submit', MG._rezAuth._submitOtpReset);
+  var otpBack = document.getElementById('rez-auth-otp-back');
+  if(otpBack) otpBack.addEventListener('click', function(e){
+    e.preventDefault();
+    document.getElementById('rez-auth-otp').style.display = 'none';
+    document.getElementById('rez-auth-login').style.display = 'block';
+  });
+  // Auto-uppercase OTP kódu při psaní (Supabase OTP je case-insensitive, ale
+  // mail má kód VELKÝMI písmeny — sjednotíme).
+  var otpInput = document.getElementById('rez-auth-otp-code');
+  if(otpInput) otpInput.addEventListener('input', function(){
+    var v = this.value.replace(/\s+/g,'').toUpperCase();
+    if(v !== this.value) this.value = v;
+  });
+
   var editBtn = document.getElementById('rez-auth-edit-btn');
   if(editBtn) editBtn.addEventListener('click', MG._rezAuth._expandFields);
 
@@ -178,6 +207,9 @@ MG._rezAuth._submitLogin = async function(e){
 };
 
 // ===== FORGOT submit =====
+// Supabase posílá místo magic linku 8-znakový alfanumerický OTP kód (TTL 1h).
+// Stejný flow jako mobilní app a `pages-upravit-rezervaci.js`. Po odeslání
+// rovnou přepneme panel na OTP form (zákazník zadá kód + nové heslo 2×).
 MG._rezAuth._submitForgot = async function(e){
   if(e && e.preventDefault) e.preventDefault();
   if(MG._rezAuth.busy) return;
@@ -186,25 +218,106 @@ MG._rezAuth._submitForgot = async function(e){
   if(!email){
     MG._rezAuth._showMsg(T('rez.auth.err.empty','Vyplňte e-mail.'), 'err', 'rez-auth-forgot-msg'); return;
   }
+  email = email.trim().toLowerCase();
   var btn = document.getElementById('rez-auth-forgot-btn');
   var orig = btn ? btn.textContent : '';
   if(btn){ btn.disabled = true; btn.textContent = T('rez.auth.forgot.submitting','Odesílám…'); }
   MG._rezAuth.busy = true;
   try {
-    // Odkaz vede na stranku /upravit-rezervaci — tam uz je hotovy reset flow
-    var redirectTo = window.location.origin + '/upravit-rezervaci';
-    var res = await window.sb.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
-      redirectTo: redirectTo
-    });
-    if(res.error){
-      console.error('[rezAuth] forgot err', res.error);
-      MG._rezAuth._showMsg(T('rez.auth.err.forgot','Odeslání selhalo. Zkuste to prosím znovu.'), 'err', 'rez-auth-forgot-msg');
+    // Místo Supabase Auth resetPasswordForEmail (rate-limited / template config)
+    // voláme náš edge fn `send-recovery-otp`, který generateLink → mail přes Resend.
+    // Anti-enumeration řešená v edge fn (vždy 200 success), 5xx hlásíme uživateli.
+    var res = await window.sb.functions.invoke('send-recovery-otp', { body: { email: email } });
+    if(res && res.error){
+      console.warn('[rezAuth] send-recovery-otp err', res.error);
+      MG._rezAuth._showMsg(T('rez.auth.err.server','Server je nedostupný, zkuste to prosím za chvíli.'), 'err', 'rez-auth-forgot-msg');
       return;
     }
-    MG._rezAuth._showMsg(T('rez.auth.forgot.sent','E-mail s odkazem byl odeslán. Zkontrolujte schránku (i spam) a po obnově se vraťte sem.'), 'ok', 'rez-auth-forgot-msg');
+    // Přepni na OTP form
+    MG._rezAuth._showOtpReset(email);
   } catch(err){
     console.error('[rezAuth] forgot exception', err);
     MG._rezAuth._showMsg(T('rez.auth.err.server','Server je nedostupný.'), 'err', 'rez-auth-forgot-msg');
+  } finally {
+    MG._rezAuth.busy = false;
+    if(btn){ btn.disabled = false; btn.textContent = orig; }
+  }
+};
+
+// ===== OTP RESET — zadej kód + nové heslo =====
+MG._rezAuth._showOtpReset = function(email){
+  var T = MG._rezAuth._t;
+  document.getElementById('rez-auth-login').style.display = 'none';
+  document.getElementById('rez-auth-forgot').style.display = 'none';
+  var otpCard = document.getElementById('rez-auth-otp');
+  if(!otpCard) return;
+  otpCard.style.display = 'block';
+  // Doplň cílový mail do helperu (vidí ho uživatel) — bezpečnostní HTML escape
+  var helpEl = document.getElementById('rez-auth-otp-help');
+  if(helpEl){
+    var safeEmail = String(email).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    helpEl.innerHTML = T('rez.auth.otp.help','Kód jsme poslali na <strong>{email}</strong>. Platí 1 hodinu — zkontroluj i spam.', { email: safeEmail });
+  }
+  // Zapamatuj si mail v hidden formu (formData)
+  MG._rezAuth._otpEmail = email;
+  // Vyčisti hodnoty + focus
+  var c = document.getElementById('rez-auth-otp-code');
+  var p1 = document.getElementById('rez-auth-otp-pw1');
+  var p2 = document.getElementById('rez-auth-otp-pw2');
+  if(c){ c.value = ''; try { c.focus(); } catch(e){} }
+  if(p1) p1.value = '';
+  if(p2) p2.value = '';
+  var msg = document.getElementById('rez-auth-otp-msg');
+  if(msg) msg.style.display = 'none';
+};
+
+MG._rezAuth._submitOtpReset = async function(e){
+  if(e && e.preventDefault) e.preventDefault();
+  if(MG._rezAuth.busy) return;
+  var T = MG._rezAuth._t;
+  var email = (MG._rezAuth._otpEmail || '').trim().toLowerCase();
+  var otp = ((document.getElementById('rez-auth-otp-code')||{}).value || '').trim().toUpperCase();
+  var pw1 = (document.getElementById('rez-auth-otp-pw1')||{}).value || '';
+  var pw2 = (document.getElementById('rez-auth-otp-pw2')||{}).value || '';
+  if(!email){
+    MG._rezAuth._showMsg(T('rez.auth.otp.errMissingEmail','Chybí e-mail. Začněte znovu.'), 'err', 'rez-auth-otp-msg'); return;
+  }
+  if(!otp || otp.length < 6){
+    MG._rezAuth._showMsg(T('rez.auth.otp.errInvalid','Kód není správný. Zkontrolujte e-mail.'), 'err', 'rez-auth-otp-msg'); return;
+  }
+  if(!pw1 || pw1.length < 6){
+    MG._rezAuth._showMsg(T('rez.auth.otp.errShort','Heslo musí mít alespoň 6 znaků.'), 'err', 'rez-auth-otp-msg'); return;
+  }
+  if(pw1 !== pw2){
+    MG._rezAuth._showMsg(T('rez.auth.otp.errMismatch','Hesla se neshodují.'), 'err', 'rez-auth-otp-msg'); return;
+  }
+  var btn = document.getElementById('rez-auth-otp-btn');
+  var orig = btn ? btn.textContent : '';
+  if(btn){ btn.disabled = true; btn.textContent = T('rez.auth.otp.submitting','Nastavuji…'); }
+  MG._rezAuth.busy = true;
+  try {
+    // 1) Ověř OTP kód → vystaví session
+    var v = await window.sb.auth.verifyOtp({ email: email, token: otp, type: 'recovery' });
+    if(v.error || !v.data || !v.data.session){
+      console.error('[rezAuth] verifyOtp err', v.error);
+      MG._rezAuth._showMsg(T('rez.auth.otp.errInvalid','Kód není správný nebo vypršel. Zkuste to znovu.'), 'err', 'rez-auth-otp-msg');
+      return;
+    }
+    // 2) Nastav nové heslo na vystavené session
+    var u = await window.sb.auth.updateUser({ password: pw1 });
+    if(u.error){
+      console.error('[rezAuth] updateUser err', u.error);
+      MG._rezAuth._showMsg(T('rez.auth.otp.errSave','Heslo se nepodařilo uložit. Zkuste to znovu.'), 'err', 'rez-auth-otp-msg');
+      return;
+    }
+    // 3) Zakázán → user je už přihlášený přes recovery session, načti profil + prefill
+    MG._rezAuth.user = (v.data && v.data.user) || (u.data && u.data.user) || null;
+    await MG._rezAuth._afterLogin();
+    // 4) Vyčisti dočasná data
+    MG._rezAuth._otpEmail = null;
+  } catch(err){
+    console.error('[rezAuth] otp reset exception', err);
+    MG._rezAuth._showMsg(T('rez.auth.err.server','Server je nedostupný.'), 'err', 'rez-auth-otp-msg');
   } finally {
     MG._rezAuth.busy = false;
     if(btn){ btn.disabled = false; btn.textContent = orig; }

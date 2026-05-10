@@ -9,6 +9,7 @@ const CATEGORIES = [
   { value: 'cestovni', label: 'Cestovní' },
   { value: 'sportovni', label: 'Sportovní' },
   { value: 'naked', label: 'Naked' },
+  { value: 'supermoto', label: 'Supermoto' },
   { value: 'chopper', label: 'Chopper' },
   { value: 'detske', label: 'Dětské' },
 ]

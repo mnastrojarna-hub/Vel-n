@@ -7,7 +7,7 @@ return [
             'seo' => [
                 'title' => 'Wypożyczalnia motocykli Vysočina – Jak wypożyczyć – Co jest w cenie',
                 'description' => 'Sprawdź, co zawiera cena wynajmu motocykla w MotoGo24. Jasne warunki, wyposażenie i usługi bez ukrytych opłat. Zarezerwuj motocykl online.',
-                'keywords' => 'wypożyczalnia motocykli Vysočina, wynajem motocykli Pelhřimov, wynajem bez kaucji, obsługa całodobowa, rezerwacja online motocykl',
+                'keywords' => 'wypożyczalnia motocykli Czechy',
             ],
             'h1' => 'Co jest w cenie wynajmu motocykla',
             'intro' => 'W <strong>MotoGo24 – wypożyczalni motocykli w Vysočina</strong> otrzymasz uczciwe warunki. <strong>Bez kaucji, z wyposażeniem kierowcy w cenie i obsługą całodobową</strong>. Wszystko, czego potrzebujesz do bezpiecznej i przyjemnej jazdy, jest wliczone.',
@@ -28,7 +28,7 @@ return [
             'seo' => [
                 'title' => 'Wypożyczalnia motocykli Vysočina – Dokumenty i instrukcje',
                 'description' => 'Umowa najmu, warunki i dokumenty potrzebne do wynajmu motocykla. Bez kaucji, jasne zasady, ubezpieczenie w cenie.',
-                'keywords' => 'umowa najmu motocykl, dokumenty wynajmu, warunki wynajmu, ubezpieczenie motocykl, MotoGo24',
+                'keywords' => 'wypożyczalnia motocykli Czechy',
             ],
             'h1' => 'Umowa najmu i kaucja – uczciwe warunki bez zaliczki',
             'intro' => 'W <strong>MotoGo24</strong> stawiamy na prostotę i uczciwość. Wypożyczamy <strong>bez kaucji</strong>, z <strong>jasną umową najmu</strong>, <strong>ubezpieczeniem w cenie</strong> i <strong>wyposażeniem kierowcy</strong>.',
@@ -53,7 +53,7 @@ return [
             'seo' => [
                 'title' => 'Dostawa motocykla | MotoGo24',
                 'description' => 'Dostawa motocykla pod twoje drzwi. Dowieziemy motocykl do hotelu, na dworzec lub pod inny adres. Cennik od 290 Kč. Obsługa całodobowa.',
-                'keywords' => 'dostawa motocykla, dowóz motocykla, doręczenie motocykla, wypożyczalnia motocykli Vysočina',
+                'keywords' => 'wypożyczalnia motocykli Czechy',
             ],
             'h1' => 'Dostawa motocykla – prosto do ciebie',
             'intro' => 'Chcesz wyruszyć bez konieczności jazdy do wypożyczalni? Zorganizujemy <strong>dostawę motocykla</strong> w <strong>uzgodnione miejsce</strong>.',
@@ -77,7 +77,7 @@ return [
             'seo' => [
                 'title' => 'Zwrot motocykla w innym miejscu | MotoGo24',
                 'description' => 'Zwróć motocykl poza wypożyczalnią – z hotelu, dworca lub innego adresu. Odbiór w Vysočina i poza nią.',
-                'keywords' => 'zwrot motocykla gdzie indziej, odbiór motocykla, zwrot poza wypożyczalnią, wypożyczalnia motocykli Vysočina',
+                'keywords' => 'wypożyczalnia motocykli Czechy',
             ],
             'h1' => 'Zwrot motocykla w innym miejscu – odbiór do ciebie',
             'intro' => 'Nie musisz wracać do wypożyczalni. <strong>MotoGo24</strong> oferuje <strong>odbiór motocykla</strong> z miejsca, które ci pasuje – hotel, dworzec, własny adres.',
@@ -101,7 +101,7 @@ return [
             'seo' => [
                 'title' => 'Najczęściej zadawane pytania | MotoGo24',
                 'description' => 'Najczęściej zadawane pytania dotyczące wynajmu motocykla. Rezerwacja, odbiór, zwrot, warunki, dostawa, podróże zagraniczne, bony prezentowe.',
-                'keywords' => 'FAQ wypożyczalnia motocykli, pytania wynajem motocykla, warunki wynajmu, kaucja, wyposażenie',
+                'keywords' => 'wypożyczalnia motocykli Czechy',
             ],
             'h1' => 'Najczęściej zadawane pytania – wypożyczalnia motocykli MotoGo24',
             'closing' => 'Nasza <strong>wypożyczalnia motocykli w Vysočina</strong> jest dla wszystkich, którzy chcą przeżyć <strong>niezapomnianą jazdę</strong> bez zbędnych komplikacji.',
@@ -114,7 +114,7 @@ return [
             'seo' => [
                 'title' => 'Wypożyczalnia motocykli w Vysočina | MotoGo24',
                 'description' => 'Wypożycz motocykl w Vysočina. Bez kaucji, wyposażenie w cenie, obsługa całodobowa. Motocykle turystyczne, sportowe, enduro i dla dzieci. Rezerwacja online.',
-                'keywords' => 'wypożyczalnia motocykli Vysočina, wypożyczalnia motocykli Pelhřimov, wynajem bez kaucji, obsługa całodobowa, motocykle do wynajęcia, rezerwacja online motocykl',
+                'keywords' => 'wypożyczalnia motocykli Czechy',
                 'og_image' => NULL,
             ],
             'hero' => [
@@ -272,7 +272,7 @@ return [
             'seo' => [
                 'title' => 'O wypożyczalni motocykli | MotoGo24',
                 'description' => 'Wypożyczalnia motocykli Motogo24 w Vysočina. Bez kaucji, z rezerwacją online i wyposażeniem w cenie. Motocykle turystyczne, sportowe, enduro i dla dzieci.',
-                'keywords' => 'wypożyczalnia motocykli, wynajem motocykli Vysočina, motocykle bez kaucji, obsługa całodobowa, wyposażenie w cenie',
+                'keywords' => 'wypożyczalnia motocykli Czechy',
             ],
             'breadcrumb' => [
                 [
@@ -426,7 +426,7 @@ return [
             'seo' => [
                 'title' => 'Kontakt | MotoGo24 – wypożyczalnia motocykli Vysočina',
                 'description' => 'Kontakty do wypożyczalni motocykli Motogo24 w Pelhřimov. Telefon +420 774 256 271, e-mail info@motogo24.cz. Obsługa całodobowa, adres Mezná 9, 393 01 Pelhřimov.',
-                'keywords' => 'kontakt Motogo24, wypożyczalnia motocykli Pelhřimov, telefon, adres, godziny otwarcia, całodobowo',
+                'keywords' => 'wypożyczalnia motocykli Czechy',
             ],
             'h1' => 'Kontakt – wypożyczalnia motocykli Motogo24',
             'intro' => 'Masz pytanie dotyczące <strong>wynajmu motocykla</strong>, chcesz zamówić <strong>bon prezentowy</strong>, potrzebujesz pomocy w wyborze albo chcesz od razu <strong>umówić rezerwację</strong>? Jesteśmy dla ciebie codziennie, <strong>całodobowo</strong>.',
@@ -452,7 +452,7 @@ return [
             'seo' => [
                 'title' => 'Jak wypożyczyć motocykl | MotoGo24',
                 'description' => 'Jak wypożyczyć motocykl w Motogo24. Prosty proces: wybór, rezerwacja, odbiór. Bez kaucji, wyposażenie w cenie, obsługa całodobowa.',
-                'keywords' => 'jak wypożyczyć motocykl, proces wypożyczenia, rezerwacja motocykla, wypożyczalnia motocykli Vysočina',
+                'keywords' => 'wypożyczalnia motocykli Czechy',
             ],
             'h1' => 'Jak wypożyczyć motocykl',
             'intro' => 'W <strong>Motogo24 – wypożyczalni motocykli w Vysočina</strong> wypożyczanie jest proste, szybkie i uczciwe.',
@@ -461,7 +461,7 @@ return [
             'seo' => [
                 'title' => 'Proces wypożyczenia motocykla | MotoGo24',
                 'description' => 'Proces wypożyczenia motocykla w Motogo24 krok po kroku. Rezerwacja online, wyposażenie w cenie, bez kaucji, obsługa całodobowa i dostawa.',
-                'keywords' => 'proces wypożyczenia motocykla, jak wypożyczyć motocykl, rezerwacja motocykla, wypożyczalnia motocykli Pelhřimov',
+                'keywords' => 'wypożyczalnia motocykli Czechy',
             ],
             'h1' => 'Proces wypożyczenia motocykla',
             'intro' => '<p>W <strong>Motogo24 – wypożyczalni motocykli w Vysočina</strong> wypożyczanie jest proste, szybkie i uczciwe. <strong>Bez kaucji, z wyposażeniem w cenie i obsługą całodobową</strong>.</p>',
@@ -481,7 +481,7 @@ return [
             'seo' => [
                 'title' => 'Odbiór motocykla w wypożyczalni | MotoGo24',
                 'description' => 'Odbiór motocykla w wypożyczalni Pelhřimov. Obsługa całodobowa, bez kaucji, wyposażenie w cenie. Co zabrać i jak przebiega odbiór.',
-                'keywords' => 'odbiór motocykla wypożyczalnia, odebranie motocykla, wypożyczalnia Pelhřimov, całodobowy odbiór',
+                'keywords' => 'wypożyczalnia motocykli Czechy',
             ],
             'h1' => 'Odbiór motocykla w wypożyczalni – szybko, łatwo i całodobowo',
             'intro' => 'W <strong>Motogo24 – wypożyczalni motocykli Vysočina</strong> <strong>odbiór motocykla</strong> trwa kilka minut.',
@@ -505,7 +505,7 @@ return [
             'seo' => [
                 'title' => 'Zwrot motocykla w wypożyczalni | MotoGo24',
                 'description' => 'Zwrot motocykla bezpośrednio w wypożyczalni Pelhřimov. Całodobowo, bez kaucji, bez zbędnej biurokracji.',
-                'keywords' => 'zwrot motocykla, zwrot w wypożyczalni, wypożyczalnia Pelhřimov, całodobowy zwrot',
+                'keywords' => 'wypożyczalnia motocykli Czechy',
             ],
             'h1' => 'Zwrot motocykla w wypożyczalni',
             'intro' => 'Motocykl wracasz wygodnie bezpośrednio w <strong>Motogo24 – wypożyczalni motocykli w Vysočina</strong>. <strong>Obsługa całodobowa</strong>, bez stresu.',
@@ -529,7 +529,7 @@ return [
             'seo' => [
                 'title' => 'Wypożyczalnia motocykli Vysočina – Bony',
                 'description' => 'Kup bon prezentowy na wynajem motocykla. Ważność 3 lata, bez kaucji, wyposażenie w cenie. Bon elektroniczny i drukowany.',
-                'keywords' => 'bon prezentowy motocykl, voucher wynajem motocykla, prezent dla motocyklisty, bon Motogo24',
+                'keywords' => 'wypożyczalnia motocykli Czechy',
                 'og_image' => 'https://motogo24.cz/gfx/darkovy-poukaz.jpg',
             ],
             'h1' => 'Kup bon prezentowy – podaruj przygodę na dwóch kołach!',

@@ -145,7 +145,7 @@ return [
     'shop.h1' => 'E-shop MotoGo24',
     'shop.intro' => 'Motorkářské doplňky, merch a dárky pro fanoušky MotoGo24. Doručíme po celé ČR.',
     'shop.description' => 'E-shop MotoGo24 — motorkářské doplňky, oblečení a merch. Online objednávka, doprava po celé ČR.',
-    'shop.keywords' => 'motorkářský e-shop, motorkářské doplňky, motogo24 merch, motorkářské oblečení',
+    'shop.keywords' => 'motopůjčovna',
     'shop.empty' => 'Momentálně nemáme žádné produkty na skladě. Sledujte nás na sociálních sítích.',
     'shop.unnamedProduct' => 'Produkt',
     'shop.productAlt' => '{name} — e-shop MotoGo24',
@@ -292,9 +292,9 @@ return [
 
     // ===== SEO meta defaults (per-jazyk) =====
     'seo.default.description' => 'Půjčovna motorek Vysočina – silniční, sportovní, enduro i dětské. Nonstop pronájem bez kauce, online rezervace a motorkářská výbava zdarma.',
-    'seo.default.keywords' => 'půjčovna motorek Vysočina, pronájem motorek Pelhřimov, půjčovna motorek bez kauce, online rezervace motorky',
+    'seo.default.keywords' => 'motopůjčovna',
     'seo.home.description' => 'Půjčte si motorku na Vysočině. Bez kauce, výbava v ceně, nonstop provoz. Cestovní, sportovní, enduro i dětské motorky. Online rezervace.',
-    'seo.home.keywords' => 'půjčovna motorek Vysočina, pronájem motorek Pelhřimov, půjčovna motorek bez kauce, online rezervace motorky',
+    'seo.home.keywords' => 'motopůjčovna',
 
     // ===== Potvrzení =====
     'confirm.titleBooking' => 'Potvrzení rezervace | MotoGo24',
@@ -304,7 +304,7 @@ return [
     // ===== Rezervace shell =====
     'rezervace.title' => 'Online rezervace motorky | MotoGo24',
     'rezervace.description' => 'Online rezervace motorky na Vysočině. Bez kauce, s výbavou v ceně a nonstop provozem. Vyberte motorku, termín a zaplaťte online.',
-    'rezervace.keywords' => 'rezervace motorky online, půjčit motorku, pronájem motorky Vysočina, online booking',
+    'rezervace.keywords' => 'motopůjčovna',
     'rezervace.loading' => 'Načítám rezervační systém...',
 
     // ===== Rezervace — hlavička / intro =====
@@ -444,11 +444,21 @@ return [
     'rez.auth.login.submitting' => 'Přihlašuji…',
     'rez.auth.login.forgot' => 'Zapomenuté heslo?',
     'rez.auth.forgot.title' => 'Obnovit heslo',
-    'rez.auth.forgot.help' => 'Pošleme vám e-mail s odkazem pro nastavení nového hesla. Po obnově se sem vraťte a přihlaste.',
-    'rez.auth.forgot.submit' => 'Odeslat odkaz',
+    'rez.auth.forgot.help' => 'Pošleme vám e-mail s 8-znakovým ověřovacím kódem. Po odeslání ho zadáte spolu s novým heslem.',
+    'rez.auth.forgot.submit' => 'Odeslat ověřovací kód',
     'rez.auth.forgot.submitting' => 'Odesílám…',
     'rez.auth.forgot.back' => '← Zpět na přihlášení',
-    'rez.auth.forgot.sent' => 'E-mail s odkazem byl odeslán. Zkontrolujte schránku (i spam) a po obnově se vraťte sem.',
+    'rez.auth.otp.title' => 'Zadejte ověřovací kód a nové heslo',
+    'rez.auth.otp.help' => 'Kód jsme poslali na <strong>{email}</strong>. Platí 1 hodinu — zkontrolujte i spam.',
+    'rez.auth.otp.password' => 'Nové heslo (min. 6 znaků)',
+    'rez.auth.otp.password2' => 'Nové heslo znovu',
+    'rez.auth.otp.submit' => 'Nastavit heslo a přihlásit',
+    'rez.auth.otp.submitting' => 'Nastavuji…',
+    'rez.auth.otp.errMissingEmail' => 'Chybí e-mail. Začněte znovu.',
+    'rez.auth.otp.errInvalid' => 'Kód není správný nebo vypršel. Zkontrolujte e-mail a zkuste znovu.',
+    'rez.auth.otp.errShort' => 'Heslo musí mít alespoň 6 znaků.',
+    'rez.auth.otp.errMismatch' => 'Hesla se neshodují.',
+    'rez.auth.otp.errSave' => 'Heslo se nepodařilo uložit. Zkuste to znovu.',
     'rez.auth.email' => 'E-mail',
     'rez.auth.password' => 'Heslo',
     'rez.auth.edit' => 'Upravit údaje',
@@ -998,7 +1008,7 @@ return [
 
     // ===== Katalog SEO =====
     'katalog.seo.description' => 'Katalog motorek k pronájmu na Vysočině. Filtr dle kategorie, ŘP, výkonu a ceny. Cestovní, sportovní, enduro a dětské motorky. Online rezervace.',
-    'katalog.seo.keywords' => 'katalog motorek, motorky k pronájmu, cestovní motorky, sportovní motorky, enduro, dětské motorky, filtr motorek',
+    'katalog.seo.keywords' => 'motopůjčovna',
 
     // ===== Galerie / Lightbox =====
     'gallery.openImage' => 'Otevřít fotku v galerii',
@@ -1120,7 +1130,7 @@ return [
     // ===== Blog =====
     'blog.title' => 'Blog a tipy pro motorkáře | MotoGo24',
     'blog.description' => 'Blog Motogo24 – tipy na motorkářské trasy na Vysočině i v ČR, novinky z půjčovny, rady pro bezpečnou jízdu a praktické postupy.',
-    'blog.keywords' => 'motorkářský blog, trasy na motorku, tipy pro motorkáře, novinky půjčovna motorek, Vysočina, Český ráj',
+    'blog.keywords' => 'motopůjčovna',
     'blog.h1' => 'Blog a tipy',
     'blog.empty' => 'Žádné články v této kategorii.',
     'blog.tagAll' => 'Všechny ({count})',
@@ -1132,7 +1142,7 @@ return [
     // ===== Voucher form (poukazy-objednat) =====
     'voucher.pageTitle' => 'Půjčovna motorek Vysočina - Koupit dárkový poukaz',
     'voucher.description' => 'Objednejte dárkový poukaz na pronájem motorky od Motogo24. Platnost 3 roky, bez kauce, výbava v ceně.',
-    'voucher.keywords' => 'koupit dárkový poukaz motorka, objednat voucher Motogo24, dárek pronájem motorky',
+    'voucher.keywords' => 'motopůjčovna',
     'voucher.title' => 'Dárkový poukaz Motogo24',
     'voucher.lead' => 'Darujte zážitek z jízdy na motorce! Poukaz je platný 3 roky a lze jej uplatnit při rezervaci na tomto webu.',
     'voucher.contactSection' => 'Vaše kontaktní údaje',
