@@ -80,7 +80,7 @@ curl https://vnwnqteskbykeucanlhk.supabase.co/functions/v1/public-api/api/v1/mot
 </ul>
 
 <h2>5. Jak získat API klíč</h2>
-<p>Pro vyšší rate-limity (1000 req/min místo 60) napiš na <strong><a href="mailto:info@motogo24.cz?subject=API%20kl%C3%AD%C4%8D%20%E2%80%94%20%5Btv%C5%AFj%20projekt%5D">info@motogo24.cz</a></strong> s předmětem „API klíč" a uveď:</p>
+<p>Pro vyšší rate-limity (1000 req/min místo 60) napiš na <strong><a href="mailto:info@motogo24.cz?subject=API%20kl%C3%AD%C4%8D%20%E2%80%94%20%5Btv%C5%AFj%20projekt%5D">info&#64;motogo24&#46;cz</a></strong> s předmětem „API klíč" a uveď:</p>
 <ul>
 <li>Název projektu / firmy</li>
 <li>URL nebo popis použití</li>
@@ -90,7 +90,7 @@ curl https://vnwnqteskbykeucanlhk.supabase.co/functions/v1/public-api/api/v1/mot
 <p>Klíč obvykle vystavíme do 24 hodin. Klíč se posílá v hlavičce <code>X-Api-Key</code>.</p>
 
 <h2>6. Kontakt</h2>
-<p><strong>E-mail:</strong> <a href="mailto:info@motogo24.cz">info@motogo24.cz</a><br>
+<p><strong>E-mail:</strong> <a href="mailto:info@motogo24.cz">info&#64;motogo24&#46;cz</a><br>
 <strong>Telefon:</strong> <a href="tel:+420774256271">+420 774 256 271</a><br>
 <strong>Provozovatel:</strong> Bc. Petra Semorádová, IČO 21874263, Mezná 9, 393 01 Pelhřimov<br>
 <strong>Bezpečnostní kontakt:</strong> <a href="/.well-known/security.txt">/.well-known/security.txt</a></p>
