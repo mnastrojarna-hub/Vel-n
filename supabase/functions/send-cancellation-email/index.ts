@@ -183,6 +183,24 @@ serve(async (req) => {
           const wasPaid = booking.payment_status === 'paid'
           const alreadyRefunded = booking.payment_status === 'refunded' || booking.payment_status === 'partial_refund'
 
+          // Vstupní diagnostika — admin vidí přesně co edge fn dostala a co je v DB.
+          // Klíč k debugu storno mailu bez přílohy: payment_status + stripe_payment_intent_id + refund_amount.
+          await supabase.from('debug_log').insert({
+            source: 'send-cancellation-email',
+            action: 'cancel_started',
+            status: 'info',
+            request_data: {
+              booking_id,
+              payment_status: booking.payment_status,
+              has_stripe_pi: !!booking.stripe_payment_intent_id,
+              total_price: booking.total_price,
+              body_refund_amount: refund_amount,
+              body_refund_percent: refund_percent,
+              wasPaid,
+              alreadyRefunded,
+            },
+          }).then(() => {}, () => {})
+
           // Calculate refund based on storno policy if not provided
           if ((wasPaid || alreadyRefunded) && booking.total_price > 0 && refund_percent == null) {
             const hoursUntilStart = (new Date(booking.start_date).getTime() - Date.now()) / 3600000
@@ -196,7 +214,21 @@ serve(async (req) => {
           // pro already_refunded (předchozí pokus padl po Stripe kroku) jen dohraje PDF dobropis.
           // Voláme tedy bez guardu na alreadyRefunded — díky tomu se i recovery scenario doplní příloha.
           const hdrs = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`, 'apikey': SUPABASE_SERVICE_KEY }
-          if ((wasPaid || alreadyRefunded) && booking.stripe_payment_intent_id && (refund_amount > 0 || alreadyRefunded)) {
+          const willCallRefund = (wasPaid || alreadyRefunded) && !!booking.stripe_payment_intent_id && (refund_amount > 0 || alreadyRefunded)
+          if (!willCallRefund && (wasPaid || alreadyRefunded) && refund_amount > 0) {
+            // Diagnostika: jsme paid s nenulovým refundem, ale process-refund nevoláme — typicky chybí
+            // stripe_payment_intent_id (Apple Pay race s webhookem, hotovost, voucher 100%, atd.).
+            // V tomhle stavu credit_note nikdy nevznikne automaticky → mail dorazí bez přílohy a admin
+            // má v Velínu manuálně dohrát refund (Stripe dashboard) + dobropis (generate-invoice).
+            await supabase.from('debug_log').insert({
+              source: 'send-cancellation-email',
+              action: 'refund_call_skipped_no_pi',
+              status: 'warning',
+              error_message: 'Booking is paid but stripe_payment_intent_id is missing — process-refund not called, attachment will be missing',
+              request_data: { booking_id, payment_status: booking.payment_status, refund_amount },
+            }).then(() => {}, () => {})
+          }
+          if (willCallRefund) {
             try {
               const refundRes = await fetch(`${SUPABASE_URL}/functions/v1/process-refund`, {
                 method: 'POST', headers: hdrs,
