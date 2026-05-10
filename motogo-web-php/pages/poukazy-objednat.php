@@ -3,7 +3,9 @@
 
 $bc = renderBreadcrumb([['label' => t('breadcrumb.home'), 'href' => '/'], ['label' => t('breadcrumb.vouchers'), 'href' => '/poukazy'], t('breadcrumb.buyVoucher')]);
 
-$agreementHtml = t('voucher.agreement', ['href' => BASE_URL . '/obchodni-podminky']);
+// SEO: linkujeme primo na /dokumenty/obchodni-podminky aby crawler nemusel
+// sledovat 301 redirect (Seobility hlasil 'Internal redirect' z /koupit-darkovy-poukaz).
+$agreementHtml = t('voucher.agreement', ['href' => BASE_URL . '/dokumenty/obchodni-podminky']);
 
 $form = '<div class="gift-voucher-order">' .
     '<h2>' . te('voucher.title') . '</h2>' .

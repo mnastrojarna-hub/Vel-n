@@ -83,6 +83,17 @@ function renderHeading($level, $text, $opts = []) {
 function seoEnhanceHtml($content) {
     if (!is_string($content) || $content === '') return $content;
 
+    // 0) HTTP -> HTTPS auto-upgrade pro motogo24.cz odkazy v CMS obsahu.
+    //    Velin RTE (CMS dokumenty) muze obsahovat hardcoded 'http://www.motogo24.cz/'
+    //    odkazy (admin zkopirovat ze stareho zdroje). Seobility hlasil
+    //    'Internal redirect' (HTTP -> HTTPS) z /dokumenty/smlouva-o-pronajmu.
+    //    Auto-upgrade misto rucniho findreplace v db.
+    $content = preg_replace(
+        '#http://(www\.)?motogo24\.cz(?=[/"\s])#i',
+        'https://www.motogo24.cz',
+        $content
+    );
+
     // 1) Strip prazdnych headings <h2-h6></hN> (whitespace, &nbsp;, atd.).
     //    DULEZITE: <h1> NIKDY neneabandonujem — Seobility 'There is no H1
     //    heading specified' Critical. Pokud je H1 prazdny, nechame ho
