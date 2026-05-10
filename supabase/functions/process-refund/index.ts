@@ -312,13 +312,75 @@ Deno.serve(async (req: Request) => {
       )
     }
 
+    // Cap refund at the amount actually charged on Stripe.
+    // Without this, edge cases (100% promo code → tiny payment, but DB-side
+    // refund_amount computed from gross per-day pricing) make us request a
+    // refund larger than the captured charge — Stripe then errors with
+    // "Refund amount ... is greater than charge amount ..." and the user
+    // sees "Něco se pokazilo. Zkus to prosím znovu."
+    let refundableHaleru: number | null = null
+    let refundableCZK: number | null = null
+    try {
+      const pi = await stripe.paymentIntents.retrieve(stripePaymentIntentId)
+      const charged = pi.amount_received || pi.amount || 0
+      // Subtract refunds already issued on this PI
+      let alreadyRefunded = 0
+      try {
+        const refundsList = await stripe.refunds.list({ payment_intent: stripePaymentIntentId, limit: 100 })
+        for (const r of refundsList.data) {
+          if (r.status === 'succeeded' || r.status === 'pending') alreadyRefunded += r.amount
+        }
+      } catch { /* non-fatal */ }
+      refundableHaleru = Math.max(0, charged - alreadyRefunded)
+      refundableCZK = refundableHaleru / 100
+    } catch (e) {
+      console.warn('[process-refund] PI lookup failed:', (e as Error).message)
+    }
+
+    // Decide effective amount (in haléře). Null = full refund.
+    let effectiveAmountHaleru: number | null = null
+    if (amount && amount > 0) {
+      effectiveAmountHaleru = Math.round(amount * 100)
+      if (refundableHaleru != null && effectiveAmountHaleru > refundableHaleru) {
+        console.warn(`[process-refund] requested ${effectiveAmountHaleru/100} CZK > refundable ${refundableHaleru/100} CZK — clamping`)
+        effectiveAmountHaleru = refundableHaleru
+      }
+    } else if (refundableHaleru != null) {
+      effectiveAmountHaleru = refundableHaleru
+    }
+
+    // Nothing left to refund (e.g. fully discounted booking that paid 0 Kč,
+    // or already-refunded PI) — short-circuit with success so the caller
+    // (web "Zkrátit a vrátit peníze" / change-bike flow) doesn't error out.
+    if (effectiveAmountHaleru === 0) {
+      if (booking_id) {
+        await supabase.from('bookings').update({ payment_status: 'refunded' }).eq('id', booking_id)
+      } else if (order_id) {
+        await supabase.from('shop_orders').update({ payment_status: 'refunded' }).eq('id', order_id)
+      }
+      return new Response(
+        JSON.stringify({
+          success: true,
+          refund_id: null,
+          status: 'no_op',
+          amount_refunded: 0,
+          currency: 'czk',
+          credit_note_id: null,
+          card_brand: null,
+          card_last4: null,
+          note: 'Nothing left to refund (already refunded or amount paid was 0)',
+        }),
+        { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } }
+      )
+    }
+
     // Create Stripe refund
     const refundParams: Stripe.RefundCreateParams = {
       payment_intent: stripePaymentIntentId,
       reason: reason === 'duplicate' ? 'duplicate' : 'requested_by_customer',
     }
-    if (amount && amount > 0) {
-      refundParams.amount = Math.round(amount * 100) // CZK → haléře
+    if (effectiveAmountHaleru != null && (refundableHaleru == null || effectiveAmountHaleru < refundableHaleru)) {
+      refundParams.amount = effectiveAmountHaleru
     }
 
     const refund = await stripe.refunds.create(refundParams)

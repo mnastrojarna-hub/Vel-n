@@ -339,7 +339,7 @@ serve(async (req) => {
       templateHtml = `
         <p>Dobr\u00fd den,</p>
         <p>potvrzujeme, \u017ee va\u0161e rezervace \u010d. <strong>${vars.booking_number}</strong> motocyklu u MotoGo24 byla \u00fasp\u011b\u0161n\u011b stornov\u00e1na.</p>
-        <p>Pokud jste storno nahl\u00e1sili alespo\u0148 7 dn\u00ed p\u0159ed za\u010d\u00e1tkem n\u00e1jemn\u00ed doby, bude v\u00e1m z\u00e1loha vr\u00e1cena do 30 dn\u00ed.</p>
+        <p>Pokud jste storno nahl\u00e1sili alespo\u0148 7 dn\u00ed p\u0159ed za\u010d\u00e1tkem n\u00e1jemn\u00ed doby, vr\u00e1tili jsme v\u00e1m platbu na p\u016fvodn\u00ed kartu \u2014 pen\u00edze obvykle doraz\u00ed do 5\u20137 pracovn\u00edch dn\u016f.</p>
         <p>V p\u0159\u00edpad\u011b dotaz\u016f n\u00e1s nev\u00e1hejte kontaktovat.</p>
         <p>D\u011bkujeme a t\u011b\u0161\u00edme se, \u017ee v\u00e1s p\u0159iv\u00edt\u00e1me p\u0159i dal\u0161\u00ed p\u0159\u00edle\u017eitosti.</p>
         <p>T\u00fdm MotoGo24</p>`
