@@ -540,6 +540,13 @@ function renderBlogCard($post) {
     // Auto-překlady z `translations` JSONB sloupce s CZ fallbackem
     $excerpt = localized($post, 'excerpt');
     if ($excerpt === '') $excerpt = $post['description'] ?? '';
+    // SEO: cely blog-card je obaleny <a>, takze CELY text vc. excerpt je
+    // anchor text pro odkaz. Seobility hlasil 'Link anchor text too long'
+    // (>120 znaku) na blog/eshop kartach kde excerpt prekrocil. Truncate
+    // excerpt na ~80 znaku at title (~30) + excerpt (~80) je pod 120 limit.
+    $excerptShort = mb_strlen($excerpt, 'UTF-8') > 80
+        ? rtrim(mb_substr($excerpt, 0, 79, 'UTF-8'), " .,;:") . '…'
+        : $excerpt;
     $titleRaw = trim((string)localized($post, 'title'));
     if ($titleRaw === '') $titleRaw = t('card.unnamedArticle');
     $title = htmlspecialchars($titleRaw);
@@ -551,7 +558,7 @@ function renderBlogCard($post) {
         '<div class="blog-img">' . ($img ? '<img src="' . htmlspecialchars($img) . '"'
             . ($imgSrcset ? ' srcset="' . htmlspecialchars($imgSrcset) . '" sizes="(max-width: 768px) 100vw, 33vw"' : '')
             . ' alt="' . $imgAlt . '" class="imgres" loading="lazy" decoding="async">' : '') . '</div>' .
-        '<div class="blog-desc">' . ($tag ? '<p><span class="tag-label">' . htmlspecialchars($tag) . '</span></p>' : '') . '<p>' . htmlspecialchars($excerpt) . '</p></div>' .
+        '<div class="blog-desc">' . ($tag ? '<p><span class="tag-label">' . htmlspecialchars($tag) . '</span></p>' : '') . '<p>' . htmlspecialchars($excerptShort) . '</p></div>' .
         '<div class="blog-btn"><span class="btn btngreen-small">' . te('card.readArticle') . '</span></div>' .
     '</a></div>';
 }
@@ -579,12 +586,15 @@ function renderProductCard($p) {
     $id = htmlspecialchars($p['id'] ?? '');
     $imgAlt = htmlspecialchars(t('shop.productAlt', ['name' => $nameRaw]));
 
-    // Krátký popisek (z description, max 120 znaků)
+    // SEO: cely shop-card je obaleny <a>, takze CELY text vc. shortDesc je
+    // anchor text pro odkaz. Seobility hlasil 'Link anchor text too long'
+    // (>120 znaku). Truncate na 70 znaku at name + price + shortDesc + button
+    // text zustane pod 120 limit.
     $descRaw = trim((string)localized($p, 'description'));
     $shortDesc = '';
     if ($descRaw !== '') {
         $stripped = trim(strip_tags($descRaw));
-        $shortDesc = mb_strlen($stripped) > 120 ? mb_substr($stripped, 0, 117) . '…' : $stripped;
+        $shortDesc = mb_strlen($stripped) > 70 ? rtrim(mb_substr($stripped, 0, 69), " .,;:") . '…' : $stripped;
     }
 
     $stock = (int)($p['stock_quantity'] ?? 0);
