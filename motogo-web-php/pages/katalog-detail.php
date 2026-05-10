@@ -583,7 +583,9 @@ if (!empty($allImages)) {
 renderPage($model . ' | Půjčovna MotoGo24', $content, '/katalog/' . $motoId, [
     'description' => htmlspecialchars($motoDesc !== '' ? $motoDesc : t('detail.descFallback', ['model' => $moto['model'] ?? ''])),
     'keywords' => t('detail.descKeywords', ['model' => $moto['model'] ?? '']),
-    'og_image' => $mainImg ?: null,
+    // SEO: og:image MAX 1200px / quality 85 (Facebook/Twitter optimal). Predtim
+    // raw URL z Supabase = 3-5 MB jpg (Seobility 'Large file size' issue).
+    'og_image' => $mainImg ? imgUrlSized($moto['image_url'] ?? (!empty($rawImages) ? $rawImages[0] : ''), 1200, 85) : null,
     'og_type' => 'product',
     'schema' => $productSchema,
     'preload' => $preloadHero,

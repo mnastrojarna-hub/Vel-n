@@ -39,6 +39,13 @@ function renderHeading($level, $text, $opts = []) {
         $text = $fallback;
         $raw = $fallback;
     }
+    // KRITICKE: H1 NIKDY nesmi byt prazdny (Seobility 'No H1 specified'
+    // Critical issue — pages bez H1 jsou tezko indexovane). Bez admin rezimu
+    // a bez fallbacku injectneme defaultni 'MotoGo24'.
+    if ($raw === '' && $level === 1 && !$isAdmin) {
+        $text = 'MotoGo24';
+        $raw = 'MotoGo24';
+    }
     if ($raw === '' && !$isAdmin) {
         return '';
     }
@@ -76,12 +83,45 @@ function renderHeading($level, $text, $opts = []) {
 function seoEnhanceHtml($content) {
     if (!is_string($content) || $content === '') return $content;
 
-    // 1) Strip prazdnych headings <hN></hN> (whitespace, &nbsp;, atd.)
+    // 1) Strip prazdnych headings <h2-h6></hN> (whitespace, &nbsp;, atd.).
+    //    DULEZITE: <h1> NIKDY neneabandonujem — Seobility 'There is no H1
+    //    heading specified' Critical. Pokud je H1 prazdny, nechame ho
+    //    jako tag (alespon je heading hierarchie zachovana) a nize injectneme
+    //    fallback content.
     $content = preg_replace(
-        '#<h([1-6])(?![^>]*\bdata-cms-empty=)[^>]*>(?:\s|&nbsp;|&\#160;|\xC2\xA0)*</h\1\s*>#i',
+        '#<h([2-6])(?![^>]*\bdata-cms-empty=)[^>]*>(?:\s|&nbsp;|&\#160;|\xC2\xA0)*</h\1\s*>#i',
         '',
         $content
     );
+    // Prazdny H1: doplnime fallback obsah ('MotoGo24') misto stripu, aby
+    // crawler videl validni H1 strukturu i kdyz CMS data nezvladly nacist.
+    $content = preg_replace_callback(
+        '#<h1([^>]*)>(?:\s|&nbsp;|&\#160;|\xC2\xA0)*</h1\s*>#i',
+        function ($m) {
+            return '<h1' . $m[1] . '>MotoGo24</h1>';
+        },
+        $content
+    );
+
+    // 1b) Pokud na strance neni vubec zadny <h1>, injectneme fallback nahoru
+    //     do <main id="content"> nebo na zacatek $content. Seobility hlasi
+    //     'There is no H1 heading specified' jako Important issue. Druhe a
+    //     dalsi <h1> v $content (z CMS RTE) demote krok 5 nize.
+    if (!preg_match('#<h1\b#i', $content)) {
+        $h1Inject = '<h1>MotoGo24 — půjčovna motorek</h1>';
+        // Preferred: pridat za <main id="content"> tag
+        if (preg_match('#<main\b[^>]*id=["\']content["\'][^>]*>#i', $content)) {
+            $content = preg_replace(
+                '#(<main\b[^>]*id=["\']content["\'][^>]*>)#i',
+                '$1' . $h1Inject,
+                $content,
+                1
+            );
+        } else {
+            // Fallback: pridat na zacatek
+            $content = $h1Inject . $content;
+        }
+    }
 
     // 2) Auto-extend kratke <h1> textu o ' | MotoGo24' (SEO context).
     //    Vyber prvni <h1>...</h1>, odeparuj plain text, pokud <25 znaku
@@ -166,14 +206,18 @@ function seoEnhanceHtml($content) {
         );
     }
 
-    // 5) Auto-promote h-skoky (h2->h4 skok prepise h4 na h3 atd.) — stack-based
-    //    aby open i close tagy zustaly parovane. Resi Seobility 'Structural
-    //    problem' u CMS RTE obsahu kde admin pouzil H4 misto H3.
+    // 5) Auto-promote h-skoky a demote multi-H1 — stack-based aby open/close
+    //    tagy zustaly parovane.
+    //    a) Hierarchie skoky h2->h4 -> h2->h3 (Seobility 'Structural problem')
+    //    b) Druhy a dalsi <h1> na strance se demotuji na <h2> (Seobility
+    //       'Use only one H1 heading on the page' Critical) — sablona stranky
+    //       drzi prvni <h1>, dalsi mohou prijit z CMS RTE (admin napsal H1
+    //       v document_template content_html). Idempotentni.
     if (preg_match('#</?h[1-6]\b#i', $content)) {
         $tokens = preg_split('#(<(?:/?)h[1-6](?:\b[^>]*)?>)#i', $content, -1, PREG_SPLIT_DELIM_CAPTURE);
-        $stack = [];      // hloubka aktualnich otevrenych
-        $lastSeen = 0;    // posledni renderovana uroven
-        $remap = [];      // open token index -> new level
+        $stack = [];      // bool[] - kolik tagu mame aktualne otevrenych
+        $lastSeen = 0;    // posledni renderovana uroven (po promote)
+        $h1Seen = false;  // prvni <h1> jsme uz emitovali?
         for ($i = 0; $i < count($tokens); $i++) {
             $t = $tokens[$i];
             if (!preg_match('#^<(/?)h([1-6])(\b[^>]*)?>$#i', $t, $m)) continue;
@@ -182,7 +226,15 @@ function seoEnhanceHtml($content) {
             $attrs = $m[3] ?? '';
             if (!$closing) {
                 $newLevel = $level;
-                if ($lastSeen > 0 && $level > $lastSeen + 1) {
+                // Multi-H1 demote: pokud uz jsme videli H1, druhy a dalsi -> H2
+                if ($level === 1 && $h1Seen) {
+                    $newLevel = 2;
+                }
+                if ($level === 1 && !$h1Seen) {
+                    $h1Seen = true;
+                }
+                // Hierarchie skoky h2->h4 -> h2->h3
+                if ($lastSeen > 0 && $newLevel > $lastSeen + 1) {
                     $newLevel = $lastSeen + 1;
                 }
                 $stack[] = ['origIdx' => $i, 'newLevel' => $newLevel];
@@ -191,10 +243,9 @@ function seoEnhanceHtml($content) {
                     $tokens[$i] = '<h' . $newLevel . $attrs . '>';
                 }
             } else {
-                // Najdi posledni match na stejne urovni
+                // Najdi posledni open na stacku, prepise close pokud bylo promote
                 for ($s = count($stack) - 1; $s >= 0; $s--) {
                     $entry = $stack[$s];
-                    $origToken = preg_match('#<h([1-6])\b#i', $tokens[$entry['origIdx']], $om);
                     $newOpenLevel = $entry['newLevel'];
                     if ($newOpenLevel !== $level) {
                         $tokens[$i] = '</h' . $newOpenLevel . '>';
@@ -489,6 +540,13 @@ function renderBlogCard($post) {
     // Auto-překlady z `translations` JSONB sloupce s CZ fallbackem
     $excerpt = localized($post, 'excerpt');
     if ($excerpt === '') $excerpt = $post['description'] ?? '';
+    // SEO: cely blog-card je obaleny <a>, takze CELY text vc. excerpt je
+    // anchor text pro odkaz. Seobility hlasil 'Link anchor text too long'
+    // (>120 znaku) na blog/eshop kartach kde excerpt prekrocil. Truncate
+    // excerpt na ~80 znaku at title (~30) + excerpt (~80) je pod 120 limit.
+    $excerptShort = mb_strlen($excerpt, 'UTF-8') > 80
+        ? rtrim(mb_substr($excerpt, 0, 79, 'UTF-8'), " .,;:") . '…'
+        : $excerpt;
     $titleRaw = trim((string)localized($post, 'title'));
     if ($titleRaw === '') $titleRaw = t('card.unnamedArticle');
     $title = htmlspecialchars($titleRaw);
@@ -500,7 +558,7 @@ function renderBlogCard($post) {
         '<div class="blog-img">' . ($img ? '<img src="' . htmlspecialchars($img) . '"'
             . ($imgSrcset ? ' srcset="' . htmlspecialchars($imgSrcset) . '" sizes="(max-width: 768px) 100vw, 33vw"' : '')
             . ' alt="' . $imgAlt . '" class="imgres" loading="lazy" decoding="async">' : '') . '</div>' .
-        '<div class="blog-desc">' . ($tag ? '<p><span class="tag-label">' . htmlspecialchars($tag) . '</span></p>' : '') . '<p>' . htmlspecialchars($excerpt) . '</p></div>' .
+        '<div class="blog-desc">' . ($tag ? '<p><span class="tag-label">' . htmlspecialchars($tag) . '</span></p>' : '') . '<p>' . htmlspecialchars($excerptShort) . '</p></div>' .
         '<div class="blog-btn"><span class="btn btngreen-small">' . te('card.readArticle') . '</span></div>' .
     '</a></div>';
 }
@@ -528,12 +586,15 @@ function renderProductCard($p) {
     $id = htmlspecialchars($p['id'] ?? '');
     $imgAlt = htmlspecialchars(t('shop.productAlt', ['name' => $nameRaw]));
 
-    // Krátký popisek (z description, max 120 znaků)
+    // SEO: cely shop-card je obaleny <a>, takze CELY text vc. shortDesc je
+    // anchor text pro odkaz. Seobility hlasil 'Link anchor text too long'
+    // (>120 znaku). Truncate na 70 znaku at name + price + shortDesc + button
+    // text zustane pod 120 limit.
     $descRaw = trim((string)localized($p, 'description'));
     $shortDesc = '';
     if ($descRaw !== '') {
         $stripped = trim(strip_tags($descRaw));
-        $shortDesc = mb_strlen($stripped) > 120 ? mb_substr($stripped, 0, 117) . '…' : $stripped;
+        $shortDesc = mb_strlen($stripped) > 70 ? rtrim(mb_substr($stripped, 0, 69), " .,;:") . '…' : $stripped;
     }
 
     $stock = (int)($p['stock_quantity'] ?? 0);

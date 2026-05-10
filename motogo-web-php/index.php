@@ -2,6 +2,33 @@
 // ===== MotoGo24 Web PHP — Hlavní router + entry point =====
 
 require_once __DIR__ . '/config.php';
+
+// SEO bulletproof — robots.txt a sitemap.xml MUSI fungovat za vsech okolnosti.
+// Nektere externi SEO checkery hlasily 'robots.txt Neexistuje' / 'Sitemap
+// Neexistuje' — root cause: pokud kterakoliv linka pred routou (i18n init,
+// Supabase fetch, exception handler) selze, fail vrati 500/HTML chybovou
+// stranku misto plain-text/XML. Proto routujeme robots/sitemap PRED vsim
+// ostatnim, bez Supabase, bez i18n, bez session.
+//
+// Tyto dve routy nepotrebuji nic z runtimu krome `robots.txt` souboru a
+// `sitemap.php` (ktery si i18n nacte sam).
+$_seoEarlyPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
+if ($_seoEarlyPath === '/robots.txt') {
+    $f = __DIR__ . '/robots.txt';
+    if (is_file($f)) {
+        header('Content-Type: text/plain; charset=utf-8');
+        header('Cache-Control: public, max-age=3600');
+        header('X-Robots-Tag: noindex, follow');
+        readfile($f);
+        exit;
+    }
+    // Fallback: minimalni inline robots pokud soubor chybi
+    header('Content-Type: text/plain; charset=utf-8');
+    echo "User-agent: *\nAllow: /\nDisallow: /rezervace\nDisallow: /potvrzeni\n";
+    echo "Sitemap: https://www.motogo24.cz/sitemap.xml\n";
+    exit;
+}
+
 require_once __DIR__ . '/i18n.php';
 // Detekuj jazyk co nejdřív (kvůli set-cookie hlavičce při ?lang=xx)
 i18nDetectLanguage();
