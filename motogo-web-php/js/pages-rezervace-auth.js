@@ -224,18 +224,14 @@ MG._rezAuth._submitForgot = async function(e){
   if(btn){ btn.disabled = true; btn.textContent = T('rez.auth.forgot.submitting','Odesílám…'); }
   MG._rezAuth.busy = true;
   try {
-    var res = await window.sb.auth.resetPasswordForEmail(email);
-    // Supabase 4xx odpovědi necháváme tichou success (anti-enumeration), 5xx
-    // pošleme uživateli — server je nedostupný a nemá smysl ho nutit zadávat
-    // kód, který nedorazí.
-    if(res.error){
-      var st = res.error.status;
-      if(st === 500 || st >= 500){
-        console.warn('[rezAuth] forgot 5xx', res.error);
-        MG._rezAuth._showMsg(T('rez.auth.err.server','Server je nedostupný, zkuste to prosím za chvíli.'), 'err', 'rez-auth-forgot-msg');
-        return;
-      }
-      console.warn('[rezAuth] forgot warn', res.error);
+    // Místo Supabase Auth resetPasswordForEmail (rate-limited / template config)
+    // voláme náš edge fn `send-recovery-otp`, který generateLink → mail přes Resend.
+    // Anti-enumeration řešená v edge fn (vždy 200 success), 5xx hlásíme uživateli.
+    var res = await window.sb.functions.invoke('send-recovery-otp', { body: { email: email } });
+    if(res && res.error){
+      console.warn('[rezAuth] send-recovery-otp err', res.error);
+      MG._rezAuth._showMsg(T('rez.auth.err.server','Server je nedostupný, zkuste to prosím za chvíli.'), 'err', 'rez-auth-forgot-msg');
+      return;
     }
     // Přepni na OTP form
     MG._rezAuth._showOtpReset(email);

@@ -19,11 +19,12 @@ const CATEGORIES = [
   { value: 'cestovni', label: 'Cestovní' },
   { value: 'sportovni', label: 'Sportovní' },
   { value: 'naked', label: 'Naked' },
+  { value: 'supermoto', label: 'Supermoto' },
   { value: 'chopper', label: 'Chopper' },
   { value: 'detske', label: 'Dětské' },
 ]
 
-const CAT_LABELS = { cestovni: 'Cestovní', sportovni: 'Sportovní', naked: 'Naked', chopper: 'Chopper', detske: 'Dětské' }
+const CAT_LABELS = { cestovni: 'Cestovní', sportovni: 'Sportovní', naked: 'Naked', supermoto: 'Supermoto', chopper: 'Chopper', detske: 'Dětské' }
 
 export default function Fleet() {
   const debugMode = useDebugMode()
