@@ -109,7 +109,7 @@ MG._rezInjectCalStyles = function(){
   st.textContent =
     '#rez-calendar{background:#fff;border:1px solid #d4e8e0;border-radius:18px;padding:1rem;box-shadow:0 4px 14px rgba(20,80,40,.06);font-family:Montserrat,sans-serif;margin:.4rem 0}'+
     '#rez-calendar .rezcal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:.7rem;gap:.6rem}'+
-    '#rez-calendar .rezcal-nav button{background:#1a8c1a;color:#fff;border:none;width:38px;height:38px;border-radius:999px;cursor:pointer;font-size:1.4rem;line-height:1;font-weight:700;transition:transform .12s}'+
+    '#rez-calendar .rezcal-nav button{background:#0d6e0d;color:#fff;border:none;width:38px;height:38px;border-radius:999px;cursor:pointer;font-size:1.4rem;line-height:1;font-weight:700;transition:transform .12s}'+
     '#rez-calendar .rezcal-nav button:hover{transform:scale(1.06);background:#147214}'+
     '#rez-calendar .rezcal-title{font-weight:800;font-size:1.05rem;color:#1a2e22;text-align:center;flex:1}'+
     '#rez-calendar .rezcal-single{max-width:520px;margin:0 auto}'+
@@ -121,12 +121,12 @@ MG._rezInjectCalStyles = function(){
     '#rez-calendar .cal-day.empty{background:transparent}'+
     '#rez-calendar .cal-day.free{background:#74FB71;color:#0b0b0b;cursor:pointer}'+
     '#rez-calendar .cal-day.free:hover{transform:scale(1.07);box-shadow:0 3px 8px rgba(26,140,26,.25)}'+
-    '#rez-calendar .cal-day.in-range{background:#1a8c1a;color:#fff;cursor:pointer}'+
+    '#rez-calendar .cal-day.in-range{background:#0d6e0d;color:#fff;cursor:pointer}'+
     '#rez-calendar .cal-day.sel-start, #rez-calendar .cal-day.sel-end{background:#0f5e0f;color:#fff;box-shadow:0 0 0 2px #74FB71;cursor:pointer}'+
     '#rez-calendar .cal-day.occupied{background:#444;color:#fff;cursor:not-allowed}'+
     '#rez-calendar .cal-day.unconfirmed{background:#fff;color:#333;cursor:not-allowed;border:2px solid #ccc}'+
     '#rez-calendar .cal-day.past{background:#3a3a3a;color:#fff;cursor:not-allowed;opacity:.85}'+
-    '#rez-calendar .cal-day.today{outline:2px solid #1a8c1a;outline-offset:-2px}'+
+    '#rez-calendar .cal-day.today{outline:2px solid #0d6e0d;outline-offset:-2px}'+
     '#rez-calendar .cal-day .dn{font-size:.6rem;opacity:.7;line-height:1}'+
     '#rez-calendar .calendar-icons{display:flex;flex-wrap:wrap;gap:.6rem 1.1rem;margin-top:.85rem;font-size:.78rem;color:#3a4a40}'+
     '#rez-calendar .calendar-icons div{display:inline-flex;align-items:center;gap:.35rem}'+
@@ -134,7 +134,7 @@ MG._rezInjectCalStyles = function(){
     '#rez-calendar .cicon.loosely{background:#74FB71}'+
     '#rez-calendar .cicon.occupied{background:#444}'+
     '#rez-calendar .cicon.unconfirmed{background:#fff;border:1.5px solid #ccc}'+
-    '#rez-calendar .cicon.selrange{background:#1a8c1a}';
+    '#rez-calendar .cicon.selrange{background:#0d6e0d}';
   document.head.appendChild(st);
 };
 

@@ -99,7 +99,7 @@
   .motogo-ai-msg.user{background:#1a2e22;color:#fff;align-self:flex-end;border-bottom-right-radius:4px}\
   .motogo-ai-msg.assistant{background:#fff;color:#0b0b0b;align-self:flex-start;border:1px solid #e3e8e5;border-bottom-left-radius:4px}\
   .motogo-ai-msg.thinking{background:none;border:none;color:#666;font-style:italic;align-self:flex-start;padding:6px 0}\
-  .motogo-ai-msg a{color:#1a8c1a;text-decoration:underline;word-break:break-word}\
+  .motogo-ai-msg a{color:#0d6e0d;text-decoration:underline;word-break:break-word}\
   .motogo-ai-tools{font-size:11px;color:#888;margin-top:6px}\
   #motogo-ai-input-row{padding:10px;background:#fff;border-top:1px solid #e3e8e5;display:flex;gap:8px;align-items:flex-end;flex-shrink:0}\
   #motogo-ai-input{flex:1;min-width:0;border:1px solid #d4e8e0;border-radius:18px;padding:10px 14px;font-family:inherit;font-size:16px;resize:none;max-height:100px;min-height:40px}\

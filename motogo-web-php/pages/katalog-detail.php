@@ -404,8 +404,8 @@ var CAL_I18N = {
       var bg,color,cursor="default",border="none";
       if(isPast||booked==="occupied"){bg="#444";color="#fff";cursor="not-allowed";}
       else if(booked==="unconfirmed"){bg="#fff";color="#333";cursor="not-allowed";border="2px solid #ccc";}
-      else if(isStart||isEnd){bg="#1a8c1a";color="#fff";cursor="pointer";border="2px solid #fff";}
-      else if(inRange){bg="#1a8c1a";color="#fff";cursor="pointer";}
+      else if(isStart||isEnd){bg="#0d6e0d";color="#fff";cursor="pointer";border="2px solid #fff";}
+      else if(inRange){bg="#0d6e0d";color="#fff";cursor="pointer";}
       else{bg="#74FB71";color="#0b0b0b";cursor="pointer";}
       var canClick=!isPast&&!booked;
       var style="background:"+bg+";color:"+color+";cursor:"+cursor+";border:"+border+";border-radius:12px;";

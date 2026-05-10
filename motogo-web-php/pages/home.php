@@ -91,7 +91,7 @@ foreach ($C['signposts'] as $i => $s) {
     if ($titleText === '') $titleText = htmlspecialchars($s['btn'] ?? 'Informace');
     $kBase = 'web.home.signposts.' . $i;
     $signHtml .= '<a class="gbox" href="' . BASE_URL . $s['href'] . '">' .
-        '<div class="gr2"><div class="gbox-img"><img src="' . htmlspecialchars($iconSrc) . '" class="icon" alt="' . htmlspecialchars(strip_tags($s['btn'] ?? $titleText)) . '" loading="lazy"></div><div>' .
+        '<div class="gr2"><div class="gbox-img"><img src="' . htmlspecialchars($iconSrc) . '" class="icon" alt="" aria-hidden="true" loading="lazy" width="36" height="36"></div><div>' .
         '<h3 data-cms-key="' . $kBase . '.title">' . ($s['title'] !== '' ? $s['title'] : $titleText) . '</h3>' .
         '<p data-cms-key="' . $kBase . '.text">' . $s['text'] . '</p>' .
         '<div class="btn btngreen-small" data-cms-key="' . $kBase . '.btn">' . $s['btn'] . '</div></div></div></a>';

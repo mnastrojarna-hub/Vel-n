@@ -657,7 +657,7 @@ MG._rezInit = async function(){
       '<p style="margin:0 0 .4rem;font-size:.9rem"><strong>'+MG.t('rez.intro.title')+'</strong></p>' +
       '<p style="margin:0 0 .3rem;font-size:.85rem;color:#555">'+MG.t('rez.intro.specific')+'</p>' +
       '<p style="margin:0 0 .3rem;font-size:.85rem;color:#555">'+MG.t('rez.intro.bike')+'</p>' +
-      '<p style="margin:0;font-size:.85rem;color:#1a8c1a"><strong>'+MG.t('rez.intro.benefits')+'</strong></p>' +
+      '<p style="margin:0;font-size:.85rem;color:#0d6e0d"><strong>'+MG.t('rez.intro.benefits')+'</strong></p>' +
       '</div></div>' +
       '<section class="rez-section rez-section-pre" id="rez-step-moto">' +
         '<div class="rez-section-head"><span class="rez-step-num">1</span><h2>'+MG.t('rez.step.moto')+'</h2></div>' +
