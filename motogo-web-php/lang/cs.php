@@ -360,6 +360,8 @@ return [
     'rez.pickup.gps' => 'Moje poloha',
     'rez.return.title' => 'Čas vrácení motorky',
     'rez.return.sub' => 'V kolik hodin vrátíte motorku na uvedené adrese?',
+    'rez.return.stateTitle' => 'V jakém stavu motorku vrátit?',
+    'rez.return.stateText' => 'Motorku stačí vrátit s palivem nad rezervou (kontrolka rezervy nesvítí). Mytí ani úklid neřešte — to je naše práce. Při vrácení s prázdnou nádrží účtujeme dotankování + servisní poplatek (viz VOP).',
 
     // ===== Rezervace — výbava =====
     'rez.gear.intro' => 'Vyberte velikosti kliknutím na čtverečky níže. Pokud velikost nezvolíte, vyzkoušíme ji na místě.',
@@ -664,7 +666,7 @@ return [
     'editRez.postStripe.applying' => 'Platba potvrzena, dokončuji změnu rezervace…',
     'editRez.postStripe.error' => 'Platba proběhla, ale změnu rezervace se nepodařilo dokončit. Kontaktujte nás prosím.',
     'editRez.change.success' => 'Změna byla uložena.',
-    'editRez.change.successWithRefund' => 'Změna byla uložena. Vrátíme vám {amount} během několika minut.',
+    'editRez.change.successWithRefund' => 'Změna byla uložena. Vrácení {amount} jsme zahájili — peníze obvykle dorazí na původní kartu do 5–7 pracovních dnů.',
     'editRez.err.activeMotoLocked' => 'U probíhající rezervace nelze změnit motorku.',
     'editRez.loc.title' => 'Čas a místo — vyzvednutí / vrácení',
     'editRez.loc.help' => 'Změňte způsob, místo a čas vyzvednutí nebo vrácení. Cena za přistavení/odvoz se počítá podle vzdálenosti od pobočky Mezná (1 000 Kč základ + 40 Kč/km). Rozdíl se vrací 100 % bez ohledu na čas, nový poplatek doplatíte přes Stripe.',
@@ -718,7 +720,7 @@ return [
     'editRez.shorten.cta' => 'Zkrátit a vrátit peníze',
     'editRez.shorten.ctaNoRefund' => 'Zkrátit (bez vrácení peněz)',
     'editRez.shorten.confirming' => 'Zkracuji…',
-    'editRez.shorten.success' => 'Rezervace zkrácena. Vrácení {amount} Kč ({percent}%) na původní platební metodu.',
+    'editRez.shorten.success' => 'Rezervace zkrácena. Vrácení {amount} Kč ({percent}%) jsme zahájili — peníze obvykle dorazí na původní kartu do 5–7 pracovních dnů.',
     'editRez.shorten.successNoRefund' => 'Rezervace zkrácena. Refund dle storno podmínek nebyl možný.',
     'editRez.shorten.reasonLabel' => 'Důvod (volitelné)',
 
@@ -730,7 +732,7 @@ return [
     'editRez.cancel.reasonPlaceholder' => 'Např. změna plánů',
     'editRez.cancel.cta' => 'Stornovat rezervaci',
     'editRez.cancel.confirming' => 'Stornuji…',
-    'editRez.cancel.success' => 'Rezervace byla stornována. Vrácení {amount} Kč ({percent}%) proběhne během několika minut.',
+    'editRez.cancel.success' => 'Rezervace byla stornována. Vrácení {amount} Kč ({percent}%) jsme zahájili — peníze obvykle dorazí na původní kartu do 5–7 pracovních dnů.',
     'editRez.cancel.confirmTitle' => 'Opravdu chcete stornovat rezervaci?',
     'editRez.cancel.confirmYes' => 'Ano, stornovat',
     'editRez.cancel.confirmNo' => 'Zrušit',

@@ -343,6 +343,13 @@ ${v.door_codes_block || ''}
 <p>Prosíme, pro bezproblémové převzetí si připravte:</p>
 <ul><li>platný doklad totožnosti (který jste uvedli v rezervačním formuláři),</li><li>platný řidičský průkaz.</li></ul>
 <p>Na místě společně provedeme kontrolu dokladů, předání motocyklu i případné zapůjčené výbavy a podepíšeme Předávací protokol.</p>
+<h3 style="color:#1a2e22;font-size:15px;margin-top:24px">Vrácení motorky</h3>
+<p>Motorku stačí vrátit s palivem nad rezervou (kontrolka rezervy nesvítí). Mytí ani úklid neřešte — to je naše práce. Při vrácení s prázdnou nádrží účtujeme dotankování + servisní poplatek dle VOP.</p>
+<div style="background:#f0faf5;border:1px solid #d4e8e0;border-left:4px solid #74fb71;border-radius:8px;padding:14px 16px;margin:18px 0">
+<p style="margin:0 0 8px;font-weight:700;color:#0d6e0d">Potřebujete změnit termín, motorku nebo místo přistavení?</p>
+<p style="margin:0 0 10px;font-size:13px;color:#1a2e22">Rezervaci si můžete kdykoliv upravit nebo zrušit on-line — výpočet doplatku/refundu uvidíte hned.</p>
+<a href="https://motogo24.cz/upravit-rezervaci?id=${v.booking_id || ''}" style="display:inline-block;background:#74FB71;color:#0b0b0b;font-weight:700;text-decoration:none;padding:10px 22px;border-radius:22px;font-size:13px">Upravit / zrušit rezervaci →</a>
+</div>
 <p>${SIGN.cs}</p>`,
     en: v => `<p>${HELLO.en}</p>
 <p>thank you for your trust and your booking <strong>#${v.booking_number}</strong> at MOTO GO 24.</p>
