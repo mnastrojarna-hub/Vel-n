@@ -75,22 +75,6 @@ function sanitizeHtml($html, $allowIframe = false) {
     $html = preg_replace('#</i\s*>#i', '</em>', $html);
     $html = preg_replace('#<font\b[^>]*>#i', '<span>', $html);
     $html = preg_replace('#</font\s*>#i', '</span>', $html);
-    // SEO: prazdne formatovaci tagy <strong></strong> / <em></em> / <span></span>
-    // (whitespace, &nbsp; nebo prazdny obsah). Seobility je hlasi jako 'Empty tags'.
-    // Vznikaji v CMS RichTextEditoru kdyz uzivatel klepne Bold a hned Unbold,
-    // nebo pri smazani textu ktery byl tucny. Iterujeme dokud uz neni co odstranit
-    // (vnorene prazdne tagy: <strong><em></em></strong> -> "" ve dvou prochodech).
-    do {
-        $prev = $html;
-        $html = preg_replace('#<(strong|em|b|i|u|s|span|mark|small)(\s[^>]*)?>\s*(?:&nbsp;|&#160;|\xC2\xA0)*\s*</\1\s*>#i', '', $html);
-    } while ($html !== $prev);
-    // SEO: vnoreny <h1> v CMS obsahu nesmi konkurovat hlavni <h1> ve sablone
-    // stranky (Seobility 'Multiple H1 in page'). Velin Editor umoznuje H1-H6,
-    // ale na webu jsou hlavicky stranky <h1>/<h2> rezervovane pro tvurce
-    // sablony — CMS-vlozeny <h1> demotujeme na <h2>, aby zustala jen jedna
-    // top-level hlavicka per stranka.
-    $html = preg_replace('#<h1(\s[^>]*)?>#i', '<h2$1>', $html);
-    $html = preg_replace('#</h1\s*>#i', '</h2>', $html);
     // <iframe> pryč pokud není povolen
     if (!$allowIframe) {
         $html = preg_replace('#<iframe\b[^>]*>.*?</iframe\s*>#is', '', $html);
