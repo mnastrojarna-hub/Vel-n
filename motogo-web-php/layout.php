@@ -58,6 +58,11 @@ function renderHeader($currentPath = '/') {
         '<div class="header-topbar"><div class="container">' .
             '<div class="header-phone"><p><a href="' . PHONE_LINK . '" aria-label="' . te('header.callUs') . '"><img alt="" aria-hidden="true" src="' . BASE_URL . '/gfx/telefon-header.svg" loading="lazy" width="24" height="24"></a>&nbsp;<a href="' . PHONE_LINK . '">' . PHONE . '</a></p></div>' .
             '<div class="header-tools">' .
+                '<div class="header-auth" data-mg-auth hidden>' .
+                    '<svg class="header-auth-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>' .
+                    '<span class="header-auth-email" data-mg-auth-email></span>' .
+                    '<button type="button" class="header-auth-logout" data-mg-auth-logout>' . te('menu.logout') . '</button>' .
+                '</div>' .
                 '<a class="header-edit-rez" href="' . BASE_URL . '/upravit-rezervaci" aria-label="' . te('menu.editReservation.aria') . '" title="' . te('menu.editReservation') . '">' .
                     '<svg class="header-edit-rez-icon" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>' .
                     '<span class="header-edit-rez-label">' . te('menu.editReservation') . '</span>' .
@@ -616,7 +621,8 @@ body{font-family:Montserrat,"Segoe UI",sans-serif;margin:0;color:#1a2e22;backgro
 <script>
 window.MG_I18N = Object.assign(window.MG_I18N || {}, ' . $cartI18n . ');
 </script>
-<script src="' . assetUrl('/js/cart.js') . '" defer></script>';
+<script src="' . assetUrl('/js/cart.js') . '" defer></script>
+<script src="' . assetUrl('/js/header-auth.js') . '" defer></script>';
 
     echo renderInlineJs();
 
