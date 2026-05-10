@@ -44,7 +44,7 @@ MG._rezShowMobileMirrorBanner = function(text){
   if(!el){
     el = document.createElement('div');
     el.id = 'rez-mobile-mirror-banner';
-    el.style.cssText = 'position:fixed;bottom:1.25rem;left:50%;transform:translateX(-50%);background:#1a8c1a;color:#fff;padding:.85rem 1.4rem;border-radius:10px;font-weight:600;box-shadow:0 6px 22px rgba(0,0,0,.3);z-index:9999;font-family:Montserrat,sans-serif;font-size:.95rem;display:flex;align-items:center;gap:.6rem';
+    el.style.cssText = 'position:fixed;bottom:1.25rem;left:50%;transform:translateX(-50%);background:#0d6e0d;color:#fff;padding:.85rem 1.4rem;border-radius:10px;font-weight:600;box-shadow:0 6px 22px rgba(0,0,0,.3);z-index:9999;font-family:Montserrat,sans-serif;font-size:.95rem;display:flex;align-items:center;gap:.6rem';
     el.innerHTML = '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#74FB71;animation:mg-pulse 1.4s infinite ease-in-out"></span><span class="mg-mirror-text"></span>';
     var st = document.createElement('style');
     st.textContent = '@keyframes mg-pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.7)}}';
@@ -535,7 +535,7 @@ MG._rezScanDoc = function(docType, side){
         await MG._rezSaveDocPhoto(result.frame || frames[0], docType, 'failed', null, side);
         MG._rezMarkSideScanned(docType, side);
         if(typeof MG._rezCheckMandatoryDocs==='function') MG._rezCheckMandatoryDocs();
-        if(statusEl) statusEl.innerHTML='<div style="color:#1a8c1a;padding:.5rem 0">&#10004; Doklad nahrán — ověření proběhne na pobočce</div>';
+        if(statusEl) statusEl.innerHTML='<div style="color:#0d6e0d;padding:.5rem 0">&#10004; Doklad nahrán — ověření proběhne na pobočce</div>';
       }
     });
   });
@@ -561,7 +561,7 @@ MG._rezGalleryDoc = function(docType, mode, side){
             MG._rezMarkSideScanned(docType, side);
             if(typeof MG._rezCheckMandatoryDocs==='function') MG._rezCheckMandatoryDocs();
           }
-          if(statusEl) statusEl.innerHTML='<div style="color:#1a8c1a;padding:.5rem 0">&#10004; Doklad nahrán — ověření proběhne na pobočce</div>';
+          if(statusEl) statusEl.innerHTML='<div style="color:#0d6e0d;padding:.5rem 0">&#10004; Doklad nahrán — ověření proběhne na pobočce</div>';
         }
       });
     } else if(file){
@@ -579,7 +579,7 @@ MG._rezApplyOcrResult = async function(f, docType, base64, mode, side){
   var prefix = (mode==='mindee') ? 'mindee-' : 'webdoc-';
   var statusEl=document.getElementById(MG._rezSideStatusId(prefix, docType, side));
   var info=docType==='id'?(f.idNumber?'č. '+f.idNumber:''):(f.licenseNumber?'č. '+f.licenseNumber:'');
-  if(statusEl) statusEl.innerHTML='<div style="color:#1a8c1a;padding:.5rem 0">&#10004; Doklad rozpoznán'+(info?' — '+info:'')+'</div>';
+  if(statusEl) statusEl.innerHTML='<div style="color:#0d6e0d;padding:.5rem 0">&#10004; Doklad rozpoznán'+(info?' — '+info:'')+'</div>';
 
   // Auto-fill form fields (desktop step 2 only) — jen z líce, kde jsou klíčové údaje
   if(mode==='webdoc' && side !== 'back'){
@@ -619,7 +619,7 @@ MG._rezProcessOcr = async function(base64, docType, side){
     await MG._rezSaveDocPhoto(base64, docType, 'failed', null, side);
     MG._rezMarkSideScanned(docType, side);
     if(typeof MG._rezCheckMandatoryDocs==='function') MG._rezCheckMandatoryDocs();
-    if(statusEl) statusEl.innerHTML='<div style="color:#1a8c1a;padding:.5rem 0">&#10004; Doklad nahrán — ověření proběhne na pobočce</div>';
+    if(statusEl) statusEl.innerHTML='<div style="color:#0d6e0d;padding:.5rem 0">&#10004; Doklad nahrán — ověření proběhne na pobočce</div>';
   }
 };
 
@@ -635,7 +635,7 @@ MG._rezCheckMandatoryDocs = function(){
   var dlDone = !!(MG._rez._dlFrontScanned && MG._rez._dlBackScanned);
   if(idDone && dlDone){
     if(btn){ btn.textContent='Pokračovat k platbě'; }
-    if(msg) msg.innerHTML='<span style="color:#1a8c1a">&#10004; Všechny doklady nahrány — můžete pokračovat k platbě.</span>';
+    if(msg) msg.innerHTML='<span style="color:#0d6e0d">&#10004; Všechny doklady nahrány — můžete pokračovat k platbě.</span>';
   } else if(idDone || dlDone){
     if(btn){ btn.textContent='Přeskočit zbytek a zaplatit'; }
   }
@@ -658,7 +658,7 @@ MG._rezCaptureDoc = function(docType, side){
         await MG._rezApplyOcrResult(result.fields, docType, result.frame, 'webdoc', side);
       } else {
         await MG._rezSaveDocPhoto(result.frame || frames[0], docType, 'failed', null, side);
-        if(statusEl) statusEl.innerHTML='<div style="color:#1a8c1a;padding:.5rem 0">&#10004; Doklad nahrán — ověření proběhne na pobočce</div>';
+        if(statusEl) statusEl.innerHTML='<div style="color:#0d6e0d;padding:.5rem 0">&#10004; Doklad nahrán — ověření proběhne na pobočce</div>';
       }
     });
   });
@@ -671,7 +671,7 @@ MG._rezProcessWebDocOcr = function(base64, docType, side){
     if(result.ok) return MG._rezApplyOcrResult(result.fields, docType, result.frame, 'webdoc', side);
     await MG._rezSaveDocPhoto(base64, docType, 'failed', null, side);
     var statusEl=document.getElementById(MG._rezSideStatusId('webdoc-', docType, side));
-    if(statusEl) statusEl.innerHTML='<div style="color:#1a8c1a;padding:.5rem 0">&#10004; Doklad nahrán — ověření proběhne na pobočce</div>';
+    if(statusEl) statusEl.innerHTML='<div style="color:#0d6e0d;padding:.5rem 0">&#10004; Doklad nahrán — ověření proběhne na pobočce</div>';
   });
 };
 
@@ -699,7 +699,7 @@ MG._rezUploadDocFile = async function(file,docType){
         delete row.metadata;
         await window.sb.from('documents').insert(row).catch(function(){});
       }
-      if(statusEl) statusEl.innerHTML='<div style="color:#1a8c1a;padding:.5rem 0">&#10004; Soubor nahrán — ověření proběhne na pobočce</div>';
+      if(statusEl) statusEl.innerHTML='<div style="color:#0d6e0d;padding:.5rem 0">&#10004; Soubor nahrán — ověření proběhne na pobočce</div>';
     } else {
       if(statusEl) statusEl.innerHTML='<div style="color:#e67e22;padding:.5rem 0">&#9888; Nelze nahrát — vyplňte údaje ručně</div>';
     }

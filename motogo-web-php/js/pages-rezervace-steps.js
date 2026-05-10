@@ -823,7 +823,7 @@ MG._rezInitLicenseUI = function(){
     st.textContent =
       '.lic-chip{padding:.6rem 1.1rem;border:1.5px solid #d4e8e0;background:#fff;border-radius:999px;font-size:.95rem;font-weight:700;cursor:pointer;color:#1a2e22;transition:all .15s;min-width:72px;font-family:Montserrat,sans-serif}'+
       '.lic-chip:hover{border-color:#74FB71;background:#f0faf5;transform:translateY(-1px)}'+
-      '.lic-chip.active{background:#1a8c1a;border-color:#1a8c1a;color:#fff;box-shadow:0 3px 10px rgba(26,140,26,.35);transform:translateY(-1px)}';
+      '.lic-chip.active{background:#0d6e0d;border-color:#0d6e0d;color:#fff;box-shadow:0 3px 10px rgba(26,140,26,.35);transform:translateY(-1px)}';
     document.head.appendChild(st);
   }
 

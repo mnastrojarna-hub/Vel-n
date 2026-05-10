@@ -5,7 +5,7 @@
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth;font-size:16px;-webkit-text-size-adjust:100%;text-size-adjust:100%}
 body{font-family:'Montserrat','Segoe UI',sans-serif;background:#dff0ec;color:#1a2e22;line-height:1.6;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility;overflow-x:hidden;min-width:320px}
-a{color:#1a8c1a;text-decoration:none;transition:color .2s;-webkit-tap-highlight-color:rgba(116,251,113,.25)}
+a{color:#0d6e0d;text-decoration:none;transition:color .2s;-webkit-tap-highlight-color:rgba(116,251,113,.25)}
 a:hover{color:#0d6e0d}
 img,picture,video,svg{max-width:100%;height:auto;display:block}
 ul,ol{list-style:none}
@@ -24,7 +24,7 @@ input,select,textarea{font-size:16px}
 }
 /* Focus visible — viditelný focus ring jen pro klu00e1vesnici, ne tap */
 :focus{outline:none}
-:focus-visible{outline:2px solid #1a8c1a;outline-offset:2px;border-radius:4px}
+:focus-visible{outline:2px solid #0d6e0d;outline-offset:2px;border-radius:4px}
 .btn:focus-visible,a.btn:focus-visible{outline:3px solid #1a2e22;outline-offset:3px}
 /* Reduced motion */
 @media(prefers-reduced-motion:reduce){
@@ -181,7 +181,7 @@ input,select,textarea{font-size:16px}
 .breadcrumb li::after{content:"›";margin-left:.4rem;color:#8aab99}
 .breadcrumb li:last-child::after{content:""}
 .breadcrumb li:last-child{color:#4a6b5a}
-.breadcrumb a{color:#1a8c1a}
+.breadcrumb a{color:#0d6e0d}
 
 /* ===== CONTENT WRAPPERS ===== */
 main{background:#fff;min-height:60vh}
@@ -226,7 +226,7 @@ main{background:#fff;min-height:60vh}
 .moto-desc li.moto-card-model{padding-left:0;margin-bottom:.35rem}
 .moto-desc li.moto-card-model::before{content:none}
 .moto-desc li.moto-card-model h2{font-size:1.05rem;margin:0;color:#1a2e22;font-weight:700;line-height:1.25}
-.moto-price{color:#1a8c1a;font-weight:700;font-size:.95rem;margin:.6rem 0 0}
+.moto-price{color:#0d6e0d;font-weight:700;font-size:.95rem;margin:.6rem 0 0}
 .moto-btn{padding:.5rem 1rem 1rem;text-align:center}
 
 /* Availability badge na moto kartě/detailu */
@@ -606,7 +606,7 @@ body.mg-lb-open{overflow:hidden;overscroll-behavior:none}
 .edit-rez-intro{color:#666;margin:0 0 1.5rem;font-size:1rem}
 .edit-rez-intro strong{color:#1a2e22}
 .edit-rez-userbar{display:flex;align-items:center;justify-content:space-between;background:#f4faf6;border:1px solid #d9ecdf;border-radius:10px;padding:.5rem .9rem;margin-bottom:1rem;font-size:.9rem;color:#1a2e22}
-.edit-rez-userbar .btn-link{background:none;border:none;color:#1a8c1a;cursor:pointer;font-weight:600;text-decoration:underline;padding:0;font-size:.9rem;font-family:inherit}
+.edit-rez-userbar .btn-link{background:none;border:none;color:#0d6e0d;cursor:pointer;font-weight:600;text-decoration:underline;padding:0;font-size:.9rem;font-family:inherit}
 .edit-rez-userbar .btn-link:hover{color:#0d6b0d}
 .edit-rez-error{background:#fde7e7;border:1px solid #f4b4b4;color:#8c1a1a;padding:.7rem 1rem;border-radius:8px;margin-bottom:1rem;font-size:.95rem}
 .edit-rez-card{background:#fff;border:1px solid #e3eee8;border-radius:14px;padding:1.5rem;margin-bottom:1rem;box-shadow:0 2px 8px rgba(0,0,0,.04)}
@@ -618,7 +618,7 @@ body.mg-lb-open{overflow:hidden;overscroll-behavior:none}
 .edit-rez-form input:focus{outline:2px solid #74FB71;outline-offset:1px;border-color:#74FB71}
 .edit-rez-form button[type=submit]{margin-top:.5rem}
 .edit-rez-tip{font-size:.85rem;color:#666;margin:0 0 .75rem}
-.edit-rez-card a{color:#1a8c1a;text-decoration:underline}
+.edit-rez-card a{color:#0d6e0d;text-decoration:underline}
 .edit-rez-success{background:#eafaef;border-color:#bce6c8}
 .edit-rez-empty{text-align:center}
 
@@ -635,7 +635,7 @@ body.mg-lb-open{overflow:hidden;overscroll-behavior:none}
 .edit-rez-booking-status.status-pending{background:#fff3cd;color:#7a5b00}
 .edit-rez-booking-status.status-reserved{background:#d6ecff;color:#0a4a85}
 .edit-rez-booking-status.status-upcoming{background:#d6ecff;color:#0a4a85}
-.edit-rez-booking-status.status-active{background:#e3fbe3;color:#1a8c1a}
+.edit-rez-booking-status.status-active{background:#e3fbe3;color:#0d6e0d}
 .edit-rez-booking-status.status-completed{background:#eee;color:#555}
 .edit-rez-booking-status.status-cancelled{background:#fde7e7;color:#8c1a1a}
 
@@ -671,17 +671,17 @@ body.mg-lb-open{overflow:hidden;overscroll-behavior:none}
 .edit-rez-upload-actions{grid-area:actions;display:flex;gap:.5rem;flex-wrap:wrap}
 .edit-rez-upload-actions .btn{flex:1 1 auto;min-width:120px;white-space:nowrap}
 .edit-rez-upload-actions .btn-ghost-small{background:#fff;border:1.5px solid #b8d4c6;color:#1a2e22;padding:.4rem .8rem;border-radius:8px;font-weight:700;font-size:.8rem;cursor:pointer;transition:all .15s}
-.edit-rez-upload-actions .btn-ghost-small:hover{border-color:#1a8c1a;background:#f0faf5}
+.edit-rez-upload-actions .btn-ghost-small:hover{border-color:#0d6e0d;background:#f0faf5}
 .edit-rez-upload-doc-status{grid-area:status;font-size:.8rem;min-height:1em;margin-top:.2rem}
 .edit-rez-upload-doc-status:empty{display:none}
 @media (max-width:640px){.edit-rez-upload-actions .btn{flex:1 1 100%;min-height:44px}}
 .edit-rez-upload-status-msg{margin-top:.75rem;font-size:.9rem;min-height:1.2em}
-.edit-rez-upload-status-msg.is-info{color:#1a8c1a}
+.edit-rez-upload-status-msg.is-info{color:#0d6e0d}
 .edit-rez-upload-status-msg.is-error{color:#dc2626}
 .edit-rez-doclist{list-style:none;padding:0;margin:0 0 1rem}
 .edit-rez-doclist li{display:flex;justify-content:space-between;align-items:center;gap:.6rem;padding:.6rem 0;border-bottom:1px solid #eee;font-size:.95rem}
 .edit-rez-doclist li:last-child{border-bottom:none}
-.edit-rez-doclist .btn-link{background:none;border:none;color:#1a8c1a;cursor:pointer;font-weight:600;text-decoration:underline;padding:0;font-family:inherit;font-size:.9rem}
+.edit-rez-doclist .btn-link{background:none;border:none;color:#0d6e0d;cursor:pointer;font-weight:600;text-decoration:underline;padding:0;font-family:inherit;font-size:.9rem}
 .edit-rez-doclist .muted{color:#999;font-size:.85rem}
 
 /* Změna motorky — karty s diff cenou */
@@ -690,7 +690,7 @@ body.mg-lb-open{overflow:hidden;overscroll-behavior:none}
 .edit-rez-moto-card.disabled{opacity:.55;cursor:not-allowed;background:#f9f9f9}
 .edit-rez-moto-reasons{font-size:.8rem;color:#8c1a1a;margin-top:.2rem}
 .edit-rez-booking-price .diff-pos{color:#7a5b00}
-.edit-rez-booking-price .diff-neg{color:#1a8c1a}
+.edit-rez-booking-price .diff-neg{color:#0d6e0d}
 
 /* Změna místa */
 .edit-rez-loc-fieldset{border:1px solid #e3eee8;border-radius:10px;padding:.85rem 1rem;margin:0 0 1rem}
@@ -723,7 +723,7 @@ body.mg-lb-open{overflow:hidden;overscroll-behavior:none}
 
 /* Detail header */
 .edit-rez-detail-head h2{margin:.25rem 0 .35rem;font-size:1.35rem}
-.edit-rez-detail-head .btn-link{background:none;border:none;color:#1a8c1a;cursor:pointer;font-weight:600;padding:0;font-size:.9rem;font-family:inherit;text-decoration:underline}
+.edit-rez-detail-head .btn-link{background:none;border:none;color:#0d6e0d;cursor:pointer;font-weight:600;padding:0;font-size:.9rem;font-family:inherit;text-decoration:underline}
 .edit-rez-detail-meta{color:#555;font-size:.92rem;display:flex;align-items:center;gap:.6rem;flex-wrap:wrap}
 
 /* Tabs */
@@ -755,7 +755,7 @@ body.mg-lb-open{overflow:hidden;overscroll-behavior:none}
 .edit-rez-refund-line strong{font-size:1.2rem;color:#1a2e22}
 .edit-rez-refund-line .pct{margin-left:.4rem;font-weight:700}
 .edit-rez-refund-line.refund-full{background:#e3fbe3;border-color:#9fe69f}
-.edit-rez-refund-line.refund-full .pct{color:#1a8c1a}
+.edit-rez-refund-line.refund-full .pct{color:#0d6e0d}
 .edit-rez-refund-line.refund-half{background:#fff3cd;border-color:#ffd97a}
 .edit-rez-refund-line.refund-half .pct{color:#7a5b00}
 .edit-rez-refund-line.refund-none{background:#fde7e7;border-color:#f4b4b4}
@@ -775,7 +775,7 @@ body.mg-lb-open{overflow:hidden;overscroll-behavior:none}
 
 /* Success box po stornu/zkrácení */
 .edit-rez-success-box{text-align:center;padding:1.5rem .5rem}
-.edit-rez-success-box h3{font-size:3rem;color:#1a8c1a;margin:0 0 .5rem}
+.edit-rez-success-box h3{font-size:3rem;color:#0d6e0d;margin:0 0 .5rem}
 .edit-rez-success-box p{color:#1a2e22;font-size:1rem;margin-bottom:1.2rem}
 
 /* Extend / Shorten — date pickers + summary */
@@ -813,7 +813,7 @@ body.mg-lb-open{overflow:hidden;overscroll-behavior:none}
 /* Returning-customer auth panel (krok 3 rezervace) */
 .rez-auth-toggle{margin-bottom:.95rem;padding:.85rem 1rem;background:#f0faf5;border:1.5px solid #d4e8e0;border-radius:12px}
 .rez-auth-toggle-row{display:flex;gap:.75rem;cursor:pointer;align-items:flex-start}
-.rez-auth-toggle-row input[type=checkbox]{margin-top:.25rem;flex-shrink:0;width:1.1rem;height:1.1rem;cursor:pointer;accent-color:#1a8c1a}
+.rez-auth-toggle-row input[type=checkbox]{margin-top:.25rem;flex-shrink:0;width:1.1rem;height:1.1rem;cursor:pointer;accent-color:#0d6e0d}
 .rez-auth-toggle-body{flex:1}
 .rez-auth-toggle-title{font-weight:700;color:#1a2e22;font-size:.98rem;margin-bottom:.15rem}
 .rez-auth-toggle-sub{font-size:.85rem;color:#5a6a62;line-height:1.4}
@@ -829,9 +829,9 @@ body.mg-lb-open{overflow:hidden;overscroll-behavior:none}
 .rez-auth-msg-err{background:#fde8e8;color:#9b1c1c;border:1px solid #f8b4b4}
 .rez-auth-msg-ok{background:#e6f4ec;color:#155724;border:1px solid #b7e1c4}
 .rez-auth-forgot{margin:.65rem 0 0;font-size:.85rem;text-align:right}
-.rez-auth-forgot a{color:#1a8c1a;text-decoration:underline}
+.rez-auth-forgot a{color:#0d6e0d;text-decoration:underline}
 .rez-auth-loggedin{display:flex;align-items:center;gap:.75rem;margin-bottom:1.1rem;padding:.9rem 1rem;background:#e6f4ec;border:1.5px solid #74FB71;border-radius:12px}
-.rez-auth-loggedin-icon{font-size:1.6rem;color:#1a8c1a;flex-shrink:0;line-height:1}
+.rez-auth-loggedin-icon{font-size:1.6rem;color:#0d6e0d;flex-shrink:0;line-height:1}
 .rez-auth-loggedin-body{flex:1;min-width:0}
 .rez-auth-loggedin-title{font-weight:700;color:#1a2e22;font-size:.95rem;margin-bottom:.1rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rez-auth-loggedin-sub{font-size:.82rem;color:#3a5a4a}
@@ -847,5 +847,5 @@ body.mg-lb-open{overflow:hidden;overscroll-behavior:none}
 
 /* Step 2 — banner pro ověřené doklady */
 .rez-section-docs-ok{background:#e6f4ec;border:1.5px solid #74FB71}
-.rez-section-docs-ok .rez-step-num{background:#1a8c1a;color:#fff}
+.rez-section-docs-ok .rez-step-num{background:#0d6e0d;color:#fff}
 

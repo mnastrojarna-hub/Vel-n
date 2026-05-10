@@ -299,7 +299,7 @@
       (b && b.start_date ? summaryRowTc('period', esc(fmtDate(b.start_date)) + ' – ' + esc(fmtDate(b.end_date))) : '') +
       (b && b.total_price != null ? summaryRowTc('total', esc(fmtPrice(b.total_price))) : '') +
       summaryRowTc('paid', '✓') +
-      (docsOk ? '<p><strong>' + esc(I18N.docsLabel || 'Doklady') + ':</strong> <span style="color:#1a8c1a">✓ ' + esc(I18N.docsVerified || 'Ověřeny') + '</span></p>' : '') +
+      (docsOk ? '<p><strong>' + esc(I18N.docsLabel || 'Doklady') + ':</strong> <span style="color:#0d6e0d">✓ ' + esc(I18N.docsVerified || 'Ověřeny') + '</span></p>' : '') +
       (b && b.customer_email ? summaryRowTc('email', esc(b.customer_email)) : '') +
       '</div>';
 
@@ -307,7 +307,7 @@
     // pokud docs_status undefined (starší RPC bez fieldu) → fallback na původní text.
     var docsStep;
     if(docsOk){
-      docsStep = '<span style="color:#1a8c1a">✓ ' + esc(I18N.nextBookingDocsDone || 'Doklady jsme ověřili — žádná akce není potřeba.') + '</span>';
+      docsStep = '<span style="color:#0d6e0d">✓ ' + esc(I18N.nextBookingDocsDone || 'Doklady jsme ověřili — žádná akce není potřeba.') + '</span>';
     } else if(docsMissing){
       docsStep = '<strong style="color:#b35900">⚠ ' + esc(docsStatus) + '</strong>';
     } else {

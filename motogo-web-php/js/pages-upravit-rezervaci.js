@@ -1033,7 +1033,7 @@ MG._editRez._injectConsentsStyles = function(){
     /* ===== PENDING ROW + BANNER ===== */
     '.edit-rez-booking-wrap{display:flex;flex-direction:column;gap:0;margin-bottom:.6rem}'+
     '.edit-rez-booking-wrap .edit-rez-booking{margin-bottom:0;border-bottom-left-radius:0;border-bottom-right-radius:0}'+
-    '.edit-rez-booking-wrap .edit-rez-row-pay{background:linear-gradient(90deg,#1a8c1a,#0f5e0f);color:#fff;border:none;font-weight:800;padding:.7rem 1rem;cursor:pointer;font-size:.92rem;border-bottom-left-radius:14px;border-bottom-right-radius:14px;display:flex;align-items:center;justify-content:center;gap:.5rem;letter-spacing:.02em;transition:filter .15s}'+
+    '.edit-rez-booking-wrap .edit-rez-row-pay{background:linear-gradient(90deg,#0d6e0d,#0f5e0f);color:#fff;border:none;font-weight:800;padding:.7rem 1rem;cursor:pointer;font-size:.92rem;border-bottom-left-radius:14px;border-bottom-right-radius:14px;display:flex;align-items:center;justify-content:center;gap:.5rem;letter-spacing:.02em;transition:filter .15s}'+
     '.edit-rez-booking-wrap .edit-rez-row-pay:hover{filter:brightness(1.08)}'+
     '.edit-rez-booking.pending{border-left:4px solid #e6a019}'+
     '.edit-rez-booking-status.status-pending-unpaid{background:#fff4d6;color:#7a5400;border:1px solid #e6a019}'+
@@ -1045,7 +1045,7 @@ MG._editRez._injectConsentsStyles = function(){
     '.edit-rez-pending-actions{display:flex;flex-direction:column;gap:.45rem;min-width:200px}'+
     '@media(max-width:680px){.edit-rez-pending-actions{min-width:0;flex-direction:row;flex-wrap:wrap;justify-content:center}}'+
     '.edit-rez-pending-actions .btn{padding:.55rem 1rem;border-radius:999px;font-weight:700;cursor:pointer;border:none;font-size:.88rem;white-space:nowrap}'+
-    '.edit-rez-pending-actions .btngreen{background:#1a8c1a;color:#fff}'+
+    '.edit-rez-pending-actions .btngreen{background:#0d6e0d;color:#fff}'+
     '.edit-rez-pending-actions .btngreen:hover{background:#147214}'+
     '.edit-rez-pending-actions .btn-secondary{background:#fff;border:1.5px solid #e6a019;color:#7a5400}'+
     '.edit-rez-pending-actions .btn-secondary:hover{background:#fff4d6}'+
@@ -1074,7 +1074,7 @@ MG._editRez._injectConsentsStyles = function(){
     '.edit-rez-price-card{background:#fafdfb;border:1px solid #e5efe9;border-radius:14px;padding:.4rem .9rem}'+
     '.edit-rez-price-row{display:flex;justify-content:space-between;padding:.55rem 0;border-bottom:1px dashed #e5efe9;font-size:.92rem;color:#1a2e22}'+
     '.edit-rez-price-row:last-child{border-bottom:none}'+
-    '.edit-rez-price-row.total{border-top:2px solid #1a8c1a;border-bottom:none;font-size:1.05rem;font-weight:800;color:#0f5e0f;padding-top:.7rem}'+
+    '.edit-rez-price-row.total{border-top:2px solid #0d6e0d;border-bottom:none;font-size:1.05rem;font-weight:800;color:#0f5e0f;padding-top:.7rem}'+
     /* Výbava */
     '.edit-rez-gear-grid{display:grid;grid-template-columns:1fr 1fr;gap:.7rem}'+
     '@media(max-width:680px){.edit-rez-gear-grid{grid-template-columns:1fr}}'+
@@ -1088,7 +1088,7 @@ MG._editRez._injectConsentsStyles = function(){
     '.edit-rez-history-empty{color:#6a7a70;font-style:italic;font-size:.9rem;padding:.5rem 0}'+
     '.edit-rez-history-list{list-style:none;margin:0;padding:.4rem 0 .2rem .9rem;border-left:2px solid #e5efe9}'+
     '.edit-rez-history-item{position:relative;padding:.4rem 0 1rem 1rem}'+
-    '.edit-rez-history-dot{position:absolute;left:-1.36rem;top:.55rem;width:14px;height:14px;border-radius:50%;background:#1a8c1a;border:3px solid #fff;box-shadow:0 0 0 2px #d4e8e0}'+
+    '.edit-rez-history-dot{position:absolute;left:-1.36rem;top:.55rem;width:14px;height:14px;border-radius:50%;background:#0d6e0d;border:3px solid #fff;box-shadow:0 0 0 2px #d4e8e0}'+
     '.edit-rez-history-when{font-size:.75rem;color:#6a7a70;font-weight:600;text-transform:uppercase;letter-spacing:.04em}'+
     '.edit-rez-history-when .muted{color:#9aa8a0;font-weight:500}'+
     '.edit-rez-history-changes{margin-top:.2rem;font-size:.92rem;color:#1a2e22;line-height:1.45}'+
@@ -1097,17 +1097,17 @@ MG._editRez._injectConsentsStyles = function(){
     '.edit-rez-loading{display:flex;align-items:center;gap:.6rem;color:#6a7a70;padding:1rem 0}'+
     '.edit-rez-moto-head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.6rem;margin-bottom:.4rem}'+
     '.edit-rez-moto-head .btn-secondary{background:#fff;border:1.5px solid #d4e8e0;color:#1a2e22;padding:.45rem .9rem;border-radius:999px;font-weight:700;cursor:pointer;font-size:.85rem}'+
-    '.edit-rez-moto-head .btn-secondary:hover{border-color:#1a8c1a;background:#f0faf5}'+
+    '.edit-rez-moto-head .btn-secondary:hover{border-color:#0d6e0d;background:#f0faf5}'+
     '.erez-moto-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:1rem;margin-top:.8rem}'+
     '@media(max-width:520px){.erez-moto-grid{grid-template-columns:1fr}}'+
     '.erez-moto-card{background:#fff;border:1px solid #d4e8e0;border-radius:18px;overflow:hidden;display:flex;flex-direction:column;transition:transform .15s, box-shadow .15s, border-color .15s;box-shadow:0 4px 12px rgba(20,80,40,.05)}'+
-    '.erez-moto-card:hover:not(.is-disabled){transform:translateY(-3px);box-shadow:0 12px 28px rgba(20,80,40,.14);border-color:#1a8c1a}'+
+    '.erez-moto-card:hover:not(.is-disabled){transform:translateY(-3px);box-shadow:0 12px 28px rgba(20,80,40,.14);border-color:#0d6e0d}'+
     '.erez-moto-card.is-disabled{opacity:.55;filter:grayscale(.4)}'+
     '.erez-moto-hero{position:relative;aspect-ratio:4/3;background:linear-gradient(135deg,#f0faf5 0%,#e0f0e6 100%);display:flex;align-items:center;justify-content:center;overflow:hidden}'+
     '.erez-moto-hero-img{width:100%;height:100%;object-fit:cover;display:block}'+
     '.erez-moto-hero-placeholder{font-size:3.5rem;opacity:.4}'+
-    '.erez-moto-pill{position:absolute;top:.6rem;left:.6rem;background:#1a8c1a;color:#fff;padding:.25rem .65rem;border-radius:999px;font-size:.72rem;font-weight:800;letter-spacing:.04em}'+
-    '.erez-moto-pill.alt{background:#fff;color:#1a8c1a;border:1.5px solid #1a8c1a}'+
+    '.erez-moto-pill{position:absolute;top:.6rem;left:.6rem;background:#0d6e0d;color:#fff;padding:.25rem .65rem;border-radius:999px;font-size:.72rem;font-weight:800;letter-spacing:.04em}'+
+    '.erez-moto-pill.alt{background:#fff;color:#0d6e0d;border:1.5px solid #0d6e0d}'+
     '.erez-moto-meta{padding:1rem 1.1rem 1.1rem;display:flex;flex-direction:column;gap:.45rem;flex:1}'+
     '.erez-moto-meta h4{margin:0;color:#1a2e22;font-size:1.12rem;line-height:1.2}'+
     '.erez-moto-specs{font-size:.78rem;color:#7d978a;font-weight:600;letter-spacing:.04em;text-transform:uppercase}'+
@@ -1115,39 +1115,39 @@ MG._editRez._injectConsentsStyles = function(){
     '.erez-moto-price .muted{color:#9aa8a0;font-weight:500;text-decoration:line-through}'+
     '.erez-moto-diff{display:inline-block;padding:.3rem .7rem;border-radius:999px;font-size:.82rem;font-weight:700;align-self:flex-start}'+
     '.erez-moto-diff.up{background:#fff4d6;color:#7a5400;border:1px solid #e6a019}'+
-    '.erez-moto-diff.down{background:#e8f5ee;color:#147214;border:1px solid #1a8c1a}'+
+    '.erez-moto-diff.down{background:#e8f5ee;color:#147214;border:1px solid #0d6e0d}'+
     '.erez-moto-diff.zero{background:#f0f5f2;color:#3a4a40;border:1px solid #d4e8e0}'+
     '.erez-moto-reasons{font-size:.8rem;color:#c0392b;font-weight:600;background:#ffebe7;padding:.4rem .65rem;border-radius:8px}'+
-    '.erez-moto-cta{margin-top:auto;background:#1a8c1a;color:#fff;border:none;padding:.7rem 1rem;border-radius:12px;font-weight:800;cursor:pointer;font-size:.92rem;letter-spacing:.02em;transition:filter .15s, transform .12s}'+
+    '.erez-moto-cta{margin-top:auto;background:#0d6e0d;color:#fff;border:none;padding:.7rem 1rem;border-radius:12px;font-weight:800;cursor:pointer;font-size:.92rem;letter-spacing:.02em;transition:filter .15s, transform .12s}'+
     '.erez-moto-cta:hover:not(.disabled){filter:brightness(1.08);transform:translateY(-1px)}'+
     '.erez-moto-cta.disabled{background:#d4e8e0;color:#7d978a;cursor:not-allowed}'+
     /* ===== LOCATION CARDS ===== */
     '.erez-loc-grid{display:grid;grid-template-columns:1fr 1fr;gap:.7rem;margin-bottom:.8rem}'+
     '@media(max-width:680px){.erez-loc-grid{grid-template-columns:1fr}}'+
     '.erez-loc-card{display:grid;grid-template-columns:48px 1fr 28px;gap:.7rem;align-items:center;padding:1rem 1.1rem;background:#fff;border:1.5px solid #d4e8e0;border-radius:14px;cursor:pointer;transition:all .15s;position:relative}'+
-    '.erez-loc-card:hover{border-color:#1a8c1a;background:#f7fcf9}'+
-    '.erez-loc-card.active{border-color:#1a8c1a;background:#e8f5ee;box-shadow:0 0 0 3px rgba(26,140,26,.15)}'+
+    '.erez-loc-card:hover{border-color:#0d6e0d;background:#f7fcf9}'+
+    '.erez-loc-card.active{border-color:#0d6e0d;background:#e8f5ee;box-shadow:0 0 0 3px rgba(26,140,26,.15)}'+
     '.erez-loc-card input[type=radio]{position:absolute;opacity:0;pointer-events:none}'+
     '.erez-loc-ico{font-size:2rem;line-height:1;text-align:center}'+
     '.erez-loc-body{display:flex;flex-direction:column;gap:.2rem}'+
     '.erez-loc-title{font-size:1rem;color:#1a2e22}'+
     '.erez-loc-sub{font-size:.78rem;color:#5a6a60;line-height:1.35}'+
-    '.erez-loc-check{display:none;background:#1a8c1a;color:#fff;width:24px;height:24px;border-radius:50%;text-align:center;line-height:24px;font-size:.85rem;font-weight:800}'+
+    '.erez-loc-check{display:none;background:#0d6e0d;color:#fff;width:24px;height:24px;border-radius:50%;text-align:center;line-height:24px;font-size:.85rem;font-weight:800}'+
     '.erez-loc-card.active .erez-loc-check{display:block}'+
     '.erez-loc-addr-panel{padding:.85rem 1rem;background:#fafdfb;border:1px dashed #d4e8e0;border-radius:14px;margin-bottom:1rem}'+
     '.erez-loc-addr-row{display:flex;gap:.5rem;align-items:stretch;flex-wrap:wrap}'+
     '.erez-loc-input{flex:1;min-width:200px;padding:.65rem .85rem;border:1.5px solid #d4e8e0;border-radius:10px;font-family:Montserrat,sans-serif;font-size:.92rem;color:#1a2e22;background:#fff}'+
-    '.erez-loc-input:focus{outline:none;border-color:#1a8c1a;box-shadow:0 0 0 3px rgba(26,140,26,.12)}'+
-    '.erez-loc-mapbtn{background:#1a8c1a;color:#fff;border:none;padding:.65rem 1rem;border-radius:10px;font-weight:700;cursor:pointer;font-size:.85rem;white-space:nowrap;transition:filter .15s}'+
+    '.erez-loc-input:focus{outline:none;border-color:#0d6e0d;box-shadow:0 0 0 3px rgba(26,140,26,.12)}'+
+    '.erez-loc-mapbtn{background:#0d6e0d;color:#fff;border:none;padding:.65rem 1rem;border-radius:10px;font-weight:700;cursor:pointer;font-size:.85rem;white-space:nowrap;transition:filter .15s}'+
     '.erez-loc-mapbtn:hover{filter:brightness(1.08)}'+
-    '.erez-loc-gpsbtn{background:#fff;color:#1a8c1a;border:1.5px solid #1a8c1a;padding:.55rem 1rem;border-radius:10px;font-weight:700;cursor:pointer;font-size:.85rem;white-space:nowrap;transition:all .15s}'+
+    '.erez-loc-gpsbtn{background:#fff;color:#0d6e0d;border:1.5px solid #0d6e0d;padding:.55rem 1rem;border-radius:10px;font-weight:700;cursor:pointer;font-size:.85rem;white-space:nowrap;transition:all .15s}'+
     '.erez-loc-gpsbtn:hover{background:#f0faf5}'+
     '.erez-loc-gpsbtn[disabled]{opacity:.6;cursor:wait}'+
     '.erez-loc-gps-status{font-size:.8rem;color:#147214;margin-top:.35rem;min-height:1em}'+
     '.erez-loc-gps-status.is-err{color:#c0392b}'+
     '.erez-loc-addr-row{flex-wrap:wrap}'+
     '@media(max-width:560px){.erez-loc-mapbtn,.erez-loc-gpsbtn{flex:1 1 auto;min-width:140px;width:100%}}'+
-    '.edit-rez-map-locate{position:absolute;top:60px;right:12px;z-index:1001;background:#fff;border:1.5px solid #1a8c1a;color:#1a8c1a;border-radius:24px;padding:.55rem 1rem;font-size:.85rem;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.12)}'+
+    '.edit-rez-map-locate{position:absolute;top:60px;right:12px;z-index:1001;background:#fff;border:1.5px solid #0d6e0d;color:#0d6e0d;border-radius:24px;padding:.55rem 1rem;font-size:.85rem;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.12)}'+
     '.edit-rez-map-locate:hover{background:#f0faf5}'+
     '.edit-rez-map-locate[disabled]{opacity:.6;cursor:wait}'+
     '.erez-loc-route{margin-top:.6rem;font-size:.85rem;color:#1a2e22}'+
@@ -1156,12 +1156,12 @@ MG._editRez._injectConsentsStyles = function(){
     '.erez-loc-calc-row{display:flex;justify-content:space-between;align-items:center;padding:.3rem 0;font-size:.88rem;color:#3a4a40;border-bottom:1px dashed #e3ecde}'+
     '.erez-loc-calc-row:last-child{border-bottom:none}'+
     '.erez-loc-calc-row strong{color:#1a2e22;font-weight:700;text-align:right}'+
-    '.erez-loc-calc-total{border-top:2px solid #1a8c1a;margin-top:.3rem;padding-top:.55rem;font-size:1rem}'+
+    '.erez-loc-calc-total{border-top:2px solid #0d6e0d;margin-top:.3rem;padding-top:.55rem;font-size:1rem}'+
     '.erez-loc-calc-total span{font-weight:700;color:#1a2e22}'+
     '.erez-loc-calc-total.erez-loc-diff-pay strong{color:#c0392b;font-size:1.05rem}'+
-    '.erez-loc-calc-total.erez-loc-diff-refund strong{color:#1a8c1a;font-size:1.05rem}'+
+    '.erez-loc-calc-total.erez-loc-diff-refund strong{color:#0d6e0d;font-size:1.05rem}'+
     '.edit-rez-loc-submit{margin-top:.5rem;padding:.85rem 1.4rem;border-radius:14px;font-size:1rem}'+
-    '.edit-rez-loc-submit.cta-pay{background:#1a8c1a;color:#fff}'+
+    '.edit-rez-loc-submit.cta-pay{background:#0d6e0d;color:#fff}'+
     '.edit-rez-loc-submit.cta-refund{background:#147214;color:#fff}'+
     /* Sekce karty (pickup/return) — sjednocený rámeček jako ve Flutter app */
     '.erez-loc-section{background:#fff;border:1px solid #e5efe9;border-radius:16px;padding:1rem 1.1rem;margin-bottom:1rem}'+
@@ -1173,12 +1173,12 @@ MG._editRez._injectConsentsStyles = function(){
     '.erez-loc-time{display:flex;flex-direction:column;gap:.3rem;margin-top:.7rem}'+
     '.erez-loc-time-label{font-size:.78rem;color:#6a7a70;text-transform:uppercase;letter-spacing:.05em;font-weight:700}'+
     '.erez-loc-time input[type=time]{padding:.55rem .8rem;border:1.5px solid #d4e8e0;border-radius:10px;font-family:Montserrat,sans-serif;font-size:.95rem;color:#1a2e22;background:#fff;max-width:200px}'+
-    '.erez-loc-time input[type=time]:focus{outline:none;border-color:#1a8c1a;box-shadow:0 0 0 3px rgba(26,140,26,.12)}'+
+    '.erez-loc-time input[type=time]:focus{outline:none;border-color:#0d6e0d;box-shadow:0 0 0 3px rgba(26,140,26,.12)}'+
     '.erez-loc-info-banner{display:flex;gap:.6rem;align-items:flex-start;background:#fff8e1;border:1.5px solid #f0c060;color:#5a4000;padding:.65rem .9rem;border-radius:12px;font-size:.85rem;line-height:1.45;margin:.4rem 0 .8rem}'+
     '.erez-loc-info-ico{font-size:1.1rem;line-height:1.2;flex:0 0 auto}'+
     /* ===== ROZSIRENA KARTA REZERVACE V LISTU ===== */
     '.edit-rez-booking.erez-row{display:grid;grid-template-columns:120px 1fr auto;gap:1rem;padding:1rem 1.1rem;background:#fff;border:1px solid #d4e8e0;border-radius:16px;align-items:center;text-align:left;cursor:pointer;width:100%;transition:transform .15s, box-shadow .15s, border-color .15s;font:inherit;color:inherit}'+
-    '.edit-rez-booking.erez-row:hover{transform:translateY(-2px);box-shadow:0 10px 24px rgba(20,80,40,.12);border-color:#1a8c1a}'+
+    '.edit-rez-booking.erez-row:hover{transform:translateY(-2px);box-shadow:0 10px 24px rgba(20,80,40,.12);border-color:#0d6e0d}'+
     '@media(max-width:520px){.edit-rez-booking.erez-row{grid-template-columns:90px 1fr;grid-template-areas:"img body" "img price";align-items:start}}'+
     '@media(max-width:520px){.edit-rez-booking.erez-row .erez-row-img{grid-area:img}}'+
     '@media(max-width:520px){.edit-rez-booking.erez-row .erez-row-body{grid-area:body}}'+
@@ -3470,7 +3470,7 @@ MG._editRez._renderRangeCalendar = function(opts){
     st.textContent =
       '.erez-cal-wrap{background:#fff;border:1px solid #d4e8e0;border-radius:18px;padding:1rem;margin:.6rem 0 1rem;box-shadow:0 4px 14px rgba(20,80,40,.06);font-family:Montserrat,sans-serif}'+
       '.erez-cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:.7rem}'+
-      '.erez-cal-navbtn{background:#1a8c1a;color:#fff;border:none;width:38px;height:38px;border-radius:999px;cursor:pointer;font-size:1.4rem;line-height:1;font-weight:700;display:inline-flex;align-items:center;justify-content:center;transition:transform .12s}'+
+      '.erez-cal-navbtn{background:#0d6e0d;color:#fff;border:none;width:38px;height:38px;border-radius:999px;cursor:pointer;font-size:1.4rem;line-height:1;font-weight:700;display:inline-flex;align-items:center;justify-content:center;transition:transform .12s}'+
       '.erez-cal-navbtn:hover{transform:scale(1.06);background:#147214}'+
       '.erez-cal-navtitle{font-weight:800;font-size:1.05rem;color:#1a2e22;text-align:center;flex:1}'+
       '.erez-cal-single{max-width:520px;margin:0 auto}'+
@@ -3482,12 +3482,12 @@ MG._editRez._renderRangeCalendar = function(opts){
       /* extend mode */
       '.erez-cal-day.free{background:#74FB71;color:#0b0b0b;cursor:pointer}'+
       '.erez-cal-day.free:hover{transform:scale(1.07);box-shadow:0 3px 8px rgba(26,140,26,.25)}'+
-      '.erez-cal-day.orig{background:#bce6c9;color:#0b3a18;border:1.5px dashed #1a8c1a;cursor:not-allowed}'+
+      '.erez-cal-day.orig{background:#bce6c9;color:#0b3a18;border:1.5px dashed #0d6e0d;cursor:not-allowed}'+
       '.erez-cal-day.extension{background:#0f5e0f;color:#fff;cursor:pointer}'+
       '.erez-cal-day.extension:hover{box-shadow:0 0 0 2px #74FB71}'+
       '.erez-cal-day.extension-start, .erez-cal-day.extension-end{box-shadow:0 0 0 2px #74FB71}'+
       /* shorten mode */
-      '.erez-cal-day.keep{background:#1a8c1a;color:#fff;cursor:pointer;font-weight:800}'+
+      '.erez-cal-day.keep{background:#0d6e0d;color:#fff;cursor:pointer;font-weight:800}'+
       '.erez-cal-day.keep:hover{transform:scale(1.07);box-shadow:0 3px 8px rgba(26,140,26,.35)}'+
       '.erez-cal-day.keep-start{border-top-left-radius:50% 100%;border-bottom-left-radius:50% 100%}'+
       '.erez-cal-day.keep-end{border-top-right-radius:50% 100%;border-bottom-right-radius:50% 100%}'+
@@ -3497,13 +3497,13 @@ MG._editRez._renderRangeCalendar = function(opts){
       /* shared */
       '.erez-cal-day.occ{background:#444;color:#fff;cursor:not-allowed}'+
       '.erez-cal-day.past{background:#3a3a3a;color:#fff;cursor:not-allowed;opacity:.6}'+
-      '.erez-cal-day.today{outline:2px solid #1a8c1a;outline-offset:-2px}'+
+      '.erez-cal-day.today{outline:2px solid #0d6e0d;outline-offset:-2px}'+
       '.erez-cal-legend{display:flex;flex-wrap:wrap;gap:.6rem 1.1rem;margin-top:.85rem;font-size:.78rem;color:#3a4a40}'+
       '.erez-cal-legend .dot{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:.3rem;vertical-align:middle}'+
       '.erez-cal-legend .dot-free{background:#74FB71}'+
-      '.erez-cal-legend .dot-orig{background:#bce6c9;border:1.5px dashed #1a8c1a}'+
+      '.erez-cal-legend .dot-orig{background:#bce6c9;border:1.5px dashed #0d6e0d}'+
       '.erez-cal-legend .dot-extension{background:#0f5e0f}'+
-      '.erez-cal-legend .dot-keep{background:#1a8c1a}'+
+      '.erez-cal-legend .dot-keep{background:#0d6e0d}'+
       '.erez-cal-legend .dot-removed{background:#e74c3c}'+
       '.erez-cal-legend .dot-occ{background:#2e2e2e}'+
       '.erez-range-banner{background:#74FB71;color:#0b0b0b;padding:.7rem 1rem;border-radius:18px;margin:.4rem 0 .8rem;font-weight:700;display:flex;justify-content:space-between;flex-wrap:wrap;gap:.4rem;align-items:center}'+
@@ -3512,8 +3512,8 @@ MG._editRez._renderRangeCalendar = function(opts){
       '.erez-range-banner .erez-clear{background:#0b0b0b;color:#74FB71;padding:.35rem .8rem;border-radius:14px;cursor:pointer;font-size:.78rem;border:none;font-weight:700}'+
       '.erez-shorten-dirs{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin:.4rem 0 .8rem}'+
       '.erez-shorten-dirs button{background:#eef3f0;color:#3a4a40;border:1.5px solid #d4e8e0;border-radius:14px;padding:.7rem .6rem;cursor:pointer;font-weight:700;font-size:.92rem;font-family:Montserrat,sans-serif;transition:all .15s}'+
-      '.erez-shorten-dirs button:hover{background:#dcefe2;border-color:#1a8c1a}'+
-      '.erez-shorten-dirs button.active{background:#1a8c1a;color:#fff;border-color:#1a8c1a}'+
+      '.erez-shorten-dirs button:hover{background:#dcefe2;border-color:#0d6e0d}'+
+      '.erez-shorten-dirs button.active{background:#0d6e0d;color:#fff;border-color:#0d6e0d}'+
       /* manuální zadání datumů */
       '.erez-dates-manual{display:grid;grid-template-columns:1fr 1fr;gap:.7rem;margin-bottom:.5rem}'+
       '@media(max-width:520px){.erez-dates-manual{grid-template-columns:1fr}}'+
@@ -3521,7 +3521,7 @@ MG._editRez._renderRangeCalendar = function(opts){
       '.erez-date-field>span{font-size:.78rem;font-weight:700;color:#1a2e22;letter-spacing:.03em;text-transform:uppercase}'+
       '.erez-date-field.locked>span::after{content:" ' + MG.t('editRez.cal.locked') + '";color:#9aa8a0;font-weight:500;text-transform:none}'+
       '.erez-date-input{padding:.7rem .9rem;border:1.5px solid #d4e8e0;border-radius:12px;font-family:Montserrat,sans-serif;font-size:1rem;font-weight:700;color:#1a2e22;background:#fafdfb;letter-spacing:.05em;transition:all .15s;text-align:center}'+
-      '.erez-date-input:focus{outline:none;border-color:#1a8c1a;background:#fff;box-shadow:0 0 0 3px rgba(26,140,26,.12)}'+
+      '.erez-date-input:focus{outline:none;border-color:#0d6e0d;background:#fff;box-shadow:0 0 0 3px rgba(26,140,26,.12)}'+
       '.erez-date-input.invalid{border-color:#c0392b;background:#ffebe7}'+
       '.erez-date-input[readonly]{background:#eef3f0;color:#9aa8a0;cursor:not-allowed}'+
       '.erez-dates-help{font-size:.75rem;color:#6a7a70;margin:-.2rem 0 .6rem;text-align:center}';

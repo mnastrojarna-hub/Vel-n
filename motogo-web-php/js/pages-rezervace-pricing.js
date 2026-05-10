@@ -50,7 +50,7 @@ MG._rezUpdatePrice = function(){
   if(el){
     if(total > 0 || MG._rez.discountAmt > 0){
       var T = (MG.t || function(k){ return k; });
-      var discTxt = MG._rez.discountAmt > 0 ? '<div style="font-size:.85rem;color:#1a8c1a;margin-top:.3rem">'+T('rez.discount', {amount: MG.formatPrice(MG._rez.discountAmt)})+'</div>' : '';
+      var discTxt = MG._rez.discountAmt > 0 ? '<div style="font-size:.85rem;color:#0d6e0d;margin-top:.3rem">'+T('rez.discount', {amount: MG.formatPrice(MG._rez.discountAmt)})+'</div>' : '';
       el.innerHTML = '<div style="background:#74FB71;color:#0b0b0b;padding:.75rem 1.5rem;border-radius:25px;font-size:1.15rem;font-weight:800;text-align:center;display:inline-block;margin:1rem 0">'+T('rez.totalPrice', {price: MG.formatPrice(total)})+discTxt+'</div>';
     } else { el.innerHTML = ''; }
   }
@@ -117,7 +117,7 @@ MG._applyVoucher = async function(){
     disc=Math.min(disc,Math.max(0,base-curDisc));
     MG._rez.appliedCodes.push({code:code,type:'promo',id:pd.id,discountAmt:disc,discountType:pd.type,discountValue:pd.value});
     var lbl=pd.type==='percent'?pd.value+'%':MG.formatPrice(pd.value);
-    if(msg) msg.innerHTML='<span style="color:#1a8c1a">'+T('rez.voucher.discountApplied',{label: lbl, amt: MG.formatPrice(disc)})+'</span>';
+    if(msg) msg.innerHTML='<span style="color:#0d6e0d">'+T('rez.voucher.discountApplied',{label: lbl, amt: MG.formatPrice(disc)})+'</span>';
     inp.value=''; MG._renderAppliedCodes(); MG._rezUpdatePrice(); return;
   }
   // Try voucher
@@ -131,7 +131,7 @@ MG._applyVoucher = async function(){
     var curDiscV=MG._rez.appliedCodes.reduce(function(s,c){return s+c.discountAmt;},0);
     var vDisc=Math.min(vd.value,Math.max(0,base-curDiscV));
     MG._rez.appliedCodes.push({code:code,type:'voucher',id:vd.id,discountAmt:vDisc,discountType:'fixed',discountValue:vd.value});
-    if(msg) msg.innerHTML='<span style="color:#1a8c1a">'+T('rez.voucher.voucherApplied',{amt: MG.formatPrice(vd.value)})+'</span>';
+    if(msg) msg.innerHTML='<span style="color:#0d6e0d">'+T('rez.voucher.voucherApplied',{amt: MG.formatPrice(vd.value)})+'</span>';
     inp.value=''; MG._renderAppliedCodes(); MG._rezUpdatePrice(); return;
   }
   // Show specific error from promo validation if available
@@ -501,11 +501,11 @@ MG._openWebMapPicker = function(type){
     '<div style="position:absolute;top:0;left:0;right:0;z-index:100001;display:flex;align-items:center;justify-content:space-between;padding:12px 20px;background:rgba(255,255,255,.95);box-shadow:0 2px 8px rgba(0,0,0,.1);">' +
       '<button onclick="MG._closeWebMapPicker()" style="background:none;border:none;font-size:22px;cursor:pointer;padding:4px 8px;">✕</button>' +
       '<span style="font-size:15px;font-weight:700;">Vyberte místo na mapě (Mapy.cz)</span>' +
-      '<button onclick="MG._confirmWebMapPicker()" style="background:#1a8c1a;color:#fff;border:none;border-radius:8px;padding:8px 18px;font-size:14px;font-weight:700;cursor:pointer;">Potvrdit</button>' +
+      '<button onclick="MG._confirmWebMapPicker()" style="background:#0d6e0d;color:#fff;border:none;border-radius:8px;padding:8px 18px;font-size:14px;font-weight:700;cursor:pointer;">Potvrdit</button>' +
     '</div>' +
     '<div id="web-map-container" style="width:100%;height:100%;"></div>' +
     '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:100000;pointer-events:none;font-size:36px;text-shadow:0 2px 6px rgba(0,0,0,.3);">📍</div>' +
-    '<button type="button" id="web-map-locate-btn" onclick="MG._mapPickerLocateMe()" style="position:absolute;top:64px;right:12px;z-index:100001;background:#fff;border:1.5px solid #1a8c1a;color:#1a8c1a;border-radius:24px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.12)">📍 ' + (window.MG_I18N && window.MG_I18N['rez.pickup.gps'] || 'Moje poloha') + '</button>' +
+    '<button type="button" id="web-map-locate-btn" onclick="MG._mapPickerLocateMe()" style="position:absolute;top:64px;right:12px;z-index:100001;background:#fff;border:1.5px solid #0d6e0d;color:#0d6e0d;border-radius:24px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.12)">📍 ' + (window.MG_I18N && window.MG_I18N['rez.pickup.gps'] || 'Moje poloha') + '</button>' +
     '<a href="https://mapy.cz/" target="_blank" style="position:absolute;left:12px;bottom:8px;z-index:100001"><img src="https://api.mapy.cz/img/api/logo.svg" style="width:90px" alt="Mapy.cz"/></a>' +
     '<div id="web-map-addr-preview" style="position:absolute;bottom:40px;left:20px;right:20px;z-index:100001;background:rgba(255,255,255,.95);border-radius:10px;padding:12px 16px;font-size:14px;font-weight:600;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.1);display:none;"></div>';
   document.body.appendChild(overlay);
