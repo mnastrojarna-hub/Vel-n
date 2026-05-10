@@ -453,15 +453,16 @@ return [
     'rez.auth.forgot.back' => '← Zpět na přihlášení',
     'rez.auth.otp.title' => 'Zadejte ověřovací kód a nové heslo',
     'rez.auth.otp.help' => 'Kód jsme poslali na <strong>{email}</strong>. Platí 1 hodinu — zkontrolujte i spam.',
-    'rez.auth.otp.password' => 'Nové heslo (min. 6 znaků)',
+    'rez.auth.otp.password' => 'Nové heslo (min. 8 znaků)',
     'rez.auth.otp.password2' => 'Nové heslo znovu',
     'rez.auth.otp.submit' => 'Nastavit heslo a přihlásit',
     'rez.auth.otp.submitting' => 'Nastavuji…',
     'rez.auth.otp.errMissingEmail' => 'Chybí e-mail. Začněte znovu.',
     'rez.auth.otp.errInvalid' => 'Kód není správný nebo vypršel. Zkontrolujte e-mail a zkuste znovu.',
-    'rez.auth.otp.errShort' => 'Heslo musí mít alespoň 6 znaků.',
+    'rez.auth.otp.errShort' => 'Heslo musí mít alespoň 8 znaků.',
     'rez.auth.otp.errMismatch' => 'Hesla se neshodují.',
     'rez.auth.otp.errSave' => 'Heslo se nepodařilo uložit. Zkuste to znovu.',
+    'rez.auth.otp.errSame' => 'Nové heslo musí být jiné než to současné.',
     'rez.auth.email' => 'E-mail',
     'rez.auth.password' => 'Heslo',
     'rez.auth.edit' => 'Upravit údaje',
@@ -547,7 +548,7 @@ return [
 
     // Reset password (po kliku na link z e-mailu)
     'editRez.reset.title' => 'Nastavit nové heslo',
-    'editRez.reset.help' => 'Zadejte nové heslo (min. 6 znaků). Po uložení budete přihlášen(a) a uvidíte své rezervace.',
+    'editRez.reset.help' => 'Zadejte nové heslo (min. 8 znaků). Po uložení budete přihlášen(a) a uvidíte své rezervace.',
     'editRez.reset.otpHelp' => 'Poslali jsme vám ověřovací kód na <strong>{email}</strong>. Zadejte 8-místný kód z e-mailu (stejný kód funguje pro aplikaci i web) a nastavte si nové heslo.',
     'editRez.reset.otpCode' => 'Ověřovací kód z e-mailu (8 znaků)',
     'editRez.reset.otpInvalid' => 'Neplatný nebo expirovaný kód. Zkuste si nechat poslat nový.',
@@ -557,8 +558,9 @@ return [
     'editRez.reset.submitting' => 'Ukládám…',
     'editRez.reset.success' => 'Heslo nastaveno. Pokračujte do svých rezervací.',
     'editRez.reset.error' => 'Nepodařilo se uložit heslo. Zkuste to prosím znovu.',
-    'editRez.reset.tooShort' => 'Heslo musí mít alespoň 6 znaků.',
+    'editRez.reset.tooShort' => 'Heslo musí mít alespoň 8 znaků.',
     'editRez.reset.mismatch' => 'Zadaná hesla se neshodují.',
+    'editRez.reset.same' => 'Nové heslo musí být jiné než to současné.',
 
     // Reservation list / picker
     'editRez.list.title' => 'Vaše rezervace',

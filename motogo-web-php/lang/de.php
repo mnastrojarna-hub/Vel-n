@@ -409,6 +409,7 @@ return [
     'editRez.reset.error' => 'Passwort konnte nicht gespeichert werden. Bitte versuchen Sie es erneut.',
     'editRez.reset.tooShort' => 'Passwort muss mindestens 8 Zeichen haben.',
     'editRez.reset.mismatch' => 'Die Passwörter stimmen nicht überein.',
+    'editRez.reset.same' => 'Das neue Passwort muss sich vom aktuellen unterscheiden.',
 
     'editRez.list.title' => 'Ihre Reservierungen',
     'editRez.list.empty' => 'Sie haben keine bearbeitbare Reservierung.',
