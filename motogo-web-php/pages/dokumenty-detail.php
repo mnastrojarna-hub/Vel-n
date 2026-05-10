@@ -60,11 +60,22 @@ $tplHtml = $tpl && !empty($tpl['content_html']) ? $tpl['content_html'] : '';
 // jako PDF (Ctrl+P → Save as PDF). Žádné navigační prvky webu, jen čistý obsah.
 // Backend-side PDF render přes PDFShift se může přidat později — pro většinu
 // uživatelů je browser print → PDF dostatečné a okamžitě k dispozici.
+//
+// SEO: Print verze NESMÍ jít do Google indexu — Seobility audit (2026-05-10)
+// zaznamenal pokles Content score z 80% → 66% protože tyhle minimalistické
+// print-only stránky se začaly indexovat jako samostatný obsah (chybělo meta
+// description, krátké/duplicitní H1, „Pages without text"). Vracíme tedy
+// `X-Robots-Tag: noindex, nofollow` (HTTP) i `<meta name="robots">` (HTML)
+// — Google print verze ignoruje, hlavní stránka /dokumenty/<slug> zůstává
+// jediným indexovatelným zdrojem. `nofollow` aby crawler nešel z print
+// verze nikam dál (nejsou tu beztoho odkazy).
 if ($wantPdf) {
     header('Content-Type: text/html; charset=utf-8');
     header('Cache-Control: no-store');
+    header('X-Robots-Tag: noindex, nofollow');
     $title = htmlspecialchars($entry['title']);
     echo '<!DOCTYPE html><html lang="cs"><head><meta charset="utf-8"><title>' . $title . '</title>';
+    echo '<meta name="robots" content="noindex, nofollow">';
     echo '<style>' . $DOC_CSS . '</style></head>';
     echo '<body class="doc-render" onload="setTimeout(function(){window.print()},250)">';
     echo $tplHtml ?: '<p>Dokument zatím nebyl publikován.</p>';
