@@ -392,13 +392,15 @@ const selectStyle = {
   minWidth: 90,
 }
 
+// Shared CSS pro editor i preview iframe — co vidíš v editoru = co se vyrenderuje
+// jako PDF přes PDFShift. Exportováno přes `rteContentCss` níž.
 const rteCss = `
 .rte-content:empty:before {
   content: attr(data-placeholder);
   color: #9ab3a5;
   pointer-events: none;
 }
-.rte-content { tab-size: 4; }
+.rte-content { tab-size: 4; font-family: 'Segoe UI', system-ui, sans-serif; font-size: 14px; line-height: 1.6; color: #0f1a14; }
 .rte-content p { margin: 0 0 10px; }
 .rte-content h1 { font-size: 1.8em; font-weight: 800; margin: 14px 0 8px; }
 .rte-content h2 { font-size: 1.45em; font-weight: 800; margin: 12px 0 6px; }
@@ -421,6 +423,17 @@ const rteCss = `
 .rte-content table { border-collapse: collapse; }
 .rte-content table td, .rte-content table th { border: 1px solid #d4e8e0; padding: 4px 8px; }
 `
+
+// Export CSS pravidel + helper, který obalí HTML obsah do plného dokumentu pro
+// `iframe srcDoc`, takže náhled vypadá identicky jako editor.
+export const rteContentCss = rteCss
+export function buildPreviewHtml(content) {
+  const safe = content || '<p style="color:#9ab3a5">Prázdný obsah</p>'
+  return `<!DOCTYPE html><html lang="cs"><head><meta charset="utf-8"><style>
+html,body { margin: 0; padding: 24px; background: #fff; }
+${rteCss}
+</style></head><body class="rte-content">${safe}</body></html>`
+}
 
 // — utility —
 

@@ -4,7 +4,7 @@ import { debugAction } from '../../lib/debugLog'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
-import RichTextEditor from '../../components/ui/RichTextEditor'
+import RichTextEditor, { buildPreviewHtml } from '../../components/ui/RichTextEditor'
 
 const CONTRACT_TYPES = [
   { type: 'vop', label: 'Obchodní podmínky (VOP)', icon: '📜', description: 'Všeobecné obchodní podmínky pro pronájem motocyklů' },
@@ -279,7 +279,7 @@ function EditContractModal({ template, onClose, onSaved }) {
         <Modal open title="Náhled dokumentu" onClose={() => setShowPreview(false)} wide>
           <div className="border rounded-lg overflow-hidden" style={{ background: '#fff' }}>
             <iframe
-              srcDoc={content || '<p style="padding:24px;color:#9ab3a5;font-family:sans-serif">Prázdný obsah</p>'}
+              srcDoc={buildPreviewHtml(content)}
               style={{ width: '100%', height: '70vh', border: 'none', background: '#fff', display: 'block' }}
               title="Náhled"
             />
@@ -294,11 +294,12 @@ function EditContractModal({ template, onClose, onSaved }) {
 }
 
 function PreviewModal({ template, onClose }) {
+  const previewHtml = buildPreviewHtml(template.content_html)
   return (
     <Modal open title={`Náhled: ${template.name}`} onClose={onClose} wide>
       <div className="border rounded-lg overflow-hidden" style={{ background: '#fff' }}>
         <iframe
-          srcDoc={template.content_html || '<p style="padding:24px;color:#9ab3a5;font-family:sans-serif">Prázdný obsah</p>'}
+          srcDoc={previewHtml}
           style={{ width: '100%', height: '70vh', border: 'none', background: '#fff', display: 'block' }}
           title="Náhled"
         />
@@ -306,7 +307,7 @@ function PreviewModal({ template, onClose }) {
       <div className="flex justify-between mt-4">
         <Button onClick={() => {
           const win = window.open('', '_blank')
-          if (win) { win.document.write(template.content_html || ''); win.document.close(); win.onload = () => win.print() }
+          if (win) { win.document.write(previewHtml); win.document.close(); win.onload = () => win.print() }
         }}>Tisk / PDF</Button>
         <Button onClick={onClose}>Zavřít</Button>
       </div>
