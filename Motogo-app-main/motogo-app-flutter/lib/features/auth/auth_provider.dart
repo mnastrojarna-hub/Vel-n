@@ -160,12 +160,27 @@ class AuthService {
   }
 
   // ===== FORGOT PASSWORD =====
+  // Místo Supabase Auth resetPasswordForEmail (rate-limited 3/h, SMTP config)
+  // voláme náš edge fn `send-recovery-otp` — interně dělá generateLink + Resend
+  // mail z noreply@motogo24.cz. Anti-enumeration řešená v edge fn (vždy 200 success).
+  // Stejný flow jako web /rezervace a /upravit-rezervaci.
   static Future<String?> resetPassword(String email) async {
     try {
-      await _client.auth.resetPasswordForEmail(email);
+      final res = await _client.functions.invoke(
+        'send-recovery-otp',
+        body: {'email': email.trim().toLowerCase()},
+      );
+      // Edge fn vrací success aj při neexistujícím mailu (anti-enumeration).
+      // Klient pokračuje na OTP screen — pokud zákazník zadá kód, který
+      // nedorazil, verifyOtp selže a zobrazí správnou hlášku.
+      if (res.status >= 500) {
+        return 'Server je nedostupný, zkuste to prosím za chvíli.';
+      }
       return null;
-    } on AuthException catch (e) {
-      return e.message;
+    } on FunctionException catch (e) {
+      return e.details?.toString() ?? 'Reset hesla se nepodařil.';
+    } catch (e) {
+      return e.toString();
     }
   }
 

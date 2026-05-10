@@ -29,3 +29,8 @@ verify_jwt = false
 # Stripe webhook receiver (auth = signed Stripe-Signature header)
 [functions.webhook-receiver]
 verify_jwt = false
+
+# Reset hesla — anon-callable (zákazník zapomněl heslo, ještě není přihlášený).
+# Anti-enumeration v kódu (vždy 200 success), takže anon přístup je OK.
+[functions.send-recovery-otp]
+verify_jwt = false
