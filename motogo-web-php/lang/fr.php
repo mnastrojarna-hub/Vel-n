@@ -66,7 +66,7 @@ return [
 
     // ===== Cookie consent banner =====
     'cookies.title' => 'Ce site utilise des cookies',
-    'cookies.intro' => 'Nous utilisons des cookies pour faire fonctionner le site et — uniquement avec votre consentement — à des fins d\'analyse et de marketing. Le consentement est facultatif et vous pouvez le modifier à tout moment dans le pied de page. Plus dans notre <a href="/gdpr">Politique de confidentialité</a>.',
+    'cookies.intro' => 'Nous utilisons des cookies pour faire fonctionner le site et — uniquement avec votre consentement — à des fins d\'analyse et de marketing. Le consentement est facultatif et vous pouvez le modifier à tout moment dans le pied de page. Plus dans notre <a href="/dokumenty/zasady-ochrany-osobnich-udaju">Politique de confidentialité</a>.',
     'cookies.acceptAll' => 'Tout accepter',
     'cookies.rejectAll' => 'Refuser',
     'cookies.settings' => 'Paramètres',
@@ -290,8 +290,8 @@ return [
     'rez.gear.item.return' => 'Récupération de la moto',
 
     // ===== Réservation — consentements =====
-    'rez.agree.terms' => '* J\'accepte les <a href="/obchodni-podminky">conditions générales</a>',
-    'rez.agree.gdpr' => 'J\'accepte le <a href="/gdpr">traitement des données personnelles</a>',
+    'rez.agree.terms' => '* J\'accepte les <a href="/dokumenty/obchodni-podminky">conditions générales</a>',
+    'rez.agree.gdpr' => 'J\'accepte le <a href="/dokumenty/zasady-ochrany-osobnich-udaju">traitement des données personnelles</a>',
     'rez.agree.marketing' => 'J\'accepte de recevoir des communications marketing',
     'rez.agree.photo' => 'J\'accepte l\'utilisation des photos à des fins marketing',
 

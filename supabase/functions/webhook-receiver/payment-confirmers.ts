@@ -3,7 +3,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-const SITE_URL = Deno.env.get('SITE_URL') || 'https://motogo24.cz'
+const SITE_URL = Deno.env.get('SITE_URL') || 'https://www.motogo24.cz'
 
 /** Download file from Supabase Storage and return as base64 */
 async function downloadAsBase64(supabase: ReturnType<typeof createClient>, path: string): Promise<string | null> {

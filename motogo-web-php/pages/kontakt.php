@@ -153,13 +153,13 @@ if (is_array($branches)) {
             : '';
 
         $branchSchemas[] = '{"@type":["LocalBusiness","AutomotiveBusiness"]'
-            . ',"@id":"https://motogo24.cz/kontakt#branch-' . htmlspecialchars($br['id']) . '"'
+            . ',"@id":"https://www.motogo24.cz/kontakt#branch-' . htmlspecialchars($br['id']) . '"'
             . ',"name":' . json_encode('MotoGo24 — ' . $brName, JSON_UNESCAPED_UNICODE)
-            . ',"branchOf":{"@id":"https://motogo24.cz/#organization"}'
-            . ',"parentOrganization":{"@id":"https://motogo24.cz/#organization"}'
+            . ',"branchOf":{"@id":"https://www.motogo24.cz/#organization"}'
+            . ',"parentOrganization":{"@id":"https://www.motogo24.cz/#organization"}'
             . ',"telephone":' . json_encode($brPhone)
             . ',"email":' . json_encode($brEmail)
-            . ',"url":"https://motogo24.cz/kontakt"'
+            . ',"url":"https://www.motogo24.cz/kontakt"'
             . ',"address":{"@type":"PostalAddress","streetAddress":' . json_encode($brAddr, JSON_UNESCAPED_UNICODE)
                 . ',"addressLocality":' . json_encode($brCity, JSON_UNESCAPED_UNICODE)
                 . ',"postalCode":' . json_encode($brZip)

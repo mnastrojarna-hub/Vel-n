@@ -7,7 +7,14 @@ class SupabaseClient {
     private $url;
     private $key;
     private $cacheDir;
-    private $cacheTtl = 300; // 5 minut
+    // Cache TTL pro public web. SEO crawlery (Seobility, Googlebot) hlásily
+    // 'slow response time' ~1.2s na variantách s URL parametry (?currency=…
+    // ?lang=…) — každá kombinace musí prvně udělat 3-4 PostgREST requesty,
+    // než si to file-cache schová. 30 min TTL drasticky snižuje cache-miss rate
+    // a stejně admin režim cache obchází (isCmsAdmin → cacheGet vrací null),
+    // takže Velín po uložení vidí změny okamžitě. Běžný návštěvník dostane
+    // změnu max za 30 min, což je pro relativně staticky obsah dostačující.
+    private $cacheTtl = 1800; // 30 minut
 
     public function __construct() {
         $this->url = SUPABASE_URL;

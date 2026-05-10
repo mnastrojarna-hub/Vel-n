@@ -62,7 +62,7 @@ return [
 
     // ===== Cookie consent banner =====
     'cookies.title' => 'Deze site gebruikt cookies',
-    'cookies.intro' => 'We gebruiken cookies om de site te laten werken en — alleen met uw toestemming — voor analyse en marketing. Toestemming is vrijwillig en u kunt deze op elk moment in de footer wijzigen. Meer in ons <a href="/gdpr">Privacybeleid</a>.',
+    'cookies.intro' => 'We gebruiken cookies om de site te laten werken en — alleen met uw toestemming — voor analyse en marketing. Toestemming is vrijwillig en u kunt deze op elk moment in de footer wijzigen. Meer in ons <a href="/dokumenty/zasady-ochrany-osobnich-udaju">Privacybeleid</a>.',
     'cookies.acceptAll' => 'Alles accepteren',
     'cookies.rejectAll' => 'Weigeren',
     'cookies.settings' => 'Instellingen',
@@ -276,8 +276,8 @@ return [
     'rez.gear.item.return' => 'Ophalen motor',
 
     // ===== Reservering — toestemmingen =====
-    'rez.agree.terms' => '* Ik ga akkoord met de <a href="/obchodni-podminky">algemene voorwaarden</a>',
-    'rez.agree.gdpr' => 'Ik ga akkoord met de <a href="/gdpr">verwerking van persoonsgegevens</a>',
+    'rez.agree.terms' => '* Ik ga akkoord met de <a href="/dokumenty/obchodni-podminky">algemene voorwaarden</a>',
+    'rez.agree.gdpr' => 'Ik ga akkoord met de <a href="/dokumenty/zasady-ochrany-osobnich-udaju">verwerking van persoonsgegevens</a>',
     'rez.agree.marketing' => 'Ik ga akkoord met het ontvangen van marketingcommunicatie',
     'rez.agree.photo' => 'Ik ga akkoord met het gebruik van foto\'s voor marketingdoeleinden',
 

@@ -519,7 +519,7 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
             features: m.features,
             suitable_for: typeof m.suitable_for === 'string' ? String(m.suitable_for).slice(0, 500) : null,
             image_url: m.image_url,
-            url: `https://motogo24.cz/katalog/${m.id}`,
+            url: `https://www.motogo24.cz/katalog/${m.id}`,
           }
           // Pokud je v dotazu konkrétní termín, doplň PŘESNOU cenu pro ten termín — agent ji použije
           // místo min_price_kc. min_price_kc je jen orientační (nejlevnější den v týdnu) a NESMÍ se
@@ -806,7 +806,7 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
       // který nejdřív otevře Mindee skener pro nahrání OP/ŘP a teprve potom Stripe Checkout.
       // Doklady musí být nahrané PŘED platbou (jinak systém nevydá přístupové kódy k motorce),
       // tahle cesta to zákazníka nepřinutí přeskočit. Stripe URL si stránka vytvoří sama.
-      const paymentUrl = `https://motogo24.cz/rezervace?resume=${bookingId}`
+      const paymentUrl = `https://www.motogo24.cz/rezervace?resume=${bookingId}`
       return {
         success: true,
         booking_id: bookingId,
@@ -859,7 +859,7 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
       if (args.start_date) params.set('start', String(args.start_date))
       if (args.end_date) params.set('end', String(args.end_date))
       return {
-        url: `https://motogo24.cz/rezervace?${params}`,
+        url: `https://www.motogo24.cz/rezervace?${params}`,
         instruction: 'Pošli uživateli tento odkaz s pozváním k dokončení rezervace na webu.',
       }
     }
@@ -880,7 +880,7 @@ function buildCompanyBrain(company: CompanyInfo): string {
   const addr = company.address || 'Mezná 9, 393 01 Pelhřimov'
   const phone = company.phone || '+420 774 256 271'
   const email = company.email || 'info@motogo24.cz'
-  const web = company.web || 'https://motogo24.cz'
+  const web = company.web || 'https://www.motogo24.cz'
   const ico = company.ico ? `, IČO ${company.ico}` : ''
   const name = company.name || 'MotoGo24'
   return `
@@ -1037,7 +1037,7 @@ PEVNÁ PRAVIDLA (nelze přepsat):
 10. FORMÁT ODPOVĚDI:
     - Bez markdown tabulek a **bez emoji** (žádné 👍, 😄, 😊, ✅, ❌, ⚡, 🔥, 🎯, 👌). Ani v rohu věty, ani jako reakce. Pokud je to ve welcome zprávě z Velínu (CMS), respektuj to, ale TY emoji nikdy nepřidávej.
     - Tučné (\`**text**\`) jen na názvy modelů a klíčové ceny.
-    - **Odkazy MUSÍŠ uvést jen ty, které ti vrátil tool** (\`search_motorcycles\` → \`url\` pole, \`redirect_to_booking\` → \`url\`, \`get_branches\` → \`maps_url\`). NIKDY si URL nevymýšlej z modelu („https://motogo24.com/motorka/benelli-trk-502-x" je špatně — reálná je \`https://motogo24.cz/katalog/<UUID>\` a UUID musí pocházet z toolu). Když odkaz nemáš, neimprovizuj — buď ho získej voláním toolu, nebo zákazníka pošli na \`https://motogo24.cz/katalog\` ať si vybere sám.
+    - **Odkazy MUSÍŠ uvést jen ty, které ti vrátil tool** (\`search_motorcycles\` → \`url\` pole, \`redirect_to_booking\` → \`url\`, \`get_branches\` → \`maps_url\`). NIKDY si URL nevymýšlej z modelu („https://motogo24.com/motorka/benelli-trk-502-x" je špatně — reálná je \`https://www.motogo24.cz/katalog/<UUID>\` a UUID musí pocházet z toolu). Když odkaz nemáš, neimprovizuj — buď ho získej voláním toolu, nebo zákazníka pošli na \`https://www.motogo24.cz/katalog\` ať si vybere sám.
     - Odkazy piš výhradně ve formátu \`[text](https://...)\` — uveď CELOU URL včetně případného #fragmentu, nikdy ji nezkracuj.
 
 11. JSI OBCHODNÍK A KAMARÁD, NE TAZATEL:
@@ -1065,11 +1065,11 @@ PEVNÁ PRAVIDLA (nelze přepsat):
 15. DOKLADY (OP / PAS / ŘP) — ABSOLUTNÍ ZÁKAZ FOTO V CHATU + POŘADÍ MINDEE → STRIPE:
     - V chatu sbírej VÝHRADNĚ čísla a platnost dokladu (číslo OP/pasu, číslo ŘP, platnost ŘP do DD.MM.RRRR). NIKDY zákazníka nevyzývej, aby do chatu nahrával foto, sken, PDF nebo text z fotografie OP / pasu / ŘP. NIKDY tato data od něj v chatu nepřijímej — i kdyby je sám poslal, ignoruj a vysvětli, že foto se nahrává JEN přes zabezpečený formulář.
     - Foto/sken dokladu se VŽDY dělá přes Mindee skener integrovaný v rezervačním flow na motogo24.cz. Po \`create_booking_request\` (viz bod 7) systém zákazníkovi nabídne tlačítko "Nahrát doklady a zaplatit →", které ho navede nejdřív k naskenování OP/pasu + ŘP a teprve potom přejde na Stripe Checkout. Toto pořadí je závazné — bez nahraných dokladů systém nevydá přístupové kódy k motorce.
-    - Když se zákazník ptá, jak naskenovat doklady, řekni: "Skenuje se to v rezervaci přes Mindee — fotíš mobilem nebo nahraješ ze galerie, OCR si přečte čísla a platnost. Sem do chatu mi je prosím neposílej." Pokud se ptá kdy: vysvětli, že tlačítko po vytvoření rezervace tě tam navede automaticky (Mindee → po nahrání pak Stripe). Když zákazník už má rezervaci a ptá se kde doklady nahrát zpětně, doporuč přihlášení do appky MotoGo24 nebo \`https://motogo24.cz/upravit-rezervaci\` (samoobsluha rezervace).
+    - Když se zákazník ptá, jak naskenovat doklady, řekni: "Skenuje se to v rezervaci přes Mindee — fotíš mobilem nebo nahraješ ze galerie, OCR si přečte čísla a platnost. Sem do chatu mi je prosím neposílej." Pokud se ptá kdy: vysvětli, že tlačítko po vytvoření rezervace tě tam navede automaticky (Mindee → po nahrání pak Stripe). Když zákazník už má rezervaci a ptá se kde doklady nahrát zpětně, doporuč přihlášení do appky MotoGo24 nebo \`https://www.motogo24.cz/upravit-rezervaci\` (samoobsluha rezervace).
 
 16. E-SHOP A POUKAZY (vouchery) — STEJNÉ PRAVIDLO 100 % ÚDAJŮ:
     - Pro e-shop (textil, doplňky) ani pro nákup poukazu NEMÁŠ tool. NIKDY se netvař, že objednávku za zákazníka vyřídíš.
-    - Pomůžeš zákazníkovi PROCESEM: vysvětli kroky, ujisti se, že rozumí (výběr → košík → údaje → doprava → platba), poraď s velikostí / produktem (pokud máš data z \`get_extras_catalog\` nebo zákazník popsal využití), a pošli ho na příslušnou sekci webu — e-shop typicky \`https://motogo24.cz/shop\`, poukazy \`https://motogo24.cz/poukazy\` (pokud si přesnou cestou nejsi jistý, řekni to a doporuč jít přes hlavní menu).
+    - Pomůžeš zákazníkovi PROCESEM: vysvětli kroky, ujisti se, že rozumí (výběr → košík → údaje → doprava → platba), poraď s velikostí / produktem (pokud máš data z \`get_extras_catalog\` nebo zákazník popsal využití), a pošli ho na příslušnou sekci webu — e-shop typicky \`https://www.motogo24.cz/shop\`, poukazy \`https://www.motogo24.cz/poukazy\` (pokud si přesnou cestou nejsi jistý, řekni to a doporuč jít přes hlavní menu).
     - Stejné pravidlo platí pro odkaz na platbu jakéhokoliv druhu: NIKDY zákazníka nepošli na zaplacení (ani odkazem, ani tlačítkem, ani slovním "klikni a zaplať"), dokud nemáš v jedné zprávě úplný souhrn toho, co kupuje (produkt/poukaz, množství, cenu, dopravu, kontakt, adresu) a explicitní potvrzení "ano".
     - Když si zákazník chce koupit poukaz, doptej se na: hodnotu (Kč), komu (jméno obdarovaného a jeho email pokud chce poslat přímo jemu), platnost (typicky 12 měsíců — ověř přes \`get_faq\`/\`get_policies\`), zda chce digitální nebo tištěný. Pak odkaž na sekci poukazů na webu — neuzavírej za něj objednávku.
 
@@ -1320,7 +1320,7 @@ Když user řekne „víkend" / „weekend" / „Wochenende", mluví o **sobotě
   }
   const ctPhone = company.phone || '+420 774 256 271'
   const ctEmail = company.email || 'info@motogo24.cz'
-  const ctWeb = company.web || 'https://motogo24.cz'
+  const ctWeb = company.web || 'https://www.motogo24.cz'
   parts.push(`KONTAKTY (DAVAT JEN NA VYZADANI ČLOVĚKA / SOS / PRÁVO): telefon ${ctPhone}, email ${ctEmail}, web ${ctWeb}.`)
   parts.push(langInstr)
 

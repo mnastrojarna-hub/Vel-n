@@ -463,7 +463,7 @@ $content = '<main id="content"><div class="container">' . $bc .
 // brand, fotky, kategorie ŘP. Schema.org Motorcycle dědí z Vehicle.
 $minPrice = getMinPrice($moto);
 $availability = $isAvailableToday ? 'https://schema.org/InStock' : 'https://schema.org/PreOrder';
-$motoUrl = 'https://motogo24.cz/katalog/' . $motoId;
+$motoUrl = 'https://www.motogo24.cz/katalog/' . $motoId;
 
 // Sbírej všechny obrázky (ne jen mainImg)
 $schemaImages = [];
@@ -474,7 +474,7 @@ if (!empty($moto['images']) && is_array($moto['images'])) {
         if ($u && !in_array($u, $schemaImages, true)) $schemaImages[] = $u;
     }
 }
-if (empty($schemaImages)) $schemaImages[] = 'https://motogo24.cz/gfx/logo.svg';
+if (empty($schemaImages)) $schemaImages[] = 'https://www.motogo24.cz/gfx/logo.svg';
 
 // Per-day pricing → UnitPriceSpecification[]
 $dayMap = ['mon' => 'Monday', 'tue' => 'Tuesday', 'wed' => 'Wednesday', 'thu' => 'Thursday', 'fri' => 'Friday', 'sat' => 'Saturday', 'sun' => 'Sunday'];
