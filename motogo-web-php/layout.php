@@ -103,7 +103,27 @@ function renderFooter() {
     $helpTitleHtml = $helpTitleRaw !== '' ? '<h3>' . tc('footer.helpTitle') . '</h3>' : '';
     $callUsHtml = $callUsRaw !== '' ? tc('footer.callUs') . '<br>' : '';
 
-    return '<footer id="footer"><div class="container"><div class="gr4">' .
+    // SEO: Schema.org microdata redundance vedle JSON-LD v <head>. Externí SEO
+    // checkery bez JSON-LD parseru (zejména základní online tooly) takto najdou
+    // Organization markup v HTML přímo. Google + Bing JSON-LD preferují, takže
+    // toto je doplněk, ne náhrada — duplicita je v pořádku.
+    return '<footer id="footer" itemscope itemtype="https://schema.org/Organization"><div class="container"><div class="gr4">' .
+        '<meta itemprop="name" content="MotoGo24">' .
+        '<meta itemprop="legalName" content="' . htmlspecialchars(COMPANY_NAME) . '">' .
+        '<meta itemprop="url" content="https://www.motogo24.cz/">' .
+        '<meta itemprop="logo" content="https://www.motogo24.cz/' . LOGO_SVG . '">' .
+        '<meta itemprop="telephone" content="' . PHONE . '">' .
+        '<meta itemprop="email" content="' . EMAIL_FULL . '">' .
+        '<meta itemprop="taxID" content="' . COMPANY_ICO . '">' .
+        '<div itemprop="address" itemscope itemtype="https://schema.org/PostalAddress" style="display:none">' .
+            '<meta itemprop="streetAddress" content="Mezná 9">' .
+            '<meta itemprop="postalCode" content="393 01">' .
+            '<meta itemprop="addressLocality" content="Pelhřimov">' .
+            '<meta itemprop="addressRegion" content="Vysočina">' .
+            '<meta itemprop="addressCountry" content="CZ">' .
+        '</div>' .
+        '<link itemprop="sameAs" href="' . FB_URL . '">' .
+        '<link itemprop="sameAs" href="' . IG_URL . '">' .
         '<div>' .
             '<p><a href="' . BASE_URL . '/" aria-label="Motogo24"><img src="' . BASE_URL . '/' . LOGO_SVG . '" alt="Motogo24" loading="lazy" width="168" height="44"></a></p><p>&nbsp;</p>' .
             '<p>' . tcRaw('footer.aboutText') . '</p>' .
@@ -181,6 +201,57 @@ function buildSameAs() {
  * odmítl), je to no-op — buffer se zahodí. Pokud souhlasil, GTM trigger
  * "purchase" vystřelí Google Ads conversion tag.
  */
+/**
+ * GTM bootstrap pro <head> + Consent Mode v2 (default 'denied').
+ *
+ * GTM container se načítá ROVNOU v <head>, ALE všechny GA/Ads/marketing tagy
+ * uvnitř GTM kontejneru ctí `gtag('consent','default')` ktery je nastaveny
+ * predtím na 'denied'. Žádný request na google-analytics.com se neodešle, dokud
+ * uživatel ručně nesouhlasí v cookie banneru → consent.js zavolá
+ * `gtag('consent','update', {analytics_storage:'granted', ad_storage:'granted'})`
+ * a tagy se aktivuji.
+ *
+ * Důsledky:
+ *   - SEO checkery (Lighthouse, Seobility, externí) GTM detekují (gtm.js v HTML).
+ *   - Externí volání GA pingu se neodešle bez consentu (GDPR + ePrivacy compliant).
+ *   - Cookie banner stále spravuje JS a jen mění consent state, neloadí znovu GTM.
+ *   - `dataLayer.push({event:'purchase'…})` v `js/pages-potvrzeni.js` funguje pro
+ *     oba světy: bez consentu se buffer ignoruje, s consentem GTM trigger vystřelí.
+ */
+function renderGtmHead() {
+    $gtmId = defined('GTM_CONTAINER_ID') ? GTM_CONTAINER_ID : '';
+    if ($gtmId === '') return '';
+    $gtmIdJson = json_encode($gtmId);
+    return '
+  <!-- Google Tag Manager + Consent Mode v2 (default denied, GDPR-compliant) -->
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag("consent", "default", {
+      "ad_storage": "denied",
+      "ad_user_data": "denied",
+      "ad_personalization": "denied",
+      "analytics_storage": "denied",
+      "functionality_storage": "granted",
+      "personalization_storage": "denied",
+      "security_storage": "granted",
+      "wait_for_update": 500
+    });
+    (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({"gtm.start":new Date().getTime(),event:"gtm.js"});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!="dataLayer"?"&l="+l:"";j.async=true;j.src="https://www.googletagmanager.com/gtm.js?id="+i+dl;f.parentNode.insertBefore(j,f);})(window,document,"script","dataLayer",' . $gtmIdJson . ');
+  </script>
+  <!-- End Google Tag Manager -->';
+}
+
+/**
+ * GTM <noscript> fallback pro <body> — povinná součást GTM instalace.
+ * Bez consent control protože jen zobrazuje pixel; reálný consent řídí Consent Mode v2.
+ */
+function renderGtmNoscript() {
+    $gtmId = defined('GTM_CONTAINER_ID') ? GTM_CONTAINER_ID : '';
+    if ($gtmId === '') return '';
+    return '<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=' . htmlspecialchars($gtmId) . '" height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>';
+}
+
 function renderConsentManager() {
     $gtmId   = defined('GTM_CONTAINER_ID') ? GTM_CONTAINER_ID : '';
     $sklikId = defined('SKLIK_RETARGETING_ID') ? SKLIK_RETARGETING_ID : '';
@@ -581,9 +652,10 @@ body{font-family:Montserrat,"Segoe UI",sans-serif;margin:0;color:#1a2e22;backgro
 @media(min-width:769px){.banner{min-height:480px}.banner>picture,.banner>picture>img,.banner>img{height:480px}}
   </style>
   <link rel="stylesheet" href="' . assetUrl('/css/main.css') . '">
-  <link rel="stylesheet" href="' . assetUrl('/css/pages.css') . '">
+  <link rel="stylesheet" href="' . assetUrl('/css/pages.css') . '">' . renderGtmHead() . '
 </head>
 <body' . ($currentPath === '/' ? ' class="homepage"' : '') . '>
+' . renderGtmNoscript() . '
 ';
     // GTM/Sklik se NIKDY nevkládá přímo do HTML — banner JS je injektne
     // až po souhlasu. Viz renderConsentManager() na konci stránky.
