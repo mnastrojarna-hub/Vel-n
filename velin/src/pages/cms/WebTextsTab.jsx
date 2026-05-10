@@ -32,19 +32,34 @@ export function buildWebUrl(base, pageUrl, token, highlightKey, extra) {
   return params.length ? url + '?' + params.join('&') : url
 }
 
-export default function WebTextsTab({ initialPageId }) {
+export default function WebTextsTab({ initialPageId, initialFieldKey, initialSectionId, jumpTimestamp }) {
   // Pokud SEO Health tab predal pageId pres 'Opravit' tlacitko, otevreme tu stranku
   const startPage = initialPageId && WEB_PAGES.some(p => p.id === initialPageId)
-    ? initialPageId
-    : WEB_PAGES[0].id
+    ? initialPageId : WEB_PAGES[0].id
   const [activePage, setActivePage] = useState(startPage)
-  // Reaguj na zmenu initialPageId i po mount (kdyz uzivatel zustane v CMS,
-  // klikne na jiny SEO problem -> jiny page id)
+  // Highlight key pro pulsujici zlute zvyrazneni cilove field
+  const [highlightKey, setHighlightKey] = useState(initialFieldKey || null)
+
+  // Reaguj na jump z SEO Health (zmena jumpTimestamp = re-trigger i kdyz user
+  // klikne 2x stejne pole). Auto-scroll + 4s pulsing highlight.
   useEffect(() => {
     if (initialPageId && WEB_PAGES.some(p => p.id === initialPageId)) {
       setActivePage(initialPageId)
     }
-  }, [initialPageId])
+    if (initialFieldKey) {
+      setHighlightKey(initialFieldKey)
+      // Scroll po renderu (200ms timeout aby DOM stihl mount sekci)
+      const tm = setTimeout(() => {
+        const target = document.querySelector(`[data-cms-field="${initialFieldKey}"]`)
+        if (target) {
+          target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          target.classList.add('cms-field-highlight')
+          setTimeout(() => target.classList.remove('cms-field-highlight'), 4000)
+        }
+      }, 300)
+      return () => clearTimeout(tm)
+    }
+  }, [initialPageId, initialFieldKey, jumpTimestamp])
   const [values, setValues] = useState({})
   const [loading, setLoading] = useState(true)
   const [seeding, setSeeding] = useState(false)
@@ -342,6 +357,7 @@ export default function WebTextsTab({ initialPageId }) {
                     pageUrl={page.url}
                     webBaseUrl={WEB_BASE_URL}
                     adminToken={adminToken}
+                    forceOpen={initialSectionId === section.id || section.fields.some(f => f.key === highlightKey)}
                   />
                 ))
               )}

@@ -11,16 +11,17 @@ const TABS = ['SEO Health', 'Texty webu', 'AI návštěvnost', 'Stránky CMS', '
 
 export default function CMS() {
   const [tab, setTab] = useState('SEO Health')
-  // Klic stranky pro 'Texty webu' tab — kdyz uzivatel klikne 'Opravit' v
-  // SEO Health, prepne se sem a otevre konkretni stranku
-  const [textsPageJump, setTextsPageJump] = useState(null)
+  // Jump z SEO Health do Texty webu — predame pageId + konkretni klic pole
+  // (pro auto-scroll + highlight) + sectionId (pro otevreni spravne sekce).
+  const [textsJump, setTextsJump] = useState({ pageId: null, fieldKey: null, sectionId: null, ts: 0 })
 
   useEffect(() => { debugLog('page.mount', 'CMS') }, [])
 
-  const handleJumpToText = (pageId) => {
-    setTextsPageJump(pageId)
+  const handleJumpToText = (pageId, fieldKey, sectionId) => {
+    // ts = timestamp aby re-trigger fungoval i kdyz se klikne 2x na stejne pole
+    setTextsJump({ pageId, fieldKey, sectionId, ts: Date.now() })
     setTab('Texty webu')
-    debugLog('seo.jumpToText', 'CMS', { pageId })
+    debugLog('seo.jumpToText', 'CMS', { pageId, fieldKey, sectionId })
   }
 
   return (
@@ -29,7 +30,7 @@ export default function CMS() {
         {TABS.map(t => (
           <button
             key={t}
-            onClick={() => { debugLog('tab.switch', 'CMS', { tab: t }); setTab(t); setTextsPageJump(null) }}
+            onClick={() => { debugLog('tab.switch', 'CMS', { tab: t }); setTab(t) }}
             className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
             style={{
               padding: '8px 18px',
@@ -45,7 +46,14 @@ export default function CMS() {
       </div>
 
       {tab === 'SEO Health' && <SeoHealthTab onJumpToText={handleJumpToText} />}
-      {tab === 'Texty webu' && <WebTextsTab initialPageId={textsPageJump} />}
+      {tab === 'Texty webu' && (
+        <WebTextsTab
+          initialPageId={textsJump.pageId}
+          initialFieldKey={textsJump.fieldKey}
+          initialSectionId={textsJump.sectionId}
+          jumpTimestamp={textsJump.ts}
+        />
+      )}
       {tab === 'AI návštěvnost' && <AiTrafficTab />}
       {tab === 'Stránky CMS' && <PagesTab />}
       {tab === 'Proměnné' && <VariablesTab />}

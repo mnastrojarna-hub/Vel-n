@@ -1,11 +1,16 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { autoTranslate } from '../../lib/autoTranslate'
 import { buildWebUrl } from './WebTextsTab'
 import RichTextEditor from '../../components/ui/RichTextEditor'
 
-export default function WebTextSection({ section, values, onSaved, pageUrl, webBaseUrl, adminToken }) {
-  const [open, setOpen] = useState(false)
+export default function WebTextSection({ section, values, onSaved, pageUrl, webBaseUrl, adminToken, forceOpen }) {
+  const [open, setOpen] = useState(!!forceOpen)
+  // Reaguj na zmenu forceOpen (uzivatel klikl Opravit v SEO Health na pole
+  // v jine sekci -> nutne ji otevrit aby scroll-into-view fungoval).
+  useEffect(() => {
+    if (forceOpen) setOpen(true)
+  }, [forceOpen])
   const filled = section.fields.filter(f => values[f.key]).length
 
   // Zvýrazni první klíč v sekci, ať admin po kliknutí vidí kam se kouká.
@@ -117,7 +122,7 @@ function FieldRow({ field, value, onSaved, fieldUrl, hasToken }) {
   const hasValue = !!value
 
   return (
-    <div className="mt-3">
+    <div className="mt-3" data-cms-field={field.key} style={{ scrollMarginTop: 80 }}>
       <div className="flex items-center gap-2 mb-1">
         <span
           className="inline-block w-2 h-2 rounded-full shrink-0"
