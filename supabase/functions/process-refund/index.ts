@@ -215,7 +215,18 @@ Deno.serve(async (req: Request) => {
     const body: RefundRequest = await req.json()
     const { booking_id, order_id, amount, reason } = body
 
+    // Diagnostika — admin v Velin → Dokumenty → Debug log uvidí každý krok
+    // refund flow a okamžitě pozná, kde to padá. Helper, aby fail v debug_log
+    // insertu nezablokoval hlavní flow.
+    const dlog = (action: string, status: string, extra?: Record<string, unknown>) =>
+      supabase.from('debug_log').insert({
+        source: 'process-refund', action, status,
+        request_data: { booking_id, order_id, amount, reason, ...(extra || {}) },
+      }).then(() => {}, () => {})
+    await dlog('request_received', 'info')
+
     if (!booking_id && !order_id) {
+      await dlog('missing_identifier', 'error')
       return new Response(
         JSON.stringify({ success: false, error: 'Missing booking_id or order_id', code: 'missing_identifier' }),
         { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } }
@@ -383,7 +394,9 @@ Deno.serve(async (req: Request) => {
       refundParams.amount = effectiveAmountHaleru
     }
 
+    await dlog('stripe_refund_create_pre', 'info', { effectiveAmountHaleru, refundableHaleru })
     const refund = await stripe.refunds.create(refundParams)
+    await dlog('stripe_refund_create_ok', 'info', { refund_id: refund.id, refund_status: refund.status, refund_amount: refund.amount })
 
     // Look up card brand/last4 from the underlying Charge (used both on credit note and bookings).
     let cardBrand: string | null = null
@@ -491,6 +504,7 @@ Deno.serve(async (req: Request) => {
             }).select('id').single()
 
             cnId = cnInv?.id || null
+            await dlog('credit_note_inserted', 'info', { credit_note_id: cnId, number: cnNumber })
 
             // Create negative accounting entry only on first creation
             await supabase.from('accounting_entries').insert({
@@ -524,23 +538,28 @@ Deno.serve(async (req: Request) => {
                 cardLast4,
               })
               const pdfBytes = await htmlToPdf(html)
+              await dlog('pdfshift_render_done', 'info', { credit_note_id: cnId, has_pdf: !!pdfBytes, pdf_bytes: pdfBytes?.length || 0 })
               let path: string
               if (pdfBytes) {
                 path = `invoices/${cnId}.pdf`
-                await supabase.storage.from('documents').upload(
+                const { error: upErr } = await supabase.storage.from('documents').upload(
                   path, new Blob([pdfBytes], { type: 'application/pdf' }),
                   { upsert: true, contentType: 'application/pdf' },
                 )
+                if (upErr) await dlog('pdf_upload_failed', 'error', { path, error: upErr.message })
               } else {
                 path = `invoices/${cnId}.html`
-                await supabase.storage.from('documents').upload(
+                const { error: upErr } = await supabase.storage.from('documents').upload(
                   path, new Blob([html], { type: 'text/html' }),
                   { upsert: true, contentType: 'text/html' },
                 )
+                if (upErr) await dlog('pdf_upload_failed', 'error', { path, error: upErr.message })
               }
-              await supabase.from('invoices').update({ pdf_path: path }).eq('id', cnId)
+              const { error: updErr } = await supabase.from('invoices').update({ pdf_path: path }).eq('id', cnId)
+              await dlog('credit_note_finalized', updErr ? 'error' : 'ok', { credit_note_id: cnId, pdf_path: path, update_error: updErr?.message })
             } catch (pdfErr) {
               console.warn('[process-refund] credit note PDF render failed:', (pdfErr as Error).message)
+              await dlog('pdfshift_render_failed', 'error', { credit_note_id: cnId, error: (pdfErr as Error).message })
             }
           }
         }
@@ -586,6 +605,9 @@ Deno.serve(async (req: Request) => {
         status: 'error',
         error_message: (err as Error).message,
       })
+      // Pozn.: konkrétní booking_id už zachytí dlog('request_received', ...) na začátku
+      // request flow + dlog na každém kroku. Pokud catch fire-nul po request_received,
+      // korelace přes timestamp + sekvence akcí pro daný booking je v debug_log evidentní.
     } catch (e) { /* ignore */ }
 
     return new Response(
