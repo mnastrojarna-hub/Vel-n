@@ -109,7 +109,7 @@ function renderFooter() {
         '</div>' .
         '<div class="footer-contact">' . $helpTitleHtml .
             '<div class="footer-phone dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/telefon.svg" alt="" aria-hidden="true" class="icon-small" loading="lazy" width="20" height="20"></div><div><p>' . $callUsHtml . '<strong><a href="' . PHONE_LINK . '">' . PHONE . '</a></strong></p></div></div>' .
-            '<div class="dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/email.svg" alt="" aria-hidden="true" class="icon-small" loading="lazy" width="20" height="20"></div><div><p>' . EMAIL_USER . '@' . EMAIL_DOMAIN . '</p></div></div>' .
+            '<div class="dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/email.svg" alt="" aria-hidden="true" class="icon-small" loading="lazy" width="20" height="20"></div><div><p><a href="mailto:' . EMAIL_FULL . '">' . EMAIL_USER . '&#64;' . EMAIL_DOMAIN . '</a></p></div></div>' .
             '<div class="dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/adresa.svg" alt="" aria-hidden="true" class="icon-small" loading="lazy" width="20" height="20"></div><div><p><strong>' . tc('footer.companyLine1') . '</strong><br>' . ADDRESS . '</p></div></div>' .
             '<div class="dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/provozni-doba.svg" alt="" aria-hidden="true" class="icon-small" loading="lazy" width="20" height="20"></div><div><p>' . tc('footer.openHours') . '</p></div></div>' .
         '</div>' .
@@ -433,9 +433,8 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
   <meta name="twitter:description" content="' . htmlspecialchars($description) . '">
   <meta name="twitter:image" content="' . htmlspecialchars($ogImage) . '">
   <link rel="canonical" href="' . htmlspecialchars($canonical) . '">
-  <link rel="icon" type="image/x-icon" href="' . $siteOrigin . '/images/favicon.ico">
   <link rel="icon" type="image/svg+xml" href="' . $siteOrigin . '/favicon.svg">
-  <link rel="apple-touch-icon" href="' . $siteOrigin . '/apple-touch-icon.png">
+  <link rel="apple-touch-icon" sizes="120x120" href="' . $siteOrigin . '/apple-touch-icon.png">
   <link rel="manifest" href="' . BASE_URL . '/manifest.webmanifest">
   <link rel="alternate" type="application/rss+xml" title="MotoGo24 — Blog a tipy na trasy" href="' . $siteOrigin . '/feed.xml">
   <link rel="sitemap" type="application/xml" title="Sitemap" href="' . $siteOrigin . '/sitemap.xml">
@@ -546,7 +545,6 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
   }
   </script>' . $breadcrumbSchema . $speakableSchema . ($extraSchema ? "\n" . $extraSchema : '') . '
 
-  <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preconnect" href="' . SUPABASE_URL . '" crossorigin>
@@ -562,8 +560,6 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
     }
 
     echo '
-
-  <!-- Styles -->
   <link rel="stylesheet" href="' . assetUrl('/css/main.css') . '">
   <link rel="stylesheet" href="' . assetUrl('/css/pages.css') . '">
 </head>
