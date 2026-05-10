@@ -370,7 +370,7 @@ function renderFaqItem($question, $answer) {
  * ZMĚNA: moreLink bez # prefixu (čisté URL)
  */
 function renderFaqSection($title, $items, $moreLink = null) {
-    $html = '<section aria-labelledby="faq"><h2>' . $title . '</h2><div class="tab-content"><div class="tab-pane active" id="all"><div class="gr2">';
+    $html = '<section aria-labelledby="faq"><h2 id="faq">' . $title . '</h2><div class="tab-content"><div class="tab-pane active" id="all"><div class="gr2">';
     foreach ($items as $faq) {
         $html .= renderFaqItem($faq['q'], $faq['a']);
     }
@@ -387,7 +387,7 @@ function renderFaqSection($title, $items, $moreLink = null) {
  * ZMĚNA: href bez # prefixu (čisté URL)
  */
 function renderCta($title, $text, $buttons) {
-    $html = '<section aria-labelledby="cta"><h2>' . $title . '</h2><p>' . $text . '</p><p>&nbsp;</p><p>';
+    $html = '<section aria-labelledby="cta"><h2 id="cta">' . $title . '</h2><p>' . $text . '</p><p>&nbsp;</p><p>';
     foreach ($buttons as $btn) {
         $cls = $btn['cls'] ?? 'btndark';
         $html .= '<a class="btn ' . $cls . '" href="' . BASE_URL . $btn['href'] . '">' . $btn['label'] . '</a>&nbsp;';

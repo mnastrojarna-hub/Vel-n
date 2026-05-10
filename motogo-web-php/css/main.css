@@ -311,8 +311,9 @@ body.homepage .banner-caption .btngreen,
 .banner-caption .btngreen{color:#000}
 .banner-caption .btngreen:hover{color:#000}
 
-/* Zvýraznění klíčových slov v intru: Motogo24 / bez kauce / nonstop */
-body.homepage .home-intro strong{color:#74FB71}
+/* Zvýraznění klíčových slov v intru: Motogo24 / bez kauce / nonstop.
+   Tmavá zelená pro WCAG AA kontrast na bílém pozadí (14+:1). */
+body.homepage .home-intro strong{color:#1a2e22}
 
 /* Vertikální dýchání: mezera mezi banner→H1 a mezi sekce-nad→nadpis motorek (~1 řádek textu) */
 body.homepage main#content>.container>h1:first-child{margin-top:2rem}
