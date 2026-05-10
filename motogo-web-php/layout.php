@@ -104,8 +104,8 @@ function renderFooter() {
         '</div>' .
         '<div><h3>' . tc('footer.aboutTitle') . '</h3><ul>' . $menuHtml . '</ul></div>' .
         '<div><h3>' . tc('footer.socialTitle') . '</h3>' .
-            '<p class="dfc"><span class="footer-social-icon"><img alt="Facebook" src="' . BASE_URL . '/gfx/facebook-footer.svg"></span>&nbsp;<a href="' . FB_URL . '">facebook</a></p><p>&nbsp;</p>' .
-            '<p class="dfc"><span class="footer-social-icon"><img alt="Instagram" src="' . BASE_URL . '/gfx/instagram-footer.svg"></span>&nbsp;<a href="' . IG_URL . '">instagram</a></p>' .
+            '<p class="dfc"><span class="footer-social-icon"><img alt="" src="' . BASE_URL . '/gfx/facebook-footer.svg" width="18" height="18"></span>&nbsp;<a href="' . FB_URL . '">facebook</a></p><p>&nbsp;</p>' .
+            '<p class="dfc"><span class="footer-social-icon"><img alt="" src="' . BASE_URL . '/gfx/instagram-footer.svg" width="18" height="18"></span>&nbsp;<a href="' . IG_URL . '">instagram</a></p>' .
         '</div>' .
         '<div class="footer-contact">' . $helpTitleHtml .
             '<div class="footer-phone dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/telefon.svg" alt="' . te('footer.iconPhone') . '" class="icon-small" loading="lazy"></div><div><p>' . $callUsHtml . '<strong><a href="' . PHONE_LINK . '">' . PHONE . '</a></strong></p></div></div>' .
@@ -209,7 +209,7 @@ function renderConsentManager() {
     $rowMarketing = $hasSklik ? '<label class="mg-consent-row"><span><strong>' . $catMarketing . '</strong><br><small>' . $catMarketingDesc . '</small></span><input type="checkbox" id="mg-consent-marketing"></label>' : '';
 
     $html = '
-<aside id="mg-consent" class="mg-consent" role="dialog" aria-modal="false" aria-labelledby="mg-consent-title" aria-live="polite" hidden>
+<div id="mg-consent" class="mg-consent" role="dialog" aria-modal="false" aria-labelledby="mg-consent-title" aria-live="polite" hidden>
   <div class="mg-consent-inner">
     <h2 id="mg-consent-title" class="mg-consent-title">' . $title . '</h2>
     <div class="mg-consent-intro">' . $intro . '</div>
@@ -228,7 +228,7 @@ function renderConsentManager() {
       <button type="button" class="btn btngreen-small" data-consent-action="save" hidden>' . $btnSave . '</button>
     </div>
   </div>
-</aside>
+</div>
 <script>window.MG_CONSENT_CFG=' . $cfg . ';</script>
 <script src="' . assetUrl('/js/consent.js') . '" defer></script>';
 
