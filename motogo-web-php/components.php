@@ -39,6 +39,13 @@ function renderHeading($level, $text, $opts = []) {
         $text = $fallback;
         $raw = $fallback;
     }
+    // KRITICKE: H1 NIKDY nesmi byt prazdny (Seobility 'No H1 specified'
+    // Critical issue — pages bez H1 jsou tezko indexovane). Bez admin rezimu
+    // a bez fallbacku injectneme defaultni 'MotoGo24'.
+    if ($raw === '' && $level === 1 && !$isAdmin) {
+        $text = 'MotoGo24';
+        $raw = 'MotoGo24';
+    }
     if ($raw === '' && !$isAdmin) {
         return '';
     }
@@ -76,12 +83,45 @@ function renderHeading($level, $text, $opts = []) {
 function seoEnhanceHtml($content) {
     if (!is_string($content) || $content === '') return $content;
 
-    // 1) Strip prazdnych headings <hN></hN> (whitespace, &nbsp;, atd.)
+    // 1) Strip prazdnych headings <h2-h6></hN> (whitespace, &nbsp;, atd.).
+    //    DULEZITE: <h1> NIKDY neneabandonujem — Seobility 'There is no H1
+    //    heading specified' Critical. Pokud je H1 prazdny, nechame ho
+    //    jako tag (alespon je heading hierarchie zachovana) a nize injectneme
+    //    fallback content.
     $content = preg_replace(
-        '#<h([1-6])(?![^>]*\bdata-cms-empty=)[^>]*>(?:\s|&nbsp;|&\#160;|\xC2\xA0)*</h\1\s*>#i',
+        '#<h([2-6])(?![^>]*\bdata-cms-empty=)[^>]*>(?:\s|&nbsp;|&\#160;|\xC2\xA0)*</h\1\s*>#i',
         '',
         $content
     );
+    // Prazdny H1: doplnime fallback obsah ('MotoGo24') misto stripu, aby
+    // crawler videl validni H1 strukturu i kdyz CMS data nezvladly nacist.
+    $content = preg_replace_callback(
+        '#<h1([^>]*)>(?:\s|&nbsp;|&\#160;|\xC2\xA0)*</h1\s*>#i',
+        function ($m) {
+            return '<h1' . $m[1] . '>MotoGo24</h1>';
+        },
+        $content
+    );
+
+    // 1b) Pokud na strance neni vubec zadny <h1>, injectneme fallback nahoru
+    //     do <main id="content"> nebo na zacatek $content. Seobility hlasi
+    //     'There is no H1 heading specified' jako Important issue. Druhe a
+    //     dalsi <h1> v $content (z CMS RTE) demote krok 5 nize.
+    if (!preg_match('#<h1\b#i', $content)) {
+        $h1Inject = '<h1>MotoGo24 — půjčovna motorek</h1>';
+        // Preferred: pridat za <main id="content"> tag
+        if (preg_match('#<main\b[^>]*id=["\']content["\'][^>]*>#i', $content)) {
+            $content = preg_replace(
+                '#(<main\b[^>]*id=["\']content["\'][^>]*>)#i',
+                '$1' . $h1Inject,
+                $content,
+                1
+            );
+        } else {
+            // Fallback: pridat na zacatek
+            $content = $h1Inject . $content;
+        }
+    }
 
     // 2) Auto-extend kratke <h1> textu o ' | MotoGo24' (SEO context).
     //    Vyber prvni <h1>...</h1>, odeparuj plain text, pokud <25 znaku
