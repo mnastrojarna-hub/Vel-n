@@ -55,7 +55,7 @@ function renderRecoveryOtpHtml(otp: string): string {
       Pokud jste o obnovení hesla nežádali, e-mail ignorujte. Vaše heslo zůstane beze změny.
     </p>
     <p style="margin:18px 0 0;font-size:13.5px;color:#5a6a62;line-height:1.5">
-      Tým MotoGo24 &middot; <a href="https://motogo24.cz" style="color:#1a8c1a;text-decoration:none">motogo24.cz</a> &middot; +420 774 256 271
+      Tým MotoGo24 &middot; <a href="https://www.motogo24.cz" style="color:#1a8c1a;text-decoration:none">motogo24.cz</a> &middot; +420 774 256 271
     </p>
   </div>
   <p style="margin:14px 0 0;text-align:center;font-size:11px;color:#94a399">Tato zpráva byla vygenerována automaticky.</p>

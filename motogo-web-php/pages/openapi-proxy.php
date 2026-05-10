@@ -32,7 +32,7 @@ function _proxy_fallback($wantYaml) {
             'title' => 'MotoGo24 Public API',
             'version' => '1.0',
             'description' => 'Veřejné REST API pro programové rezervace motorek. Aktuální spec je hostován na Supabase Edge Function.',
-            'contact' => ['email' => 'info@motogo24.cz', 'url' => 'https://motogo24.cz/partneri'],
+            'contact' => ['email' => 'info@motogo24.cz', 'url' => 'https://www.motogo24.cz/partneri'],
             'license' => ['name' => 'Proprietary']
         ],
         'externalDocs' => [

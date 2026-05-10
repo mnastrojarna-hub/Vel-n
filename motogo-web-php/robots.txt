@@ -196,7 +196,9 @@ Disallow: /potvrzeni
 
 # Žádné crawl-delay — máme rychlý hosting a chceme aktuální index.
 # Mapa stránek + LLM index
-Sitemap: https://motogo24.cz/sitemap.xml
+# Pozor: .cz musí být www variantou — Forpsi vynucuje www, jakákoli non-www
+# URL by se redirectovala a Search Console hlásí "Sitemap redirected".
+Sitemap: https://www.motogo24.cz/sitemap.xml
 Sitemap: https://motogo24.com/sitemap.xml
 Sitemap: https://motogo24.at/sitemap.xml
 Sitemap: https://motogo24.es/sitemap.xml
@@ -205,14 +207,14 @@ Sitemap: https://motogo24.fr/sitemap.xml
 Sitemap: https://motogo24.nl/sitemap.xml
 
 # LLM-friendly katalog obsahu (markdown):
-#   https://motogo24.cz/llms.txt          — krátký index s odkazy
-#   https://motogo24.cz/llms-full.txt     — sloučený obsah všech statických stránek
-#   https://motogo24.cz/ai.txt            — AI policy (alias pro některé crawlery)
+#   https://www.motogo24.cz/llms.txt          — krátký index s odkazy
+#   https://www.motogo24.cz/llms-full.txt     — sloučený obsah všech statických stránek
+#   https://www.motogo24.cz/ai.txt            — AI policy (alias pro některé crawlery)
 #
 # AI agent manifesty:
-#   https://motogo24.cz/.well-known/agent.json       — agents.json v1
-#   https://motogo24.cz/.well-known/ai-plugin.json   — OpenAI ChatGPT plugin
-#   https://motogo24.cz/.well-known/openapi.yaml     — OpenAPI 3.1 spec mirror
+#   https://www.motogo24.cz/.well-known/agent.json       — agents.json v1
+#   https://www.motogo24.cz/.well-known/ai-plugin.json   — OpenAI ChatGPT plugin
+#   https://www.motogo24.cz/.well-known/openapi.yaml     — OpenAPI 3.1 spec mirror
 #
 # Programové rezervace:
 #   REST API: https://vnwnqteskbykeucanlhk.supabase.co/functions/v1/public-api

@@ -66,7 +66,7 @@ return [
 
     // ===== Cookie consent banner =====
     'cookies.title' => 'Diese Website verwendet Cookies',
-    'cookies.intro' => 'Wir verwenden Cookies, damit die Website funktioniert, und – nur mit Ihrer Einwilligung – für Analyse und Marketing. Die Einwilligung ist freiwillig und Sie können sie jederzeit unten in der Fußzeile ändern. Mehr in unserer <a href="/gdpr">Datenschutzerklärung</a>.',
+    'cookies.intro' => 'Wir verwenden Cookies, damit die Website funktioniert, und – nur mit Ihrer Einwilligung – für Analyse und Marketing. Die Einwilligung ist freiwillig und Sie können sie jederzeit unten in der Fußzeile ändern. Mehr in unserer <a href="/dokumenty/zasady-ochrany-osobnich-udaju">Datenschutzerklärung</a>.',
     'cookies.acceptAll' => 'Alle akzeptieren',
     'cookies.rejectAll' => 'Ablehnen',
     'cookies.settings' => 'Einstellungen',
@@ -290,8 +290,8 @@ return [
     'rez.gear.item.return' => 'Motorradabholung',
 
     // ===== Reservierung — Einwilligungen =====
-    'rez.agree.terms' => '* Ich stimme den <a href="/obchodni-podminky">Geschäftsbedingungen</a> zu',
-    'rez.agree.gdpr' => 'Ich stimme der <a href="/gdpr">Verarbeitung personenbezogener Daten</a> zu',
+    'rez.agree.terms' => '* Ich stimme den <a href="/dokumenty/obchodni-podminky">Geschäftsbedingungen</a> zu',
+    'rez.agree.gdpr' => 'Ich stimme der <a href="/dokumenty/zasady-ochrany-osobnich-udaju">Verarbeitung personenbezogener Daten</a> zu',
     'rez.agree.marketing' => 'Ich stimme dem Erhalt von Marketingmitteilungen zu',
     'rez.agree.photo' => 'Ich stimme der Verwendung von Fotos zu Marketingzwecken zu',
 

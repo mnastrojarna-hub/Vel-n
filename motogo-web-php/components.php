@@ -349,11 +349,17 @@ function renderProductCard($p) {
 
 /**
  * Ikona box — odpovídá MG.renderWbox() v components.js.
+ *
+ * Ikona je sice dekorativní (význam přenáší <h3> + <p>), ale prázdný alt=""
+ * SEO crawlery hlásí jako "missing alt". Generujeme proto alt z titulku boxu
+ * (po strip_tags), zatímco aria-hidden=true ponechá ikonu skrytou pro screen
+ * readery — uživatelé asistivních technologií tak neslyší titulek dvakrát.
  */
 function renderWbox($icon, $title, $text) {
     $iconSrc = $icon ? BASE_URL . '/' . ltrim($icon, '/') : '';
+    $iconAlt = trim(strip_tags((string)$title));
     return '<div class="wbox">' .
-        ($icon ? '<div class="wbox-img"><img src="' . htmlspecialchars($iconSrc) . '" class="icon" alt="" aria-hidden="true" loading="lazy"></div>' : '') .
+        ($icon ? '<div class="wbox-img"><img src="' . htmlspecialchars($iconSrc) . '" class="icon" alt="' . htmlspecialchars($iconAlt) . '" aria-hidden="true" loading="lazy"></div>' : '') .
         '<h3>' . sanitizeHtml($title) . '</h3>' .
         '<p>' . sanitizeHtml($text) . '</p></div>';
 }

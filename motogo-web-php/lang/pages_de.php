@@ -530,7 +530,7 @@ return [
                 'title' => 'Motorradvermietung Vysočina – Geschenkgutscheine',
                 'description' => 'Kaufe einen Geschenkgutschein für die Motorradmiete. Gültigkeit 3 Jahre, ohne Kaution, Ausrüstung im Preis. Elektronischer und gedruckter Gutschein.',
                 'keywords' => 'Motorradvermietung Tschechien',
-                'og_image' => 'https://motogo24.cz/gfx/darkovy-poukaz.jpg',
+                'og_image' => 'https://www.motogo24.cz/gfx/darkovy-poukaz.jpg',
             ],
             'h1' => 'Kaufe einen Geschenkgutschein – schenke ein Erlebnis auf zwei Rädern!',
             'cta' => [

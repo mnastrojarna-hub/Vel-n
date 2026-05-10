@@ -6,7 +6,7 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
 const FROM_EMAIL = Deno.env.get('FROM_EMAIL') || 'noreply@motogo24.cz'
 const REPLY_TO = 'info@motogo24.cz'
-const SITE_URL = Deno.env.get('SITE_URL') || 'https://motogo24.cz'
+const SITE_URL = Deno.env.get('SITE_URL') || 'https://www.motogo24.cz'
 const FB_URL = 'https://www.facebook.com/profile.php?id=61581614672839'
 const IG_URL = 'https://www.instagram.com/moto.go24/'
 

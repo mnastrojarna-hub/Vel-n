@@ -147,16 +147,16 @@ foreach ((is_array($C['benefits']['items'] ?? null) ? $C['benefits']['items'] : 
 $serviceSchema = '
   <script type="application/ld+json">
   {"@context":"https://schema.org","@type":"Service"'
-    . ',"@id":"https://motogo24.cz/pujcovna-motorek#service"'
+    . ',"@id":"https://www.motogo24.cz/pujcovna-motorek#service"'
     . ',"serviceType":"Motorcycle rental"'
     . ',"name":"Pronájem motorek MotoGo24 — Vysočina"'
     . ',"description":' . json_encode(strip_tags($C['intro']['body'] ?? 'Půjčovna motorek na Vysočině — bez kauce, výbava v ceně, nonstop provoz.'), JSON_UNESCAPED_UNICODE)
-    . ',"url":"https://motogo24.cz/pujcovna-motorek"'
-    . ',"provider":{"@id":"https://motogo24.cz/#organization"}'
+    . ',"url":"https://www.motogo24.cz/pujcovna-motorek"'
+    . ',"provider":{"@id":"https://www.motogo24.cz/#organization"}'
     . ',"areaServed":[{"@type":"Country","name":"Česko"},{"@type":"AdministrativeArea","name":"Kraj Vysočina"},{"@type":"Country","name":"Slovensko"},{"@type":"Country","name":"Rakousko"},{"@type":"Country","name":"Polsko"}]'
-    . ',"availableChannel":{"@type":"ServiceChannel","serviceUrl":"https://motogo24.cz/rezervace","availableLanguage":["cs","en","de","es","fr","nl","pl"]}'
+    . ',"availableChannel":{"@type":"ServiceChannel","serviceUrl":"https://www.motogo24.cz/rezervace","availableLanguage":["cs","en","de","es","fr","nl","pl"]}'
     . ',"hoursAvailable":{"@type":"OpeningHoursSpecification","dayOfWeek":["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"],"opens":"00:00","closes":"23:59"}'
-    . ',"offers":{"@type":"AggregateOffer","priceCurrency":"CZK","lowPrice":"990","highPrice":"5000","offerCount":' . max(1, count($sb->fetchMotos() ?: [])) . ',"url":"https://motogo24.cz/katalog"}'
+    . ',"offers":{"@type":"AggregateOffer","priceCurrency":"CZK","lowPrice":"990","highPrice":"5000","offerCount":' . max(1, count($sb->fetchMotos() ?: [])) . ',"url":"https://www.motogo24.cz/katalog"}'
     . ',"category":"Vehicle rental"'
     . (!empty($benefitFeatures) ? ',"additionalProperty":[' . implode(',', $benefitFeatures) . ']' : '')
     . '}

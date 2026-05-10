@@ -358,7 +358,7 @@ serve(async (req) => {
 
 /** Build branded marketing HTML email — unified design (1:1 with invoice + screen) */
 function buildMarketingHtml(body: string, subject: string): string {
-  const SITE_URL = Deno.env.get('SITE_URL') || 'https://motogo24.cz'
+  const SITE_URL = Deno.env.get('SITE_URL') || 'https://www.motogo24.cz'
   const header = `<div style="background:#000000;padding:36px 24px;text-align:center">
     <img src="${SITE_URL}/gfx/logo-icon.png" alt="MotoGo24" width="110" height="110" style="display:inline-block;border:0;margin-bottom:16px"/>
     <div style="color:#ffffff;font-size:32px;font-weight:900;letter-spacing:3px;line-height:1">MOTO GO 24</div>

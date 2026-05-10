@@ -239,7 +239,7 @@ export default function AiTrafficTab() {
                     {p.bookings || '—'}
                   </td>
                   <td className="p-2 text-right">
-                    <a href={`https://motogo24.cz${p.path}`} target="_blank" rel="noopener noreferrer"
+                    <a href={`https://www.motogo24.cz${p.path}`} target="_blank" rel="noopener noreferrer"
                        onClick={e => e.stopPropagation()}
                        style={{ color: '#1a8c1a', fontSize: 11, textDecoration: 'underline' }}>otevřít ↗</a>
                   </td>

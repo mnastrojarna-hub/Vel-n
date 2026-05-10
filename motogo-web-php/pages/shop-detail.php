@@ -212,7 +212,7 @@ $productSchema = '
     ',"availability":' . json_encode($stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock') .
     ',"itemCondition":"https://schema.org/NewCondition"' .
     ',"priceValidUntil":' . json_encode(date('Y-m-d', strtotime('+1 year'))) .
-    ',"seller":{"@type":"Organization","name":"MotoGo24","url":"https://motogo24.cz"}' .
+    ',"seller":{"@type":"Organization","name":"MotoGo24","url":"https://www.motogo24.cz"}' .
     ',"url":' . json_encode($productUrl) . '}' : '') .
   $reviewAgg .
   '}

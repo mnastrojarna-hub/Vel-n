@@ -16,9 +16,10 @@ RewriteCond %{HTTP:X-Forwarded-Proto} !=https
 RewriteRule ^(.*)$ https://%{HTTP_HOST}/$1 [L,R=301]
 
 # === 2. Force non-www pro domeny mimo .cz =======================================
-# .cz je na Forpsi, kde proxy/DNS sam vynucuje www -> s timto pravidlem
-# vznikal ERR_TOO_MANY_REDIRECTS. Pro .cz spoleháme na <link rel="canonical">
-# v layout.php:605 (siteCanonicalUrl vraci vzdy non-www variantu).
+# .cz je na Forpsi, kde proxy/DNS sam vynucuje www na vsech requestech.
+# canonical i hreflang pro 'cs' generuje www variantu (i18n: i18nOriginForLang
+# pro motogo24.cz pripoji 'www.' prefix), aby crawlery nehlasily redirect-loop
+# canonical->non-www->www. Tady tedy zadny www->non-www redirect pro .cz neni.
 # Pro ostatni domeny (.com/.pl/.at/.es/.fr/.nl na Hosting90) 301 funguje korektne
 # a zaroven dorovnava chybejici redirect na non-www variantu.
 RewriteCond %{HTTP_HOST} ^www\.motogo24\.(com|pl|at|es|fr|nl)$ [NC]

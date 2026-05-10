@@ -66,7 +66,7 @@ return [
 
     // ===== Cookie consent banner (GDPR / ePrivacy) =====
     'cookies.title' => 'This site uses cookies',
-    'cookies.intro' => 'We use cookies to make the site work and — only with your consent — for analytics and marketing. Consent is optional and you can change it any time from the footer. More in our <a href="/gdpr">Privacy policy</a>.',
+    'cookies.intro' => 'We use cookies to make the site work and — only with your consent — for analytics and marketing. Consent is optional and you can change it any time from the footer. More in our <a href="/dokumenty/zasady-ochrany-osobnich-udaju">Privacy policy</a>.',
     'cookies.acceptAll' => 'Accept all',
     'cookies.rejectAll' => 'Reject',
     'cookies.settings' => 'Settings',
@@ -290,8 +290,8 @@ return [
     'rez.gear.item.return' => 'Motorcycle return',
 
     // ===== Booking — consents =====
-    'rez.agree.terms' => '* I agree with the <a href="/obchodni-podminky">terms and conditions</a>',
-    'rez.agree.gdpr' => 'I agree with the <a href="/gdpr">processing of personal data</a>',
+    'rez.agree.terms' => '* I agree with the <a href="/dokumenty/obchodni-podminky">terms and conditions</a>',
+    'rez.agree.gdpr' => 'I agree with the <a href="/dokumenty/zasady-ochrany-osobnich-udaju">processing of personal data</a>',
     'rez.agree.marketing' => 'I agree to receive marketing communications',
     'rez.agree.photo' => 'I agree to the use of photos for marketing purposes',
 

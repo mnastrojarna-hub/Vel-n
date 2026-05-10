@@ -414,7 +414,7 @@ return [
                 'title' => 'Motorcycle rental Vysočina - Vouchers',
                 'description' => 'Buy a gift voucher for motorcycle rental. Valid for 3 years, without deposit, gear included. Electronic and printed voucher. Online order.',
                 'keywords' => 'motorcycle rental Czech Republic',
-                'og_image' => 'https://motogo24.cz/gfx/darkovy-poukaz.jpg',
+                'og_image' => 'https://www.motogo24.cz/gfx/darkovy-poukaz.jpg',
             ],
             'h1' => 'Buy a gift voucher – give the experience of two wheels!',
             'intro_left' => '<p>Looking for an original gift for your partner, friend or dad?</p><p>&nbsp;</p><p>Our <strong>gift vouchers for motorcycle rental</strong> from Motogo24 – <strong>motorcycle rental Vysočina</strong> – will please beginners and experienced riders alike.</p><p>&nbsp;</p><p>Choose the voucher value or a specific motorcycle and give the gift of freedom on two wheels.</p>',

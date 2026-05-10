@@ -414,7 +414,7 @@ return [
                 'title' => 'Alquiler de motos Vysočina - Vales',
                 'description' => 'Compra un vale regalo para el alquiler de moto. Validez 3 años, sin depósito, equipamiento incluido. Vale electrónico o impreso. Pedido online.',
                 'keywords' => 'alquiler de motos República Checa',
-                'og_image' => 'https://motogo24.cz/gfx/darkovy-poukaz.jpg',
+                'og_image' => 'https://www.motogo24.cz/gfx/darkovy-poukaz.jpg',
             ],
             'h1' => 'Compra un vale regalo – ¡regala una experiencia sobre dos ruedas!',
             'intro_left' => '<p>¿Buscas un regalo original para tu pareja, amigo o padre?</p><p>&nbsp;</p><p>Nuestros <strong>vales regalo para el alquiler de moto</strong> de Motogo24 – <strong>Alquiler de motos Vysočina</strong> – encantarán tanto a principiantes como a pilotos experimentados.</p><p>&nbsp;</p><p>Elige el valor del vale o una moto concreta y regala libertad sobre dos ruedas.</p>',

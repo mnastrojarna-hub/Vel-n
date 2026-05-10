@@ -67,7 +67,7 @@ return [
 
     // ===== Cookie consent banner (GDPR / ePrivacy) =====
     'cookies.title' => 'Tato stránka používá cookies',
-    'cookies.intro' => 'Soubory cookies používáme k zajištění funkčnosti webu a — pouze s vaším souhlasem — k měření návštěvnosti a marketingu. Souhlas je dobrovolný a můžete jej kdykoli změnit v zápatí stránky. Více v <a href="/gdpr">Zásadách ochrany osobních údajů</a>.',
+    'cookies.intro' => 'Soubory cookies používáme k zajištění funkčnosti webu a — pouze s vaším souhlasem — k měření návštěvnosti a marketingu. Souhlas je dobrovolný a můžete jej kdykoli změnit v zápatí stránky. Více v <a href="/dokumenty/zasady-ochrany-osobnich-udaju">Zásadách ochrany osobních údajů</a>.',
     'cookies.acceptAll' => 'Přijmout vše',
     'cookies.rejectAll' => 'Odmítnout',
     'cookies.settings' => 'Nastavení',
@@ -390,8 +390,8 @@ return [
     'rez.gear.item.return' => 'Vrácení motorky',
 
     // ===== Rezervace — souhlasy =====
-    'rez.agree.terms' => '* Souhlasím s <a href="/obchodni-podminky">obchodními podmínkami</a>',
-    'rez.agree.gdpr' => 'Souhlasím se <a href="/gdpr">zpracováním osobních údajů</a>',
+    'rez.agree.terms' => '* Souhlasím s <a href="/dokumenty/obchodni-podminky">obchodními podmínkami</a>',
+    'rez.agree.gdpr' => 'Souhlasím se <a href="/dokumenty/zasady-ochrany-osobnich-udaju">zpracováním osobních údajů</a>',
     'rez.agree.marketing' => 'Souhlasím se zasíláním marketingových sdělení',
     'rez.agree.photo' => 'Souhlasím s využitím fotografií pro marketingové účely',
 

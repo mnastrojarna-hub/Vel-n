@@ -188,5 +188,5 @@ update();
 renderPage(t('voucher.pageTitle'), $content . $js, '/koupit-darkovy-poukaz', [
     'description' => t('voucher.description'),
     'keywords' => t('voucher.keywords'),
-    'og_image' => 'https://motogo24.cz/gfx/darkovy-poukaz.jpg',
+    'og_image' => 'https://www.motogo24.cz/gfx/darkovy-poukaz.jpg',
 ]);
