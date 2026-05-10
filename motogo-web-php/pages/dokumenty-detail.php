@@ -54,17 +54,33 @@ body.doc-render table td, body.doc-render table th { border: 1px solid #d4e8e0; 
 }
 CSS;
 
-$tplHtml = $tpl && !empty($tpl['content_html']) ? $tpl['content_html'] : '';
+// SEO sanitace CMS obsahu z Velin RichTextEditor:
+//  - <b>/<i>/<font> -> <strong>/<em>/<span> (semantic)
+//  - prazdne <strong></strong>/<em></em>/<span></span> -> pryc (Seobility 'Empty tags')
+//  - vnoreny <h1> -> <h2> (Seobility 'Multiple H1 in page' — sablona uz ma jeden <h1>)
+//  - <iframe>/<script> raw HTML chrana (i kdyz Velin editor by je nemel pustit)
+$tplHtml = $tpl && !empty($tpl['content_html']) ? sanitizeHtml($tpl['content_html']) : '';
 
 // `format=pdf` → vrátí samostatný HTML dokument optimalizovaný pro tisk/uložení
 // jako PDF (Ctrl+P → Save as PDF). Žádné navigační prvky webu, jen čistý obsah.
 // Backend-side PDF render přes PDFShift se může přidat později — pro většinu
 // uživatelů je browser print → PDF dostatečné a okamžitě k dispozici.
+//
+// SEO: Print verze NESMÍ jít do Google indexu — Seobility audit (2026-05-10)
+// zaznamenal pokles Content score z 80% → 66% protože tyhle minimalistické
+// print-only stránky se začaly indexovat jako samostatný obsah (chybělo meta
+// description, krátké/duplicitní H1, „Pages without text"). Vracíme tedy
+// `X-Robots-Tag: noindex, nofollow` (HTTP) i `<meta name="robots">` (HTML)
+// — Google print verze ignoruje, hlavní stránka /dokumenty/<slug> zůstává
+// jediným indexovatelným zdrojem. `nofollow` aby crawler nešel z print
+// verze nikam dál (nejsou tu beztoho odkazy).
 if ($wantPdf) {
     header('Content-Type: text/html; charset=utf-8');
     header('Cache-Control: no-store');
+    header('X-Robots-Tag: noindex, nofollow');
     $title = htmlspecialchars($entry['title']);
     echo '<!DOCTYPE html><html lang="cs"><head><meta charset="utf-8"><title>' . $title . '</title>';
+    echo '<meta name="robots" content="noindex, nofollow">';
     echo '<style>' . $DOC_CSS . '</style></head>';
     echo '<body class="doc-render" onload="setTimeout(function(){window.print()},250)">';
     echo $tplHtml ?: '<p>Dokument zatím nebyl publikován.</p>';
@@ -95,7 +111,7 @@ if (!$tpl || empty($tplHtml)) {
               . ' &middot; aktualizováno ' . htmlspecialchars(date('d. m. Y', strtotime($tpl['updated_at']))) . '</p>';
     }
     $body .= '<div class="no-print" style="display:flex;gap:8px;margin:12px 0 20px">';
-    $body .= '<a class="btn btngreen" href="' . htmlspecialchars($pdfHref) . '" target="_blank" rel="noopener">'
+    $body .= '<a class="btn btngreen" href="' . htmlspecialchars($pdfHref) . '" target="_blank" rel="noopener nofollow">'
           .  '<img src="' . BASE_URL . '/gfx/ico-stahnout.svg" alt="" style="height:16px;vertical-align:middle;margin-right:6px">'
           .  'Stáhnout / Tisk (PDF)</a>';
     $body .= '</div>';
