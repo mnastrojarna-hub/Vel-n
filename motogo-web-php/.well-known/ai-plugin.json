@@ -10,11 +10,11 @@
   },
   "api": {
     "type": "openapi",
-    "url": "https://motogo24.cz/.well-known/openapi.yaml",
+    "url": "https://www.motogo24.cz/.well-known/openapi.yaml",
     "is_user_authenticated": false
   },
-  "logo_url": "https://motogo24.cz/gfx/logo.svg",
+  "logo_url": "https://www.motogo24.cz/gfx/logo.svg",
   "contact_email": "info@motogo24.cz",
-  "legal_info_url": "https://motogo24.cz/obchodni-podminky",
-  "privacy_policy_url": "https://motogo24.cz/gdpr"
+  "legal_info_url": "https://www.motogo24.cz/obchodni-podminky",
+  "privacy_policy_url": "https://www.motogo24.cz/gdpr"
 }

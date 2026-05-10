@@ -102,7 +102,7 @@ foreach ($C['process']['steps'] as $s) {
     $howToSteps[] = '{"@type":"HowToStep","position":' . $stepPos
         . ',"name":' . json_encode($stepName !== '' ? $stepName : ('Krok ' . $stepPos), JSON_UNESCAPED_UNICODE)
         . ',"text":' . json_encode($stepText, JSON_UNESCAPED_UNICODE)
-        . ',"url":"https://motogo24.cz/jak-pujcit/postup#step-' . $stepPos . '"'
+        . ',"url":"https://www.motogo24.cz/jak-pujcit/postup#step-' . $stepPos . '"'
         . '}';
 }
 $howToSchema = '';
@@ -113,7 +113,7 @@ if (!empty($howToSteps)) {
   <script type="application/ld+json">
   {"@context":"https://schema.org","@type":"HowTo","name":' . json_encode($howToName, JSON_UNESCAPED_UNICODE)
         . ',"description":' . json_encode($howToDesc, JSON_UNESCAPED_UNICODE)
-        . ',"image":"https://motogo24.cz/gfx/hero-banner.jpg"'
+        . ',"image":"https://www.motogo24.cz/gfx/hero-banner.jpg"'
         . ',"totalTime":"PT15M"'
         . ',"estimatedCost":{"@type":"MonetaryAmount","currency":"CZK","value":"990"}'
         . ',"supply":[{"@type":"HowToSupply","name":"Občanský průkaz nebo cestovní pas"},{"@type":"HowToSupply","name":"Řidičský průkaz (skupina A1/A2/A nebo B pro dětské motorky)"},{"@type":"HowToSupply","name":"Platební karta nebo hotovost"}]'

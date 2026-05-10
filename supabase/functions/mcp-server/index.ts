@@ -215,7 +215,7 @@ async function execTool(name: string, args: Record<string, unknown>): Promise<un
           min_price_per_day: Math.min(...['price_mon','price_tue','price_wed','price_thu','price_fri','price_sat','price_sun']
             .map((k) => Number((m as Record<string, unknown>)[k] || 0)).filter((p) => p > 0)),
           ideal_usage: m.ideal_usage, image_url: m.image_url,
-          url: `https://motogo24.cz/katalog/${m.id}`,
+          url: `https://www.motogo24.cz/katalog/${m.id}`,
         })),
       }
     }
@@ -297,7 +297,7 @@ async function execTool(name: string, args: Record<string, unknown>): Promise<un
       const r = data as Record<string, unknown>
       return {
         ...r,
-        payment_url: `https://motogo24.cz/rezervace?id=${r.booking_id}`,
+        payment_url: `https://www.motogo24.cz/rezervace?id=${r.booking_id}`,
         next_step: 'Customer must visit payment_url to complete Stripe payment.',
       }
     }
@@ -360,7 +360,7 @@ Czech motorcycle rental in Mezná near Pelhřimov (Vysočina region).
 
 Contact: +420 774 256 271 · info@motogo24.cz · Mezná 9, 393 01 Pelhřimov, CZ
 GPS: 49.4147, 15.2953
-Web: https://motogo24.cz`,
+Web: https://www.motogo24.cz`,
     }
   }
   if (uri === 'motogo://motorcycles') {
@@ -472,7 +472,7 @@ serve(async (req) => {
       info: {
         provider: 'MotoGo24',
         contact: 'info@motogo24.cz',
-        homepage: 'https://motogo24.cz',
+        homepage: 'https://www.motogo24.cz',
         languages: ['cs', 'en', 'de', 'es', 'fr', 'nl', 'pl'],
         currencies: ['CZK'],
         regions: ['CZ', 'SK', 'AT', 'DE', 'PL'],

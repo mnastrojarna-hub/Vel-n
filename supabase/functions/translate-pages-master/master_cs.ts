@@ -1398,7 +1398,7 @@ export const MASTER_CS_BUNDLED = {
                 "title": "Půjčovna motorek Vysočina - Poukazy",
                 "description": "Kupte dárkový poukaz na pronájem motorky. Platnost 3 roky, bez kauce, výbava v ceně. Elektronický i tištěný poukaz. Online objednávka.",
                 "keywords": "dárkový poukaz motorka, voucher pronájem motorky, dárek pro motorkáře, poukaz Motogo24, půjčovna motorek Vysočina",
-                "og_image": "https://motogo24.cz/gfx/darkovy-poukaz.jpg"
+                "og_image": "https://www.motogo24.cz/gfx/darkovy-poukaz.jpg"
             },
             "h1": "Kup dárkový poukaz – daruj zážitek na dvou kolech!",
             "intro_left": "<p>Hledáš originální dárek pro partnera, kamaráda nebo tátu?</p><p>&nbsp;</p><p>Naše <strong>dárkové poukazy na pronájem motorky</strong> od Motogo24 – <strong>půjčovna motorek Vysočina</strong> – potěší začátečníky i zkušené jezdce.</p><p>&nbsp;</p><p>Vyber hodnotu poukazu nebo konkrétní motorku a daruj svobodu na dvou kolech.</p>",

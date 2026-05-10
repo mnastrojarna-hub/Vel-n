@@ -16,7 +16,8 @@ header('Cache-Control: public, max-age=3600');
 header('X-Robots-Tag: noindex, follow');
 
 $lang = i18nDetectLanguage();
-$base = 'https://motogo24.cz';
+// Origin podle aktualne servirovane domény / jazyka (www variant pro .cz).
+$base = i18nOriginForLang($lang);
 $sb = new SupabaseClient();
 
 // ------------------------------------------------------------------
@@ -189,7 +190,7 @@ echo "**Adresa:** Mezná 9, 393 01 Pelhřimov, Vysočina, Česká republika  \n"
 echo "**GPS:** 49.4147° N, 15.2953° E  \n";
 echo "**Telefon:** +420 774 256 271  \n";
 echo "**E-mail:** info@motogo24.cz  \n";
-echo "**Web:** https://motogo24.cz · https://motogo24.com  \n";
+echo "**Web:** https://www.motogo24.cz · https://motogo24.com  \n";
 echo "**Provoz:** 24/7 nonstop, 365 dní v roce  \n";
 echo "**Datová schránka:** iuw3vnb  \n";
 echo "**Datum založení:** 31. 7. 2024 (zápis u Městského úřadu v Pelhřimově)  \n";

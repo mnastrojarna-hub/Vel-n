@@ -287,7 +287,7 @@ $listItems = [];
 foreach (array_slice($filtered, 0, 50) as $i => $m) {
     if (empty($m['id'])) continue;
     $listItems[] = '{"@type":"ListItem","position":' . ($i + 1)
-        . ',"url":"https://motogo24.cz/katalog/' . htmlspecialchars($m['id']) . '"'
+        . ',"url":"https://www.motogo24.cz/katalog/' . htmlspecialchars($m['id']) . '"'
         . ',"name":' . json_encode($m['model'] ?? '', JSON_UNESCAPED_UNICODE)
         . '}';
 }

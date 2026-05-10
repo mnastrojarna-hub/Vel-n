@@ -139,7 +139,7 @@ function renderInlineJs() {
  * lokální SEO v Seznam.cz.
  */
 function buildSameAs() {
-    $list = [FB_URL, IG_URL, 'https://motogo24.cz', 'https://motogo24.com', 'https://motogo24.at', 'https://motogo24.es', 'https://motogo24.pl', 'https://motogo24.fr', 'https://motogo24.nl'];
+    $list = [FB_URL, IG_URL, 'https://www.motogo24.cz', 'https://motogo24.com', 'https://motogo24.at', 'https://motogo24.es', 'https://motogo24.pl', 'https://motogo24.fr', 'https://motogo24.nl'];
     $extras = [
         defined('SAMEAS_FIRMY_CZ') ? SAMEAS_FIRMY_CZ : '',
         defined('SAMEAS_MAPY_CZ')  ? SAMEAS_MAPY_CZ  : '',

@@ -16,7 +16,9 @@ header('Cache-Control: public, max-age=3600');
 header('X-Robots-Tag: noindex, follow');
 
 $lang = i18nDetectLanguage();
-$base = 'https://motogo24.cz';
+// Origin podle aktualne servirovane domény / jazyka — .cz jde s www prefixem
+// (Forpsi vynucuje www, jakákoli non-www URL by se redirectovala).
+$base = i18nOriginForLang($lang);
 $sb = new SupabaseClient();
 
 $titles = [
@@ -109,7 +111,7 @@ echo "- **{$T['address']}:** Mezná 9, 393 01 Pelhřimov, Vysočina, CZ\n";
 echo "- **{$T['phone']}:** +420 774 256 271\n";
 echo "- **{$T['email']}:** info@motogo24.cz\n";
 echo "- **GPS:** 49.4147 N, 15.2953 E\n";
-echo "- **Web:** https://motogo24.cz · https://motogo24.com\n\n";
+echo "- **Web:** https://www.motogo24.cz · https://motogo24.com\n\n";
 
 echo "## {$T['h2_catalog']}\n\n";
 echo "- [Katalog všech motorek]({$base}/katalog): kompletní nabídka motorek k pronájmu (cestovní, naked, supermoto, dětské)\n";

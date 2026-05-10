@@ -310,7 +310,7 @@ async function handleCreateBooking(req: Request): Promise<Response> {
   if (error) return jsonResponse({ error: error.message }, 400)
   return jsonResponse({
     ...((data as Record<string, unknown>) || {}),
-    payment_url: `https://motogo24.cz/rezervace?id=${(data as Record<string, unknown>)?.booking_id}`,
+    payment_url: `https://www.motogo24.cz/rezervace?id=${(data as Record<string, unknown>)?.booking_id}`,
     next_step: 'Otevřete payment_url pro dokončení platby přes Stripe.',
   })
 }
@@ -432,7 +432,7 @@ serve(async (req) => {
       response = jsonResponse({
         name: 'MotoGo24 Public API',
         version: '1.0.0',
-        documentation: 'https://motogo24.cz/api/v1/openapi.json',
+        documentation: 'https://www.motogo24.cz/api/v1/openapi.json',
         endpoints: [
           'GET  /api/v1/motorcycles',
           'GET  /api/v1/motorcycles/:id',
@@ -481,8 +481,8 @@ function buildOpenApiSpec() {
       title: 'MotoGo24 Public API',
       version: '1.0.0',
       description: 'Veřejné REST API půjčovny motorek MotoGo24. Tenká vrstva nad Supabase RPC. Hybrid auth: bez klíče = nízký rate-limit, s X-Api-Key = partner rate-limit dle DB.',
-      contact: { name: 'MotoGo24', email: 'info@motogo24.cz', url: 'https://motogo24.cz' },
-      license: { name: 'Proprietary', url: 'https://motogo24.cz/obchodni-podminky' },
+      contact: { name: 'MotoGo24', email: 'info@motogo24.cz', url: 'https://www.motogo24.cz' },
+      license: { name: 'Proprietary', url: 'https://www.motogo24.cz/obchodni-podminky' },
     },
     servers: [{ url: 'https://api.motogo24.cz', description: 'Production' }],
     components: {

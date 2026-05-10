@@ -414,7 +414,7 @@ return [
                 'title' => 'Location de motos Vysočina - Bons cadeaux',
                 'description' => 'Achète un bon cadeau pour la location d\'une moto. Validité 3 ans, sans caution, équipement inclus. Bon électronique ou imprimé. Commande en ligne.',
                 'keywords' => 'location moto République tchèque',
-                'og_image' => 'https://motogo24.cz/gfx/darkovy-poukaz.jpg',
+                'og_image' => 'https://www.motogo24.cz/gfx/darkovy-poukaz.jpg',
             ],
             'h1' => 'Achète un bon cadeau – offre une expérience sur deux roues !',
             'intro_left' => '<p>Tu cherches un cadeau original pour ton ou ta partenaire, un ami ou ton père ?</p><p>&nbsp;</p><p>Nos <strong>bons cadeaux pour la location d\'une moto</strong> de Motogo24 – <strong>location de motos Vysočina</strong> – raviront aussi bien les débutants que les pilotes expérimentés.</p><p>&nbsp;</p><p>Choisis la valeur du bon ou une moto précise et offre la liberté sur deux roues.</p>',
