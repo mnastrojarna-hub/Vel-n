@@ -92,16 +92,16 @@ foreach ($C['signposts'] as $i => $s) {
     $kBase = 'web.home.signposts.' . $i;
     $signHtml .= '<a class="gbox" href="' . BASE_URL . $s['href'] . '">' .
         '<div class="gr2"><div class="gbox-img"><img src="' . htmlspecialchars($iconSrc) . '" class="icon" alt="" aria-hidden="true" loading="lazy" width="36" height="36"></div><div>' .
-        '<h3 data-cms-key="' . $kBase . '.title">' . ($s['title'] !== '' ? $s['title'] : $titleText) . '</h3>' .
-        '<p data-cms-key="' . $kBase . '.text">' . $s['text'] . '</p>' .
-        '<div class="btn btngreen-small" data-cms-key="' . $kBase . '.btn">' . $s['btn'] . '</div></div></div></a>';
+        '<h3 data-cms-key="' . $kBase . '.title">' . sanitizeHtml($s['title'] !== '' ? $s['title'] : $titleText) . '</h3>' .
+        '<p data-cms-key="' . $kBase . '.text">' . sanitizeHtml($s['text']) . '</p>' .
+        '<div class="btn btngreen-small" data-cms-key="' . $kBase . '.btn">' . sanitizeHtml($s['btn']) . '</div></div></div></a>';
 }
 $signHtml .= '</div></section>';
 
 // ---- Motorky
 $mo = $C['motos_section'];
-$motosHtml = '<section aria-labelledby="catalogue"><h2 id="catalogue" data-cms-key="web.home.motos_section.title">' . $mo['title'] . '</h2>' .
-    '<p data-cms-key="web.home.motos_section.intro">' . $mo['intro'] . '</p><p>&nbsp;</p>' .
+$motosHtml = '<section aria-labelledby="catalogue"><h2 id="catalogue" data-cms-key="web.home.motos_section.title">' . sanitizeHtml($mo['title']) . '</h2>' .
+    '<p data-cms-key="web.home.motos_section.intro">' . sanitizeHtml($mo['intro']) . '</p><p>&nbsp;</p>' .
     '<div id="home-motos" class="gr4">';
 if (!empty($motos)) {
     foreach (array_slice($motos, 0, (int)($mo['limit'] ?? 4)) as $m) {
@@ -113,7 +113,7 @@ if (!empty($motos)) {
 $motosHtml .= '</div><p>&nbsp;</p><p class="text-center"><a class="btn btngreen" href="' . BASE_URL . $mo['cta_href'] . '" data-cms-key="web.home.motos_section.cta_label">' . $mo['cta_label'] . '</a></p></section>';
 
 // ---- Proces
-$processHtml = '<section aria-labelledby="process"><h2 id="process" data-cms-key="web.home.process.title">' . $C['process']['title'] . '</h2><div class="gr4">';
+$processHtml = '<section aria-labelledby="process"><h2 id="process" data-cms-key="web.home.process.title">' . sanitizeHtml($C['process']['title']) . '</h2><div class="gr4">';
 foreach ($C['process']['steps'] as $i => $s) {
     $kBase = 'web.home.process.steps.' . $i;
     $processHtml .= renderWbox(
@@ -175,7 +175,7 @@ if (!empty($reviews)) {
 
 // ---- Blog
 $bl = $C['blog'];
-$blogHtml = '<section aria-labelledby="blog"><h2 id="blog" data-cms-key="web.home.blog.title">' . $bl['title'] . '</h2><div id="home-blog" class="gr3">';
+$blogHtml = '<section aria-labelledby="blog"><h2 id="blog" data-cms-key="web.home.blog.title">' . sanitizeHtml($bl['title']) . '</h2><div id="home-blog" class="gr3">';
 if (!empty($posts)) {
     foreach (array_slice($posts, 0, (int)($bl['limit'] ?? 3)) as $p) {
         $blogHtml .= renderBlogCard($p);
@@ -191,18 +191,22 @@ $heroImgUrl = BASE_URL . '/' . ltrim($hero['image'], '/');
 $heroWebp = preg_replace('/\.(png|jpg|jpeg)$/i', '.webp', $heroImgUrl);
 $ctaP = $hero['cta_primary'];
 $ctaS = $hero['cta_secondary'];
+// Responsive srcset varianty pro hero — mobile sahne pro 480w (10 KB)
+// misto plnych 146 KB. Soubory generovany v repo, viz commit hero-resize.
+$heroBase = preg_replace('/\.webp$/i', '', $heroWebp);
+$heroSrcset = $heroBase . '-480.webp 480w, ' . $heroBase . '-768.webp 768w, ' . $heroBase . '-1500.webp 1500w, ' . $heroWebp . ' 1920w';
 $bannerHtml = '<div class="banner">' .
     '<picture>' .
-        '<source srcset="' . htmlspecialchars($heroWebp) . '" type="image/webp" sizes="(max-width:480px) 100vw,(max-width:1024px) 100vw,1920px">' .
+        '<source srcset="' . htmlspecialchars($heroSrcset) . '" type="image/webp" sizes="100vw">' .
         '<img fetchpriority="high" decoding="async" alt="' . htmlspecialchars($hero['alt']) . '" src="' . htmlspecialchars($heroImgUrl) . '" width="1920" height="480">' .
     '</picture>' .
     '<div class="banner-wrapper"><div class="container"><div class="banner-caption">' .
-        '<p data-cms-key="web.home.hero.eyebrow">' . $hero['eyebrow'] . '</p><p>&nbsp;</p>' .
-        '<p data-cms-key="web.home.hero.body">' . $hero['body'] . '</p><p>&nbsp;</p>' .
+        '<p data-cms-key="web.home.hero.eyebrow">' . sanitizeHtml($hero['eyebrow']) . '</p><p>&nbsp;</p>' .
+        '<p data-cms-key="web.home.hero.body">' . sanitizeHtml($hero['body']) . '</p><p>&nbsp;</p>' .
         '<p><a class="btn ' . ($ctaP['cls'] ?? 'btngreen') . '" href="' . BASE_URL . $ctaP['href'] . '" data-cms-key="web.home.hero.cta_primary.label">' . $ctaP['label'] . '</a> <a class="btn ' . ($ctaS['cls'] ?? 'btndark') . '" href="' . BASE_URL . $ctaS['href'] . '" data-cms-key="web.home.hero.cta_secondary.label">' . $ctaS['label'] . '</a></p>' .
     '</div></div></div></div>';
 
-$introHtml = !empty($C['intro']) ? '<p class="home-intro" data-cms-key="web.home.intro">' . $C['intro'] . '</p>' : '';
+$introHtml = !empty($C['intro']) ? '<p class="home-intro" data-cms-key="web.home.intro">' . sanitizeHtml($C['intro']) . '</p>' : '';
 
 $content = $bannerHtml .
     '<main id="content"><div class="container"><h1 data-cms-key="web.home.h1">' . $C['h1'] . '</h1>' . $introHtml .

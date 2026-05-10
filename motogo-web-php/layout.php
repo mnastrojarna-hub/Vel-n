@@ -358,11 +358,15 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
     // Preferujeme WebP — moderní prohlížeče (~95 %) ho podpoří, ostatní
     // si stáhnou JPEG fallback z <picture> v home.php.
     if ($currentPath === '/' && empty($preload)) {
+        // Responsive preload — browser vybere nejmensi vhodnou variantu
+        // podle viewportu (mobil 480w, tablet 768w, desktop 1500w, 4K 1920w).
         $preload[] = [
-            'href' => BASE_URL . '/gfx/hero-banner.webp',
+            'href' => BASE_URL . '/gfx/hero-banner-1500.webp',
             'as' => 'image',
             'type' => 'image/webp',
             'fetchpriority' => 'high',
+            'imagesrcset' => BASE_URL . '/gfx/hero-banner-480.webp 480w, ' . BASE_URL . '/gfx/hero-banner-768.webp 768w, ' . BASE_URL . '/gfx/hero-banner-1500.webp 1500w, ' . BASE_URL . '/gfx/hero-banner.webp 1920w',
+            'imagesizes' => '100vw',
         ];
     }
 
@@ -546,8 +550,7 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
   </script>' . $breadcrumbSchema . $speakableSchema . ($extraSchema ? "\n" . $extraSchema : '') . '
 
   <link rel="preconnect" href="' . SUPABASE_URL . '" crossorigin>
-  <link rel="preload" href="' . assetUrl('/gfx/fonts/montserrat-vf-latin-ext.woff2') . '" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="' . assetUrl('/css/fonts.css') . '">';
+  <link rel="preload" href="' . assetUrl('/gfx/fonts/montserrat-vf-latin-ext.woff2') . '" as="font" type="font/woff2" crossorigin>';
 
     foreach ($preload as $p) {
         $attrs = '';
