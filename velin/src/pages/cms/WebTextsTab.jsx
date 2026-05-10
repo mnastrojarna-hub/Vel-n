@@ -32,8 +32,19 @@ export function buildWebUrl(base, pageUrl, token, highlightKey, extra) {
   return params.length ? url + '?' + params.join('&') : url
 }
 
-export default function WebTextsTab() {
-  const [activePage, setActivePage] = useState(WEB_PAGES[0].id)
+export default function WebTextsTab({ initialPageId }) {
+  // Pokud SEO Health tab predal pageId pres 'Opravit' tlacitko, otevreme tu stranku
+  const startPage = initialPageId && WEB_PAGES.some(p => p.id === initialPageId)
+    ? initialPageId
+    : WEB_PAGES[0].id
+  const [activePage, setActivePage] = useState(startPage)
+  // Reaguj na zmenu initialPageId i po mount (kdyz uzivatel zustane v CMS,
+  // klikne na jiny SEO problem -> jiny page id)
+  useEffect(() => {
+    if (initialPageId && WEB_PAGES.some(p => p.id === initialPageId)) {
+      setActivePage(initialPageId)
+    }
+  }, [initialPageId])
   const [values, setValues] = useState({})
   const [loading, setLoading] = useState(true)
   const [seeding, setSeeding] = useState(false)
