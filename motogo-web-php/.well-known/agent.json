@@ -20,8 +20,8 @@
       "addressCountry": "CZ"
     }
   },
-  "termsOfService": "https://www.motogo24.cz/obchodni-podminky",
-  "privacyPolicy": "https://www.motogo24.cz/gdpr",
+  "termsOfService": "https://www.motogo24.cz/dokumenty/obchodni-podminky",
+  "privacyPolicy": "https://www.motogo24.cz/dokumenty/zasady-ochrany-osobnich-udaju",
   "securityContact": "https://www.motogo24.cz/.well-known/security.txt",
   "languages": ["cs", "en", "de", "es", "fr", "nl", "pl"],
   "currencies": ["CZK", "EUR", "USD"],

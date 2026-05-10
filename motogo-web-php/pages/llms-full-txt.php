@@ -223,7 +223,7 @@ echo llmRenderPage('Jak si půjčit motorku — postup krok za krokem', $base . 
 
 // Vyzvednutí (převzetí)
 $prevzeti = mergeParts(loadPart('prevzeti-content-1.php'), loadPart('prevzeti-content-2.php'));
-echo llmRenderPage('Vyzvednutí motorky', $base . '/jak-pujcit/vyzvednuti', $prevzeti);
+echo llmRenderPage('Vyzvednutí motorky', $base . '/jak-pujcit/prevzeti', $prevzeti);
 
 // Vrácení v půjčovně
 $vraceni1 = mergeParts(loadPart('vraceni-pujcovna-content-1.php'), loadPart('vraceni-pujcovna-content-2.php'));

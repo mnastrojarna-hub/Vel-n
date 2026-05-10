@@ -482,7 +482,7 @@ function buildOpenApiSpec() {
       version: '1.0.0',
       description: 'Veřejné REST API půjčovny motorek MotoGo24. Tenká vrstva nad Supabase RPC. Hybrid auth: bez klíče = nízký rate-limit, s X-Api-Key = partner rate-limit dle DB.',
       contact: { name: 'MotoGo24', email: 'info@motogo24.cz', url: 'https://www.motogo24.cz' },
-      license: { name: 'Proprietary', url: 'https://www.motogo24.cz/obchodni-podminky' },
+      license: { name: 'Proprietary', url: 'https://www.motogo24.cz/dokumenty/obchodni-podminky' },
     },
     servers: [{ url: 'https://api.motogo24.cz', description: 'Production' }],
     components: {

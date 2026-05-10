@@ -116,7 +116,7 @@ function renderFooter() {
     '</div></div>' .
     '<div class="copyright"><div class="container">' .
         '<p>' . tc('footer.copyright') . '</p>' .
-        '<p><a href="' . BASE_URL . '/mapa-stranek">' . tc('footer.sitemap') . '</a><a href="#" data-cookie-prefs>' . tc('footer.cookies') . '</a><a href="' . BASE_URL . '/gdpr">' . tc('footer.gdpr') . '</a><a href="' . BASE_URL . '/obchodni-podminky">' . tc('footer.terms') . '</a><a href="' . BASE_URL . '/smlouva">' . tc('footer.contract') . '</a></p>' .
+        '<p><a href="' . BASE_URL . '/mapa-stranek">' . tc('footer.sitemap') . '</a><a href="#" data-cookie-prefs>' . tc('footer.cookies') . '</a><a href="' . BASE_URL . '/dokumenty/zasady-ochrany-osobnich-udaju">' . tc('footer.gdpr') . '</a><a href="' . BASE_URL . '/dokumenty/obchodni-podminky">' . tc('footer.terms') . '</a><a href="' . BASE_URL . '/dokumenty/smlouva-o-pronajmu">' . tc('footer.contract') . '</a></p>' .
         '<p class="footer-toplist"><a href="https://www.toplist.cz/stat/1841683" target="_blank" rel="nofollow noopener" aria-label="TOPlist"><img src="https://toplist.cz/count.asp?ID=1841683&amp;logo=mc" alt="TOPlist" width="88" height="31" loading="lazy"></a></p>' .
     '</div></div>' .
     '</footer>' .
@@ -542,7 +542,7 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
           {"@type":"ServiceChannel","servicePhone":"+420 774 256 271","name":"Telefon (24/7)"},
           {"@type":"ServiceChannel","serviceUrl":"https://wa.me/420774256271","name":"WhatsApp"}
         ],
-        "termsOfService": "' . $siteOrigin . '/obchodni-podminky",
+        "termsOfService": "' . $siteOrigin . '/dokumenty/obchodni-podminky",
         "offers": {"@type":"AggregateOffer","priceCurrency":"CZK","lowPrice":"990","highPrice":"5000","offerCount":50,"availability":"https://schema.org/InStock","seller":{"@id":"' . $siteOrigin . '/#organization"}}
       }
     ]
