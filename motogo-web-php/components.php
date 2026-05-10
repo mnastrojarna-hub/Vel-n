@@ -354,15 +354,15 @@ function renderWbox($icon, $title, $text) {
     $iconSrc = $icon ? BASE_URL . '/' . ltrim($icon, '/') : '';
     return '<div class="wbox">' .
         ($icon ? '<div class="wbox-img"><img src="' . htmlspecialchars($iconSrc) . '" class="icon" alt="" aria-hidden="true" loading="lazy"></div>' : '') .
-        '<h3>' . $title . '</h3>' .
-        '<p>' . $text . '</p></div>';
+        '<h3>' . sanitizeHtml($title) . '</h3>' .
+        '<p>' . sanitizeHtml($text) . '</p></div>';
 }
 
 /**
  * FAQ accordion item — odpovídá MG.renderFaqItem() v components.js.
  */
 function renderFaqItem($question, $answer) {
-    return '<details class="faq-item"><summary>' . $question . '</summary><p>' . $answer . '</p></details>';
+    return '<details class="faq-item"><summary>' . sanitizeHtml($question) . '</summary><p>' . sanitizeHtml($answer) . '</p></details>';
 }
 
 /**
@@ -387,10 +387,10 @@ function renderFaqSection($title, $items, $moreLink = null) {
  * ZMĚNA: href bez # prefixu (čisté URL)
  */
 function renderCta($title, $text, $buttons) {
-    $html = '<section aria-labelledby="cta"><h2 id="cta">' . $title . '</h2><p>' . $text . '</p><p>&nbsp;</p><p>';
+    $html = '<section aria-labelledby="cta"><h2 id="cta">' . sanitizeHtml($title) . '</h2><p>' . sanitizeHtml($text) . '</p><p>&nbsp;</p><p>';
     foreach ($buttons as $btn) {
         $cls = $btn['cls'] ?? 'btndark';
-        $html .= '<a class="btn ' . $cls . '" href="' . BASE_URL . $btn['href'] . '">' . $btn['label'] . '</a>&nbsp;';
+        $html .= '<a class="btn ' . $cls . '" href="' . BASE_URL . $btn['href'] . '">' . sanitizeHtml($btn['label']) . '</a>&nbsp;';
     }
     $html .= '</p></section>';
     return $html;
