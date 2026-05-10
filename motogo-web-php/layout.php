@@ -34,7 +34,7 @@ function renderHeader($currentPath = '/') {
     $nav = '';
     foreach ($menuItems as $item) {
         $hasSub = !empty($item['children']);
-        $arrow = $hasSub ? ' <img src="' . BASE_URL . '/gfx/arrow-down.svg" alt="Rozbalit podmenu" aria-hidden="true" loading="lazy" class="menu-arrow">' : '';
+        $arrow = $hasSub ? ' <img src="' . BASE_URL . '/gfx/arrow-down.svg" alt="" aria-hidden="true" loading="lazy" class="menu-arrow" width="12" height="12">' : '';
         $isActive = ($currentPath !== '/' && strpos($currentPath, $item['route']) === 0);
         $nav .= '<li' . ($hasSub ? ' class="has-sub"' : '') . '>';
         $nav .= '<a' . ($isActive ? ' class="active"' : '') . ' data-route="' . $item['route'] . '" href="' . BASE_URL . $item['route'] . '">' . $item['label'] . $arrow . '</a>';
@@ -56,7 +56,7 @@ function renderHeader($currentPath = '/') {
     return '<header>' .
         '<ul class="focus"><li><a href="#main-menu">' . tc('header.skip.menu') . '</a></li><li><a href="#content">' . tc('header.skip.content') . '</a></li><li><a href="#footer">' . tc('header.skip.contact') . '</a></li></ul>' .
         '<div class="header-topbar"><div class="container">' .
-            '<div class="header-phone"><p><a href="' . PHONE_LINK . '" aria-label="' . te('header.callUs') . '"><img alt="' . te('header.callUs') . '" src="' . BASE_URL . '/gfx/telefon-header.svg" loading="lazy"></a>&nbsp;<a href="' . PHONE_LINK . '">' . PHONE . '</a></p></div>' .
+            '<div class="header-phone"><p><a href="' . PHONE_LINK . '" aria-label="' . te('header.callUs') . '"><img alt="" aria-hidden="true" src="' . BASE_URL . '/gfx/telefon-header.svg" loading="lazy" width="24" height="24"></a>&nbsp;<a href="' . PHONE_LINK . '">' . PHONE . '</a></p></div>' .
             '<div class="header-tools">' .
                 '<a class="header-edit-rez" href="' . BASE_URL . '/upravit-rezervaci" aria-label="' . te('menu.editReservation.aria') . '" title="' . te('menu.editReservation') . '">' .
                     '<svg class="header-edit-rez-icon" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>' .
@@ -108,10 +108,10 @@ function renderFooter() {
             '<p class="dfc"><span class="footer-social-icon"><img alt="" src="' . BASE_URL . '/gfx/instagram-footer.svg" width="18" height="18"></span>&nbsp;<a href="' . IG_URL . '">instagram</a></p>' .
         '</div>' .
         '<div class="footer-contact">' . $helpTitleHtml .
-            '<div class="footer-phone dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/telefon.svg" alt="' . te('footer.iconPhone') . '" class="icon-small" loading="lazy"></div><div><p>' . $callUsHtml . '<strong><a href="' . PHONE_LINK . '">' . PHONE . '</a></strong></p></div></div>' .
-            '<div class="dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/email.svg" alt="' . te('footer.iconEmail') . '" class="icon-small" loading="lazy"></div><div><p>' . EMAIL_USER . '@' . EMAIL_DOMAIN . '</p></div></div>' .
-            '<div class="dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/adresa.svg" alt="' . te('footer.iconAddress') . '" class="icon-small" loading="lazy"></div><div><p><strong>' . tc('footer.companyLine1') . '</strong><br>' . ADDRESS . '</p></div></div>' .
-            '<div class="dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/provozni-doba.svg" alt="' . te('footer.openHoursIcon') . '" class="icon-small" loading="lazy"></div><div><p>' . tc('footer.openHours') . '</p></div></div>' .
+            '<div class="footer-phone dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/telefon.svg" alt="" aria-hidden="true" class="icon-small" loading="lazy" width="20" height="20"></div><div><p>' . $callUsHtml . '<strong><a href="' . PHONE_LINK . '">' . PHONE . '</a></strong></p></div></div>' .
+            '<div class="dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/email.svg" alt="" aria-hidden="true" class="icon-small" loading="lazy" width="20" height="20"></div><div><p>' . EMAIL_USER . '@' . EMAIL_DOMAIN . '</p></div></div>' .
+            '<div class="dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/adresa.svg" alt="" aria-hidden="true" class="icon-small" loading="lazy" width="20" height="20"></div><div><p><strong>' . tc('footer.companyLine1') . '</strong><br>' . ADDRESS . '</p></div></div>' .
+            '<div class="dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/provozni-doba.svg" alt="" aria-hidden="true" class="icon-small" loading="lazy" width="20" height="20"></div><div><p>' . tc('footer.openHours') . '</p></div></div>' .
         '</div>' .
     '</div></div>' .
     '<div class="copyright"><div class="container">' .
@@ -120,7 +120,7 @@ function renderFooter() {
         '<p class="footer-toplist"><a href="https://www.toplist.cz/stat/1841683" target="_blank" rel="nofollow noopener" aria-label="TOPlist"><img src="https://toplist.cz/count.asp?ID=1841683&amp;logo=mc" alt="TOPlist" width="88" height="31" loading="lazy"></a></p>' .
     '</div></div>' .
     '</footer>' .
-    '<a id="Up" href="#" aria-label="' . te('footer.toTop') . '" onclick="window.scrollTo({top:0,behavior:\'smooth\'});return false"><img src="' . BASE_URL . '/gfx/arrow-top.svg" alt="' . te('footer.toTop') . '"></a>';
+    '<a id="Up" href="#" aria-label="' . te('footer.toTop') . '" onclick="window.scrollTo({top:0,behavior:\'smooth\'});return false"><img src="' . BASE_URL . '/gfx/arrow-top.svg" alt="" aria-hidden="true" width="20" height="20"></a>';
 }
 
 function renderInlineJs() {
