@@ -23,6 +23,7 @@ class Motorcycle {
   final List<String> images;
   final String? color;
   final String? manualUrl;
+  final String? manualExternalUrl;
   final String? status; // active, maintenance, unavailable, retired
   final String? branchId;
   final String? branchName;
@@ -61,6 +62,7 @@ class Motorcycle {
     this.images = const [],
     this.color,
     this.manualUrl,
+    this.manualExternalUrl,
     this.status,
     this.branchId,
     this.branchName,
@@ -102,6 +104,7 @@ class Motorcycle {
       images: _parseStringList(json['images']),
       color: json['color'] as String?,
       manualUrl: json['manual_url'] as String?,
+      manualExternalUrl: json['manual_external_url'] as String?,
       status: json['status'] as String?,
       branchId: json['branch_id'] as String?,
       branchName: branch?['name'] as String?,
@@ -123,7 +126,8 @@ class Motorcycle {
     weightKg: weightKg, fuelTankL: fuelTankL, seatHeightMm: seatHeightMm,
     hasAbs: hasAbs, hasAsc: hasAsc, description: description,
     idealUsage: idealUsage, features: features, imageUrl: imageUrl,
-    images: images, color: color, manualUrl: manualUrl, status: status,
+    images: images, color: color, manualUrl: manualUrl,
+    manualExternalUrl: manualExternalUrl, status: status,
     branchId: branchId, branchName: branchName, branchCity: branchCity,
     depositAmount: depositAmount, insurancePrice: insurancePrice,
     minRentalDays: minRentalDays, maxRentalDays: maxRentalDays,
@@ -133,6 +137,17 @@ class Motorcycle {
   /// Primary display image — first from images[], fallback to image_url.
   String get displayImage =>
       images.isNotEmpty ? images.first : (imageUrl ?? '');
+
+  /// Active manual link — uploaded PDF takes precedence over external URL.
+  String? get activeManualUrl =>
+      (manualUrl != null && manualUrl!.isNotEmpty)
+          ? manualUrl
+          : (manualExternalUrl != null && manualExternalUrl!.isNotEmpty
+              ? manualExternalUrl
+              : null);
+
+  /// Whether the active manual is a PDF uploaded in Velín (vs external link).
+  bool get hasManualPdf => manualUrl != null && manualUrl!.isNotEmpty;
 
   /// Formatted price string for display (cheapest day).
   String get priceLabel {

@@ -608,6 +608,10 @@ MG._rezInit = async function(){
         _docsValidated: !!(bd.has_id_number && bd.has_license_number),
         _docNumber: bd.id_number || '',
         _licenseNumber: bd.license_number || '',
+        // 2026-05-09: Když uživatel na PC v kroku 2 vyplnil heslo a auto-persist
+        // ho uložil přes set_web_booking_password, RPC vrátí has_password=true.
+        // Mobil pak neukáže prázdné políčko hesla, ale banner „Heslo nastaveno".
+        _passwordSet: !!bd.has_password,
         sizes: { rider: rezRiderSizes, passenger: rezPassengerSizes },
         formData: {
           motoId: bd.moto_id,

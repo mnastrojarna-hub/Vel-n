@@ -7,7 +7,7 @@ return [
             'seo' => [
                 'title' => 'Contact | MotoGo24 – motorcycle rental Vysočina',
                 'description' => 'Contacts for the Motogo24 motorcycle rental in Pelhřimov. Phone +420 774 256 271, e-mail info@motogo24.cz. 24/7 service, address Mezná 9, 393 01 Pelhřimov.',
-                'keywords' => 'Motogo24 contact, motorcycle rental Pelhřimov, phone, address, opening hours, 24/7',
+                'keywords' => 'motorcycle rental Czech Republic',
             ],
             'h1' => 'Contacts – Motogo24 motorcycle rental',
             'intro' => 'Got a question about <strong>renting a motorcycle</strong>, want to order a <strong>gift voucher</strong>, need help choosing or simply want to <strong>arrange a booking</strong>? We are here for you every day, <strong>around the clock</strong>.',
@@ -84,7 +84,7 @@ return [
             'seo' => [
                 'title' => 'How to rent a motorcycle | MotoGo24',
                 'description' => 'How to rent a motorcycle at Motogo24. A simple process: choose, book, pick up. Without deposit, gear included, 24/7 service.',
-                'keywords' => 'how to rent a motorcycle, rental process, motorcycle booking, motorcycle rental Vysočina',
+                'keywords' => 'motorcycle rental Czech Republic',
             ],
             'h1' => 'How to rent a motorcycle',
             'intro' => 'At <strong>Motogo24 – motorcycle rental in Vysočina</strong>, renting is simple, quick and fair.',
@@ -127,7 +127,7 @@ return [
             'seo' => [
                 'title' => 'Motorcycle rental process | MotoGo24',
                 'description' => 'Motorcycle rental process at Motogo24 step by step. Online booking, gear included, without deposit, 24/7 service and delivery option.',
-                'keywords' => 'motorcycle rental process, how to rent a motorcycle, motorcycle booking, motorcycle rental Pelhřimov',
+                'keywords' => 'motorcycle rental Czech Republic',
             ],
             'h1' => 'Rental process',
             'intro' => '<p>At <strong>Motogo24 – motorcycle rental in Vysočina</strong>, renting is simple, quick and fair. <strong>Without deposit, with gear included and 24/7 service</strong>. See how easy it is.</p><p>&nbsp;</p><h2>How to rent a motorcycle – Motogo24 Vysočina rental</h2><p>At the <strong>Motogo24 motorcycle rental</strong>, the <strong>rental process</strong> is simple: <strong>online booking</strong>, <strong>gear included</strong>, <strong>without deposit</strong>, <strong>24/7 service</strong> and the option of <strong>motorcycle delivery</strong>. Whether you are looking for a <strong>touring motorcycle</strong> for the weekend, a <strong>sports motorcycle</strong> for adrenaline or an <strong>enduro</strong> for off-road, you will find the ideal solution with us.</p>',
@@ -214,7 +214,7 @@ return [
             'seo' => [
                 'title' => 'Motorcycle pick-up at the rental | MotoGo24',
                 'description' => 'Motorcycle pick-up at the rental in Pelhřimov. 24/7 service, without deposit, gear included. What to bring and how the handover works.',
-                'keywords' => 'motorcycle pick-up at the rental, picking up a motorcycle, Pelhřimov rental, 24/7 pick-up',
+                'keywords' => 'motorcycle rental Czech Republic',
             ],
             'h1' => 'Motorcycle pick-up at the rental – fast, simple and 24/7',
             'intro' => 'At <strong>Motogo24 – motorcycle rental Vysočina</strong>, <strong>picking up a motorcycle</strong> takes only a few minutes. We rent <strong>without deposit</strong>, with <strong>gear included</strong> and <strong>24/7 service</strong>.',
@@ -312,7 +312,7 @@ return [
             'seo' => [
                 'title' => 'Returning the motorcycle at the rental | MotoGo24',
                 'description' => 'Returning the motorcycle directly at the Pelhřimov rental. 24/7, without deposit, without unnecessary admin. How motorcycle return works step by step.',
-                'keywords' => 'motorcycle return, returning a motorcycle at the rental, Pelhřimov rental, 24/7 motorcycle return',
+                'keywords' => 'motorcycle rental Czech Republic',
             ],
             'h1' => 'Returning the motorcycle at the rental',
             'intro' => 'You return the motorcycle conveniently directly at <strong>Motogo24 – motorcycle rental in Vysočina</strong>. <strong>24/7 service</strong>, no stress and fair terms.',
@@ -413,7 +413,7 @@ return [
             'seo' => [
                 'title' => 'Motorcycle rental Vysočina - Vouchers',
                 'description' => 'Buy a gift voucher for motorcycle rental. Valid for 3 years, without deposit, gear included. Electronic and printed voucher. Online order.',
-                'keywords' => 'motorcycle gift voucher, motorcycle rental voucher, gift for a biker, Motogo24 voucher, motorcycle rental Vysočina',
+                'keywords' => 'motorcycle rental Czech Republic',
                 'og_image' => 'https://motogo24.cz/gfx/darkovy-poukaz.jpg',
             ],
             'h1' => 'Buy a gift voucher – give the experience of two wheels!',
@@ -510,7 +510,7 @@ return [
             'seo' => [
                 'title' => 'Motorcycle rental Vysočina – How to rent – What is included',
                 'description' => 'Find out what is included in the motorcycle rental price at MotoGo24. The rental offers clear conditions, gear and services without hidden fees. Book your motorcycle online easily.',
-                'keywords' => 'motorcycle rental Vysočina, motorcycle rental Pelhřimov, no-deposit rental, 24/7 motorcycle rental, online motorcycle booking, motorbike rental Czech Republic',
+                'keywords' => 'motorcycle rental Czech Republic',
             ],
             'h1' => 'What is included in the motorcycle rental price',
             'intro' => 'At <strong>MotoGo24 – motorcycle rental in Vysočina</strong> you get fair conditions. <strong>Without deposit, with rider gear included and 24/7 service</strong>. Everything you need for a safe and pleasant ride is part of the rental.',
@@ -531,7 +531,7 @@ return [
             'seo' => [
                 'title' => 'Motorcycle rental Vysočina – How to rent – Documents and manuals',
                 'description' => 'Rental agreement, terms and necessary documents for renting a motorcycle. Without deposit, clear rules, insurance included.',
-                'keywords' => 'motorcycle rental agreement, rental documents, rental terms, motorcycle insurance, MotoGo24 Vysočina',
+                'keywords' => 'motorcycle rental Czech Republic',
             ],
             'h1' => 'Rental agreement and deposit – fair conditions without an advance',
             'intro' => 'At <strong>MotoGo24</strong> we focus on simplicity and fairness. We rent <strong>without deposit</strong>, with a <strong>clear rental agreement</strong>, <strong>insurance included</strong> and <strong>rider gear</strong>.',
@@ -556,7 +556,7 @@ return [
             'seo' => [
                 'title' => 'Motorcycle delivery | MotoGo24',
                 'description' => 'Motorcycle delivery to your door. We bring the motorcycle to your hotel, train station or any address. Delivery price list from 290 Kč. 24/7 service.',
-                'keywords' => 'motorcycle delivery, motorcycle door delivery, motorcycle rental Vysočina, MotoGo24 delivery',
+                'keywords' => 'motorcycle rental Czech Republic',
             ],
             'h1' => 'Motorcycle delivery – brought right to you',
             'intro' => 'Want to ride without the hassle of getting to the rental? We arrange <strong>motorcycle delivery</strong> to a <strong>place of your choice</strong>.',
@@ -580,7 +580,7 @@ return [
             'seo' => [
                 'title' => 'Return motorcycle elsewhere – pickup service | MotoGo24',
                 'description' => 'Return your motorcycle off the rental site – from a hotel, train station or any address. Pickup throughout Vysočina and beyond. Price by distance, 24/7 service.',
-                'keywords' => 'return motorcycle elsewhere, motorcycle pickup, return outside the rental, motorcycle rental Vysočina',
+                'keywords' => 'motorcycle rental Czech Republic',
             ],
             'h1' => 'Return motorcycle elsewhere – pickup brought to you',
             'intro' => 'You don\'t have to return to the rental. <strong>MotoGo24</strong> offers <strong>motorcycle pickup</strong> from a place that suits you – hotel, train station or your own address.',
@@ -604,7 +604,7 @@ return [
             'seo' => [
                 'title' => 'Frequently asked questions | MotoGo24',
                 'description' => 'Frequently asked questions about renting a motorcycle. Booking, pickup, return, conditions, delivery, travelling abroad, gift vouchers.',
-                'keywords' => 'FAQ motorcycle rental, motorcycle rental questions, rental conditions, deposit, gear',
+                'keywords' => 'motorcycle rental Czech Republic',
             ],
             'h1' => 'Frequently asked questions – motorcycle rental MotoGo24',
             'closing' => 'Our <strong>motorcycle rental in Vysočina</strong> is here for everyone who wants an <strong>unforgettable ride</strong> without unnecessary complications.',
@@ -617,7 +617,7 @@ return [
             'seo' => [
                 'title' => 'Motorcycle rental in Vysočina | MotoGo24',
                 'description' => 'Rent a motorcycle in Vysočina. Without deposit, gear included, 24/7 service. Touring, sport, enduro and kids\' motorcycles. Online booking.',
-                'keywords' => 'motorcycle rental Vysočina, motorcycle rental Pelhřimov, no-deposit motorcycle rental, 24/7 rental, motorcycles for rent, online motorcycle booking',
+                'keywords' => 'motorcycle rental Czech Republic',
                 'og_image' => NULL,
             ],
             'hero' => [
@@ -775,7 +775,7 @@ return [
             'seo' => [
                 'title' => 'About the motorcycle rental | MotoGo24',
                 'description' => 'Motogo24 motorcycle rental in Vysočina. Without deposit, with online booking and gear included. Touring, sport, enduro and kids\' motorcycles. 24/7 service.',
-                'keywords' => 'motorcycle rental, motorcycle rental Vysočina, no-deposit motorcycles, 24/7 rental, gear included',
+                'keywords' => 'motorcycle rental Czech Republic',
             ],
             'breadcrumb' => [
                 [

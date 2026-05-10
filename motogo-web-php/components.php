@@ -19,6 +19,14 @@ function sanitizeHtml($html, $allowIframe = false) {
     $html = preg_replace('#<script\b[^>]*/?>#is', '', $html);
     // <style> bloky pryč (nevíme, co by zanesly)
     $html = preg_replace('#<style\b[^>]*>.*?</style\s*>#is', '', $html);
+    // SEO: nesemanticke <b>/<i>/<font> -> semanticke <strong>/<em>/span (zachovat obsah).
+    // Tyto tagy generuje legacy execCommand('bold'/'italic'/'fontSize') v CMS editoru.
+    $html = preg_replace('#<b(\s[^>]*)?>#i', '<strong>', $html);
+    $html = preg_replace('#</b\s*>#i', '</strong>', $html);
+    $html = preg_replace('#<i(\s[^>]*)?>#i', '<em>', $html);
+    $html = preg_replace('#</i\s*>#i', '</em>', $html);
+    $html = preg_replace('#<font\b[^>]*>#i', '<span>', $html);
+    $html = preg_replace('#</font\s*>#i', '</span>', $html);
     // <iframe> pryč pokud není povolen
     if (!$allowIframe) {
         $html = preg_replace('#<iframe\b[^>]*>.*?</iframe\s*>#is', '', $html);
@@ -140,7 +148,7 @@ function normalizeMoto(&$m) {
     $stringFields = [
         'id','model','brand','description','category','engine_cc','engine_type',
         'transmission','drivetrain','fuel_consumption_l100km','ideal_usage',
-        'manual_url','color','year','power_kw','power_hp','torque_nm',
+        'manual_url','manual_external_url','color','year','power_kw','power_hp','torque_nm',
         'top_speed_kmh','fuel_type','fuel_tank_l','brake_type','weight_kg',
         'seat_height_mm','seats_count','license_required','min_rental_days',
         'max_rental_days','image_url','status','suitable_for',
@@ -323,7 +331,7 @@ function renderProductCard($p) {
     $stock = (int)($p['stock_quantity'] ?? 0);
     $stockBadge = '';
     if ($stock <= 0) {
-        $stockBadge = '<span class="moto-card-badge" style="background:#fee2e2;color:#dc2626;">' . te('shop.soldOut') . '</span>';
+        $stockBadge = '<span class="moto-card-badge moto-card-badge--soldout">' . te('shop.soldOut') . '</span>';
     }
 
     return '<a class="moto-wrapper" href="' . BASE_URL . '/eshop/' . $id . '" aria-label="' . $name . '">' .

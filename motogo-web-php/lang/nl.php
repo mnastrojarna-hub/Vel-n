@@ -181,9 +181,9 @@ return [
 
     // ===== SEO meta defaults (per taal) =====
     'seo.default.description' => 'Motorverhuur in de regio Vysočina, Tsjechië — toer-, sport-, enduro- en kindermotoren. 24/7 verhuur, zonder borg, uitrusting inbegrepen, online reserveren.',
-    'seo.default.keywords' => 'motorverhuur Tsjechië, motor huren Pelhřimov, motorverhuur zonder borg, motor online reserveren',
+    'seo.default.keywords' => 'motorverhuur Tsjechië',
     'seo.home.description' => 'Huur een motor in de regio Vysočina. Zonder borg, uitrusting inbegrepen, 24/7 service. Toer-, sport-, enduro- en kindermotoren. Online reserveren.',
-    'seo.home.keywords' => 'motorverhuur Tsjechië, motor huren Pelhřimov, motorverhuur zonder borg, motor online reserveren',
+    'seo.home.keywords' => 'motorverhuur Tsjechië',
 
     'confirm.titleBooking' => 'Reserveringsbevestiging | MotoGo24',
     'confirm.titleOrder' => 'Orderbevestiging | MotoGo24',
@@ -191,7 +191,7 @@ return [
 
     'rezervace.title' => 'Online motorreservering | MotoGo24',
     'rezervace.description' => 'Online motorreservering in Vysočina. Zonder borg, met uitrusting in de prijs en 24/7 service. Kies motor, datum en betaal online.',
-    'rezervace.keywords' => 'motorreservering online, motor huren, motorverhuur Vysočina, online boeking',
+    'rezervace.keywords' => 'motorverhuur Tsjechië',
     'rezervace.loading' => 'Reserveringssysteem laden...',
 
     // ===== Reservering — header / intro =====
@@ -391,7 +391,7 @@ return [
     'filters.aria.catalog' => 'motorcatalogus',
 
     'katalog.seo.description' => 'Motorcatalogus voor verhuur in Vysočina. Filter op categorie, rijbewijs, vermogen en prijs. Toer-, sport-, enduro- en kindermotoren. Online reservering.',
-    'katalog.seo.keywords' => 'motorcatalogus, motoren te huur, toermotoren, sportmotoren, enduro, kindermotoren, motorfilter',
+    'katalog.seo.keywords' => 'motorverhuur Tsjechië',
 
     'detail.notFoundTitle' => 'Motor niet gevonden – Motogo24',
     'detail.notFoundHeading' => 'Motor niet gevonden',
@@ -482,7 +482,7 @@ return [
 
     'blog.title' => 'Blog en tips voor motorrijders | MotoGo24',
     'blog.description' => 'Motogo24-blog – tips voor motorroutes in Vysočina en Tsjechië, nieuws van de verhuur, advies voor veilig rijden en praktische handleidingen.',
-    'blog.keywords' => 'motorblog, motorroutes, tips voor motorrijders, nieuws motorverhuur, Vysočina, Český ráj',
+    'blog.keywords' => 'motorverhuur Tsjechië',
     'blog.h1' => 'Blog en tips',
     'blog.empty' => 'Geen artikelen in deze categorie.',
     'blog.tagAll' => 'Alle ({count})',
@@ -493,7 +493,7 @@ return [
 
     'voucher.pageTitle' => 'Motorverhuur Vysočina – Cadeaubon kopen',
     'voucher.description' => 'Bestel een cadeaubon voor motorverhuur van Motogo24. Geldigheid 3 jaar, zonder borg, uitrusting in de prijs.',
-    'voucher.keywords' => 'cadeaubon motor kopen, voucher Motogo24 bestellen, cadeau motorverhuur',
+    'voucher.keywords' => 'motorverhuur Tsjechië',
     'voucher.title' => 'Cadeaubon Motogo24',
     'voucher.lead' => 'Geef een motorrijbeleving cadeau! De bon is 3 jaar geldig en kan worden gebruikt bij reservering op deze website.',
     'voucher.contactSection' => 'Jouw contactgegevens',
@@ -587,7 +587,7 @@ return [
     'shop.h1' => 'MotoGo24 Shop',
     'shop.intro' => 'Motoraccessoires, merch en cadeaus voor MotoGo24-fans. Wij leveren in heel Tsjechië.',
     'shop.description' => 'MotoGo24 Shop — motoraccessoires, kleding en merch. Online bestellen, levering door heel Tsjechië.',
-    'shop.keywords' => 'motorshop, motoraccessoires, motogo24 merch, motorkleding',
+    'shop.keywords' => 'motorverhuur Tsjechië',
     'shop.empty' => 'Op dit moment hebben wij geen producten op voorraad. Volg ons op sociale media.',
     'shop.unnamedProduct' => 'Product',
     'shop.productAlt' => '{name} — MotoGo24 Shop',
