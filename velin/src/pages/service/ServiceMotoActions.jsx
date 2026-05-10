@@ -148,7 +148,7 @@ export default function ServiceMotoActions({ moto, logs, onDone }) {
       {mode === 'deactivate' && (
         <div>
           <div className="text-xs mb-2 p-2 rounded" style={{ background: '#fee2e2', color: '#dc2626' }}>
-            Samoobslužná pobočka <b>{moto.branches?.name || '—'}</b> musí být vždy obsazená — vyberte náhradu:
+            Samoobslužná pobočka <strong>{moto.branches?.name || '—'}</strong> musí být vždy obsazená — vyberte náhradu:
           </div>
           <ReplacementMotoPicker branchId={moto.branch_id} excludeMotoId={moto.id}
             onSelect={handleReplace} onCancel={() => setMode(null)} />
