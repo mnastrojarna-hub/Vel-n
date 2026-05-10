@@ -452,6 +452,19 @@ class SupabaseClient {
         return $result ? ($result[0] ?? null) : null;
     }
 
+    // ===== DOCUMENT TEMPLATES (Velín → Smluvní texty) =====
+    // Zdroj pravdy pro veřejné dokumenty/návody (VOP, smlouva, GDPR, protokoly).
+    // Vrací nejnovější aktivní verzi šablony pro daný `type`.
+    public function fetchDocumentTemplate($type) {
+        $result = $this->query(
+            'document_templates',
+            'id,type,name,content_html,version,updated_at',
+            ['type=eq.' . $type, 'active=eq.true'],
+            'version.desc'
+        );
+        return $result ? ($result[0] ?? null) : null;
+    }
+
     public function fetchCmsPages($tag = null) {
         $filters = ['published=eq.true'];
         if ($tag) {
