@@ -201,6 +201,124 @@ async function ensureCreditNotePdf(
   }
 }
 
+// Safety-net: pro booking, kde Stripe refund proběhl (charge.refunded webhook fired,
+// payment_status='refunded') ale credit_note v invoices NEexistuje (process-refund
+// crashed po refunds.create() ale před INSERT). Vytvoří credit_note + PDF z dat,
+// která dohledá ze Stripe API (refund.amount, refund.charge → card brand/last4).
+// Volá se z process-refund's already_refunded branche, když ensureCreditNotePdf
+// vrátí creditNoteId=null. Idempotentní (stripe_refund_id unique).
+async function createCreditNoteForExistingRefund(
+  supabase: any,
+  bookingId: string,
+  bk: { stripe_refund_id?: string | null; stripe_payment_intent_id?: string | null; total_price?: number | null },
+): Promise<{ creditNoteId: string | null; pdfPath: string | null; refundId: string | null }> {
+  if (!bk.stripe_refund_id) {
+    return { creditNoteId: null, pdfPath: null, refundId: null }
+  }
+  try {
+    // Idempotency: nemáme duplikát pro stejný refund.id
+    const { data: dupe } = await supabase.from('invoices')
+      .select('id, pdf_path').eq('stripe_refund_id', bk.stripe_refund_id).limit(1)
+    if (dupe?.length) {
+      return { creditNoteId: dupe[0].id, pdfPath: dupe[0].pdf_path, refundId: bk.stripe_refund_id }
+    }
+
+    // Načti Stripe refund + charge pro autoritní data (amount, card brand/last4)
+    const refund = await stripe.refunds.retrieve(bk.stripe_refund_id)
+    const refundedAmountCZK = (refund.amount || 0) / 100
+    let cardBrand: string | null = null
+    let cardLast4: string | null = null
+    try {
+      const chargeId = typeof refund.charge === 'string' ? refund.charge : (refund.charge as any)?.id
+      if (chargeId) {
+        const ch = await stripe.charges.retrieve(chargeId)
+        cardBrand = ch?.payment_method_details?.card?.brand || null
+        cardLast4 = ch?.payment_method_details?.card?.last4 || null
+      }
+    } catch { /* non-fatal */ }
+
+    // Načti booking + customer pro template
+    const { data: bkRow } = await supabase.from('bookings')
+      .select('user_id, total_price, start_date, end_date, motorcycles(model), profiles:user_id(full_name, email, phone, street, city, zip, ico, dic)')
+      .eq('id', bookingId).single()
+    if (!bkRow) return { creditNoteId: null, pdfPath: null, refundId: bk.stripe_refund_id }
+    const refundPercent = (bkRow.total_price && bkRow.total_price > 0)
+      ? Math.round((refundedAmountCZK / Number(bkRow.total_price)) * 100) : 100
+
+    // Najít původní fakturu (payment_receipt / final / proforma) pro reference
+    const { data: origInvs } = await supabase.from('invoices')
+      .select('id, number')
+      .eq('booking_id', bookingId)
+      .neq('status', 'cancelled')
+      .in('type', ['final', 'payment_receipt', 'advance', 'proforma'])
+      .order('issue_date', { ascending: false }).limit(1)
+    const originalInvoiceId = origInvs?.[0]?.id || null
+    const originalInvoiceNumber = origInvs?.[0]?.number || null
+
+    // Generuj číslo dobropisu (DB-YYYY-NNNN)
+    const year = new Date().getFullYear()
+    const { data: lastCN } = await supabase.from('invoices')
+      .select('number').like('number', `DB-${year}-%`)
+      .order('number', { ascending: false }).limit(1)
+    let seq = 1
+    if (lastCN?.length) {
+      const m = lastCN[0].number.match(/-(\d+)$/)
+      if (m) seq = parseInt(m[1], 10) + 1
+    }
+    const cnNumber = `DB-${year}-${String(seq).padStart(4, '0')}`
+    const issueDate = new Date().toISOString().slice(0, 10)
+    const motoModel = (bkRow as any).motorcycles?.model || 'motorky'
+    const reasonText = 'Storno rezervace'
+
+    const { data: cnInv } = await supabase.from('invoices').insert({
+      number: cnNumber,
+      type: 'credit_note',
+      customer_id: bkRow.user_id,
+      booking_id: bookingId,
+      items: [{ description: `Dobropis – ${reasonText} (${motoModel})`, qty: 1, unit_price: -refundedAmountCZK }],
+      subtotal: -refundedAmountCZK,
+      tax_amount: 0,
+      total: -refundedAmountCZK,
+      notes: `Dobropis k rezervaci. ${refundPercent < 100 ? `Částečný refund ${refundPercent}%.` : 'Plný refund.'} ${reasonText} (recovery).`,
+      issue_date: issueDate,
+      due_date: issueDate,
+      status: 'issued',
+      source: 'refund',
+      variable_symbol: cnNumber,
+      original_invoice_id: originalInvoiceId,
+      stripe_refund_id: bk.stripe_refund_id,
+    }).select('id').single()
+    if (!cnInv?.id) return { creditNoteId: null, pdfPath: null, refundId: bk.stripe_refund_id }
+
+    await supabase.from('accounting_entries').insert({
+      type: 'expense', amount: -refundedAmountCZK, vat_rate: 0,
+      description: `Dobropis ${cnNumber} - ${reasonText}`,
+      category: 'refund', source: 'auto_invoice',
+      entry_date: issueDate, booking_id: bookingId, invoice_id: cnInv.id,
+    }).then(() => {}, () => {})
+
+    const html = renderCreditNoteHtml({
+      number: cnNumber, issueDate: fmtDate(issueDate), reasonText, motoModel,
+      refundAmount: refundedAmountCZK, refundPercent,
+      bookingDates: `${fmtDate(bkRow.start_date)} – ${fmtDate(bkRow.end_date)}`,
+      customer: (bkRow as any).profiles || {}, originalInvoiceNumber,
+      stripeRefundId: bk.stripe_refund_id, cardBrand, cardLast4,
+    })
+    const pdfBytes = await htmlToPdf(html)
+    const path = pdfBytes ? `invoices/${cnInv.id}.pdf` : `invoices/${cnInv.id}.html`
+    await supabase.storage.from('documents').upload(
+      path,
+      pdfBytes ? new Blob([pdfBytes], { type: 'application/pdf' }) : new Blob([html], { type: 'text/html' }),
+      { upsert: true, contentType: pdfBytes ? 'application/pdf' : 'text/html' },
+    )
+    await supabase.from('invoices').update({ pdf_path: path }).eq('id', cnInv.id)
+    return { creditNoteId: cnInv.id, pdfPath: path, refundId: bk.stripe_refund_id }
+  } catch (e) {
+    console.warn('[createCreditNoteForExistingRefund] failed:', (e as Error).message)
+    return { creditNoteId: null, pdfPath: null, refundId: bk.stripe_refund_id || null }
+  }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: CORS })
@@ -215,7 +333,18 @@ Deno.serve(async (req: Request) => {
     const body: RefundRequest = await req.json()
     const { booking_id, order_id, amount, reason } = body
 
+    // Diagnostika — admin v Velin → Dokumenty → Debug log uvidí každý krok
+    // refund flow a okamžitě pozná, kde to padá. Helper, aby fail v debug_log
+    // insertu nezablokoval hlavní flow.
+    const dlog = (action: string, status: string, extra?: Record<string, unknown>) =>
+      supabase.from('debug_log').insert({
+        source: 'process-refund', action, status,
+        request_data: { booking_id, order_id, amount, reason, ...(extra || {}) },
+      }).then(() => {}, () => {})
+    await dlog('request_received', 'info')
+
     if (!booking_id && !order_id) {
+      await dlog('missing_identifier', 'error')
       return new Response(
         JSON.stringify({ success: false, error: 'Missing booking_id or order_id', code: 'missing_identifier' }),
         { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } }
@@ -247,7 +376,15 @@ Deno.serve(async (req: Request) => {
       // (Stripe refund went through, status updated, but PDF/email step failed).
       if (data.payment_status === 'refunded' || data.payment_status === 'partial_refund') {
         alreadyRefunded = true
-        const result = await ensureCreditNotePdf(supabase, booking_id, data)
+        let result = await ensureCreditNotePdf(supabase, booking_id, data)
+        // Recovery: pokud credit_note row vůbec neexistuje (process-refund spadl
+        // dřív než stihl INSERT), vytvoř ho ze Stripe refund dat. Tohle je hlavní
+        // safety-net cesta, kterou volá webhook-receiver charge.refunded.
+        if (!result.creditNoteId && data.stripe_refund_id) {
+          await dlog('credit_note_recovery_create', 'info', { stripe_refund_id: data.stripe_refund_id })
+          result = await createCreditNoteForExistingRefund(supabase, booking_id, data)
+          await dlog('credit_note_recovery_create_done', result.creditNoteId ? 'ok' : 'error', { credit_note_id: result.creditNoteId, pdf_path: result.pdfPath })
+        }
         return new Response(
           JSON.stringify({
             success: true,
@@ -383,7 +520,9 @@ Deno.serve(async (req: Request) => {
       refundParams.amount = effectiveAmountHaleru
     }
 
+    await dlog('stripe_refund_create_pre', 'info', { effectiveAmountHaleru, refundableHaleru })
     const refund = await stripe.refunds.create(refundParams)
+    await dlog('stripe_refund_create_ok', 'info', { refund_id: refund.id, refund_status: refund.status, refund_amount: refund.amount })
 
     // Look up card brand/last4 from the underlying Charge (used both on credit note and bookings).
     let cardBrand: string | null = null
@@ -491,6 +630,7 @@ Deno.serve(async (req: Request) => {
             }).select('id').single()
 
             cnId = cnInv?.id || null
+            await dlog('credit_note_inserted', 'info', { credit_note_id: cnId, number: cnNumber })
 
             // Create negative accounting entry only on first creation
             await supabase.from('accounting_entries').insert({
@@ -524,23 +664,28 @@ Deno.serve(async (req: Request) => {
                 cardLast4,
               })
               const pdfBytes = await htmlToPdf(html)
+              await dlog('pdfshift_render_done', 'info', { credit_note_id: cnId, has_pdf: !!pdfBytes, pdf_bytes: pdfBytes?.length || 0 })
               let path: string
               if (pdfBytes) {
                 path = `invoices/${cnId}.pdf`
-                await supabase.storage.from('documents').upload(
+                const { error: upErr } = await supabase.storage.from('documents').upload(
                   path, new Blob([pdfBytes], { type: 'application/pdf' }),
                   { upsert: true, contentType: 'application/pdf' },
                 )
+                if (upErr) await dlog('pdf_upload_failed', 'error', { path, error: upErr.message })
               } else {
                 path = `invoices/${cnId}.html`
-                await supabase.storage.from('documents').upload(
+                const { error: upErr } = await supabase.storage.from('documents').upload(
                   path, new Blob([html], { type: 'text/html' }),
                   { upsert: true, contentType: 'text/html' },
                 )
+                if (upErr) await dlog('pdf_upload_failed', 'error', { path, error: upErr.message })
               }
-              await supabase.from('invoices').update({ pdf_path: path }).eq('id', cnId)
+              const { error: updErr } = await supabase.from('invoices').update({ pdf_path: path }).eq('id', cnId)
+              await dlog('credit_note_finalized', updErr ? 'error' : 'ok', { credit_note_id: cnId, pdf_path: path, update_error: updErr?.message })
             } catch (pdfErr) {
               console.warn('[process-refund] credit note PDF render failed:', (pdfErr as Error).message)
+              await dlog('pdfshift_render_failed', 'error', { credit_note_id: cnId, error: (pdfErr as Error).message })
             }
           }
         }
@@ -586,6 +731,9 @@ Deno.serve(async (req: Request) => {
         status: 'error',
         error_message: (err as Error).message,
       })
+      // Pozn.: konkrétní booking_id už zachytí dlog('request_received', ...) na začátku
+      // request flow + dlog na každém kroku. Pokud catch fire-nul po request_received,
+      // korelace přes timestamp + sekvence akcí pro daný booking je v debug_log evidentní.
     } catch (e) { /* ignore */ }
 
     return new Response(

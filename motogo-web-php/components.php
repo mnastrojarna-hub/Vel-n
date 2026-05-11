@@ -105,11 +105,28 @@ function seoEnhanceHtml($content) {
 
     // 1b) Pokud na strance neni vubec zadny <h1>, injectneme fallback nahoru.
     if (!preg_match('#<h1\b#i', $content)) {
-        $h1Inject = '<h1>MotoGo24 — půjčovna motorek</h1>';
-        if (preg_match('#<main\b[^>]*id=["\']content["\'][^>]*>#i', $content)) {
-            $content = preg_replace('#(<main\b[^>]*id=["\']content["\'][^>]*>)#i', '$1' . $h1Inject, $content, 1);
+        $h1Plain = '<h1>MotoGo24 — půjčovna motorek</h1>';
+        $h1Wrapped = '<div class="container">' . $h1Plain . '</div>';
+        // Preferred: vlozit DOVNITR prvni <div class="container"> hned za <main id="content">,
+        // aby byl H1 zarovnany s ostatnim obsahem (jinak by visel u leveho okraje viewportu).
+        if (preg_match('#(<main\b[^>]*id=["\']content["\'][^>]*>)(\s*<div\b[^>]*class=["\'][^"\']*\bcontainer\b[^"\']*["\'][^>]*>)#i', $content)) {
+            $content = preg_replace(
+                '#(<main\b[^>]*id=["\']content["\'][^>]*>)(\s*<div\b[^>]*class=["\'][^"\']*\bcontainer\b[^"\']*["\'][^>]*>)#i',
+                '$1$2' . $h1Plain,
+                $content,
+                1
+            );
+        } elseif (preg_match('#<main\b[^>]*id=["\']content["\'][^>]*>#i', $content)) {
+            // Main bez vnoreneho containeru — obalime H1 vlastnim containerem.
+            $content = preg_replace(
+                '#(<main\b[^>]*id=["\']content["\'][^>]*>)#i',
+                '$1' . $h1Wrapped,
+                $content,
+                1
+            );
         } else {
-            $content = $h1Inject . $content;
+            // Fallback: pridat na zacatek
+            $content = $h1Wrapped . $content;
         }
     }
 

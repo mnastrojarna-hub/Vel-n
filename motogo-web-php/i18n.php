@@ -144,33 +144,43 @@ function i18nSiteDefaultLang() {
 }
 
 /**
- * Vrátí origin (https://motogo24.xx) pro doménovou kanonickou verzi daného jazyka.
- * Pravidlo: každý jazyk s vlastní TLD má svou doménu, ostatní → .com.
- *
- * Pro 'cs' / motogo24.cz vracíme www variantu — Forpsi proxy/DNS vynucuje www
- * na všech requestech a .htaccess sám non-www→www nepřesměruje (vznikal by
- * ERR_TOO_MANY_REDIRECTS, viz .htaccess sekce 2). Bez www prefixu by canonical,
- * hreflang i sitemap odkazovaly na URL, které se reálně neservíruje (servíruje se
- * www.motogo24.cz/), a SEO crawlery hlásí "canonical points to a different page"
- * + "self-referential alternate link is missing".
+ * Vrátí kanonický host (bez schématu) pro danou doménu — vždy www. varianta:
+ *   motogo24.cz  → www.motogo24.cz   (Forpsi proxy/DNS vynucuje www na všech
+ *                                     requestech; bez www by canonical/hreflang
+ *                                     ukazovaly na neservírovanou URL)
+ *   motogo24.com → www.motogo24.com  (Hosting90 — Let's Encrypt cert je jen na
+ *                                     www. variantě; holá doména spadne na
+ *                                     default cert h90-w22.hosting90.cz)
+ *   ...ostatní Hosting90 TLD analogicky. Neznámá doména → beze změny.
+ */
+function i18nCanonicalHostFor($domain) {
+    if (isset(I18N_DOMAIN_DEFAULTS[$domain])) return 'www.' . $domain;
+    return $domain;
+}
+
+/** Kanonický host pro AKTUÁLNÍ request (dle HTTP_HOST, bez schématu). */
+function i18nCanonicalHost() {
+    return i18nCanonicalHostFor(i18nSiteHost());
+}
+
+/**
+ * Vrátí origin (https://www.motogo24.xx) pro doménovou kanonickou verzi
+ * daného jazyka. Každý jazyk má vlastní TLD; canonical host je vždy s www.
  */
 function i18nOriginForLang($lang) {
     $domain = I18N_DOMAIN_MAP[$lang] ?? I18N_DOMAIN_INTL;
-    if ($domain === I18N_DOMAIN_CS) {
-        $domain = 'www.' . $domain;
-    }
-    return 'https://' . $domain;
+    return 'https://' . i18nCanonicalHostFor($domain);
 }
 
 /**
  * Postaví kanonickou URL pro daný jazyk + cestu.
- *   cs            → https://www.motogo24.cz{path}      (Forpsi vynucuje www)
- *   en  na .com   → https://motogo24.com{path}
- *   de  na .at    → https://motogo24.at{path}
- *   es  na .es    → https://motogo24.es{path}
- *   pl  na .pl    → https://motogo24.pl{path}
- *   fr  na .fr    → https://motogo24.fr{path}
- *   nl  na .nl    → https://motogo24.nl{path}
+ *   cs → https://www.motogo24.cz{path}
+ *   en → https://www.motogo24.com{path}
+ *   de → https://www.motogo24.at{path}
+ *   es → https://www.motogo24.es{path}
+ *   pl → https://www.motogo24.pl{path}
+ *   fr → https://www.motogo24.fr{path}
+ *   nl → https://www.motogo24.nl{path}
  *
  * $forceLangQuery=true vždy přidá ?lang=xx (i pro doménový default). Používá
  * jen language switcher — díky tomu se vždy refreshne cookie `mg_web_lang`

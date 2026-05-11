@@ -164,6 +164,35 @@ serve(async (req) => {
       })
     }
 
+    // Idempotency — webhook charge.refunded může spustit retry safety-net pro
+    // booking, který už storno mail dostal (cancel_booking_tracked nebo Stripe portal).
+    // Pokud se mail za posledních 30 min úspěšně odeslal, druhý nepošleme.
+    // Force=true v body request přepíše idempotency (admin manuální dotaz "pošli znovu").
+    const force = (reqBody as any).force === true
+    if (booking_id && !force) {
+      try {
+        const { data: existing } = await supabase.from('sent_emails')
+          .select('id, sent_at, status')
+          .eq('booking_id', booking_id)
+          .eq('template_slug', 'booking_cancelled')
+          .eq('status', 'sent')
+          .gte('sent_at', new Date(Date.now() - 30 * 60 * 1000).toISOString())
+          .limit(1)
+        if (existing?.length) {
+          await supabase.from('debug_log').insert({
+            source: 'send-cancellation-email',
+            action: 'idempotent_skip',
+            status: 'info',
+            request_data: { booking_id, existing_email_id: existing[0].id, existing_sent_at: existing[0].sent_at },
+          }).then(() => {}, () => {})
+          return new Response(JSON.stringify({ success: true, skipped: 'already_sent', existing_id: existing[0].id }), {
+            status: 200,
+            headers: { ...CORS, 'Content-Type': 'application/json' },
+          })
+        }
+      } catch { /* non-fatal — continue to send */ }
+    }
+
     // ── Auto Stripe refund + dobropis ──
     const attachments: { content: string; filename: string }[] = []
 
@@ -183,6 +212,24 @@ serve(async (req) => {
           const wasPaid = booking.payment_status === 'paid'
           const alreadyRefunded = booking.payment_status === 'refunded' || booking.payment_status === 'partial_refund'
 
+          // Vstupní diagnostika — admin vidí přesně co edge fn dostala a co je v DB.
+          // Klíč k debugu storno mailu bez přílohy: payment_status + stripe_payment_intent_id + refund_amount.
+          await supabase.from('debug_log').insert({
+            source: 'send-cancellation-email',
+            action: 'cancel_started',
+            status: 'info',
+            request_data: {
+              booking_id,
+              payment_status: booking.payment_status,
+              has_stripe_pi: !!booking.stripe_payment_intent_id,
+              total_price: booking.total_price,
+              body_refund_amount: refund_amount,
+              body_refund_percent: refund_percent,
+              wasPaid,
+              alreadyRefunded,
+            },
+          }).then(() => {}, () => {})
+
           // Calculate refund based on storno policy if not provided
           if ((wasPaid || alreadyRefunded) && booking.total_price > 0 && refund_percent == null) {
             const hoursUntilStart = (new Date(booking.start_date).getTime() - Date.now()) / 3600000
@@ -195,9 +242,23 @@ serve(async (req) => {
           // Process-refund je idempotentní: pro paid+nepoužitý refund udělá Stripe refund + dobropis,
           // pro already_refunded (předchozí pokus padl po Stripe kroku) jen dohraje PDF dobropis.
           // Voláme tedy bez guardu na alreadyRefunded — díky tomu se i recovery scenario doplní příloha.
-          if ((wasPaid || alreadyRefunded) && booking.stripe_payment_intent_id && (refund_amount > 0 || alreadyRefunded)) {
+          const hdrs = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`, 'apikey': SUPABASE_SERVICE_KEY }
+          const willCallRefund = (wasPaid || alreadyRefunded) && !!booking.stripe_payment_intent_id && (refund_amount > 0 || alreadyRefunded)
+          if (!willCallRefund && (wasPaid || alreadyRefunded) && refund_amount > 0) {
+            // Diagnostika: jsme paid s nenulovým refundem, ale process-refund nevoláme — typicky chybí
+            // stripe_payment_intent_id (Apple Pay race s webhookem, hotovost, voucher 100%, atd.).
+            // V tomhle stavu credit_note nikdy nevznikne automaticky → mail dorazí bez přílohy a admin
+            // má v Velínu manuálně dohrát refund (Stripe dashboard) + dobropis (generate-invoice).
+            await supabase.from('debug_log').insert({
+              source: 'send-cancellation-email',
+              action: 'refund_call_skipped_no_pi',
+              status: 'warning',
+              error_message: 'Booking is paid but stripe_payment_intent_id is missing — process-refund not called, attachment will be missing',
+              request_data: { booking_id, payment_status: booking.payment_status, refund_amount },
+            }).then(() => {}, () => {})
+          }
+          if (willCallRefund) {
             try {
-              const hdrs = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`, 'apikey': SUPABASE_SERVICE_KEY }
               const refundRes = await fetch(`${SUPABASE_URL}/functions/v1/process-refund`, {
                 method: 'POST', headers: hdrs,
                 body: JSON.stringify({ booking_id, amount: refund_amount, reason: 'cancellation' }),
@@ -207,35 +268,92 @@ serve(async (req) => {
                 console.log(`Refund OK (already=${refundData.already_refunded ? 'yes' : 'no'}, amount=${refund_amount})`)
               } else {
                 console.warn('process-refund returned error:', refundData.code || refundData.error)
+                await supabase.from('debug_log').insert({
+                  source: 'send-cancellation-email',
+                  action: 'refund_call_failed',
+                  status: 'error',
+                  error_message: String(refundData.code || refundData.error || 'unknown'),
+                  request_data: { booking_id, refund_amount },
+                  response_data: refundData,
+                }).then(() => {}, () => {})
               }
-            } catch (e) { console.warn('Auto Stripe refund failed:', e) }
+            } catch (e) {
+              console.warn('Auto Stripe refund failed:', e)
+              await supabase.from('debug_log').insert({
+                source: 'send-cancellation-email',
+                action: 'refund_call_exception',
+                status: 'error',
+                error_message: (e as Error).message,
+                request_data: { booking_id, refund_amount },
+              }).then(() => {}, () => {})
+            }
           }
 
           // Fetch the credit_note created by process-refund (source='refund') and attach it.
-          // Pokud chybí pdf_path (starý záznam před PDFShift refactorem), vyrenderuje ho proces-refund
-          // při dalším pokusu, ale tady už neumíme nic — necháme přílohu prázdnou a poslání nepadne.
           // Storno podmínky:
           //   ≥ 7 dní před startem  → 100 % refund → credit_note 100 %
           //   2–7 dní před startem  → 50 % refund  → credit_note 50 %
           //   < 2 dny před startem  → 0 % refund   → ŽÁDNÝ credit_note (nic se nevrací)
           // Velín admin storno posílá `refund_percent: 100` natvrdo (ignoruje storno podmínky).
+          //
+          // RECOVERY: Pokud lookup najde credit_note bez pdf_path (PDFShift fail / silent error),
+          // nebo soubor v Storage nestáhne, zavoláme process-refund znovu (idempotentní recovery
+          // přes ensureCreditNotePdf — viz STATE_6 2026-05-08). Max 3 pokusy.
           if (refund_amount > 0) {
-            try {
-              const { data: creditNotes } = await supabase.from('invoices')
-                .select('id, number, pdf_path')
-                .eq('booking_id', booking_id)
-                .or('type.eq.credit_note,and(type.eq.payment_receipt,source.eq.cancellation)')
-                .neq('status', 'cancelled')
-                .order('created_at', { ascending: false }).limit(1)
-              if (creditNotes?.length && creditNotes[0].pdf_path) {
-                const path = creditNotes[0].pdf_path as string
-                const b64 = await downloadAsBase64(supabase, path)
-                if (b64) {
-                  const ext = path.toLowerCase().endsWith('.pdf') ? 'pdf' : 'html'
-                  attachments.push({ content: b64, filename: `Dobropis-${creditNotes[0].number || 'DB'}.${ext}` })
+            let attached = false
+            for (let attempt = 0; attempt < 3 && !attached; attempt++) {
+              try {
+                const { data: cnRows } = await supabase.from('invoices')
+                  .select('id, number, pdf_path')
+                  .eq('booking_id', booking_id)
+                  .or('type.eq.credit_note,and(type.eq.payment_receipt,source.eq.cancellation)')
+                  .neq('status', 'cancelled')
+                  .order('created_at', { ascending: false }).limit(1)
+                const cn = cnRows?.[0]
+                if (cn?.pdf_path) {
+                  const path = cn.pdf_path as string
+                  const b64 = await downloadAsBase64(supabase, path)
+                  if (b64) {
+                    const ext = path.toLowerCase().endsWith('.pdf') ? 'pdf' : 'html'
+                    attachments.push({ content: b64, filename: `Dobropis-${cn.number || 'DB'}.${ext}` })
+                    attached = true
+                    await supabase.from('debug_log').insert({
+                      source: 'send-cancellation-email',
+                      action: 'credit_note_attached',
+                      status: 'ok',
+                      request_data: { booking_id, attempt, invoice_id: cn.id, ext },
+                    }).then(() => {}, () => {})
+                    break
+                  }
                 }
-              }
-            } catch (e) { console.warn('Credit note attachment lookup failed:', (e as Error).message) }
+                // Recovery — credit_note row chybí, nebo má pdf_path null, nebo download null.
+                // Zavolej process-refund znovu (idempotentní, dovystaví PDF), pak retry lookup.
+                if (attempt < 2) {
+                  await supabase.from('debug_log').insert({
+                    source: 'send-cancellation-email',
+                    action: 'credit_note_recovery_attempt',
+                    status: 'warning',
+                    request_data: { booking_id, attempt, has_row: !!cn, has_pdf_path: !!cn?.pdf_path },
+                  }).then(() => {}, () => {})
+                  try {
+                    await fetch(`${SUPABASE_URL}/functions/v1/process-refund`, {
+                      method: 'POST', headers: hdrs,
+                      body: JSON.stringify({ booking_id, amount: refund_amount, reason: 'cancellation_retry' }),
+                    })
+                  } catch { /* ignore — další iterace zkusí znovu */ }
+                  await new Promise(r => setTimeout(r, 2500)) // PDFShift má cca 2-5s
+                }
+              } catch (e) { console.warn('Credit note lookup attempt', attempt, 'failed:', (e as Error).message) }
+            }
+            if (!attached) {
+              await supabase.from('debug_log').insert({
+                source: 'send-cancellation-email',
+                action: 'credit_note_attach_failed',
+                status: 'error',
+                error_message: 'Credit note attachment missing after 3 retries — mail goes without PDF',
+                request_data: { booking_id, refund_amount, refund_percent },
+              }).then(() => {}, () => {})
+            }
           }
         }
       } catch (e) { console.warn('Auto-refund lookup failed:', e) }

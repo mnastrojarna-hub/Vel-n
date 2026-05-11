@@ -232,13 +232,14 @@ Disallow: /*?format=pdf
 
 # Žádné crawl-delay — máme rychlý hosting a chceme aktuální index.
 # Mapa stránek + LLM index
-# Pozor: .cz musí být www variantou — Forpsi vynucuje www, jakákoli non-www
-# URL by se redirectovala a Search Console hlásí "Sitemap redirected".
+# Pozor: vsechny domeny musi byt www variantou — Forpsi (.cz) i Hosting90
+# (.com/.at/.pl/.fr) servíruji/maji Let's Encrypt cert jen na www. variante;
+# non-www URL by se redirectovala a Search Console hlasi "Sitemap redirected".
 Sitemap: https://www.motogo24.cz/sitemap.xml
-Sitemap: https://motogo24.com/sitemap.xml
-Sitemap: https://motogo24.at/sitemap.xml
-Sitemap: https://motogo24.pl/sitemap.xml
-Sitemap: https://motogo24.fr/sitemap.xml
+Sitemap: https://www.motogo24.com/sitemap.xml
+Sitemap: https://www.motogo24.at/sitemap.xml
+Sitemap: https://www.motogo24.pl/sitemap.xml
+Sitemap: https://www.motogo24.fr/sitemap.xml
 # motogo24.es a motogo24.nl docasne odebrany — domeny jeste nejsou nasazene
 # (Search Console hlasi 'Sitemap could not be fetched'). Vratit po deploy.
 

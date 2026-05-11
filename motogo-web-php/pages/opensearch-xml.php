@@ -11,7 +11,7 @@ require_once __DIR__ . '/../i18n.php';
 header('Content-Type: application/opensearchdescription+xml; charset=utf-8');
 header('Cache-Control: public, max-age=86400');
 
-$origin = i18nIsComDomain() ? 'https://motogo24.com' : 'https://www.motogo24.cz';
+$origin = 'https://' . i18nCanonicalHost();
 $lang = i18nIsComDomain() ? 'en' : 'cs';
 $shortName = 'MotoGo24';
 $desc = $lang === 'cs'

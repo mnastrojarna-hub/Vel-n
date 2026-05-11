@@ -27,7 +27,7 @@
   "currencies": ["CZK", "EUR", "USD"],
   "regions": ["CZ", "SK", "AT", "DE", "PL"],
   "discovery": {
-    "sitemap": ["https://www.motogo24.cz/sitemap.xml", "https://motogo24.com/sitemap.xml"],
+    "sitemap": ["https://www.motogo24.cz/sitemap.xml", "https://www.motogo24.com/sitemap.xml"],
     "llmsIndex": "https://www.motogo24.cz/llms.txt",
     "llmsFull": "https://www.motogo24.cz/llms-full.txt",
     "aiTxt": "https://www.motogo24.cz/ai.txt",
