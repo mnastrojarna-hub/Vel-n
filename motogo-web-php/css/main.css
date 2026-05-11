@@ -14,3 +14,11 @@
 p>.btn{display:flex;width:100%;margin:0 0 .75rem}
 p>.btn:last-child{margin-bottom:0}
 }
+
+/* Přihlášený uživatel v rezervaci: kontaktní údaje máme z účtu — formulářová pole skryjeme
+   (zůstává jen zelený banner „Přihlášen jako…" a pole pro voucher). Tlačítko „Upravit údaje"
+   třídu .rez-logged-in odebere a pole zase ukáže. */
+.rez-logged-in #rez-name,
+.rez-logged-in .gr2:has(#rez-street),
+.rez-logged-in .gr2:has(#rez-city),
+.rez-logged-in .gr2:has(#rez-email){display:none}
