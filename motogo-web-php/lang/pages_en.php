@@ -756,6 +756,137 @@ return [
                 'label' => 'BOOK WITH DELIVERY',
                 'href' => '/rezervace?delivery=1',
             ],
+            'when' => [
+                'title' => 'When delivery comes in handy',
+                'items' => [
+                    '<strong>Start of a&nbsp;road trip</strong>&nbsp;– we bring the motorcycle straight to the start of your trip.',
+                    '<strong>Hotel or guesthouse</strong>&nbsp;– delivery to your accommodation to save you time.',
+                    '<strong>Train/bus station</strong>&nbsp;– a smooth transfer with no waiting.',
+                    '<strong>Company events and gifts</strong>&nbsp;– a surprise for partners or your team.',
+                ],
+            ],
+            'why' => [
+                'title' => 'Why use motorcycle delivery',
+                'grid' => 'gr5',
+                'items' => [
+                    [
+                        'icon' => 'gfx/vyzvednuti-vraceni-motorky.svg',
+                        'title' => 'Flexibility',
+                        'text' => 'We bring the motorcycle wherever you need – home, to a hotel, to a station or to the start of your trip.',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-pohodli.svg',
+                        'title' => 'Convenience',
+                        'text' => 'You don\'t have to arrange transport to the rental – where to leave your car or who will drive you.',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-nonstop.svg',
+                        'title' => '24/7 service',
+                        'text' => 'We arrange delivery for an agreed time – evenings or weekends are fine. Just pick the time when booking.',
+                    ],
+                    [
+                        'icon' => 'gfx/uspora-casu.svg',
+                        'title' => 'Time saved',
+                        'text' => 'The time saved travelling to the rental and back you can spend on yourself.',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-vybava.svg',
+                        'title' => 'Gear delivered too',
+                        'text' => 'We also bring the rented gear in the requested sizes straight to you.',
+                    ],
+                ],
+            ],
+            'process' => [
+                'title' => 'How delivery works',
+                'grid' => 'gr5',
+                'steps' => [
+                    [
+                        'icon' => 'gfx/vyber-motorku.svg',
+                        'title' => 'Choose a motorcycle',
+                        'text' => 'Browse our range of touring, supermoto, naked and kids\' motorcycles and pick the right one.',
+                    ],
+                    [
+                        'icon' => 'gfx/rezervace-online.svg',
+                        'title' => 'Pick a date',
+                        'text' => 'Choose the date you want to ride in the calendar. You\'ll see which motorcycles are available.',
+                    ],
+                    [
+                        'icon' => 'gfx/kontaktni-udaje.svg',
+                        'title' => 'Contact details',
+                        'text' => 'Fill in your name, address, e-mail and phone.',
+                    ],
+                    [
+                        'icon' => 'gfx/cas-prevzeti-motorky.svg',
+                        'title' => 'Delivery time',
+                        'text' => 'Choose when we deliver the motorcycle – evenings or weekends are fine.',
+                    ],
+                    [
+                        'icon' => 'gfx/vyzvednuti-vraceni-motorky.svg',
+                        'title' => 'Delivery location',
+                        'text' => 'Enter the address to deliver to – home, a hotel, a station or the start of your trip.',
+                    ],
+                    [
+                        'icon' => 'gfx/vyber-vybavu.svg',
+                        'title' => 'Gear',
+                        'text' => 'Basic rider gear is included. Enter the required sizes for all gear items in the Note field – mandatory.',
+                    ],
+                    [
+                        'icon' => 'gfx/zaplat.svg',
+                        'title' => 'Confirmation and payment',
+                        'text' => 'Check the order summary, agree to the conditions and pay online.',
+                    ],
+                    [
+                        'icon' => 'gfx/podpis-dokumentu.svg',
+                        'title' => 'Handover on site',
+                        'text' => 'At handover we check the documents, complete the contract and sign the handover protocol.',
+                    ],
+                    [
+                        'icon' => 'gfx/uzij-si-jizdu.svg',
+                        'title' => 'Enjoy the ride',
+                        'text' => 'Hit the road – no deposit, no stress. The rest is just asphalt and freedom.',
+                    ],
+                    [
+                        'icon' => 'gfx/predani-motorky.svg',
+                        'title' => 'Return the motorcycle',
+                        'text' => 'Return the motorcycle on time at the agreed place. No refuelling or washing needed.',
+                    ],
+                ],
+            ],
+            'pricing' => [
+                'title' => 'Delivery price list',
+                'lead' => '<strong>The delivery price has three components:</strong>',
+                'items' => [
+                    '<strong>500 CZK</strong>&nbsp;for loading the motorcycle,',
+                    '<strong>500 CZK</strong>&nbsp;for unloading the motorcycle,',
+                    '<strong>20 CZK</strong>&nbsp;per kilometre (the distance from the rental to the destination and back is counted)',
+                ],
+                'example' => '<strong>Example:</strong>&nbsp;Want the motorcycle delivered 30 km from the rental? You pay 500 + 500 + (30 × 2 × 20) =&nbsp;<strong>2,200 CZK.</strong>',
+            ],
+            'faq' => [
+                'title' => 'Frequently asked questions about delivery',
+                'items' => [
+                    [
+                        'q' => 'How far in advance should I order delivery?',
+                        'a' => 'Ideally <strong>when</strong> <strong>booking online</strong> – you enter the address and time. For urgent requests, contact us by phone.',
+                    ],
+                    [
+                        'q' => 'Can I return the motorcycle somewhere other than where I picked it up?',
+                        'a' => 'Yes, we charge <strong>collection</strong> based on the distance from Pelhřimov. We arrange it at booking.',
+                    ],
+                    [
+                        'q' => 'How much does delivery outside Vysočina cost?',
+                        'a' => 'We follow a distance table. Over 100 km we calculate the price <strong>individually</strong>.',
+                    ],
+                    [
+                        'q' => 'Is there a deposit?',
+                        'a' => 'No. <strong>We rent without a deposit</strong>, the conditions are clear and fair.',
+                    ],
+                    [
+                        'q' => 'Is the rider gear included too?',
+                        'a' => 'Yes. Helmet, jacket, trousers and gloves are&nbsp;<strong>included in the rental</strong>&nbsp;for the rider.',
+                    ],
+                ],
+            ],
             'cta' => [
                 'title' => 'Motorcycle delivery – motorcycle rental Vysočina',
                 'text' => 'MotoGo24 offers <strong>motorcycle delivery</strong> across the region and beyond. <strong>24/7 service, no deposit, gear included.</strong>',

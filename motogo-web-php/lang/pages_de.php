@@ -253,6 +253,137 @@ return [
                 'label' => 'MIT LIEFERUNG RESERVIEREN',
                 'href' => '/rezervace?delivery=1',
             ],
+            'when' => [
+                'title' => 'Wann sich die Lieferung lohnt',
+                'items' => [
+                    '<strong>Beginn eines Roadtrips</strong>&nbsp;– wir bringen das Motorrad direkt zum Start deiner Tour.',
+                    '<strong>Hotel oder Pension</strong>&nbsp;– Lieferung zur Unterkunft, damit du Zeit sparst.',
+                    '<strong>Bahnhof/Bus</strong>&nbsp;– reibungsloser Umstieg ohne Wartezeit.',
+                    '<strong>Firmenveranstaltungen und Geschenke</strong>&nbsp;– eine Überraschung für Partner oder das Team.',
+                ],
+            ],
+            'why' => [
+                'title' => 'Warum die Motorradlieferung nutzen',
+                'grid' => 'gr5',
+                'items' => [
+                    [
+                        'icon' => 'gfx/vyzvednuti-vraceni-motorky.svg',
+                        'title' => 'Flexibilität',
+                        'text' => 'Wir bringen das Motorrad, wohin du es brauchst – nach Hause, zum Hotel, zum Bahnhof oder zum Start deiner Tour.',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-pohodli.svg',
+                        'title' => 'Komfort',
+                        'text' => 'Du musst dich nicht um den Transport zur Vermietung kümmern – wo du dein Auto lässt oder wer dich fährt.',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-nonstop.svg',
+                        'title' => 'Rund-um-die-Uhr-Service',
+                        'text' => 'Wir vereinbaren die Lieferung zu einem festen Zeitpunkt – auch abends oder am Wochenende. Wähle einfach die Zeit bei der Reservierung.',
+                    ],
+                    [
+                        'icon' => 'gfx/uspora-casu.svg',
+                        'title' => 'Zeitersparnis',
+                        'text' => 'Die Zeit, die du dir auf dem Weg zur Vermietung und zurück sparst, kannst du dir selbst widmen.',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-vybava.svg',
+                        'title' => 'Ausrüstung inklusive',
+                        'text' => 'Wir bringen auch die geliehene Ausrüstung in den gewünschten Größen direkt zu dir.',
+                    ],
+                ],
+            ],
+            'process' => [
+                'title' => 'Wie die Lieferung abläuft',
+                'grid' => 'gr5',
+                'steps' => [
+                    [
+                        'icon' => 'gfx/vyber-motorku.svg',
+                        'title' => 'Motorrad wählen',
+                        'text' => 'Sieh dir unser Angebot an Touren-, Supermoto-, Naked- und Kindermotorrädern an und wähle das passende aus.',
+                    ],
+                    [
+                        'icon' => 'gfx/rezervace-online.svg',
+                        'title' => 'Termin wählen',
+                        'text' => 'Wähle im Kalender das Datum, an dem du losfahren willst. Du siehst, welche Motorräder frei sind.',
+                    ],
+                    [
+                        'icon' => 'gfx/kontaktni-udaje.svg',
+                        'title' => 'Kontaktdaten',
+                        'text' => 'Gib Name, Adresse, E-Mail und Telefon ein.',
+                    ],
+                    [
+                        'icon' => 'gfx/cas-prevzeti-motorky.svg',
+                        'title' => 'Lieferzeit',
+                        'text' => 'Wähle, wann wir das Motorrad liefern – auch abends oder am Wochenende.',
+                    ],
+                    [
+                        'icon' => 'gfx/vyzvednuti-vraceni-motorky.svg',
+                        'title' => 'Lieferort',
+                        'text' => 'Gib die Adresse an, wohin wir das Motorrad bringen – nach Hause, zum Hotel, zum Bahnhof oder zum Start der Tour.',
+                    ],
+                    [
+                        'icon' => 'gfx/vyber-vybavu.svg',
+                        'title' => 'Ausrüstung',
+                        'text' => 'Die Grundausrüstung des Fahrers ist im Preis. Gib die gewünschten Größen für alle Ausrüstungsteile ins Feld Notiz ein – Pflicht.',
+                    ],
+                    [
+                        'icon' => 'gfx/zaplat.svg',
+                        'title' => 'Bestätigung und Zahlung',
+                        'text' => 'Überprüfe die Bestellübersicht, stimme den Bedingungen zu und zahle online.',
+                    ],
+                    [
+                        'icon' => 'gfx/podpis-dokumentu.svg',
+                        'title' => 'Übergabe vor Ort',
+                        'text' => 'Bei der Übergabe prüfen wir die Dokumente, vervollständigen den Vertrag und unterschreiben das Übergabeprotokoll.',
+                    ],
+                    [
+                        'icon' => 'gfx/uzij-si-jizdu.svg',
+                        'title' => 'Genieße die Fahrt',
+                        'text' => 'Auf die Straße – ohne Kaution, ohne Stress. Der Rest ist nur Asphalt und Freiheit.',
+                    ],
+                    [
+                        'icon' => 'gfx/predani-motorky.svg',
+                        'title' => 'Motorrad zurückgeben',
+                        'text' => 'Gib das Motorrad pünktlich am vereinbarten Ort zurück. Kein Tanken oder Waschen nötig.',
+                    ],
+                ],
+            ],
+            'pricing' => [
+                'title' => 'Lieferpreisliste',
+                'lead' => '<strong>Der Lieferpreis besteht aus drei Bestandteilen:</strong>',
+                'items' => [
+                    '<strong>500 CZK</strong>&nbsp;für das Aufladen des Motorrads,',
+                    '<strong>500 CZK</strong>&nbsp;für das Abladen des Motorrads,',
+                    '<strong>20 CZK</strong>&nbsp;pro Kilometer (gerechnet wird die Strecke von der Vermietung zum Zielort und zurück)',
+                ],
+                'example' => '<strong>Beispiel:</strong>&nbsp;Du möchtest das Motorrad 30 km von der Vermietung entfernt geliefert haben? Du zahlst 500 + 500 + (30 × 2 × 20) =&nbsp;<strong>2.200 CZK.</strong>',
+            ],
+            'faq' => [
+                'title' => 'Häufig gestellte Fragen zur Lieferung',
+                'items' => [
+                    [
+                        'q' => 'Wie lange im Voraus muss ich die Lieferung bestellen?',
+                        'a' => 'Am besten <strong>bei der</strong> <strong>Online-Reservierung</strong> – du gibst Adresse und Zeit an. Bei dringenden Anfragen kontaktiere uns telefonisch.',
+                    ],
+                    [
+                        'q' => 'Kann ich das Motorrad an einem anderen Ort zurückgeben als ich es übernommen habe?',
+                        'a' => 'Ja, wir berechnen die <strong>Abholung</strong> je nach Entfernung von Pelhřimov. Wir vereinbaren es bei der Reservierung.',
+                    ],
+                    [
+                        'q' => 'Wie viel kostet die Lieferung außerhalb von Vysočina?',
+                        'a' => 'Wir richten uns nach einer Entfernungstabelle. Über 100 km berechnen wir den Preis <strong>individuell</strong>.',
+                    ],
+                    [
+                        'q' => 'Wird eine Kaution fällig?',
+                        'a' => 'Nein. <strong>Wir vermieten ohne Kaution</strong>, die Bedingungen sind klar und fair.',
+                    ],
+                    [
+                        'q' => 'Ist die Fahrerausrüstung auch enthalten?',
+                        'a' => 'Ja. Helm, Jacke, Hose und Handschuhe sind für den Fahrer&nbsp;<strong>im Mietpreis enthalten</strong>.',
+                    ],
+                ],
+            ],
             'cta' => [
                 'title' => 'Motorradlieferung – Motorradvermietung Vysočina',
                 'text' => 'MotoGo24 bietet <strong>Motorradlieferung</strong> in der Region und darüber hinaus. <strong>Rund-um-die-Uhr-Service, ohne Kaution, Ausrüstung im Preis</strong>.',

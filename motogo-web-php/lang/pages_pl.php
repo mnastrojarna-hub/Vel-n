@@ -253,6 +253,137 @@ return [
                 'label' => 'REZERWUJ Z DOSTAWĄ',
                 'href' => '/rezervace?delivery=1',
             ],
+            'when' => [
+                'title' => 'Kiedy podstawienie się przydaje',
+                'items' => [
+                    '<strong>Początek&nbsp;roadtripu</strong>&nbsp;– przywieziemy motocykl prosto na start twojej trasy.',
+                    '<strong>Hotel lub pensjonat</strong>&nbsp;– dostawa do miejsca zakwaterowania, żebyś oszczędził czas.',
+                    '<strong>Dworzec kolejowy/autobusowy</strong>&nbsp;– płynna przesiadka bez czekania.',
+                    '<strong>Imprezy firmowe i prezenty</strong>&nbsp;– niespodzianka dla partnerów lub zespołu.',
+                ],
+            ],
+            'why' => [
+                'title' => 'Dlaczego skorzystać z podstawienia motocykla',
+                'grid' => 'gr5',
+                'items' => [
+                    [
+                        'icon' => 'gfx/vyzvednuti-vraceni-motorky.svg',
+                        'title' => 'Elastyczność',
+                        'text' => 'Przywieziemy motocykl tam, gdzie potrzebujesz – do domu, do hotelu, na dworzec albo na start trasy.',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-pohodli.svg',
+                        'title' => 'Wygoda',
+                        'text' => 'Nie musisz organizować dojazdu do wypożyczalni – gdzie zostawić auto albo kto cię przywiezie.',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-nonstop.svg',
+                        'title' => 'Obsługa całodobowa',
+                        'text' => 'Podstawienie umawiamy na ustaloną godzinę – spokojnie wieczorem albo w weekend. Wystarczy wybrać godzinę przy rezerwacji.',
+                    ],
+                    [
+                        'icon' => 'gfx/uspora-casu.svg',
+                        'title' => 'Oszczędność czasu',
+                        'text' => 'Czas zaoszczędzony na dojeździe do wypożyczalni i z powrotem możesz poświęcić sobie.',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-vybava.svg',
+                        'title' => 'Wyposażenie ze sobą',
+                        'text' => 'Przywieziemy też wypożyczone wyposażenie w żądanych rozmiarach prosto do ciebie.',
+                    ],
+                ],
+            ],
+            'process' => [
+                'title' => 'Jak przebiega podstawienie',
+                'grid' => 'gr5',
+                'steps' => [
+                    [
+                        'icon' => 'gfx/vyber-motorku.svg',
+                        'title' => 'Wybierz motocykl',
+                        'text' => 'Przejrzyj naszą ofertę motocykli turystycznych, supermoto, naked i dziecięcych i wybierz właściwy.',
+                    ],
+                    [
+                        'icon' => 'gfx/rezervace-online.svg',
+                        'title' => 'Wybierz termin',
+                        'text' => 'Wybierz w kalendarzu datę, w której chcesz wyruszyć. Zobaczysz, które motocykle są wolne.',
+                    ],
+                    [
+                        'icon' => 'gfx/kontaktni-udaje.svg',
+                        'title' => 'Dane kontaktowe',
+                        'text' => 'Wpisz imię, adres, e-mail i telefon.',
+                    ],
+                    [
+                        'icon' => 'gfx/cas-prevzeti-motorky.svg',
+                        'title' => 'Godzina podstawienia',
+                        'text' => 'Wybierz, kiedy podstawimy motocykl – spokojnie wieczorem albo w weekend.',
+                    ],
+                    [
+                        'icon' => 'gfx/vyzvednuti-vraceni-motorky.svg',
+                        'title' => 'Miejsce podstawienia',
+                        'text' => 'Podaj adres, pod który przywieźć motocykl – dom, hotel, dworzec albo start trasy.',
+                    ],
+                    [
+                        'icon' => 'gfx/vyber-vybavu.svg',
+                        'title' => 'Wyposażenie',
+                        'text' => 'Podstawowe wyposażenie kierowcy jest w cenie. Żądane rozmiary wszystkich części wyposażenia podaj w polu Uwaga – obowiązkowe.',
+                    ],
+                    [
+                        'icon' => 'gfx/zaplat.svg',
+                        'title' => 'Potwierdzenie i płatność',
+                        'text' => 'Sprawdź podsumowanie zamówienia, zaakceptuj warunki i zapłać online.',
+                    ],
+                    [
+                        'icon' => 'gfx/podpis-dokumentu.svg',
+                        'title' => 'Odbiór na miejscu',
+                        'text' => 'Przy przekazaniu sprawdzimy dokumenty, uzupełnimy umowę i podpiszemy protokół przekazania.',
+                    ],
+                    [
+                        'icon' => 'gfx/uzij-si-jizdu.svg',
+                        'title' => 'Ciesz się jazdą',
+                        'text' => 'W trasę – bez kaucji, bez stresu. Reszta to już tylko asfalt i wolność.',
+                    ],
+                    [
+                        'icon' => 'gfx/predani-motorky.svg',
+                        'title' => 'Zwróć motocykl',
+                        'text' => 'Zwróć motocykl na czas w umówionym miejscu. Nie trzeba tankować ani myć.',
+                    ],
+                ],
+            ],
+            'pricing' => [
+                'title' => 'Cennik podstawienia',
+                'lead' => '<strong>Cena podstawienia składa się z trzech elementów:</strong>',
+                'items' => [
+                    '<strong>500 CZK</strong>&nbsp;za załadunek motocykla,',
+                    '<strong>500 CZK</strong>&nbsp;za rozładunek motocykla,',
+                    '<strong>20 CZK</strong>&nbsp;za każdy kilometr (liczona jest odległość z wypożyczalni do miejsca docelowego i z powrotem)',
+                ],
+                'example' => '<strong>Przykład:</strong>&nbsp;Chcesz, by motocykl podstawić 30 km od wypożyczalni? Zapłacisz 500 + 500 + (30 × 2 × 20) =&nbsp;<strong>2 200 CZK.</strong>',
+            ],
+            'faq' => [
+                'title' => 'Najczęściej zadawane pytania o podstawienie',
+                'items' => [
+                    [
+                        'q' => 'Z jakim wyprzedzeniem zamówić podstawienie?',
+                        'a' => 'Najlepiej <strong>przy</strong> <strong>rezerwacji online</strong> – podajesz adres i godzinę. W pilnych sprawach skontaktuj się z nami telefonicznie.',
+                    ],
+                    [
+                        'q' => 'Czy mogę zwrócić motocykl w innym miejscu niż go odebrałem?',
+                        'a' => 'Tak, naliczamy <strong>odbiór</strong> w zależności od odległości od Pelhřimova. Umawiamy to przy rezerwacji.',
+                    ],
+                    [
+                        'q' => 'Ile kosztuje podstawienie poza Vysočinę?',
+                        'a' => 'Kierujemy się tabelą odległości. Powyżej 100 km cenę kalkulujemy <strong>indywidualnie</strong>.',
+                    ],
+                    [
+                        'q' => 'Czy pobierana jest kaucja?',
+                        'a' => 'Nie. <strong>Wypożyczamy bez kaucji</strong>, warunki są jasne i uczciwe.',
+                    ],
+                    [
+                        'q' => 'Czy wyposażenie kierowcy też jest w cenie?',
+                        'a' => 'Tak. Kask, kurtka, spodnie i rękawice są dla kierowcy&nbsp;<strong>w cenie wynajmu</strong>.',
+                    ],
+                ],
+            ],
             'cta' => [
                 'title' => 'Dostawa motocykla – wypożyczalnia motocykli Vysočina',
                 'text' => 'MotoGo24 oferuje <strong>dostawę motocykla</strong> w regionie i poza nim. <strong>Obsługa całodobowa, bez kaucji, wyposażenie w cenie</strong>.',

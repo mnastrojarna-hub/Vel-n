@@ -253,6 +253,137 @@ return [
                 'label' => 'RESERVEREN MET BEZORGING',
                 'href' => '/rezervace?delivery=1',
             ],
+            'when' => [
+                'title' => 'Wanneer bezorging handig is',
+                'items' => [
+                    '<strong>Begin van een&nbsp;roadtrip</strong>&nbsp;– we brengen de motor rechtstreeks naar het startpunt van je reis.',
+                    '<strong>Hotel of pension</strong>&nbsp;– bezorging bij je accommodatie, zodat je tijd bespaart.',
+                    '<strong>Trein-/busstation</strong>&nbsp;– een vlotte overstap zonder wachten.',
+                    '<strong>Bedrijfsevenementen en cadeaus</strong>&nbsp;– een verrassing voor partners of je team.',
+                ],
+            ],
+            'why' => [
+                'title' => 'Waarom motorbezorging gebruiken',
+                'grid' => 'gr5',
+                'items' => [
+                    [
+                        'icon' => 'gfx/vyzvednuti-vraceni-motorky.svg',
+                        'title' => 'Flexibiliteit',
+                        'text' => 'We brengen de motor waar je hem nodig hebt – thuis, naar een hotel, naar een station of naar het startpunt van je reis.',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-pohodli.svg',
+                        'title' => 'Gemak',
+                        'text' => 'Je hoeft geen vervoer naar de verhuur te regelen – waar laat je je auto of wie brengt je.',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-nonstop.svg',
+                        'title' => '24/7 service',
+                        'text' => 'We spreken de bezorging af op een vast tijdstip – \'s avonds of in het weekend, geen probleem. Kies gewoon de tijd bij de reservering.',
+                    ],
+                    [
+                        'icon' => 'gfx/uspora-casu.svg',
+                        'title' => 'Tijdsbesparing',
+                        'text' => 'De tijd die je bespaart op de rit naar de verhuur en terug, kun je aan jezelf besteden.',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-vybava.svg',
+                        'title' => 'Uitrusting erbij',
+                        'text' => 'We brengen ook de gehuurde uitrusting in de gevraagde maten rechtstreeks naar je toe.',
+                    ],
+                ],
+            ],
+            'process' => [
+                'title' => 'Hoe de bezorging werkt',
+                'grid' => 'gr5',
+                'steps' => [
+                    [
+                        'icon' => 'gfx/vyber-motorku.svg',
+                        'title' => 'Kies een motor',
+                        'text' => 'Bekijk ons aanbod toer-, supermoto-, naked- en kindermotoren en kies de juiste.',
+                    ],
+                    [
+                        'icon' => 'gfx/rezervace-online.svg',
+                        'title' => 'Kies een datum',
+                        'text' => 'Kies in de kalender de datum waarop je wilt rijden. Je ziet welke motoren beschikbaar zijn.',
+                    ],
+                    [
+                        'icon' => 'gfx/kontaktni-udaje.svg',
+                        'title' => 'Contactgegevens',
+                        'text' => 'Vul je naam, adres, e-mail en telefoon in.',
+                    ],
+                    [
+                        'icon' => 'gfx/cas-prevzeti-motorky.svg',
+                        'title' => 'Bezorgtijd',
+                        'text' => 'Kies wanneer we de motor bezorgen – \'s avonds of in het weekend, geen probleem.',
+                    ],
+                    [
+                        'icon' => 'gfx/vyzvednuti-vraceni-motorky.svg',
+                        'title' => 'Bezorglocatie',
+                        'text' => 'Vul het adres in waar we de motor naartoe brengen – thuis, een hotel, een station of het startpunt van de reis.',
+                    ],
+                    [
+                        'icon' => 'gfx/vyber-vybavu.svg',
+                        'title' => 'Uitrusting',
+                        'text' => 'De basisuitrusting van de rijder is inbegrepen. Vul de gevraagde maten voor alle uitrustingsstukken in het veld Opmerking in – verplicht.',
+                    ],
+                    [
+                        'icon' => 'gfx/zaplat.svg',
+                        'title' => 'Bevestiging en betaling',
+                        'text' => 'Controleer het besteloverzicht, ga akkoord met de voorwaarden en betaal online.',
+                    ],
+                    [
+                        'icon' => 'gfx/podpis-dokumentu.svg',
+                        'title' => 'Overdracht ter plaatse',
+                        'text' => 'Bij de overdracht controleren we de documenten, vullen we het contract aan en ondertekenen we het overdrachtsprotocol.',
+                    ],
+                    [
+                        'icon' => 'gfx/uzij-si-jizdu.svg',
+                        'title' => 'Geniet van de rit',
+                        'text' => 'De weg op – zonder borg, zonder stress. De rest is gewoon asfalt en vrijheid.',
+                    ],
+                    [
+                        'icon' => 'gfx/predani-motorky.svg',
+                        'title' => 'Breng de motor terug',
+                        'text' => 'Breng de motor op tijd terug op de afgesproken plek. Tanken of wassen is niet nodig.',
+                    ],
+                ],
+            ],
+            'pricing' => [
+                'title' => 'Bezorgtarief',
+                'lead' => '<strong>De bezorgprijs bestaat uit drie onderdelen:</strong>',
+                'items' => [
+                    '<strong>500 CZK</strong>&nbsp;voor het laden van de motor,',
+                    '<strong>500 CZK</strong>&nbsp;voor het lossen van de motor,',
+                    '<strong>20 CZK</strong>&nbsp;per kilometer (de afstand van de verhuur naar de bestemming en terug wordt geteld)',
+                ],
+                'example' => '<strong>Voorbeeld:</strong>&nbsp;Wil je de motor 30 km van de verhuur bezorgd hebben? Je betaalt 500 + 500 + (30 × 2 × 20) =&nbsp;<strong>2.200 CZK.</strong>',
+            ],
+            'faq' => [
+                'title' => 'Veelgestelde vragen over bezorging',
+                'items' => [
+                    [
+                        'q' => 'Hoever van tevoren moet ik de bezorging bestellen?',
+                        'a' => 'Het beste <strong>bij het</strong> <strong>online reserveren</strong> – je vult het adres en de tijd in. Voor dringende verzoeken kun je ons telefonisch bereiken.',
+                    ],
+                    [
+                        'q' => 'Kan ik de motor elders terugbrengen dan waar ik hem heb opgehaald?',
+                        'a' => 'Ja, we rekenen <strong>ophalen</strong> op basis van de afstand vanaf Pelhřimov. We regelen dat bij de reservering.',
+                    ],
+                    [
+                        'q' => 'Wat kost bezorging buiten Vysočina?',
+                        'a' => 'We volgen een afstandstabel. Boven de 100 km berekenen we de prijs <strong>op maat</strong>.',
+                    ],
+                    [
+                        'q' => 'Is er een borg?',
+                        'a' => 'Nee. <strong>We verhuren zonder borg</strong>, de voorwaarden zijn duidelijk en eerlijk.',
+                    ],
+                    [
+                        'q' => 'Is de rijdersuitrusting ook inbegrepen?',
+                        'a' => 'Ja. Helm, jas, broek en handschoenen zijn voor de rijder&nbsp;<strong>in de huurprijs inbegrepen</strong>.',
+                    ],
+                ],
+            ],
             'cta' => [
                 'title' => 'Motorbezorging – motorverhuur Vysočina',
                 'text' => 'MotoGo24 biedt <strong>motorbezorging</strong> in de regio en daarbuiten. <strong>24/7 service, zonder borg, uitrusting inbegrepen</strong>.',

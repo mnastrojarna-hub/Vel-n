@@ -756,6 +756,137 @@ return [
                 'label' => 'RÉSERVER AVEC LIVRAISON',
                 'href' => '/rezervace?delivery=1',
             ],
+            'when' => [
+                'title' => 'Quand la livraison est utile',
+                'items' => [
+                    '<strong>Début d\'un&nbsp;road trip</strong>&nbsp;– nous amenons la moto directement au point de départ de votre voyage.',
+                    '<strong>Hôtel ou pension</strong>&nbsp;– livraison à votre hébergement pour gagner du temps.',
+                    '<strong>Gare/bus</strong>&nbsp;– une correspondance fluide sans attente.',
+                    '<strong>Événements d\'entreprise et cadeaux</strong>&nbsp;– une surprise pour des partenaires ou votre équipe.',
+                ],
+            ],
+            'why' => [
+                'title' => 'Pourquoi utiliser la livraison de moto',
+                'grid' => 'gr5',
+                'items' => [
+                    [
+                        'icon' => 'gfx/vyzvednuti-vraceni-motorky.svg',
+                        'title' => 'Flexibilité',
+                        'text' => 'Nous amenons la moto où vous en avez besoin – à la maison, à un hôtel, à une gare ou au départ de votre voyage.',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-pohodli.svg',
+                        'title' => 'Confort',
+                        'text' => 'Vous n\'avez pas à organiser le transport jusqu\'à la location – où laisser votre voiture ou qui vous conduit.',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-nonstop.svg',
+                        'title' => 'Service 24/7',
+                        'text' => 'Nous convenons de la livraison à une heure fixée – le soir ou le week-end, pas de problème. Choisissez simplement l\'heure lors de la réservation.',
+                    ],
+                    [
+                        'icon' => 'gfx/uspora-casu.svg',
+                        'title' => 'Temps gagné',
+                        'text' => 'Le temps gagné sur le trajet vers la location et retour, vous pouvez vous le consacrer.',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-vybava.svg',
+                        'title' => 'Équipement aussi',
+                        'text' => 'Nous apportons aussi l\'équipement loué dans les tailles demandées directement chez vous.',
+                    ],
+                ],
+            ],
+            'process' => [
+                'title' => 'Comment se déroule la livraison',
+                'grid' => 'gr5',
+                'steps' => [
+                    [
+                        'icon' => 'gfx/vyber-motorku.svg',
+                        'title' => 'Choisissez une moto',
+                        'text' => 'Parcourez notre gamme de motos de tourisme, supermoto, naked et enfant et choisissez la bonne.',
+                    ],
+                    [
+                        'icon' => 'gfx/rezervace-online.svg',
+                        'title' => 'Choisissez une date',
+                        'text' => 'Choisissez dans le calendrier la date à laquelle vous voulez rouler. Vous verrez quelles motos sont disponibles.',
+                    ],
+                    [
+                        'icon' => 'gfx/kontaktni-udaje.svg',
+                        'title' => 'Coordonnées',
+                        'text' => 'Renseignez votre nom, adresse, e-mail et téléphone.',
+                    ],
+                    [
+                        'icon' => 'gfx/cas-prevzeti-motorky.svg',
+                        'title' => 'Heure de livraison',
+                        'text' => 'Choisissez quand nous livrons la moto – le soir ou le week-end, pas de problème.',
+                    ],
+                    [
+                        'icon' => 'gfx/vyzvednuti-vraceni-motorky.svg',
+                        'title' => 'Lieu de livraison',
+                        'text' => 'Indiquez l\'adresse de livraison – maison, hôtel, gare ou départ du voyage.',
+                    ],
+                    [
+                        'icon' => 'gfx/vyber-vybavu.svg',
+                        'title' => 'Équipement',
+                        'text' => 'L\'équipement de base du conducteur est inclus. Indiquez les tailles requises pour toutes les pièces de l\'équipement dans le champ Remarque – obligatoire.',
+                    ],
+                    [
+                        'icon' => 'gfx/zaplat.svg',
+                        'title' => 'Confirmation et paiement',
+                        'text' => 'Vérifiez le récapitulatif de la commande, acceptez les conditions et payez en ligne.',
+                    ],
+                    [
+                        'icon' => 'gfx/podpis-dokumentu.svg',
+                        'title' => 'Remise sur place',
+                        'text' => 'À la remise, nous vérifions les documents, complétons le contrat et signons le procès-verbal de remise.',
+                    ],
+                    [
+                        'icon' => 'gfx/uzij-si-jizdu.svg',
+                        'title' => 'Profitez du trajet',
+                        'text' => 'En route – sans caution, sans stress. Le reste, c\'est juste l\'asphalte et la liberté.',
+                    ],
+                    [
+                        'icon' => 'gfx/predani-motorky.svg',
+                        'title' => 'Rendez la moto',
+                        'text' => 'Rendez la moto à l\'heure au lieu convenu. Pas besoin de faire le plein ni de laver.',
+                    ],
+                ],
+            ],
+            'pricing' => [
+                'title' => 'Tarif de livraison',
+                'lead' => '<strong>Le prix de la livraison comprend trois composantes :</strong>',
+                'items' => [
+                    '<strong>500 CZK</strong>&nbsp;pour le chargement de la moto,',
+                    '<strong>500 CZK</strong>&nbsp;pour le déchargement de la moto,',
+                    '<strong>20 CZK</strong>&nbsp;par kilomètre (on compte la distance de la location au lieu de destination et retour)',
+                ],
+                'example' => '<strong>Exemple :</strong>&nbsp;Vous voulez la moto livrée à 30 km de la location ? Vous payez 500 + 500 + (30 × 2 × 20) =&nbsp;<strong>2 200 CZK.</strong>',
+            ],
+            'faq' => [
+                'title' => 'Questions fréquentes sur la livraison',
+                'items' => [
+                    [
+                        'q' => 'Combien de temps à l\'avance dois-je commander la livraison ?',
+                        'a' => 'Idéalement <strong>lors de la</strong> <strong>réservation en ligne</strong> – vous indiquez l\'adresse et l\'heure. Pour les demandes urgentes, contactez-nous par téléphone.',
+                    ],
+                    [
+                        'q' => 'Puis-je rendre la moto ailleurs qu\'au lieu de retrait ?',
+                        'a' => 'Oui, nous facturons la <strong>récupération</strong> selon la distance depuis Pelhřimov. Nous l\'organisons à la réservation.',
+                    ],
+                    [
+                        'q' => 'Combien coûte la livraison en dehors de Vysočina ?',
+                        'a' => 'Nous suivons un tableau de distances. Au-delà de 100 km, nous calculons le prix <strong>individuellement</strong>.',
+                    ],
+                    [
+                        'q' => 'Y a-t-il une caution ?',
+                        'a' => 'Non. <strong>Nous louons sans caution</strong>, les conditions sont claires et équitables.',
+                    ],
+                    [
+                        'q' => 'L\'équipement du conducteur est-il aussi inclus ?',
+                        'a' => 'Oui. Casque, blouson, pantalon et gants sont&nbsp;<strong>inclus dans la location</strong>&nbsp;pour le conducteur.',
+                    ],
+                ],
+            ],
             'cta' => [
                 'title' => 'Livraison de la moto – location de motos Vysočina',
                 'text' => 'MotoGo24 propose la <strong>livraison de la moto</strong> dans la région et au-delà. <strong>Service 24h/24, sans caution, équipement inclus</strong>.',

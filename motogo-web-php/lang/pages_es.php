@@ -756,6 +756,137 @@ return [
                 'label' => 'RESERVAR CON ENTREGA',
                 'href' => '/rezervace?delivery=1',
             ],
+            'when' => [
+                'title' => 'Cuándo viene bien la entrega',
+                'items' => [
+                    '<strong>Inicio de un&nbsp;road trip</strong>&nbsp;– llevamos la moto directamente al punto de partida de tu viaje.',
+                    '<strong>Hotel o pensión</strong>&nbsp;– entrega en tu alojamiento para que ahorres tiempo.',
+                    '<strong>Estación de tren/autobús</strong>&nbsp;– un trasbordo fluido sin esperas.',
+                    '<strong>Eventos de empresa y regalos</strong>&nbsp;– una sorpresa para socios o tu equipo.',
+                ],
+            ],
+            'why' => [
+                'title' => 'Por qué usar la entrega de la moto',
+                'grid' => 'gr5',
+                'items' => [
+                    [
+                        'icon' => 'gfx/vyzvednuti-vraceni-motorky.svg',
+                        'title' => 'Flexibilidad',
+                        'text' => 'Llevamos la moto donde la necesites: a casa, a un hotel, a una estación o al inicio de tu viaje.',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-pohodli.svg',
+                        'title' => 'Comodidad',
+                        'text' => 'No tienes que organizar el transporte hasta el alquiler: dónde dejar el coche o quién te lleva.',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-nonstop.svg',
+                        'title' => 'Servicio 24/7',
+                        'text' => 'Acordamos la entrega para una hora concreta: por la tarde o el fin de semana, sin problema. Solo elige la hora al reservar.',
+                    ],
+                    [
+                        'icon' => 'gfx/uspora-casu.svg',
+                        'title' => 'Ahorro de tiempo',
+                        'text' => 'El tiempo que ahorras yendo al alquiler y volviendo puedes dedicártelo a ti.',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-vybava.svg',
+                        'title' => 'Equipamiento incluido',
+                        'text' => 'También te llevamos el equipamiento alquilado en las tallas solicitadas directamente a ti.',
+                    ],
+                ],
+            ],
+            'process' => [
+                'title' => 'Cómo funciona la entrega',
+                'grid' => 'gr5',
+                'steps' => [
+                    [
+                        'icon' => 'gfx/vyber-motorku.svg',
+                        'title' => 'Elige una moto',
+                        'text' => 'Mira nuestra gama de motos de turismo, supermoto, naked e infantiles y elige la adecuada.',
+                    ],
+                    [
+                        'icon' => 'gfx/rezervace-online.svg',
+                        'title' => 'Elige una fecha',
+                        'text' => 'Elige en el calendario el día que quieres conducir. Verás qué motos están disponibles.',
+                    ],
+                    [
+                        'icon' => 'gfx/kontaktni-udaje.svg',
+                        'title' => 'Datos de contacto',
+                        'text' => 'Rellena tu nombre, dirección, correo y teléfono.',
+                    ],
+                    [
+                        'icon' => 'gfx/cas-prevzeti-motorky.svg',
+                        'title' => 'Hora de entrega',
+                        'text' => 'Elige cuándo entregamos la moto: por la tarde o el fin de semana, sin problema.',
+                    ],
+                    [
+                        'icon' => 'gfx/vyzvednuti-vraceni-motorky.svg',
+                        'title' => 'Lugar de entrega',
+                        'text' => 'Indica la dirección a la que llevar la moto: casa, un hotel, una estación o el inicio del viaje.',
+                    ],
+                    [
+                        'icon' => 'gfx/vyber-vybavu.svg',
+                        'title' => 'Equipamiento',
+                        'text' => 'El equipamiento básico del conductor está incluido. Indica las tallas necesarias para todas las piezas del equipamiento en el campo Nota: obligatorio.',
+                    ],
+                    [
+                        'icon' => 'gfx/zaplat.svg',
+                        'title' => 'Confirmación y pago',
+                        'text' => 'Revisa el resumen del pedido, acepta las condiciones y paga online.',
+                    ],
+                    [
+                        'icon' => 'gfx/podpis-dokumentu.svg',
+                        'title' => 'Entrega en el sitio',
+                        'text' => 'En la entrega revisamos los documentos, completamos el contrato y firmamos el acta de entrega.',
+                    ],
+                    [
+                        'icon' => 'gfx/uzij-si-jizdu.svg',
+                        'title' => 'Disfruta del viaje',
+                        'text' => 'A la carretera: sin fianza, sin estrés. El resto es solo asfalto y libertad.',
+                    ],
+                    [
+                        'icon' => 'gfx/predani-motorky.svg',
+                        'title' => 'Devuelve la moto',
+                        'text' => 'Devuelve la moto a tiempo en el lugar acordado. No hace falta repostar ni lavar.',
+                    ],
+                ],
+            ],
+            'pricing' => [
+                'title' => 'Tarifa de entrega',
+                'lead' => '<strong>El precio de la entrega tiene tres componentes:</strong>',
+                'items' => [
+                    '<strong>500 CZK</strong>&nbsp;por cargar la moto,',
+                    '<strong>500 CZK</strong>&nbsp;por descargar la moto,',
+                    '<strong>20 CZK</strong>&nbsp;por cada kilómetro (se cuenta la distancia del alquiler al destino y vuelta)',
+                ],
+                'example' => '<strong>Ejemplo:</strong>&nbsp;¿Quieres la moto entregada a 30 km del alquiler? Pagas 500 + 500 + (30 × 2 × 20) =&nbsp;<strong>2.200 CZK.</strong>',
+            ],
+            'faq' => [
+                'title' => 'Preguntas frecuentes sobre la entrega',
+                'items' => [
+                    [
+                        'q' => '¿Con cuánta antelación debo pedir la entrega?',
+                        'a' => 'Lo ideal es <strong>al</strong> <strong>reservar online</strong>: indicas la dirección y la hora. Para solicitudes urgentes, contáctanos por teléfono.',
+                    ],
+                    [
+                        'q' => '¿Puedo devolver la moto en un lugar distinto al de la recogida?',
+                        'a' => 'Sí, cobramos la <strong>recogida</strong> según la distancia desde Pelhřimov. Lo acordamos al reservar.',
+                    ],
+                    [
+                        'q' => '¿Cuánto cuesta la entrega fuera de Vysočina?',
+                        'a' => 'Seguimos una tabla de distancias. A partir de 100 km calculamos el precio de forma <strong>individual</strong>.',
+                    ],
+                    [
+                        'q' => '¿Hay fianza?',
+                        'a' => 'No. <strong>Alquilamos sin fianza</strong>, las condiciones son claras y justas.',
+                    ],
+                    [
+                        'q' => '¿El equipamiento del conductor también está incluido?',
+                        'a' => 'Sí. Casco, chaqueta, pantalones y guantes están&nbsp;<strong>incluidos en el alquiler</strong>&nbsp;para el conductor.',
+                    ],
+                ],
+            ],
             'cta' => [
                 'title' => 'Entrega de la moto – alquiler de motos Vysočina',
                 'text' => 'MotoGo24 ofrece <strong>entrega de la moto</strong> en la región y fuera. <strong>Servicio 24/7, sin depósito, equipo incluido</strong>.',
