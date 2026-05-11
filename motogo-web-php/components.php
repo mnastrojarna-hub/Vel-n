@@ -63,31 +63,26 @@ function renderHeading($level, $text, $opts = []) {
 
 /**
  * SEO defensive HTML post-processor — beží na renderPage() output (mimo admin
- * režim) a opravi typicke SEO chyby co Velín CMS / data soubory mohou nechat:
+ * režim). OBSAHUJE JEN BEZPECNE OPRAVY co nemeni viditelny text:
  *
- *  1) Strip prazdnych <hN></hN> (whitespace/&nbsp; only) — Seobility 'Empty heading'
- *  2) Auto-extend kratke <h1> (<25 znaku, plain text) o ' | MotoGo24' pro
- *     SEO kontext — Seobility 'H1 too short'
- *  3) Auto-set alt na <img> bez alt nebo s alt="" (nedekorativni img bez
- *     aria-hidden) — odvodi z page <h1> + filename
- *  4) Cap <strong>/<b> na max 8 per stranka — pres tento limit je crawler hlasi
- *     'Many tags', zbylé prepiseme na <span> (zachova vizualni vyznam, smaze
- *     semantickou waight)
- *  5) Auto-promote h4->h3 / h5->h4 / h6->h5 kdyz chybi mezikrok v hierarchii
- *     (Seobility 'Structural problem' u h1->h2->h4 skoku)
+ *  0) HTTP -> HTTPS upgrade pro motogo24.cz odkazy (jen URL fix)
+ *  1) Strip prazdnych <h2-h6></hN> (whitespace/&nbsp; only). <h1> NIKDY.
+ *  1b) Pokud na strance NEni zadny <h1>, injectne fallback (jinak Critical 'no H1')
+ *  2) Auto-set alt na <img> bez alt (neviditelne, jen pro Google Images)
+ *  3) Multi-H1 demote: druhy a dalsi <h1> -> <h2> (Critical 'use only one H1')
  *
- * Bezpecne na ne-HTML obsah (pokud $content nezapocina '<') vraci nezmenene.
- * V admin rezimu (cookie mg_cms_admin) tato funkce neni volana — admin musi
- * videt original HTML aby mohl identifikovat co opravit ve Velinu.
+ * POZN: drivejsi auto-extend kratke H1 o ' – MotoGo24', cap <strong> na 8,
+ * a heading-hierarchy promote BYLO ODSTRANENO — menilo viditelny obsah
+ * (H1 text, tucna slova). Tyto SEO doporuceni admin resi rucne ve Velin
+ * SEO Health dashboardu (ukaze konkretni pole + doporuceni).
+ *
+ * Bezpecne na ne-HTML obsah. V admin rezimu (cookie mg_cms_admin) se nevola
+ * — admin musi videt original aby vedel co opravit ve Velinu.
  */
 function seoEnhanceHtml($content) {
     if (!is_string($content) || $content === '') return $content;
 
     // 0) HTTP -> HTTPS auto-upgrade pro motogo24.cz odkazy v CMS obsahu.
-    //    Velin RTE (CMS dokumenty) muze obsahovat hardcoded 'http://www.motogo24.cz/'
-    //    odkazy (admin zkopirovat ze stareho zdroje). Seobility hlasil
-    //    'Internal redirect' (HTTP -> HTTPS) z /dokumenty/smlouva-o-pronajmu.
-    //    Auto-upgrade misto rucniho findreplace v db.
     $content = preg_replace(
         '#http://(www\.)?motogo24\.cz(?=[/"\s])#i',
         'https://www.motogo24.cz',
@@ -95,29 +90,20 @@ function seoEnhanceHtml($content) {
     );
 
     // 1) Strip prazdnych headings <h2-h6></hN> (whitespace, &nbsp;, atd.).
-    //    DULEZITE: <h1> NIKDY neneabandonujem — Seobility 'There is no H1
-    //    heading specified' Critical. Pokud je H1 prazdny, nechame ho
-    //    jako tag (alespon je heading hierarchie zachovana) a nize injectneme
-    //    fallback content.
+    //    <h1> NIKDY nestripujeme — Seobility 'There is no H1' je Critical.
     $content = preg_replace(
         '#<h([2-6])(?![^>]*\bdata-cms-empty=)[^>]*>(?:\s|&nbsp;|&\#160;|\xC2\xA0)*</h\1\s*>#i',
         '',
         $content
     );
-    // Prazdny H1: doplnime fallback obsah ('MotoGo24') misto stripu, aby
-    // crawler videl validni H1 strukturu i kdyz CMS data nezvladly nacist.
+    // Prazdny H1 -> doplnime fallback content (jinak crawler hlasi 'no H1').
     $content = preg_replace_callback(
         '#<h1([^>]*)>(?:\s|&nbsp;|&\#160;|\xC2\xA0)*</h1\s*>#i',
-        function ($m) {
-            return '<h1' . $m[1] . '>MotoGo24</h1>';
-        },
+        function ($m) { return '<h1' . $m[1] . '>MotoGo24 — půjčovna motorek</h1>'; },
         $content
     );
 
-    // 1b) Pokud na strance neni vubec zadny <h1>, injectneme fallback nahoru
-    //     do <main id="content"> nebo na zacatek $content. Seobility hlasi
-    //     'There is no H1 heading specified' jako Important issue. Druhe a
-    //     dalsi <h1> v $content (z CMS RTE) demote krok 5 nize.
+    // 1b) Pokud na strance neni vubec zadny <h1>, injectneme fallback nahoru.
     if (!preg_match('#<h1\b#i', $content)) {
         $h1Plain = '<h1>MotoGo24 — půjčovna motorek</h1>';
         $h1Wrapped = '<div class="container">' . $h1Plain . '</div>';
@@ -144,136 +130,58 @@ function seoEnhanceHtml($content) {
         }
     }
 
-    // 2) Auto-extend kratke <h1> textu o ' | MotoGo24' (SEO context).
-    //    Vyber prvni <h1>...</h1>, odeparuj plain text, pokud <25 znaku
-    //    a neobsahuje 'MotoGo24' tak append. Zachovej pripadne data-* atributy.
+    // 2) Auto-set alt na <img> bez alt / s prazdnym alt. NEVIDITELNE — jen
+    //    pro Google Images + screen readery. Decorative (aria-hidden=true /
+    //    role=presentation) preskoci. Alt odvodi z filename nebo 'MotoGo24'.
+    //    Vyextrahujeme prvni <h1> text pro fallback alt.
     $pageH1 = '';
-    $content = preg_replace_callback(
-        '#<h1([^>]*)>(.+?)</h1>#is',
-        function ($m) use (&$pageH1) {
-            $attrs = $m[1];
-            $body = $m[2];
-            $plain = trim(strip_tags($body));
-            $pageH1 = $plain; // pro pouziti v alt-textech nize
-            // Pokud kratke a uz neobsahuje brand, append SEO context.
-            if (mb_strlen($plain, 'UTF-8') > 0 && mb_strlen($plain, 'UTF-8') < 25
-                && stripos($plain, 'motogo') === false) {
-                return '<h1' . $attrs . '>' . $body . ' – MotoGo24</h1>';
-            }
-            return $m[0];
-        },
-        $content,
-        1 // jen prvni h1
-    );
-
-    // 3) Auto-set alt na <img> bez alt nebo s alt="".
-    //    Decorative ikony (aria-hidden=true / role=presentation) preskoci.
-    //    Alt odvodi z $pageH1 + filename (po lomítku, bez ext).
+    if (preg_match('#<h1[^>]*>(.+?)</h1>#is', $content, $hm)) {
+        $pageH1 = trim(strip_tags($hm[1]));
+    }
     $content = preg_replace_callback(
         '#<img\b([^>]*)/?>#i',
         function ($m) use ($pageH1) {
             $attrs = $m[1];
-            // Decorative — neresime
             if (preg_match('#\baria-hidden\s*=\s*["\']?true\b#i', $attrs)) return $m[0];
             if (preg_match('#\brole\s*=\s*["\']?presentation\b#i', $attrs)) return $m[0];
-            // Ma uz neprazdny alt — neresime
             if (preg_match('#\balt\s*=\s*"([^"]+)"#i', $attrs, $am) && trim($am[1]) !== '') return $m[0];
             if (preg_match("#\balt\\s*=\\s*'([^']+)'#i", $attrs, $am) && trim($am[1]) !== '') return $m[0];
-            // Bez alt nebo prazdne alt — odvodime
             $altGuess = '';
             if (preg_match('#\bsrc\s*=\s*["\']([^"\']+)["\']#i', $attrs, $sm)) {
-                $src = $sm[1];
-                $name = basename(parse_url($src, PHP_URL_PATH) ?: $src);
-                $name = preg_replace('#\.[a-z0-9]{2,5}$#i', '', $name); // strip ext
+                $name = basename(parse_url($sm[1], PHP_URL_PATH) ?: $sm[1]);
+                $name = preg_replace('#\.[a-z0-9]{2,5}$#i', '', $name);
                 $name = preg_replace('#[-_]+#', ' ', $name);
-                $name = preg_replace('#[0-9]+x[0-9]+#', '', $name); // strip 800x600
+                $name = preg_replace('#[0-9]+x[0-9]+#', '', $name);
                 $name = trim(preg_replace('#\s+#', ' ', $name));
                 if ($name !== '') $altGuess = $name;
             }
             if ($altGuess === '' && $pageH1 !== '') $altGuess = $pageH1;
             if ($altGuess === '') $altGuess = 'MotoGo24';
-            $altAttr = ' alt="' . htmlspecialchars($altGuess, ENT_QUOTES) . '"';
-            // Smaz pripadne empty alt="" pokud existuje
             $cleaned = preg_replace('#\s*\balt\s*=\s*"(?:[^"]*)"#i', '', $attrs);
             $cleaned = preg_replace("#\\s*\\balt\\s*=\\s*'(?:[^']*)'#i", '', $cleaned);
-            return '<img' . $cleaned . $altAttr . '>';
+            return '<img' . $cleaned . ' alt="' . htmlspecialchars($altGuess, ENT_QUOTES) . '">';
         },
         $content
     );
 
-    // 4) Cap <strong> count na 8. Po pruzkumu Seobility 'Many tags' threshold
-    //    je ~10. Pri 9. <strong> a vice prepiseme na <span> (zachovava text,
-    //    bere semanticky vyznam). Track total <strong> opened (ne currently
-    //    open) + stack pro parovani close tagu se spravnym open level.
-    if (substr_count(strtolower($content), '<strong') > 8) {
-        $opened = 0;          // total <strong> opened doposud
-        $stack = [];          // bool[] - true=tento open byl prepsan na span
-        $content = preg_replace_callback(
-            '#<(/?)strong(\b[^>]*)?>#i',
-            function ($m) use (&$opened, &$stack) {
-                $closing = ($m[1] === '/');
-                $attrs = $m[2] ?? '';
-                if (!$closing) {
-                    $opened++;
-                    $isRewrite = ($opened > 8);
-                    $stack[] = $isRewrite;
-                    return $isRewrite ? '<span' . $attrs . '>' : $m[0];
-                }
-                // Close tag - pop posledni open
-                $isRewrite = !empty($stack) ? array_pop($stack) : false;
-                return $isRewrite ? '</span>' : $m[0];
-            },
-            $content
-        );
-    }
-
-    // 5) Auto-promote h-skoky a demote multi-H1 — stack-based aby open/close
-    //    tagy zustaly parovane.
-    //    a) Hierarchie skoky h2->h4 -> h2->h3 (Seobility 'Structural problem')
-    //    b) Druhy a dalsi <h1> na strance se demotuji na <h2> (Seobility
-    //       'Use only one H1 heading on the page' Critical) — sablona stranky
-    //       drzi prvni <h1>, dalsi mohou prijit z CMS RTE (admin napsal H1
-    //       v document_template content_html). Idempotentni.
-    if (preg_match('#</?h[1-6]\b#i', $content)) {
-        $tokens = preg_split('#(<(?:/?)h[1-6](?:\b[^>]*)?>)#i', $content, -1, PREG_SPLIT_DELIM_CAPTURE);
-        $stack = [];      // bool[] - kolik tagu mame aktualne otevrenych
-        $lastSeen = 0;    // posledni renderovana uroven (po promote)
-        $h1Seen = false;  // prvni <h1> jsme uz emitovali?
+    // 3) Multi-H1 demote — druhy a dalsi <h1> -> <h2> (Seobility Critical
+    //    'use only one H1'). Stack-based parovani open/close. Prvni <h1>
+    //    (ze sablony) zustava. NEMENI text, jen tag level.
+    if (preg_match('#</?h1\b#i', $content)) {
+        $tokens = preg_split('#(<(?:/?)h1(?:\b[^>]*)?>)#i', $content, -1, PREG_SPLIT_DELIM_CAPTURE);
+        $h1Seen = false;
+        $rewriteStack = [];
         for ($i = 0; $i < count($tokens); $i++) {
             $t = $tokens[$i];
-            if (!preg_match('#^<(/?)h([1-6])(\b[^>]*)?>$#i', $t, $m)) continue;
+            if (!preg_match('#^<(/?)h1(\b[^>]*)?>$#i', $t, $m)) continue;
             $closing = ($m[1] === '/');
-            $level = (int)$m[2];
-            $attrs = $m[3] ?? '';
+            $attrs = $m[2] ?? '';
             if (!$closing) {
-                $newLevel = $level;
-                // Multi-H1 demote: pokud uz jsme videli H1, druhy a dalsi -> H2
-                if ($level === 1 && $h1Seen) {
-                    $newLevel = 2;
-                }
-                if ($level === 1 && !$h1Seen) {
-                    $h1Seen = true;
-                }
-                // Hierarchie skoky h2->h4 -> h2->h3
-                if ($lastSeen > 0 && $newLevel > $lastSeen + 1) {
-                    $newLevel = $lastSeen + 1;
-                }
-                $stack[] = ['origIdx' => $i, 'newLevel' => $newLevel];
-                $lastSeen = $newLevel;
-                if ($newLevel !== $level) {
-                    $tokens[$i] = '<h' . $newLevel . $attrs . '>';
-                }
+                if ($h1Seen) { $rewriteStack[] = true; $tokens[$i] = '<h2' . $attrs . '>'; }
+                else { $h1Seen = true; $rewriteStack[] = false; }
             } else {
-                // Najdi posledni open na stacku, prepise close pokud bylo promote
-                for ($s = count($stack) - 1; $s >= 0; $s--) {
-                    $entry = $stack[$s];
-                    $newOpenLevel = $entry['newLevel'];
-                    if ($newOpenLevel !== $level) {
-                        $tokens[$i] = '</h' . $newOpenLevel . '>';
-                    }
-                    array_splice($stack, $s, 1);
-                    break;
-                }
+                $rewritten = !empty($rewriteStack) ? array_pop($rewriteStack) : false;
+                if ($rewritten) $tokens[$i] = '</h2>';
             }
         }
         $content = implode('', $tokens);

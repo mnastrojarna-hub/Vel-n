@@ -34,19 +34,19 @@ return [
         'items' => [
             [
                 'q' => 'Musím platit kauci při vyzvednutí?',
-                'a' => 'Ne, půjčujeme bez kauce. Podmínky jsou jasně dané a férové.',
+                'a' => 'Ne, <strong>půjčujeme bez kauce</strong>. Podmínky jsou jasně dané a férové.',
             ],
             [
                 'q' => 'Je možný kontakt bez osobního setkání?',
-                'a' => 'Ano, nabízíme bezkontaktní předání po domluvě. Instrukce a dokumenty dostaneš předem.',
+                'a' => 'Ano, nabízíme <strong>bezkontaktní předání</strong> po domluvě. Instrukce a dokumenty dostaneš předem.',
             ],
             [
                 'q' => 'Co když nestíhám domluvený čas?',
-                'a' => 'Dej nám vědět telefonicky – přizpůsobíme čas, nebo nabídneme přistavení / jiný termín.',
+                'a' => 'Dej nám vědět telefonicky – přizpůsobíme čas, nebo nabídneme <strong>přistavení</strong> / jiný termín.',
             ],
             [
                 'q' => 'Je v ceně i výbava pro spolujezdce?',
-                'a' => 'Výbava pro řidiče je v ceně vždy. Výbavu pro spolujezdce lze přiobjednat jako nadstandard.',
+                'a' => 'Výbava pro řidiče je v ceně vždy. Výbavu pro spolujezdce lze přiobjednat jako <strong>nadstandard</strong>.',
             ],
         ],
     ],
@@ -57,8 +57,8 @@ return [
     ],
     'cta' => [
         'title' => 'Převzetí v půjčovně – půjčovna motorek Vysočina (Pelhřimov)',
-        'text' => 'MotoGo24 je <strong>půjčovna motorek na Vysočině</strong> s možností převzetí motorky kdykoliv během dne, včetně svátků i víkendů, bez kauce a s výbavou pro řidiče v ceně výpůjčky.',
-        'text2' => 'Vyber si cestovní, supermoto, naked nebo dětskou motorku a pohodlně ji rezervuj online.',
+        'text' => 'MotoGo24 je <strong>půjčovna motorek na Vysočině</strong> s možností <strong>převzetí motorky kdykoliv</strong> během dne, včetně svátků i víkendů, <strong>bez kauce</strong> a <strong>s výbavou pro řidiče v ceně</strong> výpůjčky.',
+        'text2' => 'Vyber si <strong>cestovní, supermoto, naked nebo dětskou motorku</strong> a pohodlně ji rezervuj online.',
         'buttons' => [
             [
                 'label' => 'REZERVOVAT ONLINE',
@@ -69,10 +69,8 @@ return [
         ],
     ],
     'seo' => [
-        // Krátký, klíčová slova vpředu (~58 znaků – v Google SERP se neořeže).
-        'title' => 'Převzetí motorky v půjčovně Pelhřimov | MotoGo24',
-        // ~155 znaků – pod 1000 px limitem, jasné CTA + lokalita.
-        'description' => 'Převzetí motorky v MotoGo24 Pelhřimov: rychle, bez kauce, výbava pro řidiče v ceně. Otevřeno nonstop. Rezervuj termín online během pár minut.',
-        'keywords' => 'motopůjčovna, půjčovna motorek Vysočina, převzetí motorky Pelhřimov, MotoGo24',
+        'title' => 'Půjčovna motorek Vysočina – Jak si půjčit motorku – Převzetí v půjčovně',
+        'description' => 'Převzetí motorky v půjčovně motorek MotoGo24 je rychlé a bez starostí. Připrav si doklady a během pár minut můžeš vyrazit. Rezervuj si motorku jednoduše online. Vyber termín, stroj i výbavu a vyraz na nezapomenutelnou jízdu s MotoGo24 na Vysočině.',
+        'keywords' => 'motopůjčovna',
     ],
 ];
