@@ -3,12 +3,9 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import Card from '../../components/ui/Card'
 import Badge from '../../components/ui/Badge'
+import { computeDocVerification } from '../../lib/docVerification'
 
 const VERIFICATION_TYPES = ['drivers_license', 'license_photo', 'id_card', 'id_photo', 'passport']
-
-function MotoGroups(license_group) {
-  return (license_group || []).some(g => ['A', 'A2', 'A1', 'AM'].includes(g))
-}
 
 function SideStatus({ docs, label }) {
   // docs is the subset for one document type — split into front/back
@@ -50,7 +47,7 @@ export default function BookingCustomerDocsStatus({ userId }) {
     try {
       const [docsRes, profRes] = await Promise.all([
         supabase.from('documents').select('id, type, file_path, metadata, created_at').eq('user_id', userId).in('type', VERIFICATION_TYPES).order('created_at', { ascending: false }),
-        supabase.from('profiles').select('id, license_expiry, license_group').eq('id', userId).single(),
+        supabase.from('profiles').select('id, license_expiry, license_group, license_number, id_number').eq('id', userId).single(),
       ])
       setVerificationDocs(docsRes.data || [])
       setProfile(profRes.data || null)
@@ -67,15 +64,10 @@ export default function BookingCustomerDocsStatus({ userId }) {
     )
   }
 
-  const licenseDocs = verificationDocs.filter(d => d.type === 'drivers_license' || d.type === 'license_photo')
-  const idCardDocs = verificationDocs.filter(d => d.type === 'id_card' || d.type === 'id_photo')
-  const passportDocs = verificationDocs.filter(d => d.type === 'passport')
-  const hasLicense = licenseDocs.length > 0
-  const hasIdentity = idCardDocs.length > 0 || passportDocs.length > 0
-  const licenseValid = profile?.license_expiry ? new Date(profile.license_expiry) > new Date() : false
-  const licenseGroupFilled = profile?.license_group && profile.license_group.length > 0
-  const hasMotoGroup = licenseGroupFilled && MotoGroups(profile.license_group)
-  const allOk = hasLicense && hasIdentity && licenseValid && licenseGroupFilled && hasMotoGroup
+  const {
+    licensePhotos: licenseDocs, idCardPhotos: idCardDocs, passportPhotos: passportDocs,
+    hasLicense, hasIdentity, hasLicensePhoto, licenseNumberFilled, idNumberFilled, allOk,
+  } = computeDocVerification(verificationDocs, profile)
   const anyManual = verificationDocs.some(d => d?.metadata?.mindee_status === 'failed')
 
   const okCount = verificationDocs.filter(d => d?.metadata?.mindee_status === 'ok').length
@@ -103,9 +95,18 @@ export default function BookingCustomerDocsStatus({ userId }) {
           <span className="text-sm font-bold" style={{ color: allOk ? '#1a8a18' : '#b45309' }}>
             {allOk ? 'Doklady ověřeny — kódy k boxu mohou být uvolněny' : 'Doklady neúplné — kódy k boxu NELZE uvolnit'}
           </span>
-          <Badge label={hasLicense ? 'ŘP nahrán' : 'ŘP chybí'} color={hasLicense ? '#1a8a18' : '#dc2626'} bg={hasLicense ? '#dcfce7' : '#fee2e2'} />
-          <Badge label={hasIdentity ? 'Doklad totožnosti nahrán' : 'OP/Pas chybí'} color={hasIdentity ? '#1a8a18' : '#dc2626'} bg={hasIdentity ? '#dcfce7' : '#fee2e2'} />
+          <Badge
+            label={hasLicensePhoto ? 'ŘP nahrán' : licenseNumberFilled ? 'ŘP ověřen (OCR)' : 'ŘP chybí'}
+            color={hasLicense ? '#1a8a18' : '#dc2626'} bg={hasLicense ? '#dcfce7' : '#fee2e2'} />
+          <Badge
+            label={(idCardDocs.length > 0 || passportDocs.length > 0) ? 'Doklad totožnosti nahrán' : idNumberFilled ? 'Doklad totožnosti ověřen (OCR)' : 'OP/Pas chybí'}
+            color={hasIdentity ? '#1a8a18' : '#dc2626'} bg={hasIdentity ? '#dcfce7' : '#fee2e2'} />
         </div>
+        {(licenseNumberFilled || idNumberFilled) && (licenseDocs.length === 0 || idCardDocs.length + passportDocs.length === 0) && (
+          <div className="text-xs mt-2" style={{ color: '#1a2e22' }}>
+            Čísla dokladů jsou ověřená přes OCR a uložená v profilu zákazníka — fotky jsou volitelné, odbavení i kódy k boxu fungují i bez nich.
+          </div>
+        )}
       </div>
 
       {anyManual && (
@@ -115,11 +116,17 @@ export default function BookingCustomerDocsStatus({ userId }) {
       )}
 
       <div className="space-y-1">
-        <SideStatus docs={licenseDocs} label="Řidičský průkaz" />
+        {licenseDocs.length > 0
+          ? <SideStatus docs={licenseDocs} label="Řidičský průkaz" />
+          : licenseNumberFilled
+            ? <div className="text-xs" style={{ color: '#1a2e22' }}><strong>Řidičský průkaz:</strong> fotka nenahrána · číslo {profile?.license_number ? `(${profile.license_number}) ` : ''}ověřeno přes OCR v profilu</div>
+            : <div className="text-xs" style={{ color: '#dc2626' }}><strong>Řidičský průkaz:</strong> nenahráno ani číslo v profilu</div>}
         {idCardDocs.length > 0 && <SideStatus docs={idCardDocs} label="Občanský průkaz" />}
         {passportDocs.length > 0 && <SideStatus docs={passportDocs} label="Pas" />}
         {idCardDocs.length === 0 && passportDocs.length === 0 && (
-          <div className="text-xs" style={{ color: '#dc2626' }}><strong>OP / Pas:</strong> nenahráno</div>
+          idNumberFilled
+            ? <div className="text-xs" style={{ color: '#1a2e22' }}><strong>OP / Pas:</strong> fotka nenahrána · číslo {profile?.id_number ? `(${profile.id_number}) ` : ''}ověřeno přes OCR v profilu</div>
+            : <div className="text-xs" style={{ color: '#dc2626' }}><strong>OP / Pas:</strong> nenahráno ani číslo v profilu</div>
         )}
       </div>
 
