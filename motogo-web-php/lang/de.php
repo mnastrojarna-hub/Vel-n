@@ -1126,7 +1126,7 @@ return [
     'menu.logout' => 'Abmelden',
     'rez.pickup.gps' => 'Mein Standort',
     'rez.return.stateTitle' => 'In welchem Zustand muss das Motorrad zurückgegeben werden?',
-    'rez.return.stateText' => 'Geben Sie das Motorrad einfach mit Kraftstoff über der Reserve zurück (die Reserveleuchte ist aus). Um Waschen oder Reinigen müssen Sie sich nicht kümmern — das ist unsere Aufgabe. Bei Rückgabe mit leerem Tank berechnen wir das Auftanken + eine Servicegebühr (siehe AGB).',
+    'rez.return.stateText' => 'Geben Sie das Motorrad einfach mit Kraftstoff über der Reserve zurück (die Reserveleuchte ist aus). Um Waschen oder Reinigen müssen Sie sich nicht kümmern — das ist unsere Aufgabe.',
     'rez.alert.emailExists' => 'Diese E-Mail ist bei uns bereits hinterlegt. Bitte melden Sie sich an, um fortzufahren, oder setzen Sie Ihr Passwort zurück.',
     'rez.alert.emailMismatch' => 'Das angemeldete Konto stimmt nicht mit der eingegebenen E-Mail überein. Bitte melden Sie sich ab und versuchen Sie es erneut.',
     'rez.auth.returning.title' => 'Ich habe schon einmal ein Motorrad bei Ihnen gemietet',

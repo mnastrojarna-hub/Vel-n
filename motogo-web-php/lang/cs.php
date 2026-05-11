@@ -362,7 +362,7 @@ return [
     'rez.return.title' => 'Čas vrácení motorky',
     'rez.return.sub' => 'V kolik hodin vrátíte motorku na uvedené adrese?',
     'rez.return.stateTitle' => 'V jakém stavu motorku vrátit?',
-    'rez.return.stateText' => 'Motorku stačí vrátit s palivem nad rezervou (kontrolka rezervy nesvítí). Mytí ani úklid neřešte — to je naše práce. Při vrácení s prázdnou nádrží účtujeme dotankování + servisní poplatek (viz VOP).',
+    'rez.return.stateText' => 'Motorku stačí vrátit s palivem nad rezervou (kontrolka rezervy nesvítí). Mytí ani úklid neřešte — to je naše práce.',
 
     // ===== Rezervace — výbava =====
     'rez.gear.intro' => 'Vyberte velikosti kliknutím na čtverečky níže. Pokud velikost nezvolíte, vyzkoušíme ji na místě.',
