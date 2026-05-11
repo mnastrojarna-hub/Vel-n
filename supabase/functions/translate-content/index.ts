@@ -141,14 +141,19 @@ serve(async (req: Request): Promise<Response> => {
     if (!ANTHROPIC_API_KEY) return jsonResponse({ error: 'ANTHROPIC_API_KEY not configured' }, 500)
     if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) return jsonResponse({ error: 'Supabase env not configured' }, 500)
 
-    // JWT ověření — Velín admin volá s anon JWT; service role ale potřebujeme pro update.
+    // JWT ověření — Velín admin volá s admin user JWT; `cms-save` (inline edit z webu)
+    // a další edge fn volají se service_role klíčem. Service_role pustíme přímo
+    // (auth.getUser() na service_role klíči vrací null user → dřív to padalo 401
+    // a inline-editované texty se nikdy nepřekládaly). Jinak validujeme uživatele.
     const authHeader = req.headers.get('Authorization') || ''
     if (!authHeader.startsWith('Bearer ')) return jsonResponse({ error: 'Unauthorized' }, 401)
 
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
     const token = authHeader.replace('Bearer ', '')
-    const { data: { user }, error: userErr } = await supabaseAdmin.auth.getUser(token)
-    if (userErr || !user) return jsonResponse({ error: 'Unauthorized: invalid token' }, 401)
+    if (token !== SUPABASE_SERVICE_KEY) {
+      const { data: { user }, error: userErr } = await supabaseAdmin.auth.getUser(token)
+      if (userErr || !user) return jsonResponse({ error: 'Unauthorized: invalid token' }, 401)
+    }
 
     const body = await req.json().catch(() => null)
     if (!body) return jsonResponse({ error: 'Invalid JSON body' }, 400)
