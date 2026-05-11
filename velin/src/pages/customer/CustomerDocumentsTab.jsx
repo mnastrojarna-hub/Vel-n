@@ -10,6 +10,7 @@ import SearchInput from '../../components/ui/SearchInput'
 import Pagination from '../../components/ui/Pagination'
 import Modal from '../../components/ui/Modal'
 import CustomerVerificationSection from './CustomerVerificationSection'
+import { computeDocVerification } from '../../lib/docVerification'
 
 const DOC_ICONS = {
   contract: '📋', rental_contract: '📋', protocol: '📝', handover_protocol: '📝',
@@ -71,7 +72,7 @@ export default function CustomerDocumentsTab({ userId }) {
         supabase.from('documents').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
         supabase.from('invoices').select('*').eq('customer_id', userId).order('issue_date', { ascending: false, nullsFirst: false }),
         supabase.from('generated_documents').select('*').eq('customer_id', userId).order('created_at', { ascending: false }),
-        supabase.from('profiles').select('id, full_name, license_number, license_expiry, license_group').eq('id', userId).single(),
+        supabase.from('profiles').select('id, full_name, license_number, license_expiry, license_group, id_number, id_verified_at, license_verified_at, passport_verified_at').eq('id', userId).single(),
       ])
       if (docsRes.error) throw docsRes.error
 
@@ -221,24 +222,12 @@ export default function CustomerDocumentsTab({ userId }) {
     } catch (e) { setError(`Tisk selhal: ${e.message}`) }
   }
 
-  function getVerificationStatus() {
-    const hasLicense = verificationDocs.some(d => d.type === 'drivers_license' || d.type === 'license_photo')
-    const hasIdCard = verificationDocs.some(d => d.type === 'id_card' || d.type === 'id_photo')
-    const hasPassport = verificationDocs.some(d => d.type === 'passport')
-    const hasIdentity = hasIdCard || hasPassport
-    const licenseValid = profile?.license_expiry ? new Date(profile.license_expiry) > new Date() : false
-    const licenseGroupFilled = profile?.license_group && profile.license_group.length > 0
-    const hasMotoGroup = licenseGroupFilled && profile.license_group.some(g => ['A', 'A2', 'A1', 'AM'].includes(g))
-    const allOk = hasLicense && hasIdentity && licenseValid && licenseGroupFilled && hasMotoGroup
-    return { hasLicense, hasIdCard, hasPassport, hasIdentity, licenseValid, licenseGroupFilled, hasMotoGroup, allOk }
-  }
-
   if (loading) return <div className="py-8 text-center"><div className="animate-spin inline-block rounded-full h-6 w-6 border-t-2 border-brand-gd" /></div>
 
   const filteredItems = getFilteredItems()
   const totalPages = Math.ceil(filteredItems.length / PER_PAGE)
   const pagedItems = filteredItems.slice((page - 1) * PER_PAGE, page * PER_PAGE)
-  const vs = getVerificationStatus()
+  const vs = computeDocVerification(verificationDocs, profile)
 
   return (
     <div className="space-y-5">
