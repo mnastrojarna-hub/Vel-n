@@ -11,6 +11,66 @@ return [
             ],
             'h1' => 'Co jest w cenie wynajmu motocykla',
             'intro' => 'W <strong>MotoGo24 – wypożyczalni motocykli w Vysočina</strong> otrzymasz uczciwe warunki. <strong>Bez kaucji, z wyposażeniem kierowcy w cenie i obsługą całodobową</strong>. Wszystko, czego potrzebujesz do bezpiecznej i przyjemnej jazdy, jest wliczone.',
+            'gear' => [
+                'basic' => [
+                    'title' => 'Podstawowe wyposażenie w cenie',
+                    'lead' => 'Każdy kierowca ma do dyspozycji kompletne <strong>wyposażenie motocyklowe</strong>, które jest wliczone w cenę wynajmu:',
+                    'items' => [
+                        '<strong>kask</strong>',
+                        '<strong>kurtka motocyklowa</strong> z ochraniaczami',
+                        '<strong>spodnie motocyklowe</strong>',
+                        '<strong>rękawice</strong>',
+                    ],
+                    'note1' => 'Wyposażenie jest dostępne w wielu rozmiarach, regularnie je czyścimy i sprawdzamy.',
+                    'note2' => 'Wybrane motocykle są wyposażone w kufry – zobacz szczegóły motocykla w katalogu.',
+                ],
+                'extra' => [
+                    'title' => 'Wyposażenie dodatkowe za dopłatą',
+                    'lead' => 'Jedziesz z pasażerem albo chcesz buty motocyklowe? Możesz je domówić przy rezerwacji:',
+                    'items' => [
+                        'wyposażenie dla pasażera (kask, kurtka, spodnie, rękawice)',
+                        'buty motocyklowe – dla kierowcy i pasażera',
+                    ],
+                ],
+                'services' => [
+                    'title' => 'Usługi dodatkowe za dopłatą',
+                    'items' => [
+                        'podstawienie motocykla w umówione miejsce w dowolnym punkcie Czech',
+                        'zwrot motocykla w innym miejscu niż adres wypożyczalni',
+                    ],
+                ],
+            ],
+            'benefits' => [
+                'title' => 'Inne korzyści w cenie',
+                'grid' => 'gr5',
+                'items' => [
+                    [
+                        'icon' => 'gfx/rezervace-online.svg',
+                        'title' => 'Rezerwacja online',
+                        'text' => 'szybka i prosta rezerwacja z domowego zacisza.',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-nonstop.svg',
+                        'title' => 'Obsługa całodobowa',
+                        'text' => 'rezerwuj i wyruszaj o dowolnej porze – w dzień, w nocy i w weekend. Godzinę odbioru wybierasz przy rezerwacji.',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-bez-kauce.svg',
+                        'title' => 'Bez kaucji',
+                        'text' => 'brak kaucji przy wynajmie.',
+                    ],
+                    [
+                        'icon' => 'gfx/jasne-podminky.svg',
+                        'title' => 'Jasne warunki',
+                        'text' => 'bez ukrytych opłat.',
+                    ],
+                    [
+                        'icon' => 'gfx/sleva-na-pristi-jizdu.svg',
+                        'title' => 'Zniżka na kolejną rezerwację',
+                        'text' => 'po każdym zakończonym wynajmie otrzymujesz kod rabatowy na kolejną rezerwację.&nbsp;',
+                    ],
+                ],
+            ],
             'cta' => [
                 'title' => 'Wyposażenie w cenie – wypożyczalnia motocykli MotoGo24 – Vysočina',
                 'text' => '<strong>MotoGo24 to nowoczesna wypożyczalnia motocykli w Vysočina</strong> z wyposażeniem kierowcy w cenie, wynajmem bez kaucji i obsługą całodobową. Wybierz <strong>motocykl turystyczny, supermoto, naked lub dla dzieci</strong> i zarezerwuj online.',
@@ -37,6 +97,138 @@ return [
                 'href' => '/rezervace',
                 'aria' => 'Zarezerwuj motocykl online w Motogo24',
             ],
+            'summary' => [
+                'title' => 'Podsumowanie najważniejszych punktów',
+                'items' => [
+                    [
+                        'icon' => 'gfx/ico-bez-kauce.svg',
+                        'title' => 'Bez kaucji / zaliczki',
+                        'text' => 'wypożyczamy motocykl bez blokowania pieniędzy',
+                    ],
+                    [
+                        'icon' => 'gfx/rezervace-online.svg',
+                        'title' => 'Rezerwacja online',
+                        'text' => 'wraz z płatnością',
+                    ],
+                    [
+                        'icon' => 'gfx/vyber-vybavu.svg',
+                        'title' => 'Wyposażenie kierowcy',
+                        'text' => 'w cenie (kask, kurtka, spodnie, rękawice)',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-nonstop.svg',
+                        'title' => 'Obsługa całodobowa',
+                        'text' => 'odbiór i zwrot o dowolnej porze w dniu wynajmu',
+                    ],
+                    [
+                        'icon' => 'gfx/jasne-podminky.svg',
+                        'title' => 'Jasne zasady użytkowania',
+                        'text' => 'w kraju i za granicą (zgodnie z zieloną kartą)',
+                    ],
+                    [
+                        'icon' => 'gfx/zadne-skryte-poplatky.svg',
+                        'title' => 'Bez ukrytych opłat',
+                        'text' => 'wszystko jest podane poniżej i w umowie',
+                    ],
+                ],
+            ],
+            'required_docs' => [
+                'title' => 'Czego potrzebujesz do zawarcia umowy',
+                'items' => [
+                    '<strong>Dowód osobisty / paszport</strong>',
+                    '<strong>Prawo jazdy</strong>&nbsp;odpowiedniej kategorii (A / A2 w zależności od maszyny)',
+                    '<strong>Wiek</strong>&nbsp;min. 18 lat (przy motocyklach dziecięcych odpowiada przedstawiciel ustawowy)',
+                    '<strong>Kontakty</strong>&nbsp;(telefon, e-mail) do komunikacji i potwierdzenia rezerwacji',
+                ],
+            ],
+            'payments' => [
+                'title' => 'Płatności, rezygnacja i opłaty',
+                'lead' => '<strong>Kaucja:</strong>&nbsp;<em>nie wymagamy</em>. Płatność za wynajem odbywa się online lub przy odbiorze.',
+                'aria' => 'Przegląd płatności i opłat',
+                'headers' => [
+                    'Pozycja',
+                    'Warunki',
+                ],
+                'rows' => [
+                    [
+                        '<strong>Płatność za wynajem</strong>',
+                        'Online z góry.',
+                    ],
+                    [
+                        '<strong>Rezygnacja z rezerwacji</strong>',
+                        'Bezpłatnie do umówionego czasu (podanego w potwierdzeniu rezerwacji). Później według indywidualnych ustaleń.',
+                    ],
+                    [
+                        '<strong>Paliwo i czyszczenie</strong>',
+                        'Zwrot bez obowiązku tankowania i mycia. Nadmierne zabrudzenie rozpatrujemy indywidualnie.',
+                    ],
+                    [
+                        '<strong>Podstawienie / odbiór</strong>',
+                        'Według cennika podstawienia (Vysočina / okolice). Potwierdzamy przy rezerwacji.',
+                    ],
+                    [
+                        '<strong>Spóźniony zwrot</strong>',
+                        'Prosimy o terminowy zwrot w ostatnim dniu wynajmu; przy opóźnieniu naliczamy według ustaleń (z uwzględnieniem innych rezerwacji).',
+                    ],
+                ],
+                'mid_cta' => [
+                    'label' => 'PRZEJDŹ DO REZERWACJI',
+                    'href' => '/rezervace',
+                    'aria' => 'Zarezerwuj motocykl i zaakceptuj umowę najmu Motogo24',
+                ],
+            ],
+            'usage' => [
+                'title' => 'Użytkowanie motocykla i odpowiedzialność',
+                'items' => [
+                    'Jedź&nbsp;<strong>zgodnie z przepisami</strong>&nbsp;i z uwzględnieniem stanu technicznego oraz typu motocykla.',
+                    'Za&nbsp;<strong>mandaty i wykroczenia</strong>&nbsp;odpowiada najemca (informacje przekazujemy zgodnie z prawem).',
+                    '<strong>Zagranica</strong>: możliwa; kieruj się terytorialną ważnością ubezpieczenia (zielona karta). Niektóre kraje mogą być wyłączone.',
+                    'W razie&nbsp;<strong>wypadku lub awarii</strong>&nbsp;postępuj zgodnie z instrukcją w zestawie pokładowym (formularz wypadkowy, kontakt do Motogo24).',
+                    '<strong>Serwis i konserwację</strong>&nbsp;zapewniamy my; usterki zgłaszaj natychmiast.',
+                    '<strong>Modyfikacje motocykla</strong>&nbsp;bez zgody nie są dozwolone.',
+                ],
+            ],
+            'handover' => [
+                'title' => 'Przekazanie i zwrot',
+                'items' => [
+                    '<strong>Odbiór</strong>&nbsp;odbywa się w Pelhřimovie (Mezná 9) lub skorzystaj z&nbsp;<a href="/jak-pujcit/pristaveni">podstawienia</a>.',
+                    'Przy przekazaniu otrzymujesz&nbsp;<strong>kluczyki, wyposażenie i dokumenty</strong>&nbsp;(dowód rejestracyjny, zielona karta, formularz wypadkowy).',
+                    '<strong>Zwrot</strong>&nbsp;o dowolnej porze w ostatnim dniu wynajmu (nawet o północy). Nie trzeba myć ani tankować.',
+                ],
+            ],
+            'privacy' => [
+                'title' => 'Dane osobowe i bezpieczeństwo',
+                'text' => 'Dane osobowe przetwarzamy wyłącznie w celu zawarcia i realizacji umowy najmu (identyfikacja, komunikacja, fakturowanie). Szczegóły znajdziesz w <a href="/cms/zasady-ochrany-osobnich-udaju">polityce przetwarzania danych osobowych</a>.',
+            ],
+            'documents' => [
+                'title' => 'Dokumenty do pobrania',
+                'items' => [
+                    [
+                        'name' => 'Umowa najmu',
+                        'href' => '/cms/smlouva-o-pronajmu',
+                        'size' => '87.4kB',
+                    ],
+                    [
+                        'name' => 'Protokół przekazania',
+                        'href' => '/cms/predavaci-protokol',
+                        'size' => '47.6kB',
+                    ],
+                    [
+                        'name' => 'Regulamin',
+                        'href' => '/cms/obchodni-podminky',
+                        'size' => '87.7kB',
+                    ],
+                    [
+                        'name' => 'Polityka prywatności',
+                        'href' => '/cms/zasady-ochrany-osobnich-udaju',
+                        'size' => '76.3kB',
+                    ],
+                ],
+            ],
+            'midcta' => [
+                'title' => 'Zgadzasz się z warunkami? Rezerwuj i jedź.',
+                'text' => 'Wybierz spośród&nbsp;<strong>motocykli turystycznych, sportowych, enduro i dziecięcych</strong>&nbsp;i potwierdź rezerwację online.',
+            ],
             'cta' => [
                 'title' => 'Umowa najmu bez kaucji – wypożyczalnia motocykli Vysočina',
                 'text' => 'MotoGo24 to <strong>wypożyczalnia motocykli w Vysočina</strong> z uczciwymi warunkami.',
@@ -61,6 +253,137 @@ return [
                 'label' => 'REZERWUJ Z DOSTAWĄ',
                 'href' => '/rezervace?delivery=1',
             ],
+            'when' => [
+                'title' => 'Kiedy podstawienie się przydaje',
+                'items' => [
+                    '<strong>Początek&nbsp;roadtripu</strong>&nbsp;– przywieziemy motocykl prosto na start twojej trasy.',
+                    '<strong>Hotel lub pensjonat</strong>&nbsp;– dostawa do miejsca zakwaterowania, żebyś oszczędził czas.',
+                    '<strong>Dworzec kolejowy/autobusowy</strong>&nbsp;– płynna przesiadka bez czekania.',
+                    '<strong>Imprezy firmowe i prezenty</strong>&nbsp;– niespodzianka dla partnerów lub zespołu.',
+                ],
+            ],
+            'why' => [
+                'title' => 'Dlaczego skorzystać z podstawienia motocykla',
+                'grid' => 'gr5',
+                'items' => [
+                    [
+                        'icon' => 'gfx/vyzvednuti-vraceni-motorky.svg',
+                        'title' => 'Elastyczność',
+                        'text' => 'Przywieziemy motocykl tam, gdzie potrzebujesz – do domu, do hotelu, na dworzec albo na start trasy.',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-pohodli.svg',
+                        'title' => 'Wygoda',
+                        'text' => 'Nie musisz organizować dojazdu do wypożyczalni – gdzie zostawić auto albo kto cię przywiezie.',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-nonstop.svg',
+                        'title' => 'Obsługa całodobowa',
+                        'text' => 'Podstawienie umawiamy na ustaloną godzinę – spokojnie wieczorem albo w weekend. Wystarczy wybrać godzinę przy rezerwacji.',
+                    ],
+                    [
+                        'icon' => 'gfx/uspora-casu.svg',
+                        'title' => 'Oszczędność czasu',
+                        'text' => 'Czas zaoszczędzony na dojeździe do wypożyczalni i z powrotem możesz poświęcić sobie.',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-vybava.svg',
+                        'title' => 'Wyposażenie ze sobą',
+                        'text' => 'Przywieziemy też wypożyczone wyposażenie w żądanych rozmiarach prosto do ciebie.',
+                    ],
+                ],
+            ],
+            'process' => [
+                'title' => 'Jak przebiega podstawienie',
+                'grid' => 'gr5',
+                'steps' => [
+                    [
+                        'icon' => 'gfx/vyber-motorku.svg',
+                        'title' => 'Wybierz motocykl',
+                        'text' => 'Przejrzyj naszą ofertę motocykli turystycznych, supermoto, naked i dziecięcych i wybierz właściwy.',
+                    ],
+                    [
+                        'icon' => 'gfx/rezervace-online.svg',
+                        'title' => 'Wybierz termin',
+                        'text' => 'Wybierz w kalendarzu datę, w której chcesz wyruszyć. Zobaczysz, które motocykle są wolne.',
+                    ],
+                    [
+                        'icon' => 'gfx/kontaktni-udaje.svg',
+                        'title' => 'Dane kontaktowe',
+                        'text' => 'Wpisz imię, adres, e-mail i telefon.',
+                    ],
+                    [
+                        'icon' => 'gfx/cas-prevzeti-motorky.svg',
+                        'title' => 'Godzina podstawienia',
+                        'text' => 'Wybierz, kiedy podstawimy motocykl – spokojnie wieczorem albo w weekend.',
+                    ],
+                    [
+                        'icon' => 'gfx/vyzvednuti-vraceni-motorky.svg',
+                        'title' => 'Miejsce podstawienia',
+                        'text' => 'Podaj adres, pod który przywieźć motocykl – dom, hotel, dworzec albo start trasy.',
+                    ],
+                    [
+                        'icon' => 'gfx/vyber-vybavu.svg',
+                        'title' => 'Wyposażenie',
+                        'text' => 'Podstawowe wyposażenie kierowcy jest w cenie. Żądane rozmiary wszystkich części wyposażenia podaj w polu Uwaga – obowiązkowe.',
+                    ],
+                    [
+                        'icon' => 'gfx/zaplat.svg',
+                        'title' => 'Potwierdzenie i płatność',
+                        'text' => 'Sprawdź podsumowanie zamówienia, zaakceptuj warunki i zapłać online.',
+                    ],
+                    [
+                        'icon' => 'gfx/podpis-dokumentu.svg',
+                        'title' => 'Odbiór na miejscu',
+                        'text' => 'Przy przekazaniu sprawdzimy dokumenty, uzupełnimy umowę i podpiszemy protokół przekazania.',
+                    ],
+                    [
+                        'icon' => 'gfx/uzij-si-jizdu.svg',
+                        'title' => 'Ciesz się jazdą',
+                        'text' => 'W trasę – bez kaucji, bez stresu. Reszta to już tylko asfalt i wolność.',
+                    ],
+                    [
+                        'icon' => 'gfx/predani-motorky.svg',
+                        'title' => 'Zwróć motocykl',
+                        'text' => 'Zwróć motocykl na czas w umówionym miejscu. Nie trzeba tankować ani myć.',
+                    ],
+                ],
+            ],
+            'pricing' => [
+                'title' => 'Cennik podstawienia',
+                'lead' => '<strong>Cena podstawienia składa się z trzech elementów:</strong>',
+                'items' => [
+                    '<strong>500 CZK</strong>&nbsp;za załadunek motocykla,',
+                    '<strong>500 CZK</strong>&nbsp;za rozładunek motocykla,',
+                    '<strong>20 CZK</strong>&nbsp;za każdy kilometr (liczona jest odległość z wypożyczalni do miejsca docelowego i z powrotem)',
+                ],
+                'example' => '<strong>Przykład:</strong>&nbsp;Chcesz, by motocykl podstawić 30 km od wypożyczalni? Zapłacisz 500 + 500 + (30 × 2 × 20) =&nbsp;<strong>2 200 CZK.</strong>',
+            ],
+            'faq' => [
+                'title' => 'Najczęściej zadawane pytania o podstawienie',
+                'items' => [
+                    [
+                        'q' => 'Z jakim wyprzedzeniem zamówić podstawienie?',
+                        'a' => 'Najlepiej <strong>przy</strong> <strong>rezerwacji online</strong> – podajesz adres i godzinę. W pilnych sprawach skontaktuj się z nami telefonicznie.',
+                    ],
+                    [
+                        'q' => 'Czy mogę zwrócić motocykl w innym miejscu niż go odebrałem?',
+                        'a' => 'Tak, naliczamy <strong>odbiór</strong> w zależności od odległości od Pelhřimova. Umawiamy to przy rezerwacji.',
+                    ],
+                    [
+                        'q' => 'Ile kosztuje podstawienie poza Vysočinę?',
+                        'a' => 'Kierujemy się tabelą odległości. Powyżej 100 km cenę kalkulujemy <strong>indywidualnie</strong>.',
+                    ],
+                    [
+                        'q' => 'Czy pobierana jest kaucja?',
+                        'a' => 'Nie. <strong>Wypożyczamy bez kaucji</strong>, warunki są jasne i uczciwe.',
+                    ],
+                    [
+                        'q' => 'Czy wyposażenie kierowcy też jest w cenie?',
+                        'a' => 'Tak. Kask, kurtka, spodnie i rękawice są dla kierowcy&nbsp;<strong>w cenie wynajmu</strong>.',
+                    ],
+                ],
+            ],
             'cta' => [
                 'title' => 'Dostawa motocykla – wypożyczalnia motocykli Vysočina',
                 'text' => 'MotoGo24 oferuje <strong>dostawę motocykla</strong> w regionie i poza nim. <strong>Obsługa całodobowa, bez kaucji, wyposażenie w cenie</strong>.',
@@ -84,6 +407,144 @@ return [
             'top_cta' => [
                 'label' => 'REZERWUJ Z ODBIOREM',
                 'href' => '/rezervace?return_delivery=1',
+            ],
+            'when' => [
+                'title' => 'Kiedy zwrot w innym miejscu się przydaje',
+                'items' => [
+                    '<strong>Koniec roadtripu</strong>&nbsp;– wynajem zaczął się w Pelhřimovie, trasa kończy się gdzie indziej. Przekaż nam motocykl tam, gdzie kończy się twoja wyprawa.',
+                    '<strong>Podróż w jedną stronę</strong>&nbsp;– wracasz do domu pociągiem lub autobusem? Przekaż nam motocykl przed odjazdem.',
+                    '<strong>Hotel lub pensjonat</strong>&nbsp;– przekaż nam motocykl bezpośrednio przy miejscu zakwaterowania, żebyś nie musiał myśleć o powrocie do wypożyczalni.',
+                    '<strong>Impreza firmowa</strong>&nbsp;– wynajem dla grupy ze zwrotem bezpośrednio na miejscu imprezy.',
+                ],
+            ],
+            'why' => [
+                'title' => 'Dlaczego skorzystać ze zwrotu w innym miejscu',
+                'grid' => 'gr5',
+                'items' => [
+                    [
+                        'icon' => 'gfx/vyzvednuti-vraceni-motorky.svg',
+                        'title' => 'Elastyczność',
+                        'text' => 'Wybierasz miejsce zwrotu zgodnie z trasą – hotel, dworzec, parking albo gdziekolwiek indziej.',
+                    ],
+                    [
+                        'icon' => 'gfx/uspora-casu.svg',
+                        'title' => 'Oszczędność czasu',
+                        'text' => 'Oszczędzasz drogę powrotną do wypożyczalni i do domu – przekazujesz motocykl tam, gdzie jesteś.',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-pohodli.svg',
+                        'title' => 'Wygoda',
+                        'text' => 'Nie musisz się zastanawiać, jak dostać się z wypożyczalni do domu.&nbsp;',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-nonstop.svg',
+                        'title' => 'Obsługa całodobowa',
+                        'text' => 'Zwrot umawiamy na ustaloną godzinę – spokojnie wieczorem albo w weekend.',
+                    ],
+                    [
+                        'icon' => 'gfx/predani-motorky.svg',
+                        'title' => 'Prostota',
+                        'text' => 'Przekazujesz kluczyki i wyposażenie, my sprawdzamy motocykl i odjeżdżamy. Bez dodatkowych formalności.',
+                    ],
+                ],
+            ],
+            'process' => [
+                'title' => 'Jak przebiega zwrot w innym miejscu',
+                'grid' => 'gr5',
+                'steps' => [
+                    [
+                        'icon' => 'gfx/uzij-si-jizdu.svg',
+                        'title' => 'Wybierz miejsce i godzinę zwrotu',
+                        'text' => 'W formularzu rezerwacji podaj adres i godzinę, o której przekażesz motocykl.',
+                    ],
+                    [
+                        'icon' => 'gfx/vyber-vybavu.svg',
+                        'title' => 'Przygotuj wyposażenie',
+                        'text' => 'Przed przekazaniem przygotuj wyposażenie, które było częścią wynajmu.',
+                    ],
+                    [
+                        'icon' => 'gfx/cas-prevzeti-motorky.svg',
+                        'title' => 'Przyjedziemy o umówionej godzinie',
+                        'text' => 'Dotrzemy na umówione miejsce dokładnie o umówionej godzinie.',
+                    ],
+                    [
+                        'icon' => 'gfx/prevezmi-motorku.svg',
+                        'title' => 'Wspólnie sprawdzimy motocykl i wyposażenie',
+                        'text' => 'Sprawdzimy stan motocykla i wyposażenia, załadujemy i odjedziemy.&nbsp;',
+                    ],
+                    [
+                        'icon' => 'gfx/sleva-na-pristi-jizdu.svg',
+                        'title' => 'Na e-mail przyjdzie potwierdzenie',
+                        'text' => 'Potwierdzenie zakończenia wynajmu, faktura końcowa i kod rabatowy na kolejną rezerwację.',
+                    ],
+                ],
+            ],
+            'pricing' => [
+                'title' => 'Cennik zwrotu w innym miejscu',
+                'lead' => 'Cena składa się z trzech elementów:',
+                'items' => [
+                    '500 CZK za załadunek motocykla',
+                    '500 CZK za rozładunek motocykla',
+                    '20 CZK za każdy kilometr (odległość z miejsca zwrotu do wypożyczalni i z powrotem)',
+                ],
+                'example_title' => 'Przykład:',
+                'example_q' => 'Chcesz zwrócić motocykl 30 km od wypożyczalni?',
+                'example_a' => 'Zapłacisz 500 + 500 + (30 × 2 × 20) = 2 200 CZK.',
+            ],
+            'issues' => [
+                'title' => 'Niezgodności przy zwrocie',
+                'lead' => 'Przy zwrocie wspólnie sprawdzamy stan motocykla i wyposażenia. Gdyby wystąpiła któraś z poniższych sytuacji, sporządzamy protokół stwierdzonego uszkodzenia:',
+                'items' => [
+                    'brakujące wyposażenie',
+                    'uszkodzone wyposażenie',
+                    'uszkodzony motocykl',
+                ],
+                'closing' => 'Klient podpisuje protokół i otrzymuje jego kopię. Dalsze postępowanie reguluje umowa najmu i regulamin.',
+            ],
+            'faq' => [
+                'title' => 'Najczęściej zadawane pytania o zwrot motocykla w innym miejscu',
+                'items' => [
+                    [
+                        'q' => 'Do kiedy muszę zwrócić motocykl?',
+                        'a' => 'Zwróć motocykl najlepiej o umówionej godzinie. Jeśli zwracasz w wypożyczalni, możesz po uzgodnieniu przyjechać o dowolnej porze w ostatnim dniu wynajmu – najpóźniej do północy, bez żadnych sankcji. Jeśli zwracasz w innym miejscu, umówiona godzina jest wiążąca.',
+                    ],
+                    [
+                        'q' => 'Czy muszę zwrócić z pełnym bakiem i czysty?',
+                        'a' => 'Nie. U nas nie tankujesz ani nie myjesz. Tylko pilnuj, żeby nie świeciła kontrolka rezerwy.&nbsp;',
+                    ],
+                    [
+                        'q' => 'Czy przy zwrocie w innym miejscu mogę zwrócić motocykl wcześniej, niż się umówiliśmy?&nbsp;',
+                        'a' => 'Na umówione miejsce wyjeżdżamy z Pelhřimova dokładnie według umówionego czasu, więc wcześniejszy zwrot niestety nie jest możliwy. Jeśli zmienią ci się plany, odezwij się – spróbujemy dostosować godzinę, ale zależy to od naszego aktualnego obciążenia.',
+                    ],
+                    [
+                        'q' => 'Czy naprawdę mogę zwrócić motocykl gdziekolwiek w Czechach?&nbsp;',
+                        'a' => 'Tak, przyjedziemy po motocykl gdziekolwiek w Czechach. Miejsce zwrotu podajesz przy rezerwacji – może to być hotel, parking, dworzec lub jakikolwiek inny adres.',
+                    ],
+                    [
+                        'q' => 'Z jakim wyprzedzeniem muszę zgłosić zwrot w innym miejscu?&nbsp;',
+                        'a' => 'Miejsce i godzinę zwrotu podajesz już w formularzu rezerwacji.&nbsp;',
+                    ],
+                    [
+                        'q' => 'Co, jeśli spóźnię się na miejsce zwrotu?&nbsp;',
+                        'a' => 'Zadzwoń do nas, gdy tylko wiesz, że nie zdążysz na czas. Dogadamy się – zwykle na ciebie poczekamy. Musimy tylko wiedzieć, z jakim opóźnieniem mamy się liczyć, żeby dostosować plan dnia.',
+                    ],
+                    [
+                        'q' => 'Jak liczona jest cena za zwrot w innym miejscu?&nbsp;',
+                        'a' => 'Cena obejmuje 500 CZK za załadunek, 500 CZK za rozładunek i 20 CZK za każdy kilometr odległości z miejsca zwrotu do wypożyczalni (i z powrotem). Na przykład przy zwrocie 50 km od Pelhřimova zapłacisz 500 + 500 + (50 × 2 × 20) = 3 000 CZK.',
+                    ],
+                    [
+                        'q' => 'Czy za zwrot w innym miejscu płacę osobno, czy jest to część ceny wynajmu?&nbsp;',
+                        'a' => 'Zwrot w innym miejscu to usługa dodatkowa i płaci się za nią osobno, poza ceną wynajmu.&nbsp;',
+                    ],
+                    [
+                        'q' => 'Co, jeśli chcę odebrać motocykl w Pelhřimovie, ale zwrócić w innym miejscu – czy to możliwe?&nbsp;',
+                        'a' => 'Tak, możesz odebrać motocykl u nas w Pelhřimovie i zwrócić go tam, gdzie potrzebujesz.&nbsp;',
+                    ],
+                    [
+                        'q' => 'Co mam mieć przygotowane, gdy przyjedziecie po motocykl?&nbsp;',
+                        'a' => 'Miej przygotowane kluczyki i całe wyposażenie, które było częścią wynajmu. Wspólnie sprawdzimy stan motocykla i wyposażenia.',
+                    ],
+                ],
             ],
             'cta' => [
                 'title' => 'Zwrot motocykla wszędzie – MotoGo24',
@@ -439,9 +900,60 @@ return [
                     'cls' => 'btndark',
                 ],
             ],
+            'quick' => [
+                [
+                    'label' => 'ZADZWOŃ DO NAS',
+                    'value' => '+420 774 256 271',
+                    'href' => 'tel:+420774256271',
+                    'icon' => 'gfx/telefon.svg',
+                    'alt' => 'Telefon',
+                ],
+                [
+                    'label' => 'NAPISZ DO NAS',
+                    'value' => 'info@motogo24.cz',
+                    'href' => 'mailto:info@motogo24.cz',
+                    'icon' => 'gfx/email.svg',
+                    'alt' => 'E-mail',
+                ],
+                [
+                    'label' => 'SKRZYNKA DANYCH',
+                    'value' => 'iuw3vnb',
+                    'href' => NULL,
+                    'icon' => NULL,
+                    'alt' => NULL,
+                ],
+            ],
+            'place' => [
+                'title' => 'Lokal',
+                'address_label' => 'Adres:',
+                'address' => 'Mezná 9, 393 01 Pelhřimov',
+                'hours_label' => 'Godziny otwarcia:',
+                'hours' => 'PN – ND: 00:00 – 24:00 (całodobowo)<br>W tym weekendy i święta',
+                'billing_title' => 'Dane do faktury',
+                'billing_name' => 'Bc. Petra Semorádová',
+                'billing_address' => 'Mezná 9, 393 01 Pelhřimov',
+                'billing_ico' => '21874263',
+                'billing_vat' => 'Nie jestem płatnikiem VAT',
+                'billing_note' => 'Firma została zarejestrowana 31.7.2024 w Urzędzie Miejskim w Pelhřimovie.',
+            ],
+            'social' => [
+                [
+                    'label' => 'facebook',
+                    'href' => '#',
+                    'icon' => 'gfx/facebook.svg',
+                    'alt' => 'Facebook',
+                ],
+                [
+                    'label' => 'instagram',
+                    'href' => '#',
+                    'icon' => 'gfx/instagram.svg',
+                    'alt' => 'Instagram',
+                ],
+            ],
             'social_title' => 'Śledź nas',
             'map' => [
                 'title' => 'Gdzie nas znaleźć',
+                'src' => 'https://www.google.com/maps?q=Mezn%C3%A1+9%2C+393+01+Pelh%C5%99imov&hl=cs&z=15&output=embed',
             ],
             'seo_text' => [
                 'title' => 'Kontakt – wypożyczalnia motocykli Vysočina (Pelhřimov)',
@@ -456,6 +968,40 @@ return [
             ],
             'h1' => 'Jak wypożyczyć motocykl',
             'intro' => 'W <strong>Motogo24 – wypożyczalni motocykli w Vysočina</strong> wypożyczanie jest proste, szybkie i uczciwe.',
+            'links' => [
+                [
+                    'href' => '/jak-pujcit/postup',
+                    'label' => 'Procedura wynajmu motocykla',
+                ],
+                [
+                    'href' => '/jak-pujcit/prevzeti',
+                    'label' => 'Odbiór w wypożyczalni',
+                ],
+                [
+                    'href' => '/jak-pujcit/vraceni-pujcovna',
+                    'label' => 'Zwrot motocykla w wypożyczalni',
+                ],
+                [
+                    'href' => '/jak-pujcit/vraceni-jinde',
+                    'label' => 'Zwrot motocykla w innym miejscu',
+                ],
+                [
+                    'href' => '/jak-pujcit/co-v-cene',
+                    'label' => 'Co jest w cenie wynajmu',
+                ],
+                [
+                    'href' => '/jak-pujcit/pristaveni',
+                    'label' => 'Podstawienie motocykla',
+                ],
+                [
+                    'href' => '/jak-pujcit/dokumenty',
+                    'label' => 'Dokumenty i instrukcje',
+                ],
+                [
+                    'href' => '/jak-pujcit/faq',
+                    'label' => 'Najczęściej zadawane pytania',
+                ],
+            ],
         ],
         'jak_pujcit_postup' => [
             'seo' => [
@@ -464,7 +1010,182 @@ return [
                 'keywords' => 'wypożyczalnia motocykli Czechy',
             ],
             'h1' => 'Proces wypożyczenia motocykla',
-            'intro' => '<p>W <strong>Motogo24 – wypożyczalni motocykli w Vysočina</strong> wypożyczanie jest proste, szybkie i uczciwe. <strong>Bez kaucji, z wyposażeniem w cenie i obsługą całodobową</strong>.</p>',
+            'intro_p1' => 'W <strong>Motogo24 – wypożyczalni motocykli w Vysočinie</strong> wypożyczanie jest proste, szybkie i uczciwe.&nbsp;<strong>Bez kaucji, z wyposażeniem kierowcy w cenie i obsługą całodobową przy odbiorze i zwrocie motocykla</strong>. Przekonaj się, jak łatwo to działa.',
+            'intro_h2' => 'Jak wypożyczyć motocykl – wypożyczalnia Motogo24 – Vysočina',
+            'intro_p2' => 'W naszej <strong>wypożyczalni motocykli</strong> wszystko załatwisz online: wybierz motocykl, wybierz termin i wypełnij formularz rezerwacji – wraz z wyposażeniem i sposobem przekazania. Odbierz motocykl w Pelhřimovie albo zamów podstawienie w dowolnym punkcie Czech. Płacisz online przy finalizacji rezerwacji.',
+            'process' => [
+                'title' => 'Jak przebiega wynajem krok po kroku',
+                'grid' => 'gr4',
+                'steps' => [
+                    [
+                        'icon' => 'gfx/vyber-motorku.svg',
+                        'title' => '1. Wybierz motocykl',
+                        'text' => 'Przejrzyj naszą ofertę&nbsp;<strong>motocykli turystycznych, supermoto, naked i dziecięcych</strong>&nbsp;i wybierz właściwy.',
+                    ],
+                    [
+                        'icon' => 'gfx/rezervace-online.svg',
+                        'title' => '2. Wybierz termin',
+                        'text' => 'Wybierz w kalendarzu datę, w której chcesz wyruszyć. Zobaczysz, które motocykle są wolne.',
+                    ],
+                    [
+                        'icon' => 'gfx/kontaktni-udaje.svg',
+                        'title' => '3. Dane kontaktowe',
+                        'text' => 'Wpisz imię, adres, e-mail i telefon.',
+                    ],
+                    [
+                        'icon' => 'gfx/cas-prevzeti-motorky.svg',
+                        'title' => '4. Godzina odbioru',
+                        'text' => 'Wybierz, kiedy odbierzesz motocykl albo kiedy go podstawimy.',
+                    ],
+                    [
+                        'icon' => 'gfx/vyzvednuti-vraceni-motorky.svg',
+                        'title' => '5. Wybierz przekazanie',
+                        'text' => 'Wybierz sposób odbioru – osobiście w Pelhřimovie albo podstawienie w dowolnym punkcie Czech.&nbsp;',
+                    ],
+                    [
+                        'icon' => 'gfx/prevezmi-motorku.svg',
+                        'title' => '6. Wybierz zwrot',
+                        'text' => 'Wybierz, czy zwrócisz motocykl pod adresem wypożyczalni, czy gdzie indziej.',
+                    ],
+                    [
+                        'icon' => 'gfx/vyber-vybavu.svg',
+                        'title' => '7. Wyposażenie',
+                        'text' => 'Podstawowe wyposażenie kierowcy jest w cenie. Chcesz wyposażenie dla pasażera, wypożyczyć buty albo jedziesz z własnym sprzętem? Zaznacz przy rezerwacji.',
+                    ],
+                    [
+                        'icon' => 'gfx/zaplat.svg',
+                        'title' => '8. Podsumowanie zamówienia i płatność',
+                        'text' => 'Sprawdź podsumowanie zamówienia, zaakceptuj warunki i zapłać online kartą.',
+                    ],
+                    [
+                        'icon' => 'gfx/potvrzeni-rezervace.svg',
+                        'title' => '9. Potwierdzenie e-mailem',
+                        'text' => 'Po sfinalizowaniu rezerwacji otrzymasz e-mail z potwierdzeniem rezerwacji i płatności, dowodem płatności, wstępnie wypełnioną umową najmu i podstawowymi instrukcjami odbioru motocykla.',
+                    ],
+                    [
+                        'icon' => 'gfx/predani-motorky.svg',
+                        'title' => '10. Przekazanie motocykla',
+                        'text' => 'Przy przekazaniu sprawdzimy dokumenty, uzupełnimy umowę i podpiszemy protokół przekazania. Przymierzamy rozmiary wyposażenia – i potem już tylko odpalić!',
+                    ],
+                    [
+                        'icon' => 'gfx/uzij-si-jizdu.svg',
+                        'title' => '11. Ciesz się jazdą',
+                        'text' => 'W trasę – <strong>bez kaucji, bez stresu</strong>. Reszta to już tylko asfalt i wolność.',
+                    ],
+                    [
+                        'icon' => 'gfx/vrat-motorku-vcas.svg',
+                        'title' => '12. Zwróć motocykl',
+                        'text' => 'Zwróć motocykl na czas – osobiście do wypożyczalni w Pelhřimovie albo na umówione miejsce. Nie trzeba tankować ani myć.',
+                    ],
+                ],
+            ],
+            'gallery' => [
+                'image' => '/gfx/vybava_diagram_motogo24_1200px.svg',
+                'alt' => 'Diagram wyposażenia&nbsp;Motogo24',
+                'group' => 'gal_1',
+            ],
+            'sizes' => [
+                'adult' => [
+                    'title' => 'Wyposażenie dla dorosłych',
+                    'headers' => [
+                        'Wyposażenie',
+                        'Dostępne rozmiary',
+                    ],
+                    'rows' => [
+                        [
+                            'Kask',
+                            'XS, S, M, L, XL',
+                        ],
+                        [
+                            'Kurtka',
+                            'M, L, XL, 2XL',
+                        ],
+                        [
+                            'Spodnie',
+                            'M, L, XL, 2XL',
+                        ],
+                        [
+                            'Rękawice',
+                            'M, L, XL',
+                        ],
+                        [
+                            'Buty motocyklowe',
+                            '39–46',
+                        ],
+                        [
+                            'Kominiarka',
+                            'uniwersalny',
+                        ],
+                        [
+                            'Kamizelka odblaskowa&nbsp;',
+                            'uniwersalny',
+                        ],
+                    ],
+                ],
+                'kid' => [
+                    'title' => 'Wyposażenie dziecięce',
+                    'headers' => [
+                        'Wyposażenie',
+                        'Dostępne rozmiary',
+                    ],
+                    'rows' => [
+                        [
+                            'Kask',
+                            'S (47–48 cm), M (49–50 cm), L (51–52 cm)',
+                        ],
+                        [
+                            'Kurtka',
+                            '110–116, 122–128, 134–140, 146–152 cm',
+                        ],
+                        [
+                            'Spodnie',
+                            '110–116, 122–128, 134–140, 146–152 cm',
+                        ],
+                        [
+                            'Rękawice',
+                            'XS/S (4–7 lat), M/L (8–12 lat)',
+                        ],
+                        [
+                            'Buty motocyklowe',
+                            '29–35',
+                        ],
+                        [
+                            'Kominiarka',
+                            'S (4–7 lat), M (8–12 lat)',
+                        ],
+                        [
+                            'Kamizelka odblaskowa&nbsp;',
+                            'XS, S, M',
+                        ],
+                    ],
+                ],
+            ],
+            'faq' => [
+                'title' => 'Najczęściej zadawane pytania',
+                'items' => [
+                    [
+                        'q' => 'Czy przy wynajmie wymagana jest kaucja?',
+                        'a' => 'Nie.&nbsp;<strong>Wypożyczamy bez kaucji</strong>&nbsp;– uczciwie i bez zbędnych przeszkód.',
+                    ],
+                    [
+                        'q' => 'Czy wyposażenie też jest w cenie wynajmu?',
+                        'a' => 'Tak. Każdy kierowca dostaje&nbsp;<strong>kask, kurtkę, spodnie i rękawice gratis</strong>.',
+                    ],
+                    [
+                        'q' => 'Gdzie mogę odebrać motocykl?',
+                        'a' => 'Odbiór odbywa się w Pelhřimovie, albo oferujemy&nbsp;<strong>podstawienie motocykla</strong>&nbsp;w wybrane przez ciebie miejsce.',
+                    ],
+                    [
+                        'q' => 'Do kiedy muszę zwrócić motocykl?',
+                        'a' => 'Motocykl możesz zwrócić o dowolnej porze w ostatnim dniu wynajmu – nawet o północy.',
+                    ],
+                ],
+                'more_link' => [
+                    'label' => 'Więcej najczęściej zadawanych pytań',
+                    'href' => '/jak-pujcit/faq',
+                    'aria' => 'Przeczytaj więcej najczęściej zadawanych pytań',
+                ],
+            ],
             'cta' => [
                 'title' => 'Gotowy na jazdę?',
                 'text' => 'Zarezerwuj motocykl online już dziś i ciesz się <strong>wolnością na dwóch kołach</strong>.',
@@ -476,6 +1197,7 @@ return [
                     ],
                 ],
             ],
+            'intro' => '<p>W <strong>Motogo24 – wypożyczalni motocykli w Vysočina</strong> wypożyczanie jest proste, szybkie i uczciwe. <strong>Bez kaucji, z wyposażeniem w cenie i obsługą całodobową</strong>.</p>',
         ],
         'jak_pujcit_vyzvednuti' => [
             'seo' => [
@@ -486,10 +1208,119 @@ return [
             'h1' => 'Odbiór motocykla w wypożyczalni – szybko, łatwo i całodobowo',
             'intro' => 'W <strong>Motogo24 – wypożyczalni motocykli Vysočina</strong> <strong>odbiór motocykla</strong> trwa kilka minut.',
             'top_cta' => [
+                'aria' => 'Przejdź do rezerwacji online motocykla w wypożyczalni Motogo24',
                 'label' => 'REZERWUJ ONLINE',
                 'href' => '/rezervace',
             ],
+            'place' => [
+                'map_src' => 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d53928.274636159236!2d15.154130970132716!3d49.35168867371007!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x470ce75bf69a97b3%3A0xe75f9d3fadf02b5b!2zTWV6bsOhIDksIDM5MyAwMSBNZXpuw6E!5e0!3m2!1scs!2scz!4v1759860051295!5m2!1scs!2scz',
+                'title' => 'Gdzie odbywa się odbiór motocykla',
+                'address_label' => 'Lokal:',
+                'address' => 'Mezná 9, 393 01 <strong>Pelhřimov</strong> (Vysočina)',
+                'hours_label' => 'Godziny otwarcia:',
+                'hours' => '<em>całodobowo</em> (odbiór i zwrot o dowolnej porze w dniu wynajmu)',
+                'map_title' => 'Jak do nas dotrzeć',
+            ],
+            'process' => [
+                'title' => 'Jak przebiega odbiór w wypożyczalni',
+                'grid' => 'gr4',
+                'steps' => [
+                    [
+                        'icon' => 'gfx/cas-prevzeti-motorky.svg',
+                        'title' => 'Przyjdź o umówionej godzinie',
+                        'text' => 'Pod nasz adres: Mezná 9, 393 01 Pelhřimov.',
+                    ],
+                    [
+                        'icon' => 'gfx/overime-doklady.svg',
+                        'title' => 'Weryfikujemy dokumenty',
+                        'text' => 'Dowód osobisty/paszport i prawo jazdy odpowiedniej kategorii',
+                    ],
+                    [
+                        'icon' => 'gfx/doplnime-smlouvu.svg',
+                        'title' => 'Uzupełniamy umowę',
+                        'text' => 'Wstępnie wypełnioną umowę najmu uzupełniamy o dane z twoich dokumentów.',
+                    ],
+                    [
+                        'icon' => 'gfx/vyber-vybavu.svg',
+                        'title' => 'Wybierasz i przymierzasz wyposażenie',
+                        'text' => 'Wyposażenie z rezerwacji możesz przymierzyć w naszej przymierzalni.',
+                    ],
+                    [
+                        'icon' => 'gfx/prevezmi-motorku.svg',
+                        'title' => 'Wspólnie omawiamy motocykl',
+                        'text' => 'Sprawdzamy stan maszyny, a ty zapoznajesz się z jej obsługą.',
+                    ],
+                    [
+                        'icon' => 'gfx/podpis-dokumentu.svg',
+                        'title' => 'Podpisujemy protokół przekazania',
+                        'text' => 'Dokumentujemy stan motocykla i wyposażenia przed wynajmem.',
+                    ],
+                    [
+                        'icon' => 'gfx/predani-motorky.svg',
+                        'title' => 'Przekazujemy kluczyki',
+                        'text' => 'Motocykl jest gotowy i czeka na ciebie.',
+                    ],
+                    [
+                        'icon' => 'gfx/uzij-si-jizdu.svg',
+                        'title' => 'Możesz ruszać',
+                        'text' => 'W trasę – bez kaucji, bez stresu. Reszta to już tylko asfalt i wolność.',
+                    ],
+                ],
+            ],
+            'amenities' => [
+                'title' => 'Co znajdziesz w wypożyczalni',
+                'lead' => 'Dla wygodnego odbioru mamy przygotowane – wszystko za darmo:',
+                'items' => [
+                    'parking dla klientów (ograniczona pojemność)',
+                    'Wi-Fi',
+                    'WC',
+                    'przymierzalnię do przymierzenia wyposażenia',
+                    'zamykane szafki na rzeczy osobiste, których nie chcesz brać w trasę (ograniczona pojemność)',
+                ],
+                'cta' => [
+                    'label' => 'ZAREZERWUJ TERMIN',
+                    'href' => '/rezervace',
+                    'aria' => 'Zarezerwuj termin odbioru motocykla w Motogo24',
+                ],
+            ],
+            'bring' => [
+                'title' => 'Co zabrać ze sobą',
+                'items' => [
+                    'ważny dowód osobisty lub paszport',
+                    'ważne prawo jazdy z uprawnieniem odpowiedniej kategorii (A/A2 w zależności od wybranego motocykla)',
+                    'własne wyposażenie – kask, kurtka, spodnie, rękawice (jeśli nie masz zarezerwowanego u nas)',
+                    'solidne obuwie (jeśli nie masz u nas rezerwacji na buty motocyklowe)',
+                    'własną nawigację lub telefon z aplikacją nawigacyjną – nawigacja nie wchodzi w skład wynajmu',
+                ],
+            ],
+            'faq' => [
+                'title' => 'Częste pytania o odbiór',
+                'items' => [
+                    [
+                        'q' => 'Czy przy odbiorze muszę płacić kaucję?',
+                        'a' => 'Nie, <strong>wypożyczamy bez kaucji</strong>. Warunki są jasno określone i uczciwe.',
+                    ],
+                    [
+                        'q' => 'Czy możliwy jest kontakt bez osobistego spotkania?',
+                        'a' => 'Tak, oferujemy po uzgodnieniu <strong>bezkontaktowe przekazanie</strong>. Instrukcje i dokumenty otrzymasz z wyprzedzeniem.',
+                    ],
+                    [
+                        'q' => 'Co, jeśli nie zdążę na umówioną godzinę?',
+                        'a' => 'Daj nam znać telefonicznie – dostosujemy godzinę albo zaproponujemy <strong>podstawienie</strong> / inny termin.',
+                    ],
+                    [
+                        'q' => 'Czy wyposażenie dla pasażera też jest w cenie?',
+                        'a' => 'Wyposażenie kierowcy jest zawsze w cenie. Wyposażenie dla pasażera można domówić jako <strong>opcję dodatkową</strong>.',
+                    ],
+                ],
+            ],
+            'mid_cta' => [
+                'label' => 'ZAREZERWUJ ODBIÓR',
+                'href' => '/rezervace',
+                'aria' => 'Zarezerwuj odbiór motocykla w wypożyczalni Motogo24',
+            ],
             'cta' => [
+                'text2' => 'Wybierz <strong>motocykl turystyczny, supermoto, naked lub dziecięcy</strong> i wygodnie zarezerwuj go online.',
                 'title' => 'Odbiór motocykla w wypożyczalni – Motogo24 Vysočina',
                 'text' => 'Motogo24 to <strong>wypożyczalnia motocykli w Vysočina</strong> z <strong>całodobowym odbiorem i zwrotem</strong>.',
                 'buttons' => [
@@ -509,9 +1340,73 @@ return [
             ],
             'h1' => 'Zwrot motocykla w wypożyczalni',
             'intro' => 'Motocykl wracasz wygodnie bezpośrednio w <strong>Motogo24 – wypożyczalni motocykli w Vysočina</strong>. <strong>Obsługa całodobowa</strong>, bez stresu.',
-            'top_cta' => [
-                'label' => 'REZERWUJ ONLINE',
-                'href' => '/rezervace',
+            'process' => [
+                'grid' => 'gr4',
+                'steps' => [
+                    [
+                        'icon' => 'gfx/cas-prevzeti-motorky.svg',
+                        'title' => 'Przyjedź o umówionej godzinie',
+                        'text' => '',
+                    ],
+                    [
+                        'icon' => 'gfx/predani-motorky.svg',
+                        'title' => 'Przekaż kluczyki i wyposażenie',
+                        'text' => '',
+                    ],
+                    [
+                        'icon' => 'gfx/prevezmi-motorku.svg',
+                        'title' => 'Wspólnie sprawdzamy stan motocykla i wyposażenia',
+                        'text' => '',
+                    ],
+                    [
+                        'icon' => 'gfx/sleva-na-pristi-jizdu.svg',
+                        'title' => 'Na e-mail przyjdzie potwierdzenie zakończenia wynajmu, faktura końcowa i kod rabatowy na kolejną rezerwację.',
+                        'text' => '',
+                    ],
+                ],
+            ],
+            'time' => [
+                'title' => 'Czas zwrotu',
+                'text' => 'Prosimy o dotrzymanie czasu zwrotu – pomożesz nam dzięki temu zapewnić, że kolejny klient odbierze motocykl na czas. Jeśli jednak się spóźnisz, daj nam znać telefonicznie. Do północy ostatniego dnia wynajmu nie płacisz żadnej opłaty. Jeśli zwrócisz motocykl znacznie po tym terminie, zostanie ci naliczony czynsz za kolejny dzień.',
+            ],
+            'issues' => [
+                'title' => 'Niezgodności przy zwrocie',
+                'lead' => 'Przy przekazaniu wspólnie sprawdzamy stan motocykla i wyposażenia. Gdyby wystąpiła któraś z poniższych sytuacji, sporządzamy protokół stwierdzonego uszkodzenia:',
+                'items' => [
+                    'brakujące wyposażenie',
+                    'uszkodzone wyposażenie',
+                    'uszkodzony motocykl',
+                ],
+                'closing' => 'Klient podpisuje protokół i otrzymuje jego kopię. Dalsze postępowanie reguluje umowa najmu i regulamin.',
+            ],
+            'faq' => [
+                'title' => 'Najczęściej zadawane pytania o zwrot motocykla w wypożyczalni',
+                'items' => [
+                    [
+                        'q' => 'Do kiedy muszę zwrócić motocykl?',
+                        'a' => 'Zwróć motocykl najlepiej o umówionej godzinie. Jeśli zwracasz w wypożyczalni, możesz po uzgodnieniu przyjechać o dowolnej porze w ostatnim dniu wynajmu – najpóźniej do północy, bez żadnych sankcji. Jeśli zwracasz w innym miejscu, umówiona godzina jest wiążąca.',
+                    ],
+                    [
+                        'q' => 'Czy muszę zwrócić z pełnym bakiem i czysty?',
+                        'a' => 'Nie. U nas nie tankujesz ani nie myjesz. Tylko pilnuj, żeby nie świeciła kontrolka rezerwy.&nbsp;',
+                    ],
+                    [
+                        'q' => 'Czy mogę zwrócić motocykl do wypożyczalni wcześniej, niż się umówiliśmy?',
+                        'a' => 'Tak, motocykl możesz zwrócić o dowolnej porze w ostatnim dniu wynajmu. Wystarczy dać nam znać, że przyjedziesz wcześniej. Nie naliczamy dopłat za wcześniejszy zwrot.',
+                    ],
+                    [
+                        'q' => 'Co się stanie, jeśli nie zdążę zwrócić motocykla do wypożyczalni do północy ostatniego dnia?&nbsp;',
+                        'a' => 'Jeśli wiesz, że nie zdążysz, odezwij się do nas jak najszybciej. Dogadamy się co do rozwiązania. W przypadku niezgłoszonego spóźnionego zwrotu postępuje się zgodnie z warunkami umowy najmu.',
+                    ],
+                    [
+                        'q' => 'Czy przy zwrocie w wypożyczalni muszę coś podpisać?&nbsp;',
+                        'a' => 'Jeśli wszystko jest w porządku, zwrot przebiega szybko i bez zbędnych formalności. Potwierdzenie zakończenia wynajmu i fakturę końcową otrzymasz e-mailem.',
+                    ],
+                    [
+                        'q' => 'Jak przebiega kontrola motocykla przy zwrocie w wypożyczalni?&nbsp;',
+                        'a' => 'Wspólnie przejdziemy stan motocykla i wyposażenia. Jeśli wszystko jest w porządku, odbierzemy kluczyki i wyposażenie i możesz iść. Całość zajmuje kilka minut.',
+                    ],
+                ],
             ],
             'cta' => [
                 'title' => 'Zwrot motocykla w wypożyczalni – Motogo24 Pelhřimov',
@@ -524,6 +1419,10 @@ return [
                     ],
                 ],
             ],
+            'top_cta' => [
+                'label' => 'REZERWUJ ONLINE',
+                'href' => '/rezervace',
+            ],
         ],
         'poukazy' => [
             'seo' => [
@@ -533,6 +1432,83 @@ return [
                 'og_image' => 'https://www.motogo24.cz/gfx/darkovy-poukaz.jpg',
             ],
             'h1' => 'Kup bon prezentowy – podaruj przygodę na dwóch kołach!',
+            'intro_left' => '<p>Szukasz oryginalnego prezentu dla partnera, przyjaciela albo taty?</p><p>&nbsp;</p><p>Nasze <strong>bony prezentowe na wynajem motocykla</strong> od Motogo24 – <strong>wypożyczalnia motocykli Vysočina</strong> – ucieszą zarówno początkujących, jak i doświadczonych kierowców.</p><p>&nbsp;</p><p>Wybierz wartość bonu albo konkretny motocykl i podaruj wolność na dwóch kołach.</p>',
+            'intro_cta' => [
+                'label' => 'ZAMÓW BON PREZENTOWY',
+                'href' => '/koupit-darkovy-poukaz',
+                'aria' => 'Zamów bon prezentowy na wynajem motocykla w wypożyczalni Motogo24',
+            ],
+            'intro_image' => [
+                'src' => 'gfx/darkovy-poukaz.jpg',
+                'alt' => 'Bon prezentowy',
+            ],
+            'steps' => [
+                [
+                    'icon' => 'gfx/vyber-motorku.svg',
+                    'title' => '1. Wybierz',
+                    'text' => 'Wybierasz wartość bonu albo konkretny motocykl.',
+                ],
+                [
+                    'icon' => 'gfx/zaplat.svg',
+                    'title' => '2. Zapłać',
+                    'text' => 'Płacisz online.',
+                ],
+                [
+                    'icon' => 'gfx/potvrzeni-rezervace.svg',
+                    'title' => '3. Odbierz',
+                    'text' => 'Bon po opłaceniu trafia na twoją skrzynkę e-mail.',
+                ],
+            ],
+            'validity_note' => 'Wszystkie bony są <strong>ważne 3 lata</strong> od daty wystawienia. <strong>Obdarowany sam wybiera termin wynajmu</strong>, który mu pasuje. Może się z nami skontaktować e-mailem, telefonicznie lub przez media społecznościowe.',
+            'why' => [
+                'title' => 'Dlaczego warto kupić bon',
+                'items' => [
+                    '<strong>Elastyczny wybór</strong> – wartość bonu albo konkretny motocykl.',
+                    '<strong>Ważność 3 lata</strong> – obdarowany sam wybiera termin.',
+                    '<strong>Bez kaucji</strong> – uczciwe warunki bez zbędnych przeszkód.',
+                    '<strong>Wyposażenie w cenie</strong> – kask, kurtka, spodnie i rękawice gratis.',
+                    '<strong>Obsługa całodobowa</strong> – odbiór i zwrot o dowolnej porze w dniu wynajmu.',
+                    '<strong>Zamówienie online</strong> – bon po opłaceniu przychodzi e-mailem.',
+                ],
+            ],
+            'how' => [
+                'title' => 'Jak wykorzystać bon',
+                'items' => [
+                    '<strong>Motocykle turystyczne</strong> – weekendowy roadtrip po Vysočinie i całych Czechach.',
+                    '<strong>Motocykle sportowe</strong> – adrenalinowa jazda na zakrętach.',
+                    '<strong>Enduro</strong> – lekki teren i przygoda poza głównymi drogami.',
+                    '<strong>Motocykle dziecięce</strong> – pierwsze przejażdżki dla małych kierowców pod nadzorem.',
+                ],
+            ],
+            'catalog_cta' => [
+                'label' => 'ZOBACZ KATALOG MOTOCYKLI',
+                'href' => '/katalog',
+            ],
+            'faq' => [
+                'title' => 'Najczęściej zadawane pytania o bony prezentowe',
+                'items' => [
+                    [
+                        'q' => 'Jaka jest ważność bonu prezentowego?',
+                        'a' => 'Wszystkie bony są ważne <strong>3 lata</strong> od daty wystawienia. Termin wynajmu obdarowany wybiera sam.',
+                    ],
+                    [
+                        'q' => 'Jak dostarczacie bon?',
+                        'a' => '<strong>Natychmiast e-mailem</strong> po opłaceniu. Na życzenie przygotujemy też wydruk prezentowy w lokalu.',
+                    ],
+                    [
+                        'q' => 'Czy obdarowany musi wpłacać kaucję?',
+                        'a' => 'Nie. <strong>Wypożyczamy bez kaucji</strong>. Warunki są jasne i uczciwe, wyposażenie kierowcy jest w cenie.',
+                    ],
+                    [
+                        'q' => 'Czy można zmienić termin realizacji?',
+                        'a' => 'Tak, <strong>termin można zmienić po uzgodnieniu</strong> w zależności od dostępności danego motocykla w naszym kalendarzu.',
+                    ],
+                    [
+                        'q' => 'Na jakie motocykle można zrealizować bon?',
+                        'a' => 'Na <strong>motocykle turystyczne, sportowe, enduro i dziecięce</strong> z oferty Motogo24 – zależnie od wybranej wartości bonu.',
+                    ],
+                ],
+            ],
             'cta' => [
                 'title' => 'Bon prezentowy na wynajem motocykla – Vysočina',
                 'text' => 'Motogo24 to <strong>wypożyczalnia motocykli w Vysočina</strong> z <strong>obsługą całodobową</strong>, <strong>bez kaucji</strong> i <strong>wyposażeniem w cenie</strong>.',

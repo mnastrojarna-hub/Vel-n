@@ -130,9 +130,12 @@ return [
                 'keywords' => 'alquiler de motos República Checa',
             ],
             'h1' => 'Proceso de alquiler de moto',
-            'intro' => '<p>En <strong>Motogo24 – Alquiler de motos en Vysočina</strong>, alquilar es sencillo, rápido y justo. <strong>Sin depósito, con equipamiento incluido y servicio 24/7</strong>. Mira lo fácil que funciona.</p><p>&nbsp;</p><h2>Cómo alquilar una moto – Alquiler Motogo24 Vysočina</h2><p>En el <strong>alquiler de motos Motogo24</strong>, el <strong>proceso de alquiler</strong> es simple: <strong>reserva online</strong>, <strong>equipamiento incluido</strong>, <strong>sin depósito</strong>, <strong>servicio 24/7</strong> y posibilidad de <strong>entrega de la moto</strong>. Tanto si buscas una <strong>moto de viaje</strong> para el fin de semana, una <strong>moto deportiva</strong> para la adrenalina o una <strong>enduro</strong> para el todoterreno, con nosotros encontrarás la solución ideal.</p>',
+            'intro_p1' => 'En <strong>Motogo24 – alquiler de motos en Vysočina</strong> alquilar es sencillo, rápido y justo.&nbsp;<strong>Sin fianza, con el equipamiento del conductor incluido y servicio 24/7 para recoger y devolver la moto</strong>. Compruébalo tú mismo, lo fácil que es.',
+            'intro_h2' => 'Cómo alquilar una moto – alquiler Motogo24 – Vysočina',
+            'intro_p2' => 'En nuestro <strong>alquiler de motos</strong> lo haces todo online: elige una moto, elige una fecha y rellena el formulario de reserva, incluido el equipamiento y el método de entrega. Recoge la moto en Pelhřimov o pide la entrega en cualquier punto de la República Checa. Pagas online al completar la reserva.',
             'process' => [
                 'title' => 'Cómo se desarrolla el alquiler paso a paso',
+                'grid' => 'gr4',
                 'steps' => [
                     [
                         'icon' => 'gfx/vyber-motorku.svg',
@@ -176,9 +179,89 @@ return [
                     ],
                 ],
             ],
+            'gallery' => [
+                'image' => '/gfx/vybava_diagram_motogo24_1200px.svg',
+                'alt' => 'Diagrama del equipamiento&nbsp;Motogo24',
+                'group' => 'gal_1',
+            ],
+            'sizes' => [
+                'adult' => [
+                    'title' => 'Equipamiento de adulto',
+                    'headers' => [
+                        'Equipamiento',
+                        'Tallas disponibles',
+                    ],
+                    'rows' => [
+                        [
+                            'Casco',
+                            'XS, S, M, L, XL',
+                        ],
+                        [
+                            'Chaqueta',
+                            'M, L, XL, 2XL',
+                        ],
+                        [
+                            'Pantalones',
+                            'M, L, XL, 2XL',
+                        ],
+                        [
+                            'Guantes',
+                            'M, L, XL',
+                        ],
+                        [
+                            'Botas de moto',
+                            '39–46',
+                        ],
+                        [
+                            'Pasamontañas',
+                            'universal',
+                        ],
+                        [
+                            'Chaleco reflectante&nbsp;',
+                            'universal',
+                        ],
+                    ],
+                ],
+                'kid' => [
+                    'title' => 'Equipamiento infantil',
+                    'headers' => [
+                        'Equipamiento',
+                        'Tallas disponibles',
+                    ],
+                    'rows' => [
+                        [
+                            'Casco',
+                            'S (47–48 cm), M (49–50 cm), L (51–52 cm)',
+                        ],
+                        [
+                            'Chaqueta',
+                            '110–116, 122–128, 134–140, 146–152 cm',
+                        ],
+                        [
+                            'Pantalones',
+                            '110–116, 122–128, 134–140, 146–152 cm',
+                        ],
+                        [
+                            'Guantes',
+                            'XS/S (4–7 años), M/L (8–12 años)',
+                        ],
+                        [
+                            'Botas de moto',
+                            '29–35',
+                        ],
+                        [
+                            'Pasamontañas',
+                            'S (4–7 años), M (8–12 años)',
+                        ],
+                        [
+                            'Chaleco reflectante&nbsp;',
+                            'XS, S, M',
+                        ],
+                    ],
+                ],
+            ],
             'faq' => [
                 'title' => 'Preguntas frecuentes',
-                'more_link' => '/jak-pujcit/faq',
                 'items' => [
                     [
                         'q' => '¿Es necesario un depósito al alquilar?',
@@ -197,6 +280,11 @@ return [
                         'a' => 'Puedes devolver la moto en cualquier momento durante el último día del alquiler – incluso a medianoche.',
                     ],
                 ],
+                'more_link' => [
+                    'label' => 'Más preguntas frecuentes',
+                    'href' => '/jak-pujcit/faq',
+                    'aria' => 'Lee más preguntas frecuentes',
+                ],
             ],
             'cta' => [
                 'title' => '¿Listo para rodar?',
@@ -209,6 +297,7 @@ return [
                     ],
                 ],
             ],
+            'intro' => '<p>En <strong>Motogo24 – Alquiler de motos en Vysočina</strong>, alquilar es sencillo, rápido y justo. <strong>Sin depósito, con equipamiento incluido y servicio 24/7</strong>. Mira lo fácil que funciona.</p><p>&nbsp;</p><h2>Cómo alquilar una moto – Alquiler Motogo24 Vysočina</h2><p>En el <strong>alquiler de motos Motogo24</strong>, el <strong>proceso de alquiler</strong> es simple: <strong>reserva online</strong>, <strong>equipamiento incluido</strong>, <strong>sin depósito</strong>, <strong>servicio 24/7</strong> y posibilidad de <strong>entrega de la moto</strong>. Tanto si buscas una <strong>moto de viaje</strong> para el fin de semana, una <strong>moto deportiva</strong> para la adrenalina o una <strong>enduro</strong> para el todoterreno, con nosotros encontrarás la solución ideal.</p>',
         ],
         'jak_pujcit_vyzvednuti' => [
             'seo' => [
@@ -219,10 +308,12 @@ return [
             'h1' => 'Recogida de la moto en el establecimiento – rápido, sencillo y 24/7',
             'intro' => 'En <strong>Motogo24 – Alquiler de motos Vysočina</strong>, la <strong>recogida de la moto</strong> es cuestión de pocos minutos. Alquilamos <strong>sin depósito</strong>, con <strong>equipamiento incluido</strong> y <strong>servicio 24/7</strong>.',
             'top_cta' => [
+                'aria' => 'Ir a la reserva online de una moto en el alquiler Motogo24',
                 'label' => 'RESERVAR ONLINE',
                 'href' => '/rezervace',
             ],
             'place' => [
+                'map_src' => 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d53928.274636159236!2d15.154130970132716!3d49.35168867371007!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x470ce75bf69a97b3%3A0xe75f9d3fadf02b5b!2zTWV6bsOhIDksIDM5MyAwMSBNZXpuw6E!5e0!3m2!1scs!2scz!4v1759860051295!5m2!1scs!2scz',
                 'title' => 'Dónde se realiza la recogida',
                 'address_label' => 'Dirección:',
                 'hours_label' => 'Horario:',
@@ -233,34 +324,66 @@ return [
                 'return_title' => 'Devolución de la moto – sin estrés',
                 'return_text' => 'Puedes devolver la moto <strong>en cualquier momento durante el último día del alquiler</strong>. Más información en <a href="/jak-pujcit/vraceni-pujcovna">devolución en el establecimiento</a> o <a href="/jak-pujcit/vraceni-jinde">devolución en otro lugar</a>.',
             ],
-            'steps' => [
-                'title' => 'Cómo se desarrolla la recogida paso a paso',
-                'items' => [
+            'process' => [
+                'title' => 'Cómo funciona la recogida en el alquiler',
+                'grid' => 'gr4',
+                'steps' => [
                     [
                         'icon' => 'gfx/cas-prevzeti-motorky.svg',
-                        'title' => 'Llega a la hora acordada',
-                        'text' => 'a nuestra dirección o espera la entrega',
+                        'title' => 'Ven a la hora acordada',
+                        'text' => 'A nuestra dirección: Mezná 9, 393 01 Pelhřimov.',
                     ],
                     [
                         'icon' => 'gfx/overime-doklady.svg',
                         'title' => 'Verificamos los documentos',
-                        'text' => 'DNI/pasaporte + permiso de conducir de la categoría correspondiente',
+                        'text' => 'DNI/pasaporte y un carné de conducir de la categoría correspondiente',
                     ],
                     [
-                        'icon' => 'gfx/predani-motorky.svg',
-                        'title' => 'Entregamos la moto y el equipamiento',
-                        'text' => 'casco, chaqueta, pantalones, guantes',
+                        'icon' => 'gfx/doplnime-smlouvu.svg',
+                        'title' => 'Completamos el contrato',
+                        'text' => 'Completamos el contrato de alquiler precumplimentado con los datos de tus documentos.',
+                    ],
+                    [
+                        'icon' => 'gfx/vyber-vybavu.svg',
+                        'title' => 'Eliges y te pruebas el equipamiento',
+                        'text' => 'El equipamiento de tu reserva puedes probártelo en nuestro probador.',
                     ],
                     [
                         'icon' => 'gfx/prevezmi-motorku.svg',
-                        'title' => 'Breve familiarización con la máquina',
-                        'text' => 'controles, consejos, recomendaciones de ruta',
+                        'title' => 'Repasamos la moto juntos',
+                        'text' => 'Comprobamos el estado de la máquina y te familiarizas con sus mandos.',
                     ],
                     [
                         'icon' => 'gfx/podpis-dokumentu.svg',
-                        'title' => 'Firmamos el protocolo de entrega',
-                        'text' => 'y ya puedes ponerte en marcha',
+                        'title' => 'Firmamos el acta de entrega',
+                        'text' => 'Documentamos el estado de la moto y del equipamiento antes del alquiler.',
                     ],
+                    [
+                        'icon' => 'gfx/predani-motorky.svg',
+                        'title' => 'Entregamos las llaves',
+                        'text' => 'La moto está lista y te espera.',
+                    ],
+                    [
+                        'icon' => 'gfx/uzij-si-jizdu.svg',
+                        'title' => 'Ya puedes salir',
+                        'text' => 'A la carretera: sin fianza, sin estrés. El resto es solo asfalto y libertad.',
+                    ],
+                ],
+            ],
+            'amenities' => [
+                'title' => 'Qué encontrarás en el alquiler',
+                'lead' => 'Para una recogida cómoda tenemos preparado, todo gratis:',
+                'items' => [
+                    'aparcamiento para clientes (capacidad limitada)',
+                    'Wi-Fi',
+                    'aseo',
+                    'un probador para probarse el equipamiento',
+                    'taquillas con llave para guardar objetos personales que no quieras llevar de viaje (capacidad limitada)',
+                ],
+                'cta' => [
+                    'label' => 'RESERVAR UNA HORA',
+                    'href' => '/rezervace',
+                    'aria' => 'Reservar una hora para recoger una moto en Motogo24',
                 ],
             ],
             'bring' => [
@@ -296,7 +419,13 @@ return [
                     ],
                 ],
             ],
+            'mid_cta' => [
+                'label' => 'RESERVAR LA RECOGIDA',
+                'href' => '/rezervace',
+                'aria' => 'Reservar la recogida de una moto en el alquiler Motogo24',
+            ],
             'cta' => [
+                'text2' => 'Elige una <strong>moto de turismo, supermoto, naked o infantil</strong> y resérvala cómodamente online.',
                 'title' => 'Recogida de la moto en el establecimiento – Motogo24 Vysočina',
                 'text' => 'Motogo24 es un <strong>alquiler de motos en Vysočina</strong> con <strong>recogida y devolución 24/7</strong>, <strong>sin depósito</strong> y con <strong>equipamiento incluido</strong>.',
                 'buttons' => [
@@ -304,6 +433,36 @@ return [
                         'label' => 'RESERVAR ONLINE',
                         'href' => '/rezervace',
                         'cls' => 'btndark pulse',
+                    ],
+                ],
+            ],
+            'steps' => [
+                'title' => 'Cómo se desarrolla la recogida paso a paso',
+                'items' => [
+                    [
+                        'icon' => 'gfx/cas-prevzeti-motorky.svg',
+                        'title' => 'Llega a la hora acordada',
+                        'text' => 'a nuestra dirección o espera la entrega',
+                    ],
+                    [
+                        'icon' => 'gfx/overime-doklady.svg',
+                        'title' => 'Verificamos los documentos',
+                        'text' => 'DNI/pasaporte + permiso de conducir de la categoría correspondiente',
+                    ],
+                    [
+                        'icon' => 'gfx/predani-motorky.svg',
+                        'title' => 'Entregamos la moto y el equipamiento',
+                        'text' => 'casco, chaqueta, pantalones, guantes',
+                    ],
+                    [
+                        'icon' => 'gfx/prevezmi-motorku.svg',
+                        'title' => 'Breve familiarización con la máquina',
+                        'text' => 'controles, consejos, recomendaciones de ruta',
+                    ],
+                    [
+                        'icon' => 'gfx/podpis-dokumentu.svg',
+                        'title' => 'Firmamos el protocolo de entrega',
+                        'text' => 'y ya puedes ponerte en marcha',
                     ],
                 ],
             ],
@@ -316,6 +475,81 @@ return [
             ],
             'h1' => 'Devolución de la moto en el establecimiento',
             'intro' => 'Devuelves cómodamente la moto directamente en <strong>Motogo24 – Alquiler de motos en Vysočina</strong>. <strong>Servicio 24/7</strong>, sin estrés y con condiciones justas.',
+            'process' => [
+                'grid' => 'gr4',
+                'steps' => [
+                    [
+                        'icon' => 'gfx/cas-prevzeti-motorky.svg',
+                        'title' => 'Ven a la hora acordada',
+                        'text' => '',
+                    ],
+                    [
+                        'icon' => 'gfx/predani-motorky.svg',
+                        'title' => 'Entrega las llaves y el equipamiento',
+                        'text' => '',
+                    ],
+                    [
+                        'icon' => 'gfx/prevezmi-motorku.svg',
+                        'title' => 'Comprobamos juntos el estado de la moto y del equipamiento',
+                        'text' => '',
+                    ],
+                    [
+                        'icon' => 'gfx/sleva-na-pristi-jizdu.svg',
+                        'title' => 'Recibirás un correo con la confirmación de fin de alquiler, la factura final y un código de descuento para tu próxima reserva.',
+                        'text' => '',
+                    ],
+                ],
+            ],
+            'time' => [
+                'title' => 'Hora de devolución',
+                'text' => 'Por favor, respeta la hora de devolución: nos ayuda a asegurar que el siguiente cliente recoja la moto a tiempo. Si finalmente llegas tarde, avísanos por teléfono. Hasta la medianoche del último día de alquiler no pagas ninguna tarifa. Si devuelves la moto bastante después, se te cobrará el alquiler de un día más.',
+            ],
+            'issues' => [
+                'title' => 'Discrepancias en la devolución',
+                'lead' => 'En la entrega comprobamos juntos el estado de la moto y del equipamiento. Si se produjera alguna de las situaciones siguientes, levantamos un acta de los daños detectados:',
+                'items' => [
+                    'equipamiento faltante',
+                    'equipamiento dañado',
+                    'moto dañada',
+                ],
+                'closing' => 'El cliente firma el acta y recibe una copia. El procedimiento posterior se rige por las condiciones del contrato de alquiler y las condiciones generales.',
+            ],
+            'faq' => [
+                'title' => 'Preguntas frecuentes sobre la devolución en el establecimiento',
+                'items' => [
+                    [
+                        'q' => '¿Qué pasa si no llego a la hora acordada de devolución?',
+                        'a' => 'Avísanos por teléfono, por favor. Normalmente acordamos un <strong>aplazamiento de unas horas</strong>; un retraso mayor puede ser cobrado según la lista de precios.',
+                    ],
+                    [
+                        'q' => '¿Tengo que lavar la moto?',
+                        'a' => 'No. La suciedad normal está bien, <strong>no exigimos</strong> el lavado.',
+                    ],
+                    [
+                        'q' => '¿Tengo que devolver la moto con el depósito lleno?',
+                        'a' => 'No es obligatorio. Si el depósito no está lleno, repostaremos y <strong>cobraremos solo el precio real</strong> sin recargos.',
+                    ],
+                    [
+                        'q' => '¿Qué pasa si el establecimiento está cerrado?',
+                        'a' => 'El servicio es <strong>24/7</strong>. Por la noche basta con llamar al +420 774 256 271 y acordaremos la entrega.',
+                    ],
+                    [
+                        'q' => '¿Puedo devolver la moto en otro lugar?',
+                        'a' => 'Sí, utiliza <a href="/jak-pujcit/vraceni-jinde"><strong>devolución de la moto en otro lugar</strong></a> (entrega/recogida según la lista de precios).',
+                    ],
+                ],
+            ],
+            'cta' => [
+                'title' => 'Devolución de la moto en el establecimiento – Motogo24 Pelhřimov',
+                'text' => 'Devuelve la moto directamente con nosotros en Pelhřimov – <strong>24/7, sin depósito, sin estrés</strong>.',
+                'buttons' => [
+                    [
+                        'label' => 'RESERVAR ONLINE',
+                        'href' => '/rezervace',
+                        'cls' => 'btndark pulse',
+                    ],
+                ],
+            ],
             'top_cta' => [
                 'label' => 'RESERVAR ONLINE',
                 'href' => '/rezervace',
@@ -370,42 +604,6 @@ return [
                 'cta' => [
                     'label' => 'RESERVAR FECHA',
                     'href' => '/rezervace',
-                ],
-            ],
-            'faq' => [
-                'title' => 'Preguntas frecuentes sobre la devolución en el establecimiento',
-                'items' => [
-                    [
-                        'q' => '¿Qué pasa si no llego a la hora acordada de devolución?',
-                        'a' => 'Avísanos por teléfono, por favor. Normalmente acordamos un <strong>aplazamiento de unas horas</strong>; un retraso mayor puede ser cobrado según la lista de precios.',
-                    ],
-                    [
-                        'q' => '¿Tengo que lavar la moto?',
-                        'a' => 'No. La suciedad normal está bien, <strong>no exigimos</strong> el lavado.',
-                    ],
-                    [
-                        'q' => '¿Tengo que devolver la moto con el depósito lleno?',
-                        'a' => 'No es obligatorio. Si el depósito no está lleno, repostaremos y <strong>cobraremos solo el precio real</strong> sin recargos.',
-                    ],
-                    [
-                        'q' => '¿Qué pasa si el establecimiento está cerrado?',
-                        'a' => 'El servicio es <strong>24/7</strong>. Por la noche basta con llamar al +420 774 256 271 y acordaremos la entrega.',
-                    ],
-                    [
-                        'q' => '¿Puedo devolver la moto en otro lugar?',
-                        'a' => 'Sí, utiliza <a href="/jak-pujcit/vraceni-jinde"><strong>devolución de la moto en otro lugar</strong></a> (entrega/recogida según la lista de precios).',
-                    ],
-                ],
-            ],
-            'cta' => [
-                'title' => 'Devolución de la moto en el establecimiento – Motogo24 Pelhřimov',
-                'text' => 'Devuelve la moto directamente con nosotros en Pelhřimov – <strong>24/7, sin depósito, sin estrés</strong>.',
-                'buttons' => [
-                    [
-                        'label' => 'RESERVAR ONLINE',
-                        'href' => '/rezervace',
-                        'cls' => 'btndark pulse',
-                    ],
                 ],
             ],
         ],
@@ -514,6 +712,66 @@ return [
             ],
             'h1' => 'Qué incluye el precio del alquiler de motos',
             'intro' => 'En <strong>MotoGo24 – alquiler de motos en Vysočina</strong> obtienes condiciones justas. <strong>Sin depósito, con equipo del conductor incluido y servicio 24/7</strong>. Todo lo que necesitas para una conducción segura y agradable está incluido.',
+            'gear' => [
+                'basic' => [
+                    'title' => 'Equipamiento básico incluido',
+                    'lead' => 'Cada conductor dispone de un <strong>equipamiento de moto</strong> completo, incluido en el precio del alquiler:',
+                    'items' => [
+                        '<strong>casco</strong>',
+                        '<strong>chaqueta de moto</strong> con protecciones',
+                        '<strong>pantalones de moto</strong>',
+                        '<strong>guantes</strong>',
+                    ],
+                    'note1' => 'El equipamiento está disponible en varias tallas y lo limpiamos y revisamos con regularidad.',
+                    'note2' => 'Algunas motos llevan maletas – consulta el detalle de la moto en el catálogo.',
+                ],
+                'extra' => [
+                    'title' => 'Equipamiento adicional con suplemento',
+                    'lead' => '¿Vas con pasajero o quieres botas de moto? Puedes añadirlo al reservar:',
+                    'items' => [
+                        'equipamiento para el pasajero (casco, chaqueta, pantalones, guantes)',
+                        'botas de moto – para el conductor y el pasajero',
+                    ],
+                ],
+                'services' => [
+                    'title' => 'Servicios adicionales con suplemento',
+                    'items' => [
+                        'entrega de la moto en un lugar acordado en cualquier punto de la República Checa',
+                        'devolución de la moto en un lugar distinto a la dirección del alquiler',
+                    ],
+                ],
+            ],
+            'benefits' => [
+                'title' => 'Otras ventajas incluidas',
+                'grid' => 'gr5',
+                'items' => [
+                    [
+                        'icon' => 'gfx/rezervace-online.svg',
+                        'title' => 'Reserva online',
+                        'text' => 'reserva rápida y sencilla desde la comodidad de tu casa.',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-nonstop.svg',
+                        'title' => 'Servicio 24/7',
+                        'text' => 'reserva y sal en cualquier momento: de día, de noche o el fin de semana. Eliges la hora de recogida al reservar.',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-bez-kauce.svg',
+                        'title' => 'Sin fianza',
+                        'text' => 'sin fianza al alquilar.',
+                    ],
+                    [
+                        'icon' => 'gfx/jasne-podminky.svg',
+                        'title' => 'Condiciones claras',
+                        'text' => 'sin tarifas ocultas.',
+                    ],
+                    [
+                        'icon' => 'gfx/sleva-na-pristi-jizdu.svg',
+                        'title' => 'Descuento en tu próxima reserva',
+                        'text' => 'tras cada alquiler completado recibes un código de descuento para tu próxima reserva.&nbsp;',
+                    ],
+                ],
+            ],
             'cta' => [
                 'title' => 'Equipo incluido – alquiler de motos MotoGo24 – Vysočina',
                 'text' => '<strong>MotoGo24 es un alquiler de motos moderno en Vysočina</strong> con equipo del conductor incluido, alquiler sin depósito y servicio 24/7. Elige una <strong>moto de turismo, supermoto, naked o infantil</strong> y reserva online.',
@@ -540,6 +798,138 @@ return [
                 'href' => '/rezervace',
                 'aria' => 'Reservar moto online en Motogo24',
             ],
+            'summary' => [
+                'title' => 'Resumen de los puntos principales',
+                'items' => [
+                    [
+                        'icon' => 'gfx/ico-bez-kauce.svg',
+                        'title' => 'Sin fianza / anticipo',
+                        'text' => 'alquilamos la moto sin bloquear dinero',
+                    ],
+                    [
+                        'icon' => 'gfx/rezervace-online.svg',
+                        'title' => 'Reserva online',
+                        'text' => 'incluido el pago',
+                    ],
+                    [
+                        'icon' => 'gfx/vyber-vybavu.svg',
+                        'title' => 'Equipamiento del conductor',
+                        'text' => 'incluido (casco, chaqueta, pantalones, guantes)',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-nonstop.svg',
+                        'title' => 'Servicio 24/7',
+                        'text' => 'recogida y devolución en cualquier momento del día de alquiler',
+                    ],
+                    [
+                        'icon' => 'gfx/jasne-podminky.svg',
+                        'title' => 'Reglas de uso claras',
+                        'text' => 'en el país y en el extranjero (según la carta verde)',
+                    ],
+                    [
+                        'icon' => 'gfx/zadne-skryte-poplatky.svg',
+                        'title' => 'Sin tarifas ocultas',
+                        'text' => 'todo está indicado abajo y en el contrato',
+                    ],
+                ],
+            ],
+            'required_docs' => [
+                'title' => 'Qué necesitas para firmar el contrato',
+                'items' => [
+                    '<strong>DNI / pasaporte</strong>',
+                    '<strong>Carné de conducir</strong>&nbsp;de la categoría correspondiente (A / A2 según la máquina)',
+                    '<strong>Edad</strong>&nbsp;mín. 18 años (en motos infantiles responde el representante legal)',
+                    '<strong>Contactos</strong>&nbsp;(teléfono, correo) para la comunicación y la confirmación de la reserva',
+                ],
+            ],
+            'payments' => [
+                'title' => 'Pagos, cancelación y tarifas',
+                'lead' => '<strong>Fianza:</strong>&nbsp;<em>no se requiere</em>. El pago del alquiler se realiza online o en la recogida.',
+                'aria' => 'Resumen de pagos y tarifas',
+                'headers' => [
+                    'Concepto',
+                    'Condiciones',
+                ],
+                'rows' => [
+                    [
+                        '<strong>Pago del alquiler</strong>',
+                        'Online por adelantado.',
+                    ],
+                    [
+                        '<strong>Cancelación de la reserva</strong>',
+                        'Gratuita hasta una hora acordada (indicada en la confirmación de la reserva). Después, por acuerdo individual.',
+                    ],
+                    [
+                        '<strong>Combustible y limpieza</strong>',
+                        'Devolución sin obligación de repostar ni lavar. La suciedad excesiva se trata individualmente.',
+                    ],
+                    [
+                        '<strong>Entrega / recogida</strong>',
+                        'Según la lista de precios de entrega (Vysočina / alrededores). Se confirma al reservar.',
+                    ],
+                    [
+                        '<strong>Devolución tardía</strong>',
+                        'Devuelve a tiempo el último día de alquiler; por retrasos cobramos según lo acordado (teniendo en cuenta otras reservas).',
+                    ],
+                ],
+                'mid_cta' => [
+                    'label' => 'CONTINUAR A LA RESERVA',
+                    'href' => '/rezervace',
+                    'aria' => 'Reservar una moto y aceptar el contrato de alquiler de Motogo24',
+                ],
+            ],
+            'usage' => [
+                'title' => 'Uso de la moto y responsabilidad',
+                'items' => [
+                    'Conduce&nbsp;<strong>de acuerdo con las normas</strong>&nbsp;y teniendo en cuenta el estado técnico y el tipo de moto.',
+                    'El arrendatario responde de&nbsp;<strong>multas e infracciones</strong>&nbsp;(facilitamos la información conforme a la ley).',
+                    '<strong>Extranjero</strong>: posible; sigue la validez territorial del seguro (carta verde). Algunos países pueden quedar excluidos.',
+                    'En caso de&nbsp;<strong>accidente o avería</strong>&nbsp;sigue las instrucciones del kit de a bordo (parte de accidente, contacto de Motogo24).',
+                    'El&nbsp;<strong>mantenimiento y la revisión</strong>&nbsp;los hacemos nosotros; comunica los fallos de inmediato.',
+                    'No se permiten&nbsp;<strong>modificaciones en la moto</strong>&nbsp;sin consentimiento.',
+                ],
+            ],
+            'handover' => [
+                'title' => 'Entrega y devolución',
+                'items' => [
+                    'La&nbsp;<strong>recogida</strong>&nbsp;se realiza en Pelhřimov (Mezná 9) o utiliza la&nbsp;<a href="/jak-pujcit/pristaveni">entrega</a>.',
+                    'En la entrega recibes&nbsp;<strong>llaves, equipamiento y documentos</strong>&nbsp;(permiso de circulación, carta verde, parte de accidente).',
+                    '<strong>Devolución</strong>&nbsp;en cualquier momento del último día de alquiler (incluso a medianoche). No hace falta lavar ni repostar.',
+                ],
+            ],
+            'privacy' => [
+                'title' => 'Datos personales y seguridad',
+                'text' => 'Tratamos los datos personales únicamente para celebrar y cumplir el contrato de alquiler (identificación, comunicación, facturación). Los detalles están en la <a href="/cms/zasady-ochrany-osobnich-udaju">política de tratamiento de datos personales</a>.',
+            ],
+            'documents' => [
+                'title' => 'Documentos para descargar',
+                'items' => [
+                    [
+                        'name' => 'Contrato de alquiler',
+                        'href' => '/cms/smlouva-o-pronajmu',
+                        'size' => '87.4kB',
+                    ],
+                    [
+                        'name' => 'Acta de entrega',
+                        'href' => '/cms/predavaci-protokol',
+                        'size' => '47.6kB',
+                    ],
+                    [
+                        'name' => 'Condiciones generales',
+                        'href' => '/cms/obchodni-podminky',
+                        'size' => '87.7kB',
+                    ],
+                    [
+                        'name' => 'Política de privacidad',
+                        'href' => '/cms/zasady-ochrany-osobnich-udaju',
+                        'size' => '76.3kB',
+                    ],
+                ],
+            ],
+            'midcta' => [
+                'title' => '¿De acuerdo con las condiciones? Reserva y conduce.',
+                'text' => 'Elige entre&nbsp;<strong>motos de turismo, deportivas, enduro e infantiles</strong>&nbsp;y confirma tu reserva online.',
+            ],
             'cta' => [
                 'title' => 'Contrato sin depósito – alquiler de motos Vysočina',
                 'text' => 'MotoGo24 es un <strong>alquiler de motos en Vysočina</strong> con condiciones justas.',
@@ -564,6 +954,137 @@ return [
                 'label' => 'RESERVAR CON ENTREGA',
                 'href' => '/rezervace?delivery=1',
             ],
+            'when' => [
+                'title' => 'Cuándo viene bien la entrega',
+                'items' => [
+                    '<strong>Inicio de un&nbsp;road trip</strong>&nbsp;– llevamos la moto directamente al punto de partida de tu viaje.',
+                    '<strong>Hotel o pensión</strong>&nbsp;– entrega en tu alojamiento para que ahorres tiempo.',
+                    '<strong>Estación de tren/autobús</strong>&nbsp;– un trasbordo fluido sin esperas.',
+                    '<strong>Eventos de empresa y regalos</strong>&nbsp;– una sorpresa para socios o tu equipo.',
+                ],
+            ],
+            'why' => [
+                'title' => 'Por qué usar la entrega de la moto',
+                'grid' => 'gr5',
+                'items' => [
+                    [
+                        'icon' => 'gfx/vyzvednuti-vraceni-motorky.svg',
+                        'title' => 'Flexibilidad',
+                        'text' => 'Llevamos la moto donde la necesites: a casa, a un hotel, a una estación o al inicio de tu viaje.',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-pohodli.svg',
+                        'title' => 'Comodidad',
+                        'text' => 'No tienes que organizar el transporte hasta el alquiler: dónde dejar el coche o quién te lleva.',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-nonstop.svg',
+                        'title' => 'Servicio 24/7',
+                        'text' => 'Acordamos la entrega para una hora concreta: por la tarde o el fin de semana, sin problema. Solo elige la hora al reservar.',
+                    ],
+                    [
+                        'icon' => 'gfx/uspora-casu.svg',
+                        'title' => 'Ahorro de tiempo',
+                        'text' => 'El tiempo que ahorras yendo al alquiler y volviendo puedes dedicártelo a ti.',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-vybava.svg',
+                        'title' => 'Equipamiento incluido',
+                        'text' => 'También te llevamos el equipamiento alquilado en las tallas solicitadas directamente a ti.',
+                    ],
+                ],
+            ],
+            'process' => [
+                'title' => 'Cómo funciona la entrega',
+                'grid' => 'gr5',
+                'steps' => [
+                    [
+                        'icon' => 'gfx/vyber-motorku.svg',
+                        'title' => 'Elige una moto',
+                        'text' => 'Mira nuestra gama de motos de turismo, supermoto, naked e infantiles y elige la adecuada.',
+                    ],
+                    [
+                        'icon' => 'gfx/rezervace-online.svg',
+                        'title' => 'Elige una fecha',
+                        'text' => 'Elige en el calendario el día que quieres conducir. Verás qué motos están disponibles.',
+                    ],
+                    [
+                        'icon' => 'gfx/kontaktni-udaje.svg',
+                        'title' => 'Datos de contacto',
+                        'text' => 'Rellena tu nombre, dirección, correo y teléfono.',
+                    ],
+                    [
+                        'icon' => 'gfx/cas-prevzeti-motorky.svg',
+                        'title' => 'Hora de entrega',
+                        'text' => 'Elige cuándo entregamos la moto: por la tarde o el fin de semana, sin problema.',
+                    ],
+                    [
+                        'icon' => 'gfx/vyzvednuti-vraceni-motorky.svg',
+                        'title' => 'Lugar de entrega',
+                        'text' => 'Indica la dirección a la que llevar la moto: casa, un hotel, una estación o el inicio del viaje.',
+                    ],
+                    [
+                        'icon' => 'gfx/vyber-vybavu.svg',
+                        'title' => 'Equipamiento',
+                        'text' => 'El equipamiento básico del conductor está incluido. Indica las tallas necesarias para todas las piezas del equipamiento en el campo Nota: obligatorio.',
+                    ],
+                    [
+                        'icon' => 'gfx/zaplat.svg',
+                        'title' => 'Confirmación y pago',
+                        'text' => 'Revisa el resumen del pedido, acepta las condiciones y paga online.',
+                    ],
+                    [
+                        'icon' => 'gfx/podpis-dokumentu.svg',
+                        'title' => 'Entrega en el sitio',
+                        'text' => 'En la entrega revisamos los documentos, completamos el contrato y firmamos el acta de entrega.',
+                    ],
+                    [
+                        'icon' => 'gfx/uzij-si-jizdu.svg',
+                        'title' => 'Disfruta del viaje',
+                        'text' => 'A la carretera: sin fianza, sin estrés. El resto es solo asfalto y libertad.',
+                    ],
+                    [
+                        'icon' => 'gfx/predani-motorky.svg',
+                        'title' => 'Devuelve la moto',
+                        'text' => 'Devuelve la moto a tiempo en el lugar acordado. No hace falta repostar ni lavar.',
+                    ],
+                ],
+            ],
+            'pricing' => [
+                'title' => 'Tarifa de entrega',
+                'lead' => '<strong>El precio de la entrega tiene tres componentes:</strong>',
+                'items' => [
+                    '<strong>500 CZK</strong>&nbsp;por cargar la moto,',
+                    '<strong>500 CZK</strong>&nbsp;por descargar la moto,',
+                    '<strong>20 CZK</strong>&nbsp;por cada kilómetro (se cuenta la distancia del alquiler al destino y vuelta)',
+                ],
+                'example' => '<strong>Ejemplo:</strong>&nbsp;¿Quieres la moto entregada a 30 km del alquiler? Pagas 500 + 500 + (30 × 2 × 20) =&nbsp;<strong>2.200 CZK.</strong>',
+            ],
+            'faq' => [
+                'title' => 'Preguntas frecuentes sobre la entrega',
+                'items' => [
+                    [
+                        'q' => '¿Con cuánta antelación debo pedir la entrega?',
+                        'a' => 'Lo ideal es <strong>al</strong> <strong>reservar online</strong>: indicas la dirección y la hora. Para solicitudes urgentes, contáctanos por teléfono.',
+                    ],
+                    [
+                        'q' => '¿Puedo devolver la moto en un lugar distinto al de la recogida?',
+                        'a' => 'Sí, cobramos la <strong>recogida</strong> según la distancia desde Pelhřimov. Lo acordamos al reservar.',
+                    ],
+                    [
+                        'q' => '¿Cuánto cuesta la entrega fuera de Vysočina?',
+                        'a' => 'Seguimos una tabla de distancias. A partir de 100 km calculamos el precio de forma <strong>individual</strong>.',
+                    ],
+                    [
+                        'q' => '¿Hay fianza?',
+                        'a' => 'No. <strong>Alquilamos sin fianza</strong>, las condiciones son claras y justas.',
+                    ],
+                    [
+                        'q' => '¿El equipamiento del conductor también está incluido?',
+                        'a' => 'Sí. Casco, chaqueta, pantalones y guantes están&nbsp;<strong>incluidos en el alquiler</strong>&nbsp;para el conductor.',
+                    ],
+                ],
+            ],
             'cta' => [
                 'title' => 'Entrega de la moto – alquiler de motos Vysočina',
                 'text' => 'MotoGo24 ofrece <strong>entrega de la moto</strong> en la región y fuera. <strong>Servicio 24/7, sin depósito, equipo incluido</strong>.',
@@ -587,6 +1108,144 @@ return [
             'top_cta' => [
                 'label' => 'RESERVAR CON RECOGIDA',
                 'href' => '/rezervace?return_delivery=1',
+            ],
+            'when' => [
+                'title' => 'Cuándo viene bien la devolución en otro lugar',
+                'items' => [
+                    '<strong>Fin de un road trip</strong>&nbsp;– el alquiler empezó en Pelhřimov, el viaje termina en otro sitio. Entréganos la moto donde acabe tu viaje.',
+                    '<strong>Viaje de ida</strong>&nbsp;– ¿vuelves a casa en tren o autobús? Entréganos la moto antes de marcharte.',
+                    '<strong>Hotel o pensión</strong>&nbsp;– entréganos la moto directamente en tu alojamiento, para que no tengas que pensar en la vuelta al alquiler.',
+                    '<strong>Evento de empresa</strong>&nbsp;– un alquiler para un grupo con la devolución directamente en el lugar del evento.',
+                ],
+            ],
+            'why' => [
+                'title' => 'Por qué usar la devolución en otro lugar',
+                'grid' => 'gr5',
+                'items' => [
+                    [
+                        'icon' => 'gfx/vyzvednuti-vraceni-motorky.svg',
+                        'title' => 'Flexibilidad',
+                        'text' => 'Eliges el lugar de devolución según tu ruta: un hotel, una estación, un aparcamiento o cualquier otro sitio.',
+                    ],
+                    [
+                        'icon' => 'gfx/uspora-casu.svg',
+                        'title' => 'Ahorro de tiempo',
+                        'text' => 'Te ahorras el viaje de vuelta al alquiler y a casa: entregas la moto donde estás.',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-pohodli.svg',
+                        'title' => 'Comodidad',
+                        'text' => 'No tienes que pensar en cómo llegar a casa desde el alquiler.&nbsp;',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-nonstop.svg',
+                        'title' => 'Servicio 24/7',
+                        'text' => 'Acordamos la devolución para una hora concreta: por la tarde o el fin de semana, sin problema.',
+                    ],
+                    [
+                        'icon' => 'gfx/predani-motorky.svg',
+                        'title' => 'Sencillez',
+                        'text' => 'Entregas las llaves y el equipamiento, revisamos la moto y nos vamos. Sin papeleo extra.',
+                    ],
+                ],
+            ],
+            'process' => [
+                'title' => 'Cómo funciona la devolución en otro lugar',
+                'grid' => 'gr5',
+                'steps' => [
+                    [
+                        'icon' => 'gfx/uzij-si-jizdu.svg',
+                        'title' => 'Elige el lugar y la hora de devolución',
+                        'text' => 'En el formulario de reserva, indica la dirección y la hora a la que entregarás la moto.',
+                    ],
+                    [
+                        'icon' => 'gfx/vyber-vybavu.svg',
+                        'title' => 'Prepara el equipamiento',
+                        'text' => 'Antes de la entrega, prepara el equipamiento que formó parte del alquiler.',
+                    ],
+                    [
+                        'icon' => 'gfx/cas-prevzeti-motorky.svg',
+                        'title' => 'Llegamos a la hora acordada',
+                        'text' => 'Llegaremos al lugar acordado exactamente a la hora acordada.',
+                    ],
+                    [
+                        'icon' => 'gfx/prevezmi-motorku.svg',
+                        'title' => 'Revisamos juntos la moto y el equipamiento',
+                        'text' => 'Revisamos el estado de la moto y del equipamiento, cargamos y nos vamos.&nbsp;',
+                    ],
+                    [
+                        'icon' => 'gfx/sleva-na-pristi-jizdu.svg',
+                        'title' => 'Recibirás una confirmación por correo',
+                        'text' => 'Una confirmación de fin de alquiler, la factura final y un código de descuento para tu próxima reserva.',
+                    ],
+                ],
+            ],
+            'pricing' => [
+                'title' => 'Tarifa de devolución en otro lugar',
+                'lead' => 'El precio tiene tres componentes:',
+                'items' => [
+                    '500 CZK por cargar la moto',
+                    '500 CZK por descargar la moto',
+                    '20 CZK por cada kilómetro (distancia del lugar de devolución al alquiler y vuelta)',
+                ],
+                'example_title' => 'Ejemplo:',
+                'example_q' => '¿Quieres devolver la moto a 30 km del alquiler?',
+                'example_a' => 'Pagas 500 + 500 + (30 × 2 × 20) = 2.200 CZK.',
+            ],
+            'issues' => [
+                'title' => 'Discrepancias en la devolución',
+                'lead' => 'En la devolución revisamos juntos el estado de la moto y del equipamiento. Si se produjera alguna de las situaciones siguientes, levantamos un acta de los daños detectados:',
+                'items' => [
+                    'equipamiento faltante',
+                    'equipamiento dañado',
+                    'moto dañada',
+                ],
+                'closing' => 'El cliente firma el acta y recibe una copia. El procedimiento posterior se rige por las condiciones del contrato de alquiler y las condiciones generales.',
+            ],
+            'faq' => [
+                'title' => 'Preguntas frecuentes sobre devolver la moto en otro lugar',
+                'items' => [
+                    [
+                        'q' => '¿Hasta cuándo tengo que devolver la moto?',
+                        'a' => 'Devuelve la moto idealmente a la hora acordada. Si la devuelves en el alquiler, puedes venir, de acuerdo, en cualquier momento del último día de alquiler, como muy tarde a medianoche, sin ninguna penalización. Si la devuelves en otro lugar, la hora acordada es vinculante.',
+                    ],
+                    [
+                        'q' => '¿Tengo que devolverla con el depósito lleno y limpia?',
+                        'a' => 'No. Con nosotros no repostas ni lavas. Solo vigila que no se encienda el testigo de reserva.&nbsp;',
+                    ],
+                    [
+                        'q' => 'Al devolverla en otro lugar, ¿puedo devolver la moto antes de lo acordado?&nbsp;',
+                        'a' => 'Salimos de Pelhřimov hacia el lugar acordado exactamente según la hora acordada, así que una devolución más temprana lamentablemente no es posible. Si te cambian los planes, avísanos: intentaremos ajustar la hora, pero depende de nuestra carga de trabajo actual.',
+                    ],
+                    [
+                        'q' => '¿De verdad puedo devolver la moto en cualquier lugar de la República Checa?&nbsp;',
+                        'a' => 'Sí, iremos a recoger la moto a cualquier lugar de la República Checa. El lugar de devolución lo indicas al reservar: puede ser un hotel, un aparcamiento, una estación o cualquier otra dirección.',
+                    ],
+                    [
+                        'q' => '¿Con cuánta antelación tengo que comunicar una devolución en otro lugar?&nbsp;',
+                        'a' => 'El lugar y la hora de devolución los indicas ya en el formulario de reserva.&nbsp;',
+                    ],
+                    [
+                        'q' => '¿Y si llego tarde al lugar de devolución?&nbsp;',
+                        'a' => 'Llámanos en cuanto sepas que no llegarás a tiempo. Lo resolveremos: normalmente te esperamos. Solo necesitamos saber con qué retraso contar para ajustar el plan del día.',
+                    ],
+                    [
+                        'q' => '¿Cómo se calcula el precio de una devolución en otro lugar?&nbsp;',
+                        'a' => 'El precio incluye 500 CZK por la carga, 500 CZK por la descarga y 20 CZK por cada kilómetro de la distancia del lugar de devolución al alquiler (y vuelta). Por ejemplo, al devolverla a 50 km de Pelhřimov pagas 500 + 500 + (50 × 2 × 20) = 3.000 CZK.',
+                    ],
+                    [
+                        'q' => '¿Pago la devolución en otro lugar aparte, o forma parte del precio del alquiler?&nbsp;',
+                        'a' => 'La devolución en otro lugar es un servicio adicional y se paga aparte, además del precio del alquiler.&nbsp;',
+                    ],
+                    [
+                        'q' => '¿Y si quiero recoger la moto en Pelhřimov pero devolverla en otro lugar? ¿Es posible?&nbsp;',
+                        'a' => 'Sí, puedes recoger la moto en nuestras instalaciones de Pelhřimov y devolverla donde necesites.&nbsp;',
+                    ],
+                    [
+                        'q' => '¿Qué debo tener listo cuando vengáis a por la moto?&nbsp;',
+                        'a' => 'Ten listas las llaves y todo el equipamiento que formó parte del alquiler. Revisamos juntos el estado de la moto y del equipamiento.',
+                    ],
+                ],
             ],
             'cta' => [
                 'title' => 'Devolución de moto en cualquier lugar – MotoGo24',

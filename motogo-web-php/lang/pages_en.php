@@ -130,9 +130,12 @@ return [
                 'keywords' => 'motorcycle rental Czech Republic',
             ],
             'h1' => 'Rental process',
-            'intro' => '<p>At <strong>Motogo24 – motorcycle rental in Vysočina</strong>, renting is simple, quick and fair. <strong>Without deposit, with gear included and 24/7 service</strong>. See how easy it is.</p><p>&nbsp;</p><h2>How to rent a motorcycle – Motogo24 Vysočina rental</h2><p>At the <strong>Motogo24 motorcycle rental</strong>, the <strong>rental process</strong> is simple: <strong>online booking</strong>, <strong>gear included</strong>, <strong>without deposit</strong>, <strong>24/7 service</strong> and the option of <strong>motorcycle delivery</strong>. Whether you are looking for a <strong>touring motorcycle</strong> for the weekend, a <strong>sports motorcycle</strong> for adrenaline or an <strong>enduro</strong> for off-road, you will find the ideal solution with us.</p>',
+            'intro_p1' => 'At <strong>Motogo24 – motorcycle rental in Vysočina</strong> renting is simple, quick and fair.&nbsp;<strong>No deposit, with rider gear included and 24/7 service for picking up and returning the motorcycle</strong>. See for yourself how easily it works.',
+            'intro_h2' => 'How to rent a motorcycle – Motogo24 rental – Vysočina',
+            'intro_p2' => 'At our <strong>motorcycle rental</strong> you can do everything online: choose a motorcycle, pick a date and fill in the booking form – including gear and handover method. Pick up the motorcycle in Pelhřimov, or order delivery anywhere in the Czech Republic. You pay online when completing the booking.',
             'process' => [
                 'title' => 'How the rental works step by step',
+                'grid' => 'gr4',
                 'steps' => [
                     [
                         'icon' => 'gfx/vyber-motorku.svg',
@@ -176,9 +179,89 @@ return [
                     ],
                 ],
             ],
+            'gallery' => [
+                'image' => '/gfx/vybava_diagram_motogo24_1200px.svg',
+                'alt' => 'Gear diagram&nbsp;Motogo24',
+                'group' => 'gal_1',
+            ],
+            'sizes' => [
+                'adult' => [
+                    'title' => 'Adult gear',
+                    'headers' => [
+                        'Gear',
+                        'Available sizes',
+                    ],
+                    'rows' => [
+                        [
+                            'Helmet',
+                            'XS, S, M, L, XL',
+                        ],
+                        [
+                            'Jacket',
+                            'M, L, XL, 2XL',
+                        ],
+                        [
+                            'Trousers',
+                            'M, L, XL, 2XL',
+                        ],
+                        [
+                            'Gloves',
+                            'M, L, XL',
+                        ],
+                        [
+                            'Motorcycle boots',
+                            '39–46',
+                        ],
+                        [
+                            'Balaclava',
+                            'universal',
+                        ],
+                        [
+                            'Hi-vis vest&nbsp;',
+                            'universal',
+                        ],
+                    ],
+                ],
+                'kid' => [
+                    'title' => 'Kids\' gear',
+                    'headers' => [
+                        'Gear',
+                        'Available sizes',
+                    ],
+                    'rows' => [
+                        [
+                            'Helmet',
+                            'S (47–48 cm), M (49–50 cm), L (51–52 cm)',
+                        ],
+                        [
+                            'Jacket',
+                            '110–116, 122–128, 134–140, 146–152 cm',
+                        ],
+                        [
+                            'Trousers',
+                            '110–116, 122–128, 134–140, 146–152 cm',
+                        ],
+                        [
+                            'Gloves',
+                            'XS/S (4–7 yrs), M/L (8–12 yrs)',
+                        ],
+                        [
+                            'Motorcycle boots',
+                            '29–35',
+                        ],
+                        [
+                            'Balaclava',
+                            'S (4–7 yrs), M (8–12 yrs)',
+                        ],
+                        [
+                            'Hi-vis vest&nbsp;',
+                            'XS, S, M',
+                        ],
+                    ],
+                ],
+            ],
             'faq' => [
                 'title' => 'Frequently asked questions',
-                'more_link' => '/jak-pujcit/faq',
                 'items' => [
                     [
                         'q' => 'Is a deposit required when renting?',
@@ -197,6 +280,11 @@ return [
                         'a' => 'You can return the motorcycle any time during the last day of the rental – even at midnight.',
                     ],
                 ],
+                'more_link' => [
+                    'label' => 'More frequently asked questions',
+                    'href' => '/jak-pujcit/faq',
+                    'aria' => 'Read more frequently asked questions',
+                ],
             ],
             'cta' => [
                 'title' => 'Ready to ride?',
@@ -209,6 +297,7 @@ return [
                     ],
                 ],
             ],
+            'intro' => '<p>At <strong>Motogo24 – motorcycle rental in Vysočina</strong>, renting is simple, quick and fair. <strong>Without deposit, with gear included and 24/7 service</strong>. See how easy it is.</p><p>&nbsp;</p><h2>How to rent a motorcycle – Motogo24 Vysočina rental</h2><p>At the <strong>Motogo24 motorcycle rental</strong>, the <strong>rental process</strong> is simple: <strong>online booking</strong>, <strong>gear included</strong>, <strong>without deposit</strong>, <strong>24/7 service</strong> and the option of <strong>motorcycle delivery</strong>. Whether you are looking for a <strong>touring motorcycle</strong> for the weekend, a <strong>sports motorcycle</strong> for adrenaline or an <strong>enduro</strong> for off-road, you will find the ideal solution with us.</p>',
         ],
         'jak_pujcit_vyzvednuti' => [
             'seo' => [
@@ -219,10 +308,12 @@ return [
             'h1' => 'Motorcycle pick-up at the rental – fast, simple and 24/7',
             'intro' => 'At <strong>Motogo24 – motorcycle rental Vysočina</strong>, <strong>picking up a motorcycle</strong> takes only a few minutes. We rent <strong>without deposit</strong>, with <strong>gear included</strong> and <strong>24/7 service</strong>.',
             'top_cta' => [
+                'aria' => 'Go to the online booking for a motorcycle at the Motogo24 rental',
                 'label' => 'BOOK ONLINE',
                 'href' => '/rezervace',
             ],
             'place' => [
+                'map_src' => 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d53928.274636159236!2d15.154130970132716!3d49.35168867371007!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x470ce75bf69a97b3%3A0xe75f9d3fadf02b5b!2zTWV6bsOhIDksIDM5MyAwMSBNZXpuw6E!5e0!3m2!1scs!2scz!4v1759860051295!5m2!1scs!2scz',
                 'title' => 'Where the pick-up takes place',
                 'address_label' => 'Address:',
                 'hours_label' => 'Opening hours:',
@@ -233,34 +324,66 @@ return [
                 'return_title' => 'Returning the motorcycle – stress-free',
                 'return_text' => 'You can return the motorcycle <strong>any time during the last day of the rental</strong>. For more information see <a href="/jak-pujcit/vraceni-pujcovna">return at the rental</a> or <a href="/jak-pujcit/vraceni-jinde">return elsewhere</a>.',
             ],
-            'steps' => [
-                'title' => 'How the pick-up works step by step',
-                'items' => [
+            'process' => [
+                'title' => 'How pickup at the rental works',
+                'grid' => 'gr4',
+                'steps' => [
                     [
                         'icon' => 'gfx/cas-prevzeti-motorky.svg',
-                        'title' => 'Arrive at the agreed time',
-                        'text' => 'at our address or wait for the delivery',
+                        'title' => 'Come at the agreed time',
+                        'text' => 'To our address: Mezná 9, 393 01 Pelhřimov.',
                     ],
                     [
                         'icon' => 'gfx/overime-doklady.svg',
-                        'title' => 'We verify your documents',
-                        'text' => 'ID/passport + driving licence of the relevant category',
+                        'title' => 'We verify the documents',
+                        'text' => 'ID card/passport and a driving licence of the appropriate category',
                     ],
                     [
-                        'icon' => 'gfx/predani-motorky.svg',
-                        'title' => 'We hand over the motorcycle and gear',
-                        'text' => 'helmet, jacket, trousers, gloves',
+                        'icon' => 'gfx/doplnime-smlouvu.svg',
+                        'title' => 'We complete the contract',
+                        'text' => 'We complete the pre-filled rental contract with the data from your documents.',
+                    ],
+                    [
+                        'icon' => 'gfx/vyber-vybavu.svg',
+                        'title' => 'You choose and try on the gear',
+                        'text' => 'You can try on the gear from your booking in our fitting cubicle.',
                     ],
                     [
                         'icon' => 'gfx/prevezmi-motorku.svg',
-                        'title' => 'A short briefing on the bike',
-                        'text' => 'controls, tips, route recommendations',
+                        'title' => 'We go over the motorcycle together',
+                        'text' => 'We check the condition of the machine and you get familiar with its controls.',
                     ],
                     [
                         'icon' => 'gfx/podpis-dokumentu.svg',
                         'title' => 'We sign the handover protocol',
-                        'text' => 'and you can hit the road',
+                        'text' => 'We document the condition of the motorcycle and gear before the rental.',
                     ],
+                    [
+                        'icon' => 'gfx/predani-motorky.svg',
+                        'title' => 'We hand over the keys',
+                        'text' => 'The motorcycle is ready and waiting for you.',
+                    ],
+                    [
+                        'icon' => 'gfx/uzij-si-jizdu.svg',
+                        'title' => 'You can set off',
+                        'text' => 'Hit the road – no deposit, no stress. The rest is just asphalt and freedom.',
+                    ],
+                ],
+            ],
+            'amenities' => [
+                'title' => 'What you\'ll find at the rental',
+                'lead' => 'For a comfortable pickup we\'ve got ready – all free:',
+                'items' => [
+                    'customer parking (limited capacity)',
+                    'Wi-Fi',
+                    'toilet',
+                    'a fitting cubicle to try on the gear',
+                    'lockable lockers for storing personal items you don\'t want to take on the trip (limited capacity)',
+                ],
+                'cta' => [
+                    'label' => 'BOOK A TIME',
+                    'href' => '/rezervace',
+                    'aria' => 'Book a time to pick up a motorcycle at Motogo24',
                 ],
             ],
             'bring' => [
@@ -296,7 +419,13 @@ return [
                     ],
                 ],
             ],
+            'mid_cta' => [
+                'label' => 'BOOK A PICKUP',
+                'href' => '/rezervace',
+                'aria' => 'Book a motorcycle pickup at the Motogo24 rental',
+            ],
             'cta' => [
+                'text2' => 'Choose a <strong>touring, supermoto, naked or kids\' motorcycle</strong> and book it conveniently online.',
                 'title' => 'Motorcycle pick-up at the rental – Motogo24 Vysočina',
                 'text' => 'Motogo24 is a <strong>motorcycle rental in Vysočina</strong> with <strong>24/7 pick-up and return</strong>, <strong>without deposit</strong> and with <strong>gear included</strong>.',
                 'buttons' => [
@@ -304,6 +433,36 @@ return [
                         'label' => 'BOOK ONLINE',
                         'href' => '/rezervace',
                         'cls' => 'btndark pulse',
+                    ],
+                ],
+            ],
+            'steps' => [
+                'title' => 'How the pick-up works step by step',
+                'items' => [
+                    [
+                        'icon' => 'gfx/cas-prevzeti-motorky.svg',
+                        'title' => 'Arrive at the agreed time',
+                        'text' => 'at our address or wait for the delivery',
+                    ],
+                    [
+                        'icon' => 'gfx/overime-doklady.svg',
+                        'title' => 'We verify your documents',
+                        'text' => 'ID/passport + driving licence of the relevant category',
+                    ],
+                    [
+                        'icon' => 'gfx/predani-motorky.svg',
+                        'title' => 'We hand over the motorcycle and gear',
+                        'text' => 'helmet, jacket, trousers, gloves',
+                    ],
+                    [
+                        'icon' => 'gfx/prevezmi-motorku.svg',
+                        'title' => 'A short briefing on the bike',
+                        'text' => 'controls, tips, route recommendations',
+                    ],
+                    [
+                        'icon' => 'gfx/podpis-dokumentu.svg',
+                        'title' => 'We sign the handover protocol',
+                        'text' => 'and you can hit the road',
                     ],
                 ],
             ],
@@ -316,6 +475,81 @@ return [
             ],
             'h1' => 'Returning the motorcycle at the rental',
             'intro' => 'You return the motorcycle conveniently directly at <strong>Motogo24 – motorcycle rental in Vysočina</strong>. <strong>24/7 service</strong>, no stress and fair terms.',
+            'process' => [
+                'grid' => 'gr4',
+                'steps' => [
+                    [
+                        'icon' => 'gfx/cas-prevzeti-motorky.svg',
+                        'title' => 'Come at the agreed time',
+                        'text' => '',
+                    ],
+                    [
+                        'icon' => 'gfx/predani-motorky.svg',
+                        'title' => 'Hand over the keys and gear',
+                        'text' => '',
+                    ],
+                    [
+                        'icon' => 'gfx/prevezmi-motorku.svg',
+                        'title' => 'We check the condition of the motorcycle and gear together',
+                        'text' => '',
+                    ],
+                    [
+                        'icon' => 'gfx/sleva-na-pristi-jizdu.svg',
+                        'title' => 'You\'ll get an e-mail with the rental completion confirmation, the final invoice and a discount code for your next booking.',
+                        'text' => '',
+                    ],
+                ],
+            ],
+            'time' => [
+                'title' => 'Return time',
+                'text' => 'Please keep to the return time – it helps us make sure the next customer picks up the motorcycle on time. If you do end up running late, please let us know by phone. Until midnight of the last rental day you pay no fee. If you return the motorcycle significantly after that, you\'ll be charged rent for another day.',
+            ],
+            'issues' => [
+                'title' => 'Discrepancies on return',
+                'lead' => 'On handover we check the condition of the motorcycle and gear together. If any of the situations below occurs, we draw up a report of the damage found:',
+                'items' => [
+                    'missing gear',
+                    'damaged gear',
+                    'damaged motorcycle',
+                ],
+                'closing' => 'The customer signs the report and receives a copy of it. The further procedure is governed by the terms of the rental contract and the terms and conditions.',
+            ],
+            'faq' => [
+                'title' => 'Frequently asked questions about return at the rental',
+                'items' => [
+                    [
+                        'q' => 'What if I cannot make the agreed return time?',
+                        'a' => 'Please let us know by phone. Most often we agree on <strong>moving the time by a few hours</strong>; longer delays may be charged according to the price list.',
+                    ],
+                    [
+                        'q' => 'Do I have to wash the motorcycle?',
+                        'a' => 'No. Ordinary dirt is fine, washing is <strong>not required</strong>.',
+                    ],
+                    [
+                        'q' => 'Do I have to return the motorcycle with a full tank?',
+                        'a' => 'It is not mandatory. If the tank is not full, we will refuel it and <strong>charge only the actual price</strong> with no surcharges.',
+                    ],
+                    [
+                        'q' => 'What if the rental is closed?',
+                        'a' => 'Our service is <strong>24/7</strong>. At night just call +420 774 256 271 and we will arrange the handover.',
+                    ],
+                    [
+                        'q' => 'Can I return the motorcycle elsewhere?',
+                        'a' => 'Yes, use <a href="/jak-pujcit/vraceni-jinde"><strong>returning the motorcycle elsewhere</strong></a> (delivery/pick-up according to the price list).',
+                    ],
+                ],
+            ],
+            'cta' => [
+                'title' => 'Returning the motorcycle at the rental – Motogo24 Pelhřimov',
+                'text' => 'Return the motorcycle directly with us in Pelhřimov – <strong>24/7, without deposit, without stress</strong>.',
+                'buttons' => [
+                    [
+                        'label' => 'BOOK ONLINE',
+                        'href' => '/rezervace',
+                        'cls' => 'btndark pulse',
+                    ],
+                ],
+            ],
             'top_cta' => [
                 'label' => 'BOOK ONLINE',
                 'href' => '/rezervace',
@@ -370,42 +604,6 @@ return [
                 'cta' => [
                     'label' => 'BOOK A DATE',
                     'href' => '/rezervace',
-                ],
-            ],
-            'faq' => [
-                'title' => 'Frequently asked questions about return at the rental',
-                'items' => [
-                    [
-                        'q' => 'What if I cannot make the agreed return time?',
-                        'a' => 'Please let us know by phone. Most often we agree on <strong>moving the time by a few hours</strong>; longer delays may be charged according to the price list.',
-                    ],
-                    [
-                        'q' => 'Do I have to wash the motorcycle?',
-                        'a' => 'No. Ordinary dirt is fine, washing is <strong>not required</strong>.',
-                    ],
-                    [
-                        'q' => 'Do I have to return the motorcycle with a full tank?',
-                        'a' => 'It is not mandatory. If the tank is not full, we will refuel it and <strong>charge only the actual price</strong> with no surcharges.',
-                    ],
-                    [
-                        'q' => 'What if the rental is closed?',
-                        'a' => 'Our service is <strong>24/7</strong>. At night just call +420 774 256 271 and we will arrange the handover.',
-                    ],
-                    [
-                        'q' => 'Can I return the motorcycle elsewhere?',
-                        'a' => 'Yes, use <a href="/jak-pujcit/vraceni-jinde"><strong>returning the motorcycle elsewhere</strong></a> (delivery/pick-up according to the price list).',
-                    ],
-                ],
-            ],
-            'cta' => [
-                'title' => 'Returning the motorcycle at the rental – Motogo24 Pelhřimov',
-                'text' => 'Return the motorcycle directly with us in Pelhřimov – <strong>24/7, without deposit, without stress</strong>.',
-                'buttons' => [
-                    [
-                        'label' => 'BOOK ONLINE',
-                        'href' => '/rezervace',
-                        'cls' => 'btndark pulse',
-                    ],
                 ],
             ],
         ],
@@ -514,6 +712,66 @@ return [
             ],
             'h1' => 'What is included in the motorcycle rental price',
             'intro' => 'At <strong>MotoGo24 – motorcycle rental in Vysočina</strong> you get fair conditions. <strong>Without deposit, with rider gear included and 24/7 service</strong>. Everything you need for a safe and pleasant ride is part of the rental.',
+            'gear' => [
+                'basic' => [
+                    'title' => 'Basic gear included',
+                    'lead' => 'Every rider has a complete set of <strong>motorcycle gear</strong> included in the rental price:',
+                    'items' => [
+                        '<strong>helmet</strong>',
+                        '<strong>motorcycle jacket</strong> with protectors',
+                        '<strong>motorcycle trousers</strong>',
+                        '<strong>gloves</strong>',
+                    ],
+                    'note1' => 'The gear is available in several sizes and we clean and check it regularly.',
+                    'note2' => 'Selected motorcycles are fitted with top cases – see the motorcycle detail in the catalogue.',
+                ],
+                'extra' => [
+                    'title' => 'Extra gear for a surcharge',
+                    'lead' => 'Riding with a passenger or want motorcycle boots? You can add them when booking:',
+                    'items' => [
+                        'passenger gear (helmet, jacket, trousers, gloves)',
+                        'motorcycle boots – for the rider and the passenger',
+                    ],
+                ],
+                'services' => [
+                    'title' => 'Extra services for a surcharge',
+                    'items' => [
+                        'delivery of the motorcycle to an agreed place anywhere in the Czech Republic',
+                        'returning the motorcycle somewhere other than the rental address',
+                    ],
+                ],
+            ],
+            'benefits' => [
+                'title' => 'Other benefits included',
+                'grid' => 'gr5',
+                'items' => [
+                    [
+                        'icon' => 'gfx/rezervace-online.svg',
+                        'title' => 'Online booking',
+                        'text' => 'quick and easy booking from the comfort of home.',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-nonstop.svg',
+                        'title' => '24/7 service',
+                        'text' => 'book and set off any time – day, night or weekend. You choose the pickup time when booking.',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-bez-kauce.svg',
+                        'title' => 'No deposit',
+                        'text' => 'no deposit when renting.',
+                    ],
+                    [
+                        'icon' => 'gfx/jasne-podminky.svg',
+                        'title' => 'Clear conditions',
+                        'text' => 'no hidden fees.',
+                    ],
+                    [
+                        'icon' => 'gfx/sleva-na-pristi-jizdu.svg',
+                        'title' => 'Discount on your next booking',
+                        'text' => 'after every completed rental you get a discount code for your next booking.&nbsp;',
+                    ],
+                ],
+            ],
             'cta' => [
                 'title' => 'Gear included – motorcycle rental MotoGo24 – Vysočina',
                 'text' => '<strong>MotoGo24 is a modern motorcycle rental in Vysočina</strong> with rider gear included, no-deposit rental and 24/7 service. Choose a <strong>touring, supermoto, naked or kids\' motorcycle</strong> and book online. Everything is clear and without hidden fees.',
@@ -540,6 +798,138 @@ return [
                 'href' => '/rezervace',
                 'aria' => 'Book a motorcycle online at Motogo24',
             ],
+            'summary' => [
+                'title' => 'Summary of the main points',
+                'items' => [
+                    [
+                        'icon' => 'gfx/ico-bez-kauce.svg',
+                        'title' => 'No deposit / advance',
+                        'text' => 'we rent the motorcycle without blocking any money',
+                    ],
+                    [
+                        'icon' => 'gfx/rezervace-online.svg',
+                        'title' => 'Online booking',
+                        'text' => 'including payment',
+                    ],
+                    [
+                        'icon' => 'gfx/vyber-vybavu.svg',
+                        'title' => 'Rider gear',
+                        'text' => 'included (helmet, jacket, trousers, gloves)',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-nonstop.svg',
+                        'title' => '24/7 service',
+                        'text' => 'pickup and return any time on the rental day',
+                    ],
+                    [
+                        'icon' => 'gfx/jasne-podminky.svg',
+                        'title' => 'Clear usage rules',
+                        'text' => 'at home and abroad (per the green card)',
+                    ],
+                    [
+                        'icon' => 'gfx/zadne-skryte-poplatky.svg',
+                        'title' => 'No hidden fees',
+                        'text' => 'everything is stated below and in the contract',
+                    ],
+                ],
+            ],
+            'required_docs' => [
+                'title' => 'What you need to sign the contract',
+                'items' => [
+                    '<strong>ID card / passport</strong>',
+                    '<strong>Driving licence</strong>&nbsp;of the appropriate category (A / A2 depending on the machine)',
+                    '<strong>Age</strong>&nbsp;min. 18 (for kids\' motorcycles a legal guardian is liable)',
+                    '<strong>Contacts</strong>&nbsp;(phone, e-mail) for communication and booking confirmation',
+                ],
+            ],
+            'payments' => [
+                'title' => 'Payments, cancellation and fees',
+                'lead' => '<strong>Deposit:</strong>&nbsp;<em>not required</em>. The rental payment is made online or on pickup.',
+                'aria' => 'Overview of payments and fees',
+                'headers' => [
+                    'Item',
+                    'Conditions',
+                ],
+                'rows' => [
+                    [
+                        '<strong>Rental payment</strong>',
+                        'Online in advance.',
+                    ],
+                    [
+                        '<strong>Booking cancellation</strong>',
+                        'Free of charge until an agreed time (stated in the booking confirmation). Later by individual agreement.',
+                    ],
+                    [
+                        '<strong>Fuel &amp; cleaning</strong>',
+                        'Return with no obligation to refuel or wash. Excessive dirt is handled individually.',
+                    ],
+                    [
+                        '<strong>Delivery / collection</strong>',
+                        'According to the delivery price list (Vysočina / surroundings). Confirmed at booking.',
+                    ],
+                    [
+                        '<strong>Late return</strong>',
+                        'Please return on time on the last rental day; for delays we charge as agreed (with regard to other bookings).',
+                    ],
+                ],
+                'mid_cta' => [
+                    'label' => 'CONTINUE TO BOOKING',
+                    'href' => '/rezervace',
+                    'aria' => 'Book a motorcycle and agree to the Motogo24 rental contract',
+                ],
+            ],
+            'usage' => [
+                'title' => 'Using the motorcycle and liability',
+                'items' => [
+                    'Ride in&nbsp;<strong>compliance with the rules</strong>&nbsp;and with regard to the technical condition and type of the motorcycle.',
+                    'The renter is liable for&nbsp;<strong>fines and offences</strong>&nbsp;(we pass on information as required by law).',
+                    '<strong>Abroad</strong>: possible; follow the territorial validity of the insurance (green card). Some countries may be excluded.',
+                    'In the event of an&nbsp;<strong>accident or breakdown</strong>&nbsp;follow the instructions in the on-board kit (accident form, Motogo24 contact).',
+                    '<strong>Service and maintenance</strong>&nbsp;is handled by us; report faults immediately.',
+                    '<strong>Modifications to the motorcycle</strong>&nbsp;are not allowed without consent.',
+                ],
+            ],
+            'handover' => [
+                'title' => 'Handover and return',
+                'items' => [
+                    '<strong>Pickup</strong>&nbsp;takes place in Pelhřimov (Mezná 9) or use&nbsp;<a href="/jak-pujcit/pristaveni">delivery</a>.',
+                    'At handover you receive&nbsp;<strong>keys, gear and documents</strong>&nbsp;(vehicle registration, green card, accident form).',
+                    '<strong>Return</strong>&nbsp;any time during the last rental day (even at midnight). No washing or refuelling needed.',
+                ],
+            ],
+            'privacy' => [
+                'title' => 'Personal data and security',
+                'text' => 'We process personal data only for the purpose of concluding and fulfilling the rental contract (identification, communication, invoicing). Details are in the <a href="/cms/zasady-ochrany-osobnich-udaju">personal data processing policy</a>.',
+            ],
+            'documents' => [
+                'title' => 'Documents to download',
+                'items' => [
+                    [
+                        'name' => 'Rental contract',
+                        'href' => '/cms/smlouva-o-pronajmu',
+                        'size' => '87.4kB',
+                    ],
+                    [
+                        'name' => 'Handover protocol',
+                        'href' => '/cms/predavaci-protokol',
+                        'size' => '47.6kB',
+                    ],
+                    [
+                        'name' => 'Terms and conditions',
+                        'href' => '/cms/obchodni-podminky',
+                        'size' => '87.7kB',
+                    ],
+                    [
+                        'name' => 'Privacy policy',
+                        'href' => '/cms/zasady-ochrany-osobnich-udaju',
+                        'size' => '76.3kB',
+                    ],
+                ],
+            ],
+            'midcta' => [
+                'title' => 'Agree to the conditions? Book and ride.',
+                'text' => 'Choose from&nbsp;<strong>touring, sport, enduro and kids\' motorcycles</strong>&nbsp;and confirm your booking online.',
+            ],
             'cta' => [
                 'title' => 'Rental agreement without deposit – motorcycle rental Vysočina',
                 'text' => 'MotoGo24 is a <strong>motorcycle rental in Vysočina</strong> with fair conditions.',
@@ -564,6 +954,137 @@ return [
                 'label' => 'BOOK WITH DELIVERY',
                 'href' => '/rezervace?delivery=1',
             ],
+            'when' => [
+                'title' => 'When delivery comes in handy',
+                'items' => [
+                    '<strong>Start of a&nbsp;road trip</strong>&nbsp;– we bring the motorcycle straight to the start of your trip.',
+                    '<strong>Hotel or guesthouse</strong>&nbsp;– delivery to your accommodation to save you time.',
+                    '<strong>Train/bus station</strong>&nbsp;– a smooth transfer with no waiting.',
+                    '<strong>Company events and gifts</strong>&nbsp;– a surprise for partners or your team.',
+                ],
+            ],
+            'why' => [
+                'title' => 'Why use motorcycle delivery',
+                'grid' => 'gr5',
+                'items' => [
+                    [
+                        'icon' => 'gfx/vyzvednuti-vraceni-motorky.svg',
+                        'title' => 'Flexibility',
+                        'text' => 'We bring the motorcycle wherever you need – home, to a hotel, to a station or to the start of your trip.',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-pohodli.svg',
+                        'title' => 'Convenience',
+                        'text' => 'You don\'t have to arrange transport to the rental – where to leave your car or who will drive you.',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-nonstop.svg',
+                        'title' => '24/7 service',
+                        'text' => 'We arrange delivery for an agreed time – evenings or weekends are fine. Just pick the time when booking.',
+                    ],
+                    [
+                        'icon' => 'gfx/uspora-casu.svg',
+                        'title' => 'Time saved',
+                        'text' => 'The time saved travelling to the rental and back you can spend on yourself.',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-vybava.svg',
+                        'title' => 'Gear delivered too',
+                        'text' => 'We also bring the rented gear in the requested sizes straight to you.',
+                    ],
+                ],
+            ],
+            'process' => [
+                'title' => 'How delivery works',
+                'grid' => 'gr5',
+                'steps' => [
+                    [
+                        'icon' => 'gfx/vyber-motorku.svg',
+                        'title' => 'Choose a motorcycle',
+                        'text' => 'Browse our range of touring, supermoto, naked and kids\' motorcycles and pick the right one.',
+                    ],
+                    [
+                        'icon' => 'gfx/rezervace-online.svg',
+                        'title' => 'Pick a date',
+                        'text' => 'Choose the date you want to ride in the calendar. You\'ll see which motorcycles are available.',
+                    ],
+                    [
+                        'icon' => 'gfx/kontaktni-udaje.svg',
+                        'title' => 'Contact details',
+                        'text' => 'Fill in your name, address, e-mail and phone.',
+                    ],
+                    [
+                        'icon' => 'gfx/cas-prevzeti-motorky.svg',
+                        'title' => 'Delivery time',
+                        'text' => 'Choose when we deliver the motorcycle – evenings or weekends are fine.',
+                    ],
+                    [
+                        'icon' => 'gfx/vyzvednuti-vraceni-motorky.svg',
+                        'title' => 'Delivery location',
+                        'text' => 'Enter the address to deliver to – home, a hotel, a station or the start of your trip.',
+                    ],
+                    [
+                        'icon' => 'gfx/vyber-vybavu.svg',
+                        'title' => 'Gear',
+                        'text' => 'Basic rider gear is included. Enter the required sizes for all gear items in the Note field – mandatory.',
+                    ],
+                    [
+                        'icon' => 'gfx/zaplat.svg',
+                        'title' => 'Confirmation and payment',
+                        'text' => 'Check the order summary, agree to the conditions and pay online.',
+                    ],
+                    [
+                        'icon' => 'gfx/podpis-dokumentu.svg',
+                        'title' => 'Handover on site',
+                        'text' => 'At handover we check the documents, complete the contract and sign the handover protocol.',
+                    ],
+                    [
+                        'icon' => 'gfx/uzij-si-jizdu.svg',
+                        'title' => 'Enjoy the ride',
+                        'text' => 'Hit the road – no deposit, no stress. The rest is just asphalt and freedom.',
+                    ],
+                    [
+                        'icon' => 'gfx/predani-motorky.svg',
+                        'title' => 'Return the motorcycle',
+                        'text' => 'Return the motorcycle on time at the agreed place. No refuelling or washing needed.',
+                    ],
+                ],
+            ],
+            'pricing' => [
+                'title' => 'Delivery price list',
+                'lead' => '<strong>The delivery price has three components:</strong>',
+                'items' => [
+                    '<strong>500 CZK</strong>&nbsp;for loading the motorcycle,',
+                    '<strong>500 CZK</strong>&nbsp;for unloading the motorcycle,',
+                    '<strong>20 CZK</strong>&nbsp;per kilometre (the distance from the rental to the destination and back is counted)',
+                ],
+                'example' => '<strong>Example:</strong>&nbsp;Want the motorcycle delivered 30 km from the rental? You pay 500 + 500 + (30 × 2 × 20) =&nbsp;<strong>2,200 CZK.</strong>',
+            ],
+            'faq' => [
+                'title' => 'Frequently asked questions about delivery',
+                'items' => [
+                    [
+                        'q' => 'How far in advance should I order delivery?',
+                        'a' => 'Ideally <strong>when</strong> <strong>booking online</strong> – you enter the address and time. For urgent requests, contact us by phone.',
+                    ],
+                    [
+                        'q' => 'Can I return the motorcycle somewhere other than where I picked it up?',
+                        'a' => 'Yes, we charge <strong>collection</strong> based on the distance from Pelhřimov. We arrange it at booking.',
+                    ],
+                    [
+                        'q' => 'How much does delivery outside Vysočina cost?',
+                        'a' => 'We follow a distance table. Over 100 km we calculate the price <strong>individually</strong>.',
+                    ],
+                    [
+                        'q' => 'Is there a deposit?',
+                        'a' => 'No. <strong>We rent without a deposit</strong>, the conditions are clear and fair.',
+                    ],
+                    [
+                        'q' => 'Is the rider gear included too?',
+                        'a' => 'Yes. Helmet, jacket, trousers and gloves are&nbsp;<strong>included in the rental</strong>&nbsp;for the rider.',
+                    ],
+                ],
+            ],
             'cta' => [
                 'title' => 'Motorcycle delivery – motorcycle rental Vysočina',
                 'text' => 'MotoGo24 offers <strong>motorcycle delivery</strong> across the region and beyond. <strong>24/7 service, no deposit, gear included.</strong>',
@@ -587,6 +1108,144 @@ return [
             'top_cta' => [
                 'label' => 'BOOK WITH PICKUP',
                 'href' => '/rezervace?return_delivery=1',
+            ],
+            'when' => [
+                'title' => 'When return elsewhere comes in handy',
+                'items' => [
+                    '<strong>End of a road trip</strong>&nbsp;– the rental started in Pelhřimov, the trip ends elsewhere. Hand the motorcycle over to us where your trip ends.',
+                    '<strong>One-way trip</strong>&nbsp;– travelling back home by train or bus? Hand the motorcycle over to us before you leave.',
+                    '<strong>Hotel or guesthouse</strong>&nbsp;– hand the motorcycle over to us right at your accommodation, so you don\'t have to figure out the way back to the rental.',
+                    '<strong>Company event</strong>&nbsp;– a rental for a group with the return right at the event location.',
+                ],
+            ],
+            'why' => [
+                'title' => 'Why use return elsewhere',
+                'grid' => 'gr5',
+                'items' => [
+                    [
+                        'icon' => 'gfx/vyzvednuti-vraceni-motorky.svg',
+                        'title' => 'Flexibility',
+                        'text' => 'You choose the return location to match your route – a hotel, a station, a car park or anywhere else.',
+                    ],
+                    [
+                        'icon' => 'gfx/uspora-casu.svg',
+                        'title' => 'Time saved',
+                        'text' => 'You save the trip back to the rental and home – you hand the motorcycle over where you are.',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-pohodli.svg',
+                        'title' => 'Convenience',
+                        'text' => 'You don\'t have to figure out how to get home from the rental.&nbsp;',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-nonstop.svg',
+                        'title' => '24/7 service',
+                        'text' => 'We arrange the return for an agreed time – evenings or weekends are fine.',
+                    ],
+                    [
+                        'icon' => 'gfx/predani-motorky.svg',
+                        'title' => 'Simplicity',
+                        'text' => 'You hand over the keys and gear, we check the motorcycle and leave. No extra paperwork.',
+                    ],
+                ],
+            ],
+            'process' => [
+                'title' => 'How return elsewhere works',
+                'grid' => 'gr5',
+                'steps' => [
+                    [
+                        'icon' => 'gfx/uzij-si-jizdu.svg',
+                        'title' => 'Choose the return place and time',
+                        'text' => 'In the booking form, enter the address and time when you\'ll hand the motorcycle over.',
+                    ],
+                    [
+                        'icon' => 'gfx/vyber-vybavu.svg',
+                        'title' => 'Get the gear ready',
+                        'text' => 'Before the handover, prepare the gear that was part of the rental.',
+                    ],
+                    [
+                        'icon' => 'gfx/cas-prevzeti-motorky.svg',
+                        'title' => 'We arrive at the agreed time',
+                        'text' => 'We\'ll arrive at the agreed place exactly at the agreed time.',
+                    ],
+                    [
+                        'icon' => 'gfx/prevezmi-motorku.svg',
+                        'title' => 'We check the motorcycle and gear together',
+                        'text' => 'We check the condition of the motorcycle and gear, load up and leave.&nbsp;',
+                    ],
+                    [
+                        'icon' => 'gfx/sleva-na-pristi-jizdu.svg',
+                        'title' => 'You\'ll get a confirmation by e-mail',
+                        'text' => 'A rental completion confirmation, the final invoice and a discount code for your next booking.',
+                    ],
+                ],
+            ],
+            'pricing' => [
+                'title' => 'Return-elsewhere price list',
+                'lead' => 'The price has three components:',
+                'items' => [
+                    '500 CZK for loading the motorcycle',
+                    '500 CZK for unloading the motorcycle',
+                    '20 CZK per kilometre (the distance from the return location to the rental and back)',
+                ],
+                'example_title' => 'Example:',
+                'example_q' => 'Want to return the motorcycle 30 km from the rental?',
+                'example_a' => 'You pay 500 + 500 + (30 × 2 × 20) = 2,200 CZK.',
+            ],
+            'issues' => [
+                'title' => 'Discrepancies on return',
+                'lead' => 'On return we check the condition of the motorcycle and gear together. If any of the situations below occurs, we draw up a report of the damage found:',
+                'items' => [
+                    'missing gear',
+                    'damaged gear',
+                    'damaged motorcycle',
+                ],
+                'closing' => 'The customer signs the report and receives a copy of it. The further procedure is governed by the terms of the rental contract and the terms and conditions.',
+            ],
+            'faq' => [
+                'title' => 'Frequently asked questions about returning the motorcycle elsewhere',
+                'items' => [
+                    [
+                        'q' => 'By when do I have to return the motorcycle?',
+                        'a' => 'Return the motorcycle ideally at the agreed time. If you return at the rental, you can come by arrangement any time during the last rental day – no later than midnight, with no penalties. If you return at another location, the agreed time is binding.',
+                    ],
+                    [
+                        'q' => 'Do I have to return it with a full tank and clean?',
+                        'a' => 'No. You don\'t refuel or wash with us. Just make sure the reserve light isn\'t on.&nbsp;',
+                    ],
+                    [
+                        'q' => 'When returning at another location, can I return the motorcycle earlier than we agreed?&nbsp;',
+                        'a' => 'We set off from Pelhřimov to the agreed place exactly according to the agreed time, so an earlier return is unfortunately not possible. If your plans change, get in touch – we\'ll try to adjust the time, but it depends on our current workload.',
+                    ],
+                    [
+                        'q' => 'Can I really return the motorcycle anywhere in the Czech Republic?&nbsp;',
+                        'a' => 'Yes, we\'ll come to collect the motorcycle anywhere in the Czech Republic. You enter the return location when booking – it can be a hotel, a car park, a station or any other address.',
+                    ],
+                    [
+                        'q' => 'How far in advance do I have to report a return at another location?&nbsp;',
+                        'a' => 'You enter the return location and time already in the booking form.&nbsp;',
+                    ],
+                    [
+                        'q' => 'What if I\'m late to the return location?&nbsp;',
+                        'a' => 'Call us as soon as you know you won\'t make it on time. We\'ll work it out – we usually wait for you. We just need to know how big a delay to expect so we can adjust our day\'s plan.',
+                    ],
+                    [
+                        'q' => 'How is the price for a return at another location calculated?&nbsp;',
+                        'a' => 'The price includes 500 CZK for loading, 500 CZK for unloading and 20 CZK per kilometre of the distance from the return location to the rental (and back). For example, when returning 50 km from Pelhřimov you pay 500 + 500 + (50 × 2 × 20) = 3,000 CZK.',
+                    ],
+                    [
+                        'q' => 'Do I pay for the return elsewhere separately, or is it part of the rental price?&nbsp;',
+                        'a' => 'Return at another location is an additional service and is paid for separately, on top of the rental price.&nbsp;',
+                    ],
+                    [
+                        'q' => 'What if I want to pick up the motorcycle in Pelhřimov but return it elsewhere – is that possible?&nbsp;',
+                        'a' => 'Yes, you can pick up the motorcycle at our place in Pelhřimov and return it where you need.&nbsp;',
+                    ],
+                    [
+                        'q' => 'What should I have ready when you come for the motorcycle?&nbsp;',
+                        'a' => 'Have the keys and all the gear that was part of the rental ready. We check the condition of the motorcycle and gear together.',
+                    ],
+                ],
             ],
             'cta' => [
                 'title' => 'Return motorcycle anywhere – MotoGo24',
