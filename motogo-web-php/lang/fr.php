@@ -1112,7 +1112,7 @@ return [
     'menu.logout' => 'Se déconnecter',
     'rez.pickup.gps' => 'Ma position',
     'rez.return.stateTitle' => 'Dans quel état rendre la moto ?',
-    'rez.return.stateText' => 'Il suffit de rendre la moto avec du carburant au-dessus de la réserve (le voyant de réserve éteint). Ne vous souciez pas du lavage ni du nettoyage — c\'est notre travail. En cas de retour avec le réservoir vide, nous facturons le plein + des frais de service (voir CGV).',
+    'rez.return.stateText' => 'Il suffit de rendre la moto avec du carburant au-dessus de la réserve (le voyant de réserve éteint). Ne vous souciez pas du lavage ni du nettoyage — c\'est notre travail.',
     'rez.alert.emailExists' => 'Cet e-mail est déjà enregistré chez nous. Connectez-vous pour continuer ou réinitialisez votre mot de passe.',
     'rez.alert.emailMismatch' => 'Le compte connecté ne correspond pas à l\'e-mail saisi. Déconnectez-vous et réessayez.',
     'rez.auth.returning.title' => 'J\'ai déjà loué une moto chez vous',

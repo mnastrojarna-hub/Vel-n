@@ -1113,7 +1113,7 @@ return [
     'menu.logout' => 'Cerrar sesión',
     'rez.pickup.gps' => 'Mi ubicación',
     'rez.return.stateTitle' => '¿En qué estado hay que devolver la moto?',
-    'rez.return.stateText' => 'Basta con devolver la moto con combustible por encima de la reserva (el testigo de reserva apagado). No te preocupes por lavarla ni limpiarla: eso es cosa nuestra. Si se devuelve con el depósito vacío, cobramos el repostaje + una tarifa de servicio (ver Condiciones).',
+    'rez.return.stateText' => 'Basta con devolver la moto con combustible por encima de la reserva (el testigo de reserva apagado). No te preocupes por lavarla ni limpiarla: eso es cosa nuestra.',
     'rez.alert.emailExists' => 'Ya tenemos este correo registrado. Inicia sesión para continuar o restablece tu contraseña.',
     'rez.alert.emailMismatch' => 'La cuenta con la que has iniciado sesión no coincide con el correo introducido. Cierra sesión e inténtalo de nuevo.',
     'rez.auth.returning.title' => 'Ya he alquilado una moto con vosotros antes',

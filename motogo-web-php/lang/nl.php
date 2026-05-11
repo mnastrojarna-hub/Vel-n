@@ -1091,7 +1091,7 @@ return [
     'menu.logout' => 'Uitloggen',
     'rez.pickup.gps' => 'Mijn locatie',
     'rez.return.stateTitle' => 'In welke staat moet de motor worden teruggebracht?',
-    'rez.return.stateText' => 'Breng de motor gewoon terug met brandstof boven de reserve (het reservelampje brandt niet). Wassen of schoonmaken hoeft niet — dat doen wij. Bij teruggave met een lege tank rekenen we het bijtanken + servicekosten (zie Voorwaarden).',
+    'rez.return.stateText' => 'Breng de motor gewoon terug met brandstof boven de reserve (het reservelampje brandt niet). Wassen of schoonmaken hoeft niet — dat doen wij.',
     'rez.alert.emailExists' => 'Dit e-mailadres is bij ons al bekend. Log in om door te gaan of stel je wachtwoord opnieuw in.',
     'rez.alert.emailMismatch' => 'Het ingelogde account komt niet overeen met het ingevoerde e-mailadres. Log uit en probeer het opnieuw.',
     'rez.auth.returning.title' => 'Ik heb al eerder een motor bij jullie gehuurd',

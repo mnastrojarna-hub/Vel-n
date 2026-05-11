@@ -1135,7 +1135,7 @@ return [
     'menu.logout' => 'Log out',
     'rez.pickup.gps' => 'My location',
     'rez.return.stateTitle' => 'What condition should the motorcycle be returned in?',
-    'rez.return.stateText' => 'Just return the motorcycle with fuel above the reserve (the reserve light is off). Don\'t worry about washing or cleaning — that\'s our job. If returned with an empty tank, we charge for refuelling + a service fee (see Terms).',
+    'rez.return.stateText' => 'Just return the motorcycle with fuel above the reserve (the reserve light is off). Don\'t worry about washing or cleaning — that\'s our job.',
     'rez.alert.emailExists' => 'We already have this e-mail on file. Please log in to continue, or reset your password.',
     'rez.alert.emailMismatch' => 'The logged-in account does not match the e-mail you entered. Please log out and try again.',
     'rez.auth.returning.title' => 'I\'ve rented a motorcycle from you before',

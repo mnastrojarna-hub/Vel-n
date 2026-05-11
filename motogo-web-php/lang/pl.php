@@ -1091,7 +1091,7 @@ return [
     'menu.logout' => 'Wyloguj',
     'rez.pickup.gps' => 'Moja lokalizacja',
     'rez.return.stateTitle' => 'W jakim stanie należy zwrócić motocykl?',
-    'rez.return.stateText' => 'Wystarczy zwrócić motocykl z paliwem powyżej rezerwy (kontrolka rezerwy nie świeci). Mycia ani sprzątania nie musisz się martwić — to nasza praca. Przy zwrocie z pustym bakiem doliczamy tankowanie + opłatę serwisową (zob. Regulamin).',
+    'rez.return.stateText' => 'Wystarczy zwrócić motocykl z paliwem powyżej rezerwy (kontrolka rezerwy nie świeci). Mycia ani sprzątania nie musisz się martwić — to nasza praca.',
     'rez.alert.emailExists' => 'Ten adres e-mail jest już u nas zarejestrowany. Zaloguj się, aby kontynuować, lub zresetuj hasło.',
     'rez.alert.emailMismatch' => 'Zalogowane konto nie zgadza się z podanym adresem e-mail. Wyloguj się i spróbuj ponownie.',
     'rez.auth.returning.title' => 'Wynajmowałem już u was motocykl',
