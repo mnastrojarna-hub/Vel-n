@@ -25,3 +25,15 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #4a6357;
 }
+
+/* SEO Health: zvyrazneni cilove field pri jumpu z SEO Health "Opravit" tlacitka */
+.cms-field-highlight {
+  animation: cms-field-pulse 4s ease-out;
+  border-radius: 8px;
+}
+@keyframes cms-field-pulse {
+  0%   { box-shadow: 0 0 0 4px rgba(245, 158, 11, .55); background: rgba(254, 252, 232, 1); }
+  20%  { box-shadow: 0 0 0 8px rgba(245, 158, 11, .35); background: rgba(254, 252, 232, 1); }
+  60%  { box-shadow: 0 0 0 6px rgba(245, 158, 11, .20); background: rgba(254, 252, 232, .6); }
+  100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); background: transparent; }
+}
