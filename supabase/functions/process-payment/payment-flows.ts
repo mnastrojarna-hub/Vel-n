@@ -401,6 +401,9 @@ export async function handleWebShopCheckout(
       shipping_cost: 0,
       discount: 0,
       notes: isPrint ? 'Fyzický poukaz (tisk + poštovné)' : 'Elektronický poukaz',
+      // i18n: jazyk zákazníka z webu (cs/en/de/nl/es/fr/pl) → voucher_purchased mail
+      // i SMS dorazí přeložené (detect_customer_language čte shop_orders.language).
+      language: resolveStripeLocale(body.locale),
     })
     if (insertOrderError) {
       console.error('[WebShopCheckout] shop_orders insert failed:', insertOrderError.message)
