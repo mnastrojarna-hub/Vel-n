@@ -47,10 +47,11 @@ const PHASES = [
   { key: 'cms_pages',     label: 'Blog články' },
 ]
 
-function rowsNeedingTranslation(table, rows) {
+function rowsNeedingTranslation(table, rows, force) {
   return (rows || []).filter(row => {
     const fields = pickTranslatableFields(table, row)
     if (Object.keys(fields).length === 0) return false
+    if (force) return true // přepsat i řádky, které už nějaký překlad mají (po editaci CS textu)
     const tr = row.translations || {}
     return TRANSLATE_TARGET_LANGS.some(lang => {
       const langTr = tr[lang]
@@ -62,6 +63,7 @@ function rowsNeedingTranslation(table, rows) {
 
 export default function TranslateEverythingButton() {
   const [running, setRunning] = useState(false)
+  const [force, setForce] = useState(false)        // přepsat i existující překlady (po editaci CS textu)
   const [phase, setPhase] = useState(null)         // 'pages' | 'cms_variables' | …
   const [progress, setProgress] = useState({ done: 0, total: 0, current: '' })
   const [errors, setErrors] = useState([])         // [{phase, label, error}]
@@ -115,7 +117,7 @@ export default function TranslateEverythingButton() {
         const { data, error } = await supabase.from(ph.key).select(ph.selectColumns)
         if (error) throw error
         const rows = ph.filter ? (data || []).filter(ph.filter) : (data || [])
-        const candidates = rowsNeedingTranslation(ph.key, rows)
+        const candidates = rowsNeedingTranslation(ph.key, rows, force)
         setProgress({ done: 0, total: candidates.length, current: '' })
         for (let i = 0; i < candidates.length; i++) {
           const row = candidates[i]
@@ -149,6 +151,10 @@ export default function TranslateEverythingButton() {
             ? `🌍 Fáze ${phaseIdx + 1}/4 · ${progress.done}/${progress.total} (${pct}%)`
             : '🌍 Přeložit vše do EN/DE/ES/FR/NL/PL'}
         </Button>
+        <label className="flex items-center gap-1.5 text-xs font-bold cursor-pointer" style={{ color: '#9a3412' }} title="Bez zaškrtnutí se doplní jen chybějící překlady. Zaškrtni, když jsi po překladu změnil český text (eyebrow, popisky tlačítek, …) a chceš ho přeložit znovu — přepíše i existující překlady (FAQ/blog/cms_variables). Trvá déle.">
+          <input type="checkbox" checked={force} onChange={e => setForce(e.target.checked)} disabled={running} />
+          přepsat i existující překlady
+        </label>
         {running && (
           <span className="text-xs font-bold" style={{ color: '#1d4ed8' }}>
             {phaseLabel} {progress.current && <span style={{ color: '#6b8f7b' }}>· {progress.current}</span>}
