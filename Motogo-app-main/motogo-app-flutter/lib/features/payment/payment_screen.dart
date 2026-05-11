@@ -212,6 +212,9 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         'return_lng': draft.returnLng,
         'status': 'pending',
         'payment_status': 'unpaid',
+        // i18n: jazyk zákazníka (z aktuálního locale appky) → maily/SMS/push
+        // dorazí přeložené do příslušného jazyka (detect_customer_language).
+        'language': ref.read(localeProvider).languageCode,
         // Driver gear sizes (5 columns)
         'helmet_size': draft.helmetSize,
         'jacket_size': draft.jacketSize,
