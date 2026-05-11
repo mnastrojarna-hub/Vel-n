@@ -145,7 +145,7 @@ function renderInlineJs() {
  * lokální SEO v Seznam.cz.
  */
 function buildSameAs() {
-    $list = [FB_URL, IG_URL, 'https://www.motogo24.cz', 'https://motogo24.com', 'https://motogo24.at', 'https://motogo24.es', 'https://motogo24.pl', 'https://motogo24.fr', 'https://motogo24.nl'];
+    $list = [FB_URL, IG_URL, 'https://www.motogo24.cz', 'https://www.motogo24.com', 'https://www.motogo24.at', 'https://www.motogo24.es', 'https://www.motogo24.pl', 'https://www.motogo24.fr', 'https://www.motogo24.nl'];
     $extras = [
         defined('SAMEAS_FIRMY_CZ') ? SAMEAS_FIRMY_CZ : '',
         defined('SAMEAS_MAPY_CZ')  ? SAMEAS_MAPY_CZ  : '',
@@ -292,14 +292,14 @@ function renderWebmasterVerification() {
  * podporované jazyky (cs, en, de, es, fr, nl, pl) + x-default.
  *
  * Cross-domain mapping (Google-friendly):
- *   hreflang="cs" → https://www.motogo24.cz{path}  (Forpsi vynucuje www)
- *   hreflang="en" → https://motogo24.com{path}
- *   hreflang="de" → https://motogo24.at{path}
- *   hreflang="es" → https://motogo24.es{path}
- *   hreflang="pl" → https://motogo24.pl{path}
- *   hreflang="fr" → https://motogo24.fr{path}
- *   hreflang="nl" → https://motogo24.nl{path}
- *   hreflang="x-default" → https://motogo24.com{path}
+ *   hreflang="cs" → https://www.motogo24.cz{path}
+ *   hreflang="en" → https://www.motogo24.com{path}
+ *   hreflang="de" → https://www.motogo24.at{path}
+ *   hreflang="es" → https://www.motogo24.es{path}
+ *   hreflang="pl" → https://www.motogo24.pl{path}
+ *   hreflang="fr" → https://www.motogo24.fr{path}
+ *   hreflang="nl" → https://www.motogo24.nl{path}
+ *   hreflang="x-default" → https://www.motogo24.com{path}
  *
  * Reciproční hreflang mezi doménami je nutný — Google jinak hreflang ignoruje.
  *
@@ -335,13 +335,13 @@ function renderHreflangAlternates($path) {
  *   breadcrumbs  — pole pro BreadcrumbList schema [['name'=>'X','url'=>'Y'], ...]
  */
 function renderPage($title, $content, $currentPath = '/', $meta = []) {
-    // Origin podle aktuálního jazyka (přes i18nOriginForLang). Pro .cz vždy
-    // www variantu — Forpsi vynucuje www, jakákoli non-www URL by se
+    // Origin podle aktuálního jazyka (přes i18nOriginForLang) — vždy www
+    // varianta: Forpsi (.cz) vynucuje www, Hosting90 (.com/.pl/.at/.es/.fr/.nl)
+    // má Let's Encrypt cert jen na www. variantě → jakákoli non-www URL by se
     // 301-redirectovala. Bez tohoto fixu og:image, twitter:image, manifest,
     // RSS feed link, apple-touch-icon a všechny další $siteOrigin reference
     // emitujou non-www URL → Seobility hlásí ~600 stránek × 8 different
     // resources = 5000+ 'Internal redirects' a 'Image redirected'.
-    // (Předtím zde bylo: HTTP_HOST → strip www. → siteOrigin = non-www, špatně.)
     $lang = function_exists('i18nDetectLanguage') ? i18nDetectLanguage() : 'cs';
     $siteOrigin = function_exists('i18nOriginForLang') ? i18nOriginForLang($lang) : 'https://www.motogo24.cz';
 
@@ -423,9 +423,10 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
     // Meta description 150 chars (s rezervou pro diakritiky, 1000px ~160 ASCII).
     $title = $truncate($titleShorten($title), 55);
     $description = $truncate($descShorten($description), 150);
-    // Canonical = doménová home pro aktuální jazyk (cs → .cz, ostatní → .com).
-    // Tím Google indexuje českou verzi výhradně z motogo24.cz a anglickou/další
-    // z motogo24.com — žádný duplicate-content stejného jazyka přes obě domény.
+    // Canonical = doménová home pro aktuální jazyk (cs → www.motogo24.cz,
+    // ostatní → www.motogo24.<tld>). Tím Google indexuje každý jazyk výhradně
+    // z jeho kanonické domény — žádný duplicate-content přes víc domén ani
+    // www/non-www.
     $canonical = $meta['canonical'] ?? siteCanonicalUrl($currentPath);
     $ogImage = $meta['og_image'] ?? ($siteOrigin . '/gfx/hero-banner.jpg');
     $ogType = $meta['og_type'] ?? 'website';
