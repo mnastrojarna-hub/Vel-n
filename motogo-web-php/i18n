@@ -126,19 +126,42 @@ function i18nSiteDefaultLang() {
 }
 
 /**
- * Vrátí origin (https://motogo24.xx) pro doménovou kanonickou verzi daného jazyka.
- * Pravidlo: každý jazyk s vlastní TLD má svou doménu, ostatní → .com.
+ * Vrátí kanonický host (bez schématu) pro danou doménu.
+ *   motogo24.cz  → motogo24.cz       (Forpsi — www řeší proxy + canonical link)
+ *   motogo24.com → www.motogo24.com  (Hosting90 — Let's Encrypt cert je jen
+ *                                     na www. variantě; holá doména spadne na
+ *                                     default cert h90-w22.hosting90.cz)
+ *   ...ostatní Hosting90 TLD analogicky. Neznámá doména → beze změny.
+ */
+function i18nCanonicalHostFor($domain) {
+    if ($domain === I18N_DOMAIN_CS) return $domain;
+    if (isset(I18N_DOMAIN_DEFAULTS[$domain])) return 'www.' . $domain;
+    return $domain;
+}
+
+/** Kanonický host pro AKTUÁLNÍ request (dle HTTP_HOST, bez schématu). */
+function i18nCanonicalHost() {
+    return i18nCanonicalHostFor(i18nSiteHost());
+}
+
+/**
+ * Vrátí origin (https://[www.]motogo24.xx) pro doménovou kanonickou verzi
+ * daného jazyka. Každý jazyk má vlastní TLD; pro Hosting90 domény vždy s www.
  */
 function i18nOriginForLang($lang) {
     $domain = I18N_DOMAIN_MAP[$lang] ?? I18N_DOMAIN_INTL;
-    return 'https://' . $domain;
+    return 'https://' . i18nCanonicalHostFor($domain);
 }
 
 /**
  * Postaví kanonickou URL pro daný jazyk + cestu.
- *   cs  na .cz  → https://motogo24.cz{path}
- *   en  na .com → https://motogo24.com{path}
- *   de/fr/nl/pl/es na .com → https://motogo24.com{path}?lang=xx
+ *   cs → https://motogo24.cz{path}
+ *   en → https://www.motogo24.com{path}
+ *   de → https://www.motogo24.at{path}
+ *   es → https://www.motogo24.es{path}
+ *   pl → https://www.motogo24.pl{path}
+ *   fr → https://www.motogo24.fr{path}
+ *   nl → https://www.motogo24.nl{path}
  *
  * $forceLangQuery=true vždy přidá ?lang=xx (i pro doménový default). Používá
  * jen language switcher — díky tomu se vždy refreshne cookie `mg_web_lang`

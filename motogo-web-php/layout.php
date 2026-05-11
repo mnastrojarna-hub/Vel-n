@@ -138,7 +138,7 @@ function renderInlineJs() {
  * lokální SEO v Seznam.cz.
  */
 function buildSameAs() {
-    $list = [FB_URL, IG_URL, 'https://motogo24.cz', 'https://motogo24.com', 'https://motogo24.at', 'https://motogo24.es', 'https://motogo24.pl', 'https://motogo24.fr', 'https://motogo24.nl'];
+    $list = [FB_URL, IG_URL, 'https://motogo24.cz', 'https://www.motogo24.com', 'https://www.motogo24.at', 'https://www.motogo24.es', 'https://www.motogo24.pl', 'https://www.motogo24.fr', 'https://www.motogo24.nl'];
     $extras = [
         defined('SAMEAS_FIRMY_CZ') ? SAMEAS_FIRMY_CZ : '',
         defined('SAMEAS_MAPY_CZ')  ? SAMEAS_MAPY_CZ  : '',
@@ -286,13 +286,13 @@ function renderWebmasterVerification() {
  *
  * Cross-domain mapping (Google-friendly):
  *   hreflang="cs" → https://motogo24.cz{path}
- *   hreflang="en" → https://motogo24.com{path}
- *   hreflang="de" → https://motogo24.at{path}
- *   hreflang="es" → https://motogo24.es{path}
- *   hreflang="pl" → https://motogo24.pl{path}
- *   hreflang="fr" → https://motogo24.fr{path}
- *   hreflang="nl" → https://motogo24.nl{path}
- *   hreflang="x-default" → https://motogo24.com{path}
+ *   hreflang="en" → https://www.motogo24.com{path}
+ *   hreflang="de" → https://www.motogo24.at{path}
+ *   hreflang="es" → https://www.motogo24.es{path}
+ *   hreflang="pl" → https://www.motogo24.pl{path}
+ *   hreflang="fr" → https://www.motogo24.fr{path}
+ *   hreflang="nl" → https://www.motogo24.nl{path}
+ *   hreflang="x-default" → https://www.motogo24.com{path}
  *
  * Reciproční hreflang mezi doménami je nutný — Google jinak hreflang ignoruje.
  *
@@ -322,22 +322,24 @@ function renderHreflangAlternates($path) {
  *   breadcrumbs  — pole pro BreadcrumbList schema [['name'=>'X','url'=>'Y'], ...]
  */
 function renderPage($title, $content, $currentPath = '/', $meta = []) {
-    // Dynamická base URL podle aktuální domény (motogo24.com nová /
-    // motogo24.cz stará) — www se strippuje, schéma dle HTTPS/proxy.
-    $host = $_SERVER['HTTP_HOST'] ?? 'motogo24.cz';
-    $host = preg_replace('#^www\.#i', '', strtolower($host));
+    // Dynamická base URL podle aktuální domény. Hosting90 domény mají Let's
+    // Encrypt cert jen na www. variantě → kanonický host je s www. (.cz na
+    // Forpsi zůstává bez www). Schéma dle HTTPS/proxy.
     $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
         || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
-    $siteOrigin = ($isHttps ? 'https://' : 'http://') . $host;
+    $canonHost = function_exists('i18nCanonicalHost')
+        ? i18nCanonicalHost()
+        : preg_replace('#^www\.#i', '', strtolower($_SERVER['HTTP_HOST'] ?? 'motogo24.cz'));
+    $siteOrigin = ($isHttps ? 'https://' : 'http://') . $canonHost;
 
     // Default description per-jazyk (cs/en/de/fr/es/nl/pl) — bez tohoto fallbacku
     // by Google na .com indexoval cizojazycne stranky s ceskym defaultnim popiskem.
     $defaultDesc = function_exists('t') ? t('seo.default.description') : 'Půjčovna motorek Vysočina – silniční, sportovní, enduro i dětské. Nonstop pronájem bez kauce, online rezervace a motorkářská výbava zdarma.';
     $description = $meta['description'] ?? $defaultDesc;
     $keywords = $meta['keywords'] ?? (function_exists('t') ? t('seo.default.keywords') : 'půjčovna motorek Vysočina, pronájem motorek Pelhřimov, půjčovna motorek bez kauce, online rezervace motorky');
-    // Canonical = doménová home pro aktuální jazyk (cs → .cz, ostatní → .com).
-    // Tím Google indexuje českou verzi výhradně z motogo24.cz a anglickou/další
-    // z motogo24.com — žádný duplicate-content stejného jazyka přes obě domény.
+    // Canonical = doménová home pro aktuální jazyk (cs → motogo24.cz, ostatní →
+    // www.motogo24.<tld>). Tím Google indexuje každý jazyk výhradně z jeho
+    // kanonické domény — žádný duplicate-content přes víc domén ani www/non-www.
     $canonical = $meta['canonical'] ?? siteCanonicalUrl($currentPath);
     $ogImage = $meta['og_image'] ?? ($siteOrigin . '/gfx/hero-banner.jpg');
     $ogType = $meta['og_type'] ?? 'website';

@@ -197,12 +197,12 @@ Disallow: /potvrzeni
 # Žádné crawl-delay — máme rychlý hosting a chceme aktuální index.
 # Mapa stránek + LLM index
 Sitemap: https://motogo24.cz/sitemap.xml
-Sitemap: https://motogo24.com/sitemap.xml
-Sitemap: https://motogo24.at/sitemap.xml
-Sitemap: https://motogo24.es/sitemap.xml
-Sitemap: https://motogo24.pl/sitemap.xml
-Sitemap: https://motogo24.fr/sitemap.xml
-Sitemap: https://motogo24.nl/sitemap.xml
+Sitemap: https://www.motogo24.com/sitemap.xml
+Sitemap: https://www.motogo24.at/sitemap.xml
+Sitemap: https://www.motogo24.es/sitemap.xml
+Sitemap: https://www.motogo24.pl/sitemap.xml
+Sitemap: https://www.motogo24.fr/sitemap.xml
+Sitemap: https://www.motogo24.nl/sitemap.xml
 
 # LLM-friendly katalog obsahu (markdown):
 #   https://motogo24.cz/llms.txt          — krátký index s odkazy

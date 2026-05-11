@@ -2,27 +2,28 @@ RewriteEngine On
 RewriteBase /
 
 # === 0. Let's Encrypt ACME HTTP-01 validation ===================================
-# MUSI byt PRED force-HTTPS redirectem. Bez teto vyjimky se Let's Encrypt
-# validator (HTTP request na /.well-known/acme-challenge/<token>) presmeruje
-# na HTTPS, ktere je pri prvnim vystaveni certu rozbite (chicken-and-egg)
-# -> validace selze a Hosting90 panel ukazuje SSL "Aktivni" lhářsky,
-# zatimco server serviruje default cert h90-w22.hosting90.cz.
+# MUSI byt PRED vsemi redirecty. Bez teto vyjimky se Let's Encrypt validator
+# (HTTP request na /.well-known/acme-challenge/<token>) presmeruje na HTTPS/www,
+# coz pri prvnim vystaveni certu rozbije validaci (chicken-and-egg) -> validace
+# selze a Hosting90 panel pak ukazuje SSL "Aktivni" lhářsky, zatimco server
+# serviruje default cert h90-w22.hosting90.cz.
 RewriteRule ^\.well-known/acme-challenge/ - [L]
 
-# === 1. Force HTTPS (Forpsi + Hosting90 robust) =================================
+# === 1. Force https://www. pro domeny na Hosting90 ==============================
+# Hosting90 vystavuje Let's Encrypt cert jen na www. variantu (vhost ma
+# www.motogo24.<tld> jako primarni jmeno). Hola domena bez www spada na default
+# cert h90-w22.hosting90.cz -> "Nezabezpeceno" v prohlizeci. Presmerujeme proto
+# holou domenu rovnou na https://www.<tld> (jeden redirect, aby browser ani na
+# moment nesahnul na spatny cert). Musi byt PRED obecnym force-HTTPS nize.
+# .cz je na Forpsi (jiny provider) - tam www resi proxy, .htaccess se ho netyka.
+RewriteCond %{HTTP_HOST} ^motogo24\.(com|pl|at|es|fr|nl)$ [NC]
+RewriteRule ^(.*)$ https://www.motogo24.%1/$1 [L,R=301]
+
+# === 2. Force HTTPS pro zbytek (www. varianty + .cz) ===========================
 # Dve podminky kvuli proxy: HTTPS=on i na portu 80 muze byt false-positive.
 RewriteCond %{HTTPS} off
 RewriteCond %{HTTP:X-Forwarded-Proto} !=https
 RewriteRule ^(.*)$ https://%{HTTP_HOST}/$1 [L,R=301]
-
-# === 2. Force non-www pro domeny mimo .cz =======================================
-# .cz je na Forpsi, kde proxy/DNS sam vynucuje www -> s timto pravidlem
-# vznikal ERR_TOO_MANY_REDIRECTS. Pro .cz spoleháme na <link rel="canonical">
-# v layout.php:605 (siteCanonicalUrl vraci vzdy non-www variantu).
-# Pro ostatni domeny (.com/.pl/.at/.es/.fr/.nl na Hosting90) 301 funguje korektne
-# a zaroven dorovnava chybejici redirect na non-www variantu.
-RewriteCond %{HTTP_HOST} ^www\.motogo24\.(com|pl|at|es|fr|nl)$ [NC]
-RewriteRule ^(.*)$ https://motogo24.%1/$1 [L,R=301]
 
 # === 3. Stare URL z puvodni verze webu (WordPress?) -> nove URL ==================
 # Google ma tyto URL v indexu od predchozi verze. 301 redirecty zajisti
