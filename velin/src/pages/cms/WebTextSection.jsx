@@ -84,10 +84,30 @@ function FieldRow({ field, value, onSaved, fieldUrl, hasToken }) {
   const [saving, setSaving] = useState(false)
   const [translating, setTranslating] = useState(false)
   const [saved, setSaved] = useState(false)
+  // null = nic, true = přeloženo OK, string = chybová hláška
+  const [translateResult, setTranslateResult] = useState(null)
+  const [rowId, setRowId] = useState(null)
+  const [savedVal, setSavedVal] = useState(null) // poslední úspěšně uložená hodnota (pro retry překladu)
   const changed = val !== currentVal
+
+  // Spustí auto-překlad přes edge fn translate-content a zobrazí výsledek.
+  async function runTranslate(id, text) {
+    if (!id || typeof text !== 'string' || text.trim().length === 0) return
+    setTranslating(true)
+    setTranslateResult(null)
+    const res = await autoTranslate({ table: 'cms_variables', id, fields: { value: text } })
+    setTranslating(false)
+    if (res?.success) {
+      setTranslateResult(true)
+    } else {
+      // typické kódy: insufficient_credits, invalid_api_key, rate_limit, anthropic_error
+      setTranslateResult(res?.error || 'Překlad selhal')
+    }
+  }
 
   async function save() {
     setSaving(true)
+    setTranslateResult(null)
     // Check if key exists, then insert or update
     const { data: existing } = await supabase
       .from('cms_variables')
@@ -96,26 +116,24 @@ function FieldRow({ field, value, onSaved, fieldUrl, hasToken }) {
       .maybeSingle()
 
     let error
-    let rowId = existing?.id
+    let id = existing?.id
     if (existing) {
       const res = await supabase.from('cms_variables').update({ value: val }).eq('key', field.key)
       error = res.error
     } else {
       const res = await supabase.from('cms_variables').insert({ key: field.key, value: val, category: 'web' }).select().single()
       error = res.error
-      rowId = res?.data?.id
+      id = res?.data?.id
     }
     setSaving(false)
     if (!error) {
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
       onSaved?.(field.key, val)
+      setRowId(id || null)
+      setSavedVal(val)
       // Auto-překlad pro web (na pozadí, jen pro non-empty)
-      if (rowId && typeof val === 'string' && val.trim().length > 0) {
-        setTranslating(true)
-        autoTranslate({ table: 'cms_variables', id: rowId, fields: { value: val } })
-          .finally(() => setTranslating(false))
-      }
+      if (id) await runTranslate(id, val)
     }
   }
 
@@ -165,7 +183,7 @@ function FieldRow({ field, value, onSaved, fieldUrl, hasToken }) {
             minHeight={field.type === 'textarea' ? 120 : 56}
           />
         </div>
-        <div className="flex gap-2 items-center mt-2">
+        <div className="flex gap-2 items-center mt-2 flex-wrap">
           {changed && (
             <button
               onClick={save}
@@ -176,13 +194,28 @@ function FieldRow({ field, value, onSaved, fieldUrl, hasToken }) {
               {saving ? '...' : 'Uložit'}
             </button>
           )}
-          {!changed && saved && (
-            <span className="text-xs font-bold" style={{ color: '#22c55e' }}>
-              {translating ? '🌍 Překládám…' : 'Uloženo'}
-            </span>
+          {!changed && saved && !translating && translateResult === null && (
+            <span className="text-xs font-bold" style={{ color: '#22c55e' }}>Uloženo</span>
           )}
-          {!changed && !saved && translating && (
-            <span className="text-xs font-bold" style={{ color: '#1d4ed8' }}>🌍 Překládám…</span>
+          {translating && (
+            <span className="text-xs font-bold" style={{ color: '#1d4ed8' }}>🌍 Překládám do EN/DE/ES/FR/NL/PL…</span>
+          )}
+          {!translating && translateResult === true && (
+            <span className="text-xs font-bold" style={{ color: '#22c55e' }}>🌍 Přeloženo ✓</span>
+          )}
+          {!translating && typeof translateResult === 'string' && (
+            <>
+              <span className="text-xs font-bold" style={{ color: '#dc2626' }}>🌍 Překlad selhal: {translateResult}</span>
+              {rowId && savedVal && (
+                <button
+                  onClick={() => runTranslate(rowId, savedVal)}
+                  className="rounded-btn text-xs font-extrabold cursor-pointer"
+                  style={{ padding: '4px 10px', background: '#fee2e2', color: '#991b1b', border: '1px solid #fecaca' }}
+                >
+                  Zkusit přeložit znovu
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>

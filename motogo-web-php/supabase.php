@@ -348,16 +348,26 @@ class SupabaseClient {
 
             // Vyber hodnotu — preferuj překlad pokud existuje a není prázdný
             $val = $row['value'] ?? null;
-            if ($lang !== 'cs' && !empty($row['translations']) && is_array($row['translations'])) {
-                $tr = $row['translations'];
-                if (isset($tr[$lang])) {
-                    if (is_array($tr[$lang]) && isset($tr[$lang]['value'])) {
-                        $cand = $tr[$lang]['value'];
-                    } else {
-                        $cand = $tr[$lang];
+            if ($lang !== 'cs') {
+                // Pro cizí jazyk hledáme překlad v JSONB sloupci `translations`
+                // (struktura {lang: {value: '…'}} nebo {lang: '…'} ).
+                $cand = null;
+                if (!empty($row['translations']) && is_array($row['translations'])) {
+                    $tr = $row['translations'];
+                    if (isset($tr[$lang])) {
+                        $cand = (is_array($tr[$lang]) && isset($tr[$lang]['value'])) ? $tr[$lang]['value'] : $tr[$lang];
                     }
-                    if (is_string($cand) && $cand !== '') $val = $cand;
                 }
+                // KLÍČOVÉ: pokud překlad pro tento jazyk chybí (auto-překlad ještě
+                // neproběhl, nebo selhal edge fn `translate-content`), klíč VŮBEC
+                // nezařazujeme do overlay — ať se text vezme z `pages_overlay`
+                // (tlačítko „Přeložit vše naráz") nebo statického `lang/pages_<lang>.php`.
+                // Jinak by `cmsDeepMerge` přepsal hezký překlad ČESKÝM textem
+                // hned po uložení v Velínu (reportovaný bug s hero bannerem).
+                if (!is_string($cand) || $cand === '') {
+                    continue;
+                }
+                $val = $cand;
             }
             // jsonb sloupec se vrací buď jako primitiva (string/number) nebo jako pole
             if (is_string($val) || is_numeric($val) || is_bool($val) || $val === null || is_array($val)) {
