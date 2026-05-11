@@ -1208,10 +1208,119 @@ return [
             'h1' => 'Übernahme des Motorrads in der Vermietung – schnell, einfach und rund um die Uhr',
             'intro' => 'Bei <strong>Motogo24 – Motorradvermietung Vysočina</strong> ist die <strong>Motorradübernahme</strong> in wenigen Minuten erledigt.',
             'top_cta' => [
+                'aria' => 'Zur Online-Reservierung eines Motorrads bei der Motogo24-Vermietung',
                 'label' => 'ONLINE RESERVIEREN',
                 'href' => '/rezervace',
             ],
+            'place' => [
+                'map_src' => 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d53928.274636159236!2d15.154130970132716!3d49.35168867371007!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x470ce75bf69a97b3%3A0xe75f9d3fadf02b5b!2zTWV6bsOhIDksIDM5MyAwMSBNZXpuw6E!5e0!3m2!1scs!2scz!4v1759860051295!5m2!1scs!2scz',
+                'title' => 'Wo die Übernahme des Motorrads stattfindet',
+                'address_label' => 'Betriebsstätte:',
+                'address' => 'Mezná 9, 393 01 <strong>Pelhřimov</strong> (Vysočina)',
+                'hours_label' => 'Öffnungszeiten:',
+                'hours' => '<em>rund um die Uhr</em> (Abholung und Rückgabe jederzeit am Miettag)',
+                'map_title' => 'Wie du zu uns kommst',
+            ],
+            'process' => [
+                'title' => 'Wie die Abholung in der Vermietung abläuft',
+                'grid' => 'gr4',
+                'steps' => [
+                    [
+                        'icon' => 'gfx/cas-prevzeti-motorky.svg',
+                        'title' => 'Komm zur vereinbarten Zeit',
+                        'text' => 'Zu unserer Adresse: Mezná 9, 393 01 Pelhřimov.',
+                    ],
+                    [
+                        'icon' => 'gfx/overime-doklady.svg',
+                        'title' => 'Wir prüfen die Dokumente',
+                        'text' => 'Personalausweis/Reisepass und ein Führerschein der entsprechenden Klasse',
+                    ],
+                    [
+                        'icon' => 'gfx/doplnime-smlouvu.svg',
+                        'title' => 'Wir vervollständigen den Vertrag',
+                        'text' => 'Wir vervollständigen den vorausgefüllten Mietvertrag mit den Daten aus deinen Dokumenten.',
+                    ],
+                    [
+                        'icon' => 'gfx/vyber-vybavu.svg',
+                        'title' => 'Du wählst und probierst die Ausrüstung an',
+                        'text' => 'Die Ausrüstung aus deiner Reservierung kannst du in unserer Anprobekabine ausprobieren.',
+                    ],
+                    [
+                        'icon' => 'gfx/prevezmi-motorku.svg',
+                        'title' => 'Wir gehen das Motorrad gemeinsam durch',
+                        'text' => 'Wir prüfen den Zustand der Maschine und du machst dich mit ihrer Bedienung vertraut.',
+                    ],
+                    [
+                        'icon' => 'gfx/podpis-dokumentu.svg',
+                        'title' => 'Wir unterschreiben das Übergabeprotokoll',
+                        'text' => 'Wir dokumentieren den Zustand von Motorrad und Ausrüstung vor der Miete.',
+                    ],
+                    [
+                        'icon' => 'gfx/predani-motorky.svg',
+                        'title' => 'Wir übergeben die Schlüssel',
+                        'text' => 'Das Motorrad ist bereit und wartet auf dich.',
+                    ],
+                    [
+                        'icon' => 'gfx/uzij-si-jizdu.svg',
+                        'title' => 'Du kannst losfahren',
+                        'text' => 'Auf die Straße – ohne Kaution, ohne Stress. Der Rest ist nur Asphalt und Freiheit.',
+                    ],
+                ],
+            ],
+            'amenities' => [
+                'title' => 'Was du in der Vermietung findest',
+                'lead' => 'Für eine bequeme Abholung haben wir vorbereitet – alles gratis:',
+                'items' => [
+                    'Kundenparkplatz (begrenzte Kapazität)',
+                    'WLAN',
+                    'WC',
+                    'eine Anprobekabine zum Anprobieren der Ausrüstung',
+                    'abschließbare Schließfächer für persönliche Gegenstände, die du nicht mitnehmen möchtest (begrenzte Kapazität)',
+                ],
+                'cta' => [
+                    'label' => 'TERMIN BUCHEN',
+                    'href' => '/rezervace',
+                    'aria' => 'Einen Termin zur Abholung eines Motorrads bei Motogo24 buchen',
+                ],
+            ],
+            'bring' => [
+                'title' => 'Was du mitnehmen solltest',
+                'items' => [
+                    'gültiger Personalausweis oder Reisepass',
+                    'gültiger Führerschein mit Berechtigung der entsprechenden Klasse (A/A2 je nach gewähltem Motorrad)',
+                    'eigene Ausrüstung – Helm, Jacke, Hose, Handschuhe (falls nicht bei uns reserviert)',
+                    'festes Schuhwerk (falls du bei uns keine Reservierung für Motorradstiefel hast)',
+                    'eigene Navigation oder ein Telefon mit Navi-App – die Navigation ist nicht Teil der Miete',
+                ],
+            ],
+            'faq' => [
+                'title' => 'Häufige Fragen zur Abholung',
+                'items' => [
+                    [
+                        'q' => 'Muss ich bei der Abholung eine Kaution zahlen?',
+                        'a' => 'Nein, <strong>wir vermieten ohne Kaution</strong>. Die Bedingungen sind klar festgelegt und fair.',
+                    ],
+                    [
+                        'q' => 'Ist ein Kontakt ohne persönliches Treffen möglich?',
+                        'a' => 'Ja, wir bieten nach Absprache eine <strong>kontaktlose Übergabe</strong> an. Anweisungen und Dokumente erhältst du vorab.',
+                    ],
+                    [
+                        'q' => 'Was, wenn ich die vereinbarte Zeit nicht schaffe?',
+                        'a' => 'Gib uns telefonisch Bescheid – wir passen die Zeit an oder bieten <strong>Lieferung</strong> / einen anderen Termin an.',
+                    ],
+                    [
+                        'q' => 'Ist die Ausrüstung für den Sozius auch im Preis?',
+                        'a' => 'Die Fahrerausrüstung ist immer im Preis. Die Ausrüstung für den Sozius kann als <strong>Zusatzleistung</strong> dazugebucht werden.',
+                    ],
+                ],
+            ],
+            'mid_cta' => [
+                'label' => 'ABHOLUNG RESERVIEREN',
+                'href' => '/rezervace',
+                'aria' => 'Eine Motorradabholung bei der Motogo24-Vermietung reservieren',
+            ],
             'cta' => [
+                'text2' => 'Wähle ein <strong>Touren-, Supermoto-, Naked- oder Kindermotorrad</strong> und reserviere es bequem online.',
                 'title' => 'Übernahme des Motorrads in der Vermietung – Motogo24 Vysočina',
                 'text' => 'Motogo24 ist eine <strong>Motorradvermietung in Vysočina</strong> mit <strong>Rund-um-die-Uhr-Übernahme und -Rückgabe</strong>.',
                 'buttons' => [
@@ -1231,9 +1340,73 @@ return [
             ],
             'h1' => 'Motorrad-Rückgabe in der Vermietung',
             'intro' => 'Du gibst das Motorrad bequem direkt bei <strong>Motogo24 – Motorradvermietung in Vysočina</strong> zurück. <strong>Rund-um-die-Uhr-Service</strong>, ohne Stress.',
-            'top_cta' => [
-                'label' => 'ONLINE RESERVIEREN',
-                'href' => '/rezervace',
+            'process' => [
+                'grid' => 'gr4',
+                'steps' => [
+                    [
+                        'icon' => 'gfx/cas-prevzeti-motorky.svg',
+                        'title' => 'Komm zur vereinbarten Zeit',
+                        'text' => '',
+                    ],
+                    [
+                        'icon' => 'gfx/predani-motorky.svg',
+                        'title' => 'Übergib die Schlüssel und die Ausrüstung',
+                        'text' => '',
+                    ],
+                    [
+                        'icon' => 'gfx/prevezmi-motorku.svg',
+                        'title' => 'Wir prüfen den Zustand von Motorrad und Ausrüstung gemeinsam',
+                        'text' => '',
+                    ],
+                    [
+                        'icon' => 'gfx/sleva-na-pristi-jizdu.svg',
+                        'title' => 'Du erhältst eine E-Mail mit der Bestätigung über das Mietende, der Endrechnung und einem Rabattcode für die nächste Reservierung.',
+                        'text' => '',
+                    ],
+                ],
+            ],
+            'time' => [
+                'title' => 'Rückgabezeit',
+                'text' => 'Bitte halte die Rückgabezeit ein – damit hilfst du uns sicherzustellen, dass der nächste Kunde das Motorrad pünktlich übernimmt. Wenn du dich doch verspätest, gib uns bitte telefonisch Bescheid. Bis Mitternacht des letzten Miettags zahlst du keine Gebühr. Wenn du das Motorrad deutlich danach zurückgibst, wird dir die Miete für einen weiteren Tag berechnet.',
+            ],
+            'issues' => [
+                'title' => 'Unstimmigkeiten bei der Rückgabe',
+                'lead' => 'Bei der Übergabe prüfen wir gemeinsam den Zustand von Motorrad und Ausrüstung. Sollte eine der unten genannten Situationen eintreten, erstellen wir ein Protokoll über den festgestellten Schaden:',
+                'items' => [
+                    'fehlende Ausrüstung',
+                    'beschädigte Ausrüstung',
+                    'beschädigtes Motorrad',
+                ],
+                'closing' => 'Der Kunde unterschreibt das Protokoll und erhält eine Kopie davon. Das weitere Vorgehen richtet sich nach den Bedingungen des Mietvertrags und den AGB.',
+            ],
+            'faq' => [
+                'title' => 'Häufig gestellte Fragen zur Rückgabe des Motorrads in der Vermietung',
+                'items' => [
+                    [
+                        'q' => 'Bis wann muss ich das Motorrad zurückgeben?',
+                        'a' => 'Gib das Motorrad idealerweise zur vereinbarten Zeit zurück. Wenn du am Standort der Vermietung zurückgibst, kannst du nach Absprache jederzeit am letzten Miettag kommen – spätestens bis Mitternacht, ohne jegliche Sanktionen. Gibst du an einem anderen Ort zurück, ist die vereinbarte Zeit verbindlich.',
+                    ],
+                    [
+                        'q' => 'Muss ich es mit vollem Tank und sauber zurückgeben?',
+                        'a' => 'Nein. Bei uns tankst und wäschst du nicht. Achte nur darauf, dass die Reserveleuchte nicht leuchtet.&nbsp;',
+                    ],
+                    [
+                        'q' => 'Kann ich das Motorrad früher in die Vermietung zurückgeben als vereinbart?',
+                        'a' => 'Ja, du kannst das Motorrad jederzeit am letzten Miettag zurückgeben. Gib uns nur Bescheid, dass du früher kommst. Wir berechnen keine Aufpreise für eine frühere Rückgabe.',
+                    ],
+                    [
+                        'q' => 'Was passiert, wenn ich das Motorrad nicht bis Mitternacht des letzten Tages zurückbringe?&nbsp;',
+                        'a' => 'Wenn du weißt, dass du es nicht schaffst, melde dich so früh wie möglich bei uns. Wir finden eine Lösung. Bei einer nicht angekündigten verspäteten Rückgabe wird nach den Bedingungen des Mietvertrags verfahren.',
+                    ],
+                    [
+                        'q' => 'Muss ich bei der Rückgabe in der Vermietung etwas unterschreiben?&nbsp;',
+                        'a' => 'Wenn alles in Ordnung ist, läuft die Rückgabe schnell und ohne unnötigen Papierkram ab. Die Bestätigung über das Mietende und die Endrechnung erhältst du per E-Mail.',
+                    ],
+                    [
+                        'q' => 'Wie läuft die Kontrolle des Motorrads bei der Rückgabe in der Vermietung ab?&nbsp;',
+                        'a' => 'Wir gehen gemeinsam den Zustand von Motorrad und Ausrüstung durch. Wenn alles in Ordnung ist, übernehmen wir die Schlüssel und die Ausrüstung und du kannst gehen. Das dauert nur ein paar Minuten.',
+                    ],
+                ],
             ],
             'cta' => [
                 'title' => 'Motorrad-Rückgabe in der Vermietung – Motogo24 Pelhřimov',
@@ -1245,6 +1418,10 @@ return [
                         'cls' => 'btndark pulse',
                     ],
                 ],
+            ],
+            'top_cta' => [
+                'label' => 'ONLINE RESERVIEREN',
+                'href' => '/rezervace',
             ],
         ],
         'poukazy' => [

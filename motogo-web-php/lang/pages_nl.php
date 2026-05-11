@@ -1208,10 +1208,119 @@ return [
             'h1' => 'Ophalen van de motor bij verhuur – snel, eenvoudig en 24/7',
             'intro' => 'Bij <strong>Motogo24 – motorverhuur Vysočina</strong> is het <strong>ophalen van de motor</strong> in een paar minuten geregeld.',
             'top_cta' => [
+                'aria' => 'Naar de online reservering van een motor bij de Motogo24-verhuur',
                 'label' => 'ONLINE RESERVEREN',
                 'href' => '/rezervace',
             ],
+            'place' => [
+                'map_src' => 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d53928.274636159236!2d15.154130970132716!3d49.35168867371007!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x470ce75bf69a97b3%3A0xe75f9d3fadf02b5b!2zTWV6bsOhIDksIDM5MyAwMSBNZXpuw6E!5e0!3m2!1scs!2scz!4v1759860051295!5m2!1scs!2scz',
+                'title' => 'Waar het ophalen van de motor plaatsvindt',
+                'address_label' => 'Vestiging:',
+                'address' => 'Mezná 9, 393 01 <strong>Pelhřimov</strong> (Vysočina)',
+                'hours_label' => 'Openingstijden:',
+                'hours' => '<em>24/7</em> (ophalen en terugbrengen op elk moment van de huurdag)',
+                'map_title' => 'Hoe je bij ons komt',
+            ],
+            'process' => [
+                'title' => 'Hoe het ophalen bij de verhuur werkt',
+                'grid' => 'gr4',
+                'steps' => [
+                    [
+                        'icon' => 'gfx/cas-prevzeti-motorky.svg',
+                        'title' => 'Kom op de afgesproken tijd',
+                        'text' => 'Naar ons adres: Mezná 9, 393 01 Pelhřimov.',
+                    ],
+                    [
+                        'icon' => 'gfx/overime-doklady.svg',
+                        'title' => 'We controleren de documenten',
+                        'text' => 'ID-kaart/paspoort en een rijbewijs van de juiste categorie',
+                    ],
+                    [
+                        'icon' => 'gfx/doplnime-smlouvu.svg',
+                        'title' => 'We vullen het contract aan',
+                        'text' => 'We vullen het vooraf ingevulde huurcontract aan met de gegevens uit je documenten.',
+                    ],
+                    [
+                        'icon' => 'gfx/vyber-vybavu.svg',
+                        'title' => 'Je kiest en past de uitrusting',
+                        'text' => 'De uitrusting uit je reservering kun je in onze pashokje passen.',
+                    ],
+                    [
+                        'icon' => 'gfx/prevezmi-motorku.svg',
+                        'title' => 'We lopen de motor samen na',
+                        'text' => 'We controleren de staat van de machine en je maakt je vertrouwd met de bediening.',
+                    ],
+                    [
+                        'icon' => 'gfx/podpis-dokumentu.svg',
+                        'title' => 'We ondertekenen het overdrachtsprotocol',
+                        'text' => 'We documenteren de staat van de motor en uitrusting vóór de huur.',
+                    ],
+                    [
+                        'icon' => 'gfx/predani-motorky.svg',
+                        'title' => 'We overhandigen de sleutels',
+                        'text' => 'De motor is klaar en wacht op je.',
+                    ],
+                    [
+                        'icon' => 'gfx/uzij-si-jizdu.svg',
+                        'title' => 'Je kunt vertrekken',
+                        'text' => 'De weg op – zonder borg, zonder stress. De rest is gewoon asfalt en vrijheid.',
+                    ],
+                ],
+            ],
+            'amenities' => [
+                'title' => 'Wat je bij de verhuur vindt',
+                'lead' => 'Voor een comfortabel ophalen hebben we klaarstaan – alles gratis:',
+                'items' => [
+                    'klantenparkeerplaats (beperkte capaciteit)',
+                    'wifi',
+                    'toilet',
+                    'een pashokje om de uitrusting te passen',
+                    'afsluitbare lockers voor persoonlijke spullen die je niet mee op reis wilt nemen (beperkte capaciteit)',
+                ],
+                'cta' => [
+                    'label' => 'EEN TIJD RESERVEREN',
+                    'href' => '/rezervace',
+                    'aria' => 'Een tijd reserveren om een motor op te halen bij Motogo24',
+                ],
+            ],
+            'bring' => [
+                'title' => 'Wat je moet meenemen',
+                'items' => [
+                    'geldige ID-kaart of paspoort',
+                    'geldig rijbewijs met bevoegdheid van de juiste categorie (A/A2 afhankelijk van de gekozen motor)',
+                    'eigen uitrusting – helm, jas, broek, handschoenen (als je die niet bij ons hebt gereserveerd)',
+                    'stevig schoeisel (als je bij ons geen reservering voor motorlaarzen hebt)',
+                    'eigen navigatie of een telefoon met navigatie-app – navigatie maakt geen deel uit van de huur',
+                ],
+            ],
+            'faq' => [
+                'title' => 'Veelgestelde vragen over ophalen',
+                'items' => [
+                    [
+                        'q' => 'Moet ik bij het ophalen een borg betalen?',
+                        'a' => 'Nee, <strong>we verhuren zonder borg</strong>. De voorwaarden zijn duidelijk vastgelegd en eerlijk.',
+                    ],
+                    [
+                        'q' => 'Is contact zonder persoonlijke ontmoeting mogelijk?',
+                        'a' => 'Ja, we bieden na afspraak een <strong>contactloze overdracht</strong> aan. Instructies en documenten ontvang je vooraf.',
+                    ],
+                    [
+                        'q' => 'Wat als ik de afgesproken tijd niet haal?',
+                        'a' => 'Laat het ons telefonisch weten – we passen de tijd aan of bieden <strong>bezorging</strong> / een andere datum aan.',
+                    ],
+                    [
+                        'q' => 'Is de uitrusting voor de passagier ook in de prijs?',
+                        'a' => 'De rijdersuitrusting zit altijd in de prijs. De uitrusting voor de passagier kan als <strong>aanvulling</strong> worden bijbesteld.',
+                    ],
+                ],
+            ],
+            'mid_cta' => [
+                'label' => 'OPHALEN RESERVEREN',
+                'href' => '/rezervace',
+                'aria' => 'Het ophalen van een motor bij de Motogo24-verhuur reserveren',
+            ],
             'cta' => [
+                'text2' => 'Kies een <strong>toer-, supermoto-, naked- of kindermotor</strong> en reserveer hem comfortabel online.',
                 'title' => 'Ophalen motor bij verhuur – Motogo24 Vysočina',
                 'text' => 'Motogo24 is een <strong>motorverhuur in Vysočina</strong> met <strong>24/7 ophalen en inleveren</strong>.',
                 'buttons' => [
@@ -1231,9 +1340,73 @@ return [
             ],
             'h1' => 'Motor inleveren bij verhuur',
             'intro' => 'Lever de motor gemakkelijk in bij <strong>Motogo24 – motorverhuur in Vysočina</strong>. <strong>24/7 service</strong>, zonder stress.',
-            'top_cta' => [
-                'label' => 'ONLINE RESERVEREN',
-                'href' => '/rezervace',
+            'process' => [
+                'grid' => 'gr4',
+                'steps' => [
+                    [
+                        'icon' => 'gfx/cas-prevzeti-motorky.svg',
+                        'title' => 'Kom op de afgesproken tijd',
+                        'text' => '',
+                    ],
+                    [
+                        'icon' => 'gfx/predani-motorky.svg',
+                        'title' => 'Geef de sleutels en uitrusting over',
+                        'text' => '',
+                    ],
+                    [
+                        'icon' => 'gfx/prevezmi-motorku.svg',
+                        'title' => 'We controleren de staat van de motor en uitrusting samen',
+                        'text' => '',
+                    ],
+                    [
+                        'icon' => 'gfx/sleva-na-pristi-jizdu.svg',
+                        'title' => 'Je krijgt een e-mail met de bevestiging van het einde van de huur, de eindfactuur en een kortingscode voor je volgende reservering.',
+                        'text' => '',
+                    ],
+                ],
+            ],
+            'time' => [
+                'title' => 'Retourtijd',
+                'text' => 'Houd je alsjeblieft aan de retourtijd – zo help je ons ervoor te zorgen dat de volgende klant de motor op tijd ophaalt. Als je toch te laat bent, laat het ons telefonisch weten. Tot middernacht van de laatste huurdag betaal je geen kosten. Als je de motor ruim daarna terugbrengt, wordt er huur voor nog een dag in rekening gebracht.',
+            ],
+            'issues' => [
+                'title' => 'Onregelmatigheden bij teruggave',
+                'lead' => 'Bij de overdracht controleren we samen de staat van de motor en uitrusting. Mocht een van de onderstaande situaties zich voordoen, dan stellen we een rapport op van de geconstateerde schade:',
+                'items' => [
+                    'ontbrekende uitrusting',
+                    'beschadigde uitrusting',
+                    'beschadigde motor',
+                ],
+                'closing' => 'De klant ondertekent het rapport en ontvangt een kopie ervan. Het verdere verloop wordt geregeld door de voorwaarden van de huurovereenkomst en de algemene voorwaarden.',
+            ],
+            'faq' => [
+                'title' => 'Veelgestelde vragen over de motor terugbrengen bij de verhuur',
+                'items' => [
+                    [
+                        'q' => 'Wanneer moet ik de motor uiterlijk terugbrengen?',
+                        'a' => 'Breng de motor idealiter op de afgesproken tijd terug. Als je bij de verhuur terugbrengt, kun je in overleg op elk moment van de laatste huurdag komen – uiterlijk om middernacht, zonder enige sanctie. Breng je op een andere locatie terug, dan is de afgesproken tijd bindend.',
+                    ],
+                    [
+                        'q' => 'Moet ik hem met een volle tank en schoon terugbrengen?',
+                        'a' => 'Nee. Bij ons tank of was je niet. Let er alleen op dat het reservelampje niet brandt.&nbsp;',
+                    ],
+                    [
+                        'q' => 'Kan ik de motor eerder bij de verhuur terugbrengen dan afgesproken?',
+                        'a' => 'Ja, je kunt de motor op elk moment van de laatste huurdag terugbrengen. Laat het ons gewoon weten dat je eerder komt. We rekenen geen toeslagen voor een eerdere teruggave.',
+                    ],
+                    [
+                        'q' => 'Wat gebeurt er als ik de motor niet vóór middernacht van de laatste dag terugbreng?&nbsp;',
+                        'a' => 'Als je weet dat je het niet haalt, neem dan zo snel mogelijk contact met ons op. We vinden een oplossing. Bij een niet-gemelde late teruggave wordt gehandeld volgens de voorwaarden van de huurovereenkomst.',
+                    ],
+                    [
+                        'q' => 'Moet ik bij de teruggave bij de verhuur iets ondertekenen?&nbsp;',
+                        'a' => 'Als alles in orde is, verloopt de teruggave snel en zonder onnodig papierwerk. De bevestiging van het einde van de huur en de eindfactuur krijg je per e-mail.',
+                    ],
+                    [
+                        'q' => 'Hoe verloopt de controle van de motor bij de teruggave bij de verhuur?&nbsp;',
+                        'a' => 'We lopen samen de staat van de motor en uitrusting na. Als alles in orde is, nemen we de sleutels en uitrusting over en kun je gaan. Het duurt maar een paar minuten.',
+                    ],
+                ],
             ],
             'cta' => [
                 'title' => 'Motor inleveren bij verhuur – Motogo24 Pelhřimov',
@@ -1245,6 +1418,10 @@ return [
                         'cls' => 'btndark pulse',
                     ],
                 ],
+            ],
+            'top_cta' => [
+                'label' => 'ONLINE RESERVEREN',
+                'href' => '/rezervace',
             ],
         ],
         'poukazy' => [

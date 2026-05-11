@@ -280,7 +280,11 @@ return [
                         'a' => 'Tu peux rendre la moto à n\'importe quel moment durant le dernier jour de location – même à minuit.',
                     ],
                 ],
-                'more_link' => '/jak-pujcit/faq',
+                'more_link' => [
+                    'label' => 'Plus de questions fréquentes',
+                    'href' => '/jak-pujcit/faq',
+                    'aria' => 'Lire plus de questions fréquentes',
+                ],
             ],
             'cta' => [
                 'title' => 'Prêt à rouler ?',
@@ -304,10 +308,12 @@ return [
             'h1' => 'Prise en main de la moto à la location – rapide, simple et 24h/24',
             'intro' => 'Chez <strong>Motogo24 – location de motos Vysočina</strong>, la <strong>prise en main de la moto</strong> est l\'affaire de quelques minutes. Nous louons <strong>sans caution</strong>, avec <strong>équipement inclus</strong> et un <strong>service 24h/24</strong>.',
             'top_cta' => [
+                'aria' => 'Aller à la réservation en ligne d\'une moto à la location Motogo24',
                 'label' => 'RÉSERVER EN LIGNE',
                 'href' => '/rezervace',
             ],
             'place' => [
+                'map_src' => 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d53928.274636159236!2d15.154130970132716!3d49.35168867371007!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x470ce75bf69a97b3%3A0xe75f9d3fadf02b5b!2zTWV6bsOhIDksIDM5MyAwMSBNZXpuw6E!5e0!3m2!1scs!2scz!4v1759860051295!5m2!1scs!2scz',
                 'title' => 'Où se déroule la prise en main',
                 'address_label' => 'Adresse :',
                 'hours_label' => 'Horaires :',
@@ -318,34 +324,66 @@ return [
                 'return_title' => 'Restitution de la moto – sans stress',
                 'return_text' => 'Tu peux rendre la moto <strong>à n\'importe quel moment durant le dernier jour de location</strong>. Plus d\'informations dans <a href="/jak-pujcit/vraceni-pujcovna">restitution à la location</a> ou <a href="/jak-pujcit/vraceni-jinde">restitution ailleurs</a>.',
             ],
-            'steps' => [
-                'title' => 'Comment se déroule la prise en main étape par étape',
-                'items' => [
+            'process' => [
+                'title' => 'Comment se déroule le retrait à la location',
+                'grid' => 'gr4',
+                'steps' => [
                     [
                         'icon' => 'gfx/cas-prevzeti-motorky.svg',
-                        'title' => 'Viens à l\'heure convenue',
-                        'text' => 'à notre adresse ou attends la livraison',
+                        'title' => 'Venez à l\'heure convenue',
+                        'text' => 'À notre adresse : Mezná 9, 393 01 Pelhřimov.',
                     ],
                     [
                         'icon' => 'gfx/overime-doklady.svg',
                         'title' => 'Nous vérifions les documents',
-                        'text' => 'CI/passeport + permis de conduire de la catégorie correspondante',
+                        'text' => 'Carte d\'identité/passeport et un permis de conduire de la catégorie appropriée',
                     ],
                     [
-                        'icon' => 'gfx/predani-motorky.svg',
-                        'title' => 'Nous remettons la moto et l\'équipement',
-                        'text' => 'casque, blouson, pantalon, gants',
+                        'icon' => 'gfx/doplnime-smlouvu.svg',
+                        'title' => 'Nous complétons le contrat',
+                        'text' => 'Nous complétons le contrat de location pré-rempli avec les données de vos documents.',
+                    ],
+                    [
+                        'icon' => 'gfx/vyber-vybavu.svg',
+                        'title' => 'Vous choisissez et essayez l\'équipement',
+                        'text' => 'Vous pouvez essayer l\'équipement de votre réservation dans notre cabine d\'essayage.',
                     ],
                     [
                         'icon' => 'gfx/prevezmi-motorku.svg',
-                        'title' => 'Brève présentation de la machine',
-                        'text' => 'commandes, conseils, recommandations d\'itinéraire',
+                        'title' => 'Nous passons la moto en revue ensemble',
+                        'text' => 'Nous vérifions l\'état de la machine et vous vous familiarisez avec ses commandes.',
                     ],
                     [
                         'icon' => 'gfx/podpis-dokumentu.svg',
                         'title' => 'Nous signons le procès-verbal de remise',
-                        'text' => 'et tu peux partir',
+                        'text' => 'Nous documentons l\'état de la moto et de l\'équipement avant la location.',
                     ],
+                    [
+                        'icon' => 'gfx/predani-motorky.svg',
+                        'title' => 'Nous remettons les clés',
+                        'text' => 'La moto est prête et vous attend.',
+                    ],
+                    [
+                        'icon' => 'gfx/uzij-si-jizdu.svg',
+                        'title' => 'Vous pouvez partir',
+                        'text' => 'En route – sans caution, sans stress. Le reste, c\'est juste l\'asphalte et la liberté.',
+                    ],
+                ],
+            ],
+            'amenities' => [
+                'title' => 'Ce que vous trouverez à la location',
+                'lead' => 'Pour un retrait confortable, nous avons préparé – tout gratuit :',
+                'items' => [
+                    'parking clients (capacité limitée)',
+                    'Wi-Fi',
+                    'WC',
+                    'une cabine d\'essayage pour essayer l\'équipement',
+                    'des casiers verrouillables pour ranger les objets personnels que vous ne souhaitez pas emporter (capacité limitée)',
+                ],
+                'cta' => [
+                    'label' => 'RÉSERVER UN CRÉNEAU',
+                    'href' => '/rezervace',
+                    'aria' => 'Réserver un créneau pour retirer une moto chez Motogo24',
                 ],
             ],
             'bring' => [
@@ -381,7 +419,13 @@ return [
                     ],
                 ],
             ],
+            'mid_cta' => [
+                'label' => 'RÉSERVER LE RETRAIT',
+                'href' => '/rezervace',
+                'aria' => 'Réserver le retrait d\'une moto à la location Motogo24',
+            ],
             'cta' => [
+                'text2' => 'Choisissez une <strong>moto de tourisme, supermoto, naked ou enfant</strong> et réservez-la confortablement en ligne.',
                 'title' => 'Prise en main de la moto à la location – Motogo24 Vysočina',
                 'text' => 'Motogo24 est une <strong>location de motos en Vysočina</strong> avec <strong>prise en main et restitution 24h/24</strong>, <strong>sans caution</strong> et avec <strong>équipement inclus</strong>.',
                 'buttons' => [
@@ -389,6 +433,36 @@ return [
                         'label' => 'RÉSERVER EN LIGNE',
                         'href' => '/rezervace',
                         'cls' => 'btndark pulse',
+                    ],
+                ],
+            ],
+            'steps' => [
+                'title' => 'Comment se déroule la prise en main étape par étape',
+                'items' => [
+                    [
+                        'icon' => 'gfx/cas-prevzeti-motorky.svg',
+                        'title' => 'Viens à l\'heure convenue',
+                        'text' => 'à notre adresse ou attends la livraison',
+                    ],
+                    [
+                        'icon' => 'gfx/overime-doklady.svg',
+                        'title' => 'Nous vérifions les documents',
+                        'text' => 'CI/passeport + permis de conduire de la catégorie correspondante',
+                    ],
+                    [
+                        'icon' => 'gfx/predani-motorky.svg',
+                        'title' => 'Nous remettons la moto et l\'équipement',
+                        'text' => 'casque, blouson, pantalon, gants',
+                    ],
+                    [
+                        'icon' => 'gfx/prevezmi-motorku.svg',
+                        'title' => 'Brève présentation de la machine',
+                        'text' => 'commandes, conseils, recommandations d\'itinéraire',
+                    ],
+                    [
+                        'icon' => 'gfx/podpis-dokumentu.svg',
+                        'title' => 'Nous signons le procès-verbal de remise',
+                        'text' => 'et tu peux partir',
                     ],
                 ],
             ],
@@ -401,6 +475,81 @@ return [
             ],
             'h1' => 'Restitution de la moto à la location',
             'intro' => 'Tu rends la moto confortablement directement chez <strong>Motogo24 – location de motos en Vysočina</strong>. <strong>Service 24h/24</strong>, sans stress et conditions équitables.',
+            'process' => [
+                'grid' => 'gr4',
+                'steps' => [
+                    [
+                        'icon' => 'gfx/cas-prevzeti-motorky.svg',
+                        'title' => 'Venez à l\'heure convenue',
+                        'text' => '',
+                    ],
+                    [
+                        'icon' => 'gfx/predani-motorky.svg',
+                        'title' => 'Remettez les clés et l\'équipement',
+                        'text' => '',
+                    ],
+                    [
+                        'icon' => 'gfx/prevezmi-motorku.svg',
+                        'title' => 'Nous vérifions l\'état de la moto et de l\'équipement ensemble',
+                        'text' => '',
+                    ],
+                    [
+                        'icon' => 'gfx/sleva-na-pristi-jizdu.svg',
+                        'title' => 'Vous recevrez un e-mail avec la confirmation de fin de location, la facture finale et un code de réduction pour votre prochaine réservation.',
+                        'text' => '',
+                    ],
+                ],
+            ],
+            'time' => [
+                'title' => 'Heure de retour',
+                'text' => 'Merci de respecter l\'heure de retour – cela nous aide à garantir que le client suivant récupère la moto à temps. Si vous finissez par être en retard, prévenez-nous par téléphone. Jusqu\'à minuit le dernier jour de location, vous ne payez aucuns frais. Si vous rendez la moto bien après, la location d\'une journée supplémentaire vous sera facturée.',
+            ],
+            'issues' => [
+                'title' => 'Anomalies au retour',
+                'lead' => 'À la remise, nous vérifions ensemble l\'état de la moto et de l\'équipement. Si l\'une des situations ci-dessous survenait, nous établissons un procès-verbal des dommages constatés :',
+                'items' => [
+                    'équipement manquant',
+                    'équipement endommagé',
+                    'moto endommagée',
+                ],
+                'closing' => 'Le client signe le procès-verbal et en reçoit une copie. La suite est régie par les conditions du contrat de location et les CGV.',
+            ],
+            'faq' => [
+                'title' => 'Questions fréquentes sur la restitution à la location',
+                'items' => [
+                    [
+                        'q' => 'Et si je n\'arrive pas à l\'heure convenue de restitution ?',
+                        'a' => 'Préviens-nous par téléphone s\'il te plaît. Nous nous mettons généralement d\'accord sur un <strong>décalage de quelques heures</strong> ; un retard plus long peut être facturé selon le tarif.',
+                    ],
+                    [
+                        'q' => 'Dois-je laver la moto ?',
+                        'a' => 'Non. La saleté courante est acceptable, nous <strong>n\'exigeons pas</strong> le lavage.',
+                    ],
+                    [
+                        'q' => 'Dois-je rendre la moto avec le plein ?',
+                        'a' => 'Ce n\'est pas obligatoire. Si le réservoir n\'est pas plein, nous complétons le carburant et <strong>ne facturons que le prix réel</strong> sans majoration.',
+                    ],
+                    [
+                        'q' => 'Et si la location est fermée ?',
+                        'a' => 'Le service est <strong>24h/24</strong>. La nuit, il suffit d\'appeler le +420 774 256 271 et nous convenons de la remise.',
+                    ],
+                    [
+                        'q' => 'Puis-je rendre la moto à un autre endroit ?',
+                        'a' => 'Oui, profite de la <a href="/jak-pujcit/vraceni-jinde"><strong>restitution de la moto ailleurs</strong></a> (livraison/transport selon le tarif).',
+                    ],
+                ],
+            ],
+            'cta' => [
+                'title' => 'Restitution de la moto à la location – Motogo24 Pelhřimov',
+                'text' => 'Rends la moto directement chez nous à Pelhřimov – <strong>24h/24, sans caution, sans stress</strong>.',
+                'buttons' => [
+                    [
+                        'label' => 'RÉSERVER EN LIGNE',
+                        'href' => '/rezervace',
+                        'cls' => 'btndark pulse',
+                    ],
+                ],
+            ],
             'top_cta' => [
                 'label' => 'RÉSERVER EN LIGNE',
                 'href' => '/rezervace',
@@ -455,42 +604,6 @@ return [
                 'cta' => [
                     'label' => 'RÉSERVER UNE DATE',
                     'href' => '/rezervace',
-                ],
-            ],
-            'faq' => [
-                'title' => 'Questions fréquentes sur la restitution à la location',
-                'items' => [
-                    [
-                        'q' => 'Et si je n\'arrive pas à l\'heure convenue de restitution ?',
-                        'a' => 'Préviens-nous par téléphone s\'il te plaît. Nous nous mettons généralement d\'accord sur un <strong>décalage de quelques heures</strong> ; un retard plus long peut être facturé selon le tarif.',
-                    ],
-                    [
-                        'q' => 'Dois-je laver la moto ?',
-                        'a' => 'Non. La saleté courante est acceptable, nous <strong>n\'exigeons pas</strong> le lavage.',
-                    ],
-                    [
-                        'q' => 'Dois-je rendre la moto avec le plein ?',
-                        'a' => 'Ce n\'est pas obligatoire. Si le réservoir n\'est pas plein, nous complétons le carburant et <strong>ne facturons que le prix réel</strong> sans majoration.',
-                    ],
-                    [
-                        'q' => 'Et si la location est fermée ?',
-                        'a' => 'Le service est <strong>24h/24</strong>. La nuit, il suffit d\'appeler le +420 774 256 271 et nous convenons de la remise.',
-                    ],
-                    [
-                        'q' => 'Puis-je rendre la moto à un autre endroit ?',
-                        'a' => 'Oui, profite de la <a href="/jak-pujcit/vraceni-jinde"><strong>restitution de la moto ailleurs</strong></a> (livraison/transport selon le tarif).',
-                    ],
-                ],
-            ],
-            'cta' => [
-                'title' => 'Restitution de la moto à la location – Motogo24 Pelhřimov',
-                'text' => 'Rends la moto directement chez nous à Pelhřimov – <strong>24h/24, sans caution, sans stress</strong>.',
-                'buttons' => [
-                    [
-                        'label' => 'RÉSERVER EN LIGNE',
-                        'href' => '/rezervace',
-                        'cls' => 'btndark pulse',
-                    ],
                 ],
             ],
         ],
