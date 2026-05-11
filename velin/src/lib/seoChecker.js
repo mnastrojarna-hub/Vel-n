@@ -1,12 +1,27 @@
-// SEO checker — analyzuje CMS texty per-stránka pro lidsky srozumitelné issues.
+// SEO checker — analyzuje POUZE texty uložené v cms_variables (CMS overlay).
 //
-// Pro KAŽDÝ issue vrací:
-//   severity, title, message, example, fieldKey, sectionId
-// fieldKey + sectionId vycházejí z REÁLNÉ struktury webTexts*.js stránky
-// (ne natvrdo hardcoded), takže auto-scroll vždy najde to pole.
+// DŮLEŽITÉ: NEPOČÍTÁ skutečný obsah stránky! PHP šablony (data/*.php) mají
+// vlastní bohaté fallbacky které nevidíme. Proto tu NEKONTROLUJEME:
+//   - počet slov / odstavců na stránce (PHP přidá víc)
+//   - klíčová slova v body (PHP body je bohatší)
+// Tyto věci řeší externí crawl (Seobility / Google Search Console).
+//
+// KONTROLUJEME jen co je 100% měřitelné z CMS hodnot a fixovatelné z Velinu:
+//   - Title (pokud existuje seo.title CMS pole): délka 30-65 znaků
+//   - Meta description (pokud existuje seo.description): délka 80-160 znaků
+//   - H1 (pokud existuje h1 pole): prázdné / příliš krátké (<3 znaky) / příliš dlouhé (>120)
+//   - Title vs H1: měly by se lišit
+//
+// Funkční stránky (košík, pokladna, potvrzení, úprava rezervace, rezervace)
+// jsou transakční — Seobility je sám ignoruje, takže je tu úplně přeskočíme.
+
+// Stránky které jsou transakční / funkční — SEO obsahové kontroly se neaplikují
+const FUNCTIONAL_PAGE_IDS = new Set([
+  'kosik', 'objednavka', 'potvrzeni', 'upravit_rezervace', 'upravit-rezervace',
+  'rezervace', 'layout', // PAGE_LAYOUT = header/footer/cookies, ne samostatna stranka
+])
 
 // Najde field a jeho sekci v page definici podle predikátu.
-// Vrací { fieldKey, sectionId } nebo null pokud nenalezeno.
 function findFieldWithSection(pageDef, predicate) {
   for (const section of (pageDef.sections || [])) {
     for (const field of (section.fields || [])) {
@@ -18,23 +33,18 @@ function findFieldWithSection(pageDef, predicate) {
   return null
 }
 
-// Najde Title field (seo.title) — typicky existuje jen pro hlavní stránky
 function findTitleField(pageDef) {
   return findFieldWithSection(pageDef, (f) =>
     /\.seo\.title$|\.seoTitle$/i.test(f.key) ||
     /title.*titulek.*záložky|seo.*title/i.test((f.label || '').toLowerCase())
   )
 }
-
-// Najde Description field (seo.description / meta description)
 function findDescField(pageDef) {
   return findFieldWithSection(pageDef, (f) =>
     /\.seo\.description$|\.seoDescription$/i.test(f.key) ||
     /meta description|seo.*description|popisek.*google/i.test((f.label || '').toLowerCase())
   )
 }
-
-// Najde H1 field
 function findH1Field(pageDef) {
   return findFieldWithSection(pageDef, (f) =>
     /\.h1$|\.h1\.text$/i.test(f.key) ||
@@ -42,205 +52,129 @@ function findH1Field(pageDef) {
   )
 }
 
-// Najde první body text field (intro, intro_p1, intro.body, atd.)
-// Pro issues kde není konkrétní pole (málo slov, klíčová slova mismatch),
-// otevřeme intro sekci aby admin mohl rozšířit obsah.
-function findIntroField(pageDef) {
-  return findFieldWithSection(pageDef, (f) =>
-    /\.intro$|\.intro_p1$|\.intro\.body$|\.intro\.text$/i.test(f.key) ||
-    /úvodní.*text|intro|úvod/i.test((f.label || '').toLowerCase())
-  )
-}
-
 export function analyzeSeo(pageDef, valuesMap) {
   const issues = []
-  const stats = { titleLen: 0, descLen: 0, h1: '', bodyLen: 0, paragraphCount: 0 }
+  const isFunctional = FUNCTIONAL_PAGE_IDS.has(pageDef.id)
 
   const titleField = findTitleField(pageDef)
   const descField = findDescField(pageDef)
   const h1Field = findH1Field(pageDef)
-  const introField = findIntroField(pageDef)
 
   const title = (titleField && valuesMap[titleField.fieldKey]) || ''
   const description = (descField && valuesMap[descField.fieldKey]) || ''
   const h1 = (h1Field && valuesMap[h1Field.fieldKey]) || ''
 
-  stats.titleLen = title.length
-  stats.descLen = description.length
-  stats.h1 = h1
-
-  // === TITLE ===
-  // Pokud stránka NEMÁ seo.title field v CMS, je v PHP — adminu jasně řekneme
-  if (!titleField) {
-    // Title pro tuto stránku není editovatelný z CMS — preskoč issue
-  } else if (!title) {
-    issues.push({
-      severity: 'critical',
-      title: 'Chybí Titulek stránky',
-      message: 'Toto je text, který se zobrazí v záložce prohlížeče a jako modrý nadpis ve výsledcích Googlu. Bez něj si Google vymyslí náhradu (často špatnou). Klikni Opravit → otevře se přesné pole "Title".',
-      example: 'Půjčovna motorek Pelhřimov | MotoGo24',
-      ...titleField,
-    })
-  } else if (title.length < 30) {
-    issues.push({
-      severity: 'tip',
-      title: `Titulek je krátký (${title.length} znaků, ideál 45-65)`,
-      message: `Ideální Titulek (Title) má 45-65 znaků a obsahuje hlavní klíčové slovo + brand. Aktuálně je krátký — doplň lokalitu nebo hlavní výhodu.`,
-      example: `"${title} | MotoGo24 Pelhřimov" nebo "${title} – bez kauce | MotoGo24"`,
-      ...titleField,
-    })
-  } else if (title.length > 65) {
-    issues.push({
-      severity: 'important',
-      title: `Titulek je dlouhý (${title.length} znaků, max 65)`,
-      message: `Google v záložce zobrazí maximálně 65 znaků. Cokoliv navíc se utne třemi tečkami. Zkrať na 45-65 znaků s tím nejdůležitějším vepředu.`,
-      example: 'Nech jen klíčové slovo + lokalitu + brand. Odstraň výplňková slova jako "v půjčovně", "naše", "nabídka", atd.',
-      ...titleField,
-    })
+  const stats = {
+    titleLen: title.length,
+    descLen: description.length,
+    h1,
+    hasTitleField: !!titleField,
+    hasDescField: !!descField,
+    hasH1Field: !!h1Field,
+    isFunctional,
   }
 
-  // === META DESCRIPTION ===
-  if (!descField) {
-    // Description není v CMS — řízeno z PHP
-  } else if (!description) {
-    issues.push({
-      severity: 'important',
-      title: 'Chybí Popisek pro Google (meta description)',
-      message: 'Popisek je 1-3 věty pod modrým nadpisem ve výsledcích Googlu. Říká uživateli proč na váš web kliknout. Bez něj si Google vymyslí ukázku z náhodného textu na stránce. Klikni Opravit → otevře se přesné pole "Meta description".',
-      example: 'Půjčovna motorek na Vysočině – bez kauce, výbava v ceně, online rezervace. Cestovní, naked i dětské motorky. Otevřeno nonstop.',
-      ...descField,
-    })
-  } else if (description.length < 80) {
-    issues.push({
-      severity: 'tip',
-      title: `Popisek je krátký (${description.length} znaků, ideál 120-160)`,
-      message: 'Ideální Popisek má 120-160 znaků. Doplň výhody co zákazník ocení (bez kauce, výbava v ceně, online rezervace, lokalita).',
-      example: 'Aktuální: "' + description.substring(0, 50) + '..."' + '\nDoporučeno: doplnit "Bez kauce, výbava v ceně, online rezervace, Pelhřimov Vysočina."',
-      ...descField,
-    })
-  } else if (description.length > 160) {
-    issues.push({
-      severity: 'important',
-      title: `Popisek je dlouhý (${description.length} znaků, max 160)`,
-      message: 'Google zobrazí max ~160 znaků a zbytek utne. Zkrať na 120-160 znaků — nech nejdůležitější informace co zákazník potřebuje hned.',
-      example: 'Odstraň druhou polovinu věty nebo redundantní slova. Drž se 1-2 vět s konkrétní hodnotou.',
-      ...descField,
-    })
+  // === TITLE === (jen pokud existuje CMS pole — jinak řídí PHP a admin nemá co opravit)
+  if (titleField) {
+    if (!title) {
+      issues.push({
+        severity: 'critical',
+        title: 'Titulek stránky (Title) je prázdný',
+        message: 'Titulek se zobrazí v záložce prohlížeče a jako modrý nadpis ve výsledcích Googlu. Klikni Opravit → otevře se přesné pole "Title", napiš tam titulek 45-65 znaků.',
+        example: 'Půjčovna motorek Pelhřimov | MotoGo24',
+        ...titleField,
+      })
+    } else if (title.length < 30) {
+      issues.push({
+        severity: 'tip',
+        title: `Titulek je krátký (${title.length} znaků, ideál 45-65)`,
+        message: `Krátký titulek nevyužívá prostor v Googlu. Doplň lokalitu nebo hlavní výhodu. Klikni Opravit → otevře se pole "Title".`,
+        example: `Aktuálně: "${title}"\nDoporučeno: "${title} | MotoGo24 Pelhřimov" (delší, s brandem a lokalitou)`,
+        ...titleField,
+      })
+    } else if (title.length > 65) {
+      issues.push({
+        severity: 'important',
+        title: `Titulek je dlouhý (${title.length} znaků, max 65)`,
+        message: `Google v záložce a ve výsledcích zobrazí maximálně ~65 znaků, zbytek utne třemi tečkami. Klikni Opravit → zkrať pole "Title".`,
+        example: `Aktuálně: "${title}"\nZkrať na max 65 znaků — nech klíčové slovo + lokalitu + brand, odeber výplň.`,
+        ...titleField,
+      })
+    }
   }
 
-  // === H1 ===
-  if (!h1Field) {
-    // Strange: page bez H1 field. Skip.
-  } else if (!h1) {
-    issues.push({
-      severity: 'critical',
-      title: 'Chybí Hlavní nadpis (H1)',
-      message: 'H1 je velký nadpis nahoře na stránce. Google ho používá pro pochopení o čem stránka je. Každá stránka musí mít právě jeden H1. Klikni Opravit → otevře se přesné pole "H1 nadpis".',
-      example: 'Půjčovna motorek Pelhřimov – bez kauce, výbava v ceně',
-      ...h1Field,
-    })
-  } else if (h1.length < 10) {
-    issues.push({
-      severity: 'tip',
-      title: `Hlavní nadpis je krátký (${h1.length} znaků)`,
-      message: 'Krátký H1 jako "Motorky" nestačí. Doplň kontext — lokalitu, výhodu, klíčové slovo.',
-      example: 'Místo "Motorky" → "Půjčovna motorek na Vysočině"',
-      ...h1Field,
-    })
-  } else if (h1.length > 80) {
-    issues.push({
-      severity: 'tip',
-      title: `Hlavní nadpis je dlouhý (${h1.length} znaků)`,
-      message: 'Příliš dlouhý H1 zhoršuje čitelnost. Zkrať na 40-70 znaků s hlavními klíčovými slovy.',
-      example: 'Odeber vedlejší informace, nech hlavní téma + lokalitu + jednu výhodu',
-      ...h1Field,
-    })
+  // === META DESCRIPTION === (jen pokud existuje CMS pole)
+  if (descField) {
+    if (!description) {
+      issues.push({
+        severity: 'important',
+        title: 'Popisek pro Google (meta description) je prázdný',
+        message: 'Popisek je 1-3 věty pod modrým nadpisem ve výsledcích vyhledávání — láká uživatele na klik. Bez něj si Google vymyslí ukázku z náhodného textu. Klikni Opravit → otevře se pole "Meta description", napiš 120-160 znaků.',
+        example: 'Půjčovna motorek na Vysočině – bez kauce, výbava v ceně, online rezervace. Cestovní, naked i dětské motorky. Otevřeno nonstop.',
+        ...descField,
+      })
+    } else if (description.length < 80) {
+      issues.push({
+        severity: 'tip',
+        title: `Popisek je krátký (${description.length} znaků, ideál 120-160)`,
+        message: 'Krátký popisek nevyužívá prostor ve výsledcích. Doplň výhody co zákazník ocení. Klikni Opravit → otevře se pole "Meta description".',
+        example: `Aktuálně: "${description}"\nDoporučeno doplnit: "Bez kauce, výbava v ceně, online rezervace, Pelhřimov Vysočina."`,
+        ...descField,
+      })
+    } else if (description.length > 160) {
+      issues.push({
+        severity: 'important',
+        title: `Popisek je dlouhý (${description.length} znaků, max 160)`,
+        message: 'Google zobrazí max ~160 znaků a zbytek utne. Klikni Opravit → zkrať pole "Meta description" na nejdůležitější informace.',
+        example: `Aktuálně ${description.length} znaků.\nZkrať na 120-160 — odeber druhou polovinu věty nebo redundantní slova.`,
+        ...descField,
+      })
+    }
   }
 
-  // Title vs H1 — měly by být odlišné
+  // === H1 === (jen pokud existuje CMS pole)
+  if (h1Field) {
+    if (!h1) {
+      // POZN: PHP renderHeading() má auto-fallback "MotoGo24 — půjčovna motorek",
+      // takže prázdné CMS H1 NENÍ kritické (stránka H1 stejně dostane). Ale je
+      // lepší mít specifický H1 než generický fallback.
+      issues.push({
+        severity: 'tip',
+        title: 'Hlavní nadpis (H1) není vyplněn z CMS',
+        message: 'Stránka sice automaticky dostane výchozí H1, ale specifický nadpis je lepší pro SEO. Klikni Opravit → otevře se pole "H1 nadpis", napiš tam výstižný nadpis 20-70 znaků.',
+        example: pageDef.label.includes('Postup') ? 'Postup půjčení motorky – krok za krokem'
+          : pageDef.label.includes('Vrácení') ? 'Vrácení motorky – jednoduše a bez komplikací'
+          : 'Půjčovna motorek Pelhřimov – bez kauce, výbava v ceně',
+        ...h1Field,
+      })
+    } else if (h1.length < 3) {
+      issues.push({
+        severity: 'important',
+        title: `Hlavní nadpis je příliš krátký (${h1.length} znaků)`,
+        message: 'Nadpis jako "OK" nebo "Hi" nic neříká. Klikni Opravit → napiš výstižný nadpis 20-70 znaků s klíčovým slovem.',
+        example: 'Půjčovna motorek na Vysočině – bez kauce',
+        ...h1Field,
+      })
+    } else if (h1.length > 120) {
+      issues.push({
+        severity: 'tip',
+        title: `Hlavní nadpis je dlouhý (${h1.length} znaků, doporučeno do 70)`,
+        message: 'Příliš dlouhý nadpis zhoršuje čitelnost. Klikni Opravit → zkrať na hlavní téma + lokalitu + jednu výhodu.',
+        example: 'Zkrať na max 70 znaků, nech to nejdůležitější vepředu.',
+        ...h1Field,
+      })
+    }
+  }
+
+  // === Title vs H1 — měly by být odlišné === (jen pokud obě CMS pole existují a obě vyplněna)
   if (titleField && h1Field && title && h1 && title.toLowerCase().trim() === h1.toLowerCase().trim()) {
     issues.push({
       severity: 'tip',
-      title: 'Titulek a Hlavní nadpis jsou totožné',
-      message: 'Titulek (záložka prohlížeče) a H1 (nadpis na stránce) by měly být ODLIŠNÉ. Titulek je pro Google + záložku, H1 pro lidi co už jsou na stránce. Klikni Opravit → otevře se H1 pole, změň ho aby se lišil od titulku.',
-      example: `Aktuálně oba: "${title}"\nDoporučeno H1: "Vyber si motorku na Vysočině – bez kauce"`,
+      title: 'Titulek (záložka) a Hlavní nadpis (na stránce) jsou totožné',
+      message: 'Měly by se LIŠIT. Titulek (Title) je pro Google a záložku prohlížeče — krátký, klíčová slova, brand. H1 je pro lidi co už jsou na stránce — může být víc lidský, akční. Klikni Opravit → změň pole "H1 nadpis" aby se lišil od titulku.',
+      example: `Aktuálně oba: "${title}"\nDoporučeno H1: "Vyber si motorku na Vysočině – ráno si ji vyzvedneš"`,
       ...h1Field,
     })
-  }
-
-  // === BODY CONTENT — vsechny issues smeruji do intro/body sekce ===
-  const bodyTexts = []
-  pageDef.sections?.forEach(section => {
-    section.fields?.forEach(f => {
-      if (titleField && f.key === titleField.fieldKey) return
-      if (descField && f.key === descField.fieldKey) return
-      if (h1Field && f.key === h1Field.fieldKey) return
-      if (/\.(label|btn|cta|aria|alt|placeholder|href|icon|img|image|map_src|map_title|empty)$/i.test(f.key)) return
-      const v = valuesMap[f.key]
-      if (typeof v === 'string' && v.trim().length > 30) bodyTexts.push(v)
-    })
-  })
-  const bodyClean = bodyTexts.join(' ').replace(/<[^>]*>/g, ' ').replace(/&[a-z]+;/gi, ' ')
-  const wordCount = bodyClean.trim().split(/\s+/).filter(Boolean).length
-  const paragraphCount = bodyTexts.filter(t => t.length > 100).length
-
-  stats.bodyLen = wordCount
-  stats.paragraphCount = paragraphCount
-
-  // Body issues — všechny smerujou na introField (existuje na vsech strankach)
-  const bodyTarget = introField || h1Field || { fieldKey: null, sectionId: null }
-
-  if (wordCount > 0) {
-    if (wordCount < 200) {
-      issues.push({
-        severity: 'important',
-        title: `Velmi málo textu (${wordCount} slov, doporučeno 500+)`,
-        message: 'Google upřednostňuje stránky s 500+ slovy. Krátké stránky obtížně rankují. Klikni Opravit → otevře se "Úvodní text" — doplň zde sekci s detaily, postupem nebo FAQ.',
-        example: 'Přidej sekce: "Co dostanete v ceně", "Jak probíhá rezervace", "Kde nás najdete", FAQ s 3-5 otázkami.',
-        ...bodyTarget,
-      })
-    } else if (wordCount < 500) {
-      issues.push({
-        severity: 'tip',
-        title: `Méně textu (${wordCount} slov, doporučeno 500+)`,
-        message: 'Ideál je 500+ slov. Klikni Opravit → rozšiř "Úvodní text" nebo navazující sekce.',
-        example: 'Doplň 1-2 sekce o specifických výhodách, postupu nebo často kladených dotazech.',
-        ...bodyTarget,
-      })
-    }
-    if (paragraphCount > 0 && paragraphCount < 3) {
-      issues.push({
-        severity: 'tip',
-        title: `Málo odstavců (${paragraphCount}, doporučeno 3+)`,
-        message: 'Strukturovaný text je čitelnější. Rozděl text do 3+ odstavců s podnadpisy. Klikni Opravit → otevře se hlavní text.',
-        example: 'Struktura: úvod → výhody → postup → FAQ → závěr s CTA',
-        ...bodyTarget,
-      })
-    }
-  }
-
-  // === H1 keywords v body ===
-  if (h1 && bodyClean) {
-    const h1Words = h1.toLowerCase().split(/\s+/).filter(w => w.length > 3 && !/^(jak|si|na|do|že|pro|bez|nebo|kdo|kde|nebo|mez|tom)$/i.test(w))
-    const bodyLower = bodyClean.toLowerCase()
-    const missing = h1Words.filter(w => !bodyLower.includes(w))
-    if (missing.length > 0 && missing.length === h1Words.length) {
-      issues.push({
-        severity: 'important',
-        title: 'Klíčová slova z H1 nejsou v textu stránky',
-        message: `H1 obsahuje slova "${missing.join(', ')}", ale v body textu nikde nejsou. Google čeká že o těchto slovech budete psát. Klikni Opravit → otevře se "Úvodní text", vmíchej tato slova přirozeně do prvních vět.`,
-        example: `Aktuální H1: "${h1}"\nDoplň v body textu věty obsahující slova: ${missing.slice(0, 5).join(', ')}.`,
-        ...bodyTarget,
-      })
-    } else if (missing.length > 0) {
-      issues.push({
-        severity: 'tip',
-        title: `Některá slova z H1 chybí v textu: ${missing.slice(0, 3).join(', ')}`,
-        message: `Pro lepší ranking vmíchej tato slova do popisu stránky.`,
-        example: `Použij slova "${missing.slice(0, 3).join('", "')}" v 1-2 dalších větách na stránce.`,
-        ...bodyTarget,
-      })
-    }
   }
 
   // Score

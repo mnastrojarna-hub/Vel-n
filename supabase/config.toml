@@ -14,6 +14,12 @@ project_id = "vnwnqteskbykeucanlhk"
 [functions.cms-save]
 verify_jwt = false
 
+# SEO Health checker — server-side fetch & parse zive stranky motogo24.cz
+# (browser-side fetch z velin domeny blokuje CORS). Volá ho Velin SEO Health
+# dashboard. Read-only, jen GET na motogo24.cz whitelist domeny.
+[functions.seo-check]
+verify_jwt = false
+
 # Veřejné REST API pro AI agenty / partnery (auth = X-Api-Key header)
 [functions.public-api]
 verify_jwt = false
