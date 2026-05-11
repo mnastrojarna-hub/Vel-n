@@ -351,78 +351,11 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
     $description = $meta['description'] ?? $defaultDesc;
     $keywords = $meta['keywords'] ?? (function_exists('t') ? t('seo.default.keywords') : 'motopůjčovna');
 
-    // SEO defensive auto-shortening — at-render-time pojistka napric celym
-    // webem proti prilis dlouhym <title> a <meta description> z CMS / data
-    // souboru. Externi SEO checker (Seobility) hlasil 13 'Title too long' a
-    // 11 'Meta description too long'. Misto editace 50+ data souboru a CMS
-    // zde aplikujeme 3 vrstvy:
-    //   (1) Pattern-based shortening — typicke redundantni prefixy/suffixy
-    //       co se opakuji napric strankami (jako 'Pujcovna motorek Vysocina –
-    //       Jak si pujcit motorku –') nahradime kratkym brand-suffixem.
-    //   (2) Hard truncate na maximalni POCET ZNAKU (s rezervou pro ceske
-    //       diakritiky ktere v pixelech budou sirsi).
-    //   (3) Trim na hranici slova + ' …' kdyz je nutno orezat.
-
-    // (1a) Title — odstranit redundantni prefix u jak-pujcit/* podstranek.
-    // 'Půjčovna motorek Vysočina – Jak si půjčit motorku – Přistavení...'
-    // → 'Přistavení... – MotoGo24'
-    // Zachovava distinktivni cast (poslední podsekci za poslední pomlckou),
-    // takze duplicate titles na vraceni-pujcovna vs vraceni-jinde se zruší.
-    $titleShorten = function ($t) {
-        if (!is_string($t) || $t === '') return $t;
-        $patterns = [
-            // Hlavni prefix u jak-pujcit/* a podobne
-            '#^Půjčovna motorek Vysočina\s*[–\-]\s*Jak si půjčit motorku\s*[–\-]\s*#u' => '',
-            '#^Půjčovna motorek Vysočina\s*[–\-]\s*#u' => '',
-            // E-shop redundantni dlouhy suffix
-            '#\s*\|\s*E-shop MotoGo24\s*[–\-—]\s*motorkářské doplňky a merch\s*$#u' => ' | MotoGo24',
-            // Blog redundantni suffix
-            '#\s*\|\s*Blog MotoGo24\s*$#u' => ' | MotoGo24',
-        ];
-        foreach ($patterns as $rx => $repl) {
-            $t = preg_replace($rx, $repl, $t);
-        }
-        // Detekce uz existujici brand v levé části (před |). Pokud ano,
-        // odstranime suffix '| MotoGo24' aby brand neopakoval.
-        // ('Truckerka MotoGo24 | MotoGo24' → 'Truckerka MotoGo24')
-        if (preg_match('#^(.+?)\s*\|\s*MotoGo24\s*$#u', $t, $m)
-            && stripos($m[1], 'motogo24') !== false) {
-            $t = trim($m[1]);
-        }
-        // Pokud po vsem v titulku neni brand, pridame jednou.
-        if (stripos($t, 'motogo24') === false) $t = trim($t) . ' | MotoGo24';
-        return trim($t);
-    };
-
-    // (1b) Meta description — odstranit redundantni "boilerplate" tail
-    // co se opakuje napric jak-pujcit/* descriptions:
-    // 'Rezervuj si motorku jednoduše online. Vyber termín, stroj i výbavu
-    //  a vyraz na nezapomenutelnou jízdu s MotoGo24 na Vysočině.'
-    $descShorten = function ($d) {
-        if (!is_string($d) || $d === '') return $d;
-        // Strip redundantni boilerplate tail (Czech)
-        $d = preg_replace(
-            '#\s*Rezervuj si motorku jednoduše online\..*?(MotoGo24 na Vysočině\.?|MotoGo24\.?)\s*$#u',
-            '',
-            $d
-        );
-        return trim($d);
-    };
-
-    $truncate = function ($s, $maxChars) {
-        $s = trim((string)$s);
-        if (mb_strlen($s, 'UTF-8') <= $maxChars) return $s;
-        $cut = mb_substr($s, 0, $maxChars - 1, 'UTF-8');
-        $sp = mb_strrpos($cut, ' ', 0, 'UTF-8');
-        if ($sp !== false && $sp > $maxChars * 0.6) $cut = mb_substr($cut, 0, $sp, 'UTF-8');
-        return rtrim($cut, " \t\n\r\0\x0B,;:.-") . '…';
-    };
-
-    // Pipeline: pattern-shorten → hard-truncate (chars).
-    // Title 55 chars (s rezervou pro diakritiky, 580px Google SERP limit ~65 ASCII).
-    // Meta description 150 chars (s rezervou pro diakritiky, 1000px ~160 ASCII).
-    $title = $truncate($titleShorten($title), 55);
-    $description = $truncate($descShorten($description), 150);
+    // POZN: drivejsi auto-truncate / pattern-shortening title+description bylo
+    // odstraneno — menilo viditelne texty. Title a meta description se nyni
+    // renderuji 1:1 jak jsou v CMS / data souborech. Pripadne 'too long'
+    // upravi admin rucne ve Velin SEO Health dashboardu (ten ukaze konkretni
+    // pole + delku + doporuceni).
     // Canonical = doménová home pro aktuální jazyk (cs → .cz, ostatní → .com).
     // Tím Google indexuje českou verzi výhradně z motogo24.cz a anglickou/další
     // z motogo24.com — žádný duplicate-content stejného jazyka přes obě domény.
