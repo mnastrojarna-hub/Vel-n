@@ -97,6 +97,138 @@ return [
                 'href' => '/rezervace',
                 'aria' => 'Motorrad online bei Motogo24 reservieren',
             ],
+            'summary' => [
+                'title' => 'Zusammenfassung der wichtigsten Punkte',
+                'items' => [
+                    [
+                        'icon' => 'gfx/ico-bez-kauce.svg',
+                        'title' => 'Ohne Kaution / Anzahlung',
+                        'text' => 'wir vermieten das Motorrad ohne Geldblockierung',
+                    ],
+                    [
+                        'icon' => 'gfx/rezervace-online.svg',
+                        'title' => 'Online-Reservierung',
+                        'text' => 'inklusive Zahlung',
+                    ],
+                    [
+                        'icon' => 'gfx/vyber-vybavu.svg',
+                        'title' => 'Fahrerausrüstung',
+                        'text' => 'im Preis (Helm, Jacke, Hose, Handschuhe)',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-nonstop.svg',
+                        'title' => 'Rund-um-die-Uhr-Service',
+                        'text' => 'Abholung und Rückgabe jederzeit am Miettag',
+                    ],
+                    [
+                        'icon' => 'gfx/jasne-podminky.svg',
+                        'title' => 'Klare Nutzungsregeln',
+                        'text' => 'im In- und Ausland (laut grüner Karte)',
+                    ],
+                    [
+                        'icon' => 'gfx/zadne-skryte-poplatky.svg',
+                        'title' => 'Keine versteckten Gebühren',
+                        'text' => 'alles ist unten und im Vertrag aufgeführt',
+                    ],
+                ],
+            ],
+            'required_docs' => [
+                'title' => 'Was du für den Vertragsabschluss brauchst',
+                'items' => [
+                    '<strong>Personalausweis / Reisepass</strong>',
+                    '<strong>Führerschein</strong>&nbsp;der entsprechenden Klasse (A / A2 je nach Maschine)',
+                    '<strong>Alter</strong>&nbsp;mind. 18 Jahre (bei Kindermotorrädern haftet der gesetzliche Vertreter)',
+                    '<strong>Kontakte</strong>&nbsp;(Telefon, E-Mail) für Kommunikation und Reservierungsbestätigung',
+                ],
+            ],
+            'payments' => [
+                'title' => 'Zahlungen, Stornierung und Gebühren',
+                'lead' => '<strong>Kaution:</strong>&nbsp;<em>nicht erforderlich</em>. Die Mietzahlung erfolgt online oder bei der Abholung.',
+                'aria' => 'Übersicht der Zahlungen und Gebühren',
+                'headers' => [
+                    'Posten',
+                    'Bedingungen',
+                ],
+                'rows' => [
+                    [
+                        '<strong>Mietzahlung</strong>',
+                        'Online im Voraus.',
+                    ],
+                    [
+                        '<strong>Stornierung der Reservierung</strong>',
+                        'Kostenlos bis zu einem vereinbarten Zeitpunkt (in der Reservierungsbestätigung angegeben). Später nach individueller Vereinbarung.',
+                    ],
+                    [
+                        '<strong>Kraftstoff &amp; Reinigung</strong>',
+                        'Rückgabe ohne Pflicht zu tanken oder zu waschen. Übermäßige Verschmutzung wird individuell geregelt.',
+                    ],
+                    [
+                        '<strong>Lieferung / Abholung</strong>',
+                        'Gemäß Lieferpreisliste (Vysočina / Umgebung). Bei der Reservierung bestätigt.',
+                    ],
+                    [
+                        '<strong>Verspätete Rückgabe</strong>',
+                        'Bitte am letzten Miettag pünktlich zurückgeben; bei Verspätung berechnen wir nach Absprache (mit Rücksicht auf andere Reservierungen).',
+                    ],
+                ],
+                'mid_cta' => [
+                    'label' => 'WEITER ZUR RESERVIERUNG',
+                    'href' => '/rezervace',
+                    'aria' => 'Motorrad reservieren und dem Motogo24-Mietvertrag zustimmen',
+                ],
+            ],
+            'usage' => [
+                'title' => 'Nutzung des Motorrads und Haftung',
+                'items' => [
+                    'Fahre&nbsp;<strong>vorschriftsgemäß</strong>&nbsp;und mit Rücksicht auf den technischen Zustand und den Typ des Motorrads.',
+                    'Für&nbsp;<strong>Bußgelder und Verstöße</strong>&nbsp;haftet der Mieter (Informationen geben wir gesetzeskonform weiter).',
+                    '<strong>Ausland</strong>: möglich; richte dich nach der territorialen Gültigkeit der Versicherung (grüne Karte). Einige Länder können ausgeschlossen sein.',
+                    'Bei&nbsp;<strong>Unfall oder Panne</strong>&nbsp;folge den Anweisungen im Bordset (Unfallformular, Motogo24-Kontakt).',
+                    '<strong>Service und Wartung</strong>&nbsp;übernehmen wir; melde Mängel sofort.',
+                    '<strong>Änderungen am Motorrad</strong>&nbsp;sind ohne Zustimmung nicht erlaubt.',
+                ],
+            ],
+            'handover' => [
+                'title' => 'Übergabe und Rückgabe',
+                'items' => [
+                    '<strong>Abholung</strong>&nbsp;erfolgt in Pelhřimov (Mezná 9) oder nutze die&nbsp;<a href="/jak-pujcit/pristaveni">Lieferung</a>.',
+                    'Bei der Übergabe erhältst du&nbsp;<strong>Schlüssel, Ausrüstung und Dokumente</strong>&nbsp;(Fahrzeugschein, grüne Karte, Unfallformular).',
+                    '<strong>Rückgabe</strong>&nbsp;jederzeit am letzten Miettag (auch um Mitternacht). Kein Waschen oder Tanken nötig.',
+                ],
+            ],
+            'privacy' => [
+                'title' => 'Personenbezogene Daten und Sicherheit',
+                'text' => 'Personenbezogene Daten verarbeiten wir nur zum Zweck des Abschlusses und der Erfüllung des Mietvertrags (Identifikation, Kommunikation, Rechnungsstellung). Details findest du in den <a href="/cms/zasady-ochrany-osobnich-udaju">Datenschutzbestimmungen</a>.',
+            ],
+            'documents' => [
+                'title' => 'Dokumente zum Herunterladen',
+                'items' => [
+                    [
+                        'name' => 'Mietvertrag',
+                        'href' => '/cms/smlouva-o-pronajmu',
+                        'size' => '87.4kB',
+                    ],
+                    [
+                        'name' => 'Übergabeprotokoll',
+                        'href' => '/cms/predavaci-protokol',
+                        'size' => '47.6kB',
+                    ],
+                    [
+                        'name' => 'Allgemeine Geschäftsbedingungen',
+                        'href' => '/cms/obchodni-podminky',
+                        'size' => '87.7kB',
+                    ],
+                    [
+                        'name' => 'Datenschutzbestimmungen',
+                        'href' => '/cms/zasady-ochrany-osobnich-udaju',
+                        'size' => '76.3kB',
+                    ],
+                ],
+            ],
+            'midcta' => [
+                'title' => 'Bist du mit den Bedingungen einverstanden? Reserviere und fahr los.',
+                'text' => 'Wähle aus&nbsp;<strong>Touren-, Sport-, Enduro- und Kindermotorrädern</strong>&nbsp;und bestätige deine Reservierung online.',
+            ],
             'cta' => [
                 'title' => 'Mietvertrag ohne Kaution – Motorradvermietung Vysočina',
                 'text' => 'MotoGo24 ist eine <strong>Motorradvermietung in Vysočina</strong> mit fairen Bedingungen.',

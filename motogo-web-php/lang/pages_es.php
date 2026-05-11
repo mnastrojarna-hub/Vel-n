@@ -600,6 +600,138 @@ return [
                 'href' => '/rezervace',
                 'aria' => 'Reservar moto online en Motogo24',
             ],
+            'summary' => [
+                'title' => 'Resumen de los puntos principales',
+                'items' => [
+                    [
+                        'icon' => 'gfx/ico-bez-kauce.svg',
+                        'title' => 'Sin fianza / anticipo',
+                        'text' => 'alquilamos la moto sin bloquear dinero',
+                    ],
+                    [
+                        'icon' => 'gfx/rezervace-online.svg',
+                        'title' => 'Reserva online',
+                        'text' => 'incluido el pago',
+                    ],
+                    [
+                        'icon' => 'gfx/vyber-vybavu.svg',
+                        'title' => 'Equipamiento del conductor',
+                        'text' => 'incluido (casco, chaqueta, pantalones, guantes)',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-nonstop.svg',
+                        'title' => 'Servicio 24/7',
+                        'text' => 'recogida y devolución en cualquier momento del día de alquiler',
+                    ],
+                    [
+                        'icon' => 'gfx/jasne-podminky.svg',
+                        'title' => 'Reglas de uso claras',
+                        'text' => 'en el país y en el extranjero (según la carta verde)',
+                    ],
+                    [
+                        'icon' => 'gfx/zadne-skryte-poplatky.svg',
+                        'title' => 'Sin tarifas ocultas',
+                        'text' => 'todo está indicado abajo y en el contrato',
+                    ],
+                ],
+            ],
+            'required_docs' => [
+                'title' => 'Qué necesitas para firmar el contrato',
+                'items' => [
+                    '<strong>DNI / pasaporte</strong>',
+                    '<strong>Carné de conducir</strong>&nbsp;de la categoría correspondiente (A / A2 según la máquina)',
+                    '<strong>Edad</strong>&nbsp;mín. 18 años (en motos infantiles responde el representante legal)',
+                    '<strong>Contactos</strong>&nbsp;(teléfono, correo) para la comunicación y la confirmación de la reserva',
+                ],
+            ],
+            'payments' => [
+                'title' => 'Pagos, cancelación y tarifas',
+                'lead' => '<strong>Fianza:</strong>&nbsp;<em>no se requiere</em>. El pago del alquiler se realiza online o en la recogida.',
+                'aria' => 'Resumen de pagos y tarifas',
+                'headers' => [
+                    'Concepto',
+                    'Condiciones',
+                ],
+                'rows' => [
+                    [
+                        '<strong>Pago del alquiler</strong>',
+                        'Online por adelantado.',
+                    ],
+                    [
+                        '<strong>Cancelación de la reserva</strong>',
+                        'Gratuita hasta una hora acordada (indicada en la confirmación de la reserva). Después, por acuerdo individual.',
+                    ],
+                    [
+                        '<strong>Combustible y limpieza</strong>',
+                        'Devolución sin obligación de repostar ni lavar. La suciedad excesiva se trata individualmente.',
+                    ],
+                    [
+                        '<strong>Entrega / recogida</strong>',
+                        'Según la lista de precios de entrega (Vysočina / alrededores). Se confirma al reservar.',
+                    ],
+                    [
+                        '<strong>Devolución tardía</strong>',
+                        'Devuelve a tiempo el último día de alquiler; por retrasos cobramos según lo acordado (teniendo en cuenta otras reservas).',
+                    ],
+                ],
+                'mid_cta' => [
+                    'label' => 'CONTINUAR A LA RESERVA',
+                    'href' => '/rezervace',
+                    'aria' => 'Reservar una moto y aceptar el contrato de alquiler de Motogo24',
+                ],
+            ],
+            'usage' => [
+                'title' => 'Uso de la moto y responsabilidad',
+                'items' => [
+                    'Conduce&nbsp;<strong>de acuerdo con las normas</strong>&nbsp;y teniendo en cuenta el estado técnico y el tipo de moto.',
+                    'El arrendatario responde de&nbsp;<strong>multas e infracciones</strong>&nbsp;(facilitamos la información conforme a la ley).',
+                    '<strong>Extranjero</strong>: posible; sigue la validez territorial del seguro (carta verde). Algunos países pueden quedar excluidos.',
+                    'En caso de&nbsp;<strong>accidente o avería</strong>&nbsp;sigue las instrucciones del kit de a bordo (parte de accidente, contacto de Motogo24).',
+                    'El&nbsp;<strong>mantenimiento y la revisión</strong>&nbsp;los hacemos nosotros; comunica los fallos de inmediato.',
+                    'No se permiten&nbsp;<strong>modificaciones en la moto</strong>&nbsp;sin consentimiento.',
+                ],
+            ],
+            'handover' => [
+                'title' => 'Entrega y devolución',
+                'items' => [
+                    'La&nbsp;<strong>recogida</strong>&nbsp;se realiza en Pelhřimov (Mezná 9) o utiliza la&nbsp;<a href="/jak-pujcit/pristaveni">entrega</a>.',
+                    'En la entrega recibes&nbsp;<strong>llaves, equipamiento y documentos</strong>&nbsp;(permiso de circulación, carta verde, parte de accidente).',
+                    '<strong>Devolución</strong>&nbsp;en cualquier momento del último día de alquiler (incluso a medianoche). No hace falta lavar ni repostar.',
+                ],
+            ],
+            'privacy' => [
+                'title' => 'Datos personales y seguridad',
+                'text' => 'Tratamos los datos personales únicamente para celebrar y cumplir el contrato de alquiler (identificación, comunicación, facturación). Los detalles están en la <a href="/cms/zasady-ochrany-osobnich-udaju">política de tratamiento de datos personales</a>.',
+            ],
+            'documents' => [
+                'title' => 'Documentos para descargar',
+                'items' => [
+                    [
+                        'name' => 'Contrato de alquiler',
+                        'href' => '/cms/smlouva-o-pronajmu',
+                        'size' => '87.4kB',
+                    ],
+                    [
+                        'name' => 'Acta de entrega',
+                        'href' => '/cms/predavaci-protokol',
+                        'size' => '47.6kB',
+                    ],
+                    [
+                        'name' => 'Condiciones generales',
+                        'href' => '/cms/obchodni-podminky',
+                        'size' => '87.7kB',
+                    ],
+                    [
+                        'name' => 'Política de privacidad',
+                        'href' => '/cms/zasady-ochrany-osobnich-udaju',
+                        'size' => '76.3kB',
+                    ],
+                ],
+            ],
+            'midcta' => [
+                'title' => '¿De acuerdo con las condiciones? Reserva y conduce.',
+                'text' => 'Elige entre&nbsp;<strong>motos de turismo, deportivas, enduro e infantiles</strong>&nbsp;y confirma tu reserva online.',
+            ],
             'cta' => [
                 'title' => 'Contrato sin depósito – alquiler de motos Vysočina',
                 'text' => 'MotoGo24 es un <strong>alquiler de motos en Vysočina</strong> con condiciones justas.',

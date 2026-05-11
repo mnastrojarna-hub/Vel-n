@@ -97,6 +97,138 @@ return [
                 'href' => '/rezervace',
                 'aria' => 'Motor online reserveren bij Motogo24',
             ],
+            'summary' => [
+                'title' => 'Samenvatting van de belangrijkste punten',
+                'items' => [
+                    [
+                        'icon' => 'gfx/ico-bez-kauce.svg',
+                        'title' => 'Zonder borg / aanbetaling',
+                        'text' => 'we verhuren de motor zonder geld te blokkeren',
+                    ],
+                    [
+                        'icon' => 'gfx/rezervace-online.svg',
+                        'title' => 'Online reserveren',
+                        'text' => 'inclusief betaling',
+                    ],
+                    [
+                        'icon' => 'gfx/vyber-vybavu.svg',
+                        'title' => 'Rijdersuitrusting',
+                        'text' => 'inbegrepen (helm, jas, broek, handschoenen)',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-nonstop.svg',
+                        'title' => '24/7 service',
+                        'text' => 'ophalen en terugbrengen op elk moment van de huurdag',
+                    ],
+                    [
+                        'icon' => 'gfx/jasne-podminky.svg',
+                        'title' => 'Duidelijke gebruiksregels',
+                        'text' => 'in eigen land en in het buitenland (volgens de groene kaart)',
+                    ],
+                    [
+                        'icon' => 'gfx/zadne-skryte-poplatky.svg',
+                        'title' => 'Geen verborgen kosten',
+                        'text' => 'alles staat hieronder en in het contract',
+                    ],
+                ],
+            ],
+            'required_docs' => [
+                'title' => 'Wat je nodig hebt om het contract te sluiten',
+                'items' => [
+                    '<strong>ID-kaart / paspoort</strong>',
+                    '<strong>Rijbewijs</strong>&nbsp;van de juiste categorie (A / A2 afhankelijk van de motor)',
+                    '<strong>Leeftijd</strong>&nbsp;min. 18 jaar (bij kindermotoren is de wettelijk vertegenwoordiger aansprakelijk)',
+                    '<strong>Contactgegevens</strong>&nbsp;(telefoon, e-mail) voor communicatie en reserveringsbevestiging',
+                ],
+            ],
+            'payments' => [
+                'title' => 'Betalingen, annulering en kosten',
+                'lead' => '<strong>Borg:</strong>&nbsp;<em>niet vereist</em>. De huurbetaling gebeurt online of bij het ophalen.',
+                'aria' => 'Overzicht van betalingen en kosten',
+                'headers' => [
+                    'Onderdeel',
+                    'Voorwaarden',
+                ],
+                'rows' => [
+                    [
+                        '<strong>Huurbetaling</strong>',
+                        'Online vooraf.',
+                    ],
+                    [
+                        '<strong>Annulering van de reservering</strong>',
+                        'Gratis tot een afgesproken tijd (vermeld in de reserveringsbevestiging). Daarna in onderling overleg.',
+                    ],
+                    [
+                        '<strong>Brandstof &amp; reiniging</strong>',
+                        'Teruggave zonder verplichting tot tanken of wassen. Overmatig vuil wordt individueel afgehandeld.',
+                    ],
+                    [
+                        '<strong>Bezorging / ophalen</strong>',
+                        'Volgens de bezorgprijslijst (Vysočina / omgeving). Bij de reservering bevestigd.',
+                    ],
+                    [
+                        '<strong>Late teruggave</strong>',
+                        'Breng op tijd terug op de laatste huurdag; bij vertraging rekenen we volgens afspraak (met het oog op andere reserveringen).',
+                    ],
+                ],
+                'mid_cta' => [
+                    'label' => 'DOOR NAAR DE RESERVERING',
+                    'href' => '/rezervace',
+                    'aria' => 'Een motor reserveren en akkoord gaan met de Motogo24-huurovereenkomst',
+                ],
+            ],
+            'usage' => [
+                'title' => 'Gebruik van de motor en aansprakelijkheid',
+                'items' => [
+                    'Rijd&nbsp;<strong>volgens de regels</strong>&nbsp;en met het oog op de technische staat en het type motor.',
+                    'De huurder is aansprakelijk voor&nbsp;<strong>boetes en overtredingen</strong>&nbsp;(wij geven informatie door zoals de wet vereist).',
+                    '<strong>Buitenland</strong>: mogelijk; volg de territoriale geldigheid van de verzekering (groene kaart). Sommige landen kunnen uitgesloten zijn.',
+                    'Bij een&nbsp;<strong>ongeval of pech</strong>&nbsp;volg je de instructies in de boordset (ongevalsformulier, Motogo24-contact).',
+                    '<strong>Service en onderhoud</strong>&nbsp;regelen wij; meld gebreken onmiddellijk.',
+                    '<strong>Aanpassingen aan de motor</strong>&nbsp;zijn niet toegestaan zonder toestemming.',
+                ],
+            ],
+            'handover' => [
+                'title' => 'Overdracht en teruggave',
+                'items' => [
+                    'Het&nbsp;<strong>ophalen</strong>&nbsp;gebeurt in Pelhřimov (Mezná 9) of gebruik&nbsp;<a href="/jak-pujcit/pristaveni">bezorging</a>.',
+                    'Bij de overdracht ontvang je&nbsp;<strong>sleutels, uitrusting en documenten</strong>&nbsp;(kentekenbewijs, groene kaart, ongevalsformulier).',
+                    '<strong>Teruggave</strong>&nbsp;op elk moment van de laatste huurdag (ook om middernacht). Wassen of tanken is niet nodig.',
+                ],
+            ],
+            'privacy' => [
+                'title' => 'Persoonsgegevens en veiligheid',
+                'text' => 'We verwerken persoonsgegevens alleen voor het sluiten en uitvoeren van de huurovereenkomst (identificatie, communicatie, facturatie). Details vind je in het <a href="/cms/zasady-ochrany-osobnich-udaju">privacybeleid</a>.',
+            ],
+            'documents' => [
+                'title' => 'Documenten om te downloaden',
+                'items' => [
+                    [
+                        'name' => 'Huurovereenkomst',
+                        'href' => '/cms/smlouva-o-pronajmu',
+                        'size' => '87.4kB',
+                    ],
+                    [
+                        'name' => 'Overdrachtsprotocol',
+                        'href' => '/cms/predavaci-protokol',
+                        'size' => '47.6kB',
+                    ],
+                    [
+                        'name' => 'Algemene voorwaarden',
+                        'href' => '/cms/obchodni-podminky',
+                        'size' => '87.7kB',
+                    ],
+                    [
+                        'name' => 'Privacybeleid',
+                        'href' => '/cms/zasady-ochrany-osobnich-udaju',
+                        'size' => '76.3kB',
+                    ],
+                ],
+            ],
+            'midcta' => [
+                'title' => 'Akkoord met de voorwaarden? Reserveer en rij.',
+                'text' => 'Kies uit&nbsp;<strong>toer-, sport-, enduro- en kindermotoren</strong>&nbsp;en bevestig je reservering online.',
+            ],
             'cta' => [
                 'title' => 'Huurovereenkomst zonder borg – motorverhuur Vysočina',
                 'text' => 'MotoGo24 is een <strong>motorverhuur in Vysočina</strong> met eerlijke voorwaarden.',

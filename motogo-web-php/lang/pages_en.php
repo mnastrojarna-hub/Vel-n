@@ -600,6 +600,138 @@ return [
                 'href' => '/rezervace',
                 'aria' => 'Book a motorcycle online at Motogo24',
             ],
+            'summary' => [
+                'title' => 'Summary of the main points',
+                'items' => [
+                    [
+                        'icon' => 'gfx/ico-bez-kauce.svg',
+                        'title' => 'No deposit / advance',
+                        'text' => 'we rent the motorcycle without blocking any money',
+                    ],
+                    [
+                        'icon' => 'gfx/rezervace-online.svg',
+                        'title' => 'Online booking',
+                        'text' => 'including payment',
+                    ],
+                    [
+                        'icon' => 'gfx/vyber-vybavu.svg',
+                        'title' => 'Rider gear',
+                        'text' => 'included (helmet, jacket, trousers, gloves)',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-nonstop.svg',
+                        'title' => '24/7 service',
+                        'text' => 'pickup and return any time on the rental day',
+                    ],
+                    [
+                        'icon' => 'gfx/jasne-podminky.svg',
+                        'title' => 'Clear usage rules',
+                        'text' => 'at home and abroad (per the green card)',
+                    ],
+                    [
+                        'icon' => 'gfx/zadne-skryte-poplatky.svg',
+                        'title' => 'No hidden fees',
+                        'text' => 'everything is stated below and in the contract',
+                    ],
+                ],
+            ],
+            'required_docs' => [
+                'title' => 'What you need to sign the contract',
+                'items' => [
+                    '<strong>ID card / passport</strong>',
+                    '<strong>Driving licence</strong>&nbsp;of the appropriate category (A / A2 depending on the machine)',
+                    '<strong>Age</strong>&nbsp;min. 18 (for kids\' motorcycles a legal guardian is liable)',
+                    '<strong>Contacts</strong>&nbsp;(phone, e-mail) for communication and booking confirmation',
+                ],
+            ],
+            'payments' => [
+                'title' => 'Payments, cancellation and fees',
+                'lead' => '<strong>Deposit:</strong>&nbsp;<em>not required</em>. The rental payment is made online or on pickup.',
+                'aria' => 'Overview of payments and fees',
+                'headers' => [
+                    'Item',
+                    'Conditions',
+                ],
+                'rows' => [
+                    [
+                        '<strong>Rental payment</strong>',
+                        'Online in advance.',
+                    ],
+                    [
+                        '<strong>Booking cancellation</strong>',
+                        'Free of charge until an agreed time (stated in the booking confirmation). Later by individual agreement.',
+                    ],
+                    [
+                        '<strong>Fuel &amp; cleaning</strong>',
+                        'Return with no obligation to refuel or wash. Excessive dirt is handled individually.',
+                    ],
+                    [
+                        '<strong>Delivery / collection</strong>',
+                        'According to the delivery price list (Vysočina / surroundings). Confirmed at booking.',
+                    ],
+                    [
+                        '<strong>Late return</strong>',
+                        'Please return on time on the last rental day; for delays we charge as agreed (with regard to other bookings).',
+                    ],
+                ],
+                'mid_cta' => [
+                    'label' => 'CONTINUE TO BOOKING',
+                    'href' => '/rezervace',
+                    'aria' => 'Book a motorcycle and agree to the Motogo24 rental contract',
+                ],
+            ],
+            'usage' => [
+                'title' => 'Using the motorcycle and liability',
+                'items' => [
+                    'Ride in&nbsp;<strong>compliance with the rules</strong>&nbsp;and with regard to the technical condition and type of the motorcycle.',
+                    'The renter is liable for&nbsp;<strong>fines and offences</strong>&nbsp;(we pass on information as required by law).',
+                    '<strong>Abroad</strong>: possible; follow the territorial validity of the insurance (green card). Some countries may be excluded.',
+                    'In the event of an&nbsp;<strong>accident or breakdown</strong>&nbsp;follow the instructions in the on-board kit (accident form, Motogo24 contact).',
+                    '<strong>Service and maintenance</strong>&nbsp;is handled by us; report faults immediately.',
+                    '<strong>Modifications to the motorcycle</strong>&nbsp;are not allowed without consent.',
+                ],
+            ],
+            'handover' => [
+                'title' => 'Handover and return',
+                'items' => [
+                    '<strong>Pickup</strong>&nbsp;takes place in Pelhřimov (Mezná 9) or use&nbsp;<a href="/jak-pujcit/pristaveni">delivery</a>.',
+                    'At handover you receive&nbsp;<strong>keys, gear and documents</strong>&nbsp;(vehicle registration, green card, accident form).',
+                    '<strong>Return</strong>&nbsp;any time during the last rental day (even at midnight). No washing or refuelling needed.',
+                ],
+            ],
+            'privacy' => [
+                'title' => 'Personal data and security',
+                'text' => 'We process personal data only for the purpose of concluding and fulfilling the rental contract (identification, communication, invoicing). Details are in the <a href="/cms/zasady-ochrany-osobnich-udaju">personal data processing policy</a>.',
+            ],
+            'documents' => [
+                'title' => 'Documents to download',
+                'items' => [
+                    [
+                        'name' => 'Rental contract',
+                        'href' => '/cms/smlouva-o-pronajmu',
+                        'size' => '87.4kB',
+                    ],
+                    [
+                        'name' => 'Handover protocol',
+                        'href' => '/cms/predavaci-protokol',
+                        'size' => '47.6kB',
+                    ],
+                    [
+                        'name' => 'Terms and conditions',
+                        'href' => '/cms/obchodni-podminky',
+                        'size' => '87.7kB',
+                    ],
+                    [
+                        'name' => 'Privacy policy',
+                        'href' => '/cms/zasady-ochrany-osobnich-udaju',
+                        'size' => '76.3kB',
+                    ],
+                ],
+            ],
+            'midcta' => [
+                'title' => 'Agree to the conditions? Book and ride.',
+                'text' => 'Choose from&nbsp;<strong>touring, sport, enduro and kids\' motorcycles</strong>&nbsp;and confirm your booking online.',
+            ],
             'cta' => [
                 'title' => 'Rental agreement without deposit – motorcycle rental Vysočina',
                 'text' => 'MotoGo24 is a <strong>motorcycle rental in Vysočina</strong> with fair conditions.',
