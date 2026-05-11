@@ -88,6 +88,7 @@ function FieldRow({ field, value, onSaved, fieldUrl, hasToken }) {
   const [translateResult, setTranslateResult] = useState(null)
   const [rowId, setRowId] = useState(null)
   const [savedVal, setSavedVal] = useState(null) // poslední úspěšně uložená hodnota (pro retry překladu)
+  const [saveError, setSaveError] = useState(null) // string s chybou, pokud uložení selhalo (jinak null)
   const changed = val !== currentVal
 
   // Spustí auto-překlad přes edge fn translate-content a zobrazí výsledek.
@@ -108,33 +109,46 @@ function FieldRow({ field, value, onSaved, fieldUrl, hasToken }) {
   async function save() {
     setSaving(true)
     setTranslateResult(null)
-    // Check if key exists, then insert or update
-    const { data: existing } = await supabase
+    setSaveError(null)
+    // Najdi existující řádek podle key. limit(1) (ne maybeSingle) — robustní
+    // i kdyby v DB vznikly duplikáty / `key` ztratil UNIQUE constraint
+    // (maybeSingle by hodil 406 a uložení by tiše selhalo). Sjednoceno s
+    // edge funkcí `cms-save`.
+    const { data: existingRows, error: selErr } = await supabase
       .from('cms_variables')
       .select('id')
       .eq('key', field.key)
-      .maybeSingle()
+      .limit(1)
+    if (selErr) {
+      setSaving(false)
+      setSaveError(selErr.message || selErr.details || 'nepodařilo se načíst řádek')
+      return
+    }
+    const existing = Array.isArray(existingRows) && existingRows.length > 0 ? existingRows[0] : null
 
-    let error
-    let id = existing?.id
+    let error = null
+    let id = existing?.id || null
     if (existing) {
-      const res = await supabase.from('cms_variables').update({ value: val }).eq('key', field.key)
+      const res = await supabase.from('cms_variables').update({ value: val }).eq('id', existing.id)
       error = res.error
     } else {
-      const res = await supabase.from('cms_variables').insert({ key: field.key, value: val, category: 'web' }).select().single()
+      const res = await supabase.from('cms_variables').insert({ key: field.key, value: val, category: 'web' }).select('id').limit(1)
       error = res.error
-      id = res?.data?.id
+      id = (Array.isArray(res.data) && res.data.length > 0) ? res.data[0].id : null
     }
     setSaving(false)
-    if (!error) {
-      setSaved(true)
-      setTimeout(() => setSaved(false), 2000)
-      onSaved?.(field.key, val)
-      setRowId(id || null)
-      setSavedVal(val)
-      // Auto-překlad pro web (na pozadí, jen pro non-empty)
-      if (id) await runTranslate(id, val)
+    if (error) {
+      // Dřív se chyba tiše spolkla → tlačítko „Uložit" vypadalo, že nedělá nic.
+      setSaveError(error.message || error.details || error.hint || 'uložení selhalo')
+      return
     }
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
+    onSaved?.(field.key, val)
+    setRowId(id)
+    setSavedVal(val)
+    // Auto-překlad pro web (na pozadí, jen pro non-empty)
+    if (id) await runTranslate(id, val)
   }
 
   const hasValue = !!value
@@ -178,7 +192,7 @@ function FieldRow({ field, value, onSaved, fieldUrl, hasToken }) {
         }}>
           <RichTextEditor
             value={val}
-            onChange={setVal}
+            onChange={v => { setVal(v); if (saveError) setSaveError(null) }}
             placeholder="Začněte psát… (lišta nahoře — tučné, kurzíva, barva, velikost)"
             minHeight={field.type === 'textarea' ? 120 : 56}
           />
@@ -196,6 +210,9 @@ function FieldRow({ field, value, onSaved, fieldUrl, hasToken }) {
           )}
           {!changed && saved && !translating && translateResult === null && (
             <span className="text-xs font-bold" style={{ color: '#22c55e' }}>Uloženo</span>
+          )}
+          {saveError && (
+            <span className="text-xs font-bold" style={{ color: '#dc2626' }}>✗ Uložení selhalo: {saveError}</span>
           )}
           {translating && (
             <span className="text-xs font-bold" style={{ color: '#1d4ed8' }}>🌍 Překládám do EN/DE/ES/FR/NL/PL…</span>

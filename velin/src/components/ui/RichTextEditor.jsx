@@ -20,6 +20,39 @@ export default function RichTextEditor({
   const [htmlDraft, setHtmlDraft] = useState('')
   const [, force] = useState(0)
   const lastValueRef = useRef('')
+  // Poslední platný výběr (Range) UVNITŘ editoru. Když uživatel klikne na lištu —
+  // hlavně na <input type=color> (otevře nativní dialog) nebo na <select> — editor
+  // ztratí focus a výběr se sbalí; bez tohohle by `execCommand('foreColor'…)` nemělo
+  // na čem pracovat → barva/formátování se „neuložilo". Range si tu uchováme a před
+  // každým exec() ho obnovíme.
+  const savedRangeRef = useRef(null)
+
+  // Ulož aktuální výběr, pokud je uvnitř editoru.
+  const captureSelection = useCallback(() => {
+    const el = editorRef.current
+    if (!el) return
+    const sel = window.getSelection && window.getSelection()
+    if (!sel || sel.rangeCount === 0) return
+    const r = sel.getRangeAt(0)
+    if (el.contains(r.commonAncestorContainer)) {
+      savedRangeRef.current = r.cloneRange()
+    }
+  }, [])
+
+  // Obnov uložený výběr (nepřepisuje platný neprázdný výběr, který v editoru pořád je).
+  const restoreSelection = useCallback(() => {
+    const el = editorRef.current
+    if (!el) return
+    try { el.focus({ preventScroll: true }) } catch (_) { el.focus() }
+    const sel = window.getSelection && window.getSelection()
+    if (!sel) return
+    const cur = sel.rangeCount ? sel.getRangeAt(0) : null
+    if (cur && !cur.collapsed && el.contains(cur.commonAncestorContainer)) return
+    const saved = savedRangeRef.current
+    if (saved && el.contains(saved.commonAncestorContainer)) {
+      try { sel.removeAllRanges(); sel.addRange(saved) } catch (_) { /* ignore */ }
+    }
+  }, [])
 
   // Sync vnější `value` → editor (jen když se opravdu liší od aktuálního obsahu)
   useEffect(() => {
@@ -29,6 +62,7 @@ export default function RichTextEditor({
     if (value !== lastValueRef.current && value !== el.innerHTML) {
       el.innerHTML = value || ''
       lastValueRef.current = value || ''
+      savedRangeRef.current = null
     }
   }, [value, isHtmlMode])
 
@@ -42,7 +76,7 @@ export default function RichTextEditor({
   }, [onChange])
 
   const exec = useCallback((cmd, val = null) => {
-    editorRef.current?.focus()
+    restoreSelection()
     try {
       // styleWithCSS=true → foreColor/hiliteColor produce <span style> instead of <font>
       try { document.execCommand('styleWithCSS', false, true) } catch (_) {}
@@ -50,16 +84,18 @@ export default function RichTextEditor({
       // Browsers may still emit <b>/<i>/<font>; normalize to semantic tags.
       replaceLegacyTags(editorRef.current)
     } catch (_) { /* ignore */ }
+    captureSelection()
     emit()
-  }, [emit])
+  }, [emit, restoreSelection, captureSelection])
 
   const insertHtml = useCallback((html) => {
-    editorRef.current?.focus()
+    restoreSelection()
     try {
       document.execCommand('insertHTML', false, html)
     } catch (_) { /* ignore */ }
+    captureSelection()
     emit()
-  }, [emit])
+  }, [emit, restoreSelection, captureSelection])
 
   const setBlock = (tag) => exec('formatBlock', tag)
   const isActive = (cmd) => {
@@ -135,6 +171,7 @@ export default function RichTextEditor({
         isHtmlMode={isHtmlMode}
         variables={variables}
         insertHtml={insertHtml}
+        captureSelection={captureSelection}
       />
       {isHtmlMode ? (
         <textarea
@@ -157,6 +194,8 @@ export default function RichTextEditor({
           onInput={emit}
           onBlur={emit}
           onKeyDown={onKeyDown}
+          onKeyUp={captureSelection}
+          onMouseUp={captureSelection}
           onPaste={onPaste}
           data-placeholder={placeholder}
           className="rte-content"
@@ -179,10 +218,14 @@ export default function RichTextEditor({
   )
 }
 
-function Toolbar({ exec, setBlock, isActive, currentBlock, promptLink, promptImage, togglePlain, isHtmlMode, variables, insertHtml }) {
+function Toolbar({ exec, setBlock, isActive, currentBlock, promptLink, promptImage, togglePlain, isHtmlMode, variables, insertHtml, captureSelection }) {
   const block = currentBlock()
   return (
-    <div style={toolbarStyle}>
+    // onMouseDown v capture fázi: jakmile uživatel sáhne na lištu (barva / select /
+    // tlačítko), uložíme aktuální výběr v editoru DŘÍV, než klik přesune focus / otevře
+    // nativní dialog. exec() ho pak před příkazem obnoví → barva i ostatní formátování
+    // se aplikuje na to, co bylo vybrané.
+    <div style={toolbarStyle} onMouseDownCapture={() => captureSelection && captureSelection()}>
       {/* Blok / nadpisy */}
       <select
         value={['h1','h2','h3','h4','blockquote','pre'].includes(block) ? block : 'p'}
