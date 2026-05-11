@@ -439,9 +439,60 @@ return [
                     'cls' => 'btndark',
                 ],
             ],
+            'quick' => [
+                [
+                    'label' => 'BEL ONS',
+                    'value' => '+420 774 256 271',
+                    'href' => 'tel:+420774256271',
+                    'icon' => 'gfx/telefon.svg',
+                    'alt' => 'Telefoon',
+                ],
+                [
+                    'label' => 'MAIL ONS',
+                    'value' => 'info@motogo24.cz',
+                    'href' => 'mailto:info@motogo24.cz',
+                    'icon' => 'gfx/email.svg',
+                    'alt' => 'E-mail',
+                ],
+                [
+                    'label' => 'DATABOX',
+                    'value' => 'iuw3vnb',
+                    'href' => NULL,
+                    'icon' => NULL,
+                    'alt' => NULL,
+                ],
+            ],
+            'place' => [
+                'title' => 'Vestiging',
+                'address_label' => 'Adres:',
+                'address' => 'Mezná 9, 393 01 Pelhřimov',
+                'hours_label' => 'Openingstijden:',
+                'hours' => 'MA – ZO: 00:00 – 24:00 (24/7)<br>Inclusief weekenden en feestdagen',
+                'billing_title' => 'Factuurgegevens',
+                'billing_name' => 'Bc. Petra Semorádová',
+                'billing_address' => 'Mezná 9, 393 01 Pelhřimov',
+                'billing_ico' => '21874263',
+                'billing_vat' => 'Geen btw-plichtige',
+                'billing_note' => 'Het bedrijf is op 31-7-2024 ingeschreven bij het stadskantoor in Pelhřimov.',
+            ],
+            'social' => [
+                [
+                    'label' => 'facebook',
+                    'href' => '#',
+                    'icon' => 'gfx/facebook.svg',
+                    'alt' => 'Facebook',
+                ],
+                [
+                    'label' => 'instagram',
+                    'href' => '#',
+                    'icon' => 'gfx/instagram.svg',
+                    'alt' => 'Instagram',
+                ],
+            ],
             'social_title' => 'Volg ons',
             'map' => [
                 'title' => 'Waar je ons vindt',
+                'src' => 'https://www.google.com/maps?q=Mezn%C3%A1+9%2C+393+01+Pelh%C5%99imov&hl=cs&z=15&output=embed',
             ],
             'seo_text' => [
                 'title' => 'Contact – motorverhuur Vysočina (Pelhřimov)',
@@ -456,6 +507,40 @@ return [
             ],
             'h1' => 'Hoe een motor huren',
             'intro' => 'Bij <strong>Motogo24 – motorverhuur in Vysočina</strong> is huren eenvoudig, snel en eerlijk.',
+            'links' => [
+                [
+                    'href' => '/jak-pujcit/postup',
+                    'label' => 'Stappenplan motor huren',
+                ],
+                [
+                    'href' => '/jak-pujcit/prevzeti',
+                    'label' => 'Ophalen bij de verhuur',
+                ],
+                [
+                    'href' => '/jak-pujcit/vraceni-pujcovna',
+                    'label' => 'Motor terugbrengen bij de verhuur',
+                ],
+                [
+                    'href' => '/jak-pujcit/vraceni-jinde',
+                    'label' => 'Motor elders terugbrengen',
+                ],
+                [
+                    'href' => '/jak-pujcit/co-v-cene',
+                    'label' => 'Wat zit er in de huurprijs',
+                ],
+                [
+                    'href' => '/jak-pujcit/pristaveni',
+                    'label' => 'Bezorging van de motor',
+                ],
+                [
+                    'href' => '/jak-pujcit/dokumenty',
+                    'label' => 'Documenten en handleidingen',
+                ],
+                [
+                    'href' => '/jak-pujcit/faq',
+                    'label' => 'Veelgestelde vragen',
+                ],
+            ],
         ],
         'jak_pujcit_postup' => [
             'seo' => [
@@ -533,6 +618,83 @@ return [
                 'og_image' => 'https://www.motogo24.cz/gfx/darkovy-poukaz.jpg',
             ],
             'h1' => 'Koop een cadeaubon – geef een belevenis op twee wielen!',
+            'intro_left' => '<p>Zoek je een origineel cadeau voor je partner, een vriend of papa?</p><p>&nbsp;</p><p>Onze <strong>cadeaubonnen voor motorverhuur</strong> van Motogo24 – <strong>motorverhuur Vysočina</strong> – maken zowel beginners als ervaren rijders blij.</p><p>&nbsp;</p><p>Kies de waarde van de bon of een specifieke motor en geef vrijheid op twee wielen cadeau.</p>',
+            'intro_cta' => [
+                'label' => 'CADEAUBON BESTELLEN',
+                'href' => '/koupit-darkovy-poukaz',
+                'aria' => 'Cadeaubon voor motorverhuur bij verhuur Motogo24 bestellen',
+            ],
+            'intro_image' => [
+                'src' => 'gfx/darkovy-poukaz.jpg',
+                'alt' => 'Cadeaubon',
+            ],
+            'steps' => [
+                [
+                    'icon' => 'gfx/vyber-motorku.svg',
+                    'title' => '1. Kies',
+                    'text' => 'Je kiest de waarde van de bon of een specifieke motor.',
+                ],
+                [
+                    'icon' => 'gfx/zaplat.svg',
+                    'title' => '2. Betaal',
+                    'text' => 'Je betaalt online.',
+                ],
+                [
+                    'icon' => 'gfx/potvrzeni-rezervace.svg',
+                    'title' => '3. Ontvang',
+                    'text' => 'De bon komt na betaling in je mailbox terecht.',
+                ],
+            ],
+            'validity_note' => 'Alle bonnen zijn <strong>3 jaar geldig</strong> vanaf de uitgiftedatum. <strong>De ontvanger kiest zelf de huurdatum</strong> die hem uitkomt. Hij kan ons per e-mail, telefonisch of via social media bereiken.',
+            'why' => [
+                'title' => 'Waarom een bon kopen',
+                'items' => [
+                    '<strong>Flexibele keuze</strong> – waarde van de bon of een specifieke motor.',
+                    '<strong>3 jaar geldig</strong> – de ontvanger kiest zelf de datum.',
+                    '<strong>Zonder borg</strong> – eerlijke voorwaarden zonder onnodige drempels.',
+                    '<strong>Uitrusting in de prijs</strong> – helm, jas, broek en handschoenen gratis.',
+                    '<strong>24/7 service</strong> – ophalen en terugbrengen op elk moment van de huurdag.',
+                    '<strong>Online bestellen</strong> – de bon komt na betaling per e-mail.',
+                ],
+            ],
+            'how' => [
+                'title' => 'Hoe je de bon gebruikt',
+                'items' => [
+                    '<strong>Toermotoren</strong> – weekendroadtrip door Vysočina en heel Tsjechië.',
+                    '<strong>Sportmotoren</strong> – adrenalinerit in de bochten.',
+                    '<strong>Enduro</strong> – licht terrein en avontuur buiten de gebaande paden.',
+                    '<strong>Kindermotoren</strong> – eerste ritjes voor kleine rijders onder toezicht.',
+                ],
+            ],
+            'catalog_cta' => [
+                'label' => 'MOTORCATALOGUS BEKIJKEN',
+                'href' => '/katalog',
+            ],
+            'faq' => [
+                'title' => 'Veelgestelde vragen over cadeaubonnen',
+                'items' => [
+                    [
+                        'q' => 'Hoe lang is een cadeaubon geldig?',
+                        'a' => 'Alle bonnen zijn <strong>3 jaar</strong> geldig vanaf de uitgiftedatum. De huurdatum kiest de ontvanger zelf.',
+                    ],
+                    [
+                        'q' => 'Hoe wordt de bon geleverd?',
+                        'a' => '<strong>Direct per e-mail</strong> na betaling. Op verzoek maken we ook een gedrukte cadeauversie in de vestiging.',
+                    ],
+                    [
+                        'q' => 'Moet de ontvanger borg betalen?',
+                        'a' => 'Nee. <strong>We verhuren zonder borg</strong>. De voorwaarden zijn duidelijk en eerlijk, de rijdersuitrusting zit in de prijs.',
+                    ],
+                    [
+                        'q' => 'Kan de inwisseldatum worden gewijzigd?',
+                        'a' => 'Ja, <strong>de datum kan in overleg worden gewijzigd</strong> afhankelijk van de beschikbaarheid van de betreffende motor in onze agenda.',
+                    ],
+                    [
+                        'q' => 'Voor welke motoren kan de bon worden ingewisseld?',
+                        'a' => 'Voor <strong>toer-, sport-, enduro- en kindermotoren</strong> uit het aanbod van Motogo24 – afhankelijk van de gekozen bonwaarde.',
+                    ],
+                ],
+            ],
             'cta' => [
                 'title' => 'Cadeaubon voor motorverhuur – Vysočina',
                 'text' => 'Motogo24 is een <strong>motorverhuur in Vysočina</strong> met <strong>24/7 service</strong>, <strong>zonder borg</strong> en <strong>uitrusting inbegrepen</strong>.',

@@ -439,9 +439,60 @@ return [
                     'cls' => 'btndark',
                 ],
             ],
+            'quick' => [
+                [
+                    'label' => 'RUFEN SIE UNS AN',
+                    'value' => '+420 774 256 271',
+                    'href' => 'tel:+420774256271',
+                    'icon' => 'gfx/telefon.svg',
+                    'alt' => 'Telefon',
+                ],
+                [
+                    'label' => 'SCHREIBEN SIE UNS',
+                    'value' => 'info@motogo24.cz',
+                    'href' => 'mailto:info@motogo24.cz',
+                    'icon' => 'gfx/email.svg',
+                    'alt' => 'E-Mail',
+                ],
+                [
+                    'label' => 'DATENBOX',
+                    'value' => 'iuw3vnb',
+                    'href' => NULL,
+                    'icon' => NULL,
+                    'alt' => NULL,
+                ],
+            ],
+            'place' => [
+                'title' => 'Betriebsstätte',
+                'address_label' => 'Adresse:',
+                'address' => 'Mezná 9, 393 01 Pelhřimov',
+                'hours_label' => 'Öffnungszeiten:',
+                'hours' => 'MO – SO: 00:00 – 24:00 (rund um die Uhr)<br>Inklusive Wochenenden und Feiertagen',
+                'billing_title' => 'Rechnungsdaten',
+                'billing_name' => 'Bc. Petra Semorádová',
+                'billing_address' => 'Mezná 9, 393 01 Pelhřimov',
+                'billing_ico' => '21874263',
+                'billing_vat' => 'Kein Umsatzsteuerzahler',
+                'billing_note' => 'Das Unternehmen wurde am 31. 7. 2024 beim Stadtamt Pelhřimov eingetragen.',
+            ],
+            'social' => [
+                [
+                    'label' => 'facebook',
+                    'href' => '#',
+                    'icon' => 'gfx/facebook.svg',
+                    'alt' => 'Facebook',
+                ],
+                [
+                    'label' => 'instagram',
+                    'href' => '#',
+                    'icon' => 'gfx/instagram.svg',
+                    'alt' => 'Instagram',
+                ],
+            ],
             'social_title' => 'Folge uns',
             'map' => [
                 'title' => 'Wo du uns findest',
+                'src' => 'https://www.google.com/maps?q=Mezn%C3%A1+9%2C+393+01+Pelh%C5%99imov&hl=cs&z=15&output=embed',
             ],
             'seo_text' => [
                 'title' => 'Kontakte – Motorradvermietung Vysočina (Pelhřimov)',
@@ -456,6 +507,40 @@ return [
             ],
             'h1' => 'Wie miete ich ein Motorrad',
             'intro' => 'Bei <strong>Motogo24 – Motorradvermietung in Vysočina</strong> ist die Miete einfach, schnell und fair.',
+            'links' => [
+                [
+                    'href' => '/jak-pujcit/postup',
+                    'label' => 'Ablauf der Motorradmiete',
+                ],
+                [
+                    'href' => '/jak-pujcit/prevzeti',
+                    'label' => 'Übernahme in der Vermietung',
+                ],
+                [
+                    'href' => '/jak-pujcit/vraceni-pujcovna',
+                    'label' => 'Rückgabe des Motorrads in der Vermietung',
+                ],
+                [
+                    'href' => '/jak-pujcit/vraceni-jinde',
+                    'label' => 'Rückgabe des Motorrads anderswo',
+                ],
+                [
+                    'href' => '/jak-pujcit/co-v-cene',
+                    'label' => 'Was im Mietpreis enthalten ist',
+                ],
+                [
+                    'href' => '/jak-pujcit/pristaveni',
+                    'label' => 'Lieferung des Motorrads',
+                ],
+                [
+                    'href' => '/jak-pujcit/dokumenty',
+                    'label' => 'Dokumente und Anleitungen',
+                ],
+                [
+                    'href' => '/jak-pujcit/faq',
+                    'label' => 'Häufig gestellte Fragen',
+                ],
+            ],
         ],
         'jak_pujcit_postup' => [
             'seo' => [
@@ -533,6 +618,83 @@ return [
                 'og_image' => 'https://www.motogo24.cz/gfx/darkovy-poukaz.jpg',
             ],
             'h1' => 'Kaufe einen Geschenkgutschein – schenke ein Erlebnis auf zwei Rädern!',
+            'intro_left' => '<p>Suchst du ein originelles Geschenk für deinen Partner, einen Freund oder Papa?</p><p>&nbsp;</p><p>Unsere <strong>Geschenkgutscheine für die Motorradmiete</strong> von Motogo24 – <strong>Motorradvermietung Vysočina</strong> – begeistern Anfänger wie erfahrene Fahrer.</p><p>&nbsp;</p><p>Wähle den Gutscheinwert oder ein konkretes Motorrad und schenke Freiheit auf zwei Rädern.</p>',
+            'intro_cta' => [
+                'label' => 'GESCHENKGUTSCHEIN BESTELLEN',
+                'href' => '/koupit-darkovy-poukaz',
+                'aria' => 'Geschenkgutschein für die Motorradmiete bei der Vermietung Motogo24 bestellen',
+            ],
+            'intro_image' => [
+                'src' => 'gfx/darkovy-poukaz.jpg',
+                'alt' => 'Geschenkgutschein',
+            ],
+            'steps' => [
+                [
+                    'icon' => 'gfx/vyber-motorku.svg',
+                    'title' => '1. Wähle',
+                    'text' => 'Du wählst den Gutscheinwert oder ein konkretes Motorrad.',
+                ],
+                [
+                    'icon' => 'gfx/zaplat.svg',
+                    'title' => '2. Bezahle',
+                    'text' => 'Du bezahlst online.',
+                ],
+                [
+                    'icon' => 'gfx/potvrzeni-rezervace.svg',
+                    'title' => '3. Erhalte',
+                    'text' => 'Der Gutschein landet nach der Zahlung in deinem E-Mail-Postfach.',
+                ],
+            ],
+            'validity_note' => 'Alle Gutscheine haben eine <strong>Gültigkeit von 3 Jahren</strong> ab Ausstellungsdatum. <strong>Der Beschenkte wählt den Miettermin selbst</strong>, der ihm passt. Er kann uns per E-Mail, telefonisch oder über soziale Netzwerke kontaktieren.',
+            'why' => [
+                'title' => 'Warum einen Gutschein kaufen',
+                'items' => [
+                    '<strong>Flexible Wahl</strong> – Gutscheinwert oder ein konkretes Motorrad.',
+                    '<strong>3 Jahre gültig</strong> – der Beschenkte wählt den Termin selbst.',
+                    '<strong>Ohne Kaution</strong> – faire Bedingungen ohne unnötige Hürden.',
+                    '<strong>Ausrüstung im Preis</strong> – Helm, Jacke, Hose und Handschuhe gratis.',
+                    '<strong>Rund-um-die-Uhr-Service</strong> – Abholung und Rückgabe jederzeit am Miettag.',
+                    '<strong>Online-Bestellung</strong> – der Gutschein kommt nach der Zahlung per E-Mail.',
+                ],
+            ],
+            'how' => [
+                'title' => 'Wie man den Gutschein nutzt',
+                'items' => [
+                    '<strong>Tourenmotorräder</strong> – Wochenend-Roadtrip durch Vysočina und ganz Tschechien.',
+                    '<strong>Sportmotorräder</strong> – Adrenalinfahrt in den Kurven.',
+                    '<strong>Enduro</strong> – leichtes Gelände und Abenteuer abseits der Hauptstraßen.',
+                    '<strong>Kindermotorräder</strong> – erste Fahrten für kleine Fahrer unter Aufsicht.',
+                ],
+            ],
+            'catalog_cta' => [
+                'label' => 'MOTORRAD-KATALOG ANSEHEN',
+                'href' => '/katalog',
+            ],
+            'faq' => [
+                'title' => 'Häufig gestellte Fragen zu Geschenkgutscheinen',
+                'items' => [
+                    [
+                        'q' => 'Wie lange ist ein Geschenkgutschein gültig?',
+                        'a' => 'Alle Gutscheine sind <strong>3 Jahre</strong> ab Ausstellungsdatum gültig. Den Miettermin wählt der Beschenkte selbst.',
+                    ],
+                    [
+                        'q' => 'Wie wird der Gutschein zugestellt?',
+                        'a' => '<strong>Sofort per E-Mail</strong> nach der Zahlung. Auf Wunsch bereiten wir auch einen gedruckten Geschenkdruck in der Filiale vor.',
+                    ],
+                    [
+                        'q' => 'Muss der Beschenkte eine Kaution hinterlegen?',
+                        'a' => 'Nein. <strong>Wir vermieten ohne Kaution</strong>. Die Bedingungen sind klar und fair, die Fahrerausrüstung ist im Preis enthalten.',
+                    ],
+                    [
+                        'q' => 'Kann der Einlösetermin geändert werden?',
+                        'a' => 'Ja, <strong>der Termin kann nach Absprache geändert werden</strong> je nach Verfügbarkeit des jeweiligen Motorrads in unserem Kalender.',
+                    ],
+                    [
+                        'q' => 'Für welche Motorräder kann der Gutschein eingelöst werden?',
+                        'a' => 'Für <strong>Touren-, Sport-, Enduro- und Kindermotorräder</strong> im Angebot von Motogo24 – je nach gewähltem Gutscheinwert.',
+                    ],
+                ],
+            ],
             'cta' => [
                 'title' => 'Geschenkgutschein für Motorradmiete – Vysočina',
                 'text' => 'Motogo24 ist eine <strong>Motorradvermietung in Vysočina</strong> mit <strong>Rund-um-die-Uhr-Service</strong>, <strong>ohne Kaution</strong> und <strong>Ausrüstung im Preis</strong>.',

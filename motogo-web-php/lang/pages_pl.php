@@ -439,9 +439,60 @@ return [
                     'cls' => 'btndark',
                 ],
             ],
+            'quick' => [
+                [
+                    'label' => 'ZADZWOŃ DO NAS',
+                    'value' => '+420 774 256 271',
+                    'href' => 'tel:+420774256271',
+                    'icon' => 'gfx/telefon.svg',
+                    'alt' => 'Telefon',
+                ],
+                [
+                    'label' => 'NAPISZ DO NAS',
+                    'value' => 'info@motogo24.cz',
+                    'href' => 'mailto:info@motogo24.cz',
+                    'icon' => 'gfx/email.svg',
+                    'alt' => 'E-mail',
+                ],
+                [
+                    'label' => 'SKRZYNKA DANYCH',
+                    'value' => 'iuw3vnb',
+                    'href' => NULL,
+                    'icon' => NULL,
+                    'alt' => NULL,
+                ],
+            ],
+            'place' => [
+                'title' => 'Lokal',
+                'address_label' => 'Adres:',
+                'address' => 'Mezná 9, 393 01 Pelhřimov',
+                'hours_label' => 'Godziny otwarcia:',
+                'hours' => 'PN – ND: 00:00 – 24:00 (całodobowo)<br>W tym weekendy i święta',
+                'billing_title' => 'Dane do faktury',
+                'billing_name' => 'Bc. Petra Semorádová',
+                'billing_address' => 'Mezná 9, 393 01 Pelhřimov',
+                'billing_ico' => '21874263',
+                'billing_vat' => 'Nie jestem płatnikiem VAT',
+                'billing_note' => 'Firma została zarejestrowana 31.7.2024 w Urzędzie Miejskim w Pelhřimovie.',
+            ],
+            'social' => [
+                [
+                    'label' => 'facebook',
+                    'href' => '#',
+                    'icon' => 'gfx/facebook.svg',
+                    'alt' => 'Facebook',
+                ],
+                [
+                    'label' => 'instagram',
+                    'href' => '#',
+                    'icon' => 'gfx/instagram.svg',
+                    'alt' => 'Instagram',
+                ],
+            ],
             'social_title' => 'Śledź nas',
             'map' => [
                 'title' => 'Gdzie nas znaleźć',
+                'src' => 'https://www.google.com/maps?q=Mezn%C3%A1+9%2C+393+01+Pelh%C5%99imov&hl=cs&z=15&output=embed',
             ],
             'seo_text' => [
                 'title' => 'Kontakt – wypożyczalnia motocykli Vysočina (Pelhřimov)',
@@ -456,6 +507,40 @@ return [
             ],
             'h1' => 'Jak wypożyczyć motocykl',
             'intro' => 'W <strong>Motogo24 – wypożyczalni motocykli w Vysočina</strong> wypożyczanie jest proste, szybkie i uczciwe.',
+            'links' => [
+                [
+                    'href' => '/jak-pujcit/postup',
+                    'label' => 'Procedura wynajmu motocykla',
+                ],
+                [
+                    'href' => '/jak-pujcit/prevzeti',
+                    'label' => 'Odbiór w wypożyczalni',
+                ],
+                [
+                    'href' => '/jak-pujcit/vraceni-pujcovna',
+                    'label' => 'Zwrot motocykla w wypożyczalni',
+                ],
+                [
+                    'href' => '/jak-pujcit/vraceni-jinde',
+                    'label' => 'Zwrot motocykla w innym miejscu',
+                ],
+                [
+                    'href' => '/jak-pujcit/co-v-cene',
+                    'label' => 'Co jest w cenie wynajmu',
+                ],
+                [
+                    'href' => '/jak-pujcit/pristaveni',
+                    'label' => 'Podstawienie motocykla',
+                ],
+                [
+                    'href' => '/jak-pujcit/dokumenty',
+                    'label' => 'Dokumenty i instrukcje',
+                ],
+                [
+                    'href' => '/jak-pujcit/faq',
+                    'label' => 'Najczęściej zadawane pytania',
+                ],
+            ],
         ],
         'jak_pujcit_postup' => [
             'seo' => [
@@ -533,6 +618,83 @@ return [
                 'og_image' => 'https://www.motogo24.cz/gfx/darkovy-poukaz.jpg',
             ],
             'h1' => 'Kup bon prezentowy – podaruj przygodę na dwóch kołach!',
+            'intro_left' => '<p>Szukasz oryginalnego prezentu dla partnera, przyjaciela albo taty?</p><p>&nbsp;</p><p>Nasze <strong>bony prezentowe na wynajem motocykla</strong> od Motogo24 – <strong>wypożyczalnia motocykli Vysočina</strong> – ucieszą zarówno początkujących, jak i doświadczonych kierowców.</p><p>&nbsp;</p><p>Wybierz wartość bonu albo konkretny motocykl i podaruj wolność na dwóch kołach.</p>',
+            'intro_cta' => [
+                'label' => 'ZAMÓW BON PREZENTOWY',
+                'href' => '/koupit-darkovy-poukaz',
+                'aria' => 'Zamów bon prezentowy na wynajem motocykla w wypożyczalni Motogo24',
+            ],
+            'intro_image' => [
+                'src' => 'gfx/darkovy-poukaz.jpg',
+                'alt' => 'Bon prezentowy',
+            ],
+            'steps' => [
+                [
+                    'icon' => 'gfx/vyber-motorku.svg',
+                    'title' => '1. Wybierz',
+                    'text' => 'Wybierasz wartość bonu albo konkretny motocykl.',
+                ],
+                [
+                    'icon' => 'gfx/zaplat.svg',
+                    'title' => '2. Zapłać',
+                    'text' => 'Płacisz online.',
+                ],
+                [
+                    'icon' => 'gfx/potvrzeni-rezervace.svg',
+                    'title' => '3. Odbierz',
+                    'text' => 'Bon po opłaceniu trafia na twoją skrzynkę e-mail.',
+                ],
+            ],
+            'validity_note' => 'Wszystkie bony są <strong>ważne 3 lata</strong> od daty wystawienia. <strong>Obdarowany sam wybiera termin wynajmu</strong>, który mu pasuje. Może się z nami skontaktować e-mailem, telefonicznie lub przez media społecznościowe.',
+            'why' => [
+                'title' => 'Dlaczego warto kupić bon',
+                'items' => [
+                    '<strong>Elastyczny wybór</strong> – wartość bonu albo konkretny motocykl.',
+                    '<strong>Ważność 3 lata</strong> – obdarowany sam wybiera termin.',
+                    '<strong>Bez kaucji</strong> – uczciwe warunki bez zbędnych przeszkód.',
+                    '<strong>Wyposażenie w cenie</strong> – kask, kurtka, spodnie i rękawice gratis.',
+                    '<strong>Obsługa całodobowa</strong> – odbiór i zwrot o dowolnej porze w dniu wynajmu.',
+                    '<strong>Zamówienie online</strong> – bon po opłaceniu przychodzi e-mailem.',
+                ],
+            ],
+            'how' => [
+                'title' => 'Jak wykorzystać bon',
+                'items' => [
+                    '<strong>Motocykle turystyczne</strong> – weekendowy roadtrip po Vysočinie i całych Czechach.',
+                    '<strong>Motocykle sportowe</strong> – adrenalinowa jazda na zakrętach.',
+                    '<strong>Enduro</strong> – lekki teren i przygoda poza głównymi drogami.',
+                    '<strong>Motocykle dziecięce</strong> – pierwsze przejażdżki dla małych kierowców pod nadzorem.',
+                ],
+            ],
+            'catalog_cta' => [
+                'label' => 'ZOBACZ KATALOG MOTOCYKLI',
+                'href' => '/katalog',
+            ],
+            'faq' => [
+                'title' => 'Najczęściej zadawane pytania o bony prezentowe',
+                'items' => [
+                    [
+                        'q' => 'Jaka jest ważność bonu prezentowego?',
+                        'a' => 'Wszystkie bony są ważne <strong>3 lata</strong> od daty wystawienia. Termin wynajmu obdarowany wybiera sam.',
+                    ],
+                    [
+                        'q' => 'Jak dostarczacie bon?',
+                        'a' => '<strong>Natychmiast e-mailem</strong> po opłaceniu. Na życzenie przygotujemy też wydruk prezentowy w lokalu.',
+                    ],
+                    [
+                        'q' => 'Czy obdarowany musi wpłacać kaucję?',
+                        'a' => 'Nie. <strong>Wypożyczamy bez kaucji</strong>. Warunki są jasne i uczciwe, wyposażenie kierowcy jest w cenie.',
+                    ],
+                    [
+                        'q' => 'Czy można zmienić termin realizacji?',
+                        'a' => 'Tak, <strong>termin można zmienić po uzgodnieniu</strong> w zależności od dostępności danego motocykla w naszym kalendarzu.',
+                    ],
+                    [
+                        'q' => 'Na jakie motocykle można zrealizować bon?',
+                        'a' => 'Na <strong>motocykle turystyczne, sportowe, enduro i dziecięce</strong> z oferty Motogo24 – zależnie od wybranej wartości bonu.',
+                    ],
+                ],
+            ],
             'cta' => [
                 'title' => 'Bon prezentowy na wynajem motocykla – Vysočina',
                 'text' => 'Motogo24 to <strong>wypożyczalnia motocykli w Vysočina</strong> z <strong>obsługą całodobową</strong>, <strong>bez kaucji</strong> i <strong>wyposażeniem w cenie</strong>.',
