@@ -117,7 +117,7 @@ function renderFooter() {
             '<div class="footer-phone dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/telefon.svg" alt="" aria-hidden="true" class="icon-small" loading="lazy" width="20" height="20"></div><div><p>' . $callUsHtml . '<strong><a href="' . PHONE_LINK . '">' . PHONE . '</a></strong></p></div></div>' .
             '<div class="dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/email.svg" alt="" aria-hidden="true" class="icon-small" loading="lazy" width="20" height="20"></div><div><p><a href="mailto:' . EMAIL_FULL . '">' . EMAIL_USER . '&#64;' . EMAIL_DOMAIN . '</a></p></div></div>' .
             '<div class="dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/adresa.svg" alt="" aria-hidden="true" class="icon-small" loading="lazy" width="20" height="20"></div><div><p><strong>' . tc('footer.companyLine1') . '</strong><br>' . ADDRESS . '</p></div></div>' .
-            '<div class="dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/provozni-doba.svg" alt="" aria-hidden="true" class="icon-small" loading="lazy" width="20" height="20"></div><div><p>' . tc('footer.openHours') . '</p></div></div>' .
+            '<div class="dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/provozni-doba.svg" alt="" aria-hidden="true" class="icon-small" loading="lazy" width="20" height="20"></div><div><p>' . preg_replace('/\)\s+(?=\S)/', ')<br>', tc('footer.openHours'), 1) . '</p></div></div>' .
         '</div>' .
     '</div></div>' .
     '<div class="copyright"><div class="container">' .
