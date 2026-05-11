@@ -45,7 +45,17 @@ $rezKeys = [
     'alert.terms','alert.dates','alert.moto','alert.pickupTime',
     'alert.minTime','alert.minTimeDelivery','alert.returnTime',
     'alert.bookingOverlap','alert.bookingOverlapOwn','alert.error','alert.saveError',
-    'alert.selectSize',
+    'alert.selectSize','alert.emailExists','alert.emailMismatch',
+    // Přihlášení / obnova hesla v rezervaci (pages-rezervace-auth.js)
+    'auth.returning.title','auth.returning.sub',
+    'auth.login.title','auth.login.help','auth.login.submit','auth.login.submitting','auth.login.forgot',
+    'auth.forgot.title','auth.forgot.help','auth.forgot.submit','auth.forgot.submitting','auth.forgot.back',
+    'auth.otp.title','auth.otp.help','auth.otp.password','auth.otp.password2','auth.otp.submit','auth.otp.submitting',
+    'auth.otp.errMissingEmail','auth.otp.errInvalid','auth.otp.errShort','auth.otp.errMismatch','auth.otp.errSave','auth.otp.errSame',
+    'auth.email','auth.password','auth.edit','auth.logout',
+    'auth.loggedin.title','auth.loggedin.docsOk','auth.loggedin.docsMissing',
+    'auth.exists.title','auth.exists.body','auth.exists.btn',
+    'auth.err.empty','auth.err.login','auth.err.forgot','auth.err.server',
     // Kalendář (pages-rezervace-calendar.js)
     'cal.month.0','cal.month.1','cal.month.2','cal.month.3','cal.month.4','cal.month.5',
     'cal.month.6','cal.month.7','cal.month.8','cal.month.9','cal.month.10','cal.month.11',
