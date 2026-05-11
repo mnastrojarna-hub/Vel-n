@@ -13,7 +13,7 @@ const CORS = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
-const SITE_URL = Deno.env.get('SITE_URL') || 'https://motogo24.cz'
+const SITE_URL = Deno.env.get('SITE_URL') || 'https://www.motogo24.cz'
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!, {
   apiVersion: '2024-04-10',

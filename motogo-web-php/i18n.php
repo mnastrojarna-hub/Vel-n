@@ -42,6 +42,24 @@ const I18N_SUPPORTED = ['cs', 'en', 'de', 'es', 'fr', 'nl', 'pl'];
 const I18N_DEFAULT = 'cs';
 const I18N_COOKIE = 'mg_web_lang';
 
+// SEO: Hreflang/sitemap odkazy generujeme jen pro domeny ktere jsou ZIVE.
+// Externi SEO checker (Seobility) hlasil 393 'External link problems' —
+// vetsina hreflang odkazu z .cz na motogo24.es a motogo24.nl, ktere zatim
+// nejsou nasazene (returns 'Page is down' / 'Domain not connected'). Az tyto
+// domeny pojedou (FTP nasazeni + SSL cert), prepiname zde na true.
+// I18N_SUPPORTED zustava plny — language switcher dal nabizi vsechny jazyky,
+// jen nasmeruji uzivatele na hosting kde to bezi (.com s ?lang=es atd) misto
+// na non-existujici TLD.
+const I18N_HREFLANG_LIVE = [
+    'cs' => true,
+    'en' => true,
+    'de' => true,   // motogo24.at funguje
+    'es' => false,  // motogo24.es zatim down — povolit az po deploy
+    'pl' => true,   // motogo24.pl funguje
+    'fr' => true,   // motogo24.fr funguje
+    'nl' => false,  // motogo24.nl zatim down — povolit az po deploy
+];
+
 // Doménové mapování — určuje, na které doméně bydlí "kanonická" verze jazyka.
 // Každý jazyk má vlastní dedikovanou TLD. 2026-05: dokoupeny .fr a .nl, takže
 // fr/nl už nejsou na .com fallbacku, ale na vlastních doménách (motogo24.fr,
@@ -126,15 +144,16 @@ function i18nSiteDefaultLang() {
 }
 
 /**
- * Vrátí kanonický host (bez schématu) pro danou doménu.
- *   motogo24.cz  → motogo24.cz       (Forpsi — www řeší proxy + canonical link)
- *   motogo24.com → www.motogo24.com  (Hosting90 — Let's Encrypt cert je jen
- *                                     na www. variantě; holá doména spadne na
+ * Vrátí kanonický host (bez schématu) pro danou doménu — vždy www. varianta:
+ *   motogo24.cz  → www.motogo24.cz   (Forpsi proxy/DNS vynucuje www na všech
+ *                                     requestech; bez www by canonical/hreflang
+ *                                     ukazovaly na neservírovanou URL)
+ *   motogo24.com → www.motogo24.com  (Hosting90 — Let's Encrypt cert je jen na
+ *                                     www. variantě; holá doména spadne na
  *                                     default cert h90-w22.hosting90.cz)
  *   ...ostatní Hosting90 TLD analogicky. Neznámá doména → beze změny.
  */
 function i18nCanonicalHostFor($domain) {
-    if ($domain === I18N_DOMAIN_CS) return $domain;
     if (isset(I18N_DOMAIN_DEFAULTS[$domain])) return 'www.' . $domain;
     return $domain;
 }
@@ -145,8 +164,8 @@ function i18nCanonicalHost() {
 }
 
 /**
- * Vrátí origin (https://[www.]motogo24.xx) pro doménovou kanonickou verzi
- * daného jazyka. Každý jazyk má vlastní TLD; pro Hosting90 domény vždy s www.
+ * Vrátí origin (https://www.motogo24.xx) pro doménovou kanonickou verzi
+ * daného jazyka. Každý jazyk má vlastní TLD; canonical host je vždy s www.
  */
 function i18nOriginForLang($lang) {
     $domain = I18N_DOMAIN_MAP[$lang] ?? I18N_DOMAIN_INTL;
@@ -155,7 +174,7 @@ function i18nOriginForLang($lang) {
 
 /**
  * Postaví kanonickou URL pro daný jazyk + cestu.
- *   cs → https://motogo24.cz{path}
+ *   cs → https://www.motogo24.cz{path}
  *   en → https://www.motogo24.com{path}
  *   de → https://www.motogo24.at{path}
  *   es → https://www.motogo24.es{path}

@@ -8,8 +8,8 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
 const FROM_EMAIL = Deno.env.get('FROM_EMAIL') || 'noreply@motogo24.cz'
 const REPLY_TO = 'info@motogo24.cz'
-const SITE_URL = Deno.env.get('SITE_URL') || 'https://motogo24.cz'
-const PUBLIC_QR_TARGET = 'https://motogo24.cz'
+const SITE_URL = Deno.env.get('SITE_URL') || 'https://www.motogo24.cz'
+const PUBLIC_QR_TARGET = 'https://www.motogo24.cz'
 const FB_URL = 'https://www.facebook.com/profile.php?id=61581614672839'
 const IG_URL = 'https://www.instagram.com/moto.go24/'
 const GOOGLE_REVIEW_URL_DEFAULT = 'https://g.page/MotoGo24/review'
@@ -181,6 +181,39 @@ function fileExt(path: string | null | undefined): 'pdf' | 'html' {
   return 'html'
 }
 
+/** HTML fallback pro voucher — pokud PDF generation selže, přiložíme HTML voucher,
+ *  aby v mailu nikdy nechyběl. Renderuje branded design 1:1 s ostatními maily. */
+function renderVoucherHtmlFallback(code: string, amount: number, validUntil: string): string {
+  const fmtPriceLocal = (n: number) => (n || 0).toLocaleString('cs-CZ', { minimumFractionDigits: 0 })
+  const fmtDateLocal = (d: string) => d ? new Date(d).toLocaleDateString('cs-CZ') : '—'
+  return `<!DOCTYPE html><html lang="cs"><head><meta charset="UTF-8"><title>Dárkový poukaz ${code}</title></head>
+<body style="margin:0;padding:0;background:#d9dee2;font-family:-apple-system,'Segoe UI',Arial,sans-serif">
+  <div style="max-width:780px;margin:24px auto;background:#000000;border:3px solid #74FB71;border-radius:16px;overflow:hidden;color:#ffffff">
+    <div style="padding:32px;text-align:center;border-bottom:1px solid #1f3a2c">
+      <div style="color:#ffffff;font-size:32px;font-weight:900;letter-spacing:3px">MOTO GO 24</div>
+      <div style="color:#74FB71;font-size:11px;font-weight:400;letter-spacing:6px;margin-top:6px">DÁRKOVÝ POUKAZ</div>
+    </div>
+    <div style="padding:40px 32px;text-align:center">
+      <div style="color:#9ca3af;font-size:11px;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px">Hodnota poukazu</div>
+      <div style="color:#74FB71;font-size:48px;font-weight:900;line-height:1">${fmtPriceLocal(amount)} Kč</div>
+    </div>
+    <div style="padding:0 32px 24px;text-align:center">
+      <div style="background:#1a1a1a;border:2px dashed #74FB71;border-radius:8px;padding:18px 16px;display:inline-block;min-width:280px">
+        <div style="color:#9ca3af;font-size:10px;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px">Kód poukazu</div>
+        <div style="color:#ffffff;font-size:28px;font-weight:900;font-family:'Courier New',monospace;letter-spacing:4px">${code}</div>
+      </div>
+    </div>
+    <div style="padding:0 32px 32px;text-align:center;color:#9ca3af;font-size:13px;line-height:1.7">
+      <div>Platnost do: <strong style="color:#ffffff">${fmtDateLocal(validUntil)}</strong></div>
+      <div style="margin-top:14px">Uplatněte jednorázově při rezervaci na <a href="https://www.motogo24.cz" style="color:#74FB71;text-decoration:none">motogo24.cz</a> — kód zadejte do políčka „Slevový kód".</div>
+    </div>
+    <div style="padding:18px 32px;background:#0a0a0a;color:#9ca3af;font-size:11px;line-height:1.6;text-align:center">
+      Bc. Petra Semorádová · IČO: 21874263 · <span style="color:#74FB71">+420 774 256 271</span> · <span style="color:#74FB71">info@motogo24.cz</span>
+    </div>
+  </div>
+</body></html>`
+}
+
 /** Generate dárkový poukaz jako PDF přes pdf-lib.
  *  Stáhne JPG pozadí z webu, vloží na A4 landscape stránku a překryje
  *  hodnotu / datum platnosti / kód poukazu na pozicích odpovídajících šabloně.
@@ -242,14 +275,31 @@ async function generateVoucherPdfAttachment(code: string, amount: number, validU
   return btoa(Array.from(pdfBytes, (b: number) => String.fromCharCode(b)).join(''))
 }
 
+/** Upload base64 content to documents storage bucket and return path. */
+async function uploadB64ToStorage(supabase: any, b64: string, path: string, contentType: string): Promise<string | null> {
+  try {
+    const bin = atob(b64)
+    const bytes = new Uint8Array(bin.length)
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+    const { error } = await supabase.storage.from('documents').upload(path, bytes, { upsert: true, contentType })
+    if (error) { console.warn('[uploadB64ToStorage]', path, error.message); return null }
+    return path
+  } catch (e) { console.warn('[uploadB64ToStorage]', path, (e as Error).message); return null }
+}
+
+/** Attachment shape returned by autoGenerateAttachments — `storage_path` umožňuje
+ *  pozdější náhled/stažení ve Velínu (SentEmailsTab). Před odesláním přes Resend
+ *  je nutné storage_path odstranit (Resend SDK přijímá pouze content+filename). */
+type SentAttachment = { content: string; filename: string; storage_path?: string }
+
 /** Auto-generate attachments based on email type */
 async function autoGenerateAttachments(
   type: string,
   booking_id: string,
   supabase: any,
   opts: { priceDifference?: number; orderId?: string } = {}
-): Promise<{ content: string; filename: string }[]> {
-  const atts: { content: string; filename: string }[] = []
+): Promise<SentAttachment[]> {
+  const atts: SentAttachment[] = []
   const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`, 'apikey': SUPABASE_SERVICE_KEY }
 
   // Voucher purchased (e-shop dárkový poukaz) — DP shop + HTML voucher per kód
@@ -265,7 +315,7 @@ async function autoGenerateAttachments(
         .limit(1)
       if (dp?.length && dp[0].pdf_path) {
         const b64 = await downloadAsBase64(supabase, dp[0].pdf_path)
-        if (b64) atts.push({ content: b64, filename: `Doklad-platby-${dp[0].number || 'DP'}.${fileExt(dp[0].pdf_path)}` })
+        if (b64) atts.push({ content: b64, filename: `Doklad-platby-${dp[0].number || 'DP'}.${fileExt(dp[0].pdf_path)}`, storage_path: dp[0].pdf_path })
       } else {
         const res = await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
           method: 'POST', headers,
@@ -276,20 +326,44 @@ async function autoGenerateAttachments(
           // generate-invoice ukládá zatím .html; pokud později přejde na .pdf, fileExt to detekuje.
           const path = data.pdf_path || `invoices/${data.invoice_id}.html`
           const b64 = await downloadAsBase64(supabase, path)
-          if (b64) atts.push({ content: b64, filename: `Doklad-platby-${data.number || 'DP'}.${fileExt(path)}` })
+          if (b64) atts.push({ content: b64, filename: `Doklad-platby-${data.number || 'DP'}.${fileExt(path)}`, storage_path: path })
         }
       }
 
       // 2. Voucher PDF — generujeme přes pdf-lib (bg image + textové overlaye).
+      // Fallback: pokud PDF selže (chybí JPG pozadí, pdf-lib OOM), přiložíme HTML voucher,
+      // aby v mailu nikdy nechyběl. Důvod selhání zalogujeme do debug_log pro pozdější analýzu.
       const { data: vouchers } = await supabase.from('vouchers')
         .select('code, amount, valid_until')
         .eq('order_id', opts.orderId)
       for (const v of (vouchers || []) as Array<{ code: string; amount: number; valid_until: string }>) {
+        let pdfOk = false
         try {
           const b64 = await generateVoucherPdfAttachment(v.code, v.amount, v.valid_until)
-          atts.push({ content: b64, filename: `Darkovy-poukaz-${v.code}.pdf` })
+          // Ulož PDF voucher do storage, aby šel později ve Velínu otevřít.
+          const storagePath = await uploadB64ToStorage(supabase, b64, `vouchers/${opts.orderId}/${v.code}.pdf`, 'application/pdf')
+          atts.push({ content: b64, filename: `Darkovy-poukaz-${v.code}.pdf`, storage_path: storagePath || undefined })
+          pdfOk = true
         } catch (e) {
-          console.warn('[autoGenerateAttachments] voucher PDF failed:', (e as Error).message)
+          const errMsg = (e as Error).message
+          console.warn('[autoGenerateAttachments] voucher PDF failed:', errMsg)
+          try {
+            await supabase.from('debug_log').insert({
+              source: 'send-booking-email',
+              action: 'voucher_pdf_generation_failed',
+              component: 'generateVoucherPdfAttachment',
+              status: 'error',
+              error_message: errMsg,
+              request_data: { code: v.code, amount: v.amount, order_id: opts.orderId },
+            })
+          } catch { /* ignore */ }
+        }
+        if (!pdfOk) {
+          // HTML voucher fallback — zaručuje, že voucher v mailu vždy je
+          const html = renderVoucherHtmlFallback(v.code, v.amount, v.valid_until)
+          const b64 = btoa(unescape(encodeURIComponent(html)))
+          const storagePath = await uploadB64ToStorage(supabase, b64, `vouchers/${opts.orderId}/${v.code}.html`, 'text/html')
+          atts.push({ content: b64, filename: `Darkovy-poukaz-${v.code}.html`, storage_path: storagePath || undefined })
         }
       }
     } catch (e) {
@@ -310,7 +384,7 @@ async function autoGenerateAttachments(
       const data = await res.json().catch(() => ({}))
       if (data.success && data.path) {
         const b64 = await downloadAsBase64(supabase, data.path)
-        if (b64) atts.push({ content: b64, filename: `Najemni-smlouva-${booking_id.slice(-8).toUpperCase()}.${fileExt(data.path)}` })
+        if (b64) atts.push({ content: b64, filename: `Najemni-smlouva-${booking_id.slice(-8).toUpperCase()}.${fileExt(data.path)}`, storage_path: data.path })
       }
     } catch { /* ignore */ }
     return atts
@@ -325,7 +399,7 @@ async function autoGenerateAttachments(
       const data = await res.json().catch(() => ({}))
       if (data.success && data.path) {
         const b64 = await downloadAsBase64(supabase, data.path)
-        if (b64) atts.push({ content: b64, filename: `VOP-${booking_id.slice(-8).toUpperCase()}.${fileExt(data.path)}` })
+        if (b64) atts.push({ content: b64, filename: `VOP-${booking_id.slice(-8).toUpperCase()}.${fileExt(data.path)}`, storage_path: data.path })
       }
     } catch { /* ignore */ }
     return atts
@@ -344,7 +418,7 @@ async function autoGenerateAttachments(
       const { data: cn } = await q
       if (cn?.length && cn[0].pdf_path) {
         const b64 = await downloadAsBase64(supabase, cn[0].pdf_path)
-        if (b64) atts.push({ content: b64, filename: `Dobropis-${cn[0].number || 'DB'}.${fileExt(cn[0].pdf_path)}` })
+        if (b64) atts.push({ content: b64, filename: `Dobropis-${cn[0].number || 'DB'}.${fileExt(cn[0].pdf_path)}`, storage_path: cn[0].pdf_path })
       }
     } catch { /* ignore */ }
     return atts
@@ -362,7 +436,7 @@ async function autoGenerateAttachments(
         .limit(1)
       if (dp?.length && dp[0].pdf_path) {
         const b64 = await downloadAsBase64(supabase, dp[0].pdf_path)
-        if (b64) atts.push({ content: b64, filename: `Doklad-platby-${dp[0].number || 'DP'}.${fileExt(dp[0].pdf_path)}` })
+        if (b64) atts.push({ content: b64, filename: `Doklad-platby-${dp[0].number || 'DP'}.${fileExt(dp[0].pdf_path)}`, storage_path: dp[0].pdf_path })
       } else {
         // DP neexistuje → pokus o generování
         const res = await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
@@ -373,7 +447,7 @@ async function autoGenerateAttachments(
         if (data.success && data.invoice_id) {
           const path = data.pdf_path || `invoices/${data.invoice_id}.html`
           const b64 = await downloadAsBase64(supabase, path)
-          if (b64) atts.push({ content: b64, filename: `Doklad-platby-${data.number || 'DP'}.${fileExt(path)}` })
+          if (b64) atts.push({ content: b64, filename: `Doklad-platby-${data.number || 'DP'}.${fileExt(path)}`, storage_path: path })
         }
       }
     } catch { /* ignore */ }
@@ -392,7 +466,7 @@ async function autoGenerateAttachments(
         .limit(1)
       if (kf?.length && kf[0].pdf_path) {
         const b64 = await downloadAsBase64(supabase, kf[0].pdf_path)
-        if (b64) atts.push({ content: b64, filename: `Konecna-faktura-${kf[0].number || 'KF'}.${fileExt(kf[0].pdf_path)}` })
+        if (b64) atts.push({ content: b64, filename: `Konecna-faktura-${kf[0].number || 'KF'}.${fileExt(kf[0].pdf_path)}`, storage_path: kf[0].pdf_path })
       } else {
         // KF neexistuje → vygeneruj
         const res = await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
@@ -403,7 +477,7 @@ async function autoGenerateAttachments(
         if (data.success && data.invoice_id) {
           const path = data.pdf_path || `invoices/${data.invoice_id}.html`
           const b64 = await downloadAsBase64(supabase, path)
-          if (b64) atts.push({ content: b64, filename: `Konecna-faktura-${data.number || 'KF'}.${fileExt(path)}` })
+          if (b64) atts.push({ content: b64, filename: `Konecna-faktura-${data.number || 'KF'}.${fileExt(path)}`, storage_path: path })
         }
       }
     } catch { /* ignore */ }
@@ -411,6 +485,67 @@ async function autoGenerateAttachments(
   }
 
   if (!booking_id) return atts
+
+  // Synth typy pro Velín-vybrané přílohy v booking kontextu (mimo shop):
+  //   - booking_advance         → ZF (advance) per booking
+  //   - booking_payment_receipt → DP (payment_receipt) per booking
+  // Volány z attachmentTypeMap. Fetchnou existující fakturu, jinak vygenerují přes generate-invoice.
+  if (type === 'booking_advance') {
+    try {
+      const { data: existing } = await supabase.from('invoices')
+        .select('id, number, pdf_path')
+        .eq('booking_id', booking_id)
+        .eq('type', 'advance')
+        .neq('status', 'cancelled')
+        .order('created_at', { ascending: false })
+        .limit(1)
+      if (existing?.length && existing[0].pdf_path) {
+        const b64 = await downloadAsBase64(supabase, existing[0].pdf_path)
+        if (b64) atts.push({ content: b64, filename: `Zalohova-faktura-${existing[0].number || 'ZF'}.${fileExt(existing[0].pdf_path)}`, storage_path: existing[0].pdf_path })
+      } else {
+        const res = await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
+          method: 'POST', headers,
+          body: JSON.stringify({ type: 'advance', booking_id, send_email: false }),
+        })
+        const data = await res.json().catch(() => ({}))
+        if (data.success && data.invoice_id) {
+          const path = data.pdf_path || `invoices/${data.invoice_id}.html`
+          const b64 = await downloadAsBase64(supabase, path)
+          if (b64) atts.push({ content: b64, filename: `Zalohova-faktura-${data.number || 'ZF'}.${fileExt(path)}`, storage_path: path })
+        }
+      }
+    } catch { /* ignore */ }
+    return atts
+  }
+
+  if (type === 'booking_payment_receipt') {
+    try {
+      const { data: existing } = await supabase.from('invoices')
+        .select('id, number, pdf_path, source')
+        .eq('booking_id', booking_id)
+        .eq('type', 'payment_receipt')
+        .neq('status', 'cancelled')
+        .order('created_at', { ascending: false })
+      // Vyfiltruj DP vázané na booking (ne shop) — preferuj source='booking'/'edit'/null
+      const candidate = (existing || []).find((r: any) => r.source !== 'shop') || (existing || [])[0]
+      if (candidate?.pdf_path) {
+        const b64 = await downloadAsBase64(supabase, candidate.pdf_path)
+        if (b64) atts.push({ content: b64, filename: `Doklad-platby-${candidate.number || 'DP'}.${fileExt(candidate.pdf_path)}`, storage_path: candidate.pdf_path })
+      } else {
+        const res = await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
+          method: 'POST', headers,
+          body: JSON.stringify({ type: 'payment_receipt', booking_id, send_email: false }),
+        })
+        const data = await res.json().catch(() => ({}))
+        if (data.success && data.invoice_id) {
+          const path = data.pdf_path || `invoices/${data.invoice_id}.html`
+          const b64 = await downloadAsBase64(supabase, path)
+          if (b64) atts.push({ content: b64, filename: `Doklad-platby-${data.number || 'DP'}.${fileExt(path)}`, storage_path: path })
+        }
+      }
+    } catch { /* ignore */ }
+    return atts
+  }
 
   if (type === 'booking_abandoned') {
     // Generate ZF (proforma) for abandoned bookings — shows what needs to be paid
@@ -423,9 +558,16 @@ async function autoGenerateAttachments(
       if (data.success && data.invoice_id) {
         const path = data.pdf_path || `invoices/${data.invoice_id}.html`
         const b64 = await downloadAsBase64(supabase, path)
-        if (b64) atts.push({ content: b64, filename: `Zalohova-faktura-${data.number || 'ZF'}.${fileExt(path)}` })
+        if (b64) atts.push({ content: b64, filename: `Zalohova-faktura-${data.number || 'ZF'}.${fileExt(path)}`, storage_path: path })
       }
     } catch { /* ignore */ }
+  }
+
+  // booking_reserved a booking_cancelled samy o sobě negenerují žádné přílohy hardcoded —
+  // vše řídí Velín admin přes `email_templates.attachments` (delegát na booking_advance,
+  // booking_payment_receipt, rental_contract, vop, credit_note synth typy).
+  if (type === 'booking_reserved' || type === 'booking_cancelled') {
+    return atts
   }
 
   if (type === 'booking_completed') {
@@ -440,7 +582,7 @@ async function autoGenerateAttachments(
         .limit(1)
       if (invoices?.length && invoices[0].pdf_path) {
         const b64 = await downloadAsBase64(supabase, invoices[0].pdf_path)
-        if (b64) atts.push({ content: b64, filename: `Konecna-faktura-${invoices[0].number || 'KF'}.${fileExt(invoices[0].pdf_path)}` })
+        if (b64) atts.push({ content: b64, filename: `Konecna-faktura-${invoices[0].number || 'KF'}.${fileExt(invoices[0].pdf_path)}`, storage_path: invoices[0].pdf_path })
       }
     } catch { /* ignore */ }
   }
@@ -459,7 +601,7 @@ async function autoGenerateAttachments(
         if (zfData.success && zfData.invoice_id) {
           const path = zfData.pdf_path || `invoices/${zfData.invoice_id}.html`
           const b64 = await downloadAsBase64(supabase, path)
-          if (b64) atts.push({ content: b64, filename: `Zalohova-faktura-uprava-${zfData.number || 'ZF'}.${fileExt(path)}` })
+          if (b64) atts.push({ content: b64, filename: `Zalohova-faktura-uprava-${zfData.number || 'ZF'}.${fileExt(path)}`, storage_path: path })
         }
       } catch { /* ignore */ }
 
@@ -472,25 +614,55 @@ async function autoGenerateAttachments(
         if (dpData.success && dpData.invoice_id) {
           const path = dpData.pdf_path || `invoices/${dpData.invoice_id}.html`
           const b64 = await downloadAsBase64(supabase, path)
-          if (b64) atts.push({ content: b64, filename: `Doklad-platby-uprava-${dpData.number || 'DP'}.${fileExt(path)}` })
+          if (b64) atts.push({ content: b64, filename: `Doklad-platby-uprava-${dpData.number || 'DP'}.${fileExt(path)}`, storage_path: path })
         }
       } catch { /* ignore */ }
     } else if (priceDifference < 0) {
-      // Zkrácení → dobropis + refund se řeší přes process-refund (volá ho velin modal),
-      // zde pouze přiložíme již vystavený dobropis (credit_note s source='refund') pokud existuje.
-      try {
-        const { data: cn } = await supabase.from('invoices')
-          .select('id, number, pdf_path')
-          .eq('booking_id', booking_id)
-          .eq('type', 'credit_note')
-          .neq('status', 'cancelled')
-          .order('created_at', { ascending: false })
-          .limit(1)
-        if (cn?.length && cn[0].pdf_path) {
-          const b64 = await downloadAsBase64(supabase, cn[0].pdf_path)
-          if (b64) atts.push({ content: b64, filename: `Dobropis-${cn[0].number || 'DB'}.${fileExt(cn[0].pdf_path)}` })
-        }
-      } catch { /* ignore */ }
+      // Zkrácení → dobropis + refund se řeší přes process-refund (volá ho RPC
+      // _apply_booking_changes_core / shorten_booking_with_refund), zde přiložíme
+      // vystavený dobropis (credit_note source='refund') s recovery retry pro
+      // případ, že PDFShift / Storage upload v process-refund tichoun selhal
+      // (stejná logika jako v send-cancellation-email od 2026-05-10).
+      const refundAmt = Math.abs(priceDifference)
+      let attached = false
+      for (let attempt = 0; attempt < 3 && !attached; attempt++) {
+        try {
+          const { data: cn } = await supabase.from('invoices')
+            .select('id, number, pdf_path')
+            .eq('booking_id', booking_id)
+            .eq('type', 'credit_note')
+            .neq('status', 'cancelled')
+            .order('created_at', { ascending: false })
+            .limit(1)
+          if (cn?.length && cn[0].pdf_path) {
+            const b64 = await downloadAsBase64(supabase, cn[0].pdf_path)
+            if (b64) {
+              atts.push({ content: b64, filename: `Dobropis-${cn[0].number || 'DB'}.${fileExt(cn[0].pdf_path)}`, storage_path: cn[0].pdf_path })
+              attached = true
+              break
+            }
+          }
+          // Recovery — vystavit / dovystavit PDF dobropisu přes process-refund (idempotentní)
+          if (attempt < 2) {
+            try {
+              await fetch(`${SUPABASE_URL}/functions/v1/process-refund`, {
+                method: 'POST', headers,
+                body: JSON.stringify({ booking_id, amount: refundAmt, reason: 'booking_modified_retry' }),
+              })
+            } catch { /* ignore */ }
+            await new Promise(r => setTimeout(r, 2500))
+          }
+        } catch { /* ignore — další iterace */ }
+      }
+      if (!attached) {
+        await supabase.from('debug_log').insert({
+          source: 'send-booking-email',
+          action: 'modified_credit_note_attach_failed',
+          status: 'error',
+          error_message: 'Credit note attachment missing after 3 retries (booking_modified flow)',
+          request_data: { booking_id, refundAmt, priceDifference },
+        }).then(() => {}, () => {})
+      }
     }
     // priceDifference === 0 → žádná nová faktura, jen aktualizovaná smlouva/VOP níže
 
@@ -503,7 +675,7 @@ async function autoGenerateAttachments(
       const cData = await cRes.json().catch(() => ({}))
       if (cData.success && cData.path) {
         const b64 = await downloadAsBase64(supabase, cData.path)
-        if (b64) atts.push({ content: b64, filename: `Najemni-smlouva-${booking_id.slice(-8).toUpperCase()}.${fileExt(cData.path)}` })
+        if (b64) atts.push({ content: b64, filename: `Najemni-smlouva-${booking_id.slice(-8).toUpperCase()}.${fileExt(cData.path)}`, storage_path: cData.path })
       }
     } catch { /* ignore */ }
 
@@ -516,7 +688,7 @@ async function autoGenerateAttachments(
       const vData = await vRes.json().catch(() => ({}))
       if (vData.success && vData.path) {
         const b64 = await downloadAsBase64(supabase, vData.path)
-        if (b64) atts.push({ content: b64, filename: `VOP-${booking_id.slice(-8).toUpperCase()}.${fileExt(vData.path)}` })
+        if (b64) atts.push({ content: b64, filename: `VOP-${booking_id.slice(-8).toUpperCase()}.${fileExt(vData.path)}`, storage_path: vData.path })
       }
     } catch { /* ignore */ }
   }
@@ -553,7 +725,7 @@ serve(async (req) => {
       google_review_url,
       facebook_review_url,
       manual_url,
-      attachments,
+      // legacy `attachments` v body se ignoruje — Velín DB šablona je etalon (viz níže)
       // i18n — language zákazníka (cs/en/de/nl/es/fr/pl), default 'cs'
       language,
       // Shop order extras
@@ -578,211 +750,39 @@ serve(async (req) => {
       return_time,
       original_pickup_time,
       original_return_time,
-      // ⚠️ Dynamic dispatcher (Etapa 7) — pokud přijde template_slug, edge fn
-      // místo i18n.ts engine načte šablonu přímo z DB (custom admin šablona).
-      // type=  zůstává primární cestou pro hardcoded šablony (booking_reserved
-      // atd.) → stávající chování beze změny.
-      template_slug,
-      event_slug,
     } = body
 
-    // Validace: musí být buď `type` (legacy) nebo `template_slug` (dynamic dispatcher)
-    if ((!type && !template_slug) || !customer_email) {
-      return new Response(JSON.stringify({ error: 'Missing type|template_slug or customer_email' }), {
+    if (!type || !customer_email) {
+      return new Response(JSON.stringify({ error: 'Missing type or customer_email' }), {
         status: 400,
         headers: { ...CORS, 'Content-Type': 'application/json' },
       })
     }
 
-    // ⚠️ DYNAMIC DISPATCHER — když přijde template_slug, dohledáme šablonu v DB
-    // a použijeme její body+subject místo i18n.ts hardcoded engine.
-    // Stávající `type=` cesta zůstává v původním kódu níže nedotčená.
-    if (template_slug && !type) {
-      // Dedup: poslali jsme tomu bookingu/orderu tu šablonu v posledních 5 min?
+    // 🚫 Door-codes mail jde výhradně přes SQL fn `send_door_codes_email`,
+    // která čte šablonu `door_codes` z `email_templates` a posílá přes Resend napřímo.
+    // Tato edge fn zůstává jako pojistka — pokud někdo nedopatřením zavolá `type='door_codes'`,
+    // request tiše zahodíme, aby nevznikl duplikátní mail.
+    if (type === 'door_codes') {
       try {
-        const dedupKey = booking_id || order_id || customer_email
-        const { data: recent } = await supabase.from('message_log')
-          .select('id')
-          .eq('template_slug', template_slug)
-          .eq('status', 'sent')
-          .gt('created_at', new Date(Date.now() - 5 * 60_000).toISOString())
-          .or(booking_id ? `booking_id.eq.${booking_id}` : `recipient_email.eq.${customer_email}`)
-          .limit(1)
-        if (recent && recent.length > 0) {
-          return new Response(JSON.stringify({ skipped: true, reason: 'dedup_5min', template_slug }), {
-            status: 200, headers: { ...CORS, 'Content-Type': 'application/json' },
-          })
-        }
-      } catch { /* dedup je best-effort */ }
-
-      // Načti šablonu z DB
-      const { data: tpl, error: tplErr } = await supabase
-        .from('email_templates')
-        .select('id, slug, name, subject, body_html, active, attachments, subject_translations, body_translations')
-        .eq('slug', template_slug)
-        .eq('active', true)
-        .maybeSingle()
-      if (tplErr || !tpl) {
-        return new Response(JSON.stringify({ error: `Template '${template_slug}' not found or inactive` }), {
-          status: 404, headers: { ...CORS, 'Content-Type': 'application/json' },
-        })
-      }
-
-      // Lang detekce
-      let custLang2: Lang = normalizeLang(language)
-      if (!language && (booking_id || order_id)) {
-        try {
-          const { data: l } = await supabase.rpc('detect_customer_language', {
-            p_user_id: null, p_booking_id: booking_id || null, p_order_id: order_id || null,
-          })
-          custLang2 = normalizeLang(l)
-        } catch { /* keep 'cs' */ }
-      }
-
-      // Vyber jazyk: DB body_translations[lang] || body_html (CS default)
-      const subjT = (tpl.subject_translations as Record<string, string>) || {}
-      const bodyT = (tpl.body_translations  as Record<string, string>) || {}
-      const subjRaw = subjT[custLang2] || tpl.subject || ''
-      const bodyRaw = bodyT[custLang2] || tpl.body_html || ''
-
-      // Sestav vars (stejné jako legacy cesta)
-      const dynVars: Record<string, string> = {
-        customer_name:   customer_name || '',
-        booking_number:  (booking_id || '').slice(-8).toUpperCase(),
-        order_number:    order_number || (booking_id || '').slice(-8).toUpperCase(),
-        motorcycle:      motorcycle || '',
-        start_date:      fmtDate(start_date),
-        end_date:        fmtDate(end_date),
-        total_price:     fmtPrice(total_price || 0),
-        site_url:        SITE_URL,
-        discount_code:   discount_code || '',
-        resume_link:     resume_link || '',
-        pay_url:         pay_url || resume_link || '',
-        docs_url:        docs_url || '',
-      }
-
-      const dynSubject = renderTemplate(subjRaw, dynVars) || `Oznámení — MOTO GO 24`
-      let dynBody      = renderTemplate(bodyRaw, dynVars)
-      if (template_slug === 'booking_completed' || template_slug === 'shop_order_shipped') {
-        dynBody = dynBody + googleReviewBlock(custLang2, google_review_url || '')
-      }
-      const dynHtml    = wrapInBrandedLayout(dynBody, custLang2)
-
-      // Auto-attachments dle attachments[] z DB šablony
-      const attList = Array.isArray(tpl.attachments) ? tpl.attachments : []
-      const dynAtts: { content: string; filename: string }[] = []
-      // Mapování ATTACHMENTS_OPTION → autoGenerateAttachments param.
-      // Pro voucher / shop kontext (order_id) preferuj shop varianty;
-      // pokud je booking_id, použij booking varianty (booking_abandoned generuje booking ZF,
-      // booking_completed generuje booking KF apod.).
-      const isShopContext = !!order_id
-      const attachmentTypeMap: Record<string, string> = {
-        ZF:       isShopContext ? 'shop_order_confirmed' : 'booking_abandoned',
-        DP:       isShopContext ? 'shop_order_confirmed' : 'booking_completed',
-        KF:       isShopContext ? 'shop_order_shipped'   : 'booking_completed',
-        eshop_DP: 'shop_order_confirmed',
-        eshop_KF: 'shop_order_shipped',
-        Voucher:  'voucher_purchased',
-        Smlouva:  'rental_contract',
-        VOP:      'vop',
-        Dobropis: 'credit_note',
-      }
-      // Pro custom šablony zatím použijeme jednoduchý pass-through:
-      // pokud admin vybere KF/DP/ZF/eshop_DP/eshop_KF → fetchneme přes existing
-      // autoGenerateAttachments() funkci se synthetic type
-      if (booking_id || order_id) {
-        for (const att of attList) {
-          const synthType = attachmentTypeMap[att]
-          if (!synthType) continue
-          try {
-            const synth = await autoGenerateAttachments(synthType, booking_id || '', supabase, {
-              priceDifference: 0, orderId: order_id || undefined,
-            })
-            for (const a of synth) dynAtts.push(a)
-          } catch { /* ignore */ }
-        }
-      }
-
-      if (!RESEND_API_KEY) {
-        return new Response(JSON.stringify({ error: 'RESEND_API_KEY not configured' }), {
-          status: 500, headers: { ...CORS, 'Content-Type': 'application/json' },
-        })
-      }
-
-      const dynPayload: Record<string, unknown> = {
-        from: FROM_EMAIL, reply_to: REPLY_TO, to: customer_email,
-        subject: dynSubject, html: dynHtml,
-      }
-      if (dynAtts.length > 0) dynPayload.attachments = dynAtts
-      const dynResult = await sendWithRetry(dynPayload)
-
-      // Admin kopie vždy CZ (rerendrujeme z body_translations.cs nebo body_html)
-      if (dynResult.success && custLang2 !== 'cs') {
-        try {
-          const csBodyRaw = bodyT['cs'] || tpl.body_html || ''
-          const csSubjRaw = subjT['cs'] || tpl.subject || ''
-          let csBody = renderTemplate(csBodyRaw, dynVars)
-          if (template_slug === 'booking_completed' || template_slug === 'shop_order_shipped') {
-            csBody = csBody + googleReviewBlock('cs', google_review_url || '')
-          }
-          const csHtml = wrapInBrandedLayout(csBody, 'cs')
-          const csSubj = renderTemplate(csSubjRaw, dynVars)
-          await sendWithRetry({
-            from: FROM_EMAIL, to: REPLY_TO,
-            subject: `[Kopie — zákazník ${custLang2.toUpperCase()}] ${csSubj}`,
-            html: csHtml,
-          })
-        } catch { /* ignore */ }
-      } else if (dynResult.success) {
-        try {
-          await sendWithRetry({
-            from: FROM_EMAIL, to: REPLY_TO,
-            subject: `[Kopie] ${dynSubject}`, html: dynHtml,
-          })
-        } catch { /* ignore */ }
-      }
-
-      // Log
-      try {
-        await supabase.from('message_log').insert({
-          channel: 'email', direction: 'outbound',
-          recipient_email: customer_email,
-          booking_id: booking_id || null,
-          template_slug: tpl.slug,
-          content_preview: dynSubject.slice(0, 160),
-          body: dynHtml,
-          external_id: dynResult.provider_id || null,
-          status: dynResult.success ? 'sent' : 'failed',
-          error_message: dynResult.error || null,
+        await supabase.from('debug_log').insert({
+          source: 'send-booking-email',
+          action: 'door_codes_mail_blocked',
+          component: 'edge-function',
+          status: 'info',
+          request_data: { type: type || null, booking_id: booking_id || null },
         })
       } catch { /* ignore */ }
-      try {
-        await supabase.from('sent_emails').insert({
-          template_slug: tpl.slug,
-          recipient_email: customer_email,
-          subject: dynSubject,
-          body_html: dynHtml,
-          status: dynResult.success ? 'sent' : 'failed',
-          error_message: dynResult.error || null,
-          provider_id: dynResult.provider_id || null,
-        })
-      } catch { /* ignore */ }
-
-      return new Response(JSON.stringify({
-        success: dynResult.success,
-        provider_id: dynResult.provider_id,
-        template_slug: tpl.slug,
-        event_slug: event_slug || null,
-        dispatcher: 'dynamic',
-      }), {
-        status: dynResult.success ? 200 : 502,
+      return new Response(JSON.stringify({ skipped: true, reason: 'door_codes_disabled' }), {
+        status: 200,
         headers: { ...CORS, 'Content-Type': 'application/json' },
       })
     }
-    // ── konec dynamic dispatcher cesty — dál pokračuje legacy `type=` cesta ──
+
 
     const vars: Record<string, string> = {
       customer_name: customer_name || '',
+      booking_id: booking_id || '',
       booking_number: (booking_id || '').slice(-8).toUpperCase(),
       motorcycle: motorcycle || '',
       start_date: fmtDate(start_date),
@@ -1000,7 +1000,7 @@ ${vars.door_codes_block}
 <ul><li>platn\u00fd doklad toto\u017enosti (kter\u00fd jste uvedli v rezerva\u010dn\u00edm formul\u00e1\u0159i),</li><li>platn\u00fd \u0159idi\u010dsk\u00fd pr\u016fkaz.</li></ul>
 <p>Na m\u00edst\u011b spole\u010dn\u011b provedeme kontrolu doklad\u016f, p\u0159ed\u00e1n\u00ed motocyklu i p\u0159\u00edpadn\u00e9 zap\u016fj\u010den\u00e9 v\u00fdbavy (kterou si budete moci vyzkou\u0161et) a podep\u00ed\u0161eme P\u0159ed\u00e1vac\u00ed protokol. V\u0161e v\u00e1m r\u00e1di vysv\u011btl\u00edme \u2013 p\u0159ed\u00e1n\u00ed je rychl\u00e9 a zabere jen p\u00e1r minut.</p>
 <p>Pokud s sebou budete m\u00edt osobn\u00ed v\u011bci, kter\u00e9 nechcete br\u00e1t na cestu, m\u016f\u017eete je u n\u00e1s zdarma ulo\u017eit do uzamykateln\u00e9 sk\u0159\u00ed\u0148ky.</p>
-<p>Doporu\u010dujeme, abyste se p\u0159ed j\u00edzdou sezn\u00e1mili s u\u017eivatelsk\u00fdmi informacemi k motocyklu, kter\u00e9 najdete v odkazu na na\u0161ich webov\u00fdch str\u00e1nk\u00e1ch <a href="https://motogo24.cz" style="color:#2563eb">motogo24.cz</a>.</p>
+<p>Doporu\u010dujeme, abyste se p\u0159ed j\u00edzdou sezn\u00e1mili s u\u017eivatelsk\u00fdmi informacemi k motocyklu, kter\u00e9 najdete v odkazu na na\u0161ich webov\u00fdch str\u00e1nk\u00e1ch <a href="https://www.motogo24.cz" style="color:#2563eb">motogo24.cz</a>.</p>
 <p>Pokud budete m\u00edt jak\u00fdkoliv dotaz, jsme v\u00e1m k dispozici.</p>
 <p>T\u011b\u0161\u00edme se na v\u00e1s a p\u0159ejeme kr\u00e1sn\u00fd z\u00e1\u017eitek z j\u00edzdy.</p>
 <p>T\u00fdm MotoGo24</p>`
@@ -1041,7 +1041,7 @@ ${codesBlock}
 <ul><li>d\u00e1rkov\u00fd poukaz,</li><li>doklad o p\u0159ijet\u00ed platby za n\u00e1kup d\u00e1rkov\u00e9ho poukazu.</li></ul>
 <p>Pokud jste si objednali ti\u0161t\u011bnou verzi poukazu, pr\u00e1v\u011b ji pro V\u00e1s p\u0159ipravujeme. V nejbli\u017e\u0161\u00edch dnech ji m\u016f\u017eete o\u010dek\u00e1vat ve sv\u00e9 po\u0161tovn\u00ed schr\u00e1nce.</p>
 <h3 style="color:#1a2e22;font-size:15px;margin-top:24px">Informace k uplatn\u011bn\u00ed d\u00e1rkov\u00e9ho poukazu</h3>
-<p>D\u00e1rkov\u00fd poukaz m\u00e1 platnost 3 roky od data vystaven\u00ed a je mo\u017en\u00e9 jej uplatnit na zap\u016fj\u010den\u00ed motocyklu dle vlastn\u00edho v\u00fdb\u011bru. Obdarovan\u00fd si jednodu\u0161e rezervuje term\u00edn j\u00edzdy p\u0159edem podle aktu\u00e1ln\u00ed dostupnosti motorek prost\u0159ednictv\u00edm formul\u00e1\u0159e na webov\u00fdch str\u00e1nk\u00e1ch <a href="https://motogo24.cz" style="color:#2563eb">motogo24.cz</a>.</p>
+<p>D\u00e1rkov\u00fd poukaz m\u00e1 platnost 3 roky od data vystaven\u00ed a je mo\u017en\u00e9 jej uplatnit na zap\u016fj\u010den\u00ed motocyklu dle vlastn\u00edho v\u00fdb\u011bru. Obdarovan\u00fd si jednodu\u0161e rezervuje term\u00edn j\u00edzdy p\u0159edem podle aktu\u00e1ln\u00ed dostupnosti motorek prost\u0159ednictv\u00edm formul\u00e1\u0159e na webov\u00fdch str\u00e1nk\u00e1ch <a href="https://www.motogo24.cz" style="color:#2563eb">motogo24.cz</a>.</p>
 <p>P\u0159i rezervaci zad\u00e1 do kolonky Slevov\u00fd k\u00f3d jedine\u010dn\u00fd k\u00f3d uveden\u00fd na d\u00e1rkov\u00e9m poukazu. Jeho hodnota se automaticky ode\u010dte z ceny zap\u016fj\u010den\u00ed ji\u017e b\u011bhem rezervace. Pokud je v\u00fdsledn\u00e1 \u010d\u00e1stka vy\u0161\u0161\u00ed ne\u017e hodnota poukazu, rozd\u00edl lze pohodln\u011b uhradit online prost\u0159ednictv\u00edm platebn\u00ed br\u00e1ny.</p>
 <p>D\u00e1rkov\u00e9 poukazy je mo\u017en\u00e9 kombinovat a uplatnit v\u00edce k\u00f3d\u016f sou\u010dasn\u011b. D\u00e1rkov\u00fd poukaz je nutn\u00e9 vy\u010derpat jednor\u00e1zov\u011b v r\u00e1mci jedn\u00e9 rezervace.</p>
 <p>Doporu\u010dujeme rezervovat term\u00edn s dostate\u010dn\u00fdm p\u0159edstihem, zejm\u00e9na v hlavn\u00ed sez\u00f3n\u011b.</p>
@@ -1185,15 +1185,31 @@ ${vars.tracking_number ? `<table style="width:100%;border-collapse:collapse;marg
       })
     }
 
-    // Auto-generate attachments per type — kombinujeme 2 zdroje:
-    //   1) Hardcoded type-specific (vždy: booking_abandoned → ZF, booking_completed → KF,
-    //      voucher_purchased → DP+HTML voucher, atd.)
-    //   2) Velín admin attachments[] (z email_templates.attachments JSONB) — to co si admin vybral
-    //      v UI šablony. Mapujeme přes attachmentTypeMap a voláme autoGenerateAttachments
-    //      se synthetic typem (rental_contract, vop, credit_note, ...).
-    let finalAttachments = attachments && Array.isArray(attachments) ? [...attachments] : []
+    // Pravidlo: Velín DB šablona (`email_templates.attachments`) je jediný zdroj pravdy o
+    // přílohách. Caller-provided `attachments[]` (legacy webhook flow) se IGNORUJE — místo
+    // toho edge fn vždy projde:
+    //   1) hardcoded autoGenerate per typ (legacy logic — generuje booking-specific dokumenty)
+    //   2) dbAttachmentsList přes attachmentTypeMap → autoGenerateAttachments synth typy
+    // Filename dedup zachytí duplicitní přílohy mezi (1) a (2).
+    let finalAttachments: SentAttachment[] = []
+    const seenFilenames = new Set<string>()
+    const addAttachmentUnique = (a: SentAttachment) => {
+      if (a && !seenFilenames.has(a.filename)) {
+        finalAttachments.push(a)
+        seenFilenames.add(a.filename)
+      }
+    }
+
+    // 1) Hardcoded type-specific autoGenerate (booking_abandoned → ZF, booking_completed → KF,
+    //    voucher_purchased → DP shop + voucher PDF, booking_modified → rozdílové ZF/DP + smlouva/VOP)
     const wantsAutoAtt =
-      (booking_id && (type === 'booking_abandoned' || type === 'booking_completed' || type === 'booking_modified')) ||
+      (booking_id && (
+        type === 'booking_reserved' ||
+        type === 'booking_abandoned' ||
+        type === 'booking_completed' ||
+        type === 'booking_modified' ||
+        type === 'booking_cancelled'
+      )) ||
       (order_id && (type === 'shop_order_confirmed' || type === 'shop_order_shipped' || type === 'voucher_purchased'))
     if (wantsAutoAtt) {
       try {
@@ -1201,18 +1217,18 @@ ${vars.tracking_number ? `<table style="width:100%;border-collapse:collapse;marg
           priceDifference: Number(price_difference || 0),
           orderId: order_id || undefined,
         })
-        finalAttachments = [...finalAttachments, ...autoAtts]
+        for (const a of autoAtts) addAttachmentUnique(a)
       } catch { /* ignore */ }
     }
 
-    // Velín admin-configured přílohy z DB (dbAttachmentsList) — projdi přes attachmentTypeMap
-    // a zavolej autoGenerateAttachments se synthetic typem. Dedup podle filename, aby
-    // se příloha negenerovala 2× (např. KF přes type=booking_completed + Velín "KF").
+    // 2) Velín admin-configured přílohy z DB (dbAttachmentsList) — etalon ve Velíně.
+    //    Pro booking kontext (ne shop) máme dedikované synth typy `booking_advance` (ZF)
+    //    a `booking_payment_receipt` (DP) — fetchnou existující fakturu / vygenerují novou.
     if (dbAttachmentsList.length > 0 && (booking_id || order_id)) {
       const isShopCtx = !!order_id
       const attachmentTypeMap: Record<string, string> = {
-        ZF:       isShopCtx ? 'shop_order_confirmed' : 'booking_abandoned',
-        DP:       isShopCtx ? 'shop_order_confirmed' : 'booking_completed',
+        ZF:       isShopCtx ? 'shop_order_confirmed' : 'booking_advance',
+        DP:       isShopCtx ? 'shop_order_confirmed' : 'booking_payment_receipt',
         KF:       isShopCtx ? 'shop_order_shipped'   : 'booking_completed',
         eshop_DP: 'shop_order_confirmed',
         eshop_KF: 'shop_order_shipped',
@@ -1221,7 +1237,6 @@ ${vars.tracking_number ? `<table style="width:100%;border-collapse:collapse;marg
         VOP:      'vop',
         Dobropis: 'credit_note',
       }
-      const seenFilenames = new Set(finalAttachments.map((a) => a.filename))
       for (const att of dbAttachmentsList) {
         const synthType = attachmentTypeMap[att]
         if (!synthType) continue
@@ -1230,12 +1245,7 @@ ${vars.tracking_number ? `<table style="width:100%;border-collapse:collapse;marg
             priceDifference: Number(price_difference || 0),
             orderId: order_id || undefined,
           })
-          for (const a of synth) {
-            if (!seenFilenames.has(a.filename)) {
-              finalAttachments.push(a)
-              seenFilenames.add(a.filename)
-            }
-          }
+          for (const a of synth) addAttachmentUnique(a)
         } catch { /* ignore */ }
       }
     }
@@ -1249,7 +1259,8 @@ ${vars.tracking_number ? `<table style="width:100%;border-collapse:collapse;marg
       html,
     }
     if (finalAttachments.length > 0) {
-      emailPayload.attachments = finalAttachments
+      // Resend přijímá pouze content+filename — storage_path je interní pro Velín log
+      emailPayload.attachments = finalAttachments.map((a) => ({ content: a.content, filename: a.filename }))
     }
     const result = await sendWithRetry(emailPayload)
 
@@ -1279,13 +1290,13 @@ ${vars.tracking_number ? `<table style="width:100%;border-collapse:collapse;marg
         body: html,
         external_id: result.provider_id || null,
         status: result.success ? 'sent' : 'failed',
-        metadata: { attachments: finalAttachments.map((a) => ({ filename: a.filename })) },
+        metadata: { attachments: finalAttachments.map((a) => ({ filename: a.filename, storage_path: a.storage_path || null })) },
         error_message: result.error || null,
       })
     } catch (e) { /* ignore */ }
 
-    // Log to sent_emails — attachments_meta jsonb obsahuje názvy příloh
-    // (pro náhled ve Velínu SentEmailsTab). Sloupec se přidává migrací.
+    // Log to sent_emails — attachments_meta jsonb obsahuje názvy + storage_path příloh,
+    // SentEmailsTab je čte a generuje signed URL pro náhled / stažení.
     try {
       await supabase.from('sent_emails').insert({
         template_slug: slug,
@@ -1296,7 +1307,7 @@ ${vars.tracking_number ? `<table style="width:100%;border-collapse:collapse;marg
         status: result.success ? 'sent' : 'failed',
         error_message: result.error || null,
         provider_id: result.provider_id || null,
-        attachments_meta: finalAttachments.map((a) => ({ filename: a.filename })),
+        attachments_meta: finalAttachments.map((a) => ({ filename: a.filename, storage_path: a.storage_path || null })),
       })
     } catch (e) { /* ignore */ }
 

@@ -8,7 +8,7 @@
   "publisher": {
     "name": "Bc. Petra Semorádová",
     "legalName": "Bc. Petra Semorádová",
-    "url": "https://motogo24.cz",
+    "url": "https://www.motogo24.cz",
     "email": "info@motogo24.cz",
     "phone": "+420 774 256 271",
     "taxID": "21874263",
@@ -20,23 +20,23 @@
       "addressCountry": "CZ"
     }
   },
-  "termsOfService": "https://motogo24.cz/obchodni-podminky",
-  "privacyPolicy": "https://motogo24.cz/gdpr",
-  "securityContact": "https://motogo24.cz/.well-known/security.txt",
+  "termsOfService": "https://www.motogo24.cz/dokumenty/obchodni-podminky",
+  "privacyPolicy": "https://www.motogo24.cz/dokumenty/zasady-ochrany-osobnich-udaju",
+  "securityContact": "https://www.motogo24.cz/.well-known/security.txt",
   "languages": ["cs", "en", "de", "es", "fr", "nl", "pl"],
   "currencies": ["CZK", "EUR", "USD"],
   "regions": ["CZ", "SK", "AT", "DE", "PL"],
   "discovery": {
-    "sitemap": ["https://motogo24.cz/sitemap.xml", "https://www.motogo24.com/sitemap.xml"],
-    "llmsIndex": "https://motogo24.cz/llms.txt",
-    "llmsFull": "https://motogo24.cz/llms-full.txt",
-    "aiTxt": "https://motogo24.cz/ai.txt",
-    "robots": "https://motogo24.cz/robots.txt",
-    "feed": "https://motogo24.cz/feed.xml",
-    "manifest": "https://motogo24.cz/manifest.webmanifest",
-    "openaiPlugin": "https://motogo24.cz/.well-known/ai-plugin.json",
-    "openapi": "https://motogo24.cz/.well-known/openapi.yaml",
-    "developerDocs": "https://motogo24.cz/partneri",
+    "sitemap": ["https://www.motogo24.cz/sitemap.xml", "https://www.motogo24.com/sitemap.xml"],
+    "llmsIndex": "https://www.motogo24.cz/llms.txt",
+    "llmsFull": "https://www.motogo24.cz/llms-full.txt",
+    "aiTxt": "https://www.motogo24.cz/ai.txt",
+    "robots": "https://www.motogo24.cz/robots.txt",
+    "feed": "https://www.motogo24.cz/feed.xml",
+    "manifest": "https://www.motogo24.cz/manifest.webmanifest",
+    "openaiPlugin": "https://www.motogo24.cz/.well-known/ai-plugin.json",
+    "openapi": "https://www.motogo24.cz/.well-known/openapi.yaml",
+    "developerDocs": "https://www.motogo24.cz/partneri",
     "schemaOrg": "JSON-LD na každé stránce: Organization, WebSite (with SearchAction), LocalBusiness/AutomotiveBusiness (with AggregateRating, ReserveAction, OrderAction, OfferCatalog tree), Service (with AggregateOffer + ServiceChannel), Product, Motorcycle (Vehicle), Offer, FAQPage, HowTo, Article, BreadcrumbList, SpeakableSpecification."
   },
   "capabilities": {
@@ -44,16 +44,16 @@
       "available": true,
       "description": "AI agenti mohou číst veřejný web bez omezení. robots.txt explicitně povoluje 22+ AI crawlerů (GPTBot, ClaudeBot, PerplexityBot, Google-Extended, Applebot-Extended, Meta-ExternalAgent, Bytespider, ad.).",
       "endpoints": [
-        {"type": "html", "url": "https://motogo24.cz/", "description": "Veřejný web s JSON-LD strukturovanými daty"},
-        {"type": "markdown", "url": "https://motogo24.cz/llms.txt", "description": "Krátký LLM index"},
-        {"type": "markdown", "url": "https://motogo24.cz/llms-full.txt", "description": "Plný obsah všech statických stránek"},
-        {"type": "xml", "url": "https://motogo24.cz/sitemap.xml", "description": "XML sitemap s hreflang + image extension"}
+        {"type": "html", "url": "https://www.motogo24.cz/", "description": "Veřejný web s JSON-LD strukturovanými daty"},
+        {"type": "markdown", "url": "https://www.motogo24.cz/llms.txt", "description": "Krátký LLM index"},
+        {"type": "markdown", "url": "https://www.motogo24.cz/llms-full.txt", "description": "Plný obsah všech statických stránek"},
+        {"type": "xml", "url": "https://www.motogo24.cz/sitemap.xml", "description": "XML sitemap s hreflang + image extension"}
       ]
     },
     "search": {
       "available": true,
       "description": "Web podporuje WebSite SearchAction přes URL šablonu /katalog?q={search_term_string}. AI agent může vyhledat motorky dle modelu, kategorie, výkonu nebo popisu.",
-      "urlTemplate": "https://motogo24.cz/katalog?q={search_term_string}",
+      "urlTemplate": "https://www.motogo24.cz/katalog?q={search_term_string}",
       "filters": {
         "kategorie": "cestovni | naked | supermoto | detske",
         "ridicak": "AM | A1 | A2 | A | B | N",
@@ -73,7 +73,7 @@
         "rest": "https://vnwnqteskbykeucanlhk.supabase.co/functions/v1/public-api",
         "openapi": "https://vnwnqteskbykeucanlhk.supabase.co/functions/v1/public-api/api/v1/openapi.json",
         "mcp": "https://vnwnqteskbykeucanlhk.supabase.co/functions/v1/mcp-server",
-        "developerDocs": "https://motogo24.cz/partneri"
+        "developerDocs": "https://www.motogo24.cz/partneri"
       },
       "auth": {
         "type": "ApiKey",
@@ -81,7 +81,7 @@
         "obtainAt": "mailto:info@motogo24.cz?subject=API%20kl%C3%AD%C4%8D",
         "anonymousAccess": "Read endpointy + omezený POST jsou dostupné bez klíče (rate-limit 60 req/min/IP, 30 create_booking/h/IP)."
       },
-      "interimUrlTemplate": "https://motogo24.cz/rezervace?moto={moto_id}&start={start_date}&end={end_date}"
+      "interimUrlTemplate": "https://www.motogo24.cz/rezervace?moto={moto_id}&start={start_date}&end={end_date}"
     }
   },
   "policies": {

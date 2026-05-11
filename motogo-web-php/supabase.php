@@ -7,7 +7,14 @@ class SupabaseClient {
     private $url;
     private $key;
     private $cacheDir;
-    private $cacheTtl = 300; // 5 minut
+    // Cache TTL pro public web. SEO crawlery (Seobility, Googlebot) hlásily
+    // 'slow response time' ~1.2s na variantách s URL parametry (?currency=…
+    // ?lang=…) — každá kombinace musí prvně udělat 3-4 PostgREST requesty,
+    // než si to file-cache schová. 30 min TTL drasticky snižuje cache-miss rate
+    // a stejně admin režim cache obchází (isCmsAdmin → cacheGet vrací null),
+    // takže Velín po uložení vidí změny okamžitě. Běžný návštěvník dostane
+    // změnu max za 30 min, což je pro relativně staticky obsah dostačující.
+    private $cacheTtl = 1800; // 30 minut
 
     public function __construct() {
         $this->url = SUPABASE_URL;
@@ -452,10 +459,26 @@ class SupabaseClient {
         return $result ? ($result[0] ?? null) : null;
     }
 
+    // ===== DOCUMENT TEMPLATES (Velín → Smluvní texty) =====
+    // Zdroj pravdy pro veřejné dokumenty/návody (VOP, smlouva, GDPR, protokoly).
+    // Vrací nejnovější aktivní verzi šablony pro daný `type`.
+    public function fetchDocumentTemplate($type) {
+        $result = $this->query(
+            'document_templates',
+            'id,type,name,content_html,version,updated_at',
+            ['type=eq.' . $type, 'active=eq.true'],
+            'version.desc'
+        );
+        return $result ? ($result[0] ?? null) : null;
+    }
+
     public function fetchCmsPages($tag = null) {
         $filters = ['published=eq.true'];
         if ($tag) {
-            $filters[] = 'tags=cs.{' . $tag . '}';
+            // PostgREST array contains: tag s mezerami / diakritikou musí být
+            // v uvozovkách a celé URL-encodované, jinak ho parser rozsekne na
+            // víc elementů a filtr vrátí 0 řádků.
+            $filters[] = 'tags=cs.' . rawurlencode('{"' . $tag . '"}');
         }
         return $this->query('cms_pages', '*', $filters, 'created_at.desc');
     }

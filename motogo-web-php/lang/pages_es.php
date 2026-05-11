@@ -7,7 +7,7 @@ return [
             'seo' => [
                 'title' => 'Contacto | MotoGo24 – Alquiler de motos Vysočina',
                 'description' => 'Contactos del alquiler de motos Motogo24 en Pelhřimov. Teléfono +420 774 256 271, e-mail info@motogo24.cz. Servicio 24/7, dirección Mezná 9, 393 01 Pelhřimov.',
-                'keywords' => 'contacto Motogo24, alquiler de motos Pelhřimov, teléfono, dirección, horario, 24/7',
+                'keywords' => 'alquiler de motos República Checa',
             ],
             'h1' => 'Contactos del alquiler de motos Motogo24',
             'intro' => '¿Tienes alguna pregunta sobre el <strong>alquiler de motos</strong>, quieres pedir un <strong>vale regalo</strong>, necesitas ayuda para elegir o quieres directamente <strong>concertar una reserva</strong>? Estamos aquí para ti todos los días, <strong>24/7</strong>.',
@@ -84,7 +84,7 @@ return [
             'seo' => [
                 'title' => 'Cómo alquilar una moto | MotoGo24',
                 'description' => 'Cómo alquilar una moto en Motogo24. Procedimiento sencillo: elección, reserva, recogida. Sin depósito, equipamiento incluido, servicio 24/7.',
-                'keywords' => 'cómo alquilar una moto, proceso de alquiler, reserva de moto, alquiler de motos Vysočina',
+                'keywords' => 'alquiler de motos República Checa',
             ],
             'h1' => 'Cómo alquilar una moto',
             'intro' => 'En <strong>Motogo24 – Alquiler de motos en Vysočina</strong>, alquilar es sencillo, rápido y justo.',
@@ -127,7 +127,7 @@ return [
             'seo' => [
                 'title' => 'Proceso de alquiler de moto | MotoGo24',
                 'description' => 'Proceso de alquiler de moto en Motogo24 paso a paso. Reserva online, equipamiento incluido, sin depósito, servicio 24/7 y posibilidad de entrega.',
-                'keywords' => 'proceso de alquiler de moto, cómo alquilar una moto, reserva de moto, alquiler de motos Pelhřimov',
+                'keywords' => 'alquiler de motos República Checa',
             ],
             'h1' => 'Proceso de alquiler de moto',
             'intro' => '<p>En <strong>Motogo24 – Alquiler de motos en Vysočina</strong>, alquilar es sencillo, rápido y justo. <strong>Sin depósito, con equipamiento incluido y servicio 24/7</strong>. Mira lo fácil que funciona.</p><p>&nbsp;</p><h2>Cómo alquilar una moto – Alquiler Motogo24 Vysočina</h2><p>En el <strong>alquiler de motos Motogo24</strong>, el <strong>proceso de alquiler</strong> es simple: <strong>reserva online</strong>, <strong>equipamiento incluido</strong>, <strong>sin depósito</strong>, <strong>servicio 24/7</strong> y posibilidad de <strong>entrega de la moto</strong>. Tanto si buscas una <strong>moto de viaje</strong> para el fin de semana, una <strong>moto deportiva</strong> para la adrenalina o una <strong>enduro</strong> para el todoterreno, con nosotros encontrarás la solución ideal.</p>',
@@ -214,7 +214,7 @@ return [
             'seo' => [
                 'title' => 'Recogida de la moto en el establecimiento | MotoGo24',
                 'description' => 'Recogida de la moto en el establecimiento de Pelhřimov. Servicio 24/7, sin depósito, equipamiento incluido. Qué llevar y cómo se realiza la entrega.',
-                'keywords' => 'recogida de moto en el establecimiento, recogida de moto, alquiler Pelhřimov, recogida 24/7',
+                'keywords' => 'alquiler de motos República Checa',
             ],
             'h1' => 'Recogida de la moto en el establecimiento – rápido, sencillo y 24/7',
             'intro' => 'En <strong>Motogo24 – Alquiler de motos Vysočina</strong>, la <strong>recogida de la moto</strong> es cuestión de pocos minutos. Alquilamos <strong>sin depósito</strong>, con <strong>equipamiento incluido</strong> y <strong>servicio 24/7</strong>.',
@@ -312,7 +312,7 @@ return [
             'seo' => [
                 'title' => 'Devolución de la moto en el establecimiento | MotoGo24',
                 'description' => 'Devolución de la moto directamente en el establecimiento de Pelhřimov. 24/7, sin depósito, sin trámites innecesarios. Cómo se realiza la devolución de la moto paso a paso.',
-                'keywords' => 'devolución de moto, devolución de moto en el establecimiento, alquiler Pelhřimov, devolución de moto 24/7',
+                'keywords' => 'alquiler de motos República Checa',
             ],
             'h1' => 'Devolución de la moto en el establecimiento',
             'intro' => 'Devuelves cómodamente la moto directamente en <strong>Motogo24 – Alquiler de motos en Vysočina</strong>. <strong>Servicio 24/7</strong>, sin estrés y con condiciones justas.',
@@ -413,8 +413,8 @@ return [
             'seo' => [
                 'title' => 'Alquiler de motos Vysočina - Vales',
                 'description' => 'Compra un vale regalo para el alquiler de moto. Validez 3 años, sin depósito, equipamiento incluido. Vale electrónico o impreso. Pedido online.',
-                'keywords' => 'vale regalo moto, voucher alquiler de moto, regalo para motoristas, vale Motogo24, alquiler de motos Vysočina',
-                'og_image' => 'https://motogo24.cz/gfx/darkovy-poukaz.jpg',
+                'keywords' => 'alquiler de motos República Checa',
+                'og_image' => 'https://www.motogo24.cz/gfx/darkovy-poukaz.jpg',
             ],
             'h1' => 'Compra un vale regalo – ¡regala una experiencia sobre dos ruedas!',
             'intro_left' => '<p>¿Buscas un regalo original para tu pareja, amigo o padre?</p><p>&nbsp;</p><p>Nuestros <strong>vales regalo para el alquiler de moto</strong> de Motogo24 – <strong>Alquiler de motos Vysočina</strong> – encantarán tanto a principiantes como a pilotos experimentados.</p><p>&nbsp;</p><p>Elige el valor del vale o una moto concreta y regala libertad sobre dos ruedas.</p>',
@@ -510,7 +510,7 @@ return [
             'seo' => [
                 'title' => 'Alquiler de motos Vysočina – Cómo alquilar – Qué incluye el precio',
                 'description' => 'Descubre qué incluye el precio del alquiler de motos en MotoGo24. Condiciones claras, equipo y servicios sin tarifas ocultas. Reserva tu moto fácilmente online.',
-                'keywords' => 'alquiler de motos Vysočina, alquiler motos Pelhřimov, alquiler sin depósito, alquiler 24/7, reserva online moto',
+                'keywords' => 'alquiler de motos República Checa',
             ],
             'h1' => 'Qué incluye el precio del alquiler de motos',
             'intro' => 'En <strong>MotoGo24 – alquiler de motos en Vysočina</strong> obtienes condiciones justas. <strong>Sin depósito, con equipo del conductor incluido y servicio 24/7</strong>. Todo lo que necesitas para una conducción segura y agradable está incluido.',
@@ -531,7 +531,7 @@ return [
             'seo' => [
                 'title' => 'Alquiler de motos Vysočina – Documentos y manuales',
                 'description' => 'Contrato de alquiler, condiciones y documentos necesarios para alquilar una moto. Sin depósito, normas claras, seguro incluido.',
-                'keywords' => 'contrato alquiler moto, documentos alquiler, condiciones alquiler, seguro moto, MotoGo24',
+                'keywords' => 'alquiler de motos República Checa',
             ],
             'h1' => 'Contrato de alquiler y depósito – condiciones justas sin anticipo',
             'intro' => 'En <strong>MotoGo24</strong> apostamos por la simplicidad y la equidad. Alquilamos <strong>sin depósito</strong>, con un <strong>contrato claro</strong>, <strong>seguro incluido</strong> y <strong>equipo del conductor</strong>.',
@@ -556,7 +556,7 @@ return [
             'seo' => [
                 'title' => 'Entrega de la moto | MotoGo24',
                 'description' => 'Entrega de la moto en tu puerta. Llevamos la moto al hotel, estación o cualquier dirección. Tarifa desde 290 Kč. Servicio 24/7.',
-                'keywords' => 'entrega moto, llevar moto, entrega motocicleta, alquiler motos Vysočina',
+                'keywords' => 'alquiler de motos República Checa',
             ],
             'h1' => 'Entrega de la moto – directa a ti',
             'intro' => '¿Quieres salir sin tener que ir al alquiler? Organizamos <strong>la entrega de la moto</strong> en el <strong>lugar acordado</strong>.',
@@ -580,7 +580,7 @@ return [
             'seo' => [
                 'title' => 'Devolución de moto en otro lugar | MotoGo24',
                 'description' => 'Devuelve la moto fuera del alquiler – desde el hotel, estación u otra dirección. Recogida en Vysočina y fuera. Precio según distancia, servicio 24/7.',
-                'keywords' => 'devolución moto otro lugar, recogida moto, devolución fuera alquiler, alquiler motos Vysočina',
+                'keywords' => 'alquiler de motos República Checa',
             ],
             'h1' => 'Devolución de moto en otro lugar – recogida hasta donde estés',
             'intro' => 'No tienes que volver al alquiler. <strong>MotoGo24</strong> ofrece <strong>recogida de la moto</strong> desde el lugar que te conviene – hotel, estación, dirección propia.',
@@ -604,7 +604,7 @@ return [
             'seo' => [
                 'title' => 'Preguntas frecuentes | MotoGo24',
                 'description' => 'Preguntas frecuentes sobre alquiler de motos. Reserva, recogida, devolución, condiciones, entrega, viajes al extranjero, vales regalo.',
-                'keywords' => 'FAQ alquiler motos, preguntas alquiler moto, condiciones alquiler, depósito, equipo',
+                'keywords' => 'alquiler de motos República Checa',
             ],
             'h1' => 'Preguntas frecuentes – alquiler de motos MotoGo24',
             'closing' => 'Nuestro <strong>alquiler de motos en Vysočina</strong> está aquí para todos los que quieren vivir una <strong>conducción inolvidable</strong> sin complicaciones.',
@@ -617,7 +617,7 @@ return [
             'seo' => [
                 'title' => 'Alquiler de motos en Vysočina | MotoGo24',
                 'description' => 'Alquila una moto en Vysočina. Sin depósito, equipo incluido, servicio 24/7. Motos de turismo, sport, enduro e infantiles. Reserva online.',
-                'keywords' => 'alquiler motos Vysočina, alquiler motos Pelhřimov, alquiler sin depósito, alquiler 24/7, motos para alquilar, reserva online moto',
+                'keywords' => 'alquiler de motos República Checa',
                 'og_image' => NULL,
             ],
             'hero' => [
@@ -775,7 +775,7 @@ return [
             'seo' => [
                 'title' => 'Sobre el alquiler de motos | MotoGo24',
                 'description' => 'Alquiler de motos Motogo24 en Vysočina. Sin depósito, con reserva online y equipo incluido. Motos de turismo, sport, enduro e infantiles. Servicio 24/7.',
-                'keywords' => 'alquiler motos, alquiler motos Vysočina, motos sin depósito, alquiler 24/7, equipo incluido',
+                'keywords' => 'alquiler de motos República Checa',
             ],
             'breadcrumb' => [
                 [

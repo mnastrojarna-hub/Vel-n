@@ -220,8 +220,10 @@ if (!empty($moto['ideal_usage'])) $specsRows[] = [t('detail.specIdealFor'), $mot
 // Popis — na celý řádek nahoře (desktop i mobil)
 $descSpecsHtml = '<section class="moto-desc-block">';
 $descSpecsHtml .= '<h2>' . te('detail.descTitle') . '</h2><p>' . htmlspecialchars($motoDesc !== '' ? $motoDesc : ($moto['model'] ?? '')) . '</p>';
-if (!empty($moto['manual_url'])) {
-    $descSpecsHtml .= '<p>&nbsp;</p><p><a class="btn btngreen" href="' . htmlspecialchars($moto['manual_url']) . '" target="_blank" rel="noopener">' . te('detail.userManual') . '</a></p>';
+// Návod: PDF (manual_url ze storage) má přednost před externím odkazem (manual_external_url).
+$manualHref = !empty($moto['manual_url']) ? $moto['manual_url'] : (!empty($moto['manual_external_url']) ? $moto['manual_external_url'] : '');
+if ($manualHref !== '') {
+    $descSpecsHtml .= '<p>&nbsp;</p><p><a class="btn btngreen" href="' . htmlspecialchars($manualHref) . '" target="_blank" rel="noopener">' . te('detail.userManual') . '</a></p>';
 }
 $descSpecsHtml .= '</section>';
 
@@ -402,8 +404,8 @@ var CAL_I18N = {
       var bg,color,cursor="default",border="none";
       if(isPast||booked==="occupied"){bg="#444";color="#fff";cursor="not-allowed";}
       else if(booked==="unconfirmed"){bg="#fff";color="#333";cursor="not-allowed";border="2px solid #ccc";}
-      else if(isStart||isEnd){bg="#1a8c1a";color="#fff";cursor="pointer";border="2px solid #fff";}
-      else if(inRange){bg="#1a8c1a";color="#fff";cursor="pointer";}
+      else if(isStart||isEnd){bg="#0d6e0d";color="#fff";cursor="pointer";border="2px solid #fff";}
+      else if(inRange){bg="#0d6e0d";color="#fff";cursor="pointer";}
       else{bg="#74FB71";color="#0b0b0b";cursor="pointer";}
       var canClick=!isPast&&!booked;
       var style="background:"+bg+";color:"+color+";cursor:"+cursor+";border:"+border+";border-radius:12px;";
@@ -461,7 +463,7 @@ $content = '<main id="content"><div class="container">' . $bc .
 // brand, fotky, kategorie ŘP. Schema.org Motorcycle dědí z Vehicle.
 $minPrice = getMinPrice($moto);
 $availability = $isAvailableToday ? 'https://schema.org/InStock' : 'https://schema.org/PreOrder';
-$motoUrl = 'https://motogo24.cz/katalog/' . $motoId;
+$motoUrl = 'https://www.motogo24.cz/katalog/' . $motoId;
 
 // Sbírej všechny obrázky (ne jen mainImg)
 $schemaImages = [];
@@ -472,7 +474,7 @@ if (!empty($moto['images']) && is_array($moto['images'])) {
         if ($u && !in_array($u, $schemaImages, true)) $schemaImages[] = $u;
     }
 }
-if (empty($schemaImages)) $schemaImages[] = 'https://motogo24.cz/gfx/logo.svg';
+if (empty($schemaImages)) $schemaImages[] = 'https://www.motogo24.cz/gfx/logo.svg';
 
 // Per-day pricing → UnitPriceSpecification[]
 $dayMap = ['mon' => 'Monday', 'tue' => 'Tuesday', 'wed' => 'Wednesday', 'thu' => 'Thursday', 'fri' => 'Friday', 'sat' => 'Saturday', 'sun' => 'Sunday'];
@@ -581,7 +583,9 @@ if (!empty($allImages)) {
 renderPage($model . ' | Půjčovna MotoGo24', $content, '/katalog/' . $motoId, [
     'description' => htmlspecialchars($motoDesc !== '' ? $motoDesc : t('detail.descFallback', ['model' => $moto['model'] ?? ''])),
     'keywords' => t('detail.descKeywords', ['model' => $moto['model'] ?? '']),
-    'og_image' => $mainImg ?: null,
+    // SEO: og:image MAX 1200px / quality 85 (Facebook/Twitter optimal). Predtim
+    // raw URL z Supabase = 3-5 MB jpg (Seobility 'Large file size' issue).
+    'og_image' => $mainImg ? imgUrlSized($moto['image_url'] ?? (!empty($rawImages) ? $rawImages[0] : ''), 1200, 85) : null,
     'og_type' => 'product',
     'schema' => $productSchema,
     'preload' => $preloadHero,

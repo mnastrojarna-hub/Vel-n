@@ -66,7 +66,7 @@ return [
 
     // ===== Cookie consent banner (GDPR / ePrivacy) =====
     'cookies.title' => 'This site uses cookies',
-    'cookies.intro' => 'We use cookies to make the site work and — only with your consent — for analytics and marketing. Consent is optional and you can change it any time from the footer. More in our <a href="/gdpr">Privacy policy</a>.',
+    'cookies.intro' => 'We use cookies to make the site work and — only with your consent — for analytics and marketing. Consent is optional and you can change it any time from the footer. More in our <a href="/dokumenty/zasady-ochrany-osobnich-udaju">Privacy policy</a>.',
     'cookies.acceptAll' => 'Accept all',
     'cookies.rejectAll' => 'Reject',
     'cookies.settings' => 'Settings',
@@ -193,9 +193,9 @@ return [
 
     // ===== SEO meta defaults (per language) =====
     'seo.default.description' => 'Motorcycle rental in the Vysočina region, Czech Republic — touring, sport, enduro and kids\' motorcycles. 24/7 rental, no deposit, gear included, online booking.',
-    'seo.default.keywords' => 'motorcycle rental Czech Republic, motorbike hire Pelhřimov, no deposit motorcycle rental, online motorcycle booking',
+    'seo.default.keywords' => 'motorcycle rental Czech Republic',
     'seo.home.description' => 'Rent a motorcycle in the Vysočina region. No deposit, gear included, 24/7 service. Touring, sport, enduro and kids\' bikes. Book online.',
-    'seo.home.keywords' => 'motorcycle rental Czech Republic, motorbike hire Pelhřimov, no deposit motorcycle rental, online motorcycle booking',
+    'seo.home.keywords' => 'motorcycle rental Czech Republic',
 
     // ===== Confirmation =====
     'confirm.titleBooking' => 'Booking confirmation | MotoGo24',
@@ -205,7 +205,7 @@ return [
     // ===== Booking shell =====
     'rezervace.title' => 'Online motorcycle booking | MotoGo24',
     'rezervace.description' => 'Online motorcycle booking in the Vysočina region. No deposit, gear included and 24/7 service. Choose a motorcycle, dates and pay online.',
-    'rezervace.keywords' => 'online motorcycle booking, rent a motorcycle, motorcycle rental Vysočina, online booking',
+    'rezervace.keywords' => 'motorcycle rental Czech Republic',
     'rezervace.loading' => 'Loading the booking system...',
 
     // ===== Booking — header / intro =====
@@ -290,8 +290,8 @@ return [
     'rez.gear.item.return' => 'Motorcycle return',
 
     // ===== Booking — consents =====
-    'rez.agree.terms' => '* I agree with the <a href="/obchodni-podminky">terms and conditions</a>',
-    'rez.agree.gdpr' => 'I agree with the <a href="/gdpr">processing of personal data</a>',
+    'rez.agree.terms' => '* I agree with the <a href="/dokumenty/obchodni-podminky">terms and conditions</a>',
+    'rez.agree.gdpr' => 'I agree with the <a href="/dokumenty/zasady-ochrany-osobnich-udaju">processing of personal data</a>',
     'rez.agree.marketing' => 'I agree to receive marketing communications',
     'rez.agree.photo' => 'I agree to the use of photos for marketing purposes',
 
@@ -400,7 +400,7 @@ return [
     'editRez.forgot.back' => '← Back to sign in',
 
     'editRez.reset.title' => 'Set new password',
-    'editRez.reset.help' => 'Enter your new password (min. 6 characters). You will be signed in and see your bookings after saving.',
+    'editRez.reset.help' => 'Enter your new password (min. 8 characters). You will be signed in and see your bookings after saving.',
     'editRez.reset.otpHelp' => 'We sent a verification code to <strong>{email}</strong>. Enter the 8-character code from the e-mail (same code works for app and web) and set a new password.',
     'editRez.reset.otpCode' => 'Verification code from e-mail (8 characters)',
     'editRez.reset.otpInvalid' => 'Invalid or expired code. Please request a new one.',
@@ -410,8 +410,9 @@ return [
     'editRez.reset.submitting' => 'Saving…',
     'editRez.reset.success' => 'Password saved. Continue to your bookings.',
     'editRez.reset.error' => 'Could not save the password. Please try again.',
-    'editRez.reset.tooShort' => 'Password must be at least 6 characters.',
+    'editRez.reset.tooShort' => 'Password must be at least 8 characters.',
     'editRez.reset.mismatch' => 'Passwords do not match.',
+    'editRez.reset.same' => 'New password must be different from the current one.',
 
     'editRez.list.title' => 'Your bookings',
     'editRez.list.shopTitle' => 'Shop orders',
@@ -612,7 +613,7 @@ return [
 
     // ===== Catalogue SEO =====
     'katalog.seo.description' => 'Motorcycle rental catalogue in the Vysočina region. Filter by category, licence, power and price. Touring, sport, enduro and kids\' motorcycles. Online booking.',
-    'katalog.seo.keywords' => 'motorcycle catalogue, motorcycles for rent, touring motorcycles, sport motorcycles, enduro, kids\' motorcycles, motorcycle filter',
+    'katalog.seo.keywords' => 'motorcycle rental Czech Republic',
 
     // ===== Motorcycle detail =====
     'detail.notFoundTitle' => 'Motorcycle not found – Motogo24',
@@ -707,7 +708,7 @@ return [
     // ===== Blog =====
     'blog.title' => 'Blog and tips for riders | MotoGo24',
     'blog.description' => 'Motogo24 blog – tips for motorcycle routes in the Vysočina region and the Czech Republic, rental news, advice for safe riding and practical guides.',
-    'blog.keywords' => 'motorcycle blog, motorcycle routes, tips for riders, motorcycle rental news, Vysočina, Český ráj',
+    'blog.keywords' => 'motorcycle rental Czech Republic',
     'blog.h1' => 'Blog and tips',
     'blog.empty' => 'No articles in this category.',
     'blog.tagAll' => 'All ({count})',
@@ -719,7 +720,7 @@ return [
     // ===== Voucher form (poukazy-objednat) =====
     'voucher.pageTitle' => 'Motorcycle rental Vysočina – Buy a gift voucher',
     'voucher.description' => 'Order a gift voucher for a motorcycle rental from Motogo24. Valid for 3 years, no deposit, gear included.',
-    'voucher.keywords' => 'buy gift voucher motorcycle, order voucher Motogo24, gift motorcycle rental',
+    'voucher.keywords' => 'motorcycle rental Czech Republic',
     'voucher.title' => 'Motogo24 gift voucher',
     'voucher.lead' => 'Give the experience of riding a motorcycle! The voucher is valid for 3 years and can be redeemed when booking on this website.',
     'voucher.contactSection' => 'Your contact details',
@@ -844,6 +845,7 @@ return [
     'confirm.success.nextTitle' => 'What happens next',
     'confirm.success.nextBookingDocs' => 'Upload photos of your ID card/passport and driver\'s licence — without verification we cannot release access codes.',
     'confirm.success.nextBookingCodes' => 'Once your documents are verified, you will receive 6-digit access codes for the motorcycle and gear by email, SMS and WhatsApp.',
+    'confirm.success.nextBookingCodesDone' => 'We will send you 6-digit access codes for the motorcycle and gear by email, SMS and WhatsApp before your reservation starts.',
     'confirm.success.nextBookingPickup' => 'On the pickup day, come to the branch — the codes unlock the door, your motorcycle and gear are ready.',
     'confirm.success.nextOrderShip' => 'If you chose delivery, your parcel will arrive within 1–3 business days.',
     'confirm.success.nextVoucherEmail' => 'You will find the voucher code in your email — redeem it when booking on motogo24.cz / .com or in the app.',
@@ -883,7 +885,7 @@ return [
     'shop.h1' => 'MotoGo24 Shop',
     'shop.intro' => 'Motorcycle accessories, merch and gifts for MotoGo24 fans. We deliver throughout the Czech Republic.',
     'shop.description' => 'MotoGo24 Shop — motorcycle accessories, clothing and merch. Order online with delivery throughout Czechia.',
-    'shop.keywords' => 'motorcycle shop, motorcycle accessories, motogo24 merch, motorcycle clothing',
+    'shop.keywords' => 'motorcycle rental Czech Republic',
     'shop.empty' => 'We currently have no products in stock. Follow us on social media.',
     'shop.unnamedProduct' => 'Product',
     'shop.productAlt' => '{name} — MotoGo24 Shop',

@@ -7,7 +7,7 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
 const FROM_EMAIL = Deno.env.get('FROM_EMAIL') || 'noreply@motogo24.cz'
 const REPLY_TO = 'info@motogo24.cz'
-const SITE_URL = Deno.env.get('SITE_URL') || 'https://motogo24.cz'
+const SITE_URL = Deno.env.get('SITE_URL') || 'https://www.motogo24.cz'
 const FB_URL = 'https://www.facebook.com/profile.php?id=61581614672839'
 const IG_URL = 'https://www.instagram.com/moto.go24/'
 
@@ -83,7 +83,7 @@ function wrapInBrandedLayout(bodyHtml: string, lang: Lang = 'cs'): string {
         </div>
       </td>
       <td style="vertical-align:top;width:130px;text-align:center">
-        <a href="https://motogo24.cz" style="text-decoration:none"><img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=8&data=${encodeURIComponent('https://motogo24.cz')}" alt="motogo24.cz" width="120" height="120" style="display:block;background:#ffffff;padding:6px;border-radius:4px"/></a>
+        <a href="https://www.motogo24.cz" style="text-decoration:none"><img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=8&data=${encodeURIComponent('https://www.motogo24.cz')}" alt="motogo24.cz" width="120" height="120" style="display:block;background:#ffffff;padding:6px;border-radius:4px"/></a>
         <div style="color:#9ca3af;font-size:10px;margin-top:6px">motogo24.cz</div>
       </td>
     </tr></table>
@@ -164,6 +164,35 @@ serve(async (req) => {
       })
     }
 
+    // Idempotency — webhook charge.refunded může spustit retry safety-net pro
+    // booking, který už storno mail dostal (cancel_booking_tracked nebo Stripe portal).
+    // Pokud se mail za posledních 30 min úspěšně odeslal, druhý nepošleme.
+    // Force=true v body request přepíše idempotency (admin manuální dotaz "pošli znovu").
+    const force = (reqBody as any).force === true
+    if (booking_id && !force) {
+      try {
+        const { data: existing } = await supabase.from('sent_emails')
+          .select('id, sent_at, status')
+          .eq('booking_id', booking_id)
+          .eq('template_slug', 'booking_cancelled')
+          .eq('status', 'sent')
+          .gte('sent_at', new Date(Date.now() - 30 * 60 * 1000).toISOString())
+          .limit(1)
+        if (existing?.length) {
+          await supabase.from('debug_log').insert({
+            source: 'send-cancellation-email',
+            action: 'idempotent_skip',
+            status: 'info',
+            request_data: { booking_id, existing_email_id: existing[0].id, existing_sent_at: existing[0].sent_at },
+          }).then(() => {}, () => {})
+          return new Response(JSON.stringify({ success: true, skipped: 'already_sent', existing_id: existing[0].id }), {
+            status: 200,
+            headers: { ...CORS, 'Content-Type': 'application/json' },
+          })
+        }
+      } catch { /* non-fatal — continue to send */ }
+    }
+
     // ── Auto Stripe refund + dobropis ──
     const attachments: { content: string; filename: string }[] = []
 
@@ -183,6 +212,24 @@ serve(async (req) => {
           const wasPaid = booking.payment_status === 'paid'
           const alreadyRefunded = booking.payment_status === 'refunded' || booking.payment_status === 'partial_refund'
 
+          // Vstupní diagnostika — admin vidí přesně co edge fn dostala a co je v DB.
+          // Klíč k debugu storno mailu bez přílohy: payment_status + stripe_payment_intent_id + refund_amount.
+          await supabase.from('debug_log').insert({
+            source: 'send-cancellation-email',
+            action: 'cancel_started',
+            status: 'info',
+            request_data: {
+              booking_id,
+              payment_status: booking.payment_status,
+              has_stripe_pi: !!booking.stripe_payment_intent_id,
+              total_price: booking.total_price,
+              body_refund_amount: refund_amount,
+              body_refund_percent: refund_percent,
+              wasPaid,
+              alreadyRefunded,
+            },
+          }).then(() => {}, () => {})
+
           // Calculate refund based on storno policy if not provided
           if ((wasPaid || alreadyRefunded) && booking.total_price > 0 && refund_percent == null) {
             const hoursUntilStart = (new Date(booking.start_date).getTime() - Date.now()) / 3600000
@@ -192,67 +239,121 @@ serve(async (req) => {
             refund_amount = Math.round(booking.total_price * (refund_percent || 0) / 100)
           }
 
-          // Auto Stripe refund ONLY if not already refunded
-          if (!alreadyRefunded && wasPaid && booking.stripe_payment_intent_id && refund_amount > 0) {
+          // Process-refund je idempotentní: pro paid+nepoužitý refund udělá Stripe refund + dobropis,
+          // pro already_refunded (předchozí pokus padl po Stripe kroku) jen dohraje PDF dobropis.
+          // Voláme tedy bez guardu na alreadyRefunded — díky tomu se i recovery scenario doplní příloha.
+          const hdrs = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`, 'apikey': SUPABASE_SERVICE_KEY }
+          const willCallRefund = (wasPaid || alreadyRefunded) && !!booking.stripe_payment_intent_id && (refund_amount > 0 || alreadyRefunded)
+          if (!willCallRefund && (wasPaid || alreadyRefunded) && refund_amount > 0) {
+            // Diagnostika: jsme paid s nenulovým refundem, ale process-refund nevoláme — typicky chybí
+            // stripe_payment_intent_id (Apple Pay race s webhookem, hotovost, voucher 100%, atd.).
+            // V tomhle stavu credit_note nikdy nevznikne automaticky → mail dorazí bez přílohy a admin
+            // má v Velínu manuálně dohrát refund (Stripe dashboard) + dobropis (generate-invoice).
+            await supabase.from('debug_log').insert({
+              source: 'send-cancellation-email',
+              action: 'refund_call_skipped_no_pi',
+              status: 'warning',
+              error_message: 'Booking is paid but stripe_payment_intent_id is missing — process-refund not called, attachment will be missing',
+              request_data: { booking_id, payment_status: booking.payment_status, refund_amount },
+            }).then(() => {}, () => {})
+          }
+          if (willCallRefund) {
             try {
-              const hdrs = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`, 'apikey': SUPABASE_SERVICE_KEY }
               const refundRes = await fetch(`${SUPABASE_URL}/functions/v1/process-refund`, {
                 method: 'POST', headers: hdrs,
                 body: JSON.stringify({ booking_id, amount: refund_amount, reason: 'cancellation' }),
               })
               const refundData = await refundRes.json().catch(() => ({}))
               if (refundData.success) {
-                console.log(`Stripe refund processed: ${refund_amount} CZK (${refund_percent}%)`)
+                console.log(`Refund OK (already=${refundData.already_refunded ? 'yes' : 'no'}, amount=${refund_amount})`)
+              } else {
+                console.warn('process-refund returned error:', refundData.code || refundData.error)
+                await supabase.from('debug_log').insert({
+                  source: 'send-cancellation-email',
+                  action: 'refund_call_failed',
+                  status: 'error',
+                  error_message: String(refundData.code || refundData.error || 'unknown'),
+                  request_data: { booking_id, refund_amount },
+                  response_data: refundData,
+                }).then(() => {}, () => {})
               }
-            } catch (e) { console.warn('Auto Stripe refund failed:', e) }
+            } catch (e) {
+              console.warn('Auto Stripe refund failed:', e)
+              await supabase.from('debug_log').insert({
+                source: 'send-cancellation-email',
+                action: 'refund_call_exception',
+                status: 'error',
+                error_message: (e as Error).message,
+                request_data: { booking_id, refund_amount },
+              }).then(() => {}, () => {})
+            }
           }
 
-          // Fetch existing storno doklad OR generate dobropis
-          let foundExistingReceipt = false
-          try {
-            const { data: existingReceipts } = await supabase.from('invoices')
-              .select('id, number, pdf_path')
-              .eq('booking_id', booking_id)
-              .eq('type', 'payment_receipt')
-              .eq('source', 'cancellation')
-              .neq('status', 'cancelled')
-              .order('created_at', { ascending: false }).limit(1)
-            if (existingReceipts?.length && existingReceipts[0].pdf_path) {
-              const b64 = await downloadAsBase64(supabase, existingReceipts[0].pdf_path)
-              if (b64) {
-                attachments.push({ content: b64, filename: `Dobropis-${existingReceipts[0].number || 'DB'}.html` })
-                foundExistingReceipt = true
-              }
+          // Fetch the credit_note created by process-refund (source='refund') and attach it.
+          // Storno podmínky:
+          //   ≥ 7 dní před startem  → 100 % refund → credit_note 100 %
+          //   2–7 dní před startem  → 50 % refund  → credit_note 50 %
+          //   < 2 dny před startem  → 0 % refund   → ŽÁDNÝ credit_note (nic se nevrací)
+          // Velín admin storno posílá `refund_percent: 100` natvrdo (ignoruje storno podmínky).
+          //
+          // RECOVERY: Pokud lookup najde credit_note bez pdf_path (PDFShift fail / silent error),
+          // nebo soubor v Storage nestáhne, zavoláme process-refund znovu (idempotentní recovery
+          // přes ensureCreditNotePdf — viz STATE_6 2026-05-08). Max 3 pokusy.
+          if (refund_amount > 0) {
+            let attached = false
+            for (let attempt = 0; attempt < 3 && !attached; attempt++) {
+              try {
+                const { data: cnRows } = await supabase.from('invoices')
+                  .select('id, number, pdf_path')
+                  .eq('booking_id', booking_id)
+                  .or('type.eq.credit_note,and(type.eq.payment_receipt,source.eq.cancellation)')
+                  .neq('status', 'cancelled')
+                  .order('created_at', { ascending: false }).limit(1)
+                const cn = cnRows?.[0]
+                if (cn?.pdf_path) {
+                  const path = cn.pdf_path as string
+                  const b64 = await downloadAsBase64(supabase, path)
+                  if (b64) {
+                    const ext = path.toLowerCase().endsWith('.pdf') ? 'pdf' : 'html'
+                    attachments.push({ content: b64, filename: `Dobropis-${cn.number || 'DB'}.${ext}` })
+                    attached = true
+                    await supabase.from('debug_log').insert({
+                      source: 'send-cancellation-email',
+                      action: 'credit_note_attached',
+                      status: 'ok',
+                      request_data: { booking_id, attempt, invoice_id: cn.id, ext },
+                    }).then(() => {}, () => {})
+                    break
+                  }
+                }
+                // Recovery — credit_note row chybí, nebo má pdf_path null, nebo download null.
+                // Zavolej process-refund znovu (idempotentní, dovystaví PDF), pak retry lookup.
+                if (attempt < 2) {
+                  await supabase.from('debug_log').insert({
+                    source: 'send-cancellation-email',
+                    action: 'credit_note_recovery_attempt',
+                    status: 'warning',
+                    request_data: { booking_id, attempt, has_row: !!cn, has_pdf_path: !!cn?.pdf_path },
+                  }).then(() => {}, () => {})
+                  try {
+                    await fetch(`${SUPABASE_URL}/functions/v1/process-refund`, {
+                      method: 'POST', headers: hdrs,
+                      body: JSON.stringify({ booking_id, amount: refund_amount, reason: 'cancellation_retry' }),
+                    })
+                  } catch { /* ignore — další iterace zkusí znovu */ }
+                  await new Promise(r => setTimeout(r, 2500)) // PDFShift má cca 2-5s
+                }
+              } catch (e) { console.warn('Credit note lookup attempt', attempt, 'failed:', (e as Error).message) }
             }
-          } catch { /* ignore */ }
-
-          // If no existing receipt found, generate dobropis.
-          // Pouze pokud byla rezervace skutečně zaplacená — jinak není z čeho refundovat
-          // ani strhávat storno poplatek, a DP/dobropis by neměl vzniknout (auto-cancel
-          // nezaplacených rezervací posílá refund_percent=0, což by jinak nesprávně spustilo generování).
-          if (wasPaid && !foundExistingReceipt && (refund_amount > 0 || refund_percent === 0)) {
-            try {
-              const hdrs = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`, 'apikey': SUPABASE_SERVICE_KEY }
-              const stornoLabel = refund_percent === 0
-                ? 'Storno poplatek (méně než 2 dny — bez vrácení)'
-                : refund_percent === 50
-                  ? `Dobropis — storno rezervace (vrácení 50 %, tj. ${refund_amount} Kč)`
-                  : `Dobropis — storno rezervace (vrácení 100 %, tj. ${refund_amount} Kč)`
-              const dpRes = await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
-                method: 'POST', headers: hdrs,
-                body: JSON.stringify({
-                  type: 'payment_receipt',
-                  booking_id,
-                  send_email: false,
-                  extra_items: [{ description: stornoLabel, qty: 1, unit_price: -(refund_amount || 0) }],
-                }),
-              })
-              const dpData = await dpRes.json().catch(() => ({}))
-              if (dpData.success && dpData.invoice_id) {
-                const b64 = await downloadAsBase64(supabase, `invoices/${dpData.invoice_id}.html`)
-                if (b64) attachments.push({ content: b64, filename: `Dobropis-${dpData.number || 'DB'}.html` })
-              }
-            } catch { /* ignore */ }
+            if (!attached) {
+              await supabase.from('debug_log').insert({
+                source: 'send-cancellation-email',
+                action: 'credit_note_attach_failed',
+                status: 'error',
+                error_message: 'Credit note attachment missing after 3 retries — mail goes without PDF',
+                request_data: { booking_id, refund_amount, refund_percent },
+              }).then(() => {}, () => {})
+            }
           }
         }
       } catch (e) { console.warn('Auto-refund lookup failed:', e) }
@@ -291,11 +392,12 @@ serve(async (req) => {
 
     let templateHtml = ''
     let subject = ''
+    let dbAttachmentsList: string[] = []
 
     for (const trySlug of slugsToTry) {
       const { data: tpl } = await supabase
         .from('email_templates')
-        .select('slug, name, subject, body_html, active, subject_translations, body_translations')
+        .select('slug, name, subject, body_html, active, attachments, subject_translations, body_translations')
         .eq('slug', trySlug)
         .eq('active', true)
         .maybeSingle()
@@ -307,8 +409,35 @@ serve(async (req) => {
         const dbBody = dbBodyT[custLang] || tpl.body_html
         templateHtml = renderTemplate(dbBody, vars)
         subject = renderTemplate(dbSubj, vars)
+        if (Array.isArray(tpl.attachments)) {
+          dbAttachmentsList = tpl.attachments as string[]
+        }
         break
       }
+    }
+
+    // Velín admin-configured attachments z email_templates.attachments — etalon ve Velíně.
+    // Hardcoded refund flow výše už zkusil přiložit dobropis za určitých podmínek (wasPaid + refund_amount > 0
+    // nebo 0%). Pokud admin v UI zaškrtl "Dobropis" a v mailu ještě není, dohledej cokoliv co se kvalifikuje.
+    if (dbAttachmentsList.includes('Dobropis')
+        && booking_id
+        && !attachments.some(a => /dobropis|credit/i.test(a.filename))) {
+      try {
+        const { data: cn } = await supabase.from('invoices')
+          .select('id, number, pdf_path, type')
+          .eq('booking_id', booking_id)
+          .or('type.eq.credit_note,and(type.eq.payment_receipt,source.eq.cancellation)')
+          .neq('status', 'cancelled')
+          .order('created_at', { ascending: false })
+          .limit(1)
+        if (cn?.length && cn[0].pdf_path) {
+          const b64 = await downloadAsBase64(supabase, cn[0].pdf_path)
+          if (b64) {
+            const ext = /\.pdf$/i.test(cn[0].pdf_path) ? 'pdf' : 'html'
+            attachments.push({ content: b64, filename: `Dobropis-${cn[0].number || 'DB'}.${ext}` })
+          }
+        }
+      } catch { /* ignore */ }
     }
 
     // i18n hardcoded p\u0159eklady (priorita 2 \u2014 booking_cancelled je v _shared/i18n.ts)
@@ -328,7 +457,7 @@ serve(async (req) => {
       templateHtml = `
         <p>Dobr\u00fd den,</p>
         <p>potvrzujeme, \u017ee va\u0161e rezervace \u010d. <strong>${vars.booking_number}</strong> motocyklu u MotoGo24 byla \u00fasp\u011b\u0161n\u011b stornov\u00e1na.</p>
-        <p>Pokud jste storno nahl\u00e1sili alespo\u0148 7 dn\u00ed p\u0159ed za\u010d\u00e1tkem n\u00e1jemn\u00ed doby, bude v\u00e1m z\u00e1loha vr\u00e1cena do 30 dn\u00ed.</p>
+        <p>Pokud jste storno nahl\u00e1sili alespo\u0148 7 dn\u00ed p\u0159ed za\u010d\u00e1tkem n\u00e1jemn\u00ed doby, vr\u00e1tili jsme v\u00e1m platbu na p\u016fvodn\u00ed kartu \u2014 pen\u00edze obvykle doraz\u00ed do 5\u20137 pracovn\u00edch dn\u016f.</p>
         <p>V p\u0159\u00edpad\u011b dotaz\u016f n\u00e1s nev\u00e1hejte kontaktovat.</p>
         <p>D\u011bkujeme a t\u011b\u0161\u00edme se, \u017ee v\u00e1s p\u0159iv\u00edt\u00e1me p\u0159i dal\u0161\u00ed p\u0159\u00edle\u017eitosti.</p>
         <p>T\u00fdm MotoGo24</p>`

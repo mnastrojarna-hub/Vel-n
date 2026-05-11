@@ -13,11 +13,11 @@ const SAMPLE_VARS = {
   booking_number: 'A1B2C3D4', customer_name: ' Jan Novák', moto_model: 'BMW R 1200 GS Adventure',
   motorcycle: 'BMW R 1200 GS Adventure', start_date: '15. 6. 2026', end_date: '18. 6. 2026',
   total_price: '7 800', pickup_location: 'Mezná 9, 393 01 Mezná',
-  resume_link: 'https://motogo24.cz/#/rezervace?resume=abc123',
+  resume_link: 'https://www.motogo24.cz/#/rezervace?resume=abc123',
   voucher_code: 'MGABC123 (3 000 Kč)', voucher_amount: '3 000', voucher_value: '3 000',
   voucher_expiry: '15. 6. 2029', order_number: 'OBJ-2026-01001', discount_code: 'DIKY200',
   google_review_url: 'https://g.page/MotoGo24/review', facebook_review_url: 'https://facebook.com/MotoGo24/reviews',
-  site_url: 'https://motogo24.cz', price_difference: '-1 200',
+  site_url: 'https://www.motogo24.cz', price_difference: '-1 200',
   // Invoice email vars
   invoice_number: 'ZF-2026-0001', invoice_type: 'Zálohová faktura',
   issue_date: '15. 6. 2026', due_date: '29. 6. 2026', variable_symbol: 'ZF-2026-0001',
@@ -101,6 +101,12 @@ const TEMPLATE_META = {
     attachments: 'Žádné',
     info: 'Odesílá se automaticky zákazníkovi při nahlášení SOS incidentu. Obsahuje omluvu a kontakt na linku pomoci.',
   },
+  door_codes: {
+    category: 'other', categoryLabel: 'Ostatní',
+    trigger: 'Uvolnění přístupových kódů po nahrání dokladů (DB fn send_door_codes_email)',
+    attachments: 'Žádné',
+    info: 'Odesílá se zákazníkovi POUZE pokud kódy nebyly uvolněné už při potvrzení rezervace (booking_reserved mail). Typicky když zákazník nahrál doklady (OP/ŘP) AŽ po platbě a kódy se aktivují dodatečně. SQL trigger release_withheld_door_codes_for_user → SQL fn send_door_codes_email čte tuto šablonu z email_templates a posílá přes Resend napřímo. Strict dedup: 1 mail per booking.',
+  },
   invoice_advance: {
     category: 'invoice', categoryLabel: 'Faktura',
     trigger: 'Ruční odeslání z Velínu / automaticky',
@@ -148,72 +154,11 @@ const CHANNELS = [
   { value: 'shared', label: 'Společné', color: '#374151', bg: '#e5e7eb' },
 ]
 
-/** Katalog dostupných triggerů — admin si vybírá jaké události vyvolají šablonu.
- *  Ukládá se do email_templates.triggers jsonb jako array slugů.
- *  Edge funkce a DB triggery zatím rozlišují podle TYPE payloadu, tato data
- *  slouží jako reference + příprava na dynamický dispatcher. */
-const TRIGGER_CATALOG = [
-  { group: 'Stripe platby', items: [
-    { slug: 'stripe_payment_confirmed_booking',    label: 'Po potvrzení Stripe platby — rezervace' },
-    { slug: 'stripe_payment_confirmed_booking_web',label: 'Po potvrzení Stripe platby — web rezervace' },
-    { slug: 'stripe_payment_confirmed_shop',       label: 'Po potvrzení Stripe platby — e-shop' },
-    { slug: 'stripe_payment_confirmed_voucher',    label: 'Po potvrzení Stripe platby — dárkový poukaz' },
-    { slug: 'stripe_payment_confirmed_voucher_web',label: 'Po potvrzení Stripe platby — voucher web' },
-    { slug: 'stripe_payment_confirmed_edit',       label: 'Po potvrzení Stripe doplatku úpravy rezervace' },
-    { slug: 'stripe_refund_processed',             label: 'Po zpracovaném Stripe refundu' },
-    { slug: 'stripe_portal_refund',                label: 'Refund přes Stripe zákaznický portál (mimo naši flow)' },
-  ]},
-  { group: 'Stav rezervace', items: [
-    { slug: 'booking_status_changed_to_pending',   label: 'Stav rezervace → Pending (vytvořeno)' },
-    { slug: 'booking_status_changed_to_reserved',  label: 'Stav rezervace → Reserved (potvrzeno)' },
-    { slug: 'booking_status_changed_to_active',    label: 'Stav rezervace → Active (převzato)' },
-    { slug: 'booking_status_changed_to_completed', label: 'Stav rezervace → Completed (dokončeno)' },
-    { slug: 'booking_status_changed_to_cancelled', label: 'Stav rezervace → Cancelled (zrušeno)' },
-    { slug: 'booking_status_changed_to_cancelled_web', label: 'Stav rezervace → Cancelled (web)' },
-    { slug: 'booking_updated',                     label: 'Úprava rezervace (jakákoliv změna polí)' },
-  ]},
-  { group: 'Cron (časované)', items: [
-    { slug: 'cron_abandoned_payment_only',         label: 'Cron: Web nedokončená — chybí jen platba (10 min)' },
-    { slug: 'cron_abandoned_payment_and_docs',     label: 'Cron: Web nedokončená — chybí platba + doklady' },
-    { slug: 'cron_paid_missing_docs',              label: 'Cron: Zaplaceno, chybí doklady (5 min)' },
-    { slug: 'cron_abandoned_web',                  label: 'Cron: Web nezaplaceno do 4h (auto-cancel)' },
-    { slug: 'cron_abandoned_app',                  label: 'Cron: App nezaplaceno do 10 min (auto-cancel)' },
-    { slug: 'cron_auto_complete',                  label: 'Cron: Auto-complete v půlnoci posledního dne' },
-    { slug: 'cron_24h_before_pickup',              label: 'Cron: 24 hodin před převzetím (připomínka)' },
-    { slug: 'cron_2h_before_pickup',               label: 'Cron: 2 hodiny před převzetím' },
-  ]},
-  { group: 'Faktury & doklady', items: [
-    { slug: 'zf_invoice_created',                  label: 'Vystavena ZF (zálohová faktura)' },
-    { slug: 'dp_invoice_created',                  label: 'Vystaven DP (doklad o platbě)' },
-    { slug: 'kf_invoice_created',                  label: 'Vystavena KF (konečná faktura)' },
-    { slug: 'kf_invoice_created_web',              label: 'Vystavena KF — web rezervace' },
-    { slug: 'credit_note_created',                 label: 'Vystaven dobropis' },
-    { slug: 'auto_after_zf_created',               label: 'Automaticky po vytvoření ZF' },
-    { slug: 'auto_after_dp_created',               label: 'Automaticky po vytvoření DP' },
-    { slug: 'auto_after_kf_created',               label: 'Automaticky po vytvoření KF' },
-  ]},
-  { group: 'E-shop', items: [
-    { slug: 'shop_order_status_new',               label: 'E-shop objednávka → Nová' },
-    { slug: 'shop_order_status_confirmed',         label: 'E-shop objednávka → Potvrzená (zaplacená)' },
-    { slug: 'shop_order_status_processing',        label: 'E-shop objednávka → Zpracovává se' },
-    { slug: 'shop_order_status_shipped',           label: 'E-shop objednávka → Odeslaná' },
-    { slug: 'shop_order_status_delivered',         label: 'E-shop objednávka → Doručená' },
-  ]},
-  { group: 'Ručně z Velinu', items: [
-    { slug: 'manual_send_from_velin',              label: 'Ruční odeslání z Velinu (tlačítko)' },
-    { slug: 'manual_test_send',                    label: 'Test (admin si poslal sám sobě)' },
-  ]},
-  { group: 'Doklady & SOS', items: [
-    { slug: 'door_codes_released',                 label: 'Uvolněné přístupové kódy (po ověření dokladů)' },
-    { slug: 'sos_reported_app',                    label: 'SOS hlášení z appky' },
-    { slug: 'sos_status_changed',                  label: 'Změna stavu SOS incidentu' },
-  ]},
-  { group: 'Web interakce', items: [
-    { slug: 'web_click_continue_payment',          label: 'Web: klik na "Pokračovat k platbě"' },
-    { slug: 'web_click_resume_booking',            label: 'Web: klik na "Pokračovat v rezervaci"' },
-    { slug: 'web_form_step_completed',             label: 'Web: dokončen krok rezervačního formuláře' },
-  ]},
-]
+// TRIGGER_CATALOG odstraněn 2026-05-08 — UI checkboxy triggerů byly mrtvé:
+// jen 3 DB triggery (trg_send_booking_completed_email / _modified / shop_order_confirmed)
+// volaly dispatch_email_event(), zbylých ~34 event slugů v UI nikdo nečetl.
+// Spouštěč šablony je dnes pevně dán slug ↔ type mapping v send-booking-email
+// a popsaný v TEMPLATE_META[slug].trigger jako informativní text.
 
 /** Povolené přílohy (multi-select v editaci šablony, sloupec attachments jsonb) */
 const ATTACHMENT_OPTIONS = [
@@ -251,7 +196,7 @@ function wrapPreview(bodyHtml) {
 <body style="margin:0;padding:0;background:#d9dee2;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#0f1a14;-webkit-font-smoothing:antialiased">
   <div style="max-width:780px;margin:0 auto;background:#ffffff">
     <div style="background:#000000;padding:36px 24px;text-align:center">
-      <img src="https://motogo24.cz/gfx/logo-icon.png" alt="MotoGo24" width="110" height="110" style="display:inline-block;border:0;margin-bottom:16px"/>
+      <img src="https://www.motogo24.cz/gfx/logo-icon.png" alt="MotoGo24" width="110" height="110" style="display:inline-block;border:0;margin-bottom:16px"/>
       <div style="color:#ffffff;font-size:32px;font-weight:900;letter-spacing:3px;line-height:1">MOTO GO 24</div>
       <div style="color:#ffffff;font-size:11px;font-weight:400;letter-spacing:6px;margin-top:8px">PŮJČOVNA MOTOREK</div>
     </div>
@@ -275,7 +220,7 @@ function wrapPreview(bodyHtml) {
           </div>
         </td>
         <td style="vertical-align:top;width:130px;text-align:center">
-          <a href="https://motogo24.cz" style="text-decoration:none"><img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&amp;margin=8&amp;data=https%3A%2F%2Fmotogo24.cz" alt="motogo24.cz" width="120" height="120" style="display:block;background:#ffffff;padding:6px;border-radius:4px"/></a>
+          <a href="https://www.motogo24.cz" style="text-decoration:none"><img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&amp;margin=8&amp;data=https%3A%2F%2Fmotogo24.cz" alt="motogo24.cz" width="120" height="120" style="display:block;background:#ffffff;padding:6px;border-radius:4px"/></a>
           <div style="color:#9ca3af;font-size:10px;margin-top:6px">motogo24.cz</div>
         </td>
       </tr></table>
@@ -425,7 +370,6 @@ export default function EmailTemplatesTab() {
             body_html: '',
             active: true,
             attachments: [],
-            triggers: [],
           }}
           isNew
           onClose={() => setCreating(false)}
@@ -442,25 +386,36 @@ function TemplateCard({ template, onEdit }) {
   const catDef = CATEGORIES.find(c => c.value === meta.category) || CATEGORIES[4]
   const chanDef = CHANNELS.find(c => c.value === getChannel(template.slug)) || CHANNELS[2]
   const attachmentsList = Array.isArray(template.attachments) ? template.attachments : []
+  const isEmptyBody = !template.body_html || template.body_html.trim() === ''
+  const bodyLangCount = template.body_translations && typeof template.body_translations === 'object'
+    ? Object.keys(template.body_translations).length : 0
 
   return (
     <Card>
       <div className="flex items-center justify-between mb-1">
         <h4 className="font-extrabold text-sm" style={{ color: '#0f1a14' }}>{template.name}</h4>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 flex-wrap">
           <Badge label={chanDef.label} color={chanDef.color} bg={chanDef.bg} />
           <Badge label={catDef.label} color={catDef.color} bg={catDef.bg} />
           <Badge label={template.active ? 'Aktivní' : 'Neaktivní'} color={template.active ? '#1a8a18' : '#6b7280'} bg={template.active ? '#dcfce7' : '#f3f4f6'} />
+          {isEmptyBody && <Badge label="PRÁZDNÉ BODY" color="#ffffff" bg="#dc2626" />}
+          {!isEmptyBody && bodyLangCount === 0 && <Badge label="Bez překladů" color="#92400e" bg="#fef3c7" />}
         </div>
       </div>
       <div className="text-xs font-mono mb-2" style={{ color: '#6b7280' }}>{template.slug}</div>
+
+      {isEmptyBody && (
+        <div className="rounded-btn text-xs mb-2" style={{ padding: '6px 10px', background: '#fee2e2', border: '1px solid #fca5a5', color: '#991b1b' }}>
+          ⚠️ Šablona má prázdné tělo — při odeslání se použije systémový fallback text z kódu, který tady ve Velíně nevidíš. Doplň prosím obsah níže.
+        </div>
+      )}
 
       {/* Info box */}
       <div className="rounded-btn text-xs mb-2" style={{ padding: '8px 10px', background: '#f8faf9', border: '1px solid #e5e7eb', lineHeight: 1.6, color: '#374151' }}>
         {meta.info && <div className="mb-1">{meta.info}</div>}
         <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1" style={{ fontSize: 11 }}>
-          <span><strong style={{ color: '#1a2e22' }}>Trigger:</strong> {Array.isArray(template.triggers) && template.triggers.length > 0 ? `${template.triggers.length} přiřazen${template.triggers.length === 1 ? '' : (template.triggers.length < 5 ? 'y' : 'o')}` : (meta.trigger || '—')}</span>
-          <span><strong style={{ color: '#1a2e22' }}>Přílohy:</strong> {attachmentsList.length > 0 ? attachmentsList.join(', ') : (meta.attachments || '—')}</span>
+          <span><strong style={{ color: '#1a2e22' }}>Spouštěč:</strong> {meta.trigger || '—'}</span>
+          <span><strong style={{ color: '#1a2e22' }}>Přílohy:</strong> {attachmentsList.length > 0 ? attachmentsList.join(', ') : '—'}</span>
         </div>
       </div>
 
@@ -519,15 +474,6 @@ function EditEmailTemplateModal({ template, onClose, onSaved, isNew = false }) {
   const [attachmentsSel, setAttachmentsSel] = useState(
     Array.isArray(template.attachments) ? template.attachments : []
   )
-  const [triggersSel, setTriggersSel] = useState(
-    Array.isArray(template.triggers) ? template.triggers : []
-  )
-
-  function toggleTrigger(slug) {
-    setTriggersSel(prev =>
-      prev.includes(slug) ? prev.filter(s => s !== slug) : [...prev, slug]
-    )
-  }
   const [saving, setSaving] = useState(false)
   const [testing, setTesting] = useState(false)
   const [testOk, setTestOk] = useState(null)
@@ -578,7 +524,6 @@ function EditEmailTemplateModal({ template, onClose, onSaved, isNew = false }) {
         body_html: bodyHtml,
         active,
         attachments: attachmentsSel,
-        triggers: triggersSel,
         updated_by: user?.id,
       }
       if (isNew) {
@@ -645,8 +590,8 @@ function EditEmailTemplateModal({ template, onClose, onSaved, isNew = false }) {
       <div className="rounded-btn mb-4" style={{ padding: '12px 14px', background: '#f8faf9', border: '1px solid #d4e8e0' }}>
         <div className="text-sm mb-1" style={{ color: '#374151', lineHeight: 1.6 }}>{meta.info}</div>
         <div className="flex flex-wrap gap-x-4 gap-y-1" style={{ fontSize: 12 }}>
-          <span><strong style={{ color: '#1a2e22' }}>Trigger:</strong> {meta.trigger}</span>
-          <span><strong style={{ color: '#1a2e22' }}>Přílohy:</strong> {meta.attachments}</span>
+          <span><strong style={{ color: '#1a2e22' }}>Spouštěč:</strong> {meta.trigger || '—'}</span>
+          <span><strong style={{ color: '#1a2e22' }}>Přílohy (reálně):</strong> {attachmentsSel.length > 0 ? attachmentsSel.join(', ') : '—'}</span>
           <span><strong style={{ color: '#1a2e22' }}>Slug:</strong> <code style={{ background: '#e5e7eb', padding: '1px 4px', borderRadius: 4 }}>{template.slug}</code></span>
         </div>
       </div>
@@ -712,47 +657,11 @@ function EditEmailTemplateModal({ template, onClose, onSaved, isNew = false }) {
           </div>
         </div>
 
-        <div>
-          <Label>Triggery — kdy se šablona pošle</Label>
-          <div className="text-xs mb-2" style={{ color: '#6b7280' }}>
-            Vyberte události které vyvolají odeslání této šablony. Můžete kombinovat libovolné množství.
-            <br/><strong>Pozn.:</strong> dispatcher v edge funkcích zatím rozhoduje podle <code>type</code> v payloadu — tato data slouží jako reference + příprava na dynamický dispatcher (změna typu šablony bude později řízená přímo z této tabulky).
-          </div>
-          <div className="space-y-3">
-            {TRIGGER_CATALOG.map(group => (
-              <div key={group.group} className="rounded-btn" style={{ padding: '10px 12px', background: '#f8faf9', border: '1px solid #e5e7eb' }}>
-                <div className="text-xs font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>{group.group}</div>
-                <div className="flex flex-wrap gap-2">
-                  {group.items.map(item => {
-                    const checked = triggersSel.includes(item.slug)
-                    return (
-                      <label key={item.slug}
-                        className="flex items-center gap-2 cursor-pointer rounded-btn"
-                        style={{
-                          padding: '5px 9px',
-                          background: checked ? '#dbeafe' : '#ffffff',
-                          border: `1px solid ${checked ? '#60a5fa' : '#e5e7eb'}`,
-                          color: checked ? '#1e3a8a' : '#374151',
-                          fontSize: 11.5,
-                        }}>
-                        <input type="checkbox" checked={checked} onChange={() => toggleTrigger(item.slug)}
-                          className="accent-[#2563eb]" style={{ width: 13, height: 13 }} />
-                        <span style={{ fontWeight: checked ? 700 : 500 }}>{item.label}</span>
-                      </label>
-                    )
-                  })}
-                </div>
-              </div>
-            ))}
-            {triggersSel.length > 0 && (
-              <div className="text-xs" style={{ color: '#6b7280' }}>
-                Vybráno: <strong style={{ color: '#1a2e22' }}>{triggersSel.length}</strong> trigger{triggersSel.length === 1 ? '' : 'ů'}
-                <button onClick={() => setTriggersSel([])}
-                  className="ml-3 text-xs cursor-pointer" style={{ color: '#dc2626', background: 'none', border: 'none' }}>
-                  Vymazat výběr
-                </button>
-              </div>
-            )}
+        <div className="rounded-btn" style={{ padding: '10px 14px', background: '#f8faf9', border: '1px solid #d4e8e0' }}>
+          <div className="text-xs font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Kdy se šablona odešle</div>
+          <div className="text-xs" style={{ color: '#374151', lineHeight: 1.6 }}>{meta.trigger || '—'}</div>
+          <div className="text-[11px] mt-2" style={{ color: '#6b7280' }}>
+            Spouštěč šablony je pevně dán její sluggem (<code style={{ background: '#e5e7eb', padding: '0 4px', borderRadius: 3 }}>{template.slug}</code>) a odpovídajícím typem mailu, který vysílají edge funkce / DB triggery / cron. Zde jen zobrazujeme co která šablona dělá — měnit to v UI nelze (a nemělo to nikdy efekt).
           </div>
         </div>
 

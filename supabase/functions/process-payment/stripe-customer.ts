@@ -9,12 +9,12 @@ export const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!, {
   httpClient: Stripe.createFetchHttpClient(),
 })
 
-export const SITE_URL = Deno.env.get('SITE_URL') || 'https://motogo24.cz'
+export const SITE_URL = Deno.env.get('SITE_URL') || 'https://www.motogo24.cz'
 
 export type PaymentType = 'booking' | 'shop' | 'extension' | 'sos'
 
 const SUPPORTED_LANGS = ['cs', 'en', 'de', 'es', 'fr', 'nl', 'pl'] as const
-const DOMAIN_CS = 'https://motogo24.cz'
+const DOMAIN_CS = 'https://www.motogo24.cz'
 const DOMAIN_INTL = 'https://motogo24.com'
 
 /**

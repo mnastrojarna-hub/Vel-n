@@ -12,7 +12,7 @@ $defaults = [
     'seo' => [
         'title' => 'Půjčovna motorek Vysočina – Jak si půjčit motorku – Často kladené dotazy',
         'description' => 'Nejčastější dotazy k půjčení motorky u MotoGo24. Odpovědi na rezervaci motorky, podmínky i průběh zapůjčení motocyklu.',
-        'keywords' => 'půjčovna motorek Vysočina, pronájem motorek Vysočina, půjčovna motorek Pelhřimov, půjčovna motorek bez kauce, časté dotazy, FAQ',
+        'keywords' => 'motopůjčovna',
     ],
     'h1' => 'Často kladené dotazy',
     'closing' => 'Naše <strong>půjčovna motorek Vysočina</strong> je tu pro všechny, kdo chtějí zažít <strong>nezapomenutelnou jízdu</strong> bez zbytečných komplikací. Pronájem je <strong>bez kauce</strong>, s <strong>výbavou v ceně</strong> a <strong>nonstop</strong>.',
@@ -45,10 +45,17 @@ foreach ($rows as $r) {
 $allItems = [];
 foreach ($categories as $cat) { $allItems = array_merge($allItems, $cat['items']); }
 
-// Tabs — „Vše" + per category. Empty state pokud nejsou žádné položky.
-$tabs = [['id' => 'all', 'label' => t('faq.tabAll', ['count' => count($allItems)]), 'items' => $allItems]];
+// SEO: predtim se renderovaly tabs jako oddelene panes (vse + per kategorie).
+// Vsechny tabs byly vzdy v DOM, jen JS skryval ne-aktivni. Crawler videl
+// kazdou polozku 2x (jednou v 'Vse', jednou v kategorii) -> Seobility hlasil
+// 82 duplicate paragraphs (= 41 polozek x 2). Fix: renderujeme polozky JEN
+// JEDNOU ve sjednocenem panelu, kategorie funguji jako CSS filter na
+// data-faq-category atribut. Zadny duplicate v DOM, ale UX zustava (taby
+// stale filtruji co je videt).
+
+$tabs = [['id' => 'all', 'label' => t('faq.tabAll', ['count' => count($allItems)])]];
 foreach ($categories as $id => $cat) {
-    $tabs[] = ['id' => $id, 'label' => $cat['label'] . ' (' . count($cat['items']) . ')', 'items' => $cat['items']];
+    $tabs[] = ['id' => $id, 'label' => $cat['label'] . ' (' . count($cat['items']) . ')'];
 }
 
 $bc = renderBreadcrumb([
@@ -63,23 +70,22 @@ foreach ($tabs as $tab) {
 }
 $tabsHtml .= '</ul>';
 
-// Render panes — každá položka má `data-cms-key="faq.<id>"` na q/a wrapperu, takže
-// admin overlay (cms-admin.js) ukáže ✏️ tlačítko a inline edit funguje stejně jako u textů.
-// Pozn.: cms-admin save endpoint (cms-save edge fn) zatím akceptuje jen klíče `web.*`,
-// proto FAQ inline edit přes overlay zatím nefunguje — admin ho edituje ve Velíně tabu „Časté dotazy".
-$panesHtml = '<div class="tab-content">';
-foreach ($tabs as $tab) {
-    $panesHtml .= '<div class="tab-pane' . ($tab['id'] === 'all' ? ' active' : '') . '" id="' . htmlspecialchars($tab['id']) . '"><div class="gr2">';
-    if (empty($tab['items'])) {
-        $panesHtml .= '<p>' . htmlspecialchars(t('faq.empty')) . '</p>';
-    } else {
-        foreach ($tab['items'] as $faq) {
-            $panesHtml .= renderFaqItem($faq['q'], $faq['a']);
+// Render JEN JEDEN pane se vsemi polozkami. Kazda polozka ma data-faq-category
+// pro filtrovani pres CSS class. Tab klik prepne data-active na containeru.
+$panesHtml = '<div class="tab-content"><div class="tab-pane active" id="all" data-active="all"><div class="gr2">';
+if (empty($allItems)) {
+    $panesHtml .= '<p>' . htmlspecialchars(t('faq.empty')) . '</p>';
+} else {
+    // Pripoj data-faq-category aby JS mohl filtrovat
+    foreach ($categories as $catId => $cat) {
+        foreach ($cat['items'] as $faq) {
+            $catAttr = htmlspecialchars($catId);
+            // Render FAQ item s kategorii wrapper
+            $panesHtml .= '<div data-faq-category="' . $catAttr . '">' . renderFaqItem($faq['q'], $faq['a']) . '</div>';
         }
     }
-    $panesHtml .= '</div></div>';
 }
-$panesHtml .= '</div>';
+$panesHtml .= '</div></div></div>';
 
 $tabJs = '<script>
 document.querySelectorAll(".tab[data-tab]").forEach(function(t){
@@ -87,10 +93,10 @@ document.querySelectorAll(".tab[data-tab]").forEach(function(t){
     e.preventDefault();
     var tabId = t.getAttribute("data-tab");
     document.querySelectorAll(".tab").forEach(function(el){ el.classList.remove("active"); });
-    document.querySelectorAll(".tab-pane").forEach(function(el){ el.classList.remove("active"); });
     t.classList.add("active");
-    var pane = document.getElementById(tabId);
-    if(pane) pane.classList.add("active");
+    document.querySelectorAll("[data-faq-category]").forEach(function(item){
+      item.style.display = (tabId === "all" || item.getAttribute("data-faq-category") === tabId) ? "" : "none";
+    });
   });
 });
 </script>';

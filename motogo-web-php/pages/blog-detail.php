@@ -113,7 +113,11 @@ $articleSchema = '
 renderPage($titleRaw . ' | Blog MotoGo24', $content, '/blog/' . $slug, [
     'description' => $excerpt ?: t('blog.detail.descFallback', ['title' => $titleRaw]),
     'og_type' => 'article',
-    'og_image' => !empty($post['images'][0]) ? $post['images'][0] : (!empty($post['image_url']) ? $post['image_url'] : null),
+    // SEO: og:image MAX 1200px / quality 85 — predejde 'Large file size' issue.
+    'og_image' => (function () use ($post) {
+        $raw = !empty($post['images'][0]) ? $post['images'][0] : (!empty($post['image_url']) ? $post['image_url'] : null);
+        return $raw ? imgUrlSized($raw, 1200, 85) : null;
+    })(),
     'schema' => $articleSchema,
     'breadcrumbs' => [['name' => t('breadcrumb.home'), 'url' => siteCanonicalUrl('/')], ['name' => t('breadcrumb.blog'), 'url' => siteCanonicalUrl('/blog')], ['name' => $titleRaw, 'url' => siteCanonicalUrl('/blog/') . $slug]],
 ]);

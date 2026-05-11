@@ -7,7 +7,7 @@ $defaults = [
     'seo' => [
         'title' => 'Kontakt | MotoGo24 – půjčovna motorek Vysočina',
         'description' => 'Kontakty na půjčovnu motorek Motogo24 v Pelhřimově. Telefon ' . PHONE . ', e-mail ' . EMAIL_FULL . '. Nonstop provoz, adresa ' . ADDRESS . '.',
-        'keywords' => 'kontakt Motogo24, půjčovna motorek Pelhřimov, telefon, adresa, provozní doba, nonstop',
+        'keywords' => 'motopůjčovna',
     ],
     'h1' => 'Kontakty půjčovna motorek Motogo24',
     'intro' => 'Máte dotaz k <strong>půjčení motorky</strong>, chcete si objednat <strong>dárkový poukaz</strong>, poradit s výběrem nebo si rovnou <strong>domluvit rezervaci</strong>? Jsme tu pro vás každý den, <strong>nonstop</strong>.',
@@ -62,11 +62,18 @@ foreach ((is_array($C['quick'] ?? null) ? $C['quick'] : []) as $i => $q) {
         $iconSrc = BASE_URL . '/' . ltrim($q['icon'], '/');
         $iconHtml = '<div class="img-icon dfcc"><img src="' . htmlspecialchars($iconSrc) . '" alt="' . htmlspecialchars($q['alt'] ?? '') . '" class="icon-small" loading="lazy"></div>';
     }
-    $val = $q['value'] ?? '';
+    $rawVal = (string)($q['value'] ?? '');
+    // Email obfuskace: viditelný text dostane HTML-entity escape pro @ a . (anti-spam),
+    // href zůstává plain (mailto: musí být validní). Bots scrapující plain text mail
+    // pattern ho nenajdou; browsery rendrují entity korektně.
+    $displayVal = htmlspecialchars($rawVal);
+    if (strpos($rawVal, '@') !== false) {
+        $displayVal = str_replace(['@', '.'], ['&#64;', '&#46;'], $displayVal);
+    }
     if (!empty($q['href'])) {
-        $val = '<a href="' . htmlspecialchars($q['href']) . '" data-cms-key="' . $kBase . '.value">' . htmlspecialchars((string)($q['value'] ?? '')) . '</a>';
+        $val = '<a href="' . htmlspecialchars($q['href']) . '" data-cms-key="' . $kBase . '.value">' . $displayVal . '</a>';
     } else {
-        $val = '<span data-cms-key="' . $kBase . '.value">' . htmlspecialchars((string)($q['value'] ?? '')) . '</span>';
+        $val = '<span data-cms-key="' . $kBase . '.value">' . $displayVal . '</span>';
     }
     $quickHtml .= '<div class="contact-quick-box dfc">' . $iconHtml .
         '<div><p><small data-cms-key="' . $kBase . '.label">' . htmlspecialchars((string)($q['label'] ?? '')) . '</small><br><strong>' . $val . '</strong></p></div></div>';
@@ -146,13 +153,13 @@ if (is_array($branches)) {
             : '';
 
         $branchSchemas[] = '{"@type":["LocalBusiness","AutomotiveBusiness"]'
-            . ',"@id":"https://motogo24.cz/kontakt#branch-' . htmlspecialchars($br['id']) . '"'
+            . ',"@id":"https://www.motogo24.cz/kontakt#branch-' . htmlspecialchars($br['id']) . '"'
             . ',"name":' . json_encode('MotoGo24 — ' . $brName, JSON_UNESCAPED_UNICODE)
-            . ',"branchOf":{"@id":"https://motogo24.cz/#organization"}'
-            . ',"parentOrganization":{"@id":"https://motogo24.cz/#organization"}'
+            . ',"branchOf":{"@id":"https://www.motogo24.cz/#organization"}'
+            . ',"parentOrganization":{"@id":"https://www.motogo24.cz/#organization"}'
             . ',"telephone":' . json_encode($brPhone)
             . ',"email":' . json_encode($brEmail)
-            . ',"url":"https://motogo24.cz/kontakt"'
+            . ',"url":"https://www.motogo24.cz/kontakt"'
             . ',"address":{"@type":"PostalAddress","streetAddress":' . json_encode($brAddr, JSON_UNESCAPED_UNICODE)
                 . ',"addressLocality":' . json_encode($brCity, JSON_UNESCAPED_UNICODE)
                 . ',"postalCode":' . json_encode($brZip)

@@ -233,7 +233,7 @@ function OrderDetail({ order, onClose, onUpdated }) {
   return (
     <Modal open title={`Objednávka ${order.order_number || `#${order.id?.slice(0, 8)}`}`} onClose={onClose} wide>
       <div className="mb-3 text-sm" style={{ color: '#1a2e22' }}>
-        Dodavatel: <b style={{ color: '#0f1a14' }}>{order.suppliers?.name}</b> · Stav: <b>{STATUS_LABELS[order.status] || order.status}</b>
+        Dodavatel: <strong style={{ color: '#0f1a14' }}>{order.suppliers?.name}</strong> · Stav: <strong>{STATUS_LABELS[order.status] || order.status}</strong>
       </div>
       {loading ? (
         <div className="flex justify-center py-8"><div className="animate-spin rounded-full h-6 w-6 border-t-2 border-brand-gd" /></div>

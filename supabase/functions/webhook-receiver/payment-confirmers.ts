@@ -3,7 +3,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-const SITE_URL = Deno.env.get('SITE_URL') || 'https://motogo24.cz'
+const SITE_URL = Deno.env.get('SITE_URL') || 'https://www.motogo24.cz'
 
 /** Download file from Supabase Storage and return as base64 */
 async function downloadAsBase64(supabase: ReturnType<typeof createClient>, path: string): Promise<string | null> {
@@ -157,76 +157,10 @@ export async function confirmBookingPayment(
       const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
       const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SERVICE_KEY}`, 'apikey': SERVICE_KEY }
 
-      // Collect document paths for email attachments
-      const attachmentFiles: { path: string; filename: string }[] = []
-
-      // 1. Generate ZF (zálohová faktura) — send_email:false, bude jako příloha
-      const { data: existingZf } = await supabase.from('invoices')
-        .select('id').eq('booking_id', bookingId)
-        .in('type', ['advance', 'proforma']).limit(1)
-      if (!existingZf?.length) {
-        try {
-          const zfRes = await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
-            method: 'POST', headers,
-            body: JSON.stringify({ type: 'advance', booking_id: bookingId, send_email: false }),
-          })
-          const zfData = await zfRes.json().catch(() => ({}))
-          if (zfData.success && zfData.invoice_id) {
-            attachmentFiles.push({ path: `invoices/${zfData.invoice_id}.html`, filename: `Zalohova-faktura-${zfData.number || 'ZF'}.html` })
-          }
-        } catch (e) { /* ignore */ }
-      }
-
-      // 2. Generate DP (doklad platby) — send_email:false, bude jako příloha
-      try {
-        const dpRes = await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
-          method: 'POST', headers,
-          body: JSON.stringify({ type: 'payment_receipt', booking_id: bookingId, send_email: false }),
-        })
-        const dpData = await dpRes.json().catch(() => ({}))
-        if (dpData.success && dpData.invoice_id) {
-          attachmentFiles.push({ path: `invoices/${dpData.invoice_id}.html`, filename: `Doklad-platby-${dpData.number || 'DP'}.html` })
-        }
-      } catch (e) { /* ignore */ }
-
-      // 3. Generate smlouva (nájemní smlouva)
-      try {
-        const contractRes = await fetch(`${SUPABASE_URL}/functions/v1/generate-document`, {
-          method: 'POST', headers,
-          body: JSON.stringify({ template_slug: 'rental_contract', booking_id: bookingId }),
-        })
-        const contractData = await contractRes.json().catch(() => ({}))
-        if (contractData.success && contractData.path) {
-          attachmentFiles.push({ path: contractData.path, filename: `Najemni-smlouva-${bookingId.slice(-8).toUpperCase()}.html` })
-        }
-      } catch (e) { /* ignore */ }
-
-      // 4. Generate VOP
-      try {
-        const vopRes = await fetch(`${SUPABASE_URL}/functions/v1/generate-document`, {
-          method: 'POST', headers,
-          body: JSON.stringify({ template_slug: 'vop', booking_id: bookingId }),
-        })
-        const vopData = await vopRes.json().catch(() => ({}))
-        if (vopData.success && vopData.path) {
-          attachmentFiles.push({ path: vopData.path, filename: `VOP-${bookingId.slice(-8).toUpperCase()}.html` })
-        }
-      } catch (e) { /* ignore */ }
-
-      // 5. Download all generated documents from storage and encode as base64
-      const attachments: { content: string; filename: string }[] = []
-      for (const att of attachmentFiles) {
-        try {
-          const { data: blob } = await supabase.storage.from('documents').download(att.path)
-          if (blob) {
-            const bytes = new Uint8Array(await blob.arrayBuffer())
-            const base64 = Array.from(bytes, (b: number) => String.fromCharCode(b)).join('')
-            attachments.push({ content: btoa(base64), filename: att.filename })
-          }
-        } catch (e) { /* ignore individual file download failures */ }
-      }
-
-      // 6. Send booking confirmation email with all documents attached
+      // Přílohy mailu (ZF, DP, smlouva, VOP) — řídí Velín DB šablona `email_templates.attachments`
+      // (etalon). send-booking-email si je vyzvedne / vygeneruje sám přes autoGenerateAttachments
+      // synth typy. webhook-receiver už nepředgeneruje dokumenty, aby nevznikla duplicita
+      // s odlišnými filename a aby admin v UI viděl JEDINOU pravdu o tom, co se posílá.
       const { data: booking } = await supabase.from('bookings')
         .select('booking_source, user_id, moto_id, start_date, end_date, total_price, motorcycles(model, manual_url), profiles(full_name, email)')
         .eq('id', bookingId).single()
@@ -250,7 +184,6 @@ export async function confirmBookingPayment(
               total_price: booking.total_price,
               source: source,
               manual_url: moto?.manual_url || '',
-              attachments,
             }),
           })
         } catch (e) { /* ignore */ }
@@ -320,40 +253,13 @@ export async function confirmSosPayment(
       console.error('SOS booking update failed:', error.message)
     }
 
-    // Auto-generate documents + send SOS confirmation email
+    // SOS booking confirmation email — Velín DB šablona řídí přílohy přes attachments[].
+    // send-booking-email si je vyzvedne / vygeneruje sám.
     try {
       const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
       const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
       const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SERVICE_KEY}`, 'apikey': SERVICE_KEY }
-      const sosAttachments: { content: string; filename: string }[] = []
 
-      // 1. Generate ZF
-      try {
-        const zfRes = await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
-          method: 'POST', headers,
-          body: JSON.stringify({ type: 'advance', booking_id: bookingId, send_email: false }),
-        })
-        const zfData = await zfRes.json().catch(() => ({}))
-        if (zfData.success && zfData.invoice_id) {
-          const b64 = await downloadAsBase64(supabase, `invoices/${zfData.invoice_id}.html`)
-          if (b64) sosAttachments.push({ content: b64, filename: `Zalohova-faktura-${zfData.number || 'ZF'}.html` })
-        }
-      } catch { /* ignore */ }
-
-      // 2. Generate DP
-      try {
-        const dpRes = await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
-          method: 'POST', headers,
-          body: JSON.stringify({ type: 'payment_receipt', booking_id: bookingId, send_email: false }),
-        })
-        const dpData = await dpRes.json().catch(() => ({}))
-        if (dpData.success && dpData.invoice_id) {
-          const b64 = await downloadAsBase64(supabase, `invoices/${dpData.invoice_id}.html`)
-          if (b64) sosAttachments.push({ content: b64, filename: `Doklad-platby-${dpData.number || 'DP'}.html` })
-        }
-      } catch { /* ignore */ }
-
-      // 3. Send SOS booking confirmation email
       const { data: booking } = await supabase.from('bookings')
         .select('booking_source, start_date, end_date, total_price, motorcycles(model), profiles(full_name, email)')
         .eq('id', bookingId).single()
@@ -374,12 +280,11 @@ export async function confirmSosPayment(
               end_date: booking.end_date,
               total_price: booking.total_price,
               source: booking.booking_source || 'app',
-              attachments: sosAttachments,
             }),
           })
         } catch { /* ignore */ }
       }
-    } catch (e) { console.warn('[confirmSosPayment] doc gen failed:', e) }
+    } catch (e) { console.warn('[confirmSosPayment] mail send failed:', e) }
   } catch (err) {
     console.error('confirmSosPayment error:', err)
   }

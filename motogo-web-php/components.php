@@ -7,6 +7,282 @@ require_once __DIR__ . '/i18n.php';
 require_once __DIR__ . '/supabase.php';
 
 /**
+ * Bezpečný render nadpisu (h1-h6) — neemittuje prázdné heading tagy ani
+ * defaultní fallback pro běžného návštěvníka. Externí SEO checker hlásil
+ * desítky 'Chybí text titulku' (prázdné <h2>/<h3>) na homepage, kde CMS
+ * klíče nebyly vyplněné z Velínu — render šablona slepě vypsala
+ * `<h2>{$cms['title']}</h2>` i pro prázdný řetězec.
+ *
+ * Pravidla:
+ *   - Pokud je `$text` prázdný a `$fallback` prázdný → vrátí '' (žádný tag).
+ *   - Pokud je `$text` prázdný a `$fallback` vyplněný → použije fallback.
+ *   - V CMS admin režimu (cookie `mg_cms_admin=1`) se prázdný heading
+ *     vyrenderuje s placeholderem 'Doplňte titulek' kvůli inline edit
+ *     overlayi (admin musí vidět co má vyplnit).
+ *
+ * @param int    $level  1-6
+ * @param string $text   Hlavní text (CMS hodnota nebo statický fallback)
+ * @param array  $opts   ['id'=>..., 'class'=>..., 'cmsKey'=>'web.home.foo',
+ *                        'fallback'=>'Default text', 'allowHtml'=>false]
+ * @return string  HTML <hN ...>...</hN> nebo '' pokud prázdné a není admin
+ */
+function renderHeading($level, $text, $opts = []) {
+    $level = max(1, min(6, (int)$level));
+    $tag = 'h' . $level;
+    $raw = is_string($text) ? trim(strip_tags($text)) : '';
+    $isAdmin = !empty($_COOKIE['mg_cms_admin']);
+    $fallback = isset($opts['fallback']) ? trim(strip_tags((string)$opts['fallback'])) : '';
+    $cmsKey = $opts['cmsKey'] ?? '';
+    $allowHtml = !empty($opts['allowHtml']);
+
+    if ($raw === '' && $fallback !== '') {
+        $text = $fallback;
+        $raw = $fallback;
+    }
+    // KRITICKE: H1 NIKDY nesmi byt prazdny (Seobility 'No H1 specified'
+    // Critical issue — pages bez H1 jsou tezko indexovane). Bez admin rezimu
+    // a bez fallbacku injectneme defaultni 'MotoGo24'.
+    if ($raw === '' && $level === 1 && !$isAdmin) {
+        $text = 'MotoGo24';
+        $raw = 'MotoGo24';
+    }
+    if ($raw === '' && !$isAdmin) {
+        return '';
+    }
+    $attrs = '';
+    if (!empty($opts['id']))    $attrs .= ' id="' . htmlspecialchars($opts['id']) . '"';
+    if (!empty($opts['class'])) $attrs .= ' class="' . htmlspecialchars($opts['class']) . '"';
+    if ($cmsKey !== '')         $attrs .= ' data-cms-key="' . htmlspecialchars($cmsKey) . '"';
+
+    if ($raw === '' && $isAdmin) {
+        return '<' . $tag . $attrs . ' data-cms-empty="1"><span style="opacity:.4;font-style:italic">[Doplňte titulek]</span></' . $tag . '>';
+    }
+    $body = $allowHtml ? sanitizeHtml((string)$text) : htmlspecialchars((string)$text);
+    return '<' . $tag . $attrs . '>' . $body . '</' . $tag . '>';
+}
+
+/**
+ * SEO defensive HTML post-processor — beží na renderPage() output (mimo admin
+ * režim) a opravi typicke SEO chyby co Velín CMS / data soubory mohou nechat:
+ *
+ *  1) Strip prazdnych <hN></hN> (whitespace/&nbsp; only) — Seobility 'Empty heading'
+ *  2) Auto-extend kratke <h1> (<25 znaku, plain text) o ' | MotoGo24' pro
+ *     SEO kontext — Seobility 'H1 too short'
+ *  3) Auto-set alt na <img> bez alt nebo s alt="" (nedekorativni img bez
+ *     aria-hidden) — odvodi z page <h1> + filename
+ *  4) Cap <strong>/<b> na max 8 per stranka — pres tento limit je crawler hlasi
+ *     'Many tags', zbylé prepiseme na <span> (zachova vizualni vyznam, smaze
+ *     semantickou waight)
+ *  5) Auto-promote h4->h3 / h5->h4 / h6->h5 kdyz chybi mezikrok v hierarchii
+ *     (Seobility 'Structural problem' u h1->h2->h4 skoku)
+ *
+ * Bezpecne na ne-HTML obsah (pokud $content nezapocina '<') vraci nezmenene.
+ * V admin rezimu (cookie mg_cms_admin) tato funkce neni volana — admin musi
+ * videt original HTML aby mohl identifikovat co opravit ve Velinu.
+ */
+function seoEnhanceHtml($content) {
+    if (!is_string($content) || $content === '') return $content;
+
+    // 0) HTTP -> HTTPS auto-upgrade pro motogo24.cz odkazy v CMS obsahu.
+    //    Velin RTE (CMS dokumenty) muze obsahovat hardcoded 'http://www.motogo24.cz/'
+    //    odkazy (admin zkopirovat ze stareho zdroje). Seobility hlasil
+    //    'Internal redirect' (HTTP -> HTTPS) z /dokumenty/smlouva-o-pronajmu.
+    //    Auto-upgrade misto rucniho findreplace v db.
+    $content = preg_replace(
+        '#http://(www\.)?motogo24\.cz(?=[/"\s])#i',
+        'https://www.motogo24.cz',
+        $content
+    );
+
+    // 1) Strip prazdnych headings <h2-h6></hN> (whitespace, &nbsp;, atd.).
+    //    DULEZITE: <h1> NIKDY neneabandonujem — Seobility 'There is no H1
+    //    heading specified' Critical. Pokud je H1 prazdny, nechame ho
+    //    jako tag (alespon je heading hierarchie zachovana) a nize injectneme
+    //    fallback content.
+    $content = preg_replace(
+        '#<h([2-6])(?![^>]*\bdata-cms-empty=)[^>]*>(?:\s|&nbsp;|&\#160;|\xC2\xA0)*</h\1\s*>#i',
+        '',
+        $content
+    );
+    // Prazdny H1: doplnime fallback obsah ('MotoGo24') misto stripu, aby
+    // crawler videl validni H1 strukturu i kdyz CMS data nezvladly nacist.
+    $content = preg_replace_callback(
+        '#<h1([^>]*)>(?:\s|&nbsp;|&\#160;|\xC2\xA0)*</h1\s*>#i',
+        function ($m) {
+            return '<h1' . $m[1] . '>MotoGo24</h1>';
+        },
+        $content
+    );
+
+    // 1b) Pokud na strance neni vubec zadny <h1>, injectneme fallback nahoru
+    //     do <main id="content"> nebo na zacatek $content. Seobility hlasi
+    //     'There is no H1 heading specified' jako Important issue. Druhe a
+    //     dalsi <h1> v $content (z CMS RTE) demote krok 5 nize.
+    if (!preg_match('#<h1\b#i', $content)) {
+        $h1Plain = '<h1>MotoGo24 — půjčovna motorek</h1>';
+        $h1Wrapped = '<div class="container">' . $h1Plain . '</div>';
+        // Preferred: vlozit DOVNITR prvni <div class="container"> hned za <main id="content">,
+        // aby byl H1 zarovnany s ostatnim obsahem (jinak by visel u leveho okraje viewportu).
+        if (preg_match('#(<main\b[^>]*id=["\']content["\'][^>]*>)(\s*<div\b[^>]*class=["\'][^"\']*\bcontainer\b[^"\']*["\'][^>]*>)#i', $content)) {
+            $content = preg_replace(
+                '#(<main\b[^>]*id=["\']content["\'][^>]*>)(\s*<div\b[^>]*class=["\'][^"\']*\bcontainer\b[^"\']*["\'][^>]*>)#i',
+                '$1$2' . $h1Plain,
+                $content,
+                1
+            );
+        } elseif (preg_match('#<main\b[^>]*id=["\']content["\'][^>]*>#i', $content)) {
+            // Main bez vnoreneho containeru — obalime H1 vlastnim containerem.
+            $content = preg_replace(
+                '#(<main\b[^>]*id=["\']content["\'][^>]*>)#i',
+                '$1' . $h1Wrapped,
+                $content,
+                1
+            );
+        } else {
+            // Fallback: pridat na zacatek
+            $content = $h1Wrapped . $content;
+        }
+    }
+
+    // 2) Auto-extend kratke <h1> textu o ' | MotoGo24' (SEO context).
+    //    Vyber prvni <h1>...</h1>, odeparuj plain text, pokud <25 znaku
+    //    a neobsahuje 'MotoGo24' tak append. Zachovej pripadne data-* atributy.
+    $pageH1 = '';
+    $content = preg_replace_callback(
+        '#<h1([^>]*)>(.+?)</h1>#is',
+        function ($m) use (&$pageH1) {
+            $attrs = $m[1];
+            $body = $m[2];
+            $plain = trim(strip_tags($body));
+            $pageH1 = $plain; // pro pouziti v alt-textech nize
+            // Pokud kratke a uz neobsahuje brand, append SEO context.
+            if (mb_strlen($plain, 'UTF-8') > 0 && mb_strlen($plain, 'UTF-8') < 25
+                && stripos($plain, 'motogo') === false) {
+                return '<h1' . $attrs . '>' . $body . ' – MotoGo24</h1>';
+            }
+            return $m[0];
+        },
+        $content,
+        1 // jen prvni h1
+    );
+
+    // 3) Auto-set alt na <img> bez alt nebo s alt="".
+    //    Decorative ikony (aria-hidden=true / role=presentation) preskoci.
+    //    Alt odvodi z $pageH1 + filename (po lomítku, bez ext).
+    $content = preg_replace_callback(
+        '#<img\b([^>]*)/?>#i',
+        function ($m) use ($pageH1) {
+            $attrs = $m[1];
+            // Decorative — neresime
+            if (preg_match('#\baria-hidden\s*=\s*["\']?true\b#i', $attrs)) return $m[0];
+            if (preg_match('#\brole\s*=\s*["\']?presentation\b#i', $attrs)) return $m[0];
+            // Ma uz neprazdny alt — neresime
+            if (preg_match('#\balt\s*=\s*"([^"]+)"#i', $attrs, $am) && trim($am[1]) !== '') return $m[0];
+            if (preg_match("#\balt\\s*=\\s*'([^']+)'#i", $attrs, $am) && trim($am[1]) !== '') return $m[0];
+            // Bez alt nebo prazdne alt — odvodime
+            $altGuess = '';
+            if (preg_match('#\bsrc\s*=\s*["\']([^"\']+)["\']#i', $attrs, $sm)) {
+                $src = $sm[1];
+                $name = basename(parse_url($src, PHP_URL_PATH) ?: $src);
+                $name = preg_replace('#\.[a-z0-9]{2,5}$#i', '', $name); // strip ext
+                $name = preg_replace('#[-_]+#', ' ', $name);
+                $name = preg_replace('#[0-9]+x[0-9]+#', '', $name); // strip 800x600
+                $name = trim(preg_replace('#\s+#', ' ', $name));
+                if ($name !== '') $altGuess = $name;
+            }
+            if ($altGuess === '' && $pageH1 !== '') $altGuess = $pageH1;
+            if ($altGuess === '') $altGuess = 'MotoGo24';
+            $altAttr = ' alt="' . htmlspecialchars($altGuess, ENT_QUOTES) . '"';
+            // Smaz pripadne empty alt="" pokud existuje
+            $cleaned = preg_replace('#\s*\balt\s*=\s*"(?:[^"]*)"#i', '', $attrs);
+            $cleaned = preg_replace("#\\s*\\balt\\s*=\\s*'(?:[^']*)'#i", '', $cleaned);
+            return '<img' . $cleaned . $altAttr . '>';
+        },
+        $content
+    );
+
+    // 4) Cap <strong> count na 8. Po pruzkumu Seobility 'Many tags' threshold
+    //    je ~10. Pri 9. <strong> a vice prepiseme na <span> (zachovava text,
+    //    bere semanticky vyznam). Track total <strong> opened (ne currently
+    //    open) + stack pro parovani close tagu se spravnym open level.
+    if (substr_count(strtolower($content), '<strong') > 8) {
+        $opened = 0;          // total <strong> opened doposud
+        $stack = [];          // bool[] - true=tento open byl prepsan na span
+        $content = preg_replace_callback(
+            '#<(/?)strong(\b[^>]*)?>#i',
+            function ($m) use (&$opened, &$stack) {
+                $closing = ($m[1] === '/');
+                $attrs = $m[2] ?? '';
+                if (!$closing) {
+                    $opened++;
+                    $isRewrite = ($opened > 8);
+                    $stack[] = $isRewrite;
+                    return $isRewrite ? '<span' . $attrs . '>' : $m[0];
+                }
+                // Close tag - pop posledni open
+                $isRewrite = !empty($stack) ? array_pop($stack) : false;
+                return $isRewrite ? '</span>' : $m[0];
+            },
+            $content
+        );
+    }
+
+    // 5) Auto-promote h-skoky a demote multi-H1 — stack-based aby open/close
+    //    tagy zustaly parovane.
+    //    a) Hierarchie skoky h2->h4 -> h2->h3 (Seobility 'Structural problem')
+    //    b) Druhy a dalsi <h1> na strance se demotuji na <h2> (Seobility
+    //       'Use only one H1 heading on the page' Critical) — sablona stranky
+    //       drzi prvni <h1>, dalsi mohou prijit z CMS RTE (admin napsal H1
+    //       v document_template content_html). Idempotentni.
+    if (preg_match('#</?h[1-6]\b#i', $content)) {
+        $tokens = preg_split('#(<(?:/?)h[1-6](?:\b[^>]*)?>)#i', $content, -1, PREG_SPLIT_DELIM_CAPTURE);
+        $stack = [];      // bool[] - kolik tagu mame aktualne otevrenych
+        $lastSeen = 0;    // posledni renderovana uroven (po promote)
+        $h1Seen = false;  // prvni <h1> jsme uz emitovali?
+        for ($i = 0; $i < count($tokens); $i++) {
+            $t = $tokens[$i];
+            if (!preg_match('#^<(/?)h([1-6])(\b[^>]*)?>$#i', $t, $m)) continue;
+            $closing = ($m[1] === '/');
+            $level = (int)$m[2];
+            $attrs = $m[3] ?? '';
+            if (!$closing) {
+                $newLevel = $level;
+                // Multi-H1 demote: pokud uz jsme videli H1, druhy a dalsi -> H2
+                if ($level === 1 && $h1Seen) {
+                    $newLevel = 2;
+                }
+                if ($level === 1 && !$h1Seen) {
+                    $h1Seen = true;
+                }
+                // Hierarchie skoky h2->h4 -> h2->h3
+                if ($lastSeen > 0 && $newLevel > $lastSeen + 1) {
+                    $newLevel = $lastSeen + 1;
+                }
+                $stack[] = ['origIdx' => $i, 'newLevel' => $newLevel];
+                $lastSeen = $newLevel;
+                if ($newLevel !== $level) {
+                    $tokens[$i] = '<h' . $newLevel . $attrs . '>';
+                }
+            } else {
+                // Najdi posledni open na stacku, prepise close pokud bylo promote
+                for ($s = count($stack) - 1; $s >= 0; $s--) {
+                    $entry = $stack[$s];
+                    $newOpenLevel = $entry['newLevel'];
+                    if ($newOpenLevel !== $level) {
+                        $tokens[$i] = '</h' . $newOpenLevel . '>';
+                    }
+                    array_splice($stack, $s, 1);
+                    break;
+                }
+            }
+        }
+        $content = implode('', $tokens);
+    }
+
+    return $content;
+}
+
+/**
  * Sanitizuje HTML content z DB (blog, CMS stránky, wysiwyg výstup).
  * Odstraní <script>, <iframe> (pokud nejsou whitelistnuté), on* event
  * handler atributy, javascript:/data: URL v href/src. Zachovává běžné
@@ -19,6 +295,14 @@ function sanitizeHtml($html, $allowIframe = false) {
     $html = preg_replace('#<script\b[^>]*/?>#is', '', $html);
     // <style> bloky pryč (nevíme, co by zanesly)
     $html = preg_replace('#<style\b[^>]*>.*?</style\s*>#is', '', $html);
+    // SEO: nesemanticke <b>/<i>/<font> -> semanticke <strong>/<em>/span (zachovat obsah).
+    // Tyto tagy generuje legacy execCommand('bold'/'italic'/'fontSize') v CMS editoru.
+    $html = preg_replace('#<b(\s[^>]*)?>#i', '<strong>', $html);
+    $html = preg_replace('#</b\s*>#i', '</strong>', $html);
+    $html = preg_replace('#<i(\s[^>]*)?>#i', '<em>', $html);
+    $html = preg_replace('#</i\s*>#i', '</em>', $html);
+    $html = preg_replace('#<font\b[^>]*>#i', '<span>', $html);
+    $html = preg_replace('#</font\s*>#i', '</span>', $html);
     // <iframe> pryč pokud není povolen
     if (!$allowIframe) {
         $html = preg_replace('#<iframe\b[^>]*>.*?</iframe\s*>#is', '', $html);
@@ -140,7 +424,7 @@ function normalizeMoto(&$m) {
     $stringFields = [
         'id','model','brand','description','category','engine_cc','engine_type',
         'transmission','drivetrain','fuel_consumption_l100km','ideal_usage',
-        'manual_url','color','year','power_kw','power_hp','torque_nm',
+        'manual_url','manual_external_url','color','year','power_kw','power_hp','torque_nm',
         'top_speed_kmh','fuel_type','fuel_tank_l','brake_type','weight_kg',
         'seat_height_mm','seats_count','license_required','min_rental_days',
         'max_rental_days','image_url','status','suitable_for',
@@ -215,7 +499,11 @@ function renderMotoCard($m) {
     $imgAlt = htmlspecialchars(t('common.motorcycleAlt', ['model' => $modelRaw]));
 
     $featHtml = '<ul>';
-    $featHtml .= '<li class="moto-card-model"><h2>' . $model . '</h2></li>';
+    // SEO: karty motorek jsou uvnitř <section> s vlastním <h2>, takze nazev
+    // motorky je sub-heading -> <h3>. Externi SEO checker hlasil 'Benelli TRK
+    // 502 X' jako h2, ktery konkuruje h2 sekce 'Nase motorky'. Hierarchia
+    // h1 (page) > h2 (section) > h3 (card) je teď konzistentni.
+    $featHtml .= '<li class="moto-card-model"><h3>' . $model . '</h3></li>';
     foreach ($features as $f) { $featHtml .= '<li>' . $f . '</li>'; }
     $featHtml .= '</ul>';
 
@@ -273,6 +561,13 @@ function renderBlogCard($post) {
     // Auto-překlady z `translations` JSONB sloupce s CZ fallbackem
     $excerpt = localized($post, 'excerpt');
     if ($excerpt === '') $excerpt = $post['description'] ?? '';
+    // SEO: cely blog-card je obaleny <a>, takze CELY text vc. excerpt je
+    // anchor text pro odkaz. Seobility hlasil 'Link anchor text too long'
+    // (>120 znaku) na blog/eshop kartach kde excerpt prekrocil. Truncate
+    // excerpt na ~80 znaku at title (~30) + excerpt (~80) je pod 120 limit.
+    $excerptShort = mb_strlen($excerpt, 'UTF-8') > 80
+        ? rtrim(mb_substr($excerpt, 0, 79, 'UTF-8'), " .,;:") . '…'
+        : $excerpt;
     $titleRaw = trim((string)localized($post, 'title'));
     if ($titleRaw === '') $titleRaw = t('card.unnamedArticle');
     $title = htmlspecialchars($titleRaw);
@@ -280,11 +575,11 @@ function renderBlogCard($post) {
     $imgAlt = htmlspecialchars(t('common.blogAlt', ['title' => $titleRaw]));
 
     return '<div><a class="blog-wrapper" href="' . BASE_URL . '/blog/' . $slug . '" aria-label="' . $title . '">' .
-        '<div class="blog-title"><h2>' . $title . '</h2></div>' .
+        '<div class="blog-title"><h3>' . $title . '</h3></div>' .
         '<div class="blog-img">' . ($img ? '<img src="' . htmlspecialchars($img) . '"'
             . ($imgSrcset ? ' srcset="' . htmlspecialchars($imgSrcset) . '" sizes="(max-width: 768px) 100vw, 33vw"' : '')
             . ' alt="' . $imgAlt . '" class="imgres" loading="lazy" decoding="async">' : '') . '</div>' .
-        '<div class="blog-desc">' . ($tag ? '<p><span class="tag-label">' . htmlspecialchars($tag) . '</span></p>' : '') . '<p>' . htmlspecialchars($excerpt) . '</p></div>' .
+        '<div class="blog-desc">' . ($tag ? '<p><span class="tag-label">' . htmlspecialchars($tag) . '</span></p>' : '') . '<p>' . htmlspecialchars($excerptShort) . '</p></div>' .
         '<div class="blog-btn"><span class="btn btngreen-small">' . te('card.readArticle') . '</span></div>' .
     '</a></div>';
 }
@@ -312,18 +607,21 @@ function renderProductCard($p) {
     $id = htmlspecialchars($p['id'] ?? '');
     $imgAlt = htmlspecialchars(t('shop.productAlt', ['name' => $nameRaw]));
 
-    // Krátký popisek (z description, max 120 znaků)
+    // SEO: cely shop-card je obaleny <a>, takze CELY text vc. shortDesc je
+    // anchor text pro odkaz. Seobility hlasil 'Link anchor text too long'
+    // (>120 znaku). Truncate na 70 znaku at name + price + shortDesc + button
+    // text zustane pod 120 limit.
     $descRaw = trim((string)localized($p, 'description'));
     $shortDesc = '';
     if ($descRaw !== '') {
         $stripped = trim(strip_tags($descRaw));
-        $shortDesc = mb_strlen($stripped) > 120 ? mb_substr($stripped, 0, 117) . '…' : $stripped;
+        $shortDesc = mb_strlen($stripped) > 70 ? rtrim(mb_substr($stripped, 0, 69), " .,;:") . '…' : $stripped;
     }
 
     $stock = (int)($p['stock_quantity'] ?? 0);
     $stockBadge = '';
     if ($stock <= 0) {
-        $stockBadge = '<span class="moto-card-badge" style="background:#fee2e2;color:#dc2626;">' . te('shop.soldOut') . '</span>';
+        $stockBadge = '<span class="moto-card-badge moto-card-badge--soldout">' . te('shop.soldOut') . '</span>';
     }
 
     return '<a class="moto-wrapper" href="' . BASE_URL . '/eshop/' . $id . '" aria-label="' . $name . '">' .
@@ -332,7 +630,7 @@ function renderProductCard($p) {
                 . ($imgSrcset ? ' srcset="' . htmlspecialchars($imgSrcset) . '" sizes="(max-width: 768px) 50vw, 25vw"' : '')
                 . ' alt="' . $imgAlt . '" class="imgres" loading="lazy" decoding="async">' : '') .
             $stockBadge .
-            '<div class="moto-title"><h2>' . $name . '</h2></div>' .
+            '<div class="moto-title"><h3>' . $name . '</h3></div>' .
         '</div>' .
         '<div class="moto-desc">' . ($shortDesc ? '<p>' . htmlspecialchars($shortDesc) . '</p>' : '') . ($priceText ? '<p class="moto-price">' . htmlspecialchars($priceText) . '</p>' : '') . '</div>' .
         '<div class="moto-btn"><span class="btn btngreen-small">' . te('shop.detailButton') . '</span></div>' .
@@ -341,20 +639,26 @@ function renderProductCard($p) {
 
 /**
  * Ikona box — odpovídá MG.renderWbox() v components.js.
+ *
+ * Ikona je sice dekorativní (význam přenáší <h3> + <p>), ale prázdný alt=""
+ * SEO crawlery hlásí jako "missing alt". Generujeme proto alt z titulku boxu
+ * (po strip_tags), zatímco aria-hidden=true ponechá ikonu skrytou pro screen
+ * readery — uživatelé asistivních technologií tak neslyší titulek dvakrát.
  */
 function renderWbox($icon, $title, $text) {
     $iconSrc = $icon ? BASE_URL . '/' . ltrim($icon, '/') : '';
+    $iconAlt = trim(strip_tags((string)$title));
     return '<div class="wbox">' .
-        ($icon ? '<div class="wbox-img"><img src="' . htmlspecialchars($iconSrc) . '" class="icon" alt="" aria-hidden="true" loading="lazy"></div>' : '') .
-        '<h3>' . $title . '</h3>' .
-        '<p>' . $text . '</p></div>';
+        ($icon ? '<div class="wbox-img"><img src="' . htmlspecialchars($iconSrc) . '" class="icon" alt="' . htmlspecialchars($iconAlt) . '" aria-hidden="true" loading="lazy"></div>' : '') .
+        '<h3>' . sanitizeHtml($title) . '</h3>' .
+        '<p>' . sanitizeHtml($text) . '</p></div>';
 }
 
 /**
  * FAQ accordion item — odpovídá MG.renderFaqItem() v components.js.
  */
 function renderFaqItem($question, $answer) {
-    return '<details class="faq-item"><summary>' . $question . '</summary><p>' . $answer . '</p></details>';
+    return '<details class="faq-item"><summary>' . sanitizeHtml($question) . '</summary><p>' . sanitizeHtml($answer) . '</p></details>';
 }
 
 /**
@@ -362,7 +666,14 @@ function renderFaqItem($question, $answer) {
  * ZMĚNA: moreLink bez # prefixu (čisté URL)
  */
 function renderFaqSection($title, $items, $moreLink = null) {
-    $html = '<section aria-labelledby="faq"><h2>' . $title . '</h2><div class="tab-content"><div class="tab-pane active" id="all"><div class="gr2">';
+    // SEO: pouzij renderHeading aby prazdny FAQ titulek nedostal prazdny <h2>.
+    // $title muze byt string nebo HTML span s data-cms-key wrapem - zachovame
+    // raw rendering, jen guardneme prazdny pripad.
+    $rawTitle = trim(strip_tags(is_string($title) ? $title : ''));
+    if ($rawTitle === '' && empty($_COOKIE['mg_cms_admin'])) {
+        $title = 'Často kladené otázky';
+    }
+    $html = '<section aria-labelledby="faq"><h2 id="faq">' . $title . '</h2><div class="tab-content"><div class="tab-pane active" id="all"><div class="gr2">';
     foreach ($items as $faq) {
         $html .= renderFaqItem($faq['q'], $faq['a']);
     }
@@ -379,10 +690,16 @@ function renderFaqSection($title, $items, $moreLink = null) {
  * ZMĚNA: href bez # prefixu (čisté URL)
  */
 function renderCta($title, $text, $buttons) {
-    $html = '<section aria-labelledby="cta"><h2>' . $title . '</h2><p>' . $text . '</p><p>&nbsp;</p><p>';
+    // SEO: prazdny CTA titulek -> fallback (pri admin rezimu placeholder, jinak skrytý h2 bohuzel zlomi structure;
+    // takze pouzijeme nestranny default).
+    $rawTitle = trim(strip_tags(is_string($title) ? $title : ''));
+    if ($rawTitle === '' && empty($_COOKIE['mg_cms_admin'])) {
+        $title = 'Rezervujte si motorku';
+    }
+    $html = '<section aria-labelledby="cta"><h2 id="cta">' . sanitizeHtml($title) . '</h2><p>' . sanitizeHtml($text) . '</p><p>&nbsp;</p><p>';
     foreach ($buttons as $btn) {
         $cls = $btn['cls'] ?? 'btndark';
-        $html .= '<a class="btn ' . $cls . '" href="' . BASE_URL . $btn['href'] . '">' . $btn['label'] . '</a>&nbsp;';
+        $html .= '<a class="btn ' . $cls . '" href="' . BASE_URL . $btn['href'] . '">' . sanitizeHtml($btn['label']) . '</a>&nbsp;';
     }
     $html .= '</p></section>';
     return $html;

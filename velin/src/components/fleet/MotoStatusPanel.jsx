@@ -24,7 +24,7 @@ export default function MotoStatusPanel({
         <span className="font-extrabold text-sm" style={{ color: '#0f1a14' }}>{moto.model}</span>
         <span className="font-mono text-sm" style={{ color: '#1a2e22' }}>{moto.spz}</span>
         <StatusBadge status={moto.status} />
-        {moto.branches?.name && <span className="text-sm ml-auto" style={{ color: '#1a2e22' }}>Pobočka: <b>{moto.branches.name}</b></span>}
+        {moto.branches?.name && <span className="text-sm ml-auto" style={{ color: '#1a2e22' }}>Pobočka: <strong>{moto.branches.name}</strong></span>}
       </div>
 
       {isActive && hasOpenLogs && (

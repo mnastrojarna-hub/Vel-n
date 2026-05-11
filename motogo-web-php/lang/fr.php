@@ -66,7 +66,7 @@ return [
 
     // ===== Cookie consent banner =====
     'cookies.title' => 'Ce site utilise des cookies',
-    'cookies.intro' => 'Nous utilisons des cookies pour faire fonctionner le site et — uniquement avec votre consentement — à des fins d\'analyse et de marketing. Le consentement est facultatif et vous pouvez le modifier à tout moment dans le pied de page. Plus dans notre <a href="/gdpr">Politique de confidentialité</a>.',
+    'cookies.intro' => 'Nous utilisons des cookies pour faire fonctionner le site et — uniquement avec votre consentement — à des fins d\'analyse et de marketing. Le consentement est facultatif et vous pouvez le modifier à tout moment dans le pied de page. Plus dans notre <a href="/dokumenty/zasady-ochrany-osobnich-udaju">Politique de confidentialité</a>.',
     'cookies.acceptAll' => 'Tout accepter',
     'cookies.rejectAll' => 'Refuser',
     'cookies.settings' => 'Paramètres',
@@ -193,9 +193,9 @@ return [
 
     // ===== SEO meta defaults (par langue) =====
     'seo.default.description' => 'Location de motos dans la région de Vysočina, République tchèque — motos de tourisme, sport, enduro et enfants. Location 24h/24, sans caution, équipement inclus, réservation en ligne.',
-    'seo.default.keywords' => 'location moto République tchèque, louer moto Pelhřimov, location moto sans caution, réservation moto en ligne',
+    'seo.default.keywords' => 'location moto République tchèque',
     'seo.home.description' => 'Louez une moto dans la région de Vysočina. Sans caution, équipement inclus, service 24h/24. Motos de tourisme, sport, enduro et enfants. Réservation en ligne.',
-    'seo.home.keywords' => 'location moto République tchèque, louer moto Pelhřimov, location moto sans caution, réservation moto en ligne',
+    'seo.home.keywords' => 'location moto République tchèque',
 
     // ===== Potvrzení =====
     'confirm.titleBooking' => 'Confirmation de réservation | MotoGo24',
@@ -205,7 +205,7 @@ return [
     // ===== Rezervace shell =====
     'rezervace.title' => 'Réservation de moto en ligne | MotoGo24',
     'rezervace.description' => 'Réservation de moto en ligne dans la région de Vysočina. Sans caution, équipement inclus et service 24h/24. Choisissez votre moto, votre date et payez en ligne.',
-    'rezervace.keywords' => 'réservation moto en ligne, louer une moto, location moto Vysočina, booking en ligne',
+    'rezervace.keywords' => 'location moto République tchèque',
     'rezervace.loading' => 'Chargement du système de réservation...',
 
     // ===== Réservation — en-tête / intro =====
@@ -290,8 +290,8 @@ return [
     'rez.gear.item.return' => 'Récupération de la moto',
 
     // ===== Réservation — consentements =====
-    'rez.agree.terms' => '* J\'accepte les <a href="/obchodni-podminky">conditions générales</a>',
-    'rez.agree.gdpr' => 'J\'accepte le <a href="/gdpr">traitement des données personnelles</a>',
+    'rez.agree.terms' => '* J\'accepte les <a href="/dokumenty/obchodni-podminky">conditions générales</a>',
+    'rez.agree.gdpr' => 'J\'accepte le <a href="/dokumenty/zasady-ochrany-osobnich-udaju">traitement des données personnelles</a>',
     'rez.agree.marketing' => 'J\'accepte de recevoir des communications marketing',
     'rez.agree.photo' => 'J\'accepte l\'utilisation des photos à des fins marketing',
 
@@ -407,7 +407,7 @@ return [
 
     // ===== Katalog SEO =====
     'katalog.seo.description' => 'Catalogue de motos à louer dans la région de Vysočina. Filtre par catégorie, permis, puissance et prix. Motos de tourisme, sportives, enduro et pour enfants. Réservation en ligne.',
-    'katalog.seo.keywords' => 'catalogue motos, motos à louer, motos de tourisme, motos sportives, enduro, motos pour enfants, filtre motos',
+    'katalog.seo.keywords' => 'location moto République tchèque',
 
     // ===== Detail motorky =====
     'detail.notFoundTitle' => 'Moto introuvable – Motogo24',
@@ -502,7 +502,7 @@ return [
     // ===== Blog =====
     'blog.title' => 'Blog et conseils pour motards | MotoGo24',
     'blog.description' => 'Blog Motogo24 – idées d\'itinéraires moto en Vysočina et en République tchèque, actualités de la location, conseils pour une conduite sécurisée et procédures pratiques.',
-    'blog.keywords' => 'blog moto, itinéraires moto, conseils pour motards, actualités location de motos, Vysočina, Český ráj',
+    'blog.keywords' => 'location moto République tchèque',
     'blog.h1' => 'Blog et conseils',
     'blog.empty' => 'Aucun article dans cette catégorie.',
     'blog.tagAll' => 'Tous ({count})',
@@ -514,7 +514,7 @@ return [
     // ===== Voucher form (poukazy-objednat) =====
     'voucher.pageTitle' => 'Location de motos Vysočina - Acheter un bon cadeau',
     'voucher.description' => 'Commandez un bon cadeau pour la location d\'une moto chez Motogo24. Validité 3 ans, sans caution, équipement inclus.',
-    'voucher.keywords' => 'acheter bon cadeau moto, commander voucher Motogo24, cadeau location moto',
+    'voucher.keywords' => 'location moto République tchèque',
     'voucher.title' => 'Bon cadeau Motogo24',
     'voucher.lead' => 'Offrez l\'expérience d\'une balade à moto ! Le bon est valable 3 ans et peut être utilisé lors d\'une réservation sur ce site.',
     'voucher.contactSection' => 'Vos coordonnées',
@@ -564,6 +564,7 @@ return [
     'confirm.success.nextTitle' => 'Et après ?',
     'confirm.success.nextBookingDocs' => 'Téléchargez les photos de votre carte d\'identité/passeport et de votre permis — sans vérification, les codes d\'accès ne peuvent pas être délivrés.',
     'confirm.success.nextBookingCodes' => 'Une fois les documents vérifiés, vous recevrez des codes d\'accès à 6 chiffres pour la moto et l\'équipement par e-mail, SMS et WhatsApp.',
+    'confirm.success.nextBookingCodesDone' => 'Nous vous enverrons les codes d\'accès à 6 chiffres pour la moto et l\'équipement par e-mail, SMS et WhatsApp avant le début de la réservation.',
     'confirm.success.nextBookingPickup' => 'Le jour du retrait, rendez-vous à l\'agence — les codes ouvrent la porte, moto et équipement sont prêts.',
     'confirm.success.nextOrderShip' => 'Si vous avez choisi la livraison, votre colis arrivera sous 1 à 3 jours ouvrés.',
     'confirm.success.nextVoucherEmail' => 'Vous trouverez le code du bon dans votre e-mail — utilisez-le lors de votre réservation sur motogo24.cz / .com ou dans l\'application.',
@@ -607,7 +608,7 @@ return [
     'shop.h1' => 'Boutique MotoGo24',
     'shop.intro' => 'Accessoires moto, merch et cadeaux pour les fans de MotoGo24. Livraison dans toute la République tchèque.',
     'shop.description' => 'Boutique MotoGo24 — accessoires moto, vêtements et merch. Commande en ligne, livraison partout en Tchéquie.',
-    'shop.keywords' => 'boutique moto, accessoires moto, merch motogo24, vêtements moto',
+    'shop.keywords' => 'location moto République tchèque',
     'shop.empty' => 'Nous n\'avons aucun produit en stock pour le moment. Suivez-nous sur les réseaux sociaux.',
     'shop.unnamedProduct' => 'Produit',
     'shop.productAlt' => '{name} — Boutique MotoGo24',
@@ -747,7 +748,7 @@ return [
     'editRez.forgot.error' => 'Échec de l\'envoi de l\'e-mail. Veuillez réessayer.',
     'editRez.forgot.back' => '← Retour à la connexion',
     'editRez.reset.title' => 'Définir un nouveau mot de passe',
-    'editRez.reset.help' => 'Saisissez un nouveau mot de passe (min. 6 caractères). Après l\'enregistrement, vous serez connecté(e) et verrez vos réservations.',
+    'editRez.reset.help' => 'Saisissez un nouveau mot de passe (min. 8 caractères). Après l\'enregistrement, vous serez connecté(e) et verrez vos réservations.',
     'editRez.reset.otpHelp' => 'Nous avons envoyé un code de vérification à <strong>{email}</strong>. Saisissez le code à 8 caractères de l\'e-mail (le même code fonctionne pour l\'app et le web) et définissez un nouveau mot de passe.',
     'editRez.reset.otpCode' => 'Code de vérification de l\'e-mail (8 caractères)',
     'editRez.reset.otpInvalid' => 'Code invalide ou expiré. Veuillez en demander un nouveau.',
@@ -757,8 +758,9 @@ return [
     'editRez.reset.submitting' => 'Enregistrement…',
     'editRez.reset.success' => 'Mot de passe enregistré. Continuez vers vos réservations.',
     'editRez.reset.error' => 'Impossible d\'enregistrer le mot de passe. Veuillez réessayer.',
-    'editRez.reset.tooShort' => 'Le mot de passe doit comporter au moins 6 caractères.',
+    'editRez.reset.tooShort' => 'Le mot de passe doit comporter au moins 8 caractères.',
     'editRez.reset.mismatch' => 'Les mots de passe ne correspondent pas.',
+    'editRez.reset.same' => 'Le nouveau mot de passe doit être différent de l\'ancien.',
     'editRez.list.title' => 'Vos réservations',
     'editRez.list.shopTitle' => 'Commandes de la boutique',
     'editRez.list.vouchersTitle' => 'Bons cadeaux',

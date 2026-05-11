@@ -50,6 +50,7 @@ return [
     'menu.reservation' => 'REZERVACE',
     'menu.editReservation' => 'Upravit rezervaci',
     'menu.editReservation.aria' => 'Upravit nebo zrušit rezervaci',
+    'menu.logout' => 'Odhlásit',
 
     // ===== Footer =====
     'footer.aboutTitle' => 'Půjčovna motorek',
@@ -67,7 +68,7 @@ return [
 
     // ===== Cookie consent banner (GDPR / ePrivacy) =====
     'cookies.title' => 'Tato stránka používá cookies',
-    'cookies.intro' => 'Soubory cookies používáme k zajištění funkčnosti webu a — pouze s vaším souhlasem — k měření návštěvnosti a marketingu. Souhlas je dobrovolný a můžete jej kdykoli změnit v zápatí stránky. Více v <a href="/gdpr">Zásadách ochrany osobních údajů</a>.',
+    'cookies.intro' => 'Soubory cookies používáme k zajištění funkčnosti webu a — pouze s vaším souhlasem — k měření návštěvnosti a marketingu. Souhlas je dobrovolný a můžete jej kdykoli změnit v zápatí stránky. Více v <a href="/dokumenty/zasady-ochrany-osobnich-udaju">Zásadách ochrany osobních údajů</a>.',
     'cookies.acceptAll' => 'Přijmout vše',
     'cookies.rejectAll' => 'Odmítnout',
     'cookies.settings' => 'Nastavení',
@@ -145,7 +146,7 @@ return [
     'shop.h1' => 'E-shop MotoGo24',
     'shop.intro' => 'Motorkářské doplňky, merch a dárky pro fanoušky MotoGo24. Doručíme po celé ČR.',
     'shop.description' => 'E-shop MotoGo24 — motorkářské doplňky, oblečení a merch. Online objednávka, doprava po celé ČR.',
-    'shop.keywords' => 'motorkářský e-shop, motorkářské doplňky, motogo24 merch, motorkářské oblečení',
+    'shop.keywords' => 'motopůjčovna',
     'shop.empty' => 'Momentálně nemáme žádné produkty na skladě. Sledujte nás na sociálních sítích.',
     'shop.unnamedProduct' => 'Produkt',
     'shop.productAlt' => '{name} — e-shop MotoGo24',
@@ -292,9 +293,9 @@ return [
 
     // ===== SEO meta defaults (per-jazyk) =====
     'seo.default.description' => 'Půjčovna motorek Vysočina – silniční, sportovní, enduro i dětské. Nonstop pronájem bez kauce, online rezervace a motorkářská výbava zdarma.',
-    'seo.default.keywords' => 'půjčovna motorek Vysočina, pronájem motorek Pelhřimov, půjčovna motorek bez kauce, online rezervace motorky',
+    'seo.default.keywords' => 'motopůjčovna, půjčovna motorek, půjčovna motorek Vysočina, půjčovna motorek Pelhřimov, pronájem motorky, půjčit motorku, půjčení motocyklu, motorka na pronájem, půjčovna motocyklů, motorka bez kauce, nonstop půjčovna motorek, online rezervace motorky, cestovní motorky, naked motorky, supermoto, enduro motorky, dětské motorky, motorkářská výbava, motorkářské doplňky, dárkový poukaz na motorku, motocyklové trasy Vysočina, MotoGo24',
     'seo.home.description' => 'Půjčte si motorku na Vysočině. Bez kauce, výbava v ceně, nonstop provoz. Cestovní, sportovní, enduro i dětské motorky. Online rezervace.',
-    'seo.home.keywords' => 'půjčovna motorek Vysočina, pronájem motorek Pelhřimov, půjčovna motorek bez kauce, online rezervace motorky',
+    'seo.home.keywords' => 'půjčovna motorek Vysočina, motopůjčovna Pelhřimov, půjčit motorku, pronájem motorky, půjčovna motocyklů, motorka bez kauce, nonstop půjčovna motorek, online rezervace motorky, cestovní motorky, naked motorky, supermoto, enduro, dětské motorky, motorka na víkend, motorkářská výbava v ceně, dárkový poukaz na motorku, motocyklové trasy Vysočina, MotoGo24',
 
     // ===== Potvrzení =====
     'confirm.titleBooking' => 'Potvrzení rezervace | MotoGo24',
@@ -304,7 +305,7 @@ return [
     // ===== Rezervace shell =====
     'rezervace.title' => 'Online rezervace motorky | MotoGo24',
     'rezervace.description' => 'Online rezervace motorky na Vysočině. Bez kauce, s výbavou v ceně a nonstop provozem. Vyberte motorku, termín a zaplaťte online.',
-    'rezervace.keywords' => 'rezervace motorky online, půjčit motorku, pronájem motorky Vysočina, online booking',
+    'rezervace.keywords' => 'motopůjčovna',
     'rezervace.loading' => 'Načítám rezervační systém...',
 
     // ===== Rezervace — hlavička / intro =====
@@ -360,6 +361,8 @@ return [
     'rez.pickup.gps' => 'Moje poloha',
     'rez.return.title' => 'Čas vrácení motorky',
     'rez.return.sub' => 'V kolik hodin vrátíte motorku na uvedené adrese?',
+    'rez.return.stateTitle' => 'V jakém stavu motorku vrátit?',
+    'rez.return.stateText' => 'Motorku stačí vrátit s palivem nad rezervou (kontrolka rezervy nesvítí). Mytí ani úklid neřešte — to je naše práce. Při vrácení s prázdnou nádrží účtujeme dotankování + servisní poplatek (viz VOP).',
 
     // ===== Rezervace — výbava =====
     'rez.gear.intro' => 'Vyberte velikosti kliknutím na čtverečky níže. Pokud velikost nezvolíte, vyzkoušíme ji na místě.',
@@ -390,8 +393,8 @@ return [
     'rez.gear.item.return' => 'Vrácení motorky',
 
     // ===== Rezervace — souhlasy =====
-    'rez.agree.terms' => '* Souhlasím s <a href="/obchodni-podminky">obchodními podmínkami</a>',
-    'rez.agree.gdpr' => 'Souhlasím se <a href="/gdpr">zpracováním osobních údajů</a>',
+    'rez.agree.terms' => '* Souhlasím s <a href="/dokumenty/obchodni-podminky">obchodními podmínkami</a>',
+    'rez.agree.gdpr' => 'Souhlasím se <a href="/dokumenty/zasady-ochrany-osobnich-udaju">zpracováním osobních údajů</a>',
     'rez.agree.marketing' => 'Souhlasím se zasíláním marketingových sdělení',
     'rez.agree.photo' => 'Souhlasím s využitím fotografií pro marketingové účely',
 
@@ -432,6 +435,48 @@ return [
     'rez.alert.error' => 'Chyba: {msg}',
     'rez.alert.saveError' => 'Chyba při ukládání: {msg}',
     'rez.alert.selectSize' => 'Nejdřív vyberte velikost.',
+    'rez.alert.emailExists' => 'Tento e-mail u nás už máme. Pro pokračování se přihlaste, nebo si obnovte heslo.',
+    'rez.alert.emailMismatch' => 'Přihlášený účet nesouhlasí se zadaným e-mailem. Odhlaste se a zkuste znovu.',
+
+    // ===== Rezervace — Vracející se zákazník (login panel v kroku 3) =====
+    'rez.auth.returning.title' => 'Už jsem si u vás půjčoval motorku',
+    'rez.auth.returning.sub' => 'Přihlas se a my všechno (kontaktní údaje, doklady, souhlasy) předvyplníme. Nemusíš nic vyplňovat znovu.',
+    'rez.auth.login.title' => 'Přihlášení k vašemu účtu',
+    'rez.auth.login.help' => 'Použijte e-mail a heslo, které jste si nastavili při minulé rezervaci.',
+    'rez.auth.login.submit' => 'Přihlásit se',
+    'rez.auth.login.submitting' => 'Přihlašuji…',
+    'rez.auth.login.forgot' => 'Zapomenuté heslo?',
+    'rez.auth.forgot.title' => 'Obnovit heslo',
+    'rez.auth.forgot.help' => 'Pošleme vám e-mail s 8-znakovým ověřovacím kódem. Po odeslání ho zadáte spolu s novým heslem.',
+    'rez.auth.forgot.submit' => 'Odeslat ověřovací kód',
+    'rez.auth.forgot.submitting' => 'Odesílám…',
+    'rez.auth.forgot.back' => '← Zpět na přihlášení',
+    'rez.auth.otp.title' => 'Zadejte ověřovací kód a nové heslo',
+    'rez.auth.otp.help' => 'Kód jsme poslali na <strong>{email}</strong>. Platí 1 hodinu — zkontrolujte i spam.',
+    'rez.auth.otp.password' => 'Nové heslo (min. 8 znaků)',
+    'rez.auth.otp.password2' => 'Nové heslo znovu',
+    'rez.auth.otp.submit' => 'Nastavit heslo a přihlásit',
+    'rez.auth.otp.submitting' => 'Nastavuji…',
+    'rez.auth.otp.errMissingEmail' => 'Chybí e-mail. Začněte znovu.',
+    'rez.auth.otp.errInvalid' => 'Kód není správný nebo vypršel. Zkontrolujte e-mail a zkuste znovu.',
+    'rez.auth.otp.errShort' => 'Heslo musí mít alespoň 8 znaků.',
+    'rez.auth.otp.errMismatch' => 'Hesla se neshodují.',
+    'rez.auth.otp.errSave' => 'Heslo se nepodařilo uložit. Zkuste to znovu.',
+    'rez.auth.otp.errSame' => 'Nové heslo musí být jiné než to současné.',
+    'rez.auth.email' => 'E-mail',
+    'rez.auth.password' => 'Heslo',
+    'rez.auth.edit' => 'Upravit údaje',
+    'rez.auth.logout' => 'Odhlásit',
+    'rez.auth.loggedin.title' => 'Přihlášen jako {name}',
+    'rez.auth.loggedin.docsOk' => 'Doklady jsou ověřené, formulář předvyplněný.',
+    'rez.auth.loggedin.docsMissing' => 'Po pokračování ještě jednou ověříme doklady.',
+    'rez.auth.exists.title' => 'Tento e-mail u nás už máme.',
+    'rez.auth.exists.body' => 'Pokračujte přihlášením, ať vám předvyplníme údaje a nemusíte vyplňovat doklady znovu.',
+    'rez.auth.exists.btn' => 'Přihlásit se',
+    'rez.auth.err.empty' => 'Vyplňte e-mail i heslo.',
+    'rez.auth.err.login' => 'Přihlášení selhalo. Zkontrolujte e-mail a heslo.',
+    'rez.auth.err.forgot' => 'Odeslání selhalo. Zkuste to prosím znovu.',
+    'rez.auth.err.server' => 'Server je nedostupný, zkuste to prosím za chvíli.',
 
     // ===== Kalendář (pages-rezervace-calendar.js) =====
     'rez.cal.month.0' => 'Leden',
@@ -503,7 +548,7 @@ return [
 
     // Reset password (po kliku na link z e-mailu)
     'editRez.reset.title' => 'Nastavit nové heslo',
-    'editRez.reset.help' => 'Zadejte nové heslo (min. 6 znaků). Po uložení budete přihlášen(a) a uvidíte své rezervace.',
+    'editRez.reset.help' => 'Zadejte nové heslo (min. 8 znaků). Po uložení budete přihlášen(a) a uvidíte své rezervace.',
     'editRez.reset.otpHelp' => 'Poslali jsme vám ověřovací kód na <strong>{email}</strong>. Zadejte 8-místný kód z e-mailu (stejný kód funguje pro aplikaci i web) a nastavte si nové heslo.',
     'editRez.reset.otpCode' => 'Ověřovací kód z e-mailu (8 znaků)',
     'editRez.reset.otpInvalid' => 'Neplatný nebo expirovaný kód. Zkuste si nechat poslat nový.',
@@ -513,8 +558,9 @@ return [
     'editRez.reset.submitting' => 'Ukládám…',
     'editRez.reset.success' => 'Heslo nastaveno. Pokračujte do svých rezervací.',
     'editRez.reset.error' => 'Nepodařilo se uložit heslo. Zkuste to prosím znovu.',
-    'editRez.reset.tooShort' => 'Heslo musí mít alespoň 6 znaků.',
+    'editRez.reset.tooShort' => 'Heslo musí mít alespoň 8 znaků.',
     'editRez.reset.mismatch' => 'Zadaná hesla se neshodují.',
+    'editRez.reset.same' => 'Nové heslo musí být jiné než to současné.',
 
     // Reservation list / picker
     'editRez.list.title' => 'Vaše rezervace',
@@ -623,7 +669,7 @@ return [
     'editRez.postStripe.applying' => 'Platba potvrzena, dokončuji změnu rezervace…',
     'editRez.postStripe.error' => 'Platba proběhla, ale změnu rezervace se nepodařilo dokončit. Kontaktujte nás prosím.',
     'editRez.change.success' => 'Změna byla uložena.',
-    'editRez.change.successWithRefund' => 'Změna byla uložena. Vrátíme vám {amount} během několika minut.',
+    'editRez.change.successWithRefund' => 'Změna byla uložena. Vrácení {amount} jsme zahájili — peníze obvykle dorazí na původní kartu do 5–7 pracovních dnů.',
     'editRez.err.activeMotoLocked' => 'U probíhající rezervace nelze změnit motorku.',
     'editRez.loc.title' => 'Čas a místo — vyzvednutí / vrácení',
     'editRez.loc.help' => 'Změňte způsob, místo a čas vyzvednutí nebo vrácení. Cena za přistavení/odvoz se počítá podle vzdálenosti od pobočky Mezná (1 000 Kč základ + 40 Kč/km). Rozdíl se vrací 100 % bez ohledu na čas, nový poplatek doplatíte přes Stripe.',
@@ -677,7 +723,7 @@ return [
     'editRez.shorten.cta' => 'Zkrátit a vrátit peníze',
     'editRez.shorten.ctaNoRefund' => 'Zkrátit (bez vrácení peněz)',
     'editRez.shorten.confirming' => 'Zkracuji…',
-    'editRez.shorten.success' => 'Rezervace zkrácena. Vrácení {amount} Kč ({percent}%) na původní platební metodu.',
+    'editRez.shorten.success' => 'Rezervace zkrácena. Vrácení {amount} Kč ({percent}%) jsme zahájili — peníze obvykle dorazí na původní kartu do 5–7 pracovních dnů.',
     'editRez.shorten.successNoRefund' => 'Rezervace zkrácena. Refund dle storno podmínek nebyl možný.',
     'editRez.shorten.reasonLabel' => 'Důvod (volitelné)',
 
@@ -689,7 +735,7 @@ return [
     'editRez.cancel.reasonPlaceholder' => 'Např. změna plánů',
     'editRez.cancel.cta' => 'Stornovat rezervaci',
     'editRez.cancel.confirming' => 'Stornuji…',
-    'editRez.cancel.success' => 'Rezervace byla stornována. Vrácení {amount} Kč ({percent}%) proběhne během několika minut.',
+    'editRez.cancel.success' => 'Rezervace byla stornována. Vrácení {amount} Kč ({percent}%) jsme zahájili — peníze obvykle dorazí na původní kartu do 5–7 pracovních dnů.',
     'editRez.cancel.confirmTitle' => 'Opravdu chcete stornovat rezervaci?',
     'editRez.cancel.confirmYes' => 'Ano, stornovat',
     'editRez.cancel.confirmNo' => 'Zrušit',
@@ -967,7 +1013,7 @@ return [
 
     // ===== Katalog SEO =====
     'katalog.seo.description' => 'Katalog motorek k pronájmu na Vysočině. Filtr dle kategorie, ŘP, výkonu a ceny. Cestovní, sportovní, enduro a dětské motorky. Online rezervace.',
-    'katalog.seo.keywords' => 'katalog motorek, motorky k pronájmu, cestovní motorky, sportovní motorky, enduro, dětské motorky, filtr motorek',
+    'katalog.seo.keywords' => 'katalog motorek k pronájmu, půjčovna motorek Vysočina, půjčit motorku, pronájem motocyklu, cestovní motorky, naked motorky, supermoto, enduro, dětské motorky, motorka bez kauce, online rezervace motorky, MotoGo24 Pelhřimov',
 
     // ===== Galerie / Lightbox =====
     'gallery.openImage' => 'Otevřít fotku v galerii',
@@ -1089,7 +1135,7 @@ return [
     // ===== Blog =====
     'blog.title' => 'Blog a tipy pro motorkáře | MotoGo24',
     'blog.description' => 'Blog Motogo24 – tipy na motorkářské trasy na Vysočině i v ČR, novinky z půjčovny, rady pro bezpečnou jízdu a praktické postupy.',
-    'blog.keywords' => 'motorkářský blog, trasy na motorku, tipy pro motorkáře, novinky půjčovna motorek, Vysočina, Český ráj',
+    'blog.keywords' => 'motopůjčovna',
     'blog.h1' => 'Blog a tipy',
     'blog.empty' => 'Žádné články v této kategorii.',
     'blog.tagAll' => 'Všechny ({count})',
@@ -1101,7 +1147,8 @@ return [
     // ===== Voucher form (poukazy-objednat) =====
     'voucher.pageTitle' => 'Půjčovna motorek Vysočina - Koupit dárkový poukaz',
     'voucher.description' => 'Objednejte dárkový poukaz na pronájem motorky od Motogo24. Platnost 3 roky, bez kauce, výbava v ceně.',
-    'voucher.keywords' => 'koupit dárkový poukaz motorka, objednat voucher Motogo24, dárek pronájem motorky',
+    'voucher.keywords' => 'dárkový poukaz na motorku, dárek pro motorkáře, poukaz půjčovna motorek, voucher pronájem motorky, dárek motocykl, MotoGo24 poukaz, motorkářský dárek',
+    'poukazy.steps.aria' => 'Jak poukaz funguje',
     'voucher.title' => 'Dárkový poukaz Motogo24',
     'voucher.lead' => 'Darujte zážitek z jízdy na motorce! Poukaz je platný 3 roky a lze jej uplatnit při rezervaci na tomto webu.',
     'voucher.contactSection' => 'Vaše kontaktní údaje',
@@ -1150,7 +1197,14 @@ return [
     'confirm.success.emailSentVoucher' => 'Na váš e-mail jsme odeslali kód dárkového poukazu.',
     'confirm.success.nextTitle' => 'Co bude dál',
     'confirm.success.nextBookingDocs' => 'Nahrajte fotky občanky/pasu a řidičského průkazu — bez ověření nelze vydat přístupové kódy.',
+    'confirm.success.nextBookingDocsDone' => 'Doklady jsme ověřili — žádná akce není potřeba.',
+    'confirm.success.nextBookingDocsMissing' => 'Doklady zatím nejsou ověřené — můžete je ověřit dodatečně v úpravě rezervace (foto OP/pasu + ŘP) nebo osobně při vyzvednutí. Bez ověření vám nepošleme přístupové kódy předem; půjčíme motorku po kontrole dokladů na pobočce.',
+    'confirm.success.docsLabel' => 'Doklady',
+    'confirm.success.docsVerified' => 'Ověřeny',
+    'confirm.success.docsNotVerified' => 'Neověřeny',
+    'confirm.success.editReservation' => 'Upravit / zrušit rezervaci',
     'confirm.success.nextBookingCodes' => 'Po ověření dokladů obdržíte 6místné přístupové kódy k motorce i výbavě (e-mailem, SMS a WhatsAppem).',
+    'confirm.success.nextBookingCodesDone' => '6místné přístupové kódy k motorce i výbavě vám pošleme e-mailem, SMS a WhatsAppem před začátkem rezervace.',
     'confirm.success.nextBookingPickup' => 'V den vyzvednutí přijeďte na pobočku — kódy odemknou dveře, motorka i výbava jsou připravené.',
     'confirm.success.nextOrderShip' => 'Pokud jste zvolili doručení, balíček dorazí během 1–3 pracovních dnů.',
     'confirm.success.nextVoucherEmail' => 'Kód poukazu najdete v e-mailu — uplatníte ho při rezervaci na motogo24.cz / .com nebo v aplikaci.',

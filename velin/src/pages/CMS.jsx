@@ -5,17 +5,28 @@ import PagesTab from './cms/PagesTab'
 import VariablesTab from './cms/VariablesTab'
 import FeatureFlagsTab from './cms/FeatureFlagsTab'
 import AiTrafficTab from './cms/AiTrafficTab'
+import SeoHealthTab from './cms/SeoHealthTab'
 
-const TABS = ['Texty webu', 'AI návštěvnost', 'Stránky CMS', 'Proměnné', 'Feature flags']
+const TABS = ['SEO Health', 'Texty webu', 'AI návštěvnost', 'Stránky CMS', 'Proměnné', 'Feature flags']
 
 export default function CMS() {
-  const [tab, setTab] = useState('Texty webu')
+  const [tab, setTab] = useState('SEO Health')
+  // Jump z SEO Health do Texty webu — predame pageId + konkretni klic pole
+  // (pro auto-scroll + highlight) + sectionId (pro otevreni spravne sekce).
+  const [textsJump, setTextsJump] = useState({ pageId: null, fieldKey: null, sectionId: null, ts: 0 })
 
   useEffect(() => { debugLog('page.mount', 'CMS') }, [])
 
+  const handleJumpToText = (pageId, fieldKey, sectionId) => {
+    // ts = timestamp aby re-trigger fungoval i kdyz se klikne 2x na stejne pole
+    setTextsJump({ pageId, fieldKey, sectionId, ts: Date.now() })
+    setTab('Texty webu')
+    debugLog('seo.jumpToText', 'CMS', { pageId, fieldKey, sectionId })
+  }
+
   return (
     <div>
-      <div className="flex gap-2 mb-5">
+      <div className="flex gap-2 mb-5" style={{ flexWrap: 'wrap' }}>
         {TABS.map(t => (
           <button
             key={t}
@@ -34,7 +45,15 @@ export default function CMS() {
         ))}
       </div>
 
-      {tab === 'Texty webu' && <WebTextsTab />}
+      {tab === 'SEO Health' && <SeoHealthTab onJumpToText={handleJumpToText} />}
+      {tab === 'Texty webu' && (
+        <WebTextsTab
+          initialPageId={textsJump.pageId}
+          initialFieldKey={textsJump.fieldKey}
+          initialSectionId={textsJump.sectionId}
+          jumpTimestamp={textsJump.ts}
+        />
+      )}
       {tab === 'AI návštěvnost' && <AiTrafficTab />}
       {tab === 'Stránky CMS' && <PagesTab />}
       {tab === 'Proměnné' && <VariablesTab />}

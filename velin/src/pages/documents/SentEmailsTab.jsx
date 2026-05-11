@@ -68,6 +68,35 @@ export default function SentEmailsTab() {
     } finally { setLoading(false) }
   }
 
+  async function openAttachment(path) {
+    try {
+      const { data, error } = await supabase.storage.from('documents').createSignedUrl(path, 60)
+      if (error || !data?.signedUrl) throw error || new Error('signed URL chybí')
+      window.open(data.signedUrl, '_blank', 'noopener,noreferrer')
+    } catch (e) {
+      debugError('SentEmailsTab', 'openAttachment', e)
+      setError('Náhled přílohy selhal: ' + (e.message || e))
+    }
+  }
+
+  async function downloadAttachment(path, filename) {
+    try {
+      const { data, error } = await supabase.storage.from('documents').download(path)
+      if (error || !data) throw error || new Error('soubor chybí')
+      const url = URL.createObjectURL(data)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename || path.split('/').pop() || 'priloha'
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    } catch (e) {
+      debugError('SentEmailsTab', 'downloadAttachment', e)
+      setError('Stažení přílohy selhalo: ' + (e.message || e))
+    }
+  }
+
   const totalPages = Math.ceil(total / PER_PAGE)
 
   return (
@@ -160,12 +189,34 @@ export default function SentEmailsTab() {
                 Přílohy ({preview.attachments_meta.length})
               </div>
               <ul className="text-sm" style={{ color: '#1a2e22', listStyle: 'none', padding: 0, margin: 0 }}>
-                {preview.attachments_meta.map((a, i) => (
-                  <li key={i} className="flex items-center gap-2 py-1">
-                    <span style={{ color: '#1a8a18', fontSize: 14 }}>📎</span>
-                    <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{a.filename || a}</span>
-                  </li>
-                ))}
+                {preview.attachments_meta.map((a, i) => {
+                  const filename = (typeof a === 'string' ? a : a?.filename) || `příloha-${i + 1}`
+                  const storagePath = typeof a === 'object' ? a?.storage_path : null
+                  return (
+                    <li key={i} className="flex items-center gap-2 py-1">
+                      <span style={{ color: '#1a8a18', fontSize: 14 }}>📎</span>
+                      <span style={{ fontFamily: 'monospace', fontSize: 12, flex: 1 }}>{filename}</span>
+                      {storagePath ? (
+                        <>
+                          <button onClick={() => openAttachment(storagePath)}
+                            className="text-sm font-bold cursor-pointer rounded-btn"
+                            style={{ padding: '4px 10px', background: '#e0e7ff', border: '1px solid #a5b4fc', color: '#3730a3' }}
+                            title="Otevřít v novém okně">
+                            Náhled
+                          </button>
+                          <button onClick={() => downloadAttachment(storagePath, filename)}
+                            className="text-sm font-bold cursor-pointer rounded-btn"
+                            style={{ padding: '4px 10px', background: '#dcfce7', border: '1px solid #86efac', color: '#166534' }}
+                            title="Stáhnout soubor">
+                            Stáhnout
+                          </button>
+                        </>
+                      ) : (
+                        <span className="text-xs" style={{ color: '#9ca3af', fontStyle: 'italic' }} title="Soubor nebyl uložen do storage">nedostupné</span>
+                      )}
+                    </li>
+                  )
+                })}
               </ul>
             </div>
           )}

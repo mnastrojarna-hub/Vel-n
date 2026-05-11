@@ -3,7 +3,9 @@
 
 $bc = renderBreadcrumb([['label' => t('breadcrumb.home'), 'href' => '/'], ['label' => t('breadcrumb.vouchers'), 'href' => '/poukazy'], t('breadcrumb.buyVoucher')]);
 
-$agreementHtml = t('voucher.agreement', ['href' => BASE_URL . '/obchodni-podminky']);
+// SEO: linkujeme primo na /dokumenty/obchodni-podminky aby crawler nemusel
+// sledovat 301 redirect (Seobility hlasil 'Internal redirect' z /koupit-darkovy-poukaz).
+$agreementHtml = t('voucher.agreement', ['href' => BASE_URL . '/dokumenty/obchodni-podminky']);
 
 $form = '<div class="gift-voucher-order">' .
     '<h2>' . te('voucher.title') . '</h2>' .
@@ -30,11 +32,11 @@ $form = '<div class="gift-voucher-order">' .
     '</div>' .
 
     '<div class="gv-values">' .
-        '<label class="gv-value-btn"><input type="radio" name="value" value="300" checked> ' . moneyHtml(300) . '</label>' .
-        '<label class="gv-value-btn"><input type="radio" name="value" value="500"> ' . moneyHtml(500) . '</label>' .
-        '<label class="gv-value-btn"><input type="radio" name="value" value="1000"> ' . moneyHtml(1000) . '</label>' .
+        '<label class="gv-value-btn"><input type="radio" name="value" value="1000" checked> ' . moneyHtml(1000) . '</label>' .
         '<label class="gv-value-btn"><input type="radio" name="value" value="2000"> ' . moneyHtml(2000) . '</label>' .
+        '<label class="gv-value-btn"><input type="radio" name="value" value="3000"> ' . moneyHtml(3000) . '</label>' .
         '<label class="gv-value-btn"><input type="radio" name="value" value="5000"> ' . moneyHtml(5000) . '</label>' .
+        '<label class="gv-value-btn"><input type="radio" name="value" value="10000"> ' . moneyHtml(10000) . '</label>' .
     '</div>' .
     '<div class="gv-custom-value">' .
         '<label>' . te('voucher.customAmount') . ' <input type="number" name="customValue" id="gv-custom" min="100" max="50000" step="1" placeholder="' . te('voucher.customPlaceholder') . '"></label>' .
@@ -50,7 +52,7 @@ $form = '<div class="gift-voucher-order">' .
     '</div>' .
 
     '<div class="gv-price-preview" id="gvPricePreview">' .
-        te('voucher.totalPrice') . ' <strong id="gvTotalPrice">' . moneyHtml(300) . '</strong>' .
+        te('voucher.totalPrice') . ' <strong id="gvTotalPrice">' . moneyHtml(1000) . '</strong>' .
         ' <span class="gv-czk-note" id="gvCzkNote" style="font-size:.78rem;color:#6b7280;margin-left:.5rem"></span>' .
     '</div>' .
 
@@ -188,5 +190,5 @@ update();
 renderPage(t('voucher.pageTitle'), $content . $js, '/koupit-darkovy-poukaz', [
     'description' => t('voucher.description'),
     'keywords' => t('voucher.keywords'),
-    'og_image' => 'https://motogo24.cz/gfx/darkovy-poukaz.jpg',
+    'og_image' => 'https://www.motogo24.cz/gfx/darkovy-poukaz.jpg',
 ]);

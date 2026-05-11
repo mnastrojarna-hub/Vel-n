@@ -212,16 +212,24 @@ $productSchema = '
     ',"availability":' . json_encode($stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock') .
     ',"itemCondition":"https://schema.org/NewCondition"' .
     ',"priceValidUntil":' . json_encode(date('Y-m-d', strtotime('+1 year'))) .
-    ',"seller":{"@type":"Organization","name":"MotoGo24","url":"https://motogo24.cz"}' .
+    ',"seller":{"@type":"Organization","name":"MotoGo24","url":"https://www.motogo24.cz"}' .
     ',"url":' . json_encode($productUrl) . '}' : '') .
   $reviewAgg .
   '}
   </script>';
 
-renderPage($nameRaw . ' | ' . t('shop.title'), $content, '/eshop/' . htmlspecialchars($id), [
+// SEO: Title kratsi suffix '| MotoGo24' misto plne 'E-shop MotoGo24 —
+// motorkarske doplnky a merch'. Externi SEO hlasil 'Title too long' +
+// 'Word repetition' kdyz produktovy nazev obsahuje 'MotoGo24' a suffix taky
+// (Truckerka MotoGo24 | E-shop MotoGo24 -> dvojite MotoGo24). Krátký
+// 'MotoGo24' suffix se vejde do 65 chars limit a brand neopakuje.
+$suffix = (stripos($nameRaw, 'motogo') !== false) ? '| E-shop' : '| MotoGo24';
+renderPage($nameRaw . ' ' . $suffix, $content, '/eshop/' . htmlspecialchars($id), [
     'description' => mb_substr(strip_tags($descRaw !== '' ? $descRaw : $nameRaw), 0, 160),
     'og_type' => 'product',
-    'og_image' => $mainImg ?: null,
+    // SEO: og:image MAX 1200px / quality 85 (Facebook/Twitter optimal). Predtim
+    // raw URL z Supabase = 3-5 MB jpg (Seobility 'Large file size' issue).
+    'og_image' => $mainImgRaw ? imgUrlSized($mainImgRaw, 1200, 85) : null,
     'schema' => $productSchema,
     'breadcrumbs' => [
         ['name' => t('breadcrumb.home'), 'url' => siteCanonicalUrl('/')],

@@ -62,7 +62,7 @@ return [
 
     // ===== Cookie consent banner =====
     'cookies.title' => 'Ta strona używa plików cookies',
-    'cookies.intro' => 'Używamy plików cookies, aby strona działała, oraz — tylko za Twoją zgodą — do analityki i marketingu. Zgoda jest dobrowolna i możesz ją zmienić w stopce w dowolnej chwili. Więcej w naszej <a href="/gdpr">Polityce prywatności</a>.',
+    'cookies.intro' => 'Używamy plików cookies, aby strona działała, oraz — tylko za Twoją zgodą — do analityki i marketingu. Zgoda jest dobrowolna i możesz ją zmienić w stopce w dowolnej chwili. Więcej w naszej <a href="/dokumenty/zasady-ochrany-osobnich-udaju">Polityce prywatności</a>.',
     'cookies.acceptAll' => 'Zaakceptuj wszystkie',
     'cookies.rejectAll' => 'Odrzuć',
     'cookies.settings' => 'Ustawienia',
@@ -181,9 +181,9 @@ return [
 
     // ===== SEO meta defaults (na język) =====
     'seo.default.description' => 'Wypożyczalnia motocykli w regionie Vysočina, Czechy — motocykle turystyczne, sportowe, enduro i dla dzieci. Wynajem 24/7, bez kaucji, wyposażenie w cenie, rezerwacja online.',
-    'seo.default.keywords' => 'wypożyczalnia motocykli Czechy, wynajem motocykla Pelhřimov, wypożyczalnia motocykli bez kaucji, rezerwacja motocykli online',
+    'seo.default.keywords' => 'wypożyczalnia motocykli Czechy',
     'seo.home.description' => 'Wypożycz motocykl w regionie Vysočina. Bez kaucji, wyposażenie w cenie, obsługa całodobowa. Motocykle turystyczne, sportowe, enduro i dla dzieci. Rezerwacja online.',
-    'seo.home.keywords' => 'wypożyczalnia motocykli Czechy, wynajem motocykla Pelhřimov, wypożyczalnia motocykli bez kaucji, rezerwacja motocykli online',
+    'seo.home.keywords' => 'wypożyczalnia motocykli Czechy',
 
     'confirm.titleBooking' => 'Potwierdzenie rezerwacji | MotoGo24',
     'confirm.titleOrder' => 'Potwierdzenie zamówienia | MotoGo24',
@@ -191,7 +191,7 @@ return [
 
     'rezervace.title' => 'Rezerwacja motocykla online | MotoGo24',
     'rezervace.description' => 'Rezerwacja motocykla online w Vysočina. Bez kaucji, z wyposażeniem w cenie i obsługą całodobową. Wybierz motocykl, termin i zapłać online.',
-    'rezervace.keywords' => 'rezerwacja motocykla online, wynająć motocykl, wypożyczalnia motocykli Vysočina, rezerwacja online',
+    'rezervace.keywords' => 'wypożyczalnia motocykli Czechy',
     'rezervace.loading' => 'Ładowanie systemu rezerwacji...',
 
     // ===== Rezerwacja — nagłówek / wprowadzenie =====
@@ -276,8 +276,8 @@ return [
     'rez.gear.item.return' => 'Zwrot motocykla',
 
     // ===== Rezerwacja — zgody =====
-    'rez.agree.terms' => '* Akceptuję <a href="/obchodni-podminky">regulamin</a>',
-    'rez.agree.gdpr' => 'Wyrażam zgodę na <a href="/gdpr">przetwarzanie danych osobowych</a>',
+    'rez.agree.terms' => '* Akceptuję <a href="/dokumenty/obchodni-podminky">regulamin</a>',
+    'rez.agree.gdpr' => 'Wyrażam zgodę na <a href="/dokumenty/zasady-ochrany-osobnich-udaju">przetwarzanie danych osobowych</a>',
     'rez.agree.marketing' => 'Wyrażam zgodę na otrzymywanie informacji marketingowych',
     'rez.agree.photo' => 'Wyrażam zgodę na wykorzystanie zdjęć w celach marketingowych',
 
@@ -391,7 +391,7 @@ return [
     'filters.aria.catalog' => 'katalog motocykli',
 
     'katalog.seo.description' => 'Katalog motocykli do wynajęcia w Vysočina. Filtr według kategorii, prawa jazdy, mocy i ceny. Motocykle turystyczne, sportowe, enduro i dla dzieci. Rezerwacja online.',
-    'katalog.seo.keywords' => 'katalog motocykli, motocykle do wynajęcia, motocykle turystyczne, motocykle sportowe, enduro, motocykle dla dzieci, filtr motocykli',
+    'katalog.seo.keywords' => 'wypożyczalnia motocykli Czechy',
 
     'detail.notFoundTitle' => 'Motocykl nie znaleziony – Motogo24',
     'detail.notFoundHeading' => 'Motocykl nie znaleziony',
@@ -482,7 +482,7 @@ return [
 
     'blog.title' => 'Blog i wskazówki dla motocyklistów | MotoGo24',
     'blog.description' => 'Blog Motogo24 – wskazówki dotyczące tras motocyklowych w Vysočina i w Czechach, nowości z wypożyczalni, porady dotyczące bezpiecznej jazdy i praktyczne instrukcje.',
-    'blog.keywords' => 'blog motocyklowy, trasy motocyklowe, wskazówki dla motocyklistów, nowości wypożyczalnia motocykli, Vysočina, Český ráj',
+    'blog.keywords' => 'wypożyczalnia motocykli Czechy',
     'blog.h1' => 'Blog i wskazówki',
     'blog.empty' => 'Brak artykułów w tej kategorii.',
     'blog.tagAll' => 'Wszystkie ({count})',
@@ -493,7 +493,7 @@ return [
 
     'voucher.pageTitle' => 'Wypożyczalnia motocykli Vysočina – Kup bon prezentowy',
     'voucher.description' => 'Zamów bon prezentowy na wynajem motocykla od Motogo24. Ważność 3 lata, bez kaucji, wyposażenie w cenie.',
-    'voucher.keywords' => 'kup bon prezentowy motocykl, zamów bon Motogo24, prezent wynajem motocykla',
+    'voucher.keywords' => 'wypożyczalnia motocykli Czechy',
     'voucher.title' => 'Bon prezentowy Motogo24',
     'voucher.lead' => 'Podaruj wrażenie z jazdy na motocyklu! Bon ważny 3 lata, można go wykorzystać przy rezerwacji na tej stronie.',
     'voucher.contactSection' => 'Twoje dane kontaktowe',
@@ -543,6 +543,7 @@ return [
     'confirm.success.nextTitle' => 'Co dalej',
     'confirm.success.nextBookingDocs' => 'Prześlij zdjęcia dowodu/paszportu i prawa jazdy — bez weryfikacji nie wydamy kodów dostępu.',
     'confirm.success.nextBookingCodes' => 'Po weryfikacji dokumentów otrzymasz 6-cyfrowe kody dostępu do motocykla i wyposażenia e-mailem, SMS-em i WhatsAppem.',
+    'confirm.success.nextBookingCodesDone' => '6-cyfrowe kody dostępu do motocykla i wyposażenia wyślemy Ci e-mailem, SMS-em i WhatsAppem przed rozpoczęciem rezerwacji.',
     'confirm.success.nextBookingPickup' => 'W dniu odbioru przyjedź do oddziału — kody otwierają drzwi, motocykl i wyposażenie są gotowe.',
     'confirm.success.nextOrderShip' => 'Jeśli wybrałeś dostawę, paczka dotrze w ciągu 1–3 dni roboczych.',
     'confirm.success.nextVoucherEmail' => 'Kod bonu znajdziesz w e-mailu — wykorzystaj go przy rezerwacji na motogo24.cz / .com lub w aplikacji.',
@@ -586,7 +587,7 @@ return [
     'shop.h1' => 'Sklep MotoGo24',
     'shop.intro' => 'Akcesoria motocyklowe, merch i prezenty dla fanów MotoGo24. Dostarczamy na terenie całej Republiki Czeskiej.',
     'shop.description' => 'Sklep MotoGo24 — akcesoria motocyklowe, odzież i merch. Zamówienie online, dostawa w całych Czechach.',
-    'shop.keywords' => 'sklep motocyklowy, akcesoria motocyklowe, merch motogo24, odzież motocyklowa',
+    'shop.keywords' => 'wypożyczalnia motocykli Czechy',
     'shop.empty' => 'Obecnie nie mamy produktów w magazynie. Obserwuj nas w mediach społecznościowych.',
     'shop.unnamedProduct' => 'Produkt',
     'shop.productAlt' => '{name} — Sklep MotoGo24',
@@ -726,7 +727,7 @@ return [
     'editRez.forgot.error' => 'Nie udało się wysłać e-maila. Spróbuj ponownie.',
     'editRez.forgot.back' => '← Wróć do logowania',
     'editRez.reset.title' => 'Ustaw nowe hasło',
-    'editRez.reset.help' => 'Wprowadź nowe hasło (min. 6 znaków). Po zapisaniu zostaniesz zalogowany i zobaczysz swoje rezerwacje.',
+    'editRez.reset.help' => 'Wprowadź nowe hasło (min. 8 znaków). Po zapisaniu zostaniesz zalogowany i zobaczysz swoje rezerwacje.',
     'editRez.reset.otpHelp' => 'Wysłaliśmy kod weryfikacyjny na <strong>{email}</strong>. Wprowadź 8-znakowy kod z e-maila (ten sam kod działa w aplikacji i w internecie) i ustaw nowe hasło.',
     'editRez.reset.otpCode' => 'Kod weryfikacyjny z e-maila (8 znaków)',
     'editRez.reset.otpInvalid' => 'Nieprawidłowy lub wygasły kod. Poproś o nowy.',
@@ -736,8 +737,9 @@ return [
     'editRez.reset.submitting' => 'Zapisywanie…',
     'editRez.reset.success' => 'Hasło zapisane. Przejdź do swoich rezerwacji.',
     'editRez.reset.error' => 'Nie udało się zapisać hasła. Spróbuj ponownie.',
-    'editRez.reset.tooShort' => 'Hasło musi mieć co najmniej 6 znaków.',
+    'editRez.reset.tooShort' => 'Hasło musi mieć co najmniej 8 znaków.',
     'editRez.reset.mismatch' => 'Hasła nie są zgodne.',
+    'editRez.reset.same' => 'Nowe hasło musi być inne niż obecne.',
     'editRez.list.title' => 'Twoje rezerwacje',
     'editRez.list.shopTitle' => 'Zamówienia w sklepie',
     'editRez.list.vouchersTitle' => 'Bony podarunkowe',

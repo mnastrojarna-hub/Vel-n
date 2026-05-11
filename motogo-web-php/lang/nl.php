@@ -62,7 +62,7 @@ return [
 
     // ===== Cookie consent banner =====
     'cookies.title' => 'Deze site gebruikt cookies',
-    'cookies.intro' => 'We gebruiken cookies om de site te laten werken en — alleen met uw toestemming — voor analyse en marketing. Toestemming is vrijwillig en u kunt deze op elk moment in de footer wijzigen. Meer in ons <a href="/gdpr">Privacybeleid</a>.',
+    'cookies.intro' => 'We gebruiken cookies om de site te laten werken en — alleen met uw toestemming — voor analyse en marketing. Toestemming is vrijwillig en u kunt deze op elk moment in de footer wijzigen. Meer in ons <a href="/dokumenty/zasady-ochrany-osobnich-udaju">Privacybeleid</a>.',
     'cookies.acceptAll' => 'Alles accepteren',
     'cookies.rejectAll' => 'Weigeren',
     'cookies.settings' => 'Instellingen',
@@ -181,9 +181,9 @@ return [
 
     // ===== SEO meta defaults (per taal) =====
     'seo.default.description' => 'Motorverhuur in de regio Vysočina, Tsjechië — toer-, sport-, enduro- en kindermotoren. 24/7 verhuur, zonder borg, uitrusting inbegrepen, online reserveren.',
-    'seo.default.keywords' => 'motorverhuur Tsjechië, motor huren Pelhřimov, motorverhuur zonder borg, motor online reserveren',
+    'seo.default.keywords' => 'motorverhuur Tsjechië',
     'seo.home.description' => 'Huur een motor in de regio Vysočina. Zonder borg, uitrusting inbegrepen, 24/7 service. Toer-, sport-, enduro- en kindermotoren. Online reserveren.',
-    'seo.home.keywords' => 'motorverhuur Tsjechië, motor huren Pelhřimov, motorverhuur zonder borg, motor online reserveren',
+    'seo.home.keywords' => 'motorverhuur Tsjechië',
 
     'confirm.titleBooking' => 'Reserveringsbevestiging | MotoGo24',
     'confirm.titleOrder' => 'Orderbevestiging | MotoGo24',
@@ -191,7 +191,7 @@ return [
 
     'rezervace.title' => 'Online motorreservering | MotoGo24',
     'rezervace.description' => 'Online motorreservering in Vysočina. Zonder borg, met uitrusting in de prijs en 24/7 service. Kies motor, datum en betaal online.',
-    'rezervace.keywords' => 'motorreservering online, motor huren, motorverhuur Vysočina, online boeking',
+    'rezervace.keywords' => 'motorverhuur Tsjechië',
     'rezervace.loading' => 'Reserveringssysteem laden...',
 
     // ===== Reservering — header / intro =====
@@ -276,8 +276,8 @@ return [
     'rez.gear.item.return' => 'Ophalen motor',
 
     // ===== Reservering — toestemmingen =====
-    'rez.agree.terms' => '* Ik ga akkoord met de <a href="/obchodni-podminky">algemene voorwaarden</a>',
-    'rez.agree.gdpr' => 'Ik ga akkoord met de <a href="/gdpr">verwerking van persoonsgegevens</a>',
+    'rez.agree.terms' => '* Ik ga akkoord met de <a href="/dokumenty/obchodni-podminky">algemene voorwaarden</a>',
+    'rez.agree.gdpr' => 'Ik ga akkoord met de <a href="/dokumenty/zasady-ochrany-osobnich-udaju">verwerking van persoonsgegevens</a>',
     'rez.agree.marketing' => 'Ik ga akkoord met het ontvangen van marketingcommunicatie',
     'rez.agree.photo' => 'Ik ga akkoord met het gebruik van foto\'s voor marketingdoeleinden',
 
@@ -391,7 +391,7 @@ return [
     'filters.aria.catalog' => 'motorcatalogus',
 
     'katalog.seo.description' => 'Motorcatalogus voor verhuur in Vysočina. Filter op categorie, rijbewijs, vermogen en prijs. Toer-, sport-, enduro- en kindermotoren. Online reservering.',
-    'katalog.seo.keywords' => 'motorcatalogus, motoren te huur, toermotoren, sportmotoren, enduro, kindermotoren, motorfilter',
+    'katalog.seo.keywords' => 'motorverhuur Tsjechië',
 
     'detail.notFoundTitle' => 'Motor niet gevonden – Motogo24',
     'detail.notFoundHeading' => 'Motor niet gevonden',
@@ -482,7 +482,7 @@ return [
 
     'blog.title' => 'Blog en tips voor motorrijders | MotoGo24',
     'blog.description' => 'Motogo24-blog – tips voor motorroutes in Vysočina en Tsjechië, nieuws van de verhuur, advies voor veilig rijden en praktische handleidingen.',
-    'blog.keywords' => 'motorblog, motorroutes, tips voor motorrijders, nieuws motorverhuur, Vysočina, Český ráj',
+    'blog.keywords' => 'motorverhuur Tsjechië',
     'blog.h1' => 'Blog en tips',
     'blog.empty' => 'Geen artikelen in deze categorie.',
     'blog.tagAll' => 'Alle ({count})',
@@ -493,7 +493,7 @@ return [
 
     'voucher.pageTitle' => 'Motorverhuur Vysočina – Cadeaubon kopen',
     'voucher.description' => 'Bestel een cadeaubon voor motorverhuur van Motogo24. Geldigheid 3 jaar, zonder borg, uitrusting in de prijs.',
-    'voucher.keywords' => 'cadeaubon motor kopen, voucher Motogo24 bestellen, cadeau motorverhuur',
+    'voucher.keywords' => 'motorverhuur Tsjechië',
     'voucher.title' => 'Cadeaubon Motogo24',
     'voucher.lead' => 'Geef een motorrijbeleving cadeau! De bon is 3 jaar geldig en kan worden gebruikt bij reservering op deze website.',
     'voucher.contactSection' => 'Jouw contactgegevens',
@@ -543,6 +543,7 @@ return [
     'confirm.success.nextTitle' => 'Hoe gaat het verder',
     'confirm.success.nextBookingDocs' => 'Upload foto\'s van uw ID-kaart/paspoort en rijbewijs — zonder verificatie kunnen we geen toegangscodes vrijgeven.',
     'confirm.success.nextBookingCodes' => 'Na verificatie ontvangt u 6-cijferige toegangscodes voor de motor en uitrusting per e-mail, sms en WhatsApp.',
+    'confirm.success.nextBookingCodesDone' => 'De 6-cijferige toegangscodes voor de motor en uitrusting sturen we u per e-mail, sms en WhatsApp voor aanvang van de reservering.',
     'confirm.success.nextBookingPickup' => 'Op de ophaaldag komt u naar de vestiging — de codes openen de deur, motor en uitrusting staan klaar.',
     'confirm.success.nextOrderShip' => 'Als u voor verzending koos, komt het pakket binnen 1–3 werkdagen aan.',
     'confirm.success.nextVoucherEmail' => 'De bon-code vindt u in uw e-mail — gebruik hem bij het reserveren op motogo24.cz / .com of in de app.',
@@ -586,7 +587,7 @@ return [
     'shop.h1' => 'MotoGo24 Shop',
     'shop.intro' => 'Motoraccessoires, merch en cadeaus voor MotoGo24-fans. Wij leveren in heel Tsjechië.',
     'shop.description' => 'MotoGo24 Shop — motoraccessoires, kleding en merch. Online bestellen, levering door heel Tsjechië.',
-    'shop.keywords' => 'motorshop, motoraccessoires, motogo24 merch, motorkleding',
+    'shop.keywords' => 'motorverhuur Tsjechië',
     'shop.empty' => 'Op dit moment hebben wij geen producten op voorraad. Volg ons op sociale media.',
     'shop.unnamedProduct' => 'Product',
     'shop.productAlt' => '{name} — MotoGo24 Shop',
@@ -726,7 +727,7 @@ return [
     'editRez.forgot.error' => 'Het versturen van de e-mail is mislukt. Probeer het opnieuw.',
     'editRez.forgot.back' => '← Terug naar inloggen',
     'editRez.reset.title' => 'Nieuw wachtwoord instellen',
-    'editRez.reset.help' => 'Voer een nieuw wachtwoord in (min. 6 tekens). Na opslaan bent u ingelogd en ziet u uw reserveringen.',
+    'editRez.reset.help' => 'Voer een nieuw wachtwoord in (min. 8 tekens). Na opslaan bent u ingelogd en ziet u uw reserveringen.',
     'editRez.reset.otpHelp' => 'Wij hebben een verificatiecode gestuurd naar <strong>{email}</strong>. Voer de code van 8 tekens uit de e-mail in (dezelfde code werkt voor app en web) en stel een nieuw wachtwoord in.',
     'editRez.reset.otpCode' => 'Verificatiecode uit e-mail (8 tekens)',
     'editRez.reset.otpInvalid' => 'Ongeldige of verlopen code. Vraag een nieuwe aan.',
@@ -736,8 +737,9 @@ return [
     'editRez.reset.submitting' => 'Opslaan…',
     'editRez.reset.success' => 'Wachtwoord opgeslagen. Ga verder naar uw reserveringen.',
     'editRez.reset.error' => 'Het opslaan van het wachtwoord is mislukt. Probeer het opnieuw.',
-    'editRez.reset.tooShort' => 'Het wachtwoord moet minimaal 6 tekens hebben.',
+    'editRez.reset.tooShort' => 'Het wachtwoord moet minimaal 8 tekens hebben.',
     'editRez.reset.mismatch' => 'De wachtwoorden komen niet overeen.',
+    'editRez.reset.same' => 'Het nieuwe wachtwoord moet verschillen van het huidige.',
     'editRez.list.title' => 'Uw reserveringen',
     'editRez.list.shopTitle' => 'Shopbestellingen',
     'editRez.list.vouchersTitle' => 'Cadeaubonnen',

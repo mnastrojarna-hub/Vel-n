@@ -25,8 +25,11 @@ $sb = new SupabaseClient();
 // Cross-domain: každý jazyk má vlastní TLD (.cz/.com/.at/.es/.pl/.fr/.nl).
 function sitemapAlternates($path) {
     if (!defined('I18N_SUPPORTED')) return '';
+    $live = defined('I18N_HREFLANG_LIVE') ? I18N_HREFLANG_LIVE : [];
     $out = '';
     foreach (I18N_SUPPORTED as $code) {
+        // SEO: hreflang odkazy jen na zive domeny — viz I18N_HREFLANG_LIVE.
+        if (isset($live[$code]) && $live[$code] === false) continue;
         $href = i18nUrlForLang($code, $path);
         $out .= '    <xhtml:link rel="alternate" hreflang="' . htmlspecialchars($code) . '" href="' . htmlspecialchars($href) . '"/>' . "\n";
     }
@@ -77,7 +80,9 @@ $static = [
     ['loc' => '/jak-pujcit',             'priority' => '0.7',  'changefreq' => 'monthly'],
     ['loc' => '/jak-pujcit/postup',      'priority' => '0.7',  'changefreq' => 'monthly'],
     ['loc' => '/jak-pujcit/pristaveni',  'priority' => '0.7',  'changefreq' => 'monthly'],
-    ['loc' => '/jak-pujcit/vyzvednuti',  'priority' => '0.7',  'changefreq' => 'monthly'],
+    // Canonical URL pro stránku převzetí — /jak-pujcit/vyzvednuti je legacy
+    // alias (router ho servíruje stejně, ale layout dělá canonical na /prevzeti).
+    ['loc' => '/jak-pujcit/prevzeti',    'priority' => '0.7',  'changefreq' => 'monthly'],
     ['loc' => '/jak-pujcit/co-v-cene',   'priority' => '0.7',  'changefreq' => 'monthly'],
     ['loc' => '/jak-pujcit/dokumenty',   'priority' => '0.7',  'changefreq' => 'monthly'],
     ['loc' => '/jak-pujcit/vraceni-pujcovna', 'priority' => '0.7', 'changefreq' => 'monthly'],
@@ -87,9 +92,11 @@ $static = [
     ['loc' => '/eshop',                  'priority' => '0.8',  'changefreq' => 'weekly'],
     ['loc' => '/blog',                   'priority' => '0.7',  'changefreq' => 'weekly'],
     ['loc' => '/kontakt',                'priority' => '0.8',  'changefreq' => 'monthly'],
-    ['loc' => '/obchodni-podminky',      'priority' => '0.3',  'changefreq' => 'yearly'],
-    ['loc' => '/gdpr',                   'priority' => '0.3',  'changefreq' => 'yearly'],
-    ['loc' => '/smlouva',                'priority' => '0.3',  'changefreq' => 'yearly'],
+    // Právní stránky – cílíme přímo na /dokumenty/<slug> (legacy /obchodni-podminky,
+    // /gdpr, /smlouva 301-redirektují tam, sitemap → redirect = mrhání crawl budgetem).
+    ['loc' => '/dokumenty/obchodni-podminky',           'priority' => '0.3', 'changefreq' => 'yearly'],
+    ['loc' => '/dokumenty/zasady-ochrany-osobnich-udaju', 'priority' => '0.3', 'changefreq' => 'yearly'],
+    ['loc' => '/dokumenty/smlouva-o-pronajmu',          'priority' => '0.3', 'changefreq' => 'yearly'],
     ['loc' => '/mapa-stranek',           'priority' => '0.4',  'changefreq' => 'monthly'],
     ['loc' => '/partneri',               'priority' => '0.6',  'changefreq' => 'monthly'],
 ];

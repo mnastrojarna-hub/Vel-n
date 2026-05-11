@@ -66,7 +66,7 @@ return [
 
     // ===== Cookie consent banner =====
     'cookies.title' => 'Diese Website verwendet Cookies',
-    'cookies.intro' => 'Wir verwenden Cookies, damit die Website funktioniert, und – nur mit Ihrer Einwilligung – für Analyse und Marketing. Die Einwilligung ist freiwillig und Sie können sie jederzeit unten in der Fußzeile ändern. Mehr in unserer <a href="/gdpr">Datenschutzerklärung</a>.',
+    'cookies.intro' => 'Wir verwenden Cookies, damit die Website funktioniert, und – nur mit Ihrer Einwilligung – für Analyse und Marketing. Die Einwilligung ist freiwillig und Sie können sie jederzeit unten in der Fußzeile ändern. Mehr in unserer <a href="/dokumenty/zasady-ochrany-osobnich-udaju">Datenschutzerklärung</a>.',
     'cookies.acceptAll' => 'Alle akzeptieren',
     'cookies.rejectAll' => 'Ablehnen',
     'cookies.settings' => 'Einstellungen',
@@ -193,9 +193,9 @@ return [
 
     // ===== SEO meta defaults (pro Sprache) =====
     'seo.default.description' => 'Motorradvermietung in der Region Vysočina, Tschechien — Touren-, Sport-, Enduro- und Kinder-Motorräder. 24/7-Vermietung, keine Kaution, Ausrüstung inklusive, Online-Buchung.',
-    'seo.default.keywords' => 'Motorradvermietung Tschechien, Motorrad mieten Pelhřimov, Motorradverleih ohne Kaution, Motorrad online buchen',
+    'seo.default.keywords' => 'Motorradvermietung Tschechien',
     'seo.home.description' => 'Mieten Sie ein Motorrad in der Region Vysočina. Keine Kaution, Ausrüstung im Preis, 24/7-Service. Touren-, Sport-, Enduro- und Kinder-Motorräder. Online buchen.',
-    'seo.home.keywords' => 'Motorradvermietung Tschechien, Motorrad mieten Pelhřimov, Motorradverleih ohne Kaution, Motorrad online buchen',
+    'seo.home.keywords' => 'Motorradvermietung Tschechien',
 
     // Confirm
     'confirm.titleBooking' => 'Reservierungsbestätigung | MotoGo24',
@@ -205,7 +205,7 @@ return [
     // Rezervace shell
     'rezervace.title' => 'Online-Motorradreservierung | MotoGo24',
     'rezervace.description' => 'Online-Motorradreservierung in Vysočina. Ohne Kaution, mit Ausrüstung im Preis und Rund-um-die-Uhr-Service. Wählen Sie Motorrad, Termin und zahlen Sie online.',
-    'rezervace.keywords' => 'Motorradreservierung online, Motorrad mieten, Motorradverleih Vysočina, Online-Buchung',
+    'rezervace.keywords' => 'Motorradvermietung Tschechien',
     'rezervace.loading' => 'Reservierungssystem wird geladen...',
 
     // ===== Reservierung — Header / Intro =====
@@ -290,8 +290,8 @@ return [
     'rez.gear.item.return' => 'Motorradabholung',
 
     // ===== Reservierung — Einwilligungen =====
-    'rez.agree.terms' => '* Ich stimme den <a href="/obchodni-podminky">Geschäftsbedingungen</a> zu',
-    'rez.agree.gdpr' => 'Ich stimme der <a href="/gdpr">Verarbeitung personenbezogener Daten</a> zu',
+    'rez.agree.terms' => '* Ich stimme den <a href="/dokumenty/obchodni-podminky">Geschäftsbedingungen</a> zu',
+    'rez.agree.gdpr' => 'Ich stimme der <a href="/dokumenty/zasady-ochrany-osobnich-udaju">Verarbeitung personenbezogener Daten</a> zu',
     'rez.agree.marketing' => 'Ich stimme dem Erhalt von Marketingmitteilungen zu',
     'rez.agree.photo' => 'Ich stimme der Verwendung von Fotos zu Marketingzwecken zu',
 
@@ -409,6 +409,7 @@ return [
     'editRez.reset.error' => 'Passwort konnte nicht gespeichert werden. Bitte versuchen Sie es erneut.',
     'editRez.reset.tooShort' => 'Passwort muss mindestens 8 Zeichen haben.',
     'editRez.reset.mismatch' => 'Die Passwörter stimmen nicht überein.',
+    'editRez.reset.same' => 'Das neue Passwort muss sich vom aktuellen unterscheiden.',
 
     'editRez.list.title' => 'Ihre Reservierungen',
     'editRez.list.empty' => 'Sie haben keine bearbeitbare Reservierung.',
@@ -525,7 +526,7 @@ return [
 
     // Katalog SEO
     'katalog.seo.description' => 'Motorradkatalog zur Miete in Vysočina. Filter nach Kategorie, Führerschein, Leistung und Preis. Touren-, Sport-, Enduro- und Kindermotorräder. Online-Reservierung.',
-    'katalog.seo.keywords' => 'Motorradkatalog, Motorräder zur Miete, Tourenmotorräder, Sportmotorräder, Enduro, Kindermotorräder, Motorradfilter',
+    'katalog.seo.keywords' => 'Motorradvermietung Tschechien',
 
     // Detail motorky
     'detail.notFoundTitle' => 'Motorrad nicht gefunden – Motogo24',
@@ -620,7 +621,7 @@ return [
     // Blog
     'blog.title' => 'Blog und Tipps für Motorradfahrer | MotoGo24',
     'blog.description' => 'Motogo24-Blog – Tipps zu Motorradrouten in Vysočina und in Tschechien, Neuigkeiten aus der Vermietung, Ratschläge für sicheres Fahren und praktische Anleitungen.',
-    'blog.keywords' => 'Motorradblog, Motorradrouten, Tipps für Motorradfahrer, Neuigkeiten Motorradvermietung, Vysočina, Český ráj',
+    'blog.keywords' => 'Motorradvermietung Tschechien',
     'blog.h1' => 'Blog und Tipps',
     'blog.empty' => 'Keine Artikel in dieser Kategorie.',
     'blog.tagAll' => 'Alle ({count})',
@@ -632,7 +633,7 @@ return [
     // Voucher form
     'voucher.pageTitle' => 'Motorradvermietung Vysočina – Geschenkgutschein kaufen',
     'voucher.description' => 'Bestellen Sie einen Geschenkgutschein für die Motorradmiete von Motogo24. Gültigkeit 3 Jahre, ohne Kaution, Ausrüstung im Preis.',
-    'voucher.keywords' => 'Geschenkgutschein Motorrad kaufen, Voucher Motogo24 bestellen, Geschenk Motorradverleih',
+    'voucher.keywords' => 'Motorradvermietung Tschechien',
     'voucher.title' => 'Geschenkgutschein Motogo24',
     'voucher.lead' => 'Verschenken Sie ein Motorraderlebnis! Der Gutschein ist 3 Jahre gültig und kann bei der Reservierung auf dieser Website eingelöst werden.',
     'voucher.contactSection' => 'Ihre Kontaktdaten',
@@ -682,6 +683,7 @@ return [
     'confirm.success.nextTitle' => 'Wie geht es weiter',
     'confirm.success.nextBookingDocs' => 'Laden Sie Fotos Ihres Ausweises/Reisepasses und Führerscheins hoch — ohne Verifizierung können keine Zugangscodes ausgegeben werden.',
     'confirm.success.nextBookingCodes' => 'Nach der Verifizierung erhalten Sie 6-stellige Zugangscodes für Motorrad und Ausrüstung per E-Mail, SMS und WhatsApp.',
+    'confirm.success.nextBookingCodesDone' => 'Die 6-stelligen Zugangscodes für Motorrad und Ausrüstung senden wir Ihnen vor Beginn der Reservierung per E-Mail, SMS und WhatsApp.',
     'confirm.success.nextBookingPickup' => 'Am Abholtag kommen Sie zur Filiale — die Codes öffnen die Tür, Motorrad und Ausrüstung sind bereit.',
     'confirm.success.nextOrderShip' => 'Wenn Sie eine Lieferung gewählt haben, kommt das Paket innerhalb von 1–3 Werktagen an.',
     'confirm.success.nextVoucherEmail' => 'Den Gutscheincode finden Sie in Ihrer E-Mail — einlösbar bei der Buchung auf motogo24.cz / .com oder in der App.',
@@ -725,7 +727,7 @@ return [
     'shop.h1' => 'MotoGo24 Shop',
     'shop.intro' => 'Motorradzubehör, Merch und Geschenke für MotoGo24-Fans. Wir liefern in die ganze Tschechische Republik.',
     'shop.description' => 'MotoGo24 Shop — Motorradzubehör, Bekleidung und Merch. Online-Bestellung mit Versand in ganz Tschechien.',
-    'shop.keywords' => 'Motorrad-Shop, Motorradzubehör, motogo24 Merch, Motorradbekleidung',
+    'shop.keywords' => 'Motorradvermietung Tschechien',
     'shop.empty' => 'Wir haben derzeit keine Produkte auf Lager. Folgen Sie uns in den sozialen Netzwerken.',
     'shop.unnamedProduct' => 'Produkt',
     'shop.productAlt' => '{name} — MotoGo24 Shop',

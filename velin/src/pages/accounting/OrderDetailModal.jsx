@@ -37,12 +37,12 @@ export default function OrderDetailModal({ order, onClose, onUpdated, onSendEmai
   return (
     <Modal open title={`Objednavka ${order.order_number || `#${order.id?.slice(0, 8)}`}`} onClose={onClose} wide>
       <div className="mb-3 text-sm grid grid-cols-2 gap-2" style={{ color: '#1a2e22' }}>
-        <div>Dodavatel: <b>{order.suppliers?.name || '\u2014'}</b></div>
-        <div>Email: <b>{order.suppliers?.contact_email || '\u2014'}</b></div>
-        <div>Stav: <b>{STATUS_LABELS[order.status] || order.status}</b></div>
-        <div>Vytvoreno: <b>{order.created_at ? new Date(order.created_at).toLocaleString('cs-CZ') : '\u2014'}</b></div>
-        {order.sent_at && <div>Odeslano: <b>{new Date(order.sent_at).toLocaleString('cs-CZ')}</b></div>}
-        {order.notes && <div className="col-span-2">Poznamky: <b>{order.notes}</b></div>}
+        <div>Dodavatel: <strong>{order.suppliers?.name || '\u2014'}</strong></div>
+        <div>Email: <strong>{order.suppliers?.contact_email || '\u2014'}</strong></div>
+        <div>Stav: <strong>{STATUS_LABELS[order.status] || order.status}</strong></div>
+        <div>Vytvoreno: <strong>{order.created_at ? new Date(order.created_at).toLocaleString('cs-CZ') : '\u2014'}</strong></div>
+        {order.sent_at && <div>Odeslano: <strong>{new Date(order.sent_at).toLocaleString('cs-CZ')}</strong></div>}
+        {order.notes && <div className="col-span-2">Poznamky: <strong>{order.notes}</strong></div>}
       </div>
       {loading ? (
         <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>

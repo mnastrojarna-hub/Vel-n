@@ -186,6 +186,26 @@ Deno.serve(async (req: Request) => {
         await confirmSosPayment(supabase, resolvedBookingId, metadata.incident_id, paymentIntent.id)
       }
 
+      // Capture card brand + last4 from the underlying Charge so Velín booking detail
+      // can show "Visa **** 4242" without an on-demand Stripe call.
+      if (resolvedBookingId) {
+        try {
+          const chargeId = typeof (paymentIntent as any).latest_charge === 'string'
+            ? (paymentIntent as any).latest_charge
+            : (paymentIntent as any).latest_charge?.id || null
+          if (chargeId) {
+            const ch = await stripe.charges.retrieve(chargeId)
+            const brand = ch?.payment_method_details?.card?.brand || null
+            const last4 = ch?.payment_method_details?.card?.last4 || null
+            if (brand || last4) {
+              await supabase.from('bookings')
+                .update({ card_brand: brand, card_last4: last4 })
+                .eq('id', resolvedBookingId)
+            }
+          }
+        } catch (e) { console.warn('[webhook] card brand/last4 capture failed:', (e as Error).message) }
+      }
+
       // Auto-save card: attach PM to customer and sync to Supabase
       if (paymentIntent.customer && paymentIntent.payment_method) {
         const custId = typeof paymentIntent.customer === 'string'
@@ -286,7 +306,7 @@ Deno.serve(async (req: Request) => {
           const piId = typeof charge.payment_intent === 'string' ? charge.payment_intent : (charge.payment_intent as any)?.id
           if (piId) {
             const { data: bk } = await supabase.from('bookings')
-              .select('id, status, payment_status, total_price, start_date, end_date, booking_source, motorcycles(model), profiles:user_id(full_name, email)')
+              .select('id, status, payment_status, total_price, start_date, end_date, booking_source, cancelled_by_source, motorcycles(model), profiles:user_id(full_name, email)')
               .eq('stripe_payment_intent_id', piId).single()
             if (bk) {
               linkedBooking = bk
@@ -309,27 +329,66 @@ Deno.serve(async (req: Request) => {
         metadata: refundFeMeta,
       })
 
-      // Refund přes Stripe portál (bez Velin / app cancel flow):
-      // pokud booking ještě není cancelled, zacancelujeme ho + pošleme mail s dobropisem.
-      // Pokud už je cancelled (= náš process-refund tento event vyvolal), neděláme nic.
-      if (linkedBooking && linkedBooking.status !== 'cancelled') {
+      // Refund handling — 2 scénáře:
+      // 1) Stripe portál refund (booking ještě není cancelled): zacancelovat + mail
+      // 2) Safety-net (booking už je cancelled, ale credit_note nebo mail chybí):
+      //    proces-refund spadl po refunds.create() → DB neví, ale Stripe ano.
+      //    Zde dohraje payment_status='refunded', stripe_refund_id, vystavění
+      //    credit_note přes process-refund.alreadyRefunded recovery + odešleme mail.
+      //    send-cancellation-email má vlastní idempotency check (sent_emails 30 min).
+      if (linkedBooking) {
         try {
+          const refund = charge.refunds?.data?.[0] || null
           const refundCzk = charge.amount_refunded / 100
           const total = Number(linkedBooking.total_price || 0)
           const refundPct = total > 0 ? Math.round((refundCzk / total) * 100) : 0
           const newPaymentStatus = refundPct >= 100 ? 'refunded' : 'partial_refund'
+          const isFreshCancel = linkedBooking.status !== 'cancelled'
 
-          await supabase.from('bookings').update({
-            status: 'cancelled',
+          // 1) UPDATE booking. Pokud nebyl cancelled, doplň cancellation pole.
+          //    Pokud už byl cancelled (proces-refund flow), update jen payment_status+stripe_refund_id.
+          const bkPatch: Record<string, any> = {
             payment_status: newPaymentStatus,
-            cancelled_at: new Date().toISOString(),
-            cancelled_by_source: 'stripe_portal',
-            cancellation_reason: refundReason
+          }
+          if (refund?.id) bkPatch.stripe_refund_id = refund.id
+          if (isFreshCancel) {
+            bkPatch.status = 'cancelled'
+            bkPatch.cancelled_at = new Date().toISOString()
+            bkPatch.cancelled_by_source = 'stripe_portal'
+            bkPatch.cancellation_reason = refundReason
               ? `Refund přes Stripe portál (${refundReason})`
-              : 'Refund přes Stripe portál',
-          }).eq('id', linkedBooking.id)
+              : 'Refund přes Stripe portál'
+          }
+          await supabase.from('bookings').update(bkPatch).eq('id', linkedBooking.id)
 
-          // Email + dobropis (send-cancellation-email sama vygeneruje credit_note)
+          // 2) Vystavit credit_note (idempotentní). process-refund.alreadyRefunded
+          //    branch teď s upraveným payment_status='refunded' + stripe_refund_id
+          //    spustí createCreditNoteForExistingRefund (pokud row chybí) nebo
+          //    ensureCreditNotePdf (pokud row je ale PDF chybí).
+          await supabase.from('debug_log').insert({
+            source: 'webhook-receiver', action: 'charge_refunded_safety_net',
+            component: 'stripe', status: 'info',
+            request_data: {
+              booking_id: linkedBooking.id, refund_id: refund?.id || null,
+              fresh_cancel: isFreshCancel, refund_pct: refundPct,
+            },
+          }).then(() => {}, () => {})
+          await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/process-refund`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+            },
+            body: JSON.stringify({
+              booking_id: linkedBooking.id,
+              amount: refundCzk,
+              reason: 'cancellation',
+            }),
+          }).catch(e => console.warn('Webhook process-refund recovery failed:', e?.message))
+
+          // 3) Mail s dobropisem. send-cancellation-email má idempotency (sent_emails
+          //    30 min) — pokud cancel_booking_tracked / proces-refund už mail poslal,
+          //    bude no-op. Pokud ne (proces-refund spadl), pošleme teď s přílohou.
           if (linkedBooking.profiles?.email) {
             await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/send-cancellation-email`, {
               method: 'POST',
@@ -347,15 +406,15 @@ Deno.serve(async (req: Request) => {
                 cancellation_reason: refundReason
                   ? `Refund přes Stripe portál (${refundReason})`
                   : 'Refund přes Stripe portál',
-                cancelled_by_source: 'stripe_portal',
+                cancelled_by_source: isFreshCancel ? 'stripe_portal' : (linkedBooking.cancelled_by_source || 'customer'),
                 refund_amount: refundCzk,
                 refund_percent: refundPct,
                 source: linkedBooking.booking_source || 'app',
               }),
-            }).catch(e => console.warn('Stripe-portal cancel email failed:', e?.message))
+            }).catch(e => console.warn('Webhook safety-net mail failed:', e?.message))
           }
         } catch (e) {
-          console.warn('Stripe-portal refund auto-cancel failed:', (e as Error).message)
+          console.warn('charge.refunded safety-net failed:', (e as Error).message)
         }
       }
     } else if (event.type === 'payout.paid') {

@@ -34,7 +34,7 @@ function renderHeader($currentPath = '/') {
     $nav = '';
     foreach ($menuItems as $item) {
         $hasSub = !empty($item['children']);
-        $arrow = $hasSub ? ' <img src="' . BASE_URL . '/gfx/arrow-down.svg" alt="Rozbalit podmenu" aria-hidden="true" loading="lazy" class="menu-arrow">' : '';
+        $arrow = $hasSub ? ' <img src="' . BASE_URL . '/gfx/arrow-down.svg" alt="" aria-hidden="true" loading="lazy" class="menu-arrow" width="12" height="12">' : '';
         $isActive = ($currentPath !== '/' && strpos($currentPath, $item['route']) === 0);
         $nav .= '<li' . ($hasSub ? ' class="has-sub"' : '') . '>';
         $nav .= '<a' . ($isActive ? ' class="active"' : '') . ' data-route="' . $item['route'] . '" href="' . BASE_URL . $item['route'] . '">' . $item['label'] . $arrow . '</a>';
@@ -56,10 +56,16 @@ function renderHeader($currentPath = '/') {
     return '<header>' .
         '<ul class="focus"><li><a href="#main-menu">' . tc('header.skip.menu') . '</a></li><li><a href="#content">' . tc('header.skip.content') . '</a></li><li><a href="#footer">' . tc('header.skip.contact') . '</a></li></ul>' .
         '<div class="header-topbar"><div class="container">' .
-            '<div class="header-phone"><p><a href="' . PHONE_LINK . '" aria-label="' . te('header.callUs') . '"><img alt="' . te('header.callUs') . '" src="' . BASE_URL . '/gfx/telefon-header.svg" loading="lazy"></a>&nbsp;<a href="' . PHONE_LINK . '">' . PHONE . '</a></p></div>' .
+            '<div class="header-phone"><p><a href="' . PHONE_LINK . '" aria-label="' . te('header.callUs') . '"><img alt="" aria-hidden="true" src="' . BASE_URL . '/gfx/telefon-header.svg" loading="lazy" width="24" height="24"></a>&nbsp;<a href="' . PHONE_LINK . '">' . PHONE . '</a></p></div>' .
             '<div class="header-tools">' .
+                '<div class="header-auth" data-mg-auth hidden>' .
+                    '<svg class="header-auth-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>' .
+                    '<span class="header-auth-email" data-mg-auth-email></span>' .
+                    '<button type="button" class="header-auth-logout" data-mg-auth-logout>' . te('menu.logout') . '</button>' .
+                '</div>' .
                 '<a class="header-edit-rez" href="' . BASE_URL . '/upravit-rezervaci" aria-label="' . te('menu.editReservation.aria') . '" title="' . te('menu.editReservation') . '">' .
                     '<svg class="header-edit-rez-icon" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>' .
+                    '<span class="header-edit-rez-label">' . te('menu.editReservation') . '</span>' .
                 '</a>' .
                 '<a class="header-cart" href="' . BASE_URL . '/kosik" aria-label="' . te('cart.iconLabel') . '" title="' . te('cart.iconLabel') . '">' .
                     '<svg class="header-cart-icon" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6h15l-1.5 9h-12z"/><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M6 6L4 2H1"/></svg>' .
@@ -69,7 +75,7 @@ function renderHeader($currentPath = '/') {
             '</div>' .
         '</div></div>' .
         '<div class="header"><div class="container dfcs">' .
-            '<div class="header-logo"><a href="' . BASE_URL . '/" aria-label="Motogo24"><img src="' . BASE_URL . '/' . LOGO_SVG . '" alt="' . te('header.logoAlt') . '" loading="lazy"></a></div>' .
+            '<div class="header-logo"><a href="' . BASE_URL . '/" aria-label="Motogo24"><img src="' . BASE_URL . '/' . LOGO_SVG . '" alt="' . te('header.logoAlt') . '" loading="eager" fetchpriority="high" width="168" height="44"></a></div>' .
             '<div class="header-menu dfje">' .
                 '<button class="nav-toggle" aria-label="' . te('header.menuOpen') . '" aria-expanded="false" aria-controls="mobile-menu" onclick="(function(){var m=document.getElementById(\'mobile-menu\');var open=!m.classList.contains(\'open\');m.classList.toggle(\'open\',open);document.body.classList.toggle(\'menu-open\',open);this.setAttribute(\'aria-expanded\',open?\'true\':\'false\');}).call(this)">' . tc('header.menuToggle') . '</button>' .
                 '<nav id="mobile-menu" class="mobile-menu-overlay" aria-label="' . te('header.menuLabel') . '">' .
@@ -99,27 +105,28 @@ function renderFooter() {
 
     return '<footer id="footer"><div class="container"><div class="gr4">' .
         '<div>' .
-            '<p><a href="' . BASE_URL . '/" aria-label="Motogo24"><img src="' . BASE_URL . '/' . LOGO_SVG . '" alt="Motogo24" loading="lazy"></a></p><p>&nbsp;</p>' .
+            '<p><a href="' . BASE_URL . '/" aria-label="Motogo24"><img src="' . BASE_URL . '/' . LOGO_SVG . '" alt="Motogo24" loading="lazy" width="168" height="44"></a></p><p>&nbsp;</p>' .
             '<p>' . tcRaw('footer.aboutText') . '</p>' .
         '</div>' .
         '<div><h3>' . tc('footer.aboutTitle') . '</h3><ul>' . $menuHtml . '</ul></div>' .
         '<div><h3>' . tc('footer.socialTitle') . '</h3>' .
-            '<p class="dfc"><span class="footer-social-icon"><img alt="Facebook" src="' . BASE_URL . '/gfx/facebook-footer.svg"></span>&nbsp;<a href="' . FB_URL . '">facebook</a></p><p>&nbsp;</p>' .
-            '<p class="dfc"><span class="footer-social-icon"><img alt="Instagram" src="' . BASE_URL . '/gfx/instagram-footer.svg"></span>&nbsp;<a href="' . IG_URL . '">instagram</a></p>' .
+            '<p class="dfc"><span class="footer-social-icon"><img alt="" src="' . BASE_URL . '/gfx/facebook-footer.svg" width="18" height="18"></span>&nbsp;<a href="' . FB_URL . '">facebook</a></p><p>&nbsp;</p>' .
+            '<p class="dfc"><span class="footer-social-icon"><img alt="" src="' . BASE_URL . '/gfx/instagram-footer.svg" width="18" height="18"></span>&nbsp;<a href="' . IG_URL . '">instagram</a></p>' .
         '</div>' .
         '<div class="footer-contact">' . $helpTitleHtml .
-            '<div class="footer-phone dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/telefon.svg" alt="' . te('footer.iconPhone') . '" class="icon-small" loading="lazy"></div><div><p>' . $callUsHtml . '<strong><a href="' . PHONE_LINK . '">' . PHONE . '</a></strong></p></div></div>' .
-            '<div class="dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/email.svg" alt="' . te('footer.iconEmail') . '" class="icon-small" loading="lazy"></div><div><p>' . EMAIL_USER . '@' . EMAIL_DOMAIN . '</p></div></div>' .
-            '<div class="dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/adresa.svg" alt="' . te('footer.iconAddress') . '" class="icon-small" loading="lazy"></div><div><p><strong>' . tc('footer.companyLine1') . '</strong><br>' . ADDRESS . '</p></div></div>' .
-            '<div class="dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/provozni-doba.svg" alt="' . te('footer.openHoursIcon') . '" class="icon-small" loading="lazy"></div><div><p>' . tc('footer.openHours') . '</p></div></div>' .
+            '<div class="footer-phone dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/telefon.svg" alt="" aria-hidden="true" class="icon-small" loading="lazy" width="20" height="20"></div><div><p>' . $callUsHtml . '<strong><a href="' . PHONE_LINK . '">' . PHONE . '</a></strong></p></div></div>' .
+            '<div class="dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/email.svg" alt="" aria-hidden="true" class="icon-small" loading="lazy" width="20" height="20"></div><div><p><a href="mailto:' . EMAIL_FULL . '">' . EMAIL_USER . '&#64;' . EMAIL_DOMAIN . '</a></p></div></div>' .
+            '<div class="dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/adresa.svg" alt="" aria-hidden="true" class="icon-small" loading="lazy" width="20" height="20"></div><div><p><strong>' . tc('footer.companyLine1') . '</strong><br>' . ADDRESS . '</p></div></div>' .
+            '<div class="dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/provozni-doba.svg" alt="" aria-hidden="true" class="icon-small" loading="lazy" width="20" height="20"></div><div><p>' . tc('footer.openHours') . '</p></div></div>' .
         '</div>' .
     '</div></div>' .
     '<div class="copyright"><div class="container">' .
         '<p>' . tc('footer.copyright') . '</p>' .
-        '<p><a href="' . BASE_URL . '/mapa-stranek">' . tc('footer.sitemap') . '</a><a href="#" data-cookie-prefs>' . tc('footer.cookies') . '</a><a href="' . BASE_URL . '/gdpr">' . tc('footer.gdpr') . '</a><a href="' . BASE_URL . '/obchodni-podminky">' . tc('footer.terms') . '</a><a href="' . BASE_URL . '/smlouva">' . tc('footer.contract') . '</a></p>' .
+        '<p><a href="' . BASE_URL . '/mapa-stranek">' . tc('footer.sitemap') . '</a><a href="#" data-cookie-prefs>' . tc('footer.cookies') . '</a><a href="' . BASE_URL . '/dokumenty/zasady-ochrany-osobnich-udaju">' . tc('footer.gdpr') . '</a><a href="' . BASE_URL . '/dokumenty/obchodni-podminky">' . tc('footer.terms') . '</a><a href="' . BASE_URL . '/dokumenty/smlouva-o-pronajmu">' . tc('footer.contract') . '</a></p>' .
+        '<p class="footer-toplist"><a href="https://www.toplist.cz/stat/1841683" target="_blank" rel="nofollow noopener" aria-label="TOPlist"><img src="https://toplist.cz/count.asp?ID=1841683&amp;logo=mc" alt="TOPlist" width="88" height="31" loading="lazy"></a></p>' .
     '</div></div>' .
     '</footer>' .
-    '<a id="Up" href="#" aria-label="' . te('footer.toTop') . '" onclick="window.scrollTo({top:0,behavior:\'smooth\'});return false"><img src="' . BASE_URL . '/gfx/arrow-top.svg" alt="' . te('footer.toTop') . '"></a>';
+    '<a id="Up" href="#" aria-label="' . te('footer.toTop') . '" onclick="window.scrollTo({top:0,behavior:\'smooth\'});return false"><img src="' . BASE_URL . '/gfx/arrow-top.svg" alt="" aria-hidden="true" width="20" height="20"></a>';
 }
 
 function renderInlineJs() {
@@ -138,7 +145,7 @@ function renderInlineJs() {
  * lokální SEO v Seznam.cz.
  */
 function buildSameAs() {
-    $list = [FB_URL, IG_URL, 'https://motogo24.cz', 'https://www.motogo24.com', 'https://www.motogo24.at', 'https://www.motogo24.es', 'https://www.motogo24.pl', 'https://www.motogo24.fr', 'https://www.motogo24.nl'];
+    $list = [FB_URL, IG_URL, 'https://www.motogo24.cz', 'https://www.motogo24.com', 'https://www.motogo24.at', 'https://www.motogo24.es', 'https://www.motogo24.pl', 'https://www.motogo24.fr', 'https://www.motogo24.nl'];
     $extras = [
         defined('SAMEAS_FIRMY_CZ') ? SAMEAS_FIRMY_CZ : '',
         defined('SAMEAS_MAPY_CZ')  ? SAMEAS_MAPY_CZ  : '',
@@ -208,7 +215,7 @@ function renderConsentManager() {
     $rowMarketing = $hasSklik ? '<label class="mg-consent-row"><span><strong>' . $catMarketing . '</strong><br><small>' . $catMarketingDesc . '</small></span><input type="checkbox" id="mg-consent-marketing"></label>' : '';
 
     $html = '
-<aside id="mg-consent" class="mg-consent" role="dialog" aria-modal="false" aria-labelledby="mg-consent-title" aria-live="polite" hidden>
+<div id="mg-consent" class="mg-consent" role="dialog" aria-modal="false" aria-labelledby="mg-consent-title" aria-live="polite" hidden>
   <div class="mg-consent-inner">
     <h2 id="mg-consent-title" class="mg-consent-title">' . $title . '</h2>
     <div class="mg-consent-intro">' . $intro . '</div>
@@ -227,7 +234,7 @@ function renderConsentManager() {
       <button type="button" class="btn btngreen-small" data-consent-action="save" hidden>' . $btnSave . '</button>
     </div>
   </div>
-</aside>
+</div>
 <script>window.MG_CONSENT_CFG=' . $cfg . ';</script>
 <script src="' . assetUrl('/js/consent.js') . '" defer></script>';
 
@@ -285,7 +292,7 @@ function renderWebmasterVerification() {
  * podporované jazyky (cs, en, de, es, fr, nl, pl) + x-default.
  *
  * Cross-domain mapping (Google-friendly):
- *   hreflang="cs" → https://motogo24.cz{path}
+ *   hreflang="cs" → https://www.motogo24.cz{path}
  *   hreflang="en" → https://www.motogo24.com{path}
  *   hreflang="de" → https://www.motogo24.at{path}
  *   hreflang="es" → https://www.motogo24.es{path}
@@ -301,8 +308,14 @@ function renderWebmasterVerification() {
  */
 function renderHreflangAlternates($path) {
     if (!defined('I18N_SUPPORTED')) return '';
+    $live = defined('I18N_HREFLANG_LIVE') ? I18N_HREFLANG_LIVE : [];
     $out = '';
     foreach (I18N_SUPPORTED as $code) {
+        // SEO: hreflang odkazy jen na domeny ktere jsou ZIVE. Mrtve domeny
+        // (motogo24.es, .nl) by Seobility hlasilo jako 'External link problem
+        // - Page is down' (tisice errors). I18N_HREFLANG_LIVE = ['es'=>false,
+        // 'nl'=>false] -> ten kod se preskoci dokud se domeny nerozjedou.
+        if (isset($live[$code]) && $live[$code] === false) continue;
         $href = i18nUrlForLang($code, $path);
         $out .= "\n  " . '<link rel="alternate" hreflang="' . htmlspecialchars($code) . '" href="' . htmlspecialchars($href) . '">';
     }
@@ -314,7 +327,7 @@ function renderHreflangAlternates($path) {
 /**
  *   description  — meta description
  *   keywords     — meta keywords (přepíše default)
- *   canonical    — canonical URL (default https://motogo24.cz{path})
+ *   canonical    — canonical URL (default https://www.motogo24.cz{path} pro cs)
  *   og_image     — OG image URL
  *   og_type      — OG type (default website)
  *   robots       — robots directive (default index,follow)
@@ -322,24 +335,98 @@ function renderHreflangAlternates($path) {
  *   breadcrumbs  — pole pro BreadcrumbList schema [['name'=>'X','url'=>'Y'], ...]
  */
 function renderPage($title, $content, $currentPath = '/', $meta = []) {
-    // Dynamická base URL podle aktuální domény. Hosting90 domény mají Let's
-    // Encrypt cert jen na www. variantě → kanonický host je s www. (.cz na
-    // Forpsi zůstává bez www). Schéma dle HTTPS/proxy.
-    $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-        || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
-    $canonHost = function_exists('i18nCanonicalHost')
-        ? i18nCanonicalHost()
-        : preg_replace('#^www\.#i', '', strtolower($_SERVER['HTTP_HOST'] ?? 'motogo24.cz'));
-    $siteOrigin = ($isHttps ? 'https://' : 'http://') . $canonHost;
+    // Origin podle aktuálního jazyka (přes i18nOriginForLang) — vždy www
+    // varianta: Forpsi (.cz) vynucuje www, Hosting90 (.com/.pl/.at/.es/.fr/.nl)
+    // má Let's Encrypt cert jen na www. variantě → jakákoli non-www URL by se
+    // 301-redirectovala. Bez tohoto fixu og:image, twitter:image, manifest,
+    // RSS feed link, apple-touch-icon a všechny další $siteOrigin reference
+    // emitujou non-www URL → Seobility hlásí ~600 stránek × 8 different
+    // resources = 5000+ 'Internal redirects' a 'Image redirected'.
+    $lang = function_exists('i18nDetectLanguage') ? i18nDetectLanguage() : 'cs';
+    $siteOrigin = function_exists('i18nOriginForLang') ? i18nOriginForLang($lang) : 'https://www.motogo24.cz';
 
     // Default description per-jazyk (cs/en/de/fr/es/nl/pl) — bez tohoto fallbacku
     // by Google na .com indexoval cizojazycne stranky s ceskym defaultnim popiskem.
     $defaultDesc = function_exists('t') ? t('seo.default.description') : 'Půjčovna motorek Vysočina – silniční, sportovní, enduro i dětské. Nonstop pronájem bez kauce, online rezervace a motorkářská výbava zdarma.';
     $description = $meta['description'] ?? $defaultDesc;
-    $keywords = $meta['keywords'] ?? (function_exists('t') ? t('seo.default.keywords') : 'půjčovna motorek Vysočina, pronájem motorek Pelhřimov, půjčovna motorek bez kauce, online rezervace motorky');
-    // Canonical = doménová home pro aktuální jazyk (cs → motogo24.cz, ostatní →
-    // www.motogo24.<tld>). Tím Google indexuje každý jazyk výhradně z jeho
-    // kanonické domény — žádný duplicate-content přes víc domén ani www/non-www.
+    $keywords = $meta['keywords'] ?? (function_exists('t') ? t('seo.default.keywords') : 'motopůjčovna');
+
+    // SEO defensive auto-shortening — at-render-time pojistka napric celym
+    // webem proti prilis dlouhym <title> a <meta description> z CMS / data
+    // souboru. Externi SEO checker (Seobility) hlasil 13 'Title too long' a
+    // 11 'Meta description too long'. Misto editace 50+ data souboru a CMS
+    // zde aplikujeme 3 vrstvy:
+    //   (1) Pattern-based shortening — typicke redundantni prefixy/suffixy
+    //       co se opakuji napric strankami (jako 'Pujcovna motorek Vysocina –
+    //       Jak si pujcit motorku –') nahradime kratkym brand-suffixem.
+    //   (2) Hard truncate na maximalni POCET ZNAKU (s rezervou pro ceske
+    //       diakritiky ktere v pixelech budou sirsi).
+    //   (3) Trim na hranici slova + ' …' kdyz je nutno orezat.
+
+    // (1a) Title — odstranit redundantni prefix u jak-pujcit/* podstranek.
+    // 'Půjčovna motorek Vysočina – Jak si půjčit motorku – Přistavení...'
+    // → 'Přistavení... – MotoGo24'
+    // Zachovava distinktivni cast (poslední podsekci za poslední pomlckou),
+    // takze duplicate titles na vraceni-pujcovna vs vraceni-jinde se zruší.
+    $titleShorten = function ($t) {
+        if (!is_string($t) || $t === '') return $t;
+        $patterns = [
+            // Hlavni prefix u jak-pujcit/* a podobne
+            '#^Půjčovna motorek Vysočina\s*[–\-]\s*Jak si půjčit motorku\s*[–\-]\s*#u' => '',
+            '#^Půjčovna motorek Vysočina\s*[–\-]\s*#u' => '',
+            // E-shop redundantni dlouhy suffix
+            '#\s*\|\s*E-shop MotoGo24\s*[–\-—]\s*motorkářské doplňky a merch\s*$#u' => ' | MotoGo24',
+            // Blog redundantni suffix
+            '#\s*\|\s*Blog MotoGo24\s*$#u' => ' | MotoGo24',
+        ];
+        foreach ($patterns as $rx => $repl) {
+            $t = preg_replace($rx, $repl, $t);
+        }
+        // Detekce uz existujici brand v levé části (před |). Pokud ano,
+        // odstranime suffix '| MotoGo24' aby brand neopakoval.
+        // ('Truckerka MotoGo24 | MotoGo24' → 'Truckerka MotoGo24')
+        if (preg_match('#^(.+?)\s*\|\s*MotoGo24\s*$#u', $t, $m)
+            && stripos($m[1], 'motogo24') !== false) {
+            $t = trim($m[1]);
+        }
+        // Pokud po vsem v titulku neni brand, pridame jednou.
+        if (stripos($t, 'motogo24') === false) $t = trim($t) . ' | MotoGo24';
+        return trim($t);
+    };
+
+    // (1b) Meta description — odstranit redundantni "boilerplate" tail
+    // co se opakuje napric jak-pujcit/* descriptions:
+    // 'Rezervuj si motorku jednoduše online. Vyber termín, stroj i výbavu
+    //  a vyraz na nezapomenutelnou jízdu s MotoGo24 na Vysočině.'
+    $descShorten = function ($d) {
+        if (!is_string($d) || $d === '') return $d;
+        // Strip redundantni boilerplate tail (Czech)
+        $d = preg_replace(
+            '#\s*Rezervuj si motorku jednoduše online\..*?(MotoGo24 na Vysočině\.?|MotoGo24\.?)\s*$#u',
+            '',
+            $d
+        );
+        return trim($d);
+    };
+
+    $truncate = function ($s, $maxChars) {
+        $s = trim((string)$s);
+        if (mb_strlen($s, 'UTF-8') <= $maxChars) return $s;
+        $cut = mb_substr($s, 0, $maxChars - 1, 'UTF-8');
+        $sp = mb_strrpos($cut, ' ', 0, 'UTF-8');
+        if ($sp !== false && $sp > $maxChars * 0.6) $cut = mb_substr($cut, 0, $sp, 'UTF-8');
+        return rtrim($cut, " \t\n\r\0\x0B,;:.-") . '…';
+    };
+
+    // Pipeline: pattern-shorten → hard-truncate (chars).
+    // Title 55 chars (s rezervou pro diakritiky, 580px Google SERP limit ~65 ASCII).
+    // Meta description 150 chars (s rezervou pro diakritiky, 1000px ~160 ASCII).
+    $title = $truncate($titleShorten($title), 55);
+    $description = $truncate($descShorten($description), 150);
+    // Canonical = doménová home pro aktuální jazyk (cs → www.motogo24.cz,
+    // ostatní → www.motogo24.<tld>). Tím Google indexuje každý jazyk výhradně
+    // z jeho kanonické domény — žádný duplicate-content přes víc domén ani
+    // www/non-www.
     $canonical = $meta['canonical'] ?? siteCanonicalUrl($currentPath);
     $ogImage = $meta['og_image'] ?? ($siteOrigin . '/gfx/hero-banner.jpg');
     $ogType = $meta['og_type'] ?? 'website';
@@ -359,11 +446,15 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
     // Preferujeme WebP — moderní prohlížeče (~95 %) ho podpoří, ostatní
     // si stáhnou JPEG fallback z <picture> v home.php.
     if ($currentPath === '/' && empty($preload)) {
+        // Responsive preload — browser vybere nejmensi vhodnou variantu
+        // podle viewportu (mobil 480w, tablet 768w, desktop 1500w, 4K 1920w).
         $preload[] = [
-            'href' => BASE_URL . '/gfx/hero-banner.webp',
+            'href' => BASE_URL . '/gfx/hero-banner-1500.webp',
             'as' => 'image',
             'type' => 'image/webp',
             'fetchpriority' => 'high',
+            'imagesrcset' => BASE_URL . '/gfx/hero-banner-480.webp 480w, ' . BASE_URL . '/gfx/hero-banner-768.webp 768w, ' . BASE_URL . '/gfx/hero-banner-1500.webp 1500w, ' . BASE_URL . '/gfx/hero-banner.webp 1920w',
+            'imagesizes' => '100vw',
         ];
     }
 
@@ -428,13 +519,14 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
   <meta property="og:image:width" content="1920">
   <meta property="og:image:height" content="1080">
   <meta property="og:image:alt" content="' . htmlspecialchars($title) . '">
+  <meta property="og:logo" content="' . $siteOrigin . '/gfx/logo.svg">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="' . htmlspecialchars($title) . '">
   <meta name="twitter:description" content="' . htmlspecialchars($description) . '">
   <meta name="twitter:image" content="' . htmlspecialchars($ogImage) . '">
   <link rel="canonical" href="' . htmlspecialchars($canonical) . '">
-  <link rel="icon" type="image/svg+xml" href="' . BASE_URL . '/favicon.svg">
-  <link rel="apple-touch-icon" href="' . BASE_URL . '/apple-touch-icon.png">
+  <link rel="icon" type="image/svg+xml" href="' . $siteOrigin . '/favicon.svg">
+  <link rel="apple-touch-icon" sizes="120x120" href="' . $siteOrigin . '/apple-touch-icon.png">
   <link rel="manifest" href="' . BASE_URL . '/manifest.webmanifest">
   <link rel="alternate" type="application/rss+xml" title="MotoGo24 — Blog a tipy na trasy" href="' . $siteOrigin . '/feed.xml">
   <link rel="sitemap" type="application/xml" title="Sitemap" href="' . $siteOrigin . '/sitemap.xml">
@@ -447,9 +539,6 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
   <meta name="geo.placename" content="Pelhřimov, Vysočina, Česko">
   <meta name="geo.position" content="49.4147;15.2953">
   <meta name="ICBM" content="49.4147, 15.2953">
-  <meta name="rating" content="general">
-  <meta name="distribution" content="global">
-  <meta name="revisit-after" content="3 days">
   <meta name="referrer" content="strict-origin-when-cross-origin">
 ' . renderWebmasterVerification() . renderHreflangAlternates($currentPath) . '
   <title>' . htmlspecialchars($title) . '</title>
@@ -479,7 +568,7 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
         "currenciesAccepted": "CZK, EUR, USD",
         "paymentAccepted": "Cash, Credit Card, Debit Card, Apple Pay, Google Pay",
         "knowsLanguage": ["cs","en","de","es","fr","nl","pl"],
-        "keywords": "půjčovna motorek Vysočina, pronájem motorek Pelhřimov, půjčovna motorek bez kauce, online rezervace motorky",
+        "keywords": "motopůjčovna",
         "address": {"@type":"PostalAddress","streetAddress":"Mezná 9","addressLocality":"Pelhřimov","postalCode":"393 01","addressRegion":"Vysočina","addressCountry":"CZ"},
         "geo": {"@type":"GeoCoordinates","latitude":49.4147,"longitude":15.2953},
         "hasMap": "https://mapy.cz/zakladni?q=Mezn%C3%A1%209%20Pelh%C5%99imov",
@@ -541,18 +630,15 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
           {"@type":"ServiceChannel","servicePhone":"+420 774 256 271","name":"Telefon (24/7)"},
           {"@type":"ServiceChannel","serviceUrl":"https://wa.me/420774256271","name":"WhatsApp"}
         ],
-        "termsOfService": "' . $siteOrigin . '/obchodni-podminky",
+        "termsOfService": "' . $siteOrigin . '/dokumenty/obchodni-podminky",
         "offers": {"@type":"AggregateOffer","priceCurrency":"CZK","lowPrice":"990","highPrice":"5000","offerCount":50,"availability":"https://schema.org/InStock","seller":{"@id":"' . $siteOrigin . '/#organization"}}
       }
     ]
   }
   </script>' . $breadcrumbSchema . $speakableSchema . ($extraSchema ? "\n" . $extraSchema : '') . '
 
-  <!-- Fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preconnect" href="' . SUPABASE_URL . '" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,300..900;1,300..900&display=swap" rel="stylesheet">';
+  <link rel="preload" href="' . assetUrl('/gfx/fonts/montserrat-vf-latin-ext.woff2') . '" as="font" type="font/woff2" crossorigin>';
 
     foreach ($preload as $p) {
         $attrs = '';
@@ -563,9 +649,17 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
   <link rel="preload"' . $attrs . '>';
     }
 
+    // Critical CSS — inline above-the-fold rezervace prostoru pro banner.
+    // Bez tohoto by browser pred nactenim main.css pouzil width/height attrs
+    // hero <img> (1920x480 = 4:1), na mobilu ~360x90, pak by main.css zvedl
+    // banner na 380px → CLS 0.241. Inline blok zaridi rezervaci hned.
     echo '
-
-  <!-- Styles -->
+  <style>
+body{font-family:Montserrat,"Segoe UI",sans-serif;margin:0;color:#1a2e22;background:#fff}
+.banner{position:relative;width:100%;min-height:380px;overflow:hidden;background:#1a3a2a}
+.banner>picture,.banner>picture>img,.banner>img{width:100%;height:380px;object-fit:cover;display:block}
+@media(min-width:769px){.banner{min-height:480px}.banner>picture,.banner>picture>img,.banner>img{height:480px}}
+  </style>
   <link rel="stylesheet" href="' . assetUrl('/css/main.css') . '">
   <link rel="stylesheet" href="' . assetUrl('/css/pages.css') . '">
 </head>
@@ -575,6 +669,17 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
     // až po souhlasu. Viz renderConsentManager() na konci stránky.
     echo renderHeader($currentPath);
     echo '<div id="app">';
+    // SEO defensive enhancers — pojistka napric celym webem aby cokoliv
+    // pridaneho z Velin CMS (motorky, blog, faq, texty stranek) prochazelo
+    // SEO checkem rovnou bez admin micromanage. Na non-admin requestu:
+    //  1) Strip prazdnych <hN></hN> (nech jen ne-prazdne)
+    //  2) Auto-extend kratke <h1> (<25 chars) o " | MotoGo24" pro context
+    //  3) Auto-set alt na <img> bez alt (z H1 textu nebo filename)
+    //  4) Cap pocet <strong> na 8 per stranka (preda zbytecne na <span>)
+    //  5) Auto-promote h3->h2 / h4->h3 kdyz chybi mezikrok
+    if (empty($_COOKIE['mg_cms_admin']) && !empty($content)) {
+        $content = seoEnhanceHtml($content);
+    }
     echo $content;
     echo '</div>';
     echo renderFooter();
@@ -607,7 +712,8 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
 <script>
 window.MG_I18N = Object.assign(window.MG_I18N || {}, ' . $cartI18n . ');
 </script>
-<script src="' . assetUrl('/js/cart.js') . '" defer></script>';
+<script src="' . assetUrl('/js/cart.js') . '" defer></script>
+<script src="' . assetUrl('/js/header-auth.js') . '" defer></script>';
 
     echo renderInlineJs();
 

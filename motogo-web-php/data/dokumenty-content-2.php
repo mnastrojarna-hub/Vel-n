@@ -24,30 +24,30 @@ return [
     ],
     'privacy' => [
         'title' => 'Osobní údaje a bezpečnost',
-        'text' => 'Osobní údaje zpracováváme pouze pro účely uzavření a plnění nájemní smlouvy (identifikace, komunikace, fakturace). Podrobnosti najdete v <a href="/cms/zasady-ochrany-osobnich-udaju">zásadách zpracování osobních údajů</a>.',
+        'text' => 'Osobní údaje zpracováváme pouze pro účely uzavření a plnění nájemní smlouvy (identifikace, komunikace, fakturace). Podrobnosti najdete v <a href="/dokumenty/zasady-ochrany-osobnich-udaju">zásadách zpracování osobních údajů</a>.',
     ],
     'documents' => [
         'title' => 'Dokumenty ke stažení',
         'items' => [
             [
                 'name' => 'Smlouva o pronájmu',
-                'href' => '/cms/smlouva-o-pronajmu',
-                'size' => '87.4kB',
+                'href' => '/dokumenty/smlouva-o-pronajmu',
             ],
             [
                 'name' => 'Předávací protokol',
-                'href' => '/cms/predavaci-protokol',
-                'size' => '47.6kB',
+                'href' => '/dokumenty/predavaci-protokol',
             ],
             [
                 'name' => 'Obchodní podmínky',
-                'href' => '/cms/obchodni-podminky',
-                'size' => '87.7kB',
+                'href' => '/dokumenty/obchodni-podminky',
             ],
             [
                 'name' => 'Zásady ochrany osobních údajů',
-                'href' => '/cms/zasady-ochrany-osobnich-udaju',
-                'size' => '76.3kB',
+                'href' => '/dokumenty/zasady-ochrany-osobnich-udaju',
+            ],
+            [
+                'name' => 'Protokol o poškození',
+                'href' => '/dokumenty/protokol-o-poskozeni',
             ],
         ],
     ],
@@ -70,6 +70,6 @@ return [
     'seo' => [
         'title' => 'Půjčovna motorek Vysočina – Jak si půjčit motorku – Dokumenty a návody',
         'description' => 'Všechny dokumenty k půjčení motorky na jednom místě. Přehledné návody a podmínky od MotoGo24 pro bezpečné používání motocyklu. Rezervuj si motorku jednoduše online. Vyber termín, stroj i výbavu a vyraz na nezapomenutelnou jízdu s MotoGo24 na Vysočině.',
-        'keywords' => 'půjčovna motorek Vysočina, pronájem motorek Vysočina, půjčovna motorek Pelhřimov, půjčovna motorek bez kauce, nonstop půjčovna motorek, půjčovna cestovní motorky, pronájem sportovní motorky, půjčovna enduro motorek, půjčovna skútrů Vysočina, dětské motorky k pronájmu, rezervace motorky online, motorky k pronájmu Vysočina, motorbike rental Czech Republic, motorcycle hire Vysocina, rent a motorbike Pelhřimov',
+        'keywords' => 'motopůjčovna',
     ],
 ];

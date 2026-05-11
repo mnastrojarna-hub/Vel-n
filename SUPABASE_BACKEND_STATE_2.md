@@ -34,6 +34,9 @@
 - **damage_report** — hlášení poškození
 - **promo_code** — promo kód (text)
 - **stripe_payment_intent_id** — Stripe Payment Intent ID (pro refundy)
+- **stripe_refund_id** (TEXT DEFAULT NULL, **NEW 2026-05-08**) — Stripe Refund ID posledního refundu k rezervaci. Plní `process-refund` po úspěšném Stripe refundu (vedle credit_note dobropisu). Velín booking detail z toho generuje odkaz na `dashboard.stripe.com/refunds/<id>`.
+- **card_brand** (TEXT DEFAULT NULL, **NEW 2026-05-08**) — Brand platební karty (visa/mastercard/amex/...). Plní `webhook-receiver` po `payment_intent.succeeded` (přes `stripe.charges.retrieve` na `latest_charge.payment_method_details.card.brand`). Pomocný i v `process-refund` pro renderování dobropisu („Refund proběhl na kartu Visa **** 4242").
+- **card_last4** (TEXT DEFAULT NULL, **NEW 2026-05-08**) — Posledních 4 číslic platební karty. Stejný plnič jako `card_brand`. Velín booking detail zobrazuje pod „Způsob platby".
 - **stripe_session_id** — Stripe Checkout Session ID
 - **stripe_checkout_url** (TEXT DEFAULT NULL) — URL aktivní Stripe Checkout session, ukládá `process-payment` při vytvoření session. Použito v abandoned mailu jako přímý odkaz na platbu.
 - **checkout_started_at** (TIMESTAMPTZ DEFAULT NULL) — okamžik kliknutí na „Pokračovat k platbě" (= vytvoření Stripe Checkout session). Vstupní bod 10minutového odpočtu pro abandoned mail.
@@ -129,6 +132,7 @@
 - weight_kg (INTEGER), seat_height_mm (TEXT)
 - license_required, has_abs, has_asc
 - description, ideal_usage, features, manual_url
+- **manual_external_url** (TEXT) — externí URL na návod (např. stránka výrobce); použije se pouze pokud není nahrán PDF (`manual_url` je prázdný). PDF má vždy přednost.
 - engine_type, power_hp
 - **branch_id** — pobočka (FK→branches)
 - **category** — kategorie motorky
@@ -187,6 +191,12 @@
 
 ### acc_employees (nový sloupec)
 - **hourly_rate** (NUMERIC DEFAULT 500) — hodinová sazba technika v Kč
+
+### sent_emails
+- id, template_slug, recipient_email, recipient_id, booking_id
+- subject, body_html, status (queued/sent/failed/bounced), error_message, provider_id
+- **attachments_meta** (jsonb) — `[{filename, storage_path?}]` — `storage_path` cíluje do bucketu `documents` (`invoices/<id>.pdf`, `generated/<...>.pdf`, `vouchers/<order_id>/<code>.pdf`); Velín → Dokumenty → Zaslané maily generuje signed URL pro náhled / stažení. Legacy záznamy mohou mít jen `{filename}`.
+- created_at
 
 ### invoices
 - id, number, type, customer_id, supplier_id, booking_id, order_id
