@@ -911,6 +911,144 @@ return [
                 'label' => 'BOOK WITH PICKUP',
                 'href' => '/rezervace?return_delivery=1',
             ],
+            'when' => [
+                'title' => 'When return elsewhere comes in handy',
+                'items' => [
+                    '<strong>End of a road trip</strong>&nbsp;– the rental started in Pelhřimov, the trip ends elsewhere. Hand the motorcycle over to us where your trip ends.',
+                    '<strong>One-way trip</strong>&nbsp;– travelling back home by train or bus? Hand the motorcycle over to us before you leave.',
+                    '<strong>Hotel or guesthouse</strong>&nbsp;– hand the motorcycle over to us right at your accommodation, so you don\'t have to figure out the way back to the rental.',
+                    '<strong>Company event</strong>&nbsp;– a rental for a group with the return right at the event location.',
+                ],
+            ],
+            'why' => [
+                'title' => 'Why use return elsewhere',
+                'grid' => 'gr5',
+                'items' => [
+                    [
+                        'icon' => 'gfx/vyzvednuti-vraceni-motorky.svg',
+                        'title' => 'Flexibility',
+                        'text' => 'You choose the return location to match your route – a hotel, a station, a car park or anywhere else.',
+                    ],
+                    [
+                        'icon' => 'gfx/uspora-casu.svg',
+                        'title' => 'Time saved',
+                        'text' => 'You save the trip back to the rental and home – you hand the motorcycle over where you are.',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-pohodli.svg',
+                        'title' => 'Convenience',
+                        'text' => 'You don\'t have to figure out how to get home from the rental.&nbsp;',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-nonstop.svg',
+                        'title' => '24/7 service',
+                        'text' => 'We arrange the return for an agreed time – evenings or weekends are fine.',
+                    ],
+                    [
+                        'icon' => 'gfx/predani-motorky.svg',
+                        'title' => 'Simplicity',
+                        'text' => 'You hand over the keys and gear, we check the motorcycle and leave. No extra paperwork.',
+                    ],
+                ],
+            ],
+            'process' => [
+                'title' => 'How return elsewhere works',
+                'grid' => 'gr5',
+                'steps' => [
+                    [
+                        'icon' => 'gfx/uzij-si-jizdu.svg',
+                        'title' => 'Choose the return place and time',
+                        'text' => 'In the booking form, enter the address and time when you\'ll hand the motorcycle over.',
+                    ],
+                    [
+                        'icon' => 'gfx/vyber-vybavu.svg',
+                        'title' => 'Get the gear ready',
+                        'text' => 'Before the handover, prepare the gear that was part of the rental.',
+                    ],
+                    [
+                        'icon' => 'gfx/cas-prevzeti-motorky.svg',
+                        'title' => 'We arrive at the agreed time',
+                        'text' => 'We\'ll arrive at the agreed place exactly at the agreed time.',
+                    ],
+                    [
+                        'icon' => 'gfx/prevezmi-motorku.svg',
+                        'title' => 'We check the motorcycle and gear together',
+                        'text' => 'We check the condition of the motorcycle and gear, load up and leave.&nbsp;',
+                    ],
+                    [
+                        'icon' => 'gfx/sleva-na-pristi-jizdu.svg',
+                        'title' => 'You\'ll get a confirmation by e-mail',
+                        'text' => 'A rental completion confirmation, the final invoice and a discount code for your next booking.',
+                    ],
+                ],
+            ],
+            'pricing' => [
+                'title' => 'Return-elsewhere price list',
+                'lead' => 'The price has three components:',
+                'items' => [
+                    '500 CZK for loading the motorcycle',
+                    '500 CZK for unloading the motorcycle',
+                    '20 CZK per kilometre (the distance from the return location to the rental and back)',
+                ],
+                'example_title' => 'Example:',
+                'example_q' => 'Want to return the motorcycle 30 km from the rental?',
+                'example_a' => 'You pay 500 + 500 + (30 × 2 × 20) = 2,200 CZK.',
+            ],
+            'issues' => [
+                'title' => 'Discrepancies on return',
+                'lead' => 'On return we check the condition of the motorcycle and gear together. If any of the situations below occurs, we draw up a report of the damage found:',
+                'items' => [
+                    'missing gear',
+                    'damaged gear',
+                    'damaged motorcycle',
+                ],
+                'closing' => 'The customer signs the report and receives a copy of it. The further procedure is governed by the terms of the rental contract and the terms and conditions.',
+            ],
+            'faq' => [
+                'title' => 'Frequently asked questions about returning the motorcycle elsewhere',
+                'items' => [
+                    [
+                        'q' => 'By when do I have to return the motorcycle?',
+                        'a' => 'Return the motorcycle ideally at the agreed time. If you return at the rental, you can come by arrangement any time during the last rental day – no later than midnight, with no penalties. If you return at another location, the agreed time is binding.',
+                    ],
+                    [
+                        'q' => 'Do I have to return it with a full tank and clean?',
+                        'a' => 'No. You don\'t refuel or wash with us. Just make sure the reserve light isn\'t on.&nbsp;',
+                    ],
+                    [
+                        'q' => 'When returning at another location, can I return the motorcycle earlier than we agreed?&nbsp;',
+                        'a' => 'We set off from Pelhřimov to the agreed place exactly according to the agreed time, so an earlier return is unfortunately not possible. If your plans change, get in touch – we\'ll try to adjust the time, but it depends on our current workload.',
+                    ],
+                    [
+                        'q' => 'Can I really return the motorcycle anywhere in the Czech Republic?&nbsp;',
+                        'a' => 'Yes, we\'ll come to collect the motorcycle anywhere in the Czech Republic. You enter the return location when booking – it can be a hotel, a car park, a station or any other address.',
+                    ],
+                    [
+                        'q' => 'How far in advance do I have to report a return at another location?&nbsp;',
+                        'a' => 'You enter the return location and time already in the booking form.&nbsp;',
+                    ],
+                    [
+                        'q' => 'What if I\'m late to the return location?&nbsp;',
+                        'a' => 'Call us as soon as you know you won\'t make it on time. We\'ll work it out – we usually wait for you. We just need to know how big a delay to expect so we can adjust our day\'s plan.',
+                    ],
+                    [
+                        'q' => 'How is the price for a return at another location calculated?&nbsp;',
+                        'a' => 'The price includes 500 CZK for loading, 500 CZK for unloading and 20 CZK per kilometre of the distance from the return location to the rental (and back). For example, when returning 50 km from Pelhřimov you pay 500 + 500 + (50 × 2 × 20) = 3,000 CZK.',
+                    ],
+                    [
+                        'q' => 'Do I pay for the return elsewhere separately, or is it part of the rental price?&nbsp;',
+                        'a' => 'Return at another location is an additional service and is paid for separately, on top of the rental price.&nbsp;',
+                    ],
+                    [
+                        'q' => 'What if I want to pick up the motorcycle in Pelhřimov but return it elsewhere – is that possible?&nbsp;',
+                        'a' => 'Yes, you can pick up the motorcycle at our place in Pelhřimov and return it where you need.&nbsp;',
+                    ],
+                    [
+                        'q' => 'What should I have ready when you come for the motorcycle?&nbsp;',
+                        'a' => 'Have the keys and all the gear that was part of the rental ready. We check the condition of the motorcycle and gear together.',
+                    ],
+                ],
+            ],
             'cta' => [
                 'title' => 'Return motorcycle anywhere – MotoGo24',
                 'text' => 'MotoGo24 arranges <strong>motorcycle pickup</strong> from a place that suits you. <strong>24/7, no deposit, no hassle.</strong>',

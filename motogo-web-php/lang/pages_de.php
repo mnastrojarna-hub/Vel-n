@@ -408,6 +408,144 @@ return [
                 'label' => 'MIT ABHOLUNG RESERVIEREN',
                 'href' => '/rezervace?return_delivery=1',
             ],
+            'when' => [
+                'title' => 'Wann sich die Rückgabe anderswo lohnt',
+                'items' => [
+                    '<strong>Ende eines Roadtrips</strong>&nbsp;– die Miete begann in Pelhřimov, die Reise endet woanders. Übergib uns das Motorrad dort, wo deine Tour endet.',
+                    '<strong>Einwegfahrt</strong>&nbsp;– fährst du mit dem Zug oder Bus nach Hause zurück? Übergib uns das Motorrad vor der Abreise.',
+                    '<strong>Hotel oder Pension</strong>&nbsp;– übergib uns das Motorrad direkt an der Unterkunft, damit du den Rückweg zur Vermietung nicht regeln musst.',
+                    '<strong>Firmenveranstaltung</strong>&nbsp;– eine Miete für eine Gruppe mit Rückgabe direkt am Veranstaltungsort.',
+                ],
+            ],
+            'why' => [
+                'title' => 'Warum die Rückgabe anderswo nutzen',
+                'grid' => 'gr5',
+                'items' => [
+                    [
+                        'icon' => 'gfx/vyzvednuti-vraceni-motorky.svg',
+                        'title' => 'Flexibilität',
+                        'text' => 'Du wählst den Rückgabeort passend zu deiner Route – Hotel, Bahnhof, Parkplatz oder irgendwo anders.',
+                    ],
+                    [
+                        'icon' => 'gfx/uspora-casu.svg',
+                        'title' => 'Zeitersparnis',
+                        'text' => 'Du sparst den Weg zurück zur Vermietung und nach Hause – du übergibst das Motorrad dort, wo du bist.',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-pohodli.svg',
+                        'title' => 'Komfort',
+                        'text' => 'Du musst dir keine Gedanken machen, wie du von der Vermietung nach Hause kommst.&nbsp;',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-nonstop.svg',
+                        'title' => 'Rund-um-die-Uhr-Service',
+                        'text' => 'Wir vereinbaren die Rückgabe zu einem festen Zeitpunkt – auch abends oder am Wochenende.',
+                    ],
+                    [
+                        'icon' => 'gfx/predani-motorky.svg',
+                        'title' => 'Einfachheit',
+                        'text' => 'Du übergibst Schlüssel und Ausrüstung, wir prüfen das Motorrad und fahren ab. Kein zusätzlicher Papierkram.',
+                    ],
+                ],
+            ],
+            'process' => [
+                'title' => 'Wie die Rückgabe anderswo abläuft',
+                'grid' => 'gr5',
+                'steps' => [
+                    [
+                        'icon' => 'gfx/uzij-si-jizdu.svg',
+                        'title' => 'Rückgabeort und -zeit wählen',
+                        'text' => 'Gib im Reservierungsformular die Adresse und die Zeit an, zu der du das Motorrad übergibst.',
+                    ],
+                    [
+                        'icon' => 'gfx/vyber-vybavu.svg',
+                        'title' => 'Ausrüstung bereitlegen',
+                        'text' => 'Lege vor der Übergabe die Ausrüstung bereit, die Teil der Miete war.',
+                    ],
+                    [
+                        'icon' => 'gfx/cas-prevzeti-motorky.svg',
+                        'title' => 'Wir kommen zur vereinbarten Zeit',
+                        'text' => 'Wir treffen genau zur vereinbarten Zeit am vereinbarten Ort ein.',
+                    ],
+                    [
+                        'icon' => 'gfx/prevezmi-motorku.svg',
+                        'title' => 'Wir prüfen Motorrad und Ausrüstung gemeinsam',
+                        'text' => 'Wir prüfen den Zustand von Motorrad und Ausrüstung, laden auf und fahren ab.&nbsp;',
+                    ],
+                    [
+                        'icon' => 'gfx/sleva-na-pristi-jizdu.svg',
+                        'title' => 'Du erhältst eine Bestätigung per E-Mail',
+                        'text' => 'Eine Bestätigung über das Mietende, die Endrechnung und ein Rabattcode für die nächste Reservierung.',
+                    ],
+                ],
+            ],
+            'pricing' => [
+                'title' => 'Preisliste für Rückgabe anderswo',
+                'lead' => 'Der Preis besteht aus drei Bestandteilen:',
+                'items' => [
+                    '500 CZK für das Aufladen des Motorrads',
+                    '500 CZK für das Abladen des Motorrads',
+                    '20 CZK pro Kilometer (Strecke vom Rückgabeort zur Vermietung und zurück)',
+                ],
+                'example_title' => 'Beispiel:',
+                'example_q' => 'Du möchtest das Motorrad 30 km von der Vermietung entfernt zurückgeben?',
+                'example_a' => 'Du zahlst 500 + 500 + (30 × 2 × 20) = 2.200 CZK.',
+            ],
+            'issues' => [
+                'title' => 'Unstimmigkeiten bei der Rückgabe',
+                'lead' => 'Bei der Rückgabe prüfen wir gemeinsam den Zustand von Motorrad und Ausrüstung. Sollte eine der unten genannten Situationen eintreten, erstellen wir ein Protokoll über den festgestellten Schaden:',
+                'items' => [
+                    'fehlende Ausrüstung',
+                    'beschädigte Ausrüstung',
+                    'beschädigtes Motorrad',
+                ],
+                'closing' => 'Der Kunde unterschreibt das Protokoll und erhält eine Kopie davon. Das weitere Vorgehen richtet sich nach den Bedingungen des Mietvertrags und den AGB.',
+            ],
+            'faq' => [
+                'title' => 'Häufig gestellte Fragen zur Rückgabe des Motorrads anderswo',
+                'items' => [
+                    [
+                        'q' => 'Bis wann muss ich das Motorrad zurückgeben?',
+                        'a' => 'Gib das Motorrad idealerweise zur vereinbarten Zeit zurück. Wenn du am Standort der Vermietung zurückgibst, kannst du nach Absprache jederzeit am letzten Miettag kommen – spätestens bis Mitternacht, ohne jegliche Sanktionen. Gibst du an einem anderen Ort zurück, ist die vereinbarte Zeit verbindlich.',
+                    ],
+                    [
+                        'q' => 'Muss ich es mit vollem Tank und sauber zurückgeben?',
+                        'a' => 'Nein. Bei uns tankst und wäschst du nicht. Achte nur darauf, dass die Reserveleuchte nicht leuchtet.&nbsp;',
+                    ],
+                    [
+                        'q' => 'Kann ich das Motorrad bei der Rückgabe an einem anderen Ort früher zurückgeben als vereinbart?&nbsp;',
+                        'a' => 'Wir fahren von Pelhřimov genau nach der vereinbarten Zeit zum vereinbarten Ort, daher ist eine frühere Rückgabe leider nicht möglich. Wenn sich deine Pläne ändern, melde dich – wir versuchen, die Zeit anzupassen, aber es hängt von unserer aktuellen Auslastung ab.',
+                    ],
+                    [
+                        'q' => 'Kann ich das Motorrad wirklich überall in Tschechien zurückgeben?&nbsp;',
+                        'a' => 'Ja, wir holen das Motorrad überall in Tschechien ab. Den Rückgabeort gibst du bei der Reservierung an – das kann ein Hotel, ein Parkplatz, ein Bahnhof oder eine beliebige andere Adresse sein.',
+                    ],
+                    [
+                        'q' => 'Wie lange im Voraus muss ich eine Rückgabe an einem anderen Ort melden?&nbsp;',
+                        'a' => 'Den Rückgabeort und die -zeit gibst du bereits im Reservierungsformular an.&nbsp;',
+                    ],
+                    [
+                        'q' => 'Was, wenn ich mich zum Rückgabeort verspäte?&nbsp;',
+                        'a' => 'Ruf uns an, sobald du weißt, dass du es nicht rechtzeitig schaffst. Wir finden eine Lösung – meistens warten wir auf dich. Wir müssen nur wissen, mit welcher Verspätung wir rechnen sollen, um unseren Tagesplan anzupassen.',
+                    ],
+                    [
+                        'q' => 'Wie wird der Preis für eine Rückgabe an einem anderen Ort berechnet?&nbsp;',
+                        'a' => 'Der Preis umfasst 500 CZK für das Aufladen, 500 CZK für das Abladen und 20 CZK pro Kilometer der Strecke vom Rückgabeort zur Vermietung (und zurück). Zum Beispiel zahlst du bei einer Rückgabe 50 km von Pelhřimov 500 + 500 + (50 × 2 × 20) = 3.000 CZK.',
+                    ],
+                    [
+                        'q' => 'Zahle ich für die Rückgabe anderswo separat, oder ist sie im Mietpreis enthalten?&nbsp;',
+                        'a' => 'Die Rückgabe an einem anderen Ort ist eine Zusatzleistung und wird separat, zusätzlich zum Mietpreis, bezahlt.&nbsp;',
+                    ],
+                    [
+                        'q' => 'Was, wenn ich das Motorrad in Pelhřimov abholen, aber anderswo zurückgeben möchte – geht das?&nbsp;',
+                        'a' => 'Ja, du kannst das Motorrad bei uns in Pelhřimov abholen und dort zurückgeben, wo du es brauchst.&nbsp;',
+                    ],
+                    [
+                        'q' => 'Was soll ich bereithalten, wenn ihr für das Motorrad kommt?&nbsp;',
+                        'a' => 'Halte die Schlüssel und die gesamte Ausrüstung bereit, die Teil der Miete war. Wir prüfen gemeinsam den Zustand von Motorrad und Ausrüstung.',
+                    ],
+                ],
+            ],
             'cta' => [
                 'title' => 'Motorrad-Rückgabe überall – MotoGo24',
                 'text' => 'MotoGo24 organisiert die <strong>Motorrad-Abholung</strong> von einem Ort deiner Wahl. <strong>Rund-um-die-Uhr, ohne Kaution, ohne Sorgen.</strong>',

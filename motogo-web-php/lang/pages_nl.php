@@ -408,6 +408,144 @@ return [
                 'label' => 'RESERVEREN MET OPHALEN',
                 'href' => '/rezervace?return_delivery=1',
             ],
+            'when' => [
+                'title' => 'Wanneer teruggave elders handig is',
+                'items' => [
+                    '<strong>Einde van een roadtrip</strong>&nbsp;– de huur begon in Pelhřimov, de reis eindigt elders. Geef de motor aan ons over waar je reis eindigt.',
+                    '<strong>Enkele reis</strong>&nbsp;– reis je met de trein of bus terug naar huis? Geef de motor aan ons over voordat je vertrekt.',
+                    '<strong>Hotel of pension</strong>&nbsp;– geef de motor aan ons over direct bij je accommodatie, zodat je niet hoeft na te denken over de terugweg naar de verhuur.',
+                    '<strong>Bedrijfsevenement</strong>&nbsp;– een verhuur voor een groep met de teruggave direct op de eventlocatie.',
+                ],
+            ],
+            'why' => [
+                'title' => 'Waarom teruggave elders gebruiken',
+                'grid' => 'gr5',
+                'items' => [
+                    [
+                        'icon' => 'gfx/vyzvednuti-vraceni-motorky.svg',
+                        'title' => 'Flexibiliteit',
+                        'text' => 'Je kiest de teruggavelocatie passend bij je route – een hotel, een station, een parkeerplaats of ergens anders.',
+                    ],
+                    [
+                        'icon' => 'gfx/uspora-casu.svg',
+                        'title' => 'Tijdsbesparing',
+                        'text' => 'Je bespaart de rit terug naar de verhuur en naar huis – je geeft de motor over waar je bent.',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-pohodli.svg',
+                        'title' => 'Gemak',
+                        'text' => 'Je hoeft niet na te denken over hoe je vanuit de verhuur thuiskomt.&nbsp;',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-nonstop.svg',
+                        'title' => '24/7 service',
+                        'text' => 'We spreken de teruggave af op een vast tijdstip – \'s avonds of in het weekend, geen probleem.',
+                    ],
+                    [
+                        'icon' => 'gfx/predani-motorky.svg',
+                        'title' => 'Eenvoud',
+                        'text' => 'Je geeft de sleutels en uitrusting over, wij controleren de motor en vertrekken. Geen extra papierwerk.',
+                    ],
+                ],
+            ],
+            'process' => [
+                'title' => 'Hoe teruggave elders werkt',
+                'grid' => 'gr5',
+                'steps' => [
+                    [
+                        'icon' => 'gfx/uzij-si-jizdu.svg',
+                        'title' => 'Kies de teruggaveplek en -tijd',
+                        'text' => 'Vul in het reserveringsformulier het adres en de tijd in waarop je de motor overdraagt.',
+                    ],
+                    [
+                        'icon' => 'gfx/vyber-vybavu.svg',
+                        'title' => 'Maak de uitrusting klaar',
+                        'text' => 'Leg vóór de overdracht de uitrusting klaar die deel uitmaakte van de huur.',
+                    ],
+                    [
+                        'icon' => 'gfx/cas-prevzeti-motorky.svg',
+                        'title' => 'We komen op de afgesproken tijd',
+                        'text' => 'We arriveren precies op de afgesproken tijd op de afgesproken plek.',
+                    ],
+                    [
+                        'icon' => 'gfx/prevezmi-motorku.svg',
+                        'title' => 'We controleren de motor en uitrusting samen',
+                        'text' => 'We controleren de staat van de motor en uitrusting, laden in en vertrekken.&nbsp;',
+                    ],
+                    [
+                        'icon' => 'gfx/sleva-na-pristi-jizdu.svg',
+                        'title' => 'Je krijgt een bevestiging per e-mail',
+                        'text' => 'Een bevestiging van het einde van de huur, de eindfactuur en een kortingscode voor je volgende reservering.',
+                    ],
+                ],
+            ],
+            'pricing' => [
+                'title' => 'Tarief teruggave elders',
+                'lead' => 'De prijs bestaat uit drie onderdelen:',
+                'items' => [
+                    '500 CZK voor het laden van de motor',
+                    '500 CZK voor het lossen van de motor',
+                    '20 CZK per kilometer (afstand van de teruggavelocatie naar de verhuur en terug)',
+                ],
+                'example_title' => 'Voorbeeld:',
+                'example_q' => 'Wil je de motor 30 km van de verhuur terugbrengen?',
+                'example_a' => 'Je betaalt 500 + 500 + (30 × 2 × 20) = 2.200 CZK.',
+            ],
+            'issues' => [
+                'title' => 'Onregelmatigheden bij teruggave',
+                'lead' => 'Bij teruggave controleren we samen de staat van de motor en uitrusting. Mocht een van de onderstaande situaties zich voordoen, dan stellen we een rapport op van de geconstateerde schade:',
+                'items' => [
+                    'ontbrekende uitrusting',
+                    'beschadigde uitrusting',
+                    'beschadigde motor',
+                ],
+                'closing' => 'De klant ondertekent het rapport en ontvangt een kopie ervan. Het verdere verloop wordt geregeld door de voorwaarden van de huurovereenkomst en de algemene voorwaarden.',
+            ],
+            'faq' => [
+                'title' => 'Veelgestelde vragen over de motor elders terugbrengen',
+                'items' => [
+                    [
+                        'q' => 'Wanneer moet ik de motor uiterlijk terugbrengen?',
+                        'a' => 'Breng de motor idealiter op de afgesproken tijd terug. Als je bij de verhuur terugbrengt, kun je in overleg op elk moment van de laatste huurdag komen – uiterlijk om middernacht, zonder enige sanctie. Breng je op een andere locatie terug, dan is de afgesproken tijd bindend.',
+                    ],
+                    [
+                        'q' => 'Moet ik hem met een volle tank en schoon terugbrengen?',
+                        'a' => 'Nee. Bij ons tank of was je niet. Let er alleen op dat het reservelampje niet brandt.&nbsp;',
+                    ],
+                    [
+                        'q' => 'Kan ik de motor bij teruggave op een andere locatie eerder terugbrengen dan afgesproken?&nbsp;',
+                        'a' => 'We vertrekken vanuit Pelhřimov naar de afgesproken plek precies volgens de afgesproken tijd, dus een eerdere teruggave is helaas niet mogelijk. Als je plannen veranderen, neem contact op – we proberen de tijd aan te passen, maar het hangt af van onze huidige werkdruk.',
+                    ],
+                    [
+                        'q' => 'Kan ik de motor echt overal in Tsjechië terugbrengen?&nbsp;',
+                        'a' => 'Ja, we komen de motor overal in Tsjechië ophalen. De teruggavelocatie vul je in bij de reservering – dat kan een hotel, een parkeerplaats, een station of elk ander adres zijn.',
+                    ],
+                    [
+                        'q' => 'Hoever van tevoren moet ik een teruggave op een andere locatie melden?&nbsp;',
+                        'a' => 'De teruggavelocatie en -tijd vul je al in het reserveringsformulier in.&nbsp;',
+                    ],
+                    [
+                        'q' => 'Wat als ik te laat ben op de teruggavelocatie?&nbsp;',
+                        'a' => 'Bel ons zodra je weet dat je het niet op tijd haalt. We lossen het op – meestal wachten we op je. We moeten alleen weten met hoeveel vertraging we rekening moeten houden om onze dagplanning aan te passen.',
+                    ],
+                    [
+                        'q' => 'Hoe wordt de prijs voor een teruggave op een andere locatie berekend?&nbsp;',
+                        'a' => 'De prijs omvat 500 CZK voor het laden, 500 CZK voor het lossen en 20 CZK per kilometer van de afstand van de teruggavelocatie naar de verhuur (en terug). Bijvoorbeeld, bij teruggave 50 km van Pelhřimov betaal je 500 + 500 + (50 × 2 × 20) = 3.000 CZK.',
+                    ],
+                    [
+                        'q' => 'Betaal ik de teruggave elders apart, of zit het in de huurprijs?&nbsp;',
+                        'a' => 'Teruggave op een andere locatie is een aanvullende dienst en wordt apart betaald, bovenop de huurprijs.&nbsp;',
+                    ],
+                    [
+                        'q' => 'Wat als ik de motor in Pelhřimov wil ophalen maar elders wil terugbrengen – kan dat?&nbsp;',
+                        'a' => 'Ja, je kunt de motor bij ons in Pelhřimov ophalen en terugbrengen waar je hem nodig hebt.&nbsp;',
+                    ],
+                    [
+                        'q' => 'Wat moet ik klaar hebben als jullie de motor komen halen?&nbsp;',
+                        'a' => 'Heb de sleutels en alle uitrusting klaar die deel uitmaakte van de huur. We controleren samen de staat van de motor en uitrusting.',
+                    ],
+                ],
+            ],
             'cta' => [
                 'title' => 'Motor inleveren overal – MotoGo24',
                 'text' => 'MotoGo24 regelt het <strong>ophalen van de motor</strong> vanaf de plek die jou uitkomt. <strong>24/7, zonder borg, zonder zorgen.</strong>',

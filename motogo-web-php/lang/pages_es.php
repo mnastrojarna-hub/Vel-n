@@ -911,6 +911,144 @@ return [
                 'label' => 'RESERVAR CON RECOGIDA',
                 'href' => '/rezervace?return_delivery=1',
             ],
+            'when' => [
+                'title' => 'Cuándo viene bien la devolución en otro lugar',
+                'items' => [
+                    '<strong>Fin de un road trip</strong>&nbsp;– el alquiler empezó en Pelhřimov, el viaje termina en otro sitio. Entréganos la moto donde acabe tu viaje.',
+                    '<strong>Viaje de ida</strong>&nbsp;– ¿vuelves a casa en tren o autobús? Entréganos la moto antes de marcharte.',
+                    '<strong>Hotel o pensión</strong>&nbsp;– entréganos la moto directamente en tu alojamiento, para que no tengas que pensar en la vuelta al alquiler.',
+                    '<strong>Evento de empresa</strong>&nbsp;– un alquiler para un grupo con la devolución directamente en el lugar del evento.',
+                ],
+            ],
+            'why' => [
+                'title' => 'Por qué usar la devolución en otro lugar',
+                'grid' => 'gr5',
+                'items' => [
+                    [
+                        'icon' => 'gfx/vyzvednuti-vraceni-motorky.svg',
+                        'title' => 'Flexibilidad',
+                        'text' => 'Eliges el lugar de devolución según tu ruta: un hotel, una estación, un aparcamiento o cualquier otro sitio.',
+                    ],
+                    [
+                        'icon' => 'gfx/uspora-casu.svg',
+                        'title' => 'Ahorro de tiempo',
+                        'text' => 'Te ahorras el viaje de vuelta al alquiler y a casa: entregas la moto donde estás.',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-pohodli.svg',
+                        'title' => 'Comodidad',
+                        'text' => 'No tienes que pensar en cómo llegar a casa desde el alquiler.&nbsp;',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-nonstop.svg',
+                        'title' => 'Servicio 24/7',
+                        'text' => 'Acordamos la devolución para una hora concreta: por la tarde o el fin de semana, sin problema.',
+                    ],
+                    [
+                        'icon' => 'gfx/predani-motorky.svg',
+                        'title' => 'Sencillez',
+                        'text' => 'Entregas las llaves y el equipamiento, revisamos la moto y nos vamos. Sin papeleo extra.',
+                    ],
+                ],
+            ],
+            'process' => [
+                'title' => 'Cómo funciona la devolución en otro lugar',
+                'grid' => 'gr5',
+                'steps' => [
+                    [
+                        'icon' => 'gfx/uzij-si-jizdu.svg',
+                        'title' => 'Elige el lugar y la hora de devolución',
+                        'text' => 'En el formulario de reserva, indica la dirección y la hora a la que entregarás la moto.',
+                    ],
+                    [
+                        'icon' => 'gfx/vyber-vybavu.svg',
+                        'title' => 'Prepara el equipamiento',
+                        'text' => 'Antes de la entrega, prepara el equipamiento que formó parte del alquiler.',
+                    ],
+                    [
+                        'icon' => 'gfx/cas-prevzeti-motorky.svg',
+                        'title' => 'Llegamos a la hora acordada',
+                        'text' => 'Llegaremos al lugar acordado exactamente a la hora acordada.',
+                    ],
+                    [
+                        'icon' => 'gfx/prevezmi-motorku.svg',
+                        'title' => 'Revisamos juntos la moto y el equipamiento',
+                        'text' => 'Revisamos el estado de la moto y del equipamiento, cargamos y nos vamos.&nbsp;',
+                    ],
+                    [
+                        'icon' => 'gfx/sleva-na-pristi-jizdu.svg',
+                        'title' => 'Recibirás una confirmación por correo',
+                        'text' => 'Una confirmación de fin de alquiler, la factura final y un código de descuento para tu próxima reserva.',
+                    ],
+                ],
+            ],
+            'pricing' => [
+                'title' => 'Tarifa de devolución en otro lugar',
+                'lead' => 'El precio tiene tres componentes:',
+                'items' => [
+                    '500 CZK por cargar la moto',
+                    '500 CZK por descargar la moto',
+                    '20 CZK por cada kilómetro (distancia del lugar de devolución al alquiler y vuelta)',
+                ],
+                'example_title' => 'Ejemplo:',
+                'example_q' => '¿Quieres devolver la moto a 30 km del alquiler?',
+                'example_a' => 'Pagas 500 + 500 + (30 × 2 × 20) = 2.200 CZK.',
+            ],
+            'issues' => [
+                'title' => 'Discrepancias en la devolución',
+                'lead' => 'En la devolución revisamos juntos el estado de la moto y del equipamiento. Si se produjera alguna de las situaciones siguientes, levantamos un acta de los daños detectados:',
+                'items' => [
+                    'equipamiento faltante',
+                    'equipamiento dañado',
+                    'moto dañada',
+                ],
+                'closing' => 'El cliente firma el acta y recibe una copia. El procedimiento posterior se rige por las condiciones del contrato de alquiler y las condiciones generales.',
+            ],
+            'faq' => [
+                'title' => 'Preguntas frecuentes sobre devolver la moto en otro lugar',
+                'items' => [
+                    [
+                        'q' => '¿Hasta cuándo tengo que devolver la moto?',
+                        'a' => 'Devuelve la moto idealmente a la hora acordada. Si la devuelves en el alquiler, puedes venir, de acuerdo, en cualquier momento del último día de alquiler, como muy tarde a medianoche, sin ninguna penalización. Si la devuelves en otro lugar, la hora acordada es vinculante.',
+                    ],
+                    [
+                        'q' => '¿Tengo que devolverla con el depósito lleno y limpia?',
+                        'a' => 'No. Con nosotros no repostas ni lavas. Solo vigila que no se encienda el testigo de reserva.&nbsp;',
+                    ],
+                    [
+                        'q' => 'Al devolverla en otro lugar, ¿puedo devolver la moto antes de lo acordado?&nbsp;',
+                        'a' => 'Salimos de Pelhřimov hacia el lugar acordado exactamente según la hora acordada, así que una devolución más temprana lamentablemente no es posible. Si te cambian los planes, avísanos: intentaremos ajustar la hora, pero depende de nuestra carga de trabajo actual.',
+                    ],
+                    [
+                        'q' => '¿De verdad puedo devolver la moto en cualquier lugar de la República Checa?&nbsp;',
+                        'a' => 'Sí, iremos a recoger la moto a cualquier lugar de la República Checa. El lugar de devolución lo indicas al reservar: puede ser un hotel, un aparcamiento, una estación o cualquier otra dirección.',
+                    ],
+                    [
+                        'q' => '¿Con cuánta antelación tengo que comunicar una devolución en otro lugar?&nbsp;',
+                        'a' => 'El lugar y la hora de devolución los indicas ya en el formulario de reserva.&nbsp;',
+                    ],
+                    [
+                        'q' => '¿Y si llego tarde al lugar de devolución?&nbsp;',
+                        'a' => 'Llámanos en cuanto sepas que no llegarás a tiempo. Lo resolveremos: normalmente te esperamos. Solo necesitamos saber con qué retraso contar para ajustar el plan del día.',
+                    ],
+                    [
+                        'q' => '¿Cómo se calcula el precio de una devolución en otro lugar?&nbsp;',
+                        'a' => 'El precio incluye 500 CZK por la carga, 500 CZK por la descarga y 20 CZK por cada kilómetro de la distancia del lugar de devolución al alquiler (y vuelta). Por ejemplo, al devolverla a 50 km de Pelhřimov pagas 500 + 500 + (50 × 2 × 20) = 3.000 CZK.',
+                    ],
+                    [
+                        'q' => '¿Pago la devolución en otro lugar aparte, o forma parte del precio del alquiler?&nbsp;',
+                        'a' => 'La devolución en otro lugar es un servicio adicional y se paga aparte, además del precio del alquiler.&nbsp;',
+                    ],
+                    [
+                        'q' => '¿Y si quiero recoger la moto en Pelhřimov pero devolverla en otro lugar? ¿Es posible?&nbsp;',
+                        'a' => 'Sí, puedes recoger la moto en nuestras instalaciones de Pelhřimov y devolverla donde necesites.&nbsp;',
+                    ],
+                    [
+                        'q' => '¿Qué debo tener listo cuando vengáis a por la moto?&nbsp;',
+                        'a' => 'Ten listas las llaves y todo el equipamiento que formó parte del alquiler. Revisamos juntos el estado de la moto y del equipamiento.',
+                    ],
+                ],
+            ],
             'cta' => [
                 'title' => 'Devolución de moto en cualquier lugar – MotoGo24',
                 'text' => 'MotoGo24 organiza la <strong>recogida de la moto</strong> desde el lugar que te conviene. <strong>24/7, sin depósito, sin preocupaciones.</strong>',

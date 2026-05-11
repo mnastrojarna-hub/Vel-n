@@ -408,6 +408,144 @@ return [
                 'label' => 'REZERWUJ Z ODBIOREM',
                 'href' => '/rezervace?return_delivery=1',
             ],
+            'when' => [
+                'title' => 'Kiedy zwrot w innym miejscu się przydaje',
+                'items' => [
+                    '<strong>Koniec roadtripu</strong>&nbsp;– wynajem zaczął się w Pelhřimovie, trasa kończy się gdzie indziej. Przekaż nam motocykl tam, gdzie kończy się twoja wyprawa.',
+                    '<strong>Podróż w jedną stronę</strong>&nbsp;– wracasz do domu pociągiem lub autobusem? Przekaż nam motocykl przed odjazdem.',
+                    '<strong>Hotel lub pensjonat</strong>&nbsp;– przekaż nam motocykl bezpośrednio przy miejscu zakwaterowania, żebyś nie musiał myśleć o powrocie do wypożyczalni.',
+                    '<strong>Impreza firmowa</strong>&nbsp;– wynajem dla grupy ze zwrotem bezpośrednio na miejscu imprezy.',
+                ],
+            ],
+            'why' => [
+                'title' => 'Dlaczego skorzystać ze zwrotu w innym miejscu',
+                'grid' => 'gr5',
+                'items' => [
+                    [
+                        'icon' => 'gfx/vyzvednuti-vraceni-motorky.svg',
+                        'title' => 'Elastyczność',
+                        'text' => 'Wybierasz miejsce zwrotu zgodnie z trasą – hotel, dworzec, parking albo gdziekolwiek indziej.',
+                    ],
+                    [
+                        'icon' => 'gfx/uspora-casu.svg',
+                        'title' => 'Oszczędność czasu',
+                        'text' => 'Oszczędzasz drogę powrotną do wypożyczalni i do domu – przekazujesz motocykl tam, gdzie jesteś.',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-pohodli.svg',
+                        'title' => 'Wygoda',
+                        'text' => 'Nie musisz się zastanawiać, jak dostać się z wypożyczalni do domu.&nbsp;',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-nonstop.svg',
+                        'title' => 'Obsługa całodobowa',
+                        'text' => 'Zwrot umawiamy na ustaloną godzinę – spokojnie wieczorem albo w weekend.',
+                    ],
+                    [
+                        'icon' => 'gfx/predani-motorky.svg',
+                        'title' => 'Prostota',
+                        'text' => 'Przekazujesz kluczyki i wyposażenie, my sprawdzamy motocykl i odjeżdżamy. Bez dodatkowych formalności.',
+                    ],
+                ],
+            ],
+            'process' => [
+                'title' => 'Jak przebiega zwrot w innym miejscu',
+                'grid' => 'gr5',
+                'steps' => [
+                    [
+                        'icon' => 'gfx/uzij-si-jizdu.svg',
+                        'title' => 'Wybierz miejsce i godzinę zwrotu',
+                        'text' => 'W formularzu rezerwacji podaj adres i godzinę, o której przekażesz motocykl.',
+                    ],
+                    [
+                        'icon' => 'gfx/vyber-vybavu.svg',
+                        'title' => 'Przygotuj wyposażenie',
+                        'text' => 'Przed przekazaniem przygotuj wyposażenie, które było częścią wynajmu.',
+                    ],
+                    [
+                        'icon' => 'gfx/cas-prevzeti-motorky.svg',
+                        'title' => 'Przyjedziemy o umówionej godzinie',
+                        'text' => 'Dotrzemy na umówione miejsce dokładnie o umówionej godzinie.',
+                    ],
+                    [
+                        'icon' => 'gfx/prevezmi-motorku.svg',
+                        'title' => 'Wspólnie sprawdzimy motocykl i wyposażenie',
+                        'text' => 'Sprawdzimy stan motocykla i wyposażenia, załadujemy i odjedziemy.&nbsp;',
+                    ],
+                    [
+                        'icon' => 'gfx/sleva-na-pristi-jizdu.svg',
+                        'title' => 'Na e-mail przyjdzie potwierdzenie',
+                        'text' => 'Potwierdzenie zakończenia wynajmu, faktura końcowa i kod rabatowy na kolejną rezerwację.',
+                    ],
+                ],
+            ],
+            'pricing' => [
+                'title' => 'Cennik zwrotu w innym miejscu',
+                'lead' => 'Cena składa się z trzech elementów:',
+                'items' => [
+                    '500 CZK za załadunek motocykla',
+                    '500 CZK za rozładunek motocykla',
+                    '20 CZK za każdy kilometr (odległość z miejsca zwrotu do wypożyczalni i z powrotem)',
+                ],
+                'example_title' => 'Przykład:',
+                'example_q' => 'Chcesz zwrócić motocykl 30 km od wypożyczalni?',
+                'example_a' => 'Zapłacisz 500 + 500 + (30 × 2 × 20) = 2 200 CZK.',
+            ],
+            'issues' => [
+                'title' => 'Niezgodności przy zwrocie',
+                'lead' => 'Przy zwrocie wspólnie sprawdzamy stan motocykla i wyposażenia. Gdyby wystąpiła któraś z poniższych sytuacji, sporządzamy protokół stwierdzonego uszkodzenia:',
+                'items' => [
+                    'brakujące wyposażenie',
+                    'uszkodzone wyposażenie',
+                    'uszkodzony motocykl',
+                ],
+                'closing' => 'Klient podpisuje protokół i otrzymuje jego kopię. Dalsze postępowanie reguluje umowa najmu i regulamin.',
+            ],
+            'faq' => [
+                'title' => 'Najczęściej zadawane pytania o zwrot motocykla w innym miejscu',
+                'items' => [
+                    [
+                        'q' => 'Do kiedy muszę zwrócić motocykl?',
+                        'a' => 'Zwróć motocykl najlepiej o umówionej godzinie. Jeśli zwracasz w wypożyczalni, możesz po uzgodnieniu przyjechać o dowolnej porze w ostatnim dniu wynajmu – najpóźniej do północy, bez żadnych sankcji. Jeśli zwracasz w innym miejscu, umówiona godzina jest wiążąca.',
+                    ],
+                    [
+                        'q' => 'Czy muszę zwrócić z pełnym bakiem i czysty?',
+                        'a' => 'Nie. U nas nie tankujesz ani nie myjesz. Tylko pilnuj, żeby nie świeciła kontrolka rezerwy.&nbsp;',
+                    ],
+                    [
+                        'q' => 'Czy przy zwrocie w innym miejscu mogę zwrócić motocykl wcześniej, niż się umówiliśmy?&nbsp;',
+                        'a' => 'Na umówione miejsce wyjeżdżamy z Pelhřimova dokładnie według umówionego czasu, więc wcześniejszy zwrot niestety nie jest możliwy. Jeśli zmienią ci się plany, odezwij się – spróbujemy dostosować godzinę, ale zależy to od naszego aktualnego obciążenia.',
+                    ],
+                    [
+                        'q' => 'Czy naprawdę mogę zwrócić motocykl gdziekolwiek w Czechach?&nbsp;',
+                        'a' => 'Tak, przyjedziemy po motocykl gdziekolwiek w Czechach. Miejsce zwrotu podajesz przy rezerwacji – może to być hotel, parking, dworzec lub jakikolwiek inny adres.',
+                    ],
+                    [
+                        'q' => 'Z jakim wyprzedzeniem muszę zgłosić zwrot w innym miejscu?&nbsp;',
+                        'a' => 'Miejsce i godzinę zwrotu podajesz już w formularzu rezerwacji.&nbsp;',
+                    ],
+                    [
+                        'q' => 'Co, jeśli spóźnię się na miejsce zwrotu?&nbsp;',
+                        'a' => 'Zadzwoń do nas, gdy tylko wiesz, że nie zdążysz na czas. Dogadamy się – zwykle na ciebie poczekamy. Musimy tylko wiedzieć, z jakim opóźnieniem mamy się liczyć, żeby dostosować plan dnia.',
+                    ],
+                    [
+                        'q' => 'Jak liczona jest cena za zwrot w innym miejscu?&nbsp;',
+                        'a' => 'Cena obejmuje 500 CZK za załadunek, 500 CZK za rozładunek i 20 CZK za każdy kilometr odległości z miejsca zwrotu do wypożyczalni (i z powrotem). Na przykład przy zwrocie 50 km od Pelhřimova zapłacisz 500 + 500 + (50 × 2 × 20) = 3 000 CZK.',
+                    ],
+                    [
+                        'q' => 'Czy za zwrot w innym miejscu płacę osobno, czy jest to część ceny wynajmu?&nbsp;',
+                        'a' => 'Zwrot w innym miejscu to usługa dodatkowa i płaci się za nią osobno, poza ceną wynajmu.&nbsp;',
+                    ],
+                    [
+                        'q' => 'Co, jeśli chcę odebrać motocykl w Pelhřimovie, ale zwrócić w innym miejscu – czy to możliwe?&nbsp;',
+                        'a' => 'Tak, możesz odebrać motocykl u nas w Pelhřimovie i zwrócić go tam, gdzie potrzebujesz.&nbsp;',
+                    ],
+                    [
+                        'q' => 'Co mam mieć przygotowane, gdy przyjedziecie po motocykl?&nbsp;',
+                        'a' => 'Miej przygotowane kluczyki i całe wyposażenie, które było częścią wynajmu. Wspólnie sprawdzimy stan motocykla i wyposażenia.',
+                    ],
+                ],
+            ],
             'cta' => [
                 'title' => 'Zwrot motocykla wszędzie – MotoGo24',
                 'text' => 'MotoGo24 organizuje <strong>odbiór motocykla</strong> z miejsca, które ci pasuje. <strong>Całodobowo, bez kaucji, bez zmartwień.</strong>',
