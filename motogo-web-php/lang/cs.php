@@ -34,6 +34,8 @@ return [
     'menu.catalog.naked' => 'Naked motorky',
     'menu.catalog.supermoto' => 'Supermoto motorky',
     'menu.catalog.kids' => 'Dětské motorky',
+    'menu.catalog.sport' => 'Sportovní motorky',
+    'menu.catalog.chopper' => 'Chopper / cruiser',
     'menu.howto' => 'Jak si půjčit motorku',
     'menu.howto.process' => 'Postup půjčení motorky',
     'menu.howto.pickup' => 'Převzetí v půjčovně',
@@ -508,6 +510,10 @@ return [
     'rez.cal.freeInRange' => 'Volné v termínu',
     'rez.cal.pickFromList' => 'Vyberte motorku ze seznamu',
     'rez.cal.selectMoto' => 'vyberte motorku',
+    'rez.cal.rangeOccupied' => 'V tomto rozsahu jsou obsazené dny. Vyberte jiný termín.',
+    'rez.cal.startSelected' => 'Vybrán začátek: <strong>{date}</strong> — klikněte na koncové datum',
+    'rez.cal.clearSelection' => 'ZRUŠIT VÝBĚR',
+    'rez.cal.selectedRange' => '<strong>MÁTE VYBRANÝ TERMÍN: {from} – {to}</strong>',
 
     // ===== Kamera / scanner dokladů (pages-rezervace-camera.js) =====
     'rez.cam.docs.id' => 'Doklad totožnosti',
@@ -723,7 +729,7 @@ return [
     'editRez.shorten.cta' => 'Zkrátit a vrátit peníze',
     'editRez.shorten.ctaNoRefund' => 'Zkrátit (bez vrácení peněz)',
     'editRez.shorten.confirming' => 'Zkracuji…',
-    'editRez.shorten.success' => 'Rezervace zkrácena. Vrácení {amount} Kč ({percent}%) jsme zahájili — peníze obvykle dorazí na původní kartu do 5–7 pracovních dnů.',
+    'editRez.shorten.success' => 'Rezervace zkrácena. Vrácení {amount} ({percent}%) jsme zahájili — peníze obvykle dorazí na původní kartu do 5–7 pracovních dnů.',
     'editRez.shorten.successNoRefund' => 'Rezervace zkrácena. Refund dle storno podmínek nebyl možný.',
     'editRez.shorten.reasonLabel' => 'Důvod (volitelné)',
 
@@ -735,7 +741,7 @@ return [
     'editRez.cancel.reasonPlaceholder' => 'Např. změna plánů',
     'editRez.cancel.cta' => 'Stornovat rezervaci',
     'editRez.cancel.confirming' => 'Stornuji…',
-    'editRez.cancel.success' => 'Rezervace byla stornována. Vrácení {amount} Kč ({percent}%) jsme zahájili — peníze obvykle dorazí na původní kartu do 5–7 pracovních dnů.',
+    'editRez.cancel.success' => 'Rezervace byla stornována. Vrácení {amount} ({percent}%) jsme zahájili — peníze obvykle dorazí na původní kartu do 5–7 pracovních dnů.',
     'editRez.cancel.confirmTitle' => 'Opravdu chcete stornovat rezervaci?',
     'editRez.cancel.confirmYes' => 'Ano, stornovat',
     'editRez.cancel.confirmNo' => 'Zrušit',
