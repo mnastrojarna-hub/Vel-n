@@ -130,9 +130,12 @@ return [
                 'keywords' => 'alquiler de motos República Checa',
             ],
             'h1' => 'Proceso de alquiler de moto',
-            'intro' => '<p>En <strong>Motogo24 – Alquiler de motos en Vysočina</strong>, alquilar es sencillo, rápido y justo. <strong>Sin depósito, con equipamiento incluido y servicio 24/7</strong>. Mira lo fácil que funciona.</p><p>&nbsp;</p><h2>Cómo alquilar una moto – Alquiler Motogo24 Vysočina</h2><p>En el <strong>alquiler de motos Motogo24</strong>, el <strong>proceso de alquiler</strong> es simple: <strong>reserva online</strong>, <strong>equipamiento incluido</strong>, <strong>sin depósito</strong>, <strong>servicio 24/7</strong> y posibilidad de <strong>entrega de la moto</strong>. Tanto si buscas una <strong>moto de viaje</strong> para el fin de semana, una <strong>moto deportiva</strong> para la adrenalina o una <strong>enduro</strong> para el todoterreno, con nosotros encontrarás la solución ideal.</p>',
+            'intro_p1' => 'En <strong>Motogo24 – alquiler de motos en Vysočina</strong> alquilar es sencillo, rápido y justo.&nbsp;<strong>Sin fianza, con el equipamiento del conductor incluido y servicio 24/7 para recoger y devolver la moto</strong>. Compruébalo tú mismo, lo fácil que es.',
+            'intro_h2' => 'Cómo alquilar una moto – alquiler Motogo24 – Vysočina',
+            'intro_p2' => 'En nuestro <strong>alquiler de motos</strong> lo haces todo online: elige una moto, elige una fecha y rellena el formulario de reserva, incluido el equipamiento y el método de entrega. Recoge la moto en Pelhřimov o pide la entrega en cualquier punto de la República Checa. Pagas online al completar la reserva.',
             'process' => [
                 'title' => 'Cómo se desarrolla el alquiler paso a paso',
+                'grid' => 'gr4',
                 'steps' => [
                     [
                         'icon' => 'gfx/vyber-motorku.svg',
@@ -176,9 +179,89 @@ return [
                     ],
                 ],
             ],
+            'gallery' => [
+                'image' => '/gfx/vybava_diagram_motogo24_1200px.svg',
+                'alt' => 'Diagrama del equipamiento&nbsp;Motogo24',
+                'group' => 'gal_1',
+            ],
+            'sizes' => [
+                'adult' => [
+                    'title' => 'Equipamiento de adulto',
+                    'headers' => [
+                        'Equipamiento',
+                        'Tallas disponibles',
+                    ],
+                    'rows' => [
+                        [
+                            'Casco',
+                            'XS, S, M, L, XL',
+                        ],
+                        [
+                            'Chaqueta',
+                            'M, L, XL, 2XL',
+                        ],
+                        [
+                            'Pantalones',
+                            'M, L, XL, 2XL',
+                        ],
+                        [
+                            'Guantes',
+                            'M, L, XL',
+                        ],
+                        [
+                            'Botas de moto',
+                            '39–46',
+                        ],
+                        [
+                            'Pasamontañas',
+                            'universal',
+                        ],
+                        [
+                            'Chaleco reflectante&nbsp;',
+                            'universal',
+                        ],
+                    ],
+                ],
+                'kid' => [
+                    'title' => 'Equipamiento infantil',
+                    'headers' => [
+                        'Equipamiento',
+                        'Tallas disponibles',
+                    ],
+                    'rows' => [
+                        [
+                            'Casco',
+                            'S (47–48 cm), M (49–50 cm), L (51–52 cm)',
+                        ],
+                        [
+                            'Chaqueta',
+                            '110–116, 122–128, 134–140, 146–152 cm',
+                        ],
+                        [
+                            'Pantalones',
+                            '110–116, 122–128, 134–140, 146–152 cm',
+                        ],
+                        [
+                            'Guantes',
+                            'XS/S (4–7 años), M/L (8–12 años)',
+                        ],
+                        [
+                            'Botas de moto',
+                            '29–35',
+                        ],
+                        [
+                            'Pasamontañas',
+                            'S (4–7 años), M (8–12 años)',
+                        ],
+                        [
+                            'Chaleco reflectante&nbsp;',
+                            'XS, S, M',
+                        ],
+                    ],
+                ],
+            ],
             'faq' => [
                 'title' => 'Preguntas frecuentes',
-                'more_link' => '/jak-pujcit/faq',
                 'items' => [
                     [
                         'q' => '¿Es necesario un depósito al alquilar?',
@@ -197,6 +280,7 @@ return [
                         'a' => 'Puedes devolver la moto en cualquier momento durante el último día del alquiler – incluso a medianoche.',
                     ],
                 ],
+                'more_link' => '/jak-pujcit/faq',
             ],
             'cta' => [
                 'title' => '¿Listo para rodar?',
@@ -209,6 +293,7 @@ return [
                     ],
                 ],
             ],
+            'intro' => '<p>En <strong>Motogo24 – Alquiler de motos en Vysočina</strong>, alquilar es sencillo, rápido y justo. <strong>Sin depósito, con equipamiento incluido y servicio 24/7</strong>. Mira lo fácil que funciona.</p><p>&nbsp;</p><h2>Cómo alquilar una moto – Alquiler Motogo24 Vysočina</h2><p>En el <strong>alquiler de motos Motogo24</strong>, el <strong>proceso de alquiler</strong> es simple: <strong>reserva online</strong>, <strong>equipamiento incluido</strong>, <strong>sin depósito</strong>, <strong>servicio 24/7</strong> y posibilidad de <strong>entrega de la moto</strong>. Tanto si buscas una <strong>moto de viaje</strong> para el fin de semana, una <strong>moto deportiva</strong> para la adrenalina o una <strong>enduro</strong> para el todoterreno, con nosotros encontrarás la solución ideal.</p>',
         ],
         'jak_pujcit_vyzvednuti' => [
             'seo' => [

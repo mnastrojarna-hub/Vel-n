@@ -1010,7 +1010,182 @@ return [
                 'keywords' => 'motorverhuur Tsjechië',
             ],
             'h1' => 'Huurproces motor',
-            'intro' => '<p>Bij <strong>Motogo24 – motorverhuur in Vysočina</strong> is huren eenvoudig, snel en eerlijk. <strong>Zonder borg, met uitrusting inbegrepen en 24/7 service</strong>.</p>',
+            'intro_p1' => 'Bij <strong>Motogo24 – motorverhuur in Vysočina</strong> is huren eenvoudig, snel en eerlijk.&nbsp;<strong>Zonder borg, met rijdersuitrusting inbegrepen en 24/7 service voor het ophalen en terugbrengen van de motor</strong>. Overtuig jezelf hoe makkelijk het werkt.',
+            'intro_h2' => 'Hoe een motor huren – verhuur Motogo24 – Vysočina',
+            'intro_p2' => 'Bij onze <strong>motorverhuur</strong> doe je alles online: kies een motor, kies een datum en vul het reserveringsformulier in – inclusief uitrusting en overdrachtsmethode. Haal de motor op in Pelhřimov of bestel bezorging overal in Tsjechië. Je betaalt online bij het voltooien van de reservering.',
+            'process' => [
+                'title' => 'Hoe de huur stap voor stap werkt',
+                'grid' => 'gr4',
+                'steps' => [
+                    [
+                        'icon' => 'gfx/vyber-motorku.svg',
+                        'title' => '1. Kies een motor',
+                        'text' => 'Bekijk ons aanbod&nbsp;<strong>toer-, supermoto-, naked- en kindermotoren</strong>&nbsp;en kies de juiste.',
+                    ],
+                    [
+                        'icon' => 'gfx/rezervace-online.svg',
+                        'title' => '2. Kies een datum',
+                        'text' => 'Kies in de kalender de datum waarop je wilt rijden. Je ziet welke motoren beschikbaar zijn.',
+                    ],
+                    [
+                        'icon' => 'gfx/kontaktni-udaje.svg',
+                        'title' => '3. Contactgegevens',
+                        'text' => 'Vul je naam, adres, e-mail en telefoon in.',
+                    ],
+                    [
+                        'icon' => 'gfx/cas-prevzeti-motorky.svg',
+                        'title' => '4. Ophaaltijd',
+                        'text' => 'Kies wanneer je de motor ophaalt of wanneer wij hem bezorgen.',
+                    ],
+                    [
+                        'icon' => 'gfx/vyzvednuti-vraceni-motorky.svg',
+                        'title' => '5. Kies de overdracht',
+                        'text' => 'Selecteer de ophaalmethode – persoonlijk in Pelhřimov, of bezorging overal in Tsjechië.&nbsp;',
+                    ],
+                    [
+                        'icon' => 'gfx/prevezmi-motorku.svg',
+                        'title' => '6. Kies de teruggave',
+                        'text' => 'Kies of je de motor terugbrengt op het verhuuradres of elders.',
+                    ],
+                    [
+                        'icon' => 'gfx/vyber-vybavu.svg',
+                        'title' => '7. Uitrusting',
+                        'text' => 'De basisuitrusting van de rijder is inbegrepen. Wil je uitrusting voor de passagier, laarzen huren of rijd je met je eigen uitrusting? Vink het aan bij de reservering.',
+                    ],
+                    [
+                        'icon' => 'gfx/zaplat.svg',
+                        'title' => '8. Besteloverzicht en betaling',
+                        'text' => 'Controleer het besteloverzicht, ga akkoord met de voorwaarden en betaal online met de kaart.',
+                    ],
+                    [
+                        'icon' => 'gfx/potvrzeni-rezervace.svg',
+                        'title' => '9. Bevestiging per e-mail',
+                        'text' => 'Na het voltooien van de reservering krijg je een e-mail met de reserverings- en betalingsbevestiging, een betalingsbewijs, een vooraf ingevuld huurcontract en basisinstructies voor het ophalen van de motor.',
+                    ],
+                    [
+                        'icon' => 'gfx/predani-motorky.svg',
+                        'title' => '10. Overdracht van de motor',
+                        'text' => 'Bij de overdracht controleren we de documenten, vullen we het contract aan en ondertekenen we het overdrachtsprotocol. We passen de maten van de uitrusting – en dan alleen nog starten!',
+                    ],
+                    [
+                        'icon' => 'gfx/uzij-si-jizdu.svg',
+                        'title' => '11. Geniet van de rit',
+                        'text' => 'De weg op – <strong>zonder borg, zonder stress</strong>. De rest is gewoon asfalt en vrijheid.',
+                    ],
+                    [
+                        'icon' => 'gfx/vrat-motorku-vcas.svg',
+                        'title' => '12. Breng de motor terug',
+                        'text' => 'Breng de motor op tijd terug – persoonlijk bij de verhuur in Pelhřimov, of op de afgesproken plek. Tanken of wassen is niet nodig.',
+                    ],
+                ],
+            ],
+            'gallery' => [
+                'image' => '/gfx/vybava_diagram_motogo24_1200px.svg',
+                'alt' => 'Uitrustingsdiagram&nbsp;Motogo24',
+                'group' => 'gal_1',
+            ],
+            'sizes' => [
+                'adult' => [
+                    'title' => 'Uitrusting voor volwassenen',
+                    'headers' => [
+                        'Uitrusting',
+                        'Beschikbare maten',
+                    ],
+                    'rows' => [
+                        [
+                            'Helm',
+                            'XS, S, M, L, XL',
+                        ],
+                        [
+                            'Jas',
+                            'M, L, XL, 2XL',
+                        ],
+                        [
+                            'Broek',
+                            'M, L, XL, 2XL',
+                        ],
+                        [
+                            'Handschoenen',
+                            'M, L, XL',
+                        ],
+                        [
+                            'Motorlaarzen',
+                            '39–46',
+                        ],
+                        [
+                            'Bivakmuts',
+                            'universeel',
+                        ],
+                        [
+                            'Reflecterend hesje&nbsp;',
+                            'universeel',
+                        ],
+                    ],
+                ],
+                'kid' => [
+                    'title' => 'Kinderuitrusting',
+                    'headers' => [
+                        'Uitrusting',
+                        'Beschikbare maten',
+                    ],
+                    'rows' => [
+                        [
+                            'Helm',
+                            'S (47–48 cm), M (49–50 cm), L (51–52 cm)',
+                        ],
+                        [
+                            'Jas',
+                            '110–116, 122–128, 134–140, 146–152 cm',
+                        ],
+                        [
+                            'Broek',
+                            '110–116, 122–128, 134–140, 146–152 cm',
+                        ],
+                        [
+                            'Handschoenen',
+                            'XS/S (4–7 jr), M/L (8–12 jr)',
+                        ],
+                        [
+                            'Motorlaarzen',
+                            '29–35',
+                        ],
+                        [
+                            'Bivakmuts',
+                            'S (4–7 jr), M (8–12 jr)',
+                        ],
+                        [
+                            'Reflecterend hesje&nbsp;',
+                            'XS, S, M',
+                        ],
+                    ],
+                ],
+            ],
+            'faq' => [
+                'title' => 'Veelgestelde vragen',
+                'items' => [
+                    [
+                        'q' => 'Is er een borg vereist bij het huren?',
+                        'a' => 'Nee.&nbsp;<strong>We verhuren zonder borg</strong>&nbsp;– eerlijk en zonder onnodige drempels.',
+                    ],
+                    [
+                        'q' => 'Is de uitrusting ook bij de huurprijs inbegrepen?',
+                        'a' => 'Ja. Elke rijder krijgt&nbsp;<strong>helm, jas, broek en handschoenen gratis</strong>.',
+                    ],
+                    [
+                        'q' => 'Waar kan ik de motor ophalen?',
+                        'a' => 'Het ophalen gebeurt in Pelhřimov, of we bieden&nbsp;<strong>motorbezorging</strong>&nbsp;naar een plek van jouw keuze.',
+                    ],
+                    [
+                        'q' => 'Wanneer moet ik de motor uiterlijk terugbrengen?',
+                        'a' => 'Je kunt de motor op elk moment van de laatste huurdag terugbrengen – zelfs om middernacht.',
+                    ],
+                ],
+                'more_link' => [
+                    'label' => 'Meer veelgestelde vragen',
+                    'href' => '/jak-pujcit/faq',
+                    'aria' => 'Lees meer veelgestelde vragen',
+                ],
+            ],
             'cta' => [
                 'title' => 'Klaar voor een rit?',
                 'text' => 'Reserveer vandaag online een motor en geniet van de <strong>vrijheid op twee wielen</strong>.',
@@ -1022,6 +1197,7 @@ return [
                     ],
                 ],
             ],
+            'intro' => '<p>Bij <strong>Motogo24 – motorverhuur in Vysočina</strong> is huren eenvoudig, snel en eerlijk. <strong>Zonder borg, met uitrusting inbegrepen en 24/7 service</strong>.</p>',
         ],
         'jak_pujcit_vyzvednuti' => [
             'seo' => [

@@ -130,9 +130,12 @@ return [
                 'keywords' => 'location moto République tchèque',
             ],
             'h1' => 'Processus de location',
-            'intro' => '<p>Chez <strong>Motogo24 – location de motos en Vysočina</strong>, louer est simple, rapide et équitable. <strong>Sans caution, avec équipement inclus et service 24h/24</strong>. Découvre comme c\'est facile.</p><p>&nbsp;</p><h2>Comment louer une moto – location Motogo24 Vysočina</h2><p>Chez la <strong>location de motos Motogo24</strong>, le <strong>processus de location</strong> est simple : <strong>réservation en ligne</strong>, <strong>équipement inclus</strong>, <strong>sans caution</strong>, <strong>service 24h/24</strong> et possibilité de <strong>livraison de moto</strong>. Que tu cherches une <strong>moto routière</strong> pour le week-end, une <strong>moto sportive</strong> pour l\'adrénaline ou une <strong>enduro</strong> pour le tout-terrain, tu trouveras chez nous la solution idéale.</p>',
+            'intro_p1' => 'Chez <strong>Motogo24 – location de motos en Vysočina</strong>, la location est simple, rapide et équitable.&nbsp;<strong>Sans caution, avec l\'équipement du conducteur inclus et un service 24/7 pour le retrait et le retour de la moto</strong>. Voyez par vous-même comme c\'est facile.',
+            'intro_h2' => 'Comment louer une moto – location Motogo24 – Vysočina',
+            'intro_p2' => 'Dans notre <strong>location de motos</strong>, vous faites tout en ligne : choisissez une moto, choisissez une date et remplissez le formulaire de réservation – y compris l\'équipement et le mode de remise. Récupérez la moto à Pelhřimov ou commandez la livraison partout en République tchèque. Vous payez en ligne à la finalisation de la réservation.',
             'process' => [
                 'title' => 'Comment se déroule la location étape par étape',
+                'grid' => 'gr4',
                 'steps' => [
                     [
                         'icon' => 'gfx/vyber-motorku.svg',
@@ -176,9 +179,89 @@ return [
                     ],
                 ],
             ],
+            'gallery' => [
+                'image' => '/gfx/vybava_diagram_motogo24_1200px.svg',
+                'alt' => 'Schéma de l\'équipement&nbsp;Motogo24',
+                'group' => 'gal_1',
+            ],
+            'sizes' => [
+                'adult' => [
+                    'title' => 'Équipement adulte',
+                    'headers' => [
+                        'Équipement',
+                        'Tailles disponibles',
+                    ],
+                    'rows' => [
+                        [
+                            'Casque',
+                            'XS, S, M, L, XL',
+                        ],
+                        [
+                            'Blouson',
+                            'M, L, XL, 2XL',
+                        ],
+                        [
+                            'Pantalon',
+                            'M, L, XL, 2XL',
+                        ],
+                        [
+                            'Gants',
+                            'M, L, XL',
+                        ],
+                        [
+                            'Bottes moto',
+                            '39–46',
+                        ],
+                        [
+                            'Cagoule',
+                            'universelle',
+                        ],
+                        [
+                            'Gilet réfléchissant&nbsp;',
+                            'universelle',
+                        ],
+                    ],
+                ],
+                'kid' => [
+                    'title' => 'Équipement enfant',
+                    'headers' => [
+                        'Équipement',
+                        'Tailles disponibles',
+                    ],
+                    'rows' => [
+                        [
+                            'Casque',
+                            'S (47–48 cm), M (49–50 cm), L (51–52 cm)',
+                        ],
+                        [
+                            'Blouson',
+                            '110–116, 122–128, 134–140, 146–152 cm',
+                        ],
+                        [
+                            'Pantalon',
+                            '110–116, 122–128, 134–140, 146–152 cm',
+                        ],
+                        [
+                            'Gants',
+                            'XS/S (4–7 ans), M/L (8–12 ans)',
+                        ],
+                        [
+                            'Bottes moto',
+                            '29–35',
+                        ],
+                        [
+                            'Cagoule',
+                            'S (4–7 ans), M (8–12 ans)',
+                        ],
+                        [
+                            'Gilet réfléchissant&nbsp;',
+                            'XS, S, M',
+                        ],
+                    ],
+                ],
+            ],
             'faq' => [
                 'title' => 'Questions fréquentes',
-                'more_link' => '/jak-pujcit/faq',
                 'items' => [
                     [
                         'q' => 'Une caution est-elle nécessaire pour la location ?',
@@ -197,6 +280,7 @@ return [
                         'a' => 'Tu peux rendre la moto à n\'importe quel moment durant le dernier jour de location – même à minuit.',
                     ],
                 ],
+                'more_link' => '/jak-pujcit/faq',
             ],
             'cta' => [
                 'title' => 'Prêt à rouler ?',
@@ -209,6 +293,7 @@ return [
                     ],
                 ],
             ],
+            'intro' => '<p>Chez <strong>Motogo24 – location de motos en Vysočina</strong>, louer est simple, rapide et équitable. <strong>Sans caution, avec équipement inclus et service 24h/24</strong>. Découvre comme c\'est facile.</p><p>&nbsp;</p><h2>Comment louer une moto – location Motogo24 Vysočina</h2><p>Chez la <strong>location de motos Motogo24</strong>, le <strong>processus de location</strong> est simple : <strong>réservation en ligne</strong>, <strong>équipement inclus</strong>, <strong>sans caution</strong>, <strong>service 24h/24</strong> et possibilité de <strong>livraison de moto</strong>. Que tu cherches une <strong>moto routière</strong> pour le week-end, une <strong>moto sportive</strong> pour l\'adrénaline ou une <strong>enduro</strong> pour le tout-terrain, tu trouveras chez nous la solution idéale.</p>',
         ],
         'jak_pujcit_vyzvednuti' => [
             'seo' => [

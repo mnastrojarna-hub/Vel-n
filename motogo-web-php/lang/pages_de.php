@@ -1010,7 +1010,182 @@ return [
                 'keywords' => 'Motorradvermietung Tschechien',
             ],
             'h1' => 'Mietvorgang Motorrad',
-            'intro' => '<p>Bei <strong>Motogo24 – Motorradvermietung in Vysočina</strong> ist die Miete einfach, schnell und fair. <strong>Ohne Kaution, mit Ausrüstung im Preis und Rund-um-die-Uhr-Service</strong>.</p>',
+            'intro_p1' => 'Bei <strong>Motogo24 – Motorradvermietung in Vysočina</strong> ist die Miete einfach, schnell und fair.&nbsp;<strong>Ohne Kaution, mit Fahrerausrüstung im Preis und Rund-um-die-Uhr-Service für Abholung und Rückgabe des Motorrads</strong>. Überzeuge dich, wie einfach es funktioniert.',
+            'intro_h2' => 'Wie miete ich ein Motorrad – Motogo24 Vermietung – Vysočina',
+            'intro_p2' => 'Bei unserer <strong>Motorradvermietung</strong> erledigst du alles online: Motorrad wählen, Termin wählen und das Reservierungsformular ausfüllen – inklusive Ausrüstung und Übergabeart. Hol das Motorrad in Pelhřimov ab oder bestelle die Lieferung überall in Tschechien. Du zahlst online beim Abschluss der Reservierung.',
+            'process' => [
+                'title' => 'Wie die Miete Schritt für Schritt abläuft',
+                'grid' => 'gr4',
+                'steps' => [
+                    [
+                        'icon' => 'gfx/vyber-motorku.svg',
+                        'title' => '1. Motorrad wählen',
+                        'text' => 'Sieh dir unser Angebot an&nbsp;<strong>Touren-, Supermoto-, Naked- und Kindermotorrädern</strong>&nbsp;an und wähle das passende aus.',
+                    ],
+                    [
+                        'icon' => 'gfx/rezervace-online.svg',
+                        'title' => '2. Termin wählen',
+                        'text' => 'Wähle im Kalender das Datum, an dem du losfahren willst. Du siehst, welche Motorräder frei sind.',
+                    ],
+                    [
+                        'icon' => 'gfx/kontaktni-udaje.svg',
+                        'title' => '3. Kontaktdaten',
+                        'text' => 'Gib Name, Adresse, E-Mail und Telefon ein.',
+                    ],
+                    [
+                        'icon' => 'gfx/cas-prevzeti-motorky.svg',
+                        'title' => '4. Abholzeit',
+                        'text' => 'Wähle, wann du das Motorrad abholst oder wann wir es liefern.',
+                    ],
+                    [
+                        'icon' => 'gfx/vyzvednuti-vraceni-motorky.svg',
+                        'title' => '5. Übergabe wählen',
+                        'text' => 'Wähle die Art der Abholung – persönlich in Pelhřimov oder Lieferung überall in Tschechien.&nbsp;',
+                    ],
+                    [
+                        'icon' => 'gfx/prevezmi-motorku.svg',
+                        'title' => '6. Rückgabe wählen',
+                        'text' => 'Wähle, ob du das Motorrad an der Vermietungsadresse oder anderswo zurückgibst.',
+                    ],
+                    [
+                        'icon' => 'gfx/vyber-vybavu.svg',
+                        'title' => '7. Ausrüstung',
+                        'text' => 'Die Grundausrüstung des Fahrers ist im Preis. Möchtest du Ausrüstung für den Sozius, Stiefel leihen oder fährst du mit eigener Ausrüstung? Hak es bei der Reservierung an.',
+                    ],
+                    [
+                        'icon' => 'gfx/zaplat.svg',
+                        'title' => '8. Bestellübersicht und Zahlung',
+                        'text' => 'Überprüfe die Bestellübersicht, stimme den Bedingungen zu und zahle online per Karte.',
+                    ],
+                    [
+                        'icon' => 'gfx/potvrzeni-rezervace.svg',
+                        'title' => '9. Bestätigung per E-Mail',
+                        'text' => 'Nach Abschluss der Reservierung erhältst du eine E-Mail mit der Reservierungs- und Zahlungsbestätigung, einer Zahlungsquittung, einem vorausgefüllten Mietvertrag und grundlegenden Anweisungen zur Abholung des Motorrads.',
+                    ],
+                    [
+                        'icon' => 'gfx/predani-motorky.svg',
+                        'title' => '10. Motorradübergabe',
+                        'text' => 'Bei der Übergabe prüfen wir die Dokumente, vervollständigen den Vertrag und unterschreiben das Übergabeprotokoll. Die Ausrüstungsgrößen werden anprobiert – und dann nur noch starten!',
+                    ],
+                    [
+                        'icon' => 'gfx/uzij-si-jizdu.svg',
+                        'title' => '11. Genieße die Fahrt',
+                        'text' => 'Auf die Straße – <strong>ohne Kaution, ohne Stress</strong>. Der Rest ist nur Asphalt und Freiheit.',
+                    ],
+                    [
+                        'icon' => 'gfx/vrat-motorku-vcas.svg',
+                        'title' => '12. Motorrad zurückgeben',
+                        'text' => 'Gib das Motorrad pünktlich zurück – persönlich bei der Vermietung in Pelhřimov oder am vereinbarten Ort. Kein Tanken oder Waschen nötig.',
+                    ],
+                ],
+            ],
+            'gallery' => [
+                'image' => '/gfx/vybava_diagram_motogo24_1200px.svg',
+                'alt' => 'Ausrüstungsdiagramm&nbsp;Motogo24',
+                'group' => 'gal_1',
+            ],
+            'sizes' => [
+                'adult' => [
+                    'title' => 'Erwachsenenausrüstung',
+                    'headers' => [
+                        'Ausrüstung',
+                        'Verfügbare Größen',
+                    ],
+                    'rows' => [
+                        [
+                            'Helm',
+                            'XS, S, M, L, XL',
+                        ],
+                        [
+                            'Jacke',
+                            'M, L, XL, 2XL',
+                        ],
+                        [
+                            'Hose',
+                            'M, L, XL, 2XL',
+                        ],
+                        [
+                            'Handschuhe',
+                            'M, L, XL',
+                        ],
+                        [
+                            'Motorradstiefel',
+                            '39–46',
+                        ],
+                        [
+                            'Sturmhaube',
+                            'universal',
+                        ],
+                        [
+                            'Warnweste&nbsp;',
+                            'universal',
+                        ],
+                    ],
+                ],
+                'kid' => [
+                    'title' => 'Kinderausrüstung',
+                    'headers' => [
+                        'Ausrüstung',
+                        'Verfügbare Größen',
+                    ],
+                    'rows' => [
+                        [
+                            'Helm',
+                            'S (47–48 cm), M (49–50 cm), L (51–52 cm)',
+                        ],
+                        [
+                            'Jacke',
+                            '110–116, 122–128, 134–140, 146–152 cm',
+                        ],
+                        [
+                            'Hose',
+                            '110–116, 122–128, 134–140, 146–152 cm',
+                        ],
+                        [
+                            'Handschuhe',
+                            'XS/S (4–7 J.), M/L (8–12 J.)',
+                        ],
+                        [
+                            'Motorradstiefel',
+                            '29–35',
+                        ],
+                        [
+                            'Sturmhaube',
+                            'S (4–7 J.), M (8–12 J.)',
+                        ],
+                        [
+                            'Warnweste&nbsp;',
+                            'XS, S, M',
+                        ],
+                    ],
+                ],
+            ],
+            'faq' => [
+                'title' => 'Häufig gestellte Fragen',
+                'items' => [
+                    [
+                        'q' => 'Ist bei der Miete eine Kaution erforderlich?',
+                        'a' => 'Nein.&nbsp;<strong>Wir vermieten ohne Kaution</strong>&nbsp;– fair und ohne unnötige Hürden.',
+                    ],
+                    [
+                        'q' => 'Ist die Ausrüstung auch im Mietpreis enthalten?',
+                        'a' => 'Ja. Jeder Fahrer erhält&nbsp;<strong>Helm, Jacke, Hose und Handschuhe gratis</strong>.',
+                    ],
+                    [
+                        'q' => 'Wo kann ich das Motorrad abholen?',
+                        'a' => 'Die Abholung erfolgt in Pelhřimov, oder wir bieten&nbsp;<strong>Motorradlieferung</strong>&nbsp;an einen Ort deiner Wahl.',
+                    ],
+                    [
+                        'q' => 'Bis wann muss ich das Motorrad zurückgeben?',
+                        'a' => 'Du kannst das Motorrad jederzeit am letzten Miettag zurückgeben – auch um Mitternacht.',
+                    ],
+                ],
+                'more_link' => [
+                    'label' => 'Weitere häufig gestellte Fragen',
+                    'href' => '/jak-pujcit/faq',
+                    'aria' => 'Weitere häufig gestellte Fragen lesen',
+                ],
+            ],
             'cta' => [
                 'title' => 'Bereit für die Fahrt?',
                 'text' => 'Reserviere dein Motorrad noch heute online und genieße die <strong>Freiheit auf zwei Rädern</strong>.',
@@ -1022,6 +1197,7 @@ return [
                     ],
                 ],
             ],
+            'intro' => '<p>Bei <strong>Motogo24 – Motorradvermietung in Vysočina</strong> ist die Miete einfach, schnell und fair. <strong>Ohne Kaution, mit Ausrüstung im Preis und Rund-um-die-Uhr-Service</strong>.</p>',
         ],
         'jak_pujcit_vyzvednuti' => [
             'seo' => [

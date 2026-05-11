@@ -130,9 +130,12 @@ return [
                 'keywords' => 'motorcycle rental Czech Republic',
             ],
             'h1' => 'Rental process',
-            'intro' => '<p>At <strong>Motogo24 – motorcycle rental in Vysočina</strong>, renting is simple, quick and fair. <strong>Without deposit, with gear included and 24/7 service</strong>. See how easy it is.</p><p>&nbsp;</p><h2>How to rent a motorcycle – Motogo24 Vysočina rental</h2><p>At the <strong>Motogo24 motorcycle rental</strong>, the <strong>rental process</strong> is simple: <strong>online booking</strong>, <strong>gear included</strong>, <strong>without deposit</strong>, <strong>24/7 service</strong> and the option of <strong>motorcycle delivery</strong>. Whether you are looking for a <strong>touring motorcycle</strong> for the weekend, a <strong>sports motorcycle</strong> for adrenaline or an <strong>enduro</strong> for off-road, you will find the ideal solution with us.</p>',
+            'intro_p1' => 'At <strong>Motogo24 – motorcycle rental in Vysočina</strong> renting is simple, quick and fair.&nbsp;<strong>No deposit, with rider gear included and 24/7 service for picking up and returning the motorcycle</strong>. See for yourself how easily it works.',
+            'intro_h2' => 'How to rent a motorcycle – Motogo24 rental – Vysočina',
+            'intro_p2' => 'At our <strong>motorcycle rental</strong> you can do everything online: choose a motorcycle, pick a date and fill in the booking form – including gear and handover method. Pick up the motorcycle in Pelhřimov, or order delivery anywhere in the Czech Republic. You pay online when completing the booking.',
             'process' => [
                 'title' => 'How the rental works step by step',
+                'grid' => 'gr4',
                 'steps' => [
                     [
                         'icon' => 'gfx/vyber-motorku.svg',
@@ -176,9 +179,89 @@ return [
                     ],
                 ],
             ],
+            'gallery' => [
+                'image' => '/gfx/vybava_diagram_motogo24_1200px.svg',
+                'alt' => 'Gear diagram&nbsp;Motogo24',
+                'group' => 'gal_1',
+            ],
+            'sizes' => [
+                'adult' => [
+                    'title' => 'Adult gear',
+                    'headers' => [
+                        'Gear',
+                        'Available sizes',
+                    ],
+                    'rows' => [
+                        [
+                            'Helmet',
+                            'XS, S, M, L, XL',
+                        ],
+                        [
+                            'Jacket',
+                            'M, L, XL, 2XL',
+                        ],
+                        [
+                            'Trousers',
+                            'M, L, XL, 2XL',
+                        ],
+                        [
+                            'Gloves',
+                            'M, L, XL',
+                        ],
+                        [
+                            'Motorcycle boots',
+                            '39–46',
+                        ],
+                        [
+                            'Balaclava',
+                            'universal',
+                        ],
+                        [
+                            'Hi-vis vest&nbsp;',
+                            'universal',
+                        ],
+                    ],
+                ],
+                'kid' => [
+                    'title' => 'Kids\' gear',
+                    'headers' => [
+                        'Gear',
+                        'Available sizes',
+                    ],
+                    'rows' => [
+                        [
+                            'Helmet',
+                            'S (47–48 cm), M (49–50 cm), L (51–52 cm)',
+                        ],
+                        [
+                            'Jacket',
+                            '110–116, 122–128, 134–140, 146–152 cm',
+                        ],
+                        [
+                            'Trousers',
+                            '110–116, 122–128, 134–140, 146–152 cm',
+                        ],
+                        [
+                            'Gloves',
+                            'XS/S (4–7 yrs), M/L (8–12 yrs)',
+                        ],
+                        [
+                            'Motorcycle boots',
+                            '29–35',
+                        ],
+                        [
+                            'Balaclava',
+                            'S (4–7 yrs), M (8–12 yrs)',
+                        ],
+                        [
+                            'Hi-vis vest&nbsp;',
+                            'XS, S, M',
+                        ],
+                    ],
+                ],
+            ],
             'faq' => [
                 'title' => 'Frequently asked questions',
-                'more_link' => '/jak-pujcit/faq',
                 'items' => [
                     [
                         'q' => 'Is a deposit required when renting?',
@@ -197,6 +280,7 @@ return [
                         'a' => 'You can return the motorcycle any time during the last day of the rental – even at midnight.',
                     ],
                 ],
+                'more_link' => '/jak-pujcit/faq',
             ],
             'cta' => [
                 'title' => 'Ready to ride?',
@@ -209,6 +293,7 @@ return [
                     ],
                 ],
             ],
+            'intro' => '<p>At <strong>Motogo24 – motorcycle rental in Vysočina</strong>, renting is simple, quick and fair. <strong>Without deposit, with gear included and 24/7 service</strong>. See how easy it is.</p><p>&nbsp;</p><h2>How to rent a motorcycle – Motogo24 Vysočina rental</h2><p>At the <strong>Motogo24 motorcycle rental</strong>, the <strong>rental process</strong> is simple: <strong>online booking</strong>, <strong>gear included</strong>, <strong>without deposit</strong>, <strong>24/7 service</strong> and the option of <strong>motorcycle delivery</strong>. Whether you are looking for a <strong>touring motorcycle</strong> for the weekend, a <strong>sports motorcycle</strong> for adrenaline or an <strong>enduro</strong> for off-road, you will find the ideal solution with us.</p>',
         ],
         'jak_pujcit_vyzvednuti' => [
             'seo' => [

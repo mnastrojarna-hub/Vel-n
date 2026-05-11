@@ -1010,7 +1010,182 @@ return [
                 'keywords' => 'wypożyczalnia motocykli Czechy',
             ],
             'h1' => 'Proces wypożyczenia motocykla',
-            'intro' => '<p>W <strong>Motogo24 – wypożyczalni motocykli w Vysočina</strong> wypożyczanie jest proste, szybkie i uczciwe. <strong>Bez kaucji, z wyposażeniem w cenie i obsługą całodobową</strong>.</p>',
+            'intro_p1' => 'W <strong>Motogo24 – wypożyczalni motocykli w Vysočinie</strong> wypożyczanie jest proste, szybkie i uczciwe.&nbsp;<strong>Bez kaucji, z wyposażeniem kierowcy w cenie i obsługą całodobową przy odbiorze i zwrocie motocykla</strong>. Przekonaj się, jak łatwo to działa.',
+            'intro_h2' => 'Jak wypożyczyć motocykl – wypożyczalnia Motogo24 – Vysočina',
+            'intro_p2' => 'W naszej <strong>wypożyczalni motocykli</strong> wszystko załatwisz online: wybierz motocykl, wybierz termin i wypełnij formularz rezerwacji – wraz z wyposażeniem i sposobem przekazania. Odbierz motocykl w Pelhřimovie albo zamów podstawienie w dowolnym punkcie Czech. Płacisz online przy finalizacji rezerwacji.',
+            'process' => [
+                'title' => 'Jak przebiega wynajem krok po kroku',
+                'grid' => 'gr4',
+                'steps' => [
+                    [
+                        'icon' => 'gfx/vyber-motorku.svg',
+                        'title' => '1. Wybierz motocykl',
+                        'text' => 'Przejrzyj naszą ofertę&nbsp;<strong>motocykli turystycznych, supermoto, naked i dziecięcych</strong>&nbsp;i wybierz właściwy.',
+                    ],
+                    [
+                        'icon' => 'gfx/rezervace-online.svg',
+                        'title' => '2. Wybierz termin',
+                        'text' => 'Wybierz w kalendarzu datę, w której chcesz wyruszyć. Zobaczysz, które motocykle są wolne.',
+                    ],
+                    [
+                        'icon' => 'gfx/kontaktni-udaje.svg',
+                        'title' => '3. Dane kontaktowe',
+                        'text' => 'Wpisz imię, adres, e-mail i telefon.',
+                    ],
+                    [
+                        'icon' => 'gfx/cas-prevzeti-motorky.svg',
+                        'title' => '4. Godzina odbioru',
+                        'text' => 'Wybierz, kiedy odbierzesz motocykl albo kiedy go podstawimy.',
+                    ],
+                    [
+                        'icon' => 'gfx/vyzvednuti-vraceni-motorky.svg',
+                        'title' => '5. Wybierz przekazanie',
+                        'text' => 'Wybierz sposób odbioru – osobiście w Pelhřimovie albo podstawienie w dowolnym punkcie Czech.&nbsp;',
+                    ],
+                    [
+                        'icon' => 'gfx/prevezmi-motorku.svg',
+                        'title' => '6. Wybierz zwrot',
+                        'text' => 'Wybierz, czy zwrócisz motocykl pod adresem wypożyczalni, czy gdzie indziej.',
+                    ],
+                    [
+                        'icon' => 'gfx/vyber-vybavu.svg',
+                        'title' => '7. Wyposażenie',
+                        'text' => 'Podstawowe wyposażenie kierowcy jest w cenie. Chcesz wyposażenie dla pasażera, wypożyczyć buty albo jedziesz z własnym sprzętem? Zaznacz przy rezerwacji.',
+                    ],
+                    [
+                        'icon' => 'gfx/zaplat.svg',
+                        'title' => '8. Podsumowanie zamówienia i płatność',
+                        'text' => 'Sprawdź podsumowanie zamówienia, zaakceptuj warunki i zapłać online kartą.',
+                    ],
+                    [
+                        'icon' => 'gfx/potvrzeni-rezervace.svg',
+                        'title' => '9. Potwierdzenie e-mailem',
+                        'text' => 'Po sfinalizowaniu rezerwacji otrzymasz e-mail z potwierdzeniem rezerwacji i płatności, dowodem płatności, wstępnie wypełnioną umową najmu i podstawowymi instrukcjami odbioru motocykla.',
+                    ],
+                    [
+                        'icon' => 'gfx/predani-motorky.svg',
+                        'title' => '10. Przekazanie motocykla',
+                        'text' => 'Przy przekazaniu sprawdzimy dokumenty, uzupełnimy umowę i podpiszemy protokół przekazania. Przymierzamy rozmiary wyposażenia – i potem już tylko odpalić!',
+                    ],
+                    [
+                        'icon' => 'gfx/uzij-si-jizdu.svg',
+                        'title' => '11. Ciesz się jazdą',
+                        'text' => 'W trasę – <strong>bez kaucji, bez stresu</strong>. Reszta to już tylko asfalt i wolność.',
+                    ],
+                    [
+                        'icon' => 'gfx/vrat-motorku-vcas.svg',
+                        'title' => '12. Zwróć motocykl',
+                        'text' => 'Zwróć motocykl na czas – osobiście do wypożyczalni w Pelhřimovie albo na umówione miejsce. Nie trzeba tankować ani myć.',
+                    ],
+                ],
+            ],
+            'gallery' => [
+                'image' => '/gfx/vybava_diagram_motogo24_1200px.svg',
+                'alt' => 'Diagram wyposażenia&nbsp;Motogo24',
+                'group' => 'gal_1',
+            ],
+            'sizes' => [
+                'adult' => [
+                    'title' => 'Wyposażenie dla dorosłych',
+                    'headers' => [
+                        'Wyposażenie',
+                        'Dostępne rozmiary',
+                    ],
+                    'rows' => [
+                        [
+                            'Kask',
+                            'XS, S, M, L, XL',
+                        ],
+                        [
+                            'Kurtka',
+                            'M, L, XL, 2XL',
+                        ],
+                        [
+                            'Spodnie',
+                            'M, L, XL, 2XL',
+                        ],
+                        [
+                            'Rękawice',
+                            'M, L, XL',
+                        ],
+                        [
+                            'Buty motocyklowe',
+                            '39–46',
+                        ],
+                        [
+                            'Kominiarka',
+                            'uniwersalny',
+                        ],
+                        [
+                            'Kamizelka odblaskowa&nbsp;',
+                            'uniwersalny',
+                        ],
+                    ],
+                ],
+                'kid' => [
+                    'title' => 'Wyposażenie dziecięce',
+                    'headers' => [
+                        'Wyposażenie',
+                        'Dostępne rozmiary',
+                    ],
+                    'rows' => [
+                        [
+                            'Kask',
+                            'S (47–48 cm), M (49–50 cm), L (51–52 cm)',
+                        ],
+                        [
+                            'Kurtka',
+                            '110–116, 122–128, 134–140, 146–152 cm',
+                        ],
+                        [
+                            'Spodnie',
+                            '110–116, 122–128, 134–140, 146–152 cm',
+                        ],
+                        [
+                            'Rękawice',
+                            'XS/S (4–7 lat), M/L (8–12 lat)',
+                        ],
+                        [
+                            'Buty motocyklowe',
+                            '29–35',
+                        ],
+                        [
+                            'Kominiarka',
+                            'S (4–7 lat), M (8–12 lat)',
+                        ],
+                        [
+                            'Kamizelka odblaskowa&nbsp;',
+                            'XS, S, M',
+                        ],
+                    ],
+                ],
+            ],
+            'faq' => [
+                'title' => 'Najczęściej zadawane pytania',
+                'items' => [
+                    [
+                        'q' => 'Czy przy wynajmie wymagana jest kaucja?',
+                        'a' => 'Nie.&nbsp;<strong>Wypożyczamy bez kaucji</strong>&nbsp;– uczciwie i bez zbędnych przeszkód.',
+                    ],
+                    [
+                        'q' => 'Czy wyposażenie też jest w cenie wynajmu?',
+                        'a' => 'Tak. Każdy kierowca dostaje&nbsp;<strong>kask, kurtkę, spodnie i rękawice gratis</strong>.',
+                    ],
+                    [
+                        'q' => 'Gdzie mogę odebrać motocykl?',
+                        'a' => 'Odbiór odbywa się w Pelhřimovie, albo oferujemy&nbsp;<strong>podstawienie motocykla</strong>&nbsp;w wybrane przez ciebie miejsce.',
+                    ],
+                    [
+                        'q' => 'Do kiedy muszę zwrócić motocykl?',
+                        'a' => 'Motocykl możesz zwrócić o dowolnej porze w ostatnim dniu wynajmu – nawet o północy.',
+                    ],
+                ],
+                'more_link' => [
+                    'label' => 'Więcej najczęściej zadawanych pytań',
+                    'href' => '/jak-pujcit/faq',
+                    'aria' => 'Przeczytaj więcej najczęściej zadawanych pytań',
+                ],
+            ],
             'cta' => [
                 'title' => 'Gotowy na jazdę?',
                 'text' => 'Zarezerwuj motocykl online już dziś i ciesz się <strong>wolnością na dwóch kołach</strong>.',
@@ -1022,6 +1197,7 @@ return [
                     ],
                 ],
             ],
+            'intro' => '<p>W <strong>Motogo24 – wypożyczalni motocykli w Vysočina</strong> wypożyczanie jest proste, szybkie i uczciwe. <strong>Bez kaucji, z wyposażeniem w cenie i obsługą całodobową</strong>.</p>',
         ],
         'jak_pujcit_vyzvednuti' => [
             'seo' => [
