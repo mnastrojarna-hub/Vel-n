@@ -11,6 +11,66 @@ return [
             ],
             'h1' => 'Was ist im Mietpreis enthalten',
             'intro' => 'Bei <strong>MotoGo24 – Motorradvermietung in Vysočina</strong> bekommst du faire Bedingungen. <strong>Ohne Kaution, mit Fahrerausrüstung im Preis und Rund-um-die-Uhr-Service</strong>. Alles, was du für eine sichere und entspannte Fahrt brauchst, ist enthalten.',
+            'gear' => [
+                'basic' => [
+                    'title' => 'Grundausrüstung im Preis',
+                    'lead' => 'Jeder Fahrer hat eine komplette <strong>Motorradausrüstung</strong> zur Verfügung, die im Mietpreis enthalten ist:',
+                    'items' => [
+                        '<strong>Helm</strong>',
+                        '<strong>Motorradjacke</strong> mit Protektoren',
+                        '<strong>Motorradhose</strong>',
+                        '<strong>Handschuhe</strong>',
+                    ],
+                    'note1' => 'Die Ausrüstung ist in mehreren Größen verfügbar und wird regelmäßig gereinigt und geprüft.',
+                    'note2' => 'Ausgewählte Motorräder sind mit Koffern ausgestattet – siehe Motorraddetail im Katalog.',
+                ],
+                'extra' => [
+                    'title' => 'Zusatzausrüstung gegen Aufpreis',
+                    'lead' => 'Fährst du mit Sozius oder möchtest du Motorradstiefel? Du kannst sie bei der Reservierung dazubuchen:',
+                    'items' => [
+                        'Ausrüstung für den Sozius (Helm, Jacke, Hose, Handschuhe)',
+                        'Motorradstiefel – für Fahrer und Sozius',
+                    ],
+                ],
+                'services' => [
+                    'title' => 'Zusatzleistungen gegen Aufpreis',
+                    'items' => [
+                        'Lieferung des Motorrads an einen vereinbarten Ort überall in Tschechien',
+                        'Rückgabe des Motorrads an einem anderen Ort als der Vermietungsadresse',
+                    ],
+                ],
+            ],
+            'benefits' => [
+                'title' => 'Weitere Vorteile im Preis',
+                'grid' => 'gr5',
+                'items' => [
+                    [
+                        'icon' => 'gfx/rezervace-online.svg',
+                        'title' => 'Online-Reservierung',
+                        'text' => 'schnelle und einfache Reservierung bequem von zu Hause.',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-nonstop.svg',
+                        'title' => 'Rund-um-die-Uhr-Service',
+                        'text' => 'reservieren und losfahren jederzeit – tagsüber, nachts und am Wochenende. Die Abholzeit wählst du bei der Reservierung.',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-bez-kauce.svg',
+                        'title' => 'Ohne Kaution',
+                        'text' => 'keine Kaution bei der Miete.',
+                    ],
+                    [
+                        'icon' => 'gfx/jasne-podminky.svg',
+                        'title' => 'Klare Bedingungen',
+                        'text' => 'keine versteckten Gebühren.',
+                    ],
+                    [
+                        'icon' => 'gfx/sleva-na-pristi-jizdu.svg',
+                        'title' => 'Rabatt auf die nächste Reservierung',
+                        'text' => 'nach jeder abgeschlossenen Miete erhältst du einen Rabattcode für die nächste Reservierung.&nbsp;',
+                    ],
+                ],
+            ],
             'cta' => [
                 'title' => 'Ausrüstung im Preis – Motorradvermietung MotoGo24 – Vysočina',
                 'text' => '<strong>MotoGo24 ist eine moderne Motorradvermietung in Vysočina</strong> mit Fahrerausrüstung im Preis, Vermietung ohne Kaution und Rund-um-die-Uhr-Service. Wähle ein <strong>Touren-, Supermoto-, Naked- oder Kinder-Motorrad</strong> und reserviere online.',

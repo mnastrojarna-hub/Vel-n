@@ -514,6 +514,66 @@ return [
             ],
             'h1' => 'Qué incluye el precio del alquiler de motos',
             'intro' => 'En <strong>MotoGo24 – alquiler de motos en Vysočina</strong> obtienes condiciones justas. <strong>Sin depósito, con equipo del conductor incluido y servicio 24/7</strong>. Todo lo que necesitas para una conducción segura y agradable está incluido.',
+            'gear' => [
+                'basic' => [
+                    'title' => 'Equipamiento básico incluido',
+                    'lead' => 'Cada conductor dispone de un <strong>equipamiento de moto</strong> completo, incluido en el precio del alquiler:',
+                    'items' => [
+                        '<strong>casco</strong>',
+                        '<strong>chaqueta de moto</strong> con protecciones',
+                        '<strong>pantalones de moto</strong>',
+                        '<strong>guantes</strong>',
+                    ],
+                    'note1' => 'El equipamiento está disponible en varias tallas y lo limpiamos y revisamos con regularidad.',
+                    'note2' => 'Algunas motos llevan maletas – consulta el detalle de la moto en el catálogo.',
+                ],
+                'extra' => [
+                    'title' => 'Equipamiento adicional con suplemento',
+                    'lead' => '¿Vas con pasajero o quieres botas de moto? Puedes añadirlo al reservar:',
+                    'items' => [
+                        'equipamiento para el pasajero (casco, chaqueta, pantalones, guantes)',
+                        'botas de moto – para el conductor y el pasajero',
+                    ],
+                ],
+                'services' => [
+                    'title' => 'Servicios adicionales con suplemento',
+                    'items' => [
+                        'entrega de la moto en un lugar acordado en cualquier punto de la República Checa',
+                        'devolución de la moto en un lugar distinto a la dirección del alquiler',
+                    ],
+                ],
+            ],
+            'benefits' => [
+                'title' => 'Otras ventajas incluidas',
+                'grid' => 'gr5',
+                'items' => [
+                    [
+                        'icon' => 'gfx/rezervace-online.svg',
+                        'title' => 'Reserva online',
+                        'text' => 'reserva rápida y sencilla desde la comodidad de tu casa.',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-nonstop.svg',
+                        'title' => 'Servicio 24/7',
+                        'text' => 'reserva y sal en cualquier momento: de día, de noche o el fin de semana. Eliges la hora de recogida al reservar.',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-bez-kauce.svg',
+                        'title' => 'Sin fianza',
+                        'text' => 'sin fianza al alquilar.',
+                    ],
+                    [
+                        'icon' => 'gfx/jasne-podminky.svg',
+                        'title' => 'Condiciones claras',
+                        'text' => 'sin tarifas ocultas.',
+                    ],
+                    [
+                        'icon' => 'gfx/sleva-na-pristi-jizdu.svg',
+                        'title' => 'Descuento en tu próxima reserva',
+                        'text' => 'tras cada alquiler completado recibes un código de descuento para tu próxima reserva.&nbsp;',
+                    ],
+                ],
+            ],
             'cta' => [
                 'title' => 'Equipo incluido – alquiler de motos MotoGo24 – Vysočina',
                 'text' => '<strong>MotoGo24 es un alquiler de motos moderno en Vysočina</strong> con equipo del conductor incluido, alquiler sin depósito y servicio 24/7. Elige una <strong>moto de turismo, supermoto, naked o infantil</strong> y reserva online.',

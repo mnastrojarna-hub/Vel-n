@@ -514,6 +514,66 @@ return [
             ],
             'h1' => 'What is included in the motorcycle rental price',
             'intro' => 'At <strong>MotoGo24 – motorcycle rental in Vysočina</strong> you get fair conditions. <strong>Without deposit, with rider gear included and 24/7 service</strong>. Everything you need for a safe and pleasant ride is part of the rental.',
+            'gear' => [
+                'basic' => [
+                    'title' => 'Basic gear included',
+                    'lead' => 'Every rider has a complete set of <strong>motorcycle gear</strong> included in the rental price:',
+                    'items' => [
+                        '<strong>helmet</strong>',
+                        '<strong>motorcycle jacket</strong> with protectors',
+                        '<strong>motorcycle trousers</strong>',
+                        '<strong>gloves</strong>',
+                    ],
+                    'note1' => 'The gear is available in several sizes and we clean and check it regularly.',
+                    'note2' => 'Selected motorcycles are fitted with top cases – see the motorcycle detail in the catalogue.',
+                ],
+                'extra' => [
+                    'title' => 'Extra gear for a surcharge',
+                    'lead' => 'Riding with a passenger or want motorcycle boots? You can add them when booking:',
+                    'items' => [
+                        'passenger gear (helmet, jacket, trousers, gloves)',
+                        'motorcycle boots – for the rider and the passenger',
+                    ],
+                ],
+                'services' => [
+                    'title' => 'Extra services for a surcharge',
+                    'items' => [
+                        'delivery of the motorcycle to an agreed place anywhere in the Czech Republic',
+                        'returning the motorcycle somewhere other than the rental address',
+                    ],
+                ],
+            ],
+            'benefits' => [
+                'title' => 'Other benefits included',
+                'grid' => 'gr5',
+                'items' => [
+                    [
+                        'icon' => 'gfx/rezervace-online.svg',
+                        'title' => 'Online booking',
+                        'text' => 'quick and easy booking from the comfort of home.',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-nonstop.svg',
+                        'title' => '24/7 service',
+                        'text' => 'book and set off any time – day, night or weekend. You choose the pickup time when booking.',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-bez-kauce.svg',
+                        'title' => 'No deposit',
+                        'text' => 'no deposit when renting.',
+                    ],
+                    [
+                        'icon' => 'gfx/jasne-podminky.svg',
+                        'title' => 'Clear conditions',
+                        'text' => 'no hidden fees.',
+                    ],
+                    [
+                        'icon' => 'gfx/sleva-na-pristi-jizdu.svg',
+                        'title' => 'Discount on your next booking',
+                        'text' => 'after every completed rental you get a discount code for your next booking.&nbsp;',
+                    ],
+                ],
+            ],
             'cta' => [
                 'title' => 'Gear included – motorcycle rental MotoGo24 – Vysočina',
                 'text' => '<strong>MotoGo24 is a modern motorcycle rental in Vysočina</strong> with rider gear included, no-deposit rental and 24/7 service. Choose a <strong>touring, supermoto, naked or kids\' motorcycle</strong> and book online. Everything is clear and without hidden fees.',

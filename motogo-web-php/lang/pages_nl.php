@@ -11,6 +11,66 @@ return [
             ],
             'h1' => 'Wat is bij de huurprijs inbegrepen',
             'intro' => 'Bij <strong>MotoGo24 – motorverhuur in Vysočina</strong> krijg je eerlijke voorwaarden. <strong>Zonder borg, met rijderuitrusting in de prijs en 24/7 service</strong>. Alles voor een veilige en aangename rit is inbegrepen.',
+            'gear' => [
+                'basic' => [
+                    'title' => 'Basisuitrusting inbegrepen',
+                    'lead' => 'Elke rijder beschikt over een complete <strong>motoruitrusting</strong>, die in de huurprijs is inbegrepen:',
+                    'items' => [
+                        '<strong>helm</strong>',
+                        '<strong>motorjas</strong> met protectoren',
+                        '<strong>motorbroek</strong>',
+                        '<strong>handschoenen</strong>',
+                    ],
+                    'note1' => 'De uitrusting is in meerdere maten beschikbaar en we reinigen en controleren die regelmatig.',
+                    'note2' => 'Sommige motoren zijn uitgerust met koffers – zie het motordetail in de catalogus.',
+                ],
+                'extra' => [
+                    'title' => 'Extra uitrusting tegen meerprijs',
+                    'lead' => 'Rijd je met een passagier of wil je motorlaarzen? Je kunt ze bij de reservering bijbestellen:',
+                    'items' => [
+                        'uitrusting voor de passagier (helm, jas, broek, handschoenen)',
+                        'motorlaarzen – voor de rijder en de passagier',
+                    ],
+                ],
+                'services' => [
+                    'title' => 'Extra diensten tegen meerprijs',
+                    'items' => [
+                        'bezorging van de motor op een afgesproken plek overal in Tsjechië',
+                        'de motor elders terugbrengen dan op het verhuuradres',
+                    ],
+                ],
+            ],
+            'benefits' => [
+                'title' => 'Andere voordelen inbegrepen',
+                'grid' => 'gr5',
+                'items' => [
+                    [
+                        'icon' => 'gfx/rezervace-online.svg',
+                        'title' => 'Online reserveren',
+                        'text' => 'snel en eenvoudig reserveren vanuit huis.',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-nonstop.svg',
+                        'title' => '24/7 service',
+                        'text' => 'reserveer en vertrek op elk moment – overdag, \'s nachts of in het weekend. Je kiest het ophaaltijdstip bij de reservering.',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-bez-kauce.svg',
+                        'title' => 'Zonder borg',
+                        'text' => 'geen borg bij het huren.',
+                    ],
+                    [
+                        'icon' => 'gfx/jasne-podminky.svg',
+                        'title' => 'Duidelijke voorwaarden',
+                        'text' => 'geen verborgen kosten.',
+                    ],
+                    [
+                        'icon' => 'gfx/sleva-na-pristi-jizdu.svg',
+                        'title' => 'Korting op je volgende reservering',
+                        'text' => 'na elke afgeronde verhuur krijg je een kortingscode voor je volgende reservering.&nbsp;',
+                    ],
+                ],
+            ],
             'cta' => [
                 'title' => 'Uitrusting in de prijs – motorverhuur MotoGo24 – Vysočina',
                 'text' => '<strong>MotoGo24 is een moderne motorverhuur in Vysočina</strong> met rijderuitrusting in de prijs, huur zonder borg en 24/7 service. Kies een <strong>toer-, supermoto-, naked- of kindermotor</strong> en reserveer online.',

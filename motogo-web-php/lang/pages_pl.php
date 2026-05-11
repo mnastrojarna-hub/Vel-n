@@ -11,6 +11,66 @@ return [
             ],
             'h1' => 'Co jest w cenie wynajmu motocykla',
             'intro' => 'W <strong>MotoGo24 – wypożyczalni motocykli w Vysočina</strong> otrzymasz uczciwe warunki. <strong>Bez kaucji, z wyposażeniem kierowcy w cenie i obsługą całodobową</strong>. Wszystko, czego potrzebujesz do bezpiecznej i przyjemnej jazdy, jest wliczone.',
+            'gear' => [
+                'basic' => [
+                    'title' => 'Podstawowe wyposażenie w cenie',
+                    'lead' => 'Każdy kierowca ma do dyspozycji kompletne <strong>wyposażenie motocyklowe</strong>, które jest wliczone w cenę wynajmu:',
+                    'items' => [
+                        '<strong>kask</strong>',
+                        '<strong>kurtka motocyklowa</strong> z ochraniaczami',
+                        '<strong>spodnie motocyklowe</strong>',
+                        '<strong>rękawice</strong>',
+                    ],
+                    'note1' => 'Wyposażenie jest dostępne w wielu rozmiarach, regularnie je czyścimy i sprawdzamy.',
+                    'note2' => 'Wybrane motocykle są wyposażone w kufry – zobacz szczegóły motocykla w katalogu.',
+                ],
+                'extra' => [
+                    'title' => 'Wyposażenie dodatkowe za dopłatą',
+                    'lead' => 'Jedziesz z pasażerem albo chcesz buty motocyklowe? Możesz je domówić przy rezerwacji:',
+                    'items' => [
+                        'wyposażenie dla pasażera (kask, kurtka, spodnie, rękawice)',
+                        'buty motocyklowe – dla kierowcy i pasażera',
+                    ],
+                ],
+                'services' => [
+                    'title' => 'Usługi dodatkowe za dopłatą',
+                    'items' => [
+                        'podstawienie motocykla w umówione miejsce w dowolnym punkcie Czech',
+                        'zwrot motocykla w innym miejscu niż adres wypożyczalni',
+                    ],
+                ],
+            ],
+            'benefits' => [
+                'title' => 'Inne korzyści w cenie',
+                'grid' => 'gr5',
+                'items' => [
+                    [
+                        'icon' => 'gfx/rezervace-online.svg',
+                        'title' => 'Rezerwacja online',
+                        'text' => 'szybka i prosta rezerwacja z domowego zacisza.',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-nonstop.svg',
+                        'title' => 'Obsługa całodobowa',
+                        'text' => 'rezerwuj i wyruszaj o dowolnej porze – w dzień, w nocy i w weekend. Godzinę odbioru wybierasz przy rezerwacji.',
+                    ],
+                    [
+                        'icon' => 'gfx/ico-bez-kauce.svg',
+                        'title' => 'Bez kaucji',
+                        'text' => 'brak kaucji przy wynajmie.',
+                    ],
+                    [
+                        'icon' => 'gfx/jasne-podminky.svg',
+                        'title' => 'Jasne warunki',
+                        'text' => 'bez ukrytych opłat.',
+                    ],
+                    [
+                        'icon' => 'gfx/sleva-na-pristi-jizdu.svg',
+                        'title' => 'Zniżka na kolejną rezerwację',
+                        'text' => 'po każdym zakończonym wynajmie otrzymujesz kod rabatowy na kolejną rezerwację.&nbsp;',
+                    ],
+                ],
+            ],
             'cta' => [
                 'title' => 'Wyposażenie w cenie – wypożyczalnia motocykli MotoGo24 – Vysočina',
                 'text' => '<strong>MotoGo24 to nowoczesna wypożyczalnia motocykli w Vysočina</strong> z wyposażeniem kierowcy w cenie, wynajmem bez kaucji i obsługą całodobową. Wybierz <strong>motocykl turystyczny, supermoto, naked lub dla dzieci</strong> i zarezerwuj online.',
