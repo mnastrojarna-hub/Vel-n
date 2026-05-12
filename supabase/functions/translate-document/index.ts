@@ -12,9 +12,9 @@
  *   - smluvní šablony `document_templates` (VOP, smlouva, GDPR, protokoly) —
  *     `{placeholder}` proměnné zůstávají nepřeložené.
  *
- * Výsledek se uloží do JSONB sloupce `translations` cílové tabulky:
- *   custom_documents.translations  = { en: { title, description, content_html }, de: {...}, ... }
- *   document_templates.translations = { en: { name, content_html }, de: {...}, ... }
+ * Výsledek se uloží do JSONB sloupce cílové tabulky:
+ *   custom_documents.translations         = { en: { title, description, content_html }, de: {...}, ... }
+ *   document_templates.content_translations = { en: "<html>", de: "<html>", ... }   (čte ho RPC get_document_translation)
  *
  * POST /functions/v1/translate-document
  * Body: { table: 'custom_documents' | 'document_templates', id: string, target_langs?: string[] }
@@ -140,12 +140,9 @@ async function buildSource(
       hasPlaceholders: /\{\{?\s*[a-z_]+\s*\}?\}/i.test(String(row.content_html || '')),
     }
   }
-  // document_templates
+  // document_templates — překládá se jen obsah; název karty na webu řeší i18n.
   return {
-    textFields: {
-      name: String(row.name || ''),
-      content_html: String(row.content_html || ''),
-    },
+    textFields: { content_html: String(row.content_html || '') },
     hasPlaceholders: true,
   }
 }
@@ -261,10 +258,17 @@ serve(async (req: Request): Promise<Response> => {
     }
     if (Object.keys(translations).length === 0) return jsonResponse({ error: 'All translations failed', details: errors }, 502)
 
-    const existing = (row as Record<string, unknown>).translations
-    const merged = (existing && typeof existing === 'object') ? { ...existing as Record<string, unknown> } : {}
-    for (const [lang, t] of Object.entries(translations)) merged[lang] = t
-    const { error: updErr } = await supabaseAdmin.from(table).update({ translations: merged }).eq('id', id)
+    // Uložení:
+    //  - custom_documents → JSONB `translations` = { lang: { title, description, content_html } }
+    //  - document_templates → JSONB `content_translations` = { lang: "<html string>" }
+    //    (sloupec + RPC get_document_translation už existují z migrace 20260503_i18n_customer_comms.sql)
+    const targetCol = table === 'document_templates' ? 'content_translations' : 'translations'
+    const existing = (row as Record<string, unknown>)[targetCol]
+    const merged: Record<string, unknown> = (existing && typeof existing === 'object') ? { ...existing as Record<string, unknown> } : {}
+    for (const [lang, t] of Object.entries(translations)) {
+      merged[lang] = table === 'document_templates' ? (t.content_html || '') : t
+    }
+    const { error: updErr } = await supabaseAdmin.from(table).update({ [targetCol]: merged }).eq('id', id)
     if (updErr) return jsonResponse({ error: 'DB update failed: ' + updErr.message }, 500)
 
     return jsonResponse({ success: true, translations, ...(Object.keys(errors).length ? { errors } : {}) })

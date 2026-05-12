@@ -132,7 +132,7 @@ export default function ContractTermsTab() {
                           </span>
                         )}
                         <span className="text-sm" style={{ color: '#1a2e22' }}>
-                          {(() => { const ks = Object.keys(tpl.translations || {}).filter(k => TRANSLATE_TARGET_LANGS.includes(k)); return ks.length ? `🌍 přeloženo: ${ks.join(', ')}` : '🌍 jen česky' })()}
+                          {(() => { const ks = Object.keys(tpl.content_translations || {}).filter(k => TRANSLATE_TARGET_LANGS.includes(k)); return ks.length ? `🌍 přeloženo: ${ks.join(', ')}` : '🌍 jen česky' })()}
                         </span>
                       </div>
                     )}

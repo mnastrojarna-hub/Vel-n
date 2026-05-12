@@ -483,7 +483,7 @@ class SupabaseClient {
     public function fetchDocumentTemplate($type) {
         $result = $this->query(
             'document_templates',
-            'id,type,name,content_html,version,updated_at,translations',
+            'id,type,name,content_html,version,updated_at',
             ['type=eq.' . $type, 'active=eq.true'],
             'version.desc'
         );

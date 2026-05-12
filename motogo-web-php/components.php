@@ -644,3 +644,28 @@ function renderBreadcrumb($items) {
     $html .= '</ol></nav>';
     return $html;
 }
+
+/**
+ * Kanonický seznam veřejných smluvních/informačních dokumentů.
+ * JEDINÝ zdroj pravdy: Velín → Dokumenty → Smluvní texty (`document_templates`).
+ * Stejný na všech doménách (parita), názvy přeložené přes i18n klíče
+ * `doc.title.<type>`. `slug` = veřejná URL `/dokumenty/<slug>`, `type` =
+ * `document_templates.type` (a zároveň `p_template_slug` pro RPC
+ * `get_document_translation`).
+ *
+ * @return array<int,array{slug:string,type:string,title:string}>
+ */
+function mgPublicDocuments() {
+    $defs = [
+        'obchodni-podminky'             => 'vop',
+        'smlouva-o-pronajmu'            => 'rental_contract',
+        'predavaci-protokol'            => 'handover_protocol',
+        'protokol-o-poskozeni'          => 'damage_protocol',
+        'zasady-ochrany-osobnich-udaju' => 'gdpr',
+    ];
+    $out = [];
+    foreach ($defs as $slug => $type) {
+        $out[] = ['slug' => $slug, 'type' => $type, 'title' => t('doc.title.' . $type)];
+    }
+    return $out;
+}

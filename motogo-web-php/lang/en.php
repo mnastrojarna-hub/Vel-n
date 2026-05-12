@@ -132,6 +132,17 @@ return [
     'common.download' => 'Download',
     'common.downloadCaps' => 'DOWNLOAD',
 
+    // ===== Public documents (Velín → Documents → Contract texts) =====
+    'doc.title.vop' => 'Terms and Conditions',
+    'doc.title.rental_contract' => 'Motorcycle Rental Agreement',
+    'doc.title.handover_protocol' => 'Handover Protocol',
+    'doc.title.damage_protocol' => 'Damage Report',
+    'doc.title.gdpr' => 'Privacy Policy (GDPR)',
+    'doc.download' => 'Download / Print (PDF)',
+    'doc.pdfHint' => 'PDF · view or save',
+    'doc.version' => 'Version {v} · updated {date}',
+    'doc.notPublished' => 'This document has not been published yet.',
+
     // ===== Breadcrumbs (static labels) =====
     'breadcrumb.home' => 'Home',
     'breadcrumb.catalog' => 'Motorcycle catalogue',
@@ -348,6 +359,9 @@ return [
     'rez.cal.month.9' => 'October',
     'rez.cal.month.10' => 'November',
     'rez.cal.month.11' => 'December',
+    'rez.lic.day' => 'Day',
+    'rez.lic.month' => 'Month',
+    'rez.lic.year' => 'Year',
     'rez.cal.dayShort.0' => 'Mon',
     'rez.cal.dayShort.1' => 'Tue',
     'rez.cal.dayShort.2' => 'Wed',
