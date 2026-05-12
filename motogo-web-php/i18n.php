@@ -550,7 +550,14 @@ function renderLanguageSwitcher() {
         // forceLangQuery=true → vždy připojí ?lang=xx, aby se cookie `mg_web_lang`
         // refreshla i při přepnutí na doménový default (jinak by stará cookie
         // přebila novou volbu — přesně to byl bug s nefunkčním přepínáním na EN).
-        $url = i18nUrlForLang($code, $path, true);
+        // SEO: jazyky bez živé domény (motogo24.es, .nl) nesměrujeme na mrtvou
+        // TLD — Seobility to hlásí jako stovky 'External link problem / Domain
+        // not connected'. Místo toho nasměrujeme na .com s ?lang=xx, kde to běží.
+        if (defined('I18N_HREFLANG_LIVE') && isset(I18N_HREFLANG_LIVE[$code]) && I18N_HREFLANG_LIVE[$code] === false) {
+            $url = 'https://' . i18nCanonicalHostFor(I18N_DOMAIN_INTL) . $path . '?lang=' . $code;
+        } else {
+            $url = i18nUrlForLang($code, $path, true);
+        }
         // Připoj zbývající query parametry (mimo lang)
         if (!empty($existingQuery)) {
             $sep = (strpos($url, '?') !== false) ? '&' : '?';

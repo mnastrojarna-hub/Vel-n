@@ -232,6 +232,13 @@ function sanitizeHtml($html, $allowIframe = false) {
         },
         $html
     );
+    // SEO: prázdné nadpisy (Seobility "Empty heading") — CMS editor občas zanechá
+    // <h2>&nbsp;</h2> nebo prázdné <h3></h3>. Odstraníme celé (vč. čistě
+    // whitespace/&nbsp;/<br> obsahu), opakovaně kvůli vnořeným prázdným spanům.
+    do {
+        $before = $html;
+        $html = preg_replace('#<(h[1-6])\b[^>]*>(?:\s|&nbsp;|&#160;|<br\s*/?>|<span[^>]*>|</span>)*</\1\s*>#i', '', $html);
+    } while ($html !== $before);
     return $html;
 }
 

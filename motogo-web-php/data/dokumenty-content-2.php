@@ -68,8 +68,8 @@ return [
         ],
     ],
     'seo' => [
-        'title' => 'Půjčovna motorek Vysočina – Jak si půjčit motorku – Dokumenty a návody',
-        'description' => 'Všechny dokumenty k půjčení motorky na jednom místě. Přehledné návody a podmínky od MotoGo24 pro bezpečné používání motocyklu. Rezervuj si motorku jednoduše online. Vyber termín, stroj i výbavu a vyraz na nezapomenutelnou jízdu s MotoGo24 na Vysočině.',
+        'title' => 'Dokumenty a návody k půjčení motorky | MotoGo24',
+        'description' => 'Všechny dokumenty k půjčení motorky na jednom místě. Přehledné návody a podmínky od MotoGo24 pro bezpečné používání motocyklu na Vysočině.',
         'keywords' => 'motopůjčovna',
     ],
 ];
