@@ -65,17 +65,19 @@ export default function ContractTermsTab() {
   async function handleTranslate(tpl) {
     if (!tpl?.id) return
     setTranslatingType(tpl.type)
-    setTrMsg(m => ({ ...m, [tpl.type]: null }))
-    const res = await translateDocument({ table: 'document_templates', id: tpl.id })
-    setTranslatingType(null)
-    if (res?.success) {
-      const langs = Object.keys(res.translations || {})
-      const failed = res.errors ? Object.keys(res.errors) : []
-      setTrMsg(m => ({ ...m, [tpl.type]: { ok: failed.length === 0, text: failed.length ? `Přeloženo: ${langs.join(', ')} · selhalo: ${failed.join(', ')}` : `Přeloženo do: ${langs.join(', ')}` } }))
-      load()
-    } else {
-      setTrMsg(m => ({ ...m, [tpl.type]: { ok: false, text: 'Překlad selhal: ' + (res?.error || 'neznámá chyba') } }))
+    setTrMsg(m => ({ ...m, [tpl.type]: { ok: true, text: 'Překládám…' } }))
+    // Po jednom jazyce (víc jazyků naráz padalo na HTTP 546 — limit edge fn).
+    const done = []
+    const failed = []
+    for (const lang of TRANSLATE_TARGET_LANGS) {
+      setTrMsg(m => ({ ...m, [tpl.type]: { ok: true, text: `Překládám… (${lang}, hotovo: ${done.join(', ') || '–'})` } }))
+      const res = await translateDocument({ table: 'document_templates', id: tpl.id, target_langs: [lang] })
+      if (res?.success && res.translations?.[lang]) done.push(lang)
+      else failed.push(`${lang}: ${res?.error || (res?.errors && Object.values(res.errors)[0]) || 'chyba'}`)
     }
+    setTranslatingType(null)
+    setTrMsg(m => ({ ...m, [tpl.type]: { ok: failed.length === 0, text: failed.length ? `Přeloženo: ${done.join(', ') || '–'} · selhalo — ${failed.join('; ')}` : `Přeloženo do: ${done.join(', ')}` } }))
+    load()
   }
 
   useEffect(() => { load() }, [])

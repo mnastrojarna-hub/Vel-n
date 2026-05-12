@@ -35,17 +35,20 @@ export default function CustomDocumentsSection() {
 
   async function handleTranslate(doc) {
     setTranslatingId(doc.id)
-    setTrMsg(m => ({ ...m, [doc.id]: null }))
-    const res = await translateDocument({ table: 'custom_documents', id: doc.id })
-    setTranslatingId(null)
-    if (res?.success) {
-      const langs = Object.keys(res.translations || {})
-      const failed = res.errors ? Object.keys(res.errors) : []
-      setTrMsg(m => ({ ...m, [doc.id]: { ok: failed.length === 0, text: failed.length ? `Přeloženo: ${langs.join(', ')} · selhalo: ${failed.join(', ')} (${Object.values(res.errors)[0]})` : `Přeloženo do: ${langs.join(', ')}` } }))
-      load()
-    } else {
-      setTrMsg(m => ({ ...m, [doc.id]: { ok: false, text: 'Překlad selhal: ' + (res?.error || 'neznámá chyba') } }))
+    setTrMsg(m => ({ ...m, [doc.id]: { ok: true, text: 'Překládám…' } }))
+    // Po jednom jazyce — full-doc / PDF překlad je pomalý; jeden jazyk per
+    // invokace edge fn se vejde do limitu (víc jazyků naráz padalo na HTTP 546).
+    const done = []
+    const failed = []
+    for (const lang of TRANSLATE_TARGET_LANGS) {
+      setTrMsg(m => ({ ...m, [doc.id]: { ok: true, text: `Překládám… (${lang}, hotovo: ${done.join(', ') || '–'})` } }))
+      const res = await translateDocument({ table: 'custom_documents', id: doc.id, target_langs: [lang] })
+      if (res?.success && res.translations?.[lang]) done.push(lang)
+      else failed.push(`${lang}: ${res?.error || (res?.errors && Object.values(res.errors)[0]) || 'chyba'}`)
     }
+    setTranslatingId(null)
+    setTrMsg(m => ({ ...m, [doc.id]: { ok: failed.length === 0, text: failed.length ? `Přeloženo: ${done.join(', ') || '–'} · selhalo — ${failed.join('; ')}` : `Přeloženo do: ${done.join(', ')}` } }))
+    load()
   }
 
   const load = useCallback(async () => {
