@@ -44,6 +44,8 @@ export default function SentEmailsTab() {
   })
   useEffect(() => { localStorage.setItem('velin_sentemails_filters', JSON.stringify(filters)) }, [filters])
   const [preview, setPreview] = useState(null)
+  const [selected, setSelected] = useState(() => new Set())
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => { load() }, [page, filters])
 
@@ -62,10 +64,38 @@ export default function SentEmailsTab() {
       if (err) throw err
       setEmails(data || [])
       setTotal(count || 0)
+      setSelected(new Set())
     } catch (e) {
       debugError('SentEmailsTab', 'load', e)
       setError(e.message)
     } finally { setLoading(false) }
+  }
+
+  function toggleOne(id) {
+    setSelected(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
+  function toggleAll() {
+    setSelected(prev => prev.size === emails.length && emails.length > 0 ? new Set() : new Set(emails.map(e => e.id)))
+  }
+  async function deleteSelected() {
+    if (selected.size === 0) return
+    if (!window.confirm(`Opravdu smazat ${selected.size} zaslaných emailů? Tato akce je nevratná.`)) return
+    setDeleting(true); setError(null)
+    try {
+      const ids = [...selected]
+      const { error: err } = await debugAction('sent_emails.delete', 'SentEmailsTab', () => supabase.from('sent_emails').delete().in('id', ids))
+      if (err) throw err
+      setSelected(new Set())
+      if (emails.length === ids.length && page > 1) setPage(p => p - 1)
+      else load()
+    } catch (e) {
+      debugError('SentEmailsTab', 'deleteSelected', e)
+      setError('Mazání selhalo: ' + (e.message || e))
+    } finally { setDeleting(false) }
   }
 
   async function openAttachment(path) {
@@ -117,6 +147,13 @@ export default function SentEmailsTab() {
           style={{ padding: '8px 14px', background: '#fee2e2', border: '1px solid #fca5a5', color: '#dc2626' }}>
           Reset
         </button>
+        {selected.size > 0 && (
+          <button onClick={deleteSelected} disabled={deleting}
+            className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+            style={{ padding: '8px 14px', background: '#dc2626', border: '1px solid #b91c1c', color: '#fff', opacity: deleting ? 0.6 : 1 }}>
+            {deleting ? 'Mažu…' : `Smazat vybrané (${selected.size})`}
+          </button>
+        )}
       </div>
 
       {/* DIAGNOSTIKA */}
@@ -138,6 +175,7 @@ export default function SentEmailsTab() {
           <Table>
             <thead>
               <TRow header>
+                <TH><input type="checkbox" checked={emails.length > 0 && selected.size === emails.length} onChange={toggleAll} className="accent-[#1a8a18] cursor-pointer" style={{ width: 15, height: 15 }} /></TH>
                 <TH>Příjemce</TH><TH>Předmět</TH><TH>Šablona</TH>
                 <TH>Stav</TH><TH>Datum</TH><TH>Akce</TH>
               </TRow>
@@ -147,6 +185,7 @@ export default function SentEmailsTab() {
                 const st = STATUS_MAP[e.status] || { label: e.status || '—', color: '#1a2e22', bg: '#f3f4f6' }
                 return (
                   <TRow key={e.id}>
+                    <TD><input type="checkbox" checked={selected.has(e.id)} onChange={() => toggleOne(e.id)} className="accent-[#1a8a18] cursor-pointer" style={{ width: 15, height: 15 }} /></TD>
                     <TD bold>{e.recipient_email || '—'}</TD>
                     <TD>{e.subject || '—'}</TD>
                     <TD>

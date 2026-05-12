@@ -31,6 +31,14 @@ const TYPE_OPTIONS = [
   { value: 'marketing', label: 'Marketingové' },
 ]
 
+// E-mailový log zobrazuje pouze marketingová sdělení a běžnou konverzaci.
+// Transakční / rezervační maily (potvrzení, storno, faktury…) jsou v Dokumenty → Zaslané emaily.
+const EMAIL_TYPE_OPTIONS = [
+  { value: 'all', label: 'Všechny' },
+  { value: 'marketing', label: 'Marketingové' },
+  { value: 'conversation', label: 'Konverzace' },
+]
+
 const CHANNEL_LABELS = { sms: 'SMS', email: 'E-mail', whatsapp: 'WhatsApp' }
 
 export default function MessageLogTab({ channel }) {
@@ -41,6 +49,11 @@ export default function MessageLogTab({ channel }) {
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
   const [detail, setDetail] = useState(null)
+  const [selected, setSelected] = useState(() => new Set())
+  const [deleting, setDeleting] = useState(false)
+
+  const isEmail = channel === 'email'
+  const typeOptions = isEmail ? EMAIL_TYPE_OPTIONS : TYPE_OPTIONS
 
   const storageKey = `velin_msglog_${channel}_filters`
   const defaultFilters = { search: '', statuses: [], type: 'all', dateFrom: '', dateTo: '', sort: 'date_desc' }
@@ -72,7 +85,12 @@ export default function MessageLogTab({ channel }) {
       if (filters.statuses?.length > 0) {
         query = query.in('status', filters.statuses)
       }
-      if (filters.type === 'auto') {
+      if (isEmail) {
+        // E-mailový log = jen marketing + běžná konverzace (bez šablony), nikdy transakční rezervační maily
+        if (filters.type === 'marketing') query = query.eq('is_marketing', true)
+        else if (filters.type === 'conversation') query = query.is('template_slug', null).eq('is_marketing', false)
+        else query = query.or('is_marketing.eq.true,template_slug.is.null')
+      } else if (filters.type === 'auto') {
         query = query.eq('is_marketing', false)
       } else if (filters.type === 'marketing') {
         query = query.eq('is_marketing', true)
@@ -92,10 +110,38 @@ export default function MessageLogTab({ channel }) {
       if (err) throw err
       setLogs(data || [])
       setTotal(count || 0)
+      setSelected(new Set())
     } catch (e) {
       debugError('MessageLogTab', 'load', e)
       setError(e.message)
     } finally { setLoading(false) }
+  }
+
+  function toggleOne(id) {
+    setSelected(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
+  function toggleAll() {
+    setSelected(prev => prev.size === logs.length && logs.length > 0 ? new Set() : new Set(logs.map(l => l.id)))
+  }
+  async function deleteSelected() {
+    if (selected.size === 0) return
+    if (!window.confirm(`Opravdu smazat ${selected.size} zpráv z logu? Tato akce je nevratná.`)) return
+    setDeleting(true); setError(null)
+    try {
+      const ids = [...selected]
+      const { error: err } = await debugAction('message_log.delete', 'MessageLogTab', () => supabase.from('message_log').delete().in('id', ids))
+      if (err) throw err
+      setSelected(new Set())
+      if (logs.length === ids.length && page > 1) setPage(p => p - 1)
+      else load()
+    } catch (e) {
+      debugError('MessageLogTab', 'deleteSelected', e)
+      setError('Mazání selhalo: ' + (e.message || e))
+    } finally { setDeleting(false) }
   }
 
   const totalPages = Math.ceil(total / PER_PAGE)
@@ -134,12 +180,12 @@ export default function MessageLogTab({ channel }) {
         />
 
         <select
-          value={filters.type}
+          value={typeOptions.some(o => o.value === filters.type) ? filters.type : 'all'}
           onChange={e => setFilters(f => ({ ...f, type: e.target.value }))}
           className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer outline-none"
           style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}
         >
-          {TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          {typeOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
 
         <div className="flex items-center gap-1">
@@ -178,6 +224,17 @@ export default function MessageLogTab({ channel }) {
         >
           Reset
         </button>
+
+        {selected.size > 0 && (
+          <button
+            onClick={deleteSelected}
+            disabled={deleting}
+            className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+            style={{ padding: '8px 14px', background: '#dc2626', border: '1px solid #b91c1c', color: '#fff', opacity: deleting ? 0.6 : 1 }}
+          >
+            {deleting ? 'Mažu…' : `Smazat vybrané (${selected.size})`}
+          </button>
+        )}
       </div>
 
       {/* DIAGNOSTIKA */}
@@ -202,6 +259,7 @@ export default function MessageLogTab({ channel }) {
           <Table>
             <thead>
               <TRow header>
+                <TH><input type="checkbox" checked={logs.length > 0 && selected.size === logs.length} onChange={toggleAll} className="accent-[#1a8a18] cursor-pointer" style={{ width: 15, height: 15 }} /></TH>
                 <TH>Čas</TH>
                 <TH>Příjemce</TH>
                 <TH>Šablona</TH>
@@ -215,6 +273,7 @@ export default function MessageLogTab({ channel }) {
                 const st = STATUS_MAP[log.status] || { label: log.status || '—', color: '#1a2e22', bg: '#f3f4f6' }
                 return (
                   <TRow key={log.id}>
+                    <TD><input type="checkbox" checked={selected.has(log.id)} onChange={() => toggleOne(log.id)} className="accent-[#1a8a18] cursor-pointer" style={{ width: 15, height: 15 }} /></TD>
                     <TD mono>{formatDate(log.created_at)}</TD>
                     <TD bold>{recipient(log)}</TD>
                     <TD>
