@@ -6,6 +6,7 @@ import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
 import ConfirmDialog from '../../components/ui/ConfirmDialog'
 import RichTextEditor, { buildPreviewHtml } from '../../components/ui/RichTextEditor'
+import { translateDocument, TRANSLATE_TARGET_LANGS } from '../../lib/autoTranslate'
 
 // Vlastní dokumenty vytvořené ve Velíně (mimo 5 pevných smluvních typů).
 // Tabulka: custom_documents (title, slug, description, kind 'html'|'pdf',
@@ -29,6 +30,23 @@ export default function CustomDocumentsSection() {
   const [editing, setEditing] = useState(null)
   const [preview, setPreview] = useState(null)
   const [toDelete, setToDelete] = useState(null)
+  const [translatingId, setTranslatingId] = useState(null)
+  const [trMsg, setTrMsg] = useState({}) // id -> { ok, text }
+
+  async function handleTranslate(doc) {
+    setTranslatingId(doc.id)
+    setTrMsg(m => ({ ...m, [doc.id]: null }))
+    const res = await translateDocument({ table: 'custom_documents', id: doc.id })
+    setTranslatingId(null)
+    if (res?.success) {
+      const langs = Object.keys(res.translations || {})
+      const failed = res.errors ? Object.keys(res.errors) : []
+      setTrMsg(m => ({ ...m, [doc.id]: { ok: failed.length === 0, text: failed.length ? `Přeloženo: ${langs.join(', ')} · selhalo: ${failed.join(', ')} (${Object.values(res.errors)[0]})` : `Přeloženo do: ${langs.join(', ')}` } }))
+      load()
+    } else {
+      setTrMsg(m => ({ ...m, [doc.id]: { ok: false, text: 'Překlad selhal: ' + (res?.error || 'neznámá chyba') } }))
+    }
+  }
 
   const load = useCallback(async () => {
     setLoading(true); setError(null)
@@ -63,7 +81,9 @@ export default function CustomDocumentsSection() {
           <h3 className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#0f1a14' }}>Vlastní dokumenty</h3>
           <p className="text-sm mt-1" style={{ color: '#1a2e22' }}>
             Vlastní texty nebo nahraná PDF. Se zapnutým „Zobrazit na webu" se automaticky objeví v sekci
-            {' '}<strong>Dokumenty a návody</strong> na webu vedle ostatních ke stažení.
+            {' '}<strong>Dokumenty a návody</strong> na webu vedle ostatních ke stažení. Pro cizojazyčné verze webu
+            klikni <strong>🌍 Přeložit</strong> — Claude přeloží obsah (i z nahraného PDF) do 6 jazyků; cizojazyčná
+            verze se pak zobrazí jako přeložená HTML stránka (český originál zůstává beze změny).
           </p>
         </div>
         <Button green onClick={() => setEditing({ kind: 'html', title: '', slug: '', description: '', content_html: '', pdf_path: '', show_on_web: true, sort_order: (docs.reduce((m, d) => Math.max(m, d.sort_order || 0), 0) + 10), active: true })}>
@@ -96,13 +116,16 @@ export default function CustomDocumentsSection() {
                       <span>/dokumenty/{d.slug}</span>
                       <span>{d.kind === 'pdf' ? 'PDF' : `HTML · ${(d.content_html || '').length} znaků`}</span>
                       {d.updated_at && <span>upraveno {new Date(d.updated_at).toLocaleDateString('cs-CZ')}</span>}
+                      <span>{(() => { const ks = Object.keys(d.translations || {}).filter(k => TRANSLATE_TARGET_LANGS.includes(k)); return ks.length ? `🌍 přeloženo: ${ks.join(', ')}` : '🌍 jen česky' })()}</span>
                     </div>
+                    {trMsg[d.id] && <p className="text-sm mt-1" style={{ color: trMsg[d.id].ok ? '#15803d' : '#dc2626' }}>{trMsg[d.id].text}</p>}
                   </div>
                 </div>
                 <div className="flex gap-2 shrink-0">
                   {d.kind === 'pdf' && d.pdf_path
                     ? <a href={d.pdf_path} target="_blank" rel="noopener"><Button>Otevřít PDF</Button></a>
                     : <Button onClick={() => setPreview(d)}>Náhled</Button>}
+                  <Button onClick={() => handleTranslate(d)} disabled={translatingId === d.id}>{translatingId === d.id ? 'Překládám…' : '🌍 Přeložit'}</Button>
                   <Button green onClick={() => setEditing(d)}>Upravit</Button>
                   <Button onClick={() => setToDelete(d)}>Smazat</Button>
                 </div>

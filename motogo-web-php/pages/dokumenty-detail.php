@@ -41,22 +41,42 @@ $slug    = $_GET['doc_slug'] ?? '';
 $wantPdf = !empty($_GET['format']) && $_GET['format'] === 'pdf';
 $entry   = $DOC_MAP[$slug] ?? null;
 
+// Aktuální jazyk webu — cizojazyčné verze čerpají z `translations` JSONB
+// (naplní edge fn `translate-document`). Čeština = vždy originální sloupce.
+$lang = function_exists('i18nDetectLanguage') ? i18nDetectLanguage() : 'cs';
+
 $tpl = null;
 if ($entry) {
-    $tpl = $sb->fetchDocumentTemplate($entry['type']);
+    // Pevná smluvní šablona (document_templates) — překlad názvu i obsahu.
+    $row = $sb->fetchDocumentTemplate($entry['type']);
+    if ($row) {
+        $trName = localized($row, 'name');
+        if ($trName !== '') $entry['title'] = $trName;
+        $tpl = [
+            'content_html' => localized($row, 'content_html'),
+            'version'      => $row['version'] ?? 1,
+            'updated_at'   => $row['updated_at'] ?? null,
+        ];
+    }
 } else {
     // Vlastní dokument vytvořený ve Velíně (tabulka custom_documents).
     $cd = $sb->fetchCustomDocument($slug);
     if ($cd) {
-        if (($cd['kind'] ?? 'html') === 'pdf') {
-            // PDF dokument — přesměruj rovnou na soubor (zobrazí se / uloží v prohlížeči).
+        $isPdf = (($cd['kind'] ?? 'html') === 'pdf');
+        // U PDF: pokud existuje překlad obsahu pro aktuální (cizí) jazyk, zobrazíme
+        // ho jako HTML stránku; jinak (čeština nebo bez překladu) → redirect na PDF.
+        $trHtml = ($lang !== 'cs') ? localized($cd, 'content_html') : '';
+        $hasTrHtml = ($trHtml !== '' && $trHtml !== ($cd['content_html'] ?? ''));
+        if ($isPdf && !$hasTrHtml) {
             $pdfUrl = $cd['pdf_path'] ?? '';
             if ($pdfUrl) { header('Location: ' . $pdfUrl, true, 302); exit; }
         }
+        $trTitle = localized($cd, 'title');
+        $entry = ['type' => null, 'title' => $trTitle !== '' ? $trTitle : ($cd['title'] ?? 'Dokument')];
         // Typ "Text" (kind=html) podporuje firemní proměnné v obsahu.
-        $entry = ['type' => null, 'title' => $cd['title'] ?? 'Dokument'];
+        $bodyHtml = $isPdf ? $trHtml : localized($cd, 'content_html');
         $tpl = [
-            'content_html' => fillDocVars($cd['content_html'] ?? ''),
+            'content_html' => fillDocVars($bodyHtml),
             'version'      => $cd['version'] ?? 1,
             'updated_at'   => $cd['updated_at'] ?? null,
         ];

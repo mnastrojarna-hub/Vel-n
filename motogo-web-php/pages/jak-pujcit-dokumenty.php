@@ -105,20 +105,28 @@ foreach ((is_array($C['documents']['items'] ?? null) ? $C['documents']['items'] 
 }
 // Vlastní dokumenty vytvořené ve Velíně (tabulka custom_documents, show_on_web=true).
 // Přidávají se automaticky vedle pevně zadaných položek výše.
+$pageLang = function_exists('i18nDetectLanguage') ? i18nDetectLanguage() : 'cs';
 foreach ($sb->fetchCustomDocuments() as $d) {
     if (!is_array($d) || empty($d['slug'])) continue;
     $isPdf = (($d['kind'] ?? 'html') === 'pdf');
-    $href = $isPdf
+    // Přeložené PDF (translations[lang].content_html) se na cizojazyčné verzi
+    // zobrazí jako HTML stránka /dokumenty/<slug>; bez překladu → přímý PDF odkaz.
+    $trHtml = ($pageLang !== 'cs') ? localized($d, 'content_html') : '';
+    $hasTr = ($trHtml !== '' && $trHtml !== ($d['content_html'] ?? ''));
+    $linkPdfDirect = ($isPdf && !$hasTr);
+    $href = $linkPdfDirect
         ? ($d['pdf_path'] ?: (BASE_URL . '/dokumenty/' . rawurlencode($d['slug'])))
         : (BASE_URL . '/dokumenty/' . rawurlencode($d['slug']));
-    $name = htmlspecialchars($d['title'] ?? '');
-    $sub = $isPdf ? 'PDF · zobrazit nebo uložit' : htmlspecialchars($d['description'] ?? 'Dokument · zobrazit');
-    $extra = $isPdf ? ' target="_blank" rel="noopener"' : '';
+    $trTitle = localized($d, 'title'); $title = $trTitle !== '' ? $trTitle : ($d['title'] ?? '');
+    $trDesc = localized($d, 'description'); $desc = $trDesc !== '' ? $trDesc : ($d['description'] ?? '');
+    $name = htmlspecialchars($title);
+    $sub = $linkPdfDirect ? 'PDF · zobrazit nebo uložit' : htmlspecialchars($desc !== '' ? $desc : 'Dokument · zobrazit');
+    $extra = $linkPdfDirect ? ' target="_blank" rel="noopener"' : '';
     $docsCardsHtml .= '<a class="boxwhitey doc-card" href="' . htmlspecialchars($href) . '"' . $extra . ' title="' . $name . '" '
         . 'style="display:flex;align-items:center;gap:14px;padding:14px 16px;text-decoration:none;color:inherit">'
         . '<img src="' . BASE_URL . '/gfx/ico-pdf.svg" alt="" width="44" height="44" loading="lazy" style="flex:0 0 44px;width:44px;height:44px;display:block">'
         . '<div style="flex:1;min-width:0">'
-        .   '<h3 style="margin:0;font-size:15px;font-weight:700;color:#0f1a14">' . htmlspecialchars($d['title'] ?? '') . '</h3>'
+        .   '<h3 style="margin:0;font-size:15px;font-weight:700;color:#0f1a14">' . $name . '</h3>'
         .   '<span style="display:block;font-size:12px;color:#6b7a72;margin-top:2px">' . $sub . '</span>'
         . '</div>'
         . '<span class="btn btngreen-small" style="flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;padding:8px 14px;font-size:13px;font-weight:800;text-transform:uppercase">'

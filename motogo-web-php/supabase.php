@@ -483,7 +483,7 @@ class SupabaseClient {
     public function fetchDocumentTemplate($type) {
         $result = $this->query(
             'document_templates',
-            'id,type,name,content_html,version,updated_at',
+            'id,type,name,content_html,version,updated_at,translations',
             ['type=eq.' . $type, 'active=eq.true'],
             'version.desc'
         );
@@ -498,7 +498,7 @@ class SupabaseClient {
     public function fetchCustomDocuments() {
         $rows = $this->query(
             'custom_documents',
-            'id,title,slug,description,kind,pdf_path,sort_order',
+            'id,title,slug,description,kind,pdf_path,sort_order,translations',
             ['active=eq.true', 'show_on_web=eq.true'],
             'sort_order.asc,title.asc'
         );
@@ -509,7 +509,7 @@ class SupabaseClient {
     public function fetchCustomDocument($slug) {
         $rows = $this->query(
             'custom_documents',
-            'id,title,slug,description,kind,content_html,pdf_path,version,updated_at',
+            'id,title,slug,description,kind,content_html,pdf_path,version,updated_at,translations',
             ['slug=eq.' . $slug, 'active=eq.true'],
             'version.desc'
         );
