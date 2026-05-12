@@ -46,8 +46,14 @@ class SupabaseClient {
      */
     private function cacheGet($key) {
         if (!$this->cacheDir) return null;
-        if ($this->isCmsAdmin()) return null; // bypass — admin vidí změny hned
         $file = $this->cacheDir . '/' . md5($key) . '.json';
+        if ($this->isCmsAdmin()) {
+            // Admin režim — čte čerstvá data ze Supabase. Navíc zneplatníme
+            // případnou starou cache, aby běžný návštěvník hned po vypnutí
+            // adminu viděl admin změny (jinak by čekal až do vypršení TTL).
+            if (file_exists($file)) @unlink($file);
+            return null;
+        }
         if (!file_exists($file)) return null;
         if (filemtime($file) < time() - $this->cacheTtl) {
             @unlink($file);
@@ -58,16 +64,18 @@ class SupabaseClient {
     }
 
     /**
-     * Zapíše do file cache. V admin režimu nezapisuje — admin čte čerstvá
-     * data, která by ale neměla přepisovat „normální" cache pro běžné
-     * návštěvníky (jinak by admin po uložení napsal čerstvou hodnotu i sem
-     * a další admin-flow už ji nemusel mít čerstvou — ponecháme cache
-     * v rukou ne-admin requestů, kde TTL přirozeně rotuje).
+     * Zapíše do file cache. V admin režimu nezapisuje a místo toho zneplatní
+     * případnou starou cache (viz cacheGet) — admin čte čerstvá data ze
+     * Supabase a po vypnutí adminu uvidí běžný návštěvník změny okamžitě,
+     * ne až po vypršení TTL.
      */
     private function cacheSet($key, $data) {
         if (!$this->cacheDir) return;
-        if ($this->isCmsAdmin()) return; // bypass — necháme cache pro non-admin
         $file = $this->cacheDir . '/' . md5($key) . '.json';
+        if ($this->isCmsAdmin()) {
+            if (file_exists($file)) @unlink($file);
+            return;
+        }
         @file_put_contents($file, json_encode($data), LOCK_EX);
     }
 
