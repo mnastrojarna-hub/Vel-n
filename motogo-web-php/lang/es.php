@@ -133,6 +133,17 @@ return [
     'common.download' => 'Descargar',
     'common.downloadCaps' => 'DESCARGAR',
 
+    // ===== Documentos públicos (Velín → Documentos → Textos contractuales) =====
+    'doc.title.vop' => 'Términos y condiciones',
+    'doc.title.rental_contract' => 'Contrato de alquiler de motocicleta',
+    'doc.title.handover_protocol' => 'Acta de entrega',
+    'doc.title.damage_protocol' => 'Informe de daños',
+    'doc.title.gdpr' => 'Política de privacidad (RGPD)',
+    'doc.download' => 'Descargar / Imprimir (PDF)',
+    'doc.pdfHint' => 'PDF · ver o guardar',
+    'doc.version' => 'Versión {v} · actualizado {date}',
+    'doc.notPublished' => 'Este documento aún no ha sido publicado.',
+
     // ===== Breadcrumby (statické labely) =====
     'breadcrumb.home' => 'Inicio',
     'breadcrumb.catalog' => 'Catálogo de motos',
@@ -349,6 +360,9 @@ return [
     'rez.cal.month.9' => 'Octubre',
     'rez.cal.month.10' => 'Noviembre',
     'rez.cal.month.11' => 'Diciembre',
+    'rez.lic.day' => 'Día',
+    'rez.lic.month' => 'Mes',
+    'rez.lic.year' => 'Año',
     'rez.cal.dayShort.0' => 'Lun',
     'rez.cal.dayShort.1' => 'Mar',
     'rez.cal.dayShort.2' => 'Mié',
