@@ -10,7 +10,7 @@ $lang = function_exists('i18nDetectLanguage') ? i18nDetectLanguage() : 'cs';
 // Chrome stránky (přes siteContent — overlay z cms_variables web.faq.*)
 $defaults = [
     'seo' => [
-        'title' => 'Časté dotazy k půjčení motorky | MotoGo24 Vysočina',
+        'title' => 'Půjčovna motorek Vysočina – Jak si půjčit motorku – Často kladené dotazy',
         'description' => 'Nejčastější dotazy k půjčení motorky u MotoGo24. Odpovědi na rezervaci motorky, podmínky i průběh zapůjčení motocyklu.',
         'keywords' => 'motopůjčovna',
     ],
