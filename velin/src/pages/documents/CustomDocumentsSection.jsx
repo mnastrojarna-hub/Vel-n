@@ -33,21 +33,32 @@ export default function CustomDocumentsSection() {
   const [translatingId, setTranslatingId] = useState(null)
   const [trMsg, setTrMsg] = useState({}) // id -> { ok, text }
 
-  async function handleTranslate(doc) {
+  async function handleTranslate(doc, { force = false } = {}) {
     setTranslatingId(doc.id)
-    setTrMsg(m => ({ ...m, [doc.id]: { ok: true, text: 'Překládám…' } }))
-    // Po jednom jazyce — full-doc / PDF překlad je pomalý; jeden jazyk per
-    // invokace edge fn se vejde do limitu (víc jazyků naráz padalo na HTTP 546).
-    const done = []
+    const already = force ? [] : Object.keys(doc.translations || {}).filter(k => TRANSLATE_TARGET_LANGS.includes(k))
+    const todo = TRANSLATE_TARGET_LANGS.filter(l => !already.includes(l))
+    if (todo.length === 0) {
+      setTranslatingId(null)
+      setTrMsg(m => ({ ...m, [doc.id]: { ok: true, text: `Vše už přeloženo (${already.join(', ')}). Pro nové přeložení použij „Přeložit znovu vše".` } }))
+      return
+    }
+    const done = [...already]
     const failed = []
-    for (const lang of TRANSLATE_TARGET_LANGS) {
-      setTrMsg(m => ({ ...m, [doc.id]: { ok: true, text: `Překládám… (${lang}, hotovo: ${done.join(', ') || '–'})` } }))
-      const res = await translateDocument({ table: 'custom_documents', id: doc.id, target_langs: [lang] })
-      if (res?.success && res.translations?.[lang]) done.push(lang)
-      else failed.push(`${lang}: ${res?.error || (res?.errors && Object.values(res.errors)[0]) || 'chyba'}`)
+    // Po jednom jazyce, s opakováním (transientní rate-limit) — full-doc / PDF
+    // překlad je pomalý; jeden jazyk per invokace edge fn se vejde do limitu.
+    for (const lang of todo) {
+      setTrMsg(m => ({ ...m, [doc.id]: { ok: true, text: `Překládám… ${lang} · hotovo: ${done.join(', ') || '–'}${failed.length ? ` · selhalo: ${failed.map(f => f.split(':')[0]).join(', ')}` : ''}` } }))
+      let ok = false, lastErr = ''
+      for (let attempt = 1; attempt <= 3 && !ok; attempt++) {
+        if (attempt > 1) await new Promise(r => setTimeout(r, 2500))
+        const res = await translateDocument({ table: 'custom_documents', id: doc.id, target_langs: [lang] })
+        if (res?.success && res.translations?.[lang]) ok = true
+        else lastErr = res?.error || (res?.errors && Object.values(res.errors)[0]) || 'chyba'
+      }
+      if (ok) done.push(lang); else failed.push(`${lang}: ${lastErr}`)
     }
     setTranslatingId(null)
-    setTrMsg(m => ({ ...m, [doc.id]: { ok: failed.length === 0, text: failed.length ? `Přeloženo: ${done.join(', ') || '–'} · selhalo — ${failed.join('; ')}` : `Přeloženo do: ${done.join(', ')}` } }))
+    setTrMsg(m => ({ ...m, [doc.id]: { ok: failed.length === 0, text: failed.length ? `Přeloženo: ${done.join(', ') || '–'} · selhalo — ${failed.join('; ')} (klikni „Přeložit" znovu pro dokončení)` : `Hotovo — přeloženo do: ${done.join(', ')}` } }))
     load()
   }
 
@@ -129,6 +140,9 @@ export default function CustomDocumentsSection() {
                     ? <a href={d.pdf_path} target="_blank" rel="noopener"><Button>Otevřít PDF</Button></a>
                     : <Button onClick={() => setPreview(d)}>Náhled</Button>}
                   <Button onClick={() => handleTranslate(d)} disabled={translatingId === d.id}>{translatingId === d.id ? 'Překládám…' : '🌍 Přeložit'}</Button>
+                  {translatingId !== d.id && Object.keys(d.translations || {}).filter(k => TRANSLATE_TARGET_LANGS.includes(k)).length > 0 && (
+                    <Button onClick={() => handleTranslate(d, { force: true })}>Přeložit znovu vše</Button>
+                  )}
                   <Button green onClick={() => setEditing(d)}>Upravit</Button>
                   <Button onClick={() => setToDelete(d)}>Smazat</Button>
                 </div>
