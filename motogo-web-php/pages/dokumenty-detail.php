@@ -6,9 +6,36 @@
 // Seznam dokumentů je kanonický (mgPublicDocuments()) — stejný na všech doménách,
 // názvy přeložené přes i18n. Obsah šablony se zobrazí v jazyce návštěvníka, pokud
 // admin doplnil překlad (document_templates.content_translations), jinak CZ originál.
+//
+// Vlastní dokumenty (Velín → Dokumenty → Vlastní dokumenty, tabulka `custom_documents`)
+// se zobrazí pod libovolným slugem mimo kanonický seznam. Typ Text podporuje firemní
+// proměnné ({{firma}}…). Cizojazyčné verze čerpají z `custom_documents.translations`
+// (plní edge fn `translate-document`); přeložené PDF se na cizí verzi zobrazí jako
+// HTML stránka, český originál PDF zůstává.
 
 $sb   = new SupabaseClient();
 $lang = function_exists('i18nDetectLanguage') ? i18nDetectLanguage() : 'cs';
+
+// Firemní proměnné pro typ "Text" (custom_documents.kind='html').
+// Statické hodnoty z config.php — žádné per-rezervační údaje (dokument není
+// navázaný na booking). Podporované: {{firma}} {{ico}} {{adresa}} {{telefon}}
+// {{email}} {{web}} {{datum}} (+ varianty s mezerami: {{ firma }}).
+function fillDocVars($html) {
+    if ($html === '' || strpos($html, '{{') === false) return $html;
+    $map = [
+        'firma'   => defined('COMPANY_NAME') ? COMPANY_NAME : '',
+        'ico'     => defined('COMPANY_ICO') ? COMPANY_ICO : '',
+        'adresa'  => defined('COMPANY_ADDRESS') ? COMPANY_ADDRESS : '',
+        'telefon' => defined('PHONE') ? PHONE : '',
+        'email'   => defined('EMAIL_FULL') ? EMAIL_FULL : '',
+        'web'     => 'www.motogo24.cz',
+        'datum'   => date('d. m. Y'),
+    ];
+    return preg_replace_callback('/\{\{\s*([a-z_]+)\s*\}\}/i', function ($m) use ($map) {
+        $k = strtolower($m[1]);
+        return array_key_exists($k, $map) ? htmlspecialchars($map[$k]) : $m[0];
+    }, $html);
+}
 
 // Mapa veřejných slug → ['type' => document_templates.type, 'title' => přeložený název].
 // Kanonický seznam je v components.php::mgPublicDocuments(). `gdpr` má i zkrácený alias.
@@ -26,19 +53,34 @@ $entry   = $DOC_MAP[$slug] ?? null;
 
 $tpl = null;
 if ($entry) {
-    $tpl = $sb->fetchDocumentTemplate($entry['type']);
+    // Pevná smluvní šablona (document_templates) — obsah v jazyce návštěvníka řeší
+    // níže RPC get_document_translation (content_translations[lang]).
+    $row = $sb->fetchDocumentTemplate($entry['type']);
+    if ($row) {
+        $tpl = [
+            'content_html' => $row['content_html'] ?? '',
+            'version'      => $row['version'] ?? 1,
+            'updated_at'   => $row['updated_at'] ?? null,
+        ];
+    }
 } else {
     // Vlastní dokument vytvořený ve Velíně (tabulka custom_documents).
     $cd = $sb->fetchCustomDocument($slug);
     if ($cd) {
-        if (($cd['kind'] ?? 'html') === 'pdf') {
-            // PDF dokument — přesměruj rovnou na soubor (zobrazí se / uloží v prohlížeči).
+        $isPdf = (($cd['kind'] ?? 'html') === 'pdf');
+        // U PDF: pokud existuje překlad obsahu pro aktuální (cizí) jazyk, zobrazíme
+        // ho jako HTML stránku; jinak (čeština nebo bez překladu) → redirect na PDF.
+        $trHtml = ($lang !== 'cs') ? localized($cd, 'content_html') : '';
+        $hasTrHtml = ($trHtml !== '' && $trHtml !== ($cd['content_html'] ?? ''));
+        if ($isPdf && !$hasTrHtml) {
             $pdfUrl = $cd['pdf_path'] ?? '';
             if ($pdfUrl) { header('Location: ' . $pdfUrl, true, 302); exit; }
         }
-        $entry = ['type' => null, 'title' => $cd['title'] ?? 'Dokument'];
+        $trTitle = localized($cd, 'title');
+        $entry = ['type' => null, 'title' => $trTitle !== '' ? $trTitle : ($cd['title'] ?? 'Dokument')];
+        $bodyHtml = $isPdf ? $trHtml : localized($cd, 'content_html');
         $tpl = [
-            'content_html' => $cd['content_html'] ?? '',
+            'content_html' => fillDocVars($bodyHtml),
             'version'      => $cd['version'] ?? 1,
             'updated_at'   => $cd['updated_at'] ?? null,
         ];
@@ -54,8 +96,8 @@ if (!$entry) {
 // Obsah v jazyce návštěvníka: u dokumentů z `document_templates` zkus pro non-CZ
 // přeloženou variantu přes RPC get_document_translation (čte content_translations[lang]).
 // Pokud překlad neexistuje (RPC vrátí null) → fallback na CZ originál content_html,
-// aby dokument nebyl nikdy prázdný. Vlastní dokumenty (custom_documents) zatím
-// jen jednojazyčné — `$entry['type']` je null.
+// aby dokument nebyl nikdy prázdný. Vlastní dokumenty (custom_documents) překlad
+// řeší výše přes `localized()` — `$entry['type']` je null.
 $rawHtml = $tpl && !empty($tpl['content_html']) ? $tpl['content_html'] : '';
 if ($lang !== 'cs' && !empty($entry['type'])) {
     try {

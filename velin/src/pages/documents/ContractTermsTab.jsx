@@ -6,6 +6,7 @@ import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
 import RichTextEditor, { buildPreviewHtml } from '../../components/ui/RichTextEditor'
 import CustomDocumentsSection from './CustomDocumentsSection'
+import { translateDocument, TRANSLATE_TARGET_LANGS } from '../../lib/autoTranslate'
 
 const CONTRACT_TYPES = [
   { type: 'vop', label: 'Obchodní podmínky (VOP)', icon: '📜', description: 'Všeobecné obchodní podmínky pro pronájem motocyklů' },
@@ -58,6 +59,24 @@ export default function ContractTermsTab() {
   const [error, setError] = useState(null)
   const [editing, setEditing] = useState(null)
   const [preview, setPreview] = useState(null)
+  const [translatingType, setTranslatingType] = useState(null)
+  const [trMsg, setTrMsg] = useState({}) // type -> { ok, text }
+
+  async function handleTranslate(tpl) {
+    if (!tpl?.id) return
+    setTranslatingType(tpl.type)
+    setTrMsg(m => ({ ...m, [tpl.type]: null }))
+    const res = await translateDocument({ table: 'document_templates', id: tpl.id })
+    setTranslatingType(null)
+    if (res?.success) {
+      const langs = Object.keys(res.translations || {})
+      const failed = res.errors ? Object.keys(res.errors) : []
+      setTrMsg(m => ({ ...m, [tpl.type]: { ok: failed.length === 0, text: failed.length ? `Přeloženo: ${langs.join(', ')} · selhalo: ${failed.join(', ')}` : `Přeloženo do: ${langs.join(', ')}` } }))
+      load()
+    } else {
+      setTrMsg(m => ({ ...m, [tpl.type]: { ok: false, text: 'Překlad selhal: ' + (res?.error || 'neznámá chyba') } }))
+    }
+  }
 
   useEffect(() => { load() }, [])
 
@@ -112,14 +131,23 @@ export default function ContractTermsTab() {
                             Proměnné: {vars.length}
                           </span>
                         )}
+                        <span className="text-sm" style={{ color: '#1a2e22' }}>
+                          {(() => { const ks = Object.keys(tpl.content_translations || {}).filter(k => TRANSLATE_TARGET_LANGS.includes(k)); return ks.length ? `🌍 přeloženo: ${ks.join(', ')}` : '🌍 jen česky' })()}
+                        </span>
                       </div>
                     )}
+                    {tpl && trMsg[ct.type] && <p className="text-sm mt-1" style={{ color: trMsg[ct.type].ok ? '#15803d' : '#dc2626' }}>{trMsg[ct.type].text}</p>}
                   </div>
                 </div>
                 <div className="flex gap-2 shrink-0">
                   {tpl && (
                     <Button onClick={() => setPreview(tpl)}>
                       Náhled
+                    </Button>
+                  )}
+                  {tpl && (
+                    <Button onClick={() => handleTranslate(tpl)} disabled={translatingType === ct.type}>
+                      {translatingType === ct.type ? 'Překládám…' : '🌍 Přeložit'}
                     </Button>
                   )}
                   <Button green onClick={() => setEditing(tpl || { type: ct.type, name: ct.label, content_html: '', version: 0 })}>

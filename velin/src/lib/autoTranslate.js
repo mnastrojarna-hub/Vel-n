@@ -89,6 +89,36 @@ export async function autoTranslate({ table, id, fields, target_langs, onStatus 
 }
 
 /**
+ * Přeloží celý dokument (Velín → Dokumenty) přes edge funkci `translate-document`.
+ * `table`: 'custom_documents' | 'document_templates'. U custom_documents typu PDF
+ * Claude přečte přiložené PDF přímo a vrátí přeložený obsah jako HTML.
+ * Vrací { success, translations?, errors?, error? }. Nehází výjimky.
+ */
+export async function translateDocument({ table, id, target_langs }) {
+  if (!table || !id) return { success: false, error: 'missing_table_or_id' }
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    const accessToken = session?.access_token || supabaseAnonKey
+    const response = await fetch(`${supabaseUrl}/functions/v1/translate-document`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'apikey': supabaseAnonKey,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ table, id, target_langs }),
+    })
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok || !data?.success) {
+      return { success: false, error: data?.error || `HTTP ${response.status}`, details: data?.details }
+    }
+    return { success: true, translations: data.translations || {}, errors: data.errors }
+  } catch (e) {
+    return { success: false, error: e?.message || String(e) }
+  }
+}
+
+/**
  * Pohodlnější varianta — vyfiltruje fields podle tabulky a zavolá autoTranslate.
  * Vrací promise, můžete await nebo nechat běžet na pozadí.
  */
