@@ -42,8 +42,8 @@ return [
         ],
     ],
     'seo' => [
-        'title' => 'Jak si půjčit motorku – postup krok za krokem | MotoGo24',
-        'description' => 'Zjisti, jak probíhá půjčení motorky u MotoGo24. Přehledný postup rezervace motorky, podmínky i tipy pro bezstarostnou jízdu na Vysočině.',
+        'title' => 'Půjčovna motorek Vysočina – Jak si půjčit motorku – Postup půjčení motorky',
+        'description' => 'Zjisti, jak probíhá půjčení motorky u MotoGo24. Přehledný postup rezervace motorky, podmínky i tipy pro bezstarostnou jízdu. Rezervuj si motorku jednoduše online. Vyber termín, stroj i výbavu a vyraz na nezapomenutelnou jízdu s MotoGo24 na Vysočině.',
         'keywords' => 'motopůjčovna',
     ],
 ];

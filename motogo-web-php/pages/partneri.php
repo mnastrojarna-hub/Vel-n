@@ -97,7 +97,7 @@ curl https://vnwnqteskbykeucanlhk.supabase.co/functions/v1/public-api/api/v1/mot
 
 <h2>7. Compliance</h2>
 <ul>
-<li><strong>GDPR:</strong> všechny IP adresy v logu jsou hashované (sha256+salt). Viz <a href="/dokumenty/zasady-ochrany-osobnich-udaju">Zásady ochrany osobních údajů</a>.</li>
+<li><strong>GDPR:</strong> všechny IP adresy v logu jsou hashované (sha256+salt). Viz <a href="/gdpr">Zásady ochrany osobních údajů</a>.</li>
 <li><strong>Stripe LIVE:</strong> platby jsou PCI DSS compliant.</li>
 <li><strong>Rate limits:</strong> 429 status code + <code>Retry-After</code> header při překročení.</li>
 <li><strong>Idempotency:</strong> POST <code>/bookings</code> přijímá <code>Idempotency-Key</code> header.</li>

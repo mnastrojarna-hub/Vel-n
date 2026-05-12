@@ -114,8 +114,8 @@ return [
         ],
     ],
     'seo' => [
-        'title' => 'Vrácení motorky jinde než v půjčovně | MotoGo24',
-        'description' => 'Vrať motorku tam, kde ti to vyhovuje. MotoGo24 nabízí flexibilní vrácení motocyklu na Vysočině bez nutnosti návratu do půjčovny.',
+        'title' => 'Půjčovna motorek Vysočina – Jak si půjčit motorku – Vrácení motorky jinde',
+        'description' => 'Vrať motorku tam, kde ti to vyhovuje. MotoGo24 nabízí flexibilní vrácení motocyklu na Vysočině bez nutnosti návratu do půjčovny. Rezervuj si motorku jednoduše online. Vyber termín, stroj i výbavu a vyraz na nezapomenutelnou jízdu s MotoGo24 na Vysočině.',
         'keywords' => 'motopůjčovna',
     ],
 ];
