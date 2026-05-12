@@ -14,6 +14,7 @@ $resume = $_GET['resume'] ?? '';
 
 $content = '<main id="content"><div class="container">' . $bc .
     '<div class="ccontent pcontent pcontent-wide">' .
+    '<h1>' . te('rez.h1') . '</h1>' .
     '<div id="rezervace-app"><div class="loading-overlay"><span class="spinner"></span> ' . te('rezervace.loading') . '</div></div>' .
     '</div></div></main>';
 
