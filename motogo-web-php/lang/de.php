@@ -132,6 +132,17 @@ return [
     'common.download' => 'Herunterladen',
     'common.downloadCaps' => 'HERUNTERLADEN',
 
+    // ===== Öffentliche Dokumente (Velín → Dokumente → Vertragstexte) =====
+    'doc.title.vop' => 'Allgemeine Geschäftsbedingungen (AGB)',
+    'doc.title.rental_contract' => 'Mietvertrag für das Motorrad',
+    'doc.title.handover_protocol' => 'Übergabeprotokoll',
+    'doc.title.damage_protocol' => 'Schadensprotokoll',
+    'doc.title.gdpr' => 'Datenschutzerklärung (DSGVO)',
+    'doc.download' => 'Herunterladen / Drucken (PDF)',
+    'doc.pdfHint' => 'PDF · ansehen oder speichern',
+    'doc.version' => 'Version {v} · aktualisiert {date}',
+    'doc.notPublished' => 'Dieses Dokument wurde noch nicht veröffentlicht.',
+
     // Breadcrumby
     'breadcrumb.home' => 'Startseite',
     'breadcrumb.catalog' => 'Motorradkatalog',
@@ -348,6 +359,9 @@ return [
     'rez.cal.month.9' => 'Oktober',
     'rez.cal.month.10' => 'November',
     'rez.cal.month.11' => 'Dezember',
+    'rez.lic.day' => 'Tag',
+    'rez.lic.month' => 'Monat',
+    'rez.lic.year' => 'Jahr',
     'rez.cal.dayShort.0' => 'Mo',
     'rez.cal.dayShort.1' => 'Di',
     'rez.cal.dayShort.2' => 'Mi',

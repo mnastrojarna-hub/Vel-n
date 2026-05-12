@@ -2,19 +2,23 @@
 // ===== MotoGo24 Web PHP — Detail dokumentu (z document_templates ve Velíně) =====
 // Zobrazí HTML obsah šablony + nabídne tisk/uložení do PDF přes browser print.
 // Všechny veřejné smluvní/informační dokumenty (VOP, smlouva, GDPR, protokoly)
-// jsou jeden zdroj pravdy: Velín → Dokumenty → Smluvní texty.
+// jsou jeden zdroj pravdy: Velín → Dokumenty → Smluvní texty (`document_templates`).
+// Seznam dokumentů je kanonický (mgPublicDocuments()) — stejný na všech doménách,
+// názvy přeložené přes i18n. Obsah šablony se zobrazí v jazyce návštěvníka, pokud
+// admin doplnil překlad (document_templates.content_translations), jinak CZ originál.
 
-$sb = new SupabaseClient();
+$sb   = new SupabaseClient();
+$lang = function_exists('i18nDetectLanguage') ? i18nDetectLanguage() : 'cs';
 
-// Mapa veřejných slug → typ šablony v `document_templates` + lidský název
-$DOC_MAP = [
-    'obchodni-podminky'             => ['type' => 'vop',               'title' => 'Obchodní podmínky (VOP)'],
-    'smlouva-o-pronajmu'            => ['type' => 'rental_contract',   'title' => 'Smlouva o pronájmu motocyklu'],
-    'predavaci-protokol'            => ['type' => 'handover_protocol', 'title' => 'Předávací protokol'],
-    'protokol-o-poskozeni'          => ['type' => 'damage_protocol',   'title' => 'Protokol o poškození'],
-    'zasady-ochrany-osobnich-udaju' => ['type' => 'gdpr',               'title' => 'Zásady ochrany osobních údajů (GDPR)'],
-    'gdpr'                          => ['type' => 'gdpr',               'title' => 'Zásady ochrany osobních údajů (GDPR)'],
-];
+// Mapa veřejných slug → ['type' => document_templates.type, 'title' => přeložený název].
+// Kanonický seznam je v components.php::mgPublicDocuments(). `gdpr` má i zkrácený alias.
+$DOC_MAP = [];
+foreach (mgPublicDocuments() as $d) {
+    $DOC_MAP[$d['slug']] = ['type' => $d['type'], 'title' => $d['title']];
+}
+if (isset($DOC_MAP['zasady-ochrany-osobnich-udaju'])) {
+    $DOC_MAP['gdpr'] = $DOC_MAP['zasady-ochrany-osobnich-udaju'];
+}
 
 $slug    = $_GET['doc_slug'] ?? '';
 $wantPdf = !empty($_GET['format']) && $_GET['format'] === 'pdf';
@@ -45,6 +49,24 @@ if (!$entry) {
     http_response_code(404);
     require __DIR__ . '/404.php';
     return;
+}
+
+// Obsah v jazyce návštěvníka: u dokumentů z `document_templates` zkus pro non-CZ
+// přeloženou variantu přes RPC get_document_translation (čte content_translations[lang]).
+// Pokud překlad neexistuje (RPC vrátí null) → fallback na CZ originál content_html,
+// aby dokument nebyl nikdy prázdný. Vlastní dokumenty (custom_documents) zatím
+// jen jednojazyčné — `$entry['type']` je null.
+$rawHtml = $tpl && !empty($tpl['content_html']) ? $tpl['content_html'] : '';
+if ($lang !== 'cs' && !empty($entry['type'])) {
+    try {
+        $translated = $sb->rpc('get_document_translation', [
+            'p_template_slug' => $entry['type'],
+            'p_language'      => $lang,
+        ]);
+        if (is_string($translated) && trim($translated) !== '') {
+            $rawHtml = $translated;
+        }
+    } catch (\Throwable $e) { /* fallback na CZ originál */ }
 }
 
 // Stejné CSS jako Velín RichTextEditor (ContentEditable .rte-content) — WYSIWYG
@@ -78,31 +100,23 @@ CSS;
 //  - prazdne <strong></strong>/<em></em>/<span></span> -> pryc (Seobility 'Empty tags')
 //  - vnoreny <h1> -> <h2> (Seobility 'Multiple H1 in page' — sablona uz ma jeden <h1>)
 //  - <iframe>/<script> raw HTML chrana (i kdyz Velin editor by je nemel pustit)
-$tplHtml = $tpl && !empty($tpl['content_html']) ? sanitizeHtml($tpl['content_html']) : '';
+$tplHtml = $rawHtml !== '' ? sanitizeHtml($rawHtml) : '';
 
 // `format=pdf` → vrátí samostatný HTML dokument optimalizovaný pro tisk/uložení
 // jako PDF (Ctrl+P → Save as PDF). Žádné navigační prvky webu, jen čistý obsah.
-// Backend-side PDF render přes PDFShift se může přidat později — pro většinu
-// uživatelů je browser print → PDF dostatečné a okamžitě k dispozici.
 //
-// SEO: Print verze NESMÍ jít do Google indexu — Seobility audit (2026-05-10)
-// zaznamenal pokles Content score z 80% → 66% protože tyhle minimalistické
-// print-only stránky se začaly indexovat jako samostatný obsah (chybělo meta
-// description, krátké/duplicitní H1, „Pages without text"). Vracíme tedy
-// `X-Robots-Tag: noindex, nofollow` (HTTP) i `<meta name="robots">` (HTML)
-// — Google print verze ignoruje, hlavní stránka /dokumenty/<slug> zůstává
-// jediným indexovatelným zdrojem. `nofollow` aby crawler nešel z print
-// verze nikam dál (nejsou tu beztoho odkazy).
+// SEO: Print verze NESMÍ jít do Google indexu — vrací noindex/nofollow (HTTP + meta).
 if ($wantPdf) {
     header('Content-Type: text/html; charset=utf-8');
     header('Cache-Control: no-store');
     header('X-Robots-Tag: noindex, nofollow');
-    $title = htmlspecialchars($entry['title']);
-    echo '<!DOCTYPE html><html lang="cs"><head><meta charset="utf-8"><title>' . $title . '</title>';
+    $title    = htmlspecialchars($entry['title']);
+    $htmlLang = htmlspecialchars($lang);
+    echo '<!DOCTYPE html><html lang="' . $htmlLang . '"><head><meta charset="utf-8"><title>' . $title . '</title>';
     echo '<meta name="robots" content="noindex, nofollow">';
     echo '<style>' . $DOC_CSS . '</style></head>';
     echo '<body class="doc-render" onload="setTimeout(function(){window.print()},250)">';
-    echo $tplHtml ?: '<p>Dokument zatím nebyl publikován.</p>';
+    echo $tplHtml ?: '<p>' . htmlspecialchars(t('doc.notPublished')) . '</p>';
     echo '</body></html>';
     exit;
 }
@@ -110,11 +124,11 @@ if ($wantPdf) {
 // HTML stránka v rámci webu — breadcrumbs, nadpis, obsah šablony, akční tlačítka.
 $bc = renderBreadcrumb([
     ['label' => t('breadcrumb.home'), 'href' => '/'],
-    ['label' => t('menu.howto.documents') ?? 'Dokumenty', 'href' => '/jak-pujcit/dokumenty'],
+    ['label' => t('menu.howto.documents'), 'href' => '/jak-pujcit/dokumenty'],
     $entry['title'],
 ]);
 
-$title = htmlspecialchars($entry['title']);
+$title   = htmlspecialchars($entry['title']);
 $pdfHref = BASE_URL . '/dokumenty/' . urlencode($slug) . '?format=pdf';
 
 $body = '<main id="content"><div class="container">' . $bc;
@@ -123,16 +137,18 @@ $body .= '<div class="ccontent">';
 $body .= '<h1>' . $title . '</h1>';
 
 if (!$tpl || empty($tplHtml)) {
-    $body .= '<p>Tento dokument zatím nebyl publikován. Pro detaily nás prosím <a href="' . BASE_URL . '/kontakt">kontaktujte</a>.</p>';
+    $body .= '<p>' . htmlspecialchars(t('doc.notPublished')) . ' <a href="' . BASE_URL . '/kontakt">' . htmlspecialchars(t('common.contactUs')) . '</a></p>';
 } else {
     if (!empty($tpl['updated_at'])) {
-        $body .= '<p style="color:#6b7a72;font-size:13px">Verze ' . (int)($tpl['version'] ?? 1)
-              . ' &middot; aktualizováno ' . htmlspecialchars(date('d. m. Y', strtotime($tpl['updated_at']))) . '</p>';
+        $body .= '<p style="color:#6b7a72;font-size:13px">' . htmlspecialchars(t('doc.version', [
+            'v'    => (int)($tpl['version'] ?? 1),
+            'date' => date('d. m. Y', strtotime($tpl['updated_at'])),
+        ])) . '</p>';
     }
     $body .= '<div class="no-print" style="display:flex;gap:8px;margin:12px 0 20px">';
     $body .= '<a class="btn btngreen" href="' . htmlspecialchars($pdfHref) . '" target="_blank" rel="noopener nofollow">'
           .  '<img src="' . BASE_URL . '/gfx/ico-stahnout.svg" alt="" style="height:16px;vertical-align:middle;margin-right:6px">'
-          .  'Stáhnout / Tisk (PDF)</a>';
+          .  htmlspecialchars(t('doc.download')) . '</a>';
     $body .= '</div>';
     $body .= '<article class="doc-render" style="border:1px solid #e2ece7;border-radius:12px;background:#fff;padding:24px">'
           .  $tplHtml
@@ -142,5 +158,5 @@ if (!$tpl || empty($tplHtml)) {
 $body .= '</div></div></main>';
 
 renderPage($entry['title'] . ' | MotoGo24', $body, '/dokumenty/' . $slug, [
-    'description' => $entry['title'] . ' — aktuální znění dokumentu MotoGo24, online ke stažení v PDF.',
+    'description' => $entry['title'],
 ]);

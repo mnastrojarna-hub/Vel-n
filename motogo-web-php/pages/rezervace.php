@@ -64,6 +64,8 @@ $rezKeys = [
     'cal.prev','cal.next','cal.legend.free','cal.legend.selected','cal.legend.occupied','cal.legend.unconfirmed',
     'cal.noMotoInRange','cal.freeInRange','cal.pickFromList','cal.selectMoto',
     'cal.rangeOccupied','cal.startSelected','cal.clearSelection','cal.selectedRange',
+    // Výběr data platnosti ŘP (pages-rezervace-steps.js)
+    'lic.day','lic.month','lic.year',
     // Kamera / scanner dokladů (pages-rezervace-camera.js)
     'cam.docs.id','cam.docs.license','cam.close','cam.hint','cam.shoot','cam.progress',
 ];

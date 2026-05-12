@@ -125,6 +125,17 @@ return [
     'common.download' => 'Pobierz',
     'common.downloadCaps' => 'POBIERZ',
 
+    // ===== Dokumenty publiczne (Velín → Dokumenty → Teksty umowne) =====
+    'doc.title.vop' => 'Regulamin (OWU)',
+    'doc.title.rental_contract' => 'Umowa najmu motocykla',
+    'doc.title.handover_protocol' => 'Protokół przekazania',
+    'doc.title.damage_protocol' => 'Protokół uszkodzeń',
+    'doc.title.gdpr' => 'Polityka prywatności (RODO)',
+    'doc.download' => 'Pobierz / Drukuj (PDF)',
+    'doc.pdfHint' => 'PDF · wyświetl lub zapisz',
+    'doc.version' => 'Wersja {v} · zaktualizowano {date}',
+    'doc.notPublished' => 'Ten dokument nie został jeszcze opublikowany.',
+
     'breadcrumb.home' => 'Strona główna',
     'breadcrumb.catalog' => 'Katalog motocykli',
     'breadcrumb.howto' => 'Jak wypożyczyć',
@@ -334,6 +345,9 @@ return [
     'rez.cal.month.9' => 'Październik',
     'rez.cal.month.10' => 'Listopad',
     'rez.cal.month.11' => 'Grudzień',
+    'rez.lic.day' => 'Dzień',
+    'rez.lic.month' => 'Miesiąc',
+    'rez.lic.year' => 'Rok',
     'rez.cal.dayShort.0' => 'Pon',
     'rez.cal.dayShort.1' => 'Wt',
     'rez.cal.dayShort.2' => 'Śr',

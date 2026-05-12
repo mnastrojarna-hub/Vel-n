@@ -135,6 +135,17 @@ return [
     'common.download' => 'Stáhnout',
     'common.downloadCaps' => 'STÁHNOUT',
 
+    // ===== Veřejné dokumenty (Velín → Dokumenty → Smluvní texty) =====
+    'doc.title.vop' => 'Obchodní podmínky (VOP)',
+    'doc.title.rental_contract' => 'Smlouva o pronájmu motocyklu',
+    'doc.title.handover_protocol' => 'Předávací protokol',
+    'doc.title.damage_protocol' => 'Protokol o poškození',
+    'doc.title.gdpr' => 'Zásady ochrany osobních údajů (GDPR)',
+    'doc.download' => 'Stáhnout / Tisk (PDF)',
+    'doc.pdfHint' => 'PDF · zobrazit nebo uložit',
+    'doc.version' => 'Verze {v} · aktualizováno {date}',
+    'doc.notPublished' => 'Tento dokument zatím nebyl publikován.',
+
     // ===== Breadcrumby (statické labely) =====
     'breadcrumb.home' => 'Domů',
     'breadcrumb.catalog' => 'Katalog motorek',
@@ -493,6 +504,10 @@ return [
     'rez.cal.month.9' => 'Říjen',
     'rez.cal.month.10' => 'Listopad',
     'rez.cal.month.11' => 'Prosinec',
+    // Výběr data platnosti ŘP (pages-rezervace-steps.js)
+    'rez.lic.day' => 'Den',
+    'rez.lic.month' => 'Měsíc',
+    'rez.lic.year' => 'Rok',
     'rez.cal.dayShort.0' => 'Po',
     'rez.cal.dayShort.1' => 'Út',
     'rez.cal.dayShort.2' => 'St',

@@ -125,6 +125,17 @@ return [
     'common.download' => 'Downloaden',
     'common.downloadCaps' => 'DOWNLOADEN',
 
+    // ===== Openbare documenten (Velín → Documenten → Contractteksten) =====
+    'doc.title.vop' => 'Algemene voorwaarden',
+    'doc.title.rental_contract' => 'Huurovereenkomst motorfiets',
+    'doc.title.handover_protocol' => 'Overdrachtsprotocol',
+    'doc.title.damage_protocol' => 'Schaderapport',
+    'doc.title.gdpr' => 'Privacybeleid (AVG)',
+    'doc.download' => 'Downloaden / Afdrukken (PDF)',
+    'doc.pdfHint' => 'PDF · bekijken of opslaan',
+    'doc.version' => 'Versie {v} · bijgewerkt {date}',
+    'doc.notPublished' => 'Dit document is nog niet gepubliceerd.',
+
     'breadcrumb.home' => 'Home',
     'breadcrumb.catalog' => 'Motorcatalogus',
     'breadcrumb.howto' => 'Hoe huren',
@@ -334,6 +345,9 @@ return [
     'rez.cal.month.9' => 'Oktober',
     'rez.cal.month.10' => 'November',
     'rez.cal.month.11' => 'December',
+    'rez.lic.day' => 'Dag',
+    'rez.lic.month' => 'Maand',
+    'rez.lic.year' => 'Jaar',
     'rez.cal.dayShort.0' => 'Ma',
     'rez.cal.dayShort.1' => 'Di',
     'rez.cal.dayShort.2' => 'Wo',
