@@ -73,7 +73,9 @@ export default function FleetDetail() {
       // Oprávnění + délka pronájmu
       license_required, min_rental_days, max_rental_days,
       // Texty (auto-překládají se po uložení)
-      description, ideal_usage, features,
+      description, features,
+      // Výběr parametrů do krátkého popisu na webu
+      short_desc_fields,
     } = moto
     const updateData = {
       model, spz, vin,
@@ -107,8 +109,8 @@ export default function FleetDetail() {
       min_rental_days: toInt(min_rental_days),
       max_rental_days: toInt(max_rental_days),
       description,
-      ideal_usage: Array.isArray(ideal_usage) ? ideal_usage.map(s => s?.trim()).filter(Boolean) : ideal_usage,
       features: Array.isArray(features) ? features.map(s => s?.trim()).filter(Boolean) : features,
+      short_desc_fields: Array.isArray(short_desc_fields) ? short_desc_fields.filter(Boolean) : [],
     }
     const result = await debugAction('fleet.save', 'FleetDetail', () =>
       supabase.from('motorcycles').update(updateData).eq('id', id)

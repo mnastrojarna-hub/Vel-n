@@ -96,30 +96,91 @@ $descHtml = '<div class="moto-shortdesc">';
 if ($motoDesc !== '') {
     $descHtml .= '<div class="wbox"><p>' . htmlspecialchars($motoDesc) . '</p></div><p>&nbsp;</p>';
 }
+// Krátký popis — vybrané parametry řídí Velín přes sloupec short_desc_fields (text[]).
+// Prázdný/chybějící = dosavadní výchozí sada (kvůli zpětné kompatibilitě).
+$sdFields = is_array($moto['short_desc_fields'] ?? null) ? array_values(array_filter($moto['short_desc_fields'])) : [];
+if (!$sdFields) $sdFields = ['power_kw', 'category', 'engine', 'drivetrain', 'fuel_consumption_l100km'];
 $features = [];
-// Výkon (kW + cca koní, pokud máme power_hp)
-if (!empty($moto['power_kw'])) {
-    $kwBullet = htmlspecialchars($moto['power_kw']) . ' kW';
-    if (!empty($moto['power_hp'])) $kwBullet .= ' (cca ' . htmlspecialchars($moto['power_hp']) . ' ' . te('detail.hpUnit') . ')';
-    $features[] = '<strong>' . te('detail.specPower') . ':</strong> ' . $kwBullet;
+foreach ($sdFields as $sdf) {
+    $row = null;
+    switch ($sdf) {
+        case 'power_kw':
+            if (!empty($moto['power_kw'])) {
+                $v = htmlspecialchars($moto['power_kw']) . ' kW';
+                if (!empty($moto['power_hp'])) $v .= ' (cca ' . htmlspecialchars($moto['power_hp']) . ' ' . te('detail.hpUnit') . ')';
+                $row = [te('detail.specPower'), $v];
+            }
+            break;
+        case 'category':
+            if (!empty($moto['category'])) $row = [te('detail.specType'), htmlspecialchars($moto['category'])];
+            break;
+        case 'engine':
+            $p = [];
+            if (!empty($moto['engine_cc'])) $p[] = htmlspecialchars($moto['engine_cc']) . ' ccm';
+            if (!empty($moto['engine_type'])) $p[] = htmlspecialchars($moto['engine_type']);
+            if (!empty($moto['transmission'])) $p[] = htmlspecialchars($moto['transmission']);
+            if ($p) $row = [te('detail.specEngine'), implode(', ', $p)];
+            break;
+        case 'engine_cc':
+            if (!empty($moto['engine_cc'])) $row = [te('detail.specEngineCc'), htmlspecialchars($moto['engine_cc']) . ' ccm'];
+            break;
+        case 'engine_type':
+            if (!empty($moto['engine_type'])) $row = [te('detail.specEngineTypeRow'), htmlspecialchars($moto['engine_type'])];
+            break;
+        case 'transmission':
+            if (!empty($moto['transmission'])) $row = [te('detail.specTransmission'), htmlspecialchars($moto['transmission'])];
+            break;
+        case 'drivetrain':
+            if (!empty($moto['drivetrain'])) {
+                $dtMap = ['chain' => t('detail.drivetrainChain'), 'shaft' => t('detail.drivetrainShaft'), 'belt' => t('detail.drivetrainBelt')];
+                $row = [te('detail.specDrivetrain'), htmlspecialchars($dtMap[$moto['drivetrain']] ?? $moto['drivetrain'])];
+            }
+            break;
+        case 'fuel_consumption_l100km':
+            if (!empty($moto['fuel_consumption_l100km'])) $row = [te('detail.specFuelConsumption'), 'cca ' . htmlspecialchars($moto['fuel_consumption_l100km']) . ' l/100 km'];
+            break;
+        case 'fuel_type':
+            if (!empty($moto['fuel_type'])) $row = [te('detail.specFuelType'), htmlspecialchars($moto['fuel_type'])];
+            break;
+        case 'fuel_tank_l':
+            if (!empty($moto['fuel_tank_l'])) $row = [te('detail.specFuelTank'), htmlspecialchars($moto['fuel_tank_l']) . ' l'];
+            break;
+        case 'torque_nm':
+            if (!empty($moto['torque_nm'])) $row = [te('detail.specTorque'), htmlspecialchars($moto['torque_nm']) . ' Nm'];
+            break;
+        case 'top_speed_kmh':
+            if (!empty($moto['top_speed_kmh'])) $row = [te('detail.specTopSpeed'), htmlspecialchars($moto['top_speed_kmh']) . ' km/h'];
+            break;
+        case 'weight_kg':
+            if (!empty($moto['weight_kg'])) $row = [te('detail.specWeight'), htmlspecialchars($moto['weight_kg']) . ' kg'];
+            break;
+        case 'seat_height_mm':
+            if (!empty($moto['seat_height_mm'])) $row = [te('detail.specSeatHeight'), htmlspecialchars($moto['seat_height_mm']) . ' mm'];
+            break;
+        case 'seats_count':
+            if (!empty($moto['seats_count'])) $row = [te('detail.specSeatsCount'), htmlspecialchars($moto['seats_count'])];
+            break;
+        case 'brake_type':
+            if (!empty($moto['brake_type'])) $row = [te('detail.specBrakeType'), htmlspecialchars($moto['brake_type'])];
+            break;
+        case 'has_abs':
+            if (!empty($moto['has_abs'])) $row = [te('detail.specAbs'), te('detail.specYes')];
+            break;
+        case 'has_asc':
+            if (!empty($moto['has_asc'])) $row = [te('detail.specAsc'), te('detail.specYes')];
+            break;
+        case 'license_required':
+            if (!empty($moto['license_required'])) $row = [te('detail.specLicense'), htmlspecialchars($moto['license_required'])];
+            break;
+        case 'year':
+            if (!empty($moto['year'])) $row = [te('detail.specYear'), htmlspecialchars($moto['year'])];
+            break;
+        case 'color':
+            if (!empty($moto['color'])) $row = [te('detail.specColor'), htmlspecialchars($moto['color'])];
+            break;
+    }
+    if ($row) $features[] = '<strong>' . $row[0] . ':</strong> ' . $row[1];
 }
-// Typ (kategorie)
-if (!empty($moto['category'])) $features[] = '<strong>' . te('detail.specType') . ':</strong> ' . htmlspecialchars($moto['category']);
-// Motor: ccm + typ + převodovka v jednom bulletu (jako na originálním webu)
-$motorParts = [];
-if (!empty($moto['engine_cc'])) $motorParts[] = htmlspecialchars($moto['engine_cc']) . ' ccm';
-if (!empty($moto['engine_type'])) $motorParts[] = htmlspecialchars($moto['engine_type']);
-if (!empty($moto['transmission'])) $motorParts[] = htmlspecialchars($moto['transmission']);
-if ($motorParts) $features[] = '<strong>' . te('detail.specEngine') . ':</strong> ' . implode(', ', $motorParts);
-// Pohon
-if (!empty($moto['drivetrain'])) {
-    $dtMap = ['chain' => t('detail.drivetrainChain'), 'shaft' => t('detail.drivetrainShaft'), 'belt' => t('detail.drivetrainBelt')];
-    $features[] = '<strong>' . te('detail.specDrivetrain') . ':</strong> ' . htmlspecialchars($dtMap[$moto['drivetrain']] ?? $moto['drivetrain']);
-}
-// Spotřeba
-if (!empty($moto['fuel_consumption_l100km'])) $features[] = '<strong>' . te('detail.specFuelConsumption') . ':</strong> cca ' . htmlspecialchars($moto['fuel_consumption_l100km']) . ' l/100 km';
-// Vhodná pro
-if (!empty($moto['ideal_usage'])) $features[] = '<strong>' . te('detail.specSuitableFor') . ':</strong> ' . htmlspecialchars($moto['ideal_usage']);
 if ($features) {
     $descHtml .= '<h2>' . te('detail.shortDesc') . '</h2><ul>';
     foreach ($features as $f) { $descHtml .= '<li>' . $f . '</li>'; }
@@ -210,7 +271,6 @@ if (!empty($moto['min_rental_days'])) $specsRows[] = [t('detail.specMinRental'),
 if (!empty($moto['max_rental_days'])) {
     $specsRows[] = [t('detail.specMaxRental'), t('detail.daysUnit', ['count' => (int)$moto['max_rental_days']])];
 }
-if (!empty($moto['ideal_usage'])) $specsRows[] = [t('detail.specIdealFor'), $moto['ideal_usage']];
 
 // Návod / dokumenty — na celý řádek (popis motorky je už pod fotkou v sekci moto-shortdesc)
 // Návod: PDF (manual_url ze storage) má přednost před externím odkazem (manual_external_url).
