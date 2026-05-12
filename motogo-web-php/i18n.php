@@ -43,21 +43,18 @@ const I18N_DEFAULT = 'cs';
 const I18N_COOKIE = 'mg_web_lang';
 
 // SEO: Hreflang/sitemap odkazy generujeme jen pro domeny ktere jsou ZIVE.
-// Externi SEO checker (Seobility) hlasil 393 'External link problems' —
-// vetsina hreflang odkazu z .cz na motogo24.es a motogo24.nl, ktere zatim
-// nejsou nasazene (returns 'Page is down' / 'Domain not connected'). Az tyto
-// domeny pojedou (FTP nasazeni + SSL cert), prepiname zde na true.
-// I18N_SUPPORTED zustava plny — language switcher dal nabizi vsechny jazyky,
-// jen nasmeruji uzivatele na hosting kde to bezi (.com s ?lang=es atd) misto
-// na non-existujici TLD.
+// Pokud nektera TLD neni nasazena, da se zde docasne vypnout (false) — pak
+// hreflang <link> tagy tu domenu preskoci a language switcher na ni odkaze
+// pres .com s ?lang=xx, aby Seobility nehlasilo 'Domain not connected'.
+// 2026-05: vsechny domeny (vc. .es a .nl) jsou nasazene a bezi -> vse true.
 const I18N_HREFLANG_LIVE = [
     'cs' => true,
     'en' => true,
-    'de' => true,   // motogo24.at funguje
-    'es' => false,  // motogo24.es zatim down — povolit az po deploy
-    'pl' => true,   // motogo24.pl funguje
-    'fr' => true,   // motogo24.fr funguje
-    'nl' => false,  // motogo24.nl zatim down — povolit az po deploy
+    'de' => true,   // motogo24.at
+    'es' => true,   // motogo24.es
+    'pl' => true,   // motogo24.pl
+    'fr' => true,   // motogo24.fr
+    'nl' => true,   // motogo24.nl
 ];
 
 // Doménové mapování — určuje, na které doméně bydlí "kanonická" verze jazyka.
