@@ -40,6 +40,29 @@ const CORS = {
 const KEY_RE = /^web\.[a-zA-Z0-9_]+(\.[a-zA-Z0-9_]+)+$/
 const MAX_VALUE_BYTES = 16 * 1024
 
+/**
+ * Normalizace HTML hodnoty před uložením. Inline editor (contenteditable +
+ * execCommand) generuje balast — typicky zbytkový `background-color` po
+ * zapnutí/vypnutí zvýraznění. Ten pak vede k nekonzistenci mezi českou
+ * hodnotou a strojovými překlady (LLM HTML přeskládá jinak). Strippujeme
+ * `background-color`/`background` deklarace z inline `style` atributů a
+ * uklízíme prázdné `style=""`. Text ani ostatní styly se nemění.
+ */
+function normalizeHtml(html: string): string {
+  if (!html || typeof html !== 'string') return html
+  return html
+    .replace(/style\s*=\s*"([^"]*)"/gi, (_m, css: string) => {
+      const cleaned = css
+        .replace(/(?:^|;)\s*background(-color)?\s*:[^;]*/gi, '')
+        .replace(/^\s*;+/, '')
+        .replace(/;\s*;+/g, ';')
+        .replace(/;\s*$/, '')
+        .trim()
+      return cleaned ? `style="${cleaned}"` : ''
+    })
+    .replace(/<(\w+)(\s+)>/g, '<$1>')
+}
+
 function jsonResponse(body: Record<string, unknown>, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { ...CORS, 'Content-Type': 'application/json' } })
 }
@@ -130,6 +153,7 @@ serve(async (req: Request): Promise<Response> => {
   if (new TextEncoder().encode(value).length > MAX_VALUE_BYTES) {
     return jsonResponse({ error: 'value_too_large', max_bytes: MAX_VALUE_BYTES }, 413)
   }
+  const cleanValue = normalizeHtml(value)
 
   const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, { auth: { persistSession: false } })
 
@@ -173,7 +197,7 @@ serve(async (req: Request): Promise<Response> => {
     // ve Velíně (např. 'general' / 'content'). Pouze hodnotu.
     const { error: updErr } = await sb
       .from('cms_variables')
-      .update({ value })
+      .update({ value: cleanValue })
       .eq('id', existing.id)
     if (updErr) {
       console.error('[cms-save] update error', JSON.stringify(updErr), 'for id', existing.id, 'key', key)
@@ -190,7 +214,7 @@ serve(async (req: Request): Promise<Response> => {
     // proto raději děláme nahý insert + samostatný select pro id.
     const { error: insErr } = await sb
       .from('cms_variables')
-      .insert({ key, value, category: 'web' })
+      .insert({ key, value: cleanValue, category: 'web' })
     if (insErr) {
       console.error('[cms-save] insert error', JSON.stringify(insErr), 'payload', JSON.stringify({ key, valueType: typeof value, valueLen: typeof value === 'string' ? value.length : -1, category: 'web' }))
       return jsonResponse({
@@ -210,7 +234,7 @@ serve(async (req: Request): Promise<Response> => {
   }
 
   // 3) Fire-and-forget auto-překlad (admin nečeká)
-  const translation = rowId ? await triggerTranslate(rowId, value) : 'skipped'
+  const translation = rowId ? await triggerTranslate(rowId, cleanValue) : 'skipped'
 
   return jsonResponse({ success: true, key, id: rowId, translation })
 })
