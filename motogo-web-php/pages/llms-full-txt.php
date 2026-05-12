@@ -311,7 +311,6 @@ if (is_array($motos) && !empty($motos)) {
         if (!empty($m['license_required'])) $specs[] = ['Řidičské oprávnění', $m['license_required'] === 'N' ? 'nepotřebuje (dětská motorka)' : 'skupina ' . $m['license_required']];
         if (!empty($m['min_rental_days']))  $specs[] = ['Min. délka pronájmu', $m['min_rental_days'] . ' dní'];
         if (!empty($m['max_rental_days']))  $specs[] = ['Max. délka pronájmu', $m['max_rental_days'] . ' dní'];
-        if (!empty($m['ideal_usage']))      $specs[] = ['Vhodné pro', $m['ideal_usage']];
         if (!empty($m['color']))            $specs[] = ['Barva', $m['color']];
         if (!empty($m['year']))             $specs[] = ['Rok výroby', $m['year']];
         if ($specs) {

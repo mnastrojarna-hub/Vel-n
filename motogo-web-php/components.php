@@ -338,7 +338,7 @@ function normalizeMoto(&$m) {
     if (!is_array($m)) return;
     $stringFields = [
         'id','model','brand','description','category','engine_cc','engine_type',
-        'transmission','drivetrain','fuel_consumption_l100km','ideal_usage',
+        'transmission','drivetrain','fuel_consumption_l100km',
         'manual_url','manual_external_url','color','year','power_kw','power_hp','torque_nm',
         'top_speed_kmh','fuel_type','fuel_tank_l','brake_type','weight_kg',
         'seat_height_mm','seats_count','license_required','min_rental_days',
@@ -383,7 +383,6 @@ function renderMotoCard($m) {
     // Karta — render přes Supabase Image Transformation: ~600 px WebP/AVIF místo 2-5 MB originálu.
     $img = $imgRaw ? imgUrlSized($imgRaw, 600) : '';
     $imgSrcset = $imgRaw ? imgSrcset($imgRaw, [400, 600, 900]) : '';
-    $desc = $m['ideal_usage'] ?? '';
     $cat = $m['category'] ?? '';
     $kw = !empty($m['power_kw']) ? ($m['power_kw'] . ' kW') : '';
     $price = getMinPrice($m);
@@ -394,17 +393,6 @@ function renderMotoCard($m) {
     if ($license && $license !== 'N') $features[] = htmlspecialchars($license);
     if ($kw) $features[] = htmlspecialchars($kw);
     if (!empty($m['has_abs'])) $features[] = 'ABS';
-    if ($desc && is_string($desc)) {
-        foreach (explode(',', $desc) as $f) {
-            $t = trim($f);
-            if ($t && count($features) < 6) $features[] = htmlspecialchars($t);
-        }
-    } elseif (is_array($desc)) {
-        foreach ($desc as $f) {
-            $t = is_string($f) ? trim($f) : (string)$f;
-            if ($t && count($features) < 6) $features[] = htmlspecialchars($t);
-        }
-    }
 
     $priceText = $price > 0 ? t('card.priceFromPerDay', ['price' => formatPrice($price)]) : '';
     $modelRaw = trim((string)($m['model'] ?? ''));

@@ -136,7 +136,7 @@ if ($getQuery !== '') {
     $q = mb_strtolower($getQuery, 'UTF-8');
     $filtered = array_filter($filtered, function ($m) use ($q) {
         $hay = mb_strtolower(
-            ($m['model'] ?? '') . ' ' . ($m['category'] ?? '') . ' ' . ($m['description'] ?? '') . ' ' . ($m['ideal_usage'] ?? '') . ' ' . ($m['features'] ?? ''),
+            ($m['model'] ?? '') . ' ' . ($m['category'] ?? '') . ' ' . ($m['description'] ?? '') . ' ' . ($m['features'] ?? ''),
             'UTF-8'
         );
         return strpos($hay, $q) !== false;

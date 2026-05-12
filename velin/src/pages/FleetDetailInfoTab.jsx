@@ -7,6 +7,32 @@ import Button from '../components/ui/Button'
 import { seasonDaysBetween, SEASON_MONTHS, ServiceScheduleCard, SOSIncidentsCard } from './FleetDetailServiceCard'
 import { PhotoGallery } from './FleetDetailPhotos'
 
+// Parametry, které lze zobrazit v "Krátkém popisu" na detailu motorky na webu.
+// Klíče odpovídají větvím switch() v motogo-web-php/pages/katalog-detail.php.
+const SHORT_DESC_FIELDS = [
+  { key: 'power_kw', label: 'Výkon (kW)' },
+  { key: 'category', label: 'Typ / kategorie' },
+  { key: 'engine', label: 'Motor (objem + typ + převodovka)' },
+  { key: 'engine_cc', label: 'Objem (ccm)' },
+  { key: 'engine_type', label: 'Typ motoru' },
+  { key: 'transmission', label: 'Převodovka' },
+  { key: 'drivetrain', label: 'Pohon' },
+  { key: 'fuel_consumption_l100km', label: 'Spotřeba' },
+  { key: 'fuel_type', label: 'Palivo' },
+  { key: 'fuel_tank_l', label: 'Nádrž' },
+  { key: 'torque_nm', label: 'Točivý moment' },
+  { key: 'top_speed_kmh', label: 'Max. rychlost' },
+  { key: 'weight_kg', label: 'Hmotnost' },
+  { key: 'seat_height_mm', label: 'Výška sedla' },
+  { key: 'seats_count', label: 'Počet míst' },
+  { key: 'brake_type', label: 'Brzdy' },
+  { key: 'has_abs', label: 'ABS' },
+  { key: 'has_asc', label: 'ASC' },
+  { key: 'license_required', label: 'ŘP kategorie' },
+  { key: 'year', label: 'Rok výroby' },
+  { key: 'color', label: 'Barva' },
+]
+
 function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onMotoReload }) {
   const navigate = useNavigate()
   const [schedules, setSchedules] = useState([])
@@ -268,18 +294,27 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
               placeholder="Popis motorky pro zákazníky…" />
           </div>
           <div>
-            <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Ideální použití (každé na nový řádek)</label>
-            <textarea value={(moto.ideal_usage || []).join('\n')} onChange={e => set('ideal_usage', e.target.value.split('\n'))}
-              className="w-full rounded-btn text-sm outline-none" rows={3}
-              style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', resize: 'vertical' }}
-              placeholder="Cestování&#10;Adventure&#10;Offroad" />
-          </div>
-          <div>
             <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Vlastnosti / Features (každá na nový řádek)</label>
             <textarea value={(moto.features || []).join('\n')} onChange={e => set('features', e.target.value.split('\n'))}
               className="w-full rounded-btn text-sm outline-none" rows={3}
               style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', resize: 'vertical' }}
               placeholder="Vyhřívaná madla&#10;Cruise control&#10;Tempomat" />
+          </div>
+          <div>
+            <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Krátký popis na webu — zobrazené parametry</label>
+            <p className="text-xs mb-2" style={{ color: '#5a6b62' }}>Zaškrtnuté parametry se vypíšou jako odrážky v sekci „Krátký popis" na detailu motorky na webu. Když nevybereš nic, použije se výchozí sada (výkon, typ, motor, pohon, spotřeba).</p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+              {SHORT_DESC_FIELDS.map(o => {
+                const arr = Array.isArray(moto.short_desc_fields) ? moto.short_desc_fields : []
+                const sel = arr.includes(o.key)
+                return (
+                  <label key={o.key} className="flex items-center gap-2 cursor-pointer text-sm" style={{ color: '#1a2e22' }}>
+                    <input type="checkbox" checked={sel} onChange={e => set('short_desc_fields', e.target.checked ? [...arr, o.key] : arr.filter(k => k !== o.key))} />
+                    <span>{o.label}</span>
+                  </label>
+                )
+              })}
+            </div>
           </div>
         </div>
 
