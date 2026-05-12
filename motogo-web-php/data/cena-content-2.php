@@ -47,8 +47,8 @@ return [
         ],
     ],
     'seo' => [
-        'title' => 'Půjčovna motorek Vysočina – Jak si půjčit motorku – Co je v ceně nájmu',
-        'description' => 'Zjisti, co obsahuje cena půjčení motorky u MotoGo24. Půjčovna motorek nabízí jasné podmínky, výbavu i služby bez skrytých poplatků. Rezervuj si motorku jednoduše online. Vyber termín, stroj i výbavu a vyraz na nezapomenutelnou jízdu s MotoGo24 na Vysočině.',
+        'title' => 'Co je v ceně půjčení motorky u MotoGo24 | Vysočina',
+        'description' => 'Zjisti, co obsahuje cena půjčení motorky u MotoGo24. Půjčovna motorek nabízí jasné podmínky, výbavu i služby bez skrytých poplatků.',
         'keywords' => 'motopůjčovna',
     ],
 ];

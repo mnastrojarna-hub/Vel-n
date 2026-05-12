@@ -69,8 +69,8 @@ return [
         ],
     ],
     'seo' => [
-        'title' => 'Půjčovna motorek Vysočina – Jak si půjčit motorku – Převzetí v půjčovně',
-        'description' => 'Převzetí motorky v půjčovně motorek MotoGo24 je rychlé a bez starostí. Připrav si doklady a během pár minut můžeš vyrazit. Rezervuj si motorku jednoduše online. Vyber termín, stroj i výbavu a vyraz na nezapomenutelnou jízdu s MotoGo24 na Vysočině.',
+        'title' => 'Převzetí motorky v půjčovně – jak to probíhá | MotoGo24',
+        'description' => 'Převzetí motorky v půjčovně motorek MotoGo24 je rychlé a bez starostí. Připrav si doklady a během pár minut můžeš vyrazit na Vysočinu.',
         'keywords' => 'motopůjčovna',
     ],
 ];
