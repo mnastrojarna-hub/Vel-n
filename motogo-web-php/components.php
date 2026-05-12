@@ -538,9 +538,8 @@ function renderProductCard($p) {
                 . ($imgSrcset ? ' srcset="' . htmlspecialchars($imgSrcset) . '" sizes="(max-width: 768px) 50vw, 25vw"' : '')
                 . ' alt="' . $imgAlt . '" class="imgres" loading="lazy" decoding="async">' : '') .
             $stockBadge .
-            '<div class="moto-title"><h3>' . $name . '</h3></div>' .
         '</div>' .
-        '<div class="moto-desc">' . ($shortDesc ? '<p>' . htmlspecialchars($shortDesc) . '</p>' : '') . ($priceText ? '<p class="moto-price">' . htmlspecialchars($priceText) . '</p>' : '') . '</div>' .
+        '<div class="moto-desc">' . '<div class="moto-title"><h3>' . $name . '</h3></div>' . ($shortDesc ? '<p>' . htmlspecialchars($shortDesc) . '</p>' : '') . ($priceText ? '<p class="moto-price">' . htmlspecialchars($priceText) . '</p>' : '') . '</div>' .
         '<div class="moto-btn"><span class="btn btngreen-small">' . te('shop.detailButton') . '</span></div>' .
     '</a>';
 }

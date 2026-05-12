@@ -30,3 +30,9 @@ p>.btn:last-child{margin-bottom:0}
 .rez-logged-in .gr2:has(#rez-street),
 .rez-logged-in .gr2:has(#rez-city),
 .rez-logged-in .gr2:has(#rez-email){display:none}
+
+/* E-shop product cards: název produktu pod obrázkem v bílé kolonce (dříve byl bílý překryv na fotce) */
+.moto-desc .moto-title{position:static;padding:0 0 .35rem;color:#1a2e22;z-index:auto}
+.moto-desc .moto-title h2,.moto-desc .moto-title h3{font-size:1.05rem;margin:0;color:#1a2e22;font-weight:700;line-height:1.25;text-shadow:none}
+.moto-img::after{display:none}
+@media(max-width:768px){.moto-desc .moto-title h2,.moto-desc .moto-title h3{font-size:1rem}}
