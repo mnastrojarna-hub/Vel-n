@@ -254,10 +254,10 @@ function EditCustomDocModal({ doc, existingSlugs, onClose, onSaved }) {
         <div className="flex items-center gap-4 flex-wrap">
           <Label>Typ dokumentu</Label>
           <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: '#1a2e22' }}>
-            <input type="radio" checked={kind === 'html'} onChange={() => setKind('html')} /> Text (formátovaný, bez proměnných)
+            <input type="radio" checked={kind === 'html'} onChange={() => setKind('html')} /> Text (formátovaný, s proměnnými)
           </label>
           <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: '#1a2e22' }}>
-            <input type="radio" checked={kind === 'pdf'} onChange={() => setKind('pdf')} /> PDF soubor
+            <input type="radio" checked={kind === 'pdf'} onChange={() => setKind('pdf')} /> PDF soubor (beze změn, bez proměnných)
           </label>
         </div>
 
@@ -266,6 +266,9 @@ function EditCustomDocModal({ doc, existingSlugs, onClose, onSaved }) {
             <Label>Obsah</Label>
             <p className="text-sm mb-1" style={{ color: '#6b7a72' }}>
               Tip: text z Wordu vložte přes <strong>Ctrl+V</strong> — formátování (písmo, velikost, tučné/kurzíva, barvy, zarovnání, tabulky) zůstane zachováno.
+            </p>
+            <p className="text-sm mb-1" style={{ color: '#6b7a72' }}>
+              Proměnné (na webu se nahradí): <code>{'{{firma}}'}</code> <code>{'{{ico}}'}</code> <code>{'{{adresa}}'}</code> <code>{'{{telefon}}'}</code> <code>{'{{email}}'}</code> <code>{'{{web}}'}</code> <code>{'{{datum}}'}</code>
             </p>
             <RichTextEditor value={content} onChange={setContent} placeholder="Vložte nebo napište obsah dokumentu…" minHeight={340} maxHeight="50vh" />
           </div>

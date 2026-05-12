@@ -6,6 +6,27 @@
 
 $sb = new SupabaseClient();
 
+// Firemní proměnné pro typ "Text" (custom_documents.kind='html').
+// Statické hodnoty z config.php — žádné per-rezervační údaje (dokument není
+// navázaný na booking). Podporované: {{firma}} {{ico}} {{adresa}} {{telefon}}
+// {{email}} {{web}} {{datum}} (+ varianty s mezerami: {{ firma }}).
+function fillDocVars($html) {
+    if ($html === '' || strpos($html, '{{') === false) return $html;
+    $map = [
+        'firma'   => defined('COMPANY_NAME') ? COMPANY_NAME : '',
+        'ico'     => defined('COMPANY_ICO') ? COMPANY_ICO : '',
+        'adresa'  => defined('COMPANY_ADDRESS') ? COMPANY_ADDRESS : '',
+        'telefon' => defined('PHONE') ? PHONE : '',
+        'email'   => defined('EMAIL_FULL') ? EMAIL_FULL : '',
+        'web'     => 'www.motogo24.cz',
+        'datum'   => date('d. m. Y'),
+    ];
+    return preg_replace_callback('/\{\{\s*([a-z_]+)\s*\}\}/i', function ($m) use ($map) {
+        $k = strtolower($m[1]);
+        return array_key_exists($k, $map) ? htmlspecialchars($map[$k]) : $m[0];
+    }, $html);
+}
+
 // Mapa veřejných slug → typ šablony v `document_templates` + lidský název
 $DOC_MAP = [
     'obchodni-podminky'             => ['type' => 'vop',               'title' => 'Obchodní podmínky (VOP)'],
@@ -32,9 +53,10 @@ if ($entry) {
             $pdfUrl = $cd['pdf_path'] ?? '';
             if ($pdfUrl) { header('Location: ' . $pdfUrl, true, 302); exit; }
         }
+        // Typ "Text" (kind=html) podporuje firemní proměnné v obsahu.
         $entry = ['type' => null, 'title' => $cd['title'] ?? 'Dokument'];
         $tpl = [
-            'content_html' => $cd['content_html'] ?? '',
+            'content_html' => fillDocVars($cd['content_html'] ?? ''),
             'version'      => $cd['version'] ?? 1,
             'updated_at'   => $cd['updated_at'] ?? null,
         ];
