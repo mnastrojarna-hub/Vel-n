@@ -375,7 +375,7 @@ return [
     'rez.return.title' => 'Čas vrácení motorky',
     'rez.return.sub' => 'V kolik hodin vrátíte motorku na uvedené adrese?',
     'rez.return.stateTitle' => 'V jakém stavu motorku vrátit?',
-    'rez.return.stateText' => 'Motorku stačí vrátit s palivem nad rezervou (kontrolka rezervy nesvítí). Mytí ani úklid neřešte — to je naše práce.',
+    'rez.return.stateText' => 'Motorku stačí vrátit s palivem nad rezervou (kontrolka rezervy nesvítí). Mytí ani úklid neřeš',
 
     // ===== Rezervace — výbava =====
     'rez.gear.intro' => 'Vyberte velikosti kliknutím na čtverečky níže. Pokud velikost nezvolíte, vyzkoušíme ji na místě.',
@@ -452,8 +452,8 @@ return [
     'rez.alert.emailMismatch' => 'Přihlášený účet nesouhlasí se zadaným e-mailem. Odhlaste se a zkuste znovu.',
 
     // ===== Rezervace — Vracející se zákazník (login panel v kroku 3) =====
-    'rez.auth.returning.title' => 'Už jsem si u vás půjčoval motorku',
-    'rez.auth.returning.sub' => 'Přihlas se a my všechno (kontaktní údaje, doklady, souhlasy) předvyplníme. Nemusíš nic vyplňovat znovu.',
+    'rez.auth.returning.title' => 'Už jsem si u vás půjčoval/la motorku.',
+    'rez.auth.returning.sub' => 'Pokračuj přihlášením, ať ti můžeme údaje předvyplnit a nemusíš je vyplňovat znovu.',
     'rez.auth.login.title' => 'Přihlášení k vašemu účtu',
     'rez.auth.login.help' => 'Použijte e-mail a heslo, které jste si nastavili při minulé rezervaci.',
     'rez.auth.login.submit' => 'Přihlásit se',
@@ -528,7 +528,7 @@ return [
     'rez.cal.rangeOccupied' => 'V tomto rozsahu jsou obsazené dny. Vyberte jiný termín.',
     'rez.cal.startSelected' => 'Vybrán začátek: <strong>{date}</strong> — klikněte na koncové datum',
     'rez.cal.clearSelection' => 'ZRUŠIT VÝBĚR',
-    'rez.cal.selectedRange' => '<strong>MÁTE VYBRANÝ TERMÍN: {from} – {to}</strong>',
+    'rez.cal.selectedRange' => '<strong>Máš vybraný termín, {from} – {to}</strong>',
 
     // ===== Kamera / scanner dokladů (pages-rezervace-camera.js) =====
     'rez.cam.docs.id' => 'Doklad totožnosti',
