@@ -85,7 +85,7 @@ $main2Section = '<section class="main2">' .
     '</section>';
 
 // --- Section 5: FAQ ---
-$faqHtml = '<section>' .
+$faqHtml = '<section style="margin-bottom:1.25rem">' .
     '<h2 data-cms-key="' . $kp . '.faq.title">' . ($C['faq']['title'] ?? '') . '</h2>' .
     '<div class="tab-content"><div class="tab-pane active" id="all"><div class="gr2">';
 foreach ((is_array($C['faq']['items'] ?? null) ? $C['faq']['items'] : []) as $i => $f) {
