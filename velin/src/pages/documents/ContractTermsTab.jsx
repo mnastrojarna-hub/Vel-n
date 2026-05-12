@@ -61,6 +61,39 @@ export default function ContractTermsTab() {
   const [preview, setPreview] = useState(null)
   const [translatingType, setTranslatingType] = useState(null)
   const [trMsg, setTrMsg] = useState({}) // type -> { ok, text }
+  const [bulk, setBulk] = useState(null) // null | { text } | { text, done:true }
+
+  // Přeloží naráz všechny smluvní šablony do všech 6 jazyků — přeskočí to, co
+  // už je hotové, každý jazyk 3× zkusí. Pro jednorázové „dožeň všechno".
+  async function handleTranslateAll() {
+    setBulk({ text: 'Načítám šablony…' })
+    const { data: rows, error: err } = await supabase
+      .from('document_templates')
+      .select('id,type,name,content_translations')
+      .in('type', CONTRACT_TYPES.map(c => c.type))
+      .order('type')
+    if (err) { setBulk({ text: 'Chyba: ' + err.message, done: true }); return }
+    const list = rows || []
+    let totalDone = 0, totalFail = 0
+    for (let i = 0; i < list.length; i++) {
+      const row = list[i]
+      const label = CONTRACT_TYPES.find(c => c.type === row.type)?.label || row.type
+      const already = Object.keys(row.content_translations || {}).filter(k => TRANSLATE_TARGET_LANGS.includes(k))
+      const todo = TRANSLATE_TARGET_LANGS.filter(l => !already.includes(l))
+      for (const lang of todo) {
+        setBulk({ text: `(${i + 1}/${list.length}) ${label} → ${lang} …  [hotovo ${totalDone}, selhalo ${totalFail}]` })
+        let ok = false
+        for (let attempt = 1; attempt <= 3 && !ok; attempt++) {
+          if (attempt > 1) await new Promise(r => setTimeout(r, 2500))
+          const res = await translateDocument({ table: 'document_templates', id: row.id, target_langs: [lang] })
+          if (res?.success && res.translations?.[lang]) ok = true
+        }
+        if (ok) totalDone++; else totalFail++
+      }
+    }
+    setBulk({ text: totalFail ? `Hotovo s chybami — přeloženo ${totalDone}, selhalo ${totalFail}. Klikni znovu „Přeložit vše" pro dokončení.` : `Hotovo — všechny smluvní texty přeloženy do 6 jazyků (${totalDone} překladů).`, done: true })
+    load()
+  }
 
   async function handleTranslate(tpl, { force = false } = {}) {
     if (!tpl?.id) return
@@ -118,6 +151,13 @@ export default function ContractTermsTab() {
       </div>
 
       {error && <div className="p-3 rounded-card" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>{error}</div>}
+
+      <div className="flex items-center gap-3 flex-wrap">
+        <Button green onClick={handleTranslateAll} disabled={!!bulk && !bulk.done}>
+          {bulk && !bulk.done ? 'Překládám…' : '🌍 Přeložit všechny smluvní texty do 6 jazyků'}
+        </Button>
+        {bulk && <span className="text-sm" style={{ color: bulk.done ? '#15803d' : '#6b7a72' }}>{bulk.text}</span>}
+      </div>
 
       <div className="grid grid-cols-1 gap-4">
         {CONTRACT_TYPES.map(ct => {

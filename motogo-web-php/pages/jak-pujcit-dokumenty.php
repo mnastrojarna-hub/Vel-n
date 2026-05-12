@@ -86,10 +86,18 @@ $privacyHtml = '<p>&nbsp;</p><h2 data-cms-key="' . $kp . '.privacy.title">' . ($
 // přes i18n. Záměrně NEbereme `$C['documents']['items']` z CMS — per-doménové
 // CMS override způsobovalo, že .cz mělo jiný počet dokumentů než ostatní domény.
 // Editovatelný z Velínu zůstává jen nadpis sekce (`.documents.title`).
+$pageLang = function_exists('i18nDetectLanguage') ? i18nDetectLanguage() : 'cs';
+$docNameTr = ($pageLang !== 'cs') ? $sb->fetchDocTemplateNameTranslations() : [];
 $docsCardsHtml = '<h2 data-cms-key="' . $kp . '.documents.title">' . ($C['documents']['title'] ?? '') . '</h2><div class="attachments attachments-columns gr2">';
 foreach (mgPublicDocuments() as $d) {
     $href = BASE_URL . '/dokumenty/' . $d['slug'];
-    $name = htmlspecialchars($d['title']);
+    // Přeložený název z name_translations[lang] (plní edge fn translate-document),
+    // jinak i18n název z mgPublicDocuments().
+    $dispName = $d['title'];
+    if (!empty($d['type']) && !empty($docNameTr[$d['type']][$pageLang]) && is_string($docNameTr[$d['type']][$pageLang])) {
+        $dispName = $docNameTr[$d['type']][$pageLang];
+    }
+    $name = htmlspecialchars($dispName);
     $docsCardsHtml .= '<a class="boxwhitey doc-card" href="' . $href . '" title="' . $name . '" '
         . 'style="display:flex;align-items:center;gap:14px;padding:14px 16px;text-decoration:none;color:inherit">'
         . '<img src="' . BASE_URL . '/gfx/ico-pdf.svg" alt="" width="44" height="44" loading="lazy" '
@@ -106,7 +114,6 @@ foreach (mgPublicDocuments() as $d) {
 }
 // Vlastní dokumenty vytvořené ve Velíně (tabulka custom_documents, show_on_web=true).
 // Přidávají se automaticky vedle pevně zadaných položek výše.
-$pageLang = function_exists('i18nDetectLanguage') ? i18nDetectLanguage() : 'cs';
 foreach ($sb->fetchCustomDocuments() as $d) {
     if (!is_array($d) || empty($d['slug'])) continue;
     $isPdf = (($d['kind'] ?? 'html') === 'pdf');

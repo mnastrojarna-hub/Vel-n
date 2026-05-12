@@ -12,9 +12,10 @@
  *   - smluvní šablony `document_templates` (VOP, smlouva, GDPR, protokoly) —
  *     `{placeholder}` proměnné zůstávají nepřeložené.
  *
- * Výsledek se uloží do JSONB sloupce cílové tabulky:
- *   custom_documents.translations         = { en: { title, description, content_html }, de: {...}, ... }
+ * Výsledek se uloží do JSONB sloupců cílové tabulky:
+ *   custom_documents.translations          = { en: { title, description, content_html }, de: {...}, ... }
  *   document_templates.content_translations = { en: "<html>", de: "<html>", ... }   (čte ho RPC get_document_translation)
+ *   document_templates.name_translations    = { en: "<název>", de: "<název>", ... }  (nadpis dokumentu na webu)
  *
  * POST /functions/v1/translate-document
  * Body: { table: 'custom_documents' | 'document_templates', id: string, target_langs?: string[] }
@@ -140,9 +141,10 @@ async function buildSource(
       hasPlaceholders: /\{\{?\s*[a-z_]+\s*\}?\}/i.test(String(row.content_html || '')),
     }
   }
-  // document_templates — překládá se jen obsah; název karty na webu řeší i18n.
+  // document_templates — překládá se obsah i název (název se ukládá do name_translations,
+  // obsah do content_translations; web bere podle jazyka, jinak fallback na i18n).
   return {
-    textFields: { content_html: String(row.content_html || '') },
+    textFields: { name: String(row.name || ''), content_html: String(row.content_html || '') },
     hasPlaceholders: true,
   }
 }
@@ -260,15 +262,24 @@ serve(async (req: Request): Promise<Response> => {
 
     // Uložení:
     //  - custom_documents → JSONB `translations` = { lang: { title, description, content_html } }
-    //  - document_templates → JSONB `content_translations` = { lang: "<html string>" }
-    //    (sloupec + RPC get_document_translation už existují z migrace 20260503_i18n_customer_comms.sql)
-    const targetCol = table === 'document_templates' ? 'content_translations' : 'translations'
-    const existing = (row as Record<string, unknown>)[targetCol]
-    const merged: Record<string, unknown> = (existing && typeof existing === 'object') ? { ...existing as Record<string, unknown> } : {}
-    for (const [lang, t] of Object.entries(translations)) {
-      merged[lang] = table === 'document_templates' ? (t.content_html || '') : t
+    //  - document_templates → `content_translations` = { lang: "<html>" } (RPC get_document_translation)
+    //                       + `name_translations`    = { lang: "<přeložený název>" }
+    const mergeJsonb = (col: string, valueFor: (t: Record<string, string>) => unknown) => {
+      const existing = (row as Record<string, unknown>)[col]
+      const m: Record<string, unknown> = (existing && typeof existing === 'object') ? { ...existing as Record<string, unknown> } : {}
+      for (const [lang, t] of Object.entries(translations)) m[lang] = valueFor(t)
+      return m
     }
-    const { error: updErr } = await supabaseAdmin.from(table).update({ [targetCol]: merged }).eq('id', id)
+    let updatePayload: Record<string, unknown>
+    if (table === 'document_templates') {
+      updatePayload = {
+        content_translations: mergeJsonb('content_translations', t => t.content_html || ''),
+        name_translations: mergeJsonb('name_translations', t => t.name || ''),
+      }
+    } else {
+      updatePayload = { translations: mergeJsonb('translations', t => t) }
+    }
+    const { error: updErr } = await supabaseAdmin.from(table).update(updatePayload).eq('id', id)
     if (updErr) return jsonResponse({ error: 'DB update failed: ' + updErr.message }, 500)
 
     return jsonResponse({ success: true, translations, ...(Object.keys(errors).length ? { errors } : {}) })
