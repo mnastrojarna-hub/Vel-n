@@ -490,6 +490,32 @@ class SupabaseClient {
         return $result ? ($result[0] ?? null) : null;
     }
 
+    /**
+     * Vlastní dokumenty vytvořené ve Velíně (tabulka `custom_documents`).
+     * Pro výpis na webu „Dokumenty a návody" — jen aktivní a označené `show_on_web`.
+     * Vrací [] pokud tabulka ještě neexistuje (graceful degradace).
+     */
+    public function fetchCustomDocuments() {
+        $rows = $this->query(
+            'custom_documents',
+            'id,title,slug,description,kind,pdf_path,sort_order',
+            ['active=eq.true', 'show_on_web=eq.true'],
+            'sort_order.asc,title.asc'
+        );
+        return is_array($rows) ? $rows : [];
+    }
+
+    /** Jeden vlastní dokument podle slugu (jen aktivní). */
+    public function fetchCustomDocument($slug) {
+        $rows = $this->query(
+            'custom_documents',
+            'id,title,slug,description,kind,content_html,pdf_path,version,updated_at',
+            ['slug=eq.' . $slug, 'active=eq.true'],
+            'version.desc'
+        );
+        return is_array($rows) ? ($rows[0] ?? null) : null;
+    }
+
     public function fetchCmsPages($tag = null) {
         $filters = ['published=eq.true'];
         if ($tag) {

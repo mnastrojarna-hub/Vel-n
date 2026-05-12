@@ -24,20 +24,40 @@ $slug    = $_GET['doc_slug'] ?? '';
 $wantPdf = !empty($_GET['format']) && $_GET['format'] === 'pdf';
 $entry   = $DOC_MAP[$slug] ?? null;
 
+$tpl = null;
+if ($entry) {
+    $tpl = $sb->fetchDocumentTemplate($entry['type']);
+} else {
+    // Vlastní dokument vytvořený ve Velíně (tabulka custom_documents).
+    $cd = $sb->fetchCustomDocument($slug);
+    if ($cd) {
+        if (($cd['kind'] ?? 'html') === 'pdf') {
+            // PDF dokument — přesměruj rovnou na soubor (zobrazí se / uloží v prohlížeči).
+            $pdfUrl = $cd['pdf_path'] ?? '';
+            if ($pdfUrl) { header('Location: ' . $pdfUrl, true, 302); exit; }
+        }
+        $entry = ['type' => null, 'title' => $cd['title'] ?? 'Dokument'];
+        $tpl = [
+            'content_html' => $cd['content_html'] ?? '',
+            'version'      => $cd['version'] ?? 1,
+            'updated_at'   => $cd['updated_at'] ?? null,
+        ];
+    }
+}
+
 if (!$entry) {
     http_response_code(404);
     require __DIR__ . '/404.php';
     return;
 }
 
-$tpl = $sb->fetchDocumentTemplate($entry['type']);
-
-// Obsah v jazyce návštěvníka: pro non-CZ zkus přeloženou variantu přes RPC
-// get_document_translation (čte document_templates.content_translations[lang]).
+// Obsah v jazyce návštěvníka: u dokumentů z `document_templates` zkus pro non-CZ
+// přeloženou variantu přes RPC get_document_translation (čte content_translations[lang]).
 // Pokud překlad neexistuje (RPC vrátí null) → fallback na CZ originál content_html,
-// aby dokument nebyl nikdy prázdný.
+// aby dokument nebyl nikdy prázdný. Vlastní dokumenty (custom_documents) zatím
+// jen jednojazyčné — `$entry['type']` je null.
 $rawHtml = $tpl && !empty($tpl['content_html']) ? $tpl['content_html'] : '';
-if ($lang !== 'cs') {
+if ($lang !== 'cs' && !empty($entry['type'])) {
     try {
         $translated = $sb->rpc('get_document_translation', [
             'p_template_slug' => $entry['type'],

@@ -536,22 +536,132 @@ function plainTextToHtml(text) {
   }).join('')
 }
 
-// Velmi jednoduché čištění vloženého HTML — odstraní script/style, MS Office bloat, inline class/id atd.
+// Čištění vloženého HTML (typicky z Wordu / Google Docs).
+// Cíl: zachovat formátování 1:1 — písmo, velikost, tučné/kurzíva/podtržení, barvy,
+// zarovnání, odsazení, tabulky, šířky sloupců — ale vyhodit nebezpečné věci
+// (script, event handlery, externí odkazy na CSS) a Word „bloat" (mso-*, o:p, prázdné spany).
+const SAFE_CSS_PROPS = new Set([
+  'color', 'background', 'background-color',
+  'font', 'font-family', 'font-size', 'font-weight', 'font-style', 'font-variant', 'letter-spacing', 'word-spacing',
+  'text-align', 'text-decoration', 'text-decoration-line', 'text-decoration-color', 'text-decoration-style',
+  'text-indent', 'text-transform', 'text-shadow', 'line-height', 'vertical-align', 'white-space', 'direction',
+  'margin', 'margin-top', 'margin-right', 'margin-bottom', 'margin-left',
+  'padding', 'padding-top', 'padding-right', 'padding-bottom', 'padding-left',
+  'border', 'border-top', 'border-right', 'border-bottom', 'border-left',
+  'border-color', 'border-style', 'border-width', 'border-collapse', 'border-spacing', 'border-radius',
+  'width', 'min-width', 'max-width', 'height', 'min-height',
+  'list-style', 'list-style-type', 'list-style-position',
+  'float', 'clear', 'display',
+])
+const ALLOWED_TAGS = new Set([
+  'p', 'br', 'div', 'span', 'strong', 'b', 'em', 'i', 'u', 's', 'strike', 'del', 'ins', 'sub', 'sup', 'small', 'mark',
+  'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'pre', 'code', 'hr',
+  'ul', 'ol', 'li', 'a', 'img',
+  'table', 'thead', 'tbody', 'tfoot', 'tr', 'td', 'th', 'caption', 'colgroup', 'col',
+  'figure', 'figcaption',
+])
+const ALLOWED_ATTRS = new Set(['style', 'href', 'src', 'alt', 'title', 'colspan', 'rowspan', 'span', 'target', 'rel', 'start', 'type'])
+
+function cleanStyle(value) {
+  if (!value) return ''
+  const kept = []
+  String(value).split(';').forEach(decl => {
+    const idx = decl.indexOf(':')
+    if (idx < 0) return
+    const prop = decl.slice(0, idx).trim().toLowerCase()
+    let val = decl.slice(idx + 1).trim()
+    if (!prop || !val) return
+    if (prop.startsWith('mso-') || prop.startsWith('-')) return
+    if (!SAFE_CSS_PROPS.has(prop)) return
+    // display:none by skryl obsah — neměňme viditelnost
+    if (prop === 'display' && /none/i.test(val)) return
+    // url(...) ve stylech pryč (kvůli bezpečnosti)
+    if (/url\s*\(/i.test(val)) return
+    if (/expression\s*\(|javascript:/i.test(val)) return
+    val = val.replace(/\s+/g, ' ').trim()
+    kept.push(prop + ': ' + val)
+  })
+  return kept.join('; ')
+}
+
+const FONT_SIZE_MAP = { 1: '10px', 2: '13px', 3: '16px', 4: '18px', 5: '24px', 6: '32px', 7: '48px' }
+
+function sanitizeNode(node) {
+  if (node.nodeType === 3) return // text — nech být
+  if (node.nodeType === 8) { node.remove?.(); return } // komentář
+  if (node.nodeType !== 1) { node.remove?.(); return }
+  const tag = node.tagName.toLowerCase()
+
+  // úplně nebezpečné / Word-only elementy → smazat i s obsahem
+  if (['script', 'style', 'link', 'meta', 'head', 'title', 'iframe', 'object', 'embed', 'noscript', 'xml', 'o:p'].includes(tag)
+      || tag.includes(':')) {
+    node.remove(); return
+  }
+
+  // nejdřív zpracuj děti (depth-first), pak řeš tenhle uzel
+  Array.from(node.childNodes).forEach(child => sanitizeNode(child))
+
+  const parent = node.parentNode
+  if (!parent) return
+
+  // nepovolený obal → rozbal (případně mapuj <font>/<center> na <span style>)
+  if (!ALLOWED_TAGS.has(tag)) {
+    let mappedStyle = ''
+    if (tag === 'font') {
+      const c = node.getAttribute('color'); const f = node.getAttribute('face'); const sz = node.getAttribute('size')
+      if (c) mappedStyle += `color:${c};`
+      if (f) mappedStyle += `font-family:${f};`
+      if (sz && FONT_SIZE_MAP[sz]) mappedStyle += `font-size:${FONT_SIZE_MAP[sz]};`
+    }
+    if (tag === 'center') mappedStyle += 'text-align:center;'
+    const inline = cleanStyle(node.getAttribute && node.getAttribute('style'))
+    mappedStyle += inline ? (inline.endsWith(';') ? inline : inline + ';') : ''
+    if (mappedStyle) {
+      const span = node.ownerDocument.createElement('span')
+      span.setAttribute('style', mappedStyle)
+      while (node.firstChild) span.appendChild(node.firstChild)
+      parent.replaceChild(span, node)
+    } else {
+      while (node.firstChild) parent.insertBefore(node.firstChild, node)
+      parent.removeChild(node)
+    }
+    return
+  }
+
+  // atributy: nech jen povolené, style profiltruj
+  Array.from(node.attributes || []).forEach(attr => {
+    const name = attr.name.toLowerCase()
+    if (!ALLOWED_ATTRS.has(name) || name.startsWith('on')) { node.removeAttribute(attr.name); return }
+    if (name === 'style') {
+      const cleaned = cleanStyle(attr.value)
+      if (cleaned) node.setAttribute('style', cleaned)
+      else node.removeAttribute('style')
+      return
+    }
+    if ((name === 'href' || name === 'src') && /^\s*(javascript:|data:text\/html|vbscript:)/i.test(attr.value)) {
+      node.removeAttribute(attr.name)
+    }
+  })
+
+  if (tag === 'a' && node.getAttribute('href')) {
+    node.setAttribute('rel', 'noopener')
+    if (!node.getAttribute('target')) node.setAttribute('target', '_blank')
+  }
+}
+
 function sanitizePastedHtml(html) {
   if (!html) return ''
-  let out = String(html)
-  // odstraň komentáře
-  out = out.replace(/<!--[\s\S]*?-->/g, '')
-  // odstraň script/style
-  out = out.replace(/<\/?(script|style|meta|link|head|html|body|o:p|xml)[^>]*>/gi, '')
-  // odstraň class/style/id atributy a Microsoft-specific
-  out = out.replace(/\s+(class|style|id|lang|dir|align|width|height|valign|cellpadding|cellspacing|border|bgcolor)="[^"]*"/gi, '')
-  out = out.replace(/\s+mso-[^=]+="[^"]*"/gi, '')
-  // odstraň prázdné spany
-  out = out.replace(/<span>\s*<\/span>/gi, '')
-  // legacy nesémantické tagy → sémantické
-  out = out.replace(/<b(\s[^>]*)?>/gi, '<strong>').replace(/<\/b\s*>/gi, '</strong>')
-  out = out.replace(/<i(\s[^>]*)?>/gi, '<em>').replace(/<\/i\s*>/gi, '</em>')
-  out = out.replace(/<font\b[^>]*>/gi, '<span>').replace(/<\/font\s*>/gi, '</span>')
-  return out
+  // Word balí část obsahu do conditional comments <!--[if ...]> ... <![endif]-->
+  let src = String(html)
+    .replace(/<!--\[if[\s\S]*?<!\[endif\]-->/gi, '')
+    .replace(/<!--[\s\S]*?-->/g, '')
+  let doc
+  try { doc = new DOMParser().parseFromString(src, 'text/html') } catch (_) { return src.replace(/<[^>]+>/g, '') }
+  const body = doc.body || doc
+  Array.from(body.childNodes).forEach(child => sanitizeNode(child))
+  let out = body.innerHTML
+  // úklid prázdných obalů
+  out = out.replace(/<span[^>]*>(\s|&nbsp;)*<\/span>/gi, m => (/&nbsp;|\s/.test(m) ? ' ' : ''))
+  out = out.replace(/(\s|&nbsp;)*<p[^>]*>(\s|&nbsp;|<br\s*\/?>)*<\/p>/gi, '')
+  return out.trim()
 }
