@@ -62,21 +62,32 @@ export default function ContractTermsTab() {
   const [translatingType, setTranslatingType] = useState(null)
   const [trMsg, setTrMsg] = useState({}) // type -> { ok, text }
 
-  async function handleTranslate(tpl) {
+  async function handleTranslate(tpl, { force = false } = {}) {
     if (!tpl?.id) return
     setTranslatingType(tpl.type)
-    setTrMsg(m => ({ ...m, [tpl.type]: { ok: true, text: 'Překládám…' } }))
-    // Po jednom jazyce (víc jazyků naráz padalo na HTTP 546 — limit edge fn).
-    const done = []
+    const already = force ? [] : Object.keys(tpl.content_translations || {}).filter(k => TRANSLATE_TARGET_LANGS.includes(k))
+    const todo = TRANSLATE_TARGET_LANGS.filter(l => !already.includes(l))
+    if (todo.length === 0) {
+      setTranslatingType(null)
+      setTrMsg(m => ({ ...m, [tpl.type]: { ok: true, text: `Vše už přeloženo (${already.join(', ')}). Pro nové přeložení použij „Přeložit znovu vše".` } }))
+      return
+    }
+    const done = [...already]
     const failed = []
-    for (const lang of TRANSLATE_TARGET_LANGS) {
-      setTrMsg(m => ({ ...m, [tpl.type]: { ok: true, text: `Překládám… (${lang}, hotovo: ${done.join(', ') || '–'})` } }))
-      const res = await translateDocument({ table: 'document_templates', id: tpl.id, target_langs: [lang] })
-      if (res?.success && res.translations?.[lang]) done.push(lang)
-      else failed.push(`${lang}: ${res?.error || (res?.errors && Object.values(res.errors)[0]) || 'chyba'}`)
+    // Po jednom jazyce, s opakováním (transientní rate-limit / limit edge fn).
+    for (const lang of todo) {
+      setTrMsg(m => ({ ...m, [tpl.type]: { ok: true, text: `Překládám… ${lang} · hotovo: ${done.join(', ') || '–'}${failed.length ? ` · selhalo: ${failed.map(f => f.split(':')[0]).join(', ')}` : ''}` } }))
+      let ok = false, lastErr = ''
+      for (let attempt = 1; attempt <= 3 && !ok; attempt++) {
+        if (attempt > 1) await new Promise(r => setTimeout(r, 2500))
+        const res = await translateDocument({ table: 'document_templates', id: tpl.id, target_langs: [lang] })
+        if (res?.success && res.translations?.[lang]) ok = true
+        else lastErr = res?.error || (res?.errors && Object.values(res.errors)[0]) || 'chyba'
+      }
+      if (ok) done.push(lang); else failed.push(`${lang}: ${lastErr}`)
     }
     setTranslatingType(null)
-    setTrMsg(m => ({ ...m, [tpl.type]: { ok: failed.length === 0, text: failed.length ? `Přeloženo: ${done.join(', ') || '–'} · selhalo — ${failed.join('; ')}` : `Přeloženo do: ${done.join(', ')}` } }))
+    setTrMsg(m => ({ ...m, [tpl.type]: { ok: failed.length === 0, text: failed.length ? `Přeloženo: ${done.join(', ') || '–'} · selhalo — ${failed.join('; ')} (klikni „Přeložit" znovu pro dokončení)` : `Hotovo — přeloženo do: ${done.join(', ')}` } }))
     load()
   }
 
@@ -151,6 +162,9 @@ export default function ContractTermsTab() {
                     <Button onClick={() => handleTranslate(tpl)} disabled={translatingType === ct.type}>
                       {translatingType === ct.type ? 'Překládám…' : '🌍 Přeložit'}
                     </Button>
+                  )}
+                  {tpl && translatingType !== ct.type && Object.keys(tpl.content_translations || {}).filter(k => TRANSLATE_TARGET_LANGS.includes(k)).length > 0 && (
+                    <Button onClick={() => handleTranslate(tpl, { force: true })}>Přeložit znovu vše</Button>
                   )}
                   <Button green onClick={() => setEditing(tpl || { type: ct.type, name: ct.label, content_html: '', version: 0 })}>
                     {tpl ? 'Upravit' : 'Vytvořit'}
