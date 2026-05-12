@@ -594,7 +594,6 @@ body{font-family:Montserrat,"Segoe UI",sans-serif;margin:0;color:#1a2e22;backgro
 @media(min-width:769px){.banner{min-height:480px}.banner>picture,.banner>picture>img,.banner>img{height:480px}}
   </style>
   <link rel="stylesheet" href="' . assetUrl('/css/main.css') . '">
-  <link rel="stylesheet" href="' . assetUrl('/css/pages.css') . '">
 </head>
 <body' . ($currentPath === '/' ? ' class="homepage"' : '') . '>
 ';
