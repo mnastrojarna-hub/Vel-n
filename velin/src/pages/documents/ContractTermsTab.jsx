@@ -42,7 +42,7 @@ const TEMPLATE_VARS = {
   damage_protocol: [
     'booking_number', 'customer_name', 'customer_id_number',
     'moto_model', 'moto_brand', 'moto_spz', 'moto_vin',
-    'end_date', 'today',
+    'end_date', 'today', 'today_time', 'mileage', 'accessories',
     'company_name', 'company_address', 'company_ico', 'company_dic',
   ],
   gdpr: [

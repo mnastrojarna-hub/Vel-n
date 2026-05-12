@@ -45,7 +45,7 @@ export default function BookingDocumentsTab({ bookingId, userId }) {
       if (docsRes.error) diag.errors.push('documents: ' + docsRes.error.message)
       if (genRes.error) diag.errors.push('generated_documents: ' + genRes.error.message)
       if (invRes.error) diag.errors.push('invoices: ' + invRes.error.message)
-      const SYNCED_TYPES = ['invoice_advance', 'payment_receipt', 'invoice_final', 'invoice_shop', 'rental_contract', 'contract', 'vop', 'handover_protocol']
+      const SYNCED_TYPES = ['invoice_advance', 'payment_receipt', 'invoice_final', 'invoice_shop', 'rental_contract', 'contract', 'vop', 'handover_protocol', 'damage_protocol', 'protocol_damage', 'gdpr']
       const filteredDocs = (docsRes.data || []).filter(d => !SYNCED_TYPES.includes(d.type))
       diag.docs = filteredDocs.map(d => ({ type: d.type, file_path: d.file_path, file_name: d.file_name }))
       diag.docsRaw = (docsRes.data || []).length; diag.docsFiltered = filteredDocs.length
@@ -58,7 +58,7 @@ export default function BookingDocumentsTab({ bookingId, userId }) {
 
   async function loadDbTemplates() {
     try {
-      const { data } = await supabase.from('document_templates').select('type, content_html').in('type', ['rental_contract', 'handover_protocol', 'vop'])
+      const { data } = await supabase.from('document_templates').select('type, content_html').in('type', ['rental_contract', 'handover_protocol', 'vop', 'damage_protocol', 'gdpr'])
       if (data) { const map = {}; data.forEach(t => { map[t.type] = t.content_html }); setDbTemplates(map) }
     } catch {}
   }
@@ -76,7 +76,7 @@ export default function BookingDocumentsTab({ bookingId, userId }) {
   }
 
   async function generateClientSide(templateSlug) {
-    const { data: booking, error: bErr } = await supabase.from('bookings').select('*, motorcycles(model, spz, vin, year)').eq('id', bookingId).single()
+    const { data: booking, error: bErr } = await supabase.from('bookings').select('*, motorcycles(model, spz, vin, year, license_required)').eq('id', bookingId).single()
     if (bErr || !booking) throw new Error('Rezervace nenalezena: ' + (bErr?.message || 'no data'))
     let customer = {}
     if (booking.user_id) { const { data: prof } = await supabase.from('profiles').select('id, full_name, email, phone, street, city, zip, country, ico, dic, license_number, license_expiry').eq('id', booking.user_id).single(); if (prof) customer = prof }
@@ -111,18 +111,19 @@ export default function BookingDocumentsTab({ bookingId, userId }) {
     }
     if (doc.filled_data) {
       const docType = doc.document_templates?.type || ''
-      const slug = docType === 'rental_contract' ? 'rental_contract' : docType === 'handover_protocol' ? 'handover_protocol' : docType === 'vop' ? 'vop' : null
+      const KNOWN_SLUGS = ['rental_contract', 'handover_protocol', 'vop', 'damage_protocol', 'gdpr']
+      const slug = KNOWN_SLUGS.includes(docType) ? docType : null
       if (slug) { let html = getClientTemplate(slug, dbTemplates); if (html) { html = fillTemplate(html, doc.filled_data); setViewHtml(html); setViewDoc(doc); return } }
       const html = rebuildFromFilledData(doc); if (html) { setViewHtml(html); setViewDoc(doc); return }
     }
     try {
-      const { data: booking } = await supabase.from('bookings').select('*, motorcycles(model, spz, vin, year)').eq('id', bookingId).single()
+      const { data: booking } = await supabase.from('bookings').select('*, motorcycles(model, spz, vin, year, license_required)').eq('id', bookingId).single()
       if (booking) {
         let customer = {}
         if (booking.user_id) { const { data: prof } = await supabase.from('profiles').select('id, full_name, email, phone, street, city, zip, country, ico, dic, license_number, license_expiry').eq('id', booking.user_id).single(); if (prof) customer = prof }
         const vars = buildDocVars(booking, customer, bookingId)
         const docType = doc.document_templates?.type || ''
-        const slug = docType === 'handover_protocol' ? 'handover_protocol' : 'rental_contract'
+        const slug = ['handover_protocol', 'vop', 'damage_protocol', 'gdpr'].includes(docType) ? docType : 'rental_contract'
         let html = getClientTemplate(slug, dbTemplates)
         if (html) { html = fillTemplate(html, vars); setViewHtml(html); setViewDoc(doc); return }
       }
@@ -137,6 +138,8 @@ export default function BookingDocumentsTab({ bookingId, userId }) {
     if (INVOICE_DOC_TYPES.includes(doc.type) && doc.booking_id) { const inv = invoices.find(i => i.booking_id === doc.booking_id); if (inv) { handleViewInvoice(inv); return } }
     if (doc.type === 'rental_contract' || doc.type === 'contract') { handleViewGeneratedDoc({ ...doc, document_templates: { type: 'rental_contract' } }); return }
     if (doc.type === 'handover_protocol' || doc.type === 'protocol') { handleViewGeneratedDoc({ ...doc, document_templates: { type: 'handover_protocol' } }); return }
+    if (doc.type === 'damage_protocol' || doc.type === 'protocol_damage') { handleViewGeneratedDoc({ ...doc, document_templates: { type: 'damage_protocol' } }); return }
+    if (doc.type === 'gdpr') { handleViewGeneratedDoc({ ...doc, document_templates: { type: 'gdpr' } }); return }
     const path = doc.pdf_path || doc.file_path
     if (!path) { setError('Dokument nema cestu k souboru'); return }
     try { const { data, error: err } = await supabase.storage.from('documents').download(path); if (err) throw err; setViewHtml(await data.text()); setViewDoc(doc) }
@@ -178,9 +181,11 @@ export default function BookingDocumentsTab({ bookingId, userId }) {
       {debug && <div className="p-3 rounded-card mb-3" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 13, fontFamily: 'monospace', color: '#78350f' }}><strong>DIAG ...{bookingId?.slice(-8)}</strong>{debug.errors.length > 0 && <span style={{ color: '#dc2626' }}> ERR: {debug.errors.join('|')}</span>} docs:{debug.docsFiltered||0} gen:{debug.gen?.length||0} inv:{debug.inv?.length||0}</div>}
       {userId && <BookingCustomerDocsStatus userId={userId} />}
       <div className="flex gap-3 flex-wrap">
-        <Button green onClick={() => handleGenerate('rental_contract')} disabled={generating === 'rental_contract'}>{generating === 'rental_contract' ? 'Generuji...' : 'Vygenerovat smlouvu'}</Button>
-        <Button green onClick={() => handleGenerate('handover_protocol')} disabled={generating === 'handover_protocol'}>{generating === 'handover_protocol' ? 'Generuji...' : 'Vygenerovat protokol'}</Button>
-        <Button green onClick={() => handleGenerate('vop')} disabled={generating === 'vop'}>{generating === 'vop' ? 'Generuji...' : 'Vygenerovat VOP'}</Button>
+        <Button green onClick={() => handleGenerate('rental_contract')} disabled={generating === 'rental_contract'}>{generating === 'rental_contract' ? 'Generuji...' : '+ Vygenerovat smlouvu'}</Button>
+        <Button green onClick={() => handleGenerate('handover_protocol')} disabled={generating === 'handover_protocol'}>{generating === 'handover_protocol' ? 'Generuji...' : '+ Vygenerovat předávací protokol'}</Button>
+        <Button green onClick={() => handleGenerate('damage_protocol')} disabled={generating === 'damage_protocol'}>{generating === 'damage_protocol' ? 'Generuji...' : '+ Vygenerovat protokol o poškození'}</Button>
+        <Button green onClick={() => handleGenerate('vop')} disabled={generating === 'vop'}>{generating === 'vop' ? 'Generuji...' : '+ Vygenerovat VOP'}</Button>
+        <Button green onClick={() => handleGenerate('gdpr')} disabled={generating === 'gdpr'}>{generating === 'gdpr' ? 'Generuji...' : '+ Vygenerovat GDPR'}</Button>
         {dbTemplates.vop && <Button onClick={() => { setViewHtml(dbTemplates.vop); setViewDoc({ file_name: 'Obchodni podminky (VOP)' }) }}>Zobrazit VOP</Button>}
       </div>
       <Card>

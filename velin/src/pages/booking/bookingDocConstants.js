@@ -1,4 +1,4 @@
-export const DOC_ICONS = { contract: '\ud83d\udccb', rental_contract: '\ud83d\udccb', protocol: '\ud83d\udcdd', handover_protocol: '\ud83d\udcdd', terms: '\ud83d\udcdc', invoice: '\ud83e\uddfe' }
+export const DOC_ICONS = { contract: '\ud83d\udccb', rental_contract: '\ud83d\udccb', protocol: '\ud83d\udcdd', handover_protocol: '\ud83d\udcdd', damage_protocol: '\u26a0\ufe0f', protocol_damage: '\u26a0\ufe0f', gdpr: '\ud83d\udd12', vop: '\ud83d\udcdc', terms: '\ud83d\udcdc', invoice: '\ud83e\uddfe' }
 
 export const INV_TYPE_MAP = {
   proforma: { label: 'Zalohova faktura (ZF)', color: '#2563eb', bg: '#dbeafe' },

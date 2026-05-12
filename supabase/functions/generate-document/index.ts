@@ -34,6 +34,49 @@ const CORS = {
 const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('cs-CZ') : '—'
 const fmtPrice = (n: number) => (n || 0).toLocaleString('cs-CZ', { minimumFractionDigits: 2 })
 
+/**
+ * Sestaví seznam zapůjčeného příslušenství (velikosti) z reálné rezervace.
+ * - vždy řádky pro řidiče (helma/bunda/kalhoty/boty/rukavice) podle vyplněných `*_size`
+ * - pokud má spolujezdec vyplněnou aspoň jednu velikost → druhá sada řádků "(spolujezdec)"
+ *   (klidně chybí boty / jen 2 velikosti — vypíše se jen to, co je objednané)
+ * - u dětských motorek (`motorcycles.license_required === 'N'`) přidá "(dětská velikost)"
+ * Vrací HTML tabulku pro {{accessories_block}} a textovou variantu pro {{accessories}}.
+ */
+function buildAccessoriesBlock(booking: any, moto: any): { html: string; text: string } {
+  const isChild = String(moto?.license_required || '').toUpperCase() === 'N'
+  const childSuffix = isChild ? ' (dětská velikost)' : ''
+  const items = [
+    { key: 'helmet', label: 'Helma' },
+    { key: 'jacket', label: 'Bunda / vesta' },
+    { key: 'pants', label: 'Kalhoty' },
+    { key: 'boots', label: 'Boty' },
+    { key: 'gloves', label: 'Rukavice' },
+  ]
+  const rows: string[] = []
+  const textParts: string[] = []
+  const td = 'padding:6px 8px;border:1px solid #ddd;text-align:left'
+  const addRow = (label: string, size: string) => {
+    rows.push(`<tr><td style="${td};background:#f8faf9;font-weight:600">${label}${childSuffix}</td><td style="${td}">${size}</td><td style="${td};text-align:center;width:60px">☐</td></tr>`)
+    textParts.push(`${label} ${size}`)
+  }
+  let hasRider = false
+  for (const it of items) {
+    const size = booking?.[`${it.key}_size`]
+    if (size) { addRow(`${it.label} (řidič)`, String(size)); hasRider = true }
+  }
+  let hasPassenger = false
+  for (const it of items) {
+    const size = booking?.[`passenger_${it.key}_size`]
+    if (size) { addRow(`${it.label} (spolujezdec)`, String(size)); hasPassenger = true }
+  }
+  if (!hasRider && !hasPassenger) {
+    return { html: '<p style="font-size:12px">Žádné zapůjčené příslušenství.</p>', text: 'Žádné' }
+  }
+  const th = 'padding:6px 8px;border:1px solid #ddd;text-align:left;background:#f0f7ff;font-weight:700;font-size:10px;text-transform:uppercase'
+  const html = `<table class="checklist" style="width:100%;border-collapse:collapse;font-size:11px;margin:6px 0;border:1px solid #ddd"><tr><th style="${th}">Položka</th><th style="${th}">Velikost</th><th style="${th}">Předáno</th></tr>${rows.join('')}</table>`
+  return { html, text: textParts.join(', ') }
+}
+
 /** Convert number to Czech words (e.g. 7800 → "sedm tisíc osm set") */
 function numberToWordsCZ(n: number): string {
   if (n === 0) return 'nula'
@@ -114,7 +157,7 @@ serve(async (req) => {
     // Load booking with relations (separate profile query to avoid FK ambiguity)
     const { data: booking, error: bErr } = await supabase
       .from('bookings')
-      .select('*, motorcycles(model, spz, vin, year, brand, category, engine_cc, power_kw, color, deposit_amount, insurance_price, image_url)')
+      .select('*, motorcycles(model, spz, vin, year, brand, category, engine_cc, power_kw, color, deposit_amount, insurance_price, image_url, license_required)')
       .eq('id', booking_id).single()
     if (bErr || !booking) {
       console.error('Booking query error:', bErr?.message, 'booking_id:', booking_id)
@@ -157,6 +200,7 @@ serve(async (req) => {
     }
 
     const moto = booking.motorcycles || {} as any
+    const accessories = buildAccessoriesBlock(booking, moto)
     // Inclusive day count — system pricing počítá start i end den (May 5 → May 6 = 2 dny).
     // Math.ceil dříve dávalo 1 den (24h diff) a smlouva nesouhlasila s cenou.
     const days = Math.max(1, Math.floor((new Date(booking.end_date).getTime() - new Date(booking.start_date).getTime()) / 86400000) + 1)
@@ -240,6 +284,12 @@ serve(async (req) => {
       // Location aliases (templates may use either name)
       pickup_location: booking.pickup_address || branchAddress || '',
       return_location: booking.return_address || branchAddress || '',
+      // Handover protocol — stav vozidla + automaticky vyplněné příslušenství
+      mileage: String(booking.mileage_start || ''),
+      technical_state: '',
+      today_time: new Date().toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' }),
+      accessories_block: accessories.html,
+      accessories: accessories.text,
     }
 
     // Substitute variables in template HTML
@@ -360,12 +410,12 @@ function getFallbackTemplate(slug: string): string | null {
   </table>
   <h3 style="font-size:13px">Stav při předání</h3>
   <table style="width:100%;border-collapse:collapse;font-size:12px;margin:8px 0;border:1px solid #ddd">
-    <tr><td style="padding:8px;border:1px solid #ddd;width:50%">Stav km:</td><td style="padding:8px;border:1px solid #ddd"></td></tr>
-    <tr><td style="padding:8px;border:1px solid #ddd">Stav paliva:</td><td style="padding:8px;border:1px solid #ddd"></td></tr>
+    <tr><td style="padding:8px;border:1px solid #ddd;width:50%">Stav km:</td><td style="padding:8px;border:1px solid #ddd">{{mileage}}</td></tr>
     <tr><td style="padding:8px;border:1px solid #ddd">Viditelné poškození:</td><td style="padding:8px;border:1px solid #ddd"></td></tr>
-    <tr><td style="padding:8px;border:1px solid #ddd">Příslušenství:</td><td style="padding:8px;border:1px solid #ddd"></td></tr>
     <tr><td style="padding:8px;border:1px solid #ddd">Poznámky:</td><td style="padding:8px;border:1px solid #ddd"></td></tr>
   </table>
+  <h3 style="font-size:13px">Příslušenství a výbava</h3>
+  {{accessories_block}}
   <div style="margin-top:48px;display:flex;justify-content:space-between">
     <div style="text-align:center;width:45%"><div style="border-top:1px solid #999;padding-top:8px;font-size:11px">Předávající</div></div>
     <div style="text-align:center;width:45%"><div style="border-top:1px solid #999;padding-top:8px;font-size:11px">Přebírající — {{customer_name}}</div></div>
@@ -398,6 +448,74 @@ function getFallbackTemplate(slug: string): string | null {
     <p style="margin:0">{{company_name}} | {{company_address}} | IČO: {{company_ico}}</p>
     <p style="margin:4px 0 0">Kontakt: info@motogo24.cz | +420 774 256 271 | motogo24.cz</p>
   </div>
+</div></body></html>`
+  }
+
+  if (slug === 'damage_protocol') {
+    return `<!DOCTYPE html><html lang="cs"><head><meta charset="utf-8"><title>Protokol o zjištěném poškození</title></head>
+<body style="margin:0;padding:0;font-family:'Segoe UI',sans-serif;color:#1a1a1a;font-size:12px">
+<div style="max-width:780px;margin:0 auto;padding:32px">
+  <h1 style="text-align:center;font-size:18px;border-bottom:2px solid #dc2626;padding-bottom:12px">PROTOKOL O ZJIŠTĚNÉM POŠKOZENÍ PŘI VRÁCENÍ</h1>
+  <p style="text-align:center;font-size:12px;color:#666">k rezervaci č. {{booking_number}} ze dne {{today}}</p>
+  <h3 style="font-size:13px;margin-top:16px">1. Identifikace smlouvy a stran</h3>
+  <table style="width:100%;border-collapse:collapse;font-size:12px;border:1px solid #ddd">
+    <tr><td style="padding:6px 8px;border:1px solid #ddd;background:#f8faf9;font-weight:600;width:220px">Číslo smlouvy</td><td style="padding:6px 8px;border:1px solid #ddd">{{booking_number}}</td></tr>
+    <tr><td style="padding:6px 8px;border:1px solid #ddd;background:#f8faf9;font-weight:600">Pronajímatel</td><td style="padding:6px 8px;border:1px solid #ddd">{{company_name}}</td></tr>
+    <tr><td style="padding:6px 8px;border:1px solid #ddd;background:#f8faf9;font-weight:600">Nájemce</td><td style="padding:6px 8px;border:1px solid #ddd">{{customer_name}}</td></tr>
+  </table>
+  <h3 style="font-size:13px;margin-top:14px">2. Identifikace vozidla</h3>
+  <table style="width:100%;border-collapse:collapse;font-size:12px;border:1px solid #ddd">
+    <tr><td style="padding:6px 8px;border:1px solid #ddd;background:#f8faf9;font-weight:600;width:220px">Značka a model</td><td style="padding:6px 8px;border:1px solid #ddd">{{moto_model}}</td></tr>
+    <tr><td style="padding:6px 8px;border:1px solid #ddd;background:#f8faf9;font-weight:600">VIN</td><td style="padding:6px 8px;border:1px solid #ddd">{{moto_vin}}</td></tr>
+    <tr><td style="padding:6px 8px;border:1px solid #ddd;background:#f8faf9;font-weight:600">SPZ</td><td style="padding:6px 8px;border:1px solid #ddd">{{moto_spz}}</td></tr>
+  </table>
+  <h3 style="font-size:13px;margin-top:14px">3. Stav motocyklu při vrácení</h3>
+  <table style="width:100%;border-collapse:collapse;font-size:12px;border:1px solid #ddd">
+    <tr><td style="padding:6px 8px;border:1px solid #ddd;background:#f8faf9;font-weight:600;width:220px">Stav tachometru</td><td style="padding:6px 8px;border:1px solid #ddd">&nbsp; km</td></tr>
+    <tr><td style="padding:6px 8px;border:1px solid #ddd;background:#f8faf9;font-weight:600;vertical-align:top">Celkový vizuální stav</td><td style="padding:18px 8px;border:1px solid #ddd"></td></tr>
+  </table>
+  <h3 style="font-size:13px;margin-top:14px">4. Zjištěná poškození / chybějící příslušenství</h3>
+  <table style="width:100%;border-collapse:collapse;font-size:12px;border:1px solid #ddd">
+    <tr><td style="padding:6px 8px;border:1px solid #ddd;background:#f8faf9;font-weight:600;width:220px;vertical-align:top">Popis poškození motocyklu</td><td style="padding:28px 8px;border:1px solid #ddd"></td></tr>
+    <tr><td style="padding:6px 8px;border:1px solid #ddd;background:#f8faf9;font-weight:600;vertical-align:top">Chybějící / poškozené vybavení</td><td style="padding:20px 8px;border:1px solid #ddd"></td></tr>
+  </table>
+  <p style="font-size:11px;color:#666;margin-top:6px">Zapůjčené příslušenství dle rezervace: {{accessories}}</p>
+  <p style="font-size:12px;margin-top:12px">Příslušná fotodokumentace je přiložena k protokolu a je jeho nedílnou součástí.</p>
+  <table style="width:100%;border-collapse:collapse;font-size:12px;border:1px solid #ddd;margin-top:8px">
+    <tr><td style="padding:6px 8px;border:1px solid #ddd;background:#f8faf9;font-weight:600;width:220px">Datum a čas vrácení</td><td style="padding:6px 8px;border:1px solid #ddd">{{today}} {{today_time}}</td></tr>
+    <tr><td style="padding:6px 8px;border:1px solid #ddd;background:#f8faf9;font-weight:600">Vystavil/a</td><td style="padding:6px 8px;border:1px solid #ddd">{{company_name}}</td></tr>
+  </table>
+  <div style="margin-top:48px;display:flex;justify-content:space-between">
+    <div style="text-align:center;width:45%"><div style="border-top:1px solid #999;padding-top:8px;font-size:11px">Podpis pronajímatele<br>{{company_name}}</div></div>
+    <div style="text-align:center;width:45%"><div style="border-top:1px solid #999;padding-top:8px;font-size:11px">Podpis nájemce<br>{{customer_name}}</div></div>
+  </div>
+  <div style="margin-top:32px;text-align:center;font-size:10px;color:#888;border-top:1px solid #ddd;padding-top:12px">{{company_name}} · IČO: {{company_ico}} · {{company_address}} · info@motogo24.cz · +420 774 256 271</div>
+</div></body></html>`
+  }
+
+  if (slug === 'gdpr') {
+    return `<!DOCTYPE html><html lang="cs"><head><meta charset="utf-8"><title>Souhlas se zpracováním osobních údajů</title></head>
+<body style="margin:0;padding:0;font-family:'Segoe UI',sans-serif;color:#1a1a1a;font-size:12px">
+<div style="max-width:780px;margin:0 auto;padding:32px">
+  <h1 style="text-align:center;font-size:18px;border-bottom:2px solid #1a8a18;padding-bottom:12px">INFORMACE A SOUHLAS SE ZPRACOVÁNÍM OSOBNÍCH ÚDAJŮ (GDPR)</h1>
+  <p style="text-align:center;font-size:12px;color:#666">{{company_name}} | IČO: {{company_ico}} | {{company_address}} | ze dne {{today}}</p>
+  <h3 style="font-size:13px;margin-top:16px">1. Správce osobních údajů</h3>
+  <p>Správcem osobních údajů je {{company_name}}, IČO: {{company_ico}}, se sídlem {{company_address}}, kontakt: info@motogo24.cz, +420 774 256 271.</p>
+  <h3 style="font-size:13px">2. Subjekt údajů</h3>
+  <p>Jméno a příjmení: <strong>{{customer_name}}</strong><br>Adresa: {{customer_address}}<br>E-mail: {{customer_email}}</p>
+  <h3 style="font-size:13px">3. Rozsah a účel zpracování</h3>
+  <p>Správce zpracovává identifikační a kontaktní údaje, údaje z dokladu totožnosti a řidičského průkazu a údaje o rezervaci za účelem uzavření a plnění nájemní smlouvy, vedení evidence, fakturace a plnění právních povinností.</p>
+  <h3 style="font-size:13px">4. Právní základ a doba uchování</h3>
+  <p>Zpracování je nezbytné pro plnění smlouvy a plnění právních povinností správce (zejm. účetní a daňové předpisy). Údaje jsou uchovávány po dobu trvání smluvního vztahu a následně po dobu stanovenou právními předpisy.</p>
+  <h3 style="font-size:13px">5. Práva subjektu údajů</h3>
+  <p>Subjekt údajů má právo na přístup k údajům, jejich opravu, výmaz, omezení zpracování, přenositelnost, vznesení námitky a právo podat stížnost u Úřadu pro ochranu osobních údajů.</p>
+  <h3 style="font-size:13px">6. Souhlas</h3>
+  <p>Svým podpisem potvrzuji, že jsem byl/a informován/a o zpracování osobních údajů v rozsahu uvedeném výše.</p>
+  <div style="margin-top:48px;display:flex;justify-content:space-between">
+    <div style="text-align:center;width:45%"><div style="border-top:1px solid #999;padding-top:8px;font-size:11px">Za správce — {{company_name}}</div></div>
+    <div style="text-align:center;width:45%"><div style="border-top:1px solid #999;padding-top:8px;font-size:11px">{{customer_name}}</div></div>
+  </div>
+  <div style="margin-top:32px;text-align:center;font-size:10px;color:#888;border-top:1px solid #ddd;padding-top:12px">{{company_name}} · IČO: {{company_ico}} · {{company_address}} · info@motogo24.cz · +420 774 256 271</div>
 </div></body></html>`
   }
 
