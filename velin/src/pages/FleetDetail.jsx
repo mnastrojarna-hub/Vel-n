@@ -73,7 +73,7 @@ export default function FleetDetail() {
       // Oprávnění + délka pronájmu
       license_required, min_rental_days, max_rental_days,
       // Texty (auto-překládají se po uložení)
-      description, suitable_for, ideal_usage, features,
+      description, ideal_usage, features,
     } = moto
     const updateData = {
       model, spz, vin,
@@ -107,7 +107,6 @@ export default function FleetDetail() {
       min_rental_days: toInt(min_rental_days),
       max_rental_days: toInt(max_rental_days),
       description,
-      suitable_for: suitable_for || null,
       ideal_usage: Array.isArray(ideal_usage) ? ideal_usage.map(s => s?.trim()).filter(Boolean) : ideal_usage,
       features: Array.isArray(features) ? features.map(s => s?.trim()).filter(Boolean) : features,
     }
@@ -117,11 +116,10 @@ export default function FleetDetail() {
     if (result?.error) setError(result.error.message)
     await logAudit('motorcycle_updated', { moto_id: id })
     // Auto-překlad textových polí motorky pro web (na pozadí, neblokuje UI).
-    // Web čte translations jsonb pro `description` i `suitable_for` přes localized().
+    // Web čte translations jsonb pro `description` přes localized().
     if (!result?.error) {
       const translateFields = {}
       if (description && description.trim().length > 0) translateFields.description = description
-      if (suitable_for && suitable_for.trim().length > 0) translateFields.suitable_for = suitable_for
       if (Object.keys(translateFields).length > 0) {
         autoTranslateRow({ table: 'motorcycles', id, row: translateFields })
       }
