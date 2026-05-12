@@ -106,7 +106,7 @@ foreach ((is_array($C['documents']['items'] ?? null) ? $C['documents']['items'] 
 $docsCardsHtml .= '</div>';
 
 $mainSection = '<section class="main1">' .
-    '<p>&nbsp;</p><p>&nbsp;</p>' .
+    '<p>&nbsp;</p>' .
     '<h2 data-cms-key="' . $kp . '.required_docs.title">' . ($C['required_docs']['title'] ?? '') . '</h2><ul>' . $reqLis . '</ul>' .
     '<p>&nbsp;</p><p>&nbsp;</p>' .
     $paymentsBlock .
@@ -117,7 +117,7 @@ $mainSection = '<section class="main1">' .
 
 // --- Section 4: mid CTA "Souhlasíte s podmínkami?" ---
 $midCtaSection = '<section class="main3">' .
-    '<p>&nbsp;</p><p>&nbsp;</p>' .
+    '<p>&nbsp;</p>' .
     '<h2 data-cms-key="' . $kp . '.midcta.title">' . ($C['midcta']['title'] ?? '') . '</h2>' .
     '<p data-cms-key="' . $kp . '.midcta.text">' . ($C['midcta']['text'] ?? '') . '</p>' .
     '</section>';
