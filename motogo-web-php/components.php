@@ -237,7 +237,9 @@ function sanitizeHtml($html, $allowIframe = false) {
     // whitespace/&nbsp;/<br> obsahu), opakovaně kvůli vnořeným prázdným spanům.
     do {
         $before = $html;
-        $html = preg_replace('#<(h[1-6])\b[^>]*>(?:\s|&nbsp;|&#160;|<br\s*/?>|<span[^>]*>|</span>)*</\1\s*>#i', '', $html);
+        $stripped = preg_replace('~<(h[1-6])\b[^>]*>(?:\s|&nbsp;|&\#160;|&#x?[0-9a-f]+;|<br\s*/?>|<span[^>]*>|</span>)*</\1\s*>~i', '', $html);
+        if ($stripped === null) break; // PCRE chyba — nech HTML beze změny, nikdy nevrať null
+        $html = $stripped;
     } while ($html !== $before);
     return $html;
 }
