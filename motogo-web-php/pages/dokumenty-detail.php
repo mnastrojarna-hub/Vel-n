@@ -20,13 +20,32 @@ $slug    = $_GET['doc_slug'] ?? '';
 $wantPdf = !empty($_GET['format']) && $_GET['format'] === 'pdf';
 $entry   = $DOC_MAP[$slug] ?? null;
 
+$tpl = null;
+if ($entry) {
+    $tpl = $sb->fetchDocumentTemplate($entry['type']);
+} else {
+    // Vlastní dokument vytvořený ve Velíně (tabulka custom_documents).
+    $cd = $sb->fetchCustomDocument($slug);
+    if ($cd) {
+        if (($cd['kind'] ?? 'html') === 'pdf') {
+            // PDF dokument — přesměruj rovnou na soubor (zobrazí se / uloží v prohlížeči).
+            $pdfUrl = $cd['pdf_path'] ?? '';
+            if ($pdfUrl) { header('Location: ' . $pdfUrl, true, 302); exit; }
+        }
+        $entry = ['type' => null, 'title' => $cd['title'] ?? 'Dokument'];
+        $tpl = [
+            'content_html' => $cd['content_html'] ?? '',
+            'version'      => $cd['version'] ?? 1,
+            'updated_at'   => $cd['updated_at'] ?? null,
+        ];
+    }
+}
+
 if (!$entry) {
     http_response_code(404);
     require __DIR__ . '/404.php';
     return;
 }
-
-$tpl = $sb->fetchDocumentTemplate($entry['type']);
 
 // Stejné CSS jako Velín RichTextEditor (ContentEditable .rte-content) — WYSIWYG
 // parita: co admin vidí v editoru, to se vyrenderuje na webu i v PDF / tisku.

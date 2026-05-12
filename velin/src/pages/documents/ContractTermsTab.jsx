@@ -5,6 +5,7 @@ import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
 import RichTextEditor, { buildPreviewHtml } from '../../components/ui/RichTextEditor'
+import CustomDocumentsSection from './CustomDocumentsSection'
 
 const CONTRACT_TYPES = [
   { type: 'vop', label: 'Obchodní podmínky (VOP)', icon: '📜', description: 'Všeobecné obchodní podmínky pro pronájem motocyklů' },
@@ -150,6 +151,8 @@ export default function ContractTermsTab() {
           onClose={() => setPreview(null)}
         />
       )}
+
+      <CustomDocumentsSection />
     </div>
   )
 }
