@@ -20,7 +20,7 @@ const FIELD_MAP = {
   cms_pages: ['title', 'excerpt', 'content'],
   cms_variables: ['value'],
   products: ['name', 'description', 'color', 'material'],
-  motorcycles: ['description', 'suitable_for'],
+  motorcycles: ['description'],
   branches: ['notes'],
   faq_items: ['question', 'answer'],
 }

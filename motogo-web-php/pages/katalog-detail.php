@@ -125,11 +125,6 @@ if ($features) {
     foreach ($features as $f) { $descHtml .= '<li>' . $f . '</li>'; }
     $descHtml .= '</ul><p>&nbsp;</p>';
 }
-// "Pro koho je motorka vhodná?" — volný HTML/text, plní se ve Velíně (suitable_for sloupec)
-$suitableFor = localized($moto, 'suitable_for');
-if ($suitableFor !== '') {
-    $descHtml .= '<h3>' . te('detail.suitableForTitle') . '</h3>' . sanitizeHtml($suitableFor);
-}
 if (!empty($moto['features'])) {
     $descHtml .= '<h3>' . te('detail.featuresAdvantages') . '</h3><ul>';
     $featArr = is_string($moto['features']) ? explode(',', $moto['features']) : ($moto['features'] ?? []);
@@ -217,15 +212,13 @@ if (!empty($moto['max_rental_days'])) {
 }
 if (!empty($moto['ideal_usage'])) $specsRows[] = [t('detail.specIdealFor'), $moto['ideal_usage']];
 
-// Popis — na celý řádek nahoře (desktop i mobil)
-$descSpecsHtml = '<section class="moto-desc-block">';
-$descSpecsHtml .= '<h2>' . te('detail.descTitle') . '</h2><p>' . htmlspecialchars($motoDesc !== '' ? $motoDesc : ($moto['model'] ?? '')) . '</p>';
+// Návod / dokumenty — na celý řádek (popis motorky je už pod fotkou v sekci moto-shortdesc)
 // Návod: PDF (manual_url ze storage) má přednost před externím odkazem (manual_external_url).
 $manualHref = !empty($moto['manual_url']) ? $moto['manual_url'] : (!empty($moto['manual_external_url']) ? $moto['manual_external_url'] : '');
+$descSpecsHtml = '';
 if ($manualHref !== '') {
-    $descSpecsHtml .= '<p>&nbsp;</p><p><a class="btn btngreen" href="' . htmlspecialchars($manualHref) . '" target="_blank" rel="noopener">' . te('detail.userManual') . '</a></p>';
+    $descSpecsHtml .= '<section class="moto-desc-block"><p><a class="btn btngreen" href="' . htmlspecialchars($manualHref) . '" target="_blank" rel="noopener">' . te('detail.userManual') . '</a></p></section>';
 }
-$descSpecsHtml .= '</section>';
 
 // Technická specifikace — na desktopu dvě tabulky vedle sebe, na mobilu zůstává jedna (původní layout)
 $descSpecsHtml .= '<section class="moto-specs"><h2>' . te('detail.specsTitle') . '</h2>';
