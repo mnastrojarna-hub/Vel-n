@@ -25,6 +25,7 @@ Detailní politiky:
 - **vouchers:** admin ALL, user SELECT (buyer_id OR redeemed_by = uid)
 - **reviews:** admin ALL, customer SELECT (own OR visible=true), customer INSERT (own)
 - **documents:** admin ALL, customer SELECT/INSERT (user_id=uid)
+- **custom_documents:** admin ALL (is_admin), public SELECT (active=true AND show_on_web=true) — web čte anon klíčem
 - **invoices:** admin ALL, customer SELECT/INSERT (customer_id=uid)
 - **products:** public SELECT (is_active), admin ALL
 - **shop_orders:** admin ALL, customer SELECT/INSERT/UPDATE (customer_id=uid)
