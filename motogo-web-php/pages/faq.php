@@ -23,6 +23,52 @@ $C = $sb->siteContent('faq', $defaults);
 // Položky FAQ z DB — jen published, seřazené podle kategorie a sort_order
 $rows = $sb->fetchFaqItems();
 
+// --- DOČASNÁ DIAGNOSTIKA: /jak-pujcit/faq?cms_debug=1 (po vyřešení smazat) ---
+if (isset($_GET['cms_debug'])) {
+    header('Content-Type: text/plain; charset=utf-8');
+    echo "=== MotoGo24 FAQ debug ===\n";
+    echo "SUPABASE_URL   = " . (defined('SUPABASE_URL') ? SUPABASE_URL : '(undefined!)') . "\n";
+    echo "anon key len   = " . (defined('SUPABASE_ANON_KEY') ? strlen(SUPABASE_ANON_KEY) : 0) . "\n";
+    echo "curl available = " . (function_exists('curl_init') ? 'yes' : 'NO!') . "\n";
+    echo "lang detected  = " . $lang . "\n";
+    echo "PHP version    = " . PHP_VERSION . "\n";
+    echo "opcache        = " . (function_exists('opcache_get_status') ? 'enabled' : 'off/n-a') . "\n";
+    echo "\n-- fetchFaqItems() --\n";
+    echo "type/count     = " . (is_array($rows) ? count($rows) . " rows" : gettype($rows)) . "\n";
+    if (is_array($rows) && $rows) {
+        echo "row[0] keys    = " . implode(', ', array_keys($rows[0])) . "\n";
+        echo "row[0] q       = " . substr((string)($rows[0]['question'] ?? '(none)'), 0, 80) . "\n";
+    }
+    echo "\n-- raw GET faq_items (anon klíč) --\n";
+    if (function_exists('curl_init') && defined('SUPABASE_URL')) {
+        $u = SUPABASE_URL . '/rest/v1/faq_items?select=id,question,published&order=sort_order.asc&limit=3';
+        $ch = curl_init();
+        curl_setopt_array($ch, [
+            CURLOPT_URL => $u, CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HTTPHEADER => ['apikey: ' . SUPABASE_ANON_KEY, 'Authorization: Bearer ' . SUPABASE_ANON_KEY, 'Accept: application/json'],
+            CURLOPT_TIMEOUT => 8, CURLOPT_CONNECTTIMEOUT => 5,
+        ]);
+        $resp = curl_exec($ch);
+        echo "URL            = " . $u . "\n";
+        echo "HTTP code      = " . curl_getinfo($ch, CURLINFO_HTTP_CODE) . "\n";
+        echo "curl error     = " . (curl_error($ch) ?: '(none)') . "\n";
+        echo "total time     = " . round((float)curl_getinfo($ch, CURLINFO_TOTAL_TIME), 2) . "s\n";
+        echo "body (1KB)     = " . substr((string)$resp, 0, 1024) . "\n";
+        curl_close($ch);
+    }
+    echo "\n-- _i18nCmsOverlay() --\n";
+    if (function_exists('_i18nCmsOverlay')) {
+        $ov = _i18nCmsOverlay();
+        echo "overlay keys   = " . (is_array($ov) ? count($ov) : gettype($ov)) . "\n";
+    } else {
+        echo "(_i18nCmsOverlay neexistuje)\n";
+    }
+    echo "\n-- siteContent('faq') --\n";
+    echo "h1             = " . (string)($C['h1'] ?? '(none)') . "\n";
+    echo "\nrunning file   = " . __FILE__ . "\n";
+    exit;
+}
+
 // Group by category, použij localized() pro překlady (translations jsonb)
 $categories = [];
 foreach ($rows as $r) {
