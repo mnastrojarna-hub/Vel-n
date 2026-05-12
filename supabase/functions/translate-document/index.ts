@@ -169,7 +169,7 @@ async function translateToLang(src: SourceDoc, langCode: string): Promise<Record
     },
     body: JSON.stringify({
       model: src.pdf ? MODEL_PDF : MODEL_TEXT,
-      max_tokens: 8192,
+      max_tokens: 16000,
       system: systemPrompt(langName, langCode, src.hasPlaceholders),
       messages: [{ role: 'user', content: userContent }],
     }),
