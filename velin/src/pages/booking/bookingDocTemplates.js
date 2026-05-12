@@ -4,7 +4,7 @@ export function getClientTemplate(slug, dbTemplates) {
     return `<!DOCTYPE html><html lang="cs"><head><meta charset="utf-8"><title>Smlouva o pronajmu</title></head><body style="margin:0;padding:0;font-family:'Segoe UI',sans-serif;color:#1a1a1a"><div style="max-width:780px;margin:0 auto;padding:32px"><h1 style="text-align:center;font-size:20px;border-bottom:2px solid #1a8a18;padding-bottom:12px">SMLOUVA O PRONAJMU MOTOCYKLU</h1><p style="text-align:center;font-size:12px;color:#666">c. {{booking_number}} ze dne {{today}}</p><p>Pronajimatel: Bc. Petra Semoradova, ICO: 21874263</p><p>Najemce: {{customer_name}}, {{customer_address}}</p><p>Motocykl: {{moto_model}} ({{moto_spz}}), VIN: {{moto_vin}}</p><p>Obdobi: {{start_date}} — {{end_date}} ({{days}} dni)</p><p>Celkem: {{total_price}} Kc</p><p style="color:#b45309;font-size:11px;margin-top:24px">Toto je zalozni sablona. Plne texty smluv najdete v Dokumenty - Smluvni texty.</p></div></body></html>`
   }
   if (slug === 'handover_protocol') {
-    return `<!DOCTYPE html><html lang="cs"><head><meta charset="utf-8"><title>Predavaci protokol</title></head><body style="margin:0;padding:0;font-family:'Segoe UI',sans-serif;color:#1a1a1a"><div style="max-width:780px;margin:0 auto;padding:32px"><h1 style="text-align:center;font-size:20px;border-bottom:2px solid #2563eb;padding-bottom:12px">PREDAVACI PROTOKOL</h1><p style="text-align:center;font-size:12px;color:#666">k rezervaci c. {{booking_number}} ze dne {{today}}</p><p>Najemce: {{customer_name}}</p><p>Motocykl: {{moto_model}} ({{moto_spz}}), VIN: {{moto_vin}}</p><p style="color:#b45309;font-size:11px;margin-top:24px">Toto je zalozni sablona. Plne texty najdete v Dokumenty - Smluvni texty.</p></div></body></html>`
+    return `<!DOCTYPE html><html lang="cs"><head><meta charset="utf-8"><title>Predavaci protokol</title></head><body style="margin:0;padding:0;font-family:'Segoe UI',sans-serif;color:#1a1a1a"><div style="max-width:780px;margin:0 auto;padding:32px"><h1 style="text-align:center;font-size:20px;border-bottom:2px solid #2563eb;padding-bottom:12px">PREDAVACI PROTOKOL</h1><p style="text-align:center;font-size:12px;color:#666">k rezervaci c. {{booking_number}} ze dne {{today}}</p><p>Najemce: {{customer_name}}</p><p>Motocykl: {{moto_model}} ({{moto_spz}}), VIN: {{moto_vin}}</p><p>Stav km: {{mileage}}</p><h3 style="font-size:13px;margin-top:16px">Prislusenstvi a vybava</h3>{{accessories_block}}<p style="color:#b45309;font-size:11px;margin-top:24px">Toto je zalozni sablona. Plne texty najdete v Dokumenty - Smluvni texty.</p></div></body></html>`
   }
   if (slug === 'vop') {
     return `<!DOCTYPE html><html lang="cs"><head><meta charset="utf-8"><title>Vseobecne obchodni podminky</title></head><body style="margin:0;padding:0;font-family:'Segoe UI',sans-serif;color:#1a1a1a"><div style="max-width:780px;margin:0 auto;padding:32px"><h1 style="text-align:center;font-size:20px;border-bottom:2px solid #1a8a18;padding-bottom:12px">VSEOBECNE OBCHODNI PODMINKY</h1><p style="text-align:center;font-size:12px;color:#666">{{company_name}} | ICO: {{company_ico}} | {{company_address}}</p><p style="text-align:center;font-size:12px;color:#666">Platne od {{today}} k rezervaci c. {{booking_number}}</p><h3 style="font-size:13px;margin-top:24px">1. Uvodni ustanoveni</h3><p style="font-size:12px">Tyto vseobecne obchodni podminky upravuji prava a povinnosti smluvnich stran pri pronajmu motocyklu provozovanem spolecnosti {{company_name}}, ICO: {{company_ico}}, se sidlem {{company_address}}.</p><h3 style="font-size:13px">2. Predmet pronajmu</h3><p style="font-size:12px">Predmetem pronajmu je motocykl specifikovany v najemni smlouve.</p><h3 style="font-size:13px">3. Podminky pronajmu</h3><p style="font-size:12px">Najemce musi byt drzitelem platneho ridicskeho prukazu prislusne skupiny. Minimalni vek najemce je 21 let.</p><h3 style="font-size:13px">4. Cena a platebni podminky</h3><p style="font-size:12px">Cena pronajmu se ridi aktualnim cenikem. Platba je splatna pred prevzetim motocyklu.</p><h3 style="font-size:13px">5. Odpovednost za skody</h3><p style="font-size:12px">Najemce odpovida za veskere skody vznikle na motocyklu po dobu pronajmu.</p><h3 style="font-size:13px">6. Storno podminky</h3><p style="font-size:12px">Bezplatne storno je mozne do 48 hodin pred zacatkem pronajmu.</p><p style="color:#b45309;font-size:11px;margin-top:24px">Toto je zalozni sablona. Plne texty VOP najdete v Dokumenty - Smluvni texty.</p></div></body></html>`
@@ -12,8 +12,41 @@ export function getClientTemplate(slug, dbTemplates) {
   return null
 }
 
+// Sestaví seznam zapůjčeného příslušenství (velikosti) z reálné rezervace.
+// - vždy řádky pro řidiče podle vyplněných `*_size`
+// - pokud má spolujezdec aspoň jednu velikost → druhá sada řádků "(spolujezdec)"
+//   (klidně chybí boty / jen 2 velikosti — vypíše se jen objednané)
+// - u dětských motorek (`motorcycles.license_required === 'N'`) přidá "(dětská velikost)"
+export function buildAccessoriesBlock(booking, moto) {
+  const isChild = String(moto?.license_required || '').toUpperCase() === 'N'
+  const childSuffix = isChild ? ' (dětská velikost)' : ''
+  const items = [
+    { key: 'helmet', label: 'Helma' },
+    { key: 'jacket', label: 'Bunda / vesta' },
+    { key: 'pants', label: 'Kalhoty' },
+    { key: 'boots', label: 'Boty' },
+    { key: 'gloves', label: 'Rukavice' },
+  ]
+  const td = 'padding:6px 8px;border:1px solid #ddd;text-align:left'
+  const rows = []
+  const textParts = []
+  const addRow = (label, size) => {
+    rows.push(`<tr><td style="${td};background:#f8faf9;font-weight:600">${label}${childSuffix}</td><td style="${td}">${size}</td><td style="${td};text-align:center;width:60px">☐</td></tr>`)
+    textParts.push(`${label} ${size}`)
+  }
+  let hasRider = false
+  for (const it of items) { const s = booking?.[`${it.key}_size`]; if (s) { addRow(`${it.label} (řidič)`, String(s)); hasRider = true } }
+  let hasPassenger = false
+  for (const it of items) { const s = booking?.[`passenger_${it.key}_size`]; if (s) { addRow(`${it.label} (spolujezdec)`, String(s)); hasPassenger = true } }
+  if (!hasRider && !hasPassenger) return { html: '<p style="font-size:12px">Žádné zapůjčené příslušenství.</p>', text: 'Žádné' }
+  const th = 'padding:6px 8px;border:1px solid #ddd;text-align:left;background:#f0f7ff;font-weight:700;font-size:10px;text-transform:uppercase'
+  const html = `<table style="width:100%;border-collapse:collapse;font-size:11px;margin:6px 0;border:1px solid #ddd"><tr><th style="${th}">Položka</th><th style="${th}">Velikost</th><th style="${th}">Předáno</th></tr>${rows.join('')}</table>`
+  return { html, text: textParts.join(', ') }
+}
+
 export function buildDocVars(booking, customer, bookingId) {
   const moto = booking.motorcycles || {}
+  const accessories = buildAccessoriesBlock(booking, moto)
   const days = Math.max(1, Math.ceil((new Date(booking.end_date) - new Date(booking.start_date)) / 86400000))
   const fmtDate = (d) => d ? new Date(d).toLocaleDateString('cs-CZ') : '\u2014'
   const fmtPrice = (n) => (n || 0).toLocaleString('cs-CZ', { minimumFractionDigits: 2 })
@@ -35,7 +68,9 @@ export function buildDocVars(booking, customer, bookingId) {
     pickup_location: booking.pickup_address || 'Mezna 9, 393 01 Mezna',
     return_location: booking.return_address || 'Mezna 9, 393 01 Mezna',
     mileage: String(booking.mileage_start || ''),
-    fuel_state: '', technical_state: '',
+    technical_state: '',
+    accessories_block: accessories.html,
+    accessories: accessories.text,
     today_time: new Date().toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' }),
     company_name: 'Bc. Petra Semoradova', company_address: 'Mezna 9, 393 01 Mezna',
     company_ico: '21874263', company_dic: '',

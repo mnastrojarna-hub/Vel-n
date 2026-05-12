@@ -34,6 +34,49 @@ const CORS = {
 const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('cs-CZ') : '—'
 const fmtPrice = (n: number) => (n || 0).toLocaleString('cs-CZ', { minimumFractionDigits: 2 })
 
+/**
+ * Sestaví seznam zapůjčeného příslušenství (velikosti) z reálné rezervace.
+ * - vždy řádky pro řidiče (helma/bunda/kalhoty/boty/rukavice) podle vyplněných `*_size`
+ * - pokud má spolujezdec vyplněnou aspoň jednu velikost → druhá sada řádků "(spolujezdec)"
+ *   (klidně chybí boty / jen 2 velikosti — vypíše se jen to, co je objednané)
+ * - u dětských motorek (`motorcycles.license_required === 'N'`) přidá "(dětská velikost)"
+ * Vrací HTML tabulku pro {{accessories_block}} a textovou variantu pro {{accessories}}.
+ */
+function buildAccessoriesBlock(booking: any, moto: any): { html: string; text: string } {
+  const isChild = String(moto?.license_required || '').toUpperCase() === 'N'
+  const childSuffix = isChild ? ' (dětská velikost)' : ''
+  const items = [
+    { key: 'helmet', label: 'Helma' },
+    { key: 'jacket', label: 'Bunda / vesta' },
+    { key: 'pants', label: 'Kalhoty' },
+    { key: 'boots', label: 'Boty' },
+    { key: 'gloves', label: 'Rukavice' },
+  ]
+  const rows: string[] = []
+  const textParts: string[] = []
+  const td = 'padding:6px 8px;border:1px solid #ddd;text-align:left'
+  const addRow = (label: string, size: string) => {
+    rows.push(`<tr><td style="${td};background:#f8faf9;font-weight:600">${label}${childSuffix}</td><td style="${td}">${size}</td><td style="${td};text-align:center;width:60px">☐</td></tr>`)
+    textParts.push(`${label} ${size}`)
+  }
+  let hasRider = false
+  for (const it of items) {
+    const size = booking?.[`${it.key}_size`]
+    if (size) { addRow(`${it.label} (řidič)`, String(size)); hasRider = true }
+  }
+  let hasPassenger = false
+  for (const it of items) {
+    const size = booking?.[`passenger_${it.key}_size`]
+    if (size) { addRow(`${it.label} (spolujezdec)`, String(size)); hasPassenger = true }
+  }
+  if (!hasRider && !hasPassenger) {
+    return { html: '<p style="font-size:12px">Žádné zapůjčené příslušenství.</p>', text: 'Žádné' }
+  }
+  const th = 'padding:6px 8px;border:1px solid #ddd;text-align:left;background:#f0f7ff;font-weight:700;font-size:10px;text-transform:uppercase'
+  const html = `<table class="checklist" style="width:100%;border-collapse:collapse;font-size:11px;margin:6px 0;border:1px solid #ddd"><tr><th style="${th}">Položka</th><th style="${th}">Velikost</th><th style="${th}">Předáno</th></tr>${rows.join('')}</table>`
+  return { html, text: textParts.join(', ') }
+}
+
 /** Convert number to Czech words (e.g. 7800 → "sedm tisíc osm set") */
 function numberToWordsCZ(n: number): string {
   if (n === 0) return 'nula'
@@ -114,7 +157,7 @@ serve(async (req) => {
     // Load booking with relations (separate profile query to avoid FK ambiguity)
     const { data: booking, error: bErr } = await supabase
       .from('bookings')
-      .select('*, motorcycles(model, spz, vin, year, brand, category, engine_cc, power_kw, color, deposit_amount, insurance_price, image_url)')
+      .select('*, motorcycles(model, spz, vin, year, brand, category, engine_cc, power_kw, color, deposit_amount, insurance_price, image_url, license_required)')
       .eq('id', booking_id).single()
     if (bErr || !booking) {
       console.error('Booking query error:', bErr?.message, 'booking_id:', booking_id)
@@ -157,6 +200,7 @@ serve(async (req) => {
     }
 
     const moto = booking.motorcycles || {} as any
+    const accessories = buildAccessoriesBlock(booking, moto)
     // Inclusive day count — system pricing počítá start i end den (May 5 → May 6 = 2 dny).
     // Math.ceil dříve dávalo 1 den (24h diff) a smlouva nesouhlasila s cenou.
     const days = Math.max(1, Math.floor((new Date(booking.end_date).getTime() - new Date(booking.start_date).getTime()) / 86400000) + 1)
@@ -240,6 +284,12 @@ serve(async (req) => {
       // Location aliases (templates may use either name)
       pickup_location: booking.pickup_address || branchAddress || '',
       return_location: booking.return_address || branchAddress || '',
+      // Handover protocol — stav vozidla + automaticky vyplněné příslušenství
+      mileage: String(booking.mileage_start || ''),
+      technical_state: '',
+      today_time: new Date().toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' }),
+      accessories_block: accessories.html,
+      accessories: accessories.text,
     }
 
     // Substitute variables in template HTML
@@ -360,12 +410,12 @@ function getFallbackTemplate(slug: string): string | null {
   </table>
   <h3 style="font-size:13px">Stav při předání</h3>
   <table style="width:100%;border-collapse:collapse;font-size:12px;margin:8px 0;border:1px solid #ddd">
-    <tr><td style="padding:8px;border:1px solid #ddd;width:50%">Stav km:</td><td style="padding:8px;border:1px solid #ddd"></td></tr>
-    <tr><td style="padding:8px;border:1px solid #ddd">Stav paliva:</td><td style="padding:8px;border:1px solid #ddd"></td></tr>
+    <tr><td style="padding:8px;border:1px solid #ddd;width:50%">Stav km:</td><td style="padding:8px;border:1px solid #ddd">{{mileage}}</td></tr>
     <tr><td style="padding:8px;border:1px solid #ddd">Viditelné poškození:</td><td style="padding:8px;border:1px solid #ddd"></td></tr>
-    <tr><td style="padding:8px;border:1px solid #ddd">Příslušenství:</td><td style="padding:8px;border:1px solid #ddd"></td></tr>
     <tr><td style="padding:8px;border:1px solid #ddd">Poznámky:</td><td style="padding:8px;border:1px solid #ddd"></td></tr>
   </table>
+  <h3 style="font-size:13px">Příslušenství a výbava</h3>
+  {{accessories_block}}
   <div style="margin-top:48px;display:flex;justify-content:space-between">
     <div style="text-align:center;width:45%"><div style="border-top:1px solid #999;padding-top:8px;font-size:11px">Předávající</div></div>
     <div style="text-align:center;width:45%"><div style="border-top:1px solid #999;padding-top:8px;font-size:11px">Přebírající — {{customer_name}}</div></div>
