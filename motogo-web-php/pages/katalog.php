@@ -5,19 +5,32 @@
 $sb = new SupabaseClient();
 $motos = $sb->fetchMotos();
 
-$path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+// REQUEST_URI obsahuje query string i případný trailing slash — normalizujeme,
+// jinak by /katalog/supermoto/ neprošlo přes níže uvedené porovnání cest a
+// kategorie by se nepoužila (katalog by ukázal všechny motorky).
+$path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
+if (is_string($path) && $path !== '/' && substr($path, -1) === '/') {
+    $path = rtrim($path, '/');
+}
+if ($path === '' || $path === false) $path = '/katalog';
 $category = null;
 $title = t('menu.catalog');
 
 if ($path === '/katalog/cestovni') {
     $category = 'cestovni';
     $title = t('menu.catalog.touring');
+} elseif ($path === '/katalog/sportovni') {
+    $category = 'sportovni';
+    $title = t('menu.catalog.sport');
 } elseif ($path === '/katalog/naked') {
     $category = 'naked';
     $title = t('menu.catalog.naked');
 } elseif ($path === '/katalog/supermoto') {
     $category = 'supermoto';
     $title = t('menu.catalog.supermoto');
+} elseif ($path === '/katalog/chopper') {
+    $category = 'chopper';
+    $title = t('menu.catalog.chopper');
 } elseif ($path === '/katalog/detske') {
     $category = 'detske';
     $title = t('menu.catalog.kids');
@@ -75,11 +88,15 @@ if ($category) {
         $cat = strtolower($m['category'] ?? '');
         $fc = strtolower($category);
         if ($fc === 'cestovni') {
-            return strpos($cat, 'cestov') !== false || strpos($cat, 'adventure') !== false || strpos($cat, 'touring') !== false;
+            return strpos($cat, 'cestov') !== false || strpos($cat, 'adventure') !== false || strpos($cat, 'touring') !== false || strpos($cat, 'enduro') !== false;
+        } elseif ($fc === 'sportovni') {
+            return strpos($cat, 'sport') !== false || strpos($cat, 'supersport') !== false || strpos($cat, 'super sport') !== false;
         } elseif ($fc === 'naked') {
             return strpos($cat, 'naked') !== false || strpos($cat, 'street') !== false || strpos($cat, 'roadster') !== false;
         } elseif ($fc === 'supermoto') {
-            return strpos($cat, 'supermoto') !== false || strpos($cat, 'super moto') !== false || strpos($cat, 'sm') === 0;
+            return strpos($cat, 'supermoto') !== false || strpos($cat, 'super moto') !== false || strpos($cat, 'super-moto') !== false || strpos($cat, 'motard') !== false || $cat === 'sm';
+        } elseif ($fc === 'chopper') {
+            return strpos($cat, 'chopper') !== false || strpos($cat, 'cruiser') !== false || strpos($cat, 'bobber') !== false;
         } elseif ($fc === 'detske') {
             return strpos($cat, 'dets') !== false || strpos($cat, 'dět') !== false || (isset($m['license_required']) && strtoupper($m['license_required']) === 'N');
         }
@@ -158,8 +175,10 @@ if (empty($filtered)) {
 // ---- Filtry UI: pevné hlavní kategorie + dynamicky dopln z dat ----
 $fixedCats = [
     'cestovni'  => t('menu.catalog.touring'),
+    'sportovni' => t('menu.catalog.sport'),
     'naked'     => t('menu.catalog.naked'),
     'supermoto' => t('menu.catalog.supermoto'),
+    'chopper'   => t('menu.catalog.chopper'),
     'detske'    => t('menu.catalog.kids'),
 ];
 $lics = [];
@@ -308,8 +327,10 @@ if (!empty($listItems)) {
 // strucny popis se specifickymi klicovkami.
 $catDescriptions = [
     'cestovni'  => 'Půjčovna cestovních motorek (touring, GT) na Vysočině. Adventure motorky pro dlouhé trasy a dálnice. Bez kauce, online rezervace.',
+    'sportovni' => 'Půjčovna sportovních motorek na Vysočině. Supersport i sportovně-cestovní stroje. Bez kauce, výbava v ceně, online rezervace.',
     'naked'     => 'Půjčovna naked motorek na Vysočině. Sportovně-cestovní stroje pro každodenní jízdu. Bez kauce, výbava v ceně, online rezervace.',
     'supermoto' => 'Půjčovna supermoto motorek na Vysočině. Lehké městské stroje s vysokým posedem. Bez kauce, výbava v ceně, online rezervace.',
+    'chopper'   => 'Půjčovna chopper a cruiser motorek na Vysočině. Pohodlné stroje na klidnou jízdu. Bez kauce, výbava v ceně, online rezervace.',
     'detske'    => 'Půjčovna dětských elektromotorek bez ŘP. Bezpečná zábava na zahradě i tábořištích. Doručení po ČR, online rezervace.',
 ];
 $catDesc = $category && isset($catDescriptions[$category]) ? $catDescriptions[$category] : t('katalog.seo.description');
