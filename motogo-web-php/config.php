@@ -89,7 +89,7 @@ define('SKLIK_RETARGETING_ID', getenv('MOTOGO_SKLIK_RETARGETING_ID') ?: '');
 // /potvrzeni stránce po potvrzení Stripe platby. V GTM se pak namapuje
 // trigger event=purchase → Google Ads Conversion Tag (vlastní conversion ID
 // + label dodá inzerent v GTM, ne v kódu).
-define('GTM_CONTAINER_ID', getenv('MOTOGO_GTM_CONTAINER_ID') ?: 'GTM-KKHMPZ62');
+define('GTM_CONTAINER_ID', getenv('MOTOGO_GTM_CONTAINER_ID') ?: 'GTM-WP9CHL59');
 
 // Firemní údaje
 define('COMPANY_NAME', 'Bc. Petra Semorádová');
