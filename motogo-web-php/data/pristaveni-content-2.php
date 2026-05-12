@@ -107,8 +107,8 @@ return [
         ],
     ],
     'seo' => [
-        'title' => 'Půjčovna motorek Vysočina – Jak si půjčit motorku – Přistavení motocyklu',
-        'description' => 'MotoGo24 zajistí přistavení motorky na místo podle tvého výběru. Pohodlné půjčení motorky na Vysočině bez zbytečného cestování. Rezervuj si motorku jednoduše online. Vyber termín, stroj i výbavu a vyraz na nezapomenutelnou jízdu s MotoGo24 na Vysočině.',
+        'title' => 'Přistavení motorky na zvolené místo | MotoGo24',
+        'description' => 'MotoGo24 zajistí přistavení motorky na místo podle tvého výběru. Pohodlné půjčení motorky na Vysočině bez zbytečného cestování.',
         'keywords' => 'motopůjčovna',
     ],
 ];
