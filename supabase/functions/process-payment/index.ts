@@ -14,6 +14,63 @@ Deno.serve(async (req: Request) => {
   try {
     const body: PaymentRequest = await req.json()
 
+    // --- Sync fallback: ověř Stripe setup-mode session a potvrď free booking ---
+    // Volá /potvrzeni page, pokud webhook ještě nepotvrdil booking. Nezávislé na
+    // event delivery — jistota, že 0 Kč rezervace dojde do paid stavu i bez webhooku.
+    if ((body as Record<string, unknown>).action === 'verify_setup_session') {
+      const sessionId = (body as Record<string, unknown>).session_id as string | undefined
+      if (!sessionId) {
+        return new Response(JSON.stringify({ success: false, error: 'Missing session_id' }),
+          { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } })
+      }
+      const supabaseAdmin = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+      )
+      try {
+        const session = await stripe.checkout.sessions.retrieve(sessionId)
+        const md = (session.metadata || {}) as Record<string, string>
+        if (session.status !== 'complete' || session.mode !== 'setup' || md.action !== 'verify_free_booking') {
+          return new Response(JSON.stringify({ success: false, status: session.status, mode: session.mode }),
+            { headers: { ...CORS, 'Content-Type': 'application/json' } })
+        }
+        const bookingId = md.booking_id || (session.client_reference_id as string | null) || null
+        if (!bookingId) {
+          return new Response(JSON.stringify({ success: false, error: 'No booking_id in session' }),
+            { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } })
+        }
+        const { data: bk } = await supabaseAdmin.from('bookings')
+          .select('payment_status').eq('id', bookingId).single()
+        if (bk?.payment_status === 'paid') {
+          return new Response(JSON.stringify({ success: true, already_paid: true, booking_id: bookingId }),
+            { headers: { ...CORS, 'Content-Type': 'application/json' } })
+        }
+        const { error: rpcErr } = await supabaseAdmin.rpc('confirm_payment', {
+          p_booking_id: bookingId, p_method: 'free'
+        })
+        if (rpcErr) {
+          await supabaseAdmin.from('debug_log').insert({
+            source: 'process-payment', action: 'verify_setup_session_failed',
+            component: 'free_booking', status: 'error',
+            error_message: rpcErr.message,
+            request_data: { session_id: sessionId, booking_id: bookingId },
+          }).catch(() => {})
+          return new Response(JSON.stringify({ success: false, error: rpcErr.message }),
+            { status: 500, headers: { ...CORS, 'Content-Type': 'application/json' } })
+        }
+        await supabaseAdmin.from('debug_log').insert({
+          source: 'process-payment', action: 'verify_setup_session_confirmed',
+          component: 'free_booking', status: 'ok',
+          request_data: { session_id: sessionId, booking_id: bookingId },
+        }).catch(() => {})
+        return new Response(JSON.stringify({ success: true, confirmed: true, booking_id: bookingId }),
+          { headers: { ...CORS, 'Content-Type': 'application/json' } })
+      } catch (e) {
+        return new Response(JSON.stringify({ success: false, error: (e as Error).message }),
+          { status: 500, headers: { ...CORS, 'Content-Type': 'application/json' } })
+      }
+    }
+
     // --- Web anonymous checkout (no auth required) ---
     if (body.source === 'web' && body.booking_id) {
       const supabaseAdmin = createClient(
