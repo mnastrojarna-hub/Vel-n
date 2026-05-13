@@ -42,19 +42,22 @@ const I18N_SUPPORTED = ['cs', 'en', 'de', 'es', 'fr', 'nl', 'pl'];
 const I18N_DEFAULT = 'cs';
 const I18N_COOKIE = 'mg_web_lang';
 
-// SEO: Hreflang/sitemap odkazy generujeme jen pro domeny ktere jsou ZIVE.
-// Pokud nektera TLD neni nasazena, da se zde docasne vypnout (false) — pak
-// hreflang <link> tagy tu domenu preskoci a language switcher na ni odkaze
-// pres .com s ?lang=xx, aby Seobility nehlasilo 'Domain not connected'.
-// 2026-05: vsechny domeny (vc. .es a .nl) jsou nasazene a bezi -> vse true.
+// SEO: Hreflang/sitemap odkazy generujeme jen pro domeny ktere jsou DOSTUPNE
+// PRO CRAWLERY (ne jen "běží v prohlížeči"). Pokud Seobility/Googlebot na danou
+// TLD neumí navázat spojení (firewall, blokace user-agent, regionální SSL),
+// hlásí to jako 'Domain not connected' a sráží to Structure skóre na 0 %.
+// false → hreflang <link> tu domenu preskoci a language switcher odkaze
+// pres .com s ?lang=xx (kde to bezi i pro crawlery).
+// 2026-05-13: Seobility nedosahne na .es ani .nl (i kdyz jsou nasazene) →
+// docasne false dokud se to nevyresi na strane DNS/firewall/SSL.
 const I18N_HREFLANG_LIVE = [
     'cs' => true,
     'en' => true,
-    'de' => true,   // motogo24.at
-    'es' => true,   // motogo24.es
-    'pl' => true,   // motogo24.pl
-    'fr' => true,   // motogo24.fr
-    'nl' => true,   // motogo24.nl
+    'de' => true,   // motogo24.at — funguje pro crawlery
+    'es' => false,  // motogo24.es — Seobility hlasi 'Domain not connected'
+    'pl' => true,   // motogo24.pl — funguje
+    'fr' => true,   // motogo24.fr — funguje
+    'nl' => false,  // motogo24.nl — Seobility hlasi 'Domain not connected'
 ];
 
 // Doménové mapování — určuje, na které doméně bydlí "kanonická" verze jazyka.
