@@ -98,7 +98,7 @@ export default function BookingCustomerDocsStatus({ userId, bookingId }) {
   const {
     licensePhotos: licenseDocs, idCardPhotos: idCardDocs, passportPhotos: passportDocs,
     hasLicense, hasIdentity, hasLicensePhoto, licenseNumberFilled, idNumberFilled, allOk,
-  } = computeDocVerification(verificationDocs, profile)
+  } = computeDocVerification(verificationDocs, profile, licenseRequired)
   const anyManual = verificationDocs.some(d => d?.metadata?.mindee_status === 'failed')
 
   const okCount = verificationDocs.filter(d => d?.metadata?.mindee_status === 'ok').length
