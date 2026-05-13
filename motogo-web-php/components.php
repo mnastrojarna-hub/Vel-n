@@ -354,6 +354,113 @@ function he($v) {
 }
 
 /**
+ * Lokalizovaný název kategorie (cestovni → "Cestovní"). Fallback = ucfirst.
+ */
+function categoryLabel($key) {
+    $key = trim((string)$key);
+    if ($key === '') return '';
+    $tk = 'category.' . $key;
+    $tr = t($tk);
+    return ($tr && $tr !== $tk) ? $tr : mb_convert_case($key, MB_CASE_TITLE, 'UTF-8');
+}
+
+/**
+ * Položky "Základní údaje" (krátký popis) na detailu motorky a kartě v katalogu.
+ * Vrací pole asociativních polí: ['key','label','value','card'] — kde `card`
+ * je kompaktní hodnota bez popisku pro karty motorek.
+ * Řízeno sloupcem motorcycles.short_desc_fields (text[]).
+ */
+function buildShortDescItems($m) {
+    if (!is_array($m)) return [];
+    $sd = is_array($m['short_desc_fields'] ?? null) ? array_values(array_filter($m['short_desc_fields'])) : [];
+    if (!$sd) $sd = ['power_kw', 'category', 'engine', 'drivetrain', 'fuel_consumption_l100km'];
+    $items = [];
+    foreach ($sd as $k) {
+        $item = null;
+        switch ($k) {
+            case 'power_kw':
+                if (!empty($m['power_kw'])) {
+                    $v = he($m['power_kw']) . ' kW';
+                    $card = $v;
+                    if (!empty($m['power_hp'])) $v .= ' (cca ' . he($m['power_hp']) . ' ' . te('detail.hpUnit') . ')';
+                    $item = [te('detail.specPower'), $v, $card];
+                }
+                break;
+            case 'category':
+                if (!empty($m['category'])) { $lbl = he(categoryLabel($m['category'])); $item = [te('detail.specType'), $lbl, $lbl]; }
+                break;
+            case 'engine':
+                $p = [];
+                if (!empty($m['engine_cc'])) $p[] = he($m['engine_cc']) . ' ccm';
+                if (!empty($m['engine_type'])) $p[] = he($m['engine_type']);
+                if (!empty($m['transmission'])) $p[] = he($m['transmission']);
+                if ($p) $item = [te('detail.specEngine'), implode(', ', $p), $p[0]];
+                break;
+            case 'engine_cc':
+                if (!empty($m['engine_cc'])) { $v = he($m['engine_cc']) . ' ccm'; $item = [te('detail.specEngineCc'), $v, $v]; }
+                break;
+            case 'engine_type':
+                if (!empty($m['engine_type'])) { $v = he($m['engine_type']); $item = [te('detail.specEngineTypeRow'), $v, $v]; }
+                break;
+            case 'transmission':
+                if (!empty($m['transmission'])) { $v = he($m['transmission']); $item = [te('detail.specTransmission'), $v, $v]; }
+                break;
+            case 'drivetrain':
+                if (!empty($m['drivetrain'])) {
+                    $map = ['chain' => t('detail.drivetrainChain'), 'shaft' => t('detail.drivetrainShaft'), 'belt' => t('detail.drivetrainBelt')];
+                    $v = he($map[$m['drivetrain']] ?? $m['drivetrain']);
+                    $item = [te('detail.specDrivetrain'), $v, $v];
+                }
+                break;
+            case 'fuel_consumption_l100km':
+                if (!empty($m['fuel_consumption_l100km'])) { $v = he($m['fuel_consumption_l100km']) . ' l/100 km'; $item = [te('detail.specFuelConsumption'), 'cca ' . $v, $v]; }
+                break;
+            case 'fuel_type':
+                if (!empty($m['fuel_type'])) { $v = he($m['fuel_type']); $item = [te('detail.specFuelType'), $v, $v]; }
+                break;
+            case 'fuel_tank_l':
+                if (!empty($m['fuel_tank_l'])) { $v = he($m['fuel_tank_l']) . ' l'; $item = [te('detail.specFuelTank'), $v, $v]; }
+                break;
+            case 'torque_nm':
+                if (!empty($m['torque_nm'])) { $v = he($m['torque_nm']) . ' Nm'; $item = [te('detail.specTorque'), $v, $v]; }
+                break;
+            case 'top_speed_kmh':
+                if (!empty($m['top_speed_kmh'])) { $v = he($m['top_speed_kmh']) . ' km/h'; $item = [te('detail.specTopSpeed'), $v, $v]; }
+                break;
+            case 'weight_kg':
+                if (!empty($m['weight_kg'])) { $v = he($m['weight_kg']) . ' kg'; $item = [te('detail.specWeight'), $v, $v]; }
+                break;
+            case 'seat_height_mm':
+                if (!empty($m['seat_height_mm'])) { $v = he($m['seat_height_mm']) . ' mm'; $item = [te('detail.specSeatHeight'), $v, $v]; }
+                break;
+            case 'seats_count':
+                if (!empty($m['seats_count'])) { $v = he($m['seats_count']); $item = [te('detail.specSeatsCount'), $v, $v]; }
+                break;
+            case 'brake_type':
+                if (!empty($m['brake_type'])) { $v = he($m['brake_type']); $item = [te('detail.specBrakeType'), $v, $v]; }
+                break;
+            case 'has_abs':
+                if (!empty($m['has_abs'])) $item = [te('detail.specAbs'), te('detail.specYes'), 'ABS'];
+                break;
+            case 'has_asc':
+                if (!empty($m['has_asc'])) $item = [te('detail.specAsc'), te('detail.specYes'), 'ASC'];
+                break;
+            case 'license_required':
+                if (!empty($m['license_required'])) { $v = he($m['license_required']); $item = [te('detail.specLicense'), $v, $v]; }
+                break;
+            case 'year':
+                if (!empty($m['year'])) { $v = he($m['year']); $item = [te('detail.specYear'), $v, $v]; }
+                break;
+            case 'color':
+                if (!empty($m['color'])) { $v = he($m['color']); $item = [te('detail.specColor'), $v, $v]; }
+                break;
+        }
+        if ($item) $items[] = ['key' => $k, 'label' => $item[0], 'value' => $item[1], 'card' => $item[2]];
+    }
+    return $items;
+}
+
+/**
  * Normalizuje řádek motorky — všechny scalar fields přetypuje na string,
  * arrays nechá arrays, malformované hodnoty na bezpečné defaulty. Volá se
  * po fetchMotos() / katalog-detail před renderem, aby se eliminovaly TypeError
@@ -408,16 +515,13 @@ function renderMotoCard($m) {
     // Karta — render přes Supabase Image Transformation: ~600 px WebP/AVIF místo 2-5 MB originálu.
     $img = $imgRaw ? imgUrlSized($imgRaw, 600) : '';
     $imgSrcset = $imgRaw ? imgSrcset($imgRaw, [400, 600, 900]) : '';
-    $cat = $m['category'] ?? '';
-    $kw = !empty($m['power_kw']) ? ($m['power_kw'] . ' kW') : '';
     $price = getMinPrice($m);
-    $license = $m['license_required'] ?? '';
-
+    // Karta zobrazuje stejné parametry jako "Základní údaje" na detailu (řízeno Velínem).
     $features = [];
-    if ($cat) $features[] = htmlspecialchars($cat);
-    if ($license && $license !== 'N') $features[] = htmlspecialchars($license);
-    if ($kw) $features[] = htmlspecialchars($kw);
-    if (!empty($m['has_abs'])) $features[] = 'ABS';
+    foreach (buildShortDescItems($m) as $it) {
+        if (count($features) >= 6) break;
+        if ($it['card'] !== '') $features[] = $it['card'];
+    }
 
     $priceText = $price > 0 ? t('card.priceFromPerDay', ['price' => formatPrice($price)]) : '';
     $modelRaw = trim((string)($m['model'] ?? ''));

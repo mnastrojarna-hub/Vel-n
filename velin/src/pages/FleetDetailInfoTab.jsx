@@ -6,6 +6,7 @@ import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import { seasonDaysBetween, SEASON_MONTHS, ServiceScheduleCard, SOSIncidentsCard } from './FleetDetailServiceCard'
 import { PhotoGallery } from './FleetDetailPhotos'
+import RichTextEditor from '../components/ui/RichTextEditor'
 
 // Parametry, které lze zobrazit v "Krátkém popisu" na detailu motorky na webu.
 // Klíče odpovídají větvím switch() v motogo-web-php/pages/katalog-detail.php.
@@ -288,10 +289,10 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
         <div className="mt-5 space-y-3">
           <div>
             <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Popis motorky</label>
-            <textarea value={moto.description || ''} onChange={e => set('description', e.target.value)}
-              className="w-full rounded-btn text-sm outline-none" rows={3}
-              style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', resize: 'vertical' }}
-              placeholder="Popis motorky pro zákazníky…" />
+            <RichTextEditor value={moto.description || ''} onChange={v => set('description', v)}
+              placeholder="Popis motorky pro zákazníky… (lze formátovat tučně, kurzívou, podtrženě, měnit velikost a barvu)"
+              minHeight={140} />
+            <p className="text-xs mt-1" style={{ color: '#5a6b62' }}>Formátování (tučně, kurzíva, podtržení, velikost, barva) se 1:1 přenese na web.</p>
           </div>
           <div>
             <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Vlastnosti / Features (každá na nový řádek)</label>
@@ -301,8 +302,8 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
               placeholder="Vyhřívaná madla&#10;Cruise control&#10;Tempomat" />
           </div>
           <div>
-            <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Krátký popis na webu — zobrazené parametry</label>
-            <p className="text-xs mb-2" style={{ color: '#5a6b62' }}>Zaškrtnuté parametry se vypíšou jako odrážky v sekci „Krátký popis" na detailu motorky na webu. Když nevybereš nic, použije se výchozí sada (výkon, typ, motor, pohon, spotřeba).</p>
+            <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Základní údaje na webu — zobrazené parametry</label>
+            <p className="text-xs mb-2" style={{ color: '#5a6b62' }}>Zaškrtnuté parametry se vypíšou jako odrážky v sekci „Základní údaje" na detailu motorky <strong>i v náhledu na kartě v katalogu</strong>. Když nevybereš nic, použije se výchozí sada (výkon, typ, motor, pohon, spotřeba).</p>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
               {SHORT_DESC_FIELDS.map(o => {
                 const arr = Array.isArray(moto.short_desc_fields) ? moto.short_desc_fields : []
