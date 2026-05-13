@@ -160,9 +160,25 @@ async function translateToLang(src: SourceDoc, langCode: string): Promise<Record
   userContent.push({
     type: 'text',
     text: src.pdf
-      ? `Translate the attached PDF document into ${langName}. Source metadata (Czech): ${JSON.stringify(src.textFields)}. Output the JSON object as specified.`
-      : `Translate this Czech document into ${langName}. Input JSON: ${JSON.stringify(src.textFields)}. Output the JSON object as specified.`,
+      ? `Translate the attached PDF document into ${langName}. Source metadata (Czech): ${JSON.stringify(src.textFields)}. Call the submit_translation tool with the translated values.`
+      : `Translate this Czech document into ${langName}. Czech source: ${JSON.stringify(src.textFields)}. Call the submit_translation tool with the translated values.`,
   })
+
+  // Tool-use forced output — model vyplní strukturu nativně přes API, žádné
+  // textové JSON parsování. Spolehlivé i pro dlouhý HTML obsah s uvozovkami.
+  const schemaProperties: Record<string, unknown> = {}
+  for (const k of Object.keys(src.textFields)) {
+    schemaProperties[k] = { type: 'string', description: `Translated ${k} (${langName}). Keep HTML structure intact for content_html.` }
+  }
+  // U PDF zdroj často nemá content_html, ale model ho má vrátit — přidáme ho do schématu.
+  if (src.pdf && !('content_html' in schemaProperties)) {
+    schemaProperties.content_html = { type: 'string', description: `Full translated document body as clean semantic HTML (${langName}).` }
+  }
+  const tool = {
+    name: 'submit_translation',
+    description: `Submit the ${langName} translation of the provided Czech document.`,
+    input_schema: { type: 'object', properties: schemaProperties, required: Object.keys(schemaProperties) },
+  }
 
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -175,6 +191,8 @@ async function translateToLang(src: SourceDoc, langCode: string): Promise<Record
       model: src.pdf ? MODEL_PDF : MODEL_TEXT,
       max_tokens: MAX_TOKENS,
       system: systemPrompt(langName, langCode, src.hasPlaceholders),
+      tools: [tool],
+      tool_choice: { type: 'tool', name: 'submit_translation' },
       messages: [{ role: 'user', content: userContent }],
     }),
   })
@@ -189,36 +207,24 @@ async function translateToLang(src: SourceDoc, langCode: string): Promise<Record
 
   const data = await response.json()
   const stopReason = data?.stop_reason || ''
-  let text = (data?.content?.[0]?.text || '').trim()
-  // Odstraň markdown fence pokud je obalený (```json ... ``` nebo ``` ... ```).
-  const fence = text.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?```\s*$/)
-  if (fence) text = fence[1].trim()
-  let parsed: Record<string, unknown>
-  try {
-    parsed = JSON.parse(text)
-  } catch (e) {
-    // Fallback: zkus vytáhnout JSON ze začátku/konce textu.
-    const start = text.indexOf('{')
-    const end = text.lastIndexOf('}')
-    if (start === -1 || end === -1 || end <= start) {
-      throw new Error(`Model nevrátil JSON (${langCode}, stop=${stopReason}, ${text.length} znaků): ${text.slice(0, 300)}`)
-    }
-    try {
-      parsed = JSON.parse(text.slice(start, end + 1))
-    } catch (e2) {
-      const trunc = stopReason === 'max_tokens' ? ' [VÝSTUP USEKNUTÝ — max_tokens]' : ''
-      throw new Error(`JSON parse failed (${langCode}, stop=${stopReason}${trunc}): ${(e2 as Error).message}; první 200 zn: ${text.slice(0, 200)}; posledních 200: ${text.slice(-200)}`)
-    }
+  // Najdi tool_use blok — model je donucený zavolat naši submit_translation.
+  const toolUse = Array.isArray(data?.content)
+    ? data.content.find((c: { type?: string, name?: string }) => c?.type === 'tool_use' && c?.name === 'submit_translation')
+    : null
+  if (!toolUse || !toolUse.input || typeof toolUse.input !== 'object') {
+    const truncated = stopReason === 'max_tokens' ? ' [max_tokens — výstup useknutý, zkus víc tokenů]' : ''
+    const dump = JSON.stringify(data?.content || data).slice(0, 400)
+    throw new Error(`Model nevrátil tool_use (${langCode}, stop=${stopReason}${truncated}): ${dump}`)
   }
   if (stopReason === 'max_tokens') {
-    console.warn(`translate-document ${langCode}: model usekl výstup na max_tokens=${MAX_TOKENS} — překlad nemusí být kompletní`)
+    console.warn(`translate-document ${langCode}: max_tokens=${MAX_TOKENS} — výstup může být nekompletní`)
   }
+  const parsed = toolUse.input as Record<string, unknown>
 
   const out: Record<string, string> = {}
   for (const k of Object.keys(src.textFields)) {
     out[k] = typeof parsed[k] === 'string' ? parsed[k] as string : src.textFields[k]
   }
-  // content_html může chybět ve zdroji u PDF (zdroj měl jen title/description) — vrať ho přesto
   if (!('content_html' in out) && typeof parsed.content_html === 'string') {
     out.content_html = parsed.content_html as string
   }
