@@ -51,21 +51,25 @@ Deno.serve(async (req: Request) => {
           p_booking_id: bookingId, p_method: 'card',
         })
         if (rpcErr) {
-          await supabaseAdmin.from('debug_log').insert({
-            source: 'process-payment', action: 'verify_setup_session_failed',
-            component: 'free_booking', status: 'error',
-            error_message: rpcErr.message,
-            request_data: { session_id: sessionId, booking_id: bookingId },
-          }).catch(() => {})
+          try {
+            await supabaseAdmin.from('debug_log').insert({
+              source: 'process-payment', action: 'verify_setup_session_failed',
+              component: 'free_booking', status: 'error',
+              error_message: rpcErr.message,
+              request_data: { session_id: sessionId, booking_id: bookingId },
+            })
+          } catch { /* ignore */ }
           return new Response(JSON.stringify({ success: false, error: rpcErr.message }),
             { status: 500, headers: { ...CORS, 'Content-Type': 'application/json' } })
         }
         const wasAlreadyPaid = !!(confirmData as Record<string, unknown> | null)?.was_already_paid
-        await supabaseAdmin.from('debug_log').insert({
-          source: 'process-payment', action: 'verify_setup_session_confirmed',
-          component: 'free_booking', status: 'ok',
-          request_data: { session_id: sessionId, booking_id: bookingId, was_already_paid: wasAlreadyPaid },
-        }).catch(() => {})
+        try {
+          await supabaseAdmin.from('debug_log').insert({
+            source: 'process-payment', action: 'verify_setup_session_confirmed',
+            component: 'free_booking', status: 'ok',
+            request_data: { session_id: sessionId, booking_id: bookingId, was_already_paid: wasAlreadyPaid },
+          })
+        } catch { /* ignore */ }
         // Jen jedna paralelní cesta posílá mail — pokud webhook stihl dřív (was_already_paid=true),
         // skipujeme. Jinak posíláme booking_reserved (stejný flow jako confirmBookingPayment).
         if (!wasAlreadyPaid) {
@@ -96,12 +100,14 @@ Deno.serve(async (req: Request) => {
               })
             }
           } catch (e) {
-            await supabaseAdmin.from('debug_log').insert({
-              source: 'process-payment', action: 'verify_setup_session_mail_failed',
-              component: 'free_booking', status: 'error',
-              error_message: (e as Error).message,
-              request_data: { session_id: sessionId, booking_id: bookingId },
-            }).catch(() => {})
+            try {
+              await supabaseAdmin.from('debug_log').insert({
+                source: 'process-payment', action: 'verify_setup_session_mail_failed',
+                component: 'free_booking', status: 'error',
+                error_message: (e as Error).message,
+                request_data: { session_id: sessionId, booking_id: bookingId },
+              })
+            } catch { /* ignore */ }
           }
         }
         return new Response(JSON.stringify({ success: true, confirmed: true, booking_id: bookingId, already_paid: wasAlreadyPaid }),
