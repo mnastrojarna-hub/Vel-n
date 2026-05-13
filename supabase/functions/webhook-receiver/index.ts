@@ -122,6 +122,34 @@ Deno.serve(async (req: Request) => {
 
       if (session.mode === 'setup' && metadata.action === 'add_card') {
         await syncCardFromSetupSession(supabase, session)
+      } else if (session.mode === 'setup' && metadata.action === 'verify_free_booking' && resolvedBookingId) {
+        // 0 Kč rezervace přes Stripe Checkout setup — karta ověřena, žádný charge.
+        // Potvrdíme rezervaci jako paid (method=free) a synchronizujeme kartu.
+        try {
+          const { error: rpcErr } = await supabase.rpc('confirm_payment', {
+            p_booking_id: resolvedBookingId, p_method: 'free'
+          })
+          if (rpcErr) {
+            console.error('[webhook] confirm_payment (free verify) failed:', rpcErr.message)
+            await supabase.from('debug_log').insert({
+              source: 'webhook-receiver', action: 'free_verify_confirm_failed',
+              component: 'stripe', status: 'error',
+              error_message: rpcErr.message,
+              request_data: { session_id: session.id, booking_id: resolvedBookingId },
+            })
+          } else {
+            await supabase.from('debug_log').insert({
+              source: 'webhook-receiver', action: 'free_verify_confirmed',
+              component: 'stripe', status: 'ok',
+              request_data: { session_id: session.id, booking_id: resolvedBookingId },
+            })
+          }
+        } catch (e) {
+          console.error('[webhook] free verify exception:', (e as Error).message)
+        }
+        if (session.customer) {
+          await syncCardsForCustomer(supabase, session.customer as string)
+        }
       } else if ((paymentType === 'booking' || paymentType === 'extension') && resolvedBookingId) {
         await confirmBookingPayment(supabase, resolvedBookingId, session.id, stripePaymentIntentId)
         // Bundled e-shop upsell paid in the same session — confirm shop side too (separate invoice + email)
