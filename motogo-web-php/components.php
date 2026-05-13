@@ -142,8 +142,10 @@ function seoEnhanceHtml($content) {
         '#<img\b([^>]*)/?>#i',
         function ($m) use ($pageH1) {
             $attrs = $m[1];
-            if (preg_match('#\baria-hidden\s*=\s*["\']?true\b#i', $attrs)) return $m[0];
-            if (preg_match('#\brole\s*=\s*["\']?presentation\b#i', $attrs)) return $m[0];
+            // Pozn.: aria-hidden / role=presentation uz NEPRESKAKUJEME — Seobility
+            // hlasi takove <img> jako 'missing alt' i kdyz je rozpozna jako
+            // dekorativni. Misto toho zaplnime alt z titulku/filename → screen
+            // readery diky aria-hidden ikonu nadale ignoruji, ale crawler vidi alt.
             if (preg_match('#\balt\s*=\s*"([^"]+)"#i', $attrs, $am) && trim($am[1]) !== '') return $m[0];
             if (preg_match("#\balt\\s*=\\s*'([^']+)'#i", $attrs, $am) && trim($am[1]) !== '') return $m[0];
             $altGuess = '';
@@ -185,6 +187,27 @@ function seoEnhanceHtml($content) {
             }
         }
         $content = implode('', $tokens);
+    }
+
+    // 4) Strong/bold dedup — Seobility "Duplicate strong/bold". Stejna fraze
+    //    obalena <strong>/<b> opakovane na stejne strance: prvni vyskyt nechame,
+    //    dalsi unwrapneme (text zustava, jen ztrati bold). Case-insensitive,
+    //    porovnani po normalizaci whitespace + strip vnitrnich tagu.
+    if (preg_match_all('#<(strong|b)\b[^>]*>(.*?)</\1\s*>#is', $content, $sm, PREG_OFFSET_CAPTURE)) {
+        $seen = [];
+        $toUnwrap = []; // [offset, fullLen, inner]
+        foreach ($sm[0] as $i => $matchInfo) {
+            $inner = $sm[2][$i][0];
+            $key = strtolower(trim(preg_replace('#\s+#', ' ', strip_tags($inner))));
+            if ($key === '' || strlen($key) < 3) continue;
+            if (!isset($seen[$key])) { $seen[$key] = true; continue; }
+            $toUnwrap[] = [$matchInfo[1], strlen($matchInfo[0]), $inner];
+        }
+        // Aplikuj odzadu, ať nepřepocitavame offsety.
+        for ($i = count($toUnwrap) - 1; $i >= 0; $i--) {
+            [$off, $len, $inner] = $toUnwrap[$i];
+            $content = substr($content, 0, $off) . $inner . substr($content, $off + $len);
+        }
     }
 
     return $content;
@@ -476,15 +499,18 @@ function renderBlogCard($post) {
     // Auto-překlady z `translations` JSONB sloupce s CZ fallbackem
     $excerpt = localized($post, 'excerpt');
     if ($excerpt === '') $excerpt = $post['description'] ?? '';
-    // SEO: cely blog-card je obaleny <a>, takze CELY text vc. excerpt je
-    // anchor text pro odkaz. Seobility hlasil 'Link anchor text too long'
-    // (>120 znaku) na blog/eshop kartach kde excerpt prekrocil. Truncate
-    // excerpt na ~80 znaku at title (~30) + excerpt (~80) je pod 120 limit.
-    $excerptShort = mb_strlen($excerpt, 'UTF-8') > 80
-        ? rtrim(mb_substr($excerpt, 0, 79, 'UTF-8'), " .,;:") . '…'
-        : $excerpt;
+    // SEO: cely blog-card je obaleny <a>, takze CELY text vc. excerpt + tag +
+    // button je anchor text pro odkaz. Seobility limit ~120 znaku. Spocteme
+    // budget pro excerpt podle skutecne delky title + tag + button textu.
     $titleRaw = trim((string)localized($post, 'title'));
     if ($titleRaw === '') $titleRaw = t('card.unnamedArticle');
+    $btnText = (string)t('card.readArticle');
+    $tagLen = $tag ? (mb_strlen($tag, 'UTF-8') + 2) : 0;
+    $overhead = mb_strlen($titleRaw, 'UTF-8') + $tagLen + mb_strlen($btnText, 'UTF-8') + 6; // mezery/oddelovace
+    $budget = max(20, 115 - $overhead); // 115 at zbude rezerva pod 120
+    $excerptShort = mb_strlen($excerpt, 'UTF-8') > $budget
+        ? rtrim(mb_substr($excerpt, 0, $budget - 1, 'UTF-8'), " .,;:") . '…'
+        : $excerpt;
     $title = htmlspecialchars($titleRaw);
     $slug = htmlspecialchars($post['slug'] ?? '');
     $imgAlt = htmlspecialchars(t('common.blogAlt', ['title' => $titleRaw]));
