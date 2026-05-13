@@ -214,7 +214,7 @@ if (!empty($allImages)) {
     $main = $allImages[0];
     $mainHero    = imgUrlSized($main, 1200);
     $mainSrcset  = imgSrcset($main, [600, 900, 1200, 1600]);
-    $mainFull    = imgUrlSized($main, 1800, 80); // lightbox zoom
+    $mainFull    = imgUrlSized($main, 1400, 75); // lightbox zoom (Seobility: 3 MB JPEG -> ~600 kB)
     $galleryHtml .= '<div class="moto-photo"><a href="' . htmlspecialchars($mainFull) . '" data-gallery="moto" data-index="0" aria-label="' . $openLabel . '"><div class="gallery-img"><img src="' . htmlspecialchars($mainHero) . '" srcset="' . htmlspecialchars($mainSrcset) . '" sizes="(max-width: 768px) 100vw, 60vw" alt="' . $modelAlt . '" fetchpriority="high" decoding="async"></div></a></div>';
     if (count($allImages) > 1) {
         $prevLabel = htmlspecialchars(t('gallery.prev'), ENT_QUOTES, 'UTF-8');
@@ -226,7 +226,7 @@ if (!empty($allImages)) {
             $u = $allImages[$i];
             $thumb = imgUrlSized($u, 400);
             $thumbSrcset = imgSrcset($u, [300, 600]);
-            $full = imgUrlSized($u, 1800, 80);
+            $full = imgUrlSized($u, 1400, 75);
             $galleryHtml .= '<div><a href="' . htmlspecialchars($full) . '" data-gallery="moto" data-index="' . $i . '" aria-label="' . $openLabel . '"><div class="gallery-img"><img src="' . htmlspecialchars($thumb) . '" srcset="' . htmlspecialchars($thumbSrcset) . '" sizes="200px" alt="' . $modelAlt . '" loading="lazy" decoding="async"></div></a></div>';
         }
         $galleryHtml .= '</div>';

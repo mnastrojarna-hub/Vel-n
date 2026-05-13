@@ -26,9 +26,9 @@ echo '<?xml version="1.0" encoding="UTF-8"?>';
   <url><loc><?php echo SITE_URL; ?>/kontakt</loc><priority>0.8</priority><changefreq>monthly</changefreq></url>
   <url><loc><?php echo SITE_URL; ?>/rezervace</loc><priority>0.9</priority><changefreq>monthly</changefreq></url>
   <url><loc><?php echo SITE_URL; ?>/mapa-stranek</loc><priority>0.4</priority><changefreq>monthly</changefreq></url>
-  <url><loc><?php echo SITE_URL; ?>/obchodni-podminky</loc><priority>0.3</priority><changefreq>yearly</changefreq></url>
-  <url><loc><?php echo SITE_URL; ?>/gdpr</loc><priority>0.3</priority><changefreq>yearly</changefreq></url>
-  <url><loc><?php echo SITE_URL; ?>/smlouva</loc><priority>0.3</priority><changefreq>yearly</changefreq></url>
+  <url><loc><?php echo SITE_URL; ?>/dokumenty/obchodni-podminky</loc><priority>0.3</priority><changefreq>yearly</changefreq></url>
+  <url><loc><?php echo SITE_URL; ?>/dokumenty/zasady-ochrany-osobnich-udaju</loc><priority>0.3</priority><changefreq>yearly</changefreq></url>
+  <url><loc><?php echo SITE_URL; ?>/dokumenty/smlouva-o-pronajmu</loc><priority>0.3</priority><changefreq>yearly</changefreq></url>
 <?php
 // Dynamic motorcycle detail pages
 $motos = $sb->fetchMotos();

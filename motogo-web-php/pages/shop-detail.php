@@ -58,7 +58,7 @@ if (!empty($images)) {
         } else {
             $thumb = imgUrlSized($img, 300);
             $thumbSrcset = imgSrcset($img, [200, 400, 600]);
-            $full = imgUrlSized($img, 1600, 80);
+            $full = imgUrlSized($img, 1400, 75);
         }
         $galleryHtml .= '<a href="' . htmlspecialchars($full) . '" data-gallery="shop" data-index="' . $idx . '" aria-label="' . $openLabel . '"><img src="' . htmlspecialchars($thumb) . '"'
             . ($thumbSrcset ? ' srcset="' . htmlspecialchars($thumbSrcset) . '" sizes="120px"' : '')
