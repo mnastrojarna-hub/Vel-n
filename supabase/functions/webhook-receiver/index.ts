@@ -124,28 +124,23 @@ Deno.serve(async (req: Request) => {
         await syncCardFromSetupSession(supabase, session)
       } else if (session.mode === 'setup' && metadata.action === 'verify_free_booking' && resolvedBookingId) {
         // 0 Kč rezervace přes Stripe Checkout setup — karta ověřena, žádný charge.
-        // Potvrdíme rezervaci jako paid (method=free) a synchronizujeme kartu.
+        // Spustíme stejný flow jako u placené rezervace: confirm_payment + booking_reserved mail
+        // + door codes (trigger) + KF generace. Bez tohoto by zákazník nedostal mail ani doklady.
         try {
-          const { error: rpcErr } = await supabase.rpc('confirm_payment', {
-            p_booking_id: resolvedBookingId, p_method: 'free'
-          })
-          if (rpcErr) {
-            console.error('[webhook] confirm_payment (free verify) failed:', rpcErr.message)
-            await supabase.from('debug_log').insert({
-              source: 'webhook-receiver', action: 'free_verify_confirm_failed',
-              component: 'stripe', status: 'error',
-              error_message: rpcErr.message,
-              request_data: { session_id: session.id, booking_id: resolvedBookingId },
-            })
-          } else {
-            await supabase.from('debug_log').insert({
-              source: 'webhook-receiver', action: 'free_verify_confirmed',
-              component: 'stripe', status: 'ok',
-              request_data: { session_id: session.id, booking_id: resolvedBookingId },
-            })
-          }
+          await confirmBookingPayment(supabase, resolvedBookingId, session.id, stripePaymentIntentId)
+          await supabase.from('debug_log').insert({
+            source: 'webhook-receiver', action: 'free_verify_confirmed',
+            component: 'stripe', status: 'ok',
+            request_data: { session_id: session.id, booking_id: resolvedBookingId },
+          }).catch(() => {})
         } catch (e) {
           console.error('[webhook] free verify exception:', (e as Error).message)
+          await supabase.from('debug_log').insert({
+            source: 'webhook-receiver', action: 'free_verify_confirm_failed',
+            component: 'stripe', status: 'error',
+            error_message: (e as Error).message,
+            request_data: { session_id: session.id, booking_id: resolvedBookingId },
+          }).catch(() => {})
         }
         if (session.customer) {
           await syncCardsForCustomer(supabase, session.customer as string)
