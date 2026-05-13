@@ -8,6 +8,12 @@
  *   - kolik z toho vedlo k rezervaci (outcome='booking_created')
  *
  * Slouží jako podklad pro rozhodnutí "kterou stránku přepsat víc AI-friendly".
+ *
+ * Data: server-side agregace přes RPC `get_ai_traffic_stats` (overview) a
+ * `get_page_ai_traffic` (detail per stránka). NESTAHUJE raw řádky z
+ * `ai_traffic_log` — Supabase PostgREST má default max-rows 1000, takže
+ * po překročení 1000 záznamů v okně by se KPI tvrdě uťala. RPC vrací
+ * jeden JSON s agregáty bez ohledu na velikost tabulky.
  */
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabase'
@@ -58,12 +64,47 @@ const BOT_COLORS = {
   'Bytespider': '#ff6b6b', 'DuckAssistBot': '#de5833',
 }
 
+// RPC vrací jsonb — pole vnitřních agregátů (by_bot, by_source, top_paths,
+// daily_timeline, ...) může přijít buď jako object map {key: count} nebo
+// jako array [{key_field, count}]. Bez SQL definice neumíme určit, normalizuj.
+function toMap(v, keyFields = ['name', 'key', 'bot', 'bot_name', 'source', 'path', 'partner_id', 'date']) {
+  if (!v) return {}
+  if (Array.isArray(v)) {
+    const out = {}
+    for (const r of v) {
+      if (r == null) continue
+      const k = keyFields.map(f => r[f]).find(x => x != null)
+      const c = r.count ?? r.total ?? r.requests ?? r.value ?? 0
+      if (k != null) out[k] = (out[k] || 0) + Number(c)
+    }
+    return out
+  }
+  if (typeof v === 'object') return v
+  return {}
+}
+
+function toArray(v, keyFields = ['path', 'name', 'partner_id', 'date']) {
+  if (!v) return []
+  if (Array.isArray(v)) return v
+  if (typeof v === 'object') {
+    return Object.entries(v).map(([k, val]) => {
+      // Pokud value je číslo → jednoduchá mapa {key: count}
+      if (typeof val === 'number') return { [keyFields[0]]: k, count: val }
+      // Jinak je to {date: 'x', count: N} nebo podobně — vrať jak je
+      return { [keyFields[0]]: k, ...val }
+    })
+  }
+  return []
+}
+
 export default function AiTrafficTab() {
   const [period, setPeriod] = useState('30d')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [rows, setRows] = useState([])
+  const [stats, setStats] = useState(null)
   const [selectedPath, setSelectedPath] = useState(null)
+  const [pageDetail, setPageDetail] = useState(null)
+  const [pageDetailLoading, setPageDetailLoading] = useState(false)
   const [trafficMissing, setTrafficMissing] = useState(false)
   const [webUsersCount, setWebUsersCount] = useState(0)
   const [appUsersCount, setAppUsersCount] = useState(0)
@@ -72,34 +113,31 @@ export default function AiTrafficTab() {
 
   async function loadData() {
     setLoading(true); setError(null); setTrafficMissing(false)
+    setSelectedPath(null); setPageDetail(null)
     try {
       const periodObj = PERIODS.find(p => p.id === period)
       const from = new Date(Date.now() - periodObj.ms).toISOString()
+      const to = new Date().toISOString()
 
-      // Načti AI traffic + počty uživatelů paralelně.
-      const [trafficRes, webRes, appRes] = await Promise.all([
-        supabase
-          .from('ai_traffic_log')
-          .select('path, bot_name, source, outcome, ts')
-          .gte('ts', from)
-          .order('ts', { ascending: false })
-          .limit(20000),
+      const [statsRes, webRes, appRes] = await Promise.all([
+        supabase.rpc('get_ai_traffic_stats', { p_from: from, p_to: to }),
         supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('registration_source', 'web'),
         supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('registration_source', 'app'),
       ])
 
-      // Tabulka ai_traffic_log nemusí ještě v DB existovat — degradujeme na info hlášku
-      // a necháme zbytek dashboardu (uživatelé webu/app) fungovat.
-      if (trafficRes.error) {
-        const msg = trafficRes.error.message || ''
-        if (msg.includes('ai_traffic_log') || trafficRes.error.code === 'PGRST205' || trafficRes.error.code === '42P01') {
+      // RPC nemusí být v DB → tabulky/funkce ještě nejsou nasazené.
+      // PGRST202 = function not found, 42883 = no such function.
+      if (statsRes.error) {
+        const code = statsRes.error.code
+        const msg = statsRes.error.message || ''
+        if (code === 'PGRST202' || code === '42883' || msg.includes('get_ai_traffic_stats') || msg.includes('ai_traffic_log')) {
           setTrafficMissing(true)
-          setRows([])
+          setStats(null)
         } else {
-          throw trafficRes.error
+          throw statsRes.error
         }
       } else {
-        setRows(trafficRes.data || [])
+        setStats(statsRes.data || null)
       }
 
       setWebUsersCount(webRes.count || 0)
@@ -111,47 +149,77 @@ export default function AiTrafficTab() {
     }
   }
 
-  const aggregated = useMemo(() => {
-    const m = new Map()
-    for (const r of rows) {
-      if (!r.path) continue
-      let p = m.get(r.path)
-      if (!p) { p = { path: r.path, total: 0, by_bot: {}, by_source: {}, bookings: 0 }; m.set(r.path, p) }
-      p.total++
-      if (r.bot_name) p.by_bot[r.bot_name] = (p.by_bot[r.bot_name] || 0) + 1
-      if (r.source) p.by_source[r.source] = (p.by_source[r.source] || 0) + 1
-      if (r.outcome === 'booking_created') p.bookings++
+  async function loadPageDetail(path) {
+    setPageDetailLoading(true); setPageDetail(null)
+    try {
+      const periodObj = PERIODS.find(p => p.id === period)
+      const from = new Date(Date.now() - periodObj.ms).toISOString()
+      const to = new Date().toISOString()
+      const { data, error: e } = await supabase.rpc('get_page_ai_traffic', { p_path: path, p_from: from, p_to: to })
+      if (e) throw e
+      setPageDetail(data || null)
+    } catch (e) {
+      console.warn('get_page_ai_traffic failed:', e.message)
+      setPageDetail({ total: 0, by_bot: {}, daily: [], led_to_bookings: 0 })
+    } finally {
+      setPageDetailLoading(false)
     }
-    return m
-  }, [rows])
+  }
 
-  const totalAi = rows.length
-  const uniqueBots = new Set(rows.map(r => r.bot_name).filter(Boolean)).size
-  const totalBookings = rows.filter(r => r.outcome === 'booking_created').length
+  function handleSelectPath(path) {
+    if (path === selectedPath) {
+      setSelectedPath(null); setPageDetail(null)
+      return
+    }
+    setSelectedPath(path)
+    loadPageDetail(path)
+  }
 
-  const pageRows = STATIC_PAGES.map(p => {
-    const agg = aggregated.get(p.path) || { total: 0, by_bot: {}, bookings: 0 }
-    return { ...p, ...agg }
-  }).sort((a, b) => b.total - a.total)
+  // Per-stránka agregace z stats.top_paths (RPC vrací top N stránek).
+  // Statické stránky bez výskytu v top_paths zobrazujeme s nulou (current UX).
+  const pageRows = useMemo(() => {
+    const pathStats = new Map()
+    if (stats) {
+      const topPaths = toArray(stats.top_paths, ['path'])
+      for (const row of topPaths) {
+        const p = row.path
+        if (!p) continue
+        pathStats.set(p, {
+          total: Number(row.count ?? row.total ?? 0),
+          by_bot: toMap(row.by_bot),
+          bookings: Number(row.bookings ?? row.led_to_bookings ?? 0),
+        })
+      }
+    }
+    return STATIC_PAGES.map(p => {
+      const s = pathStats.get(p.path) || { total: 0, by_bot: {}, bookings: 0 }
+      return { ...p, ...s }
+    }).sort((a, b) => b.total - a.total)
+  }, [stats])
 
-  // Detail drawer pro vybranou stránku
-  const detail = selectedPath ? aggregated.get(selectedPath) : null
+  const totalAi = stats ? Number(stats.total_requests ?? stats.total ?? 0) : 0
+  const byBot = useMemo(() => stats ? toMap(stats.by_bot) : {}, [stats])
+  const uniqueBots = Object.keys(byBot).length
+  const totalBookings = stats ? Number(stats.bookings_from_ai ?? stats.bookings ?? 0) : 0
+
   const detailDaily = useMemo(() => {
-    if (!selectedPath) return []
+    if (!pageDetail) return []
     const periodObj = PERIODS.find(p => p.id === period)
     const days = Math.ceil(periodObj.ms / (24 * 3600 * 1000))
     const buckets = new Map()
-    for (let i = 0; i < days; i++) {
+    for (let i = days - 1; i >= 0; i--) {
       const d = new Date(Date.now() - i * 24 * 3600 * 1000).toISOString().slice(0, 10)
       buckets.set(d, 0)
     }
-    for (const r of rows) {
-      if (r.path !== selectedPath) continue
-      const d = r.ts.slice(0, 10)
-      if (buckets.has(d)) buckets.set(d, buckets.get(d) + 1)
+    const dailyArr = toArray(pageDetail.daily, ['date'])
+    for (const row of dailyArr) {
+      const d = (row.date || '').slice(0, 10)
+      if (buckets.has(d)) buckets.set(d, Number(row.count ?? row.total ?? 0))
     }
-    return Array.from(buckets.entries()).map(([date, count]) => ({ date: date.slice(5), count })).reverse()
-  }, [rows, selectedPath, period])
+    return Array.from(buckets.entries()).map(([date, count]) => ({ date: date.slice(5), count }))
+  }, [pageDetail, period])
+
+  const detailByBot = useMemo(() => pageDetail ? toMap(pageDetail.by_bot) : {}, [pageDetail])
 
   if (loading) return <div className="flex items-center justify-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-t-2" style={{ borderColor: '#74FB71' }} /></div>
   if (error) return <div className="p-4 text-center" style={{ color: '#dc2626' }}>Chyba načítání: {error}</div>
@@ -193,7 +261,7 @@ export default function AiTrafficTab() {
 
       {trafficMissing && (
         <div style={{ marginBottom: 16, padding: 14, background: '#fef3c7', borderRadius: 14, border: '1px solid #fde68a', color: '#854d0e', fontSize: 13 }}>
-          <strong>Tabulka <code>ai_traffic_log</code> ještě není v databázi.</strong> Spusť pre-req SQL z chatu (changelog 2026-04-26) — bez něj edge funkce <code>public-api</code>, <code>mcp-server</code> a <code>ai-public-agent</code> nelogují provoz a tento dashboard nemá data. Počty uživatelů webu/app fungují i tak.
+          <strong>RPC <code>get_ai_traffic_stats</code> není v databázi.</strong> Spusť pre-req SQL z chatu (changelog 2026-04-26) — bez něj edge funkce <code>public-api</code>, <code>mcp-server</code> a <code>ai-public-agent</code> nelogují provoz a tento dashboard nemá data. Počty uživatelů webu/app fungují i tak.
         </div>
       )}
 
@@ -217,7 +285,7 @@ export default function AiTrafficTab() {
                   borderBottom: '1px solid #f1f1f1',
                   background: selectedPath === p.path ? '#f1faf7' : (i % 2 ? '#fafdfb' : '#fff'),
                   cursor: 'pointer',
-                }} onClick={() => setSelectedPath(p.path === selectedPath ? null : p.path)}>
+                }} onClick={() => handleSelectPath(p.path)}>
                   <td className="p-2">
                     <div className="font-bold" style={{ color: '#1a2e22' }}>{p.label}</div>
                     <div style={{ color: '#888', fontSize: 10 }}>{p.path}</div>
@@ -251,7 +319,7 @@ export default function AiTrafficTab() {
       </div>
 
       {/* Detail drawer */}
-      {selectedPath && detail && (
+      {selectedPath && (
         <div style={{ marginTop: 16, background: '#fff', borderRadius: 14, padding: 16, border: '2px solid #74FB71' }}>
           <div className="flex justify-between items-start mb-3">
             <div>
@@ -260,37 +328,41 @@ export default function AiTrafficTab() {
               </h3>
               <p style={{ color: '#888', fontSize: 11 }}>{selectedPath}</p>
             </div>
-            <button onClick={() => setSelectedPath(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#888', fontSize: 16 }}>✕</button>
+            <button onClick={() => { setSelectedPath(null); setPageDetail(null) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#888', fontSize: 16 }}>✕</button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <h4 className="font-bold text-xs mb-2" style={{ color: '#1a2e22' }}>Návštěvnost v čase</h4>
-              <ResponsiveContainer width="100%" height={180}>
-                <LineChart data={detailDaily}>
-                  <XAxis dataKey="date" fontSize={10} />
-                  <YAxis fontSize={10} />
-                  <Tooltip />
-                  <Line type="monotone" dataKey="count" stroke="#74FB71" strokeWidth={2} dot={false} />
-                </LineChart>
-              </ResponsiveContainer>
+          {pageDetailLoading ? (
+            <div className="flex items-center justify-center py-10"><div className="animate-spin rounded-full h-6 w-6 border-t-2" style={{ borderColor: '#74FB71' }} /></div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <h4 className="font-bold text-xs mb-2" style={{ color: '#1a2e22' }}>Návštěvnost v čase</h4>
+                <ResponsiveContainer width="100%" height={180}>
+                  <LineChart data={detailDaily}>
+                    <XAxis dataKey="date" fontSize={10} />
+                    <YAxis fontSize={10} />
+                    <Tooltip />
+                    <Line type="monotone" dataKey="count" stroke="#74FB71" strokeWidth={2} dot={false} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+              <div>
+                <h4 className="font-bold text-xs mb-2" style={{ color: '#1a2e22' }}>Rozpad per bot</h4>
+                <ResponsiveContainer width="100%" height={180}>
+                  <BarChart data={Object.entries(detailByBot).map(([bot, count]) => ({ bot, count })).sort((a, b) => b.count - a.count).slice(0, 10)}>
+                    <XAxis dataKey="bot" fontSize={9} angle={-30} textAnchor="end" height={60} />
+                    <YAxis fontSize={10} />
+                    <Tooltip />
+                    <Bar dataKey="count" fill="#74FB71" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             </div>
-            <div>
-              <h4 className="font-bold text-xs mb-2" style={{ color: '#1a2e22' }}>Rozpad per bot</h4>
-              <ResponsiveContainer width="100%" height={180}>
-                <BarChart data={Object.entries(detail.by_bot).map(([bot, count]) => ({ bot, count })).sort((a, b) => b.count - a.count).slice(0, 10)}>
-                  <XAxis dataKey="bot" fontSize={9} angle={-30} textAnchor="end" height={60} />
-                  <YAxis fontSize={10} />
-                  <Tooltip />
-                  <Bar dataKey="count" fill="#74FB71" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
+          )}
         </div>
       )}
 
-      {totalAi === 0 && (
+      {totalAi === 0 && !trafficMissing && (
         <div style={{ marginTop: 16, padding: 16, background: '#fffbeb', borderRadius: 14, border: '1px solid #fde68a', color: '#854d0e', fontSize: 13 }}>
           <strong>Zatím žádná AI návštěvnost.</strong> AI crawleři objeví web v řádu dní až týdnů od nasazení.
           Zkontroluj že robots.txt obsahuje allowlist (✓), že je nasazený sitemap.xml + llms.txt (✓), a že stránky vrací status 200.
