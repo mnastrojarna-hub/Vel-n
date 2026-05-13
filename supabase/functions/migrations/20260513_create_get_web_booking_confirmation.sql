@@ -59,7 +59,16 @@ BEGIN
     RETURN jsonb_build_object('error', 'not_web_booking');
   END IF;
 
-  v_docs_status := public.check_booking_docs_status(v_booking.user_id, v_booking.end_date);
+  -- bookings.end_date je timestamptz, check_booking_docs_status čeká date.
+  -- EXCEPTION block je obrana proti budoucím signaturovým změnám / chybějící funkci.
+  BEGIN
+    v_docs_status := public.check_booking_docs_status(
+      v_booking.user_id,
+      v_booking.end_date::date
+    );
+  EXCEPTION WHEN OTHERS THEN
+    v_docs_status := NULL;
+  END;
 
   RETURN jsonb_build_object(
     'id',             v_booking.id,
