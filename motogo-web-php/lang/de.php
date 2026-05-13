@@ -334,6 +334,7 @@ return [
     'rez.alert.email' => 'Geben Sie eine gültige E-Mail-Adresse ein.',
     'rez.alert.phone' => 'Geben Sie das Telefon im internationalen Format ein (z. B. +420 777 000 000).',
     'rez.alert.terms' => 'Um fortzufahren, müssen Sie den Geschäftsbedingungen zustimmen.',
+    'rez.alert.gdpr' => 'Um fortzufahren, müssen Sie der Verarbeitung personenbezogener Daten zustimmen.',
     'rez.alert.dates' => 'Bitte wählen Sie einen Termin im Kalender.',
     'rez.alert.moto' => 'Bitte wählen Sie ein Motorrad.',
     'rez.alert.pickupTime' => 'Bitte geben Sie die Abhol- oder Lieferzeit an.',

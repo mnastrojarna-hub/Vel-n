@@ -29,17 +29,22 @@ export async function handleWebBookingCheckout(
   const amount = Math.round(amountCzk * 100)
   const currency = body.currency || 'czk'
 
-  // 100% sleva pro web — potvrdit bez Stripe, ALE POUZE pokud je sleva opravdu 100%
-  if (amount < 1) {
-    let isTrue100 = false
+  // 100% sleva pro web — Stripe nestrhne nic, ale projde se přes Stripe Checkout v setup módu
+  // (ověření karty, žádný charge). Po session.completed webhook potvrdí rezervaci jako paid.
+  const isFreeBooking = amount < 1
+  let isTrue100 = false
+  if (isFreeBooking) {
+    const originalPrice = (booking.total_price || 0) + (booking.discount_amount || 0)
 
-    // Ověření promo kódu — musí být type=percent, value=100
+    // Ověření promo kódu — percent=100 NEBO fixed value pokrývající celou původní cenu
     if (booking.promo_code_id) {
       const { data: promo } = await supabaseAdmin.from('promo_codes')
         .select('type, value')
         .eq('id', booking.promo_code_id)
         .single()
       if (promo && promo.type === 'percent' && promo.value >= 100) {
+        isTrue100 = true
+      } else if (promo && promo.type === 'fixed' && promo.value >= originalPrice && originalPrice > 0) {
         isTrue100 = true
       }
     }
@@ -50,7 +55,6 @@ export async function handleWebBookingCheckout(
         .select('amount')
         .eq('id', booking.voucher_id)
         .single()
-      const originalPrice = (booking.total_price || 0) + (booking.discount_amount || 0)
       if (voucher && voucher.amount >= originalPrice && originalPrice > 0) {
         isTrue100 = true
       }
@@ -67,17 +71,6 @@ export async function handleWebBookingCheckout(
         status: 400, headers: { ...CORS, 'Content-Type': 'application/json' }
       })
     }
-
-    const { error: rpcErr } = await supabaseAdmin.rpc('confirm_payment', { p_booking_id: body.booking_id, p_method: 'free' })
-    if (rpcErr) {
-      console.error('confirm_payment RPC failed for free web booking:', rpcErr.message)
-      return new Response(JSON.stringify({ error: 'Potvrzení rezervace selhalo.' }), {
-        status: 500, headers: { ...CORS, 'Content-Type': 'application/json' }
-      })
-    }
-    return new Response(JSON.stringify({ success: true, free: true, booking_id: body.booking_id }), {
-      headers: { ...CORS, 'Content-Type': 'application/json' }
-    })
   }
 
   const profile = booking.profiles as { full_name?: string; email?: string; phone?: string; stripe_customer_id?: string } | null
@@ -99,6 +92,48 @@ export async function handleWebBookingCheckout(
     if (booking.user_id) {
       await supabaseAdmin.from('profiles').update({ stripe_customer_id: customerId }).eq('id', booking.user_id)
     }
+  }
+
+  // -- 0 Kč rezervace: Stripe Checkout v `setup` módu (ověření karty bez stržení) --
+  // Po dokončení webhook `checkout.session.completed` (mode=setup) potvrdí rezervaci.
+  if (isFreeBooking) {
+    const setupMetadata: Record<string, string> = {
+      booking_id: body.booking_id!, type: 'booking', source: 'web', action: 'verify_free_booking'
+    }
+    const returnOriginFree = resolveReturnOrigin(body.origin, body.locale)
+    const freeSession = await stripe.checkout.sessions.create({
+      customer: customerId,
+      mode: 'setup',
+      payment_method_types: ['card'],
+      metadata: setupMetadata,
+      setup_intent_data: { metadata: setupMetadata },
+      client_reference_id: body.booking_id!,
+      success_url: withLangParam(`${returnOriginFree}/potvrzeni?session_id={CHECKOUT_SESSION_ID}`, body.locale),
+      cancel_url: withLangParam(`${returnOriginFree}/rezervace?resume=${body.booking_id}`, body.locale),
+      locale: resolveStripeLocale(body.locale) as Stripe.Checkout.SessionCreateParams.Locale,
+    })
+
+    await supabaseAdmin.from('bookings').update({
+      stripe_session_id: freeSession.id,
+      stripe_checkout_url: freeSession.url,
+      checkout_started_at: new Date().toISOString(),
+    }).eq('id', body.booking_id!)
+
+    // ZF (zálohová faktura) — generujeme stejně jako u placené rezervace, aby měl zákazník
+    // doklad o ceně i o slevě (dobropis nepotřebujeme, žádné peníze se nehýbou).
+    try {
+      const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
+      const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SERVICE_KEY}`, 'apikey': SERVICE_KEY },
+        body: JSON.stringify({ type: 'proforma', booking_id: body.booking_id, send_email: false }),
+      })
+    } catch (e) { console.warn('[WebBookingCheckout free] ZF generation failed:', e) }
+
+    return new Response(JSON.stringify({ checkout_url: freeSession.url, session_id: freeSession.id, free: true }), {
+      headers: { ...CORS, 'Content-Type': 'application/json' }
+    })
   }
 
   // -- Bundled e-shop order (upsell from step 2): one Stripe session, two invoices --

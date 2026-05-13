@@ -320,6 +320,7 @@ return [
     'rez.alert.email' => 'Voer een geldig e-mailadres in.',
     'rez.alert.phone' => 'Voer telefoon in internationaal formaat in (bijv. +420 777 000 000).',
     'rez.alert.terms' => 'Om door te gaan moet u akkoord gaan met de algemene voorwaarden.',
+    'rez.alert.gdpr' => 'Om door te gaan moet u akkoord gaan met de verwerking van persoonsgegevens.',
     'rez.alert.dates' => 'Kies datums in de kalender.',
     'rez.alert.moto' => 'Kies een motor.',
     'rez.alert.pickupTime' => 'Voer de ophaal- of bezorgtijd in.',

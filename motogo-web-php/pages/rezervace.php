@@ -43,7 +43,7 @@ $rezKeys = [
     'voucher.enter','voucher.duplicate','voucher.verifying','voucher.error',
     'voucher.invalid','voucher.percentOnce','voucher.discountApplied','voucher.voucherApplied',
     'alert.name','alert.street','alert.city','alert.zip','alert.email','alert.phone',
-    'alert.terms','alert.dates','alert.moto','alert.pickupTime',
+    'alert.terms','alert.gdpr','alert.dates','alert.moto','alert.pickupTime',
     'alert.minTime','alert.minTimeDelivery','alert.returnTime',
     'alert.bookingOverlap','alert.bookingOverlapOwn','alert.error','alert.saveError',
     'alert.selectSize','alert.emailExists','alert.emailMismatch',
