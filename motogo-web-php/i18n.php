@@ -48,16 +48,22 @@ const I18N_COOKIE = 'mg_web_lang';
 // hlásí to jako 'Domain not connected' a sráží to Structure skóre na 0 %.
 // false → hreflang <link> tu domenu preskoci a language switcher odkaze
 // pres .com s ?lang=xx (kde to bezi i pro crawlery).
-// 2026-05-13: Seobility nedosahne na .es ani .nl (i kdyz jsou nasazene) →
-// docasne false dokud se to nevyresi na strane DNS/firewall/SSL.
+// Historie:
+//   2026-05-12: .es a .nl provisioned LE cert tentyz den jako Seobility crawl
+//               -> behem crawlu jeste server vracel default cert Hosting90
+//               -> false (Structure 0 %)
+//   2026-05-13: Overeno (openssl s_client, Resolve-DnsName, HTTP 200), ze
+//               oba certifikaty jsou ted platne LE, DNS sedi, server vraci
+//               200 OK i pro striktni TLS. Vracime na true → hreflang +
+//               dedikovane TLD odkazy fungovat budou pro Googlebot i Seobility.
 const I18N_HREFLANG_LIVE = [
     'cs' => true,
     'en' => true,
-    'de' => true,   // motogo24.at — funguje pro crawlery
-    'es' => false,  // motogo24.es — Seobility hlasi 'Domain not connected'
-    'pl' => true,   // motogo24.pl — funguje
-    'fr' => true,   // motogo24.fr — funguje
-    'nl' => false,  // motogo24.nl — Seobility hlasi 'Domain not connected'
+    'de' => true,   // motogo24.at — LE R12 cert
+    'es' => true,   // motogo24.es — LE R12 cert (od 2026-05-12)
+    'pl' => true,   // motogo24.pl — LE R13 cert
+    'fr' => true,   // motogo24.fr — LE R12 cert
+    'nl' => true,   // motogo24.nl — LE R12 cert (od 2026-05-12)
 ];
 
 // Doménové mapování — určuje, na které doméně bydlí "kanonická" verze jazyka.
