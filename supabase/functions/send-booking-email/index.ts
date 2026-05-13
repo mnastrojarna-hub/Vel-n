@@ -759,25 +759,12 @@ serve(async (req) => {
       })
     }
 
-    // 🚫 Door-codes mail jde výhradně přes SQL fn `send_door_codes_email`,
-    // která čte šablonu `door_codes` z `email_templates` a posílá přes Resend napřímo.
-    // Tato edge fn zůstává jako pojistka — pokud někdo nedopatřením zavolá `type='door_codes'`,
-    // request tiše zahodíme, aby nevznikl duplikátní mail.
-    if (type === 'door_codes') {
-      try {
-        await supabase.from('debug_log').insert({
-          source: 'send-booking-email',
-          action: 'door_codes_mail_blocked',
-          component: 'edge-function',
-          status: 'info',
-          request_data: { type: type || null, booking_id: booking_id || null },
-        })
-      } catch { /* ignore */ }
-      return new Response(JSON.stringify({ skipped: true, reason: 'door_codes_disabled' }), {
-        status: 200,
-        headers: { ...CORS, 'Content-Type': 'application/json' },
-      })
-    }
+    // door_codes: edge fn nyní mail rendruje + posílá. Dřív byl tento type
+    // blokován s tím že "jde výhradně přes SQL fn send_door_codes_email" — to ale
+    // selhalo, protože SQL fn potřebovala RESEND_API_KEY v `app_settings`/`vault`,
+    // což na produkci nebylo nastavené (edge fns klíč berou přes `Deno.env`).
+    // Sjednoceno se zbytkem mailů — edge fn = jediný zdroj pravdy pro odeslání.
+    // SQL fn `send_door_codes_email` teď volá tuhle edge fn přes pg_net.
 
 
     const vars: Record<string, string> = {
