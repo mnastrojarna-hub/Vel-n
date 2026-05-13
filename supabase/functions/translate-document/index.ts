@@ -46,10 +46,12 @@ const LANG_NAMES: Record<string, string> = {
   nl: 'Dutch (Nederlands)',
   pl: 'Polish (Polski)',
 }
-// Text dokumenty → haiku (levné). PDF input → sonnet (haiku historicky PDF
-// document bloky nepodporoval spolehlivě, sonnet ano).
-const MODEL_TEXT = 'claude-haiku-4-5-20251001'
+// Pro kvalitu i délku výstupu (legal dokumenty mohou být desítky KB HTML)
+// používáme Sonnet pro vše — haiku má nižší cap na max_tokens a horší
+// instrukční stabilitu u dlouhého strukturovaného JSON.
+const MODEL_TEXT = 'claude-sonnet-4-6'
 const MODEL_PDF = 'claude-sonnet-4-6'
+const MAX_TOKENS = 32000
 
 function jsonResponse(body: Record<string, unknown>, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { ...CORS, 'Content-Type': 'application/json' } })
@@ -171,7 +173,7 @@ async function translateToLang(src: SourceDoc, langCode: string): Promise<Record
     },
     body: JSON.stringify({
       model: src.pdf ? MODEL_PDF : MODEL_TEXT,
-      max_tokens: 16000,
+      max_tokens: MAX_TOKENS,
       system: systemPrompt(langName, langCode, src.hasPlaceholders),
       messages: [{ role: 'user', content: userContent }],
     }),
@@ -186,15 +188,30 @@ async function translateToLang(src: SourceDoc, langCode: string): Promise<Record
   }
 
   const data = await response.json()
-  const text = (data?.content?.[0]?.text || '').trim()
+  const stopReason = data?.stop_reason || ''
+  let text = (data?.content?.[0]?.text || '').trim()
+  // Odstraň markdown fence pokud je obalený (```json ... ``` nebo ``` ... ```).
+  const fence = text.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?```\s*$/)
+  if (fence) text = fence[1].trim()
   let parsed: Record<string, unknown>
   try {
     parsed = JSON.parse(text)
-  } catch {
+  } catch (e) {
+    // Fallback: zkus vytáhnout JSON ze začátku/konce textu.
     const start = text.indexOf('{')
     const end = text.lastIndexOf('}')
-    if (start === -1 || end === -1 || end <= start) throw new Error(`Model nevrátil JSON (${langCode}): ${text.slice(0, 200)}`)
-    parsed = JSON.parse(text.slice(start, end + 1))
+    if (start === -1 || end === -1 || end <= start) {
+      throw new Error(`Model nevrátil JSON (${langCode}, stop=${stopReason}, ${text.length} znaků): ${text.slice(0, 300)}`)
+    }
+    try {
+      parsed = JSON.parse(text.slice(start, end + 1))
+    } catch (e2) {
+      const trunc = stopReason === 'max_tokens' ? ' [VÝSTUP USEKNUTÝ — max_tokens]' : ''
+      throw new Error(`JSON parse failed (${langCode}, stop=${stopReason}${trunc}): ${(e2 as Error).message}; první 200 zn: ${text.slice(0, 200)}; posledních 200: ${text.slice(-200)}`)
+    }
+  }
+  if (stopReason === 'max_tokens') {
+    console.warn(`translate-document ${langCode}: model usekl výstup na max_tokens=${MAX_TOKENS} — překlad nemusí být kompletní`)
   }
 
   const out: Record<string, string> = {}
