@@ -53,7 +53,7 @@ export default function CustomDocumentsSection() {
         if (attempt > 1) await new Promise(r => setTimeout(r, 2500))
         const res = await translateDocument({ table: 'custom_documents', id: doc.id, target_langs: [lang] })
         if (res?.success && res.translations?.[lang]) ok = true
-        else lastErr = res?.error || (res?.errors && Object.values(res.errors)[0]) || 'chyba'
+        else lastErr = (res?.errors && Object.values(res.errors)[0]) || (res?.details && Object.values(res.details)[0]) || res?.error || 'neznámá chyba'
       }
       if (ok) done.push(lang); else failed.push(`${lang}: ${lastErr}`)
     }
