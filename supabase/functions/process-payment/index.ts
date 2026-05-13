@@ -111,14 +111,17 @@ Deno.serve(async (req: Request) => {
         )
       }
 
-      // Ověření, že sleva je skutečně 100%
+      // Ověření, že sleva pokryje 100% ceny (percent=100, fixed >= originalPrice, nebo voucher >= originalPrice)
       let isTrue100 = false
+      const originalPrice = (dbBooking?.total_price || 0) + (dbBooking?.discount_amount || 0)
       if (dbBooking?.promo_code_id) {
         const { data: promo } = await supabase.from('promo_codes')
           .select('type, value')
           .eq('id', dbBooking.promo_code_id)
           .single()
         if (promo && promo.type === 'percent' && promo.value >= 100) {
+          isTrue100 = true
+        } else if (promo && promo.type === 'fixed' && promo.value >= originalPrice && originalPrice > 0) {
           isTrue100 = true
         }
       }
@@ -127,7 +130,6 @@ Deno.serve(async (req: Request) => {
           .select('amount')
           .eq('id', dbBooking.voucher_id)
           .single()
-        const originalPrice = (dbBooking.total_price || 0) + (dbBooking.discount_amount || 0)
         if (voucher && voucher.amount >= originalPrice && originalPrice > 0) {
           isTrue100 = true
         }

@@ -320,6 +320,7 @@ return [
     'rez.alert.email' => 'Wpisz prawidłowy adres e-mail.',
     'rez.alert.phone' => 'Wpisz telefon w formacie międzynarodowym (np. +420 777 000 000).',
     'rez.alert.terms' => 'Aby kontynuować, musisz zaakceptować regulamin.',
+    'rez.alert.gdpr' => 'Aby kontynuować, musisz wyrazić zgodę na przetwarzanie danych osobowych.',
     'rez.alert.dates' => 'Wybierz termin w kalendarzu.',
     'rez.alert.moto' => 'Wybierz motocykl.',
     'rez.alert.pickupTime' => 'Wpisz czas odbioru lub dostawy.',

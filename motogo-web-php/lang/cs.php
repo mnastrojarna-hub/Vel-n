@@ -437,6 +437,7 @@ return [
     'rez.alert.email' => 'Zadejte platnou e-mailovou adresu.',
     'rez.alert.phone' => 'Zadejte telefon v mezinárodním formátu (např. +420 777 000 000).',
     'rez.alert.terms' => 'Pro pokračování musíte souhlasit s obchodními podmínkami.',
+    'rez.alert.gdpr' => 'Pro pokračování musíte souhlasit se zpracováním osobních údajů.',
     'rez.alert.dates' => 'Vyberte prosím termín v kalendáři.',
     'rez.alert.moto' => 'Vyberte prosím motorku.',
     'rez.alert.pickupTime' => 'Vyplňte prosím čas převzetí nebo přistavení motorky.',

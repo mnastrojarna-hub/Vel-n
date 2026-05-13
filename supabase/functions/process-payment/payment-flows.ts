@@ -29,17 +29,20 @@ export async function handleWebBookingCheckout(
   const amount = Math.round(amountCzk * 100)
   const currency = body.currency || 'czk'
 
-  // 100% sleva pro web — potvrdit bez Stripe, ALE POUZE pokud je sleva opravdu 100%
+  // 100% sleva pro web — potvrdit bez Stripe, ALE POUZE pokud sleva opravdu pokryje celou cenu
   if (amount < 1) {
     let isTrue100 = false
+    const originalPrice = (booking.total_price || 0) + (booking.discount_amount || 0)
 
-    // Ověření promo kódu — musí být type=percent, value=100
+    // Ověření promo kódu — percent=100 NEBO fixed value pokrývající celou původní cenu
     if (booking.promo_code_id) {
       const { data: promo } = await supabaseAdmin.from('promo_codes')
         .select('type, value')
         .eq('id', booking.promo_code_id)
         .single()
       if (promo && promo.type === 'percent' && promo.value >= 100) {
+        isTrue100 = true
+      } else if (promo && promo.type === 'fixed' && promo.value >= originalPrice && originalPrice > 0) {
         isTrue100 = true
       }
     }
@@ -50,7 +53,6 @@ export async function handleWebBookingCheckout(
         .select('amount')
         .eq('id', booking.voucher_id)
         .single()
-      const originalPrice = (booking.total_price || 0) + (booking.discount_amount || 0)
       if (voucher && voucher.amount >= originalPrice && originalPrice > 0) {
         isTrue100 = true
       }
