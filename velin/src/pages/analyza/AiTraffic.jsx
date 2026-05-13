@@ -8,6 +8,11 @@
  *   - widget (chat bubble na motogo24.cz)
  *
  * Plus ručně zadávané citation tracking (kde nás zmínil ChatGPT/Claude).
+ *
+ * Data: server-side agregace přes RPC `get_ai_traffic_stats`. NESTAHUJE
+ * raw řádky z `ai_traffic_log` — PostgREST má default max-rows 1000,
+ * takže po překročení 1000 záznamů v okně by se KPI tvrdě uťala. RPC
+ * vrací jeden JSON s agregáty bez ohledu na velikost tabulky.
  */
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabase'
@@ -38,11 +43,42 @@ const PLATFORMS = [
   { id: 'other',      label: 'Ostatní',    color: '#888' },
 ]
 
+// RPC vrací jsonb — vnitřní agregáty (by_bot, by_source, top_paths,
+// daily_timeline, top_partners) mohou přijít buď jako {key: count} nebo
+// jako [{key, count}]. Bez SQL definice neumíme určit, normalizuj.
+function toMap(v) {
+  if (!v) return {}
+  if (Array.isArray(v)) {
+    const out = {}
+    for (const r of v) {
+      if (r == null) continue
+      const k = r.name ?? r.key ?? r.bot ?? r.bot_name ?? r.source ?? r.path ?? r.partner_id ?? r.date
+      const c = r.count ?? r.total ?? r.requests ?? r.value ?? 0
+      if (k != null) out[k] = (out[k] || 0) + Number(c)
+    }
+    return out
+  }
+  if (typeof v === 'object') return v
+  return {}
+}
+
+function toArray(v, fallbackKey = 'name') {
+  if (!v) return []
+  if (Array.isArray(v)) return v
+  if (typeof v === 'object') {
+    return Object.entries(v).map(([k, val]) => {
+      if (typeof val === 'number') return { [fallbackKey]: k, count: val }
+      return { [fallbackKey]: k, ...val }
+    })
+  }
+  return []
+}
+
 export default function AiTraffic() {
   const [period, setPeriod] = useState('30d')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [rows, setRows] = useState([])
+  const [stats, setStats] = useState(null)
   const [partners, setPartners] = useState([])
   const [citations, setCitations] = useState([])
   const [showAddCitation, setShowAddCitation] = useState(false)
@@ -56,16 +92,17 @@ export default function AiTraffic() {
     try {
       const periodObj = PERIODS.find(p => p.id === period)
       const from = new Date(Date.now() - periodObj.ms).toISOString()
+      const to = new Date().toISOString()
       const [tr, pa, ci] = await Promise.all([
-        supabase.from('ai_traffic_log').select('source, bot_name, endpoint, outcome, partner_id, ts').gte('ts', from).order('ts', { ascending: false }).limit(20000),
+        supabase.rpc('get_ai_traffic_stats', { p_from: from, p_to: to }),
         supabase.from('api_keys').select('id, partner_name, partner_email, key_prefix, is_active, request_count, last_used_at, rate_limit_rpm, scopes, created_at, revoked_at'),
         supabase.from('ai_citations').select('*').gte('observed_at', from).order('observed_at', { ascending: false }),
       ])
-      // ai_traffic_log / api_keys / ai_citations nemusí v DB ještě existovat
-      // (pre-req SQL z 2026-04-26 čeká na admin run). Toleruj missing tabulky.
-      const isMissingTable = (e) => e && (e.code === 'PGRST205' || e.code === '42P01' || (e.message || '').includes('schema cache'))
-      if (tr.error && !isMissingTable(tr.error)) throw tr.error
-      setRows(tr.error ? [] : (tr.data || []))
+      // RPC / api_keys / ai_citations nemusí v DB ještě existovat
+      // (pre-req SQL z 2026-04-26 čeká na admin run). Toleruj missing.
+      const isMissing = (e) => e && (e.code === 'PGRST205' || e.code === 'PGRST202' || e.code === '42P01' || e.code === '42883' || (e.message || '').includes('schema cache'))
+      if (tr.error && !isMissing(tr.error)) throw tr.error
+      setStats(tr.error ? null : (tr.data || null))
       setPartners(pa.error ? [] : (pa.data || []))
       setCitations(ci.error ? [] : (ci.data || []))
     } catch (e) {
@@ -75,38 +112,34 @@ export default function AiTraffic() {
     }
   }
 
-  // ---- Aggregations ----
-  const stats = useMemo(() => {
-    const bySource = {}, byBot = {}, byPartner = {}, byEndpoint = {}, daily = {}
-    let bookings = 0, errors = 0, rateLimited = 0
-    for (const r of rows) {
-      bySource[r.source] = (bySource[r.source] || 0) + 1
-      if (r.bot_name) byBot[r.bot_name] = (byBot[r.bot_name] || 0) + 1
-      if (r.partner_id) byPartner[r.partner_id] = (byPartner[r.partner_id] || 0) + 1
-      if (r.endpoint) byEndpoint[r.endpoint] = (byEndpoint[r.endpoint] || 0) + 1
-      const d = r.ts.slice(0, 10)
-      daily[d] = (daily[d] || 0) + 1
-      if (r.outcome === 'booking_created') bookings++
-      if (r.outcome === 'error') errors++
-      if (r.outcome === 'rate_limited') rateLimited++
-    }
-    return { bySource, byBot, byPartner, byEndpoint, daily, bookings, errors, rateLimited, total: rows.length }
-  }, [rows])
-
+  // ---- Derivace z RPC payloadu ----
   const periodObj = PERIODS.find(p => p.id === period)
+  const total = stats ? Number(stats.total_requests ?? stats.total ?? 0) : 0
+  const bookings = stats ? Number(stats.bookings_from_ai ?? stats.bookings ?? 0) : 0
+  const bySource = useMemo(() => stats ? toMap(stats.by_source) : {}, [stats])
+  const byBot = useMemo(() => stats ? toMap(stats.by_bot) : {}, [stats])
+  const byPartner = useMemo(() => stats ? toMap(stats.top_partners) : {}, [stats])
+  const topPaths = useMemo(() => stats ? toArray(stats.top_paths, 'path') : [], [stats])
+
   const dailyData = useMemo(() => {
     const days = Math.ceil(periodObj.ms / (24 * 3600 * 1000))
+    const dailyArr = toArray(stats?.daily_timeline, 'date')
+    const lookup = new Map()
+    for (const row of dailyArr) {
+      const d = (row.date || '').slice(0, 10)
+      if (d) lookup.set(d, Number(row.count ?? row.total ?? 0))
+    }
     const out = []
     for (let i = days - 1; i >= 0; i--) {
       const d = new Date(Date.now() - i * 24 * 3600 * 1000).toISOString().slice(0, 10)
-      out.push({ date: d.slice(5), count: stats.daily[d] || 0 })
+      out.push({ date: d.slice(5), count: lookup.get(d) || 0 })
     }
     return out
-  }, [stats.daily, period])
+  }, [stats, period])
 
-  const sourcePieData = Object.entries(stats.bySource).map(([source, count]) => ({ name: SOURCE_LABELS[source] || source, value: count, color: SOURCE_COLORS[source] || '#888' }))
-  const topBotsData = Object.entries(stats.byBot).sort((a, b) => b[1] - a[1]).slice(0, 12).map(([bot, count]) => ({ bot, count }))
-  const topEndpoints = Object.entries(stats.byEndpoint).sort((a, b) => b[1] - a[1]).slice(0, 10)
+  const sourcePieData = Object.entries(bySource).map(([source, count]) => ({ name: SOURCE_LABELS[source] || source, value: Number(count), color: SOURCE_COLORS[source] || '#888' }))
+  const topBotsData = Object.entries(byBot).sort((a, b) => Number(b[1]) - Number(a[1])).slice(0, 12).map(([bot, count]) => ({ bot, count: Number(count) }))
+  const topPathsList = topPaths.slice(0, 10).map(r => [r.path || r.name || r.endpoint, Number(r.count ?? r.total ?? 0)])
 
   if (loading) return <div className="flex items-center justify-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-t-2" style={{ borderColor: '#74FB71' }} /></div>
   if (error) return <div className="p-4 text-center" style={{ color: '#dc2626' }}>Chyba načítání: {error}</div>
@@ -134,11 +167,11 @@ export default function AiTraffic() {
 
       {/* KPI tiles */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">
-        <KpiTile label="Total AI requests" value={stats.total.toLocaleString('cs-CZ')} hint={periodObj.label} color="#74FB71" />
-        <KpiTile label="Crawler hits" value={(stats.bySource.crawler || 0).toLocaleString('cs-CZ')} hint="GPTBot, ClaudeBot..." color="#74FB71" />
-        <KpiTile label="REST API + MCP" value={((stats.bySource.rest_api || 0) + (stats.bySource.mcp || 0)).toLocaleString('cs-CZ')} hint="Partneři + agenti" color="#4285f4" />
-        <KpiTile label="Widget chats" value={(stats.bySource.widget || 0).toLocaleString('cs-CZ')} hint="Floating bubble" color="#f97316" />
-        <KpiTile label="Rezervací z AI" value={stats.bookings} hint="outcome=booking_created" color="#166534" />
+        <KpiTile label="Total AI requests" value={total.toLocaleString('cs-CZ')} hint={periodObj.label} color="#74FB71" />
+        <KpiTile label="Crawler hits" value={Number(bySource.crawler || 0).toLocaleString('cs-CZ')} hint="GPTBot, ClaudeBot..." color="#74FB71" />
+        <KpiTile label="REST API + MCP" value={(Number(bySource.rest_api || 0) + Number(bySource.mcp || 0)).toLocaleString('cs-CZ')} hint="Partneři + agenti" color="#4285f4" />
+        <KpiTile label="Widget chats" value={Number(bySource.widget || 0).toLocaleString('cs-CZ')} hint="Floating bubble" color="#f97316" />
+        <KpiTile label="Rezervací z AI" value={bookings} hint="outcome=booking_created" color="#166534" />
       </div>
 
       {/* Daily timeline */}
@@ -223,7 +256,7 @@ export default function AiTraffic() {
                   <td className="p-2"><code style={{ background: '#f1faf7', padding: '2px 6px', borderRadius: 4, fontSize: 10 }}>{p.key_prefix}…</code></td>
                   <td className="p-2 text-right">{p.rate_limit_rpm}</td>
                   <td className="p-2" style={{ fontSize: 10 }}>{(p.scopes || []).join(', ')}</td>
-                  <td className="p-2 text-right font-bold" style={{ color: '#1a2e22' }}>{(stats.byPartner[p.id] || 0).toLocaleString('cs-CZ')}</td>
+                  <td className="p-2 text-right font-bold" style={{ color: '#1a2e22' }}>{Number(byPartner[p.id] || 0).toLocaleString('cs-CZ')}</td>
                   <td className="p-2" style={{ fontSize: 10, color: '#888' }}>{p.last_used_at ? new Date(p.last_used_at).toLocaleDateString('cs-CZ') : '—'}</td>
                   <td className="p-2">
                     <span style={{
@@ -249,15 +282,15 @@ export default function AiTraffic() {
       {showCreateKey && <CreateApiKeyModal onClose={() => setShowCreateKey(false)} onCreated={loadData} />}
       {revokeKey && <RevokeApiKeyConfirm apiKey={revokeKey} onClose={() => setRevokeKey(null)} onRevoked={loadData} />}
 
-      {/* Top endpoints */}
+      {/* Top stránky / cesty */}
       <div style={{ background: '#fff', borderRadius: 14, padding: 16, border: '1px solid #e3e8e5', marginBottom: 20 }}>
-        <h3 className="font-extrabold text-sm mb-3" style={{ color: '#1a2e22' }}>Top endpointy / nástroje</h3>
-        {topEndpoints.length === 0 ? <NoData /> : (
+        <h3 className="font-extrabold text-sm mb-3" style={{ color: '#1a2e22' }}>Top stránky / endpointy</h3>
+        {topPathsList.length === 0 ? <NoData /> : (
           <table className="w-full text-xs">
             <tbody>
-              {topEndpoints.map(([ep, c]) => (
-                <tr key={ep}>
-                  <td className="p-2"><code style={{ background: '#f1faf7', padding: '2px 6px', borderRadius: 4 }}>{ep}</code></td>
+              {topPathsList.map(([ep, c]) => (
+                <tr key={ep || 'unknown'}>
+                  <td className="p-2"><code style={{ background: '#f1faf7', padding: '2px 6px', borderRadius: 4 }}>{ep || '—'}</code></td>
                   <td className="p-2 text-right font-bold" style={{ color: '#1a2e22' }}>{c.toLocaleString('cs-CZ')}</td>
                 </tr>
               ))}
