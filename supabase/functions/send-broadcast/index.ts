@@ -365,8 +365,8 @@ function buildMarketingHtml(body: string, subject: string): string {
     <div style="color:#ffffff;font-size:11px;font-weight:400;letter-spacing:6px;margin-top:8px">PŮJČOVNA MOTOREK</div>
   </div>`
   const helpCard = `<div style="margin:24px 32px 0;background:#000000;border:2px solid #74FB71;border-radius:8px;padding:24px">
-    <div style="color:#74FB71;font-size:18px;font-weight:800;margin:0 0 8px">Máte dotaz?</div>
-    <div style="color:#ffffff;font-size:13px;margin:0 0 16px">Pokud budete mít jakýkoliv dotaz, jsme vám k dispozici.</div>
+    <div style="color:#74FB71;font-size:18px;font-weight:800;margin:0 0 8px">Máš dotaz?</div>
+    <div style="color:#ffffff;font-size:13px;margin:0 0 16px">Pokud budeš mít jakýkoliv dotaz, jsme ti k dispozici.</div>
     <a href="mailto:info@motogo24.cz" style="display:inline-block;background:#74FB71;color:#000000;font-size:13px;font-weight:700;text-decoration:none;padding:12px 28px;border-radius:24px">info@motogo24.cz</a>
   </div>`
   const footer = `<div style="background:#000000;padding:24px 32px;margin-top:24px">

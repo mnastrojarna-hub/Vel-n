@@ -1131,7 +1131,7 @@ export function helloPhrase(lang: Lang): string { return HELLO[lang] || HELLO.cs
 /** Per-lang labels for the help card "Have a question?" + CTA. */
 export function helpCardLabels(lang: Lang): { title: string; body: string; cta: string } {
   const map: Record<Lang, { title: string; body: string; cta: string }> = {
-    cs: { title: 'Máte dotaz?',           body: 'Pokud budete mít jakýkoliv dotaz, jsme vám k dispozici.',     cta: 'info@motogo24.cz' },
+    cs: { title: 'Máš dotaz?',            body: 'Pokud budeš mít jakýkoliv dotaz, jsme ti k dispozici.',       cta: 'info@motogo24.cz' },
     en: { title: 'Have a question?',      body: 'If you have any questions, we\'re here to help.',              cta: 'info@motogo24.cz' },
     de: { title: 'Haben Sie eine Frage?', body: 'Bei Fragen sind wir gerne für Sie da.',                         cta: 'info@motogo24.cz' },
     nl: { title: 'Heb je een vraag?',     body: 'Heb je vragen? We helpen je graag.',                            cta: 'info@motogo24.cz' },
