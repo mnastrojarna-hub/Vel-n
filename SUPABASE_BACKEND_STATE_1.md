@@ -1,5 +1,5 @@
 # SUPABASE BACKEND STATE — MotoGo24 (Část 1: Tabulky)
-> **Poslední aktualizace:** 2026-05-05 (Per-velikost sklad v e-shopu: nový sloupec `products.size_stock` JSONB + Velín ProductsTab UI + RPC `create_web_shop_order` validuje/dekrementuje per velikost)
+> **Poslední aktualizace:** 2026-05-14 (Fix „Nedokončená rezervace" mailu: `auto_cancel_expired_pending` neposílá storno pro web; `send_abandoned_booking_emails` zjednodušená — 15 min od `created_at`, Velín slug `web_booking_abandoned`)
 > **Zdroj:** Reálný stav Supabase databáze (SQL dump z dashboardu) + Edge Functions
 > **Projekt:** `vnwnqteskbykeucanlhk.supabase.co`
 > **POZOR:** Tento soubor MUSÍ být aktualizován při každé SQL změně!
