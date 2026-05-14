@@ -375,7 +375,7 @@ return [
     'rez.return.title' => 'Čas vrácení motorky',
     'rez.return.sub' => 'V kolik hodin vrátíte motorku na uvedené adrese?',
     'rez.return.stateTitle' => 'V jakém stavu motorku vrátit?',
-    'rez.return.stateText' => 'Motorku stačí vrátit s palivem nad rezervou (kontrolka rezervy nesvítí). Mytí ani úklid neřeš',
+    'rez.return.stateText' => 'Motorku stačí vrátit s palivem nad rezervou (kontrolka rezervy nesvítí). Mytí ani úklid neřeš.',
 
     // ===== Rezervace — výbava =====
     'rez.gear.intro' => 'Vyberte velikosti kliknutím na čtverečky níže. Pokud velikost nezvolíte, vyzkoušíme ji na místě.',
@@ -453,7 +453,7 @@ return [
     'rez.alert.emailMismatch' => 'Přihlášený účet nesouhlasí se zadaným e-mailem. Odhlaste se a zkuste znovu.',
 
     // ===== Rezervace — Vracející se zákazník (login panel v kroku 3) =====
-    'rez.auth.returning.title' => 'Už jsem si u vás půjčoval/la motorku.',
+    'rez.auth.returning.title' => 'Už jsem si u vás půjčoval/a motorku.',
     'rez.auth.returning.sub' => 'Pokračuj přihlášením, ať ti můžeme údaje předvyplnit a nemusíš je vyplňovat znovu.',
     'rez.auth.login.title' => 'Přihlášení k vašemu účtu',
     'rez.auth.login.help' => 'Použijte e-mail a heslo, které jste si nastavili při minulé rezervaci.',
@@ -485,7 +485,7 @@ return [
     'rez.auth.loggedin.docsOk' => 'Doklady jsou ověřené, formulář předvyplněný.',
     'rez.auth.loggedin.docsMissing' => 'Po pokračování ještě jednou ověříme doklady.',
     'rez.auth.exists.title' => 'Tento e-mail u nás už máme.',
-    'rez.auth.exists.body' => 'Pokračujte přihlášením, ať vám předvyplníme údaje a nemusíte vyplňovat doklady znovu.',
+    'rez.auth.exists.body' => 'Pokračuj přihlášením, ať ti předvyplníme údaje a nemusíš nic vyplňovat znovu.',
     'rez.auth.exists.btn' => 'Přihlásit se',
     'rez.auth.err.empty' => 'Vyplňte e-mail i heslo.',
     'rez.auth.err.login' => 'Přihlášení selhalo. Zkontrolujte e-mail a heslo.',
