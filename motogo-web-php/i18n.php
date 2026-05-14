@@ -54,16 +54,22 @@ const I18N_COOKIE = 'mg_web_lang';
 //               -> false (Structure 0 %)
 //   2026-05-13: Overeno (openssl s_client, Resolve-DnsName, HTTP 200), ze
 //               oba certifikaty jsou ted platne LE, DNS sedi, server vraci
-//               200 OK i pro striktni TLS. Vracime na true → hreflang +
-//               dedikovane TLD odkazy fungovat budou pro Googlebot i Seobility.
+//               200 OK i pro striktni TLS. Flipnuto na true.
+//   2026-05-13 (po re-deploy): Seobility znovu hlasi 'Domain not connected'
+//               na .es a .nl, ackoliv Windows .NET / Resolve-DnsName ukazuji
+//               vse OK. Pravdepodobne nekompletni TLS cert chain (server
+//               neposila intermediate LE cert) — Windows ma intermediate v
+//               cache, Seobility crawler (Linux/Java) nikoliv. Diagnostika
+//               viz openssl s_client -showcerts. Vracime na false dokud se
+//               nevyresi na strane Hosting90 (chain fullchain.pem misto cert.pem).
 const I18N_HREFLANG_LIVE = [
     'cs' => true,
     'en' => true,
-    'de' => true,   // motogo24.at — LE R12 cert
-    'es' => true,   // motogo24.es — LE R12 cert (od 2026-05-12)
-    'pl' => true,   // motogo24.pl — LE R13 cert
-    'fr' => true,   // motogo24.fr — LE R12 cert
-    'nl' => true,   // motogo24.nl — LE R12 cert (od 2026-05-12)
+    'de' => true,   // motogo24.at — funguje pro crawlery
+    'es' => false,  // motogo24.es — Seobility 'Domain not connected' i po fix
+    'pl' => true,   // motogo24.pl — funguje
+    'fr' => true,   // motogo24.fr — funguje
+    'nl' => false,  // motogo24.nl — Seobility 'Domain not connected' i po fix
 ];
 
 // Doménové mapování — určuje, na které doméně bydlí "kanonická" verze jazyka.
