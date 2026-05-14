@@ -7,6 +7,11 @@
 //   2) je v profilu uložené číslo dokladu z Mindee OCR (profiles.id_number, resp. profiles.license_number)
 // Web rezervace ukládá id_number/license_number do profilu i bez nahrání fotek, takže
 // zákazník už doklady znovu nahrávat nemusí — Velín to musí ukazovat stejně.
+//
+// Volitelný `motoLicenseRequired` (z `motorcycles.license_required`):
+//   - 'N' = dětská motorka → ŘP se vůbec nepožaduje, allOk počítá jen s totožností
+//     (backend trigger `auto_generate_door_codes` u dětských kódy uvolní bez ŘP)
+//   - jinak (A/A2/A1/AM/B...) klasická logika ŘP + OP/pas + skupina A/A2/A1/AM
 
 export const MOTO_LICENSE_GROUPS = ['A', 'A2', 'A1', 'AM']
 
@@ -16,7 +21,7 @@ export function hasMotoLicenseGroup(licenseGroup) {
   return Array.isArray(licenseGroup) && licenseGroup.some(g => MOTO_LICENSE_GROUPS.includes(g))
 }
 
-export function computeDocVerification(verificationDocs, profile) {
+export function computeDocVerification(verificationDocs, profile, motoLicenseRequired) {
   const docs = Array.isArray(verificationDocs) ? verificationDocs : []
   const licensePhotos = docs.filter(d => d.type === 'drivers_license' || d.type === 'license_photo')
   const idCardPhotos = docs.filter(d => d.type === 'id_card' || d.type === 'id_photo')
@@ -41,7 +46,12 @@ export function computeDocVerification(verificationDocs, profile) {
   const licenseGroupFilled = Array.isArray(profile?.license_group) && profile.license_group.length > 0
   const hasMotoGroup = licenseGroupFilled && hasMotoLicenseGroup(profile?.license_group)
 
-  const allOk = hasLicense && hasIdentity && licenseValid && licenseGroupFilled && hasMotoGroup
+  const isChildMoto = String(motoLicenseRequired || '').toUpperCase() === 'N'
+
+  // U dětské motorky stačí ověřená totožnost — žádný ŘP, žádná skupina
+  const allOk = isChildMoto
+    ? hasIdentity
+    : (hasLicense && hasIdentity && licenseValid && licenseGroupFilled && hasMotoGroup)
 
   return {
     licensePhotos, idCardPhotos, passportPhotos,
@@ -50,5 +60,6 @@ export function computeDocVerification(verificationDocs, profile) {
     licenseDataOnly, identityDataOnly,
     hasLicense, hasIdCard: hasIdPhoto, hasPassport: hasPassportPhoto, hasIdentity,
     licenseValid, licenseGroupFilled, hasMotoGroup, allOk,
+    isChildMoto,
   }
 }
