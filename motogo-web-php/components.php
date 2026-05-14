@@ -131,9 +131,11 @@ function seoEnhanceHtml($content) {
     }
 
     // 2) Auto-set alt na <img> bez alt / s prazdnym alt. NEVIDITELNE — jen
-    //    pro Google Images + screen readery. Decorative (aria-hidden=true /
-    //    role=presentation) preskoci. Alt odvodi z filename nebo 'MotoGo24'.
-    //    Vyextrahujeme prvni <h1> text pro fallback alt.
+    //    pro Google Images + screen readery. aria-hidden NEPRESKAKUJEME
+    //    (Seobility flagovala i decorative ikonu). Generujeme POPISNY alt
+    //    (Seobility 'Use good alternative descriptions') — nestaci hodit tam
+    //    filename typu 'ico-online-rez', musi byt vetne formulace s kontextem
+    //    stranky (H1) + popis.
     $pageH1 = '';
     if (preg_match('#<h1[^>]*>(.+?)</h1>#is', $content, $hm)) {
         $pageH1 = trim(strip_tags($hm[1]));
@@ -142,23 +144,39 @@ function seoEnhanceHtml($content) {
         '#<img\b([^>]*)/?>#i',
         function ($m) use ($pageH1) {
             $attrs = $m[1];
-            // Pozn.: aria-hidden / role=presentation uz NEPRESKAKUJEME — Seobility
-            // hlasi takove <img> jako 'missing alt' i kdyz je rozpozna jako
-            // dekorativni. Misto toho zaplnime alt z titulku/filename → screen
-            // readery diky aria-hidden ikonu nadale ignoruji, ale crawler vidi alt.
+            // Existujici neprazdny alt nechame na pokoji.
             if (preg_match('#\balt\s*=\s*"([^"]+)"#i', $attrs, $am) && trim($am[1]) !== '') return $m[0];
             if (preg_match("#\balt\\s*=\\s*'([^']+)'#i", $attrs, $am) && trim($am[1]) !== '') return $m[0];
-            $altGuess = '';
+
+            $filename = '';
+            $isIcon = false;
+            $isUuid = false;
             if (preg_match('#\bsrc\s*=\s*["\']([^"\']+)["\']#i', $attrs, $sm)) {
-                $name = basename(parse_url($sm[1], PHP_URL_PATH) ?: $sm[1]);
-                $name = preg_replace('#\.[a-z0-9]{2,5}$#i', '', $name);
-                $name = preg_replace('#[-_]+#', ' ', $name);
-                $name = preg_replace('#[0-9]+x[0-9]+#', '', $name);
-                $name = trim(preg_replace('#\s+#', ' ', $name));
-                if ($name !== '') $altGuess = $name;
+                $base = basename(parse_url($sm[1], PHP_URL_PATH) ?: $sm[1]);
+                $base = preg_replace('#\.[a-z0-9]{2,5}$#i', '', $base);
+                $isIcon = (bool)preg_match('#^(ico|icon)[-_]|^arrow[-_]|^favicon|^logo|^email|^telefon|^facebook|^instagram#i', $base);
+                $isUuid = (bool)preg_match('#^[a-f0-9]{8}-[a-f0-9]{4}-#i', $base) || (strlen($base) >= 24 && !preg_match('#[a-z]{2,}-[a-z]{2,}#i', $base));
+                $filename = trim(preg_replace('#\s+#', ' ', preg_replace('#[-_]+#', ' ', preg_replace('#[0-9]+x[0-9]+#', '', $base))));
             }
-            if ($altGuess === '' && $pageH1 !== '') $altGuess = $pageH1;
-            if ($altGuess === '') $altGuess = 'MotoGo24';
+
+            $brand = 'MotoGo24 — půjčovna motorek Vysočina';
+            if ($isIcon) {
+                // Dekorativni ikona — popis vazany na stranku, ne nazev ikony.
+                $altGuess = ($pageH1 !== '' ? $pageH1 . ' — ' : '') . 'ikona MotoGo24';
+            } elseif ($isUuid) {
+                // UUID/hash filename (typicky CMS upload) — pouzij H1 + brand.
+                $altGuess = ($pageH1 !== '' ? $pageH1 . ' — ' : '') . $brand;
+            } elseif ($filename !== '' && str_word_count($filename) >= 2) {
+                // Popisne filename (napr. "yamaha-pw-50.jpg") — prefix s H1.
+                $altGuess = ucfirst($filename) . ($pageH1 !== '' ? ' — ' . $pageH1 : '');
+            } elseif ($pageH1 !== '') {
+                $altGuess = $pageH1 . ' — ' . $brand;
+            } else {
+                $altGuess = $brand;
+            }
+            // Cap delky (Google Images cap ~125 znaku).
+            $altGuess = mb_substr($altGuess, 0, 125);
+
             $cleaned = preg_replace('#\s*\balt\s*=\s*"(?:[^"]*)"#i', '', $attrs);
             $cleaned = preg_replace("#\\s*\\balt\\s*=\\s*'(?:[^']*)'#i", '', $cleaned);
             return '<img' . $cleaned . ' alt="' . htmlspecialchars($altGuess, ENT_QUOTES) . '">';

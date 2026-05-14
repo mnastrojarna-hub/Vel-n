@@ -580,8 +580,27 @@ if (!empty($allImages)) {
     ];
 }
 
+// Bohata meta description: model + spec + standardni kontext. Bez teto skladacky
+// byl Seobility 'meta description too short' u motorek bez DB description (jen
+// fallback ~70 znaku). Ridime se 150-180 znaky (Google snippet cap).
+$metaDescParts = [];
+$metaDescParts[] = 'Půjč si ' . ($moto['model'] ?? 'motorku');
+$metaDescSpec = [];
+if (!empty($moto['engine_cc'])) $metaDescSpec[] = $moto['engine_cc'] . ' ccm';
+if (!empty($moto['power_kw']))  $metaDescSpec[] = $moto['power_kw'] . ' kW';
+if (!empty($moto['category']))  $metaDescSpec[] = $moto['category'];
+if ($metaDescSpec) $metaDescParts[0] .= ' (' . implode(', ', $metaDescSpec) . ')';
+$metaDescParts[] = 'bez kauce u MotoGo24 Pelhřimov';
+if ($motoDesc !== '') {
+    $metaDescParts[] = trim(strip_tags($motoDesc));
+} else {
+    $metaDescParts[] = 'výbava v ceně, online rezervace, nonstop provoz na Vysočině';
+}
+$metaDescBuilt = implode('. ', array_filter($metaDescParts)) . '.';
+$metaDescBuilt = mb_substr(preg_replace('/\s+/', ' ', $metaDescBuilt), 0, 220);
+
 renderPage($model . ' | Půjčovna MotoGo24', $content, '/katalog/' . $motoId, [
-    'description' => htmlspecialchars($motoDesc !== '' ? $motoDesc : t('detail.descFallback', ['model' => $moto['model'] ?? ''])),
+    'description' => htmlspecialchars($metaDescBuilt),
     'keywords' => t('detail.descKeywords', ['model' => $moto['model'] ?? '']),
     // SEO: og:image MAX 1200px / quality 85 (Facebook/Twitter optimal). Predtim
     // raw URL z Supabase = 3-5 MB jpg (Seobility 'Large file size' issue).
