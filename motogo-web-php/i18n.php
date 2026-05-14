@@ -55,21 +55,26 @@ const I18N_COOKIE = 'mg_web_lang';
 //   2026-05-13: Overeno (openssl s_client, Resolve-DnsName, HTTP 200), ze
 //               oba certifikaty jsou ted platne LE, DNS sedi, server vraci
 //               200 OK i pro striktni TLS. Flipnuto na true.
-//   2026-05-13 (po re-deploy): Seobility znovu hlasi 'Domain not connected'
-//               na .es a .nl, ackoliv Windows .NET / Resolve-DnsName ukazuji
-//               vse OK. Pravdepodobne nekompletni TLS cert chain (server
-//               neposila intermediate LE cert) — Windows ma intermediate v
-//               cache, Seobility crawler (Linux/Java) nikoliv. Diagnostika
-//               viz openssl s_client -showcerts. Vracime na false dokud se
-//               nevyresi na strane Hosting90 (chain fullchain.pem misto cert.pem).
+//   2026-05-13 (po re-deploy): Seobility hlasi 'Domain not connected'
+//               na .es/.nl. Hypoteza: nekompletni TLS chain. Vraceno na false.
+//   2026-05-14: Verify pres SSL Labs (https://www.ssllabs.com/ssltest/),
+//               check-host.net (TCP z 55 lokaci), SeobilityBot UA test:
+//               - Chain: 3 certy (leaf + R12 + ISRG Root) — kompletni
+//               - TCP: connected ze vsech 55 lokaci vc. DE Frankfurt 0.023s
+//               - SeobilityBot UA: 200 OK, 52586 byte HTML (stejne jako .fr)
+//               - SSL Labs Handshake Simulation: Googlebot, Java 8/11/12,
+//                 OpenSSL 1.0.2/1.1.0/1.1.1, YandexBot - vsichni uspesne TLS
+//               -> server a sit jsou OK, Seobility report byl STALE cache.
+//               Flipnuto na true. Pri dalsim crawlu (manual trigger v dashboardu)
+//               se vse uklidi.
 const I18N_HREFLANG_LIVE = [
     'cs' => true,
     'en' => true,
-    'de' => true,   // motogo24.at — funguje pro crawlery
-    'es' => false,  // motogo24.es — Seobility 'Domain not connected' i po fix
-    'pl' => true,   // motogo24.pl — funguje
-    'fr' => true,   // motogo24.fr — funguje
-    'nl' => false,  // motogo24.nl — Seobility 'Domain not connected' i po fix
+    'de' => true,   // motogo24.at — LE R12, Grade B, handshake OK
+    'es' => true,   // motogo24.es — LE R12, Grade B (kompat TLS 1.0/1.1, DH 1024)
+    'pl' => true,   // motogo24.pl — LE R13
+    'fr' => true,   // motogo24.fr — LE R12
+    'nl' => true,   // motogo24.nl — LE R12, identicka config jako .es
 ];
 
 // Doménové mapování — určuje, na které doméně bydlí "kanonická" verze jazyka.
