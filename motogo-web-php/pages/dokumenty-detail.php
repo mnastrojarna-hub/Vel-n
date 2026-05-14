@@ -201,9 +201,11 @@ $body .= '</div></div></main>';
 
 // Bohatsi meta description: title + standardni kontext (pujcovna + adresa).
 // Bez kontextu byl Seobility 'meta description too short' na vsech /dokumenty/* (cca 17-50 znaku).
+// Seobility limit ~1000 px = ~155 znaku (Czech s diakritikou ~6 px/znak).
 $metaDesc = $entry['title']
-    . ' pro půjčovnu motorek MotoGo24 Pelhřimov. Vzor dokumentu pro půjčení motocyklu — nájemní podmínky, předávací protokol, ochrana osobních údajů. Bez kauce, výbava v ceně, nonstop provoz na Vysočině.';
+    . ' u půjčovny motorek MotoGo24 Pelhřimov — vzor pro půjčení motocyklu. Bez kauce, výbava v ceně, nonstop provoz na Vysočině.';
+$metaDesc = preg_replace('/\s+\S*$/u', '', mb_substr(preg_replace('/\s+/', ' ', $metaDesc), 0, 155));
 
 renderPage($entry['title'] . ' | MotoGo24', $body, '/dokumenty/' . $slug, [
-    'description' => mb_substr($metaDesc, 0, 220),
+    'description' => $metaDesc,
 ]);

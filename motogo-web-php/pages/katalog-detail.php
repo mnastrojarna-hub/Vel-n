@@ -597,7 +597,11 @@ if ($motoDesc !== '') {
     $metaDescParts[] = 'výbava v ceně, online rezervace, nonstop provoz na Vysočině';
 }
 $metaDescBuilt = implode('. ', array_filter($metaDescParts)) . '.';
-$metaDescBuilt = mb_substr(preg_replace('/\s+/', ' ', $metaDescBuilt), 0, 220);
+// Seobility limit ~1000 px = ~155 znaku (Czech s diakritikou ~6 px/znak).
+// Predtim 220 znaku produkovalo 2700-2800 px na motorkach s dlouhym DB textem.
+$metaDescBuilt = mb_substr(preg_replace('/\s+/', ' ', $metaDescBuilt), 0, 155);
+// Trim na hranici slova, aby nebyla seknuta uprostred.
+$metaDescBuilt = preg_replace('/\s+\S*$/u', '', $metaDescBuilt);
 
 renderPage($model . ' | Půjčovna MotoGo24', $content, '/katalog/' . $motoId, [
     'description' => htmlspecialchars($metaDescBuilt),

@@ -228,6 +228,37 @@ function seoEnhanceHtml($content) {
         }
     }
 
+    // 5) Heading hierarchy promote — Seobility "Problem se strukturou nadpisu".
+    //    Pokud nadpisova hierarchie preskakuje uroven (h1 -> h3 bez h2 mezi),
+    //    nadrazene nadpisy demoteneme tak, aby zaplnily mezeru. Pouze meni TAG,
+    //    NE text uvnitr. CSS styly headings ho zobrazi mirne jinak velikostne,
+    //    ale obsahove nic neztrati.
+    //    Pr.: <h1>Title</h1>...<h3>Sub</h3> → <h1>Title</h1>...<h2>Sub</h2>
+    if (preg_match_all('#<h([2-6])(\b[^>]*)>(.*?)</h\1\s*>#is', $content, $hm, PREG_OFFSET_CAPTURE)) {
+        $hChanges = [];
+        $maxSeen = 1; // <h1> je vychozi (po multi-H1 demote krok 3 garantovan)
+        foreach ($hm[0] as $i => $match) {
+            $level = (int)$hm[1][$i][0];
+            $attrs = $hm[2][$i][0];
+            $inner = $hm[3][$i][0];
+            $offset = $match[1];
+            $fullLen = strlen($match[0]);
+            $newLevel = $level;
+            if ($level > $maxSeen + 1) {
+                // Demote — vyplnime mezeru.
+                $newLevel = $maxSeen + 1;
+                $newBlock = '<h' . $newLevel . $attrs . '>' . $inner . '</h' . $newLevel . '>';
+                $hChanges[] = [$offset, $fullLen, $newBlock];
+            }
+            if ($newLevel > $maxSeen) $maxSeen = $newLevel;
+        }
+        // Aplikuj zpetne, aby nesedeli offsety predchozim zmenam.
+        for ($i = count($hChanges) - 1; $i >= 0; $i--) {
+            [$off, $len, $new] = $hChanges[$i];
+            $content = substr($content, 0, $off) . $new . substr($content, $off + $len);
+        }
+    }
+
     return $content;
 }
 

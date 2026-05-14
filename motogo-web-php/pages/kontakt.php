@@ -6,7 +6,7 @@ $sb = new SupabaseClient();
 $defaults = [
     'seo' => [
         'title' => 'Kontakt | MotoGo24 – půjčovna motorek Vysočina',
-        'description' => 'Kontakty na půjčovnu motorek Motogo24 v Pelhřimově. Telefon ' . PHONE . ', e-mail ' . EMAIL_FULL . '. Nonstop provoz, adresa ' . ADDRESS . '.',
+        'description' => 'Půjčovna motorek MotoGo24 Pelhřimov — telefon ' . PHONE . ', e-mail ' . EMAIL_FULL . '. Nonstop, bez kauce.',
         'keywords' => 'motopůjčovna',
     ],
     'h1' => 'Kontakty půjčovna motorek Motogo24',

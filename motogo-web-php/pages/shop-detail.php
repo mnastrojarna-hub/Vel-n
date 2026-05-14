@@ -225,7 +225,7 @@ $productSchema = '
 // 'MotoGo24' suffix se vejde do 65 chars limit a brand neopakuje.
 $suffix = (stripos($nameRaw, 'motogo') !== false) ? '| E-shop' : '| MotoGo24';
 renderPage($nameRaw . ' ' . $suffix, $content, '/eshop/' . htmlspecialchars($id), [
-    'description' => mb_substr(strip_tags($descRaw !== '' ? $descRaw : $nameRaw), 0, 160),
+    'description' => preg_replace('/\s+\S*$/u', '', mb_substr(preg_replace('/\s+/', ' ', strip_tags($descRaw !== '' ? $descRaw : $nameRaw)), 0, 155)),
     'og_type' => 'product',
     // SEO: og:image MAX 1200px / quality 85 (Facebook/Twitter optimal). Predtim
     // raw URL z Supabase = 3-5 MB jpg (Seobility 'Large file size' issue).
