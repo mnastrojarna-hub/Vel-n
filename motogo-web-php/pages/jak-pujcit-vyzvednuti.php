@@ -21,7 +21,7 @@ $titleSection = '<section>' .
     '<p data-cms-key="' . $kp . '.intro">' . ($C['intro'] ?? '') . '</p>' .
     '<p>&nbsp;</p>' .
     '<p><a aria-label="' . htmlspecialchars($tcta['aria'] ?? '') . '" class="btn btngreen" href="' . BASE_URL . ($tcta['href'] ?? '#') . '" data-cms-key="' . $kp . '.top_cta.button.label">' . ($tcta['label'] ?? '') . '</a></p>' .
-    '<p>&nbsp;</p><p>&nbsp;</p>' .
+    '<p>&nbsp;</p>' .
     '</section>';
 
 // --- Section 2 (main1): 2-col adresa + Google Maps embed ---
