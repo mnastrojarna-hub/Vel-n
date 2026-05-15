@@ -294,6 +294,14 @@ if ($path === '/favicon.ico') {
     exit;
 }
 
+// SEO/Perf: full-page HTML output cache pro anonymni GET requesty.
+// Resi Seobility 'Stredni doba odezvy' (65 stranek 0.5-1s) — Supabase fetche
+// + i18n + rendering trvaji 500-700 ms, ale vystup je deterministicky pro
+// (host, path, lang, currency, tag). Pri cache HIT vraci HTML behem ~5 ms.
+// TTL 10 min, automaticky se obchazi pro admin/login a citlive cesty.
+require_once __DIR__ . '/page_cache.php';
+pageCacheMaybeServe($path);
+
 // Routování
 switch (true) {
     // Domovská stránka

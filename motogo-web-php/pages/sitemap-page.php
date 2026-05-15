@@ -41,4 +41,6 @@ $html .= '</ul>';
 $content = '<main id="content"><div class="container">' . $bc .
     '<div class="ccontent"><h1>' . te('sitemap.h1') . '</h1>' . $html . '</div></div></main>';
 
-renderPage(t('sitemap.title'), $content, '/mapa-stranek');
+renderPage(t('sitemap.title'), $content, '/mapa-stranek', [
+    'description' => 'Mapa stránek MotoGo24 — kompletní přehled webu půjčovny motorek. Katalog cestovních, naked, supermoto a dětských motorek, postup půjčení, ceník, FAQ, dokumenty, blog a kontakty.',
+]);
