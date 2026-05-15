@@ -154,6 +154,29 @@ $confirmCmsKeys = [
     'errorMissingId'      => 'confirm.error.missingId',
 ];
 
+// Per-type varianty stavu „Pending" (rezervace / objednávka / poukaz) + samostatný
+// stav „Neúspěšná platba" (zobrazí se jen když Stripe platbu definitivně odmítne).
+// Fallback: pokud konkrétní per-type / failed klíč není ve Velínu přepsaný,
+// použije se obecný `confirm.pending.*`. Díky tomu úprava jedné varianty ve Velínu
+// neovlivní ostatní, ale neupravené varianty zůstávají konzistentní.
+$tFallback = function ($key, $fallbackKey) {
+    $v = t($key);
+    return ($v === $key) ? t($fallbackKey) : $v;
+};
+$pendingSuffixes = ['title', 'text1', 'text2', 'nextTitle', 'nextStep1', 'nextStep2', 'nextStep3', 'failIntro', 'reason1', 'reason2', 'reason3', 'reason4', 'reason5', 'reason6', 'retry'];
+foreach (['booking' => 'Booking', 'order' => 'Order', 'voucher' => 'Voucher'] as $type => $cap) {
+    foreach ($pendingSuffixes as $suf) {
+        $jsKey = 'pending' . $cap . ucfirst($suf);
+        $confirmI18n[$jsKey] = $tFallback("confirm.pending.$type.$suf", "confirm.pending.$suf");
+        $confirmCmsKeys[$jsKey] = "confirm.pending.$type.$suf";
+    }
+}
+foreach ($pendingSuffixes as $suf) {
+    $jsKey = 'failed' . ucfirst($suf);
+    $confirmI18n[$jsKey] = $tFallback("confirm.failed.$suf", "confirm.pending.$suf");
+    $confirmCmsKeys[$jsKey] = "confirm.failed.$suf";
+}
+
 // Supabase SDK + JS pro polling
 $potvrzeniJs = '<script>
 window.MOTOGO_CONFIG = {

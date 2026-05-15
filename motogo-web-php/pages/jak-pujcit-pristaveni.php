@@ -21,7 +21,7 @@ foreach ((is_array($C['when']['items'] ?? null) ? $C['when']['items'] : []) as $
 $titleSection = '<section>' .
     '<h1 data-cms-key="web.jak_pujcit_pristaveni.h1">' . ($C['h1'] ?? '') . '</h1>' .
     '<p data-cms-key="web.jak_pujcit_pristaveni.intro">' . ($C['intro'] ?? '') . '</p>' .
-    '<p>&nbsp;</p><p>&nbsp;</p>' .
+    '<p>&nbsp;</p>' .
     '<h2 data-cms-key="web.jak_pujcit_pristaveni.when.title">' . ($C['when']['title'] ?? '') . '</h2>' .
     '<ul>' . $whenLis . '</ul>' .
     '</section>';
@@ -64,11 +64,11 @@ foreach ((is_array($C['pricing']['items'] ?? null) ? $C['pricing']['items'] : []
 $pricingHtml = '<section class="main2">' .
     '<h2 data-cms-key="web.jak_pujcit_pristaveni.pricing.title">' . ($C['pricing']['title'] ?? '') . '</h2>' .
     '<p data-cms-key="web.jak_pujcit_pristaveni.pricing.lead">' . ($C['pricing']['lead'] ?? '') . '</p>' .
-    '<p>&nbsp;</p>' .
+    '<p class="sp">&nbsp;</p>' .
     '<ul>' . $priceLis . '</ul>' .
-    '<p>&nbsp;</p>' .
+    '<p class="sp">&nbsp;</p>' .
     '<p data-cms-key="web.jak_pujcit_pristaveni.pricing.example">' . ($C['pricing']['example'] ?? '') . '</p>' .
-    '<p>&nbsp;</p><p>&nbsp;</p>' .
+    '<p>&nbsp;</p>' .
     '</section>';
 
 // --- Section 5: FAQ ---
@@ -94,11 +94,17 @@ foreach ((is_array($C['cta']['buttons'] ?? null) ? $C['cta']['buttons'] : []) as
 $finalCtaSection = '<section>' .
     '<h2 data-cms-key="web.jak_pujcit_pristaveni.cta.title">' . ($C['cta']['title'] ?? '') . '</h2>' .
     '<p data-cms-key="web.jak_pujcit_pristaveni.cta.text">' . ($C['cta']['text'] ?? '') . '</p>' .
-    '<p>&nbsp;</p><p>&nbsp;</p>' .
+    '<p>&nbsp;</p>' .
     '<p>' . $ctaButtons . '</p>' .
     '</section>';
 
-$content = '<main id="content"><div class="container">' . $bc .
+// Kompaktnejsi rozestupy na teto strance — vsechny mezery na ~1/2.
+$pageStyle = '<style>'
+    . '[data-tag="Přistavení motocyklu"].ccontent section{margin-bottom:1.25rem}'
+    . '[data-tag="Přistavení motocyklu"] p.sp{margin:0;font-size:0.5em}'
+    . '</style>';
+
+$content = $pageStyle . '<main id="content"><div class="container">' . $bc .
     '<div data-tag="Přistavení motocyklu" class="sections ccontent">' .
     $titleSection .
     $whyHtml .

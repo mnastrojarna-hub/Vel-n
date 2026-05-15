@@ -94,41 +94,19 @@ $headerHtml = '<div class="moto-detail-header"><div>'
 $motoDesc = localized($moto, 'description');
 $descHtml = '<div class="moto-shortdesc">';
 if ($motoDesc !== '') {
-    $descHtml .= '<div class="wbox"><p>' . htmlspecialchars($motoDesc) . '</p></div><p>&nbsp;</p>';
+    // Pokud Velín uložil rich-text HTML (tagy), pustíme přes sanitizer.
+    // Jinak plain text → escape + zachovat odřádkování (nl2br).
+    $rendered = (strpos($motoDesc, '<') !== false)
+        ? sanitizeHtml($motoDesc)
+        : '<p>' . nl2br(htmlspecialchars($motoDesc)) . '</p>';
+    $descHtml .= '<div class="wbox moto-desc-rich">' . $rendered . '</div><p>&nbsp;</p>';
 }
-$features = [];
-// Výkon (kW + cca koní, pokud máme power_hp)
-if (!empty($moto['power_kw'])) {
-    $kwBullet = htmlspecialchars($moto['power_kw']) . ' kW';
-    if (!empty($moto['power_hp'])) $kwBullet .= ' (cca ' . htmlspecialchars($moto['power_hp']) . ' ' . te('detail.hpUnit') . ')';
-    $features[] = '<strong>' . te('detail.specPower') . ':</strong> ' . $kwBullet;
-}
-// Typ (kategorie)
-if (!empty($moto['category'])) $features[] = '<strong>' . te('detail.specType') . ':</strong> ' . htmlspecialchars($moto['category']);
-// Motor: ccm + typ + převodovka v jednom bulletu (jako na originálním webu)
-$motorParts = [];
-if (!empty($moto['engine_cc'])) $motorParts[] = htmlspecialchars($moto['engine_cc']) . ' ccm';
-if (!empty($moto['engine_type'])) $motorParts[] = htmlspecialchars($moto['engine_type']);
-if (!empty($moto['transmission'])) $motorParts[] = htmlspecialchars($moto['transmission']);
-if ($motorParts) $features[] = '<strong>' . te('detail.specEngine') . ':</strong> ' . implode(', ', $motorParts);
-// Pohon
-if (!empty($moto['drivetrain'])) {
-    $dtMap = ['chain' => t('detail.drivetrainChain'), 'shaft' => t('detail.drivetrainShaft'), 'belt' => t('detail.drivetrainBelt')];
-    $features[] = '<strong>' . te('detail.specDrivetrain') . ':</strong> ' . htmlspecialchars($dtMap[$moto['drivetrain']] ?? $moto['drivetrain']);
-}
-// Spotřeba
-if (!empty($moto['fuel_consumption_l100km'])) $features[] = '<strong>' . te('detail.specFuelConsumption') . ':</strong> cca ' . htmlspecialchars($moto['fuel_consumption_l100km']) . ' l/100 km';
-// Vhodná pro
-if (!empty($moto['ideal_usage'])) $features[] = '<strong>' . te('detail.specSuitableFor') . ':</strong> ' . htmlspecialchars($moto['ideal_usage']);
+// Sekce „Základní údaje" — vybrané parametry řídí Velín přes sloupec short_desc_fields (text[]).
+$features = array_map(function ($i) { return '<strong>' . $i['label'] . ':</strong> ' . $i['value']; }, buildShortDescItems($moto));
 if ($features) {
     $descHtml .= '<h2>' . te('detail.shortDesc') . '</h2><ul>';
     foreach ($features as $f) { $descHtml .= '<li>' . $f . '</li>'; }
     $descHtml .= '</ul><p>&nbsp;</p>';
-}
-// "Pro koho je motorka vhodná?" — volný HTML/text, plní se ve Velíně (suitable_for sloupec)
-$suitableFor = localized($moto, 'suitable_for');
-if ($suitableFor !== '') {
-    $descHtml .= '<h3>' . te('detail.suitableForTitle') . '</h3>' . sanitizeHtml($suitableFor);
 }
 if (!empty($moto['features'])) {
     $descHtml .= '<h3>' . te('detail.featuresAdvantages') . '</h3><ul>';
@@ -215,17 +193,14 @@ if (!empty($moto['min_rental_days'])) $specsRows[] = [t('detail.specMinRental'),
 if (!empty($moto['max_rental_days'])) {
     $specsRows[] = [t('detail.specMaxRental'), t('detail.daysUnit', ['count' => (int)$moto['max_rental_days']])];
 }
-if (!empty($moto['ideal_usage'])) $specsRows[] = [t('detail.specIdealFor'), $moto['ideal_usage']];
 
-// Popis — na celý řádek nahoře (desktop i mobil)
-$descSpecsHtml = '<section class="moto-desc-block">';
-$descSpecsHtml .= '<h2>' . te('detail.descTitle') . '</h2><p>' . htmlspecialchars($motoDesc !== '' ? $motoDesc : ($moto['model'] ?? '')) . '</p>';
+// Návod / dokumenty — na celý řádek (popis motorky je už pod fotkou v sekci moto-shortdesc)
 // Návod: PDF (manual_url ze storage) má přednost před externím odkazem (manual_external_url).
 $manualHref = !empty($moto['manual_url']) ? $moto['manual_url'] : (!empty($moto['manual_external_url']) ? $moto['manual_external_url'] : '');
+$descSpecsHtml = '';
 if ($manualHref !== '') {
-    $descSpecsHtml .= '<p>&nbsp;</p><p><a class="btn btngreen" href="' . htmlspecialchars($manualHref) . '" target="_blank" rel="noopener">' . te('detail.userManual') . '</a></p>';
+    $descSpecsHtml .= '<section class="moto-desc-block"><p><a class="btn btngreen" href="' . htmlspecialchars($manualHref) . '" target="_blank" rel="noopener">' . te('detail.userManual') . '</a></p></section>';
 }
-$descSpecsHtml .= '</section>';
 
 // Technická specifikace — na desktopu dvě tabulky vedle sebe, na mobilu zůstává jedna (původní layout)
 $descSpecsHtml .= '<section class="moto-specs"><h2>' . te('detail.specsTitle') . '</h2>';
@@ -552,7 +527,7 @@ $catBlock = !empty($moto['category']) ? ',"category":' . json_encode((string)$mo
 $colorBlock = !empty($moto['color']) ? ',"color":' . json_encode((string)$moto['color'], JSON_UNESCAPED_UNICODE) : '';
 $skuBlock = !empty($moto['spz']) ? ',"sku":' . json_encode((string)$moto['spz']) : '';
 
-$descForSchema = $motoDesc !== '' ? $motoDesc : ($moto['model'] ?? '');
+$descForSchema = $motoDesc !== '' ? trim(strip_tags($motoDesc)) : ($moto['model'] ?? '');
 
 $productSchema = '
   <script type="application/ld+json">

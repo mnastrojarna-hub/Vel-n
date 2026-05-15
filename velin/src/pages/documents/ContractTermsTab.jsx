@@ -61,22 +61,66 @@ export default function ContractTermsTab() {
   const [preview, setPreview] = useState(null)
   const [translatingType, setTranslatingType] = useState(null)
   const [trMsg, setTrMsg] = useState({}) // type -> { ok, text }
+  const [bulk, setBulk] = useState(null) // null | { text } | { text, done:true }
 
-  async function handleTranslate(tpl) {
+  // Přeloží naráz všechny smluvní šablony do všech 6 jazyků — přeskočí to, co
+  // už je hotové, každý jazyk 3× zkusí. Pro jednorázové „dožeň všechno".
+  async function handleTranslateAll() {
+    setBulk({ text: 'Načítám šablony…' })
+    const { data: rows, error: err } = await supabase
+      .from('document_templates')
+      .select('id,type,name,content_translations')
+      .in('type', CONTRACT_TYPES.map(c => c.type))
+      .order('type')
+    if (err) { setBulk({ text: 'Chyba: ' + err.message, done: true }); return }
+    const list = rows || []
+    let totalDone = 0, totalFail = 0
+    for (let i = 0; i < list.length; i++) {
+      const row = list[i]
+      const label = CONTRACT_TYPES.find(c => c.type === row.type)?.label || row.type
+      const already = Object.keys(row.content_translations || {}).filter(k => TRANSLATE_TARGET_LANGS.includes(k))
+      const todo = TRANSLATE_TARGET_LANGS.filter(l => !already.includes(l))
+      for (const lang of todo) {
+        setBulk({ text: `(${i + 1}/${list.length}) ${label} → ${lang} …  [hotovo ${totalDone}, selhalo ${totalFail}]` })
+        let ok = false
+        for (let attempt = 1; attempt <= 3 && !ok; attempt++) {
+          if (attempt > 1) await new Promise(r => setTimeout(r, 2500))
+          const res = await translateDocument({ table: 'document_templates', id: row.id, target_langs: [lang] })
+          if (res?.success && res.translations?.[lang]) ok = true
+        }
+        if (ok) totalDone++; else totalFail++
+      }
+    }
+    setBulk({ text: totalFail ? `Hotovo s chybami — přeloženo ${totalDone}, selhalo ${totalFail}. Klikni znovu „Přeložit vše" pro dokončení.` : `Hotovo — všechny smluvní texty přeloženy do 6 jazyků (${totalDone} překladů).`, done: true })
+    load()
+  }
+
+  async function handleTranslate(tpl, { force = false } = {}) {
     if (!tpl?.id) return
     setTranslatingType(tpl.type)
-    setTrMsg(m => ({ ...m, [tpl.type]: { ok: true, text: 'Překládám…' } }))
-    // Po jednom jazyce (víc jazyků naráz padalo na HTTP 546 — limit edge fn).
-    const done = []
+    const already = force ? [] : Object.keys(tpl.content_translations || {}).filter(k => TRANSLATE_TARGET_LANGS.includes(k))
+    const todo = TRANSLATE_TARGET_LANGS.filter(l => !already.includes(l))
+    if (todo.length === 0) {
+      setTranslatingType(null)
+      setTrMsg(m => ({ ...m, [tpl.type]: { ok: true, text: `Vše už přeloženo (${already.join(', ')}). Pro nové přeložení použij „Přeložit znovu vše".` } }))
+      return
+    }
+    const done = [...already]
     const failed = []
-    for (const lang of TRANSLATE_TARGET_LANGS) {
-      setTrMsg(m => ({ ...m, [tpl.type]: { ok: true, text: `Překládám… (${lang}, hotovo: ${done.join(', ') || '–'})` } }))
-      const res = await translateDocument({ table: 'document_templates', id: tpl.id, target_langs: [lang] })
-      if (res?.success && res.translations?.[lang]) done.push(lang)
-      else failed.push(`${lang}: ${res?.error || (res?.errors && Object.values(res.errors)[0]) || 'chyba'}`)
+    // Po jednom jazyce, s opakováním (transientní rate-limit / limit edge fn).
+    for (const lang of todo) {
+      setTrMsg(m => ({ ...m, [tpl.type]: { ok: true, text: `Překládám… ${lang} · hotovo: ${done.join(', ') || '–'}${failed.length ? ` · selhalo: ${failed.map(f => f.split(':')[0]).join(', ')}` : ''}` } }))
+      let ok = false, lastErr = ''
+      for (let attempt = 1; attempt <= 3 && !ok; attempt++) {
+        if (attempt > 1) await new Promise(r => setTimeout(r, 2500))
+        const res = await translateDocument({ table: 'document_templates', id: tpl.id, target_langs: [lang] })
+        if (res?.success && res.translations?.[lang]) ok = true
+        else lastErr = (res?.errors && Object.values(res.errors)[0]) || (res?.details && Object.values(res.details)[0]) || res?.error || 'neznámá chyba'
+      }
+      if (ok) done.push(lang); else failed.push(`${lang}: ${lastErr}`)
     }
     setTranslatingType(null)
-    setTrMsg(m => ({ ...m, [tpl.type]: { ok: failed.length === 0, text: failed.length ? `Přeloženo: ${done.join(', ') || '–'} · selhalo — ${failed.join('; ')}` : `Přeloženo do: ${done.join(', ')}` } }))
+    setTrMsg(m => ({ ...m, [tpl.type]: { ok: failed.length === 0, text: failed.length ? `Přeloženo: ${done.join(', ') || '–'} · selhalo — ${failed.join('; ')} (klikni „Přeložit" znovu pro dokončení)` : `Hotovo — přeloženo do: ${done.join(', ')}` } }))
     load()
   }
 
@@ -107,6 +151,13 @@ export default function ContractTermsTab() {
       </div>
 
       {error && <div className="p-3 rounded-card" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>{error}</div>}
+
+      <div className="flex items-center gap-3 flex-wrap">
+        <Button green onClick={handleTranslateAll} disabled={!!bulk && !bulk.done}>
+          {bulk && !bulk.done ? 'Překládám…' : '🌍 Přeložit všechny smluvní texty do 6 jazyků'}
+        </Button>
+        {bulk && <span className="text-sm" style={{ color: bulk.done ? '#15803d' : '#6b7a72' }}>{bulk.text}</span>}
+      </div>
 
       <div className="grid grid-cols-1 gap-4">
         {CONTRACT_TYPES.map(ct => {
@@ -151,6 +202,9 @@ export default function ContractTermsTab() {
                     <Button onClick={() => handleTranslate(tpl)} disabled={translatingType === ct.type}>
                       {translatingType === ct.type ? 'Překládám…' : '🌍 Přeložit'}
                     </Button>
+                  )}
+                  {tpl && translatingType !== ct.type && Object.keys(tpl.content_translations || {}).filter(k => TRANSLATE_TARGET_LANGS.includes(k)).length > 0 && (
+                    <Button onClick={() => handleTranslate(tpl, { force: true })}>Přeložit znovu vše</Button>
                   )}
                   <Button green onClick={() => setEditing(tpl || { type: ct.type, name: ct.label, content_html: '', version: 0 })}>
                     {tpl ? 'Upravit' : 'Vytvořit'}

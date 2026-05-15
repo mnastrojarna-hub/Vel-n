@@ -14,6 +14,110 @@ Deno.serve(async (req: Request) => {
   try {
     const body: PaymentRequest = await req.json()
 
+    // --- Sync fallback: ověř Stripe setup-mode session a potvrď free booking ---
+    // Volá /potvrzeni page, pokud webhook ještě nepotvrdil booking. Nezávislé na
+    // event delivery — jistota, že 0 Kč rezervace dojde do paid stavu i bez webhooku.
+    if ((body as Record<string, unknown>).action === 'verify_setup_session') {
+      const sessionId = (body as Record<string, unknown>).session_id as string | undefined
+      if (!sessionId) {
+        return new Response(JSON.stringify({ success: false, error: 'Missing session_id' }),
+          { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } })
+      }
+      const supabaseAdmin = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+      )
+      try {
+        const session = await stripe.checkout.sessions.retrieve(sessionId)
+        const md = (session.metadata || {}) as Record<string, string>
+        if (session.status !== 'complete' || session.mode !== 'setup' || md.action !== 'verify_free_booking') {
+          return new Response(JSON.stringify({ success: false, status: session.status, mode: session.mode }),
+            { headers: { ...CORS, 'Content-Type': 'application/json' } })
+        }
+        const bookingId = md.booking_id || (session.client_reference_id as string | null) || null
+        if (!bookingId) {
+          return new Response(JSON.stringify({ success: false, error: 'No booking_id in session' }),
+            { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } })
+        }
+        const { data: bk } = await supabaseAdmin.from('bookings')
+          .select('payment_status').eq('id', bookingId).single()
+        if (bk?.payment_status === 'paid') {
+          return new Response(JSON.stringify({ success: true, already_paid: true, booking_id: bookingId }),
+            { headers: { ...CORS, 'Content-Type': 'application/json' } })
+        }
+        // ATOMIC confirm_payment — RPC vrací was_already_paid, takže paralelní webhook
+        // + naše fallback volání se navzájem nezduplikují (jen jeden pošle mail).
+        const { data: confirmData, error: rpcErr } = await supabaseAdmin.rpc('confirm_payment', {
+          p_booking_id: bookingId, p_method: 'card',
+        })
+        if (rpcErr) {
+          try {
+            await supabaseAdmin.from('debug_log').insert({
+              source: 'process-payment', action: 'verify_setup_session_failed',
+              component: 'free_booking', status: 'error',
+              error_message: rpcErr.message,
+              request_data: { session_id: sessionId, booking_id: bookingId },
+            })
+          } catch { /* ignore */ }
+          return new Response(JSON.stringify({ success: false, error: rpcErr.message }),
+            { status: 500, headers: { ...CORS, 'Content-Type': 'application/json' } })
+        }
+        const wasAlreadyPaid = !!(confirmData as Record<string, unknown> | null)?.was_already_paid
+        try {
+          await supabaseAdmin.from('debug_log').insert({
+            source: 'process-payment', action: 'verify_setup_session_confirmed',
+            component: 'free_booking', status: 'ok',
+            request_data: { session_id: sessionId, booking_id: bookingId, was_already_paid: wasAlreadyPaid },
+          })
+        } catch { /* ignore */ }
+        // Jen jedna paralelní cesta posílá mail — pokud webhook stihl dřív (was_already_paid=true),
+        // skipujeme. Jinak posíláme booking_reserved (stejný flow jako confirmBookingPayment).
+        if (!wasAlreadyPaid) {
+          try {
+            const { data: booking } = await supabaseAdmin.from('bookings')
+              .select('booking_source, start_date, end_date, total_price, motorcycles(model, manual_url), profiles(full_name, email)')
+              .eq('id', bookingId).single()
+            const profile = (booking?.profiles ?? null) as { full_name?: string; email?: string } | null
+            if (profile?.email) {
+              const moto = (booking?.motorcycles ?? null) as { model?: string; manual_url?: string } | null
+              const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
+              const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+              await fetch(`${SUPABASE_URL}/functions/v1/send-booking-email`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SERVICE_KEY}`, 'apikey': SERVICE_KEY },
+                body: JSON.stringify({
+                  type: 'booking_reserved',
+                  booking_id: bookingId,
+                  customer_email: profile.email,
+                  customer_name: profile.full_name || '',
+                  motorcycle: moto?.model || '',
+                  start_date: booking?.start_date,
+                  end_date: booking?.end_date,
+                  total_price: booking?.total_price,
+                  source: booking?.booking_source || 'web',
+                  manual_url: moto?.manual_url || '',
+                }),
+              })
+            }
+          } catch (e) {
+            try {
+              await supabaseAdmin.from('debug_log').insert({
+                source: 'process-payment', action: 'verify_setup_session_mail_failed',
+                component: 'free_booking', status: 'error',
+                error_message: (e as Error).message,
+                request_data: { session_id: sessionId, booking_id: bookingId },
+              })
+            } catch { /* ignore */ }
+          }
+        }
+        return new Response(JSON.stringify({ success: true, confirmed: true, booking_id: bookingId, already_paid: wasAlreadyPaid }),
+          { headers: { ...CORS, 'Content-Type': 'application/json' } })
+      } catch (e) {
+        return new Response(JSON.stringify({ success: false, error: (e as Error).message }),
+          { status: 500, headers: { ...CORS, 'Content-Type': 'application/json' } })
+      }
+    }
+
     // --- Web anonymous checkout (no auth required) ---
     if (body.source === 'web' && body.booking_id) {
       const supabaseAdmin = createClient(
@@ -111,14 +215,17 @@ Deno.serve(async (req: Request) => {
         )
       }
 
-      // Ověření, že sleva je skutečně 100%
+      // Ověření, že sleva pokryje 100% ceny (percent=100, fixed >= originalPrice, nebo voucher >= originalPrice)
       let isTrue100 = false
+      const originalPrice = (dbBooking?.total_price || 0) + (dbBooking?.discount_amount || 0)
       if (dbBooking?.promo_code_id) {
         const { data: promo } = await supabase.from('promo_codes')
           .select('type, value')
           .eq('id', dbBooking.promo_code_id)
           .single()
         if (promo && promo.type === 'percent' && promo.value >= 100) {
+          isTrue100 = true
+        } else if (promo && promo.type === 'fixed' && promo.value >= originalPrice && originalPrice > 0) {
           isTrue100 = true
         }
       }
@@ -127,7 +234,6 @@ Deno.serve(async (req: Request) => {
           .select('amount')
           .eq('id', dbBooking.voucher_id)
           .single()
-        const originalPrice = (dbBooking.total_price || 0) + (dbBooking.discount_amount || 0)
         if (voucher && voucher.amount >= originalPrice && originalPrice > 0) {
           isTrue100 = true
         }

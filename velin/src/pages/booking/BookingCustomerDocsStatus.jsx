@@ -35,22 +35,28 @@ function SideStatus({ docs, label }) {
   )
 }
 
-export default function BookingCustomerDocsStatus({ userId }) {
+export default function BookingCustomerDocsStatus({ userId, bookingId }) {
   const [loading, setLoading] = useState(true)
   const [profile, setProfile] = useState(null)
   const [verificationDocs, setVerificationDocs] = useState([])
+  const [licenseRequired, setLicenseRequired] = useState(null)
 
-  useEffect(() => { if (userId) loadStatus() }, [userId])
+  useEffect(() => { if (userId) loadStatus() }, [userId, bookingId])
 
   async function loadStatus() {
     setLoading(true)
     try {
-      const [docsRes, profRes] = await Promise.all([
+      const promises = [
         supabase.from('documents').select('id, type, file_path, metadata, created_at').eq('user_id', userId).in('type', VERIFICATION_TYPES).order('created_at', { ascending: false }),
         supabase.from('profiles').select('id, license_expiry, license_group, license_number, id_number').eq('id', userId).single(),
-      ])
+      ]
+      if (bookingId) {
+        promises.push(supabase.from('bookings').select('motorcycles(license_required)').eq('id', bookingId).single())
+      }
+      const [docsRes, profRes, bkRes] = await Promise.all(promises)
       setVerificationDocs(docsRes.data || [])
       setProfile(profRes.data || null)
+      setLicenseRequired(bkRes?.data?.motorcycles?.license_required ?? null)
     } catch {}
     setLoading(false)
   }
@@ -64,10 +70,35 @@ export default function BookingCustomerDocsStatus({ userId }) {
     )
   }
 
+  // Dětská motorka — doklady nepotřeba
+  if (licenseRequired === 'N') {
+    return (
+      <Card>
+        <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
+          <h3 className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>
+            Doklady totožnosti zákazníka
+          </h3>
+        </div>
+        <div className="p-3 rounded-lg" style={{ background: '#dcfce7', border: '1px solid #86efac' }}>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span style={{ fontSize: 16 }}>🧒</span>
+            <span className="text-sm font-bold" style={{ color: '#1a8a18' }}>
+              Dětská motorka — doklady nepotřeba, kódy k boxu uvolněny automaticky
+            </span>
+          </div>
+          <div className="text-xs mt-2" style={{ color: '#1a2e22' }}>
+            Tato motorka má <code>license_required = 'N'</code>, takže pro její zapůjčení nejsou potřeba OP/pas ani ŘP.
+            Pokud si stejný zákazník později rezervuje motorku vyžadující ŘP, systém ho standardně vyzve k nahrání dokladů.
+          </div>
+        </div>
+      </Card>
+    )
+  }
+
   const {
     licensePhotos: licenseDocs, idCardPhotos: idCardDocs, passportPhotos: passportDocs,
     hasLicense, hasIdentity, hasLicensePhoto, licenseNumberFilled, idNumberFilled, allOk,
-  } = computeDocVerification(verificationDocs, profile)
+  } = computeDocVerification(verificationDocs, profile, licenseRequired)
   const anyManual = verificationDocs.some(d => d?.metadata?.mindee_status === 'failed')
 
   const okCount = verificationDocs.filter(d => d?.metadata?.mindee_status === 'ok').length

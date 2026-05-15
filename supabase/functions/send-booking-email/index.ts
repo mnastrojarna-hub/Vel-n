@@ -759,25 +759,12 @@ serve(async (req) => {
       })
     }
 
-    // 🚫 Door-codes mail jde výhradně přes SQL fn `send_door_codes_email`,
-    // která čte šablonu `door_codes` z `email_templates` a posílá přes Resend napřímo.
-    // Tato edge fn zůstává jako pojistka — pokud někdo nedopatřením zavolá `type='door_codes'`,
-    // request tiše zahodíme, aby nevznikl duplikátní mail.
-    if (type === 'door_codes') {
-      try {
-        await supabase.from('debug_log').insert({
-          source: 'send-booking-email',
-          action: 'door_codes_mail_blocked',
-          component: 'edge-function',
-          status: 'info',
-          request_data: { type: type || null, booking_id: booking_id || null },
-        })
-      } catch { /* ignore */ }
-      return new Response(JSON.stringify({ skipped: true, reason: 'door_codes_disabled' }), {
-        status: 200,
-        headers: { ...CORS, 'Content-Type': 'application/json' },
-      })
-    }
+    // door_codes: edge fn nyní mail rendruje + posílá. Dřív byl tento type
+    // blokován s tím že "jde výhradně přes SQL fn send_door_codes_email" — to ale
+    // selhalo, protože SQL fn potřebovala RESEND_API_KEY v `app_settings`/`vault`,
+    // což na produkci nebylo nastavené (edge fns klíč berou přes `Deno.env`).
+    // Sjednoceno se zbytkem mailů — edge fn = jediný zdroj pravdy pro odeslání.
+    // SQL fn `send_door_codes_email` teď volá tuhle edge fn přes pg_net.
 
 
     const vars: Record<string, string> = {
@@ -1007,7 +994,7 @@ ${vars.door_codes_block}
       } else if (type === 'booking_completed') {
         templateHtml = `<p>Dobr\u00fd den,</p>
 <p>d\u011bkujeme, \u017ee jste vyu\u017eili slu\u017eeb MotoGo24.</p>
-<p>Proto\u017ee je pro n\u00e1s zp\u011btn\u00e1 vazba velmi d\u016fle\u017eit\u00e1, budeme r\u00e1di, pokud n\u00e1m zanech\u00e1te recenzi na <a href="${vars.google_review_url || GOOGLE_REVIEW_URL_DEFAULT}" style="color:#2563eb">Googlu</a> nebo na <a href="${vars.facebook_review_url || FB_URL}" style="color:#2563eb">Facebooku</a>.</p>
+<p>Proto\u017ee je pro n\u00e1s zp\u011btn\u00e1 vazba velmi d\u016fle\u017eit\u00e1, budeme r\u00e1di, pokud n\u00e1m zanech\u00e1te recenzi na <a href="${vars.google_review_url || GOOGLE_REVIEW_URL_DEFAULT}" style="display:inline-block;background:#74FB71;color:#0a1f15;font-size:12px;font-weight:700;text-decoration:none;padding:6px 14px;border-radius:14px;margin:0 4px">Google</a> nebo na <a href="${vars.facebook_review_url || FB_URL}" style="display:inline-block;background:#74FB71;color:#0a1f15;font-size:12px;font-weight:700;text-decoration:none;padding:6px 14px;border-radius:14px;margin:0 4px">Facebook</a>.</p>
 <p>Pokud m\u00e1te n\u011bjak\u00e9 zaj\u00edmav\u00e9 fotografie nebo videa z va\u0161\u00ed cesty, kter\u00e9 byste s n\u00e1mi cht\u011bli sd\u00edlet, za\u0161lete n\u00e1m je, pros\u00edm, na e-mail: <a href="mailto:info@motogo24.cz" style="color:#2563eb">info@motogo24.cz</a>. R\u00e1di je p\u0159\u00edpadn\u011b zve\u0159ejn\u00edme na na\u0161em webu nebo soci\u00e1ln\u00edch s\u00edt\u00edch.</p>
 ${vars.discount_code ? `<div style="background:#dcfce7;border-radius:12px;padding:16px;margin:20px 0;border:1px solid #86efac"><p style="margin:0;font-size:14px;color:#166534">Jako mal\u00e9 pod\u011bkov\u00e1n\u00ed za poskytnutou d\u016fv\u011bru p\u0159ikl\u00e1d\u00e1me slevov\u00fd k\u00f3d <strong>200 K\u010d</strong> na va\u0161i p\u0159\u00ed\u0161t\u00ed rezervaci: <strong style="font-family:monospace;font-size:16px;letter-spacing:2px">${vars.discount_code}</strong></p></div>` : ''}
 <p>V p\u0159\u00edloze naleznete kone\u010dnou fakturu za va\u0161i rezervaci.</p>

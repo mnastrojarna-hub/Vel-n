@@ -392,14 +392,26 @@ function _i18nCmsOverlay() {
 
         $val = $r['value'] ?? null;
         // per-language overlay z translations
-        if ($lang !== 'cs' && !empty($r['translations']) && is_array($r['translations'])) {
-            $tr = $r['translations'];
-            if (isset($tr[$lang])) {
-                $cand = is_array($tr[$lang])
-                    ? ($tr[$lang]['value'] ?? null)
-                    : $tr[$lang];
-                if (is_string($cand) && $cand !== '') $val = $cand;
+        if ($lang !== 'cs') {
+            // Pro cizí jazyk hledáme překlad v JSONB sloupci `translations`.
+            // KLÍČOVÉ: pokud překlad pro tento jazyk chybí (auto-překlad ještě
+            // neproběhl, nebo selhal edge fn `translate-content`), klíč VŮBEC
+            // nezařazujeme do overlay — ať se text vezme ze statického
+            // `lang/<lang>.php`. Jinak by český `value` přepsal hezký překlad
+            // z lang souboru (stejná logika jako `fetchWebTexts` v supabase.php).
+            $cand = null;
+            if (!empty($r['translations']) && is_array($r['translations'])) {
+                $tr = $r['translations'];
+                if (isset($tr[$lang])) {
+                    $cand = is_array($tr[$lang])
+                        ? ($tr[$lang]['value'] ?? null)
+                        : $tr[$lang];
+                }
             }
+            if (!is_string($cand) || $cand === '') {
+                continue;
+            }
+            $val = $cand;
         }
         if (is_string($val) || is_numeric($val)) {
             $out[$tail] = (string)$val;

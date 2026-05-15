@@ -122,6 +122,33 @@ Deno.serve(async (req: Request) => {
 
       if (session.mode === 'setup' && metadata.action === 'add_card') {
         await syncCardFromSetupSession(supabase, session)
+      } else if (session.mode === 'setup' && metadata.action === 'verify_free_booking' && resolvedBookingId) {
+        // 0 Kč rezervace přes Stripe Checkout setup — karta ověřena, žádný charge.
+        // Spustíme stejný flow jako u placené rezervace: confirm_payment + booking_reserved mail
+        // + door codes (trigger) + KF generace. Bez tohoto by zákazník nedostal mail ani doklady.
+        try {
+          await confirmBookingPayment(supabase, resolvedBookingId, session.id, stripePaymentIntentId)
+          try {
+            await supabase.from('debug_log').insert({
+              source: 'webhook-receiver', action: 'free_verify_confirmed',
+              component: 'stripe', status: 'ok',
+              request_data: { session_id: session.id, booking_id: resolvedBookingId },
+            })
+          } catch { /* ignore */ }
+        } catch (e) {
+          console.error('[webhook] free verify exception:', (e as Error).message)
+          try {
+            await supabase.from('debug_log').insert({
+              source: 'webhook-receiver', action: 'free_verify_confirm_failed',
+              component: 'stripe', status: 'error',
+              error_message: (e as Error).message,
+              request_data: { session_id: session.id, booking_id: resolvedBookingId },
+            })
+          } catch { /* ignore */ }
+        }
+        if (session.customer) {
+          try { await syncCardsForCustomer(supabase, session.customer as string) } catch (e) { console.warn('[webhook] card sync failed:', (e as Error).message) }
+        }
       } else if ((paymentType === 'booking' || paymentType === 'extension') && resolvedBookingId) {
         await confirmBookingPayment(supabase, resolvedBookingId, session.id, stripePaymentIntentId)
         // Bundled e-shop upsell paid in the same session — confirm shop side too (separate invoice + email)

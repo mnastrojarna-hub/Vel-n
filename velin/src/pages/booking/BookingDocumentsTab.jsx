@@ -179,7 +179,7 @@ export default function BookingDocumentsTab({ bookingId, userId }) {
     <div className="space-y-5">
       {error && <div className="p-3 rounded-card" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>{error}</div>}
       {debug && <div className="p-3 rounded-card mb-3" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 13, fontFamily: 'monospace', color: '#78350f' }}><strong>DIAG ...{bookingId?.slice(-8)}</strong>{debug.errors.length > 0 && <span style={{ color: '#dc2626' }}> ERR: {debug.errors.join('|')}</span>} docs:{debug.docsFiltered||0} gen:{debug.gen?.length||0} inv:{debug.inv?.length||0}</div>}
-      {userId && <BookingCustomerDocsStatus userId={userId} />}
+      {userId && <BookingCustomerDocsStatus userId={userId} bookingId={bookingId} />}
       <div className="flex gap-3 flex-wrap">
         <Button green onClick={() => handleGenerate('rental_contract')} disabled={generating === 'rental_contract'}>{generating === 'rental_contract' ? 'Generuji...' : '+ Vygenerovat smlouvu'}</Button>
         <Button green onClick={() => handleGenerate('handover_protocol')} disabled={generating === 'handover_protocol'}>{generating === 'handover_protocol' ? 'Generuji...' : '+ Vygenerovat předávací protokol'}</Button>

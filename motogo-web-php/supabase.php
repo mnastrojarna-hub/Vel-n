@@ -483,11 +483,30 @@ class SupabaseClient {
     public function fetchDocumentTemplate($type) {
         $result = $this->query(
             'document_templates',
-            'id,type,name,content_html,version,updated_at',
+            'id,type,name,content_html,version,updated_at,name_translations',
             ['type=eq.' . $type, 'active=eq.true'],
             'version.desc'
         );
         return $result ? ($result[0] ?? null) : null;
+    }
+
+    /**
+     * Mapa type → name_translations ({lang: "<přeložený název>"}) pro všechny aktivní
+     * smluvní šablony. Pro výpis karet na /jak-pujcit/dokumenty v jazyce návštěvníka.
+     * Vrací [] když sloupec ještě neexistuje (graceful degradace na i18n názvy).
+     */
+    public function fetchDocTemplateNameTranslations() {
+        $rows = $this->query('document_templates', 'type,name_translations,active', ['active=eq.true'], 'version.desc');
+        if (!is_array($rows)) return [];
+        $out = [];
+        foreach ($rows as $r) {
+            $t = $r['type'] ?? null;
+            if ($t === null || isset($out[$t])) continue;
+            $nt = $r['name_translations'] ?? null;
+            if (is_string($nt)) { $d = json_decode($nt, true); $nt = is_array($d) ? $d : null; }
+            if (is_array($nt)) $out[$t] = $nt;
+        }
+        return $out;
     }
 
     /**

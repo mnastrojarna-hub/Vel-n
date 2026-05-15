@@ -21,7 +21,7 @@ $titleSection = '<section>' .
     '<p data-cms-key="' . $kp . '.intro">' . ($C['intro'] ?? '') . '</p>' .
     '<p>&nbsp;</p>' .
     '<p><a aria-label="' . htmlspecialchars($tcta['aria'] ?? '') . '" class="btn btngreen" href="' . BASE_URL . ($tcta['href'] ?? '#') . '" data-cms-key="' . $kp . '.top_cta.button.label">' . ($tcta['label'] ?? '') . '</a></p>' .
-    '<p>&nbsp;</p><p>&nbsp;</p>' .
+    '<p>&nbsp;</p>' .
     '</section>';
 
 // --- Section 2 (main1): 2-col adresa + Google Maps embed ---
@@ -85,7 +85,7 @@ $main2Section = '<section class="main2">' .
     '</section>';
 
 // --- Section 5: FAQ ---
-$faqHtml = '<section>' .
+$faqHtml = '<section style="margin-bottom:1.25rem">' .
     '<h2 data-cms-key="' . $kp . '.faq.title">' . ($C['faq']['title'] ?? '') . '</h2>' .
     '<div class="tab-content"><div class="tab-pane active" id="all"><div class="gr2">';
 foreach ((is_array($C['faq']['items'] ?? null) ? $C['faq']['items'] : []) as $i => $f) {

@@ -12,9 +12,10 @@
  *   - smluvní šablony `document_templates` (VOP, smlouva, GDPR, protokoly) —
  *     `{placeholder}` proměnné zůstávají nepřeložené.
  *
- * Výsledek se uloží do JSONB sloupce cílové tabulky:
- *   custom_documents.translations         = { en: { title, description, content_html }, de: {...}, ... }
+ * Výsledek se uloží do JSONB sloupců cílové tabulky:
+ *   custom_documents.translations          = { en: { title, description, content_html }, de: {...}, ... }
  *   document_templates.content_translations = { en: "<html>", de: "<html>", ... }   (čte ho RPC get_document_translation)
+ *   document_templates.name_translations    = { en: "<název>", de: "<název>", ... }  (nadpis dokumentu na webu)
  *
  * POST /functions/v1/translate-document
  * Body: { table: 'custom_documents' | 'document_templates', id: string, target_langs?: string[] }
@@ -45,10 +46,12 @@ const LANG_NAMES: Record<string, string> = {
   nl: 'Dutch (Nederlands)',
   pl: 'Polish (Polski)',
 }
-// Text dokumenty → haiku (levné). PDF input → sonnet (haiku historicky PDF
-// document bloky nepodporoval spolehlivě, sonnet ano).
-const MODEL_TEXT = 'claude-haiku-4-5-20251001'
+// Pro kvalitu i délku výstupu (legal dokumenty mohou být desítky KB HTML)
+// používáme Sonnet pro vše — haiku má nižší cap na max_tokens a horší
+// instrukční stabilitu u dlouhého strukturovaného JSON.
+const MODEL_TEXT = 'claude-sonnet-4-6'
 const MODEL_PDF = 'claude-sonnet-4-6'
+const MAX_TOKENS = 32000
 
 function jsonResponse(body: Record<string, unknown>, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { ...CORS, 'Content-Type': 'application/json' } })
@@ -140,9 +143,10 @@ async function buildSource(
       hasPlaceholders: /\{\{?\s*[a-z_]+\s*\}?\}/i.test(String(row.content_html || '')),
     }
   }
-  // document_templates — překládá se jen obsah; název karty na webu řeší i18n.
+  // document_templates — překládá se obsah i název (název se ukládá do name_translations,
+  // obsah do content_translations; web bere podle jazyka, jinak fallback na i18n).
   return {
-    textFields: { content_html: String(row.content_html || '') },
+    textFields: { name: String(row.name || ''), content_html: String(row.content_html || '') },
     hasPlaceholders: true,
   }
 }
@@ -156,9 +160,25 @@ async function translateToLang(src: SourceDoc, langCode: string): Promise<Record
   userContent.push({
     type: 'text',
     text: src.pdf
-      ? `Translate the attached PDF document into ${langName}. Source metadata (Czech): ${JSON.stringify(src.textFields)}. Output the JSON object as specified.`
-      : `Translate this Czech document into ${langName}. Input JSON: ${JSON.stringify(src.textFields)}. Output the JSON object as specified.`,
+      ? `Translate the attached PDF document into ${langName}. Source metadata (Czech): ${JSON.stringify(src.textFields)}. Call the submit_translation tool with the translated values.`
+      : `Translate this Czech document into ${langName}. Czech source: ${JSON.stringify(src.textFields)}. Call the submit_translation tool with the translated values.`,
   })
+
+  // Tool-use forced output — model vyplní strukturu nativně přes API, žádné
+  // textové JSON parsování. Spolehlivé i pro dlouhý HTML obsah s uvozovkami.
+  const schemaProperties: Record<string, unknown> = {}
+  for (const k of Object.keys(src.textFields)) {
+    schemaProperties[k] = { type: 'string', description: `Translated ${k} (${langName}). Keep HTML structure intact for content_html.` }
+  }
+  // U PDF zdroj často nemá content_html, ale model ho má vrátit — přidáme ho do schématu.
+  if (src.pdf && !('content_html' in schemaProperties)) {
+    schemaProperties.content_html = { type: 'string', description: `Full translated document body as clean semantic HTML (${langName}).` }
+  }
+  const tool = {
+    name: 'submit_translation',
+    description: `Submit the ${langName} translation of the provided Czech document.`,
+    input_schema: { type: 'object', properties: schemaProperties, required: Object.keys(schemaProperties) },
+  }
 
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -169,8 +189,10 @@ async function translateToLang(src: SourceDoc, langCode: string): Promise<Record
     },
     body: JSON.stringify({
       model: src.pdf ? MODEL_PDF : MODEL_TEXT,
-      max_tokens: 16000,
+      max_tokens: MAX_TOKENS,
       system: systemPrompt(langName, langCode, src.hasPlaceholders),
+      tools: [tool],
+      tool_choice: { type: 'tool', name: 'submit_translation' },
       messages: [{ role: 'user', content: userContent }],
     }),
   })
@@ -184,22 +206,25 @@ async function translateToLang(src: SourceDoc, langCode: string): Promise<Record
   }
 
   const data = await response.json()
-  const text = (data?.content?.[0]?.text || '').trim()
-  let parsed: Record<string, unknown>
-  try {
-    parsed = JSON.parse(text)
-  } catch {
-    const start = text.indexOf('{')
-    const end = text.lastIndexOf('}')
-    if (start === -1 || end === -1 || end <= start) throw new Error(`Model nevrátil JSON (${langCode}): ${text.slice(0, 200)}`)
-    parsed = JSON.parse(text.slice(start, end + 1))
+  const stopReason = data?.stop_reason || ''
+  // Najdi tool_use blok — model je donucený zavolat naši submit_translation.
+  const toolUse = Array.isArray(data?.content)
+    ? data.content.find((c: { type?: string, name?: string }) => c?.type === 'tool_use' && c?.name === 'submit_translation')
+    : null
+  if (!toolUse || !toolUse.input || typeof toolUse.input !== 'object') {
+    const truncated = stopReason === 'max_tokens' ? ' [max_tokens — výstup useknutý, zkus víc tokenů]' : ''
+    const dump = JSON.stringify(data?.content || data).slice(0, 400)
+    throw new Error(`Model nevrátil tool_use (${langCode}, stop=${stopReason}${truncated}): ${dump}`)
   }
+  if (stopReason === 'max_tokens') {
+    console.warn(`translate-document ${langCode}: max_tokens=${MAX_TOKENS} — výstup může být nekompletní`)
+  }
+  const parsed = toolUse.input as Record<string, unknown>
 
   const out: Record<string, string> = {}
   for (const k of Object.keys(src.textFields)) {
     out[k] = typeof parsed[k] === 'string' ? parsed[k] as string : src.textFields[k]
   }
-  // content_html může chybět ve zdroji u PDF (zdroj měl jen title/description) — vrať ho přesto
   if (!('content_html' in out) && typeof parsed.content_html === 'string') {
     out.content_html = parsed.content_html as string
   }
@@ -260,15 +285,24 @@ serve(async (req: Request): Promise<Response> => {
 
     // Uložení:
     //  - custom_documents → JSONB `translations` = { lang: { title, description, content_html } }
-    //  - document_templates → JSONB `content_translations` = { lang: "<html string>" }
-    //    (sloupec + RPC get_document_translation už existují z migrace 20260503_i18n_customer_comms.sql)
-    const targetCol = table === 'document_templates' ? 'content_translations' : 'translations'
-    const existing = (row as Record<string, unknown>)[targetCol]
-    const merged: Record<string, unknown> = (existing && typeof existing === 'object') ? { ...existing as Record<string, unknown> } : {}
-    for (const [lang, t] of Object.entries(translations)) {
-      merged[lang] = table === 'document_templates' ? (t.content_html || '') : t
+    //  - document_templates → `content_translations` = { lang: "<html>" } (RPC get_document_translation)
+    //                       + `name_translations`    = { lang: "<přeložený název>" }
+    const mergeJsonb = (col: string, valueFor: (t: Record<string, string>) => unknown) => {
+      const existing = (row as Record<string, unknown>)[col]
+      const m: Record<string, unknown> = (existing && typeof existing === 'object') ? { ...existing as Record<string, unknown> } : {}
+      for (const [lang, t] of Object.entries(translations)) m[lang] = valueFor(t)
+      return m
     }
-    const { error: updErr } = await supabaseAdmin.from(table).update({ [targetCol]: merged }).eq('id', id)
+    let updatePayload: Record<string, unknown>
+    if (table === 'document_templates') {
+      updatePayload = {
+        content_translations: mergeJsonb('content_translations', t => t.content_html || ''),
+        name_translations: mergeJsonb('name_translations', t => t.name || ''),
+      }
+    } else {
+      updatePayload = { translations: mergeJsonb('translations', t => t) }
+    }
+    const { error: updErr } = await supabaseAdmin.from(table).update(updatePayload).eq('id', id)
     if (updErr) return jsonResponse({ error: 'DB update failed: ' + updErr.message }, 500)
 
     return jsonResponse({ success: true, translations, ...(Object.keys(errors).length ? { errors } : {}) })

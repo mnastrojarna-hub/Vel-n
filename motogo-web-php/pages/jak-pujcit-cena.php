@@ -26,7 +26,7 @@ foreach ((is_array($C['gear']['services']['items'] ?? null) ? $C['gear']['servic
 }
 
 $leftCol = '<div>' .
-    '<p>&nbsp;</p><p>&nbsp;</p>' .
+    '<p>&nbsp;</p>' .
     '<h2 data-cms-key="' . $kp . '.gear.basic.title">' . ($C['gear']['basic']['title'] ?? '') . '</h2>' .
     '<p data-cms-key="' . $kp . '.gear.basic.lead">' . ($C['gear']['basic']['lead'] ?? '') . '<br>&nbsp;</p>' .
     '<ul>' . $basicLis . '</ul>' .
@@ -35,7 +35,7 @@ $leftCol = '<div>' .
     '</div>';
 
 $rightCol = '<div>' .
-    '<p>&nbsp;</p><p>&nbsp;</p>' .
+    '<p>&nbsp;</p>' .
     '<h2 data-cms-key="' . $kp . '.gear.extra.title">' . ($C['gear']['extra']['title'] ?? '') . '</h2>' .
     '<p data-cms-key="' . $kp . '.gear.extra.lead">' . ($C['gear']['extra']['lead'] ?? '') . '</p>' .
     '<p>&nbsp;</p>' .

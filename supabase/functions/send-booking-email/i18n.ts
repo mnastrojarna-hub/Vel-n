@@ -417,49 +417,49 @@ ${v.door_codes_block || ''}
   booking_completed: {
     cs: v => `<p>${HELLO.cs}</p>
 <p>děkujeme, že jste využili služeb MotoGo24.</p>
-<p>Protože je pro nás zpětná vazba velmi důležitá, budeme rádi, pokud nám zanecháte recenzi na <a href="${v.google_review_url || '#'}" style="color:#2563eb">Googlu</a> nebo na <a href="${v.facebook_review_url || '#'}" style="color:#2563eb">Facebooku</a>.</p>
+<p>Protože je pro nás zpětná vazba velmi důležitá, budeme rádi, pokud nám zanecháte recenzi na <a href="${v.google_review_url || '#'}" style="display:inline-block;background:#74FB71;color:#0a1f15;font-size:12px;font-weight:700;text-decoration:none;padding:6px 14px;border-radius:14px;margin:0 4px">Google</a> nebo na <a href="${v.facebook_review_url || '#'}" style="display:inline-block;background:#74FB71;color:#0a1f15;font-size:12px;font-weight:700;text-decoration:none;padding:6px 14px;border-radius:14px;margin:0 4px">Facebook</a>.</p>
 ${v.discount_code ? `<div style="background:#dcfce7;border-radius:12px;padding:16px;margin:20px 0;border:1px solid #86efac"><p style="margin:0;font-size:14px;color:#166534">Jako malé poděkování za poskytnutou důvěru přikládáme slevový kód <strong>200 Kč</strong> na vaši příští rezervaci: <strong style="font-family:monospace;font-size:16px;letter-spacing:2px">${v.discount_code}</strong></p></div>` : ''}
 <p>V příloze naleznete konečnou fakturu za vaši rezervaci.</p>
 <p>Těšíme se na vás při dalším dobrodružství!</p>
 <p>S pozdravem,<br>${SIGN.cs}</p>`,
     en: v => `<p>${HELLO.en}</p>
 <p>thank you for choosing MOTO GO 24.</p>
-<p>Your feedback matters a lot to us — please leave a review on <a href="${v.google_review_url || '#'}" style="color:#2563eb">Google</a> or <a href="${v.facebook_review_url || '#'}" style="color:#2563eb">Facebook</a>.</p>
+<p>Your feedback matters a lot to us — please leave a review on <a href="${v.google_review_url || '#'}" style="display:inline-block;background:#74FB71;color:#0a1f15;font-size:12px;font-weight:700;text-decoration:none;padding:6px 14px;border-radius:14px;margin:0 4px">Google</a> or <a href="${v.facebook_review_url || '#'}" style="display:inline-block;background:#74FB71;color:#0a1f15;font-size:12px;font-weight:700;text-decoration:none;padding:6px 14px;border-radius:14px;margin:0 4px">Facebook</a>.</p>
 ${v.discount_code ? `<div style="background:#dcfce7;border-radius:12px;padding:16px;margin:20px 0;border:1px solid #86efac"><p style="margin:0;font-size:14px;color:#166534">As a thank-you, we're including a <strong>200 CZK discount code</strong> for your next booking: <strong style="font-family:monospace;font-size:16px;letter-spacing:2px">${v.discount_code}</strong></p></div>` : ''}
 <p>You'll find the final invoice for your booking attached.</p>
 <p>We look forward to your next adventure with us!</p>
 <p>Best regards,<br>${SIGN.en}</p>`,
     de: v => `<p>${HELLO.de}</p>
 <p>vielen Dank, dass Sie MOTO GO 24 gewählt haben.</p>
-<p>Ihr Feedback ist uns sehr wichtig — bitte hinterlassen Sie eine Bewertung auf <a href="${v.google_review_url || '#'}" style="color:#2563eb">Google</a> oder <a href="${v.facebook_review_url || '#'}" style="color:#2563eb">Facebook</a>.</p>
+<p>Ihr Feedback ist uns sehr wichtig — bitte hinterlassen Sie eine Bewertung auf <a href="${v.google_review_url || '#'}" style="display:inline-block;background:#74FB71;color:#0a1f15;font-size:12px;font-weight:700;text-decoration:none;padding:6px 14px;border-radius:14px;margin:0 4px">Google</a> oder <a href="${v.facebook_review_url || '#'}" style="display:inline-block;background:#74FB71;color:#0a1f15;font-size:12px;font-weight:700;text-decoration:none;padding:6px 14px;border-radius:14px;margin:0 4px">Facebook</a>.</p>
 ${v.discount_code ? `<div style="background:#dcfce7;border-radius:12px;padding:16px;margin:20px 0;border:1px solid #86efac"><p style="margin:0;font-size:14px;color:#166534">Als Dankeschön legen wir Ihnen einen <strong>Rabattcode von 200 CZK</strong> für Ihre nächste Buchung bei: <strong style="font-family:monospace;font-size:16px;letter-spacing:2px">${v.discount_code}</strong></p></div>` : ''}
 <p>Im Anhang finden Sie die Endrechnung zu Ihrer Buchung.</p>
 <p>Wir freuen uns auf Ihr nächstes Abenteuer mit uns!</p>
 <p>Mit freundlichen Grüßen,<br>${SIGN.de}</p>`,
     nl: v => `<p>${HELLO.nl}</p>
 <p>bedankt dat je voor MOTO GO 24 hebt gekozen.</p>
-<p>Jouw feedback is belangrijk — laat een review achter op <a href="${v.google_review_url || '#'}" style="color:#2563eb">Google</a> of <a href="${v.facebook_review_url || '#'}" style="color:#2563eb">Facebook</a>.</p>
+<p>Jouw feedback is belangrijk — laat een review achter op <a href="${v.google_review_url || '#'}" style="display:inline-block;background:#74FB71;color:#0a1f15;font-size:12px;font-weight:700;text-decoration:none;padding:6px 14px;border-radius:14px;margin:0 4px">Google</a> of <a href="${v.facebook_review_url || '#'}" style="display:inline-block;background:#74FB71;color:#0a1f15;font-size:12px;font-weight:700;text-decoration:none;padding:6px 14px;border-radius:14px;margin:0 4px">Facebook</a>.</p>
 ${v.discount_code ? `<div style="background:#dcfce7;border-radius:12px;padding:16px;margin:20px 0;border:1px solid #86efac"><p style="margin:0;font-size:14px;color:#166534">Als bedankje sluiten we een <strong>kortingscode van 200 CZK</strong> bij voor je volgende boeking: <strong style="font-family:monospace;font-size:16px;letter-spacing:2px">${v.discount_code}</strong></p></div>` : ''}
 <p>De eindfactuur voor je boeking vind je in de bijlage.</p>
 <p>Tot je volgende avontuur met ons!</p>
 <p>Met vriendelijke groet,<br>${SIGN.nl}</p>`,
     es: v => `<p>${HELLO.es}</p>
 <p>gracias por elegir MOTO GO 24.</p>
-<p>Tu opinión es muy importante para nosotros — por favor déjanos una reseña en <a href="${v.google_review_url || '#'}" style="color:#2563eb">Google</a> o <a href="${v.facebook_review_url || '#'}" style="color:#2563eb">Facebook</a>.</p>
+<p>Tu opinión es muy importante para nosotros — por favor déjanos una reseña en <a href="${v.google_review_url || '#'}" style="display:inline-block;background:#74FB71;color:#0a1f15;font-size:12px;font-weight:700;text-decoration:none;padding:6px 14px;border-radius:14px;margin:0 4px">Google</a> o <a href="${v.facebook_review_url || '#'}" style="display:inline-block;background:#74FB71;color:#0a1f15;font-size:12px;font-weight:700;text-decoration:none;padding:6px 14px;border-radius:14px;margin:0 4px">Facebook</a>.</p>
 ${v.discount_code ? `<div style="background:#dcfce7;border-radius:12px;padding:16px;margin:20px 0;border:1px solid #86efac"><p style="margin:0;font-size:14px;color:#166534">Como agradecimiento, te regalamos un <strong>código de descuento de 200 CZK</strong> para tu próxima reserva: <strong style="font-family:monospace;font-size:16px;letter-spacing:2px">${v.discount_code}</strong></p></div>` : ''}
 <p>Adjuntamos la factura final de tu reserva.</p>
 <p>¡Esperamos tu próxima aventura con nosotros!</p>
 <p>Saludos cordiales,<br>${SIGN.es}</p>`,
     fr: v => `<p>${HELLO.fr}</p>
 <p>merci d'avoir choisi MOTO GO 24.</p>
-<p>Votre avis compte beaucoup — laissez-nous un avis sur <a href="${v.google_review_url || '#'}" style="color:#2563eb">Google</a> ou <a href="${v.facebook_review_url || '#'}" style="color:#2563eb">Facebook</a>.</p>
+<p>Votre avis compte beaucoup — laissez-nous un avis sur <a href="${v.google_review_url || '#'}" style="display:inline-block;background:#74FB71;color:#0a1f15;font-size:12px;font-weight:700;text-decoration:none;padding:6px 14px;border-radius:14px;margin:0 4px">Google</a> ou <a href="${v.facebook_review_url || '#'}" style="display:inline-block;background:#74FB71;color:#0a1f15;font-size:12px;font-weight:700;text-decoration:none;padding:6px 14px;border-radius:14px;margin:0 4px">Facebook</a>.</p>
 ${v.discount_code ? `<div style="background:#dcfce7;border-radius:12px;padding:16px;margin:20px 0;border:1px solid #86efac"><p style="margin:0;font-size:14px;color:#166534">En remerciement, nous joignons un <strong>code de réduction de 200 CZK</strong> pour votre prochaine réservation : <strong style="font-family:monospace;font-size:16px;letter-spacing:2px">${v.discount_code}</strong></p></div>` : ''}
 <p>Vous trouverez la facture finale de votre réservation en pièce jointe.</p>
 <p>Nous nous réjouissons de votre prochaine aventure avec nous !</p>
 <p>Cordialement,<br>${SIGN.fr}</p>`,
     pl: v => `<p>${HELLO.pl}</p>
 <p>dziękujemy za wybór MOTO GO 24.</p>
-<p>Twoja opinia jest dla nas bardzo ważna — zostaw recenzję na <a href="${v.google_review_url || '#'}" style="color:#2563eb">Google</a> lub <a href="${v.facebook_review_url || '#'}" style="color:#2563eb">Facebooku</a>.</p>
+<p>Twoja opinia jest dla nas bardzo ważna — zostaw recenzję na <a href="${v.google_review_url || '#'}" style="display:inline-block;background:#74FB71;color:#0a1f15;font-size:12px;font-weight:700;text-decoration:none;padding:6px 14px;border-radius:14px;margin:0 4px">Google</a> lub <a href="${v.facebook_review_url || '#'}" style="display:inline-block;background:#74FB71;color:#0a1f15;font-size:12px;font-weight:700;text-decoration:none;padding:6px 14px;border-radius:14px;margin:0 4px">Facebook</a>.</p>
 ${v.discount_code ? `<div style="background:#dcfce7;border-radius:12px;padding:16px;margin:20px 0;border:1px solid #86efac"><p style="margin:0;font-size:14px;color:#166534">W ramach podziękowania dołączamy <strong>kod rabatowy 200 CZK</strong> na Twoją kolejną rezerwację: <strong style="font-family:monospace;font-size:16px;letter-spacing:2px">${v.discount_code}</strong></p></div>` : ''}
 <p>W załączeniu znajdziesz fakturę końcową za Twoją rezerwację.</p>
 <p>Czekamy na kolejną przygodę razem!</p>
@@ -1131,7 +1131,7 @@ export function helloPhrase(lang: Lang): string { return HELLO[lang] || HELLO.cs
 /** Per-lang labels for the help card "Have a question?" + CTA. */
 export function helpCardLabels(lang: Lang): { title: string; body: string; cta: string } {
   const map: Record<Lang, { title: string; body: string; cta: string }> = {
-    cs: { title: 'Máte dotaz?',           body: 'Pokud budete mít jakýkoliv dotaz, jsme vám k dispozici.',     cta: 'info@motogo24.cz' },
+    cs: { title: 'Máš dotaz?',            body: 'Pokud budeš mít jakýkoliv dotaz, jsme ti k dispozici.',       cta: 'info@motogo24.cz' },
     en: { title: 'Have a question?',      body: 'If you have any questions, we\'re here to help.',              cta: 'info@motogo24.cz' },
     de: { title: 'Haben Sie eine Frage?', body: 'Bei Fragen sind wir gerne für Sie da.',                         cta: 'info@motogo24.cz' },
     nl: { title: 'Heb je een vraag?',     body: 'Heb je vragen? We helpen je graag.',                            cta: 'info@motogo24.cz' },

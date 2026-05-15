@@ -167,24 +167,90 @@ export const PAGE_POTVRZENI = {
         { key: 'web.layout.confirm.success.continueShopping', label: 'Tlačítko „Pokračovat v nákupu"', default: 'Pokračovat v nákupu' },
       ]
     },
+    // Pozn.: stav „Pending" má 4 nezávislé varianty. Každá se zobrazí v jiné situaci:
+    //  • rezervace  → po platbě za rezervaci motorky, kterou banka ještě nepotvrdila
+    //  • objednávka → po platbě e-shop objednávky (zboží), kterou banka ještě nepotvrdila
+    //  • poukaz     → po platbě za dárkový poukaz, kterou banka ještě nepotvrdila
+    //  • neúspěšná platba → JEN když Stripe platbu definitivně odmítne (shop_orders.payment_status='failed')
+    // Texty jsou samostatné — úpravou jedné varianty NEZMĚNÍŠ ostatní.
     {
-      id: 'pending', label: 'Stav „Pending" (platba ještě neprošla)', preview: 'pending',
+      id: 'pending_booking', label: 'Pending — rezervace motorky', preview: 'pending',
       fields: [
-        { key: 'web.layout.confirm.pending.title', label: 'Nadpis', default: 'Platba ještě nebyla potvrzena' },
-        { key: 'web.layout.confirm.pending.text1', label: 'Text 1', type: 'textarea', default: '' },
-        { key: 'web.layout.confirm.pending.text2', label: 'Text 2', type: 'textarea', default: '' },
-        { key: 'web.layout.confirm.pending.nextTitle', label: 'Nadpis „Co s tím"', default: 'Co s tím' },
-        { key: 'web.layout.confirm.pending.nextStep1', label: 'Krok 1', type: 'textarea', default: '' },
-        { key: 'web.layout.confirm.pending.nextStep2', label: 'Krok 2', type: 'textarea', default: '' },
-        { key: 'web.layout.confirm.pending.nextStep3', label: 'Krok 3', type: 'textarea', default: '' },
-        { key: 'web.layout.confirm.pending.failIntro', label: 'Úvod „Možné důvody"', type: 'textarea', default: 'Platba se nemusela podařit z těchto důvodů:' },
-        { key: 'web.layout.confirm.pending.reason1', label: 'Důvod 1', default: '' },
-        { key: 'web.layout.confirm.pending.reason2', label: 'Důvod 2', default: '' },
-        { key: 'web.layout.confirm.pending.reason3', label: 'Důvod 3', default: '' },
-        { key: 'web.layout.confirm.pending.reason4', label: 'Důvod 4', default: '' },
-        { key: 'web.layout.confirm.pending.reason5', label: 'Důvod 5', default: '' },
-        { key: 'web.layout.confirm.pending.reason6', label: 'Důvod 6', default: '' },
-        { key: 'web.layout.confirm.pending.retry', label: 'Tlačítko „Zkusit platbu znovu"', default: 'Zkusit platbu znovu' },
+        { key: 'web.layout.confirm.pending.booking.title', label: 'Nadpis', default: 'Platba ještě nebyla potvrzena' },
+        { key: 'web.layout.confirm.pending.booking.text1', label: 'Text 1', type: 'textarea', default: '' },
+        { key: 'web.layout.confirm.pending.booking.text2', label: 'Text 2', type: 'textarea', default: '' },
+        { key: 'web.layout.confirm.pending.booking.nextTitle', label: 'Nadpis „Co s tím"', default: 'Co s tím' },
+        { key: 'web.layout.confirm.pending.booking.nextStep1', label: 'Krok 1', type: 'textarea', default: '' },
+        { key: 'web.layout.confirm.pending.booking.nextStep2', label: 'Krok 2', type: 'textarea', default: '' },
+        { key: 'web.layout.confirm.pending.booking.nextStep3', label: 'Krok 3', type: 'textarea', default: '' },
+        { key: 'web.layout.confirm.pending.booking.failIntro', label: 'Úvod „Možné důvody"', type: 'textarea', default: 'Platba se nemusela podařit z těchto důvodů:' },
+        { key: 'web.layout.confirm.pending.booking.reason1', label: 'Důvod 1', default: '' },
+        { key: 'web.layout.confirm.pending.booking.reason2', label: 'Důvod 2', default: '' },
+        { key: 'web.layout.confirm.pending.booking.reason3', label: 'Důvod 3', default: '' },
+        { key: 'web.layout.confirm.pending.booking.reason4', label: 'Důvod 4', default: '' },
+        { key: 'web.layout.confirm.pending.booking.reason5', label: 'Důvod 5', default: '' },
+        { key: 'web.layout.confirm.pending.booking.reason6', label: 'Důvod 6', default: '' },
+        { key: 'web.layout.confirm.pending.booking.retry', label: 'Tlačítko „Zkusit platbu znovu"', default: 'Zkusit platbu znovu' },
+      ]
+    },
+    {
+      id: 'pending_order', label: 'Pending — objednávka (e-shop)', preview: 'pending_order',
+      fields: [
+        { key: 'web.layout.confirm.pending.order.title', label: 'Nadpis', default: 'Platba ještě nebyla potvrzena' },
+        { key: 'web.layout.confirm.pending.order.text1', label: 'Text 1', type: 'textarea', default: '' },
+        { key: 'web.layout.confirm.pending.order.text2', label: 'Text 2', type: 'textarea', default: '' },
+        { key: 'web.layout.confirm.pending.order.nextTitle', label: 'Nadpis „Co s tím"', default: 'Co s tím' },
+        { key: 'web.layout.confirm.pending.order.nextStep1', label: 'Krok 1', type: 'textarea', default: '' },
+        { key: 'web.layout.confirm.pending.order.nextStep2', label: 'Krok 2', type: 'textarea', default: '' },
+        { key: 'web.layout.confirm.pending.order.nextStep3', label: 'Krok 3', type: 'textarea', default: '' },
+        { key: 'web.layout.confirm.pending.order.failIntro', label: 'Úvod „Možné důvody"', type: 'textarea', default: 'Platba se nemusela podařit z těchto důvodů:' },
+        { key: 'web.layout.confirm.pending.order.reason1', label: 'Důvod 1', default: '' },
+        { key: 'web.layout.confirm.pending.order.reason2', label: 'Důvod 2', default: '' },
+        { key: 'web.layout.confirm.pending.order.reason3', label: 'Důvod 3', default: '' },
+        { key: 'web.layout.confirm.pending.order.reason4', label: 'Důvod 4', default: '' },
+        { key: 'web.layout.confirm.pending.order.reason5', label: 'Důvod 5', default: '' },
+        { key: 'web.layout.confirm.pending.order.reason6', label: 'Důvod 6', default: '' },
+        { key: 'web.layout.confirm.pending.order.retry', label: 'Tlačítko „Zkusit platbu znovu"', default: 'Zkusit platbu znovu' },
+      ]
+    },
+    {
+      id: 'pending_voucher', label: 'Pending — dárkový poukaz', preview: 'pending_voucher',
+      fields: [
+        { key: 'web.layout.confirm.pending.voucher.title', label: 'Nadpis', default: 'Platba ještě nebyla potvrzena' },
+        { key: 'web.layout.confirm.pending.voucher.text1', label: 'Text 1', type: 'textarea', default: '' },
+        { key: 'web.layout.confirm.pending.voucher.text2', label: 'Text 2', type: 'textarea', default: '' },
+        { key: 'web.layout.confirm.pending.voucher.nextTitle', label: 'Nadpis „Co s tím"', default: 'Co s tím' },
+        { key: 'web.layout.confirm.pending.voucher.nextStep1', label: 'Krok 1', type: 'textarea', default: '' },
+        { key: 'web.layout.confirm.pending.voucher.nextStep2', label: 'Krok 2', type: 'textarea', default: '' },
+        { key: 'web.layout.confirm.pending.voucher.nextStep3', label: 'Krok 3', type: 'textarea', default: '' },
+        { key: 'web.layout.confirm.pending.voucher.failIntro', label: 'Úvod „Možné důvody"', type: 'textarea', default: 'Platba se nemusela podařit z těchto důvodů:' },
+        { key: 'web.layout.confirm.pending.voucher.reason1', label: 'Důvod 1', default: '' },
+        { key: 'web.layout.confirm.pending.voucher.reason2', label: 'Důvod 2', default: '' },
+        { key: 'web.layout.confirm.pending.voucher.reason3', label: 'Důvod 3', default: '' },
+        { key: 'web.layout.confirm.pending.voucher.reason4', label: 'Důvod 4', default: '' },
+        { key: 'web.layout.confirm.pending.voucher.reason5', label: 'Důvod 5', default: '' },
+        { key: 'web.layout.confirm.pending.voucher.reason6', label: 'Důvod 6', default: '' },
+        { key: 'web.layout.confirm.pending.voucher.retry', label: 'Tlačítko „Zkusit platbu znovu"', default: 'Zkusit platbu znovu' },
+      ]
+    },
+    {
+      id: 'payment_failed', label: 'Neúspěšná platba (Stripe definitivně odmítl)', preview: 'payment_failed',
+      fields: [
+        { key: 'web.layout.confirm.failed.title', label: 'Nadpis', default: 'Platba se nezdařila' },
+        { key: 'web.layout.confirm.failed.text1', label: 'Text 1', type: 'textarea', default: '' },
+        { key: 'web.layout.confirm.failed.text2', label: 'Text 2', type: 'textarea', default: '' },
+        { key: 'web.layout.confirm.failed.nextTitle', label: 'Nadpis „Co s tím"', default: 'Co s tím' },
+        { key: 'web.layout.confirm.failed.nextStep1', label: 'Krok 1', type: 'textarea', default: '' },
+        { key: 'web.layout.confirm.failed.nextStep2', label: 'Krok 2', type: 'textarea', default: '' },
+        { key: 'web.layout.confirm.failed.nextStep3', label: 'Krok 3', type: 'textarea', default: '' },
+        { key: 'web.layout.confirm.failed.failIntro', label: 'Úvod „Možné důvody"', type: 'textarea', default: 'Platba se nepodařila nejspíš z těchto důvodů:' },
+        { key: 'web.layout.confirm.failed.reason1', label: 'Důvod 1', default: '' },
+        { key: 'web.layout.confirm.failed.reason2', label: 'Důvod 2', default: '' },
+        { key: 'web.layout.confirm.failed.reason3', label: 'Důvod 3', default: '' },
+        { key: 'web.layout.confirm.failed.reason4', label: 'Důvod 4', default: '' },
+        { key: 'web.layout.confirm.failed.reason5', label: 'Důvod 5', default: '' },
+        { key: 'web.layout.confirm.failed.reason6', label: 'Důvod 6', default: '' },
+        { key: 'web.layout.confirm.failed.retry', label: 'Tlačítko „Zkusit platbu znovu"', default: 'Zkusit platbu znovu' },
       ]
     },
     {

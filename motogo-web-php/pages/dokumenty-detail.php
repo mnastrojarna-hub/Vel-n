@@ -54,9 +54,15 @@ $entry   = $DOC_MAP[$slug] ?? null;
 $tpl = null;
 if ($entry) {
     // Pevná smluvní šablona (document_templates) — obsah v jazyce návštěvníka řeší
-    // níže RPC get_document_translation (content_translations[lang]).
+    // níže RPC get_document_translation (content_translations[lang]); přeložený NÁZEV
+    // bere z name_translations[lang] (plní ho edge fn translate-document), fallback i18n.
     $row = $sb->fetchDocumentTemplate($entry['type']);
     if ($row) {
+        if ($lang !== 'cs') {
+            $nt = $row['name_translations'] ?? null;
+            if (is_string($nt)) { $dec = json_decode($nt, true); $nt = is_array($dec) ? $dec : null; }
+            if (is_array($nt) && !empty($nt[$lang]) && is_string($nt[$lang])) $entry['title'] = $nt[$lang];
+        }
         $tpl = [
             'content_html' => $row['content_html'] ?? '',
             'version'      => $row['version'] ?? 1,
