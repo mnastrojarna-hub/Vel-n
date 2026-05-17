@@ -87,6 +87,9 @@ return [
     'footer.iconPhone' => 'Téléphone',
     'footer.iconEmail' => 'E-mail',
     'footer.iconAddress' => 'Adresse',
+    'footer.iconHours' => 'Horaires',
+    'footer.iconEmail' => 'E-mail',
+    'footer.iconAddress' => 'Adresse',
 
     // ===== Skryté A11Y nadpisy sekcí (vh = visually hidden) =====
     'a11y.mainContent' => 'Contenu principal de la page',

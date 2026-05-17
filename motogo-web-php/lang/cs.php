@@ -89,6 +89,9 @@ return [
     'footer.iconPhone' => 'Telefon',
     'footer.iconEmail' => 'E-mail',
     'footer.iconAddress' => 'Adresa',
+    'footer.iconHours' => 'Provozní doba',
+    'footer.iconEmail' => 'E-mail',
+    'footer.iconAddress' => 'Adresa',
 
     // ===== Skryté A11Y nadpisy sekcí (vh = visually hidden) =====
     'a11y.mainContent' => 'Hlavní obsah stránky',

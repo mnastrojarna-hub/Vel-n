@@ -86,6 +86,9 @@ return [
     'footer.partners' => 'Para socios',
     'footer.toTop' => 'ARRIBA',
     'footer.iconPhone' => 'Teléfono',
+    'footer.iconEmail' => 'Correo',
+    'footer.iconAddress' => 'Dirección',
+    'footer.iconHours' => 'Horario',
     'footer.iconEmail' => 'Correo electrónico',
     'footer.iconAddress' => 'Dirección',
 

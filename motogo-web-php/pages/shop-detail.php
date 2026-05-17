@@ -150,8 +150,12 @@ $leftCol = '<div class="shop-detail-media">'
     . $galleryHtml
     . '</div>';
 
+// H1 extension: krátké názvy produktů (např. "Tričko MotoGo24" = 15 px) jsou
+// pod Seobility limit 120 px. Doplňujeme suffix "| E-shop MotoGo24" — krátký
+// název produktu zůstává vizuálně dominantní díky <span class="shop-h1-suffix">.
+$h1Suffix = ' <span class="shop-h1-suffix">| E-shop MotoGo24</span>';
 $rightCol = '<div class="shop-detail-info">'
-    . '<h1>' . $name . '</h1>'
+    . '<h1>' . $name . $h1Suffix . '</h1>'
     . ($priceText ? '<p class="shop-price">' . htmlspecialchars($priceText) . '</p>' : '')
     . $specsHtml
     . $cartFormHtml

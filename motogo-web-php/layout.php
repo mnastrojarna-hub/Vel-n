@@ -70,7 +70,7 @@ function renderHeader($currentPath = '/') {
     return '<header>' .
         '<ul class="focus"><li><a href="#main-menu">' . tc('header.skip.menu') . '</a></li><li><a href="#content">' . tc('header.skip.content') . '</a></li><li><a href="#footer">' . tc('header.skip.contact') . '</a></li></ul>' .
         '<div class="header-topbar"><div class="container">' .
-            '<div class="header-phone"><p><a href="' . PHONE_LINK . '" aria-label="' . te('header.callUs') . '"><img alt="" aria-hidden="true" src="' . BASE_URL . '/gfx/telefon-header.svg" loading="lazy" width="24" height="24"></a>&nbsp;<a href="' . PHONE_LINK . '">' . PHONE . '</a></p></div>' .
+            '<div class="header-phone"><p><a href="' . PHONE_LINK . '" aria-label="' . te('header.callUs') . '"><img alt="' . te('footer.iconPhone') . '" src="' . BASE_URL . '/gfx/telefon-header.svg" loading="lazy" width="24" height="24"></a>&nbsp;<a href="' . PHONE_LINK . '">' . PHONE . '</a></p></div>' .
             '<div class="header-tools">' .
                 '<div class="header-auth" data-mg-auth hidden>' .
                     '<svg class="header-auth-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>' .
@@ -132,14 +132,14 @@ function renderFooter() {
         '</div>' .
         '<div><h3>' . tc('footer.aboutTitle') . '</h3><ul>' . $menuHtml . '</ul></div>' .
         '<div><h3>' . tc('footer.socialTitle') . '</h3>' .
-            '<p class="dfc"><span class="footer-social-icon"><img alt="" src="' . BASE_URL . '/gfx/facebook-footer.svg" width="18" height="18"></span>&nbsp;<a href="' . FB_URL . '">facebook</a></p><p>&nbsp;</p>' .
-            '<p class="dfc"><span class="footer-social-icon"><img alt="" src="' . BASE_URL . '/gfx/instagram-footer.svg" width="18" height="18"></span>&nbsp;<a href="' . IG_URL . '">instagram</a></p>' .
+            '<p class="dfc"><span class="footer-social-icon"><img alt="Facebook ikona" src="' . BASE_URL . '/gfx/facebook-footer.svg" width="18" height="18"></span>&nbsp;<a href="' . FB_URL . '">facebook</a></p><p>&nbsp;</p>' .
+            '<p class="dfc"><span class="footer-social-icon"><img alt="Instagram ikona" src="' . BASE_URL . '/gfx/instagram-footer.svg" width="18" height="18"></span>&nbsp;<a href="' . IG_URL . '">instagram</a></p>' .
         '</div>' .
         '<div class="footer-contact">' . $helpTitleHtml .
-            '<div class="footer-phone dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/telefon.svg" alt="" aria-hidden="true" class="icon-small" loading="lazy" width="20" height="20"></div><div><p>' . $callUsHtml . '<strong><a href="' . PHONE_LINK . '">' . PHONE . '</a></strong></p></div></div>' .
-            '<div class="dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/email.svg" alt="" aria-hidden="true" class="icon-small" loading="lazy" width="20" height="20"></div><div><p><a href="mailto:' . EMAIL_FULL . '">' . EMAIL_USER . '&#64;' . EMAIL_DOMAIN . '</a></p></div></div>' .
-            '<div class="dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/adresa.svg" alt="" aria-hidden="true" class="icon-small" loading="lazy" width="20" height="20"></div><div><p><strong>' . tc('footer.companyLine1') . '</strong><br>' . ADDRESS . '</p></div></div>' .
-            '<div class="dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/provozni-doba.svg" alt="" aria-hidden="true" class="icon-small" loading="lazy" width="20" height="20"></div><div><p>' . preg_replace('/\)\s+(?=\S)/', ')<br>', tc('footer.openHours'), 1) . '</p></div></div>' .
+            '<div class="footer-phone dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/telefon.svg" alt="' . te('footer.iconPhone') . '" class="icon-small" loading="lazy" width="20" height="20"></div><div><p>' . $callUsHtml . '<strong><a href="' . PHONE_LINK . '">' . PHONE . '</a></strong></p></div></div>' .
+            '<div class="dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/email.svg" alt="' . te('footer.iconEmail') . '" class="icon-small" loading="lazy" width="20" height="20"></div><div><p><a href="mailto:' . EMAIL_FULL . '">' . EMAIL_USER . '&#64;' . EMAIL_DOMAIN . '</a></p></div></div>' .
+            '<div class="dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/adresa.svg" alt="' . te('footer.iconAddress') . '" class="icon-small" loading="lazy" width="20" height="20"></div><div><p><strong>' . tc('footer.companyLine1') . '</strong><br>' . ADDRESS . '</p></div></div>' .
+            '<div class="dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/provozni-doba.svg" alt="' . te('footer.iconHours') . '" class="icon-small" loading="lazy" width="20" height="20"></div><div><p>' . preg_replace('/\)\s+(?=\S)/', ')<br>', tc('footer.openHours'), 1) . '</p></div></div>' .
         '</div>' .
     '</div></div>' .
     '<div class="copyright"><div class="container">' .
@@ -148,7 +148,7 @@ function renderFooter() {
         '<p class="footer-toplist"><a href="https://www.toplist.cz/stat/1841683" target="_blank" rel="nofollow noopener" aria-label="TOPlist"><img src="https://toplist.cz/count.asp?ID=1841683&amp;logo=mc" alt="TOPlist" width="88" height="31" loading="lazy"></a></p>' .
     '</div></div>' .
     '</footer>' .
-    '<a id="Up" href="#" aria-label="' . te('footer.toTop') . '" onclick="window.scrollTo({top:0,behavior:\'smooth\'});return false"><img src="' . BASE_URL . '/gfx/arrow-top.svg" alt="" aria-hidden="true" width="20" height="20"></a>';
+    '<a id="Up" href="#" aria-label="' . te('footer.toTop') . '" onclick="window.scrollTo({top:0,behavior:\'smooth\'});return false"><img src="' . BASE_URL . '/gfx/arrow-top.svg" alt="' . te('footer.toTop') . '" width="20" height="20"></a>';
 }
 
 function renderInlineJs() {
