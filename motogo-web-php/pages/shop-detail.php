@@ -157,12 +157,31 @@ $rightCol = '<div class="shop-detail-info">'
     . $cartFormHtml
     . '</div>';
 
+// Sdílená SEO outro sekce (zobrazí se pod každým produktovým detailem) — Velín → Texty webu → E-shop detail
+$shopDetailDefaults = [
+    'outro' => [
+        'title' => 'Nákup motorkářských doplňků u MotoGo24',
+        'body1' => 'V e-shopu MotoGo24 najdete pečlivě vybrané <strong>motorkářské oblečení a doplňky</strong> v běžných i atypických velikostech. Sortiment doplňujeme podle potřeb našich zákazníků z půjčovny i pravidelných jezdců, kteří chtějí drobnosti od trika přes čepici až po reflexní kuklu pod helmu. Vše máme fyzicky skladem v půjčovně v Pelhřimově — můžete přijít, vyzkoušet velikost a odvézt si zboží na místě.',
+        'body2' => 'Doručujeme po celé České republice — můžete si vybrat <strong>osobní vyzvednutí v půjčovně zdarma</strong>, doručení Zásilkovnou nebo Českou poštou. Po objednání obdržíte automatický potvrzovací e-mail a my zboží odešleme do druhého pracovního dne. Pokud něco potřebujete poradit (velikost, materiál, kombinace s motorkářskou výbavou), ozvěte se nám — odpovíme zpravidla do hodiny.',
+    ],
+];
+$SDC = $sb->siteContent('eshop_detail', $shopDetailDefaults);
+$shopDetailOutroT = $SDC['outro']['title'] ?? $shopDetailDefaults['outro']['title'];
+$shopDetailOutroB1 = $SDC['outro']['body1'] ?? $shopDetailDefaults['outro']['body1'];
+$shopDetailOutroB2 = $SDC['outro']['body2'] ?? $shopDetailDefaults['outro']['body2'];
+$shopDetailOutroHtml = '<section class="shop-detail-outro">'
+    . '<h2 data-cms-key="web.eshop_detail.outro.title">' . htmlspecialchars($shopDetailOutroT) . '</h2>'
+    . '<p data-cms-key="web.eshop_detail.outro.body1">' . $shopDetailOutroB1 . '</p>'
+    . '<p data-cms-key="web.eshop_detail.outro.body2">' . $shopDetailOutroB2 . '</p>'
+    . '</section>';
+
 $content = '<main id="content"><div class="container">' . $bc
     . '<article class="moto-detail shop-detail">'
     . '<section class="shop-detail-grid">'
     . $leftCol . $rightCol
     . '</section>'
     . $descHtml
+    . $shopDetailOutroHtml
     . '</article></div></main>';
 
 // Schema.org Product — kompletní data pro AI: brand, materiál, barva, velikosti,

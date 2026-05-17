@@ -6,7 +6,7 @@ import { PAGE_POSTUP, PAGE_PRISTAVENI } from './webTextsPostup'
 import { PAGE_VYZVEDNUTI, PAGE_CO_V_CENE, PAGE_DOKUMENTY } from './webTextsVyzvednuti'
 import { PAGE_VRACENI_PUJCOVNA, PAGE_VRACENI_JINDE } from './webTextsVraceni'
 import { PAGE_KONTAKT, PAGE_POUKAZY, PAGE_REZERVACE, PAGE_KOUPIT_POUKAZ } from './webTextsKontakt'
-import { PAGE_BLOG, PAGE_ESHOP, PAGE_MAPA_STRANEK } from './webTextsBlogShopSitemap'
+import { PAGE_BLOG, PAGE_ESHOP, PAGE_MAPA_STRANEK, PAGE_ESHOP_DETAIL, PAGE_KATALOG_DETAIL, PAGE_DOKUMENTY_DETAIL } from './webTextsBlogShopSitemap'
 import { PAGE_UPRAVIT_REZERVACE } from './webTextsUpravit'
 import { PAGE_KOSIK, PAGE_OBJEDNAVKA, PAGE_POTVRZENI } from './webTextsCheckout'
 import { PAGE_LAYOUT } from './webTextsFaq'
@@ -35,6 +35,9 @@ export const WEB_PAGES = [
   PAGE_POTVRZENI,
   PAGE_BLOG,
   PAGE_ESHOP,
+  PAGE_ESHOP_DETAIL,
+  PAGE_KATALOG_DETAIL,
+  PAGE_DOKUMENTY_DETAIL,
   PAGE_MAPA_STRANEK,
   PAGE_LAYOUT,
 ]

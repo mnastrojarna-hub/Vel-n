@@ -32,6 +32,55 @@ export const PAGE_ESHOP = {
   ]
 }
 
+// Sdílené SEO outro sekce pro DYNAMICKÉ detail-stránky (jeden výskyt na všechny
+// detail produkty / motorky / dokumenty). Vlastní obsah (popis produktu / motorky)
+// se edituje v sekci Produkty / Fleet / Dokumenty Velína.
+
+export const PAGE_ESHOP_DETAIL = {
+  id: 'eshop-detail', label: 'E-shop — detail produktu', icon: '🛍️', url: '/eshop/{id}',
+  description: 'Sdílená SEO sekce zobrazená pod každým produktem v e-shopu. Vlastní popis produktu se edituje v sekci Produkty.',
+  sections: [
+    {
+      id: 'outro', label: 'Společná SEO sekce pod produktem', location: 'H2 + 2 odstavce pod popisem produktu — stejné pro všechny produkty.',
+      fields: [
+        { key: 'web.eshop_detail.outro.title', label: 'H2 nadpis', default: 'Nákup motorkářských doplňků u MotoGo24' },
+        { key: 'web.eshop_detail.outro.body1', label: '1. odstavec (HTML)', type: 'textarea', default: 'V e-shopu MotoGo24 najdete pečlivě vybrané <strong>motorkářské oblečení a doplňky</strong> v běžných i atypických velikostech. Sortiment doplňujeme podle potřeb našich zákazníků z půjčovny i pravidelných jezdců, kteří chtějí drobnosti od trika přes čepici až po reflexní kuklu pod helmu. Vše máme fyzicky skladem v půjčovně v Pelhřimově — můžete přijít, vyzkoušet velikost a odvézt si zboží na místě.' },
+        { key: 'web.eshop_detail.outro.body2', label: '2. odstavec (HTML)', type: 'textarea', default: 'Doručujeme po celé České republice — můžete si vybrat <strong>osobní vyzvednutí v půjčovně zdarma</strong>, doručení Zásilkovnou nebo Českou poštou. Po objednání obdržíte automatický potvrzovací e-mail a my zboží odešleme do druhého pracovního dne. Pokud něco potřebujete poradit (velikost, materiál, kombinace s motorkářskou výbavou), ozvěte se nám — odpovíme zpravidla do hodiny.' },
+      ]
+    },
+  ]
+}
+
+export const PAGE_KATALOG_DETAIL = {
+  id: 'katalog-detail', label: 'Katalog — detail motorky', icon: '🏍️', url: '/katalog/{id}',
+  description: 'Sdílená SEO sekce zobrazená pod každou motorkou v katalogu. Vlastní popis motorky se edituje v sekci Fleet.',
+  sections: [
+    {
+      id: 'outro', label: 'Společná SEO sekce pod motorkou', location: 'H2 + 2 odstavce pod parametry motorky a ceníkem — stejné pro všechny motorky.',
+      fields: [
+        { key: 'web.katalog_detail.outro.title', label: 'H2 nadpis', default: 'Půjčení motorky bez kauce a se vším všudy' },
+        { key: 'web.katalog_detail.outro.body1', label: '1. odstavec (HTML)', type: 'textarea', default: 'Každou motorku v naší flotile pečlivě udržujeme — pravidelný servis, kompletní pneumatiky, plně natankovaná nádrž a vyzkoušené brzdy jsou samozřejmost. Před každým vyzvednutím motorku připravíme, prohlédneme s vámi její stav a předáme vám klíče, dokumenty a kompletní výbavu pro řidiče (helma, bunda, kalhoty a rukavice) — to vše je <strong>v ceně nájmu</strong>. Půjčujeme <strong>bez kauce</strong> a otevřeno máme <strong>nonstop</strong>, takže si motorku můžete vyzvednout i mimo standardní pracovní dobu.' },
+        { key: 'web.katalog_detail.outro.body2', label: '2. odstavec (HTML)', type: 'textarea', default: 'Při rezervaci si zvolíte termín a způsob vyzvednutí — buď přímo u nás v půjčovně v Pelhřimově, nebo si necháte motorku <strong>přistavit</strong> na konkrétní adresu na Vysočině či po ČR. S motorkou můžete vyjet i do zahraničí — dostanete zelenou kartu a všechny potřebné dokumenty. Pokud byste cestou narazili na technický problém, máme nonstop SOS linku a do 24 hodin zařídíme náhradní motorku, aby vás nic nezdrželo.' },
+      ]
+    },
+  ]
+}
+
+export const PAGE_DOKUMENTY_DETAIL = {
+  id: 'dokumenty-detail', label: 'Dokumenty — detail', icon: '📄', url: '/dokumenty/{slug}',
+  description: 'Sdílená SEO sekce zobrazená pod každým dokumentem. Vlastní obsah dokumentu se edituje v sekci Dokumenty.',
+  sections: [
+    {
+      id: 'outro', label: 'Společná SEO sekce pod dokumentem', location: 'H2 + 2 odstavce pod obsahem dokumentu — stejné pro všechny dokumenty.',
+      fields: [
+        { key: 'web.dokumenty_detail.outro.title', label: 'H2 nadpis', default: 'O našich dokumentech' },
+        { key: 'web.dokumenty_detail.outro.body1', label: '1. odstavec (HTML)', type: 'textarea', default: 'Všechny smluvní dokumenty a protokoly MotoGo24 jsou vždy <strong>aktuální verze</strong> — pravidelně je revidujeme s ohledem na změny v legislativě a zpětnou vazbu zákazníků. Najdete je v textové i tištěné podobě, můžete si je stáhnout ve formátu PDF a vytisknout, nebo si je prohlédnout přímo zde na webu. Plné znění obchodních podmínek, smlouvy o pronájmu a zásad ochrany osobních údajů máme dostupné v sekci <a href="/jak-pujcit/dokumenty">Dokumenty a návody</a>.' },
+        { key: 'web.dokumenty_detail.outro.body2', label: '2. odstavec (HTML)', type: 'textarea', default: 'Pokud máte jakýkoli dotaz ke smluvním podmínkám, postupu při převzetí nebo vrácení motorky či k pojištění, neváhejte nás kontaktovat. Naše smlouvy záměrně píšeme tak, aby byly <strong>srozumitelné</strong> — bez drobného písma a skrytých podmínek. Pokud chcete dokumenty fyzicky podepsat předem nebo si je s námi projít osobně, můžete přijet do půjčovny v Pelhřimově nebo si je necháme připravit k vyzvednutí.' },
+      ]
+    },
+  ]
+}
+
 export const PAGE_MAPA_STRANEK = {
   id: 'mapa-stranek', label: 'Mapa stránek', icon: '🗺️', url: '/mapa-stranek',
   description: 'Mapa všech stránek webu s odkazy. Editovatelný úvodní odstavec a závěrečná textová sekce.',

@@ -426,10 +426,28 @@ var CAL_I18N = {
 })();
 </script>';
 
+// Sdílená SEO outro sekce — Velín → Texty webu → Detail motorky
+$motoDetailDefaults = [
+    'outro' => [
+        'title' => 'Půjčení motorky bez kauce a se vším všudy',
+        'body1' => 'Každou motorku v naší flotile pečlivě udržujeme — pravidelný servis, kompletní pneumatiky, plně natankovaná nádrž a vyzkoušené brzdy jsou samozřejmost. Před každým vyzvednutím motorku připravíme, prohlédneme s vámi její stav a předáme vám klíče, dokumenty a kompletní výbavu pro řidiče (helma, bunda, kalhoty a rukavice) — to vše je <strong>v ceně nájmu</strong>. Půjčujeme <strong>bez kauce</strong> a otevřeno máme <strong>nonstop</strong>, takže si motorku můžete vyzvednout i mimo standardní pracovní dobu.',
+        'body2' => 'Při rezervaci si zvolíte termín a způsob vyzvednutí — buď přímo u nás v půjčovně v Pelhřimově, nebo si necháte motorku <strong>přistavit</strong> na konkrétní adresu na Vysočině či po ČR. S motorkou můžete vyjet i do zahraničí — dostanete zelenou kartu a všechny potřebné dokumenty. Pokud byste cestou narazili na technický problém, máme nonstop SOS linku a do 24 hodin zařídíme náhradní motorku, aby vás nic nezdrželo.',
+    ],
+];
+$MDC = $sb->siteContent('katalog_detail', $motoDetailDefaults);
+$motoOutroT = $MDC['outro']['title'] ?? $motoDetailDefaults['outro']['title'];
+$motoOutroB1 = $MDC['outro']['body1'] ?? $motoDetailDefaults['outro']['body1'];
+$motoOutroB2 = $MDC['outro']['body2'] ?? $motoDetailDefaults['outro']['body2'];
+$motoOutroHtml = '<section class="moto-detail-outro">'
+    . '<h2 data-cms-key="web.katalog_detail.outro.title">' . htmlspecialchars($motoOutroT) . '</h2>'
+    . '<p data-cms-key="web.katalog_detail.outro.body1">' . $motoOutroB1 . '</p>'
+    . '<p data-cms-key="web.katalog_detail.outro.body2">' . $motoOutroB2 . '</p>'
+    . '</section>';
+
 $content = '<main id="content"><div class="container">' . $bc .
     '<article class="moto-detail ccontent" itemscope itemtype="https://schema.org/Product">' .
         '<header>' . $navHtml . $headerHtml . '</header>' .
-        $infoHtml . $descSpecsHtml . $pricesHtml . $relatedHtml .
+        $infoHtml . $descSpecsHtml . $pricesHtml . $relatedHtml . $motoOutroHtml .
     '</article></div></main>' . $calendarJs;
 
 // ===== Product + Vehicle (Motorcycle subtype) JSON-LD =====
