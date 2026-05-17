@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import Card from '../components/ui/Card'
 import ImageUploader from '../components/ui/ImageUploader'
 
 function PhotoGallery({ motoId }) {
   const [images, setImages] = useState([])
+  const [imageAlts, setImageAlts] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => { load() }, [motoId])
@@ -12,20 +13,41 @@ function PhotoGallery({ motoId }) {
   async function load() {
     setLoading(true)
     try {
-      const { data } = await supabase.from('motorcycles').select('images').eq('id', motoId).single()
+      const { data } = await supabase.from('motorcycles').select('images, image_alts').eq('id', motoId).single()
       const list = Array.isArray(data?.images) ? data.images.filter(Boolean) : []
+      const altsList = Array.isArray(data?.image_alts) ? data.image_alts : []
       setImages(list)
-    } catch { setImages([]) }
+      setImageAlts(altsList)
+    } catch { setImages([]); setImageAlts([]) }
     setLoading(false)
   }
 
-  async function syncToDb(urls) {
+  async function syncImages(urls) {
     const cleaned = (urls || []).filter(u => u && typeof u === 'string')
     setImages(cleaned)
+    // Re-align imageAlts pole na stejnou délku — ImageUploader dorovná přes onAltsChange,
+    // ale pro jistotu uložíme i tady aby DB nikdy nemělo image_alts > images.
+    const alignedAlts = cleaned.map(u => {
+      const idx = images.indexOf(u)
+      return idx >= 0 ? (imageAlts[idx] || '') : ''
+    })
+    setImageAlts(alignedAlts)
     await supabase.from('motorcycles').update({
       image_url: cleaned[0] || null,
       images: cleaned,
+      image_alts: alignedAlts,
     }).eq('id', motoId)
+  }
+
+  // Debounced save — ukládá `image_alts` 600 ms po posledním psaní v inputech.
+  // Bez debouncingu by každé písmeno znamenalo UPDATE na DB.
+  const altsSaveTimer = useRef(null)
+  async function syncAlts(alts) {
+    setImageAlts(alts)
+    if (altsSaveTimer.current) clearTimeout(altsSaveTimer.current)
+    altsSaveTimer.current = setTimeout(async () => {
+      await supabase.from('motorcycles').update({ image_alts: alts }).eq('id', motoId)
+    }, 600)
   }
 
   if (loading) return null
@@ -37,9 +59,12 @@ function PhotoGallery({ motoId }) {
       </div>
       <ImageUploader
         value={images}
-        onChange={syncToDb}
+        onChange={syncImages}
+        alts={imageAlts}
+        onAltsChange={syncAlts}
+        altPlaceholder={'Popisek (např. „zepředu")'}
         folder={`motos/${motoId}`}
-        helperText="Přetáhněte fotky z počítače nebo klikněte pro výběr. První fotka je hlavní — zobrazí se v aplikaci, kalendáři i seznamu motorek."
+        helperText={'Přetáhněte fotky z počítače nebo klikněte pro výběr. První fotka je hlavní — zobrazí se v aplikaci, kalendáři i seznamu motorek. Pod každou fotkou vyplňte krátký popisek (např. „zepředu", „detail palubky") — web složí alt jako „{model} {barva} – {popisek}" pro lepší SEO.'}
       />
     </div>
   )

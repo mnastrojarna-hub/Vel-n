@@ -22,7 +22,7 @@ function slugify(text) {
 }
 
 function emptyForm() {
-  return { title: '', slug: '', excerpt: '', content: '', images: [], tags: '', published: false }
+  return { title: '', slug: '', excerpt: '', content: '', images: [], image_alts: [], tags: '', published: false }
 }
 
 function formFromEntry(row) {
@@ -33,6 +33,7 @@ function formFromEntry(row) {
     excerpt: row.excerpt || '',
     content: row.content || '',
     images: Array.isArray(row.images) ? row.images : (row.image_url ? [row.image_url] : []),
+    image_alts: Array.isArray(row.image_alts) ? row.image_alts : [],
     tags: Array.isArray(row.tags) ? row.tags.join(', ') : (row.tags || ''),
     published: !!row.published,
   }
@@ -109,13 +110,16 @@ export default function BlogWizard({ entry, onClose, onSaved }) {
     setAutosaveStatus('saving')
     const tags = (f.tags || '').split(',').map(t => t.trim()).filter(Boolean)
     const images = (f.images || []).filter(Boolean)
+    // SEO: image_alts dorovnané na stejnou délku jako images (per-photo popisek pro
+    // PHP blog-detail.php composer). Pokud admin nevyplnil, prázdné stringy.
+    const imageAlts = images.map((u, i) => (f.image_alts && f.image_alts[i]) || '')
     const payload = {
       title: f.title?.trim() || '(bez názvu)',
       slug: f.slug?.trim() || slugify(f.title) || `koncept-${Date.now()}`,
       content: f.content || '',
       excerpt: f.excerpt || '',
       image_url: images[0] || '',
-      images, tags,
+      images, image_alts: imageAlts, tags,
       // V edit režimu zachováme existující published flag, jinak koncept
       published: isEdit ? !!f.published : false,
       updated_at: new Date().toISOString(),
@@ -178,13 +182,14 @@ export default function BlogWizard({ entry, onClose, onSaved }) {
     setSaving(true); setErr(null); setTranslateStatus(null)
     const tags = form.tags.split(',').map(t => t.trim()).filter(Boolean)
     const images = (form.images || []).filter(Boolean)
+    const imageAlts = images.map((u, i) => (form.image_alts && form.image_alts[i]) || '')
     const payload = {
       title: form.title,
       slug: form.slug || slugify(form.title),
       content: form.content,
       excerpt: form.excerpt,
       image_url: images[0] || '',
-      images, tags,
+      images, image_alts: imageAlts, tags,
       published: form.published,
       updated_at: new Date().toISOString(),
     }
@@ -371,10 +376,13 @@ function Step3({ form, set, folderId }) {
     <div className="space-y-3">
       <div>
         <Label>Obrázky článku</Label>
-        <Hint text="Přetáhněte fotky z počítače sem nebo klikněte pro výběr. První obrázek se použije jako hlavní (náhled v seznamu blogu). Ostatní se zobrazí jako galerie." />
+        <Hint text={'Přetáhněte fotky z počítače sem nebo klikněte pro výběr. První obrázek se použije jako hlavní (náhled v seznamu blogu). Ostatní se zobrazí jako galerie. Pod každou fotkou vyplňte krátký popisek (např. „motorka v zatáčce") — web složí alt jako „{titulek článku} – {popisek}" pro lepší SEO.'} />
         <ImageUploader
           value={form.images}
           onChange={urls => set('images', urls)}
+          alts={form.image_alts}
+          onAltsChange={alts => set('image_alts', alts)}
+          altPlaceholder={'Popisek (např. „motorka v zatáčce")'}
           folder={folderId}
         />
       </div>
