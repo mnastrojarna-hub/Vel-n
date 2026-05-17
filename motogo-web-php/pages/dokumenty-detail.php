@@ -203,6 +203,24 @@ if (!$tpl || empty($tplHtml)) {
           .  '</article>';
 }
 
+// Sdílená SEO outro sekce — Velín → Texty webu → Detail dokumentu
+$docDetailDefaults = [
+    'outro' => [
+        'title' => 'O našich dokumentech',
+        'body1' => 'Všechny smluvní dokumenty a protokoly MotoGo24 jsou vždy <strong>aktuální verze</strong> — pravidelně je revidujeme s ohledem na změny v legislativě a zpětnou vazbu zákazníků. Najdete je v textové i tištěné podobě, můžete si je stáhnout ve formátu PDF a vytisknout, nebo si je prohlédnout přímo zde na webu. Plné znění obchodních podmínek, smlouvy o pronájmu a zásad ochrany osobních údajů máme dostupné v sekci <a href="/jak-pujcit/dokumenty">Dokumenty a návody</a>.',
+        'body2' => 'Pokud máte jakýkoli dotaz ke smluvním podmínkám, postupu při převzetí nebo vrácení motorky či k pojištění, neváhejte nás kontaktovat. Naše smlouvy záměrně píšeme tak, aby byly <strong>srozumitelné</strong> — bez drobného písma a skrytých podmínek. Pokud chcete dokumenty fyzicky podepsat předem nebo si je s námi projít osobně, můžete přijet do půjčovny v Pelhřimově nebo si je necháme připravit k vyzvednutí.',
+    ],
+];
+$DDC = $sb->siteContent('dokumenty_detail', $docDetailDefaults);
+$docOutroT = $DDC['outro']['title'] ?? $docDetailDefaults['outro']['title'];
+$docOutroB1 = $DDC['outro']['body1'] ?? $docDetailDefaults['outro']['body1'];
+$docOutroB2 = $DDC['outro']['body2'] ?? $docDetailDefaults['outro']['body2'];
+$body .= '<section class="dokumenty-detail-outro">'
+    . '<h2 data-cms-key="web.dokumenty_detail.outro.title">' . htmlspecialchars($docOutroT) . '</h2>'
+    . '<p data-cms-key="web.dokumenty_detail.outro.body1">' . $docOutroB1 . '</p>'
+    . '<p data-cms-key="web.dokumenty_detail.outro.body2">' . $docOutroB2 . '</p>'
+    . '</section>';
+
 $body .= '</div></div></main>';
 
 // Bohatsi meta description: title + standardni kontext (pujcovna + adresa).
