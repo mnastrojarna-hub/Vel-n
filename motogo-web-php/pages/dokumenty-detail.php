@@ -182,7 +182,10 @@ $pdfHref = BASE_URL . '/dokumenty/' . urlencode($slug) . '?format=pdf';
 $body = '<main id="content"><div class="container">' . $bc;
 $body .= '<style>' . $DOC_CSS . '</style>';
 $body .= '<div class="ccontent">';
-$body .= '<h1>' . $title . '</h1>';
+// H1 extension: krátké názvy dokumentů (např. "Předávací protokol" = 18 px)
+// jsou pod Seobility limit 120 px. Doplňujeme suffix "| MotoGo24 půjčovna motorek"
+// pro kontext SEO klíčovky. Krátký název dokumentu zůstává vizuálně dominantní.
+$body .= '<h1>' . $title . ' <span class="doc-h1-suffix">| MotoGo24 půjčovna motorek</span></h1>';
 
 if (!$tpl || empty($tplHtml)) {
     $body .= '<p>' . htmlspecialchars(t('doc.notPublished')) . ' <a href="' . BASE_URL . '/kontakt">' . htmlspecialchars(t('common.contactUs')) . '</a></p>';

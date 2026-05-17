@@ -83,9 +83,14 @@ $badgeHtml = $isAvailableToday
     ? '<span class="moto-badge-available">' . te('detail.availableToday') . '</span>'
     : (($moto['status'] ?? '') === 'active' ? '<span class="moto-badge-busy">' . te('detail.busyToday') . '</span>' : '');
 
+// H1 extension: samotný model (např. "Yamaha PW 50" = 12 px) je pod Seobility
+// limit 120 px. Přidáváme suffix "— půjčovna motorek MotoGo24" aby H1 mělo
+// reálnou informační hodnotu a SEO klíčovku. Krátký label modelu zůstává
+// vizuálně dominantní díky <span class="moto-h1-suffix">.
+$h1Suffix = ' <span class="moto-h1-suffix">— půjčovna motorek MotoGo24</span>';
 $headerHtml = '<div class="moto-detail-header"><div>'
     . ($badgeHtml ? '<div>' . $badgeHtml . '</div>' : '')
-    . '<h1>' . $model . '</h1>'
+    . '<h1>' . $model . $h1Suffix . '</h1>'
     . $branchHtml
     . '</div><div>'
     . '<a class="btn btngreen" href="' . BASE_URL . '/rezervace?moto=' . htmlspecialchars($moto['id']) . '">' . te('common.reserveOnline') . '</a></div></div>';

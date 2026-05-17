@@ -83,6 +83,9 @@ return [
     'footer.iconPhone' => 'Telefoon',
     'footer.iconEmail' => 'E-mail',
     'footer.iconAddress' => 'Adres',
+    'footer.iconHours' => 'Openingstijden',
+    'footer.iconEmail' => 'E-mail',
+    'footer.iconAddress' => 'Adres',
 
     'a11y.mainContent' => 'Hoofdinhoud van de pagina',
     'a11y.benefits' => 'Belangrijkste voordelen',

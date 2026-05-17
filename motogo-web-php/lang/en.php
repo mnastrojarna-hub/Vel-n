@@ -87,6 +87,9 @@ return [
     'footer.iconPhone' => 'Phone',
     'footer.iconEmail' => 'E-mail',
     'footer.iconAddress' => 'Address',
+    'footer.iconHours' => 'Opening hours',
+    'footer.iconEmail' => 'E-mail',
+    'footer.iconAddress' => 'Address',
 
     // ===== Hidden A11Y section headings (vh = visually hidden) =====
     'a11y.mainContent' => 'Main page content',

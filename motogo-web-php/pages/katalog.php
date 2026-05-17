@@ -46,9 +46,53 @@ $katalogDefaults = [
         'body2' => 'Každá motorka v naší flotile má v detailu uvedené kompletní technické parametry, fotky i ceník po dnech. Půjčení probíhá <strong>bez kauce</strong>, výbava pro řidiče (helma, bunda, kalhoty, rukavice) je <strong>v ceně nájmu</strong> a vyzvednutí si můžete domluvit i mimo otevírací dobu díky <strong>nonstop provozu</strong>. Pokud si nejste jistí výběrem, ozvěte se nám telefonicky nebo e-mailem — rádi vám poradíme, která motorka je pro vás ta pravá.',
     ],
 ];
-$C = $sb->siteContent('katalog', $katalogDefaults);
+
+// Per-kategorie outro — Seobility hlásil 'Duplicate content' na /katalog/{cestovni,
+// naked,detske} + /katalog protože všechny sdílely stejný outro text. Každá kategorie
+// dostává vlastní unikátní outro (řeší duplicate i SEO klíčovku per cíl).
+$categoryOutros = [
+    'cestovni' => [
+        'title' => 'Cestovní motorky k pronájmu — pro dlouhé túry a dovolené',
+        'body1' => 'Cestovní (touring) a adventure motorky v naší flotile jsou stavěné na dlouhé vzdálenosti — vyšší posed, pohodlné sedadlo pro řidiče i spolujezdce, velká nádrž s dojezdem 300–400 km a kufry pro zavazadla. Najdete tu klasické cestovní stroje jako <strong>Honda Africa Twin</strong>, <strong>BMW R 1200 GS Adventure</strong> nebo <strong>Benelli TRK</strong> — všechny pravidelně servisované a připravené na trasu po ČR i do zahraničí.',
+        'body2' => 'Půjčujeme bez kauce, zelenou kartu i mezinárodní doklady dáváme automaticky a v ceně máte kompletní výbavu pro řidiče. Pokud plánujete delší cestu (5+ dní), nabízíme automatickou slevu — promítne se přímo do online rezervace. Pro spolujezdce si můžete doobjednat výbavu (helma, bunda, kukla) za příplatek.',
+    ],
+    'naked' => [
+        'title' => 'Naked motorky — sportovně laděné stroje pro každodenní jízdu',
+        'body1' => 'Naked motorky bez kapotáže nabízejí <strong>nezaměnitelný pocit svobody</strong> a přímé spojení s motorem. Hodí se na rychlou jízdu městem, víkendové výlety i na zábavu v zatáčkách. V naší flotile najdete například <strong>Kawasaki Z 900</strong> nebo <strong>Yamaha MT-09 Street Rally</strong> — všechny ve výborném technickém stavu, s nízkým nájezdem a pravidelným servisem.',
+        'body2' => 'Půjčujeme bez kauce a výbava pro řidiče (helma, bunda, kalhoty, rukavice) je vždy v ceně. Před vyzvednutím motorku společně prohlédneme a vysvětlíme vám její specifika. Pokud nemáte zkušenost s konkrétní třídou výkonu, rádi poradíme s výběrem.',
+    ],
+    'supermoto' => [
+        'title' => 'Supermoto motorky — lehké a hbité stroje pro městský zlob',
+        'body1' => 'Supermoto kombinuje výhody enduro motorky (lehkost, dlouhé pružení, vysoký posed) se silničními pneumatikami a kotoučovými brzdami. Výsledek je <strong>velmi hbitý stroj</strong>, který si rozumí s městským provozem, polními cestami i krátkými túrami po Vysočině. V katalogu najdete například <strong>Yamaha XT660 X</strong> — klasické supermoto s velkým jednoválcovým srdcem.',
+        'body2' => 'Tyto motorky vyžadují řidičské oprávnění A nebo A2 a hodí se spíš zkušenějším jezdcům, kteří si chtějí užít hravost a lehkost stroje. Půjčujeme bez kauce, výbavu řidiče máte v ceně. Při vyzvednutí vám vysvětlíme specifika jízdy s vyšším posedem a důraz na vyvážení.',
+    ],
+    'naked_chopper' => [
+        'title' => 'Chopper a cruiser motorky pro pohodovou jízdu',
+        'body1' => 'Chopper a cruiser motorky jsou stavěné pro <strong>pohodlnou jízdu na dlouhé vzdálenosti</strong> — nízký posed, tažné držení těla, charakteristický zvuk dvouválcového motoru a estetika klasiky. Hodí se na nedělní výlet i na delší cestu po ČR.',
+        'body2' => 'V naší flotile rozšiřujeme nabídku průběžně — pokud máte konkrétní model na mysli, ozvěte se nám. Půjčujeme bez kauce a výbavu řidiče máte v ceně. Při vyzvednutí vám předáme klíče, dokumenty a kompletní výbavu.',
+    ],
+    'detske' => [
+        'title' => 'Dětské motorky — bezpečná zábava pro malé jezdce',
+        'body1' => 'Dětské elektromotorky a malé motorky s nízkým výkonem (do 4,1 kW) si můžete půjčit <strong>bez řidičského oprávnění</strong> a využít je na zahradě, tábořišti nebo v rámci jezdeckého kurzu pro děti. V katalogu najdete například <strong>Yamaha PW 50</strong> — legendu mezi dětskými stroji, která se vyrábí prakticky beze změny už desítky let.',
+        'body2' => 'Před každou jízdou doporučujeme dítěti přečíst základní bezpečnostní pravidla a vždy ho vybavit helmou a chrániči (k zapůjčení v ceně). Doručujeme motorku po celé ČR — domluvíme se na čase i adrese přistavení přímo při rezervaci.',
+    ],
+    'sportovni' => [
+        'title' => 'Sportovní motorky — adrenalin a výkon pro zkušené jezdce',
+        'body1' => 'Sportovní (supersport) motorky jsou určené pro <strong>zkušené jezdce</strong>, kteří hledají vysoký výkon, ostrou geometrii a sportovní posed. Hodí se na okruh, klikaté silnice a víkendové výlety po hezkých moravských a vysočinských trasách.',
+        'body2' => 'Vyžadujeme řidičské oprávnění A a minimálně 2 roky praxe na motorce nad 35 kW. Půjčujeme bez kauce, kompletní výbavu řidiče máte v ceně. Před vyzvednutím vám vysvětlíme specifika jízdy se sportovní motorkou a doporučíme bezpečnostní postupy.',
+    ],
+];
+// Aplikuj per-kategorie outro pokud existuje, jinak default
+if ($category && isset($categoryOutros[$category])) {
+    $katalogDefaults['outro'] = $categoryOutros[$category];
+}
+
+$C = $sb->siteContent('katalog' . ($category ? '_' . $category : ''), $katalogDefaults);
 // Pro kategorie subpages necháme dynamický nadpis z překladů, jen sdílený intro lze přepsat
-$displayH1 = $category ? $title : ($C['h1'] ?? $title);
+// H1 extension: kategorie ("Cestovní motorky" má jen ~16 px) doplníme o "k pronájmu na Vysočině"
+// aby přesáhly Seobility 120 px limit (řeší 'H1 too short' na všech /katalog/{kat}).
+$h1Suffix = ' k pronájmu na Vysočině';
+$displayH1 = $category ? ($title . $h1Suffix) : ($C['h1'] ?? $title);
 $displayIntro = $C['intro'] ?? t('filters.catalogLead');
 $outroTitle = $C['outro']['title'] ?? $katalogDefaults['outro']['title'];
 $outroBody1 = $C['outro']['body1'] ?? $katalogDefaults['outro']['body1'];

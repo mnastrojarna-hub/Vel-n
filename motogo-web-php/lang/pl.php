@@ -83,6 +83,9 @@ return [
     'footer.iconPhone' => 'Telefon',
     'footer.iconEmail' => 'E-mail',
     'footer.iconAddress' => 'Adres',
+    'footer.iconHours' => 'Godziny otwarcia',
+    'footer.iconEmail' => 'E-mail',
+    'footer.iconAddress' => 'Adres',
 
     'a11y.mainContent' => 'Główna treść strony',
     'a11y.benefits' => 'Główne zalety',

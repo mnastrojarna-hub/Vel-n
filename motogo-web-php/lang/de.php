@@ -87,6 +87,9 @@ return [
     'footer.iconPhone' => 'Telefon',
     'footer.iconEmail' => 'E-Mail',
     'footer.iconAddress' => 'Adresse',
+    'footer.iconHours' => 'Öffnungszeiten',
+    'footer.iconEmail' => 'E-Mail',
+    'footer.iconAddress' => 'Adresse',
 
     // A11Y vh
     'a11y.mainContent' => 'Hauptinhalt der Seite',
