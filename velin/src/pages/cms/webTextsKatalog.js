@@ -14,5 +14,13 @@ export const PAGE_KATALOG = {
         { key: 'web.katalog.intro', label: 'Úvodní odstavec (HTML povolený)', type: 'textarea', default: 'Vyberte si z naší nabídky <strong>cestovních, sportovních, enduro i dětských motorek</strong>. Můžete filtrovat podle kategorie, řidičského průkazu, výkonu, ceny a dalších parametrů.' },
       ]
     },
+    {
+      id: 'outro', label: 'Sekce pod gridem', location: 'Pod výpisem motorek — H2 + 2 odstavce. Slouží pro SEO obsah a vysvětlení katalogu.',
+      fields: [
+        { key: 'web.katalog.outro.title', label: 'H2 nadpis', default: 'Jak si vybrat motorku v našem katalogu' },
+        { key: 'web.katalog.outro.body1', label: '1. odstavec (HTML povolený)', type: 'textarea', default: 'V katalogu motorek MotoGo24 najdete pečlivě udržované stroje pro každý typ jízdy — od pohodlných <strong>cestovních motorek</strong> na dlouhé túry přes hbité <strong>naked stroje</strong> do města, ostré <strong>supermoto</strong> pro zábavu na zatáčkách až po bezpečné <strong>dětské elektromotorky</strong>. Filtrovat můžete podle kategorie, řidičského oprávnění, výkonu v kW, maximální ceny za den i podle toho, jestli má motorka <strong>ABS</strong> nebo místo pro spolujezdce.' },
+        { key: 'web.katalog.outro.body2', label: '2. odstavec (HTML povolený)', type: 'textarea', default: 'Každá motorka v naší flotile má v detailu uvedené kompletní technické parametry, fotky i ceník po dnech. Půjčení probíhá <strong>bez kauce</strong>, výbava pro řidiče (helma, bunda, kalhoty, rukavice) je <strong>v ceně nájmu</strong> a vyzvednutí si můžete domluvit i mimo otevírací dobu díky <strong>nonstop provozu</strong>. Pokud si nejste jistí výběrem, ozvěte se nám telefonicky nebo e-mailem — rádi vám poradíme, která motorka je pro vás ta pravá.' },
+      ]
+    },
   ]
 }
