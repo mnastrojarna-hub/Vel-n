@@ -122,7 +122,7 @@ function renderFooter() {
     '</div></div>' .
     '<div class="copyright"><div class="container">' .
         '<p>' . tc('footer.copyright') . '</p>' .
-        '<p><a href="' . BASE_URL . '/mapa-stranek">' . tc('footer.sitemap') . '</a><a href="#" data-cookie-prefs>' . tc('footer.cookies') . '</a><a href="' . BASE_URL . '/dokumenty/zasady-ochrany-osobnich-udaju">' . tc('footer.gdpr') . '</a><a href="' . BASE_URL . '/dokumenty/obchodni-podminky">' . tc('footer.terms') . '</a><a href="' . BASE_URL . '/dokumenty/smlouva-o-pronajmu">' . tc('footer.contract') . '</a></p>' .
+        '<p><a href="' . BASE_URL . '/mapa-stranek">' . tc('footer.sitemap') . '</a><a href="#" data-cookie-prefs>' . tc('footer.cookies') . '</a><a href="' . BASE_URL . '/dokumenty/zasady-ochrany-osobnich-udaju">' . tc('footer.gdpr') . '</a><a href="' . BASE_URL . '/dokumenty/obchodni-podminky">' . tc('footer.terms') . '</a><a href="' . BASE_URL . '/dokumenty/smlouva-o-pronajmu">' . tc('footer.contract') . '</a><a href="' . BASE_URL . '/partneri">' . tc('footer.partners') . '</a></p>' .
         '<p class="footer-toplist"><a href="https://www.toplist.cz/stat/1841683" target="_blank" rel="nofollow noopener" aria-label="TOPlist"><img src="https://toplist.cz/count.asp?ID=1841683&amp;logo=mc" alt="TOPlist" width="88" height="31" loading="lazy"></a></p>' .
     '</div></div>' .
     '</footer>' .

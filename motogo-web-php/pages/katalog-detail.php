@@ -572,9 +572,9 @@ if ($motoDesc !== '') {
     $metaDescParts[] = 'výbava v ceně, online rezervace, nonstop provoz na Vysočině';
 }
 $metaDescBuilt = implode('. ', array_filter($metaDescParts)) . '.';
-// Seobility limit ~1000 px = ~155 znaku (Czech s diakritikou ~6 px/znak).
-// Predtim 220 znaku produkovalo 2700-2800 px na motorkach s dlouhym DB textem.
-$metaDescBuilt = mb_substr(preg_replace('/\s+/', ' ', $metaDescBuilt), 0, 155);
+// Seobility limit ~1000 px = ~140 znaku (Czech s diakritikou ~7 px/znak).
+// 155 znaku produkovalo 1004-1019 px (tesne nad limit) — sniženo na 140.
+$metaDescBuilt = mb_substr(preg_replace('/\s+/', ' ', $metaDescBuilt), 0, 140);
 // Trim na hranici slova, aby nebyla seknuta uprostred.
 $metaDescBuilt = preg_replace('/\s+\S*$/u', '', $metaDescBuilt);
 

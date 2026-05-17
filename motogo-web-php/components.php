@@ -305,14 +305,17 @@ function sanitizeHtml($html, $allowIframe = false) {
         $html
     );
     // SEO: prázdné nadpisy (Seobility "Empty heading") — CMS editor občas zanechá
-    // <h2>&nbsp;</h2> nebo prázdné <h3></h3>. Odstraníme celé (vč. čistě
-    // whitespace/&nbsp;/<br> obsahu), opakovaně kvůli vnořeným prázdným spanům.
-    do {
-        $before = $html;
-        $stripped = preg_replace('~<(h[1-6])\b[^>]*>(?:\s|&nbsp;|&\#160;|&#x?[0-9a-f]+;|<br\s*/?>|<span[^>]*>|</span>)*</\1\s*>~i', '', $html);
-        if ($stripped === null) break; // PCRE chyba — nech HTML beze změny, nikdy nevrať null
-        $html = $stripped;
-    } while ($html !== $before);
+    // <h2>&nbsp;</h2>, prázdné <h3></h3> nebo nadpis s pouze prázdným inline obalem
+    // (<h2><strong></strong></h2>, <h2><a></a></h2>). Strategie: pro každý <hN>…</hN>
+    // odstraň obsahový strip_tags + entity & whitespace; pokud je prázdný, smaž celý.
+    $html = preg_replace_callback('~<(h[1-6])\b[^>]*>(.*?)</\1\s*>~is', function ($m) {
+        $inner = $m[2];
+        // Odstraň všechny tagy a HTML entity (nbsp, narrow nbsp, zero-width…)
+        $text = strip_tags($inner);
+        $text = preg_replace('~&nbsp;|&#160;|&\#x?[0-9a-f]+;~i', '', $text);
+        $text = trim($text);
+        return ($text === '') ? '' : $m[0];
+    }, $html);
     return $html;
 }
 

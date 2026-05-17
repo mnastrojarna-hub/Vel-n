@@ -78,6 +78,7 @@ return [
     'cookies.always' => 'Altijd actief',
     'footer.terms' => 'Algemene voorwaarden',
     'footer.contract' => 'Huurovereenkomst',
+    'footer.partners' => 'Voor partners',
     'footer.toTop' => 'NAAR BOVEN',
     'footer.iconPhone' => 'Telefoon',
     'footer.iconEmail' => 'E-mail',

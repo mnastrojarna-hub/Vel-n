@@ -82,6 +82,7 @@ return [
     'cookies.always' => 'Immer aktiv',
     'footer.terms' => 'Geschäftsbedingungen',
     'footer.contract' => 'Mietvertrag',
+    'footer.partners' => 'Für Partner',
     'footer.toTop' => 'NACH OBEN',
     'footer.iconPhone' => 'Telefon',
     'footer.iconEmail' => 'E-Mail',
