@@ -480,9 +480,12 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
   <meta name="twitter:description" content="' . htmlspecialchars($description) . '">
   <meta name="twitter:image" content="' . htmlspecialchars($ogImage) . '">
   <link rel="canonical" href="' . htmlspecialchars($canonical) . '">
+  <!-- Favicon: PNG první (Google Ads, starší crawlery), SVG druhý (moderní prohlížeče
+       — vector, ostré na všech rozlišeních). Apple touch icon stejný PNG. -->
+  <link rel="icon" type="image/png" sizes="120x120" href="' . $siteOrigin . '/apple-touch-icon.png">
   <link rel="icon" type="image/svg+xml" href="' . $siteOrigin . '/favicon.svg">
   <link rel="apple-touch-icon" sizes="120x120" href="' . $siteOrigin . '/apple-touch-icon.png">
-  <link rel="manifest" href="' . BASE_URL . '/manifest.webmanifest">
+  <link rel="shortcut icon" href="' . $siteOrigin . '/favicon.ico">  <link rel="manifest" href="' . BASE_URL . '/manifest.webmanifest">
   <link rel="alternate" type="application/rss+xml" title="MotoGo24 — Blog a tipy na trasy" href="' . $siteOrigin . '/feed.xml">
   <link rel="sitemap" type="application/xml" title="Sitemap" href="' . $siteOrigin . '/sitemap.xml">
   <link rel="search" type="application/opensearchdescription+xml" title="MotoGo24" href="' . $siteOrigin . '/opensearch.xml">
