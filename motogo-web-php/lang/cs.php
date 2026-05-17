@@ -84,6 +84,7 @@ return [
     'cookies.always' => 'Vždy aktivní',
     'footer.terms' => 'Obchodní podmínky',
     'footer.contract' => 'Smlouva o pronájmu',
+    'footer.partners' => 'Pro partnery',
     'footer.toTop' => 'NAHORU',
     'footer.iconPhone' => 'Telefon',
     'footer.iconEmail' => 'E-mail',
@@ -156,7 +157,7 @@ return [
 
     // E-shop
     'shop.title' => 'E-shop MotoGo24 — motorkářské doplňky a merch',
-    'shop.h1' => 'E-shop MotoGo24',
+    'shop.h1' => 'E-shop MotoGo24 — motorkářské doplňky a merch',
     'shop.intro' => 'Motorkářské doplňky, merch a dárky pro fanoušky MotoGo24. Doručíme po celé ČR.',
     'shop.description' => 'E-shop MotoGo24 — motorkářské doplňky, oblečení a merch. Online objednávka, doprava po celé ČR.',
     'shop.keywords' => 'motopůjčovna',
@@ -271,7 +272,7 @@ return [
 
     // ===== Mapa stránek =====
     'sitemap.title' => 'Mapa stránek | MotoGo24',
-    'sitemap.h1' => 'Mapa stránek',
+    'sitemap.h1' => 'Mapa stránek webu MotoGo24',
     'sitemap.links.home' => 'Úvodní stránka',
     'sitemap.links.rental' => 'Půjčovna motorek',
     'sitemap.links.catalog' => 'Katalog motorek',
@@ -1158,7 +1159,7 @@ return [
     'blog.title' => 'Blog a tipy pro motorkáře | MotoGo24',
     'blog.description' => 'Blog Motogo24 – tipy na motorkářské trasy na Vysočině i v ČR, novinky z půjčovny, rady pro bezpečnou jízdu a praktické postupy.',
     'blog.keywords' => 'motopůjčovna',
-    'blog.h1' => 'Blog a tipy',
+    'blog.h1' => 'Blog a tipy z motopůjčovny MotoGo24',
     'blog.empty' => 'Žádné články v této kategorii.',
     'blog.tagAll' => 'Všechny ({count})',
     'blog.detail.notFoundTitle' => 'Článek nenalezen – Motogo24',

@@ -11,6 +11,11 @@ $defaults = [
     ],
     'h1' => 'Jak si půjčit motorku',
     'intro' => 'V <strong>Motogo24 – půjčovna motorek na Vysočině</strong> je půjčení jednoduché, rychlé a férové.',
+    'outro' => [
+        'title' => 'Krok za krokem k vaší motorce',
+        'body1' => 'Půjčení motorky v MotoGo24 jsme se snažili připravit tak, aby zabralo co nejméně času a nepřinášelo žádná nepříjemná překvapení. Vyberete si stroj v katalogu, online si rezervujete termín, zaplatíte přes platební bránu a v dohodnutý čas si motorku vyzvednete v naší půjčovně v Pelhřimově — nebo si ji necháte přistavit kamkoliv na Vysočině či po ČR. Po skončení rezervace ji jednoduše vrátíte zpět do půjčovny, nebo nám předáte na předem domluveném místě.',
+        'body2' => 'Půjčujeme <strong>bez kauce</strong>, výbava pro řidiče (helma, bunda, kalhoty a rukavice) je <strong>vždy v ceně</strong> a otevřeno máme <strong>nonstop</strong> — pasuje to i lidem se směnným provozem nebo víkendovým plánem. Pokud cestujete s motorkou do zahraničí, dostanete s ní zelenou kartu a všechny potřebné dokumenty. V sekcích níže najdete podrobný postup pro každou fázi: výběr, převzetí, vrácení, dokumenty i odpovědi na nejčastější dotazy.',
+    ],
     'links' => [
         ['href' => '/jak-pujcit/postup', 'label' => 'Postup půjčení motorky'],
         ['href' => '/jak-pujcit/prevzeti', 'label' => 'Převzetí v půjčovně'],
@@ -33,10 +38,21 @@ foreach ($C['links'] as $i => $l) {
 }
 $linksHtml .= '</div>';
 
+$outroTitle = $C['outro']['title'] ?? $defaults['outro']['title'];
+$outroBody1 = $C['outro']['body1'] ?? $defaults['outro']['body1'];
+$outroBody2 = $C['outro']['body2'] ?? $defaults['outro']['body2'];
+
+$outroHtml = '<section class="jp-outro">'
+    . '<h2 data-cms-key="web.jak_pujcit.outro.title">' . htmlspecialchars($outroTitle) . '</h2>'
+    . '<p data-cms-key="web.jak_pujcit.outro.body1">' . $outroBody1 . '</p>'
+    . '<p data-cms-key="web.jak_pujcit.outro.body2">' . $outroBody2 . '</p>'
+    . '</section>';
+
 $content = '<main id="content"><div class="container">' . $bc .
     '<div class="ccontent"><h1 data-cms-key="web.jak_pujcit.h1">' . $C['h1'] . '</h1>' .
     '<p data-cms-key="web.jak_pujcit.intro">' . $C['intro'] . '</p>' .
     '<p>&nbsp;</p>' . $linksHtml .
+    $outroHtml .
     '</div></div></main>';
 
 renderPage($C['seo']['title'], $content, '/jak-pujcit', [

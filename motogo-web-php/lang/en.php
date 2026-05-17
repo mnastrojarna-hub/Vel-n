@@ -82,6 +82,7 @@ return [
     'cookies.always' => 'Always on',
     'footer.terms' => 'Terms and conditions',
     'footer.contract' => 'Rental agreement',
+    'footer.partners' => 'For partners',
     'footer.toTop' => 'TO TOP',
     'footer.iconPhone' => 'Phone',
     'footer.iconEmail' => 'E-mail',

@@ -78,6 +78,7 @@ return [
     'cookies.always' => 'Zawsze aktywne',
     'footer.terms' => 'Warunki handlowe',
     'footer.contract' => 'Umowa najmu',
+    'footer.partners' => 'Dla partnerów',
     'footer.toTop' => 'DO GÓRY',
     'footer.iconPhone' => 'Telefon',
     'footer.iconEmail' => 'E-mail',

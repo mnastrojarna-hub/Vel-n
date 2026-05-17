@@ -110,7 +110,10 @@ $articleSchema = '
     . '}
   </script>';
 
-renderPage($titleRaw . ' | Blog MotoGo24', $content, '/blog/' . $slug, [
+// Suffix u dlouhych titulku zkracujeme z " | Blog MotoGo24" (15 znaku) na
+// " | MotoGo24" (11 znaku) — usetri ~30 px a vejde se pod 580 px limit.
+$titleSuffix = mb_strlen($titleRaw) > 45 ? ' | MotoGo24' : ' | Blog MotoGo24';
+renderPage($titleRaw . $titleSuffix, $content, '/blog/' . $slug, [
     'description' => $excerpt ?: t('blog.detail.descFallback', ['title' => $titleRaw]),
     'og_type' => 'article',
     // SEO: og:image MAX 1200px / quality 85 — predejde 'Large file size' issue.

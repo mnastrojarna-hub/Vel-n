@@ -40,11 +40,19 @@ if ($path === '/katalog/cestovni') {
 $katalogDefaults = [
     'h1'    => $title,
     'intro' => t('filters.catalogLead'),
+    'outro' => [
+        'title' => 'Jak si vybrat motorku v našem katalogu',
+        'body1' => 'V katalogu motorek MotoGo24 najdete pečlivě udržované stroje pro každý typ jízdy — od pohodlných <strong>cestovních motorek</strong> na dlouhé túry přes hbité <strong>naked stroje</strong> do města, ostré <strong>supermoto</strong> pro zábavu na zatáčkách až po bezpečné <strong>dětské elektromotorky</strong>. Filtrovat můžete podle kategorie, řidičského oprávnění, výkonu v kW, maximální ceny za den i podle toho, jestli má motorka <strong>ABS</strong> nebo místo pro spolujezdce.',
+        'body2' => 'Každá motorka v naší flotile má v detailu uvedené kompletní technické parametry, fotky i ceník po dnech. Půjčení probíhá <strong>bez kauce</strong>, výbava pro řidiče (helma, bunda, kalhoty, rukavice) je <strong>v ceně nájmu</strong> a vyzvednutí si můžete domluvit i mimo otevírací dobu díky <strong>nonstop provozu</strong>. Pokud si nejste jistí výběrem, ozvěte se nám telefonicky nebo e-mailem — rádi vám poradíme, která motorka je pro vás ta pravá.',
+    ],
 ];
 $C = $sb->siteContent('katalog', $katalogDefaults);
 // Pro kategorie subpages necháme dynamický nadpis z překladů, jen sdílený intro lze přepsat
 $displayH1 = $category ? $title : ($C['h1'] ?? $title);
 $displayIntro = $C['intro'] ?? t('filters.catalogLead');
+$outroTitle = $C['outro']['title'] ?? $katalogDefaults['outro']['title'];
+$outroBody1 = $C['outro']['body1'] ?? $katalogDefaults['outro']['body1'];
+$outroBody2 = $C['outro']['body2'] ?? $katalogDefaults['outro']['body2'];
 
 // Dynamické hranice slideru výkonu z dat
 $kwValues = [];
@@ -292,6 +300,11 @@ $filterHtml .= '</select></div>'
 $countHtml = '<p class="katalog-count">' . t('filters.countLine', ['count' => count($filtered), 'total' => count($motos)]) . '</p>';
 
 $h1AttrCms = $category ? '' : ' data-cms-key="web.katalog.h1"';
+$outroHtml = '<section class="katalog-outro">'
+    . '<h2 data-cms-key="web.katalog.outro.title">' . htmlspecialchars($outroTitle) . '</h2>'
+    . '<p data-cms-key="web.katalog.outro.body1">' . $outroBody1 . '</p>'
+    . '<p data-cms-key="web.katalog.outro.body2">' . $outroBody2 . '</p>'
+    . '</section>';
 $content = '<main id="content"><div class="container">'
     . renderBreadcrumb($bc)
     . '<div class="ccontent"><h1' . $h1AttrCms . '>' . htmlspecialchars($displayH1) . '</h1>'
@@ -299,6 +312,7 @@ $content = '<main id="content"><div class="container">'
     . $filterHtml
     . $countHtml
     . '<div id="katalog-grid" class="gr4">' . $gridHtml . '</div>'
+    . $outroHtml
     . '</div></div></main>';
 
 // ItemList JSON-LD — AI agent dostane kompletní katalog v jednom payload (max 50 položek per stránka)
