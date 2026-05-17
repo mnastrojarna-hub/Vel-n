@@ -85,37 +85,8 @@ export const PAGE_PUJCOVNA = {
   ]
 }
 
-export const PAGE_JAK_OVERVIEW = {
-  id: 'jak-pujcit', label: 'Jak si půjčit', icon: '📋', url: '/jak-pujcit',
-  description: 'Rozcestník s odkazy na podstránky: postup, přistavení, vyzvednutí, co v ceně, dokumenty, FAQ.',
-  sections: [
-    {
-      id: 'intro', label: 'Úvod stránky', location: 'Hlavní nadpis a úvodní text',
-      fields: [
-        { key: 'web.jak_pujcit.h1', label: 'H1 nadpis', default: 'Jak si půjčit motorku' },
-        { key: 'web.jak_pujcit.intro', label: 'Úvodní text', type: 'textarea', default: 'V Motogo24 – půjčovna motorek na Vysočině je půjčení jednoduché, rychlé a férové.' },
-      ]
-    },
-    {
-      id: 'links', label: 'Navigační karty (8 odkazů)', location: '8 karet odkazujících na podstránky',
-      fields: [
-        { key: 'web.jak_pujcit.links.0.label', label: 'Odkaz 1', default: 'Postup půjčení motorky' },
-        { key: 'web.jak_pujcit.links.1.label', label: 'Odkaz 2', default: 'Převzetí v půjčovně' },
-        { key: 'web.jak_pujcit.links.2.label', label: 'Odkaz 3', default: 'Vrácení motocyklu v půjčovně' },
-        { key: 'web.jak_pujcit.links.3.label', label: 'Odkaz 4', default: 'Vrácení motorky jinde' },
-        { key: 'web.jak_pujcit.links.4.label', label: 'Odkaz 5', default: 'Co je v ceně nájmu' },
-        { key: 'web.jak_pujcit.links.5.label', label: 'Odkaz 6', default: 'Přistavení motocyklu' },
-        { key: 'web.jak_pujcit.links.6.label', label: 'Odkaz 7', default: 'Dokumenty a návody' },
-        { key: 'web.jak_pujcit.links.7.label', label: 'Odkaz 8', default: 'Často kladené dotazy' },
-      ]
-    },
-    {
-      id: 'outro', label: 'Sekce pod dlaždicemi', location: 'Pod 8 navigačními kartami — H2 + 2 odstavce s přehledem celého procesu.',
-      fields: [
-        { key: 'web.jak_pujcit.outro.title', label: 'H2 nadpis', default: 'Krok za krokem k vaší motorce' },
-        { key: 'web.jak_pujcit.outro.body1', label: '1. odstavec (HTML povolený)', type: 'textarea', default: 'Půjčení motorky v MotoGo24 jsme se snažili připravit tak, aby zabralo co nejméně času a nepřinášelo žádná nepříjemná překvapení. Vyberete si stroj v katalogu, online si rezervujete termín, zaplatíte přes platební bránu a v dohodnutý čas si motorku vyzvednete v naší půjčovně v Pelhřimově — nebo si ji necháte přistavit kamkoliv na Vysočině či po ČR. Po skončení rezervace ji jednoduše vrátíte zpět do půjčovny, nebo nám předáte na předem domluveném místě.' },
-        { key: 'web.jak_pujcit.outro.body2', label: '2. odstavec (HTML povolený)', type: 'textarea', default: 'Půjčujeme <strong>bez kauce</strong>, výbava pro řidiče (helma, bunda, kalhoty a rukavice) je <strong>vždy v ceně</strong> a otevřeno máme <strong>nonstop</strong> — pasuje to i lidem se směnným provozem nebo víkendovým plánem. Pokud cestujete s motorkou do zahraničí, dostanete s ní zelenou kartu a všechny potřebné dokumenty. V sekcích níže najdete podrobný postup pro každou fázi: výběr, převzetí, vrácení, dokumenty i odpovědi na nejčastější dotazy.' },
-      ]
-    },
-  ]
-}
+// PAGE_JAK_OVERVIEW odstraněn — stránka /jak-pujcit byla smazána, protože byla
+// obsahově duplicitní s podstránkami. V menu zůstává jen rodičovský label
+// "Jak si půjčit motorku" jako neklickatelný rozcestník nad podmenu.
+// Klíče web.jak_pujcit.* v cms_variables zůstávají v DB (nezasahujeme), ale už
+// se nikde nečtou — admin je může smazat ručně, pokud chce.

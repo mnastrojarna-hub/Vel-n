@@ -27,7 +27,8 @@ $links = [
     ['href' => '/katalog/naked', 'label' => t('sitemap.links.naked')],
     ['href' => '/katalog/supermoto', 'label' => t('sitemap.links.supermoto')],
     ['href' => '/katalog/detske', 'label' => t('sitemap.links.kids')],
-    ['href' => '/jak-pujcit', 'label' => t('sitemap.links.howto')],
+    // /jak-pujcit zrušena (301 → /jak-pujcit/postup), v mapě stránek ji
+    // proto nelinkujeme — uživatel jde rovnou na konkrétní podstránky.
     ['href' => '/jak-pujcit/postup', 'label' => t('sitemap.links.process')],
     ['href' => '/jak-pujcit/prevzeti', 'label' => t('sitemap.links.pickup')],
     ['href' => '/jak-pujcit/vraceni-pujcovna', 'label' => t('sitemap.links.returnHome')],

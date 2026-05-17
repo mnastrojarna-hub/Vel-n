@@ -348,10 +348,14 @@ switch (true) {
         require __DIR__ . '/pages/pujcovna.php';
         break;
 
-    // Jak si půjčit
+    // Jak si půjčit — rozcestníková stránka /jak-pujcit byla odstraněna
+    // (obsahově duplicitní s podstránkami). Přesměrováváme 301 na /jak-pujcit/postup,
+    // aby ~550 backlinků (Google + externí) neztratilo SEO juice. V menu zůstává
+    // rodičovský label jako neklickatelný rozcestník (no_link), který rozbalí
+    // podmenu — viz layout.php::getMenuItems().
     case $path === '/jak-pujcit':
-        require __DIR__ . '/pages/jak-pujcit.php';
-        break;
+        header('Location: ' . BASE_URL . '/jak-pujcit/postup', true, 301);
+        exit;
 
     case $path === '/jak-pujcit/postup':
         require __DIR__ . '/pages/jak-pujcit-postup.php';

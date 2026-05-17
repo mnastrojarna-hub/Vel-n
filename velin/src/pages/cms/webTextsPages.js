@@ -1,7 +1,9 @@
 // Centrální index všech stránek webu pro textovou zprávu
 import { PAGE_HOME } from './webTextsHome'
 import { PAGE_KATALOG } from './webTextsKatalog'
-import { PAGE_PUJCOVNA, PAGE_JAK_OVERVIEW } from './webTextsPujcovna'
+// PAGE_JAK_OVERVIEW (rozcestník /jak-pujcit) odstraněn — stránka byla smazána
+// a v menu zůstává jen jako neklickatelný rozcestník nad podmenu.
+import { PAGE_PUJCOVNA } from './webTextsPujcovna'
 import { PAGE_POSTUP, PAGE_PRISTAVENI } from './webTextsPostup'
 import { PAGE_VYZVEDNUTI, PAGE_CO_V_CENE, PAGE_DOKUMENTY } from './webTextsVyzvednuti'
 import { PAGE_VRACENI_PUJCOVNA, PAGE_VRACENI_JINDE } from './webTextsVraceni'
@@ -17,7 +19,6 @@ export const WEB_PAGES = [
   PAGE_HOME,
   PAGE_KATALOG,
   PAGE_PUJCOVNA,
-  PAGE_JAK_OVERVIEW,
   PAGE_POSTUP,
   PAGE_PRISTAVENI,
   PAGE_VYZVEDNUTI,
