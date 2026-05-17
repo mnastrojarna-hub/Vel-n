@@ -81,10 +81,21 @@ $finalCtaSection = '<section>' .
     '<p>' . $ctaButtons . '</p>' .
     '</section>';
 
+// CMS-editable outro (Velín → Texty webu → Co je v ceně nájmu)
+$cvcOutroT = $C['outro']['title'] ?? 'Férové podmínky bez skrytých překvapení';
+$cvcOutroB1 = $C['outro']['body1'] ?? 'V MotoGo24 jsme od začátku stavěli ceník tak, aby byl <strong>maximálně transparentní</strong>. Co je v ceně nájmu, to v ceně skutečně najdete — žádné dodatečné poplatky za výbavu řidiče, za otevírání mimo otevírací dobu, za doklady ani za základní pojištění. Pokud něco potřebujete navíc (přistavení motorky, doplňková výbava, prodloužení rezervace), ceny vám vždy řekneme předem.';
+$cvcOutroB2 = $C['outro']['body2'] ?? 'Z tradičního „kauce 5 000 Kč splatná před vyzvednutím" jsme rovnou odešli pryč — <strong>žádnou kauci u nás neplatíte</strong>. Místo toho stavíme na důvěře, kvalitních smlouvách a tom, že naše motorky jsou plně pojištěné. Když se přesto něco přihodí, máme nonstop SOS linku a do 24 hodin zařídíme náhradní motorku, aby vám nevyhasla dovolená nebo plánovaný výlet.';
+$cvcOutroHtml = '<section class="cvc-outro">'
+    . '<h2 data-cms-key="' . $kp . '.outro.title">' . htmlspecialchars($cvcOutroT) . '</h2>'
+    . '<p data-cms-key="' . $kp . '.outro.body1">' . $cvcOutroB1 . '</p>'
+    . '<p data-cms-key="' . $kp . '.outro.body2">' . $cvcOutroB2 . '</p>'
+    . '</section>';
+
 $content = '<main id="content"><div class="container">' . $bc .
     '<div data-tag="Co je v ceně nájmu" class="sections ccontent">' .
     $titleSection .
     $benefitsHtml .
+    $cvcOutroHtml .
     $finalCtaSection .
     '</div></div></main>';
 

@@ -4,6 +4,21 @@
 
 $bc = renderBreadcrumb([['label' => t('breadcrumb.home'), 'href' => '/'], t('breadcrumb.sitemap')]);
 
+$sb = new SupabaseClient();
+$smDefaults = [
+    'intro' => 'Tato mapa stránek slouží jako přehled <strong>celého webu MotoGo24</strong> — najdete tu odkazy na katalog motorek k pronájmu, postup půjčení krok za krokem, ceník, dárkové poukazy, blog s tipy pro motorkáře, e-shop s motorkářskými doplňky i právní dokumenty.',
+    'outro' => [
+        'title' => 'Hledáte něco konkrétního?',
+        'body1' => 'Pokud nemůžete najít to, co hledáte, zkuste začít na <strong>domovské stránce</strong> nebo si projděte sekci <a href="/jak-pujcit">Jak si půjčit motorku</a>, kde jsou všechny informace ke způsobu rezervace, převzetí, vrácení i co je v ceně nájmu. Pro rychlou orientaci nabízíme také <a href="/jak-pujcit/faq">časté dotazy</a> a podrobný popis u každé motorky v <a href="/katalog">katalogu</a>.',
+        'body2' => 'Stále se neorientujete? Ozvěte se nám telefonicky, e-mailem nebo přes naše sociální sítě — najdete je v sekci <a href="/kontakt">Kontakt</a>. Jsme dostupní nonstop a rádi poradíme s výběrem motorky, termínem nebo s objednávkou dárkového poukazu.',
+    ],
+];
+$SMC = $sb->siteContent('mapa_stranek', $smDefaults);
+$smIntro = $SMC['intro'] ?? $smDefaults['intro'];
+$smOutroT = $SMC['outro']['title'] ?? $smDefaults['outro']['title'];
+$smOutroB1 = $SMC['outro']['body1'] ?? $smDefaults['outro']['body1'];
+$smOutroB2 = $SMC['outro']['body2'] ?? $smDefaults['outro']['body2'];
+
 $links = [
     ['href' => '/', 'label' => t('sitemap.links.home')],
     ['href' => '/pujcovna-motorek', 'label' => t('sitemap.links.rental')],
@@ -38,8 +53,18 @@ foreach ($links as $l) {
 }
 $html .= '</ul>';
 
+$smOutroHtml = '<section class="sitemap-outro">'
+    . '<h2 data-cms-key="web.mapa_stranek.outro.title">' . htmlspecialchars($smOutroT) . '</h2>'
+    . '<p data-cms-key="web.mapa_stranek.outro.body1">' . $smOutroB1 . '</p>'
+    . '<p data-cms-key="web.mapa_stranek.outro.body2">' . $smOutroB2 . '</p>'
+    . '</section>';
+
 $content = '<main id="content"><div class="container">' . $bc .
-    '<div class="ccontent"><h1>' . te('sitemap.h1') . '</h1>' . $html . '</div></div></main>';
+    '<div class="ccontent"><h1>' . te('sitemap.h1') . '</h1>'
+    . '<p data-cms-key="web.mapa_stranek.intro">' . $smIntro . '</p>'
+    . $html
+    . $smOutroHtml
+    . '</div></div></main>';
 
 renderPage(t('sitemap.title'), $content, '/mapa-stranek', [
     // Kratsi description (puvodne 180 znaku → 1156 px nad limit 1000 px).

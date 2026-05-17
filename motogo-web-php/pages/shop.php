@@ -16,10 +16,29 @@ if (empty($products)) {
     foreach ($products as $p) { $gridHtml .= renderProductCard($p); }
 }
 
+// CMS-editable outro pod gridem (Velín → CMS → Texty webu → E-shop)
+$shopDefaults = [
+    'outro' => [
+        'title' => 'Motorkářské doplňky pro každého jezdce',
+        'body1' => 'V e-shopu MotoGo24 najdete <strong>motorkářské doplňky</strong>, oblečení a merchandise, který se hodí na cesty i do města. Sortiment průběžně doplňujeme — od trik, čepic a kuklí přes reflexní prvky až po praktické drobnosti, které využijete při každé jízdě. Většinu zboží máme skladem v půjčovně v Pelhřimově a expedujeme do druhého pracovního dne.',
+        'body2' => 'Doručujeme po celé České republice — můžete si vybrat <strong>osobní vyzvednutí v půjčovně</strong>, doručení Zásilkovnou nebo Českou poštou. Platba probíhá online přes platební bránu. Pokud něco hledáte a v nabídce to nevidíte, ozvěte se nám telefonicky nebo e-mailem — rádi poradíme s výběrem nebo doporučíme alternativu.',
+    ],
+];
+$SC = $sb->siteContent('eshop', $shopDefaults);
+$shopOutroT = $SC['outro']['title'] ?? $shopDefaults['outro']['title'];
+$shopOutroB1 = $SC['outro']['body1'] ?? $shopDefaults['outro']['body1'];
+$shopOutroB2 = $SC['outro']['body2'] ?? $shopDefaults['outro']['body2'];
+$shopOutroHtml = '<section class="shop-outro">'
+    . '<h2 data-cms-key="web.eshop.outro.title">' . htmlspecialchars($shopOutroT) . '</h2>'
+    . '<p data-cms-key="web.eshop.outro.body1">' . $shopOutroB1 . '</p>'
+    . '<p data-cms-key="web.eshop.outro.body2">' . $shopOutroB2 . '</p>'
+    . '</section>';
+
 $content = '<main id="content"><div class="container">' . $bc
     . '<section class="ccontent"><h1>' . te('shop.h1') . '</h1>'
     . '<p>' . te('shop.intro') . '</p>'
     . '<div id="shop-grid" class="gr3">' . $gridHtml . '</div>'
+    . $shopOutroHtml
     . '</section></div></main>';
 
 // ItemList JSON-LD pro AI agenty / Google rich results

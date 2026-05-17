@@ -52,12 +52,32 @@ if (empty($posts)) {
     foreach ($posts as $p) { $gridHtml .= renderBlogCard($p); }
 }
 
+// CMS-editable outro pod gridem (Velín → CMS → Texty webu → Blog)
+$blogDefaults = [
+    'outro' => [
+        'title' => 'O našem blogu',
+        'body1' => 'Na blogu MotoGo24 najdete tipy pro motorkáře, recenze našich strojů, rady jak si vybrat <strong>správnou motorku k pronájmu</strong> a inspiraci na trasy po Vysočině i celé České republice. Pravidelně přidáváme články o dárkových poukazech, údržbě motorek i o tom, jak <strong>půjčit motorku bez kauce</strong> a co všechno je v ceně nájmu zahrnuto.',
+        'body2' => 'Pokud hledáte praktické informace o mototuristice, výbavě nebo o tom, jak to funguje v naší půjčovně, jste na správném místě. Máte téma, které by vás zajímalo? <a href="/kontakt">Napište nám</a> a rádi se mu věnujeme v dalším článku.',
+    ],
+];
+$BC = $sb->siteContent('blog', $blogDefaults);
+$outroT = $BC['outro']['title'] ?? $blogDefaults['outro']['title'];
+$outroB1 = $BC['outro']['body1'] ?? $blogDefaults['outro']['body1'];
+$outroB2 = $BC['outro']['body2'] ?? $blogDefaults['outro']['body2'];
+$outroHtml = '<section class="blog-outro">'
+    . '<h2 data-cms-key="web.blog.outro.title">' . htmlspecialchars($outroT) . '</h2>'
+    . '<p data-cms-key="web.blog.outro.body1">' . $outroB1 . '</p>'
+    . '<p data-cms-key="web.blog.outro.body2">' . $outroB2 . '</p>'
+    . '</section>';
+
 $content = '<main id="content"><div class="container">' . $bc
     . '<section class="ccontent"><h1>' . te('blog.h1') . '</h1>'
     . '<div id="blog-tags">' . $tagHtml . '</div>'
     . '<div class="tab-content"><div class="tab-pane active">'
     . '<div id="blog-grid" class="gr3">' . $gridHtml . '</div>'
-    . '</div></div></section></div></main>';
+    . '</div></div>'
+    . $outroHtml
+    . '</section></div></main>';
 
 renderPage(t('blog.title'), $content, '/blog', [
     'description' => t('blog.description'),

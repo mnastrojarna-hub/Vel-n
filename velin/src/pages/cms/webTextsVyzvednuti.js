@@ -156,6 +156,14 @@ export const PAGE_CO_V_CENE = {
         { key: 'web.jak_pujcit_cena.cta.text', label: 'Text', type: 'textarea', default: '' },
       ]
     },
+    {
+      id: 'outro', label: 'Závěrečná textová sekce', location: 'H2 + 2 odstavce mezi benefits a CTA (SEO obsah).',
+      fields: [
+        { key: 'web.jak_pujcit_cena.outro.title', label: 'H2 nadpis', default: 'Férové podmínky bez skrytých překvapení' },
+        { key: 'web.jak_pujcit_cena.outro.body1', label: '1. odstavec (HTML)', type: 'textarea', default: 'V MotoGo24 jsme od začátku stavěli ceník tak, aby byl <strong>maximálně transparentní</strong>. Co je v ceně nájmu, to v ceně skutečně najdete — žádné dodatečné poplatky za výbavu řidiče, za otevírání mimo otevírací dobu, za doklady ani za základní pojištění. Pokud něco potřebujete navíc (přistavení motorky, doplňková výbava, prodloužení rezervace), ceny vám vždy řekneme předem.' },
+        { key: 'web.jak_pujcit_cena.outro.body2', label: '2. odstavec (HTML)', type: 'textarea', default: 'Z tradičního „kauce 5 000 Kč splatná před vyzvednutím" jsme rovnou odešli pryč — <strong>žádnou kauci u nás neplatíte</strong>. Místo toho stavíme na důvěře, kvalitních smlouvách a tom, že naše motorky jsou plně pojištěné. Když se přesto něco přihodí, máme nonstop SOS linku a do 24 hodin zařídíme náhradní motorku, aby vám nevyhasla dovolená nebo plánovaný výlet.' },
+      ]
+    },
   ]
 }
 
