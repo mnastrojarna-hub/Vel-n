@@ -77,7 +77,8 @@ $static = [
     ['loc' => '/katalog/supermoto',      'priority' => '0.8',  'changefreq' => 'weekly'],
     ['loc' => '/katalog/detske',         'priority' => '0.8',  'changefreq' => 'weekly'],
     ['loc' => '/pujcovna-motorek',       'priority' => '0.8',  'changefreq' => 'monthly'],
-    ['loc' => '/jak-pujcit',             'priority' => '0.7',  'changefreq' => 'monthly'],
+    // /jak-pujcit byla smazána (301 redirect na /jak-pujcit/postup), ze sitemapy
+    // vyřazena aby crawler neindexoval redirect.
     ['loc' => '/jak-pujcit/postup',      'priority' => '0.7',  'changefreq' => 'monthly'],
     ['loc' => '/jak-pujcit/pristaveni',  'priority' => '0.7',  'changefreq' => 'monthly'],
     // Canonical URL pro stránku převzetí — /jak-pujcit/vyzvednuti je legacy

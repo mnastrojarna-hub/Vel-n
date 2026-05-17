@@ -12,7 +12,12 @@ function getMenuItems() {
     return [
         ['label' => tc('menu.rental'), 'route' => '/pujcovna-motorek'],
         ['label' => tc('menu.catalog'), 'route' => '/katalog'],
-        ['label' => tc('menu.howto'), 'route' => '/jak-pujcit', 'children' => [
+        // Rodičovská položka "Jak si půjčit motorku" je pouze rozcestník pro
+        // podmenu — neodkazuje na žádnou stránku (/jak-pujcit byla odstraněna,
+        // protože byla obsahově duplicitní s podstránkami). `no_link => true`
+        // říká renderer, ať vyrenderuje neklickatelný název (mobil: tap rozbalí
+        // podmenu, desktop: hover ukáže submenu).
+        ['label' => tc('menu.howto'), 'no_link' => true, 'children' => [
             ['label' => tc('menu.howto.process'), 'route' => '/jak-pujcit/postup'],
             ['label' => tc('menu.howto.pickup'), 'route' => '/jak-pujcit/prevzeti'],
             ['label' => tc('menu.howto.returnHome'), 'route' => '/jak-pujcit/vraceni-pujcovna'],
@@ -34,10 +39,19 @@ function renderHeader($currentPath = '/') {
     $nav = '';
     foreach ($menuItems as $item) {
         $hasSub = !empty($item['children']);
+        $noLink = !empty($item['no_link']);
         $arrow = $hasSub ? ' <img src="' . BASE_URL . '/gfx/arrow-down.svg" alt="" aria-hidden="true" loading="lazy" class="menu-arrow" width="12" height="12">' : '';
-        $isActive = ($currentPath !== '/' && strpos($currentPath, $item['route']) === 0);
+        $route = $item['route'] ?? '';
+        $isActive = !$noLink && $route !== '' && $currentPath !== '/' && strpos($currentPath, $route) === 0;
         $nav .= '<li' . ($hasSub ? ' class="has-sub"' : '') . '>';
-        $nav .= '<a' . ($isActive ? ' class="active"' : '') . ' data-route="' . $item['route'] . '" href="' . BASE_URL . $item['route'] . '">' . $item['label'] . $arrow . '</a>';
+        if ($noLink) {
+            // Rozcestník: <a href="#"> ať CSS hover a stávající mobile expand JS
+            // (`.has-sub > a` selektor) fungují beze změny. onclick zabrání
+            // navigaci na desktopu — na mobilu existující JS preventDefault dělá toggle.
+            $nav .= '<a class="menu-section" href="#" onclick="event.preventDefault();return false;" aria-haspopup="true">' . $item['label'] . $arrow . '</a>';
+        } else {
+            $nav .= '<a' . ($isActive ? ' class="active"' : '') . ' data-route="' . $route . '" href="' . BASE_URL . $route . '">' . $item['label'] . $arrow . '</a>';
+        }
         if ($hasSub) {
             $nav .= '<ul class="submenu bs">';
             foreach ($item['children'] as $ch) {
@@ -93,6 +107,14 @@ function renderFooter() {
     $menuItems = getMenuItems();
     $menuHtml = '';
     foreach ($menuItems as $item) {
+        // Položky bez route (no_link rozcestníky) ve footeru přeskakujeme — místo
+        // toho v patičce ukážeme přímo děti, aby uživatel viděl všechny smysluplné cíle.
+        if (!empty($item['no_link']) && !empty($item['children'])) {
+            foreach ($item['children'] as $ch) {
+                $menuHtml .= '<li><a data-route="' . $ch['route'] . '" href="' . BASE_URL . $ch['route'] . '">' . $ch['label'] . '</a></li>';
+            }
+            continue;
+        }
         $menuHtml .= '<li><a data-route="' . $item['route'] . '" href="' . BASE_URL . $item['route'] . '">' . $item['label'] . '</a></li>';
     }
     $menuHtml .= '<li><a data-route="/rezervace" href="' . BASE_URL . '/rezervace">' . tc('menu.reservation') . '</a></li>';
