@@ -38,20 +38,30 @@ $bc = renderBreadcrumb([['label' => t('breadcrumb.home'), 'href' => '/'], ['labe
 // Gallery
 $galleryHtml = '';
 $openLabel = htmlspecialchars(t('gallery.openImage'), ENT_QUOTES, 'UTF-8');
+// SEO: per-image alt z `image_alts[i]` (paralelní pole, plní admin ve Velíně
+// BlogWizard). Pokud prázdný → fallback na titulek článku (původní chování).
+$postImageAlts = is_array($post['image_alts'] ?? null) ? $post['image_alts'] : [];
+$composeBlogAlt = function (string $desc) use ($titleRaw) {
+    $desc = trim($desc);
+    if ($desc === '') return htmlspecialchars($titleRaw, ENT_QUOTES, 'UTF-8');
+    return htmlspecialchars(trim($titleRaw) . ' – ' . $desc, ENT_QUOTES, 'UTF-8');
+};
 if (!empty($post['images']) && count($post['images']) > 0) {
     $galleryHtml = '<section><div class="gallery-blog">';
     $idx = 0;
     foreach ($post['images'] as $img) {
+        $imgAlt = $composeBlogAlt((string)($postImageAlts[$idx] ?? ''));
         $galleryHtml .= '<div class="col-lg-3 col-md-4 col-sm-6">' .
             '<a href="' . htmlspecialchars($img) . '" data-gallery="blog" data-index="' . $idx . '" aria-label="' . $openLabel . '"><div class="gallery-background"><div class="gallery-box">' .
-            '<img src="' . htmlspecialchars($img) . '" alt="' . $title . '" loading="lazy"></div></div></a></div>';
+            '<img src="' . htmlspecialchars($img) . '" alt="' . $imgAlt . '" loading="lazy"></div></div></a></div>';
         $idx++;
     }
     $galleryHtml .= '</div></section>';
 } elseif (!empty($post['image_url'])) {
+    $imgAlt = $composeBlogAlt((string)($postImageAlts[0] ?? ''));
     $galleryHtml = '<section><div class="gallery-blog">' .
         '<div class="col-lg-3 col-md-4 col-sm-6"><a href="' . htmlspecialchars($post['image_url']) . '" data-gallery="blog" data-index="0" aria-label="' . $openLabel . '"><div class="gallery-background"><div class="gallery-box">' .
-        '<img src="' . htmlspecialchars($post['image_url']) . '" alt="' . $title . '" loading="lazy"></div></div></a></div></div></section>';
+        '<img src="' . htmlspecialchars($post['image_url']) . '" alt="' . $imgAlt . '" loading="lazy"></div></div></a></div></div></section>';
 }
 
 $postContent = sanitizeHtml($contentRaw);

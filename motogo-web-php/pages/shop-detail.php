@@ -34,6 +34,16 @@ $bc = renderBreadcrumb([
 // Obrázky
 $images = is_array($product['images'] ?? null) ? array_filter($product['images']) : [];
 if (empty($images) && !empty($product['image_url'])) $images = [$product['image_url']];
+// SEO: per-image alt z `image_alts[i]` (paralelní pole). Pokud popisek prázdný,
+// fallback na t('shop.productAlt') = "Tričko MotoGo24" (původní chování).
+// Admin ve Velíně ProductsTab vyplňuje krátký popisek (např. „zepředu").
+$productImageAlts = is_array($product['image_alts'] ?? null) ? $product['image_alts'] : [];
+$shopAltFallback = t('shop.productAlt', ['name' => $nameRaw]);
+$composeShopAlt = function (string $desc) use ($nameRaw, $shopAltFallback) {
+    $desc = trim($desc);
+    if ($desc === '') return $shopAltFallback;
+    return trim($nameRaw) . ' – ' . $desc;
+};
 $mainImgRaw = !empty($images[0]) ? $images[0] : '';
 $mainImg = $mainImgRaw;
 if ($mainImg && strpos($mainImg, 'http') !== 0 && strpos($mainImg, 'data:') !== 0 && strpos($mainImg, '/') !== 0) {
@@ -60,9 +70,10 @@ if (!empty($images)) {
             $thumbSrcset = imgSrcset($img, [200, 400, 600]);
             $full = imgUrlSized($img, 1400, 75);
         }
+        $altAttr = htmlspecialchars($composeShopAlt((string)($productImageAlts[$idx] ?? '')), ENT_QUOTES, 'UTF-8');
         $galleryHtml .= '<a href="' . htmlspecialchars($full) . '" data-gallery="shop" data-index="' . $idx . '" aria-label="' . $openLabel . '"><img src="' . htmlspecialchars($thumb) . '"'
             . ($thumbSrcset ? ' srcset="' . htmlspecialchars($thumbSrcset) . '" sizes="120px"' : '')
-            . ' alt="' . htmlspecialchars(t('shop.productAlt', ['name' => $nameRaw])) . '" loading="lazy" decoding="async"></a>';
+            . ' alt="' . $altAttr . '" loading="lazy" decoding="async"></a>';
         $idx++;
     }
     $galleryHtml .= '</div>';
@@ -143,10 +154,11 @@ if ($descRaw !== '') {
     $descHtml = '<div class="ccontent" style="margin-top:18px;"><h2>' . te('shop.detail.descTitle') . '</h2><p>' . nl2br(htmlspecialchars($descRaw)) . '</p></div>';
 }
 
+$mainAltAttr = htmlspecialchars($composeShopAlt((string)($productImageAlts[0] ?? '')), ENT_QUOTES, 'UTF-8');
 $leftCol = '<div class="shop-detail-media">'
     . ($mainImgDisplay ? '<img src="' . htmlspecialchars($mainImgDisplay) . '"'
         . ($mainImgSrcset ? ' srcset="' . htmlspecialchars($mainImgSrcset) . '" sizes="(max-width: 768px) 100vw, 50vw"' : '')
-        . ' alt="' . htmlspecialchars(t('shop.productAlt', ['name' => $nameRaw])) . '" class="shop-main-img" fetchpriority="high" decoding="async">' : '')
+        . ' alt="' . $mainAltAttr . '" class="shop-main-img" fetchpriority="high" decoding="async">' : '')
     . $galleryHtml
     . '</div>';
 

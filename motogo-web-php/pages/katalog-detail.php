@@ -127,22 +127,56 @@ $descHtml .= '</div>';
 // jen pro Open Graph a Schema.org (sociální sítě a AI crawlery si raději stáhnou
 // větší verzi).
 $rawImages = is_array($moto['images'] ?? null) ? $moto['images'] : [];
-$mainImg = imgUrl($moto['image_url'] ?? (!empty($rawImages) ? $rawImages[0] : ''));
+$rawAlts   = is_array($moto['image_alts'] ?? null) ? $moto['image_alts'] : [];
+$mainUrl   = $moto['image_url'] ?? (!empty($rawImages) ? $rawImages[0] : '');
+$mainImg   = imgUrl($mainUrl);
+// SEO: skládáme per-image alt "{model} {color} – {popisek z image_alts[i]}".
+// Pokud image_alts[i] prázdný/NULL → fallback na "motorka {model} – půjčovna motogo24"
+// (původní chování). Admin ve Velíně Fleet detail → fotky vyplňuje jen krátký
+// popisek (např. „zepředu") aby alt na každé fotce byl unikátní pro Seobility.
+$motoColor = trim((string)($moto['color'] ?? ''));
+$altFallback = 'motorka ' . trim($model) . ' – půjčovna motogo24';
+$composeAlt = function (string $desc) use ($model, $motoColor, $altFallback) {
+    $desc = trim($desc);
+    if ($desc === '') return $altFallback;
+    $parts = [trim($model)];
+    if ($motoColor !== '') $parts[] = $motoColor;
+    $parts[] = $desc;
+    return implode(' – ', $parts);
+};
+
 $allImages = [];
-if ($mainImg) $allImages[] = $mainImg;
-foreach ($rawImages as $img) {
-    $u = imgUrl($img);
-    if ($u && !in_array($u, $allImages, true)) $allImages[] = $u;
+$allAlts   = [];
+// Hlavní fotka (`image_url`) je první v galerii; v `rawImages` může a nemusí být.
+// Pokud je tam, použijeme její image_alts[i] index.
+$mainAltDesc = '';
+if ($mainUrl !== '') {
+    $foundIdx = array_search($mainUrl, $rawImages, true);
+    if ($foundIdx !== false && isset($rawAlts[$foundIdx])) {
+        $mainAltDesc = (string)$rawAlts[$foundIdx];
+    }
 }
+if ($mainImg) {
+    $allImages[] = $mainImg;
+    $allAlts[]   = $mainAltDesc;
+}
+foreach ($rawImages as $i => $img) {
+    $u = imgUrl($img);
+    if ($u && !in_array($u, $allImages, true)) {
+        $allImages[] = $u;
+        $allAlts[]   = (string)($rawAlts[$i] ?? '');
+    }
+}
+
 $galleryHtml = '<div class="moto-gallery">';
 if (!empty($allImages)) {
-    $modelAlt = htmlspecialchars($model, ENT_QUOTES, 'UTF-8');
     $openLabel = htmlspecialchars(t('gallery.openImage'), ENT_QUOTES, 'UTF-8');
     $main = $allImages[0];
     $mainHero    = imgUrlSized($main, 1200);
     $mainSrcset  = imgSrcset($main, [600, 900, 1200, 1600]);
     $mainFull    = imgUrlSized($main, 1400, 75); // lightbox zoom (Seobility: 3 MB JPEG -> ~600 kB)
-    $galleryHtml .= '<div class="moto-photo"><a href="' . htmlspecialchars($mainFull) . '" data-gallery="moto" data-index="0" aria-label="' . $openLabel . '"><div class="gallery-img"><img src="' . htmlspecialchars($mainHero) . '" srcset="' . htmlspecialchars($mainSrcset) . '" sizes="(max-width: 768px) 100vw, 60vw" alt="' . $modelAlt . '" fetchpriority="high" decoding="async"></div></a></div>';
+    $mainAltAttr = htmlspecialchars($composeAlt($allAlts[0] ?? ''), ENT_QUOTES, 'UTF-8');
+    $galleryHtml .= '<div class="moto-photo"><a href="' . htmlspecialchars($mainFull) . '" data-gallery="moto" data-index="0" aria-label="' . $openLabel . '"><div class="gallery-img"><img src="' . htmlspecialchars($mainHero) . '" srcset="' . htmlspecialchars($mainSrcset) . '" sizes="(max-width: 768px) 100vw, 60vw" alt="' . $mainAltAttr . '" fetchpriority="high" decoding="async"></div></a></div>';
     if (count($allImages) > 1) {
         $prevLabel = htmlspecialchars(t('gallery.prev'), ENT_QUOTES, 'UTF-8');
         $nextLabel = htmlspecialchars(t('gallery.next'), ENT_QUOTES, 'UTF-8');
@@ -154,7 +188,8 @@ if (!empty($allImages)) {
             $thumb = imgUrlSized($u, 400);
             $thumbSrcset = imgSrcset($u, [300, 600]);
             $full = imgUrlSized($u, 1400, 75);
-            $galleryHtml .= '<div><a href="' . htmlspecialchars($full) . '" data-gallery="moto" data-index="' . $i . '" aria-label="' . $openLabel . '"><div class="gallery-img"><img src="' . htmlspecialchars($thumb) . '" srcset="' . htmlspecialchars($thumbSrcset) . '" sizes="200px" alt="' . $modelAlt . '" loading="lazy" decoding="async"></div></a></div>';
+            $thumbAltAttr = htmlspecialchars($composeAlt($allAlts[$i] ?? ''), ENT_QUOTES, 'UTF-8');
+            $galleryHtml .= '<div><a href="' . htmlspecialchars($full) . '" data-gallery="moto" data-index="' . $i . '" aria-label="' . $openLabel . '"><div class="gallery-img"><img src="' . htmlspecialchars($thumb) . '" srcset="' . htmlspecialchars($thumbSrcset) . '" sizes="200px" alt="' . $thumbAltAttr . '" loading="lazy" decoding="async"></div></a></div>';
         }
         $galleryHtml .= '</div>';
         $galleryHtml .= '<button type="button" class="moto-thumbs-nav moto-thumbs-next" aria-label="' . $nextLabel . '">&#10095;</button>';

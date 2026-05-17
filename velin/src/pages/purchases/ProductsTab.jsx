@@ -204,6 +204,7 @@ function ProductFormModal({ product, onClose, onSaved }) {
     sizes: product?.sizes?.join(', ') || '',
     size_stock: (product?.size_stock && typeof product.size_stock === 'object') ? { ...product.size_stock } : {},
     images: Array.isArray(product?.images) ? product.images.filter(Boolean) : [],
+    image_alts: Array.isArray(product?.image_alts) ? product.image_alts : [],
     is_active: product?.is_active ?? true,
     sort_order: product?.sort_order ?? 0,
   })
@@ -248,6 +249,9 @@ function ProductFormModal({ product, onClose, onSaved }) {
         material: form.material.trim() || null,
         sizes: sizesArr,
         images: (form.images || []).filter(Boolean),
+        // SEO: image_alts dorovnané na stejnou délku jako images. Web composer
+        // (shop-detail.php) bere image_alts[i] s fallbackem na shop.productAlt.
+        image_alts: (form.images || []).filter(Boolean).map((u, i) => (form.image_alts && form.image_alts[i]) || ''),
         is_active: form.is_active,
         sort_order: Number(form.sort_order) || 0,
       }
@@ -344,8 +348,11 @@ function ProductFormModal({ product, onClose, onSaved }) {
           <ImageUploader
             value={form.images}
             onChange={urls => set('images', urls)}
+            alts={form.image_alts}
+            onAltsChange={alts => set('image_alts', alts)}
+            altPlaceholder={'Popisek (např. „zepředu")'}
             folder={folderId}
-            helperText="Přetáhněte fotky z počítače, klikněte pro výběr nebo přidejte přes URL. První obrázek je hlavní (zobrazí se v e-shopu jako náhled)."
+            helperText={'Přetáhněte fotky z počítače, klikněte pro výběr nebo přidejte přes URL. První obrázek je hlavní (zobrazí se v e-shopu jako náhled). Pod každou fotkou vyplňte krátký popisek (např. „zepředu", „detail tkaniny") — web složí alt jako „{název produktu} – {popisek}" pro lepší SEO.'}
           />
         </div>
 

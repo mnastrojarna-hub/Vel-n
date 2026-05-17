@@ -163,6 +163,7 @@
 - **brake_type** (TEXT) — popis brzdové soustavy (např. „kotoučové (ABS)"). Spec tabulka.
 - **seats_count** (INTEGER) — počet míst k sezení (1 nebo 2). Spec tabulka.
 - **suitable_for** (TEXT) — HTML/text sekce „Pro koho je motorka vhodná?" (vykresluje se přes `sanitizeHtml()` v levém sloupci moto-info, mezi Krátkým popisem a Výbavou).
+- **image_alts** (TEXT[] DEFAULT '{}', **NEW 2026-05-17**) — paralelní pole SEO alt popisků k `images[]` (stejný index). Admin ve Velíně Fleet detail → fotky vyplňuje krátký popisek (např. „zepředu", „detail palubky"), PHP `katalog-detail.php` skládá finální alt jako `"{model} {color} – {popisek}"`. Pokud `image_alts[i]` prázdný/NULL → fallback na `"motorka {model} – půjčovna motogo24"` (původní chování). Migrace `20260517_image_alts.sql`.
 
 ### sos_incidents
 - id, user_id, booking_id, moto_id, type, title, description
@@ -253,6 +254,10 @@
 
 ### products (nové sloupce)
 - **size_stock** (JSONB NOT NULL DEFAULT '{}') — počet kusů per velikost: `{"M":5,"L":10,"XL":3}`. Velín `ProductsTab` modal renderuje input per velikost když má produkt `sizes[]`. `stock_quantity` = SUM hodnot, drženo v sync při ukládání produktu i při dekrementu v RPC `create_web_shop_order`. Produkty bez `sizes[]` mají `{}` a používají `stock_quantity` přímo (zpětná kompatibilita).
+- **image_alts** (TEXT[] DEFAULT '{}', **NEW 2026-05-17**) — paralelní pole SEO alt popisků k `images[]` (stejný index). Admin ve Velíně `ProductsTab` u každého náhledu vyplňuje krátký popisek (např. „zepředu", „detail tkaniny"), PHP `shop-detail.php` skládá finální alt jako `"{name} – {popisek}"`. Pokud `image_alts[i]` prázdný/NULL → fallback na `t('shop.productAlt', ['name' => $name])` (původní chování). Migrace `20260517_image_alts.sql`.
+
+### cms_pages (nové sloupce)
+- **image_alts** (TEXT[] DEFAULT '{}', **NEW 2026-05-17**) — paralelní pole SEO alt popisků k `images[]` (stejný index). Admin ve Velíně `BlogWizard` u každého náhledu vyplňuje krátký popisek, PHP `blog-detail.php` skládá finální alt jako `"{title} – {popisek}"`. Pokud `image_alts[i]` prázdný/NULL → fallback na `$title` (původní chování). Migrace `20260517_image_alts.sql`.
 
 ### shop_order_items (nové sloupce)
 - **product_id** (UUID FK→products ON DELETE SET NULL) — vazba na konkrétní produkt v katalogu (web naplní, app dnes ignoruje, NULL kompatibilní zpětně). Index `idx_shop_order_items_product_id`.

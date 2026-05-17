@@ -20,6 +20,12 @@ import { supabase } from '../../lib/supabase'
  *   allowUrl       bool      – výchozí true (umožní přidat přes URL)
  *   single         bool      – pokud true, drží jen 1 obrázek (přepisuje)
  *   helperText     string    – nápověda pod komponentou
+ *   alts           string[]  – volitelné — paralelní pole SEO popisků k obrázkům.
+ *                              Pokud předáno + onAltsChange, pod každým náhledem se
+ *                              objeví input pro krátký popisek (např. „zepředu").
+ *                              Web pak skládá finální alt jako "{model/název} – {popisek}".
+ *   onAltsChange   (alts)    – callback při změně popisků (paralelní pole s `value`)
+ *   altPlaceholder string    – placeholder do alt inputu (např. „zepředu, zboku…")
  */
 export default function ImageUploader({
   value = [],
@@ -32,8 +38,13 @@ export default function ImageUploader({
   allowUrl = true,
   single = false,
   helperText,
+  alts,
+  onAltsChange,
+  altPlaceholder = 'Popisek pro SEO (např. „zepředu")',
 }) {
   const urls = Array.isArray(value) ? value : []
+  const altsArr = Array.isArray(alts) ? alts : []
+  const altsEnabled = Array.isArray(alts) && typeof onAltsChange === 'function'
   const [uploading, setUploading] = useState(false)
   const [progress, setProgress] = useState({ done: 0, total: 0 })
   const [dragOver, setDragOver] = useState(false)
@@ -47,6 +58,24 @@ export default function ImageUploader({
 
   function emit(next) {
     onChange?.(next)
+  }
+
+  // Helper: po změně urls dorovná paralelní alts pole na stejnou délku.
+  // Mapuje staré altsArr podle URL → nový alts. URLs, které v původním poli nebyly,
+  // dostanou prázdný string.
+  function emitAlts(nextUrls, nextAlts) {
+    if (!altsEnabled) return
+    if (Array.isArray(nextAlts)) {
+      onAltsChange(nextAlts)
+      return
+    }
+    // Dorovnat alts podle nového pole urls — zachovat popisky pro URLs, které
+    // jsou pořád v poli (najít podle url string), nové URLs dostanou ''.
+    const next = nextUrls.map(u => {
+      const idx = urls.indexOf(u)
+      return idx >= 0 ? (altsArr[idx] || '') : ''
+    })
+    onAltsChange(next)
   }
 
   async function uploadFile(file) {
@@ -99,7 +128,9 @@ export default function ImageUploader({
         setProgress(p => ({ ...p, done: p.done + 1 }))
       }
       if (uploaded.length > 0) {
-        emit(single ? [uploaded[0]] : [...urls, ...uploaded])
+        const nextUrls = single ? [uploaded[0]] : [...urls, ...uploaded]
+        emit(nextUrls)
+        emitAlts(nextUrls)
       }
     } finally {
       setUploading(false)
@@ -133,19 +164,31 @@ export default function ImageUploader({
   function handleAddUrl() {
     const u = urlInput.trim()
     if (!u) return
-    if (single) emit([u])
-    else if (!urls.includes(u)) emit([...urls, u])
+    let nextUrls = urls
+    if (single) nextUrls = [u]
+    else if (!urls.includes(u)) nextUrls = [...urls, u]
+    if (nextUrls !== urls) { emit(nextUrls); emitAlts(nextUrls) }
     setUrlInput('')
     setShowUrlInput(false)
   }
 
   function handleRemove(url) {
-    emit(urls.filter(x => x !== url))
+    const nextUrls = urls.filter(x => x !== url)
+    emit(nextUrls)
+    emitAlts(nextUrls)
   }
 
   function moveToFront(url) {
     if (urls[0] === url) return
-    emit([url, ...urls.filter(x => x !== url)])
+    const nextUrls = [url, ...urls.filter(x => x !== url)]
+    emit(nextUrls)
+    emitAlts(nextUrls)
+  }
+
+  function handleAltChange(index, newAlt) {
+    if (!altsEnabled) return
+    const next = urls.map((_, i) => i === index ? newAlt : (altsArr[i] || ''))
+    onAltsChange(next)
   }
 
   return (
@@ -236,44 +279,57 @@ export default function ImageUploader({
       {urls.length > 0 && (
         <div className="flex flex-wrap gap-2 mt-3">
           {urls.map((url, i) => (
-            <div key={url + i} className="relative group" style={{ width: 84, height: 84 }}>
-              {showMainBadge && i === 0 && !single && (
-                <div className="absolute top-1 left-1 z-10" style={{
-                  background: '#74FB71', color: '#1a2e22', borderRadius: 4,
-                  padding: '1px 5px', fontSize: 9, fontWeight: 800, letterSpacing: 0.3,
-                }}>HLAVNÍ</div>
-              )}
-              <img
-                src={url}
-                alt={`Foto ${i + 1}`}
-                className="w-full h-full object-cover rounded-lg"
-                style={{ border: '1px solid #d4e8e0' }}
-                onError={e => { e.target.style.opacity = 0.3 }}
-              />
-              <div className="absolute inset-x-0 bottom-0 flex justify-between opacity-0 group-hover:opacity-100 transition-opacity" style={{ padding: 3 }}>
-                {!single && i !== 0 && showMainBadge ? (
+            <div key={url + i} style={{ width: altsEnabled ? 140 : 84 }}>
+              <div className="relative group" style={{ width: altsEnabled ? 140 : 84, height: altsEnabled ? 140 : 84 }}>
+                {showMainBadge && i === 0 && !single && (
+                  <div className="absolute top-1 left-1 z-10" style={{
+                    background: '#74FB71', color: '#1a2e22', borderRadius: 4,
+                    padding: '1px 5px', fontSize: 9, fontWeight: 800, letterSpacing: 0.3,
+                  }}>HLAVNÍ</div>
+                )}
+                <img
+                  src={url}
+                  alt={`Foto ${i + 1}`}
+                  className="w-full h-full object-cover rounded-lg"
+                  style={{ border: '1px solid #d4e8e0' }}
+                  onError={e => { e.target.style.opacity = 0.3 }}
+                />
+                <div className="absolute inset-x-0 bottom-0 flex justify-between opacity-0 group-hover:opacity-100 transition-opacity" style={{ padding: 3 }}>
+                  {!single && i !== 0 && showMainBadge ? (
+                    <button
+                      type="button"
+                      onClick={() => moveToFront(url)}
+                      title="Nastavit jako hlavní"
+                      className="cursor-pointer"
+                      style={{
+                        background: 'rgba(116,251,113,.95)', color: '#1a2e22', border: 'none',
+                        borderRadius: 4, fontSize: 9, fontWeight: 800, padding: '1px 5px',
+                      }}
+                    >HLAVNÍ</button>
+                  ) : <span />}
                   <button
                     type="button"
-                    onClick={() => moveToFront(url)}
-                    title="Nastavit jako hlavní"
+                    onClick={() => handleRemove(url)}
+                    title="Odebrat"
                     className="cursor-pointer"
                     style={{
-                      background: 'rgba(116,251,113,.95)', color: '#1a2e22', border: 'none',
-                      borderRadius: 4, fontSize: 9, fontWeight: 800, padding: '1px 5px',
+                      background: 'rgba(220,38,38,.85)', color: '#fff', border: 'none',
+                      borderRadius: 50, width: 20, height: 20, fontSize: 11, lineHeight: 1,
                     }}
-                  >HLAVNÍ</button>
-                ) : <span />}
-                <button
-                  type="button"
-                  onClick={() => handleRemove(url)}
-                  title="Odebrat"
-                  className="cursor-pointer"
-                  style={{
-                    background: 'rgba(220,38,38,.85)', color: '#fff', border: 'none',
-                    borderRadius: 50, width: 20, height: 20, fontSize: 11, lineHeight: 1,
-                  }}
-                >✕</button>
+                  >✕</button>
+                </div>
               </div>
+              {altsEnabled && (
+                <input
+                  type="text"
+                  value={altsArr[i] || ''}
+                  onChange={e => handleAltChange(i, e.target.value)}
+                  placeholder={altPlaceholder}
+                  title="Krátký popisek toho, co je na fotce. Web složí finální alt z názvu položky + tohoto popisku."
+                  className="w-full mt-1 rounded-btn text-xs outline-none"
+                  style={{ padding: '4px 6px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}
+                />
+              )}
             </div>
           ))}
         </div>
