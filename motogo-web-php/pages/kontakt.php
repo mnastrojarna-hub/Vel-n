@@ -47,6 +47,11 @@ $defaults = [
         'title' => 'Kontakty – půjčovna motorek Vysočina (Pelhřimov)',
         'body' => 'Motogo24 je <strong>moderní půjčovna motorek na Vysočině</strong>. Sídlíme v <strong>Pelhřimově</strong>, jsme otevřeni <strong>nonstop</strong> a půjčujeme <strong>bez kauce</strong>, s kompletní <strong>výbavou v ceně</strong>.',
     ],
+    'outro' => [
+        'title' => 'Proč si zákazníci vybírají MotoGo24',
+        'body1' => 'Naše půjčovna motorek funguje na Vysočině od roku 2024 a za tu dobu jsme přivítali stovky spokojených zákazníků — místní i turisty, začátečníky i zkušené jezdce. Půjčujeme bez kauce, výbavu pro řidiče (helma, bunda, kalhoty a rukavice) máte vždy v ceně a vyzvednutí motorky si můžete domluvit i mimo standardní otevírací dobu díky našemu nonstop provozu.',
+        'body2' => 'Pokud cestujete s motorkou do zahraničí, dostanete od nás zelenou kartu a všechny potřebné dokumenty. Při neočekávaných situacích na cestě máme k dispozici SOS linku a do 24 hodin zařídíme náhradní motorku. Ozvěte se nám telefonicky, e-mailem nebo přes sociální sítě — odpovíme zpravidla do hodiny a rádi pomůžeme s výběrem motorky, plánováním trasy i s dárkovým poukazem.',
+    ],
 ];
 
 $C = $sb->siteContent('kontakt', $defaults);
@@ -116,11 +121,18 @@ $mapSection = '<section>' .
 
 $seoText = '<h2 data-cms-key="web.kontakt.seo_text.title">' . htmlspecialchars($C['seo_text']['title']) . '</h2><p data-cms-key="web.kontakt.seo_text.body">' . $C['seo_text']['body'] . '</p>';
 
+$kontaktOutro = is_array($C['outro'] ?? null) ? $C['outro'] : $defaults['outro'];
+$kontaktOutroHtml = '<section class="kontakt-outro">'
+    . '<h2 data-cms-key="web.kontakt.outro.title">' . htmlspecialchars($kontaktOutro['title']) . '</h2>'
+    . '<p data-cms-key="web.kontakt.outro.body1">' . $kontaktOutro['body1'] . '</p>'
+    . '<p data-cms-key="web.kontakt.outro.body2">' . $kontaktOutro['body2'] . '</p>'
+    . '</section>';
+
 $content = '<main id="content"><div class="container contact">' . $bc .
     '<div class="ccontent contacts">' .
     '<h1 data-cms-key="web.kontakt.h1">' . htmlspecialchars($C['h1']) . '</h1>' .
     '<p data-cms-key="web.kontakt.intro">' . $C['intro'] . '</p><p>&nbsp;</p>' .
-    $quickHtml . $infoSection . $mapSection . $seoText .
+    $quickHtml . $infoSection . $mapSection . $seoText . $kontaktOutroHtml .
     '</div></div></main>';
 
 // ===== Per-branch LocalBusiness JSON-LD =====

@@ -68,8 +68,27 @@ $form = '<div class="gift-voucher-order">' .
     '</div></div>' .
     '</form></div>';
 
+// CMS-editable outro pod formulářem (Velín → CMS → Texty webu → Koupit poukaz)
+$sb = new SupabaseClient();
+$pvDefaults = [
+    'outro' => [
+        'title' => 'Co o dárkovém poukazu od MotoGo24 vědět',
+        'body1' => 'Dárkový poukaz na pronájem motorky je <strong>originální dárek</strong>, který udělá radost partnerovi, kamarádovi nebo rodičům. Platnost má <strong>3 roky od data vystavení</strong>, obdarovaný si sám zvolí termín výpůjčky a typ motorky podle hodnoty poukazu — od cestovních strojů přes naked motorky a supermoto až po dětské elektromotorky.',
+        'body2' => 'Po zaplacení vám poukaz <strong>okamžitě dorazí na e-mail</strong> ve formě PDF, které stačí vytisknout nebo přeposlat obdarovanému. Pokud chcete tištěnou variantu na luxusním papíře, můžete ji připlatit při objednávce a my vám ji připravíme k vyzvednutí nebo pošleme poštou. Půjčujeme bez kauce, výbava pro řidiče (helma, bunda, kalhoty, rukavice) je v ceně nájmu a otevřeno máme nonstop — obdarovaný si tedy snadno najde termín, který mu sedne.',
+    ],
+];
+$PVC = $sb->siteContent('koupit_darkovy_poukaz', $pvDefaults);
+$pvOutroT = $PVC['outro']['title'] ?? $pvDefaults['outro']['title'];
+$pvOutroB1 = $PVC['outro']['body1'] ?? $pvDefaults['outro']['body1'];
+$pvOutroB2 = $PVC['outro']['body2'] ?? $pvDefaults['outro']['body2'];
+$pvOutroHtml = '<section class="voucher-outro">'
+    . '<h2 data-cms-key="web.koupit_darkovy_poukaz.outro.title">' . htmlspecialchars($pvOutroT) . '</h2>'
+    . '<p data-cms-key="web.koupit_darkovy_poukaz.outro.body1">' . $pvOutroB1 . '</p>'
+    . '<p data-cms-key="web.koupit_darkovy_poukaz.outro.body2">' . $pvOutroB2 . '</p>'
+    . '</section>';
+
 $content = '<main id="content"><section aria-label="' . te('breadcrumb.buyVoucher') . '" class="container">' .
-    $bc . '<div class="pcontent">' . $form . '</div></section></main>';
+    $bc . '<div class="pcontent">' . $form . $pvOutroHtml . '</div></section></main>';
 
 $lang = function_exists('i18nDetectLanguage') ? i18nDetectLanguage() : 'cs';
 $localeMap = ['cs' => 'cs-CZ', 'en' => 'en-GB', 'de' => 'de-DE', 'es' => 'es-ES', 'fr' => 'fr-FR', 'nl' => 'nl-NL', 'pl' => 'pl-PL'];

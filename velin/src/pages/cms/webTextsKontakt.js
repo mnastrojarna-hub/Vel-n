@@ -48,6 +48,14 @@ export const PAGE_KONTAKT = {
         { key: 'web.kontakt.seo', label: 'SEO text', type: 'textarea', default: 'Motogo24 je moderní půjčovna motorek na Vysočině. Sídlíme v Pelhřimově, jsme otevřeni nonstop a půjčujeme bez kauce, s kompletní výbavou v ceně.' },
       ]
     },
+    {
+      id: 'outro', label: 'Závěrečná textová sekce', location: 'H2 + 2 odstavce úplně dole pod SEO textem',
+      fields: [
+        { key: 'web.kontakt.outro.title', label: 'H2 nadpis', default: 'Proč si zákazníci vybírají MotoGo24' },
+        { key: 'web.kontakt.outro.body1', label: '1. odstavec (HTML)', type: 'textarea', default: 'Naše půjčovna motorek funguje na Vysočině od roku 2024 a za tu dobu jsme přivítali stovky spokojených zákazníků — místní i turisty, začátečníky i zkušené jezdce. Půjčujeme bez kauce, výbavu pro řidiče (helma, bunda, kalhoty a rukavice) máte vždy v ceně a vyzvednutí motorky si můžete domluvit i mimo standardní otevírací dobu díky našemu nonstop provozu.' },
+        { key: 'web.kontakt.outro.body2', label: '2. odstavec (HTML)', type: 'textarea', default: 'Pokud cestujete s motorkou do zahraničí, dostanete od nás zelenou kartu a všechny potřebné dokumenty. Při neočekávaných situacích na cestě máme k dispozici SOS linku a do 24 hodin zařídíme náhradní motorku. Ozvěte se nám telefonicky, e-mailem nebo přes sociální sítě — odpovíme zpravidla do hodiny a rádi pomůžeme s výběrem motorky, plánováním trasy i s dárkovým poukazem.' },
+      ]
+    },
   ]
 }
 
@@ -118,6 +126,22 @@ export const PAGE_POUKAZY = {
         { key: 'web.poukazy.cta.title', label: 'Nadpis', default: 'Dárkový poukaz na pronájem motorky – Vysočina' },
         { key: 'web.poukazy.cta.text', label: 'Text', type: 'textarea', default: '' },
         { key: 'web.poukazy.cta.buttons.0.label', label: 'Tlačítko 1', default: 'OBJEDNAT VOUCHER' },
+      ]
+    },
+  ]
+}
+
+// Editovatelný obsah pro stránku /koupit-darkovy-poukaz (formulář objednávky)
+export const PAGE_KOUPIT_POUKAZ = {
+  id: 'koupit-darkovy-poukaz', label: 'Koupit poukaz', icon: '🎁', url: '/koupit-darkovy-poukaz',
+  description: 'Stránka s formulářem pro objednání dárkového poukazu. Editovatelná textová sekce dole.',
+  sections: [
+    {
+      id: 'outro', label: 'Textová sekce pod formulářem', location: 'H2 + 2 odstavce dole pod objednávkovým formulářem',
+      fields: [
+        { key: 'web.koupit_darkovy_poukaz.outro.title', label: 'H2 nadpis', default: 'Co o dárkovém poukazu od MotoGo24 vědět' },
+        { key: 'web.koupit_darkovy_poukaz.outro.body1', label: '1. odstavec (HTML)', type: 'textarea', default: 'Dárkový poukaz na pronájem motorky je <strong>originální dárek</strong>, který udělá radost partnerovi, kamarádovi nebo rodičům. Platnost má <strong>3 roky od data vystavení</strong>, obdarovaný si sám zvolí termín výpůjčky a typ motorky podle hodnoty poukazu — od cestovních strojů přes naked motorky a supermoto až po dětské elektromotorky.' },
+        { key: 'web.koupit_darkovy_poukaz.outro.body2', label: '2. odstavec (HTML)', type: 'textarea', default: 'Po zaplacení vám poukaz <strong>okamžitě dorazí na e-mail</strong> ve formě PDF, které stačí vytisknout nebo přeposlat obdarovanému. Pokud chcete tištěnou variantu na luxusním papíře, můžete ji připlatit při objednávce a my vám ji připravíme k vyzvednutí nebo pošleme poštou. Půjčujeme bez kauce, výbava pro řidiče (helma, bunda, kalhoty, rukavice) je v ceně nájmu a otevřeno máme nonstop — obdarovaný si tedy snadno najde termín, který mu sedne.' },
       ]
     },
   ]
