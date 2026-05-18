@@ -110,16 +110,8 @@ export const PAGE_POUKAZY = {
         { key: 'web.poukazy.catalog_cta.label', label: 'Text tlačítka', default: 'ZOBRAZIT KATALOG MOTOREK' },
       ]
     },
-    {
-      id: 'faq', label: 'FAQ (5 otázek)', location: 'Často kladené dotazy k poukazům',
-      fields: [
-        { key: 'web.poukazy.faq.title', label: 'Nadpis sekce', default: 'Často kladené dotazy k dárkovým poukazům' },
-        ...range(5).flatMap((_, i) => ([
-          { key: `web.poukazy.faq.items.${i}.q`, label: `Otázka ${i + 1}`, default: '' },
-          { key: `web.poukazy.faq.items.${i}.a`, label: `Odpověď ${i + 1}`, type: 'textarea', default: '' },
-        ])),
-      ]
-    },
+    // FAQ sekce odstraněna z /poukazy (2026-05-17) — centrální FAQ je pouze
+    // na /jak-pujcit/faq.
     {
       id: 'cta', label: 'Závěrečná CTA sekce',
       fields: [

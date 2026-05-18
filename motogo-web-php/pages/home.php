@@ -129,21 +129,11 @@ foreach ($C['process']['steps'] as $i => $s) {
 }
 $processHtml .= '</div></section>';
 
-// ---- FAQ — featured items z DB (faq_items WHERE featured_home=true)
-// Položky se spravují ve Velíně v záložce „Časté dotazy"; admin označí 4 (nebo víc)
-// otázek jako ⭐ a tady se zobrazí prvních N podle sort_order.
-$lang = function_exists('i18nDetectLanguage') ? i18nDetectLanguage() : 'cs';
-$featuredFaq = $sb->fetchFaqItems(['featured_only' => true, 'limit' => 4]);
-$faqItemsKeyed = [];
-foreach ($featuredFaq as $r) {
-    $q = function_exists('localized') ? (localized($r, 'question', $lang) ?: $r['question']) : $r['question'];
-    $a = function_exists('localized') ? (localized($r, 'answer', $lang) ?: $r['answer']) : $r['answer'];
-    $faqItemsKeyed[] = ['q' => $q, 'a' => $a];
-}
-$faqTitleKeyed = '<span data-cms-key="web.home.faq.title">' . ($C['faq']['title'] ?? '') . '</span>';
-$faqHtml = !empty($faqItemsKeyed)
-    ? renderFaqSection($faqTitleKeyed, $faqItemsKeyed, $C['faq']['more_link'] ?? null)
-    : '';
+// FAQ sekce na home odstraněna (2026-05-17) — duplicitně se zobrazovala
+// na home, /pujcovna-motorek, /jak-pujcit/* a /poukazy. Centrální FAQ je nyní
+// pouze na /jak-pujcit/faq (DB-driven přes `faq_items`). Velín CMS klíče
+// `web.home.faq.*` v `cms_variables` zůstávají, ale nikde se nečtou.
+$faqItemsKeyed = []; // pro FAQ schema níže (Google rich snippets) ponecháno prázdné — bez visible FAQ se schema neemituje
 
 // ---- CTA
 $ctaButtonsKeyed = [];
@@ -215,7 +205,7 @@ $introHtml = !empty($C['intro']) ? '<p class="home-intro" data-cms-key="web.home
 
 $content = $bannerHtml .
     '<main id="content"><div class="container"><h1 data-cms-key="web.home.h1">' . $C['h1'] . '</h1>' . $introHtml .
-    $signHtml . $motosHtml . $processHtml . $faqHtml . $reviewsHtml . $ctaHtml . $blogHtml .
+    $signHtml . $motosHtml . $processHtml . $reviewsHtml . $ctaHtml . $blogHtml .
     '</div></main>';
 
 // ---- Strukturovaná data: FAQ + HowTo + AggregateRating ze sekcí výše ----

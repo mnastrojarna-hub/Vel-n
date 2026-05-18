@@ -28,13 +28,8 @@ export const PAGE_POSTUP = {
         { key: `web.jak_pujcit_postup.process.steps.${i}.text`, label: `Krok ${i + 1} — popis`, type: 'textarea', default: '' },
       ]))
     },
-    {
-      id: 'faq', label: 'FAQ (4 otázky)', location: 'Časté dotazy pod kroky',
-      fields: Array.from({ length: 4 }).flatMap((_, i) => ([
-        { key: `web.jak_pujcit_postup.faq.items.${i}.q`, label: `Otázka ${i + 1}`, default: '' },
-        { key: `web.jak_pujcit_postup.faq.items.${i}.a`, label: `Odpověď ${i + 1}`, type: 'textarea', default: '' },
-      ]))
-    },
+    // FAQ sekce odstraněna z /jak-pujcit/postup (2026-05-17) — centrální FAQ
+    // je pouze na /jak-pujcit/faq.
     {
       id: 'cta', label: 'CTA', location: 'Závěrečná výzva k akci',
       fields: [
@@ -96,16 +91,8 @@ export const PAGE_PRISTAVENI = {
         { key: 'web.jak_pujcit_pristaveni.pricing.example', label: 'Příklad výpočtu', type: 'textarea', default: '' },
       ]
     },
-    {
-      id: 'faq', label: 'FAQ (5 otázek)', location: 'Časté dotazy k přistavení',
-      fields: [
-        { key: 'web.jak_pujcit_pristaveni.faq.title', label: 'Nadpis sekce', default: 'Často kladené dotazy k přistavení' },
-        ...Array.from({ length: 5 }).flatMap((_, i) => ([
-          { key: `web.jak_pujcit_pristaveni.faq.items.${i}.q`, label: `Otázka ${i + 1}`, default: '' },
-          { key: `web.jak_pujcit_pristaveni.faq.items.${i}.a`, label: `Odpověď ${i + 1}`, type: 'textarea', default: '' },
-        ])),
-      ]
-    },
+    // FAQ sekce odstraněna z /jak-pujcit/pristaveni (2026-05-17) — centrální FAQ
+    // je pouze na /jak-pujcit/faq.
     {
       id: 'cta', label: 'CTA', location: 'Závěrečná výzva',
       fields: [

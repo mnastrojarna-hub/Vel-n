@@ -84,19 +84,9 @@ $main2Section = '<section class="main2">' .
     '<div class="gr2">' . $amenityCol . $bringCol . '</div>' .
     '</section>';
 
-// --- Section 5: FAQ ---
-$faqHtml = '<section style="margin-bottom:1.25rem">' .
-    '<h2 data-cms-key="' . $kp . '.faq.title">' . ($C['faq']['title'] ?? '') . '</h2>' .
-    '<div class="tab-content"><div class="tab-pane active" id="all"><div class="gr2">';
-foreach ((is_array($C['faq']['items'] ?? null) ? $C['faq']['items'] : []) as $i => $f) {
-    if (!is_array($f)) continue;
-    $kBase = $kp . '.faq.items.' . $i;
-    $faqHtml .= renderFaqItem(
-        '<span data-cms-key="' . $kBase . '.q">' . ($f['q'] ?? '') . '</span>',
-        '<span data-cms-key="' . $kBase . '.a">' . ($f['a'] ?? '') . '</span>'
-    );
-}
-$faqHtml .= '</div></div></div></section>';
+// FAQ sekce odstraněna (2026-05-17) — centrální FAQ je pouze na /jak-pujcit/faq.
+// Klíče `web.jak_pujcit_vyzvednuti.faq.*` v cms_variables zůstávají, ale nikde se nečtou.
+$faqHtml = '';
 
 // --- Section 6 (main3): mid CTA ---
 $mid = is_array($C['mid_cta'] ?? null) ? $C['mid_cta'] : [];
@@ -130,19 +120,8 @@ $content = '<main id="content"><div class="container">' . $bc .
     $finalCtaSection .
     '</div></div></main>';
 
-// FAQPage schema
-$faqSchemaItems = [];
-foreach ((is_array($C['faq']['items'] ?? null) ? $C['faq']['items'] : []) as $faq) {
-    if (!is_array($faq) || empty($faq['q']) || empty($faq['a'])) continue;
-    $faqSchemaItems[] = '{"@type":"Question","name":' . json_encode(strip_tags((string)$faq['q']), JSON_UNESCAPED_UNICODE) . ',"acceptedAnswer":{"@type":"Answer","text":' . json_encode(strip_tags((string)$faq['a']), JSON_UNESCAPED_UNICODE) . '}}';
-}
+// FAQPage schema odstraněno (2026-05-17) — viditelná FAQ sekce zmizela.
 $faqSchema = '';
-if (!empty($faqSchemaItems)) {
-    $faqSchema = '
-  <script type="application/ld+json">
-  {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[' . implode(',', $faqSchemaItems) . ']}
-  </script>';
-}
 
 renderPage($C['seo']['title'], $content, $pagePath, [
     'description' => $C['seo']['description'],

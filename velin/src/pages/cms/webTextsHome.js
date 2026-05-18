@@ -78,12 +78,8 @@ export const PAGE_HOME = {
         { key: 'web.home.process.steps.3.text', label: 'Krok 4 — text', type: 'textarea', default: 'Užijte si svobodu a objevte Česko na motorkách k zapůjčení.' },
       ]
     },
-    {
-      id: 'faq', label: 'FAQ (řízeno přes DB)', location: 'Sekce s častými dotazy pod kroky — položky se editují v záložce „Časté dotazy"',
-      fields: [
-        { key: 'web.home.faq.title', label: 'Nadpis FAQ sekce', default: 'Často kladené otázky' },
-      ]
-    },
+    // FAQ sekce odstraněna z home (2026-05-17) — centrální FAQ je pouze
+    // na /jak-pujcit/faq, položky se spravují v záložce „Časté dotazy".
     {
       id: 'cta', label: 'CTA sekce', location: 'Zelená výzva k akci dole na stránce',
       fields: [
