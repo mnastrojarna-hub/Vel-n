@@ -477,7 +477,7 @@ return [
     'detail.calendarFree' => 'Libre',
     'detail.calendarOccupied' => 'Occupé',
     'detail.calendarPending' => 'Non confirmé',
-    'detail.calendarMinDays' => '* Veuillez choisir au minimum 3 jours consécutifs.',
+    'detail.calendarMinDays' => '* Veuillez choisir au minimum {count} jours consécutifs.',
     'detail.calendarGoToReservation' => 'ALLER À LA RÉSERVATION',
     'detail.calendarStartSelected' => 'Début sélectionné : <strong>{date}</strong> — cliquez sur la date de fin',
     'detail.calendarRangeSelected' => 'DATE SÉLECTIONNÉE : {start} – {end}',

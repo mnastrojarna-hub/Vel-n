@@ -460,7 +460,7 @@ return [
     'detail.calendarFree' => 'Vrij',
     'detail.calendarOccupied' => 'Bezet',
     'detail.calendarPending' => 'Onbevestigd',
-    'detail.calendarMinDays' => '* Kies minimaal 3 aaneengesloten dagen.',
+    'detail.calendarMinDays' => '* Kies minimaal {count} aaneengesloten dagen.',
     'detail.calendarGoToReservation' => 'NAAR RESERVERING',
     'detail.calendarStartSelected' => 'Begindatum: <strong>{date}</strong> — klik op einddatum',
     'detail.calendarRangeSelected' => 'GEKOZEN PERIODE: {start} – {end}',

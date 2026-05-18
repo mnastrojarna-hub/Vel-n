@@ -1111,7 +1111,7 @@ return [
     'detail.calendarFree' => 'Volné',
     'detail.calendarOccupied' => 'Obsazené',
     'detail.calendarPending' => 'Nepotvrzené',
-    'detail.calendarMinDays' => '* Vyberte si prosím minimálně 3 souvislé dny.',
+    'detail.calendarMinDays' => '* Vyberte si prosím minimálně {count} souvislých dnů.',
     'detail.calendarGoToReservation' => 'PŘEJÍT NA REZERVACE',
     'detail.calendarStartSelected' => 'Vybrán začátek: <strong>{date}</strong> — klikněte na koncové datum',
     'detail.calendarRangeSelected' => 'VYBRANÝ TERMÍN: {start} – {end}',

@@ -683,7 +683,7 @@ return [
     'detail.calendarFree' => 'Free',
     'detail.calendarOccupied' => 'Booked',
     'detail.calendarPending' => 'Unconfirmed',
-    'detail.calendarMinDays' => '* Please select at least 3 consecutive days.',
+    'detail.calendarMinDays' => '* Please select at least {count} consecutive days.',
     'detail.calendarGoToReservation' => 'CONTINUE TO BOOKING',
     'detail.calendarStartSelected' => 'Start selected: <strong>{date}</strong> — click the end date',
     'detail.calendarRangeSelected' => 'SELECTED DATES: {start} – {end}',

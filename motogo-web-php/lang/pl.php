@@ -460,7 +460,7 @@ return [
     'detail.calendarFree' => 'Wolne',
     'detail.calendarOccupied' => 'Zajęte',
     'detail.calendarPending' => 'Niepotwierdzone',
-    'detail.calendarMinDays' => '* Wybierz minimum 3 kolejne dni.',
+    'detail.calendarMinDays' => '* Wybierz minimum {count} kolejnych dni.',
     'detail.calendarGoToReservation' => 'PRZEJDŹ DO REZERWACJI',
     'detail.calendarStartSelected' => 'Wybrano początek: <strong>{date}</strong> — kliknij datę końcową',
     'detail.calendarRangeSelected' => 'WYBRANY TERMIN: {start} – {end}',
