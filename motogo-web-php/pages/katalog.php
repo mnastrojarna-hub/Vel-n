@@ -5,6 +5,14 @@
 $sb = new SupabaseClient();
 $motos = $sb->fetchMotos();
 
+// Defensive normalize — Velín může uložit pole motorky jako array/object místo
+// stringu (typicky při nedopečení JSON ve Velínu UI). htmlspecialchars(),
+// strtolower(), string konkatenace v PHP 8 hází TypeError na non-string.
+// `normalizeMoto()` všechna scalar pole cast-ne na string a array pole
+// (features, images) ošetří separátně. Bez tohohle volání filtry padaly.
+foreach ($motos as &$_m) { normalizeMoto($_m); }
+unset($_m);
+
 // REQUEST_URI obsahuje query string i případný trailing slash — normalizujeme,
 // jinak by /katalog/supermoto/ neprošlo přes níže uvedené porovnání cest a
 // kategorie by se nepoužila (katalog by ukázal všechny motorky).
@@ -160,8 +168,12 @@ $filtered = $motos;
 
 if ($category) {
     $filtered = array_filter($filtered, function ($m) use ($category) {
-        $cat = strtolower($m['category'] ?? '');
-        $fc = strtolower($category);
+        // Defensive cast — `category` může být v DB array nebo object (jsonb),
+        // strtolower(array) hází PHP 8 TypeError → filter padá tiše.
+        $rawCat = $m['category'] ?? '';
+        if (is_array($rawCat) || is_object($rawCat)) $rawCat = '';
+        $cat = strtolower((string)$rawCat);
+        $fc = strtolower((string)$category);
         if ($fc === 'cestovni') {
             return strpos($cat, 'cestov') !== false || strpos($cat, 'adventure') !== false || strpos($cat, 'touring') !== false || strpos($cat, 'enduro') !== false;
         } elseif ($fc === 'sportovni') {
@@ -180,7 +192,10 @@ if ($category) {
 }
 if ($getLic) {
     $filtered = array_filter($filtered, function ($m) use ($getLic) {
-        return ($m['license_required'] ?? '') === $getLic;
+        // Defensive cast — license_required by mělo být string, ale když ne, ošetříme.
+        $lic = $m['license_required'] ?? '';
+        if (is_array($lic) || is_object($lic)) return false;
+        return (string)$lic === (string)$getLic;
     });
 }
 if ($getKwMin > $kwBoundMin || $getKwMax < $kwBoundMax) {
@@ -215,8 +230,19 @@ if ($getRiders === 2) {
 if ($getQuery !== '') {
     $q = mb_strtolower($getQuery, 'UTF-8');
     $filtered = array_filter($filtered, function ($m) use ($q) {
+        // BUGFIX 2026-05-18: `features` z DB může být ARRAY (jsonb sloupec),
+        // string konkatenace s polem v PHP 8 hází TypeError → search padal
+        // tiše nebo přes celou stránku. Bezpečné slíznutí všech polí.
+        $features = $m['features'] ?? '';
+        if (is_array($features)) $features = implode(' ', array_map('strval', $features));
+        $description = $m['description'] ?? '';
+        if (is_array($description) || is_object($description)) $description = '';
         $hay = mb_strtolower(
-            ($m['model'] ?? '') . ' ' . ($m['category'] ?? '') . ' ' . ($m['description'] ?? '') . ' ' . ($m['features'] ?? ''),
+            (string)($m['model'] ?? '') . ' '
+            . (string)($m['brand'] ?? '') . ' '
+            . (string)($m['category'] ?? '') . ' '
+            . (string)$description . ' '
+            . (string)$features,
             'UTF-8'
         );
         return strpos($hay, $q) !== false;
