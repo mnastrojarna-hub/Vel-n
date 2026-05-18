@@ -274,14 +274,16 @@ $pricesHtml = '<section class="moto-prices gr2"><div><h2>' . te('detail.priceTit
 if ($priceRows) $pricesHtml .= renderTable([t('detail.priceHeaderDay'), t('detail.priceHeaderPrice')], $priceRows);
 $pricesHtml .= '<p>' . t('detail.priceIncludes') . '</p></div>';
 
-// Kalendář — zůstane jako JS (interaktivní komponenta), labely propagujeme do JS
+// Kalendář — zůstane jako JS (interaktivní komponenta), labely propagujeme do JS.
+// Min. délka pronájmu se NEZOBRAZUJE pod kalendářem — uživatel ji vidí v tabulce
+// specifikací výše (řádek "Minimální délka pronájmu") a vynucuje se na rezervační
+// stránce. Default je 1 den, tj. ve výchozím stavu žádné omezení.
 $calId = 'detail-cal-' . $moto['id'];
 $pricesHtml .= '<div class="moto-reservation"><h2>' . te('detail.availabilityTitle') . '</h2>' .
     '<p>' . te('detail.availabilityLead') . '</p>' .
     '<div id="' . $calId . '" class="calendar-placeholder"><div class="loading-overlay"><span class="spinner"></span> ' . te('detail.calendarLoading') . '</div></div>' .
     '<div class="calendar-icons gr3"><div><span class="cicon loosely">&nbsp;</span> ' . te('detail.calendarFree') . '</div><div><span class="cicon occupied">&nbsp;</span> ' . te('detail.calendarOccupied') . '</div><div><span class="cicon unconfirmed">&nbsp;</span> ' . te('detail.calendarPending') . '</div></div>' .
     '<div id="' . $calId . '-banner" style="display:none"></div>' .
-    '<p class="calendar-info">' . te('detail.calendarMinDays') . '</p>' .
     '<div class="reservation-btn"><a id="' . $calId . '-reserve-btn" class="btn btngreen" href="' . BASE_URL . '/rezervace?moto=' . htmlspecialchars($moto['id']) . '">' . te('detail.calendarGoToReservation') . '</a></div>' .
 '</div></section>';
 

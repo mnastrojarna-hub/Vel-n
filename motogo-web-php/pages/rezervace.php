@@ -46,7 +46,7 @@ $rezKeys = [
     'alert.terms','alert.gdpr','alert.dates','alert.moto','alert.pickupTime',
     'alert.minTime','alert.minTimeDelivery','alert.returnTime',
     'alert.bookingOverlap','alert.bookingOverlapOwn','alert.error','alert.saveError',
-    'alert.selectSize','alert.emailExists','alert.emailMismatch',
+    'alert.selectSize','alert.emailExists','alert.emailMismatch','alert.minRentalDays',
     // Přihlášení / obnova hesla v rezervaci (pages-rezervace-auth.js)
     'auth.returning.title','auth.returning.sub',
     'auth.login.title','auth.login.help','auth.login.submit','auth.login.submitting','auth.login.forgot',
@@ -115,6 +115,47 @@ MG._rez = { startDate: null, endDate: null, motos: [], motoId: "", allBookings: 
 <script src="' . assetUrl('/js/pages-rezervace-camera.js') . '"></script>
 <script src="' . assetUrl('/js/pages-rezervace-scan.js') . '"></script>
 <script>
+// Vynucení min_rental_days z DB (per-motorka, nastavuje admin ve Velíně).
+// Default je 1 den. Hookne se na _rezPickDate (po vyběru rozsahu v kalendáři),
+// při překroceni minima zobrazi alert a vyresetuje výběr. Beží JEN když je
+// min_rental_days > 1, jinak žádné omezeni.
+(function(){
+  function dayCount(s, e){ return Math.round((new Date(e) - new Date(s)) / 86400000) + 1; }
+  function selectedMoto(){
+    var r = MG._rez || {}; var id = r.motoId; if (!id) return null;
+    var list = r.motos || []; for (var i=0;i<list.length;i++) if (list[i].id===id) return list[i];
+    return null;
+  }
+  function validateMinDays(){
+    var r = MG._rez || {}; if (!r.startDate || !r.endDate) return true;
+    var m = selectedMoto(); if (!m) return true;
+    var minDays = parseInt(m.min_rental_days, 10) || 1;
+    if (minDays <= 1) return true;
+    var n = dayCount(r.startDate, r.endDate);
+    if (n < minDays) {
+      var msg = (MG.t && MG.t("rez.alert.minRentalDays", { count: minDays }))
+        || ("Minimální délka pronájmu této motorky je " + minDays + " dní. Zvolte prosím delší termín.");
+      alert(msg);
+      if (typeof MG._rezResetDates === "function") MG._rezResetDates();
+      return false;
+    }
+    return true;
+  }
+  function hookPickDate(){
+    if (!MG._rezPickDate || MG._rezPickDate._minDaysHooked) return;
+    var orig = MG._rezPickDate;
+    MG._rezPickDate = function(e){
+      orig.call(this, e);
+      validateMinDays();
+    };
+    MG._rezPickDate._minDaysHooked = true;
+  }
+  function tryHook(){
+    if (MG && MG._rezPickDate) { hookPickDate(); return; }
+    setTimeout(tryHook, 100);
+  }
+  tryHook();
+})();
 // Spustit inicializaci po načtení všech JS souborů
 (function(){
   function tryInit(){
