@@ -72,11 +72,34 @@ function _pageCacheKey($path) {
  * Jinak nastartuje output buffer a registruje shutdown hook pro ulozeni.
  */
 function pageCacheMaybeServe($path) {
-    if (!_pageCacheEnabled()) return;
     if (_pageCacheSkipPath($path)) return;
 
     $dir = _pageCacheDir();
     if (!$dir) return;
+
+    // Admin režim: aktivně mazat stale cache soubory pro tuto cestu napříč
+    // všemi jazyk/měna kombinacemi, aby anonymní uživatel po admin návštěvě
+    // (s ?cms_admin=<token>) hned viděl nově uložené CMS změny. Bez tohoto
+    // byla cache TTL až 10 min — admin uloží ve Velíně, navštíví web s tokenem
+    // (cache bypass), ale anonymní uživatel pořád dostane starou kopii.
+    if (!empty($_COOKIE['mg_cms_admin'])) {
+        // Smaž všechny page-cache soubory pro `host|path|*` (různé lang/currency).
+        // Klíč je md5(host|path|lang|currency|tag) — nemůžeme přesně cílit,
+        // ale můžeme smazat všechny soubory novější než 1 hodina (limit cache TTL).
+        $host = strtolower($_SERVER['HTTP_HOST'] ?? '');
+        $prefix = md5($host . '|' . $path . '|'); // hex prefix, ale md5 je distinct...
+        // md5 není prefix-friendly, takže mažeme heuristicky — všechny soubory.
+        // Bezpečné protože TTL stejně mažeme staré, a vzniknou znova při příští
+        // anonymní návštěvě. Limit: smaže max 200 souborů per request (perf).
+        $count = 0;
+        foreach (glob($dir . '/*.html') as $f) {
+            if ($count++ > 200) break;
+            @unlink($f);
+        }
+        return; // Admin nikdy nečte/nepíše cache
+    }
+
+    if (!_pageCacheEnabled()) return;
 
     $key = _pageCacheKey($path);
     $file = $dir . '/' . $key . '.html';
