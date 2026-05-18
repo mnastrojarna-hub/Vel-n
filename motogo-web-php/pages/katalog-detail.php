@@ -435,7 +435,6 @@ var CAL_I18N = {
     var s=_calState;
     if(!s.startDate||s.endDate){s.startDate=ds;s.endDate=null;}
     else if(ds<s.startDate){s.startDate=ds;s.endDate=null;}
-    else if(ds===s.startDate){s.startDate=null;s.endDate=null;}
     else{s.endDate=ds;}
     renderMonth();updateBanner();updateBtn();
   };
