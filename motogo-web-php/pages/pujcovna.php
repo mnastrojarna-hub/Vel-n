@@ -103,16 +103,9 @@ foreach ((is_array($C['process']['steps'] ?? null) ? $C['process']['steps'] : []
 }
 $stepsHtml .= '</div></section>';
 
-$faqItemsKeyed = [];
-foreach ((is_array($C['faq']['items'] ?? null) ? $C['faq']['items'] : []) as $i => $f) {
-    if (!is_array($f)) continue;
-    $faqItemsKeyed[] = [
-        'q' => '<span data-cms-key="web.pujcovna.faq.items.' . $i . '.q">' . ($f['q'] ?? '') . '</span>',
-        'a' => '<span data-cms-key="web.pujcovna.faq.items.' . $i . '.a">' . ($f['a'] ?? '') . '</span>',
-    ];
-}
-$faqTitleKeyed = '<span data-cms-key="web.pujcovna.faq.title">' . ($C['faq']['title'] ?? '') . '</span>';
-$faqHtml = renderFaqSection($faqTitleKeyed, $faqItemsKeyed, $C['faq']['more_link'] ?? null);
+// FAQ sekce na /pujcovna-motorek odstraněna (2026-05-17) — centrální FAQ
+// je pouze na /jak-pujcit/faq. Klíče `web.pujcovna.faq.*` v cms_variables
+// zůstávají, ale nikde se nečtou.
 
 $ctaButtonsKeyed = [];
 foreach ((is_array($C['cta']['buttons'] ?? null) ? $C['cta']['buttons'] : []) as $i => $btn) {
@@ -128,7 +121,7 @@ $ctaHtml = renderCta(
 );
 
 $content = '<main id="content"><div class="container">' . $bc .
-    '<div class="ccontent">' . $intro . $benefitsHtml . $stepsHtml . $faqHtml . $ctaHtml . '</div></div></main>';
+    '<div class="ccontent">' . $intro . $benefitsHtml . $stepsHtml . $ctaHtml . '</div></div></main>';
 
 // ===== Service + FAQPage JSON-LD =====
 // Service popisuje hlavní byznys — pronájem motorek — s areaServed,
@@ -162,20 +155,8 @@ $serviceSchema = '
     . '}
   </script>';
 
-// FAQPage z home FAQ items
-$faqSchemaItems = [];
-foreach ((is_array($C['faq']['items'] ?? null) ? $C['faq']['items'] : []) as $faq) {
-    if (!is_array($faq) || empty($faq['q']) || empty($faq['a'])) continue;
-    $faqSchemaItems[] = '{"@type":"Question","name":' . json_encode(strip_tags((string)$faq['q']), JSON_UNESCAPED_UNICODE)
-        . ',"acceptedAnswer":{"@type":"Answer","text":' . json_encode(strip_tags((string)$faq['a']), JSON_UNESCAPED_UNICODE) . '}}';
-}
+// FAQPage schema odstraněno (2026-05-17) — viditelná FAQ sekce zmizela.
 $faqSchema = '';
-if (!empty($faqSchemaItems)) {
-    $faqSchema = '
-  <script type="application/ld+json">
-  {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[' . implode(',', $faqSchemaItems) . ']}
-  </script>';
-}
 
 renderPage($C['seo']['title'], $content, '/pujcovna-motorek', [
     'description' => $C['seo']['description'],

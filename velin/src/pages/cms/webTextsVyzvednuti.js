@@ -60,16 +60,8 @@ export const PAGE_VYZVEDNUTI = {
         })),
       ]
     },
-    {
-      id: 'faq', label: 'FAQ', location: 'Časté dotazy',
-      fields: [
-        { key: 'web.jak_pujcit_vyzvednuti.faq.title', label: 'Nadpis sekce', default: '' },
-        ...range(4).flatMap((_, i) => ([
-          { key: `web.jak_pujcit_vyzvednuti.faq.items.${i}.q`, label: `Otázka ${i + 1}`, default: '' },
-          { key: `web.jak_pujcit_vyzvednuti.faq.items.${i}.a`, label: `Odpověď ${i + 1}`, type: 'textarea', default: '' },
-        ])),
-      ]
-    },
+    // FAQ sekce odstraněna z /jak-pujcit/vyzvednuti (2026-05-17) — centrální FAQ
+    // je pouze na /jak-pujcit/faq.
     {
       id: 'cta', label: 'CTA', location: 'Závěrečná výzva',
       fields: [
@@ -139,16 +131,8 @@ export const PAGE_CO_V_CENE = {
         ])),
       ]
     },
-    {
-      id: 'faq', label: 'FAQ', location: 'Časté dotazy',
-      fields: [
-        { key: 'web.jak_pujcit_cena.faq.title', label: 'Nadpis', default: '' },
-        ...range(5).flatMap((_, i) => ([
-          { key: `web.jak_pujcit_cena.faq.items.${i}.q`, label: `Otázka ${i + 1}`, default: '' },
-          { key: `web.jak_pujcit_cena.faq.items.${i}.a`, label: `Odpověď ${i + 1}`, type: 'textarea', default: '' },
-        ])),
-      ]
-    },
+    // FAQ sekce odstraněna z /jak-pujcit/co-v-cene (2026-05-17) — centrální FAQ
+    // je pouze na /jak-pujcit/faq.
     {
       id: 'cta', label: 'CTA', location: 'Závěrečná výzva',
       fields: [

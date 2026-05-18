@@ -38,25 +38,8 @@ foreach ((is_array($C['process']['steps'] ?? null) ? $C['process']['steps'] : []
 }
 $processHtml .= '</div></section>';
 
-// --- Section 5: FAQ + odkaz na další otázky ---
-$faqHtml = '<section>' .
-    '<h2 data-cms-key="web.jak_pujcit_postup.faq.title">' . ($C['faq']['title'] ?? '') . '</h2>' .
-    '<div class="tab-content"><div class="tab-pane active" id="all"><div class="gr2">';
-foreach ((is_array($C['faq']['items'] ?? null) ? $C['faq']['items'] : []) as $i => $f) {
-    if (!is_array($f)) continue;
-    $kBase = 'web.jak_pujcit_postup.faq.items.' . $i;
-    $faqHtml .= renderFaqItem(
-        '<span data-cms-key="' . $kBase . '.q">' . ($f['q'] ?? '') . '</span>',
-        '<span data-cms-key="' . $kBase . '.a">' . ($f['a'] ?? '') . '</span>'
-    );
-}
-$faqHtml .= '</div></div></div>';
-if (!empty($C['faq']['more_link'])) {
-    $ml = $C['faq']['more_link'];
-    $faqHtml .= '<p>&nbsp;</p>' .
-        '<p><a aria-label="' . htmlspecialchars($ml['aria']) . '" class="btn btngreen" href="' . BASE_URL . $ml['href'] . '">' . $ml['label'] . '</a></p>';
-}
-$faqHtml .= '</section>';
+// FAQ sekce odstraněna (2026-05-17) — centrální FAQ je pouze na /jak-pujcit/faq.
+// Klíče `web.jak_pujcit_postup.faq.*` v cms_variables zůstávají, ale nikde se nečtou.
 
 // --- Section 6: final CTA "Sedni na motorku!" ---
 $ctaButtons = '';
@@ -75,19 +58,13 @@ $content = '<main id="content"><div class="container">' . $bc .
     '<div data-tag="Postup půjčení motorky" class="sections ccontent">' .
     $titleSection .
     $processHtml .
-    $faqHtml .
     $finalCtaSection .
     '</div></div></main>';
 
-// ===== FAQPage schema (otázky/odpovědi) =====
-$faqSchemaItems = [];
-foreach ($C['faq']['items'] as $faq) {
-    $faqSchemaItems[] = '{"@type":"Question","name":' . json_encode(strip_tags($faq['q']), JSON_UNESCAPED_UNICODE) . ',"acceptedAnswer":{"@type":"Answer","text":' . json_encode(strip_tags($faq['a']), JSON_UNESCAPED_UNICODE) . '}}';
-}
-$faqSchema = '
-  <script type="application/ld+json">
-  {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[' . implode(',', $faqSchemaItems) . ']}
-  </script>';
+// FAQPage schema odstraněno (2026-05-17) — viditelná FAQ sekce zmizela
+// z této stránky (centrální FAQ je na /jak-pujcit/faq). Google penalizuje
+// FAQPage schema bez viditelného Q&A obsahu na stránce.
+$faqSchema = '';
 
 // ===== HowTo schema — krok za krokem postup pro AI agenty =====
 // Generuje se automaticky z $C['process']['steps'] (12 boxů z CMS).
