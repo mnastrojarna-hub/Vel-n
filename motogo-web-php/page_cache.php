@@ -60,11 +60,22 @@ function _pageCacheSkipPath($path) {
 function _pageCacheKey($path) {
     $host = strtolower($_SERVER['HTTP_HOST'] ?? '');
     parse_str($_SERVER['QUERY_STRING'] ?? '', $q);
-    // Efektivni lang/currency: query > cookie > prazdne (= domain default)
-    $lang = strtolower((string)($q['lang'] ?? ($_COOKIE['mg_web_lang'] ?? '')));
-    $currency = strtoupper((string)($q['currency'] ?? ($_COOKIE['mg_web_currency'] ?? '')));
-    $tag = (string)($q['tag'] ?? '');
-    return md5($host . '|' . $path . '|' . $lang . '|' . $currency . '|' . $tag);
+    // BUGFIX 2026-05-18: Předchozí implementace zahrnovala jen `lang`,`currency`,`tag`
+    // do cache key. Filter stránky jako `/katalog?ridicak=B&razeni=cena_asc` měly
+    // STEJNÝ klíč jako `/katalog` (bez filtrů) → kdo přišel první, jeho výsledek
+    // se zacachoval a všichni další viděli stejný HTML. Filtr "nefungoval", protože
+    // URL params se sice měnily, ale page_cache servila stále stejný HTML.
+    //
+    // FIX: kompletní query string (řazený abecedně pro deterministický klíč napříč
+    // pořadím params, tj. `?a=1&b=2` má stejný klíč jako `?b=2&a=1`). Identifikuje
+    // unikátní kombinace všech filtrů, řazení i pagingu.
+    if (!empty($q)) {
+        ksort($q);
+        $qstr = http_build_query($q);
+    } else {
+        $qstr = '';
+    }
+    return md5($host . '|' . $path . '|' . $qstr);
 }
 
 /**

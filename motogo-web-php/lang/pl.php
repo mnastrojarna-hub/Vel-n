@@ -394,6 +394,8 @@ return [
     'filters.power' => 'Moc',
     'filters.power.aria.min' => 'Minimalna moc w kW',
     'filters.power.aria.max' => 'Maksymalna moc w kW',
+    'filters.price.aria.min' => 'Minimalna cena za dzień',
+    'filters.price.aria.max' => 'Maksymalna cena za dzień',
     'filters.rangeMax' => 'maks',
     'filters.priceMax' => 'Maks. cena',
     'filters.priceAny' => 'Cena — dowolna',

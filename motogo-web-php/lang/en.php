@@ -615,6 +615,8 @@ return [
     'filters.power' => 'Power',
     'filters.power.aria.min' => 'Minimum power in kW',
     'filters.power.aria.max' => 'Maximum power in kW',
+    'filters.price.aria.min' => 'Minimum daily price',
+    'filters.price.aria.max' => 'Maximum daily price',
     'filters.rangeMax' => 'max',
     'filters.priceMax' => 'Max. price',
     'filters.priceAny' => 'Price — any',

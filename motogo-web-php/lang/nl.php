@@ -394,6 +394,8 @@ return [
     'filters.power' => 'Vermogen',
     'filters.power.aria.min' => 'Minimaal vermogen in kW',
     'filters.power.aria.max' => 'Maximaal vermogen in kW',
+    'filters.price.aria.min' => 'Minimumprijs per dag',
+    'filters.price.aria.max' => 'Maximumprijs per dag',
     'filters.rangeMax' => 'max',
     'filters.priceMax' => 'Max. prijs',
     'filters.priceAny' => 'Prijs — willekeurig',
