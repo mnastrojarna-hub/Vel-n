@@ -58,8 +58,20 @@ export const PAGE_PUJCOVNA = {
         { key: 'web.pujcovna.process.steps.7.text', label: 'Krok 8 – popis', type: 'textarea', default: 'Po vrácení motorky ti automaticky zašleme slevový kód 200 Kč na další rezervaci.' },
       ]
     },
-    // FAQ sekce odstraněna z /pujcovna-motorek (2026-05-17) — centrální FAQ
-    // je pouze na /jak-pujcit/faq.
+    {
+      id: 'faq', label: 'Často kladené otázky (4 položky)', location: 'Sekce FAQ na konci stránky',
+      fields: [
+        { key: 'web.pujcovna.faq.title', label: 'Nadpis sekce', default: 'Často kladené otázky' },
+        { key: 'web.pujcovna.faq.items.0.q', label: 'Otázka 1', default: 'Jak si mohu rezervovat motorku?' },
+        { key: 'web.pujcovna.faq.items.0.a', label: 'Odpověď 1', type: 'textarea', default: 'Motorku si můžeš rezervovat přes náš online rezervační systém přímo tady na webu. Případně se nám můžeš ozvat e-mailem, telefonicky nebo přes naše sociální sítě.' },
+        { key: 'web.pujcovna.faq.items.1.q', label: 'Otázka 2', default: 'Můžu si motorku půjčit i bez předchozí rezervace?' },
+        { key: 'web.pujcovna.faq.items.1.a', label: 'Odpověď 2', type: 'textarea', default: 'Bez rezervace to bohužel nejde. Každou motorku je nutné předem zamluvit.' },
+        { key: 'web.pujcovna.faq.items.2.q', label: 'Otázka 3', default: 'Musím složit kauci?' },
+        { key: 'web.pujcovna.faq.items.2.a', label: 'Odpověď 3', type: 'textarea', default: 'Ne! U nás <strong>žádnou kauci platit nemusíš</strong>. Naše půjčovna se tímto zásadně liší od většiny konkurence.' },
+        { key: 'web.pujcovna.faq.items.3.q', label: 'Otázka 4', default: 'Můžu odcestovat s motorkou do zahraničí?' },
+        { key: 'web.pujcovna.faq.items.3.a', label: 'Odpověď 4', type: 'textarea', default: 'Ano, s motorkou můžeš bez problémů vyrazit i do zahraničí. Cesty mimo Česko neomezujeme, jen je potřeba dodržet územní platnost pojištění (zelená karta).' },
+      ]
+    },
     {
       id: 'cta', label: 'CTA sekce', location: 'Závěrečná výzva k akci',
       fields: [

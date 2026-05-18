@@ -41,8 +41,16 @@ export const PAGE_VRACENI_PUJCOVNA = {
         ])),
       ]
     },
-    // FAQ sekce odstraněna z /jak-pujcit/vraceni-pujcovna (2026-05-17) — centrální FAQ
-    // je pouze na /jak-pujcit/faq.
+    {
+      id: 'faq', label: 'FAQ (6 otázek)', location: 'Časté dotazy',
+      fields: [
+        { key: 'web.jak_pujcit_vraceni_pujcovna.faq.title', label: 'Nadpis sekce', default: '' },
+        ...range(6).flatMap((_, i) => ([
+          { key: `web.jak_pujcit_vraceni_pujcovna.faq.items.${i}.q`, label: `Otázka ${i + 1}`, default: '' },
+          { key: `web.jak_pujcit_vraceni_pujcovna.faq.items.${i}.a`, label: `Odpověď ${i + 1}`, type: 'textarea', default: '' },
+        ])),
+      ]
+    },
     {
       id: 'cta', label: 'CTA', location: 'Závěrečná výzva',
       fields: [
@@ -114,8 +122,16 @@ export const PAGE_VRACENI_JINDE = {
         ])),
       ]
     },
-    // FAQ sekce odstraněna z /jak-pujcit/vraceni-jinde (2026-05-17) — centrální FAQ
-    // je pouze na /jak-pujcit/faq.
+    {
+      id: 'faq', label: 'FAQ (10 otázek)', location: 'Časté dotazy',
+      fields: [
+        { key: 'web.jak_pujcit_vraceni_jinde.faq.title', label: 'Nadpis sekce', default: '' },
+        ...range(10).flatMap((_, i) => ([
+          { key: `web.jak_pujcit_vraceni_jinde.faq.items.${i}.q`, label: `Otázka ${i + 1}`, default: '' },
+          { key: `web.jak_pujcit_vraceni_jinde.faq.items.${i}.a`, label: `Odpověď ${i + 1}`, type: 'textarea', default: '' },
+        ])),
+      ]
+    },
     {
       id: 'cta', label: 'CTA', location: 'Závěrečná výzva',
       fields: [

@@ -102,10 +102,17 @@ $stepsHtml .= '<div class="gr2"><div><h2 data-cms-key="' . $kp . '.why.title">' 
     '<p>&nbsp;</p><p><a class="btn btngreen" href="' . BASE_URL . ($catCta['href'] ?? '#') . '" data-cms-key="' . $kp . '.catalog_cta.label">' . ($catCta['label'] ?? '') . '</a></p>' .
     '<p>&nbsp;</p><p>&nbsp;</p></section>';
 
-// FAQ sekce na /poukazy odstraněna (2026-05-17) — centrální FAQ je pouze
-// na /jak-pujcit/faq. Klíče `web.poukazy.faq.*` v cms_variables zůstávají,
-// ale nikde se nečtou.
-$faqSection = '';
+$faqItemsHtml = '';
+foreach ((is_array($C['faq']['items'] ?? null) ? $C['faq']['items'] : []) as $i => $faq) {
+    if (!is_array($faq)) continue;
+    $kBase = $kp . '.faq.items.' . $i;
+    $faqItemsHtml .= renderFaqItem(
+        '<span data-cms-key="' . $kBase . '.q">' . ($faq['q'] ?? '') . '</span>',
+        '<span data-cms-key="' . $kBase . '.a">' . ($faq['a'] ?? '') . '</span>'
+    );
+}
+$faqSection = '<h2 data-cms-key="' . $kp . '.faq.title">' . ($C['faq']['title'] ?? '') . '</h2>' .
+    '<div class="tab-content"><div class="tab-pane active" id="all"><div class="gr2">' . $faqItemsHtml . '</div></div></div>';
 
 $ctaButtonsKeyed = [];
 foreach ((is_array($C['cta']['buttons'] ?? null) ? $C['cta']['buttons'] : []) as $i => $btn) {
