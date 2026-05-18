@@ -455,6 +455,7 @@ return [
     'rez.alert.selectSize' => 'Nejdřív vyberte velikost.',
     'rez.alert.emailExists' => 'Tento e-mail u nás už máme. Pro pokračování se přihlaste, nebo si obnovte heslo.',
     'rez.alert.emailMismatch' => 'Přihlášený účet nesouhlasí se zadaným e-mailem. Odhlaste se a zkuste znovu.',
+    'rez.alert.minRentalDays' => 'Minimální délka pronájmu této motorky je {count} dní. Zvolte prosím delší termín.',
 
     // ===== Rezervace — Vracející se zákazník (login panel v kroku 3) =====
     'rez.auth.returning.title' => 'Už jsem si u vás půjčoval/a motorku.',

@@ -1171,6 +1171,7 @@ return [
     'rez.return.stateText' => 'Geben Sie das Motorrad einfach mit Kraftstoff über der Reserve zurück (die Reserveleuchte ist aus). Um Waschen oder Reinigen müssen Sie sich nicht kümmern — das ist unsere Aufgabe.',
     'rez.alert.emailExists' => 'Diese E-Mail ist bei uns bereits hinterlegt. Bitte melden Sie sich an, um fortzufahren, oder setzen Sie Ihr Passwort zurück.',
     'rez.alert.emailMismatch' => 'Das angemeldete Konto stimmt nicht mit der eingegebenen E-Mail überein. Bitte melden Sie sich ab und versuchen Sie es erneut.',
+    'rez.alert.minRentalDays' => 'Die Mindestmietdauer für dieses Motorrad beträgt {count} Tage. Bitte wählen Sie einen längeren Zeitraum.',
     'rez.auth.returning.title' => 'Ich habe schon einmal ein Motorrad bei Ihnen gemietet',
     'rez.auth.returning.sub' => 'Melden Sie sich an und wir füllen alles vor (Kontaktdaten, Dokumente, Einwilligungen). Sie müssen nichts erneut eingeben.',
     'rez.auth.login.title' => 'Bei Ihrem Konto anmelden',

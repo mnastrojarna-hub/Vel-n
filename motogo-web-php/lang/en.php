@@ -1180,6 +1180,7 @@ return [
     'rez.return.stateText' => 'Just return the motorcycle with fuel above the reserve (the reserve light is off). Don\'t worry about washing or cleaning — that\'s our job.',
     'rez.alert.emailExists' => 'We already have this e-mail on file. Please log in to continue, or reset your password.',
     'rez.alert.emailMismatch' => 'The logged-in account does not match the e-mail you entered. Please log out and try again.',
+    'rez.alert.minRentalDays' => 'The minimum rental for this motorbike is {count} days. Please choose a longer period.',
     'rez.auth.returning.title' => 'I\'ve rented a motorcycle from you before',
     'rez.auth.returning.sub' => 'Log in and we\'ll pre-fill everything (contact details, documents, consents). You won\'t have to fill anything in again.',
     'rez.auth.login.title' => 'Sign in to your account',

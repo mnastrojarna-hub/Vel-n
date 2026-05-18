@@ -1157,6 +1157,7 @@ return [
     'rez.return.stateText' => 'Il suffit de rendre la moto avec du carburant au-dessus de la réserve (le voyant de réserve éteint). Ne vous souciez pas du lavage ni du nettoyage — c\'est notre travail.',
     'rez.alert.emailExists' => 'Cet e-mail est déjà enregistré chez nous. Connectez-vous pour continuer ou réinitialisez votre mot de passe.',
     'rez.alert.emailMismatch' => 'Le compte connecté ne correspond pas à l\'e-mail saisi. Déconnectez-vous et réessayez.',
+    'rez.alert.minRentalDays' => 'La durée minimale de location de cette moto est de {count} jours. Veuillez choisir une période plus longue.',
     'rez.auth.returning.title' => 'J\'ai déjà loué une moto chez vous',
     'rez.auth.returning.sub' => 'Connectez-vous et nous pré-remplirons tout (coordonnées, documents, consentements). Vous n\'aurez rien à saisir à nouveau.',
     'rez.auth.login.title' => 'Connexion à votre compte',
