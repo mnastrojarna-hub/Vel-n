@@ -9,6 +9,23 @@ RewriteBase /
 # serviruje default cert h90-w22.hosting90.cz.
 RewriteRule ^\.well-known/acme-challenge/ - [L]
 
+# === 0b. IP kanonizace + neznáme/default hostname → primárního domeny ==========
+# Seobility / SEO best practice: pristup primo pres IP adresu serveru
+# (napr. http://185.129.138.219/) musi redirectovat na kanonickou doménu,
+# jinak vznika "duplicate content" + Seobility hlasi "IP not redirected"
+# a "page not mobile optimized" (testuje na IP variantě, ktera nema spravne
+# vyrenderovany web).
+#
+# Match-y:
+#   - HTTP_HOST je IPv4 (např. 185.129.138.219) → redirect
+#   - HTTP_HOST je default hosting90 hostname (h90-w22.hosting90.cz) → redirect
+#   - HTTP_HOST prazdny / neznamy → redirect
+# Vse 301 na https://www.motogo24.cz/<orig path> (primarni domena).
+RewriteCond %{HTTP_HOST} ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ [OR,NC]
+RewriteCond %{HTTP_HOST} ^h\d+-w\d+\.hosting90\.cz$ [OR,NC]
+RewriteCond %{HTTP_HOST} ^$
+RewriteRule ^(.*)$ https://www.motogo24.cz/$1 [L,R=301]
+
 # === 1. Force https://www. pro domeny na Hosting90 ==============================
 # Hosting90 vystavuje Let's Encrypt cert jen na www. variantu (vhost ma
 # www.motogo24.<tld> jako primarni jmeno). Hola domena bez www spada na default
