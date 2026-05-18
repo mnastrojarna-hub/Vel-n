@@ -45,55 +45,107 @@ RewriteRule ^(.*)$ https://%{HTTP_HOST}/$1 [L,R=301]
 # === 3. Stare URL z puvodni verze webu (WordPress?) -> nove URL ==================
 # Google ma tyto URL v indexu od predchozi verze. 301 redirecty zajisti
 # transfer page-ranku a postupne nahrazeni v indexu (typicky 2-8 tydnu).
+#
+# SEO: VSECHNY redirecty jdou jednim hopem na finalni URL (zadne chainy
+# typu /cz/X -> /X -> /jak-pujcit/Y). Google Search Console hlasi
+# "Stranka s presmerovanim" pro kazdy hop v retezci a penalizuje crawl
+# budget pri vice nez 1 hopu.
 
-# /cs/ a /cz/ jazykove prefixy (puvodni multilang) -> root
-RewriteRule ^cs/(.*)$ /$1 [R=301,L]
-RewriteRule ^cz/(.*)$ /$1 [R=301,L]
-RewriteRule ^cs/?$ / [R=301,L]
-RewriteRule ^cz/?$ / [R=301,L]
+# === 3a. /cz/<deep-path> a /cs/<deep-path> — primy redirect na finalni URL ====
+# (musi byt PRED genericky /cz/(.*) rewrite, jinak by se chytil ten)
 
-# Katalog motorek: stare slugy /katalog-motorek* -> /katalog*
-RewriteRule ^katalog-motorek/cestovni/?$  /katalog/cestovni  [R=301,L]
-RewriteRule ^katalog-motorek/naked/?$     /katalog/naked     [R=301,L]
-RewriteRule ^katalog-motorek/supermoto/?$ /katalog/supermoto [R=301,L]
-RewriteRule ^katalog-motorek/detske/?$    /katalog/detske    [R=301,L]
-# Cokoli jineho pod /katalog-motorek/* (vcetne stareho TODO placeholderu) -> /katalog
-RewriteRule ^katalog-motorek/.*$          /katalog           [R=301,L]
-RewriteRule ^katalog-motorek/?$           /katalog           [R=301,L]
+# /cz/katalog-motorek/<id|kategorie> -> /katalog/<id|kategorie>
+RewriteRule ^c[sz]/katalog-motorek/(cestovni|naked|supermoto|detske)/?$    /katalog/$1 [R=301,L]
+# UUIDv4 (36 znaku s pomlckami) - aktualni format ID v Supabase, zachovavame
+RewriteRule ^c[sz]/katalog-motorek/([a-f0-9]{8}-[a-f0-9\-]{27})/?$         /katalog/$1 [R=301,L]
+# 13-znakovy hex slug (legacy timestamp ID, jiz neexistuje v DB) + cokoli jineho
+# -> /katalog (listing). Preservovat ID nema smysl, motorka v DB neni.
+RewriteRule ^c[sz]/katalog-motorek/?$                                      /katalog    [R=301,L]
+RewriteRule ^c[sz]/katalog-motorek/.*$                                     /katalog    [R=301,L]
 
-# Kategorie motorek se starymi slugy (-motorky suffix) -> /katalog/{kategorie}
+# /cz/jak-si-pujcit-motorku/<x> -> /jak-pujcit/<x>
+RewriteRule ^c[sz]/jak-si-pujcit-motorku/vraceni-motocyklu-v-pujcovne/?$ /jak-pujcit/vraceni-pujcovna [R=301,L]
+RewriteRule ^c[sz]/jak-si-pujcit-motorku/vraceni-motorky-jinde/?$        /jak-pujcit/vraceni-jinde    [R=301,L]
+RewriteRule ^c[sz]/jak-si-pujcit-motorku/prevzeti-v-pujcovne/?$          /jak-pujcit/prevzeti         [R=301,L]
+RewriteRule ^c[sz]/jak-si-pujcit-motorku/pristaveni-motocyklu/?$         /jak-pujcit/pristaveni       [R=301,L]
+RewriteRule ^c[sz]/jak-si-pujcit-motorku/dokumenty-a-navody/?$           /jak-pujcit/dokumenty        [R=301,L]
+RewriteRule ^c[sz]/jak-si-pujcit-motorku/casto-kladene-dotazy/?$         /jak-pujcit/faq              [R=301,L]
+RewriteRule ^c[sz]/jak-si-pujcit-motorku/co-v-cene(?:-najmu)?/?$         /jak-pujcit/co-v-cene        [R=301,L]
+RewriteRule ^c[sz]/jak-si-pujcit-motorku/postup/?$                       /jak-pujcit/postup           [R=301,L]
+RewriteRule ^c[sz]/jak-si-pujcit-motorku/.*$                             /jak-pujcit/postup           [R=301,L]
+RewriteRule ^c[sz]/jak-si-pujcit-motorku/?$                              /jak-pujcit/postup           [R=301,L]
+
+# /cz/{legacy long-slug pages} -> primy cil
+RewriteRule ^c[sz]/obchodni-podminky(?:-vop|/)?$         /dokumenty/obchodni-podminky           [R=301,L]
+RewriteRule ^c[sz]/vseobecne-obchodni-podminky/?$        /dokumenty/obchodni-podminky           [R=301,L]
+RewriteRule ^c[sz]/smlouva(?:-o-pronajmu)?/?$            /dokumenty/smlouva-o-pronajmu          [R=301,L]
+RewriteRule ^c[sz]/gdpr/?$                               /dokumenty/zasady-ochrany-osobnich-udaju [R=301,L]
+RewriteRule ^c[sz]/zasady-ochrany-osobnich-udaju/?$      /dokumenty/zasady-ochrany-osobnich-udaju [R=301,L]
+RewriteRule ^c[sz]/blog(/.*)?$                           /blog$1                                 [R=301,L]
+RewriteRule ^c[sz]/katalog(/.*)?$                        /katalog$1                              [R=301,L]
+
+# Fallback: ostatni /cz|cs/<path> -> /<path>, /cz nebo /cs (bez slashe) -> /
+RewriteRule ^c[sz]/(.*)$ /$1 [R=301,L]
+RewriteRule ^c[sz]/?$    /   [R=301,L]
+
+# === 3b. /katalog-motorek/<x> -> /katalog/<x> (preserves UUID/kategorii) =======
+RewriteRule ^katalog-motorek/(cestovni|naked|supermoto|detske)/?$        /katalog/$1 [R=301,L]
+# UUIDv4 (36 znaku s pomlckami) - zachovavame, motorka existuje v DB
+RewriteRule ^katalog-motorek/([a-f0-9]{8}-[a-f0-9\-]{27})/?$             /katalog/$1 [R=301,L]
+# 13-znakovy hex slug = legacy ID z WordPressu, motorka neni v Supabase
+# -> /katalog (listing namisto 404)
+RewriteRule ^katalog-motorek/.*$ /katalog [R=301,L]
+RewriteRule ^katalog-motorek/?$  /katalog [R=301,L]
+
+# === 3c. Kategorie motorek se starymi slugy (-motorky suffix) ==================
 RewriteRule ^cestovni-motorky/?$  /katalog/cestovni  [R=301,L]
 RewriteRule ^naked-motorky/?$     /katalog/naked     [R=301,L]
 RewriteRule ^supermoto-motorky/?$ /katalog/supermoto [R=301,L]
 RewriteRule ^detske-motorky/?$    /katalog/detske    [R=301,L]
 
-# "Jak si pujcit" - stare slugy
+# === 3d. "Jak si pujcit" - stare slugy ========================================
 RewriteRule ^jak-si-pujcit-motorku/vraceni-motocyklu-v-pujcovne/?$ /jak-pujcit/vraceni-pujcovna [R=301,L]
 RewriteRule ^jak-si-pujcit-motorku/vraceni-motorky-jinde/?$        /jak-pujcit/vraceni-jinde    [R=301,L]
-RewriteRule ^jak-si-pujcit-motorku/prevzeti-v-pujcovne/?$          /jak-pujcit/vyzvednuti       [R=301,L]
+RewriteRule ^jak-si-pujcit-motorku/prevzeti-v-pujcovne/?$          /jak-pujcit/prevzeti         [R=301,L]
 RewriteRule ^jak-si-pujcit-motorku/pristaveni-motocyklu/?$         /jak-pujcit/pristaveni       [R=301,L]
 RewriteRule ^jak-si-pujcit-motorku/dokumenty-a-navody/?$           /jak-pujcit/dokumenty        [R=301,L]
 RewriteRule ^jak-si-pujcit-motorku/casto-kladene-dotazy/?$         /jak-pujcit/faq              [R=301,L]
-RewriteRule ^jak-si-pujcit-motorku/co-v-cene/?$                    /jak-pujcit/co-v-cene        [R=301,L]
+RewriteRule ^jak-si-pujcit-motorku/co-v-cene(?:-najmu)?/?$         /jak-pujcit/co-v-cene        [R=301,L]
 RewriteRule ^jak-si-pujcit-motorku/postup/?$                       /jak-pujcit/postup           [R=301,L]
-# Cokoli jineho pod /jak-si-pujcit-motorku/* -> /jak-pujcit
-RewriteRule ^jak-si-pujcit-motorku/.*$ /jak-pujcit [R=301,L]
-RewriteRule ^jak-si-pujcit-motorku/?$  /jak-pujcit [R=301,L]
+# Catch-all -> /jak-pujcit/postup (rozcestnik /jak-pujcit se 301 redirektuje, byl
+# by to chain; jdeme primo na finalni cil).
+RewriteRule ^jak-si-pujcit-motorku/.*$ /jak-pujcit/postup [R=301,L]
+RewriteRule ^jak-si-pujcit-motorku/?$  /jak-pujcit/postup [R=301,L]
 
-# Top-level stare slugy bez prefixu /jak-si-pujcit-motorku/
+# === 3e. Top-level stare slugy bez prefixu /jak-si-pujcit-motorku/ ============
 RewriteRule ^postup-pujceni-motorky/?$           /jak-pujcit/postup           [R=301,L]
-RewriteRule ^prevzeti-v-pujcovne/?$              /jak-pujcit/vyzvednuti       [R=301,L]
+RewriteRule ^prevzeti-v-pujcovne/?$              /jak-pujcit/prevzeti         [R=301,L]
 RewriteRule ^pristaveni-motocyklu/?$             /jak-pujcit/pristaveni       [R=301,L]
 RewriteRule ^vraceni-motocyklu-v-pujcovne/?$     /jak-pujcit/vraceni-pujcovna [R=301,L]
 RewriteRule ^vraceni-motorky-jinde/?$            /jak-pujcit/vraceni-jinde    [R=301,L]
 RewriteRule ^dokumenty-a-navody/?$               /jak-pujcit/dokumenty        [R=301,L]
 RewriteRule ^casto-kladene-dotazy/?$             /jak-pujcit/faq              [R=301,L]
 
-# GDPR / pravni stranky - dlouhe stare slugy
-RewriteRule ^zasady-ochrany-osobnich-udaju/?$ /gdpr [R=301,L]
-RewriteRule ^obchodni-podminky-vop/?$         /obchodni-podminky [R=301,L]
-RewriteRule ^vseobecne-obchodni-podminky/?$   /obchodni-podminky [R=301,L]
-RewriteRule ^smlouva-o-pronajmu/?$            /smlouva [R=301,L]
+# === 3f. Pravni stranky - PRIMY redirect na /dokumenty/<slug> (zadny chain) ===
+# Drive: /smlouva-o-pronajmu -> /smlouva -> /dokumenty/smlouva-o-pronajmu (2 hopy).
+# Search Console hlasi "Duplicitni stranka, Google zvolil jinou kanonickou stranku"
+# pro /dokumenty/smlouva-o-pronajmu — pravdepodobne kvuli chained redirectu.
+# Tady jdeme primo na finalni URL.
+RewriteRule ^zasady-ochrany-osobnich-udaju/?$ /dokumenty/zasady-ochrany-osobnich-udaju [R=301,L]
+RewriteRule ^obchodni-podminky-vop/?$         /dokumenty/obchodni-podminky             [R=301,L]
+RewriteRule ^vseobecne-obchodni-podminky/?$   /dokumenty/obchodni-podminky             [R=301,L]
+RewriteRule ^smlouva-o-pronajmu/?$            /dokumenty/smlouva-o-pronajmu            [R=301,L]
+# Kratke aliasy /gdpr, /smlouva, /obchodni-podminky take primo (drive resil PHP):
+RewriteRule ^gdpr/?$                          /dokumenty/zasady-ochrany-osobnich-udaju [R=301,L]
+RewriteRule ^smlouva/?$                       /dokumenty/smlouva-o-pronajmu            [R=301,L]
+RewriteRule ^obchodni-podminky/?$             /dokumenty/obchodni-podminky             [R=301,L]
+
+# === 3g. Stare /images/<hash>/<size> z WordPressu -> 410 Gone =================
+# Google ma v indexu URL typu /images/69ceb4590db43/large z drevni galerie.
+# Tyto soubory nikdy existovat nebudou — 410 (misto 404) rekne Google
+# "pryc navzdy" a urychli odstraneni z indexu.
+RewriteRule ^images/[a-f0-9]+/(thumb|small|medium|large|orig|original)/?$ - [R=410,L]
+RewriteRule ^images/[a-f0-9]+/?$ - [R=410,L]
 
 # === 4. Stare prilohy /files/* (PDF z puvodniho WordPressu) =====================
 # Tyto soubory uz na hostingu nejsou - vratit 410 Gone misto 404, aby Google
