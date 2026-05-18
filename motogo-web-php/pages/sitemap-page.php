@@ -55,14 +55,14 @@ foreach ($links as $l) {
 $html .= '</ul>';
 
 $smOutroHtml = '<section class="sitemap-outro">'
-    . '<h2 data-cms-key="web.mapa_stranek.outro.title">' . htmlspecialchars($smOutroT) . '</h2>'
-    . '<p data-cms-key="web.mapa_stranek.outro.body1">' . $smOutroB1 . '</p>'
-    . '<p data-cms-key="web.mapa_stranek.outro.body2">' . $smOutroB2 . '</p>'
+    . '<h2 data-cms-key="web.mapa_stranek.outro.title">' . sanitizeHtml($smOutroT) . '</h2>'
+    . '<p data-cms-key="web.mapa_stranek.outro.body1">' . sanitizeHtml($smOutroB1) . '</p>'
+    . '<p data-cms-key="web.mapa_stranek.outro.body2">' . sanitizeHtml($smOutroB2) . '</p>'
     . '</section>';
 
 $content = '<main id="content"><div class="container">' . $bc .
     '<div class="ccontent"><h1>' . te('sitemap.h1') . '</h1>'
-    . '<p data-cms-key="web.mapa_stranek.intro">' . $smIntro . '</p>'
+    . '<p data-cms-key="web.mapa_stranek.intro">' . sanitizeHtml($smIntro) . '</p>'
     . $html
     . $smOutroHtml
     . '</div></div></main>';

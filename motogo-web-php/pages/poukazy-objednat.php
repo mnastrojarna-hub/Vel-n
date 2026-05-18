@@ -82,9 +82,9 @@ $pvOutroT = $PVC['outro']['title'] ?? $pvDefaults['outro']['title'];
 $pvOutroB1 = $PVC['outro']['body1'] ?? $pvDefaults['outro']['body1'];
 $pvOutroB2 = $PVC['outro']['body2'] ?? $pvDefaults['outro']['body2'];
 $pvOutroHtml = '<section class="voucher-outro">'
-    . '<h2 data-cms-key="web.koupit_darkovy_poukaz.outro.title">' . htmlspecialchars($pvOutroT) . '</h2>'
-    . '<p data-cms-key="web.koupit_darkovy_poukaz.outro.body1">' . $pvOutroB1 . '</p>'
-    . '<p data-cms-key="web.koupit_darkovy_poukaz.outro.body2">' . $pvOutroB2 . '</p>'
+    . '<h2 data-cms-key="web.koupit_darkovy_poukaz.outro.title">' . sanitizeHtml($pvOutroT) . '</h2>'
+    . '<p data-cms-key="web.koupit_darkovy_poukaz.outro.body1">' . sanitizeHtml($pvOutroB1) . '</p>'
+    . '<p data-cms-key="web.koupit_darkovy_poukaz.outro.body2">' . sanitizeHtml($pvOutroB2) . '</p>'
     . '</section>';
 
 $content = '<main id="content"><section aria-label="' . te('breadcrumb.buyVoucher') . '" class="container">' .

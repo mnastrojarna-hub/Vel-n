@@ -65,9 +65,9 @@ $outroT = $BC['outro']['title'] ?? $blogDefaults['outro']['title'];
 $outroB1 = $BC['outro']['body1'] ?? $blogDefaults['outro']['body1'];
 $outroB2 = $BC['outro']['body2'] ?? $blogDefaults['outro']['body2'];
 $outroHtml = '<section class="blog-outro">'
-    . '<h2 data-cms-key="web.blog.outro.title">' . htmlspecialchars($outroT) . '</h2>'
-    . '<p data-cms-key="web.blog.outro.body1">' . $outroB1 . '</p>'
-    . '<p data-cms-key="web.blog.outro.body2">' . $outroB2 . '</p>'
+    . '<h2 data-cms-key="web.blog.outro.title">' . sanitizeHtml($outroT) . '</h2>'
+    . '<p data-cms-key="web.blog.outro.body1">' . sanitizeHtml($outroB1) . '</p>'
+    . '<p data-cms-key="web.blog.outro.body2">' . sanitizeHtml($outroB2) . '</p>'
     . '</section>';
 
 $content = '<main id="content"><div class="container">' . $bc

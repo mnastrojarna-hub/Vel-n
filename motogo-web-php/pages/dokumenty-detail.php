@@ -219,9 +219,9 @@ $docOutroT = $DDC['outro']['title'] ?? $docDetailDefaults['outro']['title'];
 $docOutroB1 = $DDC['outro']['body1'] ?? $docDetailDefaults['outro']['body1'];
 $docOutroB2 = $DDC['outro']['body2'] ?? $docDetailDefaults['outro']['body2'];
 $body .= '<section class="dokumenty-detail-outro">'
-    . '<h2 data-cms-key="web.dokumenty_detail.outro.title">' . htmlspecialchars($docOutroT) . '</h2>'
-    . '<p data-cms-key="web.dokumenty_detail.outro.body1">' . $docOutroB1 . '</p>'
-    . '<p data-cms-key="web.dokumenty_detail.outro.body2">' . $docOutroB2 . '</p>'
+    . '<h2 data-cms-key="web.dokumenty_detail.outro.title">' . sanitizeHtml($docOutroT) . '</h2>'
+    . '<p data-cms-key="web.dokumenty_detail.outro.body1">' . sanitizeHtml($docOutroB1) . '</p>'
+    . '<p data-cms-key="web.dokumenty_detail.outro.body2">' . sanitizeHtml($docOutroB2) . '</p>'
     . '</section>';
 
 $body .= '</div></div></main>';

@@ -266,9 +266,16 @@ class SupabaseClient {
      *   1) $defaults (CS — z PHP / data/*.php)
      *   2) jazykový overlay z dictionary: t('pages.<page>') (z lang/pages_<lang>.php)
      *   3) DB pages_overlay (app_settings.pages_overlay.<page>.<lang>) — auto-překlad z Velínu
-     *   4) cms_variables (web.<page>.*)
-     *   5) DB 'site.<page>' (CS overlay z app_settings)
-     *   6) DB 'site.<page>.<lang>' (per-language overlay z app_settings)
+     *   4) DB 'site.<page>' (CS overlay z app_settings) — LEGACY seed (žádné UI ve Velíně)
+     *   5) DB 'site.<page>.<lang>' (per-language overlay z app_settings) — LEGACY
+     *   6) cms_variables (web.<page>.*) — Velín CMS, HIGHEST PRIORITY
+     *
+     * Pozn: cms_variables (krok 6) je nejvyšší priorita protože je to jediný
+     * overlay s reálným editor UI ve Velíně (CMS → Texty webu). Když admin
+     * uloží `web.kontakt.outro.title` ve Velíně, MUSÍ to přebít cokoli ze
+     * statického seed `app_settings.site.kontakt`. Před opravou 2026-05-17
+     * byla priorita opačná → Velín úpravy se neprojevily, pokud existoval
+     * `site.<page>` v app_settings.
      *
      * @param string $page Slug stránky (např. 'home', 'pujcovna', 'jak_pujcit_cena')
      * @param array $defaults Výchozí obsah v CS
@@ -288,7 +295,6 @@ class SupabaseClient {
 
         // 2) DB pages_overlay (app_settings.pages_overlay.<page>.<lang>)
         // Auto-překlad spuštěný z Velínu přes edge fn `translate-pages-master`.
-        // Vyšší priorita než lang/pages_<lang>.php — přepíše statický fallback.
         if ($lang && $lang !== 'cs') {
             $pagesOverlay = $this->fetchSetting('pages_overlay.' . $page . '.' . $lang);
             if (is_array($pagesOverlay) && !empty($pagesOverlay)) {
@@ -296,27 +302,27 @@ class SupabaseClient {
             }
         }
 
-        // 3) Velín CMS overlay (cms_variables, klíče web.<page>.<path…>)
-        // Pozor: používáme cmsDeepMerge, ne deepMerge — u list klíčů (např. signposts[0..5])
-        // chceme mergovat po prvcích, ne nahradit celé pole, protože overlay z DB
-        // typicky obsahuje jen některé indexy/atributy.
-        $cmsOverlay = $this->fetchWebTexts($page, $lang);
-        if (is_array($cmsOverlay) && !empty($cmsOverlay)) {
-            $merged = self::cmsDeepMerge($merged, $cmsOverlay);
-        }
-
-        // 4) Základní (CS) DB override z app_settings
+        // 3) Legacy CS DB override z app_settings (žádný editor UI — historický seed)
         $db = $this->fetchSetting('site.' . $page);
         if (is_array($db) && !empty($db)) {
             $merged = self::deepMerge($merged, $db);
         }
 
-        // 5) Per-language DB override (např. site.home.en)
+        // 4) Legacy per-language DB override (např. site.home.en)
         if ($lang && $lang !== 'cs') {
             $dbLang = $this->fetchSetting('site.' . $page . '.' . $lang);
             if (is_array($dbLang) && !empty($dbLang)) {
                 $merged = self::deepMerge($merged, $dbLang);
             }
+        }
+
+        // 5) Velín CMS overlay (cms_variables, klíče web.<page>.<path…>) — HIGHEST PRIORITY
+        // Toto je jediný overlay s reálným editor UI ve Velíně, takže musí
+        // přebít legacy seedy z app_settings. cmsDeepMerge mergeuje po prvcích
+        // (zachová listy v defaultech, jen přepíše skalární hodnoty).
+        $cmsOverlay = $this->fetchWebTexts($page, $lang);
+        if (is_array($cmsOverlay) && !empty($cmsOverlay)) {
+            $merged = self::cmsDeepMerge($merged, $cmsOverlay);
         }
 
         return $merged;

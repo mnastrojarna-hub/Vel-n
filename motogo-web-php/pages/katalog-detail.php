@@ -479,9 +479,9 @@ $motoOutroT = $MDC['outro']['title'] ?? $motoDetailDefaults['outro']['title'];
 $motoOutroB1 = $MDC['outro']['body1'] ?? $motoDetailDefaults['outro']['body1'];
 $motoOutroB2 = $MDC['outro']['body2'] ?? $motoDetailDefaults['outro']['body2'];
 $motoOutroHtml = '<section class="moto-detail-outro">'
-    . '<h2 data-cms-key="web.katalog_detail.outro.title">' . htmlspecialchars($motoOutroT) . '</h2>'
-    . '<p data-cms-key="web.katalog_detail.outro.body1">' . $motoOutroB1 . '</p>'
-    . '<p data-cms-key="web.katalog_detail.outro.body2">' . $motoOutroB2 . '</p>'
+    . '<h2 data-cms-key="web.katalog_detail.outro.title">' . sanitizeHtml($motoOutroT) . '</h2>'
+    . '<p data-cms-key="web.katalog_detail.outro.body1">' . sanitizeHtml($motoOutroB1) . '</p>'
+    . '<p data-cms-key="web.katalog_detail.outro.body2">' . sanitizeHtml($motoOutroB2) . '</p>'
     . '</section>';
 
 $content = '<main id="content"><div class="container">' . $bc .
