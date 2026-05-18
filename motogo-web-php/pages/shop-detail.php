@@ -186,9 +186,9 @@ $shopDetailOutroT = $SDC['outro']['title'] ?? $shopDetailDefaults['outro']['titl
 $shopDetailOutroB1 = $SDC['outro']['body1'] ?? $shopDetailDefaults['outro']['body1'];
 $shopDetailOutroB2 = $SDC['outro']['body2'] ?? $shopDetailDefaults['outro']['body2'];
 $shopDetailOutroHtml = '<section class="shop-detail-outro">'
-    . '<h2 data-cms-key="web.eshop_detail.outro.title">' . htmlspecialchars($shopDetailOutroT) . '</h2>'
-    . '<p data-cms-key="web.eshop_detail.outro.body1">' . $shopDetailOutroB1 . '</p>'
-    . '<p data-cms-key="web.eshop_detail.outro.body2">' . $shopDetailOutroB2 . '</p>'
+    . '<h2 data-cms-key="web.eshop_detail.outro.title">' . sanitizeHtml($shopDetailOutroT) . '</h2>'
+    . '<p data-cms-key="web.eshop_detail.outro.body1">' . sanitizeHtml($shopDetailOutroB1) . '</p>'
+    . '<p data-cms-key="web.eshop_detail.outro.body2">' . sanitizeHtml($shopDetailOutroB2) . '</p>'
     . '</section>';
 
 $content = '<main id="content"><div class="container">' . $bc

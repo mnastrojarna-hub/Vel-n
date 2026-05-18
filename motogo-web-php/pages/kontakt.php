@@ -123,9 +123,9 @@ $seoText = '<h2 data-cms-key="web.kontakt.seo_text.title">' . htmlspecialchars($
 
 $kontaktOutro = is_array($C['outro'] ?? null) ? $C['outro'] : $defaults['outro'];
 $kontaktOutroHtml = '<section class="kontakt-outro">'
-    . '<h2 data-cms-key="web.kontakt.outro.title">' . htmlspecialchars($kontaktOutro['title']) . '</h2>'
-    . '<p data-cms-key="web.kontakt.outro.body1">' . $kontaktOutro['body1'] . '</p>'
-    . '<p data-cms-key="web.kontakt.outro.body2">' . $kontaktOutro['body2'] . '</p>'
+    . '<h2 data-cms-key="web.kontakt.outro.title">' . sanitizeHtml($kontaktOutro['title']) . '</h2>'
+    . '<p data-cms-key="web.kontakt.outro.body1">' . sanitizeHtml($kontaktOutro['body1']) . '</p>'
+    . '<p data-cms-key="web.kontakt.outro.body2">' . sanitizeHtml($kontaktOutro['body2']) . '</p>'
     . '</section>';
 
 $content = '<main id="content"><div class="container contact">' . $bc .

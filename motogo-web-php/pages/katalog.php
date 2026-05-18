@@ -345,9 +345,9 @@ $countHtml = '<p class="katalog-count">' . t('filters.countLine', ['count' => co
 
 $h1AttrCms = $category ? '' : ' data-cms-key="web.katalog.h1"';
 $outroHtml = '<section class="katalog-outro">'
-    . '<h2 data-cms-key="web.katalog.outro.title">' . htmlspecialchars($outroTitle) . '</h2>'
-    . '<p data-cms-key="web.katalog.outro.body1">' . $outroBody1 . '</p>'
-    . '<p data-cms-key="web.katalog.outro.body2">' . $outroBody2 . '</p>'
+    . '<h2 data-cms-key="web.katalog.outro.title">' . sanitizeHtml($outroTitle) . '</h2>'
+    . '<p data-cms-key="web.katalog.outro.body1">' . sanitizeHtml($outroBody1) . '</p>'
+    . '<p data-cms-key="web.katalog.outro.body2">' . sanitizeHtml($outroBody2) . '</p>'
     . '</section>';
 $content = '<main id="content"><div class="container">'
     . renderBreadcrumb($bc)

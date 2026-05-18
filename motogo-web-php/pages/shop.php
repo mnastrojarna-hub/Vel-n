@@ -29,9 +29,9 @@ $shopOutroT = $SC['outro']['title'] ?? $shopDefaults['outro']['title'];
 $shopOutroB1 = $SC['outro']['body1'] ?? $shopDefaults['outro']['body1'];
 $shopOutroB2 = $SC['outro']['body2'] ?? $shopDefaults['outro']['body2'];
 $shopOutroHtml = '<section class="shop-outro">'
-    . '<h2 data-cms-key="web.eshop.outro.title">' . htmlspecialchars($shopOutroT) . '</h2>'
-    . '<p data-cms-key="web.eshop.outro.body1">' . $shopOutroB1 . '</p>'
-    . '<p data-cms-key="web.eshop.outro.body2">' . $shopOutroB2 . '</p>'
+    . '<h2 data-cms-key="web.eshop.outro.title">' . sanitizeHtml($shopOutroT) . '</h2>'
+    . '<p data-cms-key="web.eshop.outro.body1">' . sanitizeHtml($shopOutroB1) . '</p>'
+    . '<p data-cms-key="web.eshop.outro.body2">' . sanitizeHtml($shopOutroB2) . '</p>'
     . '</section>';
 
 $content = '<main id="content"><div class="container">' . $bc
