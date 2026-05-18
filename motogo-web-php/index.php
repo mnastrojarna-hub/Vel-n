@@ -440,19 +440,9 @@ switch (true) {
         break;
 
     // CMS stránky (legacy fallback — nově preferujeme /dokumenty/<slug>, který
-    // čte rovnou z `document_templates` ve Velíně). Tyto routy zůstávají pro SEO
-    // a backward-compat redirektují na nové URL.
-    case $path === '/obchodni-podminky':
-        header('Location: ' . BASE_URL . '/dokumenty/obchodni-podminky', true, 301);
-        exit;
-
-    case $path === '/gdpr':
-        header('Location: ' . BASE_URL . '/dokumenty/zasady-ochrany-osobnich-udaju', true, 301);
-        exit;
-
-    case $path === '/smlouva':
-        header('Location: ' . BASE_URL . '/dokumenty/smlouva-o-pronajmu', true, 301);
-        exit;
+    // čte rovnou z `document_templates` ve Velíně). Krátké aliasy /gdpr, /smlouva,
+    // /obchodni-podminky řeší .htaccess přímým 301 redirectem na /dokumenty/<slug>
+    // — žádný PHP hop, žádný redirect-chain. Tady už nic není potřeba.
 
     // Veřejné dokumenty z Velínu (document_templates) — VOP, smlouva, GDPR,
     // protokoly. `/dokumenty/<slug>` zobrazí obsah, `?format=pdf` vrátí print
