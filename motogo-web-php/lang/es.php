@@ -410,6 +410,8 @@ return [
     'filters.power' => 'Potencia',
     'filters.power.aria.min' => 'Potencia mínima en kW',
     'filters.power.aria.max' => 'Potencia máxima en kW',
+    'filters.price.aria.min' => 'Precio mínimo por día',
+    'filters.price.aria.max' => 'Precio máximo por día',
     'filters.rangeMax' => 'máx',
     'filters.priceMax' => 'Precio máx.',
     'filters.priceAny' => 'Precio — cualquiera',

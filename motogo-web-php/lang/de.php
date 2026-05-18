@@ -528,6 +528,8 @@ return [
     'filters.power' => 'Leistung',
     'filters.power.aria.min' => 'Mindestleistung in kW',
     'filters.power.aria.max' => 'Maximale Leistung in kW',
+    'filters.price.aria.min' => 'Mindestpreis pro Tag',
+    'filters.price.aria.max' => 'Höchstpreis pro Tag',
     'filters.rangeMax' => 'max',
     'filters.priceMax' => 'Preis max.',
     'filters.priceAny' => 'Preis — beliebig',

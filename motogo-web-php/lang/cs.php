@@ -1016,6 +1016,8 @@ return [
     'filters.power' => 'Výkon',
     'filters.power.aria.min' => 'Minimální výkon v kW',
     'filters.power.aria.max' => 'Maximální výkon v kW',
+    'filters.price.aria.min' => 'Minimální cena za den',
+    'filters.price.aria.max' => 'Maximální cena za den',
     'filters.rangeMax' => 'max',
     'filters.priceMax' => 'Cena max.',
     'filters.priceAny' => 'Cena — libovolná',

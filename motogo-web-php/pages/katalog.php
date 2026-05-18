@@ -113,6 +113,24 @@ if (!empty($kwValues)) {
 }
 if ($kwBoundMin === $kwBoundMax) $kwBoundMax = $kwBoundMin + 1;
 
+// Dynamické hranice slideru ceny z dat (min/max getMinPrice napříč motorkami).
+// Krok slideru je 100 Kč, hranice se zaokrouhlují dolů/nahoru na 100 Kč pro
+// hezčí čísla. Po přidání nové motorky se hranice automaticky přepočítají
+// (nikde se neukládají — pokaždé čteme z motos).
+$priceValues = [];
+foreach ($motos as $m) {
+    $p = getMinPrice($m);
+    if ($p > 0) $priceValues[] = $p;
+}
+if (!empty($priceValues)) {
+    $priceBoundMin = (int)(floor(min($priceValues) / 100) * 100);
+    $priceBoundMax = (int)(ceil(max($priceValues) / 100) * 100);
+} else {
+    $priceBoundMin = 0;
+    $priceBoundMax = 10000;
+}
+if ($priceBoundMin === $priceBoundMax) $priceBoundMax = $priceBoundMin + 100;
+
 // Všechny GET filtry
 $getCat     = trim($_GET['kategorie'] ?? '');
 $getLic     = trim($_GET['ridicak'] ?? '');
@@ -121,7 +139,12 @@ $getKwMax   = isset($_GET['kw_max']) && $_GET['kw_max'] !== '' ? (int)$_GET['kw_
 $getKwMin   = max($kwBoundMin, min($getKwMin, $kwBoundMax));
 $getKwMax   = max($kwBoundMin, min($getKwMax, $kwBoundMax));
 if ($getKwMin > $getKwMax) { $tmp = $getKwMin; $getKwMin = $getKwMax; $getKwMax = $tmp; }
-$getPriceMax= (float)($_GET['cena_max'] ?? 0);
+// Cena: range slider [cena_min..cena_max]. Pokud GET nenastaven, použij hranice z dat.
+$getPriceMin = isset($_GET['cena_min']) && $_GET['cena_min'] !== '' ? (int)$_GET['cena_min'] : $priceBoundMin;
+$getPriceMax = isset($_GET['cena_max']) && $_GET['cena_max'] !== '' ? (int)$_GET['cena_max'] : $priceBoundMax;
+$getPriceMin = max($priceBoundMin, min($getPriceMin, $priceBoundMax));
+$getPriceMax = max($priceBoundMin, min($getPriceMax, $priceBoundMax));
+if ($getPriceMin > $getPriceMax) { $tmp = $getPriceMin; $getPriceMin = $getPriceMax; $getPriceMax = $tmp; }
 $getAbs     = isset($_GET['abs']) && $_GET['abs'] === '1';
 $getRiders  = (int)($_GET['jezdci'] ?? 0); // 1=sólo, 2=se spolujezdcem
 $getQuery   = trim($_GET['q'] ?? '');
@@ -166,10 +189,15 @@ if ($getKwMin > $kwBoundMin || $getKwMax < $kwBoundMax) {
         return $kw >= $getKwMin && $kw <= $getKwMax;
     });
 }
-if ($getPriceMax > 0) {
-    $filtered = array_filter($filtered, function ($m) use ($getPriceMax) {
+// Filtr ceny — aplikuje se jen pokud uživatel posunul slider z výchozích hodnot.
+// Hodnota 0 (`getMinPrice` vrací 0) projde vždy (motorka bez ceny by jinak při
+// posunu slideru zmizela, což není žádoucí — nechceme skrýt motorky kvůli chybějícímu
+// ceníku).
+if ($getPriceMin > $priceBoundMin || $getPriceMax < $priceBoundMax) {
+    $filtered = array_filter($filtered, function ($m) use ($getPriceMin, $getPriceMax) {
         $min = getMinPrice($m);
-        return $min > 0 && $min <= $getPriceMax;
+        if ($min <= 0) return true; // motorky bez ceníku necháme projít
+        return $min >= $getPriceMin && $min <= $getPriceMax;
     });
 }
 if ($getAbs) {
@@ -197,12 +225,25 @@ if ($getQuery !== '') {
 
 // ---- Řazení ----
 $filtered = array_values($filtered);
+// Helper pro řazení podle ceny: motorky bez ceny (`price=0`) musejí jít na KONEC
+// nezávisle na směru řazení (asc/desc) — jinak by `cena_asc` ukázal nejdřív všechny
+// motorky bez ceníku, což vypadá jako že řazení nefunguje. Vrací PHP_INT_MAX pro
+// cena_asc a 0 pro cena_desc (zachová chování "0 vždy nakonec").
+$pricedKey = function ($m, $direction) {
+    $p = getMinPrice($m);
+    if ($p <= 0) return $direction === 'asc' ? PHP_INT_MAX : -1;
+    return $p;
+};
 switch ($getSort) {
     case 'cena_asc':
-        usort($filtered, function ($a, $b) { return getMinPrice($a) <=> getMinPrice($b); });
+        usort($filtered, function ($a, $b) use ($pricedKey) {
+            return $pricedKey($a, 'asc') <=> $pricedKey($b, 'asc');
+        });
         break;
     case 'cena_desc':
-        usort($filtered, function ($a, $b) { return getMinPrice($b) <=> getMinPrice($a); });
+        usort($filtered, function ($a, $b) use ($pricedKey) {
+            return $pricedKey($b, 'desc') <=> $pricedKey($a, 'desc');
+        });
         break;
     case 'vykon_desc':
         usort($filtered, function ($a, $b) { return (float)($b['power_kw'] ?? 0) <=> (float)($a['power_kw'] ?? 0); });
@@ -248,11 +289,10 @@ $opt = function ($val, $label, $active) {
     return '<option value="' . htmlspecialchars((string)$val) . '"' . $sel . '>' . htmlspecialchars($label) . '</option>';
 };
 
-// Cenové možnosti: do 1 500 Kč/den, dále po 500 Kč až do 10 000 Kč/den
-$priceOptsHtml = $opt(0, t('filters.priceAny'), $getPriceMax);
-for ($p = 1500; $p <= 10000; $p += 500) {
-    $priceOptsHtml .= $opt($p, t('filters.priceTo', ['price' => number_format($p, 0, ',', ' ')]), $getPriceMax);
-}
+// Helper pro formátování ceny (např. 1500 → "1 500 Kč/den")
+$priceFmt = function ($p) {
+    return number_format((int)$p, 0, ',', ' ') . ' Kč';
+};
 
 $filterHtml = '<form id="katalog-filters" class="katalog-filters" method="get" action="' . BASE_URL . '/katalog">'
     . '<div class="filter-row">'
@@ -294,10 +334,29 @@ $filterHtml .= '</select></div>'
             . '<span>' . $kwBoundMax . ' kW</span>'
         . '</div>'
     . '</div>'
-    . '<div class="filter-field"><label class="sr-only" for="flt-price">' . te('filters.priceMax') . '</label>'
-        . '<select id="flt-price" name="cena_max">'
-        . $priceOptsHtml
-        . '</select></div>'
+    . '<div class="filter-field filter-field-range">'
+        . '<div class="range-header">'
+            . '<span class="range-title">' . te('filters.priceMax') . '</span>'
+            . '<span class="range-value" id="flt-price-display">'
+                . htmlspecialchars($priceFmt($getPriceMin)) . ' – '
+                . htmlspecialchars($priceFmt($getPriceMax))
+            . '</span>'
+        . '</div>'
+        . '<div class="range-slider" data-bound-min="' . $priceBoundMin . '" data-bound-max="' . $priceBoundMax . '">'
+            . '<div class="range-track"></div>'
+            . '<div class="range-fill" id="flt-price-fill"></div>'
+            . '<input type="range" id="flt-price-min" name="cena_min" class="range-input range-input-min"'
+                . ' min="' . $priceBoundMin . '" max="' . $priceBoundMax . '" step="100"'
+                . ' value="' . $getPriceMin . '" aria-label="' . te('filters.price.aria.min') . '">'
+            . '<input type="range" id="flt-price-max" name="cena_max" class="range-input range-input-max"'
+                . ' min="' . $priceBoundMin . '" max="' . $priceBoundMax . '" step="100"'
+                . ' value="' . $getPriceMax . '" aria-label="' . te('filters.price.aria.max') . '">'
+        . '</div>'
+        . '<div class="range-bounds">'
+            . '<span>' . $priceFmt($priceBoundMin) . '</span>'
+            . '<span>' . $priceFmt($priceBoundMax) . '</span>'
+        . '</div>'
+    . '</div>'
     . '<div class="filter-field"><label class="sr-only" for="flt-sort">' . te('filters.sort') . '</label>'
         . '<select id="flt-sort" name="razeni">'
         . $opt('default', t('filters.sortDefault'), $getSort)
@@ -318,26 +377,31 @@ $filterHtml .= '</select></div>'
     . '</div></form>'
     . '<script>(function(){'
     . 'var MAX_LABEL=' . json_encode(t('filters.rangeMax'), JSON_UNESCAPED_UNICODE) . ';'
-    . 'var minIn=document.getElementById("flt-kw-min");'
-    . 'var maxIn=document.getElementById("flt-kw-max");'
-    . 'var disp=document.getElementById("flt-kw-display");'
-    . 'var fill=document.getElementById("flt-kw-fill");'
     . 'var form=document.getElementById("katalog-filters");'
+    // Generický helper pro double-thumb range slider. Volá se 2x — pro kW i cenu.
+    . 'function bindRange(minId,maxId,displayId,fillId,unit,maxLabel){'
+    . 'var minIn=document.getElementById(minId),maxIn=document.getElementById(maxId);'
+    . 'var disp=document.getElementById(displayId),fill=document.getElementById(fillId);'
     . 'if(!minIn||!maxIn)return;'
     . 'var bMin=+minIn.min,bMax=+minIn.max;'
+    . 'function fmt(v){return unit==="kw"?(v+" kW"):(v.toLocaleString("cs-CZ").replace(/,/g," ")+" Kč");}'
     . 'function update(src){'
     . 'var a=+minIn.value,b=+maxIn.value;'
     . 'if(a>b){if(src==="min"){maxIn.value=a;b=a;}else{minIn.value=b;a=b;}}'
-    . 'if(disp)disp.textContent=a+" – "+(b>=bMax?MAX_LABEL:b)+" kW";'
+    . 'if(disp)disp.textContent=fmt(a)+" – "+(b>=bMax&&maxLabel?maxLabel:fmt(b));'
     . 'if(fill&&bMax>bMin){var l=((a-bMin)/(bMax-bMin))*100;var r=100-((b-bMin)/(bMax-bMin))*100;fill.style.left=l+"%";fill.style.right=r+"%";}'
     . '}'
     . 'minIn.addEventListener("input",function(){update("min");});'
     . 'maxIn.addEventListener("input",function(){update("max");});'
     . 'if(form){form.addEventListener("submit",function(){'
+    // Inputy ve výchozích polohách (= žádné filtrování) se disablují, aby se neposílaly do URL.
     . 'if(+minIn.value<=bMin)minIn.disabled=true;'
     . 'if(+maxIn.value>=bMax)maxIn.disabled=true;'
     . '});}'
     . 'update();'
+    . '}'
+    . 'bindRange("flt-kw-min","flt-kw-max","flt-kw-display","flt-kw-fill","kw",MAX_LABEL);'
+    . 'bindRange("flt-price-min","flt-price-max","flt-price-display","flt-price-fill","price",null);'
     . '})();</script>';
 
 // Počet výsledků
