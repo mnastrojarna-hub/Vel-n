@@ -71,9 +71,19 @@ $pricingHtml = '<section class="main2">' .
     '<p>&nbsp;</p>' .
     '</section>';
 
-// FAQ sekce odstraněna (2026-05-17) — centrální FAQ je pouze na /jak-pujcit/faq.
-// Klíče `web.jak_pujcit_pristaveni.faq.*` v cms_variables zůstávají, ale nikde se nečtou.
-$faqHtml = '';
+// --- Section 5: FAQ ---
+$faqHtml = '<section>' .
+    '<h2 data-cms-key="web.jak_pujcit_pristaveni.faq.title">' . ($C['faq']['title'] ?? '') . '</h2>' .
+    '<div class="tab-content"><div class="tab-pane active" id="all"><div class="gr2">';
+foreach ((is_array($C['faq']['items'] ?? null) ? $C['faq']['items'] : []) as $i => $f) {
+    if (!is_array($f)) continue;
+    $kBase = 'web.jak_pujcit_pristaveni.faq.items.' . $i;
+    $faqHtml .= renderFaqItem(
+        '<span data-cms-key="' . $kBase . '.q">' . ($f['q'] ?? '') . '</span>',
+        '<span data-cms-key="' . $kBase . '.a">' . ($f['a'] ?? '') . '</span>'
+    );
+}
+$faqHtml .= '</div></div></div></section>';
 
 // --- Section 6: final CTA ---
 $ctaButtons = '';
@@ -104,8 +114,19 @@ $content = $pageStyle . '<main id="content"><div class="container">' . $bc .
     $finalCtaSection .
     '</div></div></main>';
 
-// FAQPage schema odstraněno (2026-05-17) — viditelná FAQ sekce zmizela.
+// FAQPage schema
+$faqSchemaItems = [];
+foreach ((is_array($C['faq']['items'] ?? null) ? $C['faq']['items'] : []) as $faq) {
+    if (!is_array($faq) || empty($faq['q']) || empty($faq['a'])) continue;
+    $faqSchemaItems[] = '{"@type":"Question","name":' . json_encode(strip_tags((string)$faq['q']), JSON_UNESCAPED_UNICODE) . ',"acceptedAnswer":{"@type":"Answer","text":' . json_encode(strip_tags((string)$faq['a']), JSON_UNESCAPED_UNICODE) . '}}';
+}
 $faqSchema = '';
+if (!empty($faqSchemaItems)) {
+    $faqSchema = '
+  <script type="application/ld+json">
+  {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[' . implode(',', $faqSchemaItems) . ']}
+  </script>';
+}
 
 renderPage($C['seo']['title'], $content, '/jak-pujcit/pristaveni', [
     'description' => $C['seo']['description'],
