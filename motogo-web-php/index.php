@@ -181,6 +181,13 @@ if ($path === '/api/master.php') {
     exit;
 }
 
+// /api/cms-cache-purge — invalidace webtexts/page cache po Velin save.
+// Autorizace: X-CMS-Admin-Token header (nebo ?token=…) vs. app_settings.cms_admin_token.
+if ($path === '/api/cms-cache-purge') {
+    require __DIR__ . '/pages/cms-cache-purge.php';
+    exit;
+}
+
 // llms-full.txt — sloučený plný obsah pro LLM (statické stránky + DB).
 // AI agent dostane kompletní kontext webu v jednom requestu (~80 kB markdown).
 if ($path === '/llms-full.txt') {

@@ -70,6 +70,8 @@ export default function WebTextSection({ section, values, onSaved, pageUrl, webB
               onSaved={onSaved}
               fieldUrl={pageUrl ? buildWebUrl(webBaseUrl, pageUrl, adminToken, field.key, previewExtra) : null}
               hasToken={!!adminToken}
+              adminToken={adminToken}
+              webBaseUrl={webBaseUrl}
             />
           ))}
         </div>
@@ -78,7 +80,7 @@ export default function WebTextSection({ section, values, onSaved, pageUrl, webB
   )
 }
 
-function FieldRow({ field, value, onSaved, fieldUrl, hasToken }) {
+function FieldRow({ field, value, onSaved, fieldUrl, hasToken, adminToken, webBaseUrl }) {
   const currentVal = value ?? field.default ?? ''
   const [val, setVal] = useState(currentVal)
   const [saving, setSaving] = useState(false)
@@ -147,6 +149,18 @@ function FieldRow({ field, value, onSaved, fieldUrl, hasToken }) {
     onSaved?.(field.key, val)
     setRowId(id)
     setSavedVal(val)
+    // Fire-and-forget invalidace cache na webu (supabase.php webtexts + page_cache).
+    // Bez tohohle by anonymní návštěvník čekal až 30 min (webtexts TTL) než
+    // by viděl uloženou změnu. Nečekáme na response — selhání je netragické.
+    if (adminToken && webBaseUrl) {
+      try {
+        fetch(webBaseUrl.replace(/\/$/, '') + '/api/cms-cache-purge', {
+          method: 'POST',
+          headers: { 'X-CMS-Admin-Token': adminToken },
+          keepalive: true,
+        }).catch(() => {})
+      } catch (_) { /* ignore */ }
+    }
     // Auto-překlad pro web (na pozadí, jen pro non-empty)
     if (id) await runTranslate(id, val)
   }
