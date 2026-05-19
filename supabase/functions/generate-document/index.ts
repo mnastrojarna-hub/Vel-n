@@ -298,6 +298,32 @@ serve(async (req) => {
       htmlContent = htmlContent.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), val)
     }
 
+    // Velín RichTextEditor ukládá obsah jako fragment (<p>/<table>… bez <!DOCTYPE>).
+    // PDFShift potřebuje plný HTML dokument — fakturní šablona ho generuje, ale
+    // VOP/smlouvy/protokoly v DB ne, takže konverze selhávala a v mailu chodilo
+    // .html místo .pdf. Pokud HTML není kompletní, obalíme ho minimální stránkou
+    // se základní typografií (mirror styly z RichTextEditor preview).
+    const isFullDoc = /^\s*(?:<!doctype|<html\b)/i.test(htmlContent)
+    if (!isFullDoc) {
+      const title = template?.name || template_slug
+      htmlContent = `<!DOCTYPE html><html lang="cs"><head><meta charset="utf-8"><title>${title}</title><style>
+body { margin: 0; padding: 24px; font-family: 'Segoe UI', system-ui, sans-serif; font-size: 12px; line-height: 1.6; color: #0f1a14; background: #fff; }
+p { margin: 0 0 10px; }
+h1 { font-size: 1.8em; font-weight: 800; margin: 14px 0 8px; }
+h2 { font-size: 1.45em; font-weight: 800; margin: 12px 0 6px; }
+h3 { font-size: 1.2em; font-weight: 700; margin: 10px 0 6px; }
+h4 { font-size: 1.05em; font-weight: 700; margin: 8px 0 4px; }
+ul, ol { padding-left: 1.4em; margin: 0 0 10px; }
+li { margin: 2px 0; }
+blockquote { margin: 8px 0; padding: 8px 12px; border-left: 4px solid #74FB71; background: #f1faf7; color: #1a2e22; border-radius: 4px; }
+a { color: #1d4ed8; text-decoration: underline; }
+img { max-width: 100%; height: auto; }
+hr { border: none; border-top: 1px solid #d4e8e0; margin: 12px 0; }
+table { border-collapse: collapse; }
+table td, table th { border: 1px solid #d4e8e0; padding: 4px 8px; }
+</style></head><body>${htmlContent}</body></html>`
+    }
+
     // Store as PDF přes PDFShift; fallback na HTML když API key není / konverze selže.
     const docId = crypto.randomUUID()
     let path: string
