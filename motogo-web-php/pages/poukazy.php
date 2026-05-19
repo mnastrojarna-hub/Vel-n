@@ -67,10 +67,10 @@ $img = is_array($C['intro_image'] ?? null) ? $C['intro_image'] : ($defaults['int
 $imgSrc = BASE_URL . '/' . ltrim($img['src'] ?? '', '/');
 
 $intro_cta = is_array($C['intro_cta'] ?? null) ? $C['intro_cta'] : ($defaults['intro_cta']);
-$intro = '<section aria-labelledby="title"><h1 id="title" data-cms-key="' . $kp . '.h1">' . ($C['h1'] ?? '') . '</h1>' .
-    '<div class="gr2"><div><div data-cms-key="' . $kp . '.intro_left">' . ($C['intro_left'] ?? '') . '</div>' .
+$intro = '<section aria-labelledby="title"><h1 id="title" data-cms-key="' . $kp . '.h1">' . sanitizeHtml($C['h1'] ?? '') . '</h1>' .
+    '<div class="gr2"><div><div data-cms-key="' . $kp . '.intro_left">' . sanitizeHtml($C['intro_left'] ?? '') . '</div>' .
     '<p>&nbsp;</p>' .
-    '<p class="cta"><a aria-label="' . htmlspecialchars($intro_cta['aria'] ?? ($intro_cta['label'] ?? '')) . '" class="btn btngreen" href="' . BASE_URL . ($intro_cta['href'] ?? '#') . '" data-cms-key="' . $kp . '.intro_cta.label">' . ($intro_cta['label'] ?? '') . '</a></p>' .
+    '<p class="cta"><a aria-label="' . htmlspecialchars($intro_cta['aria'] ?? ($intro_cta['label'] ?? '')) . '" class="btn btngreen" href="' . BASE_URL . ($intro_cta['href'] ?? '#') . '" data-cms-key="' . $kp . '.intro_cta.label">' . sanitizeHtml($intro_cta['label'] ?? '') . '</a></p>' .
     '<p>&nbsp;</p>' .
     '</div><div>' .
     '<img alt="' . htmlspecialchars($img['alt'] ?? '') . '" class="imgres" loading="lazy" src="' . htmlspecialchars($imgSrc) . '">' .
@@ -82,24 +82,24 @@ foreach ((is_array($C['steps'] ?? null) ? $C['steps'] : []) as $i => $s) {
     $kBase = $kp . '.steps.' . $i;
     $stepsHtml .= renderWbox(
         $s['icon'] ?? '',
-        '<span data-cms-key="' . $kBase . '.title">' . ($s['title'] ?? '') . '</span>',
-        '<span data-cms-key="' . $kBase . '.text">' . ($s['text'] ?? '') . '</span>'
+        '<span data-cms-key="' . $kBase . '.title">' . sanitizeHtml($s['title'] ?? '') . '</span>',
+        '<span data-cms-key="' . $kBase . '.text">' . sanitizeHtml($s['text'] ?? '') . '</span>'
     );
 }
-$stepsHtml .= '</div><p>&nbsp;</p><p data-cms-key="' . $kp . '.validity_note">' . ($C['validity_note'] ?? '') . '</p><p>&nbsp;</p><p>&nbsp;</p>';
+$stepsHtml .= '</div><p>&nbsp;</p><p data-cms-key="' . $kp . '.validity_note">' . sanitizeHtml($C['validity_note'] ?? '') . '</p><p>&nbsp;</p><p>&nbsp;</p>';
 
 $whyLis = '';
 foreach ((is_array($C['why']['items'] ?? null) ? $C['why']['items'] : []) as $i => $item) {
-    $whyLis .= '<li data-cms-key="' . $kp . '.why.items.' . $i . '">' . $item . '</li>';
+    $whyLis .= '<li data-cms-key="' . $kp . '.why.items.' . $i . '">' . sanitizeHtml($item) . '</li>';
 }
 $howLis = '';
 foreach ((is_array($C['how']['items'] ?? null) ? $C['how']['items'] : []) as $i => $item) {
-    $howLis .= '<li data-cms-key="' . $kp . '.how.items.' . $i . '">' . $item . '</li>';
+    $howLis .= '<li data-cms-key="' . $kp . '.how.items.' . $i . '">' . sanitizeHtml($item) . '</li>';
 }
 $catCta = is_array($C['catalog_cta'] ?? null) ? $C['catalog_cta'] : ($defaults['catalog_cta']);
-$stepsHtml .= '<div class="gr2"><div><h2 data-cms-key="' . $kp . '.why.title">' . ($C['why']['title'] ?? '') . '</h2><ul>' . $whyLis . '</ul></div>' .
-    '<div><h2 data-cms-key="' . $kp . '.how.title">' . ($C['how']['title'] ?? '') . '</h2><ul>' . $howLis . '</ul></div></div>' .
-    '<p>&nbsp;</p><p><a class="btn btngreen" href="' . BASE_URL . ($catCta['href'] ?? '#') . '" data-cms-key="' . $kp . '.catalog_cta.label">' . ($catCta['label'] ?? '') . '</a></p>' .
+$stepsHtml .= '<div class="gr2"><div><h2 data-cms-key="' . $kp . '.why.title">' . sanitizeHtml($C['why']['title'] ?? '') . '</h2><ul>' . $whyLis . '</ul></div>' .
+    '<div><h2 data-cms-key="' . $kp . '.how.title">' . sanitizeHtml($C['how']['title'] ?? '') . '</h2><ul>' . $howLis . '</ul></div></div>' .
+    '<p>&nbsp;</p><p><a class="btn btngreen" href="' . BASE_URL . ($catCta['href'] ?? '#') . '" data-cms-key="' . $kp . '.catalog_cta.label">' . sanitizeHtml($catCta['label'] ?? '') . '</a></p>' .
     '<p>&nbsp;</p><p>&nbsp;</p></section>';
 
 $faqItemsHtml = '';
@@ -107,23 +107,23 @@ foreach ((is_array($C['faq']['items'] ?? null) ? $C['faq']['items'] : []) as $i 
     if (!is_array($faq)) continue;
     $kBase = $kp . '.faq.items.' . $i;
     $faqItemsHtml .= renderFaqItem(
-        '<span data-cms-key="' . $kBase . '.q">' . ($faq['q'] ?? '') . '</span>',
-        '<span data-cms-key="' . $kBase . '.a">' . ($faq['a'] ?? '') . '</span>'
+        '<span data-cms-key="' . $kBase . '.q">' . sanitizeHtml($faq['q'] ?? '') . '</span>',
+        '<span data-cms-key="' . $kBase . '.a">' . sanitizeHtml($faq['a'] ?? '') . '</span>'
     );
 }
-$faqSection = '<h2 data-cms-key="' . $kp . '.faq.title">' . ($C['faq']['title'] ?? '') . '</h2>' .
+$faqSection = '<h2 data-cms-key="' . $kp . '.faq.title">' . sanitizeHtml($C['faq']['title'] ?? '') . '</h2>' .
     '<div class="tab-content"><div class="tab-pane active" id="all"><div class="gr2">' . $faqItemsHtml . '</div></div></div>';
 
 $ctaButtonsKeyed = [];
 foreach ((is_array($C['cta']['buttons'] ?? null) ? $C['cta']['buttons'] : []) as $i => $btn) {
     if (!is_array($btn)) continue;
     $b = $btn;
-    $b['label'] = '<span data-cms-key="' . $kp . '.cta.buttons.' . $i . '.label">' . ($btn['label'] ?? '') . '</span>';
+    $b['label'] = '<span data-cms-key="' . $kp . '.cta.buttons.' . $i . '.label">' . sanitizeHtml($btn['label'] ?? '') . '</span>';
     $ctaButtonsKeyed[] = $b;
 }
 $ctaHtml = renderCta(
-    '<span data-cms-key="' . $kp . '.cta.title">' . ($C['cta']['title'] ?? '') . '</span>',
-    '<span data-cms-key="' . $kp . '.cta.text">' . ($C['cta']['text'] ?? '') . '</span>',
+    '<span data-cms-key="' . $kp . '.cta.title">' . sanitizeHtml($C['cta']['title'] ?? '') . '</span>',
+    '<span data-cms-key="' . $kp . '.cta.text">' . sanitizeHtml($C['cta']['text'] ?? '') . '</span>',
     $ctaButtonsKeyed
 );
 
