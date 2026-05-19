@@ -3,7 +3,7 @@
 // pouze úvodní/závěrečná textová sekce, která se přidává jako SEO doplněk.
 
 export const PAGE_BLOG = {
-  id: 'blog', label: 'Blog (rozcestník)', icon: '✍️', url: '/blog',
+  id: 'blog-landing', label: 'Blog (rozcestník)', icon: '✍️', url: '/blog',
   description: 'Výpis článků blogu s tagy. Editovatelná závěrečná textová sekce pod gridem článků.',
   sections: [
     {
