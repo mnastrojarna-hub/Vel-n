@@ -51,6 +51,7 @@ export default function CustomerDocumentsTab({ userId }) {
   const [generatedDocs, setGeneratedDocs] = useState([])
   const [profile, setProfile] = useState(null)
   const [verificationDocs, setVerificationDocs] = useState([])
+  const [upcomingBookings, setUpcomingBookings] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [viewDoc, setViewDoc] = useState(null)
@@ -68,11 +69,12 @@ export default function CustomerDocumentsTab({ userId }) {
     setLoading(true)
     setError(null)
     try {
-      const [docsRes, invRes, genRes, profRes] = await Promise.all([
+      const [docsRes, invRes, genRes, profRes, bkRes] = await Promise.all([
         supabase.from('documents').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
         supabase.from('invoices').select('*').eq('customer_id', userId).order('issue_date', { ascending: false, nullsFirst: false }),
         supabase.from('generated_documents').select('*').eq('customer_id', userId).order('created_at', { ascending: false }),
         supabase.from('profiles').select('id, full_name, license_number, license_expiry, license_group, id_number, id_verified_at, license_verified_at, passport_verified_at').eq('id', userId).single(),
+        supabase.from('bookings').select('id, status, start_date, end_date, motorcycles(model, license_required)').eq('user_id', userId).in('status', ['pending', 'reserved', 'active']).order('start_date', { ascending: true }),
       ])
       if (docsRes.error) throw docsRes.error
 
@@ -96,6 +98,7 @@ export default function CustomerDocumentsTab({ userId }) {
       setGeneratedDocs(genRes.data || [])
       setVerificationDocs(allDocs.filter(d => VERIFICATION_TYPES.includes(d.type)))
       setProfile(profRes.data || null)
+      setUpcomingBookings(bkRes.data || [])
     } catch (e) {
       setError(e.message)
     }
@@ -227,13 +230,29 @@ export default function CustomerDocumentsTab({ userId }) {
   const filteredItems = getFilteredItems()
   const totalPages = Math.ceil(filteredItems.length / PER_PAGE)
   const pagedItems = filteredItems.slice((page - 1) * PER_PAGE, page * PER_PAGE)
-  const vs = computeDocVerification(verificationDocs, profile)
+
+  // Kontext nadcházejících rezervací — určuje, jestli vůbec potřebujeme ŘP
+  const hasAdultBooking = upcomingBookings.some(b => String(b.motorcycles?.license_required || '').toUpperCase() !== 'N')
+  const allChildOnly = upcomingBookings.length > 0 && !hasAdultBooking
+  const noUpcoming = upcomingBookings.length === 0
+  // Pro dětské-only rezervace platí relaxovaná pravidla (stejně jako backend `check_booking_docs_status`)
+  const effectiveLicenseRequired = allChildOnly ? 'N' : null
+  const vs = computeDocVerification(verificationDocs, profile, effectiveLicenseRequired)
 
   return (
     <div className="space-y-5">
       {error && <div className="p-3 rounded-card" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>{error}</div>}
 
-      <CustomerVerificationSection vs={vs} profile={profile} verificationDocs={verificationDocs} onChanged={loadAll} />
+      <CustomerVerificationSection
+        vs={vs}
+        profile={profile}
+        verificationDocs={verificationDocs}
+        upcomingBookings={upcomingBookings}
+        hasAdultBooking={hasAdultBooking}
+        allChildOnly={allChildOnly}
+        noUpcoming={noUpcoming}
+        onChanged={loadAll}
+      />
 
       {/* Filtr + seznam dokumentů */}
       <Card>
@@ -311,6 +330,7 @@ export default function CustomerDocumentsTab({ userId }) {
           <strong>DIAGNOSTIKA CustomerDocuments</strong><br/>
           <div>invoices: {invoices.length}, generated: {generatedDocs.length}, docs: {docs.length}, verification: {verificationDocs.length}</div>
           <div>ŘP={String(vs.hasLicense)}, OP={String(vs.hasIdCard)}, pas={String(vs.hasPassport)}, valid={String(vs.licenseValid)}, groups={String(vs.licenseGroupFilled)}, allOk={String(vs.allOk)}</div>
+          <div>upcomingBookings={upcomingBookings.length}, hasAdultBooking={String(hasAdultBooking)}, allChildOnly={String(allChildOnly)}, noUpcoming={String(noUpcoming)}, isChildMoto={String(vs.isChildMoto)}</div>
         </div>
       )}
     </div>

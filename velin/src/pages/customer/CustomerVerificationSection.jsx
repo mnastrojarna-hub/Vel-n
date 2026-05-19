@@ -147,7 +147,55 @@ function DocSlots({ docs, requireBothSides, onPreview, onDelete, emptyNote }) {
   )
 }
 
-export default function CustomerVerificationSection({ vs, profile, verificationDocs, onChanged }) {
+function formatBookingRange(b) {
+  const s = b?.start_date ? new Date(b.start_date).toLocaleDateString('cs-CZ') : '—'
+  const e = b?.end_date ? new Date(b.end_date).toLocaleDateString('cs-CZ') : '—'
+  return `${s} – ${e}`
+}
+
+function BookingContextBanner({ upcomingBookings, allChildOnly, hasAdultBooking, noUpcoming }) {
+  if (noUpcoming) {
+    return (
+      <div className="p-3 mb-3 rounded-lg text-xs" style={{ background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
+        ℹ️ Zákazník nemá žádnou aktivní ani nadcházející rezervaci. Doklady ŘP + OP/Pas budou potřeba u motorek vyžadujících ŘP. Pro dětské motorky (license_required = N) doklady nepotřeba.
+      </div>
+    )
+  }
+  return (
+    <div className="p-3 mb-3 rounded-lg text-xs" style={{ background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
+      <div className="font-bold mb-1">Aktivní / nadcházející rezervace ({upcomingBookings.length}):</div>
+      <ul className="space-y-0.5">
+        {upcomingBookings.map(b => {
+          const isChild = String(b.motorcycles?.license_required || '').toUpperCase() === 'N'
+          return (
+            <li key={b.id}>
+              {isChild ? '🧒' : '🏍️'} {b.motorcycles?.model || 'Motorka'} · {formatBookingRange(b)} · {' '}
+              <span style={{ color: isChild ? '#1a8a18' : '#1a2e22' }}>
+                {isChild ? 'dětská — bez dokladů' : 'vyžaduje ŘP + OP/Pas'}
+              </span>
+            </li>
+          )
+        })}
+      </ul>
+      {allChildOnly && (
+        <div className="mt-2" style={{ color: '#1a8a18' }}>
+          🧒 Pouze dětské motorky — kódy k boxu se uvolnily automaticky bez nutnosti dokladů.
+        </div>
+      )}
+      {hasAdultBooking && (
+        <div className="mt-2" style={{ color: '#b45309' }}>
+          🏍️ Pro dospělou motorku je potřeba ověřený ŘP + OP/Pas, jinak kódy NELZE uvolnit.
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default function CustomerVerificationSection({ vs, profile, verificationDocs, upcomingBookings = [], hasAdultBooking = false, allChildOnly = false, noUpcoming = false, onChanged }) {
+  // Pro dětskou-only rezervaci se ŘP zobrazuje jen informativně — backend kódy stejně uvolní
+  const licenseOptional = allChildOnly && !vs.hasLicense
+  // Skupiny A/A2/A1 jsou irelevantní, když není potřeba ŘP
+  const showAdultGroupCheck = !allChildOnly && vs.licenseGroupFilled && profile?.license_group
   const [previewUrl, setPreviewUrl] = useState(null)
   const [previewDoc, setPreviewDoc] = useState(null)
   const [confirmDelete, setConfirmDelete] = useState(null)
@@ -191,6 +239,13 @@ export default function CustomerVerificationSection({ vs, profile, verificationD
 
       {error && <div className="p-2 mb-3 rounded-lg" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>{error}</div>}
 
+      <BookingContextBanner
+        upcomingBookings={upcomingBookings}
+        allChildOnly={allChildOnly}
+        hasAdultBooking={hasAdultBooking}
+        noUpcoming={noUpcoming}
+      />
+
       {anyManual && (
         <div className="p-2 mb-3 rounded-lg" style={{ background: '#fef3c7', border: '1px solid #fcd34d', color: '#92400e', fontSize: 13 }}>
           ⚠️ Některé doklady byly nahrané ručně (Mindee OCR selhal) — zkontrolujte fotky a údaje v profilu.
@@ -199,40 +254,48 @@ export default function CustomerVerificationSection({ vs, profile, verificationD
 
       <div className="space-y-3 mb-4">
         {/* Řidičský průkaz */}
-        <div className="p-4 rounded-lg" style={{ background: '#f1faf7' }}>
+        <div className="p-4 rounded-lg" style={{ background: licenseOptional ? '#f9fafb' : '#f1faf7' }}>
           <div className="flex items-center gap-2 mb-2 flex-wrap">
-            <span style={{ fontSize: 14 }}>{vs.hasLicense ? '✅' : '❌'}</span>
+            <span style={{ fontSize: 14 }}>{licenseOptional ? '➖' : vs.hasLicense ? '✅' : '❌'}</span>
             <span className="text-sm font-bold" style={{ color: '#1a2e22' }}>Ridicsky prukaz (RP)</span>
-            <Badge
-              label={vs.hasLicensePhoto ? 'Vyfoceno' : vs.licenseNumberFilled ? 'Overeno pres OCR' : 'Chybi'}
-              color={vs.hasLicense ? '#1a8a18' : '#dc2626'}
-              bg={vs.hasLicense ? '#dcfce7' : '#fee2e2'}
-            />
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Badge
-              label={vs.licenseValid ? `Platny do ${profile?.license_expiry}` : profile?.license_expiry ? `Expirovany (${profile.license_expiry})` : 'Platnost nevyplnena'}
-              color={vs.licenseValid ? '#1a8a18' : '#dc2626'}
-              bg={vs.licenseValid ? '#dcfce7' : '#fee2e2'}
-            />
-            <Badge
-              label={vs.licenseGroupFilled ? `Skupiny: ${(profile?.license_group || []).join(', ')}` : 'Skupiny nevyplneny'}
-              color={vs.licenseGroupFilled ? '#1a8a18' : '#b45309'}
-              bg={vs.licenseGroupFilled ? '#dcfce7' : '#fef3c7'}
-            />
-            {vs.licenseGroupFilled && profile?.license_group && (
+            {licenseOptional ? (
+              <Badge label="Pro dětskou motorku není potřeba" color="#1a8a18" bg="#dcfce7" />
+            ) : (
               <Badge
-                label={profile.license_group.some(g => ['A', 'A2', 'A1', 'AM'].includes(g)) ? 'Skupina pro motorky OK' : 'Chybi skupina A/A2/A1'}
-                color={profile.license_group.some(g => ['A', 'A2', 'A1', 'AM'].includes(g)) ? '#1a8a18' : '#dc2626'}
-                bg={profile.license_group.some(g => ['A', 'A2', 'A1', 'AM'].includes(g)) ? '#dcfce7' : '#fee2e2'}
+                label={vs.hasLicensePhoto ? 'Vyfoceno' : vs.licenseNumberFilled ? 'Overeno pres OCR' : 'Chybi'}
+                color={vs.hasLicense ? '#1a8a18' : '#dc2626'}
+                bg={vs.hasLicense ? '#dcfce7' : '#fee2e2'}
               />
             )}
           </div>
+          {!licenseOptional && (
+            <div className="flex flex-wrap gap-2">
+              <Badge
+                label={vs.licenseValid ? `Platny do ${profile?.license_expiry}` : profile?.license_expiry ? `Expirovany (${profile.license_expiry})` : 'Platnost nevyplnena'}
+                color={vs.licenseValid ? '#1a8a18' : '#dc2626'}
+                bg={vs.licenseValid ? '#dcfce7' : '#fee2e2'}
+              />
+              <Badge
+                label={vs.licenseGroupFilled ? `Skupiny: ${(profile?.license_group || []).join(', ')}` : 'Skupiny nevyplneny'}
+                color={vs.licenseGroupFilled ? '#1a8a18' : '#b45309'}
+                bg={vs.licenseGroupFilled ? '#dcfce7' : '#fef3c7'}
+              />
+              {showAdultGroupCheck && (
+                <Badge
+                  label={profile.license_group.some(g => ['A', 'A2', 'A1', 'AM'].includes(g)) ? 'Skupina pro motorky OK' : 'Chybi skupina A/A2/A1'}
+                  color={profile.license_group.some(g => ['A', 'A2', 'A1', 'AM'].includes(g)) ? '#1a8a18' : '#dc2626'}
+                  bg={profile.license_group.some(g => ['A', 'A2', 'A1', 'AM'].includes(g)) ? '#dcfce7' : '#fee2e2'}
+                />
+              )}
+            </div>
+          )}
           <DocSlots docs={licenseDocs} requireBothSides
             onPreview={openPreview} onDelete={d => setConfirmDelete(d)}
-            emptyNote={vs.licenseNumberFilled
-              ? `Fotka ŘP nenahrána (volitelná). Číslo ŘP ${profile?.license_number ? `(${profile.license_number}) ` : ''}je ověřené přes OCR a uložené v profilu — odbavení i kódy k boxu fungují.`
-              : 'Žádné nahrané fotky.'} />
+            emptyNote={licenseOptional
+              ? 'Fotka ŘP nenahrána — pro aktuální dětskou rezervaci není potřeba. Pokud si zákazník později rezervuje dospělou motorku, bude nutné ŘP doplnit.'
+              : vs.licenseNumberFilled
+                ? `Fotka ŘP nenahrána (volitelná). Číslo ŘP ${profile?.license_number ? `(${profile.license_number}) ` : ''}je ověřené přes OCR a uložené v profilu — odbavení i kódy k boxu fungují.`
+                : 'Žádné nahrané fotky.'} />
         </div>
 
         {/* Doklad totoznosti */}
@@ -279,23 +342,54 @@ export default function CustomerVerificationSection({ vs, profile, verificationD
         </div>
       </div>
 
-      <div className="p-3 rounded-lg" style={{ background: vs.allOk ? '#dcfce7' : '#fef3c7', border: `1px solid ${vs.allOk ? '#86efac' : '#fcd34d'}` }}>
-        <div className="flex items-center gap-2">
-          <span style={{ fontSize: 16 }}>{vs.allOk ? '✅' : '⚠️'}</span>
-          <span className="text-sm font-bold" style={{ color: vs.allOk ? '#1a8a18' : '#b45309' }}>
-            {vs.allOk ? 'Vsechny doklady overeny — kody k boxu mohou byt uvolneny' : 'Doklady neuplne — kody k boxu NELZE uvolnit'}
-          </span>
+      {/* Kontextový status panel — reaguje na typ rezervace */}
+      {allChildOnly ? (
+        <div className="p-3 rounded-lg" style={{ background: '#dcfce7', border: '1px solid #86efac' }}>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span style={{ fontSize: 16 }}>🧒</span>
+            <span className="text-sm font-bold" style={{ color: '#1a8a18' }}>
+              Aktuální rezervace pouze na dětskou motorku — kódy k boxu byly uvolněny automaticky
+            </span>
+          </div>
+          <div className="text-xs mt-2" style={{ color: '#1a2e22' }}>
+            Pro dětskou motorku (<code>license_required = N</code>) není potřeba ŘP ani doklad totožnosti — backend kódy uvolnil bez kontroly dokladů. Pokud si zákazník později rezervuje dospělou motorku, doklady bude muset doplnit.
+          </div>
         </div>
-        {!vs.allOk && (
-          <ul className="mt-2 space-y-1" style={{ fontSize: 12, color: '#92400e' }}>
-            {!vs.hasLicense && <li>• Chybi ridicsky prukaz — neni nahrana fotka ani ulozene cislo RP v profilu</li>}
-            {vs.hasLicense && !vs.licenseValid && <li>• Ridicsky prukaz je neplatny nebo expirovany (platnost neni vyplnena nebo uz uplynula)</li>}
-            {vs.hasLicense && !vs.licenseGroupFilled && <li>• Ridicske skupiny nejsou vyplneny v profilu</li>}
-            {vs.hasLicense && vs.licenseGroupFilled && !vs.hasMotoGroup && <li>• Zakaznik nema ridicskou skupinu pro motorky (A/A2/A1/AM)</li>}
-            {!vs.hasIdentity && <li>• Chybi doklad totoznosti — neni nahrana fotka OP/pasu ani ulozene cislo dokladu v profilu</li>}
-          </ul>
-        )}
-      </div>
+      ) : noUpcoming ? (
+        <div className="p-3 rounded-lg" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span style={{ fontSize: 16 }}>{vs.allOk ? '✅' : 'ℹ️'}</span>
+            <span className="text-sm font-bold" style={{ color: '#1a2e22' }}>
+              {vs.allOk
+                ? 'Doklady ověřeny — zákazník je připraven na jakoukoliv budoucí rezervaci'
+                : 'Žádná aktuální rezervace — kódy k boxu se nyní neřeší'}
+            </span>
+          </div>
+          {!vs.allOk && (
+            <div className="text-xs mt-2" style={{ color: '#1a2e22' }}>
+              Pro budoucí rezervaci dospělé motorky bude potřeba nahrát: ŘP (s platnou skupinou A/A2/A1/AM) + OP nebo pas. Pro dětské motorky doklady nepotřeba.
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="p-3 rounded-lg" style={{ background: vs.allOk ? '#dcfce7' : '#fef3c7', border: `1px solid ${vs.allOk ? '#86efac' : '#fcd34d'}` }}>
+          <div className="flex items-center gap-2">
+            <span style={{ fontSize: 16 }}>{vs.allOk ? '✅' : '⚠️'}</span>
+            <span className="text-sm font-bold" style={{ color: vs.allOk ? '#1a8a18' : '#b45309' }}>
+              {vs.allOk ? 'Vsechny doklady overeny — kody k boxu mohou byt uvolneny' : 'Doklady neuplne — kody k boxu NELZE uvolnit'}
+            </span>
+          </div>
+          {!vs.allOk && (
+            <ul className="mt-2 space-y-1" style={{ fontSize: 12, color: '#92400e' }}>
+              {!vs.hasLicense && <li>• Chybi ridicsky prukaz — neni nahrana fotka ani ulozene cislo RP v profilu</li>}
+              {vs.hasLicense && !vs.licenseValid && <li>• Ridicsky prukaz je neplatny nebo expirovany (platnost neni vyplnena nebo uz uplynula)</li>}
+              {vs.hasLicense && !vs.licenseGroupFilled && <li>• Ridicske skupiny nejsou vyplneny v profilu</li>}
+              {vs.hasLicense && vs.licenseGroupFilled && !vs.hasMotoGroup && <li>• Zakaznik nema ridicskou skupinu pro motorky (A/A2/A1/AM)</li>}
+              {!vs.hasIdentity && <li>• Chybi doklad totoznosti — neni nahrana fotka OP/pasu ani ulozene cislo dokladu v profilu</li>}
+            </ul>
+          )}
+        </div>
+      )}
 
       {previewUrl && (
         <Modal open title={previewDoc?.name || 'Foto dokladu'} onClose={() => { setPreviewUrl(null); setPreviewDoc(null) }} wide>
