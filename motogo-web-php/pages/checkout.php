@@ -28,7 +28,7 @@ $contactHtml = '<section class="rez-section">'
     . '</div>'
     . '</section>';
 
-// Section 2 — doprava (3 karty: vyzvednutí / pošta / Zásilkovna)
+// Section 2 — doprava (2 karty: vyzvednutí / Česká pošta)
 $shippingHtml = '<section class="rez-section">'
     . '<div class="rez-section-head"><span class="rez-step-num">2</span><h2>' . tc('checkout.shipping.title') . '</h2></div>'
     . '<p class="rez-section-sub">' . tc('checkout.shipping.sub') . '</p>'
@@ -44,12 +44,6 @@ $shippingHtml = '<section class="rez-section">'
     .   '<div class="checkout-ship-info"><strong>' . tc('checkout.shipping.post') . '</strong>'
     .     '<small>' . tc('checkout.shipping.postSub') . '</small>'
     .     '<span class="checkout-ship-price">' . tc('checkout.shipping.postPrice') . '</span></div>'
-    . '</label>'
-    . '<label class="rez-loc-card">'
-    .   '<input type="radio" name="ship" value="zasilkovna" data-ship-method>'
-    .   '<div class="checkout-ship-info"><strong>' . tc('checkout.shipping.zasilkovna') . '</strong>'
-    .     '<small>' . tc('checkout.shipping.zasilkovnaSub') . '</small>'
-    .     '<span class="checkout-ship-price">' . tc('checkout.shipping.zasilkovnaPrice') . '</span></div>'
     . '</label>'
     . '</div>'
     . '<div class="checkout-address" data-checkout-address hidden>'
