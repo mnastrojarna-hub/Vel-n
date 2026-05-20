@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { purgeWebCache } from '../lib/webCache'
 import { debugAction } from '../lib/debugLog'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
@@ -151,6 +152,7 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
       })
       return { data: { migrated: true } }
     }, { moto_id: moto.id, to_branch: targetBranch?.name })
+    purgeWebCache()
     setMigrating(false)
     setShowMigrate(false)
     onMotoReload()

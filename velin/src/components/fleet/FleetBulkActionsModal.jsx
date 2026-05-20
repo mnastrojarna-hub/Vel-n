@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
+import { purgeWebCache } from '../../lib/webCache'
 import Modal from '../ui/Modal'
 import Button from '../ui/Button'
 import { UNAVAILABLE_REASONS } from './motoActionConstants'
@@ -58,6 +59,7 @@ export default function FleetBulkActionsModal({ open, onClose, selectedMotos, on
     try {
       await fn()
       setSuccess(`${actionLabel} (${count} motorek)`)
+      purgeWebCache()
       onUpdated?.()
     } catch (e) { setError(e.message) } finally { setBusy(false) }
   }

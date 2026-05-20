@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
+import { purgeWebCache } from '../lib/webCache'
 import { debugAction } from '../lib/debugLog'
 import Modal from '../components/ui/Modal'
 import Button from '../components/ui/Button'
@@ -99,6 +100,7 @@ export default function AddMotoModal({ branches, onClose, onSaved }) {
 
       const { data: { user } } = await supabase.auth.getUser()
       await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action: 'motorcycle_created', details: { moto_id: newMoto.id } })
+      purgeWebCache()
       onSaved()
     } catch (e) { setErr(e.message) } finally { setSaving(false) }
   }
