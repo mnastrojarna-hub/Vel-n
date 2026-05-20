@@ -4,6 +4,7 @@ import Badge from '../../components/ui/Badge'
 import Modal from '../../components/ui/Modal'
 import Button from '../../components/ui/Button'
 import { supabase } from '../../lib/supabase'
+import AdminDocUploadModal from './AdminDocUploadModal'
 
 const SIDE_LABEL = { front: 'Líc', back: 'Rub' }
 
@@ -201,6 +202,7 @@ export default function CustomerVerificationSection({ vs, profile, verificationD
   const [confirmDelete, setConfirmDelete] = useState(null)
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState(null)
+  const [showUpload, setShowUpload] = useState(false)
 
   const licenseDocs = (verificationDocs || []).filter(d => d.type === 'drivers_license' || d.type === 'license_photo')
   const idCardDocs = (verificationDocs || []).filter(d => d.type === 'id_card' || d.type === 'id_photo')
@@ -245,6 +247,25 @@ export default function CustomerVerificationSection({ vs, profile, verificationD
         hasAdultBooking={hasAdultBooking}
         noUpcoming={noUpcoming}
       />
+
+      {/* Admin: dodatečné nahrání dokladů — jen když zákazník nemá ověřené doklady */}
+      {!vs.allOk && profile?.id && (
+        <div className="mb-3 flex items-center gap-3 flex-wrap">
+          <Button green onClick={() => setShowUpload(true)}>+ Nahrát doklady</Button>
+          <span className="text-xs" style={{ color: '#5a6b63' }}>
+            Vyfoťte nebo nahrajte doklad za zákazníka — proběhne OCR a kódy k boxu se uvolní.
+          </span>
+        </div>
+      )}
+
+      {showUpload && profile?.id && (
+        <AdminDocUploadModal
+          userId={profile.id}
+          bookingId={null}
+          onClose={() => setShowUpload(false)}
+          onUploaded={onChanged}
+        />
+      )}
 
       {anyManual && (
         <div className="p-2 mb-3 rounded-lg" style={{ background: '#fef3c7', border: '1px solid #fcd34d', color: '#92400e', fontSize: 13 }}>

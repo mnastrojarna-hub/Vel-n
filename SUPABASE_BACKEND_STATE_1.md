@@ -1,5 +1,5 @@
 # SUPABASE BACKEND STATE — MotoGo24 (Část 1: Tabulky)
-> **Poslední aktualizace:** 2026-05-19 (Fix `generate-document` — fragment HTML z `RichTextEditor` se obaluje plným `<!DOCTYPE html>` před PDFShift, smlouvy/VOP/protokoly už chodí v mailu jako `.pdf`, ne `.html`)
+> **Poslední aktualizace:** 2026-05-20 (Fix door codes — `auto_generate_door_codes` + `check_booking_docs_status` vyžadují fotku NEBO reálné OCR `verified_at`, holá ručně zadaná čísla už kódy neuvolní; Velín rozlišuje tři stavy ověření + nový admin upload dokladů s kamerou)
 > **Zdroj:** Reálný stav Supabase databáze (SQL dump z dashboardu) + Edge Functions
 > **Projekt:** `vnwnqteskbykeucanlhk.supabase.co`
 > **POZOR:** Tento soubor MUSÍ být aktualizován při každé SQL změně!
