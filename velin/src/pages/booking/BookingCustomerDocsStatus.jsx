@@ -48,7 +48,7 @@ export default function BookingCustomerDocsStatus({ userId, bookingId }) {
     try {
       const promises = [
         supabase.from('documents').select('id, type, file_path, metadata, created_at').eq('user_id', userId).in('type', VERIFICATION_TYPES).order('created_at', { ascending: false }),
-        supabase.from('profiles').select('id, license_expiry, license_group, license_number, id_number').eq('id', userId).single(),
+        supabase.from('profiles').select('id, license_expiry, license_group, license_number, id_number, id_verified_at, license_verified_at, passport_verified_at').eq('id', userId).single(),
       ]
       if (bookingId) {
         promises.push(supabase.from('bookings').select('motorcycles(license_required)').eq('id', bookingId).single())
@@ -98,6 +98,7 @@ export default function BookingCustomerDocsStatus({ userId, bookingId }) {
   const {
     licensePhotos: licenseDocs, idCardPhotos: idCardDocs, passportPhotos: passportDocs,
     hasLicense, hasIdentity, hasLicensePhoto, licenseNumberFilled, idNumberFilled, allOk,
+    licenseOcrVerified, idOcrVerified, licenseTypedOnly, identityTypedOnly,
   } = computeDocVerification(verificationDocs, profile, licenseRequired)
   const anyManual = verificationDocs.some(d => d?.metadata?.mindee_status === 'failed')
 
@@ -127,15 +128,20 @@ export default function BookingCustomerDocsStatus({ userId, bookingId }) {
             {allOk ? 'Doklady ověřeny — kódy k boxu mohou být uvolněny' : 'Doklady neúplné — kódy k boxu NELZE uvolnit'}
           </span>
           <Badge
-            label={hasLicensePhoto ? 'ŘP nahrán' : licenseNumberFilled ? 'ŘP ověřen (OCR)' : 'ŘP chybí'}
-            color={hasLicense ? '#1a8a18' : '#dc2626'} bg={hasLicense ? '#dcfce7' : '#fee2e2'} />
+            label={hasLicensePhoto ? 'ŘP nahrán' : licenseOcrVerified ? 'ŘP ověřen (OCR)' : licenseTypedOnly ? 'ŘP zadán ručně — neověřen' : 'ŘP chybí'}
+            color={hasLicense ? '#1a8a18' : licenseTypedOnly ? '#b45309' : '#dc2626'} bg={hasLicense ? '#dcfce7' : licenseTypedOnly ? '#fef3c7' : '#fee2e2'} />
           <Badge
-            label={(idCardDocs.length > 0 || passportDocs.length > 0) ? 'Doklad totožnosti nahrán' : idNumberFilled ? 'Doklad totožnosti ověřen (OCR)' : 'OP/Pas chybí'}
-            color={hasIdentity ? '#1a8a18' : '#dc2626'} bg={hasIdentity ? '#dcfce7' : '#fee2e2'} />
+            label={(idCardDocs.length > 0 || passportDocs.length > 0) ? 'Doklad totožnosti nahrán' : idOcrVerified ? 'Doklad totožnosti ověřen (OCR)' : identityTypedOnly ? 'Doklad zadán ručně — neověřen' : 'OP/Pas chybí'}
+            color={hasIdentity ? '#1a8a18' : identityTypedOnly ? '#b45309' : '#dc2626'} bg={hasIdentity ? '#dcfce7' : identityTypedOnly ? '#fef3c7' : '#fee2e2'} />
         </div>
-        {(licenseNumberFilled || idNumberFilled) && (licenseDocs.length === 0 || idCardDocs.length + passportDocs.length === 0) && (
+        {(licenseOcrVerified || idOcrVerified) && (licenseDocs.length === 0 || idCardDocs.length + passportDocs.length === 0) && (
           <div className="text-xs mt-2" style={{ color: '#1a2e22' }}>
             Čísla dokladů jsou ověřená přes OCR a uložená v profilu zákazníka — fotky jsou volitelné, odbavení i kódy k boxu fungují i bez nich.
+          </div>
+        )}
+        {(licenseTypedOnly || identityTypedOnly) && (
+          <div className="text-xs mt-2 font-bold" style={{ color: '#b45309' }}>
+            ⚠️ Čísla dokladů jsou zadaná jen ručně — NENÍ to OCR ověření ani nahraná fotka. Pro uvolnění kódů musí proběhnout Mindee sken nebo nahrání fotek.
           </div>
         )}
       </div>
@@ -149,15 +155,19 @@ export default function BookingCustomerDocsStatus({ userId, bookingId }) {
       <div className="space-y-1">
         {licenseDocs.length > 0
           ? <SideStatus docs={licenseDocs} label="Řidičský průkaz" />
-          : licenseNumberFilled
+          : licenseOcrVerified
             ? <div className="text-xs" style={{ color: '#1a2e22' }}><strong>Řidičský průkaz:</strong> fotka nenahrána · číslo {profile?.license_number ? `(${profile.license_number}) ` : ''}ověřeno přes OCR v profilu</div>
-            : <div className="text-xs" style={{ color: '#dc2626' }}><strong>Řidičský průkaz:</strong> nenahráno ani číslo v profilu</div>}
+            : licenseTypedOnly
+              ? <div className="text-xs" style={{ color: '#b45309' }}><strong>Řidičský průkaz:</strong> číslo {profile?.license_number ? `(${profile.license_number}) ` : ''}zadáno jen ručně — neověřeno (chybí OCR i fotka)</div>
+              : <div className="text-xs" style={{ color: '#dc2626' }}><strong>Řidičský průkaz:</strong> nenahráno ani číslo v profilu</div>}
         {idCardDocs.length > 0 && <SideStatus docs={idCardDocs} label="Občanský průkaz" />}
         {passportDocs.length > 0 && <SideStatus docs={passportDocs} label="Pas" />}
         {idCardDocs.length === 0 && passportDocs.length === 0 && (
-          idNumberFilled
+          idOcrVerified
             ? <div className="text-xs" style={{ color: '#1a2e22' }}><strong>OP / Pas:</strong> fotka nenahrána · číslo {profile?.id_number ? `(${profile.id_number}) ` : ''}ověřeno přes OCR v profilu</div>
-            : <div className="text-xs" style={{ color: '#dc2626' }}><strong>OP / Pas:</strong> nenahráno ani číslo v profilu</div>
+            : identityTypedOnly
+              ? <div className="text-xs" style={{ color: '#b45309' }}><strong>OP / Pas:</strong> číslo {profile?.id_number ? `(${profile.id_number}) ` : ''}zadáno jen ručně — neověřeno (chybí OCR i fotka)</div>
+              : <div className="text-xs" style={{ color: '#dc2626' }}><strong>OP / Pas:</strong> nenahráno ani číslo v profilu</div>
         )}
       </div>
 

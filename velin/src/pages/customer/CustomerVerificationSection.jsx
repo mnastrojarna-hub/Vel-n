@@ -256,15 +256,15 @@ export default function CustomerVerificationSection({ vs, profile, verificationD
         {/* Řidičský průkaz */}
         <div className="p-4 rounded-lg" style={{ background: licenseOptional ? '#f9fafb' : '#f1faf7' }}>
           <div className="flex items-center gap-2 mb-2 flex-wrap">
-            <span style={{ fontSize: 14 }}>{licenseOptional ? '➖' : vs.hasLicense ? '✅' : '❌'}</span>
+            <span style={{ fontSize: 14 }}>{licenseOptional ? '➖' : vs.hasLicense ? '✅' : vs.licenseTypedOnly ? '⚠️' : '❌'}</span>
             <span className="text-sm font-bold" style={{ color: '#1a2e22' }}>Ridicsky prukaz (RP)</span>
             {licenseOptional ? (
               <Badge label="Pro dětskou motorku není potřeba" color="#1a8a18" bg="#dcfce7" />
             ) : (
               <Badge
-                label={vs.hasLicensePhoto ? 'Vyfoceno' : vs.licenseNumberFilled ? 'Overeno pres OCR' : 'Chybi'}
-                color={vs.hasLicense ? '#1a8a18' : '#dc2626'}
-                bg={vs.hasLicense ? '#dcfce7' : '#fee2e2'}
+                label={vs.hasLicensePhoto ? 'Vyfoceno' : vs.licenseOcrVerified ? 'Overeno pres OCR' : vs.licenseTypedOnly ? 'Zadano rucne — neovereno' : 'Chybi'}
+                color={vs.hasLicense ? '#1a8a18' : vs.licenseTypedOnly ? '#b45309' : '#dc2626'}
+                bg={vs.hasLicense ? '#dcfce7' : vs.licenseTypedOnly ? '#fef3c7' : '#fee2e2'}
               />
             )}
           </div>
@@ -293,20 +293,22 @@ export default function CustomerVerificationSection({ vs, profile, verificationD
             onPreview={openPreview} onDelete={d => setConfirmDelete(d)}
             emptyNote={licenseOptional
               ? 'Fotka ŘP nenahrána — pro aktuální dětskou rezervaci není potřeba. Pokud si zákazník později rezervuje dospělou motorku, bude nutné ŘP doplnit.'
-              : vs.licenseNumberFilled
+              : vs.licenseDataOnly
                 ? `Fotka ŘP nenahrána (volitelná). Číslo ŘP ${profile?.license_number ? `(${profile.license_number}) ` : ''}je ověřené přes OCR a uložené v profilu — odbavení i kódy k boxu fungují.`
-                : 'Žádné nahrané fotky.'} />
+                : vs.licenseTypedOnly
+                  ? `⚠️ Číslo ŘP ${profile?.license_number ? `(${profile.license_number}) ` : ''}je zadané jen ručně ve formuláři — NENÍ ověřené přes OCR ani nahraná fotka. Doklad je potřeba naskenovat (Mindee) nebo nahrát fotku.`
+                  : 'Žádné nahrané fotky.'} />
         </div>
 
         {/* Doklad totoznosti */}
         <div className="p-4 rounded-lg" style={{ background: '#f1faf7' }}>
           <div className="flex items-center gap-2 mb-2 flex-wrap">
-            <span style={{ fontSize: 14 }}>{vs.hasIdentity ? '✅' : '❌'}</span>
+            <span style={{ fontSize: 14 }}>{vs.hasIdentity ? '✅' : vs.identityTypedOnly ? '⚠️' : '❌'}</span>
             <span className="text-sm font-bold" style={{ color: '#1a2e22' }}>Doklad totoznosti (OP nebo pas)</span>
             <Badge
-              label={(vs.hasIdCard || vs.hasPassport) ? 'Vyfoceno' : vs.idNumberFilled ? 'Overeno pres OCR' : 'Chybi'}
-              color={vs.hasIdentity ? '#1a8a18' : '#dc2626'}
-              bg={vs.hasIdentity ? '#dcfce7' : '#fee2e2'}
+              label={(vs.hasIdCard || vs.hasPassport) ? 'Vyfoceno' : vs.idOcrVerified ? 'Overeno pres OCR' : vs.identityTypedOnly ? 'Zadano rucne — neovereno' : 'Chybi'}
+              color={vs.hasIdentity ? '#1a8a18' : vs.identityTypedOnly ? '#b45309' : '#dc2626'}
+              bg={vs.hasIdentity ? '#dcfce7' : vs.identityTypedOnly ? '#fef3c7' : '#fee2e2'}
             />
             {vs.hasIdCard && <Badge label="Obcansky prukaz" color="#1a8a18" bg="#dcfce7" />}
             {vs.hasPassport && <Badge label="Cestovni pas" color="#1a8a18" bg="#dcfce7" />}
@@ -329,9 +331,13 @@ export default function CustomerVerificationSection({ vs, profile, verificationD
           )}
 
           {idCardDocs.length === 0 && passportDocs.length === 0 && (
-            vs.idNumberFilled ? (
+            vs.idOcrVerified ? (
               <div className="mt-3 p-2 rounded-lg text-xs" style={{ background: '#f1faf7', color: '#1a2e22', border: '1px solid #d4e8e0' }}>
                 ✅ Doklad totožnosti je ověřený přes OCR — číslo {profile?.id_number ? `(${profile.id_number}) ` : ''}je uložené v profilu. Fotka nahraná není (volitelná) — odbavení i kódy k boxu fungují.
+              </div>
+            ) : vs.identityTypedOnly ? (
+              <div className="mt-3 p-2 rounded-lg text-xs" style={{ background: '#fef3c7', color: '#92400e', border: '1px solid #fcd34d' }}>
+                ⚠️ Číslo dokladu {profile?.id_number ? `(${profile.id_number}) ` : ''}je zadané jen ručně ve formuláři — NENÍ ověřené přes OCR ani nahraná fotka. Zákazník musí naskenovat (Mindee) nebo nahrát OP (líc + rub) nebo pas.
               </div>
             ) : (
               <div className="mt-3 p-2 rounded-lg text-xs" style={{ background: '#fef3c7', color: '#92400e', border: '1px solid #fcd34d' }}>
@@ -381,11 +387,15 @@ export default function CustomerVerificationSection({ vs, profile, verificationD
           </div>
           {!vs.allOk && (
             <ul className="mt-2 space-y-1" style={{ fontSize: 12, color: '#92400e' }}>
-              {!vs.hasLicense && <li>• Chybi ridicsky prukaz — neni nahrana fotka ani ulozene cislo RP v profilu</li>}
+              {!vs.hasLicense && (vs.licenseTypedOnly
+                ? <li>• Ridicsky prukaz: cislo je zadane jen rucne (bez OCR skenu i fotky) — NENI overeno, kody nelze uvolnit</li>
+                : <li>• Chybi ridicsky prukaz — neni nahrana fotka ani overene cislo RP (OCR) v profilu</li>)}
               {vs.hasLicense && !vs.licenseValid && <li>• Ridicsky prukaz je neplatny nebo expirovany (platnost neni vyplnena nebo uz uplynula)</li>}
               {vs.hasLicense && !vs.licenseGroupFilled && <li>• Ridicske skupiny nejsou vyplneny v profilu</li>}
               {vs.hasLicense && vs.licenseGroupFilled && !vs.hasMotoGroup && <li>• Zakaznik nema ridicskou skupinu pro motorky (A/A2/A1/AM)</li>}
-              {!vs.hasIdentity && <li>• Chybi doklad totoznosti — neni nahrana fotka OP/pasu ani ulozene cislo dokladu v profilu</li>}
+              {!vs.hasIdentity && (vs.identityTypedOnly
+                ? <li>• Doklad totoznosti: cislo je zadane jen rucne (bez OCR skenu i fotky) — NENI overeno, kody nelze uvolnit</li>
+                : <li>• Chybi doklad totoznosti — neni nahrana fotka OP/pasu ani overene cislo (OCR) v profilu</li>)}
             </ul>
           )}
         </div>
