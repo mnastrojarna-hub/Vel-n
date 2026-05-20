@@ -1,12 +1,16 @@
 // Stav ověření dokladů zákazníka — jednotná logika pro celý Velín.
 //
 // POZOR: Musí odpovídat backendu (`auto_generate_door_codes`, `release_my_door_codes`,
-// `check_booking_docs_status`, `get_web_booking_confirmation.docs_status`). Doklad se
-// počítá za ověřený, pokud platí ALESPOŇ JEDNA z možností:
+// `check_booking_docs_status`, `get_web_booking_confirmation.docs_status`).
+//
+// Doklad je OVĚŘENÝ (kódy k boxu lze uvolnit), pokud platí ALESPOŇ JEDNA z možností:
 //   1) je nahraná fotka (documents.type id_card/id_photo/passport, resp. drivers_license/license_photo)
-//   2) je v profilu uložené číslo dokladu z Mindee OCR (profiles.id_number, resp. profiles.license_number)
-// Web rezervace ukládá id_number/license_number do profilu i bez nahrání fotek, takže
-// zákazník už doklady znovu nahrávat nemusí — Velín to musí ukazovat stejně.
+//   2) proběhl reálný Mindee OCR sken → profiles.{id,license,passport}_verified_at je vyplněné
+//
+// POUHÉ ručně zadané číslo dokladu (profiles.id_number / license_number) BEZ fotky i BEZ
+// verified_at se NEPOČÍTÁ za ověřené — typicky když zákazník (nebo test) jen vyplní čísla
+// ve formuláři a doklad nikdy nenaskenuje. Web `_rezPersistDocs` ukládá číslo bez verified_at,
+// `_rezApplyOcrResult` (skutečné OCR) verified_at nastaví — to je rozhodující rozdíl.
 //
 // Volitelný `motoLicenseRequired` (z `motorcycles.license_required`):
 //   - 'N' = dětská motorka → ŘP se vůbec nepožaduje, allOk počítá jen s totožností
@@ -34,13 +38,21 @@ export function computeDocVerification(verificationDocs, profile, motoLicenseReq
   const hasIdPhoto = idCardPhotos.length > 0
   const hasPassportPhoto = passportPhotos.length > 0
 
-  // ŘP / OP ověřen fotkou NEBO uloženým číslem z OCR
-  const hasLicense = hasLicensePhoto || licenseNumberFilled
-  const hasIdentity = hasIdPhoto || hasPassportPhoto || idNumberFilled
+  // Skutečné OCR ověření = timestamp z Mindee scanu (web/app). Ručně psané číslo ho nemá.
+  const licenseOcrVerified = filled(profile?.license_verified_at)
+  const idOcrVerified = filled(profile?.id_verified_at) || filled(profile?.passport_verified_at)
 
-  // Doklad ověřen jen přes OCR data (bez nahrané fotky)
-  const licenseDataOnly = !hasLicensePhoto && licenseNumberFilled
-  const identityDataOnly = !hasIdPhoto && !hasPassportPhoto && idNumberFilled
+  // ŘP / OP ověřen fotkou NEBO reálným OCR (verified_at). Holé číslo nestačí.
+  const hasLicense = hasLicensePhoto || licenseOcrVerified
+  const hasIdentity = hasIdPhoto || hasPassportPhoto || idOcrVerified
+
+  // Číslo zadané jen ručně ve formuláři — bez fotky i bez OCR ⇒ NEOVĚŘENO
+  const licenseTypedOnly = licenseNumberFilled && !hasLicensePhoto && !licenseOcrVerified
+  const identityTypedOnly = idNumberFilled && !hasIdPhoto && !hasPassportPhoto && !idOcrVerified
+
+  // Doklad ověřen reálným OCR, ale bez nahrané fotky — pro hlášku „fotka je volitelná"
+  const licenseDataOnly = !hasLicensePhoto && licenseOcrVerified
+  const identityDataOnly = !hasIdPhoto && !hasPassportPhoto && idOcrVerified
 
   const licenseValid = profile?.license_expiry ? new Date(profile.license_expiry) > new Date() : false
   const licenseGroupFilled = Array.isArray(profile?.license_group) && profile.license_group.length > 0
@@ -57,6 +69,8 @@ export function computeDocVerification(verificationDocs, profile, motoLicenseReq
     licensePhotos, idCardPhotos, passportPhotos,
     hasLicensePhoto, hasIdPhoto, hasPassportPhoto,
     licenseNumberFilled, idNumberFilled,
+    licenseOcrVerified, idOcrVerified,
+    licenseTypedOnly, identityTypedOnly,
     licenseDataOnly, identityDataOnly,
     hasLicense, hasIdCard: hasIdPhoto, hasPassport: hasPassportPhoto, hasIdentity,
     licenseValid, licenseGroupFilled, hasMotoGroup, allOk,
