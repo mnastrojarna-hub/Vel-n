@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { purgeWebCache } from '../lib/webCache'
 import { debugAction, debugLog } from '../lib/debugLog'
 import { useDebugMode } from '../hooks/useDebugMode'
 import Card from '../components/ui/Card'
@@ -116,6 +117,7 @@ export default function FleetDetail() {
       supabase.from('motorcycles').update(updateData).eq('id', id)
     , updateData)
     if (result?.error) setError(result.error.message)
+    else purgeWebCache()
     await logAudit('motorcycle_updated', { moto_id: id })
     // Auto-překlad textových polí motorky pro web (na pozadí, neblokuje UI).
     // Web čte translations jsonb pro `description` přes localized().
@@ -146,6 +148,7 @@ export default function FleetDetail() {
             return { data: { status: newStatus, affected: activeBookings.length } }
           }, { moto_id: id, newStatus })
           await logAudit('motorcycle_status_changed', { moto_id: id, status: newStatus, affected: activeBookings.length })
+          purgeWebCache()
           setMoto(m => ({ ...m, status: newStatus })); setConfirm(null)
         },
       })
@@ -156,6 +159,7 @@ export default function FleetDetail() {
       supabase.from('motorcycles').update({ status: newStatus }).eq('id', id)
     , { moto_id: id, newStatus })
     await logAudit('motorcycle_status_changed', { moto_id: id, status: newStatus })
+    purgeWebCache()
     setMoto(m => ({ ...m, status: newStatus }))
   }
 
@@ -164,6 +168,7 @@ export default function FleetDetail() {
       supabase.from('motorcycles').delete().eq('id', id)
     , { moto_id: id })
     await logAudit('motorcycle_deleted', { moto_id: id })
+    purgeWebCache()
     navigate('/flotila')
   }
 

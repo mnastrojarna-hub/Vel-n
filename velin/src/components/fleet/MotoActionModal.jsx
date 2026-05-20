@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
+import { purgeWebCache } from '../../lib/webCache'
 import Modal from '../ui/Modal'
 import Button from '../ui/Button'
 import ReplacementMotoPicker from './ReplacementMotoPicker'
@@ -45,6 +46,10 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
     } catch {}
   }
 
+  // Po úspěšné změně motorky zneplatni cache webu (jinak katalog drží starý
+  // stav až 30 min) a teprve pak refetchni Velín.
+  const refresh = () => { purgeWebCache(); onUpdated?.() }
+
   async function handleMigrate() {
     if (!selectedBranch) return
     setBusy(true); setError(null)
@@ -53,7 +58,7 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
       const { error: err } = await supabase.from('motorcycles').update({ branch_id: selectedBranch }).eq('id', moto.id)
       if (err) throw err
       await logAudit('motorcycle_migrated', { moto_id: moto.id, from_branch: moto.branches?.name, to_branch: target?.name })
-      setSuccess(`Přesunuto na ${target?.name}`); onUpdated?.()
+      setSuccess(`Přesunuto na ${target?.name}`); refresh()
     } catch (e) { setError(e.message) } finally { setBusy(false) }
   }
 
@@ -90,7 +95,7 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
       if (days > 3 && month >= 3 && month <= 9 && moto.branch_id && isSamoobsluzna) {
         setPendingLogId(logData?.id); setShowReplacement(true); setShowChecklist(false); setBusy(false); return
       }
-      setSuccess('Motorka odeslána do servisu'); onUpdated?.()
+      setSuccess('Motorka odeslána do servisu'); refresh()
     } catch (e) { setError(e.message) } finally { setBusy(false) }
   }
 
@@ -110,7 +115,7 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
       }).eq('id', logToUpdate.id)
       await logAudit('maintenance_log_updated', { log_id: logToUpdate.id, moto_id: moto.id })
       setShowChecklist(false)
-      setSuccess('Servisní plán aktualizován'); onUpdated?.()
+      setSuccess('Servisní plán aktualizován'); refresh()
     } catch (e) { setError(e.message) } finally { setBusy(false) }
   }
 
@@ -125,7 +130,7 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
         .eq('moto_id', moto.id).in('status', ['pending', 'in_service'])
       await supabase.from('motorcycles').update({ status: 'active', last_service_date: today }).eq('id', moto.id)
       await logAudit('motorcycle_service_closed', { moto_id: moto.id, open_logs: openLogs.length })
-      setSuccess('Servis ukončen, motorka aktivní'); onUpdated?.()
+      setSuccess('Servis ukončen, motorka aktivní'); refresh()
     } catch (e) { setError(e.message) } finally { setBusy(false) }
   }
 
@@ -184,7 +189,7 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
       await logAudit('motorcycle_status_changed', { moto_id: moto.id, from_status: moto.status, to_status: newStatus, reason: reasonText || null })
       const labels = { active: 'Aktivní', maintenance: 'V servisu', unavailable: 'Dočasně vyřazena', retired: 'Trvale vyřazena' }
       setSuccess(`Stav: ${labels[newStatus] || newStatus}${unavailableUntil ? ` (do ${new Date(unavailableUntil).toLocaleString('cs-CZ')})` : ''}`)
-      onUpdated?.()
+      refresh()
     } catch (e) { setError(e.message) } finally { setBusy(false) }
   }
 
@@ -202,7 +207,7 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
       unavailable_until: unavailableUntil || `${maxYear}-02-28T23:59:59`,
     }).eq('id', moto.id)
     await logAudit('moto_deactivated_replaced', { moto_id: moto.id, replacement_id: replacement?.id, branch_id: moto.branch_id })
-    setBusy(false); setSuccess('Deaktivováno, náhrada přiřazena'); onUpdated?.()
+    setBusy(false); setSuccess('Deaktivováno, náhrada přiřazena'); refresh()
   }
 
   async function handleDeactivateSimple() {
@@ -216,7 +221,7 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
       unavailable_until: unavailableUntil || `${maxYear}-02-28T23:59:59`,
     }).eq('id', moto.id)
     await logAudit('moto_deactivated', { moto_id: moto.id })
-    setBusy(false); setSuccess('Motorka dočasně vyřazena'); onUpdated?.()
+    setBusy(false); setSuccess('Motorka dočasně vyřazena'); refresh()
   }
 
   const hasOpenLogs = openLogs.length > 0
@@ -235,8 +240,8 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
         <div className="p-3 rounded-lg" style={{ background: '#fef3c7', border: '1px solid #fde68a' }}>
           <div className="text-sm font-bold mb-2" style={{ color: '#b45309' }}>Servis &gt;3 dny v sezóně — vyberte náhradu na {moto.branches?.name || '—'}:</div>
           <ReplacementMotoPicker branchId={moto.branch_id} excludeMotoId={moto.id}
-            onSelect={async (r) => { if (r?.id && moto.branch_id) { await supabase.from('motorcycles').update({ branch_id: moto.branch_id, status: 'active' }).eq('id', r.id); if (pendingLogId) await supabase.from('maintenance_log').update({ replacement_moto_id: r.id }).eq('id', pendingLogId); await logAudit('moto_replaced_long_service', { moto_id: moto.id, replacement_id: r.id }) }; setShowReplacement(false); setSuccess('Motorka v servisu, náhrada přiřazena'); onUpdated?.() }}
-            onCancel={() => { setShowReplacement(false); setSuccess('Motorka v servisu (bez náhrady)'); onUpdated?.() }} />
+            onSelect={async (r) => { if (r?.id && moto.branch_id) { await supabase.from('motorcycles').update({ branch_id: moto.branch_id, status: 'active' }).eq('id', r.id); if (pendingLogId) await supabase.from('maintenance_log').update({ replacement_moto_id: r.id }).eq('id', pendingLogId); await logAudit('moto_replaced_long_service', { moto_id: moto.id, replacement_id: r.id }) }; setShowReplacement(false); setSuccess('Motorka v servisu, náhrada přiřazena'); refresh() }}
+            onCancel={() => { setShowReplacement(false); setSuccess('Motorka v servisu (bez náhrady)'); refresh() }} />
         </div>
       ) : showDeactReplace ? (
         <div className="p-3 rounded-lg" style={{ background: '#ede9fe', border: '1px solid #c4b5fd' }}>

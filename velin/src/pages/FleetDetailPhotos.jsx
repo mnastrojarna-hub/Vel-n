@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
+import { purgeWebCache } from '../lib/webCache'
 import Card from '../components/ui/Card'
 import ImageUploader from '../components/ui/ImageUploader'
 
@@ -37,6 +38,7 @@ function PhotoGallery({ motoId }) {
       images: cleaned,
       image_alts: alignedAlts,
     }).eq('id', motoId)
+    purgeWebCache()
   }
 
   // Debounced save — ukládá `image_alts` 600 ms po posledním psaní v inputech.
