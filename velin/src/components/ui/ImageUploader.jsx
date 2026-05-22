@@ -78,9 +78,52 @@ export default function ImageUploader({
     onAltsChange(next)
   }
 
+  // Komprese + zmenšení před nahráním. Snižuje storage i egress (~15×).
+  // PNG zůstává PNG (kvůli průhlednosti), ostatní rastry → JPEG 80 %. Max 1600 px.
+  // GIF/SVG (animace/vektory) i už dostatečně malé obrázky se nahrají beze změny.
+  async function compressImage(file) {
+    const type = file.type || ''
+    if (type === 'image/gif' || type === 'image/svg+xml') return null
+    let bitmap
+    try {
+      bitmap = typeof createImageBitmap === 'function'
+        ? await createImageBitmap(file)
+        : await new Promise((res, rej) => {
+            const img = new Image()
+            const u = URL.createObjectURL(file)
+            img.onload = () => { URL.revokeObjectURL(u); res(img) }
+            img.onerror = (e) => { URL.revokeObjectURL(u); rej(e) }
+            img.src = u
+          })
+    } catch { return null }
+    const w = bitmap.width, h = bitmap.height
+    if (!w || !h) { bitmap.close?.(); return null }
+    const MAX_DIM = 1600
+    const scale = Math.min(1, MAX_DIM / Math.max(w, h))
+    // Už malý a v rozměru → neztrácet kvalitu rekompresí, nahraj originál.
+    if (scale === 1 && file.size <= 400 * 1024) { bitmap.close?.(); return null }
+    const tw = Math.round(w * scale), th = Math.round(h * scale)
+    const canvas = document.createElement('canvas')
+    canvas.width = tw; canvas.height = th
+    const ctx = canvas.getContext('2d')
+    ctx.drawImage(bitmap, 0, 0, tw, th)
+    bitmap.close?.()
+    const outType = type === 'image/png' ? 'image/png' : 'image/jpeg'
+    const blob = await new Promise(res =>
+      canvas.toBlob(res, outType, outType === 'image/jpeg' ? 0.8 : undefined))
+    if (!blob || blob.size >= file.size) return null // nezhoršovat
+    return { blob, contentType: outType, ext: outType === 'image/png' ? 'png' : 'jpg' }
+  }
+
   async function uploadFile(file) {
     if (!file || !file.type?.startsWith('image/')) return null
-    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '')
+    let body = file
+    let contentType = file.type
+    let ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '')
+    try {
+      const c = await compressImage(file)
+      if (c) { body = c.blob; contentType = c.contentType; ext = c.ext }
+    } catch (e) { console.warn('Komprese selhala, nahrávám originál:', e) }
     const safeBase = (file.name.replace(/\.[^.]+$/, '') || 'img')
       .toLowerCase()
       .normalize('NFD').replace(/[̀-ͯ]/g, '')
@@ -88,10 +131,10 @@ export default function ImageUploader({
       .slice(0, 40) || 'img'
     const stamp = Date.now().toString(36) + Math.random().toString(36).slice(2, 6)
     const path = `${folder}/${stamp}-${safeBase}.${ext}`
-    const { error } = await supabase.storage.from(bucket).upload(path, file, {
-      cacheControl: '3600',
+    const { error } = await supabase.storage.from(bucket).upload(path, body, {
+      cacheControl: '31536000',
       upsert: false,
-      contentType: file.type,
+      contentType,
     })
     if (error) throw error
     const { data } = supabase.storage.from(bucket).getPublicUrl(path)
@@ -290,6 +333,8 @@ export default function ImageUploader({
                 <img
                   src={url}
                   alt={`Foto ${i + 1}`}
+                  loading="lazy"
+                  decoding="async"
                   className="w-full h-full object-cover rounded-lg"
                   style={{ border: '1px solid #d4e8e0' }}
                   onError={e => { e.target.style.opacity = 0.3 }}
