@@ -78,6 +78,7 @@ require_once __DIR__ . '/supabase.php';
 require_once __DIR__ . '/components.php';
 require_once __DIR__ . '/layout.php';
 require_once __DIR__ . '/ai_traffic.php';
+require_once __DIR__ . '/visitor_traffic.php';
 
 // ---- CMS admin režim (zvýraznění editovatelných textů) ----
 // Velín posílá uživatele na URL s ?cms_admin=<token>. Token se ověří proti
@@ -146,6 +147,11 @@ if ($path !== '/' && substr($path, -1) === '/') {
 // a loguje request do ai_traffic_log. Fire-and-forget, nezablokuje render.
 // Pro lidi je no-op (žádné DB volání).
 aiTrafficMaybeLog($path, function_exists('i18nDetectLanguage') ? i18nDetectLanguage() : 'cs');
+
+// Visitor traffic logging — reální lidé (ne AI/boti). Insert se odkládá na
+// konec requestu přes register_shutdown_function, takže nezdržuje render ani
+// HIT v page cache. Cookieless, hashovaná IP (GDPR friendly).
+visitorTrafficMaybeLog($path, function_exists('i18nDetectLanguage') ? i18nDetectLanguage() : 'cs');
 
 // Sitemap.xml (dynamický)
 if ($path === '/sitemap.xml') {
