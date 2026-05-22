@@ -87,8 +87,16 @@ $pvOutroHtml = '<section class="voucher-outro">'
     . '<p data-cms-key="web.koupit_darkovy_poukaz.outro.body2">' . sanitizeHtml($pvOutroB2) . '</p>'
     . '</section>';
 
-$content = '<main id="content"><section aria-label="' . te('breadcrumb.buyVoucher') . '" class="container">' .
-    $bc . '<div class="pcontent">' . $form . $pvOutroHtml . '</div></section></main>';
+// Drobné odsazení specifické pro tuto stránku:
+//  1) větší mezera mezi auto-injectnutým H1 (MotoGo24 — půjčovna motorek) a černou hlavičkou
+//  2) oddělení CMS outro textu od zeleného tlačítka "Pokračovat k platbě"
+$pageStyle = '<style>'
+    . '#content.voucher-page>.container>h1{margin-top:3.5rem}'
+    . '.voucher-outro{margin-top:3rem}'
+    . '</style>';
+
+$content = '<main id="content" class="voucher-page"><section aria-label="' . te('breadcrumb.buyVoucher') . '" class="container">' .
+    $bc . '<div class="pcontent">' . $form . $pvOutroHtml . '</div></section></main>' . $pageStyle;
 
 $lang = function_exists('i18nDetectLanguage') ? i18nDetectLanguage() : 'cs';
 $localeMap = ['cs' => 'cs-CZ', 'en' => 'en-GB', 'de' => 'de-DE', 'es' => 'es-ES', 'fr' => 'fr-FR', 'nl' => 'nl-NL', 'pl' => 'pl-PL'];
