@@ -132,10 +132,62 @@ export const PAGE_POUKAZY = {
 }
 
 // Editovatelný obsah pro stránku /koupit-darkovy-poukaz (formulář objednávky)
+// POZN. ke konvenci klíčů formuláře poukazu (stejná jako /rezervace níže):
+// Texty objednávkového formuláře jsou v `lang/cs.php` pod `voucher.*`. Aby je
+// admin přepsal přes CMS bez deployi, používáme prefix `web.layout.voucher.*` —
+// `_i18nCmsOverlay()` v PHP strhne `web.layout.` a zbytek (`voucher.lead` …)
+// použije jako klíč pro `t()`/`te()`. PHP `poukazy-objednat.php` se NEMĚNÍ
+// (te() už přes `t()` overlay čte). Outro sekce dole má vlastní `data-cms-key`
+// (siteContent `koupit_darkovy_poukaz`) — beze změny.
 export const PAGE_KOUPIT_POUKAZ = {
   id: 'koupit-darkovy-poukaz', label: 'Koupit poukaz', icon: '🎁', url: '/koupit-darkovy-poukaz',
-  description: 'Stránka s formulářem pro objednání dárkového poukazu. Editovatelná textová sekce dole.',
+  description: 'Stránka s formulářem pro objednání dárkového poukazu — nadpis, popis, popisky polí formuláře, doplňky a textová sekce dole.',
   sections: [
+    {
+      id: 'meta', label: 'SEO meta',
+      fields: [
+        { key: 'web.layout.voucher.pageTitle', label: 'Page <title>', default: 'Půjčovna motorek Vysočina - Koupit dárkový poukaz' },
+        { key: 'web.layout.voucher.description', label: 'Meta description', type: 'textarea', default: 'Objednejte dárkový poukaz na pronájem motorky od Motogo24. Platnost 3 roky, bez kauce, výbava v ceně.' },
+        { key: 'web.layout.voucher.keywords', label: 'Meta keywords', type: 'textarea', default: 'dárkový poukaz na motorku, dárek pro motorkáře, poukaz půjčovna motorek, voucher pronájem motorky, dárek motocykl, MotoGo24 poukaz, motorkářský dárek' },
+      ]
+    },
+    {
+      id: 'form', label: 'Objednávkový formulář', location: 'Nadpis, popis a popisky polí nad outro sekcí',
+      fields: [
+        { key: 'web.layout.voucher.title', label: 'H2 nadpis', default: 'Dárkový poukaz Motogo24' },
+        { key: 'web.layout.voucher.lead', label: 'Úvodní popis pod nadpisem', type: 'textarea', default: 'Darujte zážitek z jízdy na motorce! Poukaz je platný 3 roky a lze jej uplatnit při rezervaci na tomto webu.' },
+        { key: 'web.layout.voucher.contactSection', label: 'H3 „Vaše kontaktní údaje"', default: 'Vaše kontaktní údaje' },
+        { key: 'web.layout.voucher.fieldName', label: 'Placeholder — Jméno a příjmení', default: '* Jméno a příjmení' },
+        { key: 'web.layout.voucher.fieldEmail', label: 'Placeholder — E-mail', default: '* E-mail' },
+        { key: 'web.layout.voucher.fieldPhone', label: 'Placeholder — Telefon', default: 'Telefon (+420...)' },
+        { key: 'web.layout.voucher.fieldStreet', label: 'Placeholder — Ulice, č.p.', default: 'Ulice, č.p.' },
+        { key: 'web.layout.voucher.fieldZip', label: 'Placeholder — PSČ', default: 'PSČ' },
+        { key: 'web.layout.voucher.fieldCity', label: 'Placeholder — Město', default: 'Město' },
+        { key: 'web.layout.voucher.fieldCountry', label: 'Placeholder — Stát', default: 'Stát' },
+        { key: 'web.layout.voucher.fieldCompany', label: 'Placeholder — Firma', default: 'Firma (volitelně)' },
+        { key: 'web.layout.voucher.fieldIco', label: 'Placeholder — IČO', default: 'IČO (volitelně)' },
+        { key: 'web.layout.voucher.customAmount', label: 'Label „Jiná částka (Kč):"', default: 'Jiná částka (Kč):' },
+        { key: 'web.layout.voucher.customPlaceholder', label: 'Placeholder — Zadejte částku', default: 'Zadejte částku' },
+        { key: 'web.layout.voucher.extras', label: 'H3 „Doplňky"', default: 'Doplňky' },
+        { key: 'web.layout.voucher.printLabel', label: 'Doplněk — název (Fyzický poukaz)', default: 'Fyzický poukaz' },
+        { key: 'web.layout.voucher.printNote', label: 'Doplněk — poznámka (Tisk a poštovné)', default: 'Tisk a poštovné' },
+        { key: 'web.layout.voucher.printPrice', label: 'Doplněk — cena (+180 Kč)', default: '+180 Kč' },
+        { key: 'web.layout.voucher.totalPrice', label: 'Label „Celková cena:"', default: 'Celková cena:' },
+        { key: 'web.layout.voucher.agreement', label: 'Souhlas s obchodními podmínkami (HTML — ponech {href})', type: 'textarea', default: '* Souhlasím s <a href="{href}" target="_blank">obchodními podmínkami</a>' },
+        { key: 'web.layout.voucher.continueToPay', label: 'Tlačítko „Pokračovat k platbě"', default: 'Pokračovat k platbě' },
+      ]
+    },
+    {
+      id: 'messages', label: 'Stavové a chybové hlášky (JS)', location: 'Validace a stav odeslání formuláře',
+      fields: [
+        { key: 'web.layout.voucher.processing', label: 'Tlačítko během odesílání', default: 'Zpracovávám...' },
+        { key: 'web.layout.voucher.errMinAmount', label: 'Chyba — min. částka', default: 'Zadejte hodnotu poukazu (min. 100 Kč).' },
+        { key: 'web.layout.voucher.errFillNameEmail', label: 'Chyba — jméno/e-mail', default: 'Vyplňte jméno a e-mail.' },
+        { key: 'web.layout.voucher.errAgreement', label: 'Chyba — souhlas', default: 'Musíte souhlasit s obchodními podmínkami.' },
+        { key: 'web.layout.voucher.errPaymentFailed', label: 'Chyba — platba', default: 'Nepodařilo se vytvořit platbu.' },
+        { key: 'web.layout.voucher.errGeneric', label: 'Chyba — obecná', default: 'Došlo k chybě. Zkuste to prosím znovu.' },
+      ]
+    },
     {
       id: 'outro', label: 'Textová sekce pod formulářem', location: 'H2 + 2 odstavce dole pod objednávkovým formulářem',
       fields: [
