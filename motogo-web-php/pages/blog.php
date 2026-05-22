@@ -70,6 +70,9 @@ $outroHtml = '<section class="blog-outro">'
     . '<p data-cms-key="web.blog.outro.body2">' . sanitizeHtml($outroB2) . '</p>'
     . '</section>';
 
+// Větší mezera mezi posledním článkem v mřížce a nadpisem "O našem blogu".
+$pageStyle = '<style>.blog-outro{margin-top:3rem}</style>';
+
 $content = '<main id="content"><div class="container">' . $bc
     . '<section class="ccontent"><h1>' . te('blog.h1') . '</h1>'
     . '<div id="blog-tags">' . $tagHtml . '</div>'
@@ -77,7 +80,7 @@ $content = '<main id="content"><div class="container">' . $bc
     . '<div id="blog-grid" class="gr3">' . $gridHtml . '</div>'
     . '</div></div>'
     . $outroHtml
-    . '</section></div></main>';
+    . '</section></div></main>' . $pageStyle;
 
 renderPage(t('blog.title'), $content, '/blog', [
     'description' => t('blog.description'),

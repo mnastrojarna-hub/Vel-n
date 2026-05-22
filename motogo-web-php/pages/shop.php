@@ -34,12 +34,15 @@ $shopOutroHtml = '<section class="shop-outro">'
     . '<p data-cms-key="web.eshop.outro.body2">' . sanitizeHtml($shopOutroB2) . '</p>'
     . '</section>';
 
+// Větší mezera mezi mřížkou produktů a CMS outro nadpisem pod ní.
+$pageStyle = '<style>.shop-outro{margin-top:3rem}</style>';
+
 $content = '<main id="content"><div class="container">' . $bc
     . '<section class="ccontent"><h1>' . te('shop.h1') . '</h1>'
     . '<p>' . te('shop.intro') . '</p>'
     . '<div id="shop-grid" class="gr3">' . $gridHtml . '</div>'
     . $shopOutroHtml
-    . '</section></div></main>';
+    . '</section></div></main>' . $pageStyle;
 
 // ItemList JSON-LD pro AI agenty / Google rich results
 $listItems = [];
