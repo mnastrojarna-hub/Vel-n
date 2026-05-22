@@ -69,9 +69,27 @@ export default function WebTextsTab({ initialPageId, initialFieldKey, initialSec
 
   async function loadValues() {
     setLoading(true)
-    const { data } = await supabase.from('cms_variables').select('key, value').eq('category', 'web')
+    // Texty webu načítáme podle PREFIXU klíče `web.` — stejně jako web
+    // (motogo-web-php/supabase.php → fetchWebTexts čte `key=like.web.<page>.*`),
+    // NE podle `category`. Legacy řádky vzniklé před zavedením kategorie 'web'
+    // (CHECK constraint rozšířen 2026-04-29) mají category='general'/'content';
+    // web je vidí (čte podle prefixu), ale Velín je s `eq('category','web')`
+    // přeskakoval → uložený text se na webu projevil, ale v editoru zůstával
+    // výchozí. Stránkujeme po 1000 — jediný select bez limitu by se mohl uťat
+    // na řádkovém stropu PostgREST a část textů by chyběla.
     const map = {}
-    ;(data || []).forEach(r => { map[r.key] = r.value })
+    const PAGE = 1000
+    for (let from = 0; ; from += PAGE) {
+      const { data, error } = await supabase
+        .from('cms_variables')
+        .select('key, value')
+        .like('key', 'web.%')
+        .order('key')
+        .range(from, from + PAGE - 1)
+      if (error || !data) break
+      data.forEach(r => { map[r.key] = r.value })
+      if (data.length < PAGE) break
+    }
     setValues(map)
     setLoading(false)
   }

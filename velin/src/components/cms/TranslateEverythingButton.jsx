@@ -107,7 +107,7 @@ export default function TranslateEverythingButton() {
       return
     }
     const dbPhases = [
-      { key: 'cms_variables', selectColumns: 'id, key, value, translations, category', filter: r => r.category === 'web', labelOf: r => r.key },
+      { key: 'cms_variables', selectColumns: 'id, key, value, translations, category', filter: r => typeof r.key === 'string' && r.key.startsWith('web.'), labelOf: r => r.key },
       { key: 'faq_items',     selectColumns: 'id, question, answer, translations',     filter: null,                       labelOf: r => r.question },
       { key: 'cms_pages',     selectColumns: 'id, title, excerpt, content, translations', filter: null,                    labelOf: r => r.title },
     ]
