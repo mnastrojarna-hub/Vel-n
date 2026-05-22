@@ -8,11 +8,11 @@ $bc = renderBreadcrumb([['label' => t('breadcrumb.home'), 'href' => '/'], ['labe
 $agreementHtml = t('voucher.agreement', ['href' => BASE_URL . '/dokumenty/obchodni-podminky']);
 
 $form = '<div class="gift-voucher-order">' .
-    '<h2>' . te('voucher.title') . '</h2>' .
-    '<p>' . te('voucher.lead') . '</p>' .
+    '<h2>' . tc('voucher.title') . '</h2>' .
+    '<p>' . tc('voucher.lead') . '</p>' .
     '<form id="giftVoucherForm" method="POST" action="">' .
 
-    '<h3>' . te('voucher.contactSection') . '</h3>' .
+    '<h3>' . tc('voucher.contactSection') . '</h3>' .
     '<input type="text" name="senderName" id="gv-name" placeholder="' . te('voucher.fieldName') . '" required maxlength="255" autocomplete="name">' .
     '<div class="gr2">' .
         '<input type="email" name="senderEmail" id="gv-email" placeholder="' . te('voucher.fieldEmail') . '" required maxlength="255" autocomplete="email">' .
@@ -39,20 +39,20 @@ $form = '<div class="gift-voucher-order">' .
         '<label class="gv-value-btn"><input type="radio" name="value" value="10000"> ' . moneyHtml(10000) . '</label>' .
     '</div>' .
     '<div class="gv-custom-value">' .
-        '<label>' . te('voucher.customAmount') . ' <input type="number" name="customValue" id="gv-custom" min="100" max="50000" step="1" placeholder="' . te('voucher.customPlaceholder') . '"></label>' .
+        '<label>' . tc('voucher.customAmount') . ' <input type="number" name="customValue" id="gv-custom" min="100" max="50000" step="1" placeholder="' . te('voucher.customPlaceholder') . '"></label>' .
     '</div>' .
 
-    '<h3>' . te('voucher.extras') . '</h3>' .
+    '<h3>' . tc('voucher.extras') . '</h3>' .
     '<div class="gv-equipments">' .
         '<label class="gv-equipment-btn">' .
             '<input type="checkbox" name="equipmentId[]" id="gv-print" value="print" data-price="180">' .
-            '<div><strong>' . te('voucher.printLabel') . '</strong><br><small>' . te('voucher.printNote') . '</small></div>' .
-            '<span class="gv-eq-price">' . te('voucher.printPrice') . '</span>' .
+            '<div><strong>' . tc('voucher.printLabel') . '</strong><br><small>' . tc('voucher.printNote') . '</small></div>' .
+            '<span class="gv-eq-price">' . tc('voucher.printPrice') . '</span>' .
         '</label>' .
     '</div>' .
 
     '<div class="gv-price-preview" id="gvPricePreview">' .
-        te('voucher.totalPrice') . ' <strong id="gvTotalPrice">' . moneyHtml(1000) . '</strong>' .
+        tc('voucher.totalPrice') . ' <strong id="gvTotalPrice">' . moneyHtml(1000) . '</strong>' .
         ' <span class="gv-czk-note" id="gvCzkNote" style="font-size:.78rem;color:#6b7280;margin-left:.5rem"></span>' .
     '</div>' .
 
