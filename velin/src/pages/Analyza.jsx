@@ -7,11 +7,12 @@ import OptimalniFlotila from './analyza/OptimalniFlotila'
 import DoporuceniPresunu from './analyza/DoporuceniPresunu'
 import DoporuceniLokaci from './analyza/DoporuceniLokaci'
 import AnalyzaZakazniku from './analyza/AnalyzaZakazniku'
+import Navstevnost from './analyza/Navstevnost'
 import AiTraffic from './analyza/AiTraffic'
 import AiPublicConversations from './analyza/AiPublicConversations'
 import Statistics from './Statistics'
 
-const TABS = ['Výkon poboček', 'Výkon motorek', 'Poptávka kategorií', 'Optimální flotila', 'Doporučení přesunů', 'Doporučení lokací', 'Zákazníci', 'AI traffic', 'AI konverzace', 'Statistiky']
+const TABS = ['Výkon poboček', 'Výkon motorek', 'Poptávka kategorií', 'Optimální flotila', 'Doporučení přesunů', 'Doporučení lokací', 'Zákazníci', 'Návštěvnost', 'AI traffic', 'AI konverzace', 'Statistiky']
 
 export default function Analyza() {
   const [tab, setTab] = useState(TABS[0])
@@ -49,6 +50,7 @@ export default function Analyza() {
       {tab === 'Doporučení přesunů' && <DoporuceniPresunu />}
       {tab === 'Doporučení lokací' && <DoporuceniLokaci />}
       {tab === 'Zákazníci' && <AnalyzaZakazniku />}
+      {tab === 'Návštěvnost' && <Navstevnost />}
       {tab === 'AI traffic' && <AiTraffic />}
       {tab === 'AI konverzace' && <AiPublicConversations />}
       {tab === 'Statistiky' && <Statistics />}
