@@ -662,10 +662,10 @@ function renderBlogCard($post) {
     $imgAlt = htmlspecialchars(t('common.blogAlt', ['title' => $titleRaw]));
 
     return '<div><a class="blog-wrapper" href="' . BASE_URL . '/blog/' . $slug . '" aria-label="' . $title . '">' .
-        '<div class="blog-title"><h3>' . $title . '</h3></div>' .
         '<div class="blog-img">' . ($img ? '<img src="' . htmlspecialchars($img) . '"'
             . ($imgSrcset ? ' srcset="' . htmlspecialchars($imgSrcset) . '" sizes="(max-width: 768px) 100vw, 33vw"' : '')
             . ' alt="' . $imgAlt . '" class="imgres" loading="lazy" decoding="async">' : '') . '</div>' .
+        '<div class="blog-title"><h3>' . $title . '</h3></div>' .
         '<div class="blog-desc">' . ($tag ? '<p><span class="tag-label">' . htmlspecialchars($tag) . '</span></p>' : '') . '<p>' . htmlspecialchars($excerptShort) . '</p></div>' .
         '<div class="blog-btn"><span class="btn btngreen-small">' . te('card.readArticle') . '</span></div>' .
     '</a></div>';
