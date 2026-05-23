@@ -29,6 +29,10 @@ $rezKeys = [
     'pickup.title','pickup.sub','pickup.recommended','pickup.orCustom',
     'pickup.atRental','pickup.atRentalSub','pickup.delivery','pickup.deliverySub','pickup.deliveryTip',
     'pickup.deliveryAddr','pickup.sameAsDel','pickup.returnOther','pickup.returnTip','pickup.returnAddr','pickup.map','pickup.gps',
+    // Geolokace + výpočet trasy přistavení/vrácení + mapový picker (pages-rezervace-pricing.js)
+    'geo.failed','geo.denied','geo.unavailable','geo.timeout','geo.insecure','geo.unsupported','geo.found',
+    'route.delivery','route.return','route.loading','route.error','route.priceLabel','route.fastestFrom','route.driveTime','route.calc',
+    'map.title','map.confirm',
     'return.title','return.sub','return.stateTitle','return.stateText',
     'gear.intro','gear.rider','gear.riderSub','gear.riderFree','gear.riderOwn',
     'gear.passenger','gear.passengerSub','gear.passengerTip',
@@ -67,7 +71,27 @@ $rezKeys = [
     // Výběr data platnosti ŘP (pages-rezervace-steps.js)
     'lic.day','lic.month','lic.year',
     // Kamera / scanner dokladů (pages-rezervace-camera.js)
-    'cam.docs.id','cam.docs.license','cam.close','cam.hint','cam.shoot','cam.progress',
+    'cam.docs.id','cam.docs.license','cam.close','cam.hint','cam.shoot','cam.progress','cam.frame',
+    // Krok 2 — sken/ověření dokladů (pages-rezervace-scan.js)
+    'scan.alert.idNumber','scan.alert.licGroup','scan.alert.licNumber','scan.alert.licExpiry','scan.alert.licValid',
+    'scan.alert.licConfirm','scan.alert.pwdShort','scan.alert.pwdMismatch','scan.alert.licRequired','scan.alert.notCreated',
+    'scan.alert.shopOrderFail','scan.alert.unknownError','scan.alert.shopOrderException','scan.alert.overlapOther','scan.alert.overlapOwn',
+    'scan.alert.paymentError','scan.alert.freeConfirmed','scan.alert.paymentFail','scan.alert.genericError',
+    'scan.noLicense','scan.processing','scan.skipRest','scan.skipPay','scan.back',
+    'scan.introMobile','scan.introDesktop','scan.title','scan.passport','scan.idCard','scan.recommended',
+    'scan.photoSide','scan.bothSides','scan.shoot','scan.uploadDevice','scan.front','scan.backSide',
+    'scan.shootFront','scan.uploadFront','scan.shootBack','scan.uploadBack','scan.dl','scan.hint',
+    'scan.recognizingFrames','scan.uploaded','scan.recognizing','scan.recognized','scan.docNo',
+    'scan.allUploaded','scan.fileUploaded','scan.cantUpload','scan.uploadError','scan.mobileMirror',
+    // Krok 1 — výbava, doklady, heslo, náhled faktury (pages-rezervace-steps.js)
+    'steps.prev','steps.next','steps.photoAria','steps.inCart','steps.qty','steps.less','steps.more','steps.remove','steps.add','steps.noProducts',
+    'steps.invReservation','steps.invRental','steps.invDays','steps.invDiscount','steps.invItem','steps.invPrice','steps.invTotal',
+    'steps.verifyAndPay','steps.qrTitle','steps.qrScan','steps.qrBranch','steps.qrValid','steps.docsOkTitle','steps.docsOkText',
+    'steps.idTitle','steps.idSub','steps.idDoc','steps.docNumberLabel','steps.docNumberPh','steps.licNumberLabel','steps.licNumberPh',
+    'steps.licGroupLabel','steps.licExpiryLabel','steps.licConfirmText','steps.uploadTitle','steps.uploadSub','steps.frontShort','steps.backShort',
+    'steps.pwdTitle','steps.pwdSet','steps.pwdSetSub','steps.pwdCreate','steps.pwdCreateSub','steps.pwdPh','steps.pwdConfirmPh',
+    'steps.extrasTitle','steps.extrasSub','steps.loadingProducts','steps.invTitle','steps.metaCustomer','steps.metaMotoTerm',
+    'steps.metaDelivery','steps.metaReturn','steps.newReservation',
 ];
 $rezI18n = [];
 foreach ($rezKeys as $k) {
