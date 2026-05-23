@@ -8,12 +8,15 @@ import { supabase } from '../../lib/supabase'
 // `save-verification-document` (uložení fotky + řádek v documents → trigger
 // release_withheld_door_codes uvolní zadržené kódy). Nové je jen UX/UI ve Velíně.
 
+// aspect = poměr stran vodícího rámečku (š/v). Občanka i řidičák jsou ISO ID-1
+// (85,6 × 54 mm → ~1.585), pas se fotí datová strana na šířku (~1.42).
+// next = další krok průvodce, na který flow plynule naváže po uložení.
 const DOC_TYPES = [
-  { key: 'op_front', scan: 'id', side: 'front', label: 'Občanský průkaz — líc' },
-  { key: 'op_back', scan: 'id', side: 'back', label: 'Občanský průkaz — rub' },
-  { key: 'passport', scan: 'passport', side: null, label: 'Cestovní pas' },
-  { key: 'dl_front', scan: 'dl', side: 'front', label: 'Řidičský průkaz — líc' },
-  { key: 'dl_back', scan: 'dl', side: 'back', label: 'Řidičský průkaz — rub' },
+  { key: 'op_front', scan: 'id', side: 'front', label: 'Občanský průkaz — líc', aspect: 1.585, next: 'op_back' },
+  { key: 'op_back', scan: 'id', side: 'back', label: 'Občanský průkaz — rub', aspect: 1.585, next: null },
+  { key: 'passport', scan: 'passport', side: null, label: 'Cestovní pas', aspect: 1.42, next: null },
+  { key: 'dl_front', scan: 'dl', side: 'front', label: 'Řidičský průkaz — líc', aspect: 1.585, next: 'dl_back' },
+  { key: 'dl_back', scan: 'dl', side: 'back', label: 'Řidičský průkaz — rub', aspect: 1.585, next: null },
 ]
 
 function readFileAsDataUrl(file) {
@@ -47,17 +50,19 @@ export default function AdminDocUploadModal({ userId, bookingId, onClose, onUplo
 
   useEffect(() => () => stopCamera(), [])
 
-  // <video> se do DOM vykreslí až když camState === 'on'. Stream proto
-  // připojíme až po vykreslení elementu, jinak je videoRef.current null
-  // a obraz zůstane černý (typicky na iOS Safari).
+  // <video> se do DOM vykreslí až když camState === 'on' a není zobrazen
+  // náhled (imageData). Stream proto připojíme až po vykreslení elementu –
+  // jinak je videoRef.current null a obraz zůstane černý (typicky iOS Safari).
+  // Závislost na imageData zajistí znovupřipojení streamu při návratu z náhledu
+  // na živou kameru (např. plynulé focení rubu po líci).
   useEffect(() => {
-    if (camState !== 'on') return
+    if (camState !== 'on' || imageData) return
     const v = videoRef.current
     if (!v || !streamRef.current) return
     v.srcObject = streamRef.current
     const p = v.play()
     if (p && typeof p.catch === 'function') p.catch(() => {})
-  }, [camState])
+  }, [camState, imageData])
 
   async function startCamera() {
     setError(null)
@@ -93,8 +98,9 @@ export default function AdminDocUploadModal({ userId, bookingId, onClose, onUplo
     c.width = w; c.height = h
     c.getContext('2d').drawImage(v, 0, 0, w, h)
     setImageData(c.toDataURL('image/jpeg', 0.85))
-    stopCamera()
-    setCamState('idle')
+    // Kameru ZÁMĚRNĚ nezastavujeme – stream běží dál (camState zůstává 'on'),
+    // aby šlo po uložení plynule pokračovat na další stranu dokladu bez nového
+    // getUserMedia (iOS vyžaduje pro getUserMedia uživatelské gesto).
   }
 
   async function onFilePick(e) {
@@ -165,8 +171,17 @@ export default function AdminDocUploadModal({ userId, bookingId, onClose, onUplo
       if (saveErr) throw saveErr
       if (saveRes && saveRes.success === false) throw new Error(saveRes.error || 'Uložení selhalo')
 
-      setResult({ ocr: ocrStatus, fields, label: docType.label })
+      const next = docType.next ? DOC_TYPES.find(d => d.key === docType.next) : null
+      setResult({ ocr: ocrStatus, fields, label: docType.label, nextLabel: next?.label || null })
       setImageData(null)
+      if (next) {
+        // Plynulé pokračování: přepneme na další stranu dokladu. Kamera (pokud
+        // běží) zůstává zapnutá, takže uživatel rovnou fotí, bez dalších kliků.
+        setDocKey(next.key)
+      } else {
+        stopCamera()
+        setCamState('idle')
+      }
       if (onUploaded) await onUploaded()
     } catch (e) {
       setError('Nahrání selhalo: ' + (e?.message || String(e)))
@@ -186,7 +201,9 @@ export default function AdminDocUploadModal({ userId, bookingId, onClose, onUplo
       {result && (
         <div className="p-2 mb-3 rounded-lg" style={{ background: '#dcfce7', border: '1px solid #86efac', color: '#1a8a18', fontSize: 13 }}>
           ✅ {result.label} uložen{result.ocr === 'ok' ? ' — Mindee OCR proběhlo, údaje uloženy do profilu.' : ' (Mindee OCR neproběhlo — fotka uložena, ověří se na pobočce).'}
-          {' '}Zadržené kódy k boxu se uvolní, jakmile jsou doklady kompletní.
+          {result.nextLabel
+            ? <>{' '}Pokračujte: vyfoťte <strong>{result.nextLabel}</strong> — kamera je připravená.</>
+            : <>{' '}Zadržené kódy k boxu se uvolní, jakmile jsou doklady kompletní.</>}
         </div>
       )}
 
@@ -227,7 +244,26 @@ export default function AdminDocUploadModal({ userId, bookingId, onClose, onUplo
           {camState === 'on' ? (
             <div>
               <div className="flex justify-center" style={{ background: '#0f1a14', padding: 12, borderRadius: 8 }}>
-                <video ref={videoRef} playsInline muted autoPlay style={{ maxWidth: '100%', maxHeight: 360, borderRadius: 4 }} />
+                <div style={{ position: 'relative', maxWidth: '100%', lineHeight: 0 }}>
+                  <video ref={videoRef} playsInline muted autoPlay
+                    style={{ display: 'block', maxWidth: '100%', maxHeight: 360, borderRadius: 4 }} />
+                  {/* Vodící rámeček ve tvaru dokladu – pomáhá se zarovnáním a ostřením */}
+                  <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+                    <div style={{
+                      width: '88%',
+                      maxHeight: '84%',
+                      aspectRatio: String(docType.aspect),
+                      border: '2px solid rgba(116,251,113,.95)',
+                      borderRadius: 12,
+                      boxShadow: '0 0 0 9999px rgba(0,0,0,.30)',
+                    }} />
+                  </div>
+                  <div style={{ position: 'absolute', left: 0, right: 0, bottom: 8, textAlign: 'center', pointerEvents: 'none' }}>
+                    <span style={{ fontSize: 12, color: '#fff', background: 'rgba(0,0,0,.5)', padding: '3px 10px', borderRadius: 999 }}>
+                      Zarovnejte do rámečku: {docType.label}
+                    </span>
+                  </div>
+                </div>
               </div>
               <div className="flex justify-center mt-3">
                 <Button green onClick={capture}>📸 Vyfotit</Button>
