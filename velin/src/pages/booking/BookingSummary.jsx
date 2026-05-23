@@ -280,6 +280,9 @@ export default function BookingSummary({ booking, sosIncidents, bookingExtras, c
       {Number.isFinite(b.form_fill_seconds) && b.form_fill_seconds >= 0 && (
         <SumRow label="Doba vyplnění formuláře" value={fmtDuration(b.form_fill_seconds)} />
       )}
+      {Number.isFinite(b.payment_fill_seconds) && b.payment_fill_seconds >= 0 && (
+        <SumRow label="Doba do zaplacení" value={fmtDuration(b.payment_fill_seconds)} />
+      )}
       <SumRow label="Potvrzeno" value={fmtDT(b.confirmed_at)} />
       <SumRow label="Vydáno" value={fmtDT(b.picked_up_at)} />
       <SumRow label="Vráceno" value={fmtDT(b.returned_at)} />
