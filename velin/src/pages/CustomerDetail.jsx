@@ -58,6 +58,7 @@ export default function CustomerDetail() {
     const {
       full_name, phone, street, city, zip, country,
       date_of_birth, license_group, marketing_consent,
+      id_number, license_number, license_expiry,
       reliability_score, is_blocked, blocked_at, blocked_reason,
       consent_gdpr, consent_vop, consent_email, consent_sms,
       consent_push, consent_data_processing, consent_photo,
@@ -65,6 +66,7 @@ export default function CustomerDetail() {
     } = customer
     const updateData = { full_name, phone, street, city, zip, country,
       date_of_birth, license_group, marketing_consent,
+      id_number, license_number, license_expiry,
       reliability_score, is_blocked, blocked_at, blocked_reason,
       consent_gdpr, consent_vop, consent_email, consent_sms,
       consent_push, consent_data_processing, consent_photo,
