@@ -51,6 +51,9 @@
 - **complaint_status** — stav reklamace (open, in_progress, resolved, rejected, null)
 - **booking_source** — zdroj rezervace (text, default 'app') — 'app' nebo 'web'
 - **is_test** (boolean DEFAULT false) — testovací rezervace z AI tréninku
+- **form_started_at** (timestamptz, NEW 2026-05-23) — okamžik otevření webového rezervačního formuláře (`MG._rezInit`, uloženo v sessionStorage `mg_rez_started_at`). Plní `set_booking_form_seconds` po create_web_booking. Jen `booking_source='web'`.
+- **form_fill_seconds** (integer, NEW 2026-05-23) — doba (s) start→vytvoření rezervace = samotné vyplňování formuláře. Spočte `set_booking_form_seconds` (now - form_started_at, clamp 0–86400). Velín detail rezervace → „Doba vyplnění formuláře".
+- **payment_fill_seconds** (integer, NEW 2026-05-23) — doba (s) start→úspěšná platba (celý proces vč. dokladů). Dopočítá trigger `trg_booking_payment_fill_seconds` při přechodu na `payment_status='paid'` (confirmed_at - form_started_at, clamp 0–604800). Funguje i přes Stripe redirect (start je v DB). Velín → „Doba do zaplacení".
 
 ### booking_complaints
 - id (uuid PK), booking_id (refs bookings), customer_id (refs profiles)
