@@ -29,6 +29,10 @@ $rezKeys = [
     'pickup.title','pickup.sub','pickup.recommended','pickup.orCustom',
     'pickup.atRental','pickup.atRentalSub','pickup.delivery','pickup.deliverySub','pickup.deliveryTip',
     'pickup.deliveryAddr','pickup.sameAsDel','pickup.returnOther','pickup.returnTip','pickup.returnAddr','pickup.map','pickup.gps',
+    // Geolokace + výpočet trasy přistavení/vrácení + mapový picker (pages-rezervace-pricing.js)
+    'geo.failed','geo.denied','geo.unavailable','geo.timeout','geo.insecure','geo.unsupported','geo.found',
+    'route.delivery','route.return','route.loading','route.error','route.priceLabel','route.fastestFrom','route.driveTime','route.calc',
+    'map.title','map.confirm',
     'return.title','return.sub','return.stateTitle','return.stateText',
     'gear.intro','gear.rider','gear.riderSub','gear.riderFree','gear.riderOwn',
     'gear.passenger','gear.passengerSub','gear.passengerTip',
