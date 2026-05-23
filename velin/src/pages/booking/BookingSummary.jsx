@@ -4,6 +4,17 @@ import { SumRow } from './BookingUIHelpers'
 import { STATUS_LABELS, CANCEL_SOURCE_LABELS, describeModification, fmtDT, paymentMethodInfo, stripePaymentIntentUrl, hasPassengerGearOrdered } from './bookingConstants'
 import { mapyLinkUrl } from '../../lib/mapyCz'
 
+// Doba vyplnění formuláře v sekundách → čitelný formát (např. „2 min 15 s")
+function fmtDuration(s) {
+  s = Math.round(Number(s) || 0)
+  if (s < 60) return `${s} s`
+  const m = Math.floor(s / 60)
+  const rest = s % 60
+  if (m < 60) return rest ? `${m} min ${rest} s` : `${m} min`
+  const h = Math.floor(m / 60)
+  return `${h} h ${m % 60} min`
+}
+
 // Spáruje booking_extras.name s velikostí z bookings.*_size (driver/passenger)
 function matchExtraSize(name, b) {
   const n = (name || '').toLowerCase()
@@ -266,6 +277,9 @@ export default function BookingSummary({ booking, sosIncidents, bookingExtras, c
 
       <div className="text-sm font-extrabold uppercase tracking-wide mt-4 mb-2" style={{ color: '#1a2e22' }}>Průběh</div>
       <SumRow label="Vytvořeno" value={fmtDT(b.created_at)} />
+      {Number.isFinite(b.form_fill_seconds) && b.form_fill_seconds >= 0 && (
+        <SumRow label="Doba vyplnění formuláře" value={fmtDuration(b.form_fill_seconds)} />
+      )}
       <SumRow label="Potvrzeno" value={fmtDT(b.confirmed_at)} />
       <SumRow label="Vydáno" value={fmtDT(b.picked_up_at)} />
       <SumRow label="Vráceno" value={fmtDT(b.returned_at)} />
