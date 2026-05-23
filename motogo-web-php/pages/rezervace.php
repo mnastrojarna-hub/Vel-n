@@ -83,6 +83,15 @@ $rezKeys = [
     'scan.shootFront','scan.uploadFront','scan.shootBack','scan.uploadBack','scan.dl','scan.hint',
     'scan.recognizingFrames','scan.uploaded','scan.recognizing','scan.recognized','scan.docNo',
     'scan.allUploaded','scan.fileUploaded','scan.cantUpload','scan.uploadError','scan.mobileMirror',
+    // Krok 1 — výbava, doklady, heslo, náhled faktury (pages-rezervace-steps.js)
+    'steps.prev','steps.next','steps.photoAria','steps.inCart','steps.qty','steps.less','steps.more','steps.remove','steps.add','steps.noProducts',
+    'steps.invReservation','steps.invRental','steps.invDays','steps.invDiscount','steps.invItem','steps.invPrice','steps.invTotal',
+    'steps.verifyAndPay','steps.qrTitle','steps.qrScan','steps.qrBranch','steps.qrValid','steps.docsOkTitle','steps.docsOkText',
+    'steps.idTitle','steps.idSub','steps.idDoc','steps.docNumberLabel','steps.docNumberPh','steps.licNumberLabel','steps.licNumberPh',
+    'steps.licGroupLabel','steps.licExpiryLabel','steps.licConfirmText','steps.uploadTitle','steps.uploadSub','steps.frontShort','steps.backShort',
+    'steps.pwdTitle','steps.pwdSet','steps.pwdSetSub','steps.pwdCreate','steps.pwdCreateSub','steps.pwdPh','steps.pwdConfirmPh',
+    'steps.extrasTitle','steps.extrasSub','steps.loadingProducts','steps.invTitle','steps.metaCustomer','steps.metaMotoTerm',
+    'steps.metaDelivery','steps.metaReturn','steps.newReservation',
 ];
 $rezI18n = [];
 foreach ($rezKeys as $k) {
