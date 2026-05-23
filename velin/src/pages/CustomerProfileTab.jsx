@@ -8,6 +8,19 @@ function SectionTitle({ children }) {
   return <h3 className="text-sm font-extrabold uppercase tracking-widest mb-4" style={{ color: '#1a2e22' }}>{children}</h3>
 }
 
+function czAge(dob) {
+  if (!dob) return null
+  const d = new Date(dob)
+  if (isNaN(d.getTime())) return null
+  const now = new Date()
+  let age = now.getFullYear() - d.getFullYear()
+  const m = now.getMonth() - d.getMonth()
+  if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age--
+  if (age < 0 || age > 150) return null
+  const unit = age === 1 ? 'rok' : (age >= 2 && age <= 4 ? 'roky' : 'let')
+  return `${age} ${unit}`
+}
+
 function Field({ label, value, onChange, type = 'text', disabled = false }) {
   return (
     <div>
@@ -63,7 +76,7 @@ export default function ProfileTab({ customer, set, error, saving, onSave, onDel
           <Field label="Jmeno" value={customer.full_name} onChange={v => set('full_name', v)} />
           <Field label="Email" value={customer.email} disabled />
           <Field label="Telefon" value={customer.phone} onChange={v => set('phone', v)} />
-          <Field label="Datum narozeni" value={customer.date_of_birth} onChange={v => set('date_of_birth', v)} type="date" />
+          <Field label={`Datum narozeni${czAge(customer.date_of_birth) ? ` · ${czAge(customer.date_of_birth)}` : ''}`} value={customer.date_of_birth} onChange={v => set('date_of_birth', v)} type="date" />
           <Field label="Jazyk" value={customer.language} disabled />
           <Field label="Registrace" value={customer.created_at?.slice(0, 10)} disabled />
         </div>
@@ -77,21 +90,12 @@ export default function ProfileTab({ customer, set, error, saving, onSave, onDel
         </div>
       </Card>
       <PlatformSection userId={customer.id} />
-      <Card><SectionTitle>Ridicak a zkusenosti</SectionTitle>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Ridicske skupiny</label>
-            <div className="flex flex-wrap gap-1">
-              {(customer.license_group && customer.license_group.length > 0) ? customer.license_group.map(g => <Badge key={g} label={g} color="#1a8a18" bg="#dcfce7" />) : <span style={{ color: '#1a2e22', fontSize: 13 }}>{'\u2014'}</span>}
-            </div>
+      <Card><SectionTitle>Ridicske opravneni</SectionTitle>
+        <div>
+          <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Ridicske skupiny</label>
+          <div className="flex flex-wrap gap-1">
+            {(customer.license_group && customer.license_group.length > 0) ? customer.license_group.map(g => <Badge key={g} label={g} color="#1a8a18" bg="#dcfce7" />) : <span style={{ color: '#1a2e22', fontSize: 13 }}>{'\u2014'}</span>}
           </div>
-          <Field label="Jezdecke zkusenosti" value={customer.riding_experience} onChange={v => set('riding_experience', v)} />
-        </div>
-      </Card>
-      <Card><SectionTitle>Kontakt pro pripad nouze</SectionTitle>
-        <div className="grid grid-cols-2 gap-4">
-          <Field label="Jmeno" value={customer.emergency_contact} onChange={v => set('emergency_contact', v)} />
-          <Field label="Telefon" value={customer.emergency_phone} onChange={v => set('emergency_phone', v)} />
         </div>
       </Card>
       <Card><SectionTitle>Vybaveni</SectionTitle><GearSizes gearSizes={customer.gear_sizes} /></Card>
