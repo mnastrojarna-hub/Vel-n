@@ -561,6 +561,9 @@ return [
     'rez.cam.hint' => 'Vložte doklad celý do rámečku. Držte telefon rovně, dobré osvětlení.',
     'rez.cam.shoot' => 'Spustit sken',
     'rez.cam.progress' => 'Snímám…',
+    'rez.cam.frame' => 'Snímek {n}/5',
+    // Automatické odhlášení po nečinnosti (auth-idle-logout.js) — globální klíč v MG_I18N (layout.php)
+    'idle.logout' => 'Byl/a jste automaticky odhlášen/a po 10 minutách nečinnosti. Stránka se nyní obnoví.',
 
     // ===== Úprava rezervace (login + edit + storno) =====
     'editRez.title' => 'Upravit rezervaci',

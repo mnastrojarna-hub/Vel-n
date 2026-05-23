@@ -382,6 +382,8 @@ return [
     'rez.cam.hint' => 'Plaats het document volledig in het kader. Houd de telefoon recht met goede verlichting.',
     'rez.cam.shoot' => 'Scan starten',
     'rez.cam.progress' => 'Opnemen…',
+    'rez.cam.frame' => 'Opname {n}/5',
+    'idle.logout' => 'Je bent automatisch uitgelogd na 10 minuten inactiviteit. De pagina wordt nu opnieuw geladen.',
 
     'filters.search' => 'Zoeken',
     'filters.searchPlaceholder' => 'Zoek model, merk…',

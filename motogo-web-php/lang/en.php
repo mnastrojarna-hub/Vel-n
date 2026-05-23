@@ -396,6 +396,8 @@ return [
     'rez.cam.hint' => 'Place the document fully inside the frame. Hold the phone steady with good lighting.',
     'rez.cam.shoot' => 'Start scan',
     'rez.cam.progress' => 'Capturing…',
+    'rez.cam.frame' => 'Frame {n}/5',
+    'idle.logout' => 'You have been automatically logged out after 10 minutes of inactivity. The page will now reload.',
 
     // ===== Manage reservation (login + edit + cancel) =====
     'editRez.title' => 'Manage booking',

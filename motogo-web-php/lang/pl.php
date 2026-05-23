@@ -382,6 +382,8 @@ return [
     'rez.cam.hint' => 'Umieść dokument w całości w ramce. Trzymaj telefon prosto przy dobrym oświetleniu.',
     'rez.cam.shoot' => 'Rozpocznij skanowanie',
     'rez.cam.progress' => 'Rejestracja…',
+    'rez.cam.frame' => 'Klatka {n}/5',
+    'idle.logout' => 'Zostałeś automatycznie wylogowany po 10 minutach bezczynności. Strona zostanie teraz odświeżona.',
 
     'filters.search' => 'Szukaj',
     'filters.searchPlaceholder' => 'Szukaj modelu, marki…',

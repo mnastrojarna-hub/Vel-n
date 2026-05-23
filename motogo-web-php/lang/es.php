@@ -397,6 +397,8 @@ return [
     'rez.cam.hint' => 'Coloque el documento completamente dentro del marco. Sostenga el teléfono recto con buena iluminación.',
     'rez.cam.shoot' => 'Iniciar escaneo',
     'rez.cam.progress' => 'Capturando…',
+    'rez.cam.frame' => 'Foto {n}/5',
+    'idle.logout' => 'Se ha cerrado tu sesión automáticamente tras 10 minutos de inactividad. La página se va a recargar.',
 
     // ===== Filtry katalogu =====
     'filters.search' => 'Buscar',

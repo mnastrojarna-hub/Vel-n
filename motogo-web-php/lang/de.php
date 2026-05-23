@@ -396,6 +396,8 @@ return [
     'rez.cam.hint' => 'Legen Sie das Dokument vollständig in den Rahmen. Halten Sie das Telefon ruhig bei guter Beleuchtung.',
     'rez.cam.shoot' => 'Scan starten',
     'rez.cam.progress' => 'Aufnahme…',
+    'rez.cam.frame' => 'Aufnahme {n}/5',
+    'idle.logout' => 'Sie wurden nach 10 Minuten Inaktivität automatisch abgemeldet. Die Seite wird jetzt neu geladen.',
 
     // ===== Reservierung verwalten =====
     'editRez.title' => 'Reservierung verwalten',

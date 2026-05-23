@@ -396,6 +396,8 @@ return [
     'rez.cam.hint' => 'Placez le document entièrement dans le cadre. Maintenez le téléphone droit avec un bon éclairage.',
     'rez.cam.shoot' => 'Démarrer le scan',
     'rez.cam.progress' => 'Capture…',
+    'rez.cam.frame' => 'Photo {n}/5',
+    'idle.logout' => 'Vous avez été déconnecté automatiquement après 10 minutes d\'inactivité. La page va se recharger.',
 
     // ===== Filtry katalogu =====
     'filters.search' => 'Rechercher',

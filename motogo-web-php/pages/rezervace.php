@@ -71,7 +71,7 @@ $rezKeys = [
     // Výběr data platnosti ŘP (pages-rezervace-steps.js)
     'lic.day','lic.month','lic.year',
     // Kamera / scanner dokladů (pages-rezervace-camera.js)
-    'cam.docs.id','cam.docs.license','cam.close','cam.hint','cam.shoot','cam.progress',
+    'cam.docs.id','cam.docs.license','cam.close','cam.hint','cam.shoot','cam.progress','cam.frame',
 ];
 $rezI18n = [];
 foreach ($rezKeys as $k) {
