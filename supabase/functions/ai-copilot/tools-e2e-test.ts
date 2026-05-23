@@ -104,6 +104,25 @@ export async function execE2ETest(name: string, input: R, sb: SB): Promise<unkno
       // Orphaned test bookings/SOS
       await sb.from('bookings').delete().eq('is_test', true)
       await sb.from('sos_incidents').delete().eq('is_test', true)
+      // Sweep osiřelých auth.users (profil smazán dřívějším během, auth záznam
+      // zůstal — lookup výše keyuje na profiles, takže by je jinak nikdy nenašel).
+      // Cílí jen na testovací prefixy → nemůže sáhnout na reálné zákazníky/adminy.
+      let page = 1
+      for (;;) {
+        const { data: list, error: listErr } = await sb.auth.admin.listUsers({ page, perPage: 1000 })
+        if (listErr || !list || list.users.length === 0) break
+        for (const u of list.users) {
+          const em = (u.email || '').toLowerCase()
+          if (!TEST_EMAIL_PREFIXES.some(p => em.startsWith(p.toLowerCase()))) continue
+          const { data: prof } = await sb.from('profiles').select('id').eq('id', u.id).maybeSingle()
+          if (!prof) {
+            await sb.auth.admin.deleteUser(u.id)
+            results.users++
+          }
+        }
+        if (list.users.length < 1000) break
+        page++
+      }
       return { status: 'cleaned', ...results, summary: `Smazáno: ${results.users} uživatelů, ${results.bookings} bookings, ${results.sos} SOS, ${results.promos} promo kódů` }
     }
 
