@@ -57,16 +57,14 @@ export default function CustomerDetail() {
     setError(null)
     const {
       full_name, phone, street, city, zip, country,
-      date_of_birth, license_group, emergency_contact,
-      emergency_phone, riding_experience, marketing_consent,
+      date_of_birth, license_group, marketing_consent,
       reliability_score, is_blocked, blocked_at, blocked_reason,
       consent_gdpr, consent_vop, consent_email, consent_sms,
       consent_push, consent_data_processing, consent_photo,
       consent_whatsapp, consent_contract,
     } = customer
     const updateData = { full_name, phone, street, city, zip, country,
-      date_of_birth, license_group, emergency_contact,
-      emergency_phone, riding_experience, marketing_consent,
+      date_of_birth, license_group, marketing_consent,
       reliability_score, is_blocked, blocked_at, blocked_reason,
       consent_gdpr, consent_vop, consent_email, consent_sms,
       consent_push, consent_data_processing, consent_photo,
