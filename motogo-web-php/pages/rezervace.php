@@ -72,6 +72,17 @@ $rezKeys = [
     'lic.day','lic.month','lic.year',
     // Kamera / scanner dokladů (pages-rezervace-camera.js)
     'cam.docs.id','cam.docs.license','cam.close','cam.hint','cam.shoot','cam.progress','cam.frame',
+    // Krok 2 — sken/ověření dokladů (pages-rezervace-scan.js)
+    'scan.alert.idNumber','scan.alert.licGroup','scan.alert.licNumber','scan.alert.licExpiry','scan.alert.licValid',
+    'scan.alert.licConfirm','scan.alert.pwdShort','scan.alert.pwdMismatch','scan.alert.licRequired','scan.alert.notCreated',
+    'scan.alert.shopOrderFail','scan.alert.unknownError','scan.alert.shopOrderException','scan.alert.overlapOther','scan.alert.overlapOwn',
+    'scan.alert.paymentError','scan.alert.freeConfirmed','scan.alert.paymentFail','scan.alert.genericError',
+    'scan.noLicense','scan.processing','scan.skipRest','scan.skipPay','scan.back',
+    'scan.introMobile','scan.introDesktop','scan.title','scan.passport','scan.idCard','scan.recommended',
+    'scan.photoSide','scan.bothSides','scan.shoot','scan.uploadDevice','scan.front','scan.backSide',
+    'scan.shootFront','scan.uploadFront','scan.shootBack','scan.uploadBack','scan.dl','scan.hint',
+    'scan.recognizingFrames','scan.uploaded','scan.recognizing','scan.recognized','scan.docNo',
+    'scan.allUploaded','scan.fileUploaded','scan.cantUpload','scan.uploadError','scan.mobileMirror',
 ];
 $rezI18n = [];
 foreach ($rezKeys as $k) {
