@@ -69,13 +69,24 @@ function _pageCacheKey($path) {
     // FIX: kompletní query string (řazený abecedně pro deterministický klíč napříč
     // pořadím params, tj. `?a=1&b=2` má stejný klíč jako `?b=2&a=1`). Identifikuje
     // unikátní kombinace všech filtrů, řazení i pagingu.
+    // BUGFIX 2026-05-23: Jazyk a měna chodí i z COOKIE (mg_web_lang / mg_currency)
+    // nebo doménového defaultu — ne nutně z query stringu. Předchozí klíč
+    // (host|path|qstr) je proto NEzohledňoval: kdo na motogo24.com (kam míří i .es
+    // přes ?lang=es redirect) vyrenderoval /katalog-detail jako první, jeho jazyk
+    // se zacachoval a ostatní dostali cizí jazyk (např. španěl viděl české názvy
+    // dnů v kalendáři, který se renderuje serverově). Lang/currency proto z query
+    // odebereme (ať se ?lang=es a cookie nerozcházejí do dvou klíčů) a přidáme
+    // skutečně detekovanou hodnotu jako samostatnou složku klíče.
+    unset($q['lang'], $q['currency']);
     if (!empty($q)) {
         ksort($q);
         $qstr = http_build_query($q);
     } else {
         $qstr = '';
     }
-    return md5($host . '|' . $path . '|' . $qstr);
+    $lang = function_exists('i18nDetectLanguage') ? i18nDetectLanguage() : 'cs';
+    $cur  = function_exists('currencyDetect') ? currencyDetect() : '';
+    return md5($host . '|' . $path . '|' . $qstr . '|' . $lang . '|' . $cur);
 }
 
 /**

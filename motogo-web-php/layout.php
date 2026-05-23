@@ -664,6 +664,7 @@ body{font-family:Montserrat,"Segoe UI",sans-serif;margin:0;color:#1a2e22;backgro
         'cart_pcs'    => t('cart.pcs'),
         'cart_qty'    => t('cart.qty'),
         'cart_remove' => t('cart.remove'),
+        'idle.logout' => t('idle.logout'),
     ], JSON_UNESCAPED_UNICODE);
     echo '
 <script>
