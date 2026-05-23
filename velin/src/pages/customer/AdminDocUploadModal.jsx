@@ -47,6 +47,18 @@ export default function AdminDocUploadModal({ userId, bookingId, onClose, onUplo
 
   useEffect(() => () => stopCamera(), [])
 
+  // <video> se do DOM vykreslí až když camState === 'on'. Stream proto
+  // připojíme až po vykreslení elementu, jinak je videoRef.current null
+  // a obraz zůstane černý (typicky na iOS Safari).
+  useEffect(() => {
+    if (camState !== 'on') return
+    const v = videoRef.current
+    if (!v || !streamRef.current) return
+    v.srcObject = streamRef.current
+    const p = v.play()
+    if (p && typeof p.catch === 'function') p.catch(() => {})
+  }, [camState])
+
   async function startCamera() {
     setError(null)
     setImageData(null)
@@ -62,10 +74,8 @@ export default function AdminDocUploadModal({ userId, bookingId, onClose, onUplo
         audio: false,
       })
       streamRef.current = stream
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
-        await videoRef.current.play().catch(() => {})
-      }
+      // Nejdřív vykreslíme <video> (camState='on'); připojení streamu
+      // řeší useEffect výše, až element existuje v DOM.
       setCamState('on')
     } catch (e) {
       setCamState(e?.name === 'NotAllowedError' || e?.name === 'SecurityError' ? 'denied' : 'unavailable')
