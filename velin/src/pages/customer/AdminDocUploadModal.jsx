@@ -8,16 +8,28 @@ import { supabase } from '../../lib/supabase'
 // `save-verification-document` (uložení fotky + řádek v documents → trigger
 // release_withheld_door_codes uvolní zadržené kódy). Nové je jen UX/UI ve Velíně.
 
-// aspect = poměr stran vodícího rámečku (š/v). Občanka i řidičák jsou ISO ID-1
-// (85,6 × 54 mm → ~1.585), pas se fotí datová strana na šířku (~1.42).
-// next = další krok průvodce, na který flow plynule naváže po uložení.
-const DOC_TYPES = [
-  { key: 'op_front', scan: 'id', side: 'front', label: 'Občanský průkaz — líc', aspect: 1.585, next: 'op_back' },
-  { key: 'op_back', scan: 'id', side: 'back', label: 'Občanský průkaz — rub', aspect: 1.585, next: null },
-  { key: 'passport', scan: 'passport', side: null, label: 'Cestovní pas', aspect: 1.42, next: null },
-  { key: 'dl_front', scan: 'dl', side: 'front', label: 'Řidičský průkaz — líc', aspect: 1.585, next: 'dl_back' },
-  { key: 'dl_back', scan: 'dl', side: 'back', label: 'Řidičský průkaz — rub', aspect: 1.585, next: null },
+// Doklady jsou organizované do "flow" — uživatel vybere jeden doklad a průvodce
+// ho provede všemi jeho stranami v jednom plynulém toku (líc → rub), bez nutnosti
+// klikat každou stranu zvlášť. aspect = poměr stran vodícího rámečku (š/v):
+// občanka i řidičák jsou ISO ID-1 (85,6 × 54 mm → ~1.585), pas se fotí datová
+// strana na šířku (~1.42).
+const FLOWS = [
+  { key: 'op', scan: 'id', label: 'Občanský průkaz', steps: [
+    { side: 'front', label: 'líc', aspect: 1.585 },
+    { side: 'back', label: 'rub', aspect: 1.585 },
+  ] },
+  { key: 'passport', scan: 'passport', label: 'Cestovní pas', steps: [
+    { side: null, label: 'datová strana', aspect: 1.42 },
+  ] },
+  { key: 'dl', scan: 'dl', label: 'Řidičský průkaz', steps: [
+    { side: 'front', label: 'líc', aspect: 1.585 },
+    { side: 'back', label: 'rub', aspect: 1.585 },
+  ] },
 ]
+
+function stepLabel(flow, step) {
+  return flow.steps.length > 1 ? `${flow.label} — ${step.label}` : flow.label
+}
 
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
@@ -28,18 +40,37 @@ function readFileAsDataUrl(file) {
   })
 }
 
+// Ořez pořízeného snímku na vodící rámeček, aby se uložil jen samotný doklad bez
+// okolního pozadí. Geometrii zrcadlíme 1:1 s overlay rámečkem v renderu (šířka
+// 88 %, výška dopočítaná z poměru stran a omezená na 84 % výšky), takže výřez
+// přesně odpovídá zelenému rámečku, do kterého uživatel doklad zarovnal.
+// <video> má jen max-width/max-height (žádnou pevnou velikost), takže zobrazená
+// plocha má stejný poměr stran jako nativní snímek a normalizované souřadnice
+// rámečku sedí přímo na zdrojové rozlišení.
+function cropRectForGuide(vw, vh, aspect) {
+  let fw = 0.88 * vw
+  let fh = fw / aspect
+  const maxH = 0.84 * vh
+  if (fh > maxH) fh = maxH
+  return { sx: (vw - fw) / 2, sy: (vh - fh) / 2, sw: fw, sh: fh }
+}
+
 export default function AdminDocUploadModal({ userId, bookingId, onClose, onUploaded }) {
-  const [docKey, setDocKey] = useState('op_front')
+  const [flowKey, setFlowKey] = useState('op')
+  const [stepIdx, setStepIdx] = useState(0)
   const [camState, setCamState] = useState('idle') // idle | starting | on | denied | unavailable
   const [imageData, setImageData] = useState(null) // data URL náhledu
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
-  const [result, setResult] = useState(null) // { ocr: 'ok'|'failed', fields, label }
+  const [result, setResult] = useState(null) // { ocr: 'ok'|'failed', fields, label, nextLabel }
   const videoRef = useRef(null)
   const streamRef = useRef(null)
   const fileRef = useRef(null)
 
-  const docType = DOC_TYPES.find(d => d.key === docKey) || DOC_TYPES[0]
+  const flow = FLOWS.find(f => f.key === flowKey) || FLOWS[0]
+  const step = flow.steps[stepIdx] || flow.steps[0]
+  const nextStep = flow.steps[stepIdx + 1] || null
+  const docType = { scan: flow.scan, side: step.side, aspect: step.aspect, label: stepLabel(flow, step) }
 
   function stopCamera() {
     if (streamRef.current) {
@@ -90,13 +121,15 @@ export default function AdminDocUploadModal({ userId, bookingId, onClose, onUplo
   function capture() {
     const v = videoRef.current
     if (!v || !v.videoWidth) return
+    // Ořízneme na vodící rámeček → uloží se jen doklad, ne pozadí.
+    const { sx, sy, sw, sh } = cropRectForGuide(v.videoWidth, v.videoHeight, docType.aspect)
     const maxW = 1600
-    const scale = Math.min(1, maxW / v.videoWidth)
-    const w = Math.round(v.videoWidth * scale)
-    const h = Math.round(v.videoHeight * scale)
+    const scale = Math.min(1, maxW / sw)
+    const w = Math.round(sw * scale)
+    const h = Math.round(sh * scale)
     const c = document.createElement('canvas')
     c.width = w; c.height = h
-    c.getContext('2d').drawImage(v, 0, 0, w, h)
+    c.getContext('2d').drawImage(v, sx, sy, sw, sh, 0, 0, w, h)
     setImageData(c.toDataURL('image/jpeg', 0.85))
     // Kameru ZÁMĚRNĚ nezastavujeme – stream běží dál (camState zůstává 'on'),
     // aby šlo po uložení plynule pokračovat na další stranu dokladu bez nového
@@ -119,6 +152,13 @@ export default function AdminDocUploadModal({ userId, bookingId, onClose, onUplo
     setImageData(null)
     setResult(null)
     setError(null)
+  }
+
+  function selectFlow(key) {
+    if (busy) return
+    setFlowKey(key)
+    setStepIdx(0)
+    retake()
   }
 
   async function applyOcrToProfile(scanType, fields) {
@@ -171,16 +211,19 @@ export default function AdminDocUploadModal({ userId, bookingId, onClose, onUplo
       if (saveErr) throw saveErr
       if (saveRes && saveRes.success === false) throw new Error(saveRes.error || 'Uložení selhalo')
 
-      const next = docType.next ? DOC_TYPES.find(d => d.key === docType.next) : null
-      setResult({ ocr: ocrStatus, fields, label: docType.label, nextLabel: next?.label || null })
+      setResult({ ocr: ocrStatus, fields, label: docType.label, nextLabel: nextStep ? stepLabel(flow, nextStep) : null })
       setImageData(null)
-      if (next) {
-        // Plynulé pokračování: přepneme na další stranu dokladu. Kamera (pokud
-        // běží) zůstává zapnutá, takže uživatel rovnou fotí, bez dalších kliků.
-        setDocKey(next.key)
+      if (nextStep) {
+        // Plynulé pokračování v rámci jednoho dokladu: přepneme na další stranu.
+        // Kamera (pokud běží) zůstává zapnutá, takže uživatel rovnou fotí rub,
+        // bez dalších kliků a bez nového getUserMedia.
+        setStepIdx(stepIdx + 1)
       } else {
+        // Doklad je kompletní – flow končí, kameru vypneme a vrátíme na začátek
+        // (uživatel může vybrat další doklad, např. ŘP po OP).
         stopCamera()
         setCamState('idle')
+        setStepIdx(0)
       }
       if (onUploaded) await onUploaded()
     } catch (e) {
@@ -208,21 +251,28 @@ export default function AdminDocUploadModal({ userId, bookingId, onClose, onUplo
       )}
 
       <div className="mb-3">
-        <div className="text-xs font-extrabold uppercase tracking-wide mb-1" style={{ color: '#5a6b63' }}>Typ dokladu</div>
+        <div className="text-xs font-extrabold uppercase tracking-wide mb-1" style={{ color: '#5a6b63' }}>Doklad</div>
         <div className="flex flex-wrap gap-2">
-          {DOC_TYPES.map(d => (
-            <button key={d.key} onClick={() => { setDocKey(d.key); retake() }}
+          {FLOWS.map(f => (
+            <button key={f.key} onClick={() => selectFlow(f.key)} disabled={busy}
               className="rounded-btn text-sm font-bold cursor-pointer"
               style={{
                 padding: '6px 12px', border: 'none',
-                background: docKey === d.key ? '#74FB71' : '#f1faf7',
+                background: flowKey === f.key ? '#74FB71' : '#f1faf7',
                 color: '#1a2e22',
-                boxShadow: docKey === d.key ? '0 4px 16px rgba(116,251,113,.35)' : 'none',
+                boxShadow: flowKey === f.key ? '0 4px 16px rgba(116,251,113,.35)' : 'none',
+                opacity: busy ? .6 : 1,
               }}>
-              {d.label}
+              {f.label}
             </button>
           ))}
         </div>
+        {flow.steps.length > 1 && (
+          <div className="text-xs mt-2" style={{ color: '#5a6b63' }}>
+            Krok {stepIdx + 1} / {flow.steps.length}: <strong>{step.label}</strong>
+            {' · '}vyfotíte obě strany v jednom kroku za sebou.
+          </div>
+        )}
       </div>
 
       {/* Náhled pořízené fotky */}
@@ -247,7 +297,8 @@ export default function AdminDocUploadModal({ userId, bookingId, onClose, onUplo
                 <div style={{ position: 'relative', maxWidth: '100%', lineHeight: 0 }}>
                   <video ref={videoRef} playsInline muted autoPlay
                     style={{ display: 'block', maxWidth: '100%', maxHeight: 360, borderRadius: 4 }} />
-                  {/* Vodící rámeček ve tvaru dokladu – pomáhá se zarovnáním a ostřením */}
+                  {/* Vodící rámeček ve tvaru dokladu – pomáhá se zarovnáním a ostřením.
+                      Snímek se po vyfocení ořízne přesně na tento rámeček (cropRectForGuide). */}
                   <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
                     <div style={{
                       width: '88%',
@@ -272,25 +323,27 @@ export default function AdminDocUploadModal({ userId, bookingId, onClose, onUplo
           ) : (
             <div className="p-4 rounded-lg text-center" style={{ background: '#f1faf7', border: '1px dashed #b6dccb' }}>
               <div className="text-sm mb-3" style={{ color: '#1a2e22' }}>
-                Vyfoťte doklad fotoaparátem zařízení nebo nahrajte fotku ze souborů.
+                Vyfoťte <strong>{docType.label}</strong> fotoaparátem zařízení, nebo nahrajte fotku z úložiště (galerie).
               </div>
               {camState === 'denied' && (
                 <div className="text-xs mb-3" style={{ color: '#b45309' }}>
-                  ⚠️ Přístup k fotoaparátu byl odmítnut. Povolte kameru v nastavení prohlížeče, nebo použijte nahrání ze zařízení.
+                  ⚠️ Přístup k fotoaparátu byl odmítnut. Povolte kameru v nastavení prohlížeče, nebo použijte nahrání z úložiště.
                 </div>
               )}
               {camState === 'unavailable' && (
                 <div className="text-xs mb-3" style={{ color: '#b45309' }}>
-                  ⚠️ Fotoaparát není dostupný (potřeba HTTPS / podporovaný prohlížeč). Použijte nahrání ze zařízení.
+                  ⚠️ Fotoaparát není dostupný (potřeba HTTPS / podporovaný prohlížeč). Použijte nahrání z úložiště.
                 </div>
               )}
               <div className="flex justify-center gap-3 flex-wrap">
                 <Button green onClick={startCamera} disabled={camState === 'starting'}>
                   {camState === 'starting' ? 'Spouštím kameru…' : '📷 Zapnout fotoaparát'}
                 </Button>
-                <Button onClick={() => fileRef.current?.click()}>📁 Nahrát ze zařízení</Button>
+                <Button onClick={() => fileRef.current?.click()}>📁 Nahrát z úložiště</Button>
               </div>
-              <input ref={fileRef} type="file" accept="image/*" capture="environment"
+              {/* Bez atributu `capture` → na mobilu se otevře výběr z galerie/souborů,
+                  ne přímo kamera (focení řeší samostatné tlačítko „Zapnout fotoaparát"). */}
+              <input ref={fileRef} type="file" accept="image/*"
                 onChange={onFilePick} style={{ display: 'none' }} />
             </div>
           )}
