@@ -84,6 +84,7 @@ return [
     'footer.terms' => 'Términos y condiciones',
     'footer.contract' => 'Contrato de alquiler',
     'footer.partners' => 'Para socios',
+    'footer.partnersTitle' => 'Socios',
     'footer.toTop' => 'ARRIBA',
     'footer.iconPhone' => 'Teléfono',
     'footer.iconEmail' => 'Correo',

@@ -142,6 +142,10 @@ function renderFooter() {
             '<div class="dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/provozni-doba.svg" alt="' . te('footer.iconHours') . '" class="icon-small" loading="lazy" width="20" height="20"></div><div><p>' . preg_replace('/\)\s+(?=\S)/', ')<br>', tc('footer.openHours'), 1) . '</p></div></div>' .
         '</div>' .
     '</div></div>' .
+    '<div class="footer-partners"><div class="container">' .
+        '<span class="footer-partners-label">' . tc('footer.partnersTitle') . '</span>' .
+        '<a class="footer-partner" href="https://www.kudyznudy.cz/" target="_blank" rel="noopener" aria-label="Kudy z nudy"><img src="' . BASE_URL . '/gfx/partneri/kudyznudy.svg" alt="Kudy z nudy" loading="lazy" width="200" height="100"></a>' .
+    '</div></div>' .
     '<div class="copyright"><div class="container">' .
         '<p>' . tc('footer.copyright') . '</p>' .
         '<p><a href="' . BASE_URL . '/mapa-stranek">' . tc('footer.sitemap') . '</a><a href="#" data-cookie-prefs>' . tc('footer.cookies') . '</a><a href="' . BASE_URL . '/dokumenty/zasady-ochrany-osobnich-udaju">' . tc('footer.gdpr') . '</a><a href="' . BASE_URL . '/dokumenty/obchodni-podminky">' . tc('footer.terms') . '</a><a href="' . BASE_URL . '/dokumenty/smlouva-o-pronajmu">' . tc('footer.contract') . '</a><a href="' . BASE_URL . '/partneri">' . tc('footer.partners') . '</a></p>' .

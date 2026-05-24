@@ -79,6 +79,7 @@ return [
     'footer.terms' => 'Algemene voorwaarden',
     'footer.contract' => 'Huurovereenkomst',
     'footer.partners' => 'Voor partners',
+    'footer.partnersTitle' => 'Partners',
     'footer.toTop' => 'NAAR BOVEN',
     'footer.iconPhone' => 'Telefoon',
     'footer.iconEmail' => 'E-mail',

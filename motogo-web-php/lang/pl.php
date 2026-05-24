@@ -79,6 +79,7 @@ return [
     'footer.terms' => 'Warunki handlowe',
     'footer.contract' => 'Umowa najmu',
     'footer.partners' => 'Dla partnerów',
+    'footer.partnersTitle' => 'Partnerzy',
     'footer.toTop' => 'DO GÓRY',
     'footer.iconPhone' => 'Telefon',
     'footer.iconEmail' => 'E-mail',

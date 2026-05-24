@@ -56,3 +56,5 @@ p>.btn:last-child{margin-bottom:0}
         margin-top: 0.15em;
     }
 }
+
+.footer-partners{border-top:1px solid #2a4e3a;padding:1.1rem 0;margin-top:2rem}.footer-partners .container{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:.6rem 1.25rem}.footer-partners-label{font-size:.8rem;color:#8aab99;text-transform:uppercase;letter-spacing:.5px}.footer-partner{display:inline-flex;align-items:center;opacity:.85;transition:opacity .2s}.footer-partner:hover{opacity:1}.footer-partner img{width:auto;height:54px;border-radius:8px;background:#fff}.footer-partners+.copyright{border-top:0;margin-top:0}

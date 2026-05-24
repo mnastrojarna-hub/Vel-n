@@ -85,6 +85,7 @@ return [
     'footer.terms' => 'Obchodní podmínky',
     'footer.contract' => 'Smlouva o pronájmu',
     'footer.partners' => 'Pro partnery',
+    'footer.partnersTitle' => 'Partneři',
     'footer.toTop' => 'NAHORU',
     'footer.iconPhone' => 'Telefon',
     'footer.iconEmail' => 'E-mail',
