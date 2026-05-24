@@ -83,6 +83,7 @@ return [
     'footer.terms' => 'Geschäftsbedingungen',
     'footer.contract' => 'Mietvertrag',
     'footer.partners' => 'Für Partner',
+    'footer.partnersTitle' => 'Partner',
     'footer.toTop' => 'NACH OBEN',
     'footer.iconPhone' => 'Telefon',
     'footer.iconEmail' => 'E-Mail',

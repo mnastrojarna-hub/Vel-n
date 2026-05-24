@@ -83,6 +83,7 @@ return [
     'footer.terms' => 'Terms and conditions',
     'footer.contract' => 'Rental agreement',
     'footer.partners' => 'For partners',
+    'footer.partnersTitle' => 'Partners',
     'footer.toTop' => 'TO TOP',
     'footer.iconPhone' => 'Phone',
     'footer.iconEmail' => 'E-mail',
