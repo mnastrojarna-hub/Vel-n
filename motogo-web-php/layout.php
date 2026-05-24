@@ -144,7 +144,7 @@ function renderFooter() {
     '</div></div>' .
     '<div class="footer-partners"><div class="container">' .
         '<span class="footer-partners-label">' . tc('footer.partnersTitle') . '</span>' .
-        '<a class="footer-partner" href="https://www.kudyznudy.cz/" target="_blank" rel="noopener" aria-label="Kudy z nudy"><img src="' . BASE_URL . '/gfx/partneri/kudyznudy.svg" alt="Kudy z nudy" loading="lazy" width="200" height="100"></a>' .
+        '<a class="footer-partner" href="https://www.kudyznudy.cz/?utm_source=kzn&amp;utm_medium=partneri_kzn&amp;utm_campaign=banner" target="_blank" rel="noopener" aria-label="Kudy z nudy"><img src="https://www.kudyznudy.cz/getmedia/e258ea1e-6a92-4443-940f-fdafe8da106e/1012102023-online-bannery-hq-180x150.jpg.aspx" alt="Kudyznudy.cz – nejlepší začátek výletu" loading="lazy" width="180" height="150"></a>' .
     '</div></div>' .
     '<div class="copyright"><div class="container">' .
         '<p>' . tc('footer.copyright') . '</p>' .
