@@ -275,9 +275,9 @@ serve(async (req) => {
       company_bank: 'mBank',
       company_account: '670100-2225851630/6210',
       // Time & period — start_time = pickup_time, end_time = return_time
-      // (return_time je NULL pokud zákazník vrací v půjčovně, default UI 19:00)
+      // (return_time je NULL pokud zákazník vrací v půjčovně → smlouva platí do konce dne 24:00)
       start_time: booking.pickup_time || '10:00',
-      end_time: booking.return_time || '19:00',
+      end_time: booking.return_time || '24:00',
       rental_period: days === 1 ? '1 den' : days < 5 ? `${days} dny` : `${days} dní`,
       // Price in words
       total_price_words: numberToWordsCZ(booking.total_price || 0),
