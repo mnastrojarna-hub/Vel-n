@@ -68,16 +68,25 @@ export default function ActiveServiceTab({ onRefresh }) {
         }
       }
 
-      // Stuck motos: open logs but moto is active (shouldn't happen but handle gracefully)
-      const stuckMotoMap = {}
+      // Otevřené logy na motorce se statusem 'active' (není v maintenance ani unavailable).
+      // Budoucí naplánovaný servis (service_date > dnes) je NORMÁLNÍ stav — log je 'pending'
+      // a motorka jezdí dál až do dne servisu. Takový NEoznačuj jako „stuck"/aktivní.
+      // „Stuck" = servis měl běžet už dnes (service_date <= dnes), ale motorka je pořád
+      // active → vyžaduje pozornost.
+      const todayStr = toDateStr(new Date())
+      const activeWithLogsMap = {}
       for (const l of openLogs) {
         if (l.moto_id && !maintenanceIds.has(l.moto_id) && !unavailableIds.has(l.moto_id) && l.motorcycles) {
-          stuckMotoMap[l.moto_id] = { ...l.motorcycles, _stuck: true }
+          if (!activeWithLogsMap[l.moto_id]) activeWithLogsMap[l.moto_id] = { moto: l.motorcycles, dates: [] }
+          activeWithLogsMap[l.moto_id].dates.push(l.service_date || l.created_at?.slice(0, 10))
         }
       }
-      const stuckMotos = Object.values(stuckMotoMap)
+      const activeWithLogs = Object.values(activeWithLogsMap).map(({ moto, dates }) => {
+        const shouldBeRunning = dates.some(d => d && d <= todayStr)
+        return { ...moto, _stuck: shouldBeRunning }
+      })
 
-      setMotos([...maintenanceMotos, ...unavailableWithLogs, ...stuckMotos])
+      setMotos([...maintenanceMotos, ...unavailableWithLogs, ...activeWithLogs])
       setLogs(openLogs)
     } catch (e) { debugError('activeService.load', 'ActiveServiceTab', e) }
     finally { setLoading(false) }
