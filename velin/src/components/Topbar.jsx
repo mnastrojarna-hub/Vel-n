@@ -80,21 +80,20 @@ export default function Topbar() {
 
   return (
     <div
-      className="flex items-center justify-between shrink-0"
+      className="flex items-center justify-between shrink-0 px-4 md:px-7 py-3"
       style={{
-        padding: '12px 28px',
         height: 60,
         background: '#ffffff',
         borderBottom: '2px solid #1a2e22',
       }}
     >
-      <div className="flex items-center gap-3">
-        <div className="w-8 md:hidden" />
-        <h1 className="m-0 text-xl font-black" style={{ color: '#0f1a14' }}>
+      <div className="flex items-center gap-3 min-w-0">
+        <div className="w-8 md:hidden shrink-0" />
+        <h1 className="m-0 text-lg md:text-xl font-black truncate" style={{ color: '#0f1a14' }}>
           {label}
         </h1>
       </div>
-      <div className="flex items-center gap-5">
+      <div className="flex items-center gap-3 md:gap-5 shrink-0">
         <div className="text-sm font-semibold hidden sm:block" style={{ color: '#1a2e22' }}>
           {time.toLocaleDateString('cs-CZ', {
             weekday: 'long',

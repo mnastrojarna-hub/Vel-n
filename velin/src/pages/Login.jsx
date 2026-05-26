@@ -163,12 +163,12 @@ export default function Login({ user, onSignIn }) {
 
   return (
     <div
-      className="flex items-center justify-center min-h-screen font-montserrat"
+      className="flex items-center justify-center min-h-screen font-montserrat p-4"
       style={{ background: '#dff0ec' }}
     >
       <div
-        className="bg-white rounded-card shadow-card w-full"
-        style={{ maxWidth: 400, padding: '48px 40px' }}
+        className="bg-white rounded-card shadow-card w-full px-6 py-10 sm:px-10 sm:py-12"
+        style={{ maxWidth: 400 }}
       >
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">

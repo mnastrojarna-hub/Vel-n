@@ -11,18 +11,17 @@ export default function Modal({ open, onClose, title, children, wide = false, no
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
+      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4"
       style={{ background: 'rgba(15,26,20,.45)' }}
       onClick={noBackdropClose ? undefined : onClose}
     >
       <div
-        className="bg-white rounded-card shadow-card relative"
+        className="bg-white rounded-card shadow-card relative p-4 sm:p-7"
         style={{
           width: wide ? 720 : 520,
-          maxWidth: '95vw',
-          maxHeight: '90vh',
+          maxWidth: '100%',
+          maxHeight: '92vh',
           overflow: 'auto',
-          padding: 28,
         }}
         onClick={e => e.stopPropagation()}
       >

@@ -1,6 +1,6 @@
 export function Table({ children, className = '' }) {
   return (
-    <div className={`bg-white rounded-card shadow-card overflow-hidden ${className}`}>
+    <div className={`bg-white rounded-card shadow-card overflow-x-auto ${className}`}>
       <table className="w-full border-collapse">{children}</table>
     </div>
   )

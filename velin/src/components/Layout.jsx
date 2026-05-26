@@ -9,7 +9,7 @@ export default function Layout({ admin, onSignOut }) {
       <Sidebar admin={admin} onSignOut={onSignOut} />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Topbar />
-        <div className="flex-1 overflow-y-auto" style={{ padding: 24, paddingBottom: 60 }}>
+        <div className="flex-1 overflow-y-auto p-3 md:p-6" style={{ paddingBottom: 60 }}>
           <Outlet />
         </div>
       </div>
