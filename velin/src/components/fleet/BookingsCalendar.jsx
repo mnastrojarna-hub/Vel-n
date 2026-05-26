@@ -27,7 +27,6 @@ function sameDay(a, b) { return a && b && isoDate(a) === isoDate(b) }
 export default function BookingsCalendar({ motoId, onSwitchTab }) {
   const [bookings, setBookings] = useState([])
   const [maintenance, setMaintenance] = useState([])
-  const [serviceOrders, setServiceOrders] = useState([])
   const [month, setMonth] = useState(new Date())
   const [loading, setLoading] = useState(true)
   const [showAddBooking, setShowAddBooking] = useState(false)
@@ -44,25 +43,23 @@ export default function BookingsCalendar({ motoId, onSwitchTab }) {
     const startStr = start.toISOString().split('T')[0]
     const endStr = end.toISOString().split('T')[0]
 
-    const [bRes, mRes, soRes] = await Promise.all([
+    const [bRes, mRes] = await Promise.all([
       supabase.from('bookings')
         .select('id, start_date, end_date, status, user_id, profiles(full_name), total_price')
         .eq('moto_id', motoId)
         .in('status', ['pending', 'active', 'reserved', 'completed'])
         .gte('end_date', startStr).lte('start_date', endStr),
+      // Servis blokuje POUZE rozsah service_date → scheduled_date. Nefiltrujeme
+      // přes created_at (datum založení záznamu), jinak by se servis naplánovaný
+      // na budoucí den označil červeně už ode dneška.
       supabase.from('maintenance_log')
         .select('id, created_at, type, service_type, description, service_date, scheduled_date, completed_date, km_at_service, performed_by, cost, status, items')
         .eq('moto_id', motoId)
-        .or(`service_date.gte.${startStr},created_at.gte.${startStr}`)
-        .or(`service_date.lte.${endStr},created_at.lte.${endStr}T23:59:59`),
-      supabase.from('service_orders')
-        .select('id, created_at, type, status, notes')
-        .eq('moto_id', motoId)
-        .gte('created_at', startStr).lte('created_at', endStr + 'T23:59:59'),
+        .lte('service_date', endStr)
+        .or(`scheduled_date.gte.${startStr},and(scheduled_date.is.null,service_date.gte.${startStr})`),
     ])
     setBookings(bRes.data || [])
     setMaintenance(mRes.data || [])
-    setServiceOrders(soRes.data || [])
     setLoading(false)
   }
 
@@ -76,16 +73,18 @@ export default function BookingsCalendar({ motoId, onSwitchTab }) {
     const dateStr = `${year}-${String(mon + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
     const isPast = dateStr < todayStr
 
-    // Service / maintenance check (red) — show on service_date range
+    // Service / maintenance check (red) — POUZE rozsah service_date → scheduled_date.
+    // Žádný fallback na created_at: servis na konkrétní den/rozpětí se značí jen tam,
+    // ne ode dne založení záznamu.
     const mLog = maintenance.find(m => {
-      const sd = (m.service_date || m.created_at)?.slice(0, 10)
+      const sd = m.service_date?.slice(0, 10)
+      if (!sd) return false
       const ed = m.scheduled_date?.slice(0, 10) || sd
-      return sd && dateStr >= sd && dateStr <= ed
+      return dateStr >= sd && dateStr <= ed
     })
-    const serviceOrder = serviceOrders.find(s => s.created_at?.slice(0, 10) === dateStr)
-    if (mLog || serviceOrder) {
+    if (mLog) {
       const sType = { regular: 'Pravidelný', extraordinary: 'Mimořádný', repair: 'Oprava' }
-      const serviceLabel = (mLog && (sType[mLog.service_type] || mLog.service_type)) || serviceOrder?.type || 'Servis'
+      const serviceLabel = sType[mLog.service_type] || mLog.service_type || 'Servis'
       return { type: 'service', bg: '#dc2626', color: '#fff', label: serviceLabel, log: mLog }
     }
 

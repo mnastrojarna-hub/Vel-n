@@ -261,7 +261,9 @@ export default function ServiceTab({ motoId, motoMileage, purchaseMileage, track
           <div className="space-y-3">
             {logs.map(l => {
               const fmtDate = d => d ? new Date(d).toLocaleDateString('cs-CZ') : null
-              const startDate = fmtDate(l.scheduled_date) || fmtDate(l.created_at)
+              // „Do servisu" = začátek servisu = service_date (ne scheduled_date,
+              // což je plánované dokončení). Fallback na created_at pro legacy záznamy.
+              const startDate = fmtDate(l.service_date) || fmtDate(l.created_at)
               const endDate = fmtDate(l.completed_date)
               const km = l.km_at_service || l.mileage_at_service
               const isCompleted = !!l.completed_date || l.status === 'completed'

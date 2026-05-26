@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import Button from '../../components/ui/Button'
-import { RECURRING_INTERVALS, WEEKDAYS } from './scheduleConstants'
+import { RECURRING_INTERVALS, WEEKDAYS, INSPECTION_ITEMS } from './scheduleConstants'
 
 /* ═══ Pravidelný servis / kontrola ═══ */
 export function RecurringForm({ motos, branches = [], onBack, onDone }) {
@@ -94,8 +94,6 @@ export function RecurringForm({ motos, branches = [], onBack, onDone }) {
 
 /* ═══ Inspection checklist (shared) ═══ */
 export function InspectionChecklist({ checks, setChecks }) {
-  // Import INSPECTION_ITEMS inline to avoid circular deps
-  const { INSPECTION_ITEMS } = require('./scheduleConstants')
   return (
     <div>
       <div className="text-xs font-bold mb-1" style={{ color: '#1a2e22' }}>Co zkontrolovat</div>
