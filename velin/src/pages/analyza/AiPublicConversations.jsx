@@ -165,7 +165,7 @@ export default function AiPublicConversations() {
           Žádné konverzace pro toto období / filtr.
         </div>
       ) : (
-        <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #e3e8e5', overflow: 'hidden' }}>
+        <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #e3e8e5', overflowX: 'auto' }}>
           <table style={{ width: '100%', fontSize: 13, borderCollapse: 'collapse' }}>
             <thead style={{ background: '#f1faf7' }}>
               <tr style={{ textAlign: 'left' }}>

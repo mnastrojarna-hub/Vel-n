@@ -188,6 +188,7 @@ export default function DoporuceniLokaci() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <div className="text-xs font-bold mb-2" style={{ color: '#888' }}>Doporučená flotila ({calcResult.fleet.reduce((s, f) => s + f.n, 0)} motorek)</div>
+                  <div className="overflow-x-auto">
                   <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
                     <thead><tr style={{ borderBottom: '2px solid #e5e7eb' }}><th className="text-left font-bold py-1 px-2" style={{ color: '#1a2e22' }}>Kategorie</th><th className="text-left font-bold py-1 px-2" style={{ color: '#1a2e22' }}>Ks</th><th className="text-left font-bold py-1 px-2" style={{ color: '#1a2e22' }}>Rev/ks/rok</th><th className="text-left font-bold py-1 px-2" style={{ color: '#1a2e22' }}>Zisk/ks/rok</th></tr></thead>
                     <tbody>
@@ -201,6 +202,7 @@ export default function DoporuceniLokaci() {
                       ))}
                     </tbody>
                   </table>
+                  </div>
                 </div>
                 <div>
                   <div className="text-xs font-bold mb-2" style={{ color: '#888' }}>Klíčové riziko</div>

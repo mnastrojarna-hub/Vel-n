@@ -234,6 +234,7 @@ export default function AiTraffic() {
         {partners.length === 0 ? (
           <p style={{ color: '#888', fontSize: 13 }}>Žádní partneři. Klíč vytvoříš tlačítkem nahoře nebo přes RPC <code>create_api_key()</code>.</p>
         ) : (
+          <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
               <tr style={{ borderBottom: '1px solid #e3e8e5', textAlign: 'left' }}>
@@ -276,6 +277,7 @@ export default function AiTraffic() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 
@@ -318,6 +320,7 @@ export default function AiTraffic() {
         {citations.length === 0 ? (
           <p style={{ color: '#888', fontSize: 13, marginTop: 10 }}>Žádné záznamy. Když najdeš zmínku MotoGo24 v AI odpovědi, ulož ji pro tracking trendů.</p>
         ) : (
+          <div className="overflow-x-auto">
           <table className="w-full text-xs mt-3">
             <thead>
               <tr style={{ borderBottom: '1px solid #e3e8e5', textAlign: 'left' }}>
@@ -343,6 +346,7 @@ export default function AiTraffic() {
               })}
             </tbody>
           </table>
+          </div>
         )}
       </div>
     </div>

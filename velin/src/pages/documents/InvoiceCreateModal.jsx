@@ -209,7 +209,7 @@ export default function InvoiceCreateModal({ onClose, onSaved, prefillBooking })
         {/* Items */}
         <div>
           <Label>Položky faktury</Label>
-          <div className="rounded-lg overflow-hidden" style={{ border: '1px solid #d4e8e0' }}>
+          <div className="rounded-lg overflow-x-auto" style={{ border: '1px solid #d4e8e0' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
               <thead>
                 <tr style={{ background: '#f1faf7' }}>
