@@ -66,27 +66,34 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
     setBusy(true); setError(null)
     try {
       const today = new Date().toISOString().slice(0, 10)
-      const { data: active } = await supabase.from('bookings').select('id, status').eq('moto_id', moto.id).eq('status', 'active').gte('end_date', today)
-      if (active?.length > 0) {
-        if (!window.confirm(`Motorka má ${active.length} aktivní pronájem. Stornovat?`)) { setBusy(false); return }
-        for (const b of active) await supabase.from('bookings').update({ status: 'cancelled', notes: 'Motorka do servisu' }).eq('id', b.id)
+      const serviceStart = serviceDateFrom || today
+      // Servis naplánovaný na budoucí den NESMÍ motorku vyřadit už dnes — status
+      // na 'maintenance' a stornování aktuálních pronájmů řešíme jen když servis
+      // začíná dnes (nebo dříve). Záznam je pak 'pending' až do dne servisu.
+      const isFuture = serviceStart > today
+      if (!isFuture) {
+        const { data: active } = await supabase.from('bookings').select('id, status').eq('moto_id', moto.id).eq('status', 'active').gte('end_date', today)
+        if (active?.length > 0) {
+          if (!window.confirm(`Motorka má ${active.length} aktivní pronájem. Stornovat?`)) { setBusy(false); return }
+          for (const b of active) await supabase.from('bookings').update({ status: 'cancelled', notes: 'Motorka do servisu' }).eq('id', b.id)
+        }
       }
-      const { data: future } = await supabase.from('bookings').select('id, start_date, end_date').eq('moto_id', moto.id).eq('status', 'reserved').gte('end_date', today).order('start_date').limit(5)
+      const { data: future } = await supabase.from('bookings').select('id, start_date, end_date').eq('moto_id', moto.id).eq('status', 'reserved').gte('end_date', serviceStart).order('start_date').limit(5)
       if (future?.length > 0) {
         const lines = future.map(b => `  ${new Date(b.start_date).toLocaleDateString('cs-CZ')} – ${new Date(b.end_date).toLocaleDateString('cs-CZ')}`).join('\n')
         window.alert(`Upozornění — budoucí rezervace (${future.length}):\n${lines}\nMotorka musí být ze servisu zpět včas.`)
       }
-      await supabase.from('motorcycles').update({ status: 'maintenance' }).eq('id', moto.id)
+      if (!isFuture) await supabase.from('motorcycles').update({ status: 'maintenance' }).eq('id', moto.id)
       const { data: logData, error: logErr } = await supabase.from('maintenance_log').insert({
         moto_id: moto.id, description: fullDescription, service_type: 'extraordinary',
-        service_date: serviceDateFrom || today, scheduled_date: serviceDateTo || serviceDateFrom || today,
-        km_at_service: Number(moto.mileage) || null, status: 'in_service', is_urgent: isUrgent,
+        service_date: serviceStart, scheduled_date: serviceDateTo || serviceStart,
+        km_at_service: Number(moto.mileage) || null, status: isFuture ? 'pending' : 'in_service', is_urgent: isUrgent,
         items: selectedLabels.map(label => ({ label, done: false, note: '' })),
       }).select('id').single()
       if (logErr) setError(`Záznam: ${logErr.message}`)
       await supabase.from('service_orders').insert({
         moto_id: moto.id, type: fullDescription, notes: selectedLabels.join(', '),
-        status: 'in_service', maintenance_log_id: logData?.id,
+        status: isFuture ? 'pending' : 'in_service', maintenance_log_id: logData?.id,
       })
       await logAudit('motorcycle_status_changed', { moto_id: moto.id, to_status: 'maintenance', is_urgent: isUrgent, checklist: selected })
 
