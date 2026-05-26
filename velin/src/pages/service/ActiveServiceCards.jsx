@@ -41,7 +41,9 @@ export function MotoCard({ m, logs: mLogs, expanded, setExpanded, onAction, onRe
             </span>
           )}
         </div>
-        <StatusBadge status={isStuck ? m.status : 'maintenance'} />
+        {upcoming
+          ? <span className="text-xs font-bold px-2 py-0.5 rounded" style={{ background: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0' }}>Naplánováno</span>
+          : <StatusBadge status={isStuck ? m.status : 'maintenance'} />}
         {mLogs.length > 0 && <span className="text-sm font-bold" style={{ color: '#b45309' }}>{mLogs.length} záznam{mLogs.length > 1 ? 'y' : ''}</span>}
         <button onClick={e => { e.stopPropagation(); onAction(m) }}
           className="rounded-btn text-sm font-extrabold uppercase cursor-pointer"
