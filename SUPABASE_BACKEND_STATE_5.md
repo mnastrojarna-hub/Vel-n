@@ -292,6 +292,7 @@ Strukturované oficiální podmínky půjčovny pro AI public agent (`get_polici
 - `invoices.order_id` → `shop_orders.id`
 - `vouchers.order_id` → `shop_orders.id`
 - `shop_orders.customer_id` → `profiles.id`
+- `booking_complaints.customer_id` → `profiles.id` (**ON DELETE SET NULL** — změněno 2026-05-27 z `NO ACTION`, jinak zákazník s reklamací nešel smazat a `delete_customer_account` padala na FK)
 - `shop_order_items.order_id` → `shop_orders.id`
 - `motorcycles.branch_id` → `branches.id`
 - `moto_day_prices.moto_id` → `motorcycles.id`

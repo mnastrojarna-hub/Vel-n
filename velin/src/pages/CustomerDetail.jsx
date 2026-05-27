@@ -90,6 +90,18 @@ export default function CustomerDetail() {
       return
     }
 
+    // Naskenované doklady zákazníka ze Storage (documents/<user_id>/). Přímý DELETE
+    // ze storage.objects v SQL blokuje trigger protect_delete, proto přes Storage API
+    // (admin má přístup přes RLS). DB řádky documents padnou kaskádou v RPC níž.
+    // Účetní soubory (invoices/…, generated/…) mají jiný prefix → zůstávají.
+    await debugAction('customer.deleteDocs', 'CustomerDetail', async () => {
+      const list = await supabase.storage.from('documents').list(id)
+      if (list?.error) return list
+      const files = list?.data || []
+      if (files.length === 0) return { data: { count: 0 } }
+      return supabase.storage.from('documents').remove(files.map(f => `${id}/${f.name}`))
+    }, { customer_id: id })
+
     // Delete profile + auth.users atomically via RPC (SECURITY DEFINER)
     const result = await debugAction('customer.delete', 'CustomerDetail', () =>
       supabase.rpc('delete_customer_account', { p_user_id: id })
@@ -108,6 +120,18 @@ export default function CustomerDetail() {
         setConfirmDelete(false)
         return
       }
+    } else if (result?.data?.error) {
+      // RPC proběhla, ale vrátila byznys-chybu uvnitř JSONB payloadu.
+      // Bez tohoto větvení admin viděl "smazáno", i když auth.users zůstal nedotčený.
+      const e = result.data.error
+      const msg = e === 'active_bookings'
+        ? `Zákazník má ${result.data.count ?? ''} aktivních/čekajících rezervací. Nejdřív je stornujte.`
+        : e === 'not_authorized'
+        ? 'Nemáte oprávnění smazat tento účet.'
+        : `Smazání selhalo: ${e}`
+      setError(msg)
+      setConfirmDelete(false)
+      return
     }
 
     await logAudit('customer_deleted', { customer_id: id })
