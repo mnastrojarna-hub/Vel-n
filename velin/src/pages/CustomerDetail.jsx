@@ -108,6 +108,18 @@ export default function CustomerDetail() {
         setConfirmDelete(false)
         return
       }
+    } else if (result?.data?.error) {
+      // RPC proběhla, ale vrátila byznys-chybu uvnitř JSONB payloadu.
+      // Bez tohoto větvení admin viděl "smazáno", i když auth.users zůstal nedotčený.
+      const e = result.data.error
+      const msg = e === 'active_bookings'
+        ? `Zákazník má ${result.data.count ?? ''} aktivních/čekajících rezervací. Nejdřív je stornujte.`
+        : e === 'not_authorized'
+        ? 'Nemáte oprávnění smazat tento účet.'
+        : `Smazání selhalo: ${e}`
+      setError(msg)
+      setConfirmDelete(false)
+      return
     }
 
     await logAudit('customer_deleted', { customer_id: id })
