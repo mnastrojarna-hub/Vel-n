@@ -90,6 +90,18 @@ export default function CustomerDetail() {
       return
     }
 
+    // Naskenované doklady zákazníka ze Storage (documents/<user_id>/). Přímý DELETE
+    // ze storage.objects v SQL blokuje trigger protect_delete, proto přes Storage API
+    // (admin má přístup přes RLS). DB řádky documents padnou kaskádou v RPC níž.
+    // Účetní soubory (invoices/…, generated/…) mají jiný prefix → zůstávají.
+    await debugAction('customer.deleteDocs', 'CustomerDetail', async () => {
+      const list = await supabase.storage.from('documents').list(id)
+      if (list?.error) return list
+      const files = list?.data || []
+      if (files.length === 0) return { data: { count: 0 } }
+      return supabase.storage.from('documents').remove(files.map(f => `${id}/${f.name}`))
+    }, { customer_id: id })
+
     // Delete profile + auth.users atomically via RPC (SECURITY DEFINER)
     const result = await debugAction('customer.delete', 'CustomerDetail', () =>
       supabase.rpc('delete_customer_account', { p_user_id: id })
