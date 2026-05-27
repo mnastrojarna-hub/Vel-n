@@ -37,18 +37,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   final _cityCtrl = TextEditingController();
   final _zipCtrl = TextEditingController();
   final _streetCtrl = TextEditingController();
-  final _dobCtrl = TextEditingController();
   final _licNumCtrl = TextEditingController();
-  final _licExpCtrl = TextEditingController();
-  final _licGroupCtrl = TextEditingController();
+  DateTime? _dob;
+  DateTime? _licExp;
+  final Set<String> _licCategories = {};
   bool _loaded = false;
   bool _personalExpanded = false;
+
+  /// Available driver-license categories offered in the picker.
+  static const _licCategoryOptions = ['AM', 'A1', 'A2', 'A', 'B'];
 
   @override
   void dispose() {
     _nameCtrl.dispose(); _phoneCtrl.dispose(); _cityCtrl.dispose();
-    _zipCtrl.dispose(); _streetCtrl.dispose(); _dobCtrl.dispose();
-    _licNumCtrl.dispose(); _licExpCtrl.dispose(); _licGroupCtrl.dispose();
+    _zipCtrl.dispose(); _streetCtrl.dispose(); _licNumCtrl.dispose();
     super.dispose();
   }
 
@@ -60,37 +62,49 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     _cityCtrl.text = profile['city'] ?? '';
     _zipCtrl.text = profile['zip'] ?? '';
     _streetCtrl.text = profile['street'] ?? '';
-    _dobCtrl.text = profile['date_of_birth'] ?? '';
     _licNumCtrl.text = profile['license_number'] ?? '';
-    _licExpCtrl.text = profile['license_expiry'] ?? '';
+    _dob = _parseDate(profile['date_of_birth']);
+    _licExp = _parseDate(profile['license_expiry']);
     final groups = profile['license_group'];
-    _licGroupCtrl.text = groups is List ? groups.join(', ') : (groups ?? '');
+    final raw = groups is List ? groups : (groups == null ? const [] : '$groups'.split(RegExp(r'[,\s]+')));
+    _licCategories
+      ..clear()
+      ..addAll(raw.map((g) => '$g'.trim().toUpperCase()).where((g) => g.isNotEmpty));
   }
+
+  /// Parses an ISO date string (yyyy-MM-dd) coming from Supabase.
+  static DateTime? _parseDate(dynamic v) {
+    if (v == null) return null;
+    final s = '$v'.trim();
+    if (s.isEmpty) return null;
+    return DateTime.tryParse(s);
+  }
+
+  String _fmtDate(DateTime? d) => d == null ? '' : '${d.day}. ${d.month}. ${d.year}';
+
+  /// ISO yyyy-MM-dd for storage in a Postgres `date` column.
+  static String _isoDate(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
   Future<void> _save() async {
     final user = MotoGoSupabase.currentUser;
     if (user == null) return;
     try {
-      // Skupina ŘP (text[]) — UI ji drží jako čárkou oddělený text. Z té se
-      // generuje smlouva a bere se z ní verifikační skupina (viz sken), takže
-      // se MUSÍ ukládat. Prázdné/datum pole posíláme jako null (ne ''), aby
-      // částečně vyplněný profil nespadl na date parse.
-      final groupTokens = _licGroupCtrl.text
-          .split(RegExp(r'[,\s]+'))
-          .map((s) => s.trim().toUpperCase())
-          .where((s) => s.isNotEmpty)
+      // Skupina ŘP (text[]) — z ní se generuje smlouva a bere se verifikační
+      // skupina (viz sken), takže se MUSÍ ukládat. Datumy posíláme jako ISO
+      // (yyyy-MM-dd) nebo null, aby Postgres `date` sloupec nespadl na parse.
+      final groupTokens = _licCategoryOptions
+          .where((c) => _licCategories.contains(c))
           .toList();
-      final dob = _dobCtrl.text.trim();
-      final licExp = _licExpCtrl.text.trim();
       await MotoGoSupabase.client.from('profiles').update({
         'full_name': _nameCtrl.text.trim(),
         'phone': _phoneCtrl.text.trim(),
         'city': _cityCtrl.text.trim(),
         'zip': _zipCtrl.text.trim(),
         'street': _streetCtrl.text.trim(),
-        'date_of_birth': dob.isEmpty ? null : dob,
+        'date_of_birth': _dob == null ? null : _isoDate(_dob!),
         'license_number': _licNumCtrl.text.trim(),
-        'license_expiry': licExp.isEmpty ? null : licExp,
+        'license_expiry': _licExp == null ? null : _isoDate(_licExp!),
         'license_group': groupTokens,
       }).eq('id', user.id);
       if (mounted) {
@@ -218,14 +232,126 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ProfileField(ctrl: _cityCtrl, label: t(context).tr('city')),
         ProfileField(ctrl: _zipCtrl, label: t(context).tr('zip')),
         ProfileField(ctrl: _streetCtrl, label: t(context).tr('streetShort')),
-        ProfileField(ctrl: _dobCtrl, label: t(context).tr('dob')),
+        _dateField(
+          label: t(context).tr('dob'),
+          value: _dob,
+          hint: t(context).tr('selectDob'),
+          onTap: () => _pickDob(),
+        ),
         ProfileField(ctrl: _licNumCtrl, label: t(context).tr('licenseNumberFull')),
-        ProfileField(ctrl: _licExpCtrl, label: t(context).tr('licenseExpiry')),
-        ProfileField(ctrl: _licGroupCtrl, label: t(context).tr('licenseCategory')),
+        _dateField(
+          label: t(context).tr('licenseExpiry'),
+          value: _licExp,
+          hint: t(context).tr('selectLicenseExpiry'),
+          onTap: () => _pickLicenseExpiry(),
+        ),
+        _categoryPicker(),
         const SizedBox(height: 8),
         ElevatedButton.icon(onPressed: _save, style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(44)), icon: const Icon(Icons.save, size: 16), label: Text(t(context).tr('saveChanges'))),
       ]),
     );
+  }
+
+  /// Read-only field that opens a branded calendar picker on tap.
+  Widget _dateField({
+    required String label,
+    required DateTime? value,
+    required String hint,
+    required VoidCallback onTap,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: GestureDetector(
+        onTap: onTap,
+        child: InputDecorator(
+          decoration: InputDecoration(
+            labelText: label,
+            suffixIcon: const Icon(Icons.calendar_today, size: 18, color: MotoGoColors.g400),
+          ),
+          child: Text(
+            value != null ? _fmtDate(value) : hint,
+            style: TextStyle(
+              fontSize: 14,
+              color: value != null ? MotoGoColors.black : MotoGoColors.g500,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Multi-select chips for the driver-license categories (stored as text[]).
+  Widget _categoryPicker() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8, top: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(t(context).tr('licenseCategory'),
+              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: MotoGoColors.g400)),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _licCategoryOptions.map((cat) {
+              final selected = _licCategories.contains(cat);
+              return GestureDetector(
+                onTap: () => setState(() {
+                  if (selected) {
+                    _licCategories.remove(cat);
+                  } else {
+                    _licCategories.add(cat);
+                  }
+                }),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+                  decoration: BoxDecoration(
+                    color: selected ? MotoGoColors.greenDarker : MotoGoColors.greenPale,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: selected ? MotoGoColors.greenDarker : MotoGoColors.g200,
+                      width: 1.5,
+                    ),
+                  ),
+                  child: Text(
+                    cat,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: selected ? FontWeight.w900 : FontWeight.w700,
+                      color: selected ? Colors.white : MotoGoColors.black,
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _pickDob() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _dob ?? DateTime(now.year - 25),
+      firstDate: DateTime(1930),
+      lastDate: now,
+      locale: const Locale('cs'),
+    );
+    if (picked != null) setState(() => _dob = picked);
+  }
+
+  Future<void> _pickLicenseExpiry() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _licExp ?? now.add(const Duration(days: 365)),
+      firstDate: now,
+      lastDate: DateTime(2040),
+      locale: const Locale('cs'),
+    );
+    if (picked != null) setState(() => _licExp = picked);
   }
 
   void _showBranches(BuildContext context) => showBranchesSheet(context);
