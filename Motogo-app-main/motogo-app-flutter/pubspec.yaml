@@ -82,6 +82,15 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^3.0.1
 
+# app_links 7.x přešlo na build.gradle.kts, které na zdejším AGP padá
+# (DefaultAndroidSourceSet_Decorated cannot be cast to AndroidLibrarySourceSet).
+# Bez commitnutého pubspec.lock se app_links rozjede na nejnovější (7.1.0).
+# Připínáme poslední 6.x — má android `namespace` (nutné pro AGP 8) a ještě
+# bez té rozbité kts změny. Runtime API (getInitialAppLink / uriLinkStream)
+# je shodné, takže deep-linky fungují dál.
+dependency_overrides:
+  app_links: '>=6.3.0 <7.0.0'
+
 flutter:
   uses-material-design: true
   assets:
