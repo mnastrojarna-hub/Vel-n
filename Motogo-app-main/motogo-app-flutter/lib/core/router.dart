@@ -1086,8 +1086,7 @@ class _BDWState extends ConsumerState<_BookingDebugWrapper> {
                       : 'VYBERTE VŠECHNY VELIKOSTI',
                     style: const TextStyle(fontWeight: FontWeight.w800)))),
             ]));
-        })),
-    );
+        }));
   }
 
   void _showSizeDialog(BuildContext ctx, ExtraCatalogItem item) {

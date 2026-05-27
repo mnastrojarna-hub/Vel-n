@@ -103,8 +103,7 @@ void showPassengerGearSheet(
                     : 'VYBERTE VŠECHNY VELIKOSTI',
                   style: const TextStyle(fontWeight: FontWeight.w800)))),
           ]));
-      })),
-  );
+      }));
 }
 
 /// Single-item size picker (e.g. boot size for extras).
