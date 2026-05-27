@@ -16,3 +16,8 @@
 # Supabase / OkHttp / Retrofit (used internally)
 -dontwarn okhttp3.**
 -dontwarn okio.**
+
+# Flutter deferred components reference Play Core split classes that the app
+# does not use — suppress R8 "Missing class" errors during minify.
+-dontwarn com.google.android.play.core.**
+-keep class com.google.android.play.core.** { *; }
