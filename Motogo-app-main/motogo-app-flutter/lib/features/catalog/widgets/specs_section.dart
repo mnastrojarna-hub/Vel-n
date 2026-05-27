@@ -56,6 +56,8 @@ class SpecsSection extends StatelessWidget {
                       children: [
                         Text(
                           s.key.toUpperCase(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             fontSize: 9,
                             fontWeight: FontWeight.w700,
@@ -64,12 +66,16 @@ class SpecsSection extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 2),
-                        Text(
-                          s.value,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w800,
-                            color: MotoGoColors.black,
+                        Flexible(
+                          child: Text(
+                            s.value,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                              color: MotoGoColors.black,
+                            ),
                           ),
                         ),
                       ],

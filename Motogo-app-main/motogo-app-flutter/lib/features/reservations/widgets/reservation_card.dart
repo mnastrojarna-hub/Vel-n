@@ -200,8 +200,8 @@ class _InfoCol extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: MotoGoColors.g400, letterSpacing: 0.3)),
-          Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: MotoGoColors.black)),
+          Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: MotoGoColors.g400, letterSpacing: 0.3)),
+          Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: MotoGoColors.black)),
         ],
       ),
     );
@@ -235,6 +235,10 @@ class _ActionBtn extends StatelessWidget {
             child: Center(
               child: Text(
                 label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                softWrap: false,
+                textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 10, fontWeight: FontWeight.w700,
                   color: textColor,

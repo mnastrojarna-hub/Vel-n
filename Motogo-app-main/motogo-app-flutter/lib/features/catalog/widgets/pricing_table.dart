@@ -40,6 +40,8 @@ class PricingTable extends StatelessWidget {
                 child: Column(children: [
                   Text(
                     DayPrices.dayLabels[i].toUpperCase(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       fontSize: 9,
                       fontWeight: FontWeight.w700,
@@ -47,16 +49,22 @@ class PricingTable extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 2),
-                  Text(
-                    price > 0 ? '${price.toStringAsFixed(0)}' : '–',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w900,
-                      color: Colors.white,
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      price > 0 ? price.toStringAsFixed(0) : '–',
+                      maxLines: 1,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
                   Text(
                     t(context).tr('pricingCurrencyPerDay'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontSize: 8, color: Colors.white38),
                   ),
                 ]),

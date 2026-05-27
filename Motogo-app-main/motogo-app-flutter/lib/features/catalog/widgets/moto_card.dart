@@ -294,13 +294,17 @@ class _MotoCardState extends State<MotoCard> {
                     children: [
                       const Icon(Icons.location_on, size: 14, color: MotoGoColors.red),
                       const SizedBox(width: 4),
-                      Text(
-                        moto.branchName!.toUpperCase(),
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: MotoGoColors.red,
-                          letterSpacing: 0.3,
+                      Expanded(
+                        child: Text(
+                          moto.branchName!.toUpperCase(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: MotoGoColors.red,
+                            letterSpacing: 0.3,
+                          ),
                         ),
                       ),
                     ],
@@ -324,27 +328,34 @@ class _MotoCardState extends State<MotoCard> {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     // Price
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'od ${moto.priceLabel}',
-                          style: const TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w900,
-                            color: MotoGoColors.black,
-                            height: 1.1,
+                    Flexible(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'od ${moto.priceLabel}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w900,
+                              color: MotoGoColors.black,
+                              height: 1.1,
+                            ),
                           ),
-                        ),
-                        Text(
-                          t(context).tr('motoCardPricePerDay'),
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: MotoGoColors.g400,
+                          Text(
+                            t(context).tr('motoCardPricePerDay'),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: MotoGoColors.g400,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
+                    const SizedBox(width: 8),
 
                     // Detail button
                     GestureDetector(
