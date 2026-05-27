@@ -239,6 +239,21 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
     final hasDates = draft.startDate != null && draft.endDate != null;
     final dc = hasDates ? draft.dayCount : 0;
     final isKids = moto.licenseRequired == 'N';
+    // Dětská motorka nikdy nemá spolujezdce — odstraň případnou výbavu
+    // spolujezdce, pokud zůstala z dříve vybrané dospělácké motorky.
+    if (isKids &&
+        draft.extras.any((e) =>
+            e.id == 'extra-spolujezdec' || e.id == 'extra-boty-spolu')) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _upd((d) => d.copyWith(
+              extras: d.extras
+                  .where((e) =>
+                      e.id != 'extra-spolujezdec' &&
+                      e.id != 'extra-boty-spolu')
+                  .toList(),
+            ));
+      });
+    }
     final missingSizes = _missingGearSizes(draft);
     String f(DateTime d) => '${d.day}.${d.month}.${d.year}';
 
@@ -260,7 +275,7 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
                 ),
                 BookingFormPickupSection(draft: draft, onUpd: _upd),
                 BookingFormReturnSection(draft: draft, onUpd: _upd),
-                BookingFormExtrasSection(draft: draft, onUpd: _upd),
+                BookingFormExtrasSection(draft: draft, onUpd: _upd, isKids: isKids),
                 BookingFormPriceSection(draft: draft, bd: bd, dayCount: dc),
                 BookingFormPromoSection(draft: draft, onUpd: _upd),
                 // SOUHLASY — only kids consent needed for children's bikes

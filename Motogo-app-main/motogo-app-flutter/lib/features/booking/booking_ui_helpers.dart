@@ -130,9 +130,10 @@ Widget bookingPriceRow(String label, String value,
       ]));
 }
 
-/// Gear size picker row.
+/// Gear size picker row. Pass [sizes] for the gear-type-specific list
+/// (adult vs. kids handled by the caller via gearSizesFor).
 Widget bookingGearRow(String label, String? selected,
-    ValueChanged<String?> onChanged) {
+    ValueChanged<String?> onChanged, {List<String> sizes = gearSizes}) {
   return Padding(padding: const EdgeInsets.only(bottom: 6),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -141,23 +142,26 @@ Widget bookingGearRow(String label, String? selected,
         fontWeight: FontWeight.w700, decoration: _noDec)),
       const SizedBox(height: 4),
       Wrap(spacing: 6, runSpacing: 6,
-        children: gearSizes.map((s) {
+        children: sizes.map((s) {
           final a = selected == s;
           return GestureDetector(
             onTap: () => onChanged(a ? null : s),
             child: Container(
-              width: 46, height: 36,
+              constraints: const BoxConstraints(minWidth: 46),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 12, vertical: 9),
               decoration: BoxDecoration(
                 color: a ? const Color(0xFF1A8A18)
                     : const Color(0xFFE8FFE8),
                 borderRadius: BorderRadius.circular(8)),
-              child: Center(child: Text(s,
+              child: Text(s,
+                textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 12,
                   fontWeight: a ? FontWeight.w900
                       : FontWeight.w600,
                   color: a ? Colors.black
                       : const Color(0xFF0F1A14),
-                  decoration: _noDec)))));
+                  decoration: _noDec))));
         }).toList()),
     ]));
 }

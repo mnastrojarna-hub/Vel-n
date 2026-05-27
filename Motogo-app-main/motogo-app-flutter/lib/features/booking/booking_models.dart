@@ -248,13 +248,50 @@ class ExtraCatalogItem {
   }
 }
 
-/// Available sizes for gear (helmet, jacket, pants, gloves) — from branch_accessories.
-const gearSizes = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
+/// Generic gear sizes — kept as a backward-compatible default for callers that
+/// don't pass a gear-type-specific list. Prefer [gearSizesFor].
+const gearSizes = ['XS', 'S', 'M', 'L', 'XL', '2XL'];
 
-/// Available boot sizes (numeric EU sizing).
-const bootSizes = ['36', '37', '38', '39', '40', '41', '42', '43', '44', '45', '46'];
+/// Available boot sizes (numeric EU sizing) — generic default.
+const bootSizes = ['39', '40', '41', '42', '43', '44', '45', '46', '47', '48'];
+
+// ── Velikosti výbavy pro DOSPĚLÉ — dle motogo-web-php; bundy a kalhoty
+//    rozšířené až do 6XL dle požadavku. ──
+const helmetSizesAdult = ['XS', 'S', 'M', 'L', 'XL', '2XL'];
+const jacketSizesAdult = ['S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL', '6XL'];
+const glovesSizesAdult = ['M', 'L', 'XL'];
+const pantsSizesAdult = ['M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL', '6XL'];
+const bootSizesAdult = ['39', '40', '41', '42', '43', '44', '45', '46', '47', '48'];
+
+// ── Velikosti výbavy pro DĚTSKÉ motorky — dle motogo-web-php childSizes. ──
+const helmetSizesKids = ['YM', 'XS', 'S'];
+const jacketSizesKids = ['YM 4–6 let', 'Vesta 4–9 let'];
+const glovesSizesKids = ['4–7 let', '8–12 let'];
+const pantsSizesKids = ['4–7 let', '7–9 let'];
+const bootSizesKids = ['33', '35'];
+
+/// Returns the size list for a gear [type] — one of
+/// `helmet` / `gloves` / `jacket` / `pants` / `boots` — switching to
+/// children's sizing when [kids] is true (dětská motorka, license_required='N').
+List<String> gearSizesFor(String type, {required bool kids}) {
+  switch (type) {
+    case 'gloves':
+      return kids ? glovesSizesKids : glovesSizesAdult;
+    case 'jacket':
+      return kids ? jacketSizesKids : jacketSizesAdult;
+    case 'pants':
+      return kids ? pantsSizesKids : pantsSizesAdult;
+    case 'boots':
+      return kids ? bootSizesKids : bootSizesAdult;
+    case 'helmet':
+    default:
+      return kids ? helmetSizesKids : helmetSizesAdult;
+  }
+}
 
 /// Default extras matching the hardcoded ones in templates-booking-form2.js.
+/// `extra-spolujezdec` and `extra-boty-spolu` are passenger items — they are
+/// hidden for children's bikes (which never carry a passenger).
 const defaultExtras = [
   ExtraCatalogItem(
     id: 'extra-spolujezdec',
@@ -270,7 +307,7 @@ const defaultExtras = [
     description: 'Moto boty – uveďte velikost',
     icon: '👢',
     needsSize: true,
-    sizes: ['36', '37', '38', '39', '40', '41', '42', '43', '44', '45', '46'],
+    sizes: bootSizesAdult,
   ),
   ExtraCatalogItem(
     id: 'extra-boty-spolu',
@@ -279,6 +316,6 @@ const defaultExtras = [
     description: 'Moto boty – uveďte velikost',
     icon: '👟',
     needsSize: true,
-    sizes: ['36', '37', '38', '39', '40', '41', '42', '43', '44', '45', '46'],
+    sizes: bootSizesAdult,
   ),
 ];
