@@ -233,14 +233,16 @@ class EditGearSizePicker extends StatelessWidget {
             return GestureDetector(
               onTap: () => onSizeSelected(active ? null : size),
               child: Container(
-                width: 42, height: 32,
+                constraints: const BoxConstraints(minWidth: 42),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
                 decoration: BoxDecoration(
                   color: active ? MotoGoColors.greenDarker : MotoGoColors.greenPale,
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: active ? MotoGoColors.greenDarker : MotoGoColors.green, width: 1.5)),
-                child: Center(child: Text(size,
+                child: Text(size,
+                  textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 11, fontWeight: active ? FontWeight.w900 : FontWeight.w600,
-                    color: active ? Colors.black : MotoGoColors.black)))),
+                    color: active ? Colors.black : MotoGoColors.black))),
             );
           }).toList()),
       ]),

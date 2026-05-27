@@ -10,6 +10,7 @@ class EditExtrasSection extends StatelessWidget {
   final Set<String> selectedExtras;
   final String pickupMethod;
   final String returnMethod;
+  final bool isKids;
   final String? helmetSize, jacketSize, pantsSize, bootsSize, glovesSize;
   final String? passengerHelmetSize, passengerJacketSize, passengerPantsSize;
   final ValueChanged<Set<String>> onExtrasChanged;
@@ -21,6 +22,7 @@ class EditExtrasSection extends StatelessWidget {
     required this.selectedExtras,
     required this.pickupMethod,
     required this.returnMethod,
+    this.isKids = false,
     required this.helmetSize, required this.jacketSize, required this.pantsSize,
     required this.bootsSize, required this.glovesSize,
     required this.passengerHelmetSize, required this.passengerJacketSize, required this.passengerPantsSize,
@@ -45,15 +47,18 @@ class EditExtrasSection extends StatelessWidget {
         Text('DOPLŇKY', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: MotoGoColors.black)),
       ]),
       const SizedBox(height: 8),
-      EditExtraCheckbox(id: 'spolujezdec', label: 'Výbava spolujezdce', sub: 'Helma, rukavice, vesta', price: 400,
-        checked: selectedExtras.contains('spolujezdec'),
-        onChanged: (v) => _toggle('spolujezdec', v)),
+      // Dětská motorka nikdy nemá spolujezdce → skryj výbavu i boty spolujezdce.
+      if (!isKids)
+        EditExtraCheckbox(id: 'spolujezdec', label: 'Výbava spolujezdce', sub: 'Helma, rukavice, vesta', price: 400,
+          checked: selectedExtras.contains('spolujezdec'),
+          onChanged: (v) => _toggle('spolujezdec', v)),
       EditExtraCheckbox(id: 'boty_ridic', label: 'Boty řidiče', sub: 'Uveďte velikost', price: 300,
         checked: selectedExtras.contains('boty_ridic'),
         onChanged: (v) => _toggle('boty_ridic', v)),
-      EditExtraCheckbox(id: 'boty_spolujezdec', label: 'Boty spolujezdce', sub: 'Uveďte velikost', price: 300,
-        checked: selectedExtras.contains('boty_spolujezdec'),
-        onChanged: (v) => _toggle('boty_spolujezdec', v)),
+      if (!isKids)
+        EditExtraCheckbox(id: 'boty_spolujezdec', label: 'Boty spolujezdce', sub: 'Uveďte velikost', price: 300,
+          checked: selectedExtras.contains('boty_spolujezdec'),
+          onChanged: (v) => _toggle('boty_spolujezdec', v)),
       if (pickupMethod == 'delivery' || returnMethod == 'delivery') ...[
         const SizedBox(height: 10),
         Container(
@@ -71,31 +76,38 @@ class EditExtrasSection extends StatelessWidget {
         Text(t(context).tr('rider'), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: MotoGoColors.greenDarker)),
         const SizedBox(height: 6),
         EditGearSizePicker(label: 'Helma', icon: Icons.sports_motorsports,
+          sizes: gearSizesFor('helmet', kids: isKids),
           selectedSize: helmetSize, onSizeSelected: onHelmetSize),
         const SizedBox(height: 6),
         EditGearSizePicker(label: 'Bunda', icon: Icons.checkroom,
+          sizes: gearSizesFor('jacket', kids: isKids),
           selectedSize: jacketSize, onSizeSelected: onJacketSize),
         const SizedBox(height: 6),
         EditGearSizePicker(label: 'Kalhoty', icon: Icons.straighten,
+          sizes: gearSizesFor('pants', kids: isKids),
           selectedSize: pantsSize, onSizeSelected: onPantsSize),
         const SizedBox(height: 6),
         EditGearSizePicker(label: 'Boty', icon: Icons.do_not_step,
-          sizes: bootSizes,
+          sizes: gearSizesFor('boots', kids: isKids),
           selectedSize: bootsSize, onSizeSelected: onBootsSize),
         const SizedBox(height: 6),
         EditGearSizePicker(label: 'Rukavice', icon: Icons.back_hand_outlined,
+          sizes: gearSizesFor('gloves', kids: isKids),
           selectedSize: glovesSize, onSizeSelected: onGlovesSize),
-        if (selectedExtras.contains('spolujezdec')) ...[
+        if (!isKids && selectedExtras.contains('spolujezdec')) ...[
           const SizedBox(height: 10),
           const Text('SPOLUJEZDEC', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: MotoGoColors.greenDarker)),
           const SizedBox(height: 6),
           EditGearSizePicker(label: 'Helma', icon: Icons.sports_motorsports,
+            sizes: gearSizesFor('helmet', kids: false),
             selectedSize: passengerHelmetSize, onSizeSelected: onPassengerHelmetSize),
           const SizedBox(height: 6),
           EditGearSizePicker(label: 'Bunda', icon: Icons.checkroom,
+            sizes: gearSizesFor('jacket', kids: false),
             selectedSize: passengerJacketSize, onSizeSelected: onPassengerJacketSize),
           const SizedBox(height: 6),
           EditGearSizePicker(label: 'Kalhoty', icon: Icons.straighten,
+            sizes: gearSizesFor('pants', kids: false),
             selectedSize: passengerPantsSize, onSizeSelected: onPassengerPantsSize),
         ],
       ],
