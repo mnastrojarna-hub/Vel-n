@@ -1,7 +1,7 @@
 name: motogo_app
 description: MotoGo24 — Motorcycle rental app
 publish_to: 'none'
-version: 2.3.2+54
+version: 1.0.0+1
 
 environment:
   sdk: '>=3.6.0 <4.0.0'
@@ -76,6 +76,9 @@ dependencies:
 
   # App version info (runtime access to pubspec version)
   package_info_plus: ^8.0.0
+
+  # Google Play in-app updates (flexible/immediate update prompt)
+  in_app_update: ^4.2.3
 
 dev_dependencies:
   flutter_test:

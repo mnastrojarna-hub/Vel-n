@@ -163,6 +163,8 @@ const translationsExt1EsFr = <String, Map<String, String>>{
     'updateRequired': 'Actualización requerida',
     'updateRequiredDesc': 'Hay una nueva versión de la aplicación disponible (v{version}). Actualice para continuar.',
     'updateNow': 'ACTUALIZAR',
+    'updateDownloaded': 'Actualización descargada. Reinicie para instalar.',
+    'updateRestart': 'REINICIAR',
   },
 
   'fr': {
@@ -328,5 +330,7 @@ const translationsExt1EsFr = <String, Map<String, String>>{
     'updateRequired': 'Mise à jour requise',
     'updateRequiredDesc': 'Une nouvelle version de l\'application est disponible (v{version}). Veuillez mettre à jour pour continuer.',
     'updateNow': 'METTRE À JOUR',
+    'updateDownloaded': 'Mise à jour téléchargée. Redémarrez pour installer.',
+    'updateRestart': 'REDÉMARRER',
   },
 };

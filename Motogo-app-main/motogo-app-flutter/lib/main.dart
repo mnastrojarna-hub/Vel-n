@@ -23,6 +23,7 @@ import 'core/theme.dart';
 import 'core/i18n/i18n_provider.dart';
 import 'core/overlays/onboarding_overlays.dart';
 import 'core/update_check_provider.dart';
+import 'core/in_app_update_service.dart';
 import 'core/widgets/logo_header.dart' show initAppVersion;
 
 /// Global navigator key for notification deep links.
@@ -184,6 +185,7 @@ class _MotoGoAppState extends ConsumerState<MotoGoApp>
         if (ctx != null) {
           OfflineGuard.startWatching(ctx);
           UpdateChecker.check(ctx);
+          InAppUpdateService.check(ctx);
         }
       }
     });

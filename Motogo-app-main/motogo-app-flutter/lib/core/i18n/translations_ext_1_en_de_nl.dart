@@ -163,6 +163,8 @@ const translationsExt1EnDeNl = <String, Map<String, String>>{
     'updateRequired': 'Update required',
     'updateRequiredDesc': 'A new version of the app is available (v{version}). Please update to continue.',
     'updateNow': 'UPDATE',
+    'updateDownloaded': 'Update downloaded. Restart to install.',
+    'updateRestart': 'RESTART',
   },
 
   'de': {
@@ -328,6 +330,8 @@ const translationsExt1EnDeNl = <String, Map<String, String>>{
     'updateRequired': 'Update erforderlich',
     'updateRequiredDesc': 'Eine neue Version der App ist verfügbar (v{version}). Bitte aktualisieren Sie, um fortzufahren.',
     'updateNow': 'AKTUALISIEREN',
+    'updateDownloaded': 'Update heruntergeladen. Zum Installieren neu starten.',
+    'updateRestart': 'NEU STARTEN',
   },
 
   'nl': {
@@ -493,5 +497,7 @@ const translationsExt1EnDeNl = <String, Map<String, String>>{
     'updateRequired': 'Update vereist',
     'updateRequiredDesc': 'Er is een nieuwe versie van de app beschikbaar (v{version}). Werk bij om door te gaan.',
     'updateNow': 'BIJWERKEN',
+    'updateDownloaded': 'Update gedownload. Start opnieuw om te installeren.',
+    'updateRestart': 'OPNIEUW STARTEN',
   },
 };

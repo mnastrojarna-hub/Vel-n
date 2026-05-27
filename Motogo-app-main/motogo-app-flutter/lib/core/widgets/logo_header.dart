@@ -10,7 +10,7 @@ String appVersion = 'v?.?.?';
 /// Must be called once from main() before runApp.
 Future<void> initAppVersion() async {
   final info = await PackageInfo.fromPlatform();
-  appVersion = 'v${info.version}+${info.buildNumber}';
+  appVersion = 'v${info.version}';
 }
 
 /// Shared MotoGo24 logo row — used in headers across all main screens.
