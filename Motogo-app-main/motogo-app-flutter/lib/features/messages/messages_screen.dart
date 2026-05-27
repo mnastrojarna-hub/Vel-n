@@ -142,7 +142,7 @@ class _MessagesState extends ConsumerState<MessagesScreen> {
       isScrollControlled: true,
       builder: (ctx) => Padding(
         padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
-        child: SafeArea(child: Padding(
+        child: SafeArea(child: SingleChildScrollView(child: Padding(
           padding: const EdgeInsets.all(20),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             Text(t(context).tr('newConversation'), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
@@ -193,7 +193,7 @@ class _MessagesState extends ConsumerState<MessagesScreen> {
               ),
             ),
           ]),
-        )),
+        ))),
       ),
     );
   }

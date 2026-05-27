@@ -99,8 +99,17 @@ class AppShell extends ConsumerWidget {
     const double fabBottomCart = 8;
     const double fabBottomUpper = 25;
 
+    // When the keyboard is open we must NOT let this outer shell Scaffold
+    // resize for the bottom inset — the inner screen Scaffolds (chat, profile,
+    // SOS…) already do that. Two Scaffolds both reacting to the same keyboard
+    // inset is what produced the empty gap above the keyboard and the
+    // "bottom overflowed" / untappable send button. We let the inner screen
+    // own the resize and hide the bottom nav while typing.
+    final keyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
+
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
+      resizeToAvoidBottomInset: false,
       body: Stack(
         children: [
           Column(
@@ -224,7 +233,7 @@ class AppShell extends ConsumerWidget {
             ),
         ],
       ),
-      bottomNavigationBar: Container(
+      bottomNavigationBar: keyboardOpen ? null : Container(
         decoration: const BoxDecoration(
           color: Colors.white,
           border: Border(top: BorderSide(

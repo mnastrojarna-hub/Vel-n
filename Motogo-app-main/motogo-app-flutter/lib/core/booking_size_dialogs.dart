@@ -56,23 +56,26 @@ void showPassengerGearSheet(
                     fontWeight: FontWeight.w700)),
                   const SizedBox(height: 4),
                   Wrap(spacing: 6, runSpacing: 6,
-                    children: gearSizes.map((s) {
+                    children: _passengerGearSizes(e.key).map((s) {
                       final a = sizes[e.key] == s;
                       return GestureDetector(
                         onTap: () => ss(() =>
                           sizes[e.key] = a ? null : s),
                         child: Container(
-                          width: 40, height: 32,
+                          constraints: const BoxConstraints(minWidth: 40),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 8),
                           decoration: BoxDecoration(
                             color: a ? const Color(0xFF1A8A18)
                                 : const Color(0xFFE8FFE8),
                             borderRadius: BorderRadius.circular(6)),
-                          child: Center(child: Text(s,
+                          child: Text(s,
+                            textAlign: TextAlign.center,
                             style: TextStyle(fontSize: 11,
                               fontWeight: a ? FontWeight.w900
                                   : FontWeight.w600,
                               color: a ? Colors.black
-                                  : const Color(0xFF0F1A14))))));
+                                  : const Color(0xFF0F1A14)))));
                     }).toList()),
                 ]));
             }),
@@ -106,14 +109,33 @@ void showPassengerGearSheet(
       }));
 }
 
+/// Adult passenger gear sizes per Czech gear label. Passengers only exist on
+/// adult bikes, so these are always the adult lists.
+List<String> _passengerGearSizes(String czLabel) {
+  switch (czLabel) {
+    case 'Rukavice':
+      return glovesSizesAdult;
+    case 'Bunda':
+      return jacketSizesAdult;
+    case 'Kalhoty':
+      return pantsSizesAdult;
+    case 'Helma':
+    default:
+      return helmetSizesAdult;
+  }
+}
+
 /// Single-item size picker (e.g. boot size for extras).
 /// Calls [onExtrasUpdated] with the updated extras list after selection.
+/// [sizesOverride] replaces [item.sizes] (used to switch boots to kids sizing).
 void showSizeDialog(
   BuildContext ctx,
   ExtraCatalogItem item,
   WidgetRef ref,
-  void Function(List<SelectedExtra>) onExtrasUpdated,
-) {
+  void Function(List<SelectedExtra>) onExtrasUpdated, {
+  List<String>? sizesOverride,
+}) {
+  final sizeList = sizesOverride ?? item.sizes;
   showModalBottomSheet(
     context: ctx,
     backgroundColor: Colors.white,
@@ -139,7 +161,7 @@ void showSizeDialog(
         ],
         const SizedBox(height: 14),
         Wrap(spacing: 8, runSpacing: 8,
-          children: item.sizes.map((size) =>
+          children: sizeList.map((size) =>
             GestureDetector(
               onTap: () {
                 final ne = List<SelectedExtra>.from(

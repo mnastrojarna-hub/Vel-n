@@ -517,6 +517,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
               selectedExtras: _selectedExtras,
               pickupMethod: _pickupMethod,
               returnMethod: _returnMethod,
+              isKids: _booking!.motoLicenseRequired == 'N',
               helmetSize: _helmetSize, jacketSize: _jacketSize, pantsSize: _pantsSize,
               bootsSize: _bootsSize, glovesSize: _glovesSize,
               passengerHelmetSize: _passengerHelmetSize,

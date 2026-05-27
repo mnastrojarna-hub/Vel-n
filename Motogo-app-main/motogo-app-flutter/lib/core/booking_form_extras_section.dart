@@ -12,9 +12,13 @@ class BookingFormExtrasSection extends ConsumerWidget {
     super.key,
     required this.draft,
     required this.onUpd,
+    this.isKids = false,
   });
 
   final BookingDraft draft;
+
+  /// Dětská motorka (license_required='N') — bez spolujezdce, dětské velikosti.
+  final bool isKids;
 
   /// Applies a mutation to the current [BookingDraft].
   final void Function(BookingDraft Function(BookingDraft) fn) onUpd;
@@ -69,25 +73,34 @@ class BookingFormExtrasSection extends ConsumerWidget {
               t(context).tr('helmet'),
               draft.helmetSize,
               (s) => onUpd((d) => d.copyWith(helmetSize: () => s)),
+              sizes: gearSizesFor('helmet', kids: isKids),
             ),
             bookingGearRow(
               t(context).tr('gloves'),
               draft.glovesSize,
               (s) => onUpd((d) => d.copyWith(glovesSize: () => s)),
+              sizes: gearSizesFor('gloves', kids: isKids),
             ),
             bookingGearRow(
               t(context).tr('jacket'),
               draft.jacketSize,
               (s) => onUpd((d) => d.copyWith(jacketSize: () => s)),
+              sizes: gearSizesFor('jacket', kids: isKids),
             ),
             bookingGearRow(
               t(context).tr('pants'),
               draft.pantsSize,
               (s) => onUpd((d) => d.copyWith(pantsSize: () => s)),
+              sizes: gearSizesFor('pants', kids: isKids),
             ),
           ],
           const SizedBox(height: 10),
-          ...defaultExtras.map((item) {
+          ...(isKids
+                  ? defaultExtras.where((e) =>
+                      e.id != 'extra-spolujezdec' &&
+                      e.id != 'extra-boty-spolu')
+                  : defaultExtras)
+              .map((item) {
             final sel = draft.extras.any((e) => e.id == item.id);
             final selExtra =
                 sel ? draft.extras.firstWhere((e) => e.id == item.id) : null;
@@ -108,7 +121,8 @@ class BookingFormExtrasSection extends ConsumerWidget {
                       (ne) => onUpd((d) => d.copyWith(extras: ne)));
                 } else if (isDelivery && item.sizes.isNotEmpty) {
                   showSizeDialog(context, item, ref,
-                      (ne) => onUpd((d) => d.copyWith(extras: ne)));
+                      (ne) => onUpd((d) => d.copyWith(extras: ne)),
+                      sizesOverride: gearSizesFor('boots', kids: isKids));
                 } else {
                   final ne = List<SelectedExtra>.from(draft.extras);
                   ne.add(SelectedExtra(

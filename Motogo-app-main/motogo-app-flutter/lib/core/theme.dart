@@ -268,6 +268,27 @@ class MotoGoTheme {
 
     return base.copyWith(
       scaffoldBackgroundColor: MotoGoColors.bg,
+      // The whole design is a LIGHT mint UI. The Material base is dark, which
+      // makes pop-over surfaces (dropdown menus, modal bottom sheets, popup
+      // menus) render on a near-black canvas — that is the "black window that
+      // covers the screen" reported on the license dropdown and chat sheets.
+      // Forcing the pop-over surfaces to white fixes it app-wide.
+      canvasColor: Colors.white,
+      bottomSheetTheme: const BottomSheetThemeData(
+        backgroundColor: Colors.white,
+        modalBackgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+      ),
+      popupMenuTheme: const PopupMenuThemeData(
+        color: Colors.white,
+        surfaceTintColor: Colors.transparent,
+      ),
+      dropdownMenuTheme: const DropdownMenuThemeData(
+        menuStyle: MenuStyle(
+          backgroundColor: WidgetStatePropertyAll(Colors.white),
+          surfaceTintColor: WidgetStatePropertyAll(Colors.transparent),
+        ),
+      ),
       colorScheme: ColorScheme.dark(
         primary: MotoGoColors.green,
         onPrimary: MotoGoColors.black,
