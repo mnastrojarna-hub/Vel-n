@@ -144,13 +144,13 @@ class _MotoDetailPageState extends ConsumerState<MotoDetailPage> {
           ),
         ),
 
-        // === DESCRIPTION ===
-        if (moto.description != null)
+        // === DESCRIPTION === (plain text — HTML markup stripped)
+        if (moto.descriptionPlain != null)
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
               child: Text(
-                moto.description!,
+                moto.descriptionPlain!,
                 style: const TextStyle(
                   fontSize: 13,
                   height: 1.6,

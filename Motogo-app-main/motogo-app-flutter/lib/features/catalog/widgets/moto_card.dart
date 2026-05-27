@@ -56,6 +56,8 @@ class _MotoCardState extends State<MotoCard> {
   @override
   Widget build(BuildContext context) {
     final moto = widget.moto;
+    // "Základní údaje" parameters selected in Velín (short_desc_fields).
+    final sdItems = moto.shortDescItems(t(context).tr).take(6).toList();
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -304,12 +306,14 @@ class _MotoCardState extends State<MotoCard> {
                     ],
                   ),
 
-                // Description / features
-                if (moto.description != null || moto.features.isNotEmpty) ...[
+                // "Základní údaje" — parameters selected in Velín
+                // (short_desc_fields). The description text is shown only on
+                // the detail screen, not here.
+                if (sdItems.isNotEmpty) ...[
                   const SizedBox(height: 10),
-                  if (moto.description != null)
-                    _FeatureLine(text: moto.description!),
-                  ...moto.features.take(2).map((f) => _FeatureLine(text: f)),
+                  ...sdItems.map(
+                    (it) => _FeatureLine(text: '${it.label}: ${it.value}'),
+                  ),
                 ],
 
                 const SizedBox(height: 14),
