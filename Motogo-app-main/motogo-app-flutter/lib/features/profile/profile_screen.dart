@@ -93,9 +93,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       // Skupina ŘP (text[]) — z ní se generuje smlouva a bere se verifikační
       // skupina (viz sken), takže se MUSÍ ukládat. Datumy posíláme jako ISO
       // (yyyy-MM-dd) nebo null, aby Postgres `date` sloupec nespadl na parse.
-      final groupTokens = _licCategoryOptions
-          .where((c) => _licCategories.contains(c))
-          .toList();
+      // Zachovej i případné kategorie načtené z DB, které nejsou v nabídce
+      // odznaků (ať se ručně zadané hodnoty neztratí).
+      final groupTokens = _licCategories.toList();
       await MotoGoSupabase.client.from('profiles').update({
         'full_name': _nameCtrl.text.trim(),
         'phone': _phoneCtrl.text.trim(),
