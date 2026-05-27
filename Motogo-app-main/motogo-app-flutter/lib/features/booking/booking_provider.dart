@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/supabase_client.dart';
+import '../../core/i18n/i18n_provider.dart';
+import '../../core/i18n/translations.dart';
 import '../auth/auth_provider.dart';
 import '../catalog/moto_model.dart';
 import '../reservations/reservation_provider.dart';
@@ -179,11 +181,34 @@ final overlapValidationProvider = Provider<String?>((ref) {
   );
 });
 
-/// Combined booking validation error (license + overlap).
+/// Rental length validation — vynucuje min/max délku pronájmu z DB
+/// (motorcycles.min_rental_days / max_rental_days), shodně s webem.
+/// Returns null if OK, jinak lokalizovaná hláška.
+final rentalLengthValidationProvider = Provider<String?>((ref) {
+  final moto = ref.watch(bookingMotoProvider);
+  final draft = ref.watch(bookingDraftProvider);
+  if (moto == null || draft.startDate == null || draft.endDate == null) {
+    return null;
+  }
+  final days = draft.endDate!.difference(draft.startDate!).inDays + 1;
+  final lang = ref.watch(localeProvider).languageCode;
+  String msg(String key, int n) =>
+      (translations[lang]?[key] ?? translations['cs']?[key] ?? '')
+          .replaceAll('{n}', '$n');
+
+  final min = moto.minRentalDays;
+  if (min != null && min > 1 && days < min) return msg('validationMinDays', min);
+  final max = moto.maxRentalDays;
+  if (max != null && max > 0 && days > max) return msg('validationMaxDays', max);
+  return null;
+});
+
+/// Combined booking validation error (license + overlap + délka pronájmu).
 /// Returns null if everything is OK.
 final bookingValidationErrorProvider = Provider<String?>((ref) {
   return ref.watch(licenseValidationProvider) ??
-      ref.watch(overlapValidationProvider);
+      ref.watch(overlapValidationProvider) ??
+      ref.watch(rentalLengthValidationProvider);
 });
 
 /// Fetch extras catalog from Supabase.

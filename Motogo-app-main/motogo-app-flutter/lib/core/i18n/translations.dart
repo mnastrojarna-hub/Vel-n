@@ -16,6 +16,7 @@ import 'translations_ext_1_es_fr.dart';
 import 'translations_ext_2_specs.dart';
 import 'translations_ext_3_doorcodes.dart';
 import 'translations_ext_4_docscan.dart';
+import 'translations_ext_5_validation.dart';
 
 /// Deep-merges translation maps so all language keys are combined.
 final translations = _mergeAll([
@@ -28,6 +29,7 @@ final translations = _mergeAll([
   translationsExt2Specs,
   translationsExt3DoorCodes,
   translationsExt4DocScan,
+  translationsExt5Validation,
 ]);
 
 Map<String, Map<String, String>> _mergeAll(
