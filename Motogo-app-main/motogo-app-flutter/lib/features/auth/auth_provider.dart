@@ -87,10 +87,16 @@ class AuthService {
   static bool _signUpInProgress = false;
 
   /// Register new user. Returns error message or null on success.
+  ///
+  /// [metadata] is stored on auth.users (consumed by the handle_new_user
+  /// trigger). [profile] holds the personal/address/license fields written
+  /// directly to the profiles row — the trigger only copies a subset, so these
+  /// would otherwise be lost.
   static Future<String?> signUp({
     required String email,
     required String password,
     required Map<String, dynamic> metadata,
+    Map<String, dynamic>? profile,
   }) async {
     // Prevent duplicate registration calls
     if (_signUpInProgress) return _tr('signUpInProgress');
@@ -109,9 +115,10 @@ class AuthService {
       // (same pattern as frontend auth.js – 500ms delay)
       await Future.delayed(const Duration(milliseconds: 500));
 
-      // Save consents + registration_source to profiles table.
+      // Save personal data + consents + registration_source to profiles table.
       // Retry up to 2× if the trigger hasn't created the row yet.
       final updateData = {
+        if (profile != null) ...profile,
         'marketing_consent': true,
         'consent_gdpr': true,
         'consent_vop': true,
