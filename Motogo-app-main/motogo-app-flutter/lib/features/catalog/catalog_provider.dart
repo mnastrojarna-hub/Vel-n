@@ -34,8 +34,10 @@ final motorcyclesProvider = FutureProvider<List<Motorcycle>>((ref) async {
 
 /// Fetches booked date ranges for a specific motorcycle.
 /// Mirrors RPC get_moto_booked_dates(p_moto_id).
+/// autoDispose → po opuštění detailu se zahodí a při dalším otevření se načte
+/// čerstvá dostupnost (vč. nových rezervací/storn/servisních bloků).
 final bookedDatesProvider =
-    FutureProvider.family<List<BookedDateRange>, String>((ref, motoId) async {
+    FutureProvider.autoDispose.family<List<BookedDateRange>, String>((ref, motoId) async {
   final res = await MotoGoSupabase.client
       .rpc('get_moto_booked_dates', params: {'p_moto_id': motoId});
 

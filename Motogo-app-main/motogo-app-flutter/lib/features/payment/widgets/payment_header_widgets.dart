@@ -45,19 +45,25 @@ class PaymentHeader extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 12),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(t(context).tr('paymentTitle'),
-                style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w900,
-                    color: Colors.white)),
-            Text(t(context).tr('securePaymentDesc'),
-                style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.white.withValues(alpha: 0.5))),
-          ],
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(t(context).tr('paymentTitle'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.white)),
+              Text(t(context).tr('securePaymentDesc'),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.white.withValues(alpha: 0.5))),
+            ],
+          ),
         ),
       ]),
     );
