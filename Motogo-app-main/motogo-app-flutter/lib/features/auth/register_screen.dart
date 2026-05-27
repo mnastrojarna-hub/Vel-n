@@ -385,6 +385,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       const SizedBox(height: 9),
       DropdownButtonFormField<String>(
         value: _country,
+        dropdownColor: Colors.white,
         decoration: InputDecoration(labelText: t(context).tr('countryLabel')),
         items: [
           DropdownMenuItem(value: 'Česká republika', child: Text(t(context).tr('countryCZ'))),
@@ -416,6 +417,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       const SizedBox(height: 9),
       DropdownButtonFormField<String>(
         value: _licGroup,
+        dropdownColor: Colors.white,
         decoration: InputDecoration(labelText: t(context).tr('licenseCategory')),
         items: [
           DropdownMenuItem(value: 'A2', child: Text(t(context).tr('licA2Desc'))),
