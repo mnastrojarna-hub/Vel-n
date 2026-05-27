@@ -81,6 +81,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return DateTime(year, month, day);
   }
 
+  /// Czech "d. m. yyyy" → ISO "yyyy-MM-dd" for `date` columns (date_of_birth,
+  /// license_expiry). Null if unparseable so a partial value never breaks the
+  /// profile write.
+  static String? _toIsoDate(String? v) {
+    final d = _parseCzDate(v);
+    if (d == null) return null;
+    return '${d.year.toString().padLeft(4, '0')}-'
+        '${d.month.toString().padLeft(2, '0')}-'
+        '${d.day.toString().padLeft(2, '0')}';
+  }
+
   bool _validateStep1() {
     final fname = _fnameCtrl.text.trim();
     final lname = _lnameCtrl.text.trim();
@@ -184,20 +195,31 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Future<void> _doRegister() async {
     setState(() => _loading = true);
 
+    final fullName = '${_fnameCtrl.text.trim()} ${_lnameCtrl.text.trim()}';
+    final phone = _phoneCtrl.text.trim();
+
     final error = await AuthService.signUp(
       email: _emailCtrl.text.trim(),
       password: _passCtrl.text,
       metadata: {
-        'full_name': '${_fnameCtrl.text.trim()} ${_lnameCtrl.text.trim()}',
-        'phone': _phoneCtrl.text.trim(),
-        'date_of_birth': _dobCtrl.text.trim(),
+        'full_name': fullName,
+        'phone': phone,
+      },
+      // Personal/address/license data written straight to `profiles` after
+      // signup (the handle_new_user trigger only copies a subset, so without
+      // this the profile, "osobní údaje" tab and license-group check stay
+      // empty). Dates → ISO, license group → enum array.
+      profile: {
+        'full_name': fullName,
+        'phone': phone,
+        'date_of_birth': _toIsoDate(_dobCtrl.text.trim()),
         'street': _streetCtrl.text.trim(),
         'city': _cityCtrl.text.trim(),
         'zip': _zipCtrl.text.trim(),
         'country': _country,
         'license_number': _licNumCtrl.text.trim(),
-        'license_expiry': _licExpiryCtrl.text.trim(),
-        'license_group': _licGroup,
+        'license_expiry': _toIsoDate(_licExpiryCtrl.text.trim()),
+        'license_group': [_licGroup],
       },
     );
 
