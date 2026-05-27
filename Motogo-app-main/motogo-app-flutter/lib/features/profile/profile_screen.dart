@@ -71,15 +71,27 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final user = MotoGoSupabase.currentUser;
     if (user == null) return;
     try {
+      // Skupina ŘP (text[]) — UI ji drží jako čárkou oddělený text. Z té se
+      // generuje smlouva a bere se z ní verifikační skupina (viz sken), takže
+      // se MUSÍ ukládat. Prázdné/datum pole posíláme jako null (ne ''), aby
+      // částečně vyplněný profil nespadl na date parse.
+      final groupTokens = _licGroupCtrl.text
+          .split(RegExp(r'[,\s]+'))
+          .map((s) => s.trim().toUpperCase())
+          .where((s) => s.isNotEmpty)
+          .toList();
+      final dob = _dobCtrl.text.trim();
+      final licExp = _licExpCtrl.text.trim();
       await MotoGoSupabase.client.from('profiles').update({
         'full_name': _nameCtrl.text.trim(),
         'phone': _phoneCtrl.text.trim(),
         'city': _cityCtrl.text.trim(),
         'zip': _zipCtrl.text.trim(),
         'street': _streetCtrl.text.trim(),
-        'date_of_birth': _dobCtrl.text.trim(),
+        'date_of_birth': dob.isEmpty ? null : dob,
         'license_number': _licNumCtrl.text.trim(),
-        'license_expiry': _licExpCtrl.text.trim(),
+        'license_expiry': licExp.isEmpty ? null : licExp,
+        'license_group': groupTokens,
       }).eq('id', user.id);
       if (mounted) {
         showMotoGoToast(context, icon: '✓', title: t(context).tr('saved'), message: t(context).tr('profileUpdated'));
