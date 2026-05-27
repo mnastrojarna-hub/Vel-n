@@ -47,7 +47,8 @@ class _ConsentSheetState extends ConsumerState<ConsentSheet> {
     if (profile == null) return;
     final keys = widget.section == 'notif' ? _notifKeys : _privKeys;
     setState(() {
-      _consents = {for (final k in keys.keys) k: profile[k] == true};
+      // Souhlasy default true v DB (NULL = zapnuto), shodně s webem/backendem.
+      _consents = {for (final k in keys.keys) k: profile[k] != false};
       _loading = false;
     });
   }

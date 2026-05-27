@@ -212,6 +212,10 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         'return_lng': draft.returnLng,
         'status': 'pending',
         'payment_status': 'unpaid',
+        // Zdroj rezervace = app (web hardcoduje 'web'). Řídí výběr e-mailových
+        // šablon (app/sdílené, ne web_*), auto-cancel okno (app=10 min) a
+        // vyloučení z webových abandoned/missing-docs cronů.
+        'booking_source': 'app',
         // i18n: jazyk zákazníka (z aktuálního locale appky) → maily/SMS/push
         // dorazí přeložené do příslušného jazyka (detect_customer_language).
         'language': ref.read(localeProvider).languageCode,
