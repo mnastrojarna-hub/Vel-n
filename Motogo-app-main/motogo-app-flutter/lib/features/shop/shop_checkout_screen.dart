@@ -135,7 +135,7 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
     ref.read(shopDiscountProvider.notifier).state = total;
   }
 
-  void _onSuccess() {
+  Future<void> _onSuccess(String orderId) async {
     // Mark applied voucher codes as redeemed
     final codes = ref.read(shopAppliedCodesProvider);
     if (codes.isNotEmpty) {
@@ -144,10 +144,77 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
     ref.read(cartProvider.notifier).clear();
     ref.read(shopAppliedCodesProvider.notifier).state = [];
     ref.read(shopDiscountProvider.notifier).state = 0;
-    showMotoGoToast(context,
-        icon: '✅',
-        title: t(context).tr('orderReceived'),
-        message: t(context).tr('confirmOnEmail'));
+
+    // Potvrzení odráží reálný stav objednávky z DB (číslo, stav platby, částka),
+    // ne jen obecný toast. Při chybě fetche fallback na původní toast.
+    Map<String, dynamic>? order;
+    try {
+      order = await MotoGoSupabase.client
+          .from('shop_orders')
+          .select('order_number, total, payment_status')
+          .eq('id', orderId)
+          .maybeSingle();
+    } catch (_) {/* fallback níže */}
+    if (!mounted) return;
+
+    if (order == null) {
+      showMotoGoToast(context,
+          icon: '✅',
+          title: t(context).tr('orderReceived'),
+          message: t(context).tr('confirmOnEmail'));
+      context.go(Routes.shop);
+      return;
+    }
+
+    final orderNumber = order['order_number']?.toString();
+    final total = (order['total'] as num?)?.toDouble() ?? 0;
+    final paid = order['payment_status'] == 'paid';
+
+    await showDialog<void>(
+      context: context,
+      builder: (dctx) => AlertDialog(
+        title: Text(t(dctx).tr('orderReceived')),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (orderNumber != null) ...[
+              Text('#$orderNumber',
+                  style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w900,
+                      color: MotoGoColors.black)),
+              const SizedBox(height: 8),
+            ],
+            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              Flexible(child: Text(t(dctx).tr('totalPrice'))),
+              const SizedBox(width: 8),
+              Text('${total.toStringAsFixed(0)} Kč',
+                  style: const TextStyle(fontWeight: FontWeight.w800)),
+            ]),
+            const SizedBox(height: 4),
+            Text(
+              paid
+                  ? '✓ ${t(dctx).tr('paid')}'
+                  : (order['payment_status']?.toString() ?? ''),
+              style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: paid ? MotoGoColors.greenDark : MotoGoColors.g600),
+            ),
+            const SizedBox(height: 10),
+            Text(t(dctx).tr('confirmOnEmail'),
+                style: const TextStyle(fontSize: 12, color: MotoGoColors.g600)),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dctx).pop(),
+            child: Text(t(dctx).tr('close')),
+          ),
+        ],
+      ),
+    );
+    if (!mounted) return;
     context.go(Routes.shop);
   }
 
@@ -223,7 +290,7 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
         await MotoGoSupabase.client.rpc('confirm_shop_payment',
             params: {'p_order_id': orderId, 'p_method': 'voucher'});
       } catch (_) {}
-      _onSuccess();
+      _onSuccess(orderId);
       return;
     }
 
@@ -246,7 +313,7 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
         if (!mounted) return;
         if (paid) {
           await confirmShopPayment(orderId, 'card');
-          _onSuccess();
+          _onSuccess(orderId);
         } else {
           setState(() => _processing = false);
         }
@@ -266,7 +333,7 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
             message: t(context).tr('paymentGatewayErrorDesc'));
       }
     } else if (result.type == PaymentResultType.free) {
-      _onSuccess();
+      _onSuccess(orderId);
     } else {
       showMotoGoToast(context,
           icon: '✗',
