@@ -6,17 +6,17 @@ $sb = new SupabaseClient();
 
 $defaults = [
     'seo' => [
-        'title' => 'O půjčovně motorek | MotoGo24',
-        'description' => 'Půjčovna motorek Motogo24 na Vysočině. Bez kauce, s online rezervací a výbavou v ceně. Cestovní, sportovní, enduro i dětské motorky. Nonstop provoz.',
-        'keywords' => 'motopůjčovna',
+        'title' => 'Motopůjčovna na Vysočině – o naší půjčovně motorek | MotoGo24',
+        'description' => 'Motopůjčovna a půjčovna motorek Motogo24 na Vysočině. Bez kauce, s online rezervací a výbavou v ceně. Cestovní, sportovní, enduro i dětské motorky. Nonstop provoz.',
+        'keywords' => 'motopůjčovna, motopůjčovna Vysočina, motopůjčovna Pelhřimov, půjčovna motorek, půjčovna motorek Vysočina, pronájem motorek, půjčovna motocyklů, motorka bez kauce, nonstop motopůjčovna, MotoGo24',
     ],
     'breadcrumb' => [
         ['label' => 'Domů', 'href' => '/'],
         'Půjčovna motorek',
     ],
     'intro' => [
-        'h1' => 'Půjčovna motorek Vysočina Motogo24',
-        'body' => 'Naše <strong>půjčovna motorek Vysočina</strong> v Pelhřimově nabízí <strong>pronájem motorek</strong> bez zbytečných překážek – <strong>bez kauce</strong>, s <strong>online rezervací</strong> a <strong>výbavou v ceně</strong>. Vyberete si z <strong>cestovních</strong>, <strong>sportovních</strong>, <strong>enduro</strong> i <strong>dětských motorek</strong>, a vyrazíte kdykoli: máme otevřeno <strong>nonstop</strong>.',
+        'h1' => 'Motopůjčovna a půjčovna motorek Vysočina Motogo24',
+        'body' => 'Naše <strong>motopůjčovna</strong> a <strong>půjčovna motorek Vysočina</strong> v Pelhřimově nabízí <strong>pronájem motorek</strong> bez zbytečných překážek – <strong>bez kauce</strong>, s <strong>online rezervací</strong> a <strong>výbavou v ceně</strong>. Vyberete si z <strong>cestovních</strong>, <strong>sportovních</strong>, <strong>enduro</strong> i <strong>dětských motorek</strong>, a vyrazíte kdykoli: máme otevřeno <strong>nonstop</strong>.',
     ],
     'benefits' => [
         'title' => 'Proč si půjčit motorku u nás',

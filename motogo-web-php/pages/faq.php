@@ -10,9 +10,9 @@ $lang = function_exists('i18nDetectLanguage') ? i18nDetectLanguage() : 'cs';
 // Chrome stránky (přes siteContent — overlay z cms_variables web.faq.*)
 $defaults = [
     'seo' => [
-        'title' => 'Časté dotazy k půjčení motorky | MotoGo24 Vysočina',
-        'description' => 'Nejčastější dotazy k půjčení motorky u MotoGo24. Odpovědi na rezervaci motorky, podmínky i průběh zapůjčení motocyklu.',
-        'keywords' => 'motopůjčovna',
+        'title' => 'Časté dotazy k půjčení motorky | Motopůjčovna MotoGo24 Vysočina',
+        'description' => 'Nejčastější dotazy k půjčení motorky v motopůjčovně MotoGo24. Odpovědi na rezervaci motorky, podmínky i průběh zapůjčení motocyklu.',
+        'keywords' => 'motopůjčovna, půjčovna motorek, časté dotazy půjčovna motorek, podmínky pronájmu motorky, jak si půjčit motorku, MotoGo24',
     ],
     'h1' => 'Často kladené dotazy',
     'closing' => 'Naše <strong>půjčovna motorek Vysočina</strong> je tu pro všechny, kdo chtějí zažít <strong>nezapomenutelnou jízdu</strong> bez zbytečných komplikací. Pronájem je <strong>bez kauce</strong>, s <strong>výbavou v ceně</strong> a <strong>nonstop</strong>.',
