@@ -10,15 +10,27 @@ class Motorcycle {
   final int? powerHp;
   final int? engineCc;
   final String? engineType;
+  final String? transmission;
+  final String? drivetrain; // chain, shaft, belt
   final int? torqueNm;
   final int? weightKg;
   final double? fuelTankL;
+  final double? fuelConsumptionL100km;
+  final String? fuelType;
+  final int? topSpeedKmh;
+  final String? brakeType;
+  final int? seatsCount;
   final int? seatHeightMm;
+  final int? year;
   final bool? hasAbs;
   final bool? hasAsc;
   final String? description;
   final String? idealUsage;
   final List<String> features;
+
+  /// Parameters selected in Velín to show in the "Základní údaje" section
+  /// (motorcycles.short_desc_fields, text[]). Empty → default set is used.
+  final List<String> shortDescFields;
   final String? imageUrl;
   final List<String> images;
   final String? color;
@@ -49,15 +61,24 @@ class Motorcycle {
     this.powerHp,
     this.engineCc,
     this.engineType,
+    this.transmission,
+    this.drivetrain,
     this.torqueNm,
     this.weightKg,
     this.fuelTankL,
+    this.fuelConsumptionL100km,
+    this.fuelType,
+    this.topSpeedKmh,
+    this.brakeType,
+    this.seatsCount,
     this.seatHeightMm,
+    this.year,
     this.hasAbs,
     this.hasAsc,
     this.description,
     this.idealUsage,
     this.features = const [],
+    this.shortDescFields = const [],
     this.imageUrl,
     this.images = const [],
     this.color,
@@ -91,15 +112,24 @@ class Motorcycle {
       powerHp: (json['power_hp'] as num?)?.toInt(),
       engineCc: (json['engine_cc'] as num?)?.toInt(),
       engineType: json['engine_type'] as String?,
+      transmission: json['transmission'] as String?,
+      drivetrain: json['drivetrain'] as String?,
       torqueNm: (json['torque_nm'] as num?)?.toInt(),
       weightKg: (json['weight_kg'] as num?)?.toInt(),
       fuelTankL: (json['fuel_tank_l'] as num?)?.toDouble(),
+      fuelConsumptionL100km: (json['fuel_consumption_l100km'] as num?)?.toDouble(),
+      fuelType: json['fuel_type'] as String?,
+      topSpeedKmh: (json['top_speed_kmh'] as num?)?.toInt(),
+      brakeType: json['brake_type'] as String?,
+      seatsCount: (json['seats_count'] as num?)?.toInt(),
       seatHeightMm: (json['seat_height_mm'] as num?)?.toInt(),
+      year: (json['year'] as num?)?.toInt(),
       hasAbs: json['has_abs'] as bool?,
       hasAsc: json['has_asc'] as bool?,
       description: json['description'] as String?,
       idealUsage: _parseStringList(json['ideal_usage']).join(', '),
       features: _parseStringList(json['features']),
+      shortDescFields: _parseStringList(json['short_desc_fields']),
       imageUrl: json['image_url'] as String?,
       images: _parseStringList(json['images']),
       color: json['color'] as String?,
@@ -122,10 +152,15 @@ class Motorcycle {
   Motorcycle withAvailableToday(bool value) => Motorcycle(
     id: id, model: model, brand: brand, spz: spz, category: category,
     licenseRequired: licenseRequired, powerKw: powerKw, powerHp: powerHp,
-    engineCc: engineCc, engineType: engineType, torqueNm: torqueNm,
-    weightKg: weightKg, fuelTankL: fuelTankL, seatHeightMm: seatHeightMm,
+    engineCc: engineCc, engineType: engineType, transmission: transmission,
+    drivetrain: drivetrain, torqueNm: torqueNm,
+    weightKg: weightKg, fuelTankL: fuelTankL,
+    fuelConsumptionL100km: fuelConsumptionL100km, fuelType: fuelType,
+    topSpeedKmh: topSpeedKmh, brakeType: brakeType, seatsCount: seatsCount,
+    seatHeightMm: seatHeightMm, year: year,
     hasAbs: hasAbs, hasAsc: hasAsc, description: description,
-    idealUsage: idealUsage, features: features, imageUrl: imageUrl,
+    idealUsage: idealUsage, features: features,
+    shortDescFields: shortDescFields, imageUrl: imageUrl,
     images: images, color: color, manualUrl: manualUrl,
     manualExternalUrl: manualExternalUrl, status: status,
     branchId: branchId, branchName: branchName, branchCity: branchCity,
@@ -156,6 +191,143 @@ class Motorcycle {
     return '${min.toStringAsFixed(0)} Kč';
   }
 
+  /// Description with HTML tags/entities removed, for plain-text rendering.
+  /// Velín stores the description as rich-text HTML (e.g. `<b>`, `<p>`), which
+  /// must not leak into the UI as raw markup. Returns null when empty.
+  String? get descriptionPlain {
+    final d = description;
+    if (d == null) return null;
+    final p = stripHtml(d);
+    return p.isEmpty ? null : p;
+  }
+
+  /// "Základní údaje" items — selected via Velín (short_desc_fields). Mirrors
+  /// buildShortDescItems() in motogo-web-php/components.php so the app shows the
+  /// same parameters as the web detail page and catalog card. [tr] resolves an
+  /// i18n key to the localized label. Falls back to a default set when nothing
+  /// is selected in Velín.
+  List<ShortDescItem> shortDescItems(String Function(String) tr) {
+    var keys = shortDescFields.where((k) => k.isNotEmpty).toList();
+    if (keys.isEmpty) {
+      keys = const ['power_kw', 'category', 'engine', 'drivetrain', 'fuel_consumption_l100km'];
+    }
+    final items = <ShortDescItem>[];
+    for (final k in keys) {
+      ShortDescItem? it;
+      switch (k) {
+        case 'power_kw':
+          if (powerKw != null) {
+            final card = '$powerKw kW';
+            var v = card;
+            if (powerHp != null) v += ' (cca $powerHp ${tr('sdHpUnit')})';
+            it = ShortDescItem(tr('specPower'), v, card);
+          }
+        case 'category':
+          if (category != null && category!.isNotEmpty) {
+            final lbl = _categoryLabel(category!, tr);
+            it = ShortDescItem(tr('sdType'), lbl, lbl);
+          }
+        case 'engine':
+          final parts = <String>[];
+          if (engineCc != null) parts.add('$engineCc ccm');
+          if (engineType != null && engineType!.isNotEmpty) parts.add(engineType!);
+          if (transmission != null && transmission!.isNotEmpty) parts.add(transmission!);
+          if (parts.isNotEmpty) it = ShortDescItem(tr('specEngine'), parts.join(', '), parts.first);
+        case 'engine_cc':
+          if (engineCc != null) { final v = '$engineCc ccm'; it = ShortDescItem(tr('sdEngineCc'), v, v); }
+        case 'engine_type':
+          if (engineType != null && engineType!.isNotEmpty) it = ShortDescItem(tr('sdEngineType'), engineType!, engineType!);
+        case 'transmission':
+          if (transmission != null && transmission!.isNotEmpty) it = ShortDescItem(tr('sdTransmission'), transmission!, transmission!);
+        case 'drivetrain':
+          if (drivetrain != null && drivetrain!.isNotEmpty) {
+            final v = _drivetrainLabel(drivetrain!, tr);
+            it = ShortDescItem(tr('sdDrivetrain'), v, v);
+          }
+        case 'fuel_consumption_l100km':
+          if (fuelConsumptionL100km != null) {
+            final v = '${_num(fuelConsumptionL100km!)} l/100 km';
+            it = ShortDescItem(tr('sdFuelConsumption'), 'cca $v', v);
+          }
+        case 'fuel_type':
+          if (fuelType != null && fuelType!.isNotEmpty) it = ShortDescItem(tr('sdFuelType'), fuelType!, fuelType!);
+        case 'fuel_tank_l':
+          if (fuelTankL != null) { final v = '${_num(fuelTankL!)} l'; it = ShortDescItem(tr('specFuelTank'), v, v); }
+        case 'torque_nm':
+          if (torqueNm != null) { final v = '$torqueNm Nm'; it = ShortDescItem(tr('specTorque'), v, v); }
+        case 'top_speed_kmh':
+          if (topSpeedKmh != null) { final v = '$topSpeedKmh km/h'; it = ShortDescItem(tr('sdTopSpeed'), v, v); }
+        case 'weight_kg':
+          if (weightKg != null) { final v = '$weightKg kg'; it = ShortDescItem(tr('specWeight'), v, v); }
+        case 'seat_height_mm':
+          if (seatHeightMm != null) { final v = '$seatHeightMm mm'; it = ShortDescItem(tr('specSeatHeight'), v, v); }
+        case 'seats_count':
+          if (seatsCount != null) { final v = '$seatsCount'; it = ShortDescItem(tr('sdSeatsCount'), v, v); }
+        case 'brake_type':
+          if (brakeType != null && brakeType!.isNotEmpty) it = ShortDescItem(tr('sdBrakeType'), brakeType!, brakeType!);
+        case 'has_abs':
+          if (hasAbs == true) it = ShortDescItem(tr('sdAbs'), tr('specYes'), 'ABS');
+        case 'has_asc':
+          if (hasAsc == true) it = ShortDescItem(tr('sdAsc'), tr('specYes'), 'ASC');
+        case 'license_required':
+          if (licenseRequired != null && licenseRequired!.isNotEmpty) it = ShortDescItem(tr('specLicenseCategory'), licenseRequired!, licenseRequired!);
+        case 'year':
+          if (year != null) { final v = '$year'; it = ShortDescItem(tr('sdYear'), v, v); }
+        case 'color':
+          if (color != null && color!.isNotEmpty) it = ShortDescItem(tr('sdColor'), color!, color!);
+      }
+      if (it != null) items.add(it);
+    }
+    return items;
+  }
+
+  static String _categoryLabel(String cat, String Function(String) tr) {
+    const map = {
+      'cestovni': 'motoCardCategoryTravel',
+      'detske': 'motoCardCategoryChildren',
+      'sportovni': 'motoCardCategorySport',
+      'naked': 'motoCardCategoryNaked',
+      'chopper': 'motoCardCategoryChopper',
+      'supermoto': 'motoCardCategorySupermoto',
+    };
+    final key = map[cat];
+    return key != null ? tr(key) : cat;
+  }
+
+  static String _drivetrainLabel(String d, String Function(String) tr) {
+    switch (d) {
+      case 'chain': return tr('sdDrivetrainChain');
+      case 'shaft': return tr('sdDrivetrainShaft');
+      case 'belt': return tr('sdDrivetrainBelt');
+      default: return d;
+    }
+  }
+
+  /// Formats a number without a trailing ".0" (e.g. 4.0 → "4", 4.5 → "4.5").
+  static String _num(num v) =>
+      v == v.roundToDouble() ? v.toInt().toString() : v.toString();
+
+  /// Strips HTML tags and decodes common entities, preserving line breaks from
+  /// block-level/`<br>` tags.
+  static String stripHtml(String input) {
+    var s = input;
+    s = s.replaceAll(RegExp(r'<\s*br\s*/?\s*>', caseSensitive: false), '\n');
+    s = s.replaceAll(RegExp(r'</\s*(p|div|li|h[1-6]|ul|ol|tr)\s*>', caseSensitive: false), '\n');
+    s = s.replaceAll(RegExp(r'<[^>]*>'), '');
+    s = s
+        .replaceAll('&nbsp;', ' ')
+        .replaceAll('&amp;', '&')
+        .replaceAll('&lt;', '<')
+        .replaceAll('&gt;', '>')
+        .replaceAll('&quot;', '"')
+        .replaceAll('&#39;', "'")
+        .replaceAll('&apos;', "'");
+    s = s.replaceAll(RegExp(r'[ \t]+'), ' ');
+    s = s.replaceAll(RegExp(r' *\n *'), '\n');
+    s = s.replaceAll(RegExp(r'\n{3,}'), '\n\n');
+    return s.trim();
+  }
+
   /// Spec list for detail screen — mirrors specs[] from motos.js.
   List<MapEntry<String, String>> get specList {
     final list = <MapEntry<String, String>>[];
@@ -175,6 +347,15 @@ class Motorcycle {
     if (val is List) return val.map((e) => e.toString()).toList();
     return [];
   }
+}
+
+/// A single "Základní údaje" entry. [card] is the compact value without label
+/// (for tight layouts); [value] is the full value shown next to [label].
+class ShortDescItem {
+  final String label;
+  final String value;
+  final String card;
+  const ShortDescItem(this.label, this.value, this.card);
 }
 
 /// Per-day pricing — mirrors pricing:{po,ut,st,ct,pa,so,ne} from motos.js

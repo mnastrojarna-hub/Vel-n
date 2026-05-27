@@ -144,13 +144,13 @@ class _MotoDetailPageState extends ConsumerState<MotoDetailPage> {
           ),
         ),
 
-        // === DESCRIPTION ===
-        if (moto.description != null)
+        // === DESCRIPTION === (plain text — HTML markup stripped)
+        if (moto.descriptionPlain != null)
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
               child: Text(
-                moto.description!,
+                moto.descriptionPlain!,
                 style: const TextStyle(
                   fontSize: 13,
                   height: 1.6,
@@ -317,6 +317,8 @@ class _MotoDetailPageState extends ConsumerState<MotoDetailPage> {
             children: [
               Text(
                 moto.model,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w900,
@@ -326,6 +328,8 @@ class _MotoDetailPageState extends ConsumerState<MotoDetailPage> {
               if (branchInfo.isNotEmpty)
                 Text(
                   branchInfo,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 12,
                     color: Colors.white.withValues(alpha: 0.6),
@@ -469,14 +473,19 @@ class _MotoDetailPageState extends ConsumerState<MotoDetailPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(children: [
-                        Text(
-                          t(ctx).tr('detailPickupLabel'),
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: MotoGoColors.g600,
+                        Flexible(
+                          child: Text(
+                            t(ctx).tr('detailPickupLabel'),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: MotoGoColors.g600,
+                            ),
                           ),
                         ),
+                        const SizedBox(width: 4),
                         Text(
                           _formatDate(_selStart!),
                           style: const TextStyle(
@@ -488,14 +497,19 @@ class _MotoDetailPageState extends ConsumerState<MotoDetailPage> {
                       ]),
                       const SizedBox(height: 4),
                       Row(children: [
-                        Text(
-                          t(ctx).tr('detailReturnLabel'),
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: MotoGoColors.g600,
+                        Flexible(
+                          child: Text(
+                            t(ctx).tr('detailReturnLabel'),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: MotoGoColors.g600,
+                            ),
                           ),
                         ),
+                        const SizedBox(width: 4),
                         Text(
                           _formatDate(_selEnd!),
                           style: const TextStyle(

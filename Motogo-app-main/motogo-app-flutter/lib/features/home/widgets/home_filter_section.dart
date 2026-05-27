@@ -284,35 +284,42 @@ class HomeFilterSection extends ConsumerWidget {
             // Bottom filter row: available today + sort
             Row(
               children: [
-                GestureDetector(
-                  onTap: () => onAvailableTodayChanged(!showAvailableToday),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 20,
-                        height: 20,
-                        decoration: BoxDecoration(
-                          color: showAvailableToday ? MotoGoColors.green : Colors.white,
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(
-                            color: showAvailableToday ? MotoGoColors.green : MotoGoColors.g200,
-                            width: 1.5,
+                Flexible(
+                  child: GestureDetector(
+                    onTap: () => onAvailableTodayChanged(!showAvailableToday),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 20,
+                          height: 20,
+                          decoration: BoxDecoration(
+                            color: showAvailableToday ? MotoGoColors.green : Colors.white,
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(
+                              color: showAvailableToday ? MotoGoColors.green : MotoGoColors.g200,
+                              width: 1.5,
+                            ),
+                          ),
+                          child: showAvailableToday
+                              ? const Icon(Icons.check, size: 14, color: Colors.black)
+                              : null,
+                        ),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            t(context).tr('homeFilterShowAvailableToday'),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: MotoGoColors.black,
+                            ),
                           ),
                         ),
-                        child: showAvailableToday
-                            ? const Icon(Icons.check, size: 14, color: Colors.black)
-                            : null,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        t(context).tr('homeFilterShowAvailableToday'),
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: MotoGoColors.black,
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
                 const Spacer(),

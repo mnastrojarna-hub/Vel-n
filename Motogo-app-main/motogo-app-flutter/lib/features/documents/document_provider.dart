@@ -427,21 +427,29 @@ Future<String?> saveOcrToProfile(
 
   if (isDl) {
     // ─── ŘIDIČSKÝ PRŮKAZ ─────────────────────────────────────────
+    // Skupinu ŘP pro verifikaci bereme z PROFILU (ručně zvolená / vyplněná
+    // při onboardingu) — sken ji NEPŘEPISUJE, pokud už profil skupinu má.
+    // Shodně s webem (fix 2026-05-26). Sken skupinu doplní jen tehdy, když
+    // profil žádnou nemá (úplně nový profil).
+    Map<String, dynamic>? current;
+    try {
+      current = await MotoGoSupabase.client
+          .from('profiles')
+          .select('license_number, license_group')
+          .eq('id', user.id)
+          .maybeSingle();
+    } catch (e) {
+      debugPrint('[DocScan] ⚠ failed to fetch current license data: $e');
+    }
+    final profileGroups = ((current?['license_group'] as List?) ?? [])
+        .map((e) => e.toString().toUpperCase())
+        .toList();
+    final hasProfileGroup = profileGroups.isNotEmpty;
+
     if (isBack) {
-      // ZADNÍ STRANA ŘP: jen kontrola čísla + potvrzení/redukce skupin.
+      // ZADNÍ STRANA ŘP: jen kontrola čísla + (případně) doplnění skupin.
       // NEPŘEPISUJE license_expiry ani license_number — ta jsou na přední
       // straně a přední strana už je uložila.
-      Map<String, dynamic>? current;
-      try {
-        current = await MotoGoSupabase.client
-            .from('profiles')
-            .select('license_number, license_group')
-            .eq('id', user.id)
-            .maybeSingle();
-      } catch (e) {
-        debugPrint('[DocScan] ⚠ failed to fetch current license data: $e');
-      }
-
       // Porovnání čísla ŘP zadní vs. přední strana
       final backNum = result.licenseNumber ?? result.idNumber;
       final frontNum = current?['license_number'] as String?;
@@ -455,30 +463,11 @@ Future<String?> saveOcrToProfile(
         }
       }
 
-      // Skupiny: průnik s těmi z přední strany (zadní obvykle upřesňuje/redukuje)
-      if (result.licenseCategory != null) {
+      // Skupiny: sken NEPŘEPISUJE profilovou skupinu. Doplní jen když profil
+      // žádnou nemá.
+      if (!hasProfileGroup && result.licenseCategory != null) {
         final backGroups = _parseLicenseGroups(result.licenseCategory!);
-        final frontGroups = ((current?['license_group'] as List?) ?? [])
-            .map((e) => e.toString().toUpperCase())
-            .toList();
-        if (backGroups.isNotEmpty) {
-          if (frontGroups.isNotEmpty) {
-            final intersect = frontGroups
-                .where((g) => backGroups.contains(g))
-                .toList();
-            if (intersect.isNotEmpty &&
-                intersect.length < frontGroups.length) {
-              // Zadní strana redukovala — uložíme průnik
-              updates['license_group'] = intersect;
-              debugPrint('[DocScan] License groups reduced: '
-                  '$frontGroups ∩ $backGroups = $intersect');
-            }
-            // Pokud průnik = přední, nic neměníme (potvrzení)
-          } else {
-            // Přední strana skupiny nenašla — použijeme zadní
-            updates['license_group'] = backGroups;
-          }
-        }
+        if (backGroups.isNotEmpty) updates['license_group'] = backGroups;
       }
 
       // verified_at posuneme, protože zadní strana potvrdila ŘP
@@ -487,13 +476,13 @@ Future<String?> saveOcrToProfile(
         updates['license_verified_at'] = DateTime.now().toIso8601String();
       }
     } else {
-      // PŘEDNÍ STRANA ŘP: číslo, platnost, skupiny
+      // PŘEDNÍ STRANA ŘP: číslo, platnost (skupina jen pro prázdný profil)
       if (result.licenseNumber != null) {
         updates['license_number'] = result.licenseNumber;
       } else if (result.idNumber != null) {
         updates['license_number'] = result.idNumber;
       }
-      if (result.licenseCategory != null) {
+      if (!hasProfileGroup && result.licenseCategory != null) {
         final valid = _parseLicenseGroups(result.licenseCategory!);
         if (valid.isNotEmpty) updates['license_group'] = valid;
       }

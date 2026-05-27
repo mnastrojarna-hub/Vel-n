@@ -47,6 +47,31 @@ class ResDetailTabContent extends ConsumerWidget {
     required this.onRatingChanged,
   });
 
+  /// Try to release withheld door codes. If documents are already uploaded the
+  /// backend RPC releases them immediately; otherwise we route the customer to
+  /// the documents screen to scan OP/ŘP, then retry the release on return.
+  Future<void> _handleReleaseCodes(BuildContext context, WidgetRef ref) async {
+    var err = await releaseDoorCodes(res.id);
+    if (err == null) {
+      if (!context.mounted) return;
+      ref.invalidate(doorCodesProvider(res.id));
+      showMotoGoToast(context, icon: '🔑', title: t(context).tr('success'), message: t(context).tr('codesReleased'));
+      return;
+    }
+    // Nemá doklady → nech zákazníka nahrát fotky, pak zkus uvolnit znovu.
+    if (!context.mounted) return;
+    await context.push(Routes.docs);
+    if (!context.mounted) return;
+    err = await releaseDoorCodes(res.id);
+    if (!context.mounted) return;
+    ref.invalidate(doorCodesProvider(res.id));
+    if (err == null) {
+      showMotoGoToast(context, icon: '🔑', title: t(context).tr('success'), message: t(context).tr('codesReleased'));
+    } else {
+      showMotoGoToast(context, icon: '⚠️', title: t(context).tr('error'), message: t(context).tr('codesStillWithheld'));
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final st = res.displayStatus;
@@ -138,6 +163,7 @@ class ResDetailTabContent extends ConsumerWidget {
           doorCodesAsync.when(
             data: (codes) {
               if (codes.isEmpty || st != ResStatus.aktivni) return const SizedBox.shrink();
+              final hasWithheld = codes.any((c) => !c.sentToCustomer);
               return Column(
                 children: [
                   ResDetailCard(children: [
@@ -156,6 +182,24 @@ class ResDetailTabContent extends ConsumerWidget {
                       value: c.sentToCustomer ? c.doorCode : (c.withheldReason ?? t(context).tr('awaitingDocs')),
                       bold: c.sentToCustomer,
                     )),
+                    // Kódy zadržené (chybí doklady) → CTA: zkus uvolnit (pokud už
+                    // jsou doklady nahrané), jinak naviguj na nahrání dokladů.
+                    if (hasWithheld) ...[
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: () => _handleReleaseCodes(context, ref),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: MotoGoColors.green,
+                            foregroundColor: Colors.black,
+                            minimumSize: const Size.fromHeight(44),
+                          ),
+                          icon: const Icon(Icons.badge_outlined, size: 16),
+                          label: Text(t(context).tr('uploadDocsForCodes')),
+                        ),
+                      ),
+                    ],
                   ]),
                   const SizedBox(height: 12),
                 ],
