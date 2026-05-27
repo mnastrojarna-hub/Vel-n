@@ -245,6 +245,17 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       // Save extras to booking_extras table (fire-and-forget, like original)
       _saveBookingExtras(bookingId, draft.extras);
 
+      // Souhlasy z rezervačního formuláře propíšeme do profilu (parita s webem).
+      // Fire-and-forget — nesmí blokovat ani shodit potvrzení rezervace.
+      () async {
+        try {
+          await MotoGoSupabase.client.from('profiles').update({
+            'consent_vop': draft.consentVop,
+            'consent_gdpr': draft.consentGdpr,
+          }).eq('id', user.id);
+        } catch (_) {/* ignore */}
+      }();
+
       // Invalidate FAB provider so it detects the new pending booking
       ref.invalidate(pendingBookingFabProvider);
 

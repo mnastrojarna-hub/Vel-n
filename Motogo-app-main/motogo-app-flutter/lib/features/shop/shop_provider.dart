@@ -81,11 +81,28 @@ Future<String?> createShopOrder({
 }) async {
   try {
     final res = await MotoGoSupabase.client.rpc('create_shop_order', params: {
-      'p_items': items.map((i) => {
-        'id': i.id,
-        'name': i.name,
-        'price': i.price,
-        'qty': i.qty,
+      // Vedle legacy 'id' posíláme i product_id (UUID) + size vytažené z
+      // kompozitního cart id "<uuid>-<velikost>". Stávající RPC tato pole
+      // ignoruje (žádný break); jakmile RPC umí per-size sklad, naplní z nich
+      // shop_order_items.product_id / size.
+      'p_items': items.map((i) {
+        final m = RegExp(
+                r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}')
+            .firstMatch(i.id);
+        final productId = m?.group(0);
+        final size = (productId != null &&
+                i.id.length > 37 &&
+                i.id[36] == '-')
+            ? i.id.substring(37)
+            : null;
+        return {
+          'id': i.id,
+          'name': i.name,
+          'price': i.price,
+          'qty': i.qty,
+          if (productId != null) 'product_id': productId,
+          if (size != null && size.isNotEmpty) 'size': size,
+        };
       }).toList(),
       'p_shipping_method': shipping.name,
       'p_shipping_address': address,

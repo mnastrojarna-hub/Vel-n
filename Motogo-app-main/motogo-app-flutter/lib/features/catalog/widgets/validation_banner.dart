@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme.dart';
+import '../../../core/i18n/i18n_provider.dart';
 import '../../auth/auth_provider.dart';
 import '../../booking/booking_validator.dart';
 import '../../reservations/reservation_provider.dart';
@@ -45,9 +46,22 @@ class ValidationBanner extends ConsumerWidget {
       isChildrensMoto: moto.licenseRequired == 'N',
     );
 
+    // Délka pronájmu (min/max z DB) — vynucováno na CTA rezervace, tady jen
+    // včasné upozornění. Lokalizováno do zvoleného jazyka.
+    String? lengthErr;
+    final days = endDate.difference(startDate).inDays + 1;
+    final min = moto.minRentalDays;
+    final max = moto.maxRentalDays;
+    if (min != null && min > 1 && days < min) {
+      lengthErr = t(context).tr('validationMinDays').replaceAll('{n}', '$min');
+    } else if (max != null && max > 0 && days > max) {
+      lengthErr = t(context).tr('validationMaxDays').replaceAll('{n}', '$max');
+    }
+
     final errors = [
       if (licenseErr != null) licenseErr,
       if (overlapErr != null) overlapErr,
+      if (lengthErr != null) lengthErr,
     ];
     if (errors.isEmpty) return const SizedBox.shrink();
 

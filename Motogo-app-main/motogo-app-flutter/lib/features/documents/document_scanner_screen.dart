@@ -142,49 +142,50 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen> {
       debugPrint('[DocScan] Step ${_stepIdx + 1}/${_sequence.length}: '
           '${step.key} (${step.docType.apiType})');
 
-      // Upload + OCR souběžně — oba awaitneme.
-      final uploadFuture = uploadDocPhoto(photo, step.docType);
+      // Nejdřív OCR, pak nahrání fotky s odpovídajícím mindee_status.
       final scanResult = await scanDocumentWithRetry(photo, step.docType);
-      final uploadResult = await uploadFuture;
+      final ocrDataOk = scanResult.ok
+          && scanResult.data != null
+          && _hasRequiredFieldsForStep(scanResult.data!, step);
+      final uploadResult = await uploadDocPhoto(
+        photo,
+        step.docType,
+        mindeeOk: scanResult.ok && scanResult.data != null,
+      );
 
       if (!mounted) return;
       setState(() => _scanning = false);
 
-      // Podmínky úspěchu:
-      //   (a) OCR vrátil data
-      //   (b) Pro daný krok jsou načtena ALESPOŇ očekávaná pole
-      //       (ŘP → číslo nebo platnost; OP/pas přední → jméno nebo číslo;
-      //        OP/pas zadní → adresa)
-      //   (c) DB záznam se úspěšně zapsal — bez toho se door_codes
-      //       nikdy neuvolní a admin nepozná, že doklad existuje.
-      final ocrOk = scanResult.ok
-          && scanResult.data != null
-          && _hasRequiredFieldsForStep(scanResult.data!, step);
       final uploadOk = uploadResult.ok;
 
-      if (ocrOk && uploadOk) {
-        // Uložení do profilu (může selhat částečně — nekrashujeme flow)
-        final saveWarning = await saveOcrToProfile(
-            scanResult.data!, docType: step.docType, stepKey: step.key);
-        if (!mounted) return;
-
-        final summary = _buildFieldsSummary(scanResult.data!, step.docType);
+      // Pravidlo (b3): když je fotka uložená, krok NIKDY neselže — door codes
+      // se uvolní i bez OCR (fotka NEBO reálné OCR). OCR data jen navíc doplní
+      // profil (číslo/platnost/jméno/…); jejich absence není chyba.
+      if (uploadOk) {
+        String message;
+        if (ocrDataOk) {
+          // Uložení do profilu (může selhat částečně — nekrashujeme flow)
+          final saveWarning = await saveOcrToProfile(
+              scanResult.data!, docType: step.docType, stepKey: step.key);
+          if (!mounted) return;
+          final summary = _buildFieldsSummary(scanResult.data!, step.docType);
+          // saveWarning = specifická zpráva (neshoda čísla ŘP) nebo chyba DB.
+          message = saveWarning != null ? '$summary\n\n⚠️ $saveWarning' : summary;
+        } else {
+          // Fotka uložená, ale OCR nepřečetlo pole → pořád úspěch.
+          message = t(context).tr('docPhotoSavedNoOcr');
+        }
         setState(() {
           _completed[step.key] = true;
           _attempts.remove(step.key); // reset — krok dokončen
           _resultKind = _ResultKind.success;
           _resultTitle = '${step.title} – ${step.side}';
-          // saveWarning může být (a) specifická zpráva (např. neshoda čísla ŘP)
-          // nebo (b) technická chyba DB. V obou případech ji chceme uživateli
-          // ukázat přímo, ne schovávat za generickou i18n klíč.
-          _resultMsg = saveWarning != null
-              ? '$summary\n\n⚠️ $saveWarning'
-              : summary;
+          _resultMsg = message;
           _resultGuidance = '';
           _resultAttempt = 0;
         });
       } else {
-        // Selhal jeden z kroků — zvýš counter pokusu a rozhodni:
+        // Selhalo i nahrání fotky (vzácné) — zvýš counter pokusu a rozhodni:
         final attempt = (_attempts[step.key] ?? 0) + 1;
         _attempts[step.key] = attempt;
 
@@ -192,7 +193,7 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen> {
           scanResult: scanResult,
           uploadResult: uploadResult,
           step: step,
-          ocrOk: ocrOk,
+          ocrOk: ocrDataOk,
           uploadOk: uploadOk,
         );
         final guidance = _guidanceForStep(step);
