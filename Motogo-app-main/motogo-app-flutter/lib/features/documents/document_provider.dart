@@ -338,19 +338,52 @@ class DocUploadResult {
   bool get ok => markerPath != null && errorDetail == null;
 }
 
-/// Record Mindee-verified document in Supabase documents table.
-/// Photos are NOT uploaded to storage (GDPR) — only a verification
-/// record is inserted so admin/door-code logic can confirm docs exist.
+/// Uloží fotku dokladu přes edge fn `save-verification-document` (běží pod
+/// service_role → obejde RLS, fotka se uloží do bucketu `documents` + záznam
+/// do `public.documents`). Fotka se ukládá VŽDY (i když OCR selhalo —
+/// `mindee_status`), aby zákazník o nahranou fotku nikdy nepřišel a kódy ke
+/// dveřím se uvolnily (door-code pravidlo: fotka NEBO reálné OCR).
 ///
-/// Uses UPSERT on (user_id, type) to avoid duplicate records when the
-/// user re-scans the same side/type.
-Future<DocUploadResult> uploadDocPhoto(XFile photo, ScanDocType docType) async {
+/// [mindeeOk] = OCR vrátilo data (ok) vs. selhalo (failed).
+/// Fallback: pokud edge fn selže, zapíšeme aspoň marker řádek do `documents`,
+/// takže se doklad eviduje a flow nikdy „neselže na nahrání".
+Future<DocUploadResult> uploadDocPhoto(
+  XFile photo,
+  ScanDocType docType, {
+  bool mindeeOk = false,
+}) async {
   final user = MotoGoSupabase.currentUser;
   if (user == null) {
     debugPrint('[DocUpload] ✗ No authenticated user');
     return const DocUploadResult(errorDetail: 'not_authenticated');
   }
 
+  // Edge fn: skutečné nahrání fotky.
+  try {
+    final rawBytes = await photo.readAsBytes();
+    final resized = await compute(_resizeForOcr, rawBytes);
+    final res = await MotoGoSupabase.client.functions.invoke(
+      'save-verification-document',
+      body: {
+        'user_id': user.id,
+        'doc_type': docType.apiType, // 'id' | 'dl' | 'passport'
+        'image_base64': base64Encode(resized),
+        'mindee_status': mindeeOk ? 'ok' : 'failed',
+        'mime': 'image/jpeg',
+      },
+    );
+    final data = res.data;
+    if (data is Map && data['success'] == true) {
+      final path = data['path']?.toString() ?? 'saved';
+      debugPrint('[DocUpload] ✓ Photo saved via edge fn: ${docType.storageType}');
+      return DocUploadResult(markerPath: path);
+    }
+    debugPrint('[DocUpload] ⚠ edge fn nevrátila success: $data — fallback na marker');
+  } catch (e) {
+    debugPrint('[DocUpload] ⚠ edge fn selhala: $e — fallback na marker');
+  }
+
+  // Fallback: marker řádek (doklad se aspoň eviduje → kódy se uvolní).
   try {
     final marker = 'mindee_verified/${user.id}/${docType.storageType}';
     await MotoGoSupabase.client.from('documents').insert({
@@ -359,10 +392,10 @@ Future<DocUploadResult> uploadDocPhoto(XFile photo, ScanDocType docType) async {
       'file_name': docType.label,
       'file_path': marker,
     });
-    debugPrint('[DocUpload] ✓ Verification record inserted: ${docType.storageType}');
+    debugPrint('[DocUpload] ✓ Marker record inserted: ${docType.storageType}');
     return DocUploadResult(markerPath: marker);
   } catch (e) {
-    debugPrint('[DocUpload] ✗ Document insert FAILED: $e');
+    debugPrint('[DocUpload] ✗ Marker insert FAILED: $e');
     return DocUploadResult(errorDetail: '$e');
   }
 }
