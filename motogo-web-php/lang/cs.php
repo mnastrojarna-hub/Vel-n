@@ -164,7 +164,7 @@ return [
     'shop.h1' => 'E-shop MotoGo24 — motorkářské doplňky a merch',
     'shop.intro' => 'Motorkářské doplňky, merch a dárky pro fanoušky MotoGo24. Doručíme po celé ČR.',
     'shop.description' => 'E-shop MotoGo24 — motorkářské doplňky, oblečení a merch. Online objednávka, doprava po celé ČR.',
-    'shop.keywords' => 'motopůjčovna',
+    'shop.keywords' => 'motopůjčovna, půjčovna motorek, motorkářské doplňky, motorkářská výbava, helmy, bundy, rukavice, dárkový poukaz na motorku, MotoGo24 e-shop',
     'shop.empty' => 'Momentálně nemáme žádné produkty na skladě. Sledujte nás na sociálních sítích.',
     'shop.unnamedProduct' => 'Produkt',
     'shop.productAlt' => '{name} — e-shop MotoGo24',
@@ -310,10 +310,10 @@ return [
     'cms.contract.description' => 'Vzor smlouvy o pronájmu motocyklu MotoGo24 — předmět nájmu, doba, cena, povinnosti nájemce a pronajímatele.',
 
     // ===== SEO meta defaults (per-jazyk) =====
-    'seo.default.description' => 'Půjčovna motorek Vysočina – silniční, sportovní, enduro i dětské. Nonstop pronájem bez kauce, online rezervace a motorkářská výbava zdarma.',
+    'seo.default.description' => 'Motopůjčovna a půjčovna motorek na Vysočině – silniční, sportovní, enduro i dětské. Nonstop pronájem bez kauce, online rezervace a motorkářská výbava zdarma.',
     'seo.default.keywords' => 'motopůjčovna, půjčovna motorek, půjčovna motorek Vysočina, půjčovna motorek Pelhřimov, pronájem motorky, půjčit motorku, půjčení motocyklu, motorka na pronájem, půjčovna motocyklů, motorka bez kauce, nonstop půjčovna motorek, online rezervace motorky, cestovní motorky, naked motorky, supermoto, enduro motorky, dětské motorky, motorkářská výbava, motorkářské doplňky, dárkový poukaz na motorku, motocyklové trasy Vysočina, MotoGo24',
-    'seo.home.description' => 'Půjčte si motorku na Vysočině. Bez kauce, výbava v ceně, nonstop provoz. Cestovní, sportovní, enduro i dětské motorky. Online rezervace.',
-    'seo.home.keywords' => 'půjčovna motorek Vysočina, motopůjčovna Pelhřimov, půjčit motorku, pronájem motorky, půjčovna motocyklů, motorka bez kauce, nonstop půjčovna motorek, online rezervace motorky, cestovní motorky, naked motorky, supermoto, enduro, dětské motorky, motorka na víkend, motorkářská výbava v ceně, dárkový poukaz na motorku, motocyklové trasy Vysočina, MotoGo24',
+    'seo.home.description' => 'Motopůjčovna na Vysočině – půjčte si motorku bez kauce, s výbavou v ceně a nonstop provozem. Cestovní, sportovní, enduro i dětské motorky. Online rezervace.',
+    'seo.home.keywords' => 'motopůjčovna, motopůjčovna Vysočina, motopůjčovna Pelhřimov, půjčovna motorek, půjčovna motorek Vysočina, půjčit motorku, pronájem motorky, půjčovna motocyklů, motorka bez kauce, nonstop motopůjčovna, online rezervace motorky, cestovní motorky, naked motorky, supermoto, enduro, dětské motorky, motorka na víkend, motorkářská výbava v ceně, dárkový poukaz na motorku, motocyklové trasy Vysočina, MotoGo24',
 
     // ===== Potvrzení =====
     'confirm.titleBooking' => 'Potvrzení rezervace | MotoGo24',
@@ -323,7 +323,7 @@ return [
     // ===== Rezervace shell =====
     'rezervace.title' => 'Online rezervace motorky | MotoGo24',
     'rezervace.description' => 'Online rezervace motorky na Vysočině. Bez kauce, s výbavou v ceně a nonstop provozem. Vyberte motorku, termín a zaplaťte online.',
-    'rezervace.keywords' => 'motopůjčovna',
+    'rezervace.keywords' => 'motopůjčovna, půjčovna motorek, online rezervace motorky, rezervace motorky online, půjčit motorku, pronájem motorky, MotoGo24',
     'rezervace.loading' => 'Načítám rezervační systém...',
 
     // ===== Rezervace — hlavička / intro =====
@@ -1294,7 +1294,7 @@ return [
     // ===== Blog =====
     'blog.title' => 'Blog a tipy pro motorkáře | MotoGo24',
     'blog.description' => 'Blog Motogo24 – tipy na motorkářské trasy na Vysočině i v ČR, novinky z půjčovny, rady pro bezpečnou jízdu a praktické postupy.',
-    'blog.keywords' => 'motopůjčovna',
+    'blog.keywords' => 'motopůjčovna, půjčovna motorek, motocyklové trasy Vysočina, tipy pro motorkáře, motorkářský blog, MotoGo24',
     'blog.h1' => 'Blog a tipy z motopůjčovny MotoGo24',
     'blog.empty' => 'Žádné články v této kategorii.',
     'blog.tagAll' => 'Všechny ({count})',

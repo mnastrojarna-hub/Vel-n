@@ -5,9 +5,9 @@ $sb = new SupabaseClient();
 
 $defaults = [
     'seo' => [
-        'title' => 'Půjčovna motorek Vysočina - Poukazy',
-        'description' => 'Kupte dárkový poukaz na pronájem motorky. Platnost 3 roky, bez kauce, výbava v ceně. Elektronický i tištěný poukaz. Online objednávka.',
-        'keywords' => 'motopůjčovna',
+        'title' => 'Dárkové poukazy | Motopůjčovna a půjčovna motorek Vysočina',
+        'description' => 'Kupte dárkový poukaz na pronájem motorky v motopůjčovně MotoGo24. Platnost 3 roky, bez kauce, výbava v ceně. Elektronický i tištěný poukaz. Online objednávka.',
+        'keywords' => 'motopůjčovna, půjčovna motorek, dárkový poukaz na motorku, dárek pro motorkáře, poukaz na pronájem motorky, voucher motorka, MotoGo24',
         'og_image' => 'https://www.motogo24.cz/gfx/darkovy-poukaz.jpg',
     ],
     'h1' => 'Kup dárkový poukaz – daruj zážitek na dvou kolech!',
