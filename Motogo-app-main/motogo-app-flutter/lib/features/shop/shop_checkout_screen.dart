@@ -169,6 +169,7 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
     final orderNumber = order['order_number']?.toString();
     final total = (order['total'] as num?)?.toDouble() ?? 0;
     final paid = order['payment_status'] == 'paid';
+    final statusRaw = order['payment_status']?.toString() ?? '';
 
     await showDialog<void>(
       context: context,
@@ -194,9 +195,7 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
             ]),
             const SizedBox(height: 4),
             Text(
-              paid
-                  ? '✓ ${t(dctx).tr('paid')}'
-                  : (order['payment_status']?.toString() ?? ''),
+              paid ? '✓ ${t(dctx).tr('paid')}' : statusRaw,
               style: TextStyle(
                   fontWeight: FontWeight.w700,
                   color: paid ? MotoGoColors.greenDark : MotoGoColors.g600),
