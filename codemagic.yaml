@@ -92,8 +92,8 @@ workflows:
     environment:
       flutter: stable
       java: 17
-      groups:
-        - android_signing
+      android_signing:
+        - motogo24_upload
     scripts:
       - name: Accept Android licenses
         script: |
