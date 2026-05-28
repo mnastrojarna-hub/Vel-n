@@ -18,17 +18,19 @@ export default function AnalyzaZakazniku() {
   const [error, setError] = useState(null)
   const [raw, setRaw] = useState(null)
   const [period, setPeriod] = useState({ type: 'all' })
+  const [appStats, setAppStats] = useState(null)
 
   useEffect(() => { loadData() }, [])
 
   async function loadData() {
     setLoading(true); setError(null)
     try {
-      const [pRes, bRes, mRes, iRes] = await Promise.all([
+      const [pRes, bRes, mRes, iRes, aRes] = await Promise.all([
         supabase.from('profiles').select('id, full_name, email, phone, city, date_of_birth, license_group, riding_experience, preferred_branch, created_at'),
         supabase.from('bookings').select('id, user_id, moto_id, start_date, end_date, total_price, status, created_at, rating, booking_source, payment_status'),
         supabase.from('motorcycles').select('id, model, category, branch_id'),
         supabase.from('invoices').select('id, customer_id, total, status, issue_date, type').eq('type', 'issued'),
+        supabase.rpc('get_app_installation_stats'),
       ])
       if (pRes.error) throw pRes.error
       if (bRes.error) throw bRes.error
@@ -40,6 +42,7 @@ export default function AnalyzaZakazniku() {
         motorcycles: mRes.data || [],
         invoices: iRes.data || [],
       })
+      setAppStats(aRes.error ? null : (aRes.data || null))
     } catch (e) { setError(e.message) } finally { setLoading(false) }
   }
 
@@ -164,6 +167,38 @@ export default function AnalyzaZakazniku() {
           </div>
         ))}
       </div>
+
+      {/* App installations */}
+      {appStats && (
+        <div style={{ ...cardStyle, marginBottom: 24 }}>
+          <div className="font-bold mb-3 flex items-center gap-2" style={{ color: '#1a2e22' }}>
+            <span>📱 Mobilní aplikace MotoGo</span>
+            <span className="text-xs font-normal" style={{ color: '#888' }}>(zdroj: aktivní push tokeny)</span>
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+            <div>
+              <div className="text-2xl font-extrabold" style={{ color: '#166534' }}>{Number(appStats.unique_users_with_app || 0).toLocaleString('cs-CZ')}</div>
+              <div className="text-xs mt-1" style={{ color: '#888' }}>Zákazníků s aplikací</div>
+            </div>
+            <div>
+              <div className="text-2xl font-extrabold" style={{ color: '#166534' }}>{Number(appStats.install_rate_pct || 0).toLocaleString('cs-CZ')}%</div>
+              <div className="text-xs mt-1" style={{ color: '#888' }}>Podíl ze všech zákazníků</div>
+            </div>
+            <div>
+              <div className="text-2xl font-extrabold" style={{ color: '#166534' }}>{Number(appStats.total_active_devices || 0).toLocaleString('cs-CZ')}</div>
+              <div className="text-xs mt-1" style={{ color: '#888' }}>Aktivních zařízení</div>
+            </div>
+            <div>
+              <div className="text-2xl font-extrabold" style={{ color: '#166534' }}>{Number(appStats.ios_devices || 0).toLocaleString('cs-CZ')}</div>
+              <div className="text-xs mt-1" style={{ color: '#888' }}>iOS</div>
+            </div>
+            <div>
+              <div className="text-2xl font-extrabold" style={{ color: '#166534' }}>{Number(appStats.android_devices || 0).toLocaleString('cs-CZ')}</div>
+              <div className="text-xs mt-1" style={{ color: '#888' }}>Android</div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Segments + Category preference */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
