@@ -322,7 +322,84 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       }
     }
 
-    // Create PaymentIntent (mode: intent)
+    // -- Saved card auto-charge (off-session) --
+    // Když má uživatel prioritní (default) kartu v profilu, zkusíme ji rovnou
+    // strhnout — bez Payment Sheetu. Parita s „1 klik na zaplatit" na webu.
+    // Pokud Stripe odmítne (declined / expired / unsupported), spadneme do
+    // klasického Payment Sheetu.
+    final defaultCard = ref.read(defaultCardProvider);
+    if (defaultCard != null && defaultCard.stripeId.isNotEmpty) {
+      final offSessionDone = await _tryOffSessionCharge(amount, defaultCard);
+      if (offSessionDone) return; // úspěch nebo terminální chyba s vlastním modalem
+      // jinak pokračujeme do klasického Payment Sheetu
+    }
+
+    await _runPaymentSheetFlow(amount);
+  }
+
+  /// Pokusí se stáhnout částku z uložené karty bez interakce.
+  /// Vrací true pokud screen už zavřel uživatele dál (success/handled error),
+  /// false pokud máme pokračovat do klasického Payment Sheetu.
+  Future<bool> _tryOffSessionCharge(double amount, SavedCard card) async {
+    debugPrint('[Payment] off-session attempt: pm=${card.stripeId}, amount=${amount.round()}');
+    final result = await StripeService.createPaymentIntent(
+      bookingId: _pendingBookingId,
+      amount: amount.round(),
+      type: _stripeType,
+      orderId: _pendingOrderId,
+      incidentId: _ctx?.incidentId,
+      paymentMethodId: card.stripeId,
+    );
+
+    if (!mounted) return true;
+    _pendingBookingId ??= result.bookingId;
+
+    if (result.type == PaymentResultType.offSessionSucceeded) {
+      await _verifyAndComplete();
+      return true;
+    }
+
+    if (result.type == PaymentResultType.offSessionRequiresAction &&
+        result.clientSecret != null) {
+      // SCA (3DS) prompt — Stripe SDK ukáže overlay přímo v appce.
+      try {
+        final ok = await StripeService.handleNextAction(result.clientSecret!);
+        if (!mounted) return true;
+        if (ok) {
+          await _verifyAndComplete();
+          return true;
+        }
+        // SCA neproběhlo — pad do Payment Sheetu
+        return false;
+      } catch (e) {
+        debugPrint('[Payment] handleNextAction err: $e');
+        return false; // fallback do Payment Sheetu
+      }
+    }
+
+    if (result.type == PaymentResultType.offSessionFailed) {
+      // Karta selhala — info banner + pad do Payment Sheetu. Nezapočítáváme
+      // _attempts, fallback je stejný uživatelský pokus.
+      debugPrint('[Payment] off-session failed: ${result.errorMessage} '
+          '(decline=${result.declineCode})');
+      return false;
+    }
+
+    if (result.type == PaymentResultType.error) {
+      setState(() => _processing = false);
+      _attempts++;
+      _handleIntentError(result);
+      return true;
+    }
+
+    // Jiné stavy (např. intent vrácen místo off-session): pokračovat sheetem
+    return false;
+  }
+
+  /// Klasický flow s Payment Sheetem (zachová původní chování).
+  Future<void> _runPaymentSheetFlow(double amount) async {
+    if (mounted) setState(() => _processing = true);
+
     debugPrint('[Payment] createPaymentIntent: amount=${amount.round()}, type=$_stripeType');
     final result = await StripeService.createPaymentIntent(
       bookingId: _pendingBookingId,
@@ -558,6 +635,8 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       }
       showMotoGoToast(context,
           icon: '\u2713', title: t(context).tr('paid'), message: t(context).tr('bookingConfirmed'));
+      // D\u011bkovac\u00ed str\u00e1nka si na\u010dte stav doklad\u016f + typ motorky podle tohoto ID.
+      ref.read(lastConfirmedBookingProvider.notifier).state = _pendingBookingId;
       context.go(Routes.success);
     } else {
       switch (_ctx!.flowType) {

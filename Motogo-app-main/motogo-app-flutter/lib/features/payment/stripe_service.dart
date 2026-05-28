@@ -20,6 +20,9 @@ class StripeService {
 
   /// Create PaymentIntent via process-payment edge function (mode: intent).
   /// Returns client_secret + customer data for Stripe Payment Sheet.
+  /// Když je předán [paymentMethodId], edge fn provede off-session charge a
+  /// místo Payment Sheetu se vrátí buď `succeeded`, nebo `requires_action` s
+  /// client_secret pro SCA (klient pak volá `handleNextAction`).
   static Future<PaymentResult> createPaymentIntent({
     String? bookingId,
     required int amount,
@@ -27,6 +30,7 @@ class StripeService {
     String type = 'booking',
     String? orderId,
     String? incidentId,
+    String? paymentMethodId,
   }) async {
     try {
       final session = MotoGoSupabase.currentSession;
@@ -47,6 +51,7 @@ class StripeService {
       if (bookingId != null) body['booking_id'] = bookingId;
       if (orderId != null) body['order_id'] = orderId;
       if (incidentId != null) body['incident_id'] = incidentId;
+      if (paymentMethodId != null) body['payment_method_id'] = paymentMethodId;
 
       final response = await http.post(
         Uri.parse('${MotoGoSupabase.url}/functions/v1/process-payment'),
@@ -56,7 +61,7 @@ class StripeService {
           'apikey': MotoGoSupabase.anonKey,
         },
         body: jsonEncode(body),
-      ).timeout(const Duration(seconds: 15));
+      ).timeout(const Duration(seconds: 30));
 
       if (response.statusCode == 401) {
         await handleAuthError(AuthException('401 from process-payment'));
@@ -68,6 +73,36 @@ class StripeService {
       }
 
       final data = jsonDecode(response.body) as Map<String, dynamic>;
+
+      // Off-session: backend buď strhl rovnou (succeeded), nebo vyžaduje SCA
+      // (requires_action s client_secret). Klient v PaymentScreen dotáhne SCA
+      // přes Stripe.instance.handleNextAction(clientSecret).
+      if (data['off_session'] == true) {
+        if (data['success'] == true && data['status'] == 'succeeded') {
+          return PaymentResult.offSessionSucceeded(
+            paymentIntentId: data['payment_intent_id'] as String?,
+            bookingId: bookingId,
+          );
+        }
+        if (data['success'] == true &&
+            (data['status'] == 'requires_action' || data['status'] == 'requires_confirmation') &&
+            data['client_secret'] != null) {
+          return PaymentResult.offSessionRequiresAction(
+            clientSecret: data['client_secret'] as String,
+            paymentIntentId: data['payment_intent_id'] as String?,
+            bookingId: bookingId,
+          );
+        }
+        // Off-session selhal (typicky declined / expired / authentication denied).
+        // Vracíme strukturovanou chybu, aby PaymentScreen mohl spadnout do
+        // Payment Sheetu se sdělením „Karta selhala, zkuste znovu".
+        final msg = (data['message'] as String?) ?? 'Strhnutí uložené karty selhalo.';
+        return PaymentResult.offSessionFailed(
+          message: msg,
+          errorCode: data['error_code'] as String?,
+          declineCode: data['decline_code'] as String?,
+        );
+      }
 
       if (data['success'] == true && data['free'] == true) {
         return PaymentResult.free(bookingId: bookingId);
@@ -207,6 +242,35 @@ class StripeService {
     }
   }
 
+  /// Dokončí SCA (3DS) pro off-session PaymentIntent, který backend založil
+  /// s `requires_action`. Volá se z PaymentScreen po PaymentResult.offSessionRequiresAction.
+  ///
+  /// Vrací true, pokud se intent po SCA dostal na `succeeded` (případně už byl),
+  /// false pokud uživatel SCA zrušil nebo selhal.
+  static Future<bool> handleNextAction(String clientSecret) async {
+    debugPrint('[Stripe] handleNextAction START');
+    try {
+      await Stripe.instance.applySettings();
+    } catch (e) {
+      debugPrint('[Stripe] handleNextAction applySettings failed: $e');
+      // pokračujeme — handleNextAction často projde i bez explicitního applySettings
+    }
+    try {
+      final result = await Stripe.instance.handleNextAction(clientSecret);
+      final status = result.status;
+      debugPrint('[Stripe] handleNextAction status: $status');
+      // succeeded i requiresCapture (manual capture flow) považujeme za OK
+      return status == PaymentIntentsStatus.Succeeded ||
+          status == PaymentIntentsStatus.RequiresCapture;
+    } on StripeException catch (e) {
+      debugPrint('[Stripe] handleNextAction StripeException: ${e.error.code} / ${e.error.message}');
+      return false;
+    } catch (e) {
+      debugPrint('[Stripe] handleNextAction FAILED: $e');
+      return false;
+    }
+  }
+
   /// Poll booking payment status after payment.
   static Future<bool> pollBookingPaymentStatus(
     String bookingId, {
@@ -277,6 +341,7 @@ class PaymentResult {
   final String? errorMessage;
   final String? bookingId;
   final PaymentErrorCode? errorCode;
+  final String? declineCode;
 
   const PaymentResult._({
     required this.type,
@@ -287,6 +352,7 @@ class PaymentResult {
     this.errorMessage,
     this.bookingId,
     this.errorCode,
+    this.declineCode,
   });
 
   factory PaymentResult.intent({
@@ -315,11 +381,58 @@ class PaymentResult {
         errorCode: code,
       );
 
+  /// Off-session charge proběhl, Stripe vrátil status='succeeded'.
+  /// Žádný Payment Sheet ani SCA — webhook potvrdí v DB.
+  factory PaymentResult.offSessionSucceeded({
+    String? paymentIntentId,
+    String? bookingId,
+  }) =>
+      PaymentResult._(
+        type: PaymentResultType.offSessionSucceeded,
+        paymentIntentId: paymentIntentId,
+        bookingId: bookingId,
+      );
+
+  /// Off-session vyžaduje SCA (3DS) — klient pokračuje přes Stripe.handleNextAction.
+  factory PaymentResult.offSessionRequiresAction({
+    required String clientSecret,
+    String? paymentIntentId,
+    String? bookingId,
+  }) =>
+      PaymentResult._(
+        type: PaymentResultType.offSessionRequiresAction,
+        clientSecret: clientSecret,
+        paymentIntentId: paymentIntentId,
+        bookingId: bookingId,
+      );
+
+  /// Off-session selhal (karta declined, expired, ...). Klient může spadnout
+  /// do klasického Payment Sheetu.
+  factory PaymentResult.offSessionFailed({
+    required String message,
+    String? errorCode,
+    String? declineCode,
+  }) =>
+      PaymentResult._(
+        type: PaymentResultType.offSessionFailed,
+        errorMessage: message,
+        declineCode: declineCode,
+      );
+
   bool get isSuccess =>
-      type == PaymentResultType.intent || type == PaymentResultType.free;
+      type == PaymentResultType.intent ||
+      type == PaymentResultType.free ||
+      type == PaymentResultType.offSessionSucceeded;
 }
 
-enum PaymentResultType { intent, free, error }
+enum PaymentResultType {
+  intent,
+  free,
+  error,
+  offSessionSucceeded,
+  offSessionRequiresAction,
+  offSessionFailed,
+}
 
 /// Categorized error codes for specific UI guidance.
 enum PaymentErrorCode { authExpired, timeout, networkError, serverError }

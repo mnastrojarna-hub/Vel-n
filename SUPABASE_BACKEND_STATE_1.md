@@ -12,7 +12,7 @@
 | Typ | Hodnoty |
 |-----|---------|
 | `admin_role` | viewer, manager, operator, technician, readonly, admin, superadmin |
-| `booking_status` | pending, reserved, active, completed, cancelled, rejected |
+| `booking_status` | pending, reserved, active, completed, cancelled |
 | `payment_status` | unpaid, paid, refunded, partial_refund |
 | `moto_status` | active, maintenance, unavailable, retired |
 | `sos_status` | reported, acknowledged, in_progress, resolved, closed |

@@ -162,3 +162,9 @@ enum PaymentFlowType { booking, extension, sos, shop }
 
 /// Global payment context — set before navigating to PaymentScreen.
 final paymentContextProvider = StateProvider<PaymentContext?>((ref) => null);
+
+/// ID poslední potvrzené rezervace — PaymentScreen ho nastaví těsně před
+/// navigací na /success a `PaymentConfirmationScreen` z něj pak fetchuje
+/// stav dokladů a typ motorky (dětská vs. dospělá), aby ukázala parizní
+/// dialogy s webovou /potvrzeni stránkou.
+final lastConfirmedBookingProvider = StateProvider<String?>((ref) => null);
