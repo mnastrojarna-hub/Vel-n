@@ -1,4 +1,47 @@
 workflows:
+  generate-keystore:
+    name: Generate upload keystore (one-time)
+    max_build_duration: 5
+    instance_type: mac_mini_m2
+    environment:
+      java: 17
+      vars:
+        KEYSTORE_DNAME: "CN=Jiri Semorad, O=Motogo24, OU=Motogo24, L=Mezna, ST=CZ, C=CZ"
+      groups:
+        - keystore_init
+    scripts:
+      - name: Generate upload keystore
+        script: |
+          if [ -z "$KEYSTORE_PASSWORD" ]; then
+            echo "ERROR: KEYSTORE_PASSWORD env var is not set."
+            echo "Create env group 'keystore_init' with secure variable KEYSTORE_PASSWORD."
+            exit 1
+          fi
+          OUT="$CM_BUILD_DIR/motogo24-upload.jks"
+          keytool -genkeypair -v \
+            -keystore "$OUT" \
+            -keyalg RSA -keysize 2048 -validity 9125 \
+            -alias upload \
+            -dname "$KEYSTORE_DNAME" \
+            -storepass "$KEYSTORE_PASSWORD" \
+            -keypass "$KEYSTORE_PASSWORD"
+          echo ""
+          echo "=== KEYSTORE FINGERPRINT (save this) ==="
+          keytool -list -v -keystore "$OUT" -storepass "$KEYSTORE_PASSWORD" | grep -E "SHA1:|SHA256:|Alias name:|Valid from:"
+          echo ""
+          echo "Download motogo24-upload.jks from build artifacts."
+          echo "Then upload it to Codemagic → Code signing identities → Android keystores"
+          echo "with reference name 'motogo24_upload' and the same password."
+    artifacts:
+      - motogo24-upload.jks
+    publishing:
+      email:
+        recipients:
+          - mnastrojarna@gmail.com
+        notify:
+          success: true
+          failure: true
+
   motogo-android-debug:
     name: MotoGo24 Android Build
     max_build_duration: 30
