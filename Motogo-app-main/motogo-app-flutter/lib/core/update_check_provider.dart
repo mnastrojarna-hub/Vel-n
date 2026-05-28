@@ -16,7 +16,7 @@ import 'i18n/i18n_provider.dart';
 class UpdateChecker {
   static bool _dialogShown = false;
   static const _playStoreUrl =
-      'https://play.google.com/store/apps/details?id=cz.motogo24.app';
+      'https://play.google.com/store/apps/details?id=com.motogo24.app';
 
   /// Compare two semver strings (e.g. "2.3.2" vs "2.4.0").
   /// Returns negative if a < b, 0 if equal, positive if a > b.
