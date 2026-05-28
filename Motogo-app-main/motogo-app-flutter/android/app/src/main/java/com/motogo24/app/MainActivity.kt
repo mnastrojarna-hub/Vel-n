@@ -1,4 +1,4 @@
-package cz.motogo24.app
+package com.motogo24.app
 
 import io.flutter.embedding.android.FlutterFragmentActivity
 

@@ -8,13 +8,13 @@
 3. Enable Cloud Messaging
 
 ### 2. Android Setup
-1. Add Android app with package name `cz.motogo24.app`
+1. Add Android app with package name `com.motogo24.app`
 2. Download `google-services.json`
 3. Place at: `android/app/google-services.json`
 4. Template file provided: `android/app/google-services.json.template`
 
 ### 3. iOS Setup (optional)
-1. Add iOS app with bundle ID `cz.motogo24.app`
+1. Add iOS app with bundle ID `com.motogo24.app`
 2. Download `GoogleService-Info.plist`
 3. Place at: `ios/Runner/GoogleService-Info.plist`
 

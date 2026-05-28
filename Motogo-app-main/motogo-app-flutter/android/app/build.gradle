@@ -24,7 +24,7 @@ if (flutterVersionName == null) {
 }
 
 android {
-    namespace "cz.motogo24.app"
+    namespace "com.motogo24.app"
     compileSdk 36
     ndkVersion flutter.ndkVersion
 
@@ -38,7 +38,7 @@ android {
     }
 
     defaultConfig {
-        applicationId "cz.motogo24.app"
+        applicationId "com.motogo24.app"
         minSdk 21
         targetSdk 35
         versionCode flutterVersionCode.toInteger()

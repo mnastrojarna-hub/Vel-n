@@ -200,7 +200,7 @@ class _MapPickerState extends State<MapPickerScreen> {
               TileLayer(
                 urlTemplate:
                     'https://api.mapy.cz/v1/maptiles/basic/256/{z}/{x}/{y}?apikey=$_mapyKey',
-                userAgentPackageName: 'cz.motogo24.app',
+                userAgentPackageName: 'com.motogo24.app',
                 maxZoom: 19,
               ),
             ],

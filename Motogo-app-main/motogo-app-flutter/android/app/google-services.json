@@ -7,7 +7,7 @@
   "client": [{
     "client_info": {
       "mobilesdk_app_id": "1:000000000000:android:0000000000000000",
-      "android_client_info": { "package_name": "cz.motogo24.app" }
+      "android_client_info": { "package_name": "com.motogo24.app" }
     },
     "api_key": [{ "current_key": "placeholder" }]
   }],
