@@ -132,7 +132,7 @@ Deno.serve(async (req: Request) => {
       return await handleWebShopCheckout(body)
     }
 
-    const { booking_id, order_id, incident_id, amount, currency, method, type, mode } = body
+    const { booking_id, order_id, incident_id, amount, currency, method, type, mode, payment_method_id } = body
     const paymentType: PaymentType = type || 'booking'
     const paymentMode = mode || 'intent'
     const explicitSuccessUrl = (body as Record<string, unknown>).success_url as string | undefined
@@ -280,6 +280,108 @@ Deno.serve(async (req: Request) => {
     // -- MODE: INTENT --
     if (paymentMode === 'intent') {
       const amountCents = Math.round(amount * 100)
+
+      // -- OFF-SESSION (saved card auto-charge) --
+      // Když klient pošle payment_method_id, vytvoříme PaymentIntent rovnou s
+      // confirm:true a off_session:true. Stripe buď strhne (succeeded), nebo
+      // vyžádá SCA (requires_action) → klient ho dotáhne přes handleNextAction.
+      // Bez Payment Sheetu = parita s webem „1 klik na zaplatit".
+      if (payment_method_id && customerId) {
+        const offSessionParams: Stripe.PaymentIntentCreateParams = {
+          amount: amountCents,
+          currency: currency || 'czk',
+          metadata,
+          customer: customerId,
+          payment_method: payment_method_id,
+          confirm: true,
+          off_session: true,
+          // off-session zakazuje redirecty (žádné voucher/Klarna/atd.)
+          automatic_payment_methods: { enabled: true, allow_redirects: 'never' },
+          description: productName,
+        }
+        try {
+          const intent = await stripe.paymentIntents.create(offSessionParams)
+          try {
+            if (booking_id) await supabase.from('bookings').update({ stripe_payment_intent_id: intent.id }).eq('id', booking_id)
+            if (order_id) await supabase.from('shop_orders').update({ stripe_payment_intent_id: intent.id }).eq('id', order_id)
+          } catch { /* non-blocking */ }
+          try {
+            await supabase.from('debug_log').insert({
+              source: 'process-payment', action: 'stripe_off_session_attempt',
+              component: paymentType, status: 'ok',
+              request_data: { booking_id, order_id, amount, type: paymentType, payment_method_id },
+              response_data: { payment_intent_id: intent.id, status: intent.status },
+            })
+          } catch { /* ignore */ }
+          // succeeded → hotovo, webhook potvrdí v DB
+          if (intent.status === 'succeeded') {
+            return new Response(
+              JSON.stringify({
+                success: true, off_session: true, status: 'succeeded',
+                payment_intent_id: intent.id, amount, currency: currency || 'czk',
+              }),
+              { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } }
+            )
+          }
+          // requires_action → klient musí dokončit SCA (3DS) přes Stripe SDK
+          if (intent.status === 'requires_action' || intent.status === 'requires_confirmation') {
+            return new Response(
+              JSON.stringify({
+                success: true, off_session: true, status: intent.status,
+                client_secret: intent.client_secret,
+                payment_intent_id: intent.id, amount, currency: currency || 'czk',
+              }),
+              { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } }
+            )
+          }
+          // jiný stav (canceled/processing/requires_payment_method) — vrátíme jako fallback,
+          // klient ukáže Payment Sheet
+          return new Response(
+            JSON.stringify({
+              success: false, off_session: true, status: intent.status,
+              error: 'off_session_unexpected_status',
+              payment_intent_id: intent.id,
+            }),
+            { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } }
+          )
+        } catch (e) {
+          // Typicky `authentication_required`, `card_declined`, `insufficient_funds`,
+          // `expired_card`. Pro authentication_required obsahuje err.raw.payment_intent
+          // klientův PI — vrátíme ho, aby klient pokračoval přes handleNextAction.
+          const stripeErr = e as Stripe.StripeRawError & { payment_intent?: { id: string, client_secret: string, status: string } }
+          const piFromError = (stripeErr.raw as Record<string, unknown> | undefined)?.payment_intent as { id: string, client_secret: string, status: string } | undefined
+          try {
+            await supabase.from('debug_log').insert({
+              source: 'process-payment', action: 'stripe_off_session_failed',
+              component: paymentType, status: 'error',
+              request_data: { booking_id, order_id, amount, payment_method_id },
+              error_message: (e as Error).message,
+              response_data: { code: stripeErr.code, type: stripeErr.type, decline_code: stripeErr.decline_code, pi_status: piFromError?.status },
+            })
+          } catch { /* ignore */ }
+          if (stripeErr.code === 'authentication_required' && piFromError?.client_secret) {
+            return new Response(
+              JSON.stringify({
+                success: true, off_session: true, status: 'requires_action',
+                client_secret: piFromError.client_secret,
+                payment_intent_id: piFromError.id, amount, currency: currency || 'czk',
+              }),
+              { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } }
+            )
+          }
+          return new Response(
+            JSON.stringify({
+              success: false, off_session: true,
+              error: 'off_session_charge_failed',
+              error_code: stripeErr.code || null,
+              decline_code: stripeErr.decline_code || null,
+              message: stripeErr.message || 'Strhnutí uložené karty selhalo.',
+            }),
+            { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } }
+          )
+        }
+      }
+
       const intentParams: Record<string, unknown> = {
         amount: amountCents,
         currency: currency || 'czk',

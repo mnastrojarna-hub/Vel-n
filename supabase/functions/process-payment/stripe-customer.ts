@@ -72,6 +72,11 @@ export interface PaymentRequest {
   /** Optional explicit Stripe redirect URLs — used by web extension flow to return to /upravit-rezervaci. */
   success_url?: string
   cancel_url?: string
+  /** Off-session charge: existing Stripe Payment Method id (pm_…) saved on the customer.
+   *  Backend creates PaymentIntent with confirm:true, off_session:true — žádný Payment
+   *  Sheet, jen pokud Stripe vrátí requires_action (typicky 3DS), klient ho dotáhne přes
+   *  Stripe SDK handleNextAction. Použito appkou pro „prioritní karta v profilu". */
+  payment_method_id?: string
 }
 
 export const PRODUCT_NAMES: Record<PaymentType, string> = {
