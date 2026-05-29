@@ -46,6 +46,12 @@ class AppShell extends ConsumerWidget {
     final index = _currentIndex(location);
     final banner = ref.watch(bannerProvider);
 
+    // Na platební obrazovce (rezervace i SOS) nesmí překážet žádný plovoucí
+    // panel — jen by zakrýval tlačítko „Zaplatit". FAB se vrátí, až zákazník
+    // platbu opustí.
+    final onPaymentScreen =
+        location == Routes.payment || location == Routes.sosPayment;
+
     final bannerVisible = banner.valueOrNull != null && banner.valueOrNull!.enabled;
 
     // Unread messages badge count
@@ -56,7 +62,7 @@ class AppShell extends ConsumerWidget {
     final cart = ref.watch(cartProvider);
     final cartCount = cart.fold<int>(0, (sum, item) => sum + item.qty);
     final cartTotal = cart.fold<double>(0, (sum, item) => sum + item.price * item.qty);
-    final hideCartFab = index == 3 || location == Routes.payment;
+    final hideCartFab = index == 3 || onPaymentScreen;
     final fabDismissed = ref.watch(cartFabDismissedProvider);
     final showCartFab = cartCount > 0 && !hideCartFab && !fabDismissed;
 
@@ -65,7 +71,8 @@ class AppShell extends ConsumerWidget {
       Routes.login, Routes.register, Routes.docScan,
       Routes.payment, Routes.success,
     ];
-    final showBookingFabZone = !hideBookingFabOn.contains(location);
+    final showBookingFabZone =
+        !hideBookingFabOn.contains(location) && !onPaymentScreen;
     final pendingBooking = ref.watch(pendingBookingFabProvider);
 
     // SOS FAB: hide on SOS flow & auth screens
@@ -75,7 +82,7 @@ class AppShell extends ConsumerWidget {
       Routes.sosTheft, Routes.sosService,
       Routes.sosReplacement, Routes.sosPayment, Routes.sosDone,
     ];
-    final showSosFabZone = !hideSosFabOn.contains(location);
+    final showSosFabZone = !hideSosFabOn.contains(location) && !onPaymentScreen;
     final pendingSos = ref.watch(pendingSosFabProvider);
 
     // Docs FAB: active/upcoming booking + docs not verified
@@ -91,7 +98,8 @@ class AppShell extends ConsumerWidget {
     final docsComplete = docsVerified.valueOrNull?.isComplete ?? true;
     final docsFabDismissed = ref.watch(_docsFabDismissedProvider);
     final showDocsFab = hasActiveBooking && !docsComplete &&
-        !docsScreens.contains(location) && !docsFabDismissed;
+        !docsScreens.contains(location) && !docsFabDismissed &&
+        !onPaymentScreen;
 
     // Calculate bottom offset for stacking.
     // Original CSS: cart-fab-bar bottom:90px, #booking-fab bottom:145px,
