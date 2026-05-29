@@ -14,6 +14,8 @@ import '../booking/booking_provider.dart';
 import '../booking/price_calculator.dart';
 import '../payment/stripe_service.dart';
 import '../payment/payment_provider.dart';
+import '../payment/payment_error_mapper.dart';
+import '../payment/widgets/payment_error_sheet.dart';
 import 'shop_models.dart';
 import 'shop_provider.dart';
 import 'widgets/checkout_payment_card.dart';
@@ -319,25 +321,42 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
       } on StripeException catch (e) {
         if (!mounted) return;
         setState(() => _processing = false);
-        showMotoGoToast(context,
-            icon: '✗',
-            title: t(context).tr('error'),
-            message: e.error.localizedMessage ?? t(context).tr('error'));
+        final info = PaymentErrorMapper.fromStripeException(e, t(context).lang);
+        if (info.userCancelled) return; // jen zavřel sheet — není chyba
+        PaymentErrorSheet.show(context,
+            title: info.title,
+            message: info.message,
+            buttonLabel: t(context).tr('retry'));
       } catch (e) {
         if (!mounted) return;
         setState(() => _processing = false);
-        showMotoGoToast(context,
-            icon: '✗',
-            title: t(context).tr('paymentGatewayError'),
-            message: t(context).tr('paymentGatewayErrorDesc'));
+        final raw = e.toString();
+        final isWallet = raw.contains('OR_BIBED') ||
+            raw.toLowerCase().contains('google pay') ||
+            raw.toLowerCase().contains('googlepay') ||
+            raw.toLowerCase().contains('wallet') ||
+            raw.toLowerCase().contains('apple pay');
+        final info = isWallet
+            ? PaymentErrorMapper.wallet(t(context).lang,
+                rawCode: raw.contains('OR_BIBED') ? 'OR_BIBED_11' : null)
+            : PaymentErrorMapper.generic(t(context).lang);
+        PaymentErrorSheet.show(context,
+            title: info.title,
+            message: info.message,
+            buttonLabel: t(context).tr('retry'));
       }
     } else if (result.type == PaymentResultType.free) {
       _onSuccess(orderId);
     } else {
-      showMotoGoToast(context,
-          icon: '✗',
-          title: t(context).tr('error'),
-          message: result.errorMessage ?? t(context).tr('error'));
+      if (!mounted) return;
+      final info = PaymentErrorMapper.fromEdge(
+        rawMessage: result.errorMessage,
+        lang: t(context).lang,
+      );
+      PaymentErrorSheet.show(context,
+          title: info.title,
+          message: info.message,
+          buttonLabel: t(context).tr('retry'));
     }
 
     if (mounted) setState(() => _processing = false);
