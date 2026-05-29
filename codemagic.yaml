@@ -105,11 +105,15 @@ workflows:
       - name: Build release APK
         script: |
           cd $CM_BUILD_DIR/Motogo-app-main/motogo-app-flutter
-          flutter build apk --release
+          # versionCode = Codemagic build number ($BUILD_NUMBER), který se automaticky
+          # zvyšuje s každým buildem → je vždy unikátní a rostoucí, takže Google Play už
+          # nikdy neodmítne "verze byla použita". versionName (1.0.1) zůstává z pubspec.yaml.
+          flutter build apk --release --build-number=$BUILD_NUMBER
       - name: Build release AAB (Play Store)
         script: |
           cd $CM_BUILD_DIR/Motogo-app-main/motogo-app-flutter
-          flutter build appbundle --release
+          # Stejný build number jako u APK (jeden release = jeden versionCode).
+          flutter build appbundle --release --build-number=$BUILD_NUMBER
       - name: Generate QR code for APK download
         script: |
           brew install qrencode
