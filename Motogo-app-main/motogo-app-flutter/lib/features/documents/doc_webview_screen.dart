@@ -44,7 +44,11 @@ class _DocWebViewScreenState extends State<DocWebViewScreen> {
       ));
 
     if (widget.htmlContent != null) {
-      _controller.loadHtmlString(widget.htmlContent!);
+      // baseUrl is required on Android so the WebView honors the document's
+      // `<meta viewport width=device-width>` — without it the page is laid out
+      // at the default ~980px viewport and the centered invoice card leaves
+      // empty (grey) space on the sides instead of filling the screen width.
+      _controller.loadHtmlString(widget.htmlContent!, baseUrl: 'https://motogo24.cz/');
     } else {
       _controller.loadRequest(Uri.parse(widget.url!));
     }
