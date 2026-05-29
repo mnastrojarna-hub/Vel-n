@@ -110,7 +110,7 @@ echo "- **{$T['company']}:** Bc. Petra Semorádová, IČO 21874263\n";
 echo "- **{$T['address']}:** Mezná 9, 393 01 Pelhřimov, Vysočina, CZ\n";
 echo "- **{$T['phone']}:** +420 774 256 271\n";
 echo "- **{$T['email']}:** info@motogo24.cz\n";
-echo "- **GPS:** 49.4147 N, 15.2953 E\n";
+echo "- **GPS:** 49.3464 N, 15.2119 E\n";
 echo "- **Web:** https://www.motogo24.cz · https://motogo24.com\n\n";
 
 echo "## {$T['h2_catalog']}\n\n";

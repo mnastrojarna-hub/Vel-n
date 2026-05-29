@@ -359,7 +359,7 @@ Czech motorcycle rental in Mezná near Pelhřimov (Vysočina region).
 - **Online booking** — Stripe payment
 
 Contact: +420 774 256 271 · info@motogo24.cz · Mezná 9, 393 01 Pelhřimov, CZ
-GPS: 49.4147, 15.2953
+GPS: 49.3464, 15.2119
 Web: https://www.motogo24.cz`,
     }
   }
