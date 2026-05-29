@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme.dart';
+import '../../../core/i18n/i18n_provider.dart';
 import '../../catalog/moto_model.dart';
 import 'edit_reservation_calendar.dart';
 import 'reservation_edit_widgets.dart';
@@ -48,22 +49,22 @@ class EditCalendarSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return EditCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const Row(children: [
-        Icon(Icons.calendar_month, size: 16, color: MotoGoColors.dark),
-        SizedBox(width: 6),
-        Text('TERMÍN', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: MotoGoColors.black)),
+      Row(children: [
+        const Icon(Icons.calendar_month, size: 16, color: MotoGoColors.dark),
+        const SizedBox(width: 6),
+        Text(t(context).tr('termLabel'), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: MotoGoColors.black)),
       ]),
       const SizedBox(height: 8),
       Row(children: [
-        EditDateBox(label: 'VYZVEDNUTÍ', date: _fmt(newStart)),
+        EditDateBox(label: t(context).tr('pickupEditLabel'), date: _fmt(newStart)),
         const SizedBox(width: 8),
-        EditDateBox(label: 'VRÁCENÍ', date: _fmt(newEnd)),
+        EditDateBox(label: t(context).tr('returnEditLabel'), date: _fmt(newEnd)),
       ]),
       if (diffDays != 0)
         Padding(padding: const EdgeInsets.only(top: 6),
           child: Text(
-            diffDays > 0 ? '+$diffDays ${diffDays == 1 ? "den" : diffDays < 5 ? "dny" : "dní"} (prodloužení)'
-                : '${diffDays.abs()} ${diffDays.abs() == 1 ? "den" : diffDays.abs() < 5 ? "dny" : "dní"} (zkrácení)',
+            diffDays > 0 ? '+$diffDays ${diffDays == 1 ? t(context).tr('day1') : diffDays < 5 ? t(context).tr('days24') : t(context).tr('days5')} (${t(context).tr('extensionWord')})'
+                : '${diffDays.abs()} ${diffDays.abs() == 1 ? t(context).tr('day1') : diffDays.abs() < 5 ? t(context).tr('days24') : t(context).tr('days5')} (${t(context).tr('shorteningWord')})',
             style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
               color: diffDays > 0 ? MotoGoColors.greenDarker : MotoGoColors.red),
           )),
@@ -77,7 +78,7 @@ class EditCalendarSection extends StatelessWidget {
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(
-            isActive ? 'VAŠE AKTIVNÍ REZERVACE' : 'VAŠE NADCHÁZEJÍCÍ REZERVACE',
+            isActive ? t(context).tr('yourActiveReservation') : t(context).tr('yourUpcomingReservation'),
             style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: MotoGoColors.greenDarker),
           ),
           Text(
@@ -97,12 +98,12 @@ class EditCalendarSection extends StatelessWidget {
         style: const TextStyle(fontSize: 11, color: MotoGoColors.g400),
       ),
       if (tab == 'extend')
-        const Padding(
-          padding: EdgeInsets.only(top: 2),
+        Padding(
+          padding: const EdgeInsets.only(top: 2),
           child: Text(
-            'Pro výběr jednoho dne klikněte na stejný den dvakrát',
+            t(context).tr('searchSingleDayHint'),
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 10, color: MotoGoColors.g400),
+            style: const TextStyle(fontSize: 10, color: MotoGoColors.g400),
           ),
         ),
       if (tab == 'shorten' && !isActive) ...[
@@ -118,7 +119,7 @@ class EditCalendarSection extends StatelessWidget {
                 border: Border.all(color: shortenDir == 'start' ? MotoGoColors.green : MotoGoColors.g200),
               ),
               child: Center(child: Text(
-                '← Zkrátit začátek',
+                t(context).tr('shortenStart'),
                 style: TextStyle(
                   fontSize: 12, fontWeight: FontWeight.w700,
                   color: shortenDir == 'start' ? Colors.black : MotoGoColors.g600,
@@ -137,7 +138,7 @@ class EditCalendarSection extends StatelessWidget {
                 border: Border.all(color: shortenDir == 'end' ? MotoGoColors.green : MotoGoColors.g200),
               ),
               child: Center(child: Text(
-                'Zkrátit konec →',
+                t(context).tr('shortenEnd'),
                 style: TextStyle(
                   fontSize: 12, fontWeight: FontWeight.w700,
                   color: shortenDir == 'end' ? Colors.black : MotoGoColors.g600,
@@ -163,15 +164,15 @@ class EditCalendarSection extends StatelessWidget {
       const SizedBox(height: 6),
       Row(mainAxisAlignment: MainAxisAlignment.center, children: [
         if (tab == 'shorten') ...[
-          const EditLegendDot(color: MotoGoColors.green, label: 'Stávající'),
+          EditLegendDot(color: MotoGoColors.green, label: t(context).tr('existingLabel')),
           const SizedBox(width: 10),
-          const EditLegendDot(color: MotoGoColors.red, label: 'Zkráceno'),
+          EditLegendDot(color: MotoGoColors.red, label: t(context).tr('shortenedLabel')),
           const SizedBox(width: 10),
-          const EditLegendDot(color: MotoGoColors.dark, label: 'Obsazené'),
+          EditLegendDot(color: MotoGoColors.dark, label: t(context).tr('occupiedLabel')),
         ] else ...[
-          const EditLegendDot(color: MotoGoColors.green, label: 'Volné'),
+          EditLegendDot(color: MotoGoColors.green, label: t(context).tr('freeLabel')),
           const SizedBox(width: 10),
-          const EditLegendDot(color: MotoGoColors.dark, label: 'Obsazené'),
+          EditLegendDot(color: MotoGoColors.dark, label: t(context).tr('occupiedLabel')),
         ],
       ]),
     ]));
