@@ -7,10 +7,13 @@ import 'moto_model.dart';
 /// Mirrors enrichMOTOS() from api-core.js.
 final motorcyclesProvider = FutureProvider<List<Motorcycle>>((ref) async {
   try {
+    // active + maintenance: motorka v servisu zůstává v nabídce — servisní dny
+    // blokuje kalendář (get_moto_booked_dates vrací status='service'), ostatní
+    // volné dny jdou normálně rezervovat. unavailable/retired se nezobrazují.
     final res = await MotoGoSupabase.client
         .from('motorcycles')
         .select('*, branches(name, address, city)')
-        .eq('status', 'active')
+        .inFilter('status', ['active', 'maintenance'])
         .order('model');
 
     final motos = (res as List).map((e) => Motorcycle.fromJson(e)).toList();

@@ -203,12 +203,28 @@ final rentalLengthValidationProvider = Provider<String?>((ref) {
   return null;
 });
 
-/// Combined booking validation error (license + overlap + délka pronájmu).
-/// Returns null if everything is OK.
+/// Pickup lead-time validation — blokuje zpětnou rezervaci (čas v minulosti)
+/// a vynucuje min. +6 h u přistavení (delivery). Shoduje se s webovým
+/// `_rezMinPickupTime`. Vyzvednutí na pobočce = jen čas v budoucnosti.
+final pickupLeadTimeValidationProvider = Provider<String?>((ref) {
+  final draft = ref.watch(bookingDraftProvider);
+  if (draft.startDate == null) return null;
+  final lang = ref.watch(localeProvider).languageCode;
+  return BookingValidator.checkPickupLeadTime(
+    startDate: draft.startDate,
+    pickupTime: draft.pickupTime,
+    isDelivery: draft.pickupMethod == 'delivery',
+    lang: lang,
+  );
+});
+
+/// Combined booking validation error (license + overlap + délka pronájmu +
+/// lead time vyzvednutí). Returns null if everything is OK.
 final bookingValidationErrorProvider = Provider<String?>((ref) {
   return ref.watch(licenseValidationProvider) ??
       ref.watch(overlapValidationProvider) ??
-      ref.watch(rentalLengthValidationProvider);
+      ref.watch(rentalLengthValidationProvider) ??
+      ref.watch(pickupLeadTimeValidationProvider);
 });
 
 /// Fetch extras catalog from Supabase.

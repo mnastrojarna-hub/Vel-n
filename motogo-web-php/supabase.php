@@ -191,10 +191,14 @@ class SupabaseClient {
     public function fetchMotos() {
         $cached = $this->cacheGet('motos');
         if ($cached !== null) return $cached;
+        // active + maintenance: motorka v servisu zůstává v katalogu — servisní
+        // dny blokuje kalendář detailu/rezervace (get_moto_booked_dates vrací
+        // status='service'), ostatní volné dny jdou rezervovat. unavailable /
+        // retired se v katalogu nezobrazují.
         $data = $this->query(
             'motorcycles',
             '*,branches(name,address,city,is_open)',
-            ['status=eq.active'],
+            ['status=in.(active,maintenance)'],
             'model.asc'
         );
 
