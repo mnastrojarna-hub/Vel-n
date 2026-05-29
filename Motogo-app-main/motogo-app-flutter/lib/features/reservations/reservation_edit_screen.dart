@@ -61,6 +61,14 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
   Reservation? _booking;
   bool _isActive = false;
 
+  // Confirmation page state — rendered inline (declaratively) so navigation
+  // stays inside go_router. Imperative Navigator.push here would leave a
+  // route go_router doesn't know about, freezing the back-to-reservations CTA.
+  bool _confirmed = false;
+  String _confirmTitle = '';
+  String _confirmMessage = '';
+  bool _confirmIsRefund = false;
+
   @override
   void initState() {
     super.initState();
@@ -383,13 +391,26 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
   }
 
   void _showConfirmation({required String title, required String message, bool isRefund = false}) {
-    Navigator.of(context).pushReplacement(MaterialPageRoute(
-      builder: (_) => EditConfirmPage(title: title, message: message, isRefund: isRefund),
-    ));
+    // Render the confirmation page inline (see _confirmed in build) instead of
+    // an imperative Navigator.pushReplacement — keeps the "back to reservations"
+    // CTA working under go_router.
+    setState(() {
+      _confirmed = true;
+      _confirmTitle = title;
+      _confirmMessage = message;
+      _confirmIsRefund = isRefund;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_confirmed) {
+      return EditConfirmPage(
+        title: _confirmTitle,
+        message: _confirmMessage,
+        isRefund: _confirmIsRefund,
+      );
+    }
     if (_booking == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator(color: MotoGoColors.green)));
     }
