@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../theme.dart';
+import '../i18n/i18n_provider.dart';
 import '../native/permission_service.dart';
 
 /// Language selection overlay — shown on first app launch.
@@ -122,13 +123,14 @@ class PermissionOverlay extends StatelessWidget {
   final VoidCallback onSkip;
   const PermissionOverlay({super.key, required this.onAllow, required this.onSkip});
 
+  // (icon, titleKey, descKey) — texts resolved via t(context).tr in _PermItem.
   static const _perms = [
-    ('📍', 'Poloha', 'Navigace k půjčovně, sdílení pozice při poruše'),
-    ('📷', 'Fotoaparát', 'Skenování dokladů, dokumentace škod'),
-    ('🎤', 'Mikrofon', 'Hlasové dotazy pro AI asistenta'),
-    ('🔔', 'Oznámení', 'SOS aktualizace, zprávy z MotoGo24, stav rezervací'),
-    ('🖼️', 'Galerie / Fotky', 'Nahrávání fotek faktur a dokladů'),
-    ('🔐', 'Biometrické ověření', 'Rychlé přihlášení pomocí otisku prstu'),
+    ('📍', 'permLocationTitle', 'permLocationDesc'),
+    ('📷', 'permCameraTitle', 'permCameraDesc'),
+    ('🎤', 'permMicTitle', 'permMicDesc'),
+    ('🔔', 'permNotifTitle', 'permNotifDesc'),
+    ('🖼️', 'permPhotosTitle', 'permPhotosDesc'),
+    ('🔐', 'obBiometricTitle', 'obBiometricDesc'),
   ];
 
   static Future<bool> shouldShow() async {
@@ -153,10 +155,10 @@ class PermissionOverlay extends StatelessWidget {
           child: Column(
             children: [
               const SizedBox(height: 40),
-              const Text('🏍️ Vítejte v MotoGo24',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Colors.white)),
+              Text(t(context).tr('welcomeToMotoGo'),
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Colors.white)),
               const SizedBox(height: 8),
-              Text('Pro plnou funkčnost potřebujeme váš souhlas',
+              Text(t(context).tr('needConsentForFull'),
                 style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.5))),
               const SizedBox(height: 24),
               ..._perms.map((p) => _PermItem(icon: p.$1, title: p.$2, desc: p.$3)),
@@ -169,13 +171,13 @@ class PermissionOverlay extends StatelessWidget {
                     await requestAllPermissions();
                     onAllow();
                   },
-                  child: const Text('Povolit vše a pokračovat →'),
+                  child: Text(t(context).tr('allowAllContinue')),
                 ),
               ),
               const SizedBox(height: 8),
               TextButton(
                 onPressed: onSkip,
-                child: Text('Přeskočit – nastavím později',
+                child: Text(t(context).tr('skipSetupLater'),
                   style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 13)),
               ),
             ],
@@ -206,8 +208,8 @@ class _PermItem extends StatelessWidget {
           Expanded(child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: Colors.white)),
-              Text(desc, style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.5))),
+              Text(t(context).tr(title), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: Colors.white)),
+              Text(t(context).tr(desc), style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.5))),
             ],
           )),
         ],

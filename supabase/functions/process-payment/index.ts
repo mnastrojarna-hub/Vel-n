@@ -395,17 +395,19 @@ Deno.serve(async (req: Request) => {
       }
 
       // App nativní Payment Sheet (mode:'intent' používá POUZE Flutter app — web jede
-      // přes hosted Checkout ve `handleWeb*Checkout`). Explicitně jen `card`:
-      // Google Pay / Apple Pay se v Payment Sheetu stále zobrazí (wallet prezentace
-      // karty, konfigurované v `initPaymentSheet`), ale Link se VYŘADÍ. Link checkout
-      // (checkout.link.com) v appce s CZK padá ("Something went wrong" / [OR_BIBED_11])
-      // a blokoval celý sheet ještě před výběrem Google Pay. Web hosted Checkout si drží
-      // vlastní konfiguraci platebních metod (Stripe Dashboard) a tato změna se ho NEDOTÝKÁ.
+      // přes hosted Checkout ve `handleWeb*Checkout`).
+      // `automatic_payment_methods` se `allow_redirects:'never'` je oficiální Stripe
+      // doporučení pro Payment Sheet s peněženkami: ponechá kartu + Google Pay + Apple Pay
+      // (žádný redirect), ale VYŘADÍ Link (checkout.link.com), který je redirect-based a
+      // v appce s CZK padal ("Something went wrong" / [OR_BIBED_11]) a blokoval sheet ještě
+      // před výběrem Google Pay. Oproti holému `payment_method_types:['card']` dává tato
+      // varianta peněženkám (Google/Apple Pay) lepší podporu. Web hosted Checkout má vlastní
+      // konfiguraci metod ve Stripe Dashboardu a tato změna se ho NEDOTÝKÁ.
       const intentParams: Record<string, unknown> = {
         amount: amountCents,
         currency: currency || 'czk',
         metadata,
-        payment_method_types: ['card'],
+        automatic_payment_methods: { enabled: true, allow_redirects: 'never' },
         description: productName,
       }
       if (customerId) {

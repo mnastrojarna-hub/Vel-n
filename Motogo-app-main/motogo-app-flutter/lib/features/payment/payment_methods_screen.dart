@@ -339,7 +339,7 @@ class _CardTile extends StatelessWidget {
                       color: MotoGoColors.black),
                 ),
                 Text(
-                  'Platí do ${card.displayExpiry}${card.holderName != null ? ' · ${card.holderName}' : ''}',
+                  '${t(context).tr('validUntil')} ${card.displayExpiry}${card.holderName != null ? ' · ${card.holderName}' : ''}',
                   style:
                       const TextStyle(fontSize: 11, color: MotoGoColors.g400),
                 ),

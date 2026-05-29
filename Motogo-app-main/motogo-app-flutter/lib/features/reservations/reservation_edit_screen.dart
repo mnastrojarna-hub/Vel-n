@@ -204,17 +204,17 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
       return const [];
     }
     final missing = <String>[];
-    if (_helmetSize == null) missing.add('helma – řidič');
-    if (_glovesSize == null) missing.add('rukavice – řidič');
-    if (_jacketSize == null) missing.add('bunda – řidič');
-    if (_pantsSize == null) missing.add('kalhoty – řidič');
+    if (_helmetSize == null) missing.add(t(context).tr('gearHelmetDriver'));
+    if (_glovesSize == null) missing.add(t(context).tr('gearGlovesDriver'));
+    if (_jacketSize == null) missing.add(t(context).tr('gearJacketDriver'));
+    if (_pantsSize == null) missing.add(t(context).tr('gearPantsDriver'));
     if (_selectedExtras.contains('boty_ridic') && _bootsSize == null) {
-      missing.add('boty – řidič');
+      missing.add(t(context).tr('gearBootsDriver'));
     }
     if (_selectedExtras.contains('spolujezdec')) {
-      if (_passengerHelmetSize == null) missing.add('helma – spolujezdec');
-      if (_passengerJacketSize == null) missing.add('bunda – spolujezdec');
-      if (_passengerPantsSize == null) missing.add('kalhoty – spolujezdec');
+      if (_passengerHelmetSize == null) missing.add(t(context).tr('gearHelmetPassenger'));
+      if (_passengerJacketSize == null) missing.add(t(context).tr('gearJacketPassenger'));
+      if (_passengerPantsSize == null) missing.add(t(context).tr('gearPantsPassenger'));
     }
     return missing;
   }
@@ -238,8 +238,8 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
     if (missingSizes.isNotEmpty) {
       showMotoGoToast(context,
         icon: '⚠️',
-        title: 'Chybí velikosti výbavy',
-        message: 'Při přistavení doplňte: ${missingSizes.join(', ')}');
+        title: t(context).tr('missingGearSizesTitle'),
+        message: '${t(context).tr('addOnDelivery')}: ${missingSizes.join(', ')}');
       return;
     }
 
@@ -584,10 +584,10 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
                   const Icon(Icons.warning_amber_rounded, size: 18, color: Color(0xFF92400E)),
                   const SizedBox(width: 8),
                   Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Text('Při přistavení vyplňte velikosti výbavy',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF92400E))),
+                    Text(t(context).tr('fillGearSizesOnDelivery'),
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF92400E))),
                     const SizedBox(height: 2),
-                    Text('Chybí: ${_missingGearSizes().join(', ')}',
+                    Text('${t(context).tr('missingLabel')}: ${_missingGearSizes().join(', ')}',
                       style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF92400E))),
                   ])),
                 ]))),

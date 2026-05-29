@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import '../../core/native/gps_service.dart';
 import 'booking_models.dart';
 import 'booking_provider.dart';
+import 'map_launcher.dart' show MapResult;
 import 'price_calculator.dart';
 import '../../core/i18n/i18n_provider.dart';
 
@@ -168,7 +169,7 @@ Widget bookingGearRow(String label, String? selected,
 
 /// Address display tile for delivery — shows address + distance.
 Widget bookingAddrTile(String? city, String? address,
-    VoidCallback onTap, {double? distKm, double? delivFee}) {
+    VoidCallback onTap, {double? distKm, double? delivFee, BuildContext? context}) {
   final hasAddr = city?.isNotEmpty == true;
   return Column(children: [
     GestureDetector(
@@ -185,7 +186,7 @@ Widget bookingAddrTile(String? city, String? address,
           const SizedBox(width: 8),
           Expanded(child: Text(
             hasAddr ? '${address ?? ""}, $city'
-                : 'Klikněte pro zadání adresy',
+                : (context != null ? t(context).tr('clickEnterAddress') : 'Klikněte pro zadání adresy'),
             style: TextStyle(fontSize: 12,
               color: hasAddr ? const Color(0xFF0F1A14)
                   : const Color(0xFF8AAB99),
@@ -242,9 +243,9 @@ void showAddrDialog(BuildContext ctx, String title,
           children: [
           // City field with autocomplete
           TextField(controller: cCtrl,
-            decoration: const InputDecoration(
-              labelText: 'Město',
-              prefixIcon: Icon(Icons.location_city, size: 18)),
+            decoration: InputDecoration(
+              labelText: t(c).tr('cityLabel'),
+              prefixIcon: const Icon(Icons.location_city, size: 18)),
             onChanged: (v) async {
               if (v.length < 2) {
                 ss(() => suggestions = []);
@@ -309,18 +310,18 @@ void showAddrDialog(BuildContext ctx, String title,
           const SizedBox(height: 8),
           // Street field
           TextField(controller: aCtrl,
-            decoration: const InputDecoration(
-              labelText: 'Ulice a číslo',
-              prefixIcon: Icon(Icons.place, size: 18))),
+            decoration: InputDecoration(
+              labelText: t(c).tr('streetAndNumber'),
+              prefixIcon: const Icon(Icons.place, size: 18))),
           const SizedBox(height: 10),
           // GPS button
           GestureDetector(
             onTap: () async {
-              ss(() => distInfo = 'Zjišťuji polohu...');
+              ss(() => distInfo = t(c).tr('gettingLocation'));
               try {
                 final pos = await GpsService.getCurrentPosition();
                 if (pos == null) {
-                  ss(() => distInfo = 'GPS nedostupné');
+                  ss(() => distInfo = t(c).tr('gpsUnavailableManual'));
                   return;
                 }
                 // Reverse geocode
@@ -353,7 +354,7 @@ void showAddrDialog(BuildContext ctx, String title,
                   '${fee.toStringAsFixed(0)} Kč');
                 onDistanceCalc?.call(km, fee);
               } catch (_) {
-                ss(() => distInfo = 'GPS chyba');
+                ss(() => distInfo = t(c).tr('gpsErrorManual'));
               }
             },
             child: Container(
@@ -363,14 +364,14 @@ void showAddrDialog(BuildContext ctx, String title,
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
                   color: const Color(0xFFD4E8E0))),
-              child: const Row(
+              child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                Icon(Icons.my_location, size: 16,
+                const Icon(Icons.my_location, size: 16,
                   color: Color(0xFF4A6357)),
-                SizedBox(width: 6),
-                Text('Použít moji polohu (GPS)',
-                  style: TextStyle(fontSize: 12,
+                const SizedBox(width: 6),
+                Text(t(c).tr('useMyLocation'),
+                  style: const TextStyle(fontSize: 12,
                     fontWeight: FontWeight.w700,
                     color: Color(0xFF4A6357))),
               ]))),
@@ -381,7 +382,7 @@ void showAddrDialog(BuildContext ctx, String title,
               final address =
                   '${aCtrl.text}, ${cCtrl.text}'.trim();
               if (address.length < 3) return;
-              ss(() => distInfo = 'Počítám...');
+              ss(() => distInfo = t(c).tr('calculating'));
               // Try geocode → real routing instead of estimate
               double km;
               try {
@@ -430,7 +431,7 @@ void showAddrDialog(BuildContext ctx, String title,
                 const Icon(Icons.route, size: 16,
                   color: Color(0xFF1A8A18)),
                 const SizedBox(width: 6),
-                Flexible(child: Text(distInfo ?? 'Spočítat vzdálenost a cenu',
+                Flexible(child: Text(distInfo ?? t(c).tr('calcDistancePrice'),
                   style: const TextStyle(fontSize: 12,
                     fontWeight: FontWeight.w700,
                     color: Color(0xFF1A8A18)),
@@ -439,11 +440,11 @@ void showAddrDialog(BuildContext ctx, String title,
         ]))),
       actions: [
         TextButton(onPressed: () => Navigator.pop(c),
-          child: const Text('Zrušit')),
+          child: Text(t(c).tr('cancel'))),
         ElevatedButton(onPressed: () {
           onSave(cCtrl.text, aCtrl.text);
           Navigator.pop(c);
-        }, child: const Text('Uložit')),
+        }, child: Text(t(c).tr('save'))),
       ],
     )));
 }
@@ -453,7 +454,7 @@ void showAddrBottomSheet(BuildContext ctx,
     String title, String? city, String? addr,
     void Function(String city, String addr) onSave,
     {void Function(double km, double fee)? onDistCalc,
-    Future<void> Function(BuildContext)? onMapTap}) {
+    Future<MapResult?> Function(BuildContext)? onMapTap}) {
   final cCtrl = TextEditingController(
       text: [addr, city].where((s) => s != null && s.isNotEmpty).join(', '));
   showModalBottomSheet(
@@ -478,7 +479,7 @@ class _AddrSheetBody extends StatefulWidget {
   final String initialCity, initialAddr;
   final void Function(String city, String addr) onSave;
   final void Function(double km, double fee)? onDistCalc;
-  final Future<void> Function(BuildContext)? onMapTap;
+  final Future<MapResult?> Function(BuildContext)? onMapTap;
   const _AddrSheetBody({required this.ctrl, required this.title,
     this.initialCity = '', this.initialAddr = '',
     required this.onSave, this.onDistCalc, this.onMapTap});
@@ -639,7 +640,7 @@ class _AddrSheetBodyState extends State<_AddrSheetBody> {
 
     final name = s['name'] as String? ?? '';
     final location = s['location'] as String? ?? '';
-    setState(() { _sug = []; _distInfo = 'Počítám km...'; });
+    setState(() { _sug = []; _distInfo = t(context).tr('calculatingKm'); });
 
     // Extract city from regionalStructure
     final rs = (s['regionalStructure'] as List?) ?? [];
@@ -676,23 +677,31 @@ class _AddrSheetBodyState extends State<_AddrSheetBody> {
         : (name.isNotEmpty ? name : location);
     _log('[PICK] city="$_city" addr="$_addr"');
 
-    // Coords + distance
+    // Coords + distance. The suggestion carries its own position, but for an
+    // ambiguous place name (e.g. several Czech villages called "Mezná") that
+    // position can be a far homonym — the reported bug where "Mezná 65" (the
+    // branch's own village) routed as ~15 km. Re-resolve the picked address
+    // and prefer the candidate nearest the branch; fall back to the
+    // suggestion's own position, then a city estimate.
     final pos = s['position'] as Map<String, dynamic>?;
-    double km;
-    if (pos != null) {
+    final query = [_addr, _city].where((v) => v.isNotEmpty).join(', ');
+    final hit = await geocodeNearestToBranch(query);
+    if (hit != null) {
+      _lat = hit.lat;
+      _lng = hit.lng;
+      _log('[PICK] nearest-to-branch coords: $_lat, $_lng');
+    } else if (pos != null) {
       _lat = (pos['lat'] as num?)?.toDouble();
       _lng = (pos['lon'] as num?)?.toDouble();
-      _log('[PICK] coords: $_lat, $_lng');
-      if (_lat != null && _lng != null) {
-        km = await routeKmFromBranch(_lat!, _lng!);
-        _log('[PICK] ✓ route=${km.toStringAsFixed(1)}km');
-      } else {
-        km = estimateKm(_city).toDouble();
-        _log('[PICK] ✗ no coords → est ${km.toStringAsFixed(0)}km');
-      }
+      _log('[PICK] suggestion coords: $_lat, $_lng');
+    }
+    double km;
+    if (_lat != null && _lng != null) {
+      km = await routeKmFromBranch(_lat!, _lng!);
+      _log('[PICK] ✓ route=${km.toStringAsFixed(1)}km');
     } else {
       km = estimateKm(_city).toDouble();
-      _log('[PICK] ✗ pos=null → est ${km.toStringAsFixed(0)}km');
+      _log('[PICK] ✗ no coords → est ${km.toStringAsFixed(0)}km');
     }
     _showDist(km);
   }
@@ -700,7 +709,7 @@ class _AddrSheetBodyState extends State<_AddrSheetBody> {
   // ── GPS ──
   Future<void> _useGps() async {
     _log('[GPS] start...');
-    setState(() => _distInfo = 'Zjišťuji polohu...');
+    setState(() => _distInfo = t(context).tr('gettingLocation'));
     try {
       final hasPerm = await GpsService.ensurePermission();
       _log('[GPS] permission=$hasPerm');
@@ -708,7 +717,7 @@ class _AddrSheetBodyState extends State<_AddrSheetBody> {
       if (pos == null) {
         _log('[GPS] ✗ position=null');
         if (mounted) setState(() {
-          _distInfo = 'GPS nedostupné — zadejte adresu ručně nebo z mapy';
+          _distInfo = t(context).tr('gpsUnavailableManual');
           _isError = true;
         });
         return;
@@ -786,22 +795,34 @@ class _AddrSheetBodyState extends State<_AddrSheetBody> {
     } catch (e) {
       _log('[GPS] ✗ FATAL: $e');
       if (mounted) setState(() {
-        _distInfo = 'GPS chyba — zadejte adresu ručně';
+        _distInfo = t(context).tr('gpsErrorManual');
         _isError = true;
       });
     }
   }
 
-  // ── Map picker (handled internally) ──
+  // ── Map picker ──
   Future<void> _openMap() async {
-    // Import-free: call the onMapTap callback but intercept results
-    // by reading the draft after it returns. Better: use launchMapPicker.
-    if (widget.onMapTap != null) {
-      await widget.onMapTap!(context);
-      // onMapTap updates draft directly — read back and close
-      if (mounted) widget.onSave(_city, _addr);
-      return;
-    }
+    if (widget.onMapTap == null) return;
+    final r = await widget.onMapTap!(context);
+    // User cancelled the map → keep the sheet open, don't touch the address.
+    if (r == null || !mounted) return;
+    // The map picker already routed a real distance for the picked point.
+    // Fill the sheet from the result and show it — the user reviews and taps
+    // POTVRDIT to save (same model as the GPS / suggestion flows). Previously
+    // this called onSave('', '') with the sheet's stale fields, which wiped
+    // the address that the map had just selected.
+    setState(() {
+      _city = r.city;
+      _addr = r.address;
+      // _distInfo is set by _showDist below, so _confirm won't re-geocode and
+      // doesn't need _lat/_lng.
+      _lat = null;
+      _lng = null;
+      widget.ctrl.text =
+          [r.address, r.city].where((s) => s.isNotEmpty).join(', ');
+    });
+    _showDist(r.km);
   }
 
   // ── Show distance + update provider ──
@@ -840,31 +861,13 @@ class _AddrSheetBodyState extends State<_AddrSheetBody> {
         km = await routeKmFromBranch(_lat!, _lng!);
       } else {
         debugPrint('[CONFIRM] no coords → geocoding "$_addr, $_city"...');
-        try {
-          final gUrl = 'https://api.mapy.cz/v1/geocode'
-            '?query=${Uri.encodeComponent('$_addr, $_city')}'
-            '&lang=cs&limit=1&locality=cz&apikey=$_mapyKey';
-          debugPrint('[CONFIRM] geocode URL: $gUrl');
-          final gUri = Uri.parse(gUrl);
-          final gRes = await http.get(gUri, headers: _mapyHeaders)
-              .timeout(const Duration(seconds: 5));
-          debugPrint('[CONFIRM] geocode status: ${gRes.statusCode}');
-          debugPrint('[CONFIRM] geocode body (first 300): '
-              '${gRes.body.length > 300 ? gRes.body.substring(0, 300) : gRes.body}');
-          if (gRes.statusCode == 200) {
-            final items = (jsonDecode(gRes.body)['items'] as List?) ?? [];
-            debugPrint('[CONFIRM] geocode items: ${items.length}');
-            if (items.isNotEmpty) {
-              final pos = items[0]['position'];
-              debugPrint('[CONFIRM] geocode position: $pos');
-              if (pos != null) {
-                _lat = (pos['lat'] as num?)?.toDouble();
-                _lng = (pos['lon'] as num?)?.toDouble();
-              }
-            }
-          }
-        } catch (e) {
-          debugPrint('[CONFIRM] ✗ geocode error: $e');
+        // Prefer the geocode candidate nearest the branch — "$_addr, $_city"
+        // can match several homonymous villages (e.g. multiple "Mezná") and a
+        // single far match would wrongly inflate the distance.
+        final hit = await geocodeNearestToBranch('$_addr, $_city');
+        if (hit != null) {
+          _lat = hit.lat;
+          _lng = hit.lng;
         }
         if (_lat != null && _lng != null) {
           debugPrint('[CONFIRM] geocoded coords: lat=$_lat lng=$_lng → routing...');
@@ -1045,7 +1048,7 @@ class _PromoSheetBodyState extends State<_PromoSheetBody> {
           color: const Color(0xFFD4E8E0),
           borderRadius: BorderRadius.circular(2))),
         const SizedBox(height: 14),
-        const Text('Slevový kód', style: TextStyle(fontSize: 15,
+        Text(t(context).tr('discountCode'), style: const TextStyle(fontSize: 15,
           fontWeight: FontWeight.w800)),
         const SizedBox(height: 14),
         Row(children: [
@@ -1054,7 +1057,7 @@ class _PromoSheetBodyState extends State<_PromoSheetBody> {
             textCapitalization: TextCapitalization.characters,
             onSubmitted: (_) => _apply(),
             decoration: InputDecoration(
-              hintText: 'Zadejte kód...',
+              hintText: t(context).tr('enterPromoCode'),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10))))),
           const SizedBox(width: 8),

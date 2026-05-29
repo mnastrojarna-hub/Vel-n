@@ -85,23 +85,9 @@ class _AddressPickerWidgetState extends State<AddressPickerWidget> {
         });
         widget.onDeliveryFeeChanged(fee);
       },
-      onMapTap: (ctx) async {
-        final r = await launchMapPicker(ctx);
-        if (r == null || !mounted) return;
-        setState(() {
-          _city = r.city;
-          _street = r.address;
-          _distanceKm = r.km;
-          _deliveryFee = r.fee;
-        });
-        widget.onAddressChanged(AddressResult(
-            street: _street,
-            city: _city,
-            zip: _zip,
-            lat: _lat,
-            lng: _lng));
-        widget.onDeliveryFeeChanged(r.fee);
-      },
+      // The sheet fills itself from the map result and persists on confirm via
+      // the onSave / onDistCalc callbacks above, so just hand back the result.
+      onMapTap: (ctx) => launchMapPicker(ctx),
     );
   }
 

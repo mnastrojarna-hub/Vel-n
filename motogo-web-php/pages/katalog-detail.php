@@ -52,7 +52,9 @@ $navHtml .= '</nav>';
 
 // ---- Availability check: dostupné dnes? (rychlý dotaz na RPC booked_dates) ----
 $isAvailableToday = false;
-if (($moto['status'] ?? '') === 'active') {
+$motoStatus = $moto['status'] ?? '';
+$motoBookable = ($motoStatus === 'active' || $motoStatus === 'maintenance');
+if ($motoBookable) {
     $bookings = $sb->fetchMotoBookings($motoId);
     $today = date('Y-m-d');
     $isAvailableToday = true;
@@ -81,7 +83,7 @@ if (is_array($branch) && !empty($branch['name'])) {
 // Header
 $badgeHtml = $isAvailableToday
     ? '<span class="moto-badge-available">' . te('detail.availableToday') . '</span>'
-    : (($moto['status'] ?? '') === 'active' ? '<span class="moto-badge-busy">' . te('detail.busyToday') . '</span>' : '');
+    : ($motoBookable ? '<span class="moto-badge-busy">' . te('detail.busyToday') . '</span>' : '');
 
 // H1 extension: samotný model (např. "Yamaha PW 50" = 12 px) je pod Seobility
 // limit 120 px. Přidáváme suffix "— půjčovna motorek MotoGo24" aby H1 mělo

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme.dart';
+import '../../../core/i18n/i18n_provider.dart';
 import '../../catalog/moto_model.dart';
 import '../../catalog/catalog_provider.dart';
 import 'reservation_edit_widgets.dart';
@@ -38,7 +39,7 @@ class EditMotoChangeSection extends ConsumerWidget {
         child: Row(children: [
           const Icon(Icons.swap_horiz, size: 16, color: MotoGoColors.greenDark),
           const SizedBox(width: 6),
-          const Expanded(child: Text('ZMĚNA MOTORKY', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: MotoGoColors.black))),
+          Expanded(child: Text(t(context).tr('motoChange'), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: MotoGoColors.black))),
           Icon(expanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down, size: 20, color: MotoGoColors.g400),
         ]),
       ),
@@ -47,12 +48,12 @@ class EditMotoChangeSection extends ConsumerWidget {
       Container(padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(color: MotoGoColors.greenPale, borderRadius: BorderRadius.circular(10)),
         child: Row(children: [
-          const Text('AKTUÁLNÍ MOTORKA  ', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: MotoGoColors.greenDarker)),
+          Text('${t(context).tr('currentMoto')}  ', style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: MotoGoColors.greenDarker)),
           Expanded(child: Text(currentMotoName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: MotoGoColors.black))),
         ])),
       if (expanded) ...[
         const SizedBox(height: 8),
-        const Text('VYBERTE NOVOU MOTORKU', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: MotoGoColors.g400)),
+        Text(t(context).tr('selectNewMoto'), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: MotoGoColors.g400)),
         const SizedBox(height: 6),
         motosAsync.when(
           data: (motos) {
@@ -95,7 +96,7 @@ class EditMotoChangeSection extends ConsumerWidget {
             }).toList());
           },
           loading: () => const Center(child: CircularProgressIndicator(color: MotoGoColors.green)),
-          error: (_, __) => const Text('Chyba načítání', style: TextStyle(color: MotoGoColors.red)),
+          error: (_, __) => Text(t(context).tr('loadingError'), style: const TextStyle(color: MotoGoColors.red)),
         ),
       ],
     ]));

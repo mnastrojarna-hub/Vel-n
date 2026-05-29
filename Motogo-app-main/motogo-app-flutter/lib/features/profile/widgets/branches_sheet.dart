@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme.dart';
+import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/supabase_client.dart';
 import '../../auth/widgets/toast_helper.dart';
 import 'branch_detail_card.dart';
@@ -64,11 +65,11 @@ Future<void> showBranchesSheet(BuildContext context) async {
               ),
             ),
             // Title
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
               child: Text(
-                'Pobočky MotoGo24',
-                style: TextStyle(
+                t(context).tr('branchesTitle'),
+                style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w900,
                   color: MotoGoColors.black,
@@ -97,8 +98,8 @@ Future<void> showBranchesSheet(BuildContext context) async {
       showMotoGoToast(
         context,
         icon: '✗',
-        title: 'Chyba',
-        message: 'Nepodařilo se načíst pobočky',
+        title: t(context).tr('error'),
+        message: t(context).tr('branchesLoadFailed'),
       );
     }
   }

@@ -65,6 +65,21 @@ class ContractsScreen extends ConsumerWidget {
                 subtitle: t(context).tr('gdprSubtitle'),
                 onTap: () => _showGdpr(context),
               ),
+              // Vzory dokumentů (přeložené šablony z document_templates) —
+              // předávací protokol a protokol o poškození. Zákazník si je může
+              // přečíst předem; vyplní se až u konkrétní rezervace.
+              _DocTile(
+                icon: '📝',
+                title: t(context).tr('handoverProtocol'),
+                subtitle: t(context).tr('handoverProtocolSubtitle'),
+                onTap: () => _showTemplateSample(context, 'handover_protocol', t(context).tr('handoverProtocol')),
+              ),
+              _DocTile(
+                icon: '⚠️',
+                title: t(context).tr('damageProtocol'),
+                subtitle: t(context).tr('damageProtocolSubtitle'),
+                onTap: () => _showTemplateSample(context, 'damage_protocol', t(context).tr('damageProtocol')),
+              ),
               if (contracts.isEmpty)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 30),
@@ -98,21 +113,24 @@ class ContractsScreen extends ConsumerWidget {
 
   /// Load legal text from document_templates table in Supabase and open in WebView.
   /// Falls back to local LegalTexts if fetch fails.
+  /// Locale-aware: prefers the translated `content_translations[lang]` /
+  /// `name_translations[lang]`, falls back to the Czech `content_html` / `name`.
   Future<void> _showLegalFromSupabase(BuildContext ctx, String type, String fallbackTitle) async {
+    final lang = Localizations.localeOf(ctx).languageCode;
     String title = fallbackTitle;
     String? contentHtml;
     try {
       final res = await MotoGoSupabase.client
           .from('document_templates')
-          .select('name, content_html')
+          .select('name, content_html, content_translations, name_translations')
           .eq('type', type)
           .eq('active', true)
           .order('version', ascending: false)
           .limit(1)
           .maybeSingle();
       if (res != null) {
-        title = res['name'] as String? ?? fallbackTitle;
-        final raw = (res['content_html'] as String? ?? '').trim();
+        title = _localizedName(res, lang) ?? fallbackTitle;
+        final raw = _localizedContent(res, lang);
         if (raw.isNotEmpty) contentHtml = raw;
       }
     } catch (e) {
@@ -135,6 +153,62 @@ class ContractsScreen extends ConsumerWidget {
     Navigator.of(ctx).push(MaterialPageRoute(
       builder: (_) => DocWebViewScreen(url: dataUri, title: title),
     ));
+  }
+
+  /// Show a translated document-template *sample* (vzor) — handover / damage
+  /// protocol. Reads the localized template from `document_templates`; if none
+  /// is available yet, shows a short notice instead of a wrong fallback.
+  Future<void> _showTemplateSample(BuildContext ctx, String type, String fallbackTitle) async {
+    final lang = Localizations.localeOf(ctx).languageCode;
+    String title = fallbackTitle;
+    String contentHtml = '';
+    try {
+      final res = await MotoGoSupabase.client
+          .from('document_templates')
+          .select('name, content_html, content_translations, name_translations')
+          .eq('type', type)
+          .eq('active', true)
+          .order('version', ascending: false)
+          .limit(1)
+          .maybeSingle();
+      if (res != null) {
+        title = _localizedName(res, lang) ?? fallbackTitle;
+        contentHtml = _localizedContent(res, lang);
+      }
+    } catch (e) {
+      debugPrint('[CONTRACTS] Template sample fetch failed ($type): $e');
+    }
+
+    final bodyHtml = contentHtml.isNotEmpty
+        ? contentHtml
+        : '<p>${ctx.mounted ? t(ctx).tr('noOtherDocs') : ''}</p>';
+
+    if (!ctx.mounted) return;
+    final html = _wrapHtml(title, bodyHtml);
+    final dataUri = 'data:text/html;charset=utf-8;base64,${base64Encode(utf8.encode(html))}';
+    Navigator.of(ctx).push(MaterialPageRoute(
+      builder: (_) => DocWebViewScreen(url: dataUri, title: title),
+    ));
+  }
+
+  /// Pick the localized template name (`name_translations[lang]`) or the CZ `name`.
+  String? _localizedName(Map<String, dynamic> row, String lang) {
+    final tr = row['name_translations'];
+    if (tr is Map && tr[lang] is String && (tr[lang] as String).trim().isNotEmpty) {
+      return (tr[lang] as String).trim();
+    }
+    final name = row['name'];
+    return name is String && name.trim().isNotEmpty ? name.trim() : null;
+  }
+
+  /// Pick the localized template HTML (`content_translations[lang]`) or CZ `content_html`.
+  String _localizedContent(Map<String, dynamic> row, String lang) {
+    final tr = row['content_translations'];
+    if (tr is Map && tr[lang] is String && (tr[lang] as String).trim().isNotEmpty) {
+      return (tr[lang] as String).trim();
+    }
+    final raw = row['content_html'];
+    return raw is String ? raw.trim() : '';
   }
 
   /// Open contract/protocol — render from document_templates + booking data.

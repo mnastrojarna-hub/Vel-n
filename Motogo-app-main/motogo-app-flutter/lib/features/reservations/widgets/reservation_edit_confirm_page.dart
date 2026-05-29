@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme.dart';
+import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/router.dart';
 
 /// Confirmation page shown after successful edit save.
@@ -37,9 +38,9 @@ class EditConfirmPage extends StatelessWidget {
               style: ElevatedButton.styleFrom(
                 backgroundColor: MotoGoColors.green, foregroundColor: Colors.black,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(50))),
-              child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                Text('ZPĚT NA REZERVACE', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
-                SizedBox(width: 6), Icon(Icons.arrow_forward, size: 16),
+              child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                Text(t(context).tr('backToReservations'), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
+                const SizedBox(width: 6), const Icon(Icons.arrow_forward, size: 16),
               ]))),
         ]),
       )),

@@ -61,19 +61,11 @@ class BookingFormPickupSection extends ConsumerWidget {
                   ref.read(pickupDelivFeeProvider.notifier).state = fee;
                   ref.read(pickupDistKmProvider.notifier).state = km;
                 },
-                onMapTap: (ctx) async {
-                  final r = await launchMapPicker(ctx);
-                  if (r == null) return;
-                  onUpd((d) => d.copyWith(
-                        pickupCity: () => r.city,
-                        pickupAddress: () => r.address,
-                      ));
-                  ref.read(pickupDelivFeeProvider.notifier).state = r.fee;
-                  ref.read(pickupDistKmProvider.notifier).state = r.km;
-                },
+                onMapTap: (ctx) => launchMapPicker(ctx),
               ),
               distKm: ref.watch(pickupDistKmProvider),
               delivFee: ref.watch(pickupDelivFeeProvider),
+              context: context,
             ),
           ],
         ],

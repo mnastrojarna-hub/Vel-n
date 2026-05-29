@@ -601,13 +601,17 @@ function renderMotoCard($m) {
     // Available badge — "Dostupné dnes" pokud je motorka volná dnes,
     // jinak "Dostupné od DD.MM.YYYY" podle nejbližšího volného data z RPC.
     $badge = '';
-    if (($m['status'] ?? '') === 'active') {
+    $mStatus = $m['status'] ?? '';
+    if ($mStatus === 'active' || $mStatus === 'maintenance') {
         $today = date('Y-m-d');
         $nextAvail = $m['next_available_date'] ?? null;
         if ($nextAvail && $nextAvail > $today) {
             $dateFmt = date('d.m.Y', strtotime($nextAvail));
             $badge = '<span class="moto-card-badge">' . te('card.availableFrom', ['date' => $dateFmt]) . '</span>';
-        } else {
+        } elseif ($mStatus === 'active') {
+            // "Dostupné dnes" jen pro plně aktivní motorky. Motorka v servisu
+            // (maintenance) zůstává v nabídce, ale bez známého příštího volného
+            // data badge vynecháme, ať web netvrdí, že je dnes volná.
             $badge = '<span class="moto-card-badge">' . te('card.availableToday') . '</span>';
         }
     }
