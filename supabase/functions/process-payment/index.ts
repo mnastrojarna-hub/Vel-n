@@ -384,18 +384,25 @@ Deno.serve(async (req: Request) => {
 
       // App nativní Payment Sheet (mode:'intent' používá POUZE Flutter app — web jede
       // přes hosted Checkout ve `handleWeb*Checkout`).
-      // `automatic_payment_methods` se `allow_redirects:'never'` je oficiální Stripe
-      // doporučení pro Payment Sheet s peněženkami: ponechá kartu + Google Pay + Apple Pay
-      // (žádný redirect), ale VYŘADÍ Link (checkout.link.com), který je redirect-based a
-      // v appce s CZK padal ("Something went wrong" / [OR_BIBED_11]) a blokoval sheet ještě
-      // před výběrem Google Pay. Oproti holému `payment_method_types:['card']` dává tato
-      // varianta peněženkám (Google/Apple Pay) lepší podporu. Web hosted Checkout má vlastní
-      // konfiguraci metod ve Stripe Dashboardu a tato změna se ho NEDOTÝKÁ.
+      //
+      // FIX 2026-05-29: `automatic_payment_methods` + `allow_redirects:'never'`
+      // NEVYŘADÍ Link. Link má v mobilním Payment Sheetu vlastní NE-redirect flow,
+      // takže ho Stripe neklasifikuje jako redirect metodu a `allow_redirects:'never'`
+      // ho v sheetu PONECHÁ. Link express tlačítko pak otevíralo checkout.link.com,
+      // které pro CZK padalo ("Something went wrong"). Předchozí 2 opravy mířily na
+      // tento špatný mechanismus → Link se pořád zobrazoval.
+      //
+      // Řešení: explicitně omezit metody na ['card']. Google Pay i Apple Pay se
+      // tokenizují NA kartu (jsou to card wallets) a Payment Sheet je dál vykresluje
+      // přes `googlePay`/`applePay` parametry v `initPaymentSheet` — peněženky tedy
+      // zůstávají, zmizí JEN Link. Uložené karty (customer + ephemeral key) fungují
+      // s 'card' beze změny. Web hosted Checkout má vlastní konfiguraci metod ve
+      // Stripe Dashboardu a tato změna se ho NEDOTÝKÁ.
       const intentParams: Record<string, unknown> = {
         amount: amountCents,
         currency: currency || 'czk',
         metadata,
-        automatic_payment_methods: { enabled: true, allow_redirects: 'never' },
+        payment_method_types: ['card'],
         description: productName,
       }
       if (customerId) {
