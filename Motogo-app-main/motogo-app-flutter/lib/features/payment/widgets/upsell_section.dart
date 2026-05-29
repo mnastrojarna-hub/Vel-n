@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme.dart';
+import '../../../core/i18n/i18n_provider.dart';
 import '../../shop/shop_models.dart';
 import '../../shop/shop_provider.dart';
 import '../booking_upsell_provider.dart';
@@ -38,12 +39,12 @@ class UpsellSection extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(children: [
-            Icon(Icons.star, size: 16, color: MotoGoColors.green),
-            SizedBox(width: 6),
+          Row(children: [
+            const Icon(Icons.star, size: 16, color: MotoGoColors.green),
+            const SizedBox(width: 6),
             Text(
-              'DOPORUČUJEME K REZERVACI',
-              style: TextStyle(
+              t(context).tr('recommendForBooking'),
+              style: const TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w800,
                 color: MotoGoColors.dark,
@@ -164,17 +165,17 @@ class _InsuranceTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Rozšířené pojištění',
-                  style: TextStyle(
+                Text(
+                  t(context).tr('extendedInsurance'),
+                  style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w800,
                     color: MotoGoColors.black,
                   ),
                 ),
                 Text(
-                  'Snížená spoluúčast při nehodě',
-                  style: TextStyle(
+                  t(context).tr('reducedDeductible'),
+                  style: const TextStyle(
                     fontSize: 10,
                     color: MotoGoColors.g400,
                   ),
@@ -291,7 +292,7 @@ class _ProductTile extends StatelessWidget {
                     border: Border.all(color: MotoGoColors.green),
                   ),
                   child: Text(
-                    selected ? '✓ PŘIDÁNO' : 'PŘIDAT',
+                    selected ? t(context).tr('addedCheck') : t(context).tr('addLabel').toUpperCase(),
                     style: TextStyle(
                       fontSize: 9,
                       fontWeight: FontWeight.w800,
