@@ -340,13 +340,50 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
                       ),
                     ),
                   ),
-                // CTA — disabled when sizes are missing (přistavení)
+                // Validační chyba (licence / překryv rezervací / délka pronájmu
+                // / čas vyzvednutí — zpětná rezervace nebo přistavení < +6 h).
+                if (err != null)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF4F4),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: const Color(0xFFF0C8C8),
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(Icons.error_outline,
+                              size: 18, color: Color(0xFFA02020)),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              err,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFFA02020),
+                                decoration: TextDecoration.none,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                // CTA — disabled when sizes are missing (přistavení) or there is
+                // a validation error (err).
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
                   child: SizedBox(
                     height: 52,
                     child: ElevatedButton(
-                      onPressed: missingSizes.isEmpty
+                      onPressed: (missingSizes.isEmpty && err == null)
                           ? () => GoRouter.of(context).push('/payment')
                           : null,
                       style: ElevatedButton.styleFrom(

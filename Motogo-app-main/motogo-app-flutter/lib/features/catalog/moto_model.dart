@@ -40,6 +40,7 @@ class Motorcycle {
   final String? branchId;
   final String? branchName;
   final String? branchCity;
+  final String? branchType; // 'obslužná' (staffed) / 'samoobslužná' (self-service)
   final double? depositAmount;
   final double? insurancePrice;
   final int? minRentalDays;
@@ -88,6 +89,7 @@ class Motorcycle {
     this.branchId,
     this.branchName,
     this.branchCity,
+    this.branchType,
     this.depositAmount,
     this.insurancePrice,
     this.minRentalDays,
@@ -139,6 +141,7 @@ class Motorcycle {
       branchId: json['branch_id'] as String?,
       branchName: branch?['name'] as String?,
       branchCity: branch?['city'] as String?,
+      branchType: branch?['type'] as String?,
       depositAmount: (json['deposit_amount'] as num?)?.toDouble(),
       insurancePrice: (json['insurance_price'] as num?)?.toDouble(),
       minRentalDays: (json['min_rental_days'] as num?)?.toInt(),
@@ -164,6 +167,7 @@ class Motorcycle {
     images: images, color: color, manualUrl: manualUrl,
     manualExternalUrl: manualExternalUrl, status: status,
     branchId: branchId, branchName: branchName, branchCity: branchCity,
+    branchType: branchType,
     depositAmount: depositAmount, insurancePrice: insurancePrice,
     minRentalDays: minRentalDays, maxRentalDays: maxRentalDays,
     mileage: mileage, prices: prices, availableToday: value,
