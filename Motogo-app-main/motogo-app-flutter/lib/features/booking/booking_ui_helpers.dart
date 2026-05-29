@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import '../../core/native/gps_service.dart';
 import 'booking_models.dart';
 import 'booking_provider.dart';
+import 'map_launcher.dart' show MapResult;
 import 'price_calculator.dart';
 import '../../core/i18n/i18n_provider.dart';
 
@@ -453,7 +454,7 @@ void showAddrBottomSheet(BuildContext ctx,
     String title, String? city, String? addr,
     void Function(String city, String addr) onSave,
     {void Function(double km, double fee)? onDistCalc,
-    Future<void> Function(BuildContext)? onMapTap}) {
+    Future<MapResult?> Function(BuildContext)? onMapTap}) {
   final cCtrl = TextEditingController(
       text: [addr, city].where((s) => s != null && s.isNotEmpty).join(', '));
   showModalBottomSheet(
@@ -478,7 +479,7 @@ class _AddrSheetBody extends StatefulWidget {
   final String initialCity, initialAddr;
   final void Function(String city, String addr) onSave;
   final void Function(double km, double fee)? onDistCalc;
-  final Future<void> Function(BuildContext)? onMapTap;
+  final Future<MapResult?> Function(BuildContext)? onMapTap;
   const _AddrSheetBody({required this.ctrl, required this.title,
     this.initialCity = '', this.initialAddr = '',
     required this.onSave, this.onDistCalc, this.onMapTap});
@@ -676,23 +677,31 @@ class _AddrSheetBodyState extends State<_AddrSheetBody> {
         : (name.isNotEmpty ? name : location);
     _log('[PICK] city="$_city" addr="$_addr"');
 
-    // Coords + distance
+    // Coords + distance. The suggestion carries its own position, but for an
+    // ambiguous place name (e.g. several Czech villages called "Mezná") that
+    // position can be a far homonym — the reported bug where "Mezná 65" (the
+    // branch's own village) routed as ~15 km. Re-resolve the picked address
+    // and prefer the candidate nearest the branch; fall back to the
+    // suggestion's own position, then a city estimate.
     final pos = s['position'] as Map<String, dynamic>?;
-    double km;
-    if (pos != null) {
+    final query = [_addr, _city].where((v) => v.isNotEmpty).join(', ');
+    final hit = await geocodeNearestToBranch(query);
+    if (hit != null) {
+      _lat = hit.lat;
+      _lng = hit.lng;
+      _log('[PICK] nearest-to-branch coords: $_lat, $_lng');
+    } else if (pos != null) {
       _lat = (pos['lat'] as num?)?.toDouble();
       _lng = (pos['lon'] as num?)?.toDouble();
-      _log('[PICK] coords: $_lat, $_lng');
-      if (_lat != null && _lng != null) {
-        km = await routeKmFromBranch(_lat!, _lng!);
-        _log('[PICK] ✓ route=${km.toStringAsFixed(1)}km');
-      } else {
-        km = estimateKm(_city).toDouble();
-        _log('[PICK] ✗ no coords → est ${km.toStringAsFixed(0)}km');
-      }
+      _log('[PICK] suggestion coords: $_lat, $_lng');
+    }
+    double km;
+    if (_lat != null && _lng != null) {
+      km = await routeKmFromBranch(_lat!, _lng!);
+      _log('[PICK] ✓ route=${km.toStringAsFixed(1)}km');
     } else {
       km = estimateKm(_city).toDouble();
-      _log('[PICK] ✗ pos=null → est ${km.toStringAsFixed(0)}km');
+      _log('[PICK] ✗ no coords → est ${km.toStringAsFixed(0)}km');
     }
     _showDist(km);
   }
@@ -792,16 +801,28 @@ class _AddrSheetBodyState extends State<_AddrSheetBody> {
     }
   }
 
-  // ── Map picker (handled internally) ──
+  // ── Map picker ──
   Future<void> _openMap() async {
-    // Import-free: call the onMapTap callback but intercept results
-    // by reading the draft after it returns. Better: use launchMapPicker.
-    if (widget.onMapTap != null) {
-      await widget.onMapTap!(context);
-      // onMapTap updates draft directly — read back and close
-      if (mounted) widget.onSave(_city, _addr);
-      return;
-    }
+    if (widget.onMapTap == null) return;
+    final r = await widget.onMapTap!(context);
+    // User cancelled the map → keep the sheet open, don't touch the address.
+    if (r == null || !mounted) return;
+    // The map picker already routed a real distance for the picked point.
+    // Fill the sheet from the result and show it — the user reviews and taps
+    // POTVRDIT to save (same model as the GPS / suggestion flows). Previously
+    // this called onSave('', '') with the sheet's stale fields, which wiped
+    // the address that the map had just selected.
+    setState(() {
+      _city = r.city;
+      _addr = r.address;
+      // _distInfo is set by _showDist below, so _confirm won't re-geocode and
+      // doesn't need _lat/_lng.
+      _lat = null;
+      _lng = null;
+      widget.ctrl.text =
+          [r.address, r.city].where((s) => s.isNotEmpty).join(', ');
+    });
+    _showDist(r.km);
   }
 
   // ── Show distance + update provider ──
@@ -840,31 +861,13 @@ class _AddrSheetBodyState extends State<_AddrSheetBody> {
         km = await routeKmFromBranch(_lat!, _lng!);
       } else {
         debugPrint('[CONFIRM] no coords → geocoding "$_addr, $_city"...');
-        try {
-          final gUrl = 'https://api.mapy.cz/v1/geocode'
-            '?query=${Uri.encodeComponent('$_addr, $_city')}'
-            '&lang=cs&limit=1&locality=cz&apikey=$_mapyKey';
-          debugPrint('[CONFIRM] geocode URL: $gUrl');
-          final gUri = Uri.parse(gUrl);
-          final gRes = await http.get(gUri, headers: _mapyHeaders)
-              .timeout(const Duration(seconds: 5));
-          debugPrint('[CONFIRM] geocode status: ${gRes.statusCode}');
-          debugPrint('[CONFIRM] geocode body (first 300): '
-              '${gRes.body.length > 300 ? gRes.body.substring(0, 300) : gRes.body}');
-          if (gRes.statusCode == 200) {
-            final items = (jsonDecode(gRes.body)['items'] as List?) ?? [];
-            debugPrint('[CONFIRM] geocode items: ${items.length}');
-            if (items.isNotEmpty) {
-              final pos = items[0]['position'];
-              debugPrint('[CONFIRM] geocode position: $pos');
-              if (pos != null) {
-                _lat = (pos['lat'] as num?)?.toDouble();
-                _lng = (pos['lon'] as num?)?.toDouble();
-              }
-            }
-          }
-        } catch (e) {
-          debugPrint('[CONFIRM] ✗ geocode error: $e');
+        // Prefer the geocode candidate nearest the branch — "$_addr, $_city"
+        // can match several homonymous villages (e.g. multiple "Mezná") and a
+        // single far match would wrongly inflate the distance.
+        final hit = await geocodeNearestToBranch('$_addr, $_city');
+        if (hit != null) {
+          _lat = hit.lat;
+          _lng = hit.lng;
         }
         if (_lat != null && _lng != null) {
           debugPrint('[CONFIRM] geocoded coords: lat=$_lat lng=$_lng → routing...');
