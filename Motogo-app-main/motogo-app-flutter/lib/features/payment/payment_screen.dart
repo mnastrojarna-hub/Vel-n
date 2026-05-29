@@ -17,6 +17,7 @@ import '../reservations/reservation_provider.dart' show releaseDoorCodes, reserv
 import 'booking_upsell_provider.dart';
 import 'stripe_service.dart';
 import 'payment_provider.dart';
+import 'payment_error_mapper.dart';
 import 'email_service.dart';
 import 'invoice_service.dart';
 import 'widgets/moto_gallery_card.dart';
@@ -406,8 +407,10 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   }
 
   /// Chybová hláška pro selhání stržení uložené karty (declined / expired /
-  /// SCA zrušeno). Tlačítko „Zkusit znovu" jen zavře sheet — zákazník může
-  /// klepnout na „Zaplatit" znovu (stejná karta), nebo z formuláře odejít.
+  /// SCA zrušeno). Zákazník nikdy nesmí zůstat v nejistotě — ukážeme konkrétní
+  /// příčinu (nedostatek prostředků, blokace, expirace, banka zamítla…) přes
+  /// `PaymentErrorMapper` a tlačítko „Zkusit znovu" otevře klasický Payment Sheet,
+  /// kde může zvolit jinou kartu nebo Google Pay.
   void _handleSavedCardFailure(PaymentResult result) {
     if (_attempts >= maxPaymentAttempts) {
       _handleMaxAttempts();
@@ -424,14 +427,21 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       );
       return;
     }
-    final msg = (result.errorMessage != null && result.errorMessage!.isNotEmpty)
-        ? result.errorMessage!
-        : t(context).tr('bankDeclined');
+    final info = PaymentErrorMapper.fromEdge(
+      declineCode: result.declineCode,
+      rawMessage: result.errorMessage,
+      lang: t(context).lang,
+    );
+    final counter =
+        '\n\n(${t(context).tr('attempt')} $_attempts ${t(context).tr('of')} $maxPaymentAttempts)';
     _showError(
-      title: t(context).tr('paymentCardDeclined'),
-      message: '$msg\n\n${t(context).tr('tryAgainPlease')} '
-          '(${t(context).tr('attempt')} $_attempts ${t(context).tr('of')} $maxPaymentAttempts)',
+      title: info.title,
+      message: info.message + counter,
       buttonLabel: t(context).tr('retry'),
+      onButton: () {
+        // Po potvrzení otevři klasický Payment Sheet (jiná karta / Google Pay).
+        if (mounted) _runPaymentSheetFlow(_amount);
+      },
     );
   }
 
@@ -529,20 +539,22 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   }
 
   void _handleStripeError(StripeException e) {
+    final lang = t(context).lang;
+    final info = PaymentErrorMapper.fromStripeException(e, lang);
+    // Uživatel jen zavřel Payment Sheet — není to chyba, jen reset.
+    if (info.userCancelled) {
+      setState(() => _processing = false);
+      return;
+    }
     if (_attempts >= maxPaymentAttempts) {
       _handleMaxAttempts();
       return;
     }
-    final stripeMsg = e.error.localizedMessage ?? '';
+    final counter =
+        '\n\n(${t(context).tr('attempt')} $_attempts ${t(context).tr('of')} $maxPaymentAttempts)';
     _showError(
-      title: t(context).tr('paymentCardDeclined'),
-      message: stripeMsg.isNotEmpty
-          ? '$stripeMsg\n\n'
-              '${t(context).tr('tryDifferentCard')} '
-              '(${t(context).tr('attempt')} $_attempts ${t(context).tr('of')} $maxPaymentAttempts)'
-          : '${t(context).tr('bankDeclined')} '
-              '${t(context).tr('tryDifferentCard')} '
-              '(${t(context).tr('attempt')} $_attempts ${t(context).tr('of')} $maxPaymentAttempts)',
+      title: info.title,
+      message: info.message + counter,
       buttonLabel: t(context).tr('retry'),
     );
   }
@@ -554,13 +566,24 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       _handleMaxAttempts();
       return;
     }
+    final lang = t(context).lang;
+    final raw = error.toString();
+    // Google Pay / Apple Pay selhání (typicky OR_BIBED_11) — navedeme zákazníka
+    // na zaplacení kartou, která funguje vždy, místo nicneříkajícího dumpu.
+    final isWallet = raw.contains('OR_BIBED') ||
+        raw.toLowerCase().contains('google pay') ||
+        raw.toLowerCase().contains('googlepay') ||
+        raw.toLowerCase().contains('wallet') ||
+        raw.toLowerCase().contains('apple pay');
+    final info = isWallet
+        ? PaymentErrorMapper.wallet(lang,
+            rawCode: raw.contains('OR_BIBED') ? 'OR_BIBED_11' : null)
+        : PaymentErrorMapper.generic(lang);
+    final counter =
+        '\n\n(${t(context).tr('attempt')} $_attempts ${t(context).tr('of')} $maxPaymentAttempts)';
     _showError(
-      title: t(context).tr('paymentGatewayError'),
-      message: '${t(context).tr('paymentGatewayErrorDesc')}\n\n'
-          'DEBUG INFO:\n'
-          'Typ: ${error.runtimeType}\n'
-          'Detail: $error\n\n'
-          '(${t(context).tr('attempt')} $_attempts ${t(context).tr('of')} $maxPaymentAttempts)',
+      title: info.title,
+      message: info.message + counter,
       buttonLabel: t(context).tr('retry'),
     );
   }
@@ -678,6 +701,13 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       ref.read(lastConfirmedBookingProvider.notifier).state = _pendingBookingId;
       context.go(Routes.success);
     } else {
+      final tr = t(context);
+      final amountStr = '${_ctx!.amount.round()} K\u010d';
+      void goResult(PaymentOutcome outcome) {
+        ref.read(paymentOutcomeProvider.notifier).state = outcome;
+        context.go(Routes.paymentResult);
+      }
+
       switch (_ctx!.flowType) {
         case PaymentFlowType.extension:
           // Apply pending edit changes ONLY after Stripe payment is confirmed.
@@ -692,34 +722,57 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
               debugPrint('[Payment] Edit apply err: $e');
             }
           }
-          showMotoGoToast(context,
-              icon: '\u2713',
-              title: t(context).tr('paid'),
-              message: t(context).tr('bookingChangesConfirmed'));
           if (_pendingBookingId != null) {
             EmailService.sendBookingModified(_pendingBookingId!);
             InvoiceService.generateAdvanceInvoice(
                 _pendingBookingId!, _ctx!.amount);
             InvoiceService.generateBookingDocs(_pendingBookingId!);
           }
-          context.go(Routes.reservations);
+          if (!mounted) return;
+          goResult(
+            PaymentOutcome(
+              title: tr.tr('paid'),
+              subtitle: tr.tr('bookingChangesConfirmed'),
+              lines: [PaymentOutcomeLine('\ud83d\udcb3', '${_ctx!.label}: $amountStr')],
+              nextStepNote: tr.tr('successEmailSent'),
+              ctaLabel: tr.tr('successCta'),
+              ctaRoute: Routes.reservations,
+            ),
+          );
         case PaymentFlowType.sos:
           // Invoice generation handled by backend (Supabase trigger/edge function)
-          showMotoGoToast(context,
-              icon: '\u2713',
-              title: t(context).tr('paid'),
-              message: t(context).tr('replacementMotoOrdered'));
-          context.go(Routes.sosDone);
+          goResult(
+            PaymentOutcome(
+              title: tr.tr('paid'),
+              subtitle: tr.tr('replacementMotoOrdered'),
+              lines: [PaymentOutcomeLine('\ud83d\udcb3', '${_ctx!.label}: $amountStr')],
+              nextStepNote: tr.tr('successEmailSent'),
+              ctaLabel: tr.tr('successCta'),
+              ctaRoute: Routes.sosDone,
+            ),
+          );
         case PaymentFlowType.shop:
-          showMotoGoToast(context,
-              icon: '\u2713',
-              title: t(context).tr('paid'),
-              message: t(context).tr('orderConfirmed'));
-          context.go(Routes.shop);
+          goResult(
+            PaymentOutcome(
+              title: tr.tr('paid'),
+              subtitle: tr.tr('orderConfirmed'),
+              lines: [PaymentOutcomeLine('\ud83d\udcb3', '${_ctx!.label}: $amountStr')],
+              nextStepNote: tr.tr('successEmailSent'),
+              ctaLabel: tr.tr('successCta'),
+              ctaRoute: Routes.shop,
+            ),
+          );
         case PaymentFlowType.booking:
-          showMotoGoToast(context,
-              icon: '\u2713', title: t(context).tr('paid'), message: t(context).tr('paymentCompleted'));
-          context.go(Routes.reservations);
+          goResult(
+            PaymentOutcome(
+              title: tr.tr('paid'),
+              subtitle: tr.tr('paymentCompleted'),
+              lines: [PaymentOutcomeLine('\ud83d\udcb3', '${_ctx!.label}: $amountStr')],
+              nextStepNote: tr.tr('successEmailSent'),
+              ctaLabel: tr.tr('successCta'),
+              ctaRoute: Routes.reservations,
+            ),
+          );
       }
     }
   }

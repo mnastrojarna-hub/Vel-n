@@ -168,3 +168,37 @@ final paymentContextProvider = StateProvider<PaymentContext?>((ref) => null);
 /// stav dokladů a typ motorky (dětská vs. dospělá), aby ukázala parizní
 /// dialogy s webovou /potvrzeni stránkou.
 final lastConfirmedBookingProvider = StateProvider<String?>((ref) => null);
+
+/// Jeden řádek detailu na univerzální výsledkové obrazovce (ikona + text).
+class PaymentOutcomeLine {
+  final String icon;
+  final String text;
+  const PaymentOutcomeLine(this.icon, this.text);
+}
+
+/// Data pro univerzální potvrzovací obrazovku (`PaymentResultScreen`) — používají
+/// ji flow, které nemají vlastní bohatou děkovací stránku jako nová rezervace
+/// (prodloužení/úprava, SOS, e-shop). Zajišťuje, že zákazník po KAŽDÉ platbě
+/// uvidí jednoznačné potvrzení „zaplaceno", ne jen mizící toast.
+class PaymentOutcome {
+  final String title;
+  final String subtitle;
+  final List<PaymentOutcomeLine> lines;
+  /// Popis, co se stane dál (např. „Fakturu jsme poslali na e-mail").
+  final String? nextStepNote;
+  final String ctaLabel;
+  /// Route, kam vede primární tlačítko (Routes.reservations / shop / sosDone…).
+  final String ctaRoute;
+
+  const PaymentOutcome({
+    required this.title,
+    required this.subtitle,
+    this.lines = const [],
+    this.nextStepNote,
+    required this.ctaLabel,
+    required this.ctaRoute,
+  });
+}
+
+/// Nastaví se těsně před navigací na `Routes.paymentResult`.
+final paymentOutcomeProvider = StateProvider<PaymentOutcome?>((ref) => null);

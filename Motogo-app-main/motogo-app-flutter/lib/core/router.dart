@@ -22,6 +22,7 @@ import '../features/catalog/moto_search_screen.dart';
 import '../features/home/home_screen.dart';
 import '../features/payment/payment_screen.dart';
 import '../features/payment/payment_confirmation_screen.dart';
+import '../features/payment/payment_result_screen.dart';
 import '../features/reservations/reservations_screen.dart';
 import '../features/reservations/reservation_detail_screen.dart';
 import '../features/documents/documents_screen.dart';
@@ -61,6 +62,7 @@ class Routes {
   static const String booking = '/booking';
   static const String payment = '/payment';
   static const String success = '/success';
+  static const String paymentResult = '/payment-result';
   static const String reservations = '/reservations';
   static const String reservationDetail = '/reservations/:id';
   static const String editReservation = '/reservations/:id/edit';
@@ -182,6 +184,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: Routes.success,
         builder: (context, state) => const PaymentConfirmationScreen(),
+      ),
+      GoRoute(
+        path: Routes.paymentResult,
+        builder: (context, state) => const PaymentResultScreen(),
       ),
       GoRoute(
         path: Routes.docs,
