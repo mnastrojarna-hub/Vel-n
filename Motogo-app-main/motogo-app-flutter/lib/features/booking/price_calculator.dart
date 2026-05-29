@@ -7,8 +7,12 @@ import '../catalog/moto_model.dart';
 import 'booking_models.dart';
 
 /// Branch coordinates (Mezná 9, 393 01 Pelhřimov).
-const branchLat = 49.4147;
-const branchLng = 15.2953;
+/// Mezná leží ~9 km jižně od Pelhřimova (obec, okres Pelhřimov).
+/// Pozn.: dřívější hodnota 49.4147, 15.2953 byla chybně u Křemešníku /
+/// Proseče pod Křemešníkem (~10 km od Mezné) → přistavení/odvoz počítalo
+/// nesmyslné vzdálenosti (sousední adresa Mezné ~15 km, Proseč ~0 km).
+const branchLat = 49.3464;
+const branchLng = 15.2119;
 
 const _mapyKey = 'whg1ilj203oYhmsqkBHVtUqpk-tYr0E-HFTx4lGdue0';
 const _mapyHeaders = <String, String>{

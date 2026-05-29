@@ -160,7 +160,10 @@ export function mapyNavigateUrl(lat, lng) {
 
 // ===== Vypocet vzdalenosti od pobocky (Mezna) =====
 // Fallback na Haversine kdyz routing selze.
-export const BRANCH_DEFAULT = { lat: 49.4147, lng: 15.2953 }
+// Mezna 9, 393 01 (obec ~9 km jizne od Pelhrimova).
+// Pozn.: drivejsi 49.4147, 15.2953 mirila k Proseci pod Kremesnikem (~10 km),
+// kvuli cemu se pristaveni/odvoz pocital z chybneho bodu.
+export const BRANCH_DEFAULT = { lat: 49.3464, lng: 15.2119 }
 
 export async function routeKmFromBranch(lat, lng, branch = BRANCH_DEFAULT) {
   const r = await routeKm({
