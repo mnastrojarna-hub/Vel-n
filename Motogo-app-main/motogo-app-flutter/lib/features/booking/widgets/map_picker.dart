@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -48,6 +49,7 @@ class _MapPickerState extends State<MapPickerScreen> {
   late LatLng _center;
   String _address = ''; // initialized in build via i18n
   bool _loading = false;
+  Timer? _geoDebounce;
 
   // Parsed address components from reverse geocode
   String _street = '';
@@ -62,14 +64,34 @@ class _MapPickerState extends State<MapPickerScreen> {
       widget.initialLat ?? _branchLat,
       widget.initialLng ?? _branchLng,
     );
+    // Resolve the starting point straight away so the preview shows an address
+    // before the user pans (otherwise confirming without panning yielded an
+    // empty address + 0 km). Deferred past the first frame so the initial
+    // setState isn't run during initState.
+    _geoDebounce = Timer(Duration.zero, () => _reverseGeocode(_center));
   }
 
-  Future<void> _onMapMoved(LatLng center) async {
+  @override
+  void dispose() {
+    _geoDebounce?.cancel();
+    super.dispose();
+  }
+
+  /// Debounce map moves and always reverse-geocode the *final* position.
+  /// (The previous in-flight guard could drop the last move, leaving the
+  /// preview on a stale address while the confirmed coords had moved on.)
+  void _onMapMoved(LatLng center) {
     _center = center;
-    if (_loading) return;
+    _geoDebounce?.cancel();
+    _geoDebounce = Timer(const Duration(milliseconds: 350),
+        () => _reverseGeocode(_center));
+  }
+
+  Future<void> _reverseGeocode(LatLng center) async {
+    if (!mounted) return;
     setState(() => _loading = true);
 
-    debugPrint('─── [MAP] _onMapMoved(${center.latitude}, ${center.longitude}) ───');
+    debugPrint('─── [MAP] _reverseGeocode(${center.latitude}, ${center.longitude}) ───');
     bool filled = false;
 
     // 1) Mapy.cz rgeocode — precise for Czech addresses
