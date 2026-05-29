@@ -1,23 +1,29 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme.dart';
+import '../../core/i18n/i18n_provider.dart';
 import '../../core/native/permission_service.dart';
 import '../auth/auth_provider.dart';
 import '../auth/biometric_service.dart';
 import '../auth/widgets/toast_helper.dart';
+import '../reservations/reservation_provider.dart';
 
 /// Full-screen permissions management — replaces old bottom sheet.
 /// Shows current status of each permission with tap to open system settings.
-class PermissionsScreen extends StatefulWidget {
+class PermissionsScreen extends ConsumerStatefulWidget {
   const PermissionsScreen({super.key});
 
   @override
-  State<PermissionsScreen> createState() => _PermissionsScreenState();
+  ConsumerState<PermissionsScreen> createState() => _PermissionsScreenState();
 }
 
-class _PermissionsScreenState extends State<PermissionsScreen>
+class _PermissionsScreenState extends ConsumerState<PermissionsScreen>
     with WidgetsBindingObserver {
+  /// Při aktivní rezervaci jsou všechna oprávnění KROMĚ galerie/fotek
+  /// vyžadována pro správné fungování (přístupové kódy, navigace, oznámení).
+  static const _photoExemptKeys = {'photos'};
   List<PermissionInfo>? _perms;
   bool _bioAvailable = false;
   bool _bioEnabled = false;
@@ -60,6 +66,7 @@ class _PermissionsScreenState extends State<PermissionsScreen>
 
   @override
   Widget build(BuildContext context) {
+    final requiredActive = ref.watch(hasActiveReservationProvider);
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
       appBar: AppBar(
@@ -98,6 +105,27 @@ class _PermissionsScreenState extends State<PermissionsScreen>
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 11, color: MotoGoColors.g400),
             ),
+            if (requiredActive) ...[
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: MotoGoColors.greenPale,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: MotoGoColors.g200),
+                ),
+                child: Row(children: [
+                  const Text('🔒', style: TextStyle(fontSize: 16)),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      t(context).tr('permsRequiredActive'),
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: MotoGoColors.black),
+                    ),
+                  ),
+                ]),
+              ),
+            ],
             const SizedBox(height: 16),
             if (_perms == null)
               const Padding(
@@ -106,7 +134,7 @@ class _PermissionsScreenState extends State<PermissionsScreen>
                     Center(child: CircularProgressIndicator(color: MotoGoColors.green)),
               )
             else
-              ..._perms!.map((p) => _permRow(p)),
+              ..._perms!.map((p) => _permRow(p, requiredActive && !_photoExemptKeys.contains(p.key))),
             if (_bioAvailable) ...[
               const SizedBox(height: 16),
               const Divider(height: 1, color: MotoGoColors.g200),
@@ -233,7 +261,9 @@ class _PermissionsScreenState extends State<PermissionsScreen>
     );
   }
 
-  Widget _permRow(PermissionInfo p) {
+  Widget _permRow(PermissionInfo p, bool required) {
+    // Vyžadované, ale nepovolené oprávnění zvýrazníme červeně + štítkem.
+    final needsAttention = required && !p.granted;
     return GestureDetector(
       onTap: () async {
         await PermissionService.openSettings();
@@ -245,7 +275,10 @@ class _PermissionsScreenState extends State<PermissionsScreen>
           color: p.granted ? MotoGoColors.greenPale : const Color(0xFFFEF2F2),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-              color: p.granted ? MotoGoColors.g200 : const Color(0xFFFECACA)),
+              color: needsAttention
+                  ? MotoGoColors.red
+                  : (p.granted ? MotoGoColors.g200 : const Color(0xFFFECACA)),
+              width: needsAttention ? 1.5 : 1),
         ),
         child: Row(children: [
           Text(p.icon, style: const TextStyle(fontSize: 22)),
@@ -254,11 +287,30 @@ class _PermissionsScreenState extends State<PermissionsScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(p.title,
-                    style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
-                        color: MotoGoColors.black)),
+                Row(children: [
+                  Flexible(
+                    child: Text(p.title,
+                        style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                            color: MotoGoColors.black)),
+                  ),
+                  if (required) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: needsAttention ? MotoGoColors.red : MotoGoColors.greenDarker,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(t(context).tr('requiredLabel'),
+                          style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w800,
+                              color: needsAttention ? Colors.white : Colors.white)),
+                    ),
+                  ],
+                ]),
                 Text(p.desc,
                     style: const TextStyle(
                         fontSize: 10, color: MotoGoColors.g400)),
