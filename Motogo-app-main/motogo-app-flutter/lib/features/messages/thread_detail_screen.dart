@@ -119,7 +119,7 @@ class _ThreadDetailState extends ConsumerState<ThreadDetailScreen> {
                   child: Padding(
                     padding: const EdgeInsets.only(bottom: 4),
                     child: Text(
-                      thread.isClosed ? 'Uzavřeno' : 'Aktivní',
+                      thread.isClosed ? t(context).tr('closed') : t(context).tr('active'),
                       style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.5)),
                     ),
                   ),
@@ -130,7 +130,7 @@ class _ThreadDetailState extends ConsumerState<ThreadDetailScreen> {
                   // Messages list
                   Expanded(
                     child: thread == null || thread.messages.isEmpty
-                        ? const Center(child: Text('Napište první zprávu', style: TextStyle(fontSize: 13, color: MotoGoColors.g400)))
+                        ? Center(child: Text(t(context).tr('writeFirstMessage'), style: const TextStyle(fontSize: 13, color: MotoGoColors.g400)))
                         : ListView.builder(
                             controller: _scrollCtrl,
                             padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
@@ -152,7 +152,7 @@ class _ThreadDetailState extends ConsumerState<ThreadDetailScreen> {
                           child: TextField(
                             controller: _replyCtrl,
                             decoration: InputDecoration(
-                              hintText: 'Napište zprávu...',
+                              hintText: t(context).tr('writeMessageHint'),
                               hintStyle: const TextStyle(fontSize: 13),
                               contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(50), borderSide: const BorderSide(color: MotoGoColors.g200)),
