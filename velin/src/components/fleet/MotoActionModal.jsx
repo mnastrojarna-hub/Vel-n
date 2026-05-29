@@ -7,6 +7,7 @@ import ReplacementMotoPicker from './ReplacementMotoPicker'
 import ServiceChecklistView from './ServiceChecklistView'
 import { UNAVAILABLE_REASONS } from './motoActionConstants'
 import MotoStatusPanel from './MotoStatusPanel'
+import { fetchBlockingBookings, fetchActiveBookings, blockingBookingsMessage } from './bookingGuard'
 
 export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
   const [branches, setBranches] = useState([])
@@ -72,10 +73,13 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
       // začíná dnes (nebo dříve). Záznam je pak 'pending' až do dne servisu.
       const isFuture = serviceStart > today
       if (!isFuture) {
-        const { data: active } = await supabase.from('bookings').select('id, status').eq('moto_id', moto.id).eq('status', 'active').gte('end_date', today)
-        if (active?.length > 0) {
-          if (!window.confirm(`Motorka má ${active.length} aktivní pronájem. Stornovat?`)) { setBusy(false); return }
-          for (const b of active) await supabase.from('bookings').update({ status: 'cancelled', notes: 'Motorka do servisu' }).eq('id', b.id)
+        // Probíhající pronájem se NESMÍ rušit — motorku, na které někdo právě jede,
+        // nelze poslat do servisu. Admin musí pronájem nejdřív vyřešit individuálně
+        // (úprava rezervace dle dohody se zákazníkem).
+        const active = await fetchActiveBookings(moto.id)
+        if (active.length > 0) {
+          window.alert(blockingBookingsMessage(active))
+          setBusy(false); return
         }
       }
       const { data: future } = await supabase.from('bookings').select('id, start_date, end_date').eq('moto_id', moto.id).eq('status', 'reserved').gte('end_date', serviceStart).order('start_date').limit(5)
@@ -146,15 +150,13 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
     try {
       const today = new Date().toISOString().slice(0, 10)
       if (newStatus !== 'active' && newStatus !== 'maintenance') {
-        const { data: active } = await supabase.from('bookings').select('id').eq('moto_id', moto.id).eq('status', 'active').gte('end_date', today)
-        if (active?.length > 0) {
-          if (!window.confirm(`Motorka má ${active.length} pronájem. Stornovat?`)) { setBusy(false); return }
-          for (const b of active) await supabase.from('bookings').update({ status: 'cancelled', notes: `Nedostupná: ${reason || newStatus}` }).eq('id', b.id)
-        }
-        const { data: future } = await supabase.from('bookings').select('id, start_date, end_date, profiles(full_name)').eq('moto_id', moto.id).in('status', ['pending', 'reserved']).gte('start_date', today).order('start_date').limit(5)
-        if (future?.length > 0) {
-          const lines = future.map(b => `  ${b.profiles?.full_name || '?'}: ${new Date(b.start_date).toLocaleDateString('cs-CZ')} – ${new Date(b.end_date).toLocaleDateString('cs-CZ')}`).join('\n')
-          window.alert(`Nadcházející rezervace (${future.length}):\n${lines}`)
+        // Vyřazení (dočasné/trvalé) NESMÍ rušit rezervace. Pokud má motorka
+        // aktivní/nadcházející/pending rezervaci, akci zablokuj — admin ji vyřeší
+        // individuálně (úprava rezervace dle dohody se zákazníkem).
+        const blocking = await fetchBlockingBookings(moto.id)
+        if (blocking.length > 0) {
+          window.alert(blockingBookingsMessage(blocking))
+          setBusy(false); return
         }
       }
       const upd = { status: newStatus }
@@ -201,6 +203,14 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
   }
 
   async function handleDeactivateReplace(replacement) {
+    // Deaktivace NESMÍ osiřet zákaznickou rezervaci — pokud nějaká existuje,
+    // admin ji vyřeší individuálně (úprava rezervace) ještě před deaktivací.
+    const blocking = await fetchBlockingBookings(moto.id)
+    if (blocking.length > 0) {
+      window.alert(blockingBookingsMessage(blocking))
+      setShowDeactReplace(false)
+      return
+    }
     setBusy(true)
     if (moto.branch_id && replacement?.id) {
       await supabase.from('motorcycles').update({ branch_id: moto.branch_id, status: 'active' }).eq('id', replacement.id)
@@ -218,6 +228,13 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
   }
 
   async function handleDeactivateSimple() {
+    // Deaktivace NESMÍ osiřet zákaznickou rezervaci — pokud nějaká existuje,
+    // admin ji vyřeší individuálně (úprava rezervace) ještě před deaktivací.
+    const blocking = await fetchBlockingBookings(moto.id)
+    if (blocking.length > 0) {
+      window.alert(blockingBookingsMessage(blocking))
+      return
+    }
     setBusy(true)
     const now = new Date()
     const maxYear = now.getMonth() <= 1 ? now.getFullYear() : now.getFullYear() + 1

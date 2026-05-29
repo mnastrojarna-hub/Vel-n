@@ -49,14 +49,14 @@ class EditExtrasSection extends StatelessWidget {
       const SizedBox(height: 8),
       // Dětská motorka nikdy nemá spolujezdce → skryj výbavu i boty spolujezdce.
       if (!isKids)
-        EditExtraCheckbox(id: 'spolujezdec', label: 'Výbava spolujezdce', sub: 'Helma, rukavice, vesta', price: 400,
+        EditExtraCheckbox(id: 'spolujezdec', label: 'Výbava spolujezdce', sub: 'Helma, rukavice, vesta', price: 690,
           checked: selectedExtras.contains('spolujezdec'),
           onChanged: (v) => _toggle('spolujezdec', v)),
-      EditExtraCheckbox(id: 'boty_ridic', label: 'Boty řidiče', sub: 'Uveďte velikost', price: 300,
+      EditExtraCheckbox(id: 'boty_ridic', label: 'Boty řidiče', sub: 'Uveďte velikost', price: 290,
         checked: selectedExtras.contains('boty_ridic'),
         onChanged: (v) => _toggle('boty_ridic', v)),
       if (!isKids)
-        EditExtraCheckbox(id: 'boty_spolujezdec', label: 'Boty spolujezdce', sub: 'Uveďte velikost', price: 300,
+        EditExtraCheckbox(id: 'boty_spolujezdec', label: 'Boty spolujezdce', sub: 'Uveďte velikost', price: 290,
           checked: selectedExtras.contains('boty_spolujezdec'),
           onChanged: (v) => _toggle('boty_spolujezdec', v)),
       if (pickupMethod == 'delivery' || returnMethod == 'delivery') ...[

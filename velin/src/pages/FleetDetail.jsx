@@ -17,6 +17,7 @@ import MotoMap from '../components/shared/MotoMap'
 import InfoTab from './FleetDetailInfoTab'
 import { PerformanceTab } from './FleetDetailPhotos'
 import { autoTranslateRow } from '../lib/autoTranslate'
+import { fetchBlockingBookings, blockingBookingsMessage } from '../components/fleet/bookingGuard'
 
 const TABS = ['Info', 'Rezervace', 'Ceník', 'Servis', 'Mapa', 'Výkon']
 
@@ -132,29 +133,17 @@ export default function FleetDetail() {
   }
 
   async function handleDeactivate() {
-    const { data: activeBookings } = await debugAction('fleet.checkBookings', 'FleetDetail', () =>
-      supabase.from('bookings').select('id, user_id, start_date, end_date, status, profiles(full_name)')
-        .eq('moto_id', id).in('status', ['pending', 'active', 'reserved'])
-    , { moto_id: id })
-    if (activeBookings?.length > 0) {
-      setConfirm({ type: 'deactivate', title: `${activeBookings.length} aktivních rezervací`, message: 'Při deaktivaci budou stornovány. Pokračovat?',
-        action: async () => {
-          const newStatus = moto.status === 'unavailable' ? 'active' : 'unavailable'
-          await debugAction('fleet.deactivate', 'FleetDetail', async () => {
-            await supabase.from('motorcycles').update({ status: newStatus }).eq('id', id)
-            if (newStatus !== 'active') {
-              for (const b of activeBookings) await supabase.from('bookings').update({ status: 'cancelled', notes: 'Motorka vyřazena' }).eq('id', b.id)
-            }
-            return { data: { status: newStatus, affected: activeBookings.length } }
-          }, { moto_id: id, newStatus })
-          await logAudit('motorcycle_status_changed', { moto_id: id, status: newStatus, affected: activeBookings.length })
-          purgeWebCache()
-          setMoto(m => ({ ...m, status: newStatus })); setConfirm(null)
-        },
-      })
-      return
-    }
     const newStatus = moto.status === 'unavailable' ? 'active' : 'unavailable'
+    // Vyřazení NESMÍ rušit rezervace. Pokud má motorka aktivní/nadcházející/pending
+    // rezervaci, deaktivaci zablokuj — admin každou vyřeší individuálně (úprava
+    // rezervace dle dohody se zákazníkem). Aktivace zpět žádné brání.
+    if (newStatus !== 'active') {
+      const blocking = await fetchBlockingBookings(id)
+      if (blocking.length > 0) {
+        setError(blockingBookingsMessage(blocking))
+        return
+      }
+    }
     await debugAction('fleet.toggleStatus', 'FleetDetail', () =>
       supabase.from('motorcycles').update({ status: newStatus }).eq('id', id)
     , { moto_id: id, newStatus })
@@ -164,6 +153,15 @@ export default function FleetDetail() {
   }
 
   async function handleDelete() {
+    // Motorku s aktivní/nadcházející/pending rezervací NELZE smazat — smazáním by
+    // se ztratila i zákaznická rezervace. Admin musí každou rezervaci nejdřív
+    // vyřešit individuálně (úprava rezervace dle dohody se zákazníkem).
+    const blocking = await fetchBlockingBookings(id)
+    if (blocking.length > 0) {
+      setConfirm(null)
+      setError(blockingBookingsMessage(blocking))
+      return
+    }
     await debugAction('fleet.delete', 'FleetDetail', () =>
       supabase.from('motorcycles').delete().eq('id', id)
     , { moto_id: id })
@@ -208,7 +206,7 @@ export default function FleetDetail() {
         <div>branch: {moto.branches?.name || '—'}, mileage: {moto.mileage?.toLocaleString('cs-CZ') || 0} {moto.tracking_unit === 'mh' ? 'MH' : 'km'}</div>
         <div>year: {moto.year || '—'}, engine: {moto.engine_cc || '—'}cc, power: {moto.power_kw || '—'}kW</div>
         <div>STK: {moto.stk_valid_until || '—'}, tab: {tab}</div>
-        {error && <div style={{ color: '#dc2626' }}>ERROR: {error}</div>}
+        {error && <div style={{ color: '#dc2626', whiteSpace: 'pre-line' }}>{error}</div>}
       </div>
       )}
 

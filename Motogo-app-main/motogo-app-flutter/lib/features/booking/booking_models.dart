@@ -293,17 +293,18 @@ List<String> gearSizesFor(String type, {required bool kids}) {
 /// `extra-spolujezdec` and `extra-boty-spolu` are passenger items — they are
 /// hidden for children's bikes (which never carry a passenger).
 const defaultExtras = [
+  // Ceny dle webu (accessory_types: passenger_gear=690, boots_rider/passenger=290).
   ExtraCatalogItem(
     id: 'extra-spolujezdec',
     name: 'Výbava spolujezdce',
-    price: 400,
+    price: 690,
     description: 'Helma, rukavice, vesta',
     icon: '👥',
   ),
   ExtraCatalogItem(
     id: 'extra-boty-ridic',
     name: 'Boty řidiče',
-    price: 300,
+    price: 290,
     description: 'Moto boty – uveďte velikost',
     icon: '👢',
     needsSize: true,
@@ -312,7 +313,7 @@ const defaultExtras = [
   ExtraCatalogItem(
     id: 'extra-boty-spolu',
     name: 'Boty spolujezdce',
-    price: 300,
+    price: 290,
     description: 'Moto boty – uveďte velikost',
     icon: '👟',
     needsSize: true,

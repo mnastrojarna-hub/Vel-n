@@ -40,7 +40,8 @@ class EditPriceCalc {
   });
 
   double get extrasTotal {
-    const prices = {'spolujezdec': 400.0, 'boty_ridic': 300.0, 'boty_spolujezdec': 300.0};
+    // Ceny dle webu (accessory_types): passenger_gear=690, boty=290.
+    const prices = {'spolujezdec': 690.0, 'boty_ridic': 290.0, 'boty_spolujezdec': 290.0};
     return selectedExtras.fold(0.0, (sum, id) => sum + (prices[id] ?? 0));
   }
 

@@ -37,6 +37,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   final _cityCtrl = TextEditingController();
   final _zipCtrl = TextEditingController();
   final _streetCtrl = TextEditingController();
+  final _idNumCtrl = TextEditingController();
   final _licNumCtrl = TextEditingController();
   DateTime? _dob;
   DateTime? _licExp;
@@ -50,7 +51,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   @override
   void dispose() {
     _nameCtrl.dispose(); _phoneCtrl.dispose(); _cityCtrl.dispose();
-    _zipCtrl.dispose(); _streetCtrl.dispose(); _licNumCtrl.dispose();
+    _zipCtrl.dispose(); _streetCtrl.dispose(); _idNumCtrl.dispose(); _licNumCtrl.dispose();
     super.dispose();
   }
 
@@ -62,6 +63,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     _cityCtrl.text = profile['city'] ?? '';
     _zipCtrl.text = profile['zip'] ?? '';
     _streetCtrl.text = profile['street'] ?? '';
+    _idNumCtrl.text = profile['id_number'] ?? '';
     _licNumCtrl.text = profile['license_number'] ?? '';
     _dob = _parseDate(profile['date_of_birth']);
     _licExp = _parseDate(profile['license_expiry']);
@@ -103,6 +105,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         'zip': _zipCtrl.text.trim(),
         'street': _streetCtrl.text.trim(),
         'date_of_birth': _dob == null ? null : _isoDate(_dob!),
+        // Číslo dokladu totožnosti (OP nebo pas) — ručně zadané se uloží do
+        // profilu a vytiskne do smlouvy. (Ověření přes OCR/fotku řeší sken.)
+        'id_number': _idNumCtrl.text.trim(),
         'license_number': _licNumCtrl.text.trim(),
         'license_expiry': _licExp == null ? null : _isoDate(_licExp!),
         'license_group': groupTokens,
@@ -205,13 +210,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               const SizedBox(height: 12),
               ProfileSectionTitle(title: t(context).tr('otherSection')),
               ProfileMenuItem(icon: '🚪', label: t(context).logout, onTap: _logout, labelColor: MotoGoColors.red, bgColor: const Color(0xFFFEF2F2)),
+              ProfileMenuItem(icon: '🗑️', label: t(context).tr('deleteAccountBtn'), onTap: () => _showDeleteAccountDialog(context), labelColor: MotoGoColors.red, bgColor: const Color(0xFFFEF2F2)),
 
               const SizedBox(height: 12),
-              Center(child: GestureDetector(
-                onTap: () => _showDeleteAccountDialog(context),
-                child: Text(t(context).tr('deleteAccountLink'), style: const TextStyle(fontSize: 11, color: MotoGoColors.g400, decoration: TextDecoration.underline)),
-              )),
-              const SizedBox(height: 8),
               Center(child: Text('MotoGo24 $appVersion', style: const TextStyle(fontSize: 10, color: MotoGoColors.g400, fontWeight: FontWeight.w600, letterSpacing: 0.5))),
               const SizedBox(height: 40),
             ]),
@@ -238,6 +239,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           hint: t(context).tr('selectDob'),
           onTap: () => _pickDob(),
         ),
+        ProfileField(ctrl: _idNumCtrl, label: t(context).tr('idNumberFull')),
         ProfileField(ctrl: _licNumCtrl, label: t(context).tr('licenseNumberFull')),
         _dateField(
           label: t(context).tr('licenseExpiry'),

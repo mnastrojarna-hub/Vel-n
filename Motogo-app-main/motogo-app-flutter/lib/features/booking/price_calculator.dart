@@ -138,6 +138,50 @@ Future<double> routeKmFromBranch(double lat, double lng) async {
   return km;
 }
 
+/// Geocode [query] (full address) and return the candidate position nearest
+/// to the branch.
+///
+/// Mapy.cz returns several matches for ambiguous place names — e.g. there are
+/// multiple Czech villages called "Mezná". Requesting a single result can land
+/// on a far-away homonym, inflating the delivery distance (the reported bug:
+/// "Mezná 65" — the same village as the branch — was computed as ~15 km).
+/// Fetching a handful of candidates and keeping the one closest to the branch
+/// resolves to the intended place. Returns null on failure (caller falls back
+/// to [estimateKm]).
+Future<({double lat, double lng})?> geocodeNearestToBranch(String query) async {
+  if (query.trim().length < 3) return null;
+  try {
+    final uri = Uri.parse('https://api.mapy.cz/v1/geocode'
+        '?query=${Uri.encodeComponent(query)}'
+        '&lang=cs&limit=8&locality=cz&apikey=$_mapyKey');
+    final res = await http
+        .get(uri, headers: _mapyHeaders)
+        .timeout(const Duration(seconds: 5));
+    debugPrint('[GEOCODE] "$query" status=${res.statusCode}');
+    if (res.statusCode != 200) return null;
+    final items = (jsonDecode(res.body)['items'] as List?) ?? [];
+    ({double lat, double lng})? best;
+    double bestKm = double.infinity;
+    for (final it in items) {
+      final pos = (it as Map)['position'];
+      final lat = (pos?['lat'] as num?)?.toDouble();
+      final lng = (pos?['lon'] as num?)?.toDouble();
+      if (lat == null || lng == null) continue;
+      final d = _haversine(branchLat, branchLng, lat, lng);
+      if (d < bestKm) {
+        bestKm = d;
+        best = (lat: lat, lng: lng);
+      }
+    }
+    debugPrint('[GEOCODE] ${items.length} candidates → nearest '
+        '${bestKm.isFinite ? '${bestKm.toStringAsFixed(1)}km' : 'none'}');
+    return best;
+  } catch (e) {
+    debugPrint('[GEOCODE] ✗ error: $e');
+    return null;
+  }
+}
+
 double _haversine(double lat1, double lon1, double lat2, double lon2) {
   const r = 6371.0;
   final dLat = (lat2 - lat1) * pi / 180;
