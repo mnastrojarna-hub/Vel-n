@@ -493,8 +493,6 @@ class _AddrSheetBodyState extends State<_AddrSheetBody> {
   String _city = '', _addr = '';
   double? _lat, _lng;
   Timer? _debounce;
-  // Visible debug log lines (shown in UI for diagnostics)
-  final List<String> _dbg = [];
 
   @override
   void initState() {
@@ -511,10 +509,6 @@ class _AddrSheetBodyState extends State<_AddrSheetBody> {
 
   void _log(String msg) {
     debugPrint(msg);
-    if (mounted) setState(() {
-      _dbg.add(msg);
-      if (_dbg.length > 15) _dbg.removeAt(0);
-    });
   }
 
   // ── Mapy.cz Suggest — matches original frontend exactly ──
@@ -539,7 +533,43 @@ class _AddrSheetBodyState extends State<_AddrSheetBody> {
           .timeout(const Duration(seconds: 5));
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
-        items = ((data['items'] as List?) ?? []).cast<Map<String, dynamic>>();
+        final raw = (data['items'] as List?) ?? [];
+        // Normalize Mapy.cz items. NOTE: in the Mapy.cz v1 Suggest API the
+        // `label` field is the *type* of the result ("Obec", "Ulice",
+        // "Zastávka autobusu") — NOT a place name. The place name is in
+        // `name` and the region/locality in `location`. The web frontend
+        // (pages-rezervace-pricing.js MG._mapySuggest) renders `name` +
+        // `location`; mirror that here so suggestions show real addresses.
+        items = raw.map<Map<String, dynamic>>((it) {
+          final m = (it as Map).cast<String, dynamic>();
+          final nm = (m['name'] as String?)?.trim() ?? '';
+          final loc = (m['location'] as String?)?.trim() ?? '';
+          final type = (m['type'] as String?) ?? '';
+          final rs = (m['regionalStructure'] as List?) ?? [];
+          String muni = '';
+          for (final r in rs) {
+            final rt = r['type'];
+            if (rt == 'regional.municipality') {
+              muni = r['name'] as String? ?? muni;
+              break;
+            }
+            if (rt == 'regional.municipality_part' && muni.isEmpty) {
+              muni = r['name'] as String? ?? muni;
+            }
+          }
+          final isMuni = type == 'regional.municipality' ||
+              type == 'regional.municipality_part';
+          return <String, dynamic>{
+            'name': nm,
+            'label': nm, // title shown in list = real place name
+            'location': loc, // subtitle = region/locality
+            'position': m['position'],
+            'zip': m['zip'] ?? '',
+            'regionalStructure': rs,
+            '_street': isMuni ? '' : nm,
+            '_city': muni.isNotEmpty ? muni : (isMuni ? nm : ''),
+          };
+        }).where((m) => (m['name'] as String).isNotEmpty).toList();
         _log('[SUGGEST] Mapy.cz ✓ ${items.length} výsledků');
       } else {
         _log('[SUGGEST] Mapy.cz ${res.statusCode}');
@@ -608,8 +638,7 @@ class _AddrSheetBodyState extends State<_AddrSheetBody> {
     _log('[PICK] "${s['name']}" pos=${s['position']}');
 
     final name = s['name'] as String? ?? '';
-    final label = s['label'] as String? ?? name;
-    widget.ctrl.text = label;
+    final location = s['location'] as String? ?? '';
     setState(() { _sug = []; _distInfo = 'Počítám km...'; });
 
     // Extract city from regionalStructure
@@ -622,18 +651,29 @@ class _AddrSheetBodyState extends State<_AddrSheetBody> {
       }
     }
 
-    // Use pre-parsed fields from Nominatim if available
+    // Pre-parsed structured fields (set for both Mapy.cz + Nominatim items)
     final preStreet = s['_street'] as String? ?? '';
     final preCity = s['_city'] as String? ?? '';
+    final zip = s['zip'] as String? ?? '';
 
-    // Parse address parts from label
-    final parts = label.split(',').map((e) => e.trim()).toList();
-    _city = municipality.isNotEmpty ? municipality
-        : preCity.isNotEmpty ? preCity
-        : (parts.length > 1 ? parts.last : name);
-    _addr = preStreet.isNotEmpty ? preStreet
-        : (parts.isNotEmpty ? parts.first : name);
-    if (_addr == _city) _addr = name;
+    _city = municipality.isNotEmpty
+        ? municipality
+        : preCity.isNotEmpty
+            ? preCity
+            : name;
+    _addr = preStreet.isNotEmpty ? preStreet : '';
+    if (_addr == _city) _addr = '';
+
+    // Rebuild a clean field value: "street, zip city" (fallback to name).
+    final cityLine =
+        [if (zip.isNotEmpty) zip, if (_city.isNotEmpty) _city].join(' ');
+    final display = [
+      if (_addr.isNotEmpty) _addr,
+      if (cityLine.isNotEmpty) cityLine,
+    ].join(', ');
+    widget.ctrl.text = display.isNotEmpty
+        ? display
+        : (name.isNotEmpty ? name : location);
     _log('[PICK] city="$_city" addr="$_addr"');
 
     // Coords + distance
@@ -877,13 +917,19 @@ class _AddrSheetBodyState extends State<_AddrSheetBody> {
             child: ListView.builder(
               shrinkWrap: true, padding: EdgeInsets.zero,
               itemCount: _sug.length, itemBuilder: (_, i) {
-                final label = _sug[i]['label'] as String? ??
-                    _sug[i]['name'] as String? ?? '';
+                final s = _sug[i];
+                final label = s['label'] as String? ??
+                    s['name'] as String? ?? '';
+                final desc = s['location'] as String? ?? '';
                 return ListTile(dense: true,
                   leading: const Icon(Icons.place, size: 16,
                     color: Color(0xFF8AAB99)),
                   title: Text(label, style: const TextStyle(fontSize: 12)),
-                  onTap: () => _pick(_sug[i]));
+                  subtitle: desc.isNotEmpty
+                      ? Text(desc, style: const TextStyle(
+                          fontSize: 10, color: Color(0xFF8AAB99)))
+                      : null,
+                  onTap: () => _pick(s));
               })),
         const SizedBox(height: 10),
         // GPS + Map buttons
@@ -921,23 +967,6 @@ class _AddrSheetBodyState extends State<_AddrSheetBody> {
                       : const Color(0xFF1A8A18)),
                   maxLines: 2, overflow: TextOverflow.ellipsis)),
               ]))),
-        // ── DEBUG STRIP (visible in UI) ──
-        if (_dbg.isNotEmpty)
-          Padding(padding: const EdgeInsets.only(top: 8),
-            child: Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1A2E22),
-                borderRadius: BorderRadius.circular(6)),
-              constraints: const BoxConstraints(maxHeight: 120),
-              child: SingleChildScrollView(
-                reverse: true,
-                child: Text(
-                  _dbg.join('\n'),
-                  style: const TextStyle(
-                    fontSize: 9, color: Color(0xFF74FB71),
-                    fontFamily: 'monospace', height: 1.3),
-                )))),
         const SizedBox(height: 14),
         // Confirm
         SizedBox(width: double.infinity, height: 48,
