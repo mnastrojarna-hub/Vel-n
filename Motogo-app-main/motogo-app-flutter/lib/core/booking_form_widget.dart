@@ -10,6 +10,7 @@ import 'booking_form_return_section.dart';
 import 'booking_form_extras_section.dart';
 import 'booking_form_price_section.dart';
 import 'booking_form_promo_section.dart';
+import 'i18n/i18n_provider.dart';
 import '../features/booking/booking_models.dart';
 import '../features/booking/booking_provider.dart';
 import '../features/booking/booking_ui_helpers.dart';
@@ -39,37 +40,37 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
   /// Gear sizes that must be filled before proceeding when the motorcycle
   /// is delivered (přistavení). Returns a human-readable list of missing
   /// items — empty list means OK to continue.
-  List<String> _missingGearSizes(BookingDraft d) {
+  List<String> _missingGearSizes(BuildContext context, BookingDraft d) {
     if (d.pickupMethod != 'delivery') return const [];
     final missing = <String>[];
-    if (d.helmetSize == null) missing.add('helma – řidič');
-    if (d.glovesSize == null) missing.add('rukavice – řidič');
-    if (d.jacketSize == null) missing.add('bunda – řidič');
-    if (d.pantsSize == null) missing.add('kalhoty – řidič');
+    if (d.helmetSize == null) missing.add(t(context).tr('gearHelmetDriver'));
+    if (d.glovesSize == null) missing.add(t(context).tr('gearGlovesDriver'));
+    if (d.jacketSize == null) missing.add(t(context).tr('gearJacketDriver'));
+    if (d.pantsSize == null) missing.add(t(context).tr('gearPantsDriver'));
     SelectedExtra? findExtra(String id) =>
         d.extras.where((e) => e.id == id).firstOrNull;
     final botyRidic = findExtra('extra-boty-ridic');
     if (botyRidic != null && (botyRidic.size == null || botyRidic.size!.isEmpty)) {
-      missing.add('boty – řidič');
+      missing.add(t(context).tr('gearBootsDriver'));
     }
     final spolujezdec = findExtra('extra-spolujezdec');
     if (spolujezdec != null && (spolujezdec.size == null || spolujezdec.size!.isEmpty)) {
-      missing.add('výbava – spolujezdec');
+      missing.add(t(context).tr('gearPassenger'));
     }
     final botySpolu = findExtra('extra-boty-spolu');
     if (botySpolu != null && (botySpolu.size == null || botySpolu.size!.isEmpty)) {
-      missing.add('boty – spolujezdec');
+      missing.add(t(context).tr('gearBootsPassenger'));
     }
     return missing;
   }
 
   // ─── Date section (stateful — owns _calOpen) ─────────────────────
 
-  Widget _buildDateSection(BookingDraft draft, PriceBreakdown bd,
+  Widget _buildDateSection(BuildContext context, BookingDraft draft, PriceBreakdown bd,
       bool hasDates, int dc, String Function(DateTime) f) {
     return bookingCard(
       2,
-      'DATUM',
+      t(context).tr('sectionDateTitle'),
       Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -103,7 +104,7 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
-                      '$dc ${dc == 1 ? "den" : dc < 5 ? "dny" : "dní"}',
+                      '$dc ${dc == 1 ? t(context).tr('day1') : dc < 5 ? t(context).tr('days24') : t(context).tr('days5')}',
                       style: const TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w800,
@@ -113,9 +114,9 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
                     ),
                   ),
                   const Spacer(),
-                  const Text(
-                    'UPRAVIT',
-                    style: TextStyle(
+                  Text(
+                    t(context).tr('edit').toUpperCase(),
+                    style: const TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w800,
                       color: Color(0xFF3DBA3A),
@@ -126,9 +127,9 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
               ),
             ),
           if (_calOpen || !hasDates) ...[
-            const Text(
-              'Pro výběr jednoho dne klikněte dvakrát',
-              style: TextStyle(
+            Text(
+              t(context).tr('singleDayClickHint'),
+              style: const TextStyle(
                 fontSize: 11,
                 color: Color(0xFF8AAB99),
                 decoration: TextDecoration.none,
@@ -169,9 +170,9 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
-                      'Celkem za pronájem',
-                      style: TextStyle(
+                    Text(
+                      t(context).tr('totalForRental'),
+                      style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
                         color: Color(0xFF4A6357),
@@ -212,9 +213,9 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
                 const Icon(Icons.motorcycle,
                     size: 48, color: Color(0xFF8AAB99)),
                 const SizedBox(height: 12),
-                const Text(
-                  'Nejprve vyberte motorku',
-                  style: TextStyle(
+                Text(
+                  t(context).tr('selectMotoFirst'),
+                  style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
                     color: Color(0xFF0F1A14),
@@ -224,7 +225,7 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
                 const SizedBox(height: 16),
                 ElevatedButton(
                   onPressed: () => GoRouter.of(context).go('/search'),
-                  child: const Text('VYBRAT MOTORKU'),
+                  child: Text(t(context).tr('selectMotoBtn')),
                 ),
               ],
             ),
@@ -254,7 +255,7 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
             ));
       });
     }
-    final missingSizes = _missingGearSizes(draft);
+    final missingSizes = _missingGearSizes(context, draft);
     String f(DateTime d) => '${d.day}.${d.month}.${d.year}';
 
     return Material(
@@ -267,7 +268,7 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
               child: Column(children: [
                 BookingFormHeader(draft: draft, moto: moto),
                 BookingFormMotoCard(moto: moto),
-                _buildDateSection(draft, bd, hasDates, dc, f),
+                _buildDateSection(context, draft, bd, hasDates, dc, f),
                 BookingFormTimeSection(
                   draft: draft,
                   onTimeChanged: (t) =>
@@ -283,8 +284,7 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                     child: bookingCheckbox(
-                      'Potvrzuji, že jsem zákonný zástupce a dětský '
-                      'motocykl bude provozován pod mým dohledem',
+                      t(context).tr('consentKidsGuardian'),
                       draft.consentKids,
                       (v) => _upd((d) => d.copyWith(consentKids: v)),
                     ),
@@ -314,9 +314,9 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
                               crossAxisAlignment:
                                   CrossAxisAlignment.start,
                               children: [
-                                const Text(
-                                  'Při přistavení vyplňte velikosti výbavy',
-                                  style: TextStyle(
+                                Text(
+                                  t(context).tr('fillGearSizesOnDelivery'),
+                                  style: const TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w800,
                                     color: Color(0xFF92400E),
@@ -325,7 +325,7 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  'Chybí: ${missingSizes.join(', ')}',
+                                  '${t(context).tr('missingLabel')}: ${missingSizes.join(', ')}',
                                   style: const TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w600,
@@ -358,19 +358,19 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
                           borderRadius: BorderRadius.circular(50),
                         ),
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            'POKRAČOVAT K PLATBĚ',
-                            style: TextStyle(
+                            t(context).tr('proceedToPayment'),
+                            style: const TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.w800,
                               letterSpacing: 0.5,
                             ),
                           ),
-                          SizedBox(width: 8),
-                          Icon(Icons.arrow_forward, size: 18),
+                          const SizedBox(width: 8),
+                          const Icon(Icons.arrow_forward, size: 18),
                         ],
                       ),
                     ),

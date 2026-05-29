@@ -143,13 +143,13 @@ class BookingFormPromoSection extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Row(children: [
-              Icon(Icons.local_offer,
+            Row(children: [
+              const Icon(Icons.local_offer,
                   size: 16, color: Color(0xFF1A2E22)),
-              SizedBox(width: 6),
+              const SizedBox(width: 6),
               Text(
-                'SLEVOVÝ KÓD',
-                style: TextStyle(
+                t(context).tr('promoCodeSection'),
+                style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
                   color: Color(0xFF1A2E22),
@@ -169,13 +169,13 @@ class BookingFormPromoSection extends StatelessWidget {
                   border: Border.all(
                       color: const Color(0xFFD4E8E0), width: 1.5),
                 ),
-                child: const Row(children: [
-                  Icon(Icons.add_circle_outline,
+                child: Row(children: [
+                  const Icon(Icons.add_circle_outline,
                       size: 16, color: Color(0xFF8AAB99)),
-                  SizedBox(width: 8),
+                  const SizedBox(width: 8),
                   Text(
-                    'Klikněte pro zadání kódu',
-                    style: TextStyle(
+                    t(context).tr('clickEnterCode'),
+                    style: const TextStyle(
                       fontSize: 12,
                       color: Color(0xFF8AAB99),
                       decoration: TextDecoration.none,

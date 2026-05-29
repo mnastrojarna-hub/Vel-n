@@ -169,7 +169,7 @@ Widget bookingGearRow(String label, String? selected,
 
 /// Address display tile for delivery — shows address + distance.
 Widget bookingAddrTile(String? city, String? address,
-    VoidCallback onTap, {double? distKm, double? delivFee}) {
+    VoidCallback onTap, {double? distKm, double? delivFee, BuildContext? context}) {
   final hasAddr = city?.isNotEmpty == true;
   return Column(children: [
     GestureDetector(
@@ -186,7 +186,7 @@ Widget bookingAddrTile(String? city, String? address,
           const SizedBox(width: 8),
           Expanded(child: Text(
             hasAddr ? '${address ?? ""}, $city'
-                : 'Klikněte pro zadání adresy',
+                : (context != null ? t(context).tr('clickEnterAddress') : 'Klikněte pro zadání adresy'),
             style: TextStyle(fontSize: 12,
               color: hasAddr ? const Color(0xFF0F1A14)
                   : const Color(0xFF8AAB99),
@@ -243,9 +243,9 @@ void showAddrDialog(BuildContext ctx, String title,
           children: [
           // City field with autocomplete
           TextField(controller: cCtrl,
-            decoration: const InputDecoration(
-              labelText: 'Město',
-              prefixIcon: Icon(Icons.location_city, size: 18)),
+            decoration: InputDecoration(
+              labelText: t(c).tr('cityLabel'),
+              prefixIcon: const Icon(Icons.location_city, size: 18)),
             onChanged: (v) async {
               if (v.length < 2) {
                 ss(() => suggestions = []);
@@ -310,18 +310,18 @@ void showAddrDialog(BuildContext ctx, String title,
           const SizedBox(height: 8),
           // Street field
           TextField(controller: aCtrl,
-            decoration: const InputDecoration(
-              labelText: 'Ulice a číslo',
-              prefixIcon: Icon(Icons.place, size: 18))),
+            decoration: InputDecoration(
+              labelText: t(c).tr('streetAndNumber'),
+              prefixIcon: const Icon(Icons.place, size: 18))),
           const SizedBox(height: 10),
           // GPS button
           GestureDetector(
             onTap: () async {
-              ss(() => distInfo = 'Zjišťuji polohu...');
+              ss(() => distInfo = t(c).tr('gettingLocation'));
               try {
                 final pos = await GpsService.getCurrentPosition();
                 if (pos == null) {
-                  ss(() => distInfo = 'GPS nedostupné');
+                  ss(() => distInfo = t(c).tr('gpsUnavailableManual'));
                   return;
                 }
                 // Reverse geocode
@@ -354,7 +354,7 @@ void showAddrDialog(BuildContext ctx, String title,
                   '${fee.toStringAsFixed(0)} Kč');
                 onDistanceCalc?.call(km, fee);
               } catch (_) {
-                ss(() => distInfo = 'GPS chyba');
+                ss(() => distInfo = t(c).tr('gpsErrorManual'));
               }
             },
             child: Container(
@@ -364,14 +364,14 @@ void showAddrDialog(BuildContext ctx, String title,
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
                   color: const Color(0xFFD4E8E0))),
-              child: const Row(
+              child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                Icon(Icons.my_location, size: 16,
+                const Icon(Icons.my_location, size: 16,
                   color: Color(0xFF4A6357)),
-                SizedBox(width: 6),
-                Text('Použít moji polohu (GPS)',
-                  style: TextStyle(fontSize: 12,
+                const SizedBox(width: 6),
+                Text(t(c).tr('useMyLocation'),
+                  style: const TextStyle(fontSize: 12,
                     fontWeight: FontWeight.w700,
                     color: Color(0xFF4A6357))),
               ]))),
@@ -382,7 +382,7 @@ void showAddrDialog(BuildContext ctx, String title,
               final address =
                   '${aCtrl.text}, ${cCtrl.text}'.trim();
               if (address.length < 3) return;
-              ss(() => distInfo = 'Počítám...');
+              ss(() => distInfo = t(c).tr('calculating'));
               // Try geocode → real routing instead of estimate
               double km;
               try {
@@ -431,7 +431,7 @@ void showAddrDialog(BuildContext ctx, String title,
                 const Icon(Icons.route, size: 16,
                   color: Color(0xFF1A8A18)),
                 const SizedBox(width: 6),
-                Flexible(child: Text(distInfo ?? 'Spočítat vzdálenost a cenu',
+                Flexible(child: Text(distInfo ?? t(c).tr('calcDistancePrice'),
                   style: const TextStyle(fontSize: 12,
                     fontWeight: FontWeight.w700,
                     color: Color(0xFF1A8A18)),
@@ -440,11 +440,11 @@ void showAddrDialog(BuildContext ctx, String title,
         ]))),
       actions: [
         TextButton(onPressed: () => Navigator.pop(c),
-          child: const Text('Zrušit')),
+          child: Text(t(c).tr('cancel'))),
         ElevatedButton(onPressed: () {
           onSave(cCtrl.text, aCtrl.text);
           Navigator.pop(c);
-        }, child: const Text('Uložit')),
+        }, child: Text(t(c).tr('save'))),
       ],
     )));
 }
@@ -640,7 +640,7 @@ class _AddrSheetBodyState extends State<_AddrSheetBody> {
 
     final name = s['name'] as String? ?? '';
     final location = s['location'] as String? ?? '';
-    setState(() { _sug = []; _distInfo = 'Počítám km...'; });
+    setState(() { _sug = []; _distInfo = t(context).tr('calculatingKm'); });
 
     // Extract city from regionalStructure
     final rs = (s['regionalStructure'] as List?) ?? [];
@@ -709,7 +709,7 @@ class _AddrSheetBodyState extends State<_AddrSheetBody> {
   // ── GPS ──
   Future<void> _useGps() async {
     _log('[GPS] start...');
-    setState(() => _distInfo = 'Zjišťuji polohu...');
+    setState(() => _distInfo = t(context).tr('gettingLocation'));
     try {
       final hasPerm = await GpsService.ensurePermission();
       _log('[GPS] permission=$hasPerm');
@@ -717,7 +717,7 @@ class _AddrSheetBodyState extends State<_AddrSheetBody> {
       if (pos == null) {
         _log('[GPS] ✗ position=null');
         if (mounted) setState(() {
-          _distInfo = 'GPS nedostupné — zadejte adresu ručně nebo z mapy';
+          _distInfo = t(context).tr('gpsUnavailableManual');
           _isError = true;
         });
         return;
@@ -795,7 +795,7 @@ class _AddrSheetBodyState extends State<_AddrSheetBody> {
     } catch (e) {
       _log('[GPS] ✗ FATAL: $e');
       if (mounted) setState(() {
-        _distInfo = 'GPS chyba — zadejte adresu ručně';
+        _distInfo = t(context).tr('gpsErrorManual');
         _isError = true;
       });
     }
@@ -1048,7 +1048,7 @@ class _PromoSheetBodyState extends State<_PromoSheetBody> {
           color: const Color(0xFFD4E8E0),
           borderRadius: BorderRadius.circular(2))),
         const SizedBox(height: 14),
-        const Text('Slevový kód', style: TextStyle(fontSize: 15,
+        Text(t(context).tr('discountCode'), style: const TextStyle(fontSize: 15,
           fontWeight: FontWeight.w800)),
         const SizedBox(height: 14),
         Row(children: [
@@ -1057,7 +1057,7 @@ class _PromoSheetBodyState extends State<_PromoSheetBody> {
             textCapitalization: TextCapitalization.characters,
             onSubmitted: (_) => _apply(),
             decoration: InputDecoration(
-              hintText: 'Zadejte kód...',
+              hintText: t(context).tr('enterPromoCode'),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10))))),
           const SizedBox(width: 8),
