@@ -187,7 +187,7 @@ echo "**Název:** MotoGo24 — Půjčovna motorek Vysočina  \n";
 echo "**Provozovatel:** Bc. Petra Semorádová  \n";
 echo "**IČO:** 21874263  \n";
 echo "**Adresa:** Mezná 9, 393 01 Pelhřimov, Vysočina, Česká republika  \n";
-echo "**GPS:** 49.4147° N, 15.2953° E  \n";
+echo "**GPS:** 49.3464° N, 15.2119° E  \n";
 echo "**Telefon:** +420 774 256 271  \n";
 echo "**E-mail:** info@motogo24.cz  \n";
 echo "**Web:** https://www.motogo24.cz · https://motogo24.com  \n";

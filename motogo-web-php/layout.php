@@ -499,8 +499,8 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
   <meta name="application-name" content="MotoGo24">
   <meta name="geo.region" content="CZ-VY">
   <meta name="geo.placename" content="Pelhřimov, Vysočina, Česko">
-  <meta name="geo.position" content="49.4147;15.2953">
-  <meta name="ICBM" content="49.4147, 15.2953">
+  <meta name="geo.position" content="49.3464;15.2119">
+  <meta name="ICBM" content="49.3464, 15.2119">
   <meta name="referrer" content="strict-origin-when-cross-origin">
 ' . renderWebmasterVerification() . renderHreflangAlternates($currentPath) . '
   <title>' . htmlspecialchars($title) . '</title>
@@ -532,7 +532,7 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
         "knowsLanguage": ["cs","en","de","es","fr","nl","pl"],
         "keywords": "motopůjčovna, motopůjčovna Vysočina, motopůjčovna Pelhřimov, půjčovna motorek, půjčovna motorek Vysočina, pronájem motorek, půjčovna motocyklů, motorka bez kauce, MotoGo24",
         "address": {"@type":"PostalAddress","streetAddress":"Mezná 9","addressLocality":"Pelhřimov","postalCode":"393 01","addressRegion":"Vysočina","addressCountry":"CZ"},
-        "geo": {"@type":"GeoCoordinates","latitude":49.4147,"longitude":15.2953},
+        "geo": {"@type":"GeoCoordinates","latitude":49.3464,"longitude":15.2119},
         "hasMap": "https://mapy.cz/zakladni?q=Mezn%C3%A1%209%20Pelh%C5%99imov",
         "openingHoursSpecification": {"@type":"OpeningHoursSpecification","dayOfWeek":["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"],"opens":"00:00","closes":"23:59"},
         "areaServed": [
