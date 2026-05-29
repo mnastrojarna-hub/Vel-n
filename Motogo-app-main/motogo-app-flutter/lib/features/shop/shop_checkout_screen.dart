@@ -159,64 +159,27 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
     } catch (_) {/* fallback níže */}
     if (!mounted) return;
 
-    if (order == null) {
-      showMotoGoToast(context,
-          icon: '✅',
-          title: t(context).tr('orderReceived'),
-          message: t(context).tr('confirmOnEmail'));
-      context.go(Routes.shop);
-      return;
-    }
+    // Jednotná potvrzovací obrazovka jako u ostatních platebních flow — zákazník
+    // po objednávce vždy uvidí plné potvrzení (zaplaceno + číslo + částka + co dál),
+    // ne jen mizící toast nebo dialog.
+    final tr = t(context);
+    final orderNumber = order?['order_number']?.toString();
+    final total = (order?['total'] as num?)?.toDouble() ?? 0;
+    final paid = order != null && order['payment_status'] == 'paid';
 
-    final orderNumber = order['order_number']?.toString();
-    final total = (order['total'] as num?)?.toDouble() ?? 0;
-    final paid = order['payment_status'] == 'paid';
-    final statusRaw = order['payment_status']?.toString() ?? '';
-
-    await showDialog<void>(
-      context: context,
-      builder: (dctx) => AlertDialog(
-        title: Text(t(dctx).tr('orderReceived')),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (orderNumber != null) ...[
-              Text('#$orderNumber',
-                  style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w900,
-                      color: MotoGoColors.black)),
-              const SizedBox(height: 8),
-            ],
-            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              Flexible(child: Text(t(dctx).tr('totalPrice'))),
-              const SizedBox(width: 8),
-              Text('${total.toStringAsFixed(0)} Kč',
-                  style: const TextStyle(fontWeight: FontWeight.w800)),
-            ]),
-            const SizedBox(height: 4),
-            Text(
-              paid ? '✓ ${t(dctx).tr('paid')}' : statusRaw,
-              style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  color: paid ? MotoGoColors.greenDark : MotoGoColors.g600),
-            ),
-            const SizedBox(height: 10),
-            Text(t(dctx).tr('confirmOnEmail'),
-                style: const TextStyle(fontSize: 12, color: MotoGoColors.g600)),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dctx).pop(),
-            child: Text(t(dctx).tr('close')),
-          ),
-        ],
-      ),
+    ref.read(paymentOutcomeProvider.notifier).state = PaymentOutcome(
+      title: tr.tr('paid'),
+      subtitle: paid ? tr.tr('orderConfirmed') : tr.tr('paymentProcessed'),
+      lines: [
+        if (orderNumber != null) PaymentOutcomeLine('🧾', '#$orderNumber'),
+        if (total > 0)
+          PaymentOutcomeLine('💳', '${tr.tr('totalPrice')}: ${total.toStringAsFixed(0)} Kč'),
+      ],
+      nextStepNote: tr.tr('confirmOnEmail'),
+      ctaLabel: tr.tr('close'),
+      ctaRoute: Routes.shop,
     );
-    if (!mounted) return;
-    context.go(Routes.shop);
+    context.go(Routes.paymentResult);
   }
 
   Future<void> _finalize() async {
