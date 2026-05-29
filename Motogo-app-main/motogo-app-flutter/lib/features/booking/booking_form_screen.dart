@@ -204,9 +204,9 @@ class _BookingFormScreenState extends ConsumerState<BookingFormScreen> {
                   Text('Helma, rukavice, bunda, kalhoty', style: TextStyle(fontSize: 11, color: MotoGoColors.g600)),
                 ])), Icon(Icons.check_circle, size: 18, color: MotoGoColors.green)])),
             const SizedBox(height: 10),
-            buildBookingFormExtraItem(ref, 'extra-spolujezdec', '👥', 'Výbava spolujezdce', 'Helma, rukavice, vesta', 400, draft),
-            buildBookingFormExtraItem(ref, 'extra-boty-ridic', '👢', 'Boty řidiče', 'Moto boty', 300, draft),
-            buildBookingFormExtraItem(ref, 'extra-boty-spolu', '👟', 'Boty spolujezdce', 'Moto boty', 300, draft),
+            buildBookingFormExtraItem(ref, 'extra-spolujezdec', '👥', 'Výbava spolujezdce', 'Helma, rukavice, vesta', 690, draft),
+            buildBookingFormExtraItem(ref, 'extra-boty-ridic', '👢', 'Boty řidiče', 'Moto boty', 290, draft),
+            buildBookingFormExtraItem(ref, 'extra-boty-spolu', '👟', 'Boty spolujezdce', 'Moto boty', 290, draft),
           ])),
 
           // ═══ SHRNUTÍ CENY ═══

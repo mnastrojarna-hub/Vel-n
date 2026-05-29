@@ -656,15 +656,7 @@ class _BDWState extends ConsumerState<_BookingDebugWrapper> {
                 ref.read(pickupDelivFeeProvider.notifier).state = fee;
                 ref.read(pickupDistKmProvider.notifier).state = km;
               },
-              onMapTap: (ctx) async {
-                final r = await launchMapPicker(ctx);
-                if (r == null) return;
-                _upd((d) => d.copyWith(
-                  pickupCity: () => r.city,
-                  pickupAddress: () => r.address));
-                ref.read(pickupDelivFeeProvider.notifier).state = r.fee;
-                ref.read(pickupDistKmProvider.notifier).state = r.km;
-              }),
+              onMapTap: (ctx) => launchMapPicker(ctx)),
             distKm: ref.watch(pickupDistKmProvider),
             delivFee: ref.watch(pickupDelivFeeProvider)),
         ],
@@ -693,15 +685,7 @@ class _BDWState extends ConsumerState<_BookingDebugWrapper> {
                 ref.read(returnDelivFeeProvider.notifier).state = fee;
                 ref.read(returnDistKmProvider.notifier).state = km;
               },
-              onMapTap: (ctx) async {
-                final r = await launchMapPicker(ctx);
-                if (r == null) return;
-                _upd((d) => d.copyWith(
-                  returnCity: () => r.city,
-                  returnAddress: () => r.address));
-                ref.read(returnDelivFeeProvider.notifier).state = r.fee;
-                ref.read(returnDistKmProvider.notifier).state = r.km;
-              }),
+              onMapTap: (ctx) => launchMapPicker(ctx)),
             distKm: ref.watch(returnDistKmProvider),
             delivFee: ref.watch(returnDelivFeeProvider)),
         ],

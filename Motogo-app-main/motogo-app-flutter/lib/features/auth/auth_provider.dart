@@ -24,7 +24,27 @@ final authStateProvider = StreamProvider<Session?>((ref) {
   });
 });
 
+/// Grace window after sign-up during which a missing profile row is tolerated.
+/// The `handle_new_user()` trigger creates the profiles row asynchronously, so a
+/// brand-new account may briefly have a valid session without a profile yet.
+const _newUserProfileGrace = Duration(minutes: 2);
+
+/// `true` when [user] was created so recently that its profile row may not have
+/// been written by the `handle_new_user()` trigger yet.
+bool _isFreshlyRegistered(User user) {
+  final created = DateTime.tryParse(user.createdAt);
+  if (created == null) return true; // unknown → don't risk kicking the user out
+  return DateTime.now().toUtc().difference(created.toUtc()) < _newUserProfileGrace;
+}
+
 /// Provides the current user profile from the profiles table.
+///
+/// Acts as the backstop for deleted accounts: if a valid auth session exists but
+/// the `profiles` row is gone (account deleted in Velín — historically an
+/// orphaned `auth.users` record was left behind), the login still passes against
+/// `auth.users` yet the app would show empty data. We force a sign-out here so
+/// the router bounces back to login and the customer must register again. New
+/// sign-ups are exempt via [_isFreshlyRegistered] (trigger lag).
 final profileProvider = FutureProvider<Map<String, dynamic>?>((ref) async {
   final session = ref.watch(authStateProvider).valueOrNull;
   if (session == null) return null;
@@ -35,6 +55,11 @@ final profileProvider = FutureProvider<Map<String, dynamic>?>((ref) async {
         .select()
         .eq('id', session.user.id)
         .maybeSingle();
+
+    if (res == null && !_isFreshlyRegistered(session.user)) {
+      await MotoGoSupabase.client.auth.signOut();
+      return null;
+    }
     return res;
   } catch (e) {
     if (await handleAuthError(e)) return null;
@@ -65,6 +90,13 @@ class AuthService {
         password: password,
       );
       if (res.session != null && res.user != null) {
+        // Account deleted in Velín leaves an orphaned auth.users row (profiles
+        // gone) → credentials still authenticate but the app has no data.
+        // Reject the login and push the customer to re-register.
+        if (!await _profileExists(res.user!.id)) {
+          await _client.auth.signOut();
+          return _tr('accountNoLongerExists');
+        }
         await _storeBioUser(
           userId: res.user!.id,
           email: email,
@@ -262,14 +294,18 @@ class AuthService {
 
     // 1. Check existing session
     final existing = _client.auth.currentSession;
-    if (existing != null) return true;
+    if (existing != null) {
+      return _guardRestoredProfile(existing.user.id);
+    }
 
     // 2. Try refresh token
     final refreshToken = bioUser['refresh_token'] as String?;
     if (refreshToken != null) {
       try {
         final res = await _client.auth.setSession(refreshToken);
-        if (res.session != null) return true;
+        if (res.session != null) {
+          return _guardRestoredProfile(res.session!.user.id);
+        }
       } catch (_) {}
     }
 
@@ -283,11 +319,38 @@ class AuthService {
           email: email,
           password: pwd,
         );
-        return res.session != null;
+        if (res.session != null) {
+          return _guardRestoredProfile(res.user!.id);
+        }
       } catch (_) {}
     }
 
     return false;
+  }
+
+  /// After a session is restored, make sure the profile still exists. A deleted
+  /// account leaves an orphaned auth.users row, so the session restores fine but
+  /// there is no profile — sign out so the user lands back on login/register.
+  static Future<bool> _guardRestoredProfile(String userId) async {
+    if (await _profileExists(userId)) return true;
+    await signOut();
+    return false;
+  }
+
+  /// Returns whether a profiles row exists for [userId]. On query failure it
+  /// returns `true` (fail-open) so a transient network blip never locks a valid
+  /// customer out of the app.
+  static Future<bool> _profileExists(String userId) async {
+    try {
+      final row = await _client
+          .from('profiles')
+          .select('id')
+          .eq('id', userId)
+          .maybeSingle();
+      return row != null;
+    } catch (_) {
+      return true;
+    }
   }
 
   /// Clear bio data when session can't be restored.

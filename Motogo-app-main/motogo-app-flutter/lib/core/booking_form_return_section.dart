@@ -61,19 +61,11 @@ class BookingFormReturnSection extends ConsumerWidget {
                   ref.read(returnDelivFeeProvider.notifier).state = fee;
                   ref.read(returnDistKmProvider.notifier).state = km;
                 },
-                onMapTap: (ctx) async {
-                  final r = await launchMapPicker(ctx);
-                  if (r == null) return;
-                  onUpd((d) => d.copyWith(
-                        returnCity: () => r.city,
-                        returnAddress: () => r.address,
-                      ));
-                  ref.read(returnDelivFeeProvider.notifier).state = r.fee;
-                  ref.read(returnDistKmProvider.notifier).state = r.km;
-                },
+                onMapTap: (ctx) => launchMapPicker(ctx),
               ),
               distKm: ref.watch(returnDistKmProvider),
               delivFee: ref.watch(returnDelivFeeProvider),
+              context: context,
             ),
           ],
         ],

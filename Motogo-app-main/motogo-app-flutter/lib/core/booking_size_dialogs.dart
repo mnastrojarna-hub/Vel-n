@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../features/booking/booking_models.dart';
 import '../features/booking/booking_provider.dart';
+import 'i18n/i18n_provider.dart';
 
 // ═══════════════════════════════════════════════════════════════════
 // BOOKING SIZE / GEAR PICKER DIALOGS
@@ -39,12 +40,12 @@ void showPassengerGearSheet(
               color: const Color(0xFFD4E8E0),
               borderRadius: BorderRadius.circular(2))),
             const SizedBox(height: 14),
-            Text('Velikosti – ${item.name}',
+            Text('${t(ctx).tr('sizesLabel')} – ${item.name}',
               style: const TextStyle(fontSize: 15,
                 fontWeight: FontWeight.w800)),
             const SizedBox(height: 4),
-            const Text('Boty spolujezdce se vybírají samostatně.',
-              style: TextStyle(fontSize: 11, color: Color(0xFF8AAB99))),
+            Text(t(ctx).tr('passengerBootsSeparate'),
+              style: const TextStyle(fontSize: 11, color: Color(0xFF8AAB99))),
             const SizedBox(height: 14),
             ...sizes.entries.map((e) {
               return Padding(
@@ -102,8 +103,8 @@ void showPassengerGearSheet(
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(50))),
                 child: Text(allSelected
-                    ? 'POTVRDIT'
-                    : 'VYBERTE VŠECHNY VELIKOSTI',
+                    ? t(ctx).tr('confirm').toUpperCase()
+                    : t(ctx).tr('selectAllSizes'),
                   style: const TextStyle(fontWeight: FontWeight.w800)))),
           ]));
       }));

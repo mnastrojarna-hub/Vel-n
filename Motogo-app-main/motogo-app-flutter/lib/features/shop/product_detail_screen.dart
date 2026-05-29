@@ -154,7 +154,7 @@ class _ProductDetailState extends ConsumerState<ProductDetailScreen> {
                 if (product.inStock) ...[
                   const SizedBox(height: 10),
                   Row(children: [
-                    const Text('Množství', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: MotoGoColors.black)),
+                    Text(t(context).tr('quantityLabel'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: MotoGoColors.black)),
                     const SizedBox(width: 12),
                     GestureDetector(
                       onTap: () { if (_qty > 1) setState(() => _qty--); },

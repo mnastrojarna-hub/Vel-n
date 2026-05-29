@@ -89,9 +89,9 @@ class BookingFormTimeSection extends StatelessWidget {
                 ),
               ),
               const Spacer(),
-              const Text(
-                'ZMĚNIT',
-                style: TextStyle(
+              Text(
+                t(context).tr('changeBtn'),
+                style: const TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w800,
                   color: Color(0xFF3DBA3A),

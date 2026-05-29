@@ -63,7 +63,7 @@ class BookingFormMotoCard extends StatelessWidget {
                   const SizedBox(width: 2),
                   Flexible(
                     child: Text(
-                      'Pobočka: ${moto.branchName}'
+                      '${t(context).tr('branchPrefix')}: ${moto.branchName}'
                       '${moto.branchCity != null ? ", ${moto.branchCity}" : ""}',
                       style: const TextStyle(
                         fontSize: 10,

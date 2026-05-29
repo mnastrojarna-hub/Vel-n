@@ -20,42 +20,42 @@ void showChangePasswordSheet(BuildContext context) {
     builder: (ctx) => Padding(
       padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(ctx).viewInsets.bottom + 20),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
-        const Text('Změna hesla',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: MotoGoColors.black)),
+        Text(t(context).tr('changePassword'),
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: MotoGoColors.black)),
         const SizedBox(height: 16),
         TextField(
             controller: passCtrl,
             obscureText: true,
-            decoration: const InputDecoration(labelText: 'Nové heslo (min. 8 znaků)')),
+            decoration: InputDecoration(labelText: t(context).tr('newPasswordHint'))),
         const SizedBox(height: 10),
         TextField(
             controller: confirmCtrl,
             obscureText: true,
-            decoration: const InputDecoration(labelText: 'Potvrďte heslo')),
+            decoration: InputDecoration(labelText: t(context).tr('confirmPasswordLabel'))),
         const SizedBox(height: 16),
         ElevatedButton(
           onPressed: () async {
             if (passCtrl.text.length < 8) {
-              showMotoGoToast(context, icon: '⚠️', title: 'Heslo', message: 'Min. 8 znaků');
+              showMotoGoToast(context, icon: '⚠️', title: t(context).tr('password'), message: t(context).tr('min8chars'));
               return;
             }
             if (passCtrl.text != confirmCtrl.text) {
-              showMotoGoToast(context, icon: '⚠️', title: 'Heslo', message: 'Hesla se neshodují');
+              showMotoGoToast(context, icon: '⚠️', title: t(context).tr('password'), message: t(context).tr('passwordsDoNotMatch'));
               return;
             }
             final err = await AuthService.updatePassword(passCtrl.text);
             if (ctx.mounted) Navigator.pop(ctx);
             if (err != null) {
-              showMotoGoToast(context, icon: '✗', title: 'Chyba', message: err);
+              showMotoGoToast(context, icon: '✗', title: t(context).tr('error'), message: err);
             } else {
-              showMotoGoToast(context, icon: '✓', title: 'Hotovo', message: 'Heslo změněno');
+              showMotoGoToast(context, icon: '✓', title: t(context).tr('success'), message: t(context).tr('passwordChanged'));
             }
           },
           style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(44)),
-          child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            Icon(Icons.lock_reset, size: 18),
-            SizedBox(width: 8),
-            Text('Změnit heslo'),
+          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            const Icon(Icons.lock_reset, size: 18),
+            const SizedBox(width: 8),
+            Text(t(context).tr('changePasswordBtn')),
           ]),
         ),
       ]),
@@ -81,8 +81,8 @@ void showLanguagePickerSheet(BuildContext context, WidgetRef ref) {
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Text('Jazyk aplikace',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: MotoGoColors.black)),
+          Text(t(context).tr('language'),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: MotoGoColors.black)),
           const SizedBox(height: 16),
           ...langs.map((l) => ListTile(
             title: Text(l.$2, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
@@ -93,7 +93,7 @@ void showLanguagePickerSheet(BuildContext context, WidgetRef ref) {
               await ref.read(localeProvider.notifier).setLocale(Locale(l.$1));
               if (ctx.mounted) Navigator.pop(ctx);
               if (context.mounted) {
-                showMotoGoToast(context, icon: '🌐', title: 'Jazyk změněn', message: l.$2);
+                showMotoGoToast(context, icon: '🌐', title: t(context).tr('languageChanged'), message: l.$2);
                 // Force full app rebuild by navigating to home
                 context.go(Routes.home);
               }
@@ -165,15 +165,15 @@ class _PermissionsSheetState extends State<_PermissionsSheet>
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Text('Oprávnění aplikace',
-              style: TextStyle(
+          Text(t(context).tr('permissions'),
+              style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w900,
                   color: MotoGoColors.black)),
           const SizedBox(height: 6),
           Text(
-            'Oprávnění udělená při prvním spuštění.\n'
-            'Pro odvolání otevřete nastavení telefonu.',
+            '${t(context).tr('permsGrantedFirstRun')}\n'
+            '${t(context).tr('permsRevokeHint')}',
             textAlign: TextAlign.center,
             style: TextStyle(
                 fontSize: 11,
@@ -191,10 +191,10 @@ class _PermissionsSheetState extends State<_PermissionsSheet>
             const SizedBox(height: 16),
             const Divider(height: 1, color: MotoGoColors.g200),
             const SizedBox(height: 14),
-            const Align(
+            Align(
               alignment: Alignment.centerLeft,
-              child: Text('Biometrické přihlášení',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: MotoGoColors.black)),
+              child: Text(t(context).tr('biometric'),
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: MotoGoColors.black)),
             ),
             const SizedBox(height: 8),
             GestureDetector(
@@ -202,11 +202,11 @@ class _PermissionsSheetState extends State<_PermissionsSheet>
                 if (!_bioEnabled) {
                   final ok = await BiometricService.authenticate();
                   if (ok) {
-                    showMotoGoToast(context, icon: '✓', title: 'Biometrika', message: 'Aktivována');
+                    showMotoGoToast(context, icon: '✓', title: t(context).tr('biometricsTitle'), message: t(context).tr('activated'));
                   }
                 } else {
                   await AuthService.clearBioData();
-                  showMotoGoToast(context, icon: 'ℹ️', title: 'Biometrika', message: 'Deaktivována');
+                  showMotoGoToast(context, icon: 'ℹ️', title: t(context).tr('biometricsTitle'), message: t(context).tr('deactivated'));
                 }
                 await _loadBio();
               },
@@ -221,9 +221,9 @@ class _PermissionsSheetState extends State<_PermissionsSheet>
                 child: Row(children: [
                   const Text('🔐', style: TextStyle(fontSize: 22)),
                   const SizedBox(width: 12),
-                  const Expanded(
-                    child: Text('Otisk prstu / Face ID',
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: MotoGoColors.black)),
+                  Expanded(
+                    child: Text(t(context).tr('fingerprintFaceId'),
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: MotoGoColors.black)),
                   ),
                   Container(
                     width: 24, height: 24,
@@ -254,8 +254,8 @@ class _PermissionsSheetState extends State<_PermissionsSheet>
                     borderRadius: BorderRadius.circular(50)),
               ),
               icon: const Icon(Icons.settings, size: 18),
-              label: const Text('Otevřít nastavení telefonu',
-                  style: TextStyle(fontWeight: FontWeight.w800)),
+              label: Text(t(context).tr('openPhoneSettings'),
+                  style: const TextStyle(fontWeight: FontWeight.w800)),
             ),
           ),
           const SizedBox(height: 8),
@@ -268,8 +268,8 @@ class _PermissionsSheetState extends State<_PermissionsSheet>
                 if (context.mounted) {
                   showMotoGoToast(context,
                       icon: '✅',
-                      title: 'Oprávnění',
-                      message: 'Oprávnění znovu vyžádána');
+                      title: t(context).tr('permissionLabel'),
+                      message: t(context).tr('permsRerequested'));
                 }
               },
               style: OutlinedButton.styleFrom(
@@ -277,8 +277,8 @@ class _PermissionsSheetState extends State<_PermissionsSheet>
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(50)),
               ),
-              child: const Text('Povolit vše znovu',
-                  style: TextStyle(fontWeight: FontWeight.w700)),
+              child: Text(t(context).tr('allowAllAgain'),
+                  style: const TextStyle(fontWeight: FontWeight.w700)),
             ),
           ),
         ]),
@@ -305,12 +305,12 @@ class _PermissionsSheetState extends State<_PermissionsSheet>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(p.title,
+              Text(t(context).tr(p.title),
                   style: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w800,
                       color: MotoGoColors.black)),
-              Text(p.desc,
+              Text(t(context).tr(p.desc),
                   style: const TextStyle(
                       fontSize: 10, color: MotoGoColors.g400)),
             ],
@@ -323,7 +323,7 @@ class _PermissionsSheetState extends State<_PermissionsSheet>
             borderRadius: BorderRadius.circular(8),
           ),
           child: Text(
-            p.granted ? 'Povoleno' : 'Zakázáno',
+            p.granted ? t(context).tr('allowedLabel') : t(context).tr('deniedLabel'),
             style: TextStyle(
                 fontSize: 10,
                 fontWeight: FontWeight.w800,
