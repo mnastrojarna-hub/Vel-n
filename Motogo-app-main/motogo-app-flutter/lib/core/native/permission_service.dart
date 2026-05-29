@@ -52,39 +52,40 @@ class PermissionService {
   /// Get status of each permission for the settings screen.
   static Future<List<PermissionInfo>> getStatuses() async {
     return [
+      // title/desc hold i18n keys (resolved via t(context).tr at display sites).
       PermissionInfo(
         key: 'location',
         icon: '📍',
-        title: 'Poloha (GPS)',
-        desc: 'Navigace, sdílení pozice při poruše',
+        title: 'permLocationTitle',
+        desc: 'permLocationDesc',
         granted: await Permission.location.isGranted,
       ),
       PermissionInfo(
         key: 'camera',
         icon: '📷',
-        title: 'Fotoaparát',
-        desc: 'Skenování dokladů, dokumentace škod',
+        title: 'permCameraTitle',
+        desc: 'permCameraDesc',
         granted: await Permission.camera.isGranted,
       ),
       PermissionInfo(
         key: 'microphone',
         icon: '🎤',
-        title: 'Mikrofon',
-        desc: 'Hlasové dotazy pro AI asistenta',
+        title: 'permMicTitle',
+        desc: 'permMicDesc',
         granted: await Permission.microphone.isGranted,
       ),
       PermissionInfo(
         key: 'notifications',
         icon: '🔔',
-        title: 'Oznámení',
-        desc: 'SOS aktualizace, zprávy, stav rezervací',
+        title: 'permNotifTitle',
+        desc: 'permNotifDesc',
         granted: await Permission.notification.isGranted,
       ),
       PermissionInfo(
         key: 'photos',
         icon: '🖼️',
-        title: 'Galerie / Fotky',
-        desc: 'Nahrávání fotek faktur a dokladů',
+        title: 'permPhotosTitle',
+        desc: 'permPhotosDesc',
         granted: await Permission.photos.isGranted,
       ),
     ];
