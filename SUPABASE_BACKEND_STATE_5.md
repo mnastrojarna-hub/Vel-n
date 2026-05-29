@@ -305,7 +305,7 @@ Strukturované oficiální podmínky půjčovny pro AI public agent (`get_polici
 - `service_parts.inventory_item_id` → `inventory.id` (ON DELETE CASCADE)
 - `service_orders.moto_id` → `motorcycles.id`
 - `branch_accessories.branch_id` → `branches.id`
-- `payment_methods.user_id` → `profiles.id` (ON DELETE CASCADE)
+- `payment_methods.user_id` → `auth.users.id` (ON DELETE CASCADE) — *(oprava dokumentace 2026-05-29: míří na `auth.users`, ne `profiles`; ověřeno FK auditem)*
 - `branch_door_codes.branch_id` → `branches.id`
 - `branch_door_codes.booking_id` → `bookings.id`
 - `branch_door_codes.moto_id` → `motorcycles.id`
@@ -315,3 +315,12 @@ Strukturované oficiální podmínky půjčovny pro AI public agent (`get_polici
 - `delivery_notes.financial_event_id` → `financial_events.id` (ON DELETE SET NULL)
 - `contracts.financial_event_id` → `financial_events.id` (ON DELETE SET NULL)
 - `contracts.employee_id` → `acc_employees.id` (ON DELETE SET NULL)
+
+### FK na `auth.users` — opraveno 2026-05-29 (FK audit)
+Tyto 4 byly `ON DELETE NO ACTION` a blokovaly smazání auth účtu (admina/zákazníka), pokud měl řádek v dané tabulce. Změněno na **ON DELETE SET NULL** (nullable audit sloupce „kdo to udělal" — záznam zůstane, aktér se odpojí):
+- `ai_actions.admin_id` → `auth.users.id` (**ON DELETE SET NULL** — dříve NO ACTION)
+- `ai_citations.recorded_by` → `auth.users.id` (**ON DELETE SET NULL** — dříve NO ACTION)
+- `api_keys.created_by` → `auth.users.id` (**ON DELETE SET NULL** — dříve NO ACTION)
+- `booking_complaints.resolved_by` → `auth.users.id` (**ON DELETE SET NULL** — dříve NO ACTION)
+
+> **Audit 2026-05-29:** Všechny FK mířící na `profiles` jsou již `CASCADE` nebo `SET NULL` (žádný `NO ACTION`/`RESTRICT`) → smazání zákazníka (`delete_customer_account`) na FK nepadá. FK na `auth.users` spravované Supabase Auth (`identities`, `sessions`, `mfa_factors`, `one_time_tokens`, `webauthn_*`, `oauth_*`, `admin_users.id`, `profiles.id`, `ai_customer_conversations.user_id`) jsou `CASCADE`.
