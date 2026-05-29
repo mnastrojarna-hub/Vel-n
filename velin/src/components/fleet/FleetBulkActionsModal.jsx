@@ -4,6 +4,7 @@ import { purgeWebCache } from '../../lib/webCache'
 import Modal from '../ui/Modal'
 import Button from '../ui/Button'
 import { UNAVAILABLE_REASONS } from './motoActionConstants'
+import { fetchBlockingBookings, fetchOverlappingBookings, blockingBookingsMessage } from './bookingGuard'
 
 const CATEGORIES = [
   { value: 'cestovni', label: 'Cestovní' },
@@ -86,14 +87,14 @@ export default function FleetBulkActionsModal({ open, onClose, selectedMotos, on
   async function handleStatusChange(newStatus) {
     const today = new Date().toISOString().slice(0, 10)
     await run(`Stav: ${statusLabel(newStatus)}`, async () => {
-      // Cancel active bookings if leaving operation
-      if (newStatus !== 'active' && newStatus !== 'maintenance') {
-        const { data: active } = await supabase.from('bookings').select('id').in('moto_id', ids)
-          .eq('status', 'active').gte('end_date', today)
-        if (active?.length > 0) {
-          if (!window.confirm(`${active.length} aktivních pronájmů — stornovat všechny?`)) return
-          await supabase.from('bookings').update({ status: 'cancelled', notes: `Hromadné vyřazení: ${reasonText() || newStatus}` })
-            .in('id', active.map(b => b.id))
+      // Vyřazení z provozu (servis/dočasně/trvale) NESMÍ rušit rezervace. Pokud má
+      // některá vybraná motorka aktivní/nadcházející/pending rezervaci, akci zablokuj
+      // a admin ji vyřeší individuálně (úprava rezervace). Aktivace zpět žádné brání.
+      if (newStatus !== 'active') {
+        const blocking = await fetchBlockingBookings(ids)
+        if (blocking.length > 0) {
+          const motosById = Object.fromEntries(selectedMotos.map(m => [m.id, m]))
+          throw new Error(blockingBookingsMessage(blocking, { motosById }))
         }
       }
       const upd = { status: newStatus }
@@ -125,12 +126,12 @@ export default function FleetBulkActionsModal({ open, onClose, selectedMotos, on
   async function handleSendToService() {
     const today = new Date().toISOString().slice(0, 10)
     await run('Odesláno do servisu', async () => {
-      const { data: active } = await supabase.from('bookings').select('id').in('moto_id', ids)
-        .eq('status', 'active').gte('end_date', today)
-      if (active?.length > 0) {
-        if (!window.confirm(`${active.length} aktivních pronájmů — stornovat všechny?`)) return
-        await supabase.from('bookings').update({ status: 'cancelled', notes: 'Hromadné odeslání do servisu' })
-          .in('id', active.map(b => b.id))
+      // Servis NESMÍ rušit rezervace — zablokuj, pokud má některá motorka
+      // aktivní/nadcházející/pending rezervaci. Admin je vyřeší individuálně.
+      const blocking = await fetchBlockingBookings(ids)
+      if (blocking.length > 0) {
+        const motosById = Object.fromEntries(selectedMotos.map(m => [m.id, m]))
+        throw new Error(blockingBookingsMessage(blocking, { motosById }))
       }
       await supabase.from('motorcycles').update({ status: 'maintenance' }).in('id', ids)
       const description = bookingNote || 'Hromadné odeslání do servisu'
@@ -149,14 +150,12 @@ export default function FleetBulkActionsModal({ open, onClose, selectedMotos, on
     if (bookingFrom > bookingTo) { setError('Začátek musí být před koncem'); return }
     await run('Motorky zablokovány na zvolené období', async () => {
       const today = new Date().toISOString().slice(0, 10)
-      // Cancel active bookings overlapping the period
-      const { data: active } = await supabase.from('bookings').select('id').in('moto_id', ids)
-        .in('status', ['pending', 'reserved', 'active'])
-        .lte('start_date', bookingTo).gte('end_date', bookingFrom)
-      if (active?.length > 0) {
-        if (!window.confirm(`${active.length} rezervací se překrývá. Stornovat všechny?`)) return
-        await supabase.from('bookings').update({ status: 'cancelled', notes: `Hromadná blokace: ${bookingNote || bookingFrom + ' – ' + bookingTo}` })
-          .in('id', active.map(b => b.id))
+      // Blokace termínu NESMÍ rušit rezervace. Pokud se s obdobím překrývá zákaznická
+      // rezervace (pending/reserved/active), akci zablokuj — admin ji vyřeší individuálně.
+      const overlapping = await fetchOverlappingBookings(ids, bookingFrom, bookingTo)
+      if (overlapping.length > 0) {
+        const motosById = Object.fromEntries(selectedMotos.map(m => [m.id, m]))
+        throw new Error(blockingBookingsMessage(overlapping, { motosById }))
       }
       const upd = {
         status: 'unavailable',
@@ -349,7 +348,7 @@ function statusLabel(s) {
 }
 
 function Banner({ children, color, bg }) {
-  return <div className="mb-3 p-3 rounded-card text-sm font-bold" style={{ background: bg, color }}>{children}</div>
+  return <div className="mb-3 p-3 rounded-card text-sm font-bold" style={{ background: bg, color, whiteSpace: 'pre-line' }}>{children}</div>
 }
 
 function Section({ title, onBack, children }) {
