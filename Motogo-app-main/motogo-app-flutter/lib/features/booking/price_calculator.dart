@@ -21,18 +21,21 @@ const _mapyHeaders = <String, String>{
 };
 
 /// Real road distance (km) from branch (Mezná) to [lat],[lng].
-/// 1) Mapy.cz Routing (car_fast) — nejpřesnější po silnici v ČR.
-/// 2) OSRM fallback.
-/// 3) Haversine × 1.3 (přímá vzdálenost × koeficient).
+/// Vrací SKUTEČNOU vzdálenost autem po silnici (nejrychlejší trasa bez provozu),
+/// žádný odhad přes koeficient:
+/// 1) Mapy.cz Routing (car_fast) — primární zdroj, reálná silniční trasa v ČR.
+/// 2) OSRM (driving) — záloha, také reálná silniční trasa.
+/// 3) Vzdušná čára BEZ koeficientu — jen krajní nouze, když obě API nedostupné.
 Future<double> routeKmFromBranch(double lat, double lng) async {
   debugPrint('═══ [ROUTING] routeKmFromBranch() start ═══');
   debugPrint('[ROUTING] from branch ($branchLat, $branchLng) → to ($lat, $lng)');
 
-  // Haversine baseline for sanity checks
-  final haversineKm = _haversine(branchLat, branchLng, lat, lng);
-  debugPrint('[ROUTING] Haversine baseline: ${haversineKm.toStringAsFixed(1)}km straight');
+  // Vzdušná čára — slouží POUZE k detekci jednotky (silniční trasa nemůže být
+  // kratší než vzdušná čára) a jako krajní fallback, NIKDY jako odhad.
+  final straightKm = _haversine(branchLat, branchLng, lat, lng);
+  debugPrint('[ROUTING] straight-line baseline: ${straightKm.toStringAsFixed(1)}km');
 
-  // 1) Mapy.cz Routing — fastest car route
+  // 1) Mapy.cz Routing — fastest car route (car_fast = nejrychlejší bez provozu)
   try {
     final url = 'https://api.mapy.cz/v1/routing/route'
         '?start=$branchLng,$branchLat'
@@ -44,54 +47,27 @@ Future<double> routeKmFromBranch(double lat, double lng) async {
     final res = await http.get(uri, headers: _mapyHeaders)
         .timeout(const Duration(seconds: 8));
     debugPrint('[ROUTING] 1) Mapy.cz status: ${res.statusCode}');
-    debugPrint('[ROUTING] 1) Mapy.cz body (first 500): '
-        '${res.body.length > 500 ? res.body.substring(0, 500) : res.body}');
     if (res.statusCode == 200) {
       final data = jsonDecode(res.body);
-      debugPrint('[ROUTING] 1) parsed type: ${data.runtimeType}');
       num? rawLength;
       if (data is List && data.isNotEmpty) {
         rawLength = data[0]['length'] as num?;
-        debugPrint('[ROUTING] 1) Array[0].length=$rawLength');
       } else if (data is Map) {
         rawLength = (data['length'] as num?) ??
             (data['route']?['length'] as num?);
-        debugPrint('[ROUTING] 1) keys=${(data as Map).keys.toList()} length=$rawLength');
       }
-      if (rawLength != null && rawLength > 0) {
-        double km = rawLength.toDouble() / 1000; // assume meters
-        debugPrint('[ROUTING] 1) raw=$rawLength → ${km.toStringAsFixed(1)}km (assuming meters)');
-
-        // Sanity check: if API result is < 30% of Haversine,
-        // the API probably returned km not meters
-        if (haversineKm > 2 && km < haversineKm * 0.3) {
-          km = rawLength.toDouble(); // treat as km directly
-          debugPrint('[ROUTING] 1) ⚠ too small vs Haversine → treating as km: ${km.toStringAsFixed(1)}km');
-        }
-        // Plausibility window — applies for ALL distances, including
-        // same-village addresses (Haversine ~ 0 km) where a stray
-        // routing result like 14 km used to leak through.
-        final maxReasonable = haversineKm > 2
-            ? haversineKm * 5
-            : haversineKm + 3; // allow up to 3 km detour in/near village
-        final minReasonable = haversineKm > 2 ? haversineKm * 0.5 : 0.0;
-        if (km < minReasonable || km > maxReasonable) {
-          debugPrint('[ROUTING] 1) ⚠ Mapy.cz ${km.toStringAsFixed(1)}km '
-              'outside plausible window '
-              '(${minReasonable.toStringAsFixed(1)}–${maxReasonable.toStringAsFixed(1)}km, '
-              'Haversine ${haversineKm.toStringAsFixed(1)}km) — skipping');
-        } else {
-          debugPrint('[ROUTING] ✓ Mapy.cz: ${km.toStringAsFixed(1)}km');
-          return km;
-        }
+      final km = _normalizeRouteKm(rawLength, straightKm);
+      if (km != null) {
+        debugPrint('[ROUTING] ✓ Mapy.cz car_fast: ${km.toStringAsFixed(1)}km');
+        return km;
       }
-      debugPrint('[ROUTING] ✗ Mapy.cz: rawLength=$rawLength (invalid)');
+      debugPrint('[ROUTING] ✗ Mapy.cz: length=$rawLength (invalid)');
     }
   } catch (e) {
     debugPrint('[ROUTING] ✗ Mapy.cz error: $e');
   }
 
-  // 2) OSRM fallback
+  // 2) OSRM fallback — také reálná silniční trasa
   try {
     final url = 'https://router.project-osrm.org/route/v1/driving/'
         '$branchLng,$branchLat;$lng,$lat?overview=false';
@@ -101,44 +77,38 @@ Future<double> routeKmFromBranch(double lat, double lng) async {
       'User-Agent': 'MotoGo24-App/1.0',
     }).timeout(const Duration(seconds: 10));
     debugPrint('[ROUTING] 2) OSRM status: ${res.statusCode}');
-    debugPrint('[ROUTING] 2) OSRM body (first 300): '
-        '${res.body.length > 300 ? res.body.substring(0, 300) : res.body}');
     if (res.statusCode == 200) {
       final data = jsonDecode(res.body);
       final routes = data['routes'] as List?;
-      debugPrint('[ROUTING] 2) OSRM routes count: ${routes?.length}');
       if (routes != null && routes.isNotEmpty) {
         final dist = (routes[0]['distance'] as num).toDouble();
         if (dist > 0) {
           final km = dist / 1000; // OSRM always returns meters
-          debugPrint('[ROUTING] 2) OSRM: ${dist.toStringAsFixed(0)}m = ${km.toStringAsFixed(1)}km');
-          // Same plausibility window as Mapy.cz branch above
-          final maxReasonable = haversineKm > 2
-              ? haversineKm * 5
-              : haversineKm + 3;
-          final minReasonable = haversineKm > 2 ? haversineKm * 0.5 : 0.0;
-          if (km < minReasonable || km > maxReasonable) {
-            debugPrint('[ROUTING] 2) ⚠ OSRM ${km.toStringAsFixed(1)}km '
-                'outside plausible window '
-                '(${minReasonable.toStringAsFixed(1)}–${maxReasonable.toStringAsFixed(1)}km, '
-                'Haversine ${haversineKm.toStringAsFixed(1)}km) — skipping');
-          } else {
-            debugPrint('[ROUTING] ✓ OSRM: ${km.toStringAsFixed(1)}km');
-            return km;
-          }
+          debugPrint('[ROUTING] ✓ OSRM: ${km.toStringAsFixed(1)}km');
+          return km;
         }
-        debugPrint('[ROUTING] ✗ OSRM: distance=$dist (invalid)');
       }
     }
   } catch (e) {
     debugPrint('[ROUTING] ✗ OSRM error: $e');
   }
 
-  // 3) Haversine × 1.3 fallback
-  final straight = _haversine(branchLat, branchLng, lat, lng);
-  final km = straight > 0 ? straight * 1.3 : 50.0;
-  debugPrint('[ROUTING] 3) Haversine: straight=${straight.toStringAsFixed(1)}km × 1.3 = ${km.toStringAsFixed(1)}km');
+  // 3) Krajní nouze: obě routing API nedostupná → vzdušná čára BEZ koeficientu.
+  final km = straightKm > 0 ? straightKm : 50.0;
+  debugPrint('[ROUTING] 3) ⚠ routing API nedostupné → vzdušná čára ${km.toStringAsFixed(1)}km (bez koeficientu)');
   debugPrint('═══ [ROUTING] routeKmFromBranch() end → ${km.toStringAsFixed(1)}km ═══');
+  return km;
+}
+
+/// Převede `length` z Mapy.cz routing na km. API vrací metry; jednotku hlídáme
+/// fyzikálním invariantem — silniční trasa nemůže být kratší než vzdušná čára.
+/// Pokud je metry→km výrazně kratší než vzdušná čára, hodnota už byla v km.
+double? _normalizeRouteKm(num? rawLength, double straightKm) {
+  if (rawLength == null || rawLength <= 0) return null;
+  double km = rawLength.toDouble() / 1000; // předpoklad: metry
+  if (straightKm > 0.5 && km < straightKm * 0.9) {
+    km = rawLength.toDouble(); // hodnota už byla v km
+  }
   return km;
 }
 
