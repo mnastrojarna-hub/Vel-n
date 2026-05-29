@@ -323,25 +323,25 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     }
 
     // -- Saved card auto-charge (off-session) --
-    // Když má uživatel prioritní (default) kartu v profilu, zkusíme ji rovnou
-    // strhnout — bez Payment Sheetu. Parita s „1 klik na zaplatit" na webu.
-    // Pokud Stripe odmítne (declined / expired / unsupported), spadneme do
-    // klasického Payment Sheetu.
+    // Když má uživatel uloženou (default) kartu, strhneme ji rovnou — BEZ
+    // Payment Sheetu. Parita s „1 klik na zaplatit" na webu: zákazník vidí jen
+    // spinner („šrotuji"), pak buď děkovací stránku, nebo chybu se „Zkusit
+    // znovu". Stripe Payment Sheet (zadávání karty) se uloženou kartou už
+    // NEOTVÍRÁ — ten zůstává jen pro zákazníky bez uložené karty.
     final defaultCard = ref.read(defaultCardProvider);
     if (defaultCard != null && defaultCard.stripeId.isNotEmpty) {
-      final offSessionDone = await _tryOffSessionCharge(amount, defaultCard);
-      if (offSessionDone) return; // úspěch nebo terminální chyba s vlastním modalem
-      // jinak pokračujeme do klasického Payment Sheetu
+      await _chargeSavedCard(amount, defaultCard);
+      return;
     }
 
     await _runPaymentSheetFlow(amount);
   }
 
-  /// Pokusí se stáhnout částku z uložené karty bez interakce.
-  /// Vrací true pokud screen už zavřel uživatele dál (success/handled error),
-  /// false pokud máme pokračovat do klasického Payment Sheetu.
-  Future<bool> _tryOffSessionCharge(double amount, SavedCard card) async {
-    debugPrint('[Payment] off-session attempt: pm=${card.stripeId}, amount=${amount.round()}');
+  /// Strhne částku z uložené karty bez interakce (off-session). Pokud Stripe
+  /// vyžaduje SCA (3DS), zobrazí se nativní overlay přímo v appce. Při selhání
+  /// se NEpřechází na Payment Sheet — ukáže se chybová hláška se „Zkusit znovu".
+  Future<void> _chargeSavedCard(double amount, SavedCard card) async {
+    debugPrint('[Payment] saved-card charge: pm=${card.stripeId}, amount=${amount.round()}');
     final result = await StripeService.createPaymentIntent(
       bookingId: _pendingBookingId,
       amount: amount.round(),
@@ -351,49 +351,88 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       paymentMethodId: card.stripeId,
     );
 
-    if (!mounted) return true;
+    if (!mounted) return;
     _pendingBookingId ??= result.bookingId;
 
-    if (result.type == PaymentResultType.offSessionSucceeded) {
-      await _verifyAndComplete();
-      return true;
-    }
+    switch (result.type) {
+      case PaymentResultType.offSessionSucceeded:
+        await _verifyAndComplete();
+        return;
 
-    if (result.type == PaymentResultType.offSessionRequiresAction &&
-        result.clientSecret != null) {
-      // SCA (3DS) prompt — Stripe SDK ukáže overlay přímo v appce.
-      try {
-        final ok = await StripeService.handleNextAction(result.clientSecret!);
-        if (!mounted) return true;
-        if (ok) {
-          await _verifyAndComplete();
-          return true;
+      case PaymentResultType.offSessionRequiresAction:
+        // SCA (3DS) prompt — Stripe SDK ukáže overlay přímo v appce.
+        if (result.clientSecret != null) {
+          bool ok = false;
+          try {
+            ok = await StripeService.handleNextAction(result.clientSecret!);
+          } catch (e) {
+            debugPrint('[Payment] handleNextAction err: $e');
+          }
+          if (!mounted) return;
+          if (ok) {
+            await _verifyAndComplete();
+            return;
+          }
         }
-        // SCA neproběhlo — pad do Payment Sheetu
-        return false;
-      } catch (e) {
-        debugPrint('[Payment] handleNextAction err: $e');
-        return false; // fallback do Payment Sheetu
-      }
-    }
+        // Ověření kartou (3DS) neproběhlo — chyba se „Zkusit znovu".
+        setState(() => _processing = false);
+        _attempts++;
+        _handleSavedCardFailure(result);
+        return;
 
-    if (result.type == PaymentResultType.offSessionFailed) {
-      // Karta selhala — info banner + pad do Payment Sheetu. Nezapočítáváme
-      // _attempts, fallback je stejný uživatelský pokus.
-      debugPrint('[Payment] off-session failed: ${result.errorMessage} '
-          '(decline=${result.declineCode})');
-      return false;
-    }
+      case PaymentResultType.offSessionFailed:
+        debugPrint('[Payment] saved-card failed: ${result.errorMessage} '
+            '(decline=${result.declineCode})');
+        setState(() => _processing = false);
+        _attempts++;
+        _handleSavedCardFailure(result);
+        return;
 
-    if (result.type == PaymentResultType.error) {
-      setState(() => _processing = false);
-      _attempts++;
-      _handleIntentError(result);
-      return true;
-    }
+      case PaymentResultType.error:
+        setState(() => _processing = false);
+        _attempts++;
+        _handleIntentError(result);
+        return;
 
-    // Jiné stavy (např. intent vrácen místo off-session): pokračovat sheetem
-    return false;
+      default:
+        // Neočekávaný stav (např. backend vrátil běžný intent místo off-session)
+        // — místo Payment Sheetu raději ukážeme chybu, aby zákazník s uloženou
+        // kartou neviděl zadávání karty.
+        setState(() => _processing = false);
+        _attempts++;
+        _handleSavedCardFailure(result);
+        return;
+    }
+  }
+
+  /// Chybová hláška pro selhání stržení uložené karty (declined / expired /
+  /// SCA zrušeno). Tlačítko „Zkusit znovu" jen zavře sheet — zákazník může
+  /// klepnout na „Zaplatit" znovu (stejná karta), nebo z formuláře odejít.
+  void _handleSavedCardFailure(PaymentResult result) {
+    if (_attempts >= maxPaymentAttempts) {
+      _handleMaxAttempts();
+      return;
+    }
+    if (result.errorCode == PaymentErrorCode.authExpired) {
+      _showError(
+        title: t(context).tr('sessionExpired'),
+        message: '${result.errorMessage ?? ''}\n${t(context).tr('bookingSaved')}',
+        buttonLabel: t(context).tr('login'),
+        onButton: () {
+          if (mounted) context.go(Routes.login);
+        },
+      );
+      return;
+    }
+    final msg = (result.errorMessage != null && result.errorMessage!.isNotEmpty)
+        ? result.errorMessage!
+        : t(context).tr('bankDeclined');
+    _showError(
+      title: t(context).tr('paymentCardDeclined'),
+      message: '$msg\n\n${t(context).tr('tryAgainPlease')} '
+          '(${t(context).tr('attempt')} $_attempts ${t(context).tr('of')} $maxPaymentAttempts)',
+      buttonLabel: t(context).tr('retry'),
+    );
   }
 
   /// Klasický flow s Payment Sheetem (zachová původní chování).
