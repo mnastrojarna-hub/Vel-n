@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { debugAction } from '../lib/debugLog'
@@ -75,6 +75,26 @@ export default function Bookings() {
     autoActivateReserved()
     autoFixPendingPaid()
     autoGenerateKF()
+  }, [])
+
+  // Realtime: seznam rezervací se dosud načítal jen při změně stránky/filtru/pohledu.
+  // Potvrzení platby (Stripe webhook), storno z appky i auto-přechody z cronu se tedy
+  // v otevřeném Velíně neprojevily, dokud admin ručně neobnovil. Přihlásíme se na změny
+  // tabulky `bookings` (je v supabase_realtime publikaci) a debouncovaně přenačteme
+  // aktuální seznam. Refy drží vždy nejnovější loadBookings/view (callback vzniká jen 1×).
+  const loadBookingsRef = useRef(null)
+  const viewRef = useRef(view)
+  useEffect(() => { viewRef.current = view; loadBookingsRef.current = loadBookings })
+  useEffect(() => {
+    let timer = null
+    const channel = supabase.channel('bookings-list-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, () => {
+        if (viewRef.current !== 'Seznam') return
+        clearTimeout(timer)
+        timer = setTimeout(() => { loadBookingsRef.current?.() }, 800)
+      })
+      .subscribe()
+    return () => { clearTimeout(timer); supabase.removeChannel(channel) }
   }, [])
 
   async function loadBookings() {
