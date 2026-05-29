@@ -65,6 +65,7 @@ class BookingFormPickupSection extends ConsumerWidget {
               ),
               distKm: ref.watch(pickupDistKmProvider),
               delivFee: ref.watch(pickupDelivFeeProvider),
+              context: context,
             ),
           ],
         ],

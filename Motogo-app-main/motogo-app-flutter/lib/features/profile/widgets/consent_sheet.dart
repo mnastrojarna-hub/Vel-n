@@ -24,19 +24,20 @@ class _ConsentSheetState extends ConsumerState<ConsentSheet> {
   // Aktivní rezervace → souhlasy jsou po dobu pronájmu povinné (nelze odebrat).
   bool _locked = false;
 
+  // value = i18n key, resolved via t(context).tr at render time.
   static const _notifKeys = {
-    'consent_push': 'Push notifikace',
-    'consent_email': 'Email komunikace',
-    'consent_sms': 'SMS komunikace',
-    'consent_whatsapp': 'WhatsApp komunikace',
-    'marketing_consent': 'Marketingový souhlas',
+    'consent_push': 'consentPush',
+    'consent_email': 'consentEmail',
+    'consent_sms': 'consentSms',
+    'consent_whatsapp': 'consentWhatsapp',
+    'marketing_consent': 'consentMarketing',
   };
   static const _privKeys = {
-    'consent_vop': 'VOP — všeobecné obchodní podmínky',
-    'consent_gdpr': 'GDPR — zpracování osobních údajů',
-    'consent_data_processing': 'Zpracování dat pro provoz služby',
-    'consent_contract': 'Četl/a jsem návrh smlouvy na motogo24.cz a souhlasím',
-    'consent_photo': 'Fotografování dokladů a motorky',
+    'consent_vop': 'consentVop',
+    'consent_gdpr': 'consentGdpr',
+    'consent_data_processing': 'consentDataProcessing',
+    'consent_contract': 'consentContract',
+    'consent_photo': 'consentPhoto',
   };
 
   @override
@@ -146,7 +147,7 @@ class _ConsentSheetState extends ConsumerState<ConsentSheet> {
                     child: Row(children: [
                       Expanded(
                         child: Text(
-                          e.value,
+                          t(context).tr(e.value),
                           style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
@@ -180,7 +181,7 @@ class _ConsentSheetState extends ConsumerState<ConsentSheet> {
             onPressed: _save,
             style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(44)),
             icon: const Icon(Icons.save, size: 16),
-            label: const Text('Uložit'),
+            label: Text(t(context).tr('save')),
           ),
         ]),
       ),

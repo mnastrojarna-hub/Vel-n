@@ -90,8 +90,8 @@ class _PermissionsScreenState extends ConsumerState<PermissionsScreen>
             ),
           ),
         ),
-        title: const Text('Oprávnění aplikace',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+        title: Text(t(context).tr('permissions'),
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
         backgroundColor: MotoGoColors.dark,
       ),
       body: SingleChildScrollView(
@@ -100,8 +100,8 @@ class _PermissionsScreenState extends ConsumerState<PermissionsScreen>
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              'Oprávnění udělená při prvním spuštění.\n'
-              'Klikněte na oprávnění pro změnu v nastavení telefonu.',
+              '${t(context).tr('permsGrantedFirstRun')}\n'
+              '${t(context).tr('permsChangeHint')}',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 11, color: MotoGoColors.g400),
             ),
@@ -139,10 +139,10 @@ class _PermissionsScreenState extends ConsumerState<PermissionsScreen>
               const SizedBox(height: 16),
               const Divider(height: 1, color: MotoGoColors.g200),
               const SizedBox(height: 14),
-              const Align(
+              Align(
                 alignment: Alignment.centerLeft,
-                child: Text('Biometrické přihlášení',
-                    style: TextStyle(
+                child: Text(t(context).tr('biometric'),
+                    style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w900,
                         color: MotoGoColors.black)),
@@ -155,15 +155,15 @@ class _PermissionsScreenState extends ConsumerState<PermissionsScreen>
                     if (ok) {
                       showMotoGoToast(context,
                           icon: '✓',
-                          title: 'Biometrika',
-                          message: 'Aktivována');
+                          title: t(context).tr('biometricsTitle'),
+                          message: t(context).tr('activated'));
                     }
                   } else {
                     await AuthService.clearBioData();
                     showMotoGoToast(context,
                         icon: 'ℹ️',
-                        title: 'Biometrika',
-                        message: 'Deaktivována');
+                        title: t(context).tr('biometricsTitle'),
+                        message: t(context).tr('deactivated'));
                   }
                   await _loadBio();
                 },
@@ -183,9 +183,9 @@ class _PermissionsScreenState extends ConsumerState<PermissionsScreen>
                   child: Row(children: [
                     const Text('🔐', style: TextStyle(fontSize: 22)),
                     const SizedBox(width: 12),
-                    const Expanded(
-                      child: Text('Otisk prstu / Face ID',
-                          style: TextStyle(
+                    Expanded(
+                      child: Text(t(context).tr('fingerprintFaceId'),
+                          style: const TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w800,
                               color: MotoGoColors.black)),
@@ -228,8 +228,8 @@ class _PermissionsScreenState extends ConsumerState<PermissionsScreen>
                       borderRadius: BorderRadius.circular(50)),
                 ),
                 icon: const Icon(Icons.settings, size: 18),
-                label: const Text('Otevřít nastavení telefonu',
-                    style: TextStyle(fontWeight: FontWeight.w800)),
+                label: Text(t(context).tr('openPhoneSettings'),
+                    style: const TextStyle(fontWeight: FontWeight.w800)),
               ),
             ),
             const SizedBox(height: 8),
@@ -242,8 +242,8 @@ class _PermissionsScreenState extends ConsumerState<PermissionsScreen>
                   if (context.mounted) {
                     showMotoGoToast(context,
                         icon: '✅',
-                        title: 'Oprávnění',
-                        message: 'Oprávnění znovu vyžádána');
+                        title: t(context).tr('permissionLabel'),
+                        message: t(context).tr('permsRerequested'));
                   }
                 },
                 style: OutlinedButton.styleFrom(
@@ -251,8 +251,8 @@ class _PermissionsScreenState extends ConsumerState<PermissionsScreen>
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(50)),
                 ),
-                child: const Text('Povolit vše znovu',
-                    style: TextStyle(fontWeight: FontWeight.w700)),
+                child: Text(t(context).tr('allowAllAgain'),
+                    style: const TextStyle(fontWeight: FontWeight.w700)),
               ),
             ),
           ],
@@ -289,7 +289,7 @@ class _PermissionsScreenState extends ConsumerState<PermissionsScreen>
               children: [
                 Row(children: [
                   Flexible(
-                    child: Text(p.title,
+                    child: Text(t(context).tr(p.title),
                         style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w800,
@@ -311,7 +311,7 @@ class _PermissionsScreenState extends ConsumerState<PermissionsScreen>
                     ),
                   ],
                 ]),
-                Text(p.desc,
+                Text(t(context).tr(p.desc),
                     style: const TextStyle(
                         fontSize: 10, color: MotoGoColors.g400)),
               ],
@@ -324,7 +324,7 @@ class _PermissionsScreenState extends ConsumerState<PermissionsScreen>
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
-              p.granted ? 'Povoleno' : 'Zakázáno',
+              p.granted ? t(context).tr('allowedLabel') : t(context).tr('deniedLabel'),
               style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w800,

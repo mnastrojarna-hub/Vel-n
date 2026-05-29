@@ -32,7 +32,7 @@ class _BranchDetailCardState extends State<BranchDetailCard> {
   String serviceLabelFor(BuildContext context) {
     final type = b['type'] as String?;
     if (type != null && type.isNotEmpty) return type;
-    return isSelfService ? t(context).tr('selfService') : 'Obslužná';
+    return isSelfService ? t(context).tr('selfService') : t(context).tr('servicedBranch');
   }
   double? get lat => (b['gps_lat'] as num?)?.toDouble();
   double? get lng => (b['gps_lng'] as num?)?.toDouble();
@@ -161,9 +161,9 @@ class _BranchDetailCardState extends State<BranchDetailCard> {
             launchUrl(Uri.parse(url));
           },
           icon: const Icon(Icons.map_outlined, size: 16),
-          label: const Text(
-            'Otevřít v mapách',
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+          label: Text(
+            t(context).tr('openInMaps'),
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
           ),
           style: ElevatedButton.styleFrom(
             backgroundColor: MotoGoColors.greenPale,
@@ -211,19 +211,19 @@ class _BranchDetailCardState extends State<BranchDetailCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _row(Icons.location_on, 'Adresa',
+          _row(Icons.location_on, t(context).tr('addressLabel'),
               '${b['address'] ?? ''}, ${b['city'] ?? ''}'),
-          if (hasPhone) _row(Icons.phone, 'Telefon', phone),
+          if (hasPhone) _row(Icons.phone, t(context).tr('phone'), phone),
           if (b['branch_code'] != null)
-            _row(Icons.qr_code, 'Kód pobočky', '${b['branch_code']}'),
+            _row(Icons.qr_code, t(context).tr('branchCodeLabel'), '${b['branch_code']}'),
           if (b['type'] != null)
-            _row(Icons.terrain, 'Typ lokality', _typeLabel(b['type'])),
+            _row(Icons.terrain, t(context).tr('localityType'), _typeLabel(context, b['type'])),
           if (hasGps)
             _row(Icons.my_location, 'GPS',
                 '${lat!.toStringAsFixed(5)}, ${lng!.toStringAsFixed(5)}'),
-          _row(Icons.build_outlined, 'Provoz', serviceLabelFor(context)),
+          _row(Icons.build_outlined, t(context).tr('operationLabel'), serviceLabelFor(context)),
           if (isSelfService)
-            _row(Icons.inventory_2_outlined, 'Kapacita', 'Max 8 motorek'),
+            _row(Icons.inventory_2_outlined, t(context).tr('capacityLabel'), t(context).tr('max8Motos')),
           const SizedBox(height: 12),
           if (hasGps)
             SizedBox(
@@ -233,9 +233,9 @@ class _BranchDetailCardState extends State<BranchDetailCard> {
                 onPressed: () =>
                     launchUrl(Uri.parse('https://maps.google.com/?q=$lat,$lng')),
                 icon: const Icon(Icons.navigation_rounded, size: 18),
-                label: const Text(
-                  'Navigovat na pobočku',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
+                label: Text(
+                  t(context).tr('navigateToBranch'),
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: MotoGoColors.green,
@@ -255,7 +255,7 @@ class _BranchDetailCardState extends State<BranchDetailCard> {
                 onPressed: () => launchUrl(Uri.parse('tel:$phone')),
                 icon: const Icon(Icons.phone, size: 16),
                 label: Text(
-                  'Zavolat $phone',
+                  '${t(context).tr('callLabel')} $phone',
                   style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
@@ -322,15 +322,16 @@ class _BranchDetailCardState extends State<BranchDetailCard> {
     );
   }
 
-  static String _typeLabel(String type) {
-    const labels = {
-      'turistická': 'Turistická',
-      'městská': 'Městská',
-      'horská': 'Horská',
-      'rekreační voda': 'Rekreační voda',
-      'metropolitní centrum': 'Metropolitní centrum',
-      'městská tranzitní': 'Městská tranzitní',
+  static String _typeLabel(BuildContext context, String type) {
+    const keys = {
+      'turistická': 'usageTouristic',
+      'městská': 'usageUrban',
+      'horská': 'usageMountain',
+      'rekreační voda': 'usageRecWater',
+      'metropolitní centrum': 'usageMetro',
+      'městská tranzitní': 'usageUrbanTransit',
     };
-    return labels[type] ?? type;
+    final k = keys[type];
+    return k != null ? t(context).tr(k) : type;
   }
 }

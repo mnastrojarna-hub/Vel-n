@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/theme.dart';
 import '../../core/router.dart';
+import '../../core/i18n/i18n_provider.dart';
 import '../../core/supabase_client.dart';
 import '../auth/widgets/toast_helper.dart';
 
@@ -23,15 +24,22 @@ class _AiAgentState extends State<AiAgentScreen> {
   bool _sending = false;
   String? _bookingId;
 
+  bool _greeted = false;
+
   @override
   void initState() {
     super.initState();
     _fetchActiveBooking();
-    _messages.add(_ChatMsg(
-      text: '👋 Dobrý den! Jsem MotoGo AI asistent. Jak vám mohu pomoci? '
-          'Mohu poradit s kontrolkami, poruchami, manuály nebo technickými dotazy.',
-      isBot: true,
-    ));
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Greeting added here (not initState) so Localizations is available.
+    if (!_greeted) {
+      _greeted = true;
+      _messages.add(_ChatMsg(text: t(context).tr('aiGreeting'), isBot: true));
+    }
   }
 
   Future<void> _fetchActiveBooking() async {
@@ -71,16 +79,17 @@ class _AiAgentState extends State<AiAgentScreen> {
       );
 
       final data = res.data as Map<String, dynamic>?;
-      final reply = data?['reply'] as String? ?? 'Omlouvám se, nepodařilo se zpracovat dotaz.';
+      final replyData = data?['reply'] as String?;
       final isRideable = data?['is_rideable'] as bool?;
       final suggestSos = data?['suggest_sos'] as bool? ?? false;
 
       if (mounted) {
+        final reply = replyData ?? t(context).tr('aiProcessError');
         setState(() {
           _messages.add(_ChatMsg(text: reply, isBot: true));
           if (suggestSos) {
             _messages.add(_ChatMsg(
-              text: '🆘 Agent doporučuje nahlásit SOS incident.',
+              text: t(context).tr('aiSuggestSos'),
               isBot: true,
               isSosHint: true,
             ));
@@ -90,7 +99,7 @@ class _AiAgentState extends State<AiAgentScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _messages.add(_ChatMsg(
-          text: '❌ Chyba komunikace s AI agentem. Zkuste to znovu.',
+          text: t(context).tr('aiCommError'),
           isBot: true,
         )));
       }
@@ -133,7 +142,7 @@ class _AiAgentState extends State<AiAgentScreen> {
             ),
           ),
         ),
-        title: const Text('🤖 AI Servisní agent'),
+        title: Text('🤖 ${t(context).tr('aiServiceAgent')}'),
         backgroundColor: MotoGoColors.dark,
       ),
       body: Column(
@@ -147,11 +156,11 @@ class _AiAgentState extends State<AiAgentScreen> {
               itemBuilder: (_, i) {
                 if (i == _messages.length) {
                   // Typing indicator
-                  return const Align(
+                  return Align(
                     alignment: Alignment.centerLeft,
                     child: Padding(
-                      padding: EdgeInsets.only(bottom: 8),
-                      child: Text('⏳ Přemýšlím...', style: TextStyle(fontSize: 12, color: MotoGoColors.g400)),
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Text(t(context).tr('aiThinking'), style: const TextStyle(fontSize: 12, color: MotoGoColors.g400)),
                     ),
                   );
                 }
@@ -173,7 +182,7 @@ class _AiAgentState extends State<AiAgentScreen> {
                 child: TextField(
                   controller: _inputCtrl,
                   decoration: InputDecoration(
-                    hintText: 'Popište problém nebo dotaz...',
+                    hintText: t(context).tr('aiDescribeProblemHint'),
                     hintStyle: const TextStyle(fontSize: 13),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(50), borderSide: const BorderSide(color: MotoGoColors.g200)),
@@ -211,14 +220,14 @@ class _AiAgentState extends State<AiAgentScreen> {
               borderRadius: BorderRadius.circular(MotoGoTheme.radiusSm),
               border: Border.all(color: const Color(0xFFFCA5A5)),
             ),
-            child: const Row(children: [
-              Text('🆘', style: TextStyle(fontSize: 20)),
-              SizedBox(width: 10),
+            child: Row(children: [
+              const Text('🆘', style: TextStyle(fontSize: 20)),
+              const SizedBox(width: 10),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('Nahlásit SOS incident', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFFB91C1C))),
-                Text('Klikněte pro nahlášení problému', style: TextStyle(fontSize: 11, color: Color(0xFF991B1B))),
+                Text(t(context).tr('reportSosIncident'), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFFB91C1C))),
+                Text(t(context).tr('clickToReportProblem'), style: const TextStyle(fontSize: 11, color: Color(0xFF991B1B))),
               ])),
-              Text('›', style: TextStyle(fontSize: 16, color: Color(0xFFB91C1C))),
+              const Text('›', style: TextStyle(fontSize: 16, color: Color(0xFFB91C1C))),
             ]),
           ),
         ),

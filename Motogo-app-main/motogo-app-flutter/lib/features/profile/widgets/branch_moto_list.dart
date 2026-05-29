@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme.dart';
+import '../../../core/i18n/i18n_provider.dart';
 
 /// Compact list of motorcycles available at a branch.
 /// Displayed inside the expanded [BranchDetailCard].
@@ -27,7 +28,7 @@ class BranchMotoList extends StatelessWidget {
             const Icon(Icons.motorcycle, size: 16, color: MotoGoColors.greenDark),
             const SizedBox(width: 6),
             Text(
-              'Motorky na pobočce (${motorcycles.length})',
+              '${t(context).tr('branchMotosTitle')} (${motorcycles.length})',
               style: const TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w800,
@@ -42,9 +43,9 @@ class BranchMotoList extends StatelessWidget {
                   color: MotoGoColors.amberBg,
                   borderRadius: BorderRadius.circular(6),
                 ),
-                child: const Text(
-                  'Max 8 motorek',
-                  style: TextStyle(
+                child: Text(
+                  t(context).tr('max8Motos'),
+                  style: const TextStyle(
                     fontSize: 9,
                     fontWeight: FontWeight.w700,
                     color: MotoGoColors.amber,
@@ -118,7 +119,7 @@ class BranchMotoList extends StatelessWidget {
               ),
               const SizedBox(height: 2),
               Text(
-                _specLine(engineCc, powerKw, license, category),
+                _specLine(context, engineCc, powerKw, license, category),
                 style: const TextStyle(
                   fontSize: 10,
                   color: MotoGoColors.g400,
@@ -156,26 +157,27 @@ class BranchMotoList extends StatelessWidget {
     );
   }
 
-  static String _specLine(
+  static String _specLine(BuildContext context,
       num? engineCc, num? powerKw, String? license, String? category) {
     final parts = <String>[
       if (engineCc != null) '${engineCc}cc',
       if (powerKw != null) '${powerKw}kW',
-      if (license != null) 'ŘP $license',
-      if (category != null) _categoryLabel(category),
+      if (license != null) '${t(context).tr('licenseShort')} $license',
+      if (category != null) _categoryLabel(context, category),
     ];
     return parts.join(' · ');
   }
 
-  static String _categoryLabel(String cat) {
-    const labels = {
-      'cestovni': 'Cestovní',
-      'detske': 'Dětské',
-      'sportovni': 'Sportovní',
-      'naked': 'Naked',
-      'chopper': 'Chopper',
-      'supermoto': 'Supermoto',
+  static String _categoryLabel(BuildContext context, String cat) {
+    const keys = {
+      'cestovni': 'catTouring',
+      'detske': 'motoCardCategoryChildren',
+      'sportovni': 'motoCardCategorySport',
+      'naked': 'motoCardCategoryNaked',
+      'chopper': 'motoCardCategoryChopper',
+      'supermoto': 'motoCardCategorySupermoto',
     };
-    return labels[cat] ?? cat;
+    final k = keys[cat];
+    return k != null ? t(context).tr(k) : cat;
   }
 }
