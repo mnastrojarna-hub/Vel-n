@@ -197,7 +197,7 @@ class SupabaseClient {
         // retired se v katalogu nezobrazují.
         $data = $this->query(
             'motorcycles',
-            '*,branches(name,address,city,is_open)',
+            '*,branches(name,address,city,is_open,type)',
             ['status=in.(active,maintenance)'],
             'model.asc'
         );

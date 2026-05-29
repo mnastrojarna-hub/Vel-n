@@ -12,7 +12,7 @@ final motorcyclesProvider = FutureProvider<List<Motorcycle>>((ref) async {
     // volné dny jdou normálně rezervovat. unavailable/retired se nezobrazují.
     final res = await MotoGoSupabase.client
         .from('motorcycles')
-        .select('*, branches(name, address, city)')
+        .select('*, branches(name, address, city, type)')
         .inFilter('status', ['active', 'maintenance'])
         .order('model');
 

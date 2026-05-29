@@ -91,9 +91,10 @@ class BookingValidator {
   /// and enforces the delivery lead time. Mirrors the web's `_rezMinPickupTime`.
   ///
   /// Rules (confirmed with product owner):
-  ///  - Branch pickup ("store"): pickup datetime must be strictly in the future
-  ///    (no backwards booking, no minimum buffer).
   ///  - Delivery ("delivery"): pickup datetime must be at least +6 h from now.
+  ///  - Staffed branch pickup ([branchType] == 'obslužná'): at least +1 h.
+  ///  - Self-service branch pickup ('samoobslužná' / unknown): strictly in the
+  ///    future (no backwards booking, no minimum buffer).
   ///
   /// [pickupTime] is "HH:MM" (defaults to 09:00, matching the booking insert).
   /// Returns null if OK, or a localized error message.
@@ -101,6 +102,7 @@ class BookingValidator {
     required DateTime? startDate,
     required String? pickupTime,
     required bool isDelivery,
+    String? branchType,
     String lang = 'cs',
   }) {
     if (startDate == null) return null;
@@ -115,12 +117,25 @@ class BookingValidator {
         startDate.year, startDate.month, startDate.day, hh, mm);
 
     final now = DateTime.now();
-    final minLead = isDelivery ? const Duration(hours: 6) : Duration.zero;
+    final Duration minLead;
+    if (isDelivery) {
+      minLead = const Duration(hours: 6);
+    } else if (branchType == 'obslužná') {
+      minLead = const Duration(hours: 1);
+    } else {
+      minLead = Duration.zero; // samoobslužná / neznámá → jen ne do minulosti
+    }
 
-    // Pickup must be strictly after now (+ delivery lead time).
+    // Pickup must be strictly after now (+ lead time).
     if (!pickup.isAfter(now.add(minLead))) {
-      final key =
-          isDelivery ? 'validationDeliveryLeadTime' : 'validationPastPickup';
+      final String key;
+      if (isDelivery) {
+        key = 'validationDeliveryLeadTime';
+      } else if (branchType == 'obslužná') {
+        key = 'validationStaffedLeadTime';
+      } else {
+        key = 'validationPastPickup';
+      }
       return translations[lang]?[key] ?? translations['cs']?[key] ?? '';
     }
     return null;

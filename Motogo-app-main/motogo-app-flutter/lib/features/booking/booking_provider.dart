@@ -209,11 +209,13 @@ final rentalLengthValidationProvider = Provider<String?>((ref) {
 final pickupLeadTimeValidationProvider = Provider<String?>((ref) {
   final draft = ref.watch(bookingDraftProvider);
   if (draft.startDate == null) return null;
+  final moto = ref.watch(bookingMotoProvider);
   final lang = ref.watch(localeProvider).languageCode;
   return BookingValidator.checkPickupLeadTime(
     startDate: draft.startDate,
     pickupTime: draft.pickupTime,
     isDelivery: draft.pickupMethod == 'delivery',
+    branchType: moto?.branchType,
     lang: lang,
   );
 });
