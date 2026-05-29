@@ -124,6 +124,11 @@ Future<void> _initAndRun() async {
     // Non-blocking — Payment Sheet will re-apply settings before use.
   }
 
+  // Detect an app update (version+build changed) and, if so, wipe every
+  // on-disk cache BEFORE anything loads — this guarantees the app never shows
+  // the previous version after a Google Play update. Login session is kept.
+  await CacheCleanupService.purgeIfUpdated();
+
   await Supabase.initialize(
     url: MotoGoSupabase.url,
     anonKey: MotoGoSupabase.anonKey,
