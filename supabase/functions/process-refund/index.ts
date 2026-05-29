@@ -359,7 +359,7 @@ Deno.serve(async (req: Request) => {
 
     if (booking_id) {
       const { data } = await supabase.from('bookings')
-        .select('stripe_payment_intent_id, total_price, payment_status, stripe_refund_id, card_brand, card_last4')
+        .select('stripe_payment_intent_id, stripe_session_id, total_price, payment_status, stripe_refund_id, card_brand, card_last4')
         .eq('id', booking_id)
         .single()
 
@@ -411,10 +411,29 @@ Deno.serve(async (req: Request) => {
         )
       }
       stripePaymentIntentId = data.stripe_payment_intent_id
+
+      // Robustnost: `stripe_payment_intent_id` může být prázdný — typicky u web
+      // rezervací, kde se PI uloží až po dokončení Checkoutu (race s webhookem),
+      // nebo když booking nikdy neprošel přes náš confirm flow. Bez PI by refund
+      // spadl na `no_stripe_payment` a Stripe by se o vrácení vůbec nedozvěděl.
+      // Dohledáme ho proto ze `stripe_session_id` přes Stripe API a doplníme do DB.
+      if (!stripePaymentIntentId && data.stripe_session_id) {
+        try {
+          const sess = await stripe.checkout.sessions.retrieve(data.stripe_session_id)
+          const piFromSess = typeof sess.payment_intent === 'string'
+            ? sess.payment_intent
+            : (sess.payment_intent as any)?.id || null
+          if (piFromSess) {
+            stripePaymentIntentId = piFromSess
+            await supabase.from('bookings').update({ stripe_payment_intent_id: piFromSess }).eq('id', booking_id)
+            await dlog('pi_resolved_from_session', 'info', { session_id: data.stripe_session_id, payment_intent_id: piFromSess })
+          }
+        } catch (e) { console.warn('[process-refund] session PI resolve failed:', (e as Error).message) }
+      }
     } else if (order_id) {
       entityType = 'shop'
       const { data } = await supabase.from('shop_orders')
-        .select('stripe_payment_intent_id, total_amount, payment_status')
+        .select('stripe_payment_intent_id, stripe_session_id, total_amount, payment_status')
         .eq('id', order_id)
         .single()
 
@@ -436,6 +455,18 @@ Deno.serve(async (req: Request) => {
         )
       }
       stripePaymentIntentId = data.stripe_payment_intent_id
+      if (!stripePaymentIntentId && data.stripe_session_id) {
+        try {
+          const sess = await stripe.checkout.sessions.retrieve(data.stripe_session_id)
+          const piFromSess = typeof sess.payment_intent === 'string'
+            ? sess.payment_intent
+            : (sess.payment_intent as any)?.id || null
+          if (piFromSess) {
+            stripePaymentIntentId = piFromSess
+            await supabase.from('shop_orders').update({ stripe_payment_intent_id: piFromSess }).eq('id', order_id)
+          }
+        } catch (e) { console.warn('[process-refund] session PI resolve failed (order):', (e as Error).message) }
+      }
     }
 
     if (!stripePaymentIntentId) {
