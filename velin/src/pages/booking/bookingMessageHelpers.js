@@ -36,13 +36,17 @@ export async function cancelBookingFromVelin(booking, reasonText, sourceCode) {
 
   const { data: { user } } = await supabase.auth.getUser()
   const wasPaid = booking.payment_status === 'paid'
+  // POZOR: payment_status='refunded' tu ZÁMĚRNĚ NENASTAVUJEME před refundem.
+  // process-refund musí načíst booking se stavem 'paid', aby Stripe refund reálně
+  // provedl; když uvidí 'refunded', spadne do idempotentní "already refunded" větve
+  // a Stripe vůbec nezavolá (peníze se zákazníkovi nikdy nevrátí). Stav 'refunded'
+  // do DB zapíše až samotný process-refund po úspěšném Stripe refundu.
   const updatePayload = {
     status: 'cancelled',
     cancelled_by: user?.id || null,
     cancelled_by_source: sourceCode,
     cancellation_reason: reasonText,
     cancelled_at: new Date().toISOString(),
-    ...(wasPaid ? { payment_status: 'refunded' } : {}),
   }
 
   const { error: updErr } = await supabase.from('bookings').update(updatePayload).eq('id', booking.id)
@@ -59,13 +63,15 @@ export async function cancelBookingFromVelin(booking, reasonText, sourceCode) {
       })
     } catch {}
 
-    if (booking.stripe_payment_intent_id) {
-      try {
-        await supabase.functions.invoke('process-refund', {
-          body: { booking_id: booking.id, reason: 'cancellation' },
-        })
-      } catch (e) { console.error('[Stripe refund]', e.message) }
-    }
+    // Reálný Stripe refund (admin storno = 100 %). Voláme vždy, i když objekt
+    // booking nemá načtený stripe_payment_intent_id — process-refund si ho umí
+    // dohledat ze stripe_session_id. Je idempotentní, takže následné volání ze
+    // send-cancellation-email už jen dohraje dobropis (Stripe podruhé nestrhne).
+    try {
+      await supabase.functions.invoke('process-refund', {
+        body: { booking_id: booking.id, reason: 'cancellation' },
+      })
+    } catch (e) { console.error('[Stripe refund]', e.message) }
 
     // Dobropis (PDF) generuje send-cancellation-email níže — má vlastní idempotentní flow
     // přes generate-invoice s extra_items (negativní cena = dobropis). Přidá ho i jako přílohu mailu.
@@ -96,5 +102,8 @@ export async function cancelBookingFromVelin(booking, reasonText, sourceCode) {
     } catch {}
   }
 
-  return { success: true, updatePayload: { ...updatePayload, ...(emailNotified ? { cancellation_notified: true } : {}) } }
+  // Do vráceného payloadu (optimistický UI update) doplníme payment_status='refunded'
+  // — DB ho fakticky nastaví process-refund po úspěšném Stripe refundu; zde jen
+  // sladíme okamžitý stav v tabulce/detailu ve Velínu.
+  return { success: true, updatePayload: { ...updatePayload, ...(wasPaid ? { payment_status: 'refunded' } : {}), ...(emailNotified ? { cancellation_notified: true } : {}) } }
 }

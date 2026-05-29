@@ -382,11 +382,18 @@ Deno.serve(async (req: Request) => {
         }
       }
 
+      // App nativní Payment Sheet (mode:'intent' používá POUZE Flutter app — web jede
+      // přes hosted Checkout ve `handleWeb*Checkout`). Explicitně jen `card`:
+      // Google Pay / Apple Pay se v Payment Sheetu stále zobrazí (wallet prezentace
+      // karty, konfigurované v `initPaymentSheet`), ale Link se VYŘADÍ. Link checkout
+      // (checkout.link.com) v appce s CZK padá ("Something went wrong" / [OR_BIBED_11])
+      // a blokoval celý sheet ještě před výběrem Google Pay. Web hosted Checkout si drží
+      // vlastní konfiguraci platebních metod (Stripe Dashboard) a tato změna se ho NEDOTÝKÁ.
       const intentParams: Record<string, unknown> = {
         amount: amountCents,
         currency: currency || 'czk',
         metadata,
-        automatic_payment_methods: { enabled: true },
+        payment_method_types: ['card'],
         description: productName,
       }
       if (customerId) {

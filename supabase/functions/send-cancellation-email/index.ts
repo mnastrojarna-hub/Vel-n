@@ -243,20 +243,13 @@ serve(async (req) => {
           // pro already_refunded (předchozí pokus padl po Stripe kroku) jen dohraje PDF dobropis.
           // Voláme tedy bez guardu na alreadyRefunded — díky tomu se i recovery scenario doplní příloha.
           const hdrs = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`, 'apikey': SUPABASE_SERVICE_KEY }
-          const willCallRefund = (wasPaid || alreadyRefunded) && !!booking.stripe_payment_intent_id && (refund_amount > 0 || alreadyRefunded)
-          if (!willCallRefund && (wasPaid || alreadyRefunded) && refund_amount > 0) {
-            // Diagnostika: jsme paid s nenulovým refundem, ale process-refund nevoláme — typicky chybí
-            // stripe_payment_intent_id (Apple Pay race s webhookem, hotovost, voucher 100%, atd.).
-            // V tomhle stavu credit_note nikdy nevznikne automaticky → mail dorazí bez přílohy a admin
-            // má v Velínu manuálně dohrát refund (Stripe dashboard) + dobropis (generate-invoice).
-            await supabase.from('debug_log').insert({
-              source: 'send-cancellation-email',
-              action: 'refund_call_skipped_no_pi',
-              status: 'warning',
-              error_message: 'Booking is paid but stripe_payment_intent_id is missing — process-refund not called, attachment will be missing',
-              request_data: { booking_id, payment_status: booking.payment_status, refund_amount },
-            }).then(() => {}, () => {})
-          }
+          // process-refund si chybějící stripe_payment_intent_id umí dohledat ze
+          // stripe_session_id (viz process-refund), proto ho zde už NEvyžadujeme jako
+          // tvrdou podmínku — jinak by paid rezervace bez naplněného PI sloupce (web
+          // rezervace, race s webhookem) refund tiše přeskočila a Stripe by o vrácení
+          // vůbec nevěděl. Když PI ani session neexistují, process-refund vrátí
+          // `no_stripe_payment` a níže to zalogujeme.
+          const willCallRefund = (wasPaid || alreadyRefunded) && (refund_amount > 0 || alreadyRefunded)
           if (willCallRefund) {
             try {
               const refundRes = await fetch(`${SUPABASE_URL}/functions/v1/process-refund`, {
