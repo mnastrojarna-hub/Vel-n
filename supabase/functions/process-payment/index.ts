@@ -281,11 +281,24 @@ Deno.serve(async (req: Request) => {
     if (paymentMode === 'intent') {
       const amountCents = Math.round(amount * 100)
 
-      // -- OFF-SESSION (saved card auto-charge) --
-      // Když klient pošle payment_method_id, vytvoříme PaymentIntent rovnou s
-      // confirm:true a off_session:true. Stripe buď strhne (succeeded), nebo
-      // vyžádá SCA (requires_action) → klient ho dotáhne přes handleNextAction.
-      // Bez Payment Sheetu = parita s webem „1 klik na zaplatit".
+      // -- SAVED CARD (one-tap charge, customer PRESENT) --
+      // Když klient pošle payment_method_id, strhneme uloženou kartu rovnou
+      // (confirm:true) — BEZ Payment Sheetu. Zákazník je u toho (klepl na
+      // „Zaplatit"), takže jde o ON-SESSION platbu: `off_session` ZÁMĚRNĚ
+      // nenastavujeme.
+      //
+      // Pozn.: dřív zde bylo `off_session:true`. To je ale jen pro platby, kdy
+      // zákazník NENÍ přítomen (merchant-initiated). U přítomného zákazníka
+      // Stripe v off-session režimu vyžaduje předchozí SetupIntent a u karty,
+      // která tak uložena nebyla, vrací `authentication_required` → platba
+      // selhala a appka spadla zpět do Payment Sheetu (přesně ten „další
+      // screen", co překáží). On-session: karta bez SCA projde rovnou
+      // (succeeded), karta se SCA vrátí requires_action a klient 3DS dotáhne
+      // interaktivně přes handleNextAction (zákazník je u toho).
+      //
+      // V JSON odpovědi necháváme `off_session: true` jako routovací příznak
+      // „přímé stržení uložené karty" — čte ho appka (i nasazená 1.0.1), aby
+      // odlišila tento flow od běžného intentu s Payment Sheetem.
       if (payment_method_id && customerId) {
         const offSessionParams: Stripe.PaymentIntentCreateParams = {
           amount: amountCents,
@@ -294,8 +307,7 @@ Deno.serve(async (req: Request) => {
           customer: customerId,
           payment_method: payment_method_id,
           confirm: true,
-          off_session: true,
-          // off-session zakazuje redirecty (žádné voucher/Klarna/atd.)
+          // žádné redirect metody (voucher/Klarna/…), jen karta + případné 3DS
           automatic_payment_methods: { enabled: true, allow_redirects: 'never' },
           description: productName,
         }
