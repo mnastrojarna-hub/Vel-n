@@ -81,6 +81,24 @@ export default function Bookings() {
     setLoading(true)
     setError(null)
     try {
+      // Hledání dle zákazníka / modelu motorky se týká embedovaných tabulek,
+      // které PostgREST neumí filtrovat v jednom top-level .or(). Proto si
+      // nejdřív zjistíme odpovídající ID a poté filtrujeme bookings dle FK.
+      let searchOr = null
+      if (filters.search) {
+        const term = `%${filters.search}%`
+        const [motoRes, profRes] = await Promise.all([
+          supabase.from('motorcycles').select('id').ilike('model', term),
+          supabase.from('profiles').select('id').ilike('full_name', term),
+        ])
+        const motoIds = (motoRes.data || []).map(m => m.id)
+        const profIds = (profRes.data || []).map(p => p.id)
+        const parts = []
+        if (motoIds.length > 0) parts.push(`moto_id.in.(${motoIds.join(',')})`)
+        if (profIds.length > 0) parts.push(`user_id.in.(${profIds.join(',')})`)
+        // Žádná shoda → vynutíme prázdný výsledek
+        searchOr = parts.length > 0 ? parts.join(',') : 'id.eq.00000000-0000-0000-0000-000000000000'
+      }
       const result = await debugAction('bookings.load', 'Bookings', () => {
         let query = supabase
           .from('bookings')
@@ -98,9 +116,7 @@ export default function Bookings() {
         if (filters.priceMin) query = query.gte('total_price', Number(filters.priceMin))
         if (filters.priceMax) query = query.lte('total_price', Number(filters.priceMax))
         if (filters.futureOnly) query = query.gte('start_date', localIso(new Date()))
-        if (filters.search) {
-          query = query.or(`motorcycles.model.ilike.%${filters.search}%,profiles.full_name.ilike.%${filters.search}%`)
-        }
+        if (searchOr) query = query.or(searchOr)
         return query.order(filters.sortBy, { ascending: filters.sortDir === 'asc' })
           .range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
       }, { page, filters })
