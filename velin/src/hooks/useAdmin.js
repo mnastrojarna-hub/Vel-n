@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { supabase, supabaseUrl, supabaseAnonKey } from '../lib/supabase'
+import { supabase } from '../lib/supabase'
 
 export function useAdmin(user) {
   const [admin, setAdmin] = useState(null)
@@ -32,37 +32,15 @@ export function useAdmin(user) {
 
         if (fetchError) {
           if (fetchError.code === 'PGRST116') {
-            // Auto-provision: první přihlášení — volání Edge Function admin-auth
-            const { data: { session } } = await supabase.auth.getSession()
-            const token = session?.access_token
-            if (!token) {
-              setError('Chybí autentizační token')
-              setAdmin(null)
-              setLoading(false)
-              return
-            }
-
-            const resp = await fetch(`${supabaseUrl}/functions/v1/admin-auth`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
-                'apikey': supabaseAnonKey,
-              },
-              body: JSON.stringify({ action: 'provision' }),
-            })
-            const result = await resp.json()
-
-            if (result.success && result.admin) {
-              setAdmin(result.admin)
-              setRole(result.admin.role)
-              setBranchAccess(result.admin.branch_access)
-              setPermissions(result.admin.permissions)
-            } else {
-              console.error('Auto-provision failed:', result.error)
-              setError(`Nepodařilo se vytvořit admin účet: ${result.error || 'Neznámá chyba'}`)
-              setAdmin(null)
-            }
+            // Žádný viditelný admin_users záznam → uživatel NENÍ aktivní admin
+            // (zákazník nebo deaktivovaný účet — RLS is_admin() ho odfiltruje).
+            // Auto-provisioning byl ODSTRANĚN (bezpečnostní díra: kdokoli s platným
+            // účtem se prvním přihlášením do Velína sám povýšil na admina s rolí
+            // 'admin' a obešel tím RLS). Fail-closed — přístup zamítnut; nového
+            // admina přidává výhradně superadmin ručně do admin_users.
+            setError('Přístup odepřen — tento účet nemá oprávnění do Velína.')
+            setAdmin(null)
+            setRole(null)
           } else {
             console.error('Fetch admin failed:', JSON.stringify(fetchError))
             throw fetchError

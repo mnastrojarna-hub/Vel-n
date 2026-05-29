@@ -39,48 +39,26 @@ serve(async (req) => {
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
     if (action === 'provision') {
-      // Zkontrolujeme, zda admin záznam existuje
-      const { data: existing, error: fetchErr } = await supabaseAdmin
+      // BEZPEČNOST (2026-05-29): Auto-provisioning ODSTRANĚN. Dříve tato větev
+      // vytvořila admin_users řádek s výchozí rolí 'admin' KAŽDÉMU přihlášenému
+      // uživateli — jakýkoli zákazník s platným účtem se tak prvním přihlášením
+      // do Velína sám povýšil na admina a obešel RLS. Nově funkce pouze vrátí
+      // EXISTUJÍCÍ admin záznam; nového admina smí přidat výhradně superadmin
+      // ručně do admin_users. Žádné self-provisioning.
+      const { data: existing } = await supabaseAdmin
         .from('admin_users')
         .select('*')
         .eq('id', user.id)
         .single()
 
-      if (existing && !fetchErr) {
+      if (existing) {
         return new Response(JSON.stringify({ success: true, admin: existing }), {
           headers: { ...CORS, 'Content-Type': 'application/json' },
         })
       }
 
-      // Auto-provision: vytvořit admin záznam s výchozí rolí
-      const { data: created, error: insertErr } = await supabaseAdmin
-        .from('admin_users')
-        .insert({
-          id: user.id,
-          email: user.email,
-          name: user.user_metadata?.full_name || user.email,
-        })
-        .select()
-        .single()
-
-      if (insertErr) {
-        console.error('Auto-provision failed:', insertErr)
-        return new Response(JSON.stringify({ error: insertErr.message }), {
-          status: 500, headers: { ...CORS, 'Content-Type': 'application/json' },
-        })
-      }
-
-      // Audit log
-      try {
-        await supabaseAdmin.from('admin_audit_log').insert({
-          admin_id: user.id,
-          action: 'admin_auto_provisioned',
-          details: { email: user.email },
-        })
-      } catch (e) { /* ignore */ }
-
-      return new Response(JSON.stringify({ success: true, admin: created }), {
-        headers: { ...CORS, 'Content-Type': 'application/json' },
+      return new Response(JSON.stringify({ error: 'not_authorized' }), {
+        status: 403, headers: { ...CORS, 'Content-Type': 'application/json' },
       })
     }
 
