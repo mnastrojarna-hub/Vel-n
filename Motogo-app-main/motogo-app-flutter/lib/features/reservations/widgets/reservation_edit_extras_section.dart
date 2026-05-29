@@ -41,22 +41,22 @@ class EditExtrasSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return EditCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const Row(children: [
-        Icon(Icons.backpack, size: 16, color: MotoGoColors.greenDark),
-        SizedBox(width: 6),
-        Text('DOPLŇKY', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: MotoGoColors.black)),
+      Row(children: [
+        const Icon(Icons.backpack, size: 16, color: MotoGoColors.greenDark),
+        const SizedBox(width: 6),
+        Text(t(context).tr('addonsLabel'), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: MotoGoColors.black)),
       ]),
       const SizedBox(height: 8),
       // Dětská motorka nikdy nemá spolujezdce → skryj výbavu i boty spolujezdce.
       if (!isKids)
-        EditExtraCheckbox(id: 'spolujezdec', label: 'Výbava spolujezdce', sub: 'Helma, rukavice, vesta', price: 690,
+        EditExtraCheckbox(id: 'spolujezdec', label: t(context).tr('passengerGearLabel'), sub: t(context).tr('passengerGearSub'), price: 690,
           checked: selectedExtras.contains('spolujezdec'),
           onChanged: (v) => _toggle('spolujezdec', v)),
-      EditExtraCheckbox(id: 'boty_ridic', label: 'Boty řidiče', sub: 'Uveďte velikost', price: 290,
+      EditExtraCheckbox(id: 'boty_ridic', label: t(context).tr('driverBootsLabel'), sub: t(context).tr('specifySize'), price: 290,
         checked: selectedExtras.contains('boty_ridic'),
         onChanged: (v) => _toggle('boty_ridic', v)),
       if (!isKids)
-        EditExtraCheckbox(id: 'boty_spolujezdec', label: 'Boty spolujezdce', sub: 'Uveďte velikost', price: 290,
+        EditExtraCheckbox(id: 'boty_spolujezdec', label: t(context).tr('bootsPassengerLabel'), sub: t(context).tr('specifySize'), price: 290,
           checked: selectedExtras.contains('boty_spolujezdec'),
           onChanged: (v) => _toggle('boty_spolujezdec', v)),
       if (pickupMethod == 'delivery' || returnMethod == 'delivery') ...[
@@ -65,11 +65,11 @@ class EditExtrasSection extends StatelessWidget {
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(color: const Color(0xFFFFF9E6), borderRadius: BorderRadius.circular(10),
             border: Border.all(color: const Color(0xFFFFD54F).withValues(alpha: 0.5))),
-          child: const Row(children: [
-            Icon(Icons.info_outline, size: 14, color: Color(0xFF92400E)),
-            SizedBox(width: 6),
-            Expanded(child: Text('Při přistavení potřebujeme znát velikosti výbavy',
-              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF92400E)))),
+          child: Row(children: [
+            const Icon(Icons.info_outline, size: 14, color: Color(0xFF92400E)),
+            const SizedBox(width: 6),
+            Expanded(child: Text(t(context).tr('deliverySizeInfo'),
+              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF92400E)))),
           ]),
         ),
         const SizedBox(height: 8),
