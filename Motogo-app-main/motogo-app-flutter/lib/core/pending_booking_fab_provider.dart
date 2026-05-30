@@ -2,6 +2,18 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'supabase_client.dart';
 
+/// True while the PaymentScreen is on screen. Driven by PaymentScreen's
+/// widget lifecycle (initState/dispose), NOT by go_router's matchedLocation.
+///
+/// Důvod: na platbu se naviguje přes `context.push('/payment')` (imperativně).
+/// U imperativního pushe go_router NEAKTUALIZUJE `GoRouterState.of(context)
+/// .matchedLocation` ve `ShellRoute` builderu (zůstane na `/booking`), takže
+/// kontrola podle route stringu („onPaymentScreen") nikdy nesedí a FAB se
+/// neschoval. Tento příznak je navázaný přímo na existenci PaymentScreen, takže
+/// funguje bez ohledu na routovací kvírky. AppShell ho čte a skryje všechny
+/// plovoucí FAB panely, aby nepřekrývaly tlačítko „Zaplatit".
+final paymentScreenActiveProvider = StateProvider<bool>((ref) => false);
+
 /// Pending booking data for the FAB — mirrors _checkAndShowBookingFab()
 /// from reservations-ui.js. Shows unpaid bookings within 10-min window.
 class PendingBooking {

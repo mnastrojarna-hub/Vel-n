@@ -48,9 +48,13 @@ class AppShell extends ConsumerWidget {
 
     // Na platební obrazovce (rezervace i SOS) nesmí překážet žádný plovoucí
     // panel — jen by zakrýval tlačítko „Zaplatit". FAB se vrátí, až zákazník
-    // platbu opustí.
-    final onPaymentScreen =
-        location == Routes.payment || location == Routes.sosPayment;
+    // platbu opustí. Primárně se řídíme `paymentScreenActiveProvider`, který je
+    // navázaný na lifecycle PaymentScreen (spolehlivé i při push navigaci, kdy
+    // se matchedLocation neaktualizuje); route-string check necháváme jako
+    // pojistku.
+    final onPaymentScreen = ref.watch(paymentScreenActiveProvider) ||
+        location == Routes.payment ||
+        location == Routes.sosPayment;
 
     final bannerVisible = banner.valueOrNull != null && banner.valueOrNull!.enabled;
 
