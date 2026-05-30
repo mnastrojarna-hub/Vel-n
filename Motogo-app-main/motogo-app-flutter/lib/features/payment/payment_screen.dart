@@ -59,11 +59,20 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       _pendingBookingId = _ctx!.bookingId;
       _pendingOrderId = _ctx!.orderId;
     }
+    // Signalizuj AppShellu, že jsme na platbě → skryje plovoucí FAB panely.
+    // (Route-string check nestačí — na /payment se naviguje přes push, viz
+    // paymentScreenActiveProvider.) Nastavujeme po prvním frame, aby se
+    // nemodifikoval provider během buildu.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) ref.read(paymentScreenActiveProvider.notifier).state = true;
+    });
   }
 
   @override
   void dispose() {
     _countdownTimer?.cancel();
+    // Platbu opouštíme → FAB panely se zase smí zobrazit.
+    ref.read(paymentScreenActiveProvider.notifier).state = false;
     super.dispose();
   }
 
@@ -407,10 +416,14 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   }
 
   /// Chybová hláška pro selhání stržení uložené karty (declined / expired /
-  /// SCA zrušeno). Zákazník nikdy nesmí zůstat v nejistotě — ukážeme konkrétní
-  /// příčinu (nedostatek prostředků, blokace, expirace, banka zamítla…) přes
-  /// `PaymentErrorMapper` a tlačítko „Zkusit znovu" otevře klasický Payment Sheet,
-  /// kde může zvolit jinou kartu nebo Google Pay.
+  /// SCA zrušeno). Ukážeme konkrétní příčinu (nedostatek prostředků, blokace,
+  /// expirace, banka zamítla…) přes `PaymentErrorMapper`.
+  ///
+  /// DŮLEŽITÉ (požadavek zákazníka): tlačítko „Zkusit znovu" znovu strhne
+  /// ULOŽENOU kartu — NIKDY samo neotevře Stripe Payment Sheet (zadávání karty).
+  /// Po vyčerpání pokusů (maxPaymentAttempts) jde uživatel do Rezervací, kde si
+  /// může kartu změnit v profilu. Payment Sheet se na platbě s uloženou kartou
+  /// už nezobrazí.
   void _handleSavedCardFailure(PaymentResult result) {
     if (_attempts >= maxPaymentAttempts) {
       _handleMaxAttempts();
@@ -439,8 +452,16 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       message: info.message + counter,
       buttonLabel: t(context).tr('retry'),
       onButton: () {
-        // Po potvrzení otevři klasický Payment Sheet (jiná karta / Google Pay).
-        if (mounted) _runPaymentSheetFlow(_amount);
+        // Znovu strhni ULOŽENOU kartu (žádný Payment Sheet).
+        final card = ref.read(defaultCardProvider);
+        if (!mounted) return;
+        if (card != null && card.stripeId.isNotEmpty) {
+          setState(() => _processing = true);
+          _chargeSavedCard(_amount, card);
+        } else {
+          // Uložená karta zmizela (smazaná v profilu) → klasický flow.
+          _runPaymentSheetFlow(_amount);
+        }
       },
     );
   }
