@@ -37,7 +37,7 @@ class PaymentScreen extends ConsumerStatefulWidget {
   ConsumerState<PaymentScreen> createState() => _PaymentScreenState();
 }
 
-class _PaymentScreenState extends ConsumerState<PaymentScreen> {
+class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindingObserver {
   bool _processing = false;
   String? _pendingBookingId;
   String? _pendingOrderId;
@@ -46,12 +46,16 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   late DateTime _deadline;
   String _timeRemaining = '10:00';
   bool _insuranceSelected = false;
+  // Idempotentní pojistka — flow se smí dokončit (děkovací stránka) jen jednou,
+  // i kdyby se sešel úspěch z Payment Sheetu a recovery po app-resume zároveň.
+  bool _completed = false;
 
   PaymentContext? _ctx;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _deadline = DateTime.now().add(paymentTimeoutDuration);
     _startCountdown();
     _ctx = ref.read(paymentContextProvider);
@@ -63,8 +67,55 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _countdownTimer?.cancel();
     super.dispose();
+  }
+
+  /// Pojistka proti uvíznutí mimo nativní Payment Sheet.
+  ///
+  /// Některé platební metody otevřou externí prohlížeč/okno (typicky Stripe
+  /// Link → `checkout.link.com`, Google Pay, 3DS). Pokud tam zákazník uvízne
+  /// nebo se redirect zpět do appky nepovede, appka se po návratu do popředí
+  /// jen probudí — bez výsledku z Payment Sheetu. Platba přitom mohla na straně
+  /// Stripe reálně proběhnout (webhook označí rezervaci jako `paid`).
+  ///
+  /// Při každém návratu appky do popředí proto ověříme stav rezervace/objednávky
+  /// v DB. Když je už zaplaceno, dotáhneme flow na děkovací stránku, aby zákazník
+  /// nikdy nezůstal v nejistotě „zaplaceno / nezaplaceno" ani bez potvrzení.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _recoverPaymentOnResume();
+    }
+  }
+
+  Future<void> _recoverPaymentOnResume() async {
+    if (_completed) return;
+    final bookingId = _pendingBookingId;
+    final orderId = _pendingOrderId;
+    if (bookingId == null && orderId == null) return;
+
+    bool paid = false;
+    if (orderId != null) {
+      paid = await StripeService.pollOrderPaymentStatus(
+        orderId,
+        maxAttempts: 2,
+        interval: const Duration(seconds: 1),
+      );
+    } else if (bookingId != null) {
+      paid = await StripeService.pollBookingPaymentStatus(
+        bookingId,
+        maxAttempts: 2,
+        interval: const Duration(seconds: 1),
+      );
+    }
+
+    if (!mounted || _completed) return;
+    if (paid) {
+      debugPrint('[Payment] resume recovery — platba potvrzena v DB, dokončuji flow');
+      _onPaymentSuccess();
+    }
   }
 
   // -- Helpers --
@@ -665,6 +716,8 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   }
 
   Future<void> _onPaymentSuccess() async {
+    if (_completed) return;
+    _completed = true;
     _countdownTimer?.cancel();
     ref.read(paymentContextProvider.notifier).state = null;
 
