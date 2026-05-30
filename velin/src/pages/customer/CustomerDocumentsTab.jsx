@@ -56,6 +56,7 @@ export default function CustomerDocumentsTab({ userId }) {
   const [error, setError] = useState(null)
   const [viewDoc, setViewDoc] = useState(null)
   const [viewHtml, setViewHtml] = useState(null)
+  const [viewImage, setViewImage] = useState(null) // { url, doc } — náhled fotky ověřovacího dokladu
 
   // Filters
   const [search, setSearch] = useState('')
@@ -118,6 +119,25 @@ export default function CustomerDocumentsTab({ userId }) {
     docs.forEach(d => {
       items.push({ id: d.id, kind: 'document', icon: DOC_ICONS[d.type] || '📄', name: d.file_name || d.name || DOC_TYPE_LABELS[d.type] || d.type || 'Dokument', type: d.type, date: d.created_at?.slice(0, 10), raw: d, category: d.type === 'contract' || d.type === 'vop' ? 'contracts' : 'other' })
     })
+    // Ověřovací doklady (OP/ŘP/pas fotky) — i ty, co Mindee neověřil. Slouží jen
+    // pro PŘEHLED admina, aby si je mohl ručně zkontrolovat; na uvolnění kódů ani
+    // na to, zda se doklad počítá za nahraný, to nemá vliv (řeší docVerification).
+    verificationDocs.forEach(d => {
+      const st = d?.metadata?.mindee_status
+      const side = d?.metadata?.side
+      const sideLabel = side === 'front' ? ' — líc' : side === 'back' ? ' — rub' : ''
+      const typeBadge = st === 'ok'
+        ? { label: 'Ověřovací doklad · Mindee OK', color: '#1a8a18', bg: '#dcfce7' }
+        : st === 'failed'
+          ? { label: 'Ověřovací doklad · Mindee neověřil — ke kontrole', color: '#b45309', bg: '#fef3c7' }
+          : { label: 'Ověřovací doklad · foto', color: '#1a2e22', bg: '#f1faf7' }
+      items.push({
+        id: d.id, kind: 'verification',
+        icon: st === 'ok' ? '✅' : st === 'failed' ? '⚠️' : '📷',
+        name: (DOC_TYPE_LABELS[d.type] || d.type || 'Doklad') + sideLabel,
+        typeBadge, type: d.type, date: d.created_at?.slice(0, 10), raw: d, category: 'verification',
+      })
+    })
     return items
   }
 
@@ -145,8 +165,19 @@ export default function CustomerDocumentsTab({ userId }) {
       } catch (e) { setError(`Náhled faktury selhal: ${e.message}`) }
       return
     }
+    if (item.kind === 'verification') { await handleViewVerification(item.raw); return }
     if (item.kind === 'generated') { await handleViewGeneratedDoc(item.raw); return }
     await handleViewDoc(item.raw)
+  }
+
+  async function handleViewVerification(doc) {
+    setError(null)
+    if (!doc.file_path) { setError('Tento doklad nemá uloženou fotku.'); return }
+    try {
+      const { data, error: err } = await supabase.storage.from('documents').createSignedUrl(doc.file_path, 60 * 5)
+      if (err) throw err
+      setViewImage({ url: data.signedUrl, doc })
+    } catch (e) { setError(`Náhled dokladu selhal: ${e.message}`) }
   }
 
   async function handleViewGeneratedDoc(doc) {
@@ -321,6 +352,24 @@ export default function CustomerDocumentsTab({ userId }) {
             {viewHtml && <Button onClick={() => { const win = window.open('', '_blank'); if (win) { win.document.write(viewHtml); win.document.close(); win.onload = () => win.print() } }}>Tisk / PDF</Button>}
             <Button onClick={() => handleDownload({ kind: viewDoc.number ? 'invoice' : 'document', raw: viewDoc })}>Stáhnout</Button>
             <Button onClick={() => { setViewDoc(null); setViewHtml(null) }}>Zavřít</Button>
+          </div>
+        </Modal>
+      )}
+
+      {/* Náhled fotky ověřovacího dokladu (i Mindee-neověřené) — pro ruční kontrolu */}
+      {viewImage && (
+        <Modal open title={viewImage.doc?.name || viewImage.doc?.file_name || 'Foto dokladu'} onClose={() => setViewImage(null)} wide>
+          {viewImage.doc?.metadata?.mindee_status === 'failed' && (
+            <div className="p-2 mb-3 rounded-lg" style={{ background: '#fef3c7', border: '1px solid #fcd34d', color: '#92400e', fontSize: 13 }}>
+              ⚠️ Mindee OCR tento doklad neověřil — fotka je uložená pro ruční kontrolu. Údaje případně doplňte ručně do profilu zákazníka.
+            </div>
+          )}
+          <div className="flex justify-center" style={{ background: '#0f1a14', padding: 12, borderRadius: 8 }}>
+            <img src={viewImage.url} alt="doklad" style={{ maxWidth: '100%', maxHeight: 600, borderRadius: 4 }} />
+          </div>
+          <div className="flex justify-end gap-3 mt-4">
+            <Button onClick={() => handleDownload({ kind: 'verification', raw: viewImage.doc })}>Stáhnout</Button>
+            <Button onClick={() => setViewImage(null)}>Zavřít</Button>
           </div>
         </Modal>
       )}
