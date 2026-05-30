@@ -397,24 +397,29 @@ Deno.serve(async (req: Request) => {
       // App nativní Payment Sheet (mode:'intent' používá POUZE Flutter app — web jede
       // přes hosted Checkout ve `handleWeb*Checkout`).
       //
-      // FIX 2026-05-29: `automatic_payment_methods` + `allow_redirects:'never'`
-      // NEVYŘADÍ Link. Link má v mobilním Payment Sheetu vlastní NE-redirect flow,
-      // takže ho Stripe neklasifikuje jako redirect metodu a `allow_redirects:'never'`
-      // ho v sheetu PONECHÁ. Link express tlačítko pak otevíralo checkout.link.com,
-      // které pro CZK padalo ("Something went wrong"). Předchozí 2 opravy mířily na
-      // tento špatný mechanismus → Link se pořád zobrazoval.
+      // 2026-05-30 — PRODUKTOVÝ POŽADAVEK: Link MUSÍ být dostupný jako plnohodnotná
+      // platební metoda (vedle karty a Google/Apple Pay). Proto `payment_method_types`
+      // zahrnuje `'card'` i `'link'` (stejně jako web hosted Checkout). Dřívější
+      // vyřazení Linku (`['card']`) bylo workaroundem na zaseknutí na `checkout.link.com`,
+      // což ale odporuje požadavku, aby si zákazník mohl Link zvolit a aby u něj
+      // viděl korektní výsledek (úspěch / nedostatek prostředků / …).
       //
-      // Řešení: explicitně omezit metody na ['card']. Google Pay i Apple Pay se
-      // tokenizují NA kartu (jsou to card wallets) a Payment Sheet je dál vykresluje
-      // přes `googlePay`/`applePay` parametry v `initPaymentSheet` — peněženky tedy
-      // zůstávají, zmizí JEN Link. Uložené karty (customer + ephemeral key) fungují
-      // s 'card' beze změny. Web hosted Checkout má vlastní konfiguraci metod ve
-      // Stripe Dashboardu a tato změna se ho NEDOTÝKÁ.
+      // Proti zaseknutí (kdyby návrat z Linku/3DS selhal) chrání DVĚ věci na klientu:
+      //   1) `returnURL: motogo24://payment` + registrovaný deep link (AndroidManifest)
+      //      → Stripe SDK dotáhne Payment Sheet zpět do appky,
+      //   2) `PaymentScreen` resume-recovery — po návratu appky do popředí ověří stav
+      //      platby v DB (webhook) a buď dotáhne děkovací stránku, nebo uvolní UI
+      //      pro opakování. Zákazník tak nikdy nezůstane viset.
+      //
+      // Google Pay / Apple Pay zůstávají (card wallets, vykreslené `initPaymentSheet`
+      // přes `googlePay`/`applePay`). Uložené karty (customer + ephemeral key) fungují
+      // beze změny. Web hosted Checkout má vlastní konfiguraci metod a tato větev se
+      // ho NEDOTÝKÁ.
       const intentParams: Record<string, unknown> = {
         amount: amountCents,
         currency: currency || 'czk',
         metadata,
-        payment_method_types: ['card'],
+        payment_method_types: ['card', 'link'],
         description: productName,
       }
       if (customerId) {
