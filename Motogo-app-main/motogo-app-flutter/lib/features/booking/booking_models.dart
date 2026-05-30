@@ -30,6 +30,9 @@ class BookingDraft {
   String? passengerHelmetSize;
   String? passengerJacketSize;
   String? passengerPantsSize;
+  /// Zákazník má vlastní výbavu — při přistavení (delivery) přeskočí výběr
+  /// základní výbavy zdarma (helma, rukavice, bunda, kalhoty).
+  bool ownGear;
   bool consentVop;
   bool consentGdpr;
   bool consentKids;
@@ -65,6 +68,7 @@ class BookingDraft {
     this.passengerHelmetSize,
     this.passengerJacketSize,
     this.passengerPantsSize,
+    this.ownGear = false,
     this.consentVop = false,
     this.consentGdpr = false,
     this.consentKids = false,
@@ -108,6 +112,7 @@ class BookingDraft {
     String? Function()? passengerHelmetSize,
     String? Function()? passengerJacketSize,
     String? Function()? passengerPantsSize,
+    bool? ownGear,
     bool? consentVop,
     bool? consentGdpr,
     bool? consentKids,
@@ -143,6 +148,7 @@ class BookingDraft {
       passengerHelmetSize: passengerHelmetSize != null ? passengerHelmetSize() : this.passengerHelmetSize,
       passengerJacketSize: passengerJacketSize != null ? passengerJacketSize() : this.passengerJacketSize,
       passengerPantsSize: passengerPantsSize != null ? passengerPantsSize() : this.passengerPantsSize,
+      ownGear: ownGear ?? this.ownGear,
       consentVop: consentVop ?? this.consentVop,
       consentGdpr: consentGdpr ?? this.consentGdpr,
       consentKids: consentKids ?? this.consentKids,
