@@ -69,30 +69,46 @@ class BookingFormExtrasSection extends ConsumerWidget {
           ),
           if (draft.pickupMethod == 'delivery') ...[
             const SizedBox(height: 8),
-            bookingGearRow(
-              t(context).tr('helmet'),
-              draft.helmetSize,
-              (s) => onUpd((d) => d.copyWith(helmetSize: () => s)),
-              sizes: gearSizesFor('helmet', kids: isKids),
+            // Přepínač „Mám vlastní výbavu" — zákazník nemusí vybírat velikosti
+            // základní výbavy zdarma. Při zapnutí vyčistíme dříve zvolené velikosti.
+            bookingCheckbox(
+              t(context).tr('ownGear'),
+              draft.ownGear,
+              (v) => onUpd((d) => d.copyWith(
+                    ownGear: v,
+                    helmetSize: v ? () => null : null,
+                    glovesSize: v ? () => null : null,
+                    jacketSize: v ? () => null : null,
+                    pantsSize: v ? () => null : null,
+                  )),
             ),
-            bookingGearRow(
-              t(context).tr('gloves'),
-              draft.glovesSize,
-              (s) => onUpd((d) => d.copyWith(glovesSize: () => s)),
-              sizes: gearSizesFor('gloves', kids: isKids),
-            ),
-            bookingGearRow(
-              t(context).tr('jacket'),
-              draft.jacketSize,
-              (s) => onUpd((d) => d.copyWith(jacketSize: () => s)),
-              sizes: gearSizesFor('jacket', kids: isKids),
-            ),
-            bookingGearRow(
-              t(context).tr('pants'),
-              draft.pantsSize,
-              (s) => onUpd((d) => d.copyWith(pantsSize: () => s)),
-              sizes: gearSizesFor('pants', kids: isKids),
-            ),
+            if (!draft.ownGear) ...[
+              const SizedBox(height: 8),
+              bookingGearRow(
+                t(context).tr('helmet'),
+                draft.helmetSize,
+                (s) => onUpd((d) => d.copyWith(helmetSize: () => s)),
+                sizes: gearSizesFor('helmet', kids: isKids),
+              ),
+              bookingGearRow(
+                t(context).tr('gloves'),
+                draft.glovesSize,
+                (s) => onUpd((d) => d.copyWith(glovesSize: () => s)),
+                sizes: gearSizesFor('gloves', kids: isKids),
+              ),
+              bookingGearRow(
+                t(context).tr('jacket'),
+                draft.jacketSize,
+                (s) => onUpd((d) => d.copyWith(jacketSize: () => s)),
+                sizes: gearSizesFor('jacket', kids: isKids),
+              ),
+              bookingGearRow(
+                t(context).tr('pants'),
+                draft.pantsSize,
+                (s) => onUpd((d) => d.copyWith(pantsSize: () => s)),
+                sizes: gearSizesFor('pants', kids: isKids),
+              ),
+            ],
           ],
           const SizedBox(height: 10),
           ...(isKids
