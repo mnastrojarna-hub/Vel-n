@@ -44,7 +44,7 @@ class _ResCancelDialogState extends State<ResCancelDialog> {
                 Text(t(context).tr('stornoRules'), style: const TextStyle(fontSize: 10, color: MotoGoColors.g600)),
                 const SizedBox(height: 4),
                 Text(
-                  '${t(context).tr('currentlyRefund')}: $pct% (${refund.toStringAsFixed(0)} Kč)',
+                  t(context).tr('currentlyRefund').replaceAll('{pct}', '$pct').replaceAll('{amount}', refund.toStringAsFixed(0)),
                   style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
                 ),
               ],
