@@ -54,6 +54,8 @@
 - **form_started_at** (timestamptz, NEW 2026-05-23) — okamžik otevření webového rezervačního formuláře (`MG._rezInit`, uloženo v sessionStorage `mg_rez_started_at`). Plní `set_booking_form_seconds` po create_web_booking. Jen `booking_source='web'`.
 - **form_fill_seconds** (integer, NEW 2026-05-23) — doba (s) start→vytvoření rezervace = samotné vyplňování formuláře. Spočte `set_booking_form_seconds` (now - form_started_at, clamp 0–86400). Velín detail rezervace → „Doba vyplnění formuláře".
 - **payment_fill_seconds** (integer, NEW 2026-05-23) — doba (s) start→úspěšná platba (celý proces vč. dokladů). Dopočítá trigger `trg_booking_payment_fill_seconds` při přechodu na `payment_status='paid'` (confirmed_at - form_started_at, clamp 0–604800). Funguje i přes Stripe redirect (start je v DB). Velín → „Doba do zaplacení".
+- **created_device** (text, NEW 2026-05-30) — zařízení při vytvoření web rezervace (krok 1): `pc` | `mobile` | `tablet`. Plní `set_web_booking_device(p_phase='created')` z `pages-rezervace-steps.js` po `create_web_booking` (jen poprvé — `created_device IS NULL`, aby „Zpět"/resume nepřepsal start). Detekce na frontendu `MG._rezDeviceType()` (user-agent + maxTouchPoints).
+- **completed_device** (text, NEW 2026-05-30) — zařízení při dokončení / kliknutí na platbu (krok 2). Plní `set_web_booking_device(p_phase='completed')` z `pages-rezervace-scan.js#_rezSubmitPayment`. Pokud se liší od `created_device`, Velín (`BookingSummary.jsx` → „Zařízení") zobrazí cross-device průběh „PC → Mobil" (zákazník začal na PC, dokončil na mobilu — typicky QR resume). Jen `booking_source='web'`.
 
 ### booking_complaints
 - id (uuid PK), booking_id (refs bookings), customer_id (refs profiles)

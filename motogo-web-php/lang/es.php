@@ -250,6 +250,7 @@ return [
 
     // ===== Reserva — formulario de contacto =====
     'rez.contact.name' => '* Nombre y apellidos',
+    'rez.contact.dob' => '* Fecha de nacimiento',
     'rez.contact.street' => '* Calle, número',
     'rez.contact.zip' => '* Código postal',
     'rez.contact.city' => '* Ciudad',
@@ -335,6 +336,7 @@ return [
     // ===== Reserva — mensajes de validación =====
     'rez.alert.name' => 'Introduzca un nombre y apellidos válidos (mín. 2 letras, sin dígitos).',
     'rez.alert.street' => 'Introduzca la calle y el número (mín. 3 caracteres).',
+    'rez.alert.dob' => 'Introduzca su fecha de nacimiento.',
     'rez.alert.city' => 'Introduzca la ciudad (mín. 2 caracteres).',
     'rez.alert.zip' => 'Por favor, introduzca el código postal.',
     'rez.alert.email' => 'Introduzca una dirección de correo válida.',

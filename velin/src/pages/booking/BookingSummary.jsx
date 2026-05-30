@@ -64,6 +64,12 @@ export default function BookingSummary({ booking, sosIncidents, bookingExtras, c
     mod = describeModification(b.original_start_date, b.original_end_date, b.start_date, b.end_date)
   }
   const history = Array.isArray(b.modification_history) ? b.modification_history : []
+  const devLabel = d => d === 'pc' ? 'PC' : d === 'mobile' ? 'Mobil' : d === 'tablet' ? 'Tablet' : null
+  const devStart = devLabel(b.created_device)
+  const devEnd = devLabel(b.completed_device)
+  const deviceVal = (devStart && devEnd && devEnd !== devStart)
+    ? `${devStart} → ${devEnd}`
+    : (devStart || devEnd || null)
 
   return (
     <div className="space-y-1">
@@ -277,6 +283,9 @@ export default function BookingSummary({ booking, sosIncidents, bookingExtras, c
 
       <div className="text-sm font-extrabold uppercase tracking-wide mt-4 mb-2" style={{ color: '#1a2e22' }}>Průběh</div>
       <SumRow label="Vytvořeno" value={fmtDT(b.created_at)} />
+      {b.booking_source === 'web' && deviceVal && (
+        <SumRow label="Zařízení" value={deviceVal} color={devStart && devEnd && devEnd !== devStart ? '#7c3aed' : undefined} />
+      )}
       {Number.isFinite(b.form_fill_seconds) && b.form_fill_seconds >= 0 && (
         <SumRow label="Doba vyplnění formuláře" value={fmtDuration(b.form_fill_seconds)} />
       )}
