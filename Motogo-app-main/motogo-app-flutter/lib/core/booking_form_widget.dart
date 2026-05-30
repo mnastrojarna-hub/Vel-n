@@ -43,10 +43,13 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
   List<String> _missingGearSizes(BuildContext context, BookingDraft d) {
     if (d.pickupMethod != 'delivery') return const [];
     final missing = <String>[];
-    if (d.helmetSize == null) missing.add(t(context).tr('gearHelmetDriver'));
-    if (d.glovesSize == null) missing.add(t(context).tr('gearGlovesDriver'));
-    if (d.jacketSize == null) missing.add(t(context).tr('gearJacketDriver'));
-    if (d.pantsSize == null) missing.add(t(context).tr('gearPantsDriver'));
+    // Základní výbavu zdarma vyžadujeme jen pokud zákazník NEMÁ vlastní výbavu.
+    if (!d.ownGear) {
+      if (d.helmetSize == null) missing.add(t(context).tr('gearHelmetDriver'));
+      if (d.glovesSize == null) missing.add(t(context).tr('gearGlovesDriver'));
+      if (d.jacketSize == null) missing.add(t(context).tr('gearJacketDriver'));
+      if (d.pantsSize == null) missing.add(t(context).tr('gearPantsDriver'));
+    }
     SelectedExtra? findExtra(String id) =>
         d.extras.where((e) => e.id == id).firstOrNull;
     final botyRidic = findExtra('extra-boty-ridic');
