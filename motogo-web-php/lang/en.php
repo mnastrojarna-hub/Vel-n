@@ -249,6 +249,7 @@ return [
 
     // ===== Booking — contact form =====
     'rez.contact.name' => '* Full name',
+    'rez.contact.dob' => '* Date of birth',
     'rez.contact.street' => '* Street, house no.',
     'rez.contact.zip' => '* ZIP code',
     'rez.contact.city' => '* City',
@@ -334,6 +335,7 @@ return [
     // ===== Booking — validation messages =====
     'rez.alert.name' => 'Enter a valid full name (min. 2 letters, no digits).',
     'rez.alert.street' => 'Enter the street and house number (min. 3 characters).',
+    'rez.alert.dob' => 'Please enter your date of birth.',
     'rez.alert.city' => 'Enter the city (min. 2 characters).',
     'rez.alert.zip' => 'Please enter the ZIP code.',
     'rez.alert.email' => 'Enter a valid e-mail address.',
