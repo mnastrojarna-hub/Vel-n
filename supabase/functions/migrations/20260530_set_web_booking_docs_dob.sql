@@ -36,7 +36,11 @@
 --   OCR ověření (viz auto_generate_door_codes / check_booking_docs_status).
 -- =============================================================================
 
+-- Pozn.: v produkci existovala i 6-arg varianta s odlišně pojmenovaným 6. param
+-- (`p_license_categories`) — osiřelý pozůstatek, nic ji s tím parametrem nevolá.
+-- CREATE OR REPLACE neumí přejmenovat parametr → musíme dropnout obě signatury.
 DROP FUNCTION IF EXISTS public.set_web_booking_docs(uuid, text, text, text, text);
+DROP FUNCTION IF EXISTS public.set_web_booking_docs(uuid, text, text, text, text, text);
 
 CREATE OR REPLACE FUNCTION public.set_web_booking_docs(
   p_booking_id uuid,
