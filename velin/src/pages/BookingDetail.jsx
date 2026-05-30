@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { debugAction } from '../lib/debugLog'
@@ -36,7 +36,40 @@ export default function BookingDetail() {
   const [voucherUsed, setVoucherUsed] = useState(null)
   const [hasCreditNote, setHasCreditNote] = useState(false)
 
+  // Refy pro realtime subscription — callback se vytvoří jen jednou (deps [id]),
+  // takže potřebuje vždy aktuální stav (status/platba) i příznak probíhajícího uložení.
+  const bookingRef = useRef(null)
+  const savingRef = useRef(false)
+  useEffect(() => { bookingRef.current = booking }, [booking])
+  useEffect(() => { savingRef.current = saving }, [saving])
+
   useEffect(() => { loadBooking() }, [id])
+
+  // Realtime: tabulka `bookings` je v supabase_realtime publikaci, ale detail rezervace
+  // se dosud načítal jen jednou při otevření. Když admin nechal kartu otevřenou,
+  // potvrzení platby ze Stripe webhooku, storno z appky i auto-přechody z cronu se
+  // nikdy nepropsaly — Velín ukazoval „zamrzlý" stav z okamžiku vytvoření.
+  // Přihlásíme se na UPDATE/DELETE právě této rezervace a při změně stavu/platby
+  // znovu načteme (loadBooking navíc spustí self-heal pending+paid → reserved/active).
+  useEffect(() => {
+    if (!id) return
+    const channel = supabase.channel(`booking-detail-${id}`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'bookings', filter: `id=eq.${id}` }, (payload) => {
+        // Nereagujeme na vlastní právě probíhající uložení (optimistický update už proběhl)
+        // — jinak by reload přepsal rozdělané editace v detailu.
+        if (savingRef.current) return
+        const cur = bookingRef.current
+        const n = payload.new || {}
+        if (!cur) return
+        if (n.status !== cur.status || n.payment_status !== cur.payment_status) loadBooking()
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'bookings', filter: `id=eq.${id}` }, () => {
+        setBooking(null)
+        setError('Rezervace byla mezitím smazána.')
+      })
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [id])
 
   async function loadBooking() {
     setLoading(true)
