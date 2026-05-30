@@ -349,6 +349,7 @@ return [
 
     // ===== Rezervace — kontaktní formulář =====
     'rez.contact.name' => '* Jméno a příjmení',
+    'rez.contact.dob' => '* Datum narození',
     'rez.contact.street' => '* Ulice, č.p.',
     'rez.contact.zip' => '* PSČ',
     'rez.contact.city' => '* Město',
@@ -455,6 +456,7 @@ return [
     // ===== Rezervace — validační hlášky =====
     'rez.alert.name' => 'Zadejte platné jméno a příjmení (min. 2 písmena, bez číslic).',
     'rez.alert.street' => 'Zadejte ulici a číslo popisné (min. 3 znaky).',
+    'rez.alert.dob' => 'Vyplňte datum narození.',
     'rez.alert.city' => 'Zadejte město (min. 2 znaky).',
     'rez.alert.zip' => 'Vyplňte prosím PSČ.',
     'rez.alert.email' => 'Zadejte platnou e-mailovou adresu.',

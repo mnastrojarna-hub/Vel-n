@@ -235,6 +235,7 @@ return [
 
     // ===== Reservering — contactformulier =====
     'rez.contact.name' => '* Voor- en achternaam',
+    'rez.contact.dob' => '* Geboortedatum',
     'rez.contact.street' => '* Straat, huisnr.',
     'rez.contact.zip' => '* Postcode',
     'rez.contact.city' => '* Stad',
@@ -320,6 +321,7 @@ return [
     // ===== Reservering — validatie =====
     'rez.alert.name' => 'Voer een geldige voor- en achternaam in (min. 2 letters, geen cijfers).',
     'rez.alert.street' => 'Voer straat en huisnummer in (min. 3 tekens).',
+    'rez.alert.dob' => 'Voer uw geboortedatum in.',
     'rez.alert.city' => 'Voer de stad in (min. 2 tekens).',
     'rez.alert.zip' => 'Voer de postcode in.',
     'rez.alert.email' => 'Voer een geldig e-mailadres in.',

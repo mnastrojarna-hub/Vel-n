@@ -249,6 +249,7 @@ return [
 
     // ===== Reservierung — Kontaktformular =====
     'rez.contact.name' => '* Vor- und Nachname',
+    'rez.contact.dob' => '* Geburtsdatum',
     'rez.contact.street' => '* Straße, Hausnummer',
     'rez.contact.zip' => '* PLZ',
     'rez.contact.city' => '* Stadt',
@@ -334,6 +335,7 @@ return [
     // ===== Reservierung — Validierungsmeldungen =====
     'rez.alert.name' => 'Geben Sie einen gültigen Vor- und Nachnamen ein (min. 2 Buchstaben, ohne Ziffern).',
     'rez.alert.street' => 'Geben Sie Straße und Hausnummer ein (min. 3 Zeichen).',
+    'rez.alert.dob' => 'Bitte geben Sie Ihr Geburtsdatum ein.',
     'rez.alert.city' => 'Geben Sie die Stadt ein (min. 2 Zeichen).',
     'rez.alert.zip' => 'Bitte geben Sie die PLZ ein.',
     'rez.alert.email' => 'Geben Sie eine gültige E-Mail-Adresse ein.',

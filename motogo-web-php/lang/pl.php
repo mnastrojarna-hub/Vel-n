@@ -235,6 +235,7 @@ return [
 
     // ===== Rezerwacja — formularz kontaktowy =====
     'rez.contact.name' => '* Imię i nazwisko',
+    'rez.contact.dob' => '* Data urodzenia',
     'rez.contact.street' => '* Ulica, nr',
     'rez.contact.zip' => '* Kod pocztowy',
     'rez.contact.city' => '* Miasto',
@@ -320,6 +321,7 @@ return [
     // ===== Rezerwacja — komunikaty walidacji =====
     'rez.alert.name' => 'Wpisz prawidłowe imię i nazwisko (min. 2 litery, bez cyfr).',
     'rez.alert.street' => 'Wpisz ulicę i numer (min. 3 znaki).',
+    'rez.alert.dob' => 'Podaj datę urodzenia.',
     'rez.alert.city' => 'Wpisz miasto (min. 2 znaki).',
     'rez.alert.zip' => 'Wpisz kod pocztowy.',
     'rez.alert.email' => 'Wpisz prawidłowy adres e-mail.',
