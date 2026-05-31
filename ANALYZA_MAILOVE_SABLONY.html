@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MotoGo24 — Přehled mailových šablon pro copywriting</title>
+<style>
+  :root{
+    --green:#74FB71; --dark:#0f1a14; --ink:#1a2e22; --bg:#eef2f0;
+    --res:#2563eb; --res-bg:#dbeafe; --sto:#dc2626; --sto-bg:#fee2e2;
+    --inv:#b45309; --inv-bg:#fef3c7; --shop:#7c3aed; --shop-bg:#ede9fe; --oth:#475569; --oth-bg:#e2e8f0;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink);line-height:1.55;padding:0 0 60px}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 20px}
+
+  .hero{background:linear-gradient(135deg,#000 0%,#0f1a14 100%);color:#fff;padding:46px 0 40px;margin-bottom:34px;border-bottom:4px solid var(--green)}
+  .hero .logo{font-size:34px;font-weight:900;letter-spacing:4px}
+  .hero .logo span{color:var(--green)}
+  .hero .sub{color:var(--green);font-size:12px;letter-spacing:5px;text-transform:uppercase;margin-top:6px}
+  .hero h1{font-size:26px;font-weight:800;margin-top:20px}
+  .hero p{color:#b8c7bf;margin-top:8px;max-width:760px;font-size:15px}
+
+  .how{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:38px}
+  .how .step{background:#fff;border-radius:14px;padding:18px;border:1px solid #dde7e2}
+  .how .num{width:30px;height:30px;border-radius:50%;background:var(--green);color:#000;font-weight:900;display:flex;align-items:center;justify-content:center;font-size:15px;margin-bottom:10px}
+  .how .step b{display:block;font-size:14px;color:var(--dark);margin-bottom:4px}
+  .how .step span{font-size:13px;color:#5c6b63}
+
+  section{margin-bottom:40px}
+  .sec-head{display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+  .sec-head .dot{width:14px;height:14px;border-radius:4px}
+  .sec-head h2{font-size:20px;font-weight:800;color:var(--dark)}
+  .sec-head .count{font-size:12px;color:#fff;background:var(--ink);padding:2px 10px;border-radius:20px;font-weight:700}
+
+  .cards{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+  .card{background:#fff;border-radius:16px;border:1px solid #dde7e2;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+  .card-top{padding:16px 18px 12px;border-bottom:1px dashed #e2ebe6}
+  .card-title{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
+  .card-title h3{font-size:16px;font-weight:800;color:var(--dark)}
+  .slug{font-family:'SF Mono',Menlo,Consolas,monospace;font-size:11px;background:#0f1a14;color:var(--green);padding:3px 8px;border-radius:6px;white-space:nowrap;display:inline-block;margin:2px 0}
+  .slug.web{background:#3a1d0a;color:#fdba74}
+  .badges{display:flex;flex-wrap:wrap;gap:6px}
+  .b{font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px}
+  .b-app{background:#e0f2fe;color:#0369a1}
+  .b-web{background:#fed7aa;color:#7c2d12}
+  .b-velin{background:#dcfce7;color:#166534}
+  .card-body{padding:14px 18px 18px}
+  .row{display:flex;gap:10px;font-size:13.5px;padding:6px 0;border-bottom:1px solid #f1f5f3}
+  .row:last-child{border-bottom:none}
+  .row .k{flex:0 0 92px;color:#7a8a82;font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.3px;padding-top:1px}
+  .row .v{flex:1;color:var(--ink)}
+  .att{display:inline-block;font-size:11.5px;font-weight:700;background:#f1faf4;color:#166534;border:1px solid #c9eed8;padding:2px 8px;border-radius:6px;margin:2px 4px 2px 0}
+  .att.none{background:#f3f4f6;color:#6b7280;border-color:#e5e7eb}
+  .note{font-size:12.5px;color:#5c6b63;margin-top:10px;padding:10px 12px;background:#f7faf8;border-left:3px solid var(--green);border-radius:0 8px 8px 0}
+  .note code,.intro code{background:#0f1a14;color:var(--green)}
+
+  table{width:100%;border-collapse:collapse;background:#fff;border-radius:14px;overflow:hidden;border:1px solid #dde7e2}
+  th{background:var(--ink);color:#fff;text-align:left;padding:12px 16px;font-size:13px;letter-spacing:.3px}
+  td{padding:11px 16px;border-bottom:1px solid #eef3f0;font-size:14px;vertical-align:top}
+  tr:last-child td{border-bottom:none}
+  tr:nth-child(even) td{background:#fafcfb}
+  td .time{font-weight:800;color:var(--dark)}
+  .intro{margin-bottom:14px;color:#5c6b63;font-size:14px}
+
+  .vars{columns:2;column-gap:24px}
+  .vargrp{break-inside:avoid;margin-bottom:16px;background:#fff;border-radius:12px;padding:14px 16px;border:1px solid #dde7e2}
+  .vargrp h4{font-size:13px;color:var(--dark);margin-bottom:8px;font-weight:800}
+  code{font-family:'SF Mono',Menlo,Consolas,monospace;font-size:12px;background:#0f1a14;color:var(--green);padding:2px 7px;border-radius:5px;display:inline-block;margin:2px 3px 2px 0}
+
+  .tips{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+  .tip{background:#fff;border-radius:12px;padding:14px 16px;border:1px solid #dde7e2;display:flex;gap:12px;font-size:13.5px}
+  .tip .ic{font-size:22px;flex:0 0 auto}
+
+  footer{text-align:center;color:#7a8a82;font-size:12px;margin-top:40px;padding-top:20px;border-top:1px solid #d5e0db}
+
+  @media(max-width:820px){.how,.cards,.tips{grid-template-columns:1fr}.vars{columns:1}}
+  @media print{body{background:#fff}.card,.how .step,table,.vargrp,.tip{box-shadow:none}.hero{margin-bottom:20px}}
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="wrap">
+    <div class="logo">MOTO GO <span>24</span></div>
+    <div class="sub">E-mailové šablony · podklad pro copywriting</div>
+    <h1>Kompletní přehled automatických e-mailů</h1>
+    <p>Které maily systém posílá, kdy přesně, z jakého zdroje (aplikace / web), co je v příloze a jaké texty se kde mění. Vše chodí z adresy <strong style="color:#fff">noreply@motogo24.cz</strong> v jednotném černo-zeleném designu.</p>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <!-- HOW IT WORKS -->
+  <div class="how">
+    <div class="step"><div class="num">1</div><b>Stane se událost</b><span>Zákazník zaplatí, zruší, dokončí nebo upraví rezervaci.</span></div>
+    <div class="step"><div class="num">2</div><b>Systém to zachytí</b><span>Databáze sama spustí odeslání — nikdo nemusí klikat (kromě faktur).</span></div>
+    <div class="step"><div class="num">3</div><b>Vybere šablonu</b><span>Podle zdroje použije <em>web</em> nebo <em>app</em> verzi textu.</span></div>
+    <div class="step"><div class="num">4</div><b>Odešle mail</b><span>Doplní údaje zákazníka + přiloží doklady a odešle.</span></div>
+  </div>
+
+  <!-- MASTER OVERVIEW -->
+  <section>
+    <div class="sec-head"><div class="dot" style="background:var(--green)"></div><h2>📋 Všech 24 šablon na jednom místě</h2></div>
+    <p class="intro">Velín → Dokumenty → E-mailové šablony načítá <strong>všechny řádky</strong> z databáze a třídí je do 5 kategorií. Šablony bez přiřazené kategorie (e-shop objednávky, přístupové kódy, SOS, reset hesla…) spadnou do <strong>„Ostatní"</strong> — proto je jich tam 8. Odtud rozpad <strong>8 + 2 + 4 + 2 + 8 = 24</strong>.</p>
+    <table>
+      <tr><th style="width:130px">Kategorie</th><th style="width:60px">Počet</th><th>Šablony (slug)</th></tr>
+      <tr><td><strong style="color:var(--res)">Rezervace</strong></td><td><span class="time">8</span></td><td><span class="slug">booking_reserved</span> <span class="slug web">web_booking_reserved</span> <span class="slug">booking_modified</span> <span class="slug web">web_booking_modified</span> <span class="slug">booking_completed</span> <span class="slug web">web_booking_completed</span> <span class="slug">booking_abandoned</span> <span class="slug web">web_booking_abandoned</span></td></tr>
+      <tr><td><strong style="color:var(--sto)">Storno</strong></td><td><span class="time">2</span></td><td><span class="slug">booking_cancelled</span> <span class="slug web">web_booking_cancelled</span></td></tr>
+      <tr><td><strong style="color:var(--inv)">Faktura</strong></td><td><span class="time">4</span></td><td><span class="slug">invoice_advance</span> <span class="slug">invoice_payment_receipt</span> <span class="slug">invoice_final</span> <span class="slug">invoice_shop_final</span></td></tr>
+      <tr><td><strong style="color:var(--shop)">E-shop</strong></td><td><span class="time">2</span></td><td><span class="slug">voucher_purchased</span> <span class="slug web">web_voucher_purchased</span></td></tr>
+      <tr><td><strong style="color:var(--oth)">Ostatní</strong></td><td><span class="time">8</span></td><td><span class="slug">shop_order_confirmed</span> <span class="slug">shop_order_shipped</span> <span class="slug">door_codes</span> <span class="slug web">web_door_codes</span> <span class="slug">sos_incident</span> <span class="slug">booking_missing_docs</span> <span class="slug">booking_abandoned_full</span> <span class="slug">recovery_otp</span></td></tr>
+    </table>
+    <div class="note" style="margin-top:12px">⚠️ V ostrém provozu může tabulka <code>email_templates</code> obsahovat i pár starších/neaktivních (legacy) řádků. Pro 1:1 kontrolu pošli export: <code>select slug, name, active from email_templates order by name;</code></div>
+  </section>
+
+  <!-- A) REZERVACE -->
+  <section>
+    <div class="sec-head"><div class="dot" style="background:var(--res)"></div><h2>Rezervace</h2><span class="count">8 šablon · 4 scénáře (+ web varianty)</span></div>
+    <div class="cards">
+
+      <div class="card">
+        <div class="card-top">
+          <div class="card-title"><h3>✅ Potvrzení rezervace</h3><span class="slug">booking_reserved</span></div>
+          <div class="badges"><span class="b b-app">App</span><span class="b b-web">Web</span></div>
+        </div>
+        <div class="card-body">
+          <div class="row"><div class="k">Kdy</div><div class="v">Ihned po <strong>úspěšné platbě</strong> (Stripe). Budoucí termín → „rezervováno", dnešek → „aktivní".</div></div>
+          <div class="row"><div class="k">Přílohy</div><div class="v"><span class="att">Zálohová faktura</span><span class="att">Doklad o platbě</span><span class="att">Smlouva</span><span class="att">VOP</span></div></div>
+          <div class="note">Má-li zákazník nahrané doklady, jsou v mailu rovnou i <strong>přístupové kódy</strong>. Web verze: <code>web_booking_reserved</code>.</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-top">
+          <div class="card-title"><h3>✏️ Úprava rezervace</h3><span class="slug">booking_modified</span></div>
+          <div class="badges"><span class="b b-app">App</span><span class="b b-web">Web</span><span class="b b-velin">Velín</span></div>
+        </div>
+        <div class="card-body">
+          <div class="row"><div class="k">Kdy</div><div class="v">Při <strong>jakékoli změně</strong> — zkrácení, prodloužení, jiná motorka, jiné místo/čas. Mail obsahuje tabulku <strong>„Původní vs Nové"</strong>.</div></div>
+          <div class="row"><div class="k">Přílohy</div><div class="v"><span class="att">ZF</span><span class="att">DP</span><span class="att">Smlouva</span><span class="att">VOP</span><span class="att">Dobropis (při vratce)</span></div></div>
+          <div class="note">Při doplatku doklad rozdílu, při zkrácení dobropis. Web verze: <code>web_booking_modified</code>.</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-top">
+          <div class="card-title"><h3>🏁 Dokončení pronájmu</h3><span class="slug">booking_completed</span></div>
+          <div class="badges"><span class="b b-app">App</span><span class="b b-web">Web</span></div>
+        </div>
+        <div class="card-body">
+          <div class="row"><div class="k">Kdy</div><div class="v">Po <strong>vrácení motorky</strong> (stav „dokončeno"). Propadlé řeší systém denně v 00:01.</div></div>
+          <div class="row"><div class="k">Přílohy</div><div class="v"><span class="att">Konečná faktura</span></div></div>
+          <div class="note">⭐ Jediný „prodejní" mail — <strong>žádost o recenzi</strong> (Google/FB) a <strong>slevový kód na příště</strong> (200 Kč). Web verze: <code>web_booking_completed</code>.</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-top">
+          <div class="card-title"><h3>🛒 Nedokončená rezervace</h3><span class="slug">booking_abandoned</span></div>
+          <div class="badges"><span class="b b-web">Hlavně web</span></div>
+        </div>
+        <div class="card-body">
+          <div class="row"><div class="k">Kdy</div><div class="v"><span class="time">15 minut</span> od založení, pokud zákazník nezaplatil. Tlačítko <strong>„Dokončit rezervaci"</strong>.</div></div>
+          <div class="row"><div class="k">Přílohy</div><div class="v"><span class="att">Zálohová faktura</span></div></div>
+          <div class="note">Posílá se jen jednou na rezervaci. Web verze: <code>web_booking_abandoned</code>. Silnější varianta „chybí platba i doklady" = <code>booking_abandoned_full</code> (viz Ostatní).</div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- B) STORNO -->
+  <section>
+    <div class="sec-head"><div class="dot" style="background:var(--sto)"></div><h2>Storno</h2><span class="count">2 šablony · 1 scénář</span></div>
+    <div class="cards">
+      <div class="card">
+        <div class="card-top">
+          <div class="card-title"><h3>❌ Storno rezervace</h3><span class="slug">booking_cancelled</span></div>
+          <div class="badges"><span class="b b-app">App</span><span class="b b-web">Web</span><span class="b b-velin">Velín</span></div>
+        </div>
+        <div class="card-body">
+          <div class="row"><div class="k">Kdy</div><div class="v">Při zrušení rezervace z jakéhokoli zdroje. Automatické vrácení peněz dle podmínek.</div></div>
+          <div class="row"><div class="k">Vratka</div><div class="v"><strong>7+ dní</strong> předem = 100 % &nbsp;·&nbsp; <strong>2–7 dní</strong> = 50 % &nbsp;·&nbsp; <strong>méně než 2 dny</strong> = 0 %</div></div>
+          <div class="row"><div class="k">Přílohy</div><div class="v"><span class="att">Dobropis</span></div></div>
+          <div class="note">Web verze: <code>web_booking_cancelled</code>.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- C) FAKTURY -->
+  <section>
+    <div class="sec-head"><div class="dot" style="background:var(--inv)"></div><h2>Fakturační maily</h2><span class="count">4 šablony · většinou ručně z Velínu</span></div>
+    <table>
+      <tr><th>Šablona</th><th>Co je to</th><th>Kdy</th><th>Příloha</th></tr>
+      <tr><td><span class="slug">invoice_advance</span></td><td>Zálohová faktura (ZF / proforma)</td><td>Ručně z Velínu / automaticky</td><td>Faktura</td></tr>
+      <tr><td><span class="slug">invoice_payment_receipt</span></td><td>Doklad o přijaté platbě (DP)</td><td>Ručně / automaticky</td><td>Doklad</td></tr>
+      <tr><td><span class="slug">invoice_final</span></td><td>Konečná faktura (FV / KF)</td><td>Po dokončení pronájmu / ručně</td><td>Faktura</td></tr>
+      <tr><td><span class="slug">invoice_shop_final</span></td><td>Konečná faktura za e-shop</td><td>Při expedici z Velínu</td><td>Faktura</td></tr>
+    </table>
+  </section>
+
+  <!-- D) E-SHOP -->
+  <section>
+    <div class="sec-head"><div class="dot" style="background:var(--shop)"></div><h2>E-shop &amp; dárkové poukazy</h2><span class="count">2 šablony</span></div>
+    <div class="cards">
+      <div class="card">
+        <div class="card-top">
+          <div class="card-title"><h3>🎁 Nákup dárkového poukazu</h3><span class="slug">voucher_purchased</span></div>
+          <div class="badges"><span class="b b-app">App</span><span class="b b-web">Web</span></div>
+        </div>
+        <div class="card-body">
+          <div class="row"><div class="k">Kdy</div><div class="v">Po zaplacení objednávky poukazu. Vygeneruje se kód poukazu.</div></div>
+          <div class="row"><div class="k">Přílohy</div><div class="v"><span class="att">ZF</span><span class="att">DP</span><span class="att">Dárkový poukaz (PDF)</span><span class="att">Faktura</span></div></div>
+          <div class="note">Web verze: <code>web_voucher_purchased</code>. Potvrzení a expedice e-shop objednávek (<code>shop_order_confirmed</code> / <code>shop_order_shipped</code>) jsou v kategorii <strong>Ostatní</strong> níže.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- E) OSTATNÍ -->
+  <section>
+    <div class="sec-head"><div class="dot" style="background:var(--oth)"></div><h2>Ostatní</h2><span class="count">8 šablon</span></div>
+    <p class="intro">„Sběrná" skupina — Velín sem řadí vše, co nemá přiřazenou kategorii. Patří sem i e-shop objednávky a přístupové kódy.</p>
+    <div class="cards">
+
+      <div class="card">
+        <div class="card-top">
+          <div class="card-title"><h3>📦 Potvrzení e-shop objednávky</h3><span class="slug">shop_order_confirmed</span></div>
+          <div class="badges"><span class="b b-app">App</span><span class="b b-web">Web</span></div>
+        </div>
+        <div class="card-body">
+          <div class="row"><div class="k">Kdy</div><div class="v">Hned po zaplacení e-shop objednávky (fyzické zboží i mix).</div></div>
+          <div class="row"><div class="k">Přílohy</div><div class="v"><span class="att">Doklad o platbě</span></div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-top">
+          <div class="card-title"><h3>🚚 Objednávka odeslána</h3><span class="slug">shop_order_shipped</span></div>
+          <div class="badges"><span class="b b-velin">Velín</span></div>
+        </div>
+        <div class="card-body">
+          <div class="row"><div class="k">Kdy</div><div class="v">Při expedici zboží z Velínu (ruční potvrzení odeslání).</div></div>
+          <div class="row"><div class="k">Přílohy</div><div class="v"><span class="att">Konečná faktura</span></div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-top">
+          <div class="card-title"><h3>🔑 Přístupové kódy</h3><span class="slug">door_codes</span></div>
+          <div class="badges"><span class="b b-app">App</span><span class="b b-web">Web</span></div>
+        </div>
+        <div class="card-body">
+          <div class="row"><div class="k">Kdy</div><div class="v"><strong>Jen dodatečně</strong> — když zákazník nahraje doklady až po platbě a kódy nebyly v potvrzovacím mailu.</div></div>
+          <div class="row"><div class="k">Přílohy</div><div class="v"><span class="att none">žádné</span></div></div>
+          <div class="note">Citlivý obsah — text musí zdůraznit, že kódy platí jen pro daný pronájem.</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-top">
+          <div class="card-title"><h3>🌐 Přístupové kódy (web)</h3><span class="slug web">web_door_codes</span></div>
+          <div class="badges"><span class="b b-web">Jen web</span></div>
+        </div>
+        <div class="card-body">
+          <div class="row"><div class="k">Kdy</div><div class="v">Webová varianta předchozí šablony — pro rezervace z motogo24.cz. Když není vyplněná, použije se <code>door_codes</code>.</div></div>
+          <div class="row"><div class="k">Přílohy</div><div class="v"><span class="att none">žádné</span></div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-top">
+          <div class="card-title"><h3>🆘 SOS incident</h3><span class="slug">sos_incident</span></div>
+          <div class="badges"><span class="b b-app">App</span></div>
+        </div>
+        <div class="card-body">
+          <div class="row"><div class="k">Kdy</div><div class="v">Při nahlášení SOS z aplikace. Omluva + kontakt na linku pomoci.</div></div>
+          <div class="row"><div class="k">Přílohy</div><div class="v"><span class="att none">žádné</span></div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-top">
+          <div class="card-title"><h3>📄 Chybí doklady</h3><span class="slug">booking_missing_docs</span></div>
+          <div class="badges"><span class="b b-web">Jen web</span></div>
+        </div>
+        <div class="card-body">
+          <div class="row"><div class="k">Kdy</div><div class="v"><span class="time">5 minut</span> po zaplacení, pokud chybí nahraný OP/ŘP. Odkaz na nahrání dokladů.</div></div>
+          <div class="row"><div class="k">Přílohy</div><div class="v"><span class="att none">žádné</span></div></div>
+          <div class="note">Jen u samoobslužného vyzvednutí (ne dovoz, ne obsluhovaná pobočka Mezná, ne dětská motorka).</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-top">
+          <div class="card-title"><h3>🛒 Nedokončená rezervace (plná)</h3><span class="slug">booking_abandoned_full</span></div>
+          <div class="badges"><span class="b b-web">Jen web</span></div>
+        </div>
+        <div class="card-body">
+          <div class="row"><div class="k">Kdy</div><div class="v">Varianta „nedokončené rezervace" pro případ, kdy chybí <strong>zároveň platba i doklady</strong>. Silnější výzva k dokončení.</div></div>
+          <div class="row"><div class="k">Přílohy</div><div class="v"><span class="att none">žádné</span></div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-top">
+          <div class="card-title"><h3>🔒 Reset hesla (kód)</h3><span class="slug">recovery_otp</span></div>
+          <div class="badges"><span class="b b-app">App</span><span class="b b-web">Web</span></div>
+        </div>
+        <div class="card-body">
+          <div class="row"><div class="k">Kdy</div><div class="v">Při žádosti o reset hesla. Zelený rámeček s 8znakovým kódem, platnost 1 hodina.</div></div>
+          <div class="row"><div class="k">Přílohy</div><div class="v"><span class="att none">žádné</span></div></div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- TIMING -->
+  <section>
+    <div class="sec-head"><div class="dot" style="background:var(--green)"></div><h2>⏱ Časování — kdy přesně to odejde</h2></div>
+    <table>
+      <tr><th>Událost</th><th>Práh / čas</th></tr>
+      <tr><td>Nedokončená rezervace (web)</td><td><span class="time">15 minut</span> od založení</td></tr>
+      <tr><td>Chybí doklady (web)</td><td><span class="time">5 minut</span> po platbě</td></tr>
+      <tr><td>Automatické zrušení nezaplacené rezervace</td><td>App <span class="time">10 minut</span> · Web <span class="time">4 hodiny</span></td></tr>
+      <tr><td>Automatické dokončení propadlých rezervací</td><td>denně <span class="time">00:01</span></td></tr>
+      <tr><td>Expirace dárkových poukazů</td><td>denně <span class="time">01:00</span></td></tr>
+    </table>
+  </section>
+
+  <!-- VARS -->
+  <section>
+    <div class="sec-head"><div class="dot" style="background:var(--green)"></div><h2>🏷 Proměnné do textů</h2></div>
+    <p class="intro">Do šablon se vkládají ve složených závorkách — systém je při odeslání nahradí skutečnými údaji zákazníka.</p>
+    <div class="vars">
+      <div class="vargrp"><h4>Rezervace</h4><code>{{booking_number}}</code><code>{{customer_name}}</code><code>{{moto_model}}</code><code>{{start_date}}</code><code>{{end_date}}</code><code>{{total_price}}</code><code>{{pickup_location}}</code><code>{{pickup_time}}</code></div>
+      <div class="vargrp"><h4>Úprava rezervace</h4><code>{{price_difference}}</code><span style="font-size:12px;color:#7a8a82">(záporné číslo = vratka) + automatická tabulka Původní vs Nové</span></div>
+      <div class="vargrp"><h4>Dokončení</h4><code>{{google_review_url}}</code><code>{{facebook_review_url}}</code><code>{{discount_code}}</code></div>
+      <div class="vargrp"><h4>Nedokončená rezervace</h4><code>{{resume_link}}</code><span style="font-size:12px;color:#7a8a82">(odkaz na dokončení)</span></div>
+      <div class="vargrp"><h4>Poukaz / e-shop</h4><code>{{voucher_code}}</code><code>{{voucher_amount}}</code><code>{{voucher_expiry}}</code><code>{{order_number}}</code></div>
+      <div class="vargrp"><h4>Přístupové kódy</h4><code>{{door_code_moto}}</code><code>{{door_code_gear}}</code><code>{{door_codes_block}}</code></div>
+      <div class="vargrp"><h4>Storno</h4><code>{{cancellation_reason}}</code><code>{{refund_amount}}</code><code>{{refund_percent}}</code></div>
+      <div class="vargrp"><h4>Firma</h4><code>{{company_name}}</code><code>{{company_phone}}</code><code>{{company_email}}</code><code>{{site_url}}</code></div>
+    </div>
+  </section>
+
+  <!-- TIPS -->
+  <section>
+    <div class="sec-head"><div class="dot" style="background:var(--green)"></div><h2>💡 Na co myslet při psaní</h2></div>
+    <div class="tips">
+      <div class="tip"><div class="ic">📨</div><div><strong>Mail = potvrzení, ne reklama.</strong> Zákazník čeká věcnou informaci: kdy, kde, kolik, jak vyzvednout.</div></div>
+      <div class="tip"><div class="ic">📎</div><div><strong>Doklady jsou v příloze.</strong> V textu na ně klidně odkaž („fakturu najdete v příloze").</div></div>
+      <div class="tip"><div class="ic">🌐</div><div><strong>Web zákazník nemá účet.</strong> Web verze piš tak, aby fungovaly i pro anonyma bez přihlášení.</div></div>
+      <div class="tip"><div class="ic">🔁</div><div><strong>Web vs App.</strong> Když web verzi nevyplníš, použije se app verze automaticky — ale jiný tón pro web se hodí.</div></div>
+      <div class="tip"><div class="ic">⭐</div><div><strong>Dokončení je prodejní mail.</strong> Jediné místo na recenzi a slevu na příští jízdu — využij ho.</div></div>
+      <div class="tip"><div class="ic">🔑</div><div><strong>Kódy jsou citlivé.</strong> Připomeň, že platí jen pro konkrétní pronájem.</div></div>
+    </div>
+  </section>
+
+  <footer>
+    MotoGo24 · Bc. Petra Semorádová · IČO 21874263 · +420 774 256 271 · info@motogo24.cz<br>
+    Editace šablon: Velín → Dokumenty → E-mailové šablony · Tip: tuto stránku lze vytisknout (Ctrl/Cmd + P) nebo uložit jako PDF.
+  </footer>
+
+</div>
+</body>
+</html>
