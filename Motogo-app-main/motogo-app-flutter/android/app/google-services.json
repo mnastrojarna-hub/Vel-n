@@ -1,15 +1,29 @@
 {
   "project_info": {
-    "project_number": "000000000000",
-    "project_id": "motogo24-placeholder",
-    "storage_bucket": "motogo24-placeholder.appspot.com"
+    "project_number": "199802083662",
+    "project_id": "motogo24-518b4",
+    "storage_bucket": "motogo24-518b4.firebasestorage.app"
   },
-  "client": [{
-    "client_info": {
-      "mobilesdk_app_id": "1:000000000000:android:0000000000000000",
-      "android_client_info": { "package_name": "com.motogo24.app" }
-    },
-    "api_key": [{ "current_key": "placeholder" }]
-  }],
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:199802083662:android:8e79aa46a2b88171ff261f",
+        "android_client_info": {
+          "package_name": "com.motogo24.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBFX9TCu5rrP5DVxYvkM_tw2q4FX-70AsA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
   "configuration_version": "1"
 }
