@@ -31,11 +31,12 @@ proto tam jsou i e-shop objednávky a přístupové kódy.
 | **Storno** | 2 | `booking_cancelled` + `web_` |
 | **Faktura** | 4 | `invoice_advance`, `invoice_payment_receipt`, `invoice_final`, `invoice_shop_final` |
 | **E-shop** | 2 | `voucher_purchased` + `web_` |
-| **Ostatní** | 8 | `shop_order_confirmed`, `shop_order_shipped`, `door_codes`, `web_door_codes`, `sos_incident`, `booking_missing_docs`, `booking_abandoned_full`, `recovery_otp` |
-| **CELKEM** | **24** | |
+| **Ostatní** | 8 | `shop_order_confirmed`, `shop_order_shipped`, `door_codes`, `web_door_codes`, `sos_incident`, `booking_missing_docs`, `booking_abandoned_full`, ~~`shop_order_created`~~ (vypnuto) |
+| **CELKEM** | **24** | 23 aktivních + 1 vypnutý |
 
-> ⚠️ V ostrém provozu může tabulka obsahovat i pár starších/neaktivních (legacy) řádků.
-> Pro 1:1 kontrolu: `select slug, name, active from email_templates order by name;`
+> ✅ **Ověřeno proti ostré DB** (24 řádků). `shop_order_created` je deaktivováno (2026-05-03, nahrazeno `shop_order_confirmed`).
+>
+> 📌 **Mimo tabulku `email_templates`:** mail **„Reset hesla"** (`recovery_otp`) se needituje ve Velíně — je natvrdo v edge funkci `send-recovery-otp` (zelený box s 8znakovým kódem, platnost 1 h). Úprava textu = zásah do kódu.
 
 ---
 

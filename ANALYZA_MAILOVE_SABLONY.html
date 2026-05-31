@@ -109,9 +109,10 @@
       <tr><td><strong style="color:var(--sto)">Storno</strong></td><td><span class="time">2</span></td><td><span class="slug">booking_cancelled</span> <span class="slug web">web_booking_cancelled</span></td></tr>
       <tr><td><strong style="color:var(--inv)">Faktura</strong></td><td><span class="time">4</span></td><td><span class="slug">invoice_advance</span> <span class="slug">invoice_payment_receipt</span> <span class="slug">invoice_final</span> <span class="slug">invoice_shop_final</span></td></tr>
       <tr><td><strong style="color:var(--shop)">E-shop</strong></td><td><span class="time">2</span></td><td><span class="slug">voucher_purchased</span> <span class="slug web">web_voucher_purchased</span></td></tr>
-      <tr><td><strong style="color:var(--oth)">Ostatní</strong></td><td><span class="time">8</span></td><td><span class="slug">shop_order_confirmed</span> <span class="slug">shop_order_shipped</span> <span class="slug">door_codes</span> <span class="slug web">web_door_codes</span> <span class="slug">sos_incident</span> <span class="slug">booking_missing_docs</span> <span class="slug">booking_abandoned_full</span> <span class="slug">recovery_otp</span></td></tr>
+      <tr><td><strong style="color:var(--oth)">Ostatní</strong></td><td><span class="time">8</span></td><td><span class="slug">shop_order_confirmed</span> <span class="slug">shop_order_shipped</span> <span class="slug">door_codes</span> <span class="slug web">web_door_codes</span> <span class="slug">sos_incident</span> <span class="slug">booking_missing_docs</span> <span class="slug">booking_abandoned_full</span> <span class="slug" style="opacity:.55;text-decoration:line-through">shop_order_created</span></td></tr>
     </table>
-    <div class="note" style="margin-top:12px">⚠️ V ostrém provozu může tabulka <code>email_templates</code> obsahovat i pár starších/neaktivních (legacy) řádků. Pro 1:1 kontrolu pošli export: <code>select slug, name, active from email_templates order by name;</code></div>
+    <div class="note" style="margin-top:12px">✅ Ověřeno proti ostré DB: tabulka <code>email_templates</code> má <strong>24 řádků = 23 aktivních + 1 vypnutý</strong> (<code>shop_order_created</code> — deaktivováno 2026-05-03, nikdy se neposílá, nahradilo ho <code>shop_order_confirmed</code>).</div>
+    <div class="note" style="margin-top:8px;border-left-color:#7c2d12">📌 <strong>Mimo tuto tabulku:</strong> mail <strong>„Reset hesla"</strong> (<code>recovery_otp</code>) se needituje ve Velíně — je napsaný natvrdo v systému (edge funkce <code>send-recovery-otp</code>): zelený rámeček s 8znakovým kódem, platnost 1 h. Pokud chceš měnit i jeho text, musí se upravit v kódu.</div>
   </section>
 
   <!-- A) REZERVACE -->
@@ -304,18 +305,19 @@
         </div>
       </div>
 
-      <div class="card">
+      <div class="card" style="opacity:.7">
         <div class="card-top">
-          <div class="card-title"><h3>🔒 Reset hesla (kód)</h3><span class="slug">recovery_otp</span></div>
-          <div class="badges"><span class="b b-app">App</span><span class="b b-web">Web</span></div>
+          <div class="card-title"><h3>🚫 Stará objednávka (vypnuto)</h3><span class="slug" style="text-decoration:line-through">shop_order_created</span></div>
+          <div class="badges"><span class="b" style="background:#fee2e2;color:#dc2626">Neaktivní</span></div>
         </div>
         <div class="card-body">
-          <div class="row"><div class="k">Kdy</div><div class="v">Při žádosti o reset hesla. Zelený rámeček s 8znakovým kódem, platnost 1 hodina.</div></div>
-          <div class="row"><div class="k">Přílohy</div><div class="v"><span class="att none">žádné</span></div></div>
+          <div class="row"><div class="k">Kdy</div><div class="v"><strong>Neposílá se.</strong> Deaktivováno 2026-05-03 — nahrazeno mailem <code>shop_order_confirmed</code> (po platbě). Zůstává v DB jen jako historický řádek.</div></div>
+          <div class="row"><div class="k">Přílohy</div><div class="v"><span class="att none">—</span></div></div>
         </div>
       </div>
 
     </div>
+    <div class="note" style="margin-top:14px;border-left-color:#7c2d12">📌 <strong>Reset hesla</strong> (<code>recovery_otp</code>) zde záměrně není — needituje se ve Velíně, je natvrdo v edge funkci <code>send-recovery-otp</code> (zelený box s 8znakovým kódem, platnost 1 h).</div>
   </section>
 
   <!-- TIMING -->
