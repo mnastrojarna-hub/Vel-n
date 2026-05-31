@@ -29,7 +29,8 @@ p>.btn:last-child{margin-bottom:0}
 .rez-logged-in #rez-name,
 .rez-logged-in .gr2:has(#rez-street),
 .rez-logged-in .gr2:has(#rez-city),
-.rez-logged-in .gr2:has(#rez-email){display:none}
+.rez-logged-in .gr2:has(#rez-email),
+.rez-logged-in .rez-dob-row{display:none}
 
 /* E-shop product cards: název produktu pod obrázkem v bílé kolonce (dříve byl bílý překryv na fotce) */
 .moto-desc .moto-title{position:static;padding:0 0 .35rem;color:#1a2e22;z-index:auto}
