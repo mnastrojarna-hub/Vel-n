@@ -2,11 +2,11 @@ name: motogo_app
 description: MotoGo24 — Motorcycle rental app
 publish_to: 'none'
 # version: <versionName>+<versionCode>
-# versionName (1.0.5) = uživatelsky viditelná verze, měň ji ručně pro skutečné releasy.
+# versionName (1.0.6) = uživatelsky viditelná verze, měň ji ručně pro skutečné releasy.
 # versionCode (+1)    = JEN fallback pro lokální build. V CI (Codemagic) se PŘEPISUJE
 #                       automaticky přes --build-number=$BUILD_NUMBER, aby byl vždy
 #                       unikátní a rostoucí → Google Play nikdy neodmítne "verze už použita".
-version: 1.0.5+1
+version: 1.0.6+1
 
 environment:
   sdk: '>=3.6.0 <4.0.0'
