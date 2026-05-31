@@ -19,6 +19,26 @@
 
 ---
 
+## 1b. Všech 24 šablon (přesně jak je třídí Velín)
+
+Velín → Dokumenty → E-mailové šablony načítá **všechny řádky** z tabulky `email_templates`
+a třídí je do 5 kategorií podle metadat slugu. Slugy bez kategorie spadnou do **„Ostatní"** —
+proto tam jsou i e-shop objednávky a přístupové kódy.
+
+| Kategorie | Počet | Šablony |
+|---|---|---|
+| **Rezervace** | 8 | `booking_reserved` + `web_`, `booking_modified` + `web_`, `booking_completed` + `web_`, `booking_abandoned` + `web_` |
+| **Storno** | 2 | `booking_cancelled` + `web_` |
+| **Faktura** | 4 | `invoice_advance`, `invoice_payment_receipt`, `invoice_final`, `invoice_shop_final` |
+| **E-shop** | 2 | `voucher_purchased` + `web_` |
+| **Ostatní** | 8 | `shop_order_confirmed`, `shop_order_shipped`, `door_codes`, `web_door_codes`, `sos_incident`, `booking_missing_docs`, `booking_abandoned_full`, `recovery_otp` |
+| **CELKEM** | **24** | |
+
+> ⚠️ V ostrém provozu může tabulka obsahovat i pár starších/neaktivních (legacy) řádků.
+> Pro 1:1 kontrolu: `select slug, name, active from email_templates order by name;`
+
+---
+
 ## 2. KOMPLETNÍ PŘEHLED SCÉNÁŘŮ — co, kdy, odkud, s čím
 
 ### A) REZERVACE
