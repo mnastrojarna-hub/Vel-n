@@ -1,6 +1,6 @@
 import Card from '../../components/ui/Card'
 import { InfoRow } from './BookingUIHelpers'
-import { CANCEL_REASONS, describeModification, paymentMethodInfo, stripePaymentIntentUrl, stripeRefundUrl, cardLabel } from './bookingConstants'
+import { CANCEL_REASONS, describeModification, paymentMethodInfo, paymentStatusInfo, stripePaymentIntentUrl, stripeRefundUrl, cardLabel } from './bookingConstants'
 import Button from '../../components/ui/Button'
 import { mapyLinkUrl, mapyNavigateUrl } from '../../lib/mapyCz'
 
@@ -235,7 +235,7 @@ export function DatesAndPaymentSection({ booking, bookingExtras, sosIncidents, o
   const returnFee = feeAmount(returnExtra)
 
   const pmInfo = paymentMethodInfo(booking.payment_method)
-  const isPaid = booking.payment_status === 'paid' && booking.status !== 'pending'
+  const payInfo = paymentStatusInfo(booking)
   const isRefunded = booking.payment_status === 'refunded' || booking.payment_status === 'partial_refund'
   const stripeUrl = stripePaymentIntentUrl(booking.stripe_payment_intent_id)
   const refundUrl = stripeRefundUrl(booking.stripe_refund_id)
@@ -314,8 +314,8 @@ export function DatesAndPaymentSection({ booking, bookingExtras, sosIncidents, o
         <div className="grid grid-cols-4 gap-3">
           <div className="rounded-lg p-2.5" style={{ background: '#fff', border: '1px solid #d4e8e0' }}>
             <div className="text-[11px] font-extrabold uppercase tracking-wider mb-1" style={{ color: '#4a5a52' }}>Stav platby</div>
-            <div className="text-sm font-extrabold" style={{ color: isPaid ? '#1a8a18' : isRefunded ? '#dc2626' : '#dc2626' }}>
-              {isPaid ? '✅ Zaplaceno' : isRefunded ? '↩️ Refundováno' : '⚠️ Nezaplaceno'}
+            <div className="text-sm font-extrabold" style={{ color: payInfo.color }}>
+              {payInfo.icon} {payInfo.label}
             </div>
           </div>
           <div className="rounded-lg p-2.5" style={{ background: '#fff', border: '1px solid #d4e8e0' }}>

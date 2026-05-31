@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { getDisplayStatus } from '../../components/ui/StatusBadge'
 import { SumRow } from './BookingUIHelpers'
-import { STATUS_LABELS, CANCEL_SOURCE_LABELS, describeModification, fmtDT, paymentMethodInfo, stripePaymentIntentUrl, hasPassengerGearOrdered } from './bookingConstants'
+import { STATUS_LABELS, CANCEL_SOURCE_LABELS, describeModification, fmtDT, paymentMethodInfo, paymentStatusInfo, stripePaymentIntentUrl, hasPassengerGearOrdered } from './bookingConstants'
 import { mapyLinkUrl } from '../../lib/mapyCz'
 
 // Doba vyplnění formuláře v sekundách → čitelný formát (např. „2 min 15 s")
@@ -196,7 +196,9 @@ export default function BookingSummary({ booking, sosIncidents, bookingExtras, c
       )}
       {b.delivery_fee > 0 && <SumRow label="Doručení" value={`${b.delivery_fee.toLocaleString('cs-CZ')} Kč`} />}
       {b.discount_amount > 0 && <SumRow label="Sleva" value={`-${Number(b.discount_amount).toLocaleString('cs-CZ')} Kč${b.discount_code ? ` (${b.discount_code})` : ''}`} color="#1a8a18" />}
-      <SumRow label="Stav platby" value={b.payment_status === 'paid' && b.status !== 'pending' ? '✅ Zaplaceno' : b.payment_status === 'refunded' ? '↩️ Refundováno' : '⚠️ Nezaplaceno'} color={b.payment_status === 'paid' && b.status !== 'pending' ? '#1a8a18' : '#dc2626'} strong />
+      {(() => { const pay = paymentStatusInfo(b); return (
+        <SumRow label="Stav platby" value={`${pay.icon} ${pay.label}`} color={pay.color} strong />
+      ) })()}
       {b.payment_method && (() => {
         const pm = paymentMethodInfo(b.payment_method)
         return <SumRow label="Způsob platby" value={`${pm.icon} ${pm.label}`} color={pm.tone} strong />
