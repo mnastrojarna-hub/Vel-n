@@ -201,9 +201,7 @@ class StripeService {
       googlePay: const PaymentSheetGooglePay(
         merchantCountryCode: 'CZ',
         currencyCode: 'CZK',
-        // DOČASNĚ true: testovací build pro pořízení screenshotů Google Pay
-        // sheetu do žádosti o production access. Po nahrání screenů vrátit na false.
-        testEnv: true,
+        testEnv: false,
       ),
       // Apple Pay (for future iOS builds)
       applePay: const PaymentSheetApplePay(
