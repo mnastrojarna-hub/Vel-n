@@ -1,5 +1,6 @@
 import { TRow, TH, TD, Table } from '../../components/ui/Table'
 import StatusBadge, { getDisplayStatus } from '../../components/ui/StatusBadge'
+import { paymentStatusInfo } from './bookingConstants'
 
 export default function BookingsTable({ bookings, navigate, fmtDateRange, dpTotals, setDeleteConfirm, setCancelTarget, selectedIds, setSelectedIds }) {
   const allSelected = bookings.length > 0 && selectedIds && bookings.every(b => selectedIds.has(b.id))
@@ -69,11 +70,11 @@ export default function BookingsTable({ bookings, navigate, fmtDateRange, dpTota
               <TD bold>{(dpTotals[b.id] || b.total_price) ? `${Number(dpTotals[b.id] || b.total_price).toLocaleString('cs-CZ')} Kč` : '—'}</TD>
               <TD>
                 {(() => {
-                  const isPaid = b.payment_status === 'paid' && b.status !== 'pending'
+                  const pay = paymentStatusInfo(b)
                   return (
                     <span className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase"
-                      style={{ padding: '3px 8px', background: isPaid ? '#dcfce7' : '#fee2e2', color: isPaid ? '#1a8a18' : '#dc2626' }}>
-                      {isPaid ? 'Zaplaceno' : 'Nezaplaceno'}
+                      style={{ padding: '3px 8px', background: pay.bg, color: pay.color }}>
+                      {pay.label}
                     </span>
                   )
                 })()}

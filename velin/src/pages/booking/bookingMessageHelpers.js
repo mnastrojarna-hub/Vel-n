@@ -37,16 +37,20 @@ export async function cancelBookingFromVelin(booking, reasonText, sourceCode) {
   const { data: { user } } = await supabase.auth.getUser()
   const wasPaid = booking.payment_status === 'paid'
   // POZOR: payment_status='refunded' tu ZÁMĚRNĚ NENASTAVUJEME před refundem.
-  // process-refund musí načíst booking se stavem 'paid', aby Stripe refund reálně
-  // provedl; když uvidí 'refunded', spadne do idempotentní "already refunded" větve
-  // a Stripe vůbec nezavolá (peníze se zákazníkovi nikdy nevrátí). Stav 'refunded'
-  // do DB zapíše až samotný process-refund po úspěšném Stripe refundu.
+  // process-refund musí načíst booking ve stavu, který umožní reálný Stripe refund
+  // ('paid' nebo 'refund_pending'); kdyby viděl 'refunded'/'partial_refund', spadne do
+  // idempotentní "already refunded" větve a Stripe vůbec nezavolá (peníze by se nikdy
+  // nevrátily). Stav 'refunded'/'partial_refund' do DB zapíše až process-refund po
+  // potvrzení Stripe. Zaplacenou rezervaci proto rovnou označíme 'refund_pending'
+  // (= „Čeká na vrácení") — peníze jsou pořád u nás, jen je storno a čeká se na vrácení.
+  // Tím už nikdy nezobrazíme „Nezaplaceno" u stornované zaplacené rezervace.
   const updatePayload = {
     status: 'cancelled',
     cancelled_by: user?.id || null,
     cancelled_by_source: sourceCode,
     cancellation_reason: reasonText,
     cancelled_at: new Date().toISOString(),
+    ...(wasPaid ? { payment_status: 'refund_pending' } : {}),
   }
 
   const { error: updErr } = await supabase.from('bookings').update(updatePayload).eq('id', booking.id)
@@ -102,8 +106,17 @@ export async function cancelBookingFromVelin(booking, reasonText, sourceCode) {
     } catch {}
   }
 
-  // Do vráceného payloadu (optimistický UI update) doplníme payment_status='refunded'
-  // — DB ho fakticky nastaví process-refund po úspěšném Stripe refundu; zde jen
-  // sladíme okamžitý stav v tabulce/detailu ve Velínu.
-  return { success: true, updatePayload: { ...updatePayload, ...(wasPaid ? { payment_status: 'refunded' } : {}), ...(emailNotified ? { cancellation_notified: true } : {}) } }
+  // Optimistický UI update musí odrážet REALITU, ne přání. Po doběhnutí process-refund
+  // (volá se výše synchronně) si proto skutečný stav platby přečteme z DB — bude to
+  // 'refunded' (Stripe potvrdil plné vrácení), 'partial_refund' (částečně, např. 50 %),
+  // nebo zůstane 'refund_pending' (Stripe ještě nepotvrdil / refund se nepovedl).
+  // Fallback: když read selže, držíme 'refund_pending' (nikdy ne falešné 'refunded').
+  let finalPaymentStatus = wasPaid ? 'refund_pending' : undefined
+  if (wasPaid) {
+    try {
+      const { data: fresh } = await supabase.from('bookings').select('payment_status').eq('id', booking.id).single()
+      if (fresh?.payment_status) finalPaymentStatus = fresh.payment_status
+    } catch {}
+  }
+  return { success: true, updatePayload: { ...updatePayload, ...(finalPaymentStatus ? { payment_status: finalPaymentStatus } : {}), ...(emailNotified ? { cancellation_notified: true } : {}) } }
 }
