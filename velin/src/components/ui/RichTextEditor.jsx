@@ -69,7 +69,7 @@ export default function RichTextEditor({
   const emit = useCallback(() => {
     const el = editorRef.current
     if (!el) return
-    const html = el.innerHTML
+    const html = preserveTemplateVars(el.innerHTML)
     lastValueRef.current = html
     onChange && onChange(html)
     force(x => x + 1) // re-render pro stav tlačítek lišty
@@ -524,6 +524,23 @@ function escapeHtml(s) {
 }
 function escapeAttr(s) {
   return String(s).replace(/"/g, '&quot;')
+}
+
+// Zachovej šablonové proměnné {{var}} v href/src. contentEditable (a execCommand
+// 'createLink') berou relativní `{{x}}` jako URL → prohlížeč ji absolutizuje vůči
+// originu Velínu a složené závorky zakóduje (`https://…/%7B%7Bx%7D%7D`). To rozbije
+// dosazení proměnné v e-mailové šabloně. Tady to vrátíme zpět na čisté `{{x}}`.
+function preserveTemplateVars(html) {
+  if (!html || (html.indexOf('%7B') === -1 && html.indexOf('{{') === -1)) return html
+  // 1) Dekóduj zakódované závorky zpět
+  let out = html.replace(/%7B%7B/gi, '{{').replace(/%7D%7D/gi, '}}')
+  // 2) Odstraň prefix originu editoru, který prohlížeč přilepil před `{{`
+  const origin = (typeof window !== 'undefined' && window.location && window.location.origin) || ''
+  if (origin) {
+    const esc = origin.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    out = out.replace(new RegExp(esc + '/(\\{\\{)', 'g'), '$1')
+  }
+  return out
 }
 
 // Plain text → HTML s odstavci a <br> (zachová zalomení řádků a prázdné řádky)
