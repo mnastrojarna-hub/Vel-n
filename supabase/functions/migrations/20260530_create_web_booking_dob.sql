@@ -184,7 +184,7 @@ BEGIN
         THEN EXCLUDED.license_group
         ELSE profiles.license_group
       END,
-      date_of_birth = COALESCE(v_dob, profiles.date_of_birth),
+      date_of_birth = COALESCE(v_dob::text, profiles.date_of_birth::text),
       registration_source = COALESCE(profiles.registration_source, 'web'),
       consent_vop = COALESCE(p_consent_vop, profiles.consent_vop),
       consent_gdpr = COALESCE(p_consent_gdpr, profiles.consent_gdpr),
@@ -244,7 +244,7 @@ BEGIN
         THEN EXCLUDED.license_group
         ELSE profiles.license_group
       END,
-      date_of_birth = COALESCE(v_dob, profiles.date_of_birth),
+      date_of_birth = COALESCE(v_dob::text, profiles.date_of_birth::text),
       consent_vop = COALESCE(p_consent_vop, profiles.consent_vop),
       consent_gdpr = COALESCE(p_consent_gdpr, profiles.consent_gdpr),
       marketing_consent = COALESCE(p_marketing_consent, profiles.marketing_consent),
