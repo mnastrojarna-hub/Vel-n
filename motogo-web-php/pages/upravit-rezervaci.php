@@ -40,6 +40,8 @@ $keys = [
     'editRez.doc.type.unknown','editRez.doc.type.rental_contract','editRez.doc.type.handover_protocol',
     'editRez.doc.uploadTitle','editRez.doc.uploadHelp','editRez.doc.idLabel','editRez.doc.licenseLabel',
     'editRez.doc.uploadBtn','editRez.doc.updateBtn','editRez.doc.scanBtn','editRez.doc.galleryBtn','editRez.doc.archiveTitle',
+    'editRez.doc.finishBtn','editRez.doc.finishHelp','editRez.doc.finishSaving','editRez.doc.finishDone',
+    'editRez.doc.finishCodesSent','editRez.doc.finishMissing','editRez.doc.finishError',
     'editRez.detail.title','editRez.detail.bookingId','editRez.detail.moto','editRez.detail.dates',
     'editRez.detail.pickup','editRez.detail.return','editRez.detail.totalPaid','editRez.detail.daysCount',
     'editRez.tab.detail','editRez.tab.extend','editRez.tab.shorten','editRez.tab.cancel',
@@ -155,6 +157,12 @@ $keys = [
     'editRez.shorten.helpActiveLong','editRez.shorten.helpUpcomingLong',
     'editRez.shorten.dirStart','editRez.shorten.dirEnd',
     'editRez.range.newStart','editRez.range.newEnd','editRez.range.startBetween','editRez.range.endBetween',
+
+    // Doklady — focení/nahrávání (sdílený flow s rezervací: pages-rezervace-scan.js + pages-rezervace-camera.js)
+    'rez.scan.front','rez.scan.backSide','rez.scan.shootFront','rez.scan.shootBack','rez.scan.uploadFront','rez.scan.uploadBack',
+    'rez.scan.recognizing','rez.scan.recognizingFrames','rez.scan.recognized','rez.scan.uploaded','rez.scan.docNo',
+    'rez.scan.fileUploaded','rez.scan.cantUpload','rez.scan.uploadError',
+    'rez.cam.docs.id','rez.cam.docs.license','rez.cam.close','rez.cam.hint','rez.cam.shoot','rez.cam.progress','rez.cam.frame',
 ];
 $i18n = [];
 foreach ($keys as $k) {
