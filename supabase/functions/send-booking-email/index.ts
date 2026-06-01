@@ -297,8 +297,10 @@ async function autoGenerateAttachments(
   type: string,
   booking_id: string,
   supabase: any,
-  opts: { priceDifference?: number; orderId?: string } = {}
+  opts: { priceDifference?: number; orderId?: string; lang?: string } = {}
 ): Promise<SentAttachment[]> {
+  // i18n — jazyk zákazníka pro přeložené dokumenty (smlouva, VOP). Default cs.
+  const docLang = opts.lang || 'cs'
   const atts: SentAttachment[] = []
   const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`, 'apikey': SUPABASE_SERVICE_KEY }
 
@@ -379,7 +381,7 @@ async function autoGenerateAttachments(
     try {
       const res = await fetch(`${SUPABASE_URL}/functions/v1/generate-document`, {
         method: 'POST', headers,
-        body: JSON.stringify({ template_slug: 'rental_contract', booking_id }),
+        body: JSON.stringify({ template_slug: 'rental_contract', booking_id, language: docLang }),
       })
       const data = await res.json().catch(() => ({}))
       if (data.success && data.path) {
@@ -394,7 +396,7 @@ async function autoGenerateAttachments(
     try {
       const res = await fetch(`${SUPABASE_URL}/functions/v1/generate-document`, {
         method: 'POST', headers,
-        body: JSON.stringify({ template_slug: 'vop', booking_id }),
+        body: JSON.stringify({ template_slug: 'vop', booking_id, language: docLang }),
       })
       const data = await res.json().catch(() => ({}))
       if (data.success && data.path) {
@@ -670,7 +672,7 @@ async function autoGenerateAttachments(
     try {
       const cRes = await fetch(`${SUPABASE_URL}/functions/v1/generate-document`, {
         method: 'POST', headers,
-        body: JSON.stringify({ template_slug: 'rental_contract', booking_id }),
+        body: JSON.stringify({ template_slug: 'rental_contract', booking_id, language: docLang }),
       })
       const cData = await cRes.json().catch(() => ({}))
       if (cData.success && cData.path) {
@@ -683,7 +685,7 @@ async function autoGenerateAttachments(
     try {
       const vRes = await fetch(`${SUPABASE_URL}/functions/v1/generate-document`, {
         method: 'POST', headers,
-        body: JSON.stringify({ template_slug: 'vop', booking_id }),
+        body: JSON.stringify({ template_slug: 'vop', booking_id, language: docLang }),
       })
       const vData = await vRes.json().catch(() => ({}))
       if (vData.success && vData.path) {
@@ -1203,6 +1205,7 @@ ${vars.tracking_number ? `<table style="width:100%;border-collapse:collapse;marg
         const autoAtts = await autoGenerateAttachments(type, booking_id || '', supabase, {
           priceDifference: Number(price_difference || 0),
           orderId: order_id || undefined,
+          lang: custLang,
         })
         for (const a of autoAtts) addAttachmentUnique(a)
       } catch { /* ignore */ }
@@ -1231,6 +1234,7 @@ ${vars.tracking_number ? `<table style="width:100%;border-collapse:collapse;marg
           const synth = await autoGenerateAttachments(synthType, booking_id || '', supabase, {
             priceDifference: Number(price_difference || 0),
             orderId: order_id || undefined,
+            lang: custLang,
           })
           for (const a of synth) addAttachmentUnique(a)
         } catch { /* ignore */ }

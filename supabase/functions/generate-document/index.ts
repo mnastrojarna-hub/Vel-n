@@ -34,6 +34,29 @@ const CORS = {
 const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('cs-CZ') : '—'
 const fmtPrice = (n: number) => (n || 0).toLocaleString('cs-CZ', { minimumFractionDigits: 2 })
 
+// ── i18n: jazyk + doména zákazníka ─────────────────────────────────────────
+// Stejný vzor jako process-payment/stripe-customer.ts: cs → motogo24.cz,
+// ostatní podporované jazyky → motogo24.com. CZ chování zůstává beze změny.
+const SUPPORTED_LANGS = ['cs', 'en', 'de', 'es', 'fr', 'nl', 'pl']
+const DOMAIN_INTL = 'https://motogo24.com'
+
+/** Normalizuj jazyk na podporovaný kód (cs/en/de/es/fr/nl/pl), jinak 'cs'. */
+function normLang(l: unknown): string {
+  const s = String(l || '').toLowerCase().slice(0, 2)
+  return SUPPORTED_LANGS.includes(s) ? s : 'cs'
+}
+/** Webový label (bez protokolu) do firemních údajů dokumentu dle jazyka. */
+function webLabelForLang(lang: string): string {
+  return lang === 'cs' ? 'motogo24.cz' : 'motogo24.com'
+}
+/** Přepiš URL odkazy na motogo24.cz → zákazníkovu doménu (jen pro non-cs).
+ *  Mění POUZE `http(s)://(www.)motogo24.cz...` — e-mail `info@motogo24.cz`
+ *  ani holý textový label se NEdotkne (label řídí {{company_web}}). */
+function localizeDocLinks(html: string, lang: string): string {
+  if (lang === 'cs' || !html) return html
+  return html.replace(/https?:\/\/(?:www\.)?motogo24\.cz/gi, DOMAIN_INTL)
+}
+
 /**
  * Sestaví seznam zapůjčeného příslušenství (velikosti) z reálné rezervace.
  * - vždy řádky pro řidiče (helma/bunda/kalhoty/boty/rukavice) podle vyplněných `*_size`
@@ -113,10 +136,12 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
 
   try {
-    const { template_slug, booking_id } = await req.json()
+    const { template_slug, booking_id, language } = await req.json()
     if (!template_slug || !booking_id) {
       return new Response(JSON.stringify({ error: 'Missing template_slug or booking_id' }), { status: 400 })
     }
+    // i18n — jazyk zákazníka (cs default). Pro cs zůstává vše 1:1 jako dřív.
+    const lang = normLang(language)
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
@@ -271,7 +296,7 @@ serve(async (req) => {
       company_dic: companyInfo.dic,
       company_phone: '+420 774 256 271',
       company_email: 'info@motogo24.cz',
-      company_web: 'motogo24.cz',
+      company_web: webLabelForLang(lang),
       company_bank: 'mBank',
       company_account: '670100-2225851630/6210',
       // Time & period — start_time = pickup_time, end_time = return_time
@@ -292,11 +317,26 @@ serve(async (req) => {
       accessories: accessories.text,
     }
 
+    // i18n: pro cizojazyčného zákazníka vyzvedni přeložený obsah z DB
+    // (`content_translations[lang]` / `name_translations[lang]` — plní edge fn
+    // translate-document). cs i chybějící překlad → původní CZ `content_html`,
+    // takže česká verze zůstává 1:1 beze změny.
+    let baseContent = template?.content_html || template?.html_content || ''
+    let docTitle = template?.name || template_slug
+    if (lang !== 'cs' && template) {
+      const ct = (template.content_translations || {}) as Record<string, string>
+      const nt = (template.name_translations || {}) as Record<string, string>
+      if (typeof ct[lang] === 'string' && ct[lang].trim()) baseContent = ct[lang]
+      if (typeof nt[lang] === 'string' && nt[lang].trim()) docTitle = nt[lang]
+    }
+
     // Substitute variables in template HTML
-    let htmlContent = template?.content_html || template?.html_content || getFallbackTemplate(template_slug) || ''
+    let htmlContent = baseContent || getFallbackTemplate(template_slug) || ''
     for (const [key, val] of Object.entries(vars)) {
       htmlContent = htmlContent.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), val)
     }
+    // Odkazy na motogo24.cz → zákazníkova doména (jen non-cs; e-mail se nemění).
+    htmlContent = localizeDocLinks(htmlContent, lang)
 
     // Velín RichTextEditor ukládá obsah jako fragment (<p>/<table>… bez <!DOCTYPE>).
     // PDFShift potřebuje plný HTML dokument — fakturní šablona ho generuje, ale
@@ -305,8 +345,8 @@ serve(async (req) => {
     // se základní typografií (mirror styly z RichTextEditor preview).
     const isFullDoc = /^\s*(?:<!doctype|<html\b)/i.test(htmlContent)
     if (!isFullDoc) {
-      const title = template?.name || template_slug
-      htmlContent = `<!DOCTYPE html><html lang="cs"><head><meta charset="utf-8"><title>${title}</title><style>
+      const title = docTitle
+      htmlContent = `<!DOCTYPE html><html lang="${lang}"><head><meta charset="utf-8"><title>${title}</title><style>
 body { margin: 0; padding: 24px; font-family: 'Segoe UI', system-ui, sans-serif; font-size: 12px; line-height: 1.6; color: #0f1a14; background: #fff; }
 p { margin: 0 0 10px; }
 h1 { font-size: 1.8em; font-weight: 800; margin: 14px 0 8px; }
