@@ -93,11 +93,39 @@ export default function CustomersBulkActionsModal({ open, onClose, selectedCusto
   }
 
   async function handleDelete() {
-    if (!window.confirm(`TRVALE smazat ${count} zákaznických profilů?\n\nPoznámka: rezervace, faktury a vouchery zůstanou v DB, ale nebudou mít vazbu na zákazníka.`)) return
+    if (!window.confirm(`TRVALE smazat ${count} zákaznických profilů?\n\nSmaže identitu (auth.users) i profil. Rezervace, faktury a vouchery zůstanou v DB odpojené. Zákazníci s aktivní/čekající rezervací se přeskočí.`)) return
     await run('Profily smazány', async () => {
-      const { error: err } = await supabase.from('profiles').delete().in('id', ids)
-      if (err) throw err
-      await logAudit('customer_bulk_deleted', { count, ids })
+      // POZOR: NIKDY nemazat jen public.profiles. FK profiles.id → auth.users je
+      // jednosměrný (ON DELETE CASCADE), takže smazání profilu NEsmaže auth.users.
+      // Osiřelý auth záznam pak navždy blokuje web rezervaci na daný e-mail
+      // (check_web_booking_email / create_web_booking dedup čtou auth.users.email).
+      // Proto per zákazník voláme RPC delete_customer_account (maže auth.users →
+      // kaskádou profiles) — stejně jako single-delete v CustomerDetail.jsx.
+      const failed = []
+      for (const c of selectedCustomers) {
+        // Naskenované doklady ze Storage (documents/<id>/) — DB řádky padnou kaskádou.
+        try {
+          const list = await supabase.storage.from('documents').list(c.id)
+          const files = list?.data || []
+          if (files.length > 0) {
+            await supabase.storage.from('documents').remove(files.map(f => `${c.id}/${f.name}`))
+          }
+        } catch { /* storage best-effort, RPC je zdroj pravdy */ }
+
+        const { data, error: err } = await supabase.rpc('delete_customer_account', { p_user_id: c.id })
+        const who = c.email || c.full_name || c.id
+        if (err) { failed.push(`${who}: ${err.message}`); continue }
+        if (data?.error) {
+          const e = data.error
+          failed.push(`${who}: ${e === 'active_bookings'
+            ? `aktivní/čekající rezervace (${data.count ?? '?'})`
+            : e === 'not_authorized' ? 'nemáte oprávnění' : e}`)
+        }
+      }
+      await logAudit('customer_bulk_deleted', { count, ids, failed_count: failed.length, failed })
+      if (failed.length > 0) {
+        throw new Error(`Smazáno ${count - failed.length}/${count}. Nepodařilo se: ${failed.join('; ')}`)
+      }
     })
   }
 
