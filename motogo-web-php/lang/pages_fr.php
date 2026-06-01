@@ -198,11 +198,11 @@ return [
                         ],
                         [
                             'Blouson',
-                            'M, L, XL, 2XL',
+                            'S, M, L, XL, 2XL, 3XL, 4XL, 5XL, 6XL',
                         ],
                         [
                             'Pantalon',
-                            'M, L, XL, 2XL',
+                            'M, L, XL, 2XL, 3XL, 4XL, 5XL, 6XL',
                         ],
                         [
                             'Gants',

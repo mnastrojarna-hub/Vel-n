@@ -1098,11 +1098,11 @@ return [
                         ],
                         [
                             'Jas',
-                            'M, L, XL, 2XL',
+                            'S, M, L, XL, 2XL, 3XL, 4XL, 5XL, 6XL',
                         ],
                         [
                             'Broek',
-                            'M, L, XL, 2XL',
+                            'M, L, XL, 2XL, 3XL, 4XL, 5XL, 6XL',
                         ],
                         [
                             'Handschoenen',
