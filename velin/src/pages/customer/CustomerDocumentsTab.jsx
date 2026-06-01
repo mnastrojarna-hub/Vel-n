@@ -34,6 +34,18 @@ const INV_TYPE_MAP = {
   shop_final: { label: 'Shop konečná', color: '#059669', bg: '#d1fae5' },
 }
 
+// Synced dokumenty z tabulky `documents` jsou jen PDF kopie, které DB trigger
+// `sync_generated_doc_to_documents` vytvoří z `generated_documents`. V seznamu by
+// se tak smlouva/VOP/protokol zobrazovaly dvakrát (čistá HTML verze + syrový PDF
+// „klikyhák"). Tyto typy normalizujeme a duplicitní PDF kopii skryjeme.
+const SYNCED_DOC_TYPES = ['contract', 'vop', 'protocol']
+function normDocType(t) {
+  if (t === 'rental_contract' || t === 'contract') return 'contract'
+  if (t === 'handover_protocol' || t === 'protocol' || t === 'damage_protocol' || t === 'protocol_damage') return 'protocol'
+  if (t === 'vop' || t === 'terms') return 'vop'
+  return t || ''
+}
+
 const DOC_FILTER_OPTIONS = [
   { value: 'all', label: 'Vše' },
   { value: 'invoices', label: 'Faktury' },
@@ -116,7 +128,12 @@ export default function CustomerDocumentsTab({ userId }) {
       const docType = d.document_templates?.type || 'contract'
       items.push({ id: d.id, kind: 'generated', icon: DOC_ICONS[docType] || '📄', name: d.document_templates?.name || DOC_TYPE_LABELS[docType] || 'Dokument', type: docType, date: d.created_at?.slice(0, 10), raw: d, category: 'contracts' })
     })
+    // Klíče (booking + typ) dokumentů, které už máme jako vygenerovanou HTML verzi
+    const generatedKeys = new Set(generatedDocs.map(d => `${d.booking_id || ''}:${normDocType(d.document_templates?.type || 'contract')}`))
     docs.forEach(d => {
+      const nt = normDocType(d.type)
+      // Skryj synced PDF kopii, pokud už existuje vygenerovaná verze stejné smlouvy/VOP/protokolu
+      if (SYNCED_DOC_TYPES.includes(nt) && generatedKeys.has(`${d.booking_id || ''}:${nt}`)) return
       items.push({ id: d.id, kind: 'document', icon: DOC_ICONS[d.type] || '📄', name: d.file_name || d.name || DOC_TYPE_LABELS[d.type] || d.type || 'Dokument', type: d.type, date: d.created_at?.slice(0, 10), raw: d, category: d.type === 'contract' || d.type === 'vop' ? 'contracts' : 'other' })
     })
     // Ověřovací doklady (OP/ŘP/pas fotky) — i ty, co Mindee neověřil. Slouží jen
