@@ -155,6 +155,12 @@ $keys = [
     'editRez.shorten.helpActiveLong','editRez.shorten.helpUpcomingLong',
     'editRez.shorten.dirStart','editRez.shorten.dirEnd',
     'editRez.range.newStart','editRez.range.newEnd','editRez.range.startBetween','editRez.range.endBetween',
+
+    // Doklady — focení/nahrávání (sdílený flow s rezervací: pages-rezervace-scan.js + pages-rezervace-camera.js)
+    'rez.scan.front','rez.scan.backSide','rez.scan.shootFront','rez.scan.shootBack','rez.scan.uploadFront','rez.scan.uploadBack',
+    'rez.scan.recognizing','rez.scan.recognizingFrames','rez.scan.recognized','rez.scan.uploaded','rez.scan.docNo',
+    'rez.scan.fileUploaded','rez.scan.cantUpload','rez.scan.uploadError',
+    'rez.cam.docs.id','rez.cam.docs.license','rez.cam.close','rez.cam.hint','rez.cam.shoot','rez.cam.progress','rez.cam.frame',
 ];
 $i18n = [];
 foreach ($keys as $k) {
