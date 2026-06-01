@@ -107,8 +107,12 @@ BEGIN
     id_number      = COALESCE(NULLIF(p_id_number, ''), id_number),
     license_number = COALESCE(NULLIF(p_license_number, ''), license_number),
     license_group  = COALESCE(v_lic_group, license_group),
-    license_expiry = COALESCE(v_lic_expiry, license_expiry),
-    date_of_birth  = COALESCE(v_dob, date_of_birth),
+    -- POZOR: license_expiry / date_of_birth mohou být v DB typu TEXT i DATE.
+    -- COALESCE(date, text) hodí „COALESCE types date and text cannot be matched"
+    -- a celý UPDATE spadne → neuloží se NIC. Cast obou stran na text to sjednotí
+    -- (přiřazení textu zpět do date sloupce zvládne assignment cast).
+    license_expiry = COALESCE(v_lic_expiry::text, license_expiry::text),
+    date_of_birth  = COALESCE(v_dob::text, date_of_birth::text),
     updated_at     = now()
   WHERE id = v_user_id;
 
