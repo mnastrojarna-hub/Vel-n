@@ -1098,11 +1098,11 @@ return [
                         ],
                         [
                             'Jacke',
-                            'M, L, XL, 2XL',
+                            'S, M, L, XL, 2XL, 3XL, 4XL, 5XL, 6XL',
                         ],
                         [
                             'Hose',
-                            'M, L, XL, 2XL',
+                            'M, L, XL, 2XL, 3XL, 4XL, 5XL, 6XL',
                         ],
                         [
                             'Handschuhe',
