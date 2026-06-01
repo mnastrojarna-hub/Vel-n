@@ -82,7 +82,7 @@ var MG=window.MG||{};window.MG=MG,MG.t=MG.t||function(e,t){var r=window.MG_I18N|
       if(diff>0){
         try{localStorage.setItem("editRez_pending_"+b.id,JSON.stringify({payload:{_gear:{sizes:sizes}},ts:Date.now()}))}catch(e){}
         var sess=await window.sb.auth.getSession(),tok=sess&&sess.data&&sess.data.session&&sess.data.session.access_token;if(!tok)throw new Error("no-auth");
-        var resp=await fetch(window.MOTOGO_CONFIG.SUPABASE_URL+"/functions/v1/process-payment",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+tok,apikey:window.MOTOGO_CONFIG.SUPABASE_ANON_KEY},body:JSON.stringify({type:"extension",mode:"checkout",booking_id:b.id,amount:diff,success_url:window.location.origin+"/upravit-rezervaci?paid_booking="+b.id,cancel_url:window.location.origin+"/upravit-rezervaci"})});
+        var resp=await fetch(window.MOTOGO_CONFIG.SUPABASE_URL+"/functions/v1/process-payment",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+tok,apikey:window.MOTOGO_CONFIG.SUPABASE_ANON_KEY},body:JSON.stringify({type:"extension",mode:"checkout",booking_id:b.id,amount:diff,change:{_gear:{sizes:sizes}},success_url:window.location.origin+"/upravit-rezervaci?paid_booking="+b.id,cancel_url:window.location.origin+"/upravit-rezervaci"})});
         var jr=await resp.json().catch(function(){return null}),url=jr&&(jr.checkout_url||jr.url);
         if(!resp.ok||!url){console.error("[editRez] gear payment err",resp.status,jr);MG._editRez._showError(jr&&jr.error?jr.error:MG.t("editRez.err.generic"));try{localStorage.removeItem("editRez_pending_"+b.id)}catch(e){}return}
         window.location.href=url;return;

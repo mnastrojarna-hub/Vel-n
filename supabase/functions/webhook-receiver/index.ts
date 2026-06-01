@@ -43,6 +43,33 @@ async function applyExtensionChange(
   try { a = JSON.parse(chgStr) as Record<string, unknown> } catch { return }
   if (!a || typeof a !== 'object') return
 
+  // ── Změna výbavy (placená gear) — řeší vlastní SECURITY DEFINER RPC ──────────
+  // gear se neukládá pouhým bookings.update (mění i booking_extras + extras_price).
+  // apply_paid_gear_change(p_booking_id, p_sizes) je service-role wrapper, který
+  // impersonuje vlastníka a volá existující update_booking_gear (idempotentní:
+  // net_diff se počítá vůči aktuálnímu stavu → druhý běh = 0). Změna total_price
+  // spustí trg_send_booking_modified_email → web_booking_modified. Když RPC ještě
+  // neexistuje (SQL nenasazena), chyba se zaloguje a gear padá zpět na klientský
+  // _applyPendingAfterPayment (žádná regrese).
+  const gear = a._gear as { sizes?: Record<string, unknown> } | undefined
+  if (gear && typeof gear === 'object') {
+    const { error } = await supabase.rpc('apply_paid_gear_change', {
+      p_booking_id: bookingId,
+      p_sizes: gear.sizes || {},
+    })
+    try {
+      await supabase.from('debug_log').insert({
+        source: 'webhook-receiver',
+        action: error ? 'gear_change_apply_failed' : 'gear_change_applied',
+        component: 'stripe',
+        status: error ? 'error' : 'ok',
+        error_message: error?.message || null,
+        request_data: { booking_id: bookingId },
+      })
+    } catch { /* ignore */ }
+    return
+  }
+
   const def = (v: unknown) => v !== undefined
   const defNN = (v: unknown) => v !== undefined && v !== null
   const d: Record<string, unknown> = {}
