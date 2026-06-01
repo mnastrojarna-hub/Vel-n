@@ -1323,6 +1323,7 @@ return [
     'editRez.doc.finishCodesSent' => 'Gotowe! Twoje dokumenty zostały zapisane, a kody dostępu wysłaliśmy e-mailem.',
     'editRez.doc.finishMissing' => 'Twoje dokumenty nie są jeszcze kompletne — prześlij obie strony dowodu/paszportu oraz prawa jazdy.',
     'editRez.doc.finishError' => 'Zapis nie powiódł się. Spróbuj ponownie.',
+    'editRez.doc.savedOk' => 'Dokument zapisany ✓',
     'editRez.status.upcoming' => 'Nadchodząca',
     'editRez.loc.helpActive' => 'Trwającą rezerwację możesz zmienić już tylko po stronie zwrotu (motocykl jest odebrany). Miejsce i czas zwrotu można zmienić w każdej chwili — różnicę w cenie rozliczymy automatycznie.',
     'editRez.loc.refundNote' => 'Zmiana miejsca nie podlega tabeli rezygnacji — zwrot za podstawienie zawsze otrzymasz w pełnej wysokości, nawet jeśli zmieniasz dzień odbioru.',

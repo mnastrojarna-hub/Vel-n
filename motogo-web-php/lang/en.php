@@ -1367,6 +1367,7 @@ return [
     'editRez.doc.finishCodesSent' => 'Done! Your documents are saved and we have emailed you the access codes.',
     'editRez.doc.finishMissing' => 'Your documents are not complete yet — please upload both sides of your ID/passport and driving licence.',
     'editRez.doc.finishError' => 'Saving failed. Please try again.',
+    'editRez.doc.savedOk' => 'Document saved ✓',
     'editRez.status.upcoming' => 'Upcoming',
     'editRez.loc.helpActive' => 'An ongoing booking can only be changed on the return side (you\'ve already picked up the motorcycle). The return location and time can be adjusted anytime — we settle the price difference automatically.',
     'editRez.loc.refundNote' => 'A location change is not subject to the cancellation table — you always get the full delivery fee back, even if you change the pickup day.',

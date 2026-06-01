@@ -41,7 +41,7 @@ $keys = [
     'editRez.doc.uploadTitle','editRez.doc.uploadHelp','editRez.doc.idLabel','editRez.doc.licenseLabel',
     'editRez.doc.uploadBtn','editRez.doc.updateBtn','editRez.doc.scanBtn','editRez.doc.galleryBtn','editRez.doc.archiveTitle',
     'editRez.doc.finishBtn','editRez.doc.finishHelp','editRez.doc.finishSaving','editRez.doc.finishDone',
-    'editRez.doc.finishCodesSent','editRez.doc.finishMissing','editRez.doc.finishError',
+    'editRez.doc.finishCodesSent','editRez.doc.finishMissing','editRez.doc.finishError','editRez.doc.savedOk',
     'editRez.detail.title','editRez.detail.bookingId','editRez.detail.moto','editRez.detail.dates',
     'editRez.detail.pickup','editRez.detail.return','editRez.detail.totalPaid','editRez.detail.daysCount',
     'editRez.tab.detail','editRez.tab.extend','editRez.tab.shorten','editRez.tab.cancel',
