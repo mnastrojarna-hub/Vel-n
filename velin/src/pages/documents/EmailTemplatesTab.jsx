@@ -387,8 +387,10 @@ function TemplateCard({ template, onEdit }) {
   const chanDef = CHANNELS.find(c => c.value === getChannel(template.slug)) || CHANNELS[2]
   const attachmentsList = Array.isArray(template.attachments) ? template.attachments : []
   const isEmptyBody = !template.body_html || template.body_html.trim() === ''
+  // Počítej jen reálné jazykové klíče — interní `__src_<lang>` hash klíče
+  // (cache invalidace dynamického překladu v send-* edge fn) ignoruj.
   const bodyLangCount = template.body_translations && typeof template.body_translations === 'object'
-    ? Object.keys(template.body_translations).length : 0
+    ? Object.keys(template.body_translations).filter(k => !k.startsWith('__')).length : 0
 
   return (
     <Card>

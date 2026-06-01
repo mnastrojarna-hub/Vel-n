@@ -4,6 +4,7 @@ import { PDFDocument, StandardFonts, rgb } from 'https://esm.sh/pdf-lib@1.17.1'
 import { renderEmail, normalizeLang, helpCardLabels, renderDoorCodesReleasedBlock, renderDocsRequiredBlock, type Lang } from './i18n.ts'
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') || ''
+const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY') || ''
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
 const FROM_EMAIL = Deno.env.get('FROM_EMAIL') || 'noreply@motogo24.cz'
@@ -13,6 +14,112 @@ const PUBLIC_QR_TARGET = 'https://www.motogo24.cz'
 const FB_URL = 'https://www.facebook.com/profile.php?id=61581614672839'
 const IG_URL = 'https://www.instagram.com/moto.go24/'
 const GOOGLE_REVIEW_URL_DEFAULT = 'https://g.page/MotoGo24/review'
+
+// ── i18n: doména zákazníka dle jazyka ───────────────────────────────────────
+// Stejný vzor jako process-payment/stripe-customer.ts a generate-document:
+// cs → motogo24.cz, ostatní podporované jazyky → motogo24.com.
+// Asset obrázky (logo, sociální ikony) zůstávají na .cz — jsou hostované tam.
+const DOMAIN_INTL = 'https://motogo24.com'
+/** Plná URL domény zákazníka (pro odkazy / QR). cs → SITE_URL (.cz). */
+function siteForLang(lang: string): string {
+  return lang === 'cs' ? SITE_URL : DOMAIN_INTL
+}
+/** Webový label bez protokolu do patičky. */
+function webLabelForLang(lang: string): string {
+  return lang === 'cs' ? 'motogo24.cz' : 'motogo24.com'
+}
+/** Přepiš URL odkazy na motogo24.cz → zákazníkovu doménu (jen non-cs).
+ *  Mění POUZE `http(s)://(www.)motogo24.cz...` v TĚLE mailu — e-mail
+ *  `info@motogo24.cz` (mailto / text) se nemění. Asset obrázky (logo,
+ *  ikony) jsou jen ve `wrapInBrandedLayout`, kam se tato fce neaplikuje. */
+function localizeBodyLinks(html: string, lang: string): string {
+  if (lang === 'cs' || !html) return html
+  return html.replace(/https?:\/\/(?:www\.)?motogo24\.cz/gi, DOMAIN_INTL)
+}
+
+// ── i18n: dynamický překlad CZ mailové šablony přes Anthropic API ────────────
+// Velín edituje jen CZ (subject + body_html). Pro non-cz zákazníka se CZ šablona
+// přeloží přes Claude (haiku) a výsledek se zacachuje zpět do
+// email_templates.{subject,body}_translations[lang] + per-lang hash zdroje
+// (__src_<lang>) pro invalidaci, když admin CZ text změní. Zachová HTML i {{vary}}.
+const TRANSLATE_MODEL = 'claude-haiku-4-5-20251001'
+const LANG_NAMES: Record<string, string> = {
+  en: 'English', de: 'German (Deutsch)', es: 'Spanish (Español)',
+  fr: 'French (Français)', nl: 'Dutch (Nederlands)', pl: 'Polish (Polski)',
+}
+
+/** SHA-1 hex zdroje (detekce změny CZ šablony → invalidace cache). */
+async function sha1Hex(s: string): Promise<string> {
+  const buf = await crypto.subtle.digest('SHA-1', new TextEncoder().encode(s))
+  return Array.from(new Uint8Array(buf), (b) => b.toString(16).padStart(2, '0')).join('')
+}
+
+/** Přeloží subject+body RAW mailové šablony z CZ do cílového jazyka přes Anthropic.
+ *  Překládá PŘED substitucí proměnných → cache je nezávislá na konkrétní rezervaci.
+ *  Vrací {subject, body} nebo null při chybě (caller pak nechá CZ — mail aspoň odejde). */
+async function translateEmailTemplate(subjectCz: string, bodyCz: string, lang: string): Promise<{ subject: string; body: string } | null> {
+  if (!ANTHROPIC_API_KEY) return null
+  const langName = LANG_NAMES[lang] || lang
+  const system = [
+    `You are a professional Czech-to-${langName} translator for MotoGo24 — a Czech motorcycle rental company.`,
+    'Translate the provided JSON object with keys "subject" and "body". Output STRICTLY a valid JSON object with the same two keys and translated values.',
+    'STRICT RULES:',
+    `- Output language: ${langName} (${lang}). Natural, native, fluent.`,
+    '- Preserve ALL HTML tags, attributes, inline styles and structure EXACTLY.',
+    '- DO NOT translate or change: URLs, email addresses, phone numbers, prices, IČO, DIČ, brand names. Keep the company name "MotoGo24" unchanged. Keep currency "Kč" as is.',
+    '- Keep ALL template placeholders like {{var}} EXACTLY unchanged (e.g. {{booking_number}}, {{customer_name}}, {{door_codes_block}}, {{site_url}}, {{total_price}}).',
+    '- Do NOT add commentary, do NOT add markdown fences. Output ONLY the raw JSON object.',
+  ].join('\n')
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+      body: JSON.stringify({ model: TRANSLATE_MODEL, max_tokens: 4096, system, messages: [{ role: 'user', content: JSON.stringify({ subject: subjectCz, body: bodyCz }) }] }),
+    })
+    if (!res.ok) { console.warn('[translateEmailTemplate] anthropic', res.status); return null }
+    const data = await res.json()
+    const text = (data?.content?.[0]?.text || '').trim()
+    let parsed: { subject?: unknown; body?: unknown }
+    try { parsed = JSON.parse(text) } catch {
+      const s = text.indexOf('{'), e = text.lastIndexOf('}')
+      if (s < 0 || e <= s) return null
+      parsed = JSON.parse(text.slice(s, e + 1))
+    }
+    return {
+      subject: typeof parsed.subject === 'string' ? parsed.subject : subjectCz,
+      body: typeof parsed.body === 'string' ? parsed.body : bodyCz,
+    }
+  } catch (e) { console.warn('[translateEmailTemplate]', (e as Error).message); return null }
+}
+
+/** Vyřeší subject+body DB šablony pro daný jazyk: cs → CZ originál; non-cz →
+ *  čerstvý cache překlad, jinak přeloží přes API a zacachuje. Při selhání API
+ *  vrátí CZ (mail vždy odejde). */
+async function resolveTemplateForLang(
+  supabase: any,
+  tpl: { slug: string; subject: string | null; body_html: string; subject_translations: any; body_translations: any },
+  lang: string,
+): Promise<{ subject: string; body: string }> {
+  const subjCz = tpl.subject || ''
+  const bodyCz = tpl.body_html
+  if (lang === 'cs') return { subject: subjCz, body: bodyCz }
+  const subjT = (tpl.subject_translations as Record<string, string>) || {}
+  const bodyT = (tpl.body_translations as Record<string, string>) || {}
+  const srcHash = await sha1Hex(`${subjCz} ${bodyCz}`)
+  const fresh = bodyT['__src_' + lang] === srcHash && typeof bodyT[lang] === 'string' && !!bodyT[lang]
+  if (fresh) {
+    return { subject: (typeof subjT[lang] === 'string' && subjT[lang]) ? subjT[lang] : subjCz, body: bodyT[lang] }
+  }
+  const tr = await translateEmailTemplate(subjCz, bodyCz, lang)
+  if (!tr) return { subject: subjCz, body: bodyCz } // API selhalo → CZ fallback
+  // cache zpět do DB (best-effort, merge přes ostatní jazyky)
+  try {
+    const newSubjT = { ...subjT, [lang]: tr.subject, ['__src_' + lang]: srcHash }
+    const newBodyT = { ...bodyT, [lang]: tr.body, ['__src_' + lang]: srcHash }
+    await supabase.from('email_templates').update({ subject_translations: newSubjT, body_translations: newBodyT }).eq('slug', tpl.slug)
+  } catch { /* ignore */ }
+  return tr
+}
 
 const FOLLOW_US_LABEL: Record<string, string> = {
   cs: 'SLEDUJTE NÁS', en: 'FOLLOW US', de: 'FOLGEN SIE UNS', nl: 'VOLG ONS',
@@ -90,6 +197,10 @@ function renderTemplate(template: string, vars: Record<string, string>): string 
 /** Wrap body HTML in unified MotoGo24 email layout (1:1 with invoice design + screen reference) */
 function wrapInBrandedLayout(bodyHtml: string, lang: Lang = 'cs'): string {
   const hc = helpCardLabels(lang)
+  // Doména zákazníka — odkazy/QR/label v patičce vedou na .cz (cs) / .com (ostatní).
+  // Asset obrázky (logo, ikony) zůstávají na SITE_URL (.cz), kde jsou hostované.
+  const custSite = siteForLang(lang)
+  const webLabel = webLabelForLang(lang)
   // Vertik\u00e1ln\u00ed hlavi\u010dka 1:1 s brand logem (ikona velk\u00e1 naho\u0159e, text pod n\u00ed)
   const header = `<div style="background:#000000;padding:36px 24px;text-align:center">
     <img src="${SITE_URL}/gfx/logo-icon.png" alt="MotoGo24" width="110" height="110" style="display:inline-block;border:0;margin-bottom:16px"/>
@@ -101,7 +212,7 @@ function wrapInBrandedLayout(bodyHtml: string, lang: Lang = 'cs'): string {
     <div style="color:#ffffff;font-size:13px;margin:0 0 16px">${hc.body}</div>
     <a href="mailto:info@motogo24.cz" style="display:inline-block;background:#74FB71;color:#000000;font-size:13px;font-weight:700;text-decoration:none;padding:12px 28px;border-radius:24px">${hc.cta}</a>
   </div>`
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=8&data=${encodeURIComponent(PUBLIC_QR_TARGET)}`
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=8&data=${encodeURIComponent(custSite)}`
   const footer = `<div style="background:#000000;padding:24px 32px;margin-top:24px">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse"><tr>
       <td style="vertical-align:top;padding-right:16px">
@@ -112,12 +223,12 @@ function wrapInBrandedLayout(bodyHtml: string, lang: Lang = 'cs'): string {
           <div style="color:#9ca3af">I\u010cO: 21874263</div>
           <div><span style="color:#9ca3af">Telefon:</span> <span style="color:#74FB71">+420 774 256 271</span></div>
           <div><span style="color:#9ca3af">E-mail:</span> <span style="color:#74FB71">info@motogo24.cz</span></div>
-          <div><span style="color:#9ca3af">Web:</span> <span style="color:#74FB71">motogo24.cz</span></div>
+          <div><span style="color:#9ca3af">Web:</span> <span style="color:#74FB71">${webLabel}</span></div>
         </div>
       </td>
       <td style="vertical-align:top;width:130px;text-align:center">
-        <a href="${PUBLIC_QR_TARGET}" style="text-decoration:none"><img src="${qrUrl}" alt="motogo24.cz" width="120" height="120" style="display:block;background:#ffffff;padding:6px;border-radius:4px"/></a>
-        <div style="color:#9ca3af;font-size:10px;margin-top:6px">motogo24.cz</div>
+        <a href="${custSite}" style="text-decoration:none"><img src="${qrUrl}" alt="${webLabel}" width="120" height="120" style="display:block;background:#ffffff;padding:6px;border-radius:4px"/></a>
+        <div style="color:#9ca3af;font-size:10px;margin-top:6px">${webLabel}</div>
       </td>
     </tr></table>
     <div style="text-align:center;margin-top:18px;padding-top:16px;border-top:1px solid #1f3a2c">
@@ -297,8 +408,10 @@ async function autoGenerateAttachments(
   type: string,
   booking_id: string,
   supabase: any,
-  opts: { priceDifference?: number; orderId?: string } = {}
+  opts: { priceDifference?: number; orderId?: string; lang?: string } = {}
 ): Promise<SentAttachment[]> {
+  // i18n — jazyk zákazníka pro přeložené dokumenty (smlouva, VOP). Default cs.
+  const docLang = opts.lang || 'cs'
   const atts: SentAttachment[] = []
   const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`, 'apikey': SUPABASE_SERVICE_KEY }
 
@@ -379,7 +492,7 @@ async function autoGenerateAttachments(
     try {
       const res = await fetch(`${SUPABASE_URL}/functions/v1/generate-document`, {
         method: 'POST', headers,
-        body: JSON.stringify({ template_slug: 'rental_contract', booking_id }),
+        body: JSON.stringify({ template_slug: 'rental_contract', booking_id, language: docLang }),
       })
       const data = await res.json().catch(() => ({}))
       if (data.success && data.path) {
@@ -394,7 +507,7 @@ async function autoGenerateAttachments(
     try {
       const res = await fetch(`${SUPABASE_URL}/functions/v1/generate-document`, {
         method: 'POST', headers,
-        body: JSON.stringify({ template_slug: 'vop', booking_id }),
+        body: JSON.stringify({ template_slug: 'vop', booking_id, language: docLang }),
       })
       const data = await res.json().catch(() => ({}))
       if (data.success && data.path) {
@@ -670,7 +783,7 @@ async function autoGenerateAttachments(
     try {
       const cRes = await fetch(`${SUPABASE_URL}/functions/v1/generate-document`, {
         method: 'POST', headers,
-        body: JSON.stringify({ template_slug: 'rental_contract', booking_id }),
+        body: JSON.stringify({ template_slug: 'rental_contract', booking_id, language: docLang }),
       })
       const cData = await cRes.json().catch(() => ({}))
       if (cData.success && cData.path) {
@@ -683,7 +796,7 @@ async function autoGenerateAttachments(
     try {
       const vRes = await fetch(`${SUPABASE_URL}/functions/v1/generate-document`, {
         method: 'POST', headers,
-        body: JSON.stringify({ template_slug: 'vop', booking_id }),
+        body: JSON.stringify({ template_slug: 'vop', booking_id, language: docLang }),
       })
       const vData = await vRes.json().catch(() => ({}))
       if (vData.success && vData.path) {
@@ -887,11 +1000,15 @@ serve(async (req) => {
         } catch { /* ignore */ }
       }
       if (needsDocs) {
-        const docsLink = docs_url || `${SITE_URL}/upravit-rezervaci?id=${booking_id}#doklady`
+        const docsLink = docs_url || `${siteForLang(custLang)}/upravit-rezervaci?id=${booking_id}#doklady`
         vars.docs_url = docsLink
         vars.door_codes_block = renderDocsRequiredBlock(custLang, docsLink)
       }
     }
+
+    // i18n: {{site_url}} placeholder → doména zákazníka (.cz pro cs, .com jinak).
+    // Vars se sestavily před detekcí jazyka, takže přepíšeme až teď.
+    vars.site_url = siteForLang(custLang)
 
     // Try to load template from DB (first web-specific, then generic)
     const slug = resolveSlug(type, source)
@@ -916,13 +1033,12 @@ serve(async (req) => {
         .maybeSingle()
 
       if (tpl?.body_html) {
-        // Per-language override z DB jsonb sloupc\u016f (priorita 1)
-        const dbSubjT = (tpl.subject_translations as Record<string, string>) || {}
-        const dbBodyT = (tpl.body_translations as Record<string, string>)   || {}
-        const dbSubj = dbSubjT[custLang] || tpl.subject || ''
-        const dbBody = dbBodyT[custLang] || tpl.body_html
-        templateHtml = renderTemplate(dbBody, vars)
-        subject = renderTemplate(dbSubj, vars)
+        // Vel\u00edn = jen CZ. Pro non-cz z\u00e1kazn\u00edka p\u0159elo\u017e CZ \u0161ablonu p\u0159es API
+        // (cache v {subject,body}_translations[lang] + __src_<lang> hash).
+        // cs \u2192 CZ origin\u00e1l 1:1 beze zm\u011bny.
+        const resolved = await resolveTemplateForLang(supabase, tpl as any, custLang)
+        templateHtml = renderTemplate(resolved.body, vars)
+        subject = renderTemplate(resolved.subject, vars)
         if (Array.isArray(tpl.attachments)) {
           dbAttachmentsList = tpl.attachments as string[]
         }
@@ -1124,6 +1240,9 @@ ${vars.tracking_number ? `<table style="width:100%;border-collapse:collapse;marg
       templateHtml = templateHtml + googleReviewBlock(custLang, vars.google_review_url)
     }
 
+    // Zdoménuj odkazy v těle mailu na zákazníkovu doménu (jen non-cs; e-mail
+    // info@motogo24.cz se nemění). Pokrývá DB šablonu, i18n překlad i CZ fallback.
+    templateHtml = localizeBodyLinks(templateHtml, custLang)
     const html = wrapInBrandedLayout(templateHtml, custLang)
 
     // Admin kopie do info@motogo24.cz vždy v CZ (Velin admin čte v CZ).
@@ -1203,6 +1322,7 @@ ${vars.tracking_number ? `<table style="width:100%;border-collapse:collapse;marg
         const autoAtts = await autoGenerateAttachments(type, booking_id || '', supabase, {
           priceDifference: Number(price_difference || 0),
           orderId: order_id || undefined,
+          lang: custLang,
         })
         for (const a of autoAtts) addAttachmentUnique(a)
       } catch { /* ignore */ }
@@ -1231,6 +1351,7 @@ ${vars.tracking_number ? `<table style="width:100%;border-collapse:collapse;marg
           const synth = await autoGenerateAttachments(synthType, booking_id || '', supabase, {
             priceDifference: Number(price_difference || 0),
             orderId: order_id || undefined,
+            lang: custLang,
           })
           for (const a of synth) addAttachmentUnique(a)
         } catch { /* ignore */ }
