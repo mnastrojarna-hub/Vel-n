@@ -205,9 +205,13 @@ class AuthService {
   // Stejný flow jako web /rezervace a /upravit-rezervaci.
   static Future<String?> resetPassword(String email) async {
     try {
+      // i18n: jazyk z uloženého locale appky → OTP mail dorazí přeložený
+      // (edge fn jinak fallbackuje na profiles.language, pak 'cs').
+      final prefs = await SharedPreferences.getInstance();
+      final lang = (prefs.getString('mg_locale') ?? 'cs').split(RegExp(r'[-_]')).first;
       final res = await _client.functions.invoke(
         'send-recovery-otp',
-        body: {'email': email.trim().toLowerCase()},
+        body: {'email': email.trim().toLowerCase(), 'language': lang},
       );
       // Edge fn vrací success aj při neexistujícím mailu (anti-enumeration).
       // Klient pokračuje na OTP screen — pokud zákazník zadá kód, který
