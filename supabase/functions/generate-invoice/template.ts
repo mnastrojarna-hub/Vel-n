@@ -3,8 +3,12 @@
 
 const SITE_URL = 'https://www.motogo24.cz'
 const LOGO_URL = `${SITE_URL}/gfx/logo-icon.png`
-const PUBLIC_QR_TARGET = SITE_URL
-const QR_URL = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=8&data=${encodeURIComponent(PUBLIC_QR_TARGET)}`
+
+// ── i18n: doména zákazníka pro odkazy/QR (cs → .cz, ostatní → .com) ──────────
+// Účetní text faktury zůstává česky (daňový doklad), localizují se jen ODKAZY,
+// aby vedly na doménu zákazníka. Logo zůstává na .cz (asset).
+function siteForLang(lang: string): string { return lang === 'cs' ? SITE_URL : 'https://motogo24.com' }
+function webLabelForLang(lang: string): string { return lang === 'cs' ? 'motogo24.cz' : 'motogo24.com' }
 
 const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('cs-CZ') : '—'
 const fmtPrice = (n: number) => `${(n || 0).toLocaleString('cs-CZ', { maximumFractionDigits: 0 })} Kč`
@@ -27,6 +31,8 @@ interface TemplateParams {
   // optional — for richer payment block:
   stripePaymentIntentId?: string
   paidDate?: string
+  // i18n — jazyk zákazníka; localizuje pouze ODKAZY (web/QR), text zůstává CZ.
+  lang?: string
 }
 
 // Split "Pronájem BMW R 1200 GS — 13.5.2026 – 13.5.2026" → name + desc
@@ -62,6 +68,11 @@ export function generateInvoiceHtml(p: TemplateParams): string {
   const customerAddr = [p.customer.street, p.customer.city, p.customer.zip].filter(Boolean).join(', ')
   const vc = p.voucher_codes || []
   const dc = p.doorCodes || []
+  // i18n odkazy — doména/label dle jazyka zákazníka (cs default = .cz beze změny)
+  const lang = p.lang || 'cs'
+  const site = siteForLang(lang)
+  const webLabel = webLabelForLang(lang)
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=8&data=${encodeURIComponent(site)}`
 
   // Item rows
   const itemsHtml = p.items.map((it) => {
@@ -112,7 +123,7 @@ export function generateInvoiceHtml(p: TemplateParams): string {
   const badgeBg = badge.tone === 'paid' ? '#74FB71' : '#fbbf24'
   const badgeText = '#000000'
 
-  return `<!DOCTYPE html><html lang="cs"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${p.title} ${p.number}</title>
+  return `<!DOCTYPE html><html lang="${lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${p.title} ${p.number}</title>
 <style>
   /* Zhuštěná verze pro 1-stránkové PDF (PDFShift A4, margin 8mm).
      Mobilní rozložení @media zachováno 1:1 — projeví se jen v HTML preview, PDF jde do desktop branch. */
@@ -263,7 +274,7 @@ export function generateInvoiceHtml(p: TemplateParams): string {
     <div style="font-size:11px;font-weight:800;color:#166534;letter-spacing:1.5px;margin-bottom:4px">DÁRKOVÉ POUKAZY</div>
     ${vc.map((c: string) => `<div style="font-size:13px;font-weight:700;font-family:'Courier New',monospace;color:#166534;padding:1px 0">${c}</div>`).join('')}
     ${p.voucherValidUntil ? `<div style="font-size:11px;color:#166534;margin-top:4px">Platnost: 3 roky (do ${fmtDate(p.voucherValidUntil)})</div>` : ''}
-    <div style="font-size:10px;color:#4a6357;margin-top:3px">Kód uplatníte při rezervaci na motogo24.cz nebo v aplikaci MotoGo24.</div>
+    <div style="font-size:10px;color:#4a6357;margin-top:3px">Kód uplatníte při rezervaci na ${webLabel} nebo v aplikaci MotoGo24.</div>
   </div>` : ''}
 
   ${dc.length > 0 ? `<div style="margin:0 32px 8px;padding:10px;background:#e0f2fe;border-radius:6px;border:1px solid #0284c7">
@@ -287,12 +298,12 @@ export function generateInvoiceHtml(p: TemplateParams): string {
           <div style="color:#9ca3af">IČO: ${p.company.ico}</div>
           <div><span style="color:#9ca3af">Telefon:</span> <span style="color:#74FB71">${p.company.phone}</span></div>
           <div><span style="color:#9ca3af">E-mail:</span> <span style="color:#74FB71">${p.company.email}</span></div>
-          <div><span style="color:#9ca3af">Web:</span> <span style="color:#74FB71">motogo24.cz</span></div>
+          <div><span style="color:#9ca3af">Web:</span> <span style="color:#74FB71">${webLabel}</span></div>
         </div>
       </td>
       <td style="vertical-align:top;width:110px;text-align:center">
-        <a href="${PUBLIC_QR_TARGET}" style="text-decoration:none"><img src="${QR_URL}" alt="motogo24.cz" width="100" height="100" style="display:block;background:#ffffff;padding:5px;border-radius:4px"/></a>
-        <div style="color:#9ca3af;font-size:10px;margin-top:4px">motogo24.cz</div>
+        <a href="${site}" style="text-decoration:none"><img src="${qrUrl}" alt="${webLabel}" width="100" height="100" style="display:block;background:#ffffff;padding:5px;border-radius:4px"/></a>
+        <div style="color:#9ca3af;font-size:10px;margin-top:4px">${webLabel}</div>
       </td>
     </tr></table>
   </div>
@@ -304,7 +315,7 @@ export function generateInvoiceHtml(p: TemplateParams): string {
     <span style="color:#9ca3af"> &nbsp;|&nbsp; </span>IČO: ${p.company.ico}
     <span style="color:#9ca3af"> &nbsp;|&nbsp; </span><span style="color:#74FB71">${p.company.phone}</span>
     <span style="color:#9ca3af"> &nbsp;|&nbsp; </span><span style="color:#74FB71">${p.company.email}</span>
-    <span style="color:#9ca3af"> &nbsp;|&nbsp; </span><span style="color:#74FB71">motogo24.cz</span>
+    <span style="color:#9ca3af"> &nbsp;|&nbsp; </span><span style="color:#74FB71">${webLabel}</span>
   </div>
 
 </div>

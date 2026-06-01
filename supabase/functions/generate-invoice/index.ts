@@ -156,6 +156,7 @@ serve(async (req) => {
       type, booking_id, order_id, send_email,
       extra_items, voucher_codes: explicitVoucherCodes,
       source: reqSource,
+      language: reqLanguage, // i18n: jazyk zákazníka (localizuje ODKAZY na faktuře)
     } = await req.json()
     if (!booking_id && !order_id) return new Response(JSON.stringify({ error: 'Missing booking_id or order_id' }), { status: 400 })
 
@@ -456,10 +457,28 @@ serve(async (req) => {
     const title = isEdit ? `${baseTitle} — ${editLabel}` : baseTitle
     const bookingNumber = booking_id ? booking_id.slice(-8).toUpperCase() : ''
 
+    // i18n — jazyk zákazníka: explicitní z volajícího > detect_customer_language
+    // (z bookings.language / shop_orders.language) > 'cs'. Localizuje pouze ODKAZY
+    // (web/QR) na faktuře — účetní text zůstává česky (daňový doklad).
+    let invLang = 'cs'
+    try {
+      const SUP = ['cs', 'en', 'de', 'es', 'fr', 'nl', 'pl']
+      const explicit = String(reqLanguage || '').toLowerCase().slice(0, 2)
+      if (SUP.includes(explicit)) {
+        invLang = explicit
+      } else {
+        const { data: detected } = await supabase.rpc('detect_customer_language', {
+          p_user_id: null, p_booking_id: booking_id || null, p_order_id: order_id || null,
+        })
+        const d = String(detected || '').toLowerCase().slice(0, 2)
+        if (SUP.includes(d)) invLang = d
+      }
+    } catch { /* ignore → 'cs' */ }
+
     const html = generateInvoiceHtml({
       title, number, accent, issueDate, dueDate, total, company: COMPANY, customer, items,
       voucher_codes, voucherValidUntil, doorCodes, isProforma, isPaymentReceipt, isShopFinal, dpNumber, bookingNumber,
-      paymentMethodLabel, cardInfo, isEdit,
+      paymentMethodLabel, cardInfo, isEdit, lang: invLang,
     })
 
     // Pokus o PDF přes PDFShift; když není API key nebo konverze selže, fallback na HTML.
