@@ -158,6 +158,14 @@ $keys = [
     'editRez.shorten.dirStart','editRez.shorten.dirEnd',
     'editRez.range.newStart','editRez.range.newEnd','editRez.range.startBetween','editRez.range.endBetween',
 
+    // Výbava (gear) tab — vlastní klíče + znovupoužité rez.gear.* z rezervace
+    'editRez.tab.gear','editRez.gear.title','editRez.gear.intro','editRez.gear.surcharge',
+    'editRez.gear.refund','editRez.gear.noCharge','editRez.gear.save','editRez.gear.saved',
+    'rez.gear.rider','rez.gear.riderSub','rez.gear.riderFree','rez.gear.passenger','rez.gear.passengerSub',
+    'rez.gear.bootsRider','rez.gear.bootsRiderSub','rez.gear.bootsPassenger','rez.gear.bootsPassengerSub',
+    'rez.gear.sizeChoose','rez.gear.label.helmet','rez.gear.label.jacket','rez.gear.label.gloves',
+    'rez.gear.label.pants','rez.gear.label.boots',
+
     // Doklady — focení/nahrávání (sdílený flow s rezervací: pages-rezervace-scan.js + pages-rezervace-camera.js)
     'rez.scan.front','rez.scan.backSide','rez.scan.shootFront','rez.scan.shootBack','rez.scan.uploadFront','rez.scan.uploadBack',
     'rez.scan.recognizing','rez.scan.recognizingFrames','rez.scan.recognized','rez.scan.uploaded','rez.scan.docNo',
