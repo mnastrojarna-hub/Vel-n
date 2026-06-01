@@ -27,6 +27,76 @@ function localizeBodyLinks(html: string, lang: string): string {
   return html.replace(/https?:\/\/(?:www\.)?motogo24\.cz/gi, DOMAIN_INTL)
 }
 
+// ── i18n: dynamický překlad CZ mailové šablony přes Anthropic API ────────────
+// Velín edituje jen CZ; non-cz se přeloží přes Claude + cache do
+// email_templates.{subject,body}_translations[lang] + __src_<lang> hash.
+const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY') || ''
+const TRANSLATE_MODEL = 'claude-haiku-4-5-20251001'
+const LANG_NAMES: Record<string, string> = {
+  en: 'English', de: 'German (Deutsch)', es: 'Spanish (Español)',
+  fr: 'French (Français)', nl: 'Dutch (Nederlands)', pl: 'Polish (Polski)',
+}
+async function sha1Hex(s: string): Promise<string> {
+  const buf = await crypto.subtle.digest('SHA-1', new TextEncoder().encode(s))
+  return Array.from(new Uint8Array(buf), (b) => b.toString(16).padStart(2, '0')).join('')
+}
+async function translateEmailTemplate(subjectCz: string, bodyCz: string, lang: string): Promise<{ subject: string; body: string } | null> {
+  if (!ANTHROPIC_API_KEY) return null
+  const langName = LANG_NAMES[lang] || lang
+  const system = [
+    `You are a professional Czech-to-${langName} translator for MotoGo24 — a Czech motorcycle rental company.`,
+    'Translate the provided JSON object with keys "subject" and "body". Output STRICTLY a valid JSON object with the same two keys and translated values.',
+    'STRICT RULES:',
+    `- Output language: ${langName} (${lang}). Natural, native, fluent.`,
+    '- Preserve ALL HTML tags, attributes, inline styles and structure EXACTLY.',
+    '- DO NOT translate or change: URLs, email addresses, phone numbers, prices, IČO, DIČ, brand names. Keep "MotoGo24" and currency "Kč" unchanged.',
+    '- Keep ALL template placeholders like {{var}} EXACTLY unchanged (e.g. {{invoice_number}}, {{total}}, {{site_url}}).',
+    '- Do NOT add commentary or markdown fences. Output ONLY the raw JSON object.',
+  ].join('\n')
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+      body: JSON.stringify({ model: TRANSLATE_MODEL, max_tokens: 4096, system, messages: [{ role: 'user', content: JSON.stringify({ subject: subjectCz, body: bodyCz }) }] }),
+    })
+    if (!res.ok) { console.warn('[translateEmailTemplate] anthropic', res.status); return null }
+    const data = await res.json()
+    const text = (data?.content?.[0]?.text || '').trim()
+    let parsed: { subject?: unknown; body?: unknown }
+    try { parsed = JSON.parse(text) } catch {
+      const s = text.indexOf('{'), e = text.lastIndexOf('}')
+      if (s < 0 || e <= s) return null
+      parsed = JSON.parse(text.slice(s, e + 1))
+    }
+    return {
+      subject: typeof parsed.subject === 'string' ? parsed.subject : subjectCz,
+      body: typeof parsed.body === 'string' ? parsed.body : bodyCz,
+    }
+  } catch (e) { console.warn('[translateEmailTemplate]', (e as Error).message); return null }
+}
+async function resolveTemplateForLang(
+  supabase: any,
+  tpl: { slug: string; subject: string | null; body_html: string; subject_translations: any; body_translations: any },
+  lang: string,
+): Promise<{ subject: string; body: string }> {
+  const subjCz = tpl.subject || ''
+  const bodyCz = tpl.body_html
+  if (lang === 'cs') return { subject: subjCz, body: bodyCz }
+  const subjT = (tpl.subject_translations as Record<string, string>) || {}
+  const bodyT = (tpl.body_translations as Record<string, string>) || {}
+  const srcHash = await sha1Hex(`${subjCz} ${bodyCz}`)
+  const fresh = bodyT['__src_' + lang] === srcHash && typeof bodyT[lang] === 'string' && !!bodyT[lang]
+  if (fresh) return { subject: (typeof subjT[lang] === 'string' && subjT[lang]) ? subjT[lang] : subjCz, body: bodyT[lang] }
+  const tr = await translateEmailTemplate(subjCz, bodyCz, lang)
+  if (!tr) return { subject: subjCz, body: bodyCz }
+  try {
+    const newSubjT = { ...subjT, [lang]: tr.subject, ['__src_' + lang]: srcHash }
+    const newBodyT = { ...bodyT, [lang]: tr.body, ['__src_' + lang]: srcHash }
+    await supabase.from('email_templates').update({ subject_translations: newSubjT, body_translations: newBodyT }).eq('slug', tpl.slug)
+  } catch { /* ignore */ }
+  return tr
+}
+
 const REVIEW_BLOCK_LABELS: Record<string, { title: string; body: string; cta: string }> = {
   cs: { title: 'Pomohlo by nám vaše hodnocení', body: 'Pokud jste byli spokojeni, prosíme zanechte nám recenzi na Googlu — pomáháte tím dalším motorkářům.', cta: '⭐ Ohodnotit na Google' },
   en: { title: 'Your review would help us', body: 'If you were happy with our service, please leave us a review on Google — it helps fellow riders.', cta: '⭐ Review on Google' },
@@ -219,14 +289,16 @@ serve(async (req) => {
 
     const { data: tpl } = await supabase
       .from('email_templates')
-      .select('subject, body_html, active')
+      .select('slug, subject, body_html, active, subject_translations, body_translations')
       .eq('slug', templateSlug)
       .eq('active', true)
       .maybeSingle()
 
     if (tpl?.body_html) {
-      templateHtml = renderTemplate(tpl.body_html, vars)
-      subject = renderTemplate(tpl.subject || '', vars)
+      // Velín = jen CZ. Non-cz → dynamický překlad přes API (cache + hash).
+      const resolved = await resolveTemplateForLang(supabase, tpl as any, custLang)
+      templateHtml = renderTemplate(resolved.body, vars)
+      subject = renderTemplate(resolved.subject, vars)
     }
 
     // i18n snippets pro subject + intro/closing/labels
