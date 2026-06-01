@@ -17,6 +17,16 @@ const FOLLOW_US_LABEL: Record<string, string> = {
   es: 'SÍGUENOS', fr: 'SUIVEZ-NOUS', pl: 'OBSERWUJ NAS',
 }
 
+// ── i18n: doména zákazníka dle jazyka (cs → .cz, ostatní → .com) ────────────
+const DOMAIN_INTL = 'https://motogo24.com'
+function siteForLang(lang: string): string { return lang === 'cs' ? SITE_URL : DOMAIN_INTL }
+function webLabelForLang(lang: string): string { return lang === 'cs' ? 'www.motogo24.cz' : 'motogo24.com' }
+/** URL odkazy motogo24.cz → zákazníkova doména (jen non-cs; e-mail se nemění). */
+function localizeBodyLinks(html: string, lang: string): string {
+  if (lang === 'cs' || !html) return html
+  return html.replace(/https?:\/\/(?:www\.)?motogo24\.cz/gi, DOMAIN_INTL)
+}
+
 const REVIEW_BLOCK_LABELS: Record<string, { title: string; body: string; cta: string }> = {
   cs: { title: 'Pomohlo by nám vaše hodnocení', body: 'Pokud jste byli spokojeni, prosíme zanechte nám recenzi na Googlu — pomáháte tím dalším motorkářům.', cta: '⭐ Ohodnotit na Google' },
   en: { title: 'Your review would help us', body: 'If you were happy with our service, please leave us a review on Google — it helps fellow riders.', cta: '⭐ Review on Google' },
@@ -63,6 +73,8 @@ function renderTemplate(template: string, vars: Record<string, string>): string 
 /** Wrap body HTML in unified MotoGo24 email layout (1:1 with invoice design + screen reference) */
 function wrapInBrandedLayout(bodyHtml: string, lang: Lang = 'cs'): string {
   const hc = helpCardLabels(lang)
+  const custSite = siteForLang(lang)
+  const webLabel = webLabelForLang(lang)
   // Vertikální hlavička 1:1 s brand logem (sjednoceno se send-booking-email)
   const headerNew = `<div style="background:#000000;padding:36px 24px;text-align:center">
     <img src="${SITE_URL}/gfx/logo-icon.png" alt="MotoGo24" width="110" height="110" style="display:inline-block;border:0;margin-bottom:16px"/>
@@ -85,12 +97,12 @@ function wrapInBrandedLayout(bodyHtml: string, lang: Lang = 'cs'): string {
           <div style="color:#9ca3af">I\u010cO: 21874263</div>
           <div><span style="color:#9ca3af">Telefon:</span> <span style="color:#74FB71">+420 774 256 271</span></div>
           <div><span style="color:#9ca3af">E-mail:</span> <span style="color:#74FB71">info@motogo24.cz</span></div>
-          <div><span style="color:#9ca3af">Web:</span> <span style="color:#74FB71">www.motogo24.cz</span></div>
+          <div><span style="color:#9ca3af">Web:</span> <span style="color:#74FB71">${webLabel}</span></div>
         </div>
       </td>
       <td style="vertical-align:top;width:130px;text-align:center">
-        <a href="https://www.motogo24.cz" style="text-decoration:none"><img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=8&data=${encodeURIComponent('https://www.motogo24.cz')}" alt="motogo24.cz" width="120" height="120" style="display:block;background:#ffffff;padding:6px;border-radius:4px"/></a>
-        <div style="color:#9ca3af;font-size:10px;margin-top:6px">motogo24.cz</div>
+        <a href="${custSite}" style="text-decoration:none"><img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=8&data=${encodeURIComponent(custSite)}" alt="${webLabel}" width="120" height="120" style="display:block;background:#ffffff;padding:6px;border-radius:4px"/></a>
+        <div style="color:#9ca3af;font-size:10px;margin-top:6px">${webLabel}</div>
       </td>
     </tr></table>
     <div style="text-align:center;margin-top:18px;padding-top:16px;border-top:1px solid #1f3a2c">
@@ -268,7 +280,7 @@ serve(async (req) => {
     if (invoice.type === 'shop_final') {
       templateHtml = templateHtml + googleReviewBlock(custLang)
     }
-    if (!html) html = wrapInBrandedLayout(templateHtml, custLang)
+    if (!html) html = wrapInBrandedLayout(localizeBodyLinks(templateHtml, custLang), custLang)
 
     // Admin kopie do info@motogo24.cz vždy v CZ — rerendrujeme CZ verzi
     let adminHtml = html

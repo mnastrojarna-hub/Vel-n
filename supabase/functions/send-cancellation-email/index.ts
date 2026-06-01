@@ -16,6 +16,16 @@ const FOLLOW_US_LABEL: Record<string, string> = {
   es: 'SÍGUENOS', fr: 'SUIVEZ-NOUS', pl: 'OBSERWUJ NAS',
 }
 
+// ── i18n: doména zákazníka dle jazyka (cs → .cz, ostatní → .com) ────────────
+const DOMAIN_INTL = 'https://motogo24.com'
+function siteForLang(lang: string): string { return lang === 'cs' ? SITE_URL : DOMAIN_INTL }
+function webLabelForLang(lang: string): string { return lang === 'cs' ? 'www.motogo24.cz' : 'motogo24.com' }
+/** URL odkazy motogo24.cz → zákazníkova doména (jen non-cs; e-mail se nemění). */
+function localizeBodyLinks(html: string, lang: string): string {
+  if (lang === 'cs' || !html) return html
+  return html.replace(/https?:\/\/(?:www\.)?motogo24\.cz/gi, DOMAIN_INTL)
+}
+
 /** Send email with exponential backoff retry (max 3 attempts) */
 async function sendWithRetry(emailData: Record<string, unknown>, maxRetries = 3): Promise<{ success: boolean; provider_id?: string; error?: string }> {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -58,6 +68,8 @@ function renderTemplate(template: string, vars: Record<string, string>): string 
 /** Wrap body HTML in unified MotoGo24 email layout (1:1 with invoice design + screen reference) */
 function wrapInBrandedLayout(bodyHtml: string, lang: Lang = 'cs'): string {
   const hc = helpCardLabels(lang)
+  const custSite = siteForLang(lang)
+  const webLabel = webLabelForLang(lang)
   // Vertik\u00e1ln\u00ed hlavi\u010dka 1:1 s brand logem
   const header = `<div style="background:#000000;padding:36px 24px;text-align:center">
     <img src="${SITE_URL}/gfx/logo-icon.png" alt="MotoGo24" width="110" height="110" style="display:inline-block;border:0;margin-bottom:16px"/>
@@ -79,12 +91,12 @@ function wrapInBrandedLayout(bodyHtml: string, lang: Lang = 'cs'): string {
           <div style="color:#9ca3af">I\u010cO: 21874263</div>
           <div><span style="color:#9ca3af">Telefon:</span> <span style="color:#74FB71">+420 774 256 271</span></div>
           <div><span style="color:#9ca3af">E-mail:</span> <span style="color:#74FB71">info@motogo24.cz</span></div>
-          <div><span style="color:#9ca3af">Web:</span> <span style="color:#74FB71">www.motogo24.cz</span></div>
+          <div><span style="color:#9ca3af">Web:</span> <span style="color:#74FB71">${webLabel}</span></div>
         </div>
       </td>
       <td style="vertical-align:top;width:130px;text-align:center">
-        <a href="https://www.motogo24.cz" style="text-decoration:none"><img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=8&data=${encodeURIComponent('https://www.motogo24.cz')}" alt="motogo24.cz" width="120" height="120" style="display:block;background:#ffffff;padding:6px;border-radius:4px"/></a>
-        <div style="color:#9ca3af;font-size:10px;margin-top:6px">motogo24.cz</div>
+        <a href="${custSite}" style="text-decoration:none"><img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=8&data=${encodeURIComponent(custSite)}" alt="${webLabel}" width="120" height="120" style="display:block;background:#ffffff;padding:6px;border-radius:4px"/></a>
+        <div style="color:#9ca3af;font-size:10px;margin-top:6px">${webLabel}</div>
       </td>
     </tr></table>
     <div style="text-align:center;margin-top:18px;padding-top:16px;border-top:1px solid #1f3a2c">
@@ -381,6 +393,10 @@ serve(async (req) => {
       } catch { /* ignore */ }
     }
 
+    // {{site_url}} → doména zákazníka (.cz pro cs, .com jinak). Vars se sestavily
+    // před detekcí jazyka, takže přepíšeme až teď.
+    vars.site_url = siteForLang(custLang)
+
     // Try web-specific template first if source=web
     const slugsToTry = source === 'web'
       ? ['web_booking_cancelled', 'booking_cancelled']
@@ -459,6 +475,7 @@ serve(async (req) => {
         <p>T\u00fdm MotoGo24</p>`
     }
 
+    templateHtml = localizeBodyLinks(templateHtml, custLang)
     const html = wrapInBrandedLayout(templateHtml, custLang)
 
     // Admin kopie do info@motogo24.cz v\u017edy v CZ \u2014 rerendrujeme pokud z\u00e1kazn\u00edk m\u00e1 jin\u00fd jazyk

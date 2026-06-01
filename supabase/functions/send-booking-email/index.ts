@@ -14,6 +14,28 @@ const FB_URL = 'https://www.facebook.com/profile.php?id=61581614672839'
 const IG_URL = 'https://www.instagram.com/moto.go24/'
 const GOOGLE_REVIEW_URL_DEFAULT = 'https://g.page/MotoGo24/review'
 
+// ── i18n: doména zákazníka dle jazyka ───────────────────────────────────────
+// Stejný vzor jako process-payment/stripe-customer.ts a generate-document:
+// cs → motogo24.cz, ostatní podporované jazyky → motogo24.com.
+// Asset obrázky (logo, sociální ikony) zůstávají na .cz — jsou hostované tam.
+const DOMAIN_INTL = 'https://motogo24.com'
+/** Plná URL domény zákazníka (pro odkazy / QR). cs → SITE_URL (.cz). */
+function siteForLang(lang: string): string {
+  return lang === 'cs' ? SITE_URL : DOMAIN_INTL
+}
+/** Webový label bez protokolu do patičky. */
+function webLabelForLang(lang: string): string {
+  return lang === 'cs' ? 'motogo24.cz' : 'motogo24.com'
+}
+/** Přepiš URL odkazy na motogo24.cz → zákazníkovu doménu (jen non-cs).
+ *  Mění POUZE `http(s)://(www.)motogo24.cz...` v TĚLE mailu — e-mail
+ *  `info@motogo24.cz` (mailto / text) se nemění. Asset obrázky (logo,
+ *  ikony) jsou jen ve `wrapInBrandedLayout`, kam se tato fce neaplikuje. */
+function localizeBodyLinks(html: string, lang: string): string {
+  if (lang === 'cs' || !html) return html
+  return html.replace(/https?:\/\/(?:www\.)?motogo24\.cz/gi, DOMAIN_INTL)
+}
+
 const FOLLOW_US_LABEL: Record<string, string> = {
   cs: 'SLEDUJTE NÁS', en: 'FOLLOW US', de: 'FOLGEN SIE UNS', nl: 'VOLG ONS',
   es: 'SÍGUENOS', fr: 'SUIVEZ-NOUS', pl: 'OBSERWUJ NAS',
@@ -90,6 +112,10 @@ function renderTemplate(template: string, vars: Record<string, string>): string 
 /** Wrap body HTML in unified MotoGo24 email layout (1:1 with invoice design + screen reference) */
 function wrapInBrandedLayout(bodyHtml: string, lang: Lang = 'cs'): string {
   const hc = helpCardLabels(lang)
+  // Doména zákazníka — odkazy/QR/label v patičce vedou na .cz (cs) / .com (ostatní).
+  // Asset obrázky (logo, ikony) zůstávají na SITE_URL (.cz), kde jsou hostované.
+  const custSite = siteForLang(lang)
+  const webLabel = webLabelForLang(lang)
   // Vertik\u00e1ln\u00ed hlavi\u010dka 1:1 s brand logem (ikona velk\u00e1 naho\u0159e, text pod n\u00ed)
   const header = `<div style="background:#000000;padding:36px 24px;text-align:center">
     <img src="${SITE_URL}/gfx/logo-icon.png" alt="MotoGo24" width="110" height="110" style="display:inline-block;border:0;margin-bottom:16px"/>
@@ -101,7 +127,7 @@ function wrapInBrandedLayout(bodyHtml: string, lang: Lang = 'cs'): string {
     <div style="color:#ffffff;font-size:13px;margin:0 0 16px">${hc.body}</div>
     <a href="mailto:info@motogo24.cz" style="display:inline-block;background:#74FB71;color:#000000;font-size:13px;font-weight:700;text-decoration:none;padding:12px 28px;border-radius:24px">${hc.cta}</a>
   </div>`
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=8&data=${encodeURIComponent(PUBLIC_QR_TARGET)}`
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=8&data=${encodeURIComponent(custSite)}`
   const footer = `<div style="background:#000000;padding:24px 32px;margin-top:24px">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse"><tr>
       <td style="vertical-align:top;padding-right:16px">
@@ -112,12 +138,12 @@ function wrapInBrandedLayout(bodyHtml: string, lang: Lang = 'cs'): string {
           <div style="color:#9ca3af">I\u010cO: 21874263</div>
           <div><span style="color:#9ca3af">Telefon:</span> <span style="color:#74FB71">+420 774 256 271</span></div>
           <div><span style="color:#9ca3af">E-mail:</span> <span style="color:#74FB71">info@motogo24.cz</span></div>
-          <div><span style="color:#9ca3af">Web:</span> <span style="color:#74FB71">motogo24.cz</span></div>
+          <div><span style="color:#9ca3af">Web:</span> <span style="color:#74FB71">${webLabel}</span></div>
         </div>
       </td>
       <td style="vertical-align:top;width:130px;text-align:center">
-        <a href="${PUBLIC_QR_TARGET}" style="text-decoration:none"><img src="${qrUrl}" alt="motogo24.cz" width="120" height="120" style="display:block;background:#ffffff;padding:6px;border-radius:4px"/></a>
-        <div style="color:#9ca3af;font-size:10px;margin-top:6px">motogo24.cz</div>
+        <a href="${custSite}" style="text-decoration:none"><img src="${qrUrl}" alt="${webLabel}" width="120" height="120" style="display:block;background:#ffffff;padding:6px;border-radius:4px"/></a>
+        <div style="color:#9ca3af;font-size:10px;margin-top:6px">${webLabel}</div>
       </td>
     </tr></table>
     <div style="text-align:center;margin-top:18px;padding-top:16px;border-top:1px solid #1f3a2c">
@@ -889,11 +915,15 @@ serve(async (req) => {
         } catch { /* ignore */ }
       }
       if (needsDocs) {
-        const docsLink = docs_url || `${SITE_URL}/upravit-rezervaci?id=${booking_id}#doklady`
+        const docsLink = docs_url || `${siteForLang(custLang)}/upravit-rezervaci?id=${booking_id}#doklady`
         vars.docs_url = docsLink
         vars.door_codes_block = renderDocsRequiredBlock(custLang, docsLink)
       }
     }
+
+    // i18n: {{site_url}} placeholder → doména zákazníka (.cz pro cs, .com jinak).
+    // Vars se sestavily před detekcí jazyka, takže přepíšeme až teď.
+    vars.site_url = siteForLang(custLang)
 
     // Try to load template from DB (first web-specific, then generic)
     const slug = resolveSlug(type, source)
@@ -1126,6 +1156,9 @@ ${vars.tracking_number ? `<table style="width:100%;border-collapse:collapse;marg
       templateHtml = templateHtml + googleReviewBlock(custLang, vars.google_review_url)
     }
 
+    // Zdoménuj odkazy v těle mailu na zákazníkovu doménu (jen non-cs; e-mail
+    // info@motogo24.cz se nemění). Pokrývá DB šablonu, i18n překlad i CZ fallback.
+    templateHtml = localizeBodyLinks(templateHtml, custLang)
     const html = wrapInBrandedLayout(templateHtml, custLang)
 
     // Admin kopie do info@motogo24.cz vždy v CZ (Velin admin čte v CZ).
