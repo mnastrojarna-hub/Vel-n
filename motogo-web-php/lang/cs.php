@@ -787,6 +787,13 @@ return [
     'editRez.doc.scanBtn' => 'Vyfotit',
     'editRez.doc.galleryBtn' => 'Nahrát ze zařízení',
     'editRez.doc.archiveTitle' => 'Doklady ke stažení',
+    'editRez.doc.finishBtn' => '✓ Hotovo – uložit doklady',
+    'editRez.doc.finishHelp' => 'Po nahrání obou stran občanky/pasu i řidičáku klikněte na Hotovo. Ověříme doklady a odešleme vám přístupové kódy.',
+    'editRez.doc.finishSaving' => 'Ukládám a ověřuji…',
+    'editRez.doc.finishDone' => 'Hotovo! Doklady jsou uložené.',
+    'editRez.doc.finishCodesSent' => 'Hotovo! Doklady jsou uložené a přístupové kódy jsme vám poslali e-mailem.',
+    'editRez.doc.finishMissing' => 'Doklady zatím nejsou kompletní — nahrajte prosím obě strany občanky/pasu i řidičského průkazu.',
+    'editRez.doc.finishError' => 'Uložení se nezdařilo. Zkuste to prosím znovu.',
 
     // Statuses
     'editRez.status.pending' => 'Čeká na zaplacení',
