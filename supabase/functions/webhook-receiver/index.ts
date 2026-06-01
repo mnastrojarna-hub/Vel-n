@@ -21,6 +21,71 @@ const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!, {
 
 const STRIPE_WEBHOOK_SECRET = Deno.env.get('STRIPE_WEBHOOK_SECRET') || ''
 
+// ── Server-side aplikace doplatkové změny rezervace po potvrzení platby ──────
+// Web „Upravit rezervaci" u změny s doplatkem (prodloužení / změna místa, času,
+// motorky) dříve aplikoval změnu AŽ v prohlížeči po návratu ze Stripe
+// (_applyPendingAfterPayment z localStorage). Když se zákazník nevrátil (platba
+// na jiném zařízení, vyčištěné úložiště, zavřená záložka), změna se nikdy
+// neuložila → rezervace zaplacena, ale neprodloužena a mail web_booking_modified
+// nedorazil. Tady ji aplikujeme server-side z payloadu v Stripe metadatech
+// (`metadata.chg`), což spustí trigger trg_send_booking_modified_email
+// nezávisle na klientovi. Mapování polí je 1:1 s klientským fallbackem; update
+// je idempotentní (stejné hodnoty + absolutní total_price z new_total), takže
+// případný druhý Stripe event ani souběžný klientský apply nezpůsobí duplicitu
+// (mail navíc dedupuje 5min okno v triggeru).
+async function applyExtensionChange(
+  supabase: ReturnType<typeof createClient>,
+  bookingId: string,
+  chgStr: string | undefined | null,
+) {
+  if (!chgStr) return
+  let a: Record<string, unknown>
+  try { a = JSON.parse(chgStr) as Record<string, unknown> } catch { return }
+  if (!a || typeof a !== 'object') return
+
+  const def = (v: unknown) => v !== undefined
+  const defNN = (v: unknown) => v !== undefined && v !== null
+  const d: Record<string, unknown> = {}
+  if (a.p_new_start) d.start_date = a.p_new_start
+  if (a.p_new_end) d.end_date = a.p_new_end
+  if (a.p_new_moto_id) d.moto_id = a.p_new_moto_id
+  if (a.p_new_pickup_method) d.pickup_method = a.p_new_pickup_method
+  if (def(a.p_new_pickup_address)) d.pickup_address = a.p_new_pickup_address
+  if (defNN(a.p_new_pickup_lat)) d.pickup_lat = a.p_new_pickup_lat
+  if (defNN(a.p_new_pickup_lng)) d.pickup_lng = a.p_new_pickup_lng
+  if (a.p_new_return_method) d.return_method = a.p_new_return_method
+  if (def(a.p_new_return_address)) d.return_address = a.p_new_return_address
+  if (defNN(a.p_new_return_lat)) d.return_lat = a.p_new_return_lat
+  if (defNN(a.p_new_return_lng)) d.return_lng = a.p_new_return_lng
+  if (def(a.p_new_pickup_fee) || def(a.p_new_return_fee)) {
+    d.delivery_fee = Number(a.p_new_pickup_fee || 0) + Number(a.p_new_return_fee || 0)
+  }
+  const tu = a._time_update as Record<string, unknown> | undefined
+  if (tu && typeof tu === 'object') {
+    if (def(tu.pickup_time)) d.pickup_time = tu.pickup_time
+    if (def(tu.return_time)) d.return_time = tu.return_time
+  }
+  // Absolutní cílová cena (z dry-run RPC) — idempotentní, na rozdíl od klienta,
+  // který total_price vůbec nenastavoval (doplatek se nepropisoval do ceny).
+  if (a.new_total != null && Number.isFinite(Number(a.new_total))) {
+    d.total_price = Number(a.new_total)
+  }
+
+  if (Object.keys(d).length === 0) return
+
+  const { error } = await supabase.from('bookings').update(d).eq('id', bookingId)
+  try {
+    await supabase.from('debug_log').insert({
+      source: 'webhook-receiver',
+      action: error ? 'extension_change_apply_failed' : 'extension_change_applied',
+      component: 'stripe',
+      status: error ? 'error' : 'ok',
+      error_message: error?.message || null,
+      request_data: { booking_id: bookingId, fields: Object.keys(d) },
+    })
+  } catch { /* ignore */ }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: CORS })
@@ -151,6 +216,11 @@ Deno.serve(async (req: Request) => {
         }
       } else if ((paymentType === 'booking' || paymentType === 'extension') && resolvedBookingId) {
         await confirmBookingPayment(supabase, resolvedBookingId, session.id, stripePaymentIntentId)
+        // Doplatková změna rezervace — aplikuj server-side (spustí web_booking_modified)
+        if (paymentType === 'extension') {
+          try { await applyExtensionChange(supabase, resolvedBookingId, metadata.chg) }
+          catch (e) { console.warn('[webhook] extension change apply failed:', (e as Error).message) }
+        }
         // Bundled e-shop upsell paid in the same session — confirm shop side too (separate invoice + email)
         if (metadata.shop_order_id) {
           try {
@@ -203,6 +273,10 @@ Deno.serve(async (req: Request) => {
 
       if ((paymentType === 'booking' || paymentType === 'extension') && resolvedBookingId) {
         await confirmBookingPayment(supabase, resolvedBookingId, paymentIntent.id)
+        if (paymentType === 'extension') {
+          try { await applyExtensionChange(supabase, resolvedBookingId, metadata.chg) }
+          catch (e) { console.warn('[webhook] extension change apply (intent) failed:', (e as Error).message) }
+        }
         if (metadata.shop_order_id) {
           try { await confirmShopPayment(supabase, metadata.shop_order_id, paymentIntent.id) }
           catch (e) { console.warn('[webhook] bundled shop confirm (intent) failed:', e) }
