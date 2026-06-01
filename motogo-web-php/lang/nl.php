@@ -1323,6 +1323,7 @@ return [
     'editRez.doc.finishCodesSent' => 'Klaar! Uw documenten zijn opgeslagen en we hebben u de toegangscodes gemaild.',
     'editRez.doc.finishMissing' => 'Uw documenten zijn nog niet compleet — upload beide zijden van uw ID-kaart/paspoort en rijbewijs.',
     'editRez.doc.finishError' => 'Opslaan mislukt. Probeer het opnieuw.',
+    'editRez.doc.savedOk' => 'Document opgeslagen ✓',
     'editRez.status.upcoming' => 'Aankomend',
     'editRez.loc.helpActive' => 'Een lopende reservering kun je alleen nog aanpassen aan de retourkant (je hebt de motor al opgehaald). De retourlocatie en -tijd kun je altijd wijzigen — het prijsverschil verrekenen we automatisch.',
     'editRez.loc.refundNote' => 'Een locatiewijziging valt niet onder de annuleringstabel — je krijgt de bezorgkosten altijd volledig terug, ook als je de ophaaldag wijzigt.',

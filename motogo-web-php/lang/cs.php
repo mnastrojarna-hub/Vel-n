@@ -794,6 +794,7 @@ return [
     'editRez.doc.finishCodesSent' => 'Hotovo! Doklady jsou uložené a přístupové kódy jsme vám poslali e-mailem.',
     'editRez.doc.finishMissing' => 'Doklady zatím nejsou kompletní — nahrajte prosím obě strany občanky/pasu i řidičského průkazu.',
     'editRez.doc.finishError' => 'Uložení se nezdařilo. Zkuste to prosím znovu.',
+    'editRez.doc.savedOk' => 'Doklad uložen ✓',
 
     // Statuses
     'editRez.status.pending' => 'Čeká na zaplacení',
