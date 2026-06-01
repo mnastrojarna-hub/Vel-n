@@ -132,7 +132,7 @@ Deno.serve(async (req: Request) => {
       return await handleWebShopCheckout(body)
     }
 
-    const { booking_id, order_id, incident_id, amount, currency, method, type, mode, payment_method_id } = body
+    const { booking_id, order_id, incident_id, amount, currency, method, type, mode, payment_method_id, change } = body
     const paymentType: PaymentType = type || 'booking'
     const paymentMode = mode || 'intent'
     const explicitSuccessUrl = (body as Record<string, unknown>).success_url as string | undefined
@@ -193,6 +193,21 @@ Deno.serve(async (req: Request) => {
     if (booking_id) metadata.booking_id = booking_id
     if (order_id) metadata.order_id = order_id
     if (incident_id) metadata.incident_id = incident_id
+
+    // -- Doplatková změna rezervace (prodloužení / změna místa-času-motorky) --
+    // Payload změny doputuje do Stripe metadat, aby ji webhook-receiver po
+    // potvrzení platby aplikoval SERVER-SIDE (nezávisle na tom, zda se zákazník
+    // vrátí do prohlížeče s živým localStorage). Tím se spolehlivě spustí
+    // trigger trg_send_booking_modified_email → web_booking_modified.
+    // Stripe metadata: hodnota max 500 znaků — delší payload (typicky dlouhá
+    // adresa přistavení) se do metadat nevejde, v tom případě zůstává původní
+    // klientský fallback (_applyPendingAfterPayment z localStorage).
+    if (paymentType === 'extension' && change && typeof change === 'object') {
+      try {
+        const chgStr = JSON.stringify(change)
+        if (chgStr.length <= 500) metadata.chg = chgStr
+      } catch (_e) { /* neserializovatelný payload → klientský fallback */ }
+    }
 
     // -- FREE BOOKING (100% discount) — POUZE pokud je sleva skutečně 100% --
     if (amount <= 0 && booking_id) {
