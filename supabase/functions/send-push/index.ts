@@ -9,7 +9,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
  * Required env vars:
  *   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
  *   FCM_PROJECT_ID  — Firebase project ID
- *   FCM_SERVICE_ACCOUNT_JSON — Firebase service account JSON (base64 encoded)
+ *   FCM_SERVICE_ACCOUNT_JSON — Firebase service account JSON (raw JSON or base64)
  */
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
@@ -182,7 +182,9 @@ serve(async (req) => {
     // Parse service account
     let serviceAccount: { client_email: string; private_key: string }
     try {
-      const decoded = atob(FCM_SA_JSON_B64)
+      // Accept both raw JSON (starts with "{") and base64-encoded JSON.
+      const raw = FCM_SA_JSON_B64.trim()
+      const decoded = raw.startsWith('{') ? raw : atob(raw)
       serviceAccount = JSON.parse(decoded)
     } catch {
       return jsonResponse({ success: false, error: 'Invalid FCM_SERVICE_ACCOUNT_JSON' }, 500)

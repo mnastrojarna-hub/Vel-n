@@ -209,7 +209,10 @@ serve(async (req) => {
           if (!motorcycle) motorcycle = (booking.motorcycles as any)?.model || ''
           if (!source && booking.booking_source) source = booking.booking_source
 
-          const wasPaid = booking.payment_status === 'paid'
+          // 'refund_pending' (Čeká na vrácení) = storno zaplacené rezervace, kde Stripe
+          // refund ještě nedoběhl → bereme stejně jako 'paid', ať se refund + dobropis
+          // dotáhne (process-refund je idempotentní a bránu na 'refund_pending' propustí).
+          const wasPaid = booking.payment_status === 'paid' || booking.payment_status === 'refund_pending'
           const alreadyRefunded = booking.payment_status === 'refunded' || booking.payment_status === 'partial_refund'
 
           // Vstupní diagnostika — admin vidí přesně co edge fn dostala a co je v DB.

@@ -14,7 +14,7 @@ import BookingsCalendar from '../components/fleet/BookingsCalendar'
 import BookingModifyModal from './booking/BookingModifyModal'
 import DetailTab from './booking/DetailTab'
 import ComplaintsTab from './booking/ComplaintsTab'
-import { TABS, ACTIONS, CANCEL_REASONS } from './booking/bookingConstants'
+import { TABS, ACTIONS, CANCEL_REASONS, paymentStatusInfo } from './booking/bookingConstants'
 import { sendBookingMessage, logAudit, cancelBookingFromVelin } from './booking/bookingMessageHelpers'
 import BookingCancelModal from './booking/BookingCancelModal'
 
@@ -275,12 +275,11 @@ export default function BookingDetail() {
           </span>
         )}
         {booking.payment_status && (() => {
-          const isPaid = booking.payment_status === 'paid' && booking.status !== 'pending'
-          const isRefunded = booking.payment_status === 'refunded'
+          const pay = paymentStatusInfo(booking)
           return (
             <span className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase"
-              style={{ padding: '3px 8px', background: isPaid ? '#dcfce7' : isRefunded ? '#fee2e2' : '#fee2e2', color: isPaid ? '#1a8a18' : '#dc2626' }}>
-              {isPaid ? 'Zaplaceno' : isRefunded ? 'Refundováno' : 'Nezaplaceno'}
+              style={{ padding: '3px 8px', background: pay.bg, color: pay.color }}>
+              {pay.label}
             </span>
           )
         })()}

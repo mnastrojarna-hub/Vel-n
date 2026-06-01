@@ -13,7 +13,7 @@
 |-----|---------|
 | `admin_role` | viewer, manager, operator, technician, readonly, admin, superadmin |
 | `booking_status` | pending, reserved, active, completed, cancelled |
-| `payment_status` | unpaid, paid, refunded, partial_refund |
+| `payment_status` | unpaid, paid, refund_pending, partial_refund, refunded — **`refund_pending` NEW 2026-05-31** = „Čeká na vrácení" (storno zaplacené rezervace, Stripe refund ještě nepotvrzen; peníze jsou stále u nás). Životní cyklus: `paid` → (storno) `refund_pending` → (Stripe potvrdil) `partial_refund` (50 %) / `refunded` (100 %). Velín mapuje přes `paymentStatusInfo()` (Zaplaceno/Čeká na vrácení/Částečně vráceno/Vráceno/Nezaplaceno) + filtr `PAYMENT_STATUS_FILTER_OPTIONS`. |
 | `moto_status` | active, maintenance, unavailable, retired |
 | `sos_status` | reported, acknowledged, in_progress, resolved, closed |
 | `license_group` | AM, A1, A2, A, B, N |

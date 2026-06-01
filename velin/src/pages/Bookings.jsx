@@ -14,7 +14,7 @@ import BookingsTable from './booking/BookingsTable'
 import BookingsExtendedFilters from './booking/BookingsExtendedFilters'
 import BookingCancelModal from './booking/BookingCancelModal'
 import { CheckboxFilterGroup, FilterSelect } from './booking/BookingsFilters'
-import { CANCEL_REASONS } from './booking/bookingConstants'
+import { CANCEL_REASONS, PAYMENT_STATUS_FILTER_OPTIONS } from './booking/bookingConstants'
 import { cancelBookingFromVelin } from './booking/bookingMessageHelpers'
 import { autoCancelStale, autoActivateReserved, autoFixPendingPaid, autoGenerateKF } from './booking/bookingsAutoFix'
 
@@ -236,7 +236,7 @@ export default function Bookings() {
               options={[{ value: 'pending', label: 'Čekající' }, { value: 'upcoming', label: 'Nadcházející' }, { value: 'active', label: 'Aktivní' }, { value: 'completed', label: 'Dokončeno' }, { value: 'cancelled', label: 'Zrušeno' }]} />
             <CheckboxFilterGroup label="Platba" values={filters.paymentStatuses}
               onChange={v => { setPage(1); setFilters(f => ({ ...f, paymentStatuses: v })) }}
-              options={[{ value: 'paid', label: 'Zaplaceno' }, { value: 'unpaid', label: 'Nezaplaceno' }]} />
+              options={PAYMENT_STATUS_FILTER_OPTIONS} />
             <FilterSelect value={filters.sortBy} onChange={v => setF('sortBy', v)}
               options={[{ value: 'start_date', label: 'Datum začátku' }, { value: 'end_date', label: 'Datum konce' }, { value: 'total_price', label: 'Částka' }, { value: 'created_at', label: 'Vytvořeno' }]} />
             <FilterSelect value={filters.sortDir} onChange={v => setF('sortDir', v)}

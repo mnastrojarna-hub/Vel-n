@@ -83,6 +83,42 @@ export function paymentMethodInfo(method) {
   return PAYMENT_METHOD_LABELS[key] || { label: method, icon: '💳', tone: '#0f1a14' }
 }
 
+// Jednotné odvození stavu platby pro celý Velín. Reflektuje realitu životního cyklu peněz:
+//  - 'paid'           → Zaplaceno (peníze u nás)
+//  - storno zaplacené rezervace, ale Stripe ještě nepotvrdil vrácení → Čeká na vrácení
+//    (buď explicitní enum 'refund_pending', nebo odvozeně paid + status='cancelled')
+//  - 'partial_refund' → Částečně vráceno (např. 50 % při zkrácení)
+//  - 'refunded'       → Vráceno (Stripe potvrdil plné vrácení)
+//  - jinak            → Nezaplaceno
+// Klíče odpovídají hodnotám enumu payment_status (+ pseudo 'refund_pending' z odvození),
+// takže je lze použít i pro filtry (PAYMENT_STATUS_FILTER_OPTIONS).
+export function paymentStatusInfo(booking) {
+  const ps = booking?.payment_status
+  const st = booking?.status
+  if (ps === 'refunded')
+    return { key: 'refunded', label: 'Vráceno', icon: '↩️', color: '#475569', bg: '#e2e8f0' }
+  if (ps === 'partial_refund')
+    return { key: 'partial_refund', label: 'Částečně vráceno', icon: '↩️', color: '#c2410c', bg: '#ffedd5' }
+  if (ps === 'refund_pending')
+    return { key: 'refund_pending', label: 'Čeká na vrácení', icon: '⏳', color: '#b45309', bg: '#fef3c7' }
+  // Odvozený mezistav: zaplacená rezervace byla stornována, ale refund ještě
+  // neproběhl (Stripe nepotvrdil) → peníze jsou pořád u nás, čekáme na vrácení.
+  if (ps === 'paid' && st === 'cancelled')
+    return { key: 'refund_pending', label: 'Čeká na vrácení', icon: '⏳', color: '#b45309', bg: '#fef3c7' }
+  if (ps === 'paid' && st !== 'pending')
+    return { key: 'paid', label: 'Zaplaceno', icon: '✅', color: '#1a8a18', bg: '#dcfce7' }
+  return { key: 'unpaid', label: 'Nezaplaceno', icon: '⚠️', color: '#dc2626', bg: '#fee2e2' }
+}
+
+// Volby filtru „Platba" v seznamu rezervací. Hodnoty = enum payment_status.
+export const PAYMENT_STATUS_FILTER_OPTIONS = [
+  { value: 'paid', label: 'Zaplaceno' },
+  { value: 'refund_pending', label: 'Čeká na vrácení' },
+  { value: 'partial_refund', label: 'Částečně vráceno' },
+  { value: 'refunded', label: 'Vráceno' },
+  { value: 'unpaid', label: 'Nezaplaceno' },
+]
+
 // Stripe dashboard link pro PaymentIntent (jen test/live; admin si v dashboardu vybere prostředí)
 export function stripePaymentIntentUrl(piId) {
   if (!piId) return null

@@ -399,7 +399,10 @@ Deno.serve(async (req: Request) => {
         )
       }
 
-      if (data.payment_status !== 'paid') {
+      // Refund povolíme pro 'paid' i 'refund_pending' (= „Čeká na vrácení" — storno už
+      // proběhlo, peníze jsou stále u nás a čeká se na vrácení). 'refunded'/'partial_refund'
+      // řeší idempotentní větev výše. Cokoli jiného (unpaid) refundovat nelze.
+      if (data.payment_status !== 'paid' && data.payment_status !== 'refund_pending') {
         return new Response(
           JSON.stringify({
             success: false,
@@ -570,7 +573,13 @@ Deno.serve(async (req: Request) => {
     // Update payment_status in DB
     const refundedAmountCZK = refund.amount / 100
     if (booking_id) {
-      const newStatus = (!amount || refund.status === 'succeeded') ? 'refunded' : 'partial_refund'
+      // Mapování na payment_status dle reality vrácení peněz:
+      //  - Stripe refund ještě nepotvrzen (status='pending') → 'refund_pending' (Čeká na vrácení).
+      //    Finální stav dorazí webhookem charge.refunded / refund.updated.
+      //  - částečné vrácení (zadaná `amount` menší než zbývající k vrácení) → 'partial_refund'.
+      //  - jinak (plné vrácení / succeeded) → 'refunded'.
+      const isPartial = !!amount && refundableHaleru != null && effectiveAmountHaleru != null && effectiveAmountHaleru < refundableHaleru
+      const newStatus = refund.status === 'pending' ? 'refund_pending' : (isPartial ? 'partial_refund' : 'refunded')
       const bkPatch: Record<string, any> = { payment_status: newStatus, stripe_refund_id: refund.id }
       if (cardBrand) bkPatch.card_brand = cardBrand
       if (cardLast4) bkPatch.card_last4 = cardLast4
