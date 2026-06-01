@@ -185,5 +185,38 @@ serve(async (req) => {
     docId = (ins.data as any)?.id || null
   }
 
+  // Zápis OCR polí do profilu (service_role → obchází RLS). KLÍČOVÉ pro mobil:
+  // nepřihlášený nový web zákazník nemůže psát do profilu napřímo (RLS), takže
+  // naskenovaná čísla se dosud ztrácela. Zde je zapíšeme serverově. Jen při
+  // úspěšném OCR (mindeeStatus==='ok' → ocrFields != null). Reálné OCR = ověření,
+  // proto nastavujeme i *_verified_at (uvolní přístupové kódy ke dveřím).
+  if (ocrFields) {
+    const dateRe = /^\d{4}-\d{2}-\d{2}$/
+    const f = ocrFields as Record<string, unknown>
+    const idNum = typeof f.idNumber === 'string' ? f.idNumber.trim() : ''
+    const licNum = typeof f.licenseNumber === 'string' ? f.licenseNumber.trim() : ''
+    const licExp = typeof f.licenseExpiry === 'string' ? f.licenseExpiry.trim() : ''
+    const dob = typeof f.dob === 'string' ? f.dob.trim() : ''
+    const nowIso = new Date().toISOString()
+    const upd: Record<string, unknown> = {}
+
+    if (meta.dbType === 'id_card' && idNum) { upd.id_number = idNum; upd.id_verified_at = nowIso }
+    if (meta.dbType === 'passport' && idNum) { upd.id_number = idNum; upd.passport_verified_at = nowIso }
+    if (meta.dbType === 'drivers_license') {
+      if (licNum) { upd.license_number = licNum; upd.license_verified_at = nowIso }
+      if (dateRe.test(licExp)) upd.license_expiry = licExp
+    }
+    if (dateRe.test(dob)) upd.date_of_birth = dob
+
+    if (Object.keys(upd).length) {
+      try {
+        const { error: pErr } = await sb.from('profiles').update(upd).eq('id', userId)
+        if (pErr) console.error('[save-verification-document] profile update failed:', pErr.message)
+      } catch (e) {
+        console.error('[save-verification-document] profile update exception:', e)
+      }
+    }
+  }
+
   return jsonRes({ success: true, document_id: docId, file_path: filePath })
 })
