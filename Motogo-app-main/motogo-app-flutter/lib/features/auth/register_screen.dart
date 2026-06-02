@@ -35,6 +35,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   String _country = 'Česká republika';
 
   // Step 3: License
+  final _idNumCtrl = TextEditingController();
   final _licNumCtrl = TextEditingController();
   final _licExpiryCtrl = TextEditingController();
   String _licGroup = 'A2';
@@ -213,6 +214,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         'full_name': fullName,
         'phone': phone,
         'date_of_birth': _toIsoDate(_dobCtrl.text.trim()),
+        'id_number': _idNumCtrl.text.trim(),
         'street': _streetCtrl.text.trim(),
         'city': _cityCtrl.text.trim(),
         'zip': _zipCtrl.text.trim(),
@@ -253,7 +255,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _fnameCtrl.dispose(); _lnameCtrl.dispose(); _emailCtrl.dispose();
     _phoneCtrl.dispose(); _passCtrl.dispose(); _passConfirmCtrl.dispose(); _dobCtrl.dispose();
     _streetCtrl.dispose(); _zipCtrl.dispose(); _cityCtrl.dispose();
-    _licNumCtrl.dispose(); _licExpiryCtrl.dispose();
+    _idNumCtrl.dispose(); _licNumCtrl.dispose(); _licExpiryCtrl.dispose();
     super.dispose();
   }
 
@@ -428,6 +430,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
       const SizedBox(height: 2),
       Text(t(context).tr('regStep3Subtitle'), style: const TextStyle(fontSize: 12, color: MotoGoColors.g400)),
       const SizedBox(height: 12),
+      TextField(controller: _idNumCtrl, decoration: InputDecoration(labelText: t(context).tr('idNumberFull'))),
+      const SizedBox(height: 9),
       TextField(controller: _licNumCtrl, decoration: InputDecoration(labelText: t(context).tr('licenseNumber'))),
       const SizedBox(height: 9),
       GestureDetector(
