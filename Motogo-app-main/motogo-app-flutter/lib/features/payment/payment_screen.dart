@@ -25,6 +25,7 @@ import 'widgets/upsell_section.dart';
 import 'widgets/saved_card_preview.dart';
 import 'widgets/payment_header_widgets.dart';
 import 'widgets/payment_error_sheet.dart';
+import 'widgets/card_payment_sheet.dart';
 
 /// Payment screen — rich summary with motorcycle gallery, price breakdown,
 /// upsells, and native Stripe Payment Sheet (no browser redirect).
@@ -542,32 +543,35 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
         result.clientSecret != null) {
       _pendingBookingId ??= result.bookingId;
 
-      // Present native Stripe Payment Sheet (with saved cards support)
-      try {
-        final paid = await StripeService.presentPaymentSheet(
-          clientSecret: result.clientSecret!,
-          customerId: result.customerId,
-          ephemeralKey: result.ephemeralKey,
-        );
+      // Vlastní in-app sheet (CardField + Google Pay) místo nativního Payment
+      // Sheetu — pole „Číslo karty" je celé klikací a jde do něj vložit číslo
+      // ze schránky. Uloženou kartu sem flow nepustí (řeší _chargeSavedCard).
+      final sheetResult = await CardPaymentSheet.show(
+        context,
+        clientSecret: result.clientSecret!,
+        amount: amount,
+      );
 
-        if (!mounted) return;
+      if (!mounted) return;
 
-        if (paid) {
+      switch (sheetResult.status) {
+        case CardSheetStatus.paid:
           await _verifyAndComplete();
-        } else {
-          // User cancelled Payment Sheet — no error, just reset
+          break;
+        case CardSheetStatus.cancelled:
+          // Zákazník zavřel sheet — žádná chyba, jen reset.
           setState(() => _processing = false);
-        }
-      } on StripeException catch (e) {
-        if (!mounted) return;
-        setState(() => _processing = false);
-        _attempts++;
-        _handleStripeError(e);
-      } catch (e) {
-        if (!mounted) return;
-        setState(() => _processing = false);
-        _attempts++;
-        _handleGatewayError(e);
+          break;
+        case CardSheetStatus.failed:
+          setState(() => _processing = false);
+          _attempts++;
+          if (sheetResult.stripeError != null) {
+            _handleStripeError(sheetResult.stripeError!);
+          } else {
+            _handleGatewayError(
+                sheetResult.otherError ?? 'card payment failed');
+          }
+          break;
       }
     } else if (result.type == PaymentResultType.free) {
       _onPaymentSuccess();

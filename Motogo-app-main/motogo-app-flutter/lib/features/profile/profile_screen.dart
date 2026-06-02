@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/theme.dart';
 import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
+import '../../core/web_links.dart';
 import '../../core/widgets/logo_header.dart';
 import '../../core/auth_guard.dart';
 import '../../core/supabase_client.dart';
@@ -204,7 +205,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               const SizedBox(height: 12),
               ProfileSectionTitle(title: t(context).tr('helpAndSupport')),
               ProfileMenuItem(icon: '🆘', label: t(context).sosTitle, onTap: () => context.push(Routes.sos), bgColor: MotoGoColors.redBg),
-              ProfileMenuItem(icon: '❓', label: t(context).tr('helpFaq'), onTap: () => launchUrl(Uri.parse('https://motogo24.cz/faq'))),
+              ProfileMenuItem(icon: '❓', label: t(context).tr('helpFaq'), onTap: () => launchUrl(Uri.parse(WebLinks.faq(ref.read(localeProvider).languageCode)), mode: LaunchMode.externalApplication)),
               ProfileMenuItem(icon: '📍', label: t(context).tr('branchesLabel'), onTap: () => _showBranches(context)),
 
               const SizedBox(height: 12),

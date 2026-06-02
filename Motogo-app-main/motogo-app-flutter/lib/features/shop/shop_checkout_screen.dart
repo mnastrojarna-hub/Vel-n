@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme.dart';
@@ -16,6 +15,7 @@ import '../payment/stripe_service.dart';
 import '../payment/payment_provider.dart';
 import '../payment/payment_error_mapper.dart';
 import '../payment/widgets/payment_error_sheet.dart';
+import '../payment/widgets/card_payment_sheet.dart';
 import 'shop_models.dart';
 import 'shop_provider.dart';
 import 'widgets/checkout_payment_card.dart';
@@ -268,45 +268,35 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
 
     if (result.type == PaymentResultType.intent &&
         result.clientSecret != null) {
-      try {
-        final paid = await StripeService.presentPaymentSheet(
-          clientSecret: result.clientSecret!,
-          customerId: result.customerId,
-          ephemeralKey: result.ephemeralKey,
-        );
-        if (!mounted) return;
-        if (paid) {
+      // Vlastní in-app sheet (CardField + Google Pay) místo nativního Payment
+      // Sheetu — celé pole karty klikací + vkládání ze schránky.
+      final sheetResult = await CardPaymentSheet.show(
+        context,
+        clientSecret: result.clientSecret!,
+        amount: total,
+      );
+      if (!mounted) return;
+      switch (sheetResult.status) {
+        case CardSheetStatus.paid:
           await confirmShopPayment(orderId, 'card');
           _onSuccess(orderId);
-        } else {
+          break;
+        case CardSheetStatus.cancelled:
           setState(() => _processing = false);
-        }
-      } on StripeException catch (e) {
-        if (!mounted) return;
-        setState(() => _processing = false);
-        final info = PaymentErrorMapper.fromStripeException(e, t(context).lang);
-        if (info.userCancelled) return; // jen zavřel sheet — není chyba
-        PaymentErrorSheet.show(context,
-            title: info.title,
-            message: info.message,
-            buttonLabel: t(context).tr('retry'));
-      } catch (e) {
-        if (!mounted) return;
-        setState(() => _processing = false);
-        final raw = e.toString();
-        final isWallet = raw.contains('OR_BIBED') ||
-            raw.toLowerCase().contains('google pay') ||
-            raw.toLowerCase().contains('googlepay') ||
-            raw.toLowerCase().contains('wallet') ||
-            raw.toLowerCase().contains('apple pay');
-        final info = isWallet
-            ? PaymentErrorMapper.wallet(t(context).lang,
-                rawCode: raw.contains('OR_BIBED') ? 'OR_BIBED_11' : null)
-            : PaymentErrorMapper.generic(t(context).lang);
-        PaymentErrorSheet.show(context,
-            title: info.title,
-            message: info.message,
-            buttonLabel: t(context).tr('retry'));
+          break;
+        case CardSheetStatus.failed:
+          setState(() => _processing = false);
+          final lang = t(context).lang;
+          final info = sheetResult.stripeError != null
+              ? PaymentErrorMapper.fromStripeException(
+                  sheetResult.stripeError!, lang)
+              : PaymentErrorMapper.generic(lang);
+          if (info.userCancelled) break; // jen zavřel sheet — není chyba
+          PaymentErrorSheet.show(context,
+              title: info.title,
+              message: info.message,
+              buttonLabel: t(context).tr('retry'));
+          break;
       }
     } else if (result.type == PaymentResultType.free) {
       _onSuccess(orderId);
