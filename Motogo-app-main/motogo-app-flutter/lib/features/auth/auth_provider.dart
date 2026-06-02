@@ -143,6 +143,18 @@ class AuthService {
 
       if (res.user == null) return _tr('signUpFailed');
 
+      // KRITICKÉ: zajisti aktivní session PŘED zápisem do profiles.
+      // `auth.signUp` nemusí vždy vrátit aktivní session (podle nastavení
+      // e-mail confirmation / timingu), a UPDATE profiles je vázán RLS na
+      // auth.uid()=id. Bez session běží update jako anon → 0 řádků → osobní
+      // údaje (datum narození, adresa, č. ŘP, skupina, platnost) se TIŠE
+      // ztratí (žádná chyba). Když session chybí, přihlas se heslem.
+      if (_client.auth.currentSession == null) {
+        try {
+          await _client.auth.signInWithPassword(email: email, password: password);
+        } catch (_) {/* když confirmation blokuje, update stejně proběhne v retry */}
+      }
+
       // Wait for handle_new_user() trigger to create the profile row
       // (same pattern as frontend auth.js – 500ms delay)
       await Future.delayed(const Duration(milliseconds: 500));
