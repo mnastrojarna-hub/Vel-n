@@ -1,9 +1,9 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { PDFDocument, StandardFonts, rgb } from 'https://esm.sh/pdf-lib@1.17.1'
 import { renderEmail, normalizeLang, helpCardLabels, renderDoorCodesReleasedBlock, renderDocsRequiredBlock, type Lang } from './i18n.ts'
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') || ''
+const PDFSHIFT_API_KEY = Deno.env.get('PDFSHIFT_API_KEY') || ''
 const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY') || ''
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
@@ -325,64 +325,74 @@ function renderVoucherHtmlFallback(code: string, amount: number, validUntil: str
 </body></html>`
 }
 
-/** Generate dárkový poukaz jako PDF přes pdf-lib.
- *  Stáhne JPG pozadí z webu, vloží na A4 landscape stránku a překryje
- *  hodnotu / datum platnosti / kód poukazu na pozicích odpovídajících šabloně.
- *  Při selhání (síť, CORS) vyhodí — caller musí mít fallback.
- */
-async function generateVoucherPdfAttachment(code: string, amount: number, validUntil: string): Promise<string> {
+/** HTML → PDF přes PDFShift (https://pdfshift.io) — stejný externí poskytovatel,
+ *  který už generuje faktury/doklady. Headless Chrome zvládne i progresivní JPEG
+ *  pozadí poukazu (to pdf-lib `embedJpg` neuměl a poukaz proto padal do HTML
+ *  fallbacku se špatným vzhledem). Vrací Uint8Array nebo null při chybě / no key. */
+async function htmlToPdf(html: string): Promise<Uint8Array | null> {
+  if (!PDFSHIFT_API_KEY) return null
+  try {
+    const res = await fetch('https://api.pdfshift.io/v3/convert/pdf', {
+      method: 'POST',
+      headers: { 'X-API-Key': PDFSHIFT_API_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        source: html,
+        margin: '0',
+        landscape: false,
+        sandbox: false,
+        use_print: true,
+      }),
+    })
+    if (!res.ok) {
+      console.warn('[htmlToPdf] PDFShift HTTP', res.status, await res.text().catch(() => ''))
+      return null
+    }
+    return new Uint8Array(await res.arrayBuffer())
+  } catch (e) {
+    console.warn('[htmlToPdf] PDFShift fetch failed:', (e as Error).message)
+    return null
+  }
+}
+
+/** HTML šablona vyplněného poukazu 1:1 s grafikou `gfx/darkovy-poukaz.jpg`
+ *  (1400×659). Pozadí = oficiální šablona, překryv = hodnota, datum platnosti
+ *  a kód na pozicích odpovídajících předtištěným políčkům. @page v mm přesně
+ *  kopíruje poměr obrázku (1400/96·25.4 × 659/96·25.4) → jednostránkové PDF
+ *  bez bílých okrajů a beze změny vzhledu šablony. */
+function renderVoucherPdfHtml(code: string, amount: number, validUntil: string): string {
   const fmtPrice = (n: number) => (n || 0).toLocaleString('cs-CZ', { minimumFractionDigits: 0 })
   const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('cs-CZ') : '—'
-
   const bgUrl = `${SITE_URL}/gfx/darkovy-poukaz.jpg`
-  const res = await fetch(bgUrl)
-  if (!res.ok) throw new Error(`Voucher background fetch failed: ${res.status}`)
-  const bgBytes = new Uint8Array(await res.arrayBuffer())
+  return `<!DOCTYPE html><html lang="cs"><head><meta charset="UTF-8">
+<style>
+  @page { size: 370.4mm 174.4mm; margin: 0; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { width:1400px; height:659px; }
+  .wrap { position:relative; width:1400px; height:659px; overflow:hidden; }
+  .bg { position:absolute; top:0; left:0; width:1400px; height:659px; }
+  .ov { position:absolute; font-family:Arial,Helvetica,sans-serif; font-weight:800; line-height:1; white-space:nowrap; }
+  .amount { left:390px; top:208px; font-size:54px; color:#27e027; }
+  .date   { left:330px; top:358px; font-size:34px; color:#06250b; }
+  .code   { left:330px; top:470px; font-size:40px; color:#06250b; font-family:'Courier New',Courier,monospace; letter-spacing:4px; }
+</style></head>
+<body>
+  <div class="wrap">
+    <img class="bg" src="${bgUrl}" alt="" />
+    <div class="ov amount">${fmtPrice(amount)} Kč</div>
+    <div class="ov date">${fmtDate(validUntil)}</div>
+    <div class="ov code">${code}</div>
+  </div>
+</body></html>`
+}
 
-  const pdfDoc = await PDFDocument.create()
-  pdfDoc.setTitle(`Darkovy poukaz ${code}`)
-  pdfDoc.setAuthor('MotoGo24')
-  pdfDoc.setCreator('MotoGo24 — send-booking-email')
-
-  const bg = await pdfDoc.embedJpg(bgBytes)
-  // Použijeme nativní rozměry obrázku (1400×650 v originále) → page = obrázek 1:1
-  const page = pdfDoc.addPage([bg.width, bg.height])
-  page.drawImage(bg, { x: 0, y: 0, width: bg.width, height: bg.height })
-
-  const helv = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
-  const courier = await pdfDoc.embedFont(StandardFonts.CourierBold)
-
-  // Pozice odpovídají HTML overlayu (v procentech od levého horního rohu;
-  // pdf-lib počítá souřadnici Y odspodu, takže převádíme).
-  const W = bg.width, H = bg.height
-  const yFromTopPct = (pct: number) => H - (pct / 100) * H
-
-  const amountText = `${fmtPrice(amount)} Kč`
-  page.drawText(amountText, {
-    x: 0.32 * W,
-    y: yFromTopPct(38),
-    size: Math.round(W * 0.05),
-    font: helv,
-    color: rgb(116/255, 251/255, 113/255),
-  })
-
-  page.drawText(fmtDate(validUntil), {
-    x: 0.30 * W,
-    y: yFromTopPct(60),
-    size: Math.round(W * 0.024),
-    font: helv,
-    color: rgb(0, 0, 0),
-  })
-
-  page.drawText(code, {
-    x: 0.30 * W,
-    y: yFromTopPct(78),
-    size: Math.round(W * 0.026),
-    font: courier,
-    color: rgb(0, 0, 0),
-  })
-
-  const pdfBytes = await pdfDoc.save()
+/** Generate dárkový poukaz jako PDF přes PDFShift (HTML → PDF, stejně jako faktury).
+ *  Vyrenderuje oficiální šablonu poukazu s překryvem hodnoty / data / kódu a převede
+ *  ji na PDF externím poskytovatelem. Při selhání (chybí klíč, síť) vyhodí —
+ *  caller má HTML fallback. */
+async function generateVoucherPdfAttachment(code: string, amount: number, validUntil: string): Promise<string> {
+  const html = renderVoucherPdfHtml(code, amount, validUntil)
+  const pdfBytes = await htmlToPdf(html)
+  if (!pdfBytes) throw new Error('PDFShift voucher conversion failed (missing PDFSHIFT_API_KEY or network)')
   return btoa(Array.from(pdfBytes, (b: number) => String.fromCharCode(b)).join(''))
 }
 
@@ -443,9 +453,9 @@ async function autoGenerateAttachments(
         }
       }
 
-      // 2. Voucher PDF — generujeme přes pdf-lib (bg image + textové overlaye).
-      // Fallback: pokud PDF selže (chybí JPG pozadí, pdf-lib OOM), přiložíme HTML voucher,
-      // aby v mailu nikdy nechyběl. Důvod selhání zalogujeme do debug_log pro pozdější analýzu.
+      // 2. Voucher PDF — generujeme přes PDFShift (HTML šablona → PDF, stejný externí
+      // poskytovatel jako faktury). Fallback: pokud PDF selže (chybí PDFSHIFT_API_KEY, síť),
+      // přiložíme HTML voucher, aby v mailu nikdy nechyběl. Důvod selhání zalogujeme do debug_log.
       const { data: vouchers } = await supabase.from('vouchers')
         .select('code, amount, valid_until')
         .eq('order_id', opts.orderId)
