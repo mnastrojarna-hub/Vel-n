@@ -126,7 +126,7 @@ export function ShopOrderDetail({ order, onClose, onUpdated }) {
       })
       if (error) throw error
       if (data?.error) throw new Error(data.error)
-      const label = type === 'payment_receipt' ? 'Daňový doklad (DP)' : 'Faktura'
+      const label = type === 'payment_receipt' ? 'Daňový doklad (DP)' : type === 'shop_proforma' ? 'Zálohová faktura (ZF)' : 'Faktura'
       setDocMsg({ ok: true, text: `${label} přegenerován s aktuálními údaji: ${data?.number || ''} (starý doklad v databázi přepsán).` })
       // Modal zůstává otevřený s potvrzením (onUpdated by ho zavřel).
     } catch (e) { setDocMsg({ ok: false, text: 'Přegenerování selhalo: ' + e.message }) } finally { setRegenType(null) }
@@ -239,6 +239,7 @@ export function ShopOrderDetail({ order, onClose, onUpdated }) {
         <div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1e40af' }}>Doklady</div>
         <div className="text-xs mb-2" style={{ color: '#1e40af' }}>Přegeneruje aktuální doklad s upravenými údaji a <strong>přepíše původní</strong> v databázi (číslo dokladu zůstává).</div>
         <div className="flex items-center gap-2 flex-wrap">
+          <Button onClick={() => regenerateDoc('shop_proforma')} disabled={regenType !== null}>{regenType === 'shop_proforma' ? 'Generuji…' : 'Přegenerovat ZF (zálohovou)'}</Button>
           <Button onClick={() => regenerateDoc('payment_receipt')} disabled={regenType !== null}>{regenType === 'payment_receipt' ? 'Generuji…' : 'Přegenerovat DP (daňový doklad)'}</Button>
           <Button onClick={() => regenerateDoc('shop_final')} disabled={regenType !== null}>{regenType === 'shop_final' ? 'Generuji…' : 'Přegenerovat fakturu'}</Button>
         </div>
