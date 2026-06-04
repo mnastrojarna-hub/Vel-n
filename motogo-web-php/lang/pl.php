@@ -646,6 +646,7 @@ return [
     'voucher.fieldCountry' => 'Państwo',
     'voucher.fieldCompany' => 'Firma (opcjonalnie)',
     'voucher.fieldIco' => 'IČO (opcjonalnie)',
+    'voucher.fieldDic' => 'NIP (opcjonalnie)',
     'voucher.customAmount' => 'Inna kwota (Kč):',
     'voucher.customPlaceholder' => 'Wprowadź kwotę',
     'voucher.extras' => 'Dodatki',

@@ -646,6 +646,7 @@ return [
     'voucher.fieldCountry' => 'Land',
     'voucher.fieldCompany' => 'Bedrijf (optioneel)',
     'voucher.fieldIco' => 'IČO (optioneel)',
+    'voucher.fieldDic' => 'BTW-nummer (optioneel)',
     'voucher.customAmount' => 'Ander bedrag (Kč):',
     'voucher.customPlaceholder' => 'Voer bedrag in',
     'voucher.extras' => 'Extra\'s',

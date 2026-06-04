@@ -668,6 +668,7 @@ return [
     'voucher.fieldCountry' => 'País',
     'voucher.fieldCompany' => 'Empresa (opcional)',
     'voucher.fieldIco' => 'CIF/NIF (opcional)',
+    'voucher.fieldDic' => 'NIF-IVA (opcional)',
     'voucher.customAmount' => 'Otro importe (Kč):',
     'voucher.customPlaceholder' => 'Introduce el importe',
     'voucher.extras' => 'Extras',

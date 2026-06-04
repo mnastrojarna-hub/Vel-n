@@ -30,6 +30,9 @@ $form = '<div class="gift-voucher-order">' .
         '<input type="text" name="senderCompany" id="gv-company" placeholder="' . te('voucher.fieldCompany') . '" maxlength="255" autocomplete="organization">' .
         '<input type="text" name="senderICO" id="gv-ico" placeholder="' . te('voucher.fieldIco') . '" maxlength="20">' .
     '</div>' .
+    '<div class="gr2">' .
+        '<input type="text" name="senderDIC" id="gv-dic" placeholder="' . te('voucher.fieldDic') . '" maxlength="20">' .
+    '</div>' .
 
     '<div class="gv-values">' .
         '<label class="gv-value-btn"><input type="radio" name="value" value="1000" checked> ' . moneyHtml(1000) . '</label>' .
@@ -188,6 +191,7 @@ form.addEventListener("submit",function(e){
   var addr=street&&zip&&city?(street+", "+zip+" "+city):(street||null);
   var company=(document.getElementById("gv-company").value||"").trim();
   var ico=(document.getElementById("gv-ico").value||"").trim();
+  var dic=(document.getElementById("gv-dic").value||"").trim();
 
   var btn=document.getElementById("gvSubmitBtn");
   btn.disabled=true;btn.textContent=GV_I18N.processing;
@@ -202,6 +206,7 @@ form.addEventListener("submit",function(e){
       billing_address:addr,
       customer_company:company||null,
       customer_ico:ico||null,
+      customer_dic:dic||null,
       origin: window.location.origin,
       locale: (document.documentElement.lang||"cs").slice(0,2)
     })
