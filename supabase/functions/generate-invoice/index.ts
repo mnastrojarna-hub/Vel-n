@@ -556,6 +556,13 @@ serve(async (req) => {
     }
     await supabase.from('invoices').update({ pdf_path: path }).eq('id', invoice.id)
 
+    // Při přegenerování přesměruj i případný `documents` řádek na nový soubor —
+    // jinak by zákaznický portál / Velín dál ukazoval starý soubor pod původní cestou
+    // (typicky když PDFShift teď selže a render spadne z .pdf na .html).
+    if (reuseInvoice && reuseInvoice.pdf_path && reuseInvoice.pdf_path !== path) {
+      try { await supabase.from('documents').update({ file_path: path }).eq('file_path', reuseInvoice.pdf_path) } catch { /* ignore */ }
+    }
+
     // ⚠️ MAIL Z GENERATE-INVOICE BYL ODSTRANĚN (2026-05-08).
     // Velín mail šablony jsou jediný zdroj pravdy — žádný mail mimo systém šablon.
     // Doklad se zde jen vystaví, mail si zařídí dedikovaný flow přes send-booking-email:
@@ -566,7 +573,18 @@ serve(async (req) => {
     // Parametr `send_email` zůstává v API pro zpětnou kompatibilitu, ale nic nedělá.
     void send_email
 
-    await supabase.from('admin_audit_log').insert({ action: 'invoice_generated', details: { invoice_id: invoice.id, number, type: invoiceType, booking_id, source: invoiceSource } })
+    // Diagnostika do debug_log (admin_audit_log nemá sloupec `details`) — verze funkce
+    // + co reálně přečetla o zákazníkovi → z SQL ověřitelné, která verze běží a co četla.
+    try {
+      await supabase.from('debug_log').insert({
+        source: 'generate-invoice',
+        action: 'invoice_generated',
+        component: 'generate-invoice',
+        status: 'success',
+        request_data: { type: invoiceType, order_id: order_id || null, booking_id: booking_id || null, regenerate: !!reuseInvoice },
+        response_data: { number, pdf_path: path, fn_version: 'v2-customer-2026-06-04', customer: { name: customer.full_name || null, company: customer.company || null, ico: customer.ico || null, dic: customer.dic || null, street: customer.street || null } },
+      })
+    } catch { /* ignore */ }
 
     return new Response(JSON.stringify({ success: true, invoice_id: invoice.id, number, pdf_path: path }), {
       headers: { ...CORS, 'Content-Type': 'application/json' },
