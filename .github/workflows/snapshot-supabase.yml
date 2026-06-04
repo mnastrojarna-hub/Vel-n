@@ -1,0 +1,59 @@
+name: Snapshot Supabase → git (pro diff)
+
+# Ruční workflow: stáhne ŽIVÉ edge funkce ze Supabase pomocí repo secretu
+# (ACCESS_TOKEN — NIKDY ne token z chatu) a commitne je do větve
+# `supabase-live-snapshot`. Pak v GitHubu porovnáš `main ... supabase-live-snapshot`
+# (Compare) = přesný rozdíl git vs realita. Nic v main nepřepisuje.
+#
+# Schéma DB (tabulky/sloupce/RLS/triggery) tu NENÍ — `supabase db dump` potřebuje
+# i DB heslo (ne jen access token). Když ho přidáš jako secret DB_URL, doplním i dump.
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+      PROJECT_REF: vnwnqteskbykeucanlhk
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Stáhni živé edge funkce ze Supabase
+        run: |
+          set +e
+          FNS="admin-auth admin-reset-password ai-copilot ai-moto-agent ai-public-agent \
+               auto-check-service-parts cms-save datova-schranka flexi-sync generate-document \
+               generate-invoice generate-report generate-tax manage-payment-methods mcp-server \
+               process-payment process-refund public-api receive-invoice save-verification-document \
+               scan-document send-booking-email send-broadcast send-cancellation-email send-email \
+               send-invoice-email send-message send-order-email send-push send-recovery-otp seo-check \
+               translate-content translate-document translate-pages-master webhook-receiver"
+          mkdir -p supabase/functions
+          for fn in $FNS; do
+            echo "↓ $fn"
+            supabase functions download "$fn" --project-ref "$PROJECT_REF" || echo "  (skip $fn)"
+          done
+
+      - name: Commit snapshot do větve
+        run: |
+          git config user.name "supabase-snapshot-bot"
+          git config user.email "noreply@motogo24.cz"
+          git checkout -B supabase-live-snapshot
+          git add -A supabase/functions
+          git commit -m "snapshot: živé edge funkce ze Supabase ($(date -u +%F_%H:%M))" || echo "Žádné rozdíly."
+          git push -f origin supabase-live-snapshot
+
+      - name: Jak porovnat
+        run: echo "Porovnej v GitHubu: Compare 'main' ... 'supabase-live-snapshot' = rozdíl git vs Supabase."
