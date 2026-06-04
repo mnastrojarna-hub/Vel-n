@@ -573,13 +573,18 @@ serve(async (req) => {
     // Parametr `send_email` zůstává v API pro zpětnou kompatibilitu, ale nic nedělá.
     void send_email
 
-    // Audit vč. verze funkce + snapshot zákazníka na dokladu → umožní z SQL ověřit,
-    // KTERÁ verze funkce běží a CO reálně přečetla (diagnostika „údaje na DP chybí").
-    await supabase.from('admin_audit_log').insert({ action: 'invoice_generated', details: {
-      invoice_id: invoice.id, number, type: invoiceType, booking_id, order_id, source: invoiceSource,
-      regenerated: !!reuseInvoice, fn_version: 'v2-customer-2026-06-04', pdf_path: path,
-      customer: { name: customer.full_name || null, company: customer.company || null, ico: customer.ico || null, dic: customer.dic || null, street: customer.street || null },
-    } })
+    // Diagnostika do debug_log (admin_audit_log nemá sloupec `details`) — verze funkce
+    // + co reálně přečetla o zákazníkovi → z SQL ověřitelné, která verze běží a co četla.
+    try {
+      await supabase.from('debug_log').insert({
+        source: 'generate-invoice',
+        action: 'invoice_generated',
+        component: 'generate-invoice',
+        status: 'success',
+        request_data: { type: invoiceType, order_id: order_id || null, booking_id: booking_id || null, regenerate: !!reuseInvoice },
+        response_data: { number, pdf_path: path, fn_version: 'v2-customer-2026-06-04', customer: { name: customer.full_name || null, company: customer.company || null, ico: customer.ico || null, dic: customer.dic || null, street: customer.street || null } },
+      })
+    } catch { /* ignore */ }
 
     return new Response(JSON.stringify({ success: true, invoice_id: invoice.id, number, pdf_path: path }), {
       headers: { ...CORS, 'Content-Type': 'application/json' },
