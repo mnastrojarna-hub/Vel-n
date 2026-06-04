@@ -21,7 +21,7 @@
 
 ---
 
-## 2. TABULKY (public schema) — 61 tabulek
+## 2. TABULKY (public schema) — 98 tabulek (živý snapshot 2026-06-04; vč. 2 dočasných `cms_variables_backup_*` určených ke smazání → cílově 96)
 
 ### Hlavní entity
 
@@ -42,6 +42,7 @@
 | `bookings` | Hlavní tabulka rezervací |
 | `booking_extras` | Příslušenství k rezervacím |
 | `booking_cancellations` | Záznamy o stornech (refund_amount, refund_percent) |
+| `booking_complaints` | **NEW v docs 2026-06-04 (ze snapshotu)** — Reklamace k rezervacím (booking_id, customer_id FK→profiles ON DELETE SET NULL, subject, description, status, resolution, resolved_at, resolved_by FK→auth.users ON DELETE SET NULL, created_at, updated_at) |
 | `extras_catalog` | Katalog příslušenství |
 | `moto_day_prices` | Ceník dle dne v týdnu (po-ne) |
 | `pricing_rules` | Pravidla dynamického ceníku |
@@ -65,6 +66,7 @@
 | `notification_rules` | Pravidla notifikací |
 | `push_tokens` | Push tokeny zařízení |
 | `message_log` | Centrální log všech odeslaných zpráv (SMS, WhatsApp, email) — channel, recipient, template_slug, status, provider_response, metadata |
+| `broadcast_campaigns` | **NEW v docs 2026-06-04 (ze snapshotu)** — Hromadné kampaně (name, channel, template_id, segment, segment_filter jsonb, template_vars jsonb, scheduled_at, status, total_recipients, sent_count, failed_count, created_by, completed_at) — edge fn `send-broadcast` |
 | `message_templates_sms` | SMS/WhatsApp šablony (slug unikátní, body_template s {{placeholdery}}) |
 
 ### Dokumenty a faktury
@@ -128,6 +130,9 @@
 | `acc_depreciation_entries` | Odpisy DM (roční odpis, kumulativní, zůstatková hodnota, metoda, skupina) |
 | `acc_liabilities` | Závazky (dodavatelé, daně, SP, ZP, mzdy, úvěry, splatnost, stav úhrady, **financial_event_id** uuid FK→financial_events ON DELETE CASCADE) |
 | `flexi_reports` | Výkazy stažené z Abra Flexi (DPH přiznání, daňové přiznání, rozvaha, výsledovka, OSSZ, VZP) — status: draft/approved/submitted/rejected, schválení + odeslání datovkou |
+| `accounting_exceptions` | **NEW v docs 2026-06-04 (ze snapshotu)** — Účetní výjimky k řešení (financial_event_id, reason, suggested_fix jsonb, assigned_to, resolved_at, resolution_note, created_at) |
+| `approval_queue` | **NEW v docs 2026-06-04 (ze snapshotu)** — Fronta finančních schválení (financial_event_id, approval_type, submitted_by, approved_by, approved_at, status, note, created_at) |
+| `flexi_sync_log` | **NEW v docs 2026-06-04 (ze snapshotu)** — Log synchronizace s Abra Flexi (financial_event_id, direction, flexi_entity_type, payload jsonb, response_code, response_body jsonb, status, error_message, created_at) — edge fn `flexi-sync` |
 | `delivery_notes` | Dodací listy (dl_number, supplier_name/ico, total_amount, delivery_date, items jsonb, AI matching s fakturami: matched_invoice_id, match_method ai/manual, match_confidence, storage_path, extracted_data jsonb, financial_event_id FK→financial_events) |
 | `contracts` | Smlouvy obecné + zaměstnanecké (contract_number, contract_type: rental/lease/service/insurance/employment/employment_amendment/employment_termination/dpp/dpc/vacation_request/supply/nda/other, title, counterparty/ico, amount, payment_frequency, valid_from/until, status: pending/active/expired/terminated/draft, employee_id FK→acc_employees, storage_path, extracted_data jsonb, financial_event_id FK→financial_events) |
 
@@ -148,6 +153,7 @@
 | Tabulka | Popis |
 |---------|-------|
 | `ai_conversations` | Konverzace s AI Copilotem (admin_id, messages jsonb) |
+| `ai_customer_conversations` | **NEW v docs 2026-06-04 (ze snapshotu)** — Konverzace zákazníka s AI (user_id, title, messages jsonb, booking_id, created_at, updated_at) — odlišné od `ai_public_conversations` (anonymní web widget) |
 | `ai_actions` | AI akce |
 | `ai_logs` | AI logy |
 | `automation_rules` | Automatizační pravidla |
@@ -178,5 +184,8 @@
 
 | Tabulka | Popis |
 |---------|-------|
-| `admin_audit_log` | Audit log admin akcí (admin_id, action, details jsonb, ip_address) |
-| `debug_log` | Debug log (source, action, component, status, request/response_data, error_message, duration_ms) |
+| `admin_audit_log` | Audit log admin akcí — **OPRAVENO 2026-06-04 dle snapshotu:** reálné sloupce `id, admin_id, action, entity_type, entity_id, old_data jsonb, new_data jsonb, ip_address, created_at`. **NEMÁ sloupec `details`** (dřívější docs i kód edge fn `generate-invoice` ho omylem používaly → INSERT tiše selhával; diagnostika přesunuta do `debug_log`). |
+| `debug_log` | Debug log (source, action, component, status, request/response_data, error_message, duration_ms, created_at) |
+| `app_crash_reports` | **NEW v docs 2026-06-04 (ze snapshotu)** — Pády appky (user_id, app_version, platform, screen, action, error_type, error_message, stack_trace, severity, extra_data jsonb, created_at) |
+| `app_debug_logs` | **NEW v docs 2026-06-04 (ze snapshotu)** — Debug logy z appky (user_id, app_version, platform, category, action, detail, data jsonb, duration_ms, created_at) |
+| `visitor_log` | **NEW v docs 2026-06-04 (ze snapshotu)** — Návštěvnost webu (id bigint, ts, host, path, referrer, referrer_domain, referrer_type, lang, device, country, ip_hash, visitor_hash, user_agent, utm_source/medium/campaign) |
