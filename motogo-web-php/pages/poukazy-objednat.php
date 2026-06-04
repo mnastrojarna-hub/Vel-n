@@ -185,7 +185,9 @@ form.addEventListener("submit",function(e){
   var street=(document.getElementById("gv-street").value||"").trim();
   var zip=(document.getElementById("gv-zip").value||"").trim();
   var city=(document.getElementById("gv-city").value||"").trim();
-  var addr=street&&zip&&city?(street+", "+zip+" "+city):null;
+  var addr=street&&zip&&city?(street+", "+zip+" "+city):(street||null);
+  var company=(document.getElementById("gv-company").value||"").trim();
+  var ico=(document.getElementById("gv-ico").value||"").trim();
 
   var btn=document.getElementById("gvSubmitBtn");
   btn.disabled=true;btn.textContent=GV_I18N.processing;
@@ -197,6 +199,9 @@ form.addEventListener("submit",function(e){
       mode:"checkout",customer_email:email,customer_name:name,
       customer_phone:phone,is_print:isPrint,
       shipping_address:isPrint?addr:null,
+      billing_address:addr,
+      customer_company:company||null,
+      customer_ico:ico||null,
       origin: window.location.origin,
       locale: (document.documentElement.lang||"cs").slice(0,2)
     })

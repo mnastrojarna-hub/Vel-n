@@ -394,6 +394,12 @@ export async function handleWebShopCheckout(
   const voucherAmount = (webBody.voucher_amount as number) || body.amount
   const printFee = isPrint ? 180 : 0
   const shippingAddress = (webBody.shipping_address as string) || ''
+  // Fakturační údaje z web formuláře poukazu (poukazy-objednat.php) — uloží se na
+  // shop_orders, aby je generate-invoice dostal na DP/fakturu i u anonymní objednávky.
+  const billingAddress = (webBody.billing_address as string) || ''
+  const customerCompany = (webBody.customer_company as string) || ''
+  const customerIco = (webBody.customer_ico as string) || ''
+  const customerDic = (webBody.customer_dic as string) || ''
   const amountCzk = body.amount
   const amountCents = Math.round(amountCzk * 100)
   const currency = body.currency || 'czk'
@@ -425,6 +431,10 @@ export async function handleWebShopCheckout(
       customer_email: customerEmail,
       customer_phone: customerPhone,
       shipping_address: shippingAddress || null,
+      billing_address: billingAddress || null,
+      customer_company: customerCompany || null,
+      customer_ico: customerIco || null,
+      customer_dic: customerDic || null,
       status: 'new',
       payment_status: 'pending',
       payment_method: 'stripe',

@@ -244,6 +244,7 @@
 - id (uuid PK), order_number (text UNIQUE)
 - customer_id (uuid FK→profiles ON DELETE SET NULL), customer_name, customer_email, customer_phone
 - shipping_address (text), billing_address (text)
+- **customer_company** (text, **NEW 2026-06-04**), **customer_ico** (text, **NEW 2026-06-04**), **customer_dic** (text, **NEW 2026-06-04**) — fakturační údaje z web objednávky poukazu (`poukazy-objednat.php`). Web voucher objednávka je anonymní (bez `customer_id`), takže firma/IČO/DIČ/adresa se ukládají přímo sem a `generate-invoice` je čte do ODBĚRATEL na DP/faktuře. Dříve JS posílal jen jméno/mail/telefon → na faktuře chybělo IČO i firma i adresa. `billing_address` (spojená adresa) se nově plní vždy (dřív jen `shipping_address` a jen u tisku).
 - **shipping_method** (text, CHECK pickup/post/zasilkovna nebo NULL — **NEW 2026-05-07**, doplněno přes `ALTER TABLE` ručně po reportu chyby „column shipping_method does not exist" při doprodeji k rezervaci na webu; backfill ze `shipping_cost` 0/79/99 → pickup/zasilkovna/post)
 - status (text CHECK: new/confirmed/processing/shipped/delivered/cancelled/returned/refunded)
 - payment_status (text CHECK: pending/paid/refunded/failed) — **POZN.:** „unpaid" zde NENÍ povolené (na rozdíl od `bookings.payment_status`)

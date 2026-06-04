@@ -197,7 +197,20 @@ serve(async (req) => {
           .eq('id', order.customer_id).single()
         if (profile) customer = profile
       }
-      if (!customer.full_name) customer = { full_name: order.customer_name, email: order.customer_email, phone: order.customer_phone }
+      // Web objednávka poukazu je anonymní (bez customer_id) — fakturační údaje
+      // (firma, IČO, DIČ, adresa) drží přímo shop_orders. Doplníme je do customer,
+      // aby se na DP/faktuře zobrazily i bez profilu (profil má přednost, kde existuje).
+      customer = {
+        ...customer,
+        full_name: customer.full_name || order.customer_name,
+        email: customer.email || order.customer_email,
+        phone: customer.phone || order.customer_phone,
+        company: customer.company || order.customer_company || null,
+        ico: customer.ico || order.customer_ico || null,
+        dic: customer.dic || order.customer_dic || null,
+        // Profil má street/city/zip; u web poukazu je adresa spojená v billing_address.
+        street: customer.street || order.billing_address || null,
+      }
 
       for (const it of (order.shop_order_items || [])) {
         items.push({ description: it.product_name, qty: it.quantity || 1, unit_price: it.unit_price || 0 })
