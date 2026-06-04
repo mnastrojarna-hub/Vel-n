@@ -17,7 +17,9 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     env:
-      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      # Repo secret se u tebe jmenuje `access_token` (GitHub názvy secretů jsou
+      # case-insensitive, takže ACCESS_TOKEN ho najde). CLI čte env SUPABASE_ACCESS_TOKEN.
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
       PROJECT_REF: vnwnqteskbykeucanlhk
     steps:
       - uses: actions/checkout@v4
@@ -27,5 +29,13 @@ jobs:
         with:
           version: latest
 
-      - name: Deploy all edge functions
-        run: supabase functions deploy --project-ref "$PROJECT_REF"
+      - name: Deploy managed edge functions
+        # Scope: NASAZUJEME JEN funkce spravované z tohoto repa. Blanket `deploy`
+        # (všechny) by mohl přepsat funkce editované přímo v Supabase dashboardu.
+        # Seznam rozšíříme, až ověříme, že git == Supabase (snapshot workflow níže).
+        run: |
+          set -e
+          for fn in generate-invoice process-payment send-booking-email; do
+            echo "↑ deploying $fn"
+            supabase functions deploy "$fn" --project-ref "$PROJECT_REF"
+          done
