@@ -88,6 +88,7 @@ function pickBilling(o) { const r = {}; BILLING_FIELDS.forEach(k => { r[k] = o?.
 export function ShopOrderDetail({ order, onClose, onUpdated }) {
   const [items, setItems] = useState([])
   const [vouchers, setVouchers] = useState([])
+  const [invoices, setInvoices] = useState([])
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState(false)
   // Lokální kopie objednávky — odráží uložené úpravy fakturačních údajů bez zavření modalu.
@@ -115,7 +116,10 @@ export function ShopOrderDetail({ order, onClose, onUpdated }) {
       setDocMsg({ ok: true, text: 'Fakturační údaje uloženy. Přegeneruj doklad, aby se promítly do DP/faktury.' })
       // Pozn.: onUpdated() záměrně NEvoláme — zavřel by modal (ShopOrdersTab.onUpdated = setDetail(null)).
       // Modal zůstane otevřený, aby admin mohl rovnou přegenerovat doklad. Seznam se obnoví při reopenu.
-    } catch (e) { setDocMsg({ ok: false, text: 'Uložení selhalo: ' + e.message }) } finally { setSavingBilling(false) }
+    } catch (e) {
+      const colMissing = /column .* does not exist|customer_company|customer_ico|customer_dic/i.test(e.message || '')
+      setDocMsg({ ok: false, text: 'Uložení selhalo: ' + e.message + (colMissing ? ' — chybí sloupce v DB. Spusť SQL: ALTER TABLE shop_orders ADD COLUMN IF NOT EXISTS customer_company text, ADD COLUMN IF NOT EXISTS customer_ico text, ADD COLUMN IF NOT EXISTS customer_dic text;' : '') })
+    } finally { setSavingBilling(false) }
   }
 
   async function regenerateDoc(type) {
@@ -127,18 +131,37 @@ export function ShopOrderDetail({ order, onClose, onUpdated }) {
       if (error) throw error
       if (data?.error) throw new Error(data.error)
       const label = type === 'payment_receipt' ? 'Daňový doklad (DP)' : type === 'shop_proforma' ? 'Zálohová faktura (ZF)' : 'Faktura'
-      setDocMsg({ ok: true, text: `${label} přegenerován s aktuálními údaji: ${data?.number || ''} (starý doklad v databázi přepsán).` })
-      // Modal zůstává otevřený s potvrzením (onUpdated by ho zavřel).
+      const hint = data?.existing ? ' (POZOR: edge funkce vrátila existující doklad — zkontroluj, že je generate-invoice nasazená v nové verzi)' : ''
+      setDocMsg({ ok: true, text: `${label} přegenerován: ${data?.number || ''}${hint}. Otevři doklad níže a zkontroluj údaje.` })
+      await loadInvoices()
     } catch (e) { setDocMsg({ ok: false, text: 'Přegenerování selhalo: ' + e.message }) } finally { setRegenType(null) }
   }
 
   async function loadItems() {
     setLoading(true)
-    const [itemsRes, vouchersRes] = await Promise.all([
+    const [itemsRes, vouchersRes, invRes] = await Promise.all([
       supabase.from('shop_order_items').select('*').eq('order_id', order.id).order('created_at'),
       supabase.from('vouchers').select('code, amount, status').eq('order_id', order.id),
+      supabase.from('invoices').select('id, number, type, pdf_path, status, total, created_at').eq('order_id', order.id).order('created_at', { ascending: false }),
     ])
-    setItems(itemsRes.data || []); setVouchers(vouchersRes.data || []); setLoading(false)
+    setItems(itemsRes.data || []); setVouchers(vouchersRes.data || []); setInvoices(invRes.data || []); setLoading(false)
+  }
+
+  async function loadInvoices() {
+    const { data } = await supabase.from('invoices').select('id, number, type, pdf_path, status, total, created_at').eq('order_id', ord.id).order('created_at', { ascending: false })
+    setInvoices(data || [])
+  }
+
+  async function openInvoice(inv) {
+    setDocMsg(null)
+    const path = inv.pdf_path || `invoices/${inv.id}.pdf`
+    try {
+      const { data, error } = await supabase.storage.from('documents').download(path)
+      if (error || !data) throw error || new Error('soubor chybí')
+      const url = URL.createObjectURL(data)
+      window.open(url, '_blank')
+      setTimeout(() => URL.revokeObjectURL(url), 60000)
+    } catch (e) { setDocMsg({ ok: false, text: 'Nelze otevřít doklad: ' + (e.message || 'chyba') }) }
   }
 
   async function updateStatus(status) {
@@ -244,6 +267,23 @@ export function ShopOrderDetail({ order, onClose, onUpdated }) {
           <Button onClick={() => regenerateDoc('shop_final')} disabled={regenType !== null}>{regenType === 'shop_final' ? 'Generuji…' : 'Přegenerovat fakturu'}</Button>
         </div>
         {docMsg && <p className="mt-2 text-sm" style={{ color: docMsg.ok ? '#15803d' : '#dc2626' }}>{docMsg.text}</p>}
+        <div className="mt-3">
+          {invoices.length === 0 ? (
+            <div className="text-xs" style={{ color: '#64748b' }}>Zatím žádné doklady k této objednávce.</div>
+          ) : invoices.map(inv => {
+            const typeLabel = inv.type === 'payment_receipt' ? 'DP (daňový doklad)' : inv.type === 'shop_proforma' ? 'ZF (zálohová)' : inv.type === 'shop_final' ? 'Faktura' : inv.type
+            const cancelled = inv.status === 'cancelled'
+            return (
+              <div key={inv.id} className="flex items-center gap-2 py-1 text-sm" style={{ borderTop: '1px solid #dbeafe', opacity: cancelled ? 0.5 : 1 }}>
+                <span className="font-bold" style={{ color: '#1e3a8a', minWidth: 140 }}>{typeLabel}</span>
+                <span className="font-mono" style={{ color: '#1e40af' }}>{inv.number}</span>
+                {cancelled && <span className="text-xs" style={{ color: '#dc2626' }}>(zrušeno)</span>}
+                <span className="ml-auto" style={{ color: '#64748b' }}>{fmt(inv.total)}</span>
+                <button onClick={() => openInvoice(inv)} className="text-sm font-bold cursor-pointer bg-transparent border-none" style={{ color: '#1a8a18' }}>Otevřít</button>
+              </div>
+            )
+          })}
+        </div>
       </div>
 
       {ord.shipping_address && <div className="mb-3"><div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Doručovací adresa</div><div className="text-sm" style={{ color: '#0f1a14' }}>{ord.shipping_address}</div></div>}
