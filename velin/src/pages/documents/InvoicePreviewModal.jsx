@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { generateInvoiceHtml } from '../../lib/invoiceTemplate'
-import { loadInvoiceData, printInvoiceHtml, storeInvoicePdf } from '../../lib/invoiceUtils'
+import { loadInvoiceData, printInvoiceHtml, storeInvoicePdf, invoiceCustomer } from '../../lib/invoiceUtils'
 import { supabase } from '../../lib/supabase'
 import Modal from '../../components/ui/Modal'
 import Button from '../../components/ui/Button'
@@ -55,14 +55,7 @@ export default function InvoicePreviewModal({ invoice, onClose, onUpdated }) {
         total: data.total,
         notes: data.notes,
         variable_symbol: data.number?.replace(/[^0-9]/g, ''),
-        customer: {
-          name: data.profiles?.full_name,
-          email: data.profiles?.email,
-          phone: data.profiles?.phone,
-          address: [data.profiles?.street, data.profiles?.city, data.profiles?.zip, data.profiles?.country].filter(Boolean).join(', ') || '',
-          ico: data.profiles?.ico,
-          dic: data.profiles?.dic,
-        },
+        customer: invoiceCustomer(data),
       })
       setHtml(invoiceHtml)
     } catch (e) {

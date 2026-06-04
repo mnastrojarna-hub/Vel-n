@@ -175,6 +175,7 @@ export function generateInvoiceHtml(data) {
           <div style="font-size:11px;font-weight:800;color:#16a34a;letter-spacing:1.5px;margin-bottom:10px">ODBĚRATEL</div>
           <table role="presentation" cellpadding="0" cellspacing="0" style="font-size:12px;line-height:1.7">
             <tr><td style="color:#16a34a;padding-right:18px;vertical-align:top">Jméno</td><td style="color:#0f1a14;font-weight:700">${customer.full_name || customer.name || '—'}</td></tr>
+            ${customer.company ? `<tr><td style="color:#16a34a;padding-right:18px;vertical-align:top">Firma</td><td style="color:#0f1a14;font-weight:700">${customer.company}</td></tr>` : ''}
             <tr><td style="color:#16a34a;padding-right:18px;vertical-align:top">Adresa</td><td style="color:#0f1a14;font-weight:700">${customerAddr}</td></tr>
             ${customer.ico ? `<tr><td style="color:#16a34a;padding-right:18px;vertical-align:top">IČO</td><td style="color:#0f1a14;font-weight:700">${customer.ico}${customer.dic ? ` / DIČ ${customer.dic}` : ''}</td></tr>` : ''}
             <tr><td style="color:#16a34a;padding-right:18px;vertical-align:top">E-mail</td><td style="color:#0f1a14;font-weight:700">${customer.email || '—'}</td></tr>
