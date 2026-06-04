@@ -63,12 +63,24 @@ jobs:
         run: |
           set -e
           mkdir -p supabase/_snapshot
-          echo "-- public schema (tabulky/sloupce/typy/sekvence/indexy/FK/funkce/triggery/RLS)"
+          echo "-- public schema (tabulky/sloupce/typy/sekvence/indexy/FK/funkce/RLS)"
           supabase db dump --db-url "$SUPABASE_DB_URL" --schema public -f supabase/_snapshot/schema_public.sql
           echo "-- auth/storage/realtime/graphql schemata (pro uplnost)"
           supabase db dump --db-url "$SUPABASE_DB_URL" --schema auth,storage,realtime,graphql_public -f supabase/_snapshot/schema_system.sql || true
           echo "-- role a grants"
           supabase db dump --db-url "$SUPABASE_DB_URL" --role-only -f supabase/_snapshot/roles.sql || true
+
+      - name: Dump CREATE TRIGGER vazeb (supabase db dump je vynechava)
+        if: ${{ env.SUPABASE_DB_URL != '' }}
+        run: |
+          set +e
+          command -v psql >/dev/null 2>&1 || { sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client; }
+          mkdir -p supabase/_snapshot
+          psql "$SUPABASE_DB_URL" -X -q -t -A -P pager=off \
+            -c "SELECT pg_get_triggerdef(t.oid)||';' FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE NOT t.tgisinternal AND n.nspname='public' ORDER BY c.relname, t.tgname;" \
+            > supabase/_snapshot/triggers.sql 2>/tmp/trig.err
+          echo "CREATE TRIGGER vazeb: $(grep -c 'CREATE TRIGGER' supabase/_snapshot/triggers.sql 2>/dev/null || echo 0)"
+          [ -s /tmp/trig.err ] && echo "::warning::psql triggers: $(cat /tmp/trig.err)" || true
 
       - name: Commit snapshotu do vetve
         run: |
