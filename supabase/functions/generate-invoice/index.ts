@@ -436,7 +436,9 @@ serve(async (req) => {
               success: true, invoice_id: sameSource[0].id, number: sameSource[0].number, existing: true
             }), { headers: { ...CORS, 'Content-Type': 'application/json' } })
           }
-          console.log(`Invoice ${sameSource[0].number} exists but HTML missing — regenerating`)
+          // Doklad existuje, ale PDF/HTML chybí → přepiš stávající řádek (negeneruj duplicitu).
+          reuseInvoice = sameSource[0]
+          console.log(`Invoice ${sameSource[0].number} exists but HTML missing — overwriting (no duplicate)`)
         }
       }
     }
@@ -491,7 +493,23 @@ serve(async (req) => {
       if (order_id) invoicePayload.order_id = order_id
 
       const { data: ins, error: iErr } = await supabase.from('invoices').insert(invoicePayload).select().single()
-      if (iErr) return new Response(JSON.stringify({ error: iErr.message }), { status: 500 })
+      if (iErr) {
+        // Souběžné generování stejného dokladu (race confirmShopPayment × DB trigger
+        // generate_shop_final_on_ship × Velín updateStatus) → unikátní index
+        // `uq_invoices_active_order_type` zabrání duplicitě. Vrať existující doklad.
+        const isDup = iErr.code === '23505' || /duplicate key|unique constraint/i.test(iErr.message || '')
+        if (isDup && order_id) {
+          const { data: ex } = await supabase.from('invoices')
+            .select('id, number').eq('order_id', order_id).eq('type', invoiceType)
+            .neq('status', 'cancelled').order('created_at', { ascending: false }).limit(1)
+          if (ex?.length) {
+            return new Response(JSON.stringify({
+              success: true, invoice_id: ex[0].id, number: ex[0].number, existing: true, deduped: true
+            }), { headers: { ...CORS, 'Content-Type': 'application/json' } })
+          }
+        }
+        return new Response(JSON.stringify({ error: iErr.message }), { status: 500 })
+      }
       invoice = ins
     }
 
