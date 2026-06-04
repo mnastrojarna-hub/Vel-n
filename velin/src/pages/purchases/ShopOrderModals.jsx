@@ -113,7 +113,8 @@ export function ShopOrderDetail({ order, onClose, onUpdated }) {
       setOrd(o => ({ ...o, ...payload }))
       setEditBilling(false)
       setDocMsg({ ok: true, text: 'Fakturační údaje uloženy. Přegeneruj doklad, aby se promítly do DP/faktury.' })
-      onUpdated()
+      // Pozn.: onUpdated() záměrně NEvoláme — zavřel by modal (ShopOrdersTab.onUpdated = setDetail(null)).
+      // Modal zůstane otevřený, aby admin mohl rovnou přegenerovat doklad. Seznam se obnoví při reopenu.
     } catch (e) { setDocMsg({ ok: false, text: 'Uložení selhalo: ' + e.message }) } finally { setSavingBilling(false) }
   }
 
@@ -127,7 +128,7 @@ export function ShopOrderDetail({ order, onClose, onUpdated }) {
       if (data?.error) throw new Error(data.error)
       const label = type === 'payment_receipt' ? 'Daňový doklad (DP)' : 'Faktura'
       setDocMsg({ ok: true, text: `${label} přegenerován s aktuálními údaji: ${data?.number || ''} (starý doklad v databázi přepsán).` })
-      onUpdated()
+      // Modal zůstává otevřený s potvrzením (onUpdated by ho zavřel).
     } catch (e) { setDocMsg({ ok: false, text: 'Přegenerování selhalo: ' + e.message }) } finally { setRegenType(null) }
   }
 
