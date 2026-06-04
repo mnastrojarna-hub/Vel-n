@@ -157,6 +157,7 @@ serve(async (req) => {
       extra_items, voucher_codes: explicitVoucherCodes,
       source: reqSource,
       language: reqLanguage, // i18n: jazyk zákazníka (localizuje ODKAZY na faktuře)
+      regenerate, // přepiš existující doklad aktuálními údaji (stejné číslo, stejný řádek)
     } = await req.json()
     if (!booking_id && !order_id) return new Response(JSON.stringify({ error: 'Missing booking_id or order_id' }), { status: 400 })
 
@@ -398,6 +399,10 @@ serve(async (req) => {
     // Edits (isEdit) vždy vytvářejí nový. Bez tohoto dedupu webhook při 2 Stripe
     // eventech vytvořil 2 DP záznamy → 2 přílohy v mailu.
     const isShopFinalLocal = invoiceType === 'shop_final'
+    // Při přegenerování (regenerate=true z Velína) přepíšeme existující doklad
+    // aktuálními údaji — zachováme číslo i řádek v `invoices`, jen aktualizujeme
+    // položky/zákazníka a znovu vyrenderujeme PDF (upsert do stejné storage cesty).
+    let reuseInvoice: { id: string; number: string; pdf_path: string | null } | null = null
     if (!isEdit) {
       const dedupTypes = isPaymentReceipt
         ? ['payment_receipt']
@@ -414,28 +419,39 @@ serve(async (req) => {
 
       const { data: sameSource } = await q
       if (sameSource?.length) {
-        let htmlExists = false
-        if (sameSource[0].pdf_path) {
-          try {
-            const { data: blob } = await supabase.storage.from('documents').download(sameSource[0].pdf_path)
-            if (blob && blob.size > 0) htmlExists = true
-          } catch { /* file missing */ }
+        if (regenerate) {
+          // Přegenerování — nevracíme existující, ale přepíšeme ho níže.
+          reuseInvoice = sameSource[0]
+          console.log(`Invoice ${sameSource[0].number} — regenerating (overwrite) with updated data`)
+        } else {
+          let htmlExists = false
+          if (sameSource[0].pdf_path) {
+            try {
+              const { data: blob } = await supabase.storage.from('documents').download(sameSource[0].pdf_path)
+              if (blob && blob.size > 0) htmlExists = true
+            } catch { /* file missing */ }
+          }
+          if (htmlExists) {
+            return new Response(JSON.stringify({
+              success: true, invoice_id: sameSource[0].id, number: sameSource[0].number, existing: true
+            }), { headers: { ...CORS, 'Content-Type': 'application/json' } })
+          }
+          console.log(`Invoice ${sameSource[0].number} exists but HTML missing — regenerating`)
         }
-        if (htmlExists) {
-          return new Response(JSON.stringify({
-            success: true, invoice_id: sameSource[0].id, number: sameSource[0].number, existing: true
-          }), { headers: { ...CORS, 'Content-Type': 'application/json' } })
-        }
-        console.log(`Invoice ${sameSource[0].number} exists but HTML missing — regenerating`)
       }
     }
 
-    // Generate number
-    const { data: lastInv } = await supabase.from('invoices').select('number')
-      .like('number', `${prefix}-${year}-%`).order('number', { ascending: false }).limit(1)
-    let seq = 1
-    if (lastInv?.length) { const m = lastInv[0].number.match(/-(\d+)$/); if (m) seq = parseInt(m[1], 10) + 1 }
-    const number = `${prefix}-${year}-${String(seq).padStart(4, '0')}`
+    // Generate number — při přegenerování zachováme původní číslo dokladu.
+    let number: string
+    if (reuseInvoice) {
+      number = reuseInvoice.number
+    } else {
+      const { data: lastInv } = await supabase.from('invoices').select('number')
+        .like('number', `${prefix}-${year}-%`).order('number', { ascending: false }).limit(1)
+      let seq = 1
+      if (lastInv?.length) { const m = lastInv[0].number.match(/-(\d+)$/); if (m) seq = parseInt(m[1], 10) + 1 }
+      number = `${prefix}-${year}-${String(seq).padStart(4, '0')}`
+    }
 
     // Pro shop_final: odečti DP → konečná faktura za 0 Kč
     let dpDeduction = 0; let dpNumber = ''
@@ -453,17 +469,31 @@ serve(async (req) => {
     // Splatnost ihned pro ZF i DP (kartová platba je okamžitá)
     const dueDate = issueDate
 
-    const invoicePayload: any = {
-      number, type: invoiceType, customer_id: customerId,
-      items, subtotal, tax_amount: 0, total,
-      issue_date: issueDate, due_date: dueDate, status: 'issued', variable_symbol: number,
-      source: invoiceSource,
-    }
-    if (booking_id) invoicePayload.booking_id = booking_id
-    if (order_id) invoicePayload.order_id = order_id
+    let invoice: any
+    if (reuseInvoice) {
+      // Přepiš existující doklad aktuálními údaji (číslo a vazby zůstávají).
+      const updatePayload: any = {
+        items, subtotal, tax_amount: 0, total, customer_id: customerId,
+        issue_date: issueDate, due_date: dueDate, status: 'issued',
+      }
+      const { data: upd, error: uErr } = await supabase.from('invoices')
+        .update(updatePayload).eq('id', reuseInvoice.id).select().single()
+      if (uErr) return new Response(JSON.stringify({ error: uErr.message }), { status: 500 })
+      invoice = upd
+    } else {
+      const invoicePayload: any = {
+        number, type: invoiceType, customer_id: customerId,
+        items, subtotal, tax_amount: 0, total,
+        issue_date: issueDate, due_date: dueDate, status: 'issued', variable_symbol: number,
+        source: invoiceSource,
+      }
+      if (booking_id) invoicePayload.booking_id = booking_id
+      if (order_id) invoicePayload.order_id = order_id
 
-    const { data: invoice, error: iErr } = await supabase.from('invoices').insert(invoicePayload).select().single()
-    if (iErr) return new Response(JSON.stringify({ error: iErr.message }), { status: 500 })
+      const { data: ins, error: iErr } = await supabase.from('invoices').insert(invoicePayload).select().single()
+      if (iErr) return new Response(JSON.stringify({ error: iErr.message }), { status: 500 })
+      invoice = ins
+    }
 
     const accent = isPaymentReceipt ? '#0891b2' : isProforma ? '#2563eb' : '#1a8a18'
     const baseTitle = isPaymentReceipt ? 'DAŇOVÝ DOKLAD K PŘIJATÉ PLATBĚ' : isProforma ? 'ZÁLOHOVÁ FAKTURA' : isShopFinal ? 'KONEČNÁ FAKTURA' : 'FAKTURA'

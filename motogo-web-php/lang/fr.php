@@ -667,6 +667,7 @@ return [
     'voucher.fieldCountry' => 'Pays',
     'voucher.fieldCompany' => 'Société (facultatif)',
     'voucher.fieldIco' => 'N° SIRET / IČO (facultatif)',
+    'voucher.fieldDic' => 'N° TVA (facultatif)',
     'voucher.customAmount' => 'Autre montant (Kč) :',
     'voucher.customPlaceholder' => 'Saisissez le montant',
     'voucher.extras' => 'Options',

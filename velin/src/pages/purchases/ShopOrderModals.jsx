@@ -15,7 +15,7 @@ function Label({ children }) { return <label className="block text-sm font-extra
 function Input({ value, onChange, placeholder }) { return <input value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /> }
 
 export function NewShopOrderModal({ onClose, onSaved }) {
-  const [form, setForm] = useState({ customer_name: '', customer_email: '', customer_phone: '', shipping_address: '', billing_address: '', payment_method: '', notes: '' })
+  const [form, setForm] = useState({ customer_name: '', customer_email: '', customer_phone: '', customer_company: '', customer_ico: '', customer_dic: '', shipping_address: '', billing_address: '', payment_method: '', notes: '' })
   const [items, setItems] = useState([{ product_name: '', product_sku: '', quantity: 1, unit_price: '' }])
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState(null)
@@ -29,7 +29,7 @@ export function NewShopOrderModal({ onClose, onSaved }) {
   async function handleSave() {
     setSaving(true); setErr(null)
     try {
-      const orderPayload = { customer_name: form.customer_name, customer_email: form.customer_email, customer_phone: form.customer_phone, shipping_address: form.shipping_address, billing_address: form.billing_address, payment_method: form.payment_method, notes: form.notes, subtotal, total: subtotal, status: 'new', payment_status: 'pending' }
+      const orderPayload = { customer_name: form.customer_name, customer_email: form.customer_email, customer_phone: form.customer_phone, customer_company: form.customer_company || null, customer_ico: form.customer_ico || null, customer_dic: form.customer_dic || null, shipping_address: form.shipping_address, billing_address: form.billing_address, payment_method: form.payment_method, notes: form.notes, subtotal, total: subtotal, status: 'new', payment_status: 'pending' }
       const result = await debugAction('shopOrder.create', 'NewShopOrderModal', () => supabase.from('shop_orders').insert(orderPayload).select().single(), orderPayload)
       if (result?.error) throw result.error
       const order = result.data
@@ -47,6 +47,9 @@ export function NewShopOrderModal({ onClose, onSaved }) {
           <div><Label>Email</Label><Input value={form.customer_email} onChange={v => set('customer_email', v)} /></div>
           <div><Label>Telefon</Label><Input value={form.customer_phone} onChange={v => set('customer_phone', v)} /></div>
           <div><Label>Způsob platby</Label><Input value={form.payment_method} onChange={v => set('payment_method', v)} placeholder="Kartou / Převodem / Dobírka" /></div>
+          <div><Label>Firma</Label><Input value={form.customer_company} onChange={v => set('customer_company', v)} /></div>
+          <div><Label>IČO</Label><Input value={form.customer_ico} onChange={v => set('customer_ico', v)} /></div>
+          <div><Label>DIČ</Label><Input value={form.customer_dic} onChange={v => set('customer_dic', v)} /></div>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div><Label>Doručovací adresa</Label><textarea value={form.shipping_address} onChange={e => set('shipping_address', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={{ ...inputStyle, minHeight: 50, resize: 'vertical' }} /></div>
@@ -79,13 +82,54 @@ export function NewShopOrderModal({ onClose, onSaved }) {
   )
 }
 
+const BILLING_FIELDS = ['customer_name', 'customer_email', 'customer_phone', 'customer_company', 'customer_ico', 'customer_dic', 'billing_address', 'shipping_address']
+function pickBilling(o) { const r = {}; BILLING_FIELDS.forEach(k => { r[k] = o?.[k] || '' }); return r }
+
 export function ShopOrderDetail({ order, onClose, onUpdated }) {
   const [items, setItems] = useState([])
   const [vouchers, setVouchers] = useState([])
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState(false)
+  // Lokální kopie objednávky — odráží uložené úpravy fakturačních údajů bez zavření modalu.
+  const [ord, setOrd] = useState(order)
+  const [editBilling, setEditBilling] = useState(false)
+  const [billing, setBilling] = useState(pickBilling(order))
+  const [savingBilling, setSavingBilling] = useState(false)
+  const [docMsg, setDocMsg] = useState(null)
+  const [regenType, setRegenType] = useState(null) // 'payment_receipt' | 'shop_final' | null
 
+  useEffect(() => { setOrd(order); setBilling(pickBilling(order)) }, [order])
   useEffect(() => { loadItems() }, [order.id])
+
+  function setB(k, v) { setBilling(b => ({ ...b, [k]: v })) }
+
+  async function saveBilling() {
+    setSavingBilling(true); setDocMsg(null)
+    try {
+      const payload = {}
+      BILLING_FIELDS.forEach(k => { payload[k] = billing[k]?.trim() || null })
+      const result = await debugAction('shopOrder.updateBilling', 'ShopOrderDetail', () => supabase.from('shop_orders').update(payload).eq('id', ord.id), payload)
+      if (result?.error) throw result.error
+      setOrd(o => ({ ...o, ...payload }))
+      setEditBilling(false)
+      setDocMsg({ ok: true, text: 'Fakturační údaje uloženy. Přegeneruj doklad, aby se promítly do DP/faktury.' })
+      onUpdated()
+    } catch (e) { setDocMsg({ ok: false, text: 'Uložení selhalo: ' + e.message }) } finally { setSavingBilling(false) }
+  }
+
+  async function regenerateDoc(type) {
+    setRegenType(type); setDocMsg(null)
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-invoice', {
+        body: { type, order_id: ord.id, regenerate: true, send_email: false },
+      })
+      if (error) throw error
+      if (data?.error) throw new Error(data.error)
+      const label = type === 'payment_receipt' ? 'Daňový doklad (DP)' : 'Faktura'
+      setDocMsg({ ok: true, text: `${label} přegenerován s aktuálními údaji: ${data?.number || ''} (starý doklad v databázi přepsán).` })
+      onUpdated()
+    } catch (e) { setDocMsg({ ok: false, text: 'Přegenerování selhalo: ' + e.message }) } finally { setRegenType(null) }
+  }
 
   async function loadItems() {
     setLoading(true)
@@ -150,7 +194,15 @@ export function ShopOrderDetail({ order, onClose, onUpdated }) {
   return (
     <Modal open title={`Objednávka ${order.order_number}`} onClose={onClose} wide>
       <div className="grid grid-cols-2 gap-4 mb-4">
-        <div><div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Zákazník</div><div className="text-sm font-bold" style={{ color: '#0f1a14' }}>{order.customer_name || '—'}</div><div className="text-sm" style={{ color: '#1a2e22' }}>{order.customer_email}</div><div className="text-sm" style={{ color: '#1a2e22' }}>{order.customer_phone}</div></div>
+        <div>
+          <div className="flex items-center gap-2 mb-1"><div className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Zákazník / fakturační údaje</div><button onClick={() => { setBilling(pickBilling(ord)); setEditBilling(e => !e) }} className="text-xs font-bold cursor-pointer bg-transparent border-none" style={{ color: '#1a8a18' }}>{editBilling ? 'Zrušit' : 'Upravit'}</button></div>
+          <div className="text-sm font-bold" style={{ color: '#0f1a14' }}>{ord.customer_name || '—'}</div>
+          {ord.customer_company && <div className="text-sm" style={{ color: '#1a2e22' }}>{ord.customer_company}</div>}
+          {(ord.customer_ico || ord.customer_dic) && <div className="text-sm" style={{ color: '#1a2e22' }}>{ord.customer_ico ? `IČO: ${ord.customer_ico}` : ''}{ord.customer_dic ? `${ord.customer_ico ? ' · ' : ''}DIČ: ${ord.customer_dic}` : ''}</div>}
+          {ord.billing_address && <div className="text-sm" style={{ color: '#1a2e22' }}>{ord.billing_address}</div>}
+          <div className="text-sm" style={{ color: '#1a2e22' }}>{ord.customer_email}</div>
+          <div className="text-sm" style={{ color: '#1a2e22' }}>{ord.customer_phone}</div>
+        </div>
         <div><div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Stav</div>
           <div className="flex items-center gap-2 flex-wrap">
             <span className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase" style={{ padding: '4px 10px', background: sc.bg, color: sc.color }}>{STATUS_LABELS[order.status] || order.status}</span>
@@ -161,7 +213,38 @@ export function ShopOrderDetail({ order, onClose, onUpdated }) {
           <div className="text-sm mt-1" style={{ color: '#1a2e22' }}>Vytvořeno: {fmtDate(order.created_at)}{order.confirmed_at && <> · Potvrzeno: {fmtDate(order.confirmed_at)}</>}{order.shipped_at && <> · Odesláno: {fmtDate(order.shipped_at)}</>}{order.delivered_at && <> · Doručeno: {fmtDate(order.delivered_at)}</>}</div>
         </div>
       </div>
-      {order.shipping_address && <div className="mb-3"><div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Doručovací adresa</div><div className="text-sm" style={{ color: '#0f1a14' }}>{order.shipping_address}</div></div>}
+
+      {editBilling && (
+        <div className="mb-4 p-3 rounded-btn" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
+          <div className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>Úprava fakturačních údajů zákazníka</div>
+          <div className="grid grid-cols-2 gap-3">
+            <div><Label>Jméno</Label><Input value={billing.customer_name} onChange={v => setB('customer_name', v)} /></div>
+            <div><Label>Firma</Label><Input value={billing.customer_company} onChange={v => setB('customer_company', v)} /></div>
+            <div><Label>IČO</Label><Input value={billing.customer_ico} onChange={v => setB('customer_ico', v)} /></div>
+            <div><Label>DIČ</Label><Input value={billing.customer_dic} onChange={v => setB('customer_dic', v)} /></div>
+            <div><Label>Email</Label><Input value={billing.customer_email} onChange={v => setB('customer_email', v)} /></div>
+            <div><Label>Telefon</Label><Input value={billing.customer_phone} onChange={v => setB('customer_phone', v)} /></div>
+            <div><Label>Fakturační adresa</Label><textarea value={billing.billing_address} onChange={e => setB('billing_address', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={{ ...inputStyle, minHeight: 44, resize: 'vertical' }} /></div>
+            <div><Label>Doručovací adresa</Label><textarea value={billing.shipping_address} onChange={e => setB('shipping_address', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={{ ...inputStyle, minHeight: 44, resize: 'vertical' }} /></div>
+          </div>
+          <div className="flex justify-end gap-2 mt-3">
+            <Button onClick={() => setEditBilling(false)}>Zrušit</Button>
+            <Button green onClick={saveBilling} disabled={savingBilling}>{savingBilling ? 'Ukládám…' : 'Uložit údaje'}</Button>
+          </div>
+        </div>
+      )}
+
+      <div className="mb-4 p-3 rounded-btn" style={{ background: '#eff6ff', border: '1px solid #bfdbfe' }}>
+        <div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1e40af' }}>Doklady</div>
+        <div className="text-xs mb-2" style={{ color: '#1e40af' }}>Přegeneruje aktuální doklad s upravenými údaji a <strong>přepíše původní</strong> v databázi (číslo dokladu zůstává).</div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button onClick={() => regenerateDoc('payment_receipt')} disabled={regenType !== null}>{regenType === 'payment_receipt' ? 'Generuji…' : 'Přegenerovat DP (daňový doklad)'}</Button>
+          <Button onClick={() => regenerateDoc('shop_final')} disabled={regenType !== null}>{regenType === 'shop_final' ? 'Generuji…' : 'Přegenerovat fakturu'}</Button>
+        </div>
+        {docMsg && <p className="mt-2 text-sm" style={{ color: docMsg.ok ? '#15803d' : '#dc2626' }}>{docMsg.text}</p>}
+      </div>
+
+      {ord.shipping_address && <div className="mb-3"><div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Doručovací adresa</div><div className="text-sm" style={{ color: '#0f1a14' }}>{ord.shipping_address}</div></div>}
       {order.tracking_number && <div className="mb-3"><div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Sledovací číslo</div><div className="text-sm font-mono font-bold" style={{ color: '#0f1a14' }}>{order.tracking_number}</div></div>}
       {vouchers.length > 0 && (
         <div className="mb-3 p-3 rounded-btn" style={{ background: '#dcfce7', border: '1px solid #86efac' }}>

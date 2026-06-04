@@ -786,6 +786,7 @@ return [
     'voucher.fieldCountry' => 'Land',
     'voucher.fieldCompany' => 'Firma (optional)',
     'voucher.fieldIco' => 'IČO (optional)',
+    'voucher.fieldDic' => 'USt-IdNr. (optional)',
     'voucher.customAmount' => 'Anderer Betrag (Kč):',
     'voucher.customPlaceholder' => 'Betrag eingeben',
     'voucher.extras' => 'Zusatzleistungen',

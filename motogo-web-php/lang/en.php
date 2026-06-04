@@ -881,6 +881,7 @@ return [
     'voucher.fieldCountry' => 'Country',
     'voucher.fieldCompany' => 'Company (optional)',
     'voucher.fieldIco' => 'Company ID (optional)',
+    'voucher.fieldDic' => 'VAT ID (optional)',
     'voucher.customAmount' => 'Custom amount (Kč):',
     'voucher.customPlaceholder' => 'Enter amount',
     'voucher.extras' => 'Extras',

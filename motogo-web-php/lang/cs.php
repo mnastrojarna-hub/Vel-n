@@ -1338,6 +1338,7 @@ return [
     'voucher.fieldCountry' => 'Stát',
     'voucher.fieldCompany' => 'Firma (volitelně)',
     'voucher.fieldIco' => 'IČO (volitelně)',
+    'voucher.fieldDic' => 'DIČ (volitelně)',
     'voucher.customAmount' => 'Jiná částka (Kč):',
     'voucher.customPlaceholder' => 'Zadejte částku',
     'voucher.extras' => 'Doplňky',
