@@ -200,7 +200,8 @@ PRAVIDLA NAD TÍMTO SEZNAMEM (BEZPODMÍNEČNÁ):
 - Pro doporučení ("co máte na A2", "něco do hor", "naked", …) volej \`search_motorcycles\` s odpovídajícími filtry — ten respektuje filtraci dostupnosti. NIKDY nevybírej z paměti modely, které tu nejsou v seznamu.
 - CENU NIKDY NEUVÁDÍŠ JAKO „od X Kč/den" — zákazníka „od" ceny nezajímá a zní to jako nalákání. Když zákazník zmíní termín nebo den, MUSÍŠ rovnou zavolat \`calculate_price\` (po předchozím \`get_availability\`) a sdělit přesnou částku za konkrétní den nebo období. Pokud termín ještě nemáš, požádej o něj jednou větou — neotevírej cenu, dokud termín neznáš.
 - Cenu, dostupnost a kompletní specs konkrétního kusu řeš VÝHRADNĚ přes tooly (\`calculate_price\`, \`get_availability\`, \`search_motorcycles\`). Tento seznam je orientace co existuje, ne ceník.
-- Tento seznam je generován z DB při každém requestu — pokud uživatel tvrdí "měli jste tam Hondu", ale Honda v seznamu výše není, znamená to, že už ji nemáme. Reaguj profesionálně, neslibuj a nabídni alternativu.`
+- Tento seznam je generován z DB při každém requestu — pokud uživatel tvrdí "měli jste tam Hondu", ale Honda v seznamu výše není, znamená to, že už ji nemáme. Reaguj profesionálně, neslibuj a nabídni alternativu.
+- MotoGo24 NABÍZÍ VÝHRADNĚ motorky (kategorie cestovní, naked, supermoto, dětské). NEPRONAJÍMÁME skútry — žádný v seznamu výše není a žádný neexistuje. NIKDY skútr nenabízej, nezmiňuj jako „máme" ani „máme pár"; když na něj přijde řeč, řekni rovně „skútry nepůjčujeme" a nabídni alternativu z flotily. ZÁKAZ PROTIŘEČENÍ: co v jedné větě potvrdíš (např. „máme skútry"), nesmíš v další popřít („skútry nemáme") — drž se faktu, že je nemáme.`
 }
 
 // ============================================================================
@@ -1191,6 +1192,32 @@ function trimStr(v: unknown, max: number): string {
   return v.replace(/\s+/g, ' ').trim().slice(0, max)
 }
 
+// Rozparsuje aktivní filtry z URL výpisu katalogu (/katalog?q=...&kategorie=...&ridicak=...&jezdci=...).
+// Web tyhle filtry NEVYSTAVUJE přes window.MOTOGO_PAGE_CTX, posílá je jen v query stringu URL —
+// bez tohoto parsování agent filtry „nevidí" a začne si domýšlet (např. že „nic nemáme" nebo
+// dokonce halucinuje kategorii, kterou nenabízíme). Vrací human-readable řádky.
+function describeKatalogFilters(url: string, path: string): string[] {
+  const out: string[] = []
+  try {
+    const base = (url && /^https?:\/\//.test(url)) ? url : `https://www.motogo24.cz${path || ''}`
+    const q = new URL(base).searchParams
+    const katLabel: Record<string, string> = {
+      cestovni: 'cestovní', naked: 'naked', supermoto: 'supermoto', detske: 'dětské',
+    }
+    const pairs: Array<[string, string]> = []
+    const text = (q.get('q') || '').trim()
+    if (text) pairs.push(['hledaný text', text])
+    const kat = (q.get('kategorie') || '').trim()
+    if (kat) pairs.push(['kategorie', katLabel[kat] || kat])
+    const rid = (q.get('ridicak') || '').trim()
+    if (rid) pairs.push(['skupina ŘP', rid])
+    const jezdci = (q.get('jezdci') || '').trim()
+    if (jezdci && jezdci !== '0') pairs.push(['počet jezdců', jezdci])
+    for (const [k, v] of pairs) out.push(`  • ${k}: ${v}`)
+  } catch { /* ignore — bez filtrů jen vynecháme blok */ }
+  return out
+}
+
 function formatPageContext(ctx: PageContext | null | undefined): string {
   if (!ctx || typeof ctx !== 'object') return ''
   const url = trimStr(ctx.url, 300)
@@ -1211,6 +1238,12 @@ function formatPageContext(ctx: PageContext | null | undefined): string {
   if (motoId) lines.push(`- moto_id: ${motoId}  ← UŽIVATEL PROHLÍŽÍ TUTO MOTORKU`)
   if (slug) lines.push(`- slug: ${slug}`)
   if (selection) lines.push(`- Označený text: "${selection}"`)
+  // Katalog: vytáhni aktivní filtry z URL, aby agent věděl, podle čeho si zákazník právě prohlíží výpis.
+  const katFilters = (type === 'katalog') ? describeKatalogFilters(url, path) : []
+  if (katFilters.length > 0) {
+    lines.push('- AKTIVNÍ FILTRY KATALOGU (zákazník je má právě nastavené ve výpisu):')
+    for (const f of katFilters) lines.push(f)
+  }
   if (ctx.extra && typeof ctx.extra === 'object') {
     try {
       const raw = JSON.stringify(ctx.extra).slice(0, 1500)
@@ -1224,6 +1257,11 @@ function formatPageContext(ctx: PageContext | null | undefined): string {
   lines.push('- Když je type=blog_detail / faq / jak_pujcit / pujcovna a user se ptá obecně, vycházej z aktuálního obsahu stránky a doplň relevantní fakta přes get_faq / get_policies (NIKDY z hlavy).')
   lines.push('- Pokud kontext stránky koliduje s něčím v konverzaci (např. user otevřel jinou motorku), zmiň to a doptej se: "vidím že koukáš na X, mluvíme o tomhle nebo o té předtím?".')
   lines.push('- Kontext je read-only; když user explicitně řekne "ne tuhle, jinou", přepni se a použij to, co řekl.')
+  if (type === 'katalog') {
+    lines.push('- KATALOG: Zákazník je ve výpisu motorek. Když napíše krátký dotaz ("125ccm", "něco menšího", "co tu máte", "na tohle") bez upřesnění, ber AKTIVNÍ FILTRY KATALOGU výše jako jeho zadání a ZAVOLEJ `search_motorcycles` s odpovídajícími filtry (license_group ze „skupina ŘP", category z „kategorie", kw/ccm/cena z „hledaný text"). Odpověz POUZE z toho, co tool vrátí — nikdy „od oka".')
+    lines.push('- KATALOG obsahuje VÝHRADNĚ motorky (kategorie cestovní, naked, supermoto, dětské). MotoGo24 NEPRONAJÍMÁ skútry — žádný v nabídce není. NIKDY skútr nenabízej ani nezmiňuj jako „máme/máme pár"; když na něj přijde řeč, řekni rovně, že skútry nepůjčujeme. A NIKDY si neprotiřeč: co v jedné větě potvrdíš, v další nesmíš popřít.')
+    lines.push('- Když pod aktivními filtry žádná motorka není, neříkej jen „nic nemáme" — nabídni REÁLNOU alternativu z živé flotily (jiná skupina ŘP, jiná kategorie, vyšší/nižší výkon) a doptej se, co je pro zákazníka důležité. Žádnou kategorii ani typ stroje, který nemáme, si nevymýšlej.')
+  }
   return lines.join('\n')
 }
 
