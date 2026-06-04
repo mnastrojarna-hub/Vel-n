@@ -80,4 +80,5 @@ jobs:
           git push -f origin supabase-live-snapshot
 
       - name: Jak porovnat
-        run: echo "Compare v GitHubu: main ... supabase-live-snapshot = uplny rozdil git vs Supabase."
+        run: |
+          echo "Compare v GitHubu: main ... supabase-live-snapshot = uplny rozdil git vs Supabase."
