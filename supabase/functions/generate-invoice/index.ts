@@ -563,6 +563,23 @@ serve(async (req) => {
       try { await supabase.from('documents').update({ file_path: path }).eq('file_path', reuseInvoice.pdf_path) } catch { /* ignore */ }
     }
 
+    // Snapshot ODBĚRATELE na doklad. Velín (Finance/Dokumenty) renderuje fakturu
+    // CLIENT-SIDE z invoice řádku přes profiles join — u anonymní voucher objednávky
+    // (customer_id=null) je profil prázdný → ODBĚRATEL prázdný. Tento snapshot dává
+    // Velínu zamražené fakturační údaje k zobrazení. NON-FATAL: když sloupec
+    // `customer_snapshot` ještě neexistuje, jen warning (doklad i PDF jsou OK).
+    const customerSnapshot = {
+      name: customer.full_name || customer.name || null,
+      company: customer.company || null,
+      ico: customer.ico || null,
+      dic: customer.dic || null,
+      email: customer.email || null,
+      phone: customer.phone || null,
+      address: [customer.street, customer.city, customer.zip].filter(Boolean).join(', ') || customer.street || null,
+    }
+    const { error: snapErr } = await supabase.from('invoices').update({ customer_snapshot: customerSnapshot }).eq('id', invoice.id)
+    if (snapErr) console.warn('[generate-invoice] customer_snapshot update failed (sloupec chybí?):', snapErr.message)
+
     // ⚠️ MAIL Z GENERATE-INVOICE BYL ODSTRANĚN (2026-05-08).
     // Velín mail šablony jsou jediný zdroj pravdy — žádný mail mimo systém šablon.
     // Doklad se zde jen vystaví, mail si zařídí dedikovaný flow přes send-booking-email:

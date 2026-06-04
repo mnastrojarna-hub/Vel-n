@@ -1,12 +1,20 @@
-name: Snapshot Supabase → git (pro diff)
+name: Snapshot Supabase to git
 
-# Ruční workflow: stáhne ŽIVÉ edge funkce ze Supabase pomocí repo secretu
-# (ACCESS_TOKEN — NIKDY ne token z chatu) a commitne je do větve
-# `supabase-live-snapshot`. Pak v GitHubu porovnáš `main ... supabase-live-snapshot`
-# (Compare) = přesný rozdíl git vs realita. Nic v main nepřepisuje.
+# Rucni workflow: stahne KOMPLETNI zivy stav Supabase do vetve
+# `supabase-live-snapshot` pro diff vuci `main`. NIC v main neprepisuje.
 #
-# Schéma DB (tabulky/sloupce/RLS/triggery) tu NENÍ — `supabase db dump` potřebuje
-# i DB heslo (ne jen access token). Když ho přidáš jako secret DB_URL, doplním i dump.
+# Obsah snapshotu:
+#   - vsechny edge funkce (supabase functions download)  -> potrebuje secret ACCESS_TOKEN
+#   - cele DB schema: tabulky, sloupce, typy, sekvence, indexy, FK, funkce,
+#     triggery, RLS politiky (supabase db dump)            -> potrebuje secret SUPABASE_DB_URL
+#   - role/grants (--role-only)
+#
+# DATA se ZAMERNE nedumpuji (GDPR / zakaznicke udaje / secrets) - jen struktura.
+#
+# Secrets (Settings -> Secrets and variables -> Actions -> Repository secrets):
+#   ACCESS_TOKEN     = Supabase personal access token (https://supabase.com/dashboard/account/tokens)
+#   SUPABASE_DB_URL  = postgresql://postgres:<DB_HESLO>@db.vnwnqteskbykeucanlhk.supabase.co:5432/postgres
+#                      (Dashboard -> Project Settings -> Database -> Connection string -> URI)
 
 on:
   workflow_dispatch: {}
@@ -19,41 +27,58 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
       PROJECT_REF: vnwnqteskbykeucanlhk
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Setup Supabase CLI
-        uses: supabase/setup-cli@v1
+      - uses: supabase/setup-cli@v1
         with:
           version: latest
 
-      - name: Stáhni živé edge funkce ze Supabase
+      - name: Kontrola secretu
+        run: |
+          if [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
+            echo "::error::Secret ACCESS_TOKEN je prazdny/chybi. Pridej ho v Settings -> Secrets and variables -> Actions -> Repository secrets."
+            exit 1
+          fi
+          if [ -z "$SUPABASE_DB_URL" ]; then
+            echo "::warning::Secret SUPABASE_DB_URL chybi -> snapshot bude BEZ DB schematu (jen funkce). Pridej ho pro 100% komplet."
+          fi
+
+      - name: Stahni vsechny edge funkce
         run: |
           set +e
-          FNS="admin-auth admin-reset-password ai-copilot ai-moto-agent ai-public-agent \
-               auto-check-service-parts cms-save datova-schranka flexi-sync generate-document \
-               generate-invoice generate-report generate-tax manage-payment-methods mcp-server \
-               process-payment process-refund public-api receive-invoice save-verification-document \
-               scan-document send-booking-email send-broadcast send-cancellation-email send-email \
-               send-invoice-email send-message send-order-email send-push send-recovery-otp seo-check \
-               translate-content translate-document translate-pages-master webhook-receiver"
+          FNS="admin-auth admin-reset-password ai-copilot ai-moto-agent ai-public-agent auto-check-service-parts cms-save datova-schranka flexi-sync generate-document generate-invoice generate-report generate-tax manage-payment-methods mcp-server process-payment process-refund public-api receive-invoice save-verification-document scan-document send-booking-email send-broadcast send-cancellation-email send-email send-invoice-email send-message send-order-email send-push send-recovery-otp seo-check translate-content translate-document translate-pages-master webhook-receiver"
           mkdir -p supabase/functions
           for fn in $FNS; do
-            echo "↓ $fn"
-            supabase functions download "$fn" --project-ref "$PROJECT_REF" || echo "  (skip $fn)"
+            echo "download $fn"
+            supabase functions download "$fn" --project-ref "$PROJECT_REF" || echo "skip $fn"
           done
 
-      - name: Commit snapshot do větve
+      - name: Dump celeho DB schematu (struktura, bez dat)
+        if: ${{ env.SUPABASE_DB_URL != '' }}
+        run: |
+          set -e
+          mkdir -p supabase/_snapshot
+          echo "-- public schema (tabulky/sloupce/typy/sekvence/indexy/FK/funkce/triggery/RLS)"
+          supabase db dump --db-url "$SUPABASE_DB_URL" --schema public -f supabase/_snapshot/schema_public.sql
+          echo "-- auth/storage/realtime/graphql schemata (pro uplnost)"
+          supabase db dump --db-url "$SUPABASE_DB_URL" --schema auth,storage,realtime,graphql_public -f supabase/_snapshot/schema_system.sql || true
+          echo "-- role a grants"
+          supabase db dump --db-url "$SUPABASE_DB_URL" --role-only -f supabase/_snapshot/roles.sql || true
+
+      - name: Commit snapshotu do vetve
         run: |
           git config user.name "supabase-snapshot-bot"
           git config user.email "noreply@motogo24.cz"
           git checkout -B supabase-live-snapshot
-          git add -A supabase/functions
-          git commit -m "snapshot: živé edge funkce ze Supabase ($(date -u +%F_%H:%M))" || echo "Žádné rozdíly."
+          git add -A supabase/functions supabase/_snapshot
+          git commit -m "snapshot: kompletni zivy stav Supabase (funkce + schema)" || echo "Zadne rozdily."
           git push -f origin supabase-live-snapshot
 
       - name: Jak porovnat
-        run: echo "Porovnej v GitHubu: Compare 'main' ... 'supabase-live-snapshot' = rozdíl git vs Supabase."
+        run: |
+          echo "Compare v GitHubu: main ... supabase-live-snapshot = uplny rozdil git vs Supabase."

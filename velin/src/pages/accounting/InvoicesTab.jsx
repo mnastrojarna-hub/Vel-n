@@ -87,7 +87,7 @@ export default function InvoicesTab() {
   async function generatePdf(invoiceId) {
     try {
       debugLog('AccInvoicesTab', 'generatePdf', { invoiceId })
-      const { loadInvoiceData } = await import('../../lib/invoiceUtils')
+      const { loadInvoiceData, invoiceCustomer } = await import('../../lib/invoiceUtils')
       const { generateInvoiceHtml } = await import('../../lib/invoiceTemplate')
       const fullInv = await loadInvoiceData(invoiceId)
       const html = generateInvoiceHtml({
@@ -102,14 +102,7 @@ export default function InvoicesTab() {
         total: fullInv.total,
         notes: fullInv.notes,
         variable_symbol: fullInv.number?.replace(/[^0-9]/g, ''),
-        customer: {
-          name: fullInv.profiles?.full_name,
-          email: fullInv.profiles?.email,
-          phone: fullInv.profiles?.phone,
-          address: [fullInv.profiles?.street, fullInv.profiles?.city, fullInv.profiles?.zip].filter(Boolean).join(', ') || '',
-          ico: fullInv.profiles?.ico,
-          dic: fullInv.profiles?.dic,
-        },
+        customer: invoiceCustomer(fullInv),
       })
       const { printInvoiceHtml } = await import('../../lib/invoiceUtils')
       printInvoiceHtml(html)

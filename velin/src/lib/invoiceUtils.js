@@ -428,6 +428,31 @@ export async function generateCreditNote(bookingId, { refundAmount, refundPercen
 }
 
 /**
+ * Sestaví ODBĚRATELE pro render faktury. Priorita:
+ *   1) invoices.customer_snapshot (zamražené fakturační údaje při vystavení —
+ *      vyplní generate-invoice; jediný zdroj pro anonymní e-shop/voucher objednávky,
+ *      kde customer_id=null a profil neexistuje),
+ *   2) profiles join (booking faktury),
+ *   3) prázdné.
+ * Bez tohohle Velín (Finance/Dokumenty) renderoval ODBĚRATEL z profilu → u voucheru prázdno.
+ */
+export function invoiceCustomer(data) {
+  const cs = data?.customer_snapshot
+  if (cs && (cs.name || cs.company || cs.ico || cs.email)) {
+    return {
+      name: cs.name || '', company: cs.company || '', email: cs.email || '', phone: cs.phone || '',
+      address: cs.address || '', ico: cs.ico || '', dic: cs.dic || '',
+    }
+  }
+  const p = data?.profiles
+  return {
+    name: p?.full_name || '', email: p?.email || '', phone: p?.phone || '',
+    address: [p?.street, p?.city, p?.zip, p?.country].filter(Boolean).join(', ') || '',
+    ico: p?.ico || '', dic: p?.dic || '',
+  }
+}
+
+/**
  * Load full invoice data with relations
  */
 export async function loadInvoiceData(invoiceId) {
