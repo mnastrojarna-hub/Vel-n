@@ -1,0 +1,31 @@
+name: Deploy Supabase Edge Functions
+
+# Auto-deploy edge funkcí po merge do main — obdoba toho, co dělá Vercel pro Velín.
+# Bez tohohle se edge funkce (generate-invoice, process-payment, send-booking-email, …)
+# musely nasazovat ručně přes `supabase functions deploy`, takže změny v main nebyly
+# na Supabase živé. Vyžaduje repo secret SUPABASE_ACCESS_TOKEN.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/functions/**'
+      - '.github/workflows/deploy-functions.yml'
+  workflow_dispatch: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      PROJECT_REF: vnwnqteskbykeucanlhk
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Deploy all edge functions
+        run: supabase functions deploy --project-ref "$PROJECT_REF"
