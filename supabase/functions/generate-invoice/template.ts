@@ -275,7 +275,7 @@ export function generateInvoiceHtml(p: TemplateParams): string {
     </table>
   </div>
 
-  ${vc.length > 0 ? `<div style="margin:0 32px 8px;padding:10px;background:#dcfce7;border-radius:6px;border:1px solid #86efac">
+  ${vc.length > 0 && !p.isProforma ? `<div style="margin:0 32px 8px;padding:10px;background:#dcfce7;border-radius:6px;border:1px solid #86efac">
     <div style="font-size:11px;font-weight:800;color:#166534;letter-spacing:1.5px;margin-bottom:4px">DÁRKOVÉ POUKAZY</div>
     ${vc.map((c: string) => `<div style="font-size:13px;font-weight:700;font-family:'Courier New',monospace;color:#166534;padding:1px 0">${c}</div>`).join('')}
     ${p.voucherValidUntil ? `<div style="font-size:11px;color:#166534;margin-top:4px">Platnost: 3 roky (do ${fmtDate(p.voucherValidUntil)})</div>` : ''}

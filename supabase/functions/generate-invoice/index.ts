@@ -229,7 +229,9 @@ serve(async (req) => {
       if (order.shipping_cost > 0) items.push({ description: 'Doprava', qty: 1, unit_price: Number(order.shipping_cost) })
       if (order.discount > 0) items.push({ description: 'Sleva', qty: 1, unit_price: -Number(order.discount) })
 
-      if (!explicitVoucherCodes || explicitVoucherCodes.length === 0) {
+      // Kódy poukazů jen na ZAPLACENÝ doklad (DP/konečná) — NIKDY na ZF (shop_proforma):
+      // zálohová faktura nemusí být uhrazená a zveřejnění kódů by je „uvolnilo" před platbou.
+      if (!isProforma && (!explicitVoucherCodes || explicitVoucherCodes.length === 0)) {
         const { data: orderVouchers } = await supabase.from('vouchers').select('code, amount, valid_until').eq('order_id', order_id)
         if (orderVouchers && orderVouchers.length > 0) {
           voucher_codes = orderVouchers.map((v: any) => `${v.code} — ${fmtPrice(v.amount)} Kč, platný do ${fmtDate(v.valid_until)}`)

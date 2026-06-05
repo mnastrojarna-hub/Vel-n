@@ -57,6 +57,8 @@ export default function InvoicePreviewModal({ invoice, onClose, onUpdated }) {
         variable_symbol: data.number?.replace(/[^0-9]/g, ''),
         customer: invoiceCustomer(data),
         cardInfo: data.cardInfo, stripe_payment_intent_id: data.stripe_payment_intent_id, paymentMethodLabel: data.paymentMethodLabel,
+        voucher_codes: data.voucher_codes, voucherValidUntil: data.voucherValidUntil, door_codes: data.door_codes,
+        paid_date: data.paid_date, booking_id: data.booking_id, bookings: data.bookings,
       })
       setHtml(invoiceHtml)
     } catch (e) {
