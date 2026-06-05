@@ -10,6 +10,8 @@
  *   await uploadHtmlAsPdf(supabase, 'invoices/abc.pdf', html)
  */
 
+import { supabase } from './supabase'
+
 let _h2p = null
 let _h2pPromise = null
 const H2P_CDN = 'https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.2/dist/html2pdf.bundle.min.js'
@@ -51,9 +53,37 @@ async function getHtml2Pdf() {
 
 /**
  * Konvertuje HTML string na PDF Blob.
- * Renderuje do skrytého off-screen elementu, aby se uživateli nic neblesklo.
+ *
+ * PRIMÁRNĚ přes serverovou edge funkci `render-pdf` (PDFShift / headless Chrome) —
+ * stejný renderer jako e-shop/maily (generate-invoice), takže doklady vypadají 1:1.
+ * Když server selže (chybí klíč, HTTP chyba, offline), spadne na klientský
+ * html2pdf.js fallback, aby flow nikdy neselhal tvrdě.
  */
 export async function htmlToPdfBlob(html, opts = {}) {
+  try {
+    const { data, error } = await supabase.functions.invoke('render-pdf', {
+      body: { html, landscape: opts.orientation === 'landscape' },
+    })
+    if (error) throw error
+    if (data instanceof Blob) {
+      if (data.type === 'application/pdf') return data
+      // supabase-js vrátí Blob i pro JSON chybu — přečti a vyhoď
+      const txt = await data.text().catch(() => '')
+      throw new Error(txt || 'render-pdf nevrátil PDF')
+    }
+    if (data?.error) throw new Error(data.error)
+    throw new Error('render-pdf nevrátil PDF')
+  } catch (e) {
+    console.warn('[htmlToPdfBlob] server render-pdf selhal, fallback na html2pdf.js:', e?.message)
+    return htmlToPdfBlobClient(html, opts)
+  }
+}
+
+/**
+ * Klientský fallback — html2pdf.js (html2canvas). Méně přesný (rasterizace),
+ * používá se jen když serverový render-pdf není dostupný.
+ */
+async function htmlToPdfBlobClient(html, opts = {}) {
   const html2pdf = await getHtml2Pdf()
 
   // Off-screen kontejner s pevnou šířkou A4 (794 px @ 96 DPI)
