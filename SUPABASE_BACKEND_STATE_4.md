@@ -56,6 +56,19 @@
 | `trg_booking_modified_email` | bookings (AFTER UPDATE) | **NEW 2026-05-03 (B), INSTRUMENTOVÁN 2026-05-19:** trg_send_booking_modified_email() — detekuje změnu moto/datumy/cena/místo přistavení/času a pošle `booking_modified` mail s plným `original_*` payloadem z OLD. Pokrývá Velin / web / Flutter / RPC. Dedup 5min přes message_log. **2026-05-19** (mig. `20260519_instrument_booking_modified_trigger.sql`): každý early-return + výsledek http_post/dispatch logujеs do `debug_log` (`source='trg_booking_modified_email'`), `http_post` a `dispatch_email_event` izolovány do vlastních BEGIN/EXCEPTION bloků. SECURITY DEFINER, EXCEPTION safe |
 | `trg_sync_cms_flat_to_nested` | cms_variables (AFTER INSERT OR UPDATE, WHEN key in 16 plochých klíčů) | **NEW 2026-05-05:** sync_cms_flat_to_nested() — zrcadlí Velín saves do plochých CMS klíčů (`web.pujcovna.{h1,intro,ben.bottom,ben.{3,4,6},step.{1..8}}`, `web.kontakt.{hours,seo}`) do nového vnořeného schématu, které čtou PHP šablony `pujcovna.php`/`kontakt.php` (`intro.h1`/`intro.body`/`benefits.closing`/`benefits.items.{2,3,5}.{title,text}`/`process.steps.{0..7}.{title,text}`/`place.hours`/`seo.description`). Pro `ben.{3,4,6}` a `step.{1..8}` non-greedy split na první " - "/" – " (`regexp_match(raw, '^(.*?)\s[-–]\s(.*)$')`) — title + text odděleně. UPSERT přes `on conflict (key) do update`. SECURITY DEFINER. **Důvod:** Velín admin UI nadále ukládá do plochých klíčů (legacy schéma), zatímco PHP šablony čtou vnořené (commit `7abdc27` → inline format-bar). Trigger drží data v sync bez nutnosti refactorit Velín UI. Až bude Velín UI přepnutý na vnořené schéma, trigger se zruší. |
 
+### LEGACY EMAIL triggery (zdokumentováno 2026-06-04 ze snapshotu — POZOR, NEzaměňovat s SMS/WA `trg_notify_*` výše)
+> **Analýza (2026-06-04):** Tyto 4 triggery jsou **starší cesta** odesílání zákaznických e-mailů, která visí přímo na `bookings`/`sos_incidents`. **Bezpečné a v souladu s pravidlem „jen Velín šablony":** všechny volají `send-booking-email` / `send-cancellation-email` (přes `net.http_post`) — tedy **stejné edge funkce, které načítají šablony z `email_templates` (Velín) a přikládají správné přílohy**. NEobcházejí šablony. Mají **dedup pojistku přes `message_log`** (kontrola `template_slug` + `status='sent'`) → proto už **nechodí duplicitně** (dříve duplicitní, než se dedup přidal). Navíc čtou URL/klíč přes **GUC `current_setting('supabase.url'/'supabase.service_role_key', true)`**, který na Supabase managed obvykle **není nastavený → `v_url=NULL` → `http_post` selže → EXCEPTION → no-op**. Kanonická cesta (níže uvedené `trg_send_*` / RPC `cancel_booking_tracked`) čte config z `app_settings` tabulky a je spolehlivá. **Tyto legacy triggery jsou tedy redundantní a de facto neaktivní — ponechány (nic nerozbíjejí).** Případné smazání je volitelný úklid, ale vyžaduje ověřit, že kanonická cesta pokryje i přechody reserved→active a →cancelled (jinak by se přestaly posílat). |
+
+| Trigger | Tabulka | Funkce |
+|---------|---------|--------|
+| `trg_notify_booking_activated_email` | bookings (AFTER UPDATE OF status, WHEN reserved→active) | notify_booking_activated_email() — `booking_reserved` mail přes send-booking-email. Dedup message_log. GUC-závislý (no-op). LEGACY. |
+| `trg_notify_booking_cancelled_email` | bookings (AFTER UPDATE OF status, WHEN →cancelled) | notify_booking_cancelled_email() — přes **send-cancellation-email**. Dedup `template_slug='booking_cancelled'`. Kanonicky řeší RPC `cancel_booking_tracked`. LEGACY. |
+| `trg_notify_booking_completed_email` | bookings (AFTER UPDATE OF status, WHEN active→completed + paid) | notify_booking_completed_email() — `booking_completed` mail + google/fb review. **Duplikuje** kanonický `trg_send_booking_completed_email` (on invoices type=final) → dedup `template_slug='booking_completed'` zajistí jediný mail. LEGACY. |
+| `trg_notify_sos_incident_email` | sos_incidents (AFTER INSERT) | notify_sos_incident_email() — `sos_incident` mail přes send-booking-email. Dedup `template_slug='sos_incident'`. LEGACY. |
+| `trg_email_on_door_codes_message` | admin_messages (AFTER INSERT, WHEN type='door_codes') | trg_email_on_door_codes_message() — e-mail s přístupovými kódy. (Door codes mají i kanonickou cestu přes `send_door_codes_email`/`send-booking-email type=door_codes` s dedup v message_log.) |
+| ~~`trg_notify_web_booking_abandoned`~~ | ~~bookings~~ | **DROPPED** (jen funkce `notify_web_booking_abandoned()` zůstala v DB, nevolaná) — abandoned mail řeší cron `send_abandoned_booking_emails`. Potvrzeno snapshotem (vazba neexistuje). |
+
+
 ### Další triggery v reálné DB
 | Trigger | Tabulka | Funkce |
 |---------|---------|--------|
@@ -73,3 +86,15 @@
 | `trg_contracts_updated` | contracts | update_updated_at() |
 | `faq_items_set_updated_at` | faq_items (BEFORE UPDATE) | set_updated_at_now() — auto-aktualizace `updated_at` při změně FAQ položky |
 | Různé `_updated_at` triggery | více tabulek | update_updated_at() |
+
+### Doplněno 2026-06-04 ze snapshotu (přesné vazby — „do poslední tečky")
+**`update_updated_at()` BEFORE UPDATE (auto `updated_at`)** na: `bookings` (`bookings_updated_at`), `profiles` (`profiles_updated_at`), `motorcycles` (`motorcycles_updated_at`), `cms_pages` (`cms_pages_updated_at`), `inventory` (`inventory_updated_at`), `purchase_orders` (`purchase_orders_updated_at`), `products` (`trg_products_updated`), `payment_methods` (`trg_payment_methods_updated`), `suppliers` (`trg_suppliers_updated`), `service_parts` (`trg_service_parts_updated`), `message_templates` (`trg_message_templates_updated`), `auto_order_rules` (`trg_auto_order_rules_updated`), `branch_accessories` (`trg_branch_accessories_updated`), `branch_door_codes` (`trg_branch_door_codes_updated`), `flexi_reports` (`trg_flexi_reports_updated`), `financial_events` (`trg_fe_updated`), `ai_customer_conversations` (`trg_ai_customer_conversations_updated`), `acc_employees/acc_liabilities/acc_long_term_assets/acc_payrolls/acc_short_term_assets/acc_tax_returns/acc_vat_returns` (`trg_acc_*_updated`). `custom_documents` používá `set_updated_at()` (`trg_custom_documents_updated_at`).
+
+**Netriviální (logika):**
+| Trigger | Tabulka | Funkce |
+|---------|---------|--------|
+| `trg_auto_liabilities_payroll` | acc_payrolls (AFTER INSERT) | auto_liabilities_from_payroll() — z vypočtené mzdy vytvoří závazky (SP/ZP/daň) do `acc_liabilities` |
+| `trg_check_user_booking_overlap` | bookings (BEFORE INSERT/UPDATE OF start_date, end_date, user_id, status) | check_user_booking_overlap() — zákazník nesmí mít 2 překrývající se rezervace (výjimka dětské motorky). Pozn.: odlišné od `trg_check_booking_overlap` (overlap na motorce). |
+| `trg_release_codes_on_profile_verify` | profiles (AFTER UPDATE OF id_verified_at, passport_verified_at, license_verified_at, id_number, license_number) | release_codes_on_profile_verify() — po ověření dokladů v profilu uvolní zadržené door codes (souběžně s `trg_release_codes_on_doc_upload` na `documents`) |
+| `trg_sync_moto_to_assets` | motorcycles (AFTER INSERT/UPDATE) | sync_motorcycle_to_assets() — zrcadlí motorku do `acc_long_term_assets` (dlouhodobý majetek) |
+

@@ -135,10 +135,10 @@ export default function InvoicesTab() {
 
   async function handleDownload(invoice) {
     try {
-      const { loadInvoiceData } = await import('../../lib/invoiceUtils')
+      const { loadInvoiceData, invoiceCustomer } = await import('../../lib/invoiceUtils')
       const { generateInvoiceHtml } = await import('../../lib/invoiceTemplate')
       const fullInv = await loadInvoiceData(invoice.id)
-      const html = generateInvoiceHtml({ ...fullInv, customer: fullInv.profiles || {}, items: fullInv.items || [] })
+      const html = generateInvoiceHtml({ ...fullInv, customer: invoiceCustomer(fullInv), items: fullInv.items || [] })
       const blob = new Blob([html], { type: 'text/html' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a'); a.href = url; a.download = `faktura_${invoice.number || 'doc'}.html`; a.click(); URL.revokeObjectURL(url)
@@ -234,7 +234,7 @@ export default function InvoicesTab() {
                       </div>
                     </TD>
                     <TD><Badge label={tp.label} color={tp.color} bg={tp.bg} /></TD>
-                    <TD>{inv.profiles?.full_name || '—'}</TD>
+                    <TD>{inv.customer_snapshot?.name || inv.profiles?.full_name || '—'}</TD>
                     <TD>{inv.bookings?.motorcycles?.model || '—'}</TD>
                     <TD>
                       <span className="font-bold" style={{ color: inv.status === 'paid' ? '#1a8a18' : '#0f1a14' }}>
