@@ -472,6 +472,25 @@ export async function loadInvoiceData(invoiceId) {
     if (sp && !data.cardInfo) { data.cardInfo = { brand: 'card', last4: '' }; data.paymentMethodLabel = 'Platba kartou (Stripe)' }
   }
 
+  // Dárkové poukazy (e-shop objednávka) — stejný formát jako generate-invoice,
+  // aby se ve Velínu vykreslil blok DÁRKOVÉ POUKAZY 1:1 jako na e-shop/mailovém dokladu.
+  // POZOR: kódy jen na ZAPLACENÉM dokladu (DP / konečná). NIKDY na ZF (zálohová
+  // faktura) — ta nemusí být uhrazená a zveřejnění kódů by je „uvolnilo" před platbou.
+  const isUnpaidProforma = ['proforma', 'shop_proforma', 'advance'].includes(data?.type)
+  if (data && data.order_id && !isUnpaidProforma && data.type !== 'credit_note') {
+    try {
+      const { data: vouchers } = await supabase
+        .from('vouchers').select('code, amount, valid_until').eq('order_id', data.order_id)
+      if (vouchers && vouchers.length > 0) {
+        data.voucher_codes = vouchers.map(v =>
+          `${v.code} — ${(v.amount || 0).toLocaleString('cs-CZ', { minimumFractionDigits: 2 })} Kč, platný do ${v.valid_until ? new Date(v.valid_until).toLocaleDateString('cs-CZ') : '—'}`)
+        data.voucherValidUntil = vouchers[0].valid_until
+      }
+    } catch (e) {
+      console.warn('[loadInvoiceData] Failed to fetch vouchers:', e.message)
+    }
+  }
+
   // Pro DP (payment_receipt) načti přístupové kódy
   if (data && data.type === 'payment_receipt' && data.booking_id) {
     try {

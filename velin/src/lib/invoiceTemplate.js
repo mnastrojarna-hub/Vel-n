@@ -70,7 +70,11 @@ export function generateInvoiceHtml(data) {
   const titleBase = isCreditNote ? 'Dobropis'
     : isPaymentReceipt ? 'Doklad k přijaté platbě'
     : isProforma ? 'Zálohová faktura'
+    : isShopFinal ? 'Konečná faktura'
     : 'Faktura'
+
+  // Hlavička i <title> = VERZÁLKY (1:1 se serverem generate-invoice → baseTitle uppercase)
+  const titleUpper = titleBase.toUpperCase()
 
   const tcode = isCreditNote ? 'DOBROPIS'
     : isPaymentReceipt ? 'DOKLAD K PŘIJATÉ PLATBĚ'
@@ -137,7 +141,7 @@ export function generateInvoiceHtml(data) {
   const badgeText = '#000000'
 
   return `<!DOCTYPE html>
-<html lang="cs"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${titleBase} ${number}</title>
+<html lang="cs"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${titleUpper} ${number}</title>
 <style>
   /* Zhuštěná verze pro 1-stránkové PDF (PDFShift A4, margin 8mm).
      print-color-adjust:exact → barvy pozadí i při tisku z prohlížeče. */
@@ -186,7 +190,7 @@ export function generateInvoiceHtml(data) {
           <div style="display:inline-block;border-radius:3px;overflow:hidden;font-size:0;margin-bottom:8px">
             <span style="display:inline-block;background:#1a1a1a;color:#74FB71;font-size:10px;font-weight:800;letter-spacing:1px;padding:4px 8px">${tcode}</span><span style="display:inline-block;background:${badgeBg};color:${badgeText};font-size:10px;font-weight:800;letter-spacing:1px;padding:4px 8px">${badge.label}</span>
           </div>
-          <div style="color:#ffffff;font-size:18px;font-weight:600;line-height:1.2">${titleBase} č. ${number}</div>
+          <div style="color:#ffffff;font-size:18px;font-weight:600;line-height:1.2">${titleUpper} č. ${number}</div>
           ${bookingNumber ? `<div style="color:#9ca3af;font-size:11px;margin-top:3px">Rezervace č. ${bookingNumber}</div>` : ''}
         </td>
       </tr>
@@ -286,9 +290,10 @@ export function generateInvoiceHtml(data) {
     </table>
   </div>
 
-  ${data.voucher_codes && data.voucher_codes.length > 0 ? `<div style="margin:0 32px 8px;padding:10px;background:#dcfce7;border-radius:6px;border:1px solid #86efac">
+  ${!isProforma && !isCreditNote && data.voucher_codes && data.voucher_codes.length > 0 ? `<div style="margin:0 32px 8px;padding:10px;background:#dcfce7;border-radius:6px;border:1px solid #86efac">
     <div style="font-size:11px;font-weight:800;color:#166534;letter-spacing:1.5px;margin-bottom:4px">DÁRKOVÉ POUKAZY</div>
     ${data.voucher_codes.map(c => `<div style="font-size:13px;font-weight:700;font-family:'Courier New',monospace;color:#166534;padding:1px 0">${c}</div>`).join('')}
+    ${data.voucherValidUntil ? `<div style="font-size:11px;color:#166534;margin-top:4px">Platnost: 3 roky (do ${fmtDate(data.voucherValidUntil)})</div>` : ''}
     <div style="font-size:10px;color:#4a6357;margin-top:3px">Kód uplatníte při rezervaci na ${SITE_LABEL} nebo v aplikaci MotoGo24.</div>
   </div>` : ''}
 
