@@ -455,14 +455,24 @@ serve(async (req) => {
       number = `${prefix}-${year}-${String(seq).padStart(4, '0')}`
     }
 
-    // Pro shop_final: odečti DP → konečná faktura za 0 Kč
+    // Pro shop_final: odečti VŠECHNY DP (doklady k přijaté platbě) → konečná faktura
+    // za 0 Kč doplatku. DP jsou na 100 % ceny objednávky; ať je jeden nebo několik,
+    // jejich součet musí dát nulový doplatek. Případný dobropis (refund) je samostatný
+    // doklad a doplatek KF neovlivňuje.
     let dpDeduction = 0; let dpNumber = ''
     const isShopFinal = invoiceType === 'shop_final'
     if (isShopFinal && order_id) {
-      const { data: dpInv } = await supabase.from('invoices').select('number, total')
-        .eq('order_id', order_id).eq('type', 'payment_receipt').order('created_at', { ascending: false }).limit(1)
-      if (dpInv?.length) { dpDeduction = dpInv[0].total || 0; dpNumber = dpInv[0].number || '' }
-      items.push({ description: `Odečet DP ${dpNumber} (již uhrazeno)`, qty: 1, unit_price: -dpDeduction })
+      const { data: dpRows } = await supabase.from('invoices').select('number, total')
+        .eq('order_id', order_id).eq('type', 'payment_receipt')
+        .neq('status', 'cancelled')
+        .order('created_at', { ascending: true })
+      if (dpRows?.length) {
+        dpRows.forEach((dp: any) => {
+          items.push({ description: `Odečet DP ${dp.number || ''} (již uhrazeno)`, qty: 1, unit_price: -Number(dp.total || 0) })
+        })
+        dpDeduction = dpRows.reduce((s: number, dp: any) => s + Number(dp.total || 0), 0)
+        dpNumber = dpRows.map((dp: any) => dp.number).filter(Boolean).join(', ')
+      }
     }
 
     const subtotal = items.reduce((s, it) => s + it.unit_price * it.qty, 0)
