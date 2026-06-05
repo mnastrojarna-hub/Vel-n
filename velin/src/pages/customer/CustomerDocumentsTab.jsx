@@ -21,14 +21,14 @@ const DOC_ICONS = {
 const DOC_TYPE_LABELS = {
   contract: 'Smlouva', rental_contract: 'Nájemní smlouva', protocol: 'Předávací protokol',
   handover_protocol: 'Předávací protokol', vop: 'VOP', invoice_advance: 'Zálohová faktura',
-  payment_receipt: 'Daňový doklad', invoice_final: 'Konečná faktura', invoice_shop: 'Shop faktura',
+  payment_receipt: 'Doklad k přijaté platbě', invoice_final: 'Konečná faktura', invoice_shop: 'Shop faktura',
   drivers_license: 'Řidičský průkaz', id_card: 'Občanský průkaz', passport: 'Cestovní pas',
 }
 
 const INV_TYPE_MAP = {
   proforma: { label: 'Zálohová faktura (ZF)', color: '#2563eb', bg: '#dbeafe' },
   advance: { label: 'Zálohová faktura (ZF)', color: '#2563eb', bg: '#dbeafe' },
-  payment_receipt: { label: 'Daňový doklad (DP)', color: '#0891b2', bg: '#cffafe' },
+  payment_receipt: { label: 'Doklad k přijaté platbě (DP)', color: '#0891b2', bg: '#cffafe' },
   final: { label: 'Konečná faktura (KF)', color: '#1a8a18', bg: '#dcfce7' },
   shop_proforma: { label: 'Shop zálohová', color: '#8b5cf6', bg: '#ede9fe' },
   shop_final: { label: 'Shop konečná', color: '#059669', bg: '#d1fae5' },

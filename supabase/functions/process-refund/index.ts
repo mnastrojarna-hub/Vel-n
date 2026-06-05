@@ -105,7 +105,7 @@ tr.total td{background:#fef2f2;font-weight:800;font-size:15px;color:#dc2626;bord
 </table>
 <div class="note">
   <strong>${cardLine}</strong> Peníze obvykle dorazí do 5–7 pracovních dnů.<br>
-  Tento dobropis slouží jako daňový doklad o vrácení platby.
+  Tento dobropis slouží jako doklad o vrácení platby.
 </div>
 <div class="foot">www.motogo24.cz · info@motogo24.cz · +420 774 256 271</div>
 </body></html>`

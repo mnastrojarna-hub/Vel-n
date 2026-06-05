@@ -147,7 +147,7 @@ export const PAGE_POTVRZENI = {
       id: 'success_email', label: 'Hlášky o e-mailu',
       fields: [
         { key: 'web.layout.confirm.success.emailSentBooking', label: 'E-mail odeslán (rezervace)', type: 'textarea', default: 'Potvrzení a předvyplněnou nájemní smlouvu jsme ti poslali e-mailem.' },
-        { key: 'web.layout.confirm.success.emailSentOrder', label: 'E-mail odeslán (objednávka)', type: 'textarea', default: 'Souhrn objednávky a daňový doklad ti dorazí e-mailem.' },
+        { key: 'web.layout.confirm.success.emailSentOrder', label: 'E-mail odeslán (objednávka)', type: 'textarea', default: 'Souhrn objednávky a doklad k přijaté platbě ti dorazí e-mailem.' },
         { key: 'web.layout.confirm.success.emailSentVoucher', label: 'E-mail odeslán (voucher)', type: 'textarea', default: 'Voucher ti dorazí na e-mail v PDF.' },
       ]
     },

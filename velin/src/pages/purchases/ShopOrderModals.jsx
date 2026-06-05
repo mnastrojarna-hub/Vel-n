@@ -131,7 +131,7 @@ export function ShopOrderDetail({ order, onClose, onUpdated }) {
       })
       if (error) throw error
       if (data?.error) throw new Error(data.error)
-      const label = type === 'payment_receipt' ? 'Daňový doklad (DP)' : type === 'shop_proforma' ? 'Zálohová faktura (ZF)' : 'Faktura'
+      const label = type === 'payment_receipt' ? 'Doklad k přijaté platbě (DP)' : type === 'shop_proforma' ? 'Zálohová faktura (ZF)' : 'Faktura'
       const hint = data?.existing ? ' (POZOR: edge funkce vrátila existující doklad — zkontroluj, že je generate-invoice nasazená v nové verzi)' : ''
       setDocMsg({ ok: true, text: `${label} přegenerován: ${data?.number || ''}${hint}. Otevři doklad níže a zkontroluj údaje.` })
       await loadInvoices()
@@ -268,7 +268,7 @@ export function ShopOrderDetail({ order, onClose, onUpdated }) {
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <Button onClick={() => regenerateDoc('shop_proforma')} disabled={regenType !== null}>{regenType === 'shop_proforma' ? 'Generuji…' : 'Přegenerovat ZF (zálohovou)'}</Button>
-          <Button onClick={() => regenerateDoc('payment_receipt')} disabled={regenType !== null}>{regenType === 'payment_receipt' ? 'Generuji…' : 'Přegenerovat DP (daňový doklad)'}</Button>
+          <Button onClick={() => regenerateDoc('payment_receipt')} disabled={regenType !== null}>{regenType === 'payment_receipt' ? 'Generuji…' : 'Přegenerovat DP (doklad k přijaté platbě)'}</Button>
           <Button onClick={() => regenerateDoc('shop_final')} disabled={regenType !== null}>{regenType === 'shop_final' ? 'Generuji…' : 'Přegenerovat fakturu'}</Button>
         </div>
         {docMsg && <p className="mt-2 text-sm" style={{ color: docMsg.ok ? '#15803d' : '#dc2626' }}>{docMsg.text}</p>}
@@ -276,7 +276,7 @@ export function ShopOrderDetail({ order, onClose, onUpdated }) {
           {invoices.length === 0 ? (
             <div className="text-xs" style={{ color: '#64748b' }}>Zatím žádné doklady k této objednávce.</div>
           ) : invoices.map(inv => {
-            const typeLabel = inv.type === 'payment_receipt' ? 'DP (daňový doklad)' : inv.type === 'shop_proforma' ? 'ZF (zálohová)' : inv.type === 'shop_final' ? 'Faktura' : inv.type
+            const typeLabel = inv.type === 'payment_receipt' ? 'DP (doklad k přijaté platbě)' : inv.type === 'shop_proforma' ? 'ZF (zálohová)' : inv.type === 'shop_final' ? 'Faktura' : inv.type
             const cancelled = inv.status === 'cancelled'
             return (
               <div key={inv.id} className="flex items-center gap-2 py-1 text-sm" style={{ borderTop: '1px solid #dbeafe', opacity: cancelled ? 0.5 : 1 }}>

@@ -537,13 +537,13 @@ serve(async (req) => {
     }
 
     const accent = isPaymentReceipt ? '#0891b2' : isProforma ? '#2563eb' : '#1a8a18'
-    const baseTitle = isPaymentReceipt ? 'DAŇOVÝ DOKLAD K PŘIJATÉ PLATBĚ' : isProforma ? 'ZÁLOHOVÁ FAKTURA' : isShopFinal ? 'KONEČNÁ FAKTURA' : 'FAKTURA'
+    const baseTitle = isPaymentReceipt ? 'DOKLAD K PŘIJATÉ PLATBĚ' : isProforma ? 'ZÁLOHOVÁ FAKTURA' : isShopFinal ? 'KONEČNÁ FAKTURA' : 'FAKTURA'
     const title = isEdit ? `${baseTitle} — ${editLabel}` : baseTitle
     const bookingNumber = booking_id ? booking_id.slice(-8).toUpperCase() : ''
 
     // i18n — jazyk zákazníka: explicitní z volajícího > detect_customer_language
     // (z bookings.language / shop_orders.language) > 'cs'. Localizuje pouze ODKAZY
-    // (web/QR) na faktuře — účetní text zůstává česky (daňový doklad).
+    // (web/QR) na faktuře — účetní text zůstává česky (doklad k přijaté platbě).
     let invLang = 'cs'
     try {
       const SUP = ['cs', 'en', 'de', 'es', 'fr', 'nl', 'pl']
