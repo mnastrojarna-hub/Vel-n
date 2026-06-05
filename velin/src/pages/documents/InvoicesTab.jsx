@@ -132,11 +132,14 @@ export default function InvoicesTab() {
     try {
       const { loadInvoiceData, invoiceCustomer } = await import('../../lib/invoiceUtils')
       const { generateInvoiceHtml } = await import('../../lib/invoiceTemplate')
+      const { htmlToPdfBlob } = await import('../../lib/htmlToPdf')
       const fullInv = await loadInvoiceData(invoice.id)
       const html = generateInvoiceHtml({ ...fullInv, customer: invoiceCustomer(fullInv), items: fullInv.items || [] })
-      const blob = new Blob([html], { type: 'text/html' })
+      // Serverový render (PDFShift) → stejný vzhled jako e-shop/maily; fallback uvnitř htmlToPdfBlob
+      const blob = await htmlToPdfBlob(html, { filename: `faktura_${invoice.number || 'doc'}.pdf` })
+      const ext = blob.type === 'application/pdf' ? 'pdf' : 'html'
       const url = URL.createObjectURL(blob)
-      const a = document.createElement('a'); a.href = url; a.download = `faktura_${invoice.number || 'doc'}.html`; a.click(); URL.revokeObjectURL(url)
+      const a = document.createElement('a'); a.href = url; a.download = `faktura_${invoice.number || 'doc'}.${ext}`; a.click(); URL.revokeObjectURL(url)
     } catch (e) { debugError('DocInvoicesTab', 'handleDownload', e); setError(`Stažení selhalo: ${e.message}`) }
   }
 
