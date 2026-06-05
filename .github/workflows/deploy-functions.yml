@@ -30,13 +30,18 @@ jobs:
         with:
           version: latest
 
-      - name: Deploy managed edge functions
-        # Scope: NASAZUJEME JEN funkce spravované z tohoto repa. Blanket `deploy`
-        # (všechny) by mohl přepsat funkce editované přímo v Supabase dashboardu.
-        # Seznam rozšíříme, až ověříme, že git == Supabase (snapshot workflow níže).
+      - name: Deploy all edge functions (verify_jwt dle config.toml)
+        # Nasazuje VŠECHNY funkce z repa — každá dostane verify_jwt podle
+        # config.toml (žádný fallback na default true → konec JWT regresí).
+        # Funkce jen v dashboardu (cron-*, export-data, …) nejsou v repu → netknou se.
+        # Pokračuje i když jedna funkce selže (nezablokuje ostatní).
         run: |
-          set -e
-          for fn in generate-invoice process-payment send-booking-email; do
+          set +e
+          rc=0
+          for d in supabase/functions/*/; do
+            fn=$(basename "$d")
+            [ -f "${d}index.ts" ] || continue
             echo "↑ deploying $fn"
-            supabase functions deploy "$fn" --project-ref "$PROJECT_REF"
+            supabase functions deploy "$fn" --project-ref "$PROJECT_REF" || { echo "::warning::deploy $fn selhal"; rc=1; }
           done
+          exit $rc
