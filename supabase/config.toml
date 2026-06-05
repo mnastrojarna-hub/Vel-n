@@ -14,6 +14,21 @@ project_id = "vnwnqteskbykeucanlhk"
 [functions.cms-save]
 verify_jwt = false
 
+# Stripe platební brána — volá web (dárkový poukaz, e-shop) anonymně přes apikey
+# bez JWT. BEZ verify_jwt=false vrací gateway 401 ("nepodařilo se vytvořit platbu").
+# (Auto-deploy CLI jinak defaultuje verify_jwt=true → regrese web plateb.)
+[functions.process-payment]
+verify_jwt = false
+
+# Generuje faktury/doklady — volá Velín (admin JWT) i triggery/webhook (service key).
+# verify_jwt=false ať CLI deploy nezmění dokumentovaný stav (OFF).
+[functions.generate-invoice]
+verify_jwt = false
+
+# Odesílá branded maily — volají triggery/webhook (service key) i Velín. OFF.
+[functions.send-booking-email]
+verify_jwt = false
+
 # SEO Health checker — server-side fetch & parse zive stranky motogo24.cz
 # (browser-side fetch z velin domeny blokuje CORS). Volá ho Velin SEO Health
 # dashboard. Read-only, jen GET na motogo24.cz whitelist domeny.
