@@ -118,6 +118,164 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    // --- Sync fallback: ověř Stripe SHOP session a potvrď voucher/e-shop objednávku ---
+    // Voucher/e-shop potvrzení dosud záviselo VÝHRADNĚ na asynchronním Stripe webhooku
+    // (webhook-receiver → confirmShopPayment). Když webhook nedorazil / zpozdil se, objednávka
+    // zůstala `pending`, voucher se nevygeneroval a mail „Váš dárkový poukaz od MotoGo24"
+    // nedorazil — zákazník po stržené platbě uvízl na „Platba ještě nebyla potvrzena" (viz
+    // bug report). /potvrzeni page teď volá tuto akci se `session_id` (+ `order_id`) ze
+    // success_url a potvrdí platbu synchronně, nezávisle na doručení webhooku.
+    // Idempotence: confirm_shop_payment je atomic (UPDATE … WHERE payment_status<>'paid'
+    // RETURNING) a vrací `was_already_paid` — když webhook (nebo dřívější poll) potvrdil dřív,
+    // jen vrátíme already_paid a NEposíláme druhý mail. Když atomic flip vyhrajeme my,
+    // dogenerujeme voucher/FV a pošleme mail (stejný flow jako confirmShopPayment v webhooku).
+    if ((body as Record<string, unknown>).action === 'verify_shop_session') {
+      const sessionId = (body as Record<string, unknown>).session_id as string | undefined
+      let orderId = ((body as Record<string, unknown>).order_id as string | undefined) || null
+      if (!sessionId && !orderId) {
+        return new Response(JSON.stringify({ success: false, error: 'Missing session_id or order_id' }),
+          { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } })
+      }
+      const supabaseAdmin = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+      )
+      try {
+        // Dohledej stripe_session_id z objednávky, pokud klient session_id neposlal
+        // (starší odkaz / přímá navigace na /potvrzeni?order_id=…).
+        let sid = sessionId || null
+        if (!sid && orderId) {
+          const { data: ord } = await supabaseAdmin.from('shop_orders')
+            .select('stripe_session_id').eq('id', orderId).maybeSingle()
+          sid = (ord?.stripe_session_id as string | null) || null
+        }
+        if (!sid) {
+          return new Response(JSON.stringify({ success: false, error: 'No session to verify' }),
+            { headers: { ...CORS, 'Content-Type': 'application/json' } })
+        }
+        const session = await stripe.checkout.sessions.retrieve(sid)
+        const md = (session.metadata || {}) as Record<string, string>
+        if (!orderId) orderId = md.order_id || (session.client_reference_id as string | null) || null
+        if (!orderId) {
+          return new Response(JSON.stringify({ success: false, error: 'No order_id in session' }),
+            { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } })
+        }
+        // Dokud Stripe platbu nepotvrdil, vrátíme pending — klient pollne znovu
+        // (webhook může dorazit mezitím). Potvrzujeme jen reálně zaplacenou session.
+        if (session.payment_status !== 'paid' && session.status !== 'complete') {
+          return new Response(JSON.stringify({ success: false, payment_status: session.payment_status, status: session.status }),
+            { headers: { ...CORS, 'Content-Type': 'application/json' } })
+        }
+        const piId = typeof session.payment_intent === 'string'
+          ? session.payment_intent
+          : ((session.payment_intent as { id?: string } | null)?.id || null)
+
+        // ATOMIC confirm — stejná RPC jako webhook (confirmShopPayment). was_already_paid=true
+        // → webhook nebo dřívější poll už potvrdil; skončíme bez druhého mailu.
+        const { data: confirmData, error: rpcErr } = await supabaseAdmin.rpc('confirm_shop_payment', {
+          p_order_id: orderId, p_method: 'card',
+        })
+        if (rpcErr) {
+          // Fallback přímý UPDATE — BEFORE UPDATE trigger auto_process_voucher_order vygeneruje
+          // voucher i tak (OLD.payment_status='pending' → NEW.payment_status='paid').
+          await supabaseAdmin.from('shop_orders')
+            .update({ payment_status: 'paid', payment_method: 'card', confirmed_at: new Date().toISOString() })
+            .eq('id', orderId).neq('payment_status', 'paid')
+        }
+        const wasAlreadyPaid = !!(confirmData as Record<string, unknown> | null)?.was_already_paid
+
+        if (piId) {
+          try {
+            await supabaseAdmin.from('shop_orders')
+              .update({ stripe_payment_intent_id: piId, stripe_session_id: sid })
+              .eq('id', orderId).is('stripe_payment_intent_id', null)
+          } catch { /* ignore */ }
+        }
+
+        try {
+          await supabaseAdmin.from('debug_log').insert({
+            source: 'process-payment', action: 'verify_shop_session_confirmed',
+            component: 'voucher_checkout', status: 'ok',
+            request_data: { session_id: sid, order_id: orderId, was_already_paid: wasAlreadyPaid },
+          })
+        } catch { /* ignore */ }
+
+        if (wasAlreadyPaid) {
+          return new Response(JSON.stringify({ success: true, already_paid: true, order_id: orderId }),
+            { headers: { ...CORS, 'Content-Type': 'application/json' } })
+        }
+
+        // Vyhráli jsme atomic flip → dogenerujeme voucher (pojistka, kdyby trigger selhal),
+        // FV (účetní doklad) a pošleme voucher_purchased mail — zrcadlí confirmShopPayment.
+        try {
+          const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
+          const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+          const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SERVICE_KEY}`, 'apikey': SERVICE_KEY }
+
+          const { data: order } = await supabaseAdmin.from('shop_orders')
+            .select('customer_name, customer_email, order_number, status, total')
+            .eq('id', orderId).single()
+          const { data: items } = await supabaseAdmin.from('shop_order_items')
+            .select('product_name').eq('order_id', orderId)
+          const hasVoucherItem = (items || []).some((it: { product_name?: string }) =>
+            /voucher|poukaz/i.test(String(it.product_name || '')))
+          let { data: vouchers } = await supabaseAdmin.from('vouchers')
+            .select('code, amount, valid_until').eq('order_id', orderId)
+          if (hasVoucherItem && (!vouchers || vouchers.length === 0)) {
+            try { await supabaseAdmin.rpc('regen_voucher_for_order', { p_order_id: orderId }) } catch { /* ignore */ }
+            const re = await supabaseAdmin.from('vouchers')
+              .select('code, amount, valid_until').eq('order_id', orderId)
+            vouchers = re.data
+          }
+          // FV (shop_final) pro doručený elektronický voucher — jen účetní doklad ve Velínu.
+          if (order?.status === 'delivered') {
+            try {
+              await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
+                method: 'POST', headers,
+                body: JSON.stringify({ type: 'shop_final', order_id: orderId, send_email: false }),
+              })
+            } catch { /* ignore */ }
+          }
+          if (order?.customer_email && vouchers && vouchers.length > 0) {
+            const orderNum = order.order_number || orderId.slice(-8).toUpperCase()
+            const firstVoucher = vouchers[0] as { code: string; amount: number; valid_until: string }
+            const allCodes = vouchers
+              .map((v: { code: string; amount: number }) => `${v.code} (${v.amount} Kč)`)
+              .join(', ')
+            await fetch(`${SUPABASE_URL}/functions/v1/send-booking-email`, {
+              method: 'POST', headers,
+              body: JSON.stringify({
+                type: 'voucher_purchased',
+                customer_email: order.customer_email,
+                customer_name: order.customer_name || '',
+                voucher_code: allCodes,
+                voucher_value: String(firstVoucher.amount),
+                voucher_expiry: firstVoucher.valid_until,
+                order_number: orderNum,
+                order_id: orderId,
+                source: 'web',
+              }),
+            })
+          }
+        } catch (e) {
+          try {
+            await supabaseAdmin.from('debug_log').insert({
+              source: 'process-payment', action: 'verify_shop_session_postprocess_failed',
+              component: 'voucher_checkout', status: 'error',
+              error_message: (e as Error).message,
+              request_data: { order_id: orderId },
+            })
+          } catch { /* ignore */ }
+        }
+
+        return new Response(JSON.stringify({ success: true, confirmed: true, order_id: orderId }),
+          { headers: { ...CORS, 'Content-Type': 'application/json' } })
+      } catch (e) {
+        return new Response(JSON.stringify({ success: false, error: (e as Error).message }),
+          { status: 500, headers: { ...CORS, 'Content-Type': 'application/json' } })
+      }
+    }
+
     // --- Web anonymous checkout (no auth required) ---
     if (body.source === 'web' && body.booking_id) {
       const supabaseAdmin = createClient(
