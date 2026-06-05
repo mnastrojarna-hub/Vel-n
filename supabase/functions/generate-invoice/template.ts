@@ -91,9 +91,6 @@ export function generateInvoiceHtml(p: TemplateParams): string {
     </tr>`
   }).join('')
 
-  // Subtotal / VAT / Total
-  const subtotal = p.items.reduce((s, it) => s + (it.unit_price || 0) * (it.qty || 1), 0)
-
   // Payment block — Stripe card vs bank
   const paymentBlock = p.cardInfo ? `
     <div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0">
@@ -256,18 +253,11 @@ export function generateInvoiceHtml(p: TemplateParams): string {
       <tr>
         <td style="width:55%">&nbsp;</td>
         <td style="width:45%">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border:1px solid #e5e7eb">
-            <tr style="background:#f3f4f6">
-              <td style="padding:8px 12px;font-size:12px;color:#0f1a14;border-bottom:1px solid #e5e7eb">Mezisoučet</td>
-              <td style="padding:8px 12px;font-size:12px;color:#0f1a14;text-align:right;border-bottom:1px solid #e5e7eb;font-variant-numeric:tabular-nums">${fmtPrice(subtotal)}</td>
-            </tr>
-            <tr style="background:#f3f4f6">
-              <td style="padding:8px 12px;font-size:12px;color:#0f1a14">DPH</td>
-              <td style="padding:8px 12px;font-size:12px;color:#0f1a14;text-align:right;font-variant-numeric:tabular-nums">0 Kč</td>
-            </tr>
+          <!-- Neplátce DPH — bez řádku DPH/Mezisoučet, jen výsledná částka. -->
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border:1px solid #86efac">
             <tr style="background:#dcfce7">
-              <td style="padding:10px 12px;font-size:14px;color:#0f1a14;font-weight:800;border-top:1px solid #86efac">Celkem</td>
-              <td style="padding:10px 12px;font-size:14px;color:#0f1a14;font-weight:800;text-align:right;border-top:1px solid #86efac;font-variant-numeric:tabular-nums">${fmtPrice(p.total)}</td>
+              <td style="padding:10px 12px;font-size:14px;color:#0f1a14;font-weight:800">Celkem</td>
+              <td style="padding:10px 12px;font-size:14px;color:#0f1a14;font-weight:800;text-align:right;font-variant-numeric:tabular-nums">${fmtPrice(p.total)}</td>
             </tr>
           </table>
         </td>
