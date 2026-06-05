@@ -24,3 +24,72 @@ export function classifyEntry(entry) {
 export function isRevenueEntry(entry) {
   return classifyEntry(entry) === 'revenue'
 }
+
+// ── Souhrn faktur (sdílená logika pro Dokumenty i Finance) ────────────────────
+//
+// Datový model (viz generate-invoice / invoiceUtils):
+//  • Doklady se generují se `status: 'issued'` — status se NEMĚNÍ na 'paid'
+//    (kromě ručního „Označit zaplaceno"). Proto se „Zaplaceno" NESMÍ počítat
+//    podle statusu, ale podle TYPU dokladu.
+//  • KF (final) i shop_final odečítají DP samostatným záporným řádkem,
+//    takže DP + KF = skutečná tržba bez dvojího počítání.
+//  • Dobropis (credit_note) má záporný `total` → přičtením se refund odečte.
+
+// Doklady o reálně přijaté platbě (peníze dorazily)
+export const INVOICE_RECEIVED_TYPES = ['payment_receipt', 'final', 'shop_final']
+// Do „Zaplaceno" se přidají i dobropisy (záporné → odečtou refundy)
+export const INVOICE_PAID_TYPES = [...INVOICE_RECEIVED_TYPES, 'credit_note']
+// Zálohové faktury = pouze výzvy k platbě
+export const INVOICE_PROFORMA_TYPES = ['advance', 'proforma', 'shop_proforma']
+
+/**
+ * Testovací doklad (z testovací rezervace / účtu). Vyžaduje, aby byl řádek
+ * z `invoices` načten s joiny `bookings:booking_id(is_test)` a
+ * `profiles:customer_id(is_test_account)`.
+ */
+export function isTestInvoice(i) {
+  return i?.bookings?.is_test === true || i?.profiles?.is_test_account === true
+}
+
+/** Stornovaný / refundovaný doklad — do tržeb se nezapočítává. */
+export function isVoidInvoice(i) {
+  return i?.status === 'cancelled' || i?.status === 'refunded'
+}
+
+/**
+ * Spočítá souhrn faktur: Zaplaceno / Nezaplaceno / Celkem / Stornováno.
+ *
+ * Vstup: pole řádků z `invoices` načtené min. se sloupci
+ *   `type, status, total, booking_id, order_id`
+ * a (pro vyřazení testovacích) s joiny
+ *   `bookings:booking_id(is_test), profiles:customer_id(is_test_account)`.
+ *
+ *  • paid     = DP + KF + shop_final − dobropisy (mimo stornované/testovací)
+ *  • unpaid   = zálohové faktury BEZ odpovídajícího DP/KF (= nikdo neuhradil),
+ *               mimo ručně zaplacené, stornované, refundované a testovací
+ */
+export function summarizeInvoices(invoices) {
+  const nonTest = (invoices || []).filter(i => !isTestInvoice(i))
+
+  const paid = nonTest
+    .filter(i => !isVoidInvoice(i) && INVOICE_PAID_TYPES.includes(i.type))
+    .reduce((s, i) => s + (i.total || 0), 0)
+
+  // Rezervace/objednávky, u kterých už platba reálně dorazila (existuje DP/KF)
+  const received = nonTest.filter(i => !isVoidInvoice(i) && INVOICE_RECEIVED_TYPES.includes(i.type))
+  const paidBookings = new Set(received.filter(i => i.booking_id).map(i => i.booking_id))
+  const paidOrders = new Set(received.filter(i => i.order_id).map(i => i.order_id))
+
+  const unpaidInvoices = nonTest
+    .filter(i => INVOICE_PROFORMA_TYPES.includes(i.type) && !isVoidInvoice(i) && i.status !== 'paid')
+    .filter(i => !(i.booking_id && paidBookings.has(i.booking_id)) && !(i.order_id && paidOrders.has(i.order_id)))
+  const unpaid = unpaidInvoices.reduce((s, i) => s + (i.total || 0), 0)
+
+  return {
+    total: nonTest.length,
+    paid,
+    unpaid,
+    unpaidCount: unpaidInvoices.length,
+    cancelled: nonTest.filter(i => i.status === 'cancelled').length,
+  }
+}
