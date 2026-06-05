@@ -64,3 +64,56 @@ verify_jwt = false
 # Anti-enumeration v kódu (vždy 200 success), takže anon přístup je OK.
 [functions.send-recovery-otp]
 verify_jwt = false
+
+# ===== Zbývající funkce — explicitně, ať auto-deploy nikdy nezmění stav =====
+# Volané z Velína (admin JWT), appky (auth JWT), triggerů/webhooku (service key)
+# nebo edge↔edge (service key) — auth si řeší interně (is_admin / service role).
+# Drženo na verify_jwt=false (historický funkční stav dle STATE_5), aby se nic
+# nerozbilo; všechny tyhle funkce dělají vlastní kontrolu oprávnění uvnitř.
+[functions.admin-auth]
+verify_jwt = false
+[functions.admin-reset-password]
+verify_jwt = false
+[functions.ai-copilot]
+verify_jwt = false
+[functions.ai-customer-messages-suggest]
+verify_jwt = false
+[functions.ai-moto-agent]
+verify_jwt = false
+[functions.auto-check-service-parts]
+verify_jwt = false
+[functions.datova-schranka]
+verify_jwt = false
+[functions.flexi-sync]
+verify_jwt = false
+[functions.generate-document]
+verify_jwt = false
+[functions.manage-payment-methods]
+verify_jwt = false
+[functions.process-refund]
+verify_jwt = false
+[functions.receive-invoice]
+verify_jwt = false
+[functions.send-broadcast]
+verify_jwt = false
+[functions.send-cancellation-email]
+verify_jwt = false
+[functions.send-email]
+verify_jwt = false
+[functions.send-invoice-email]
+verify_jwt = false
+[functions.send-message]
+verify_jwt = false
+[functions.send-order-email]
+verify_jwt = false
+[functions.send-push]
+verify_jwt = false
+
+# Překlady přes Anthropic — JEN admin z Velína (JWT). verify_jwt=true chrání
+# drahé volání API před anonymním zneužitím.
+[functions.translate-content]
+verify_jwt = true
+[functions.translate-document]
+verify_jwt = true
+[functions.translate-pages-master]
+verify_jwt = true
