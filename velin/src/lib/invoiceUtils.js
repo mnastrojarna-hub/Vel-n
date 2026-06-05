@@ -312,6 +312,22 @@ export async function generateFinalInvoice(bookingId) {
     })
   }
 
+  // Připočti vrácené částky dle dobropisů (credit_note). Dobropis = peníze vrácené
+  // zákazníkovi, takže v KF kompenzuje odpočet DP (kladná položka). `credit_note.total`
+  // je uložen záporně → `-total` = kladná vrácená částka.
+  // Příklad: služba 4 000, DP −5 000, dobropis +1 000 → Celkem 0 Kč.
+  const { data: creditNotes } = await supabase
+    .from('invoices').select('number, total, type, status')
+    .eq('booking_id', bookingId).eq('type', 'credit_note')
+    .neq('status', 'cancelled')
+    .order('issue_date', { ascending: true })
+
+  if (creditNotes?.length) {
+    creditNotes.forEach(cn => {
+      items.push({ description: `Vrácení dle dobropisu ${cn.number}`, qty: 1, unit_price: -Number(cn.total || 0) })
+    })
+  }
+
   return createInvoice({
     type: 'final',
     customer_id: booking.profiles?.id || booking.user_id,
