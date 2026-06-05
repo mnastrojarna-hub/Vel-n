@@ -9,6 +9,7 @@ import SearchInput from '../../components/ui/SearchInput'
 import Pagination from '../../components/ui/Pagination'
 import ConfirmDialog from '../../components/ui/ConfirmDialog'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
+import { summarizeInvoices } from '../../lib/revenueUtils'
 import InvoiceCreateModal from './InvoiceCreateModal'
 import InvoicePreviewModal from './InvoicePreviewModal'
 
@@ -101,18 +102,12 @@ export default function InvoicesTab() {
   async function loadSummary() {
     try {
       const { data } = await debugAction('invoices.summary', 'DocInvoicesTab', () =>
-        supabase.from('invoices').select('status, total, type')
+        supabase
+          .from('invoices')
+          .select('status, total, type, booking_id, order_id, bookings:booking_id(is_test), profiles:customer_id(is_test_account)')
       )
-      if (data) {
-        // ZF (advance/proforma) jsou jen výzvy k platbě — do "Zaplaceno" se počítají pouze DP, KF a shop_final
-        const paidTypes = ['payment_receipt', 'final', 'shop_final', 'issued']
-        setSummary({
-          total: data.length,
-          paid: data.filter(i => i.status === 'paid' && paidTypes.includes(i.type)).reduce((s, i) => s + (i.total || 0), 0),
-          unpaid: data.filter(i => i.status === 'issued').reduce((s, i) => s + (i.total || 0), 0),
-          cancelled: data.filter(i => i.status === 'cancelled').length,
-        })
-      }
+      if (!data) return
+      setSummary(summarizeInvoices(data))
     } catch (e) { debugError('DocInvoicesTab', 'loadSummary', e) }
   }
 

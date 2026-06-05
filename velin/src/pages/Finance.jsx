@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import { debugAction } from '../lib/debugLog'
 import { useDebugMode } from '../hooks/useDebugMode'
 import ErrorBoundary from '../components/ErrorBoundary'
-import { classifyEntry } from '../lib/revenueUtils'
+import { classifyEntry, isTestInvoice, isVoidInvoice, summarizeInvoices } from '../lib/revenueUtils'
 import FinanceOverview from './FinanceOverview'
 import FinancePrehledTab from './FinancePrehledTab'
 
@@ -78,12 +78,13 @@ export default function Finance() {
 
   async function loadInvoiceSums() {
     const [invRes, shopRes, rentalRes, voucherRes] = await Promise.all([
-      supabase.from('invoices').select('type, total, status'),
+      supabase.from('invoices').select('type, total, status, bookings:booking_id(is_test), profiles:customer_id(is_test_account)'),
       supabase.from('shop_orders').select('total').eq('payment_status', 'paid'),
-      supabase.from('bookings').select('total_price').eq('status', 'completed').eq('payment_status', 'paid'),
+      supabase.from('bookings').select('total_price').eq('status', 'completed').eq('payment_status', 'paid').eq('is_test', false),
       supabase.from('promo_code_usage').select('discount_amount'),
     ])
-    const invs = (invRes.data || []).filter(i => i.status !== 'cancelled' && i.status !== 'refunded')
+    // Vyřaď stornované/refundované i testovací doklady (z testovacích rezervací/účtů)
+    const invs = (invRes.data || []).filter(i => !isVoidInvoice(i) && !isTestInvoice(i))
     const zf = invs.filter(i => ['advance', 'proforma'].includes(i.type)).reduce((s, i) => s + (i.total || 0), 0)
     const dp = invs.filter(i => i.type === 'payment_receipt').reduce((s, i) => s + (i.total || 0), 0)
     const kf = invs.filter(i => i.type === 'final').reduce((s, i) => s + (i.total || 0), 0)
@@ -135,12 +136,14 @@ export default function Finance() {
       const exp = data.filter(d => classifyEntry(d) === 'expense').reduce((s, d) => s + Math.abs(d.amount || 0), 0)
       setSummary({ revenue: rev, expense: exp, unpaid: 0 })
     }
+    // Neuhrazené zálohy = zálohové faktury (ZF) bez odpovídajícího DP/KF,
+    // mimo stornované/refundované a testovací doklady (viz summarizeInvoices)
     const { data: inv } = await supabase
       .from('invoices')
-      .select('total')
-      .eq('status', 'issued')
+      .select('type, status, total, booking_id, order_id, bookings:booking_id(is_test), profiles:customer_id(is_test_account)')
     if (inv) {
-      setSummary(s => ({ ...s, unpaid: inv.reduce((sum, i) => sum + (i.total || 0), 0), unpaidCount: inv.length }))
+      const { unpaid, unpaidCount } = summarizeInvoices(inv)
+      setSummary(s => ({ ...s, unpaid, unpaidCount }))
     }
   }
 
