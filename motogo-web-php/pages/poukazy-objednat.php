@@ -197,7 +197,7 @@ form.addEventListener("submit",function(e){
   btn.disabled=true;btn.textContent=GV_I18N.processing;
   fetch(SUPABASE_URL+"/functions/v1/process-payment",{
     method:"POST",
-    headers:{"Content-Type":"application/json","apikey":SUPABASE_ANON_KEY},
+    headers:{"Content-Type":"application/json","apikey":SUPABASE_ANON_KEY,"Authorization":"Bearer "+SUPABASE_ANON_KEY},
     body:JSON.stringify({
       amount:total,voucher_amount:amount,type:"shop",source:"web",
       mode:"checkout",customer_email:email,customer_name:name,
