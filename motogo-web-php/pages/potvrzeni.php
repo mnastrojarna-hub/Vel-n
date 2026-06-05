@@ -17,12 +17,18 @@ $content = '<main id="content"><div class="container">' . $bc .
     '<div class="loading-overlay"><span class="spinner"></span> ' . te('confirm.verifying') . '</div>' .
     '</div></div></div></main>';
 
-// Cílové URL pro tlačítka — vždy v aktuálně detekovaném jazyce, kanonická doména
+// Cílové URL pro tlačítka — RELATIVNÍ, stejná konvence jako logo/menu/patička
+// (layout.php používá všude `BASE_URL . '/...'`). Dřív se tu sázelo absolutní
+// `siteCanonicalUrl()` (kanonická doména www.motogo24.cz), jenže to z děkovací
+// stránky dělalo cross-host skok (apex vs. www, příp. jazyková cookie), který na
+// produkci skončil „Stránka nenalezena" (router dostal request na jiný host).
+// Relativní cesta drží uživatele na stejném hostu jako zbytek navigace, jazyk se
+// dál řeší přes cookie/doménu, a tlačítko „Zpět na úvod" už nikdy nespadne na 404.
 $lang = function_exists('i18nDetectLanguage') ? i18nDetectLanguage() : 'cs';
-$homeUrl = function_exists('siteCanonicalUrl') ? siteCanonicalUrl('/') : '/';
-$shopUrl = function_exists('siteCanonicalUrl') ? siteCanonicalUrl('/eshop') : '/eshop';
-$cartUrl = function_exists('siteCanonicalUrl') ? siteCanonicalUrl('/kosik') : '/kosik';
-$rezUrl = function_exists('siteCanonicalUrl') ? siteCanonicalUrl('/rezervace') : '/rezervace';
+$homeUrl = BASE_URL . '/';
+$shopUrl = BASE_URL . '/eshop';
+$cartUrl = BASE_URL . '/kosik';
+$rezUrl  = BASE_URL . '/rezervace';
 $localeMap = ['cs' => 'cs-CZ', 'en' => 'en-GB', 'de' => 'de-DE', 'es' => 'es-ES', 'fr' => 'fr-FR', 'nl' => 'nl-NL', 'pl' => 'pl-PL'];
 $jsLocale = $localeMap[$lang] ?? 'cs-CZ';
 
