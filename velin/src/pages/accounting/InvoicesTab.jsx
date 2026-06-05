@@ -103,6 +103,7 @@ export default function InvoicesTab() {
         notes: fullInv.notes,
         variable_symbol: fullInv.number?.replace(/[^0-9]/g, ''),
         customer: invoiceCustomer(fullInv),
+        cardInfo: fullInv.cardInfo, stripe_payment_intent_id: fullInv.stripe_payment_intent_id, paymentMethodLabel: fullInv.paymentMethodLabel,
       })
       const { printInvoiceHtml } = await import('../../lib/invoiceUtils')
       printInvoiceHtml(html)
@@ -144,7 +145,7 @@ export default function InvoicesTab() {
     } },
     { label: 'Export CSV', icon: '⬇', onClick: () => exportToCsv('invoices', [
       { key: 'number', label: 'Číslo' }, { key: 'type', label: 'Typ' },
-      { key: 'profiles', label: 'Zákazník', format: (_, r) => r.profiles?.full_name || '' },
+      { key: 'profiles', label: 'Zákazník', format: (_, r) => r.customer_snapshot?.name || r.profiles?.full_name || '' },
       { key: 'total', label: 'Celkem' }, { key: 'tax_amount', label: 'DPH' },
       { key: 'issue_date', label: 'Vystavení' }, { key: 'due_date', label: 'Splatnost' },
       { key: 'status', label: 'Stav' },
@@ -222,7 +223,7 @@ export default function InvoicesTab() {
                     background: inv.type === 'credit_note' ? '#fee2e2' : inv.type === 'payment_receipt' ? '#cffafe' : inv.type === 'final' ? '#dcfce7' : '#dbeafe',
                     color: inv.type === 'credit_note' ? '#dc2626' : inv.type === 'payment_receipt' ? '#0891b2' : inv.type === 'final' ? '#1a8a18' : '#2563eb'
                   }}>{TYPE_LABELS[inv.type] || inv.type}</span></TD>
-                  <TD>{inv.profiles?.full_name || '—'}</TD>
+                  <TD>{inv.customer_snapshot?.name || inv.profiles?.full_name || '—'}</TD>
                   <TD bold style={inv.type === 'credit_note' ? { color: '#dc2626' } : {}}>{inv.type === 'credit_note' ? `−${fmt(Math.abs(inv.total))}` : fmt(inv.total)}</TD>
                   <TD>{fmt(inv.tax_amount)}</TD>
                   <TD>{inv.issue_date ? new Date(inv.issue_date).toLocaleDateString('cs-CZ') : '—'}</TD>
@@ -249,7 +250,7 @@ export default function InvoicesTab() {
         <Modal open title={`Faktura ${detailInv.number || '—'}`} onClose={() => setDetailInv(null)}>
           <div className="grid grid-cols-2 gap-4">
             <DRow label="Číslo" value={detailInv.number} mono />
-            <DRow label="Zákazník" value={detailInv.profiles?.full_name || '—'} />
+            <DRow label="Zákazník" value={detailInv.customer_snapshot?.name || detailInv.profiles?.full_name || '—'} />
             <DRow label="Částka" value={fmt(detailInv.total)} />
             <DRow label="DPH" value={fmt(detailInv.tax_amount)} />
             <DRow label="Základ" value={fmt(detailInv.subtotal)} />

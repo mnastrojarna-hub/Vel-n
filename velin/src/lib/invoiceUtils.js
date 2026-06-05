@@ -458,11 +458,19 @@ export function invoiceCustomer(data) {
 export async function loadInvoiceData(invoiceId) {
   const { data, error } = await supabase
     .from('invoices')
-    .select('*, profiles:customer_id(full_name, email, phone, street, city, zip, country, ico, dic), bookings:booking_id(id, start_date, end_date, total_price, motorcycles(model, spz))')
+    .select('*, profiles:customer_id(full_name, email, phone, street, city, zip, country, ico, dic), bookings:booking_id(id, start_date, end_date, total_price, motorcycles(model, spz)), shop_orders:order_id(stripe_payment_intent_id, stripe_session_id, payment_method)')
     .eq('id', invoiceId)
     .single()
 
   if (error) throw error
+
+  // E-shop/voucher faktury platí kartou přes Stripe → na dokladu místo bank. účtu (mBank)
+  // zobraz „Platba kartou (Stripe)" + identifikátor. Doplníme do dat pro client render.
+  if (data) {
+    const sp = data.shop_orders?.stripe_payment_intent_id || data.shop_orders?.stripe_session_id || data.stripe_payment_intent_id || null
+    if (sp && !data.stripe_payment_intent_id) data.stripe_payment_intent_id = sp
+    if (sp && !data.cardInfo) { data.cardInfo = { brand: 'card', last4: '' }; data.paymentMethodLabel = 'Platba kartou (Stripe)' }
+  }
 
   // Pro DP (payment_receipt) načti přístupové kódy
   if (data && data.type === 'payment_receipt' && data.booking_id) {

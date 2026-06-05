@@ -94,6 +94,7 @@ export function generateInvoiceHtml(data) {
 
   const cardInfo = data.cardInfo || data.card_info || null
   const stripePaymentIntentId = data.stripe_payment_intent_id || (cardInfo && cardInfo.payment_intent_id) || ''
+  const paymentMethodLabel = data.paymentMethodLabel || (cardInfo ? 'Platba kartou (Stripe)' : '')
 
   const paymentBlock = cardInfo ? `
     <div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0">
@@ -101,10 +102,14 @@ export function generateInvoiceHtml(data) {
       <span style="color:#0f1a14;font-weight:700">${status}</span>
     </div>
     <div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0">
+      <span style="color:#16a34a;font-weight:600">Způsob platby</span>
+      <span style="color:#0f1a14;font-weight:700">${paymentMethodLabel}</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0">
       <span style="color:#16a34a;font-weight:600">Uhrazeno online</span>
       <span style="color:#0f1a14;font-weight:700;font-variant-numeric:tabular-nums">${fmtPrice(total)}</span>
     </div>
-    ${stripePaymentIntentId ? `<div style="font-size:10px;color:#9ca3af;text-align:right;margin-top:-4px;font-family:'Courier New',monospace">${stripePaymentIntentId}</div>` : ''}
+    ${stripePaymentIntentId ? `<div style="display:flex;justify-content:space-between;font-size:11px;padding:4px 0"><span style="color:#16a34a;font-weight:600">ID platby</span><span style="color:#6b7280;font-weight:700;font-family:'Courier New',monospace">${stripePaymentIntentId}</span></div>` : ''}
   ` : `
     <div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0">
       <span style="color:#16a34a;font-weight:600">Stav</span>

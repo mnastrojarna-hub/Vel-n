@@ -98,6 +98,7 @@ export function ShopOrderDetail({ order, onClose, onUpdated }) {
   const [savingBilling, setSavingBilling] = useState(false)
   const [docMsg, setDocMsg] = useState(null)
   const [regenType, setRegenType] = useState(null) // 'payment_receipt' | 'shop_final' | null
+  const [docDate, setDocDate] = useState(() => new Date().toISOString().slice(0, 10)) // datum dokladu pro přegenerování
 
   useEffect(() => { setOrd(order); setBilling(pickBilling(order)) }, [order])
   useEffect(() => { loadItems() }, [order.id])
@@ -126,7 +127,7 @@ export function ShopOrderDetail({ order, onClose, onUpdated }) {
     setRegenType(type); setDocMsg(null)
     try {
       const { data, error } = await supabase.functions.invoke('generate-invoice', {
-        body: { type, order_id: ord.id, regenerate: true, send_email: false },
+        body: { type, order_id: ord.id, regenerate: true, send_email: false, invoice_date: docDate || undefined },
       })
       if (error) throw error
       if (data?.error) throw new Error(data.error)
@@ -261,6 +262,10 @@ export function ShopOrderDetail({ order, onClose, onUpdated }) {
       <div className="mb-4 p-3 rounded-btn" style={{ background: '#eff6ff', border: '1px solid #bfdbfe' }}>
         <div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1e40af' }}>Doklady</div>
         <div className="text-xs mb-2" style={{ color: '#1e40af' }}>Přegeneruje aktuální doklad s upravenými údaji a <strong>přepíše původní</strong> v databázi (číslo dokladu zůstává).</div>
+        <div className="flex items-center gap-2 mb-2">
+          <label className="text-sm font-bold" style={{ color: '#1e40af' }}>Datum dokladu (vystavení i splatnost):</label>
+          <input type="date" value={docDate} onChange={e => setDocDate(e.target.value)} className="rounded-btn text-sm outline-none" style={{ padding: '6px 10px', background: '#fff', border: '1px solid #bfdbfe' }} />
+        </div>
         <div className="flex items-center gap-2 flex-wrap">
           <Button onClick={() => regenerateDoc('shop_proforma')} disabled={regenType !== null}>{regenType === 'shop_proforma' ? 'Generuji…' : 'Přegenerovat ZF (zálohovou)'}</Button>
           <Button onClick={() => regenerateDoc('payment_receipt')} disabled={regenType !== null}>{regenType === 'payment_receipt' ? 'Generuji…' : 'Přegenerovat DP (daňový doklad)'}</Button>

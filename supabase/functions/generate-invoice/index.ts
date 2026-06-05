@@ -158,6 +158,7 @@ serve(async (req) => {
       source: reqSource,
       language: reqLanguage, // i18n: jazyk zákazníka (localizuje ODKAZY na faktuře)
       regenerate, // přepiš existující doklad aktuálními údaji (stejné číslo, stejný řádek)
+      invoice_date, // YYYY-MM-DD — override data vystavení i splatnosti (využívá Velín u přegenerování)
     } = await req.json()
     if (!booking_id && !order_id) return new Response(JSON.stringify({ error: 'Missing booking_id or order_id' }), { status: 400 })
 
@@ -185,6 +186,7 @@ serve(async (req) => {
     let cardInfo: { brand: string; last4: string } | null = null
     let editLabel = '' // e.g. "ÚPRAVA — +2 dny"
     let paymentMethodLabel = '' // "Bankovní převod" / "Platba kartou Visa **** 4242"
+    let stripePaymentId = '' // Stripe payment intent / session id (na doklad místo bank. účtu)
 
     if (isShop && order_id) {
       const { data: order, error: oErr } = await supabase
@@ -211,6 +213,14 @@ serve(async (req) => {
         dic: customer.dic || order.customer_dic || null,
         // Profil má street/city/zip; u web poukazu je adresa spojená v billing_address.
         street: customer.street || order.billing_address || null,
+      }
+
+      // E-shop/voucher objednávka je placená kartou přes Stripe — na dokladu má být
+      // místo bankovního účtu (mBank) uvedena platba kartou + identifikátor platby.
+      stripePaymentId = order.stripe_payment_intent_id || order.stripe_session_id || ''
+      if (stripePaymentId) {
+        cardInfo = { brand: 'card', last4: '' }
+        paymentMethodLabel = 'Platba kartou (Stripe)'
       }
 
       for (const it of (order.shop_order_items || [])) {
@@ -243,6 +253,7 @@ serve(async (req) => {
 
       // Identify card info for payment method display
       cardInfo = await loadPaymentCardInfo(supabase, booking)
+      stripePaymentId = booking.stripe_payment_intent_id || ''
       paymentMethodLabel = cardInfo
         ? `Platba kartou ${cardInfo.brand?.toUpperCase() || 'CARD'} **** ${cardInfo.last4 || '****'}`
         : 'Bankovní převod'
@@ -467,8 +478,10 @@ serve(async (req) => {
 
     const subtotal = items.reduce((s, it) => s + it.unit_price * it.qty, 0)
     const total = subtotal
-    const issueDate = new Date().toISOString().slice(0, 10)
-    // Splatnost ihned pro ZF i DP (kartová platba je okamžitá)
+    // Datum vystavení: override z `invoice_date` (Velín u přegenerování zadá ručně),
+    // jinak dnešek. Splatnost = stejné datum (kartová platba je okamžitá).
+    const validDate = typeof invoice_date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(invoice_date)
+    const issueDate = validDate ? invoice_date : new Date().toISOString().slice(0, 10)
     const dueDate = issueDate
 
     let invoice: any
@@ -539,7 +552,7 @@ serve(async (req) => {
     const html = generateInvoiceHtml({
       title, number, accent, issueDate, dueDate, total, company: COMPANY, customer, items,
       voucher_codes, voucherValidUntil, doorCodes, isProforma, isPaymentReceipt, isShopFinal, dpNumber, bookingNumber,
-      paymentMethodLabel, cardInfo, isEdit, lang: invLang,
+      paymentMethodLabel, cardInfo, isEdit, lang: invLang, stripePaymentIntentId: stripePaymentId,
     })
 
     // Pokus o PDF přes PDFShift; když není API key nebo konverze selže, fallback na HTML.
