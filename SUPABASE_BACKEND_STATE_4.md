@@ -86,3 +86,15 @@
 | `trg_contracts_updated` | contracts | update_updated_at() |
 | `faq_items_set_updated_at` | faq_items (BEFORE UPDATE) | set_updated_at_now() — auto-aktualizace `updated_at` při změně FAQ položky |
 | Různé `_updated_at` triggery | více tabulek | update_updated_at() |
+
+### Doplněno 2026-06-04 ze snapshotu (přesné vazby — „do poslední tečky")
+**`update_updated_at()` BEFORE UPDATE (auto `updated_at`)** na: `bookings` (`bookings_updated_at`), `profiles` (`profiles_updated_at`), `motorcycles` (`motorcycles_updated_at`), `cms_pages` (`cms_pages_updated_at`), `inventory` (`inventory_updated_at`), `purchase_orders` (`purchase_orders_updated_at`), `products` (`trg_products_updated`), `payment_methods` (`trg_payment_methods_updated`), `suppliers` (`trg_suppliers_updated`), `service_parts` (`trg_service_parts_updated`), `message_templates` (`trg_message_templates_updated`), `auto_order_rules` (`trg_auto_order_rules_updated`), `branch_accessories` (`trg_branch_accessories_updated`), `branch_door_codes` (`trg_branch_door_codes_updated`), `flexi_reports` (`trg_flexi_reports_updated`), `financial_events` (`trg_fe_updated`), `ai_customer_conversations` (`trg_ai_customer_conversations_updated`), `acc_employees/acc_liabilities/acc_long_term_assets/acc_payrolls/acc_short_term_assets/acc_tax_returns/acc_vat_returns` (`trg_acc_*_updated`). `custom_documents` používá `set_updated_at()` (`trg_custom_documents_updated_at`).
+
+**Netriviální (logika):**
+| Trigger | Tabulka | Funkce |
+|---------|---------|--------|
+| `trg_auto_liabilities_payroll` | acc_payrolls (AFTER INSERT) | auto_liabilities_from_payroll() — z vypočtené mzdy vytvoří závazky (SP/ZP/daň) do `acc_liabilities` |
+| `trg_check_user_booking_overlap` | bookings (BEFORE INSERT/UPDATE OF start_date, end_date, user_id, status) | check_user_booking_overlap() — zákazník nesmí mít 2 překrývající se rezervace (výjimka dětské motorky). Pozn.: odlišné od `trg_check_booking_overlap` (overlap na motorce). |
+| `trg_release_codes_on_profile_verify` | profiles (AFTER UPDATE OF id_verified_at, passport_verified_at, license_verified_at, id_number, license_number) | release_codes_on_profile_verify() — po ověření dokladů v profilu uvolní zadržené door codes (souběžně s `trg_release_codes_on_doc_upload` na `documents`) |
+| `trg_sync_moto_to_assets` | motorcycles (AFTER INSERT/UPDATE) | sync_motorcycle_to_assets() — zrcadlí motorku do `acc_long_term_assets` (dlouhodobý majetek) |
+
