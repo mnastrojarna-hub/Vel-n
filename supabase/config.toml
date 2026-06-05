@@ -29,6 +29,15 @@ verify_jwt = false
 [functions.send-booking-email]
 verify_jwt = false
 
+# OCR skener dokladů (OP/ŘP/pas) — volá web rezervace ANONYMNĚ (krok 2, nepřihlášený
+# zákazník) jen s apikey. BEZ verify_jwt=false → 401 a nejde naskenovat doklad.
+[functions.scan-document]
+verify_jwt = false
+
+# Uložení fotky verifikačního dokladu — taktéž anonymní web volání z rezervace. OFF.
+[functions.save-verification-document]
+verify_jwt = false
+
 # SEO Health checker — server-side fetch & parse zive stranky motogo24.cz
 # (browser-side fetch z velin domeny blokuje CORS). Volá ho Velin SEO Health
 # dashboard. Read-only, jen GET na motogo24.cz whitelist domeny.
