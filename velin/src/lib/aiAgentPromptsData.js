@@ -81,7 +81,7 @@ HLÁSÍŠ: Booking agentovi reklamace k rezervaci, fleet agentovi stížnosti na
 KONTROLUJEŠ: Sedí faktura s ceníkem? Odeslána? Platby spárované? Refund odpovídá storno podmínkám?
 TŘÍDÍŠ DOKLADY: Přijaté doklady automaticky zařaď dle typu:
 - ZF = zálohová faktura (před službou, po platbě zálohy)
-- DP = daňový doklad/dobropis (po dokončení služby)
+- DP = doklad k přijaté platbě/dobropis (po dokončení služby)
 - DL = dodací list (potvrzení předání motorky/příslušenství)
 - KF = konečná faktura (vyúčtování po vrácení motorky)
 - Smlouva = nájemní smlouva (podepsaná před předáním)

@@ -62,12 +62,12 @@ export function generateInvoiceHtml(data) {
   const isShopFinal = data.type === 'shop_final'
 
   const titleBase = isCreditNote ? 'Dobropis'
-    : isPaymentReceipt ? 'Daňový doklad'
+    : isPaymentReceipt ? 'Doklad k přijaté platbě'
     : isProforma ? 'Zálohová faktura'
     : 'Faktura'
 
   const tcode = isCreditNote ? 'DOBROPIS'
-    : isPaymentReceipt ? 'DAŇOVÝ DOKLAD'
+    : isPaymentReceipt ? 'DOKLAD K PŘIJATÉ PLATBĚ'
     : isProforma ? 'ZF'
     : 'FAKTURA'
 
@@ -269,9 +269,9 @@ export function generateInvoiceHtml(data) {
 
   ${data.notes ? `<div style="margin:0 32px 16px;padding:10px 14px;background:#fffbeb;border-left:3px solid #f59e0b;font-size:11px;color:#78350f"><strong>Poznámka:</strong> ${data.notes}</div>` : ''}
 
-  ${isProforma ? `<div style="margin:0 32px 16px;padding:10px 14px;background:#fef3c7;border-left:3px solid #f59e0b;font-size:11px;color:#78350f">Tento doklad není daňovým dokladem. Po přijetí platby Vám bude vystavena konečná faktura.</div>` : ''}
-  ${isPaymentReceipt ? `<div style="margin:0 32px 16px;padding:10px 14px;background:#ecfdf5;border-left:3px solid #16a34a;font-size:11px;color:#065f46">Tento doklad potvrzuje přijetí platby dle zákona č. 235/2004 Sb., o dani z přidané hodnoty.</div>` : ''}
-  ${isCreditNote ? `<div style="margin:0 32px 16px;padding:10px 14px;background:#fef2f2;border-left:3px solid #dc2626;font-size:11px;color:#991b1b"><strong>DOBROPIS</strong> — Tento doklad je opravným daňovým dokladem. Částka byla vrácena na platební kartu zákazníka prostřednictvím Stripe.</div>` : ''}
+  ${isProforma ? `<div style="margin:0 32px 16px;padding:10px 14px;background:#fef3c7;border-left:3px solid #f59e0b;font-size:11px;color:#78350f">Tento doklad není dokladem o přijaté platbě. Po přijetí platby Vám bude vystaven doklad k přijaté platbě.</div>` : ''}
+  ${isPaymentReceipt ? `<div style="margin:0 32px 16px;padding:10px 14px;background:#ecfdf5;border-left:3px solid #16a34a;font-size:11px;color:#065f46">Tento doklad potvrzuje přijetí platby.</div>` : ''}
+  ${isCreditNote ? `<div style="margin:0 32px 16px;padding:10px 14px;background:#fef2f2;border-left:3px solid #dc2626;font-size:11px;color:#991b1b"><strong>DOBROPIS</strong> — Tento doklad je dokladem o vrácení platby. Částka byla vrácena na platební kartu zákazníka prostřednictvím Stripe.</div>` : ''}
   ${isShopFinal ? `<div style="margin:0 32px 16px;padding:10px 14px;background:#ecfdf5;border-left:3px solid #16a34a;font-size:11px;color:#065f46">Konečná faktura — platba byla již provedena. K úhradě: 0 Kč.</div>` : ''}
 
   <!-- FOOTER -->

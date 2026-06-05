@@ -1192,7 +1192,7 @@ ${vars.door_codes_block || `<p style="color:#dc2626">K\u00f3dy se zobraz\u00ed p
 
         const pd = Number((price_difference || 0).toString().replace(/\s/g, '').replace(',', '.')) || 0
         let priceMessage = ''
-        if (pd > 0)      priceMessage = `<p>K úpravě se vztahuje <strong>doplatek ${vars.price_difference}</strong>. Po platbě dorazí daňový doklad.</p>`
+        if (pd > 0)      priceMessage = `<p>K úpravě se vztahuje <strong>doplatek ${vars.price_difference}</strong>. Po platbě dorazí doklad k přijaté platbě.</p>`
         else if (pd < 0) priceMessage = `<p>K úpravě se vztahuje <strong>vrácení ${vars.price_difference}</strong> formou dobropisu, který najdete v příloze. Refund jde zpět na původní platební kartu.</p>`
 
         templateHtml = `<p>Dobrý den,</p>
@@ -1215,7 +1215,7 @@ ${vars.door_codes_block || `<p style="color:#dc2626">K\u00f3dy se zobraz\u00ed p
   </tbody>
 </table>
 ${priceMessage}
-<p>V příloze najdete <strong>aktualizovanou nájemní smlouvu, VOP</strong> a všechny <strong>nové daňové doklady</strong> (zálohová faktura, doklad o platbě, případně dobropis).</p>
+<p>V příloze najdete <strong>aktualizovanou nájemní smlouvu, VOP</strong> a všechny <strong>nové doklady</strong> (zálohová faktura, doklad o platbě, případně dobropis).</p>
 <p>Pokud změnu neiniciovali jste vy a jde o nesrovnalost, ihned nás kontaktujte na <a href="mailto:info@motogo24.cz" style="color:#2563eb">info@motogo24.cz</a>.</p>
 <p>S pozdravem,<br>Tým MotoGo24</p>`
       } else if (type === 'shop_order_confirmed') {

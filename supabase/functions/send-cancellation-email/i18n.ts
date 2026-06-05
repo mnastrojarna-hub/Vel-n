@@ -918,22 +918,22 @@ function renderModifiedBody(lang: Lang, v: Vars): string {
     pl: `Twoja rezerwacja nr <strong>${v.booking_number}</strong> została zmieniona. Poniżej pełne podsumowanie zmian — pierwotne wartości są przekreślone, nowe wyróżnione na zielono.`,
   }
   const priceMsgs: Record<Lang, { plus: string; minus: string }> = {
-    cs: { plus: `K úpravě se vztahuje <strong>doplatek ${v.price_difference}</strong>. Po platbě dorazí daňový doklad.`,                  minus: `K úpravě se vztahuje <strong>vrácení ${v.price_difference}</strong> formou dobropisu, který najdete v příloze. Refund jde zpět na původní platební kartu.` },
-    en: { plus: `An additional payment of <strong>${v.price_difference}</strong> applies. The tax document will follow after payment.`,    minus: `A refund of <strong>${v.price_difference}</strong> applies as a credit note (attached). The amount returns to your original card.` },
+    cs: { plus: `K úpravě se vztahuje <strong>doplatek ${v.price_difference}</strong>. Po platbě dorazí doklad k přijaté platbě.`,                  minus: `K úpravě se vztahuje <strong>vrácení ${v.price_difference}</strong> formou dobropisu, který najdete v příloze. Refund jde zpět na původní platební kartu.` },
+    en: { plus: `An additional payment of <strong>${v.price_difference}</strong> applies. The payment receipt will follow after payment.`,    minus: `A refund of <strong>${v.price_difference}</strong> applies as a credit note (attached). The amount returns to your original card.` },
     de: { plus: `Es fällt eine Nachzahlung von <strong>${v.price_difference}</strong> an. Der Beleg folgt nach Zahlungseingang.`,           minus: `Eine Rückerstattung von <strong>${v.price_difference}</strong> wird als Gutschrift (Anhang) erstattet — Betrag geht zurück auf Ihre ursprüngliche Karte.` },
-    nl: { plus: `Er volgt een bijbetaling van <strong>${v.price_difference}</strong>. Het belastingdocument komt na betaling.`,             minus: `Een terugbetaling van <strong>${v.price_difference}</strong> wordt verwerkt als creditnota (bijlage) — bedrag terug op je oorspronkelijke kaart.` },
+    nl: { plus: `Er volgt een bijbetaling van <strong>${v.price_difference}</strong>. Het betalingsbewijs komt na betaling.`,             minus: `Een terugbetaling van <strong>${v.price_difference}</strong> wordt verwerkt als creditnota (bijlage) — bedrag terug op je oorspronkelijke kaart.` },
     es: { plus: `Se aplica un pago adicional de <strong>${v.price_difference}</strong>. El comprobante llegará tras el pago.`,             minus: `Se aplica un reembolso de <strong>${v.price_difference}</strong> mediante nota de crédito (adjunta) — el importe vuelve a tu tarjeta original.` },
     fr: { plus: `Un supplément de <strong>${v.price_difference}</strong> s'applique. Le justificatif suivra après paiement.`,              minus: `Un remboursement de <strong>${v.price_difference}</strong> est émis sous forme d'avoir (joint) — la somme retourne sur votre carte d'origine.` },
-    pl: { plus: `Wymagana jest dopłata <strong>${v.price_difference}</strong>. Dokument podatkowy nadejdzie po płatności.`,                 minus: `Zwrot <strong>${v.price_difference}</strong> w formie noty kredytowej (załącznik) — środki wracają na pierwotną kartę.` },
+    pl: { plus: `Wymagana jest dopłata <strong>${v.price_difference}</strong>. Potwierdzenie płatności nadejdzie po płatności.`,                 minus: `Zwrot <strong>${v.price_difference}</strong> w formie noty kredytowej (załącznik) — środki wracają na pierwotną kartę.` },
   }
   const attachInfo: Record<Lang, string> = {
-    cs: `V příloze najdete <strong>aktualizovanou nájemní smlouvu, VOP</strong> a všechny <strong>nové daňové doklady</strong> (zálohová faktura, doklad o platbě, případně dobropis).`,
-    en: `Attached you'll find the <strong>updated rental agreement, terms</strong> and all <strong>new tax documents</strong> (proforma invoice, payment receipt, or credit note as applicable).`,
-    de: `Im Anhang finden Sie den <strong>aktualisierten Mietvertrag, AGB</strong> und alle <strong>neuen Steuerbelege</strong> (Vorausrechnung, Zahlungsbeleg bzw. Gutschrift).`,
-    nl: `In de bijlage vind je de <strong>bijgewerkte huurovereenkomst, voorwaarden</strong> en alle <strong>nieuwe belastingdocumenten</strong> (proforma factuur, betalingsbewijs of creditnota).`,
-    es: `Adjuntamos el <strong>contrato de alquiler actualizado, condiciones</strong> y todos los <strong>nuevos documentos fiscales</strong> (factura proforma, recibo de pago o nota de crédito).`,
+    cs: `V příloze najdete <strong>aktualizovanou nájemní smlouvu, VOP</strong> a všechny <strong>nové doklady</strong> (zálohová faktura, doklad o platbě, případně dobropis).`,
+    en: `Attached you'll find the <strong>updated rental agreement, terms</strong> and all <strong>new documents</strong> (proforma invoice, payment receipt, or credit note as applicable).`,
+    de: `Im Anhang finden Sie den <strong>aktualisierten Mietvertrag, AGB</strong> und alle <strong>neuen Belege</strong> (Vorausrechnung, Zahlungsbeleg bzw. Gutschrift).`,
+    nl: `In de bijlage vind je de <strong>bijgewerkte huurovereenkomst, voorwaarden</strong> en alle <strong>nieuwe documenten</strong> (proforma factuur, betalingsbewijs of creditnota).`,
+    es: `Adjuntamos el <strong>contrato de alquiler actualizado, condiciones</strong> y todos los <strong>nuevos documentos</strong> (factura proforma, recibo de pago o nota de crédito).`,
     fr: `Vous trouverez en pièce jointe le <strong>contrat de location mis à jour, CGV</strong> et tous les <strong>nouveaux justificatifs</strong> (facture proforma, reçu, ou avoir).`,
-    pl: `W załączniku znajdziesz <strong>zaktualizowaną umowę najmu, regulamin</strong> i wszystkie <strong>nowe dokumenty podatkowe</strong> (faktura proforma, dowód wpłaty lub nota kredytowa).`,
+    pl: `W załączniku znajdziesz <strong>zaktualizowaną umowę najmu, regulamin</strong> i wszystkie <strong>nowe dokumenty</strong> (faktura proforma, dowód wpłaty lub nota kredytowa).`,
   }
   const verify: Record<Lang, string> = {
     cs: `Pokud změnu neiniciovali jste vy a jde o nesrovnalost, ihned nás kontaktujte na`,

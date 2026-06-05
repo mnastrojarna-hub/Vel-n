@@ -298,8 +298,8 @@ export async function generateFinalInvoice(bookingId) {
     items.push({ description: 'Storno poplatek (dle storno podmínek)', qty: 1, unit_price: retainedAmount })
   }
 
-  // Deduct ALL DP (daňové doklady k platbě) — reservation, edits, SOS
-  // ZF (zálohové faktury) se NEODEČÍTAJÍ — nejsou daňovým dokladem
+  // Deduct ALL DP (doklady k přijaté platbě) — reservation, edits, SOS
+  // ZF (zálohové faktury) se NEODEČÍTAJÍ — nejsou dokladem o přijaté platbě
   const { data: receipts } = await supabase
     .from('invoices').select('number, total, type, source')
     .eq('booking_id', bookingId).eq('type', 'payment_receipt')

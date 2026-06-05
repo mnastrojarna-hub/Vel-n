@@ -5,7 +5,7 @@ const SITE_URL = 'https://www.motogo24.cz'
 const LOGO_URL = `${SITE_URL}/gfx/logo-icon.png`
 
 // ── i18n: doména zákazníka pro odkazy/QR (cs → .cz, ostatní → .com) ──────────
-// Účetní text faktury zůstává česky (daňový doklad), localizují se jen ODKAZY,
+// Účetní text faktury zůstává česky (doklad k přijaté platbě), localizují se jen ODKAZY,
 // aby vedly na doménu zákazníka. Logo zůstává na .cz (asset).
 function siteForLang(lang: string): string { return lang === 'cs' ? SITE_URL : 'https://motogo24.com' }
 function webLabelForLang(lang: string): string { return lang === 'cs' ? 'motogo24.cz' : 'motogo24.com' }
@@ -45,7 +45,7 @@ function splitItem(desc: string): { name: string; detail: string } {
 
 function typeLabel(p: TemplateParams): string {
   if (p.isProforma) return 'ZF'
-  if (p.isPaymentReceipt) return 'DAŇOVÝ DOKLAD'
+  if (p.isPaymentReceipt) return 'DOKLAD K PŘIJATÉ PLATBĚ'
   return 'FAKTURA'
 }
 
@@ -288,8 +288,8 @@ export function generateInvoiceHtml(p: TemplateParams): string {
     ${dc.some((c: any) => c.withheld_reason) ? '<div style="font-size:11px;font-weight:600;color:#b45309;margin-top:4px">Kódy budou zaslány po ověření dokladů (OP/pas/ŘP).</div>' : '<div style="font-size:10px;color:#164e63;margin-top:4px">Kódy jsou platné pouze po dobu trvání pronájmu.</div>'}
   </div>` : ''}
 
-  ${p.isProforma ? `<div style="margin:0 32px 8px;padding:7px 12px;background:#fef3c7;border-left:3px solid #f59e0b;font-size:11px;color:#78350f">Tento doklad není daňovým dokladem. Po přijetí platby Vám bude vystavena konečná faktura.</div>` : ''}
-  ${p.isPaymentReceipt ? `<div style="margin:0 32px 8px;padding:7px 12px;background:#ecfdf5;border-left:3px solid #16a34a;font-size:11px;color:#065f46">Tento doklad potvrzuje přijetí platby dle zákona č. 235/2004 Sb., o dani z přidané hodnoty.</div>` : ''}
+  ${p.isProforma ? `<div style="margin:0 32px 8px;padding:7px 12px;background:#fef3c7;border-left:3px solid #f59e0b;font-size:11px;color:#78350f">Tento doklad není dokladem o přijaté platbě. Po přijetí platby Vám bude vystaven doklad k přijaté platbě.</div>` : ''}
+  ${p.isPaymentReceipt ? `<div style="margin:0 32px 8px;padding:7px 12px;background:#ecfdf5;border-left:3px solid #16a34a;font-size:11px;color:#065f46">Tento doklad potvrzuje přijetí platby.</div>` : ''}
   ${p.isShopFinal ? `<div style="margin:0 32px 8px;padding:7px 12px;background:#ecfdf5;border-left:3px solid #16a34a;font-size:11px;color:#065f46">Konečná faktura — platba byla již provedena na základě dokladu ${p.dpNumber || 'DP'}. K úhradě: 0 Kč.</div>` : ''}
 
   <!-- KONTAKT + QR -->

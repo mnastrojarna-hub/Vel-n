@@ -56,7 +56,7 @@ INSERT INTO cms_variables (key, value, category) VALUES ('web.layout.confirm.suc
 INSERT INTO cms_variables (key, value, category) VALUES ('web.layout.confirm.success.voucherCode', 'Kód voucheru', 'web') ON CONFLICT (key) DO NOTHING;
 INSERT INTO cms_variables (key, value, category) VALUES ('web.layout.confirm.success.validUntil', 'Platnost do', 'web') ON CONFLICT (key) DO NOTHING;
 INSERT INTO cms_variables (key, value, category) VALUES ('web.layout.confirm.success.emailSentBooking', 'Potvrzení a předvyplněnou nájemní smlouvu jsme ti poslali e-mailem.', 'web') ON CONFLICT (key) DO NOTHING;
-INSERT INTO cms_variables (key, value, category) VALUES ('web.layout.confirm.success.emailSentOrder', 'Souhrn objednávky a daňový doklad ti dorazí e-mailem.', 'web') ON CONFLICT (key) DO NOTHING;
+INSERT INTO cms_variables (key, value, category) VALUES ('web.layout.confirm.success.emailSentOrder', 'Souhrn objednávky a doklad k přijaté platbě ti dorazí e-mailem.', 'web') ON CONFLICT (key) DO NOTHING;
 INSERT INTO cms_variables (key, value, category) VALUES ('web.layout.confirm.success.emailSentVoucher', 'Voucher ti dorazí na e-mail v PDF.', 'web') ON CONFLICT (key) DO NOTHING;
 INSERT INTO cms_variables (key, value, category) VALUES ('web.layout.confirm.success.nextTitle', 'Co bude dál', 'web') ON CONFLICT (key) DO NOTHING;
 INSERT INTO cms_variables (key, value, category) VALUES ('web.layout.confirm.success.seeYouSoon', 'Brzy nashledanou!', 'web') ON CONFLICT (key) DO NOTHING;
@@ -661,10 +661,10 @@ INSERT INTO cms_variables (key, value, category) VALUES ('web.layout.editRez.doc
 INSERT INTO cms_variables (key, value, category) VALUES ('web.layout.editRez.doc.type.final', 'Konečná faktura', 'web') ON CONFLICT (key) DO NOTHING;
 INSERT INTO cms_variables (key, value, category) VALUES ('web.layout.editRez.doc.type.issued', 'Konečná faktura', 'web') ON CONFLICT (key) DO NOTHING;
 INSERT INTO cms_variables (key, value, category) VALUES ('web.layout.editRez.doc.type.invoice_final', 'Konečná faktura', 'web') ON CONFLICT (key) DO NOTHING;
-INSERT INTO cms_variables (key, value, category) VALUES ('web.layout.editRez.doc.type.payment_receipt', 'Platební doklad', 'web') ON CONFLICT (key) DO NOTHING;
+INSERT INTO cms_variables (key, value, category) VALUES ('web.layout.editRez.doc.type.payment_receipt', 'Doklad k přijaté platbě', 'web') ON CONFLICT (key) DO NOTHING;
 INSERT INTO cms_variables (key, value, category) VALUES ('web.layout.editRez.doc.type.shop_proforma', 'Zálohová faktura (e-shop)', 'web') ON CONFLICT (key) DO NOTHING;
-INSERT INTO cms_variables (key, value, category) VALUES ('web.layout.editRez.doc.type.shop_final', 'Daňový doklad (e-shop)', 'web') ON CONFLICT (key) DO NOTHING;
-INSERT INTO cms_variables (key, value, category) VALUES ('web.layout.editRez.doc.type.invoice_shop', 'Daňový doklad (e-shop)', 'web') ON CONFLICT (key) DO NOTHING;
+INSERT INTO cms_variables (key, value, category) VALUES ('web.layout.editRez.doc.type.shop_final', 'Doklad k přijaté platbě (e-shop)', 'web') ON CONFLICT (key) DO NOTHING;
+INSERT INTO cms_variables (key, value, category) VALUES ('web.layout.editRez.doc.type.invoice_shop', 'Doklad k přijaté platbě (e-shop)', 'web') ON CONFLICT (key) DO NOTHING;
 INSERT INTO cms_variables (key, value, category) VALUES ('web.layout.editRez.doc.type.credit_note', 'Dobropis', 'web') ON CONFLICT (key) DO NOTHING;
 INSERT INTO cms_variables (key, value, category) VALUES ('web.layout.editRez.doc.type.contract', 'Smlouva o pronájmu', 'web') ON CONFLICT (key) DO NOTHING;
 INSERT INTO cms_variables (key, value, category) VALUES ('web.layout.editRez.doc.type.rental_contract', 'Smlouva o pronájmu', 'web') ON CONFLICT (key) DO NOTHING;
