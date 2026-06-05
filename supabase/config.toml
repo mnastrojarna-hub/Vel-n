@@ -109,11 +109,13 @@ verify_jwt = false
 [functions.send-push]
 verify_jwt = false
 
-# Překlady přes Anthropic — JEN admin z Velína (JWT). verify_jwt=true chrání
-# drahé volání API před anonymním zneužitím.
+# Překlady přes Anthropic — volá je Velín (user JWT) i cms-save (service key).
+# POZOR: projekt používá NOVÝ formát klíčů (sb_secret_/sb_publishable_), které
+# NEJSOU JWT → verify_jwt=true by je odmítlo s UNAUTHORIZED_INVALID_JWT_FORMAT
+# (zejm. edge→edge volání z cms-save). Proto verify_jwt=false jako u všech ostatních.
 [functions.translate-content]
-verify_jwt = true
+verify_jwt = false
 [functions.translate-document]
-verify_jwt = true
+verify_jwt = false
 [functions.translate-pages-master]
-verify_jwt = true
+verify_jwt = false
