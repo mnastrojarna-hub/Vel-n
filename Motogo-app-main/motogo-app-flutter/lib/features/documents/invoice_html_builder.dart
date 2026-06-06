@@ -179,18 +179,11 @@ class InvoiceHtmlBuilder {
       <tr>
         <td style="width:55%">&nbsp;</td>
         <td style="width:45%">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border:1px solid #e5e7eb">
-            <tr style="background:#f3f4f6">
-              <td style="padding:12px 16px;font-size:13px;color:#0f1a14;border-bottom:1px solid #e5e7eb">Mezisoučet</td>
-              <td style="padding:12px 16px;font-size:13px;color:#0f1a14;text-align:right;border-bottom:1px solid #e5e7eb;font-variant-numeric:tabular-nums">${_fmtAmount(subtotal)}</td>
-            </tr>
-            <tr style="background:#f3f4f6">
-              <td style="padding:12px 16px;font-size:13px;color:#0f1a14">DPH</td>
-              <td style="padding:12px 16px;font-size:13px;color:#0f1a14;text-align:right;font-variant-numeric:tabular-nums">0 Kč</td>
-            </tr>
+          <!-- Neplátce DPH — bez řádku DPH/Mezisoučet, jen výsledná částka. -->
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border:1px solid #86efac">
             <tr style="background:#dcfce7">
-              <td style="padding:14px 16px;font-size:15px;color:#0f1a14;font-weight:800;border-top:1px solid #86efac">Celkem</td>
-              <td style="padding:14px 16px;font-size:15px;color:#0f1a14;font-weight:800;text-align:right;border-top:1px solid #86efac;font-variant-numeric:tabular-nums">${_fmtAmount(total.abs())}</td>
+              <td style="padding:14px 16px;font-size:15px;color:#0f1a14;font-weight:800">Celkem</td>
+              <td style="padding:14px 16px;font-size:15px;color:#0f1a14;font-weight:800;text-align:right;font-variant-numeric:tabular-nums">${_fmtAmount(total.abs())}</td>
             </tr>
           </table>
         </td>
