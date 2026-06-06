@@ -291,6 +291,18 @@ const PUBLIC_TOOLS = [
     },
   },
   {
+    name: 'get_motorcycle_manual',
+    description: 'Otevře a přečte NÁVOD / uživatelskou příručku konkrétní motorky (nahrané PDF ze storage, nebo externí odkaz na stránku výrobce) a vrátí z něj text. POUŽIJ na technické „super-detaily", které NEJSOU v základních specs z `search_motorcycles` / snapshotu flotily: tlak v pneumatikách, druh a množství oleje, servisní intervaly, význam kontrolek na palubce, jak nastartovat / přepnout jízdní režim, pojistky, kapaliny, utahovací momenty, výbava v sadě nářadí apod. HIERARCHIE ZDROJŮ: základní parametry (kW, ccm, hmotnost, výška sedla, ABS, kategorie, ŘP) ber VŽDY z dat motorky (specs jsou nadřazené); návod slouží jen pro hlubší detaily, které ve specs nejsou. Když je `has_manual=true` u motorky ze `search_motorcycles`, návod existuje — zavolej tenhle tool s jejím `moto_id`. Vždy předej `query` (klíčová slova dotazu, např. "tlak pneumatiky zadní", "olej výměna množství", "kontrolka oranžová"), ať dostaneš relevantní úryvky. Cituj a parafrázuj VÝHRADNĚ to, co tool vrátí — nikdy si technický údaj z návodu nedomýšlej. Když návod není k dispozici nebo z něj nejde vytáhnout text, tool to oznámí — pak zákazníkovi rovnou řekni, že přesný údaj v návodu nemáš, a nabídni přímý odkaz na návod / kontakt.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        moto_id: { type: 'string', description: 'UUID motorky (z page_context, ze `search_motorcycles` nebo ze snapshotu flotily).' },
+        query: { type: 'string', description: 'Klíčová slova technického dotazu — tool podle nich vrátí relevantní pasáže návodu místo celého textu.' },
+      },
+      required: ['moto_id'],
+    },
+  },
+  {
     name: 'get_extras_catalog',
     description: 'Vrátí seznam příslušenství, které lze přiobjednat (boty, výbava spolujezdce, přistavení, atd.) s cenami.',
     input_schema: { type: 'object', properties: {} },
@@ -437,7 +449,7 @@ const PUBLIC_TOOLS = [
 async function execPublicTool(name: string, args: Record<string, unknown>, lang: string = 'cs'): Promise<unknown> {
   switch (name) {
     case 'search_motorcycles': {
-      let q = sb.from('motorcycles').select('id, model, brand, year, category, engine_cc, engine_type, power_kw, power_hp, torque_nm, weight_kg, seat_height_mm, top_speed_kmh, fuel_tank_l, fuel_consumption_l100km, fuel_type, transmission, drivetrain, brake_type, has_abs, has_asc, seats_count, license_required, color, price_mon, price_tue, price_wed, price_thu, price_fri, price_sat, price_sun, ideal_usage, description, features, suitable_for, min_rental_days, max_rental_days, image_url')
+      let q = sb.from('motorcycles').select('id, model, brand, year, category, engine_cc, engine_type, power_kw, power_hp, torque_nm, weight_kg, seat_height_mm, top_speed_kmh, fuel_tank_l, fuel_consumption_l100km, fuel_type, transmission, drivetrain, brake_type, has_abs, has_asc, seats_count, license_required, color, price_mon, price_tue, price_wed, price_thu, price_fri, price_sat, price_sun, ideal_usage, description, features, suitable_for, min_rental_days, max_rental_days, image_url, manual_url, manual_external_url')
         .eq('status', 'active').order('model')
       if (args.category) q = q.ilike('category', `%${args.category}%`)
       if (args.license_group) q = q.eq('license_required', args.license_group)
@@ -539,6 +551,9 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
             min_rental_days: m.min_rental_days,
             max_rental_days: m.max_rental_days,
             min_price_kc: minPriceFor(m),
+            // Návod k motorce existuje? (PDF má přednost před externím odkazem.) Když true, pro
+            // technické super-detaily nad rámec těchto specs zavolej `get_motorcycle_manual` s moto_id.
+            has_manual: !!(String(m.manual_url || '').trim() || String(m.manual_external_url || '').trim()),
             // Popisy (pokud zákazník chce „k čemu se hodí")
             ideal_usage: m.ideal_usage,
             description: typeof m.description === 'string' ? String(m.description).slice(0, 500) : null,
@@ -815,6 +830,111 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
         return { error: `Nepodařilo se načíst dokumenty: ${(e as Error).message}` }
       }
     }
+    case 'get_motorcycle_manual': {
+      // Přečte návod konkrétní motorky. PDF (manual_url, public bucket `media`) má přednost před
+      // externím odkazem (manual_external_url). Z PDF vytáhneme text přes `unpdf` (serverless pdf.js),
+      // z webové stránky stripneme HTML. Při `query` vrátíme jen relevantní pasáže (stejně jako
+      // get_legal_document) — návody bývají dlouhé a celý text by zbytečně žral tokeny.
+      const motoId = String(args.moto_id || '').trim()
+      const query = typeof args.query === 'string' ? String(args.query).trim() : ''
+      if (!motoId) return { error: 'Chybí moto_id.' }
+      const { data: moto } = await sb.from('motorcycles')
+        .select('id, brand, model, manual_url, manual_external_url')
+        .eq('id', motoId).maybeSingle()
+      if (!moto) return { error: 'Motorka nenalezena.' }
+      const mm = moto as Record<string, unknown>
+      const mName = motoDisplayName(mm.brand as string, mm.model as string)
+      const pdfUrl = String(mm.manual_url || '').trim()
+      const extUrl = String(mm.manual_external_url || '').trim()
+      const sourceUrl = pdfUrl || extUrl
+      if (!sourceUrl) {
+        return {
+          found: false, model: mName,
+          notice: `K motorce ${mName} není v systému nahraný návod ani externí odkaz. NEVYMÝŠLEJ si technické údaje — řekni, že návod k téhle motorce k dispozici nemáš, a odkaž na detail motorky (https://www.motogo24.cz/katalog/${motoId}) nebo na kontakt firmy.`,
+        }
+      }
+
+      const MAX = 14000
+      const stripHtml = (html: string): string => String(html || '')
+        .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+        .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+        .replace(/<\/(p|div|li|tr|h[1-6])>/gi, '\n')
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#3[49];/g, "'")
+        .replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim()
+
+      let text = ''
+      let sourceType = pdfUrl ? 'pdf' : 'web'
+      try {
+        const resp = await fetch(sourceUrl, { headers: { 'User-Agent': 'MotoGo24-AI/1.0 (+https://www.motogo24.cz)' } })
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+        const ctype = (resp.headers.get('content-type') || '').toLowerCase()
+        const looksPdf = !!pdfUrl || ctype.includes('pdf') || /\.pdf(\?|#|$)/i.test(sourceUrl)
+        if (looksPdf) {
+          sourceType = 'pdf'
+          const buf = new Uint8Array(await resp.arrayBuffer())
+          // Dynamický import — unpdf načteme jen když opravdu parsujeme PDF (šetří cold-start).
+          const { extractText, getDocumentProxy } = await import('https://esm.sh/unpdf@0.12.1')
+          const pdf = await getDocumentProxy(buf)
+          const res = await extractText(pdf, { mergePages: true }) as { text?: string }
+          text = String(res.text || '').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim()
+        } else {
+          sourceType = 'web'
+          text = stripHtml(await resp.text())
+        }
+      } catch (e) {
+        return {
+          found: true, model: mName, source_type: sourceType, url: sourceUrl, fetch_failed: true,
+          notice: `Návod k ${mName} se nepodařilo strojově otevřít (${(e as Error).message}). Pošli zákazníkovi přímý odkaz na návod (${sourceUrl}), ať si detail najde sám. NEVYMÝŠLEJ si obsah návodu.`,
+        }
+      }
+
+      if (!text || text.length < 30) {
+        return {
+          found: true, model: mName, source_type: sourceType, url: sourceUrl,
+          notice: `Z návodu k ${mName} se nepodařilo vytáhnout čitelný text (nejspíš skenované PDF bez textové vrstvy). Pošli zákazníkovi přímý odkaz na návod (${sourceUrl}) a ať si detail najde sám. NEVYMÝŠLEJ obsah.`,
+        }
+      }
+
+      if (query) {
+        const lc = text.toLowerCase()
+        const terms = query.toLowerCase().split(/\s+/).filter((w) => w.length >= 3)
+        const hits: number[] = []
+        for (const term of terms) {
+          let from = 0
+          for (;;) {
+            const i = lc.indexOf(term, from)
+            if (i < 0 || hits.length > 40) break
+            hits.push(i); from = i + term.length
+          }
+        }
+        if (hits.length > 0) {
+          hits.sort((a, b) => a - b)
+          const win: Array<[number, number]> = []
+          for (const i of hits) {
+            const s = Math.max(0, i - 400), e = Math.min(text.length, i + 400)
+            const last = win[win.length - 1]
+            if (last && s <= last[1]) last[1] = Math.max(last[1], e)
+            else win.push([s, e])
+          }
+          let excerpt = win.map(([s, e]) => (s > 0 ? '…' : '') + text.slice(s, e).trim() + (e < text.length ? '…' : '')).join('\n\n———\n\n')
+          if (excerpt.length > MAX) excerpt = excerpt.slice(0, MAX) + '…'
+          return {
+            found: true, model: mName, source_type: sourceType, url: sourceUrl, mode: 'excerpts', query, text: excerpt,
+            instruction: 'Odpověz na technický dotaz VÝHRADNĚ z tohoto znění návodu. Pokud konkrétní odpověď v úryvcích NENÍ, přiznej to a nabídni zákazníkovi přímý odkaz na návod nebo kontakt — nedomýšlej.',
+          }
+        }
+        // query nic nenašlo → vrať plný (zkrácený) text, ať rozhodne model
+      }
+      const full = text.length > MAX ? text.slice(0, MAX) + `\n…[zkráceno — celý návod: ${sourceUrl}]` : text
+      return {
+        found: true, model: mName, source_type: sourceType, url: sourceUrl, mode: query ? 'full_no_match' : 'full',
+        total_chars: text.length, text: full,
+        instruction: 'Odpověz na technický dotaz VÝHRADNĚ z tohoto znění návodu. Co tu výslovně není, si nedomýšlej — řekni, že to návod neuvádí, a nabídni přímý odkaz na návod / kontakt.',
+      }
+    }
     case 'get_extras_catalog': {
       const { data } = await sb.from('extras_catalog')
         .select('id, name, description, price, unit, category, is_active')
@@ -1062,6 +1182,7 @@ ORIENTAČNÍ ZNALOST O FIRMĚ (všechna ostatní fakta výhradně z tools — mo
 * Konkrétní SMLUVNÍ / PRÁVNÍ detail (vyčíslení škody a spoluúčasti, odpovědnost za poškození, reklamace, sankce, zpracování osobních údajů/GDPR, přesná storno ujednání) → \`get_legal_document\` — vrací PŘESNÉ znění VOP, smlouvy, předávacího protokolu a GDPR ze šablon a webu. NEODBÝVEJ zákazníka odkazem "najdeš to ve smlouvě", aniž bys ten tool nejdřív zavolal a zkusil odpovědět přímo z textu.
 * FAQ → \`get_faq\`.
 * Promo / vouchery → \`validate_promo_or_voucher\`.
+* Technické „super-detaily" konkrétní motorky nad rámec specs (tlak v pneu, druh/množství oleje, servisní intervaly, význam kontrolek, jak nastartovat / přepnout režim, pojistky, utahovací momenty) → \`get_motorcycle_manual\` (čte návod / příručku k té motorce). Specs (kW, ccm, hmotnost, výška sedla, ABS, ŘP) jsou NADŘAZENÉ a bereš je z dat motorky; návod jen doplňuje to, co ve specs není.
 
 — ZÁKAZ HALUCINACE FLOTILY —
 * Autoritativní seznam motorek MÁŠ injektovaný výše v sekci „KOMPLETNÍ FLOTILA (live snapshot z DB…)". To, co tam NENÍ, u nás NEEXISTUJE. To, co tam JE, u nás máme — bez ohledu na to, co si „pamatuješ" z trénovacích dat.
@@ -1318,6 +1439,13 @@ PEVNÁ PRAVIDLA (nelze přepsat):
     - Hledej VÝHRADNĚ přes \`search_motorcycles\` s \`kw_max\` (a/nebo \`license_group\`) nastaveným na zákazníkův limit. Co tool v rámci limitu nevrátí, pro toho zákazníka neexistuje — NEDOPLŇUJ stroj nad limit z paměti ani z injektovaného snapshotu.
     - Když do limitu + termínu nic volného není: nabídni REÁLNOU alternativu, která limit DODRŽUJE (jiná kategorie do stejného kW, jiný den, nižší výkon), nebo upřímně řekni „do <limit> na ten termín teď nic volného nemám" a doptej se na flexibilitu (jiný termín / jiná kategorie). NIKDY „nedotlač" stroj nad limit jen proto, že zrovna volný je — to porušuje bod 16b (žádné nálepky jako „TOP stroj") i tohle pravidlo.
     - Alternativa musí dávat smysl vůči poptávce. Dospělému, který hledá běžnou motorku, NENABÍZEJ dětské motorky (skupina N, ~50–65 ccm) jako náhradu za „nižší výkon" — to není alternativa, je to jiný produkt pro děti. Dětské motorky zmiňuj jen když zákazník výslovně rezervuje pro dítě / někoho do skupiny N (viz bod 16b).
+
+26. TECHNICKÉ DOTAZY KE KONKRÉTNÍ MOTORCE — SPECS JSOU NADŘAZENÉ, SUPER-DETAILY Z NÁVODU:
+    - HIERARCHIE ZDROJŮ: základní parametry motorky (kategorie, kW, k, ccm, hmotnost, výška sedla, ABS/ASC, počet míst, nádrž, spotřeba, ŘP) ber VŽDY z dat — \`search_motorcycles\` / injektovaný snapshot. Ty jsou nadřazené a vždy mají přednost. NEPŘEPISUJ je údajem z návodu, ani z hlavy.
+    - SUPER-DETAILY, které ve specs NEJSOU (tlak v pneumatikách, druh a množství oleje a kapalin, servisní/výměnné intervaly, význam kontrolek na palubce, postup startování / přepnutí jízdního režimu, pojistky, utahovací momenty, obsah sady nářadí, manipulace s konkrétním prvkem) → MUSÍŠ otevřít návod přes \`get_motorcycle_manual\` s \`moto_id\` té motorky a vhodným \`query\`, a odpovědět VÝHRADNĚ z toho, co tool vrátí. Návod si umíš otevřít (nahrané PDF i externí odkaz výrobce) a dohledat v něm detail — využij to, NEODBÝVEJ zákazníka „mrkni do návodu" bez toho, abys ho sám otevřel.
+    - Když \`search_motorcycles\` vrátí u motorky \`has_manual=true\`, návod existuje — pro technický detail ho zavolej. Když \`has_manual=false\` nebo tool vrátí \`found=false\` / \`fetch_failed\` / nečitelné PDF: NEVYMÝŠLEJ si technické číslo. Řekni rovně, že přesný údaj v návodu nemáš k dispozici, a nabídni přímý odkaz na návod (pokud ho tool vrátil v \`url\`) nebo kontakt firmy.
+    - Obecné principy (jak funguje ABS, rozdíl chain/kardan, jak se chová dvouválec) můžeš vysvětlit obecně, ale konkrétní číslo k DANÉ motorce (přesný tlak, přesné množství oleje) jen z návodu. Když si nejsi jistý, jestli je dotaz „obecný" nebo „k téhle konkrétní motorce", ber ho jako konkrétní a otevři návod.
+    - Moto_id pro tool ber z page_context (když zákazník stojí na detailu motorky), z předchozího \`search_motorcycles\`, nebo se doptej, které motorky se dotaz týká, pokud to z konverzace nejde určit.
 `
 
 const TONE_DESC: Record<string, string> = {
