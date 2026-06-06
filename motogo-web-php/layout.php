@@ -10,13 +10,13 @@ require_once __DIR__ . '/i18n_currency.php';
 // (cookie mg_cms_admin) → inline edit přes overlay; běžní uživatelé dostanou plain text.
 function getMenuItems() {
     return [
-        ['label' => tc('menu.rental'), 'route' => '/pujcovna-motorek'],
-        ['label' => tc('menu.catalog'), 'route' => '/katalog'],
-        // Rodičovská položka "Jak si půjčit motorku" je pouze rozcestník pro
-        // podmenu — neodkazuje na žádnou stránku (/jak-pujcit byla odstraněna,
-        // protože byla obsahově duplicitní s podstránkami). `no_link => true`
-        // říká renderer, ať vyrenderuje neklickatelný název (mobil: tap rozbalí
-        // podmenu, desktop: hover ukáže submenu).
+        // "Vyber si stroj" = katalog. Menu-popisek `menu.catalogShort` je oddělený
+        // od `menu.catalog`, který slouží jako H1/<title> stránky /katalog —
+        // přejmenování položky v menu tak nezasáhne SEO katalogu.
+        ['label' => tc('menu.catalogShort'), 'route' => '/katalog'],
+        // Rozcestník (dříve "Jak si půjčit motorku", nyní obecná "Navigace") —
+        // neklikací rodič; sdružuje how-to podstránky + Půjčovnu motorek + E-shop.
+        // `no_link => true`: mobil tap rozbalí podmenu, desktop hover ukáže submenu.
         ['label' => tc('menu.howto'), 'no_link' => true, 'children' => [
             ['label' => tc('menu.howto.process'), 'route' => '/jak-pujcit/postup'],
             ['label' => tc('menu.howto.pickup'), 'route' => '/jak-pujcit/prevzeti'],
@@ -26,9 +26,10 @@ function getMenuItems() {
             ['label' => tc('menu.howto.delivery'), 'route' => '/jak-pujcit/pristaveni'],
             ['label' => tc('menu.howto.documents'), 'route' => '/jak-pujcit/dokumenty'],
             ['label' => tc('menu.howto.faq'), 'route' => '/jak-pujcit/faq'],
+            ['label' => tc('menu.rental'), 'route' => '/pujcovna-motorek'],
+            ['label' => tc('menu.shop'), 'route' => '/eshop'],
         ]],
         ['label' => tc('menu.vouchers'), 'route' => '/poukazy'],
-        ['label' => tc('menu.shop'), 'route' => '/eshop'],
         ['label' => tc('menu.blog'), 'route' => '/blog'],
         ['label' => tc('menu.contact'), 'route' => '/kontakt'],
     ];

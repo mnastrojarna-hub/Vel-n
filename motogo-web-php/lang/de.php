@@ -29,6 +29,7 @@ return [
     // Menu
     'menu.rental' => 'Motorradvermietung',
     'menu.catalog' => 'Motorradkatalog',
+    'menu.catalogShort' => 'Wähl dein Bike',
     'menu.catalog.touring' => 'Tourenmotorräder',
     'menu.catalog.naked' => 'Naked-Motorräder',
     'menu.catalog.supermoto' => 'Supermoto-Motorräder',
