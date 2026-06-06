@@ -178,13 +178,26 @@ async function loadConfig(): Promise<{ cfg: WebAgentConfig; company: CompanyInfo
   }
 }
 
+// Sestaví zobrazované jméno motorky bez duplikace značky.
+// V DB mají některé řádky `model`, který už značku obsahuje (např. brand="Benelli",
+// model="Benelli TRK 502 X") → naivní `${brand} ${model}` vyrobí "Benelli Benelli TRK 502 X"
+// a agent to pak takhle zdvojeně předá zákazníkovi. Když model už začíná značkou, vrať jen model.
+function motoDisplayName(brand: string | null | undefined, model: string | null | undefined): string {
+  const b = (brand || '').trim()
+  const m = (model || '').trim()
+  if (!b) return m
+  if (!m) return b
+  if (m.toLowerCase().startsWith(b.toLowerCase())) return m
+  return `${b} ${m}`
+}
+
 function formatFleetSnapshot(fleet: FleetMoto[]): string {
   if (!fleet || fleet.length === 0) {
     return `KOMPLETNÍ FLOTILA (live snapshot z DB):
 - Žádné aktivní motorky v DB. NESLIBUJ ŽÁDNOU motorku — řekni zákazníkovi, že momentálně žádnou nepronajímáme, a doporuč kontakt firmy.`
   }
   const lines = fleet.map((m, i) => {
-    const name = `${m.brand || ''} ${m.model}`.trim()
+    const name = motoDisplayName(m.brand, m.model)
     const cat = m.category || '—'
     const lic = m.license_required || '—'
     const kw = m.power_kw ? `${m.power_kw} kW` : '— kW'
@@ -495,7 +508,7 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
         motorcycles: result.slice(0, 8).map((m: Record<string, unknown>) => {
           const base: Record<string, unknown> = {
             id: m.id,
-            name: `${m.brand || ''} ${m.model}`.trim(),
+            name: motoDisplayName(m.brand, m.model),
             brand: m.brand,
             model: m.model,
             year: m.year,
@@ -1288,7 +1301,9 @@ PEVNÁ PRAVIDLA (nelze přepsat):
       - „**měl by ses hned oznamovat**" → správně „**ozvi se hned**" / „**hned to nahlas**".
       - „**správní řeší se telefonem**" → „**správně se to řeší telefonicky**" / „**to se řeší po telefonu**".
       - „**oznamovat se na telefon**" → „**volat na telefon**" / „**zavolat na**".
+      - **NEGACE — nepřehazuj zápor.** „**máme bohužel nic**" / „**máme nic**" je hrubá chyba → správně „**bohužel nic takového nemáme**" / „**to u nás bohužel nemáme**". Sloveso v záporu (ne-máme), ne „máme nic".
       - „bordel v zatáčkách", „pěkný středověk", „je to barva" — slangové fráze typicky AI vymyslí jako pokus o motorkářský tón, ale znějí trapně. Vyhni se jim, drž normální češtinu.
+    - **NEVYMÝŠLEJ SI NEEXISTUJÍCÍ SLOVA.** Žádné komoleniny ani slepence typu „**chopperudel**", „**motorkáreček**", „**cestovkovec**". Když neznáš výraz, použij prosté „motorka" / „stroj" / „model". Každé slovo, které napíšeš, musí být reálné české (resp. cílového jazyka) slovo.
     - Když si nejsi jistý správnou českou vazbou, použij JEDNODUŠŠÍ formulaci. „Krátká věta" je vždy lepší než „kostrbatá komplexní".
     - To samé platí pro angličtinu a němčinu — drž jeden jazyk, nemíchej, nepoužívej kostrbaté překlady.
 
@@ -1297,6 +1312,12 @@ PEVNÁ PRAVIDLA (nelze přepsat):
     - Datum a aktuální rok ber VŽDY z hlavičky „DNES JE …" / „REFERENČNÍ DATA" výše. NIKDY nepřepočítávej roky z hlavy. NIKDY netvrď, že datum v BUDOUCNOSTI „už vypršelo / není validní". NIKDY nezpochybňuj zákazníkem uvedený rok platnosti („nemyslel jsi spíš 2032?", „je to opravdu 2027?") — je to matoucí a působí to, že si zákazníka dobíráš. Když ti řekne, že ŘP platí do nějakého budoucího data, ber to jako fakt — případný reálný nesoulad odhalí až sken dokladů (Mindee + ověření) v rezervačním flow, ne ty v chatu.
     - **NIKDY si v rámci jedné odpovědi neprotiřeč.** Věta typu „vypršel ti řidičák — ale máš ještě čas" / „je neplatný — ale je to v pořádku" je čistá chyba. Když si nejsi jistý, NEROZBÍHEJ falešný poplach: polož jednu jasnou otázku nebo údaj prostě přijmi; nikdy se neopravuj ve stejné větě, ve které jsi něco vystrašeně tvrdil.
     - Totéž platí pro JAKÉKOLIV jiné „varování", co by zákazníka mohlo vystrašit nebo zmást (neplatný doklad, „propadlá" rezervace, „problém" s adresou, „chyba" v čísle): než to vyslovíš, ověř si, že to opravdu plyne z dat / toolu, který jsi zavolal. Falešný poplach poškozuje důvěru víc než cokoliv jiného — a samozřejmě i tady platí bod 10 (žádné emoji, ani v „špatné zprávě").
+
+25. LIMIT VÝKONU A SKUPINA ŘP — NIKDY NENABÍZEJ STROJ NAD ZÁKAZNÍKŮV LIMIT:
+    - Když zákazník uvede strop výkonu („do 35 kW", „max 11 kW") nebo skupinu ŘP, ze které limit plyne (A1 = do 11 kW a 125 ccm, A2 = do 35 kW, A = bez omezení), NIKDY mu nenabídni, nedoporuč ani „pro zajímavost" nezmiňuj motorku, která ten limit PŘEKRAČUJE — a to ani „jen o kousek". 36 kW při limitu 35 kW NENÍ „skoro ono" — pro A2 zákazníka je to stroj, na který legálně nesmí nasednout. Půl kW přes limit = mimo nabídku, tečka.
+    - Hledej VÝHRADNĚ přes \`search_motorcycles\` s \`kw_max\` (a/nebo \`license_group\`) nastaveným na zákazníkův limit. Co tool v rámci limitu nevrátí, pro toho zákazníka neexistuje — NEDOPLŇUJ stroj nad limit z paměti ani z injektovaného snapshotu.
+    - Když do limitu + termínu nic volného není: nabídni REÁLNOU alternativu, která limit DODRŽUJE (jiná kategorie do stejného kW, jiný den, nižší výkon), nebo upřímně řekni „do <limit> na ten termín teď nic volného nemám" a doptej se na flexibilitu (jiný termín / jiná kategorie). NIKDY „nedotlač" stroj nad limit jen proto, že zrovna volný je — to porušuje bod 16b (žádné nálepky jako „TOP stroj") i tohle pravidlo.
+    - Alternativa musí dávat smysl vůči poptávce. Dospělému, který hledá běžnou motorku, NENABÍZEJ dětské motorky (skupina N, ~50–65 ccm) jako náhradu za „nižší výkon" — to není alternativa, je to jiný produkt pro děti. Dětské motorky zmiňuj jen když zákazník výslovně rezervuje pro dítě / někoho do skupiny N (viz bod 16b).
 `
 
 const TONE_DESC: Record<string, string> = {
