@@ -187,10 +187,17 @@ export async function handleWebBookingCheckout(
 
   // Apple Pay / Google Pay se v Checkout Session povolují přes Stripe Dashboard
   // (Settings → Payment methods). `automatic_payment_methods` je platný jen pro PaymentIntent.
+  // `payment_method_types: ['card', 'link']` (2026-06-06) — explicitní výčet (karta první, Link druhý)
+  // způsobí, že Checkout zobrazí jako default standardní VÝBĚR metod (karta + Apple Pay/Google Pay
+  // peněženky + Link jako jednu z voleb) místo vynucené „Link-first" přihlašovací obrazovky, kterou
+  // Stripe u vrácených Link uživatelů ukazoval, když se metody řešily jen přes Dashboard (zákazník
+  // se musel proklikávat „zaplatit jinak"). Apple Pay / Google Pay jsou card wallets → zůstávají i s
+  // tímto výčtem (nutná aktivace + ověření domény v Dashboardu). Shodné s voucher/shop Session.
   const returnOrigin = resolveReturnOrigin(body.origin, body.locale)
   const session = await stripe.checkout.sessions.create({
     customer: customerId,
     mode: 'payment',
+    payment_method_types: ['card', 'link'],
     line_items: lineItems,
     metadata: sessionMetadata,
     payment_intent_data: { metadata: sessionMetadata },
@@ -337,6 +344,8 @@ async function handleWebProductCheckout(
   const productMetadata = { order_id: orderId, type: 'shop', source: 'web' }
   const sessionParams: Record<string, unknown> = {
     mode: 'payment',
+    // Standardní výběr metod (karta + Apple Pay/Google Pay + Link), ne „Link-first" obrazovka — viz booking checkout.
+    payment_method_types: ['card', 'link'],
     line_items: lineItems as Stripe.Checkout.SessionCreateParams.LineItem[],
     metadata: productMetadata,
     payment_intent_data: { metadata: productMetadata },
