@@ -190,26 +190,73 @@ if (!empty($posts)) {
 }
 $blogHtml .= '</div><p>&nbsp;</p><p class="text-center"><a class="btn btngreen" href="' . BASE_URL . $bl['cta_href'] . '" data-cms-key="web.home.blog.cta_label">' . $bl['cta_label'] . '</a></p></section>';
 
-// ---- Banner
+// ---- Banner (hero)
 $hero = $C['hero'];
 $heroImgUrl = BASE_URL . '/' . ltrim($hero['image'], '/');
 $heroWebp = preg_replace('/\.(png|jpg|jpeg)$/i', '.webp', $heroImgUrl);
 $ctaP = $hero['cta_primary'];
 $ctaS = $hero['cta_secondary'];
-// Responsive srcset varianty pro hero — mobile sahne pro 480w (10 KB)
-// misto plnych 146 KB. Soubory generovany v repo, viz commit hero-resize.
-$heroBase = preg_replace('/\.webp$/i', '', $heroWebp);
-$heroSrcset = $heroBase . '-480.webp 480w, ' . $heroBase . '-768.webp 768w, ' . $heroBase . '-1500.webp 1500w, ' . $heroWebp . ' 1920w';
-$bannerHtml = '<div class="banner">' .
-    '<picture>' .
-        '<source srcset="' . htmlspecialchars($heroSrcset) . '" type="image/webp" sizes="100vw">' .
-        '<img fetchpriority="high" decoding="async" alt="' . htmlspecialchars($hero['alt']) . '" src="' . htmlspecialchars($heroImgUrl) . '" width="1920" height="480">' .
-    '</picture>' .
-    '<div class="banner-wrapper"><div class="container"><div class="banner-caption">' .
-        '<p data-cms-key="web.home.hero.eyebrow">' . sanitizeHtml($hero['eyebrow']) . '</p><p>&nbsp;</p>' .
-        '<p data-cms-key="web.home.hero.body">' . sanitizeHtml($hero['body']) . '</p><p>&nbsp;</p>' .
-        '<p><a class="btn ' . ($ctaP['cls'] ?? 'btngreen') . '" href="' . BASE_URL . $ctaP['href'] . '" data-cms-key="web.home.hero.cta_primary.label">' . $ctaP['label'] . '</a> <a class="btn ' . ($ctaS['cls'] ?? 'btndark') . '" href="' . BASE_URL . $ctaS['href'] . '" data-cms-key="web.home.hero.cta_secondary.label">' . $ctaS['label'] . '</a></p>' .
-    '</div></div></div></div>';
+
+// Caption overlay je IDENTICKÝ pro slideshow i statický fallback — texty
+// (eyebrow/body/CTA) se nemění, mění se jen obrazové pozadí banneru.
+$heroCaption = '<div class="banner-wrapper"><div class="container"><div class="banner-caption">' .
+    '<p data-cms-key="web.home.hero.eyebrow">' . sanitizeHtml($hero['eyebrow']) . '</p><p>&nbsp;</p>' .
+    '<p data-cms-key="web.home.hero.body">' . sanitizeHtml($hero['body']) . '</p><p>&nbsp;</p>' .
+    '<p><a class="btn ' . ($ctaP['cls'] ?? 'btngreen') . '" href="' . BASE_URL . $ctaP['href'] . '" data-cms-key="web.home.hero.cta_primary.label">' . $ctaP['label'] . '</a> <a class="btn ' . ($ctaS['cls'] ?? 'btndark') . '" href="' . BASE_URL . $ctaS['href'] . '" data-cms-key="web.home.hero.cta_secondary.label">' . $ctaS['label'] . '</a></p>' .
+'</div></div></div>';
+
+// Hero slideshow — automatický CSS crossfade hlavních fotek CELÉ aktuální
+// flotily. Zdroj = $motos (fetchMotos), takže nová motorka přidaná ve Velíně
+// se v hero objeví sama. Hlavní foto = image_url, fallback images[0]; motorky
+// bez fotky přeskočíme. Když žádná motorka foto nemá → původní statický banner.
+$heroSlides = [];
+foreach ($motos as $hm) {
+    $raw = $hm['image_url'] ?? ($hm['images'][0] ?? '');
+    if (!is_string($raw) || $raw === '') continue;
+    $heroSlides[] = ['raw' => $raw, 'model' => trim((string)($hm['model'] ?? ''))];
+}
+
+if (!empty($heroSlides)) {
+    // CSS-only crossfade: každý snímek viditelný $per s, celý cyklus = $per*N.
+    // Per-snímek animation-delay fázuje snímky za sebe; poslední se prolne zpět
+    // do prvního (bezešvá smyčka). Klíčové snímky závisí na počtu motorek →
+    // generují se inline. (CSP povoluje inline <style>, viz blog.php.)
+    $per = 5;
+    $count = count($heroSlides);
+    $cycle = $per * $count;
+    $fadePct = $cycle > 0 ? round((0.8 / $cycle) * 100, 3) : 0; // ~0.8 s crossfade
+    $onePct = round(100 / $count, 3);
+    $kIn = $fadePct;                       // fade-in hotový
+    $kHold = $onePct;                      // konec viditelnosti snímku
+    $kOut = round($onePct + $fadePct, 3);  // fade-out hotový
+    $heroStyle = '<style>'
+        . '@keyframes mgHeroFade{0%{opacity:0}' . $kIn . '%{opacity:1}' . $kHold . '%{opacity:1}' . $kOut . '%{opacity:0}100%{opacity:0}}'
+        . '.banner-slideshow .mg-hero-slide{animation:mgHeroFade ' . $cycle . 's linear infinite both}'
+        . '</style>';
+
+    $slidesHtml = '';
+    foreach ($heroSlides as $i => $s) {
+        $src = imgUrlSized($s['raw'], 1200, 70);
+        $srcset = imgSrcset($s['raw'], [768, 1200, 1920], 70);
+        $modelName = $s['model'] !== '' ? $s['model'] : t('card.unnamedMotorcycle');
+        $alt = he(t('common.motorcycleAlt', ['model' => $modelName]));
+        $slidesHtml .= '<img class="mg-hero-slide" src="' . htmlspecialchars($src) . '"'
+            . ' srcset="' . htmlspecialchars($srcset) . '" sizes="100vw" alt="' . $alt . '"'
+            . ($i === 0 ? ' fetchpriority="high" decoding="async"' : ' loading="lazy" decoding="async"')
+            . ' width="1920" height="480" style="animation-delay:' . ($i * $per) . 's">';
+    }
+
+    $bannerHtml = $heroStyle . '<div class="banner banner-slideshow">' . $slidesHtml . $heroCaption . '</div>';
+} else {
+    // Fallback: původní statický banner (responsive srcset, beze změny).
+    $heroBase = preg_replace('/\.webp$/i', '', $heroWebp);
+    $heroSrcset = $heroBase . '-480.webp 480w, ' . $heroBase . '-768.webp 768w, ' . $heroBase . '-1500.webp 1500w, ' . $heroWebp . ' 1920w';
+    $bannerHtml = '<div class="banner">' .
+        '<picture>' .
+            '<source srcset="' . htmlspecialchars($heroSrcset) . '" type="image/webp" sizes="100vw">' .
+            '<img fetchpriority="high" decoding="async" alt="' . htmlspecialchars($hero['alt']) . '" src="' . htmlspecialchars($heroImgUrl) . '" width="1920" height="480">' .
+        '</picture>' . $heroCaption . '</div>';
+}
 
 $introHtml = !empty($C['intro']) ? '<p class="home-intro" data-cms-key="web.home.intro">' . sanitizeHtml($C['intro']) . '</p>' : '';
 
