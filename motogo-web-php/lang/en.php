@@ -29,6 +29,7 @@ return [
     // ===== Menu items (route → label) =====
     'menu.rental' => 'Motorcycle rental',
     'menu.catalog' => 'Motorcycle catalogue',
+    'menu.catalogShort' => 'Choose your bike',
     'menu.catalog.touring' => 'Touring motorcycles',
     'menu.catalog.naked' => 'Naked motorcycles',
     'menu.catalog.supermoto' => 'Supermoto motorcycles',

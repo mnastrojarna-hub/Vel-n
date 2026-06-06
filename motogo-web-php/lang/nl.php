@@ -26,6 +26,7 @@ return [
 
     'menu.rental' => 'Motorverhuur',
     'menu.catalog' => 'Motorcatalogus',
+    'menu.catalogShort' => 'Kies je motor',
     'menu.catalog.touring' => 'Toermotorfietsen',
     'menu.catalog.naked' => 'Naked motorfietsen',
     'menu.catalog.supermoto' => 'Supermoto motorfietsen',

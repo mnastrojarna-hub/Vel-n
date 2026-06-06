@@ -29,6 +29,7 @@ return [
     // ===== Menu položky (route → label) =====
     'menu.rental' => 'Location de motos',
     'menu.catalog' => 'Catalogue de motos',
+    'menu.catalogShort' => 'Choisis ta moto',
     'menu.catalog.touring' => 'Motos de tourisme',
     'menu.catalog.naked' => 'Motos naked / Motos roadster',
     'menu.catalog.supermoto' => 'Motos supermoto',

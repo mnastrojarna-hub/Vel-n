@@ -26,6 +26,7 @@ return [
 
     'menu.rental' => 'Wypożyczalnia motocykli',
     'menu.catalog' => 'Katalog motocykli',
+    'menu.catalogShort' => 'Wybierz motocykl',
     'menu.catalog.touring' => 'Motocykle turystyczne',
     'menu.catalog.naked' => 'Motocykle naked',
     'menu.catalog.supermoto' => 'Motocykle supermoto',
