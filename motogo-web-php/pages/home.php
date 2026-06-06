@@ -211,15 +211,29 @@ $heroCaption = '<div class="banner-wrapper"><div class="container"><div class="b
 // bez fotky přeskočíme. Když žádná motorka foto nemá → původní statický banner.
 $heroSlides = [];
 foreach ($motos as $hm) {
-    $main = $hm['image_url'] ?? ($hm['images'][0] ?? '');
-    if (!is_string($main) || $main === '') continue;
-    // Sekundární foto = náhodné DALŠÍ foto STEJNÉ motorky (z images[], jiné než
-    // hlavní). Slouží jen pro desktop (dvě fotky vedle sebe); na mobilu se skryje.
-    // Když motorka druhé foto nemá, zůstane prázdné a desktop ukáže jen hlavní.
-    $gallery = is_array($hm['images'] ?? null) ? array_values(array_filter($hm['images'], function ($u) { return is_string($u) && $u !== ''; })) : [];
-    $others = array_values(array_filter($gallery, function ($u) use ($main) { return $u !== $main; }));
-    $secondary = !empty($others) ? $others[array_rand($others)] : '';
-    $heroSlides[] = ['main' => $main, 'secondary' => $secondary, 'model' => trim((string)($hm['model'] ?? ''))];
+    // Pool všech DISTINCT fotek TÉ motorky: image_url (cover) + images[] galerie.
+    $pool = [];
+    $cover = (!empty($hm['image_url']) && is_string($hm['image_url'])) ? $hm['image_url'] : '';
+    if ($cover !== '') $pool[] = $cover;
+    if (is_array($hm['images'] ?? null)) {
+        foreach ($hm['images'] as $u) {
+            if (is_string($u) && $u !== '' && !in_array($u, $pool, true)) $pool[] = $u;
+        }
+    }
+    if (empty($pool)) continue;
+    $main = $pool[0];
+    $rest = array_slice($pool, 1);
+    if (!empty($rest)) {
+        // 2+ fotky → druhá je náhodná DALŠÍ fotka stejné motorky.
+        $secondary = $rest[array_rand($rest)];
+        $split = false;
+    } else {
+        // Jen jedna fotka → na desktopu ji rozdělíme do dvou panelů (levá/pravá část),
+        // ať je layout „dvě vedle sebe" konzistentní. Na mobilu se ukáže celá jako cover.
+        $secondary = $main;
+        $split = true;
+    }
+    $heroSlides[] = ['main' => $main, 'secondary' => $secondary, 'split' => $split, 'model' => trim((string)($hm['model'] ?? ''))];
 }
 
 if (!empty($heroSlides)) {
@@ -250,14 +264,13 @@ if (!empty($heroSlides)) {
             . ' srcset="' . htmlspecialchars(imgSrcset($s['main'], [600, 1000, 1400], 70)) . '" sizes="(max-width:768px) 100vw, 50vw" alt="' . $altText . '"'
             . ($eager ? ' fetchpriority="high" decoding="async"' : ' loading="lazy" decoding="async"')
             . ' width="960" height="480">';
-        // Druhé foto stejné motorky — jen desktop (na mobilu skryté přes CSS).
-        $imgSecondary = '';
-        if ($s['secondary'] !== '') {
-            $imgSecondary = '<img class="mg-hero-img mg-hero-img-alt" src="' . htmlspecialchars(imgUrlSized($s['secondary'], 1000, 70)) . '"'
-                . ' srcset="' . htmlspecialchars(imgSrcset($s['secondary'], [600, 1000, 1400], 70)) . '" sizes="50vw" alt="' . $altText . '"'
-                . ' loading="lazy" decoding="async" width="960" height="480">';
-        }
-        $slidesHtml .= '<div class="mg-hero-slide" style="animation-delay:' . ($i * $per) . 's">' . $imgMain . $imgSecondary . '</div>';
+        // Pravá polovina — druhá fotka stejné motorky (nebo druhá část téže fotky
+        // při split). Jen desktop (na mobilu skryté přes CSS).
+        $imgSecondary = '<img class="mg-hero-img mg-hero-img-alt" src="' . htmlspecialchars(imgUrlSized($s['secondary'], 1000, 70)) . '"'
+            . ' srcset="' . htmlspecialchars(imgSrcset($s['secondary'], [600, 1000, 1400], 70)) . '" sizes="50vw" alt="' . $altText . '"'
+            . ' loading="lazy" decoding="async" width="960" height="480">';
+        $cls = 'mg-hero-slide' . (!empty($s['split']) ? ' mg-hero-split' : '');
+        $slidesHtml .= '<div class="' . $cls . '" style="animation-delay:' . ($i * $per) . 's">' . $imgMain . $imgSecondary . '</div>';
     }
 
     $bannerHtml = $heroStyle . '<div class="banner banner-slideshow">' . $slidesHtml . $heroCaption . '</div>';
