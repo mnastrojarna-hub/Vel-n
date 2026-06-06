@@ -159,6 +159,7 @@ serve(async (req) => {
       language: reqLanguage, // i18n: jazyk zákazníka (localizuje ODKAZY na faktuře)
       regenerate, // přepiš existující doklad aktuálními údaji (stejné číslo, stejný řádek)
       invoice_date, // YYYY-MM-DD — override data vystavení i splatnosti (využívá Velín u přegenerování)
+      render_existing, // dorenderuj PDF pro EXISTUJÍCÍ doklad bez pdf_path (NEpřepočítává položky)
     } = await req.json()
     if (!booking_id && !order_id) return new Response(JSON.stringify({ error: 'Missing booking_id or order_id' }), { status: 400 })
 
@@ -168,6 +169,66 @@ serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
     const COMPANY = await loadCompanyInfo(supabase)
+
+    // ── Render-only pro EXISTUJÍCÍ doklad bez PDF ──────────────────────────────
+    // KF (konečnou fakturu) k rezervaci vytváří DB trigger
+    // generate_final_invoice_on_complete(), který ale PDF nikdy nevyrenderuje →
+    // invoices.pdf_path zůstává NULL. Velín ji renderuje client-side (proto „existuje"),
+    // ale mail booking_completed nemá co přiložit. Tato větev dorenderuje PDF z
+    // ULOŽENÝCH položek řádku (nepřepočítává je) a doplní pdf_path — beze změny čísla/řádku.
+    if (render_existing && booking_id) {
+      const wantType = type || 'final'
+      const { data: existRows } = await supabase.from('invoices')
+        .select('id, number, type, items, total, customer_id, issue_date, due_date, pdf_path')
+        .eq('booking_id', booking_id).eq('type', wantType).neq('status', 'cancelled')
+        .order('created_at', { ascending: false }).limit(1)
+      const inv = existRows?.[0]
+      if (!inv) return new Response(JSON.stringify({ error: 'Invoice not found' }), { status: 404, headers: { ...CORS, 'Content-Type': 'application/json' } })
+
+      // Už má použitelné PDF/HTML? Vrať ho (idempotence).
+      if (inv.pdf_path) {
+        try {
+          const { data: blob } = await supabase.storage.from('documents').download(inv.pdf_path)
+          if (blob && blob.size > 0) {
+            return new Response(JSON.stringify({ success: true, invoice_id: inv.id, number: inv.number, pdf_path: inv.pdf_path, existing: true }), { headers: { ...CORS, 'Content-Type': 'application/json' } })
+          }
+        } catch { /* soubor chybí → dorenderuj */ }
+      }
+
+      // ODBĚRATEL (zákazník)
+      let cust: any = {}
+      if (inv.customer_id) {
+        const { data: prof } = await supabase.from('profiles')
+          .select('id, full_name, email, phone, street, city, zip, country, ico, dic')
+          .eq('id', inv.customer_id).single()
+        if (prof) cust = prof
+      }
+
+      const isFinalKf = inv.type === 'final'
+      const today = new Date().toISOString().slice(0, 10)
+      const html = generateInvoiceHtml({
+        title: isFinalKf ? 'KONEČNÁ FAKTURA' : 'FAKTURA',
+        number: inv.number, accent: '#1a8a18',
+        issueDate: inv.issue_date || today, dueDate: inv.due_date || inv.issue_date || today,
+        total: Number(inv.total || 0), company: COMPANY, customer: cust,
+        items: Array.isArray(inv.items) ? inv.items : [],
+        isProforma: false, isPaymentReceipt: false, isShopFinal: isFinalKf,
+        bookingNumber: booking_id.slice(-8).toUpperCase(), lang: 'cs',
+      })
+
+      let outPath: string
+      const pdfBytes = await htmlToPdf(html)
+      if (pdfBytes) {
+        outPath = `invoices/${inv.id}.pdf`
+        await supabase.storage.from('documents').upload(outPath, new Blob([pdfBytes], { type: 'application/pdf' }), { upsert: true, contentType: 'application/pdf' })
+      } else {
+        outPath = `invoices/${inv.id}.html`
+        await supabase.storage.from('documents').upload(outPath, new Blob([html], { type: 'text/html' }), { upsert: true, contentType: 'text/html' })
+      }
+      await supabase.from('invoices').update({ pdf_path: outPath }).eq('id', inv.id)
+
+      return new Response(JSON.stringify({ success: true, invoice_id: inv.id, number: inv.number, pdf_path: outPath }), { headers: { ...CORS, 'Content-Type': 'application/json' } })
+    }
 
     const invoiceType = type || 'proforma'
     const isShop = invoiceType === 'shop_proforma' || invoiceType === 'shop_final' || (order_id && !booking_id)
