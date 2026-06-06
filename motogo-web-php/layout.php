@@ -13,7 +13,7 @@ function getMenuItems() {
         // "Vyber si stroj" = katalog. Menu-popisek `menu.catalogShort` je oddělený
         // od `menu.catalog`, který slouží jako H1/<title> stránky /katalog —
         // přejmenování položky v menu tak nezasáhne SEO katalogu.
-        ['label' => tc('menu.catalogShort'), 'route' => '/katalog'],
+        ['label' => tc('menu.catalogShort'), 'route' => '/katalog', 'highlight' => true],
         // Rozcestník (dříve "Jak si půjčit motorku", nyní obecná "Navigace") —
         // neklikací rodič; sdružuje how-to podstránky + Půjčovnu motorek + E-shop.
         // `no_link => true`: mobil tap rozbalí podmenu, desktop hover ukáže submenu.
@@ -27,9 +27,9 @@ function getMenuItems() {
             ['label' => tc('menu.howto.documents'), 'route' => '/jak-pujcit/dokumenty'],
             ['label' => tc('menu.howto.faq'), 'route' => '/jak-pujcit/faq'],
             ['label' => tc('menu.rental'), 'route' => '/pujcovna-motorek'],
-            ['label' => tc('menu.shop'), 'route' => '/eshop'],
         ]],
-        ['label' => tc('menu.vouchers'), 'route' => '/poukazy'],
+        ['label' => tc('menu.vouchers'), 'route' => '/poukazy', 'highlight' => true],
+        ['label' => tc('menu.shop'), 'route' => '/eshop'],
         ['label' => tc('menu.blog'), 'route' => '/blog'],
         ['label' => tc('menu.contact'), 'route' => '/kontakt'],
     ];
@@ -51,7 +51,12 @@ function renderHeader($currentPath = '/') {
             // navigaci na desktopu — na mobilu existující JS preventDefault dělá toggle.
             $nav .= '<a class="menu-section" href="#" onclick="event.preventDefault();return false;" aria-haspopup="true">' . $item['label'] . $arrow . '</a>';
         } else {
-            $nav .= '<a' . ($isActive ? ' class="active"' : '') . ' data-route="' . $route . '" href="' . BASE_URL . $route . '">' . $item['label'] . $arrow . '</a>';
+            // Zvýrazněné položky (highlight => true): brand zelená + tučně přes .menu-highlight.
+            $linkCls = [];
+            if ($isActive) $linkCls[] = 'active';
+            if (!empty($item['highlight'])) $linkCls[] = 'menu-highlight';
+            $clsAttr = $linkCls ? ' class="' . implode(' ', $linkCls) . '"' : '';
+            $nav .= '<a' . $clsAttr . ' data-route="' . $route . '" href="' . BASE_URL . $route . '">' . $item['label'] . $arrow . '</a>';
         }
         if ($hasSub) {
             $nav .= '<ul class="submenu bs">';
