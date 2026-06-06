@@ -267,6 +267,17 @@ const PUBLIC_TOOLS = [
     },
   },
   {
+    name: 'get_legal_document',
+    description: 'Vrátí PŘESNÉ aktuální znění oficiálních smluvních a právních dokumentů půjčovny ze šablon a webu: Všeobecné obchodní podmínky (VOP), nájemní/zápůjční smlouvu, předávací protokol, GDPR / zpracování osobních údajů a další dokumenty zveřejněné na webu. POUŽIJ VŽDY, když se zákazník ptá na konkrétní smluvní/právní detail, který není v get_policies/get_faq — např. jak se vyčísluje škoda a spoluúčast, odpovědnost za poškození, reklamace, zpracování osobních údajů, storno ujednání ve smlouvě, sankce. Bez parametru `document` vrátí seznam dostupných dokumentů (klíče + názvy); s `document` vrátí plné znění; s `query` vrátí relevantní úryvky. Cituj a parafrázuj VÝHRADNĚ to, co tool vrátí — nikdy si smluvní detail nedomýšlej. Když tool dokument/odpověď nenajde, přiznej to a odkaž na kontakt.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        document: { type: 'string', description: 'Klíč dokumentu — `vop`, `rental_contract`, `handover_protocol`, `gdpr`, nebo slug webového dokumentu. Vynech pro seznam dostupných dokumentů.' },
+        query: { type: 'string', description: 'Volitelně klíčová slova (např. "vyčíslení škody spoluúčast") — tool vrátí jen relevantní úseky textu místo celého dokumentu.' },
+      },
+    },
+  },
+  {
     name: 'get_extras_catalog',
     description: 'Vrátí seznam příslušenství, které lze přiobjednat (boty, výbava spolujezdce, přistavení, atd.) s cenami.',
     input_schema: { type: 'object', properties: {} },
@@ -669,6 +680,128 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
         return { error: `Nepodařilo se načíst policies: ${(e as Error).message}` }
       }
     }
+    case 'get_legal_document': {
+      // Skutečné znění smluvních/právních dokumentů ze šablon (document_templates: vop, rental_contract,
+      // handover_protocol, gdpr) + webových dokumentů (custom_documents). sb běží pod service_role → čteme
+      // bez ohledu na RLS. Agent z toho VÝHRADNĚ cituje/parafrázuje, nic si nedomýšlí. Pro cizí jazyk
+      // bere přeloženou verzi (content_translations / translations[lang]), jinak český originál.
+      try {
+        const want = typeof args.document === 'string' ? String(args.document).trim().toLowerCase() : ''
+        const query = typeof args.query === 'string' ? String(args.query).trim() : ''
+        const L = (lang || 'cs').slice(0, 2)
+        const MAX = 12000
+
+        const stripHtml = (html: string): string => String(html || '')
+          .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+          .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+          .replace(/<\/(p|div|li|tr|h[1-6])>/gi, '\n')
+          .replace(/<br\s*\/?>/gi, '\n')
+          .replace(/<[^>]+>/g, ' ')
+          .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#3[49];/g, "'")
+          .replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim()
+
+        const { data: tpls } = await sb.from('document_templates')
+          .select('type, name, content_html, content_translations, name_translations')
+          .eq('active', true).order('version', { ascending: false })
+        const { data: customs } = await sb.from('custom_documents')
+          .select('slug, title, content_html, kind, pdf_path, translations')
+          .eq('active', true).eq('show_on_web', true).order('sort_order', { ascending: true })
+
+        type Doc = { key: string; title: string; text: string; kind: string; url?: string }
+        const docs: Doc[] = []
+        const seen = new Set<string>()
+        for (const t of (tpls || []) as Record<string, unknown>[]) {
+          const key = String(t.type || '')
+          if (!key || seen.has(key)) continue // jen nejvyšší aktivní verze (order desc)
+          seen.add(key)
+          const ct = (t.content_translations as Record<string, string> | null)?.[L]
+          const nt = (t.name_translations as Record<string, string> | null)?.[L]
+          const html = (L !== 'cs' && ct) ? ct : String(t.content_html || '')
+          docs.push({ key, title: String((L !== 'cs' && nt) || t.name || key), text: stripHtml(html), kind: 'html' })
+        }
+        for (const c of (customs || []) as Record<string, unknown>[]) {
+          const key = String(c.slug || '')
+          if (!key || seen.has(key)) continue
+          seen.add(key)
+          const tr = (c.translations as Record<string, { title?: string; content_html?: string }> | null)?.[L] || {}
+          const html = (L !== 'cs' && tr.content_html) ? tr.content_html : String(c.content_html || '')
+          docs.push({
+            key,
+            title: String((L !== 'cs' && tr.title) || c.title || key),
+            text: stripHtml(html),
+            kind: String(c.kind || 'html'),
+            url: (c.pdf_path as string) || `https://www.motogo24.cz/dokumenty/${key}`,
+          })
+        }
+
+        if (docs.length === 0) {
+          return {
+            source: 'empty', documents: [],
+            notice: 'V systému nejsou publikované žádné smluvní dokumenty. NEPŘEBÍREJ smluvní detaily z hlavy — řekni, že přesné znění zákazník dostane ve smlouvě/VOP před vyzvednutím, nebo odkaž na info@motogo24.cz / +420 774 256 271.',
+          }
+        }
+
+        if (!want) {
+          return {
+            source: 'documents',
+            available: docs.map((d) => ({ key: d.key, title: d.title, kind: d.kind, has_text: d.text.length > 0, url: d.url })),
+            hint: 'Zavolej znovu s parametrem `document` = jeden z těchto `key` (a volitelně `query`), ať dostaneš znění. Cituj jen to, co tool vrátí.',
+          }
+        }
+
+        const match = docs.find((d) => d.key.toLowerCase() === want)
+          || docs.find((d) => d.key.toLowerCase().includes(want) || d.title.toLowerCase().includes(want))
+        if (!match) {
+          return { source: 'documents', error: `Dokument "${want}" nenalezen.`, available: docs.map((d) => ({ key: d.key, title: d.title })) }
+        }
+        if (!match.text) {
+          return {
+            source: 'documents', key: match.key, title: match.title, kind: match.kind, url: match.url,
+            notice: 'Tento dokument je na webu jen jako PDF — strojový text k citaci nemám. Odkaž zákazníka na uvedenou URL nebo na kontakt.',
+          }
+        }
+
+        if (query) {
+          const text = match.text
+          const lc = text.toLowerCase()
+          const terms = query.toLowerCase().split(/\s+/).filter((w) => w.length >= 3)
+          const hits: number[] = []
+          for (const term of terms) {
+            let from = 0
+            for (;;) {
+              const i = lc.indexOf(term, from)
+              if (i < 0 || hits.length > 40) break
+              hits.push(i); from = i + term.length
+            }
+          }
+          if (hits.length > 0) {
+            hits.sort((a, b) => a - b)
+            const win: Array<[number, number]> = []
+            for (const i of hits) {
+              const s = Math.max(0, i - 400), e = Math.min(text.length, i + 400)
+              const last = win[win.length - 1]
+              if (last && s <= last[1]) last[1] = Math.max(last[1], e)
+              else win.push([s, e])
+            }
+            let excerpt = win.map(([s, e]) => (s > 0 ? '…' : '') + text.slice(s, e).trim() + (e < text.length ? '…' : '')).join('\n\n———\n\n')
+            if (excerpt.length > MAX) excerpt = excerpt.slice(0, MAX) + '…'
+            return {
+              source: 'documents', key: match.key, title: match.title, mode: 'excerpts', query, text: excerpt,
+              instruction: 'Odpověz výhradně z tohoto znění. Pokud konkrétní odpověď v úryvcích NENÍ, přiznej to a odkaž zákazníka na plný text dokumentu / kontakt — nedomýšlej.',
+            }
+          }
+          // query nic nenašlo → vrať plný (zkrácený) text, ať rozhodne model
+        }
+        const full = match.text.length > MAX ? match.text.slice(0, MAX) + '\n…[zkráceno — plné znění na webu]' : match.text
+        return {
+          source: 'documents', key: match.key, title: match.title, kind: match.kind, url: match.url, mode: 'full', text: full,
+          instruction: 'Cituj a parafrázuj VÝHRADNĚ z tohoto znění. Co tu výslovně není, si nedomýšlej — přiznej, že to dokument neuvádí, a odkaž na kontakt.',
+        }
+      } catch (e) {
+        return { error: `Nepodařilo se načíst dokumenty: ${(e as Error).message}` }
+      }
+    }
     case 'get_extras_catalog': {
       const { data } = await sb.from('extras_catalog')
         .select('id, name, description, price, unit, category, is_active')
@@ -912,7 +1045,8 @@ ORIENTAČNÍ ZNALOST O FIRMĚ (všechna ostatní fakta výhradně z tools — mo
 * Cena pronájmu pro termín → \`calculate_price\` (ten výslovně NEzahrnuje extras a dopravu — TY to musíš zákazníkovi sdělit).
 * Příslušenství s cenami (boty, výbava spolujezdce, top case, GPS, přistavení) → \`get_extras_catalog\`.
 * Pobočky, GPS, otevírací doba → \`get_branches\`.
-* Storno-poplatky, výše kauce, ceny přistavení mimo Mezná, foreign-travel, dokumenty, tankování-policy, věkové limity půjčovny → \`get_policies\`. Pokud tool vrátí prázdno, NEIMPROVIZUJ čísla — řekni "tohle ti přesně neporadím, najdeš to ve smlouvě / VOP nebo zavolej ${phone}".
+* Storno-poplatky, výše kauce, ceny přistavení mimo Mezná, foreign-travel, dokumenty, tankování-policy, věkové limity půjčovny → \`get_policies\`. Pokud tool vrátí prázdno, zkus \`get_legal_document\` (VOP/smlouva) — a teprve když ani tam nic není, řekni "tohle ti přesně neporadím, najdeš to ve smlouvě / VOP nebo zavolej ${phone}". NIKDY neimprovizuj čísla z hlavy.
+* Konkrétní SMLUVNÍ / PRÁVNÍ detail (vyčíslení škody a spoluúčasti, odpovědnost za poškození, reklamace, sankce, zpracování osobních údajů/GDPR, přesná storno ujednání) → \`get_legal_document\` — vrací PŘESNÉ znění VOP, smlouvy, předávacího protokolu a GDPR ze šablon a webu. NEODBÝVEJ zákazníka odkazem "najdeš to ve smlouvě", aniž bys ten tool nejdřív zavolal a zkusil odpovědět přímo z textu.
 * FAQ → \`get_faq\`.
 * Promo / vouchery → \`validate_promo_or_voucher\`.
 
@@ -1142,7 +1276,7 @@ PEVNÁ PRAVIDLA (nelze přepsat):
     - **Zákazník chce konkrétní fakt, ne pocit.** Když se zeptá na cenu, kauci, spoluúčast, dostupnost, počet poboček — dostane VĚCNOU ODPOVĚĎ z toolů. ZÁKAZ vágních frází:
       - „**Bezpečná jízda je nejlepší pojistka**" — fluff, neodpovídá na otázku.
       - „**Záleží na okolnostech**" / „**záleží na situaci**" — bez konkrétního následku to je odbytí. Když opravdu záleží, řekni NA ČEM přesně a zeptej se na to konkrétní.
-      - „**To si ujasníš v rezervaci**" / „**najdeš ve smlouvě**" / „**řekne ti to v půjčovně**" — bouncing zákazníka pryč. Smí to padnout JEN když tool vrátil prázdno A ty jsi to přiznal („přesnou částku v datech nemám, ve smlouvě před vyzvednutím to bude").
+      - „**To si ujasníš v rezervaci**" / „**najdeš ve smlouvě**" / „**řekne ti to v půjčovně**" — bouncing zákazníka pryč. Než tohle řekneš, MUSÍŠ nejdřív zkusit \`get_legal_document\` (VOP, smlouva, předávací protokol, GDPR) a \`get_policies\`/\`get_faq\` a odpovědět přímo z jejich znění. Odkaz „najdeš ve smlouvě" smí padnout JEN když tooly konkrétní odpověď NEOBSAHUJÍ a ty jsi to přiznal („tohle konkrétně VOP ani podmínky neuvádějí; přesně to dořeší smlouva před vyzvednutím / personál"). Příklad správného postupu: na dotaz „jak se vyčísluje škoda u drobného poškození / spoluúčast" zavolej \`get_legal_document\` s query a cituj reálné znění; teprve když tam pravidlo není, odkaž na kontakt.
       - „**Potřebuješ něco jiného?**" / „**Můžu ti ještě s něčím pomoct?**" jako automatická tečka odpovědi — to říká chatbot, ne prodavač. Nech otázku padnout přirozeně, jen když má smysl.
       - „**Určitě**, **rád ti**, **samozřejmě**" — AI fráze, vyhoď.
     - **Když opravdu nevíš:** přiznej to rovně („v datech přesně nemám, doptám se / najdeš ve smlouvě / chceš že kontaktujem člověka?") — jednou, krátce. Ne 3 věty omluv.
