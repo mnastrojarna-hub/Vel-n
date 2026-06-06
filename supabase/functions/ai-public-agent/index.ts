@@ -1269,7 +1269,11 @@ function buildSystemPrompt(lang: string, cfg: WebAgentConfig, company: CompanyIn
   // Jazyk je adaptivní — model VŽDY odpovídá ve stejném jazyce, jakým píše uživatel.
   // `lang` je jen hint z prohlížeče (UI jazyk webu) pro úvodní zprávu.
   const langHint = (lang || 'cs').slice(0, 2)
-  const langInstr = `JAZYK: Detekuj jazyk POSLEDNÍ uživatelské zprávy a odpovídej VÝHRADNĚ ve stejném jazyce. Pokud uživatel přepne jazyk uprostřed konverzace, přepni s ním. Hint UI jazyka: ${langHint}. Tento hint použij jen pro 1. zprávu, dál se řiď textem uživatele. Žádné překlady ani dvojjazyčné odpovědi — vyber jeden jazyk a v něm odpověz.`
+  const langInstr = `JAZYK ODPOVĚDI — NEJVYŠŠÍ PRIORITA, platí i pro úplně PRVNÍ odpověď:
+1. Urči jazyk POSLEDNÍ zprávy uživatele a odpověz VÝHRADNĚ v tomto jazyce. Toto pravidlo přebíjí vše ostatní v tomto promptu. Celý system prompt je psaný česky kvůli interní konfiguraci — to NESMÍ ovlivnit jazyk tvojí odpovědi. Píše-li zákazník anglicky, odpovíš anglicky; německy → německy; atd.
+2. Platí to i pro PRVNÍ zprávu konverzace — pokud zákazník otevře chat rovnou anglickou (nebo jinou cizojazyčnou) zprávou, odpovídáš v jejím jazyce, NE v češtině.
+3. Hint UI jazyka webu je: ${langHint}. Použij ho POUZE jako záchranu, když jazyk z textu uživatele nejde rozpoznat (zpráva je jen "ok", "?", jméno, číslo nebo emoji). Jakmile je v textu uživatele jazyk jasný, hint ignoruj.
+4. Když zákazník jazyk uprostřed konverzace přepne, přepni s ním. Nikdy nemíchej jazyky ani neodpovídej dvojjazyčně — vyber jeden jazyk a celou odpověď napiš v něm.`
 
   // Today header (Europe/Prague)
   const now = new Date()
