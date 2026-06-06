@@ -211,9 +211,15 @@ $heroCaption = '<div class="banner-wrapper"><div class="container"><div class="b
 // bez fotky přeskočíme. Když žádná motorka foto nemá → původní statický banner.
 $heroSlides = [];
 foreach ($motos as $hm) {
-    $raw = $hm['image_url'] ?? ($hm['images'][0] ?? '');
-    if (!is_string($raw) || $raw === '') continue;
-    $heroSlides[] = ['raw' => $raw, 'model' => trim((string)($hm['model'] ?? ''))];
+    $main = $hm['image_url'] ?? ($hm['images'][0] ?? '');
+    if (!is_string($main) || $main === '') continue;
+    // Sekundární foto = náhodné DALŠÍ foto STEJNÉ motorky (z images[], jiné než
+    // hlavní). Slouží jen pro desktop (dvě fotky vedle sebe); na mobilu se skryje.
+    // Když motorka druhé foto nemá, zůstane prázdné a desktop ukáže jen hlavní.
+    $gallery = is_array($hm['images'] ?? null) ? array_values(array_filter($hm['images'], function ($u) { return is_string($u) && $u !== ''; })) : [];
+    $others = array_values(array_filter($gallery, function ($u) use ($main) { return $u !== $main; }));
+    $secondary = !empty($others) ? $others[array_rand($others)] : '';
+    $heroSlides[] = ['main' => $main, 'secondary' => $secondary, 'model' => trim((string)($hm['model'] ?? ''))];
 }
 
 if (!empty($heroSlides)) {
@@ -236,14 +242,22 @@ if (!empty($heroSlides)) {
 
     $slidesHtml = '';
     foreach ($heroSlides as $i => $s) {
-        $src = imgUrlSized($s['raw'], 1200, 70);
-        $srcset = imgSrcset($s['raw'], [768, 1200, 1920], 70);
         $modelName = $s['model'] !== '' ? $s['model'] : t('card.unnamedMotorcycle');
-        $alt = he(t('common.motorcycleAlt', ['model' => $modelName]));
-        $slidesHtml .= '<img class="mg-hero-slide" src="' . htmlspecialchars($src) . '"'
-            . ' srcset="' . htmlspecialchars($srcset) . '" sizes="100vw" alt="' . $alt . '"'
-            . ($i === 0 ? ' fetchpriority="high" decoding="async"' : ' loading="lazy" decoding="async"')
-            . ' width="1920" height="480" style="animation-delay:' . ($i * $per) . 's">';
+        $altText = he(t('common.motorcycleAlt', ['model' => $modelName]));
+        $eager = ($i === 0);
+        // Hlavní foto — na mobilu jediné (plný cover), na desktopu levá polovina.
+        $imgMain = '<img class="mg-hero-img mg-hero-img-main" src="' . htmlspecialchars(imgUrlSized($s['main'], 1000, 70)) . '"'
+            . ' srcset="' . htmlspecialchars(imgSrcset($s['main'], [600, 1000, 1400], 70)) . '" sizes="(max-width:768px) 100vw, 50vw" alt="' . $altText . '"'
+            . ($eager ? ' fetchpriority="high" decoding="async"' : ' loading="lazy" decoding="async"')
+            . ' width="960" height="480">';
+        // Druhé foto stejné motorky — jen desktop (na mobilu skryté přes CSS).
+        $imgSecondary = '';
+        if ($s['secondary'] !== '') {
+            $imgSecondary = '<img class="mg-hero-img mg-hero-img-alt" src="' . htmlspecialchars(imgUrlSized($s['secondary'], 1000, 70)) . '"'
+                . ' srcset="' . htmlspecialchars(imgSrcset($s['secondary'], [600, 1000, 1400], 70)) . '" sizes="50vw" alt="' . $altText . '"'
+                . ' loading="lazy" decoding="async" width="960" height="480">';
+        }
+        $slidesHtml .= '<div class="mg-hero-slide" style="animation-delay:' . ($i * $per) . 's">' . $imgMain . $imgSecondary . '</div>';
     }
 
     $bannerHtml = $heroStyle . '<div class="banner banner-slideshow">' . $slidesHtml . $heroCaption . '</div>';
