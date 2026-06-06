@@ -103,6 +103,30 @@ async function getAccessToken(serviceAccount: {
   return data.access_token
 }
 
+/**
+ * Authorize the caller as service_role.
+ * Accepts the bearer token if it either exactly matches the injected
+ * SUPABASE_SERVICE_ROLE_KEY (fast path) OR is a JWT whose `role` claim is
+ * `service_role`. The role-claim path is required because a project can have
+ * several valid service_role keys at once (e.g. after a JWT-secret rotation or
+ * the legacy→new API-key migration): the key stored in app_settings and the one
+ * injected into this function are both valid yet differ as strings, so a strict
+ * string compare would reject legitimate server-side callers.
+ */
+function isServiceRole(token: string): boolean {
+  if (!token) return false
+  if (SUPABASE_SERVICE_KEY && token === SUPABASE_SERVICE_KEY) return true
+  try {
+    const parts = token.split('.')
+    if (parts.length !== 3) return false
+    const json = atob(parts[1].replace(/-/g, '+').replace(/_/g, '/'))
+    const payload = JSON.parse(json)
+    return payload?.role === 'service_role'
+  } catch {
+    return false
+  }
+}
+
 /** Send FCM v1 push notification */
 async function sendFCM(
   accessToken: string,
@@ -160,10 +184,10 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
 
   try {
-    // Auth: only service_role key allowed
+    // Auth: only service_role allowed (exact env match or a service_role JWT)
     const authHeader = req.headers.get('authorization') || ''
-    const token = authHeader.replace('Bearer ', '')
-    if (token !== SUPABASE_SERVICE_KEY) {
+    const token = authHeader.replace('Bearer ', '').trim()
+    if (!isServiceRole(token)) {
       return jsonResponse({ success: false, error: 'Unauthorized — service_role only' }, 401)
     }
 
