@@ -67,3 +67,8 @@ p>.btn:last-child{margin-bottom:0}
 /* Zvyraznene polozky hlavniho menu (highlight) — brand zelena + tucne */
 .main-menu>li>a.menu-highlight{color:#74fb71;font-weight:700}
 .main-menu>li>a.menu-highlight:hover{color:#a8ff9f}
+
+/* Hero split — jedna fotka rozdelena do dvou panelu (leva/prava cast) na PC */
+.banner-slideshow .mg-hero-split .mg-hero-img-main{object-position:left center}
+.banner-slideshow .mg-hero-split .mg-hero-img-alt{object-position:right center}
+@media(max-width:768px){.banner-slideshow .mg-hero-split .mg-hero-img-main{object-position:center}}
