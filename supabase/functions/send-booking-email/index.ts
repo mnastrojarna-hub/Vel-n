@@ -703,9 +703,25 @@ async function autoGenerateAttachments(
         .neq('status', 'cancelled')
         .order('created_at', { ascending: false })
         .limit(1)
-      if (invoices?.length && invoices[0].pdf_path) {
-        const b64 = await downloadAsBase64(supabase, invoices[0].pdf_path)
-        if (b64) atts.push({ content: b64, filename: `Konecna-faktura-${invoices[0].number || 'KF'}.${fileExt(invoices[0].pdf_path)}`, storage_path: invoices[0].pdf_path })
+      let kfPath = invoices?.length ? invoices[0].pdf_path : null
+      let kfNumber = invoices?.length ? invoices[0].number : null
+      // KF vytváří DB trigger generate_final_invoice_on_complete() bez renderu PDF
+      // → pdf_path je NULL (Velín ji renderuje client-side, takže „existuje", ale do
+      // mailu nešla). Dorenderuj PDF z uložených položek přes generate-invoice
+      // (render_existing) a teprve pak přilož.
+      if (invoices?.length && !kfPath) {
+        try {
+          const res = await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
+            method: 'POST', headers,
+            body: JSON.stringify({ render_existing: true, type: 'final', booking_id }),
+          })
+          const data = await res.json().catch(() => ({}))
+          if (data.success && data.pdf_path) { kfPath = data.pdf_path; kfNumber = data.number || kfNumber }
+        } catch { /* ignore */ }
+      }
+      if (kfPath) {
+        const b64 = await downloadAsBase64(supabase, kfPath)
+        if (b64) atts.push({ content: b64, filename: `Konecna-faktura-${kfNumber || 'KF'}.${fileExt(kfPath)}`, storage_path: kfPath })
       }
     } catch { /* ignore */ }
   }
