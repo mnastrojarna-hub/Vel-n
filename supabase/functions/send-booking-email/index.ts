@@ -13,7 +13,11 @@ const SITE_URL = Deno.env.get('SITE_URL') || 'https://www.motogo24.cz'
 const PUBLIC_QR_TARGET = 'https://www.motogo24.cz'
 const FB_URL = 'https://www.facebook.com/profile.php?id=61581614672839'
 const IG_URL = 'https://www.instagram.com/moto.go24/'
-const GOOGLE_REVIEW_URL_DEFAULT = 'https://g.page/MotoGo24/review'
+// Funkční odkazy na recenze/profily používané v mailech (Google / Facebook / Instagram).
+// Slouží jako fallback, když nejsou nastavené v app_settings.
+const GOOGLE_REVIEW_URL_DEFAULT = 'https://share.google/rfBgMeyuEEttAmhgB'
+const FACEBOOK_REVIEW_URL_DEFAULT = 'https://www.facebook.com/61581614672839/'
+const INSTAGRAM_REVIEW_URL_DEFAULT = 'https://www.instagram.com/moto.go24/?ig_mid=71B4DC7E-9E24-4ECB-825C-A808B77399EA&utm_source=igweb&launch_app_store=true'
 
 // ── i18n: doména zákazníka dle jazyka ───────────────────────────────────────
 // Stejný vzor jako process-payment/stripe-customer.ts a generate-document:
@@ -949,8 +953,9 @@ serve(async (req) => {
       return_time:            return_time || '',
       original_pickup_time:   original_pickup_time || '',
       original_return_time:   original_return_time || '',
-      google_review_url: google_review_url || '',
-      facebook_review_url: facebook_review_url || '',
+      google_review_url: google_review_url || GOOGLE_REVIEW_URL_DEFAULT,
+      facebook_review_url: facebook_review_url || FACEBOOK_REVIEW_URL_DEFAULT,
+      instagram_review_url: INSTAGRAM_REVIEW_URL_DEFAULT,
       manual_url: manual_url || '',
       door_code_moto: '',
       door_code_gear: '',
@@ -1261,8 +1266,10 @@ ${vars.tracking_number ? `<table style="width:100%;border-collapse:collapse;marg
       }
     }
 
-    // Google review CTA button — appended for end-of-rental and shop final invoice emails
-    if (type === 'booking_completed' || type === 'shop_order_shipped') {
+    // Google review CTA button — appended jen pro shop expedici. Pro booking_completed
+    // jsou odkazy na recenze (Google/Facebook/Instagram) už přímo v šabloně, aby se
+    // Google neopakoval 2×.
+    if (type === 'shop_order_shipped') {
       templateHtml = templateHtml + googleReviewBlock(custLang, vars.google_review_url)
     }
 
@@ -1302,7 +1309,7 @@ ${vars.tracking_number ? `<table style="width:100%;border-collapse:collapse;marg
         csSubject = fallbackFn ? fallbackFn(vars) : `Oznámení — MOTO GO 24`
       }
       if (csTemplateHtml) {
-        if (type === 'booking_completed' || type === 'shop_order_shipped') {
+        if (type === 'shop_order_shipped') {
           csTemplateHtml = csTemplateHtml + googleReviewBlock('cs', vars.google_review_url)
         }
         adminHtml = wrapInBrandedLayout(csTemplateHtml, 'cs')
