@@ -214,8 +214,23 @@ serve(async (req) => {
       return jsonResponse({ success: false, error: 'Invalid FCM_SERVICE_ACCOUNT_JSON' }, 500)
     }
 
-    // Get user's active push tokens
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+
+    // Respect the customer's push consent (profiles.consent_push). The app's
+    // settings toggle and the Velín customer detail both write this column, so
+    // disabling push there must actually suppress delivery — not be cosmetic.
+    // During an active/upcoming-paid rental the app forces consent_push=true
+    // (locked), so essential pushes like door codes always get through.
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('consent_push')
+      .eq('id', user_id)
+      .maybeSingle()
+    if (profile && profile.consent_push === false) {
+      return jsonResponse({ success: true, sent: 0, reason: 'Push consent disabled' })
+    }
+
+    // Get user's active push tokens
     const { data: tokens, error: tokErr } = await supabase
       .from('push_tokens')
       .select('token, platform')
