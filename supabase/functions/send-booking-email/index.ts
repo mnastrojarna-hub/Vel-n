@@ -141,6 +141,17 @@ const REVIEW_BLOCK_LABELS: Record<string, { title: string; body: string; cta: st
   pl: { title: 'Twoja recenzja by nam pomogła', body: 'Jeśli byłeś zadowolony, zostaw nam recenzję w Google — pomożesz innym motocyklistom.', cta: '⭐ Oceń w Google' },
 }
 
+// Přidá Instagram odkaz hned za odkaz na Facebook recenzi, se stejným stylem.
+// Pracuje nad šablonou s placeholdery {{...}} (před dosazením proměnných), takže
+// Instagram zdědí přesné HTML/CSS Facebook odkazu. Idempotentní.
+function addInstagramReviewLink(html: string): string {
+  if (!html || html.includes('{{instagram_review_url}}') || /instagram\.com/i.test(html)) return html
+  return html.replace(
+    /(<a\b[^>]*href=")\{\{facebook_review_url\}\}("[^>]*>)([\s\S]*?)(<\/a>)/i,
+    (full, pre, post) => `${full} ${pre}{{instagram_review_url}}${post}Instagram</a>`,
+  )
+}
+
 function googleReviewBlock(lang: string, url: string): string {
   const l = REVIEW_BLOCK_LABELS[lang] || REVIEW_BLOCK_LABELS.cs
   const href = url || GOOGLE_REVIEW_URL_DEFAULT
@@ -1069,7 +1080,10 @@ serve(async (req) => {
         // (cache v {subject,body}_translations[lang] + __src_<lang> hash).
         // cs \u2192 CZ origin\u00e1l 1:1 beze zm\u011bny.
         const resolved = await resolveTemplateForLang(supabase, tpl as any, custLang)
-        templateHtml = renderTemplate(resolved.body, vars)
+        // U poděkovacího mailu doplníme Instagram odkaz vedle Facebooku (šablona ve
+        // Velíně ho nemá) — přidá se za odkaz na Facebook se stejným stylem.
+        const bodySrc = type === 'booking_completed' ? addInstagramReviewLink(resolved.body) : resolved.body
+        templateHtml = renderTemplate(bodySrc, vars)
         subject = renderTemplate(resolved.subject, vars)
         if (Array.isArray(tpl.attachments)) {
           dbAttachmentsList = tpl.attachments as string[]
@@ -1296,7 +1310,8 @@ ${vars.tracking_number ? `<table style="width:100%;border-collapse:collapse;marg
           .eq('active', true)
           .maybeSingle()
         if (tpl?.body_html) {
-          csTemplateHtml = renderTemplate(tpl.body_html, vars)
+          const csBodySrc = type === 'booking_completed' ? addInstagramReviewLink(tpl.body_html) : tpl.body_html
+          csTemplateHtml = renderTemplate(csBodySrc, vars)
           csSubject = renderTemplate(tpl.subject || '', vars)
           break
         }
