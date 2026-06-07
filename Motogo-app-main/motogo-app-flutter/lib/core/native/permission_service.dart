@@ -1,6 +1,10 @@
+import 'dart:io' show Platform;
+
 import 'package:permission_handler/permission_handler.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../supabase_client.dart';
 
 /// Centralized permission service — requests ALL permissions at once
 /// during onboarding so the user is never asked again at point-of-use.
@@ -38,6 +42,29 @@ class PermissionService {
     // Mark as granted in preferences
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_grantedKey, true);
+
+    // Mirror the resulting grants to the customer's profile (best-effort).
+    await reportToProfile();
+  }
+
+  /// Report current OS permission grants to the customer's profile so the Velín
+  /// customer detail can mirror them. Device-level, informational, best-effort.
+  /// No-op when not logged in.
+  static Future<void> reportToProfile() async {
+    final user = MotoGoSupabase.currentUser;
+    if (user == null) return;
+    try {
+      await MotoGoSupabase.client.from('profiles').update({
+        'app_permissions': {
+          'location': await Permission.location.isGranted,
+          'camera': await Permission.camera.isGranted,
+          'notification': await Permission.notification.isGranted,
+          'photos': await Permission.photos.isGranted,
+          'platform': Platform.isIOS ? 'ios' : 'android',
+          'reported_at': DateTime.now().toUtc().toIso8601String(),
+        },
+      }).eq('id', user.id);
+    } catch (_) {/* informativní — selhání neblokuje appku */}
   }
 
   /// Check if all permissions were already granted at startup.

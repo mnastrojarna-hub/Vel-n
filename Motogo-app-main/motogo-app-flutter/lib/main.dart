@@ -17,6 +17,7 @@ import 'core/debug_logger.dart';
 import 'core/offline_guard.dart';
 import 'core/push/push_service.dart';
 import 'core/push/notification_handler.dart';
+import 'core/native/permission_service.dart';
 import 'core/supabase_client.dart';
 import 'core/router.dart';
 import 'core/theme.dart';
@@ -177,6 +178,8 @@ class _MotoGoAppState extends ConsumerState<MotoGoApp>
     try {
       await PushService.initialize();
       NotificationHandler.initialize(rootNavigatorKey);
+      // Mirror OS permission grants to the profile (Velín customer detail).
+      await PermissionService.reportToProfile();
     } catch (_) {
       // Non-blocking — push is optional functionality
     }

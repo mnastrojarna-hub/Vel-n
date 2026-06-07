@@ -117,6 +117,7 @@
 - **passport_verified_until** (DATE) — platnost pasu — do tohoto data je ověření platné
 - **registration_source** (TEXT DEFAULT NULL) — zdroj registrace: 'app' nebo 'web'
 - **password_last4_bcrypt** (TEXT) — bcrypt hash posledních 4 znaků hesla. Plní `set_web_booking_password` při nastavení/změně hesla. Používá AI agent (`find_booking_for_modification`, `apply_booking_changes_anon`) pro 3. ověřovací faktor při úpravě rezervace anonymním kanálem (booking_id + email/telefon + last4 z hesla). Existující profily mají NULL → AI úpravu nedovolí, RPC vrátí `password_check_unavailable`.
+- **app_permissions** (JSONB DEFAULT NULL) — **NEW 2026-06-07 (`20260607_profiles_app_permissions.sql`)** — poslední snapshot OS oprávnění z mobilní appky: `{location, camera, notification, photos (bool), platform ('android'/'ios'), reported_at (iso)}`. Plní Flutter appka `PermissionService.reportToProfile` (volá se při startu v `main._initPush` a po `requestAll` v obrazovce oprávnění; reportuje se od appky v1.0.8). Čte Velín → detail zákazníka (`CustomerProfileTab.jsx`) read-only v sekci „Oprávnění aplikace (telefon)". Informativní, device-level — nezasahuje do business logiky. NULL = appka oprávnění ještě nenahlásila (starší verze / web-only zákazník).
 
 ### payment_methods
 - id (UUID PK), user_id (UUID FK→profiles ON DELETE CASCADE)

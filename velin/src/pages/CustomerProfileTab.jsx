@@ -93,21 +93,28 @@ function VerifyBadge({ verified, date }) {
   )
 }
 
-function ConsentPill({ label, checked, onChange }) {
+function ConsentRow({ label, desc, checked, onChange, required = false, readOnly = false, unknown = false }) {
+  const stateLabel = unknown ? 'Neznámé' : (checked ? 'ANO' : 'NE')
+  const bg = unknown ? '#f3f4f6' : (checked ? '#dcfce7' : '#fef2f2')
+  const col = unknown ? '#9ca3af' : (checked ? C.gdk : C.red)
+  const border = unknown ? '#e5e7eb' : (checked ? '#86e3a3' : '#fecaca')
   return (
-    <button
-      type="button" onClick={() => onChange(!checked)}
-      className="inline-flex items-center gap-2 rounded-full text-xs font-bold transition cursor-pointer"
-      style={{
-        padding: '6px 13px',
-        border: `1.5px solid ${checked ? '#86e3a3' : '#e5e7eb'}`,
-        background: checked ? '#ecfdf3' : '#fff',
-        color: checked ? C.gdk : '#9ca3af',
-      }}
-    >
-      <span style={{ width: 8, height: 8, borderRadius: '50%', background: checked ? '#22c55e' : '#d1d5db' }} />
-      {label}
-    </button>
+    <div className="flex items-center justify-between gap-3 py-2.5" style={{ borderTop: `1px solid ${C.g200}` }}>
+      <div className="min-w-0">
+        <div className="flex items-center gap-2 text-sm font-bold" style={{ color: C.text }}>
+          <span className="truncate">{label}</span>
+          {required && (
+            <span className="text-[9px] font-extrabold uppercase tracking-wide rounded px-1.5 py-0.5 whitespace-nowrap" style={{ background: '#fef9c3', color: '#a16207' }}>povinné</span>
+          )}
+        </div>
+        {desc && <div className="text-[11px] mt-0.5" style={{ color: C.muted }}>{desc}</div>}
+      </div>
+      {readOnly ? (
+        <span className="text-xs font-extrabold rounded-full px-3 py-1 whitespace-nowrap" style={{ background: bg, color: col, border: `1.5px solid ${border}` }}>{stateLabel}</span>
+      ) : (
+        <button type="button" onClick={() => onChange(!checked)} className="text-xs font-extrabold rounded-full px-3 py-1 cursor-pointer whitespace-nowrap transition" style={{ background: bg, color: col, border: `1.5px solid ${border}` }}>{stateLabel}</button>
+      )}
+    </div>
   )
 }
 
@@ -237,22 +244,53 @@ export default function ProfileTab({ customer, set, error, saving, onSave, onDel
           <Field label="Poznámka k zákazníkovi" value={customer.reliability_score?.notes} onChange={v => set('reliability_score', { ...customer.reliability_score, notes: v })} />
         </Card>
 
-        {/* Souhlasy */}
-        <Card className="lg:col-span-2">
-          <SectionTitle right={<span className="text-[11px]" style={{ color: C.muted }}>Klikem přepneš</span>}>Souhlasy</SectionTitle>
-          <div className="flex flex-wrap gap-2">
-            <ConsentPill label="Marketing" checked={!!customer.marketing_consent} onChange={v => set('marketing_consent', v)} />
-            <ConsentPill label="GDPR" checked={!!customer.consent_gdpr} onChange={v => set('consent_gdpr', v)} />
-            <ConsentPill label="VOP" checked={!!customer.consent_vop} onChange={v => set('consent_vop', v)} />
-            <ConsentPill label="Zpracování dat" checked={!!customer.consent_data_processing} onChange={v => set('consent_data_processing', v)} />
-            <ConsentPill label="Smlouva" checked={!!customer.consent_contract} onChange={v => set('consent_contract', v)} />
-            <ConsentPill label="Email" checked={!!customer.consent_email} onChange={v => set('consent_email', v)} />
-            <ConsentPill label="SMS" checked={!!customer.consent_sms} onChange={v => set('consent_sms', v)} />
-            <ConsentPill label="WhatsApp" checked={!!customer.consent_whatsapp} onChange={v => set('consent_whatsapp', v)} />
-            <ConsentPill label="Push" checked={!!customer.consent_push} onChange={v => set('consent_push', v)} />
-            <ConsentPill label="Foto" checked={!!customer.consent_photo} onChange={v => set('consent_photo', v)} />
-          </div>
+        {/* Komunikace a notifikace — položkově */}
+        <Card>
+          <SectionTitle right={<span className="text-[11px]" style={{ color: C.muted }}>Klikem přepneš</span>}>Komunikace a notifikace</SectionTitle>
+          <ConsentRow label="Email" desc="Transakční vždy · marketing jen se souhlasem" checked={!!customer.consent_email} onChange={v => set('consent_email', v)} />
+          <ConsentRow label="SMS" desc="Transakční vždy · marketing jen se souhlasem" checked={!!customer.consent_sms} onChange={v => set('consent_sms', v)} />
+          <ConsentRow label="WhatsApp" desc="Transakční vždy · marketing jen se souhlasem" checked={!!customer.consent_whatsapp} onChange={v => set('consent_whatsapp', v)} />
+          <ConsentRow label="Push" desc="Při vypnutí se push neodešle (mimo rezervaci)" checked={!!customer.consent_push} onChange={v => set('consent_push', v)} />
+          <ConsentRow label="Marketing" desc="Hromadné kampaně (broadcast)" checked={!!customer.marketing_consent} onChange={v => set('marketing_consent', v)} />
         </Card>
+
+        {/* Soukromí a souhlasy — položkově */}
+        <Card>
+          <SectionTitle right={<span className="text-[11px]" style={{ color: C.muted }}>Klikem přepneš</span>}>Soukromí a souhlasy</SectionTitle>
+          <ConsentRow label="VOP" required desc="Obchodní podmínky — nutné pro rezervaci" checked={!!customer.consent_vop} onChange={v => set('consent_vop', v)} />
+          <ConsentRow label="GDPR" required desc="Souhlas se zpracováním osobních údajů" checked={!!customer.consent_gdpr} onChange={v => set('consent_gdpr', v)} />
+          <ConsentRow label="Zpracování dat" required desc="Nutné pro vyřízení rezervace" checked={!!customer.consent_data_processing} onChange={v => set('consent_data_processing', v)} />
+          <ConsentRow label="Smlouva" desc="Souhlas s nájemní smlouvou" checked={!!customer.consent_contract} onChange={v => set('consent_contract', v)} />
+          <ConsentRow label="Foto" desc="Souhlas s fotodokumentací" checked={!!customer.consent_photo} onChange={v => set('consent_photo', v)} />
+        </Card>
+
+        {/* OS oprávnění z telefonu (zrcadlí app_permissions) */}
+        {(() => {
+          const ap = customer.app_permissions || null
+          const has = ap && typeof ap === 'object'
+          const reported = has && ap.reported_at ? fmtDate(ap.reported_at) : null
+          const permRow = (lbl, key) => (
+            <ConsentRow key={key} label={lbl} readOnly unknown={!has || ap[key] === undefined || ap[key] === null} checked={!!(has && ap[key])} />
+          )
+          return (
+            <Card className="lg:col-span-2">
+              <SectionTitle right={reported ? <span className="text-[11px]" style={{ color: C.muted }}>z telefonu · {reported}{has && ap.platform ? ` · ${ap.platform}` : ''}</span> : null}>
+                Oprávnění aplikace (telefon)
+              </SectionTitle>
+              {!has && (
+                <div className="text-[12px] mb-1" style={{ color: C.muted }}>
+                  Zatím nenahlášeno z aplikace — zákazník buď nemá appku, nebo má starší verzi (oprávnění se hlásí od v1.0.8).
+                </div>
+              )}
+              <div className="grid sm:grid-cols-2 gap-x-6">
+                {permRow('Poloha', 'location')}
+                {permRow('Fotoaparát', 'camera')}
+                {permRow('Galerie / fotky', 'photos')}
+                {permRow('Notifikace', 'notification')}
+              </div>
+            </Card>
+          )
+        })()}
       </div>
 
       {error && <p className="text-sm" style={{ color: C.red }}>{error}</p>}
