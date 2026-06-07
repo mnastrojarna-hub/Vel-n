@@ -98,7 +98,6 @@ $static = [
     ['loc' => '/dokumenty/obchodni-podminky',           'priority' => '0.3', 'changefreq' => 'yearly'],
     ['loc' => '/dokumenty/zasady-ochrany-osobnich-udaju', 'priority' => '0.3', 'changefreq' => 'yearly'],
     ['loc' => '/dokumenty/smlouva-o-pronajmu',          'priority' => '0.3', 'changefreq' => 'yearly'],
-    ['loc' => '/smazani-uctu',           'priority' => '0.2',  'changefreq' => 'yearly'],
     ['loc' => '/mapa-stranek',           'priority' => '0.4',  'changefreq' => 'monthly'],
     ['loc' => '/partneri',               'priority' => '0.6',  'changefreq' => 'monthly'],
 ];

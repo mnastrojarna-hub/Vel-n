@@ -59,10 +59,10 @@ $content = '<main id="content"><div class="container"><div class="ccontent" styl
 
     . '</div></div></main>';
 
+// Stránka je dostupná POUZE přes přímou URL (pro Google Play Data safety).
+// Nevede na ni žádný odkaz v navigaci ani patičce a je vyloučena z indexace
+// i ze sitemapy — proto noindex,nofollow a bez breadcrumbs schématu.
 renderPage($title, $content, '/smazani-uctu', [
     'description' => $desc,
-    'breadcrumbs' => [
-        ['name' => 'Úvod', 'url' => siteCanonicalUrl('/')],
-        ['name' => 'Smazání účtu', 'url' => siteCanonicalUrl('/smazani-uctu')],
-    ],
+    'robots' => 'noindex,nofollow',
 ]);
