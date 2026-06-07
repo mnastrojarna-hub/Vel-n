@@ -50,6 +50,25 @@ const SAMPLE_VARS = {
   cancellation_reason: 'Změna plánů', refund_amount: '7 800', refund_percent: '100',
 }
 
+/**
+ * Doplní Instagram odkaz hned za odkaz na Facebook recenzi (stejně stylovaný).
+ * Šablona "Poděkování po rezervaci" má jen Google + Facebook; Instagram se přidá
+ * při renderu (náhled i test), aby nebylo nutné editovat HTML šablony v DB.
+ * Pracuje nad zdrojem s placeholdery {{...}}, takže IG zdědí styl FB odkazu.
+ */
+function addInstagramReviewLink(html) {
+  if (!html || /instagram\.com/i.test(html) || html.includes('{{instagram_review_url}}')) return html
+  return html.replace(
+    /<a\b[^>]*href="[^"]*(?:\{\{facebook_review_url\}\}|facebook\.com)[^"]*"[^>]*>[\s\S]*?<\/a>/i,
+    (fbAnchor) => {
+      const igAnchor = fbAnchor
+        .replace(/href="[^"]*"/i, 'href="{{instagram_review_url}}"')
+        .replace(/>[\s\S]*?<\/a>/i, '>Instagram</a>')
+      return `${fbAnchor}, ${igAnchor}`
+    },
+  )
+}
+
 const EMAIL_STATUS = {
   sent: { label: 'Odesláno', color: '#1a8a18', bg: '#dcfce7' },
   failed: { label: 'Chyba', color: '#dc2626', bg: '#fee2e2' },
@@ -507,6 +526,9 @@ function EditEmailTemplateModal({ template, onClose, onSaved, isNew = false }) {
 
   function getPreviewHtml() {
     let html = bodyHtml
+    if (template.slug === 'booking_completed' || template.slug === 'web_booking_completed') {
+      html = addInstagramReviewLink(html)
+    }
     for (const [k, v] of Object.entries(SAMPLE_VARS)) html = html.replace(new RegExp(`\\{\\{${k}\\}\\}`, 'g'), v)
     return html
   }

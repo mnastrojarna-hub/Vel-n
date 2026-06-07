@@ -141,6 +141,24 @@ const REVIEW_BLOCK_LABELS: Record<string, { title: string; body: string; cta: st
   pl: { title: 'Twoja recenzja by nam pomogła', body: 'Jeśli byłeś zadowolony, zostaw nam recenzję w Google — pomożesz innym motocyklistom.', cta: '⭐ Oceń w Google' },
 }
 
+// Přidá Instagram odkaz hned za odkaz na Facebook recenzi, se stejným stylem.
+// Najde Facebook odkaz (placeholder {{facebook_review_url}} i napevno zadané
+// facebook.com URL), naklonuje jeho HTML a přepíše href na {{instagram_review_url}}
+// + popisek na "Instagram". {{instagram_review_url}} se dosadí stejně jako ostatní
+// proměnné. Idempotentní (nepřidá podruhé).
+function addInstagramReviewLink(html: string): string {
+  if (!html || /instagram\.com/i.test(html) || html.includes('{{instagram_review_url}}')) return html
+  return html.replace(
+    /<a\b[^>]*href="[^"]*(?:\{\{facebook_review_url\}\}|facebook\.com)[^"]*"[^>]*>[\s\S]*?<\/a>/i,
+    (fbAnchor) => {
+      const igAnchor = fbAnchor
+        .replace(/href="[^"]*"/i, 'href="{{instagram_review_url}}"')
+        .replace(/>[\s\S]*?<\/a>/i, '>Instagram</a>')
+      return `${fbAnchor}, ${igAnchor}`
+    },
+  )
+}
+
 function googleReviewBlock(lang: string, url: string): string {
   const l = REVIEW_BLOCK_LABELS[lang] || REVIEW_BLOCK_LABELS.cs
   const href = url || GOOGLE_REVIEW_URL_DEFAULT
@@ -1069,7 +1087,10 @@ serve(async (req) => {
         // (cache v {subject,body}_translations[lang] + __src_<lang> hash).
         // cs \u2192 CZ origin\u00e1l 1:1 beze zm\u011bny.
         const resolved = await resolveTemplateForLang(supabase, tpl as any, custLang)
-        templateHtml = renderTemplate(resolved.body, vars)
+        // U poděkovacího mailu (booking_completed / web_booking_completed) doplníme
+        // Instagram odkaz vedle Facebooku — šablona ve Velíně má jen Google+Facebook.
+        const bodySrc = trySlug.includes('completed') ? addInstagramReviewLink(resolved.body) : resolved.body
+        templateHtml = renderTemplate(bodySrc, vars)
         subject = renderTemplate(resolved.subject, vars)
         if (Array.isArray(tpl.attachments)) {
           dbAttachmentsList = tpl.attachments as string[]
@@ -1296,7 +1317,8 @@ ${vars.tracking_number ? `<table style="width:100%;border-collapse:collapse;marg
           .eq('active', true)
           .maybeSingle()
         if (tpl?.body_html) {
-          csTemplateHtml = renderTemplate(tpl.body_html, vars)
+          const csBodySrc = trySlug.includes('completed') ? addInstagramReviewLink(tpl.body_html) : tpl.body_html
+          csTemplateHtml = renderTemplate(csBodySrc, vars)
           csSubject = renderTemplate(tpl.subject || '', vars)
           break
         }
