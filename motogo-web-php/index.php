@@ -452,6 +452,12 @@ switch (true) {
         require __DIR__ . '/pages/kontakt.php';
         break;
 
+    // Smazání účtu a dat — veřejná stránka pro Google Play Data safety
+    // (URL ke smazání účtu). Statická, bez závislosti na DB/CMS.
+    case $path === '/smazani-uctu':
+        require __DIR__ . '/pages/smazani-uctu.php';
+        break;
+
     // CMS stránky (legacy fallback — nově preferujeme /dokumenty/<slug>, který
     // čte rovnou z `document_templates` ve Velíně). Krátké aliasy /gdpr, /smlouva,
     // /obchodni-podminky řeší .htaccess přímým 301 redirectem na /dokumenty/<slug>
