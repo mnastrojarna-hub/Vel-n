@@ -57,10 +57,15 @@ const SAMPLE_VARS = {
  * Pracuje nad zdrojem s placeholdery {{...}}, takže IG zdědí styl FB odkazu.
  */
 function addInstagramReviewLink(html) {
-  if (!html || html.includes('{{instagram_review_url}}') || /instagram\.com/i.test(html)) return html
+  if (!html || /instagram\.com/i.test(html) || html.includes('{{instagram_review_url}}')) return html
   return html.replace(
-    /(<a\b[^>]*href=")\{\{facebook_review_url\}\}("[^>]*>)([\s\S]*?)(<\/a>)/i,
-    (full, pre, post) => `${full} ${pre}{{instagram_review_url}}${post}Instagram</a>`,
+    /<a\b[^>]*href="[^"]*(?:\{\{facebook_review_url\}\}|facebook\.com)[^"]*"[^>]*>[\s\S]*?<\/a>/i,
+    (fbAnchor) => {
+      const igAnchor = fbAnchor
+        .replace(/href="[^"]*"/i, 'href="{{instagram_review_url}}"')
+        .replace(/>[\s\S]*?<\/a>/i, '>Instagram</a>')
+      return `${fbAnchor}, ${igAnchor}`
+    },
   )
 }
 
