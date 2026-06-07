@@ -14,7 +14,6 @@ class PermissionService {
   static const _allPermissions = [
     Permission.location,
     Permission.camera,
-    Permission.microphone,
     Permission.notification,
     Permission.photos, // gallery on iOS / READ_MEDIA_IMAGES on Android 13+
   ];
@@ -66,13 +65,6 @@ class PermissionService {
         title: 'permCameraTitle',
         desc: 'permCameraDesc',
         granted: await Permission.camera.isGranted,
-      ),
-      PermissionInfo(
-        key: 'microphone',
-        icon: '🎤',
-        title: 'permMicTitle',
-        desc: 'permMicDesc',
-        granted: await Permission.microphone.isGranted,
       ),
       PermissionInfo(
         key: 'notifications',
