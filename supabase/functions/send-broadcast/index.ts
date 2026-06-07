@@ -139,10 +139,19 @@ serve(async (req) => {
     const contactField = channel === 'email' ? 'email' : 'phone'
 
     // 3. Load recipients based on segment
+    // Marketing broadcasts respect BOTH the marketing consent AND the per-channel
+    // consent (consent_email / consent_sms / consent_whatsapp), so unchecking a
+    // channel in the app or in the Velín customer detail actually excludes the
+    // recipient instead of being cosmetic.
+    const channelConsentCol =
+      channel === 'email' ? 'consent_email'
+      : channel === 'whatsapp' ? 'consent_whatsapp'
+      : 'consent_sms'
     let query = supabase
       .from('profiles')
       .select('id, full_name, email, phone')
       .eq('marketing_consent', true)
+      .eq(channelConsentCol, true)
       .not(contactField, 'is', null)
 
     if (segment === 'vip') {

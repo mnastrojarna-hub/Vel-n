@@ -35,9 +35,6 @@
     <!-- Android 13+ media access -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
 
-    <!-- Optional: Audio (if mic needed for voice notes) -->
-    <uses-permission android:name="android.permission.RECORD_AUDIO" />
-
     <!-- ═══ Feature declarations ═══ -->
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
