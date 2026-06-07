@@ -15,8 +15,8 @@ const FB_URL = 'https://www.facebook.com/profile.php?id=61581614672839'
 const IG_URL = 'https://www.instagram.com/moto.go24/'
 // Funkční odkazy na recenze/profily používané v mailech (Google / Facebook / Instagram).
 // Slouží jako fallback, když nejsou nastavené v app_settings.
-// Google: odkaz na konkrétní místo MotoGo24 (CID z map embedu na webu) — otevře profil s recenzemi.
-const GOOGLE_REVIEW_URL_DEFAULT = 'https://www.google.com/maps?cid=16672217242375564123'
+// Google: oficiální odkaz na formulář recenze z Google Business Profile (Požádat o recenzi).
+const GOOGLE_REVIEW_URL_DEFAULT = 'https://g.page/r/CUmeYvk-sNf6EBM/review'
 const FACEBOOK_REVIEW_URL_DEFAULT = 'https://www.facebook.com/profile.php?id=61581614672839'
 const INSTAGRAM_REVIEW_URL_DEFAULT = 'https://www.instagram.com/moto.go24/'
 

@@ -16,7 +16,7 @@ const SAMPLE_VARS = {
   resume_link: 'https://www.motogo24.cz/#/rezervace?resume=abc123',
   voucher_code: 'MGABC123 (3 000 Kč)', voucher_amount: '3 000', voucher_value: '3 000',
   voucher_expiry: '15. 6. 2029', order_number: 'OBJ-2026-01001', discount_code: 'DIKY200',
-  google_review_url: 'https://g.page/MotoGo24/review', facebook_review_url: 'https://facebook.com/MotoGo24/reviews',
+  google_review_url: 'https://g.page/r/CUmeYvk-sNf6EBM/review', facebook_review_url: 'https://www.facebook.com/profile.php?id=61581614672839', instagram_review_url: 'https://www.instagram.com/moto.go24/',
   site_url: 'https://www.motogo24.cz', price_difference: '-1 200',
   // Invoice email vars
   invoice_number: 'ZF-2026-0001', invoice_type: 'Zálohová faktura',
