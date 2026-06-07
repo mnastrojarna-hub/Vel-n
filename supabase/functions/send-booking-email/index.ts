@@ -15,9 +15,10 @@ const FB_URL = 'https://www.facebook.com/profile.php?id=61581614672839'
 const IG_URL = 'https://www.instagram.com/moto.go24/'
 // Funkční odkazy na recenze/profily používané v mailech (Google / Facebook / Instagram).
 // Slouží jako fallback, když nejsou nastavené v app_settings.
-const GOOGLE_REVIEW_URL_DEFAULT = 'https://share.google/rfBgMeyuEEttAmhgB'
-const FACEBOOK_REVIEW_URL_DEFAULT = 'https://www.facebook.com/61581614672839/'
-const INSTAGRAM_REVIEW_URL_DEFAULT = 'https://www.instagram.com/moto.go24/?ig_mid=71B4DC7E-9E24-4ECB-825C-A808B77399EA&utm_source=igweb&launch_app_store=true'
+// Google: oficiální odkaz na formulář recenze z Google Business Profile (Požádat o recenzi).
+const GOOGLE_REVIEW_URL_DEFAULT = 'https://g.page/r/CUmeYvk-sNf6EBM/review'
+const FACEBOOK_REVIEW_URL_DEFAULT = 'https://www.facebook.com/profile.php?id=61581614672839'
+const INSTAGRAM_REVIEW_URL_DEFAULT = 'https://www.instagram.com/moto.go24/'
 
 // ── i18n: doména zákazníka dle jazyka ───────────────────────────────────────
 // Stejný vzor jako process-payment/stripe-customer.ts a generate-document:
