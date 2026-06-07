@@ -582,11 +582,26 @@ $offerBlock = '{"@type":"Offer","priceCurrency":"CZK","price":' . json_encode($m
     . ($sellerBlock !== '' ? $sellerBlock : '')
     . '}';
 
-$brandName = $moto['brand'] ?? '';
-$brandBlock = $brandName !== '' ? ',"brand":{"@type":"Brand","name":' . json_encode($brandName, JSON_UNESCAPED_UNICODE) . '}' : '';
+// brand: Google Merchant listing vyžaduje globální identifikátor (gtin/mpn/brand).
+// DB sloupec `brand` může být NULL (demo/seed motorky) → fallback na první slovo
+// modelu (typicky výrobce, např. "Honda CB500" → "Honda"), v krajním případě
+// MotoGo24. Brand tak emitujeme VŽDY → odstraní varování "Nebyl poskytnut globální
+// identifikátor" v Search Console.
+$brandName = trim((string)($moto['brand'] ?? ''));
+if ($brandName === '') {
+    $modelWords = preg_split('/\s+/', trim((string)($moto['model'] ?? '')), -1, PREG_SPLIT_NO_EMPTY);
+    $brandName = $modelWords[0] ?? '';
+}
+if ($brandName === '') $brandName = 'MotoGo24';
+$brandBlock = ',"brand":{"@type":"Brand","name":' . json_encode($brandName, JSON_UNESCAPED_UNICODE) . '}';
 $catBlock = !empty($moto['category']) ? ',"category":' . json_encode((string)$moto['category'], JSON_UNESCAPED_UNICODE) : '';
 $colorBlock = !empty($moto['color']) ? ',"color":' . json_encode((string)$moto['color'], JSON_UNESCAPED_UNICODE) : '';
-$skuBlock = !empty($moto['spz']) ? ',"sku":' . json_encode((string)$moto['spz']) : '';
+// sku: SPZ trimujeme — prázdná / whitespace-only hodnota (demo motorky) dělala
+// "Neplatná hodnota v poli sku". Pokud po trimu nezbude validní SPZ, použijeme
+// stabilní interní ID (už je veřejné v URL) → sku je vždy neprázdné a validní.
+$skuVal = trim((string)($moto['spz'] ?? ''));
+if ($skuVal === '') $skuVal = trim((string)($moto['id'] ?? ''));
+$skuBlock = $skuVal !== '' ? ',"sku":' . json_encode($skuVal) : '';
 
 $descForSchema = $motoDesc !== '' ? trim(strip_tags($motoDesc)) : ($moto['model'] ?? '');
 
