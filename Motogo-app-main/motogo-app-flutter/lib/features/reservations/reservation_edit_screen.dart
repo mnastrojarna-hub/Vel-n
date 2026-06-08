@@ -186,6 +186,9 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
   }
 
   String _getCalendarInstruction() {
+    if (_tab == 'move') {
+      return t(context).tr('moveInstruction');
+    }
     if (_tab == 'extend') {
       if (_isActive) {
         return t(context).tr('clickDayAfterForExtend').replaceAll('{date}', '${_booking!.endDate.day}.${_booking!.endDate.month}.');
@@ -225,6 +228,58 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
       if (_passengerPantsSize == null) missing.add(t(context).tr('gearPantsPassenger'));
     }
     return missing;
+  }
+
+  /// True when the move tab has shifted the start date (length is preserved
+  /// by construction, so a changed start = a real reschedule).
+  bool get _moveChanged {
+    if (_booking == null || _newStart == null) return false;
+    final o = DateTime(_booking!.startDate.year, _booking!.startDate.month, _booking!.startDate.day);
+    final n = DateTime(_newStart!.year, _newStart!.month, _newStart!.day);
+    return o != n;
+  }
+
+  /// Free reschedule (Posun termínu): moves the whole reservation keeping the
+  /// same number of days and the same price. Backend RPC validates overlaps and
+  /// fires the booking_modified trigger (mail + updated contract).
+  Future<void> _saveMove() async {
+    if (_booking == null || _newStart == null || _newEnd == null || !_moveChanged) return;
+    setState(() => _saving = true);
+    try {
+      final res = await MotoGoSupabase.client.rpc('reschedule_booking_free', params: {
+        'p_booking_id': widget.bookingId,
+        'p_new_start': _newStart!.toIso8601String().substring(0, 10),
+        'p_new_end': _newEnd!.toIso8601String().substring(0, 10),
+        'p_source': 'app',
+      });
+      final ok = res is Map && res['success'] == true;
+      if (!ok) {
+        final code = (res is Map ? res['error']?.toString() : null) ?? '';
+        final msg = <String, String>{
+          'moto_overlap': t(context).tr('moveOccupiedRange'),
+          'customer_overlap': t(context).tr('moveErrCustomerOverlap'),
+          'length_mismatch': t(context).tr('moveErrLength'),
+          'past_date': t(context).tr('cannotSelectPast'),
+        }[code] ?? t(context).error;
+        if (mounted) showMotoGoToast(context, icon: '⚠️', title: t(context).error, message: msg);
+        return;
+      }
+      if (mounted) {
+        ref.invalidate(reservationsProvider);
+        ref.invalidate(reservationByIdProvider(widget.bookingId));
+        ref.invalidate(doorCodesProvider(widget.bookingId));
+        _showConfirmation(
+          title: t(context).tr('moveConfirmedTitle'),
+          message: t(context).tr('moveConfirmed')
+              .replaceAll('{start}', _fmt(_newStart))
+              .replaceAll('{end}', _fmt(_newEnd)),
+        );
+      }
+    } catch (e) {
+      if (mounted) showMotoGoToast(context, icon: '✗', title: t(context).error, message: '$e');
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   Future<void> _save() async {
@@ -462,6 +517,12 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
               const SizedBox(width: 6),
               EditTabBtn(label: t(context).tr('shortenChangePlace'), active: _tab == 'shorten',
                 onTap: () => setState(() { _tab = 'shorten'; _shortenDir = null; _newStart = _booking!.startDate; _newEnd = _booking!.endDate; })),
+              // Posun termínu zdarma — jen pro nadcházející rezervace.
+              if (!_isActive) ...[
+                const SizedBox(width: 6),
+                EditTabBtn(label: t(context).tr('moveChangePlace'), active: _tab == 'move',
+                  onTap: () => setState(() { _tab = 'move'; _shortenDir = null; _newStart = _booking!.startDate; _newEnd = _booking!.endDate; })),
+              ],
             ])),
 
           // === TERMÍN ===
@@ -485,8 +546,23 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
             onShortenEnd: () => setState(() { _shortenDir = 'end'; _newStart = _booking!.startDate; _newEnd = _booking!.endDate; }),
           ),
 
+          // === POSUN ZDARMA — info banner ===
+          if (_tab == 'move')
+            Padding(padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+              child: Container(padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: MotoGoColors.greenPale,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: MotoGoColors.green, width: 1)),
+                child: Row(children: [
+                  const Icon(Icons.swap_horiz, size: 18, color: MotoGoColors.greenDarker),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(t(context).tr('moveFreeNote'),
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: MotoGoColors.greenDarker))),
+                ]))),
+
           // === PŘISTAVENÍ MOTORKY (only for upcoming) ===
-          if (!_isActive)
+          if (!_isActive && _tab != 'move')
             EditCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
                 const Icon(Icons.motorcycle, size: 16, color: MotoGoColors.greenDark),
@@ -504,7 +580,8 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
             ])),
 
           // === VRÁCENÍ MOTORKY ===
-          EditCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          if (_tab != 'move')
+            EditCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
               const Icon(Icons.assignment_return, size: 16, color: MotoGoColors.greenDark),
               const SizedBox(width: 6),
@@ -521,7 +598,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
           ])),
 
           // === ZMĚNA MOTORKY (collapsible, only for upcoming) ===
-          if (!_isActive)
+          if (!_isActive && _tab != 'move')
             EditMotoChangeSection(
               currentMotoName: _booking!.motoName,
               currentMotoId: _booking!.motoId,
@@ -533,7 +610,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
             ),
 
           // === DOPLŇKY (only for upcoming) ===
-          if (!_isActive)
+          if (!_isActive && _tab != 'move')
             EditExtrasSection(
               selectedExtras: _selectedExtras,
               pickupMethod: _pickupMethod,
@@ -567,7 +644,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
           ],
 
           // === CENOVÝ PŘEHLED ===
-          if (calc.hasChanges)
+          if (calc.hasChanges && _tab != 'move')
             EditCard(child: Column(children: [
               EditPriceRow(t(context).tr('originalPrice'), '${_booking!.totalPrice.toStringAsFixed(0)} Kč'),
               EditPriceRow(t(context).tr('originalDuration'), '${calc.origDays} ${calc.origDays == 1 ? t(context).tr("day1") : calc.origDays < 5 ? t(context).tr("days24") : t(context).tr("days5")}'),
@@ -594,7 +671,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
             ])),
 
           // === MISSING SIZES WARNING (přistavení) ===
-          if (_missingGearSizes().isNotEmpty)
+          if (_tab != 'move' && _missingGearSizes().isNotEmpty)
             Padding(padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
               child: Container(padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
@@ -616,7 +693,9 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
           // === CTA BUTTON ===
           Padding(padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
             child: SizedBox(height: 52, child: ElevatedButton(
-              onPressed: (!_saving && calc.hasChanges && _missingGearSizes().isEmpty) ? _save : null,
+              onPressed: _tab == 'move'
+                  ? ((!_saving && _moveChanged) ? _saveMove : null)
+                  : ((!_saving && calc.hasChanges && _missingGearSizes().isEmpty) ? _save : null),
               style: ElevatedButton.styleFrom(
                 backgroundColor: MotoGoColors.green, foregroundColor: Colors.black,
                 disabledBackgroundColor: MotoGoColors.g200,
@@ -624,9 +703,11 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
               child: _saving
                   ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
                   : Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                      Text(calc.priceDiff > 0
-                          ? '${t(context).tr('proceedToPayment')} (+${calc.priceDiff.toStringAsFixed(0)} Kč)'
-                          : t(context).tr('saveChangesBtn'),
+                      Text(_tab == 'move'
+                          ? t(context).tr('moveSaveBtn')
+                          : (calc.priceDiff > 0
+                              ? '${t(context).tr('proceedToPayment')} (+${calc.priceDiff.toStringAsFixed(0)} Kč)'
+                              : t(context).tr('saveChangesBtn')),
                         style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, letterSpacing: 0.3)),
                       const SizedBox(width: 6), const Icon(Icons.arrow_forward, size: 16),
                     ]),
