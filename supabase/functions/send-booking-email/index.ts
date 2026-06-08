@@ -263,8 +263,8 @@ function wrapInBrandedLayout(bodyHtml: string, lang: Lang = 'cs'): string {
     </tr></table>
     <div style="text-align:center;margin-top:18px;padding-top:16px;border-top:1px solid #1f3a2c">
       <div style="color:#9ca3af;font-size:11px;letter-spacing:2px;margin-bottom:10px">${FOLLOW_US_LABEL[lang] || FOLLOW_US_LABEL.cs}</div>
-      <a href="${FB_URL}" style="display:inline-block;margin:0 6px;text-decoration:none" target="_blank" rel="noopener"><img src="${SITE_URL}/gfx/facebook-footer.svg" alt="Facebook" width="32" height="32" style="display:inline-block;border:0"/></a>
-      <a href="${IG_URL}" style="display:inline-block;margin:0 6px;text-decoration:none" target="_blank" rel="noopener"><img src="${SITE_URL}/gfx/instagram-footer.svg" alt="Instagram" width="32" height="32" style="display:inline-block;border:0"/></a>
+      <a href="${FB_URL}" style="display:inline-block;margin:0 6px;text-decoration:none;vertical-align:middle" target="_blank" rel="noopener"><img src="${SITE_URL}/gfx/facebook-footer.svg" alt="Facebook" width="32" height="32" style="display:inline-block;border:0;vertical-align:middle"/></a>
+      <a href="${FIRMY_REVIEW_URL_DEFAULT}" style="display:inline-block;margin:0 6px;text-decoration:none;vertical-align:middle" target="_blank" rel="noopener"><span style="display:inline-block;height:32px;line-height:32px;padding:0 12px;background:#e8112d;color:#ffffff;font-size:13px;font-weight:800;border-radius:6px;font-family:Arial,Helvetica,sans-serif">Firmy.cz</span></a>
     </div>
   </div>`
 
