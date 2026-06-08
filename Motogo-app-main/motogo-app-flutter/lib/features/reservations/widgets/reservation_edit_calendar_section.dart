@@ -169,6 +169,12 @@ class EditCalendarSection extends StatelessWidget {
           EditLegendDot(color: MotoGoColors.red, label: t(context).tr('shortenedLabel')),
           const SizedBox(width: 10),
           EditLegendDot(color: MotoGoColors.dark, label: t(context).tr('occupiedLabel')),
+        ] else if (tab == 'move') ...[
+          EditLegendDot(color: MotoGoColors.green, label: t(context).tr('freeLabel')),
+          const SizedBox(width: 10),
+          EditLegendDot(color: MotoGoColors.dark, label: t(context).tr('moveLegendNew')),
+          const SizedBox(width: 10),
+          EditLegendDot(color: MotoGoColors.g400, label: t(context).tr('occupiedLabel')),
         ] else ...[
           EditLegendDot(color: MotoGoColors.green, label: t(context).tr('freeLabel')),
           const SizedBox(width: 10),

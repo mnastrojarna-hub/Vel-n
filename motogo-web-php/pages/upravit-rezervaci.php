@@ -45,7 +45,12 @@ $keys = [
     'editRez.detail.title','editRez.detail.bookingId','editRez.detail.moto','editRez.detail.dates',
     'editRez.detail.pickup','editRez.detail.return','editRez.detail.totalPaid','editRez.detail.daysCount',
     'editRez.tab.detail','editRez.tab.extend','editRez.tab.shorten','editRez.tab.cancel',
-    'editRez.tab.moto','editRez.tab.location','editRez.tab.docs',
+    'editRez.tab.moto','editRez.tab.location','editRez.tab.docs','editRez.tab.move',
+
+    // Posun termínu (zdarma)
+    'editRez.move.title','editRez.move.help','editRez.move.cta','editRez.move.confirming',
+    'editRez.move.success','editRez.move.occupiedRange','editRez.move.legendNew',
+    'editRez.move.errLength','editRez.move.errNoChange','editRez.move.errCustomerOverlap',
     'editRez.doc.help','editRez.moto.title','editRez.moto.help','editRez.loc.title','editRez.loc.help',
     'editRez.moto.licReq','editRez.moto.licenseInsufficient','editRez.moto.notAvailable',
     'editRez.moto.noOptions','editRez.moto.confirm',
@@ -216,6 +221,7 @@ if (typeof MG.t !== "function") {
 <script src="' . assetUrl('/js/pages-rezervace-camera.js') . '"></script>
 <script src="' . assetUrl('/js/pages-rezervace-scan.js') . '"></script>
 <script src="' . assetUrl('/js/pages-upravit-rezervaci.js') . '"></script>
+<script src="' . assetUrl('/js/pages-upravit-rezervaci-move.js') . '"></script>
 <script>
 (function(){
   function tryInit(){

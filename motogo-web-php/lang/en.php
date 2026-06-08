@@ -621,6 +621,7 @@ return [
     'editRez.detail.dayCount.many' => '{n} days',
 
     'editRez.tab.detail' => 'Detail',
+    'editRez.tab.move' => 'Reschedule',
     'editRez.tab.extend' => 'Extend',
     'editRez.tab.shorten' => 'Shorten',
     'editRez.tab.moto' => 'Change bike',
@@ -669,6 +670,18 @@ return [
     'editRez.loc.pickupTime' => 'Pickup time',
     'editRez.loc.returnTime' => 'Return time',
     'editRez.loc.timeOnly' => 'Time change (free)',
+
+    // Reschedule (free move)
+    'editRez.move.title' => 'Reschedule for free',
+    'editRez.move.help' => 'Move the whole reservation ({days}) to another date — free and with no price change. Tap the new pick-up day in the calendar; the reservation shifts keeping the same number of days. Currently: {start} – {end}.',
+    'editRez.move.cta' => 'Reschedule for free',
+    'editRez.move.confirming' => 'Rescheduling…',
+    'editRez.move.success' => 'Done! Your reservation was moved for free to {start} – {end}. We have e-mailed the confirmation and the updated contract.',
+    'editRez.move.occupiedRange' => 'The motorcycle is booked during this period. Please pick another day where the whole reservation length is free.',
+    'editRez.move.legendNew' => 'New dates',
+    'editRez.move.errLength' => 'Rescheduling must keep the same number of days.',
+    'editRez.move.errNoChange' => 'Please choose a new date.',
+    'editRez.move.errCustomerOverlap' => 'You already have another reservation in this period. Please pick a different date.',
 
     'editRez.extend.title' => 'Extend booking',
     'editRez.extend.help' => 'Pick a new (later) end date in the calendar. You\'ll only pay the price difference via Stripe.',

@@ -820,6 +820,7 @@ return [
 
     // Tabs / actions
     'editRez.tab.detail' => 'Detail',
+    'editRez.tab.move' => 'Posunout termín',
     'editRez.tab.extend' => 'Prodloužit',
     'editRez.tab.shorten' => 'Zkrátit',
     'editRez.tab.moto' => 'Změna motorky',
@@ -875,6 +876,18 @@ return [
     'editRez.loc.pickupTime' => 'Čas vyzvednutí',
     'editRez.loc.returnTime' => 'Čas vrácení',
     'editRez.loc.timeOnly' => 'Změna času (zdarma)',
+
+    // Posun termínu (zdarma)
+    'editRez.move.title' => 'Posunout termín zdarma',
+    'editRez.move.help' => 'Přesuňte celou rezervaci ({days}) na jiný termín — zdarma a beze změny ceny. V kalendáři klikněte na nový den vyzvednutí; rezervace se posune se zachováním počtu dní. Aktuálně: {start} – {end}.',
+    'editRez.move.cta' => 'Posunout rezervaci zdarma',
+    'editRez.move.confirming' => 'Posouvám…',
+    'editRez.move.success' => 'Hotovo! Rezervace byla zdarma posunuta na {start} – {end}. Potvrzení a aktualizovanou smlouvu jsme poslali e-mailem.',
+    'editRez.move.occupiedRange' => 'V tomto termínu je motorka obsazená. Vyberte prosím jiný den, kde je volná celá délka rezervace.',
+    'editRez.move.legendNew' => 'Nový termín',
+    'editRez.move.errLength' => 'Posun musí zachovat stejný počet dní rezervace.',
+    'editRez.move.errNoChange' => 'Vyberte prosím nový termín.',
+    'editRez.move.errCustomerOverlap' => 'V tomto termínu už máte jinou rezervaci. Vyberte prosím jiný termín.',
 
     // Extend
     'editRez.extend.title' => 'Prodloužit rezervaci',
