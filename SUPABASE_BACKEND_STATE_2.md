@@ -19,7 +19,7 @@
 - confirmed_at, picked_up_at, returned_at
 - cancelled_by, cancelled_by_source, cancellation_reason, cancelled_at, cancellation_notified
 - sos_replacement (boolean), replacement_for_booking_id, sos_incident_id, ended_by_sos
-- pickup_date, return_date (timestamptz pro overlap check)
+- ~~pickup_date, return_date (timestamptz pro overlap check)~~ — **OPRAVA 2026-06-08:** tyto sloupce v reálné DB **NEEXISTUJÍ** (ověřeno `column "pickup_date" does not exist`). Overlap se kontroluje výhradně přes `start_date`/`end_date` — triggery `check_booking_overlap` (`tstzrange(start_date,end_date)`) a `check_user_booking_overlap` (`start_date::date`/`end_date::date`).
 - **actual_return_date** — skutečné datum vrácení
 - **pickup_method, pickup_address** — způsob vyzvednutí
 - **pickup_lat, pickup_lng** — GPS souřadnice místa vyzvednutí (DOUBLE PRECISION, nullable)
