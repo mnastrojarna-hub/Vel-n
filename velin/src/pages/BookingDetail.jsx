@@ -266,7 +266,7 @@ export default function BookingDetail() {
     try {
       // 1) Reference transakce na rezervaci (payment_method nastaví confirm_payment).
       if (payment.transaction_ref) {
-        await supabase.from('bookings').update({ payment_reference: payment.transaction_ref }).eq('id', id).catch(() => {})
+        try { await supabase.from('bookings').update({ payment_reference: payment.transaction_ref }).eq('id', id) } catch { /* nepovinné */ }
       }
 
       // 2) confirm_payment — payment_status='paid', přechod stavu + timestamps + DB triggery
@@ -283,17 +283,28 @@ export default function BookingDetail() {
       const newStatus = startLocal <= today ? 'active' : 'reserved'
 
       // 4) Doklady ZF + DP s ručními platebními údaji (dedup proti existujícím).
+      //    Pokud admin vybral existující ZF, DP se na ni naváže; jinak vznikne nová ZF
+      //    a DP se naváže na ni (spárování platby a dokladů).
       const invoiceErrors = []
+      let advanceId = payment.advance_invoice_id || null
+      let advanceNumber = payment.advance_number || null
       try {
         const { data: existingInv } = await supabase.from('invoices').select('id, type')
           .eq('booking_id', id).in('type', ['advance', 'proforma', 'payment_receipt']).neq('status', 'cancelled')
         if (!(existingInv || []).some(i => i.type === 'advance' || i.type === 'proforma')) {
-          try { const zf = await generateAdvanceInvoice(id, 'booking', payment); await renderAndStoreInvoicePdf(zf.id) }
-          catch (e) { invoiceErrors.push(`ZF: ${e.message}`) }
+          try {
+            const zf = await generateAdvanceInvoice(id, 'booking', payment)
+            await renderAndStoreInvoicePdf(zf.id)
+            advanceId = zf.id; advanceNumber = zf.number
+          } catch (e) { invoiceErrors.push(`ZF: ${e.message}`) }
         }
         if (!(existingInv || []).some(i => i.type === 'payment_receipt')) {
-          try { const dp = await generatePaymentReceipt(id, 'booking', payment); await renderAndStoreInvoicePdf(dp.id) }
-          catch (e) { invoiceErrors.push(`DP: ${e.message}`) }
+          try {
+            // DP nese stejné VS jako ZF a naváže se na ni (original_invoice_id + poznámka).
+            const dpPayment = { ...payment, vs: payment.vs || advanceNumber, advance_invoice_id: advanceId, advance_number: advanceNumber }
+            const dp = await generatePaymentReceipt(id, 'booking', dpPayment)
+            await renderAndStoreInvoicePdf(dp.id)
+          } catch (e) { invoiceErrors.push(`DP: ${e.message}`) }
         }
       } catch (e) { console.error('[manualPay] invoices:', e.message) }
 
@@ -384,7 +395,7 @@ export default function BookingDetail() {
       {tab === 'Reklamace' && <ComplaintsTab bookingId={id} booking={booking} setBooking={setBooking} />}
       {confirm && <ConfirmDialog open title={`${confirm.label}?`} message={`Změnit stav na "${confirm.label}"?`} danger={confirm.danger} onConfirm={() => changeStatus(confirm.status)} onCancel={() => setConfirm(null)} />}
       <BookingCancelModal open={showCancelModal} onClose={() => setShowCancelModal(false)} cancelReason={cancelReason} setCancelReason={setCancelReason} cancelReasonCustom={cancelReasonCustom} setCancelReasonCustom={setCancelReasonCustom} onCancel={handleCancel} saving={saving} error={error} />
-      <PaymentConfirmModal open={showPaymentModal} onClose={() => { setShowPaymentModal(false); setError(null) }} onConfirm={confirmManualPayment} saving={saving} error={error} total={booking?.total_price} />
+      <PaymentConfirmModal open={showPaymentModal} onClose={() => { setShowPaymentModal(false); setError(null) }} onConfirm={confirmManualPayment} saving={saving} error={error} total={booking?.total_price} bookingId={id} />
     </div>
   )
 }

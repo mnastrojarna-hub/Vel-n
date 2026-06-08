@@ -1,4 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { supabase } from '../../lib/supabase'
+import { generateInvoiceNumber } from '../../lib/invoiceUtils'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
 import { MANUAL_PAYMENT_METHODS } from './bookingConstants'
@@ -8,18 +10,58 @@ import { MANUAL_PAYMENT_METHODS } from './bookingConstants'
  * Po potvrzení projde STEJNÉ flow jako Stripe (confirm_payment + booking_reserved mail),
  * jen platební údaje (způsob, VS, datum úhrady, č. transakce) se doplní ručně a zapíšou
  * do rezervace i do DP / faktur.
+ *
+ * Pokud k rezervaci existují vystavené zálohové faktury (ZF), nabídne jejich výběr,
+ * aby se platba + DP navázaly na konkrétní ZF (spárování dokladů a VS).
  */
-export default function PaymentConfirmModal({ open, onClose, onConfirm, saving, error, total }) {
+export default function PaymentConfirmModal({ open, onClose, onConfirm, saving, error, total, bookingId }) {
   const today = new Date().toISOString().slice(0, 10)
   const [method, setMethod] = useState('bank_transfer')
   const [vs, setVs] = useState('')
   const [paidDate, setPaidDate] = useState(today)
   const [txRef, setTxRef] = useState('')
+  const [advances, setAdvances] = useState([])
+  const [advanceId, setAdvanceId] = useState('')
+
+  // Načti vystavené ZF (zálohové / proforma) k rezervaci při otevření.
+  // - existuje ZF → VS z ní (zákazník platil tímto VS)
+  // - žádná ZF → nabídni automaticky následující číslo DP jako VS
+  useEffect(() => {
+    if (!open || !bookingId) return
+    let active = true
+    ;(async () => {
+      const { data } = await supabase.from('invoices')
+        .select('id, number, total, issue_date, variable_symbol')
+        .eq('booking_id', bookingId).in('type', ['advance', 'proforma']).neq('status', 'cancelled')
+        .order('issue_date', { ascending: false })
+      if (!active) return
+      const list = data || []
+      setAdvances(list)
+      if (list.length > 0) {
+        setAdvanceId(list[0].id)
+        setVs(list[0].variable_symbol || list[0].number || '')
+      } else {
+        try {
+          const next = await generateInvoiceNumber('payment_receipt')
+          if (active && next) setVs(next.replace(/^[A-Z]+-/, ''))
+        } catch { /* fallback: prázdný VS = č. dokladu */ }
+      }
+    })()
+    return () => { active = false }
+  }, [open, bookingId])
 
   if (!open) return null
 
   const inputStyle = { padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }
   const labelCls = 'block text-sm font-extrabold uppercase tracking-wide mb-1'
+  const fmtCs = d => d ? new Date(d).toLocaleDateString('cs-CZ') : ''
+  const selectedAdvance = advances.find(a => a.id === advanceId) || null
+
+  function pickAdvance(id) {
+    setAdvanceId(id)
+    const adv = advances.find(a => a.id === id)
+    if (adv) setVs(adv.variable_symbol || adv.number || '')
+  }
 
   function submit() {
     onConfirm({
@@ -27,6 +69,8 @@ export default function PaymentConfirmModal({ open, onClose, onConfirm, saving, 
       vs: vs.trim() || null,
       paid_date: paidDate || today,
       transaction_ref: txRef.trim() || null,
+      advance_invoice_id: advanceId || null,
+      advance_number: selectedAdvance?.number || null,
     })
   }
 
@@ -37,6 +81,24 @@ export default function PaymentConfirmModal({ open, onClose, onConfirm, saving, 
         proběhne stejné flow jako u platby kartou (doklady, e-mail, přístupové kódy).
         {total != null && <> Částka: <strong>{Number(total).toLocaleString('cs-CZ')} Kč</strong>.</>}
       </p>
+
+      {advances.length > 0 ? (
+        <>
+          <label className={labelCls} style={{ color: '#1a2e22' }}>Spárovat se zálohovou fakturou (ZF)</label>
+          <select value={advanceId} onChange={e => pickAdvance(e.target.value)}
+            className="w-full rounded-btn text-sm outline-none mb-3" style={inputStyle}>
+            {advances.map(a => (
+              <option key={a.id} value={a.id}>
+                {a.number} · {Number(a.total || 0).toLocaleString('cs-CZ')} Kč · {fmtCs(a.issue_date)}
+              </option>
+            ))}
+          </select>
+        </>
+      ) : (
+        <p className="text-[13px] mb-3 rounded-btn" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a5a52' }}>
+          K rezervaci zatím není vystavená ZF — bude vytvořena nová zálohová faktura a DP se na ni naváže.
+        </p>
+      )}
 
       <label className={labelCls} style={{ color: '#1a2e22' }}>Způsob platby</label>
       <select value={method} onChange={e => setMethod(e.target.value)}

@@ -145,6 +145,8 @@ export async function createInvoice({ type, customer_id, booking_id, order_id, i
         if (payment.method) p.payment_method = payment.method
         if (payment.transaction_ref) p.transaction_ref = payment.transaction_ref
         if (payment.paid_date) p.paid_date = payment.paid_date
+        // Propojení DP ↔ zálohová faktura (ZF), aby šla platba + doklady spárovat.
+        if (payment.advance_invoice_id) p.original_invoice_id = payment.advance_invoice_id
       }
     }
     return p
@@ -271,12 +273,15 @@ export async function generatePaymentReceipt(bookingId, source = 'booking', paym
     console.warn('[generatePaymentReceipt] Failed to fetch door codes:', e.message)
   }
 
+  // Vazba na zálohovou fakturu (ZF) na dokladu — pro spárování platby a dokladů.
+  const advanceNote = payment?.advance_number ? `\nK zálohové faktuře ${payment.advance_number}` : ''
+
   return createInvoice({
     type: 'payment_receipt',
     customer_id: booking.profiles?.id || booking.user_id,
     booking_id: bookingId,
     items,
-    notes: `Období pronájmu: ${fmtDateCS(booking.start_date)} – ${fmtDateCS(booking.end_date)}${doorCodesNote}`,
+    notes: `Období pronájmu: ${fmtDateCS(booking.start_date)} – ${fmtDateCS(booking.end_date)}${advanceNote}${doorCodesNote}`,
     source,
     status: 'paid',
     payment,
