@@ -88,7 +88,9 @@
         p_source: 'web_customer'
       });
       if (res.error || !res.data || res.data.success === false) {
-        var code = (res.data && res.data.error) || (res.error && res.error.message) || '';
+        var code = (res.data && res.data.error) || (res.error && (res.error.message || res.error.code)) || '';
+        // Diagnostika do F12 — ať je vidět přesná příčina (RPC error / výjimka).
+        console.error('[editRez] move failed', { sent: { p_booking_id: b.id, p_new_start: newStart, p_new_end: newEnd }, code: code, error: res.error, data: res.data });
         var map = {
           not_found: 'editRez.err.notFound',
           unauthenticated: 'editRez.login.error',
@@ -100,7 +102,10 @@
           moto_overlap: 'editRez.move.occupiedRange',
           customer_overlap: 'editRez.move.errCustomerOverlap'
         };
-        ER._showError(MG.t(map[code] || 'editRez.err.generic'));
+        var key = map[code];
+        // Když chybu neznáme, ukaž radši surovou serverovou hlášku (vč. detailu) než „něco se pokazilo".
+        var detail = (res.data && res.data.detail) || (res.error && res.error.details) || '';
+        ER._showError(key ? MG.t(key) : ((code || MG.t('editRez.err.generic')) + (detail ? ' — ' + detail : '')));
         return;
       }
       var msg = MG.t('editRez.move.success', { start: MG.formatDate(newStart), end: MG.formatDate(newEnd) });
