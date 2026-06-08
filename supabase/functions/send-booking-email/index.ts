@@ -11,7 +11,7 @@ const FROM_EMAIL = Deno.env.get('FROM_EMAIL') || 'noreply@motogo24.cz'
 const REPLY_TO = 'info@motogo24.cz'
 const SITE_URL = Deno.env.get('SITE_URL') || 'https://www.motogo24.cz'
 const PUBLIC_QR_TARGET = 'https://www.motogo24.cz'
-const FB_URL = 'https://www.facebook.com/people/MotoGo24/61581614672839/?sk=reviews'
+const FB_URL = 'https://www.facebook.com/profile.php?id=61581614672839'
 const IG_URL = 'https://www.instagram.com/moto.go24/'
 // Funkční odkazy na recenze/profily používané v mailech (Google / Facebook / Instagram).
 // Slouží jako fallback, když nejsou nastavené v app_settings.
@@ -152,6 +152,13 @@ function fixReviewLinks(html: string): string {
   let out = html
   out = out.replace(/(<a\b[^>]*\bhref=")[^"]*("[^>]*>\s*Google\s*<\/a>)/gi, `$1${GOOGLE_REVIEW_URL_DEFAULT}$2`)
   out = out.replace(/(<a\b[^>]*\bhref=")[^"]*("[^>]*>\s*Facebook\s*<\/a>)/gi, `$1${FACEBOOK_REVIEW_URL_DEFAULT}$2`)
+  // Pokud má šablona odkaz na Instagram přímo v textu (recenze Instagram neumí),
+  // převeď ho na Firmy.cz. Týká se jen těla review-mailu, ne patičky „Sledujte nás“.
+  out = out.replace(/<a\b[^>]*>[\s\S]*?<\/a>/gi, (a) =>
+    (/instagram\.com/i.test(a) || /<a\b[^>]*>\s*Instagram\s*<\/a>/i.test(a))
+      ? a.replace(/href="[^"]*"/i, `href="${FIRMY_REVIEW_URL_DEFAULT}"`).replace(/>[\s\S]*?<\/a>/i, '>Firmy.cz</a>')
+      : a,
+  )
   if (!/firmy\.cz/i.test(out)) {
     out = out.replace(
       /<a\b[^>]*\bhref="[^"]*facebook\.com[^"]*"[^>]*>\s*Facebook\s*<\/a>/i,
@@ -263,8 +270,8 @@ function wrapInBrandedLayout(bodyHtml: string, lang: Lang = 'cs'): string {
     </tr></table>
     <div style="text-align:center;margin-top:18px;padding-top:16px;border-top:1px solid #1f3a2c">
       <div style="color:#9ca3af;font-size:11px;letter-spacing:2px;margin-bottom:10px">${FOLLOW_US_LABEL[lang] || FOLLOW_US_LABEL.cs}</div>
-      <a href="${FB_URL}" style="display:inline-block;margin:0 6px;text-decoration:none;vertical-align:middle" target="_blank" rel="noopener"><img src="${SITE_URL}/gfx/facebook-footer.svg" alt="Facebook" width="32" height="32" style="display:inline-block;border:0;vertical-align:middle"/></a>
-      <a href="${FIRMY_REVIEW_URL_DEFAULT}" style="display:inline-block;margin:0 6px;text-decoration:none;vertical-align:middle" target="_blank" rel="noopener"><span style="display:inline-block;height:32px;line-height:32px;padding:0 12px;background:#e8112d;color:#ffffff;font-size:13px;font-weight:800;border-radius:6px;font-family:Arial,Helvetica,sans-serif">Firmy.cz</span></a>
+      <a href="${FB_URL}" style="display:inline-block;margin:0 6px;text-decoration:none" target="_blank" rel="noopener"><img src="${SITE_URL}/gfx/facebook-footer.svg" alt="Facebook" width="32" height="32" style="display:inline-block;border:0"/></a>
+      <a href="${IG_URL}" style="display:inline-block;margin:0 6px;text-decoration:none" target="_blank" rel="noopener"><img src="${SITE_URL}/gfx/instagram-footer.svg" alt="Instagram" width="32" height="32" style="display:inline-block;border:0"/></a>
     </div>
   </div>`
 

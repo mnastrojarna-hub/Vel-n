@@ -7,9 +7,8 @@ const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
 const FROM_EMAIL = Deno.env.get('FROM_EMAIL') || 'noreply@motogo24.cz'
 const REPLY_TO = 'info@motogo24.cz'
 const SITE_URL = Deno.env.get('SITE_URL') || 'https://www.motogo24.cz'
-const FB_URL = 'https://www.facebook.com/people/MotoGo24/61581614672839/?sk=reviews'
+const FB_URL = 'https://www.facebook.com/profile.php?id=61581614672839'
 const IG_URL = 'https://www.instagram.com/moto.go24/'
-const FIRMY_URL = 'https://www.firmy.cz/detail/14009052-motogo24-mezna.html'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -70,8 +69,8 @@ function wrapInBrandedLayout(bodyHtml: string): string {
     </tr></table>
     <div style="text-align:center;margin-top:18px;padding-top:16px;border-top:1px solid #1f3a2c">
       <div style="color:#9ca3af;font-size:11px;letter-spacing:2px;margin-bottom:10px">SLEDUJTE NÁS</div>
-      <a href="${FB_URL}" style="display:inline-block;margin:0 6px;text-decoration:none;vertical-align:middle" target="_blank" rel="noopener"><img src="${SITE_URL}/gfx/facebook-footer.svg" alt="Facebook" width="32" height="32" style="display:inline-block;border:0;vertical-align:middle"/></a>
-      <a href="${FIRMY_URL}" style="display:inline-block;margin:0 6px;text-decoration:none;vertical-align:middle" target="_blank" rel="noopener"><span style="display:inline-block;height:32px;line-height:32px;padding:0 12px;background:#e8112d;color:#ffffff;font-size:13px;font-weight:800;border-radius:6px;font-family:Arial,Helvetica,sans-serif">Firmy.cz</span></a>
+      <a href="${FB_URL}" style="display:inline-block;margin:0 6px;text-decoration:none" target="_blank" rel="noopener"><img src="${SITE_URL}/gfx/facebook-footer.svg" alt="Facebook" width="32" height="32" style="display:inline-block;border:0"/></a>
+      <a href="${IG_URL}" style="display:inline-block;margin:0 6px;text-decoration:none" target="_blank" rel="noopener"><img src="${SITE_URL}/gfx/instagram-footer.svg" alt="Instagram" width="32" height="32" style="display:inline-block;border:0"/></a>
     </div>
   </div>`
 
