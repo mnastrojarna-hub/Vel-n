@@ -327,6 +327,9 @@ export function DatesAndPaymentSection({ booking, bookingExtras, sosIncidents, o
             {cardText && (
               <div className="text-[11px] font-bold mt-0.5" style={{ color: '#4a5a52' }}>{cardText}</div>
             )}
+            {booking.payment_reference && (
+              <div className="text-[11px] font-bold mt-0.5" style={{ color: '#4a5a52' }}>Č. transakce: {booking.payment_reference}</div>
+            )}
             {stripeUrl && (
               <a href={stripeUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 mt-1 text-[11px] font-extrabold rounded-btn"
                 style={{ padding: '2px 6px', background: '#ede9fe', color: '#6d28d9', textDecoration: 'none', border: '1px solid #ddd6fe' }}>
