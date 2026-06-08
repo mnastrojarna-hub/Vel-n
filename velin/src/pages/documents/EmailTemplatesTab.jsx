@@ -65,6 +65,12 @@ function fixReviewLinks(html) {
   let out = html
   out = out.replace(/(<a\b[^>]*\bhref=")[^"]*("[^>]*>\s*Google\s*<\/a>)/gi, `$1${GOOGLE_REVIEW_URL}$2`)
   out = out.replace(/(<a\b[^>]*\bhref=")[^"]*("[^>]*>\s*Facebook\s*<\/a>)/gi, `$1${FACEBOOK_REVIEW_URL}$2`)
+  // Instagram v textu review-mailu → Firmy.cz (recenze Instagram neumí). Patičky se netýká.
+  out = out.replace(/<a\b[^>]*>[\s\S]*?<\/a>/gi, (a) =>
+    (/instagram\.com/i.test(a) || /<a\b[^>]*>\s*Instagram\s*<\/a>/i.test(a))
+      ? a.replace(/href="[^"]*"/i, `href="${FIRMY_REVIEW_URL}"`).replace(/>[\s\S]*?<\/a>/i, '>Firmy.cz</a>')
+      : a,
+  )
   if (!/firmy\.cz/i.test(out)) {
     out = out.replace(
       /<a\b[^>]*\bhref="[^"]*facebook\.com[^"]*"[^>]*>\s*Facebook\s*<\/a>/i,
