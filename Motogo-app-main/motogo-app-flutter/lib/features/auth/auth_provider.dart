@@ -159,10 +159,21 @@ class AuthService {
       // (same pattern as frontend auth.js – 500ms delay)
       await Future.delayed(const Duration(milliseconds: 500));
 
+      // Jazyk z uloženého locale appky → uloží se do profiles.language při
+      // registraci, aby maily (potvrzení, úprava, dokončení) chodily přeložené
+      // i bez rezervace. detect_customer_language čte profiles.language jako
+      // první v pořadí (před bookings/shop_orders). Fallback 'cs'.
+      String regLang = 'cs';
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        regLang = (prefs.getString('mg_locale') ?? 'cs').split(RegExp(r'[-_]')).first;
+      } catch (_) {/* ponech 'cs' */}
+
       // Save personal data + consents + registration_source to profiles table.
       // Retry up to 2× if the trigger hasn't created the row yet.
       final updateData = {
         if (profile != null) ...profile,
+        'language': regLang,
         'marketing_consent': true,
         'consent_gdpr': true,
         'consent_vop': true,

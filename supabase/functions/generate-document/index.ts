@@ -385,6 +385,25 @@ table td, table th { border: 1px solid #d4e8e0; padding: 4px 8px; }
       // Continue — document will still be created in DB with filled_data for client-side rendering
     }
 
+    // ── Přemazání starých verzí ────────────────────────────────────────────
+    // Při přegenerování téhož typu dokumentu pro tutéž rezervaci posbíráme
+    // předchozí generated_documents řádky, ať je po vložení nové verze smažeme
+    // (vč. souborů v úložišti). Bez toho se ve Velíně hromadí duplicitní
+    // smlouvy / protokoly / VOP. Identita "stejného typu" = stejný booking_id
+    // + stejný template_id (fallback dokumenty bez template_id se nepřemazávají,
+    // aby se neodstranil cizí typ).
+    let oldDocs: Array<{ id: string; pdf_path: string | null }> = []
+    if (booking_id && template?.id) {
+      try {
+        const { data: prev } = await supabase
+          .from('generated_documents')
+          .select('id, pdf_path')
+          .eq('booking_id', booking_id)
+          .eq('template_id', template.id)
+        if (Array.isArray(prev)) oldDocs = prev as Array<{ id: string; pdf_path: string | null }>
+      } catch { /* ignore */ }
+    }
+
     // Insert generated_documents record
     const { error: gErr } = await supabase.from('generated_documents').insert({
       id: docId,
@@ -399,6 +418,28 @@ table td, table th { border: 1px solid #d4e8e0; padding: 4px 8px; }
       return new Response(JSON.stringify({ error: 'Failed to insert generated document: ' + gErr.message }), {
         status: 500, headers: { ...CORS, 'Content-Type': 'application/json' },
       })
+    }
+
+    // Po úspěšném vložení nové verze: přesměruj synchronizovaný `documents` řádek
+    // na nový soubor a ukliď staré verze (řádky + soubory). Trigger
+    // sync_generated_doc_to_documents vkládá do `documents` jen když řádek ještě
+    // neexistuje (NOT EXISTS), takže `file_path` staré verze bychom jinak nechali
+    // viset na smazaný soubor.
+    if (booking_id && oldDocs.length) {
+      const vDocType = (() => {
+        const s = String(template_slug || '').toLowerCase()
+        if (s.includes('contract')) return 'contract'
+        if (s.includes('protocol')) return 'protocol'
+        if (s === 'vop') return 'vop'
+        return 'contract'
+      })()
+      try {
+        await supabase.from('documents').update({ file_path: path }).eq('booking_id', booking_id).eq('type', vDocType)
+      } catch { /* ignore */ }
+      const oldIds = oldDocs.map(d => d.id)
+      const oldFiles = oldDocs.map(d => d.pdf_path).filter((p): p is string => !!p && p !== path)
+      try { await supabase.from('generated_documents').delete().in('id', oldIds) } catch { /* ignore */ }
+      if (oldFiles.length) { try { await supabase.storage.from('documents').remove(oldFiles) } catch { /* ignore */ } }
     }
 
     // Audit log
