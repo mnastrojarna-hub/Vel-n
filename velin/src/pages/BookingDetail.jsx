@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { debugAction } from '../lib/debugLog'
 import { useDebugMode } from '../hooks/useDebugMode'
-import { generateAdvanceInvoice, generatePaymentReceipt, generateFinalInvoice } from '../lib/invoiceUtils'
+import { generateAdvanceInvoice, generatePaymentReceipt, generateFinalInvoice, renderAndStoreInvoicePdf } from '../lib/invoiceUtils'
 import Button from '../components/ui/Button'
 import StatusBadge, { getDisplayStatus } from '../components/ui/StatusBadge'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
@@ -17,6 +17,7 @@ import ComplaintsTab from './booking/ComplaintsTab'
 import { TABS, ACTIONS, CANCEL_REASONS, paymentStatusInfo } from './booking/bookingConstants'
 import { sendBookingMessage, logAudit, cancelBookingFromVelin } from './booking/bookingMessageHelpers'
 import BookingCancelModal from './booking/BookingCancelModal'
+import PaymentConfirmModal from './booking/PaymentConfirmModal'
 
 export default function BookingDetail() {
   const debugMode = useDebugMode()
@@ -29,6 +30,7 @@ export default function BookingDetail() {
   const [confirm, setConfirm] = useState(null)
   const [saving, setSaving] = useState(false)
   const [showCancelModal, setShowCancelModal] = useState(false)
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [cancelReason, setCancelReason] = useState('')
   const [cancelReasonCustom, setCancelReasonCustom] = useState('')
   const [showModifyModal, setShowModifyModal] = useState(false)
@@ -248,8 +250,74 @@ export default function BookingDetail() {
 
   const set = (k, v) => setBooking(b => ({ ...b, [k]: v }))
   function handleAction(action) {
-    if (action.status === 'cancelled') setShowCancelModal(true)
-    else setConfirm(action)
+    if (action.status === 'cancelled') { setShowCancelModal(true); return }
+    // Potvrzení NEZAPLACENÉ rezervace → ruční potvrzení platby (parita se Stripe):
+    // vyber způsob platby (QR/převod/hotově…), VS, datum, č. transakce → confirm_payment.
+    if (booking.payment_status !== 'paid' && booking.status === 'pending') { setShowPaymentModal(true); return }
+    setConfirm(action)
+  }
+
+  // Ruční potvrzení platby — projde STEJNÉ flow jako Stripe webhook (confirm_payment RPC
+  // + booking_reserved mail). Navíc zapíše ručně zadané platební údaje do rezervace a do
+  // ZF/DP. ZF+DP vygenerujeme a uložíme jejich PDF, aby je send-booking-email znovupoužil
+  // jako přílohu (místo regenerace bez ručních údajů).
+  async function confirmManualPayment(payment) {
+    setSaving(true); setError(null)
+    try {
+      // 1) Reference transakce na rezervaci (payment_method nastaví confirm_payment).
+      if (payment.transaction_ref) {
+        await supabase.from('bookings').update({ payment_reference: payment.transaction_ref }).eq('id', id).catch(() => {})
+      }
+
+      // 2) confirm_payment — payment_status='paid', přechod stavu + timestamps + DB triggery
+      //    (přístupové kódy, účetní záznam). Stejné RPC jako Stripe webhook.
+      const cp = await debugAction('booking.confirm_payment_manual', 'BookingDetail', () =>
+        supabase.rpc('confirm_payment', { p_booking_id: id, p_method: payment.method })
+      , { booking_id: id, method: payment.method })
+      if (cp?.error) { setError(cp.error.message); setSaving(false); return }
+      if (cp?.data && cp.data.success === false) { setError(cp.data.error || 'Potvrzení platby selhalo'); setSaving(false); return }
+
+      // 3) Cílový stav (stejná logika jako confirm_payment): dnes a dříve → active, jinak reserved.
+      const today = new Date().toISOString().slice(0, 10)
+      const startLocal = booking.start_date ? booking.start_date.slice(0, 10) : today
+      const newStatus = startLocal <= today ? 'active' : 'reserved'
+
+      // 4) Doklady ZF + DP s ručními platebními údaji (dedup proti existujícím).
+      const invoiceErrors = []
+      try {
+        const { data: existingInv } = await supabase.from('invoices').select('id, type')
+          .eq('booking_id', id).in('type', ['advance', 'proforma', 'payment_receipt']).neq('status', 'cancelled')
+        if (!(existingInv || []).some(i => i.type === 'advance' || i.type === 'proforma')) {
+          try { const zf = await generateAdvanceInvoice(id, 'booking', payment); await renderAndStoreInvoicePdf(zf.id) }
+          catch (e) { invoiceErrors.push(`ZF: ${e.message}`) }
+        }
+        if (!(existingInv || []).some(i => i.type === 'payment_receipt')) {
+          try { const dp = await generatePaymentReceipt(id, 'booking', payment); await renderAndStoreInvoicePdf(dp.id) }
+          catch (e) { invoiceErrors.push(`DP: ${e.message}`) }
+        }
+      } catch (e) { console.error('[manualPay] invoices:', e.message) }
+
+      // 5) Potvrzovací e-mail — stejný jako Stripe (přílohy ZF/DP znovupoužijí naše PDF).
+      supabase.functions.invoke('send-booking-email', { body: {
+        type: 'booking_reserved', booking_id: id,
+        customer_email: booking.profiles?.email, customer_name: booking.profiles?.full_name,
+        motorcycle: booking.motorcycles?.model, start_date: booking.start_date, end_date: booking.end_date,
+        total_price: booking.total_price, source: booking.booking_source || 'app',
+      } }).catch(() => {})
+
+      await logAudit('booking_payment_confirmed_manual', {
+        booking_id: id, method: payment.method, vs: payment.vs,
+        paid_date: payment.paid_date, transaction_ref: payment.transaction_ref,
+      })
+      await sendBookingMessage(newStatus, booking)
+
+      if (invoiceErrors.length > 0) setError(`Platba potvrzena, ale generování dokladů selhalo: ${invoiceErrors.join('; ')}`)
+      setShowPaymentModal(false)
+      await loadBooking()
+    } catch (e) {
+      setError(e.message)
+    }
+    setSaving(false)
   }
 
   if (loading) return <div className="flex justify-center py-16"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
@@ -316,6 +384,7 @@ export default function BookingDetail() {
       {tab === 'Reklamace' && <ComplaintsTab bookingId={id} booking={booking} setBooking={setBooking} />}
       {confirm && <ConfirmDialog open title={`${confirm.label}?`} message={`Změnit stav na "${confirm.label}"?`} danger={confirm.danger} onConfirm={() => changeStatus(confirm.status)} onCancel={() => setConfirm(null)} />}
       <BookingCancelModal open={showCancelModal} onClose={() => setShowCancelModal(false)} cancelReason={cancelReason} setCancelReason={setCancelReason} cancelReasonCustom={cancelReasonCustom} setCancelReasonCustom={setCancelReasonCustom} onCancel={handleCancel} saving={saving} error={error} />
+      <PaymentConfirmModal open={showPaymentModal} onClose={() => { setShowPaymentModal(false); setError(null) }} onConfirm={confirmManualPayment} saving={saving} error={error} total={booking?.total_price} />
     </div>
   )
 }

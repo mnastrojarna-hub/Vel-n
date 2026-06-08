@@ -106,11 +106,33 @@ export function generateInvoiceHtml(data) {
   const stripePaymentIntentId = data.stripe_payment_intent_id || (cardInfo && cardInfo.payment_intent_id) || ''
   const paymentMethodLabel = data.paymentMethodLabel || (cardInfo ? 'Platba kartou (Stripe)' : '')
 
-  const paymentBlock = cardInfo ? `
+  // Ruční (ne-Stripe) způsob platby — převod, QR, hotově, krypto, karta na místě, poukaz.
+  const MANUAL_METHOD_LABELS = {
+    bank_transfer: 'Bankovní převod', wire: 'Bankovní převod', qr: 'QR platba',
+    cash: 'Hotově', crypto: 'Kryptoměna', card: 'Platební karta', voucher: 'Dárkový poukaz',
+  }
+  const manualMethod = !cardInfo && data.payment_method ? String(data.payment_method).toLowerCase().trim() : ''
+  const manualLabel = manualMethod ? (MANUAL_METHOD_LABELS[manualMethod] || data.payment_method) : ''
+  // Bankovní účet ukaž jen u převodu / QR (kde ho zákazník potřebuje); u hotovosti/krypta ne.
+  const showBankAccount = manualMethod === 'bank_transfer' || manualMethod === 'wire' || manualMethod === 'qr'
+
+  const rowState = `
     <div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0">
       <span style="color:#16a34a;font-weight:600">Stav</span>
       <span style="color:#0f1a14;font-weight:700">${status}</span>
+    </div>`
+  const rowBank = `
+    <div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0">
+      <span style="color:#16a34a;font-weight:600">Bankovní účet</span>
+      <span style="color:#0f1a14;font-weight:700">${supplier.account || ''}</span>
     </div>
+    <div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0">
+      <span style="color:#16a34a;font-weight:600">Banka</span>
+      <span style="color:#0f1a14;font-weight:700">${supplier.bank || 'mBank'}</span>
+    </div>`
+
+  const paymentBlock = cardInfo ? `
+    ${rowState}
     <div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0">
       <span style="color:#16a34a;font-weight:600">Způsob platby</span>
       <span style="color:#0f1a14;font-weight:700">${paymentMethodLabel}</span>
@@ -120,19 +142,17 @@ export function generateInvoiceHtml(data) {
       <span style="color:#0f1a14;font-weight:700;font-variant-numeric:tabular-nums">${fmtPrice(total)}</span>
     </div>
     ${stripePaymentIntentId ? `<div style="display:flex;justify-content:space-between;font-size:11px;padding:4px 0"><span style="color:#16a34a;font-weight:600">ID platby</span><span style="color:#6b7280;font-weight:700;font-family:'Courier New',monospace">${stripePaymentIntentId}</span></div>` : ''}
+  ` : manualMethod ? `
+    ${rowState}
+    <div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0">
+      <span style="color:#16a34a;font-weight:600">Způsob platby</span>
+      <span style="color:#0f1a14;font-weight:700">${manualLabel}</span>
+    </div>
+    ${showBankAccount ? rowBank : ''}
+    ${data.transaction_ref ? `<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0"><span style="color:#16a34a;font-weight:600">Č. transakce</span><span style="color:#6b7280;font-weight:700;font-family:'Courier New',monospace">${data.transaction_ref}</span></div>` : ''}
   ` : `
-    <div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0">
-      <span style="color:#16a34a;font-weight:600">Stav</span>
-      <span style="color:#0f1a14;font-weight:700">${status}</span>
-    </div>
-    <div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0">
-      <span style="color:#16a34a;font-weight:600">Bankovní účet</span>
-      <span style="color:#0f1a14;font-weight:700">${supplier.account || ''}</span>
-    </div>
-    <div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0">
-      <span style="color:#16a34a;font-weight:600">Banka</span>
-      <span style="color:#0f1a14;font-weight:700">${supplier.bank || 'mBank'}</span>
-    </div>
+    ${rowState}
+    ${rowBank}
   `
 
   const badgeBg = badge.tone === 'paid' ? '#74FB71'

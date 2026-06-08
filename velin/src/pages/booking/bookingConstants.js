@@ -73,9 +73,21 @@ const PAYMENT_METHOD_LABELS = {
   paypal: { label: 'PayPal', icon: '🅿️', tone: '#1e3a8a' },
   bank_transfer: { label: 'Bankovní převod', icon: '🏦', tone: '#1a8a18' },
   wire: { label: 'Bankovní převod', icon: '🏦', tone: '#1a8a18' },
+  qr: { label: 'QR platba', icon: '🔳', tone: '#1a8a18' },
   cash: { label: 'Hotově', icon: '💵', tone: '#1a8a18' },
+  crypto: { label: 'Kryptoměna', icon: '🪙', tone: '#d97706' },
   voucher: { label: 'Dárkový poukaz', icon: '🎁', tone: '#7c3aed' },
 }
+
+// Způsoby platby nabízené při ručním potvrzení platby ve Velínu (QR, převod, hotově…).
+export const MANUAL_PAYMENT_METHODS = [
+  { value: 'bank_transfer', label: 'Bankovní převod' },
+  { value: 'qr', label: 'QR platba' },
+  { value: 'cash', label: 'Hotově' },
+  { value: 'crypto', label: 'Kryptoměna' },
+  { value: 'card', label: 'Platební karta (na místě)' },
+  { value: 'voucher', label: 'Dárkový poukaz' },
+]
 
 export function paymentMethodInfo(method) {
   if (!method) return { label: '—', icon: '', tone: '#0f1a14' }

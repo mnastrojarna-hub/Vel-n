@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import { uploadHtmlAsPdf } from './htmlToPdf'
+import { generateInvoiceHtml } from './invoiceTemplate'
 
 const PREFIX_MAP = {
   issued: 'FV',
@@ -113,9 +114,11 @@ export function calculateTotals(items) {
  * concurrent number generators — typically caused by React StrictMode double-mount,
  * concurrent autoGenerateKF + DB trigger, or two open tabs).
  */
-export async function createInvoice({ type, customer_id, booking_id, order_id, items, notes, due_date, source, status }) {
+export async function createInvoice({ type, customer_id, booking_id, order_id, items, notes, due_date, source, status, payment }) {
   const { subtotal, taxAmount, total } = calculateTotals(items)
-  const issueDate = new Date().toISOString().slice(0, 10)
+  // Ruční platba (převod / QR / hotově / krypto) může mít datum úhrady v minulosti —
+  // doklad se datuje ke dni přijetí platby. Bez ní = dnešek (jako dosud).
+  const issueDate = (payment && payment.paid_date) || new Date().toISOString().slice(0, 10)
 
   const buildPayload = (number, withOptional) => {
     const p = {
@@ -135,7 +138,14 @@ export async function createInvoice({ type, customer_id, booking_id, order_id, i
     if (withOptional) {
       p.source = source || 'booking'
       if (order_id) p.order_id = order_id
-      if (number) p.variable_symbol = number
+      // VS = ručně zadaný (převod) NEBO číslo dokladu (default jako dosud).
+      if (number) p.variable_symbol = (payment && payment.vs) || number
+      // Ruční platební údaje na doklad (DP/ZF) — způsob platby, datum úhrady, č. transakce.
+      if (payment) {
+        if (payment.method) p.payment_method = payment.method
+        if (payment.transaction_ref) p.transaction_ref = payment.transaction_ref
+        if (payment.paid_date) p.paid_date = payment.paid_date
+      }
     }
     return p
   }
@@ -202,7 +212,7 @@ export async function createInvoice({ type, customer_id, booking_id, order_id, i
 /**
  * Generate advance invoice (ZF) for a booking — daily price breakdown
  */
-export async function generateAdvanceInvoice(bookingId, source = 'booking') {
+export async function generateAdvanceInvoice(bookingId, source = 'booking', payment = null) {
   const { data: booking, error: bErr } = await supabase
     .from('bookings')
     .select(`*, motorcycles(${MOTO_SELECT}), profiles:user_id(id, full_name, email)`)
@@ -220,13 +230,14 @@ export async function generateAdvanceInvoice(bookingId, source = 'booking') {
     notes: `Období pronájmu: ${fmtDateCS(booking.start_date)} – ${fmtDateCS(booking.end_date)}`,
     source,
     status: 'paid',
+    payment,
   })
 }
 
 /**
  * Generate payment receipt (DP) for a booking — daily price breakdown
  */
-export async function generatePaymentReceipt(bookingId, source = 'booking') {
+export async function generatePaymentReceipt(bookingId, source = 'booking', payment = null) {
   const { data: booking, error: bErr } = await supabase
     .from('bookings')
     .select(`*, motorcycles(${MOTO_SELECT}, branch_id), profiles:user_id(id, full_name, email)`)
@@ -268,7 +279,43 @@ export async function generatePaymentReceipt(bookingId, source = 'booking') {
     notes: `Období pronájmu: ${fmtDateCS(booking.start_date)} – ${fmtDateCS(booking.end_date)}${doorCodesNote}`,
     source,
     status: 'paid',
+    payment,
   })
+}
+
+/**
+ * Vyrenderuj fakturu/DP do HTML a ulož PDF (storeInvoicePdf → pdf_path).
+ * Používá se po ručním potvrzení platby, aby `send-booking-email` mohl
+ * uložené PDF znovupoužít jako přílohu (místo regenerace bez ručních údajů).
+ */
+export async function renderAndStoreInvoicePdf(invoiceId) {
+  const data = await loadInvoiceData(invoiceId)
+  const html = generateInvoiceHtml({
+    type: data.type,
+    number: data.number,
+    issue_date: data.issue_date,
+    due_date: data.due_date,
+    duzp: data.issue_date,
+    items: data.items || [],
+    subtotal: data.subtotal,
+    tax_amount: data.tax_amount,
+    total: data.total,
+    notes: data.notes,
+    variable_symbol: data.variable_symbol || data.number,
+    customer: invoiceCustomer(data),
+    cardInfo: data.cardInfo,
+    stripe_payment_intent_id: data.stripe_payment_intent_id,
+    paymentMethodLabel: data.paymentMethodLabel,
+    payment_method: data.payment_method,
+    transaction_ref: data.transaction_ref,
+    voucher_codes: data.voucher_codes,
+    voucherValidUntil: data.voucherValidUntil,
+    door_codes: data.door_codes,
+    paid_date: data.paid_date,
+    booking_id: data.booking_id,
+    bookings: data.bookings,
+  })
+  return storeInvoicePdf(invoiceId, html)
 }
 
 /**

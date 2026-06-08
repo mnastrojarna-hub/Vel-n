@@ -37,6 +37,7 @@
 - **stripe_refund_id** (TEXT DEFAULT NULL, **NEW 2026-05-08**) — Stripe Refund ID posledního refundu k rezervaci. Plní `process-refund` po úspěšném Stripe refundu (vedle credit_note dobropisu). Velín booking detail z toho generuje odkaz na `dashboard.stripe.com/refunds/<id>`.
 - **card_brand** (TEXT DEFAULT NULL, **NEW 2026-05-08**) — Brand platební karty (visa/mastercard/amex/...). Plní `webhook-receiver` po `payment_intent.succeeded` (přes `stripe.charges.retrieve` na `latest_charge.payment_method_details.card.brand`). Pomocný i v `process-refund` pro renderování dobropisu („Refund proběhl na kartu Visa **** 4242").
 - **card_last4** (TEXT DEFAULT NULL, **NEW 2026-05-08**) — Posledních 4 číslic platební karty. Stejný plnič jako `card_brand`. Velín booking detail zobrazuje pod „Způsob platby".
+- **payment_reference** (TEXT DEFAULT NULL, **NEW 2026-06-08**) — Číslo / reference transakce u **ruční** (ne-Stripe) platby (QR, převod, hotově, krypto). Plní Velín booking detail při ručním potvrzení platby (`confirmManualPayment` v `BookingDetail.jsx`), zobrazuje se v panelu Platba pod „Způsob platby" jako „Č. transakce". Stripe platby ho nepoužívají (mají `stripe_payment_intent_id`).
 - **stripe_session_id** — Stripe Checkout Session ID
 - **stripe_checkout_url** (TEXT DEFAULT NULL) — URL aktivní Stripe Checkout session, ukládá `process-payment` při vytvoření session. Použito v abandoned mailu jako přímý odkaz na platbu.
 - **checkout_started_at** (TIMESTAMPTZ DEFAULT NULL) — okamžik kliknutí na „Pokračovat k platbě" (= vytvoření Stripe Checkout session). Vstupní bod 10minutového odpočtu pro abandoned mail.
@@ -213,6 +214,8 @@
 - **matched_delivery_note_id** (UUID FK→delivery_notes ON DELETE SET NULL)
 - **original_invoice_id** (UUID FK→invoices ON DELETE SET NULL) — vazba dobropisu na původní fakturu
 - **stripe_refund_id** (TEXT) — ID Stripe refundu pro dobropisy — napárovaný dodací list
+- **payment_method** (TEXT DEFAULT NULL, **NEW 2026-06-08**) — způsob platby u **ruční** (ne-Stripe) úhrady (bank_transfer/qr/cash/crypto/card/voucher). Plní `createInvoice` (přes `payment` param) při ručním potvrzení platby ve Velínu. `invoiceTemplate.js` z toho renderuje blok PLATBA (label „Bankovní převod / QR platba / Hotově / Kryptoměna …"). U Stripe karet zůstává NULL (metoda se bere z `payment_methods`/`stripe_payment_intent_id`).
+- **transaction_ref** (TEXT DEFAULT NULL, **NEW 2026-06-08**) — číslo / reference transakce u ruční platby; renderuje se na DP/faktuře jako „Č. transakce". VS u ruční platby jde do existujícího `variable_symbol`, datum úhrady do `paid_date`.
 
 ### delivery_notes
 - id (UUID PK), dl_number, supplier_name, supplier_ico
