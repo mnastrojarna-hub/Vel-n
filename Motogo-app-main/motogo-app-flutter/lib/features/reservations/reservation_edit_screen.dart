@@ -517,8 +517,10 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
               const SizedBox(width: 6),
               EditTabBtn(label: t(context).tr('shortenChangePlace'), active: _tab == 'shorten',
                 onTap: () => setState(() { _tab = 'shorten'; _shortenDir = null; _newStart = _booking!.startDate; _newEnd = _booking!.endDate; })),
-              // Posun termínu zdarma — jen pro nadcházející rezervace.
-              if (!_isActive) ...[
+              // Posun termínu zdarma — jen nadcházející a zaplacené (jako web).
+              if (!_isActive &&
+                  _booking!.displayStatus == ResStatus.nadchazejici &&
+                  _booking!.paymentStatus == 'paid') ...[
                 const SizedBox(width: 6),
                 EditTabBtn(label: t(context).tr('moveChangePlace'), active: _tab == 'move',
                   onTap: () => setState(() { _tab = 'move'; _shortenDir = null; _newStart = _booking!.startDate; _newEnd = _booking!.endDate; })),
