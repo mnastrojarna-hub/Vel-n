@@ -575,9 +575,22 @@ return [
     'editRez.detail.dayCount.many' => '{n} Tage',
 
     'editRez.tab.detail' => 'Detail',
+    'editRez.tab.move' => 'Termin verschieben',
     'editRez.tab.extend' => 'Verlängern',
     'editRez.tab.shorten' => 'Verkürzen',
     'editRez.tab.cancel' => 'Stornieren',
+
+    // Reschedule (free move)
+    'editRez.move.title' => 'Termin kostenlos verschieben',
+    'editRez.move.help' => 'Verschieben Sie die gesamte Reservierung ({days}) auf einen anderen Termin — kostenlos und ohne Preisänderung. Tippen Sie im Kalender auf den neuen Abholtag; die Reservierung wird unter Beibehaltung der Tagesanzahl verschoben. Aktuell: {start} – {end}.',
+    'editRez.move.cta' => 'Kostenlos verschieben',
+    'editRez.move.confirming' => 'Verschiebe…',
+    'editRez.move.success' => 'Fertig! Ihre Reservierung wurde kostenlos auf {start} – {end} verschoben. Bestätigung und aktualisierten Vertrag haben wir per E-Mail gesendet.',
+    'editRez.move.occupiedRange' => 'Das Motorrad ist in diesem Zeitraum belegt. Bitte wählen Sie einen anderen Tag, an dem die gesamte Dauer frei ist.',
+    'editRez.move.legendNew' => 'Neuer Termin',
+    'editRez.move.errLength' => 'Die Verschiebung muss die gleiche Anzahl an Tagen beibehalten.',
+    'editRez.move.errNoChange' => 'Bitte wählen Sie einen neuen Termin.',
+    'editRez.move.errCustomerOverlap' => 'Sie haben in diesem Zeitraum bereits eine andere Reservierung. Bitte wählen Sie einen anderen Termin.',
 
     'editRez.extend.title' => 'Reservierung verlängern',
     'editRez.extend.help' => 'Wählen Sie ein neues (späteres) Enddatum im Kalender. Sie zahlen nur die Preisdifferenz über Stripe.',

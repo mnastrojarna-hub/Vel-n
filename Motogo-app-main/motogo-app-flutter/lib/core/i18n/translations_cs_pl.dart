@@ -617,6 +617,7 @@ const translationsCsPl = <String, Map<String, String>>{
     // Reservation edit
     'extendChangePlace': 'Prodloužit / Změna místa',
     'shortenChangePlace': 'Zkrácení / Změna místa',
+    'moveChangePlace': 'Posunout termín', 'moveInstruction': 'Klikněte na nový den vyzvednutí — celá rezervace se posune zdarma se zachováním počtu dní.', 'moveFreeNote': 'Posun je zdarma a beze změny ceny.', 'moveLegendNew': 'Nový termín', 'moveSaveBtn': 'Posunout zdarma', 'moveOccupiedRange': 'V tomto termínu je motorka obsazená. Vyberte jiný den, kde je volná celá délka.', 'moveConfirmedTitle': 'Termín posunut', 'moveConfirmed': 'Rezervace byla zdarma posunuta na {start} – {end}. Potvrzení a aktualizovanou smlouvu jsme poslali e-mailem.', 'moveErrCustomerOverlap': 'V tomto termínu už máte jinou rezervaci. Vyberte jiný termín.', 'moveErrLength': 'Posun musí zachovat stejný počet dní.',
     'pickupDeliveryLabel': 'Přistavení motorky',
     'returnDeliveryLabel': 'Odvoz motorky',
     'pickupTimeEdit': 'ČAS PŘISTAVENÍ',
@@ -1309,6 +1310,7 @@ const translationsCsPl = <String, Map<String, String>>{
     'personalPickup': 'Odbiór osobisty', 'personalPickupInfo': 'Gratis · Mezná 9',
     'deliveryDetails': 'Dane dostawy',
     'extendChangePlace': 'Przedłuż / Zmień miejsce', 'shortenChangePlace': 'Skróć / Zmień miejsce',
+    'moveChangePlace': 'Przesuń termin', 'moveInstruction': 'Kliknij nowy dzień odbioru — cała rezerwacja przesunie się za darmo z zachowaniem liczby dni.', 'moveFreeNote': 'Przesunięcie jest darmowe i bez zmiany ceny.', 'moveLegendNew': 'Nowy termin', 'moveSaveBtn': 'Przesuń za darmo', 'moveOccupiedRange': 'Motocykl jest w tym terminie zajęty. Wybierz inny dzień z wolnym całym okresem.', 'moveConfirmedTitle': 'Termin przesunięty', 'moveConfirmed': 'Rezerwacja została bezpłatnie przeniesiona na {start} – {end}. Potwierdzenie i zaktualizowaną umowę wysłaliśmy e-mailem.', 'moveErrCustomerOverlap': 'Masz już inną rezerwację w tym terminie. Wybierz inny termin.', 'moveErrLength': 'Przesunięcie musi zachować tę samą liczbę dni.',
     'pickupDeliveryLabel': 'Dostawa motocykla', 'returnDeliveryLabel': 'Odbiór motocykla',
     'pickupTimeEdit': 'GODZINA DOSTAWY', 'returnTimeEdit': 'GODZINA ZWROTU',
     'originalPrice': 'Cena oryginalna', 'originalDuration': 'Oryginalna długość',

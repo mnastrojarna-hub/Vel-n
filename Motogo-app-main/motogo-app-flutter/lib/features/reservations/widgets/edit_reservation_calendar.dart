@@ -111,9 +111,37 @@ class _EditReservationCalendarState extends State<EditReservationCalendar> {
 
     if (widget.mode == 'shorten') {
       _handleShortenTap(d, origS, origE);
+    } else if (widget.mode == 'move') {
+      _handleMoveTap(d, origS, origE);
     } else {
       _handleExtendTap(d, origS, origE);
     }
+  }
+
+  /// Move (free reschedule): tapping a free day shifts the WHOLE reservation
+  /// to start there, keeping the same number of days. Re-tapping the chosen
+  /// start resets back to the original dates.
+  void _handleMoveTap(DateTime d, DateTime origS, DateTime origE) {
+    final today = _d(DateTime.now());
+    if (d.isBefore(today)) {
+      widget.onError(t(context).tr('cannotSelectPast'));
+      return;
+    }
+    final lenDays = origE.difference(origS).inDays; // 0-based offset
+    final newEnd = d.add(Duration(days: lenDays));
+
+    // Re-tap on the already-chosen new start → reset to original dates.
+    final curStart = widget.newStart != null ? _d(widget.newStart!) : origS;
+    if (d.isAtSameMomentAs(curStart) && !d.isAtSameMomentAs(origS)) {
+      widget.onDatesChanged(origS, origE);
+      return;
+    }
+
+    if (!_isRangeFree(d, newEnd)) {
+      widget.onError(t(context).tr('moveOccupiedRange'));
+      return;
+    }
+    widget.onDatesChanged(d, newEnd);
   }
 
   void _handleExtendTap(DateTime d, DateTime origS, DateTime origE) {
@@ -334,9 +362,30 @@ class _EditReservationCalendarState extends State<EditReservationCalendar> {
 
     if (widget.mode == 'extend') {
       return _getExtendCellInfo(d, origS, origE, newS, newE, inOrig, inNew);
+    } else if (widget.mode == 'move') {
+      return _getMoveCellInfo(d, newS, newE, inNew);
     } else {
       return _getShortenCellInfo(d, inOrig, inNew);
     }
+  }
+
+  /// Move mode: the (shifted) new range is highlighted as the selected term;
+  /// everything else outside it reads as free. Occupied/past handled above.
+  _CellInfo _getMoveCellInfo(
+      DateTime d, DateTime newS, DateTime newE, bool inNew) {
+    if (inNew) {
+      final isStart = d.isAtSameMomentAs(newS);
+      final isEnd = d.isAtSameMomentAs(newE);
+      if (isStart && isEnd) {
+        return const _CellInfo(_EditCellType.selected, radius: _CellRadius.round);
+      } else if (isStart) {
+        return const _CellInfo(_EditCellType.selected, radius: _CellRadius.leftHalf);
+      } else if (isEnd) {
+        return const _CellInfo(_EditCellType.selected, radius: _CellRadius.rightHalf);
+      }
+      return const _CellInfo(_EditCellType.selected, radius: _CellRadius.flat);
+    }
+    return const _CellInfo(_EditCellType.free);
   }
 
   _CellInfo _getExtendCellInfo(DateTime d, DateTime origS, DateTime origE,

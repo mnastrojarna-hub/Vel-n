@@ -144,6 +144,7 @@ export const PAGE_UPRAVIT_REZERVACE = {
       id: 'tabs', label: 'Záložky detailu rezervace', preview: 'detail',
       fields: [
         { key: 'web.layout.editRez.tab.detail', label: 'Záložka „Detail"', default: 'Detail' },
+        { key: 'web.layout.editRez.tab.move', label: 'Záložka „Posunout termín"', default: 'Posunout termín' },
         { key: 'web.layout.editRez.tab.extend', label: 'Záložka „Prodloužit"', default: 'Prodloužit' },
         { key: 'web.layout.editRez.tab.shorten', label: 'Záložka „Zkrátit"', default: 'Zkrátit' },
         { key: 'web.layout.editRez.tab.cancel', label: 'Záložka „Storno"', default: 'Storno' },
@@ -190,6 +191,21 @@ export const PAGE_UPRAVIT_REZERVACE = {
         { key: 'web.layout.editRez.detail.licenseRequired', label: 'Šablona „Vyžaduje ŘP"', default: 'Vyžaduje ŘP: {lic}', hint: '{lic} = skupina ŘP' },
         { key: 'web.layout.editRez.detail.licenseNone', label: 'Štítek „Bez ŘP"', default: 'Bez ŘP' },
         { key: 'web.layout.editRez.detail.historyTitle', label: 'Nadpis „Historie úprav"', default: 'Historie úprav' },
+      ]
+    },
+    {
+      id: 'move', label: 'Posun termínu (zdarma)', preview: 'detail',
+      fields: [
+        { key: 'web.layout.editRez.move.title', label: 'Nadpis', default: 'Posunout termín zdarma' },
+        { key: 'web.layout.editRez.move.help', label: 'Pomocný text', type: 'textarea', default: 'Přesuňte celou rezervaci ({days}) na jiný termín — zdarma a beze změny ceny. V kalendáři klikněte na nový den vyzvednutí; rezervace se posune se zachováním počtu dní. Aktuálně: {start} – {end}.', hint: '{days}, {start}, {end}' },
+        { key: 'web.layout.editRez.move.cta', label: 'Tlačítko „Posunout zdarma"', default: 'Posunout rezervaci zdarma' },
+        { key: 'web.layout.editRez.move.confirming', label: 'Tlačítko „Posouvám…"', default: 'Posouvám…' },
+        { key: 'web.layout.editRez.move.success', label: 'Hláška úspěchu', type: 'textarea', default: 'Hotovo! Rezervace byla zdarma posunuta na {start} – {end}. Potvrzení a aktualizovanou smlouvu jsme poslali e-mailem.', hint: '{start}, {end}' },
+        { key: 'web.layout.editRez.move.occupiedRange', label: 'Hláška „Termín obsazený"', type: 'textarea', default: 'V tomto termínu je motorka obsazená. Vyberte prosím jiný den, kde je volná celá délka rezervace.' },
+        { key: 'web.layout.editRez.move.legendNew', label: 'Legenda „Nový termín"', default: 'Nový termín' },
+        { key: 'web.layout.editRez.move.errLength', label: 'Chyba „Jiný počet dní"', default: 'Posun musí zachovat stejný počet dní rezervace.' },
+        { key: 'web.layout.editRez.move.errNoChange', label: 'Chyba „Žádná změna"', default: 'Vyberte prosím nový termín.' },
+        { key: 'web.layout.editRez.move.errCustomerOverlap', label: 'Chyba „Překrytí s jinou rezervací"', default: 'V tomto termínu už máte jinou rezervaci. Vyberte prosím jiný termín.' },
       ]
     },
     {
