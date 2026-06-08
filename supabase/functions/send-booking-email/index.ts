@@ -11,13 +11,13 @@ const FROM_EMAIL = Deno.env.get('FROM_EMAIL') || 'noreply@motogo24.cz'
 const REPLY_TO = 'info@motogo24.cz'
 const SITE_URL = Deno.env.get('SITE_URL') || 'https://www.motogo24.cz'
 const PUBLIC_QR_TARGET = 'https://www.motogo24.cz'
-const FB_URL = 'https://www.facebook.com/profile.php?id=61581614672839'
+const FB_URL = 'https://www.facebook.com/people/MotoGo24/61581614672839/?sk=reviews'
 const IG_URL = 'https://www.instagram.com/moto.go24/'
 // Funkční odkazy na recenze/profily používané v mailech (Google / Facebook / Instagram).
 // Slouží jako fallback, když nejsou nastavené v app_settings.
 // Google: oficiální odkaz na formulář recenze z Google Business Profile (Požádat o recenzi).
 const GOOGLE_REVIEW_URL_DEFAULT = 'https://g.page/r/CUmeYvk-sNf6EBM/review'
-const FACEBOOK_REVIEW_URL_DEFAULT = 'https://www.facebook.com/profile.php?id=61581614672839'
+const FACEBOOK_REVIEW_URL_DEFAULT = 'https://www.facebook.com/people/MotoGo24/61581614672839/?sk=reviews'
 const INSTAGRAM_REVIEW_URL_DEFAULT = 'https://www.instagram.com/moto.go24/'
 
 // ── i18n: doména zákazníka dle jazyka ───────────────────────────────────────
@@ -141,22 +141,28 @@ const REVIEW_BLOCK_LABELS: Record<string, { title: string; body: string; cta: st
   pl: { title: 'Twoja recenzja by nam pomogła', body: 'Jeśli byłeś zadowolony, zostaw nam recenzję w Google — pomożesz innym motocyklistom.', cta: '⭐ Oceń w Google' },
 }
 
-// Přidá Instagram odkaz hned za odkaz na Facebook recenzi, se stejným stylem.
-// Najde Facebook odkaz (placeholder {{facebook_review_url}} i napevno zadané
-// facebook.com URL), naklonuje jeho HTML a přepíše href na {{instagram_review_url}}
-// + popisek na "Instagram". {{instagram_review_url}} se dosadí stejně jako ostatní
-// proměnné. Idempotentní (nepřidá podruhé).
-function addInstagramReviewLink(html: string): string {
-  if (!html || /instagram\.com/i.test(html) || html.includes('{{instagram_review_url}}')) return html
-  return html.replace(
-    /<a\b[^>]*href="[^"]*(?:\{\{facebook_review_url\}\}|facebook\.com)[^"]*"[^>]*>[\s\S]*?<\/a>/i,
-    (fbAnchor) => {
-      const igAnchor = fbAnchor
-        .replace(/href="[^"]*"/i, 'href="{{instagram_review_url}}"')
-        .replace(/>[\s\S]*?<\/a>/i, '>Instagram</a>')
-      return `${fbAnchor}, ${igAnchor}`
-    },
-  )
+// Opraví odkazy na recenze v poděkovacím mailu. Šablona ve Velíně má odkazy
+// natvrdo (Google nevyplněný `writereview?placeid=PLACE_ID` → 404, starý Facebook).
+// Přepíšeme href podle viditelného textu odkazu (Google / Facebook) na správné URL
+// a za Facebook doplníme stejně stylovaný Instagram. Nezávisí na {{proměnných}}.
+// Idempotentní (Instagram se nepřidá podruhé).
+function fixReviewLinks(html: string): string {
+  if (!html) return html
+  let out = html
+  out = out.replace(/(<a\b[^>]*\bhref=")[^"]*("[^>]*>\s*Google\s*<\/a>)/gi, `$1${GOOGLE_REVIEW_URL_DEFAULT}$2`)
+  out = out.replace(/(<a\b[^>]*\bhref=")[^"]*("[^>]*>\s*Facebook\s*<\/a>)/gi, `$1${FACEBOOK_REVIEW_URL_DEFAULT}$2`)
+  if (!/instagram\.com/i.test(out)) {
+    out = out.replace(
+      /<a\b[^>]*\bhref="[^"]*facebook\.com[^"]*"[^>]*>\s*Facebook\s*<\/a>/i,
+      (fbAnchor) => {
+        const igAnchor = fbAnchor
+          .replace(/href="[^"]*"/i, `href="${INSTAGRAM_REVIEW_URL_DEFAULT}"`)
+          .replace(/>\s*Facebook\s*<\/a>/i, '>Instagram</a>')
+        return `${fbAnchor}, ${igAnchor}`
+      },
+    )
+  }
+  return out
 }
 
 function googleReviewBlock(lang: string, url: string): string {
@@ -1087,9 +1093,9 @@ serve(async (req) => {
         // (cache v {subject,body}_translations[lang] + __src_<lang> hash).
         // cs \u2192 CZ origin\u00e1l 1:1 beze zm\u011bny.
         const resolved = await resolveTemplateForLang(supabase, tpl as any, custLang)
-        // U poděkovacího mailu (booking_completed / web_booking_completed) doplníme
-        // Instagram odkaz vedle Facebooku — šablona ve Velíně má jen Google+Facebook.
-        const bodySrc = trySlug.includes('completed') ? addInstagramReviewLink(resolved.body) : resolved.body
+        // U poděkovacího mailu (booking_completed / web_booking_completed) opravíme
+        // odkazy na recenze (Google/Facebook) a doplníme Instagram.
+        const bodySrc = trySlug.includes('completed') ? fixReviewLinks(resolved.body) : resolved.body
         templateHtml = renderTemplate(bodySrc, vars)
         subject = renderTemplate(resolved.subject, vars)
         if (Array.isArray(tpl.attachments)) {
@@ -1317,7 +1323,7 @@ ${vars.tracking_number ? `<table style="width:100%;border-collapse:collapse;marg
           .eq('active', true)
           .maybeSingle()
         if (tpl?.body_html) {
-          const csBodySrc = trySlug.includes('completed') ? addInstagramReviewLink(tpl.body_html) : tpl.body_html
+          const csBodySrc = trySlug.includes('completed') ? fixReviewLinks(tpl.body_html) : tpl.body_html
           csTemplateHtml = renderTemplate(csBodySrc, vars)
           csSubject = renderTemplate(tpl.subject || '', vars)
           break

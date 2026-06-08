@@ -16,7 +16,7 @@ const SAMPLE_VARS = {
   resume_link: 'https://www.motogo24.cz/#/rezervace?resume=abc123',
   voucher_code: 'MGABC123 (3 000 Kč)', voucher_amount: '3 000', voucher_value: '3 000',
   voucher_expiry: '15. 6. 2029', order_number: 'OBJ-2026-01001', discount_code: 'DIKY200',
-  google_review_url: 'https://g.page/r/CUmeYvk-sNf6EBM/review', facebook_review_url: 'https://www.facebook.com/profile.php?id=61581614672839', instagram_review_url: 'https://www.instagram.com/moto.go24/',
+  google_review_url: 'https://g.page/r/CUmeYvk-sNf6EBM/review', facebook_review_url: 'https://www.facebook.com/people/MotoGo24/61581614672839/?sk=reviews', instagram_review_url: 'https://www.instagram.com/moto.go24/',
   site_url: 'https://www.motogo24.cz', price_difference: '-1 200',
   // Invoice email vars
   invoice_number: 'ZF-2026-0001', invoice_type: 'Zálohová faktura',
@@ -50,23 +50,33 @@ const SAMPLE_VARS = {
   cancellation_reason: 'Změna plánů', refund_amount: '7 800', refund_percent: '100',
 }
 
+const GOOGLE_REVIEW_URL = 'https://g.page/r/CUmeYvk-sNf6EBM/review'
+const FACEBOOK_REVIEW_URL = 'https://www.facebook.com/people/MotoGo24/61581614672839/?sk=reviews'
+const INSTAGRAM_REVIEW_URL = 'https://www.instagram.com/moto.go24/'
+
 /**
- * Doplní Instagram odkaz hned za odkaz na Facebook recenzi (stejně stylovaný).
- * Šablona "Poděkování po rezervaci" má jen Google + Facebook; Instagram se přidá
- * při renderu (náhled i test), aby nebylo nutné editovat HTML šablony v DB.
- * Pracuje nad zdrojem s placeholdery {{...}}, takže IG zdědí styl FB odkazu.
+ * Opraví odkazy na recenze v poděkovacím mailu (náhled i test). Šablona má odkazy
+ * natvrdo (Google nevyplněný `writereview?placeid=PLACE_ID` → 404, starý Facebook).
+ * Přepíše href podle viditelného textu (Google / Facebook) na správné URL a za
+ * Facebook doplní stejně stylovaný Instagram. Idempotentní (Instagram jen jednou).
  */
-function addInstagramReviewLink(html) {
-  if (!html || /instagram\.com/i.test(html) || html.includes('{{instagram_review_url}}')) return html
-  return html.replace(
-    /<a\b[^>]*href="[^"]*(?:\{\{facebook_review_url\}\}|facebook\.com)[^"]*"[^>]*>[\s\S]*?<\/a>/i,
-    (fbAnchor) => {
-      const igAnchor = fbAnchor
-        .replace(/href="[^"]*"/i, 'href="{{instagram_review_url}}"')
-        .replace(/>[\s\S]*?<\/a>/i, '>Instagram</a>')
-      return `${fbAnchor}, ${igAnchor}`
-    },
-  )
+function fixReviewLinks(html) {
+  if (!html) return html
+  let out = html
+  out = out.replace(/(<a\b[^>]*\bhref=")[^"]*("[^>]*>\s*Google\s*<\/a>)/gi, `$1${GOOGLE_REVIEW_URL}$2`)
+  out = out.replace(/(<a\b[^>]*\bhref=")[^"]*("[^>]*>\s*Facebook\s*<\/a>)/gi, `$1${FACEBOOK_REVIEW_URL}$2`)
+  if (!/instagram\.com/i.test(out)) {
+    out = out.replace(
+      /<a\b[^>]*\bhref="[^"]*facebook\.com[^"]*"[^>]*>\s*Facebook\s*<\/a>/i,
+      (fbAnchor) => {
+        const igAnchor = fbAnchor
+          .replace(/href="[^"]*"/i, `href="${INSTAGRAM_REVIEW_URL}"`)
+          .replace(/>\s*Facebook\s*<\/a>/i, '>Instagram</a>')
+        return `${fbAnchor}, ${igAnchor}`
+      },
+    )
+  }
+  return out
 }
 
 const EMAIL_STATUS = {
@@ -527,7 +537,7 @@ function EditEmailTemplateModal({ template, onClose, onSaved, isNew = false }) {
   function getPreviewHtml() {
     let html = bodyHtml
     if (template.slug === 'booking_completed' || template.slug === 'web_booking_completed') {
-      html = addInstagramReviewLink(html)
+      html = fixReviewLinks(html)
     }
     for (const [k, v] of Object.entries(SAMPLE_VARS)) html = html.replace(new RegExp(`\\{\\{${k}\\}\\}`, 'g'), v)
     return html
