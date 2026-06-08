@@ -52,27 +52,27 @@ const SAMPLE_VARS = {
 
 const GOOGLE_REVIEW_URL = 'https://g.page/r/CUmeYvk-sNf6EBM/review'
 const FACEBOOK_REVIEW_URL = 'https://www.facebook.com/people/MotoGo24/61581614672839/?sk=reviews'
-const INSTAGRAM_REVIEW_URL = 'https://www.instagram.com/moto.go24/'
+const FIRMY_REVIEW_URL = 'https://www.firmy.cz/detail/14009052-motogo24-mezna.html'
 
 /**
  * Opraví odkazy na recenze v poděkovacím mailu (náhled i test). Šablona má odkazy
  * natvrdo (Google nevyplněný `writereview?placeid=PLACE_ID` → 404, starý Facebook).
  * Přepíše href podle viditelného textu (Google / Facebook) na správné URL a za
- * Facebook doplní stejně stylovaný Instagram. Idempotentní (Instagram jen jednou).
+ * Facebook doplní stejně stylovaný odkaz na Firmy.cz. Idempotentní (Firmy.cz jen jednou).
  */
 function fixReviewLinks(html) {
   if (!html) return html
   let out = html
   out = out.replace(/(<a\b[^>]*\bhref=")[^"]*("[^>]*>\s*Google\s*<\/a>)/gi, `$1${GOOGLE_REVIEW_URL}$2`)
   out = out.replace(/(<a\b[^>]*\bhref=")[^"]*("[^>]*>\s*Facebook\s*<\/a>)/gi, `$1${FACEBOOK_REVIEW_URL}$2`)
-  if (!/instagram\.com/i.test(out)) {
+  if (!/firmy\.cz/i.test(out)) {
     out = out.replace(
       /<a\b[^>]*\bhref="[^"]*facebook\.com[^"]*"[^>]*>\s*Facebook\s*<\/a>/i,
       (fbAnchor) => {
-        const igAnchor = fbAnchor
-          .replace(/href="[^"]*"/i, `href="${INSTAGRAM_REVIEW_URL}"`)
-          .replace(/>\s*Facebook\s*<\/a>/i, '>Instagram</a>')
-        return `${fbAnchor}, ${igAnchor}`
+        const firmyAnchor = fbAnchor
+          .replace(/href="[^"]*"/i, `href="${FIRMY_REVIEW_URL}"`)
+          .replace(/>\s*Facebook\s*<\/a>/i, '>Firmy.cz</a>')
+        return `${fbAnchor}, ${firmyAnchor}`
       },
     )
   }
