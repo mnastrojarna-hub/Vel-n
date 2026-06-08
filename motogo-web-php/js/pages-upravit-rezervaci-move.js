@@ -42,7 +42,7 @@
     // MG.tc() = CMS-inline-editable (Velín → Texty webu → Úprava rezervace).
     content.innerHTML =
       '<h3>' + MG.tc('editRez.move.title') + '</h3>' +
-      '<p>' + MG.tc('editRez.move.help', { days: ER._dayLabel(lenDays), start: MG.formatDate(origStart), end: MG.formatDate(origEnd) }) + '</p>' +
+      '<p>' + MG.tc('editRez.move.help', { days: (typeof MG._dayLabel === 'function' ? MG._dayLabel(lenDays) : lenDays), start: MG.formatDate(origStart), end: MG.formatDate(origEnd) }) + '</p>' +
       '<div id="edit-rez-move-banner" class="erez-range-banner" style="display:none"></div>' +
       '<div id="edit-rez-move-cal"></div>' +
       '<div id="edit-rez-move-summary" class="edit-rez-price-summary" aria-live="polite"></div>' +
