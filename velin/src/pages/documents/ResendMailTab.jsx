@@ -104,12 +104,16 @@ export default function ResendMailTab() {
         supabase.functions.invoke('generate-document', { body: { template_slug: 'rental_contract', booking_id: bid } }),
         supabase.functions.invoke('generate-document', { body: { template_slug: 'vop', booking_id: bid } }),
       ]
-      if (selected.data.status === 'completed') tasks.push(inv({ regenerate: true, booking_id: bid, type: 'final' }))
+      // KF (konečná faktura) vystavuje DB trigger s číslem KF-… — generate-invoice
+      // s type='final' by vyrobil JINÝ doklad (prefix FV, přepočítané položky).
+      // Pro přílohu jen dorenderujeme PDF stávající KF z uložených položek.
+      if (selected.data.status === 'completed') tasks.push(inv({ render_existing: true, booking_id: bid, type: 'final' }))
       const res = await Promise.allSettled(tasks)
       res.forEach((r, i) => { if (r.status === 'rejected') warnings.push(`příloha #${i + 1}: ${r.reason?.message || 'chyba'}`) })
     } else {
       const oid = selected.data.id
       const res = await Promise.allSettled([
+        inv({ regenerate: true, order_id: oid, type: 'shop_proforma', source: 'shop' }),
         inv({ regenerate: true, order_id: oid, type: 'payment_receipt', source: 'shop' }),
         inv({ regenerate: true, order_id: oid, type: 'shop_final', source: 'shop' }),
       ])
