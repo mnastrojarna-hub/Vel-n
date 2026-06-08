@@ -173,6 +173,23 @@ export default function BookingDocumentsTab({ bookingId, userId }) {
     catch (e) { setError(`Ulozeni: ${e.message}`) }
   }
 
+  // Přegeneruje doklad aktuálními údaji a PŘEPÍŠE stávající řádek (zachová číslo).
+  // ZF/DP → generate-invoice regenerate:true; KF (final) → render_existing
+  // (KF vystavuje DB trigger s číslem KF-…, regenerate by vyrobil jiný doklad FV).
+  async function handleRegenerateInvoice(inv) {
+    setGenerating(`regen-${inv.id}`); setError(null)
+    try {
+      let body
+      if (inv.type === 'final' || inv.type === 'issued') body = { render_existing: true, booking_id: bookingId, type: 'final' }
+      else if (inv.type === 'payment_receipt') body = { regenerate: true, booking_id: bookingId, type: 'payment_receipt', send_email: false }
+      else body = { regenerate: true, booking_id: bookingId, type: 'advance', send_email: false } // advance/proforma → ZF
+      const { error: err } = await debugAction('functions.generate-invoice.regen', 'BookingDocumentsTab', () => supabase.functions.invoke('generate-invoice', { body }), { invoice_id: inv.id, type: inv.type })
+      if (err) throw err
+      await loadAll()
+    } catch (e) { setError(`Přegenerování selhalo: ${e.message}`) }
+    setGenerating(null)
+  }
+
   if (loading) return <div className="py-8 text-center"><div className="animate-spin inline-block rounded-full h-6 w-6 border-t-2 border-brand-gd" /></div>
 
   return (
@@ -211,7 +228,7 @@ export default function BookingDocumentsTab({ bookingId, userId }) {
         ) : invoices.map(inv => { const tp = INV_TYPE_MAP[inv.type] || { label: inv.type || 'Faktura', color: '#1a2e22', bg: '#f3f4f6' }; const isCN = inv.type === 'credit_note'; return (
           <div key={inv.id} className="flex items-center gap-4 p-3 rounded-lg mb-2 cursor-pointer hover:shadow-sm transition-shadow" style={{ background: isCN ? '#fef2f2' : '#f1faf7', border: isCN ? '1px solid #fca5a5' : 'none' }} onClick={() => handleViewInvoice(inv)}>
             <span style={{ fontSize: 16 }}>{isCN ? '\u274c' : '\ud83e\uddfe'}</span><span className="text-sm font-bold font-mono" style={isCN ? { color: '#dc2626' } : {}}>{inv.number || '\u2014'}</span><Badge label={tp.label} color={tp.color} bg={tp.bg} /><span className="text-sm font-bold" style={{ color: isCN ? '#dc2626' : '#0f1a14' }}>{isCN ? '\u2212' : ''}{Math.abs(inv.total || 0).toLocaleString('cs-CZ')} Kc</span><span className="text-sm" style={{ color: '#1a2e22' }}>{inv.issue_date || '\u2014'}</span>
-            <div className="flex gap-2 ml-auto" onClick={e => e.stopPropagation()}><button onClick={() => handleViewInvoice(inv)} className="text-sm font-bold cursor-pointer" style={{ color: '#2563eb', background: 'none', border: 'none' }}>Nahled</button><button onClick={() => handlePrintInvoice(inv)} className="text-sm font-bold cursor-pointer" style={{ color: '#1a2e22', background: 'none', border: 'none' }}>Tisk</button><button onClick={() => handleDownload(inv)} className="text-sm font-bold cursor-pointer" style={{ color: '#1a2e22', background: 'none', border: 'none' }}>Stahnout</button><button onClick={() => handleDeleteInvoice(inv)} className="text-sm font-bold cursor-pointer" style={{ color: '#dc2626', background: 'none', border: 'none' }}>Smazat</button></div>
+            <div className="flex gap-2 ml-auto" onClick={e => e.stopPropagation()}><button onClick={() => handleViewInvoice(inv)} className="text-sm font-bold cursor-pointer" style={{ color: '#2563eb', background: 'none', border: 'none' }}>Nahled</button><button onClick={() => handlePrintInvoice(inv)} className="text-sm font-bold cursor-pointer" style={{ color: '#1a2e22', background: 'none', border: 'none' }}>Tisk</button><button onClick={() => handleDownload(inv)} className="text-sm font-bold cursor-pointer" style={{ color: '#1a2e22', background: 'none', border: 'none' }}>Stahnout</button>{!isCN && <button onClick={() => handleRegenerateInvoice(inv)} disabled={generating === `regen-${inv.id}`} className="text-sm font-bold cursor-pointer" style={{ color: '#7c3aed', background: 'none', border: 'none' }}>{generating === `regen-${inv.id}` ? 'Generuji…' : 'Přegenerovat'}</button>}<button onClick={() => handleDeleteInvoice(inv)} className="text-sm font-bold cursor-pointer" style={{ color: '#dc2626', background: 'none', border: 'none' }}>Smazat</button></div>
           </div>
         ) })}
       </Card>

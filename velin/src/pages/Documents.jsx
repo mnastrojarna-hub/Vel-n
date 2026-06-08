@@ -5,8 +5,9 @@ import GeneratedTab from './documents/GeneratedTab'
 import EmailTemplatesTab from './documents/EmailTemplatesTab'
 import SentEmailsTab from './documents/SentEmailsTab'
 import InvoicesTab from './documents/InvoicesTab'
+import ResendMailTab from './documents/ResendMailTab'
 
-const TABS = ['Smluvní texty', 'Vygenerované', 'E-mailové šablony', 'Zaslané emaily', 'Faktury']
+const TABS = ['Smluvní texty', 'Vygenerované', 'E-mailové šablony', 'Znovu zaslat mail', 'Zaslané emaily', 'Faktury']
 
 export default function Documents() {
   const [tab, setTab] = useState('Smluvní texty')
@@ -37,6 +38,7 @@ export default function Documents() {
       {tab === 'Smluvní texty' && <ContractTermsTab />}
       {tab === 'Vygenerované' && <GeneratedTab />}
       {tab === 'E-mailové šablony' && <EmailTemplatesTab />}
+      {tab === 'Znovu zaslat mail' && <ResendMailTab />}
       {tab === 'Zaslané emaily' && <SentEmailsTab />}
       {tab === 'Faktury' && <InvoicesTab />}
     </div>
