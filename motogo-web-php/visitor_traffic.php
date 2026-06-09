@@ -38,6 +38,19 @@ function visitorDevice($ua) {
 }
 
 /**
+ * Whitelist hostů, které vůbec logujeme. Bez www. (to se ořezává předem).
+ * Pouští jen reálné domény motogo24.* (+ volitelný mobilní prefix `m.`).
+ * Vše ostatní = scanner smetí (UUID/slovníkové subdomény typu
+ * `<uuid>.motogo24.es`, `webmail.`, `se.`, …) nebo poškozené Host hlavičky
+ * (`httpswww.motogo24.com`) → nelogovat, ať nezaneřáďují filtr domén ve Velíně.
+ * Vrací true = známý host (logovat).
+ */
+function visitorHostAllowed($host) {
+    return is_string($host) && $host !== ''
+        && (bool) preg_match('/^(m\.)?motogo24\.(cz|com|nl|fr|at|pl|es)$/', $host);
+}
+
+/**
  * Z referreru vyrobí [domena, typ]. Typ: direct/internal/search/social/referral.
  */
 function visitorReferrerInfo($ref, $selfHost) {
@@ -70,6 +83,11 @@ function visitorTrafficMaybeLog($path, $lang) {
     // AI boti se logují v ai_traffic.php — sem nepatří
     if (function_exists('aiTrafficDetect') && aiTrafficDetect($ua)) return;
     if (visitorIsBot($ua)) return;
+
+    // Jen známé domény motogo24.* — neznámý Host = scanner subdomén / překlep,
+    // nelogovat (UA-filtr výše scannery s normálním browser UA nezachytí).
+    $hostHdr = strtolower(preg_replace('/^www\./', '', $_SERVER['HTTP_HOST'] ?? ''));
+    if (!visitorHostAllowed($hostHdr)) return;
 
     // Přeskoč assety a systémové cesty (favicon, sitemap, well-known, api, beacon…)
     if ($path === '' || $path === false) $path = '/';
