@@ -98,10 +98,52 @@ export default function SentEmailsTab() {
     } finally { setDeleting(false) }
   }
 
-  async function openAttachment(path) {
+  // Smlouva / VOP / protokol se při úpravě rezervace přegenerují pod novým
+  // `generated/<uuid>.pdf` a stará verze se z úložiště smaže (generate-document,
+  // 2026-06-08). Uložený `storage_path` v sent_emails pak míří na neexistující
+  // soubor → „Object not found". Dohledáme aktuální platný soubor přes booking_id
+  // ze stejných tabulek, ze kterých čte i detail zákazníka (kde přílohy fungují).
+  async function resolveLivePath(filename, stalePath) {
+    const bookingId = preview?.booking_id
+    if (!bookingId || !stalePath) return null
+    const fn = (filename || '').toLowerCase()
+    if (stalePath.startsWith('generated/')) {
+      let docType = null
+      if (fn.includes('smlouva') || fn.includes('contract')) docType = 'contract'
+      else if (fn.includes('vop')) docType = 'vop'
+      else if (fn.includes('protokol') || fn.includes('protocol')) docType = 'protocol'
+      if (!docType) return null
+      const { data } = await supabase.from('documents')
+        .select('file_path').eq('booking_id', bookingId).eq('type', docType)
+        .not('file_path', 'is', null).order('created_at', { ascending: false }).limit(1)
+      return data?.[0]?.file_path || null
+    }
+    if (stalePath.startsWith('invoices/')) {
+      let types = null
+      if (fn.includes('doklad-platby')) types = ['payment_receipt']
+      else if (fn.includes('zalohova-faktura')) types = ['advance', 'proforma']
+      else if (fn.includes('konecna-faktura')) types = ['final']
+      else if (fn.includes('dobropis')) types = ['credit_note']
+      if (!types) return null
+      const { data } = await supabase.from('invoices')
+        .select('number, pdf_path').eq('booking_id', bookingId).in('type', types)
+        .not('pdf_path', 'is', null).order('created_at', { ascending: false })
+      if (!data?.length) return null
+      // Mezi více doklady téhož typu vyber ten, jehož číslo je v názvu přílohy.
+      const exact = data.find(r => r.number && fn.includes(String(r.number).toLowerCase()))
+      return (exact || data[0]).pdf_path
+    }
+    return null
+  }
+
+  async function openAttachment(path, filename) {
     try {
-      const { data, error } = await supabase.storage.from('documents').createSignedUrl(path, 60)
-      if (error || !data?.signedUrl) throw error || new Error('signed URL chybí')
+      let { data, error } = await supabase.storage.from('documents').createSignedUrl(path, 60)
+      if (error || !data?.signedUrl) {
+        const live = await resolveLivePath(filename, path)
+        if (live) ({ data, error } = await supabase.storage.from('documents').createSignedUrl(live, 60))
+      }
+      if (error || !data?.signedUrl) throw error || new Error('soubor v úložišti nenalezen')
       window.open(data.signedUrl, '_blank', 'noopener,noreferrer')
     } catch (e) {
       debugError('SentEmailsTab', 'openAttachment', e)
@@ -111,7 +153,11 @@ export default function SentEmailsTab() {
 
   async function downloadAttachment(path, filename) {
     try {
-      const { data, error } = await supabase.storage.from('documents').download(path)
+      let { data, error } = await supabase.storage.from('documents').download(path)
+      if (error || !data) {
+        const live = await resolveLivePath(filename, path)
+        if (live) ({ data, error } = await supabase.storage.from('documents').download(live))
+      }
       if (error || !data) throw error || new Error('soubor chybí')
       const url = URL.createObjectURL(data)
       const a = document.createElement('a')
@@ -237,7 +283,7 @@ export default function SentEmailsTab() {
                       <span style={{ fontFamily: 'monospace', fontSize: 12, flex: 1 }}>{filename}</span>
                       {storagePath ? (
                         <>
-                          <button onClick={() => openAttachment(storagePath)}
+                          <button onClick={() => openAttachment(storagePath, filename)}
                             className="text-sm font-bold cursor-pointer rounded-btn"
                             style={{ padding: '4px 10px', background: '#e0e7ff', border: '1px solid #a5b4fc', color: '#3730a3' }}
                             title="Otevřít v novém okně">
