@@ -1360,6 +1360,12 @@ return [
     'editRez.doc.finishMissing' => 'Vos documents ne sont pas encore complets — veuillez télécharger les deux faces de votre carte d\'identité/passeport et de votre permis de conduire.',
     'editRez.doc.finishError' => 'L\'enregistrement a échoué. Veuillez réessayer.',
     'editRez.doc.savedOk' => 'Document enregistré ✓',
+    // ===== Dialogue de confirmation (générique) + scan de documents =====
+    'editRez.confirm.yes' => 'Oui',
+    'editRez.confirm.no' => 'Non',
+    'editRez.doc.uploadingMsg' => 'Téléchargement et numérisation…',
+    'editRez.doc.scanOk' => 'Document enregistré ✓ — si la réservation est payée, les codes seront envoyés par e-mail/SMS.',
+    'editRez.doc.scanFail' => 'Échec de la numérisation — réessaie ou améliore l\'éclairage.',
     'editRez.status.upcoming' => 'À venir',
     'editRez.loc.helpActive' => 'Une réservation en cours ne peut être modifiée que côté retour (vous avez déjà récupéré la moto). Le lieu et l\'heure de retour peuvent être ajustés à tout moment — nous régularisons la différence de prix automatiquement.',
     'editRez.loc.refundNote' => 'Un changement de lieu n\'est pas soumis au barème d\'annulation — vous récupérez toujours l\'intégralité des frais de livraison, même si vous changez le jour de retrait.',

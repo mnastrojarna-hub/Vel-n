@@ -1339,6 +1339,12 @@ return [
     'editRez.doc.finishMissing' => 'Twoje dokumenty nie są jeszcze kompletne — prześlij obie strony dowodu/paszportu oraz prawa jazdy.',
     'editRez.doc.finishError' => 'Zapis nie powiódł się. Spróbuj ponownie.',
     'editRez.doc.savedOk' => 'Dokument zapisany ✓',
+    // ===== Okno potwierdzenia (ogólne) + skan dokumentu =====
+    'editRez.confirm.yes' => 'Tak',
+    'editRez.confirm.no' => 'Nie',
+    'editRez.doc.uploadingMsg' => 'Przesyłanie i skanowanie…',
+    'editRez.doc.scanOk' => 'Dokument zapisany ✓ — jeśli rezerwacja jest opłacona, kody zostaną wysłane na e-mail/SMS.',
+    'editRez.doc.scanFail' => 'Skanowanie nie powiodło się — spróbuj ponownie lub popraw oświetlenie.',
     'editRez.status.upcoming' => 'Nadchodząca',
     'editRez.loc.helpActive' => 'Trwającą rezerwację możesz zmienić już tylko po stronie zwrotu (motocykl jest odebrany). Miejsce i czas zwrotu można zmienić w każdej chwili — różnicę w cenie rozliczymy automatycznie.',
     'editRez.loc.refundNote' => 'Zmiana miejsca nie podlega tabeli rezygnacji — zwrot za podstawienie zawsze otrzymasz w pełnej wysokości, nawet jeśli zmieniasz dzień odbioru.',

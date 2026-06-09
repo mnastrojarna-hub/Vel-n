@@ -42,6 +42,9 @@ $keys = [
     'editRez.doc.uploadBtn','editRez.doc.updateBtn','editRez.doc.scanBtn','editRez.doc.galleryBtn','editRez.doc.archiveTitle',
     'editRez.doc.finishBtn','editRez.doc.finishHelp','editRez.doc.finishSaving','editRez.doc.finishDone',
     'editRez.doc.finishCodesSent','editRez.doc.finishMissing','editRez.doc.finishError','editRez.doc.savedOk',
+    'editRez.doc.uploadingMsg','editRez.doc.scanOk','editRez.doc.scanFail',
+    // Generický potvrzovací dialog (Ano/Ne) + GPS fallback
+    'editRez.confirm.yes','editRez.confirm.no','rez.geo.failed',
     'editRez.detail.title','editRez.detail.bookingId','editRez.detail.moto','editRez.detail.dates',
     'editRez.detail.pickup','editRez.detail.return','editRez.detail.totalPaid','editRez.detail.daysCount',
     'editRez.tab.detail','editRez.tab.extend','editRez.tab.shorten','editRez.tab.cancel',

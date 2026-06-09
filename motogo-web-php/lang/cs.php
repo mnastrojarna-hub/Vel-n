@@ -796,6 +796,12 @@ return [
     'editRez.doc.finishMissing' => 'Doklady zatím nejsou kompletní — nahrajte prosím obě strany občanky/pasu i řidičského průkazu.',
     'editRez.doc.finishError' => 'Uložení se nezdařilo. Zkuste to prosím znovu.',
     'editRez.doc.savedOk' => 'Doklad uložen ✓',
+    // ===== Potvrzovací dialog (generický) + sken dokladů =====
+    'editRez.confirm.yes' => 'Ano',
+    'editRez.confirm.no' => 'Ne',
+    'editRez.doc.uploadingMsg' => 'Nahrávám a skenuji…',
+    'editRez.doc.scanOk' => 'Doklad uložen ✓ — pokud je rezervace zaplacená, kódy ti dorazí na email/SMS.',
+    'editRez.doc.scanFail' => 'Sken se nepodařil — zkus znovu nebo lépe nasviť.',
 
     // Statuses
     'editRez.status.pending' => 'Čeká na zaplacení',
