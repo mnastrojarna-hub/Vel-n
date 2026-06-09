@@ -1374,6 +1374,12 @@ return [
     'editRez.doc.finishMissing' => 'Ihre Dokumente sind noch nicht vollständig — bitte laden Sie beide Seiten von Ausweis/Reisepass und Führerschein hoch.',
     'editRez.doc.finishError' => 'Speichern fehlgeschlagen. Bitte versuchen Sie es erneut.',
     'editRez.doc.savedOk' => 'Dokument gespeichert ✓',
+    // ===== Bestätigungsdialog (generisch) + Dokumentenscan =====
+    'editRez.confirm.yes' => 'Ja',
+    'editRez.confirm.no' => 'Nein',
+    'editRez.doc.uploadingMsg' => 'Hochladen und Scannen…',
+    'editRez.doc.scanOk' => 'Dokument gespeichert ✓ — wenn die Reservierung bezahlt ist, werden die Codes an deine E-Mail/SMS gesendet.',
+    'editRez.doc.scanFail' => 'Scan fehlgeschlagen — versuche es erneut oder sorge für bessere Beleuchtung.',
     'editRez.status.upcoming' => 'Bevorstehend',
     'editRez.loc.helpActive' => 'Eine laufende Buchung kann nur noch auf der Rückgabeseite geändert werden (Sie haben das Motorrad bereits abgeholt). Ort und Zeit der Rückgabe können jederzeit angepasst werden — die Preisdifferenz gleichen wir automatisch aus.',
     'editRez.loc.refundNote' => 'Eine Ortsänderung unterliegt nicht der Stornotabelle — die Zustellgebühr erhalten Sie immer in voller Höhe zurück, auch wenn Sie den Abholtag ändern.',
