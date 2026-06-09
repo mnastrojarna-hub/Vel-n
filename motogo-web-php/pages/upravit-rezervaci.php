@@ -225,6 +225,7 @@ if (typeof MG.t !== "function") {
 <script src="' . assetUrl('/js/pages-rezervace-scan.js') . '"></script>
 <script src="' . assetUrl('/js/pages-upravit-rezervaci.js') . '"></script>
 <script src="' . assetUrl('/js/pages-upravit-rezervaci-move.js') . '"></script>
+<script src="' . assetUrl('/js/pages-upravit-rezervaci-resume.js') . '"></script>
 <script>
 (function(){
   function tryInit(){
