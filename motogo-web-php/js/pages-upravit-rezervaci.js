@@ -22,19 +22,19 @@ var MG=window.MG||{};window.MG=MG,MG.t=MG.t||function(e,t){var r=window.MG_I18N|
   function paidCard(toggleKey,priceKey,title,sub,group,kind){
     var st=ER._gearState,on=!!st[toggleKey],pr=gprice(priceKey);
     var panel=on?'<div class="gear-size-panel">'+chipRow(group,kind)+'</div>':'';
-    return '<div class="gear-card"><label class="gear-head"><input type="checkbox" data-gtoggle="'+toggleKey+'"'+(on?" checked":"")+'><span class="gear-ico">&#129406;</span><div class="gear-body"><div class="gear-title">'+esc(title)+'</div><div class="gear-price">+ '+MG.formatPrice(pr)+'</div><div class="gear-sub">'+esc(sub)+'</div></div></label>'+panel+'</div>';
+    return '<div class="gear-card'+(on?" open":"")+'"><label class="gear-head"><input type="checkbox" data-gtoggle="'+toggleKey+'"'+(on?" checked":"")+'><span class="gear-ico">&#129406;</span><div class="gear-body"><div class="gear-title">'+esc(title)+'</div><div class="gear-price">+ '+MG.formatPrice(pr)+'</div><div class="gear-sub">'+esc(sub)+'</div></div></label>'+panel+'</div>';
   }
   function passengerCard(){
     var st=ER._gearState,on=!!st.passOn,pr=gprice("passenger_gear");
     var panel=on?'<div class="gear-size-panel">'+chipRow("passenger","helmet")+chipRow("passenger","jacket")+chipRow("passenger","pants")+chipRow("passenger","gloves")+'</div>':'';
-    return '<div class="gear-card"><label class="gear-head"><input type="checkbox" data-gtoggle="passOn"'+(on?" checked":"")+'><span class="gear-ico">&#129489;</span><div class="gear-body"><div class="gear-title">'+MG.t("rez.gear.passenger")+'</div><div class="gear-price">+ '+MG.formatPrice(pr)+'</div><div class="gear-sub">'+MG.t("rez.gear.passengerSub")+'</div></div></label>'+panel+'</div>';
+    return '<div class="gear-card'+(on?" open":"")+'"><label class="gear-head"><input type="checkbox" data-gtoggle="passOn"'+(on?" checked":"")+'><span class="gear-ico">&#129489;</span><div class="gear-body"><div class="gear-title">'+MG.t("rez.gear.passenger")+'</div><div class="gear-price">+ '+MG.formatPrice(pr)+'</div><div class="gear-sub">'+MG.t("rez.gear.passengerSub")+'</div></div></label>'+panel+'</div>';
   }
   ER._gearTabHtml=function(){
     var st=ER._gearState;
     var newPaid=(st.passOn?gprice("passenger_gear"):0)+(st.bootsROn?gprice("boots_rider"):0)+(st.bootsPOn?gprice("boots_passenger"):0);
     var diff=newPaid-(ER._gearOldPaid||0);
     var sum=diff>0?MG.t("editRez.gear.surcharge",{amount:MG.formatPrice(diff)}):diff<0?MG.t("editRez.gear.refund",{amount:MG.formatPrice(-diff)}):MG.t("editRez.gear.noCharge");
-    var rider='<div class="gear-card"><div class="gear-head"><span class="gear-ico">&#127950;</span><div class="gear-body"><div class="gear-title">'+MG.t("rez.gear.rider")+'</div><div class="gear-price">'+MG.t("rez.gear.riderFree")+'</div><div class="gear-sub">'+MG.t("rez.gear.riderSub")+'</div></div></div><div class="gear-size-panel">'+chipRow("rider","helmet")+chipRow("rider","jacket")+chipRow("rider","pants")+chipRow("rider","gloves")+'</div></div>';
+    var rider='<div class="gear-card open"><div class="gear-head"><span class="gear-ico">&#127950;</span><div class="gear-body"><div class="gear-title">'+MG.t("rez.gear.rider")+'</div><div class="gear-price">'+MG.t("rez.gear.riderFree")+'</div><div class="gear-sub">'+MG.t("rez.gear.riderSub")+'</div></div></div><div class="gear-size-panel">'+chipRow("rider","helmet")+chipRow("rider","jacket")+chipRow("rider","pants")+chipRow("rider","gloves")+'</div></div>';
     var html='<h3>&#127913; '+MG.t("editRez.gear.title")+'</h3><p class="muted">'+MG.t("editRez.gear.intro")+'</p>';
     html+='<div class="gear-grid">'+rider+paidCard("bootsROn","boots_rider",MG.t("rez.gear.bootsRider"),MG.t("rez.gear.bootsRiderSub"),"rider","boots")+passengerCard()+paidCard("bootsPOn","boots_passenger",MG.t("rez.gear.bootsPassenger"),MG.t("rez.gear.bootsPassengerSub"),"passenger","boots")+'</div>';
     html+='<div class="edit-rez-storno-box" style="margin-top:1rem"><strong>'+sum+'</strong></div>';
