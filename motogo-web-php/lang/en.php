@@ -1391,6 +1391,12 @@ return [
     'editRez.doc.finishMissing' => 'Your documents are not complete yet — please upload both sides of your ID/passport and driving licence.',
     'editRez.doc.finishError' => 'Saving failed. Please try again.',
     'editRez.doc.savedOk' => 'Document saved ✓',
+    // ===== Confirmation dialog (generic) + document scan =====
+    'editRez.confirm.yes' => 'Yes',
+    'editRez.confirm.no' => 'No',
+    'editRez.doc.uploadingMsg' => 'Uploading and scanning…',
+    'editRez.doc.scanOk' => 'Document saved ✓ — if the reservation is paid, the codes will be sent to your email/SMS.',
+    'editRez.doc.scanFail' => 'Scan failed — try again or improve the lighting.',
     'editRez.status.upcoming' => 'Upcoming',
     'editRez.loc.helpActive' => 'An ongoing booking can only be changed on the return side (you\'ve already picked up the motorcycle). The return location and time can be adjusted anytime — we settle the price difference automatically.',
     'editRez.loc.refundNote' => 'A location change is not subject to the cancellation table — you always get the full delivery fee back, even if you change the pickup day.',

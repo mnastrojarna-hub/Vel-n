@@ -1361,6 +1361,12 @@ return [
     'editRez.doc.finishMissing' => 'Tus documentos aún no están completos: sube ambas caras del DNI/pasaporte y del carné de conducir.',
     'editRez.doc.finishError' => 'No se pudo guardar. Inténtalo de nuevo.',
     'editRez.doc.savedOk' => 'Documento guardado ✓',
+    // ===== Diálogo de confirmación (genérico) + escaneo de documentos =====
+    'editRez.confirm.yes' => 'Sí',
+    'editRez.confirm.no' => 'No',
+    'editRez.doc.uploadingMsg' => 'Subiendo y escaneando…',
+    'editRez.doc.scanOk' => 'Documento guardado ✓ — si la reserva está pagada, los códigos se enviarán a tu correo/SMS.',
+    'editRez.doc.scanFail' => 'El escaneo falló — inténtalo de nuevo o mejora la iluminación.',
     'editRez.status.upcoming' => 'Próxima',
     'editRez.loc.helpActive' => 'Una reserva en curso solo puede modificarse en la parte de la devolución (ya has recogido la moto). El lugar y la hora de devolución se pueden cambiar en cualquier momento; ajustamos la diferencia de precio automáticamente.',
     'editRez.loc.refundNote' => 'El cambio de lugar no está sujeto a la tabla de cancelación: siempre recuperas el importe íntegro de la entrega, aunque cambies el día de recogida.',

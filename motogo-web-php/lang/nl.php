@@ -1339,6 +1339,12 @@ return [
     'editRez.doc.finishMissing' => 'Uw documenten zijn nog niet compleet — upload beide zijden van uw ID-kaart/paspoort en rijbewijs.',
     'editRez.doc.finishError' => 'Opslaan mislukt. Probeer het opnieuw.',
     'editRez.doc.savedOk' => 'Document opgeslagen ✓',
+    // ===== Bevestigingsdialoog (generiek) + documentscan =====
+    'editRez.confirm.yes' => 'Ja',
+    'editRez.confirm.no' => 'Nee',
+    'editRez.doc.uploadingMsg' => 'Uploaden en scannen…',
+    'editRez.doc.scanOk' => 'Document opgeslagen ✓ — als de reservering is betaald, worden de codes naar je e-mail/sms gestuurd.',
+    'editRez.doc.scanFail' => 'Scannen mislukt — probeer opnieuw of zorg voor betere belichting.',
     'editRez.status.upcoming' => 'Aankomend',
     'editRez.loc.helpActive' => 'Een lopende reservering kun je alleen nog aanpassen aan de retourkant (je hebt de motor al opgehaald). De retourlocatie en -tijd kun je altijd wijzigen — het prijsverschil verrekenen we automatisch.',
     'editRez.loc.refundNote' => 'Een locatiewijziging valt niet onder de annuleringstabel — je krijgt de bezorgkosten altijd volledig terug, ook als je de ophaaldag wijzigt.',
