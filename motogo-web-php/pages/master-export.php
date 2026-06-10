@@ -12,12 +12,14 @@ header('X-Robots-Tag: noindex, nofollow');
 $sb = new SupabaseClient();
 
 // Bezpečnostní fix 2026-06-10: token preferovaně přes hlavičku (neleakuje do
-// access logů / historie / Referer). ?token= ponecháno jako fallback kvůli
-// zpětné kompatibilitě s edge fn, ale doporučeno přejít na hlavičku.
-$expectedToken = (string)($sb->fetchSetting('cms_admin_token') ?? '');
+// access logů / historie / Referer). ?token= ponecháno jako fallback. Ověření
+// přes edge (service_role) / anon fallback → funguje i po skrytí tokenu z anon.
 $headerToken = (string)($_SERVER['HTTP_X_CMS_ADMIN_TOKEN'] ?? '');
 $givenToken = $headerToken !== '' ? $headerToken : (string)($_GET['token'] ?? '');
-if ($expectedToken === '' || !hash_equals($expectedToken, $givenToken)) {
+$okAuth = (function_exists('mgCmsVerifyCap') && strncmp($givenToken, 'r1.', 3) === 0)
+    ? mgCmsVerifyCap($givenToken)
+    : (function_exists('mgCmsVerifyRawToken') && mgCmsVerifyRawToken($givenToken));
+if (!$okAuth) {
     http_response_code(403);
     echo json_encode(['error' => 'forbidden']);
     exit;

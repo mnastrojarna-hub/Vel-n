@@ -709,18 +709,23 @@ window.MOTOGO_CONFIG.SUPABASE_ANON_KEY = ' . json_encode(SUPABASE_ANON_KEY) . ';
     // overlay nikdy neuvidí. `?cms_highlight=<klíč>` v URL otevře cílový text.
     if (mgCmsAdminValid()) {
         $highlight = isset($_GET['cms_highlight']) ? (string)$_GET['cms_highlight'] : '';
-        // Token re-fetchneme server-side z app_settings — admin už ho jednou
-        // ověřil cookie; expozice ho do JS u admina neleakuje (každý kdo dorazí
-        // sem už cookie má). Bez tokenu inline-edit nepůjde uložit.
-        $cmsToken = '';
-        try {
-            $cmsSb = isset($sb) && $sb instanceof SupabaseClient ? $sb : new SupabaseClient();
-            $tk = $cmsSb->fetchSetting('cms_admin_token');
-            if (is_string($tk)) $cmsToken = $tk;
-        } catch (\Throwable $e) { /* token zůstane prázdný — overlay info-only */ }
+        // #5 fix: do JS posíláme PODEPSANOU capability `r1.…` (cms-save ji ověří
+        // veřejným klíčem) — raw token tak NIKDY neopustí server. Jen ve
+        // fallbacku (edge cms-admin-auth ještě nenasazená → cookie je legacy
+        // HMAC, ne cap) pošleme raw token, aby web overlay save fungoval i v
+        // přechodu (token je tou dobou ještě anon-čitelný).
+        $cmsCookieCred = isset($_COOKIE['mg_cms_sig']) ? (string)$_COOKIE['mg_cms_sig'] : '';
+        if (strncmp($cmsCookieCred, 'r1.', 3) !== 0) {
+            $cmsCookieCred = '';
+            try {
+                $cmsSb = isset($sb) && $sb instanceof SupabaseClient ? $sb : new SupabaseClient();
+                $tk = $cmsSb->fetchSetting('cms_admin_token');
+                if (is_string($tk)) $cmsCookieCred = $tk;
+            } catch (\Throwable $e) { /* prázdné → overlay info-only */ }
+        }
         $cmsCfg = json_encode([
             'highlight' => $highlight,
-            'token' => $cmsToken,
+            'token' => $cmsCookieCred,
             'apiUrl' => SUPABASE_URL . '/functions/v1/cms-save',
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         echo '

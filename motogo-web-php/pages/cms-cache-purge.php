@@ -22,9 +22,12 @@ if (!is_string($token) || $token === '') {
     exit;
 }
 
-$sb = new SupabaseClient();
-$expected = $sb->fetchSetting('cms_admin_token');
-if (!is_string($expected) || $expected === '' || !hash_equals($expected, $token)) {
+// #5 fix: přijmi podepsanou capability `r1.…` (ověř veřejným klíčem, bez DB),
+// nebo raw cms_admin_token (ověř přes edge / anon fallback — funguje i po skrytí).
+$authed = (function_exists('mgCmsVerifyCap') && strncmp($token, 'r1.', 3) === 0)
+    ? mgCmsVerifyCap($token)
+    : (function_exists('mgCmsVerifyRawToken') && mgCmsVerifyRawToken($token));
+if (!$authed) {
     http_response_code(403);
     echo 'invalid token';
     exit;

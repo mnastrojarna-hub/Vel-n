@@ -560,16 +560,14 @@ function renderLanguageSwitcher() {
 
     // CMS admin cross-domain: cookie `mg_cms_admin` je doménová, takže přechod
     // z motogo24.com na .cz/.at/.es/.pl by edit mode shodil. Pokud admin je
-    // přihlášen, přiložíme do switcher URL na CIZÍ doménu jednorázový
-    // ?cms_admin=<token>, který cílová doména ověří a nastaví si vlastní cookie
-    // (token se z URL hned odstraní v index.php). Stejná doména token nepotřebuje.
-    $cmsCrossDomainToken = '';
+    // přihlášen, přiložíme do switcher URL na CIZÍ doménu PODEPSANOU capability
+    // ?cms_admin_sso=<cap>, kterou cílová doména ověří veřejným klíčem a nastaví
+    // si vlastní cookie (#5 fix — už NEposíláme raw token). Legacy HMAC cookie
+    // se cross-domain nepropaguje (admin se na cizí doméně přihlásí z Velína).
+    $cmsCrossDomainCap = '';
     if (mgCmsAdminValid()) {
-        try {
-            $cmsSb = new SupabaseClient();
-            $tk = $cmsSb->fetchSetting('cms_admin_token');
-            if (is_string($tk) && $tk !== '') $cmsCrossDomainToken = $tk;
-        } catch (\Throwable $e) { /* token zůstane prázdný — switcher pojede bez něj */ }
+        $cookieVal = isset($_COOKIE['mg_cms_sig']) ? (string)$_COOKIE['mg_cms_sig'] : '';
+        if (strncmp($cookieVal, 'r1.', 3) === 0) $cmsCrossDomainCap = $cookieVal;
     }
     $currentHost = i18nSiteHost();
 
@@ -596,11 +594,11 @@ function renderLanguageSwitcher() {
             $url .= $sep . http_build_query($existingQuery);
         }
         // Cross-domain admin propagation: jen když cílová doména ≠ aktuální
-        if ($cmsCrossDomainToken !== '') {
+        if ($cmsCrossDomainCap !== '') {
             $targetDomain = I18N_DOMAIN_MAP[$code] ?? I18N_DOMAIN_INTL;
             if ($targetDomain !== $currentHost) {
                 $sep = (strpos($url, '?') !== false) ? '&' : '?';
-                $url .= $sep . 'cms_admin=' . urlencode($cmsCrossDomainToken);
+                $url .= $sep . 'cms_admin_sso=' . urlencode($cmsCrossDomainCap);
             }
         }
         $href = htmlspecialchars($url);
