@@ -78,7 +78,7 @@ export default function FaqSection() {
   }
 
   async function deleteItem(it) {
-    if (!confirm(`Smazat otázku „${it.question.slice(0, 60)}"?`)) return
+    if (!confirm(`Smazat otázku „${stripTagsLite(it.question).slice(0, 60)}"?`)) return
     await debugAction('faq.delete', 'FaqSection', () =>
       supabase.from('faq_items').delete().eq('id', it.id)
     , { id: it.id })
@@ -193,7 +193,8 @@ function FaqRow({ item, onEdit, onTogglePublished, onToggleFeatured, onDelete })
       style={{ background: '#fff', border: '1px solid #e2ece7', opacity: it.published ? 1 : 0.6 }}>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <span className="font-extrabold text-sm" style={{ color: '#0f1a14' }}>{it.question}</span>
+          <span className="font-extrabold text-sm" style={{ color: '#0f1a14' }}
+            dangerouslySetInnerHTML={{ __html: stripTagsLite(it.question) }} />
           {it.featured_home && (
             <span className="text-xs font-bold rounded-btn shrink-0"
               style={{ padding: '1px 8px', background: '#fef3c7', color: '#b45309' }}>⭐ home</span>
@@ -312,7 +313,7 @@ function FaqEditor({ entry, categories, onClose, onSaved }) {
       const { data: { user } } = await supabase.auth.getUser()
       await supabase.from('admin_audit_log').insert({
         admin_id: user?.id, action: entry ? 'faq_updated' : 'faq_created',
-        details: { id: savedId, question: payload.question.slice(0, 80) }
+        details: { id: savedId, question: stripTagsLite(payload.question).slice(0, 80) }
       })
       onSaved()
     } catch (e) {
