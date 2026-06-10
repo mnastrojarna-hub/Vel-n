@@ -24,7 +24,11 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
 const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY') || ''
-const ANTHROPIC_MODEL = 'claude-haiku-4-5-20251001'
+const ANTHROPIC_MODEL = 'claude-sonnet-4-6'
+// Adaptivní myšlení (Sonnet 4.6) — model si sám určí, kdy a kolik přemýšlet. Zapnuto kvůli
+// kvalitě odpovědí (lepší dodržování pravidel promptu, volání toolů před odpovědí, žádné
+// protiřečení). Interleaved thinking se zapne automaticky, beta hlavička není potřeba.
+const ANTHROPIC_THINKING = { type: 'adaptive' } as const
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -1700,6 +1704,7 @@ async function runClaudeLoop(
         body: JSON.stringify({
           model: ANTHROPIC_MODEL,
           max_tokens: maxTokens,
+          thinking: ANTHROPIC_THINKING,
           system: systemPrompt,
           tools: PUBLIC_TOOLS,
           messages: apiMessages,
@@ -1742,6 +1747,37 @@ async function runClaudeLoop(
   return { reply: 'Hm, zacyklil jsem se. Zkus to prosím přeformulovat — co přesně potřebuješ?', toolUses }
 }
 
+// Sestaví historii konverzace pro Claude. Cíl: agent si pamatuje CELOU vedenou konverzaci,
+// ne jen pár posledních zpráv (dřív se tvrdě usekávalo na `slice(-20)` → ztráta staršího
+// kontextu uprostřed delšího chatu). Sonnet 4.6 má 1M kontext, takže se vejde i dlouhá konverzace.
+// Widget posílá celou historii (drží ji i v sessionStorage), tady jen přidáme pojistky proti
+// zneužití/nákladům — `messages` chodí z anonymního widgetu a řídí je klient:
+//   - jen role user/assistant s neprázdným stringovým obsahem,
+//   - každá zpráva ořezaná na 8000 znaků (shodně s persistencí),
+//   - celkový rozpočet ~240k znaků (~80k tokenů) — při přetečení se zahazují NEJSTARŠÍ zprávy,
+//   - tvrdý strop 400 zpráv,
+//   - historie musí začínat 'user' zprávou (Anthropic API to vyžaduje) → odřízneme úvodní assistant tahy.
+function buildHistory(
+  messages: Array<{ role: string; content: string }>,
+): Array<{ role: string; content: string }> {
+  const MAX_MSGS = 400
+  const PER_MSG_CHARS = 8000
+  const TOTAL_CHARS = 240_000
+  let hist = messages
+    .filter((m) => (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string' && m.content.trim() !== '')
+    .map((m) => ({ role: m.role, content: m.content.length > PER_MSG_CHARS ? m.content.slice(0, PER_MSG_CHARS) : m.content }))
+  if (hist.length > MAX_MSGS) hist = hist.slice(-MAX_MSGS)
+  // Rozpočet znaků — zahazuj nejstarší zprávy, dokud se nevejdeme (poslední kontext je nejdůležitější).
+  let total = hist.reduce((s, m) => s + m.content.length, 0)
+  while (hist.length > 1 && total > TOTAL_CHARS) {
+    total -= hist[0].content.length
+    hist.shift()
+  }
+  // Anthropic API vyžaduje, aby konverzace začínala 'user' zprávou.
+  while (hist.length && hist[0].role !== 'user') hist.shift()
+  return hist
+}
+
 // ============================================================================
 // Server
 // ============================================================================
@@ -1776,7 +1812,7 @@ serve(async (req) => {
         status: 400, headers: { ...CORS, 'Content-Type': 'application/json' },
       })
     }
-    const recent = messages.slice(-20).filter((m) => m.role === 'user' || m.role === 'assistant')
+    const recent = buildHistory(messages)
 
     if (!ANTHROPIC_API_KEY) {
       return new Response(JSON.stringify({ error: 'AI agent je dočasně nedostupný (chybí klíč). Zkus to za chvíli, nebo napiš dotaz formulářem na webu.' }), {
@@ -1799,7 +1835,10 @@ serve(async (req) => {
       : null
 
     const systemPrompt = buildSystemPrompt(lang, cfg, company, fleet, pageCtx)
-    const maxTokens = Math.min(Math.max(Number(cfg.max_tokens) || 800, 256), 4096)
+    // S adaptivním myšlením se thinking tokeny počítají do max_tokens — proto vyšší strop i floor,
+    // ať zbyde prostor na myšlení i na samotnou odpověď (nízký limit by odpověď uřízl uprostřed).
+    // Cap držíme na 8000, ať edge fn nenarazí na wall-clock limit a non-streaming fetch nevytimeoutuje.
+    const maxTokens = Math.min(Math.max(Number(cfg.max_tokens) || 2048, 1024), 8000)
     const { reply, toolUses } = await runClaudeLoop(recent, systemPrompt, maxTokens, lang)
 
     const latency = Date.now() - startedAt
