@@ -182,6 +182,95 @@ async function loadConfig(): Promise<{ cfg: WebAgentConfig; company: CompanyInfo
   }
 }
 
+// ============================================================================
+// Znalostní báze — přednačtená do „paměti" agenta (do system promptu)
+// ============================================================================
+// Agent musí mít KOMPLETNÍ FAQ + VOP + nájemní smlouvu + předávací protokol + GDPR + podmínky
+// v kontextu od první zprávy — ne je jen dohledávat tooly. Tooly zůstávají na ŽIVÁ/dynamická data
+// (dostupnost, cena, návody, ověření identity). Tohle je statický ZÁKLAD.
+// Typ paměti: module-level cache s TTL. Edge isolate ji sdílí mezi requesty, takže se DB nehamruje
+// ("načteno po zapnutí, periodicky aktualizováno"). Změny textů v CMS se projeví po vypršení TTL
+// (max pár minut) nebo po studeném startu isolate.
+const KB_TTL_MS = 5 * 60 * 1000
+let kbCache: { at: number; byLang: Record<string, string> } | null = null
+
+function stripHtmlToText(html: string): string {
+  return String(html || '')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<\/(p|div|li|tr|h[1-6])>/gi, '\n')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#3[49];/g, "'")
+    .replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim()
+}
+
+async function loadKnowledgeBase(lang: string): Promise<string> {
+  const L = (lang || 'cs').slice(0, 2)
+  if (kbCache && (Date.now() - kbCache.at) < KB_TTL_MS && typeof kbCache.byLang[L] === 'string') {
+    return kbCache.byLang[L]
+  }
+  let faqBlock = '', legalBlock = '', policiesBlock = ''
+  try {
+    const [faqRes, tplRes, polRes] = await Promise.all([
+      sb.from('faq_items')
+        .select('category_key, category_label, question, answer, translations, sort_order')
+        .eq('published', true)
+        .order('category_key', { ascending: true }).order('sort_order', { ascending: true }),
+      sb.from('document_templates')
+        .select('type, name, content_html, content_translations, name_translations')
+        .eq('active', true).order('version', { ascending: false }),
+      sb.from('app_settings').select('value').eq('key', 'site.policies').maybeSingle(),
+    ])
+
+    // FAQ — KOMPLETNÍ (jen published), lokalizované
+    const faqs: string[] = []
+    for (const r of (faqRes.data || []) as Record<string, unknown>[]) {
+      const tr = (r.translations as Record<string, { question?: string; answer?: string; category_label?: string }> | null)?.[L] || {}
+      const q = stripHtmlToText((L !== 'cs' && tr.question) ? tr.question : String(r.question || ''))
+      const a = stripHtmlToText((L !== 'cs' && tr.answer) ? tr.answer : String(r.answer || ''))
+      const cat = (L !== 'cs' && tr.category_label) ? tr.category_label : String(r.category_label || r.category_key || '')
+      if (q && a) faqs.push(`• [${cat}] ${q}\n  ${a}`)
+    }
+    if (faqs.length) faqBlock = `ČASTÉ DOTAZY (FAQ) — KOMPLETNÍ, ${faqs.length} položek:\n${faqs.join('\n')}`
+
+    // Smluvní/právní dokumenty — VOP, nájemní smlouva, předávací protokol, GDPR (nejvyšší aktivní verze)
+    const WANT = new Set(['vop', 'rental_contract', 'handover_protocol', 'gdpr'])
+    const seen = new Set<string>()
+    const docs: string[] = []
+    const PER_DOC = 16000
+    for (const t of (tplRes.data || []) as Record<string, unknown>[]) {
+      const key = String(t.type || '')
+      if (!WANT.has(key) || seen.has(key)) continue
+      seen.add(key)
+      const ct = (t.content_translations as Record<string, string> | null)?.[L]
+      const nt = (t.name_translations as Record<string, string> | null)?.[L]
+      const title = String((L !== 'cs' && nt) || t.name || key)
+      let text = stripHtmlToText((L !== 'cs' && ct) ? ct : String(t.content_html || ''))
+      if (!text) continue
+      let note = ''
+      if (text.length > PER_DOC) { text = text.slice(0, PER_DOC); note = `\n  […zkráceno — doslovné úplné znění získáš přes get_legal_document(document='${key}')]` }
+      docs.push(`### ${title} (klíč: ${key})\n${text}${note}`)
+    }
+    if (docs.length) legalBlock = `OFICIÁLNÍ SMLUVNÍ A PRÁVNÍ DOKUMENTY — PŘESNÉ ZNĚNÍ:\n${docs.join('\n\n')}`
+
+    // Strukturované podmínky půjčovny (site.policies)
+    const pol = (polRes.data?.value as Record<string, unknown>) || {}
+    if (pol && Object.keys(pol).length) policiesBlock = `OFICIÁLNÍ PODMÍNKY PŮJČOVNY (strukturované):\n${JSON.stringify(pol, null, 1)}`
+  } catch (e) {
+    console.error('loadKnowledgeBase failed:', (e as Error).message)
+  }
+
+  const sections = [faqBlock, policiesBlock, legalBlock].filter(Boolean)
+  const built = sections.length
+    ? `ZNALOSTNÍ BÁZE (NAČTENA DO PAMĚTI — máš ji k dispozici od první zprávy, je to TVŮJ ZÁKLAD; tooly používej jen na živá/dynamická data nad rámec tohoto):\n\n${sections.join('\n\n')}`
+    : '' // prázdné = DB nedostupná nebo nic publikováno; ošetří pravidla + tooly
+  if (!kbCache || (Date.now() - kbCache.at) >= KB_TTL_MS) kbCache = { at: Date.now(), byLang: {} }
+  kbCache.byLang[L] = built
+  return built
+}
+
 // Sestaví zobrazované jméno motorky bez duplikace značky.
 // V DB mají některé řádky `model`, který už značku obsahuje (např. brand="Benelli",
 // model="Benelli TRK 502 X") → naivní `${brand} ${model}` vyrobí "Benelli Benelli TRK 502 X"
@@ -1202,6 +1291,10 @@ ORIENTAČNÍ ZNALOST O FIRMĚ (všechna ostatní fakta výhradně z tools — mo
 * B — opravňuje k A1 v ČR po 3 letech držení.
 * N — bez ŘP (dětské motorky, ručí zákonný zástupce).
 
+— ZKRATKA „sk." / „sk" = SKUPINA ŘP, NE STÁT —
+* „sk. B" / „sk B" / „sk.A" / „sk A" = SKUPINA B / A řidičského průkazu. NIKDY to nečti jako „slovenský" / Slovensko ani jiný stát a NEVYVOZUJ z toho národnost. K odpovědi NEPŘIDÁVEJ nic o slovenském ani jiném zahraničním ŘP, dokud to zákazník VÝSLOVNĚ sám nenastolí (typu „mám slovenský řidičák"). Sám od sebe takovou poznámku nikdy nepřilepuj.
+* Povinnou skupinu ŘP motorky ber z dat motorky (sloupec license_required) a z FAQ/podmínek v ZNALOSTNÍ BÁZI. NEVYMÝŠLEJ si homologační kategorie (L3e, L5e), kW limity výjimek ani znění evropských směrnic — pokud konkrétní pravidlo není v ZNALOSTNÍ BÁZI / datech, řekni rovně, že to závazně potvrdí půjčovna, a NESPEKULUJ o EU pravidlech pro tříkolky.
+
 — CO MUSÍŠ NAČÍST PŘES TOOLS (NIKDY z paměti) —
 * Aktuální flotila → \`search_motorcycles\`.
 * Cena pronájmu pro termín → \`calculate_price\` (ten výslovně NEzahrnuje extras a dopravu — TY to musíš zákazníkovi sdělit).
@@ -1580,7 +1673,7 @@ function formatPageContext(ctx: PageContext | null | undefined): string {
   return lines.join('\n')
 }
 
-function buildSystemPrompt(lang: string, cfg: WebAgentConfig, company: CompanyInfo, fleet: FleetMoto[], pageCtx?: PageContext | null): string {
+function buildSystemPrompt(lang: string, cfg: WebAgentConfig, company: CompanyInfo, fleet: FleetMoto[], pageCtx: PageContext | null | undefined, kb: string): Array<{ type: 'text'; text: string; cache_control?: { type: 'ephemeral' } }> {
   // Jazyk je adaptivní — model VŽDY odpovídá ve stejném jazyce, jakým píše uživatel.
   // `lang` je jen hint z prohlížeče (UI jazyk webu) pro úvodní zprávu.
   const langHint = (lang || 'cs').slice(0, 2)
@@ -1665,7 +1758,8 @@ Když user řekne „víkend" / „weekend" / „Wochenende", mluví o **sobotě
   // Kontext aktuální stránky — vyšší priorita než obecný brain,
   // protože uživatel mluví typicky o tom, na co se právě dívá.
   const pageCtxStr = formatPageContext(pageCtx)
-  if (pageCtxStr) parts.push(pageCtxStr)
+  // page context NEDÁVÁME do statického (cachovaného) prefixu — mění se per request/stránku;
+  // přijde až do odděleného necachovaného bloku na konci (viz return).
   if (userPrompt) parts.push(userPrompt)
   parts.push(tone)
 
@@ -1681,6 +1775,7 @@ Když user řekne „víkend" / „weekend" / „Wochenende", mluví o **sobotě
   parts.push(HARD_RULES_CS)
   parts.push(buildCompanyBrain(company))
   parts.push(MOTO_KNOWLEDGE_TIPS)
+  if (kb) parts.push(kb)
   if (cfg.knowledge_extra && cfg.knowledge_extra.trim()) {
     parts.push('AKTUÁLNÍ ZNALOSTI Z VELÍNU (sezonní akce, novinky, ad-hoc info — vyšší priorita než ostatní brain, pokud kolidují):\n' + cfg.knowledge_extra.trim())
   }
@@ -1690,7 +1785,14 @@ Když user řekne „víkend" / „weekend" / „Wochenende", mluví o **sobotě
   parts.push(`KONTAKTY (DAVAT JEN NA VYZADANI ČLOVĚKA / SOS / PRÁVO): telefon ${ctPhone}, email ${ctEmail}, web ${ctWeb}.`)
   parts.push(langInstr)
 
-  return parts.join('\n\n')
+  // Prompt caching: statický prefix (pravidla + znalostní báze + brain + datum + flotila) jde do
+  // cachovaného bloku, volatilní KONTEXT STRÁNKY za něj jako necachovaný blok. Na dražším modelu
+  // (Sonnet + myšlení) to srazí náklady i latenci — opakované requesty čtou prefix z cache (~10 %).
+  const blocks: Array<{ type: 'text'; text: string; cache_control?: { type: 'ephemeral' } }> = [
+    { type: 'text', text: parts.join('\n\n'), cache_control: { type: 'ephemeral' } },
+  ]
+  if (pageCtxStr) blocks.push({ type: 'text', text: pageCtxStr })
+  return blocks
 }
 
 // ============================================================================
@@ -1699,7 +1801,7 @@ Když user řekne „víkend" / „weekend" / „Wochenende", mluví o **sobotě
 
 async function runClaudeLoop(
   messages: Array<{ role: string; content: unknown }>,
-  systemPrompt: string,
+  system: unknown,
   maxTokens: number,
   lang: string = 'cs',
   maxIters = 6,
@@ -1740,7 +1842,7 @@ async function runClaudeLoop(
             // effort 'medium' drží kvalitu Sonnetu, ale omezuje přemýšlení i počet tool callů
             // → výrazně nižší latence a spolehlivost (default 'high' chat zpomaloval do timeoutů).
             output_config: { effort: 'medium' },
-            system: systemPrompt,
+            system: system,
             tools: PUBLIC_TOOLS,
             messages: apiMessages,
           }),
@@ -1869,7 +1971,8 @@ serve(async (req) => {
       })
     }
 
-    const { cfg, company, fleet } = await loadConfig()
+    // Config + znalostní báze (FAQ/VOP/smlouva/GDPR/podmínky) paralelně. KB se drží v module cache s TTL.
+    const [{ cfg, company, fleet }, kb] = await Promise.all([loadConfig(), loadKnowledgeBase(lang)])
     if (cfg.enabled === false) {
       const offPhone = company.phone || '+420 774 256 271'
       const offEmail = company.email || 'info@motogo24.cz'
@@ -1883,12 +1986,12 @@ serve(async (req) => {
       ? body.page_context as PageContext
       : null
 
-    const systemPrompt = buildSystemPrompt(lang, cfg, company, fleet, pageCtx)
+    const systemBlocks = buildSystemPrompt(lang, cfg, company, fleet, pageCtx, kb)
     // S adaptivním myšlením se thinking tokeny počítají do max_tokens — proto vyšší strop i floor,
     // ať zbyde prostor na myšlení i na samotnou odpověď (nízký limit by odpověď uřízl uprostřed).
     // Cap držíme na 8000, ať edge fn nenarazí na wall-clock limit a non-streaming fetch nevytimeoutuje.
     const maxTokens = Math.min(Math.max(Number(cfg.max_tokens) || 2048, 1024), 8000)
-    const { reply, toolUses } = await runClaudeLoop(recent, systemPrompt, maxTokens, lang)
+    const { reply, toolUses } = await runClaudeLoop(recent, systemBlocks, maxTokens, lang)
 
     const latency = Date.now() - startedAt
     let bookingCreated: string | undefined
