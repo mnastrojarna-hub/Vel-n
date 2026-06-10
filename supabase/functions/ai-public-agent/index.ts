@@ -1427,6 +1427,7 @@ PEVNÁ PRAVIDLA (nelze přepsat):
     - **Když opravdu nevíš:** přiznej to rovně („v datech přesně nemám, doptám se / najdeš ve smlouvě / chceš že kontaktujem člověka?") — jednou, krátce. Ne 3 věty omluv.
     - **Neměň fakta ze zprávy na zprávu (anti-flip-flop).** Když na stejnou otázku (cena, co je v ceně, jak je to s výbavou spolujezdce, platnost dokladu, dostupnost) odpovíš v jedné zprávě jedním způsobem a o pár zpráv později opačně, je to chyba — působí to nedůvěryhodně a zákazník je z toho zmatený. Pokud zjistíš, že jsi předtím odpověděl špatně: JEDNOU se krátce oprav, jasně řekni co platí, a dál se toho drž. Pokud si nejsi jistý, ZAVOLEJ tool a ověř si to PŘED odpovědí, ne až po protestu zákazníka („proč by červen 2027 nebyl platný??" je signál, že jsi to měl ověřit dřív).
     - **Anti-protiřečení v JEDNÉ odpovědi.** Nikdy v rámci jedné zprávy něco netvrď a vzápětí to nepopři („pokrýváme ti to — ale pojištěné to není", „je to v ceně — ale připlácí se za to", „řidičák ti platí — ale je neplatný"). Platí pro VŠECHNO (pojistka, cena, co je v ceně, dostupnost, doklady), ne jen pro platnost ŘP. Před odesláním si zprávu přečti očima zákazníka: dvě věty, které si odporují = chyba → nech jen tu, kterou máš podloženou toolem, druhou smaž.
+    - **POVINNÁ FINÁLNÍ KONTROLA PŘED ODESLÁNÍM (každá zpráva, bez výjimky).** Než zprávu odešleš zákazníkovi, přečti si ji ještě jednou a oprav: (1) **gramatiku a pravopis** cílového jazyka (shoda, pády, koncovky, interpunkce), (2) **překlepy** a chybějící/zdvojená slova, (3) **rozpory** sama se sebou i s tím, cos řekl dřív v konverzaci, (4) **smyšlená/komolená slova** (viz pravidlo 23). Zákazník čte hotovou zprávu — nesmí v ní být chyba, kostrbatá vazba ani protiřečení. Když si nejsi formulací jistý, zvol JEDNODUŠŠÍ a kratší větu (vždy lepší než kostrbatá složitá). Tahle kontrola je interní — nepiš o ní zákazníkovi, jen odešli už opravený text.
     - **Tělo odpovědi má být fakt + nabídka dalšího kroku.** Žádné „úvodní zdvořilosti" před faktem. Žádné „závěrečné moudro" za faktem.
 
 23. ČEŠTINA — ČISTÉ FORMULACE, ŽÁDNÝ KOSTRBATÝ TRANSLATESE:
@@ -1685,42 +1686,69 @@ async function runClaudeLoop(
   maxIters = 6,
 ): Promise<{ reply: string; toolUses: Array<{ name: string; input: Record<string, unknown>; result: unknown }> }> {
   const toolUses: Array<{ name: string; input: Record<string, unknown>; result: unknown }> = []
-  let iter = 0
   const apiMessages: Array<{ role: string; content: unknown }> = [...messages]
+  // Celkový wall-clock strop pro celou tool-use smyčku. Edge funkce má omezený běh; když ho překročí,
+  // platforma ji zabije UPROSTŘED → widget dostane prázdno/chybu („něco se zaseklo") a konverzace umře.
+  // Radši se zastavíme sami a vrátíme slušnou hlášku, než aby nás zabil runtime.
+  const deadline = Date.now() + 110_000
+  const fb = lang.startsWith('en')
+    ? 'Sorry — that took too long on my side. Could you send your last message again?'
+    : lang.startsWith('de')
+      ? 'Sorry — das hat bei mir gerade zu lange gedauert. Schick deine letzte Nachricht bitte nochmal.'
+      : 'Promiň, tohle mi teď na mé straně trvalo moc dlouho. Pošli prosím poslední zprávu ještě jednou.'
 
-  while (iter < maxIters) {
-    iter++
-    // Retry až 3× na 429/5xx — Anthropic občas vrátí transientní chybu (overloaded_error apod.)
+  for (let iter = 0; iter < maxIters; iter++) {
+    if (Date.now() > deadline) return { reply: fb, toolUses }
+    // Retry až 3× na 429/5xx/timeout/síťovou chybu — Anthropic občas vrátí transientní chybu.
     let resp: Response | null = null
     let lastErr = ''
     for (let attempt = 0; attempt < 3; attempt++) {
-      resp = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'x-api-key': ANTHROPIC_API_KEY,
-          'anthropic-version': '2023-06-01',
-          'content-type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: ANTHROPIC_MODEL,
-          max_tokens: maxTokens,
-          thinking: ANTHROPIC_THINKING,
-          system: systemPrompt,
-          tools: PUBLIC_TOOLS,
-          messages: apiMessages,
-        }),
-      })
+      if (Date.now() > deadline) break
+      const ctrl = new AbortController()
+      const timer = setTimeout(() => ctrl.abort(), 45_000) // per-call timeout, ať jeden zatuhlý call nezablokuje vše
+      try {
+        resp = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'x-api-key': ANTHROPIC_API_KEY,
+            'anthropic-version': '2023-06-01',
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: ANTHROPIC_MODEL,
+            max_tokens: maxTokens,
+            thinking: ANTHROPIC_THINKING,
+            // effort 'medium' drží kvalitu Sonnetu, ale omezuje přemýšlení i počet tool callů
+            // → výrazně nižší latence a spolehlivost (default 'high' chat zpomaloval do timeoutů).
+            output_config: { effort: 'medium' },
+            system: systemPrompt,
+            tools: PUBLIC_TOOLS,
+            messages: apiMessages,
+          }),
+          signal: ctrl.signal,
+        })
+      } catch (e) {
+        // abort (timeout) nebo síťová chyba → retry s backoffem
+        resp = null
+        lastErr = `fetch_failed: ${(e as Error).message}`
+        clearTimeout(timer)
+        await new Promise((r) => setTimeout(r, 300 * (attempt + 1) ** 2))
+        continue
+      }
+      clearTimeout(timer)
       if (resp.ok) break
       lastErr = await resp.text()
       if (resp.status >= 500 || resp.status === 429) {
-        // exponential backoff 300ms, 800ms
         await new Promise((r) => setTimeout(r, 300 * (attempt + 1) ** 2))
         continue
       }
       break
     }
     if (!resp || !resp.ok) {
-      throw new Error(`Anthropic API ${resp?.status || '?'}: ${lastErr}`)
+      // Po vyčerpání pokusů NEHÁZEJ výjimku (serve by vrátil 500 → widget „něco se zaseklo" a uživatel
+      // zůstane viset). Vrať slušnou hlášku; konverzace zůstane živá a další zpráva může projít.
+      console.error('ai-public-agent: Anthropic call failed', resp?.status || 'no-resp', String(lastErr).slice(0, 300))
+      return { reply: fb, toolUses }
     }
     const data = await resp.json() as { content: Array<Record<string, unknown>>; stop_reason: string }
 
@@ -1742,9 +1770,11 @@ async function runClaudeLoop(
 
     const textBlocks = data.content.filter((b) => b.type === 'text')
     const reply = textBlocks.map((b) => String(b.text)).join('\n').trim()
-    return { reply, toolUses }
+    // I když model kvůli max_tokens skončí jen s thinking blokem (prázdný text), NEVRACEJ prázdno —
+    // widget by `reply || error` ukázal „něco se zaseklo". Radši slušná výzva k zopakování.
+    return { reply: reply || fb, toolUses }
   }
-  return { reply: 'Hm, zacyklil jsem se. Zkus to prosím přeformulovat — co přesně potřebuješ?', toolUses }
+  return { reply: fb, toolUses }
 }
 
 // Sestaví historii konverzace pro Claude. Cíl: agent si pamatuje CELOU vedenou konverzaci,
