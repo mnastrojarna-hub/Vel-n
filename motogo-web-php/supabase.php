@@ -37,7 +37,7 @@ class SupabaseClient {
      * která se přirozeně obnoví po `cacheTtl`).
      */
     private function isCmsAdmin() {
-        return !empty($_COOKIE['mg_cms_admin']);
+        return mgCmsAdminValid();
     }
 
     /**

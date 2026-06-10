@@ -26,6 +26,14 @@ function jsonResponse(data: unknown, status = 200) {
   })
 }
 
+// Konstantní-časové porovnání řetězců (zamezí timing útoku na API klíč).
+function timingSafeEqualStr(a: string, b: string): boolean {
+  if (a.length !== b.length) return false
+  let diff = 0
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i)
+  return diff === 0
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: CORS })
@@ -36,11 +44,14 @@ Deno.serve(async (req: Request) => {
   }
 
   // -- 1. Auth --
+  // Bezpečnostní fix 2026-06-10: odstraněn hardcoded FALLBACK_KEY (byl natvrdo
+  // v doc-scanner bundlu i tady → kdokoli s APK mohl volat tuto service_role
+  // funkci a vkládat falešné účetní doklady; rotace secretu ho neodvolala).
+  // Nyní výhradně přes secret INVOICE_API_KEY (timing-safe porovnání).
   const INVOICE_API_KEY = Deno.env.get('INVOICE_API_KEY') || ''
-  const FALLBACK_KEY = '2dd9f888beb56e25abd79d64a21a896f8c4cadcc3406b678f7993e6c97552081'
   const apiKey = req.headers.get('x-invoice-api-key') || ''
 
-  const validKey = (INVOICE_API_KEY && apiKey === INVOICE_API_KEY) || apiKey === FALLBACK_KEY
+  const validKey = INVOICE_API_KEY.length > 0 && timingSafeEqualStr(apiKey, INVOICE_API_KEY)
   if (!apiKey || !validKey) {
     return jsonResponse({ error: 'Unauthorized: invalid API key' }, 401)
   }

@@ -491,7 +491,7 @@ function te($key, $params = null) {
 function tc($key, $params = null) {
     $raw = t($key, $params);
     if (!is_string($raw)) return '';
-    if (empty($_COOKIE['mg_cms_admin'])) return $raw;
+    if (!mgCmsAdminValid()) return $raw;
     $safeKey = htmlspecialchars($key, ENT_QUOTES | ENT_HTML5, 'UTF-8');
     return '<span data-cms-key="web.layout.' . $safeKey . '">' . $raw . '</span>';
 }
@@ -507,7 +507,7 @@ function tcRaw($key, $params = null) {
     if (is_array($params) && !empty($params)) {
         // už zpracováno v t()
     }
-    if (empty($_COOKIE['mg_cms_admin'])) return $raw;
+    if (!mgCmsAdminValid()) return $raw;
     $safeKey = htmlspecialchars($key, ENT_QUOTES | ENT_HTML5, 'UTF-8');
     return '<span data-cms-key="web.layout.' . $safeKey . '">' . $raw . '</span>';
 }
@@ -555,7 +555,7 @@ function renderLanguageSwitcher() {
     // ?cms_admin=<token>, který cílová doména ověří a nastaví si vlastní cookie
     // (token se z URL hned odstraní v index.php). Stejná doména token nepotřebuje.
     $cmsCrossDomainToken = '';
-    if (!empty($_COOKIE['mg_cms_admin'])) {
+    if (mgCmsAdminValid()) {
         try {
             $cmsSb = new SupabaseClient();
             $tk = $cmsSb->fetchSetting('cms_admin_token');

@@ -8,6 +8,7 @@ import SearchInput from '../../components/ui/SearchInput'
 import Pagination from '../../components/ui/Pagination'
 import Modal from '../../components/ui/Modal'
 import Button from '../../components/ui/Button'
+import { sanitizeHtml } from '../../lib/sanitize'
 
 const PER_PAGE = 25
 
@@ -306,7 +307,7 @@ export default function SentEmailsTab() {
             </div>
           )}
           <div className="rounded-card" style={{ padding: 16, background: '#fff', border: '1px solid #d4e8e0', maxHeight: 500, overflow: 'auto' }}
-            dangerouslySetInnerHTML={{ __html: preview.body_html }} />
+            dangerouslySetInnerHTML={{ __html: sanitizeHtml(preview.body_html) }} />
           <div className="flex justify-end mt-4">
             <Button onClick={() => setPreview(null)}>Zavřít</Button>
           </div>

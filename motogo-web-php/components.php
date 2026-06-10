@@ -30,7 +30,7 @@ function renderHeading($level, $text, $opts = []) {
     $level = max(1, min(6, (int)$level));
     $tag = 'h' . $level;
     $raw = is_string($text) ? trim(strip_tags($text)) : '';
-    $isAdmin = !empty($_COOKIE['mg_cms_admin']);
+    $isAdmin = mgCmsAdminValid();
     $fallback = isset($opts['fallback']) ? trim(strip_tags((string)$opts['fallback'])) : '';
     $cmsKey = $opts['cmsKey'] ?? '';
     $allowHtml = !empty($opts['allowHtml']);
@@ -760,7 +760,7 @@ function renderFaqSection($title, $items, $moreLink = null) {
     // $title muze byt string nebo HTML span s data-cms-key wrapem - zachovame
     // raw rendering, jen guardneme prazdny pripad.
     $rawTitle = trim(strip_tags(is_string($title) ? $title : ''));
-    if ($rawTitle === '' && empty($_COOKIE['mg_cms_admin'])) {
+    if ($rawTitle === '' && !mgCmsAdminValid()) {
         $title = 'Často kladené otázky';
     }
     $html = '<section aria-labelledby="faq"><h2 id="faq">' . $title . '</h2><div class="tab-content"><div class="tab-pane active" id="all"><div class="gr2">';
@@ -783,7 +783,7 @@ function renderCta($title, $text, $buttons) {
     // SEO: prazdny CTA titulek -> fallback (pri admin rezimu placeholder, jinak skrytý h2 bohuzel zlomi structure;
     // takze pouzijeme nestranny default).
     $rawTitle = trim(strip_tags(is_string($title) ? $title : ''));
-    if ($rawTitle === '' && empty($_COOKIE['mg_cms_admin'])) {
+    if ($rawTitle === '' && !mgCmsAdminValid()) {
         $title = 'Rezervujte si motorku';
     }
     $html = '<section aria-labelledby="cta"><h2 id="cta">' . sanitizeHtml($title) . '</h2><p>' . sanitizeHtml($text) . '</p><p>&nbsp;</p><p>';

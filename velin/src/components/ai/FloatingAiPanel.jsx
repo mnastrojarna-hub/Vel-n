@@ -7,6 +7,7 @@ import { buildAllAgentMemory, autoExtractFlash } from '../../lib/aiAgentMemory'
 import { recordOutcome } from '../../lib/aiLearning'
 import { useAiContext, PAGE_QUICK_ACTIONS } from '../../hooks/useAiContext'
 import AiConfirmDialog from './AiConfirmDialog'
+import { sanitizeHtml } from '../../lib/sanitize'
 
 function renderMd(text) {
   if (!text) return ''
@@ -199,7 +200,7 @@ export default function FloatingAiPanel() {
                 {m.role === 'user' ? (
                   <span style={{ whiteSpace: 'pre-wrap' }}>{m.content}</span>
                 ) : (
-                  <div dangerouslySetInnerHTML={{ __html: renderMd(m.content) }} />
+                  <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(renderMd(m.content)) }} />
                 )}
               </div>
             </div>

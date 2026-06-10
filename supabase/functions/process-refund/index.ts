@@ -6,6 +6,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import Stripe from 'https://esm.sh/stripe@14'
+import { requireAdminOrService, forbidden } from '../_shared/auth.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -323,6 +324,11 @@ Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: CORS })
   }
+
+  // Bezpečnostní gate: refund smí spustit jen service_role (DB triggery / webhook)
+  // nebo přihlášený admin z Velína. Bez toho mohl kdokoli s anon klíčem refundovat.
+  const auth = await requireAdminOrService(req)
+  if (!auth.ok) return forbidden(CORS, auth.reason)
 
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL') ?? '',

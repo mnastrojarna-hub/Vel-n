@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { openPrintWindow } from '../../lib/sanitize'
 import { supabase } from '../../lib/supabase'
 import { debugAction, debugLog, debugError } from '../../lib/debugLog'
 import { generateInvoiceHtml } from '../../lib/invoiceTemplate'
@@ -87,7 +88,7 @@ export default function BookingDocumentsTab({ bookingId, userId }) {
     const docId = crypto.randomUUID()
     const { error: gErr } = await supabase.from('generated_documents').insert({ id: docId, template_id: null, booking_id: bookingId, customer_id: customer.id || booking.user_id, filled_data: vars, pdf_path: null })
     if (gErr) throw gErr
-    const win = window.open('', '_blank'); if (win) { win.document.write(html); win.document.close() }
+    openPrintWindow(html, { autoPrint: false })
   }
 
   async function handleDownload(doc) {
@@ -254,7 +255,7 @@ export default function BookingDocumentsTab({ bookingId, userId }) {
         <Modal open title={viewDoc.number ? `Faktura ${viewDoc.number}` : (viewDoc.document_templates?.name || viewDoc.file_name || 'Dokument')} onClose={() => { setViewDoc(null); setViewHtml(null) }} wide>
           {viewHtml ? <div className="border rounded-lg overflow-auto" style={{ maxHeight: 600, background: '#fff' }}><iframe srcDoc={viewHtml} style={{ width: '100%', height: 550, border: 'none' }} title="Nahled dokumentu" /></div> : <div className="py-8 text-center" style={{ color: '#1a2e22', fontSize: 13 }}>Dokument nema nahled.</div>}
           <div className="flex justify-end gap-3 mt-4">
-            {viewHtml && <Button onClick={() => { const win = window.open('', '_blank'); if (win) { win.document.write(viewHtml); win.document.close(); win.onload = () => win.print() } }}>Tisk / PDF</Button>}
+            {viewHtml && <Button onClick={() => openPrintWindow(viewHtml)}>Tisk / PDF</Button>}
             {(viewDoc.pdf_path || viewDoc.file_path) && <Button onClick={() => handleDownload(viewDoc)}>Stahnout</Button>}
             <Button onClick={() => { setViewDoc(null); setViewHtml(null) }}>Zavrit</Button>
           </div>

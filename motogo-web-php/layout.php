@@ -644,7 +644,7 @@ body{font-family:Montserrat,"Segoe UI",sans-serif;margin:0;color:#1a2e22;backgro
     //  3) Auto-set alt na <img> bez alt (z H1 textu nebo filename)
     //  4) Cap pocet <strong> na 8 per stranka (preda zbytecne na <span>)
     //  5) Auto-promote h3->h2 / h4->h3 kdyz chybi mezikrok
-    if (empty($_COOKIE['mg_cms_admin']) && !empty($content)) {
+    if (!mgCmsAdminValid() && !empty($content)) {
         $content = seoEnhanceHtml($content);
     }
     echo $content;
@@ -701,7 +701,7 @@ window.MOTOGO_CONFIG.SUPABASE_ANON_KEY = ' . json_encode(SUPABASE_ANON_KEY) . ';
     // CMS admin highlight overlay — JS se načte JEN když je nastavena cookie
     // `mg_cms_admin=1` (po úspěšném ověření tokenu z Velínu). Běžný návštěvník
     // overlay nikdy neuvidí. `?cms_highlight=<klíč>` v URL otevře cílový text.
-    if (!empty($_COOKIE['mg_cms_admin'])) {
+    if (mgCmsAdminValid()) {
         $highlight = isset($_GET['cms_highlight']) ? (string)$_GET['cms_highlight'] : '';
         // Token re-fetchneme server-side z app_settings — admin už ho jednou
         // ověřil cookie; expozice ho do JS u admina neleakuje (každý kdo dorazí

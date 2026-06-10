@@ -1,4 +1,5 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
+import { requireAdminOrService, forbidden } from '../_shared/auth.ts'
 
 // ===== GENERIC HTML → PDF (PDFShift) =====
 // Sjednocená serverová cesta pro generování PDF ve Velínu (Finance/Dokumenty),
@@ -17,6 +18,10 @@ const CORS = {
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
+
+  // Bezpečnostní gate: PDFShift kvóta + SSRF povrch — jen service_role nebo admin.
+  const auth = await requireAdminOrService(req)
+  if (!auth.ok) return forbidden(CORS, auth.reason)
 
   try {
     if (!PDFSHIFT_API_KEY) {

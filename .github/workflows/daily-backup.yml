@@ -1,0 +1,167 @@
+name: Denni kompletni zaloha (Supabase + git)
+
+# Kazdy den v 6:00 rano (Europe/Prague) kompletni zaloha:
+#   1. Cela databaze: role + schema + 100% DAT (public, auth, storage metadata) - pg_dump pres supabase CLI
+#   2. Vsechny Storage buckety (documents, media, sos-photos) - vsechny soubory
+#   3. Cely git repozitar (vsechny vetve + tagy) - git bundle
+#
+# Vysledek se zabali do jednoho sifrovaneho archivu a ulozi jako GitHub Actions
+# artifact (retence 30 dni). Az bude rozhodnuto KAM zalohovat (S3 / Backblaze /
+# NAS / Google Drive...), odkomentuje se prislusny "Upload do ciloveho uloziste"
+# krok dole - zbytek workflow se nemeni.
+#
+# Pozadovane GitHub secrets (Settings -> Secrets and variables -> Actions):
+#   SUPABASE_DB_URL              = postgresql://postgres:<HESLO>@db.vnwnqteskbykeucanlhk.supabase.co:5432/postgres
+#   SUPABASE_URL                 = https://vnwnqteskbykeucanlhk.supabase.co
+#   SUPABASE_SERVICE_ROLE_KEY    = service_role klic (Dashboard -> Settings -> API)
+#   BACKUP_PASSPHRASE            = libovolne silne heslo pro sifrovani archivu (GPG AES256)
+#                                  POVINNE - archiv obsahuje osobni udaje zakazniku (GDPR)
+
+on:
+  schedule:
+    # 6:00 Europe/Prague = 4:00 UTC (letni cas CEST) / 5:00 UTC (zimni cas CET).
+    # Spousti se oboji a guard krok nize nechá probehnout jen ten beh,
+    # ktery odpovida 6. hodine prazskeho casu.
+    - cron: "0 4 * * *"
+    - cron: "0 5 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: daily-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+    steps:
+      - name: Guard - bezi jen v 6:00 Europe/Prague
+        id: guard
+        run: |
+          HOUR=$(TZ=Europe/Prague date +%-H)
+          echo "Prazsky cas: $(TZ=Europe/Prague date '+%Y-%m-%d %H:%M')"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "$HOUR" = "6" ]; then
+            echo "run=true >> guard OK"
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Mimo 6. hodinu prazskeho casu - tento beh se preskakuje (druhy cron ho pokryje)."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Kontrola secretu
+        if: steps.guard.outputs.run == 'true'
+        run: |
+          MISSING=""
+          [ -z "$SUPABASE_DB_URL" ] && MISSING="$MISSING SUPABASE_DB_URL"
+          [ -z "$SUPABASE_URL" ] && MISSING="$MISSING SUPABASE_URL"
+          [ -z "$SUPABASE_SERVICE_ROLE_KEY" ] && MISSING="$MISSING SUPABASE_SERVICE_ROLE_KEY"
+          [ -z "$BACKUP_PASSPHRASE" ] && MISSING="$MISSING BACKUP_PASSPHRASE"
+          if [ -n "$MISSING" ]; then
+            echo "::error::Chybi GitHub secrets:$MISSING - zaloha nemuze probehnout. Pridej je v Settings -> Secrets and variables -> Actions."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.guard.outputs.run == 'true'
+        with:
+          fetch-depth: 0
+
+      - uses: supabase/setup-cli@v1
+        if: steps.guard.outputs.run == 'true'
+        with:
+          version: latest
+
+      - name: Zaloha git repozitare (vsechny vetve + tagy)
+        if: steps.guard.outputs.run == 'true'
+        run: |
+          set -e
+          mkdir -p _backup
+          git fetch origin '+refs/heads/*:refs/remotes/origin/*' --tags
+          git bundle create _backup/git-repo.bundle --all
+          git bundle verify _backup/git-repo.bundle
+
+      - name: Zaloha databaze (role + schema + 100% dat)
+        if: steps.guard.outputs.run == 'true'
+        run: |
+          set -e
+          mkdir -p _backup/db
+          echo "== role a grants =="
+          supabase db dump --db-url "$SUPABASE_DB_URL" --role-only -f _backup/db/roles.sql
+          echo "== schema public =="
+          supabase db dump --db-url "$SUPABASE_DB_URL" --schema public -f _backup/db/schema_public.sql
+          echo "== schema auth + storage (struktura) =="
+          supabase db dump --db-url "$SUPABASE_DB_URL" --schema auth,storage -f _backup/db/schema_system.sql || true
+          echo "== DATA public (vsechny tabulky) =="
+          supabase db dump --db-url "$SUPABASE_DB_URL" --data-only --use-copy --schema public -f _backup/db/data_public.sql
+          echo "== DATA auth (uzivatele, identity) + storage (metadata objektu) =="
+          supabase db dump --db-url "$SUPABASE_DB_URL" --data-only --use-copy --schema auth,storage -f _backup/db/data_system.sql || true
+          ls -lh _backup/db/
+
+      - name: Zaloha Storage bucketu (vsechny soubory)
+        if: steps.guard.outputs.run == 'true'
+        run: |
+          set -e
+          node backup/storage-backup.mjs _backup/storage
+
+      - name: Zabaleni a sifrovani archivu (GPG AES256)
+        if: steps.guard.outputs.run == 'true'
+        run: |
+          set -e
+          STAMP=$(TZ=Europe/Prague date +%Y-%m-%d)
+          tar -czf "motogo24-backup-$STAMP.tar.gz" -C _backup .
+          gpg --batch --yes --symmetric --cipher-algo AES256 \
+            --passphrase "$BACKUP_PASSPHRASE" \
+            -o "motogo24-backup-$STAMP.tar.gz.gpg" "motogo24-backup-$STAMP.tar.gz"
+          rm "motogo24-backup-$STAMP.tar.gz"
+          rm -rf _backup
+          ls -lh motogo24-backup-*.tar.gz.gpg
+          echo "STAMP=$STAMP" >> "$GITHUB_ENV"
+          # Desifrovani pri obnove:
+          #   gpg --batch --passphrase '<BACKUP_PASSPHRASE>' -d motogo24-backup-<datum>.tar.gz.gpg | tar -xz
+
+      - name: Ulozeni zalohy (GitHub Actions artifact, retence 30 dni)
+        if: steps.guard.outputs.run == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: motogo24-backup-${{ env.STAMP }}
+          path: motogo24-backup-*.tar.gz.gpg
+          retention-days: 30
+          if-no-files-found: error
+
+      # ------------------------------------------------------------------
+      # AZ BUDE ROZHODNUTO KAM ZALOHOVAT, odkomentuj JEDEN z kroku nize
+      # a pridej prislusne secrets. Artifact krok nahore pak muzes nechat
+      # jako sekundarni kopii, nebo smazat.
+      # ------------------------------------------------------------------
+
+      # --- Varianta A: S3-kompatibilni uloziste (AWS S3 / Backblaze B2 / Cloudflare R2 / Wasabi) ---
+      # - name: Upload do ciloveho uloziste (S3)
+      #   if: steps.guard.outputs.run == 'true'
+      #   env:
+      #     AWS_ACCESS_KEY_ID: ${{ secrets.BACKUP_S3_ACCESS_KEY }}
+      #     AWS_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_S3_SECRET_KEY }}
+      #   run: |
+      #     aws s3 cp motogo24-backup-*.tar.gz.gpg "s3://<BUCKET>/motogo24/" \
+      #       --endpoint-url "${{ secrets.BACKUP_S3_ENDPOINT }}"
+
+      # --- Varianta B: cokoliv pres rclone (Google Drive, OneDrive, SFTP, NAS...) ---
+      # - name: Upload do ciloveho uloziste (rclone)
+      #   if: steps.guard.outputs.run == 'true'
+      #   run: |
+      #     curl https://rclone.org/install.sh | sudo bash
+      #     echo "${{ secrets.BACKUP_RCLONE_CONF }}" > rclone.conf
+      #     rclone --config rclone.conf copy motogo24-backup-*.tar.gz.gpg remote:motogo24-backups/
+      #     rm rclone.conf
+
+      - name: Upozorneni pri selhani
+        if: failure() && steps.guard.outputs.run == 'true'
+        run: |
+          echo "::error::DENNI ZALOHA SELHALA - zkontroluj log behu. Data z dnesniho dne nejsou zalohovana!"

@@ -36,7 +36,7 @@ function _pageCacheDir() {
 
 function _pageCacheEnabled() {
     if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'GET') return false;
-    if (!empty($_COOKIE['mg_cms_admin'])) return false;
+    if (mgCmsAdminValid()) return false;
     if (!empty($_COOKIE['mg_user'])) return false;
     if (!empty($_COOKIE['mg_auth'])) return false;
     // Supabase auth cookies (sb-* set client-side po prihlaseni)
@@ -104,7 +104,7 @@ function pageCacheMaybeServe($path) {
     // (s ?cms_admin=<token>) hned viděl nově uložené CMS změny. Bez tohoto
     // byla cache TTL až 10 min — admin uloží ve Velíně, navštíví web s tokenem
     // (cache bypass), ale anonymní uživatel pořád dostane starou kopii.
-    if (!empty($_COOKIE['mg_cms_admin'])) {
+    if (mgCmsAdminValid()) {
         // Smaž všechny page-cache soubory pro `host|path|*` (různé lang/currency).
         // Klíč je md5(host|path|lang|currency|tag) — nemůžeme přesně cílit,
         // ale můžeme smazat všechny soubory novější než 1 hodina (limit cache TTL).

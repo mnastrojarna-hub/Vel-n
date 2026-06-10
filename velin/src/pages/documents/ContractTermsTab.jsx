@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { openPrintWindow } from '../../lib/sanitize'
 import { supabase } from '../../lib/supabase'
 import { debugAction } from '../../lib/debugLog'
 import Card from '../../components/ui/Card'
@@ -393,8 +394,7 @@ function PreviewModal({ template, onClose }) {
       </div>
       <div className="flex justify-between mt-4">
         <Button onClick={() => {
-          const win = window.open('', '_blank')
-          if (win) { win.document.write(previewHtml); win.document.close(); win.onload = () => win.print() }
+          openPrintWindow(previewHtml)
         }}>Tisk / PDF</Button>
         <Button onClick={onClose}>Zavřít</Button>
       </div>

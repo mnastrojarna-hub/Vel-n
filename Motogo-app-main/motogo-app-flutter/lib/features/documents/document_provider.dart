@@ -283,19 +283,21 @@ Future<ScanResult> scanDocumentWithRetry(XFile photo, ScanDocType docType) async
         return lastFailure;
       }
 
-      // Parse OCR result and log all extracted fields
+      // Parse OCR result and log only WHICH fields were extracted (no PII values).
+      // Bezpečnostní fix 2026-06-10: debugPrint není v release buildu stripnutý a
+      // posílá do logcat/os_log — nikdy do něj nesmí jít čísla OP/ŘP, jméno, DOB.
       final result = OcrResult.fromJson(rawFields);
       final extracted = <String>[];
-      if (result.firstName != null && result.firstName!.isNotEmpty) extracted.add('firstName=${result.firstName}');
-      if (result.lastName != null && result.lastName!.isNotEmpty) extracted.add('lastName=${result.lastName}');
-      if (result.idNumber != null && result.idNumber!.isNotEmpty) extracted.add('idNumber=${result.idNumber}');
-      if (result.licenseNumber != null && result.licenseNumber!.isNotEmpty) extracted.add('licenseNumber=${result.licenseNumber}');
-      if (result.licenseCategory != null && result.licenseCategory!.isNotEmpty) extracted.add('licenseCategory=${result.licenseCategory}');
-      if (result.expiryDate != null && result.expiryDate!.isNotEmpty) extracted.add('expiryDate=${result.expiryDate}');
-      if (result.dob != null && result.dob!.isNotEmpty) extracted.add('dob=${result.dob}');
-      if (result.address != null && result.address!.isNotEmpty) extracted.add('address=...');
+      if (result.firstName != null && result.firstName!.isNotEmpty) extracted.add('firstName');
+      if (result.lastName != null && result.lastName!.isNotEmpty) extracted.add('lastName');
+      if (result.idNumber != null && result.idNumber!.isNotEmpty) extracted.add('idNumber');
+      if (result.licenseNumber != null && result.licenseNumber!.isNotEmpty) extracted.add('licenseNumber');
+      if (result.licenseCategory != null && result.licenseCategory!.isNotEmpty) extracted.add('licenseCategory');
+      if (result.expiryDate != null && result.expiryDate!.isNotEmpty) extracted.add('expiryDate');
+      if (result.dob != null && result.dob!.isNotEmpty) extracted.add('dob');
+      if (result.address != null && result.address!.isNotEmpty) extracted.add('address');
       debugPrint('[DocScan] ✓ Parsed ${extracted.length} fields: ${extracted.join(", ")}');
-      debugPrint('[DocScan] ✓ Raw field keys: ${rawFields.keys.toList()}');
+      debugPrint('[DocScan] ✓ Raw field count: ${rawFields.keys.length}');
 
       return ScanResult(data: result, httpStatus: 200, attempts: attempt);
 
