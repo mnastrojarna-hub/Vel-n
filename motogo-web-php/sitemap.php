@@ -59,8 +59,11 @@ function sitemapImages($urls, $caption, $base) {
 
 function sitemapEntry($base, $path, $changefreq, $priority, $lastmod, $alternates = true, $images = '') {
     $alt = $alternates ? sitemapAlternates($path) : '';
+    // <loc> v primárním jazyce domény = lokalizovaný slug (.com → /catalog,
+    // .at → /motorradverleih, …). i18nUrlForLang kanonizuje a přeloží cestu.
+    $loc = i18nUrlForLang(i18nSiteDefaultLang(), $path);
     return '  <url>' . "\n"
-         . '    <loc>' . $base . htmlspecialchars($path) . '</loc>' . "\n"
+         . '    <loc>' . htmlspecialchars($loc) . '</loc>' . "\n"
          . '    <lastmod>' . $lastmod . '</lastmod>' . "\n"
          . '    <changefreq>' . $changefreq . '</changefreq>' . "\n"
          . '    <priority>' . $priority . '</priority>' . "\n"

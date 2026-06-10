@@ -143,6 +143,15 @@ if ($path !== '/' && substr($path, -1) === '/') {
     $path = rtrim($path, '/');
 }
 
+// ---- Lokalizované URL slugy (SEO) ----
+// Cizojazyčné mutace mají vlastní slugy (/catalog, /motorradverleih, …).
+// Pokud request nesedí na slug detekovaného jazyka (česká URL na .com, cizí
+// URL na .cz, změna jazyka cookie), 301 na správný tvar (query se zachová —
+// Stripe/resume/order_id odkazy z JS a mailů fungují dál). Běží PŘED
+// logováním návštěvnosti (redirect není pageview) i před page cache.
+// Viz i18n_slugs.php.
+i18nSlugRedirectIfNeeded($path);
+
 // AI traffic logging — detekuje AI crawlery (GPTBot, ClaudeBot, PerplexityBot ad.)
 // a loguje request do ai_traffic_log. Fire-and-forget, nezablokuje render.
 // Pro lidi je no-op (žádné DB volání).
@@ -152,6 +161,10 @@ aiTrafficMaybeLog($path, function_exists('i18nDetectLanguage') ? i18nDetectLangu
 // konec requestu přes register_shutdown_function, takže nezdržuje render ani
 // HIT v page cache. Cookieless, hashovaná IP (GDPR friendly).
 visitorTrafficMaybeLog($path, function_exists('i18nDetectLanguage') ? i18nDetectLanguage() : 'cs');
+
+// Router (i page cache) níže pracuje vždy s kanonickou (českou) cestou —
+// lokalizovaný request je po redirectu výše už jen 1:1 alias pro daný jazyk.
+$path = i18nCanonicalPath($path);
 
 // Sitemap.xml (dynamický)
 if ($path === '/sitemap.xml') {
@@ -367,7 +380,9 @@ switch (true) {
     // rodičovský label jako neklickatelný rozcestník (no_link), který rozbalí
     // podmenu — viz layout.php::getMenuItems().
     case $path === '/jak-pujcit':
-        header('Location: ' . BASE_URL . '/jak-pujcit/postup', true, 301);
+        // Cíl redirectu lokalizujeme — jinak by na cizí doméně vznikl
+        // řetěz 301 (/how-to-rent → /jak-pujcit/postup → /how-to-rent/process).
+        header('Location: ' . BASE_URL . i18nLocalizePath('/jak-pujcit/postup'), true, 301);
         exit;
 
     case $path === '/jak-pujcit/postup':
