@@ -82,9 +82,10 @@ require_once __DIR__ . '/visitor_traffic.php';
 
 // ---- CMS admin režim (zvýraznění editovatelných textů) ----
 // Velín posílá uživatele na URL s ?cms_admin=<token>. Token se ověří proti
-// app_settings.cms_admin_token; při shodě nastavíme cookie 'mg_cms_admin=1'
-// (30 dní) a redirectneme na URL bez parametru, ať se token neukládá v historii.
-// Cookie je čitelná z JS — nese pouze flag, ne tajné info, takže je bezpečná.
+// app_settings.cms_admin_token; při shodě nastavíme PODEPSANOU cookie
+// 'mg_cms_admin=<expiry>.<HMAC(token)>' (30 dní, HttpOnly) a redirectneme na URL
+// bez parametru, ať se token neukládá v historii. Cookie ověřuje mgCmsAdminValid()
+// proti tokenu — bez znalosti tokenu ji nelze zfalšovat.
 // Logout: ?cms_admin_logout=1 → smaže cookie.
 (function () {
     $reqUri = $_SERVER['REQUEST_URI'] ?? '/';
@@ -113,13 +114,18 @@ require_once __DIR__ . '/visitor_traffic.php';
         $sb = new SupabaseClient();
         $expected = $sb->fetchSetting('cms_admin_token');
         if (is_string($expected) && $expected !== '' && hash_equals($expected, $provided)) {
+            // Podepsaná cookie `<expiry>.<HMAC(token)>` — útočník bez tokenu ji
+            // nevyrobí. HttpOnly: JS ji nepotřebuje (token jde do MG_CMS_ADMIN
+            // server-side až po ověření mgCmsAdminValid()).
+            $exp = time() + 30 * 24 * 3600;
+            $cookieVal = mgCmsAdminCookieValue($expected, $exp);
             if (!headers_sent()) {
-                setcookie('mg_cms_admin', '1', [
-                    'expires' => time() + 30 * 24 * 3600,
-                    'path' => '/', 'secure' => $secure, 'httponly' => false, 'samesite' => 'Lax',
+                setcookie('mg_cms_admin', $cookieVal, [
+                    'expires' => $exp,
+                    'path' => '/', 'secure' => $secure, 'httponly' => true, 'samesite' => 'Lax',
                 ]);
             }
-            $_COOKIE['mg_cms_admin'] = '1';
+            $_COOKIE['mg_cms_admin'] = $cookieVal;
         }
         // Token vždy odstraníme z URL — i při shodě i při neshodě (ať neleakuje).
         unset($existing['cms_admin']);

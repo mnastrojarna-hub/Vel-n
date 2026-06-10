@@ -11,6 +11,7 @@ import Pagination from '../../components/ui/Pagination'
 import BulkActionsBar, { SelectAllCheckbox, RowCheckbox } from '../../components/ui/BulkActionsBar'
 import { bulkDelete, exportToCsv } from '../../lib/bulkActions'
 import { uploadHtmlAsPdf } from '../../lib/htmlToPdf'
+import { sanitizeHtml } from '../../lib/sanitize'
 
 const PER_PAGE = 25
 
@@ -286,7 +287,7 @@ export default function GeneratedTab() {
             </div>
           )}
           <div className="rounded-card" style={{ padding: 16, background: '#fff', border: '1px solid #d4e8e0', maxHeight: 500, overflow: 'auto' }}
-            dangerouslySetInnerHTML={{ __html: previewHtml }} />
+            dangerouslySetInnerHTML={{ __html: sanitizeHtml(previewHtml) }} />
           <div className="flex justify-end gap-3 mt-4">
             <Button onClick={() => download(preview)}>Stáhnout</Button>
             <Button onClick={() => setPreview(null)}>Zavřít</Button>

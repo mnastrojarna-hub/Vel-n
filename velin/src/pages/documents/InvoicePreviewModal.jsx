@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase'
 import Modal from '../../components/ui/Modal'
 import Button from '../../components/ui/Button'
 import Badge from '../../components/ui/Badge'
+import { sanitizeHtml } from '../../lib/sanitize'
 
 const TYPE_MAP = {
   proforma: { label: 'Zálohová', color: '#2563eb', bg: '#dbeafe' },
@@ -190,7 +191,7 @@ export default function InvoicePreviewModal({ invoice, onClose, onUpdated }) {
         <>
           {/* Invoice HTML preview */}
           <div className="rounded-card" style={{ border: '1px solid #d4e8e0', maxHeight: 420, overflow: 'auto', background: '#fff' }}
-            dangerouslySetInnerHTML={{ __html: html }} />
+            dangerouslySetInnerHTML={{ __html: sanitizeHtml(html) }} />
 
           {/* Actions */}
           <div className="flex flex-wrap justify-between gap-3 mt-4">

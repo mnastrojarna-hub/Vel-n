@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { openPrintWindow } from '../../lib/sanitize'
 import { supabase } from '../../lib/supabase'
 import { useDebugMode } from '../../hooks/useDebugMode'
 import { generateInvoiceHtml } from '../../lib/invoiceTemplate'
@@ -366,7 +367,7 @@ export default function CustomerDocumentsTab({ userId }) {
             <div className="py-8 text-center" style={{ color: '#1a2e22', fontSize: 13 }}>Dokument nemá náhled.</div>
           )}
           <div className="flex justify-end gap-3 mt-4">
-            {viewHtml && <Button onClick={() => { const win = window.open('', '_blank'); if (win) { win.document.write(viewHtml); win.document.close(); win.onload = () => win.print() } }}>Tisk / PDF</Button>}
+            {viewHtml && <Button onClick={() => openPrintWindow(viewHtml)}>Tisk / PDF</Button>}
             <Button onClick={() => handleDownload({ kind: viewDoc.number ? 'invoice' : 'document', raw: viewDoc })}>Stáhnout</Button>
             <Button onClick={() => { setViewDoc(null); setViewHtml(null) }}>Zavřít</Button>
           </div>

@@ -2,6 +2,14 @@
 // MotoGo24 Doc Scanner — ui.js (screens, results, history)
 // ============================================================
 
+// Bezpečnostní fix 2026-06-10: escapování hodnot z OCR/serveru před vložením
+// do innerHTML (jinak by zlomyslný text dokladu spustil skript ve WebView).
+function escHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 var DOC_TYPES = {
   invoice: 'Faktura',
   receipt: 'Paragon',
@@ -134,9 +142,9 @@ var DocUI = {
     }
 
     container.innerHTML = history.map(function(item) {
-      var type = DOC_TYPES[item.document_type] || item.document_type || '?';
-      var supplier = item.supplier || '-';
-      var amount = item.amount ? item.amount + ' Kc' : '';
+      var type = escHtml(DOC_TYPES[item.document_type] || item.document_type || '?');
+      var supplier = escHtml(item.supplier || '-');
+      var amount = item.amount ? escHtml(item.amount) + ' Kc' : '';
       var reviewMark = item.needs_review ? ' !!' : '';
       return '<div class="history-item">' +
         '<div class="hi-left">' +

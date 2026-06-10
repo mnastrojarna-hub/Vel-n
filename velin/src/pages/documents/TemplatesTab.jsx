@@ -5,6 +5,7 @@ import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
 import RichTextEditor from '../../components/ui/RichTextEditor'
+import { sanitizeHtml } from '../../lib/sanitize'
 
 const SAMPLE_VARS = {
   customer_name: 'Jan Novák',
@@ -227,7 +228,7 @@ function EditTemplateModal({ template, onClose, onSaved }) {
       {showPreview && (
         <Modal open title="Náhled šablony" onClose={() => setShowPreview(false)} wide>
           <div className="rounded-card" style={{ padding: 16, background: '#fff', border: '1px solid #d4e8e0', maxHeight: 500, overflow: 'auto' }}
-            dangerouslySetInnerHTML={{ __html: getPreviewHtml() }} />
+            dangerouslySetInnerHTML={{ __html: sanitizeHtml(getPreviewHtml()) }} />
           <div className="flex justify-end mt-4">
             <Button onClick={() => setShowPreview(false)}>Zavřít</Button>
           </div>

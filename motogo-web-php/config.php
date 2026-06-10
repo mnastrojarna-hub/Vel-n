@@ -106,3 +106,40 @@ function assetUrl($path) {
     if (!$v) return BASE_URL . $path;
     return BASE_URL . $path . '?v=' . $v;
 }
+
+// ===== CMS admin — ověření podepsané cookie =====
+// Bezpečnostní fix 2026-06-10: admin režim se NEODVOZUJE z holého `mg_cms_admin=1`
+// (kdokoli si ho mohl nastavit a server mu pak vydal pravý cms_admin_token).
+// Cookie nyní nese podepsanou hodnotu `<expiry>.<HMAC>`, kde HMAC počítá server
+// klíčem = cms_admin_token. Útočník bez znalosti tokenu platnou cookie nevyrobí.
+// Funkce je v config.php (načten první), ale SupabaseClient instancuje až za
+// běhu (v té době už je supabase.php načten). Re-entrancy guard brání rekurzi
+// přes cacheGet()→isCmsAdmin().
+function mgCmsAdminValid() {
+    static $cached = null;
+    static $computing = false;
+    if ($cached !== null) return $cached;
+    if ($computing) return false;
+    $cookie = isset($_COOKIE['mg_cms_admin']) ? (string)$_COOKIE['mg_cms_admin'] : '';
+    if ($cookie === '' || strpos($cookie, '.') === false) return $cached = false;
+    $bits = explode('.', $cookie, 2);
+    $exp = $bits[0]; $sig = isset($bits[1]) ? $bits[1] : '';
+    if (!ctype_digit($exp) || (int)$exp < time() || $sig === '') return $cached = false;
+    if (!class_exists('SupabaseClient')) return false; // supabase.php ještě nenačten
+    $computing = true;
+    $token = null;
+    try {
+        $sb = new SupabaseClient();
+        $token = $sb->fetchSetting('cms_admin_token');
+    } catch (\Throwable $e) { $computing = false; return $cached = false; }
+    $computing = false;
+    if (!is_string($token) || $token === '') return $cached = false;
+    $expected = hash_hmac('sha256', 'cms_admin|' . $exp, $token);
+    return $cached = hash_equals($expected, $sig);
+}
+
+// Vyrobí podepsanou hodnotu cookie pro daný token a expiraci.
+function mgCmsAdminCookieValue($token, $expiry) {
+    $sig = hash_hmac('sha256', 'cms_admin|' . $expiry, (string)$token);
+    return $expiry . '.' . $sig;
+}

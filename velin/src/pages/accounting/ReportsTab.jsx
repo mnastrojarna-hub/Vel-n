@@ -9,6 +9,7 @@ import Button from '../../components/ui/Button'
 import Card from '../../components/ui/Card'
 import Badge from '../../components/ui/Badge'
 import Modal from '../../components/ui/Modal'
+import { sanitizeHtml } from '../../lib/sanitize'
 
 const REPORT_LABELS = {
   vat_return: 'Přiznání k DPH',
@@ -201,7 +202,7 @@ export default function ReportsTab() {
             )}
           </div>
           {detail.rendered_html ? (
-            <div dangerouslySetInnerHTML={{ __html: detail.rendered_html }} className="max-h-96 overflow-auto text-sm" />
+            <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(detail.rendered_html) }} className="max-h-96 overflow-auto text-sm" />
           ) : (
             <pre className="p-3 rounded-lg max-h-96 overflow-auto text-xs"
               style={{ background: '#f1faf7', color: '#1a2e22', fontFamily: 'monospace', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>

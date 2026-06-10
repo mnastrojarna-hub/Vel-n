@@ -11,7 +11,7 @@
     }
   },
   "android": {
-    "allowMixedContent": true,
+    "allowMixedContent": false,
     "permissions": [
       "android.permission.CAMERA",
       "android.permission.READ_EXTERNAL_STORAGE",

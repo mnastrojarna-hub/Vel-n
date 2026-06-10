@@ -11,6 +11,11 @@ var DocUpload = {
       return;
     }
 
+    if (typeof ensureApiKey === 'function' && !ensureApiKey()) {
+      DocUI.showError('Chybí přístupový klíč. Zadejte INVOICE_API_KEY.');
+      return;
+    }
+
     DebugLog.info('UPLOAD', 'Starting upload...');
     var self = this;
 

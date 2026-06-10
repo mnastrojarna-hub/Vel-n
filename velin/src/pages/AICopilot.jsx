@@ -11,6 +11,7 @@ import { loadAgentConfig, saveAgentConfig, getEnabledTools, getAgentCorrections,
 import { buildAgentPromptsText } from '../lib/aiAgentPrompts'
 import { buildAllAgentMemory, autoExtractFlash } from '../lib/aiAgentMemory'
 import { recordOutcome } from '../lib/aiLearning'
+import { sanitizeHtml } from '../lib/sanitize'
 
 const QUICK_ACTIONS = [
   { cat: '📊 Přehledy', items: ['Kompletní denní přehled', 'Jak jsme na tom vs. minulý měsíc?', 'Týdenní statistiky'] },
@@ -290,7 +291,7 @@ export default function AICopilot() {
                   {m.role === 'user' ? (
                     <p className="text-sm" style={{ lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{m.content}</p>
                   ) : (
-                    <div className="text-sm" style={{ lineHeight: 1.6 }} dangerouslySetInnerHTML={{ __html: renderMarkdown(m.content) }} />
+                    <div className="text-sm" style={{ lineHeight: 1.6 }} dangerouslySetInnerHTML={{ __html: sanitizeHtml(renderMarkdown(m.content)) }} />
                   )}
                   <div className="flex items-center gap-2 mt-1">
                     <span className="text-sm" style={{ color: m.role === 'user' ? '#1a6a18' : '#1a2e22' }}>{m.timestamp ? new Date(m.timestamp).toLocaleTimeString('cs-CZ') : ''}</span>

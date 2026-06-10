@@ -4,6 +4,7 @@ import { debugAction, debugLog, debugError } from '../../lib/debugLog'
 import Modal from '../../components/ui/Modal'
 import Button from '../../components/ui/Button'
 import RichTextEditor from '../../components/ui/RichTextEditor'
+import { sanitizeHtml } from '../../lib/sanitize'
 
 const CHANNEL_LABELS = { sms: 'SMS', email: 'E-mail', whatsapp: 'WhatsApp' }
 
@@ -252,7 +253,7 @@ export default function TemplateEditModal({ channel, template, onClose, onSaved 
           )}
           {previewText ? (
             channel === 'email' ? (
-              <div className="rounded-card" style={{ padding: 16, background: '#fff', border: '1px solid #d4e8e0', maxHeight: 400, overflow: 'auto', fontSize: 13, lineHeight: 1.6 }} dangerouslySetInnerHTML={{ __html: previewText }} />
+              <div className="rounded-card" style={{ padding: 16, background: '#fff', border: '1px solid #d4e8e0', maxHeight: 400, overflow: 'auto', fontSize: 13, lineHeight: 1.6 }} dangerouslySetInnerHTML={{ __html: sanitizeHtml(previewText) }} />
             ) : channel === 'sms' ? (
               <div>
                 <div className="rounded-card" style={{ padding: '14px 16px', background: '#dcfce7', color: '#0f1a14', fontSize: 13, lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word', borderRadius: '16px 16px 4px 16px', maxHeight: 300, overflow: 'auto' }}>{previewText}</div>

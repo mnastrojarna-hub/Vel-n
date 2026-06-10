@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { openPrintWindow } from '../../lib/sanitize'
 import { supabase } from '../../lib/supabase'
 import { debugLog, debugError } from '../../lib/debugLog'
 import { generateInvoiceHtml } from '../../lib/invoiceTemplate'
@@ -237,7 +238,7 @@ export default function CreditNotesTab() {
             <iframe srcDoc={viewHtml} style={{ width: '100%', height: 500, border: 'none' }} title="Náhled dobropisu" />
           </div>
           <div className="flex justify-end gap-3 mt-4">
-            <Button onClick={() => { const win = window.open('', '_blank'); if (win) { win.document.write(viewHtml); win.document.close(); win.onload = () => win.print() } }}>Tisk / PDF</Button>
+            <Button onClick={() => openPrintWindow(viewHtml)}>Tisk / PDF</Button>
             <Button onClick={() => { setViewInvoice(null); setViewHtml(null) }}>Zavřít</Button>
           </div>
         </Modal>

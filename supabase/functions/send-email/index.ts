@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { requireAdminOrService, forbidden } from '../_shared/auth.ts'
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') || ''
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
@@ -119,6 +120,10 @@ async function sendWithRetry(
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
+
+  // Bezpečnostní gate: odesílání e-mailů (vč. raw_html) jen service_role nebo admin.
+  const auth = await requireAdminOrService(req)
+  if (!auth.ok) return forbidden(CORS, auth.reason)
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 

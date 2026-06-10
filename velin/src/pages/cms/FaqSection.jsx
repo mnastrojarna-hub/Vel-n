@@ -5,6 +5,7 @@ import Modal from '../../components/ui/Modal'
 import RichTextEditor from '../../components/ui/RichTextEditor'
 import { autoTranslate } from '../../lib/autoTranslate'
 import { debugAction } from '../../lib/debugLog'
+import { sanitizeHtml } from '../../lib/sanitize'
 
 // Stejné kategorie jako jsou v DB seedu — přidat lze i ručně přes editor (free text).
 const DEFAULT_CATEGORIES = [
@@ -194,7 +195,7 @@ function FaqRow({ item, onEdit, onTogglePublished, onToggleFeatured, onDelete })
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <span className="font-extrabold text-sm" style={{ color: '#0f1a14' }}
-            dangerouslySetInnerHTML={{ __html: stripTagsLite(it.question) }} />
+            dangerouslySetInnerHTML={{ __html: sanitizeHtml(stripTagsLite(it.question)) }} />
           {it.featured_home && (
             <span className="text-xs font-bold rounded-btn shrink-0"
               style={{ padding: '1px 8px', background: '#fef3c7', color: '#b45309' }}>⭐ home</span>
@@ -206,7 +207,7 @@ function FaqRow({ item, onEdit, onTogglePublished, onToggleFeatured, onDelete })
           <span className="text-xs font-mono ml-auto shrink-0" style={{ color: '#9ab3a5' }}>#{it.sort_order}</span>
         </div>
         <div className="text-xs mt-1 truncate" style={{ color: '#6b8f7b' }}
-          dangerouslySetInnerHTML={{ __html: stripTagsLite(it.answer).slice(0, 160) + (it.answer.length > 160 ? '…' : '') }} />
+          dangerouslySetInnerHTML={{ __html: sanitizeHtml(stripTagsLite(it.answer).slice(0, 160) + (it.answer.length > 160 ? '…' : '')) }} />
       </div>
       <div className="flex gap-1 shrink-0">
         <SmBtn label="Upravit" onClick={onEdit} />

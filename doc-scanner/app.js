@@ -4,9 +4,22 @@
 
 var AppConfig = {
   EDGE_URL: 'https://vnwnqteskbykeucanlhk.supabase.co/functions/v1/receive-invoice',
-  API_KEY: '2dd9f888beb56e25abd79d64a21a896f8c4cadcc3406b678f7993e6c97552081',
+  // Bezpečnostní fix 2026-06-10: API klíč už NENÍ natvrdo v bundlu (kdokoli s APK
+  // ho mohl vytáhnout). Účetní ho zadá jednou v aplikaci, uloží se do localStorage.
+  // Po rotaci secretu INVOICE_API_KEY ve Supabase je nutné zadat nový klíč.
+  get API_KEY() { return localStorage.getItem('mg_invoice_api_key') || ''; },
+  set API_KEY(v) { localStorage.setItem('mg_invoice_api_key', v || ''); },
   MAX_SIZE_MB: 4
 };
+
+// Při startu si vyžádá API klíč, pokud ještě není uložený.
+function ensureApiKey() {
+  if (!AppConfig.API_KEY) {
+    var k = window.prompt('Zadejte přístupový klíč doc-scanneru (INVOICE_API_KEY):');
+    if (k) AppConfig.API_KEY = k.trim();
+  }
+  return !!AppConfig.API_KEY;
+}
 
 // Current state
 var AppState = {
@@ -57,14 +70,21 @@ var DebugLog = {
   _render: function() {
     var el = document.getElementById('debug-log');
     if (!el) return;
+    // Bezpečnostní fix 2026-06-10: escapuj tag/msg/data (mohou obsahovat
+    // serverová OCR data) před vložením do innerHTML.
+    var esc = function(s) {
+      return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    };
     var html = this.entries.map(function(e) {
-      var cls = 'debug-' + e.level.toLowerCase();
-      var line = '<span class="' + cls + '">[' + e.ts + '] '
-        + e.level + ' [' + e.tag + '] ' + e.msg;
+      var cls = 'debug-' + esc(e.level.toLowerCase());
+      var line = '<span class="' + cls + '">[' + esc(e.ts) + '] '
+        + esc(e.level) + ' [' + esc(e.tag) + '] ' + esc(e.msg);
       if (e.data !== undefined && e.data !== null) {
         try {
           var d = typeof e.data === 'string' ? e.data : JSON.stringify(e.data).substring(0, 300);
-          line += ' | ' + d;
+          line += ' | ' + esc(d);
         } catch (_) {}
       }
       line += '</span>';

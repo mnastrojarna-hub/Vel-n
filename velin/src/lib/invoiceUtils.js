@@ -1,6 +1,7 @@
 import { supabase } from './supabase'
 import { uploadHtmlAsPdf } from './htmlToPdf'
 import { generateInvoiceHtml } from './invoiceTemplate'
+import { openPrintWindow } from './sanitize'
 
 const PREFIX_MAP = {
   issued: 'FV',
@@ -395,11 +396,7 @@ export async function generateFinalInvoice(bookingId) {
  * Open invoice HTML in new window for printing / PDF save
  */
 export function printInvoiceHtml(html) {
-  const win = window.open('', '_blank')
-  if (!win) return
-  win.document.write(html)
-  win.document.close()
-  win.onload = () => { win.print() }
+  openPrintWindow(html)
 }
 
 /**
