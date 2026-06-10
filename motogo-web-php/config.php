@@ -110,22 +110,73 @@ function assetUrl($path) {
 // ===== CMS admin — ověření podepsané cookie =====
 // Bezpečnostní fix 2026-06-10: admin režim se NEODVOZUJE z holého `mg_cms_admin=1`
 // (kdokoli si ho mohl nastavit a server mu pak vydal pravý cms_admin_token).
-// Cookie nyní nese podepsanou hodnotu `<expiry>.<HMAC>`, kde HMAC počítá server
-// klíčem = cms_admin_token. Útočník bez znalosti tokenu platnou cookie nevyrobí.
+//
+// Cookie nese buď:
+//   a) podepsanou capability `r1.<exp>.<base64url(RSA-SHA256 sig)>` (#5 fix) —
+//      ověřitelnou VEŘEJNÝM klíčem níže, BEZ čtení tokenu (token je skrytý z anon),
+//   b) NEBO legacy `<exp>.<HMAC(cms_admin_token)>` — fallback, dokud není nasazená
+//      edge funkce `cms-admin-auth` a token ještě je anon-čitelný.
+// Útočník bez privátního klíče / bez znalosti tokenu platnou cookie nevyrobí.
+//
+// VEŘEJNÝ RSA klíč (pár k privátnímu CMS_ADMIN_SIGN_KEY v Supabase secretu).
+// Veřejný klíč není tajný — smí být v gitu.
+define('CMS_ADMIN_PUBLIC_KEY', "-----BEGIN PUBLIC KEY-----\n" .
+    "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA2wVCAaAGj67bn+XkGpVC\n" .
+    "I82zXzvL4JdN819ETIPUKEHROuMCJVDH+br9KULULnaXszi5CplRcjPGh//kwZob\n" .
+    "MA0WbaNlZr1UJV8Ty7VB/3wUmX18kTrWCjtx6iOXAMU1PfGwIbdsqPis48PYR2mW\n" .
+    "X8rHA9P/o16pJM25SIjepgNOSLUvGDWvSNyQLn5HkANMDFPMi89R1NN9WDsNtz5t\n" .
+    "mhcJIA79G+ztYCgx0qcPkzaxT87/jFNgTU2jFK6jBLMu9tgVHK/pIDzmUOFjyCVl\n" .
+    "2YhTqsZfLv2zvHV2VTFJaH2v5dLV3NHUeOHRYSIi4Z5VYWRLw7roq5pipfjJ22E6\n" .
+    "/wIDAQAB\n" .
+    "-----END PUBLIC KEY-----\n");
+
+function mgBase64UrlDecode($s) {
+    $s = strtr($s, '-_', '+/');
+    $pad = strlen($s) % 4;
+    if ($pad) $s .= str_repeat('=', 4 - $pad);
+    return base64_decode($s, true);
+}
+
+// Ověří podepsanou capability `r1.<exp>.<b64url sig>` veřejným klíčem (RS256).
+function mgCmsVerifyCap($cap) {
+    if (!is_string($cap) || strncmp($cap, 'r1.', 3) !== 0) return false;
+    $parts = explode('.', $cap);
+    if (count($parts) !== 3) return false;
+    $exp = $parts[1]; $sigB64 = $parts[2];
+    if (!ctype_digit($exp) || (int)$exp < time()) return false;
+    $sig = mgBase64UrlDecode($sigB64);
+    if ($sig === false || $sig === '') return false;
+    if (!function_exists('openssl_verify')) return false;
+    $ok = openssl_verify('cms|' . $exp, $sig, CMS_ADMIN_PUBLIC_KEY, OPENSSL_ALGO_SHA256);
+    return $ok === 1;
+}
+
 // Funkce je v config.php (načten první), ale SupabaseClient instancuje až za
 // běhu (v té době už je supabase.php načten). Re-entrancy guard brání rekurzi
 // přes cacheGet()→isCmsAdmin().
+// POZOR: skutečné ověření čte PODEPSANOU cookie `mg_cms_sig` (HttpOnly), NIKDY
+// ne JS-čitelný flag `mg_cms_admin=1` (ten je jen kosmetický spínač overlaye —
+// kdokoli si ho může nastavit, ale bez platného `mg_cms_sig` layout.php overlay
+// JS vůbec nevloží a žádný token do stránky nepošle).
 function mgCmsAdminValid() {
     static $cached = null;
     static $computing = false;
     if ($cached !== null) return $cached;
     if ($computing) return false;
-    $cookie = isset($_COOKIE['mg_cms_admin']) ? (string)$_COOKIE['mg_cms_admin'] : '';
-    if ($cookie === '' || strpos($cookie, '.') === false) return $cached = false;
+    $cookie = isset($_COOKIE['mg_cms_sig']) ? (string)$_COOKIE['mg_cms_sig'] : '';
+    if ($cookie === '') return $cached = false;
+
+    // a) Nová podepsaná capability — ověř veřejným klíčem, žádné čtení tokenu/DB.
+    if (strncmp($cookie, 'r1.', 3) === 0) {
+        return $cached = mgCmsVerifyCap($cookie);
+    }
+
+    // b) Legacy HMAC `<exp>.<hmac>` — fallback, ověř proti tokenu (anon read).
+    if (strpos($cookie, '.') === false) return $cached = false;
     $bits = explode('.', $cookie, 2);
     $exp = $bits[0]; $sig = isset($bits[1]) ? $bits[1] : '';
     if (!ctype_digit($exp) || (int)$exp < time() || $sig === '') return $cached = false;
-    if (!class_exists('SupabaseClient')) return false; // supabase.php ještě nenačten
+    if (!class_exists('SupabaseClient')) return false;
     $computing = true;
     $token = null;
     try {
@@ -138,8 +189,50 @@ function mgCmsAdminValid() {
     return $cached = hash_equals($expected, $sig);
 }
 
-// Vyrobí podepsanou hodnotu cookie pro daný token a expiraci.
+// Legacy HMAC cookie (fallback, dokud není nasazená cms-admin-auth edge funkce).
 function mgCmsAdminCookieValue($token, $expiry) {
     $sig = hash_hmac('sha256', 'cms_admin|' . $expiry, (string)$token);
     return $expiry . '.' . $sig;
+}
+
+// Ověří RAW cms_admin_token. Primárně přes edge `cms-admin-auth` (čte token
+// service_role klíčem → funguje i když je token skrytý z anon). Fallback: přímé
+// porovnání proti app_settings (anon read) — dokud edge funkce není nasazená.
+// Vrací bool. Použito v cms-cache-purge / master-export (server-to-server volání).
+function mgCmsVerifyRawToken($token) {
+    if (!is_string($token) || $token === '') return false;
+    // 1) edge exchange (token → 200 = platný)
+    if (function_exists('curl_init')) {
+        $ch = @curl_init(SUPABASE_URL . '/functions/v1/cms-admin-auth');
+        if ($ch) {
+            curl_setopt_array($ch, [
+                CURLOPT_POST => true,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT => 6,
+                CURLOPT_HTTPHEADER => [
+                    'Content-Type: application/json',
+                    'apikey: ' . SUPABASE_ANON_KEY,
+                    'Authorization: Bearer ' . SUPABASE_ANON_KEY,
+                ],
+                CURLOPT_POSTFIELDS => json_encode(['token' => $token]),
+            ]);
+            $resp = curl_exec($ch);
+            $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            if ($code === 200 && $resp !== false) {
+                $j = json_decode($resp, true);
+                if (is_array($j) && !empty($j['ok'])) return true;
+            }
+            // 403/invalid_token → token nesedí (a edge je nasazená) → false.
+            if ($code === 403) return false;
+            // jiný kód (503 sign_key_not_configured / síť) → spadni na fallback.
+        }
+    }
+    // 2) fallback: přímé porovnání (anon read) — funguje dokud token není skrytý.
+    if (!class_exists('SupabaseClient')) return false;
+    try {
+        $sb = new SupabaseClient();
+        $expected = $sb->fetchSetting('cms_admin_token');
+    } catch (\Throwable $e) { return false; }
+    return is_string($expected) && $expected !== '' && hash_equals($expected, $token);
 }

@@ -85,6 +85,53 @@ async function fetchAdminToken(sb: SupabaseClient): Promise<string | null> {
   return null
 }
 
+// #5 fix: cms-save přijímá i podepsanou capability `r1.<exp>.<b64url sig>` z webu
+// (místo raw tokenu, který už je skrytý z anon). Ověření VEŘEJNÝM RSA klíčem —
+// pár k privátnímu CMS_ADMIN_SIGN_KEY v cms-admin-auth. Veřejný klíč není tajný.
+const CMS_ADMIN_PUBLIC_KEY_PEM = `-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA2wVCAaAGj67bn+XkGpVC
+I82zXzvL4JdN819ETIPUKEHROuMCJVDH+br9KULULnaXszi5CplRcjPGh//kwZob
+MA0WbaNlZr1UJV8Ty7VB/3wUmX18kTrWCjtx6iOXAMU1PfGwIbdsqPis48PYR2mW
+X8rHA9P/o16pJM25SIjepgNOSLUvGDWvSNyQLn5HkANMDFPMi89R1NN9WDsNtz5t
+mhcJIA79G+ztYCgx0qcPkzaxT87/jFNgTU2jFK6jBLMu9tgVHK/pIDzmUOFjyCVl
+2YhTqsZfLv2zvHV2VTFJaH2v5dLV3NHUeOHRYSIi4Z5VYWRLw7roq5pipfjJ22E6
+/wIDAQAB
+-----END PUBLIC KEY-----`
+
+function pemToSpki(pem: string): ArrayBuffer {
+  const b64 = pem.replace(/-----BEGIN [^-]+-----/g, '').replace(/-----END [^-]+-----/g, '').replace(/\s+/g, '')
+  const bin = atob(b64)
+  const out = new Uint8Array(bin.length)
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i)
+  return out.buffer
+}
+
+let cachedPubKey: CryptoKey | null = null
+async function verifyCap(cap: string): Promise<boolean> {
+  if (typeof cap !== 'string' || !cap.startsWith('r1.')) return false
+  const parts = cap.split('.')
+  if (parts.length !== 3) return false
+  const exp = parts[1]
+  if (!/^\d+$/.test(exp) || parseInt(exp, 10) < Math.floor(Date.now() / 1000)) return false
+  try {
+    if (!cachedPubKey) {
+      cachedPubKey = await crypto.subtle.importKey(
+        'spki', pemToSpki(CMS_ADMIN_PUBLIC_KEY_PEM),
+        { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify'],
+      )
+    }
+    const sigB64 = parts[2].replace(/-/g, '+').replace(/_/g, '/')
+    const pad = sigB64.length % 4 ? '='.repeat(4 - (sigB64.length % 4)) : ''
+    const sigBin = atob(sigB64 + pad)
+    const sig = new Uint8Array(sigBin.length)
+    for (let i = 0; i < sigBin.length; i++) sig[i] = sigBin.charCodeAt(i)
+    const msg = new TextEncoder().encode(`cms|${exp}`)
+    return await crypto.subtle.verify('RSASSA-PKCS1-v1_5', cachedPubKey, sig, msg)
+  } catch {
+    return false
+  }
+}
+
 /** Fire-and-forget zavolání translate-content (admin nečeká na překlad). */
 async function triggerTranslate(rowId: string, value: string): Promise<'queued' | 'skipped'> {
   if (!value || typeof value !== 'string' || value.trim().length === 0) return 'skipped'
@@ -157,10 +204,15 @@ serve(async (req: Request): Promise<Response> => {
 
   const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, { auth: { persistSession: false } })
 
-  // 1) Ověř token proti app_settings.cms_admin_token
-  const expected = await fetchAdminToken(sb)
-  if (!expected) return jsonResponse({ error: 'token_not_configured' }, 503)
-  if (!timingSafeEqual(expected, token)) return jsonResponse({ error: 'invalid_token' }, 403)
+  // 1) Ověř credential: buď podepsaná capability `r1.…` (z webu, #5 fix),
+  //    nebo raw cms_admin_token (Velín / interní volání) proti app_settings.
+  if (token.startsWith('r1.')) {
+    if (!(await verifyCap(token))) return jsonResponse({ error: 'invalid_token' }, 403)
+  } else {
+    const expected = await fetchAdminToken(sb)
+    if (!expected) return jsonResponse({ error: 'token_not_configured' }, 503)
+    if (!timingSafeEqual(expected, token)) return jsonResponse({ error: 'invalid_token' }, 403)
+  }
 
   // 2) Select existing row by key, then UPDATE or INSERT.
   // Důvod: upsert s onConflict='key' selhával na 500 (zřejmě kvůli kombinaci

@@ -97,35 +97,92 @@ require_once __DIR__ . '/visitor_traffic.php';
     $secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
         || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
 
-    if (isset($_GET['cms_admin_logout'])) {
-        if (!headers_sent()) {
-            setcookie('mg_cms_admin', '', [
-                'expires' => time() - 3600,
-                'path' => '/', 'secure' => $secure, 'httponly' => false, 'samesite' => 'Lax',
-            ]);
+    // Nastaví/zruší obě cookie najednou: `mg_cms_sig` (podepsaná, HttpOnly =
+    // skutečná autorizace) + `mg_cms_admin` ("1", JS-čitelný kosmetický flag pro
+    // overlay; bez platného sig nemá žádnou moc).
+    $setAdminCookies = function ($sigValue, $exp) use ($secure) {
+        if (headers_sent()) return;
+        if ($sigValue === '') {
+            setcookie('mg_cms_sig', '', ['expires' => time() - 3600, 'path' => '/', 'secure' => $secure, 'httponly' => true, 'samesite' => 'Lax']);
+            setcookie('mg_cms_admin', '', ['expires' => time() - 3600, 'path' => '/', 'secure' => $secure, 'httponly' => false, 'samesite' => 'Lax']);
+        } else {
+            setcookie('mg_cms_sig', $sigValue, ['expires' => $exp, 'path' => '/', 'secure' => $secure, 'httponly' => true, 'samesite' => 'Lax']);
+            setcookie('mg_cms_admin', '1', ['expires' => $exp, 'path' => '/', 'secure' => $secure, 'httponly' => false, 'samesite' => 'Lax']);
         }
+    };
+
+    if (isset($_GET['cms_admin_logout'])) {
+        $setAdminCookies('', 0);
+        $_COOKIE['mg_cms_sig'] = ''; $_COOKIE['mg_cms_admin'] = '';
         unset($existing['cms_admin_logout'], $existing['cms_admin'], $existing['cms_highlight']);
+        $qs = !empty($existing) ? ('?' . http_build_query($existing)) : '';
+        if (!headers_sent()) { header('Location: ' . $reqPath . $qs); exit; }
+    }
+
+    // Cross-domain SSO: switcher na cizí doméně přiloží ?cms_admin_sso=<cap>
+    // (podepsaná capability). Cílová doména ji ověří VEŘEJNÝM klíčem lokálně a
+    // nastaví si vlastní cookie — bez raw tokenu, bez edge volání.
+    if (isset($_GET['cms_admin_sso']) && $_GET['cms_admin_sso'] !== '') {
+        $cap = (string)$_GET['cms_admin_sso'];
+        if (mgCmsVerifyCap($cap)) {
+            $exp = 0; $p = explode('.', $cap); if (count($p) === 3 && ctype_digit($p[1])) $exp = (int)$p[1];
+            if ($exp > time()) {
+                $setAdminCookies($cap, $exp);
+                $_COOKIE['mg_cms_sig'] = $cap; $_COOKIE['mg_cms_admin'] = '1';
+            }
+        }
+        unset($existing['cms_admin_sso']);
         $qs = !empty($existing) ? ('?' . http_build_query($existing)) : '';
         if (!headers_sent()) { header('Location: ' . $reqPath . $qs); exit; }
     }
 
     if (isset($_GET['cms_admin']) && $_GET['cms_admin'] !== '') {
         $provided = (string)$_GET['cms_admin'];
-        $sb = new SupabaseClient();
-        $expected = $sb->fetchSetting('cms_admin_token');
-        if (is_string($expected) && $expected !== '' && hash_equals($expected, $provided)) {
-            // Podepsaná cookie `<expiry>.<HMAC(token)>` — útočník bez tokenu ji
-            // nevyrobí. HttpOnly: JS ji nepotřebuje (token jde do MG_CMS_ADMIN
-            // server-side až po ověření mgCmsAdminValid()).
-            $exp = time() + 30 * 24 * 3600;
-            $cookieVal = mgCmsAdminCookieValue($expected, $exp);
-            if (!headers_sent()) {
-                setcookie('mg_cms_admin', $cookieVal, [
-                    'expires' => $exp,
-                    'path' => '/', 'secure' => $secure, 'httponly' => true, 'samesite' => 'Lax',
-                ]);
+        $sigVal = '';
+        $exp = time() + 30 * 24 * 3600;
+
+        // PRIMÁRNÍ cesta (#5 fix): vyměň raw token za podepsanou capability přes
+        // edge funkci `cms-admin-auth`. PHP token sám nečte — token tak smí být
+        // skrytý z anon RLS. Edge ověří token (service_role) a vrátí `cap`.
+        $cap = '';
+        $ch = @curl_init(SUPABASE_URL . '/functions/v1/cms-admin-auth');
+        if ($ch) {
+            curl_setopt_array($ch, [
+                CURLOPT_POST => true,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT => 6,
+                CURLOPT_HTTPHEADER => [
+                    'Content-Type: application/json',
+                    'apikey: ' . SUPABASE_ANON_KEY,
+                    'Authorization: Bearer ' . SUPABASE_ANON_KEY,
+                ],
+                CURLOPT_POSTFIELDS => json_encode(['token' => $provided]),
+            ]);
+            $resp = curl_exec($ch);
+            $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            if ($resp !== false && $code === 200) {
+                $j = json_decode($resp, true);
+                if (is_array($j) && !empty($j['cap']) && mgCmsVerifyCap($j['cap'])) $cap = $j['cap'];
             }
-            $_COOKIE['mg_cms_admin'] = $cookieVal;
+        }
+
+        if ($cap !== '') {
+            $sigVal = $cap;
+            $p = explode('.', $cap); if (count($p) === 3 && ctype_digit($p[1])) $exp = (int)$p[1];
+        } else {
+            // FALLBACK (dokud není nasazená edge funkce / secret): ověř token
+            // přímo proti app_settings (anon read) a nastav legacy HMAC sig.
+            $sb = new SupabaseClient();
+            $expected = $sb->fetchSetting('cms_admin_token');
+            if (is_string($expected) && $expected !== '' && hash_equals($expected, $provided)) {
+                $sigVal = mgCmsAdminCookieValue($expected, $exp);
+            }
+        }
+
+        if ($sigVal !== '') {
+            $setAdminCookies($sigVal, $exp);
+            $_COOKIE['mg_cms_sig'] = $sigVal; $_COOKIE['mg_cms_admin'] = '1';
         }
         // Token vždy odstraníme z URL — i při shodě i při neshodě (ať neleakuje).
         unset($existing['cms_admin']);
