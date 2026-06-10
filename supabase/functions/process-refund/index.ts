@@ -6,7 +6,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import Stripe from 'https://esm.sh/stripe@14'
-import { requireAdminOrService, forbidden } from '../_shared/auth.ts'
+import { authClassify, forbidden } from '../_shared/auth.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -325,10 +325,12 @@ Deno.serve(async (req: Request) => {
     return new Response('ok', { headers: CORS })
   }
 
-  // Bezpečnostní gate: refund smí spustit jen service_role (DB triggery / webhook)
-  // nebo přihlášený admin z Velína. Bez toho mohl kdokoli s anon klíčem refundovat.
-  const auth = await requireAdminOrService(req)
-  if (!auth.ok) return forbidden(CORS, auth.reason)
+  // Bezpečnostní gate: refund smí spustit service_role (DB triggery / webhook),
+  // admin (Velín), NEBO přihlášený zákazník POUZE pro VLASTNÍ rezervaci/objednávku
+  // (appka — zkrácení rezervace). Anon (jen apikey) je odmítnut. Ověření
+  // vlastnictví u 'user' proběhne po načtení booking/order níže.
+  const caller = await authClassify(req)
+  if (caller.kind === 'none') return forbidden(CORS, 'auth_required')
 
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL') ?? '',
@@ -365,7 +367,7 @@ Deno.serve(async (req: Request) => {
 
     if (booking_id) {
       const { data } = await supabase.from('bookings')
-        .select('stripe_payment_intent_id, stripe_session_id, total_price, payment_status, stripe_refund_id, card_brand, card_last4')
+        .select('user_id, stripe_payment_intent_id, stripe_session_id, total_price, payment_status, stripe_refund_id, card_brand, card_last4')
         .eq('id', booking_id)
         .single()
 
@@ -374,6 +376,12 @@ Deno.serve(async (req: Request) => {
           JSON.stringify({ success: false, error: 'Booking not found', code: 'not_found' }),
           { status: 404, headers: { ...CORS, 'Content-Type': 'application/json' } }
         )
+      }
+
+      // Vlastnictví: přihlášený zákazník smí refundovat jen SVOU rezervaci.
+      if (caller.kind === 'user' && data.user_id !== caller.userId) {
+        await dlog('ownership_denied', 'error')
+        return forbidden(CORS, 'not_owner')
       }
 
       // Idempotency: if booking is already refunded, ensure the credit note has pdf_path
@@ -442,7 +450,7 @@ Deno.serve(async (req: Request) => {
     } else if (order_id) {
       entityType = 'shop'
       const { data } = await supabase.from('shop_orders')
-        .select('stripe_payment_intent_id, stripe_session_id, total_amount, payment_status')
+        .select('customer_id, stripe_payment_intent_id, stripe_session_id, total_amount, payment_status')
         .eq('id', order_id)
         .single()
 
@@ -451,6 +459,12 @@ Deno.serve(async (req: Request) => {
           JSON.stringify({ success: false, error: 'Order not found', code: 'not_found' }),
           { status: 404, headers: { ...CORS, 'Content-Type': 'application/json' } }
         )
+      }
+
+      // Vlastnictví: přihlášený zákazník smí refundovat jen SVOU objednávku.
+      if (caller.kind === 'user' && data.customer_id !== caller.userId) {
+        await dlog('ownership_denied', 'error')
+        return forbidden(CORS, 'not_owner')
       }
       if (data.payment_status !== 'paid') {
         return new Response(
