@@ -138,7 +138,7 @@ export default function WebAgentSettingsPanel() {
           <li>Příslušenství a ceny extras — tabulka <code>extras_catalog</code></li>
           <li>Pobočky — tabulka <code>branches</code></li>
           <li>Promo kódy a vouchery — RPC <code>validate_promo_code</code> + <code>validate_voucher_code</code></li>
-          <li>FAQ — <code>app_settings.site.faq</code> (CMS → Web texts → FAQ; když uložíš, agent ví hned)</li>
+          <li>FAQ — tabulka <code>faq_items</code> (CMS → Texty webu → Časté dotazy; stejný zdroj jako web, jen published položky; když uložíš, agent ví hned)</li>
           <li>Aktuální znalosti — <code>app_settings.ai_public_agent_config.knowledge_extra</code> (textarea výše)</li>
         </ul>
         <br/>
