@@ -69,3 +69,32 @@ export function forbidden(corsHeaders: Record<string, string>, reason = 'forbidd
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   })
 }
+
+/**
+ * Zařadí volajícího: 'service' | 'admin' | 'user' | 'none'.
+ * Pro funkce, které smí volat i přihlášený ZÁKAZNÍK (appka) — funkce si pak
+ * sama ověří vlastnictví booking_id/order_id přes vrácené userId.
+ */
+export async function authClassify(
+  req: Request,
+  opts: { adminRoles?: string[] } = {},
+): Promise<{ kind: 'service' | 'admin' | 'user' | 'none'; userId?: string }> {
+  const token = bearerToken(req)
+  if (!token) return { kind: 'none' }
+  if (isServiceRole(token)) return { kind: 'service' }
+  const adminRoles = opts.adminRoles ?? ['admin', 'superadmin', 'manager', 'operator']
+  try {
+    const admin = createClient(SUPABASE_URL, SERVICE_KEY)
+    const { data: { user }, error } = await admin.auth.getUser(token)
+    if (error || !user) return { kind: 'none' }
+    const { data: row } = await admin
+      .from('admin_users')
+      .select('role')
+      .eq('id', user.id)
+      .maybeSingle()
+    if (row && adminRoles.includes(row.role)) return { kind: 'admin', userId: user.id }
+    return { kind: 'user', userId: user.id }
+  } catch {
+    return { kind: 'none' }
+  }
+}

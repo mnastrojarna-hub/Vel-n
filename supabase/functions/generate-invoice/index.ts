@@ -1,7 +1,7 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { generateInvoiceHtml } from './template.ts'
-import { requireAdminOrService, forbidden } from '../_shared/auth.ts'
+import { authClassify, forbidden } from '../_shared/auth.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
@@ -152,9 +152,11 @@ function extraLabel(name: string, booking: any): string {
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
 
-  // Bezpečnostní gate: generování/leak cizích faktur (PII) jen pro service_role nebo admina.
-  const auth = await requireAdminOrService(req)
-  if (!auth.ok) return forbidden(CORS, auth.reason)
+  // Bezpečnostní gate: doklad (s PII) smí generovat service_role (webhook/trigger),
+  // admin (Velín), NEBO přihlášený zákazník POUZE pro VLASTNÍ rezervaci/objednávku
+  // (appka). Anon (jen apikey) odmítnut. Vlastnictví u 'user' ověříme níže.
+  const caller = await authClassify(req)
+  if (caller.kind === 'none') return forbidden(CORS, 'auth_required')
 
   try {
     const {
@@ -173,6 +175,19 @@ serve(async (req) => {
     let doorCodes: any[] = []
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+
+    // Vlastnictví: přihlášený zákazník smí generovat doklad jen pro SVOU rezervaci/objednávku.
+    if (caller.kind === 'user') {
+      let ownerOk = false
+      if (booking_id) {
+        const { data: bk } = await supabase.from('bookings').select('user_id').eq('id', booking_id).maybeSingle()
+        ownerOk = !!bk && bk.user_id === caller.userId
+      } else if (order_id) {
+        const { data: ord } = await supabase.from('shop_orders').select('customer_id').eq('id', order_id).maybeSingle()
+        ownerOk = !!ord && ord.customer_id === caller.userId
+      }
+      if (!ownerOk) return forbidden(CORS, 'not_owner')
+    }
     const COMPANY = await loadCompanyInfo(supabase)
 
     // ── Render-only pro EXISTUJÍCÍ doklad bez PDF ──────────────────────────────
