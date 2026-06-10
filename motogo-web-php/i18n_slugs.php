@@ -1,0 +1,159 @@
+<?php
+// ===== MotoGo24 Web PHP — Lokalizované URL slugy (SEO) =====
+// Kanonické cesty = české (master, motogo24.cz beze změny). Na cizojazyčných
+// jazycích/doménách se indexovatelné marketingové stránky servírují pod
+// přeloženým slugem (/catalog, /motorradverleih, /alquiler-de-motos, …).
+//
+// ZÁMĚRNĚ NELOKALIZOVANÉ cesty:
+//   /rezervace, /upravit-rezervaci, /potvrzeni, /kosik, /objednavka* — jsou
+//   noindex + robots-disallowed (SEO přínos nulový) a odkazuje na ně natvrdo
+//   JS (Stripe success/cancel URL, resume QR, checkout.js cart_url.replace),
+//   edge funkce i maily. /blog a /eshop jsou mezinárodně srozumitelné.
+//   Slugy DB entit (/blog/<slug>, /dokumenty/<slug>) zůstávají české —
+//   překládá se jen prefix; per-jazyk slugy entit by vyžadovaly backend.
+//
+// Tok:
+//   příchozí request → i18nSlugRedirectIfNeeded() 301 na lokalizovaný tvar
+//                    → i18nCanonicalPath() → router pracuje s českou cestou
+//   odchozí odkazy   → i18nUrlForLang() (canonical, hreflang, sitemap, switcher)
+//                    → i18nLocalizeHrefs() přepíše href="/..." v těle HTML
+//
+// Jazyk, který v mapě chybí, používá kanonický (český/mezinárodní) slug.
+
+require_once __DIR__ . '/config.php';
+
+const I18N_SLUG_ROUTES = [
+    '/katalog' => ['en' => '/catalog', 'es' => '/catalogo', 'fr' => '/catalogue', 'nl' => '/catalogus'],
+    '/katalog/cestovni' => ['en' => '/catalog/touring', 'de' => '/katalog/reise', 'es' => '/catalogo/turismo', 'fr' => '/catalogue/routieres', 'nl' => '/catalogus/toer', 'pl' => '/katalog/turystyczne'],
+    '/katalog/sportovni' => ['en' => '/catalog/sport', 'de' => '/katalog/sport', 'es' => '/catalogo/deportivas', 'fr' => '/catalogue/sportives', 'nl' => '/catalogus/sport', 'pl' => '/katalog/sportowe'],
+    '/katalog/naked' => ['en' => '/catalog/naked', 'es' => '/catalogo/naked', 'fr' => '/catalogue/naked', 'nl' => '/catalogus/naked'],
+    '/katalog/supermoto' => ['en' => '/catalog/supermoto', 'es' => '/catalogo/supermoto', 'fr' => '/catalogue/supermoto', 'nl' => '/catalogus/supermoto'],
+    '/katalog/chopper' => ['en' => '/catalog/chopper', 'es' => '/catalogo/chopper', 'fr' => '/catalogue/chopper', 'nl' => '/catalogus/chopper'],
+    '/katalog/detske' => ['en' => '/catalog/kids', 'de' => '/katalog/kinder', 'es' => '/catalogo/infantiles', 'fr' => '/catalogue/enfants', 'nl' => '/catalogus/kinder', 'pl' => '/katalog/dzieciece'],
+    '/pujcovna-motorek' => ['en' => '/motorcycle-rental', 'de' => '/motorradverleih', 'es' => '/alquiler-de-motos', 'fr' => '/location-de-motos', 'nl' => '/motorverhuur', 'pl' => '/wypozyczalnia-motocykli'],
+    // /jak-pujcit (rozcestník) jen 301-redirectuje na /postup — lokalizujeme i jeho.
+    '/jak-pujcit' => ['en' => '/how-to-rent', 'de' => '/mietanleitung', 'es' => '/como-alquilar', 'fr' => '/comment-louer', 'nl' => '/hoe-huren', 'pl' => '/jak-wypozyczyc'],
+    '/jak-pujcit/postup' => ['en' => '/how-to-rent/process', 'de' => '/mietanleitung/ablauf', 'es' => '/como-alquilar/proceso', 'fr' => '/comment-louer/procedure', 'nl' => '/hoe-huren/werkwijze', 'pl' => '/jak-wypozyczyc/proces'],
+    '/jak-pujcit/pristaveni' => ['en' => '/how-to-rent/delivery', 'de' => '/mietanleitung/lieferung', 'es' => '/como-alquilar/entrega', 'fr' => '/comment-louer/livraison', 'nl' => '/hoe-huren/bezorging', 'pl' => '/jak-wypozyczyc/dostawa'],
+    '/jak-pujcit/prevzeti' => ['en' => '/how-to-rent/pickup', 'de' => '/mietanleitung/abholung', 'es' => '/como-alquilar/recogida', 'fr' => '/comment-louer/retrait', 'nl' => '/hoe-huren/afhalen', 'pl' => '/jak-wypozyczyc/odbior'],
+    '/jak-pujcit/vraceni-pujcovna' => ['en' => '/how-to-rent/return-at-branch', 'de' => '/mietanleitung/rueckgabe-filiale', 'es' => '/como-alquilar/devolucion-sucursal', 'fr' => '/comment-louer/retour-agence', 'nl' => '/hoe-huren/terugbrengen-filiaal', 'pl' => '/jak-wypozyczyc/zwrot-w-wypozyczalni'],
+    '/jak-pujcit/vraceni-jinde' => ['en' => '/how-to-rent/return-elsewhere', 'de' => '/mietanleitung/rueckgabe-anderswo', 'es' => '/como-alquilar/devolucion-otro-lugar', 'fr' => '/comment-louer/retour-ailleurs', 'nl' => '/hoe-huren/terugbrengen-elders', 'pl' => '/jak-wypozyczyc/zwrot-w-innym-miejscu'],
+    '/jak-pujcit/co-v-cene' => ['en' => '/how-to-rent/whats-included', 'de' => '/mietanleitung/was-ist-im-preis', 'es' => '/como-alquilar/que-incluye', 'fr' => '/comment-louer/ce-qui-est-inclus', 'nl' => '/hoe-huren/wat-is-inbegrepen', 'pl' => '/jak-wypozyczyc/co-w-cenie'],
+    '/jak-pujcit/dokumenty' => ['en' => '/how-to-rent/documents', 'de' => '/mietanleitung/dokumente', 'es' => '/como-alquilar/documentos', 'fr' => '/comment-louer/documents', 'nl' => '/hoe-huren/documenten', 'pl' => '/jak-wypozyczyc/dokumenty'],
+    '/jak-pujcit/faq' => ['en' => '/how-to-rent/faq', 'de' => '/mietanleitung/faq', 'es' => '/como-alquilar/faq', 'fr' => '/comment-louer/faq', 'nl' => '/hoe-huren/faq', 'pl' => '/jak-wypozyczyc/faq'],
+    '/poukazy' => ['en' => '/vouchers', 'de' => '/gutscheine', 'es' => '/tarjetas-regalo', 'fr' => '/bons-cadeaux', 'nl' => '/cadeaubonnen', 'pl' => '/vouchery'],
+    '/koupit-darkovy-poukaz' => ['en' => '/buy-gift-voucher', 'de' => '/gutschein-kaufen', 'es' => '/comprar-tarjeta-regalo', 'fr' => '/acheter-bon-cadeau', 'nl' => '/cadeaubon-kopen', 'pl' => '/kup-voucher'],
+    '/kontakt' => ['en' => '/contact', 'es' => '/contacto', 'fr' => '/contact', 'nl' => '/contact'],
+    '/mapa-stranek' => ['en' => '/sitemap', 'de' => '/seitenuebersicht', 'es' => '/mapa-del-sitio', 'fr' => '/plan-du-site', 'nl' => '/sitemap', 'pl' => '/mapa-strony'],
+    '/partneri' => ['en' => '/partners', 'de' => '/partner', 'es' => '/socios', 'fr' => '/partenaires', 'nl' => '/partners', 'pl' => '/partnerzy'],
+    '/smazani-uctu' => ['en' => '/account-deletion', 'de' => '/konto-loeschen', 'es' => '/eliminar-cuenta', 'fr' => '/suppression-de-compte', 'nl' => '/account-verwijderen', 'pl' => '/usuniecie-konta'],
+];
+
+// Prefixy pro dynamické cesty (UUID/slug za prefixem se nepřekládá).
+const I18N_SLUG_PREFIXES = [
+    '/katalog/' => ['en' => '/catalog/', 'es' => '/catalogo/', 'fr' => '/catalogue/', 'nl' => '/catalogus/'],
+    '/dokumenty/' => ['en' => '/documents/', 'de' => '/dokumente/', 'es' => '/documentos/', 'fr' => '/documents/', 'nl' => '/documenten/'],
+];
+
+/** Reverzní mapa: lokalizovaný slug (libovolný jazyk) → kanonický. */
+function _i18nSlugReverseExact() {
+    static $rev = null;
+    if ($rev !== null) return $rev;
+    $rev = [];
+    foreach (I18N_SLUG_ROUTES as $canonical => $byLang) {
+        foreach ($byLang as $localized) {
+            if ($localized !== $canonical) $rev[$localized] = $canonical;
+        }
+    }
+    return $rev;
+}
+
+/** Reverzní prefix mapa seřazená od nejdelší (longest-prefix match). */
+function _i18nSlugReversePrefixes() {
+    static $rev = null;
+    if ($rev !== null) return $rev;
+    $rev = [];
+    foreach (I18N_SLUG_PREFIXES as $canonical => $byLang) {
+        foreach ($byLang as $localized) {
+            if ($localized !== $canonical) $rev[$localized] = $canonical;
+        }
+    }
+    uksort($rev, function ($a, $b) { return strlen($b) - strlen($a); });
+    return $rev;
+}
+
+/**
+ * Převede lokalizovanou cestu (libovolný jazyk) na kanonickou českou.
+ * Neznámé cesty vrací beze změny — bezpečné volat na cokoliv.
+ */
+function i18nCanonicalPath($path) {
+    if (!is_string($path) || $path === '' || $path[0] !== '/') return $path;
+    $rev = _i18nSlugReverseExact();
+    if (isset($rev[$path])) return $rev[$path];
+    foreach (_i18nSlugReversePrefixes() as $localized => $canonical) {
+        if (strpos($path, $localized) === 0) {
+            return $canonical . substr($path, strlen($localized));
+        }
+    }
+    return $path;
+}
+
+/**
+ * Převede KANONICKOU českou cestu na lokalizovaný tvar pro daný jazyk.
+ * (Vstup v cizím jazyce nejdřív prožeň přes i18nCanonicalPath().)
+ */
+function i18nLocalizePath($path, $lang = null) {
+    if (!is_string($path) || $path === '' || $path[0] !== '/') return $path;
+    $lang = $lang ?: (function_exists('i18nDetectLanguage') ? i18nDetectLanguage() : 'cs');
+    if ($lang === 'cs') return $path;
+    if (isset(I18N_SLUG_ROUTES[$path])) {
+        return I18N_SLUG_ROUTES[$path][$lang] ?? $path;
+    }
+    foreach (I18N_SLUG_PREFIXES as $canonical => $byLang) {
+        if (isset($byLang[$lang]) && strpos($path, $canonical) === 0) {
+            return $byLang[$lang] . substr($path, strlen($canonical));
+        }
+    }
+    return $path;
+}
+
+/**
+ * 301 redirect na lokalizovaný tvar cesty pro aktuálně detekovaný jazyk,
+ * pokud se request liší (česká URL na .com → /catalog; anglická na .cz →
+ * /katalog; po přepnutí jazyka cookie). Query string se zachovává — JS
+ * (Stripe redirecty, ?resume=, ?order_id=) tak funguje beze změny.
+ * Volat z index.php PŘED page cache. Pro neznámé cesty no-op.
+ */
+function i18nSlugRedirectIfNeeded($requestPath) {
+    $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+    if ($method !== 'GET' && $method !== 'HEAD') return;
+    $lang = function_exists('i18nDetectLanguage') ? i18nDetectLanguage() : 'cs';
+    $target = i18nLocalizePath(i18nCanonicalPath($requestPath), $lang);
+    if ($target === $requestPath || headers_sent()) return;
+    $qs = (string)($_SERVER['QUERY_STRING'] ?? '');
+    header('Location: ' . BASE_URL . $target . ($qs !== '' ? '?' . $qs : ''), true, 301);
+    exit;
+}
+
+/**
+ * Přepíše root-relativní href="/..." odkazy v HTML na lokalizované slugy pro
+ * aktuální jazyk. Catch-all pro interní odkazy v menu, footeru, CMS obsahu
+ * i přeložených slovnících — žádná stránka nemusí lokalizovat ručně.
+ * Absolutní URL (https://… — hreflang, language switcher) nesahá.
+ */
+function i18nLocalizeHrefs($html) {
+    if (!is_string($html) || $html === '') return $html;
+    $lang = function_exists('i18nDetectLanguage') ? i18nDetectLanguage() : 'cs';
+    if ($lang === 'cs') return $html;
+    return preg_replace_callback('~href="(/[^"?#]*)([^"]*)"~', function ($m) use ($lang) {
+        $p = $m[1];
+        $base = '';
+        if (BASE_URL !== '' && strpos($p, BASE_URL) === 0) {
+            $base = BASE_URL;
+            $p = substr($p, strlen(BASE_URL));
+        }
+        $localized = i18nLocalizePath(i18nCanonicalPath($p), $lang);
+        if ($localized === $p) return $m[0];
+        return 'href="' . $base . $localized . $m[2] . '"';
+    }, $html);
+}

@@ -16,6 +16,7 @@
 // Cookie se nastavuje při ?lang= a žije 365 dní.
 
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/i18n_slugs.php';
 
 // Polyfills pro PHP < 8.0 (hosting motogo24.com běží na starší verzi PHP).
 if (!function_exists('str_ends_with')) {
@@ -197,6 +198,14 @@ function i18nOriginForLang($lang) {
  */
 function i18nUrlForLang($lang, $path, $forceLangQuery = false) {
     $origin = i18nOriginForLang($lang);
+    // Lokalizované slugy: vstupní cesta může být v libovolném jazyce (aktuální
+    // request) — kanonizujeme na českou a přeložíme do slugu cílového jazyka.
+    // Díky tomu canonical, hreflang, sitemap i language switcher míří vždy na
+    // jazykově správnou URL (žádný 301 hop přes český slug).
+    $qpos = strpos($path, '?');
+    $pq = $qpos !== false ? substr($path, $qpos) : '';
+    $pp = $qpos !== false ? substr($path, 0, $qpos) : $path;
+    $path = i18nLocalizePath(i18nCanonicalPath($pp), $lang) . $pq;
     // Jazyk je defaultní pro svou doménu → nepotřebuje ?lang= parametr.
     // Např. 'de' na motogo24.at, 'es' na motogo24.es, 'en' na motogo24.com atd.
     $domainForLang = I18N_DOMAIN_MAP[$lang] ?? I18N_DOMAIN_INTL;
@@ -574,7 +583,10 @@ function renderLanguageSwitcher() {
         // TLD — Seobility to hlásí jako stovky 'External link problem / Domain
         // not connected'. Místo toho nasměrujeme na .com s ?lang=xx, kde to běží.
         if (defined('I18N_HREFLANG_LIVE') && isset(I18N_HREFLANG_LIVE[$code]) && I18N_HREFLANG_LIVE[$code] === false) {
-            $url = 'https://' . i18nCanonicalHostFor(I18N_DOMAIN_INTL) . $path . '?lang=' . $code;
+            // I cesta na .com fallbacku musí mít slug cílového jazyka — server
+            // by jinak po detekci ?lang=xx udělal zbytečný 301 hop.
+            $switchPath = i18nLocalizePath(i18nCanonicalPath($path), $code);
+            $url = 'https://' . i18nCanonicalHostFor(I18N_DOMAIN_INTL) . $switchPath . '?lang=' . $code;
         } else {
             $url = i18nUrlForLang($code, $path, true);
         }

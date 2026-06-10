@@ -21,6 +21,9 @@ if (is_string($path) && $path !== '/' && substr($path, -1) === '/') {
     $path = rtrim($path, '/');
 }
 if ($path === '' || $path === false) $path = '/katalog';
+// Lokalizované slugy (/catalog/touring, /catalogo/turismo, …) → kanonická
+// česká cesta, jinak by porovnání kategorií níže na cizí doméně neprošlo.
+if (function_exists('i18nCanonicalPath')) $path = i18nCanonicalPath($path);
 $category = null;
 $title = t('menu.catalog');
 

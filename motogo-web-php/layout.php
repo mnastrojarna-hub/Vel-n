@@ -376,6 +376,9 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
     // resources = 5000+ 'Internal redirects' a 'Image redirected'.
     $lang = function_exists('i18nDetectLanguage') ? i18nDetectLanguage() : 'cs';
     $siteOrigin = function_exists('i18nOriginForLang') ? i18nOriginForLang($lang) : 'https://www.motogo24.cz';
+    // Lokalizované slugy pro absolutní URL ve strukturovaných datech (JSON-LD)
+    // — na cizojazyčné doméně musí katalog/dokumenty mířit na přeložený slug.
+    $lp = function ($p) { return function_exists('i18nLocalizePath') ? i18nLocalizePath($p) : $p; };
 
     // Default description per-jazyk (cs/en/de/fr/es/nl/pl) — bez tohoto fallbacku
     // by Google na .com indexoval cizojazycne stranky s ceskym defaultnim popiskem.
@@ -559,12 +562,12 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
         "hasOfferCatalog": {
           "@type":"OfferCatalog",
           "name":"Katalog motorek k pronájmu",
-          "url":"' . $siteOrigin . '/katalog",
+          "url":"' . $siteOrigin . $lp('/katalog') . '",
           "itemListElement":[
-            {"@type":"OfferCatalog","name":"Cestovní motorky","url":"' . $siteOrigin . '/katalog/cestovni"},
-            {"@type":"OfferCatalog","name":"Naked motorky","url":"' . $siteOrigin . '/katalog/naked"},
-            {"@type":"OfferCatalog","name":"Supermoto","url":"' . $siteOrigin . '/katalog/supermoto"},
-            {"@type":"OfferCatalog","name":"Dětské motorky","url":"' . $siteOrigin . '/katalog/detske"}
+            {"@type":"OfferCatalog","name":"Cestovní motorky","url":"' . $siteOrigin . $lp('/katalog/cestovni') . '"},
+            {"@type":"OfferCatalog","name":"Naked motorky","url":"' . $siteOrigin . $lp('/katalog/naked') . '"},
+            {"@type":"OfferCatalog","name":"Supermoto","url":"' . $siteOrigin . $lp('/katalog/supermoto') . '"},
+            {"@type":"OfferCatalog","name":"Dětské motorky","url":"' . $siteOrigin . $lp('/katalog/detske') . '"}
           ]
         },
         "potentialAction": [
@@ -580,7 +583,7 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
         "name": "MotoGo24 — půjčovna motorek Vysočina",
         "inLanguage": "' . htmlspecialchars($htmlLang) . '",
         "publisher": {"@id":"' . $siteOrigin . '/#organization"},
-        "potentialAction": {"@type":"SearchAction","target":{"@type":"EntryPoint","urlTemplate":"' . $siteOrigin . '/katalog?q={search_term_string}"},"query-input":"required name=search_term_string"}
+        "potentialAction": {"@type":"SearchAction","target":{"@type":"EntryPoint","urlTemplate":"' . $siteOrigin . $lp('/katalog') . '?q={search_term_string}"},"query-input":"required name=search_term_string"}
       },
       {
         "@type": "Service",
@@ -598,7 +601,7 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
           {"@type":"ServiceChannel","servicePhone":"+420 774 256 271","name":"Telefon (24/7)"},
           {"@type":"ServiceChannel","serviceUrl":"https://wa.me/420774256271","name":"WhatsApp"}
         ],
-        "termsOfService": "' . $siteOrigin . '/dokumenty/obchodni-podminky",
+        "termsOfService": "' . $siteOrigin . $lp('/dokumenty/obchodni-podminky') . '",
         "offers": {"@type":"AggregateOffer","priceCurrency":"CZK","lowPrice":"990","highPrice":"5000","offerCount":50,"availability":"https://schema.org/InStock","seller":{"@id":"' . $siteOrigin . '/#organization"}}
       }
     ]
@@ -634,7 +637,10 @@ body{font-family:Montserrat,"Segoe UI",sans-serif;margin:0;color:#1a2e22;backgro
 ';
     // GTM/Sklik se NIKDY nevkládá přímo do HTML — banner JS je injektne
     // až po souhlasu. Viz renderConsentManager() na konci stránky.
-    echo renderHeader($currentPath);
+    // Lokalizace interních odkazů (menu, footer, CMS obsah) na slug aktuálního
+    // jazyka — i18nLocalizeHrefs() přepisuje jen root-relativní href="/...",
+    // absolutní hreflang/switcher URL nesahá. Pro cs no-op.
+    echo i18nLocalizeHrefs(renderHeader($currentPath));
     echo '<div id="app">';
     // SEO defensive enhancers — pojistka napric celym webem aby cokoliv
     // pridaneho z Velin CMS (motorky, blog, faq, texty stranek) prochazelo
@@ -647,9 +653,9 @@ body{font-family:Montserrat,"Segoe UI",sans-serif;margin:0;color:#1a2e22;backgro
     if (!mgCmsAdminValid() && !empty($content)) {
         $content = seoEnhanceHtml($content);
     }
-    echo $content;
+    echo i18nLocalizeHrefs($content);
     echo '</div>';
-    echo renderFooter();
+    echo i18nLocalizeHrefs(renderFooter());
 
     // Lightbox container (sdílený pro všechny galerie přes [data-gallery]).
     $lbPrev    = htmlspecialchars(t('gallery.prev'), ENT_QUOTES, 'UTF-8');
@@ -726,7 +732,7 @@ window.MOTOGO_CONFIG.SUPABASE_ANON_KEY = ' . json_encode(SUPABASE_ANON_KEY) . ';
     // Cookie consent manager — banner + JS injektor pro GTM/Sklik.
     // Musí být POSLEDNÍ v <body>, aby běžel po načtení DOM a měl k dispozici
     // header/footer (re-open přes [data-cookie-prefs]).
-    echo renderConsentManager();
+    echo i18nLocalizeHrefs(renderConsentManager());
 
     echo '
 </body>
