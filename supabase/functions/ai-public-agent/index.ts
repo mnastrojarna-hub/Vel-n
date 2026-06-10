@@ -24,7 +24,11 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
 const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY') || ''
-const ANTHROPIC_MODEL = 'claude-haiku-4-5-20251001'
+const ANTHROPIC_MODEL = 'claude-sonnet-4-6'
+// Adaptivní myšlení (Sonnet 4.6) — model si sám určí, kdy a kolik přemýšlet. Zapnuto kvůli
+// kvalitě odpovědí (lepší dodržování pravidel promptu, volání toolů před odpovědí, žádné
+// protiřečení). Interleaved thinking se zapne automaticky, beta hlavička není potřeba.
+const ANTHROPIC_THINKING = { type: 'adaptive' } as const
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -1700,6 +1704,7 @@ async function runClaudeLoop(
         body: JSON.stringify({
           model: ANTHROPIC_MODEL,
           max_tokens: maxTokens,
+          thinking: ANTHROPIC_THINKING,
           system: systemPrompt,
           tools: PUBLIC_TOOLS,
           messages: apiMessages,
@@ -1799,7 +1804,10 @@ serve(async (req) => {
       : null
 
     const systemPrompt = buildSystemPrompt(lang, cfg, company, fleet, pageCtx)
-    const maxTokens = Math.min(Math.max(Number(cfg.max_tokens) || 800, 256), 4096)
+    // S adaptivním myšlením se thinking tokeny počítají do max_tokens — proto vyšší strop i floor,
+    // ať zbyde prostor na myšlení i na samotnou odpověď (nízký limit by odpověď uřízl uprostřed).
+    // Cap držíme na 8000, ať edge fn nenarazí na wall-clock limit a non-streaming fetch nevytimeoutuje.
+    const maxTokens = Math.min(Math.max(Number(cfg.max_tokens) || 2048, 1024), 8000)
     const { reply, toolUses } = await runClaudeLoop(recent, systemPrompt, maxTokens, lang)
 
     const latency = Date.now() - startedAt
