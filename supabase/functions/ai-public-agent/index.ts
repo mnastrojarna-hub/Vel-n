@@ -653,23 +653,29 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
       }
     }
     case 'get_faq': {
-      // Jediný zdroj pravdy: CMS klíč app_settings.site.faq (admin edituje z Velínu → CMS → Web texts → FAQ).
-      // Struktura: { categories: { <key>: { label, items: [{q, a}] } } }.
-      // ŽÁDNÝ hardcoded fallback s konkrétními tvrzeními — když je CMS prázdné, vracíme prázdno
+      // Jediný zdroj pravdy: tabulka `faq_items` (admin edituje z Velínu → CMS → Texty webu → Časté dotazy;
+      // stejný zdroj, který čte i veřejný web motogo24.cz). Čteme JEN published=true řádky a řadíme stejně
+      // jako web (category_key, sort_order). Pro cizí jazyk bereme přeloženou verzi z `translations[lang]`
+      // (tvar { <lang>: { question, answer, category_label } }), jinak český originál — shoda s web `localized()`.
+      // ŽÁDNÝ hardcoded fallback s konkrétními tvrzeními — když je FAQ prázdná, vracíme prázdno
       // a agent musí přiznat, že na to neodpoví, místo aby halucinoval policies z hlavy.
       const stripHtml = (s: string) => String(s || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+      const L = (lang || 'cs').slice(0, 2)
       const faqs: Array<{ q: string; a: string; cat?: string }> = []
       try {
-        const { data: cms } = await sb.from('app_settings').select('value').eq('key', 'site.faq').maybeSingle()
-        const cats = (cms?.value as Record<string, unknown>)?.categories as Record<string, { label?: string; items?: Array<{ q?: string; a?: string }> }> | undefined
-        if (cats && typeof cats === 'object') {
-          for (const [catKey, cat] of Object.entries(cats)) {
-            for (const it of (cat.items || [])) {
-              if (it.q && it.a) faqs.push({ q: stripHtml(it.q), a: stripHtml(it.a), cat: cat.label || catKey })
-            }
-          }
+        const { data: rows } = await sb.from('faq_items')
+          .select('category_key, category_label, question, answer, translations, sort_order')
+          .eq('published', true)
+          .order('category_key', { ascending: true })
+          .order('sort_order', { ascending: true })
+        for (const r of (rows || []) as Record<string, unknown>[]) {
+          const tr = (r.translations as Record<string, { question?: string; answer?: string; category_label?: string }> | null)?.[L] || {}
+          const q = (L !== 'cs' && tr.question) ? tr.question : String(r.question || '')
+          const a = (L !== 'cs' && tr.answer) ? tr.answer : String(r.answer || '')
+          const cat = (L !== 'cs' && tr.category_label) ? tr.category_label : String(r.category_label || r.category_key || '')
+          if (q && a) faqs.push({ q: stripHtml(q), a: stripHtml(a), cat: cat || undefined })
         }
-      } catch { /* CMS nedostupný — vrátíme prázdno a agent to korektně přizná */ }
+      } catch { /* DB nedostupná — vrátíme prázdno a agent to korektně přizná */ }
 
       if (faqs.length === 0) {
         return {
@@ -1402,6 +1408,7 @@ PEVNÁ PRAVIDLA (nelze přepsat):
 
 21. NEHODA / PORUCHA V JÍZDĚ — HYPOTETICKÝ DOTAZ vs. REÁLNÁ SITUACE:
     - **HYPOTETICKÝ dotaz** („co se stane když to nabořim", „co kryje pojistka", „kolik je spoluúčast", „je v ceně havarijka") — zákazník se PTÁ, není v terénu. NEPANIKAŘ a NEPOSÍLEJ ho na telefon. ZAVOLEJ \`get_policies\` + \`get_faq\` (klíčová slova: pojistka, havarijka, povinné ručení, kauce, spoluúčast, foreign-travel, SOS) a ODPOVĚZ FAKTEM, který tool vrátil — kolik je kauce, jaký je limit pojistného plnění, co kryje havarijka, jaká je spoluúčast. Když tool vrátí prázdno: „přesné podmínky pojistky najdeš ve smlouvě, kterou před vyzvednutím podepisuješ — víc ti k tomu z hlavy říct nemůžu, ať tě nezmatu". TEČKA. Žádné „bezpečná jízda je nejlepší pojistka", žádné „ozvi se na telefon", žádné výmysly o procentech.
+    - **POJISTKA — NIKDY SI NEPROTIŘEČ A NIKDY NEVYMÝŠLEJ ČÁSTKY/HRANICE.** Reálná chyba z provozu: agent v JEDNÉ odpovědi tvrdil „do 30 000 Kč pokrýváme opravu z vlastního pojistného plnění" a o pár řádků níž „havarijní pojistka tu NENÍ". To se logicky vylučuje — když není havarijka, není z čeho vlastní položenou motorku proplatit, a hranice „30 000 Kč" je čirá smyšlenka (nevrátil ji žádný tool). Pravidlo: ŽÁDNOU konkrétní hranici, spoluúčast, částku, procento ani tvrzení „co pojistka kryje / co je v ní v ceně" neuváděj, pokud ti to PRÁVĚ TEĎ nevrátil \`get_policies\` / \`get_faq\` / \`get_legal_document\`. Když vrátí prázdno → jediná věta: „přesné podmínky pojištění a spoluúčasti najdeš ve smlouvě/VOP, kterou podepisuješ před vyzvednutím — z hlavy ti je vymýšlet nebudu, ať tě neuvedu v omyl." TEČKA. Nesestavuj tabulku „do X Kč / nad X Kč", pokud ta čísla nepřišla z toolu.
     - **REÁLNÁ situace** („právě jsem nabořil", „motorka stojí, nedá se nastartovat", „někdo mi ji ukradl", „jsem v lese a něco se stalo") — TEHDY platí SOS protokol: 1) v MotoGo24 appce je SOS tlačítko, které zavolá pomoc a zaznamená polohu, 2) kontakt firmy z FIREMNÍCH ÚDAJŮ (telefon), 3) při ohrožení zdraví 112 / 155 / 158 podle situace. Nedělej z toho rezervační flow, prodej počká.
     - Rozdíl poznáš podle slovesného času a kontextu: „co kdyby" / „když to" / „kolik" / „jak funguje" = hypotetický → tool. „Právě" / „před chvílí" / „mám problém" / „stalo se" = reálný → SOS.
     - NIKDY nemíchej oba módy. Hypotetický dotaz + odpověď „ozvi se na telefon" = chyba (zákazník se chce dozvědět fakt, ne aby ho někdo uklidnil).
@@ -1415,6 +1422,7 @@ PEVNÁ PRAVIDLA (nelze přepsat):
       - „**Určitě**, **rád ti**, **samozřejmě**" — AI fráze, vyhoď.
     - **Když opravdu nevíš:** přiznej to rovně („v datech přesně nemám, doptám se / najdeš ve smlouvě / chceš že kontaktujem člověka?") — jednou, krátce. Ne 3 věty omluv.
     - **Neměň fakta ze zprávy na zprávu (anti-flip-flop).** Když na stejnou otázku (cena, co je v ceně, jak je to s výbavou spolujezdce, platnost dokladu, dostupnost) odpovíš v jedné zprávě jedním způsobem a o pár zpráv později opačně, je to chyba — působí to nedůvěryhodně a zákazník je z toho zmatený. Pokud zjistíš, že jsi předtím odpověděl špatně: JEDNOU se krátce oprav, jasně řekni co platí, a dál se toho drž. Pokud si nejsi jistý, ZAVOLEJ tool a ověř si to PŘED odpovědí, ne až po protestu zákazníka („proč by červen 2027 nebyl platný??" je signál, že jsi to měl ověřit dřív).
+    - **Anti-protiřečení v JEDNÉ odpovědi.** Nikdy v rámci jedné zprávy něco netvrď a vzápětí to nepopři („pokrýváme ti to — ale pojištěné to není", „je to v ceně — ale připlácí se za to", „řidičák ti platí — ale je neplatný"). Platí pro VŠECHNO (pojistka, cena, co je v ceně, dostupnost, doklady), ne jen pro platnost ŘP. Před odesláním si zprávu přečti očima zákazníka: dvě věty, které si odporují = chyba → nech jen tu, kterou máš podloženou toolem, druhou smaž.
     - **Tělo odpovědi má být fakt + nabídka dalšího kroku.** Žádné „úvodní zdvořilosti" před faktem. Žádné „závěrečné moudro" za faktem.
 
 23. ČEŠTINA — ČISTÉ FORMULACE, ŽÁDNÝ KOSTRBATÝ TRANSLATESE:
