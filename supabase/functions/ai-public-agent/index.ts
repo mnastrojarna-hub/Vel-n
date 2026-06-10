@@ -690,10 +690,29 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
         }
       }
 
-      const query = String(args.query || '').toLowerCase().trim()
-      const matched = query
-        ? faqs.filter((f) => (f.q + ' ' + f.a + ' ' + (f.cat || '')).toLowerCase().includes(query))
-        : faqs
+      // Párování dotazu je tolerantní: bez diakritiky + po SLOVECH (ne celý dotaz jako jeden
+      // podřetězec). Dřív `includes(celý_dotaz)` selhalo, jakmile agent poslal víceslovný dotaz
+      // („skupina B Niken“ není souvislý podřetězec) → falešné „FAQ to nezmiňuje“. Teď stačí shoda
+      // jednotlivých slov; když token-shoda nic nenajde, vrátíme pár prvních FAQ (agent není slepý).
+      const stripDia = (s: string) => s.normalize('NFD').replace(/\p{Diacritic}/gu, '')
+      const norm = (s: string) => stripDia(String(s || '').toLowerCase())
+      const rawQuery = String(args.query || '').trim()
+      let matched = faqs
+      if (rawQuery) {
+        const qNorm = norm(rawQuery)
+        const tokens = qNorm.split(/[^a-z0-9]+/).filter((t) => t.length >= 3)
+        const scored = faqs
+          .map((f) => {
+            const hay = norm(f.q + ' ' + f.a + ' ' + (f.cat || ''))
+            let score = 0
+            if (qNorm && hay.includes(qNorm)) score += 5 // celý dotaz jako podřetězec = silná shoda
+            for (const t of tokens) if (hay.includes(t)) score += 1
+            return { f, score }
+          })
+          .filter((x) => x.score > 0)
+          .sort((a, b) => b.score - a.score)
+        matched = scored.length > 0 ? scored.map((x) => x.f) : faqs
+      }
       return { source: 'cms', count: matched.length, faqs: matched.slice(0, 8) }
     }
     case 'get_policies': {
