@@ -20,6 +20,11 @@ class EditPriceCalc {
   final String? helmetSize, jacketSize, pantsSize, bootsSize, glovesSize;
   final String? passengerHelmetSize, passengerJacketSize, passengerPantsSize;
 
+  /// Typ slevy rezervace: 'percent' | 'fixed' | null (bez slevy / neznámý →
+  /// chová se jako fixed). Načítá screen z promo_codes podle discount_code;
+  /// voucher kódy v promo_codes nejsou → fixed.
+  final String? discountType;
+
   const EditPriceCalc({
     required this.booking,
     required this.newStart,
@@ -37,6 +42,7 @@ class EditPriceCalc {
     this.helmetSize, this.jacketSize, this.pantsSize,
     this.bootsSize, this.glovesSize,
     this.passengerHelmetSize, this.passengerJacketSize, this.passengerPantsSize,
+    this.discountType,
   });
 
   double get extrasTotal {
@@ -93,6 +99,43 @@ class EditPriceCalc {
     }
     return diff;
   }
+
+  // ── Varianta B (2026-06-11): sleva se přepočítá na nový obsah rezervace ──
+  // `priceDiff` je HRUBÝ rozdíl (po stornu na zkrácené části). Na novou hrubou
+  // cenu se znovu aplikuje původní sleva: procentuální efektivní sazbou
+  // (discount / stará hrubá), absolutní jako odpočet max do výše nové hrubé.
+  // Účtuje/vrací se `effectivePriceDiff` (po slevě) — zrcadlí SQL helper
+  // _apply_discount_variant_b (web RPC cesty počítají totéž server-side).
+
+  double get _oldDiscount {
+    final d = booking.discountAmount ?? 0.0;
+    return d > 0 ? d : 0.0;
+  }
+
+  double get _oldGross => booking.totalPrice + _oldDiscount;
+
+  double get newGross {
+    final g = _oldGross + priceDiff;
+    return g > 0 ? g : 0;
+  }
+
+  /// Nová výše slevy v Kč po úpravě — ukládá se do bookings.discount_amount.
+  double get newDiscountAmount {
+    if (_oldDiscount <= 0) return 0;
+    if (discountType == 'percent' && _oldGross > 0) {
+      return (newGross * _oldDiscount / _oldGross).roundToDouble();
+    }
+    return _oldDiscount > newGross ? newGross : _oldDiscount;
+  }
+
+  /// Nová celková cena (netto, po slevě) — ukládá se do bookings.total_price.
+  double get newTotal {
+    final t = newGross - newDiscountAmount;
+    return t > 0 ? t.roundToDouble() : 0;
+  }
+
+  /// Rozdíl PO slevě — tohle se účtuje bránou (>0) nebo vrací refundem (<0).
+  double get effectivePriceDiff => newTotal - booking.totalPrice;
 
   bool get hasChanges =>
       diffDays != 0 ||

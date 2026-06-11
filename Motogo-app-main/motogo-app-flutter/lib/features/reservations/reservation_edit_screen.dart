@@ -60,6 +60,8 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
 
   Reservation? _booking;
   bool _isActive = false;
+  // Typ slevy ('percent'/'fixed') pro variantu B přepočtu ceny při úpravě.
+  String? _discountType;
 
   // Confirmation page state — rendered inline (declaratively) so navigation
   // stays inside go_router. Imperative Navigator.push here would leave a
@@ -96,6 +98,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
         _passengerJacketSize = res.passengerJacketSize;
         _passengerPantsSize = res.passengerPantsSize;
       });
+      _loadDiscountType(res);
       // Load motorcycle per-day prices for accurate pricing
       if (res.motoId != null) {
         final motos = ref.read(motorcyclesProvider).valueOrNull ?? [];
@@ -105,6 +108,26 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
         }
       }
     }
+  }
+
+  /// Varianta B: zjisti typ slevy rezervace pro přepočet ceny při úpravě.
+  /// Voucher kódy v promo_codes nejsou → maybeSingle vrátí null → 'fixed'
+  /// (konzervativní default, shodný se SQL helperem _booking_discount_type).
+  Future<void> _loadDiscountType(Reservation res) async {
+    if ((res.discountAmount ?? 0) <= 0) return;
+    var type = 'fixed';
+    final code = res.discountCode;
+    if (code != null && code.isNotEmpty) {
+      try {
+        final row = await MotoGoSupabase.client
+            .from('promo_codes')
+            .select('type')
+            .eq('code', code.toUpperCase())
+            .maybeSingle();
+        type = (row?['type'] as String?) ?? 'fixed';
+      } catch (_) { /* fallback fixed */ }
+    }
+    if (mounted) setState(() => _discountType = type);
   }
 
   EditPriceCalc get _calc {
@@ -132,6 +155,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
       passengerHelmetSize: _passengerHelmetSize,
       passengerJacketSize: _passengerJacketSize,
       passengerPantsSize: _passengerPantsSize,
+      discountType: _discountType,
     );
   }
 
@@ -338,8 +362,11 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
       if (_passengerJacketSize != _booking!.passengerJacketSize) changes['passenger_jacket_size'] = _passengerJacketSize;
       if (_passengerPantsSize != _booking!.passengerPantsSize) changes['passenger_pants_size'] = _passengerPantsSize;
 
-      final newTotal = _booking!.totalPrice + calc.priceDiff;
-      changes['total_price'] = newTotal;
+      // Varianta B: total i sleva po přepočtu slevy na nový obsah rezervace.
+      changes['total_price'] = calc.newTotal;
+      if ((_booking!.discountAmount ?? 0) > 0) {
+        changes['discount_amount'] = calc.newDiscountAmount;
+      }
 
       // Build modification_history entry — tracks ALL changes:
       // dates, motorcycle, pickup/return method & address.
@@ -391,7 +418,9 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
         changes['modification_history'] = hist;
       }
 
-      if (calc.priceDiff > 0) {
+      // Účtuje/vrací se rozdíl PO slevě (varianta B) — effectivePriceDiff.
+      final effDiff = calc.effectivePriceDiff;
+      if (effDiff > 0) {
         // Needs extra payment — do NOT update booking yet.
         // Store pending changes; apply only after Stripe confirms payment.
         // Mirrors window._pendingEditChanges from Capacitor app.
@@ -399,22 +428,22 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
           ref.read(paymentContextProvider.notifier).state = PaymentContext(
             flowType: PaymentFlowType.extension,
             bookingId: widget.bookingId,
-            amount: calc.priceDiff,
+            amount: effDiff,
             label: t(context).tr('extensionSurcharge'),
             pendingEditChanges: changes,
           );
           context.push(Routes.payment);
         }
       } else {
-        // calc.priceDiff <= 0 — zkrácení / levnější motorka / místo blíže
-        // Při priceDiff < 0 musíme nejdřív vystavit credit_note + Stripe refund
+        // effDiff <= 0 — zkrácení / levnější motorka / místo blíže
+        // Při effDiff < 0 musíme nejdřív vystavit credit_note + Stripe refund
         // přes process-refund (jinak by KF nesedla na 0). UPDATE bookings až poté
         // (DB trigger trg_booking_modified_email pošle mail s diff + dobropisem).
-        if (calc.priceDiff < 0) {
+        if (effDiff < 0) {
           try {
             await MotoGoSupabase.client.functions.invoke('process-refund', body: {
               'booking_id': widget.bookingId,
-              'amount': -calc.priceDiff,
+              'amount': -effDiff,
               'reason': 'edit_shortening',
             });
           } catch (e) {
@@ -431,11 +460,11 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
           ref.invalidate(reservationByIdProvider(widget.bookingId));
           ref.invalidate(doorCodesProvider(widget.bookingId));
           _showConfirmation(
-            title: calc.priceDiff < 0 ? t(context).tr('shorteningConfirmed') : t(context).tr('changesSavedTitle'),
-            message: calc.priceDiff < 0
-                ? '${t(context).tr('reservationShortened')}\n${t(context).tr('refundAmount').replaceAll('{amount}', '${(-calc.priceDiff).toStringAsFixed(0)}').replaceAll('{percent}', '${StornoCalc.refundPercent(_newEnd ?? _booking!.endDate)}')}\n${t(context).tr('refundToOriginalMethod')}'
+            title: effDiff < 0 ? t(context).tr('shorteningConfirmed') : t(context).tr('changesSavedTitle'),
+            message: effDiff < 0
+                ? '${t(context).tr('reservationShortened')}\n${t(context).tr('refundAmount').replaceAll('{amount}', '${(-effDiff).toStringAsFixed(0)}').replaceAll('{percent}', '${StornoCalc.refundPercent(_newEnd ?? _booking!.endDate)}')}\n${t(context).tr('refundToOriginalMethod')}'
                 : '${t(context).tr('changesSaved')}\n${t(context).tr('reservationRange').replaceAll('{start}', _fmt(_newStart)).replaceAll('{end}', _fmt(_newEnd))}',
-            isRefund: calc.priceDiff < 0,
+            isRefund: effDiff < 0,
           );
         }
       }
@@ -658,15 +687,20 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
               if (_pickupDelivFee > 0) EditPriceRow(t(context).tr('pickupDeliveryLabel'), '+${_pickupDelivFee.toStringAsFixed(0)} Kč'),
               if (_returnDelivFee > 0) EditPriceRow(t(context).tr('returnDeliveryLabel'), '+${_returnDelivFee.toStringAsFixed(0)} Kč'),
               if (calc.extrasTotal > 0) EditPriceRow(t(context).tr('addons'), '+${calc.extrasTotal.toStringAsFixed(0)} Kč'),
+              // Sleva se přepočítává na nový obsah rezervace (varianta B) —
+              // řádek ukazuje úpravu slevy, finální Doplatek/Vrácení je PO slevě.
+              if ((_booking!.discountAmount ?? 0) > 0 && calc.newDiscountAmount != (_booking!.discountAmount ?? 0))
+                EditPriceRow(t(context).tr('discountLabel'),
+                  '${(_booking!.discountAmount ?? 0).toStringAsFixed(0)} → ${calc.newDiscountAmount.toStringAsFixed(0)} Kč'),
               const Divider(height: 16),
               Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                Text(calc.priceDiff > 0 ? t(context).tr('surcharge') : calc.priceDiff < 0 ? t(context).tr('refundLabel') : t(context).tr('differenceLabel'),
+                Text(calc.effectivePriceDiff > 0 ? t(context).tr('surcharge') : calc.effectivePriceDiff < 0 ? t(context).tr('refundLabel') : t(context).tr('differenceLabel'),
                   style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: MotoGoColors.black)),
-                Text('${calc.priceDiff > 0 ? "+" : ""}${calc.priceDiff.toStringAsFixed(0)} Kč',
+                Text('${calc.effectivePriceDiff > 0 ? "+" : ""}${calc.effectivePriceDiff.toStringAsFixed(0)} Kč',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900,
-                    color: calc.priceDiff > 0 ? MotoGoColors.red : calc.priceDiff < 0 ? MotoGoColors.greenDarker : MotoGoColors.black)),
+                    color: calc.effectivePriceDiff > 0 ? MotoGoColors.red : calc.effectivePriceDiff < 0 ? MotoGoColors.greenDarker : MotoGoColors.black)),
               ]),
-              if (calc.priceDiff < 0 && calc.diffDays < 0)
+              if (calc.effectivePriceDiff < 0 && calc.diffDays < 0)
                 Padding(padding: const EdgeInsets.only(top: 4),
                   child: Text('${t(context).tr('stornoRefundPercent').replaceAll('{percent}', '${StornoCalc.refundPercent(_newEnd ?? _booking!.endDate)}')}',
                     style: const TextStyle(fontSize: 10, color: MotoGoColors.g400))),
