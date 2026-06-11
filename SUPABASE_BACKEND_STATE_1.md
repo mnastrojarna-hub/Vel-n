@@ -17,6 +17,7 @@
 | `moto_status` | active, maintenance, unavailable, retired |
 | `sos_status` | reported, acknowledged, in_progress, resolved, closed |
 | `license_group` | AM, A1, A2, A, B, N |
+| `entry_type` | income, expense — **doplněno 2026-06-11**: typ sloupce `accounting_entries.type`. POZOR: migrace `20260321_accounting_entries.sql` mylně tvrdí TEXT s CHECK ('revenue','expense') — reálná DB má tento ENUM |
 | ~~`document_type`~~ | **ZRUŠENO** — sloupec `documents.type` je nyní TEXT (ne ENUM). Používané hodnoty: contract, vop, invoice_advance, payment_receipt, invoice_final, invoice_shop, protocol, credit_note |
 
 ---
@@ -112,7 +113,7 @@
 
 | Tabulka | Popis |
 |---------|-------|
-| `accounting_entries` | Účetní záznamy |
+| `accounting_entries` | Účetní záznamy — reálné sloupce viz STATE_2 (type = ENUM `entry_type`, **category NOT NULL**) |
 | `cash_register` | Pokladna |
 | `tax_records` | Daňové záznamy |
 | `daily_stats` | Denní statistiky |

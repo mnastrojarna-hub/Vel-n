@@ -5,6 +5,15 @@
 
 ## 3. KLÍČOVÉ SLOUPCE (reálný stav DB)
 
+### accounting_entries (reálný stav DB ověřen introspekcí 2026-06-11)
+- id (uuid PK), **type (ENUM `entry_type`: income/expense) NOT NULL** — NE text s CHECK ('revenue','expense'), jak tvrdí migrace `20260321_accounting_entries.sql`
+- amount (numeric NOT NULL), **category (text NOT NULL)** — insert bez category tiše padá (root cause „tržby 0" ve Velínu do 2026-06-11)
+- description (text), date (date, **nullable** — Dashboard/Finance filtrují `.gte('date', ...)`, řádek s NULL date z přehledů vypadne)
+- booking_id, branch_id, invoice_id, reference_id (uuid), reference_type (text)
+- tax_amount, tax_rate (numeric), created_by (uuid), created_at, updated_at
+- **POZOR: sloupce `vat_rate`, `source`, `entry_date` NEEXISTUJÍ** (process-refund je do 2026-06-11 omylem používal — insert se zahazoval)
+- Frontend klasifikace příjmů: `velin/src/lib/revenueUtils.js#classifyEntry` — type='income' sám o sobě NEstačí, příjem se pozná dle category ('pronájem'/'rezervace'/...) nebo description ('platba za rezervaci...')
+
 ### admin_users
 - id, email, name, role (`admin_role` ENUM), password_hash
 - branch_access (uuid[]), permissions (jsonb)

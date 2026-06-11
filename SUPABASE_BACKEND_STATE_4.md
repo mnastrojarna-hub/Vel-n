@@ -73,7 +73,7 @@
 ### Další triggery v reálné DB
 | Trigger | Tabulka | Funkce |
 |---------|---------|--------|
-| `bookings_auto_accounting` | bookings (AFTER UPDATE OF payment_status, WHEN paid) | auto_accounting_on_booking_paid() — EXCEPTION safe |
+| `bookings_auto_accounting` | bookings (AFTER UPDATE OF payment_status, WHEN paid) | auto_accounting_on_booking_paid() — EXCEPTION safe. **FIX 2026-06-11:** funkce do té doby tiše padala na `category NOT NULL` → příjmy se nezapisovaly (viz STATE_3) |
 | `maintenance_log_after_insert` | maintenance_log | update_moto_after_service() |
 | ~~`sos_auto_reply_on_create`~~ | ~~sos_incidents (INSERT)~~ | **DROPPED 2026-03-10** — crashoval INSERT bez error handleru |
 | ~~`admin_users_updated_at`~~ | ~~admin_users~~ | **SMAZÁN 2026-03-24** — duplicitní s trg_admin_users_updated |

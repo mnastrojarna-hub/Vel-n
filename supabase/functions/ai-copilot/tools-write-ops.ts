@@ -24,7 +24,8 @@ export async function execWriteOps(name: string, input: R, sb: SB, dryRun: boole
       const { type, amount, description, category } = input
       const summary = `Vytvoření účetního záznamu: ${type} ${amount} Kč — ${description || 'bez popisu'}`
       if (dryRun) return { status: 'preview', summary, data: input }
-      const { error } = await sb.from('accounting_entries').insert({ type, amount, description, category, created_at: new Date().toISOString() })
+      // category je v DB NOT NULL — bez fallbacku insert spadne
+      const { error } = await sb.from('accounting_entries').insert({ type, amount, description, category: category || 'ostatní', date: new Date().toISOString().slice(0, 10), created_at: new Date().toISOString() })
       if (error) return { error: error.message }
       return { status: 'executed', summary }
     }
