@@ -344,7 +344,7 @@ function PageRow({ report, expanded, onToggle, onFix, scoreColor, sevColor, sevI
             {m.error ? <span style={{ color: '#dc2626' }}>⚠️ {m.error}</span>
               : issues.length === 0 ? '✓ Vše v pořádku'
               : `${issues.length} ${issues.length === 1 ? 'problém' : (issues.length < 5 ? 'problémy' : 'problémů')}`}
-            {!m.error && <> · {m.wordCount} slov · {m.h1Count} H1 · titulek {m.titleLen}zn · popisek {m.descLen}zn{m.imagesNoAlt > 0 && ` · ${m.imagesNoAlt} obr. bez alt`}</>}
+            {!m.error && <> · {m.wordCount ?? 0} slov · {m.h1Count ?? 0} H1 · titulek {m.titleLen ?? 0}zn · popisek {m.descLen ?? 0}zn{m.imagesNoAlt > 0 && ` · ${m.imagesNoAlt} obr. bez alt`}</>}
           </div>
         </div>
         <div style={{ display: 'flex', gap: 6 }}>
