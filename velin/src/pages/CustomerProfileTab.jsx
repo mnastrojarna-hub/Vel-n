@@ -166,6 +166,30 @@ function PlatformChip({ userId, fallback }) {
   return <Chip label="Platforma" value={val} tone={val === '—' ? undefined : (val.includes('WEB') ? 'blue' : 'green')} />
 }
 
+/// Věrnostní rank (ranky platí JEN pro app rezervace) — dopočítá se stejně
+/// jako RPC get_loyalty_status: pct = min(20, ceil((completed_app + 1) / 2)).
+/// Když tabulka loyalty_levels neexistuje (backend ještě nenasazen), chip se skryje.
+function LoyaltyChip({ userId }) {
+  const [rank, setRank] = useState(null)
+  useEffect(() => {
+    if (!userId) return
+    ;(async () => {
+      try {
+        const { count, error } = await supabase.from('bookings')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', userId).eq('booking_source', 'app').eq('status', 'completed')
+        if (error) return
+        const pct = Math.min(20, Math.ceil(((count || 0) + 1) / 2))
+        const { data } = await supabase.from('loyalty_levels')
+          .select('name, discount_percent, color_hex').eq('level', pct).maybeSingle()
+        if (data) setRank(data)
+      } catch { /* loyalty_levels nemusí existovat */ }
+    })()
+  }, [userId])
+  if (!rank) return null
+  return <Chip label="Věrnostní rank (app)" value={`${rank.name} · ${rank.discount_percent} %`} tone="green" />
+}
+
 export default function ProfileTab({ customer, set, error, saving, onSave, onDelete, onBlock }) {
   const age = czAge(customer.date_of_birth)
   const groups = customer.license_group || []
@@ -175,6 +199,7 @@ export default function ProfileTab({ customer, set, error, saving, onSave, onDel
       {/* Rychlý přehled */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
         <PlatformChip userId={customer.id} fallback={customer.registration_source} />
+        <LoyaltyChip userId={customer.id} />
         <Chip label="Jazyk" value={(customer.language || '—').toUpperCase()} />
         <Chip label="Registrace" value={fmtDate(customer.created_at) || '—'} />
         <Chip label="Věk" value={age || '—'} />

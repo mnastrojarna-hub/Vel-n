@@ -196,6 +196,7 @@ export default function BookingSummary({ booking, sosIncidents, bookingExtras, c
       )}
       {b.delivery_fee > 0 && <SumRow label="Doručení" value={`${b.delivery_fee.toLocaleString('cs-CZ')} Kč`} />}
       {b.discount_amount > 0 && <SumRow label="Sleva" value={`-${Number(b.discount_amount).toLocaleString('cs-CZ')} Kč${b.discount_code ? ` (${b.discount_code})` : ''}`} color="#1a8a18" />}
+      {b.loyalty_discount_amount > 0 && <SumRow label={`★ Věrnostní sleva${b.loyalty_percent ? ` ${b.loyalty_percent} %` : ''} (jen app)`} value={`-${Number(b.loyalty_discount_amount).toLocaleString('cs-CZ')} Kč`} color="#1a8a18" />}
       {(() => { const pay = paymentStatusInfo(b); return (
         <SumRow label="Stav platby" value={`${pay.icon} ${pay.label}`} color={pay.color} strong />
       ) })()}
