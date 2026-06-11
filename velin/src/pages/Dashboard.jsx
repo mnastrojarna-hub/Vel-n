@@ -1,27 +1,19 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { debugAction, debugLog, debugError } from '../lib/debugLog'
 import { useDebugMode } from '../hooks/useDebugMode'
-import { isRevenueEntry } from '../lib/revenueUtils'
+import { isRevenueEntry, isTestInvoice, isVoidInvoice, summarizeInvoices, INVOICE_PAID_TYPES, INVOICE_RECEIVED_TYPES } from '../lib/revenueUtils'
 import Card from '../components/ui/Card'
 import AiDashboardWidget from '../components/ai/AiDashboardWidget'
 import Stat from '../components/ui/Stat'
-import Badge from '../components/ui/Badge'
 import MiniChart from '../components/ui/MiniChart'
 import ExportBar from '../components/ui/ExportBar'
-import { getDisplayStatus } from '../components/ui/StatusBadge'
 import BannerEditor from './DashboardBannerEditor'
-
-const STATUS_MAP = {
-  active: { label: 'Aktivní', color: '#1a8a18', bg: '#dcfce7' },
-  upcoming: { label: 'Nadcházející', color: '#7c3aed', bg: '#ede9fe' },
-  maintenance: { label: 'V servisu', color: '#92400e', bg: '#fef3c7' },
-  unavailable: { label: 'Dočasně vyřazena', color: '#7c3aed', bg: '#ede9fe' },
-  pending: { label: 'Čekající', color: '#92400e', bg: '#fef3c7' },
-  reserved: { label: 'Nadcházející', color: '#7c3aed', bg: '#ede9fe' },
-  completed: { label: 'Dokončena', color: '#3b82f6', bg: '#dbeafe' },
-  cancelled: { label: 'Zrušeno', color: '#dc2626', bg: '#fee2e2' },
-}
+import {
+  WidgetCard, Empty, fmtKc, BookingRowsCard, PaymentsCard, ShopOrdersCard,
+  ServiceCard, StkCard, EmailsCard, DocsCard, VisitorsCard, AiConvCard, MessagesCard, SosCard,
+} from './dashboard/DashboardWidgets'
 
 const MONTHS = ['Led', 'Úno', 'Bře', 'Dub', 'Kvě', 'Čvn', 'Čvc', 'Srp', 'Zář', 'Říj', 'Lis', 'Pro']
 
@@ -34,15 +26,14 @@ function Spinner() {
   )
 }
 
-/* BannerEditor extracted to ./DashboardBannerEditor.jsx */
+const val = (r, fb = []) => (r?.status === 'fulfilled' && !r.value?.error ? (r.value.data ?? fb) : fb)
+const cnt = (r) => (r?.status === 'fulfilled' ? (r.value?.count ?? (r.value?.data || []).length) : 0)
 
 export default function Dashboard() {
   const debugMode = useDebugMode()
-  const [stats, setStats] = useState(null)
-  const [revenueChart, setRevenueChart] = useState([])
-  const [upcomingEvents, setUpcomingEvents] = useState([])
+  const nav = useNavigate()
+  const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [financeData, setFinanceData] = useState({ revenue: 0, expense: 0, profit: 0, unpaid: 0 })
 
   useEffect(() => {
     debugLog('page.mount', 'Dashboard')
@@ -52,85 +43,118 @@ export default function Dashboard() {
   }, [])
 
   async function fetchDashboardData() {
-    setLoading(true)
     try {
-      const today = new Date().toISOString().split('T')[0]
-      const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
-      const yearAgoMonth = new Date(new Date().getFullYear() - 1, new Date().getMonth(), 1).toISOString().split('T')[0]
-      const [motorcyclesRes, bookingsRes, messagesRes, inventoryRes, eventsRes, sosRes, stkRes, financeRes, chartFinanceRes, unpaidRes] = await debugAction('dashboard.fetchAll', 'Dashboard', () => Promise.all([
-        supabase.from('motorcycles').select('id, status', { count: 'exact' }),
-        supabase.from('bookings').select('id, status').in('status', ['active', 'pending', 'reserved']),
-        supabase.from('messages').select('id', { count: 'exact' }).eq('direction', 'customer').is('read_at', null),
-        supabase.from('inventory').select('id, stock, min_stock'),
-        supabase.from('bookings').select('id, user_id, moto_id, start_date, end_date, status, total_price')
-          .or(`start_date.gte.${today},status.eq.active`)
-          .in('status', ['active', 'reserved', 'pending'])
-          .order('start_date', { ascending: true }).limit(5),
-        supabase.from('sos_incidents').select('id, type, severity, status', { count: 'exact' }).in('status', ['reported', 'acknowledged', 'in_progress']),
-        supabase.from('motorcycles').select('id, model, spz, stk_valid_until'),
-        supabase.from('accounting_entries').select('type, amount, category, description')
-          .gte('date', monthStart),
-        supabase.from('accounting_entries').select('type, amount, category, description, date')
-          .gte('date', yearAgoMonth)
-          .order('date', { ascending: true }),
-        supabase.from('invoices').select('total').eq('status', 'unpaid'),
-      ]))
-      const allMotos = motorcyclesRes.data || []
+      const now = new Date()
+      const today = now.toISOString().split('T')[0]
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10)
+      const chartStart = new Date(now.getFullYear(), now.getMonth() - 11, 1).toISOString().slice(0, 10)
+      const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString()
+
+      const [motosR, bookCntR, unreadR, invStockR, eventsR, sosR, invoicesR, expenseR,
+        newBookR, emailsR, shopR, msgsR, serviceR, visitorsR, aiR] =
+        await debugAction('dashboard.fetchAll', 'Dashboard', () => Promise.allSettled([
+          supabase.from('motorcycles').select('id, model, spz, status, stk_valid_until'),
+          supabase.from('bookings').select('id, status').in('status', ['active', 'pending', 'reserved']),
+          supabase.from('messages').select('id', { count: 'exact', head: true }).eq('direction', 'customer').is('read_at', null),
+          supabase.from('inventory').select('id, stock, min_stock'),
+          supabase.from('bookings').select('id, user_id, moto_id, start_date, end_date, status, total_price, created_via_ai')
+            .or(`start_date.gte.${today},status.eq.active`)
+            .in('status', ['active', 'reserved', 'pending'])
+            .order('start_date', { ascending: true }).limit(5),
+          supabase.from('sos_incidents').select('id, type, title, severity, status, created_at')
+            .in('status', ['reported', 'acknowledged', 'in_progress']).order('created_at', { ascending: false }),
+          supabase.from('invoices')
+            .select('id, number, type, status, total, issue_date, created_at, booking_id, order_id, bookings:booking_id(is_test), profiles:customer_id(full_name, is_test_account)')
+            .gte('issue_date', chartStart).order('created_at', { ascending: false }).limit(1000),
+          supabase.from('accounting_entries').select('type, amount, category, description').gte('date', monthStart),
+          supabase.from('bookings').select('id, user_id, moto_id, start_date, end_date, status, total_price, created_at, created_via_ai')
+            .order('created_at', { ascending: false }).limit(5),
+          supabase.from('sent_emails').select('id, subject, recipient_email, template_slug, status, created_at')
+            .order('created_at', { ascending: false }).limit(5),
+          supabase.from('shop_orders').select('id, order_number, customer_name, total, status, payment_status, created_at')
+            .order('created_at', { ascending: false }).limit(5),
+          supabase.from('messages').select('id, content, created_at, read_at').eq('direction', 'customer')
+            .order('created_at', { ascending: false }).limit(4),
+          supabase.from('maintenance_log')
+            .select('id, moto_id, service_type, status, service_date, scheduled_date, description, is_urgent')
+            .is('completed_date', null).order('service_date', { ascending: true }).limit(5),
+          supabase.rpc('get_visitor_stats', { p_from: weekAgo, p_to: now.toISOString(), p_host: null, p_granularity: 'day' }),
+          supabase.from('ai_public_conversations').select('id, outcome').gte('started_at', weekAgo).limit(1000),
+        ]))
+
+      // ── Flotila, rezervace, sklad, STK ──
+      const allMotos = val(motosR)
       const activeMotos = allMotos.filter(m => m.status === 'active').length
-      const bookings = bookingsRes.data || []
+      const bookings = val(bookCntR)
       const activeBookings = bookings.filter(b => b.status === 'active' || b.status === 'reserved').length
       const pendingBookings = bookings.filter(b => b.status === 'pending').length
-      const unreadMessages = messagesRes.count || (messagesRes.data || []).length
-      const lowStock = (inventoryRes.data || []).filter(i => i.stock <= (i.min_stock || 0)).length
-      const utilization = activeMotos > 0 ? Math.round((activeBookings / activeMotos) * 100) : 0
+      const lowStock = val(invStockR).filter(i => i.stock <= (i.min_stock || 0)).length
+      const utilization = activeMotos > 0 ? Math.min(Math.round((activeBookings / activeMotos) * 100), 100) : 0
       const in30days = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10)
-      const stkExpiring = (stkRes.data || []).filter(m => m.stk_valid_until && m.stk_valid_until <= in30days)
+      const stkExpiring = allMotos.filter(m => m.stk_valid_until && m.stk_valid_until <= in30days)
 
-      // Finance summary
-      const finEntries = financeRes.data || []
-      const finRev = finEntries.filter(e => isRevenueEntry(e)).reduce((s, e) => s + Math.abs(e.amount || 0), 0)
-      const finExp = finEntries.filter(e => !isRevenueEntry(e)).reduce((s, e) => s + Math.abs(e.amount || 0), 0)
-      const finUnpaid = (unpaidRes.data || []).reduce((s, i) => s + (i.total || 0), 0)
-      setFinanceData({ revenue: finRev, expense: finExp, profit: finRev - finExp, unpaid: finUnpaid })
-
-      // Month revenue stat uses same classification
-      const monthRevenue = finRev
-
-      setStats({
-        activeMotos, totalMotos: allMotos.length, activeBookings, pendingBookings,
-        monthRevenue, unreadMessages, lowStock, utilization: Math.min(utilization, 100),
-        activeSos: sosRes.count || (sosRes.data || []).length,
-        sosCritical: (sosRes.data || []).filter(s => s.severity === 'critical' || s.severity === 'high').length,
-        stkExpiring,
-      })
-
-      // Revenue chart (last 12 months) — same classification
-      const chartEntries = chartFinanceRes.data || []
-      const monthlyData = new Array(12).fill(0)
-      chartEntries.forEach(e => {
-        if (isRevenueEntry(e)) monthlyData[new Date(e.date).getMonth()] += Math.abs(Number(e.amount) || 0)
-      })
-      setRevenueChart(monthlyData)
-
-      // Enrich upcoming events with profile/motorcycle names
-      const rawEvents = eventsRes.data || []
-      let enrichedEvents = rawEvents
-      if (rawEvents.length > 0) {
-        const userIds = [...new Set(rawEvents.map(e => e.user_id).filter(Boolean))]
-        const motoIds = [...new Set(rawEvents.map(e => e.moto_id).filter(Boolean))]
-        const [profilesRes, motosRes] = await debugAction('dashboard.enrichEvents', 'Dashboard', () => Promise.all([
-          userIds.length > 0 ? supabase.from('profiles').select('id, full_name').in('id', userIds) : { data: [] },
-          motoIds.length > 0 ? supabase.from('motorcycles').select('id, model').in('id', motoIds) : { data: [] },
-        ]))
-        const profileMap = Object.fromEntries((profilesRes.data || []).map(p => [p.id, p.full_name]))
-        const motoMap = Object.fromEntries((motosRes.data || []).map(m => [m.id, m.model]))
-        enrichedEvents = rawEvents.map(e => ({
-          ...e,
-          customer_name: profileMap[e.user_id] || null,
-          motorcycle_name: motoMap[e.moto_id] || null,
-        }))
+      // ── Tržby z faktur (DP + KF + shop_final − dobropisy) — kanonický zdroj.
+      // accounting_entries příjmy neplníme spolehlivě (trigger bug), proto faktury.
+      const invoices = val(invoicesR)
+      const paidInv = invoices.filter(i => !isVoidInvoice(i) && !isTestInvoice(i) && INVOICE_PAID_TYPES.includes(i.type))
+      const invMonth = (i) => (i.issue_date || i.created_at || '').slice(0, 7)
+      const monthKeys = []
+      for (let m = 11; m >= 0; m--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - m, 1)
+        monthKeys.push({ key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`, label: MONTHS[d.getMonth()] })
       }
-      setUpcomingEvents(enrichedEvents)
+      const revenueByMonth = monthKeys.map(mk => paidInv.filter(i => invMonth(i) === mk.key).reduce((s, i) => s + (i.total || 0), 0))
+      const monthRevenue = revenueByMonth[11]
+      const lastMonthRevenue = revenueByMonth[10]
+
+      // ── Finance: výdaje z účetních záznamů, neuhrazené zálohy z faktur ──
+      const expense = val(expenseR).filter(e => !isRevenueEntry(e)).reduce((s, e) => s + Math.abs(e.amount || 0), 0)
+      const { unpaid } = summarizeInvoices(invoices)
+
+      // ── Poslední přijaté platby (rezervace = DP/KF, e-shop = shop_final) ──
+      const payments = invoices
+        .filter(i => !isVoidInvoice(i) && !isTestInvoice(i) && INVOICE_RECEIVED_TYPES.includes(i.type))
+        .slice(0, 5).map(i => ({ ...i, customer_name: i.profiles?.full_name }))
+
+      // ── Vystavené dokumenty (posledních 5 faktur všech typů) ──
+      const docs = invoices.filter(i => !isTestInvoice(i)).slice(0, 5).map(i => ({ ...i, customer_name: i.profiles?.full_name }))
+
+      // ── Události + nové rezervace: doplň jména zákazníků a motorek ──
+      const events = val(eventsR)
+      const newBookings = val(newBookR)
+      const userIds = [...new Set([...events, ...newBookings].map(b => b.user_id).filter(Boolean))]
+      const profilesR = userIds.length > 0
+        ? await debugAction('dashboard.enrichEvents', 'Dashboard', () => supabase.from('profiles').select('id, full_name').in('id', userIds))
+        : { data: [] }
+      const profileMap = Object.fromEntries((profilesR.data || []).map(p => [p.id, p.full_name]))
+      const motoMap = Object.fromEntries(allMotos.map(m => [m.id, m.model]))
+      const enrich = (b) => ({ ...b, customer_name: profileMap[b.user_id] || null, motorcycle_name: motoMap[b.moto_id] || null })
+
+      // ── Servis ──
+      const serviceLogs = val(serviceR).map(l => ({ ...l, motorcycle_name: motoMap[l.moto_id] || null }))
+      const inServiceCount = allMotos.filter(m => m.status === 'maintenance').length
+
+      // ── Návštěvnost + AI konverzace ──
+      const vs = visitorsR.status === 'fulfilled' && !visitorsR.value?.error ? visitorsR.value.data : null
+      const visitors = vs ? {
+        views: Number(vs.total_views || 0),
+        visitors: Number(vs.unique_visitors || 0),
+        timeline: (vs.timeline || []).map(t => Number(t.views || 0)),
+      } : null
+      const aiConvs = val(aiR, null)
+      const ai = aiConvs ? { total: aiConvs.length, bookings: aiConvs.filter(c => c.outcome === 'booking_created').length } : null
+
+      const sosList = val(sosR)
+      setData({
+        activeMotos, totalMotos: allMotos.length, utilization, activeBookings, pendingBookings,
+        monthRevenue, lastMonthRevenue, revenueByMonth, monthLabels: monthKeys.map(mk => mk.label),
+        finance: { revenue: monthRevenue, expense, profit: monthRevenue - expense, unpaid },
+        unreadMessages: cnt(unreadR), lowStock, stkExpiring,
+        sosList, sosCritical: sosList.filter(s => s.severity === 'critical' || s.severity === 'high').length,
+        events: events.map(enrich), newBookings: newBookings.map(enrich),
+        payments, docs, emails: val(emailsR), shopOrders: val(shopR), messages: val(msgsR),
+        serviceLogs, inServiceCount, visitors, ai,
+      })
     } catch (err) {
       debugError('dashboard.fetchAll', 'Dashboard', err)
     } finally {
@@ -138,143 +162,104 @@ export default function Dashboard() {
     }
   }
 
-  if (loading) return <Spinner />
-  if (!stats) return null
+  if (loading && !data) return <Spinner />
+  if (!data) return null
 
-  const formatCurrency = (val) => {
-    if (val >= 1_000_000) return `${(val / 1_000_000).toFixed(1)}M Kč`
-    if (val >= 1_000) return `${Math.round(val / 1_000)}k Kč`
-    return `${val} Kč`
-  }
+  const fmtShort = (v) => v >= 1_000_000 ? `${(v / 1_000_000).toFixed(1)}M Kč` : v >= 1_000 ? `${Math.round(v / 1_000)}k Kč` : `${Math.round(v)} Kč`
+  const clickable = (path, child) => <div onClick={() => nav(path)} className="cursor-pointer flex-1 flex" style={{ minWidth: 160 }}>{child}</div>
 
   return (
     <div>
-      <div className="mb-4">
-        <AiDashboardWidget />
-      </div>
-      <div className="mb-4">
-        <BannerEditor />
-      </div>
+      <div className="mb-4"><AiDashboardWidget /></div>
+      <div className="mb-4"><BannerEditor /></div>
+
       <div className="flex gap-3.5 mb-5 flex-wrap">
-        <Stat icon="🏍️" label="Aktivní motorky" value={`${stats.activeMotos}/${stats.totalMotos}`} sub={`Ø využití ${stats.utilization}%`} />
-        <Stat icon="💰" label="Tržby měsíc" value={formatCurrency(stats.monthRevenue)} color="#f59e0b" />
-        <Stat icon="📅" label="Akt. / Čekající" value={`${stats.activeBookings} / ${stats.pendingBookings}`} sub="rezervací" color="#3b82f6" />
-        <Stat icon="💬" label="Nepřečtené" value={stats.unreadMessages} sub="zpráv" color="#8b5cf6" />
-        <Stat icon="📦" label="Nízké zásoby" value={stats.lowStock} sub="položek pod minimem" color={stats.lowStock > 0 ? '#ef4444' : '#1a8a18'} />
-        <Stat icon="📊" label="Využití flotily" value={`${stats.utilization}%`} sub={`${stats.activeMotos} aktivních strojů`} color="#1a8a18" />
+        {clickable('/flotila', <Stat icon="🏍️" label="Aktivní motorky" value={`${data.activeMotos}/${data.totalMotos}`} sub={`Ø využití ${data.utilization}%`} />)}
+        {clickable('/finance', <Stat icon="💰" label="Tržby tento měsíc" value={fmtShort(data.monthRevenue)} color="#f59e0b" sub="z přijatých plateb" />)}
+        {clickable('/finance', <Stat icon="🗓️" label="Tržby minulý měsíc" value={fmtShort(data.lastMonthRevenue)} color="#f59e0b" sub="z přijatých plateb" />)}
+        {clickable('/rezervace', <Stat icon="📅" label="Akt. / Čekající" value={`${data.activeBookings} / ${data.pendingBookings}`} sub="rezervací" color="#3b82f6" />)}
+        {clickable('/zpravy', <Stat icon="💬" label="Nepřečtené" value={data.unreadMessages} sub="zpráv" color="#8b5cf6" />)}
+        {clickable('/sos', <Stat icon="🚨" label="Aktivní SOS" value={data.sosList.length} sub={data.sosCritical > 0 ? `${data.sosCritical} kritických!` : 'incidentů'} color={data.sosList.length > 0 ? '#dc2626' : '#1a8a18'} />)}
       </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card>
-          <div className="text-[13px] font-extrabold mb-2.5" style={{ color: '#0f1a14' }}>📈 Tržby dle měsíců (Kč)</div>
-          <MiniChart data={revenueChart} color="#1a8a18" height={70} />
-          <div className="flex justify-between mt-1.5">
-            {MONTHS.map((m, i) => <span key={i} className="text-[8px] font-bold" style={{ color: '#1a2e22' }}>{m}</span>)}
-          </div>
-        </Card>
-        <Card>
-          <div className="text-[13px] font-extrabold mb-2.5" style={{ color: '#0f1a14' }}>📅 Nejbližší události</div>
-          {upcomingEvents.length === 0 ? (
-            <div className="text-sm font-medium py-4 text-center" style={{ color: '#1a2e22' }}>Žádné nadcházející události</div>
-          ) : upcomingEvents.map(event => (
-            <div key={event.id} className="flex items-center mb-1.5"
-              style={{ padding: '8px 10px', background: '#f1faf7', borderRadius: 12, fontSize: 12 }}>
-              <div className="flex-1">
-                <div className="font-bold" style={{ color: '#0f1a14' }}>{event.customer_name || 'Zákazník'}</div>
-                <div className="text-sm" style={{ color: '#1a2e22' }}>
-                  {event.motorcycle_name || 'Motorka'} · {new Date(event.start_date).toLocaleDateString('cs-CZ')} – {new Date(event.end_date).toLocaleDateString('cs-CZ')}
-                </div>
+        <WidgetCard icon="📈" title="Tržby dle měsíců (Kč)" onOpen={() => nav('/finance')}>
+          {data.revenueByMonth.some(v => v > 0) ? (
+            <>
+              <MiniChart data={data.revenueByMonth} color="#1a8a18" height={70} />
+              <div className="flex justify-between mt-1.5">
+                {data.monthLabels.map((m, i) => <span key={i} className="text-[8px] font-bold" style={{ color: '#1a2e22' }}>{m}</span>)}
               </div>
-              <div className="text-right">
-                {event.total_price && <div className="font-extrabold" style={{ color: '#3dba3a' }}>{Number(event.total_price).toLocaleString('cs-CZ')} Kč</div>}
-                {event.status && STATUS_MAP[getDisplayStatus(event)] && <Badge {...STATUS_MAP[getDisplayStatus(event)]} />}
-              </div>
-            </div>
-          ))}
-        </Card>
+            </>
+          ) : <Empty>Zatím žádné přijaté platby za posledních 12 měsíců</Empty>}
+        </WidgetCard>
+        <BookingRowsCard icon="📅" title="Nejbližší události" bookings={data.events} nav={nav} />
       </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
-        <Card>
-          <div className="text-[13px] font-extrabold mb-2.5" style={{ color: '#0f1a14' }}>🚨 SOS Incidenty</div>
-          {stats.activeSos > 0 ? (
-            <div className="flex items-center gap-3">
-              <div className="text-2xl font-black" style={{ color: '#dc2626' }}>{stats.activeSos}</div>
-              <div>
-                <div className="text-sm font-bold" style={{ color: '#dc2626' }}>aktivních incidentů</div>
-                {stats.sosCritical > 0 && (
-                  <div className="text-sm font-extrabold uppercase tracking-wide mt-0.5 animate-pulse" style={{ color: '#dc2626' }}>
-                    {stats.sosCritical} kritických!
-                  </div>
-                )}
-              </div>
-            </div>
-          ) : <div className="text-sm font-medium" style={{ color: '#1a8a18' }}>Žádné aktivní incidenty</div>}
-        </Card>
-        <Card>
-          <div className="text-[13px] font-extrabold mb-2.5" style={{ color: '#0f1a14' }}>🏛️ Blížící se STK</div>
-          {stats.stkExpiring && stats.stkExpiring.length > 0 ? (
-            <div className="space-y-1">
-              {stats.stkExpiring.slice(0, 4).map(m => {
-                const days = Math.ceil((new Date(m.stk_valid_until) - new Date()) / 86400000)
-                return (
-                  <div key={m.id} className="flex items-center text-sm"
-                    style={{ padding: '6px 10px', background: days < 0 ? '#fee2e2' : '#fef3c7', borderRadius: 8 }}>
-                    <span className="font-bold" style={{ color: '#0f1a14' }}>{m.model}</span>
-                    <span className="ml-2 font-mono text-sm" style={{ color: '#1a2e22' }}>{m.spz}</span>
-                    <span className="ml-auto font-bold" style={{ color: days < 0 ? '#dc2626' : '#b45309' }}>
-                      {days < 0 ? `${Math.abs(days)} dní po` : `za ${days} dní`}
-                    </span>
-                  </div>
-                )
-              })}
-            </div>
-          ) : <div className="text-sm font-medium" style={{ color: '#1a8a18' }}>✅ Žádné STK nevyprší v nejbližších 30 dnech</div>}
-        </Card>
+        <BookingRowsCard icon="🆕" title="Poslední vytvořené rezervace" bookings={data.newBookings} nav={nav} dateField="created_at" />
+        <PaymentsCard payments={data.payments} nav={nav} />
       </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
-        <Card>
-          <div className="text-[13px] font-extrabold mb-2.5" style={{ color: '#0f1a14' }}>💰 Finance — měsíční přehled</div>
+        <ShopOrdersCard orders={data.shopOrders} nav={nav} />
+        <WidgetCard icon="💰" title="Finance — měsíční přehled" onOpen={() => nav('/finance')}>
           <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-lg" style={{ padding: '10px 14px', background: '#dcfce7' }}>
-              <div className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Příjmy</div>
-              <div className="text-lg font-extrabold" style={{ color: '#1a8a18' }}>{formatCurrency(financeData.revenue)}</div>
-            </div>
-            <div className="rounded-lg" style={{ padding: '10px 14px', background: '#fee2e2' }}>
-              <div className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Výdaje</div>
-              <div className="text-lg font-extrabold" style={{ color: '#dc2626' }}>{formatCurrency(financeData.expense)}</div>
-            </div>
-            <div className="rounded-lg" style={{ padding: '10px 14px', background: financeData.profit >= 0 ? '#f0fdf4' : '#fef2f2' }}>
-              <div className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Zisk</div>
-              <div className="text-lg font-extrabold" style={{ color: financeData.profit >= 0 ? '#1a8a18' : '#dc2626' }}>{formatCurrency(financeData.profit)}</div>
-            </div>
-            <div className="rounded-lg" style={{ padding: '10px 14px', background: '#fef3c7' }}>
-              <div className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Neuhrazené zálohy</div>
-              <div className="text-lg font-extrabold" style={{ color: '#b45309' }}>{formatCurrency(financeData.unpaid)}</div>
-            </div>
+            {[['Příjmy', data.finance.revenue, '#1a8a18', '#dcfce7'],
+              ['Výdaje', data.finance.expense, '#dc2626', '#fee2e2'],
+              ['Zisk', data.finance.profit, data.finance.profit >= 0 ? '#1a8a18' : '#dc2626', data.finance.profit >= 0 ? '#f0fdf4' : '#fef2f2'],
+              ['Neuhrazené zálohy', data.finance.unpaid, '#b45309', '#fef3c7']].map(([label, v, color, bg]) => (
+              <div key={label} className="rounded-lg" style={{ padding: '10px 14px', background: bg }}>
+                <div className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>{label}</div>
+                <div className="text-lg font-extrabold" style={{ color }}>{fmtKc(v)}</div>
+              </div>
+            ))}
           </div>
-        </Card>
+        </WidgetCard>
       </div>
-      {stats.lowStock > 0 && (
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
+        <ServiceCard logs={data.serviceLogs} inServiceCount={data.inServiceCount} nav={nav} />
+        <StkCard stkExpiring={data.stkExpiring} nav={nav} />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
+        <EmailsCard emails={data.emails} nav={nav} />
+        <DocsCard docs={data.docs} nav={nav} />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
+        <VisitorsCard visitors={data.visitors} nav={nav} />
+        <AiConvCard ai={data.ai} nav={nav} />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
+        <MessagesCard messages={data.messages} unread={data.unreadMessages} nav={nav} />
+        <SosCard sosList={data.sosList} sosCritical={data.sosCritical} nav={nav} />
+      </div>
+
+      {data.lowStock > 0 && (
         <div className="flex gap-2.5 mt-4 flex-wrap">
-          <div className="text-sm font-bold" style={{ background: '#fef3c7', borderRadius: 50, padding: '8px 18px', color: '#92400e' }}>
-            ⚠️ {stats.lowStock} položek pod minimem
+          <div onClick={() => nav('/sklady')} className="text-sm font-bold cursor-pointer"
+            style={{ background: '#fef3c7', borderRadius: 50, padding: '8px 18px', color: '#92400e' }}>
+            ⚠️ {data.lowStock} položek pod minimem
           </div>
         </div>
       )}
-      {/* DIAGNOSTIKA */}
+
       {debugMode && (
-      <div className="mt-4 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 13, fontFamily: 'monospace', color: '#78350f' }}>
-        <strong>DIAGNOSTIKA Dashboard</strong><br/>
-        <div>motorcycles: {stats.totalMotos} (active: {stats.activeMotos}, využití: {stats.utilization}%)</div>
-        <div>bookings (active/pending): {stats.activeBookings}/{stats.pendingBookings}</div>
-        <div>revenue (month): {stats.monthRevenue?.toLocaleString('cs-CZ')} Kč</div>
-        <div>unread messages: {stats.unreadMessages}</div>
-        <div>low stock items: {stats.lowStock}</div>
-        <div>active SOS: {stats.activeSos} (critical: {stats.sosCritical})</div>
-        <div>STK expiring (30d): {stats.stkExpiring?.length || 0}</div>
-        <div>finance: příjmy={financeData.revenue?.toLocaleString('cs-CZ')} Kč, výdaje={financeData.expense?.toLocaleString('cs-CZ')} Kč, neuhrazené={financeData.unpaid?.toLocaleString('cs-CZ')} Kč</div>
-        <div>revenueChart: {revenueChart.filter(v => v > 0).length}/12 měsíců s daty</div>
-        <div>upcomingEvents: {upcomingEvents.length} záznamů</div>
-      </div>
+        <div className="mt-4 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 13, fontFamily: 'monospace', color: '#78350f' }}>
+          <strong>DIAGNOSTIKA Dashboard</strong><br />
+          <div>motorcycles: {data.totalMotos} (active: {data.activeMotos}, využití: {data.utilization}%)</div>
+          <div>bookings (active/pending): {data.activeBookings}/{data.pendingBookings}</div>
+          <div>tržby z faktur: tento měsíc={data.monthRevenue?.toLocaleString('cs-CZ')} Kč, minulý={data.lastMonthRevenue?.toLocaleString('cs-CZ')} Kč</div>
+          <div>finance: výdaje={data.finance.expense?.toLocaleString('cs-CZ')} Kč, neuhrazené={data.finance.unpaid?.toLocaleString('cs-CZ')} Kč</div>
+          <div>revenueChart: {data.revenueByMonth.filter(v => v > 0).length}/12 měsíců s daty</div>
+          <div>payments: {data.payments.length}, docs: {data.docs.length}, emails: {data.emails.length}, shop: {data.shopOrders.length}</div>
+          <div>service open: {data.serviceLogs.length} (v servisu: {data.inServiceCount}), STK 30d: {data.stkExpiring.length}</div>
+          <div>visitors 7d: {data.visitors ? `${data.visitors.visitors} / ${data.visitors.views} views` : 'N/A'}, AI konverzace 7d: {data.ai ? data.ai.total : 'N/A'}</div>
+          <div>messages: {data.messages.length} (unread: {data.unreadMessages}), SOS: {data.sosList.length}</div>
+        </div>
       )}
       <ExportBar />
     </div>
