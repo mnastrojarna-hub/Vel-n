@@ -1070,7 +1070,7 @@ return [
     'editRez.loc.headPickup' => '📥 Vyzvednutí motorky',
     'editRez.loc.headReturn' => '📤 Vrácení motorky',
     'editRez.loc.atRentalTitle' => 'V půjčovně Mezná',
-    'editRez.loc.atRentalDescPickup' => 'Mezná 9, 393 01 Pelhřimov — autonomní pobočka, otevřeno nonstop. <strong>0 Kč.</strong>',
+    'editRez.loc.atRentalDescPickup' => 'Mezná 9, 393 01 Pelhřimov — obslužná pobočka, otevřeno nonstop. <strong>0 Kč.</strong>',
     'editRez.loc.atRentalDescReturn' => 'Vrátíte v autonomní pobočce. <strong>0 Kč.</strong>',
     'editRez.loc.deliveryTitle' => 'Přistavení na adresu',
     'editRez.loc.deliveryReturnTitle' => 'Vyzvedneme od vás',
