@@ -85,6 +85,77 @@ workflows:
           success: true
           failure: true
 
+  motogo-ios-release:
+    name: MotoGo24 iOS Release (App Store)
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    integrations:
+      # App Store Connect API klíč — vytvoř v Codemagic UI:
+      # Teams → Integrations → Developer Portal → App Store Connect API key,
+      # pojmenuj ho přesně "motogo24_app_store_connect" (nebo zde uprav název).
+      app_store_connect: motogo24_app_store_connect
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+      ios_signing:
+        # Codemagic si přes App Store Connect integraci sám stáhne/vytvoří
+        # distribuční certifikát + provisioning profil pro tento bundle ID.
+        # App ID com.motogo24.app musí mít v Apple Developer portálu zapnuté
+        # capabilities: Push Notifications, Apple Pay (merchant.cz.motogo24),
+        # Associated Domains — viz APPLE_RELEASE_SETUP.md.
+        distribution_type: app_store
+        bundle_identifier: com.motogo24.app
+      groups:
+        # Env group "firebase_ios" se secure proměnnou GOOGLE_SERVICE_INFO_PLIST
+        # (base64 obsahu GoogleService-Info.plist z Firebase console).
+        - firebase_ios
+    scripts:
+      - name: Write GoogleService-Info.plist (Firebase iOS config)
+        script: |
+          PLIST_PATH="$CM_BUILD_DIR/Motogo-app-main/motogo-app-flutter-ios/ios/Runner/GoogleService-Info.plist"
+          if [ -z "$GOOGLE_SERVICE_INFO_PLIST" ]; then
+            echo "ERROR: GOOGLE_SERVICE_INFO_PLIST env var is not set."
+            echo "Create env group 'firebase_ios' with secure variable GOOGLE_SERVICE_INFO_PLIST"
+            echo "(base64 of GoogleService-Info.plist downloaded from Firebase console,"
+            echo " iOS app with bundle ID com.motogo24.app in project motogo24-518b4)."
+            exit 1
+          fi
+          echo "$GOOGLE_SERVICE_INFO_PLIST" | base64 --decode > "$PLIST_PATH"
+          plutil -lint "$PLIST_PATH"
+      - name: Get Flutter packages
+        script: |
+          cd $CM_BUILD_DIR/Motogo-app-main/motogo-app-flutter-ios
+          flutter pub get
+      - name: Apply provisioning profiles
+        script: |
+          xcode-project use-profiles --project="$CM_BUILD_DIR/Motogo-app-main/motogo-app-flutter-ios/ios/Runner.xcodeproj"
+      - name: Build signed IPA (App Store)
+        script: |
+          cd $CM_BUILD_DIR/Motogo-app-main/motogo-app-flutter-ios
+          # CFBundleVersion = Codemagic $BUILD_NUMBER (vždy unikátní a rostoucí),
+          # CFBundleShortVersionString (1.1.0) zůstává z pubspec.yaml.
+          flutter build ipa --release \
+            --build-number=$BUILD_NUMBER \
+            --export-options-plist=/Users/builder/export_options.plist
+    artifacts:
+      - Motogo-app-main/motogo-app-flutter-ios/build/ios/ipa/*.ipa
+      - Motogo-app-main/motogo-app-flutter-ios/build/ios/archive/Runner.xcarchive/dSYMs/**/*.dSYM
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        # Nahraje build do TestFlightu; do recenze/App Store se posílá ručně
+        # z App Store Connect (submit_to_app_store: false = žádné překvapení).
+        submit_to_testflight: true
+        submit_to_app_store: false
+      email:
+        recipients:
+          - mnastrojarna@gmail.com
+        notify:
+          success: true
+          failure: true
+
   motogo-android-release:
     name: MotoGo24 Android Release
     max_build_duration: 30

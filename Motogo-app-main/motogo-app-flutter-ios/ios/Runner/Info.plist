@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>CFBundleDisplayName</key>
+	<string>MotoGo24</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>motogo_app</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(FLUTTER_BUILD_NAME)</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>UILaunchStoryboardName</key>
+	<string>LaunchScreen</string>
+	<key>UIMainStoryboardFile</key>
+	<string>Main</string>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+	</array>
+	<key>UIViewControllerBasedStatusBarAppearance</key>
+	<true/>
+	<key>CADisableMinimumFrameDurationOnPhone</key>
+	<true/>
+	<key>UIApplicationSupportsIndirectInputEvents</key>
+	<true/>
+
+	<!-- ═══ Deep linky ═══ -->
+	<!-- Custom scheme pro Stripe return URL (motogo24://payment) — zrcadlí
+	     intent-filter z AndroidManifest.xml. Universal linky https://motogo24.cz/app
+	     řeší Associated Domains entitlement (applinks:motogo24.cz). -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>cz.motogo24.payment</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>motogo24</string>
+			</array>
+		</dict>
+	</array>
+
+	<!-- url_launcher — tel:/mailto: odkazy (zrcadlí <queries> z AndroidManifest) -->
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>tel</string>
+		<string>mailto</string>
+		<string>https</string>
+	</array>
+
+	<!-- ═══ Push notifikace (APNs přes Firebase Messaging) ═══ -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
+
+	<!-- ═══ Oprávnění — popisy pro iOS systémové dialogy a App Review ═══ -->
+	<key>NSCameraUsageDescription</key>
+	<string>Fotoaparát používáme ke skenování dokladů (OP, řidičský průkaz) při rezervaci a k fotodokumentaci SOS incidentů.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Přístup ke galerii umožňuje nahrát existující fotografii dokladu nebo fotku k SOS incidentu.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Ukládání pořízených fotografií dokladů a SOS incidentů do galerie.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Mikrofon se používá pouze jako součást rozhraní fotoaparátu, aplikace nenahrává žádný zvuk.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Polohu používáme pro zobrazení vaší pozice na mapě, výpočet vzdálenosti přistavení motorky a při SOS hlášení.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Face ID umožňuje rychlé a bezpečné přihlášení do aplikace.</string>
+
+	<!-- App Store Connect — appka používá jen standardní HTTPS šifrování -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+</dict>
+</plist>

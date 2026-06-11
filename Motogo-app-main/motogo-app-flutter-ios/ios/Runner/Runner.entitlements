@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Push notifikace (APNs) — App Store build používá vždy production -->
+	<key>aps-environment</key>
+	<string>production</string>
+
+	<!-- Apple Pay — merchant ID musí existovat v Apple Developer účtu
+	     a být propojený se Stripe (viz APPLE_RELEASE_SETUP.md).
+	     Hodnota odpovídá Stripe.merchantIdentifier v lib/main.dart. -->
+	<key>com.apple.developer.in-app-payments</key>
+	<array>
+		<string>merchant.cz.motogo24</string>
+	</array>
+
+	<!-- Universal linky https://motogo24.cz/app (zrcadlí Android App Links) -->
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:motogo24.cz</string>
+	</array>
+</dict>
+</plist>
