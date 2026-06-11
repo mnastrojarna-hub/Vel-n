@@ -139,16 +139,8 @@ export const PAGE_CO_V_CENE = {
         ])),
       ]
     },
-    {
-      id: 'faq', label: 'FAQ', location: 'Časté dotazy',
-      fields: [
-        { key: 'web.jak_pujcit_cena.faq.title', label: 'Nadpis', default: '' },
-        ...range(5).flatMap((_, i) => ([
-          { key: `web.jak_pujcit_cena.faq.items.${i}.q`, label: `Otázka ${i + 1}`, default: '' },
-          { key: `web.jak_pujcit_cena.faq.items.${i}.a`, label: `Odpověď ${i + 1}`, type: 'textarea', default: '' },
-        ])),
-      ]
-    },
+    // Pozn.: Sekce „FAQ" odstraněna — /jak-pujcit/co-v-cene (jak-pujcit-cena.php)
+    // žádné FAQ nerenderuje, klíče web.jak_pujcit_cena.faq.* byly osiřelé.
     {
       id: 'cta', label: 'CTA', location: 'Závěrečná výzva',
       fields: [
@@ -206,13 +198,14 @@ export const PAGE_DOKUMENTY = {
       ]
     },
     {
-      id: 'payments', label: 'Platby a storno', location: 'Tabulka plateb',
+      // Web (jak-pujcit-dokumenty.php) renderuje nadpis + úvodní odstavec + TABULKU
+      // (payments.headers/rows). Buňky tabulky jsou editovatelné přímo na webu
+      // (inline CMS, data-cms-key payments.rows.R.C). Klíče payments.items.* web
+      // NEČETL → byly osiřelé, odstraněny. Doplněn chybějící payments.lead.
+      id: 'payments', label: 'Platby a storno', location: 'Nadpis + úvod nad tabulkou plateb',
       fields: [
         { key: 'web.jak_pujcit_dokumenty.payments.title', label: 'Nadpis', default: '' },
-        ...range(8).flatMap((_, i) => ([
-          { key: `web.jak_pujcit_dokumenty.payments.items.${i}.title`, label: `Řádek ${i + 1} — název`, default: '' },
-          { key: `web.jak_pujcit_dokumenty.payments.items.${i}.text`, label: `Řádek ${i + 1} — popis`, type: 'textarea', default: '' },
-        ])),
+        { key: 'web.jak_pujcit_dokumenty.payments.lead', label: 'Úvodní odstavec nad tabulkou', type: 'textarea', default: '' },
       ]
     },
     {
@@ -241,13 +234,12 @@ export const PAGE_DOKUMENTY = {
       ]
     },
     {
-      id: 'documents', label: 'Dokumenty ke stažení', location: 'Odkazy na PDF',
+      // Web renderuje jen nadpis sekce — seznam dokumentů jde z mgPublicDocuments()
+      // (Velín → Dokumenty → Smluvní texty), NE z CMS. Klíče documents.items.* byly
+      // osiřelé (web je záměrně ignoruje), odstraněny. Zůstává editovatelný nadpis.
+      id: 'documents', label: 'Dokumenty ke stažení', location: 'Nadpis nad odkazy na PDF',
       fields: [
         { key: 'web.jak_pujcit_dokumenty.documents.title', label: 'Nadpis', default: '' },
-        ...range(5).flatMap((_, i) => ([
-          { key: `web.jak_pujcit_dokumenty.documents.items.${i}.label`, label: `Dokument ${i + 1} — název`, default: '' },
-          { key: `web.jak_pujcit_dokumenty.documents.items.${i}.text`, label: `Dokument ${i + 1} — popis`, type: 'textarea', default: '' },
-        ])),
       ]
     },
     {
