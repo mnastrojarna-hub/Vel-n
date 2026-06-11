@@ -1219,7 +1219,7 @@ return [
     'editRez.loc.headPickup' => '📥 Motorcycle pick-up',
     'editRez.loc.headReturn' => '📤 Motorcycle return',
     'editRez.loc.atRentalTitle' => 'At rental Mezná',
-    'editRez.loc.atRentalDescPickup' => 'Mezná 9, 257 87 — autonomous branch, open 24/7. <strong>Free.</strong>',
+    'editRez.loc.atRentalDescPickup' => 'Mezná 9, 393 01 Pelhřimov — autonomous branch, open 24/7. <strong>Free.</strong>',
     'editRez.loc.atRentalDescReturn' => 'Return at the autonomous branch. <strong>Free.</strong>',
     'editRez.loc.deliveryTitle' => 'Delivery to address',
     'editRez.loc.deliveryReturnTitle' => 'We pick it up from you',
