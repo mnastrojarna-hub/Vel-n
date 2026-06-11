@@ -162,7 +162,9 @@ BEGIN
   IF NOT FOUND OR v_b.user_id <> p_user_id THEN
     RETURN jsonb_build_object('success', false, 'error', 'not_found');
   END IF;
-  IF v_b.status NOT IN ('reserved','active') OR v_b.payment_status <> 'paid' THEN
+  -- 'partial_refund'/'refund_pending' = rezervace po předchozí vratkové úpravě —
+  -- musí jít upravit znovu (jinak by druhá úprava na webu vracela wrong_status).
+  IF v_b.status NOT IN ('reserved','active') OR v_b.payment_status NOT IN ('paid','partial_refund','refund_pending') THEN
     RETURN jsonb_build_object('success', false, 'error', 'wrong_status');
   END IF;
 
@@ -445,7 +447,8 @@ BEGIN
     RETURN jsonb_build_object('success', false, 'error', 'wrong_status');
   END IF;
 
-  IF v_b.payment_status <> 'paid' THEN
+  -- partial_refund/refund_pending = po předchozí vratkové úpravě → další zkrácení povoleno
+  IF v_b.payment_status NOT IN ('paid','partial_refund','refund_pending') THEN
     RETURN jsonb_build_object('success', false, 'error', 'not_paid');
   END IF;
 
@@ -616,7 +619,7 @@ BEGIN
   IF NOT FOUND THEN RETURN jsonb_build_object('success',false,'error','not_found'); END IF;
   IF b.user_id <> v_uid AND NOT is_admin() THEN RETURN jsonb_build_object('success',false,'error','not_owner'); END IF;
   IF b.status NOT IN ('reserved','active') THEN RETURN jsonb_build_object('success',false,'error','wrong_status'); END IF;
-  IF b.payment_status <> 'paid' THEN RETURN jsonb_build_object('success',false,'error','not_paid'); END IF;
+  IF b.payment_status NOT IN ('paid','partial_refund','refund_pending') THEN RETURN jsonb_build_object('success',false,'error','not_paid'); END IF;
 
   SELECT COALESCE(MAX(CASE WHEN key='passenger_gear'  AND pricing_unit<>'free' THEN price_czk END),690),
          COALESCE(MAX(CASE WHEN key='boots_rider'     AND pricing_unit<>'free' THEN price_czk END),290),
