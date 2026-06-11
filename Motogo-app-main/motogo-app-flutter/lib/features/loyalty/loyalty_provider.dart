@@ -7,15 +7,17 @@ import '../auth/auth_provider.dart';
 
 /// Věrnostní rank zákazníka — výsledek RPC `get_loyalty_status`.
 ///
-/// DŮLEŽITÉ: Věrnostní sleva platí POUZE pro rezervace vytvořené
-/// v mobilní aplikaci (`bookings.booking_source = 'app'`). Web ani
-/// admin rezervace rank nezvyšují a slevu nedostávají.
+/// Pravidla: kvalifikační BODY sbírá každá dokončená rezervace z aplikace
+/// I z webu (1 bod; rezervace delší než 7 dní = 4 body = postup o 2 ranky),
+/// každé 2 body = nový rank. DŮLEŽITÉ: sleva se uplatňuje a zobrazuje
+/// POUZE v mobilní aplikaci (`bookings.booking_source = 'app'`) — web ani
+/// admin rezervace slevu nikdy nedostanou.
 class LoyaltyStatus {
   final int level; // 1–20 (level = procento slevy)
   final int percent; // sleva v %
   final String rankName; // název ranku z `loyalty_levels`
   final String colorHex; // '#RRGGBB' — barva ringu MG loga
-  final int qualifyingCount; // počet dokončených app rezervací
+  final int qualifyingCount; // kvalifikační BODY (app i web; 7+ dní = 4 body)
   final String? nextRankName;
   final int? nextPercent;
   final String? nextColorHex;

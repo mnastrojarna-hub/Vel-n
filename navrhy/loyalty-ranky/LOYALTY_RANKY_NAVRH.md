@@ -3,13 +3,13 @@
 > **Stav:** NÁVRH ke schválení — zatím NIC neimplementováno (žádné SQL, žádný kód).
 > Vizuální náhled barev a obrazovek: `loyalty_ranky_nahled.html` (otevřít v prohlížeči).
 
-## 1. Princip
+## 1. Princip (bodový model — UPDATE 2026-06-11)
 
-- Platí **POUZE pro rezervace vytvořené v mobilní appce** (`bookings.booking_source = 'app'`). Web ranky nezná a slevu nedává.
-- Sleva roste podle pořadí rezervace zákazníka v appce: **1 % na 1. rezervaci, 2 % od 3., 3 % od 5., … max 20 % od 39. rezervace**.
-- Vzorec: `sleva_% = min(20, ceil(pořadí / 2))`, kde pořadí = počet kvalifikačních app rezervací + 1 (aktuální).
-- **Kvalifikační rezervace** (doporučení): `booking_source='app' AND status='completed'` — storna a nedokončené se nepočítají.
-- Level = procento slevy → **20 levelů**, každý má název a barvu MG loga v hlavičce appky.
+- **Sleva se uplatňuje a zobrazuje POUZE v mobilní appce** (`booking_source='app'`). Web slevu nikdy nedává.
+- **Body ale sbírají dokončené rezervace z appky I z webu** (stejný účet/e-mail): každá dokončená rezervace = **1 bod**; rezervace **delší než 7 dní = 4 body** (= postup o 2 ranky najednou). Storna, nedokončené a testovací se nepočítají.
+- **Každé 2 body = nový rank (+1 % slevy), max 20 %**: 1 % od 1. bodu, 2 % od 3. bodu, … 20 % od 39. bodu.
+- Vzorec: `sleva_% = min(20, ceil((body + 1) / 2))`.
+- Level = procento slevy → **20 levelů**, každý má název a barvu ringu MG loga v hlavičce appky.
 
 ## 2. Ranky — názvy, prahy, barvy
 
