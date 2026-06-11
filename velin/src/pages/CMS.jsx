@@ -1,13 +1,17 @@
 import { useState, useEffect } from 'react'
 import { debugLog } from '../lib/debugLog'
 import WebTextsTab from './cms/WebTextsTab'
-import PagesTab from './cms/PagesTab'
-import VariablesTab from './cms/VariablesTab'
 import FeatureFlagsTab from './cms/FeatureFlagsTab'
 import AiTrafficTab from './cms/AiTrafficTab'
 import SeoHealthTab from './cms/SeoHealthTab'
 
-const TABS = ['SEO Health', 'Texty webu', 'AI návštěvnost', 'Stránky CMS', 'Proměnné', 'Feature flags']
+// Pozn.: Záložky „Proměnné" (PagesTab → cms_variables) a „Stránky CMS"
+// (PagesTab → cms_pages) byly odebrány jako duplicity:
+//  - Proměnné = stejná tabulka cms_variables co Texty webu; ne-web klíče
+//    (company_*, datove_schranky_id) mají vlastní editor v sekci Government.
+//  - Stránky CMS = stejná tabulka cms_pages co Blog; web ji jako „stránky"
+//    nečte (legacy /cms/<slug> → 301 na /dokumenty z document_templates).
+const TABS = ['SEO Health', 'Texty webu', 'AI návštěvnost', 'Feature flags']
 
 export default function CMS() {
   const [tab, setTab] = useState('SEO Health')
@@ -55,8 +59,6 @@ export default function CMS() {
         />
       )}
       {tab === 'AI návštěvnost' && <AiTrafficTab />}
-      {tab === 'Stránky CMS' && <PagesTab />}
-      {tab === 'Proměnné' && <VariablesTab />}
       {tab === 'Feature flags' && <FeatureFlagsTab />}
     </div>
   )
