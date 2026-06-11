@@ -279,7 +279,9 @@ Deno.serve(async (req: Request) => {
           try { await syncCardsForCustomer(supabase, session.customer as string) } catch (e) { console.warn('[webhook] card sync failed:', (e as Error).message) }
         }
       } else if ((paymentType === 'booking' || paymentType === 'extension') && resolvedBookingId) {
-        await confirmBookingPayment(supabase, resolvedBookingId, session.id, stripePaymentIntentId)
+        // extension = doplatek za úpravu → potvrdit platbu, ale bez booking_reserved
+        // mailu (mail úpravy pošle trigger po aplikaci změny níže)
+        await confirmBookingPayment(supabase, resolvedBookingId, session.id, stripePaymentIntentId, paymentType === 'extension')
         // Doplatková změna rezervace — aplikuj server-side (spustí web_booking_modified)
         if (paymentType === 'extension') {
           try { await applyExtensionChange(supabase, resolvedBookingId, metadata.chg) }
@@ -336,7 +338,7 @@ Deno.serve(async (req: Request) => {
       }
 
       if ((paymentType === 'booking' || paymentType === 'extension') && resolvedBookingId) {
-        await confirmBookingPayment(supabase, resolvedBookingId, paymentIntent.id)
+        await confirmBookingPayment(supabase, resolvedBookingId, paymentIntent.id, null, paymentType === 'extension')
         if (paymentType === 'extension') {
           try { await applyExtensionChange(supabase, resolvedBookingId, metadata.chg) }
           catch (e) { console.warn('[webhook] extension change apply (intent) failed:', (e as Error).message) }
