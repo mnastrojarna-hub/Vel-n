@@ -47,6 +47,10 @@ Bez tohoto kroku Apple Pay platby selžou (karta v sheetu funguje i bez něj).
 ### 4. Codemagic
 1. **Teams → Integrations → Developer Portal** — přidej App Store Connect API
    klíč a pojmenuj ho **`motogo24_app_store_connect`** (název odkazovaný ve workflow).
+   Klíč vytvoř v App Store Connect → Users and Access → Integrations → API Keys
+   s rolí **App Manager** + zaškrtnutým „Access to Certificates, Identifiers &
+   Profiles" — slabší role (Developer) nestačí na automatické podepisování
+   a nahrávání do TestFlightu.
 2. **Env group `firebase_ios`** se secure proměnnou **`GOOGLE_SERVICE_INFO_PLIST`**:
    `base64 -i GoogleService-Info.plist | pbcopy` → vlož hodnotu.
    CI soubor vytvoří v `ios/Runner/` před buildem (do gitu se necommituje).
@@ -70,6 +74,31 @@ Na web nasaď `https://motogo24.cz/.well-known/apple-app-site-association`
 ```
 `TEAMID` = Apple Team ID. Bez něj funguje vše ostatní (Stripe návrat používá
 custom scheme `motogo24://payment`, který je v Info.plist).
+
+## Audit oprávnění (proti reálnému použití v kódu)
+
+| Oprávnění | Kód, který ho používá | Info.plist klíč | Podfile makro |
+|---|---|---|---|
+| Notifikace | PushService / PermissionService / FCM | `UIBackgroundModes: remote-notification` + entitlement `aps-environment` | `PERMISSION_NOTIFICATIONS=1` |
+| Kamera | document_camera/scanner (`enableAudio: false`), image_picker (SOS) | `NSCameraUsageDescription` | `PERMISSION_CAMERA=1` |
+| Fotky (galerie) | image_picker — nahrání dokladu/SOS fotky | `NSPhotoLibraryUsageDescription` (+ `...AddUsageDescription`) | `PERMISSION_PHOTOS=1` |
+| Poloha (when-in-use) | GpsService (SOS, mapa, vzdálenost přistavení) | `NSLocationWhenInUseUsageDescription` | `PERMISSION_LOCATION=1` |
+| Face ID | biometric_service (local_auth) | `NSFaceIDUsageDescription` | — (mimo permission_handler) |
+| Mikrofon | **nepoužívá se** (kamera má enableAudio:false) | klíč přítomen jen pro statickou analýzu camera pluginu | `PERMISSION_MICROPHONE=0` |
+| Apple Pay | card_payment_sheet (PlatformPayButton) | — | entitlement `com.apple.developer.in-app-payments` |
+| Universal links | supabase app_links (`/app` deep linky) | `CFBundleURLTypes: motogo24://` | entitlement `associated-domains` |
+
+Vše ostatní (kontakty, kalendář, Bluetooth, tracking…) je v Podfile explicitně
+vypnuto (`=0`) → nedostane se do binárky a App Review se na to nemůže ptát.
+
+**App Review požadavky — zkontrolováno:**
+- **Smazání účtu v appce (5.1.1v):** ANO — Profil → „Smazat účet" volá RPC
+  `delete_customer_account`.
+- **Sign in with Apple (4.8):** NEVYŽADUJE SE — appka nemá žádný social login
+  (jen e-mail/heslo + biometrika).
+- **Privacy manifest (2024+):** `ios/Runner/PrivacyInfo.xcprivacy` přibalen
+  (žádný tracking; required-reason API kryjí manifesty pluginů).
+- **Šifrování:** `ITSAppUsesNonExemptEncryption=false` (jen standardní HTTPS).
 
 ## Backend — ověřeno, beze změn
 - `push_tokens.platform` už podporuje `ios` (PushService ho posílá).

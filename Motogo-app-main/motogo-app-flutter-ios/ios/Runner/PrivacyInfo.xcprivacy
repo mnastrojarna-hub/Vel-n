@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<!--
+  Privacy manifest aplikace (App Store požadavek od května 2024).
+  Aplikace NEtrackuje uživatele a sama přímo nevolá žádné "required reason"
+  API — ty pokrývají vlastní manifesty pluginů (shared_preferences, Firebase,
+  Stripe, …), které se do bundle přibalí automaticky přes CocoaPods.
+  Sběr dat (poloha, doklady, kontakty zákazníka) se deklaruje v dotazníku
+  App Privacy v App Store Connect.
+-->
+<dict>
+	<key>NSPrivacyTracking</key>
+	<false/>
+	<key>NSPrivacyTrackingDomains</key>
+	<array/>
+	<key>NSPrivacyCollectedDataTypes</key>
+	<array/>
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array/>
+</dict>
+</plist>
