@@ -143,7 +143,8 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
     if (src == null || src.isEmpty) return null;
     const keep = {
       'start_date', 'end_date', 'moto_id', 'pickup_method', 'pickup_address',
-      'return_method', 'return_address', 'pickup_time', 'return_time', 'total_price',
+      'return_method', 'return_address', 'pickup_time', 'return_time',
+      'total_price', 'discount_amount',
     };
     final out = <String, dynamic>{};
     for (final e in src.entries) {

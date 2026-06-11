@@ -96,7 +96,8 @@ async function applyExtensionChange(
   // payment_screen.dart) — stejná záchranná síť jako web: doplatková změna se
   // uloží server-side, i když je appka po platbě zabita / spadne před apply.
   for (const col of ['start_date', 'end_date', 'moto_id', 'pickup_method', 'pickup_address',
-                     'return_method', 'return_address', 'pickup_time', 'return_time'] as const) {
+                     'return_method', 'return_address', 'pickup_time', 'return_time',
+                     'discount_amount'] as const) {
     if (def(a[col]) && d[col] === undefined) d[col] = a[col]
   }
   // Absolutní cílová cena (z dry-run RPC) — idempotentní, na rozdíl od klienta,
