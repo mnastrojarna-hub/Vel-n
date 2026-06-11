@@ -63,6 +63,7 @@ export default function WebTextsTab({ initialPageId, initialFieldKey, initialSec
   const [values, setValues] = useState({})
   const [loading, setLoading] = useState(true)
   const [seeding, setSeeding] = useState(false)
+  const [seedError, setSeedError] = useState(null)
   const [adminToken, setAdminToken] = useState('')
 
   useEffect(() => { loadValues(); loadAdminToken() }, [])
@@ -110,15 +111,22 @@ export default function WebTextsTab({ initialPageId, initialFieldKey, initialSec
   // Naplnění výchozích textů do DB (jen ty co ještě neexistují)
   async function seedDefaults() {
     setSeeding(true)
+    setSeedError(null)
     const missing = ALL_FIELDS.filter(f => !values[f.key] && f.default)
+    let failed = 0
     // Batch insert max 50 najednou
     for (let i = 0; i < missing.length; i += 50) {
       const batch = missing.slice(i, i + 50).map(f => ({
         key: f.key, value: f.default, category: 'web'
       }))
-      await supabase.from('cms_variables').insert(batch)
+      // upsert + ignoreDuplicates = INSERT ... ON CONFLICT (key) DO NOTHING:
+      // klíč, který mezitím vznikl (inline edit z webu / souběžný admin),
+      // neshodí celý batch a existující ručně upravené texty se nepřepíšou.
+      const { error } = await supabase.from('cms_variables').upsert(batch, { onConflict: 'key', ignoreDuplicates: true })
+      if (error) failed += batch.length
     }
     await loadValues()
+    if (failed > 0) setSeedError(`Část výchozích textů se nepodařilo uložit (${failed}). Zkus to prosím znovu.`)
     setSeeding(false)
   }
 
@@ -190,6 +198,7 @@ export default function WebTextsTab({ initialPageId, initialFieldKey, initialSec
             {seeding ? 'Ukládám...' : `Naplnit ${totalMissing} výchozích`}
           </button>
         )}
+        {seedError && <span className="text-xs font-bold" style={{ color: '#dc2626' }}>{seedError}</span>}
         {totalMissing === 0 && (
           <span className="text-xs font-bold" style={{ color: '#22c55e' }}>✓ Vše uloženo</span>
         )}

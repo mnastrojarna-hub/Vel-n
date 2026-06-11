@@ -252,7 +252,7 @@ export default function AiTrafficTab() {
       {/* KPI tiles */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
         <KpiTile label="AI requests" value={totalAi.toLocaleString('cs-CZ')} hint={`${PERIODS.find(p => p.id === period).label} zpětně`} />
-        <KpiTile label="Celková návštěvnost webu" value={(webUsersCount + appUsersCount).toLocaleString('cs-CZ')} hint="registrovaní zákazníci celkem" />
+        <KpiTile label="Registrovaní zákazníci" value={(webUsersCount + appUsersCount).toLocaleString('cs-CZ')} hint="profily celkem (web + app)" />
         <KpiTile label="Uživatelé webu" value={webUsersCount.toLocaleString('cs-CZ')} hint="profiles.registration_source='web'" />
         <KpiTile label="Uživatelé app" value={appUsersCount.toLocaleString('cs-CZ')} hint="profiles.registration_source='app'" />
         <KpiTile label="Unikátních botů" value={uniqueBots} hint="GPTBot, ClaudeBot, ..." />

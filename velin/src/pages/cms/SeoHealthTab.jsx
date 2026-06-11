@@ -64,7 +64,17 @@ function buildIssues(path, m) {
     issues.push({ severity: 'critical', title: `Stránka nedostupná (${m.error})`, message: 'Crawler nemohl stránku načíst. Zkontroluj že URL funguje v prohlížeči.', target: null })
     return issues
   }
+  // Obrana proti neúplné/starší metrice z edge fn (chybějící h1/h1Count by jinak
+  // shodily render reportu na `m.h1.map`/`m.h1[0]`). Normalizujeme na bezpečné typy.
+  const h1Arr = Array.isArray(m.h1) ? m.h1 : []
+  const h1Count = typeof m.h1Count === 'number' ? m.h1Count : h1Arr.length
   const isFunc = FUNCTIONAL.has(path)
+
+  // REDIRECT — edge fn vrací `redirected` + finalUrl; bez upozornění by skenovaná
+  // cesta (která 301 přesměrovává jinam) vypadala OK, ale měří se cizí stránka.
+  if (m.redirected && m.finalUrl) {
+    issues.push({ severity: 'important', title: 'Stránka přesměrovává jinam (redirect)', message: `Tato URL se přesměrovává na ${m.finalUrl}. Měřené hodnoty patří cílové stránce, ne této. Pokud má cesta existovat samostatně, oprav přesměrování; jinak ji odeber z odkazů/sitemap.`, target: null })
+  }
 
   // TITLE
   if (!m.title) {
@@ -85,12 +95,12 @@ function buildIssues(path, m) {
   }
 
   // H1
-  if (m.h1Count === 0) {
+  if (h1Count === 0) {
     issues.push({ severity: 'critical', title: 'Stránka nemá žádný Hlavní nadpis (H1)', message: 'Každá stránka musí mít právě jeden H1 — velký nadpis nahoře co Google používá k pochopení obsahu.', example: 'Půjčovna motorek Pelhřimov – bez kauce', target: findCmsTarget(path, 'h1') })
-  } else if (m.h1Count > 1) {
-    issues.push({ severity: 'important', title: `Stránka má ${m.h1Count} H1 nadpisů (smí být jen 1)`, message: `Nalezené H1: ${m.h1.map(h => `„${h}"`).join(', ')}. Druhý a další H1 demotuj na H2 — v CMS editoru použij styl "Nadpis 2" místo "Nadpis 1".`, example: 'Nech jen 1 hlavní H1, ostatní nadpisy v textu jako H2/H3', target: findCmsTarget(path, 'body') })
+  } else if (h1Count > 1) {
+    issues.push({ severity: 'important', title: `Stránka má ${h1Count} H1 nadpisů (smí být jen 1)`, message: `Nalezené H1: ${h1Arr.map(h => `„${h}"`).join(', ')}. Druhý a další H1 demotuj na H2 — v CMS editoru použij styl "Nadpis 2" místo "Nadpis 1".`, example: 'Nech jen 1 hlavní H1, ostatní nadpisy v textu jako H2/H3', target: findCmsTarget(path, 'h1') })
   } else {
-    const h1 = m.h1[0] || ''
+    const h1 = h1Arr[0] || ''
     if (h1.length < H1_MIN) {
       issues.push({ severity: 'important', title: `Hlavní nadpis je příliš krátký (${h1.length} znaků): „${h1}"`, message: 'Krátký nadpis nic neříká. Doplň klíčové slovo + lokalitu.', example: 'Půjčovna motorek na Vysočině – bez kauce', target: findCmsTarget(path, 'h1') })
     } else if (h1.length > H1_MAX) {
@@ -172,7 +182,10 @@ export default function SeoHealthTab({ onJumpToText }) {
     let inserted = 0, failed = 0
     for (let i = 0; i < missing.length; i += 50) {
       const batch = missing.slice(i, i + 50).map(f => ({ key: f.key, value: String(f.default), category: 'web' }))
-      const { error } = await supabase.from('cms_variables').insert(batch)
+      // upsert s ignoreDuplicates = INSERT ... ON CONFLICT (key) DO NOTHING:
+      // klíč, který mezitím vznikl (inline edit z webu / jiný admin), neshodí
+      // celý batch a existující ručně upravené texty se nikdy nepřepíšou.
+      const { error } = await supabase.from('cms_variables').upsert(batch, { onConflict: 'key', ignoreDuplicates: true })
       if (error) failed += batch.length; else inserted += batch.length
     }
     await loadVariables()
