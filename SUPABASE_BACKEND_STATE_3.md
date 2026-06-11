@@ -75,7 +75,7 @@
 ### Další funkce v reálné DB (ne v migracích)
 | Funkce | Popis |
 |--------|-------|
-| `auto_accounting_on_booking_paid()` | Auto účetní záznam při zaplacení bookingu |
+| `auto_accounting_on_booking_paid()` | Auto účetní záznam při zaplacení bookingu. **FIX 2026-06-11 (`20260611_fix_auto_accounting_income_category.sql`, aplikováno):** od 20260312d vkládala bez `category`, ale `accounting_entries.category` je v reálné DB **TEXT NOT NULL** → INSERT padal a EXCEPTION blok chybu spolkl → příjmové záznamy NIKDY nevznikaly (Dashboard/Finance tržby 0, jen výdaje). Nově INSERT s `category='pronájem'` + `date=CURRENT_DATE`; součástí migrace backfill 11 zaplacených rezervací (54 669 Kč, ověřeno). Typ zůstává `'income'` (ENUM `entry_type` zná jen income/expense). SECURITY DEFINER, EXCEPTION safe |
 | `auto_reply_sos()` | Automatická odpověď na SOS |
 | `auto_schedule_services()` | Auto plánování servisů |
 | `auto_check_service_parts()` | Auto kontrola dílů pro blížící se servisy (~30 kalendářních dní) — zkontroluje sklad, dedup dle konkrétních dílů (nová PO jen pokud díl nemá otevřenou draft/sent objednávku), vytvoří PO seskupené dle dodavatele. Vrací jsonb {created_orders}. SECURITY DEFINER |

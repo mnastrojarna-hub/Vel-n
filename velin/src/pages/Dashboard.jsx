@@ -4,18 +4,18 @@ import { supabase } from '../lib/supabase'
 import { debugAction, debugLog, debugError } from '../lib/debugLog'
 import { useDebugMode } from '../hooks/useDebugMode'
 import { isRevenueEntry, isTestInvoice, isVoidInvoice, summarizeInvoices, INVOICE_PAID_TYPES, INVOICE_RECEIVED_TYPES } from '../lib/revenueUtils'
-import Card from '../components/ui/Card'
 import AiDashboardWidget from '../components/ai/AiDashboardWidget'
 import Stat from '../components/ui/Stat'
-import MiniChart from '../components/ui/MiniChart'
 import ExportBar from '../components/ui/ExportBar'
 import BannerEditor from './DashboardBannerEditor'
 import {
-  WidgetCard, Empty, fmtKc, BookingRowsCard, PaymentsCard, ShopOrdersCard,
-  ServiceCard, StkCard, EmailsCard, DocsCard, VisitorsCard, AiConvCard, MessagesCard, SosCard,
+  WidgetCard, fmtKc, RevenueChartCard, BookingRowsCard, ModificationsCard, PaymentsCard,
+  ShopOrdersCard, ServiceCard, StkCard, EmailsCard, DocsCard, VisitorsCard, AiConvCard,
+  MessagesCard, SosCard,
 } from './dashboard/DashboardWidgets'
 
 const MONTHS = ['Led', 'Úno', 'Bře', 'Dub', 'Kvě', 'Čvn', 'Čvc', 'Srp', 'Zář', 'Říj', 'Lis', 'Pro']
+const MONTHS_FULL = ['Leden', 'Únor', 'Březen', 'Duben', 'Květen', 'Červen', 'Červenec', 'Srpen', 'Září', 'Říjen', 'Listopad', 'Prosinec']
 
 function Spinner() {
   return (
@@ -51,7 +51,7 @@ export default function Dashboard() {
       const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString()
 
       const [motosR, bookCntR, unreadR, invStockR, eventsR, sosR, invoicesR, expenseR,
-        newBookR, emailsR, shopR, msgsR, serviceR, visitorsR, aiR] =
+        newBookR, emailsR, shopR, msgsR, serviceR, visitorsR, aiR, modsR] =
         await debugAction('dashboard.fetchAll', 'Dashboard', () => Promise.allSettled([
           supabase.from('motorcycles').select('id, model, spz, status, stk_valid_until'),
           supabase.from('bookings').select('id, status').in('status', ['active', 'pending', 'reserved']),
@@ -80,6 +80,8 @@ export default function Dashboard() {
             .is('completed_date', null).order('service_date', { ascending: true }).limit(5),
           supabase.rpc('get_visitor_stats', { p_from: weekAgo, p_to: now.toISOString(), p_host: null, p_granularity: 'day' }),
           supabase.from('ai_public_conversations').select('id, outcome').gte('started_at', weekAgo).limit(1000),
+          supabase.from('bookings').select('id, user_id, moto_id, start_date, end_date, status, modification_history, updated_at')
+            .neq('modification_history', '[]').order('updated_at', { ascending: false }).limit(5),
         ]))
 
       // ── Flotila, rezervace, sklad, STK ──
@@ -101,7 +103,11 @@ export default function Dashboard() {
       const monthKeys = []
       for (let m = 11; m >= 0; m--) {
         const d = new Date(now.getFullYear(), now.getMonth() - m, 1)
-        monthKeys.push({ key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`, label: MONTHS[d.getMonth()] })
+        monthKeys.push({
+          key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
+          label: MONTHS[d.getMonth()],
+          full: `${MONTHS_FULL[d.getMonth()]} ${d.getFullYear()}`,
+        })
       }
       const revenueByMonth = monthKeys.map(mk => paidInv.filter(i => invMonth(i) === mk.key).reduce((s, i) => s + (i.total || 0), 0))
       const monthRevenue = revenueByMonth[11]
@@ -119,10 +125,13 @@ export default function Dashboard() {
       // ── Vystavené dokumenty (posledních 5 faktur všech typů) ──
       const docs = invoices.filter(i => !isTestInvoice(i)).slice(0, 5).map(i => ({ ...i, customer_name: i.profiles?.full_name }))
 
-      // ── Události + nové rezervace: doplň jména zákazníků a motorek ──
+      // ── Události + nové rezervace + úpravy: doplň jména zákazníků a motorek ──
       const events = val(eventsR)
       const newBookings = val(newBookR)
-      const userIds = [...new Set([...events, ...newBookings].map(b => b.user_id).filter(Boolean))]
+      const modBookings = val(modsR)
+        .map(b => ({ ...b, lastMod: (Array.isArray(b.modification_history) ? b.modification_history : []).slice(-1)[0] }))
+        .filter(b => b.lastMod)
+      const userIds = [...new Set([...events, ...newBookings, ...modBookings].map(b => b.user_id).filter(Boolean))]
       const profilesR = userIds.length > 0
         ? await debugAction('dashboard.enrichEvents', 'Dashboard', () => supabase.from('profiles').select('id, full_name').in('id', userIds))
         : { data: [] }
@@ -147,11 +156,12 @@ export default function Dashboard() {
       const sosList = val(sosR)
       setData({
         activeMotos, totalMotos: allMotos.length, utilization, activeBookings, pendingBookings,
-        monthRevenue, lastMonthRevenue, revenueByMonth, monthLabels: monthKeys.map(mk => mk.label),
+        monthRevenue, lastMonthRevenue,
+        revenueChart: monthKeys.map((mk, i) => ({ label: mk.label, full: mk.full, value: revenueByMonth[i] })),
         finance: { revenue: monthRevenue, expense, profit: monthRevenue - expense, unpaid },
         unreadMessages: cnt(unreadR), lowStock, stkExpiring,
         sosList, sosCritical: sosList.filter(s => s.severity === 'critical' || s.severity === 'high').length,
-        events: events.map(enrich), newBookings: newBookings.map(enrich),
+        events: events.map(enrich), newBookings: newBookings.map(enrich), modifications: modBookings.map(enrich),
         payments, docs, emails: val(emailsR), shopOrders: val(shopR), messages: val(msgsR),
         serviceLogs, inServiceCount, visitors, ai,
       })
@@ -170,9 +180,6 @@ export default function Dashboard() {
 
   return (
     <div>
-      <div className="mb-4"><AiDashboardWidget /></div>
-      <div className="mb-4"><BannerEditor /></div>
-
       <div className="flex gap-3.5 mb-5 flex-wrap">
         {clickable('/flotila', <Stat icon="🏍️" label="Aktivní motorky" value={`${data.activeMotos}/${data.totalMotos}`} sub={`Ø využití ${data.utilization}%`} />)}
         {clickable('/finance', <Stat icon="💰" label="Tržby tento měsíc" value={fmtShort(data.monthRevenue)} color="#f59e0b" sub="z přijatých plateb" />)}
@@ -183,26 +190,21 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <WidgetCard icon="📈" title="Tržby dle měsíců (Kč)" onOpen={() => nav('/finance')}>
-          {data.revenueByMonth.some(v => v > 0) ? (
-            <>
-              <MiniChart data={data.revenueByMonth} color="#1a8a18" height={70} />
-              <div className="flex justify-between mt-1.5">
-                {data.monthLabels.map((m, i) => <span key={i} className="text-[8px] font-bold" style={{ color: '#1a2e22' }}>{m}</span>)}
-              </div>
-            </>
-          ) : <Empty>Zatím žádné přijaté platby za posledních 12 měsíců</Empty>}
-        </WidgetCard>
+        <RevenueChartCard data={data.revenueChart} nav={nav} />
         <BookingRowsCard icon="📅" title="Nejbližší události" bookings={data.events} nav={nav} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
         <BookingRowsCard icon="🆕" title="Poslední vytvořené rezervace" bookings={data.newBookings} nav={nav} dateField="created_at" />
-        <PaymentsCard payments={data.payments} nav={nav} />
+        <ModificationsCard mods={data.modifications} nav={nav} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
+        <PaymentsCard payments={data.payments} nav={nav} />
         <ShopOrdersCard orders={data.shopOrders} nav={nav} />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
         <WidgetCard icon="💰" title="Finance — měsíční přehled" onOpen={() => nav('/finance')}>
           <div className="grid grid-cols-2 gap-3">
             {[['Příjmy', data.finance.revenue, '#1a8a18', '#dcfce7'],
@@ -216,6 +218,7 @@ export default function Dashboard() {
             ))}
           </div>
         </WidgetCard>
+        <DocsCard docs={data.docs} nav={nav} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
@@ -225,7 +228,7 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
         <EmailsCard emails={data.emails} nav={nav} />
-        <DocsCard docs={data.docs} nav={nav} />
+        <MessagesCard messages={data.messages} unread={data.unreadMessages} nav={nav} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
@@ -233,8 +236,7 @@ export default function Dashboard() {
         <AiConvCard ai={data.ai} nav={nav} />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
-        <MessagesCard messages={data.messages} unread={data.unreadMessages} nav={nav} />
+      <div className="mt-4">
         <SosCard sosList={data.sosList} sosCritical={data.sosCritical} nav={nav} />
       </div>
 
@@ -247,6 +249,9 @@ export default function Dashboard() {
         </div>
       )}
 
+      <div className="mt-4"><AiDashboardWidget /></div>
+      <div className="mt-4"><BannerEditor /></div>
+
       {debugMode && (
         <div className="mt-4 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 13, fontFamily: 'monospace', color: '#78350f' }}>
           <strong>DIAGNOSTIKA Dashboard</strong><br />
@@ -254,7 +259,7 @@ export default function Dashboard() {
           <div>bookings (active/pending): {data.activeBookings}/{data.pendingBookings}</div>
           <div>tržby z faktur: tento měsíc={data.monthRevenue?.toLocaleString('cs-CZ')} Kč, minulý={data.lastMonthRevenue?.toLocaleString('cs-CZ')} Kč</div>
           <div>finance: výdaje={data.finance.expense?.toLocaleString('cs-CZ')} Kč, neuhrazené={data.finance.unpaid?.toLocaleString('cs-CZ')} Kč</div>
-          <div>revenueChart: {data.revenueByMonth.filter(v => v > 0).length}/12 měsíců s daty</div>
+          <div>revenueChart: {data.revenueChart.filter(m => m.value > 0).length}/12 měsíců s daty</div>
           <div>payments: {data.payments.length}, docs: {data.docs.length}, emails: {data.emails.length}, shop: {data.shopOrders.length}</div>
           <div>service open: {data.serviceLogs.length} (v servisu: {data.inServiceCount}), STK 30d: {data.stkExpiring.length}</div>
           <div>visitors 7d: {data.visitors ? `${data.visitors.visitors} / ${data.visitors.views} views` : 'N/A'}, AI konverzace 7d: {data.ai ? data.ai.total : 'N/A'}</div>

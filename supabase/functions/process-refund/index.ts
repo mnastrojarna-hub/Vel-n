@@ -291,11 +291,13 @@ async function createCreditNoteForExistingRefund(
     }).select('id').single()
     if (!cnInv?.id) return { creditNoteId: null, pdfPath: null, refundId: bk.stripe_refund_id }
 
+    // accounting_entries nemá sloupce vat_rate/source/entry_date — insert s nimi
+    // tiše padal (chyba se zahazovala) a dobropis se nikdy nezaúčtoval
     await supabase.from('accounting_entries').insert({
-      type: 'expense', amount: -refundedAmountCZK, vat_rate: 0,
+      type: 'expense', amount: -refundedAmountCZK,
       description: `Dobropis ${cnNumber} - ${reasonText}`,
-      category: 'refund', source: 'auto_invoice',
-      entry_date: issueDate, booking_id: bookingId, invoice_id: cnInv.id,
+      category: 'refund',
+      date: issueDate, booking_id: bookingId, invoice_id: cnInv.id,
     }).then(() => {}, () => {})
 
     const html = renderCreditNoteHtml({
