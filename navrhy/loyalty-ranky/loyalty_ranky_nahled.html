@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MotoGo24 — Věrnostní ranky (náhled)</title>
+<style>
+  :root{ --dark:#1A2E22; --green:#74FB71; --bg:#DFF0EC; --black:#0F1A14; }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{font-family:'Montserrat','Segoe UI',sans-serif; background:var(--bg); color:var(--black); padding:24px; max-width:1100px; margin:0 auto;}
+  h1{font-size:24px; font-weight:900; margin-bottom:4px;}
+  h2{font-size:16px; font-weight:800; margin:32px 0 12px; text-transform:uppercase; letter-spacing:1px; color:#4A6357;}
+  p.sub{color:#6B8C7A; font-size:13px;}
+  .grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:10px;}
+  .rank{background:#fff; border-radius:14px; padding:12px 14px; display:flex; align-items:center; gap:12px; border:1px solid #D4E8E0;}
+  .swatch{width:44px; height:44px; border-radius:12px; flex:0 0 44px; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:13px; color:#1A2E22; background:var(--dark); position:relative;}
+  .swatch span{color:#fff; font-size:12px;}
+  .rank .nm{font-weight:800; font-size:13px;}
+  .rank .meta{font-size:11px; color:#6B8C7A;}
+  .rank .pct{margin-left:auto; font-weight:900; font-size:16px;}
+  .fam{grid-column:1/-1; font-size:11px; font-weight:800; letter-spacing:2px; color:#8AAB99; text-transform:uppercase; margin-top:6px;}
+  /* mock telefonu */
+  .phones{display:flex; flex-wrap:wrap; gap:20px;}
+  .phone{width:300px; background:#fff; border-radius:24px; overflow:hidden; border:1px solid #BDD9CE; box-shadow:0 8px 24px rgba(15,26,20,.12);}
+  .phead{background:var(--dark); padding:16px; display:flex; align-items:center; gap:12px;}
+  .mg{width:52px; height:52px; border-radius:13px; background:#fff; color:var(--dark); font-weight:900; font-size:18px; display:flex; align-items:center; justify-content:center; flex:0 0 52px;}
+  .ptit{color:#fff; font-weight:900; font-size:17px; line-height:1.1;}
+  .psub{color:rgba(255,255,255,.38); font-size:8.5px; letter-spacing:2px; font-weight:700;}
+  .pbody{padding:14px; background:var(--bg);}
+  .card{background:#fff; border-radius:14px; padding:14px; border:1px solid #D4E8E0; margin-bottom:10px;}
+  .rk-name{font-weight:900; font-size:15px;}
+  .rk-pct{float:right; font-weight:900; font-size:20px;}
+  .bar{height:8px; border-radius:4px; background:#D4E8E0; margin:10px 0 6px; overflow:hidden;}
+  .bar i{display:block; height:100%; border-radius:4px;}
+  .hint{font-size:11px; color:#6B8C7A;}
+  .row{display:flex; justify-content:space-between; font-size:12.5px; padding:4px 0;}
+  .row.disc{color:#1A8A18; font-weight:700;}
+  .row.tot{border-top:2px solid #1A2E22; margin-top:6px; padding-top:8px; font-weight:900; font-size:15px;}
+  .lbl{font-size:10px; font-weight:800; letter-spacing:1.5px; color:#8AAB99; text-transform:uppercase; margin:0 0 8px;}
+  .note{background:#fff; border-left:4px solid var(--green); border-radius:8px; padding:12px 14px; font-size:13px; margin-top:10px;}
+</style>
+</head>
+<body>
+<h1>MotoGo24 — Věrnostní ranky v appce 🏍️</h1>
+<p class="sub">20 levelů · 1–20 % sleva · jen rezervace přes mobilní appku · barva MG loga v hlavičce = aktuální rank</p>
+
+<h2>Žebříček ranků (level · od které rezervace · sleva)</h2>
+<div class="grid" id="ladder"></div>
+
+<h2>Náhled: hlavička appky — barva rámečku MG loga podle ranku</h2>
+<div class="phones" id="headers"></div>
+
+<h2>Náhled: rank karta v profilu + sumarizace objednávky</h2>
+<div class="phones">
+  <div class="phone">
+    <div class="phead" id="profHead"></div>
+    <div class="pbody">
+      <p class="lbl">Můj rank</p>
+      <div class="card" id="rankCard"></div>
+      <p class="lbl">Můj účet</p>
+      <div class="card" style="font-size:12.5px; color:#4A6357;">👤 Osobní informace<br>📩 Zprávy<br>🧾 Faktury …</div>
+    </div>
+  </div>
+  <div class="phone">
+    <div class="phead"><div class="mg" id="sumLogo">MG</div><div><div class="ptit">Shrnutí rezervace</div><div class="psub">KROK 3 / 3</div></div></div>
+    <div class="pbody">
+      <div class="card">
+        <div class="row"><span>Yamaha MT-07 × 3 dny</span><b>4 470 Kč</b></div>
+        <div class="row"><span>Výbava spolujezdce</span><b>690 Kč</b></div>
+        <div class="row"><span>Přistavení (12 km)</span><b>240 Kč</b></div>
+        <div class="row disc"><span>★ Věrnostní sleva — Věrný zákazník (5 %)</span><b>−258 Kč</b></div>
+        <div class="row" style="color:#6B8C7A;">✓ Záloha se neúčtuje</div>
+        <div class="row tot"><span>CELKEM</span><span>5 142 Kč</span></div>
+      </div>
+      <div class="note">Stejný řádek slevy se propíše na <b>ZF</b> (zálohovou fakturu), <b>DP</b> (doklad o platbě) i <b>KF</b> (konečnou fakturu).</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const RANKS=[
+ [1,1,1,'Nováček','#9CA3AF'],[2,3,2,'Jezdec','#86EFAC'],[3,5,3,'Cestovatel','#4ADE80'],
+ [4,7,4,'Stálý jezdec','#22C55E'],[5,9,5,'Věrný zákazník','#14B8A6'],
+ [6,11,6,'Bronzový jezdec','#CD7F32'],[7,13,7,'Stříbrný jezdec','#C0C0C0'],
+ [8,15,8,'Zlatý jezdec','#FFD700'],[9,17,9,'Platinový jezdec','#E5E4E2'],
+ [10,19,10,'Diamantový jezdec','#7DD3FC'],[11,21,11,'Prémiový zákazník','#38BDF8'],
+ [12,23,12,'Mistr silnic','#3B82F6'],[13,25,13,'Šampion','#6366F1'],
+ [14,27,14,'Veterán MotoGo','#8B5CF6'],[15,29,15,'Elitní jezdec','#A855F7'],
+ [16,31,16,'Ambasador','#D946EF'],[17,33,17,'VIP','#EF4444'],
+ [18,35,18,'VIP Gold','#D4AF37'],[19,37,19,'VIP Platinum','#F1F5F9'],
+ [20,39,20,'Legenda MotoGo','linear-gradient(135deg,#FFD700,#FF6B00)'],
+];
+const FAM={1:'Začátky (zelená rodina)',6:'Kovy',11:'Prémiová liga (modro-fialová)',17:'VIP liga'};
+const ladder=document.getElementById('ladder');
+RANKS.forEach(([lvl,od,pct,nm,col])=>{
+  if(FAM[lvl]) ladder.insertAdjacentHTML('beforeend',`<div class="fam">${FAM[lvl]}</div>`);
+  const ring=col.startsWith('linear')?`border:3px solid #FFD700; box-shadow:0 0 12px #FF8C00; background:${col};`:`border:3px solid ${col}; box-shadow:0 0 10px ${col}66;`;
+  ladder.insertAdjacentHTML('beforeend',
+   `<div class="rank"><div class="swatch" style="${ring}"><span>MG</span></div>
+    <div><div class="nm">${lvl}. ${nm}</div><div class="meta">od ${od}. rezervace</div></div>
+    <div class="pct">${pct} %</div></div>`);
+});
+// ukázkové hlavičky
+const demo=[RANKS[0],RANKS[4],RANKS[7],RANKS[16],RANKS[19]];
+const heads=document.getElementById('headers');
+demo.forEach(([lvl,od,pct,nm,col])=>{
+  const ring=col.startsWith('linear')?`box-shadow:0 0 0 3px #FFD700,0 0 16px #FF8C00;`:`box-shadow:0 0 0 3px ${col},0 0 14px ${col}88;`;
+  heads.insertAdjacentHTML('beforeend',
+   `<div class="phone"><div class="phead"><div class="mg" style="${ring}">MG</div>
+    <div><div class="ptit">MOTO GO 24</div><div class="psub">PŮJČOVNA MOTOREK</div></div>
+    <div style="margin-left:auto;color:#fff;font-size:18px;">☰</div></div>
+    <div class="pbody" style="padding:10px 14px;font-size:12px;color:#4A6357;">
+    <b style="color:${col.startsWith('linear')?'#D97706':col===('#F1F5F9')?'#8AAB99':col}">${nm}</b> · sleva ${pct} % na každou rezervaci</div></div>`);
+});
+// profil karta — příklad: level 5
+const r=RANKS[4], col=r[4];
+document.getElementById('profHead').innerHTML=
+ `<div class="mg" style="box-shadow:0 0 0 3px ${col},0 0 14px ${col}88;">MG</div>
+  <div><div class="ptit">MOTO GO 24</div><div class="psub">PŮJČOVNA MOTOREK</div></div>
+  <div style="margin-left:auto;background:#74FB71;color:#0F1A14;font-weight:800;font-size:10px;padding:4px 8px;border-radius:8px;">Petr N.</div>`;
+document.getElementById('rankCard').innerHTML=
+ `<span class="rk-pct" style="color:${col}">5 %</span>
+  <div class="rk-name" style="color:${col}">🏅 VĚRNÝ ZÁKAZNÍK</div>
+  <div class="hint">Level 5 / 20 · 9 rezervací přes appku</div>
+  <div class="bar"><i style="width:25%;background:${col}"></i></div>
+  <div class="hint">Ještě <b>2 rezervace</b> do ranku <b style="color:#CD7F32">Bronzový jezdec (6 %)</b></div>`;
+document.getElementById('sumLogo').style.cssText=`box-shadow:0 0 0 3px ${col},0 0 14px ${col}88;`;
+</script>
+</body>
+</html>
