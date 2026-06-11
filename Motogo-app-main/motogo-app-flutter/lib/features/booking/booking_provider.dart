@@ -4,6 +4,7 @@ import '../../core/i18n/i18n_provider.dart';
 import '../../core/i18n/translations.dart';
 import '../auth/auth_provider.dart';
 import '../catalog/moto_model.dart';
+import '../loyalty/loyalty_provider.dart';
 import '../reservations/reservation_provider.dart';
 import 'booking_models.dart';
 import 'booking_validator.dart';
@@ -36,6 +37,8 @@ final priceBreakdownProvider = Provider<PriceBreakdown>((ref) {
   final moto = ref.watch(bookingMotoProvider);
   final pickupFee = ref.watch(pickupDelivFeeProvider);
   final returnFee = ref.watch(returnDelivFeeProvider);
+  // Věrnostní rank — sleva 1–20 % JEN pro rezervace vytvořené v aplikaci.
+  final loyalty = ref.watch(loyaltyStatusProvider).valueOrNull;
 
   return PriceCalculator.calculate(
     prices: moto?.prices,
@@ -45,6 +48,9 @@ final priceBreakdownProvider = Provider<PriceBreakdown>((ref) {
     pickupDeliveryFee: draft.pickupMethod == 'delivery' ? pickupFee : 0,
     returnDeliveryFee: draft.returnMethod == 'delivery' ? returnFee : 0,
     discounts: draft.discounts,
+    loyaltyPercent: loyalty?.percent ?? 0,
+    loyaltyLevel: loyalty?.level ?? 0,
+    loyaltyRankName: loyalty?.rankName,
   );
 });
 
@@ -98,6 +104,8 @@ Future<DiscountResult> validateAndApplyCode(String code) async {
           promoId: id,
           type: DiscountType.fixed,
           value: value,
+          // Voucher = peníze → kombinuje se s věrnostní slevou (ranky).
+          isVoucher: true,
         ),
         messageKey: 'voucherApplied',
         messageArgs: {'value': '${value.toStringAsFixed(0)} Kč'},
