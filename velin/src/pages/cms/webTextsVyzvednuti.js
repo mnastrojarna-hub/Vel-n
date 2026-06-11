@@ -15,10 +15,10 @@ export const PAGE_VYZVEDNUTI = {
       ]
     },
     {
+      // Web renderuje u horního boxu jen tlačítko (top_cta.button.label). Klíče
+      // top_cta.title a .text byly osiřelé (web je nečetl) → odstraněny.
       id: 'top_cta', label: 'Horní CTA box', location: 'Zelený CTA box pod intrem',
       fields: [
-        { key: 'web.jak_pujcit_vyzvednuti.top_cta.title', label: 'Nadpis', default: '' },
-        { key: 'web.jak_pujcit_vyzvednuti.top_cta.text', label: 'Text', type: 'textarea', default: '' },
         { key: 'web.jak_pujcit_vyzvednuti.top_cta.button.label', label: 'Tlačítko — text', default: '' },
       ]
     },
@@ -46,6 +46,7 @@ export const PAGE_VYZVEDNUTI = {
       id: 'amenities', label: 'Co u nás najdeš', location: 'Vybavení provozovny',
       fields: [
         { key: 'web.jak_pujcit_vyzvednuti.amenities.title', label: 'Nadpis', default: '' },
+        { key: 'web.jak_pujcit_vyzvednuti.amenities.lead', label: 'Úvodní věta', type: 'textarea', default: '' },
         ...range(8).map((_, i) => ({
           key: `web.jak_pujcit_vyzvednuti.amenities.items.${i}`, label: `Položka ${i + 1}`, type: 'textarea', default: ''
         })),
@@ -75,13 +76,15 @@ export const PAGE_VYZVEDNUTI = {
       fields: [
         { key: 'web.jak_pujcit_vyzvednuti.cta.title', label: 'Nadpis', default: '' },
         { key: 'web.jak_pujcit_vyzvednuti.cta.text', label: 'Text', type: 'textarea', default: '' },
+        { key: 'web.jak_pujcit_vyzvednuti.cta.text2', label: 'Text 2 (druhý odstavec)', type: 'textarea', default: '' },
       ]
     },
     {
+      // Web renderuje u tohoto boxu jen tlačítko (mid_cta.label). Klíče mid_cta.title
+      // a .text byly osiřelé → nahrazeny editovatelným mid_cta.label.
       id: 'mid_cta', label: 'Prostřední CTA box', location: 'Mezi sekcemi',
       fields: [
-        { key: 'web.jak_pujcit_vyzvednuti.mid_cta.title', label: 'Nadpis', default: '' },
-        { key: 'web.jak_pujcit_vyzvednuti.mid_cta.text', label: 'Text', type: 'textarea', default: '' },
+        { key: 'web.jak_pujcit_vyzvednuti.mid_cta.label', label: 'Tlačítko — text', default: '' },
       ]
     },
   ]
@@ -171,10 +174,10 @@ export const PAGE_DOKUMENTY = {
       ]
     },
     {
+      // Web renderuje jen tlačítko (top_cta.button.label). top_cta.title/.text
+      // byly osiřelé → odstraněny.
       id: 'top_cta', label: 'Horní CTA', location: 'CTA box pod intrem',
       fields: [
-        { key: 'web.jak_pujcit_dokumenty.top_cta.title', label: 'Nadpis', default: '' },
-        { key: 'web.jak_pujcit_dokumenty.top_cta.text', label: 'Text', type: 'textarea', default: '' },
         { key: 'web.jak_pujcit_dokumenty.top_cta.button.label', label: 'Tlačítko', default: '' },
       ]
     },
