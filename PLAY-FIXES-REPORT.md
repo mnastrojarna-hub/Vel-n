@@ -1,4 +1,4 @@
-# PLAY-FIXES-REPORT — com.motogo24.app 1.1.1 (větev `claude/play-fixes`)
+# PLAY-FIXES-REPORT — com.motogo24.app 1.1.2 (větev `claude/play-fixes`)
 
 Stav k 2026-06-11. Prostředí bez Flutter SDK → vše, co vyžaduje `flutter` CLI
 nebo Android build, je připraveno + popsáno níže v „Co zbývá na člověka".
@@ -73,8 +73,8 @@ Onboarding overlay (UI) je beze změny.
   („2–7 dní", „Ověřeno – přihlašuji…") v překladech jsou záměrné lidské texty
   (495 výskytů) — hromadná náhrada by porušila pravidlo „neměň UX texty",
   takže NEMĚNĚNO.
-- **Verze:** `pubspec.yaml` = `1.1.1+1`; versionCode dodá Codemagic
-  (`--build-number=$BUILD_NUMBER`), takže nový build bude 1.1.1 s versionCode > 19.
+- **Verze:** `pubspec.yaml` = `1.1.2+1`; versionCode dodá Codemagic
+  (`--build-number=$BUILD_NUMBER`), takže nový build bude 1.1.2 s versionCode > 19.
 
 ### Co NEŠLO spustit (chybí Flutter SDK v prostředí)
 
@@ -105,7 +105,7 @@ ne náš .htaccess → viz §4 bod 2.
 ## 3. CO CHCE NOVÝ BUILD (Codemagic)
 
 Manifest se změnil (www host + AD_ID remove) a permission_service.dart také →
-**nový AAB** přes Codemagic Android workflow (versionName 1.1.1, versionCode
+**nový AAB** přes Codemagic Android workflow (versionName 1.1.2, versionCode
 auto). Po buildu zkontrolovat merged manifest:
 
 ```bash
