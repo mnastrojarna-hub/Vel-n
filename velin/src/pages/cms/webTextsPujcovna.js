@@ -11,8 +11,8 @@ export const PAGE_PUJCOVNA = {
     {
       id: 'intro', label: 'Úvod stránky', location: 'Hlavní nadpis a úvodní odstavec',
       fields: [
-        { key: 'web.pujcovna.intro.h1', label: 'H1 nadpis', default: 'Půjčovna motorek Vysočina Motogo24' },
-        { key: 'web.pujcovna.intro.body', label: 'Úvodní text', type: 'textarea', default: 'Naše <strong>půjčovna motorek Vysočina</strong> v Pelhřimově nabízí <strong>pronájem motorek</strong> bez zbytečných překážek – <strong>bez kauce</strong>, s <strong>online rezervací</strong> a <strong>výbavou v ceně</strong>. Vyberete si z <strong>cestovních</strong>, <strong>sportovních</strong>, <strong>enduro</strong> i <strong>dětských motorek</strong>, a vyrazíte kdykoli: máme otevřeno <strong>nonstop</strong>.' },
+        { key: 'web.pujcovna.intro.h1', label: 'H1 nadpis', default: 'Motopůjčovna a půjčovna motorek Vysočina Motogo24' },
+        { key: 'web.pujcovna.intro.body', label: 'Úvodní text', type: 'textarea', default: 'Naše <strong>motopůjčovna</strong> a <strong>půjčovna motorek Vysočina</strong> v Pelhřimově nabízí <strong>pronájem motorek</strong> bez zbytečných překážek – <strong>bez kauce</strong>, s <strong>online rezervací</strong> a <strong>výbavou v ceně</strong>. Vyberete si z <strong>cestovních</strong>, <strong>sportovních</strong>, <strong>enduro</strong> i <strong>dětských motorek</strong>, a vyrazíte kdykoli: máme otevřeno <strong>nonstop</strong>.' },
       ]
     },
     {
