@@ -166,8 +166,9 @@ function PlatformChip({ userId, fallback }) {
   return <Chip label="Platforma" value={val} tone={val === '—' ? undefined : (val.includes('WEB') ? 'blue' : 'green')} />
 }
 
-/// Věrnostní rank (ranky platí JEN pro app rezervace) — dopočítá se stejně
-/// jako RPC get_loyalty_status: pct = min(20, ceil((completed_app + 1) / 2)).
+/// Věrnostní rank — body sbírají dokončené rezervace z appky I webu
+/// (1 bod; delší než 7 dní = 4 body), sleva se ale uplatňuje jen v appce.
+/// Stejný výpočet jako RPC get_loyalty_status: pct = min(20, ceil((body+1)/2)).
 /// Když tabulka loyalty_levels neexistuje (backend ještě nenasazen), chip se skryje.
 function LoyaltyChip({ userId }) {
   const [rank, setRank] = useState(null)
@@ -175,11 +176,16 @@ function LoyaltyChip({ userId }) {
     if (!userId) return
     ;(async () => {
       try {
-        const { count, error } = await supabase.from('bookings')
-          .select('id', { count: 'exact', head: true })
-          .eq('user_id', userId).eq('booking_source', 'app').eq('status', 'completed')
+        const { data: rows, error } = await supabase.from('bookings')
+          .select('start_date, end_date, is_test')
+          .eq('user_id', userId).eq('status', 'completed')
         if (error) return
-        const pct = Math.min(20, Math.ceil(((count || 0) + 1) / 2))
+        const points = (rows || []).reduce((sum, b) => {
+          if (b.is_test) return sum
+          const days = Math.round((new Date(b.end_date) - new Date(b.start_date)) / 86400000) + 1
+          return sum + (days > 7 ? 4 : 1)
+        }, 0)
+        const pct = Math.min(20, Math.ceil((points + 1) / 2))
         const { data } = await supabase.from('loyalty_levels')
           .select('name, discount_percent, color_hex').eq('level', pct).maybeSingle()
         if (data) setRank(data)

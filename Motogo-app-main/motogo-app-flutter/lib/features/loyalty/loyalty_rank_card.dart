@@ -162,7 +162,93 @@ class LoyaltyRankCard extends ConsumerWidget {
               color: MotoGoColors.g400,
             ),
           ),
+          const SizedBox(height: 8),
+
+          // Informace o programu — kompletní podmínky pro zákazníka.
+          GestureDetector(
+            onTap: () => _showProgramInfo(context, status),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('ℹ️', style: TextStyle(fontSize: 12)),
+                const SizedBox(width: 6),
+                Text(
+                  tr('loyaltyInfoBtn'),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: MotoGoColors.greenDarker,
+                    decoration: TextDecoration.underline,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
+      ),
+    );
+  }
+
+  /// Bottom sheet s podmínkami věrnostního programu.
+  void _showProgramInfo(BuildContext context, LoyaltyStatus status) {
+    String tr(String key) => t(context).tr(key);
+    final rules = [
+      tr('loyaltyRulePoints'),
+      tr('loyaltyRuleLong'),
+      tr('loyaltyRuleLevel'),
+      tr('loyaltyRuleAppOnly'),
+      tr('loyaltyRuleCombo'),
+    ];
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '🏅 ${tr('loyaltyInfoTitle')}',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                  color: MotoGoColors.black,
+                ),
+              ),
+              const SizedBox(height: 12),
+              for (final rule in rules)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('✓ ',
+                          style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w900,
+                              color: MotoGoColors.greenDarker)),
+                      Expanded(
+                        child: Text(
+                          rule,
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            color: MotoGoColors.g600,
+                            height: 1.35,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }
