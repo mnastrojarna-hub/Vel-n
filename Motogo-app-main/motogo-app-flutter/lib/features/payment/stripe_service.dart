@@ -31,6 +31,7 @@ class StripeService {
     String? orderId,
     String? incidentId,
     String? paymentMethodId,
+    Map<String, dynamic>? change,
   }) async {
     try {
       final session = MotoGoSupabase.currentSession;
@@ -52,6 +53,10 @@ class StripeService {
       if (orderId != null) body['order_id'] = orderId;
       if (incidentId != null) body['incident_id'] = incidentId;
       if (paymentMethodId != null) body['payment_method_id'] = paymentMethodId;
+      // Doplatková změna rezervace (type=extension): kompaktní payload změny.
+      // process-payment ho uloží do Stripe metadata.chg (limit 500 znaků) a
+      // webhook-receiver změnu aplikuje server-side i bez návratu do appky.
+      if (change != null && change.isNotEmpty) body['change'] = change;
 
       final response = await http.post(
         Uri.parse('${MotoGoSupabase.url}/functions/v1/process-payment'),
