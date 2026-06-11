@@ -40,7 +40,7 @@ Barvy jdou v rodinách (zelené → kovy → modrofialové → VIP), velké vizu
 
 ## 3. Zobrazení v appce
 
-1. **Hlavička (MG logo):** `lib/core/widgets/logo_header.dart` (`LogoRow`) + `home_header.dart` — logo dostane **barevný rámeček/ring + jemnou záři** v barvě ranku (logo samotné je PNG, tintovat se bude rám; tmavé barvy na tmavé hlavičce `#1A2E22` nefungují, proto světlé/metalické tóny). Level 20 = animovaná zlato-oranžová záře.
+1. **Hlavička (MG logo):** `lib/core/widgets/logo_header.dart` (`LogoRow`) + `home_header.dart` — **logo MotoGo24 (`assets/logo.png`) zůstává VŽDY 100% originál 1:1, nikdy se nepřebarvuje ani nedeformuje.** Barva ranku se projeví výhradně **barevným rámečkem/ringem + jemnou září OKOLO loga** (tmavé barvy na tmavé hlavičce `#1A2E22` nefungují, proto světlé/metalické tóny). Level 20 = animovaná zlato-oranžová záře.
 2. **Profil:** `profile_screen.dart` — nová **rank karta hned pod headerem** (za ř. 177): název ranku v barvě, % slevy, progress „level X/20", text „Ještě N rezervací do …(Y %)".
 3. **Sumarizace rezervace:** `booking/widgets/price_summary.dart` — nový zelený řádek `Věrnostní sleva (Věrný zákazník · 5 %)  −258 Kč` nad CELKEM.
 4. **Platba:** `payment_screen.dart` — do insertu rezervace přidat `loyalty_level`, `loyalty_percent`, `loyalty_discount_amount`.
