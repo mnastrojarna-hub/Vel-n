@@ -32,13 +32,17 @@ export const PAGE_VRACENI_PUJCOVNA = {
       ]
     },
     {
+      // Web renderuje issues.items jako PLOCHÝ seznam (jeden řádek = jeden string),
+      // ne box title+text. Přemapováno na plochá pole + doplněn lead/closing,
+      // které web renderuje (byly chybějící). Defaulty prázdné = web drží fallback.
       id: 'issues', label: 'Co když nastane problém', location: 'Sekce řešení nečekaných situací',
       fields: [
         { key: 'web.jak_pujcit_vraceni_pujcovna.issues.title', label: 'Nadpis', default: '' },
-        ...range(6).flatMap((_, i) => ([
-          { key: `web.jak_pujcit_vraceni_pujcovna.issues.items.${i}.title`, label: `Bod ${i + 1} — titulek`, default: '' },
-          { key: `web.jak_pujcit_vraceni_pujcovna.issues.items.${i}.text`, label: `Bod ${i + 1} — popis`, type: 'textarea', default: '' },
-        ])),
+        { key: 'web.jak_pujcit_vraceni_pujcovna.issues.lead', label: 'Úvodní věta', type: 'textarea', default: '' },
+        ...range(6).map((_, i) => ({
+          key: `web.jak_pujcit_vraceni_pujcovna.issues.items.${i}`, label: `Bod ${i + 1}`, type: 'textarea', default: ''
+        })),
+        { key: 'web.jak_pujcit_vraceni_pujcovna.issues.closing', label: 'Závěrečná věta', type: 'textarea', default: '' },
       ]
     },
     {
@@ -109,17 +113,23 @@ export const PAGE_VRACENI_JINDE = {
         ...range(3).map((_, i) => ({
           key: `web.jak_pujcit_vraceni_jinde.pricing.items.${i}`, label: `Položka ${i + 1}`, type: 'textarea', default: ''
         })),
-        { key: 'web.jak_pujcit_vraceni_jinde.pricing.example', label: 'Příklad výpočtu', type: 'textarea', default: '' },
+        // Web čte příklad jako 3 oddělená pole (nadpis / otázka / odpověď), ne jeden
+        // text. Klíč pricing.example byl osiřelý — přemapováno na example_title/q/a.
+        { key: 'web.jak_pujcit_vraceni_jinde.pricing.example_title', label: 'Příklad — nadpis', default: '' },
+        { key: 'web.jak_pujcit_vraceni_jinde.pricing.example_q', label: 'Příklad — otázka', type: 'textarea', default: '' },
+        { key: 'web.jak_pujcit_vraceni_jinde.pricing.example_a', label: 'Příklad — odpověď', type: 'textarea', default: '' },
       ]
     },
     {
+      // issues.items = plochý seznam (ne box title+text). Přemapováno + lead/closing.
       id: 'issues', label: 'Co když problém', location: 'Řešení nečekaných situací',
       fields: [
         { key: 'web.jak_pujcit_vraceni_jinde.issues.title', label: 'Nadpis', default: '' },
-        ...range(5).flatMap((_, i) => ([
-          { key: `web.jak_pujcit_vraceni_jinde.issues.items.${i}.title`, label: `Bod ${i + 1} — titulek`, default: '' },
-          { key: `web.jak_pujcit_vraceni_jinde.issues.items.${i}.text`, label: `Bod ${i + 1} — popis`, type: 'textarea', default: '' },
-        ])),
+        { key: 'web.jak_pujcit_vraceni_jinde.issues.lead', label: 'Úvodní věta', type: 'textarea', default: '' },
+        ...range(5).map((_, i) => ({
+          key: `web.jak_pujcit_vraceni_jinde.issues.items.${i}`, label: `Bod ${i + 1}`, type: 'textarea', default: ''
+        })),
+        { key: 'web.jak_pujcit_vraceni_jinde.issues.closing', label: 'Závěrečná věta', type: 'textarea', default: '' },
       ]
     },
     {

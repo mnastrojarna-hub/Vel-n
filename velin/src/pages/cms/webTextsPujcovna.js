@@ -82,6 +82,16 @@ export const PAGE_PUJCOVNA = {
         { key: 'web.pujcovna.cta.buttons.2.label', label: 'Tlačítko 3', default: 'Tipy na trasy' },
       ]
     },
+    {
+      // Web (pujcovna.php:180-182) čte seo.title/description/keywords pro <head>.
+      // Velín je dosud nevystavoval. Defaulty přesně z pujcovna.php $defaults.
+      id: 'seo_meta', label: 'SEO (meta v hlavičce – Google)', location: 'Neviditelné — titulek a popisek ve výsledcích vyhledávání',
+      fields: [
+        { key: 'web.pujcovna.seo.title', label: 'Meta title', default: 'Motopůjčovna na Vysočině – o naší půjčovně motorek | MotoGo24' },
+        { key: 'web.pujcovna.seo.description', label: 'Meta description', type: 'textarea', default: 'Motopůjčovna a půjčovna motorek Motogo24 na Vysočině. Bez kauce, s online rezervací a výbavou v ceně. Cestovní, sportovní, enduro i dětské motorky. Nonstop provoz.' },
+        { key: 'web.pujcovna.seo.keywords', label: 'Meta keywords', type: 'textarea', default: 'motopůjčovna, motopůjčovna Vysočina, motopůjčovna Pelhřimov, půjčovna motorek, půjčovna motorek Vysočina, pronájem motorek, půjčovna motocyklů, motorka bez kauce, nonstop motopůjčovna, MotoGo24' },
+      ]
+    },
   ]
 }
 
