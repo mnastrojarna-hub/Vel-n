@@ -91,8 +91,6 @@ export const PAGE_KONTAKT = {
   ]
 }
 
-const range = n => Array.from({ length: n });
-
 export const PAGE_POUKAZY = {
   id: 'poukazy', label: 'Poukazy', icon: '🎁', url: '/poukazy',
   description: 'Dárkové poukazy na pronájem motorky. Editace ve Velíně i inline na webu.',
@@ -101,39 +99,47 @@ export const PAGE_POUKAZY = {
       id: 'intro', label: 'Úvod stránky', location: 'H1, úvodní text, CTA',
       fields: [
         { key: 'web.poukazy.h1', label: 'H1', default: 'Kup dárkový poukaz – daruj zážitek na dvou kolech!' },
-        { key: 'web.poukazy.intro_left', label: 'Úvodní text (levý sloupec, HTML)', type: 'textarea', default: '' },
+        { key: 'web.poukazy.intro_left', label: 'Úvodní text (levý sloupec, HTML)', type: 'textarea', default: '<p>Hledáš originální dárek pro partnera, kamaráda nebo tátu?</p><p>&nbsp;</p><p>Naše <strong>dárkové poukazy na pronájem motorky</strong> od Motogo24 – <strong>půjčovna motorek Vysočina</strong> – potěší začátečníky i zkušené jezdce.</p><p>&nbsp;</p><p>Vyber hodnotu poukazu nebo konkrétní motorku a daruj svobodu na dvou kolech.</p>' },
         { key: 'web.poukazy.intro_cta.label', label: 'Tlačítko „Objednat poukaz"', default: 'OBJEDNAT DÁRKOVÝ POUKAZ' },
       ]
     },
     {
       id: 'steps', label: 'Kroky nákupu (3 karty)', location: 'Sekce „Jak to funguje"',
-      fields: range(3).flatMap((_, i) => ([
-        { key: `web.poukazy.steps.${i}.title`, label: `Krok ${i + 1} — titulek`, default: '' },
-        { key: `web.poukazy.steps.${i}.text`, label: `Krok ${i + 1} — popis`, type: 'textarea', default: '' },
-      ]))
+      fields: [
+        { key: 'web.poukazy.steps.0.title', label: 'Krok 1 — titulek', default: '1. Vyber' },
+        { key: 'web.poukazy.steps.0.text', label: 'Krok 1 — popis', type: 'textarea', default: 'Vybereš si hodnotu poukazu nebo konkrétní motorku.' },
+        { key: 'web.poukazy.steps.1.title', label: 'Krok 2 — titulek', default: '2. Zaplať' },
+        { key: 'web.poukazy.steps.1.text', label: 'Krok 2 — popis', type: 'textarea', default: 'Zaplatíš online.' },
+        { key: 'web.poukazy.steps.2.title', label: 'Krok 3 — titulek', default: '3. Vyzvedni' },
+        { key: 'web.poukazy.steps.2.text', label: 'Krok 3 — popis', type: 'textarea', default: 'Poukaz po zaplacení přistane do tvé e-mailové schránky.' },
+      ]
     },
     {
       id: 'validity', label: 'Platnost poukazu',
       fields: [
-        { key: 'web.poukazy.validity_note', label: 'Text o platnosti', type: 'textarea', default: 'Všechny vouchery mají platnost 3 roky od data vystavení.' },
+        { key: 'web.poukazy.validity_note', label: 'Text o platnosti', type: 'textarea', default: 'Všechny vouchery mají <strong>platnost 3 roky</strong> od data vystavení. <strong>Obdarovaný si sám zvolí termín výpůjčky</strong>, který se mu hodí. Může nás kontaktovat e-mailem, telefonicky nebo přes sociální sítě.' },
       ]
     },
     {
       id: 'why', label: 'Proč zakoupit (6 bodů)', location: 'Levý sloupec',
       fields: [
         { key: 'web.poukazy.why.title', label: 'Nadpis sekce', default: 'Proč zakoupit poukaz' },
-        ...range(6).map((_, i) => ({
-          key: `web.poukazy.why.items.${i}`, label: `Důvod ${i + 1}`, type: 'textarea', default: ''
-        })),
+        { key: 'web.poukazy.why.items.0', label: 'Důvod 1', type: 'textarea', default: '<strong>Flexibilní volba</strong> – hodnota poukazu nebo konkrétní motorka.' },
+        { key: 'web.poukazy.why.items.1', label: 'Důvod 2', type: 'textarea', default: '<strong>Platnost 3 roky</strong> – obdarovaný si sám vybere termín.' },
+        { key: 'web.poukazy.why.items.2', label: 'Důvod 3', type: 'textarea', default: '<strong>Bez kauce</strong> – férové podmínky bez zbytečných překážek.' },
+        { key: 'web.poukazy.why.items.3', label: 'Důvod 4', type: 'textarea', default: '<strong>Výbava v ceně</strong> – helma, bunda, kalhoty a rukavice zdarma.' },
+        { key: 'web.poukazy.why.items.4', label: 'Důvod 5', type: 'textarea', default: '<strong>Nonstop provoz</strong> – vyzvednutí i vrácení kdykoli v den výpůjčky.' },
+        { key: 'web.poukazy.why.items.5', label: 'Důvod 6', type: 'textarea', default: '<strong>Online objednávka</strong> – poukaz ti po zaplacení přijde e-mailem.' },
       ]
     },
     {
       id: 'how', label: 'Jak poukaz využít (4 body)', location: 'Pravý sloupec',
       fields: [
         { key: 'web.poukazy.how.title', label: 'Nadpis sekce', default: 'Jak poukaz využít' },
-        ...range(4).map((_, i) => ({
-          key: `web.poukazy.how.items.${i}`, label: `Bod ${i + 1}`, type: 'textarea', default: ''
-        })),
+        { key: 'web.poukazy.how.items.0', label: 'Bod 1', type: 'textarea', default: '<strong>Cestovní motorky</strong> – víkendový roadtrip po Vysočině i celé ČR.' },
+        { key: 'web.poukazy.how.items.1', label: 'Bod 2', type: 'textarea', default: '<strong>Sportovní motorky</strong> – adrenalinová jízda v zatáčkách.' },
+        { key: 'web.poukazy.how.items.2', label: 'Bod 3', type: 'textarea', default: '<strong>Enduro</strong> – lehký terén a dobrodružství mimo hlavní cesty.' },
+        { key: 'web.poukazy.how.items.3', label: 'Bod 4', type: 'textarea', default: '<strong>Dětské motorky</strong> – první jízdy pro malé jezdce pod dohledem.' },
       ]
     },
     {
@@ -146,17 +152,23 @@ export const PAGE_POUKAZY = {
       id: 'faq', label: 'FAQ (5 otázek)', location: 'Často kladené dotazy k poukazům',
       fields: [
         { key: 'web.poukazy.faq.title', label: 'Nadpis sekce', default: 'Často kladené dotazy k dárkovým poukazům' },
-        ...range(5).flatMap((_, i) => ([
-          { key: `web.poukazy.faq.items.${i}.q`, label: `Otázka ${i + 1}`, default: '' },
-          { key: `web.poukazy.faq.items.${i}.a`, label: `Odpověď ${i + 1}`, type: 'textarea', default: '' },
-        ])),
+        { key: 'web.poukazy.faq.items.0.q', label: 'Otázka 1', default: 'Jaká je platnost dárkového poukazu?' },
+        { key: 'web.poukazy.faq.items.0.a', label: 'Odpověď 1', type: 'textarea', default: 'Všechny vouchery mají platnost <strong>3 roky</strong> od data vystavení. Termín výpůjčky si obdarovaný volí sám.' },
+        { key: 'web.poukazy.faq.items.1.q', label: 'Otázka 2', default: 'Jak poukaz doručíte?' },
+        { key: 'web.poukazy.faq.items.1.a', label: 'Odpověď 2', type: 'textarea', default: '<strong>Okamžitě e-mailem</strong> po úhradě. Na požádání umíme připravit i dárkový tisk v provozovně.' },
+        { key: 'web.poukazy.faq.items.2.q', label: 'Otázka 3', default: 'Musí obdarovaný skládat kauci?' },
+        { key: 'web.poukazy.faq.items.2.a', label: 'Odpověď 3', type: 'textarea', default: 'Ne. <strong>Půjčujeme bez kauce</strong>. Podmínky jsou jasné a férové, výbava řidiče je v ceně.' },
+        { key: 'web.poukazy.faq.items.3.q', label: 'Otázka 4', default: 'Lze změnit termín uplatnění?' },
+        { key: 'web.poukazy.faq.items.3.a', label: 'Odpověď 4', type: 'textarea', default: 'Ano, <strong>termín lze po domluvě změnit</strong> dle dostupnosti konkrétní motorky v našem kalendáři.' },
+        { key: 'web.poukazy.faq.items.4.q', label: 'Otázka 5', default: 'Na jaké motorky lze voucher uplatnit?' },
+        { key: 'web.poukazy.faq.items.4.a', label: 'Odpověď 5', type: 'textarea', default: 'Na <strong>cestovní, sportovní, enduro i dětské motorky</strong> v nabídce Motogo24 – podle zvolené hodnoty poukazu.' },
       ]
     },
     {
       id: 'cta', label: 'Závěrečná CTA sekce',
       fields: [
         { key: 'web.poukazy.cta.title', label: 'Nadpis', default: 'Dárkový poukaz na pronájem motorky – Vysočina' },
-        { key: 'web.poukazy.cta.text', label: 'Text', type: 'textarea', default: '' },
+        { key: 'web.poukazy.cta.text', label: 'Text', type: 'textarea', default: 'Motogo24 je <strong>půjčovna motorek na Vysočině</strong> s <strong>nonstop provozem</strong>, <strong>bez kauce</strong> a <strong>výbavou v ceně</strong>. Dárkový voucher je ideální volba, jak darovat <em>motorbike rental</em> zážitek – od <strong>cestovních</strong> přes <strong>sportovní</strong> až po <strong>enduro</strong> a <strong>dětské motorky</strong>.' },
         { key: 'web.poukazy.cta.buttons.0.label', label: 'Tlačítko 1', default: 'OBJEDNAT VOUCHER' },
       ]
     },

@@ -9,16 +9,16 @@ export const PAGE_HOME = {
     {
       id: 'seo', label: 'SEO meta', location: '<head> — title, description, keywords (zobrazují se v Googlu a sociálních sítích)',
       fields: [
-        { key: 'web.home.seo.title', label: 'Title (titulek záložky)', default: 'Půjčovna motorek na Vysočině | MotoGo24' },
-        { key: 'web.home.seo.description', label: 'Meta description', type: 'textarea', default: 'Půjčte si motorku na Vysočině. Bez kauce, výbava v ceně, nonstop provoz. Cestovní, sportovní, enduro i dětské motorky. Online rezervace.' },
-        { key: 'web.home.seo.keywords', label: 'Meta keywords', type: 'textarea', default: 'půjčovna motorek Vysočina, pronájem motorek Pelhřimov, půjčovna motorek bez kauce, nonstop půjčovna, motorky k pronájmu, online rezervace motorky' },
+        { key: 'web.home.seo.title', label: 'Title (titulek záložky)', default: 'Motopůjčovna a půjčovna motorek na Vysočině | MotoGo24' },
+        { key: 'web.home.seo.description', label: 'Meta description', type: 'textarea', default: 'Motopůjčovna na Vysočině – půjčte si motorku bez kauce, s výbavou v ceně a nonstop provozem. Cestovní, sportovní, enduro i dětské motorky. Online rezervace.' },
+        { key: 'web.home.seo.keywords', label: 'Meta keywords', type: 'textarea', default: 'motopůjčovna, motopůjčovna Vysočina, motopůjčovna Pelhřimov, půjčovna motorek, půjčovna motorek Vysočina, půjčit motorku, pronájem motorky, půjčovna motocyklů, motorka bez kauce, nonstop motopůjčovna, online rezervace motorky, cestovní motorky, enduro motorky, dětské motorky, MotoGo24' },
       ]
     },
     {
       id: 'hero', label: 'Hero banner', location: 'Velký banner nahoře na stránce s obrázkem',
       fields: [
-        { key: 'web.home.hero.alt', label: 'ALT obrázku', hint: 'pro screen readery a SEO', default: 'Půjčovna motorek Vysočina' },
-        { key: 'web.home.hero.eyebrow', label: 'Horní řádek (HTML povolený)', hint: 'může obsahovat <strong>', default: '<strong>Půjčovna motorek</strong> na Vysočině' },
+        { key: 'web.home.hero.alt', label: 'ALT obrázku', hint: 'pro screen readery a SEO', default: 'Motopůjčovna a půjčovna motorek Vysočina' },
+        { key: 'web.home.hero.eyebrow', label: 'Horní řádek (HTML povolený)', hint: 'může obsahovat <strong>', default: '<strong>Motopůjčovna</strong> a <strong>půjčovna motorek</strong> na Vysočině' },
         { key: 'web.home.hero.body', label: 'Hlavní text (HTML povolený)', type: 'textarea', default: 'Půjč si motorku na Vysočině snadno online.<br>Vyber si z cestovních, sportovních i enduro modelů.<br>Rezervace s platbou kartou a rychlým převzetím.' },
         { key: 'web.home.hero.cta_primary.label', label: 'CTA tlačítko 1 — text', default: 'VYBER SI MOTORKU' },
         { key: 'web.home.hero.cta_secondary.label', label: 'CTA tlačítko 2 — text', default: 'JAK TO FUNGUJE' },
@@ -27,8 +27,8 @@ export const PAGE_HOME = {
     {
       id: 'h1', label: 'Hlavní nadpis H1 a úvodní odstavec', location: 'Pod hero bannerem, hlavní SEO nadpis',
       fields: [
-        { key: 'web.home.h1', label: 'H1 nadpis', default: 'Půjčovna motorek Vysočina Motogo24 – bez kauce a nonstop' },
-        { key: 'web.home.intro', label: 'Úvodní odstavec (HTML povolený)', type: 'textarea', default: 'Vítejte v <strong>Motogo24</strong> – vaší půjčovně motorek na Vysočině. U nás si půjčíte motorku <strong>bez kauce</strong>, s výbavou v ceně a v režimu <strong>nonstop</strong>. Ať hledáte cestovní, sportovní, enduro nebo dětskou motorku, Motogo24 vám v srdci Vysočiny nabídne motorku na míru.' },
+        { key: 'web.home.h1', label: 'H1 nadpis', default: 'Motopůjčovna Vysočina Motogo24 – půjčovna motorek bez kauce a nonstop' },
+        { key: 'web.home.intro', label: 'Úvodní odstavec (HTML povolený)', type: 'textarea', default: 'Vítejte v <strong>Motogo24</strong> – vaší <strong>motopůjčovně</strong> a půjčovně motorek na Vysočině. U nás si půjčíte motorku <strong>bez kauce</strong>, s výbavou v ceně a v režimu <strong>nonstop</strong>. Ať hledáte cestovní, sportovní, enduro nebo dětskou motorku, Motogo24 vám v srdci Vysočiny nabídne motorku na míru.' },
       ]
     },
     {
