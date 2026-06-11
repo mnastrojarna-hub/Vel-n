@@ -182,8 +182,8 @@ class AppliedDiscount {
   final double value; // percentage (0-100) or fixed amount in Kč
   double calculatedAmount; // actual Kč discount after calculation
 
-  /// true = dárkový poukaz (peníze) — kombinuje se s věrnostní slevou.
-  /// false = promo kód — s věrnostní slevou se NEkombinuje (platí výhodnější).
+  /// true = dárkový poukaz (peníze), false = promo kód. Informativní —
+  /// věrnostní sleva (ranky) se kombinuje s OBOJÍM, slevy se sčítají.
   final bool isVoucher;
 
   AppliedDiscount({
@@ -210,8 +210,8 @@ class PriceBreakdown {
   final int days;
 
   /// Věrnostní sleva (ranky) — JEN pro rezervace v aplikaci. Počítá se
-  /// z pronájmu + příslušenství (bez přistavení a pojištění) a NEkombinuje
-  /// se s promo kódem (platí výhodnější); s voucherem ano.
+  /// z pronájmu + příslušenství (bez přistavení a pojištění) a KOMBINUJE
+  /// se s promo kódy i dárkovými vouchery (slevy se sčítají).
   final double loyaltyDiscount;
   final int loyaltyPercent;
   final int loyaltyLevel;

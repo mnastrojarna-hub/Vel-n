@@ -19,7 +19,7 @@ const translationsExt10Loyalty = <String, Map<String, String>>{
     'loyaltyRuleLong': 'Rezervace delší než 7 dní = 4 body → postup o 2 ranky najednou',
     'loyaltyRuleLevel': 'Každé 2 body = nový rank a +1 % slevy (max 20 %)',
     'loyaltyRuleAppOnly': 'Sleva se uplatňuje a zobrazuje POUZE u rezervací vytvořených v aplikaci',
-    'loyaltyRuleCombo': 'Nekombinuje se s promo kódy (uplatní se výhodnější); s dárkovým poukazem ano',
+    'loyaltyRuleCombo': 'Kombinuje se s promo kódy i dárkovými poukazy — slevy se sčítají',
   },
   'en': {
     'loyaltyMyRank': 'Loyalty rank',
@@ -37,7 +37,7 @@ const translationsExt10Loyalty = <String, Map<String, String>>{
     'loyaltyRuleLong': 'Bookings longer than 7 days = 4 points → jump 2 ranks at once',
     'loyaltyRuleLevel': 'Every 2 points = new rank and +1 % discount (max 20 %)',
     'loyaltyRuleAppOnly': 'The discount applies and shows ONLY for bookings made in the app',
-    'loyaltyRuleCombo': 'Not combinable with promo codes (the better one applies); gift vouchers yes',
+    'loyaltyRuleCombo': 'Combines with promo codes and gift vouchers — discounts stack',
   },
   'de': {
     'loyaltyMyRank': 'Treuerang',
@@ -55,7 +55,7 @@ const translationsExt10Loyalty = <String, Map<String, String>>{
     'loyaltyRuleLong': 'Buchungen über 7 Tage = 4 Punkte → 2 Ränge auf einmal',
     'loyaltyRuleLevel': 'Alle 2 Punkte = neuer Rang und +1 % Rabatt (max. 20 %)',
     'loyaltyRuleAppOnly': 'Der Rabatt gilt und erscheint NUR bei Buchungen über die App',
-    'loyaltyRuleCombo': 'Nicht mit Promo-Codes kombinierbar (der bessere gilt); Gutscheine ja',
+    'loyaltyRuleCombo': 'Kombinierbar mit Promo-Codes und Gutscheinen — Rabatte addieren sich',
   },
   'nl': {
     'loyaltyMyRank': 'Loyaliteitsrang',
@@ -73,7 +73,7 @@ const translationsExt10Loyalty = <String, Map<String, String>>{
     'loyaltyRuleLong': 'Boekingen langer dan 7 dagen = 4 punten → 2 rangen tegelijk',
     'loyaltyRuleLevel': 'Elke 2 punten = nieuwe rang en +1 % korting (max 20 %)',
     'loyaltyRuleAppOnly': 'De korting geldt en toont ALLEEN bij boekingen via de app',
-    'loyaltyRuleCombo': 'Niet combineerbaar met promocodes (de beste geldt); cadeaubonnen wel',
+    'loyaltyRuleCombo': 'Combineerbaar met promocodes en cadeaubonnen — kortingen stapelen',
   },
   'es': {
     'loyaltyMyRank': 'Rango de fidelidad',
@@ -91,7 +91,7 @@ const translationsExt10Loyalty = <String, Map<String, String>>{
     'loyaltyRuleLong': 'Reservas de más de 7 días = 4 puntos → subes 2 rangos de una vez',
     'loyaltyRuleLevel': 'Cada 2 puntos = nuevo rango y +1 % de descuento (máx. 20 %)',
     'loyaltyRuleAppOnly': 'El descuento se aplica y muestra SOLO en reservas hechas en la app',
-    'loyaltyRuleCombo': 'No combinable con códigos promocionales (se aplica el mejor); vales regalo sí',
+    'loyaltyRuleCombo': 'Se combina con códigos promocionales y vales regalo — los descuentos se suman',
   },
   'fr': {
     'loyaltyMyRank': 'Rang de fidélité',
@@ -109,7 +109,7 @@ const translationsExt10Loyalty = <String, Map<String, String>>{
     'loyaltyRuleLong': "Réservations de plus de 7 jours = 4 points → 2 rangs d'un coup",
     'loyaltyRuleLevel': 'Tous les 2 points = nouveau rang et +1 % de remise (max 20 %)',
     'loyaltyRuleAppOnly': "La remise s'applique et s'affiche UNIQUEMENT pour les réservations via l'app",
-    'loyaltyRuleCombo': "Non cumulable avec les codes promo (le plus avantageux s'applique) ; bons cadeaux oui",
+    'loyaltyRuleCombo': "Cumulable avec les codes promo et les bons cadeaux — les remises s'additionnent",
   },
   'pl': {
     'loyaltyMyRank': 'Ranga lojalnościowa',
@@ -127,6 +127,6 @@ const translationsExt10Loyalty = <String, Map<String, String>>{
     'loyaltyRuleLong': 'Rezerwacje dłuższe niż 7 dni = 4 punkty → awans o 2 rangi naraz',
     'loyaltyRuleLevel': 'Każde 2 punkty = nowa ranga i +1 % rabatu (maks. 20 %)',
     'loyaltyRuleAppOnly': 'Rabat obowiązuje i wyświetla się TYLKO przy rezerwacjach w aplikacji',
-    'loyaltyRuleCombo': 'Nie łączy się z kodami promocyjnymi (obowiązuje korzystniejszy); vouchery tak',
+    'loyaltyRuleCombo': 'Łączy się z kodami promocyjnymi i voucherami — rabaty się sumują',
   },
 };
