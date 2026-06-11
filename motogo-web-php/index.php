@@ -29,6 +29,27 @@ if ($_seoEarlyPath === '/robots.txt') {
     exit;
 }
 
+// Android App Links — Google Play ověření (Digital Asset Links).
+// MUSÍ vrátit HTTP 200 + Content-Type application/json BEZ přesměrování
+// (autoVerify intent-filter pro https://motogo24.cz/app v com.motogo24.app).
+// Routujeme PŘED i18n/Supabase/page cache stejně jako robots.txt, aby ověření
+// nemohlo spadnout na žádném runtime failu ani jazykovém redirectu.
+// .htaccess navíc vyjímá /.well-known/ z kanonických 301 na www/https.
+if ($_seoEarlyPath === '/.well-known/assetlinks.json') {
+    header('Content-Type: application/json');
+    header('Cache-Control: public, max-age=3600');
+    header('Access-Control-Allow-Origin: *');
+    header('X-Robots-Tag: noindex, follow');
+    $f = __DIR__ . '/.well-known/assetlinks.json';
+    if (is_file($f)) {
+        readfile($f);
+        exit;
+    }
+    // Inline fallback, kdyby fyzický soubor na hostingu chyběl
+    echo '[{"relation":["delegate_permission/common.handle_all_urls"],"target":{"namespace":"android_app","package_name":"com.motogo24.app","sha256_cert_fingerprints":["16:89:96:54:BC:4C:02:5D:78:2C:B2:F2:5C:51:71:0F:09:51:5C:86:41:68:0E:FE:48:85:B7:26:AE:69:88:77","14:93:78:18:0A:07:61:1B:7F:A4:89:25:B3:85:50:B2:ED:49:14:C2:32:7F:59:16:5B:39:35:37:82:6B:DA:8E"]}}]';
+    exit;
+}
+
 require_once __DIR__ . '/i18n.php';
 // Detekuj jazyk co nejdřív (kvůli set-cookie hlavičce při ?lang=xx)
 i18nDetectLanguage();

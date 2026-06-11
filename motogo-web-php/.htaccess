@@ -21,10 +21,21 @@ RewriteRule ^\.well-known/acme-challenge/ - [L]
 #   - HTTP_HOST je default hosting90 hostname (h90-w22.hosting90.cz) → redirect
 #   - HTTP_HOST prazdny / neznamy → redirect
 # Vse 301 na https://www.motogo24.cz/<orig path> (primarni domena).
+# /.well-known/ je vyjmuto (viz 0c) — kvuli Android App Links assetlinks.json.
+RewriteCond %{REQUEST_URI} !^/\.well-known/
 RewriteCond %{HTTP_HOST} ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ [OR,NC]
 RewriteCond %{HTTP_HOST} ^h\d+-w\d+\.hosting90\.cz$ [OR,NC]
 RewriteCond %{HTTP_HOST} ^$
 RewriteRule ^(.*)$ https://www.motogo24.cz/$1 [L,R=301]
+
+# === 0c. Android App Links — /.well-known/ NESMI byt presmerovano =============
+# Google Play overovac stahuje https://motogo24.cz/.well-known/assetlinks.json
+# (i www variantu) a vyzaduje primou HTTP 200 odpoved s Content-Type
+# application/json — JAKYKOLIV 30x redirect (holá doména→www, http→https)
+# znamena fail overeni App Links (intent-filter autoVerify pro /app).
+# Proto maji redirect pravidla 0b, 1 a 2 podminku !^/\.well-known/.
+# Fyzicky soubor .well-known/assetlinks.json servíruje Apache primo (200);
+# fallback routa je i v index.php pro pripad chybejiciho souboru.
 
 # === 1. Force https://www. pro domeny na Hosting90 ==============================
 # Hosting90 vystavuje Let's Encrypt cert jen na www. variantu (vhost ma
@@ -33,11 +44,13 @@ RewriteRule ^(.*)$ https://www.motogo24.cz/$1 [L,R=301]
 # holou domenu rovnou na https://www.<tld> (jeden redirect, aby browser ani na
 # moment nesahnul na spatny cert). Musi byt PRED obecnym force-HTTPS nize.
 # .cz je na Forpsi (jiny provider) - tam www resi proxy, .htaccess se ho netyka.
+RewriteCond %{REQUEST_URI} !^/\.well-known/
 RewriteCond %{HTTP_HOST} ^motogo24\.(com|pl|at|es|fr|nl)$ [NC]
 RewriteRule ^(.*)$ https://www.motogo24.%1/$1 [L,R=301]
 
 # === 2. Force HTTPS pro zbytek (www. varianty + .cz) ===========================
 # Dve podminky kvuli proxy: HTTPS=on i na portu 80 muze byt false-positive.
+RewriteCond %{REQUEST_URI} !^/\.well-known/
 RewriteCond %{HTTPS} off
 RewriteCond %{HTTP:X-Forwarded-Proto} !=https
 RewriteRule ^(.*)$ https://%{HTTP_HOST}/$1 [L,R=301]
@@ -160,6 +173,13 @@ RewriteRule ^wp-login\.php$ - [R=410,L]
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^(.*)$ index.php [QSA,L]
+
+# === 5b. JSON mime type (Android App Links assetlinks.json) ====================
+# Google Play overovac vyzaduje presny Content-Type: application/json.
+# Hosting90 ho ma v mime.types, ale explicitni AddType je jistota.
+<IfModule mod_mime.c>
+  AddType application/json .json
+</IfModule>
 
 # === 6. Security headers (Lighthouse Best Practices) ============================
 # Pridava security hlavicky bez nutnosti zasahu do PHP. mod_headers musi byt
