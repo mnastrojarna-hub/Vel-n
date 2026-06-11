@@ -33,7 +33,7 @@ export default function FeatureFlagsTab() {
     const { data, error: err } = await supabase
       .from('feature_flags')
       .select('*')
-      .order('name')
+      .order('key')
     if (err) setError(err.message)
     else setFlags(data || [])
     setLoading(false)
@@ -89,7 +89,7 @@ export default function FeatureFlagsTab() {
             <div className="flex items-start gap-4">
               <div className="flex-1">
                 <div className="flex items-center gap-2">
-                  <div className="font-extrabold text-sm" style={{ color: '#0f1a14' }}>{meta?.title || f.name}</div>
+                  <div className="font-extrabold text-sm" style={{ color: '#0f1a14' }}>{meta?.title || f.key || f.name || 'Bez názvu'}</div>
                   <code style={{ fontSize: 11, background: '#eef5f1', color: '#1a8c1a', padding: '1px 6px', borderRadius: 4 }}>{f.key || f.name}</code>
                   <span style={{ fontSize: 11, fontWeight: 700, color: f.enabled ? '#16a34a' : '#9ca3af' }}>
                     {f.enabled ? '● ZAPNUTO' : '○ VYPNUTO'}
