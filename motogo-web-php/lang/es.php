@@ -1189,7 +1189,7 @@ return [
     'editRez.loc.headPickup' => '📥 Recogida de la moto',
     'editRez.loc.headReturn' => '📤 Devolución de la moto',
     'editRez.loc.atRentalTitle' => 'En la tienda Mezná',
-    'editRez.loc.atRentalDescPickup' => 'Mezná 9, 393 01 Pelhřimov — sucursal autónoma, abierta 24/7. <strong>0 CZK.</strong>',
+    'editRez.loc.atRentalDescPickup' => 'Mezná 9, 393 01 Pelhřimov — sucursal atendida, abierta 24/7. <strong>0 CZK.</strong>',
     'editRez.loc.atRentalDescReturn' => 'Devolución en la sucursal autónoma. <strong>0 CZK.</strong>',
     'editRez.loc.deliveryTitle' => 'Entrega en dirección',
     'editRez.loc.deliveryReturnTitle' => 'La recogemos donde estés',

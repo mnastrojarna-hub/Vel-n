@@ -602,7 +602,7 @@ INSERT INTO cms_variables (key, value, category) VALUES ('web.layout.editRez.loc
 INSERT INTO cms_variables (key, value, category) VALUES ('web.layout.editRez.loc.headReturn', '📤 Vrácení motorky', 'web') ON CONFLICT (key) DO NOTHING;
 INSERT INTO cms_variables (key, value, category) VALUES ('web.layout.editRez.loc.atRental', 'V půjčovně Mezná 9, 393 01 Mezná', 'web') ON CONFLICT (key) DO NOTHING;
 INSERT INTO cms_variables (key, value, category) VALUES ('web.layout.editRez.loc.atRentalTitle', 'V půjčovně Mezná', 'web') ON CONFLICT (key) DO NOTHING;
-INSERT INTO cms_variables (key, value, category) VALUES ('web.layout.editRez.loc.atRentalDescPickup', 'Mezná 9, 393 01 Pelhřimov — autonomní pobočka, otevřeno nonstop. <strong>0 Kč.</strong>', 'web') ON CONFLICT (key) DO NOTHING;
+INSERT INTO cms_variables (key, value, category) VALUES ('web.layout.editRez.loc.atRentalDescPickup', 'Mezná 9, 393 01 Pelhřimov — obslužná pobočka, otevřeno nonstop. <strong>0 Kč.</strong>', 'web') ON CONFLICT (key) DO NOTHING;
 INSERT INTO cms_variables (key, value, category) VALUES ('web.layout.editRez.loc.atRentalDescReturn', 'Vrátíte v autonomní pobočce. <strong>0 Kč.</strong>', 'web') ON CONFLICT (key) DO NOTHING;
 INSERT INTO cms_variables (key, value, category) VALUES ('web.layout.editRez.loc.delivery', 'Přistavení na adresu', 'web') ON CONFLICT (key) DO NOTHING;
 INSERT INTO cms_variables (key, value, category) VALUES ('web.layout.editRez.loc.deliveryReturn', 'Odvoz z adresy', 'web') ON CONFLICT (key) DO NOTHING;
