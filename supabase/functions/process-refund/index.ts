@@ -388,7 +388,14 @@ Deno.serve(async (req: Request) => {
       // (regenerate if missing) and return success — DON'T call Stripe again.
       // This handles the scenario where a previous refund attempt partially succeeded
       // (Stripe refund went through, status updated, but PDF/email step failed).
-      if (data.payment_status === 'refunded' || data.payment_status === 'partial_refund') {
+      //
+      // POZOR: 'partial_refund' NENÍ terminální stav — je to běžný stav rezervace po
+      // PRVNÍ rozdílové úpravě (levnější motorka / odebraná výbava / zkrácení).
+      // Další úprava se slevou musí umět vystavit DALŠÍ částečný Stripe refund +
+      // dobropis. Proto se 'partial_refund' chová idempotentně jen BEZ explicitní
+      // částky; s `amount > 0` pokračuje na nový refund (po fresh-CN dedup checku níže).
+      const wantsNewPartial = data.payment_status === 'partial_refund' && Number.isFinite(Number(amount)) && Number(amount) > 0
+      if (data.payment_status === 'refunded' || (data.payment_status === 'partial_refund' && !wantsNewPartial)) {
         alreadyRefunded = true
         let result = await ensureCreditNotePdf(supabase, booking_id, data)
         // Recovery: pokud credit_note row vůbec neexistuje (process-refund spadl
@@ -413,10 +420,38 @@ Deno.serve(async (req: Request) => {
         )
       }
 
+      // Duplicitní dispatch téže rozdílové úpravy (RPC pg_net + retry v
+      // send-booking-email běží souběžně): čerstvý dobropis na STEJNOU částku
+      // (≤15 min) znamená, že refund téhle úpravy už proběhl → vrať existující.
+      if (wantsNewPartial) {
+        const { data: freshCn } = await supabase.from('invoices')
+          .select('id, number, pdf_path')
+          .eq('booking_id', booking_id).eq('type', 'credit_note').neq('status', 'cancelled')
+          .eq('total', -Math.abs(Number(amount)))
+          .gte('created_at', new Date(Date.now() - 15 * 60_000).toISOString())
+          .order('created_at', { ascending: false }).limit(1)
+        if (freshCn?.length) {
+          await dlog('partial_refund_dedup_fresh_cn', 'info', { credit_note_id: freshCn[0].id, amount })
+          return new Response(
+            JSON.stringify({
+              success: true,
+              already_refunded: true,
+              refund_id: data.stripe_refund_id,
+              credit_note_id: freshCn[0].id,
+              credit_note_pdf_path: freshCn[0].pdf_path,
+              card_brand: data.card_brand,
+              card_last4: data.card_last4,
+            }),
+            { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } }
+          )
+        }
+      }
+
       // Refund povolíme pro 'paid' i 'refund_pending' (= „Čeká na vrácení" — storno už
-      // proběhlo, peníze jsou stále u nás a čeká se na vrácení). 'refunded'/'partial_refund'
-      // řeší idempotentní větev výše. Cokoli jiného (unpaid) refundovat nelze.
-      if (data.payment_status !== 'paid' && data.payment_status !== 'refund_pending') {
+      // proběhlo, peníze jsou stále u nás a čeká se na vrácení), plus 'partial_refund'
+      // s explicitní částkou (další rozdílová úprava). 'refunded' (a 'partial_refund'
+      // bez částky) řeší idempotentní větev výše. Cokoli jiného (unpaid) refundovat nelze.
+      if (data.payment_status !== 'paid' && data.payment_status !== 'refund_pending' && !wantsNewPartial) {
         return new Response(
           JSON.stringify({
             success: false,
@@ -574,8 +609,25 @@ Deno.serve(async (req: Request) => {
       refundParams.amount = effectiveAmountHaleru
     }
 
-    await dlog('stripe_refund_create_pre', 'info', { effectiveAmountHaleru, refundableHaleru })
-    const refund = await stripe.refunds.create(refundParams)
+    // Stripe idempotency key — dva souběžné dispatche TÉŽE refundace (pg_net z RPC
+    // + recovery retry v send-booking-email startují dřív, než první stihne zapsat
+    // credit_note) se na Stripe srazí do JEDNOHO refundu. Sekvence = počet už
+    // existujících dobropisů: souběžné duplicity vidí stejný počet → stejný klíč;
+    // legitimní DALŠÍ refund stejné částky přijde až po zápisu předchozího CN →
+    // jiný klíč.
+    let cnSeq = 0
+    try {
+      let cq = supabase.from('invoices')
+        .select('id', { count: 'exact', head: true })
+        .eq('type', 'credit_note').neq('status', 'cancelled')
+      cq = booking_id ? cq.eq('booking_id', booking_id) : cq.eq('order_id', order_id)
+      const { count } = await cq
+      cnSeq = count || 0
+    } catch { /* ignore — klíč bude jen méně specifický */ }
+    const idempotencyKey = `refund:${booking_id || order_id}:${effectiveAmountHaleru ?? 'full'}:${cnSeq}`
+
+    await dlog('stripe_refund_create_pre', 'info', { effectiveAmountHaleru, refundableHaleru, idempotency_key: idempotencyKey })
+    const refund = await stripe.refunds.create(refundParams, { idempotencyKey })
     await dlog('stripe_refund_create_ok', 'info', { refund_id: refund.id, refund_status: refund.status, refund_amount: refund.amount })
 
     // Look up card brand/last4 from the underlying Charge (used both on credit note and bookings).

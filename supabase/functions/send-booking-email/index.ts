@@ -767,11 +767,15 @@ async function autoGenerateAttachments(
     const priceDifference = Number(opts.priceDifference || 0)
 
     if (priceDifference > 0) {
-      // Prodloužení / navýšení ceny → nová rozdílová ZF + DP (source='edit')
+      // Prodloužení / navýšení ceny → nová rozdílová ZF + DP (source='edit').
+      // `price_difference` MUSÍ jít s sebou — modification_history nenese price_diff
+      // (a placená výbava / webhook doplatek do historie nezapisují vůbec), takže
+      // bez explicitní částky by generate-invoice rozdílový doklad skipnul a
+      // v mailu by zůstal jen starý DP z původní platby.
       try {
         const zfRes = await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
           method: 'POST', headers,
-          body: JSON.stringify({ type: 'advance', booking_id, source: 'edit', send_email: false }),
+          body: JSON.stringify({ type: 'advance', booking_id, source: 'edit', price_difference: priceDifference, send_email: false }),
         })
         const zfData = await zfRes.json().catch(() => ({}))
         if (zfData.success && zfData.invoice_id) {
@@ -784,7 +788,7 @@ async function autoGenerateAttachments(
       try {
         const dpRes = await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
           method: 'POST', headers,
-          body: JSON.stringify({ type: 'payment_receipt', booking_id, source: 'edit', send_email: false }),
+          body: JSON.stringify({ type: 'payment_receipt', booking_id, source: 'edit', price_difference: priceDifference, send_email: false }),
         })
         const dpData = await dpRes.json().catch(() => ({}))
         if (dpData.success && dpData.invoice_id) {
@@ -1369,11 +1373,17 @@ ${vars.tracking_number ? `<table style="width:100%;border-collapse:collapse;marg
     // Filename dedup zachytí duplicitní přílohy mezi (1) a (2).
     let finalAttachments: SentAttachment[] = []
     const seenFilenames = new Set<string>()
+    const seenPaths = new Set<string>()
     const addAttachmentUnique = (a: SentAttachment) => {
-      if (a && !seenFilenames.has(a.filename)) {
-        finalAttachments.push(a)
-        seenFilenames.add(a.filename)
-      }
+      if (!a) return
+      if (seenFilenames.has(a.filename)) return
+      // Dedup i přes storage_path — stejný doklad může přijít z hardcoded flow
+      // i z Velín synth typu pod jiným filename (např. `Doklad-platby-uprava-DP-…`
+      // z booking_modified vs `Doklad-platby-DP-…` z attachments=["DP"]).
+      if (a.storage_path && seenPaths.has(a.storage_path)) return
+      finalAttachments.push(a)
+      seenFilenames.add(a.filename)
+      if (a.storage_path) seenPaths.add(a.storage_path)
     }
 
     // 1) Hardcoded type-specific autoGenerate (booking_abandoned → ZF, booking_completed → KF,

@@ -167,6 +167,7 @@ serve(async (req) => {
       regenerate, // přepiš existující doklad aktuálními údaji (stejné číslo, stejný řádek)
       invoice_date, // YYYY-MM-DD — override data vystavení i splatnosti (využívá Velín u přegenerování)
       render_existing, // dorenderuj PDF pro EXISTUJÍCÍ doklad bez pdf_path (NEpřepočítává položky)
+      price_difference, // source='edit': částka doplatku (Kč) — posílá send-booking-email z trigger payloadu
     } = await req.json()
     if (!booking_id && !order_id) return new Response(JSON.stringify({ error: 'Missing booking_id or order_id' }), { status: 400 })
 
@@ -342,15 +343,20 @@ serve(async (req) => {
         : 'Bankovní převod'
 
       if (isEdit) {
-        // ===== EDIT: generate delta-items based on last modification_history entry =====
+        // ===== EDIT: rozdílový doklad (ZF/DP) za doplatek při úpravě rezervace =====
+        // Částka doplatku: primárně explicitní `price_difference` od volajícího —
+        // send-booking-email ji dostává z triggeru trg_send_booking_modified_email
+        // (NEW.total_price − OLD.total_price), takže pokrývá VŠECHNY cesty úprav
+        // (termín, motorka, výbava přes update_booking_gear, doplatek z webhooku).
+        // Fallback `last.price_diff` z modification_history je jen pro historická
+        // volání — RPC do historie zapisují {at, from/to dates, source} BEZ price_diff,
+        // proto dřívější spoléhání čistě na history vracelo 0 a rozdílový DP nikdy nevznikl.
         const history = Array.isArray(booking.modification_history) ? booking.modification_history : []
         const last = history[history.length - 1]
-        if (!last) {
-          return new Response(JSON.stringify({ error: 'No modification_history entry for edit invoice' }), {
-            status: 400, headers: { ...CORS, 'Content-Type': 'application/json' },
-          })
-        }
-        const priceDiff = Number(last.price_diff || 0)
+        const explicitDiff = Number(price_difference)
+        const priceDiff = Number.isFinite(explicitDiff) && explicitDiff > 0
+          ? Math.round(explicitDiff)
+          : Number(last?.price_diff || 0)
         if (priceDiff <= 0) {
           return new Response(JSON.stringify({
             success: false, skipped: true,
@@ -358,53 +364,87 @@ serve(async (req) => {
           }), { headers: { ...CORS, 'Content-Type': 'application/json' } })
         }
 
-        // Compute delta days (to_end - from_end for prodloužení)
-        const fromEnd = last.from_end ? new Date(last.from_end).getTime() : 0
-        const toEnd = last.to_end ? new Date(last.to_end).getTime() : 0
-        const fromStart = last.from_start ? new Date(last.from_start).getTime() : 0
-        const toStart = last.to_start ? new Date(last.to_start).getTime() : 0
-        const deltaDays = Math.round(((toEnd - fromEnd) - (toStart - fromStart)) / 86400000)
+        // Idempotence: stejný rozdílový doklad mohl už vystavit souběžný dispatch
+        // (hardcoded mail + dispatch_email_event, retry, dvojitý Stripe event).
+        // Stejný typ + stejná částka + čerstvý (≤15 min) → vrať existující.
+        const { data: freshEdit } = await supabase.from('invoices')
+          .select('id, number, pdf_path')
+          .eq('booking_id', booking_id).eq('type', invoiceType).eq('source', 'edit')
+          .neq('status', 'cancelled').eq('total', priceDiff)
+          .gte('created_at', new Date(Date.now() - 15 * 60_000).toISOString())
+          .order('created_at', { ascending: false }).limit(1)
+        if (freshEdit?.length && freshEdit[0].pdf_path) {
+          return new Response(JSON.stringify({
+            success: true, invoice_id: freshEdit[0].id, number: freshEdit[0].number,
+            pdf_path: freshEdit[0].pdf_path, existing: true,
+          }), { headers: { ...CORS, 'Content-Type': 'application/json' } })
+        }
+
         const motoLabel = `${booking.motorcycles?.model || 'motorky'}${booking.motorcycles?.spz ? ' (' + booking.motorcycles.spz + ')' : ''}`
         const fmtD = (s: string) => s ? new Date(s).toLocaleDateString('cs-CZ') : '—'
 
-        editLabel = deltaDays > 0
-          ? `ÚPRAVA — prodloužení o ${deltaDays} ${deltaDays === 1 ? 'den' : deltaDays < 5 ? 'dny' : 'dní'}`
-          : `ÚPRAVA — změna termínu`
+        // Denní rozpis dává smysl jen pro ČERSTVÝ history záznam se změnou termínu
+        // (zapsala ho tatáž úprava). Starý/žádný záznam = úprava přišla jinou cestou
+        // (placená výbava, doplatek aplikovaný webhookem) a rozpis by lhal.
+        const lastAt = last?.at ? new Date(last.at).getTime() : 0
+        const lastFresh = lastAt > 0 && (Date.now() - lastAt) < 15 * 60_000
+        const datesChanged = !!last && (last.from_start !== last.to_start || last.from_end !== last.to_end)
 
-        // Hlavička úpravy — section header (renderuje se přes colspan, bez ceny v řádku).
-        items.push({
-          description: `── Úprava rezervace: ${motoLabel} — nový termín ${fmtD(last.to_start)} – ${fmtD(last.to_end)} (původně ${fmtD(last.from_start)} – ${fmtD(last.from_end)}) ──`,
-          qty: 1,
-          unit_price: 0,
-        })
+        if (lastFresh && datesChanged) {
+          // Compute delta days (to_end - from_end for prodloužení)
+          const fromEnd = last.from_end ? new Date(last.from_end).getTime() : 0
+          const toEnd = last.to_end ? new Date(last.to_end).getTime() : 0
+          const fromStart = last.from_start ? new Date(last.from_start).getTime() : 0
+          const toStart = last.to_start ? new Date(last.to_start).getTime() : 0
+          const deltaDays = Math.round(((toEnd - fromEnd) - (toStart - fromStart)) / 86400000)
 
-        // Denní rozpis přidaných dnů (extend) — vychází z denních cen motorky.
-        // Bezpečné: pokud se rozpis nesejde s priceDiff (např. ruční override),
-        // přidáme korekční řádek aby součet seděl 1:1 s tím, co user platí.
-        const ext = calcPriceBreakdown(booking.motorcycles, last.to_start, last.to_end)
-        const orig = calcPriceBreakdown(booking.motorcycles, last.from_start, last.from_end)
-        const origIso = new Set((orig.days || []).map((d) => d.iso))
-        const addedDays = (ext.days || []).filter((d) => !origIso.has(d.iso))
-        const addedSum = addedDays.reduce((s, d) => s + (d.price || 0), 0)
-        if (addedDays.length && addedSum > 0) {
-          for (const ad of addedDays) {
+          editLabel = deltaDays > 0
+            ? `ÚPRAVA — prodloužení o ${deltaDays} ${deltaDays === 1 ? 'den' : deltaDays < 5 ? 'dny' : 'dní'}`
+            : `ÚPRAVA — změna termínu`
+
+          // Hlavička úpravy — section header (renderuje se přes colspan, bez ceny v řádku).
+          items.push({
+            description: `── Úprava rezervace: ${motoLabel} — nový termín ${fmtD(last.to_start)} – ${fmtD(last.to_end)} (původně ${fmtD(last.from_start)} – ${fmtD(last.from_end)}) ──`,
+            qty: 1,
+            unit_price: 0,
+          })
+
+          // Denní rozpis přidaných dnů (extend) — vychází z denních cen motorky.
+          // Bezpečné: pokud se rozpis nesejde s priceDiff (např. ruční override),
+          // přidáme korekční řádek aby součet seděl 1:1 s tím, co user platí.
+          const ext = calcPriceBreakdown(booking.motorcycles, last.to_start, last.to_end)
+          const orig = calcPriceBreakdown(booking.motorcycles, last.from_start, last.from_end)
+          const origIso = new Set((orig.days || []).map((d) => d.iso))
+          const addedDays = (ext.days || []).filter((d) => !origIso.has(d.iso))
+          const addedSum = addedDays.reduce((s, d) => s + (d.price || 0), 0)
+          if (addedDays.length && addedSum > 0) {
+            for (const ad of addedDays) {
+              items.push({
+                description: `Pronájem ${motoLabel} — ${ad.dowLabel} ${fmtD(ad.iso)}`,
+                qty: 1,
+                unit_price: ad.price,
+              })
+            }
+            if (addedSum !== priceDiff) {
+              items.push({
+                description: `Korekce ceny prodloužení`,
+                qty: 1,
+                unit_price: priceDiff - addedSum,
+              })
+            }
+          } else {
+            // Fallback: nemáme detailní rozpis (např. prázdné denní ceny) — jediný řádek.
             items.push({
-              description: `Pronájem ${motoLabel} — ${ad.dowLabel} ${fmtD(ad.iso)}`,
+              description: `Doplatek za prodloužení rezervace`,
               qty: 1,
-              unit_price: ad.price,
-            })
-          }
-          if (addedSum !== priceDiff) {
-            items.push({
-              description: `Korekce ceny prodloužení`,
-              qty: 1,
-              unit_price: priceDiff - addedSum,
+              unit_price: priceDiff,
             })
           }
         } else {
-          // Fallback: nemáme detailní rozpis (např. prázdné denní ceny) — jediný řádek.
+          // Generický doplatek — změna motorky / placená výbava / doplatek z webhooku.
+          editLabel = `ÚPRAVA — doplatek`
           items.push({
-            description: `Doplatek za prodloužení rezervace`,
+            description: `Doplatek za úpravu rezervace ${motoLabel} — ${fmtD(booking.start_date)} – ${fmtD(booking.end_date)}`,
             qty: 1,
             unit_price: priceDiff,
           })
