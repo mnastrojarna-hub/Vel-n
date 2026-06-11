@@ -15,6 +15,7 @@ import '../auth/widgets/toast_helper.dart';
 import '../booking/booking_provider.dart';
 import '../booking/booking_models.dart';
 import '../catalog/catalog_provider.dart';
+import '../loyalty/loyalty_rank_card.dart';
 import '../payment/payment_methods_screen.dart';
 import 'widgets/profile_field.dart';
 import 'widgets/profile_section_title.dart';
@@ -180,6 +181,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           SliverPadding(
             padding: const EdgeInsets.all(16),
             sliver: SliverList.list(children: [
+              // Věrnostní rank — sleva 1–20 % JEN pro rezervace v aplikaci.
+              // Karta se sama skryje (vč. titulku), dokud backend rank nevrací.
+              const LoyaltyRankCard(),
+
               // Section: Můj účet
               ProfileSectionTitle(title: t(context).tr('myAccount')),
               ProfileMenuItem(icon: '👤', label: t(context).tr('personalInfo'), onTap: () => setState(() => _personalExpanded = !_personalExpanded)),

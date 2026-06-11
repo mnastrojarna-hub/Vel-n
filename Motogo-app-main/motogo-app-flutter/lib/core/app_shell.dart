@@ -12,6 +12,7 @@ import '../features/booking/booking_provider.dart';
 import '../features/booking/booking_models.dart';
 import '../features/catalog/catalog_provider.dart';
 import '../features/documents/document_provider.dart';
+import '../features/loyalty/loyalty_levelup_overlay.dart';
 import '../features/messages/messages_provider.dart';
 import '../features/reservations/reservation_models.dart';
 import '../features/reservations/reservation_provider.dart';
@@ -243,6 +244,10 @@ class AppShell extends ConsumerWidget {
                     ref.read(_docsFabDismissedProvider.notifier).state = true,
               ),
             ),
+          // Věrnostní ranky — neviditelný hlídač postupu na vyšší level.
+          // Při level-upu přehraje celoobrazovkovou animaci (barva nového
+          // ranku proletí obrazovkou a změní ring MG loga).
+          const LoyaltyLevelUpWatcher(),
         ],
       ),
       bottomNavigationBar: keyboardOpen ? null : Container(

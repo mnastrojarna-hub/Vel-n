@@ -202,6 +202,10 @@ class PriceCalculator {
     required double returnDeliveryFee,
     required List<AppliedDiscount> discounts,
     double insuranceFee = 0,
+    // Věrnostní rank — sleva platí JEN pro rezervace v aplikaci.
+    int loyaltyPercent = 0,
+    int loyaltyLevel = 0,
+    String? loyaltyRankName,
   }) {
     if (startDate == null || endDate == null) {
       return const PriceBreakdown(
@@ -228,11 +232,37 @@ class PriceCalculator {
     // Full base before discounts
     final fullBase = basePrice + extrasTotal + deliveryTotal + insuranceFee;
 
-    // Apply discounts — mirrors _recalcBookingDiscounts()
-    // 1) Fixed amounts first, 2) Percentages on remainder
-    final discountTotal = calcDiscounts(discounts, fullBase);
+    // ── Věrnostní sleva (ranky, JEN app rezervace) ──
+    // Základ: pronájem + příslušenství (bez přistavení a pojištění).
+    final loyaltyBase = basePrice + extrasTotal;
+    final loyaltyRaw = loyaltyPercent > 0
+        ? (loyaltyBase * loyaltyPercent / 100).roundToDouble()
+        : 0.0;
 
-    final total = (fullBase - discountTotal).clamp(0, double.infinity);
+    // Promo kód vs. věrnostní sleva se NEkombinují — uplatní se výhodnější.
+    // Dárkové vouchery (= peníze) se kombinují vždy.
+    final promoDiscounts = discounts.where((d) => !d.isVoucher).toList();
+    final voucherDiscounts = discounts.where((d) => d.isVoucher).toList();
+
+    double promoTotal = calcDiscounts(promoDiscounts, fullBase);
+    double loyaltyApplied = loyaltyRaw;
+    if (promoTotal >= loyaltyRaw) {
+      loyaltyApplied = 0;
+    } else {
+      for (final d in promoDiscounts) {
+        d.calculatedAmount = 0;
+      }
+      promoTotal = 0;
+    }
+
+    final voucherTotal = calcDiscounts(
+      voucherDiscounts,
+      (fullBase - promoTotal - loyaltyApplied).clamp(0, double.infinity).toDouble(),
+    );
+    final discountTotal = promoTotal + voucherTotal;
+
+    final total =
+        (fullBase - discountTotal - loyaltyApplied).clamp(0, double.infinity);
 
     return PriceBreakdown(
       basePrice: basePrice,
@@ -243,6 +273,10 @@ class PriceCalculator {
       discountTotal: discountTotal,
       total: total.toDouble(),
       days: days,
+      loyaltyDiscount: loyaltyApplied,
+      loyaltyPercent: loyaltyApplied > 0 ? loyaltyPercent : 0,
+      loyaltyLevel: loyaltyApplied > 0 ? loyaltyLevel : 0,
+      loyaltyRankName: loyaltyApplied > 0 ? loyaltyRankName : null,
     );
   }
 

@@ -80,7 +80,7 @@ class PriceSummaryCard extends StatelessWidget {
               value: '+${item.price.toStringAsFixed(0)} Kč',
             ),
 
-          // Discount
+          // Discount (promo kód / voucher)
           if (breakdown.discountTotal > 0)
             _PriceRow(
               label: 'Sleva',
@@ -88,6 +88,23 @@ class PriceSummaryCard extends StatelessWidget {
               valueColor: MotoGoColors.greenDarker,
               valueBold: true,
             ),
+
+          // Věrnostní sleva (ranky) — JEN pro rezervace v aplikaci
+          if (breakdown.loyaltyDiscount > 0) ...[
+            _PriceRow(
+              label: '★ ${t(context).tr('loyaltyDiscountLabel').replaceAll('{rank}', breakdown.loyaltyRankName ?? '').replaceAll('{pct}', '${breakdown.loyaltyPercent}')}',
+              value: '−${breakdown.loyaltyDiscount.toStringAsFixed(0)} Kč',
+              valueColor: MotoGoColors.greenDarker,
+              valueBold: true,
+            ),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Text(
+                t(context).tr('loyaltyAppOnly'),
+                style: const TextStyle(fontSize: 9, color: MotoGoColors.g400),
+              ),
+            ),
+          ],
 
           // Deposit note
           const _PriceRow(

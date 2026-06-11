@@ -182,12 +182,17 @@ class AppliedDiscount {
   final double value; // percentage (0-100) or fixed amount in Kč
   double calculatedAmount; // actual Kč discount after calculation
 
+  /// true = dárkový poukaz (peníze) — kombinuje se s věrnostní slevou.
+  /// false = promo kód — s věrnostní slevou se NEkombinuje (platí výhodnější).
+  final bool isVoucher;
+
   AppliedDiscount({
     required this.code,
     this.promoId,
     required this.type,
     required this.value,
     this.calculatedAmount = 0,
+    this.isVoucher = false,
   });
 }
 
@@ -204,6 +209,14 @@ class PriceBreakdown {
   final double total;
   final int days;
 
+  /// Věrnostní sleva (ranky) — JEN pro rezervace v aplikaci. Počítá se
+  /// z pronájmu + příslušenství (bez přistavení a pojištění) a NEkombinuje
+  /// se s promo kódem (platí výhodnější); s voucherem ano.
+  final double loyaltyDiscount;
+  final int loyaltyPercent;
+  final int loyaltyLevel;
+  final String? loyaltyRankName;
+
   const PriceBreakdown({
     required this.basePrice,
     required this.extrasTotal,
@@ -213,6 +226,10 @@ class PriceBreakdown {
     required this.discountTotal,
     required this.total,
     required this.days,
+    this.loyaltyDiscount = 0,
+    this.loyaltyPercent = 0,
+    this.loyaltyLevel = 0,
+    this.loyaltyRankName,
   });
 
   double get deliveryFee => pickupDeliveryFee + returnDeliveryFee;

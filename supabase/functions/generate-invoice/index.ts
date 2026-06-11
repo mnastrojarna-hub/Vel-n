@@ -456,7 +456,10 @@ serve(async (req) => {
         const startDate = fmtDate(booking.start_date); const endDate = fmtDate(booking.end_date)
         const days = Math.max(1, Math.ceil((new Date(booking.end_date).getTime() - new Date(booking.start_date).getTime()) / 86400000))
         const extrasTotal = extras.reduce((s, e) => s + Number(e.unit_price || 0) * Number(e.quantity || 1), 0)
-        const baseRental = (booking.total_price || 0) - extrasTotal - (booking.delivery_fee || 0) + (booking.discount_amount || 0)
+        // Věrnostní sleva (ranky, jen app rezervace) je uložená odděleně od promo/voucher
+        // slevy — pro brutto pronájmu se přičítá zpět stejně jako discount_amount.
+        const loyaltyDiscount = Number(booking.loyalty_discount_amount || 0)
+        const baseRental = (booking.total_price || 0) - extrasTotal - (booking.delivery_fee || 0) + (booking.discount_amount || 0) + loyaltyDiscount
         const motoLabelStd = `${booking.motorcycles?.model || 'motorky'}${booking.motorcycles?.spz ? ' (' + booking.motorcycles.spz + ')' : ''}`
         const bd = calcPriceBreakdown(booking.motorcycles, booking.start_date, booking.end_date)
 
@@ -508,6 +511,12 @@ serve(async (req) => {
         if (booking.sos_replacement && !extra_items) items.push({ description: 'Záloha na poškození motorky', qty: 1, unit_price: 30000 })
         if (booking.discount_amount && Number(booking.discount_amount) > 0) {
           items.push({ description: booking.discount_code ? `Sleva (kód: ${booking.discount_code})` : 'Sleva / voucher', qty: 1, unit_price: -Number(booking.discount_amount) })
+        }
+        // Věrnostní sleva (ranky) — samostatný řádek; platí JEN pro rezervace
+        // vytvořené v aplikaci MotoGo24 (booking_source='app').
+        if (loyaltyDiscount > 0) {
+          const pctLabel = booking.loyalty_percent ? ` ${booking.loyalty_percent} %` : ''
+          items.push({ description: `Věrnostní sleva${pctLabel} — rezervace přes aplikaci MotoGo24`, qty: 1, unit_price: -loyaltyDiscount })
         }
       }
 

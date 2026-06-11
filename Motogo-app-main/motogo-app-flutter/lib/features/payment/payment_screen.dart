@@ -280,6 +280,15 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
         'discount_code': draft.discounts.isNotEmpty
             ? draft.discounts.first.code
             : null,
+        // Věrnostní sleva (ranky) — platí JEN pro app rezervace. Sloupce se
+        // posílají pouze když sleva reálně padla (= backend s loyalty_* už
+        // nasazen, RPC vrátila rank) — jinak by insert na starém schématu
+        // spadl na neznámém sloupci. Server-side trigger slevu validuje.
+        if (breakdown.loyaltyDiscount > 0) ...{
+          'loyalty_level': breakdown.loyaltyLevel,
+          'loyalty_percent': breakdown.loyaltyPercent,
+          'loyalty_discount_amount': breakdown.loyaltyDiscount,
+        },
         'pickup_method': pickupMethod,
         'pickup_address': pickupMethod == 'delivery'
             ? draft.pickupAddress
