@@ -96,6 +96,7 @@
 | `promo_codes` | Slevové kódy (type: percent/fixed) |
 | `promo_code_usage` | Použití slevových kódů |
 | `vouchers` | Dárkové poukazy (status: active/redeemed/expired/cancelled, order_id FK→shop_orders, source) |
+| `loyalty_levels` | **NEW 2026-06-11** — Věrnostní ranky pro APP rezervace (20 řádků: level PK 1–20 = % slevy, discount_percent, min_booking_order = od kolikáté app rezervace, name [Startér…Legenda MotoGo], color_hex [barva ringu MG loga v appce], translations jsonb). RLS: Public read + Admin write. Sleva platí JEN pro `booking_source='app'`. Mig. `20260611_loyalty_ranks.sql` |
 
 ### Servis a údržba
 
