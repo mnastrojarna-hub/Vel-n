@@ -166,7 +166,7 @@ class LoyaltyRankCard extends ConsumerWidget {
 
           // Informace o programu — kompletní podmínky pro zákazníka.
           GestureDetector(
-            onTap: () => _showProgramInfo(context, status),
+            onTap: () => _showProgramInfo(context),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -190,7 +190,7 @@ class LoyaltyRankCard extends ConsumerWidget {
   }
 
   /// Bottom sheet s podmínkami věrnostního programu.
-  void _showProgramInfo(BuildContext context, LoyaltyStatus status) {
+  void _showProgramInfo(BuildContext context) {
     String tr(String key) => t(context).tr(key);
     final rules = [
       tr('loyaltyRulePoints'),

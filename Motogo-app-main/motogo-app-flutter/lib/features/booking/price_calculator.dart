@@ -235,31 +235,17 @@ class PriceCalculator {
     // ── Věrnostní sleva (ranky, JEN app rezervace) ──
     // Základ: pronájem + příslušenství (bez přistavení a pojištění).
     final loyaltyBase = basePrice + extrasTotal;
-    final loyaltyRaw = loyaltyPercent > 0
+    final loyaltyApplied = loyaltyPercent > 0
         ? (loyaltyBase * loyaltyPercent / 100).roundToDouble()
         : 0.0;
 
-    // Promo kód vs. věrnostní sleva se NEkombinují — uplatní se výhodnější.
-    // Dárkové vouchery (= peníze) se kombinují vždy.
-    final promoDiscounts = discounts.where((d) => !d.isVoucher).toList();
-    final voucherDiscounts = discounts.where((d) => d.isVoucher).toList();
-
-    double promoTotal = calcDiscounts(promoDiscounts, fullBase);
-    double loyaltyApplied = loyaltyRaw;
-    if (promoTotal >= loyaltyRaw) {
-      loyaltyApplied = 0;
-    } else {
-      for (final d in promoDiscounts) {
-        d.calculatedAmount = 0;
-      }
-      promoTotal = 0;
-    }
-
-    final voucherTotal = calcDiscounts(
-      voucherDiscounts,
-      (fullBase - promoTotal - loyaltyApplied).clamp(0, double.infinity).toDouble(),
+    // Věrnostní sleva se KOMBINUJE s promo kódy i dárkovými vouchery —
+    // slevy se sčítají. Kódy se počítají ze zbytku po věrnostní slevě
+    // (uvnitř calcDiscounts: fixní částky první, procenta ze zbytku).
+    final discountTotal = calcDiscounts(
+      discounts,
+      (fullBase - loyaltyApplied).clamp(0, double.infinity).toDouble(),
     );
-    final discountTotal = promoTotal + voucherTotal;
 
     final total =
         (fullBase - discountTotal - loyaltyApplied).clamp(0, double.infinity);

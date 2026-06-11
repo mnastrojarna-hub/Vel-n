@@ -70,7 +70,7 @@ Věrnostní sleva = **samostatný záporný řádek** na všech dokladech:
 | # | Otázka | Doporučení |
 |---|---|---|
 | 1 | Co je kvalifikační rezervace? | `completed` app rezervace (storna ne) |
-| 2 | Kombinace s promo kódem? | **NE** — použije se výhodnější z obou (ochrana marže) |
+| 2 | Kombinace s promo kódem? | **ANO** — slevy se sčítají (rozhodnutí 2026-06-11) |
 | 3 | Kombinace s dárkovým voucherem? | **ANO** — voucher jsou peníze, ne sleva |
 | 4 | Základ výpočtu | pronájem + příslušenství, bez přistavení a kauce |
 | 5 | Počítají se i app rezervace před spuštěním? | **ANO** — stávající věrní zákazníci startují s rankem |
