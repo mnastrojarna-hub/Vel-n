@@ -161,6 +161,15 @@ export default function WebTextsTab({ initialPageId, initialFieldKey, initialSec
 
   return (
     <div>
+      {/* Upozornění: chybí cms_admin_token → náhledy/zvýraznění textů na webu nefungují */}
+      {!adminToken && !loading && (
+        <div className="mb-4 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fde68a', color: '#854d0e', fontSize: 13 }}>
+          <strong>ℹ️ Náhled textů na webu je vypnutý.</strong> Tlačítka „🔗 Otevřít / zvýraznit na webu" potřebují
+          token <code>cms_admin_token</code> v tabulce <code>app_settings</code>. Bez něj <strong>editace a ukládání
+          textů funguje normálně</strong> — jen se na webu nezvýrazní, které pole odkud je. Token doplní vývojář
+          (jednorázově). Toto není chyba textů.
+        </div>
+      )}
       {/* Globální statistika — rozliseni filled/optional/missing */}
       <div className="flex items-center gap-4 mb-4 p-3 rounded-card" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
         <div className="flex-1">
