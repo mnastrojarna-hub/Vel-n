@@ -2,6 +2,7 @@ import Card from '../../components/ui/Card'
 import Badge from '../../components/ui/Badge'
 import MiniChart from '../../components/ui/MiniChart'
 import { getDisplayStatus } from '../../components/ui/StatusBadge'
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts'
 
 export const STATUS_MAP = {
   active: { label: 'Aktivní', color: '#1a8a18', bg: '#dcfce7' },
@@ -80,6 +81,56 @@ export function BookingRowsCard({ icon, title, bookings, nav, dateField }) {
           badge={STATUS_MAP[getDisplayStatus(b)] && <Badge {...STATUS_MAP[getDisplayStatus(b)]} />}
         />
       ))}
+    </WidgetCard>
+  )
+}
+
+export function RevenueChartCard({ data, nav }) {
+  const fmtAxis = (v) => v >= 1_000_000 ? `${(v / 1_000_000).toLocaleString('cs-CZ')}M` : v >= 1000 ? `${Math.round(v / 1000)}k` : v
+  return (
+    <WidgetCard icon="📈" title="Tržby dle měsíců (z přijatých plateb)" onOpen={() => nav('/finance')}>
+      {data.some(d => d.value > 0) ? (
+        <ResponsiveContainer width="100%" height={200}>
+          <BarChart data={data} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e0ede7" vertical={false} />
+            <XAxis dataKey="label" tick={{ fontSize: 10, fontWeight: 700, fill: '#1a2e22' }} axisLine={false} tickLine={false} interval={0} />
+            <YAxis tickFormatter={fmtAxis} tick={{ fontSize: 10, fontWeight: 700, fill: '#1a2e22' }} axisLine={false} tickLine={false} width={44} />
+            <Tooltip cursor={{ fill: '#f1faf7' }}
+              formatter={(v) => [`${Number(v).toLocaleString('cs-CZ')} Kč`, 'Tržby']}
+              labelFormatter={(l, p) => p?.[0]?.payload?.full || l}
+              contentStyle={{ borderRadius: 12, border: '1px solid #d4e8e0', fontSize: 12, fontWeight: 700 }} />
+            <Bar dataKey="value" fill="#3dba3a" radius={[6, 6, 0, 0]} maxBarSize={30} />
+          </BarChart>
+        </ResponsiveContainer>
+      ) : <Empty>Zatím žádné přijaté platby za posledních 12 měsíců</Empty>}
+    </WidgetCard>
+  )
+}
+
+const MOD_SOURCE_LABELS = {
+  web_customer: 'zákazník (web)', app: 'zákazník (app)', ai_agent: 'AI agent',
+  velin: 'Velín', admin: 'Velín', stripe_webhook: 'doplatek (Stripe)',
+}
+
+export function ModificationsCard({ mods, nav }) {
+  return (
+    <WidgetCard icon="✏️" title="Poslední úpravy rezervací" onOpen={() => nav('/rezervace')}>
+      {mods.length === 0 ? <Empty>Žádné úpravy rezervací</Empty> : mods.map(m => {
+        const e = m.lastMod
+        const dateChange = e.to_start && (e.to_start !== e.from_start || e.to_end !== e.from_end)
+        const what = e.free_move ? `posun zdarma → ${fmtD(e.to_start)} – ${fmtD(e.to_end)}`
+          : dateChange ? `termín ${fmtD(e.from_start)} – ${fmtD(e.from_end)} → ${fmtD(e.to_start)} – ${fmtD(e.to_end)}`
+          : 'úprava rezervace'
+        const diff = Number(e.price_diff ?? e.gross_diff)
+        return (
+          <Row key={m.id} onClick={() => nav(`/rezervace/${m.id}`)}
+            title={`${m.customer_name || 'Zákazník'} · ${m.motorcycle_name || 'Motorka'}`}
+            sub={`${fmtDT(e.at)} · ${what}`}
+            right={Number.isFinite(diff) && diff !== 0 ? `${diff > 0 ? '+' : '−'}${fmtKc(Math.abs(diff))}` : null}
+            badge={<Badge label={MOD_SOURCE_LABELS[e.source] || e.source || '—'} color="#7c3aed" bg="#ede9fe" />}
+          />
+        )
+      })}
     </WidgetCard>
   )
 }

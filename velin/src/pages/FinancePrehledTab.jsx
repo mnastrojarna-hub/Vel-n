@@ -5,6 +5,7 @@ import Modal from '../components/ui/Modal'
 import { Table, TRow, TH, TD } from '../components/ui/Table'
 import { classifyEntry } from '../lib/revenueUtils'
 import { DetailRow, SummaryCard, MiniStat, CheckboxFilterGroup, TypeBadge } from './financeHelpers'
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from 'recharts'
 
 const PERIODS = [
   { value: 'month', label: 'Mesic' },
@@ -80,20 +81,19 @@ export default function FinancePrehledTab({
         {chartData.length > 0 && (
           <Card className="mb-5">
             <h3 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>Trzby vs. naklady (12 mesicu)</h3>
-            <div className="flex items-end gap-1" style={{ height: 120 }}>
-              {chartData.map((m, i) => {
-                const max = Math.max(...chartData.map(c => Math.max(c.revenue, c.expense)), 1)
-                return (
-                  <div key={i} className="flex-1 flex flex-col items-center gap-0.5">
-                    <div className="w-full flex gap-0.5" style={{ height: 100 }}>
-                      <div className="flex-1 rounded-t" style={{ background: '#74FB71', height: `${(m.revenue / max) * 100}%`, marginTop: 'auto' }} />
-                      <div className="flex-1 rounded-t" style={{ background: '#fee2e2', height: `${(m.expense / max) * 100}%`, marginTop: 'auto' }} />
-                    </div>
-                    <span className="text-[8px] font-bold" style={{ color: '#1a2e22' }}>{m.label}</span>
-                  </div>
-                )
-              })}
-            </div>
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={chartData} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e0ede7" vertical={false} />
+                <XAxis dataKey="label" tick={{ fontSize: 10, fontWeight: 700, fill: '#1a2e22' }} axisLine={false} tickLine={false} interval={0} />
+                <YAxis tickFormatter={(v) => v >= 1_000_000 ? `${(v / 1_000_000).toLocaleString('cs-CZ')}M` : v >= 1000 ? `${Math.round(v / 1000)}k` : v}
+                  tick={{ fontSize: 10, fontWeight: 700, fill: '#1a2e22' }} axisLine={false} tickLine={false} width={44} />
+                <Tooltip cursor={{ fill: '#f1faf7' }} formatter={(v) => `${Number(v).toLocaleString('cs-CZ')} Kč`}
+                  contentStyle={{ borderRadius: 12, border: '1px solid #d4e8e0', fontSize: 12, fontWeight: 700 }} />
+                <Legend wrapperStyle={{ fontSize: 11, fontWeight: 700 }} />
+                <Bar dataKey="revenue" name="Tržby" fill="#3dba3a" radius={[5, 5, 0, 0]} maxBarSize={22} />
+                <Bar dataKey="expense" name="Náklady" fill="#f87171" radius={[5, 5, 0, 0]} maxBarSize={22} />
+              </BarChart>
+            </ResponsiveContainer>
           </Card>
         )}
 
