@@ -87,7 +87,7 @@
 - id (refs auth.users), full_name, email, phone
 - street, city, zip, country
 - ico, dic, license_number, license_expiry
-- license_group (text[]), riding_experience
+- license_group (`license_group[]` — pole ENUM hodnot AM/A1/A2/A/B/N, **OPRAVA 2026-06-11:** dříve chybně dokumentováno jako text[]; update vyžaduje cast `ARRAY['A']::license_group[]`), riding_experience
 - emergency_contact, emergency_phone
 - gear_sizes (jsonb), reliability_score (jsonb)
 - marketing_consent (boolean DEFAULT **true**)
