@@ -72,12 +72,19 @@ function generateVoucherHtml(code: string, amount: number, validUntil: string, b
 </div></body></html>`
 }
 
-/** Confirm booking payment via existing RPC */
+/** Confirm booking payment via existing RPC.
+ *  `suppressMail=true` (doplatková extension platba): potvrď platbu + ulož PI,
+ *  ale NIKDY neposílej booking_reserved mail — booking po předchozí vratkové
+ *  úpravě je `partial_refund`, confirm_payment ho přepne zpět na `paid` s
+ *  was_already_paid=false a bez tohoto flagu by zákazník dostal druhý
+ *  „rezervace potvrzena" mail. Správný mail (web_/booking_modified) posílá
+ *  trigger trg_send_booking_modified_email po aplikaci změny. */
 export async function confirmBookingPayment(
   supabase: ReturnType<typeof createClient>,
   bookingId: string,
   transactionId: string,
-  stripePaymentIntentId?: string | null
+  stripePaymentIntentId?: string | null,
+  suppressMail = false
 ) {
   try {
     // ── ATOMIC dedup: confirm_payment RPC interně dělá UPDATE WHERE payment_status != 'paid'
@@ -149,6 +156,18 @@ export async function confirmBookingPayment(
           })
           .eq('id', bookingId)
       } catch (e) { /* ignore */ }
+    }
+
+    // Doplatková extension platba → mail booking_reserved se neposílá (viz docblock).
+    if (suppressMail) {
+      try {
+        await supabase.from('debug_log').insert({
+          source: 'webhook-receiver', action: 'confirm_booking_payment_extension_no_mail',
+          component: 'stripe', status: 'ok',
+          request_data: { booking_id: bookingId, transaction_id: transactionId },
+        })
+      } catch { /* ignore */ }
+      return
     }
 
     // Auto-generate documents + send confirmation email with attachments (best-effort)

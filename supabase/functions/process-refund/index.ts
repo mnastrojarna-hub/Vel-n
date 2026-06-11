@@ -432,13 +432,20 @@ Deno.serve(async (req: Request) => {
           .order('created_at', { ascending: false }).limit(1)
         if (freshCn?.length) {
           await dlog('partial_refund_dedup_fresh_cn', 'info', { credit_note_id: freshCn[0].id, amount })
+          // Dobropis existuje, ale PDF mohlo selhat (PDFShift/Storage) → dorenderuj,
+          // ať má retry loop v send-booking-email co přiložit.
+          let pdfPath = freshCn[0].pdf_path
+          if (!pdfPath) {
+            const ensured = await ensureCreditNotePdf(supabase, booking_id, data)
+            if (ensured.creditNoteId === freshCn[0].id && ensured.pdfPath) pdfPath = ensured.pdfPath
+          }
           return new Response(
             JSON.stringify({
               success: true,
               already_refunded: true,
               refund_id: data.stripe_refund_id,
               credit_note_id: freshCn[0].id,
-              credit_note_pdf_path: freshCn[0].pdf_path,
+              credit_note_pdf_path: pdfPath,
               card_brand: data.card_brand,
               card_last4: data.card_last4,
             }),
@@ -611,20 +618,23 @@ Deno.serve(async (req: Request) => {
 
     // Stripe idempotency key — dva souběžné dispatche TÉŽE refundace (pg_net z RPC
     // + recovery retry v send-booking-email startují dřív, než první stihne zapsat
-    // credit_note) se na Stripe srazí do JEDNOHO refundu. Sekvence = počet už
-    // existujících dobropisů: souběžné duplicity vidí stejný počet → stejný klíč;
-    // legitimní DALŠÍ refund stejné částky přijde až po zápisu předchozího CN →
-    // jiný klíč.
-    let cnSeq = 0
-    try {
-      let cq = supabase.from('invoices')
-        .select('id', { count: 'exact', head: true })
-        .eq('type', 'credit_note').neq('status', 'cancelled')
-      cq = booking_id ? cq.eq('booking_id', booking_id) : cq.eq('order_id', order_id)
-      const { count } = await cq
-      cnSeq = count || 0
-    } catch { /* ignore — klíč bude jen méně specifický */ }
-    const idempotencyKey = `refund:${booking_id || order_id}:${effectiveAmountHaleru ?? 'full'}:${cnSeq}`
+    // credit_note) se na Stripe srazí do JEDNOHO refundu. Sekvenční složka =
+    // `refundableHaleru` (charged − už refundováno na PI): souběžné duplicity ho
+    // vidí stejné → stejný klíč → jeden refund; legitimní DALŠÍ refund (klidně
+    // stejné částky) přijde až po provedení předchozího → refundable kleslo →
+    // jiný klíč. Fallback na počet dobropisů, když PI lookup selhal.
+    let seqPart: number | string | null = refundableHaleru
+    if (seqPart == null) {
+      try {
+        let cq = supabase.from('invoices')
+          .select('id', { count: 'exact', head: true })
+          .eq('type', 'credit_note').neq('status', 'cancelled')
+        cq = booking_id ? cq.eq('booking_id', booking_id) : cq.eq('order_id', order_id)
+        const { count } = await cq
+        seqPart = `cn${count || 0}`
+      } catch { seqPart = 'na' }
+    }
+    const idempotencyKey = `refund:${booking_id || order_id}:${effectiveAmountHaleru ?? 'full'}:${seqPart}`
 
     await dlog('stripe_refund_create_pre', 'info', { effectiveAmountHaleru, refundableHaleru, idempotency_key: idempotencyKey })
     const refund = await stripe.refunds.create(refundParams, { idempotencyKey })

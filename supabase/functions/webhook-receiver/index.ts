@@ -96,7 +96,8 @@ async function applyExtensionChange(
   // payment_screen.dart) — stejná záchranná síť jako web: doplatková změna se
   // uloží server-side, i když je appka po platbě zabita / spadne před apply.
   for (const col of ['start_date', 'end_date', 'moto_id', 'pickup_method', 'pickup_address',
-                     'return_method', 'return_address', 'pickup_time', 'return_time'] as const) {
+                     'return_method', 'return_address', 'pickup_time', 'return_time',
+                     'discount_amount'] as const) {
     if (def(a[col]) && d[col] === undefined) d[col] = a[col]
   }
   // Absolutní cílová cena (z dry-run RPC) — idempotentní, na rozdíl od klienta,
@@ -278,7 +279,9 @@ Deno.serve(async (req: Request) => {
           try { await syncCardsForCustomer(supabase, session.customer as string) } catch (e) { console.warn('[webhook] card sync failed:', (e as Error).message) }
         }
       } else if ((paymentType === 'booking' || paymentType === 'extension') && resolvedBookingId) {
-        await confirmBookingPayment(supabase, resolvedBookingId, session.id, stripePaymentIntentId)
+        // extension = doplatek za úpravu → potvrdit platbu, ale bez booking_reserved
+        // mailu (mail úpravy pošle trigger po aplikaci změny níže)
+        await confirmBookingPayment(supabase, resolvedBookingId, session.id, stripePaymentIntentId, paymentType === 'extension')
         // Doplatková změna rezervace — aplikuj server-side (spustí web_booking_modified)
         if (paymentType === 'extension') {
           try { await applyExtensionChange(supabase, resolvedBookingId, metadata.chg) }
@@ -335,7 +338,7 @@ Deno.serve(async (req: Request) => {
       }
 
       if ((paymentType === 'booking' || paymentType === 'extension') && resolvedBookingId) {
-        await confirmBookingPayment(supabase, resolvedBookingId, paymentIntent.id)
+        await confirmBookingPayment(supabase, resolvedBookingId, paymentIntent.id, null, paymentType === 'extension')
         if (paymentType === 'extension') {
           try { await applyExtensionChange(supabase, resolvedBookingId, metadata.chg) }
           catch (e) { console.warn('[webhook] extension change apply (intent) failed:', (e as Error).message) }
