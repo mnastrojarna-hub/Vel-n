@@ -15,9 +15,9 @@
 
 | Lvl | Od rezervace | Sleva | Název | Barva loga (hex) |
 |----|----|----|----|----|
-| 1 | 1. | 1 % | Nováček | `#9CA3AF` šedá |
+| 1 | 1. | 1 % | Startér | `#9CA3AF` šedá |
 | 2 | 3. | 2 % | Jezdec | `#86EFAC` sv. zelená |
-| 3 | 5. | 3 % | Cestovatel | `#4ADE80` zelená |
+| 3 | 5. | 3 % | Motorkář | `#4ADE80` zelená |
 | 4 | 7. | 4 % | Stálý jezdec | `#22C55E` tm. zelená |
 | 5 | 9. | 5 % | Věrný zákazník | `#14B8A6` tyrkys |
 | 6 | 11. | 6 % | Bronzový jezdec | `#CD7F32` bronz |
