@@ -60,8 +60,36 @@ export default function Navstevnost() {
   const [needsSetup, setNeedsSetup] = useState(false)
   const [allStats, setAllStats] = useState(null) // host = null (pro chipy domén + KPI když "vše")
   const [stats, setStats] = useState(null)       // aplikovaný host filtr
+  const [biz, setBiz] = useState(null)           // reální zákazníci: rezervace + tržby za stejné období
 
   useEffect(() => { loadData() }, [gran, custom, host])
+  useEffect(() => { loadBiz() }, [gran, custom])
+
+  // Byznys výsledek za stejné období — propojuje návštěvnost s reálným dopadem
+  // (rezervace + tržby). visitor_log je cookieless, takže per-návštěvníka spojit
+  // s rezervací nelze; tady agregujeme rezervace dle zdroje (web/app) a počítáme
+  // orientační konverzi vůči unikátním návštěvníkům.
+  async function loadBiz() {
+    try {
+      const { from, to } = range()
+      const { data, error: e } = await supabase
+        .from('bookings')
+        .select('total_price, payment_status, status, booking_source, created_at')
+        .gte('created_at', from).lte('created_at', to)
+      if (e) { setBiz(null); return }
+      const PAID = new Set(['paid', 'partial_refund', 'refund_pending', 'refunded'])
+      const acc = { web: { count: 0, paid: 0, revenue: 0 }, app: { count: 0, paid: 0, revenue: 0 } }
+      for (const b of (data || [])) {
+        const src = b.booking_source === 'web' ? 'web' : 'app'
+        acc[src].count++
+        if (PAID.has(b.payment_status) && b.status !== 'cancelled') {
+          acc[src].paid++
+          acc[src].revenue += Number(b.total_price || 0)
+        }
+      }
+      setBiz(acc)
+    } catch { setBiz(null) }
+  }
 
   function range() {
     if (custom.from && custom.to) {
@@ -201,6 +229,24 @@ export default function Navstevnost() {
         <KpiTile label="Z vyhledávačů" value={pct(Number(byType.search || 0), typeTotal) + ' %'} hint="Google, Seznam…" color="#4285f4" />
         <KpiTile label="Ze sociálních sítí" value={pct(Number(byType.social || 0), typeTotal) + ' %'} hint="FB, IG…" color="#f97316" />
       </div>
+
+      {/* Byznys výsledek — reální zákazníci + tržby za stejné období */}
+      {biz && (
+        <div style={{ background: '#fff', borderRadius: 14, padding: 16, border: '1px solid #e3e8e5', marginBottom: 20 }}>
+          <h3 className="font-extrabold text-sm" style={{ color: '#1a2e22' }}>Byznys výsledek za období (reální zákazníci)</h3>
+          <p className="text-xs mb-3" style={{ color: '#888' }}>
+            Rezervace a tržby ze stejného období jako návštěvnost výše. Konverze je orientační (návštěvnost je
+            cookieless, nelze spojit konkrétního návštěvníka s rezervací) — počítá zaplacené web rezervace vůči unikátním návštěvníkům.
+          </p>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            <KpiTile label="Rezervací (web)" value={biz.web.count.toLocaleString('cs-CZ')} hint={`z toho ${biz.web.paid} zaplacených`} color="#74FB71" />
+            <KpiTile label="Tržby web" value={Math.round(biz.web.revenue).toLocaleString('cs-CZ') + ' Kč'} hint="zaplacené web rezervace" color="#166534" />
+            <KpiTile label="Konverze web" value={(visitors > 0 ? (biz.web.paid / visitors * 100).toFixed(2) : '0') + ' %'} hint="zaplacené web / návštěvníci" color="#4285f4" />
+            <KpiTile label="Rezervací (app)" value={biz.app.count.toLocaleString('cs-CZ')} hint={`z toho ${biz.app.paid} zaplacených`} color="#f97316" />
+            <KpiTile label="Tržby app" value={Math.round(biz.app.revenue).toLocaleString('cs-CZ') + ' Kč'} hint="zaplacené app rezervace" color="#d4a017" />
+          </div>
+        </div>
+      )}
 
       {/* Timeline */}
       <div style={{ background: '#fff', borderRadius: 14, padding: 16, border: '1px solid #e3e8e5', marginBottom: 20 }}>

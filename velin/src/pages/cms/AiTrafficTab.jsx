@@ -106,8 +106,6 @@ export default function AiTrafficTab() {
   const [pageDetail, setPageDetail] = useState(null)
   const [pageDetailLoading, setPageDetailLoading] = useState(false)
   const [trafficMissing, setTrafficMissing] = useState(false)
-  const [webUsersCount, setWebUsersCount] = useState(0)
-  const [appUsersCount, setAppUsersCount] = useState(0)
 
   useEffect(() => { loadData() }, [period])
 
@@ -119,11 +117,7 @@ export default function AiTrafficTab() {
       const from = new Date(Date.now() - periodObj.ms).toISOString()
       const to = new Date().toISOString()
 
-      const [statsRes, webRes, appRes] = await Promise.all([
-        supabase.rpc('get_ai_traffic_stats', { p_from: from, p_to: to }),
-        supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('registration_source', 'web'),
-        supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('registration_source', 'app'),
-      ])
+      const statsRes = await supabase.rpc('get_ai_traffic_stats', { p_from: from, p_to: to })
 
       // RPC nemusí být v DB → tabulky/funkce ještě nejsou nasazené.
       // PGRST202 = function not found, 42883 = no such function.
@@ -139,9 +133,6 @@ export default function AiTrafficTab() {
       } else {
         setStats(statsRes.data || null)
       }
-
-      setWebUsersCount(webRes.count || 0)
-      setAppUsersCount(appRes.count || 0)
     } catch (e) {
       setError(e.message)
     } finally {
@@ -201,6 +192,8 @@ export default function AiTrafficTab() {
   const byBot = useMemo(() => stats ? toMap(stats.by_bot) : {}, [stats])
   const uniqueBots = Object.keys(byBot).length
   const totalBookings = stats ? Number(stats.bookings_from_ai ?? stats.bookings ?? 0) : 0
+  // Konverze = kolik z AI requestů skončilo rezervací (orientační — AI agent/widget vs. holé crawly).
+  const convRate = totalAi > 0 ? ((totalBookings / totalAi) * 100) : 0
 
   const detailDaily = useMemo(() => {
     if (!pageDetail) return []
@@ -231,7 +224,8 @@ export default function AiTrafficTab() {
         <div>
           <h2 className="text-xl font-extrabold" style={{ color: '#1a2e22' }}>AI návštěvnost</h2>
           <p className="text-xs" style={{ color: '#888' }}>
-            Které stránky čtou AI crawlery (GPTBot, ClaudeBot, PerplexityBot, ...) a kolik z nich vede k rezervaci.
+            Návštěvy <strong>AI crawlerů a botů</strong> (GPTBot, ClaudeBot, PerplexityBot…) — odděleně od lidské
+            návštěvnosti (ta je v <strong>Analýza → Návštěvnost</strong>). Které stránky AI čtou a kolik vede k rezervaci.
           </p>
         </div>
         <div className="flex gap-2">
@@ -249,25 +243,23 @@ export default function AiTrafficTab() {
         </div>
       </div>
 
-      {/* KPI tiles */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
-        <KpiTile label="AI requests" value={totalAi.toLocaleString('cs-CZ')} hint={`${PERIODS.find(p => p.id === period).label} zpětně`} />
-        <KpiTile label="Celková návštěvnost webu" value={(webUsersCount + appUsersCount).toLocaleString('cs-CZ')} hint="registrovaní zákazníci celkem" />
-        <KpiTile label="Uživatelé webu" value={webUsersCount.toLocaleString('cs-CZ')} hint="profiles.registration_source='web'" />
-        <KpiTile label="Uživatelé app" value={appUsersCount.toLocaleString('cs-CZ')} hint="profiles.registration_source='app'" />
+      {/* KPI tiles — výhradně AI provoz (registrace zákazníků jsou v Analýza → Zákazníci) */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+        <KpiTile label="AI requestů" value={totalAi.toLocaleString('cs-CZ')} hint={`${PERIODS.find(p => p.id === period).label} zpětně`} />
         <KpiTile label="Unikátních botů" value={uniqueBots} hint="GPTBot, ClaudeBot, ..." />
         <KpiTile label="Rezervací z AI" value={totalBookings} hint="outcome='booking_created'" />
+        <KpiTile label="Konverze AI" value={convRate ? convRate.toFixed(2) + ' %' : '—'} hint="rezervace / AI requesty" />
       </div>
 
       {trafficMissing && (
         <div style={{ marginBottom: 16, padding: 14, background: '#fef3c7', borderRadius: 14, border: '1px solid #fde68a', color: '#854d0e', fontSize: 13 }}>
-          <strong>RPC <code>get_ai_traffic_stats</code> není v databázi.</strong> Spusť pre-req SQL z chatu (changelog 2026-04-26) — bez něj edge funkce <code>public-api</code>, <code>mcp-server</code> a <code>ai-public-agent</code> nelogují provoz a tento dashboard nemá data. Počty uživatelů webu/app fungují i tak.
+          <strong>RPC <code>get_ai_traffic_stats</code> není v databázi.</strong> Spusť pre-req SQL z chatu (changelog 2026-04-26) — bez něj edge funkce <code>public-api</code>, <code>mcp-server</code> a <code>ai-public-agent</code> nelogují provoz a tento dashboard nemá data.
         </div>
       )}
 
       {/* Tabulka per stránka */}
       <div style={{ background: '#fff', borderRadius: 14, padding: 16, border: '1px solid #e3e8e5' }}>
-        <h3 className="font-extrabold text-sm mb-3" style={{ color: '#1a2e22' }}>Návštěvnost per stránka</h3>
+        <h3 className="font-extrabold text-sm mb-3" style={{ color: '#1a2e22' }}>AI requesty per stránka</h3>
         <div style={{ overflowX: 'auto' }}>
           <table className="w-full text-xs">
             <thead>
@@ -336,7 +328,7 @@ export default function AiTrafficTab() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <h4 className="font-bold text-xs mb-2" style={{ color: '#1a2e22' }}>Návštěvnost v čase</h4>
+                <h4 className="font-bold text-xs mb-2" style={{ color: '#1a2e22' }}>AI requesty v čase</h4>
                 <ResponsiveContainer width="100%" height={180}>
                   <LineChart data={detailDaily}>
                     <XAxis dataKey="date" fontSize={10} />

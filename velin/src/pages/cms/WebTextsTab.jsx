@@ -63,6 +63,7 @@ export default function WebTextsTab({ initialPageId, initialFieldKey, initialSec
   const [values, setValues] = useState({})
   const [loading, setLoading] = useState(true)
   const [seeding, setSeeding] = useState(false)
+  const [seedError, setSeedError] = useState(null)
   const [adminToken, setAdminToken] = useState('')
 
   useEffect(() => { loadValues(); loadAdminToken() }, [])
@@ -110,15 +111,22 @@ export default function WebTextsTab({ initialPageId, initialFieldKey, initialSec
   // Naplnění výchozích textů do DB (jen ty co ještě neexistují)
   async function seedDefaults() {
     setSeeding(true)
+    setSeedError(null)
     const missing = ALL_FIELDS.filter(f => !values[f.key] && f.default)
+    let failed = 0
     // Batch insert max 50 najednou
     for (let i = 0; i < missing.length; i += 50) {
       const batch = missing.slice(i, i + 50).map(f => ({
         key: f.key, value: f.default, category: 'web'
       }))
-      await supabase.from('cms_variables').insert(batch)
+      // upsert + ignoreDuplicates = INSERT ... ON CONFLICT (key) DO NOTHING:
+      // klíč, který mezitím vznikl (inline edit z webu / souběžný admin),
+      // neshodí celý batch a existující ručně upravené texty se nepřepíšou.
+      const { error } = await supabase.from('cms_variables').upsert(batch, { onConflict: 'key', ignoreDuplicates: true })
+      if (error) failed += batch.length
     }
     await loadValues()
+    if (failed > 0) setSeedError(`Část výchozích textů se nepodařilo uložit (${failed}). Zkus to prosím znovu.`)
     setSeeding(false)
   }
 
@@ -153,6 +161,15 @@ export default function WebTextsTab({ initialPageId, initialFieldKey, initialSec
 
   return (
     <div>
+      {/* Upozornění: chybí cms_admin_token → náhledy/zvýraznění textů na webu nefungují */}
+      {!adminToken && !loading && (
+        <div className="mb-4 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fde68a', color: '#854d0e', fontSize: 13 }}>
+          <strong>ℹ️ Náhled textů na webu je vypnutý.</strong> Tlačítka „🔗 Otevřít / zvýraznit na webu" potřebují
+          token <code>cms_admin_token</code> v tabulce <code>app_settings</code>. Bez něj <strong>editace a ukládání
+          textů funguje normálně</strong> — jen se na webu nezvýrazní, které pole odkud je. Token doplní vývojář
+          (jednorázově). Toto není chyba textů.
+        </div>
+      )}
       {/* Globální statistika — rozliseni filled/optional/missing */}
       <div className="flex items-center gap-4 mb-4 p-3 rounded-card" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
         <div className="flex-1">
@@ -190,6 +207,7 @@ export default function WebTextsTab({ initialPageId, initialFieldKey, initialSec
             {seeding ? 'Ukládám...' : `Naplnit ${totalMissing} výchozích`}
           </button>
         )}
+        {seedError && <span className="text-xs font-bold" style={{ color: '#dc2626' }}>{seedError}</span>}
         {totalMissing === 0 && (
           <span className="text-xs font-bold" style={{ color: '#22c55e' }}>✓ Vše uloženo</span>
         )}
