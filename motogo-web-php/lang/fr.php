@@ -1188,7 +1188,7 @@ return [
     'editRez.loc.headPickup' => '📥 Retrait de la moto',
     'editRez.loc.headReturn' => '📤 Retour de la moto',
     'editRez.loc.atRentalTitle' => 'À l\'agence Mezná',
-    'editRez.loc.atRentalDescPickup' => 'Mezná 9, 257 87 — agence autonome, ouverte 24/7. <strong>0 CZK.</strong>',
+    'editRez.loc.atRentalDescPickup' => 'Mezná 9, 393 01 Pelhřimov — agence autonome, ouverte 24/7. <strong>0 CZK.</strong>',
     'editRez.loc.atRentalDescReturn' => 'Retour à l\'agence autonome. <strong>0 CZK.</strong>',
     'editRez.loc.deliveryTitle' => 'Livraison à l\'adresse',
     'editRez.loc.deliveryReturnTitle' => 'Nous venons la récupérer chez vous',

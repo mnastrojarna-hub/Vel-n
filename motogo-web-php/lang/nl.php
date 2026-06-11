@@ -1167,7 +1167,7 @@ return [
     'editRez.loc.headPickup' => '📥 Motor ophalen',
     'editRez.loc.headReturn' => '📤 Motor inleveren',
     'editRez.loc.atRentalTitle' => 'Bij verhuur Mezná',
-    'editRez.loc.atRentalDescPickup' => 'Mezná 9, 257 87 — autonome vestiging, 24/7 geopend. <strong>0 CZK.</strong>',
+    'editRez.loc.atRentalDescPickup' => 'Mezná 9, 393 01 Pelhřimov — autonome vestiging, 24/7 geopend. <strong>0 CZK.</strong>',
     'editRez.loc.atRentalDescReturn' => 'Inleveren bij de autonome vestiging. <strong>0 CZK.</strong>',
     'editRez.loc.deliveryTitle' => 'Levering aan adres',
     'editRez.loc.deliveryReturnTitle' => 'Wij halen op bij u',
