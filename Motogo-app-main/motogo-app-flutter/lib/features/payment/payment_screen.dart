@@ -133,6 +133,25 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
   bool get _isNewBooking => _ctx == null;
   String get _stripeType => _ctx?.flowType.name ?? 'booking';
 
+  /// Kompaktní payload doplatkové změny pro Stripe metadata (server-side apply
+  /// ve webhook-receiveru — změna se uloží, i když je appka po platbě zabita).
+  /// Vynechává objemná pole (modification_history, original_*), aby se vešel
+  /// do 500znakového limitu Stripe metadat; ta si server odvodí/zapíše sám.
+  Map<String, dynamic>? get _extensionChangePayload {
+    if (_ctx?.flowType != PaymentFlowType.extension) return null;
+    final src = _ctx?.pendingEditChanges;
+    if (src == null || src.isEmpty) return null;
+    const keep = {
+      'start_date', 'end_date', 'moto_id', 'pickup_method', 'pickup_address',
+      'return_method', 'return_address', 'pickup_time', 'return_time', 'total_price',
+    };
+    final out = <String, dynamic>{};
+    for (final e in src.entries) {
+      if (keep.contains(e.key) && e.value != null) out[e.key] = e.value;
+    }
+    return out.isEmpty ? null : out;
+  }
+
   double get _amount {
     final base = _ctx != null
         ? _ctx!.amount
@@ -411,6 +430,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
       orderId: _pendingOrderId,
       incidentId: _ctx?.incidentId,
       paymentMethodId: card.stripeId,
+      change: _extensionChangePayload,
     );
 
     if (!mounted) return;
@@ -529,6 +549,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
       type: _stripeType,
       orderId: _pendingOrderId,
       incidentId: _ctx?.incidentId,
+      change: _extensionChangePayload,
     );
 
     if (!mounted) return;

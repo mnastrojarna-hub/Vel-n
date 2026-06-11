@@ -92,13 +92,49 @@ async function applyExtensionChange(
     if (def(tu.pickup_time)) d.pickup_time = tu.pickup_time
     if (def(tu.return_time)) d.return_time = tu.return_time
   }
+  // App formát (Flutter posílá kompaktní `change` přímo s DB názvy sloupců —
+  // payment_screen.dart) — stejná záchranná síť jako web: doplatková změna se
+  // uloží server-side, i když je appka po platbě zabita / spadne před apply.
+  for (const col of ['start_date', 'end_date', 'moto_id', 'pickup_method', 'pickup_address',
+                     'return_method', 'return_address', 'pickup_time', 'return_time'] as const) {
+    if (def(a[col]) && d[col] === undefined) d[col] = a[col]
+  }
   // Absolutní cílová cena (z dry-run RPC) — idempotentní, na rozdíl od klienta,
   // který total_price vůbec nenastavoval (doplatek se nepropisoval do ceny).
   if (a.new_total != null && Number.isFinite(Number(a.new_total))) {
     d.total_price = Number(a.new_total)
+  } else if (a.total_price != null && Number.isFinite(Number(a.total_price))) {
+    d.total_price = Number(a.total_price) // app formát
   }
 
   if (Object.keys(d).length === 0) return
+
+  // Změna termínu → zapiš modification_history (+ original_* při prvním zásahu),
+  // stejně jako RPC cesty. Bez záznamu by rozdílový doklad (generate-invoice
+  // source='edit') neměl čerstvý podklad pro denní rozpis přidaných dnů a Velín
+  // by webhook-aplikované prodloužení neviděl v historii úprav.
+  if (d.start_date || d.end_date) {
+    try {
+      const { data: cur } = await supabase.from('bookings')
+        .select('start_date, end_date, original_start_date, modification_history')
+        .eq('id', bookingId).maybeSingle()
+      if (cur) {
+        const day = (v: unknown) => String(v || '').slice(0, 10)
+        const fromS = day(cur.start_date); const fromE = day(cur.end_date)
+        const toS = d.start_date ? day(d.start_date) : fromS
+        const toE = d.end_date ? day(d.end_date) : fromE
+        if (toS !== fromS || toE !== fromE) {
+          const hist = Array.isArray(cur.modification_history) ? cur.modification_history : []
+          hist.push({ at: new Date().toISOString(), from_start: fromS, from_end: fromE, to_start: toS, to_end: toE, source: 'stripe_webhook' })
+          d.modification_history = hist
+          if (!cur.original_start_date) {
+            d.original_start_date = fromS
+            d.original_end_date = fromE
+          }
+        }
+      }
+    } catch { /* history je best-effort — update změny proběhne i bez ní */ }
+  }
 
   const { error } = await supabase.from('bookings').update(d).eq('id', bookingId)
   try {
