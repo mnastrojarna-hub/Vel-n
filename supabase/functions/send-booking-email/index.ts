@@ -767,24 +767,13 @@ async function autoGenerateAttachments(
     const priceDifference = Number(opts.priceDifference || 0)
 
     if (priceDifference > 0) {
-      // Prodloužení / navýšení ceny → nová rozdílová ZF + DP (source='edit').
+      // Doplatek → POUZE rozdílový DP (source='edit'). ZF se při úpravě rezervace
+      // NIKDY negeneruje ani neposílá — platba proběhla rovnou bránou, proforma
+      // výzva k platbě nedává smysl a zákazníka jen mate (pravidlo 2026-06-11).
       // `price_difference` MUSÍ jít s sebou — modification_history nenese price_diff
       // (a placená výbava / webhook doplatek do historie nezapisují vůbec), takže
       // bez explicitní částky by generate-invoice rozdílový doklad skipnul a
       // v mailu by zůstal jen starý DP z původní platby.
-      try {
-        const zfRes = await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
-          method: 'POST', headers,
-          body: JSON.stringify({ type: 'advance', booking_id, source: 'edit', price_difference: priceDifference, send_email: false }),
-        })
-        const zfData = await zfRes.json().catch(() => ({}))
-        if (zfData.success && zfData.invoice_id) {
-          const path = zfData.pdf_path || `invoices/${zfData.invoice_id}.html`
-          const b64 = await downloadAsBase64(supabase, path)
-          if (b64) atts.push({ content: b64, filename: `Zalohova-faktura-uprava-${zfData.number || 'ZF'}.${fileExt(path)}`, storage_path: path })
-        }
-      } catch { /* ignore */ }
-
       try {
         const dpRes = await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
           method: 'POST', headers,
@@ -1276,7 +1265,7 @@ ${vars.door_codes_block || `<p style="color:#dc2626">K\u00f3dy se zobraz\u00ed p
   </tbody>
 </table>
 ${priceMessage}
-<p>V příloze najdete <strong>aktualizovanou nájemní smlouvu, VOP</strong> a všechny <strong>nové doklady</strong> (zálohová faktura, doklad o platbě, případně dobropis).</p>
+<p>V příloze najdete <strong>aktualizovanou nájemní smlouvu a VOP</strong>${pd > 0 ? ' a <strong>doklad o přijaté platbě</strong> za doplatek' : pd < 0 ? ' a <strong>dobropis</strong> na vrácenou částku' : ''}.</p>
 <p>Pokud změnu neiniciovali jste vy a jde o nesrovnalost, ihned nás kontaktujte na <a href="mailto:info@motogo24.cz" style="color:#2563eb">info@motogo24.cz</a>.</p>
 <p>S pozdravem,<br>Tým MotoGo24</p>`
       } else if (type === 'shop_order_confirmed') {
@@ -1411,6 +1400,21 @@ ${vars.tracking_number ? `<table style="width:100%;border-collapse:collapse;marg
     // 2) Velín admin-configured přílohy z DB (dbAttachmentsList) — etalon ve Velíně.
     //    Pro booking kontext (ne shop) máme dedikované synth typy `booking_advance` (ZF)
     //    a `booking_payment_receipt` (DP) — fetchnou existující fakturu / vygenerují novou.
+    //
+    //    VÝJIMKA booking_modified (2026-06-11): u úpravy rezervace je finanční doklad
+    //    řízený VÝHRADNĚ směrem změny ceny — ZF nechodí nikdy (platba šla rovnou bránou),
+    //    DP jen při doplatku, Dobropis jen při vratce. Bez filtru synth typy přikládaly
+    //    POSLEDNÍ existující ZF+DP (= doklady z původní platby) i při vratce, kde má
+    //    přijít pouze dobropis. Smlouva/VOP z konfigurace zůstávají.
+    if (type === 'booking_modified' && dbAttachmentsList.length > 0) {
+      const pdNum = Number(price_difference || 0)
+      dbAttachmentsList = dbAttachmentsList.filter((att) => {
+        if (att === 'ZF' || att === 'KF') return false
+        if (att === 'DP') return pdNum > 0
+        if (att === 'Dobropis') return pdNum < 0
+        return true
+      })
+    }
     if (dbAttachmentsList.length > 0 && (booking_id || order_id)) {
       const isShopCtx = !!order_id
       const attachmentTypeMap: Record<string, string> = {

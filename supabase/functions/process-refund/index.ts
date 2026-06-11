@@ -432,13 +432,20 @@ Deno.serve(async (req: Request) => {
           .order('created_at', { ascending: false }).limit(1)
         if (freshCn?.length) {
           await dlog('partial_refund_dedup_fresh_cn', 'info', { credit_note_id: freshCn[0].id, amount })
+          // Dobropis existuje, ale PDF mohlo selhat (PDFShift/Storage) → dorenderuj,
+          // ať má retry loop v send-booking-email co přiložit.
+          let pdfPath = freshCn[0].pdf_path
+          if (!pdfPath) {
+            const ensured = await ensureCreditNotePdf(supabase, booking_id, data)
+            if (ensured.creditNoteId === freshCn[0].id && ensured.pdfPath) pdfPath = ensured.pdfPath
+          }
           return new Response(
             JSON.stringify({
               success: true,
               already_refunded: true,
               refund_id: data.stripe_refund_id,
               credit_note_id: freshCn[0].id,
-              credit_note_pdf_path: freshCn[0].pdf_path,
+              credit_note_pdf_path: pdfPath,
               card_brand: data.card_brand,
               card_last4: data.card_last4,
             }),
