@@ -10,42 +10,74 @@ export const PAGE_KONTAKT = {
         { key: 'web.kontakt.intro', label: 'Úvodní text', type: 'textarea', default: 'Máte dotaz k půjčení motorky, chcete si objednat dárkový poukaz, poradit s výběrem nebo si rovnou domluvit rezervaci? Jsme tu pro vás každý den, nonstop.' },
       ]
     },
+    // POZOR: web (kontakt.php) byl přepsán na NESTED schéma (quick[]/place{}/social[]/
+    // side_cta{}/map{}/seo_text{}). Dřívější PLOCHÉ klíče (web.kontakt.phone/email/
+    // address/company/ico/fb/ig…) web NEČETL → editace byly mrtvé. Přemapováno na
+    // klíče, které web reálně čte; defaulty PŘESNĚ z kontakt.php $defaults (shodné
+    // s živým webem → seed nic nezmění). URL odkazů (href) web nerenderuje s
+    // data-cms-key, takže nejsou CMS-editovatelné a nemodelujeme je.
     {
-      id: 'contact', label: 'Kontaktní údaje', location: 'Boxy s telefonem, emailem, datovkou',
+      id: 'contact', label: 'Kontaktní údaje (rychlé boxy)', location: 'Boxy s telefonem, emailem, datovkou',
       fields: [
-        { key: 'web.kontakt.phone', label: 'Telefon', default: '+420 774 256 271' },
-        { key: 'web.kontakt.email', label: 'Email', default: 'info@motogo24.cz' },
-        { key: 'web.kontakt.ds', label: 'Datová schránka', default: 'iuw3vnb' },
+        { key: 'web.kontakt.quick.0.label', label: 'Box 1 — popisek', default: 'ZAVOLEJTE NÁM' },
+        { key: 'web.kontakt.quick.0.value', label: 'Box 1 — telefon', default: '+420 774 256 271' },
+        { key: 'web.kontakt.quick.1.label', label: 'Box 2 — popisek', default: 'NAPIŠTE NÁM' },
+        { key: 'web.kontakt.quick.1.value', label: 'Box 2 — email', default: 'info@motogo24.cz' },
+        { key: 'web.kontakt.quick.2.label', label: 'Box 3 — popisek', default: 'DATOVÁ SCHRÁNKA' },
+        { key: 'web.kontakt.quick.2.value', label: 'Box 3 — ID datovky', default: 'iuw3vnb' },
       ]
     },
     {
-      id: 'address', label: 'Provozovna', location: 'Sekce s adresou a provozní dobou',
+      id: 'place', label: 'Provozovna + fakturační údaje', location: 'Sekce s adresou, provozní dobou a fakturací',
       fields: [
-        { key: 'web.kontakt.address', label: 'Adresa', default: 'Mezná 9, 393 01 Pelhřimov' },
-        { key: 'web.kontakt.hours', label: 'Provozní doba', default: 'PO – NE: 00:00 – 24:00 (nonstop)\nVčetně víkendů a svátků' },
+        { key: 'web.kontakt.place.title', label: 'Nadpis', default: 'Provozovna' },
+        { key: 'web.kontakt.place.address_label', label: 'Popisek „Adresa"', default: 'Adresa:' },
+        { key: 'web.kontakt.place.address', label: 'Adresa', default: 'Mezná 9, 393 01 Pelhřimov' },
+        { key: 'web.kontakt.place.hours_label', label: 'Popisek „Provozní doba"', default: 'Provozní doba:' },
+        { key: 'web.kontakt.place.hours', label: 'Provozní doba (HTML, <br>)', type: 'textarea', default: 'PO – NE: 00:00 – 24:00 (nonstop)<br>Včetně víkendů a svátků' },
+        { key: 'web.kontakt.place.billing_title', label: 'Nadpis fakturace', default: 'Fakturační údaje' },
+        { key: 'web.kontakt.place.billing_name', label: 'Název firmy', default: 'Bc. Petra Semorádová' },
+        { key: 'web.kontakt.place.billing_address', label: 'Fakturační adresa', default: 'Mezná 9, 393 01 Pelhřimov' },
+        { key: 'web.kontakt.place.billing_ico', label: 'IČO', default: '21874263' },
+        { key: 'web.kontakt.place.billing_vat', label: 'DPH', default: 'Nejsem plátce DPH' },
+        { key: 'web.kontakt.place.billing_note', label: 'Poznámka k registraci', type: 'textarea', default: 'Společnost byla zapsána dne 31. 7. 2024 u Městského úřadu v Pelhřimově.' },
       ]
     },
     {
-      id: 'billing', label: 'Fakturační údaje', location: 'Sekce fakturačních údajů',
+      id: 'social', label: 'Sociální sítě', location: 'Odkazy na Facebook a Instagram (text odkazu; URL se mění v kódu)',
       fields: [
-        { key: 'web.kontakt.company', label: 'Název firmy', default: 'Bc. Petra Semorádová' },
-        { key: 'web.kontakt.billing.addr', label: 'Fakturační adresa', default: 'Mezná 9, 393 01 Pelhřimov' },
-        { key: 'web.kontakt.ico', label: 'IČO', default: '21874263' },
-        { key: 'web.kontakt.vat', label: 'DPH', default: 'Nejsem plátce DPH' },
-        { key: 'web.kontakt.reg', label: 'Registrace', default: 'Společnost byla zapsána dne 31. 7. 2024 u Městského úřadu v Pelhřimově.' },
+        { key: 'web.kontakt.social_title', label: 'Nadpis sekce', default: 'Sledujte nás' },
+        { key: 'web.kontakt.social.0.label', label: 'Odkaz 1 — text', default: 'facebook' },
+        { key: 'web.kontakt.social.1.label', label: 'Odkaz 2 — text', default: 'instagram' },
       ]
     },
     {
-      id: 'social', label: 'Sociální sítě', location: 'Odkazy na Facebook a Instagram',
+      id: 'side_cta', label: 'Boční CTA box', location: 'Zelený box „Chcete si domluvit rezervaci?"',
       fields: [
-        { key: 'web.kontakt.fb', label: 'Facebook URL', default: 'https://www.facebook.com/profile.php?id=61581614672839' },
-        { key: 'web.kontakt.ig', label: 'Instagram URL', default: 'https://www.instagram.com/moto.go24/' },
+        { key: 'web.kontakt.side_cta.title', label: 'Nadpis', default: 'Chcete si domluvit rezervaci?' },
+        { key: 'web.kontakt.side_cta.text', label: 'Text', type: 'textarea', default: 'Rezervujte si motorku online během pár minut a vyražte za dobrodružstvím.' },
+        { key: 'web.kontakt.side_cta.button.label', label: 'Tlačítko — text', default: 'REZERVOVAT ONLINE' },
       ]
     },
     {
-      id: 'seo', label: 'SEO text', location: 'Textový odstavec dole na stránce',
+      id: 'map', label: 'Mapa', location: 'Nadpis nad mapou',
       fields: [
-        { key: 'web.kontakt.seo', label: 'SEO text', type: 'textarea', default: 'Motogo24 je moderní půjčovna motorek na Vysočině. Sídlíme v Pelhřimově, jsme otevřeni nonstop a půjčujeme bez kauce, s kompletní výbavou v ceně.' },
+        { key: 'web.kontakt.map.title', label: 'Nadpis', default: 'Kde nás najdete' },
+      ]
+    },
+    {
+      id: 'seo_text', label: 'SEO text na stránce', location: 'Viditelný textový odstavec dole na stránce',
+      fields: [
+        { key: 'web.kontakt.seo_text.title', label: 'Nadpis', default: 'Kontakty – půjčovna motorek Vysočina (Pelhřimov)' },
+        { key: 'web.kontakt.seo_text.body', label: 'Text (HTML povolený)', type: 'textarea', default: 'Motogo24 je <strong>moderní půjčovna motorek na Vysočině</strong>. Sídlíme v <strong>Pelhřimově</strong>, jsme otevřeni <strong>nonstop</strong> a půjčujeme <strong>bez kauce</strong>, s kompletní <strong>výbavou v ceně</strong>.' },
+      ]
+    },
+    {
+      id: 'seo_meta', label: 'SEO (meta v hlavičce – Google)', location: 'Neviditelné — titulek a popisek ve výsledcích vyhledávání',
+      fields: [
+        { key: 'web.kontakt.seo.title', label: 'Meta title', default: 'Kontakt | MotoGo24 – motopůjčovna a půjčovna motorek Vysočina' },
+        { key: 'web.kontakt.seo.description', label: 'Meta description', type: 'textarea', default: 'Motopůjčovna a půjčovna motorek MotoGo24 Pelhřimov — telefon +420 774 256 271, e-mail info@motogo24.cz. Nonstop, bez kauce.' },
+        { key: 'web.kontakt.seo.keywords', label: 'Meta keywords', type: 'textarea', default: 'motopůjčovna, motopůjčovna Pelhřimov, půjčovna motorek, půjčovna motorek Vysočina, kontakt MotoGo24, pronájem motorky Pelhřimov' },
       ]
     },
     {
@@ -166,6 +198,7 @@ export const PAGE_KOUPIT_POUKAZ = {
         { key: 'web.layout.voucher.fieldCountry', label: 'Placeholder — Stát', default: 'Stát' },
         { key: 'web.layout.voucher.fieldCompany', label: 'Placeholder — Firma', default: 'Firma (volitelně)' },
         { key: 'web.layout.voucher.fieldIco', label: 'Placeholder — IČO', default: 'IČO (volitelně)' },
+        { key: 'web.layout.voucher.fieldDic', label: 'Placeholder — DIČ', default: 'DIČ (volitelně)' },
         { key: 'web.layout.voucher.customAmount', label: 'Label „Jiná částka (Kč):"', default: 'Jiná částka (Kč):' },
         { key: 'web.layout.voucher.customPlaceholder', label: 'Placeholder — Zadejte částku', default: 'Zadejte částku' },
         { key: 'web.layout.voucher.extras', label: 'H3 „Doplňky"', default: 'Doplňky' },
