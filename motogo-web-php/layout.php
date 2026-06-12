@@ -571,8 +571,8 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
           ]
         },
         "potentialAction": [
-          {"@type":"ReserveAction","target":{"@type":"EntryPoint","urlTemplate":"' . $siteOrigin . '/rezervace?moto={moto_id}&start={start_date}&end={end_date}","actionPlatform":["http://schema.org/DesktopWebPlatform","http://schema.org/MobileWebPlatform","http://schema.org/IOSPlatform","http://schema.org/AndroidPlatform"]},"result":{"@type":"Reservation","name":"Rezervace motorky"}},
-          {"@type":"OrderAction","target":"' . $siteOrigin . '/eshop","name":"Nákup výbavy a poukazů"}
+          {"@type":"ReserveAction","target":{"@type":"EntryPoint","urlTemplate":"' . $siteOrigin . $lp('/rezervace') . '?moto={moto_id}&start={start_date}&end={end_date}","actionPlatform":["http://schema.org/DesktopWebPlatform","http://schema.org/MobileWebPlatform","http://schema.org/IOSPlatform","http://schema.org/AndroidPlatform"]},"result":{"@type":"Reservation","name":"Rezervace motorky"}},
+          {"@type":"OrderAction","target":"' . $siteOrigin . $lp('/eshop') . '","name":"Nákup výbavy a poukazů"}
         ],
         "sameAs": ' . json_encode(buildSameAs(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . $aggregateRatingFragment . '
       },
@@ -595,7 +595,7 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
         "areaServed": [{"@type":"Country","name":"Česko"},{"@type":"Country","name":"Slovensko"},{"@type":"Country","name":"Rakousko"},{"@type":"Country","name":"Německo"},{"@type":"Country","name":"Polsko"},{"@type":"Country","name":"Francie"},{"@type":"Country","name":"Belgie"},{"@type":"Country","name":"Nizozemsko"},{"@type":"Country","name":"Španělsko"}],
         "audience": {"@type":"PeopleAudience","audienceType":"Motorkáři, turisté, firmy, dárky pro blízké"},
         "availableChannel": [
-          {"@type":"ServiceChannel","serviceUrl":"' . $siteOrigin . '/rezervace","name":"Online rezervační formulář"},
+          {"@type":"ServiceChannel","serviceUrl":"' . $siteOrigin . $lp('/rezervace') . '","name":"Online rezervační formulář"},
           {"@type":"ServiceChannel","serviceUrl":"https://vnwnqteskbykeucanlhk.supabase.co/functions/v1/public-api","name":"Veřejné REST API pro AI agenty a partnery"},
           {"@type":"ServiceChannel","serviceUrl":"https://vnwnqteskbykeucanlhk.supabase.co/functions/v1/mcp-server","name":"MCP server (Model Context Protocol)"},
           {"@type":"ServiceChannel","servicePhone":"+420 774 256 271","name":"Telefon (24/7)"},
@@ -673,6 +673,9 @@ body{font-family:Montserrat,"Segoe UI",sans-serif;margin:0;color:#1a2e22;backgro
 <script src="' . assetUrl('/js/lightbox.js') . '" defer></script>';
 
     // E-shop košík (lokální storage, sdílený mezi stránkami)
+    // POZOR: cart_url MUSÍ zůstat český '/kosik' — checkout.js z něj odvozuje
+    // BASE_URL přes cart_url.replace("/kosik",""). Lokalizaci URL v adresním
+    // řádku zajistí 301 v i18nSlugRedirectIfNeeded() (/kosik → /cart, /panier…).
     $cartI18n = json_encode([
         'cart_added'  => t('cart.added'),
         'cart_url'    => BASE_URL . '/kosik',

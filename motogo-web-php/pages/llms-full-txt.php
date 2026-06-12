@@ -20,6 +20,10 @@ $lang = i18nDetectLanguage();
 $base = i18nOriginForLang($lang);
 $sb = new SupabaseClient();
 
+// Lokalizovaná absolutní URL — na cizojazyčné doméně odkazy míří na přeložený
+// slug (/how-to-rent/process, /catalogue, …), ne na český (ten by 301-oval).
+$lu = function ($p) use ($base, $lang) { return $base . i18nLocalizePath($p, $lang); };
+
 // ------------------------------------------------------------------
 // Helpers — konverze structured array na clean markdown
 // ------------------------------------------------------------------
@@ -212,38 +216,38 @@ echo "---\n\n";
 
 // Půjčovna (about)
 $pujcDefaults = ['__slug' => 'pujcovna', 'h1' => 'Půjčovna motorek Vysočina'];
-echo llmRenderPage('Půjčovna — o nás', $base . '/pujcovna-motorek', mergeParts($pujcDefaults, [
+echo llmRenderPage('Půjčovna — o nás', $lu('/pujcovna-motorek'), mergeParts($pujcDefaults, [
     'intro' => 'Půjčovna motorek Vysočina v Pelhřimově — bez kauce, online rezervace, výbava v ceně, nonstop provoz.',
 ]));
 
 // Postup půjčení
 $postup = mergeParts(loadPart('postup-content-1.php'), loadPart('postup-content-2.php'));
 $postup['__slug'] = 'jak_pujcit_postup';
-echo llmRenderPage('Jak si půjčit motorku — postup krok za krokem', $base . '/jak-pujcit/postup', $postup);
+echo llmRenderPage('Jak si půjčit motorku — postup krok za krokem', $lu('/jak-pujcit/postup'), $postup);
 
 // Vyzvednutí (převzetí)
 $prevzeti = mergeParts(loadPart('prevzeti-content-1.php'), loadPart('prevzeti-content-2.php'));
-echo llmRenderPage('Vyzvednutí motorky', $base . '/jak-pujcit/prevzeti', $prevzeti);
+echo llmRenderPage('Vyzvednutí motorky', $lu('/jak-pujcit/prevzeti'), $prevzeti);
 
 // Vrácení v půjčovně
 $vraceni1 = mergeParts(loadPart('vraceni-pujcovna-content-1.php'), loadPart('vraceni-pujcovna-content-2.php'));
-echo llmRenderPage('Vrácení motorky v půjčovně', $base . '/jak-pujcit/vraceni-pujcovna', $vraceni1);
+echo llmRenderPage('Vrácení motorky v půjčovně', $lu('/jak-pujcit/vraceni-pujcovna'), $vraceni1);
 
 // Vrácení jinde
 $vraceni2 = mergeParts(loadPart('vraceni-jinde-content-1.php'), loadPart('vraceni-jinde-content-2.php'));
-echo llmRenderPage('Vrácení motorky mimo provozovnu', $base . '/jak-pujcit/vraceni-jinde', $vraceni2);
+echo llmRenderPage('Vrácení motorky mimo provozovnu', $lu('/jak-pujcit/vraceni-jinde'), $vraceni2);
 
 // Přistavení
 $pristaveni = mergeParts(loadPart('pristaveni-content-1.php'), loadPart('pristaveni-content-2.php'));
-echo llmRenderPage('Přistavení motorky', $base . '/jak-pujcit/pristaveni', $pristaveni);
+echo llmRenderPage('Přistavení motorky', $lu('/jak-pujcit/pristaveni'), $pristaveni);
 
 // Cena (co je v ceně)
 $cena = mergeParts(loadPart('cena-content-1.php'), loadPart('cena-content-2.php'));
-echo llmRenderPage('Co je v ceně pronájmu', $base . '/jak-pujcit/co-v-cene', $cena);
+echo llmRenderPage('Co je v ceně pronájmu', $lu('/jak-pujcit/co-v-cene'), $cena);
 
 // Dokumenty
 $dokumenty = mergeParts(loadPart('dokumenty-content-1.php'), loadPart('dokumenty-content-2.php'));
-echo llmRenderPage('Potřebné dokumenty a nájemní smlouva', $base . '/jak-pujcit/dokumenty', $dokumenty);
+echo llmRenderPage('Potřebné dokumenty a nájemní smlouva', $lu('/jak-pujcit/dokumenty'), $dokumenty);
 
 // FAQ
 $faq1 = loadPart('faq-content-1.php');
@@ -251,7 +255,7 @@ $faq2 = loadPart('faq-content-2.php');
 $faq3 = loadPart('faq-content-3.php');
 unset($faq3['__meta']);
 echo "# Často kladené otázky (FAQ)\n\n";
-echo "*Zdroj:* {$base}/jak-pujcit/faq\n\n";
+echo "*Zdroj:* " . $lu('/jak-pujcit/faq') . "\n\n";
 foreach ([$faq1, $faq2, $faq3] as $part) {
     foreach ($part as $catKey => $catData) {
         if (!isset($catData['items'])) continue;
@@ -269,7 +273,7 @@ echo "---\n\n";
 // Katalog motorek — full specs
 // ------------------------------------------------------------------
 echo "# Katalog motorek\n\n";
-echo "*Zdroj:* {$base}/katalog · *Aktuální stav z DB*\n\n";
+echo "*Zdroj:* " . $lu('/katalog') . " · *Aktuální stav z DB*\n\n";
 
 $motos = $sb->fetchMotos();
 if (is_array($motos) && !empty($motos)) {
@@ -278,7 +282,7 @@ if (is_array($motos) && !empty($motos)) {
         $brand = !empty($m['brand']) ? ($m['brand'] . ' ') : '';
         $title = $brand . $m['model'];
         echo "## $title\n\n";
-        echo "*URL:* {$base}/katalog/{$m['id']}\n\n";
+        echo "*URL:* " . $lu('/katalog/' . $m['id']) . "\n\n";
 
         $desc = (string)localized($m, 'description');
         if ($desc !== '') {
@@ -356,11 +360,11 @@ if (is_array($branches) && !empty($branches)) {
 $posts = $sb->fetchCmsPages();
 if (is_array($posts) && !empty($posts)) {
     echo "# Blog\n\n";
-    echo "*Zdroj:* {$base}/blog\n\n";
+    echo "*Zdroj:* " . $lu('/blog') . "\n\n";
     foreach ($posts as $p) {
         if (empty($p['slug']) || empty($p['title'])) continue;
         echo "## " . llmStrip(localized($p, 'title')) . "\n\n";
-        echo "*URL:* {$base}/blog/{$p['slug']}\n\n";
+        echo "*URL:* " . $lu('/blog/' . $p['slug']) . "\n\n";
         $excerpt = (string)localized($p, 'excerpt');
         if ($excerpt === '') $excerpt = (string)($p['description'] ?? '');
         if ($excerpt !== '') echo llmStrip($excerpt) . "\n\n";
@@ -376,7 +380,7 @@ if (is_array($posts) && !empty($posts)) {
 
 // Footer
 echo "# Pro AI agenty — strukturované zdroje + API\n\n";
-echo "**Developer dokumentace:** {$base}/partneri\n\n";
+echo "**Developer dokumentace:** " . $lu('/partneri') . "\n\n";
 echo "## REST API (LIVE)\n\n";
 echo "- **Base URL:** https://vnwnqteskbykeucanlhk.supabase.co/functions/v1/public-api\n";
 echo "- **OpenAPI 3.1 spec:** https://vnwnqteskbykeucanlhk.supabase.co/functions/v1/public-api/api/v1/openapi.json\n";

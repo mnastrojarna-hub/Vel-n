@@ -4,13 +4,19 @@
 // jazycích/doménách se indexovatelné marketingové stránky servírují pod
 // přeloženým slugem (/catalog, /motorradverleih, /alquiler-de-motos, …).
 //
-// ZÁMĚRNĚ NELOKALIZOVANÉ cesty:
-//   /rezervace, /upravit-rezervaci, /potvrzeni, /kosik, /objednavka* — jsou
-//   noindex + robots-disallowed (SEO přínos nulový) a odkazuje na ně natvrdo
-//   JS (Stripe success/cancel URL, resume QR, checkout.js cart_url.replace),
-//   edge funkce i maily. /blog a /eshop jsou mezinárodně srozumitelné.
-//   Slugy DB entit (/blog/<slug>, /dokumenty/<slug>) zůstávají české —
-//   překládá se jen prefix; per-jazyk slugy entit by vyžadovaly backend.
+// 2026-06-12: 100% pokrytí — VŠECHNY routy (vč. transakčních /rezervace,
+// /kosik, /objednavka*, /potvrzeni, /upravit-rezervaci a /eshop) mají slug
+// ve všech 7 jazycích. Natvrdo zapsané české cesty v JS (Stripe success/
+// cancel URL, resume QR z mailů, edge funkce) dál fungují — server je přes
+// i18nSlugRedirectIfNeeded() 301-redirectne na lokalizovaný tvar SE
+// zachováním query stringu. Jediná tvrdá závislost: `MG_I18N.cart_url`
+// v layout.php MUSÍ zůstat '/kosik' (checkout.js z něj odvozuje BASE_URL
+// přes cart_url.replace("/kosik","")). Kde je české/kanonické slovo zároveň
+// správné i v cílovém jazyce (katalog/kontakt de+pl, naked/supermoto/
+// chopper, blog ve všech jazycích), je záznam uveden explicitně (stejná
+// hodnota) — mapa je tak auditovatelná na úplnost. Slugy DB entit
+// (/blog/<slug>, /dokumenty/<slug>) zůstávají české — překládá se jen
+// prefix; per-jazyk slugy entit by vyžadovaly backend.
 //
 // Tok:
 //   příchozí request → i18nSlugRedirectIfNeeded() 301 na lokalizovaný tvar
@@ -23,12 +29,12 @@
 require_once __DIR__ . '/config.php';
 
 const I18N_SLUG_ROUTES = [
-    '/katalog' => ['en' => '/catalog', 'es' => '/catalogo', 'fr' => '/catalogue', 'nl' => '/catalogus'],
+    '/katalog' => ['en' => '/catalog', 'de' => '/katalog', 'es' => '/catalogo', 'fr' => '/catalogue', 'nl' => '/catalogus', 'pl' => '/katalog'],
     '/katalog/cestovni' => ['en' => '/catalog/touring', 'de' => '/katalog/reise', 'es' => '/catalogo/turismo', 'fr' => '/catalogue/routieres', 'nl' => '/catalogus/toer', 'pl' => '/katalog/turystyczne'],
     '/katalog/sportovni' => ['en' => '/catalog/sport', 'de' => '/katalog/sport', 'es' => '/catalogo/deportivas', 'fr' => '/catalogue/sportives', 'nl' => '/catalogus/sport', 'pl' => '/katalog/sportowe'],
-    '/katalog/naked' => ['en' => '/catalog/naked', 'es' => '/catalogo/naked', 'fr' => '/catalogue/naked', 'nl' => '/catalogus/naked'],
-    '/katalog/supermoto' => ['en' => '/catalog/supermoto', 'es' => '/catalogo/supermoto', 'fr' => '/catalogue/supermoto', 'nl' => '/catalogus/supermoto'],
-    '/katalog/chopper' => ['en' => '/catalog/chopper', 'es' => '/catalogo/chopper', 'fr' => '/catalogue/chopper', 'nl' => '/catalogus/chopper'],
+    '/katalog/naked' => ['en' => '/catalog/naked', 'de' => '/katalog/naked', 'es' => '/catalogo/naked', 'fr' => '/catalogue/naked', 'nl' => '/catalogus/naked', 'pl' => '/katalog/naked'],
+    '/katalog/supermoto' => ['en' => '/catalog/supermoto', 'de' => '/katalog/supermoto', 'es' => '/catalogo/supermoto', 'fr' => '/catalogue/supermoto', 'nl' => '/catalogus/supermoto', 'pl' => '/katalog/supermoto'],
+    '/katalog/chopper' => ['en' => '/catalog/chopper', 'de' => '/katalog/chopper', 'es' => '/catalogo/chopper', 'fr' => '/catalogue/chopper', 'nl' => '/catalogus/chopper', 'pl' => '/katalog/chopper'],
     '/katalog/detske' => ['en' => '/catalog/kids', 'de' => '/katalog/kinder', 'es' => '/catalogo/infantiles', 'fr' => '/catalogue/enfants', 'nl' => '/catalogus/kinder', 'pl' => '/katalog/dzieciece'],
     '/pujcovna-motorek' => ['en' => '/motorcycle-rental', 'de' => '/motorradverleih', 'es' => '/alquiler-de-motos', 'fr' => '/location-de-motos', 'nl' => '/motorverhuur', 'pl' => '/wypozyczalnia-motocykli'],
     // /jak-pujcit (rozcestník) jen 301-redirectuje na /postup — lokalizujeme i jeho.
@@ -43,16 +49,32 @@ const I18N_SLUG_ROUTES = [
     '/jak-pujcit/faq' => ['en' => '/how-to-rent/faq', 'de' => '/mietanleitung/faq', 'es' => '/como-alquilar/faq', 'fr' => '/comment-louer/faq', 'nl' => '/hoe-huren/faq', 'pl' => '/jak-wypozyczyc/faq'],
     '/poukazy' => ['en' => '/vouchers', 'de' => '/gutscheine', 'es' => '/tarjetas-regalo', 'fr' => '/bons-cadeaux', 'nl' => '/cadeaubonnen', 'pl' => '/vouchery'],
     '/koupit-darkovy-poukaz' => ['en' => '/buy-gift-voucher', 'de' => '/gutschein-kaufen', 'es' => '/comprar-tarjeta-regalo', 'fr' => '/acheter-bon-cadeau', 'nl' => '/cadeaubon-kopen', 'pl' => '/kup-voucher'],
-    '/kontakt' => ['en' => '/contact', 'es' => '/contacto', 'fr' => '/contact', 'nl' => '/contact'],
+    '/kontakt' => ['en' => '/contact', 'de' => '/kontakt', 'es' => '/contacto', 'fr' => '/contact', 'nl' => '/contact', 'pl' => '/kontakt'],
     '/mapa-stranek' => ['en' => '/sitemap', 'de' => '/seitenuebersicht', 'es' => '/mapa-del-sitio', 'fr' => '/plan-du-site', 'nl' => '/sitemap', 'pl' => '/mapa-strony'],
     '/partneri' => ['en' => '/partners', 'de' => '/partner', 'es' => '/socios', 'fr' => '/partenaires', 'nl' => '/partners', 'pl' => '/partnerzy'],
     '/smazani-uctu' => ['en' => '/account-deletion', 'de' => '/konto-loeschen', 'es' => '/eliminar-cuenta', 'fr' => '/suppression-de-compte', 'nl' => '/account-verwijderen', 'pl' => '/usuniecie-konta'],
+    // E-shop a blog (blog = stejné slovo ve všech 7 jazycích)
+    '/eshop' => ['en' => '/shop', 'de' => '/shop', 'es' => '/tienda', 'fr' => '/boutique', 'nl' => '/winkel', 'pl' => '/sklep'],
+    '/blog' => ['en' => '/blog', 'de' => '/blog', 'es' => '/blog', 'fr' => '/blog', 'nl' => '/blog', 'pl' => '/blog'],
+    // Transakční cesty (noindex) — lokalizované od 2026-06-12. České URL
+    // z JS/mailů/edge funkcí dál fungují přes 301 se zachovaným query
+    // stringem (?resume=, ?order_id=, ?booking_id=, ?paid_booking=).
+    // POZOR: nové lokalizované tvary /rezervace a /potvrzeni musí být
+    // disallow-nuté i v robots.txt (jsou).
+    '/rezervace' => ['en' => '/booking', 'de' => '/reservierung', 'es' => '/reserva', 'fr' => '/reservation', 'nl' => '/reservering', 'pl' => '/rezerwacja'],
+    '/upravit-rezervaci' => ['en' => '/manage-booking', 'de' => '/reservierung-verwalten', 'es' => '/gestionar-reserva', 'fr' => '/gerer-reservation', 'nl' => '/reservering-beheren', 'pl' => '/zarzadzaj-rezerwacja'],
+    '/potvrzeni' => ['en' => '/confirmation', 'de' => '/bestaetigung', 'es' => '/confirmacion', 'fr' => '/confirmation', 'nl' => '/bevestiging', 'pl' => '/potwierdzenie'],
+    '/kosik' => ['en' => '/cart', 'de' => '/warenkorb', 'es' => '/cesta', 'fr' => '/panier', 'nl' => '/winkelwagen', 'pl' => '/koszyk'],
+    '/objednavka' => ['en' => '/checkout', 'de' => '/kasse', 'es' => '/pedido', 'fr' => '/commande', 'nl' => '/afrekenen', 'pl' => '/zamowienie'],
+    '/objednavka/dokoncit' => ['en' => '/checkout/complete', 'de' => '/kasse/abgeschlossen', 'es' => '/pedido/completado', 'fr' => '/commande/terminee', 'nl' => '/afrekenen/voltooid', 'pl' => '/zamowienie/zakonczone'],
 ];
 
 // Prefixy pro dynamické cesty (UUID/slug za prefixem se nepřekládá).
 const I18N_SLUG_PREFIXES = [
-    '/katalog/' => ['en' => '/catalog/', 'es' => '/catalogo/', 'fr' => '/catalogue/', 'nl' => '/catalogus/'],
-    '/dokumenty/' => ['en' => '/documents/', 'de' => '/dokumente/', 'es' => '/documentos/', 'fr' => '/documents/', 'nl' => '/documenten/'],
+    '/katalog/' => ['en' => '/catalog/', 'de' => '/katalog/', 'es' => '/catalogo/', 'fr' => '/catalogue/', 'nl' => '/catalogus/', 'pl' => '/katalog/'],
+    '/dokumenty/' => ['en' => '/documents/', 'de' => '/dokumente/', 'es' => '/documentos/', 'fr' => '/documents/', 'nl' => '/documenten/', 'pl' => '/dokumenty/'],
+    '/eshop/' => ['en' => '/shop/', 'de' => '/shop/', 'es' => '/tienda/', 'fr' => '/boutique/', 'nl' => '/winkel/', 'pl' => '/sklep/'],
+    '/blog/' => ['en' => '/blog/', 'de' => '/blog/', 'es' => '/blog/', 'fr' => '/blog/', 'nl' => '/blog/', 'pl' => '/blog/'],
 ];
 
 /** Reverzní mapa: lokalizovaný slug (libovolný jazyk) → kanonický. */

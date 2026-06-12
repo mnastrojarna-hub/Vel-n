@@ -21,6 +21,18 @@ $lang = i18nDetectLanguage();
 $base = i18nOriginForLang($lang);
 $sb = new SupabaseClient();
 
+// Lokalizované absolutní URL — na cizojazyčné doméně musí odkazy mířit na
+// přeložený slug (/catalog, /how-to-rent, …), ne na český (ten by 301-oval).
+$U = [];
+foreach (['/katalog', '/katalog/cestovni', '/katalog/naked', '/katalog/supermoto', '/katalog/detske',
+          '/jak-pujcit', '/jak-pujcit/postup', '/jak-pujcit/co-v-cene', '/jak-pujcit/dokumenty',
+          '/jak-pujcit/prevzeti', '/jak-pujcit/vraceni-pujcovna', '/jak-pujcit/vraceni-jinde',
+          '/jak-pujcit/pristaveni', '/jak-pujcit/faq', '/eshop', '/poukazy', '/koupit-darkovy-poukaz',
+          '/blog', '/kontakt', '/dokumenty/obchodni-podminky', '/dokumenty/smlouva-o-pronajmu',
+          '/dokumenty/zasady-ochrany-osobnich-udaju', '/mapa-stranek', '/partneri'] as $_p) {
+    $U[$_p] = $base . i18nLocalizePath($_p, $lang);
+}
+
 $titles = [
     'cs' => [
         'h1' => 'MotoGo24 — Půjčovna motorek Vysočina',
@@ -114,11 +126,11 @@ echo "- **GPS:** 49.3464 N, 15.2119 E\n";
 echo "- **Web:** https://www.motogo24.cz · https://motogo24.com\n\n";
 
 echo "## {$T['h2_catalog']}\n\n";
-echo "- [Katalog všech motorek]({$base}/katalog): kompletní nabídka motorek k pronájmu (cestovní, naked, supermoto, dětské)\n";
-echo "- [Cestovní motorky]({$base}/katalog/cestovni): turistické a adventure motorky pro dlouhé trasy\n";
-echo "- [Naked motorky]({$base}/katalog/naked): městské naked / streetfighter\n";
-echo "- [Supermoto]({$base}/katalog/supermoto): supermoto pro hravou jízdu\n";
-echo "- [Dětské motorky]({$base}/katalog/detske): dětské pitbike/cross — bez ŘP\n";
+echo "- [Katalog všech motorek]({$U['/katalog']}): kompletní nabídka motorek k pronájmu (cestovní, naked, supermoto, dětské)\n";
+echo "- [Cestovní motorky]({$U['/katalog/cestovni']}): turistické a adventure motorky pro dlouhé trasy\n";
+echo "- [Naked motorky]({$U['/katalog/naked']}): městské naked / streetfighter\n";
+echo "- [Supermoto]({$U['/katalog/supermoto']}): supermoto pro hravou jízdu\n";
+echo "- [Dětské motorky]({$U['/katalog/detske']}): dětské pitbike/cross — bez ŘP\n";
 
 // Dynamicky vypiš jednotlivé motorky (s kategoriemi a cenou)
 $motos = $sb->fetchMotos();
@@ -131,47 +143,49 @@ if (is_array($motos) && !empty($motos)) {
         $lic = !empty($m['license_required']) ? ' · ŘP: ' . $m['license_required'] : '';
         $priceStr = $price > 0 ? ' · od ' . number_format($price, 0, ',', ' ') . ' Kč/den' : '';
         $brand = !empty($m['brand']) ? ($m['brand'] . ' ') : '';
-        echo "- [{$brand}{$m['model']}]({$base}/katalog/{$m['id']}): {$cat}{$kw}{$lic}{$priceStr}\n";
+        $mUrl = $base . i18nLocalizePath('/katalog/' . $m['id'], $lang);
+        echo "- [{$brand}{$m['model']}]({$mUrl}): {$cat}{$kw}{$lic}{$priceStr}\n";
     }
 }
 echo "\n";
 
 echo "## {$T['h2_howto']}\n\n";
-echo "- [Jak si půjčit motorku]({$base}/jak-pujcit): přehled celého procesu\n";
-echo "- [Postup půjčení (krok za krokem)]({$base}/jak-pujcit/postup): 12 kroků od výběru po vrácení\n";
-echo "- [Co je v ceně pronájmu]({$base}/jak-pujcit/co-v-cene): výbava, pojištění, sjezd do zahraničí\n";
-echo "- [Potřebné dokumenty]({$base}/jak-pujcit/dokumenty): OP/pas + ŘP (skupiny A1/A2/A nebo B pro dětské)\n";
-echo "- [Vyzvednutí motorky]({$base}/jak-pujcit/prevzeti): přístupové kódy, nonstop\n";
-echo "- [Vrácení v půjčovně]({$base}/jak-pujcit/vraceni-pujcovna): postup vrácení v Mezné\n";
-echo "- [Vrácení jinde]({$base}/jak-pujcit/vraceni-jinde): vrácení mimo provozovnu (příplatek)\n";
-echo "- [Přistavení motorky]({$base}/jak-pujcit/pristaveni): doručení kamkoliv v ČR\n";
-echo "- [Často kladené otázky (FAQ)]({$base}/jak-pujcit/faq): odpovědi na nejčastější dotazy\n\n";
+echo "- [Jak si půjčit motorku]({$U['/jak-pujcit']}): přehled celého procesu\n";
+echo "- [Postup půjčení (krok za krokem)]({$U['/jak-pujcit/postup']}): 12 kroků od výběru po vrácení\n";
+echo "- [Co je v ceně pronájmu]({$U['/jak-pujcit/co-v-cene']}): výbava, pojištění, sjezd do zahraničí\n";
+echo "- [Potřebné dokumenty]({$U['/jak-pujcit/dokumenty']}): OP/pas + ŘP (skupiny A1/A2/A nebo B pro dětské)\n";
+echo "- [Vyzvednutí motorky]({$U['/jak-pujcit/prevzeti']}): přístupové kódy, nonstop\n";
+echo "- [Vrácení v půjčovně]({$U['/jak-pujcit/vraceni-pujcovna']}): postup vrácení v Mezné\n";
+echo "- [Vrácení jinde]({$U['/jak-pujcit/vraceni-jinde']}): vrácení mimo provozovnu (příplatek)\n";
+echo "- [Přistavení motorky]({$U['/jak-pujcit/pristaveni']}): doručení kamkoliv v ČR\n";
+echo "- [Často kladené otázky (FAQ)]({$U['/jak-pujcit/faq']}): odpovědi na nejčastější dotazy\n\n";
 
 echo "## {$T['h2_shop']}\n\n";
-echo "- [E-shop motorkářské výbavy]({$base}/eshop): helmy, bundy, rukavice, doplňky\n";
-echo "- [Dárkové poukazy]({$base}/poukazy): vouchery na pronájem nebo výbavu\n";
-echo "- [Objednat poukaz]({$base}/koupit-darkovy-poukaz): online formulář s okamžitým doručením\n\n";
+echo "- [E-shop motorkářské výbavy]({$U['/eshop']}): helmy, bundy, rukavice, doplňky\n";
+echo "- [Dárkové poukazy]({$U['/poukazy']}): vouchery na pronájem nebo výbavu\n";
+echo "- [Objednat poukaz]({$U['/koupit-darkovy-poukaz']}): online formulář s okamžitým doručením\n\n";
 
 echo "## {$T['h2_blog']}\n\n";
-echo "- [Blog MotoGo24]({$base}/blog): tipy na motocyklové trasy, novinky, návody\n";
+echo "- [Blog MotoGo24]({$U['/blog']}): tipy na motocyklové trasy, novinky, návody\n";
 $posts = $sb->fetchCmsPages();
 if (is_array($posts)) {
     foreach (array_slice($posts, 0, 20) as $p) {
         if (empty($p['slug']) || empty($p['title'])) continue;
-        echo "- [{$p['title']}]({$base}/blog/{$p['slug']})\n";
+        $pUrl = $base . i18nLocalizePath('/blog/' . $p['slug'], $lang);
+        echo "- [{$p['title']}]({$pUrl})\n";
     }
 }
 echo "\n";
 
 echo "## {$T['h2_legal']}\n\n";
-echo "- [Kontakt]({$base}/kontakt): telefon, e-mail, mapa, fakturační údaje\n";
-echo "- [Obchodní podmínky]({$base}/dokumenty/obchodni-podminky): VOP\n";
-echo "- [Smlouva o pronájmu]({$base}/dokumenty/smlouva-o-pronajmu): vzor smlouvy\n";
-echo "- [GDPR / Ochrana osobních údajů]({$base}/dokumenty/zasady-ochrany-osobnich-udaju): zásady zpracování\n";
-echo "- [Mapa stránek]({$base}/mapa-stranek): kompletní seznam URL\n\n";
+echo "- [Kontakt]({$U['/kontakt']}): telefon, e-mail, mapa, fakturační údaje\n";
+echo "- [Obchodní podmínky]({$U['/dokumenty/obchodni-podminky']}): VOP\n";
+echo "- [Smlouva o pronájmu]({$U['/dokumenty/smlouva-o-pronajmu']}): vzor smlouvy\n";
+echo "- [GDPR / Ochrana osobních údajů]({$U['/dokumenty/zasady-ochrany-osobnich-udaju']}): zásady zpracování\n";
+echo "- [Mapa stránek]({$U['/mapa-stranek']}): kompletní seznam URL\n\n";
 
 echo "## {$T['h2_api']}\n\n";
-echo "**Developer dokumentace:** [{$base}/partneri]({$base}/partneri)\n\n";
+echo "**Developer dokumentace:** [{$U['/partneri']}]({$U['/partneri']})\n\n";
 echo "**REST API a MCP server jsou nasazené.** Hybrid auth — bez klíče nízký rate-limit per IP, s X-Api-Key per-partner limit dle smlouvy.\n\n";
 echo "**Endpointy:**\n";
 echo "- REST API: `https://vnwnqteskbykeucanlhk.supabase.co/functions/v1/public-api/api/v1/...` (9 endpointů — motorcycles, quote, bookings, ...)\n";

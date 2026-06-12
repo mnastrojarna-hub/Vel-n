@@ -8,8 +8,9 @@ $defaults = array_merge($part1, $part2);
 
 $C = $sb->siteContent('jak_pujcit_vyzvednuti', $defaults);
 
-$pagePath = parse_url($_SERVER['REQUEST_URI'] ?? '/jak-pujcit/prevzeti', PHP_URL_PATH);
-if ($pagePath !== '/jak-pujcit/vyzvednuti') $pagePath = '/jak-pujcit/prevzeti';
+// Kanonická cesta — legacy alias /jak-pujcit/vyzvednuti router 301-redirectuje
+// na (lokalizovaný) /jak-pujcit/prevzeti, sem už nedoteče.
+$pagePath = '/jak-pujcit/prevzeti';
 
 $bc = renderBreadcrumb([['label' => t('breadcrumb.home'), 'href' => '/'], ['label' => t('breadcrumb.howto'), 'href' => '/jak-pujcit'], t('menu.howto.pickup')]);
 $kp = 'web.jak_pujcit_vyzvednuti';
