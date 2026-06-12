@@ -62,11 +62,11 @@ function hasUsefulFields(scan, d) {
   return !!(d.idNumber || d.firstName || d.lastName || d.dateOfBirth)
 }
 
-// Doklady jsou organizované do "flow" — uživatel vybere jeden doklad a průvodce
-// ho provede všemi jeho stranami v jednom plynulém toku (líc → rub), bez nutnosti
-// klikat každou stranu zvlášť. aspect = poměr stran vodícího rámečku (š/v):
-// občanka i řidičák jsou ISO ID-1 (85,6 × 54 mm → ~1.585), pas se fotí datová
-// strana na šířku (~1.42).
+// Doklady jsou organizované do "flow" — uživatel vybere doklad a pak KONKRÉTNÍ
+// stranu (líc / rub). Každá strana se nahrává a ukládá SAMOSTATNĚ: vyfotit nebo
+// vybrat soubor → Uložit → další strana. Pas má jen jednu (datovou) stranu.
+// aspect = poměr stran vodícího rámečku (š/v): občanka i řidičák jsou ISO ID-1
+// (85,6 × 54 mm → ~1.585), pas se fotí datová strana na šířku (~1.42).
 const FLOWS = [
   { key: 'op', scan: 'id', label: 'Občanský průkaz', steps: [
     { side: 'front', label: 'líc', aspect: 1.585 },
@@ -117,7 +117,7 @@ export default function AdminDocUploadModal({ userId, bookingId, onClose, onUplo
   const [burstFrames, setBurstFrames] = useState([]) // [b64,…] seřazené od nejostřejšího (jen z kamery)
   const [capturing, setCapturing] = useState(false) // probíhá burst snímání
   const [burstProgress, setBurstProgress] = useState(0) // n pořízených snímků
-  const [pendingFiles, setPendingFiles] = useState([]) // fronta dalších souborů (líc+rub z úložiště najednou)
+  const [saved, setSaved] = useState({}) // { 'op:front': true, … } — strany uložené v této session
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
   const [result, setResult] = useState(null) // { ocr: 'ok'|'failed', fields, label, nextLabel, mode }
@@ -127,8 +127,11 @@ export default function AdminDocUploadModal({ userId, bookingId, onClose, onUplo
 
   const flow = FLOWS.find(f => f.key === flowKey) || FLOWS[0]
   const step = flow.steps[stepIdx] || flow.steps[0]
-  const nextStep = flow.steps[stepIdx + 1] || null
   const docType = { scan: flow.scan, side: step.side, aspect: step.aspect, label: stepLabel(flow, step) }
+  const sideKey = (f, s) => `${f.key}:${s.side || 'single'}`
+  // Další NEuložená strana aktuálního dokladu (po uložení na ni přepneme).
+  const nextUnsavedIdx = flow.steps.findIndex((s, i) => i !== stepIdx && !saved[sideKey(flow, s)])
+  const nextStep = nextUnsavedIdx >= 0 ? flow.steps[nextUnsavedIdx] : null
 
   function stopCamera() {
     if (streamRef.current) {
@@ -157,7 +160,6 @@ export default function AdminDocUploadModal({ userId, bookingId, onClose, onUplo
     setError(null)
     setImageData(null)
     setBurstFrames([])
-    setPendingFiles([])
     setResult(null)
     setCamState('starting')
     if (!navigator.mediaDevices?.getUserMedia) {
@@ -201,7 +203,7 @@ export default function AdminDocUploadModal({ userId, bookingId, onClose, onUplo
   async function captureBurst() {
     const v = videoRef.current
     if (!v || !v.videoWidth || capturing || busy) return
-    setError(null); setResult(null); setPendingFiles([])
+    setError(null); setResult(null)
     setCapturing(true); setBurstProgress(0)
     const frames = []
     for (let i = 0; i < BURST_FRAMES; i++) {
@@ -218,22 +220,14 @@ export default function AdminDocUploadModal({ userId, bookingId, onClose, onUplo
   }
 
   async function onFilePick(e) {
-    const files = Array.from(e.target.files || [])
+    const file = (e.target.files || [])[0]
     e.target.value = ''
-    if (!files.length) return
+    if (!file) return
     setError(null); setResult(null); setBurstFrames([])
     try {
-      const urls = await Promise.all(files.map(readFileAsDataUrl))
-      // Líc + rub najednou: u dvoustranného dokladu (OP/ŘP) bere víc vybraných
-      // souborů jako po sobě jdoucí strany — první = aktuální krok, zbytek do fronty.
-      if (flow.steps.length > 1 && urls.length > 1) {
-        setStepIdx(0)
-        setImageData(urls[0])
-        setPendingFiles(urls.slice(1))
-      } else {
-        setPendingFiles([])
-        setImageData(urls[0])
-      }
+      // Jeden soubor = právě zvolená strana dokladu. Každá strana se nahrává
+      // a ukládá samostatně (žádná fronta líc+rub najednou).
+      setImageData(await readFileAsDataUrl(file))
     } catch {
       setError('Nepodařilo se načíst soubor.')
     }
@@ -248,9 +242,19 @@ export default function AdminDocUploadModal({ userId, bookingId, onClose, onUplo
 
   function selectFlow(key) {
     if (busy || capturing) return
+    const f = FLOWS.find(x => x.key === key) || FLOWS[0]
+    // Předvybereme první ještě neuloženou stranu nového dokladu.
+    const idx = f.steps.findIndex(s => !saved[sideKey(f, s)])
     setFlowKey(key)
-    setStepIdx(0)
-    setPendingFiles([])
+    setStepIdx(idx >= 0 ? idx : 0)
+    retake()
+  }
+
+  // Explicitní volba strany (líc / rub) — uživatel si vybírá, kterou stranu
+  // právě nahrává; každá se ukládá zvlášť.
+  function selectStep(idx) {
+    if (busy || capturing || idx === stepIdx) return
+    setStepIdx(idx)
     retake()
   }
 
@@ -340,34 +344,23 @@ export default function AdminDocUploadModal({ userId, bookingId, onClose, onUplo
       if (saveErr) throw saveErr
       if (saveRes && saveRes.success === false) throw new Error(saveRes.error || 'Uložení selhalo')
 
-      // Další soubor z fronty (líc+rub vybrané najednou z úložiště)?
-      const hasPendingFile = pendingFiles.length > 0
+      setSaved(s => ({ ...s, [sideKey(flow, step)]: true }))
       setResult({
         ocr: ocrStatus, fields, label: docType.label,
         nextLabel: nextStep ? stepLabel(flow, nextStep) : null,
-        mode: camState === 'on' ? 'camera' : (hasPendingFile ? 'file' : 'idle'),
+        mode: camState === 'on' ? 'camera' : 'idle',
       })
       setBurstFrames([])
+      setImageData(null)
       if (nextStep) {
-        // Plynulé pokračování v rámci jednoho dokladu: přepneme na další stranu.
-        setStepIdx(stepIdx + 1)
-        if (hasPendingFile) {
-          // Z úložiště vybrané strany jedou automaticky za sebou.
-          const [next, ...rest] = pendingFiles
-          setPendingFiles(rest)
-          setImageData(next)
-        } else {
-          // Kamera (pokud běží) zůstává zapnutá → uživatel rovnou fotí rub.
-          setImageData(null)
-        }
+        // Strana uložena → předvybereme zbývající stranu dokladu. Kamera (pokud
+        // běží) zůstává zapnutá, ale uložení další strany je opět samostatný krok.
+        setStepIdx(nextUnsavedIdx)
       } else {
-        // Doklad je kompletní – flow končí, kameru vypneme a vrátíme na začátek
-        // (uživatel může vybrat další doklad, např. ŘP po OP).
-        setImageData(null)
-        setPendingFiles([])
+        // Doklad je kompletní – kameru vypneme (uživatel může vybrat další
+        // doklad, např. ŘP po OP).
         stopCamera()
         setCamState('idle')
-        setStepIdx(0)
       }
       if (onUploaded) await onUploaded()
     } catch (e) {
@@ -391,9 +384,7 @@ export default function AdminDocUploadModal({ userId, bookingId, onClose, onUplo
           {result.nextLabel
             ? (result.mode === 'camera'
                 ? <>{' '}Pokračujte: vyfoťte <strong>{result.nextLabel}</strong> — kamera je připravená.</>
-                : result.mode === 'file'
-                  ? <>{' '}Pokračuji další vybranou stranou: <strong>{result.nextLabel}</strong>.</>
-                  : <>{' '}Pokračujte: vyfoťte nebo nahrajte <strong>{result.nextLabel}</strong>.</>)
+                : <>{' '}Pokračujte: vyfoťte nebo nahrajte <strong>{result.nextLabel}</strong>.</>)
             : <>{' '}Zadržené kódy k boxu se uvolní, jakmile jsou doklady kompletní.</>}
         </div>
       )}
@@ -416,9 +407,29 @@ export default function AdminDocUploadModal({ userId, bookingId, onClose, onUplo
           ))}
         </div>
         {flow.steps.length > 1 && (
-          <div className="text-xs mt-2" style={{ color: '#5a6b63' }}>
-            Krok {stepIdx + 1} / {flow.steps.length}: <strong>{step.label}</strong>
-            {' · '}vyfotíte obě strany za sebou, nebo z úložiště vyberte líc i rub najednou.
+          <div className="mt-2">
+            <div className="text-xs font-extrabold uppercase tracking-wide mb-1" style={{ color: '#5a6b63' }}>Strana</div>
+            <div className="flex flex-wrap gap-2">
+              {flow.steps.map((s, i) => {
+                const done = !!saved[sideKey(flow, s)]
+                return (
+                  <button key={s.side || i} onClick={() => selectStep(i)} disabled={busy || capturing}
+                    className="rounded-btn text-sm font-bold cursor-pointer"
+                    style={{
+                      padding: '6px 12px', border: 'none',
+                      background: stepIdx === i ? '#74FB71' : '#f1faf7',
+                      color: '#1a2e22',
+                      boxShadow: stepIdx === i ? '0 4px 16px rgba(116,251,113,.35)' : 'none',
+                      opacity: (busy || capturing) ? .6 : 1,
+                    }}>
+                    {done ? '✓ ' : ''}{s.label}
+                  </button>
+                )
+              })}
+            </div>
+            <div className="text-xs mt-2" style={{ color: '#5a6b63' }}>
+              Každá strana se nahrává a ukládá samostatně: vyfoťte / nahrajte <strong>{step.label}</strong> a uložte, pak stejně druhou stranu.
+            </div>
           </div>
         )}
       </div>
@@ -432,7 +443,7 @@ export default function AdminDocUploadModal({ userId, bookingId, onClose, onUplo
           <div className="flex justify-between gap-3 mt-3">
             <Button onClick={retake} disabled={busy}>Znovu</Button>
             <Button green onClick={uploadCurrent} disabled={busy}>
-              {busy ? 'Nahrávám…' : `Nahrát: ${docType.label}`}
+              {busy ? 'Ukládám…' : `Uložit: ${docType.label}`}
             </Button>
           </div>
         </div>
@@ -479,7 +490,6 @@ export default function AdminDocUploadModal({ userId, bookingId, onClose, onUplo
             <div className="p-4 rounded-lg text-center" style={{ background: '#f1faf7', border: '1px dashed #b6dccb' }}>
               <div className="text-sm mb-3" style={{ color: '#1a2e22' }}>
                 Vyfoťte <strong>{docType.label}</strong> fotoaparátem zařízení, nebo nahrajte fotku z úložiště (galerie).
-                {flow.steps.length > 1 && <> U {flow.label} můžete z úložiště vybrat <strong>líc i rub najednou</strong> — nahrají se za sebou.</>}
               </div>
               {camState === 'denied' && (
                 <div className="text-xs mb-3" style={{ color: '#b45309' }}>
@@ -499,8 +509,8 @@ export default function AdminDocUploadModal({ userId, bookingId, onClose, onUplo
               </div>
               {/* Bez atributu `capture` → na mobilu se otevře výběr z galerie/souborů,
                   ne přímo kamera (focení řeší samostatné tlačítko „Zapnout fotoaparát").
-                  `multiple` → u OP/ŘP lze vybrat líc i rub naráz (zpracují se za sebou). */}
-              <input ref={fileRef} type="file" accept="image/*" multiple={flow.steps.length > 1}
+                  Jeden soubor = právě zvolená strana — každá strana se ukládá zvlášť. */}
+              <input ref={fileRef} type="file" accept="image/*"
                 onChange={onFilePick} style={{ display: 'none' }} />
             </div>
           )}
@@ -508,7 +518,7 @@ export default function AdminDocUploadModal({ userId, bookingId, onClose, onUplo
       )}
 
       <div className="flex justify-end mt-2">
-        <Button onClick={handleClose} disabled={busy || capturing}>Hotovo</Button>
+        <Button onClick={handleClose} disabled={busy || capturing}>Zavřít</Button>
       </div>
     </Modal>
   )

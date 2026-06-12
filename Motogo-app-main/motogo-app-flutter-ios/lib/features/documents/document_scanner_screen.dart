@@ -151,6 +151,11 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen> {
         photo,
         step.docType,
         mindeeOk: scanResult.ok && scanResult.data != null,
+        docSide: step.key.endsWith('_front')
+            ? 'front'
+            : step.key.endsWith('_back')
+                ? 'back'
+                : null,
       );
 
       if (!mounted) return;
