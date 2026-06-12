@@ -25,10 +25,13 @@ $content = '<main id="content"><div class="container">' . $bc .
 // Relativní cesta drží uživatele na stejném hostu jako zbytek navigace, jazyk se
 // dál řeší přes cookie/doménu, a tlačítko „Zpět na úvod" už nikdy nespadne na 404.
 $lang = function_exists('i18nDetectLanguage') ? i18nDetectLanguage() : 'cs';
+// Cesty lokalizujeme na slug aktuálního jazyka (/shop, /panier, /reserva, …)
+// — JS je sází přímo do href, ušetříme 301 hop přes český slug.
+$lpp = function ($p) { return function_exists('i18nLocalizePath') ? i18nLocalizePath($p) : $p; };
 $homeUrl = BASE_URL . '/';
-$shopUrl = BASE_URL . '/eshop';
-$cartUrl = BASE_URL . '/kosik';
-$rezUrl  = BASE_URL . '/rezervace';
+$shopUrl = BASE_URL . $lpp('/eshop');
+$cartUrl = BASE_URL . $lpp('/kosik');
+$rezUrl  = BASE_URL . $lpp('/rezervace');
 $localeMap = ['cs' => 'cs-CZ', 'en' => 'en-GB', 'de' => 'de-DE', 'es' => 'es-ES', 'fr' => 'fr-FR', 'nl' => 'nl-NL', 'pl' => 'pl-PL'];
 $jsLocale = $localeMap[$lang] ?? 'cs-CZ';
 

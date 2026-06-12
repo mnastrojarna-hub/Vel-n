@@ -22,9 +22,15 @@ if ($_seoEarlyPath === '/robots.txt') {
         readfile($f);
         exit;
     }
-    // Fallback: minimalni inline robots pokud soubor chybi
+    // Fallback: minimalni inline robots pokud soubor chybi (vc. lokalizovanych
+    // slugu transakcnich stranek — viz i18n_slugs.php)
     header('Content-Type: text/plain; charset=utf-8');
-    echo "User-agent: *\nAllow: /\nDisallow: /rezervace\nDisallow: /potvrzeni\n";
+    echo "User-agent: *\nAllow: /\n";
+    foreach (['/rezervace', '/booking', '/reservierung', '/reserva', '/reservation', '/reservering', '/rezerwacja',
+              '/upravit-rezervaci', '/manage-booking', '/gestionar-reserva', '/gerer-reservation', '/zarzadzaj-rezerwacja',
+              '/potvrzeni', '/confirmation', '/bestaetigung', '/confirmacion', '/bevestiging', '/potwierdzenie'] as $_dp) {
+        echo "Disallow: {$_dp}\n";
+    }
     echo "Sitemap: https://www.motogo24.cz/sitemap.xml\n";
     exit;
 }
@@ -477,7 +483,14 @@ switch (true) {
         require __DIR__ . '/pages/jak-pujcit-pristaveni.php';
         break;
 
+    // Legacy alias /jak-pujcit/vyzvednuti — 301 na kanonický (a na cizí doméně
+    // lokalizovaný) /jak-pujcit/prevzeti. Dřív alias renderoval duplicitní obsah
+    // a na cizojazyčných doménách zůstával viset pod českou URL.
     case $path === '/jak-pujcit/vyzvednuti':
+        $qs = (string)($_SERVER['QUERY_STRING'] ?? '');
+        header('Location: ' . BASE_URL . i18nLocalizePath('/jak-pujcit/prevzeti') . ($qs !== '' ? '?' . $qs : ''), true, 301);
+        exit;
+
     case $path === '/jak-pujcit/prevzeti':
         require __DIR__ . '/pages/jak-pujcit-vyzvednuti.php';
         break;
@@ -512,7 +525,14 @@ switch (true) {
         break;
 
     // E-shop (produkty z Velínu, texty lokalizované přes helper localized())
-    case $path === '/eshop' || $path === '/e-shop':
+    // Legacy alias /e-shop — 301 na kanonický/lokalizovaný tvar (/eshop, /shop,
+    // /tienda, …), aby alias nezůstával nepřeložený na cizojazyčných doménách.
+    case $path === '/e-shop':
+        $qs = (string)($_SERVER['QUERY_STRING'] ?? '');
+        header('Location: ' . BASE_URL . i18nLocalizePath('/eshop') . ($qs !== '' ? '?' . $qs : ''), true, 301);
+        exit;
+
+    case $path === '/eshop':
         require __DIR__ . '/pages/shop.php';
         break;
 
@@ -571,7 +591,9 @@ switch (true) {
         require __DIR__ . '/pages/dokumenty-detail.php';
         break;
     case preg_match('#^/cms/([a-z0-9\-]+)$#', $path, $matches) === 1:
-        header('Location: ' . BASE_URL . '/dokumenty/' . $matches[1], true, 301);
+        // Cíl lokalizujeme (prefix /dokumenty/ → /documents/ …), jinak by na
+        // cizí doméně vznikl řetěz 301 přes český slug.
+        header('Location: ' . BASE_URL . i18nLocalizePath('/dokumenty/' . $matches[1]), true, 301);
         exit;
 
     // Mapa stránek
