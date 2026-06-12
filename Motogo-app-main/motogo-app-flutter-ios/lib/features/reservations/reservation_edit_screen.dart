@@ -21,6 +21,7 @@ import 'widgets/reservation_edit_confirm_page.dart';
 import 'widgets/reservation_edit_moto_section.dart';
 import 'widgets/reservation_edit_extras_section.dart';
 import 'widgets/reservation_edit_calendar_section.dart';
+import '../../core/currency.dart';
 
 /// Edit upcoming reservation — compact single-page layout.
 /// Calendar supports both extend and shorten in one view.
@@ -352,7 +353,12 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
         'return_time': _returnTime,
       };
       if (!_isActive) changes['start_date'] = _newStart!.toIso8601String().substring(0, 10);
-      if (_newMotoId != null && _newMotoId != _booking!.motoId) changes['moto_id'] = _newMotoId;
+      // Aktivní rezervace: motorka je zamčená (měnit lze jen konec, místo a
+      // čas vrácení) — UI sekci skrývá, ale guard tu musí být i pro případ
+      // rozjetého stavu (parita s webem).
+      if (!_isActive && _newMotoId != null && _newMotoId != _booking!.motoId) {
+        changes['moto_id'] = _newMotoId;
+      }
       if (_helmetSize != _booking!.helmetSize) changes['helmet_size'] = _helmetSize;
       if (_jacketSize != _booking!.jacketSize) changes['jacket_size'] = _jacketSize;
       if (_pantsSize != _booking!.pantsSize) changes['pants_size'] = _pantsSize;
@@ -677,26 +683,26 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
           // === CENOVÝ PŘEHLED ===
           if (calc.hasChanges && _tab != 'move')
             EditCard(child: Column(children: [
-              EditPriceRow(t(context).tr('originalPrice'), '${_booking!.totalPrice.toStringAsFixed(0)} Kč'),
+              EditPriceRow(t(context).tr('originalPrice'), '${Money.czk(_booking!.totalPrice)}'),
               EditPriceRow(t(context).tr('originalDuration'), '${calc.origDays} ${calc.origDays == 1 ? t(context).tr("day1") : calc.origDays < 5 ? t(context).tr("days24") : t(context).tr("days5")}'),
               if (calc.diffDays != 0) EditPriceRow(t(context).tr('newDuration'), '${calc.newDays} ${calc.newDays == 1 ? t(context).tr("day1") : calc.newDays < 5 ? t(context).tr("days24") : t(context).tr("days5")}'),
               if (calc.diffDays > 0) EditPriceRow('${t(context).tr('extensionLabel')} (+${calc.diffDays} ${calc.diffDays == 1 ? t(context).tr("day1") : calc.diffDays < 5 ? t(context).tr("days24") : t(context).tr("days5")})',
-                '+${calc.dateChangeAmount.toStringAsFixed(0)} Kč'),
+                '+${Money.czk(calc.dateChangeAmount)}'),
               if (calc.diffDays < 0) EditPriceRow('${t(context).tr('shorteningLabel')} (${calc.diffDays.abs()} ${calc.diffDays.abs() == 1 ? t(context).tr("day1") : calc.diffDays.abs() < 5 ? t(context).tr("days24") : t(context).tr("days5")})',
-                '-${calc.dateChangeAmount.abs().toStringAsFixed(0)} Kč'),
-              if (_pickupDelivFee > 0) EditPriceRow(t(context).tr('pickupDeliveryLabel'), '+${_pickupDelivFee.toStringAsFixed(0)} Kč'),
-              if (_returnDelivFee > 0) EditPriceRow(t(context).tr('returnDeliveryLabel'), '+${_returnDelivFee.toStringAsFixed(0)} Kč'),
-              if (calc.extrasTotal > 0) EditPriceRow(t(context).tr('addons'), '+${calc.extrasTotal.toStringAsFixed(0)} Kč'),
+                '-${Money.czk(calc.dateChangeAmount.abs())}'),
+              if (_pickupDelivFee > 0) EditPriceRow(t(context).tr('pickupDeliveryLabel'), '+${Money.czk(_pickupDelivFee)}'),
+              if (_returnDelivFee > 0) EditPriceRow(t(context).tr('returnDeliveryLabel'), '+${Money.czk(_returnDelivFee)}'),
+              if (calc.extrasTotal > 0) EditPriceRow(t(context).tr('addons'), '+${Money.czk(calc.extrasTotal)}'),
               // Sleva se přepočítává na nový obsah rezervace (varianta B) —
               // řádek ukazuje úpravu slevy, finální Doplatek/Vrácení je PO slevě.
               if ((_booking!.discountAmount ?? 0) > 0 && calc.newDiscountAmount != (_booking!.discountAmount ?? 0))
                 EditPriceRow(t(context).tr('discountLabel'),
-                  '${(_booking!.discountAmount ?? 0).toStringAsFixed(0)} → ${calc.newDiscountAmount.toStringAsFixed(0)} Kč'),
+                  '${(_booking!.discountAmount ?? 0).toStringAsFixed(0)} → ${Money.czk(calc.newDiscountAmount)}'),
               const Divider(height: 16),
               Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                 Text(calc.effectivePriceDiff > 0 ? t(context).tr('surcharge') : calc.effectivePriceDiff < 0 ? t(context).tr('refundLabel') : t(context).tr('differenceLabel'),
                   style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: MotoGoColors.black)),
-                Text('${calc.effectivePriceDiff > 0 ? "+" : ""}${calc.effectivePriceDiff.toStringAsFixed(0)} Kč',
+                Text('${calc.effectivePriceDiff > 0 ? "+" : ""}${Money.czk(calc.effectivePriceDiff)}',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900,
                     color: calc.effectivePriceDiff > 0 ? MotoGoColors.red : calc.effectivePriceDiff < 0 ? MotoGoColors.greenDarker : MotoGoColors.black)),
               ]),
@@ -742,7 +748,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
                       Text(_tab == 'move'
                           ? t(context).tr('moveSaveBtn')
                           : (calc.priceDiff > 0
-                              ? '${t(context).tr('proceedToPayment')} (+${calc.priceDiff.toStringAsFixed(0)} Kč)'
+                              ? '${t(context).tr('proceedToPayment')} (+${Money.czk(calc.priceDiff)})'
                               : t(context).tr('saveChangesBtn')),
                         style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, letterSpacing: 0.3)),
                       const SizedBox(width: 6), const Icon(Icons.arrow_forward, size: 16),

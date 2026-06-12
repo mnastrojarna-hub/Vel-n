@@ -8,6 +8,7 @@ import '../../core/i18n/i18n_provider.dart';
 import '../auth/widgets/toast_helper.dart';
 import 'shop_models.dart';
 import 'shop_provider.dart';
+import '../../core/currency.dart';
 
 /// Gift voucher screen — purchase only.
 class VoucherScreen extends ConsumerStatefulWidget {
@@ -121,7 +122,7 @@ class _VoucherState extends ConsumerState<VoucherScreen> {
               _TypeBtn(label: '📧 ${tr.tr('electronicVoucher')}', sublabel: 'Email · ${tr.free.toLowerCase()}', active: !_printed,
                 onTap: () => setState(() => _printed = false)),
               const SizedBox(width: 8),
-              _TypeBtn(label: '📦 ${tr.tr('printedVoucher')}', sublabel: '+ ${printedVoucherShipping.toStringAsFixed(0)} Kč', active: _printed,
+              _TypeBtn(label: '📦 ${tr.tr('printedVoucher')}', sublabel: '+ ${Money.czk(printedVoucherShipping)}', active: _printed,
                 onTap: () => setState(() => _printed = true)),
             ],
           ),
@@ -132,17 +133,17 @@ class _VoucherState extends ConsumerState<VoucherScreen> {
             onPressed: _amount < 100 ? null : () {
               ref.read(cartProvider.notifier).addItem(
                 'voucher_${_amount.toInt()}_${_printed ? "p" : "d"}_${DateTime.now().millisecondsSinceEpoch}',
-                '${tr.tr('giftVoucher')} ${_amount.toStringAsFixed(0)} Kč${_printed ? " (${tr.tr('printedVoucher').toLowerCase()})" : ""}',
+                '${tr.tr('giftVoucher')} ${Money.czk(_amount)}${_printed ? " (${tr.tr('printedVoucher').toLowerCase()})" : ""}',
                 _total,
               );
-              showMotoGoToast(context, icon: '✓', title: tr.tr('addedToCart'), message: '${_total.toStringAsFixed(0)} Kč');
+              showMotoGoToast(context, icon: '✓', title: tr.tr('addedToCart'), message: '${Money.czk(_total)}');
               context.push(Routes.cart);
             },
             style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(52)),
             child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
               const Icon(Icons.card_giftcard, size: 18),
               const SizedBox(width: 8),
-              Text('${tr.tr('buyVoucherBtn')} · ${_total.toStringAsFixed(0)} Kč →'),
+              Text('${tr.tr('buyVoucherBtn')} · ${Money.czk(_total)} →'),
             ]),
           ),
 

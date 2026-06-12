@@ -3,6 +3,7 @@ import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/theme.dart';
 import '../booking_models.dart';
 import '../booking_provider.dart';
+import '../../../core/currency.dart';
 
 /// Promo code / voucher input — mirrors discount section from templates-booking-form2.js.
 class PromoCodeInput extends StatefulWidget {
@@ -155,7 +156,7 @@ class _PromoCodeInputState extends State<PromoCodeInput> {
                   Text(
                     d.type == DiscountType.percent
                         ? '🏷️ ${d.code} (−${d.value.toStringAsFixed(0)}%)'
-                        : '🎁 ${d.code} (−${d.value.toStringAsFixed(0)} Kč)',
+                        : '🎁 ${d.code} (−${Money.czk(d.value)})',
                     style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: MotoGoColors.greenDarker),
                   ),
                   const Spacer(),

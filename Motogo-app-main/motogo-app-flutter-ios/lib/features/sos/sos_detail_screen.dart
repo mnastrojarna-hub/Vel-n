@@ -6,6 +6,7 @@ import '../../core/theme.dart';
 import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
 import 'sos_provider.dart';
+import '../../core/currency.dart';
 
 /// SOS detail / done screen — mirrors s-sos-done from templates-res-sos3.js.
 /// Shows contextual done view based on SosDoneType, or full detail with timeline.
@@ -229,7 +230,7 @@ class SosDetailScreen extends ConsumerWidget {
         );
       case SosDoneType.replacementPaid:
         return _DoneConfig(
-          icon: '💳', title: '${t(context).tr('donePaid')}${paid != null ? ' — ${paid.toStringAsFixed(0)} Kč' : ''}',
+          icon: '💳', title: '${t(context).tr('donePaid')}${paid != null ? ' — ${Money.czk(paid)}' : ''}',
           subtitle: model != null ? '${t(context).tr('doneSwitchedTo')} $model' : t(context).tr('doneAwaitingApproval'),
           headerColor: MotoGoColors.greenPale,
           nextSteps: '${t(context).tr('doneReservationSwitched')}${model != null ? ' $model' : ''}. ${t(context).tr('doneAwaitingApproval')} ${t(context).tr('doneInvoiceGenerated')}',

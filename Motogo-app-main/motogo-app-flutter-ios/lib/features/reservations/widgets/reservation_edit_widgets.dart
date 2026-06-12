@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme.dart';
 import '../../booking/booking_models.dart';
+import '../../../core/currency.dart';
 
 // ignore_for_file: library_private_types_in_public_api
 
@@ -181,7 +182,7 @@ class EditExtraCheckbox extends StatelessWidget {
           Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: MotoGoColors.black)),
           Text(sub, style: const TextStyle(fontSize: 10, color: MotoGoColors.g400)),
         ])),
-        Text('+${price.toStringAsFixed(0)} Kč',
+        Text('+${Money.czk(price)}',
           style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: MotoGoColors.greenDark)),
       ])));
 }

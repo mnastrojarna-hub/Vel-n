@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme.dart';
 import '../booking_models.dart';
 import '../booking_provider.dart';
+import '../../../core/currency.dart';
 
 /// Checkbox-style extra equipment row for the booking form.
 Widget buildBookingFormExtraItem(
@@ -61,7 +62,7 @@ Widget buildBookingFormExtraItem(
           ]),
         ),
         Text(
-          '+${price.toStringAsFixed(0)} Kč',
+          '+${Money.czk(price)}',
           style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: MotoGoColors.greenDark),
         ),
       ]),

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../../core/native/gps_service.dart';
 import 'price_calculator.dart';
+import '../../core/currency.dart';
 
 /// Address-related UI helpers for the booking form.
 /// Includes address tile, address dialog, and address bottom sheet.
@@ -56,7 +57,7 @@ Widget bookingAddrTile(String? city, String? address,
               color: Color(0xFF1A8A18)),
             const SizedBox(width: 6),
             Text('~${distKm.toStringAsFixed(0)} km · '
-              '${delivFee.toStringAsFixed(0)} Kč',
+              '${Money.czk(delivFee)}',
               style: const TextStyle(fontSize: 12,
                 fontWeight: FontWeight.w700,
                 color: Color(0xFF1A8A18))),
@@ -133,7 +134,7 @@ void showAddrDialog(BuildContext ctx, String title,
                           PriceCalculator.calcDeliveryFee(km);
                       ss(() => distInfo =
                         '~${km.toStringAsFixed(0)} km · '
-                        '${fee.toStringAsFixed(0)} Kč');
+                        '${Money.czk(fee)}');
                       onDistanceCalc?.call(km, fee);
                     });
                 })),
@@ -215,7 +216,7 @@ void showAddrDialog(BuildContext ctx, String title,
                 final fee = PriceCalculator.calcDeliveryFee(km);
                 ss(() => distInfo =
                   '~${km.toStringAsFixed(0)} km · '
-                  '${fee.toStringAsFixed(0)} Kč');
+                  '${Money.czk(fee)}');
                 onDistanceCalc?.call(km, fee);
               } catch (_) {
                 ss(() => distInfo = 'GPS chyba');
@@ -279,7 +280,7 @@ void showAddrDialog(BuildContext ctx, String title,
               final fee = PriceCalculator.calcDeliveryFee(km);
               ss(() => distInfo =
                 '~${km.toStringAsFixed(0)} km · '
-                '${fee.toStringAsFixed(0)} Kč');
+                '${Money.czk(fee)}');
               onDistanceCalc?.call(km, fee);
             },
             child: Container(
@@ -396,7 +397,7 @@ class _AddrSheetBodyState extends State<_AddrSheetBody> {
     final fee = PriceCalculator.calcDeliveryFee(km);
     if (mounted) {
       setState(() => _distInfo =
-          '~${km.toStringAsFixed(0)} km · ${fee.toStringAsFixed(0)} Kč');
+          '~${km.toStringAsFixed(0)} km · ${Money.czk(fee)}');
       widget.onDistCalc?.call(km, fee);
     }
   }
@@ -473,7 +474,7 @@ class _AddrSheetBodyState extends State<_AddrSheetBody> {
       if (mounted) {
         setState(() { _sug = [];
           _distInfo = '~${km.toStringAsFixed(0)} km · '
-              '${fee.toStringAsFixed(0)} Kč'; });
+              '${Money.czk(fee)}'; });
         widget.onDistCalc?.call(km, fee);
       }
     } catch (e) {

@@ -22,6 +22,7 @@ import 'shop_provider.dart';
 import 'widgets/checkout_payment_card.dart';
 import 'widgets/checkout_shipping_section.dart';
 import 'widgets/checkout_summary_section.dart';
+import '../../core/currency.dart';
 
 /// Shop checkout — mirrors s-checkout from cart-checkout.js.
 /// Address, shipping method, promo code, stock validation, payment.
@@ -174,7 +175,7 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
       lines: [
         if (orderNumber != null) PaymentOutcomeLine('🧾', '#$orderNumber'),
         if (total > 0)
-          PaymentOutcomeLine('💳', '${tr.tr('totalPrice')}: ${total.toStringAsFixed(0)} Kč'),
+          PaymentOutcomeLine('💳', '${tr.tr('totalPrice')}: ${Money.czk(total)}'),
       ],
       nextStepNote: tr.tr('confirmOnEmail'),
       ctaLabel: tr.tr('close'),
@@ -589,7 +590,7 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
                   Text(
                     d.type == DiscountType.percent
                         ? '🏷️ ${d.code} (−${d.value.toStringAsFixed(0)}%)'
-                        : '🎁 ${d.code} (−${d.value.toStringAsFixed(0)} Kč)',
+                        : '🎁 ${d.code} (−${Money.czk(d.value)})',
                     style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,

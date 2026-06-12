@@ -168,7 +168,13 @@ class _MessagesState extends ConsumerState<MessagesScreen> {
                 }
                 Navigator.pop(ctx);
                 final id = await createThread(subject);
-                if (id != null && context.mounted) context.push('/messages/$id');
+                if (!context.mounted) return;
+                if (id != null) {
+                  context.push('/messages/$id');
+                } else {
+                  showMotoGoToast(context, icon: '✗',
+                      title: t(context).error, message: t(context).tr('tryAgainPlease'));
+                }
               },
             ),
             const SizedBox(height: 12),
@@ -183,7 +189,13 @@ class _MessagesState extends ConsumerState<MessagesScreen> {
                   }
                   Navigator.pop(ctx);
                   final id = await createThread(subject);
-                  if (id != null && context.mounted) context.push('/messages/$id');
+                  if (!context.mounted) return;
+                  if (id != null) {
+                    context.push('/messages/$id');
+                  } else {
+                    showMotoGoToast(context, icon: '✗',
+                        title: t(context).error, message: t(context).tr('tryAgainPlease'));
+                  }
                 },
                 child: Container(
                   padding: const EdgeInsets.symmetric(vertical: 14),

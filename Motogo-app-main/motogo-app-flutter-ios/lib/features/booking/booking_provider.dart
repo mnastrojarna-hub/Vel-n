@@ -9,6 +9,7 @@ import '../reservations/reservation_provider.dart';
 import 'booking_models.dart';
 import 'booking_validator.dart';
 import 'price_calculator.dart';
+import '../../core/currency.dart';
 
 /// Central booking state — mirrors global vars from booking-logic.js.
 final bookingDraftProvider = StateProvider<BookingDraft>(
@@ -82,7 +83,7 @@ Future<DiscountResult> validateAndApplyCode(String code) async {
         ),
         messageKey: 'discountApplied',
         messageArgs: {
-          'value': type == 'percent' ? '$value%' : '${value.toStringAsFixed(0)} Kč',
+          'value': type == 'percent' ? '$value%' : '${Money.czk(value)}',
         },
       );
     }
@@ -108,7 +109,7 @@ Future<DiscountResult> validateAndApplyCode(String code) async {
           isVoucher: true,
         ),
         messageKey: 'voucherApplied',
-        messageArgs: {'value': '${value.toStringAsFixed(0)} Kč'},
+        messageArgs: {'value': '${Money.czk(value)}'},
       );
     }
   } catch (_) {}

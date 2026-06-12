@@ -84,6 +84,20 @@ class _DocWebViewScreenState extends State<DocWebViewScreen> {
                     style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 4),
                 Text(_error!, style: const TextStyle(fontSize: 11, color: MotoGoColors.g400)),
+                const SizedBox(height: 16),
+                // Bez retry byl error stav slepá ulička (zvlášť po výpadku sítě)
+                OutlinedButton.icon(
+                  onPressed: () {
+                    setState(() { _error = null; _isLoading = true; });
+                    if (widget.htmlContent != null) {
+                      _controller.loadHtmlString(widget.htmlContent!, baseUrl: 'https://motogo24.cz/');
+                    } else {
+                      _controller.loadRequest(Uri.parse(widget.url!));
+                    }
+                  },
+                  icon: const Icon(Icons.refresh, size: 16),
+                  label: const Text('Zkusit znovu'),
+                ),
               ]),
             ))
           else

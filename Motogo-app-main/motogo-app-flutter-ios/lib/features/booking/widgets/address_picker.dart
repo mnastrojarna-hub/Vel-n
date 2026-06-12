@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme.dart';
 import '../booking_ui_helpers.dart' show showAddrBottomSheet;
 import '../map_launcher.dart' show launchMapPicker;
+import '../../../core/currency.dart';
 
 /// Address picker with geocoding.
 /// Delegates address entry to [showAddrBottomSheet] — the same modal used in
@@ -158,7 +159,7 @@ class _AddressPickerWidgetState extends State<AddressPickerWidget> {
                           const SizedBox(width: 6),
                           Text(
                               '~${_distanceKm!.toStringAsFixed(0)} km · '
-                              '${_deliveryFee!.toStringAsFixed(0)} Kč',
+                              '${Money.czk(_deliveryFee!)}',
                               style: const TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w700,

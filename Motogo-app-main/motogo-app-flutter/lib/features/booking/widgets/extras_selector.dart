@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../booking_models.dart';
+import '../../../core/currency.dart';
 
 /// Accessories selector — only 3 fixed items matching Capacitor.
 /// Size selection via bottom sheet dialog.
@@ -241,7 +242,7 @@ class _ExtrasSelectorState extends State<ExtrasSelector> {
                       : item.description ?? '',
                   style: const TextStyle(fontSize: 10, color: MotoGoColors.g400)),
               ])),
-              Text('+${item.price.toStringAsFixed(0)} Kč',
+              Text('+${Money.czk(item.price)}',
                 style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: MotoGoColors.greenDark)),
             ]),
           ),

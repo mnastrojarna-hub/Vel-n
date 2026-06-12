@@ -6,6 +6,7 @@ import '../../../core/router.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/widgets/moto_fx.dart';
 import '../payment_provider.dart';
+import '../../../core/currency.dart';
 
 /// Top header bar for the payment screen.
 class PaymentHeader extends StatelessWidget {
@@ -152,7 +153,7 @@ class PaymentContextCard extends StatelessWidget {
                 Expanded(child: Text('${item.icon} ${item.label}',
                     style: const TextStyle(fontSize: 12,
                         fontWeight: FontWeight.w600, color: MotoGoColors.g600))),
-                Text('${item.amount.toStringAsFixed(0)} Kč',
+                Text('${Money.czk(item.amount)}',
                     style: const TextStyle(fontSize: 12,
                         fontWeight: FontWeight.w700, color: MotoGoColors.black)),
               ],
@@ -165,7 +166,7 @@ class PaymentContextCard extends StatelessWidget {
               Text(t(context).tr('totalLabel'),
                   style: const TextStyle(fontSize: 14,
                       fontWeight: FontWeight.w900, color: MotoGoColors.black)),
-              Text('${amount.toStringAsFixed(0)} Kč',
+              Text('${Money.czk(amount)}',
                   style: const TextStyle(fontSize: 18,
                       fontWeight: FontWeight.w900, color: MotoGoColors.greenDarker)),
             ],
@@ -197,7 +198,7 @@ class PaymentContextCard extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text('${amount.toStringAsFixed(0)} Kč',
+                  Text('${Money.czk(amount)}',
                       style: const TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.w900,
@@ -280,7 +281,7 @@ class PaymentPayButton extends StatelessWidget {
                   const SizedBox(width: 8),
                   Text(isFree
                       ? '${t(context).tr('confirmOrderFree')} →'
-                      : '${t(context).tr('payBtn')} ${amount.toStringAsFixed(0)} Kč →'),
+                      : '${t(context).tr('payBtn')} ${Money.czk(amount)} →'),
                 ],
               ),
         ),

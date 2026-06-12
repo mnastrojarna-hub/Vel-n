@@ -5,6 +5,7 @@ import '../reservation_models.dart';
 import '../reservation_provider.dart';
 import 'res_detail_card.dart';
 import 'res_detail_row.dart';
+import '../../../core/currency.dart';
 
 /// Comprehensive reservation history — shows ALL changes and events:
 /// date modifications, motorcycle changes, location/method changes,
@@ -564,12 +565,12 @@ class ResModificationHistory extends StatelessWidget {
       if (res.stornoFee != null && res.stornoFee! > 0)
         ResDetailRow(
           label: t(context).tr('stornoFeeLabel'),
-          value: '${res.stornoFee!.toStringAsFixed(0)} Kč',
+          value: '${Money.czk(res.stornoFee!)}',
         ),
       if (res.refundAmount != null && res.refundAmount! > 0)
         ResDetailRow(
           label: t(context).tr('refundedLabel'),
-          value: '${res.refundAmount!.toStringAsFixed(0)} Kč',
+          value: '${Money.czk(res.refundAmount!)}',
           valueColor: MotoGoColors.greenDarker,
         ),
     ]);

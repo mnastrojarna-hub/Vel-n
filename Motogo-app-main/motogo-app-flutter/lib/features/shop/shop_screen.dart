@@ -8,6 +8,7 @@ import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
 import 'shop_models.dart';
 import 'shop_provider.dart';
+import '../../core/currency.dart';
 
 /// Shop product grid — mirrors s-merch from templates-shop.js.
 class ShopScreen extends ConsumerWidget {
@@ -226,7 +227,7 @@ class _ProductCard extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('${product.price.toStringAsFixed(0)} Kč', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: MotoGoColors.greenDarker)),
+                      Text('${Money.czk(product.price)}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: MotoGoColors.greenDarker)),
                       if (!product.inStock)
                         Text(t(context).tr('soldOut'), style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: MotoGoColors.red)),
                     ],

@@ -18,6 +18,7 @@ import '../features/booking/booking_ui_helpers.dart';
 import '../features/catalog/catalog_provider.dart';
 import '../features/catalog/moto_model.dart';
 import '../features/catalog/widgets/availability_calendar.dart';
+import 'currency.dart';
 
 // ═══════════════════════════════════════════════════════════════════
 // INLINE BOOKING FORM — everything in ONE file, per-section try-catch
@@ -184,7 +185,7 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
                       ),
                     ),
                     Text(
-                      '${bd.basePrice.toStringAsFixed(0)} Kč',
+                      '${Money.czk(bd.basePrice)}',
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w900,

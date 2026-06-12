@@ -5,6 +5,7 @@ import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme.dart';
+import '../../core/currency.dart';
 import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/supabase_client.dart';
@@ -880,7 +881,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
       context.go(Routes.success);
     } else {
       final tr = t(context);
-      final amountStr = '${_ctx!.amount.round()} K\u010d';
+      final amountStr = Money.czk(_ctx!.amount);
       void goResult(PaymentOutcome outcome) {
         ref.read(paymentOutcomeProvider.notifier).state = outcome;
         context.go(Routes.paymentResult);

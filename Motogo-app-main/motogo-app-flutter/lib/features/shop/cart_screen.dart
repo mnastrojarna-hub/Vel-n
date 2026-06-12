@@ -9,6 +9,7 @@ import '../auth/widgets/toast_helper.dart';
 import '../booking/booking_provider.dart';
 import 'shop_models.dart';
 import 'shop_provider.dart';
+import '../../core/currency.dart';
 
 /// Cart screen — mirrors s-cart from cart-engine.js renderCart().
 class CartScreen extends ConsumerWidget {
@@ -106,7 +107,7 @@ class CartScreen extends ConsumerWidget {
                       Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                         Text('${t(context).tr('orderSummary')} (${notifier.itemCount})',
                           style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: MotoGoColors.g600)),
-                        Text('${subtotal.toStringAsFixed(0)} Kč',
+                        Text('${Money.czk(subtotal)}',
                           style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: MotoGoColors.black)),
                       ]),
                       const SizedBox(height: 4),
@@ -115,7 +116,7 @@ class CartScreen extends ConsumerWidget {
                         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                           Text(shipMode == ShipMode.post ? t(context).tr('shippingPost') : t(context).tr('shippingPickup'),
                             style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: MotoGoColors.g600)),
-                          Text(shipping > 0 ? '+${shipping.toStringAsFixed(0)} Kč' : t(context).tr('free'),
+                          Text(shipping > 0 ? '+${Money.czk(shipping)}' : t(context).tr('free'),
                             style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: MotoGoColors.black)),
                         ]),
                       // Discount
@@ -123,7 +124,7 @@ class CartScreen extends ConsumerWidget {
                         const SizedBox(height: 4),
                         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                           Text(t(context).tr('discountLabel'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: MotoGoColors.greenDarker)),
-                          Text('−${discount.toStringAsFixed(0)} Kč',
+                          Text('−${Money.czk(discount)}',
                             style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: MotoGoColors.greenDarker)),
                         ]),
                       ],
@@ -133,7 +134,7 @@ class CartScreen extends ConsumerWidget {
                       // Total
                       Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                         Text(t(context).tr('totalToPay'), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: MotoGoColors.black)),
-                        Text('${total.toStringAsFixed(0)} Kč', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: MotoGoColors.greenDarker)),
+                        Text('${Money.czk(total)}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: MotoGoColors.greenDarker)),
                       ]),
                       const SizedBox(height: 6),
                       Text(
@@ -178,7 +179,7 @@ class _CartItemTile extends StatelessWidget {
         children: [
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(item.name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: MotoGoColors.black)),
-            Text('${item.price.toStringAsFixed(0)} Kč', style: const TextStyle(fontSize: 12, color: MotoGoColors.g400)),
+            Text('${Money.czk(item.price)}', style: const TextStyle(fontSize: 12, color: MotoGoColors.g400)),
           ])),
           // Qty controls
           Row(children: [
@@ -188,7 +189,7 @@ class _CartItemTile extends StatelessWidget {
             _QtyBtn(label: '+', onTap: onPlus),
           ]),
           const SizedBox(width: 8),
-          Text('${item.total.toStringAsFixed(0)} Kč', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: MotoGoColors.black)),
+          Text('${Money.czk(item.total)}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: MotoGoColors.black)),
           const SizedBox(width: 8),
           GestureDetector(onTap: onRemove, child: const Text('🗑️', style: TextStyle(fontSize: 16))),
         ],

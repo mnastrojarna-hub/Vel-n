@@ -12,6 +12,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'core/auth_guard.dart';
 import 'core/cache_cleanup_service.dart';
+import 'core/currency.dart';
 import 'core/crash_report_service.dart';
 import 'core/debug_logger.dart';
 import 'core/offline_guard.dart';
@@ -146,6 +147,12 @@ Future<void> _initAndRun() async {
 
   // Read version from pubspec.yaml at runtime (package_info_plus)
   await initAppVersion();
+
+  // Měna (CZK/EUR/PLN, parita s webem): načti volbu + kurzy z cache,
+  // čerstvé kurzy ČNB dotáhni na pozadí (cache 15 min, fallback chain).
+  final langPrefs = await SharedPreferences.getInstance();
+  await Money.init(defaultLang: langPrefs.getString('mg_language'));
+  unawaited(Money.refreshRates());
 
   runApp(const ProviderScope(child: MotoGoApp()));
 }

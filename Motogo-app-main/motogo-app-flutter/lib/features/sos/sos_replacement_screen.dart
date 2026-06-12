@@ -13,6 +13,7 @@ import '../catalog/moto_model.dart';
 import '../booking/price_calculator.dart';
 import '../payment/payment_provider.dart';
 import 'sos_provider.dart';
+import '../../core/currency.dart';
 
 /// SOS replacement motorcycle selection — mirrors s-sos-replacement
 /// from templates-res-sos2.js + ui-sos-replacement.js.
@@ -335,7 +336,7 @@ class _SosReplacementState extends ConsumerState<SosReplacementScreen> {
                     if (_deliveryFee > 0)
                       Padding(
                         padding: const EdgeInsets.only(top: 6),
-                        child: Text('📍 ${t(context).tr('deliveryFee')}: ${_deliveryKm.toStringAsFixed(0)} km × 40 + 1 000 = ${_deliveryFee.toStringAsFixed(0)} Kč',
+                        child: Text('📍 ${t(context).tr('deliveryFee')}: ${_deliveryKm.toStringAsFixed(0)} km × 40 + 1 000 = ${Money.czk(_deliveryFee)}',
                           style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: MotoGoColors.greenDarker)),
                       ),
                     const SizedBox(height: 16),
@@ -346,16 +347,16 @@ class _SosReplacementState extends ConsumerState<SosReplacementScreen> {
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(MotoGoTheme.radiusLg)),
                         child: Column(children: [
-                          _SummaryRow(label: '🏍️ ${t(context).motorcycle}', value: '${_motoTotal.toStringAsFixed(0)} Kč'),
+                          _SummaryRow(label: '🏍️ ${t(context).motorcycle}', value: '${Money.czk(_motoTotal)}'),
                           _SummaryRow(
                             label: _deliveryKm > 0
                                 ? '🚛 ${t(context).tr('deliveryFee')} (${_deliveryKm.toStringAsFixed(0)} km × 40 + 1 000)'
                                 : '🚛 ${t(context).tr('deliveryFee')}',
-                            value: '${_deliveryFee.toStringAsFixed(0)} Kč',
+                            value: '${Money.czk(_deliveryFee)}',
                           ),
-                          _SummaryRow(label: '🛡️ ${t(context).tr('damageDeposit')}', value: '${_damageDeposit.toStringAsFixed(0)} Kč'),
+                          _SummaryRow(label: '🛡️ ${t(context).tr('damageDeposit')}', value: '${Money.czk(_damageDeposit)}'),
                           const Divider(),
-                          _SummaryRow(label: t(context).tr('totalLabel'), value: '${_total.toStringAsFixed(0)} Kč', bold: true),
+                          _SummaryRow(label: t(context).tr('totalLabel'), value: '${Money.czk(_total)}', bold: true),
                         ]),
                       ),
                     const SizedBox(height: 16),
@@ -376,7 +377,7 @@ class _SosReplacementState extends ConsumerState<SosReplacementScreen> {
                     : Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                         Icon(_isFault ? Icons.payment : Icons.check_circle, size: 18),
                         const SizedBox(width: 8),
-                        Text(_isFault ? '${t(context).tr('payAndOrder')} ${_total.toStringAsFixed(0)} Kč →' : t(context).tr('confirmOrderFree')),
+                        Text(_isFault ? '${t(context).tr('payAndOrder')} ${Money.czk(_total)} →' : t(context).tr('confirmOrderFree')),
                       ]),
               ),
             ),
