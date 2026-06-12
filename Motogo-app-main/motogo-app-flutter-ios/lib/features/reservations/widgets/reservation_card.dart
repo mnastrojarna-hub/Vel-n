@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme.dart';
+import '../../../core/widgets/moto_fx.dart';
 import '../../../core/router.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../reservation_models.dart';
@@ -49,14 +50,23 @@ class ReservationCard extends StatelessWidget {
                       colorFilter: grayscale
                           ? const ColorFilter.mode(Colors.grey, BlendMode.saturation)
                           : const ColorFilter.mode(Colors.transparent, BlendMode.dst),
-                      child: CachedNetworkImage(
-                        imageUrl: reservation.motoImage ?? '',
-                        fit: BoxFit.cover,
-                        errorWidget: (_, __, ___) => Container(
-                          color: MotoGoColors.g200,
-                          child: const Center(child: Text('🏍️', style: TextStyle(fontSize: 32))),
-                        ),
-                      ),
+                      // Prázdná URL by spadla už v buildu („No host specified
+                      // in URI") → globální ErrorWidget „Restartujte aplikaci".
+                      // Guard: bez URL rovnou placeholder.
+                      child: (reservation.motoImage == null ||
+                              reservation.motoImage!.isEmpty)
+                          ? Container(
+                              color: MotoGoColors.g200,
+                              child: const Center(child: Text('🏍️', style: TextStyle(fontSize: 32))),
+                            )
+                          : CachedNetworkImage(
+                              imageUrl: reservation.motoImage!,
+                              fit: BoxFit.cover,
+                              errorWidget: (_, __, ___) => Container(
+                                color: MotoGoColors.g200,
+                                child: const Center(child: Text('🏍️', style: TextStyle(fontSize: 32))),
+                              ),
+                            ),
                     ),
                   ),
                   // Gradient
@@ -223,7 +233,7 @@ class _ActionBtn extends StatelessWidget {
     return Expanded(
       child: Padding(
         padding: const EdgeInsets.only(right: 6),
-        child: GestureDetector(
+        child: PressableScale(
           onTap: onTap,
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 8),

@@ -77,8 +77,19 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _countdownTimer?.cancel();
-    // Platbu opouštíme → FAB panely se zase smí zobrazit.
-    ref.read(paymentScreenActiveProvider.notifier).state = false;
+    // Platbu opouštíme → FAB panely se zase smí zobrazit. Dispose běží uvnitř
+    // build fáze (finalizeTree při navigaci) — přímý zápis do provideru tady
+    // Riverpod zakazuje a rozbíjel strom widgetů („Restartujte aplikaci" po
+    // přechodu na děkovací stránku). Proto odložené až po framu.
+    final fabNotifier = ref.read(paymentScreenActiveProvider.notifier);
+    // Kontext platby s odchodem z obrazovky končí — každý vstup na /payment si
+    // ho nastavuje znovu (FAB, detail, edit). Bez vyčištění by stará hodnota
+    // (např. z FAB resume) unesla příští novou rezervaci z formuláře.
+    final ctxNotifier = ref.read(paymentContextProvider.notifier);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      fabNotifier.state = false;
+      ctxNotifier.state = null;
+    });
     super.dispose();
   }
 
@@ -219,6 +230,13 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
       _draftError = t(context).tr('noMotoSelected');
       return null;
     }
+    if (draft.startDate == null || draft.endDate == null) {
+      // Bez termínu nesmí vzniknout rezervace s prázdnými daty (insert by
+      // spadl na invalid date). Stane se jen při otevření platby s
+      // vyprázdněným draftem — pošli uživatele vybrat termín.
+      _draftError = t(context).tr('selectDatesFirst');
+      return null;
+    }
 
     String _fmtDate(DateTime d) =>
         '${d.year}-${d.month.toString().padLeft(2, "0")}-${d.day.toString().padLeft(2, "0")}';
@@ -265,6 +283,16 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
     final driverBoots = draft.bootsSize ?? _findExtraSize('extra-boty-ridic');
     final passengerBoots = _findExtraSize('extra-boty-spolu');
 
+    // Sleva: kromě textového kódu zapiš i FK na promo_codes / vouchers —
+    // parita s webovou create_web_booking. Bez promo_code_id/voucher_id
+    // process-payment ZAMÍTNE potvrzení 100% slevy (free booking) a
+    // rezervace by zůstala unpaid → auto-storno za 10 minut.
+    final firstDiscount = draft.discounts.isNotEmpty ? draft.discounts.first : null;
+    final promoCodeId =
+        (firstDiscount != null && !firstDiscount.isVoucher) ? firstDiscount.promoId : null;
+    final voucherId =
+        (firstDiscount != null && firstDiscount.isVoucher) ? firstDiscount.promoId : null;
+
     try {
       // Direct insert into bookings table (matches original Capacitor app)
       final res = await MotoGoSupabase.client.from('bookings').insert({
@@ -277,9 +305,9 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
         'extras_price': breakdown.extrasTotal,
         'delivery_fee': breakdown.deliveryFee,
         'discount_amount': breakdown.discountTotal,
-        'discount_code': draft.discounts.isNotEmpty
-            ? draft.discounts.first.code
-            : null,
+        'discount_code': firstDiscount?.code,
+        if (promoCodeId != null) 'promo_code_id': promoCodeId,
+        if (voucherId != null) 'voucher_id': voucherId,
         // Věrnostní sleva (ranky) — platí JEN pro app rezervace. Sloupce se
         // posílají pouze když sleva reálně padla (= backend s loyalty_* už
         // nasazen, RPC vrátila rank) — jinak by insert na starém schématu
@@ -755,14 +783,55 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
     }
   }
 
+  /// Potvrzen\u00ed rezervace pln\u011b pokryt\u00e9 slevou (0 K\u010d). KRITICK\u00c9: \u00fasp\u011bch se
+  /// NESM\u00cd p\u0159edst\u00edrat \u2014 d\u0159\u00edv se v\u00fdsledek confirm_free ignoroval, z\u00e1kazn\u00edk
+  /// vid\u011bl d\u011bkovac\u00ed str\u00e1nku, ale rezervace z\u016fstala `unpaid` a za 10 minut
+  /// p\u0159i\u0161el storno mail. Te\u010f flow pokra\u010duje na \u00fasp\u011bch JEN kdy\u017e backend
+  /// rezervaci re\u00e1ln\u011b ozna\u010dil jako zaplacenou.
   Future<void> _confirmFree() async {
     setState(() => _processing = true);
+
     if (_isNewBooking) {
+      _draftError = null;
       _pendingBookingId ??= await _createDraftBooking();
-      if (_pendingBookingId != null) {
-        await StripeService.confirmFreeBooking(_pendingBookingId!);
+      if (_pendingBookingId == null) {
+        if (!mounted) return;
+        setState(() => _processing = false);
+        _showError(
+          title: t(context).tr('bookingCreateFailed'),
+          message: _draftError != null
+              ? '$_draftError\n\n${t(context).tr('tryAgainPlease')}'
+              : t(context).tr('bookingCreateUnknownError'),
+          buttonLabel: t(context).tr('retry'),
+        );
+        return;
       }
     }
+
+    final bookingId = _pendingBookingId;
+    if (bookingId == null) {
+      // Nem\u011blo by nastat (free flow je v\u017edy booking) \u2014 bez ID nen\u00ed co potvrdit.
+      if (!mounted) return;
+      setState(() => _processing = false);
+      _handleGatewayError('missing booking id for free confirm');
+      return;
+    }
+
+    final result = await StripeService.confirmFreeBooking(bookingId);
+    if (!mounted) return;
+
+    // Fallback poll pokr\u00fdv\u00e1 i p\u0159\u00edpad \u201eji\u017e zaplaceno" (409 z duplicate guardu).
+    final confirmed = result.type == PaymentResultType.free ||
+        await StripeService.pollBookingPaymentStatus(bookingId, maxAttempts: 3);
+    if (!mounted) return;
+
+    if (!confirmed) {
+      setState(() => _processing = false);
+      _attempts++;
+      _handleIntentError(result);
+      return;
+    }
+
     showMotoGoToast(context,
         icon: '\u2713',
         title: t(context).tr('confirmed'),
@@ -872,6 +941,23 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
             ),
           );
         case PaymentFlowType.booking:
+          // Resume rozd\u011blan\u00e9 rezervace (FAB \u201eDokon\u010dit rezervaci") = plnohodnotn\u00e1
+          // nov\u00e1 rezervace, jen s \u010d\u00e1stkou z DB m\u00edsto draftu \u2014 stejn\u00e9 dokon\u010den\u00ed
+          // jako u draft flow: mail, z\u00e1lohov\u00e1 faktura, dokumenty, /success.
+          if (_pendingBookingId != null) {
+            EmailService.sendBookingReserved(_pendingBookingId!);
+            InvoiceService.generateAdvanceInvoice(
+                _pendingBookingId!, _ctx!.amount);
+            InvoiceService.generateBookingDocs(_pendingBookingId!);
+            showMotoGoToast(context,
+                icon: '\u2713',
+                title: tr.tr('paid'),
+                message: tr.tr('bookingConfirmed'));
+            ref.read(lastConfirmedBookingProvider.notifier).state =
+                _pendingBookingId;
+            context.go(Routes.success);
+            return;
+          }
           goResult(
             PaymentOutcome(
               title: tr.tr('paid'),

@@ -43,6 +43,7 @@ class _SosReplacementState extends ConsumerState<SosReplacementScreen> {
     _isFault = fault == true;
   }
 
+
   @override
   void dispose() {
     super.dispose();
@@ -174,6 +175,19 @@ class _SosReplacementState extends ConsumerState<SosReplacementScreen> {
     }
 
     if (!mounted) return;
+
+    // Placená náhrada BEZ založeného replacement bookingu = zákazník by
+    // zaplatil a motorka by nebyla přiřazena (webhook nemá co označit jako
+    // paid). Radši zastavit a navést na retry / asistenční linku.
+    if (_isFault && replacementBookingId == null) {
+      setState(() => _loading = false);
+      showMotoGoToast(context,
+          icon: '✗',
+          title: t(context).error,
+          message: t(context).tr('sosSwapFailed'));
+      return;
+    }
+
     setState(() => _loading = false);
     ref.invalidate(activeSosProvider);
 
@@ -224,6 +238,13 @@ class _SosReplacementState extends ConsumerState<SosReplacementScreen> {
   @override
   Widget build(BuildContext context) {
     final motosAsync = ref.watch(motorcyclesProvider);
+    // Pojistka pravidla „porucha = náhradní motorka vždy zdarma". Cena se řídí
+    // `sosFaultProvider`, který nemusí být nastavený (pád appky, přímá
+    // navigace) — typ incidentu z DB je autorita.
+    final activeInc = ref.watch(activeSosProvider).valueOrNull;
+    if (activeInc != null && activeInc.type.startsWith('breakdown')) {
+      _isFault = false;
+    }
 
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
@@ -272,14 +293,31 @@ class _SosReplacementState extends ConsumerState<SosReplacementScreen> {
                     Text(t(context).tr('selectReplacementMoto'), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: MotoGoColors.black)),
                     const SizedBox(height: 8),
                     motosAsync.when(
-                      data: (motos) => Column(
-                        children: motos.map((m) => _MotoOption(
-                          moto: m,
-                          selected: _selectedMoto?.id == m.id,
-                          isFault: _isFault,
-                          onTap: () => setState(() => _selectedMoto = m),
-                        )).toList(),
-                      ),
+                      data: (motos) {
+                        if (motos.isEmpty) {
+                          // Bez dostupné motorky nesmí zákazník zírat na
+                          // prázdný seznam — naveď ho na asistenční linku.
+                          return Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: MotoGoColors.amberBg,
+                              borderRadius: BorderRadius.circular(MotoGoTheme.radiusSm),
+                            ),
+                            child: Text(
+                              '⚠️ ${t(context).tr('sosNoMotos')}\n📞 +420 774 256 271',
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF78350F), height: 1.5),
+                            ),
+                          );
+                        }
+                        return Column(
+                          children: motos.map((m) => _MotoOption(
+                            moto: m,
+                            selected: _selectedMoto?.id == m.id,
+                            isFault: _isFault,
+                            onTap: () => setState(() => _selectedMoto = m),
+                          )).toList(),
+                        );
+                      },
                       loading: () => const Center(child: CircularProgressIndicator(color: MotoGoColors.green)),
                       error: (_, __) => Text(t(context).tr('errorLoadingMotos')),
                     ),

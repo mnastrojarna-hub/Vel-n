@@ -7,6 +7,7 @@ import '../../core/theme.dart';
 import '../../core/router.dart';
 import '../../core/supabase_client.dart';
 import '../../core/i18n/i18n_provider.dart';
+import '../../core/widgets/moto_fx.dart';
 import '../booking/booking_provider.dart';
 import '../catalog/catalog_provider.dart';
 import '../reservations/reservation_provider.dart';
@@ -41,11 +42,7 @@ class PaymentConfirmationScreen extends ConsumerStatefulWidget {
 }
 
 class _PaymentConfirmationScreenState
-    extends ConsumerState<PaymentConfirmationScreen>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _ctrl;
-  late Animation<double> _scaleAnim;
-
+    extends ConsumerState<PaymentConfirmationScreen> {
   _ConfirmInfo _info = const _ConfirmInfo(
     docsStatus: _DocsStatus.unknown,
     missingReason: null,
@@ -55,19 +52,7 @@ class _PaymentConfirmationScreenState
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 600),
-    );
-    _scaleAnim = CurvedAnimation(parent: _ctrl, curve: Curves.elasticOut);
-    _ctrl.forward();
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadConfirmInfo());
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
   }
 
   Future<void> _loadConfirmInfo() async {
@@ -169,54 +154,41 @@ class _PaymentConfirmationScreenState
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Animated checkmark ring
-                ScaleTransition(
-                  scale: _scaleAnim,
-                  child: Container(
-                    width: 80,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border:
-                          Border.all(color: MotoGoColors.green, width: 4),
-                    ),
-                    child: const Center(
-                      child: Text(
-                        '✓',
-                        style: TextStyle(
-                          fontSize: 36,
-                          fontWeight: FontWeight.w900,
-                          color: MotoGoColors.green,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
+                // Mototematická oslava — motorka přeletí obrazovku,
+                // jiskry + elastický check (viz moto_fx.dart)
+                const MotoSuccessHero(),
+                const SizedBox(height: 8),
 
                 // Title
-                Text(
-                  tr.tr('successTitle'),
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w900,
-                    color: Colors.white,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  tr.tr('successSubtitle'),
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.white.withValues(alpha: 0.6),
-                  ),
+                StaggeredReveal(
+                  index: 0,
+                  child: Column(children: [
+                    Text(
+                      tr.tr('successTitle'),
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      tr.tr('successSubtitle'),
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.white.withValues(alpha: 0.6),
+                      ),
+                    ),
+                  ]),
                 ),
                 const SizedBox(height: 20),
 
                 // Booking details card
                 if (draft.motoName != null || draft.startDate != null)
-                  Container(
+                  StaggeredReveal(
+                    index: 1,
+                    child: Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
@@ -260,17 +232,20 @@ class _PaymentConfirmationScreenState
                       ],
                     ),
                   ),
+                  ),
                 const SizedBox(height: 16),
 
                 // Docs status — parita s webovou /potvrzeni
                 // Skipujeme jen pro stav `unknown` (fallback bez bookingId)
                 if (_info.docsStatus != _DocsStatus.unknown) ...[
-                  _DocsStatusCard(info: _info),
+                  StaggeredReveal(index: 2, child: _DocsStatusCard(info: _info)),
                   const SizedBox(height: 16),
                 ],
 
                 // Email confirmation info
-                Container(
+                StaggeredReveal(
+                  index: 3,
+                  child: Container(
                   padding: const EdgeInsets.symmetric(
                       horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
@@ -295,56 +270,63 @@ class _PaymentConfirmationScreenState
                     ],
                   ),
                 ),
+                ),
                 const SizedBox(height: 16),
 
                 // Security tips
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: MotoGoColors.amberBg,
-                    borderRadius:
-                        BorderRadius.circular(MotoGoTheme.radiusSm),
-                  ),
-                  child: Column(
-                    children: [
-                      Text(
-                        '⚠️ ${tr.tr('successSafetyTitle')}',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF92400E),
+                StaggeredReveal(
+                  index: 4,
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: MotoGoColors.amberBg,
+                      borderRadius:
+                          BorderRadius.circular(MotoGoTheme.radiusSm),
+                    ),
+                    child: Column(
+                      children: [
+                        Text(
+                          '⚠️ ${tr.tr('successSafetyTitle')}',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF92400E),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        tr.tr('successSafetyTips'),
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF78350F),
-                          height: 1.6,
+                        const SizedBox(height: 8),
+                        Text(
+                          tr.tr('successSafetyTips'),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF78350F),
+                            height: 1.6,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(height: 16),
 
                 // Sync badge
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.15)),
-                  ),
-                  child: Text(
-                    '📡 ${tr.tr('successSynced')}',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: MotoGoColors.g400,
+                StaggeredReveal(
+                  index: 5,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.15)),
+                    ),
+                    child: Text(
+                      '📡 ${tr.tr('successSynced')}',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: MotoGoColors.g400,
+                      ),
                     ),
                   ),
                 ),
@@ -352,31 +334,41 @@ class _PaymentConfirmationScreenState
 
                 // CTA: pokud chybí doklady, primárka vede do Dokumentů (skenování)
                 if (_info.docsStatus == _DocsStatus.missing)
-                  ElevatedButton(
-                    onPressed: () {
-                      ref.invalidate(reservationsProvider);
-                      context.go(Routes.docs);
-                    },
-                    style: ElevatedButton.styleFrom(
-                      minimumSize: const Size.fromHeight(52),
-                      backgroundColor: const Color(0xFFEA580C),
-                      foregroundColor: Colors.white,
-                    ),
-                    child: Text(
-                      '${tr.tr('uploadDocumentsCta')} →',
+                  StaggeredReveal(
+                    index: 6,
+                    child: PressableScale(
+                      child: ElevatedButton(
+                        onPressed: () {
+                          ref.invalidate(reservationsProvider);
+                          context.go(Routes.docs);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          minimumSize: const Size.fromHeight(52),
+                          backgroundColor: const Color(0xFFEA580C),
+                          foregroundColor: Colors.white,
+                        ),
+                        child: Text(
+                          '${tr.tr('uploadDocumentsCta')} →',
+                        ),
+                      ),
                     ),
                   )
                 else
-                  ElevatedButton(
-                    onPressed: () {
-                      ref.invalidate(reservationsProvider);
-                      context.go(Routes.reservations);
-                    },
-                    style: ElevatedButton.styleFrom(
-                      minimumSize: const Size.fromHeight(52),
+                  StaggeredReveal(
+                    index: 6,
+                    child: PressableScale(
+                      child: ElevatedButton(
+                        onPressed: () {
+                          ref.invalidate(reservationsProvider);
+                          context.go(Routes.reservations);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          minimumSize: const Size.fromHeight(52),
+                        ),
+                        child: Text(
+                            '${tr.tr('successCta')} →'),
+                      ),
                     ),
-                    child: Text(
-                        '${tr.tr('successCta')} →'),
                   ),
                 if (_info.docsStatus == _DocsStatus.missing) ...[
                   const SizedBox(height: 12),

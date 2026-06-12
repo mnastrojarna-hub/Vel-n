@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'doc_webview_screen.dart';
 
 import '../../core/theme.dart';
+import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/supabase_client.dart';
 import '../../core/data/legal_texts.dart';
@@ -35,7 +36,13 @@ class ContractsScreen extends ConsumerWidget {
       backgroundColor: MotoGoColors.bg,
       appBar: AppBar(
         leading: GestureDetector(
-          onTap: () => context.pop(),
+          onTap: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go(Routes.profile);
+            }
+          },
           child: Center(
             child: Container(
               width: 36, height: 36,

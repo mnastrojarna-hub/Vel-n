@@ -31,6 +31,10 @@ class SosDetailScreen extends ConsumerWidget {
   Widget _doneView(BuildContext context, WidgetRef ref, SosDoneType type) {
     final model = ref.read(sosDoneModelProvider);
     final paid = ref.read(sosDonePaidProvider);
+    final refId = lastSosIncidentId;
+    final refLabel = refId != null && refId.length >= 8
+        ? '#${refId.substring(refId.length - 8).toUpperCase()}'
+        : null;
 
     final config = _doneConfig(context, type, model, paid);
 
@@ -65,6 +69,33 @@ class SosDetailScreen extends ConsumerWidget {
                 ]),
               ),
               const SizedBox(height: 16),
+
+              // Referenční číslo incidentu — jistota pro zákazníka v krizi:
+              // má co uvést operátorovi a ví, že je vše uložené.
+              if (refLabel != null) ...[
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: MotoGoColors.dark,
+                    borderRadius: BorderRadius.circular(MotoGoTheme.radiusLg),
+                  ),
+                  child: Row(children: [
+                    const Text('🆔', style: TextStyle(fontSize: 22)),
+                    const SizedBox(width: 12),
+                    Expanded(child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                      Text('${t(context).tr('sosRefNumber')}: $refLabel',
+                          style: const TextStyle(fontSize: 14,
+                              fontWeight: FontWeight.w900, color: Colors.white)),
+                      Text(t(context).tr('sosRefKeep'),
+                          style: TextStyle(fontSize: 10,
+                              color: Colors.white.withValues(alpha: 0.6))),
+                    ])),
+                  ]),
+                ),
+                const SizedBox(height: 16),
+              ],
 
               // What happens next
               Container(

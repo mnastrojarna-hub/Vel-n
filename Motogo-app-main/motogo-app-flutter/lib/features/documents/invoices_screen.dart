@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme.dart';
+import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/supabase_client.dart';
 import 'document_models.dart';
@@ -23,7 +24,13 @@ class InvoicesScreen extends ConsumerWidget {
       backgroundColor: MotoGoColors.bg,
       appBar: AppBar(
         leading: GestureDetector(
-          onTap: () => context.pop(),
+          onTap: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go(Routes.profile);
+            }
+          },
           child: Center(
             child: Container(
               width: 36, height: 36,

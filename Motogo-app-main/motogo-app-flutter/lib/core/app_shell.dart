@@ -14,6 +14,7 @@ import '../features/catalog/catalog_provider.dart';
 import '../features/documents/document_provider.dart';
 import '../features/loyalty/loyalty_levelup_overlay.dart';
 import '../features/messages/messages_provider.dart';
+import '../features/payment/payment_provider.dart';
 import '../features/reservations/reservation_models.dart';
 import '../features/reservations/reservation_provider.dart';
 import '../features/shop/shop_provider.dart';
@@ -482,7 +483,19 @@ class _BookingFab extends ConsumerWidget {
       children: [
         // Main green button (left pill)
         GestureDetector(
-          onTap: () => context.push(Routes.payment),
+          onTap: () {
+            // Resume rozdělané platby: PaymentScreen NESMÍ spoléhat na booking
+            // draft (po restartu/úklidu je prázdný → „Motorka × 0 dny, 0 Kč
+            // zdarma" a vznikaly nesmyslné rezervace). Předáme kontext s ID a
+            // částkou přímo z DB řádku rezervace.
+            ref.read(paymentContextProvider.notifier).state = PaymentContext(
+              flowType: PaymentFlowType.booking,
+              bookingId: booking.id,
+              amount: booking.totalPrice,
+              label: t(context).tr('bookingReservation'),
+            );
+            context.push(Routes.payment);
+          },
           child: Container(
             padding: const EdgeInsets.only(left: 24, right: 16, top: 14, bottom: 14),
             decoration: const BoxDecoration(

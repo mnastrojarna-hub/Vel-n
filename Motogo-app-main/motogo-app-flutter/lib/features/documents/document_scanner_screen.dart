@@ -120,6 +120,16 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen> {
     _camReady = false;
   }
 
+  /// Zpět ze skeneru i bez zásobníku (deep link / context.go) — jinak by
+  /// šipka nedělala nic a uživatel by ve skeneru uvízl.
+  void _safePop() {
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go(Routes.docs);
+    }
+  }
+
   @override
   void dispose() {
     _cam?.dispose();
@@ -648,7 +658,7 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen> {
             Row(children: [
               _backBtn(() async {
                 await _disposeCamera();
-                if (mounted) context.pop();
+                if (mounted) _safePop();
               }),
               const SizedBox(width: 12),
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -880,7 +890,7 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen> {
           TextButton(
             onPressed: () async {
               await _disposeCamera();
-              if (mounted) context.pop();
+              if (mounted) _safePop();
             },
             child: const Text('Zavřít skener',
               style: TextStyle(color: Colors.white38, fontSize: 13)),
@@ -975,7 +985,7 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen> {
   Widget _headerRow() => Padding(
     padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
     child: Row(children: [
-      _backBtn(() => context.pop()),
+      _backBtn(() => _safePop()),
       const SizedBox(width: 12),
       Text(t(context).tr('scanDocuments'), style: const TextStyle(fontSize: 14,
           fontWeight: FontWeight.w900, color: Colors.white)),

@@ -179,6 +179,11 @@ Future<List<SosTimelineEntry>> _fetchTimeline(String incidentId) async {
   return (res as List).map((e) => SosTimelineEntry.fromJson(e)).toList();
 }
 
+/// ID posledního nahlášeného incidentu v této session — done obrazovka z něj
+/// ukazuje referenční číslo („Incident #AB12CD34"), aby zákazník měl při
+/// telefonátu s operátorem (i se složkami IZS) co uvést.
+String? lastSosIncidentId;
+
 /// Create SOS incident via direct INSERT — matches original Capacitor app
 /// (api-messaging.js: apiCreateSosIncident).
 /// RLS allows customer INSERT on sos_incidents (user_id = uid).
@@ -205,7 +210,10 @@ Future<String> createSosIncident({
       .limit(1)
       .maybeSingle();
 
-  if (existing != null) return existing['id'] as String;
+  if (existing != null) {
+    lastSosIncidentId = existing['id'] as String;
+    return existing['id'] as String;
+  }
 
   // Find active booking if not provided
   bookingId ??= await _findActiveBookingId(user.id);
@@ -232,6 +240,7 @@ Future<String> createSosIncident({
       .select()
       .single();
 
+  lastSosIncidentId = res['id'] as String;
   return res['id'] as String;
 }
 

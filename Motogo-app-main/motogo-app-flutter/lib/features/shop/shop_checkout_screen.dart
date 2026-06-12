@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme.dart';
+import '../../core/widgets/moto_fx.dart';
 import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/supabase_client.dart';
@@ -411,7 +412,9 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
               child: SizedBox(
                 width: double.infinity,
                 height: 52,
-                child: ElevatedButton(
+                child: PressableScale(
+                  enabled: !_processing,
+                  child: ElevatedButton(
                   onPressed: _processing ? null : _finalize,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: MotoGoColors.green,
@@ -433,6 +436,7 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
                           style: const TextStyle(
                               fontSize: 14, fontWeight: FontWeight.w700),
                         ),
+                ),
                 ),
               ),
             ),

@@ -76,7 +76,12 @@ class _LoyaltyLevelUpWatcherState extends ConsumerState<LoyaltyLevelUpWatcher> {
   Widget build(BuildContext context) {
     ref.listen(loyaltyStatusProvider, (prev, next) {
       final s = next.valueOrNull;
-      if (s != null) _maybeCelebrate(s);
+      if (s == null) return;
+      // Listener může vystřelit i uprostřed build/navigační fáze — dialog
+      // (Navigator) se smí otevřít až po dokončení framu, jinak hrozí pád.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _maybeCelebrate(s);
+      });
     });
     // Když se za běhu appky změní seznam rezervací (např. realtime přepnutí
     // na „dokončeno"), přepočti rank — animace tak proběhne hned, ne až po
