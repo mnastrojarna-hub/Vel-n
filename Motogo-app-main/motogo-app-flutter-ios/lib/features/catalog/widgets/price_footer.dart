@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/theme.dart';
 import '../moto_model.dart';
+import '../../../core/currency.dart';
 
 /// Price footer card showing price-from and optional total for selected dates.
 class PriceFooter extends StatelessWidget {
@@ -39,7 +40,7 @@ class PriceFooter extends StatelessWidget {
               textBaseline: TextBaseline.alphabetic,
               children: [
                 Text(
-                  '${prices?.cheapest.toStringAsFixed(0) ?? '–'} Kč',
+                  prices != null ? Money.czk(prices!.cheapest) : '–',
                   style: const TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.w900,
@@ -97,7 +98,7 @@ class PriceFooter extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  '${totalPrice.toStringAsFixed(0)} Kč',
+                  '${Money.czk(totalPrice)}',
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w900,

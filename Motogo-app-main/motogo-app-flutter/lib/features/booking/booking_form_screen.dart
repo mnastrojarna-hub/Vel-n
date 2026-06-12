@@ -13,6 +13,7 @@ import 'widgets/booking_form_consent.dart';
 import 'widgets/booking_form_extra_item.dart';
 import 'widgets/booking_form_price_row.dart';
 import 'widgets/booking_form_radio_tile.dart';
+import '../../core/currency.dart';
 
 /// Full booking form — all widgets inline (no external widget imports).
 class BookingFormScreen extends ConsumerStatefulWidget {
@@ -217,15 +218,15 @@ class _BookingFormScreenState extends ConsumerState<BookingFormScreen> {
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               const Text('Shrnutí ceny', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
               const SizedBox(height: 10),
-              buildBookingFormPriceRow('Motorka × $dayCount ${dayCount == 1 ? 'den' : dayCount < 5 ? 'dny' : 'dní'}', '${breakdown.basePrice.toStringAsFixed(0)} Kč'),
-              if (breakdown.deliveryFee > 0) buildBookingFormPriceRow('Přistavení / vrácení', '+${breakdown.deliveryFee.toStringAsFixed(0)} Kč'),
-              if (breakdown.extrasTotal > 0) buildBookingFormPriceRow('Doplňky a výbava', '+${breakdown.extrasTotal.toStringAsFixed(0)} Kč'),
-              if (breakdown.discountTotal > 0) buildBookingFormPriceRow('Sleva', '−${breakdown.discountTotal.toStringAsFixed(0)} Kč', color: MotoGoColors.greenDarker),
+              buildBookingFormPriceRow('Motorka × $dayCount ${dayCount == 1 ? 'den' : dayCount < 5 ? 'dny' : 'dní'}', '${Money.czk(breakdown.basePrice)}'),
+              if (breakdown.deliveryFee > 0) buildBookingFormPriceRow('Přistavení / vrácení', '+${Money.czk(breakdown.deliveryFee)}'),
+              if (breakdown.extrasTotal > 0) buildBookingFormPriceRow('Doplňky a výbava', '+${Money.czk(breakdown.extrasTotal)}'),
+              if (breakdown.discountTotal > 0) buildBookingFormPriceRow('Sleva', '−${Money.czk(breakdown.discountTotal)}', color: MotoGoColors.greenDarker),
               buildBookingFormPriceRow('✓ Záloha se neúčtuje', '0 Kč', subtle: true),
               const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Divider(color: MotoGoColors.g200, height: 1)),
               Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                 const Text('Celkem (cena konečná)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900)),
-                Text('${breakdown.total.toStringAsFixed(0)} Kč', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: MotoGoColors.greenDarker)),
+                Text('${Money.czk(breakdown.total)}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: MotoGoColors.greenDarker)),
               ]),
               const SizedBox(height: 4),
               const Text('Cena bez DPH, nejsme plátci', style: TextStyle(fontSize: 9, color: MotoGoColors.g400)),

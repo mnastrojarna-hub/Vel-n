@@ -48,6 +48,7 @@ import '../features/sos/sos_immobile_screen.dart';
 import '../features/sos/sos_theft_screen.dart';
 import '../features/sos/sos_breakdown_immobile_screen.dart';
 import '../features/sos/sos_service_screen.dart';
+import 'currency.dart';
 
 /// All route paths — mirrors router.js screen IDs.
 class Routes {
@@ -545,7 +546,7 @@ class _BDWState extends ConsumerState<_BookingDebugWrapper> {
                     fontWeight: FontWeight.w700,
                     color: Color(0xFF4A6357),
                     decoration: TextDecoration.none)),
-                Text('${bd.basePrice.toStringAsFixed(0)} Kč',
+                Text('${Money.czk(bd.basePrice)}',
                   style: const TextStyle(fontSize: 18,
                     fontWeight: FontWeight.w900,
                     color: Color(0xFF1A8A18),
@@ -805,7 +806,7 @@ class _BDWState extends ConsumerState<_BookingDebugWrapper> {
                         : const Color(0xFF8AAB99),
                       decoration: TextDecoration.none)),
                 ])),
-                Text('+${item.price.toStringAsFixed(0)} Kč',
+                Text('+${Money.czk(item.price)}',
                   style: const TextStyle(fontSize: 13,
                     fontWeight: FontWeight.w700,
                     color: Color(0xFF3DBA3A),
@@ -832,19 +833,19 @@ class _BDWState extends ConsumerState<_BookingDebugWrapper> {
           const SizedBox(height: 10),
           bookingPriceRow(
             'Motorka × $dc ${dc == 1 ? "den" : dc < 5 ? "dny" : "dní"}',
-            '${bd.basePrice.toStringAsFixed(0)} Kč'),
+            '${Money.czk(bd.basePrice)}'),
           for (final e in draft.extras)
             bookingPriceRow(e.name,
-              '+${(e.price * e.quantity).toStringAsFixed(0)} Kč'),
+              '+${Money.czk((e.price * e.quantity))}'),
           if (bd.pickupDeliveryFee > 0)
             bookingPriceRow('Přistavení',
-              '+${bd.pickupDeliveryFee.toStringAsFixed(0)} Kč'),
+              '+${Money.czk(bd.pickupDeliveryFee)}'),
           if (bd.returnDeliveryFee > 0)
             bookingPriceRow('Odvoz',
-              '+${bd.returnDeliveryFee.toStringAsFixed(0)} Kč'),
+              '+${Money.czk(bd.returnDeliveryFee)}'),
           if (bd.discountTotal > 0)
             bookingPriceRow('Sleva',
-              '−${bd.discountTotal.toStringAsFixed(0)} Kč',
+              '−${Money.czk(bd.discountTotal)}',
               color: const Color(0xFF1A8A18)),
           bookingPriceRow('✓ Záloha se neúčtuje', '0 Kč',
             subtle: true),
@@ -857,7 +858,7 @@ class _BDWState extends ConsumerState<_BookingDebugWrapper> {
               style: TextStyle(fontSize: 14,
                 fontWeight: FontWeight.w900,
                 decoration: TextDecoration.none)),
-            Text('${bd.total.toStringAsFixed(0)} Kč',
+            Text('${Money.czk(bd.total)}',
               style: const TextStyle(fontSize: 18,
                 fontWeight: FontWeight.w900,
                 color: Color(0xFF1A8A18),

@@ -5,6 +5,7 @@ import '../features/booking/booking_models.dart';
 import '../features/booking/booking_ui_helpers.dart';
 import 'booking_size_dialogs.dart';
 import 'i18n/i18n_provider.dart';
+import 'currency.dart';
 
 /// Equipment & extras selector section inside the booking form.
 class BookingFormExtrasSection extends ConsumerWidget {
@@ -214,7 +215,7 @@ class BookingFormExtrasSection extends ConsumerWidget {
                     ),
                   ),
                   Text(
-                    '+${item.price.toStringAsFixed(0)} Kč',
+                    '+${Money.czk(item.price)}',
                     style: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../shop_models.dart';
+import '../../../core/currency.dart';
 
 /// Order summary — cart items, shipping cost, discount, and total.
 class CheckoutSummarySection extends StatelessWidget {
@@ -49,7 +50,7 @@ class CheckoutSummarySection extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  Text('${item.total.toStringAsFixed(0)} Kč',
+                  Text('${Money.czk(item.total)}',
                       style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -74,7 +75,7 @@ class CheckoutSummarySection extends StatelessWidget {
                   ),
                   Text(
                     shipping > 0
-                        ? '+${shipping.toStringAsFixed(0)} Kč'
+                        ? '+${Money.czk(shipping)}'
                         : t(context).tr('free'),
                     style: const TextStyle(
                         fontSize: 12,
@@ -95,7 +96,7 @@ class CheckoutSummarySection extends StatelessWidget {
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                           color: MotoGoColors.greenDarker)),
-                  Text('−${discount.toStringAsFixed(0)} Kč',
+                  Text('−${Money.czk(discount)}',
                       style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
@@ -110,7 +111,7 @@ class CheckoutSummarySection extends StatelessWidget {
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
                   color: MotoGoColors.black)),
-          Text('${total.toStringAsFixed(0)} Kč',
+          Text('${Money.czk(total)}',
               style: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w900,

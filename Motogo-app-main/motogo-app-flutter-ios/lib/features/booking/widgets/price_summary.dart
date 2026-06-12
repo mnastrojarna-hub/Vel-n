@@ -4,6 +4,7 @@ import '../../../core/i18n/i18n_provider.dart';
 import '../../payment/booking_upsell_provider.dart';
 import '../booking_models.dart';
 import '../price_calculator.dart';
+import '../../../core/currency.dart';
 
 /// Price summary card — mirrors the .pr rows from templates-booking-form2.js.
 /// Shows every item that defines the price, with km×40+1000 delivery detail.
@@ -42,49 +43,49 @@ class PriceSummaryCard extends StatelessWidget {
           // Base price
           _PriceRow(
             label: 'Motorka × ${breakdown.days} ${_dayWord(breakdown.days)}',
-            value: '${breakdown.basePrice.toStringAsFixed(0)} Kč',
+            value: '${Money.czk(breakdown.basePrice)}',
           ),
 
           // Individual extras (each item separately)
           for (final extra in extras)
             _PriceRow(
               label: '${extra.name}${extra.size != null ? ' (vel. ${extra.size})' : ''}',
-              value: '+${(extra.price * extra.quantity).toStringAsFixed(0)} Kč',
+              value: '+${Money.czk((extra.price * extra.quantity))}',
             ),
 
           // Pickup delivery with km × 40 + 1000 detail
           if (breakdown.pickupDeliveryFee > 0)
             _PriceRow(
               label: _deliveryLabel(t(context).tr('deliveryLabel'), breakdown.pickupDeliveryFee),
-              value: '+${breakdown.pickupDeliveryFee.toStringAsFixed(0)} Kč',
+              value: '+${Money.czk(breakdown.pickupDeliveryFee)}',
             ),
 
           // Return delivery with km × 40 + 1000 detail
           if (breakdown.returnDeliveryFee > 0)
             _PriceRow(
               label: _deliveryLabel(t(context).tr('returnDelivery'), breakdown.returnDeliveryFee),
-              value: '+${breakdown.returnDeliveryFee.toStringAsFixed(0)} Kč',
+              value: '+${Money.czk(breakdown.returnDeliveryFee)}',
             ),
 
           // Insurance
           if (breakdown.insuranceFee > 0)
             _PriceRow(
               label: 'Pojištění',
-              value: '+${breakdown.insuranceFee.toStringAsFixed(0)} Kč',
+              value: '+${Money.czk(breakdown.insuranceFee)}',
             ),
 
           // Upsell items from "Doporučujeme k rezervaci"
           for (final item in upsellItems)
             _PriceRow(
               label: item.name,
-              value: '+${item.price.toStringAsFixed(0)} Kč',
+              value: '+${Money.czk(item.price)}',
             ),
 
           // Discount (promo kód / voucher)
           if (breakdown.discountTotal > 0)
             _PriceRow(
               label: 'Sleva',
-              value: '−${breakdown.discountTotal.toStringAsFixed(0)} Kč',
+              value: '−${Money.czk(breakdown.discountTotal)}',
               valueColor: MotoGoColors.greenDarker,
               valueBold: true,
             ),
@@ -93,7 +94,7 @@ class PriceSummaryCard extends StatelessWidget {
           if (breakdown.loyaltyDiscount > 0) ...[
             _PriceRow(
               label: '★ ${t(context).tr('loyaltyDiscountLabel').replaceAll('{rank}', breakdown.loyaltyRankName ?? '').replaceAll('{pct}', '${breakdown.loyaltyPercent}')}',
-              value: '−${breakdown.loyaltyDiscount.toStringAsFixed(0)} Kč',
+              value: '−${Money.czk(breakdown.loyaltyDiscount)}',
               valueColor: MotoGoColors.greenDarker,
               valueBold: true,
             ),
@@ -128,7 +129,7 @@ class PriceSummaryCard extends StatelessWidget {
                 style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: MotoGoColors.black),
               ),
               Text(
-                '${_totalWithUpsell.toStringAsFixed(0)} Kč',
+                '${Money.czk(_totalWithUpsell)}',
                 style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: MotoGoColors.greenDarker),
               ),
             ],

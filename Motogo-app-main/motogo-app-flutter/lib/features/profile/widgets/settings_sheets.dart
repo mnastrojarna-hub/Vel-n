@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme.dart';
 import '../../../core/router.dart';
 import '../../../core/i18n/i18n_provider.dart';
+import '../../../core/currency.dart';
 import '../../../core/native/permission_service.dart';
 import '../../auth/auth_provider.dart';
 import '../../auth/biometric_service.dart';
@@ -95,6 +96,51 @@ void showLanguagePickerSheet(BuildContext context, WidgetRef ref) {
               if (context.mounted) {
                 showMotoGoToast(context, icon: '🌐', title: t(context).tr('languageChanged'), message: l.$2);
                 // Force full app rebuild by navigating to home
+                context.go(Routes.home);
+              }
+            },
+          )),
+        ]),
+      ),
+    ),
+  );
+}
+
+/// Bottom sheet pro volbu měny (CZK/EUR/PLN) — parita s webem: ceny se jen
+/// ZOBRAZUJÍ v přepočtu dle kurzu ČNB, platby kartou probíhají vždy v CZK.
+void showCurrencyPickerSheet(BuildContext context, WidgetRef ref) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    builder: (ctx) => SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Text(t(context).tr('currency'),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: MotoGoColors.black)),
+          const SizedBox(height: 6),
+          Text(t(context).tr('currencyNote'),
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 11, color: MotoGoColors.g400)),
+          const SizedBox(height: 12),
+          ...supportedCurrencies.map((c) => ListTile(
+            title: Text('${c.flag} ${c.code} — ${c.symbol}',
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+            subtitle: c.code == 'CZK'
+                ? null
+                : Text('1 ${c.code} ≈ ${(Money.rates[c.code] ?? 0).toStringAsFixed(2)} Kč (ČNB)',
+                    style: const TextStyle(fontSize: 10, color: MotoGoColors.g400)),
+            trailing: ref.read(currencyProvider) == c.code
+                ? const Icon(Icons.check, color: MotoGoColors.greenDark)
+                : null,
+            onTap: () async {
+              await ref.read(currencyProvider.notifier).setCurrency(c.code);
+              if (ctx.mounted) Navigator.pop(ctx);
+              if (context.mounted) {
+                showMotoGoToast(context, icon: '💱',
+                    title: t(context).tr('currencyChanged'),
+                    message: '${c.flag} ${c.code}');
+                // Force full app rebuild by navigating to home (jako u jazyka)
                 context.go(Routes.home);
               }
             },

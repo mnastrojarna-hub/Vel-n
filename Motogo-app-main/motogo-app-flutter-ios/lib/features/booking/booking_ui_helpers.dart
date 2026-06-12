@@ -8,6 +8,7 @@ import 'booking_provider.dart';
 import 'map_launcher.dart' show MapResult;
 import 'price_calculator.dart';
 import '../../core/i18n/i18n_provider.dart';
+import '../../core/currency.dart';
 
 /// Pure UI helper functions for inline booking form in router.dart.
 /// NO ConsumerStatefulWidget, NO Riverpod — just widget builders.
@@ -208,8 +209,8 @@ Widget bookingAddrTile(String? city, String? address,
               color: Color(0xFF1A8A18)),
             const SizedBox(width: 6),
             Text(distKm != null
-              ? '~${distKm.toStringAsFixed(0)} km · ${delivFee!.toStringAsFixed(0)} Kč'
-              : '${delivFee!.toStringAsFixed(0)} Kč',
+              ? '~${distKm.toStringAsFixed(0)} km · ${Money.czk(delivFee!)}'
+              : '${Money.czk(delivFee!)}',
               style: const TextStyle(fontSize: 12,
                 fontWeight: FontWeight.w700,
                 color: Color(0xFF1A8A18))),
@@ -303,7 +304,7 @@ void showAddrDialog(BuildContext ctx, String title,
                           PriceCalculator.calcDeliveryFee(km);
                       ss(() => distInfo =
                         '~${km.toStringAsFixed(0)} km · '
-                        '${fee.toStringAsFixed(0)} Kč');
+                        '${Money.czk(fee)}');
                       onDistanceCalc?.call(km, fee);
                     });
                 })),
@@ -351,7 +352,7 @@ void showAddrDialog(BuildContext ctx, String title,
                 final fee = PriceCalculator.calcDeliveryFee(km);
                 ss(() => distInfo =
                   '~${km.toStringAsFixed(0)} km · '
-                  '${fee.toStringAsFixed(0)} Kč');
+                  '${Money.czk(fee)}');
                 onDistanceCalc?.call(km, fee);
               } catch (_) {
                 ss(() => distInfo = t(c).tr('gpsErrorManual'));
@@ -415,7 +416,7 @@ void showAddrDialog(BuildContext ctx, String title,
               final fee = PriceCalculator.calcDeliveryFee(km);
               ss(() => distInfo =
                 '~${km.toStringAsFixed(0)} km · '
-                '${fee.toStringAsFixed(0)} Kč');
+                '${Money.czk(fee)}');
               onDistanceCalc?.call(km, fee);
             },
             child: Container(
@@ -832,7 +833,7 @@ class _AddrSheetBodyState extends State<_AddrSheetBody> {
       setState(() { _sug = [];
         _isError = false;
         _distInfo = '~${km.toStringAsFixed(0)} km · '
-            '${fee.toStringAsFixed(0)} Kč'; });
+            '${Money.czk(fee)}'; });
       widget.onDistCalc?.call(km, fee);
     }
   }
@@ -878,7 +879,7 @@ class _AddrSheetBodyState extends State<_AddrSheetBody> {
         }
       }
       final fee = PriceCalculator.calcDeliveryFee(km);
-      debugPrint('[CONFIRM] result: ${km.toStringAsFixed(1)}km, ${fee.toStringAsFixed(0)} Kč');
+      debugPrint('[CONFIRM] result: ${km.toStringAsFixed(1)}km, ${Money.czk(fee)}');
       widget.onDistCalc?.call(km, fee);
     } else {
       debugPrint('[CONFIRM] distance already calculated or city empty, skipping');

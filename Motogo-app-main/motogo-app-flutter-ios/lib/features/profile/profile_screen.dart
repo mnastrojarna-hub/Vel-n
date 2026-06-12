@@ -206,6 +206,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ProfileMenuItem(icon: '🔒', label: t(context).tr('privacy'), onTap: () => _showConsentSheet(context, 'priv')),
               ProfileMenuItem(icon: '🔑', label: t(context).tr('changePassword'), onTap: () => _showChangePassword(context)),
               ProfileMenuItem(icon: '🌐', label: t(context).tr('language'), onTap: () => _showLanguagePicker(context)),
+              ProfileMenuItem(icon: '💱', label: t(context).tr('currency'), onTap: () => _showCurrencyPicker(context)),
 
               const SizedBox(height: 12),
               ProfileSectionTitle(title: t(context).tr('helpAndSupport')),
@@ -401,6 +402,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   void _showLanguagePicker(BuildContext context) => showLanguagePickerSheet(context, ref);
+
+  void _showCurrencyPicker(BuildContext context) => showCurrencyPickerSheet(context, ref);
 
   void _showChangePassword(BuildContext context) => showChangePasswordSheet(context);
 

@@ -1,3 +1,4 @@
+import '../../core/currency.dart';
 /// Motorcycle data model — mirrors the MOTOS object from data/motos.js.
 class Motorcycle {
   final String id;
@@ -192,7 +193,7 @@ class Motorcycle {
   String get priceLabel {
     if (prices == null) return '';
     final min = prices!.cheapest;
-    return '${min.toStringAsFixed(0)} Kč';
+    return '${Money.czk(min)}';
   }
 
   /// Description with HTML tags/entities removed, for plain-text rendering.

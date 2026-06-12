@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../features/booking/booking_models.dart';
 import '../features/booking/booking_provider.dart';
 import 'i18n/i18n_provider.dart';
+import 'currency.dart';
 
 /// Promo/discount-code entry section inside the booking form.
 /// NO TextField in main tree — uses showDialog (AlertDialog has own Material).
@@ -204,7 +205,7 @@ class BookingFormPromoSection extends StatelessWidget {
                         child: Text(
                           d.type == DiscountType.percent
                               ? '${d.code} (−${d.value.toStringAsFixed(0)}%)'
-                              : '${d.code} (−${d.value.toStringAsFixed(0)} Kč)',
+                              : '${d.code} (−${Money.czk(d.value)})',
                           style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w700,

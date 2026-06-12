@@ -12,6 +12,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'core/auth_guard.dart';
 import 'core/cache_cleanup_service.dart';
+import 'core/currency.dart';
 import 'core/crash_report_service.dart';
 import 'core/debug_logger.dart';
 import 'core/offline_guard.dart';
@@ -23,6 +24,7 @@ import 'core/router.dart';
 import 'core/theme.dart';
 import 'core/i18n/i18n_provider.dart';
 import 'core/overlays/onboarding_overlays.dart';
+import 'core/widgets/moto_fx.dart';
 import 'core/update_check_provider.dart';
 import 'core/in_app_update_service.dart';
 import 'core/widgets/logo_header.dart' show initAppVersion;
@@ -146,6 +148,12 @@ Future<void> _initAndRun() async {
   // Read version from pubspec.yaml at runtime (package_info_plus)
   await initAppVersion();
 
+  // Měna (CZK/EUR/PLN, parita s webem): načti volbu + kurzy z cache,
+  // čerstvé kurzy ČNB dotáhni na pozadí (cache 15 min, fallback chain).
+  final langPrefs = await SharedPreferences.getInstance();
+  await Money.init(defaultLang: langPrefs.getString('mg_language'));
+  unawaited(Money.refreshRates());
+
   runApp(const ProviderScope(child: MotoGoApp()));
 }
 
@@ -160,8 +168,11 @@ class _MotoGoAppState extends ConsumerState<MotoGoApp>
     with WidgetsBindingObserver {
   bool _showLangOverlay = false;
   bool _showPermOverlay = false;
+  bool _showIntro = false;
   bool _onboardingChecked = false;
   StreamSubscription<AuthState>? _authSub;
+
+  static const _introShownKey = 'mg_intro_shown';
 
   @override
   void initState() {
@@ -244,13 +255,23 @@ class _MotoGoAppState extends ConsumerState<MotoGoApp>
   Future<void> _checkOnboarding() async {
     final showLang = await LanguageOverlay.shouldShow();
     final showPerm = await PermissionOverlay.shouldShow();
+    final prefs = await SharedPreferences.getInstance();
+    final introShown = prefs.getBool(_introShownKey) ?? false;
     if (mounted) {
       setState(() {
         _showLangOverlay = showLang;
         _showPermOverlay = !showLang && showPerm;
+        // Intro (logo + přejezd motorky) jen při úplně prvním spuštění.
+        _showIntro = !introShown;
         _onboardingChecked = true;
       });
     }
+  }
+
+  Future<void> _onIntroDone() async {
+    setState(() => _showIntro = false);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_introShownKey, true);
   }
 
   Future<void> _onLangDone() async {
@@ -303,6 +324,10 @@ class _MotoGoAppState extends ConsumerState<MotoGoApp>
                   onAllow: _onPermDone,
                   onSkip: _onPermDone,
                 ),
+              // Intro animace při prvním spuštění — NAD ostatními overlayi,
+              // po doběhnutí odhalí výběr jazyka.
+              if (_onboardingChecked && _showIntro)
+                MotoIntroOverlay(onDone: _onIntroDone),
             ],
           ),
         );

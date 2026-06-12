@@ -7,6 +7,7 @@ import '../../../core/widgets/moto_fx.dart';
 import '../../../core/router.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../reservation_models.dart';
+import '../../../core/currency.dart';
 
 /// Reservation card — mirrors _renderResCard() from reservations-ui.js.
 class ReservationCard extends StatelessWidget {
@@ -127,7 +128,7 @@ class ReservationCard extends StatelessWidget {
                 children: [
                   _InfoCol(label: t(context).date, value: reservation.dateRange),
                   _InfoCol(label: t(context).tr('resDuration'), value: '${reservation.dayCount} ${_dayWord(context, reservation.dayCount)}'),
-                  _InfoCol(label: t(context).tr('total'), value: '${reservation.totalPrice.toStringAsFixed(0)} Kč'),
+                  _InfoCol(label: t(context).tr('total'), value: '${Money.czk(reservation.totalPrice)}'),
                 ],
               ),
             ),

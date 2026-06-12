@@ -6,6 +6,7 @@ import '../../catalog/catalog_provider.dart';
 import '../../catalog/widgets/availability_calendar.dart';
 import '../booking_models.dart';
 import 'booking_section_wrapper.dart';
+import '../../../core/currency.dart';
 
 /// Section 2 – Datum (date/calendar selection with price summary).
 Widget bookingDateSection({
@@ -111,7 +112,7 @@ Widget bookingDateSection({
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '${bd.basePrice.toStringAsFixed(0)} Kč',
+                  '${Money.czk(bd.basePrice)}',
                   style: const TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.w900,

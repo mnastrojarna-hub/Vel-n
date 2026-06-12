@@ -15,6 +15,7 @@ import '../features/documents/document_provider.dart';
 import '../features/loyalty/loyalty_levelup_overlay.dart';
 import '../features/messages/messages_provider.dart';
 import '../features/payment/payment_provider.dart';
+import 'widgets/moto_fx.dart';
 import '../features/reservations/reservation_models.dart';
 import '../features/reservations/reservation_provider.dart';
 import '../features/shop/shop_provider.dart';
@@ -267,8 +268,8 @@ class AppShell extends ConsumerWidget {
                 final tab = _tabDefs[i];
                 final active = i == index;
                 return Expanded(
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
+                  child: PressableScale(
+                    pressedScale: 0.9,
                     onTap: () {
                       if (i != index) {
                         // Reset booking flow when navigating to home tab
@@ -299,10 +300,14 @@ class AppShell extends ConsumerWidget {
                           Stack(
                             clipBehavior: Clip.none,
                             children: [
-                              Icon(
-                                active ? tab.activeIcon : tab.icon,
-                                size: MotoGoDimens.bnavIconSize,
-                                color: active ? MotoGoColors.greenDark : MotoGoColors.g400,
+                              // Elastický pop ikony při přepnutí na tab
+                              NavBounceIcon(
+                                active: active,
+                                child: Icon(
+                                  active ? tab.activeIcon : tab.icon,
+                                  size: MotoGoDimens.bnavIconSize,
+                                  color: active ? MotoGoColors.greenDark : MotoGoColors.g400,
+                                ),
                               ),
                               // Unread messages badge on Home tab (messages accessible via profile/hamburger)
                               if (i == 0 && unreadCount > 0)

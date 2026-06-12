@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../features/booking/booking_models.dart';
 import '../features/booking/booking_ui_helpers.dart';
 import 'i18n/i18n_provider.dart';
+import 'currency.dart';
 
 /// Price breakdown summary card inside the booking form.
 class BookingFormPriceSection extends StatelessWidget {
@@ -48,27 +49,27 @@ class BookingFormPriceSection extends StatelessWidget {
             const SizedBox(height: 10),
             bookingPriceRow(
               '${t(context).motorcycle} × $dc ${dc == 1 ? t(context).tr("day1") : dc < 5 ? t(context).tr("days24") : t(context).tr("days5")}',
-              '${bd.basePrice.toStringAsFixed(0)} Kč',
+              '${Money.czk(bd.basePrice)}',
             ),
             for (final e in draft.extras)
               bookingPriceRow(
                 e.name,
-                '+${(e.price * e.quantity).toStringAsFixed(0)} Kč',
+                '+${Money.czk((e.price * e.quantity))}',
               ),
             if (bd.pickupDeliveryFee > 0)
               bookingPriceRow(
                 t(context).tr('deliveryFee'),
-                '+${bd.pickupDeliveryFee.toStringAsFixed(0)} Kč',
+                '+${Money.czk(bd.pickupDeliveryFee)}',
               ),
             if (bd.returnDeliveryFee > 0)
               bookingPriceRow(
                 t(context).tr('returnFee'),
-                '+${bd.returnDeliveryFee.toStringAsFixed(0)} Kč',
+                '+${Money.czk(bd.returnDeliveryFee)}',
               ),
             if (bd.discountTotal > 0)
               bookingPriceRow(
                 t(context).tr('discountLabel'),
-                '−${bd.discountTotal.toStringAsFixed(0)} Kč',
+                '−${Money.czk(bd.discountTotal)}',
                 color: const Color(0xFF1A8A18),
               ),
             bookingPriceRow('✓ ${t(context).tr('depositNotCharged')}', '0 Kč', subtle: true),
@@ -88,7 +89,7 @@ class BookingFormPriceSection extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  '${bd.total.toStringAsFixed(0)} Kč',
+                  '${Money.czk(bd.total)}',
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w900,

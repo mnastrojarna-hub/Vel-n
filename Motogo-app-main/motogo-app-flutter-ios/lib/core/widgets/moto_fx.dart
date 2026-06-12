@@ -7,10 +7,13 @@ import '../theme.dart';
 
 /// MotoGo FX — sdílené animace pro „Duolingo-like" zážitek s mototématikou.
 ///
-/// - [PressableScale]  — pružné zmáčknutí hlavních tlačítek + haptika
-/// - [MotoSuccessHero] — oslavná hlavička děkovacích stránek (motorka
+/// - [PressableScale]   — pružné zmáčknutí hlavních tlačítek + haptika
+/// - [MotoSuccessHero]  — oslavná hlavička děkovacích stránek (motorka
 ///   přeletí obrazovku, za ní speed-lines, ohňostroj jisker a elastický check)
-/// - [StaggeredReveal] — postupné naplutí obsahu pod hlavičkou
+/// - [StaggeredReveal]  — postupné naplutí obsahu pod hlavičkou
+/// - [MotoIntroOverlay] — intro při prvním spuštění appky (logo + přejezd)
+/// - [MotoWelcomeOverlay] — celoobrazovková oslava po registraci
+/// - [NavBounceIcon]    — elastický pop ikony při aktivaci tabu navigace
 ///
 /// Cíl: úspěšná akce (zaplaceno / rezervováno / upraveno) musí být zážitek,
 /// který zákazníka povzbudí k další rezervaci — žádný statický check.
@@ -356,6 +359,319 @@ class _StaggeredRevealState extends State<StaggeredReveal>
         );
       },
       child: widget.child,
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// NavBounceIcon — elastický pop ikony při aktivaci tabu spodní navigace
+// ═══════════════════════════════════════════════════════════════════
+
+class NavBounceIcon extends StatefulWidget {
+  final bool active;
+  final Widget child;
+
+  const NavBounceIcon({super.key, required this.active, required this.child});
+
+  @override
+  State<NavBounceIcon> createState() => _NavBounceIconState();
+}
+
+class _NavBounceIconState extends State<NavBounceIcon>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 520),
+      value: 1.0);
+
+  @override
+  void didUpdateWidget(NavBounceIcon old) {
+    super.didUpdateWidget(old);
+    if (!old.active && widget.active) {
+      _ctrl.forward(from: 0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (context, child) {
+        // 0 → pop z 0.6, elastický overshoot, dosed na 1.0
+        final s = 0.6 + 0.4 * Curves.elasticOut.transform(_ctrl.value);
+        return Transform.scale(scale: s, child: child);
+      },
+      child: widget.child,
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// MotoIntroOverlay — intro při prvním spuštění appky (~2,4 s)
+// ═══════════════════════════════════════════════════════════════════
+
+class MotoIntroOverlay extends StatefulWidget {
+  final VoidCallback onDone;
+
+  const MotoIntroOverlay({super.key, required this.onDone});
+
+  @override
+  State<MotoIntroOverlay> createState() => _MotoIntroOverlayState();
+}
+
+class _MotoIntroOverlayState extends State<MotoIntroOverlay>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl = AnimationController(
+      vsync: this, duration: const Duration(milliseconds: 2400));
+  bool _finished = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl.forward();
+    _ctrl.addStatusListener((st) {
+      if (st == AnimationStatus.completed) _finish();
+    });
+  }
+
+  void _finish() {
+    if (_finished) return;
+    _finished = true;
+    widget.onDone();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  double _seg(double from, double to, [Curve curve = Curves.easeOut]) {
+    final v = ((_ctrl.value - from) / (to - from)).clamp(0.0, 1.0);
+    return curve.transform(v);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (context, _) {
+        final size = MediaQuery.of(context).size;
+        final logoIn = _seg(0.05, 0.40, Curves.elasticOut);
+        final logoOp = _seg(0.05, 0.22);
+        final nameIn = _seg(0.28, 0.50);
+        final ride = _seg(0.42, 0.78, Curves.easeInOutCubic);
+        final fadeOut = _seg(0.86, 1.0);
+        final rideX = -90 + ride * (size.width + 140);
+
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: _finish, // netrpěliví můžou přeskočit klepnutím
+          child: Opacity(
+            opacity: 1 - fadeOut,
+            child: Material(
+              color: const Color(0xFF0A1F15),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // Logo s pulzem brandové zelené
+                      Opacity(
+                        opacity: logoOp,
+                        child: Transform.scale(
+                          scale: 0.5 + 0.5 * logoIn,
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(28),
+                              color: MotoGoColors.green,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: MotoGoColors.green
+                                      .withValues(alpha: 0.5 * logoOp),
+                                  blurRadius: 26,
+                                  spreadRadius: 3,
+                                ),
+                              ],
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(22),
+                              child: Image.asset(
+                                'assets/logo.png',
+                                width: 104,
+                                height: 104,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Container(
+                                  width: 104,
+                                  height: 104,
+                                  color: const Color(0xFF0A1F15),
+                                  child: const Icon(Icons.motorcycle,
+                                      size: 48, color: MotoGoColors.green),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 22),
+                      Opacity(
+                        opacity: nameIn,
+                        child: Transform.translate(
+                          offset: Offset(0, 14 * (1 - nameIn)),
+                          child: const Column(children: [
+                            Text('MOTO GO 24',
+                                style: TextStyle(
+                                    fontSize: 26,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: 4,
+                                    color: MotoGoColors.green)),
+                            SizedBox(height: 6),
+                            Text('PŮJČOVNA MOTOREK',
+                                style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 5,
+                                    color: Color(0xFF8AAB99))),
+                          ]),
+                        ),
+                      ),
+                    ],
+                  ),
+                  // Motorka přejede spodní třetinou obrazovky
+                  if (ride > 0 && ride < 1) ...[
+                    Positioned(
+                      left: rideX - 150,
+                      top: size.height * 0.72,
+                      child: Container(
+                        width: 130,
+                        height: 3,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(2),
+                          gradient: LinearGradient(colors: [
+                            MotoGoColors.green.withValues(alpha: 0),
+                            MotoGoColors.green.withValues(alpha: 0.8),
+                          ]),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      left: rideX,
+                      top: size.height * 0.72 - 30,
+                      child: Transform(
+                        alignment: Alignment.center,
+                        transform: Matrix4.identity()..rotateZ(-0.06),
+                        child: const Text('🏍️', style: TextStyle(fontSize: 44)),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// MotoWelcomeOverlay — oslava po úspěšné registraci (~2,8 s, tap přeskočí)
+// ═══════════════════════════════════════════════════════════════════
+
+class MotoWelcomeOverlay extends StatefulWidget {
+  final String title;
+  final String subtitle;
+
+  const MotoWelcomeOverlay({
+    super.key,
+    required this.title,
+    required this.subtitle,
+  });
+
+  /// Zobrazí overlay a vrátí se po jeho doběhnutí / tapnutí.
+  static Future<void> show(BuildContext context,
+      {required String title, required String subtitle}) {
+    return showGeneralDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.transparent,
+      barrierLabel: 'welcome',
+      transitionDuration: const Duration(milliseconds: 150),
+      pageBuilder: (_, __, ___) =>
+          MotoWelcomeOverlay(title: title, subtitle: subtitle),
+    );
+  }
+
+  @override
+  State<MotoWelcomeOverlay> createState() => _MotoWelcomeOverlayState();
+}
+
+class _MotoWelcomeOverlayState extends State<MotoWelcomeOverlay> {
+  @override
+  void initState() {
+    super.initState();
+    HapticFeedback.mediumImpact();
+    Future.delayed(const Duration(milliseconds: 2800), _close);
+  }
+
+  void _close() {
+    if (mounted && Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: _close,
+      child: Material(
+        color: const Color(0xF20A1F15), // téměř neprůhledný brand dark
+        child: SafeArea(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const MotoSuccessHero(size: 104),
+              const SizedBox(height: 10),
+              StaggeredReveal(
+                index: 0,
+                baseDelay: const Duration(milliseconds: 500),
+                child: Text(
+                  widget.title,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.white),
+                ),
+              ),
+              const SizedBox(height: 10),
+              StaggeredReveal(
+                index: 1,
+                baseDelay: const Duration(milliseconds: 500),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 40),
+                  child: Text(
+                    widget.subtitle,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.white.withValues(alpha: 0.7)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

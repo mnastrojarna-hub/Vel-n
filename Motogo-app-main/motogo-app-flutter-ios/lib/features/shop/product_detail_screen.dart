@@ -8,6 +8,7 @@ import '../../core/i18n/i18n_provider.dart';
 import '../auth/widgets/toast_helper.dart';
 import 'shop_models.dart';
 import 'shop_provider.dart';
+import '../../core/currency.dart';
 
 /// Product detail — mirrors s-merch-detail from templates-shop-detail.js.
 class ProductDetailScreen extends ConsumerStatefulWidget {
@@ -92,7 +93,7 @@ class _ProductDetailState extends ConsumerState<ProductDetailScreen> {
                   children: [
                     Expanded(child: Text(product.name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: MotoGoColors.black), maxLines: 2, overflow: TextOverflow.ellipsis)),
                     const SizedBox(width: 12),
-                    Text('${product.price.toStringAsFixed(0)} Kč', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: MotoGoColors.greenDarker)),
+                    Text('${Money.czk(product.price)}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: MotoGoColors.greenDarker)),
                   ],
                 ),
 
@@ -177,7 +178,7 @@ class _ProductDetailState extends ConsumerState<ProductDetailScreen> {
                       ),
                     ),
                     const Spacer(),
-                    Text('${(product.price * _qty).toStringAsFixed(0)} Kč', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: MotoGoColors.greenDarker)),
+                    Text('${Money.czk((product.price * _qty))}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: MotoGoColors.greenDarker)),
                   ]),
                   const SizedBox(height: 10),
                   SizedBox(

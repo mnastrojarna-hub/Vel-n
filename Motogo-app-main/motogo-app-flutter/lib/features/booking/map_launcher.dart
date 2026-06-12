@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'widgets/map_picker.dart';
 import 'price_calculator.dart';
+import '../../core/currency.dart';
 
 const _mapyKey = 'whg1ilj203oYhmsqkBHVtUqpk-tYr0E-HFTx4lGdue0';
 const _mapyHeaders = <String, String>{
@@ -94,7 +95,7 @@ Future<MapResult?> launchMapPicker(BuildContext context) async {
     debugPrint('[MAP_LAUNCH] ✗ no coords → estimateKm("$city") = ${km.toStringAsFixed(0)}');
   }
   final fee = PriceCalculator.calcDeliveryFee(km);
-  debugPrint('[MAP_LAUNCH] ✓ result: ${km.toStringAsFixed(1)}km, ${fee.toStringAsFixed(0)} Kč');
+  debugPrint('[MAP_LAUNCH] ✓ result: ${km.toStringAsFixed(1)}km, ${Money.czk(fee)}');
 
   return MapResult(
     city: city, address: addr, km: km, fee: fee);

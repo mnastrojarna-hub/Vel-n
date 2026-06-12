@@ -7,6 +7,7 @@ import '../../../core/i18n/i18n_provider.dart';
 import '../../shop/shop_models.dart';
 import '../../shop/shop_provider.dart';
 import '../booking_upsell_provider.dart';
+import '../../../core/currency.dart';
 
 /// Upsell/cross-sell section for the payment summary screen.
 /// Shows featured shop products and optional insurance add-on.
@@ -184,7 +185,7 @@ class _InsuranceTile extends StatelessWidget {
             ),
           ),
           Text(
-            '+${price.toStringAsFixed(0)} Kč',
+            '+${Money.czk(price)}',
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w800,
@@ -270,7 +271,7 @@ class _ProductTile extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                       Text(
-                        '${product.price.toStringAsFixed(0)} Kč',
+                        '${Money.czk(product.price)}',
                         style: const TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,

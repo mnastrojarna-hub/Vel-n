@@ -6,6 +6,7 @@ import '../../../core/i18n/i18n_provider.dart';
 import '../../booking/booking_models.dart';
 import '../shop_models.dart';
 import '../shop_provider.dart';
+import '../../../core/currency.dart';
 
 /// Promo / voucher code input card.
 /// Supports multiple codes (percentage + fixed), shows applied codes with
@@ -154,7 +155,7 @@ class CheckoutPromoCard extends ConsumerWidget {
                     Text(
                       d.type == DiscountType.percent
                           ? '🏷️ ${d.code} (−${d.value.toStringAsFixed(0)}%)'
-                          : '🎁 ${d.code} (−${d.value.toStringAsFixed(0)} Kč)',
+                          : '🎁 ${d.code} (−${Money.czk(d.value)})',
                       style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,

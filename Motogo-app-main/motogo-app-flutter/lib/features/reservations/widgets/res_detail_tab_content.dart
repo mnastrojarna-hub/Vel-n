@@ -17,6 +17,7 @@ import 'res_detail_row.dart';
 import 'res_detail_button.dart';
 import 'res_location_row.dart';
 import 'res_modification_history.dart';
+import '../../../core/currency.dart';
 
 /// Sliver list content for the "Podrobnosti" tab in reservation detail.
 class ResDetailTabContent extends ConsumerWidget {
@@ -137,15 +138,15 @@ class ResDetailTabContent extends ConsumerWidget {
           ResDetailCard(children: [
             Text(t(context).tr('financialSummary'), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: MotoGoColors.black)),
             const SizedBox(height: 8),
-            ResDetailRow(label: t(context).tr('totalPrice'), value: '${res.totalPrice.toStringAsFixed(0)} Kč', bold: true),
+            ResDetailRow(label: t(context).tr('totalPrice'), value: '${Money.czk(res.totalPrice)}', bold: true),
             if (res.deliveryFee != null && res.deliveryFee! > 0)
-              ResDetailRow(label: t(context).tr('deliveryFee'), value: '${res.deliveryFee!.toStringAsFixed(0)} Kč'),
+              ResDetailRow(label: t(context).tr('deliveryFee'), value: '${Money.czk(res.deliveryFee!)}'),
             if (res.extrasPrice != null && res.extrasPrice! > 0)
-              ResDetailRow(label: t(context).tr('addons'), value: '${res.extrasPrice!.toStringAsFixed(0)} Kč'),
+              ResDetailRow(label: t(context).tr('addons'), value: '${Money.czk(res.extrasPrice!)}'),
             if (res.discountAmount != null && res.discountAmount! > 0)
               ResDetailRow(
                 label: '${t(context).tr('discountLabel')} ${res.discountCode ?? ""}',
-                value: '−${res.discountAmount!.toStringAsFixed(0)} Kč',
+                value: '−${Money.czk(res.discountAmount!)}',
                 valueColor: MotoGoColors.greenDarker,
               ),
             ResDetailRow(
@@ -411,7 +412,7 @@ class ResPaymentCardTabContent extends StatelessWidget {
             ResDetailRow(label: t(context).tr('reservationNumber'), value: res.shortId),
             ResDetailRow(label: t(context).tr('paymentMethodLabel'), value: 'Stripe'),
             ResDetailRow(label: t(context).tr('paymentStatusLabel'), value: res.paymentStatus == 'paid' ? t(context).tr('paid') : res.paymentStatus),
-            ResDetailRow(label: t(context).tr('totalAmount'), value: '${res.totalPrice.toStringAsFixed(0)} Kč', bold: true),
+            ResDetailRow(label: t(context).tr('totalAmount'), value: '${Money.czk(res.totalPrice)}', bold: true),
           ]),
           const SizedBox(height: 12),
           if (res.paymentStatus == 'paid')
