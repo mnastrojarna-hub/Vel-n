@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme.dart';
 import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
+import '../../core/widgets/moto_fx.dart';
 import 'auth_provider.dart';
 import 'widgets/toast_helper.dart';
 
@@ -231,7 +232,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (error != null) {
       showMotoGoToast(context, icon: '✗', title: t(context).tr('registerError'), message: error);
     } else {
-      showMotoGoToast(context, icon: '✓', title: t(context).tr('registerComplete'), message: t(context).tr('welcomeToMotoGo'));
+      // Uvítací oslava (motorka + jiskry) místo pouhého toastu — první dojem
+      // z appky. Po doběhnutí/tapnutí pokračujeme na domovskou obrazovku.
+      await MotoWelcomeOverlay.show(
+        context,
+        title: t(context).tr('registerComplete'),
+        subtitle: t(context).tr('welcomeToMotoGo'),
+      );
+      if (!mounted) return;
       context.go(Routes.home);
     }
   }

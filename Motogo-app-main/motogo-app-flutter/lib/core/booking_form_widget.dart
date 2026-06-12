@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'booking_form_header_widget.dart';
+import 'widgets/moto_fx.dart';
 import 'booking_form_moto_card.dart';
 import 'booking_form_time_section.dart';
 import 'booking_form_pickup_section.dart';
