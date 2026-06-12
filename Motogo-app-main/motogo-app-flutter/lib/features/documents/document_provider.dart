@@ -347,12 +347,15 @@ class DocUploadResult {
 /// dveřím se uvolnily (door-code pravidlo: fotka NEBO reálné OCR).
 ///
 /// [mindeeOk] = OCR vrátilo data (ok) vs. selhalo (failed).
+/// [docSide] = 'front' | 'back' | null — strana dokladu (líc/rub). Ukládá se do
+/// `documents.metadata.side`; Velín podle ní řadí fotky do slotů Líc/Rub.
 /// Fallback: pokud edge fn selže, zapíšeme aspoň marker řádek do `documents`,
 /// takže se doklad eviduje a flow nikdy „neselže na nahrání".
 Future<DocUploadResult> uploadDocPhoto(
   XFile photo,
   ScanDocType docType, {
   bool mindeeOk = false,
+  String? docSide,
 }) async {
   final user = MotoGoSupabase.currentUser;
   if (user == null) {
@@ -372,6 +375,7 @@ Future<DocUploadResult> uploadDocPhoto(
         'image_base64': base64Encode(resized),
         'mindee_status': mindeeOk ? 'ok' : 'failed',
         'mime': 'image/jpeg',
+        if (docSide != null) 'doc_side': docSide,
       },
     );
     final data = res.data;
