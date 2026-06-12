@@ -48,10 +48,11 @@ function OcrFieldsSummary({ fields }) {
   )
 }
 
-function DocPageRow({ doc, onPreview, onDelete }) {
+function DocPageRow({ doc, onPreview, onDelete, onSwapSide }) {
   const status = doc?.metadata?.mindee_status
   const captured = doc?.metadata?.captured_at || doc?.created_at
   const ocr = doc?.metadata?.ocr_fields
+  const side = doc?.metadata?.side
   const icon = status === 'ok' ? '✅' : status === 'failed' ? '⚠️' : '📷'
   return (
     <div className="p-2 rounded-lg" style={{ background: '#fff', border: status === 'failed' ? '1px solid #fcd34d' : '1px solid #d4e8e0' }}>
@@ -66,6 +67,14 @@ function DocPageRow({ doc, onPreview, onDelete }) {
           </div>
         </div>
         <MindeeStatusBadge status={status} />
+        {/* Oprava špatně označené strany (např. rub uložený jako líc) — přepíše
+            metadata.side i popisek, přeskupení v Líc/Rub slotech řeší reload. */}
+        {onSwapSide && (
+          <button onClick={() => onSwapSide(doc)} className="text-sm font-bold cursor-pointer"
+            style={{ color: '#b45309', background: 'none', border: 'none' }}>
+            {side === 'back' ? '⇄ Je to líc' : '⇄ Je to rub'}
+          </button>
+        )}
         {doc.file_path && (
           <button onClick={() => onPreview(doc)} className="text-sm font-bold cursor-pointer"
             style={{ color: '#2563eb', background: 'none', border: 'none' }}>Náhled</button>
@@ -110,7 +119,7 @@ function ScanCounts({ docs }) {
   )
 }
 
-function DocSlots({ docs, requireBothSides, onPreview, onDelete, emptyNote }) {
+function DocSlots({ docs, requireBothSides, onPreview, onDelete, onSwapSide, emptyNote }) {
   if (!docs || !docs.length) {
     return (
       <div className="text-xs italic mt-2" style={{ color: '#5a6b63' }}>
@@ -126,16 +135,16 @@ function DocSlots({ docs, requireBothSides, onPreview, onDelete, emptyNote }) {
         <>
           <div className="text-xs font-extrabold uppercase tracking-wide" style={{ color: '#5a6b63' }}>{SIDE_LABEL.front}</div>
           {grouped.front
-            ? <DocPageRow doc={grouped.front} onPreview={onPreview} onDelete={onDelete} />
+            ? <DocPageRow doc={grouped.front} onPreview={onPreview} onDelete={onDelete} onSwapSide={onSwapSide} />
             : <div className="p-2 rounded-lg text-xs" style={{ background: '#fef3c7', color: '#92400e', border: '1px solid #fcd34d' }}>⚠️ Chybí líc</div>}
           <div className="text-xs font-extrabold uppercase tracking-wide" style={{ color: '#5a6b63' }}>{SIDE_LABEL.back}</div>
           {grouped.back
-            ? <DocPageRow doc={grouped.back} onPreview={onPreview} onDelete={onDelete} />
+            ? <DocPageRow doc={grouped.back} onPreview={onPreview} onDelete={onDelete} onSwapSide={onSwapSide} />
             : <div className="p-2 rounded-lg text-xs" style={{ background: '#fef3c7', color: '#92400e', border: '1px solid #fcd34d' }}>⚠️ Chybí rub</div>}
           {grouped.other.length > 0 && (
             <>
               <div className="text-xs font-extrabold uppercase tracking-wide pt-1" style={{ color: '#5a6b63' }}>Další / starší fotky</div>
-              {grouped.other.map(d => <DocPageRow key={d.id} doc={d} onPreview={onPreview} onDelete={onDelete} />)}
+              {grouped.other.map(d => <DocPageRow key={d.id} doc={d} onPreview={onPreview} onDelete={onDelete} onSwapSide={onSwapSide} />)}
             </>
           )}
         </>
@@ -217,6 +226,28 @@ export default function CustomerVerificationSection({ vs, profile, verificationD
       if (e) throw e
       setPreviewUrl(data.signedUrl); setPreviewDoc(doc)
     } catch (e) { setError('Náhled selhal: ' + e.message) }
+  }
+
+  // Oprava chybně označené strany dokladu (historicky se rub ukládal jako líc,
+  // protože upload modal stranu nenabízel). Přepne metadata.side front⇄back
+  // (bez strany → 'back', protože líc bývá ten správně označený) + opraví popisek.
+  async function swapSide(doc) {
+    setError(null)
+    const next = doc?.metadata?.side === 'back' ? 'front' : 'back'
+    const nextLabel = next === 'front' ? 'líc' : 'rub'
+    const upd = { metadata: { ...(doc.metadata || {}), side: next } }
+    if (doc.name) {
+      upd.name = / — (líc|rub)/.test(doc.name)
+        ? doc.name.replace(/ — (líc|rub)/, ` — ${nextLabel}`)
+        : doc.name.replace(/^([^(]*?)(\s*\()/, `$1 — ${nextLabel}$2`)
+    }
+    try {
+      const { error: e } = await supabase.from('documents').update(upd).eq('id', doc.id)
+      if (e) throw e
+      if (onChanged) await onChanged()
+    } catch (e) {
+      setError('Změna strany selhala: ' + e.message)
+    }
   }
 
   async function performDelete(doc) {
@@ -311,7 +342,7 @@ export default function CustomerVerificationSection({ vs, profile, verificationD
             </div>
           )}
           <DocSlots docs={licenseDocs} requireBothSides
-            onPreview={openPreview} onDelete={d => setConfirmDelete(d)}
+            onPreview={openPreview} onDelete={d => setConfirmDelete(d)} onSwapSide={swapSide}
             emptyNote={licenseOptional
               ? 'Fotka ŘP nenahrána — pro aktuální dětskou rezervaci není potřeba. Pokud si zákazník později rezervuje dospělou motorku, bude nutné ŘP doplnit.'
               : vs.licenseDataOnly
@@ -339,7 +370,7 @@ export default function CustomerVerificationSection({ vs, profile, verificationD
             <div className="mt-3">
               <div className="text-xs font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Občanský průkaz (líc + rub)</div>
               <DocSlots docs={idCardDocs} requireBothSides
-                onPreview={openPreview} onDelete={d => setConfirmDelete(d)} />
+                onPreview={openPreview} onDelete={d => setConfirmDelete(d)} onSwapSide={swapSide} />
             </div>
           )}
 
