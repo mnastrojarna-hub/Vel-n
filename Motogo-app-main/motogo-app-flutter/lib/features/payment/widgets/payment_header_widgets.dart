@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme.dart';
 import '../../../core/router.dart';
 import '../../../core/i18n/i18n_provider.dart';
+import '../../../core/widgets/moto_fx.dart';
 import '../payment_provider.dart';
 
 /// Top header bar for the payment screen.
@@ -252,7 +253,9 @@ class PaymentPayButton extends StatelessWidget {
         color: Colors.white,
         boxShadow: MotoGoShadows.stickyBar,
       ),
-      child: ElevatedButton(
+      child: PressableScale(
+        enabled: !processing,
+        child: ElevatedButton(
         onPressed: processing ? null : onPay,
         style: ElevatedButton.styleFrom(
             minimumSize: const Size.fromHeight(52)),
@@ -280,6 +283,7 @@ class PaymentPayButton extends StatelessWidget {
                       : '${t(context).tr('payBtn')} ${amount.toStringAsFixed(0)} Kč →'),
                 ],
               ),
+        ),
       ),
     );
   }

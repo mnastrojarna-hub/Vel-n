@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/theme.dart';
+import '../../core/widgets/moto_fx.dart';
 import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../auth/widgets/toast_helper.dart';
@@ -24,7 +25,15 @@ class DocumentsScreen extends ConsumerWidget {
       backgroundColor: MotoGoColors.bg,
       appBar: AppBar(
         leading: GestureDetector(
-          onTap: () => context.pop(),
+          // Na /docs se chodí i přes context.go (děkovací stránka, FAB) —
+          // pak není v zásobníku co popnout a šipka dřív nedělala nic.
+          onTap: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go(Routes.profile);
+            }
+          },
           child: Center(
             child: Container(
               width: 36, height: 36,
@@ -105,7 +114,8 @@ class DocumentsScreen extends ConsumerWidget {
             // NASKENOVAT DOKLADY KAMEROU button
             SizedBox(
               height: 52,
-              child: ElevatedButton(
+              child: PressableScale(
+                child: ElevatedButton(
                 onPressed: () => context.push(Routes.docScan),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: MotoGoColors.green,
@@ -117,6 +127,7 @@ class DocumentsScreen extends ConsumerWidget {
                   const SizedBox(width: 8),
                   Text(t(context).tr('scanDocsCamera'), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, letterSpacing: 0.3)),
                 ]),
+              ),
               ),
             ),
             const SizedBox(height: 10),

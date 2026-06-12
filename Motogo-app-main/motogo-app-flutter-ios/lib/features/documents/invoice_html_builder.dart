@@ -78,10 +78,14 @@ class InvoiceHtmlBuilder {
     return '''<!DOCTYPE html>
 <html lang="cs"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${_esc(titleBase)} ${_esc(number)}</title>
-<style>body{margin:0;padding:0;background:#d9dee2;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#0f1a14;-webkit-font-smoothing:antialiased}</style>
+<style>body{margin:0;padding:0;background:#d9dee2;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#0f1a14;-webkit-font-smoothing:antialiased;overflow-x:hidden}</style>
 </head>
 <body>
-<div style="max-width:780px;margin:0 auto;background:#ffffff">
+<!-- Faktura má pevný layout 780 px (1:1 s webem/PDF). Na telefonu se celá
+     zmenší na šířku displeje (transform scale), místo aby se ořezávala
+     a horizontálně scrollovala. -->
+<div id="mg-fit" style="overflow:hidden">
+<div id="mg-invoice" style="width:780px;background:#ffffff">
 
   <!-- HEADER -->
   <div style="background:#0a1f15;padding:24px 32px">
@@ -204,6 +208,24 @@ class InvoiceHtmlBuilder {
   </div>
 
 </div>
+</div>
+<script>
+(function(){
+  var inv=document.getElementById('mg-invoice');
+  var fitBox=document.getElementById('mg-fit');
+  function fit(){
+    var w=document.documentElement.clientWidth||window.innerWidth;
+    var s=Math.min(1,(w-12)/780);
+    var off=Math.max(0,(w-780*s)/2);
+    inv.style.transformOrigin='top left';
+    inv.style.transform='translateX('+off+'px) scale('+s+')';
+    fitBox.style.height=(inv.offsetHeight*s)+'px';
+  }
+  window.addEventListener('resize',fit);
+  window.addEventListener('load',fit);
+  fit();
+})();
+</script>
 </body></html>''';
   }
 

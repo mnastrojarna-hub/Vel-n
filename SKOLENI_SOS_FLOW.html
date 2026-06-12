@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MotoGo24 — Školení: SOS flow a řešení incidentů</title>
+<style>
+:root{
+  --dark:#0a1f15; --dark2:#13301f; --green:#74FB71; --green-d:#1A8A18;
+  --bg:#DFF0EC; --card:#ffffff; --ink:#0f1a14; --muted:#4A6357; --g400:#8AAB99;
+  --amber:#f59e0b; --amber-bg:#fef3c7; --red:#dc2626; --red-bg:#fee2e2;
+  --blue:#2563eb; --blue-bg:#dbeafe;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink);line-height:1.6}
+.wrap{max-width:960px;margin:0 auto;padding:0 20px 80px}
+header{background:var(--dark);color:#fff;padding:42px 20px 36px;border-radius:0 0 32px 32px;text-align:center}
+header .logo{font-size:30px;font-weight:900;letter-spacing:2px;color:var(--green)}
+header .logo small{display:block;font-size:11px;letter-spacing:4px;font-weight:700;margin-top:4px}
+header h1{font-size:26px;margin-top:18px;font-weight:900}
+header p{color:#9fc4ae;font-size:14px;margin-top:8px;max-width:640px;margin-left:auto;margin-right:auto}
+.badge{display:inline-block;background:var(--green);color:var(--dark);font-weight:800;font-size:11px;letter-spacing:1px;padding:5px 14px;border-radius:999px;margin-top:14px}
+h2{font-size:20px;font-weight:900;margin:42px 0 6px;display:flex;align-items:center;gap:10px}
+h2 .num{background:var(--dark);color:var(--green);width:34px;height:34px;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;font-size:15px;flex:none}
+.sub{color:var(--muted);font-size:13px;margin-bottom:16px}
+.card{background:var(--card);border-radius:18px;padding:20px 22px;margin-bottom:14px;box-shadow:0 4px 18px rgba(10,31,21,.07)}
+.goal{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:18px}
+.goal .card{margin:0;border-top:4px solid var(--green)}
+.goal h3{font-size:14px;font-weight:900;margin-bottom:6px}
+.goal p{font-size:13px;color:var(--muted)}
+/* flow steps */
+.flow{counter-reset:step}
+.step{position:relative;padding:16px 18px 16px 64px;background:var(--card);border-radius:16px;margin-bottom:10px;box-shadow:0 3px 14px rgba(10,31,21,.06)}
+.step::before{counter-increment:step;content:counter(step);position:absolute;left:16px;top:16px;width:32px;height:32px;border-radius:10px;background:var(--green);color:var(--dark);font-weight:900;display:flex;align-items:center;justify-content:center;font-size:14px}
+.step h3{font-size:14px;font-weight:900}
+.step .who{display:inline-block;font-size:10px;font-weight:800;letter-spacing:1px;padding:2px 8px;border-radius:999px;margin-left:6px;vertical-align:2px}
+.who.app{background:#e8ffe8;color:var(--green-d)}
+.who.velin{background:var(--blue-bg);color:var(--blue)}
+.who.auto{background:#ede9fe;color:#6d28d9}
+.step p{font-size:13px;color:var(--muted);margin-top:4px}
+.step .hint{margin-top:8px;font-size:12px;background:#f1faf7;border-left:3px solid var(--green);padding:8px 12px;border-radius:0 8px 8px 0;color:var(--ink)}
+/* tables */
+table{width:100%;border-collapse:collapse;font-size:13px;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 3px 14px rgba(10,31,21,.06)}
+th{background:var(--dark);color:#fff;text-align:left;padding:10px 14px;font-size:11px;letter-spacing:.5px}
+td{padding:10px 14px;border-top:1px solid #e7f0ec;vertical-align:top}
+tr:nth-child(even) td{background:#f7fbf9}
+.tag{display:inline-block;font-size:10px;font-weight:800;padding:2px 9px;border-radius:999px}
+.t-low{background:#e8ffe8;color:var(--green-d)} .t-med{background:var(--amber-bg);color:#92400e}
+.t-high{background:var(--red-bg);color:var(--red)} .t-crit{background:var(--red);color:#fff}
+/* status pills */
+.statusline{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:14px 0}
+.st{background:#fff;border:2px solid var(--green);border-radius:999px;padding:6px 16px;font-size:12px;font-weight:800}
+.statusline .arr{color:var(--g400);font-weight:900}
+/* checklists */
+ul.check{list-style:none;margin-top:8px}
+ul.check li{padding-left:30px;position:relative;font-size:13px;margin-bottom:7px}
+ul.check li::before{content:"✓";position:absolute;left:4px;top:0;color:var(--green-d);font-weight:900}
+ul.cross li::before{content:"✕";color:var(--red)}
+/* callouts */
+.warn,.ok,.info{border-radius:14px;padding:14px 16px;font-size:13px;margin:12px 0}
+.warn{background:var(--amber-bg);border-left:4px solid var(--amber);color:#78350f}
+.ok{background:#e8ffe8;border-left:4px solid var(--green-d);color:#14532d}
+.info{background:var(--blue-bg);border-left:4px solid var(--blue);color:#1e3a8a}
+/* phone scripts */
+.script{background:var(--dark);color:#d9efe2;border-radius:14px;padding:16px 18px;font-size:13px;margin:10px 0}
+.script b{color:var(--green)}
+.script .label{font-size:10px;letter-spacing:2px;font-weight:800;color:var(--g400);display:block;margin-bottom:6px}
+/* contacts */
+.contacts{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+.contacts .card{margin:0;text-align:center}
+.contacts .num{font-size:22px;font-weight:900;color:var(--green-d)}
+.contacts .desc{font-size:11px;color:var(--muted)}
+/* quiz */
+details{background:#fff;border-radius:14px;margin-bottom:10px;box-shadow:0 3px 14px rgba(10,31,21,.06)}
+summary{cursor:pointer;padding:14px 18px;font-weight:800;font-size:13px}
+details div{padding:0 18px 14px;font-size:13px;color:var(--muted)}
+footer{text-align:center;color:var(--g400);font-size:11px;margin-top:48px}
+@media print{header{border-radius:0}.wrap{max-width:none}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">MOTO GO 24<small>PŮJČOVNA MOTOREK</small></div>
+  <h1>🆘 Školení: SOS flow a řešení incidentů</h1>
+  <p>Cíl školení: každý zaměstnanec ví přesně, co se děje, když zákazník nahlásí nehodu, poruchu nebo krádež — a umí ho v krizi klidně a jistě provést až k vyřešení.</p>
+  <span class="badge">INTERNÍ MATERIÁL · v1.0 · ČERVEN 2026</span>
+</header>
+
+<div class="wrap">
+
+<h2><span class="num">1</span>Zlatá pravidla krizové komunikace</h2>
+<p class="sub">Zákazník v krizi nehodnotí ceník — hodnotí, jestli se o něj postaráme. Operátor je jeho jistota.</p>
+<div class="goal">
+  <div class="card"><h3>🧊 Klid je nakažlivý</h3><p>Mluvte pomalu, věcně, bez paniky. První věta vždy: ověřit, že je zákazník v bezpečí. Až potom motorka.</p></div>
+  <div class="card"><h3>🆔 Vždy číslo incidentu</h3><p>Appka zákazníkovi ukazuje referenci <b>#XXXXXXXX</b> (posledních 8 znaků ID). Vy ji vidíte ve Velíně. Obě strany mluví o stejném případu.</p></div>
+  <div class="card"><h3>⏱ Reakce do 5 minut</h3><p>Kritický incident (nehoda, krádež) potvrzujeme telefonicky do 5 minut od nahlášení. Lehké incidenty řeší systém automaticky.</p></div>
+  <div class="card"><h3>📝 Vše do timeline</h3><p>Každý telefonát, rozhodnutí a slib zapište do timeline incidentu ve Velíně. Co není v timeline, jako by se nestalo.</p></div>
+</div>
+
+<h2><span class="num">2</span>Typy incidentů a závažnost</h2>
+<p class="sub">Závažnost přiřazuje systém automaticky (trigger <code>sos_auto_severity</code>) podle typu.</p>
+<table>
+  <tr><th>Typ</th><th>Co to znamená</th><th>Závažnost</th><th>Kdo reaguje</th></tr>
+  <tr><td>💥 Nehoda — těžká (accident_major)</td><td>Motorka nepojízdná, možná zranění</td><td><span class="tag t-crit">VYSOKÁ/KRITICKÁ</span></td><td>Operátor IHNED telefonem</td></tr>
+  <tr><td>🔐 Krádež (theft)</td><td>Motorka odcizena</td><td><span class="tag t-crit">KRITICKÁ</span></td><td>Operátor IHNED + policie 158</td></tr>
+  <tr><td>🔧 Porucha — těžká (breakdown_major)</td><td>Nelze pokračovat v jízdě</td><td><span class="tag t-high">VYSOKÁ</span></td><td>Operátor do 5 min</td></tr>
+  <tr><td>💥 Nehoda — lehká (accident_minor)</td><td>Pojízdná, kosmetické škody</td><td><span class="tag t-med">STŘEDNÍ</span></td><td>Operátor během dne</td></tr>
+  <tr><td>🔧 Porucha — lehká (breakdown_minor)</td><td>Drobnost, jede dál / sám opraví</td><td><span class="tag t-low">NÍZKÁ</span></td><td>Auto-potvrzeno systémem</td></tr>
+  <tr><td>❓ Závada / dotaz (defect_question)</td><td>Technický dotaz</td><td><span class="tag t-low">NÍZKÁ</span></td><td>Auto-potvrzeno, odpověď zprávou</td></tr>
+  <tr><td>📍 Sdílení polohy (location_share)</td><td>Zákazník posílá GPS pro navigaci pomoci</td><td><span class="tag t-med">DLE KONTEXTU</span></td><td>Operátor — poloha v detailu</td></tr>
+</table>
+
+<h2><span class="num">3</span>Životní cyklus incidentu</h2>
+<div class="statusline">
+  <span class="st">🔴 Nahlášeno</span><span class="arr">→</span>
+  <span class="st">🟡 Přijato</span><span class="arr">→</span>
+  <span class="st">🔵 Řeší se</span><span class="arr">→</span>
+  <span class="st">🟢 Vyřešeno</span><span class="arr">→</span>
+  <span class="st">⚫ Uzavřeno</span>
+</div>
+<div class="warn"><b>Nikdy neoznačujte „Vyřešeno",</b> dokud čeká platba za náhradní motorku (stav <i>pending_payment</i>) — Velín vás varuje dialogem. Předčasné vyřešení zablokuje zákazníkovu objednávku v limbu: původní rezervace se uzavře, ale náhradní zůstane nezaplacená.</div>
+
+<h2><span class="num">4</span>Flow krok za krokem</h2>
+<p class="sub">Štítky: kdo krok provádí — <span class="who app">APPKA/ZÁKAZNÍK</span> <span class="who velin">VELÍN/OPERÁTOR</span> <span class="who auto">AUTOMAT</span></p>
+<div class="flow">
+  <div class="step"><h3>Zákazník nahlásí incident <span class="who app">APPKA</span></h3>
+    <p>V appce zvolí typ (nehoda / porucha / krádež / sdílení polohy), přidá popis, GPS a volitelně fotky. Appka mu zobrazí čísla IZS (112, 155, 158) a asistenční linku.</p>
+    <div class="hint">Zákazník po odeslání vidí <b>číslo incidentu #XXXXXXXX</b> a „Co bude dál". Pokud volá, vždy si ho vyžádejte.</div></div>
+  <div class="step"><h3>Systém incident zpracuje <span class="who auto">AUTOMAT</span></h3>
+    <p>Přiřadí závažnost, založí timeline („Incident nahlášen zákazníkem"), napáruje aktivní rezervaci a motorku, pošle notifikaci do Velína. Lehké incidenty rovnou auto-potvrdí.</p></div>
+  <div class="step"><h3>Operátor potvrdí a volá <span class="who velin">VELÍN</span></h3>
+    <p>SOS panel ukáže animovaný alert „N KRITICKÝCH!". Otevřete detail → tlačítko <b>Potvrdit</b> (stav „Přijato") → telefonát zákazníkovi do 5 minut (skripty níže).</p>
+    <div class="hint">V detailu vidíte: zákazníka + telefon, rezervaci, motorku, GPS polohu, fotky, timeline.</div></div>
+  <div class="step"><h3>Rozhodnutí o zavinění <span class="who velin">VELÍN</span> <span class="who app">APPKA</span></h3>
+    <p>U nehody zákazník v appce volí „moje vina / není moje vina"; operátor má ve Velíně konečné slovo (pole Zavinění). <b>Porucha je VŽDY zdarma</b> — appka to nově vynucuje bez ohledu na stav formuláře.</p></div>
+  <div class="step"><h3>Zákazník volí: náhradní motorka, nebo ukončení jízdy <span class="who app">APPKA</span></h3>
+    <p><b>Ukončení jízdy</b> → objedná se odtah (zdarma při poruše, placený při zavinění). <b>Náhradní motorka</b> → výběr stroje + adresa přistavení.</p></div>
+  <div class="step"><h3>Platba za náhradní motorku (jen při zavinění) <span class="who app">APPKA</span> <span class="who auto">AUTOMAT</span></h3>
+    <p>Cena = zbývající dny × denní sazba + přistavení (km × 40 + 1 000) + <b>vratná kauce 30 000 Kč</b>. Platí kartou v appce; webhook označí rezervaci „paid" a vygeneruje doklad. Při poruše je vše 0 Kč a rezervace se prohodí rovnou.</p>
+    <div class="hint">Appka nově nepustí zákazníka do platby, pokud se náhradní rezervace nezaložila — uvidí výzvu zkusit znovu / zavolat.</div></div>
+  <div class="step"><h3>Operátor schválí a vypraví motorku <span class="who velin">VELÍN</span></h3>
+    <p>Stav náhrady: <i>pending_payment → approved → dispatched</i>. Po schválení zavolejte zákazníkovi ETA přistavení. Zamítnutí vždy doplňte zprávou s alternativou.</p></div>
+  <div class="step"><h3>Doprovodné akce <span class="who velin">VELÍN</span></h3>
+    <p>Podle situace: objednat odtah (tlačítko Odtah), zapsat číslo policejního protokolu (krádež/nehoda), poslat motorku do servisu (vytvoří servisní zakázku a přepne stroj na „maintenance"), kontaktovat zákazníka SMS/WhatsApp/e-mailem.</p></div>
+  <div class="step"><h3>Vyřešení a uzavření <span class="who velin">VELÍN</span> <span class="who auto">AUTOMAT</span></h3>
+    <p>Stav „Vyřešeno": systém dokončí původní rezervaci (ended_by_sos), aktivuje náhradní, pošle zákazníkovi shrnutí a vygeneruje konečnou fakturu. Zkontrolujte timeline, že nic nechybí.</p></div>
+</div>
+
+<h2><span class="num">5</span>Pravidla placení — tahák</h2>
+<table>
+  <tr><th>Situace</th><th>Náhradní motorka</th><th>Odtah</th><th>Kauce</th></tr>
+  <tr><td>🔧 Porucha (jakákoliv)</td><td><b>ZDARMA</b></td><td><b>ZDARMA</b></td><td>—</td></tr>
+  <tr><td>💥 Nehoda — není vina zákazníka</td><td><b>ZDARMA</b></td><td><b>ZDARMA</b></td><td>—</td></tr>
+  <tr><td>💥 Nehoda — vina zákazníka</td><td>PLACENÁ (zbývající dny × sazba + přistavení)</td><td>PLACENÝ</td><td>30 000 Kč vratná</td></tr>
+  <tr><td>🔐 Krádež</td><td>Individuálně po konzultaci (policie + pojišťovna)</td><td>—</td><td>dle rozhodnutí</td></tr>
+</table>
+<div class="ok">Kauce 30 000 Kč je <b>vratná</b> po vyhodnocení škody — vždy to zákazníkovi řekněte, výrazně snižuje stres z částky.</div>
+
+<h2><span class="num">6</span>Telefonní skripty pro operátora</h2>
+<div class="script"><span class="label">PRVNÍ KONTAKT — NEHODA</span>
+„Dobrý den, tady [jméno] z MotoGo24, volám k vašemu SOS hlášení <b>#XXXXXXXX</b>. Nejdřív to nejdůležitější — <b>jste v pořádku? Potřebujete záchranku nebo policii?</b> … Dobře. Jste na bezpečném místě mimo vozovku? … Výborně. Vidím vaši polohu i fotky, všechno máme uložené. Teď to vyřešíme spolu, krok za krokem."</div>
+<div class="script"><span class="label">VYSVĚTLENÍ DALŠÍHO POSTUPU</span>
+„Máte dvě možnosti: buď vám <b>přistavíme náhradní motorku</b> přímo na vaši adresu, nebo <b>jízdu ukončíme a motorku odvezeme</b>. V appce na to máte tlačítka — provedu vás tím teď po telefonu, ano?"</div>
+<div class="script"><span class="label">KDYŽ JE NÁHRADA PLACENÁ (ZAVINĚNÍ)</span>
+„Protože jde o zaviněnou nehodu, náhradní motorka je placená — cena se skládá ze zbývajících dní, přistavení a <b>vratné kauce 30 000 Kč</b>, která se vám po vyhodnocení škody vrací. Přesný rozpis uvidíte v appce před zaplacením, nic se neplatí naslepo."</div>
+<div class="script"><span class="label">KRÁDEŽ</span>
+„Rozumím, zachovejte klid. První krok: <b>zavolejte na 158 a nahlaste krádež policii</b> — budou po vás chtít místo a čas. Od policie dostanete <b>číslo protokolu</b>, to mi prosím nadiktujte nebo pošlete zprávou v appce, potřebujeme ho pro pojišťovnu. My mezitím motorku blokujeme a řešíme další postup."</div>
+<div class="script"><span class="label">UZAVŘENÍ HOVORU — VŽDY</span>
+„Shrnu to: [co se domluvilo]. Všechno vidíte v appce v detailu incidentu <b>#XXXXXXXX</b>, každou změnu vám pošleme i zprávou. Kdyby cokoliv, volejte <b>+420 774 256 271</b> — jsme tu pro vás."</div>
+
+<h2><span class="num">7</span>Checklist operátora</h2>
+<div class="card"><b>Při každém kritickém incidentu:</b>
+<ul class="check">
+  <li>Potvrdit incident ve Velíně (stav „Přijato") do 5 minut</li>
+  <li>Zavolat zákazníkovi — bezpečí → poloha → plán</li>
+  <li>Ověřit fotky a GPS; chybí-li, vyžádat zprávou v appce</li>
+  <li>Rozhodnout/zaznamenat zavinění (ovlivňuje cenu náhrady)</li>
+  <li>Hlídat stav náhradní motorky: pending_payment → approved → dispatched</li>
+  <li>Krádež/nehoda s policií: zapsat číslo protokolu do incidentu</li>
+  <li>Každý krok a slib zapsat do timeline</li>
+  <li>Před „Vyřešeno": platba dořešena, motorka řešena (servis/odtah), zákazník informován</li>
+</ul></div>
+<div class="card"><b>Čeho se vyvarovat:</b>
+<ul class="check cross">
+  <li>Neřešit cenu dřív, než je jisté, že je zákazník v bezpečí</li>
+  <li>Neuzavírat incident s nevyřízenou platbou náhrady</li>
+  <li>Neslibovat ETA přistavení bez ověření dostupnosti motorky</li>
+  <li>Nezapomenout na kauci — zákazník nesmí být překvapen částkou při platbě</li>
+  <li>Nenechávat rozhodnutí jen v hlavě / telefonu — vše do timeline</li>
+</ul></div>
+
+<h2><span class="num">8</span>Edge-cases, které musíte znát</h2>
+<table>
+  <tr><th>Situace</th><th>Co se děje</th><th>Správná reakce</th></tr>
+  <tr><td>Zákazník nezaplatí náhradu do 10 min</td><td>Platební okno vyprší, náhradní rezervace zůstane nezaplacená</td><td>Zavolat, nabídnout opakování platby (FAB v appce) nebo zrušit náhradu a domluvit jinak</td></tr>
+  <tr><td>Žádná náhradní motorka není volná</td><td>Appka zákazníkovi ukáže výzvu „zavolejte nám"</td><td>Aktivně nabídnout: jiný termín přistavení, jinou kategorii, nebo ukončení s refundací</td></tr>
+  <tr><td>Lehká porucha — vlastní oprava</td><td>Zákazník nahraje účtenku ze servisu</td><td>Zkontrolovat částku, schválit proplacení (do 7 dnů), potvrdit zprávou</td></tr>
+  <tr><td>Sdílení polohy bez incidentu</td><td>Vznikne incident typu location_share</td><td>Krátce ověřit zprávou/telefonem, zda zákazník nepotřebuje pomoc</td></tr>
+  <tr><td>Duplicitní hlášení</td><td>Systém vrátí existující aktivní incident (jeden vážný na rezervaci)</td><td>Pokračovat v původním incidentu, nezakládat nový</td></tr>
+</table>
+
+<h2><span class="num">9</span>Důležité kontakty</h2>
+<div class="contacts">
+  <div class="card"><div class="num">112</div><div class="desc">Tísňová linka (EU)</div></div>
+  <div class="card"><div class="num">155</div><div class="desc">Záchranná služba</div></div>
+  <div class="card"><div class="num">158</div><div class="desc">Policie ČR</div></div>
+  <div class="card"><div class="num">+420 774 256 271</div><div class="desc">Asistenční linka MotoGo24</div></div>
+  <div class="card"><div class="num">info@motogo24.cz</div><div class="desc">E-mail podpory</div></div>
+</div>
+
+<h2><span class="num">10</span>Kontrolní otázky (samotest)</h2>
+<details><summary>1) Zákazník hlásí poruchu a appka mu nabízí placenou náhradu. Co je špatně?</summary><div>Porucha = náhrada VŽDY zdarma. Appka to vynucuje podle typu incidentu; pokud vidíte placenou nabídku u poruchy, zkontrolujte typ incidentu a zavinění ve Velíně a opravte. Zákazník nesmí platit.</div></details>
+<details><summary>2) Náhradní motorka je ve stavu pending_payment a kolega chce incident „Vyřešit". Co uděláte?</summary><div>Zastavit ho. Nejdřív se musí dořešit platba (nebo náhradu zrušit/zamítnout se zprávou zákazníkovi). Jinak zůstane objednávka v limbu.</div></details>
+<details><summary>3) Co všechno potřebujete u krádeže do systému?</summary><div>Číslo incidentu, číslo policejního protokolu (od zákazníka nebo policie), čas a místo, stav zabezpečení (zámek), fotky pokud existují. Vše do detailu incidentu a timeline.</div></details>
+<details><summary>4) Z čeho se skládá cena placené náhradní motorky?</summary><div>Zbývající dny × denní sazba vybrané motorky + přistavení (km × 40 Kč + 1 000 Kč) + vratná kauce 30 000 Kč.</div></details>
+<details><summary>5) Jakou první otázku položíte zákazníkovi po nehodě?</summary><div>„Jste v pořádku? Potřebujete záchranku nebo policii?" Bezpečí má vždy přednost před čímkoliv ostatním.</div></details>
+
+<footer>MotoGo24 · Bc. Petra Semorádová · IČO 21874263 · interní školicí materiál — neodesílat zákazníkům<br>Vygenerováno 12. 6. 2026 · odpovídá SOS flow appky v1.1.2 a Velína</footer>
+</div>
+</body>
+</html>

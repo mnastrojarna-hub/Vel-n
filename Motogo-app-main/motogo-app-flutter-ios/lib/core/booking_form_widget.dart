@@ -385,6 +385,8 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
                   child: SizedBox(
                     height: 52,
+                    child: PressableScale(
+                    enabled: missingSizes.isEmpty && err == null,
                     child: ElevatedButton(
                       onPressed: (missingSizes.isEmpty && err == null)
                           ? () => GoRouter.of(context).push('/payment')
@@ -413,6 +415,7 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
                           const Icon(Icons.arrow_forward, size: 18),
                         ],
                       ),
+                    ),
                     ),
                   ),
                 ),

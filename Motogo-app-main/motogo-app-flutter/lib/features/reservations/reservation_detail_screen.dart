@@ -179,14 +179,21 @@ class _DetailState extends ConsumerState<ReservationDetailScreen> {
                     child: SizedBox(
                       height: 180,
                       width: double.infinity,
-                      child: CachedNetworkImage(
-                        imageUrl: res.motoImage ?? '',
-                        fit: BoxFit.cover,
-                        errorWidget: (_, __, ___) => Container(
-                          color: MotoGoColors.g200,
-                          child: const Icon(Icons.motorcycle, size: 48, color: MotoGoColors.g400),
-                        ),
-                      ),
+                      // Guard na prázdnou URL — jinak build spadne na
+                      // „No host specified in URI" (ErrorWidget).
+                      child: (res.motoImage == null || res.motoImage!.isEmpty)
+                          ? Container(
+                              color: MotoGoColors.g200,
+                              child: const Icon(Icons.motorcycle, size: 48, color: MotoGoColors.g400),
+                            )
+                          : CachedNetworkImage(
+                              imageUrl: res.motoImage!,
+                              fit: BoxFit.cover,
+                              errorWidget: (_, __, ___) => Container(
+                                color: MotoGoColors.g200,
+                                child: const Icon(Icons.motorcycle, size: 48, color: MotoGoColors.g400),
+                              ),
+                            ),
                     ),
                   ),
                 ),
