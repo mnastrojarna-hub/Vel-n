@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme.dart';
+import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/native/permission_service.dart';
 import '../auth/auth_provider.dart';
@@ -71,7 +72,7 @@ class _PermissionsScreenState extends ConsumerState<PermissionsScreen>
       backgroundColor: MotoGoColors.bg,
       appBar: AppBar(
         leading: GestureDetector(
-          onTap: () => context.pop(),
+          onTap: () => context.backOr(Routes.profile),
           child: Center(
             child: Container(
               width: 36,

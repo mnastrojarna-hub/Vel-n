@@ -133,7 +133,7 @@ class _AiAgentState extends State<AiAgentScreen> {
       backgroundColor: MotoGoColors.bg,
       appBar: AppBar(
         leading: GestureDetector(
-          onTap: () => context.pop(),
+          onTap: () => context.backOr(Routes.home),
           child: Center(
             child: Container(
               width: 36, height: 36,

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme.dart';
+import '../../core/widgets/moto_fx.dart';
 import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/supabase_client.dart';
@@ -559,7 +560,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
             decoration: const BoxDecoration(color: MotoGoColors.dark, borderRadius: BorderRadius.vertical(bottom: Radius.circular(24))),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
-                GestureDetector(onTap: () => context.pop(),
+                GestureDetector(onTap: () => context.backOr(Routes.reservations),
                   child: Container(width: 36, height: 36,
                     decoration: BoxDecoration(color: MotoGoColors.green, borderRadius: BorderRadius.circular(10)),
                     child: const Icon(Icons.arrow_back, size: 18, color: Colors.black))),
@@ -776,7 +777,9 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
 
           // === CTA BUTTON ===
           Padding(padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: SizedBox(height: 52, child: ElevatedButton(
+            child: SizedBox(height: 52, child: PressableScale(
+              enabled: !_saving,
+              child: ElevatedButton(
               onPressed: _tab == 'move'
                   ? ((!_saving && _moveChanged) ? _saveMove : null)
                   : ((!_saving && calc.hasChanges && _missingGearSizes().isEmpty) ? _save : null),
@@ -795,7 +798,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
                         style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, letterSpacing: 0.3)),
                       const SizedBox(width: 6), const Icon(Icons.arrow_forward, size: 16),
                     ]),
-            ))),
+            )))),
 
           SizedBox(height: MediaQuery.of(context).padding.bottom + 16),
         ],

@@ -39,7 +39,7 @@ class _VoucherState extends ConsumerState<VoucherScreen> {
       backgroundColor: MotoGoColors.bg,
       appBar: AppBar(
         leading: GestureDetector(
-          onTap: () => context.pop(),
+          onTap: () => context.backOr(Routes.shop),
           child: Center(
             child: Container(
               width: 36, height: 36,

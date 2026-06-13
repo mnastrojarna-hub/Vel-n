@@ -270,7 +270,7 @@ class SosDetailScreen extends ConsumerWidget {
               // Header
               Row(children: [
                 GestureDetector(
-                  onTap: () => context.pop(),
+                  onTap: () => context.backOr(Routes.reservations),
                   child: Container(width: 36, height: 36,
                     decoration: BoxDecoration(color: MotoGoColors.green,
                         borderRadius: BorderRadius.circular(10)),

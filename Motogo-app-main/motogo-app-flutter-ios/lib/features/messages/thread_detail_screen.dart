@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/auth_guard.dart';
 import '../../core/theme.dart';
+import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/supabase_client.dart';
 import '../auth/widgets/toast_helper.dart';
@@ -102,7 +103,7 @@ class _ThreadDetailState extends ConsumerState<ThreadDetailScreen> {
               backgroundColor: MotoGoColors.bg,
               appBar: AppBar(
                 leading: GestureDetector(
-                  onTap: () => context.pop(),
+                  onTap: () => context.backOr(Routes.messages),
                   child: Center(
                     child: Container(
                       width: 36, height: 36,

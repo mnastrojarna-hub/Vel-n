@@ -142,7 +142,7 @@ class _SosBreakdownImmobileState
                                 const TextStyle(fontSize: 11, color: MotoGoColors.g400)),
                       ])),
                   GestureDetector(
-                    onTap: () => context.pop(),
+                    onTap: () => context.backOr(Routes.sos),
                     child: Container(
                       width: 36,
                       height: 36,

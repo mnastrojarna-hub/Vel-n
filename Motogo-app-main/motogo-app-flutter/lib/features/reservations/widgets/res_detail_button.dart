@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme.dart';
+import '../../../core/widgets/moto_fx.dart';
 
 /// Detail button — matches original CSS: btn-g (green), btn-out (outlined),
 /// danger (red bg), sos (light-red bg).
@@ -64,7 +65,8 @@ class ResDetailButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hasShadow = bgColor == MotoGoColors.green;
-    return GestureDetector(
+    return PressableScale(
+      pressedScale: 0.95,
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),

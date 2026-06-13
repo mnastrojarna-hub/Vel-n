@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/theme.dart';
+import '../../core/widgets/moto_fx.dart';
 import '../../core/router.dart';
 import '../booking/booking_provider.dart';
 import '../booking/booking_models.dart';
@@ -613,7 +614,9 @@ class _MotoDetailPageState extends ConsumerState<MotoDetailPage> {
           ),
         SizedBox(
           height: 52,
-          child: ElevatedButton(
+          child: PressableScale(
+            enabled: canProceed,
+            child: ElevatedButton(
             onPressed: canProceed
                 ? () {
                 final effectiveEnd = _selEnd ?? _selStart!;
@@ -651,6 +654,7 @@ class _MotoDetailPageState extends ConsumerState<MotoDetailPage> {
             const Icon(Icons.arrow_forward, size: 18),
           ],
         ),
+      ),
       ),
     ),
       ],

@@ -56,7 +56,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (_step > 1) {
       setState(() => _step--);
     } else {
-      context.pop();
+      context.backOr(Routes.login);
     }
   }
 
@@ -339,7 +339,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
             // Bottom button
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-              child: ElevatedButton(
+              child: PressableScale(
+                enabled: !_loading,
+                child: ElevatedButton(
                 onPressed: _loading ? null : _next,
                 style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(52)),
                 child: _loading
@@ -349,6 +351,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         const SizedBox(width: 8),
                         Text(_step == 3 ? t(context).tr('finishRegistration') : t(context).tr('continueBtn')),
                       ]),
+              ),
               ),
             ),
           ],
