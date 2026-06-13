@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme.dart';
+import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../auth/widgets/toast_helper.dart';
 import 'shop_models.dart';
@@ -61,7 +62,7 @@ class _ProductDetailState extends ConsumerState<ProductDetailScreen> {
                 ),
                 Positioned(top: MediaQuery.of(context).padding.top + 8, left: 12,
                   child: GestureDetector(
-                    onTap: () => context.pop(),
+                    onTap: () => context.backOr(Routes.shop),
                     child: Container(width: 36, height: 36,
                       decoration: BoxDecoration(color: MotoGoColors.green, borderRadius: BorderRadius.circular(10)),
                       child: const Center(child: Text('←', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.black)))),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme.dart';
+import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../auth/widgets/toast_helper.dart';
 
@@ -69,7 +70,7 @@ class _ProtocolState extends State<ProtocolScreen> {
     }
     showMotoGoToast(context, icon: '📤', title: t(context).tr('sent'), message: t(context).tr('protocolSent'));
     Future.delayed(const Duration(milliseconds: 1500), () {
-      if (mounted) context.pop();
+      if (mounted) context.backOr(Routes.reservations);
     });
   }
 
@@ -87,7 +88,7 @@ class _ProtocolState extends State<ProtocolScreen> {
       backgroundColor: MotoGoColors.bg,
       appBar: AppBar(
         leading: GestureDetector(
-          onTap: () => context.pop(),
+          onTap: () => context.backOr(Routes.reservations),
           child: Center(
             child: Container(
               width: 36, height: 36,

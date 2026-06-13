@@ -104,7 +104,7 @@ class _SosServiceState extends ConsumerState<SosServiceScreen> {
                     Text(t(context).tr('selfServiceSubtitle'), style: const TextStyle(fontSize: 11, color: MotoGoColors.g400)),
                   ])),
                   GestureDetector(
-                    onTap: () => context.pop(),
+                    onTap: () => context.backOr(Routes.sos),
                     child: Container(
                       width: 36, height: 36,
                       decoration: BoxDecoration(color: MotoGoColors.green, borderRadius: BorderRadius.circular(10)),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme.dart';
 import '../../../core/i18n/i18n_provider.dart';
+import '../../../core/widgets/moto_fx.dart';
 
 /// Primary "PŘIHLÁSIT SE" login button.
 class LoginSubmitButton extends StatelessWidget {
@@ -18,7 +19,9 @@ class LoginSubmitButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       height: 52,
-      child: ElevatedButton(
+      child: PressableScale(
+        enabled: !loading,
+        child: ElevatedButton(
         onPressed: loading ? null : onPressed,
         style: ElevatedButton.styleFrom(
           backgroundColor: MotoGoColors.green,
@@ -52,6 +55,7 @@ class LoginSubmitButton extends StatelessWidget {
                   ),
                 ],
               ),
+      ),
       ),
     );
   }
@@ -155,7 +159,9 @@ class LoginRegisterButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       height: 52,
-      child: OutlinedButton(
+      child: PressableScale(
+        onTap: onPressed,
+        child: OutlinedButton(
         onPressed: onPressed,
         style: OutlinedButton.styleFrom(
           foregroundColor: MotoGoColors.black,
@@ -179,6 +185,7 @@ class LoginRegisterButton extends StatelessWidget {
             ),
           ],
         ),
+      ),
       ),
     );
   }

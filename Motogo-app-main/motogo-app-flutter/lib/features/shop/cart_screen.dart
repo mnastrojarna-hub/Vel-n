@@ -38,7 +38,7 @@ class CartScreen extends ConsumerWidget {
         ),
         backgroundColor: MotoGoColors.dark,
         leading: GestureDetector(
-          onTap: () => context.pop(),
+          onTap: () => context.backOr(Routes.shop),
           child: Center(
             child: Container(
               width: 36, height: 36,

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme.dart';
+import '../../core/router.dart';
 import 'catalog_provider.dart';
 import 'moto_detail_page.dart';
 
@@ -88,7 +89,7 @@ class _MotoDetailScreenState extends ConsumerState<MotoDetailScreen> {
               top: topPad + 8,
               left: 12,
               child: GestureDetector(
-                onTap: () => context.pop(),
+                onTap: () => context.backOr(Routes.search),
                 child: Container(
                   width: 38,
                   height: 38,

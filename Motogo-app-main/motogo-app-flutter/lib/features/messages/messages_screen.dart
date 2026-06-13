@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme.dart';
+import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../auth/widgets/toast_helper.dart';
 import 'messages_provider.dart';
@@ -28,7 +29,7 @@ class _MessagesState extends ConsumerState<MessagesScreen> {
       backgroundColor: MotoGoColors.bg,
       appBar: AppBar(
         leading: GestureDetector(
-          onTap: () => context.pop(),
+          onTap: () => context.backOr(Routes.profile),
           child: Center(
             child: Container(
               width: 36, height: 36,

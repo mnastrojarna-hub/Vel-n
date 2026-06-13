@@ -49,9 +49,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   DateTime? _licExp;
   final Set<String> _licCategories = {};
   bool _loaded = false;
-  // Osobní údaje jsou rozbalené hned — zákazník dřív nevěděl, že jsou pod
-  // klepnutím skryté („v app nejsou vidět adresa/čísla dokladů/skupina ŘP").
-  bool _personalExpanded = true;
+  // Osobní údaje jsou ve výchozím stavu sbalené (klepnutím se rozbalí).
+  // Problém „nejsou vidět" způsobila registrace, která údaje neukládala — to
+  // je opraveno zápisem přes upsert; sekce tedy zůstává sbalená jako dřív.
+  bool _personalExpanded = false;
 
   /// Available driver-license categories offered in the picker.
   static const _licCategoryOptions = ['AM', 'A1', 'A2', 'A', 'B'];

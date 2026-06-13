@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../main.dart' show rootNavigatorKey;
 import 'app_shell.dart';
 import 'booking_form_widget.dart';
+import 'widgets/moto_fx.dart';
 import 'supabase_client.dart';
 import '../features/booking/booking_models.dart';
 import '../features/booking/booking_provider.dart';
@@ -91,6 +92,21 @@ class Routes {
   static const String aiAgent = '/ai-agent';
   static const String permissions = '/permissions';
   static const String protocol = '/protocol';
+}
+
+/// Bezpečná navigace „zpět" — sdílená pro všechny obrazovky.
+extension MotoGoBackNav on BuildContext {
+  /// Když je v zásobníku co popnout, popne (běžné „zpět"). Když ne (na
+  /// obrazovku se přišlo přes `context.go`, deep link, FAB nebo děkovací
+  /// stránku), přejde o úroveň výš na [fallback] — šipka tak nikdy neuvízne
+  /// na prázdném zásobníku ani neskončí na „Restartujte aplikaci".
+  void backOr(String fallback) {
+    if (canPop()) {
+      pop();
+    } else {
+      go(fallback);
+    }
+  }
 }
 
 /// Screens that do NOT show bottom navigation — matches noNav in router.js.
@@ -960,7 +976,9 @@ class _BDWState extends ConsumerState<_BookingDebugWrapper> {
     // CTA — always enabled
     secs.add(Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-      child: SizedBox(height: 52, child: ElevatedButton(
+      child: SizedBox(height: 52, child: PressableScale(
+        onTap: () => GoRouter.of(context).push('/payment'),
+        child: ElevatedButton(
         onPressed: () => GoRouter.of(context).push('/payment'),
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF74FB71),
@@ -976,7 +994,7 @@ class _BDWState extends ConsumerState<_BookingDebugWrapper> {
               letterSpacing: 0.5)),
           SizedBox(width: 8),
           Icon(Icons.arrow_forward, size: 18),
-        ]))),
+        ])))),
     ));
 
     secs.add(const SizedBox(height: 100));

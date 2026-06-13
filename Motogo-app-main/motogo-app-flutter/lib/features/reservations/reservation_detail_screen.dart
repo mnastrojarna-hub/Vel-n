@@ -121,7 +121,7 @@ class _DetailState extends ConsumerState<ReservationDetailScreen> {
                   Row(
                     children: [
                       GestureDetector(
-                        onTap: () => context.pop(),
+                        onTap: () => context.backOr(Routes.reservations),
                         child: Container(
                           width: 36,
                           height: 36,
