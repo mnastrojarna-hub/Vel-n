@@ -8,6 +8,7 @@ import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/widgets/logo_header.dart';
 import '../../../core/widgets/moto_fx.dart';
 import '../../auth/auth_provider.dart';
+import '../../loyalty/loyalty_provider.dart';
 import '../nickname_provider.dart';
 import 'menu_line.dart';
 
@@ -141,14 +142,21 @@ class _PilotBadge extends ConsumerWidget {
     final nickname = ref.watch(nicknameProvider);
     final fullName = profile.valueOrNull?['full_name'] as String?;
     final displayName = nickname ?? extractFirstName(fullName);
+    // Odznak pilota „září" v barvě věrnostního ranku.
+    final rankColor = ref.watch(loyaltyStatusProvider).valueOrNull?.color
+        ?? MotoGoColors.green;
 
     return GestureDetector(
       onTap: () => showNicknameDialog(context, ref, fullName: fullName),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: MotoGoColors.green.withValues(alpha: 0.15),
+          color: rankColor.withValues(alpha: 0.18),
           borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: rankColor.withValues(alpha: 0.55), width: 1),
+          boxShadow: [
+            BoxShadow(color: rankColor.withValues(alpha: 0.4), blurRadius: 10),
+          ],
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,

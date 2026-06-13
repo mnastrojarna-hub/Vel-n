@@ -63,26 +63,33 @@ class LoyaltyRankCard extends ConsumerWidget {
           GlowPulse(
             color: color,
             borderRadius: BorderRadius.circular(12),
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                color: MotoGoColors.dark,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  const Text('🏅', style: TextStyle(fontSize: 16)),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _rankNameText(
-                      status.rankName.toUpperCase(),
-                      status,
-                      fontSize: 14,
+            minBlur: 8,
+            maxBlur: 28,
+            child: ShimmerSweep(
+              color: color,
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: MotoGoColors.dark,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: color.withValues(alpha: 0.55), width: 1.2),
+                ),
+                child: Row(
+                  children: [
+                    const Text('🏅', style: TextStyle(fontSize: 16)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _rankNameText(
+                        status.rankName.toUpperCase(),
+                        status,
+                        fontSize: 14,
+                      ),
                     ),
-                  ),
-                  _rankNameText('${status.percent} %', status, fontSize: 18),
-                ],
+                    _rankNameText('${status.percent} %', status, fontSize: 18),
+                  ],
+                ),
               ),
             ),
           ),

@@ -37,7 +37,7 @@ class PressableScale extends StatefulWidget {
     super.key,
     required this.child,
     this.onTap,
-    this.pressedScale = 0.94,
+    this.pressedScale = 0.92,
     this.haptic = true,
     this.enabled = true,
   });
@@ -738,6 +738,88 @@ class _GlowPulseState extends State<GlowPulse>
         );
       },
       child: widget.child,
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ShimmerSweep — lesklý záblesk přejíždějící přes dítě (v barvě ranku)
+// ═══════════════════════════════════════════════════════════════════
+
+/// Periodicky přejede přes [child] šikmý lesklý pruh v barvě [color]. Použito
+/// na věrnostní rank pilota („zlatý/diamantový" lesk dle barvy ranku) a na
+/// hlavní tlačítka, aby UI působilo živěji. Pruh je jen overlay — nezasahuje
+/// do obsahu ani do dotyků.
+class ShimmerSweep extends StatefulWidget {
+  final Widget child;
+  final Color color;
+  final BorderRadius borderRadius;
+  final Duration period;
+
+  const ShimmerSweep({
+    super.key,
+    required this.child,
+    this.color = Colors.white,
+    this.borderRadius = BorderRadius.zero,
+    this.period = const Duration(milliseconds: 2800),
+  });
+
+  @override
+  State<ShimmerSweep> createState() => _ShimmerSweepState();
+}
+
+class _ShimmerSweepState extends State<ShimmerSweep>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl =
+      AnimationController(vsync: this, duration: widget.period)..repeat();
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        widget.child,
+        Positioned.fill(
+          child: IgnorePointer(
+            child: ClipRRect(
+              borderRadius: widget.borderRadius,
+              child: AnimatedBuilder(
+                animation: _ctrl,
+                builder: (context, _) {
+                  // -1.2 → 1.2: pruh přijede zleva, projede a odjede vpravo.
+                  final dx = -1.2 + 2.4 * _ctrl.value;
+                  return Align(
+                    alignment: Alignment(dx, 0),
+                    child: Transform.rotate(
+                      angle: 0.42,
+                      child: FractionallySizedBox(
+                        heightFactor: 2.2,
+                        child: Container(
+                          width: 46,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                widget.color.withValues(alpha: 0.0),
+                                widget.color.withValues(alpha: 0.55),
+                                widget.color.withValues(alpha: 0.0),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
