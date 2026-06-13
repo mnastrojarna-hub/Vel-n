@@ -6,6 +6,7 @@ import '../../../core/theme.dart';
 import '../../../core/router.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/widgets/logo_header.dart';
+import '../../../core/widgets/moto_fx.dart';
 import '../../auth/auth_provider.dart';
 import '../nickname_provider.dart';
 import 'menu_line.dart';
@@ -46,23 +47,35 @@ class HomeHeader extends ConsumerWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              GestureDetector(
+              PressableScale(
+                pressedScale: 0.88,
                 onTap: () => context.go(Routes.profile),
                 child: Container(
-                  width: 40,
-                  height: 40,
+                  width: 44,
+                  height: 44,
                   decoration: BoxDecoration(
-                    color: MotoGoColors.green,
-                    borderRadius: BorderRadius.circular(12),
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [MotoGoColors.green, MotoGoColors.greenDark],
+                    ),
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: [
+                      BoxShadow(
+                        color: MotoGoColors.green.withValues(alpha: 0.45),
+                        blurRadius: 12,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
                   ),
                   child: const Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      MenuLine(width: 16),
+                      MenuLine(width: 18),
                       SizedBox(height: 4),
                       MenuLine(width: 12),
                       SizedBox(height: 4),
-                      MenuLine(width: 16),
+                      MenuLine(width: 18),
                     ],
                   ),
                 ),
@@ -130,7 +143,7 @@ class _PilotBadge extends ConsumerWidget {
     final displayName = nickname ?? extractFirstName(fullName);
 
     return GestureDetector(
-      onTap: () => _showNicknameDialog(context, ref, displayName),
+      onTap: () => showNicknameDialog(context, ref, fullName: fullName),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
@@ -167,83 +180,4 @@ class _PilotBadge extends ConsumerWidget {
     );
   }
 
-  void _showNicknameDialog(
-    BuildContext context,
-    WidgetRef ref,
-    String current,
-  ) {
-    final controller = TextEditingController(text: current);
-    final fullName = profile.valueOrNull?['full_name'] as String?;
-    final firstName = extractFirstName(fullName);
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18),
-        ),
-        title: Text(
-          t(context).tr('homePilotLabel').replaceAll(':', '').trim(),
-          style: const TextStyle(
-            color: Colors.black,
-            fontWeight: FontWeight.w800,
-            fontSize: 16,
-          ),
-        ),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          cursorColor: Colors.black,
-          style: const TextStyle(color: Colors.black),
-          decoration: InputDecoration(
-            hintText: firstName,
-            hintStyle: TextStyle(
-              color: Colors.black.withValues(alpha: 0.3),
-            ),
-            enabledBorder: UnderlineInputBorder(
-              borderSide: BorderSide(
-                color: MotoGoColors.green.withValues(alpha: 0.4),
-              ),
-            ),
-            focusedBorder: const UnderlineInputBorder(
-              borderSide: BorderSide(color: MotoGoColors.green),
-            ),
-          ),
-        ),
-        actions: [
-          // Reset to first name
-          TextButton(
-            onPressed: () {
-              ref.read(nicknameProvider.notifier).clearNickname();
-              Navigator.of(ctx).pop();
-            },
-            child: Text(
-              'Reset',
-              style: TextStyle(
-                color: Colors.black.withValues(alpha: 0.5),
-              ),
-            ),
-          ),
-          // Confirm
-          TextButton(
-            onPressed: () {
-              final value = controller.text.trim();
-              if (value.isNotEmpty) {
-                ref.read(nicknameProvider.notifier).setNickname(value);
-              }
-              Navigator.of(ctx).pop();
-            },
-            child: const Text(
-              'OK',
-              style: TextStyle(
-                color: MotoGoColors.green,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme.dart';
+import '../../../core/widgets/moto_fx.dart';
 
 /// Tappable row item used in all menu sections on the Profile screen.
 class ProfileMenuItem extends StatelessWidget {
@@ -20,7 +21,8 @@ class ProfileMenuItem extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) => GestureDetector(
+  Widget build(BuildContext context) => PressableScale(
+        pressedScale: 0.96,
         onTap: onTap,
         child: Container(
           padding: const EdgeInsets.all(14),

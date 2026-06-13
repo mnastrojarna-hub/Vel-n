@@ -170,8 +170,13 @@ class AuthService {
       } catch (_) {/* ponech 'cs' */}
 
       // Save personal data + consents + registration_source to profiles table.
-      // Retry up to 2× if the trigger hasn't created the row yet.
+      // POZOR: používáme `upsert` (ne `update`) s explicitním `id`. `update`
+      // dřív tiše zapsal 0 řádků, když handle_new_user() trigger ještě nestihl
+      // řádek vytvořit (race) → většina osobních údajů (adresa, č. dokladu,
+      // skupina ŘP, datum narození) se ztratila. Upsert řádek doplní i tehdy,
+      // když trigger ještě neproběhl, a přepíše ho, když už existuje.
       final updateData = {
+        'id': res.user!.id,
         if (profile != null) ...profile,
         'language': regLang,
         'marketing_consent': true,
@@ -187,14 +192,21 @@ class AuthService {
         'registration_source': 'app',
       };
 
-      for (int attempt = 0; attempt < 3; attempt++) {
-        final rows = await _client
-            .from('profiles')
-            .update(updateData)
-            .eq('id', res.user!.id)
-            .select('id');
-        if ((rows as List).isNotEmpty) break;
-        await Future.delayed(const Duration(milliseconds: 500));
+      for (int attempt = 0; attempt < 4; attempt++) {
+        try {
+          final rows = await _client
+              .from('profiles')
+              .upsert(updateData, onConflict: 'id')
+              .select('id');
+          if ((rows as List).isNotEmpty) break;
+        } catch (_) {
+          // RLS/timing nebo dočasný výpadek — zkus znovu, ať se osobní údaje
+          // nezahodí kvůli jedinému selhání hned po sign-upu. Účet už existuje,
+          // takže poslední neúspěšný pokus registraci neshazuje — profil se dá
+          // doplnit v Osobních údajích.
+          if (attempt == 3) break;
+        }
+        await Future.delayed(const Duration(milliseconds: 600));
       }
 
       await _storeBioUser(

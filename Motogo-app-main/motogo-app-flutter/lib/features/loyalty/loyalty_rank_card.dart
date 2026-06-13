@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme.dart';
 import '../../core/i18n/i18n_provider.dart';
+import '../../core/widgets/moto_fx.dart';
 import 'loyalty_provider.dart';
 
 /// Karta věrnostního ranku v profilu — název, % slevy, progress do dalšího
@@ -58,33 +59,31 @@ class LoyaltyRankCard extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Tmavý pill — světlé/metalické barvy ranků vyniknou jako v hlavičce.
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              color: MotoGoColors.dark,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: color.withValues(alpha: 0.35),
-                  blurRadius: 14,
-                  spreadRadius: 0.5,
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                const Text('🏅', style: TextStyle(fontSize: 16)),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _rankNameText(
-                    status.rankName.toUpperCase(),
-                    status,
-                    fontSize: 14,
+          // Pulzující záře v barvě ranku → rank pilota „září" (požadavek).
+          GlowPulse(
+            color: color,
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: MotoGoColors.dark,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  const Text('🏅', style: TextStyle(fontSize: 16)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _rankNameText(
+                      status.rankName.toUpperCase(),
+                      status,
+                      fontSize: 14,
+                    ),
                   ),
-                ),
-                _rankNameText('${status.percent} %', status, fontSize: 18),
-              ],
+                  _rankNameText('${status.percent} %', status, fontSize: 18),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 10),

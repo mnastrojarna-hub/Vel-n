@@ -186,6 +186,9 @@ const translationsEnDeNl = <String, Map<String, String>>{
     'deleteAccountDesc': 'This action is irreversible. All your data, reservations and documents will be permanently deleted.',
     'deleteAccountBtn': 'Delete account',
     'accountDeleted': 'Account deleted',
+    'deleteAccountHasBookings': 'Account cannot be deleted — you have an active or upcoming reservation. Please cancel or finish it first.',
+    'deleteAccountFailed': 'Could not delete the account. Please try again.',
+    'editNickname': 'Edit nickname',
     // Reservations screens
     'myReservations': 'My reservations',
     'resOverview': 'Overview of all reservations',

@@ -195,6 +195,9 @@ const translationsCsPl = <String, Map<String, String>>{
     'deleteAccountDesc': 'Tato akce je nevratná. Všechna vaše data, rezervace a dokumenty budou trvale smazány.',
     'deleteAccountBtn': 'Smazat účet',
     'accountDeleted': 'Účet smazán',
+    'deleteAccountHasBookings': 'Účet nelze smazat — máte aktivní nebo nadcházející rezervaci. Nejdřív ji prosím stornujte nebo dokončete.',
+    'deleteAccountFailed': 'Účet se nepodařilo smazat. Zkuste to prosím znovu.',
+    'editNickname': 'Upravit přezdívku',
     // Reservations screens
     'myReservations': 'Moje rezervace',
     'resOverview': 'Přehled všech rezervací',

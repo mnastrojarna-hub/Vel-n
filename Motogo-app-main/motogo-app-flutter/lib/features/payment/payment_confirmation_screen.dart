@@ -145,7 +145,19 @@ class _PaymentConfirmationScreenState
     final dateFmt = DateFormat('d. M. yyyy');
     final tr = t(context);
 
-    return Scaffold(
+    return PopScope(
+      // Hardwarové „zpět" z děkovací stránky nesmí skončit na prázdném
+      // zásobníku (sem se chodí přes `context.go` → není co popnout). Vždy
+      // pošli zákazníka na přehled rezervací místo pádu na „Restartujte
+      // aplikaci".
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) {
+          ref.invalidate(reservationsProvider);
+          context.go(Routes.reservations);
+        }
+      },
+      child: Scaffold(
       backgroundColor: MotoGoColors.dark,
       body: SafeArea(
         child: Center(
@@ -340,7 +352,11 @@ class _PaymentConfirmationScreenState
                       child: ElevatedButton(
                         onPressed: () {
                           ref.invalidate(reservationsProvider);
-                          context.go(Routes.docs);
+                          // `push` (ne `go`) — děkovací stránka zůstane v
+                          // zásobníku, takže „zpět" z Dokladů se sem vrátí a
+                          // nikdy nespadne na prázdný stack („Restartujte
+                          // aplikaci"). Po nahrání dokladů se vrací sem.
+                          context.push(Routes.docs);
                         },
                         style: ElevatedButton.styleFrom(
                           minimumSize: const Size.fromHeight(52),
@@ -388,6 +404,7 @@ class _PaymentConfirmationScreenState
             ),
           ),
         ),
+      ),
       ),
     );
   }

@@ -5,11 +5,13 @@ class ProfileField extends StatelessWidget {
   final TextEditingController ctrl;
   final String label;
   final TextInputType type;
+  final bool readOnly;
 
   const ProfileField({
     required this.ctrl,
     required this.label,
     this.type = TextInputType.text,
+    this.readOnly = false,
     super.key,
   });
 
@@ -19,6 +21,9 @@ class ProfileField extends StatelessWidget {
         child: TextField(
           controller: ctrl,
           keyboardType: type,
+          readOnly: readOnly,
+          enableInteractiveSelection: true,
+          style: readOnly ? const TextStyle(color: Color(0xFF6B8C7A)) : null,
           decoration: InputDecoration(labelText: label),
         ),
       );

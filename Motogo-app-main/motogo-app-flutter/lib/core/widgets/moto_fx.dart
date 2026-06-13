@@ -675,3 +675,69 @@ class _MotoWelcomeOverlayState extends State<MotoWelcomeOverlay> {
     );
   }
 }
+
+// ═══════════════════════════════════════════════════════════════════
+// GlowPulse — jemně pulzující záře kolem dítěte (rank pilota „září")
+// ═══════════════════════════════════════════════════════════════════
+
+/// Obalí [child] pulzujícím boxShadow v barvě [color]. Použito pro věrnostní
+/// rank v profilu — pill ranku tak nenápadně „dýchá"/září, aby přitáhl
+/// pozornost bez rušivé animace.
+class GlowPulse extends StatefulWidget {
+  final Widget child;
+  final Color color;
+  final BorderRadius borderRadius;
+  final double minBlur;
+  final double maxBlur;
+
+  const GlowPulse({
+    super.key,
+    required this.child,
+    required this.color,
+    this.borderRadius = const BorderRadius.all(Radius.circular(12)),
+    this.minBlur = 6,
+    this.maxBlur = 22,
+  });
+
+  @override
+  State<GlowPulse> createState() => _GlowPulseState();
+}
+
+class _GlowPulseState extends State<GlowPulse>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1600),
+  )..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (context, child) {
+        final t = Curves.easeInOut.transform(_ctrl.value);
+        final blur = widget.minBlur + (widget.maxBlur - widget.minBlur) * t;
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: widget.borderRadius,
+            boxShadow: [
+              BoxShadow(
+                color: widget.color.withValues(alpha: 0.30 + 0.35 * t),
+                blurRadius: blur,
+                spreadRadius: 0.5 + 1.5 * t,
+              ),
+            ],
+          ),
+          child: child,
+        );
+      },
+      child: widget.child,
+    );
+  }
+}
