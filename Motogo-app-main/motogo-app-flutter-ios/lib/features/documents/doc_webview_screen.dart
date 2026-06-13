@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../core/theme.dart';
+import '../../core/i18n/i18n_provider.dart';
 
 /// In-app WebView screen for displaying invoices, contracts, and other
 /// HTML documents. Supports loading from URL or raw HTML string.
@@ -80,8 +81,8 @@ class _DocWebViewScreenState extends State<DocWebViewScreen> {
               child: Column(mainAxisSize: MainAxisSize.min, children: [
                 const Icon(Icons.error_outline, size: 48, color: MotoGoColors.red),
                 const SizedBox(height: 12),
-                const Text('Nepodařilo se načíst dokument',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+                Text(t(context).tr('loadingError'),
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 4),
                 Text(_error!, style: const TextStyle(fontSize: 11, color: MotoGoColors.g400)),
                 const SizedBox(height: 16),
@@ -96,7 +97,7 @@ class _DocWebViewScreenState extends State<DocWebViewScreen> {
                     }
                   },
                   icon: const Icon(Icons.refresh, size: 16),
-                  label: const Text('Zkusit znovu'),
+                  label: Text(t(context).tr('retry')),
                 ),
               ]),
             ))

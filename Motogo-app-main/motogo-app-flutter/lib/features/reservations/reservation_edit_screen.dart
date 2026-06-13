@@ -373,6 +373,34 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
       if ((_booking!.discountAmount ?? 0) > 0) {
         changes['discount_amount'] = calc.newDiscountAmount;
       }
+      // Doprava: účtuje/vrací se rozdíl; nová kombinovaná fee se persistuje,
+      // aby seděl rozpis KF (generate_final_invoice čte delivery_fee).
+      if (calc.deliveryFeeDelta != 0) {
+        changes['delivery_fee'] = calc.newDeliveryFee;
+      }
+      // Nově přiobjednané doplňky: navýšení extras_price + řádky do
+      // booking_extras (jinak by zákazník doplněk zaplatil, ale v rezervaci
+      // i na KF by chyběl). Při doplatku se vkládají až PO potvrzení platby.
+      List<Map<String, dynamic>>? extrasRows;
+      if (_selectedExtras.isNotEmpty) {
+        const extraDefs = {
+          'spolujezdec': ('Výbava spolujezdce', 690.0),
+          'boty_ridic': ('Boty řidiče', 290.0),
+          'boty_spolujezdec': ('Boty spolujezdce', 290.0),
+        };
+        extrasRows = [
+          for (final id in _selectedExtras)
+            if (extraDefs[id] != null)
+              {
+                'booking_id': widget.bookingId,
+                'name': extraDefs[id]!.$1,
+                'unit_price': extraDefs[id]!.$2,
+                'quantity': 1,
+              },
+        ];
+        changes['extras_price'] =
+            (_booking!.extrasPrice ?? 0) + calc.extrasTotal;
+      }
 
       // Build modification_history entry — tracks ALL changes:
       // dates, motorcycle, pickup/return method & address.
@@ -436,7 +464,11 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
             bookingId: widget.bookingId,
             amount: effDiff,
             label: t(context).tr('extensionSurcharge'),
-            pendingEditChanges: changes,
+            pendingEditChanges: {
+              ...changes,
+              if (extrasRows != null && extrasRows.isNotEmpty)
+                '_extras_rows': extrasRows,
+            },
           );
           context.push(Routes.payment);
         }
@@ -461,6 +493,13 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
         }
         // No surcharge or refund — save directly
         await MotoGoSupabase.client.from('bookings').update(changes).eq('id', widget.bookingId);
+        if (extrasRows != null && extrasRows.isNotEmpty) {
+          try {
+            await MotoGoSupabase.client.from('booking_extras').insert(extrasRows);
+          } catch (e) {
+            debugPrint('[Edit] booking_extras insert failed: $e');
+          }
+        }
         if (mounted) {
           ref.invalidate(reservationsProvider);
           ref.invalidate(reservationByIdProvider(widget.bookingId));
@@ -690,8 +729,11 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
                 '+${Money.czk(calc.dateChangeAmount)}'),
               if (calc.diffDays < 0) EditPriceRow('${t(context).tr('shorteningLabel')} (${calc.diffDays.abs()} ${calc.diffDays.abs() == 1 ? t(context).tr("day1") : calc.diffDays.abs() < 5 ? t(context).tr("days24") : t(context).tr("days5")})',
                 '-${Money.czk(calc.dateChangeAmount.abs())}'),
-              if (_pickupDelivFee > 0) EditPriceRow(t(context).tr('pickupDeliveryLabel'), '+${Money.czk(_pickupDelivFee)}'),
-              if (_returnDelivFee > 0) EditPriceRow(t(context).tr('returnDeliveryLabel'), '+${Money.czk(_returnDelivFee)}'),
+              // Doprava: účtuje/vrací se ROZDÍL oproti původní rezervaci
+              if (calc.deliveryFeeDelta != 0)
+                EditPriceRow(
+                  '${t(context).tr('pickupDeliveryLabel')} / ${t(context).tr('returnDeliveryLabel')}',
+                  '${calc.deliveryFeeDelta > 0 ? "+" : "−"}${Money.czk(calc.deliveryFeeDelta.abs())}'),
               if (calc.extrasTotal > 0) EditPriceRow(t(context).tr('addons'), '+${Money.czk(calc.extrasTotal)}'),
               // Sleva se přepočítává na nový obsah rezervace (varianta B) —
               // řádek ukazuje úpravu slevy, finální Doplatek/Vrácení je PO slevě.
@@ -747,8 +789,8 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
                   : Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                       Text(_tab == 'move'
                           ? t(context).tr('moveSaveBtn')
-                          : (calc.priceDiff > 0
-                              ? '${t(context).tr('proceedToPayment')} (+${Money.czk(calc.priceDiff)})'
+                          : (calc.effectivePriceDiff > 0
+                              ? '${t(context).tr('proceedToPayment')} (+${Money.czk(calc.effectivePriceDiff)})'
                               : t(context).tr('saveChangesBtn')),
                         style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, letterSpacing: 0.3)),
                       const SizedBox(width: 6), const Icon(Icons.arrow_forward, size: 16),

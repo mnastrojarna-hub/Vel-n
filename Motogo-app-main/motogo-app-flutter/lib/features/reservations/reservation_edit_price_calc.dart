@@ -86,10 +86,52 @@ class EditPriceCalc {
     return -(raw * pct / 100);
   }
 
+  /// Rozdíl poplatku za přistavení/odvoz oproti původní rezervaci.
+  ///
+  /// Účtuje se (kladný) nebo vrací (záporný) JEN rozdíl — dřív se nově
+  /// zadaná adresa přičítala celá (dvojí účtování při změně adresy) a
+  /// zrušení doručení nic nevracelo. DB ukládá jen kombinovanou
+  /// `delivery_fee`; původní rozdělení mezi přistavení a odvoz se odhaduje
+  /// rovným dílem mezi strany, které doručení měly.
+  double get deliveryFeeDelta {
+    final oldFee = booking.deliveryFee ?? 0;
+    final pickupWas = booking.pickupMethod == 'delivery';
+    final returnWas = booking.returnMethod == 'delivery';
+    final pickupIs = pickupMethod == 'delivery';
+    final returnIs = returnMethod == 'delivery';
+
+    // Způsob dopravy beze změny a žádná nově přepočtená adresa → beze změny.
+    if (pickupWas == pickupIs &&
+        returnWas == returnIs &&
+        pickupDelivFee == 0 &&
+        returnDelivFee == 0) {
+      return 0;
+    }
+
+    final oldSides = (pickupWas ? 1 : 0) + (returnWas ? 1 : 0);
+    final oldPerSide = oldSides > 0 ? oldFee / oldSides : 0.0;
+    final oldPickupFee = pickupWas ? oldPerSide : 0.0;
+    final oldReturnFee = returnWas ? oldPerSide : 0.0;
+
+    // Nová fee za stranu: pobočka → 0; doručení s nově zadanou adresou →
+    // nový výpočet; doručení beze změny adresy → původní hodnota zůstává.
+    final newPickupFee =
+        !pickupIs ? 0.0 : (pickupDelivFee > 0 ? pickupDelivFee : oldPickupFee);
+    final newReturnFee =
+        !returnIs ? 0.0 : (returnDelivFee > 0 ? returnDelivFee : oldReturnFee);
+    return (newPickupFee + newReturnFee) - (oldPickupFee + oldReturnFee);
+  }
+
+  /// Nová kombinovaná delivery_fee po úpravě (ukládá se do bookings).
+  double get newDeliveryFee {
+    final v = (booking.deliveryFee ?? 0) + deliveryFeeDelta;
+    return v > 0 ? v : 0;
+  }
+
   double get priceDiff {
     if (newStart == null || newEnd == null) return 0;
     double diff = dateChangeAmount;
-    diff += pickupDelivFee + returnDelivFee;
+    diff += deliveryFeeDelta;
     diff += extrasTotal;
     if (newMotoId != null && newMotoId != booking.motoId && newMotoPrices != null) {
       final newTotal = newMotoPrices!.totalForRange(newStart!, newEnd!);
@@ -145,8 +187,7 @@ class EditPriceCalc {
       pickupTime != (booking.pickupTime ?? '09:00') ||
       returnTime != (booking.returnTime ?? '19:00') ||
       extrasTotal > 0 ||
-      pickupDelivFee > 0 ||
-      returnDelivFee > 0 ||
+      deliveryFeeDelta != 0 ||
       helmetSize != booking.helmetSize ||
       jacketSize != booking.jacketSize ||
       pantsSize != booking.pantsSize ||
