@@ -159,7 +159,8 @@ class AppShell extends ConsumerWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   // Green main button (left pill)
-                  GestureDetector(
+                  PressableScale(
+                    pressedScale: 0.93,
                     onTap: () => context.push(Routes.cart),
                     child: Container(
                       padding: const EdgeInsets.only(left: 24, right: 16, top: 14, bottom: 14),
@@ -281,17 +282,35 @@ class AppShell extends ConsumerWidget {
                         context.go(tab.route);
                       }
                     },
-                    child: Container(
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 260),
+                      curve: Curves.easeOutCubic,
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       margin: const EdgeInsets.symmetric(
                         horizontal: MotoGoDimens.bnavTabMarginH,
                         vertical: MotoGoDimens.bnavTabMarginV,
                       ),
                       decoration: BoxDecoration(
-                        color: active
-                            ? MotoGoColors.green.withValues(alpha: 0.08)
-                            : Colors.transparent,
+                        // Aktivní tab = výrazný zelený gradient pill se září,
+                        // ať spodní lišta nepůsobí „jak z roku 95".
+                        gradient: active
+                            ? const LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [MotoGoColors.green, MotoGoColors.greenDark],
+                              )
+                            : null,
+                        color: active ? null : Colors.transparent,
                         borderRadius: BorderRadius.circular(MotoGoRadius.xxl),
+                        boxShadow: active
+                            ? [
+                                BoxShadow(
+                                  color: MotoGoColors.green.withValues(alpha: 0.5),
+                                  blurRadius: 14,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ]
+                            : null,
                       ),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -306,7 +325,7 @@ class AppShell extends ConsumerWidget {
                                 child: Icon(
                                   active ? tab.activeIcon : tab.icon,
                                   size: MotoGoDimens.bnavIconSize,
-                                  color: active ? MotoGoColors.greenDark : MotoGoColors.g400,
+                                  color: active ? MotoGoColors.black : MotoGoColors.g400,
                                 ),
                               ),
                               // Unread messages badge on Home tab (messages accessible via profile/hamburger)
@@ -317,14 +336,17 @@ class AppShell extends ConsumerWidget {
                                   child: Container(
                                     padding: const EdgeInsets.all(3),
                                     constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-                                    decoration: const BoxDecoration(
-                                      color: MotoGoColors.green,
+                                    decoration: BoxDecoration(
+                                      // Tmavý badge je čitelný i na zeleném
+                                      // aktivním pilulkovém pozadí.
+                                      color: MotoGoColors.red,
                                       shape: BoxShape.circle,
+                                      border: Border.all(color: Colors.white, width: 1.5),
                                     ),
                                     child: Center(
                                       child: Text(
                                         unreadCount > 9 ? '9+' : '$unreadCount',
-                                        style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: MotoGoColors.black),
+                                        style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: Colors.white),
                                       ),
                                     ),
                                   ),
@@ -338,9 +360,9 @@ class AppShell extends ConsumerWidget {
                               t(context).tr(tab.i18nKey),
                               style: TextStyle(
                                 fontSize: MotoGoTypo.sizeMd,
-                                fontWeight: MotoGoTypo.w700,
+                                fontWeight: active ? MotoGoTypo.w900 : MotoGoTypo.w700,
                                 letterSpacing: MotoGoTypo.lsNormal,
-                                color: active ? MotoGoColors.greenDark : MotoGoColors.g400,
+                                color: active ? MotoGoColors.black : MotoGoColors.g400,
                               ),
                               maxLines: 1,
                             ),
@@ -487,7 +509,8 @@ class _BookingFab extends ConsumerWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         // Main green button (left pill)
-        GestureDetector(
+        PressableScale(
+          pressedScale: 0.93,
           onTap: () {
             // Resume rozdělané platby: PaymentScreen NESMÍ spoléhat na booking
             // draft (po restartu/úklidu je prázdný → „Motorka × 0 dny, 0 Kč
@@ -572,7 +595,8 @@ class _SosFab extends ConsumerWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         // Main green button (left pill)
-        GestureDetector(
+        PressableScale(
+          pressedScale: 0.93,
           onTap: () => context.push(Routes.sosReplacement),
           child: Container(
             padding: const EdgeInsets.only(left: 24, right: 16, top: 14, bottom: 14),
@@ -650,7 +674,8 @@ class _DocsFab extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         // Main green button (left pill)
-        GestureDetector(
+        PressableScale(
+          pressedScale: 0.93,
           onTap: onTap,
           child: Container(
             padding: const EdgeInsets.only(left: 24, right: 16, top: 14, bottom: 14),

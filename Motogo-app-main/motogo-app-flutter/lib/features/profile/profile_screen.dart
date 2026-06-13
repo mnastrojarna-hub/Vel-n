@@ -10,8 +10,10 @@ import '../../core/web_links.dart';
 import '../../core/widgets/logo_header.dart';
 import '../../core/auth_guard.dart';
 import '../../core/supabase_client.dart';
+import '../../core/widgets/moto_fx.dart';
 import '../auth/auth_provider.dart';
 import '../auth/widgets/toast_helper.dart';
+import '../home/nickname_provider.dart';
 import '../booking/booking_provider.dart';
 import '../booking/booking_models.dart';
 import '../catalog/catalog_provider.dart';
@@ -35,25 +37,30 @@ class ProfileScreen extends ConsumerStatefulWidget {
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   final _nameCtrl = TextEditingController();
+  final _emailCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
   final _cityCtrl = TextEditingController();
   final _zipCtrl = TextEditingController();
   final _streetCtrl = TextEditingController();
+  final _countryCtrl = TextEditingController();
   final _idNumCtrl = TextEditingController();
   final _licNumCtrl = TextEditingController();
   DateTime? _dob;
   DateTime? _licExp;
   final Set<String> _licCategories = {};
   bool _loaded = false;
-  bool _personalExpanded = false;
+  // Osobní údaje jsou rozbalené hned — zákazník dřív nevěděl, že jsou pod
+  // klepnutím skryté („v app nejsou vidět adresa/čísla dokladů/skupina ŘP").
+  bool _personalExpanded = true;
 
   /// Available driver-license categories offered in the picker.
   static const _licCategoryOptions = ['AM', 'A1', 'A2', 'A', 'B'];
 
   @override
   void dispose() {
-    _nameCtrl.dispose(); _phoneCtrl.dispose(); _cityCtrl.dispose();
-    _zipCtrl.dispose(); _streetCtrl.dispose(); _idNumCtrl.dispose(); _licNumCtrl.dispose();
+    _nameCtrl.dispose(); _emailCtrl.dispose(); _phoneCtrl.dispose(); _cityCtrl.dispose();
+    _zipCtrl.dispose(); _streetCtrl.dispose(); _countryCtrl.dispose();
+    _idNumCtrl.dispose(); _licNumCtrl.dispose();
     super.dispose();
   }
 
@@ -61,10 +68,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     if (profile == null || _loaded) return;
     _loaded = true;
     _nameCtrl.text = profile['full_name'] ?? '';
+    _emailCtrl.text = profile['email'] ?? '';
     _phoneCtrl.text = profile['phone'] ?? '';
     _cityCtrl.text = profile['city'] ?? '';
     _zipCtrl.text = profile['zip'] ?? '';
     _streetCtrl.text = profile['street'] ?? '';
+    _countryCtrl.text = profile['country'] ?? '';
     _idNumCtrl.text = profile['id_number'] ?? '';
     _licNumCtrl.text = profile['license_number'] ?? '';
     _dob = _parseDate(profile['date_of_birth']);
@@ -106,6 +115,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         'city': _cityCtrl.text.trim(),
         'zip': _zipCtrl.text.trim(),
         'street': _streetCtrl.text.trim(),
+        'country': _countryCtrl.text.trim(),
         'date_of_birth': _dob == null ? null : _isoDate(_dob!),
         // Číslo dokladu totožnosti (OP nebo pas) — ručně zadané se uloží do
         // profilu a vytiskne do smlouvy. (Ověření přes OCR/fotku řeší sken.)
@@ -168,10 +178,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 children: [
                   const LogoRow(),
                   const SizedBox(height: 10),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                    decoration: BoxDecoration(color: MotoGoColors.green.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(8)),
-                    child: Text(profile?['full_name'] ?? t(context).tr('pilot'), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Colors.white)),
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                          decoration: BoxDecoration(color: MotoGoColors.green.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(8)),
+                          child: Text(profile?['full_name'] ?? t(context).tr('pilot'),
+                              maxLines: 1, overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Colors.white)),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // Duplicitní rychlá úprava přezdívky pilota i z hlavičky profilu.
+                      _NicknameChip(fullName: profile?['full_name'] as String?),
+                    ],
                   ),
                 ],
               ),
@@ -236,10 +257,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(MotoGoTheme.radiusSm)),
       child: Column(children: [
         ProfileField(ctrl: _nameCtrl, label: t(context).tr('fullNameLabel')),
+        // E-mail je přihlašovací identita → jen ke čtení (mění se přes podporu).
+        ProfileField(ctrl: _emailCtrl, label: t(context).email, readOnly: true),
         ProfileField(ctrl: _phoneCtrl, label: t(context).tr('phone'), type: TextInputType.phone),
         ProfileField(ctrl: _cityCtrl, label: t(context).tr('city')),
         ProfileField(ctrl: _zipCtrl, label: t(context).tr('zip')),
         ProfileField(ctrl: _streetCtrl, label: t(context).tr('streetShort')),
+        ProfileField(ctrl: _countryCtrl, label: t(context).tr('countryLabel')),
         _dateField(
           label: t(context).tr('dob'),
           value: _dob,
@@ -379,7 +403,25 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               final user = MotoGoSupabase.currentUser;
               if (user == null) return;
               try {
-                await MotoGoSupabase.client.rpc('delete_customer_account', params: {'p_user_id': user.id});
+                // RPC vrací JSONB — při aktivní/nadcházející rezervaci NEHODÍ
+                // výjimku, ale vrátí {"error":"active_bookings",...}. Bez kontroly
+                // appka dřív tvrdila „Účet smazán", ale auth.users zůstal → účet
+                // šel hned znovu přihlásit. Proto výsledek explicitně ověřujeme.
+                final res = await MotoGoSupabase.client
+                    .rpc('delete_customer_account', params: {'p_user_id': user.id});
+                final result = res is Map ? Map<String, dynamic>.from(res) : null;
+                final ok = result?['success'] == true;
+                if (!ok) {
+                  final err = result?['error']?.toString();
+                  final msg = err == 'active_bookings'
+                      ? t(context).tr('deleteAccountHasBookings')
+                      : t(context).tr('deleteAccountFailed');
+                  if (mounted) {
+                    showMotoGoToast(context, icon: '⚠️',
+                        title: t(context).tr('deleteAccountTitle'), message: msg);
+                  }
+                  return;
+                }
                 await AuthService.signOut();
                 if (mounted) {
                   showMotoGoToast(context, icon: '✓', title: t(context).tr('accountDeleted'), message: t(context).tr('goodbye'));
@@ -408,4 +450,50 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   void _showChangePassword(BuildContext context) => showChangePasswordSheet(context);
 
   void _showPermissions(BuildContext context) => context.push(Routes.permissions);
+}
+
+/// Tappable „PILOT: <přezdívka> ✎" chip v hlavičce profilu — otevře sdílený
+/// dialog pro úpravu přezdívky (stejný jako na domovské obrazovce).
+class _NicknameChip extends ConsumerWidget {
+  final String? fullName;
+  const _NicknameChip({required this.fullName});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final nickname = ref.watch(nicknameProvider);
+    final display = nickname ?? extractFirstName(fullName);
+    return PressableScale(
+      pressedScale: 0.9,
+      onTap: () => showNicknameDialog(context, ref, fullName: fullName),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        decoration: BoxDecoration(
+          color: MotoGoColors.green.withValues(alpha: 0.18),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: MotoGoColors.green.withValues(alpha: 0.4)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              t(context).tr('homePilotLabel'),
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.w800,
+                color: Colors.white.withValues(alpha: 0.6),
+                letterSpacing: 0.5,
+              ),
+            ),
+            Text(
+              display,
+              style: const TextStyle(
+                  fontSize: 12, fontWeight: FontWeight.w800, color: Colors.white),
+            ),
+            const SizedBox(width: 4),
+            const Icon(Icons.edit, size: 12, color: MotoGoColors.green),
+          ],
+        ),
+      ),
+    );
+  }
 }
