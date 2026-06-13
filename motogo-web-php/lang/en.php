@@ -1335,7 +1335,7 @@ return [
     'rez.alert.emailMismatch' => 'The logged-in account does not match the e-mail you entered. Please log out and try again.',
     'rez.alert.minRentalDays' => 'The minimum rental for this motorbike is {count} days. Please choose a longer period.',
     'rez.auth.returning.title' => 'I\'ve rented a motorcycle from you before',
-    'rez.auth.returning.sub' => 'Log in and we\'ll pre-fill everything (contact details, documents, consents). You won\'t have to fill anything in again.',
+    'rez.auth.returning.sub' => 'Log in and we\'ll pre-fill everything (contact details, documents, consents). You won\'t have to fill anything in again. Your web and app account is the same — sign in with the same e-mail.',
     'rez.auth.login.title' => 'Sign in to your account',
     'rez.auth.login.help' => 'Use the e-mail and password you set during your previous booking.',
     'rez.auth.login.submit' => 'Sign in',

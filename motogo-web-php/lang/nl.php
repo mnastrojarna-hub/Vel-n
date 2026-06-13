@@ -1283,7 +1283,7 @@ return [
     'rez.alert.emailMismatch' => 'Het ingelogde account komt niet overeen met het ingevoerde e-mailadres. Log uit en probeer het opnieuw.',
     'rez.alert.minRentalDays' => 'De minimale huurperiode voor deze motor is {count} dagen. Kies een langere periode.',
     'rez.auth.returning.title' => 'Ik heb al eerder een motor bij jullie gehuurd',
-    'rez.auth.returning.sub' => 'Log in en wij vullen alles alvast in (contactgegevens, documenten, toestemmingen). Je hoeft niets opnieuw in te vullen.',
+    'rez.auth.returning.sub' => 'Log in en wij vullen alles alvast in (contactgegevens, documenten, toestemmingen). Je hoeft niets opnieuw in te vullen. Je web- en app-account is hetzelfde — log in met hetzelfde e-mailadres.',
     'rez.auth.login.title' => 'Inloggen op je account',
     'rez.auth.login.help' => 'Gebruik het e-mailadres en wachtwoord die je bij je vorige reservering hebt ingesteld.',
     'rez.auth.login.submit' => 'Inloggen',

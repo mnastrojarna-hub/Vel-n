@@ -1318,7 +1318,7 @@ return [
     'rez.alert.emailMismatch' => 'Das angemeldete Konto stimmt nicht mit der eingegebenen E-Mail überein. Bitte melden Sie sich ab und versuchen Sie es erneut.',
     'rez.alert.minRentalDays' => 'Die Mindestmietdauer für dieses Motorrad beträgt {count} Tage. Bitte wählen Sie einen längeren Zeitraum.',
     'rez.auth.returning.title' => 'Ich habe schon einmal ein Motorrad bei Ihnen gemietet',
-    'rez.auth.returning.sub' => 'Melden Sie sich an und wir füllen alles vor (Kontaktdaten, Dokumente, Einwilligungen). Sie müssen nichts erneut eingeben.',
+    'rez.auth.returning.sub' => 'Melden Sie sich an und wir füllen alles vor (Kontaktdaten, Dokumente, Einwilligungen). Sie müssen nichts erneut eingeben. Ihr Web- und App-Konto ist dasselbe — melden Sie sich mit derselben E-Mail an.',
     'rez.auth.login.title' => 'Bei Ihrem Konto anmelden',
     'rez.auth.login.help' => 'Verwenden Sie die E-Mail und das Passwort, die Sie bei Ihrer letzten Buchung festgelegt haben.',
     'rez.auth.login.submit' => 'Anmelden',

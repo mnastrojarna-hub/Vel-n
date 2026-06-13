@@ -67,14 +67,50 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     setState(() => _loading = true);
     final error = await AuthService.signIn(email, pass);
     if (!mounted) return;
-    setState(() => _loading = false);
 
     if (error != null) {
-      showMotoGoToast(context, icon: '✗', title: t(context).tr('loginError'), message: error);
+      // Supabase nerozlišuje „neznámý e-mail" od „špatné heslo". Doptáme se
+      // RPC: když e-mail neexistuje, nasměrujeme zákazníka na registraci
+      // (místo matoucího „přihlášení selhalo").
+      final known = await AuthService.emailExists(email);
+      if (!mounted) return;
+      setState(() => _loading = false);
+      if (known == false) {
+        _showUnknownEmailDialog();
+      } else {
+        showMotoGoToast(context, icon: '✗', title: t(context).tr('loginError'), message: error);
+      }
     } else {
+      setState(() => _loading = false);
       showMotoGoToast(context, icon: '✓', title: t(context).login, message: t(context).welcome);
       context.go(Routes.home);
     }
+  }
+
+  /// Neznámý e-mail při přihlášení → nabídni vytvoření registrace.
+  void _showUnknownEmailDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(t(context).tr('loginUnknownEmailTitle'),
+            style: const TextStyle(fontWeight: FontWeight.w800)),
+        content: Text(t(context).tr('loginUnknownEmailBody')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(t(context).cancel),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              context.push(Routes.register);
+            },
+            child: Text(t(context).registerBtn,
+                style: const TextStyle(color: MotoGoColors.greenDark, fontWeight: FontWeight.w800)),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _doBioLogin() async {
@@ -162,7 +198,35 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           color: MotoGoColors.g400,
                         ),
                       ),
-                      const SizedBox(height: 28),
+                      const SizedBox(height: 14),
+
+                      // Nápověda pro zákazníky z webu — stejný účet funguje v appce.
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: MotoGoColors.greenPale,
+                          borderRadius: BorderRadius.circular(MotoGoRadius.xl),
+                          border: Border.all(color: MotoGoColors.green.withValues(alpha: 0.4)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Text('🌐', style: TextStyle(fontSize: 16)),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                t(context).tr('loginWebAccountHint'),
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  height: 1.35,
+                                  fontWeight: FontWeight.w600,
+                                  color: MotoGoColors.greenDarker,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 18),
 
                       // E-MAIL field
                       LoginEmailField(controller: _emailCtrl),

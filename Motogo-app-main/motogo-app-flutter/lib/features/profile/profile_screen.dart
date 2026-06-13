@@ -104,11 +104,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final user = MotoGoSupabase.currentUser;
     if (user == null) return;
     try {
-      // Skupina ŘP (text[]) — z ní se generuje smlouva a bere se verifikační
-      // skupina (viz sken), takže se MUSÍ ukládat. Datumy posíláme jako ISO
-      // (yyyy-MM-dd) nebo null, aby Postgres `date` sloupec nespadl na parse.
-      // Zachovej i případné kategorie načtené z DB, které nejsou v nabídce
-      // odznaků (ať se ručně zadané hodnoty neztratí).
+      // Skupina ŘP (license_group[]) je ENUM pole — PostgREST ho z prostého
+      // JSON pole NEUMÍ přetypovat, takže by CELÝ update spadl a neuložilo by se
+      // nic. Proto ostatní pole uložíme běžným updatem a skupinu ŘP zvlášť přes
+      // SECURITY DEFINER RPC `set_my_license_group`. Datumy posíláme jako ISO
+      // (yyyy-MM-dd) nebo null.
       final groupTokens = _licCategories.toList();
       await MotoGoSupabase.client.from('profiles').update({
         'full_name': _nameCtrl.text.trim(),
@@ -123,8 +123,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         'id_number': _idNumCtrl.text.trim(),
         'license_number': _licNumCtrl.text.trim(),
         'license_expiry': _licExp == null ? null : _isoDate(_licExp!),
-        'license_group': groupTokens,
       }).eq('id', user.id);
+      try {
+        await MotoGoSupabase.client
+            .rpc('set_my_license_group', params: {'p_groups': groupTokens});
+      } catch (_) {/* RPC ještě nenasazená / dočasná chyba — neblokuj uložení */}
       if (mounted) {
         showMotoGoToast(context, icon: '✓', title: t(context).tr('saved'), message: t(context).tr('profileUpdated'));
         ref.invalidate(profileProvider);
