@@ -198,6 +198,9 @@ const translationsCsPl = <String, Map<String, String>>{
     'deleteAccountHasBookings': 'Účet nelze smazat — máte aktivní nebo nadcházející rezervaci. Nejdřív ji prosím stornujte nebo dokončete.',
     'deleteAccountFailed': 'Účet se nepodařilo smazat. Zkuste to prosím znovu.',
     'editNickname': 'Upravit přezdívku',
+    'loginWebAccountHint': 'Máte rezervaci nebo účet z webu? Přihlaste se stejným e-mailem a heslem.',
+    'loginUnknownEmailTitle': 'Účet nenalezen',
+    'loginUnknownEmailBody': 'Tento e-mail u nás zatím nemáme. Vytvořte si prosím registraci.',
     // Reservations screens
     'myReservations': 'Moje rezervace',
     'resOverview': 'Přehled všech rezervací',
@@ -1073,6 +1076,12 @@ const translationsCsPl = <String, Map<String, String>>{
     'deleteAccountDesc': 'Ta operacja jest nieodwracalna. Wszystkie Twoje dane, rezerwacje i dokumenty zostaną trwale usunięte.',
     'deleteAccountBtn': 'Usuń konto',
     'accountDeleted': 'Konto usunięte',
+    'deleteAccountHasBookings': 'Nie można usunąć konta — masz aktywną lub nadchodzącą rezerwację. Najpierw ją anuluj lub zakończ.',
+    'deleteAccountFailed': 'Nie udało się usunąć konta. Spróbuj ponownie.',
+    'editNickname': 'Edytuj pseudonim',
+    'loginWebAccountHint': 'Masz rezerwację lub konto ze strony? Zaloguj się tym samym e-mailem i hasłem.',
+    'loginUnknownEmailTitle': 'Nie znaleziono konta',
+    'loginUnknownEmailBody': 'Nie mamy jeszcze tego adresu e-mail. Utwórz rejestrację.',
     // Reservations screens
     'myReservations': 'Moje rezerwacje',
     'resOverview': 'Przegląd wszystkich rezerwacji',

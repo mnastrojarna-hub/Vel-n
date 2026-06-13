@@ -481,7 +481,7 @@ return [
 
     // ===== Rezervace — Vracející se zákazník (login panel v kroku 3) =====
     'rez.auth.returning.title' => 'Už jsem si u vás půjčoval/a motorku.',
-    'rez.auth.returning.sub' => 'Pokračuj přihlášením, ať ti můžeme údaje předvyplnit a nemusíš je vyplňovat znovu.',
+    'rez.auth.returning.sub' => 'Pokračuj přihlášením, ať ti můžeme údaje předvyplnit a nemusíš je vyplňovat znovu. Účet z webu i z aplikace je stejný — přihlas se stejným e-mailem.',
     'rez.auth.login.title' => 'Přihlášení k vašemu účtu',
     'rez.auth.login.help' => 'Použijte e-mail a heslo, které jste si nastavili při minulé rezervaci.',
     'rez.auth.login.submit' => 'Přihlásit se',

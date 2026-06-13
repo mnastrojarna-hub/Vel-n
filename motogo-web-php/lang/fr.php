@@ -1304,7 +1304,7 @@ return [
     'rez.alert.emailMismatch' => 'Le compte connecté ne correspond pas à l\'e-mail saisi. Déconnectez-vous et réessayez.',
     'rez.alert.minRentalDays' => 'La durée minimale de location de cette moto est de {count} jours. Veuillez choisir une période plus longue.',
     'rez.auth.returning.title' => 'J\'ai déjà loué une moto chez vous',
-    'rez.auth.returning.sub' => 'Connectez-vous et nous pré-remplirons tout (coordonnées, documents, consentements). Vous n\'aurez rien à saisir à nouveau.',
+    'rez.auth.returning.sub' => 'Connectez-vous et nous pré-remplirons tout (coordonnées, documents, consentements). Vous n\'aurez rien à saisir à nouveau. Votre compte web et application est le même — connectez-vous avec le même e-mail.',
     'rez.auth.login.title' => 'Connexion à votre compte',
     'rez.auth.login.help' => 'Utilisez l\'e-mail et le mot de passe que vous avez définis lors de votre dernière réservation.',
     'rez.auth.login.submit' => 'Se connecter',

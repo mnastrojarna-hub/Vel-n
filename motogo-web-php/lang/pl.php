@@ -1283,7 +1283,7 @@ return [
     'rez.alert.emailMismatch' => 'Zalogowane konto nie zgadza się z podanym adresem e-mail. Wyloguj się i spróbuj ponownie.',
     'rez.alert.minRentalDays' => 'Minimalny okres wynajmu tego motocykla to {count} dni. Wybierz dłuższy termin.',
     'rez.auth.returning.title' => 'Wynajmowałem już u was motocykl',
-    'rez.auth.returning.sub' => 'Zaloguj się, a my wszystko wstępnie wypełnimy (dane kontaktowe, dokumenty, zgody). Nie musisz niczego wpisywać ponownie.',
+    'rez.auth.returning.sub' => 'Zaloguj się, a my wszystko wstępnie wypełnimy (dane kontaktowe, dokumenty, zgody). Nie musisz niczego wpisywać ponownie. Konto z sieci i z aplikacji jest takie samo — zaloguj się tym samym e-mailem.',
     'rez.auth.login.title' => 'Zaloguj się do swojego konta',
     'rez.auth.login.help' => 'Użyj adresu e-mail i hasła, które ustawiłeś przy poprzedniej rezerwacji.',
     'rez.auth.login.submit' => 'Zaloguj się',

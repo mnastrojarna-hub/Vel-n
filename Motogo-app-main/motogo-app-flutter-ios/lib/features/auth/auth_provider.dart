@@ -114,6 +114,20 @@ class AuthService {
     }
   }
 
+  /// Zjistí, jestli e-mail u nás už existuje (účet z webu i z appky). Vrací
+  /// `true`/`false`, nebo `null` když to nelze ověřit (chyba/sítě) — volající
+  /// pak nemá tvrdit „neznámý e-mail". Používá stejné RPC jako web.
+  static Future<bool?> emailExists(String email) async {
+    try {
+      final res = await _client.rpc('check_web_booking_email',
+          params: {'p_email': email.trim().toLowerCase()});
+      if (res is Map) return res['exists'] == true;
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   // ===== REGISTRATION =====
   /// Guard against duplicate signUp calls (e.g. double-tap).
   static bool _signUpInProgress = false;
@@ -170,11 +184,19 @@ class AuthService {
       } catch (_) {/* ponech 'cs' */}
 
       // Save personal data + consents + registration_source to profiles table.
-      // POZOR: používáme `upsert` (ne `update`) s explicitním `id`. `update`
-      // dřív tiše zapsal 0 řádků, když handle_new_user() trigger ještě nestihl
-      // řádek vytvořit (race) → většina osobních údajů (adresa, č. dokladu,
-      // skupina ŘP, datum narození) se ztratila. Upsert řádek doplní i tehdy,
-      // když trigger ještě neproběhl, a přepíše ho, když už existuje.
+      // POZOR 1: `upsert` (ne `update`) s explicitním `id` — update dřív zapsal
+      // 0 řádků, když handle_new_user() trigger ještě nestihl řádek vytvořit.
+      // POZOR 2: `license_group` je sloupec typu ENUM pole (`license_group[]`).
+      // PostgREST ho z prostého JSON pole NEUMÍ přetypovat → CELÝ upsert padá a
+      // uloží se jen jméno/telefon/e-mail z triggeru (adresa, datum narození,
+      // čísla dokladů ani skupina ŘP se neuloží). Proto `license_group` z payloadu
+      // VYJMEME a uložíme ho zvlášť přes SECURITY DEFINER RPC, které cast udělá
+      // v SQL.
+      final licenseGroups = (profile?['license_group'] as List?)
+              ?.map((e) => '$e'.trim().toUpperCase())
+              .where((e) => e.isNotEmpty)
+              .toList() ??
+          const <String>[];
       final updateData = {
         'id': res.user!.id,
         if (profile != null) ...profile,
@@ -191,6 +213,7 @@ class AuthService {
         'consent_contract': true,
         'registration_source': 'app',
       };
+      updateData.remove('license_group'); // enum pole → zvlášť přes RPC
 
       for (int attempt = 0; attempt < 4; attempt++) {
         try {
@@ -207,6 +230,16 @@ class AuthService {
           if (attempt == 3) break;
         }
         await Future.delayed(const Duration(milliseconds: 600));
+      }
+
+      // Skupina ŘP zvlášť — RPC `set_my_license_group` přetypuje text[] na
+      // license_group[] (PostgREST to z payloadu neumí). Selhání nesmí shodit
+      // registraci (ostatní údaje už jsou uložené).
+      if (licenseGroups.isNotEmpty) {
+        try {
+          await _client.rpc('set_my_license_group',
+              params: {'p_groups': licenseGroups});
+        } catch (_) {/* RPC ještě nenasazená / dočasná chyba — neblokuj */}
       }
 
       await _storeBioUser(

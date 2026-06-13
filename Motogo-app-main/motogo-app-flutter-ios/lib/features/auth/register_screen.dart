@@ -19,6 +19,8 @@ class RegisterScreen extends StatefulWidget {
 class _RegisterScreenState extends State<RegisterScreen> {
   int _step = 1;
   bool _loading = false;
+  // Směr přechodu mezi kroky → určuje, kam slide animace letí.
+  bool _goingForward = true;
 
   // Step 1: Personal data
   final _fnameCtrl = TextEditingController();
@@ -33,7 +35,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _streetCtrl = TextEditingController();
   final _zipCtrl = TextEditingController();
   final _cityCtrl = TextEditingController();
-  String _country = 'Česká republika';
+  final _countryCtrl = TextEditingController();
 
   // Step 3: License
   final _idNumCtrl = TextEditingController();
@@ -49,12 +51,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
       _doRegister();
       return;
     }
-    setState(() => _step++);
+    setState(() {
+      _goingForward = true;
+      _step++;
+    });
   }
 
   void _back() {
     if (_step > 1) {
-      setState(() => _step--);
+      setState(() {
+        _goingForward = false;
+        _step--;
+      });
     } else {
       context.backOr(Routes.login);
     }
@@ -219,7 +227,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         'street': _streetCtrl.text.trim(),
         'city': _cityCtrl.text.trim(),
         'zip': _zipCtrl.text.trim(),
-        'country': _country,
+        'country': _countryCtrl.text.trim(),
         'license_number': _licNumCtrl.text.trim(),
         'license_expiry': _toIsoDate(_licExpiryCtrl.text.trim()),
         'license_group': [_licGroup],
@@ -262,7 +270,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   void dispose() {
     _fnameCtrl.dispose(); _lnameCtrl.dispose(); _emailCtrl.dispose();
     _phoneCtrl.dispose(); _passCtrl.dispose(); _passConfirmCtrl.dispose(); _dobCtrl.dispose();
-    _streetCtrl.dispose(); _zipCtrl.dispose(); _cityCtrl.dispose();
+    _streetCtrl.dispose(); _zipCtrl.dispose(); _cityCtrl.dispose(); _countryCtrl.dispose();
     _idNumCtrl.dispose(); _licNumCtrl.dispose(); _licExpiryCtrl.dispose();
     super.dispose();
   }
@@ -279,13 +287,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
               child: Row(
                 children: [
-                  GestureDetector(
+                  PressableScale(
+                    pressedScale: 0.88,
                     onTap: _back,
                     child: Container(
                       width: 36, height: 36,
                       decoration: BoxDecoration(
-                        color: MotoGoColors.green,
+                        gradient: const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [MotoGoColors.green, MotoGoColors.greenDark],
+                        ),
                         borderRadius: BorderRadius.circular(10),
+                        boxShadow: [
+                          BoxShadow(
+                            color: MotoGoColors.green.withValues(alpha: 0.4),
+                            blurRadius: 8, offset: const Offset(0, 2)),
+                        ],
                       ),
                       child: const Center(
                         child: Text('←', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.black)),
@@ -297,42 +315,77 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     t(context).tr('registerTitle'),
                     style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: MotoGoColors.black),
                   ),
+                  const Spacer(),
+                  // „Krok X/3" — jasná orientace v průvodci.
+                  Text('${_step}/3',
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: MotoGoColors.greenDark)),
                 ],
               ),
             ),
-            // Step indicators
+            // Step indicators (animované pruhy)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
               child: Row(
                 children: List.generate(3, (i) {
                   final s = i + 1;
                   final active = s == _step;
                   final done = s < _step;
                   return Expanded(
-                    child: Container(
-                      height: 4,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 320),
+                      curve: Curves.easeOutCubic,
+                      height: active ? 7 : 5,
                       margin: const EdgeInsets.symmetric(horizontal: 3),
                       decoration: BoxDecoration(
-                        color: done ? MotoGoColors.green : (active ? MotoGoColors.greenDark : MotoGoColors.g200),
-                        borderRadius: BorderRadius.circular(2),
+                        gradient: (done || active)
+                            ? const LinearGradient(colors: [MotoGoColors.green, MotoGoColors.greenDark])
+                            : null,
+                        color: (done || active) ? null : MotoGoColors.g200,
+                        borderRadius: BorderRadius.circular(4),
+                        boxShadow: active
+                            ? [BoxShadow(color: MotoGoColors.green.withValues(alpha: 0.5), blurRadius: 8)]
+                            : null,
                       ),
                     ),
                   );
                 }),
               ),
             ),
-            // Content
+            // Content — přechod mezi kroky se animuje (slide + fade)
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(MotoGoTheme.radiusLg),
-                    boxShadow: [BoxShadow(color: MotoGoColors.black.withValues(alpha: 0.08), blurRadius: 16)],
+                child: AnimatedSize(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeOutCubic,
+                  alignment: Alignment.topCenter,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(MotoGoTheme.radiusLg),
+                      boxShadow: [BoxShadow(color: MotoGoColors.black.withValues(alpha: 0.08), blurRadius: 16)],
+                    ),
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 340),
+                      switchInCurve: Curves.easeOutCubic,
+                      switchOutCurve: Curves.easeInCubic,
+                      transitionBuilder: (child, anim) {
+                        final offset = _goingForward
+                            ? const Offset(0.18, 0)
+                            : const Offset(-0.18, 0);
+                        return FadeTransition(
+                          opacity: anim,
+                          child: SlideTransition(
+                            position: Tween<Offset>(begin: offset, end: Offset.zero)
+                                .animate(anim),
+                            child: child,
+                          ),
+                        );
+                      },
+                      child: _buildStep(),
+                    ),
                   ),
-                  child: _buildStep(),
                 ),
               ),
             ),
@@ -361,17 +414,28 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Widget _buildStep() {
+    // Klíč podle kroku → AnimatedSwitcher pozná změnu a přehraje slide+fade.
+    final Widget content;
     switch (_step) {
-      case 1: return _step1();
-      case 2: return _step2();
-      case 3: return _step3();
-      default: return const SizedBox.shrink();
+      case 1: content = _step1(); break;
+      case 2: content = _step2(); break;
+      case 3: content = _step3(); break;
+      default: content = const SizedBox.shrink();
     }
+    return KeyedSubtree(key: ValueKey(_step), child: content);
   }
 
-  Widget _step1() => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
+  /// Sloupec, jehož děti naběhnou postupně (fade + slide-up) — zážitek z
+  /// vyplňování. Re-spustí se při každé změně kroku (nový klíč z [_buildStep]).
+  Widget _revealColumn(List<Widget> children) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (int i = 0; i < children.length; i++)
+            StaggeredReveal(index: i, child: children[i]),
+        ],
+      );
+
+  Widget _step1() => _revealColumn([
       Text(t(context).tr('regStep1Title'), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: MotoGoColors.black)),
       const SizedBox(height: 2),
       Text(t(context).tr('regStep1Subtitle'), style: const TextStyle(fontSize: 12, color: MotoGoColors.g400)),
@@ -398,12 +462,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
       TextField(controller: _passCtrl, decoration: InputDecoration(labelText: t(context).tr('passwordMin8')), obscureText: true),
       const SizedBox(height: 9),
       TextField(controller: _passConfirmCtrl, decoration: InputDecoration(labelText: t(context).tr('passwordConfirm')), obscureText: true),
-    ],
-  );
+  ]);
 
-  Widget _step2() => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
+  Widget _step2() => _revealColumn([
       Text(t(context).tr('regStep2Title'), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: MotoGoColors.black)),
       const SizedBox(height: 2),
       Text(t(context).tr('regStep2Subtitle'), style: const TextStyle(fontSize: 12, color: MotoGoColors.g400)),
@@ -418,25 +479,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
       const SizedBox(height: 9),
       TextField(controller: _streetCtrl, decoration: InputDecoration(labelText: t(context).tr('street'))),
       const SizedBox(height: 9),
-      DropdownButtonFormField<String>(
-        value: _country,
-        dropdownColor: Colors.white,
+      // Stát bydliště = volný text → zákazník napíše JAKÝKOLI stát ve svém
+      // jazyce (ne jen jazyky appky, žádné předvolby). Není to jazyk.
+      TextField(
+        controller: _countryCtrl,
+        textCapitalization: TextCapitalization.words,
         decoration: InputDecoration(labelText: t(context).tr('countryLabel')),
-        items: [
-          DropdownMenuItem(value: 'Česká republika', child: Text(t(context).tr('countryCZ'))),
-          DropdownMenuItem(value: 'Slovenská republika', child: Text(t(context).tr('countrySK'))),
-          DropdownMenuItem(value: 'Německo', child: Text(t(context).tr('countryDE'))),
-          DropdownMenuItem(value: 'Rakousko', child: Text(t(context).tr('countryAT'))),
-          DropdownMenuItem(value: 'Polsko', child: Text(t(context).tr('countryPL'))),
-        ],
-        onChanged: (v) => setState(() => _country = v ?? _country),
+        autofillHints: const [AutofillHints.countryName],
       ),
-    ],
-  );
+  ]);
 
-  Widget _step3() => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
+  Widget _step3() => _revealColumn([
       Text(t(context).tr('regStep3Title'), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: MotoGoColors.black)),
       const SizedBox(height: 2),
       Text(t(context).tr('regStep3Subtitle'), style: const TextStyle(fontSize: 12, color: MotoGoColors.g400)),
@@ -462,6 +515,5 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ],
         onChanged: (v) => setState(() => _licGroup = v ?? _licGroup),
       ),
-    ],
-  );
+  ]);
 }
