@@ -18,6 +18,7 @@ import '../booking/booking_provider.dart';
 import '../booking/booking_models.dart';
 import '../catalog/catalog_provider.dart';
 import '../loyalty/loyalty_rank_card.dart';
+import '../loyalty/loyalty_provider.dart';
 import '../payment/payment_methods_screen.dart';
 import 'widgets/profile_field.dart';
 import 'widgets/profile_section_title.dart';
@@ -466,15 +467,20 @@ class _NicknameChip extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final nickname = ref.watch(nicknameProvider);
     final display = nickname ?? extractFirstName(fullName);
+    final rankColor = ref.watch(loyaltyStatusProvider).valueOrNull?.color
+        ?? MotoGoColors.green;
     return PressableScale(
       pressedScale: 0.9,
       onTap: () => showNicknameDialog(context, ref, fullName: fullName),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
         decoration: BoxDecoration(
-          color: MotoGoColors.green.withValues(alpha: 0.18),
+          color: rankColor.withValues(alpha: 0.18),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: MotoGoColors.green.withValues(alpha: 0.4)),
+          border: Border.all(color: rankColor.withValues(alpha: 0.5)),
+          boxShadow: [
+            BoxShadow(color: rankColor.withValues(alpha: 0.35), blurRadius: 8),
+          ],
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -494,7 +500,7 @@ class _NicknameChip extends ConsumerWidget {
                   fontSize: 12, fontWeight: FontWeight.w800, color: Colors.white),
             ),
             const SizedBox(width: 4),
-            const Icon(Icons.edit, size: 12, color: MotoGoColors.green),
+            Icon(Icons.edit, size: 12, color: rankColor),
           ],
         ),
       ),

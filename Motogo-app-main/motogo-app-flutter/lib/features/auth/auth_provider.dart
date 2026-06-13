@@ -183,63 +183,51 @@ class AuthService {
         regLang = (prefs.getString('mg_locale') ?? 'cs').split(RegExp(r'[-_]')).first;
       } catch (_) {/* ponech 'cs' */}
 
-      // Save personal data + consents + registration_source to profiles table.
-      // POZOR 1: `upsert` (ne `update`) s explicitním `id` — update dřív zapsal
-      // 0 řádků, když handle_new_user() trigger ještě nestihl řádek vytvořit.
-      // POZOR 2: `license_group` je sloupec typu ENUM pole (`license_group[]`).
-      // PostgREST ho z prostého JSON pole NEUMÍ přetypovat → CELÝ upsert padá a
-      // uloží se jen jméno/telefon/e-mail z triggeru (adresa, datum narození,
-      // čísla dokladů ani skupina ŘP se neuloží). Proto `license_group` z payloadu
-      // VYJMEME a uložíme ho zvlášť přes SECURITY DEFINER RPC, které cast udělá
-      // v SQL.
-      final licenseGroups = (profile?['license_group'] as List?)
-              ?.map((e) => '$e'.trim().toUpperCase())
-              .where((e) => e.isNotEmpty)
-              .toList() ??
-          const <String>[];
-      final updateData = {
-        'id': res.user!.id,
-        if (profile != null) ...profile,
+      // Ulož profil STEJNĚ JAKO WEB — přes jeden SECURITY DEFINER RPC
+      // `app_save_full_profile`. Důvod: přímý PostgREST zápis z appky padal
+      // (a) na RLS u INSERT větve upsertu a (b) na ENUM poli `license_group[]`,
+      // které PostgREST z JSON pole neumí přetypovat → uložilo se jen
+      // jméno/e-mail/telefon z triggeru. RPC běží server-side, obejde RLS i typy
+      // a zapíše VŠECHNA pole najednou (adresa, datum narození, čísla dokladů,
+      // skupina ŘP, jazyk) — přesně jako `create_web_booking` na webu.
+      final pData = <String, dynamic>{
+        if (profile != null) ...profile, // vč. license_group jako pole stringů
         'language': regLang,
-        'marketing_consent': true,
-        'consent_gdpr': true,
-        'consent_vop': true,
-        'consent_data_processing': true,
-        'consent_email': true,
-        'consent_sms': true,
-        'consent_push': true,
-        'consent_whatsapp': true,
-        'consent_photo': true,
-        'consent_contract': true,
-        'registration_source': 'app',
       };
-      updateData.remove('license_group'); // enum pole → zvlášť přes RPC
 
+      bool savedProfile = false;
       for (int attempt = 0; attempt < 4; attempt++) {
         try {
-          final rows = await _client
-              .from('profiles')
-              .upsert(updateData, onConflict: 'id')
-              .select('id');
-          if ((rows as List).isNotEmpty) break;
+          final res2 = await _client
+              .rpc('app_save_full_profile', params: {'p_data': pData});
+          if (res2 is Map && res2['success'] == true) {
+            savedProfile = true;
+            break;
+          }
         } catch (_) {
-          // RLS/timing nebo dočasný výpadek — zkus znovu, ať se osobní údaje
-          // nezahodí kvůli jedinému selhání hned po sign-upu. Účet už existuje,
-          // takže poslední neúspěšný pokus registraci neshazuje — profil se dá
-          // doplnit v Osobních údajích.
           if (attempt == 3) break;
         }
         await Future.delayed(const Duration(milliseconds: 600));
       }
 
-      // Skupina ŘP zvlášť — RPC `set_my_license_group` přetypuje text[] na
-      // license_group[] (PostgREST to z payloadu neumí). Selhání nesmí shodit
-      // registraci (ostatní údaje už jsou uložené).
-      if (licenseGroups.isNotEmpty) {
+      // Fallback (kdyby RPC ještě nebylo nasazené): zapiš aspoň ne-enum pole
+      // běžným UPDATE (řádek už vytvořil trigger) a skupinu ŘP přes druhé RPC.
+      if (!savedProfile) {
+        final fallback = Map<String, dynamic>.from(pData)..remove('license_group');
         try {
-          await _client.rpc('set_my_license_group',
-              params: {'p_groups': licenseGroups});
-        } catch (_) {/* RPC ještě nenasazená / dočasná chyba — neblokuj */}
+          await _client.from('profiles').update(fallback).eq('id', res.user!.id);
+        } catch (_) {/* neblokuj registraci */}
+        final lic = (profile?['license_group'] as List?)
+                ?.map((e) => '$e'.trim().toUpperCase())
+                .where((e) => e.isNotEmpty)
+                .toList() ??
+            const <String>[];
+        if (lic.isNotEmpty) {
+          try {
+            await _client
+                .rpc('set_my_license_group', params: {'p_groups': lic});
+          } catch (_) {}
+        }
       }
 
       await _storeBioUser(
