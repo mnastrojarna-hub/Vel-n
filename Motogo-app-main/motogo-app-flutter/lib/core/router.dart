@@ -777,7 +777,21 @@ class _BDWState extends ConsumerState<_BookingDebugWrapper> {
                     decoration: TextDecoration.none)),
                 ])));
           }
-          return Column(children: [
+          return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF3C7),
+                borderRadius: BorderRadius.circular(8)),
+              child: const Row(children: [
+                Text('📏', style: TextStyle(fontSize: 14)),
+                SizedBox(width: 6),
+                Expanded(child: Text(
+                  'Vyber velikosti výbavy — připravíme ti ji předem (zdarma).',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
+                    color: Color(0xFF92400E), decoration: TextDecoration.none))),
+              ])),
             bookingGearRow('Helma', draft.helmetSize,
               (s) => _upd((d) => d.copyWith(helmetSize: () => s))),
             bookingGearRow('Rukavice', draft.glovesSize,
@@ -1057,8 +1071,17 @@ class _BDWState extends ConsumerState<_BookingDebugWrapper> {
   /// Boots are a separate paid extra ("Boty spolujezdce") — not included here.
   void _showPassengerGearSheet(BuildContext ctx,
       ExtraCatalogItem item) {
+    // Předvyplň velikosti spolujezdce z minulé rezervace (profiles.gear_sizes
+    // .passenger) — zákazník je nemusí lovit z paměti, jen potvrdí/upraví.
+    final _gsAll = ref.read(profileProvider).valueOrNull?['gear_sizes'];
+    final _pg = (_gsAll is Map ? _gsAll['passenger'] : null) as Map?;
+    String? _pv(String k) {
+      final v = _pg?[k];
+      return (v is String && v.trim().isNotEmpty) ? v : null;
+    }
     final sizes = <String, String?>{
-      'Helma': null, 'Rukavice': null, 'Bunda': null, 'Kalhoty': null,
+      'Helma': _pv('helmet'), 'Rukavice': _pv('gloves'),
+      'Bunda': _pv('jacket'), 'Kalhoty': _pv('pants'),
     };
     showModalBottomSheet(
       context: ctx,
