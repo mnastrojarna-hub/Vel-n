@@ -737,10 +737,43 @@ class _BDWState extends ConsumerState<_BookingDebugWrapper> {
             Icon(Icons.check_circle, size: 18,
               color: Color(0xFF74FB71)),
           ])),
-        // Velikosti výbavy — VŽDY dostupné (i bez přistavení). Z minulé
-        // rezervace předvyplněné: když jsou vyplněné, ukážeme souhrn + UPRAVIT,
-        // jinak rovnou výběr. Zákazník je tak nemusí lovit z paměti.
+        // Mám vlastní výbavu? Pak velikosti NEvybírá. Jinak jsou velikosti
+        // POVINNÉ — i bez přistavení (vynucuje validace u CTA „Pokračovat
+        // k platbě"). Z minulé rezervace se předvyplní.
         const SizedBox(height: 8),
+        GestureDetector(
+          onTap: () => _upd((d) => d.copyWith(ownGear: !draft.ownGear)),
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: draft.ownGear ? const Color(0xFFE8FFE8) : Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: draft.ownGear ? const Color(0xFF74FB71) : const Color(0xFFD4E8E0),
+                width: draft.ownGear ? 2 : 1)),
+            child: Row(children: [
+              Container(width: 20, height: 20,
+                decoration: BoxDecoration(
+                  color: draft.ownGear ? const Color(0xFF74FB71) : Colors.transparent,
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(
+                    color: draft.ownGear ? const Color(0xFF74FB71) : const Color(0xFFD4E8E0), width: 2)),
+                child: draft.ownGear ? const Icon(Icons.check, size: 14, color: Colors.black) : null),
+              const SizedBox(width: 10),
+              const Expanded(child: Text('Mám vlastní výbavu (nevybírám velikosti)',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700,
+                  color: Color(0xFF0F1A14), decoration: TextDecoration.none))),
+            ]))),
+        if (draft.ownGear)
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFE8FFE8), borderRadius: BorderRadius.circular(8)),
+            child: const Text('Použiješ vlastní výbavu — velikosti nevybíráš.',
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600,
+                color: Color(0xFF1A8A18), decoration: TextDecoration.none)))
+        else
         Builder(builder: (_) {
           final filled = draft.helmetSize != null || draft.jacketSize != null ||
               draft.pantsSize != null || draft.glovesSize != null;
@@ -1042,6 +1075,16 @@ class _BDWState extends ConsumerState<_BookingDebugWrapper> {
           if (isKids && !draft.consentKids) {
             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
               content: Text('Potvrďte prosím, že jste zákonný zástupce dítěte — bez toho nelze u dětské motorky pokračovat.'),
+              backgroundColor: Color(0xFF1A2E22)));
+            return;
+          }
+          // Velikosti výbavy jsou POVINNÉ (i bez přistavení), pokud zákazník
+          // nemá vlastní výbavu.
+          if (!draft.ownGear &&
+              (draft.helmetSize == null || draft.glovesSize == null ||
+               draft.jacketSize == null || draft.pantsSize == null)) {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text('Vyber prosím velikosti výbavy (helma, rukavice, bunda, kalhoty), nebo zaškrtni „Mám vlastní výbavu".'),
               backgroundColor: Color(0xFF1A2E22)));
             return;
           }
