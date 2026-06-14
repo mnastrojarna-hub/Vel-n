@@ -433,6 +433,8 @@ return [
     // ===== Rezervace — souhlasy =====
     'rez.agree.terms' => '* Souhlasím s <a href="/dokumenty/obchodni-podminky">obchodními podmínkami</a>',
     'rez.agree.gdpr' => 'Souhlasím se <a href="/dokumenty/zasady-ochrany-osobnich-udaju">zpracováním osobních údajů</a>',
+    'rez.agree.guardian' => 'Potvrzuji, že jsem zákonný zástupce a dětský motocykl bude provozován pod mým dohledem.',
+    'rez.alert.guardian' => 'Potvrďte prosím, že jste zákonný zástupce dítěte — bez toho nelze u dětské motorky pokračovat.',
     'rez.agree.marketing' => 'Souhlasím se zasíláním marketingových sdělení',
     'rez.agree.photo' => 'Souhlasím s využitím fotografií pro marketingové účely',
 

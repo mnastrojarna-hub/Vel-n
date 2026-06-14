@@ -312,6 +312,8 @@ return [
     // ===== Booking — consents =====
     'rez.agree.terms' => '* I agree with the <a href="/dokumenty/obchodni-podminky">terms and conditions</a>',
     'rez.agree.gdpr' => 'I agree with the <a href="/dokumenty/zasady-ochrany-osobnich-udaju">processing of personal data</a>',
+    'rez.agree.guardian' => 'I confirm I am the legal guardian and the child\'s motorcycle will be operated under my supervision.',
+    'rez.alert.guardian' => 'Please confirm you are the child\'s legal guardian — you cannot continue with a children’s motorcycle without it.',
     'rez.agree.marketing' => 'I agree to receive marketing communications',
     'rez.agree.photo' => 'I agree to the use of photos for marketing purposes',
 

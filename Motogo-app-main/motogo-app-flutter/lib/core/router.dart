@@ -1031,15 +1031,22 @@ class _BDWState extends ConsumerState<_BookingDebugWrapper> {
           draft.consentKids,
           (v) => _upd((d) => d.copyWith(consentKids: v)))));
 
-    // CTA — always enabled
+    // CTA — u dětské motorky NESMÍ pustit dál bez potvrzení zákonného zástupce.
     secs.add(Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       child: SizedBox(height: 52, child: PressableScale(
-        onTap: () => GoRouter.of(context).push('/payment'),
         child: ShimmerSweep(
         borderRadius: BorderRadius.circular(50),
         child: ElevatedButton(
-        onPressed: () => GoRouter.of(context).push('/payment'),
+        onPressed: () {
+          if (isKids && !draft.consentKids) {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text('Potvrďte prosím, že jste zákonný zástupce dítěte — bez toho nelze u dětské motorky pokračovat.'),
+              backgroundColor: Color(0xFF1A2E22)));
+            return;
+          }
+          GoRouter.of(context).push('/payment');
+        },
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF74FB71),
           foregroundColor: Colors.black,

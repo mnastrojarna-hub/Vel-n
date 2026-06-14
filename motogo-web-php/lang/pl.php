@@ -298,6 +298,8 @@ return [
     // ===== Rezerwacja — zgody =====
     'rez.agree.terms' => '* Akceptuję <a href="/dokumenty/obchodni-podminky">regulamin</a>',
     'rez.agree.gdpr' => 'Wyrażam zgodę na <a href="/dokumenty/zasady-ochrany-osobnich-udaju">przetwarzanie danych osobowych</a>',
+    'rez.agree.guardian' => 'Potwierdzam, że jestem opiekunem prawnym, a motocykl dziecięcy będzie użytkowany pod moim nadzorem.',
+    'rez.alert.guardian' => 'Potwierdź, że jesteś opiekunem prawnym dziecka — bez tego nie można kontynuować przy motocyklu dziecięcym.',
     'rez.agree.marketing' => 'Wyrażam zgodę na otrzymywanie informacji marketingowych',
     'rez.agree.photo' => 'Wyrażam zgodę na wykorzystanie zdjęć w celach marketingowych',
 

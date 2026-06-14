@@ -313,6 +313,8 @@ return [
     // ===== Reserva — consentimientos =====
     'rez.agree.terms' => '* Acepto los <a href="/dokumenty/obchodni-podminky">términos y condiciones</a>',
     'rez.agree.gdpr' => 'Acepto el <a href="/dokumenty/zasady-ochrany-osobnich-udaju">tratamiento de datos personales</a>',
+    'rez.agree.guardian' => 'Confirmo que soy el tutor legal y que la motocicleta infantil se utilizará bajo mi supervisión.',
+    'rez.alert.guardian' => 'Confirma que eres el tutor legal del niño: sin ello no se puede continuar con una motocicleta infantil.',
     'rez.agree.marketing' => 'Acepto recibir comunicaciones de marketing',
     'rez.agree.photo' => 'Acepto el uso de fotos con fines de marketing',
 
