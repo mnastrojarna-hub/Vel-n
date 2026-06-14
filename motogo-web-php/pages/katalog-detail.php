@@ -184,8 +184,8 @@ if (!empty($rawVideos)) {
     $posterAttr = $posterUrl !== '' ? ' poster="' . htmlspecialchars($posterUrl) . '"' : '';
     $loopAttr = count($vlist) > 1 ? '' : ' loop';
     $vid = 'mgmv' . substr(md5((string)($motoId ?? '') . '|' . $vlist[0]), 0, 8);
-    $videoBlock = '<div class="moto-video"><video id="' . $vid . '" class="moto-video-el" muted playsinline controls preload="metadata"' . $loopAttr . $posterAttr . ' data-videos="' . $vjson . '"></video></div>'
-        . '<script>(function(){var v=document.getElementById("' . $vid . '");if(!v)return;var l=[];try{l=JSON.parse(v.getAttribute("data-videos")||"[]")}catch(e){}if(!l.length)return;var i=0;function ld(){v.src=l[i];var p=v.play();if(p&&p.catch)p.catch(function(){})}v.addEventListener("ended",function(){if(l.length>1){i=(i+1)%l.length;ld()}});ld();})();</script>';
+    $videoBlock = '<div class="moto-video"><video id="' . $vid . '" class="moto-video-el" muted autoplay playsinline webkit-playsinline controls preload="metadata"' . $loopAttr . $posterAttr . ' data-videos="' . $vjson . '"></video></div>'
+        . '<script>(function(){var v=document.getElementById("' . $vid . '");if(!v)return;var l=[];try{l=JSON.parse(v.getAttribute("data-videos")||"[]")}catch(e){}if(!l.length)return;var i=0;function ld(){v.muted=true;v.defaultMuted=true;v.playsInline=true;v.src=l[i];var p=v.play();if(p&&p.catch)p.catch(function(){})}v.addEventListener("ended",function(){if(l.length>1){i=(i+1)%l.length;ld()}});ld();})();</script>';
 }
 
 $galleryHtml = '<div class="moto-gallery">' . $videoBlock;
