@@ -312,6 +312,8 @@ return [
     // ===== Réservation — consentements =====
     'rez.agree.terms' => '* J\'accepte les <a href="/dokumenty/obchodni-podminky">conditions générales</a>',
     'rez.agree.gdpr' => 'J\'accepte le <a href="/dokumenty/zasady-ochrany-osobnich-udaju">traitement des données personnelles</a>',
+    'rez.agree.guardian' => 'Je confirme être le représentant légal et que la moto pour enfant sera utilisée sous ma surveillance.',
+    'rez.alert.guardian' => 'Veuillez confirmer que vous êtes le représentant légal de l’enfant — impossible de continuer avec une moto pour enfant sans cela.',
     'rez.agree.marketing' => 'J\'accepte de recevoir des communications marketing',
     'rez.agree.photo' => 'J\'accepte l\'utilisation des photos à des fins marketing',
 

@@ -421,13 +421,15 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
       final gearSizes = <String, dynamic>{
         if (riderGear.isNotEmpty) 'rider': riderGear,
         if (passGear.isNotEmpty) 'passenger': passGear,
+        // Zapamatuj i volbu „mám vlastní výbavu" → příště se předzaškrtne.
+        'rider_own': draft.ownGear,
       };
       () async {
         try {
           await MotoGoSupabase.client.from('profiles').update({
             'consent_vop': draft.consentVop,
             'consent_gdpr': draft.consentGdpr,
-            if (gearSizes.isNotEmpty) 'gear_sizes': gearSizes,
+            'gear_sizes': gearSizes,
           }).eq('id', user.id);
         } catch (_) {/* ignore */}
       }();

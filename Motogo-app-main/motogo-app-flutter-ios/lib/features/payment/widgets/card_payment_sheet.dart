@@ -282,6 +282,18 @@ class _CardSheetBodyState extends State<_CardSheetBody> {
                 height: 56,
                 child: CardField(
                   autofocus: true,
+                  // Bílé pozadí sheetu → text karty MUSÍ být tmavý (jinak
+                  // bílá na bílé = neviditelné).
+                  style: const TextStyle(
+                    color: Color(0xFF0F1A14),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  cursorColor: MotoGoColors.greenDark,
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    hintStyle: TextStyle(color: Color(0xFF8AAB99)),
+                  ),
                   onCardChanged: (card) {
                     setState(() => _cardComplete = card?.complete ?? false);
                   },
@@ -318,7 +330,7 @@ class _CardSheetBodyState extends State<_CardSheetBody> {
   }
 }
 
-/// Jednoduché Google Pay tlačítko (černé, dle brand barev textu) — Android.
+/// Oficiální Google Pay tlačítko (1:1 brand vizuál z flutter_stripe) — Android.
 class _GooglePayButton extends StatelessWidget {
   final VoidCallback? onPressed;
   const _GooglePayButton({required this.onPressed});
@@ -327,28 +339,11 @@ class _GooglePayButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       height: 48,
-      child: ElevatedButton(
-        onPressed: onPressed,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.black,
-          foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(MotoGoTheme.radiusSm),
-          ),
-        ),
-        child: const Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text('G',
-                style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
-                    color: Color(0xFF4285F4))),
-            SizedBox(width: 1),
-            Text('Pay',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-          ],
-        ),
+      child: PlatformPayButton(
+        type: PlatformButtonType.plain,
+        appearance: PlatformButtonStyle.black,
+        borderRadius: MotoGoTheme.radiusSm,
+        onPressed: onPressed ?? () {},
       ),
     );
   }

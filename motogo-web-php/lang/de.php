@@ -312,6 +312,8 @@ return [
     // ===== Reservierung — Einwilligungen =====
     'rez.agree.terms' => '* Ich stimme den <a href="/dokumenty/obchodni-podminky">Geschäftsbedingungen</a> zu',
     'rez.agree.gdpr' => 'Ich stimme der <a href="/dokumenty/zasady-ochrany-osobnich-udaju">Verarbeitung personenbezogener Daten</a> zu',
+    'rez.agree.guardian' => 'Ich bestätige, dass ich der gesetzliche Vertreter bin und das Kindermotorrad unter meiner Aufsicht betrieben wird.',
+    'rez.alert.guardian' => 'Bitte bestätigen Sie, dass Sie der gesetzliche Vertreter des Kindes sind — ohne dies kann bei einem Kindermotorrad nicht fortgefahren werden.',
     'rez.agree.marketing' => 'Ich stimme dem Erhalt von Marketingmitteilungen zu',
     'rez.agree.photo' => 'Ich stimme der Verwendung von Fotos zu Marketingzwecken zu',
 

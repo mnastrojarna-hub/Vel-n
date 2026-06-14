@@ -374,7 +374,6 @@ class _BookingDebugWrapper extends ConsumerStatefulWidget {
 
 class _BDWState extends ConsumerState<_BookingDebugWrapper> {
   bool _calOpen = false;
-  bool _gearOpen = false; // ruční rozbalení výběru velikostí výbavy
 
   void _upd(BookingDraft Function(BookingDraft) fn) {
     final d = ref.read(bookingDraftProvider);
@@ -737,60 +736,60 @@ class _BDWState extends ConsumerState<_BookingDebugWrapper> {
             Icon(Icons.check_circle, size: 18,
               color: Color(0xFF74FB71)),
           ])),
-        // Velikosti výbavy — VŽDY dostupné (i bez přistavení). Z minulé
-        // rezervace předvyplněné: když jsou vyplněné, ukážeme souhrn + UPRAVIT,
-        // jinak rovnou výběr. Zákazník je tak nemusí lovit z paměti.
+        // Mám vlastní výbavu? Pak velikosti NEvybírá. Jinak jsou velikosti
+        // POVINNÉ — i bez přistavení (vynucuje validace u CTA „Pokračovat
+        // k platbě"). Z minulé rezervace se předvyplní.
         const SizedBox(height: 8),
-        Builder(builder: (_) {
-          final filled = draft.helmetSize != null || draft.jacketSize != null ||
-              draft.pantsSize != null || draft.glovesSize != null;
-          if (filled && !_gearOpen) {
-            final parts = <String>[
-              if (draft.helmetSize != null) 'Helma ${draft.helmetSize}',
-              if (draft.glovesSize != null) 'Rukavice ${draft.glovesSize}',
-              if (draft.jacketSize != null) 'Bunda ${draft.jacketSize}',
-              if (draft.pantsSize != null) 'Kalhoty ${draft.pantsSize}',
-            ];
-            return GestureDetector(
-              onTap: () => setState(() => _gearOpen = true),
-              child: Container(
-                padding: const EdgeInsets.all(12),
+        GestureDetector(
+          onTap: () => _upd((d) => d.copyWith(ownGear: !draft.ownGear)),
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: draft.ownGear ? const Color(0xFFE8FFE8) : Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: draft.ownGear ? const Color(0xFF74FB71) : const Color(0xFFD4E8E0),
+                width: draft.ownGear ? 2 : 1)),
+            child: Row(children: [
+              Container(width: 20, height: 20,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE8FFE8),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFF74FB71), width: 1.2)),
-                child: Row(children: [
-                  const Icon(Icons.checkroom, size: 18, color: Color(0xFF1A8A18)),
-                  const SizedBox(width: 8),
-                  Expanded(child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                    const Text('Tvoje velikosti z minula',
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800,
-                        color: Color(0xFF1A8A18), decoration: TextDecoration.none)),
-                    Text(parts.join(' · '),
-                      style: const TextStyle(fontSize: 11, color: Color(0xFF4A6357),
-                        decoration: TextDecoration.none)),
-                  ])),
-                  const Text('UPRAVIT', style: TextStyle(fontSize: 11,
-                    fontWeight: FontWeight.w800, color: Color(0xFF3DBA3A),
-                    decoration: TextDecoration.none)),
-                ])));
-          }
-          return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  color: draft.ownGear ? const Color(0xFF74FB71) : Colors.transparent,
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(
+                    color: draft.ownGear ? const Color(0xFF74FB71) : const Color(0xFFD4E8E0), width: 2)),
+                child: draft.ownGear ? const Icon(Icons.check, size: 14, color: Colors.black) : null),
+              const SizedBox(width: 10),
+              const Expanded(child: Text('Mám vlastní výbavu — nepůjčuji',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700,
+                  color: Color(0xFF0F1A14), decoration: TextDecoration.none))),
+            ]))),
+        if (draft.ownGear)
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFE8FFE8), borderRadius: BorderRadius.circular(8)),
+            child: const Text('Použiješ vlastní výbavu — velikosti nevybíráš.',
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600,
+                color: Color(0xFF1A8A18), decoration: TextDecoration.none)))
+        else
+          // Výbava řidiče VŽDY ROZBALENÁ (stejné okno jako u přistavení) —
+          // zákazník musí buď vyklikat velikosti, nebo zaškrtnout vlastní výbavu.
+          // Velikosti jsou předvyplněné z minulé rezervace (pokud byla).
+          Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Container(
               margin: const EdgeInsets.only(bottom: 8),
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               decoration: BoxDecoration(
                 color: const Color(0xFFFEF3C7),
                 borderRadius: BorderRadius.circular(8)),
-              child: const Row(children: [
-                Text('📏', style: TextStyle(fontSize: 14)),
+              child: const Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('ℹ️', style: TextStyle(fontSize: 14)),
                 SizedBox(width: 6),
                 Expanded(child: Text(
-                  'Vyber velikosti výbavy — připravíme ti ji předem (zdarma).',
+                  'Vyber velikosti výbavy řidiče. Pokud nevíš přesně, vybereš jinou velikost na místě.',
                   style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
-                    color: Color(0xFF92400E), decoration: TextDecoration.none))),
+                    color: Color(0xFF92400E), height: 1.35, decoration: TextDecoration.none))),
               ])),
             bookingGearRow('Helma', draft.helmetSize,
               (s) => _upd((d) => d.copyWith(helmetSize: () => s))),
@@ -800,8 +799,7 @@ class _BDWState extends ConsumerState<_BookingDebugWrapper> {
               (s) => _upd((d) => d.copyWith(jacketSize: () => s))),
             bookingGearRow('Kalhoty', draft.pantsSize,
               (s) => _upd((d) => d.copyWith(pantsSize: () => s))),
-          ]);
-        }),
+          ]),
         const SizedBox(height: 10),
         // Paid extras
         ...defaultExtras.map((item) {
@@ -1031,15 +1029,32 @@ class _BDWState extends ConsumerState<_BookingDebugWrapper> {
           draft.consentKids,
           (v) => _upd((d) => d.copyWith(consentKids: v)))));
 
-    // CTA — always enabled
+    // CTA — u dětské motorky NESMÍ pustit dál bez potvrzení zákonného zástupce.
     secs.add(Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       child: SizedBox(height: 52, child: PressableScale(
-        onTap: () => GoRouter.of(context).push('/payment'),
         child: ShimmerSweep(
         borderRadius: BorderRadius.circular(50),
         child: ElevatedButton(
-        onPressed: () => GoRouter.of(context).push('/payment'),
+        onPressed: () {
+          if (isKids && !draft.consentKids) {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text('Potvrďte prosím, že jste zákonný zástupce dítěte — bez toho nelze u dětské motorky pokračovat.'),
+              backgroundColor: Color(0xFF1A2E22)));
+            return;
+          }
+          // Velikosti výbavy jsou POVINNÉ (i bez přistavení), pokud zákazník
+          // nemá vlastní výbavu.
+          if (!draft.ownGear &&
+              (draft.helmetSize == null || draft.glovesSize == null ||
+               draft.jacketSize == null || draft.pantsSize == null)) {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text('Vyber prosím velikosti výbavy (helma, rukavice, bunda, kalhoty), nebo zaškrtni „Mám vlastní výbavu".'),
+              backgroundColor: Color(0xFF1A2E22)));
+            return;
+          }
+          GoRouter.of(context).push('/payment');
+        },
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF74FB71),
           foregroundColor: Colors.black,

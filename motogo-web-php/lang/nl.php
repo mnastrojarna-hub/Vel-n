@@ -298,6 +298,8 @@ return [
     // ===== Reservering — toestemmingen =====
     'rez.agree.terms' => '* Ik ga akkoord met de <a href="/dokumenty/obchodni-podminky">algemene voorwaarden</a>',
     'rez.agree.gdpr' => 'Ik ga akkoord met de <a href="/dokumenty/zasady-ochrany-osobnich-udaju">verwerking van persoonsgegevens</a>',
+    'rez.agree.guardian' => 'Ik bevestig dat ik de wettelijke voogd ben en dat de kindermotor onder mijn toezicht wordt gebruikt.',
+    'rez.alert.guardian' => 'Bevestig dat je de wettelijke voogd van het kind bent — zonder dit kun je niet doorgaan met een kindermotor.',
     'rez.agree.marketing' => 'Ik ga akkoord met het ontvangen van marketingcommunicatie',
     'rez.agree.photo' => 'Ik ga akkoord met het gebruik van foto\'s voor marketingdoeleinden',
 

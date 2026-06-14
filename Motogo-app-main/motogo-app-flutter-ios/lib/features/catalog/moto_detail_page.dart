@@ -627,6 +627,8 @@ class _MotoDetailPageState extends ConsumerState<MotoDetailPage> {
                 // (profiles.gear_sizes.rider) — zákazník je nemusí lovit z paměti.
                 final gs = ref.read(profileProvider).valueOrNull?['gear_sizes'];
                 final rider = (gs is Map ? gs['rider'] : null) as Map?;
+                // „Vlastní výbava" z minulé rezervace — předzaškrtne toggle.
+                final riderOwn = gs is Map && gs['rider_own'] == true;
                 String? rg(String k) {
                   final v = rider?[k];
                   return (v is String && v.trim().isNotEmpty) ? v : null;
@@ -638,6 +640,7 @@ class _MotoDetailPageState extends ConsumerState<MotoDetailPage> {
                   motoImage: moto.displayImage,
                   startDate: _selStart,
                   endDate: effectiveEnd,
+                  ownGear: riderOwn,
                   helmetSize: rg('helmet'),
                   glovesSize: rg('gloves'),
                   jacketSize: rg('jacket'),
