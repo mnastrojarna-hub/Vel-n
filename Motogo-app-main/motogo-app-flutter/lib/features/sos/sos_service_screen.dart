@@ -206,9 +206,9 @@ class _SosServiceState extends ConsumerState<SosServiceScreen> {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text('${t(context).tr('invoiceDetails')}:', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: MotoGoColors.black)),
         const SizedBox(height: 4),
-        const Text('MotoGo24 s.r.o.', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: MotoGoColors.g600)),
-        const Text('IČ: 123 456 78 · DIČ: CZ12345678', style: TextStyle(fontSize: 10, color: MotoGoColors.g400)),
-        const Text('Mezná 9, 393 01', style: TextStyle(fontSize: 10, color: MotoGoColors.g400)),
+        const Text('Bc. Petra Semorádová', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: MotoGoColors.g600)),
+        const Text('IČO: 21874263 · neplátce DPH', style: TextStyle(fontSize: 10, color: MotoGoColors.g400)),
+        const Text('Mezná 9, 393 01 Mezná', style: TextStyle(fontSize: 10, color: MotoGoColors.g400)),
       ]),
     );
   }
