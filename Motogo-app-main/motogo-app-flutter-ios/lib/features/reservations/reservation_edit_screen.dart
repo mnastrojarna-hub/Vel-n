@@ -50,6 +50,8 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
   double _pickupDelivFee = 0;
   double _returnDelivFee = 0;
   final Set<String> _selectedExtras = {};
+  // Původní zaplacené doplňky (baseline) — přidání = doplatek, odebrání = refund.
+  final Set<String> _origExtras = {};
   String? _helmetSize;
   String? _jacketSize;
   String? _pantsSize;
@@ -101,6 +103,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
         _passengerPantsSize = res.passengerPantsSize;
       });
       _loadDiscountType(res);
+      _loadOriginalExtras();
       // Load motorcycle per-day prices for accurate pricing
       if (res.motoId != null) {
         final motos = ref.read(motorcyclesProvider).valueOrNull ?? [];
@@ -132,6 +135,72 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
     if (mounted) setState(() => _discountType = type);
   }
 
+  /// Kanonické názvy modelovaných doplňků (shodné s tím, co se vkládá do
+  /// booking_extras) — slouží k jejich nahrazení (delete+insert) při úpravě.
+  static const _modeledExtraNames = [
+    'Výbava spolujezdce', 'Boty řidiče', 'Boty spolujezdce',
+  ];
+  static const _extraDefs = {
+    'spolujezdec': ('Výbava spolujezdce', 690.0),
+    'boty_ridic': ('Boty řidiče', 290.0),
+    'boty_spolujezdec': ('Boty spolujezdce', 290.0),
+  };
+
+  /// Mapuje název řádku booking_extras na náš id doplňku.
+  static String? _extraIdFromName(String name) {
+    final n = name.toLowerCase();
+    final hasBoots = n.contains('bot');
+    final hasPass = n.contains('spoluj');
+    if (hasBoots && hasPass) return 'boty_spolujezdec';
+    if (hasBoots) return 'boty_ridic';
+    if (hasPass) return 'spolujezdec';
+    return null;
+  }
+
+  static bool _setEq(Set<String> a, Set<String> b) =>
+      a.length == b.length && a.containsAll(b);
+
+  /// Načte původní zaplacené doplňky → předzaškrtne je a uloží jako baseline.
+  Future<void> _loadOriginalExtras() async {
+    try {
+      final rows = await MotoGoSupabase.client
+          .from('booking_extras')
+          .select('name')
+          .eq('booking_id', widget.bookingId);
+      final orig = <String>{};
+      for (final r in (rows as List)) {
+        final id = _extraIdFromName((r['name'] ?? '').toString());
+        if (id != null) orig.add(id);
+      }
+      if (mounted) {
+        setState(() {
+          _origExtras
+            ..clear()
+            ..addAll(orig);
+          _selectedExtras
+            ..clear()
+            ..addAll(orig);
+        });
+      }
+    } catch (_) {/* bez původních doplňků = prázdný baseline */}
+  }
+
+  /// Nahradí modelované řádky booking_extras aktuálním výběrem (delete + insert).
+  Future<void> _replaceModeledExtras(List<Map<String, dynamic>>? rows) async {
+    try {
+      await MotoGoSupabase.client
+          .from('booking_extras')
+          .delete()
+          .eq('booking_id', widget.bookingId)
+          .inFilter('name', _modeledExtraNames);
+      if (rows != null && rows.isNotEmpty) {
+        await MotoGoSupabase.client.from('booking_extras').insert(rows);
+      }
+    } catch (e) {
+      debugPrint('[Edit] extras replace failed: $e');
+    }
+  }
+
   EditPriceCalc get _calc {
     DayPrices? newMotoPrices;
     if (_newMotoId != null && _newMotoId != _booking!.motoId) {
@@ -148,6 +217,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
       pickupDelivFee: _pickupDelivFee,
       returnDelivFee: _returnDelivFee,
       selectedExtras: _selectedExtras,
+      origExtras: _origExtras,
       pickupMethod: _pickupMethod,
       returnMethod: _returnMethod,
       pickupTime: _pickupTime,
@@ -379,28 +449,26 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
       if (calc.deliveryFeeDelta != 0) {
         changes['delivery_fee'] = calc.newDeliveryFee;
       }
-      // Nově přiobjednané doplňky: navýšení extras_price + řádky do
-      // booking_extras (jinak by zákazník doplněk zaplatil, ale v rezervaci
-      // i na KF by chyběl). Při doplatku se vkládají až PO potvrzení platby.
+      // Doplňky: účtuje/vrací se ROZDÍL vůči původně zaplaceným (přidání =
+      // doplatek, odebrání = refund — řídí effectivePriceDiff). extrasRows =
+      // celý nový stav modelovaných doplňků (delete+insert při uložení).
+      // extras_price = původní + rozdíl (nezáporné). Při doplatku se aplikuje
+      // až PO platbě (přes pendingEditChanges), jinak hned.
       List<Map<String, dynamic>>? extrasRows;
-      if (_selectedExtras.isNotEmpty) {
-        const extraDefs = {
-          'spolujezdec': ('Výbava spolujezdce', 690.0),
-          'boty_ridic': ('Boty řidiče', 290.0),
-          'boty_spolujezdec': ('Boty spolujezdce', 290.0),
-        };
+      final extrasChanged = !_setEq(_selectedExtras, _origExtras);
+      if (extrasChanged) {
         extrasRows = [
           for (final id in _selectedExtras)
-            if (extraDefs[id] != null)
+            if (_extraDefs[id] != null)
               {
                 'booking_id': widget.bookingId,
-                'name': extraDefs[id]!.$1,
-                'unit_price': extraDefs[id]!.$2,
+                'name': _extraDefs[id]!.$1,
+                'unit_price': _extraDefs[id]!.$2,
                 'quantity': 1,
               },
         ];
-        changes['extras_price'] =
-            (_booking!.extrasPrice ?? 0) + calc.extrasTotal;
+        final newExtrasPrice = (_booking!.extrasPrice ?? 0) + calc.extrasDelta;
+        changes['extras_price'] = newExtrasPrice < 0 ? 0.0 : newExtrasPrice;
       }
 
       // Build modification_history entry — tracks ALL changes:
@@ -467,8 +535,11 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
             label: t(context).tr('extensionSurcharge'),
             pendingEditChanges: {
               ...changes,
-              if (extrasRows != null && extrasRows.isNotEmpty)
-                '_extras_rows': extrasRows,
+              // Při doplatku se doplňky aplikují až PO platbě. `_extras_replace`
+              // říká, ať se modelované řádky nahradí (i odebrání), `_extras_rows`
+              // je nový stav (může být i prázdný = vše odebráno).
+              if (extrasChanged) '_extras_replace': true,
+              if (extrasChanged) '_extras_rows': extrasRows ?? const [],
             },
           );
           context.push(Routes.payment);
@@ -508,12 +579,9 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
         }
         // No surcharge or refund — save directly
         await MotoGoSupabase.client.from('bookings').update(changes).eq('id', widget.bookingId);
-        if (extrasRows != null && extrasRows.isNotEmpty) {
-          try {
-            await MotoGoSupabase.client.from('booking_extras').insert(extrasRows);
-          } catch (e) {
-            debugPrint('[Edit] booking_extras insert failed: $e');
-          }
+        // Nahraď modelované doplňky novým stavem (přidané vlož, odebrané smaž).
+        if (extrasChanged) {
+          await _replaceModeledExtras(extrasRows);
         }
         if (mounted) {
           ref.invalidate(reservationsProvider);
