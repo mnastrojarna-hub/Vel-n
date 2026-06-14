@@ -32,6 +32,14 @@ class EditMotoChangeSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final motosAsync = ref.watch(motorcyclesProvider);
+    final hasChange = newMotoId != null && newMotoId != currentMotoId;
+    String? newMotoName;
+    if (hasChange) {
+      for (final m in (motosAsync.valueOrNull ?? const [])) {
+        if (m.id == newMotoId) { newMotoName = m.model; break; }
+      }
+      newMotoName ??= newMotoId;
+    }
 
     return EditCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       GestureDetector(
@@ -40,17 +48,44 @@ class EditMotoChangeSection extends ConsumerWidget {
           const Icon(Icons.swap_horiz, size: 16, color: MotoGoColors.greenDark),
           const SizedBox(width: 6),
           Expanded(child: Text(t(context).tr('motoChange'), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: MotoGoColors.black))),
+          if (hasChange && !expanded)
+            Container(margin: const EdgeInsets.only(right: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(color: MotoGoColors.green, borderRadius: BorderRadius.circular(6)),
+              child: Text(t(context).tr('changeBtn'),
+                style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.black))),
           Icon(expanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down, size: 20, color: MotoGoColors.g400),
         ]),
       ),
       const SizedBox(height: 8),
-      // Current moto
-      Container(padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(color: MotoGoColors.greenPale, borderRadius: BorderRadius.circular(10)),
-        child: Row(children: [
-          Text('${t(context).tr('currentMoto')}  ', style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: MotoGoColors.greenDarker)),
-          Expanded(child: Text(currentMotoName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: MotoGoColors.black))),
-        ])),
+      // Před/po: po zavření rozbalovacího menu ukaž změnu motorky.
+      if (hasChange && !expanded)
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(color: MotoGoColors.greenPale, borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: MotoGoColors.green, width: 1.5)),
+          child: Row(children: [
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(t(context).tr('currentMoto'), style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: MotoGoColors.g400)),
+              Text(currentMotoName, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700,
+                color: MotoGoColors.g400, decoration: TextDecoration.lineThrough)),
+            ])),
+            const Icon(Icons.arrow_forward, size: 18, color: MotoGoColors.greenDarker),
+            const SizedBox(width: 8),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+              Text(t(context).tr('newMotoLabel'), style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: MotoGoColors.greenDarker)),
+              Text(newMotoName ?? '', textAlign: TextAlign.end,
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: MotoGoColors.black)),
+            ])),
+          ])),
+      // Current moto (jen když není rozpracovaná změna v náhledu)
+      if (!(hasChange && !expanded))
+        Container(padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(color: MotoGoColors.greenPale, borderRadius: BorderRadius.circular(10)),
+          child: Row(children: [
+            Text('${t(context).tr('currentMoto')}  ', style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: MotoGoColors.greenDarker)),
+            Expanded(child: Text(currentMotoName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: MotoGoColors.black))),
+          ])),
       if (expanded) ...[
         const SizedBox(height: 8),
         Text(t(context).tr('selectNewMoto'), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: MotoGoColors.g400)),
