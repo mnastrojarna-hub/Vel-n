@@ -34,6 +34,10 @@ class Motorcycle {
   final List<String> shortDescFields;
   final String? imageUrl;
   final List<String> images;
+
+  /// MP4 videa motorky (motorcycles.videos, text[]). Přehrávají se až na detailu;
+  /// v přehledu/seznamu se zobrazuje vždy fotka.
+  final List<String> videos;
   final String? color;
   final String? manualUrl;
   final String? manualExternalUrl;
@@ -83,6 +87,7 @@ class Motorcycle {
     this.shortDescFields = const [],
     this.imageUrl,
     this.images = const [],
+    this.videos = const [],
     this.color,
     this.manualUrl,
     this.manualExternalUrl,
@@ -135,6 +140,7 @@ class Motorcycle {
       shortDescFields: _parseStringList(json['short_desc_fields']),
       imageUrl: json['image_url'] as String?,
       images: _parseStringList(json['images']),
+      videos: _parseStringList(json['videos']),
       color: json['color'] as String?,
       manualUrl: json['manual_url'] as String?,
       manualExternalUrl: json['manual_external_url'] as String?,
@@ -165,7 +171,7 @@ class Motorcycle {
     hasAbs: hasAbs, hasAsc: hasAsc, description: description,
     idealUsage: idealUsage, features: features,
     shortDescFields: shortDescFields, imageUrl: imageUrl,
-    images: images, color: color, manualUrl: manualUrl,
+    images: images, videos: videos, color: color, manualUrl: manualUrl,
     manualExternalUrl: manualExternalUrl, status: status,
     branchId: branchId, branchName: branchName, branchCity: branchCity,
     branchType: branchType,

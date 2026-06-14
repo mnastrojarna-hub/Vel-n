@@ -15,6 +15,7 @@ import 'moto_model.dart';
 import 'widgets/availability_calendar.dart';
 import 'widgets/fullscreen_gallery.dart';
 import 'widgets/manual_card.dart';
+import 'widgets/moto_video_player.dart';
 import 'widgets/price_footer.dart';
 import 'widgets/pricing_table.dart';
 import 'widgets/specs_section.dart';
@@ -114,6 +115,18 @@ class _MotoDetailPageState extends ConsumerState<MotoDetailPage> {
       slivers: [
         // === IMAGE CAROUSEL ===
         SliverToBoxAdapter(child: _buildImageCarousel(ctx, images, moto, branchInfo)),
+
+        // === VIDEO(A) — přehrávají se až po otevření detailu (jen pokud existují) ===
+        if (moto.videos.isNotEmpty)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: MotoVideoPlayer(
+                key: ValueKey('motovid-${moto.id}'),
+                urls: moto.videos,
+              ),
+            ),
+          ),
 
         // === AVAILABILITY BADGE — only when confirmed available today ===
         if (moto.availableToday == true)
