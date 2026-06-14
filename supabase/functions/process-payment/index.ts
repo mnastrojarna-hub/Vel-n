@@ -4,7 +4,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import Stripe from 'https://esm.sh/stripe@14'
 import { stripe, SITE_URL, PRODUCT_NAMES, CORS, PaymentType, PaymentRequest, getOrCreateStripeCustomer } from './stripe-customer.ts'
-import { handleWebBookingCheckout, handleWebShopCheckout } from './payment-flows.ts'
+import { handleWebBookingCheckout, handleWebShopCheckout, handleSosPaymentLink } from './payment-flows.ts'
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
@@ -274,6 +274,15 @@ Deno.serve(async (req: Request) => {
         return new Response(JSON.stringify({ success: false, error: (e as Error).message }),
           { status: 500, headers: { ...CORS, 'Content-Type': 'application/json' } })
       }
+    }
+
+    // --- Velín operátor: Stripe odkaz pro placenou SOS náhradu ---
+    if ((body as Record<string, unknown>).action === 'create_sos_payment_link') {
+      const supabaseAdmin = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+      )
+      return await handleSosPaymentLink(body, supabaseAdmin)
     }
 
     // --- Web anonymous checkout (no auth required) ---
