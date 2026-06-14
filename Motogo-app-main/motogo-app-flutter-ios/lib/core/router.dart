@@ -374,7 +374,6 @@ class _BookingDebugWrapper extends ConsumerStatefulWidget {
 
 class _BDWState extends ConsumerState<_BookingDebugWrapper> {
   bool _calOpen = false;
-  bool _gearOpen = false; // ruční rozbalení výběru velikostí výbavy
 
   void _upd(BookingDraft Function(BookingDraft) fn) {
     final d = ref.read(bookingDraftProvider);
@@ -761,7 +760,7 @@ class _BDWState extends ConsumerState<_BookingDebugWrapper> {
                     color: draft.ownGear ? const Color(0xFF74FB71) : const Color(0xFFD4E8E0), width: 2)),
                 child: draft.ownGear ? const Icon(Icons.check, size: 14, color: Colors.black) : null),
               const SizedBox(width: 10),
-              const Expanded(child: Text('Mám vlastní výbavu (nevybírám velikosti)',
+              const Expanded(child: Text('Mám vlastní výbavu — nepůjčuji',
                 style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700,
                   color: Color(0xFF0F1A14), decoration: TextDecoration.none))),
             ]))),
@@ -774,56 +773,23 @@ class _BDWState extends ConsumerState<_BookingDebugWrapper> {
               style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600,
                 color: Color(0xFF1A8A18), decoration: TextDecoration.none)))
         else
-        Builder(builder: (_) {
-          final filled = draft.helmetSize != null || draft.jacketSize != null ||
-              draft.pantsSize != null || draft.glovesSize != null;
-          if (filled && !_gearOpen) {
-            final parts = <String>[
-              if (draft.helmetSize != null) 'Helma ${draft.helmetSize}',
-              if (draft.glovesSize != null) 'Rukavice ${draft.glovesSize}',
-              if (draft.jacketSize != null) 'Bunda ${draft.jacketSize}',
-              if (draft.pantsSize != null) 'Kalhoty ${draft.pantsSize}',
-            ];
-            return GestureDetector(
-              onTap: () => setState(() => _gearOpen = true),
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE8FFE8),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFF74FB71), width: 1.2)),
-                child: Row(children: [
-                  const Icon(Icons.checkroom, size: 18, color: Color(0xFF1A8A18)),
-                  const SizedBox(width: 8),
-                  Expanded(child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                    const Text('Tvoje velikosti z minula',
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800,
-                        color: Color(0xFF1A8A18), decoration: TextDecoration.none)),
-                    Text(parts.join(' · '),
-                      style: const TextStyle(fontSize: 11, color: Color(0xFF4A6357),
-                        decoration: TextDecoration.none)),
-                  ])),
-                  const Text('UPRAVIT', style: TextStyle(fontSize: 11,
-                    fontWeight: FontWeight.w800, color: Color(0xFF3DBA3A),
-                    decoration: TextDecoration.none)),
-                ])));
-          }
-          return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          // Výbava řidiče VŽDY ROZBALENÁ (stejné okno jako u přistavení) —
+          // zákazník musí buď vyklikat velikosti, nebo zaškrtnout vlastní výbavu.
+          // Velikosti jsou předvyplněné z minulé rezervace (pokud byla).
+          Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Container(
               margin: const EdgeInsets.only(bottom: 8),
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               decoration: BoxDecoration(
                 color: const Color(0xFFFEF3C7),
                 borderRadius: BorderRadius.circular(8)),
-              child: const Row(children: [
-                Text('📏', style: TextStyle(fontSize: 14)),
+              child: const Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('ℹ️', style: TextStyle(fontSize: 14)),
                 SizedBox(width: 6),
                 Expanded(child: Text(
-                  'Vyber velikosti výbavy — připravíme ti ji předem (zdarma).',
+                  'Vyber velikosti výbavy řidiče. Pokud nevíš přesně, vybereš jinou velikost na místě.',
                   style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
-                    color: Color(0xFF92400E), decoration: TextDecoration.none))),
+                    color: Color(0xFF92400E), height: 1.35, decoration: TextDecoration.none))),
               ])),
             bookingGearRow('Helma', draft.helmetSize,
               (s) => _upd((d) => d.copyWith(helmetSize: () => s))),
@@ -833,8 +799,7 @@ class _BDWState extends ConsumerState<_BookingDebugWrapper> {
               (s) => _upd((d) => d.copyWith(jacketSize: () => s))),
             bookingGearRow('Kalhoty', draft.pantsSize,
               (s) => _upd((d) => d.copyWith(pantsSize: () => s))),
-          ]);
-        }),
+          ]),
         const SizedBox(height: 10),
         // Paid extras
         ...defaultExtras.map((item) {
