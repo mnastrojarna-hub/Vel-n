@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme.dart';
+import '../../core/widgets/moto_fx.dart';
 import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
 import 'auth_provider.dart';
@@ -508,7 +509,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   }) {
     return SizedBox(
       height: 52,
-      child: ElevatedButton(
+      child: PressableScale(enabled: !_loading, child: ElevatedButton(
         onPressed: _loading ? null : onPressed,
         style: ElevatedButton.styleFrom(
           backgroundColor: MotoGoColors.green,
@@ -542,7 +543,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                   ),
                 ],
               ),
-      ),
+      )),
     );
   }
 }

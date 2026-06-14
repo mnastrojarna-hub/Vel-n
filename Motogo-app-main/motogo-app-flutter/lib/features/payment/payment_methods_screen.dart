@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme.dart';
+import '../../core/widgets/moto_fx.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/supabase_client.dart';
 import '../auth/widgets/toast_helper.dart';
@@ -236,7 +237,7 @@ class PaymentMethodsScreen extends ConsumerWidget {
             ),
           ]),
           const SizedBox(height: 16),
-          ElevatedButton(
+          PressableScale(child: ElevatedButton(
             onPressed: () {
               final digits =
                   cardNumberCtrl.text.replaceAll(RegExp(r'\s'), '');
@@ -254,7 +255,7 @@ class PaymentMethodsScreen extends ConsumerWidget {
                   const SizedBox(width: 8),
                   Text(t(context).tr('saveCard')),
                 ]),
-          ),
+          )),
         ]),
       ),
     );

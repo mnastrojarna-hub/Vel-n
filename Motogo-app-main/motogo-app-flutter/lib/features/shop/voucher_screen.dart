@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme.dart';
+import '../../core/widgets/moto_fx.dart';
 import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../auth/widgets/toast_helper.dart';
@@ -129,7 +130,7 @@ class _VoucherState extends ConsumerState<VoucherScreen> {
           const SizedBox(height: 24),
 
           // Buy button
-          ElevatedButton(
+          PressableScale(enabled: _amount >= 100, child: ElevatedButton(
             onPressed: _amount < 100 ? null : () {
               ref.read(cartProvider.notifier).addItem(
                 'voucher_${_amount.toInt()}_${_printed ? "p" : "d"}_${DateTime.now().millisecondsSinceEpoch}',
@@ -145,7 +146,7 @@ class _VoucherState extends ConsumerState<VoucherScreen> {
               const SizedBox(width: 8),
               Text('${tr.tr('buyVoucherBtn')} · ${Money.czk(_total)} →'),
             ]),
-          ),
+          )),
 
           const SizedBox(height: 20),
           // Info card
