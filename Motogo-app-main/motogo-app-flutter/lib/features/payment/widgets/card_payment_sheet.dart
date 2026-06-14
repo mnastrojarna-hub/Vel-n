@@ -303,7 +303,7 @@ class _GooglePayButton extends StatelessWidget {
       child: PlatformPayButton(
         type: PlatformButtonType.plain,
         appearance: PlatformButtonStyle.black,
-        borderRadius: MotoGoTheme.radiusSm,
+        borderRadius: MotoGoTheme.radiusSm.round(),
         onPressed: onPressed ?? () {},
       ),
     );
