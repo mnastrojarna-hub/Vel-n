@@ -11,6 +11,7 @@ import '../../core/i18n/i18n_provider.dart';
 import '../../core/supabase_client.dart';
 import '../../core/pending_booking_fab_provider.dart';
 import '../auth/widgets/toast_helper.dart';
+import '../auth/auth_provider.dart' show profileProvider;
 import '../booking/booking_provider.dart';
 import '../booking/booking_models.dart';
 import '../booking/widgets/price_summary.dart';
@@ -366,12 +367,38 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
       _saveBookingExtras(bookingId, draft.extras);
 
       // Souhlasy z rezervačního formuláře propíšeme do profilu (parita s webem).
+      // + ZAPAMATUJ velikosti výbavy do profiles.gear_sizes (struktura
+      //   {rider:{helmet,gloves,jacket,pants,boots}, passenger:{...}}) — web i
+      //   appka je pak při příští rezervaci předvyplní. Slučujeme s existujícími,
+      //   ať se dřív uložené velikosti nepřepíšou prázdnem.
       // Fire-and-forget — nesmí blokovat ani shodit potvrzení rezervace.
+      final existingGear =
+          (ref.read(profileProvider).valueOrNull?['gear_sizes'] as Map?) ?? const {};
+      final riderGear = Map<String, dynamic>.from((existingGear['rider'] as Map?) ?? const {});
+      final passGear = Map<String, dynamic>.from((existingGear['passenger'] as Map?) ?? const {});
+      void _putGear(Map<String, dynamic> m, String k, String? v) {
+        if (v != null && v.trim().isNotEmpty) m[k] = v.trim();
+      }
+      _putGear(riderGear, 'helmet', draft.helmetSize);
+      _putGear(riderGear, 'gloves', draft.glovesSize);
+      _putGear(riderGear, 'jacket', draft.jacketSize);
+      _putGear(riderGear, 'pants', draft.pantsSize);
+      _putGear(riderGear, 'boots', driverBoots);
+      _putGear(passGear, 'helmet', draft.passengerHelmetSize ?? pg['helmet']);
+      _putGear(passGear, 'gloves', pg['gloves']);
+      _putGear(passGear, 'jacket', draft.passengerJacketSize ?? pg['jacket']);
+      _putGear(passGear, 'pants', draft.passengerPantsSize ?? pg['pants']);
+      _putGear(passGear, 'boots', passengerBoots);
+      final gearSizes = <String, dynamic>{
+        if (riderGear.isNotEmpty) 'rider': riderGear,
+        if (passGear.isNotEmpty) 'passenger': passGear,
+      };
       () async {
         try {
           await MotoGoSupabase.client.from('profiles').update({
             'consent_vop': draft.consentVop,
             'consent_gdpr': draft.consentGdpr,
+            if (gearSizes.isNotEmpty) 'gear_sizes': gearSizes,
           }).eq('id', user.id);
         } catch (_) {/* ignore */}
       }();
