@@ -170,7 +170,25 @@ foreach ($rawImages as $i => $img) {
     }
 }
 
-$galleryHtml = '<div class="moto-gallery">';
+// Video(a) motorky (volitelné) — zobrazí se až v detailu, nad fotogalerií.
+// Více videí jde za sebou (advance na 'ended'); jedno video se přehrává ve smyčce.
+// Autoplay je muted (jinak prohlížeč nepovolí), uživatel může odmutovat přes controls.
+$rawVideos = is_array($moto['videos'] ?? null)
+    ? array_values(array_filter($moto['videos'], function ($v) { return is_string($v) && $v !== ''; }))
+    : [];
+$videoBlock = '';
+if (!empty($rawVideos)) {
+    $vlist = array_values(array_map(function ($v) { return imgUrl($v); }, $rawVideos));
+    $vjson = htmlspecialchars(json_encode($vlist, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8');
+    $posterUrl = !empty($allImages) ? imgUrlSized($allImages[0], 1200) : '';
+    $posterAttr = $posterUrl !== '' ? ' poster="' . htmlspecialchars($posterUrl) . '"' : '';
+    $loopAttr = count($vlist) > 1 ? '' : ' loop';
+    $vid = 'mgmv' . substr(md5((string)($motoId ?? '') . '|' . $vlist[0]), 0, 8);
+    $videoBlock = '<div class="moto-video"><video id="' . $vid . '" class="moto-video-el" muted playsinline controls preload="metadata"' . $loopAttr . $posterAttr . ' data-videos="' . $vjson . '"></video></div>'
+        . '<script>(function(){var v=document.getElementById("' . $vid . '");if(!v)return;var l=[];try{l=JSON.parse(v.getAttribute("data-videos")||"[]")}catch(e){}if(!l.length)return;var i=0;function ld(){v.src=l[i];var p=v.play();if(p&&p.catch)p.catch(function(){})}v.addEventListener("ended",function(){if(l.length>1){i=(i+1)%l.length;ld()}});ld();})();</script>';
+}
+
+$galleryHtml = '<div class="moto-gallery">' . $videoBlock;
 if (!empty($allImages)) {
     $openLabel = htmlspecialchars(t('gallery.openImage'), ENT_QUOTES, 'UTF-8');
     $main = $allImages[0];

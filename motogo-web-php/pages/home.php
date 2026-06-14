@@ -210,7 +210,16 @@ $heroCaption = '<div class="banner-wrapper"><div class="container"><div class="b
 // se v hero objeví sama. Hlavní foto = image_url, fallback images[0]; motorky
 // bez fotky přeskočíme. Když žádná motorka foto nemá → původní statický banner.
 $heroSlides = [];
+$heroHasVideo = false;
 foreach ($motos as $hm) {
+    // Videa TÉ motorky (volitelné). Když existují → slide je video a přepne se až
+    // po dovysílání VŠECH videí (čas zobrazení = délka videí). Bez videa → foto slide.
+    $vids = [];
+    if (is_array($hm['videos'] ?? null)) {
+        foreach ($hm['videos'] as $v) {
+            if (is_string($v) && $v !== '') { $u = imgUrl($v); if ($u !== '' && !in_array($u, $vids, true)) $vids[] = $u; }
+        }
+    }
     // Pool všech DISTINCT fotek TÉ motorky: image_url (cover) + images[] galerie.
     $pool = [];
     $cover = (!empty($hm['image_url']) && is_string($hm['image_url'])) ? $hm['image_url'] : '';
@@ -220,7 +229,14 @@ foreach ($motos as $hm) {
             if (is_string($u) && $u !== '' && !in_array($u, $pool, true)) $pool[] = $u;
         }
     }
-    if (empty($pool)) continue;
+    if (empty($pool) && empty($vids)) continue;
+    $modelName = trim((string)($hm['model'] ?? ''));
+    if (!empty($vids)) {
+        // Video slide. Poster = hlavní foto (když je), jinak žádný.
+        $heroHasVideo = true;
+        $heroSlides[] = ['type' => 'video', 'videos' => $vids, 'poster' => ($pool[0] ?? ''), 'model' => $modelName];
+        continue;
+    }
     $main = $pool[0];
     $rest = array_slice($pool, 1);
     if (!empty($rest)) {
@@ -233,10 +249,55 @@ foreach ($motos as $hm) {
         $secondary = $main;
         $split = true;
     }
-    $heroSlides[] = ['main' => $main, 'secondary' => $secondary, 'split' => $split, 'model' => trim((string)($hm['model'] ?? ''))];
+    $heroSlides[] = ['type' => 'image', 'main' => $main, 'secondary' => $secondary, 'split' => $split, 'model' => $modelName];
 }
 
-if (!empty($heroSlides)) {
+if (!empty($heroSlides) && $heroHasVideo) {
+    // ---- JS-driven slideshow (aspoň jedna motorka má video) ----
+    // Video slide se přepne až po skončení všech svých videí; foto slide po $per s.
+    // Crossfade přes .is-active class (opacity transition v main.css).
+    $per = 5;
+    $slidesHtml = '';
+    foreach ($heroSlides as $i => $s) {
+        $modelName = $s['model'] !== '' ? $s['model'] : t('card.unnamedMotorcycle');
+        $altText = he(t('common.motorcycleAlt', ['model' => $modelName]));
+        $activeCls = ($i === 0) ? ' is-active' : '';
+        if ($s['type'] === 'video') {
+            $videosJson = htmlspecialchars(json_encode(array_values($s['videos']), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8');
+            $posterAttr = ($s['poster'] !== '') ? ' poster="' . htmlspecialchars(imgUrlSized($s['poster'], 1400, 70)) . '"' : '';
+            $slidesHtml .= '<div class="mg-hero-slide mg-hero-slide-video' . $activeCls . '" data-type="video" data-videos="' . $videosJson . '">'
+                . '<video class="mg-hero-video" muted playsinline preload="' . ($i === 0 ? 'auto' : 'none') . '"' . $posterAttr . ' aria-label="' . $altText . '"></video>'
+                . '</div>';
+        } else {
+            $eager = ($i === 0);
+            $imgMain = '<img class="mg-hero-img mg-hero-img-main" src="' . htmlspecialchars(imgUrlSized($s['main'], 1000, 70)) . '"'
+                . ' srcset="' . htmlspecialchars(imgSrcset($s['main'], [600, 1000, 1400], 70)) . '" sizes="(max-width:768px) 100vw, 50vw" alt="' . $altText . '"'
+                . ($eager ? ' fetchpriority="high" decoding="async"' : ' loading="lazy" decoding="async"')
+                . ' width="960" height="480">';
+            $imgSecondary = '<img class="mg-hero-img mg-hero-img-alt" src="' . htmlspecialchars(imgUrlSized($s['secondary'], 1000, 70)) . '"'
+                . ' srcset="' . htmlspecialchars(imgSrcset($s['secondary'], [600, 1000, 1400], 70)) . '" sizes="50vw" alt="' . $altText . '"'
+                . ' loading="lazy" decoding="async" width="960" height="480">';
+            $cls = 'mg-hero-slide' . (!empty($s['split']) ? ' mg-hero-split' : '') . $activeCls;
+            $slidesHtml .= '<div class="' . $cls . '" data-type="image" data-duration="' . ($per * 1000) . '">' . $imgMain . $imgSecondary . '</div>';
+        }
+    }
+    // Inline controller (stejný vzor inline <script> jako kalendář v katalog-detail.php).
+    $heroJs = '<script>(function(){var w=document.querySelector(".banner-slideshow-js");if(!w)return;'
+        . 'var sl=Array.prototype.slice.call(w.querySelectorAll(".mg-hero-slide"));if(sl.length<=1&&sl.length>0){var only=sl[0];if(only.getAttribute("data-type")==="video"){playVid(only,function(){});}return;}'
+        . 'var idx=0,timer=null;'
+        . 'function clearT(){if(timer){clearTimeout(timer);timer=null;}}'
+        . 'function next(){idx=(idx+1)%sl.length;show(idx);}'
+        . 'function show(i){clearT();sl.forEach(function(el,k){el.classList.toggle("is-active",k===i);if(k!==i){var v=el.querySelector("video");if(v){try{v.pause();}catch(e){}}}});'
+        . 'var cur=sl[i];if(cur.getAttribute("data-type")==="video"){playVid(cur,next);}else{var d=parseInt(cur.getAttribute("data-duration"),10)||5000;timer=setTimeout(next,d);}}'
+        . 'function playVid(el,onDone){var v=el.querySelector("video");if(!v){timer=setTimeout(onDone,5000);return;}'
+        . 'var list=[];try{list=JSON.parse(el.getAttribute("data-videos")||"[]");}catch(e){}if(!list.length){timer=setTimeout(onDone,5000);return;}'
+        . 'var vi=0,safety=null;function arm(){clearTimeout(safety);safety=setTimeout(step,30000);}'
+        . 'function step(){clearTimeout(safety);vi++;if(vi>=list.length){onDone();return;}load();}'
+        . 'function load(){v.src=list[vi];var p=v.play();if(p&&p.catch){p.catch(function(){timer=setTimeout(onDone,5000);});}arm();}'
+        . 'v.onended=step;v.onerror=function(){clearTimeout(safety);onDone();};load();}'
+        . 'show(0);})();</script>';
+    $bannerHtml = '<div class="banner banner-slideshow banner-slideshow-js">' . $slidesHtml . $heroCaption . '</div>' . $heroJs;
+} elseif (!empty($heroSlides)) {
     // CSS-only crossfade: každý snímek viditelný $per s, celý cyklus = $per*N.
     // Per-snímek animation-delay fázuje snímky za sebe; poslední se prolne zpět
     // do prvního (bezešvá smyčka). Klíčové snímky závisí na počtu motorek →

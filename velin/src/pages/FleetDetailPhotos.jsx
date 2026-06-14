@@ -3,10 +3,12 @@ import { supabase } from '../lib/supabase'
 import { purgeWebCache } from '../lib/webCache'
 import Card from '../components/ui/Card'
 import ImageUploader from '../components/ui/ImageUploader'
+import VideoUploader from '../components/ui/VideoUploader'
 
 function PhotoGallery({ motoId }) {
   const [images, setImages] = useState([])
   const [imageAlts, setImageAlts] = useState([])
+  const [videos, setVideos] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => { load() }, [motoId])
@@ -14,13 +16,22 @@ function PhotoGallery({ motoId }) {
   async function load() {
     setLoading(true)
     try {
-      const { data } = await supabase.from('motorcycles').select('images, image_alts').eq('id', motoId).single()
+      const { data } = await supabase.from('motorcycles').select('images, image_alts, videos').eq('id', motoId).single()
       const list = Array.isArray(data?.images) ? data.images.filter(Boolean) : []
       const altsList = Array.isArray(data?.image_alts) ? data.image_alts : []
+      const vidList = Array.isArray(data?.videos) ? data.videos.filter(Boolean) : []
       setImages(list)
       setImageAlts(altsList)
-    } catch { setImages([]); setImageAlts([]) }
+      setVideos(vidList)
+    } catch { setImages([]); setImageAlts([]); setVideos([]) }
     setLoading(false)
+  }
+
+  async function syncVideos(urls) {
+    const cleaned = (urls || []).filter(u => u && typeof u === 'string')
+    setVideos(cleaned)
+    await supabase.from('motorcycles').update({ videos: cleaned }).eq('id', motoId)
+    purgeWebCache()
   }
 
   async function syncImages(urls) {
@@ -67,6 +78,16 @@ function PhotoGallery({ motoId }) {
         altPlaceholder={'Popisek (např. „zepředu")'}
         folder={`motos/${motoId}`}
         helperText={'Přetáhněte fotky z počítače nebo klikněte pro výběr. První fotka je hlavní — zobrazí se v aplikaci, kalendáři i seznamu motorek. Pod každou fotkou vyplňte krátký popisek (např. „zepředu", „detail palubky") — web složí alt jako „{model} {barva} – {popisek}" pro lepší SEO.'}
+      />
+
+      <div className="text-sm font-extrabold uppercase tracking-wide mb-2 mt-6" style={{ color: '#1a2e22' }}>
+        Videa MP4 ({videos.length})
+      </div>
+      <VideoUploader
+        value={videos}
+        onChange={syncVideos}
+        folder={`motos/${motoId}/videos`}
+        helperText={'Volitelné. Pokud video přidáte, web ho přehraje v hlavním banneru (přepne na další motorku až po dovysílání všech videí), v detailu motorky i ve 2. kroku rezervace; aplikace přehraje videa po otevření detailu motorky. V přehledu/seznamu zůstává vždy fotka. Pořadí videí = pořadí přehrávání (přetáhněte tlačítkem „1." dopředu).'}
       />
     </div>
   )
