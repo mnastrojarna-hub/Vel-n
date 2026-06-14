@@ -6,6 +6,7 @@ import '../../core/theme.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../catalog/catalog_provider.dart';
 import '../catalog/widgets/moto_card.dart';
+import '../loyalty/loyalty_rank_card.dart';
 import '../reservations/reservation_models.dart';
 import '../reservations/reservation_provider.dart';
 import 'widgets/home_filter_section.dart';
@@ -90,6 +91,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             slivers: [
               // ===== HEADER =====
               const SliverToBoxAdapter(child: HomeHeader()),
+
+              // ===== VĚRNOSTNÍ RANK — původní karta z profilu, rozšířená i sem =====
+              const SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  child: LoyaltyRankCard(),
+                ),
+              ),
 
               // ===== RESERVATIONS + SOS =====
               SliverToBoxAdapter(
