@@ -60,6 +60,10 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
   String? _passengerHelmetSize;
   String? _passengerJacketSize;
   String? _passengerPantsSize;
+  String? _passengerBootsSize;
+  // „Mám vlastní výbavu" — skryje výběr velikostí základní výbavy řidiče a
+  // přeskočí jejich povinnost při přistavení (UI-only, neukládá se do DB).
+  bool _ownGear = false;
   DayPrices? _motoPrices;
 
   Reservation? _booking;
@@ -101,6 +105,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
         _passengerHelmetSize = res.passengerHelmetSize;
         _passengerJacketSize = res.passengerJacketSize;
         _passengerPantsSize = res.passengerPantsSize;
+        _passengerBootsSize = res.passengerBootsSize;
       });
       _loadDiscountType(res);
       _loadOriginalExtras();
@@ -227,6 +232,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
       passengerHelmetSize: _passengerHelmetSize,
       passengerJacketSize: _passengerJacketSize,
       passengerPantsSize: _passengerPantsSize,
+      passengerBootsSize: _passengerBootsSize,
       discountType: _discountType,
     );
   }
@@ -311,12 +317,19 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
       return const [];
     }
     final missing = <String>[];
-    if (_helmetSize == null) missing.add(t(context).tr('gearHelmetDriver'));
-    if (_glovesSize == null) missing.add(t(context).tr('gearGlovesDriver'));
-    if (_jacketSize == null) missing.add(t(context).tr('gearJacketDriver'));
-    if (_pantsSize == null) missing.add(t(context).tr('gearPantsDriver'));
+    // Vlastní výbava → základní velikosti řidiče se neřeší.
+    if (!_ownGear) {
+      if (_helmetSize == null) missing.add(t(context).tr('gearHelmetDriver'));
+      if (_glovesSize == null) missing.add(t(context).tr('gearGlovesDriver'));
+      if (_jacketSize == null) missing.add(t(context).tr('gearJacketDriver'));
+      if (_pantsSize == null) missing.add(t(context).tr('gearPantsDriver'));
+    }
+    // Placené boty mají vlastní velikost (i u vlastní výbavy je nutná).
     if (_selectedExtras.contains('boty_ridic') && _bootsSize == null) {
       missing.add(t(context).tr('gearBootsDriver'));
+    }
+    if (_selectedExtras.contains('boty_spolujezdec') && _passengerBootsSize == null) {
+      missing.add(t(context).tr('gearBootsPassenger'));
     }
     if (_selectedExtras.contains('spolujezdec')) {
       if (_passengerHelmetSize == null) missing.add(t(context).tr('gearHelmetPassenger'));
@@ -438,6 +451,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
       if (_passengerHelmetSize != _booking!.passengerHelmetSize) changes['passenger_helmet_size'] = _passengerHelmetSize;
       if (_passengerJacketSize != _booking!.passengerJacketSize) changes['passenger_jacket_size'] = _passengerJacketSize;
       if (_passengerPantsSize != _booking!.passengerPantsSize) changes['passenger_pants_size'] = _passengerPantsSize;
+      if (_passengerBootsSize != _booking!.passengerBootsSize) changes['passenger_boots_size'] = _passengerBootsSize;
 
       // Varianta B: total i sleva po přepočtu slevy na nový obsah rezervace.
       changes['total_price'] = calc.newTotal;
@@ -775,12 +789,15 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
               pickupMethod: _pickupMethod,
               returnMethod: _returnMethod,
               isKids: _booking!.motoLicenseRequired == 'N',
+              ownGear: _ownGear,
               helmetSize: _helmetSize, jacketSize: _jacketSize, pantsSize: _pantsSize,
               bootsSize: _bootsSize, glovesSize: _glovesSize,
               passengerHelmetSize: _passengerHelmetSize,
               passengerJacketSize: _passengerJacketSize,
               passengerPantsSize: _passengerPantsSize,
+              passengerBootsSize: _passengerBootsSize,
               onExtrasChanged: (extras) => setState(() { _selectedExtras.clear(); _selectedExtras.addAll(extras); }),
+              onOwnGearChanged: (v) => setState(() => _ownGear = v),
               onHelmetSize: (s) => setState(() => _helmetSize = s),
               onJacketSize: (s) => setState(() => _jacketSize = s),
               onPantsSize: (s) => setState(() => _pantsSize = s),
@@ -789,6 +806,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
               onPassengerHelmetSize: (s) => setState(() => _passengerHelmetSize = s),
               onPassengerJacketSize: (s) => setState(() => _passengerJacketSize = s),
               onPassengerPantsSize: (s) => setState(() => _passengerPantsSize = s),
+              onPassengerBootsSize: (s) => setState(() => _passengerBootsSize = s),
             ),
 
           // === STORNO NOTE (shorten tab) ===

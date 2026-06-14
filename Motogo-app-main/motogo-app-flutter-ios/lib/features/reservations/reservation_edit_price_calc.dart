@@ -20,7 +20,7 @@ class EditPriceCalc {
   final String pickupTime;
   final String returnTime;
   final String? helmetSize, jacketSize, pantsSize, bootsSize, glovesSize;
-  final String? passengerHelmetSize, passengerJacketSize, passengerPantsSize;
+  final String? passengerHelmetSize, passengerJacketSize, passengerPantsSize, passengerBootsSize;
 
   /// Typ slevy rezervace: 'percent' | 'fixed' | null (bez slevy / neznámý →
   /// chová se jako fixed). Načítá screen z promo_codes podle discount_code;
@@ -45,6 +45,7 @@ class EditPriceCalc {
     this.helmetSize, this.jacketSize, this.pantsSize,
     this.bootsSize, this.glovesSize,
     this.passengerHelmetSize, this.passengerJacketSize, this.passengerPantsSize,
+    this.passengerBootsSize,
     this.discountType,
   });
 
@@ -208,5 +209,6 @@ class EditPriceCalc {
       glovesSize != booking.glovesSize ||
       passengerHelmetSize != booking.passengerHelmetSize ||
       passengerJacketSize != booking.passengerJacketSize ||
-      passengerPantsSize != booking.passengerPantsSize;
+      passengerPantsSize != booking.passengerPantsSize ||
+      passengerBootsSize != booking.passengerBootsSize;
 }

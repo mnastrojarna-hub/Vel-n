@@ -240,6 +240,99 @@ export async function handleWebBookingCheckout(
   })
 }
 
+/** Velín operátor → vygeneruje Stripe Checkout ODKAZ pro PLACENOU SOS náhradu.
+ *
+ *  Volá se z Velína (Nový incident / detail incidentu) přes
+ *  `action: 'create_sos_payment_link'`. Zrcadlí placené SOS flow z aplikace:
+ *  `amount` zahrnuje nájem náhrady + přistavení + spoluúčast (30 000 Kč).
+ *  `bookings.total_price` ale ZŮSTÁVÁ jen nájem+přistavení (spoluúčast je vratná
+ *  kauce, ne tržba) — shodné s tím, jak appka účtovala přes PaymentIntent.
+ *  Metadata `type:'sos'` → po zaplacení webhook-receiver zavolá `confirmSosPayment`
+ *  a označí náhradní rezervaci jako `paid` (stejná cesta jako aplikace). */
+export async function handleSosPaymentLink(
+  body: PaymentRequest,
+  supabaseAdmin: ReturnType<typeof createClient>
+): Promise<Response> {
+  const bookingId = body.booking_id
+  const incidentId = body.incident_id
+  const amountCzk = Number(body.amount) || 0
+  if (!bookingId || amountCzk <= 0) {
+    return new Response(JSON.stringify({ success: false, error: 'Missing booking_id or amount' }), {
+      status: 400, headers: { ...CORS, 'Content-Type': 'application/json' }
+    })
+  }
+
+  const { data: booking, error: bErr } = await supabaseAdmin
+    .from('bookings')
+    .select('id, payment_status, user_id, profiles:user_id(full_name, email, stripe_customer_id)')
+    .eq('id', bookingId)
+    .single()
+  if (bErr || !booking) {
+    return new Response(JSON.stringify({ success: false, error: 'Booking not found' }), {
+      status: 404, headers: { ...CORS, 'Content-Type': 'application/json' }
+    })
+  }
+  if (booking.payment_status === 'paid') {
+    return new Response(JSON.stringify({ success: false, error: 'Tato rezervace je již zaplacena.' }), {
+      status: 409, headers: { ...CORS, 'Content-Type': 'application/json' }
+    })
+  }
+
+  const profile = booking.profiles as { full_name?: string; email?: string; stripe_customer_id?: string } | null
+  const customerEmail = profile?.email || ''
+  const customerName = profile?.full_name || ''
+  let customerId = profile?.stripe_customer_id || null
+  if (!customerId && customerEmail) {
+    const customers = await stripe.customers.list({ email: customerEmail, limit: 1 })
+    customerId = customers.data.length > 0 ? customers.data[0].id : null
+  }
+  if (!customerId && customerEmail) {
+    const newCust = await stripe.customers.create({
+      email: customerEmail || undefined,
+      name: customerName || undefined,
+      metadata: { source: 'velin_sos', booking_id: bookingId },
+    })
+    customerId = newCust.id
+    if (booking.user_id) {
+      await supabaseAdmin.from('profiles').update({ stripe_customer_id: customerId }).eq('id', booking.user_id)
+    }
+  }
+
+  const currency = body.currency || 'czk'
+  const metadata: Record<string, string> = { type: 'sos', source: 'velin', booking_id: bookingId }
+  if (incidentId) metadata.incident_id = incidentId
+
+  const session = await stripe.checkout.sessions.create({
+    customer: customerId || undefined,
+    mode: 'payment',
+    payment_method_types: ['card', 'link'],
+    line_items: [{
+      price_data: {
+        currency,
+        unit_amount: Math.round(amountCzk * 100),
+        product_data: { name: PRODUCT_NAMES.sos, description: `SOS náhrada #${bookingId.slice(-8).toUpperCase()}` },
+      },
+      quantity: 1,
+    }],
+    metadata,
+    payment_intent_data: { metadata },
+    client_reference_id: bookingId,
+    success_url: `${SITE_URL}/potvrzeni?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${SITE_URL}`,
+  })
+
+  await supabaseAdmin.from('bookings').update({
+    stripe_session_id: session.id,
+    stripe_payment_intent_id: session.payment_intent as string,
+    stripe_checkout_url: session.url,
+    checkout_started_at: new Date().toISOString(),
+  }).eq('id', bookingId)
+
+  return new Response(JSON.stringify({ success: true, checkout_url: session.url, session_id: session.id }), {
+    headers: { ...CORS, 'Content-Type': 'application/json' }
+  })
+}
+
 /** Handle web anonymous PRODUCT checkout (e-shop produkty z motogo24.cz). */
 async function handleWebProductCheckout(
   body: PaymentRequest,

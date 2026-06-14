@@ -64,6 +64,7 @@ class Reservation {
   final String? passengerHelmetSize;
   final String? passengerJacketSize;
   final String? passengerPantsSize;
+  final String? passengerBootsSize;
   final DateTime? originalStartDate;
   final DateTime? originalEndDate;
   final List<ModificationEntry> modificationHistory;
@@ -126,6 +127,7 @@ class Reservation {
     this.passengerHelmetSize,
     this.passengerJacketSize,
     this.passengerPantsSize,
+    this.passengerBootsSize,
     this.originalStartDate,
     this.originalEndDate,
     this.modificationHistory = const [],
@@ -195,6 +197,7 @@ class Reservation {
       passengerHelmetSize: json['passenger_helmet_size'] as String?,
       passengerJacketSize: json['passenger_jacket_size'] as String?,
       passengerPantsSize: json['passenger_pants_size'] as String?,
+      passengerBootsSize: json['passenger_boots_size'] as String?,
       originalStartDate: json['original_start_date'] != null
           ? DateTime.tryParse(json['original_start_date'] as String)
           : null,
