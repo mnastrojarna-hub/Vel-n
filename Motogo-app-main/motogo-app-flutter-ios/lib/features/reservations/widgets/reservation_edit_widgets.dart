@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme.dart';
+import '../../../core/widgets/moto_fx.dart';
 import '../../booking/booking_models.dart';
 import '../../../core/currency.dart';
 
@@ -75,13 +76,18 @@ class EditTabBtn extends StatelessWidget {
   final VoidCallback onTap;
   const EditTabBtn({super.key, required this.label, required this.active, required this.onTap});
   @override
-  Widget build(BuildContext context) => Expanded(child: GestureDetector(onTap: onTap,
-    child: Container(
+  Widget build(BuildContext context) => Expanded(child: PressableScale(pressedScale: 0.93, onTap: onTap,
+    child: AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOut,
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
       decoration: BoxDecoration(
         color: active ? MotoGoColors.green : Colors.transparent,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: active ? MotoGoColors.green : MotoGoColors.g200)),
+        border: Border.all(color: active ? MotoGoColors.green : MotoGoColors.g200),
+        boxShadow: active
+            ? [BoxShadow(color: MotoGoColors.green.withValues(alpha: 0.4), blurRadius: 8)]
+            : null),
       child: Center(child: Text(label, textAlign: TextAlign.center,
         style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800,
           color: active ? Colors.black : MotoGoColors.greenDark))))));

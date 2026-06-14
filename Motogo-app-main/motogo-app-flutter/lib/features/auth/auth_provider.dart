@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/auth_guard.dart';
 import '../../core/supabase_client.dart';
+import '../../core/debug_logger.dart';
 import '../../core/i18n/translations.dart';
 
 /// Watches Supabase auth state changes (login/logout/token refresh).
@@ -149,13 +150,31 @@ class AuthService {
     _signUpInProgress = true;
 
     try {
+      // Do `data` (raw_user_meta_data) posíláme VŠECHNA pole — aby je mohl
+      // uložit handle_new_user trigger i BEZ session (když je zapnuté potvrzení
+      // e-mailu, appka po signUp nemá session → žádný klientský zápis profilu
+      // neprojde; jediná spolehlivá cesta je trigger, který běží server-side
+      // v transakci vytvoření uživatele). license_group jde jako JSON pole.
+      final signUpData = <String, dynamic>{
+        ...metadata,
+        if (profile != null) ...profile,
+      };
       final res = await _client.auth.signUp(
         email: email,
         password: password,
-        data: metadata,
+        data: signUpData,
       );
 
       if (res.user == null) return _tr('signUpFailed');
+
+      // Diagnostika do app_debug_logs (vidí Velín) — ground truth, jestli má
+      // appka po signUp session. Bez session = potvrzení e-mailu je ZAPNUTÉ
+      // a profil musí uložit trigger z metadat (ne klient).
+      final hadSessionAfterSignup = _client.auth.currentSession != null;
+      AppDebugLogger.instance.auth('signup_created', data: {
+        'has_session_after_signup': hadSessionAfterSignup,
+        'user_id': res.user!.id,
+      });
 
       // KRITICKÉ: zajisti aktivní session PŘED zápisem do profiles.
       // `auth.signUp` nemusí vždy vrátit aktivní session (podle nastavení
@@ -168,6 +187,9 @@ class AuthService {
           await _client.auth.signInWithPassword(email: email, password: password);
         } catch (_) {/* když confirmation blokuje, update stejně proběhne v retry */}
       }
+      AppDebugLogger.instance.auth('signup_session_before_profile', data: {
+        'has_session': _client.auth.currentSession != null,
+      });
 
       // Wait for handle_new_user() trigger to create the profile row
       // (same pattern as frontend auth.js – 500ms delay)
@@ -229,6 +251,30 @@ class AuthService {
           } catch (_) {}
         }
       }
+
+      // Ověř, co se reálně uložilo (čteme zpět profil) — diagnostika do
+      // app_debug_logs, ať víme, jestli registrace zapsala adresu/doklady, nebo
+      // jen trigger metadata (= chybí session / RLS / RPC).
+      try {
+        final check = await _client
+            .from('profiles')
+            .select('street, city, zip, date_of_birth, id_number, license_number, license_group')
+            .eq('id', res.user!.id)
+            .maybeSingle();
+        AppDebugLogger.instance.auth('signup_profile_result', data: {
+          'saved_via_rpc': savedProfile,
+          'has_street': (check?['street'] ?? '').toString().isNotEmpty,
+          'has_city': (check?['city'] ?? '').toString().isNotEmpty,
+          'has_dob': check?['date_of_birth'] != null,
+          'has_id_number': (check?['id_number'] ?? '').toString().isNotEmpty,
+          'has_license_number': (check?['license_number'] ?? '').toString().isNotEmpty,
+          'has_license_group': (check?['license_group'] as List?)?.isNotEmpty ?? false,
+        });
+      } catch (e) {
+        AppDebugLogger.instance.auth('signup_profile_check_failed',
+            detail: e.toString());
+      }
+      AppDebugLogger.instance.flushNow();
 
       await _storeBioUser(
         userId: res.user!.id,

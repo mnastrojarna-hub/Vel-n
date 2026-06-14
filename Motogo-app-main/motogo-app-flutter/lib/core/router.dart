@@ -978,6 +978,8 @@ class _BDWState extends ConsumerState<_BookingDebugWrapper> {
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       child: SizedBox(height: 52, child: PressableScale(
         onTap: () => GoRouter.of(context).push('/payment'),
+        child: ShimmerSweep(
+        borderRadius: BorderRadius.circular(50),
         child: ElevatedButton(
         onPressed: () => GoRouter.of(context).push('/payment'),
         style: ElevatedButton.styleFrom(
@@ -994,7 +996,7 @@ class _BDWState extends ConsumerState<_BookingDebugWrapper> {
               letterSpacing: 0.5)),
           SizedBox(width: 8),
           Icon(Icons.arrow_forward, size: 18),
-        ])))),
+        ]))))),
     ));
 
     secs.add(const SizedBox(height: 100));

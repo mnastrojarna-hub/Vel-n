@@ -59,6 +59,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   static const _licCategoryOptions = ['AM', 'A1', 'A2', 'A', 'B'];
 
   @override
+  void initState() {
+    super.initState();
+    // Vynuť čerstvé načtení profilu z DB při každém otevření. Hned po registraci
+    // byl `profileProvider` naplněn JEŠTĚ PŘED zápisem profilu (RPC běží až po
+    // vzniku session), takže cache mohla držet prázdná pole, i když data v DB
+    // už jsou (proto „ve Velíně to je, v appce ne"). Invalidace → provider jde
+    // do loading → `_fillFromProfile` se nezavolá na prázdná data → po dotažení
+    // se vyplní čerstvými hodnotami.
+    ref.invalidate(profileProvider);
+    ref.invalidate(loyaltyStatusProvider);
+  }
+
+  @override
   void dispose() {
     _nameCtrl.dispose(); _emailCtrl.dispose(); _phoneCtrl.dispose(); _cityCtrl.dispose();
     _zipCtrl.dispose(); _streetCtrl.dispose(); _countryCtrl.dispose();

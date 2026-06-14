@@ -256,6 +256,8 @@ class PaymentPayButton extends StatelessWidget {
       ),
       child: PressableScale(
         enabled: !processing,
+        child: ShimmerSweep(
+        borderRadius: BorderRadius.circular(50),
         child: ElevatedButton(
         onPressed: processing ? null : onPay,
         style: ElevatedButton.styleFrom(
@@ -284,6 +286,7 @@ class PaymentPayButton extends StatelessWidget {
                       : '${t(context).tr('payBtn')} ${Money.czk(amount)} →'),
                 ],
               ),
+        ),
         ),
       ),
     );

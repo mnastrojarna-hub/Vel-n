@@ -616,6 +616,8 @@ class _MotoDetailPageState extends ConsumerState<MotoDetailPage> {
           height: 52,
           child: PressableScale(
             enabled: canProceed,
+            child: ShimmerSweep(
+            borderRadius: BorderRadius.circular(50),
             child: ElevatedButton(
             onPressed: canProceed
                 ? () {
@@ -654,6 +656,7 @@ class _MotoDetailPageState extends ConsumerState<MotoDetailPage> {
             const Icon(Icons.arrow_forward, size: 18),
           ],
         ),
+      ),
       ),
       ),
     ),
