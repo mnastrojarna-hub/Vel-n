@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme.dart';
+import '../../../core/widgets/moto_fx.dart';
 
 /// Carousel arrow button used on the moto detail image gallery.
 class DetailArrowBtn extends StatelessWidget {
@@ -8,7 +9,8 @@ class DetailArrowBtn extends StatelessWidget {
   const DetailArrowBtn({super.key, required this.icon, required this.onTap});
 
   @override
-  Widget build(BuildContext context) => GestureDetector(
+  Widget build(BuildContext context) => PressableScale(
+        pressedScale: 0.85,
         onTap: onTap,
         child: Container(
           width: 30,

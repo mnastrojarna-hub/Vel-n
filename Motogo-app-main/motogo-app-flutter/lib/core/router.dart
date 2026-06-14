@@ -374,6 +374,7 @@ class _BookingDebugWrapper extends ConsumerStatefulWidget {
 
 class _BDWState extends ConsumerState<_BookingDebugWrapper> {
   bool _calOpen = false;
+  bool _gearOpen = false; // ruční rozbalení výběru velikostí výbavy
 
   void _upd(BookingDraft Function(BookingDraft) fn) {
     final d = ref.read(bookingDraftProvider);
@@ -736,18 +737,57 @@ class _BDWState extends ConsumerState<_BookingDebugWrapper> {
             Icon(Icons.check_circle, size: 18,
               color: Color(0xFF74FB71)),
           ])),
-        // Gear sizes (helmet/gloves/jacket/pants) when delivery
-        if (draft.pickupMethod == 'delivery') ...[
-          const SizedBox(height: 8),
-          bookingGearRow('Helma', draft.helmetSize,
-            (s) => _upd((d) => d.copyWith(helmetSize: () => s))),
-          bookingGearRow('Rukavice', draft.glovesSize,
-            (s) => _upd((d) => d.copyWith(glovesSize: () => s))),
-          bookingGearRow('Bunda', draft.jacketSize,
-            (s) => _upd((d) => d.copyWith(jacketSize: () => s))),
-          bookingGearRow('Kalhoty', draft.pantsSize,
-            (s) => _upd((d) => d.copyWith(pantsSize: () => s))),
-        ],
+        // Velikosti výbavy — VŽDY dostupné (i bez přistavení). Z minulé
+        // rezervace předvyplněné: když jsou vyplněné, ukážeme souhrn + UPRAVIT,
+        // jinak rovnou výběr. Zákazník je tak nemusí lovit z paměti.
+        const SizedBox(height: 8),
+        Builder(builder: (_) {
+          final filled = draft.helmetSize != null || draft.jacketSize != null ||
+              draft.pantsSize != null || draft.glovesSize != null;
+          if (filled && !_gearOpen) {
+            final parts = <String>[
+              if (draft.helmetSize != null) 'Helma ${draft.helmetSize}',
+              if (draft.glovesSize != null) 'Rukavice ${draft.glovesSize}',
+              if (draft.jacketSize != null) 'Bunda ${draft.jacketSize}',
+              if (draft.pantsSize != null) 'Kalhoty ${draft.pantsSize}',
+            ];
+            return GestureDetector(
+              onTap: () => setState(() => _gearOpen = true),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE8FFE8),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFF74FB71), width: 1.2)),
+                child: Row(children: [
+                  const Icon(Icons.checkroom, size: 18, color: Color(0xFF1A8A18)),
+                  const SizedBox(width: 8),
+                  Expanded(child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                    const Text('Tvoje velikosti z minula',
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800,
+                        color: Color(0xFF1A8A18), decoration: TextDecoration.none)),
+                    Text(parts.join(' · '),
+                      style: const TextStyle(fontSize: 11, color: Color(0xFF4A6357),
+                        decoration: TextDecoration.none)),
+                  ])),
+                  const Text('UPRAVIT', style: TextStyle(fontSize: 11,
+                    fontWeight: FontWeight.w800, color: Color(0xFF3DBA3A),
+                    decoration: TextDecoration.none)),
+                ])));
+          }
+          return Column(children: [
+            bookingGearRow('Helma', draft.helmetSize,
+              (s) => _upd((d) => d.copyWith(helmetSize: () => s))),
+            bookingGearRow('Rukavice', draft.glovesSize,
+              (s) => _upd((d) => d.copyWith(glovesSize: () => s))),
+            bookingGearRow('Bunda', draft.jacketSize,
+              (s) => _upd((d) => d.copyWith(jacketSize: () => s))),
+            bookingGearRow('Kalhoty', draft.pantsSize,
+              (s) => _upd((d) => d.copyWith(pantsSize: () => s))),
+          ]);
+        }),
         const SizedBox(height: 10),
         // Paid extras
         ...defaultExtras.map((item) {
@@ -802,8 +842,12 @@ class _BDWState extends ConsumerState<_BookingDebugWrapper> {
                   child: sel ? const Icon(Icons.check,
                     size: 14, color: Colors.black) : null),
                 const SizedBox(width: 10),
-                Text('${item.icon ?? ""} ',
-                  style: const TextStyle(fontSize: 18)),
+                AnimatedScale(
+                  scale: sel ? 1.25 : 1.0,
+                  duration: const Duration(milliseconds: 240),
+                  curve: Curves.easeOutBack,
+                  child: Text('${item.icon ?? ""} ',
+                    style: const TextStyle(fontSize: 18))),
                 Expanded(child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -978,6 +1022,8 @@ class _BDWState extends ConsumerState<_BookingDebugWrapper> {
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       child: SizedBox(height: 52, child: PressableScale(
         onTap: () => GoRouter.of(context).push('/payment'),
+        child: ShimmerSweep(
+        borderRadius: BorderRadius.circular(50),
         child: ElevatedButton(
         onPressed: () => GoRouter.of(context).push('/payment'),
         style: ElevatedButton.styleFrom(
@@ -994,7 +1040,7 @@ class _BDWState extends ConsumerState<_BookingDebugWrapper> {
               letterSpacing: 0.5)),
           SizedBox(width: 8),
           Icon(Icons.arrow_forward, size: 18),
-        ])))),
+        ]))))),
     ));
 
     secs.add(const SizedBox(height: 100));

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme.dart';
+import '../../core/widgets/moto_fx.dart';
 import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../auth/widgets/toast_helper.dart';
@@ -185,7 +186,7 @@ class _ProductDetailState extends ConsumerState<ProductDetailScreen> {
                   SizedBox(
                     width: double.infinity,
                     height: 48,
-                    child: ElevatedButton(
+                    child: PressableScale(child: ElevatedButton(
                       onPressed: () {
                         if (product.needsSize && _selectedSize == null) {
                           showMotoGoToast(context, icon: '⚠️', title: t(context).tr('sizeLabel'), message: t(context).tr('selectSizeFirst'));
@@ -205,7 +206,7 @@ class _ProductDetailState extends ConsumerState<ProductDetailScreen> {
                         const SizedBox(width: 8),
                         Text(t(context).tr('addToCart')),
                       ]),
-                    ),
+                    )),
                   ),
                 ],
 

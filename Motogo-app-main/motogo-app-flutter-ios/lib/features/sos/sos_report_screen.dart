@@ -475,7 +475,7 @@ class _EmergencyChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Expanded(
-      child: GestureDetector(
+      child: PressableScale(
         onTap: () => launchUrl(Uri.parse('tel:$label')),
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 8),
@@ -502,7 +502,8 @@ class _PickerItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return PressableScale(
+      pressedScale: 0.96,
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(14), margin: const EdgeInsets.only(bottom: 8),

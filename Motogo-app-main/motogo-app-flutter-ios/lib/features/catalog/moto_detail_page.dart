@@ -9,6 +9,7 @@ import '../../core/widgets/moto_fx.dart';
 import '../../core/router.dart';
 import '../booking/booking_provider.dart';
 import '../booking/booking_models.dart';
+import '../auth/auth_provider.dart' show profileProvider;
 import 'catalog_provider.dart';
 import 'moto_model.dart';
 import 'widgets/availability_calendar.dart';
@@ -616,10 +617,20 @@ class _MotoDetailPageState extends ConsumerState<MotoDetailPage> {
           height: 52,
           child: PressableScale(
             enabled: canProceed,
+            child: ShimmerSweep(
+            borderRadius: BorderRadius.circular(50),
             child: ElevatedButton(
             onPressed: canProceed
                 ? () {
                 final effectiveEnd = _selEnd ?? _selStart!;
+                // Předvyplň velikosti výbavy z minulé rezervace
+                // (profiles.gear_sizes.rider) — zákazník je nemusí lovit z paměti.
+                final gs = ref.read(profileProvider).valueOrNull?['gear_sizes'];
+                final rider = (gs is Map ? gs['rider'] : null) as Map?;
+                String? rg(String k) {
+                  final v = rider?[k];
+                  return (v is String && v.trim().isNotEmpty) ? v : null;
+                }
                 ref.read(bookingMotoProvider.notifier).state = moto;
                 ref.read(bookingDraftProvider.notifier).state = BookingDraft(
                   motoId: moto.id,
@@ -627,6 +638,11 @@ class _MotoDetailPageState extends ConsumerState<MotoDetailPage> {
                   motoImage: moto.displayImage,
                   startDate: _selStart,
                   endDate: effectiveEnd,
+                  helmetSize: rg('helmet'),
+                  glovesSize: rg('gloves'),
+                  jacketSize: rg('jacket'),
+                  pantsSize: rg('pants'),
+                  bootsSize: rg('boots'),
                 );
                 ctx.push(Routes.booking);
               }
@@ -654,6 +670,7 @@ class _MotoDetailPageState extends ConsumerState<MotoDetailPage> {
             const Icon(Icons.arrow_forward, size: 18),
           ],
         ),
+      ),
       ),
       ),
     ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme.dart';
+import '../../../core/widgets/moto_fx.dart';
 import '../../booking/booking_models.dart';
 import '../../../core/currency.dart';
 
@@ -75,13 +76,18 @@ class EditTabBtn extends StatelessWidget {
   final VoidCallback onTap;
   const EditTabBtn({super.key, required this.label, required this.active, required this.onTap});
   @override
-  Widget build(BuildContext context) => Expanded(child: GestureDetector(onTap: onTap,
-    child: Container(
+  Widget build(BuildContext context) => Expanded(child: PressableScale(pressedScale: 0.93, onTap: onTap,
+    child: AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOut,
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
       decoration: BoxDecoration(
         color: active ? MotoGoColors.green : Colors.transparent,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: active ? MotoGoColors.green : MotoGoColors.g200)),
+        border: Border.all(color: active ? MotoGoColors.green : MotoGoColors.g200),
+        boxShadow: active
+            ? [BoxShadow(color: MotoGoColors.green.withValues(alpha: 0.4), blurRadius: 8)]
+            : null),
       child: Center(child: Text(label, textAlign: TextAlign.center,
         style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800,
           color: active ? Colors.black : MotoGoColors.greenDark))))));
@@ -218,7 +224,11 @@ class EditGearSizePicker extends StatelessWidget {
           width: selectedSize != null ? 2 : 1)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          Icon(icon, size: 16, color: MotoGoColors.greenDarker),
+          AnimatedScale(
+            scale: selectedSize != null ? 1.25 : 1.0,
+            duration: const Duration(milliseconds: 240),
+            curve: Curves.easeOutBack,
+            child: Icon(icon, size: 16, color: MotoGoColors.greenDarker)),
           const SizedBox(width: 6),
           Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: MotoGoColors.black)),
           const Spacer(),
@@ -233,17 +243,25 @@ class EditGearSizePicker extends StatelessWidget {
             final active = selectedSize == size;
             return GestureDetector(
               onTap: () => onSizeSelected(active ? null : size),
-              child: Container(
+              child: AnimatedScale(
+                scale: active ? 1.1 : 1.0,
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOutBack,
+                child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
                 constraints: const BoxConstraints(minWidth: 42),
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
                 decoration: BoxDecoration(
                   color: active ? MotoGoColors.greenDarker : MotoGoColors.greenPale,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: active ? MotoGoColors.greenDarker : MotoGoColors.green, width: 1.5)),
+                  border: Border.all(color: active ? MotoGoColors.greenDarker : MotoGoColors.green, width: 1.5),
+                  boxShadow: active
+                      ? [const BoxShadow(color: Color(0x6674FB71), blurRadius: 10, offset: Offset(0, 3))]
+                      : null),
                 child: Text(size,
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 11, fontWeight: active ? FontWeight.w900 : FontWeight.w600,
-                    color: active ? Colors.black : MotoGoColors.black))),
+                    color: active ? Colors.black : MotoGoColors.black)))),
             );
           }).toList()),
       ]),

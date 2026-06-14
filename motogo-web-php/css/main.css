@@ -72,3 +72,14 @@ p>.btn:last-child{margin-bottom:0}
 .banner-slideshow .mg-hero-split .mg-hero-img-main{object-position:left center}
 .banner-slideshow .mg-hero-split .mg-hero-img-alt{object-position:right center}
 @media(max-width:768px){.banner-slideshow .mg-hero-split .mg-hero-img-main{object-position:center}}
+
+/* === MotoGo premium button animace (appended 2026-06-14) === */
+.btn,.btngreen,.btngreen-small,.btndark{position:relative;overflow:hidden;transition:transform .18s cubic-bezier(.2,.8,.2,1),box-shadow .25s ease,background .25s ease,filter .2s ease;will-change:transform}
+.btn:hover,.btngreen:hover,.btngreen-small:hover,.btndark:hover{transform:translateY(-2px)}
+.btn:active,.btngreen:active,.btngreen-small:active,.btndark:active{transform:scale(.95)}
+.btngreen,.btngreen-small{box-shadow:0 6px 18px rgba(116,251,113,.35)}
+.btngreen:hover,.btngreen-small:hover{box-shadow:0 12px 28px rgba(116,251,113,.6);filter:brightness(1.04)}
+.btndark:hover{box-shadow:0 10px 24px rgba(26,46,34,.45)}
+.btngreen::after,.btngreen-small::after,.btndark::after{content:"";position:absolute;top:0;left:-65%;width:45%;height:100%;background:linear-gradient(120deg,transparent 0,rgba(255,255,255,.55) 50%,transparent 100%);transform:skewX(-20deg);animation:mgShine 3.4s ease-in-out infinite;pointer-events:none}
+@keyframes mgShine{0%{left:-65%}55%{left:140%}100%{left:140%}}
+@media (prefers-reduced-motion:reduce){.btn,.btngreen,.btngreen-small,.btndark{transition:none}.btngreen::after,.btngreen-small::after,.btndark::after{display:none;animation:none}}

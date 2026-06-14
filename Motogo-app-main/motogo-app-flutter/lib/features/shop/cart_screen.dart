@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme.dart';
+import '../../core/widgets/moto_fx.dart';
 import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../auth/widgets/toast_helper.dart';
@@ -143,7 +144,7 @@ class CartScreen extends ConsumerWidget {
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 12),
-                      ElevatedButton(
+                      PressableScale(child: ElevatedButton(
                         onPressed: () => context.push(Routes.checkout),
                         style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(52)),
                         child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
@@ -151,7 +152,7 @@ class CartScreen extends ConsumerWidget {
                         const SizedBox(width: 8),
                         Text(t(context).tr('toCheckout')),
                       ]),
-                      ),
+                      )),
                     ],
                   ),
                 ),

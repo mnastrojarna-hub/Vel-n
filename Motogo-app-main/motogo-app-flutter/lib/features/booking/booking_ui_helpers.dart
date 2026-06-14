@@ -148,14 +148,22 @@ Widget bookingGearRow(String label, String? selected,
           final a = selected == s;
           return GestureDetector(
             onTap: () => onChanged(a ? null : s),
-            child: Container(
+            child: AnimatedScale(
+              scale: a ? 1.1 : 1.0,
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutBack,
+              child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
               constraints: const BoxConstraints(minWidth: 46),
               padding: const EdgeInsets.symmetric(
                 horizontal: 12, vertical: 9),
               decoration: BoxDecoration(
                 color: a ? const Color(0xFF1A8A18)
                     : const Color(0xFFE8FFE8),
-                borderRadius: BorderRadius.circular(8)),
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: a
+                    ? [const BoxShadow(color: Color(0x6674FB71), blurRadius: 10, offset: Offset(0, 3))]
+                    : null),
               child: Text(s,
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 12,
@@ -163,7 +171,7 @@ Widget bookingGearRow(String label, String? selected,
                       : FontWeight.w600,
                   color: a ? Colors.black
                       : const Color(0xFF0F1A14),
-                  decoration: _noDec))));
+                  decoration: _noDec)))));
         }).toList()),
     ]));
 }
