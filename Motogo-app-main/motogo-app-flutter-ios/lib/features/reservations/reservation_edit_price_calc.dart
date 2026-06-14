@@ -13,6 +13,8 @@ class EditPriceCalc {
   final double pickupDelivFee;
   final double returnDelivFee;
   final Set<String> selectedExtras;
+  /// Původně zaplacené doplňky — účtuje/vrací se jen ROZDÍL vůči nim.
+  final Set<String> origExtras;
   final String pickupMethod;
   final String returnMethod;
   final String pickupTime;
@@ -35,6 +37,7 @@ class EditPriceCalc {
     required this.pickupDelivFee,
     required this.returnDelivFee,
     required this.selectedExtras,
+    this.origExtras = const {},
     required this.pickupMethod,
     required this.returnMethod,
     required this.pickupTime,
@@ -45,11 +48,21 @@ class EditPriceCalc {
     this.discountType,
   });
 
-  double get extrasTotal {
-    // Ceny dle webu (accessory_types): passenger_gear=690, boty=290.
-    const prices = {'spolujezdec': 690.0, 'boty_ridic': 290.0, 'boty_spolujezdec': 290.0};
-    return selectedExtras.fold(0.0, (sum, id) => sum + (prices[id] ?? 0));
-  }
+  static const _extraPrices = {'spolujezdec': 690.0, 'boty_ridic': 290.0, 'boty_spolujezdec': 290.0};
+
+  /// Cena aktuálně vybraných doplňků.
+  double get extrasTotal =>
+      selectedExtras.fold(0.0, (sum, id) => sum + (_extraPrices[id] ?? 0));
+
+  /// Cena původně zaplacených doplňků (baseline).
+  double get origExtrasTotal =>
+      origExtras.fold(0.0, (sum, id) => sum + (_extraPrices[id] ?? 0));
+
+  /// ROZDÍL doplňků vůči původním — kladný = doplatek, záporný = refund.
+  double get extrasDelta => extrasTotal - origExtrasTotal;
+
+  bool get extrasChanged => !(selectedExtras.length == origExtras.length &&
+      selectedExtras.containsAll(origExtras));
 
   int get origDays => booking.dayCount;
   int get newDays {
@@ -132,7 +145,7 @@ class EditPriceCalc {
     if (newStart == null || newEnd == null) return 0;
     double diff = dateChangeAmount;
     diff += deliveryFeeDelta;
-    diff += extrasTotal;
+    diff += extrasDelta;
     if (newMotoId != null && newMotoId != booking.motoId && newMotoPrices != null) {
       final newTotal = newMotoPrices!.totalForRange(newStart!, newEnd!);
       final origTotal = motoPrices?.totalForRange(newStart!, newEnd!)
@@ -186,7 +199,7 @@ class EditPriceCalc {
       returnMethod != booking.returnMethod ||
       pickupTime != (booking.pickupTime ?? '09:00') ||
       returnTime != (booking.returnTime ?? '19:00') ||
-      extrasTotal > 0 ||
+      extrasChanged ||
       deliveryFeeDelta != 0 ||
       helmetSize != booking.helmetSize ||
       jacketSize != booking.jacketSize ||

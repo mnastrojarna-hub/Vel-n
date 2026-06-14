@@ -951,15 +951,28 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
           // Mirrors _onInlinePaymentSuccess from Capacitor payment-ui-3.js.
           if (_pendingBookingId != null && _ctx!.pendingEditChanges != null) {
             try {
-              // `_extras_rows` je interní klíč (nově přiobjednané doplňky) —
-              // do bookings UPDATE nepatří, vkládá se do booking_extras.
+              // `_extras_rows` / `_extras_replace` jsou interní klíče (nový stav
+              // doplňků) — do bookings UPDATE nepatří. Při `_extras_replace`
+              // nejdřív smažeme modelované řádky (i odebrání) a pak vložíme nové.
               final pending =
                   Map<String, dynamic>.from(_ctx!.pendingEditChanges!);
               final extrasRows = pending.remove('_extras_rows');
+              final extrasReplace = pending.remove('_extras_replace') == true;
               await MotoGoSupabase.client
                   .from('bookings')
                   .update(pending)
                   .eq('id', _pendingBookingId!);
+              if (extrasReplace) {
+                try {
+                  await MotoGoSupabase.client
+                      .from('booking_extras')
+                      .delete()
+                      .eq('booking_id', _pendingBookingId!)
+                      .inFilter('name', const [
+                    'Výbava spolujezdce', 'Boty řidiče', 'Boty spolujezdce',
+                  ]);
+                } catch (_) {/* ignore */}
+              }
               if (extrasRows is List && extrasRows.isNotEmpty) {
                 await MotoGoSupabase.client
                     .from('booking_extras')
