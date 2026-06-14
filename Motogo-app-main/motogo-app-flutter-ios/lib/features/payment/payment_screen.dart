@@ -55,12 +55,21 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
 
   PaymentContext? _ctx;
 
+  // Notifiery zachycené PŘEDEM (v initState), aby je šlo bezpečně použít v
+  // dispose. `ref.read` v dispose Riverpod zakazuje → dřív padalo
+  // „Cannot use ref after the widget was disposed" → rozbitý strom widgetů →
+  // „Restartujte aplikaci" po odchodu z platby (typicky 100% sleva / děkovačka).
+  StateController<bool>? _fabNotifier;
+  StateController<PaymentContext?>? _ctxNotifier;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _deadline = DateTime.now().add(paymentTimeoutDuration);
     _startCountdown();
+    _fabNotifier = ref.read(paymentScreenActiveProvider.notifier);
+    _ctxNotifier = ref.read(paymentContextProvider.notifier);
     _ctx = ref.read(paymentContextProvider);
     if (_ctx != null) {
       _pendingBookingId = _ctx!.bookingId;
@@ -79,18 +88,16 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _countdownTimer?.cancel();
-    // Platbu opouštíme → FAB panely se zase smí zobrazit. Dispose běží uvnitř
-    // build fáze (finalizeTree při navigaci) — přímý zápis do provideru tady
-    // Riverpod zakazuje a rozbíjel strom widgetů („Restartujte aplikaci" po
-    // přechodu na děkovací stránku). Proto odložené až po framu.
-    final fabNotifier = ref.read(paymentScreenActiveProvider.notifier);
-    // Kontext platby s odchodem z obrazovky končí — každý vstup na /payment si
-    // ho nastavuje znovu (FAB, detail, edit). Bez vyčištění by stará hodnota
-    // (např. z FAB resume) unesla příští novou rezervaci z formuláře.
-    final ctxNotifier = ref.read(paymentContextProvider.notifier);
+    // Platbu opouštíme → FAB panely se zase smí zobrazit + vyčisti kontext
+    // platby. POZOR: v dispose se NESMÍ použít `ref` (Riverpod hodí
+    // „Cannot use ref after the widget was disposed" → rozbitý strom widgetů →
+    // „Restartujte aplikaci"). Proto používáme notifiery zachycené v initState
+    // a zápis odkládáme až po framu (mimo build/finalize fázi).
+    final fabNotifier = _fabNotifier;
+    final ctxNotifier = _ctxNotifier;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      fabNotifier.state = false;
-      ctxNotifier.state = null;
+      fabNotifier?.state = false;
+      ctxNotifier?.state = null;
     });
     super.dispose();
   }
@@ -126,6 +133,28 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
         maxAttempts: 2,
         interval: const Duration(seconds: 1),
       );
+    } else if (_ctx?.flowType == PaymentFlowType.extension) {
+      // DOPLATEK na ÚPRAVĚ rezervace běží nad UŽ ZAPLACENOU rezervací, takže
+      // `bookings.payment_status` je 'paid' už z původní platby — NELZE ji použít
+      // jako důkaz, že doplatek prošel (jinak appka po „zpět"/nepotvrzené G Pay
+      // ukáže falešný úspěch). Realitu ověříme tím, že se doplatková ZMĚNA reálně
+      // promítla do rezervace (webhook applyExtensionChange zapíše nový
+      // total_price). Dokud se total_price nezměnil na očekávaný, doplatek
+      // NEPROBĚHL → žádný úspěch.
+      final expected = (_ctx?.pendingEditChanges?['total_price'] as num?)?.toDouble();
+      if (expected != null && bookingId != null) {
+        try {
+          final row = await MotoGoSupabase.client
+              .from('bookings')
+              .select('total_price')
+              .eq('id', bookingId)
+              .maybeSingle();
+          final cur = (row?['total_price'] as num?)?.toDouble();
+          paid = cur != null && (cur - expected).abs() < 0.5;
+        } catch (_) {
+          paid = false;
+        }
+      }
     } else if (bookingId != null) {
       paid = await StripeService.pollBookingPaymentStatus(
         bookingId,

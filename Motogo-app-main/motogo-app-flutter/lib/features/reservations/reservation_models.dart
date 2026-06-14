@@ -151,8 +151,10 @@ class Reservation {
       branchLng: (branch?['gps_lng'] as num?)?.toDouble(),
       status: json['status'] as String? ?? 'pending',
       paymentStatus: json['payment_status'] as String? ?? 'unpaid',
-      startDate: DateTime.parse(json['start_date'] as String),
-      endDate: DateTime.parse(json['end_date'] as String),
+      // tryParse + fallback — žádné chybějící/nestandardní datum nesmí shodit
+      // celý seznam rezervací (radši zobraz kartu než „Restartujte aplikaci").
+      startDate: DateTime.tryParse(json['start_date']?.toString() ?? '') ?? DateTime.now(),
+      endDate: DateTime.tryParse(json['end_date']?.toString() ?? '') ?? DateTime.now(),
       pickupTime: json['pickup_time'] as String?,
       returnTime: json['return_time'] as String?,
       pickupMethod: json['pickup_method'] as String? ?? 'branch',
@@ -173,7 +175,7 @@ class Reservation {
       sosIncidentId: json['sos_incident_id'] as String?,
       rating: json['rating'] as int?,
       ratedAt: json['rated_at'] != null ? DateTime.parse(json['rated_at'] as String) : null,
-      createdAt: DateTime.parse(json['created_at'] as String),
+      createdAt: DateTime.tryParse(json['created_at']?.toString() ?? '') ?? DateTime.now(),
       confirmedAt: json['confirmed_at'] != null ? DateTime.parse(json['confirmed_at'] as String) : null,
       pickedUpAt: json['picked_up_at'] != null ? DateTime.parse(json['picked_up_at'] as String) : null,
       returnedAt: json['returned_at'] != null ? DateTime.parse(json['returned_at'] as String) : null,

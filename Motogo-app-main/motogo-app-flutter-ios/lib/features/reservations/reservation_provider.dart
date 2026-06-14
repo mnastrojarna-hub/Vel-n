@@ -8,6 +8,26 @@ import 'reservation_models.dart';
 const _bookingSelect =
     '*, motorcycles(*, branches(name, address, city, gps_lat, gps_lng))';
 
+/// Odkaz na Google recenze — čte se ze stejného zdroje jako e-mailové šablony
+/// (`app_settings.google_review_url`), aby appka i mail vedly na FUNKČNÍ odkaz.
+/// Fallback shodný s edge fn `send-invoice-email`.
+final googleReviewUrlProvider = FutureProvider<String>((ref) async {
+  const fallback = 'https://g.page/MotoGo24/review';
+  try {
+    final res = await MotoGoSupabase.client
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'google_review_url')
+        .maybeSingle();
+    final v = res?['value'];
+    final url = v is String
+        ? v
+        : (v is Map ? (v['url'] as String?) : null);
+    if (url != null && url.trim().startsWith('http')) return url.trim();
+  } catch (_) {/* fallback */}
+  return fallback;
+});
+
 /// Fetches all user bookings with realtime subscription.
 /// Mirrors apiFetchMyBookings() + realtime channel.
 final reservationsProvider =

@@ -201,6 +201,7 @@ const translationsCsPl = <String, Map<String, String>>{
     'loginWebAccountHint': 'Máte rezervaci nebo účet z webu? Přihlaste se stejným e-mailem a heslem.',
     'loginUnknownEmailTitle': 'Účet nenalezen',
     'loginUnknownEmailBody': 'Tento e-mail u nás zatím nemáme. Vytvořte si prosím registraci.',
+    'refundFailedRetry': 'Vrácení peněz se nezdařilo. Zkuste to prosím znovu.',
     // Reservations screens
     'myReservations': 'Moje rezervace',
     'resOverview': 'Přehled všech rezervací',
@@ -1082,6 +1083,7 @@ const translationsCsPl = <String, Map<String, String>>{
     'loginWebAccountHint': 'Masz rezerwację lub konto ze strony? Zaloguj się tym samym e-mailem i hasłem.',
     'loginUnknownEmailTitle': 'Nie znaleziono konta',
     'loginUnknownEmailBody': 'Nie mamy jeszcze tego adresu e-mail. Utwórz rejestrację.',
+    'refundFailedRetry': 'Zwrot środków nie powiódł się. Spróbuj ponownie.',
     // Reservations screens
     'myReservations': 'Moje rezerwacje',
     'resOverview': 'Przegląd wszystkich rezerwacji',

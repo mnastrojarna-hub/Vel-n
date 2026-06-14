@@ -192,6 +192,7 @@ const translationsEsFr = <String, Map<String, String>>{
     'loginWebAccountHint': '¿Tienes una reserva o cuenta del sitio web? Inicia sesión con el mismo correo y contraseña.',
     'loginUnknownEmailTitle': 'Cuenta no encontrada',
     'loginUnknownEmailBody': 'Todavía no tenemos este correo. Crea una cuenta, por favor.',
+    'refundFailedRetry': 'El reembolso ha fallado. Inténtalo de nuevo.',
     // Reservations screens
     'myReservations': 'Mis reservas',
     'resOverview': 'Resumen de todas las reservas',
@@ -584,6 +585,7 @@ const translationsEsFr = <String, Map<String, String>>{
     'loginWebAccountHint': 'Vous avez une réservation ou un compte sur le site web ? Connectez-vous avec le même e-mail et mot de passe.',
     'loginUnknownEmailTitle': 'Compte introuvable',
     'loginUnknownEmailBody': 'Nous n’avons pas encore cet e-mail. Veuillez créer un compte.',
+    'refundFailedRetry': 'Le remboursement a échoué. Veuillez réessayer.',
     // Reservations screens
     'myReservations': 'Mes réservations',
     'resOverview': 'Aperçu de toutes les réservations',
