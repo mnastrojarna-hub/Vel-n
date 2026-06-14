@@ -39,6 +39,9 @@ dependencies:
   cached_network_image: ^3.3.1
   flutter_svg: ^2.0.9
 
+  # Video playback (MP4 videa motorky na detailu)
+  video_player: ^2.9.1
+
   # i18n
   intl: ^0.20.2
 
