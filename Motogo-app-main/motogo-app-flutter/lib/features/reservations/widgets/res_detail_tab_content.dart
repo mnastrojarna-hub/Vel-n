@@ -76,6 +76,7 @@ class ResDetailTabContent extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final st = res.displayStatus;
+    ref.watch(googleReviewUrlProvider); // přednačti odkaz na recenze
     final sosAsync = ref.watch(sosIncidentsProvider(res.id));
     final sosIncidents = sosAsync.valueOrNull ?? <SosIncident>[];
 
@@ -322,7 +323,11 @@ class ResDetailTabContent extends ConsumerWidget {
             ResDetailButton.primary(
               emoji: '⭐',
               label: t(context).tr('reviewOnGoogle'),
-              onTap: () => launchUrl(Uri.parse('https://g.page/r/motogo24/review')),
+              onTap: () {
+                final url = ref.read(googleReviewUrlProvider).valueOrNull
+                    ?? 'https://g.page/MotoGo24/review';
+                launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+              },
             ),
             const SizedBox(height: 12),
             ResDetailButton.primary(
