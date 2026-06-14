@@ -480,11 +480,25 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
         // (DB trigger trg_booking_modified_email pošle mail s diff + dobropisem).
         if (effDiff < 0) {
           try {
-            await MotoGoSupabase.client.functions.invoke('process-refund', body: {
+            final refundRes = await MotoGoSupabase.client.functions.invoke('process-refund', body: {
               'booking_id': widget.bookingId,
               'amount': -effDiff,
               'reason': 'edit_shortening',
             });
+            // Realita > optimismus: process-refund vrací {success:bool,error}.
+            // Když refund neproběhl (success != true / je error), NEUKLÁDÁME
+            // změnu a NEhlásíme úspěch — jinak by appka tvrdila vrácení, které
+            // se nestalo.
+            final rd = refundRes.data;
+            final refundOk = rd is Map && rd['success'] == true;
+            if (!refundOk) {
+              final msg = (rd is Map && rd['error'] != null)
+                  ? rd['error'].toString()
+                  : t(context).tr('refundFailedRetry');
+              if (mounted) showMotoGoToast(context, icon: '✗',
+                title: t(context).error, message: msg);
+              return;
+            }
           } catch (e) {
             if (mounted) showMotoGoToast(context, icon: '✗',
               title: t(context).error,

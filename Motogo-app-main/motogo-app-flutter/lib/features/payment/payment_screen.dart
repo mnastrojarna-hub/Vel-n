@@ -133,6 +133,28 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
         maxAttempts: 2,
         interval: const Duration(seconds: 1),
       );
+    } else if (_ctx?.flowType == PaymentFlowType.extension) {
+      // DOPLATEK na ÚPRAVĚ rezervace běží nad UŽ ZAPLACENOU rezervací, takže
+      // `bookings.payment_status` je 'paid' už z původní platby — NELZE ji použít
+      // jako důkaz, že doplatek prošel (jinak appka po „zpět"/nepotvrzené G Pay
+      // ukáže falešný úspěch). Realitu ověříme tím, že se doplatková ZMĚNA reálně
+      // promítla do rezervace (webhook applyExtensionChange zapíše nový
+      // total_price). Dokud se total_price nezměnil na očekávaný, doplatek
+      // NEPROBĚHL → žádný úspěch.
+      final expected = (_ctx?.pendingEditChanges?['total_price'] as num?)?.toDouble();
+      if (expected != null && bookingId != null) {
+        try {
+          final row = await MotoGoSupabase.client
+              .from('bookings')
+              .select('total_price')
+              .eq('id', bookingId)
+              .maybeSingle();
+          final cur = (row?['total_price'] as num?)?.toDouble();
+          paid = cur != null && (cur - expected).abs() < 0.5;
+        } catch (_) {
+          paid = false;
+        }
+      }
     } else if (bookingId != null) {
       paid = await StripeService.pollBookingPaymentStatus(
         bookingId,

@@ -192,6 +192,7 @@ const translationsEnDeNl = <String, Map<String, String>>{
     'loginWebAccountHint': 'Have a reservation or account from the website? Sign in with the same e-mail and password.',
     'loginUnknownEmailTitle': 'Account not found',
     'loginUnknownEmailBody': 'We don’t have this e-mail yet. Please create an account.',
+    'refundFailedRetry': 'Refund failed. Please try again.',
     // Reservations screens
     'myReservations': 'My reservations',
     'resOverview': 'Overview of all reservations',
@@ -702,6 +703,7 @@ const translationsEnDeNl = <String, Map<String, String>>{
     'loginWebAccountHint': 'Haben Sie eine Reservierung oder ein Konto von der Website? Melden Sie sich mit derselben E-Mail und demselben Passwort an.',
     'loginUnknownEmailTitle': 'Konto nicht gefunden',
     'loginUnknownEmailBody': 'Diese E-Mail haben wir noch nicht. Bitte registrieren Sie sich.',
+    'refundFailedRetry': 'Rückerstattung fehlgeschlagen. Bitte versuchen Sie es erneut.',
     // Reservations screens
     'myReservations': 'Meine Reservierungen',
     'resOverview': 'Übersicht aller Reservierungen',
@@ -1112,6 +1114,7 @@ const translationsEnDeNl = <String, Map<String, String>>{
     'loginWebAccountHint': 'Heb je een reservering of account van de website? Log in met hetzelfde e-mailadres en wachtwoord.',
     'loginUnknownEmailTitle': 'Account niet gevonden',
     'loginUnknownEmailBody': 'We hebben dit e-mailadres nog niet. Maak een account aan.',
+    'refundFailedRetry': 'Terugbetaling mislukt. Probeer het opnieuw.',
     // Reservations screens
     'myReservations': 'Mijn reserveringen',
     'resOverview': 'Overzicht van alle reserveringen',
