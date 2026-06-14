@@ -47,8 +47,7 @@ class _SosImmobileState extends ConsumerState<SosImmobileScreen> {
     setState(() => _submitting = true);
 
     try {
-      final incId = await _ensureIncident();
-      ref.read(sosFaultProvider.notifier).state = _fault;
+      await _ensureIncident();
       ref.invalidate(activeSosProvider);
       if (mounted) context.push(Routes.sosReplacement);
     } catch (e) {
@@ -126,21 +125,17 @@ class _SosImmobileState extends ConsumerState<SosImmobileScreen> {
 
               // Fault decision buttons
               _faultDecision(),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
 
-              // Dynamic info banner
-              if (_fault != null) _infoBanner(),
-              if (_fault != null) const SizedBox(height: 16),
-
-              // Action cards (only after fault decision)
+              // Action cards (only after fault decision). Náhradní motorka je
+              // v aplikaci VŽDY ZDARMA — placené flow (spoluúčast 30 000 Kč)
+              // bylo zrušeno; zůstává jen náhrada zdarma nebo odtah.
               if (_fault != null) ...[
                 _actionCard(
                   icon: '🏍️',
-                  title: _fault! ? t(context).tr('replacementPaid') : t(context).tr('replacementFree'),
-                  subtitle: _fault!
-                      ? t(context).tr('replacementPaidDesc')
-                      : t(context).tr('replacementFreeDesc'),
-                  color: _fault! ? MotoGoColors.redBg : MotoGoColors.greenPale,
+                  title: t(context).tr('replacementFree'),
+                  subtitle: t(context).tr('selectMotoAndAddress'),
+                  color: MotoGoColors.greenPale,
                   onTap: _requestReplacement,
                 ),
                 const SizedBox(height: 8),
@@ -262,24 +257,6 @@ class _SosImmobileState extends ConsumerState<SosImmobileScreen> {
         ),
       )),
     ]);
-  }
-
-  Widget _infoBanner() {
-    final isGreen = _fault == false;
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: isGreen ? MotoGoColors.greenPale : MotoGoColors.redBg,
-        borderRadius: BorderRadius.circular(MotoGoTheme.radiusSm),
-      ),
-      child: Text(
-        isGreen
-            ? '💚 ${t(context).tr('breakdownFreeInfo')}'
-            : '⚠️ ${t(context).tr('faultPaidInfo')}',
-        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700,
-            color: isGreen ? MotoGoColors.greenDarker : const Color(0xFF991B1B)),
-      ),
-    );
   }
 
   Widget _actionCard({

@@ -5,6 +5,7 @@ import { debugAction } from '../lib/debugLog'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import SOSDetailPanel from './sos/SOSDetailPanel'
+import NewIncidentModal from './sos/NewIncidentModal'
 import { IncidentCard, SOSMap } from './SOSIncidentCard'
 import { TYPE_LABELS, SEVERITY_MAP, STATUS_COLORS, LIGHT_AUTO_ACK, TYPE_FILTERS, SUB_FILTERS } from './SOSConstants'
 
@@ -20,6 +21,7 @@ export default function SOSPanel() {
   const [filter, setFilter] = useState('active')
   const [severityFilter, setSeverityFilter] = useState('all_sev')
   const [subFilter, setSubFilter] = useState('all')
+  const [showNewIncident, setShowNewIncident] = useState(false)
   useEffect(() => { localStorage.setItem('velin_sos_filters', JSON.stringify({ filter, severityFilter, subFilter })) }, [filter, severityFilter, subFilter])
   const openIncidentHandled = useRef(null)
 
@@ -314,7 +316,10 @@ export default function SOSPanel() {
               </span>
             )}
 
-            <div className="ml-auto">
+            <div className="ml-auto flex items-center gap-2">
+              <Button onClick={() => setShowNewIncident(true)} green style={{ fontSize: 13 }}>
+                + Nový incident
+              </Button>
               {!notifyEnabled ? (
                 <Button onClick={enableNotifications} style={{ background: '#fef3c7', color: '#92400e', fontSize: 13 }}>
                   Zapnout notifikace
@@ -431,6 +436,13 @@ export default function SOSPanel() {
         </div>
       )}
     </div>
+
+    {showNewIncident && (
+      <NewIncidentModal
+        onClose={() => setShowNewIncident(false)}
+        onCreated={load}
+      />
+    )}
     </>
   )
 }
