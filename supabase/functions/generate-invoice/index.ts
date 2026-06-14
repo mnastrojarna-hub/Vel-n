@@ -338,9 +338,13 @@ serve(async (req) => {
       // Identify card info for payment method display
       cardInfo = await loadPaymentCardInfo(supabase, booking)
       stripePaymentId = booking.stripe_payment_intent_id || ''
+      // Když rezervaci platil Stripe (existuje PI), doklad MUSÍ ukázat „Platba
+      // kartou (Stripe)" + ID transakce — i když nemáme uloženou kartu
+      // (payment_methods řádek). App rezervace často kartu neukládají, takže
+      // dřív padaly do větve „Bankovní převod" a doklad lhal.
       paymentMethodLabel = cardInfo
         ? `Platba kartou ${cardInfo.brand?.toUpperCase() || 'CARD'} **** ${cardInfo.last4 || '****'}`
-        : 'Bankovní převod'
+        : (stripePaymentId ? 'Platba kartou (Stripe)' : 'Bankovní převod')
 
       if (isEdit) {
         // ===== EDIT: rozdílový doklad (ZF/DP) za doplatek při úpravě rezervace =====

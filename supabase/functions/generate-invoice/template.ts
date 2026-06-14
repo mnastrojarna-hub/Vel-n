@@ -91,8 +91,10 @@ export function generateInvoiceHtml(p: TemplateParams): string {
     </tr>`
   }).join('')
 
-  // Payment block — Stripe card vs bank
-  const paymentBlock = p.cardInfo ? `
+  // Payment block — Stripe (karta NEBO existující Stripe PI) vs bank.
+  // Pozn.: rozhoduje i samotné `stripePaymentIntentId` — app rezervace placené
+  // Stripe často nemají uloženou kartu (payment_methods), přesto je to Stripe.
+  const paymentBlock = (p.cardInfo || p.stripePaymentIntentId) ? `
     <div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0">
       <span style="color:#16a34a;font-weight:600">Stav</span>
       <span style="color:#0f1a14;font-weight:700">${status}</span>
