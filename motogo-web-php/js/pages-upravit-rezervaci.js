@@ -6,7 +6,7 @@ var MG=window.MG||{};window.MG=MG,MG.t=MG.t||function(e,t){var r=window.MG_I18N|
    Zápis řeší SECURITY DEFINER RPC update_booking_gear (booking_extras má RLS). */
 (function(){
   if(!window.MG||!MG._editRez)return;var ER=MG._editRez;
-  var FALLBACK={prices:{passenger_gear:690,boots_rider:290,boots_passenger:290},sizes:{helmet:["XS","S","M","L","XL","XXL"],jacket:["S","M","L","XL","2XL","3XL","4XL","5XL","6XL"],pants:["M","L","XL","2XL","3XL","4XL","5XL","6XL"],gloves:["XS","S","M","L","XL","XXL"],boots:["36","37","38","39","40","41","42","43","44","45","46"]}};
+  var FALLBACK={prices:{passenger_gear:690,boots_rider:290,boots_passenger:290},sizes:{helmet:["XS","S","M","L","XL","2XL","3XL"],jacket:["S","M","L","XL","2XL","3XL","4XL","5XL","6XL"],pants:["M","L","XL","2XL","3XL","4XL","5XL","6XL"],gloves:["XS","S","M","L","XL","2XL","3XL"],boots:["36","37","38","39","40","41","42","43","44","45","46"]}};
   ER._gearCfg=null;ER._gearOldPaid=0;
   ER._loadGearCfg=async function(){var cfg={prices:Object.assign({},FALLBACK.prices),sizes:JSON.parse(JSON.stringify(FALLBACK.sizes))};try{var r=await window.sb.from("accessory_types").select("key, sizes, price_czk, pricing_unit, is_active").eq("is_active",!0);if(!r.error&&r.data)r.data.forEach(function(row){if(cfg.sizes.hasOwnProperty(row.key)&&Array.isArray(row.sizes)&&row.sizes.length)cfg.sizes[row.key]=row.sizes.slice();if(cfg.prices.hasOwnProperty(row.key)){var p="number"==typeof row.price_czk?row.price_czk:0;cfg.prices[row.key]="free"===row.pricing_unit?0:p}})}catch(e){}ER._gearCfg=cfg;return cfg};
   function gprice(k){var c=ER._gearCfg||FALLBACK;return c.prices&&"number"==typeof c.prices[k]?c.prices[k]:(FALLBACK.prices[k]||0)}
