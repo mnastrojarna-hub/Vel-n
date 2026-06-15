@@ -321,7 +321,7 @@
 ### accessory_types
 - id (UUID PK), key (TEXT UNIQUE) — slug typu (boots, helmet, passenger_gear, boots_rider, boots_passenger, ubrousky…)
 - label (TEXT) — zobrazovaný název
-- sizes (TEXT[]) — povolené velikosti (web rezervace je čte při buildu kroku 5 přes `MG._loadAccessoryConfig`)
+- sizes (TEXT[]) — povolené velikosti (web rezervace je čte při buildu kroku 5 přes `MG._loadAccessoryConfig`). **Stav 2026-06-15:** `helmet = {XS,S,M,L,XL,2XL,3XL}`, `gloves = {M,L,XL,2XL,3XL}` (rozšíření o helma 3XL + rukavice 2XL/3XL pro dospělé). Frontend hardkódovaný fallback (web `pages-rezervace.js`/`pages-upravit-rezervaci.js`, app `booking_models.dart` `*SizesAdult`) sjednocen na stejné hodnoty.
 - is_consumable (BOOLEAN DEFAULT false) — spotřební zboží (kukly, ubrousky) vs. půjčované (boty, helmy)
 - **price_czk** (INTEGER NOT NULL DEFAULT 0) — cena v Kč pro placené extras (passenger_gear=690, boots_rider=290, boots_passenger=290 ze seedu 2026-05-05). Pro inventury rows (helmet/jacket/gloves/pants/boots/balaclava) zůstává 0.
 - **pricing_unit** (TEXT NOT NULL DEFAULT 'per_booking', CHECK IN ('per_booking','per_day','free')) — `per_booking` = jednorázově za rezervaci, `per_day` = × počet dní, `free` = neúčtuje se. Web `MG._accessoryPrice` aktuálně počítá `per_booking`; multiplikace `per_day` se přidá až při zavedení nového typu.
