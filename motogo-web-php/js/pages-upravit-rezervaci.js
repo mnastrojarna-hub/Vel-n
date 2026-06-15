@@ -15,7 +15,7 @@ var MG=window.MG||{};window.MG=MG,MG.t=MG.t||function(e,t){var r=window.MG_I18N|
   function classify(name){var n=(name||"").toLowerCase();var boots=n.indexOf("bot")>-1||n.indexOf("boots")>-1;var pass=n.indexOf("spolujez")>-1||n.indexOf("passenger")>-1;if(boots&&pass)return"boots_passenger";if(boots)return"boots_rider";if(pass)return"passenger_gear";return null}
 
   function chipRow(group,kind){
-    var st=ER._gearState,sel=st[group][kind]||"",icoMap={helmet:"&#129686;",jacket:"&#129509;",gloves:"&#129306;",pants:"&#128086;",boots:"&#129406;"},lbl=MG.t("rez.gear.label."+kind),pick=sel||MG.t("rez.gear.sizeChoose");
+    var st=ER._gearState,sel=st[group][kind]||"",icoMap={helmet:"&#129686;",jacket:"&#129509;",gloves:"&#129508;",pants:"&#128086;",boots:"&#129406;"},lbl=MG.t("rez.gear.label."+kind),pick=sel||MG.t("rez.gear.sizeChoose");
     var chips=gsizes(kind).map(function(sz){return '<button type="button" class="size-chip'+(sz===sel?" active":"")+'" data-gsize="'+esc(sz)+'">'+esc(sz)+'</button>'}).join("");
     return '<div class="size-row"><div class="size-row-head"><span class="size-ico">'+icoMap[kind]+'</span><span class="size-lbl">'+esc(lbl)+'</span><span class="size-pick" data-empty="'+(sel?"0":"1")+'">'+esc(pick)+'</span></div><div class="size-chips" data-ggroup="'+group+'" data-gkind="'+kind+'">'+chips+'</div></div>';
   }
