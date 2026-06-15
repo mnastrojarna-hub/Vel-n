@@ -164,7 +164,7 @@ final licenseValidationProvider = Provider<String?>((ref) {
 
   return BookingValidator.checkLicense(
     userLicenseGroups: userGroups,
-    motoLicense: moto.licenseRequired,
+    motoLicenseGroups: moto.licenseGroupsOrFallback,
   );
 });
 

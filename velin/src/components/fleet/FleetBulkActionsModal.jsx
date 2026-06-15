@@ -12,7 +12,9 @@ const CATEGORIES = [
   { value: 'naked', label: 'Naked' },
   { value: 'supermoto', label: 'Supermoto' },
   { value: 'chopper', label: 'Chopper' },
+  { value: 'scootery', label: 'Skútry' },
   { value: 'detske', label: 'Dětské' },
+  { value: 'ostatni', label: 'Ostatní (přívěs…)' },
 ]
 
 export default function FleetBulkActionsModal({ open, onClose, selectedMotos, onUpdated }) {

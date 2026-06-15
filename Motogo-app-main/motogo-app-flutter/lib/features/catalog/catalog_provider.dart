@@ -112,12 +112,21 @@ class CatalogFilter {
       if (category != null && m.category != category) return false;
 
       if (licenseGroup != null) {
-        final rp = m.licenseRequired ?? '';
-        if (licenseGroup == 'A2') {
-          if (!['A2', 'A1', 'AM', 'N'].contains(rp)) return false;
-        } else if (rp != licenseGroup) {
-          return false;
-        }
+        // Coverage: které skupiny ŘP motorky držitel zvolené skupiny "splní".
+        // OR-match proti poli license_groups (fallback license_required).
+        // 'N' (bez ŘP) je ve všech sadách → dětské/bez-ŘP vidí každý.
+        const coverage = <String, List<String>>{
+          'A': ['A', 'A2', 'A1', 'AM', 'N'],
+          'A2': ['A2', 'A1', 'AM', 'N'],
+          'A1': ['A1', 'AM', 'N'],
+          'AM': ['AM', 'N'],
+          'B': ['B', 'N'],
+          'N': ['N'],
+        };
+        final covered = coverage[licenseGroup] ?? [licenseGroup!];
+        final motoGroups = m.licenseGroupsOrFallback;
+        if (motoGroups.isEmpty) return false;
+        if (!motoGroups.any(covered.contains)) return false;
       }
 
       if (maxPowerKw != null && (m.powerKw ?? 0) > maxPowerKw!) return false;
@@ -188,14 +197,18 @@ class MotoCategory {
   static const naked = 'naked';
   static const chopper = 'chopper';
   static const supermoto = 'supermoto';
+  static const scootery = 'scootery';
+  static const ostatni = 'ostatni';
 
   static const labels = <String?, String>{
     null: 'Vše',
     'cestovni': 'Cestovní / Enduro',
-    'detske': 'Dětské',
     'sportovni': 'Sportovní',
     'naked': 'Naked',
     'chopper': 'Chopper',
     'supermoto': 'Supermoto',
+    'scootery': 'Skútry',
+    'detske': 'Dětské',
+    'ostatni': 'Ostatní',
   };
 }

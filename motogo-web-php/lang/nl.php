@@ -33,6 +33,8 @@ return [
     'menu.catalog.kids' => 'Kindermotorfietsen',
     'menu.catalog.sport' => 'Sportmotoren',
     'menu.catalog.chopper' => 'Chopper / cruiser',
+    'menu.catalog.scooters' => 'Scooters',
+    'menu.catalog.other' => 'Overig (aanhangers…)',
     'menu.howto' => 'Hoe een motor huren',
     'menu.howto.process' => 'Huurproces',
     'menu.howto.pickup' => 'Ophalen bij verhuur',
@@ -1379,5 +1381,7 @@ return [
     'category.naked' => 'Naked',
     'category.supermoto' => 'Supermoto',
     'category.chopper' => 'Chopper',
+    'category.scootery' => 'Scooters',
     'category.detske' => 'Kinder',
+    'category.ostatni' => 'Overig',
 ];

@@ -37,6 +37,8 @@ return [
     'menu.catalog.kids' => 'Dětské motorky',
     'menu.catalog.sport' => 'Sportovní motorky',
     'menu.catalog.chopper' => 'Chopper / cruiser',
+    'menu.catalog.scooters' => 'Skútry',
+    'menu.catalog.other' => 'Ostatní (přívěsy…)',
     'menu.howto' => 'Navigace',
     'menu.howto.process' => 'Postup půjčení motorky',
     'menu.howto.pickup' => 'Převzetí v půjčovně',
@@ -1453,5 +1455,7 @@ return [
     'category.naked' => 'Naked',
     'category.supermoto' => 'Supermoto',
     'category.chopper' => 'Chopper',
+    'category.scootery' => 'Skútry',
     'category.detske' => 'Dětské',
+    'category.ostatni' => 'Ostatní',
 ];

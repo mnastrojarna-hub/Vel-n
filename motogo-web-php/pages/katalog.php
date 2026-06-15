@@ -42,9 +42,15 @@ if ($path === '/katalog/cestovni') {
 } elseif ($path === '/katalog/chopper') {
     $category = 'chopper';
     $title = t('menu.catalog.chopper');
+} elseif ($path === '/katalog/scootery') {
+    $category = 'scootery';
+    $title = t('menu.catalog.scooters');
 } elseif ($path === '/katalog/detske') {
     $category = 'detske';
     $title = t('menu.catalog.kids');
+} elseif ($path === '/katalog/ostatni') {
+    $category = 'ostatni';
+    $title = t('menu.catalog.other');
 }
 
 // CMS overlay (Velín) — editovatelné texty hlavičky katalogu
@@ -91,6 +97,16 @@ $categoryOutros = [
         'title' => 'Sportovní motorky — adrenalin a výkon pro zkušené jezdce',
         'body1' => 'Sportovní (supersport) motorky jsou určené pro <strong>zkušené jezdce</strong>, kteří hledají vysoký výkon, ostrou geometrii a sportovní posed. Hodí se na okruh, klikaté silnice a víkendové výlety po hezkých moravských a vysočinských trasách.',
         'body2' => 'Vyžadujeme řidičské oprávnění A a minimálně 2 roky praxe na motorce nad 35 kW. Půjčujeme bez kauce, kompletní výbavu řidiče máte v ceně. Před vyzvednutím vám vysvětlíme specifika jízdy se sportovní motorkou a doporučíme bezpečnostní postupy.',
+    ],
+    'scootery' => [
+        'title' => 'Skútry k pronájmu — pohodlná jízda městem na ŘP A1 i B',
+        'body1' => 'Skútry jsou ideální volbou pro <strong>pohodlnou a nenáročnou jízdu městem</strong> — automatická převodovka, nízký posed a úložný prostor pod sedlem. Část naší nabídky skútrů zvládnete i s řidičským oprávněním <strong>skupiny B</strong> (řidičák na auto), zbytek na <strong>A1</strong>. Konkrétní skupinu ŘP vždy najdete v detailu každého stroje.',
+        'body2' => 'Půjčujeme bez kauce a výbavu pro řidiče (helma, rukavice) máte v ceně. Skútr je skvělý na dojíždění, výlety po okolí i jako první seznámení s jednostopým vozidlem. Při vyzvednutí vám vysvětlíme ovládání a specifika jízdy.',
+    ],
+    'ostatni' => [
+        'title' => 'Přívěsy na motorky a další vybavení k pronájmu',
+        'body1' => 'V kategorii Ostatní najdete <strong>přívěsy na přepravu motorek</strong> a další doplňkové vybavení k zapůjčení. Přívěs na motorku oceníte při převozu stroje na okruh, dovolenou nebo do servisu. K tažení přívěsu stačí běžné řidičské oprávnění <strong>skupiny B</strong> (dle hmotnosti soupravy).',
+        'body2' => 'Půjčujeme bez kauce a rádi poradíme s výběrem i správným naložením a zajištěním motorky. Konkrétní parametry (nosnost, rozměry, požadovaná skupina ŘP) najdete v detailu každé položky. Termín a místo vyzvednutí si domluvíte přímo při rezervaci.',
     ],
 ];
 // Aplikuj per-kategorie outro pokud existuje, jinak default
@@ -187,18 +203,22 @@ if ($category) {
             return strpos($cat, 'supermoto') !== false || strpos($cat, 'super moto') !== false || strpos($cat, 'super-moto') !== false || strpos($cat, 'motard') !== false || $cat === 'sm';
         } elseif ($fc === 'chopper') {
             return strpos($cat, 'chopper') !== false || strpos($cat, 'cruiser') !== false || strpos($cat, 'bobber') !== false;
+        } elseif ($fc === 'scootery') {
+            return strpos($cat, 'scoot') !== false || strpos($cat, 'skut') !== false || strpos($cat, 'skút') !== false || strpos($cat, 'moped') !== false;
         } elseif ($fc === 'detske') {
             return strpos($cat, 'dets') !== false || strpos($cat, 'dět') !== false || (isset($m['license_required']) && strtoupper($m['license_required']) === 'N');
+        } elseif ($fc === 'ostatni') {
+            return strpos($cat, 'ostatn') !== false || strpos($cat, 'přívěs') !== false || strpos($cat, 'privs') !== false || strpos($cat, 'přív') !== false || strpos($cat, 'trailer') !== false || strpos($cat, 'other') !== false;
         }
         return $cat === $fc;
     });
 }
 if ($getLic) {
-    $filtered = array_filter($filtered, function ($m) use ($getLic) {
-        // Defensive cast — license_required by mělo být string, ale když ne, ošetříme.
-        $lic = $m['license_required'] ?? '';
-        if (is_array($lic) || is_object($lic)) return false;
-        return (string)$lic === (string)$getLic;
+    $wantLic = strtoupper(trim((string)$getLic));
+    $filtered = array_filter($filtered, function ($m) use ($wantLic) {
+        // OR-match: motorka projde, pokud přijímanou skupinu obsahuje v poli
+        // license_groups (fallback na legacy license_required řeší helper).
+        return in_array($wantLic, motoLicenseGroups($m), true);
     });
 }
 if ($getKwMin > $kwBoundMin || $getKwMax < $kwBoundMax) {
@@ -301,13 +321,22 @@ $fixedCats = [
     'naked'     => t('menu.catalog.naked'),
     'supermoto' => t('menu.catalog.supermoto'),
     'chopper'   => t('menu.catalog.chopper'),
+    'scootery'  => t('menu.catalog.scooters'),
     'detske'    => t('menu.catalog.kids'),
+    'ostatni'   => t('menu.catalog.other'),
 ];
+// Skupiny ŘP do filtru — sbíráme ze všech přijímaných skupin (license_groups),
+// aby se A1 i B nabídly i u skútrů/přívěsů, ne jen z legacy license_required.
 $lics = [];
 foreach ($motos as $m) {
-    if (!empty($m['license_required'])) $lics[$m['license_required']] = true;
+    foreach (motoLicenseGroups($m) as $g) { $lics[$g] = true; }
 }
-ksort($lics);
+// Pevné pořadí: AM, A1, A2, A, B, N (zbytek abecedně za nimi).
+$licOrder = ['AM' => 0, 'A1' => 1, 'A2' => 2, 'A' => 3, 'B' => 4, 'N' => 5];
+uksort($lics, function ($a, $b) use ($licOrder) {
+    $ra = $licOrder[$a] ?? 99; $rb = $licOrder[$b] ?? 99;
+    return $ra === $rb ? strcmp($a, $b) : $ra - $rb;
+});
 
 $activeCat = $category ?: '';
 $activeLic = $getLic ?: '';
@@ -482,7 +511,9 @@ $catDescriptions = [
     'naked'     => 'Půjčovna naked motorek na Vysočině. Sportovně-cestovní stroje pro každodenní jízdu. Bez kauce, výbava v ceně, online rezervace.',
     'supermoto' => 'Půjčovna supermoto motorek na Vysočině. Lehké městské stroje s vysokým posedem. Bez kauce, výbava v ceně, online rezervace.',
     'chopper'   => 'Půjčovna chopper a cruiser motorek na Vysočině. Pohodlné stroje na klidnou jízdu. Bez kauce, výbava v ceně, online rezervace.',
+    'scootery'  => 'Půjčovna skútrů na Vysočině. Skútry na ŘP A1 i B pro pohodlnou jízdu městem. Bez kauce, výbava v ceně, online rezervace.',
     'detske'    => 'Půjčovna dětských elektromotorek bez ŘP. Bezpečná zábava na zahradě i tábořištích. Doručení po ČR, online rezervace.',
+    'ostatni'   => 'Půjčovna přívěsů na motorky a dalšího vybavení na Vysočině. Přívěs na ŘP B. Bez kauce, online rezervace.',
 ];
 $catDesc = $category && isset($catDescriptions[$category]) ? $catDescriptions[$category] : t('katalog.seo.description');
 
