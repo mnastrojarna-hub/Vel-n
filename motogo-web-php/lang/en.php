@@ -36,6 +36,8 @@ return [
     'menu.catalog.kids' => 'Kids\' motorcycles',
     'menu.catalog.sport' => 'Sport motorcycles',
     'menu.catalog.chopper' => 'Chopper / cruiser',
+    'menu.catalog.scooters' => 'Scooters',
+    'menu.catalog.other' => 'Other (trailers…)',
     'menu.howto' => 'How to rent a motorcycle',
     'menu.howto.process' => 'Rental process',
     'menu.howto.pickup' => 'Pickup at the rental',
@@ -1424,5 +1426,7 @@ return [
     'category.naked' => 'Naked',
     'category.supermoto' => 'Supermoto',
     'category.chopper' => 'Chopper',
+    'category.scootery' => 'Scooters',
     'category.detske' => 'Kids',
+    'category.ostatni' => 'Other',
 ];

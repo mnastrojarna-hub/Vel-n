@@ -73,7 +73,7 @@ export default function FleetDetail() {
       // Brzdy / hmotnost / rozměry / komfort
       brake_type, has_abs, has_asc, weight_kg, seat_height_mm, seats_count,
       // Oprávnění + délka pronájmu
-      license_required, min_rental_days, max_rental_days,
+      license_required, license_groups, min_rental_days, max_rental_days,
       // Texty (auto-překládají se po uložení)
       description, features,
       // Výběr parametrů do krátkého popisu na webu
@@ -108,6 +108,9 @@ export default function FleetDetail() {
       seat_height_mm: seat_height_mm || null,
       seats_count: toInt(seats_count),
       license_required: license_required || null,
+      license_groups: Array.isArray(license_groups)
+        ? license_groups.map(x => String(x).toUpperCase()).filter(Boolean)
+        : (license_required ? [String(license_required).toUpperCase()] : []),
       min_rental_days: toInt(min_rental_days),
       max_rental_days: toInt(max_rental_days),
       description,

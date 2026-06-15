@@ -450,7 +450,15 @@ switch (true) {
         require __DIR__ . '/pages/katalog.php';
         break;
 
+    case $path === '/katalog/scootery':
+        require __DIR__ . '/pages/katalog.php';
+        break;
+
     case $path === '/katalog/detske':
+        require __DIR__ . '/pages/katalog.php';
+        break;
+
+    case $path === '/katalog/ostatni':
         require __DIR__ . '/pages/katalog.php';
         break;
 

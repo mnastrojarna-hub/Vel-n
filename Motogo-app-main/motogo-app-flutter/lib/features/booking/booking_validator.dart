@@ -3,43 +3,47 @@ import '../reservations/reservation_models.dart';
 
 /// Booking validation — license compatibility + overlap prevention.
 class BookingValidator {
-  /// License hierarchy: which categories does a given license cover?
-  /// A covers A, A2, A1, AM; A2 covers A2, A1, AM; etc.
+  /// License hierarchy: which vehicle groups does a given held license satisfy?
+  /// A covers A, A2, A1, AM; A2 covers A2, A1, AM; B covers B (skútr/přívěs)
+  /// + AM (mopedy). Vícenásobné skupiny vozidla = OR (stačí kterákoliv).
   static const _licenseCoverage = <String, List<String>>{
     'A': ['A', 'A2', 'A1', 'AM'],
     'A2': ['A2', 'A1', 'AM'],
     'A1': ['A1', 'AM'],
     'AM': ['AM'],
-    'B': ['AM'],
+    'B': ['B', 'AM'],
   };
 
-  /// Check if user's license groups allow riding a motorcycle
-  /// that requires [motoLicense].
+  /// Check if user's license groups allow riding a vehicle that accepts any of
+  /// [motoLicenseGroups] (OR — stačí kterákoliv). Prázdné nebo 'N' = bez ŘP.
   /// Returns null if OK, or error message string.
   static String? checkLicense({
     required List<String> userLicenseGroups,
-    required String? motoLicense,
+    required List<String> motoLicenseGroups,
   }) {
-    // N = no license required (children's bikes) — anyone can ride
-    if (motoLicense == null || motoLicense == 'N') return null;
+    final required = motoLicenseGroups
+        .map((e) => e.toUpperCase())
+        .where((e) => e.isNotEmpty)
+        .toList();
+    // Žádné požadované skupiny, nebo bez ŘP ('N') → smí každý.
+    if (required.isEmpty || required.contains('N')) return null;
 
     if (userLicenseGroups.isEmpty) {
       return (translations['cs']?['validationNoLicense'] ?? '')
-          .replaceAll('{license}', motoLicense);
+          .replaceAll('{license}', required.join(' / '));
     }
 
-    // Check if any of user's license groups covers the required category
+    // OR: stačí, aby kterákoliv držená skupina pokryla kteroukoliv požadovanou.
     for (final group in userLicenseGroups) {
       final covers = _licenseCoverage[group.toUpperCase()];
-      if (covers != null && covers.contains(motoLicense.toUpperCase())) {
-        return null; // user has sufficient license
-      }
+      if (covers == null) continue;
+      if (required.any(covers.contains)) return null;
     }
 
     final userGroups = userLicenseGroups.join(', ');
     return (translations['cs']?['validationInsufficientLicense'] ?? '')
         .replaceAll('{groups}', userGroups)
-        .replaceAll('{license}', motoLicense);
+        .replaceAll('{license}', required.join(' / '));
   }
 
   /// Check if the user already has an active/upcoming non-children's

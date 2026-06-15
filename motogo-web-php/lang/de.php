@@ -36,6 +36,8 @@ return [
     'menu.catalog.kids' => 'Kindermotorräder',
     'menu.catalog.sport' => 'Sportmotorräder',
     'menu.catalog.chopper' => 'Chopper / Cruiser',
+    'menu.catalog.scooters' => 'Roller',
+    'menu.catalog.other' => 'Sonstiges (Anhänger…)',
     'menu.howto' => 'Wie miete ich ein Motorrad',
     'menu.howto.process' => 'Mietvorgang',
     'menu.howto.pickup' => 'Übernahme in der Vermietung',
@@ -1414,5 +1416,7 @@ return [
     'category.naked' => 'Naked',
     'category.supermoto' => 'Supermoto',
     'category.chopper' => 'Chopper',
+    'category.scootery' => 'Roller',
     'category.detske' => 'Kinder',
+    'category.ostatni' => 'Sonstiges',
 ];

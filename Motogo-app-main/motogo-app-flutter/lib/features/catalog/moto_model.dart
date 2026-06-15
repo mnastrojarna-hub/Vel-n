@@ -6,7 +6,12 @@ class Motorcycle {
   final String? brand;
   final String? spz;
   final String? category;
-  final String? licenseRequired; // A, A2, A1, AM, B, N
+  final String? licenseRequired; // A, A2, A1, AM, B, N (legacy single — primární hodnota)
+
+  /// Skupiny ŘP přijímané motorkou (motorcycles.license_groups, text[]).
+  /// OR-sémantika — stačí, aby zákazník měl kteroukoliv. Prázdné → fallback
+  /// na [licenseRequired] (viz [licenseGroupsOrFallback]).
+  final List<String> licenseGroups;
   final int? powerKw;
   final int? powerHp;
   final int? engineCc;
@@ -63,6 +68,7 @@ class Motorcycle {
     this.spz,
     this.category,
     this.licenseRequired,
+    this.licenseGroups = const [],
     this.powerKw,
     this.powerHp,
     this.engineCc,
@@ -116,6 +122,10 @@ class Motorcycle {
       spz: json['spz'] as String?,
       category: json['category'] as String?,
       licenseRequired: json['license_required'] as String?,
+      licenseGroups: _parseStringList(json['license_groups'])
+          .map((e) => e.toUpperCase())
+          .where((e) => e.isNotEmpty)
+          .toList(),
       powerKw: (json['power_kw'] as num?)?.toInt(),
       powerHp: (json['power_hp'] as num?)?.toInt(),
       engineCc: (json['engine_cc'] as num?)?.toInt(),
@@ -161,7 +171,8 @@ class Motorcycle {
   /// Returns a copy with [availableToday] set.
   Motorcycle withAvailableToday(bool value) => Motorcycle(
     id: id, model: model, brand: brand, spz: spz, category: category,
-    licenseRequired: licenseRequired, powerKw: powerKw, powerHp: powerHp,
+    licenseRequired: licenseRequired, licenseGroups: licenseGroups,
+    powerKw: powerKw, powerHp: powerHp,
     engineCc: engineCc, engineType: engineType, transmission: transmission,
     drivetrain: drivetrain, torqueNm: torqueNm,
     weightKg: weightKg, fuelTankL: fuelTankL,
@@ -183,6 +194,14 @@ class Motorcycle {
   /// Primary display image — first from images[], fallback to image_url.
   String get displayImage =>
       images.isNotEmpty ? images.first : (imageUrl ?? '');
+
+  /// Skupiny ŘP přijímané motorkou (uppercase). Primárně [licenseGroups],
+  /// fallback na legacy [licenseRequired]. OR-sémantika.
+  List<String> get licenseGroupsOrFallback {
+    if (licenseGroups.isNotEmpty) return licenseGroups;
+    final lr = (licenseRequired ?? '').toUpperCase();
+    return lr.isEmpty ? const [] : [lr];
+  }
 
   /// Active manual link — uploaded PDF takes precedence over external URL.
   String? get activeManualUrl =>
@@ -281,7 +300,13 @@ class Motorcycle {
         case 'has_asc':
           if (hasAsc == true) it = ShortDescItem(tr('sdAsc'), tr('specYes'), 'ASC');
         case 'license_required':
-          if (licenseRequired != null && licenseRequired!.isNotEmpty) it = ShortDescItem(tr('specLicenseCategory'), licenseRequired!, licenseRequired!);
+          final lg = licenseGroupsOrFallback;
+          if (lg.isNotEmpty) {
+            final shown = lg.length == 1 && lg.first == 'N'
+                ? 'N'
+                : lg.where((g) => g != 'N').join(' / ');
+            if (shown.isNotEmpty) it = ShortDescItem(tr('specLicenseCategory'), shown, shown);
+          }
         case 'year':
           if (year != null) { final v = '$year'; it = ShortDescItem(tr('sdYear'), v, v); }
         case 'color':
@@ -348,7 +373,11 @@ class Motorcycle {
     if (weightKg != null) list.add(MapEntry('Hmotnost', '$weightKg kg'));
     if (fuelTankL != null) list.add(MapEntry('Nádrž', '$fuelTankL L'));
     if (seatHeightMm != null) list.add(MapEntry('Sedlo', '$seatHeightMm mm'));
-    if (licenseRequired != null) list.add(MapEntry('ŘP kategorie', licenseRequired!));
+    if (licenseGroupsOrFallback.isNotEmpty) {
+      final lg = licenseGroupsOrFallback;
+      final shown = lg.length == 1 && lg.first == 'N' ? 'N' : lg.where((g) => g != 'N').join(' / ');
+      if (shown.isNotEmpty) list.add(MapEntry('ŘP kategorie', shown));
+    }
     if (hasAbs != null) list.add(MapEntry('ABS / ASC', '${hasAbs! ? "Ano" : "Ne"} / ${hasAsc == true ? "Ano" : "Ne"}'));
     return list;
   }

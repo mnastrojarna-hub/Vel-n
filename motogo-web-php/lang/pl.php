@@ -33,6 +33,8 @@ return [
     'menu.catalog.kids' => 'Motocykle dla dzieci',
     'menu.catalog.sport' => 'Motocykle sportowe',
     'menu.catalog.chopper' => 'Chopper / cruiser',
+    'menu.catalog.scooters' => 'Skutery',
+    'menu.catalog.other' => 'Inne (przyczepy…)',
     'menu.howto' => 'Jak wypożyczyć motocykl',
     'menu.howto.process' => 'Proces wypożyczenia',
     'menu.howto.pickup' => 'Odbiór w wypożyczalni',
@@ -1379,5 +1381,7 @@ return [
     'category.naked' => 'Naked',
     'category.supermoto' => 'Supermoto',
     'category.chopper' => 'Chopper',
+    'category.scootery' => 'Skutery',
     'category.detske' => 'Dziecięce',
+    'category.ostatni' => 'Inne',
 ];

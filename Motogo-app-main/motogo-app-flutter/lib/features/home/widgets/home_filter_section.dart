@@ -147,6 +147,14 @@ class HomeFilterSection extends ConsumerWidget {
                       filter.copyWith(licenseGroup: () => null),
                 ),
                 LicenseChip(
+                  label: t(context).tr('homeFilterLicenseA1'),
+                  active: filter.licenseGroup == 'A1',
+                  onTap: () => ref.read(catalogFilterProvider.notifier).state =
+                      filter.copyWith(
+                        licenseGroup: () => filter.licenseGroup == 'A1' ? null : 'A1',
+                      ),
+                ),
+                LicenseChip(
                   label: t(context).tr('homeFilterLicenseA2'),
                   active: filter.licenseGroup == 'A2',
                   onTap: () => ref.read(catalogFilterProvider.notifier).state =
@@ -160,6 +168,14 @@ class HomeFilterSection extends ConsumerWidget {
                   onTap: () => ref.read(catalogFilterProvider.notifier).state =
                       filter.copyWith(
                         licenseGroup: () => filter.licenseGroup == 'A' ? null : 'A',
+                      ),
+                ),
+                LicenseChip(
+                  label: t(context).tr('homeFilterLicenseB'),
+                  active: filter.licenseGroup == 'B',
+                  onTap: () => ref.read(catalogFilterProvider.notifier).state =
+                      filter.copyWith(
+                        licenseGroup: () => filter.licenseGroup == 'B' ? null : 'B',
                       ),
                 ),
                 LicenseChip(

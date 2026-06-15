@@ -9,6 +9,22 @@ import { seasonDaysBetween, SEASON_MONTHS, ServiceScheduleCard, SOSIncidentsCard
 import { PhotoGallery } from './FleetDetailPhotos'
 import RichTextEditor from '../components/ui/RichTextEditor'
 
+// Skupiny ŘP, které lze přiřadit vozidlu (OR — stačí, aby zákazník měl kteroukoliv).
+// 'N' = bez ŘP (dětské). Vícenásobný výběr: skútr může být A1 i B, přívěs B atd.
+const LICENSE_GROUP_OPTIONS = ['AM', 'A1', 'A2', 'A', 'B', 'N']
+
+// Z pole skupin odvodí jednu kanonickou hodnotu pro legacy `license_required`
+// (dětská logika 'N', door codes, AI agenti, smlouvy čtou jen jednu hodnotu).
+// 'N' má přednost; jinak nejnižší moto rank (nejtolerantnější pro stávající hierarchii); jinak B.
+function derivePrimaryLicense(groups) {
+  const g = (Array.isArray(groups) ? groups : []).map(x => String(x).toUpperCase())
+  if (!g.length) return ''
+  if (g.includes('N')) return 'N'
+  for (const x of ['AM', 'A1', 'A2', 'A']) if (g.includes(x)) return x
+  if (g.includes('B')) return 'B'
+  return g[0]
+}
+
 // Parametry, které lze zobrazit v "Krátkém popisu" na detailu motorky na webu.
 // Klíče odpovídají větvím switch() v motogo-web-php/pages/katalog-detail.php.
 const SHORT_DESC_FIELDS = [
@@ -175,7 +191,9 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
               <option value="naked">Naked</option>
               <option value="supermoto">Supermoto</option>
               <option value="chopper">Chopper</option>
+              <option value="scootery">Skútry</option>
               <option value="detske">Dětské</option>
+              <option value="ostatni">Ostatní (přívěs…)</option>
             </select>
           </div>
           <Field label="Rok výroby" value={moto.year} onChange={v => set('year', v)} type="number" />
@@ -239,15 +257,37 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
           <Field label="Min. délka pronájmu (dní)" value={moto.min_rental_days} onChange={v => set('min_rental_days', v)} type="number" placeholder="např. 2" />
           <Field label="Max. délka pronájmu (dní)" value={moto.max_rental_days} onChange={v => set('max_rental_days', v)} type="number" placeholder="např. 30 (prázdné = neomezeno)" />
           <div>
-            <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>ŘP kategorie</label>
-            <select value={moto.license_required || ''} onChange={e => set('license_required', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }}>
-              <option value="">—</option>
-              <option value="A">A</option>
-              <option value="A2">A2</option>
-              <option value="A1">A1</option>
-              <option value="AM">AM</option>
-              <option value="N">N – nevyžaduje</option>
-            </select>
+            <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>ŘP skupiny (lze vybrat více)</label>
+            {(() => {
+              // Aktuální skupiny: nový sloupec license_groups, fallback na legacy license_required.
+              const current = Array.isArray(moto.license_groups) && moto.license_groups.length
+                ? moto.license_groups.map(x => String(x).toUpperCase())
+                : (moto.license_required ? [String(moto.license_required).toUpperCase()] : [])
+              const toggle = (g) => {
+                const has = current.includes(g)
+                let next = has ? current.filter(x => x !== g) : [...current, g]
+                // 'N' (dětské/bez ŘP) je výlučné — nelze kombinovat s jinou skupinou.
+                if (!has && g === 'N') next = ['N']
+                else if (!has && g !== 'N') next = next.filter(x => x !== 'N')
+                set('license_groups', next)
+                set('license_required', derivePrimaryLicense(next))
+              }
+              return (
+                <div className="flex flex-wrap gap-2">
+                  {LICENSE_GROUP_OPTIONS.map(g => {
+                    const active = current.includes(g)
+                    return (
+                      <button key={g} type="button" onClick={() => toggle(g)}
+                        className="text-sm font-extrabold uppercase cursor-pointer rounded-btn"
+                        style={{ padding: '7px 14px', border: '1px solid #d4e8e0', background: active ? '#74FB71' : '#f1faf7', color: '#1a2e22' }}>
+                        {g === 'N' ? 'N – bez ŘP' : g}
+                      </button>
+                    )
+                  })}
+                </div>
+              )
+            })()}
+            <p className="text-xs mt-1" style={{ color: '#5b7065' }}>Web i appka motorku zobrazí každému, kdo má alespoň jednu z vybraných skupin. Např. skútr: A1 + B, přívěs: B.</p>
           </div>
           <div className="flex items-center gap-6">
             <label className="flex items-center gap-2 cursor-pointer">

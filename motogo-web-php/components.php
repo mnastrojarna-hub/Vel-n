@@ -417,6 +417,28 @@ function categoryLabel($key) {
 }
 
 /**
+ * Skupiny ŘP přijímané motorkou (OR — stačí, aby zákazník měl kteroukoliv).
+ * Primárně sloupec `license_groups` (text[]), fallback na legacy single
+ * `license_required`. Vrací pole uppercase stringů (např. ['A1','B']).
+ */
+function motoLicenseGroups($m) {
+    if (!is_array($m)) return [];
+    $g = $m['license_groups'] ?? null;
+    if (is_array($g)) {
+        $out = [];
+        foreach ($g as $x) {
+            $s = strtoupper(trim(safeStr($x)));
+            if ($s !== '') $out[] = $s;
+        }
+        if ($out) return array_values(array_unique($out));
+    }
+    $lic = $m['license_required'] ?? '';
+    if (is_array($lic) || is_object($lic)) return [];
+    $lic = strtoupper(trim((string)$lic));
+    return $lic !== '' ? [$lic] : [];
+}
+
+/**
  * Položky "Základní údaje" (krátký popis) na detailu motorky a kartě v katalogu.
  * Vrací pole asociativních polí: ['key','label','value','card'] — kde `card`
  * je kompaktní hodnota bez popisku pro karty motorek.
@@ -498,7 +520,13 @@ function buildShortDescItems($m) {
                 if (!empty($m['has_asc'])) $item = [te('detail.specAsc'), te('detail.specYes'), 'ASC'];
                 break;
             case 'license_required':
-                if (!empty($m['license_required'])) { $v = he($m['license_required']); $item = [te('detail.specLicense'), $v, $v]; }
+                $lg = motoLicenseGroups($m);
+                if ($lg) {
+                    // Bez ŘP (dětské / 'N') vs. konkrétní skupiny (víc skupin = "A1 / B").
+                    if (count($lg) === 1 && $lg[0] === 'N') { $v = he(t('filters.licenseNone')); }
+                    else { $v = he(implode(' / ', array_filter($lg, function ($x) { return $x !== 'N'; }))); }
+                    if ($v !== '') $item = [te('detail.specLicense'), $v, $v];
+                }
                 break;
             case 'year':
                 if (!empty($m['year'])) { $v = he($m['year']); $item = [te('detail.specYear'), $v, $v]; }
@@ -541,6 +569,18 @@ function normalizeMoto(&$m) {
         $m['features'] = array_values(array_filter(array_map(function ($x) {
             return safeStr($x);
         }, $m['features']), function ($s) { return $s !== ''; }));
+    }
+    // license_groups je text[] (pole skupin ŘP). Necháme jako pole stringů,
+    // malformované hodnoty zahodíme; non-array → prázdné pole (fallback řeší
+    // motoLicenseGroups() přes license_required).
+    if (isset($m['license_groups'])) {
+        if (is_array($m['license_groups'])) {
+            $m['license_groups'] = array_values(array_filter(array_map(function ($x) {
+                return strtoupper(trim(safeStr($x)));
+            }, $m['license_groups']), function ($s) { return $s !== ''; }));
+        } else {
+            $m['license_groups'] = [];
+        }
     }
     if (!is_array($m['images'] ?? null)) $m['images'] = [];
     // Image entries musí být strings (URL nebo storage path)

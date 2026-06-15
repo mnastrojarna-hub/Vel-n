@@ -248,7 +248,16 @@ if (!empty($moto['has_asc'])) $specsRows[] = [t('detail.specAsc'), t('detail.spe
 if (!empty($moto['weight_kg'])) $specsRows[] = [t('detail.specWeight'), $moto['weight_kg'] . ' kg'];
 if (!empty($moto['seat_height_mm'])) $specsRows[] = [t('detail.specSeatHeight'), $moto['seat_height_mm'] . ' mm'];
 if (!empty($moto['seats_count'])) $specsRows[] = [t('detail.specSeatsCount'), $moto['seats_count']];
-if (!empty($moto['license_required'])) $specsRows[] = [t('detail.specLicense'), t('detail.specLicenseGroup', ['group' => $moto['license_required']])];
+$detailLicGroups = motoLicenseGroups($moto);
+if ($detailLicGroups) {
+    if (count($detailLicGroups) === 1 && $detailLicGroups[0] === 'N') {
+        $specsRows[] = [t('detail.specLicense'), t('filters.licenseNone')];
+    } else {
+        // Více přijímaných skupin (např. A1 / B) → spojíme; 'N' z výpisu vynecháme.
+        $nonChild = array_values(array_filter($detailLicGroups, function ($x) { return $x !== 'N'; }));
+        $specsRows[] = [t('detail.specLicense'), t('detail.specLicenseGroup', ['group' => implode(' / ', $nonChild)])];
+    }
+}
 if (!empty($moto['min_rental_days'])) $specsRows[] = [t('detail.specMinRental'), t('detail.daysUnit', ['count' => (int)$moto['min_rental_days']])];
 if (!empty($moto['max_rental_days'])) {
     $specsRows[] = [t('detail.specMaxRental'), t('detail.daysUnit', ['count' => (int)$moto['max_rental_days']])];

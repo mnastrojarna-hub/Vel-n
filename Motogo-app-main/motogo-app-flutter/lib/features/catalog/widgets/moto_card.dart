@@ -269,9 +269,9 @@ class _MotoCardState extends State<MotoCard> {
                   spacing: 8,
                   runSpacing: 6,
                   children: [
-                    if (moto.licenseRequired != null)
+                    if (moto.licenseGroupsOrFallback.isNotEmpty)
                       _SpecBadge(
-                        label: '${t(context).tr('motoCardLicensePrefix')}${moto.licenseRequired!}',
+                        label: _licenseBadgeLabel(context, moto),
                         color: MotoGoColors.greenDark,
                       ),
                     if (moto.category != null)
@@ -394,6 +394,16 @@ class _MotoCardState extends State<MotoCard> {
     ));
   }
 
+  String _licenseBadgeLabel(BuildContext context, Motorcycle moto) {
+    final groups = moto.licenseGroupsOrFallback;
+    // Bez ŘP (dětské / 'N') → samostatný štítek bez prefixu.
+    if (groups.length == 1 && groups.first == 'N') {
+      return t(context).tr('catalogNoLicense');
+    }
+    final shown = groups.where((g) => g != 'N').join(' / ');
+    return '${t(context).tr('motoCardLicensePrefix')}$shown';
+  }
+
   String _categoryLabel(BuildContext context, String cat) {
     final map = {
       'cestovni': t(context).tr('motoCardCategoryTravel'),
@@ -402,6 +412,8 @@ class _MotoCardState extends State<MotoCard> {
       'naked': t(context).tr('motoCardCategoryNaked'),
       'chopper': t(context).tr('motoCardCategoryChopper'),
       'supermoto': t(context).tr('motoCardCategorySupermoto'),
+      'scootery': t(context).tr('motoCardCategoryScooters'),
+      'ostatni': t(context).tr('motoCardCategoryOther'),
     };
     return map[cat] ?? cat;
   }
