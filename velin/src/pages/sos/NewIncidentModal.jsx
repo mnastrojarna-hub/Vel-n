@@ -108,7 +108,7 @@ export default function NewIncidentModal({ onClose, onCreated }) {
   async function chooseCustomer(c) {
     setCustomer(c); setResults([]); setQ(c.full_name || c.email || '')
     const { data } = await supabase.from('bookings')
-      .select('id, moto_id, start_date, end_date, status, payment_status, motorcycles(model, spz, branch_id, branches(name))')
+      .select('id, moto_id, start_date, end_date, status, payment_status, motorcycles!moto_id(model, spz, branch_id, branches(name))')
       .eq('user_id', c.id)
       .in('status', ['active', 'reserved'])
       .eq('payment_status', 'paid')

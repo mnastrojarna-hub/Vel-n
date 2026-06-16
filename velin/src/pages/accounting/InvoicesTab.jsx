@@ -300,7 +300,7 @@ function NewInvoiceModal({ onClose, onSaved }) {
 
   useEffect(() => {
     supabase.from('profiles').select('id, full_name').order('full_name').then(({ data }) => setCustomers(data || []))
-    supabase.from('bookings').select('id, start_date, motorcycles(model)').order('start_date', { ascending: false }).limit(50).then(({ data }) => setBookings(data || []))
+    supabase.from('bookings').select('id, start_date, motorcycles!moto_id(model)').order('start_date', { ascending: false }).limit(50).then(({ data }) => setBookings(data || []))
   }, [])
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))

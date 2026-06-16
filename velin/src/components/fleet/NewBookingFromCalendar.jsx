@@ -150,7 +150,7 @@ function NewBookingFromCalendar({ motoId, defaultDate, onClose, onSaved }) {
     try {
       if (moto?.license_required !== 'N') {
         const { data: overlapping } = await supabase.from('bookings')
-          .select('id, start_date, end_date, motorcycles(model, license_required)')
+          .select('id, start_date, end_date, motorcycles!moto_id(model, license_required)')
           .eq('user_id', selectedCustomer.id).in('status', ['pending', 'reserved', 'active'])
           .lte('start_date', isoDate(endDate)).gte('end_date', isoDate(startDate))
         const nonKids = (overlapping || []).filter(b => b.motorcycles?.license_required !== 'N')

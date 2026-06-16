@@ -41,7 +41,7 @@ export default function CreditNotesTab() {
       // Load credit notes
       let query = supabase
         .from('invoices')
-        .select('*, profiles:customer_id(full_name, email), bookings:booking_id(start_date, end_date, motorcycles(model, spz))', { count: 'exact' })
+        .select('*, profiles:customer_id(full_name, email), bookings:booking_id(start_date, end_date, motorcycles!moto_id(model, spz))', { count: 'exact' })
         .eq('type', 'credit_note')
       if (search) query = query.or(`number.ilike.%${search}%`)
       const sortField = sort.startsWith('amount') ? 'total' : 'issue_date'

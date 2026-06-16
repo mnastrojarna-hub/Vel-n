@@ -131,7 +131,7 @@ export default function ChatPanel({ thread, onThreadUpdate }) {
       if (isTechComplaint && thread?.customer_id) {
         // Najdi poslední booking zákazníka → motorku
         const { data: lastBooking } = await supabase.from('bookings')
-          .select('id, moto_id, motorcycles(model)')
+          .select('id, moto_id, motorcycles!moto_id(model)')
           .eq('user_id', thread.customer_id)
           .order('created_at', { ascending: false }).limit(1).maybeSingle()
 

@@ -33,7 +33,7 @@ export default function GlobalCalendar() {
 
     const [bRes, mRes] = await Promise.all([
       supabase.from('bookings')
-        .select('id, start_date, end_date, status, moto_id, profiles(full_name), motorcycles(model, spz), total_price')
+        .select('id, start_date, end_date, status, moto_id, profiles(full_name), motorcycles!moto_id(model, spz), total_price')
         .in('status', ['pending', 'active', 'reserved', 'completed'])
         .gte('end_date', startStr).lte('start_date', endStr),
       supabase.from('motorcycles').select('id, model, spz, branch_id, branches(name)').eq('status', 'active'),

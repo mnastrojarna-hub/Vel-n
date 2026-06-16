@@ -90,7 +90,7 @@ export default function Customers() {
       const ids = custs.map(c => c.id)
       if (!ids.length) { setStats({}); return }
       const { data: bks } = await supabase.from('bookings')
-        .select('user_id, total_price, start_date, end_date, status, booking_source, moto_id, motorcycles(model, branches(name))')
+        .select('user_id, total_price, start_date, end_date, status, booking_source, moto_id, motorcycles!moto_id(model, branches(name))')
         .in('user_id', ids.slice(0, 50))
       if (!bks) return
       const map = {}

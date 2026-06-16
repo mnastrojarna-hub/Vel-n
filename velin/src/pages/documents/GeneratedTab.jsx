@@ -317,7 +317,7 @@ function GenerateDocModal({ onClose, onGenerated }) {
       supabase.from('document_templates').select('id, name, type, content_html')
         .in('type', ['vop', 'rental_contract', 'handover_protocol']).order('type'),
       supabase.from('bookings')
-        .select('id, start_date, end_date, total_price, profiles(full_name, email, phone, street, city, zip), motorcycles(model, spz)')
+        .select('id, start_date, end_date, total_price, profiles(full_name, email, phone, street, city, zip), motorcycles!moto_id(model, spz)')
         .neq('status', 'cancelled').order('created_at', { ascending: false }).limit(30),
     ]).then(([{ data: tpls }, { data: bks }]) => {
       setTemplates(tpls || [])

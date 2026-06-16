@@ -122,7 +122,7 @@ export default function Bookings() {
       const result = await debugAction('bookings.load', 'Bookings', () => {
         let query = supabase
           .from('bookings')
-          .select('*, motorcycles(model, spz, branch_id), profiles(full_name, email, phone, country, license_group)', { count: 'exact' })
+          .select('*, motorcycles!moto_id(model, spz, branch_id), profiles(full_name, email, phone, country, license_group)', { count: 'exact' })
         if (filters.statuses.length > 0) {
           const hasUpcoming = filters.statuses.includes('upcoming')
           const dbStatuses = filters.statuses.filter(s => s !== 'upcoming')
