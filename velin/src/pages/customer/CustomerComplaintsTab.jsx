@@ -49,7 +49,7 @@ export default function CustomerComplaintsTab({ userId }) {
       if (bookingIds.length > 0) {
         const { data: bookings } = await supabase
           .from('bookings')
-          .select('id, start_date, end_date, status, total_price, motorcycles(id, model, spz)')
+          .select('id, start_date, end_date, status, total_price, motorcycles!moto_id(id, model, spz)')
           .in('id', bookingIds)
         if (bookings) bookingMap = Object.fromEntries(bookings.map(b => [b.id, b]))
       }

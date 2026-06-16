@@ -178,7 +178,7 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
     if (incident.booking_id || incident.bookings?.id) {
       const bookingId = incident.booking_id || incident.bookings?.id
       const { data: b } = await supabase.from('bookings')
-        .select('*, motorcycles(*, branches(name)), profiles(*)')
+        .select('*, motorcycles!moto_id(*, branches(name)), profiles(*)')
         .eq('id', bookingId).single()
       if (b) {
         setBooking(b)

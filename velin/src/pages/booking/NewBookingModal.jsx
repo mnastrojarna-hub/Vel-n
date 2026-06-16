@@ -164,7 +164,7 @@ export default function NewBookingModal({ onClose, onSaved }) {
     setSaving(true)
     try {
       if (selectedMoto.license_required !== 'N') {
-        const { data: overlapping } = await supabase.from('bookings').select('id, start_date, end_date, motorcycles(model, license_required)').eq('user_id', selectedCustomer.id).in('status', ['pending', 'reserved', 'active']).lte('start_date', isoDate(endDate)).gte('end_date', isoDate(startDate))
+        const { data: overlapping } = await supabase.from('bookings').select('id, start_date, end_date, motorcycles!moto_id(model, license_required)').eq('user_id', selectedCustomer.id).in('status', ['pending', 'reserved', 'active']).lte('start_date', isoDate(endDate)).gte('end_date', isoDate(startDate))
         const nonKids = (overlapping || []).filter(b => b.motorcycles?.license_required !== 'N')
         if (nonKids.length > 0) throw new Error(`Zákazník má překrývající se rezervaci: ${nonKids[0].motorcycles?.model || ''} (${nonKids[0].start_date} – ${nonKids[0].end_date})`)
       }

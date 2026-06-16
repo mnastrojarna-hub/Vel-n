@@ -76,7 +76,7 @@ export default function ResendMailTab() {
     setSelectedCustomer(c); setSelected(null); setResult(null); setError(null); setLoadingItems(true)
     try {
       const [bRes, oRes] = await Promise.all([
-        supabase.from('bookings').select('id, start_date, end_date, total_price, status, booking_source, language, motorcycles(model)').eq('user_id', c.id).order('start_date', { ascending: false }).limit(50),
+        supabase.from('bookings').select('id, start_date, end_date, total_price, status, booking_source, language, motorcycles!moto_id(model)').eq('user_id', c.id).order('start_date', { ascending: false }).limit(50),
         supabase.from('shop_orders').select('id, order_number, total, status, language, created_at').eq('customer_id', c.id).order('created_at', { ascending: false }).limit(50),
       ])
       setBookings(bRes.data || [])

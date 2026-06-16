@@ -37,7 +37,7 @@ export default function InvoiceCreateModal({ onClose, onSaved, prefillBooking })
 
   useEffect(() => {
     supabase.from('profiles').select('id, full_name, email').order('full_name').then(({ data }) => setCustomers(data || []))
-    supabase.from('bookings').select('id, start_date, end_date, total_price, contract_url, profiles(full_name, email), motorcycles(model), sos_incident_id, modification_history')
+    supabase.from('bookings').select('id, start_date, end_date, total_price, contract_url, profiles(full_name, email), motorcycles!moto_id(model), sos_incident_id, modification_history')
       .order('start_date', { ascending: false }).limit(50).then(({ data }) => setBookings(data || []))
   }, [])
 

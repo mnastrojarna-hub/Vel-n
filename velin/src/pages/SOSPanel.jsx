@@ -76,8 +76,8 @@ export default function SOSPanel() {
     }
   }
 
-  const SOS_SELECT = '*, profiles(full_name, phone, email), bookings(id, moto_id, start_date, end_date, status, motorcycles(model, spz, branch_id, branches(name)))'
-  const SOS_SELECT_MOTO = '*, profiles(full_name, phone, email), motorcycles!sos_incidents_moto_id_fkey(model, spz, vin, branch_id, mileage, branches(name)), bookings(id, moto_id, start_date, end_date, status, motorcycles(model, spz, branch_id, branches(name)))'
+  const SOS_SELECT = '*, profiles(full_name, phone, email), bookings(id, moto_id, start_date, end_date, status, motorcycles!moto_id(model, spz, branch_id, branches(name)))'
+  const SOS_SELECT_MOTO = '*, profiles(full_name, phone, email), motorcycles!sos_incidents_moto_id_fkey(model, spz, vin, branch_id, mileage, branches(name)), bookings(id, moto_id, start_date, end_date, status, motorcycles!moto_id(model, spz, branch_id, branches(name)))'
 
   async function load() {
     setLoading(true)

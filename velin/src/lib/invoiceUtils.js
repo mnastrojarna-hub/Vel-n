@@ -218,7 +218,7 @@ export async function createInvoice({ type, customer_id, booking_id, order_id, i
 export async function generateAdvanceInvoice(bookingId, source = 'booking', payment = null) {
   const { data: booking, error: bErr } = await supabase
     .from('bookings')
-    .select(`*, motorcycles(${MOTO_SELECT}), profiles:user_id(id, full_name, email)`)
+    .select(`*, motorcycles!moto_id(${MOTO_SELECT}), profiles:user_id(id, full_name, email)`)
     .eq('id', bookingId).single()
   if (bErr || !booking) throw new Error(bErr?.message || 'Booking not found')
 
@@ -243,7 +243,7 @@ export async function generateAdvanceInvoice(bookingId, source = 'booking', paym
 export async function generatePaymentReceipt(bookingId, source = 'booking', payment = null) {
   const { data: booking, error: bErr } = await supabase
     .from('bookings')
-    .select(`*, motorcycles(${MOTO_SELECT}, branch_id), profiles:user_id(id, full_name, email)`)
+    .select(`*, motorcycles!moto_id(${MOTO_SELECT}, branch_id), profiles:user_id(id, full_name, email)`)
     .eq('id', bookingId).single()
   if (bErr || !booking) throw new Error(bErr?.message || 'Booking not found')
 
@@ -336,7 +336,7 @@ export async function generateFinalInvoice(bookingId) {
 
   const { data: booking, error: bErr } = await supabase
     .from('bookings')
-    .select(`*, motorcycles(${MOTO_SELECT}), profiles:user_id(id, full_name, email)`)
+    .select(`*, motorcycles!moto_id(${MOTO_SELECT}), profiles:user_id(id, full_name, email)`)
     .eq('id', bookingId).single()
   if (bErr || !booking) throw new Error(bErr?.message || 'Booking not found')
 
@@ -424,7 +424,7 @@ export async function storeInvoicePdf(invoiceId, html) {
 export async function generateCreditNote(bookingId, { refundAmount, refundPercent, reason, stripeRefundId, originalInvoiceId } = {}) {
   const { data: booking, error: bErr } = await supabase
     .from('bookings')
-    .select(`*, motorcycles(${MOTO_SELECT}), profiles:user_id(id, full_name, email)`)
+    .select(`*, motorcycles!moto_id(${MOTO_SELECT}), profiles:user_id(id, full_name, email)`)
     .eq('id', bookingId).single()
   if (bErr || !booking) throw new Error(bErr?.message || 'Booking not found')
 
@@ -523,7 +523,7 @@ export function invoiceCustomer(data) {
 export async function loadInvoiceData(invoiceId) {
   const { data, error } = await supabase
     .from('invoices')
-    .select('*, profiles:customer_id(full_name, email, phone, street, city, zip, country, ico, dic), bookings:booking_id(id, start_date, end_date, total_price, motorcycles(model, spz)), shop_orders:order_id(stripe_payment_intent_id, stripe_session_id, payment_method)')
+    .select('*, profiles:customer_id(full_name, email, phone, street, city, zip, country, ico, dic), bookings:booking_id(id, start_date, end_date, total_price, motorcycles!moto_id(model, spz)), shop_orders:order_id(stripe_payment_intent_id, stripe_session_id, payment_method)')
     .eq('id', invoiceId)
     .single()
 

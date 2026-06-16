@@ -248,7 +248,7 @@ function RegenerateModal({ template, onClose }) {
 
   useEffect(() => {
     supabase.from('bookings')
-      .select('id, start_date, profiles(full_name), motorcycles(model)')
+      .select('id, start_date, profiles(full_name), motorcycles!moto_id(model)')
       .neq('status', 'cancelled')
       .order('created_at', { ascending: false })
       .limit(20)
@@ -263,7 +263,7 @@ function RegenerateModal({ template, onClose }) {
       // Load booking data for template filling
       const { data: booking, error: bErr } = await supabase
         .from('bookings')
-        .select('*, profiles(full_name, email, phone, street, city, zip), motorcycles(model, spz)')
+        .select('*, profiles(full_name, email, phone, street, city, zip), motorcycles!moto_id(model, spz)')
         .eq('id', selectedBooking)
         .single()
       if (bErr) throw bErr

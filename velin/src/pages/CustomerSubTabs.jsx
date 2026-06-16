@@ -18,7 +18,7 @@ export function CustomerBookings({ userId }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    supabase.from('bookings').select('*, motorcycles(id, model, spz)').eq('user_id', userId).order('start_date', { ascending: false })
+    supabase.from('bookings').select('*, motorcycles!moto_id(id, model, spz)').eq('user_id', userId).order('start_date', { ascending: false })
       .then(({ data }) => { setBookings(data || []); setLoading(false) })
       .catch(() => { setBookings([]); setLoading(false) })
   }, [userId])
