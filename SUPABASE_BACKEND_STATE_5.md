@@ -287,6 +287,7 @@ Strukturované oficiální podmínky půjčovny pro AI public agent (`get_polici
 
 - `bookings.user_id` → `profiles.id`
 - `bookings.moto_id` → `motorcycles.id`
+- `bookings.trailer_moto_id` → `motorcycles.id` (**ON DELETE SET NULL**, NEW 2026-06-16 — vozík jako gear add-on, `20260616_trailer_addon.sql`). **POZOR — DRUHÝ FK na `motorcycles`:** od této migrace má `bookings` dvě vazby na `motorcycles` (`moto_id` + `trailer_moto_id`), takže PostgREST embed `motorcycles(...)` je **nejednoznačný** a padá `Could not embed because more than one relationship was found`. Všechny dotazy s kořenem v `bookings` musí embed **disambiguovat hintem na FK**: `motorcycles!moto_id(...)`. Opraveno ve Velíně (24 dotazů ve 23 souborech, commit 576a82e). Web (`motogo-web-php`) ani Flutter app ambiguózní embed nepoužívají.
 - `bookings.promo_code_id` → `promo_codes.id`
 - `bookings.voucher_id` → `vouchers.id`
 - `bookings.replacement_for_booking_id` → `bookings.id`
