@@ -77,7 +77,7 @@ export default function BookingDetail() {
     setLoading(true)
     const result = await debugAction('booking.load', 'BookingDetail', () =>
       supabase.from('bookings')
-        .select('*, motorcycles(id, model, spz, status, branch_id, branches(name)), profiles(id, full_name, email, phone, city)')
+        .select('*, motorcycles!moto_id(id, model, spz, status, branch_id, branches(name)), profiles(id, full_name, email, phone, city)')
         .eq('id', id).single()
     , { booking_id: id })
     if (result?.error) setError(result.error.message)
@@ -227,7 +227,7 @@ export default function BookingDetail() {
     const { start_date, end_date, total_price, extras, notes, moto_id, user_id } = booking
     const saveData = { start_date, end_date, total_price, extras, notes, moto_id, user_id }
     const { data: dbBooking } = await supabase.from('bookings')
-      .select('start_date, end_date, total_price, pickup_method, pickup_address, return_method, return_address, original_start_date, original_end_date, modification_history, motorcycles(model)').eq('id', id).single()
+      .select('start_date, end_date, total_price, pickup_method, pickup_address, return_method, return_address, original_start_date, original_end_date, modification_history, motorcycles!moto_id(model)').eq('id', id).single()
     if (dbBooking) {
       const toLD = d => d ? new Date(d).toLocaleDateString('sv-SE') : ''
       const dateChanged = toLD(dbBooking.start_date) !== toLD(start_date) || toLD(dbBooking.end_date) !== toLD(end_date)

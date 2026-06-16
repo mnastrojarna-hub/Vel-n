@@ -51,7 +51,7 @@ export default function BookingCustomerDocsStatus({ userId, bookingId }) {
         supabase.from('profiles').select('id, license_expiry, license_group, license_number, id_number, id_verified_at, license_verified_at, passport_verified_at').eq('id', userId).single(),
       ]
       if (bookingId) {
-        promises.push(supabase.from('bookings').select('motorcycles(license_required)').eq('id', bookingId).single())
+        promises.push(supabase.from('bookings').select('motorcycles!moto_id(license_required)').eq('id', bookingId).single())
       }
       const [docsRes, profRes, bkRes] = await Promise.all(promises)
       setVerificationDocs(docsRes.data || [])

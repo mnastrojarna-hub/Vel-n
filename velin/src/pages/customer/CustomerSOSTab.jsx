@@ -62,7 +62,7 @@ export default function CustomerSOSTab({ userId }) {
 
       const [bookingsRes, motosRes] = await Promise.all([
         allBookingIds.length > 0
-          ? supabase.from('bookings').select('id, start_date, end_date, status, ended_by_sos, moto_id, motorcycles(id, model, spz)').in('id', allBookingIds)
+          ? supabase.from('bookings').select('id, start_date, end_date, status, ended_by_sos, moto_id, motorcycles!moto_id(id, model, spz)').in('id', allBookingIds)
           : { data: [] },
         motoIds.length > 0
           ? supabase.from('motorcycles').select('id, model, spz').in('id', motoIds)

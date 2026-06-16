@@ -88,7 +88,7 @@ export default function CustomerDocumentsTab({ userId }) {
         supabase.from('invoices').select('*').eq('customer_id', userId).order('issue_date', { ascending: false, nullsFirst: false }),
         supabase.from('generated_documents').select('*').eq('customer_id', userId).order('created_at', { ascending: false }),
         supabase.from('profiles').select('id, full_name, license_number, license_expiry, license_group, id_number, id_verified_at, license_verified_at, passport_verified_at').eq('id', userId).single(),
-        supabase.from('bookings').select('id, status, start_date, end_date, motorcycles(model, license_required)').eq('user_id', userId).in('status', ['pending', 'reserved', 'active']).order('start_date', { ascending: true }),
+        supabase.from('bookings').select('id, status, start_date, end_date, motorcycles!moto_id(model, license_required)').eq('user_id', userId).in('status', ['pending', 'reserved', 'active']).order('start_date', { ascending: true }),
       ])
       if (docsRes.error) throw docsRes.error
 
