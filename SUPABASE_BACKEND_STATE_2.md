@@ -29,6 +29,7 @@
 - cancelled_by, cancelled_by_source, cancellation_reason, cancelled_at, cancellation_notified
 - sos_replacement (boolean), replacement_for_booking_id, sos_incident_id, ended_by_sos
 - ~~pickup_date, return_date (timestamptz pro overlap check)~~ — **OPRAVA 2026-06-08:** tyto sloupce v reálné DB **NEEXISTUJÍ** (ověřeno `column "pickup_date" does not exist`). Overlap se kontroluje výhradně přes `start_date`/`end_date` — triggery `check_booking_overlap` (`tstzrange(start_date,end_date)`) a `check_user_booking_overlap` (`start_date::date`/`end_date::date`).
+- **trailer_moto_id** (UUID FK→motorcycles ON DELETE SET NULL, **NEW 2026-06-16** — migrace `20260616_trailer_addon.sql`) — přiřazený kus vozíku, když si zákazník přidá **vozík jako příslušenství** (gear add-on, ne samostatná rezervace). Blokuje kalendář vozíku: `get_moto_booked_dates` má UNION větev `trailer_moto_id`, BEFORE INSERT/UPDATE trigger `check_trailer_overlap` odmítne už obsazený kus (i kolizi standalone × gear). Web 400 Kč/den (řádek v `booking_extras`+`extras_price` → propíše se do ZF/DP/dobropisu i smlouvy), app zdarma (řádek 0 Kč). Volný kus vybírá RPC `get_trailer_availability`. Index `idx_bookings_trailer_moto_id`.
 - **actual_return_date** — skutečné datum vrácení
 - **pickup_method, pickup_address** — způsob vyzvednutí
 - **pickup_lat, pickup_lng** — GPS souřadnice místa vyzvednutí (DOUBLE PRECISION, nullable)
@@ -154,7 +155,8 @@
 - **manual_external_url** (TEXT) — externí URL na návod (např. stránka výrobce); použije se pouze pokud není nahrán PDF (`manual_url` je prázdný). PDF má vždy přednost.
 - engine_type, power_hp
 - **branch_id** — pobočka (FK→branches)
-- **category** — kategorie motorky
+- **is_trailer** (BOOLEAN NOT NULL DEFAULT false, **NEW 2026-06-16** — migrace `20260616_trailer_addon.sql`) — tento kus flotily je **vozík/přívěs**. Označuje se ve Velíně (Fleet detail → checkbox „Vozík (lze přidat jako příslušenství)"). Pool pro gear add-on „Vozík" v rezervaci (RPC `get_trailer_availability` filtruje `is_trailer=true AND status='active'`). Vozík lze půjčit i samostatně (běžná rezervace na jeho `moto_id`, kategorie „Ostatní"); obě cesty blokují stejný kalendář.
+- **category** — kategorie motorky (volný text: cestovni/sportovni/naked/supermoto/chopper/**scootery**/detske/**ostatni** + historické hodnoty)
 - **engine_cc** — objem motoru
 - **price_weekday, price_weekend** — ceny
 - **price_mon, price_tue, price_wed, price_thu, price_fri, price_sat, price_sun** — ceny dle dne

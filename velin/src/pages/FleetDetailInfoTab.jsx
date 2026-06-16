@@ -298,6 +298,10 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
               <input type="checkbox" checked={moto.has_asc || false} onChange={e => set('has_asc', e.target.checked)} />
               <span className="text-sm font-bold" style={{ color: '#1a2e22' }}>ASC</span>
             </label>
+            <label className="flex items-center gap-2 cursor-pointer" title="Tento kus je vozík/přívěs — půjde přidat jako příslušenství „Vozík" k rezervaci jiné motorky (web 400 Kč/den, app zdarma).">
+              <input type="checkbox" checked={moto.is_trailer || false} onChange={e => set('is_trailer', e.target.checked)} />
+              <span className="text-sm font-bold" style={{ color: '#1a2e22' }}>Vozík (lze přidat jako příslušenství)</span>
+            </label>
           </div>
           <div>
             <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Pobočka</label>

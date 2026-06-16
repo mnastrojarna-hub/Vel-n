@@ -19,6 +19,11 @@ class BookingDraft {
   double? returnLat;
   double? returnLng;
   String? insuranceType;
+
+  /// Přiřazený kus vozíku (motorcycles.id, is_trailer=true) když si zákazník
+  /// přidá vozík jako příslušenství. Zapisuje se do bookings.trailer_moto_id
+  /// → blokuje kalendář vozíku. NULL = vozík nevybrán.
+  String? trailerMotoId;
   List<SelectedExtra> extras;
   List<AppliedDiscount> discounts;
   String? notes;
@@ -57,6 +62,7 @@ class BookingDraft {
     this.returnLat,
     this.returnLng,
     this.insuranceType,
+    this.trailerMotoId,
     this.extras = const [],
     this.discounts = const [],
     this.notes,
@@ -101,6 +107,7 @@ class BookingDraft {
     double? Function()? returnLat,
     double? Function()? returnLng,
     String? Function()? insuranceType,
+    String? Function()? trailerMotoId,
     List<SelectedExtra>? extras,
     List<AppliedDiscount>? discounts,
     String? Function()? notes,
@@ -137,6 +144,7 @@ class BookingDraft {
       returnLat: returnLat != null ? returnLat() : this.returnLat,
       returnLng: returnLng != null ? returnLng() : this.returnLng,
       insuranceType: insuranceType != null ? insuranceType() : this.insuranceType,
+      trailerMotoId: trailerMotoId != null ? trailerMotoId() : this.trailerMotoId,
       extras: extras ?? this.extras,
       discounts: discounts ?? this.discounts,
       notes: notes != null ? notes() : this.notes,
