@@ -384,6 +384,9 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
             draft.passengerPantsSize ?? pg['pants'],
         'passenger_gloves_size': pg['gloves'],
         'passenger_boots_size': passengerBoots,
+        // Vozík (příslušenství) — přiřazený volný kus blokuje kalendář vozíku.
+        // BEFORE INSERT trigger check_trailer_overlap odmítne už obsazený kus.
+        'trailer_moto_id': draft.trailerMotoId,
       }).select().single();
 
       final bookingId = res['id'] as String?;

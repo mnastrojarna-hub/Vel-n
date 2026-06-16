@@ -72,6 +72,7 @@ export default function FleetDetail() {
       fuel_type, fuel_consumption_l100km, fuel_tank_l,
       // Brzdy / hmotnost / rozměry / komfort
       brake_type, has_abs, has_asc, weight_kg, seat_height_mm, seats_count,
+      is_trailer,
       // Oprávnění + délka pronájmu
       license_required, license_groups, min_rental_days, max_rental_days,
       // Texty (auto-překládají se po uložení)
@@ -104,6 +105,7 @@ export default function FleetDetail() {
       fuel_tank_l: toNum(fuel_tank_l),
       brake_type: brake_type || null,
       has_abs, has_asc,
+      is_trailer: !!is_trailer,
       weight_kg: toInt(weight_kg),
       seat_height_mm: seat_height_mm || null,
       seats_count: toInt(seats_count),
