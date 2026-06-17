@@ -78,7 +78,7 @@ class _PaymentConfirmationScreenState
       //    vlastníkovi přes bookings_user_select policy).
       final res = await MotoGoSupabase.client
           .from('bookings')
-          .select('id, user_id, moto_id, end_date, motorcycles(license_required)')
+          .select('id, user_id, moto_id, end_date, motorcycles!moto_id(license_required)')
           .eq('id', bookingId)
           .maybeSingle();
 
