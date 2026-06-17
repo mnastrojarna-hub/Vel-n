@@ -322,7 +322,7 @@ serve(async (req) => {
       }
     } else {
       const { data: booking, error: bErr } = await supabase
-        .from('bookings').select('*, motorcycles(model, spz, price_mon, price_tue, price_wed, price_thu, price_fri, price_sat, price_sun, price_weekday, price_weekend), profiles(id, full_name, email, phone, street, city, zip, country, ico, dic)')
+        .from('bookings').select('*, motorcycles!moto_id(model, spz, price_mon, price_tue, price_wed, price_thu, price_fri, price_sat, price_sun, price_weekday, price_weekend), profiles(id, full_name, email, phone, street, city, zip, country, ico, dic)')
         .eq('id', booking_id).single()
       if (bErr || !booking) return new Response(JSON.stringify({ error: 'Booking not found' }), { status: 404 })
 

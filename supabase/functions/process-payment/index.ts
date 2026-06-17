@@ -75,7 +75,7 @@ Deno.serve(async (req: Request) => {
         if (!wasAlreadyPaid) {
           try {
             const { data: booking } = await supabaseAdmin.from('bookings')
-              .select('booking_source, start_date, end_date, total_price, motorcycles(model, manual_url), profiles(full_name, email)')
+              .select('booking_source, start_date, end_date, total_price, motorcycles!moto_id(model, manual_url), profiles(full_name, email)')
               .eq('id', bookingId).single()
             const profile = (booking?.profiles ?? null) as { full_name?: string; email?: string } | null
             if (profile?.email) {

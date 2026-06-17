@@ -149,7 +149,7 @@ async function ensureCreditNotePdf(
 
     // Regenerate PDF — load booking + customer for the template
     const { data: bk2 } = await supabase.from('bookings')
-      .select('start_date, end_date, motorcycles(model), profiles:user_id(full_name, email, phone, street, city, zip, ico, dic)')
+      .select('start_date, end_date, motorcycles!moto_id(model), profiles:user_id(full_name, email, phone, street, city, zip, ico, dic)')
       .eq('id', bookingId).single()
     const refundedAmount = Math.abs(Number(cn.total || 0))
     const refundPercent = 100 // unknown without booking.total_price comparison; default 100%
@@ -240,7 +240,7 @@ async function createCreditNoteForExistingRefund(
 
     // Načti booking + customer pro template
     const { data: bkRow } = await supabase.from('bookings')
-      .select('user_id, total_price, start_date, end_date, motorcycles(model), profiles:user_id(full_name, email, phone, street, city, zip, ico, dic)')
+      .select('user_id, total_price, start_date, end_date, motorcycles!moto_id(model), profiles:user_id(full_name, email, phone, street, city, zip, ico, dic)')
       .eq('id', bookingId).single()
     if (!bkRow) return { creditNoteId: null, pdfPath: null, refundId: bk.stripe_refund_id }
     const refundPercent = (bkRow.total_price && bkRow.total_price > 0)
@@ -680,7 +680,7 @@ Deno.serve(async (req: Request) => {
       try {
         // Fetch booking data for the credit note
         const { data: bk } = await supabase.from('bookings')
-          .select('user_id, total_price, start_date, end_date, motorcycles(model), profiles:user_id(full_name, email, phone, street, city, zip, ico, dic)')
+          .select('user_id, total_price, start_date, end_date, motorcycles!moto_id(model), profiles:user_id(full_name, email, phone, street, city, zip, ico, dic)')
           .eq('id', booking_id).single()
         if (bk) {
           const refundPercent = amount ? Math.round((amount / Number(bk.total_price || 1)) * 100) : 100

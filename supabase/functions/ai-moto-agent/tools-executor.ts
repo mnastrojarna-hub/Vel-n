@@ -17,7 +17,7 @@ export async function executeTool(
           id, status, payment_status, start_date, end_date, pickup_time,
           total_price, extras_price, pickup_method, return_method,
           mileage_start, mileage_end, notes, booking_source,
-          motorcycles(
+          motorcycles!moto_id(
             id, model, brand, spz, engine_type, engine_cc, power_kw, power_hp,
             weight_kg, has_abs, has_asc, features, manual_url, description,
             ideal_usage, category, fuel_tank_l, seat_height_mm, color, mileage,
@@ -44,7 +44,7 @@ export async function executeTool(
         .select(`
           id, status, payment_status, start_date, end_date, total_price,
           pickup_method, return_method, mileage_start, mileage_end, rating,
-          motorcycles(id, model, brand, category, engine_cc)
+          motorcycles!moto_id(id, model, brand, category, engine_cc)
         `)
         .eq('user_id', userId)
         .order('start_date', { ascending: false })

@@ -182,7 +182,7 @@ serve(async (req) => {
     // Load booking with relations (separate profile query to avoid FK ambiguity)
     const { data: booking, error: bErr } = await supabase
       .from('bookings')
-      .select('*, motorcycles(model, spz, vin, year, brand, category, engine_cc, power_kw, color, deposit_amount, insurance_price, image_url, license_required)')
+      .select('*, motorcycles!moto_id(model, spz, vin, year, brand, category, engine_cc, power_kw, color, deposit_amount, insurance_price, image_url, license_required)')
       .eq('id', booking_id).single()
     if (bErr || !booking) {
       console.error('Booking query error:', bErr?.message, 'booking_id:', booking_id)

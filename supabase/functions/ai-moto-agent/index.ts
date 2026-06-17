@@ -93,7 +93,7 @@ serve(async (req) => {
         id, status, payment_status, start_date, end_date, pickup_time,
         total_price, extras_price, pickup_method, return_method, pickup_address, return_address,
         mileage_start, mileage_end, notes, insurance_type,
-        motorcycles(
+        motorcycles!moto_id(
           id, model, brand, spz, engine_type, engine_cc, power_kw, power_hp,
           weight_kg, has_abs, has_asc, features, manual_url, description,
           ideal_usage, category, fuel_tank_l, seat_height_mm, color, mileage,
