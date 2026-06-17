@@ -189,7 +189,13 @@ if (!empty($rawVideos)) {
     // JS jinde na stránce apod.). Inline skript zůstává jen pro přepínání mezi
     // VÍCE videi (advance na 'ended'); jedno video řeší `loop` + autoplay+muted.
     $firstSrc = htmlspecialchars($vlist[0], ENT_QUOTES, 'UTF-8');
-    $videoBlock = '<div class="moto-video"><video id="' . $vid . '" class="moto-video-el" muted autoplay playsinline webkit-playsinline controls preload="metadata"' . $loopAttr . $posterAttr . ' src="' . $firstSrc . '" data-videos="' . $vjson . '"></video></div>'
+    // Rozměry dáváme INLINE (nezávisle na main.css) — iOS Safari u nepřehraného
+    // <video> bez rezervované výšky kolaboval na 0 px a video se na mobilu vůbec
+    // nezobrazilo (na PC height:auto fungovalo). Kontejner má pevnou min-height
+    // (stejný princip jako hero .banner), video je přes něj absolutně roztažené.
+    $vWrapStyle = 'position:relative;width:100%;aspect-ratio:16/9;min-height:280px;max-height:70vh;margin:0 0 .9rem;border-radius:12px;overflow:hidden;background:#1a2e22';
+    $vElStyle = 'position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block;background:#1a2e22';
+    $videoBlock = '<div class="moto-video" style="' . $vWrapStyle . '"><video id="' . $vid . '" class="moto-video-el" style="' . $vElStyle . '" muted autoplay playsinline webkit-playsinline controls preload="metadata"' . $loopAttr . $posterAttr . ' src="' . $firstSrc . '" data-videos="' . $vjson . '"></video></div>'
         . '<script>(function(){var v=document.getElementById("' . $vid . '");if(!v)return;var l=[];try{l=JSON.parse(v.getAttribute("data-videos")||"[]")}catch(e){}if(!l.length)return;var i=0;function pl(){v.muted=true;v.defaultMuted=true;v.playsInline=true;var p=v.play();if(p&&p.catch)p.catch(function(){})}if(l.length>1){v.addEventListener("ended",function(){i=(i+1)%l.length;v.src=l[i];pl()})}pl();})();</script>';
 }
 
