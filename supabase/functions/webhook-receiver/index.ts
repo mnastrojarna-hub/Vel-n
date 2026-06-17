@@ -406,7 +406,7 @@ Deno.serve(async (req: Request) => {
       if ((paymentType === 'booking' || paymentType === 'extension') && metadata.booking_id) {
         try {
           const { data: bk } = await supabase.from('bookings')
-            .select('id, start_date, end_date, total_price, user_id, motorcycles(model, spz), profiles:user_id(full_name, email)')
+            .select('id, start_date, end_date, total_price, user_id, motorcycles!moto_id(model, spz), profiles:user_id(full_name, email)')
             .eq('id', metadata.booking_id).single()
           if (bk) {
             const { data: inv } = await supabase.from('invoices')
@@ -473,7 +473,7 @@ Deno.serve(async (req: Request) => {
           const piId = typeof charge.payment_intent === 'string' ? charge.payment_intent : (charge.payment_intent as any)?.id
           if (piId) {
             const { data: bk } = await supabase.from('bookings')
-              .select('id, status, payment_status, total_price, start_date, end_date, booking_source, cancelled_by_source, motorcycles(model), profiles:user_id(full_name, email)')
+              .select('id, status, payment_status, total_price, start_date, end_date, booking_source, cancelled_by_source, motorcycles!moto_id(model), profiles:user_id(full_name, email)')
               .eq('stripe_payment_intent_id', piId).single()
             if (bk) {
               linkedBooking = bk

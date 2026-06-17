@@ -229,7 +229,7 @@ serve(async (req) => {
     if (!customer_email && booking_id) {
       try {
         const { data: bk } = await supabase.from('bookings')
-          .select('user_id, profiles(full_name, email), motorcycles(model)')
+          .select('user_id, profiles(full_name, email), motorcycles!moto_id(model)')
           .eq('id', booking_id).single()
         if (bk?.profiles) {
           customer_email = (bk.profiles as any).email
@@ -282,7 +282,7 @@ serve(async (req) => {
       try {
         // Load booking data for refund calculation
         const { data: booking } = await supabase.from('bookings')
-          .select('start_date, end_date, total_price, payment_status, stripe_payment_intent_id, booking_source, motorcycles(model)')
+          .select('start_date, end_date, total_price, payment_status, stripe_payment_intent_id, booking_source, motorcycles!moto_id(model)')
           .eq('id', booking_id).single()
 
         if (booking) {

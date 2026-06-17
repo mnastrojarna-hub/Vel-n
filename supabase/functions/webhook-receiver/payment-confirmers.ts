@@ -181,7 +181,7 @@ export async function confirmBookingPayment(
       // synth typy. webhook-receiver už nepředgeneruje dokumenty, aby nevznikla duplicita
       // s odlišnými filename a aby admin v UI viděl JEDINOU pravdu o tom, co se posílá.
       const { data: booking } = await supabase.from('bookings')
-        .select('booking_source, user_id, moto_id, start_date, end_date, total_price, motorcycles(model, manual_url), profiles(full_name, email)')
+        .select('booking_source, user_id, moto_id, start_date, end_date, total_price, motorcycles!moto_id(model, manual_url), profiles(full_name, email)')
         .eq('id', bookingId).single()
 
       const profile = (booking?.profiles ?? null) as { full_name?: string; email?: string } | null
@@ -322,7 +322,7 @@ export async function confirmSosPayment(
       const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SERVICE_KEY}`, 'apikey': SERVICE_KEY }
 
       const { data: booking } = await supabase.from('bookings')
-        .select('booking_source, start_date, end_date, total_price, motorcycles(model), profiles(full_name, email)')
+        .select('booking_source, start_date, end_date, total_price, motorcycles!moto_id(model), profiles(full_name, email)')
         .eq('id', bookingId).single()
 
       if (booking?.profiles?.email) {
