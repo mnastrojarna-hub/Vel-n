@@ -11,6 +11,7 @@ import Modal from '../../components/ui/Modal'
 import { getClientTemplate, buildDocVars, fillTemplate, rebuildFromFilledData } from './bookingDocTemplates'
 import { DOC_ICONS, INV_TYPE_MAP } from './bookingDocConstants'
 import BookingCustomerDocsStatus from './BookingCustomerDocsStatus'
+import ElectronicProtocolModal from './ElectronicProtocolModal'
 
 export default function BookingDocumentsTab({ bookingId, userId }) {
   const [docs, setDocs] = useState([])
@@ -23,6 +24,8 @@ export default function BookingDocumentsTab({ bookingId, userId }) {
   const [viewHtml, setViewHtml] = useState(null)
   const [debug, setDebug] = useState(null)
   const [dbTemplates, setDbTemplates] = useState({})
+  const [protocolChoice, setProtocolChoice] = useState(null) // 'handover_protocol' | 'damage_protocol' — dialog tištěný/elektronický
+  const [electronicProtocol, setElectronicProtocol] = useState(null) // typ otevřeného elektronického protokolu
 
   useEffect(() => { loadAll(); loadDbTemplates() }, [bookingId])
 
@@ -200,8 +203,8 @@ export default function BookingDocumentsTab({ bookingId, userId }) {
       {userId && <BookingCustomerDocsStatus userId={userId} bookingId={bookingId} />}
       <div className="flex gap-3 flex-wrap">
         <Button green onClick={() => handleGenerate('rental_contract')} disabled={generating === 'rental_contract'}>{generating === 'rental_contract' ? 'Generuji...' : '+ Vygenerovat smlouvu'}</Button>
-        <Button green onClick={() => handleGenerate('handover_protocol')} disabled={generating === 'handover_protocol'}>{generating === 'handover_protocol' ? 'Generuji...' : '+ Vygenerovat předávací protokol'}</Button>
-        <Button green onClick={() => handleGenerate('damage_protocol')} disabled={generating === 'damage_protocol'}>{generating === 'damage_protocol' ? 'Generuji...' : '+ Vygenerovat protokol o poškození'}</Button>
+        <Button green onClick={() => setProtocolChoice('handover_protocol')} disabled={generating === 'handover_protocol'}>{generating === 'handover_protocol' ? 'Generuji...' : '+ Vygenerovat předávací protokol'}</Button>
+        <Button green onClick={() => setProtocolChoice('damage_protocol')} disabled={generating === 'damage_protocol'}>{generating === 'damage_protocol' ? 'Generuji...' : '+ Vygenerovat protokol o poškození'}</Button>
         <Button green onClick={() => handleGenerate('vop')} disabled={generating === 'vop'}>{generating === 'vop' ? 'Generuji...' : '+ Vygenerovat VOP'}</Button>
         <Button green onClick={() => handleGenerate('gdpr')} disabled={generating === 'gdpr'}>{generating === 'gdpr' ? 'Generuji...' : '+ Vygenerovat GDPR'}</Button>
         {dbTemplates.vop && <Button onClick={() => { setViewHtml(dbTemplates.vop); setViewDoc({ file_name: 'Obchodni podminky (VOP)' }) }}>Zobrazit VOP</Button>}
@@ -235,9 +238,9 @@ export default function BookingDocumentsTab({ bookingId, userId }) {
       </Card>
       <Card>
         <h3 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>Vygenerovane dokumenty</h3>
-        {generatedDocs.length === 0 ? <p style={{ color: '#1a2e22', fontSize: 13 }}>Zadne vygenerovane dokumenty</p> : generatedDocs.map(d => { const docType = d.document_templates?.type || 'contract'; return (
+        {generatedDocs.length === 0 ? <p style={{ color: '#1a2e22', fontSize: 13 }}>Zadne vygenerovane dokumenty</p> : generatedDocs.map(d => { const docType = d.document_templates?.type || d.filled_data?._doc_type || 'contract'; return (
           <div key={d.id} className="flex items-center gap-4 p-3 rounded-lg mb-2 cursor-pointer hover:shadow-sm transition-shadow" style={{ background: '#f1faf7' }} onClick={() => handleViewGeneratedDoc(d)}>
-            <span style={{ fontSize: 16 }}>{DOC_ICONS[docType] || '\ud83d\udcc4'}</span><div className="flex-1"><span className="text-sm font-bold">{d.document_templates?.name || 'Dokument'}</span><span className="text-sm ml-3" style={{ color: '#1a2e22' }}>{d.created_at?.slice(0, 10)}</span></div>
+            <span style={{ fontSize: 16 }}>{DOC_ICONS[docType] || '\ud83d\udcc4'}</span><div className="flex-1"><span className="text-sm font-bold">{d.document_templates?.name || d.filled_data?._doc_name || 'Dokument'}</span>{d.filled_data?._electronic && <span className="text-xs ml-2 px-2 py-0.5 rounded-full" style={{ background: '#dcfce7', color: '#166534', fontWeight: 700 }}>el. podeps\u00e1no</span>}<span className="text-sm ml-3" style={{ color: '#1a2e22' }}>{d.created_at?.slice(0, 10)}</span></div>
             <div className="flex gap-2" onClick={e => e.stopPropagation()}><button onClick={() => handleViewGeneratedDoc(d)} className="text-sm font-bold cursor-pointer" style={{ color: '#2563eb', background: 'none', border: 'none' }}>Zobrazit</button><button onClick={() => handleDownload(d)} className="text-sm font-bold cursor-pointer" style={{ color: '#1a2e22', background: 'none', border: 'none' }}>Stahnout</button></div>
           </div>
         ) })}
@@ -260,6 +263,29 @@ export default function BookingDocumentsTab({ bookingId, userId }) {
             <Button onClick={() => { setViewDoc(null); setViewHtml(null) }}>Zavrit</Button>
           </div>
         </Modal>
+      )}
+      {protocolChoice && (
+        <Modal open title={protocolChoice === 'damage_protocol' ? 'Protokol o poškození' : 'Předávací protokol'} onClose={() => setProtocolChoice(null)}>
+          <p style={{ fontSize: 13, color: '#1a2e22', marginBottom: 16 }}>Zvolte formu protokolu:</p>
+          <div className="flex flex-col gap-3">
+            <Button onClick={() => { const t = protocolChoice; setProtocolChoice(null); handleGenerate(t) }}>🖨️ Tištěný (stávající verze)</Button>
+            <Button green onClick={() => { const t = protocolChoice; setProtocolChoice(null); setElectronicProtocol(t) }}>✍️ Elektronický — vyplnit a podepsat na tabletu</Button>
+          </div>
+        </Modal>
+      )}
+      {electronicProtocol && (
+        <ElectronicProtocolModal
+          open
+          type={electronicProtocol}
+          bookingId={bookingId}
+          onClose={() => setElectronicProtocol(null)}
+          onSaved={(html) => {
+            const label = (electronicProtocol === 'damage_protocol' ? 'Protokol o poškození' : 'Předávací protokol') + ' (elektronický)'
+            setElectronicProtocol(null)
+            loadAll()
+            if (html) { setViewHtml(html); setViewDoc({ document_templates: { name: label } }) }
+          }}
+        />
       )}
     </div>
   )

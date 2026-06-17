@@ -50,6 +50,24 @@ export function buildAccessoriesBlock(booking, moto) {
   return { html, text: textParts.join(', ') }
 }
 
+// Strukturovaný seznam zapůjčeného příslušenství pro elektronický protokol
+// (checkboxy „předáno"). Stejná pravidla jako buildAccessoriesBlock.
+export function listAccessoryItems(booking, moto) {
+  const isChild = String(moto?.license_required || '').toUpperCase() === 'N'
+  const suffix = isChild ? ' (dětská velikost)' : ''
+  const defs = [
+    { key: 'helmet', label: 'Helma' },
+    { key: 'jacket', label: 'Bunda / vesta' },
+    { key: 'pants', label: 'Kalhoty' },
+    { key: 'boots', label: 'Boty' },
+    { key: 'gloves', label: 'Rukavice' },
+  ]
+  const out = []
+  for (const d of defs) { const s = booking?.[`${d.key}_size`]; if (s) out.push({ label: `${d.label} (řidič)${suffix}`, size: String(s) }) }
+  for (const d of defs) { const s = booking?.[`passenger_${d.key}_size`]; if (s) out.push({ label: `${d.label} (spolujezdec)${suffix}`, size: String(s) }) }
+  return out
+}
+
 export function buildDocVars(booking, customer, bookingId) {
   const moto = booking.motorcycles || {}
   const accessories = buildAccessoriesBlock(booking, moto)
@@ -92,6 +110,9 @@ export function fillTemplate(html, vars) {
 
 export function rebuildFromFilledData(doc) {
   if (!doc.filled_data) return null
+  // Elektronicky podepsaný protokol nese kompletní finální HTML (vč. podpisů) →
+  // vrať ho přímo, ať náhled i stažení ukazují přesně podepsaný dokument.
+  if (doc.filled_data._signed_html) return doc.filled_data._signed_html
   const v = doc.filled_data
   return `<!DOCTYPE html><html lang="cs"><head><meta charset="utf-8"><title>Dokument</title></head><body style="margin:0;padding:0;font-family:'Segoe UI',sans-serif;color:#1a1a1a"><div style="max-width:780px;margin:0 auto;padding:32px"><h2>${v.company_name || 'MotoGo24'}</h2><p>Zakaznik: ${v.customer_name || '\u2014'}</p><p>Motocykl: ${v.moto_model || '\u2014'} (${v.moto_spz || ''})</p><p>Obdobi: ${v.start_date || '\u2014'} — ${v.end_date || '\u2014'} (${v.days || '\u2014'} dni)</p><p>Cena: ${v.total_price || '\u2014'} Kc</p></div></body></html>`
 }
