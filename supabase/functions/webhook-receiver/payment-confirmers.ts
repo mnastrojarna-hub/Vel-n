@@ -184,13 +184,19 @@ export async function confirmBookingPayment(
         .select('booking_source, user_id, moto_id, start_date, end_date, total_price, motorcycles(model, manual_url), profiles(full_name, email)')
         .eq('id', bookingId).single()
 
-      if (booking?.profiles?.email) {
+      const profile = (booking?.profiles ?? null) as { full_name?: string; email?: string } | null
+      if (profile?.email) {
         const source = booking.booking_source || 'app'
         const moto = booking.motorcycles as { model?: string; manual_url?: string } | null
-        const profile = booking.profiles as { full_name?: string; email?: string }
 
+        // POZN.: send-booking-email pro `booking_reserved` generuje 4 PDF přílohy
+        // (ZF, DP, Smlouva, VOP) přes PDFShift — to může trvat dlouho a v časově
+        // omezené webhookové cestě se odeslání může „utnout" dřív, než se vůbec
+        // zaloguje (mail pak tiše zmizí). Proto VÝSLEDEK tohoto volání logujeme do
+        // debug_log (ok/error) a delivery navíc jistí cron
+        // send_missing_booking_reserved_emails() (dedup přes message_log).
         try {
-          await fetch(`${SUPABASE_URL}/functions/v1/send-booking-email`, {
+          const resp = await fetch(`${SUPABASE_URL}/functions/v1/send-booking-email`, {
             method: 'POST', headers,
             body: JSON.stringify({
               type: 'booking_reserved',
@@ -205,9 +211,45 @@ export async function confirmBookingPayment(
               manual_url: moto?.manual_url || '',
             }),
           })
-        } catch (e) { /* ignore */ }
+          try {
+            await supabase.from('debug_log').insert({
+              source: 'webhook-receiver',
+              action: resp.ok ? 'booking_reserved_mail_sent' : 'booking_reserved_mail_http_error',
+              component: 'send-booking-email',
+              status: resp.ok ? 'ok' : 'error',
+              request_data: { booking_id: bookingId, source, http_status: resp.status },
+              error_message: resp.ok ? null : (await resp.text().catch(() => `HTTP ${resp.status}`)),
+            })
+          } catch { /* ignore */ }
+        } catch (e) {
+          try {
+            await supabase.from('debug_log').insert({
+              source: 'webhook-receiver', action: 'booking_reserved_mail_failed',
+              component: 'send-booking-email', status: 'error',
+              request_data: { booking_id: bookingId },
+              error_message: (e as Error).message,
+            })
+          } catch { /* ignore */ }
+        }
+      } else {
+        try {
+          await supabase.from('debug_log').insert({
+            source: 'webhook-receiver', action: 'booking_reserved_mail_no_email',
+            component: 'send-booking-email', status: 'warning',
+            request_data: { booking_id: bookingId },
+          })
+        } catch { /* ignore */ }
       }
-    } catch (e) { /* doc gen is best-effort */ }
+    } catch (e) {
+      try {
+        await supabase.from('debug_log').insert({
+          source: 'webhook-receiver', action: 'booking_reserved_mail_outer_exception',
+          component: 'send-booking-email', status: 'error',
+          request_data: { booking_id: bookingId },
+          error_message: (e as Error).message,
+        })
+      } catch { /* ignore */ }
+    }
   } catch (err) {
     console.error('confirmBookingPayment error:', err)
   }
