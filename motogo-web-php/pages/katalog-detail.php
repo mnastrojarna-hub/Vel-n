@@ -189,10 +189,8 @@ if (!empty($rawVideos)) {
     // JS jinde na stránce apod.). Inline skript zůstává jen pro přepínání mezi
     // VÍCE videi (advance na 'ended'); jedno video řeší `loop` + autoplay+muted.
     $firstSrc = htmlspecialchars($vlist[0], ENT_QUOTES, 'UTF-8');
-    $videoBlock = '<div class="moto-video"><video id="' . $vid . '" class="moto-video-el" muted autoplay playsinline webkit-playsinline controls preload="metadata"' . $loopAttr . $posterAttr . ' src="' . $firstSrc . '" data-videos="' . $vjson . '"></video></div>';
-    if (count($vlist) > 1) {
-        $videoBlock .= '<script>(function(){var v=document.getElementById("' . $vid . '");if(!v)return;var l=[];try{l=JSON.parse(v.getAttribute("data-videos")||"[]")}catch(e){}if(l.length<2)return;var i=0;v.addEventListener("ended",function(){i=(i+1)%l.length;v.muted=true;v.playsInline=true;v.src=l[i];var p=v.play();if(p&&p.catch)p.catch(function(){})});})();</script>';
-    }
+    $videoBlock = '<div class="moto-video"><video id="' . $vid . '" class="moto-video-el" muted autoplay playsinline webkit-playsinline controls preload="metadata"' . $loopAttr . $posterAttr . ' src="' . $firstSrc . '" data-videos="' . $vjson . '"></video></div>'
+        . '<script>(function(){var v=document.getElementById("' . $vid . '");if(!v)return;var l=[];try{l=JSON.parse(v.getAttribute("data-videos")||"[]")}catch(e){}if(!l.length)return;var i=0;function pl(){v.muted=true;v.defaultMuted=true;v.playsInline=true;var p=v.play();if(p&&p.catch)p.catch(function(){})}if(l.length>1){v.addEventListener("ended",function(){i=(i+1)%l.length;v.src=l[i];pl()})}pl();})();</script>';
 }
 
 $galleryHtml = '<div class="moto-gallery">' . $videoBlock;
