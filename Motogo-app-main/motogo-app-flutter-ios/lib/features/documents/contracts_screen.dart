@@ -247,7 +247,7 @@ class ContractsScreen extends ConsumerWidget {
       try {
         final bRes = await MotoGoSupabase.client
             .from('bookings')
-            .select('*, motorcycles(*), profiles(*)')
+            .select('*, motorcycles!moto_id(*), profiles(*)')
             .eq('id', doc.bookingId!)
             .maybeSingle();
         if (bRes != null) {
