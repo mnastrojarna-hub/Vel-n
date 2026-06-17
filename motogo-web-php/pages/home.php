@@ -265,8 +265,12 @@ if (!empty($heroSlides) && $heroHasVideo) {
         if ($s['type'] === 'video') {
             $videosJson = htmlspecialchars(json_encode(array_values($s['videos']), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8');
             $posterAttr = ($s['poster'] !== '') ? ' poster="' . htmlspecialchars(imgUrlSized($s['poster'], 1400, 70)) . '"' : '';
+            // První (aktivní) slide dostane `src` přímo v HTML — přehraje se i bez JS
+            // (stejně jako fotky mají src deklarativně). Ostatní slide-videa nechává
+            // bez src; JS controller jim ho doplní, až na ně přijde řada.
+            $srcAttr = ($i === 0 && !empty($s['videos'])) ? ' src="' . htmlspecialchars($s['videos'][0], ENT_QUOTES, 'UTF-8') . '"' : '';
             $slidesHtml .= '<div class="mg-hero-slide mg-hero-slide-video' . $activeCls . '" data-type="video" data-videos="' . $videosJson . '">'
-                . '<video class="mg-hero-video" muted autoplay playsinline webkit-playsinline preload="' . ($i === 0 ? 'auto' : 'none') . '"' . $posterAttr . ' aria-label="' . $altText . '"></video>'
+                . '<video class="mg-hero-video" muted autoplay playsinline webkit-playsinline preload="' . ($i === 0 ? 'auto' : 'none') . '"' . $posterAttr . $srcAttr . ' aria-label="' . $altText . '"></video>'
                 . '</div>';
         } else {
             $eager = ($i === 0);
