@@ -195,7 +195,7 @@ if (!empty($rawVideos)) {
     // box. `position:static` přebije případné position:absolute z main.css, ať video
     // zůstane v normálním toku a jeho height vytvoří výšku boxu na všech zařízeních.
     $vWrapStyle = 'margin:0 0 .9rem;border-radius:12px;overflow:hidden;background:#1a2e22;box-shadow:0 4px 16px rgba(26,46,34,.16)';
-    $vElStyle = 'position:static;display:block;width:100%;height:300px;object-fit:contain;background:#1a2e22';
+    $vElStyle = 'position:static;display:block;width:100%;height:clamp(240px,56vw,480px);object-fit:contain;background:#1a2e22';
     $videoBlock = '<div class="moto-video" style="' . $vWrapStyle . '"><video id="' . $vid . '" class="moto-video-el" style="' . $vElStyle . '" muted autoplay playsinline webkit-playsinline controls preload="metadata"' . $loopAttr . $posterAttr . ' src="' . $firstSrc . '" data-videos="' . $vjson . '"></video></div>'
         . '<script>(function(){var v=document.getElementById("' . $vid . '");if(!v)return;var l=[];try{l=JSON.parse(v.getAttribute("data-videos")||"[]")}catch(e){}if(!l.length)return;var i=0;function pl(){v.muted=true;v.defaultMuted=true;v.playsInline=true;var p=v.play();if(p&&p.catch)p.catch(function(){})}if(l.length>1){v.addEventListener("ended",function(){i=(i+1)%l.length;v.src=l[i];pl()})}pl();})();</script>';
 }
