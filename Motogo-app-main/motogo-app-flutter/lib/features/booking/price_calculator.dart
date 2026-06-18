@@ -231,12 +231,23 @@ class PriceCalculator {
     );
     final deliveryTotal = pickupDeliveryFee + returnDeliveryFee;
 
-    // Full base before discounts
-    final fullBase = basePrice + extrasTotal + deliveryTotal + insuranceFee;
+    // ── Sleva 50 % na 1. den (>=12:00, >=2 dny) — sníží základ PŘED procenty ──
+    // Mirror SQL _late_pickup_discount() + create_web_booking. Musí se odečíst
+    // PŘED věrnostní/promo procentuální slevou, jinak by se procento počítalo
+    // i z částky, kterou už late sleva odebrala (dvojí slevnění 1. dne).
+    double lateDiscount = 0;
+    if (prices != null && days >= 2 && isLatePickup(pickupTime)) {
+      lateDiscount = (prices.forWeekday(startDate.weekday) * 0.5).roundToDouble();
+    }
+    final rentalAfterLate =
+        (basePrice - lateDiscount).clamp(0, double.infinity).toDouble();
+
+    // Full base PO late slevě (z této částky se počítají procenta).
+    final fullBase = rentalAfterLate + extrasTotal + deliveryTotal + insuranceFee;
 
     // ── Věrnostní sleva (ranky, JEN app rezervace) ──
-    // Základ: pronájem + příslušenství (bez přistavení a pojištění).
-    final loyaltyBase = basePrice + extrasTotal;
+    // Základ: pronájem (po late) + příslušenství (bez přistavení a pojištění).
+    final loyaltyBase = rentalAfterLate + extrasTotal;
     final loyaltyApplied = loyaltyPercent > 0
         ? (loyaltyBase * loyaltyPercent / 100).roundToDouble()
         : 0.0;
@@ -249,17 +260,8 @@ class PriceCalculator {
       (fullBase - loyaltyApplied).clamp(0, double.infinity).toDouble(),
     );
 
-    // ── Sleva 50 % na 1. den při pozdním vyzvednutí (>=12:00) a >=2 dnech ──
-    // Samostatná sleva, sčítá se s promo/voucher i věrnostní slevou. Mirror
-    // SQL _late_pickup_discount() + create_web_booking.
-    double lateDiscount = 0;
-    if (prices != null && days >= 2 && isLatePickup(pickupTime)) {
-      lateDiscount = (prices.forWeekday(startDate.weekday) * 0.5).roundToDouble();
-    }
-
     final total =
-        (fullBase - discountTotal - loyaltyApplied - lateDiscount)
-            .clamp(0, double.infinity);
+        (fullBase - discountTotal - loyaltyApplied).clamp(0, double.infinity);
 
     return PriceBreakdown(
       basePrice: basePrice,

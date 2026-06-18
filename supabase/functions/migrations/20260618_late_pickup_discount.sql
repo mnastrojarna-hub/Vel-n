@@ -337,6 +337,15 @@ BEGIN
   END IF;
   v_total := v_total + v_extras_total;
 
+  -- ===== 5b) SLEVA 50 % NA 1. DEN (>=12:00, >=2 dny) — PŘED procentuální slevou =====
+  -- Late snižuje základ PŘED výpočtem promo %, aby se procento nepočítalo z částky,
+  -- kterou už late sleva odebrala (jinak dvojí slevnění 1. dne). Autoritativně přes
+  -- helper (trigger trg_validate_late_pickup ji navíc revaliduje).
+  v_late_discount := public._late_pickup_discount(p_moto_id, p_start_date, p_end_date, p_pickup_time);
+  IF v_late_discount > 0 THEN
+    v_total := GREATEST(0, v_total - v_late_discount);
+  END IF;
+
   -- Promo code → najdi ID + typ + hodnotu a VYPOČÍTEJ slevu na serveru
   p_discount_amount := 0; -- IGNORUJ frontend hodnotu, vždy počítej server-side
   IF p_promo_code IS NOT NULL AND p_promo_code != '' THEN
@@ -366,14 +375,6 @@ BEGIN
   -- Sleva — aplikuj server-side vypočtenou hodnotu
   IF p_discount_amount > 0 THEN
     v_total := GREATEST(0, v_total - p_discount_amount);
-  END IF;
-
-  -- ===== 5b) SLEVA 50 % NA 1. DEN PŘI POZDNÍM VYZVEDNUTÍ (>=12:00, >=2 dny) =====
-  -- Samostatná sleva, sčítá se s promo/voucher. Autoritativně přes helper
-  -- (trigger trg_validate_late_pickup ji navíc revaliduje).
-  v_late_discount := public._late_pickup_discount(p_moto_id, p_start_date, p_end_date, p_pickup_time);
-  IF v_late_discount > 0 THEN
-    v_total := GREATEST(0, v_total - v_late_discount);
   END IF;
 
   -- ===== 6) VYTVOŘENÍ BOOKINGU =====

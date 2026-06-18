@@ -43,7 +43,7 @@ $rezKeys = [
     'gear.item.passengerExtras','gear.item.bootsRider','gear.item.bootsPassenger','gear.item.trailer',
     'gear.item.delivery','gear.item.return',
     'agree.terms','agree.gdpr','agree.marketing','agree.photo',
-    'cta.continue','cta.continuePay','totalPrice','discount',
+    'cta.continue','cta.continuePay','totalPrice','discount','latePickupDiscount',
     'motoSelect.label','motoSelect.any',
     'voucher.enter','voucher.duplicate','voucher.verifying','voucher.error',
     'voucher.invalid','voucher.percentOnce','voucher.discountApplied','voucher.voucherApplied',
