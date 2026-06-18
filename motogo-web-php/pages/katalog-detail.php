@@ -194,12 +194,12 @@ if (!empty($rawVideos)) {
     // <video> bez DEFINITIVNÍ výšky kolabovaly na 0 px → na mobilu nebyl vidět ani
     // box. `position:static` přebije případné position:absolute z main.css, ať video
     // zůstane v normálním toku a jeho height vytvoří výšku boxu na všech zařízeních.
-    // Stejný recept jako fotky (`.gallery-img img`), které se na mobilu i PC
-    // zobrazují spolehlivě: aspect-ratio drží proporční výšku (16:9), object-fit
-    // cover vyplní rámeček (žádné tmavé okraje), width:100% + height:auto. Inline,
-    // ať to nezávisí na main.css.
+    // POZOR: <video> NEumí (na rozdíl od <img>) dopočítat výšku z aspect-ratio,
+    // když je height:auto — na mobilu zkolabuje na 0 px. Proto dáváme DEFINITIVNÍ
+    // výšku (responzivní clamp: mobil ~240px, desktop max 460px) + object-fit:cover
+    // (video vyplní rámeček bez tmavých okrajů). Inline, nezávisle na main.css.
     $vWrapStyle = 'margin:0 0 .9rem;border-radius:12px;overflow:hidden;background:#1a2e22;box-shadow:0 4px 16px rgba(26,46,34,.16)';
-    $vElStyle = 'display:block;width:100%;aspect-ratio:16/9;height:auto;object-fit:cover;background:#1a2e22';
+    $vElStyle = 'display:block;width:100%;height:clamp(240px,45vw,460px);object-fit:cover;background:#1a2e22';
     $videoBlock = '<div class="moto-video" style="' . $vWrapStyle . '"><video id="' . $vid . '" class="moto-video-el" style="' . $vElStyle . '" muted autoplay playsinline webkit-playsinline controls preload="metadata"' . $loopAttr . $posterAttr . ' src="' . $firstSrc . '" data-videos="' . $vjson . '"></video></div>'
         . '<script>(function(){var v=document.getElementById("' . $vid . '");if(!v)return;var l=[];try{l=JSON.parse(v.getAttribute("data-videos")||"[]")}catch(e){}if(!l.length)return;var i=0;function pl(){v.muted=true;v.defaultMuted=true;v.playsInline=true;var p=v.play();if(p&&p.catch)p.catch(function(){})}if(l.length>1){v.addEventListener("ended",function(){i=(i+1)%l.length;v.src=l[i];pl()})}pl();})();</script>';
 }
