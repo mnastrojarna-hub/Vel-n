@@ -1,28 +1,39 @@
 -- =============================================================================
 -- MIGRACE 2026-06-18 (B): Sleva 50 % na 1. den — PŘEPOČET PŘI ÚPRAVĚ (Milestone 2)
 --
--- Při úpravě rezervace se sleva na 1. den přepočítá na nový obsah a rozdíl se
--- vyrovná: doplatek = rozdílový DP, vratka = dobropis (přes process-refund).
--- Zahrnuto do hrubého rozdílu (varianta B) — late-pickup je redukce hrubého
--- pronájmu, takže se znovu aplikuje i původní promo/voucher sleva.
+-- Čistá varianta: čas vyzvednutí řeší přímo _apply_booking_changes_core přes
+-- nový parametr p_new_pickup_time (předává ho wrapper apply_booking_changes).
+-- Při změně data / motorky / ČASU se sleva na 1. den přepočítá do hrubého
+-- rozdílu (varianta B) → doplatek = rozdílový DP, vratka = dobropis.
 --
 -- Pokrývá:
---   1) _apply_booking_changes_core  — změna data/motorky (čas zůstává stejný,
---      ale změna dnů/víkendu mění cenu 1. dne i způsobilost ≥2 dny)
---   2) shorten_booking_with_refund  — zkrácení (může spadnout pod 2 dny → ztráta)
---   3) settle_late_pickup_time_change — NOVÁ RPC: změna SAMOTNÉHO času vyzvednutí
---      přes hranici 12:00 → doplatek (DP) / vratka (dobropis)
+--   1) _apply_booking_changes_core  — + p_new_pickup_time (poslední param,
+--      DEFAULT NULL → apply_booking_changes_anon NEMUSÍ být měněn)
+--   2) apply_booking_changes        — + p_new_pickup_time, předá do core
+--   3) shorten_booking_with_refund  — late-pickup do efektivní hrubé (zkrácení
+--      může spadnout pod 2 dny → ztráta slevy)
 --
--- ⚠️ reschedule_booking_free (volný posun) a generate_final_invoice_on_complete
--- (KF) NEJSOU v repu — jejich úpravu dodám až po dodání živého zdroje.
---
--- POZN.: _apply_booking_changes_core a shorten_booking_with_refund jsou
--- reprodukovány z 20260611_discount_variant_b.sql s vloženým late-pickup blokem
--- (značeno "── LATE PICKUP ──").
+-- POZN.: reschedule_booking_free (volný posun) zůstává BEZE ZMĚNY — drží stejnou
+-- cenu z principu (goodwill), late-pickup se na něm nepřepočítává.
 -- =============================================================================
 
--- ── 1) _apply_booking_changes_core — + late-pickup do hrubého rozdílu ─────────
-CREATE OR REPLACE FUNCTION "public"."_apply_booking_changes_core"("p_user_id" "uuid", "p_booking_id" "uuid", "p_new_start" "date", "p_new_end" "date", "p_new_moto_id" "uuid", "p_new_pickup_method" "text", "p_new_pickup_address" "text", "p_new_pickup_lat" double precision, "p_new_pickup_lng" double precision, "p_new_pickup_fee" numeric, "p_new_return_method" "text", "p_new_return_address" "text", "p_new_return_lat" double precision, "p_new_return_lng" double precision, "p_new_return_fee" numeric, "p_reason" "text", "p_dry_run" boolean, "p_source" "text") RETURNS "jsonb"
+-- Úklid dřívější varianty (oddělená settle RPC) — nahrazena cestou přes core.
+DROP FUNCTION IF EXISTS public.settle_late_pickup_time_change(uuid, time, boolean);
+
+-- ── 1) _apply_booking_changes_core — + p_new_pickup_time + late-pickup ────────
+-- Starou 18-arg verzi nahradíme 19-arg verzí (přidán p_new_pickup_time jako
+-- poslední param s DEFAULT NULL).
+DROP FUNCTION IF EXISTS public._apply_booking_changes_core(
+  uuid, uuid, date, date, uuid, text, text, double precision, double precision,
+  numeric, text, text, double precision, double precision, numeric, text, boolean, text);
+
+CREATE OR REPLACE FUNCTION "public"."_apply_booking_changes_core"(
+  "p_user_id" "uuid", "p_booking_id" "uuid", "p_new_start" "date", "p_new_end" "date",
+  "p_new_moto_id" "uuid", "p_new_pickup_method" "text", "p_new_pickup_address" "text",
+  "p_new_pickup_lat" double precision, "p_new_pickup_lng" double precision, "p_new_pickup_fee" numeric,
+  "p_new_return_method" "text", "p_new_return_address" "text", "p_new_return_lat" double precision,
+  "p_new_return_lng" double precision, "p_new_return_fee" numeric, "p_reason" "text",
+  "p_dry_run" boolean, "p_source" "text", "p_new_pickup_time" time DEFAULT NULL) RETURNS "jsonb"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public'
     AS $$
@@ -60,8 +71,10 @@ DECLARE
   v_new_discount    numeric;
   v_url             text;
   v_key             text;
-  v_old_late        numeric := 0;   -- ── LATE PICKUP ──
-  v_new_late        numeric := 0;   -- ── LATE PICKUP ──
+  v_old_late        numeric := 0;
+  v_new_late        numeric := 0;
+  v_eff_pickup      time;
+  v_pickup_changed  boolean := false;
 BEGIN
   IF p_user_id IS NULL THEN
     RETURN jsonb_build_object('success', false, 'error', 'unauthenticated');
@@ -76,6 +89,8 @@ BEGIN
   END IF;
 
   v_is_active := (v_b.status = 'active');
+  v_eff_pickup := COALESCE(p_new_pickup_time, v_b.pickup_time);
+  v_pickup_changed := (p_new_pickup_time IS NOT NULL AND p_new_pickup_time IS DISTINCT FROM v_b.pickup_time);
 
   v_fs := COALESCE(p_new_start, v_b.start_date);
   v_fe := COALESCE(p_new_end,   v_b.end_date);
@@ -159,11 +174,10 @@ BEGIN
     v_d := v_d + 1;
   END LOOP;
 
-  -- ── LATE PICKUP ── sleva 50 % na 1. den (čas vyzvednutí se tu nemění) ──
+  -- ── LATE PICKUP ── new používá EFEKTIVNÍ čas (po případné změně) ──
   v_old_late := public._late_pickup_discount(v_b.moto_id,   v_b.start_date, v_b.end_date, v_b.pickup_time);
-  v_new_late := public._late_pickup_discount(v_use_moto.id, v_fs,           v_fe,         v_b.pickup_time);
+  v_new_late := public._late_pickup_discount(v_use_moto.id, v_fs,           v_fe,         v_eff_pickup);
 
-  -- Hrubý rozdíl dat = rozdíl EFEKTIVNÍ hrubé (po slevě na 1. den)
   v_dates_diff := (v_new_dates_total - v_new_late) - (v_old_dates_total - v_old_late);
   IF v_dates_diff < 0 THEN
     v_storno_pct := CASE
@@ -192,6 +206,7 @@ BEGIN
   v_changed := (
     v_fs <> v_b.start_date OR v_fe <> v_b.end_date
     OR (p_new_moto_id IS NOT NULL AND p_new_moto_id <> v_b.moto_id)
+    OR v_pickup_changed
     OR (p_new_pickup_method IS NOT NULL AND p_new_pickup_method IS DISTINCT FROM v_b.pickup_method)
     OR (p_new_pickup_address IS NOT NULL AND p_new_pickup_address IS DISTINCT FROM v_b.pickup_address)
     OR (p_new_return_method IS NOT NULL AND p_new_return_method IS DISTINCT FROM v_b.return_method)
@@ -206,22 +221,14 @@ BEGIN
 
   IF p_dry_run OR v_payment_required THEN
     RETURN jsonb_build_object(
-      'success', true,
-      'payment_required', v_payment_required,
-      'net_diff', v_net_diff,
-      'refund_amount', v_refund,
-      'new_total', v_new_total,
-      'new_discount', v_new_discount,
+      'success', true, 'payment_required', v_payment_required,
+      'net_diff', v_net_diff, 'refund_amount', v_refund,
+      'new_total', v_new_total, 'new_discount', v_new_discount,
       'breakdown', jsonb_build_object(
-        'dates_diff',       v_dates_diff,
-        'moto_diff',        v_moto_diff,
-        'pickup_fee_diff',  v_pickup_fee_diff,
-        'return_fee_diff',  v_return_fee_diff,
-        'gross_diff',       v_gross_diff,
-        'discount_type',    v_dtype,
-        'storno_pct',       v_storno_pct,
-        'late_pickup_from', v_old_late,
-        'late_pickup_to',   v_new_late
+        'dates_diff', v_dates_diff, 'moto_diff', v_moto_diff,
+        'pickup_fee_diff', v_pickup_fee_diff, 'return_fee_diff', v_return_fee_diff,
+        'gross_diff', v_gross_diff, 'discount_type', v_dtype, 'storno_pct', v_storno_pct,
+        'late_pickup_from', v_old_late, 'late_pickup_to', v_new_late
       )
     );
   END IF;
@@ -235,6 +242,7 @@ BEGIN
     'from_pickup_address', v_b.pickup_address, 'to_pickup_address', p_new_pickup_address,
     'from_return_method', v_b.return_method, 'to_return_method', p_new_return_method,
     'from_return_address', v_b.return_address, 'to_return_address', p_new_return_address,
+    'from_pickup_time', v_b.pickup_time::text, 'to_pickup_time', v_eff_pickup::text,
     'net_diff', v_net_diff, 'gross_diff', v_gross_diff,
     'refund_amount', v_refund, 'storno_pct', v_storno_pct,
     'discount_type', v_dtype, 'from_discount', v_b.discount_amount, 'to_discount', v_new_discount,
@@ -249,6 +257,7 @@ BEGIN
     start_date          = v_fs,
     end_date            = v_fe,
     moto_id             = v_use_moto.id,
+    pickup_time         = COALESCE(p_new_pickup_time, pickup_time),
     pickup_method       = COALESCE(p_new_pickup_method, pickup_method),
     pickup_address      = COALESCE(p_new_pickup_address, pickup_address),
     pickup_lat          = COALESCE(p_new_pickup_lat, pickup_lat),
@@ -262,7 +271,7 @@ BEGIN
                                ELSE delivery_fee END,
     total_price         = v_new_total,
     discount_amount     = v_new_discount,
-    late_pickup_discount_amount = v_new_late,   -- ── LATE PICKUP ──
+    late_pickup_discount_amount = v_new_late,
     modification_history = COALESCE(modification_history, '[]'::jsonb) || v_history_entry
   WHERE id = p_booking_id;
 
@@ -290,28 +299,55 @@ BEGIN
   END IF;
 
   RETURN jsonb_build_object(
-    'success', true,
-    'payment_required', false,
-    'net_diff', v_net_diff,
-    'refund_amount', v_refund,
-    'new_total', v_new_total,
-    'new_discount', v_new_discount,
+    'success', true, 'payment_required', false,
+    'net_diff', v_net_diff, 'refund_amount', v_refund,
+    'new_total', v_new_total, 'new_discount', v_new_discount,
     'breakdown', jsonb_build_object(
-      'dates_diff',       v_dates_diff,
-      'moto_diff',        v_moto_diff,
-      'pickup_fee_diff',  v_pickup_fee_diff,
-      'return_fee_diff',  v_return_fee_diff,
-      'gross_diff',       v_gross_diff,
-      'discount_type',    v_dtype,
-      'storno_pct',       v_storno_pct,
-      'late_pickup_from', v_old_late,
-      'late_pickup_to',   v_new_late
+      'dates_diff', v_dates_diff, 'moto_diff', v_moto_diff,
+      'pickup_fee_diff', v_pickup_fee_diff, 'return_fee_diff', v_return_fee_diff,
+      'gross_diff', v_gross_diff, 'discount_type', v_dtype, 'storno_pct', v_storno_pct,
+      'late_pickup_from', v_old_late, 'late_pickup_to', v_new_late
     )
   );
 END;
 $$;
+REVOKE ALL ON FUNCTION "public"."_apply_booking_changes_core"(uuid, uuid, date, date, uuid, text, text, double precision, double precision, numeric, text, text, double precision, double precision, numeric, text, boolean, text, time) FROM PUBLIC, anon, authenticated;
 
--- ── 2) shorten_booking_with_refund — + late-pickup do efektivní hrubé ────────
+-- ── 2) apply_booking_changes — + p_new_pickup_time (předá do core) ────────────
+DROP FUNCTION IF EXISTS public.apply_booking_changes(
+  uuid, date, date, uuid, text, text, double precision, double precision, numeric,
+  text, text, double precision, double precision, numeric, text, boolean);
+
+CREATE OR REPLACE FUNCTION public.apply_booking_changes(
+  p_booking_id uuid, p_new_start date, p_new_end date, p_new_moto_id uuid,
+  p_new_pickup_method text, p_new_pickup_address text, p_new_pickup_lat double precision,
+  p_new_pickup_lng double precision, p_new_pickup_fee numeric,
+  p_new_return_method text, p_new_return_address text, p_new_return_lat double precision,
+  p_new_return_lng double precision, p_new_return_fee numeric,
+  p_reason text, p_dry_run boolean, p_new_pickup_time time DEFAULT NULL
+) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_user uuid := auth.uid();
+BEGIN
+  IF v_user IS NULL THEN
+    RETURN jsonb_build_object('success', false, 'error', 'unauthenticated');
+  END IF;
+  RETURN public._apply_booking_changes_core(
+    v_user, p_booking_id,
+    p_new_start, p_new_end, p_new_moto_id,
+    p_new_pickup_method, p_new_pickup_address, p_new_pickup_lat, p_new_pickup_lng, p_new_pickup_fee,
+    p_new_return_method, p_new_return_address, p_new_return_lat, p_new_return_lng, p_new_return_fee,
+    p_reason, p_dry_run, 'web_customer', p_new_pickup_time
+  );
+END;
+$$;
+REVOKE ALL ON FUNCTION public.apply_booking_changes(uuid, date, date, uuid, text, text, double precision, double precision, numeric, text, text, double precision, double precision, numeric, text, boolean, time) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.apply_booking_changes(uuid, date, date, uuid, text, text, double precision, double precision, numeric, text, text, double precision, double precision, numeric, text, boolean, time) TO authenticated;
+
+-- ── 3) shorten_booking_with_refund — + late-pickup do efektivní hrubé ────────
 CREATE OR REPLACE FUNCTION "public"."shorten_booking_with_refund"("p_booking_id" "uuid", "p_new_start" "date", "p_new_end" "date", "p_reason" "text" DEFAULT NULL::"text") RETURNS "jsonb"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -337,36 +373,18 @@ DECLARE
   v_new_discount numeric;
   v_url         text;
   v_key         text;
-  v_old_late    numeric := 0;   -- ── LATE PICKUP ──
-  v_new_late    numeric := 0;   -- ── LATE PICKUP ──
+  v_old_late    numeric := 0;
+  v_new_late    numeric := 0;
 BEGIN
-  IF v_user IS NULL THEN
-    RETURN jsonb_build_object('success', false, 'error', 'unauthenticated');
-  END IF;
-
+  IF v_user IS NULL THEN RETURN jsonb_build_object('success', false, 'error', 'unauthenticated'); END IF;
   SELECT * INTO v_b FROM bookings WHERE id = p_booking_id;
-  IF NOT FOUND OR v_b.user_id <> v_user THEN
-    RETURN jsonb_build_object('success', false, 'error', 'not_found');
-  END IF;
-
-  IF v_b.status NOT IN ('reserved','active') THEN
-    RETURN jsonb_build_object('success', false, 'error', 'wrong_status');
-  END IF;
-  IF v_b.payment_status NOT IN ('paid','partial_refund','refund_pending') THEN
-    RETURN jsonb_build_object('success', false, 'error', 'not_paid');
-  END IF;
-  IF p_new_start < v_b.start_date OR p_new_end > v_b.end_date THEN
-    RETURN jsonb_build_object('success', false, 'error', 'not_a_shortening');
-  END IF;
-  IF p_new_start > p_new_end THEN
-    RETURN jsonb_build_object('success', false, 'error', 'invalid_range');
-  END IF;
-  IF v_b.status = 'active' AND p_new_start <> v_b.start_date THEN
-    RETURN jsonb_build_object('success', false, 'error', 'active_start_locked');
-  END IF;
-  IF p_new_start = v_b.start_date AND p_new_end = v_b.end_date THEN
-    RETURN jsonb_build_object('success', false, 'error', 'no_change');
-  END IF;
+  IF NOT FOUND OR v_b.user_id <> v_user THEN RETURN jsonb_build_object('success', false, 'error', 'not_found'); END IF;
+  IF v_b.status NOT IN ('reserved','active') THEN RETURN jsonb_build_object('success', false, 'error', 'wrong_status'); END IF;
+  IF v_b.payment_status NOT IN ('paid','partial_refund','refund_pending') THEN RETURN jsonb_build_object('success', false, 'error', 'not_paid'); END IF;
+  IF p_new_start < v_b.start_date OR p_new_end > v_b.end_date THEN RETURN jsonb_build_object('success', false, 'error', 'not_a_shortening'); END IF;
+  IF p_new_start > p_new_end THEN RETURN jsonb_build_object('success', false, 'error', 'invalid_range'); END IF;
+  IF v_b.status = 'active' AND p_new_start <> v_b.start_date THEN RETURN jsonb_build_object('success', false, 'error', 'active_start_locked'); END IF;
+  IF p_new_start = v_b.start_date AND p_new_end = v_b.end_date THEN RETURN jsonb_build_object('success', false, 'error', 'no_change'); END IF;
 
   SELECT * INTO v_moto FROM motorcycles WHERE id = v_b.moto_id;
 
@@ -404,14 +422,11 @@ BEGIN
     v_d := v_d + 1;
   END LOOP;
 
-  -- ── LATE PICKUP ── efektivní hrubá = denní součet − sleva na 1. den ──
   v_old_late := public._late_pickup_discount(v_b.moto_id, v_b.start_date, v_b.end_date, v_b.pickup_time);
   v_new_late := public._late_pickup_discount(v_b.moto_id, p_new_start,    p_new_end,    v_b.pickup_time);
 
   v_diff := (v_orig_total - v_old_late) - (v_new_total_g - v_new_late);
-  IF v_diff <= 0 THEN
-    RETURN jsonb_build_object('success', false, 'error', 'no_diff');
-  END IF;
+  IF v_diff <= 0 THEN RETURN jsonb_build_object('success', false, 'error', 'no_diff'); END IF;
 
   IF p_new_end < v_b.end_date THEN
     v_hours := EXTRACT(EPOCH FROM (p_new_end::timestamptz - v_now)) / 3600.0;
@@ -435,14 +450,13 @@ BEGIN
     end_date            = p_new_end,
     total_price         = v_new_total,
     discount_amount     = v_new_discount,
-    late_pickup_discount_amount = v_new_late,   -- ── LATE PICKUP ──
+    late_pickup_discount_amount = v_new_late,
     modification_history = COALESCE(modification_history, '[]'::jsonb) || jsonb_build_object(
       'at', v_now, 'from_start', v_b.start_date, 'from_end', v_b.end_date,
       'to_start', p_new_start, 'to_end', p_new_end, 'source', 'web_customer',
       'refund_amount', v_refund, 'refund_percent', v_percent, 'gross_refund', v_refund_gross,
       'discount_type', v_dtype, 'from_discount', v_b.discount_amount, 'to_discount', v_new_discount,
-      'from_late_pickup', v_old_late, 'to_late_pickup', v_new_late,
-      'reason', p_reason
+      'from_late_pickup', v_old_late, 'to_late_pickup', v_new_late, 'reason', p_reason
     )
   WHERE id = p_booking_id;
 
@@ -472,104 +486,3 @@ BEGIN
   RETURN jsonb_build_object('success', true, 'refund_amount', v_refund, 'refund_percent', v_percent, 'new_total', v_new_total);
 END;
 $$;
-
--- ── 3) settle_late_pickup_time_change — NOVÁ RPC: změna SAMOTNÉHO času ────────
--- Použije web/app, když se mění JEN pickup_time (datumy beze změny). Přepočte
--- slevu na 1. den dle nového času a vyrovná rozdíl: doplatek (DP) přes bránu
--- (payment_required) / vratka (dobropis) přes process-refund. BEZ storno tabulky
--- (jde o cenovou korekci, ne stornování služby).
-CREATE OR REPLACE FUNCTION public.settle_late_pickup_time_change(
-  p_booking_id   uuid,
-  p_new_pickup_time time,
-  p_dry_run      boolean DEFAULT false
-) RETURNS jsonb
-LANGUAGE plpgsql SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-  v_user      uuid := auth.uid();
-  v_b         bookings%ROWTYPE;
-  v_old_late  numeric := 0;
-  v_new_late  numeric := 0;
-  v_gross_diff numeric;
-  v_dtype     text;
-  v_calc      jsonb;
-  v_net_diff  numeric;
-  v_new_total numeric;
-  v_new_discount numeric;
-  v_refund    numeric := 0;
-  v_now       timestamptz := now();
-  v_url text; v_key text;
-BEGIN
-  IF v_user IS NULL THEN RETURN jsonb_build_object('success', false, 'error', 'unauthenticated'); END IF;
-  SELECT * INTO v_b FROM bookings WHERE id = p_booking_id;
-  IF NOT FOUND OR v_b.user_id <> v_user THEN RETURN jsonb_build_object('success', false, 'error', 'not_found'); END IF;
-  IF v_b.status NOT IN ('reserved','active') THEN RETURN jsonb_build_object('success', false, 'error', 'wrong_status'); END IF;
-  IF v_b.payment_status NOT IN ('paid','partial_refund','refund_pending') THEN RETURN jsonb_build_object('success', false, 'error', 'not_paid'); END IF;
-  IF p_new_pickup_time IS NULL THEN RETURN jsonb_build_object('success', false, 'error', 'no_time'); END IF;
-  IF p_new_pickup_time IS NOT DISTINCT FROM v_b.pickup_time THEN RETURN jsonb_build_object('success', false, 'error', 'no_change'); END IF;
-
-  v_old_late := public._late_pickup_discount(v_b.moto_id, v_b.start_date, v_b.end_date, v_b.pickup_time);
-  v_new_late := public._late_pickup_discount(v_b.moto_id, v_b.start_date, v_b.end_date, p_new_pickup_time);
-
-  -- Změna efektivní hrubé = (gross - new_late) - (gross - old_late) = old_late - new_late
-  v_gross_diff := v_old_late - v_new_late;
-
-  v_dtype := _booking_discount_type(v_b.promo_code_id, v_b.promo_code, v_b.discount_code, v_b.voucher_id);
-  v_calc  := _apply_discount_variant_b(v_b.total_price, v_b.discount_amount, v_gross_diff, v_dtype);
-  v_net_diff     := (v_calc->>'net_diff')::numeric;
-  v_new_total    := (v_calc->>'new_total')::numeric;
-  v_new_discount := (v_calc->>'new_discount')::numeric;
-  v_refund := CASE WHEN v_net_diff < 0 THEN -v_net_diff ELSE 0 END;
-
-  IF p_dry_run OR v_net_diff > 0 THEN
-    RETURN jsonb_build_object(
-      'success', true, 'payment_required', (v_net_diff > 0),
-      'net_diff', v_net_diff, 'refund_amount', v_refund,
-      'new_total', v_new_total, 'new_discount', v_new_discount,
-      'late_pickup_from', v_old_late, 'late_pickup_to', v_new_late
-    );
-  END IF;
-
-  UPDATE bookings SET
-    pickup_time = p_new_pickup_time,
-    total_price = v_new_total,
-    discount_amount = v_new_discount,
-    late_pickup_discount_amount = v_new_late,
-    modification_history = COALESCE(modification_history, '[]'::jsonb) || jsonb_build_object(
-      'at', v_now, 'from_pickup_time', v_b.pickup_time::text, 'to_pickup_time', p_new_pickup_time::text,
-      'net_diff', v_net_diff, 'refund_amount', v_refund,
-      'discount_type', v_dtype, 'from_discount', v_b.discount_amount, 'to_discount', v_new_discount,
-      'from_late_pickup', v_old_late, 'to_late_pickup', v_new_late,
-      'price_diff', v_net_diff, 'source', 'web_customer', 'kind', 'late_pickup_time'
-    )
-  WHERE id = p_booking_id;
-
-  IF v_refund > 0 AND v_b.stripe_payment_intent_id IS NOT NULL THEN
-    BEGIN
-      SELECT value #>> '{}' INTO v_url FROM app_settings WHERE key = 'supabase_url';
-      SELECT value #>> '{}' INTO v_key FROM app_settings WHERE key = 'service_role_key';
-      IF v_url IS NOT NULL AND v_url <> '' AND v_key IS NOT NULL AND v_key <> '' THEN
-        PERFORM net.http_post(
-          url := v_url || '/functions/v1/process-refund',
-          headers := jsonb_build_object('Content-Type','application/json','Authorization','Bearer ' || v_key),
-          body := jsonb_build_object('booking_id', p_booking_id, 'amount', v_refund, 'reason', 'late_pickup_time', 'source', 'edit')
-        );
-      END IF;
-    EXCEPTION WHEN OTHERS THEN
-      INSERT INTO debug_log(source, action, status, error_message, request_data)
-      VALUES ('settle_late_pickup_time_change','refund_dispatch_failed','error',SQLERRM,
-              jsonb_build_object('booking_id',p_booking_id,'refund',v_refund));
-    END;
-  END IF;
-
-  RETURN jsonb_build_object(
-    'success', true, 'payment_required', false,
-    'net_diff', v_net_diff, 'refund_amount', v_refund,
-    'new_total', v_new_total, 'new_discount', v_new_discount,
-    'late_pickup_from', v_old_late, 'late_pickup_to', v_new_late
-  );
-END;
-$$;
-REVOKE ALL ON FUNCTION public.settle_late_pickup_time_change(uuid, time, boolean) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.settle_late_pickup_time_change(uuid, time, boolean) TO authenticated, service_role;
