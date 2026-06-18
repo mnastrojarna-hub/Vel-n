@@ -328,6 +328,7 @@ return [
     'rez.cta.continuePay' => 'Continue to payment',
     'rez.totalPrice' => 'Total price: {price}',
     'rez.discount' => 'Discount: −{amount}',
+    'rez.latePickupDiscount' => '50% off the 1st day (late pickup)',
     'rez.motoSelect.label' => 'Specific model or any motorcycle',
     'rez.motoSelect.any' => 'any motorcycle available on my dates',
 

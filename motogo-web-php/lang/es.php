@@ -329,6 +329,7 @@ return [
     'rez.cta.continuePay' => 'Continuar al pago',
     'rez.totalPrice' => 'Precio total: {price}',
     'rez.discount' => 'Descuento: −{amount}',
+    'rez.latePickupDiscount' => '50 % de descuento el 1.er día (recogida tardía)',
     'rez.motoSelect.label' => 'Modelo concreto o cualquier moto',
     'rez.motoSelect.any' => 'cualquier moto disponible en mis fechas',
 

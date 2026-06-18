@@ -449,6 +449,7 @@ return [
     'rez.cta.continuePay' => 'Pokračovat k platbě',
     'rez.totalPrice' => 'Celková cena: {price}',
     'rez.discount' => 'Sleva: −{amount}',
+    'rez.latePickupDiscount' => 'Sleva 50 % na 1. den (pozdní vyzvednutí)',
     'rez.motoSelect.label' => 'Konkrétní model nebo libovolná motorka',
     'rez.motoSelect.any' => 'libovolná dostupná motorka v mém termínu',
 

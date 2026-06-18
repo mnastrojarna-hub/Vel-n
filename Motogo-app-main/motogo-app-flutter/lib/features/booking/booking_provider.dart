@@ -52,6 +52,7 @@ final priceBreakdownProvider = Provider<PriceBreakdown>((ref) {
     loyaltyPercent: loyalty?.percent ?? 0,
     loyaltyLevel: loyalty?.level ?? 0,
     loyaltyRankName: loyalty?.rankName,
+    pickupTime: draft.pickupTime,
   );
 });
 

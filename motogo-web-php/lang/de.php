@@ -328,6 +328,7 @@ return [
     'rez.cta.continuePay' => 'Weiter zur Zahlung',
     'rez.totalPrice' => 'Gesamtpreis: {price}',
     'rez.discount' => 'Rabatt: −{amount}',
+    'rez.latePickupDiscount' => '50 % Rabatt auf den 1. Tag (späte Abholung)',
     'rez.motoSelect.label' => 'Bestimmtes Modell oder beliebiges Motorrad',
     'rez.motoSelect.any' => 'beliebiges Motorrad verfügbar in meinem Termin',
 

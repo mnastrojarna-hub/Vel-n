@@ -458,6 +458,12 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
       if ((_booking!.discountAmount ?? 0) > 0) {
         changes['discount_amount'] = calc.newDiscountAmount;
       }
+      // Sleva 50 % na 1. den (pozdní vyzvednutí) — ulož přepočtenou hodnotu,
+      // i 0 při ztrátě slevy (posun času před 12:00 / pod 2 dny). Posílá se jen
+      // když je relevantní (= backend se sloupcem nasazen).
+      if (calc.newLatePickup > 0 || calc.oldLatePickup > 0) {
+        changes['late_pickup_discount_amount'] = calc.newLatePickup;
+      }
       // Doprava: účtuje/vrací se rozdíl; nová kombinovaná fee se persistuje,
       // aby seděl rozpis KF (generate_final_invoice čte delivery_fee).
       if (calc.deliveryFeeDelta != 0) {
