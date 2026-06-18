@@ -189,7 +189,14 @@ if (!empty($rawVideos)) {
     // JS jinde na stránce apod.). Inline skript zůstává jen pro přepínání mezi
     // VÍCE videi (advance na 'ended'); jedno video řeší `loop` + autoplay+muted.
     $firstSrc = htmlspecialchars($vlist[0], ENT_QUOTES, 'UTF-8');
-    $videoBlock = '<div class="moto-video"><video id="' . $vid . '" class="moto-video-el" muted autoplay playsinline webkit-playsinline controls preload="metadata"' . $loopAttr . $posterAttr . ' src="' . $firstSrc . '" data-videos="' . $vjson . '"></video></div>'
+    // Rozměry dáváme INLINE s PEVNOU px výškou (nezávisle na main.css i na podpoře
+    // aspect-ratio). Mobilní prohlížeče (iOS Safari i Android Chrome) u nepřehraného
+    // <video> bez DEFINITIVNÍ výšky kolabovaly na 0 px → na mobilu nebyl vidět ani
+    // box. `position:static` přebije případné position:absolute z main.css, ať video
+    // zůstane v normálním toku a jeho height vytvoří výšku boxu na všech zařízeních.
+    $vWrapStyle = 'margin:0 0 .9rem;border-radius:12px;overflow:hidden;background:#1a2e22;box-shadow:0 4px 16px rgba(26,46,34,.16)';
+    $vElStyle = 'position:static;display:block;width:100%;height:300px;object-fit:contain;background:#1a2e22';
+    $videoBlock = '<div class="moto-video" style="' . $vWrapStyle . '"><video id="' . $vid . '" class="moto-video-el" style="' . $vElStyle . '" muted autoplay playsinline webkit-playsinline controls preload="metadata"' . $loopAttr . $posterAttr . ' src="' . $firstSrc . '" data-videos="' . $vjson . '"></video></div>'
         . '<script>(function(){var v=document.getElementById("' . $vid . '");if(!v)return;var l=[];try{l=JSON.parse(v.getAttribute("data-videos")||"[]")}catch(e){}if(!l.length)return;var i=0;function pl(){v.muted=true;v.defaultMuted=true;v.playsInline=true;var p=v.play();if(p&&p.catch)p.catch(function(){})}if(l.length>1){v.addEventListener("ended",function(){i=(i+1)%l.length;v.src=l[i];pl()})}pl();})();</script>';
 }
 
