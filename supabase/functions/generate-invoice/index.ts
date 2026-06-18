@@ -463,7 +463,10 @@ serve(async (req) => {
         // Věrnostní sleva (ranky, jen app rezervace) je uložená odděleně od promo/voucher
         // slevy — pro brutto pronájmu se přičítá zpět stejně jako discount_amount.
         const loyaltyDiscount = Number(booking.loyalty_discount_amount || 0)
-        const baseRental = (booking.total_price || 0) - extrasTotal - (booking.delivery_fee || 0) + (booking.discount_amount || 0) + loyaltyDiscount
+        // Sleva 50 % na 1. den (pozdní vyzvednutí >=12:00, rezervace >=2 dny) je
+        // uložená odděleně — pro brutto pronájmu se přičítá zpět jako discount_amount.
+        const latePickupDiscount = Number(booking.late_pickup_discount_amount || 0)
+        const baseRental = (booking.total_price || 0) - extrasTotal - (booking.delivery_fee || 0) + (booking.discount_amount || 0) + loyaltyDiscount + latePickupDiscount
         const motoLabelStd = `${booking.motorcycles?.model || 'motorky'}${booking.motorcycles?.spz ? ' (' + booking.motorcycles.spz + ')' : ''}`
         const bd = calcPriceBreakdown(booking.motorcycles, booking.start_date, booking.end_date)
 
@@ -521,6 +524,11 @@ serve(async (req) => {
         if (loyaltyDiscount > 0) {
           const pctLabel = booking.loyalty_percent ? ` ${booking.loyalty_percent} %` : ''
           items.push({ description: `Věrnostní sleva${pctLabel} — rezervace přes aplikaci MotoGo24`, qty: 1, unit_price: -loyaltyDiscount })
+        }
+        // Sleva 50 % na 1. den při pozdním vyzvednutí (>=12:00) a rezervaci >=2 dny —
+        // samostatný záporný řádek. Platí pro web i app.
+        if (latePickupDiscount > 0) {
+          items.push({ description: `Sleva 50 % na 1. den (pozdní vyzvednutí)`, qty: 1, unit_price: -latePickupDiscount })
         }
       }
 
