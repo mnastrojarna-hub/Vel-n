@@ -321,12 +321,23 @@ DROP FUNCTION IF EXISTS public.apply_booking_changes(
   text, text, double precision, double precision, numeric, text, boolean);
 
 CREATE OR REPLACE FUNCTION public.apply_booking_changes(
-  p_booking_id uuid, p_new_start date, p_new_end date, p_new_moto_id uuid,
-  p_new_pickup_method text, p_new_pickup_address text, p_new_pickup_lat double precision,
-  p_new_pickup_lng double precision, p_new_pickup_fee numeric,
-  p_new_return_method text, p_new_return_address text, p_new_return_lat double precision,
-  p_new_return_lng double precision, p_new_return_fee numeric,
-  p_reason text, p_dry_run boolean, p_new_pickup_time time DEFAULT NULL
+  p_booking_id uuid,
+  p_new_start date DEFAULT NULL,
+  p_new_end date DEFAULT NULL,
+  p_new_moto_id uuid DEFAULT NULL,
+  p_new_pickup_method text DEFAULT NULL,
+  p_new_pickup_address text DEFAULT NULL,
+  p_new_pickup_lat double precision DEFAULT NULL,
+  p_new_pickup_lng double precision DEFAULT NULL,
+  p_new_pickup_fee numeric DEFAULT NULL,
+  p_new_return_method text DEFAULT NULL,
+  p_new_return_address text DEFAULT NULL,
+  p_new_return_lat double precision DEFAULT NULL,
+  p_new_return_lng double precision DEFAULT NULL,
+  p_new_return_fee numeric DEFAULT NULL,
+  p_reason text DEFAULT NULL,
+  p_dry_run boolean DEFAULT false,
+  p_new_pickup_time time DEFAULT NULL
 ) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = public
