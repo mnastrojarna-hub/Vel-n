@@ -348,6 +348,11 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
           'loyalty_percent': breakdown.loyaltyPercent,
           'loyalty_discount_amount': breakdown.loyaltyDiscount,
         },
+        // Sleva 50 % na 1. den při pozdním vyzvednutí (>=12:00, >=2 dny) —
+        // posílá se jen když reálně padla (backend se sloupcem nasazen);
+        // server-side ji clamp-down trigger trg_validate_late_pickup validuje.
+        if (breakdown.latePickupDiscount > 0)
+          'late_pickup_discount_amount': breakdown.latePickupDiscount,
         'pickup_method': pickupMethod,
         'pickup_address': pickupMethod == 'delivery'
             ? draft.pickupAddress

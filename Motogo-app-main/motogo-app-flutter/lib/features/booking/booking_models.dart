@@ -225,6 +225,10 @@ class PriceBreakdown {
   final int loyaltyLevel;
   final String? loyaltyRankName;
 
+  /// Sleva 50 % na 1. den při pozdním vyzvednutí (>=12:00) a rezervaci >=2 dny.
+  /// Platí pro web i app. Oddělená od promo/voucher i věrnostní slevy.
+  final double latePickupDiscount;
+
   const PriceBreakdown({
     required this.basePrice,
     required this.extrasTotal,
@@ -238,6 +242,7 @@ class PriceBreakdown {
     this.loyaltyPercent = 0,
     this.loyaltyLevel = 0,
     this.loyaltyRankName,
+    this.latePickupDiscount = 0,
   });
 
   double get deliveryFee => pickupDeliveryFee + returnDeliveryFee;

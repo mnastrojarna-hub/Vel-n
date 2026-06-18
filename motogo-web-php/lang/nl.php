@@ -314,6 +314,7 @@ return [
     'rez.cta.continuePay' => 'Doorgaan naar betaling',
     'rez.totalPrice' => 'Totale prijs: {price}',
     'rez.discount' => 'Korting: −{amount}',
+    'rez.latePickupDiscount' => '50% korting op de 1e dag (laat ophalen)',
     'rez.motoSelect.label' => 'Specifiek model of elke motor',
     'rez.motoSelect.any' => 'elke motor beschikbaar op mijn datums',
 

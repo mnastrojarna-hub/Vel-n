@@ -206,6 +206,8 @@ class PriceCalculator {
     int loyaltyPercent = 0,
     int loyaltyLevel = 0,
     String? loyaltyRankName,
+    // Čas vyzvednutí (HH:MM) — pro slevu 50 % na 1. den při pozdním vyzvednutí.
+    String? pickupTime,
   }) {
     if (startDate == null || endDate == null) {
       return const PriceBreakdown(
@@ -247,8 +249,17 @@ class PriceCalculator {
       (fullBase - loyaltyApplied).clamp(0, double.infinity).toDouble(),
     );
 
+    // ── Sleva 50 % na 1. den při pozdním vyzvednutí (>=12:00) a >=2 dnech ──
+    // Samostatná sleva, sčítá se s promo/voucher i věrnostní slevou. Mirror
+    // SQL _late_pickup_discount() + create_web_booking.
+    double lateDiscount = 0;
+    if (prices != null && days >= 2 && isLatePickup(pickupTime)) {
+      lateDiscount = (prices.forWeekday(startDate.weekday) * 0.5).roundToDouble();
+    }
+
     final total =
-        (fullBase - discountTotal - loyaltyApplied).clamp(0, double.infinity);
+        (fullBase - discountTotal - loyaltyApplied - lateDiscount)
+            .clamp(0, double.infinity);
 
     return PriceBreakdown(
       basePrice: basePrice,
@@ -263,7 +274,18 @@ class PriceCalculator {
       loyaltyPercent: loyaltyApplied > 0 ? loyaltyPercent : 0,
       loyaltyLevel: loyaltyApplied > 0 ? loyaltyLevel : 0,
       loyaltyRankName: loyaltyApplied > 0 ? loyaltyRankName : null,
+      latePickupDiscount: lateDiscount,
     );
+  }
+
+  /// true když je čas vyzvednutí "HH:MM" 12:00 nebo později.
+  static bool isLatePickup(String? pickupTime) {
+    if (pickupTime == null) return false;
+    final parts = pickupTime.split(':');
+    if (parts.isEmpty) return false;
+    final h = int.tryParse(parts[0]);
+    if (h == null) return false;
+    return h >= 12;
   }
 
   /// Apply discounts in correct order.

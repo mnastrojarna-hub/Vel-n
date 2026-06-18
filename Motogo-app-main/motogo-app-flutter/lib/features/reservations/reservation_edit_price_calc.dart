@@ -142,6 +142,39 @@ class EditPriceCalc {
     return v > 0 ? v : 0;
   }
 
+  // ── Sleva 50 % na 1. den (pozdní vyzvednutí >=12:00, rezervace >=2 dny) ──
+  // Mirror SQL _late_pickup_discount(). Je to redukce hrubého pronájmu — do
+  // priceDiff vstupuje jako (stará sleva − nová sleva): víc slevy = vratka,
+  // míň slevy (např. posun času před 12:00) = doplatek.
+  static bool _isLatePickup(String? t) {
+    if (t == null) return false;
+    final p = t.split(':');
+    final h = p.isNotEmpty ? int.tryParse(p[0]) : null;
+    return h != null && h >= 12;
+  }
+
+  double _lateFor(DayPrices? prices, DateTime start, DateTime end, String? time) {
+    if (prices == null) return 0;
+    final d = end.difference(start).inDays + 1;
+    if (d < 2 || !_isLatePickup(time)) return 0;
+    return (prices.forWeekday(start.weekday) * 0.5).roundToDouble();
+  }
+
+  DayPrices? get _effPrices =>
+      (newMotoId != null && newMotoId != booking.motoId && newMotoPrices != null)
+          ? newMotoPrices
+          : motoPrices;
+
+  /// Původní sleva na 1. den (z původních dat a původního času vyzvednutí).
+  double get oldLatePickup =>
+      _lateFor(motoPrices, booking.startDate, booking.endDate, booking.pickupTime ?? '09:00');
+
+  /// Nová sleva na 1. den (po úpravě dat / motorky / času vyzvednutí).
+  double get newLatePickup {
+    if (newStart == null || newEnd == null) return 0;
+    return _lateFor(_effPrices, newStart!, newEnd!, pickupTime);
+  }
+
   double get priceDiff {
     if (newStart == null || newEnd == null) return 0;
     double diff = dateChangeAmount;
@@ -153,6 +186,8 @@ class EditPriceCalc {
           ?? (origDailyPrice * newDays);
       diff += newTotal - origTotal;
     }
+    // Sleva 50 % na 1. den — víc slevy snižuje cenu (vratka), míň zvyšuje (doplatek).
+    diff += oldLatePickup - newLatePickup;
     return diff;
   }
 
