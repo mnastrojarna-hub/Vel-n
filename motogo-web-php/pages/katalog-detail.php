@@ -202,6 +202,18 @@ if (!empty($rawVideos)) {
     $vElStyle = 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;background:#1a2e22';
     $videoBlock = '<div class="moto-video" style="' . $vWrapStyle . '"><video id="' . $vid . '" class="moto-video-el" style="' . $vElStyle . '" muted autoplay playsinline webkit-playsinline controls preload="metadata"' . $loopAttr . $posterAttr . ' src="' . $firstSrc . '" data-videos="' . $vjson . '"></video></div>'
         . '<script>(function(){var v=document.getElementById("' . $vid . '");if(!v)return;var l=[];try{l=JSON.parse(v.getAttribute("data-videos")||"[]")}catch(e){}if(!l.length)return;var i=0;function pl(){v.muted=true;v.defaultMuted=true;v.playsInline=true;var p=v.play();if(p&&p.catch)p.catch(function(){})}if(l.length>1){v.addEventListener("ended",function(){i=(i+1)%l.length;v.src=l[i];pl()})}pl();})();</script>';
+    // DIAGNOSTIKA (jen s ?vdebug=1 v URL) — vypíše na mobilu přímo na stránku
+    // kompletní stav videa: rozměry boxu/videa, výšku, stav načtení, chyby.
+    if (isset($_GET['vdebug'])) {
+        $videoBlock .= '<script>(function(){function run(){var o=[];function L(k,val){o.push(k+": "+val);}'
+            . 'L("UA", navigator.userAgent);'
+            . 'L("viewport", window.innerWidth+"x"+window.innerHeight);'
+            . 'var w=document.querySelector(".moto-video");var v=document.getElementById("' . $vid . '");'
+            . 'if(!w){L("container",".moto-video NENALEZEN");}else{var wr=w.getBoundingClientRect();var wc=getComputedStyle(w);L("container rect", Math.round(wr.width)+"x"+Math.round(wr.height));L("container computed-height", wc.height);L("container display", wc.display);L("container position", wc.position);L("container visibility", wc.visibility);}'
+            . 'if(!v){L("video","ELEMENT NENALEZEN");}else{var vr=v.getBoundingClientRect();var vc=getComputedStyle(v);L("video rect", Math.round(vr.width)+"x"+Math.round(vr.height));L("video computed-height", vc.height);L("video position", vc.position);L("video object-fit", vc.objectFit);L("video display", vc.display);L("readyState", v.readyState+" (4=hotovo)");L("networkState", v.networkState);L("currentSrc", "..."+(v.currentSrc||"").slice(-45));L("error", v.error?("KÓD "+v.error.code):"žádná");L("paused", v.paused);L("decoded size", v.videoWidth+"x"+v.videoHeight);}'
+            . 'var p=document.createElement("pre");p.style.cssText="position:fixed;left:0;right:0;bottom:0;z-index:2147483647;background:#000;color:#0f0;font:11px/1.4 monospace;padding:10px;margin:0;white-space:pre-wrap;word-break:break-all;max-height:70vh;overflow:auto;border-top:3px solid #0f0";p.textContent="=== VIDEO DEBUG ===\n"+o.join("\n");document.body.appendChild(p);}'
+            . 'if(document.readyState==="complete"){setTimeout(run,1000);}else{window.addEventListener("load",function(){setTimeout(run,1000);});}})();</script>';
+    }
 }
 
 $galleryHtml = '<div class="moto-gallery">' . $videoBlock;
