@@ -174,8 +174,10 @@ BEGIN
     v_d := v_d + 1;
   END LOOP;
 
-  -- ── LATE PICKUP ── new používá EFEKTIVNÍ čas (po případné změně) ──
-  v_old_late := public._late_pickup_discount(v_b.moto_id,   v_b.start_date, v_b.end_date, v_b.pickup_time);
+  -- ── LATE PICKUP ── stará = REÁLNĚ uložená hodnota (ne přepočet — jinak by
+  -- legacy rezervace bez late vykázala fantomový rozdíl); nová = přepočet pro
+  -- nový obsah + efektivní čas vyzvednutí.
+  v_old_late := COALESCE(v_b.late_pickup_discount_amount, 0);
   v_new_late := public._late_pickup_discount(v_use_moto.id, v_fs,           v_fe,         v_eff_pickup);
 
   v_dates_diff := (v_new_dates_total - v_new_late) - (v_old_dates_total - v_old_late);
@@ -422,7 +424,7 @@ BEGIN
     v_d := v_d + 1;
   END LOOP;
 
-  v_old_late := public._late_pickup_discount(v_b.moto_id, v_b.start_date, v_b.end_date, v_b.pickup_time);
+  v_old_late := COALESCE(v_b.late_pickup_discount_amount, 0);   -- reálně uložená, ne přepočet
   v_new_late := public._late_pickup_discount(v_b.moto_id, p_new_start,    p_new_end,    v_b.pickup_time);
 
   v_diff := (v_orig_total - v_old_late) - (v_new_total_g - v_new_late);
