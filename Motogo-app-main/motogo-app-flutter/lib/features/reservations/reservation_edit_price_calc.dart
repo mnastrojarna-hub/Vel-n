@@ -165,9 +165,9 @@ class EditPriceCalc {
           ? newMotoPrices
           : motoPrices;
 
-  /// Původní sleva na 1. den (z původních dat a původního času vyzvednutí).
-  double get oldLatePickup =>
-      _lateFor(motoPrices, booking.startDate, booking.endDate, booking.pickupTime ?? '09:00');
+  /// Původní sleva na 1. den — REÁLNĚ uložená hodnota (ne přepočet; jinak by
+  /// rezervace bez uložené late slevy vykázala fantomový rozdíl při úpravě).
+  double get oldLatePickup => booking.latePickupDiscount ?? 0;
 
   /// Nová sleva na 1. den (po úpravě dat / motorky / času vyzvednutí).
   double get newLatePickup {

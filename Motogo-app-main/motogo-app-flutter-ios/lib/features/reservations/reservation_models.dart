@@ -30,6 +30,7 @@ class Reservation {
   final double? deliveryFee;
   final double? extrasPrice;
   final double? discountAmount;
+  final double? latePickupDiscount;
   final String? discountCode;
   final bool sosReplacement;
   final bool endedBySos;
@@ -93,6 +94,7 @@ class Reservation {
     this.deliveryFee,
     this.extrasPrice,
     this.discountAmount,
+    this.latePickupDiscount,
     this.discountCode,
     this.sosReplacement = false,
     this.endedBySos = false,
@@ -171,6 +173,7 @@ class Reservation {
       deliveryFee: (json['delivery_fee'] as num?)?.toDouble(),
       extrasPrice: (json['extras_price'] as num?)?.toDouble(),
       discountAmount: (json['discount_amount'] as num?)?.toDouble(),
+      latePickupDiscount: (json['late_pickup_discount_amount'] as num?)?.toDouble(),
       discountCode: json['discount_code'] as String?,
       sosReplacement: json['sos_replacement'] as bool? ?? false,
       endedBySos: json['ended_by_sos'] as bool? ?? false,
