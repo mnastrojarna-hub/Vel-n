@@ -15,6 +15,21 @@ import { PromoModal, PromoDetailModal } from './PromoCodesModals'
 
 const PER_PAGE = 25
 
+const SOURCE_OPTIONS = [
+  { value: 'slevomat', label: 'Slevomat' },
+  { value: 'eshop', label: 'E-shop' },
+  { value: 'spoluprace', label: 'Spolupráce' },
+  { value: 'vraceni', label: 'Vrácení' },
+  { value: 'ostatni', label: 'Ostatní' },
+]
+
+const SORT_OPTIONS = [
+  { value: 'created_at', label: 'Vytvořeno' },
+  { value: 'valid_to', label: 'Platnost' },
+  { value: 'value', label: 'Výše slevy / %' },
+  { value: 'used_count', label: 'Počet použití' },
+]
+
 export default function PromoCodes() {
   const debugMode = useDebugMode()
   const [codes, setCodes] = useState([])
@@ -22,7 +37,7 @@ export default function PromoCodes() {
   const [error, setError] = useState(null)
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
-  const defaultFilters = { statuses: [], search: '' }
+  const defaultFilters = { statuses: [], redeemed: [], types: [], sources: [], search: '', sortBy: 'created_at', sortDir: 'desc' }
   const [filters, setFilters] = useState(() => {
     try {
       const saved = localStorage.getItem('velin_promo_filters')
@@ -54,10 +69,11 @@ export default function PromoCodes() {
     setLoading(true)
     setError(null)
     try {
+      const sortBy = SORT_OPTIONS.some(o => o.value === filters.sortBy) ? filters.sortBy : 'created_at'
       let query = supabase
         .from('promo_codes')
         .select('*', { count: 'exact' })
-        .order('created_at', { ascending: false })
+        .order(sortBy, { ascending: filters.sortDir === 'asc', nullsFirst: false })
 
       if (filters.statuses?.length > 0) {
         if (filters.statuses.includes('active') && !filters.statuses.includes('inactive') && !filters.statuses.includes('expired')) {
@@ -71,6 +87,24 @@ export default function PromoCodes() {
       else if (filters.status === 'inactive') query = query.eq('active', false)
       else if (filters.status === 'expired') {
         query = query.lt('valid_to', new Date().toISOString().split('T')[0])
+      }
+
+      // Uplatnění (počet použití)
+      if (filters.redeemed?.length === 1) {
+        if (filters.redeemed.includes('redeemed')) query = query.gt('used_count', 0)
+        else if (filters.redeemed.includes('unredeemed')) query = query.eq('used_count', 0)
+      }
+
+      // Typ slevy: % vs. absolutní
+      if (filters.types?.length > 0) query = query.in('type', filters.types)
+
+      // Zdroj kódu
+      if (filters.sources?.length > 0) {
+        const named = filters.sources.filter(s => s !== 'ostatni')
+        const orParts = []
+        if (named.length) orParts.push(`source.in.(${named.join(',')})`)
+        if (filters.sources.includes('ostatni')) { orParts.push('source.is.null'); orParts.push('source.eq.ostatni') }
+        if (orParts.length) query = query.or(orParts.join(','))
       }
 
       if (filters.search) {
@@ -203,6 +237,17 @@ export default function PromoCodes() {
         <CheckboxFilterGroup label="Stav" values={filters.statuses || []}
           onChange={v => { setPage(1); setFilters(f => ({ ...f, statuses: v })) }}
           options={[{ value: 'active', label: 'Aktivní' }, { value: 'inactive', label: 'Neaktivní' }, { value: 'expired', label: 'Expirované' }]} />
+        <CheckboxFilterGroup label="Uplatnění" values={filters.redeemed || []}
+          onChange={v => { setPage(1); setFilters(f => ({ ...f, redeemed: v })) }}
+          options={[{ value: 'redeemed', label: 'Uplatněné' }, { value: 'unredeemed', label: 'Neuplatněné' }]} />
+        <CheckboxFilterGroup label="Typ slevy" values={filters.types || []}
+          onChange={v => { setPage(1); setFilters(f => ({ ...f, types: v })) }}
+          options={[{ value: 'percent', label: '% sleva' }, { value: 'fixed', label: 'Absolutní sleva' }]} />
+        <CheckboxFilterGroup label="Zdroj" values={filters.sources || []}
+          onChange={v => { setPage(1); setFilters(f => ({ ...f, sources: v })) }}
+          options={SOURCE_OPTIONS} />
+        <SortControl options={SORT_OPTIONS} sortBy={filters.sortBy} sortDir={filters.sortDir}
+          onChange={(by, dir) => { setPage(1); setFilters(f => ({ ...f, sortBy: by, sortDir: dir })) }} />
         <button onClick={() => { setPage(1); setFilters({ ...defaultFilters }); localStorage.removeItem('velin_promo_filters') }}
           className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
           style={{ padding: '8px 14px', background: '#fee2e2', border: '1px solid #fca5a5', color: '#dc2626' }}>
@@ -394,6 +439,28 @@ function FilterSelect({ value, onChange, options }) {
       style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
       {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
     </select>
+  )
+}
+
+function SortControl({ options, sortBy, sortDir, onChange }) {
+  const by = options.some(o => o.value === sortBy) ? sortBy : options[0].value
+  const dir = sortDir === 'asc' ? 'asc' : 'desc'
+  return (
+    <div className="flex items-center gap-1 rounded-btn"
+      style={{ padding: '4px 10px', background: '#f1faf7', border: '1px solid #d4e8e0' }}>
+      <span className="text-sm font-extrabold uppercase tracking-wide mr-1" style={{ color: '#1a2e22' }}>Řadit:</span>
+      <select value={by} onChange={e => onChange(e.target.value, dir)}
+        className="rounded-btn text-sm font-bold cursor-pointer outline-none"
+        style={{ padding: '4px 8px', background: '#fff', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
+        {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+      </select>
+      <button onClick={() => onChange(by, dir === 'asc' ? 'desc' : 'asc')}
+        className="rounded-btn text-sm font-extrabold cursor-pointer"
+        title={dir === 'asc' ? 'Vzestupně (klikni pro sestupně)' : 'Sestupně (klikni pro vzestupně)'}
+        style={{ padding: '4px 10px', background: '#74FB71', border: 'none', color: '#1a2e22' }}>
+        {dir === 'asc' ? '↑ Vzestupně' : '↓ Sestupně'}
+      </button>
+    </div>
   )
 }
 

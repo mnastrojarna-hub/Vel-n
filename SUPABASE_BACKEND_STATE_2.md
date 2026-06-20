@@ -259,7 +259,13 @@
 - description, category (rental/gear/experience/gift)
 - created_by
 - **order_id** (FK→shop_orders) — vazba na e-shop objednávku
-- **source** — zdroj voucheru
+- **source** (text) — zdroj voucheru. Plní `auto_process_voucher_order` hodnotou `'eshop'` (poukaz z e-shop objednávky); admin poukazy z Velína mají NULL nebo hodnotu vybranou v modálu. **Velín filtr (2026-06-20):** Slevomat=`slevomat`, E-shop=`eshop`, Spolupráce=`spoluprace`, Vrácení=`vraceni`, Ostatní=`ostatni` (filtr „Ostatní" zahrnuje i NULL).
+
+### promo_codes
+- id (uuid PK), code (text UNIQUE), type (text CHECK percent/fixed), value (numeric)
+- valid_from, valid_to (date), max_uses (int), used_count (int NOT NULL DEFAULT 0)
+- min_order_amount (numeric), applicable_motos (text), active (boolean NOT NULL DEFAULT true), created_at
+- **source** (text, **NEW 2026-06-20**) — zdroj slevového kódu pro filtrování ve Velíně (`slevomat`/`eshop`/`spoluprace`/`vraceni`/`ostatni`, NULL = neurčeno). Zadává se v PromoModal, filtruje záložka „Promo kódy". SQL: `ALTER TABLE promo_codes ADD COLUMN IF NOT EXISTS source text;`
 
 ### shop_orders
 - id (uuid PK), order_number (text UNIQUE)
