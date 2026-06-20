@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../theme.dart';
+import 'moto_fx.dart';
 import '../../features/loyalty/loyalty_provider.dart';
+import '../../features/loyalty/loyalty_ranks_screen.dart';
 
 /// Runtime app version — initialized once at startup from pubspec.yaml values.
 /// Falls back to '?.?.?' until init() is called.
@@ -81,6 +83,12 @@ class LogoRow extends ConsumerWidget {
             ),
           ],
         ),
+        child: logo,
+      );
+      // „Ikona ranku" je klikatelná — otevře animovaný přehled všech ranků.
+      logo = PressableScale(
+        pressedScale: 0.9,
+        onTap: () => openLoyaltyRanks(context),
         child: logo,
       );
     }
