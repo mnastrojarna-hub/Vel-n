@@ -265,7 +265,7 @@
 - id (uuid PK), code (text UNIQUE), type (text CHECK percent/fixed), value (numeric)
 - valid_from, valid_to (date), max_uses (int), used_count (int NOT NULL DEFAULT 0)
 - min_order_amount (numeric), applicable_motos (text), active (boolean NOT NULL DEFAULT true), created_at
-- **source** (text, **NEW 2026-06-20**) — zdroj slevového kódu pro filtrování ve Velíně (`slevomat`/`eshop`/`spoluprace`/`vraceni`/`ostatni`, NULL = neurčeno). Zadává se v PromoModal, filtruje záložka „Promo kódy". SQL: `ALTER TABLE promo_codes ADD COLUMN IF NOT EXISTS source text;`
+- **source** (text, **NEW 2026-06-20**) — zdroj slevového kódu pro filtrování ve Velíně (`slevomat`/`eshop`/`spoluprace`/`vraceni`/`ostatni`, NULL = neurčeno). Zadává se v PromoModal, filtruje záložka „Promo kódy". SQL: `ALTER TABLE promo_codes ADD COLUMN IF NOT EXISTS source text;`. **Backfill + auto-tag (2026-06-20 B):** stávajícím kódům z vrácení (`code ILIKE 'VRACENI-%'`) doplněno `source='vraceni'`; budoucí auto-generované kódy z vrácení taguje trigger `trg_set_promo_code_source` (STATE_4).
 
 ### shop_orders
 - id (uuid PK), order_number (text UNIQUE)

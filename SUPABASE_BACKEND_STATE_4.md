@@ -10,6 +10,7 @@
 |---------|---------|--------|
 | `trg_admin_users_updated` | admin_users | update_updated_at() |
 | `trg_promo_usage_increment` | promo_code_usage | increment_promo_used_count() |
+| `trg_set_promo_code_source` | promo_codes (BEFORE INSERT) | set_promo_code_source() — **NEW 2026-06-20.** Když je `source` NULL a `code ILIKE 'VRACENI-%'`, nastaví `source='vraceni'`, aby automaticky generované kódy z vrácení (z `generate_final_invoice_on_complete`) byly ve Velíně filtrovatelné dle zdroje. Jen nastavuje NEW.source, nikdy nevyhazuje výjimku — insert nemůže shodit. |
 | `trg_sos_auto_severity` | sos_incidents (INSERT) | sos_auto_severity() |
 | `trg_sos_auto_timeline` | sos_incidents (INSERT) | sos_auto_timeline() |
 | `trg_sos_incidents_updated` | sos_incidents | update_updated_at() |
