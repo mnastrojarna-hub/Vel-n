@@ -24,6 +24,17 @@ class LoyaltyStatus {
   final int? bookingsToNext; // kolik dokončených rezervací chybí do dalšího ranku
   final int maxLevel;
 
+  /// Zobrazovat zákazníka ve veřejném měsíčním žebříčku (opt-out v nastavení).
+  /// Default true. Při false jezdec ztrácí nárok na hlavní měsíční výhru.
+  final bool leaderboardOptIn;
+
+  /// Serverová přezdívka pro žebříček (alias, ne skutečné jméno). NULL =
+  /// zákazník si přezdívku ještě nenastavil → v žebříčku se neukáže.
+  final String? serverNickname;
+
+  /// Bonusové kvalifikační body z měsíční výhry (+4 = postup o 2 ranky).
+  final int bonusPoints;
+
   const LoyaltyStatus({
     required this.level,
     required this.percent,
@@ -35,6 +46,9 @@ class LoyaltyStatus {
     this.nextColorHex,
     this.bookingsToNext,
     this.maxLevel = 20,
+    this.leaderboardOptIn = true,
+    this.serverNickname,
+    this.bonusPoints = 0,
   });
 
   bool get isMax => level >= maxLevel;
@@ -56,6 +70,9 @@ class LoyaltyStatus {
       nextColorHex: json['next_color_hex'] as String?,
       bookingsToNext: (json['bookings_to_next'] as num?)?.toInt(),
       maxLevel: (json['max_level'] as num?)?.toInt() ?? 20,
+      leaderboardOptIn: json['leaderboard_opt_in'] as bool? ?? true,
+      serverNickname: json['nickname'] as String?,
+      bonusPoints: (json['bonus_points'] as num?)?.toInt() ?? 0,
     );
   }
 }

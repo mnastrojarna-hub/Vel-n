@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/theme.dart';
 import '../../core/i18n/i18n_provider.dart';
+import '../loyalty/loyalty_leaderboard_provider.dart';
 
 const _nicknameKey = 'mg_pilot_nickname';
 
@@ -30,12 +31,16 @@ class NicknameNotifier extends StateNotifier<String?> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_nicknameKey, trimmed);
     state = trimmed;
+    // Přezdívku propíšeme i na server pro veřejný žebříček (fail-open).
+    syncLeaderboardNickname(trimmed);
   }
 
   Future<void> clearNickname() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_nicknameKey);
     state = null;
+    // Smazání přezdívky → zákazník zmizí ze žebříčku.
+    syncLeaderboardNickname(null);
   }
 }
 

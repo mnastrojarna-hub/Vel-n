@@ -10,6 +10,7 @@ import '../../core/i18n/i18n_provider.dart';
 import '../../core/widgets/moto_fx.dart';
 import 'loyalty_provider.dart';
 import 'loyalty_levels_provider.dart';
+import 'loyalty_leaderboard_section.dart';
 
 /// Celostránkový animovaný přehled věrnostních ranků.
 ///
@@ -58,6 +59,7 @@ class LoyaltyRanksScreen extends ConsumerWidget {
                 slivers: [
                   _topBar(context, tr),
                   SliverToBoxAdapter(child: _Hero(status: status, tr: tr)),
+                  const SliverToBoxAdapter(child: LoyaltyLeaderboardSection()),
                   _ladder(levels, status, tr),
                   SliverToBoxAdapter(child: _RulesCard(tr: tr)),
                   const SliverToBoxAdapter(child: SizedBox(height: 28)),
