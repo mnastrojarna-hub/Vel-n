@@ -6,6 +6,7 @@ import Badge from '../components/ui/Badge'
 import Modal from '../components/ui/Modal'
 
 const inputStyle = { padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }
+const SOURCE_LABELS = { slevomat: 'Slevomat', eshop: 'E-shop', spoluprace: 'Spolupráce', vraceni: 'Vrácení', ostatni: 'Ostatní' }
 function Label({ children }) {
   return <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{children}</label>
 }
@@ -22,8 +23,9 @@ export function PromoModal({ existing, onClose, onSaved }) {
           valid_to: existing.valid_to || '',
           usage_limit: existing.max_uses?.toString() || '',
           status: existing.active ? 'active' : 'inactive',
+          source: existing.source || '',
         }
-      : { code: '', discount_type: 'percent', discount_value: '', valid_from: '', valid_to: '', usage_limit: '', status: 'active' }
+      : { code: '', discount_type: 'percent', discount_value: '', valid_from: '', valid_to: '', usage_limit: '', status: 'active', source: '' }
   )
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState(null)
@@ -40,6 +42,7 @@ export function PromoModal({ existing, onClose, onSaved }) {
         valid_from: form.valid_from || null,
         valid_to: form.valid_to || null,
         active: form.status === 'active',
+        source: form.source || null,
       }
 
       if (isEdit) {
@@ -107,6 +110,17 @@ export function PromoModal({ existing, onClose, onSaved }) {
             <option value="inactive">Neaktivní</option>
           </select>
         </div>
+        <div>
+          <Label>Zdroj</Label>
+          <select value={form.source} onChange={e => set('source', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle}>
+            <option value="">— neurčeno —</option>
+            <option value="slevomat">Slevomat</option>
+            <option value="eshop">E-shop</option>
+            <option value="spoluprace">Spolupráce</option>
+            <option value="vraceni">Vrácení</option>
+            <option value="ostatni">Ostatní</option>
+          </select>
+        </div>
       </div>
 
       {isEdit && existing.used_count > 0 && (
@@ -153,6 +167,7 @@ export function PromoDetailModal({ code, onClose, onEdit }) {
         <DetailRow label="Platnost do" value={code.valid_to ? new Date(code.valid_to).toLocaleDateString('cs-CZ') : 'Neomezena'} />
         <DetailRow label="Pouzito" value={`${code.used_count ?? 0}x`} />
         <DetailRow label="Limit" value={code.max_uses ?? 'Neomezeno'} />
+        <DetailRow label="Zdroj" value={SOURCE_LABELS[code.source] || code.source || 'Neuvedeno'} />
         <DetailRow label="Vytvoreno" value={code.created_at ? new Date(code.created_at).toLocaleString('cs-CZ') : '\u2014'} />
       </div>
 

@@ -27,8 +27,8 @@ export function VoucherModal({ open, existing, onClose, onSaved }) {
   const isEdit = !!existing
   const [form, setForm] = useState(
     existing
-      ? { code: existing.code || '', amount: existing.amount?.toString() || '', currency: existing.currency || 'CZK', category: existing.category || 'gift', buyer_name: existing.buyer_name || '', buyer_email: existing.buyer_email || '', valid_from: existing.valid_from || '', valid_until: existing.valid_until || '', description: existing.description || '' }
-      : { code: generateCode(), amount: '', currency: 'CZK', category: 'gift', buyer_name: '', buyer_email: '', valid_from: new Date().toISOString().split('T')[0], valid_until: new Date(Date.now() + 365 * 86400000).toISOString().split('T')[0], description: '' }
+      ? { code: existing.code || '', amount: existing.amount?.toString() || '', currency: existing.currency || 'CZK', category: existing.category || 'gift', source: existing.source || '', buyer_name: existing.buyer_name || '', buyer_email: existing.buyer_email || '', valid_from: existing.valid_from || '', valid_until: existing.valid_until || '', description: existing.description || '' }
+      : { code: generateCode(), amount: '', currency: 'CZK', category: 'gift', source: '', buyer_name: '', buyer_email: '', valid_from: new Date().toISOString().split('T')[0], valid_until: new Date(Date.now() + 365 * 86400000).toISOString().split('T')[0], description: '' }
   )
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState(null)
@@ -38,7 +38,7 @@ export function VoucherModal({ open, existing, onClose, onSaved }) {
     setSaving(true); setErr(null)
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      const payload = { code: form.code.trim().toUpperCase(), amount: Number(form.amount) || 0, currency: form.currency, category: form.category || null, buyer_name: form.buyer_name || null, buyer_email: form.buyer_email || null, valid_from: form.valid_from || null, valid_until: form.valid_until || null, description: form.description || null }
+      const payload = { code: form.code.trim().toUpperCase(), amount: Number(form.amount) || 0, currency: form.currency, category: form.category || null, source: form.source || null, buyer_name: form.buyer_name || null, buyer_email: form.buyer_email || null, valid_from: form.valid_from || null, valid_until: form.valid_until || null, description: form.description || null }
       if (isEdit) {
         const { error } = await debugAction('updateVoucher', 'VoucherModal', () => supabase.from('vouchers').update(payload).eq('id', existing.id), { voucherId: existing.id, payload })
         if (error) throw error
@@ -72,6 +72,7 @@ export function VoucherModal({ open, existing, onClose, onSaved }) {
         <div><Label>Hodnota</Label><input type="number" value={form.amount} onChange={e => set('amount', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} placeholder="2000" /></div>
         <div><Label>Měna</Label><select value={form.currency} onChange={e => set('currency', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle}><option value="CZK">CZK</option><option value="EUR">EUR</option></select></div>
         <div><Label>Kategorie</Label><select value={form.category} onChange={e => set('category', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle}>{CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}</select></div>
+        <div><Label>Zdroj</Label><select value={form.source} onChange={e => set('source', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle}><option value="">— neurčeno —</option><option value="slevomat">Slevomat</option><option value="eshop">E-shop</option><option value="spoluprace">Spolupráce</option><option value="vraceni">Vrácení</option><option value="ostatni">Ostatní</option></select></div>
         <div><Label>Jméno kupujícího</Label><input value={form.buyer_name} onChange={e => set('buyer_name', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} placeholder="Jan Novák" /></div>
         <div className="col-span-2"><Label>Email kupujícího</Label><input type="email" value={form.buyer_email} onChange={e => set('buyer_email', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} placeholder="jan@email.cz" /></div>
         <div><Label>Platnost od</Label><input type="date" value={form.valid_from} onChange={e => set('valid_from', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
