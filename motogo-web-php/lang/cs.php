@@ -401,6 +401,8 @@ return [
     'rez.map.confirm' => 'Potvrdit',
     'rez.return.title' => 'Čas vrácení motorky',
     'rez.return.sub' => 'V kolik hodin vrátíte motorku na uvedené adrese?',
+    'rez.return.expectedTitle' => 'Předpokládaný čas návratu',
+    'rez.return.expectedSub' => 'V kolik hodin přibližně vrátíte motorku? Může být i po půlnoci.',
     'rez.return.stateTitle' => 'V jakém stavu motorku vrátit?',
     'rez.return.stateText' => 'Motorku stačí vrátit s palivem nad rezervou (kontrolka rezervy nesvítí). Mytí ani úklid neřeš.',
 

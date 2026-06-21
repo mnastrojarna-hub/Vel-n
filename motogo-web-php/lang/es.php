@@ -283,6 +283,8 @@ return [
     'rez.pickup.map' => 'Mapa',
     'rez.return.title' => 'Hora de devolución de la moto',
     'rez.return.sub' => '¿A qué hora devolverá la moto en la dirección indicada?',
+    'rez.return.expectedTitle' => 'Hora prevista de regreso',
+    'rez.return.expectedSub' => '¿A qué hora aproximada devolverá la moto? Puede ser después de medianoche.',
 
     // ===== Reserva — equipo =====
     'rez.gear.intro' => 'Elija las tallas haciendo clic en los cuadros a continuación. Si no elige talla, la probaremos en el alquiler.',

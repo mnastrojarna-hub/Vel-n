@@ -268,6 +268,8 @@ return [
     'rez.pickup.map' => 'Kaart',
     'rez.return.title' => 'Tijd voor terugbrengen motor',
     'rez.return.sub' => 'Hoe laat brengt u de motor terug op het opgegeven adres?',
+    'rez.return.expectedTitle' => 'Verwachte tijd van terugkomst',
+    'rez.return.expectedSub' => 'Rond hoe laat brengt u de motor terug? Mag ook na middernacht zijn.',
 
     // ===== Reservering — uitrusting =====
     'rez.gear.intro' => 'Kies maten door op de vakjes hieronder te klikken. Als u geen maat kiest, passen we hem op locatie.',
