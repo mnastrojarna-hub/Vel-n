@@ -11,6 +11,7 @@ const NAV = [
   { id: 'finance', path: '/finance', label: 'Finance', icon: '💰' },
   { id: 'documents', path: '/dokumenty', label: 'Dokumenty', icon: '📄' },
   { id: 'branches', path: '/pobocky', label: 'Pobočky', icon: '🏢' },
+  { id: 'trasy', path: '/trasy', label: 'Trasy', icon: '🛣️' },
   { id: 'service', path: '/servis', label: 'Servis', icon: '🔧' },
   { id: 'messages', path: '/zpravy', label: 'Zprávy', icon: '💬', badgeKey: 'messages' },
   { id: 'cms', path: '/cms', label: 'Texty webu', icon: '🌐' },
