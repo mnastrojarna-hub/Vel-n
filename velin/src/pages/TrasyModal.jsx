@@ -57,12 +57,11 @@ async function computeGeometry(branch, waypoints, routeType) {
       data?.geometry?.coordinates ||
       data?.features?.[0]?.geometry?.coordinates ||
       null
-    if (!Array.isArray(coords) || coords.length < 2) return null
-    return {
-      coordinates: coords,
-      length_m: data?.length ?? data?.properties?.length ?? null,
-      duration_s: data?.duration ?? data?.properties?.duration ?? null,
-    }
+    const length_m = data?.length ?? data?.summary?.length ?? data?.properties?.length ?? null
+    const duration_s = data?.duration ?? data?.summary?.duration ?? data?.properties?.duration ?? null
+    const hasCoords = Array.isArray(coords) && coords.length >= 2
+    if (!hasCoords && length_m == null) return null
+    return { coordinates: hasCoords ? coords : null, length_m, duration_s }
   } catch {
     return null
   }
@@ -101,6 +100,7 @@ export default function TrasyModal({ existing, branches, onClose, onSaved }) {
   const [importing, setImporting] = useState(false)
   const [importMsg, setImportMsg] = useState('')
   const [importErr, setImportErr] = useState(null)
+  const [geometry, setGeometry] = useState(existing?.geometry || null)
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
   const branch = branches.find(b => b.id === form.branch_id)
@@ -122,6 +122,27 @@ export default function TrasyModal({ existing, branches, onClose, onSaved }) {
     return () => { cancelled = true }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Náhled SKUTEČNÉ trasy po silnici na mapě + dopočet délky/času přes Mapy.com
+  // routing (debounced). Reaguje na změnu waypointů, pobočky i typu trasy.
+  useEffect(() => {
+    if (!showMap) return
+    const wp = waypoints.filter(w => w.lat !== '' && w.lng !== '' && !isNaN(Number(w.lat)) && !isNaN(Number(w.lng)))
+    if (wp.length < 2) { setGeometry(null); return }
+    let cancelled = false
+    const tid = setTimeout(async () => {
+      const geo = await computeGeometry(branch, wp, form.route_type)
+      if (cancelled || !geo) return
+      if (geo.coordinates) setGeometry({ coordinates: geo.coordinates })
+      setForm(f => ({
+        ...f,
+        distance_km: f.distance_km === '' && geo.length_m ? Math.round(geo.length_m / 100) / 10 : f.distance_km,
+        duration_min: f.duration_min === '' && geo.duration_s ? Math.round(geo.duration_s / 60) : f.duration_min,
+      }))
+    }, 600)
+    return () => { cancelled = true; clearTimeout(tid) }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [waypoints, showMap, form.route_type, form.branch_id])
 
   // ── Waypoints helpers ──
   const setWp = (i, k, v) => setWaypoints(ws => ws.map((w, idx) => idx === i ? { ...w, [k]: v } : w))
@@ -153,8 +174,9 @@ export default function TrasyModal({ existing, branches, onClose, onSaved }) {
   function applyImported(pts, finalUrl) {
     setWaypoints(pts.map(p => ({ lat: r6(p.lat), lng: r6(p.lng), label: '' })))
     if (finalUrl) set('mapy_url', finalUrl)
+    setGeometry(null) // přepočítá se přes routing (debounced effect) → trasa po silnici
     setShowMap(true)
-    setImportMsg(`Načteno ${pts.length} bodů trasy ✓ — body zájmu přidej ručně níže`)
+    setImportMsg(`Načteno ${pts.length} bodů trasy ✓ — trasa po silnici, délka a čas se dopočítají z mapy; body zájmu přidej ručně níže`)
   }
 
   async function importFromMapy() {
@@ -225,7 +247,7 @@ export default function TrasyModal({ existing, branches, onClose, onSaved }) {
         difficulty: form.difficulty || null,
         mapy_url: form.mapy_url?.trim() || null,
         waypoints: cleanWp,
-        geometry: geo ? { coordinates: geo.coordinates } : (existing?.geometry || null),
+        geometry: (geo && geo.coordinates) ? { coordinates: geo.coordinates } : (geometry || existing?.geometry || null),
         cover_image: cover[0] || null,
         images,
         image_alts: imageAlts,
@@ -367,6 +389,7 @@ export default function TrasyModal({ existing, branches, onClose, onSaved }) {
               start={branch?.gps_lat != null && branch?.gps_lng != null ? { lat: branch.gps_lat, lng: branch.gps_lng } : null}
               waypoints={waypoints}
               pois={pois}
+              geometry={geometry}
               isLoop={form.route_type === 'loop'}
               onAddWaypoint={addWpAt}
               onAddPoi={addPoiAt}
