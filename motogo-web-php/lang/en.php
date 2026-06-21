@@ -283,7 +283,7 @@ return [
     'rez.return.title' => 'Motorcycle return time',
     'rez.return.sub' => 'At what time will you return the motorcycle at the address?',
     'rez.return.expectedTitle' => 'Expected return time',
-    'rez.return.expectedSub' => 'Around what time will you return the motorcycle? It can be after midnight.',
+    'rez.return.expectedSub' => 'Around what time will you return the motorcycle? At the latest by midnight on the last day.',
 
     // ===== Booking — gear =====
     'rez.gear.intro' => 'Pick sizes by clicking the squares below. If you don\'t pick a size, we\'ll try it on at the rental.',

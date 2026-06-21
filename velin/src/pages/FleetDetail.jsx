@@ -62,7 +62,7 @@ export default function FleetDetail() {
     }
     const {
       // Identifikace + zařazení
-      model, spz, vin, brand, category, branch_id, color, year, acquired_at, stk_valid_until,
+      model, spz, vin, brand, category, branch_id, color, year, acquired_at, stk_valid_until, sort_order,
       // Provoz
       mileage, purchase_mileage, tracking_unit, status, purchase_price,
       // Motor / výkon
@@ -87,6 +87,7 @@ export default function FleetDetail() {
       year: toInt(year),
       acquired_at,
       stk_valid_until: stk_valid_until || null,
+      sort_order: toInt(sort_order),
       mileage: toInt(mileage) ?? 0,
       purchase_mileage: toInt(purchase_mileage),
       tracking_unit: tracking_unit || 'km',

@@ -195,11 +195,14 @@ class SupabaseClient {
         // dny blokuje kalendář detailu/rezervace (get_moto_booked_dates vrací
         // status='service'), ostatní volné dny jdou rezervovat. unavailable /
         // retired se v katalogu nezobrazují.
+        // Pořadí: ruční `sort_order` (1-X nastavené ve Velíně) má přednost, neočíslované
+        // (NULL) se řadí za ně dle modelu (nullslast). Řídí výběr stroje v rezervaci,
+        // katalog i pořadí fotek/videí v hero banneru na home.
         $data = $this->query(
             'motorcycles',
             '*,branches(name,address,city,is_open,type)',
             ['status=in.(active,maintenance)'],
-            'model.asc'
+            'sort_order.asc.nullslast,model.asc'
         );
 
         // Sjednotit s nejbližším volným datem (RPC bypassuje RLS na bookings).

@@ -283,7 +283,7 @@ return [
     'rez.return.title' => 'Rückgabezeit des Motorrads',
     'rez.return.sub' => 'Um wie viel Uhr geben Sie das Motorrad an der angegebenen Adresse zurück?',
     'rez.return.expectedTitle' => 'Voraussichtliche Rückkehrzeit',
-    'rez.return.expectedSub' => 'Gegen wie viel Uhr bringen Sie das Motorrad zurück? Auch nach Mitternacht möglich.',
+    'rez.return.expectedSub' => 'Gegen wie viel Uhr bringen Sie das Motorrad zurück? Spätestens um Mitternacht am letzten Tag.',
 
     // ===== Reservierung — Ausrüstung =====
     'rez.gear.intro' => 'Wählen Sie Größen durch Klicken auf die Quadrate unten. Wenn Sie keine Größe wählen, probieren wir sie vor Ort an.',

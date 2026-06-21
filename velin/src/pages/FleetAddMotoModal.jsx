@@ -38,7 +38,7 @@ export default function AddMotoModal({ branches, onClose, onSaved }) {
   const [form, setForm] = useState({
     model: '', spz: '', vin: '', category: '', branch_id: '',
     acquired_at: '', mileage: 0, status: 'active',
-    brand: '', purchase_price: '',
+    brand: '', purchase_price: '', sort_order: '',
     oil_interval_km: 10000, oil_interval_days: 365,
     tire_interval_km: 25000, full_service_interval_km: 20000,
     full_service_interval_days: 730, stk_valid_until: '',
@@ -77,6 +77,12 @@ export default function AddMotoModal({ branches, onClose, onSaved }) {
           return Number.isFinite(n) ? n : 0
         })(),
         stk_valid_until: form.stk_valid_until || null,
+        sort_order: (() => {
+          const s = typeof form.sort_order === 'string' ? form.sort_order.trim() : form.sort_order
+          if (s === '' || s === null || s === undefined) return null
+          const n = Number(s)
+          return Number.isFinite(n) ? Math.round(n) : null
+        })(),
         oil_interval_km: oilKm, oil_interval_days: oilDays, tire_interval_km: tireKm,
         full_service_interval_km: fullKm, full_service_interval_days: fullDays,
         image_url: images[0] || null,
@@ -131,6 +137,7 @@ export default function AddMotoModal({ branches, onClose, onSaved }) {
         </div>
         <FormField label="Datum pořízení" value={form.acquired_at} onChange={v => set('acquired_at', v)} type="date" />
         <FormField label="Nájezd (km)" value={form.mileage} onChange={v => set('mileage', v)} type="number" />
+        <FormField label="Pořadí zobrazení (1-X, volitelné)" value={form.sort_order} onChange={v => set('sort_order', v)} type="number" />
       </div>
 
       <h4 className="text-sm font-extrabold uppercase tracking-widest mt-5 mb-3" style={{ color: '#1a2e22' }}>Fotky motorky</h4>
