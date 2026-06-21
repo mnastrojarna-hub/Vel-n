@@ -317,10 +317,10 @@ if (!empty($heroSlides) && $heroHasVideo) {
     // (GRACE_MS), teprve pak se přes plynulý fade objeví fotka a zůstane MIN. 1 s
     // (MIN_POSTER_MS) → nikdy nic nebliká a nikdy není vidět zelená.
     $heroJs = '<script>(function(){var w=document.querySelector(".banner-slideshow-js");if(!w)return;'
-        . 'var GRACE=220,MINP=1000,MOB=!!(window.matchMedia&&window.matchMedia("(max-width:768px)").matches);'
+        . 'var GRACE=220,MINP=1000;'
         . 'var sl=Array.prototype.slice.call(w.querySelectorAll(".mg-hero-slide"));if(!sl.length)return;'
         . 'var pf=document.createElement("video");pf.muted=true;pf.defaultMuted=true;pf.preload="auto";pf.setAttribute("muted","");pf.setAttribute("playsinline","");pf.style.cssText="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;pointer-events:none";w.appendChild(pf);var lastPf="";'
-        . 'function prefetch(u){if(MOB||!u||u===lastPf)return;lastPf=u;try{pf.src=u;pf.load();}catch(e){}}'
+        . 'function prefetch(u){if(!u||u===lastPf)return;lastPf=u;try{pf.src=u;pf.load();}catch(e){}}'
         . 'function vids(el){var l=[];try{l=JSON.parse(el.getAttribute("data-videos")||"[]");}catch(e){}return l;}'
         . 'function nextUrl(i,vi){var cur=sl[i];if(cur.getAttribute("data-type")==="video"){var l=vids(cur);if(vi+1<l.length)return l[vi+1];}for(var k=1;k<=sl.length;k++){var el=sl[(i+k)%sl.length];if(el.getAttribute("data-type")==="video"){var l2=vids(el);if(l2.length)return l2[0];}}return "";}'
         . 'var idx=0,timer=null;'
@@ -341,7 +341,7 @@ if (!empty($heroSlides) && $heroHasVideo) {
         . 'function arm(){clearTimeout(safety);safety=setTimeout(step,30000);}'
         . 'function step(){clearTimeout(safety);vi++;if(vi>=list.length){onDone();return;}load();}'
         // při přepnutí zdroje neukazuj fotku hned: dej videu GRACE ms, ať plynule navazá
-        . 'function load(){clearTimeout(grace);grace=setTimeout(cover,GRACE);v.muted=true;v.defaultMuted=true;v.playsInline=true;v.setAttribute("muted","");v.setAttribute("playsinline","");v.src=list[vi];var p=v.play();if(p&&p.catch){p.catch(function(){timer=setTimeout(onDone,5000);});}arm();prefetch(nextUrl(i,vi));}'
+        . 'function load(){clearTimeout(grace);grace=setTimeout(cover,GRACE);v.muted=true;v.defaultMuted=true;v.playsInline=true;v.setAttribute("muted","");v.setAttribute("playsinline","");v.src=list[vi];var p=v.play();if(p&&p.catch){p.catch(function(){timer=setTimeout(onDone,5000);});}arm();}'
         . 'v.onended=step;v.onerror=function(){clearTimeout(safety);clearTimeout(grace);onDone();};load();}'
         . 'show(0);})();</script>';
     $bannerHtml = '<div class="banner banner-slideshow banner-slideshow-js">' . $slidesHtml . $heroCaption . '</div>' . $heroJs;
