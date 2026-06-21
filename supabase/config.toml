@@ -14,6 +14,12 @@ project_id = "vnwnqteskbykeucanlhk"
 [functions.cms-save]
 verify_jwt = false
 
+# Rozbalí zkrácený Mapy.com odkaz (mapy.com/s/…) a dekóduje body trasy pro Velín
+# (import trasy). Vlastní ověření admina uvnitř (RPC is_admin z předaného JWT),
+# proto verify_jwt=false (Velín posílá session token; ať CLI deploy nezmění stav).
+[functions.resolve-mapy-route]
+verify_jwt = false
+
 # CMS admin auth — vymění raw cms_admin_token za podepsanou capability (#5 fix).
 # Anon-callable (vlastní ověření tokenu uvnitř); podepisuje RSA privátním klíčem
 # ze secretu CMS_ADMIN_SIGN_KEY. verify_jwt=false.

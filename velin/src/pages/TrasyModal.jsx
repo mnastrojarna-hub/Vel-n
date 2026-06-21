@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabase'
+import { supabase, supabaseUrl, supabaseAnonKey } from '../lib/supabase'
 import { debugAction } from '../lib/debugLog'
 import Button from '../components/ui/Button'
 import Modal from '../components/ui/Modal'
@@ -7,6 +7,7 @@ import ImageUploader from '../components/ui/ImageUploader'
 import { FormField } from './BranchHelpers'
 import { autoTranslateRow } from '../lib/autoTranslate'
 import TrasyMapPicker from './TrasyMapPicker'
+import { decodeRouteCoords, extractMapyUrl, getRcFromUrl } from '../lib/mapyRoute'
 
 const r6 = (v) => Math.round(Number(v) * 1e6) / 1e6
 
@@ -97,6 +98,9 @@ export default function TrasyModal({ existing, branches, onClose, onSaved }) {
   const [err, setErr] = useState(null)
   const [savingNote, setSavingNote] = useState('')
   const [showMap, setShowMap] = useState(false)
+  const [importing, setImporting] = useState(false)
+  const [importMsg, setImportMsg] = useState('')
+  const [importErr, setImportErr] = useState(null)
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
   const branch = branches.find(b => b.id === form.branch_id)
@@ -142,6 +146,57 @@ export default function TrasyModal({ existing, branches, onClose, onSaved }) {
   // Klik do mapy v režimu POI → přidá bod zájmu se souřadnicemi
   const addPoiAt = (lat, lng) => setPois(ps => [...ps, { ...emptyPoi(), lat: r6(lat), lng: r6(lng) }])
   const movePoiTo = (i, lat, lng) => setPois(ps => ps.map((p, idx) => idx === i ? { ...p, lat: r6(lat), lng: r6(lng) } : p))
+
+  // ── Import trasy z Mapy.com odkazu ──
+  // Plná URL s `rc` se dekóduje rovnou v prohlížeči; zkrácený /s/ odkaz nebo
+  // iframe rozbalí edge fn resolve-mapy-route (prohlížeč kvůli CORS nezvládne).
+  function applyImported(pts, finalUrl) {
+    setWaypoints(pts.map(p => ({ lat: r6(p.lat), lng: r6(p.lng), label: '' })))
+    if (finalUrl) set('mapy_url', finalUrl)
+    setShowMap(true)
+    setImportMsg(`Načteno ${pts.length} bodů trasy ✓ — body zájmu přidej ručně níže`)
+  }
+
+  async function importFromMapy() {
+    setImportErr(null); setImportMsg('')
+    const url = extractMapyUrl(form.mapy_url) || (form.mapy_url || '').trim()
+    if (!url) { setImportErr('Vlož odkaz na Mapy.com (nebo celý <iframe> kód).'); return }
+    setImporting(true)
+    try {
+      const rc = getRcFromUrl(url)
+      if (rc) {
+        const pts = decodeRouteCoords(rc)
+        if (!pts.length) throw new Error('V odkazu se nenašly žádné body trasy.')
+        applyImported(pts, url)
+        return
+      }
+      // Zkrácený odkaz → rozbalit přes edge fn
+      setImportMsg('Rozbaluji odkaz…')
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch(`${supabaseUrl}/functions/v1/resolve-mapy-route`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session?.access_token || supabaseAnonKey}`,
+          apikey: supabaseAnonKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ url }),
+      })
+      const d = await res.json().catch(() => ({}))
+      if (!res.ok || !d?.success) {
+        throw new Error(d?.error || `Rozbalení odkazu selhalo (HTTP ${res.status}).`)
+      }
+      const pts = Array.isArray(d.waypoints) && d.waypoints.length
+        ? d.waypoints
+        : decodeRouteCoords(d.rc)
+      if (!pts.length) throw new Error('V odkazu se nenašly žádné body trasy.')
+      applyImported(pts, d.url || url)
+    } catch (e) {
+      setImportErr(e.message)
+    } finally {
+      setImporting(false)
+    }
+  }
 
   async function handleSave() {
     if (!form.name?.trim()) { setErr('Název trasy je povinný.'); return }
@@ -278,8 +333,20 @@ export default function TrasyModal({ existing, branches, onClose, onSaved }) {
             placeholder="Co zákazníka na trase čeká, doporučení, zajímavosti…" />
         </div>
         <div className="col-span-2">
-          <FormField label="Odkaz na Mapy.com (volitelně)" value={form.mapy_url} onChange={v => set('mapy_url', v)}
-            placeholder="https://mapy.com/s/…" />
+          <label className={lbl} style={{ color: '#1a2e22' }}>Odkaz na Mapy.com — automatický import trasy</label>
+          <div className="flex gap-2 items-start">
+            <input type="text" value={form.mapy_url} onChange={e => { set('mapy_url', e.target.value); setImportErr(null); setImportMsg('') }}
+              placeholder="Vlož mapy.com/s/… , plnou URL nebo celý <iframe> kód"
+              className="flex-1 rounded-btn text-sm outline-none" style={inputStyle} />
+            <Button green onClick={importFromMapy} disabled={importing || !form.mapy_url?.trim()}>
+              {importing ? 'Načítám…' : '📥 Načíst trasu'}
+            </Button>
+          </div>
+          <p className="text-xs mt-1" style={{ color: '#6b8f7b' }}>
+            Naimportuje body trasy z odkazu (plná URL i zkrácený mapy.com/s/… i iframe). Body zájmu přidáš ručně níže.
+          </p>
+          {importMsg && <p className="text-xs mt-1 font-bold" style={{ color: '#1a8a18' }}>{importMsg}</p>}
+          {importErr && <p className="text-xs mt-1" style={{ color: '#dc2626' }}>{importErr}</p>}
         </div>
       </div>
 
