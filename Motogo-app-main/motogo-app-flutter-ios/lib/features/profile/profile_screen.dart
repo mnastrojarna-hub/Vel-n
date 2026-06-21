@@ -224,6 +224,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               // Karta se sama skryje (vč. titulku), dokud backend rank nevrací.
               const LoyaltyRankCard(),
 
+              // E-shop — přesunuto ze spodní lišty do menu (na jeho místo přišly Trasy)
+              ProfileMenuItem(icon: '🛒', label: t(context).tr('eshopMenu'), onTap: () => context.push(Routes.shop)),
+
+              const SizedBox(height: 12),
               // Section: Můj účet
               ProfileSectionTitle(title: t(context).tr('myAccount')),
               ProfileMenuItem(icon: '👤', label: t(context).tr('personalInfo'), onTap: () => setState(() => _personalExpanded = !_personalExpanded)),
