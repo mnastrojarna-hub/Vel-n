@@ -20,6 +20,8 @@
 | `trg_vouchers_updated` | vouchers | update_updated_at() |
 | `trg_service_orders_updated` | service_orders | update_updated_at() |
 | `trg_branches_updated` | branches | update_updated_at() |
+| `trg_routes_updated` | routes (BEFORE UPDATE) | set_updated_at() — **NEW 2026-06-21 (`20260621_routes_feature.sql`).** Udržuje `routes.updated_at`. |
+| `trg_route_pois_updated` | route_pois (BEFORE UPDATE) | set_updated_at() — **NEW 2026-06-21 (`20260621_routes_feature.sql`).** Udržuje `route_pois.updated_at`. |
 | `trg_shop_orders_updated` | shop_orders | update_updated_at() |
 | `trg_shop_order_number` | shop_orders (INSERT) | generate_shop_order_number() |
 | `trg_check_booking_overlap` | bookings (INSERT/UPDATE OF start_date, end_date, moto_id) | check_booking_overlap() |

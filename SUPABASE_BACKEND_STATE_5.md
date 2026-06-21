@@ -55,6 +55,7 @@ Ověřené vzory z živého schématu (`schema_public.sql`):
 - **Public/anyone SELECT + admin write** (číselníky/šablony/CMS): `message_templates` (SELECT true, write is_admin), `accessory_types` (Public read + Admin full), `pricing_rules`, `feature_flags`, `cms_pages` (read true / write is_admin), `loyalty_levels` (**NEW 2026-06-11** — Public read + Admin write; věrnostní ranky pro app).
 - **Logy aplikace — admin SELECT + vlastní/anon INSERT:** `app_crash_reports` (admin ALL + INSERT WHERE user_id IS NULL OR =auth.uid()), `app_debug_logs` (dtto), `visitor_log` (admin SELECT + INSERT TO anon,authenticated WITH CHECK true).
 - **`admin_audit_log`:** admin SELECT + admin INSERT + **superadmin DELETE** (`is_superadmin()`).
+- **Trasy — Public read + Admin write (NEW 2026-06-21, `20260621_routes_feature.sql`):** `routes` (`routes_public_read`: SELECT TO anon,authenticated USING `is_active=true OR is_admin()`; `routes_admin_all`: FOR ALL TO authenticated USING/CHECK `is_admin()`), `route_pois` (`route_pois_public_read`: SELECT USING EXISTS nadřazené trasy `is_active=true OR is_admin()`; `route_pois_admin_all`: FOR ALL `is_admin()`). Appka čte přes SECURITY DEFINER RPC `get_branch_routes`.
 
 > Pozn.: jde o standardní vzory již popsané nahoře (admin full / public read / customer own). Plný a přesný výčet všech 224 politik je v etalonu `supabase-live-snapshot:supabase/_snapshot/schema_public.sql`.
 
