@@ -85,6 +85,7 @@ Ověřené vzory z živého schématu (`schema_public.sql`):
 | Funkce | JWT | Popis |
 |--------|-----|-------|
 | `admin-auth` | OFF | Autentizace a auto-provisioning admin uživatelů (ověření JWT + insert do admin_users přes service role) |
+| `resolve-mapy-route` | OFF | **NEW 2026-06-21 (trasy).** Rozbalí zkrácený Mapy.com sdílecí odkaz (`mapy.com/s/…`) — následuje redirect s browser UA (prohlížeč to kvůli CORS nezvládne), vytáhne `rc` a dekóduje body trasy (Mapy.cz delta base64, čteno odzadu, přesnost 2^28). POST `{url}`, vrací `{success,url,rc,waypoints:[{lat,lng}]}`. Auth: jen admin (RPC `is_admin` z předaného JWT), `verify_jwt=false` (vlastní ověření). Plnou URL s `rc` si Velín dekóduje sám (`lib/mapyRoute.js`) bez volání této fn. Použití: Velín → Trasy → „📥 Načíst trasu". |
 | `admin-reset-password` | OFF | Admin reset hesla zákazníka |
 | `ai-copilot` | OFF | AI Copilot pro Velín dashboard — Anthropic Claude API, system prompt CZ, načítá kontext z DB (bookings, tržby, servis, SOS), ukládá do ai_conversations |
 | `ai-moto-agent` | OFF | AI Servisní agent pro zákazníky — diagnostika závad motorek přes Claude API, vrací {reply, is_rideable, suggest_sos}, načítá kontext motorky z booking_id |
