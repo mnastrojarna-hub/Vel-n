@@ -30,12 +30,11 @@ class AppShell extends ConsumerWidget {
     _TabItem(route: Routes.home, i18nKey: 'navHome', icon: Icons.home_outlined, activeIcon: Icons.home),
     _TabItem(route: Routes.search, i18nKey: 'navBook', icon: Icons.calendar_today_outlined, activeIcon: Icons.calendar_today),
     _TabItem(route: Routes.reservations, i18nKey: 'navReservations', icon: Icons.check_box_outlined, activeIcon: Icons.check_box),
-    _TabItem(route: Routes.shop, i18nKey: 'navShop', icon: Icons.shopping_bag_outlined, activeIcon: Icons.shopping_bag),
+    _TabItem(route: Routes.routes, i18nKey: 'navRoutes', icon: Icons.route_outlined, activeIcon: Icons.route),
   ];
 
   int _currentIndex(String location) {
-    if (location.startsWith('/shop') || location == Routes.cart ||
-        location == Routes.checkout || location == Routes.voucher) return 3;
+    if (location.startsWith('/routes')) return 3;
     if (location.startsWith('/reservations') || location.startsWith('/sos') ||
         location == Routes.aiAgent) return 2;
     if (location == Routes.search || location.startsWith('/moto') ||
@@ -69,7 +68,12 @@ class AppShell extends ConsumerWidget {
     final cart = ref.watch(cartProvider);
     final cartCount = cart.fold<int>(0, (sum, item) => sum + item.qty);
     final cartTotal = cart.fold<double>(0, (sum, item) => sum + item.price * item.qty);
-    final hideCartFab = index == 3 || onPaymentScreen;
+    // E-shop už není tab — košíkový FAB skrýváme přímo na shop/cart/checkout
+    // obrazovkách (dostupné z hamburger menu), ne podle indexu tabu.
+    final onShopFlow = location.startsWith('/shop') ||
+        location == Routes.cart || location == Routes.checkout ||
+        location == Routes.voucher;
+    final hideCartFab = onShopFlow || onPaymentScreen;
     final fabDismissed = ref.watch(cartFabDismissedProvider);
     final showCartFab = cartCount > 0 && !hideCartFab && !fabDismissed;
 

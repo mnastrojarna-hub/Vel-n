@@ -50,6 +50,8 @@ import '../features/sos/sos_theft_screen.dart';
 import '../features/sos/sos_breakdown_immobile_screen.dart';
 import '../features/sos/sos_service_screen.dart';
 import '../features/loyalty/loyalty_ranks_screen.dart';
+import '../features/routes/routes_screen.dart';
+import '../features/routes/route_detail_screen.dart';
 import 'currency.dart';
 
 /// All route paths — mirrors router.js screen IDs.
@@ -94,6 +96,8 @@ class Routes {
   static const String permissions = '/permissions';
   static const String protocol = '/protocol';
   static const String loyalty = '/loyalty';
+  static const String routes = '/routes';
+  static const String routeDetail = '/routes/:id';
 }
 
 /// Bezpečná navigace „zpět" — sdílená pro všechny obrazovky.
@@ -362,6 +366,17 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: Routes.loyalty,
             builder: (context, state) => const LoyaltyRanksScreen(),
+          ),
+          GoRoute(
+            path: Routes.routes,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: RoutesScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/routes/:id',
+            builder: (context, state) =>
+                RouteDetailScreen(routeId: state.pathParameters['id']!),
           ),
         ],
       ),

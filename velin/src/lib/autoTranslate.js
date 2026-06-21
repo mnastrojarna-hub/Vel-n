@@ -23,6 +23,8 @@ const FIELD_MAP = {
   motorcycles: ['description'],
   branches: ['notes'],
   faq_items: ['question', 'answer'],
+  routes: ['name', 'description'],
+  route_pois: ['name', 'description'],
 }
 
 /**
