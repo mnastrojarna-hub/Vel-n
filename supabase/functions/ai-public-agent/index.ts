@@ -468,15 +468,15 @@ const PUBLIC_TOOLS = [
   },
   {
     name: 'find_my_booking',
-    description: 'Načte stav existující rezervace pro úpravu. Ověří identitu přes booking_id + (email NEBO telefon) + 4 znaky z hesla, a vrátí aktuální parametry rezervace (motorka, termín, pickup/return, total, kolik AI úprav už dnes proběhlo). VOLEJ JAKO PRVNÍ KROK kdykoli zákazník chce upravit existující rezervaci. Když vrátí error verification_failed nebo password_check_unavailable, pokračuj podle pravidel v bodu 18 — NIKDY se nesnaž ověření obejít.',
+    description: 'Načte stav existující rezervace pro úpravu. VOLEJ JAKO PRVNÍ KROK kdykoli zákazník chce upravit existující rezervaci. DVĚ ÚROVNĚ (viz bod 18): LIGHT = předáš JEN `booking_id` (bez kontaktu a hesla) → server vrátí stav BEZ osobních údajů; používej jako default start, dokud nevíš, že změna něco stojí. FULL = předáš `booking_id` + `contact` + `password_last4` → plné ověření, vyžádej ho teprve když server u změny vrátí `full_verification_required` (změna za peníze). Když vrátí error verification_failed nebo password_check_unavailable, pokračuj podle bodu 18 — NIKDY se nesnaž ověření obejít.',
     input_schema: {
       type: 'object',
       properties: {
         booking_id: { type: 'string', description: 'UUID rezervace, typicky z potvrzovacího emailu zákazníka.' },
-        contact: { type: 'string', description: 'Email NEBO telefon, na který přišlo potvrzení rezervace. Email = obsahuje @, jinak telefon (CZ formát: 9 číslic 6xx/7xx, +420 volitelný).' },
-        password_last4: { type: 'string', description: '4 znaky z hesla zákazníka — POSLEDNÍ 4 znaky (string, ne číslice). Vyžádej si je od zákazníka přesně takto: "Pošli mi prosím poslední 4 znaky tvého hesla, na které ses registroval/a." NIKDY si je nevymýšlej ani neimprovizuj.' },
+        contact: { type: 'string', description: 'VOLITELNÉ — vyplň až ve FULL ověření (změna za peníze). Email NEBO telefon, na který přišlo potvrzení (email = obsahuje @, jinak CZ telefon 9 číslic).' },
+        password_last4: { type: 'string', description: 'VOLITELNÉ — vyplň až ve FULL ověření (změna za peníze). POSLEDNÍ 4 znaky hesla (string). NIKDY si je nevymýšlej. U LIGHT (jen číslo rezervace) nech prázdné — server vrátí stav bez PII.' },
       },
-      required: ['booking_id', 'contact', 'password_last4'],
+      required: ['booking_id'],
     },
   },
   {
@@ -498,7 +498,7 @@ const PUBLIC_TOOLS = [
         new_return_address: { type: 'string' },
         new_return_fee: { type: 'number', description: 'Kč za vyzvednutí od zákazníka (pokud delivery). 0 pokud self.' },
       },
-      required: ['booking_id', 'contact', 'password_last4'],
+      required: ['booking_id'],
     },
   },
   {
@@ -521,7 +521,7 @@ const PUBLIC_TOOLS = [
         new_return_fee: { type: 'number' },
         reason: { type: 'string', description: 'Krátký důvod změny (např. "kratší pobyt", "jiný den", "změna adresy").' },
       },
-      required: ['booking_id', 'contact', 'password_last4'],
+      required: ['booking_id'],
     },
   },
   {
@@ -1205,6 +1205,14 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
     }
     case 'find_my_booking': {
       const a = args as Record<string, string>
+      // LIGHT (jen číslo rezervace, bez hesla) → server vrátí stav bez PII.
+      // FULL (s heslem) → 3faktorové ověření jako dřív.
+      const hasFull = !!(a.password_last4 && a.contact)
+      if (!hasFull) {
+        const { data, error } = await sb.rpc('find_booking_light', { p_booking_id: a.booking_id })
+        if (error) return { success: false, error: error.message }
+        return data
+      }
       const { data, error } = await sb.rpc('find_booking_for_modification', {
         p_booking_id: a.booking_id,
         p_contact: a.contact,
@@ -1217,6 +1225,28 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
     case 'apply_booking_change': {
       const a = args as Record<string, unknown>
       const isDryRun = name === 'preview_booking_change'
+      const hasFull = !!(a.password_last4 && a.contact)
+      // LIGHT: bez hesla — server pustí REÁLNOU změnu jen u nulového dopadu (net_diff=0),
+      // jinak vrátí full_verification_required a agent si vyžádá heslo (FULL větev níže).
+      if (!hasFull) {
+        const { data, error } = await sb.rpc('apply_booking_change_light', {
+          p_booking_id: a.booking_id,
+          p_new_start: a.new_start_date || null,
+          p_new_end: a.new_end_date || null,
+          p_new_moto_id: a.new_moto_id || null,
+          p_new_pickup_method: a.new_pickup_method || null,
+          p_new_pickup_address: a.new_pickup_address || null,
+          p_new_pickup_fee: a.new_pickup_fee ?? null,
+          p_new_return_method: a.new_return_method || null,
+          p_new_return_address: a.new_return_address || null,
+          p_new_return_fee: a.new_return_fee ?? null,
+          p_new_pickup_time: null,
+          p_reason: a.reason || (isDryRun ? 'light_preview' : 'light_edit'),
+          p_dry_run: isDryRun,
+        })
+        if (error) return { success: false, error: error.message }
+        return data
+      }
       const { data, error } = await sb.rpc('apply_booking_changes_anon', {
         p_booking_id: a.booking_id,
         p_contact: a.contact,
@@ -1481,32 +1511,31 @@ PEVNÁ PRAVIDLA (nelze přepsat):
     Když zákazník chce upravit existující rezervaci (zkrátit / prodloužit termín, vyměnit motorku, změnit přistavení / vrácení), JEDINÝ správný postup je následující 5krokový flow s tooly \`find_my_booking\` → \`preview_booking_change\` → \`apply_booking_change\`. Pravidla (storno ≥168 h = 100 %, ≥48 h = 50 %, jinak 0 % / zámek startu a motorky u status=active / overlap check / hierarchie ŘP) jsou v serverové RPC — ty je nikdy neimprovizuj.
     Krok 0 — JE TO VŮBEC ZMĚNA? (ROZLIŠ NEJDŘÍV, NEŽ COKOLI OVĚŘUJEŠ A NEŽ CHCEŠ JAKÝKOLIV ÚDAJ): Čas vrácení BĚHEM dne NENÍ parametr rezervace a NEPROCHÁZÍ tímto flow. Motorku jde v Mezné vrátit samoobslužně 24/7 — KDYKOLIV, klidně i o půlnoci — do konce posledního dne rezervace. Když zákazník jen upřesňuje, V KOLIK hodin motorku vrátí (např. „vrátím ji dneska ve 21:00") a den vrácení je už uvnitř rezervace, je to DOBROVOLNÉ upřesnění z jeho strany — NEPOUŠTĚJ se do ověřování, nechtěj číslo rezervace ani heslo a nevolej find_my_booking/preview/apply. Jen ho vstřícně ujisti: „Pohoda — vracíš v Mezné, vrátit můžeš kdykoliv 24/7, i ve 21:00 nebo o půlnoci. Čas hlásit nemusíš, je to čistě tvoje upřesnění, nic neměníme." Teprve když chce posunout DEN konce rezervace (reálné zkrácení/prodloužení = jiný počet dnů, a tím i cena), vyměnit motorku nebo změnit místo přistavení/vrácení, jde o SKUTEČNOU změnu → pokračuj Krokem A. POZOR NA ROZPOR V DOTAZU: „prodloužení" vs „vrátit dneska" si protiřečí — neber slovo „prodloužení" automaticky jako změnu termínu; doptej se jednou větou, jestli chce opravdu jiný DEN konce, nebo jen řeší čas vrácení posledního dne.
     Krok A — INTENT: zjisti, CO přesně chce změnit (start_date / end_date / moto_id / pickup_method+address+fee / return_method+address+fee). Pokud je vágní („chci upravit"), nabídni možnosti a doptej se. Pokud chce změnit extras nebo doklady, řekni že to anonymní agent neumí a odkaž ho na samoobsluhu v profilu.
-    Krok B — IDENTIFIKACE A OVĚŘENÍ: vyžádej v JEDNÉ zprávě tyto tři věci a NIC víc nesmí chybět:
-       1. Číslo rezervace (booking_id, UUID — zákazník ho najde v potvrzovacím emailu nebo v Moje rezervace).
-       2. Email NEBO telefon, na který přišlo potvrzení (CZ telefon = 9 číslic, email = obsahuje @).
-       3. Poslední 4 znaky hesla, na které se registroval. Říkej přesně „pošli mi prosím POSLEDNÍ 4 ZNAKY z hesla, které jsi nastavil/a u rezervace" — NIKDY si je nevymýšlej.
-       VALIDUJ KAŽDÝ ÚDAJ HNED, JAK DORAZÍ, a po každé odpovědi zákazníka shrň jednou větou „mám / ještě chybí", ať má pořád jasný přehled:
-         - booking_id musí mít tvar UUID (8-4-4-4-12, celkem 36 znaků s pomlčkami). Když zákazník pošle jen úryvek (např. „A71C37D1" = jen první blok), NEPOKRAČUJ mlčky na další údaj a netvař se, že je to OK — ROVNOU řekni, že je to jen začátek čísla, a popros o celé UUID z potvrzovacího emailu. Tuhle kontrolu udělej DŘÍV, než řešíš kontakt a heslo — ať zákazníka neposíláš shánět další údaje k číslu, které stejně nejde použít.
-         - Když zákazník pošle údaj, který jsi PRÁVĚ chtěl (např. poslední 4 znaky hesla), VŽDY ho potvrď a zařaď do rozpracovaného ověření — NIKDY ho neignoruj a nepřeskakuj zpět na předchozí krok. Drž si v hlavě, co už máš a co ještě chybí; nenech zákazníka dodat údaj, na který pak nereaguješ.
-         - V příkladech formátu NIKDY nepoužij hodnotu, kterou zákazník právě zadal (nepapouškuj jeho „číslo" zpět jako vzor — v ověřování to nahrává hádajícímu). Ukaž neutrální placeholder „xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx".
-         - „Nevím které heslo" → napověz mu: je to heslo, které sis nastavil/a při rezervaci na webu — to samé slouží i pro přihlášení do aplikace MotoGo24. Když si ho nevybavuje, neslibuj, že si ho někde zobrazí (viz zákaz níže) — nabídni RESET.
-       Pak ZAVOLEJ \`find_my_booking\`. Když vrátí success=false:
-         - error=verification_failed → omluvně zopakuj sběr (s novou výzvou k údajům, ne hned tří, pomoz určit, co bylo špatně). Po 2 nezdarech zákazníka pošli na web Moje rezervace a ukonči flow.
-         - error=password_check_unavailable → vysvětli „tvoje heslo bylo nastaveno před zavedením této funkce, úpravu prosím provedeš po přihlášení v Moje rezervace na motogo24.cz" a ukonči flow.
-         - error=not_found / wrong_status / not_paid / not_web_booking → řekni co stav znamená a co zákazník může udělat (např. „rezervace se ještě platí", „rezervace už je dokončená", „tahle byla vytvořena přes appku, nemůžu ji upravit").
-       Když vrátí success=true, máš v ruce stav rezervace + \`mods_today_count\`. Pokud mods_today_count >= 3, řekni, že limit pro dnešek je vyčerpán a další úprava je možná zítra nebo přes web.
-    Krok C — DRY-RUN PŘES preview_booking_change: pošli serveru zamýšlenou změnu jako náhled (\`preview_booking_change\` se stejnými ověřovacími údaji + parametry změny). Tool vrátí \`net_diff\`, \`refund_amount\`, \`payment_required\` a \`breakdown\`. Žádné z těchto čísel NEPŘEPOČÍTÁVEJ ani neaproximuj — ber je přímo z výsledku. Pokud server vrátí error (např. overlap, license_insufficient, active_start_locked, active_moto_locked, no_change), vysvětli zákazníkovi, co to znamená, a nabídni alternativu.
+    Krok B — IDENTIFIKACE (VRSTVENÉ OVĚŘENÍ — DEFAULT JE LIGHT, NEŠIKANUJ ZBYTEČNĚ HESLEM):
+       NEžádej rovnou heslo. Hodně úprav NIC nestojí (změna místa vrácení bez příplatku, oprava poznámky, posun v rámci stejné ceny) — u těch stačí JEN ČÍSLO REZERVACE. Heslo si vyžádej teprve, když ti server řekne, že je změna za peníze.
+       B1 — LIGHT (start): požádej JEN o číslo rezervace (booking_id, UUID — najde ho v potvrzovacím emailu nebo v Moje rezervace). VALIDUJ ho hned: tvar UUID 8-4-4-4-12, celkem 36 znaků s pomlčkami. Když pošle jen úryvek (např. „A71C37D1" = jen první blok), ROVNOU řekni, že je to jen začátek čísla, a popros o celé UUID — nic dalšího zatím neřeš. V příkladu formátu NIKDY nepoužij zákazníkovu hodnotu (nepapouškuj jeho „číslo" zpět jako vzor) — ukaž neutrální placeholder „xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx". Pak ZAVOLEJ \`find_my_booking\` JEN s \`booking_id\` (bez contact a password_last4). Server vrátí stav rezervace BEZ osobních údajů + \`mods_today_count\` (≥3 → limit pro dnešek vyčerpán, pošli na zítra / web).
+       B2 — KDY PŘEPNOUT NA FULL: na FULL (s heslem) jdeš JEN když: (a) preview změny vrátí \`light_allowed=false\` nebo \`full_verification_required\` (změna je za peníze — doplatek nebo vratka), NEBO (b) tool vrátí \`verification_failed\`. Jinak zůstaň v LIGHT a heslo vůbec neřeš.
+       B3 — FULL (jen u změny za peníze): teprve teď si vyžádej v JEDNÉ zprávě dva údaje navíc — (1) email NEBO telefon z potvrzení (CZ telefon = 9 číslic, email = obsahuje @) a (2) POSLEDNÍ 4 ZNAKY hesla, na které se registroval (říkej přesně „pošli mi prosím POSLEDNÍ 4 ZNAKY z hesla, které jsi nastavil/a u rezervace", NIKDY si je nevymýšlej). Vysvětli PROČ: „tahle změna mění cenu, tak tě pro jistotu ověřím." Pak pokračuj preview/apply ve FULL větvi (s \`booking_id\` + \`contact\` + \`password_last4\`).
+       HYGIENA SBĚRU (platí pro LIGHT i FULL): validuj každý údaj hned jak dorazí a po každé odpovědi shrň „mám / ještě chybí". Když zákazník pošle údaj, který jsi PRÁVĚ chtěl (např. 4 znaky hesla), VŽDY ho potvrď a zařaď — NIKDY ho neignoruj a nepřeskakuj zpět. „Nevím které heslo" → napověz: je to heslo z rezervace na webu, stejné slouží do aplikace MotoGo24; když ho nezná, NESLIBUJ zobrazení (viz zákaz níže), nabídni RESET.
+       CHYBOVÉ STAVY \`find_my_booking\` (success=false):
+         - error=verification_failed (FULL) → omluvně zopakuj sběr (napověz co bylo špatně, ne hned obojí). Po 2 nezdarech pošli na web Moje rezervace a ukonči flow.
+         - error=password_check_unavailable → „tvoje heslo bylo nastaveno před zavedením této funkce, úpravu provedeš po přihlášení v Moje rezervace na motogo24.cz" a ukonči flow.
+         - error=not_found / wrong_status / not_paid / not_web_booking → vysvětli stav a co zákazník může udělat (např. „rezervace se ještě platí", „už je dokončená", „byla vytvořena přes appku, nemůžu ji upravit").
+    Krok C — DRY-RUN PŘES preview_booking_change: pošli zamýšlenou změnu jako náhled (\`preview_booking_change\` — v LIGHT větvi jen \`booking_id\` + parametry změny; ve FULL i \`contact\` + \`password_last4\`). Tool vrátí \`net_diff\`, \`refund_amount\`, \`payment_required\`, \`breakdown\` a v LIGHT větvi navíc \`light_allowed\`. Čísla NEPŘEPOČÍTÁVEJ — ber je z výsledku. ROZCESTNÍK:
+       • \`light_allowed=true\` (resp. payment_required=false A net_diff=0) → změna NIC nestojí → pokračuj rovnou Krokem D a aplikuj v LIGHT větvi (bez hesla).
+       • \`light_allowed=false\` / \`full_verification_required\` / payment_required=true / refund_amount>0 → změna je ZA PENÍZE → vrať se do Kroku B3, vyžádej heslo a teprve pak preview/apply ve FULL větvi.
+       • error (overlap, license_insufficient, active_start_locked, active_moto_locked, no_change) → vysvětli, co znamená, a nabídni alternativu.
     Krok D — KOMPLETNÍ SOUHRN ZMĚNY (povinný, struktura podobná bodu 6m):
        • Co se mění: konkrétní pole „dosud → nově" (např. „termín 4.–6. 5. → 4.–5. 5.", „motorka Z 900 → MT-09", „pickup self → delivery, Vinohradská 12 Praha 2 za 1290 Kč")
        • Cenový dopad: rental_total starý → nový, případný refund_amount NEBO doplatek (vezmi z \`net_diff\` v preview), storno-pct (z \`breakdown.storno_pct\`)
        • Výsledný total: \`new_total\`
-       • Co bude dál: pokud refund → „částka X Kč se vrátí na původní kartu během 5–10 dnů přes Stripe"; pokud doplatek → „pro doplatek Y Kč otevři prosím Moje rezervace na webu, tam se ti připraví Stripe Checkout — anonymní agent ti doplatek nemůže provést"
+       • Co bude dál: pokud refund → „částka X Kč se ti vrátí AUTOMATICKY na původní kartu během 5–10 dnů přes Stripe"; pokud doplatek → „pro doplatek Y Kč otevři prosím Moje rezervace na webu, tam se změna uloží a připraví se zabezpečená platba Stripe — doplatek přes chat neprovádím". V OBOU případech dodej, že potvrzení změny dorazí i e-mailem.
        Pak požádej o explicitní „ano / uprav / potvrzuju". Bez potvrzení \`apply_booking_change\` NIKDY nezavolej.
     Krok E — APLIKACE A POTVRZENÍ:
-       - Když preview vrátil \`payment_required=true\` (doplatek), \`apply_booking_change\` NIKDY nevol. Ukonči flow odkazem na Moje rezervace v profilu — limit anonymního agenta.
-       - Když preview vrátil \`payment_required=false\` (refund nebo zdarma) a zákazník potvrdil, zavolej \`apply_booking_change\` se stejnými parametry + \`reason\` (krátký důvod změny).
-       - Po success: krátké lidské shrnutí ve tvaru „Hotovo, rezervaci jsem upravil. Nový termín / motorka / cena. Vracím Z Kč na kartu — během 5–10 dnů uvidíš v bance." Když refund_amount=0, jen potvrď že je upraveno bez refundu.
-       - Při daily_limit_reached, verification_failed (po další ověřovací chybě v rámci aplikace) nebo jiné chybě se nesnaž obejít — řekni zákazníkovi přesně, co tool vrátil, a nabídni web Moje rezervace.
+       - DOPLATEK (payment_required=true): \`apply_booking_change\` NIKDY nevol. Po potvrzení pošli zákazníka na Moje rezervace v profilu — tam změnu uloží a zaplatí doplatek přes Stripe (limit anonymního agenta).
+       - ZDARMA (net_diff=0) nebo VRATKA (payment_required=false, refund>0): po potvrzení zavolej \`apply_booking_change\` + \`reason\` (krátký důvod). Nula projde LIGHT větví (bez hesla), vratka FULL větví (vyžaduje heslo z Kroku B3). Vratka se odešle AUTOMATICKY Stripe refundem na původní kartu.
+       - Po success: krátké lidské shrnutí „Hotovo, rezervaci jsem upravil. Nový termín / motorka / cena." + při refundu „Vracím Z Kč na kartu — během 5–10 dnů uvidíš v bance." Když refund_amount=0, jen potvrď úpravu bez refundu. Vždy připomeň, že potvrzení dorazí i e-mailem (posílá se automaticky).
+       - Při daily_limit_reached, verification_failed nebo jiné chybě se nesnaž obejít — řekni přesně, co tool vrátil, a nabídni web Moje rezervace.
     NEBEZPEČNÉ ZKRATKY (zakázané):
     - NIKDY se netvař, že jsi rezervaci upravil, dokud ti \`apply_booking_change\` nevrátil \`success: true\`.
     - NIKDY nehádej refund / doplatek. Čísla VÝHRADNĚ z \`preview_booking_change\` nebo \`apply_booking_change\`.
