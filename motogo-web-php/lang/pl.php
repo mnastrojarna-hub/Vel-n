@@ -269,7 +269,7 @@ return [
     'rez.return.title' => 'Czas zwrotu motocykla',
     'rez.return.sub' => 'O której godzinie zwrócisz motocykl pod podanym adresem?',
     'rez.return.expectedTitle' => 'Przewidywany czas powrotu',
-    'rez.return.expectedSub' => 'O której godzinie mniej więcej zwrócisz motocykl? Może być też po północy.',
+    'rez.return.expectedSub' => 'O której godzinie mniej więcej zwrócisz motocykl? Najpóźniej o północy ostatniego dnia.',
 
     // ===== Rezerwacja — wyposażenie =====
     'rez.gear.intro' => 'Wybierz rozmiary, klikając na kwadraty poniżej. Jeśli nie wybierzesz, przymierzymy je na miejscu.',

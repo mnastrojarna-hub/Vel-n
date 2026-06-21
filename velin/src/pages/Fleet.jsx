@@ -134,10 +134,12 @@ export default function Fleet() {
         if (filters.branch) query = query.eq('branch_id', filters.branch)
         if (filters.category) query = query.eq('category', filters.category)
         if (filters.search) query = query.or(`model.ilike.%${filters.search}%,spz.ilike.%${filters.search}%`)
-        const sortMap = { model: 'model', acquired_desc: 'acquired_at', acquired_asc: 'acquired_at', mileage_desc: 'mileage', mileage_asc: 'mileage' }
+        const sortMap = { model: 'model', manual: 'sort_order', acquired_desc: 'acquired_at', acquired_asc: 'acquired_at', mileage_desc: 'mileage', mileage_asc: 'mileage' }
         const sortCol = sortMap[filters.sort] || 'model'
-        const sortAsc = filters.sort === 'mileage_asc' || filters.sort === 'acquired_asc' || filters.sort === 'model'
-        return query.order(sortCol, { ascending: sortAsc }).range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
+        const sortAsc = filters.sort === 'mileage_asc' || filters.sort === 'acquired_asc' || filters.sort === 'model' || filters.sort === 'manual'
+        let q = query.order(sortCol, { ascending: sortAsc, nullsFirst: false })
+        if (filters.sort === 'manual') q = q.order('model', { ascending: true })
+        return q.range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
       }, { page, filters })
       if (result?.error) throw result.error
       let data = result?.data || []
@@ -232,6 +234,7 @@ export default function Fleet() {
           onChange={v => { setPage(1); setFilters(f => ({ ...f, sort: v })) }}
           options={[
             { value: 'model', label: 'Dle názvu' },
+            { value: 'manual', label: 'Dle pořadí (ruční)' },
             { value: 'utilization', label: 'Nejvíce vytížené' },
             { value: 'acquired_desc', label: 'Datum ↓ nejnovější' },
             { value: 'acquired_asc', label: 'Datum ↑ nejstarší' },
@@ -337,6 +340,9 @@ export default function Fleet() {
                     )}
                   </TD>
                   <TD bold>
+                    {m.sort_order != null && (
+                      <span className="mr-1.5 text-xs font-extrabold rounded" style={{ padding: '1px 5px', background: '#e8fde8', color: '#1a8a18' }} title="Pořadí zobrazení na webu">#{m.sort_order}</span>
+                    )}
                     <span>{m.model}</span>
                     {missingAssetDocs.has(m.id) && (
                       <span className="ml-1 text-xs font-bold" style={{ color: '#dc2626' }} title="Chybí doklad o nabytí v majetku">!</span>
