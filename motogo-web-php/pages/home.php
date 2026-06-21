@@ -232,9 +232,10 @@ foreach ($motos as $hm) {
     if (empty($pool) && empty($vids)) continue;
     $modelName = trim((string)($hm['model'] ?? ''));
     if (!empty($vids)) {
-        // Video slide. Poster = hlavní foto (když je), jinak žádný.
+        // Video slide. Poster = hlavní foto (když je), jinak žádný. `photos` = celý
+        // pool fotek TÉ motorky → loading fotky se mezi videi střídají (ne pořád ta hlavní).
         $heroHasVideo = true;
-        $heroSlides[] = ['type' => 'video', 'videos' => $vids, 'poster' => ($pool[0] ?? ''), 'model' => $modelName];
+        $heroSlides[] = ['type' => 'video', 'videos' => $vids, 'poster' => ($pool[0] ?? ''), 'photos' => $pool, 'model' => $modelName];
         continue;
     }
     $main = $pool[0];
@@ -264,9 +265,15 @@ if (!empty($heroSlides) && $heroHasVideo) {
         $activeCls = ($i === 0) ? ' is-active' : '';
         if ($s['type'] === 'video') {
             $videosJson = htmlspecialchars(json_encode(array_values($s['videos']), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8');
-            // Poster fotka motorky — vždy existuje (fallback = statický hero banner),
-            // ať nikdy neprosvítá zelené pozadí <video> při načítání dalšího videa.
-            $posterSrc = ($s['poster'] !== '') ? imgUrlSized($s['poster'], 1400, 70) : $heroImgUrl;
+            // Loading fotky TÉ motorky — vždy aspoň jedna (fallback = statický hero
+            // banner). JS jimi mezi videi rotuje, ať se neukazuje pořád ta hlavní.
+            $posterList = [];
+            foreach (($s['photos'] ?? []) as $ph) {
+                if (is_string($ph) && $ph !== '') { $u = imgUrlSized($ph, 1400, 70); if ($u !== '' && !in_array($u, $posterList, true)) $posterList[] = $u; }
+            }
+            if (empty($posterList)) $posterList[] = $heroImgUrl;
+            $posterSrc = $posterList[0];
+            $postersJson = htmlspecialchars(json_encode(array_values($posterList), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8');
             $posterAttr = ' poster="' . htmlspecialchars($posterSrc, ENT_QUOTES, 'UTF-8') . '"';
             // První (aktivní) slide dostane `src` přímo v HTML — přehraje se i bez JS
             // (stejně jako fotky mají src deklarativně). Ostatní slide-videa nechává
@@ -276,7 +283,7 @@ if (!empty($heroSlides) && $heroHasVideo) {
             // (plynulý fade, žádné bliknutí). Navíc je stejná fotka i jako CSS pozadí
             // <video> elementu → i kdyby fade ne/zaostal, nikdy neprobleskne zelená.
             $bgStyle = ' style="background:#0e0e0e url(\'' . htmlspecialchars($posterSrc, ENT_QUOTES, 'UTF-8') . '\') center/cover no-repeat"';
-            $slidesHtml .= '<div class="mg-hero-slide mg-hero-slide-video' . $activeCls . '" data-type="video" data-videos="' . $videosJson . '">'
+            $slidesHtml .= '<div class="mg-hero-slide mg-hero-slide-video' . $activeCls . '" data-type="video" data-videos="' . $videosJson . '" data-posters="' . $postersJson . '">'
                 . '<video class="mg-hero-video" muted autoplay playsinline webkit-playsinline preload="' . ($i === 0 ? 'auto' : 'metadata') . '"' . $posterAttr . $srcAttr . $bgStyle . ' aria-label="' . $altText . '"></video>'
                 . '<img class="mg-hero-vposter" src="' . htmlspecialchars($posterSrc, ENT_QUOTES, 'UTF-8') . '" alt="' . $altText . '" decoding="async" aria-hidden="true" width="960" height="480">'
                 . '</div>';
@@ -313,9 +320,11 @@ if (!empty($heroSlides) && $heroHasVideo) {
         . 'var cur=sl[i];if(cur.getAttribute("data-type")==="video"){playVid(cur,i,next);}else{var d=parseInt(cur.getAttribute("data-duration"),10)||5000;timer=setTimeout(next,d);prefetch(nextUrl(i,-1));}}'
         . 'function playVid(el,i,onDone){var v=el.querySelector("video");if(!v){timer=setTimeout(onDone,5000);return;}'
         . 'var list=vids(el);if(!list.length){timer=setTimeout(onDone,5000);return;}'
+        . 'var img=el.querySelector(".mg-hero-vposter");var posters=[];try{posters=JSON.parse(el.getAttribute("data-posters")||"[]");}catch(e){}if(typeof el._pi!=="number")el._pi=0;'
         . 'var vi=0,safety=null,grace=null,reveal=null,posterAt=Date.now();'
-        // poster ZOBRAZ (fade in) — zapamatuj čas, ať vydrží min. 1 s
-        . 'function cover(){clearTimeout(reveal);if(el.classList.contains("vid-ready")){el.classList.remove("vid-ready");posterAt=Date.now();}}'
+        // poster ZOBRAZ (fade in) — rotuj loading fotku (další foto stejné motorky,
+        // ne pořád ta hlavní), zapamatuj čas, ať vydrží min. 1 s, a přednačti další
+        . 'function cover(){clearTimeout(reveal);if(el.classList.contains("vid-ready")){if(img&&posters.length>1){el._pi=(el._pi+1)%posters.length;img.src=posters[el._pi];v.style.backgroundImage="url(\'"+posters[el._pi]+"\')";var nx=new Image();nx.src=posters[(el._pi+1)%posters.length];}el.classList.remove("vid-ready");posterAt=Date.now();}}'
         // poster SKRYJ (fade out na video), ale nejdřív po MIN. 1 s viditelnosti
         . 'function uncover(){clearTimeout(grace);if(el.classList.contains("vid-ready"))return;var held=Date.now()-posterAt;if(held<MINP){clearTimeout(reveal);reveal=setTimeout(function(){el.classList.add("vid-ready");},MINP-held);}else{el.classList.add("vid-ready");}}'
         . 'v.onplaying=function(){clearTimeout(grace);uncover();};v.onwaiting=cover;v.onstalled=cover;'
