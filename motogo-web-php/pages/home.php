@@ -232,6 +232,8 @@ foreach ($motos as $hm) {
     if (empty($pool) && empty($vids)) continue;
     $modelName = trim((string)($hm['model'] ?? ''));
     if (!empty($vids)) {
+        // U každé motorky přehráváme jen PRVNÍ DVĚ videa.
+        $vids = array_slice($vids, 0, 2);
         // Video slide. Poster = hlavní foto (když je), jinak žádný. `photos` = celý
         // pool fotek TÉ motorky → loading fotky se mezi videi střídají (ne pořád ta hlavní).
         $heroHasVideo = true;
@@ -279,21 +281,20 @@ if (!empty($heroSlides) && $heroHasVideo) {
             // (stejně jako fotky mají src deklarativně). Ostatní slide-videa nechává
             // bez src; JS controller jim ho doplní, až na ně přijde řada.
             $srcAttr = ($i === 0 && !empty($s['videos'])) ? ' src="' . htmlspecialchars($s['videos'][0], ENT_QUOTES, 'UTF-8') . '"' : '';
-            // Poster leží PŘES video a přepíná se přes opacity (plynulý fade). Stejný
-            // layout jako fotkové slidy: DVĚ fotky vedle sebe (na PC) s měkkými okraji
-            // (mask gradient) → fotka není přezoomovaná a má dobrý poměr stran. Dvě
-            // fotky musí být RŮZNÉ. Na mobilu jen hlavní (cover, plná šířka).
+            // Poster leží PŘES video a přepíná se přes opacity (plynulý fade). Fotky
+            // se zobrazují CELÉ (object-fit:contain) na tmavém pozadí s okraji → nic
+            // přezoomovaného, vidět celá motorka. Na PC dvě RŮZNÉ fotky vedle sebe,
+            // při jen jedné fotce jedna přes celou šířku. Na mobilu jen hlavní.
             $pMain = $posterList[0];
-            $pAlt = (count($posterList) > 1) ? $posterList[1] : $posterList[0];
-            // Jen jedna fotka → split do dvou panelů (levá/pravá část) jako u fotkových slidů.
-            $posterSplitCls = (count($posterList) > 1) ? '' : ' mg-hero-split';
-            // Stejná fotka i jako CSS pozadí <video> → i v <220ms grace okně nikdy zelená.
-            $bgStyle = ' style="background:#0e0e0e url(\'' . htmlspecialchars($pMain, ENT_QUOTES, 'UTF-8') . '\') center/cover no-repeat"';
+            $hasAlt = count($posterList) > 1;
+            $pAlt = $hasAlt ? $posterList[1] : '';
+            // Stejná fotka i jako CSS pozadí <video> (contain) → i v <220ms grace okně nikdy zelená.
+            $bgStyle = ' style="background:#0e0e0e url(\'' . htmlspecialchars($pMain, ENT_QUOTES, 'UTF-8') . '\') center/contain no-repeat"';
             $slidesHtml .= '<div class="mg-hero-slide mg-hero-slide-video' . $activeCls . '" data-type="video" data-videos="' . $videosJson . '" data-posters="' . $postersJson . '">'
                 . '<video class="mg-hero-video" muted autoplay playsinline webkit-playsinline preload="' . ($i === 0 ? 'auto' : 'metadata') . '"' . $posterAttr . $srcAttr . $bgStyle . ' aria-label="' . $altText . '"></video>'
-                . '<div class="mg-hero-vposter' . $posterSplitCls . '" aria-hidden="true">'
+                . '<div class="mg-hero-vposter" aria-hidden="true">'
                 . '<img class="mg-hero-img mg-hero-img-main" src="' . htmlspecialchars($pMain, ENT_QUOTES, 'UTF-8') . '" alt="" decoding="async" width="960" height="480">'
-                . '<img class="mg-hero-img mg-hero-img-alt" src="' . htmlspecialchars($pAlt, ENT_QUOTES, 'UTF-8') . '" alt="" decoding="async" width="960" height="480">'
+                . ($hasAlt ? '<img class="mg-hero-img mg-hero-img-alt" src="' . htmlspecialchars($pAlt, ENT_QUOTES, 'UTF-8') . '" alt="" decoding="async" width="960" height="480">' : '')
                 . '</div>'
                 . '</div>';
         } else {
