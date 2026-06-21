@@ -282,6 +282,8 @@ return [
     'rez.pickup.map' => 'Carte',
     'rez.return.title' => 'Heure de retour de la moto',
     'rez.return.sub' => 'À quelle heure rendrez-vous la moto à l\'adresse indiquée ?',
+    'rez.return.expectedTitle' => 'Heure de retour prévue',
+    'rez.return.expectedSub' => 'Vers quelle heure rendrez-vous la moto ? Cela peut être après minuit.',
 
     // ===== Réservation — équipement =====
     'rez.gear.intro' => 'Choisissez les tailles en cliquant sur les carrés ci-dessous. Si vous ne choisissez pas, nous l\'essaierons sur place.',
