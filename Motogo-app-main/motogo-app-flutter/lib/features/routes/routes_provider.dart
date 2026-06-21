@@ -122,14 +122,8 @@ Future<List<LatLng>?> fetchMapyRoute(List<LatLng> points) async {
         .timeout(const Duration(seconds: 8));
     if (res.statusCode != 200) return null;
     final data = jsonDecode(res.body);
-    final coords = data is Map
-        ? (data['geometry']?['geometry']?['coordinates'] ??
-            data['geometry']?['coordinates'] ??
-            (data['features'] is List && (data['features'] as List).isNotEmpty
-                ? data['features'][0]?['geometry']?['coordinates']
-                : null))
-        : null;
-    if (coords is! List || coords.length < 2) return null;
+    final coords = data is Map ? _extractGeoCoords(data, start) : null;
+    if (coords == null || coords.length < 2) return null;
     final out = <LatLng>[];
     for (final c in coords) {
       if (c is List && c.length >= 2) {
@@ -143,4 +137,70 @@ Future<List<LatLng>?> fetchMapyRoute(List<LatLng> points) async {
     debugPrint('[routes] Mapy routing selhalo: $e');
     return null;
   }
+}
+
+/// Vytáhne geometrii trasy z odpovědi Mapy routing (GeoJSON i polyline string).
+/// Vrací List bodů `[lng, lat]` nebo null. `ref` = orientační bod pro výběr
+/// přesnosti polyline.
+List? _extractGeoCoords(Map data, LatLng ref) {
+  // 1) GeoJSON varianty
+  final g = data['geometry'];
+  if (g is Map) {
+    final gg = g['geometry'];
+    if (gg is Map && gg['coordinates'] is List) return gg['coordinates'] as List;
+    if (g['coordinates'] is List) return g['coordinates'] as List;
+  }
+  final feats = data['features'];
+  if (feats is List && feats.isNotEmpty) {
+    final f0 = feats[0];
+    if (f0 is Map && f0['geometry'] is Map &&
+        (f0['geometry'] as Map)['coordinates'] is List) {
+      return (f0['geometry'] as Map)['coordinates'] as List;
+    }
+  }
+  // 2) Zakódovaný polyline string
+  String? str;
+  if (g is String) {
+    str = g;
+  } else if (g is Map && g['geometry'] is String) {
+    str = g['geometry'] as String;
+  } else if (data['shape'] is String) {
+    str = data['shape'] as String;
+  }
+  if (str != null) {
+    for (final factor in <double>[1e5, 1e6]) {
+      final dec = _decodePolyline(str, factor);
+      if (dec.length >= 2 &&
+          (dec[0][0] - ref.longitude).abs() < 1.5 &&
+          (dec[0][1] - ref.latitude).abs() < 1.5) {
+        return dec;
+      }
+    }
+  }
+  return null;
+}
+
+/// Standardní polyline dekodér → List bodů `[lng, lat]`.
+List<List<double>> _decodePolyline(String str, double factor) {
+  int index = 0, lat = 0, lng = 0;
+  final coords = <List<double>>[];
+  while (index < str.length) {
+    int b, shift = 0, result = 0;
+    do {
+      b = str.codeUnitAt(index++) - 63;
+      result |= (b & 0x1f) << shift;
+      shift += 5;
+    } while (b >= 0x20);
+    lat += (result & 1) != 0 ? ~(result >> 1) : (result >> 1);
+    shift = 0;
+    result = 0;
+    do {
+      b = str.codeUnitAt(index++) - 63;
+      result |= (b & 0x1f) << shift;
+      shift += 5;
+    } while (b >= 0x20);
+    lng += (result & 1) != 0 ? ~(result >> 1) : (result >> 1);
+    coords.add([lng / factor, lat / factor]);
+  }
+  return coords;
 }
