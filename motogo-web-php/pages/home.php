@@ -279,13 +279,22 @@ if (!empty($heroSlides) && $heroHasVideo) {
             // (stejně jako fotky mají src deklarativně). Ostatní slide-videa nechává
             // bez src; JS controller jim ho doplní, až na ně přijde řada.
             $srcAttr = ($i === 0 && !empty($s['videos'])) ? ' src="' . htmlspecialchars($s['videos'][0], ENT_QUOTES, 'UTF-8') . '"' : '';
-            // Poster <img> leží PŘES video (z-index výš) a přepíná se přes opacity
-            // (plynulý fade, žádné bliknutí). Navíc je stejná fotka i jako CSS pozadí
-            // <video> elementu → i kdyby fade ne/zaostal, nikdy neprobleskne zelená.
-            $bgStyle = ' style="background:#0e0e0e url(\'' . htmlspecialchars($posterSrc, ENT_QUOTES, 'UTF-8') . '\') center/cover no-repeat"';
+            // Poster leží PŘES video a přepíná se přes opacity (plynulý fade). Stejný
+            // layout jako fotkové slidy: DVĚ fotky vedle sebe (na PC) s měkkými okraji
+            // (mask gradient) → fotka není přezoomovaná a má dobrý poměr stran. Dvě
+            // fotky musí být RŮZNÉ. Na mobilu jen hlavní (cover, plná šířka).
+            $pMain = $posterList[0];
+            $pAlt = (count($posterList) > 1) ? $posterList[1] : $posterList[0];
+            // Jen jedna fotka → split do dvou panelů (levá/pravá část) jako u fotkových slidů.
+            $posterSplitCls = (count($posterList) > 1) ? '' : ' mg-hero-split';
+            // Stejná fotka i jako CSS pozadí <video> → i v <220ms grace okně nikdy zelená.
+            $bgStyle = ' style="background:#0e0e0e url(\'' . htmlspecialchars($pMain, ENT_QUOTES, 'UTF-8') . '\') center/cover no-repeat"';
             $slidesHtml .= '<div class="mg-hero-slide mg-hero-slide-video' . $activeCls . '" data-type="video" data-videos="' . $videosJson . '" data-posters="' . $postersJson . '">'
                 . '<video class="mg-hero-video" muted autoplay playsinline webkit-playsinline preload="' . ($i === 0 ? 'auto' : 'metadata') . '"' . $posterAttr . $srcAttr . $bgStyle . ' aria-label="' . $altText . '"></video>'
-                . '<img class="mg-hero-vposter" src="' . htmlspecialchars($posterSrc, ENT_QUOTES, 'UTF-8') . '" alt="' . $altText . '" decoding="async" aria-hidden="true" width="960" height="480">'
+                . '<div class="mg-hero-vposter' . $posterSplitCls . '" aria-hidden="true">'
+                . '<img class="mg-hero-img mg-hero-img-main" src="' . htmlspecialchars($pMain, ENT_QUOTES, 'UTF-8') . '" alt="" decoding="async" width="960" height="480">'
+                . '<img class="mg-hero-img mg-hero-img-alt" src="' . htmlspecialchars($pAlt, ENT_QUOTES, 'UTF-8') . '" alt="" decoding="async" width="960" height="480">'
+                . '</div>'
                 . '</div>';
         } else {
             $eager = ($i === 0);
@@ -320,11 +329,11 @@ if (!empty($heroSlides) && $heroHasVideo) {
         . 'var cur=sl[i];if(cur.getAttribute("data-type")==="video"){playVid(cur,i,next);}else{var d=parseInt(cur.getAttribute("data-duration"),10)||5000;timer=setTimeout(next,d);prefetch(nextUrl(i,-1));}}'
         . 'function playVid(el,i,onDone){var v=el.querySelector("video");if(!v){timer=setTimeout(onDone,5000);return;}'
         . 'var list=vids(el);if(!list.length){timer=setTimeout(onDone,5000);return;}'
-        . 'var img=el.querySelector(".mg-hero-vposter");var posters=[];try{posters=JSON.parse(el.getAttribute("data-posters")||"[]");}catch(e){}if(typeof el._pi!=="number")el._pi=0;'
+        . 'var box=el.querySelector(".mg-hero-vposter");var pMain=box&&box.querySelector(".mg-hero-img-main");var pAlt=box&&box.querySelector(".mg-hero-img-alt");var posters=[];try{posters=JSON.parse(el.getAttribute("data-posters")||"[]");}catch(e){}if(typeof el._pi!=="number")el._pi=0;'
         . 'var vi=0,safety=null,grace=null,reveal=null,posterAt=Date.now();'
-        // poster ZOBRAZ (fade in) — rotuj loading fotku (další foto stejné motorky,
-        // ne pořád ta hlavní), zapamatuj čas, ať vydrží min. 1 s, a přednačti další
-        . 'function cover(){clearTimeout(reveal);if(el.classList.contains("vid-ready")){if(img&&posters.length>1){el._pi=(el._pi+1)%posters.length;img.src=posters[el._pi];v.style.backgroundImage="url(\'"+posters[el._pi]+"\')";var nx=new Image();nx.src=posters[(el._pi+1)%posters.length];}el.classList.remove("vid-ready");posterAt=Date.now();}}'
+        // poster ZOBRAZ (fade in) — rotuj DVĚ různé loading fotky stejné motorky
+        // (ne pořád hlavní), zapamatuj čas (min. 1 s) a další pár dopředu přednačti
+        . 'function cover(){clearTimeout(reveal);if(el.classList.contains("vid-ready")){if(posters.length>1){el._pi=(el._pi+1)%posters.length;var a=posters[el._pi],b=posters[(el._pi+1)%posters.length];if(pMain)pMain.src=a;if(pAlt)pAlt.src=b;v.style.backgroundImage="url(\'"+a+"\')";var n1=new Image();n1.src=posters[(el._pi+2)%posters.length];}el.classList.remove("vid-ready");posterAt=Date.now();}}'
         // poster SKRYJ (fade out na video), ale nejdřív po MIN. 1 s viditelnosti
         . 'function uncover(){clearTimeout(grace);if(el.classList.contains("vid-ready"))return;var held=Date.now()-posterAt;if(held<MINP){clearTimeout(reveal);reveal=setTimeout(function(){el.classList.add("vid-ready");},MINP-held);}else{el.classList.add("vid-ready");}}'
         . 'v.onplaying=function(){clearTimeout(grace);uncover();};v.onwaiting=cover;v.onstalled=cover;'
