@@ -272,11 +272,12 @@ if (!empty($heroSlides) && $heroHasVideo) {
             // (stejně jako fotky mají src deklarativně). Ostatní slide-videa nechává
             // bez src; JS controller jim ho doplní, až na ně přijde řada.
             $srcAttr = ($i === 0 && !empty($s['videos'])) ? ' src="' . htmlspecialchars($s['videos'][0], ENT_QUOTES, 'UTF-8') . '"' : '';
-            // Poster <img> leží PŘES video (z-index výš). Zobrazí se vždy, když video
-            // nehraje (načítání mezi videi) → místo zelené plochy je fotka motorky.
-            // JS přidá .vid-ready, jakmile video reálně přehrává → poster se odkryje.
+            // Poster <img> leží PŘES video (z-index výš) a přepíná se přes opacity
+            // (plynulý fade, žádné bliknutí). Navíc je stejná fotka i jako CSS pozadí
+            // <video> elementu → i kdyby fade ne/zaostal, nikdy neprobleskne zelená.
+            $bgStyle = ' style="background:#0e0e0e url(\'' . htmlspecialchars($posterSrc, ENT_QUOTES, 'UTF-8') . '\') center/cover no-repeat"';
             $slidesHtml .= '<div class="mg-hero-slide mg-hero-slide-video' . $activeCls . '" data-type="video" data-videos="' . $videosJson . '">'
-                . '<video class="mg-hero-video" muted autoplay playsinline webkit-playsinline preload="' . ($i === 0 ? 'auto' : 'metadata') . '"' . $posterAttr . $srcAttr . ' aria-label="' . $altText . '"></video>'
+                . '<video class="mg-hero-video" muted autoplay playsinline webkit-playsinline preload="' . ($i === 0 ? 'auto' : 'metadata') . '"' . $posterAttr . $srcAttr . $bgStyle . ' aria-label="' . $altText . '"></video>'
                 . '<img class="mg-hero-vposter" src="' . htmlspecialchars($posterSrc, ENT_QUOTES, 'UTF-8') . '" alt="' . $altText . '" decoding="async" aria-hidden="true" width="960" height="480">'
                 . '</div>';
         } else {
@@ -294,9 +295,12 @@ if (!empty($heroSlides) && $heroHasVideo) {
     }
     // Inline controller (stejný vzor inline <script> jako kalendář v katalog-detail.php).
     // Předčítání: skrytý <video preload="auto"> bufferuje VŽDY další video v pořadí,
-    // takže než na něj přijde řada, je už načtené → žádná zelená prodleva. Poster
-    // fotka (.vid-ready toggle) přepíná, dokud video reálně nehraje.
+    // takže než na něj přijde řada, je už načtené → přechod video→video je plynulý
+    // a poster (fotka) se vůbec neukáže. Když video reálně nestihne naběhnout
+    // (GRACE_MS), teprve pak se přes plynulý fade objeví fotka a zůstane MIN. 1 s
+    // (MIN_POSTER_MS) → nikdy nic nebliká a nikdy není vidět zelená.
     $heroJs = '<script>(function(){var w=document.querySelector(".banner-slideshow-js");if(!w)return;'
+        . 'var GRACE=220,MINP=1000;'
         . 'var sl=Array.prototype.slice.call(w.querySelectorAll(".mg-hero-slide"));if(!sl.length)return;'
         . 'var pf=document.createElement("video");pf.muted=true;pf.defaultMuted=true;pf.preload="auto";pf.setAttribute("muted","");pf.setAttribute("playsinline","");pf.style.cssText="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;pointer-events:none";w.appendChild(pf);var lastPf="";'
         . 'function prefetch(u){if(!u||u===lastPf)return;lastPf=u;try{pf.src=u;pf.load();}catch(e){}}'
@@ -305,16 +309,21 @@ if (!empty($heroSlides) && $heroHasVideo) {
         . 'var idx=0,timer=null;'
         . 'function clearT(){if(timer){clearTimeout(timer);timer=null;}}'
         . 'function next(){idx=(idx+1)%sl.length;show(idx);}'
-        . 'function show(i){clearT();sl.forEach(function(el,k){el.classList.toggle("is-active",k===i);if(k!==i){var v=el.querySelector("video");if(v){try{v.pause();}catch(e){}}el.classList.remove("vid-ready");}});'
+        . 'function show(i){clearT();sl.forEach(function(el,k){el.classList.toggle("is-active",k===i);if(k!==i){var v=el.querySelector("video");if(v){try{v.pause();}catch(e){}}}el.classList.remove("vid-ready");});'
         . 'var cur=sl[i];if(cur.getAttribute("data-type")==="video"){playVid(cur,i,next);}else{var d=parseInt(cur.getAttribute("data-duration"),10)||5000;timer=setTimeout(next,d);prefetch(nextUrl(i,-1));}}'
         . 'function playVid(el,i,onDone){var v=el.querySelector("video");if(!v){timer=setTimeout(onDone,5000);return;}'
         . 'var list=vids(el);if(!list.length){timer=setTimeout(onDone,5000);return;}'
-        . 'var vi=0,safety=null;'
-        . 'v.onplaying=function(){el.classList.add("vid-ready");};v.onwaiting=function(){el.classList.remove("vid-ready");};v.onstalled=function(){el.classList.remove("vid-ready");};'
+        . 'var vi=0,safety=null,grace=null,reveal=null,posterAt=Date.now();'
+        // poster ZOBRAZ (fade in) — zapamatuj čas, ať vydrží min. 1 s
+        . 'function cover(){clearTimeout(reveal);if(el.classList.contains("vid-ready")){el.classList.remove("vid-ready");posterAt=Date.now();}}'
+        // poster SKRYJ (fade out na video), ale nejdřív po MIN. 1 s viditelnosti
+        . 'function uncover(){clearTimeout(grace);if(el.classList.contains("vid-ready"))return;var held=Date.now()-posterAt;if(held<MINP){clearTimeout(reveal);reveal=setTimeout(function(){el.classList.add("vid-ready");},MINP-held);}else{el.classList.add("vid-ready");}}'
+        . 'v.onplaying=function(){clearTimeout(grace);uncover();};v.onwaiting=cover;v.onstalled=cover;'
         . 'function arm(){clearTimeout(safety);safety=setTimeout(step,30000);}'
         . 'function step(){clearTimeout(safety);vi++;if(vi>=list.length){onDone();return;}load();}'
-        . 'function load(){el.classList.remove("vid-ready");v.muted=true;v.defaultMuted=true;v.playsInline=true;v.setAttribute("muted","");v.setAttribute("playsinline","");v.src=list[vi];var p=v.play();if(p&&p.catch){p.catch(function(){timer=setTimeout(onDone,5000);});}arm();prefetch(nextUrl(i,vi));}'
-        . 'v.onended=step;v.onerror=function(){clearTimeout(safety);onDone();};load();}'
+        // při přepnutí zdroje neukazuj fotku hned: dej videu GRACE ms, ať plynule navazá
+        . 'function load(){clearTimeout(grace);grace=setTimeout(cover,GRACE);v.muted=true;v.defaultMuted=true;v.playsInline=true;v.setAttribute("muted","");v.setAttribute("playsinline","");v.src=list[vi];var p=v.play();if(p&&p.catch){p.catch(function(){timer=setTimeout(onDone,5000);});}arm();prefetch(nextUrl(i,vi));}'
+        . 'v.onended=step;v.onerror=function(){clearTimeout(safety);clearTimeout(grace);onDone();};load();}'
         . 'show(0);})();</script>';
     $bannerHtml = '<div class="banner banner-slideshow banner-slideshow-js">' . $slidesHtml . $heroCaption . '</div>' . $heroJs;
 } elseif (!empty($heroSlides)) {
