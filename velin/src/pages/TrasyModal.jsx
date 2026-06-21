@@ -6,6 +6,9 @@ import Modal from '../components/ui/Modal'
 import ImageUploader from '../components/ui/ImageUploader'
 import { FormField } from './BranchHelpers'
 import { autoTranslateRow } from '../lib/autoTranslate'
+import TrasyMapPicker from './TrasyMapPicker'
+
+const r6 = (v) => Math.round(Number(v) * 1e6) / 1e6
 
 // Mapy.com API klíč (stejný jako v mobilní appce) — pro výpočet geometrie trasy.
 const MAPY_KEY = 'whg1ilj203oYhmsqkBHVtUqpk-tYr0E-HFTx4lGdue0'
@@ -93,6 +96,7 @@ export default function TrasyModal({ existing, branches, onClose, onSaved }) {
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState(null)
   const [savingNote, setSavingNote] = useState('')
+  const [showMap, setShowMap] = useState(false)
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
   const branch = branches.find(b => b.id === form.branch_id)
@@ -124,11 +128,20 @@ export default function TrasyModal({ existing, branches, onClose, onSaved }) {
     if (j < 0 || j >= ws.length) return ws
     const next = [...ws]; [next[i], next[j]] = [next[j], next[i]]; return next
   })
+  // Klik do mapy → přidá waypoint (zahodí prázdné řádky), tažení → posun
+  const addWpAt = (lat, lng) => setWaypoints(ws => [
+    ...ws.filter(w => w.lat !== '' || w.lng !== '' || w.label !== ''),
+    { lat: r6(lat), lng: r6(lng), label: '' },
+  ])
+  const moveWpTo = (i, lat, lng) => setWaypoints(ws => ws.map((w, idx) => idx === i ? { ...w, lat: r6(lat), lng: r6(lng) } : w))
 
   // ── POI helpers ──
   const setPoi = (i, k, v) => setPois(ps => ps.map((p, idx) => idx === i ? { ...p, [k]: v } : p))
   const addPoi = () => setPois(ps => [...ps, emptyPoi()])
   const rmPoi = (i) => setPois(ps => ps.filter((_, idx) => idx !== i))
+  // Klik do mapy v režimu POI → přidá bod zájmu se souřadnicemi
+  const addPoiAt = (lat, lng) => setPois(ps => [...ps, { ...emptyPoi(), lat: r6(lat), lng: r6(lng) }])
+  const movePoiTo = (i, lat, lng) => setPois(ps => ps.map((p, idx) => idx === i ? { ...p, lat: r6(lat), lng: r6(lng) } : p))
 
   async function handleSave() {
     if (!form.name?.trim()) { setErr('Název trasy je povinný.'); return }
@@ -268,6 +281,33 @@ export default function TrasyModal({ existing, branches, onClose, onSaved }) {
           <FormField label="Odkaz na Mapy.com (volitelně)" value={form.mapy_url} onChange={v => set('mapy_url', v)}
             placeholder="https://mapy.com/s/…" />
         </div>
+      </div>
+
+      {/* ── Interaktivní mapa (klik = přidat bod) ── */}
+      <div className="mt-5">
+        <div className="flex items-center justify-between mb-2">
+          <label className={lbl} style={{ color: '#1a2e22', marginBottom: 0 }}>Mapa trasy</label>
+          <Button small onClick={() => setShowMap(s => !s)}>{showMap ? 'Skrýt mapu' : '🗺️ Vybrat na mapě'}</Button>
+        </div>
+        {showMap && (
+          <>
+            {!branch?.gps_lat && (
+              <p className="text-xs mb-2" style={{ color: '#b45309' }}>
+                Tato pobočka nemá v Pobočkách vyplněné GPS — start trasy se na mapě nezobrazí, ale body jdou přidávat normálně.
+              </p>
+            )}
+            <TrasyMapPicker
+              start={branch?.gps_lat != null && branch?.gps_lng != null ? { lat: branch.gps_lat, lng: branch.gps_lng } : null}
+              waypoints={waypoints}
+              pois={pois}
+              isLoop={form.route_type === 'loop'}
+              onAddWaypoint={addWpAt}
+              onAddPoi={addPoiAt}
+              onMoveWaypoint={moveWpTo}
+              onMovePoi={movePoiTo}
+            />
+          </>
+        )}
       </div>
 
       {/* ── Waypointy (body trasy) ── */}
