@@ -30,7 +30,7 @@ class AppShell extends ConsumerWidget {
     _TabItem(route: Routes.home, i18nKey: 'navHome', icon: Icons.home_outlined, activeIcon: Icons.home),
     _TabItem(route: Routes.search, i18nKey: 'navBook', icon: Icons.calendar_today_outlined, activeIcon: Icons.calendar_today),
     _TabItem(route: Routes.reservations, i18nKey: 'navReservations', icon: Icons.check_box_outlined, activeIcon: Icons.check_box),
-    _TabItem(route: Routes.routes, i18nKey: 'navRoutes', icon: Icons.route_outlined, activeIcon: Icons.route),
+    _TabItem(route: Routes.routes, i18nKey: 'navRoutes', icon: Icons.map_outlined, activeIcon: Icons.map),
   ];
 
   int _currentIndex(String location) {

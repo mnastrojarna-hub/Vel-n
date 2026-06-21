@@ -135,8 +135,8 @@ class _RouteMapViewState extends State<RouteMapView> {
           ],
         ),
         // Povinná atribuce Mapy.com
-        const RichAttributionWidget(
-          attributions: [
+        RichAttributionWidget(
+          attributions: const [
             TextSourceAttribution('Mapy.com'),
           ],
         ),
