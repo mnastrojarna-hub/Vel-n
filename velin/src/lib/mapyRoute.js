@@ -83,3 +83,60 @@ export function getRcFromUrl(url) {
 export function isShareLink(url) {
   return /mapy\.(?:com|cz)\/s\//i.test(url || '')
 }
+
+/**
+ * Dekóduje zakódovaný polyline řetězec (standardní Google algoritmus) →
+ * pole `[[lng,lat],…]` (GeoJSON pořadí). `factor` = 1e5 (přesnost 5) nebo 1e6.
+ * Mapy routing vrací geometrii buď jako GeoJSON, nebo jako tento řetězec.
+ */
+export function decodePolyline(str, factor = 1e5) {
+  if (!str || typeof str !== 'string') return []
+  let index = 0, lat = 0, lng = 0
+  const coords = []
+  while (index < str.length) {
+    let b, shift = 0, result = 0
+    do { b = str.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5 } while (b >= 0x20)
+    lat += (result & 1) ? ~(result >> 1) : (result >> 1)
+    shift = 0; result = 0
+    do { b = str.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5 } while (b >= 0x20)
+    lng += (result & 1) ? ~(result >> 1) : (result >> 1)
+    coords.push([lng / factor, lat / factor])
+  }
+  return coords
+}
+
+/**
+ * Vytáhne geometrii trasy z odpovědi Mapy routing API v JAKÉMKOLIV tvaru:
+ * GeoJSON (Feature / geometry / FeatureCollection) i zakódovaný polyline string.
+ * `refLngLat` = orientační bod [lng,lat] (waypoint) pro výběr správné přesnosti
+ * polyline. Vrací `[[lng,lat],…]` nebo null.
+ */
+export function extractRouteGeometry(data, refLngLat) {
+  if (!data) return null
+  // 1) GeoJSON varianty
+  const g =
+    data?.geometry?.geometry?.coordinates ||
+    data?.geometry?.coordinates ||
+    data?.features?.[0]?.geometry?.coordinates ||
+    data?.shape?.coordinates ||
+    null
+  if (Array.isArray(g) && g.length >= 2 && Array.isArray(g[0])) return g
+  // 2) Zakódovaný polyline string (na různých místech)
+  const str =
+    (typeof data?.geometry === 'string' && data.geometry) ||
+    (typeof data?.geometry?.geometry === 'string' && data.geometry.geometry) ||
+    (typeof data?.shape === 'string' && data.shape) ||
+    (typeof data?.geometry?.points === 'string' && data.geometry.points) ||
+    null
+  if (str) {
+    const ref = Array.isArray(refLngLat) ? refLngLat : null
+    for (const f of [1e5, 1e6]) {
+      const dec = decodePolyline(str, f)
+      if (dec.length < 2) continue
+      if (!ref || (Math.abs(dec[0][0] - ref[0]) < 1.5 && Math.abs(dec[0][1] - ref[1]) < 1.5)) {
+        return dec
+      }
+    }
+  }
+  return null
+}

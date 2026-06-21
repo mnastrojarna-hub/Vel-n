@@ -7,7 +7,7 @@ import ImageUploader from '../components/ui/ImageUploader'
 import { FormField } from './BranchHelpers'
 import { autoTranslateRow } from '../lib/autoTranslate'
 import TrasyMapPicker from './TrasyMapPicker'
-import { decodeRouteCoords, extractMapyUrl, getRcFromUrl } from '../lib/mapyRoute'
+import { decodeRouteCoords, extractMapyUrl, getRcFromUrl, extractRouteGeometry } from '../lib/mapyRoute'
 
 const r6 = (v) => Math.round(Number(v) * 1e6) / 1e6
 
@@ -51,12 +51,8 @@ async function computeGeometry(branch, waypoints, routeType) {
     })
     if (!res.ok) return null
     const data = await res.json()
-    // Mapy v1 vrací GeoJSON — geometrie může být na několika místech, robustně extrahujeme.
-    const coords =
-      data?.geometry?.geometry?.coordinates ||
-      data?.geometry?.coordinates ||
-      data?.features?.[0]?.geometry?.coordinates ||
-      null
+    // Geometrie může být GeoJSON i zakódovaný polyline string — robustní extrakce.
+    const coords = extractRouteGeometry(data, start)
     const length_m = data?.length ?? data?.summary?.length ?? data?.properties?.length ?? null
     const duration_s = data?.duration ?? data?.summary?.duration ?? data?.properties?.duration ?? null
     const hasCoords = Array.isArray(coords) && coords.length >= 2
