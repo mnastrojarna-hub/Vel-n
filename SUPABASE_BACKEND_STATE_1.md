@@ -90,6 +90,13 @@
 | `shop_orders` | Objednávky (status: new/confirmed/processing/shipped/delivered/cancelled/returned/refunded, confirmed_at) |
 | `shop_order_items` | Položky objednávek |
 
+### Trasy (doporučené vyjížďky) — **NEW 2026-06-21 (`20260621_routes_feature.sql`)**
+
+| Tabulka | Popis |
+|---------|-------|
+| `routes` | Doporučené motorkářské trasy vedoucí od pobočky. Sloupce: `id`, `branch_id` FK→branches ON DELETE CASCADE, `name`, `description`, `route_type` (CHECK loop/poi — okruh / za body zájmu), `distance_km` numeric(6,1), `duration_min` int, `difficulty` (CHECK easy/medium/hard), `waypoints` jsonb (`[{lat,lng,label,order}]`), `geometry` jsonb (`{coordinates:[[lng,lat],…]}` — cache polyline z Mapy.com routing, plní Velín; appka má fallback živý dopočet), `mapy_url` (originální mapy.com share link), `cover_image`, `images` text[], `image_alts` text[], `translations` jsonb (`{lang:{name,description}}` — plní `autoTranslate`), `is_active` (public read jen aktivní), `sort_order`, `created_at`, `updated_at`. RLS: Public read (`is_active=true` nebo admin) + Admin write. Spravuje Velín → Trasy; appka čte přes RPC `get_branch_routes`. |
+| `route_pois` | Body zájmu na trase (1:N k `routes`). Sloupce: `id`, `route_id` FK→routes ON DELETE CASCADE, `name`, `description`, `lat`/`lng` double precision, `image_url`, `images` text[], `translations` jsonb, `sort_order`, `created_at`, `updated_at`. RLS: Public read (přes nadřazenou aktivní trasu nebo admin) + Admin write. Velín ukládá delete-and-reinsert (drží pořadí). |
+
 ### Promo a vouchery
 
 | Tabulka | Popis |
