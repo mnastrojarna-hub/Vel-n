@@ -83,3 +83,25 @@ p>.btn:last-child{margin-bottom:0}
 .btngreen::after,.btngreen-small::after,.btndark::after{content:"";position:absolute;top:0;left:-65%;width:45%;height:100%;background:linear-gradient(120deg,transparent 0,rgba(255,255,255,.55) 50%,transparent 100%);transform:skewX(-20deg);animation:mgShine 3.4s ease-in-out infinite;pointer-events:none}
 @keyframes mgShine{0%{left:-65%}55%{left:140%}100%{left:140%}}
 @media (prefers-reduced-motion:reduce){.btn,.btngreen,.btngreen-small,.btndark{transition:none}.btngreen::after,.btngreen-small::after,.btndark::after{display:none;animation:none}}
+/* ===== Header app-download popover (QR + Google Play + věrnostní info) ===== */
+.header-app{position:relative;display:flex;align-items:center}
+.header-app-btn{display:inline-flex;align-items:center;gap:.35rem;height:32px;padding:.25rem .7rem;border-radius:18px;background:rgba(116,251,113,.12);color:#74fb71;border:1px solid rgba(116,251,113,.35);font:inherit;font-size:.8rem;font-weight:700;line-height:1;cursor:pointer;white-space:nowrap;transition:background .15s,color .15s}
+.header-app-btn:hover{background:rgba(116,251,113,.22);color:#a8ff9f}
+.header-app-btn:focus-visible{outline:#74fb71 solid 2px;outline-offset:2px}
+.header-app-icon{width:18px;height:18px;flex:0 0 auto}
+.header-app-pop{position:absolute;top:calc(100% + 12px);right:0;width:320px;max-width:92vw;background:#fff;color:#1a2e22;border-radius:14px;box-shadow:0 14px 38px rgba(0,0,0,.3);padding:1rem;z-index:200;text-align:left}
+.header-app-pop[hidden]{display:none}
+.header-app-pop::before{content:"";position:absolute;top:-7px;right:22px;width:14px;height:14px;background:#fff;transform:rotate(45deg);box-shadow:-2px -2px 4px rgba(0,0,0,.06)}
+.header-app-close{position:absolute;top:.45rem;right:.6rem;background:none;border:0;font-size:1.15rem;line-height:1;color:#6b7c72;cursor:pointer;padding:.2rem}
+.header-app-close:hover{color:#1a2e22}
+.header-app-h{font-size:1rem;font-weight:800;margin:0 1.4rem .7rem 0;color:#1a2e22}
+.header-app-body{display:flex;gap:.85rem;align-items:flex-start}
+.header-app-qr{width:120px;height:120px;flex:0 0 auto;border:1px solid #e3ece8;border-radius:8px;background:#fff}
+.header-app-col{display:flex;flex-direction:column;gap:.55rem;min-width:0}
+.header-app-cta{display:inline-block;background:#1a2e22;color:#fff;font-weight:700;font-size:.8rem;text-align:center;padding:.55rem .7rem;border-radius:8px;text-decoration:none;transition:background .15s}
+.header-app-cta:hover{background:#0d6e0d;color:#fff}
+.header-app-note{font-size:.72rem;line-height:1.5;color:#3a4d42;margin:0}
+.header-app-note a{color:#0d6e0d;font-weight:700;text-decoration:underline;word-break:break-word}
+.header-app-loyalty{margin:.85rem 0 0;padding-top:.7rem;border-top:1px solid #e3ece8;font-size:.74rem;line-height:1.5;color:#3a4d42}
+.header-app-loyalty strong{color:#1a2e22}
+@media (max-width:560px){.header-app-label{display:none}.header-app-btn{padding:.3rem .5rem}.header-app-pop{width:288px;max-width:88vw;padding:.85rem}.header-app-qr{width:104px;height:104px}}

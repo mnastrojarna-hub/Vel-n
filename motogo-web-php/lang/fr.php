@@ -25,6 +25,15 @@ return [
     'header.callUs' => 'Appelez-nous',
     'header.logoAlt' => 'Location de motos Vysočina Motogo24',
     'header.expandSubmenu' => 'Déplier le sous-menu',
+    'header.app.label' => 'Télécharger l\'appli',
+    'header.app.title' => 'Télécharger l\'application MotoGo24',
+    'header.app.aria' => 'Télécharger l\'application MotoGo24 sur Google Play',
+    'header.app.heading' => 'Téléchargez l\'appli MotoGo24',
+    'header.app.qrAlt' => 'QR code pour télécharger l\'application MotoGo24 sur Google Play',
+    'header.app.getPlay' => 'Disponible sur Google Play',
+    'header.app.whitelist' => 'L\'application est actuellement en test fermé sur Google Play. Avant de l\'installer, envoie-nous d\'abord à {email} l\'e-mail que tu utilises pour te connecter à ton compte Google — nous t\'ajouterons aux testeurs (whitelisting).',
+    'header.app.loyaltyTitle' => 'Programme de fidélité :',
+    'header.app.loyaltyText' => 'À chaque réservation faite via l\'appli, tu montes dans les niveaux de fidélité et tu débloques des réductions qui augmentent avec le nombre de tes réservations.',
 
     // ===== Menu položky (route → label) =====
     'menu.rental' => 'Location de motos',

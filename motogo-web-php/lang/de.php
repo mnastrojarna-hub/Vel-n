@@ -25,6 +25,15 @@ return [
     'header.callUs' => 'Rufen Sie uns an',
     'header.logoAlt' => 'Motorradvermietung Vysočina Motogo24',
     'header.expandSubmenu' => 'Untermenü ausklappen',
+    'header.app.label' => 'App holen',
+    'header.app.title' => 'MotoGo24-App herunterladen',
+    'header.app.aria' => 'MotoGo24-App bei Google Play herunterladen',
+    'header.app.heading' => 'Hol dir die MotoGo24-App',
+    'header.app.qrAlt' => 'QR-Code zum Herunterladen der MotoGo24-App bei Google Play',
+    'header.app.getPlay' => 'Bei Google Play laden',
+    'header.app.whitelist' => 'Die App befindet sich derzeit im geschlossenen Test bei Google Play. Bevor du sie installierst, sende uns bitte zuerst an {email} die E-Mail-Adresse, mit der du dich bei deinem Google-Konto anmeldest — wir nehmen dich in die Tester auf (Whitelisting).',
+    'header.app.loyaltyTitle' => 'Treueprogramm:',
+    'header.app.loyaltyText' => 'Mit jeder Buchung über die App steigst du in den Treuestufen auf und erhältst Rabatte, die mit der Anzahl deiner Buchungen wachsen.',
 
     // Menu
     'menu.rental' => 'Motorradvermietung',

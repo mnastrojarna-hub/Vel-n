@@ -25,6 +25,15 @@ return [
     'header.callUs' => 'Call us',
     'header.logoAlt' => 'Motorcycle rental Vysočina — Motogo24',
     'header.expandSubmenu' => 'Expand submenu',
+    'header.app.label' => 'Get the app',
+    'header.app.title' => 'Download the MotoGo24 mobile app',
+    'header.app.aria' => 'Download the MotoGo24 mobile app from Google Play',
+    'header.app.heading' => 'Get the MotoGo24 app',
+    'header.app.qrAlt' => 'QR code to download the MotoGo24 app from Google Play',
+    'header.app.getPlay' => 'Get it on Google Play',
+    'header.app.whitelist' => 'The app is currently in Google Play closed testing. Before you install it, please first send us the e-mail you use to sign in to your Google account to {email} — we will add you to the testers (whitelisting).',
+    'header.app.loyaltyTitle' => 'Loyalty programme:',
+    'header.app.loyaltyText' => 'With every booking made through the app you climb loyalty levels and unlock discounts that grow with the number of your bookings.',
 
     // ===== Menu items (route → label) =====
     'menu.rental' => 'Motorcycle rental',
