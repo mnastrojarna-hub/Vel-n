@@ -334,8 +334,11 @@ if (!empty($heroSlides) && $heroHasVideo) {
         // vid-ready jen plynule odkryje video PŘES fotky (fotky zůstávají na pozadí)
         . 'function maybePlay(){if(!(ready&&minOk)||started)return;started=true;clearTimeout(safety);el.classList.add("vid-ready");v.muted=true;v.defaultMuted=true;v.playsInline=true;var p=v.play();if(p&&p.catch){p.catch(function(){nextV();});}}'
         // ukaž fotky a začni načítat (předčítat) video; play až v maybePlay()
-        . 'function loadCur(){ready=false;minOk=false;started=false;rotate();photo();clearTimeout(minT);minT=setTimeout(function(){minOk=true;maybePlay();},MINP);v.muted=true;v.defaultMuted=true;v.playsInline=true;v.setAttribute("muted","");v.setAttribute("playsinline","");v.preload="auto";v.src=list[vi];try{v.load();}catch(e){}clearTimeout(safety);safety=setTimeout(function(){ready=true;maybePlay();},RTMO);}'
+        . 'function loadCur(){ready=false;minOk=false;started=false;el.classList.remove("vid-landscape");rotate();photo();clearTimeout(minT);minT=setTimeout(function(){minOk=true;maybePlay();},MINP);v.muted=true;v.defaultMuted=true;v.playsInline=true;v.setAttribute("muted","");v.setAttribute("playsinline","");v.preload="auto";v.src=list[vi];try{v.load();}catch(e){}clearTimeout(safety);safety=setTimeout(function(){ready=true;maybePlay();},RTMO);}'
         . 'function nextV(){clearTimeout(safety);clearTimeout(minT);vi++;if(vi>=list.length){onDone();return;}loadCur();}'
+        // video NA ŠÍŘKU vyplní celý banner (cover) → fotka za ním není vidět; video
+        // NA VÝŠKU je contain a fotky ho lemují po stranách (žádné prosvítání zespoda)
+        . 'v.onloadedmetadata=function(){if(v.videoWidth&&v.videoHeight){el.classList.toggle("vid-landscape",v.videoWidth>=v.videoHeight);}};'
         . 'v.oncanplaythrough=function(){ready=true;maybePlay();};'
         . 'v.onended=nextV;'
         // mid-play stutter → ukaž fotku; po obnovení zase video (žádná zelená/sek)
