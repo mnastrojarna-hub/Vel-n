@@ -52,6 +52,7 @@ import '../features/sos/sos_service_screen.dart';
 import '../features/loyalty/loyalty_ranks_screen.dart';
 import '../features/routes/routes_screen.dart';
 import '../features/routes/route_detail_screen.dart';
+import '../features/routes/route_navigation_screen.dart';
 import 'currency.dart';
 
 /// All route paths — mirrors router.js screen IDs.
@@ -98,6 +99,7 @@ class Routes {
   static const String loyalty = '/loyalty';
   static const String routes = '/routes';
   static const String routeDetail = '/routes/:id';
+  static const String routeNav = '/route-nav/:id';
 }
 
 /// Bezpečná navigace „zpět" — sdílená pro všechny obrazovky.
@@ -221,6 +223,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => DocumentScannerScreen(
           scanMode: state.uri.queryParameters['mode'],
         ),
+      ),
+
+      // Navigace trasy — fullscreen, BEZ spodní lišty
+      GoRoute(
+        path: '/route-nav/:id',
+        builder: (context, state) =>
+            RouteNavigationScreen(routeId: state.pathParameters['id']!),
       ),
 
       // Main app with bottom nav shell
