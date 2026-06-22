@@ -23,6 +23,15 @@ return [
     'header.callUs' => 'Bel ons',
     'header.logoAlt' => 'Motorverhuur Vysočina Motogo24',
     'header.expandSubmenu' => 'Submenu uitklappen',
+    'header.app.label' => 'App downloaden',
+    'header.app.title' => 'De MotoGo24-app downloaden',
+    'header.app.aria' => 'De MotoGo24-app downloaden uit Google Play',
+    'header.app.heading' => 'Download de MotoGo24-app',
+    'header.app.qrAlt' => 'QR-code om de MotoGo24-app uit Google Play te downloaden',
+    'header.app.getPlay' => 'Ontdek het op Google Play',
+    'header.app.whitelist' => 'De app zit momenteel in een gesloten test van Google Play. Voordat je hem installeert, stuur ons eerst op {email} het e-mailadres waarmee je inlogt op je Google-account — we voegen je toe aan de testers (whitelisting).',
+    'header.app.loyaltyTitle' => 'Loyaliteitsprogramma:',
+    'header.app.loyaltyText' => 'Bij elke boeking via de app stijg je in loyaliteitsniveaus en krijg je kortingen die groeien met het aantal van je boekingen.',
 
     'menu.rental' => 'Motorverhuur',
     'menu.catalog' => 'Motorcatalogus',
@@ -268,6 +277,8 @@ return [
     'rez.pickup.map' => 'Kaart',
     'rez.return.title' => 'Tijd voor terugbrengen motor',
     'rez.return.sub' => 'Hoe laat brengt u de motor terug op het opgegeven adres?',
+    'rez.return.expectedTitle' => 'Verwachte tijd van terugkomst',
+    'rez.return.expectedSub' => 'Rond hoe laat brengt u de motor terug? Uiterlijk om middernacht op de laatste dag.',
 
     // ===== Reservering — uitrusting =====
     'rez.gear.intro' => 'Kies maten door op de vakjes hieronder te klikken. Als u geen maat kiest, passen we hem op locatie.',

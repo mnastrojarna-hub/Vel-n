@@ -26,6 +26,15 @@ return [
     'header.callUs' => 'Zavolejte nám',
     'header.logoAlt' => 'Půjčovna motorek Vysočina Motogo24',
     'header.expandSubmenu' => 'Rozbalit podmenu',
+    'header.app.label' => 'Stáhnout appku',
+    'header.app.title' => 'Stáhnout mobilní aplikaci MotoGo24',
+    'header.app.aria' => 'Stáhnout mobilní aplikaci MotoGo24 z Google Play',
+    'header.app.heading' => 'Stáhni si appku MotoGo24',
+    'header.app.qrAlt' => 'QR kód pro stažení aplikace MotoGo24 z Google Play',
+    'header.app.getPlay' => 'Stáhnout z Google Play',
+    'header.app.whitelist' => 'Aplikace je zatím v uzavřeném testování Google Play. Než si ji nainstaluješ, pošli nám prosím nejdřív na {email} e-mail, kterým se přihlašuješ ke svému Google účtu — zařadíme tě mezi testery (whitelisting).',
+    'header.app.loyaltyTitle' => 'Věrnostní program:',
+    'header.app.loyaltyText' => 'Za každou rezervaci přes aplikaci postupuješ ve věrnostních úrovních a získáváš slevy, které rostou s počtem tvých rezervací.',
 
     // ===== Menu položky (route → label) =====
     'menu.rental' => 'Půjčovna motorek',
@@ -401,6 +410,8 @@ return [
     'rez.map.confirm' => 'Potvrdit',
     'rez.return.title' => 'Čas vrácení motorky',
     'rez.return.sub' => 'V kolik hodin vrátíte motorku na uvedené adrese?',
+    'rez.return.expectedTitle' => 'Předpokládaný čas návratu',
+    'rez.return.expectedSub' => 'V kolik hodin přibližně vrátíte motorku? Nejpozději o půlnoci posledního dne.',
     'rez.return.stateTitle' => 'V jakém stavu motorku vrátit?',
     'rez.return.stateText' => 'Motorku stačí vrátit s palivem nad rezervou (kontrolka rezervy nesvítí). Mytí ani úklid neřeš.',
 

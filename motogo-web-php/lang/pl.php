@@ -23,6 +23,15 @@ return [
     'header.callUs' => 'Zadzwoń do nas',
     'header.logoAlt' => 'Wypożyczalnia motocykli Vysočina Motogo24',
     'header.expandSubmenu' => 'Rozwiń podmenu',
+    'header.app.label' => 'Pobierz aplikację',
+    'header.app.title' => 'Pobierz aplikację mobilną MotoGo24',
+    'header.app.aria' => 'Pobierz aplikację mobilną MotoGo24 z Google Play',
+    'header.app.heading' => 'Pobierz aplikację MotoGo24',
+    'header.app.qrAlt' => 'Kod QR do pobrania aplikacji MotoGo24 z Google Play',
+    'header.app.getPlay' => 'Pobierz z Google Play',
+    'header.app.whitelist' => 'Aplikacja jest obecnie w zamkniętych testach Google Play. Zanim ją zainstalujesz, wyślij nam najpierw na {email} adres e-mail, którego używasz do logowania na swoje konto Google — dodamy Cię do testerów (whitelisting).',
+    'header.app.loyaltyTitle' => 'Program lojalnościowy:',
+    'header.app.loyaltyText' => 'Za każdą rezerwację złożoną przez aplikację awansujesz w poziomach lojalnościowych i zdobywasz rabaty, które rosną wraz z liczbą Twoich rezerwacji.',
 
     'menu.rental' => 'Wypożyczalnia motocykli',
     'menu.catalog' => 'Katalog motocykli',
@@ -268,6 +277,8 @@ return [
     'rez.pickup.map' => 'Mapa',
     'rez.return.title' => 'Czas zwrotu motocykla',
     'rez.return.sub' => 'O której godzinie zwrócisz motocykl pod podanym adresem?',
+    'rez.return.expectedTitle' => 'Przewidywany czas powrotu',
+    'rez.return.expectedSub' => 'O której godzinie mniej więcej zwrócisz motocykl? Najpóźniej o północy ostatniego dnia.',
 
     // ===== Rezerwacja — wyposażenie =====
     'rez.gear.intro' => 'Wybierz rozmiary, klikając na kwadraty poniżej. Jeśli nie wybierzesz, przymierzymy je na miejscu.',

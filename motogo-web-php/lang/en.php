@@ -25,6 +25,15 @@ return [
     'header.callUs' => 'Call us',
     'header.logoAlt' => 'Motorcycle rental Vysočina — Motogo24',
     'header.expandSubmenu' => 'Expand submenu',
+    'header.app.label' => 'Get the app',
+    'header.app.title' => 'Download the MotoGo24 mobile app',
+    'header.app.aria' => 'Download the MotoGo24 mobile app from Google Play',
+    'header.app.heading' => 'Get the MotoGo24 app',
+    'header.app.qrAlt' => 'QR code to download the MotoGo24 app from Google Play',
+    'header.app.getPlay' => 'Get it on Google Play',
+    'header.app.whitelist' => 'The app is currently in Google Play closed testing. Before you install it, please first send us the e-mail you use to sign in to your Google account to {email} — we will add you to the testers (whitelisting).',
+    'header.app.loyaltyTitle' => 'Loyalty programme:',
+    'header.app.loyaltyText' => 'With every booking made through the app you climb loyalty levels and unlock discounts that grow with the number of your bookings.',
 
     // ===== Menu items (route → label) =====
     'menu.rental' => 'Motorcycle rental',
@@ -282,6 +291,8 @@ return [
     'rez.pickup.map' => 'Map',
     'rez.return.title' => 'Motorcycle return time',
     'rez.return.sub' => 'At what time will you return the motorcycle at the address?',
+    'rez.return.expectedTitle' => 'Expected return time',
+    'rez.return.expectedSub' => 'Around what time will you return the motorcycle? At the latest by midnight on the last day.',
 
     // ===== Booking — gear =====
     'rez.gear.intro' => 'Pick sizes by clicking the squares below. If you don\'t pick a size, we\'ll try it on at the rental.',

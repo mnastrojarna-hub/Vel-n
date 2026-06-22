@@ -33,7 +33,7 @@ $rezKeys = [
     'geo.failed','geo.denied','geo.unavailable','geo.timeout','geo.insecure','geo.unsupported','geo.found',
     'route.delivery','route.return','route.loading','route.error','route.priceLabel','route.fastestFrom','route.driveTime','route.calc',
     'map.title','map.confirm',
-    'return.title','return.sub','return.stateTitle','return.stateText',
+    'return.title','return.sub','return.expectedTitle','return.expectedSub','return.stateTitle','return.stateText',
     'gear.intro','gear.rider','gear.riderSub','gear.riderFree','gear.riderOwn',
     'gear.passenger','gear.passengerSub','gear.passengerTip',
     'gear.bootsRider','gear.bootsPassenger','gear.bootsRiderSub','gear.bootsPassengerSub',
