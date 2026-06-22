@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../core/theme.dart';
@@ -10,6 +11,7 @@ import 'routes_model.dart';
 import 'routes_provider.dart';
 import 'route_map.dart';
 import 'route_export.dart';
+import 'route_poi_sheet.dart';
 
 class RouteDetailScreen extends ConsumerStatefulWidget {
   final String routeId;
@@ -69,6 +71,10 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
                     start: branch?.latLng,
                     pois: poiMarkers,
                     activePoi: _activePoi,
+                    onPoiTap: (i) {
+                      setState(() => _activePoi = i);
+                      showRoutePoiSheet(context, route.pois[i], lang, index: i);
+                    },
                   ),
                 ),
                 if (geoAsync.isLoading && route.geometry.isEmpty)
@@ -200,7 +206,10 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
           final active = _activePoi == i;
           return PressableScale(
             pressedScale: 0.96,
-            onTap: () => setState(() => _activePoi = active ? null : i),
+            onTap: () {
+              setState(() => _activePoi = i);
+              showRoutePoiSheet(context, p, lang, index: i);
+            },
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 220),
               width: 240,
@@ -394,11 +403,46 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
               ),
             ),
             const SizedBox(height: 14),
-            Text(
-              t(context).tr('routeOpenIn'),
-              style: const TextStyle(fontSize: MotoGoTypo.sizeXl, fontWeight: MotoGoTypo.w800),
+            // Navigace přímo v naší aplikaci (primární)
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: PressableScale(
+                pressedScale: 0.97,
+                onTap: () { Navigator.pop(c); context.push('/route-nav/${route.id}'); },
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: MotoGoColors.green,
+                    borderRadius: BorderRadius.circular(MotoGoRadius.pill),
+                    boxShadow: [
+                      BoxShadow(color: MotoGoColors.green.withValues(alpha: 0.4), blurRadius: 14, offset: const Offset(0, 4)),
+                    ],
+                  ),
+                  child: Center(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.navigation, size: 19, color: MotoGoColors.black),
+                        const SizedBox(width: 8),
+                        Text(
+                          t(context).tr('routeNavInApp'),
+                          style: const TextStyle(fontSize: MotoGoTypo.sizeLg, fontWeight: MotoGoTypo.w800, color: MotoGoColors.black),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 16),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                t(context).tr('routeNavExternal'),
+                style: const TextStyle(fontSize: MotoGoTypo.sizeMd, fontWeight: MotoGoTypo.w700, color: MotoGoColors.g400),
+              ),
+            ),
+            const SizedBox(height: 10),
             ...targets.map((tg) => Padding(
                   padding: const EdgeInsets.only(bottom: 10),
                   child: SizedBox(
