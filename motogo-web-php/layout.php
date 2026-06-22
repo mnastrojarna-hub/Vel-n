@@ -91,6 +91,24 @@ function renderHeader($currentPath = '/') {
                     '<svg class="header-cart-icon" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6h15l-1.5 9h-12z"/><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M6 6L4 2H1"/></svg>' .
                     '<span class="header-cart-badge" data-cart-badge hidden aria-live="polite"></span>' .
                 '</a>' .
+                '<div class="header-app" data-mg-app>' .
+                    '<button type="button" class="header-app-btn" data-mg-app-toggle aria-expanded="false" aria-haspopup="dialog" aria-label="' . te('header.app.aria') . '" title="' . te('header.app.title') . '">' .
+                        '<svg class="header-app-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 11 5 4 5-4"/><path d="M5 21h14"/></svg>' .
+                        '<span class="header-app-label">' . te('header.app.label') . '</span>' .
+                    '</button>' .
+                    '<div class="header-app-pop" data-mg-app-pop hidden role="dialog" aria-label="' . te('header.app.title') . '">' .
+                        '<button type="button" class="header-app-close" data-mg-app-close aria-label="' . te('header.menuClose') . '">✕</button>' .
+                        '<h3 class="header-app-h">' . tc('header.app.heading') . '</h3>' .
+                        '<div class="header-app-body">' .
+                            '<img class="header-app-qr" src="' . BASE_URL . '/gfx/qr-google-play.svg" alt="' . te('header.app.qrAlt') . '" width="120" height="120" loading="lazy">' .
+                            '<div class="header-app-col">' .
+                                '<a class="header-app-cta" href="' . PLAY_STORE_URL . '" target="_blank" rel="noopener">' . tc('header.app.getPlay') . '</a>' .
+                                '<p class="header-app-note">' . t('header.app.whitelist', ['email' => '<a href="mailto:' . EMAIL_FULL . '">' . EMAIL_FULL . '</a>']) . '</p>' .
+                            '</div>' .
+                        '</div>' .
+                        '<p class="header-app-loyalty"><strong>' . tc('header.app.loyaltyTitle') . '</strong> ' . tc('header.app.loyaltyText') . '</p>' .
+                    '</div>' .
+                '</div>' .
                 '<div class="header-lang">' . renderCurrencySwitcher() . renderLanguageSwitcher() . '</div>' .
             '</div>' .
         '</div></div>' .
@@ -690,7 +708,8 @@ body{font-family:Montserrat,"Segoe UI",sans-serif;margin:0;color:#1a2e22;backgro
 window.MG_I18N = Object.assign(window.MG_I18N || {}, ' . $cartI18n . ');
 </script>
 <script src="' . assetUrl('/js/cart.js') . '" defer></script>
-<script src="' . assetUrl('/js/header-auth.js') . '" defer></script>';
+<script src="' . assetUrl('/js/header-auth.js') . '" defer></script>
+<script src="' . assetUrl('/js/header-app.js') . '" defer></script>';
 
     echo renderInlineJs();
 

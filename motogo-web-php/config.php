@@ -26,6 +26,9 @@ define('ADDRESS', 'Mezná 9, 393 01 Pelhřimov');
 define('FB_URL', 'https://www.facebook.com/profile.php?id=61581614672839');
 define('IG_URL', 'https://www.instagram.com/moto.go24/');
 
+// Mobilní aplikace
+define('PLAY_STORE_URL', 'https://play.google.com/store/apps/details?id=com.motogo24.app');
+
 // Logo
 define('LOGO_SVG', 'gfx/logo.svg');
 
