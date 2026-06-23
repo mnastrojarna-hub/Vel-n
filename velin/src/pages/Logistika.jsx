@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import Card from '../components/ui/Card'
-import { accSku, deductFromWarehouse } from './BranchHelpers'
+import Inventory from './Inventory'
+import { accSku, deductFromWarehouse, loadAccessoryTypes } from './BranchHelpers'
 
 const TYPE_LABELS = { boots: 'Boty', helmet: 'Helma', gloves: 'Rukavice', pants: 'Kalhoty', jacket: 'Bunda', balaclava: 'Kukla' }
 const STATUS_LABELS = {
@@ -18,7 +19,10 @@ const todayIso = () => new Date().toISOString().slice(0, 10)
 const addDaysIso = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
 
 export default function Logistika() {
-  const [tab, setTab] = useState('calendar')
+  const [tab, setTab] = useState(() => {
+    const t = new URLSearchParams(window.location.search).get('tab')
+    return ['calendar', 'worklist', 'stock', 'receive'].includes(t) ? t : 'calendar'
+  })
   const [branches, setBranches] = useState([])
   const [branchId, setBranchId] = useState('')
   const [from, setFrom] = useState(todayIso())
@@ -42,15 +46,17 @@ export default function Logistika() {
             Dostupnost výbavy na pobočkách a deficity z rezervací
           </p>
         </div>
-        <select value={branchId} onChange={e => setBranchId(e.target.value)}
-          className="rounded-btn text-sm font-semibold outline-none"
-          style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }}>
-          {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-        </select>
+        {(tab === 'calendar' || tab === 'worklist') && (
+          <select value={branchId} onChange={e => setBranchId(e.target.value)}
+            className="rounded-btn text-sm font-semibold outline-none"
+            style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }}>
+            {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+          </select>
+        )}
       </div>
 
-      <div className="flex gap-2 mb-4">
-        {[['calendar', 'Dostupnost'], ['worklist', 'Chybí kus']].map(([k, l]) => (
+      <div className="flex gap-2 mb-4 flex-wrap">
+        {[['calendar', 'Dostupnost'], ['worklist', 'Chybí kus'], ['stock', 'Sklad'], ['receive', 'Naskladnění']].map(([k, l]) => (
           <button key={k} onClick={() => setTab(k)}
             className="text-sm font-bold cursor-pointer rounded-btn"
             style={{
@@ -63,9 +69,10 @@ export default function Logistika() {
         ))}
       </div>
 
-      {tab === 'calendar'
-        ? <CalendarTab branchId={branchId} from={from} to={to} setFrom={setFrom} setTo={setTo} />
-        : <WorklistTab branchName={branchName} from={from} to={to} />}
+      {tab === 'calendar' ? <CalendarTab branchId={branchId} from={from} to={to} setFrom={setFrom} setTo={setTo} />
+        : tab === 'worklist' ? <WorklistTab branchName={branchName} from={from} to={to} />
+        : tab === 'stock' ? <Inventory />
+        : <NaskladneniTab />}
     </div>
   )
 }
@@ -167,6 +174,7 @@ function WorklistTab({ branchName }) {
   const [loading, setLoading] = useState(true)
   const [showDone, setShowDone] = useState(false)
   const [busy, setBusy] = useState(null)
+  const [transferFor, setTransferFor] = useState(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -181,8 +189,9 @@ function WorklistTab({ branchName }) {
 
   useEffect(() => { load() }, [load])
 
-  async function recompute(branchId, date) {
-    await supabase.rpc('detect_gear_shortages_for_window', { p_branch_id: branchId, p_from: date, p_to: date })
+  async function recompute(branchId) {
+    const horizon = addDaysIso(120)
+    await supabase.rpc('detect_gear_shortages_for_window', { p_branch_id: branchId, p_from: todayIso(), p_to: horizon })
   }
 
   async function fillFromWarehouse(it) {
@@ -197,7 +206,33 @@ function WorklistTab({ branchName }) {
       if (row) await supabase.from('branch_accessories').update({ quantity: (row.quantity || 0) + qty }).eq('id', row.id)
       else await supabase.from('branch_accessories').insert({ branch_id: it.branch_id, type: it.accessory_type, size: it.size, quantity: qty })
       await supabase.from('gear_shortages').update({ status: 'warehouse_filled', updated_at: new Date().toISOString() }).eq('id', it.id)
-      await recompute(it.branch_id, it.shortage_date)
+      await recompute(it.branch_id)
+    } finally { setBusy(null); load() }
+  }
+
+  async function createOrder(it) {
+    setBusy(it.id)
+    try {
+      const { data, error } = await supabase.rpc('create_gear_purchase_order', { p_shortage_id: it.id, p_qty: null })
+      if (error) { alert('Chyba: ' + error.message); return }
+      if (!data?.success) {
+        if (data?.error === 'no_inventory_item') alert(`Položka „${data.sku}" není v centrálním skladu — nejdřív ji založ v Sklady.`)
+        else if (data?.error === 'no_supplier') alert('U skladové položky chybí dodavatel — doplň ho v Sklady a zkus znovu.')
+        else alert('Objednávku nelze vytvořit: ' + (data?.error || 'neznámá chyba'))
+        return
+      }
+      alert(`Vytvořena objednávka ${data.order_number} (draft). Odeslání dodavateli dokončíš v Nákupy.`)
+    } finally { setBusy(null); load() }
+  }
+
+  async function autoOrderAll() {
+    if (!confirm('Založit draft objednávky pro všechny otevřené deficity, které mají skladovou položku a dodavatele?')) return
+    setBusy('auto')
+    try {
+      const { data, error } = await supabase.rpc('auto_order_gear_shortages')
+      if (error) { alert('Chyba: ' + error.message); return }
+      const d = data || {}
+      alert(`Hotovo:\n• Vytvořeno objednávek: ${d.created || 0}\n• Napojeno na existující: ${d.skipped_dup || 0}\n• Bez skladové položky: ${d.skipped_no_item || 0}\n• Bez dodavatele: ${d.skipped_no_supplier || 0}`)
     } finally { setBusy(null); load() }
   }
 
@@ -211,13 +246,16 @@ function WorklistTab({ branchName }) {
 
   return (
     <Card>
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
         <div className="text-sm font-bold" style={{ color: '#1a2e22' }}>
           {items.filter(i => i.status === 'open').length} otevřených deficitů
         </div>
-        <label className="text-sm flex items-center gap-1.5 cursor-pointer" style={{ color: '#1a2e22' }}>
-          <input type="checkbox" checked={showDone} onChange={e => setShowDone(e.target.checked)} /> Zobrazit i vyřešené
-        </label>
+        <div className="flex items-center gap-3 flex-wrap">
+          <ActBtn disabled={busy === 'auto'} color="#f59e0b" onClick={autoOrderAll}>🔁 Objednat automaticky vše</ActBtn>
+          <label className="text-sm flex items-center gap-1.5 cursor-pointer" style={{ color: '#1a2e22' }}>
+            <input type="checkbox" checked={showDone} onChange={e => setShowDone(e.target.checked)} /> Zobrazit i vyřešené
+          </label>
+        </div>
       </div>
 
       {loading ? <div className="py-8 text-center text-sm" style={{ color: '#1a2e22', opacity: 0.5 }}>Načítám…</div>
@@ -241,8 +279,10 @@ function WorklistTab({ branchName }) {
                   {STATUS_LABELS[it.status] || it.status}
                 </span>
                 {['open', 'warehouse_filled', 'transfer_requested', 'order_created'].includes(it.status) && (
-                  <div className="flex gap-1.5">
+                  <div className="flex gap-1.5 flex-wrap">
                     <ActBtn disabled={busy === it.id} color="#0ea5e9" onClick={() => fillFromWarehouse(it)}>Doplnit ze skladu</ActBtn>
+                    <ActBtn disabled={busy === it.id} color="#8b5cf6" onClick={() => setTransferFor(it)}>Přesunout z pobočky</ActBtn>
+                    <ActBtn disabled={busy === it.id} color="#f59e0b" onClick={() => createOrder(it)}>Vytvořit objednávku</ActBtn>
                     <ActBtn disabled={busy === it.id} color="#16a34a" onClick={() => setStatus(it, 'resolved')}>Vyřešeno</ActBtn>
                     <ActBtn disabled={busy === it.id} color="#64748b" onClick={() => setStatus(it, 'dismissed')}>Zamítnout</ActBtn>
                   </div>
@@ -251,10 +291,72 @@ function WorklistTab({ branchName }) {
             ))}
           </div>
         )}
-      <div className="text-xs mt-3" style={{ color: '#1a2e22', opacity: 0.5 }}>
-        Přesun z jiné pobočky a automatická objednávka dodavateli — připravujeme (Fáze 2/3).
-      </div>
+      {transferFor && (
+        <TransferModal it={transferFor} onClose={() => setTransferFor(null)} onDone={() => { setTransferFor(null); load() }} />
+      )}
     </Card>
+  )
+}
+
+// ─── Modal: přesun z jiné pobočky ───────────────────────────────────
+function TransferModal({ it, onClose, onDone }) {
+  const [sources, setSources] = useState(null)
+  const [qty, setQty] = useState(it.deficit_qty)
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    const horizon = addDaysIso(120)
+    supabase.rpc('find_gear_surplus_branches', {
+      p_type: it.accessory_type, p_size: it.size, p_from: it.shortage_date, p_to: horizon, p_exclude_branch: it.branch_id,
+    }).then(({ data, error }) => setSources(error ? [] : (data || [])))
+  }, [it])
+
+  async function transfer(src) {
+    const n = Math.min(qty, src.free_qty, it.deficit_qty)
+    if (n <= 0) return
+    setBusy(true)
+    const { data, error } = await supabase.rpc('transfer_branch_gear', {
+      p_from_branch: src.branch_id, p_to_branch: it.branch_id,
+      p_type: it.accessory_type, p_size: it.size, p_qty: n, p_shortage_id: it.id,
+    })
+    setBusy(false)
+    if (error || !data?.success) { alert('Přesun selhal: ' + (error?.message || data?.error || '')); return }
+    onDone()
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,.5)' }} onClick={onClose}>
+      <div className="rounded-card" style={{ background: '#fff', padding: 20, width: 'min(92vw, 440px)' }} onClick={e => e.stopPropagation()}>
+        <div className="text-base font-black mb-1" style={{ color: '#0f1a14' }}>
+          Přesun: {(TYPE_LABELS[it.accessory_type] || it.accessory_type)} {it.size}
+        </div>
+        <div className="text-xs mb-3" style={{ color: '#1a2e22', opacity: 0.7 }}>
+          Cíl: {it.branches?.name} · {fmtDay(it.shortage_date)} · chybí {it.deficit_qty} ks
+        </div>
+        <div className="flex items-center gap-2 mb-3">
+          <label className="text-sm font-bold" style={{ color: '#1a2e22' }}>Počet</label>
+          <input type="number" min={1} max={it.deficit_qty} value={qty}
+            onChange={e => setQty(Math.max(1, Number(e.target.value) || 1))}
+            className="rounded-btn text-sm outline-none w-20" style={{ padding: '5px 8px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
+        </div>
+        {sources === null ? <div className="py-4 text-center text-sm" style={{ opacity: 0.5 }}>Hledám přebytky…</div>
+          : sources.length === 0 ? <div className="py-4 text-center text-sm" style={{ color: '#dc2626' }}>Žádná pobočka nemá v termínu volný kus — vytvoř objednávku.</div>
+          : (
+            <div className="flex flex-col gap-1.5">
+              {sources.map(s => (
+                <div key={s.branch_id} className="flex items-center gap-3 rounded-btn" style={{ padding: '8px 12px', background: '#f9fdfb', border: '1px solid #e2eee8' }}>
+                  <div className="flex-1">
+                    <div className="text-sm font-bold" style={{ color: '#0f1a14' }}>{s.branch_name}</div>
+                    <div className="text-xs" style={{ color: '#16a34a' }}>volných {s.free_qty} ks</div>
+                  </div>
+                  <ActBtn disabled={busy} color="#8b5cf6" onClick={() => transfer(s)}>Přesunout {Math.min(qty, s.free_qty, it.deficit_qty)} ks</ActBtn>
+                </div>
+              ))}
+            </div>
+          )}
+        <button onClick={onClose} className="mt-4 text-sm font-bold cursor-pointer" style={{ background: 'none', border: 'none', color: '#64748b' }}>Zavřít</button>
+      </div>
+    </div>
   )
 }
 
@@ -265,5 +367,165 @@ function ActBtn({ children, color, onClick, disabled }) {
       style={{ padding: '5px 10px', border: `1px solid ${color}`, background: '#fff', color, opacity: disabled ? 0.5 : 1 }}>
       {children}
     </button>
+  )
+}
+
+// ─── Naskladnění z dokladu (Fáze 4) ─────────────────────────────────
+const TYPE_KEYWORDS = [
+  ['boots', /\b(bot|boty|boot|obuv)/i], ['helmet', /\b(helm|p[řr]ilb)/i],
+  ['gloves', /\b(rukav|glove)/i], ['pants', /\b(kalhot|pants)/i],
+  ['jacket', /\b(bund|jacket)/i], ['balaclava', /\b(kukl|balaclava)/i],
+]
+function guessLine(desc) {
+  const d = String(desc || '')
+  let type = ''
+  for (const [t, re] of TYPE_KEYWORDS) { if (re.test(d)) { type = t; break } }
+  let size = ''
+  const num = d.match(/\b(3[3-9]|4[0-9])\b/)               // boty 33–49
+  const alpha = d.match(/\b(XS|S|M|L|XL|XXL|2XL|3XL)\b/i)
+  if (num) size = num[1]
+  else if (alpha) size = alpha[1].toUpperCase()
+  return { type, size }
+}
+
+function NaskladneniTab() {
+  const [accTypes, setAccTypes] = useState([])
+  const [docType, setDocType] = useState('dl')   // dl | invoice | manual
+  const [docs, setDocs] = useState([])
+  const [docId, setDocId] = useState('')
+  const [lines, setLines] = useState([])
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => { loadAccessoryTypes().then(setAccTypes) }, [])
+
+  useEffect(() => {
+    setDocId(''); setLines([])
+    if (docType === 'manual') { setDocs([]); return }
+    if (docType === 'dl') {
+      supabase.from('delivery_notes').select('id, dl_number, supplier_name, items, delivery_date')
+        .order('created_at', { ascending: false }).limit(50).then(({ data }) => setDocs(data || []))
+    } else {
+      supabase.from('invoices').select('id, number, notes, items, issue_date')
+        .eq('type', 'received').order('issue_date', { ascending: false }).limit(50).then(({ data }) => setDocs(data || []))
+    }
+  }, [docType])
+
+  const mkLine = (name, price, qty) => {
+    const g = guessLine(name)
+    return { name: name || '', qty: qty || 1, unit_price: price || 0,
+             mode: g.type ? 'acc' : 'manual', type: g.type, size: g.size, sku: '', category: 'inventory' }
+  }
+
+  function pickDoc(id) {
+    setDocId(id)
+    const d = docs.find(x => x.id === id)
+    const items = Array.isArray(d?.items) ? d.items : []
+    setLines(items.length
+      ? items.map(it => mkLine(it.description || it.name || '', it.amount ?? it.unit_price ?? 0, it.quantity || 1))
+      : [mkLine('', 0, 1)])
+  }
+
+  const upd = (i, patch) => setLines(ls => ls.map((l, j) => j === i ? { ...l, ...patch } : l))
+  const lineSku = (l) => l.mode === 'acc' ? (l.type && l.size ? accSku(l.type, l.size) : '') : (l.sku || '').trim()
+
+  async function stockAll() {
+    const payload = lines.map(l => ({
+      sku: lineSku(l), name: l.name, qty: Number(l.qty) || 0,
+      unit_price: Number(l.unit_price) || 0,
+      category: l.mode === 'acc' ? 'prislusenstvi' : l.category,
+    })).filter(l => l.sku && l.qty > 0)
+    if (!payload.length) { alert('Žádná položka nemá vyplněné SKU (typ+velikost) a počet > 0.'); return }
+    const d = docs.find(x => x.id === docId)
+    const note = docType === 'manual' ? 'Ruční naskladnění'
+      : `Naskladnění z ${docType === 'dl' ? 'DL ' + (d?.dl_number || '') : 'FA ' + (d?.number || '')}`.trim()
+    setBusy(true)
+    try {
+      const { data, error } = await supabase.rpc('receive_stock_from_document', { p_lines: payload, p_note: note })
+      if (error) { alert('Chyba: ' + error.message); return }
+      if (!data?.success) { alert('Naskladnění selhalo: ' + (data?.error || '')); return }
+      alert(`Naskladněno ${data.stocked} položek do skladu.`)
+      setLines([]); setDocId('')
+    } finally { setBusy(false) }
+  }
+
+  return (
+    <Card>
+      <div className="flex items-center gap-2 mb-3 flex-wrap">
+        {[['dl', 'Z dodacího listu'], ['invoice', 'Z přijaté faktury'], ['manual', 'Ručně']].map(([k, l]) => (
+          <button key={k} onClick={() => setDocType(k)} className="text-sm font-bold cursor-pointer rounded-btn"
+            style={{ padding: '6px 12px', border: 'none', background: docType === k ? '#1a2e22' : '#e8f3ee', color: docType === k ? '#74FB71' : '#1a2e22' }}>
+            {l}
+          </button>
+        ))}
+        {docType !== 'manual' && (
+          <select value={docId} onChange={e => pickDoc(e.target.value)}
+            className="rounded-btn text-sm outline-none" style={{ padding: '7px 10px', background: '#f1faf7', border: '1px solid #d4e8e0', minWidth: 260 }}>
+            <option value="">— vyber doklad —</option>
+            {docs.map(d => (
+              <option key={d.id} value={d.id}>
+                {docType === 'dl' ? (d.dl_number || '—') : (d.number || '—')} · {d.supplier_name || (d.notes?.split('\n')[0]) || ''} · {(Array.isArray(d.items) ? d.items.length : 0)} pol.
+              </option>
+            ))}
+          </select>
+        )}
+        {docType === 'manual' && (
+          <button onClick={() => setLines(ls => [...ls, mkLine('', 0, 1)])} className="text-sm font-bold cursor-pointer rounded-btn"
+            style={{ padding: '6px 12px', border: '1px solid #1a2e22', background: '#fff', color: '#1a2e22' }}>+ Řádek</button>
+        )}
+      </div>
+
+      <div className="text-xs mb-2" style={{ color: '#1a2e22', opacity: 0.6 }}>
+        Z faktury/DL se předvyplní položky a ceny (OCR). Zkontroluj typ+velikost (SKU), uprav počet a potvrď naskladnění.
+      </div>
+
+      {lines.length === 0 ? <div className="py-8 text-center text-sm" style={{ color: '#1a2e22', opacity: 0.5 }}>Vyber doklad nebo přidej řádek.</div>
+        : (
+          <div className="flex flex-col gap-2">
+            {lines.map((l, i) => (
+              <div key={i} className="flex items-center gap-2 flex-wrap rounded-btn" style={{ padding: '8px 10px', background: '#f9fdfb', border: '1px solid #e2eee8' }}>
+                <input value={l.name} onChange={e => upd(i, { name: e.target.value })} placeholder="Název položky"
+                  className="rounded-btn text-sm outline-none" style={{ padding: '5px 8px', background: '#fff', border: '1px solid #d4e8e0', flex: '1 1 160px', minWidth: 120 }} />
+                <select value={l.mode} onChange={e => upd(i, { mode: e.target.value })}
+                  className="rounded-btn text-xs outline-none" style={{ padding: '5px 6px', background: '#fff', border: '1px solid #d4e8e0' }}>
+                  <option value="acc">Příslušenství</option>
+                  <option value="manual">Vlastní SKU</option>
+                </select>
+                {l.mode === 'acc' ? (
+                  <>
+                    <select value={l.type} onChange={e => upd(i, { type: e.target.value, size: '' })}
+                      className="rounded-btn text-xs outline-none" style={{ padding: '5px 6px', background: '#fff', border: '1px solid #d4e8e0' }}>
+                      <option value="">typ</option>
+                      {accTypes.map(t => <option key={t.key} value={t.key}>{t.label}</option>)}
+                    </select>
+                    <select value={l.size} onChange={e => upd(i, { size: e.target.value })}
+                      className="rounded-btn text-xs outline-none" style={{ padding: '5px 6px', background: '#fff', border: '1px solid #d4e8e0' }}>
+                      <option value="">vel.</option>
+                      {(accTypes.find(t => t.key === l.type)?.sizes || []).map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </>
+                ) : (
+                  <input value={l.sku} onChange={e => upd(i, { sku: e.target.value })} placeholder="SKU"
+                    className="rounded-btn text-xs outline-none font-mono" style={{ padding: '5px 8px', background: '#fff', border: '1px solid #d4e8e0', width: 150 }} />
+                )}
+                <input type="number" min={1} value={l.qty} onChange={e => upd(i, { qty: e.target.value })} title="Počet"
+                  className="rounded-btn text-sm outline-none w-16" style={{ padding: '5px 8px', background: '#fff', border: '1px solid #d4e8e0' }} />
+                <input type="number" min={0} value={l.unit_price} onChange={e => upd(i, { unit_price: e.target.value })} title="Cena/ks"
+                  className="rounded-btn text-sm outline-none w-20" style={{ padding: '5px 8px', background: '#fff', border: '1px solid #d4e8e0' }} />
+                <span className="text-xs font-mono" style={{ color: lineSku(l) ? '#16a34a' : '#dc2626', minWidth: 90 }}>{lineSku(l) || 'chybí SKU'}</span>
+                <button onClick={() => setLines(ls => ls.filter((_, j) => j !== i))} className="text-xs font-bold cursor-pointer" style={{ background: 'none', border: 'none', color: '#dc2626' }}>✕</button>
+              </div>
+            ))}
+          </div>
+        )}
+
+      {lines.length > 0 && (
+        <div className="flex justify-end mt-4">
+          <button onClick={stockAll} disabled={busy} className="text-sm font-bold cursor-pointer rounded-btn"
+            style={{ padding: '9px 18px', border: 'none', background: '#1a2e22', color: '#74FB71', opacity: busy ? 0.5 : 1 }}>
+            {busy ? 'Naskladňuji…' : 'Naskladnit do skladu'}
+          </button>
+        </div>
+      )}
+    </Card>
   )
 }
