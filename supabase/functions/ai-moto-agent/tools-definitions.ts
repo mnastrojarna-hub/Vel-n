@@ -1,7 +1,9 @@
 // ===== ai-moto-agent/tools-definitions.ts =====
 // Tool definitions for Anthropic tool_use format
 
-export const TOOLS = [
+import { PUBLIC_READ_TOOLS } from './public-tools.ts'
+
+const APP_TOOLS = [
   {
     name: 'get_active_booking',
     description: 'Vrátí aktivní nebo nadcházející rezervaci zákazníka s kompletními detaily motorky. Volej jako první krok při každém dotazu, abys zjistil jakou motorku zákazník právě má.',
@@ -79,3 +81,9 @@ export const TOOLS = [
     },
   },
 ]
+
+// SOS servisní agent v appce má stejné MOŽNOSTI jako veřejný agent (search/cena/
+// dostupnost/FAQ/policies/právní dokumenty/příslušenství/pobočky/promo) — jen
+// netvoří ani neupravuje rezervace a není prodejce. App tooly (booking kontext +
+// návod + troubleshooting) + převzaté informační tooly z ai-public-agent.
+export const TOOLS = [...APP_TOOLS, ...PUBLIC_READ_TOOLS]

@@ -62,6 +62,8 @@ class _AiAgentState extends State<AiAgentScreen> {
     final text = _inputCtrl.text.trim();
     if (text.isEmpty || _sending) return;
 
+    final lang = Localizations.localeOf(context).languageCode;
+
     setState(() {
       _messages.add(_ChatMsg(text: text, isBot: false));
       _sending = true;
@@ -75,6 +77,7 @@ class _AiAgentState extends State<AiAgentScreen> {
         body: {
           'message': text,
           'booking_id': _bookingId,
+          'lang': lang,
         },
       );
 
