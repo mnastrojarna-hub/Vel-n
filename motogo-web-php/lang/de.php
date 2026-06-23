@@ -299,6 +299,8 @@ return [
     'rez.gear.rider' => 'Fahrerausrüstung',
     'rez.gear.riderSub' => 'Helm, Jacke, Handschuhe, Hose',
     'rez.gear.riderFree' => 'inklusive · kostenlos',
+    'rez.gear.free' => 'GRATIS',
+    'rez.gear.loyaltyFree' => 'Dank deines Rangs sind die gesamte Ausrüstung und Schuhe — auch für den Beifahrer — gratis.',
     'rez.gear.riderOwn' => 'Ich habe meine eigene Ausrüstung — ich miete nicht',
     'rez.gear.passenger' => 'Beifahrerausrüstung',
     'rez.gear.passengerSub' => 'Helm, Jacke, Handschuhe, Sturmhaube',

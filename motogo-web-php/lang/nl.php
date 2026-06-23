@@ -285,6 +285,8 @@ return [
     'rez.gear.rider' => 'Uitrusting bestuurder',
     'rez.gear.riderSub' => 'Helm, jas, handschoenen, broek',
     'rez.gear.riderFree' => 'inbegrepen · gratis',
+    'rez.gear.free' => 'GRATIS',
+    'rez.gear.loyaltyFree' => 'Dankzij je rang zijn alle uitrusting en schoenen — ook voor de passagier — gratis.',
     'rez.gear.riderOwn' => 'Ik heb mijn eigen uitrusting — huur niet',
     'rez.gear.passenger' => 'Uitrusting passagier',
     'rez.gear.passengerSub' => 'Helm, jas, handschoenen, bivakmuts',

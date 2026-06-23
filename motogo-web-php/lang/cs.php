@@ -420,6 +420,8 @@ return [
     'rez.gear.rider' => 'Výbava řidiče',
     'rez.gear.riderSub' => 'Helma, bunda, rukavice, kalhoty',
     'rez.gear.riderFree' => 'v ceně · zdarma',
+    'rez.gear.free' => 'ZDARMA',
+    'rez.gear.loyaltyFree' => 'Díky vašemu ranku máte veškerou výbavu i obuv — i pro spolujezdce — zdarma.',
     'rez.gear.riderOwn' => 'Mám vlastní výbavu — nepůjčuji',
     'rez.gear.passenger' => 'Výbava spolujezdce',
     'rez.gear.passengerSub' => 'Helma, bunda, rukavice, kukla',
