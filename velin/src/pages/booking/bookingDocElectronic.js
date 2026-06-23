@@ -4,7 +4,6 @@
 
 export const HANDOVER_CHECKS = [
   { key: 'clean', label: 'Motocykl předán čistý a v provozuschopném stavu' },
-  { key: 'fuel_full', label: 'Nádrž plná pohonných hmot' },
   { key: 'docs', label: 'Doklady k vozidlu (OTP, zelená karta) předány' },
   { key: 'keys', label: 'Klíče a zabezpečení předány' },
   { key: 'instructed', label: 'Nájemce poučen o obsluze a provozu' },
@@ -79,12 +78,16 @@ export function buildElectronicProtocolHtml({ type, vars, form, signatures }) {
       : '<p style="font-size:12px">Žádné zapůjčené příslušenství.</p>'
     const checkList = HANDOVER_CHECKS.map(c => `<div style="font-size:12px;margin:5px 0">${form.checks?.[c.key] ? '☑' : '☐'} ${esc(c.label)}</div>`).join('')
     const extraList = EXTRA_GEAR_CHECKS.map(c => `<div style="font-size:12px;margin:5px 0">${form.checks?.[c.key] ? '☑' : '☐'} ${esc(c.label)}</div>`).join('')
+    const dmg = form.damage || {}
+    const damageBlock = `<div style="font-size:12px;margin:5px 0">${dmg.checked ? '☑' : '☐'} Poškození při předání</div>` +
+      (dmg.checked && dmg.desc ? `<p style="font-size:12px;margin:4px 0 0;padding:8px 10px;background:#fef2f2;border:1px solid #fca5a5;border-radius:6px">${escMulti(dmg.desc)}</p>` : '')
     return head('PŘEDÁVACÍ PROTOKOL', '#2563eb') +
       parties +
       `<h3 style="font-size:13px;margin-top:14px">Stav při předání</h3><table style="width:100%;border-collapse:collapse;font-size:12px;border:1px solid #ddd">${infoRow('Stav km při předání', form.mileage ? `${form.mileage} km` : '')}</table>` +
       `<h3 style="font-size:13px;margin-top:14px">Kontrola předání</h3>${checkList}` +
       `<h3 style="font-size:13px;margin-top:14px">Příslušenství a výbava</h3>${accTable}` +
       `<h3 style="font-size:13px;margin-top:14px">Doplňkové vybavení</h3>${extraList}` +
+      `<h3 style="font-size:13px;margin-top:14px">Poškození</h3>${damageBlock}` +
       (form.notes ? `<h3 style="font-size:13px;margin-top:14px">Poznámky</h3><p style="font-size:12px">${escMulti(form.notes)}</p>` : '') +
       sigBlock(sig, v.customer_name, false) +
       foot

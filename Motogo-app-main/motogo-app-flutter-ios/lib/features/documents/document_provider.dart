@@ -49,7 +49,7 @@ final contractsProvider = FutureProvider<List<UserDocument>>((ref) async {
       .from('documents')
       .select()
       .eq('user_id', user.id)
-      .inFilter('type', ['contract', 'protocol', 'vop', 'invoice_advance', 'payment_receipt', 'invoice_final', 'invoice_shop'])
+      .inFilter('type', ['contract', 'protocol', 'protocol_damage', 'vop', 'invoice_advance', 'payment_receipt', 'invoice_final', 'invoice_shop'])
       .order('created_at', ascending: false);
   final docs = (res as List).map((e) {
     debugPrint('[CONTRACTS] Doc: type=${e['type']}, file_path=${e['file_path']}, file_name=${e['file_name']}');
