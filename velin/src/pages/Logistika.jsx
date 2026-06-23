@@ -218,6 +218,17 @@ function WorklistTab({ branchName }) {
     } finally { setBusy(null); load() }
   }
 
+  async function autoOrderAll() {
+    if (!confirm('Založit draft objednávky pro všechny otevřené deficity, které mají skladovou položku a dodavatele?')) return
+    setBusy('auto')
+    try {
+      const { data, error } = await supabase.rpc('auto_order_gear_shortages')
+      if (error) { alert('Chyba: ' + error.message); return }
+      const d = data || {}
+      alert(`Hotovo:\n• Vytvořeno objednávek: ${d.created || 0}\n• Napojeno na existující: ${d.skipped_dup || 0}\n• Bez skladové položky: ${d.skipped_no_item || 0}\n• Bez dodavatele: ${d.skipped_no_supplier || 0}`)
+    } finally { setBusy(null); load() }
+  }
+
   async function setStatus(it, status) {
     setBusy(it.id)
     const patch = { status, updated_at: new Date().toISOString() }
@@ -228,13 +239,16 @@ function WorklistTab({ branchName }) {
 
   return (
     <Card>
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
         <div className="text-sm font-bold" style={{ color: '#1a2e22' }}>
           {items.filter(i => i.status === 'open').length} otevřených deficitů
         </div>
-        <label className="text-sm flex items-center gap-1.5 cursor-pointer" style={{ color: '#1a2e22' }}>
-          <input type="checkbox" checked={showDone} onChange={e => setShowDone(e.target.checked)} /> Zobrazit i vyřešené
-        </label>
+        <div className="flex items-center gap-3 flex-wrap">
+          <ActBtn disabled={busy === 'auto'} color="#f59e0b" onClick={autoOrderAll}>🔁 Objednat automaticky vše</ActBtn>
+          <label className="text-sm flex items-center gap-1.5 cursor-pointer" style={{ color: '#1a2e22' }}>
+            <input type="checkbox" checked={showDone} onChange={e => setShowDone(e.target.checked)} /> Zobrazit i vyřešené
+          </label>
+        </div>
       </div>
 
       {loading ? <div className="py-8 text-center text-sm" style={{ color: '#1a2e22', opacity: 0.5 }}>Načítám…</div>
