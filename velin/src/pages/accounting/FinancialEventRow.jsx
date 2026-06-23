@@ -31,7 +31,7 @@ export default function EvRow({ ev, st, tp, dt, catLabel, supplierName, isExpand
               <button onClick={onApprove} disabled={isActing}
                 className="text-sm font-bold cursor-pointer rounded"
                 style={{ color: '#fff', background: '#1a8a18', border: 'none', padding: '4px 10px', opacity: isActing ? 0.5 : 1 }}>
-                {isActing ? '\u2026' : 'Schvalit'}
+                {isActing ? '\u2026' : 'Schválit'}
               </button>
             )}
             {canFlexi && (

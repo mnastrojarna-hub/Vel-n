@@ -11,7 +11,7 @@ const DOC_TYPES = {
   termination: { label: 'Vypoved', color: '#dc2626', bg: '#fee2e2' },
   agreement: { label: 'Dohoda', color: '#7c3aed', bg: '#ede9fe' },
   certificate: { label: 'Osvedceni', color: '#0891b2', bg: '#cffafe' },
-  other: { label: 'Jine', color: '#6b7280', bg: '#f3f4f6' },
+  other: { label: 'Jiné', color: '#6b7280', bg: '#f3f4f6' },
 }
 
 export default function DocumentsTab() {
@@ -61,7 +61,7 @@ export default function DocumentsTab() {
       <Table>
         <thead>
           <TRow header>
-            <TH>Nazev</TH><TH>Typ</TH><TH>Popis</TH><TH>Platnost od</TH><TH>Platnost do</TH><TH>Stav</TH><TH>Akce</TH>
+            <TH>Název</TH><TH>Typ</TH><TH>Popis</TH><TH>Platnost od</TH><TH>Platnost do</TH><TH>Stav</TH><TH>Akce</TH>
           </TRow>
         </thead>
         <tbody>
@@ -79,7 +79,7 @@ export default function DocumentsTab() {
                 <TD>
                   <div className="flex gap-2">
                     {d.file_url && <a href={d.file_url} target="_blank" rel="noopener noreferrer"
-                      className="text-sm font-bold" style={{ color: '#2563eb' }}>Stahnout</a>}
+                      className="text-sm font-bold" style={{ color: '#2563eb' }}>Stáhnout</a>}
                     <button onClick={() => deleteDoc(d.id)} className="text-sm font-bold cursor-pointer"
                       style={{ color: '#dc2626', background: 'none', border: 'none' }}>Smazat</button>
                   </div>
@@ -87,7 +87,7 @@ export default function DocumentsTab() {
               </TRow>
             )
           })}
-          {docs.length === 0 && <TRow><TD>Zadne dokumenty</TD></TRow>}
+          {docs.length === 0 && <TRow><TD>Žádné dokumenty</TD></TRow>}
         </tbody>
       </Table>
 
@@ -120,7 +120,7 @@ function DocModal({ empId, onClose, onSaved }) {
   return (
     <Modal open title="Novy dokument" onClose={onClose}>
       <div className="space-y-3">
-        <div><Lbl>Nazev</Lbl><input type="text" value={form.name} onChange={e => set('name', e.target.value)}
+        <div><Lbl>Název</Lbl><input type="text" value={form.name} onChange={e => set('name', e.target.value)}
           placeholder="Pracovni smlouva" className="w-full rounded-btn text-sm outline-none" style={iStyle} /></div>
         <div><Lbl>Typ</Lbl><select value={form.type} onChange={e => set('type', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={iStyle}>
           {Object.entries(DOC_TYPES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
@@ -135,8 +135,8 @@ function DocModal({ empId, onClose, onSaved }) {
         </div>
       </div>
       <div className="flex justify-end gap-2 mt-4">
-        <Button onClick={onClose}>Zrusit</Button>
-        <Button green onClick={save} disabled={saving}>{saving ? 'Ukladam...' : 'Ulozit'}</Button>
+        <Button onClick={onClose}>Zrušit</Button>
+        <Button green onClick={save} disabled={saving}>{saving ? 'Ukladam...' : 'Uložit'}</Button>
       </div>
     </Modal>
   )

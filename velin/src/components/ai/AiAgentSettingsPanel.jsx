@@ -308,7 +308,7 @@ export default function AiAgentSettingsPanel() {
           <div style={{ maxHeight: 600, overflow: 'auto' }}>
             {diagLog.length === 0 && (
               <div style={{ textAlign: 'center', padding: 30, color: '#999', fontSize: 12 }}>
-                Zadne zaznamy. Spustte trenink nebo pouzijte agenty pro generovani dat.
+                Žádné záznamy. Spusťte trénink nebo použijte agenty pro generování dat.
               </div>
             )}
             {diagLog.slice(0, 200).map((entry, i) => {

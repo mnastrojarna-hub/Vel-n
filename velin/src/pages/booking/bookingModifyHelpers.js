@@ -12,12 +12,9 @@ export function toDate(s) { if (!s) return null; const d = new Date(s); d.setHou
 export function fmtDate(d) { return d ? (typeof d === 'string' ? new Date(d + 'T00:00:00') : d).toLocaleDateString('cs-CZ') : '\u2014' }
 export function fmtCZK(n) { return Number(n || 0).toLocaleString('cs-CZ') }
 
-export function countDays(start, end) {
-  if (!start || !end) return 0
-  const s = toDate(typeof start === 'string' ? start : isoDate(start))
-  const e = toDate(typeof end === 'string' ? end : isoDate(end))
-  return Math.max(1, Math.round((e - s) / 86400000) + 1)
-}
+// Sjednoceno na kanonický helper `rentalDays` (inkluzivní kalendářní dny, +1).
+// Logika je identická jako dřív — jen jediný zdroj pravdy napříč Velínem.
+export { rentalDays as countDays } from '../../lib/rentalDays'
 
 export function calcDayBreakdown(motoId, start, end, motoPrices, allMotos) {
   if (!motoId || !start || !end) return []

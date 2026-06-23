@@ -60,8 +60,8 @@ export default function AiOrchestrator() {
   }
 
   const tabs = [
-    { id: 'findings', label: 'Nalezy agentu', icon: '🔎' },
-    { id: 'agents', label: 'Nastaveni', icon: '⚙️' },
+    { id: 'findings', label: 'Nálezy agentů', icon: '🔎' },
+    { id: 'agents', label: 'Nastavení', icon: '⚙️' },
     { id: 'briefing', label: 'Briefing', icon: '📋' },
     { id: 'priorities', label: 'Priority', icon: '🔥' },
     { id: 'health', label: 'Zdraví agentů', icon: '💚' },

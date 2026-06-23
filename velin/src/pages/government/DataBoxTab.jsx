@@ -79,7 +79,7 @@ export default function DataBoxTab() {
   async function handleSend(report) {
     setSending(report.id); setError(null); setResult(null)
     try {
-      const { data, error: fnErr } = await supabase.functions.invoke('datova-schranka', {
+      const { data, error: fnErr } = await supabase.functions.invoke('datová-schránka', {
         body: { report_id: report.id },
       })
       if (fnErr) throw fnErr

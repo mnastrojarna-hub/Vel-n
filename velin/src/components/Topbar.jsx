@@ -14,14 +14,17 @@ const ROUTE_LABELS = {
   '/sklady': 'Sklady',
   '/servis': 'Servis',
   '/zpravy': 'Zprávy',
-  '/cms': 'Web CMS',
+  '/cms': 'Texty webu',
   '/analyza': 'Analýza',
   '/e-shop': 'E-shop',
   '/statni-sprava': 'Státní správa',
   '/ai-copilot': 'AI Copilot',
+  '/orchestrator': 'AI Ředitel',
   '/sos': 'SOS Panel',
   '/pobocky': 'Pobočky',
+  '/trasy': 'Trasy',
   '/slevove-kody': 'Slevové kódy',
+  '/zamestnanci': 'Zaměstnanci',
 }
 
 export default function Topbar() {
@@ -59,7 +62,9 @@ export default function Topbar() {
         supabase.from('inventory').select('id, stock, min_stock'),
         supabase.from('motorcycles').select('id, stk_valid_until'),
       ])
-      const lowStock = (invRes.data || []).filter(i => i.stock <= (i.min_stock || 0)).length
+      // „Nízké zásoby" jen když je nastavené smysluplné minimum (> 0). Položka
+      // s minimem 0 (např. nevedená velikost) se nikdy nehlásí jako nízká.
+      const lowStock = (invRes.data || []).filter(i => (i.min_stock || 0) > 0 && i.stock <= i.min_stock).length
       const in30days = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
       const stkSoon = (stkRes.data || []).filter(m => m.stk_valid_until && m.stk_valid_until <= in30days).length
       setNotifs({ messages: msgRes.count || 0, sos: sosRes.count || 0, lowStock, stkSoon })

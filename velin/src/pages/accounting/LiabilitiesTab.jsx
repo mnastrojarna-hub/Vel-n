@@ -15,9 +15,9 @@ const PER_PAGE = 25
 const LIABILITY_TYPES = [
   { value: 'supplier', label: 'Dodavatele' },
   { value: 'tax', label: 'Dane a poplatky' },
-  { value: 'social', label: 'Socialni pojisteni' },
-  { value: 'health', label: 'Zdravotni pojisteni' },
-  { value: 'salary', label: 'Mzdy zamestnancu' },
+  { value: 'social', label: 'Socialni pojištění' },
+  { value: 'health', label: 'Zdravotni pojištění' },
+  { value: 'salary', label: 'Mzdy zaměstnanců' },
   { value: 'loan', label: 'Uvery a pujcky' },
   { value: 'other', label: 'Ostatni' },
 ]
@@ -153,31 +153,31 @@ export default function LiabilitiesTab() {
     await supabase.from('accounting_entries').insert({
       type: 'expense',
       amount,
-      description: `Uhrada zavazku: ${liability.description || liability.counterparty}`,
-      category: 'zavazky',
+      description: `Úhrada závazků: ${liability.description || liability.counterparty}`,
+      category: 'závazky',
       date: new Date().toISOString().slice(0, 10),
     })
 
     await load()
   }
 
-  const fmt = (n) => (n || 0).toLocaleString('cs-CZ') + ' Kc'
+  const fmt = (n) => (n || 0).toLocaleString('cs-CZ') + ' Kč'
   const totalPages = Math.ceil(total / PER_PAGE)
 
   return (
     <div>
       <div className="flex items-center gap-3 mb-4">
-        <Button green onClick={() => setShowAdd(true)}>+ Novy zavazek</Button>
+        <Button green onClick={() => setShowAdd(true)}>+ Novy závazek</Button>
         <select value={filters.type} onChange={e => { setPage(1); setFilters(f => ({ ...f, type: e.target.value })) }}
           className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer outline-none"
           style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
-          <option value="">Vsechny typy</option>
+          <option value="">Všechny typy</option>
           {LIABILITY_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
         </select>
         <select value={filters.status} onChange={e => { setPage(1); setFilters(f => ({ ...f, status: e.target.value })) }}
           className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer outline-none"
           style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
-          <option value="">Vsechny stavy</option>
+          <option value="">Všechny stavy</option>
           {STATUS_OPTIONS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
         </select>
       </div>
@@ -210,7 +210,7 @@ export default function LiabilitiesTab() {
             <thead>
               <TRow header>
                 <TH><SelectAllCheckbox items={liabilities} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TH>
-                <TH>Protistrana</TH><TH>Typ</TH><TH>Popis</TH><TH>Castka</TH>
+                <TH>Protistrana</TH><TH>Typ</TH><TH>Popis</TH><TH>Částka</TH>
                 <TH>Uhrazeno</TH><TH>Zbyva</TH><TH>Splatnost</TH><TH>Stav</TH><TH>Akce</TH>
               </TRow>
             </thead>
@@ -254,7 +254,7 @@ export default function LiabilitiesTab() {
                   </TRow>
                 )
               })}
-              {liabilities.length === 0 && <TRow><TD>Zadne zavazky</TD></TRow>}
+              {liabilities.length === 0 && <TRow><TD>Žádné závazky</TD></TRow>}
             </tbody>
           </Table>
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
@@ -263,20 +263,20 @@ export default function LiabilitiesTab() {
 
       {showAdd && <AddLiabilityModal onClose={() => setShowAdd(false)} onSaved={() => { setShowAdd(false); load() }} />}
       {detail && (
-        <Modal open title={`Zavazek: ${detail.counterparty || detail.description}`} onClose={() => setDetail(null)}>
+        <Modal open title={`Závazek: ${detail.counterparty || detail.description}`} onClose={() => setDetail(null)}>
           <div className="grid grid-cols-2 gap-4">
             <DetailRow label="Protistrana" value={detail.counterparty} />
             <DetailRow label="Typ" value={LIABILITY_TYPES.find(t => t.value === detail.type)?.label || detail.type} />
-            <DetailRow label="Castka" value={fmt(detail.amount)} />
+            <DetailRow label="Částka" value={fmt(detail.amount)} />
             <DetailRow label="Uhrazeno" value={fmt(detail.paid_amount)} />
             <DetailRow label="Zbyva" value={fmt((detail.amount || 0) - (detail.paid_amount || 0))} />
             <DetailRow label="Splatnost" value={detail.due_date ? new Date(detail.due_date).toLocaleDateString('cs-CZ') : '—'} />
             <DetailRow label="Var. symbol" value={detail.variable_symbol || '—'} />
             <DetailRow label="Stav" value={STATUS_OPTIONS.find(s => s.value === detail.status)?.label || detail.status} />
             {detail.description && <div className="col-span-2"><DetailRow label="Popis" value={detail.description} /></div>}
-            {detail.invoice_number && <DetailRow label="Cislo faktury" value={detail.invoice_number} />}
+            {detail.invoice_number && <DetailRow label="Číslo faktury" value={detail.invoice_number} />}
             {detail.paid_date && <DetailRow label="Datum uhrazeni" value={new Date(detail.paid_date).toLocaleDateString('cs-CZ')} />}
-            {detail.financial_event_id && <DetailRow label="Financni udalost" value={detail.financial_event_id.slice(0, 8)} />}
+            {detail.financial_event_id && <DetailRow label="Financni událost" value={detail.financial_event_id.slice(0, 8)} />}
           </div>
           <div className="flex justify-end mt-5"><Button onClick={() => setDetail(null)}>Zavrit</Button></div>
         </Modal>
@@ -314,7 +314,7 @@ function AddLiabilityModal({ onClose, onSaved }) {
   }
 
   return (
-    <Modal open title="Novy zavazek" onClose={onClose}>
+    <Modal open title="Novy závazek" onClose={onClose}>
       <div className="space-y-3">
         <div><Label>Protistrana (dodavatel)</Label><input type="text" value={form.counterparty} onChange={e => set('counterparty', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
         <div><Label>Typ</Label>
@@ -322,16 +322,16 @@ function AddLiabilityModal({ onClose, onSaved }) {
             {LIABILITY_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
           </select>
         </div>
-        <div><Label>Castka (Kc)</Label><input type="number" value={form.amount} onChange={e => set('amount', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
+        <div><Label>Částka (Kč)</Label><input type="number" value={form.amount} onChange={e => set('amount', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
         <div><Label>Datum splatnosti</Label><input type="date" value={form.due_date} onChange={e => set('due_date', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
         <div><Label>Variabilni symbol</Label><input type="text" value={form.variable_symbol} onChange={e => set('variable_symbol', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
-        <div><Label>Cislo faktury</Label><input type="text" value={form.invoice_number} onChange={e => set('invoice_number', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
+        <div><Label>Číslo faktury</Label><input type="text" value={form.invoice_number} onChange={e => set('invoice_number', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
         <div><Label>Popis</Label><textarea value={form.description} onChange={e => set('description', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={{ ...inputStyle, minHeight: 60 }} /></div>
       </div>
       {err && <p className="mt-3 text-sm" style={{ color: '#dc2626' }}>{err}</p>}
       <div className="flex justify-end gap-3 mt-5">
-        <Button onClick={onClose}>Zrusit</Button>
-        <Button green onClick={handleSave} disabled={saving || !form.amount}>{saving ? 'Ukladam...' : 'Ulozit'}</Button>
+        <Button onClick={onClose}>Zrušit</Button>
+        <Button green onClick={handleSave} disabled={saving || !form.amount}>{saving ? 'Ukladam...' : 'Uložit'}</Button>
       </div>
     </Modal>
   )

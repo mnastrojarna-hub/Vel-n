@@ -50,7 +50,7 @@ export default function EmployeesTab() {
       setEmployees(data || [])
       setTotal(count || 0)
     } catch (e) {
-      setError(e.message || 'Chyba pri nacitani zamestnancu')
+      setError(e.message || 'Chyba pri nacitani zaměstnanců')
     } finally {
       setLoading(false)
     }
@@ -65,17 +65,17 @@ export default function EmployeesTab() {
     setPayrolls(data || [])
   }
 
-  const fmt = n => (n || 0).toLocaleString('cs-CZ') + ' Kc'
+  const fmt = n => (n || 0).toLocaleString('cs-CZ') + ' Kč'
   const totalPages = Math.ceil(total / PER_PAGE)
 
   return (
     <div>
       <div className="flex items-center gap-3 mb-4 flex-wrap">
-        <Button green onClick={() => setShowAdd(true)}>+ Novy zamestnanec</Button>
+        <Button green onClick={() => setShowAdd(true)}>+ Novy zaměstnanec</Button>
         <select value={filter} onChange={e => { setPage(1); setFilter(e.target.value) }}
           className="rounded-btn text-sm outline-none"
           style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0' }}>
-          <option value="">Vsechny typy</option>
+          <option value="">Všechny typy</option>
           {CONTRACT_TYPES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
         </select>
       </div>
@@ -89,8 +89,8 @@ export default function EmployeesTab() {
           <Table>
             <thead>
               <TRow header>
-                <TH>Jmeno</TH><TH>Typ smlouvy</TH><TH>Hruba mzda</TH>
-                <TH>Sleva na dani</TH><TH>Nastup</TH><TH>Stav</TH><TH>Akce</TH>
+                <TH>Jméno</TH><TH>Typ smlouvy</TH><TH>Hrubá mzda</TH>
+                <TH>Sleva na dani</TH><TH>Nástup</TH><TH>Stav</TH><TH>Akce</TH>
               </TRow>
             </thead>
             <tbody>
@@ -107,7 +107,7 @@ export default function EmployeesTab() {
                   <TD>{emp.start_date ? new Date(emp.start_date).toLocaleDateString('cs-CZ') : '—'}</TD>
                   <TD>
                     <span className="text-sm font-bold" style={{ color: emp.active ? '#1a8a18' : '#dc2626' }}>
-                      {emp.active ? 'Aktivni' : 'Neaktivni'}
+                      {emp.active ? 'Aktivní' : 'Neaktivní'}
                     </span>
                   </TD>
                   <TD>
@@ -118,7 +118,7 @@ export default function EmployeesTab() {
                   </TD>
                 </TRow>
               ))}
-              {employees.length === 0 && <TRow><TD>Zadni zamestnanci</TD></TRow>}
+              {employees.length === 0 && <TRow><TD>Žádní zamestnanci</TD></TRow>}
             </tbody>
           </Table>
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
@@ -130,13 +130,13 @@ export default function EmployeesTab() {
       {showPayroll && (
         <Modal open title={`Mzdy — ${showPayroll.name}`} onClose={() => setShowPayroll(null)}>
           {payrolls.length === 0 ? (
-            <p className="text-sm" style={{ color: '#6b7280' }}>Zadne zaznamy o mzdach</p>
+            <p className="text-sm" style={{ color: '#6b7280' }}>Žádné záznamy o mzdach</p>
           ) : (
             <Table>
               <thead>
                 <TRow header>
-                  <TH>Obdobi</TH><TH>Hruba</TH><TH>Soc. pojisteni</TH>
-                  <TH>Zdrav. pojisteni</TH><TH>Dan</TH><TH>Cista</TH><TH>Stav</TH>
+                  <TH>Období</TH><TH>Hrubá</TH><TH>Soc. pojištění</TH>
+                  <TH>Zdrav. pojištění</TH><TH>Daň</TH><TH>Čistá</TH><TH>Stav</TH>
                 </TRow>
               </thead>
               <tbody>
@@ -150,7 +150,7 @@ export default function EmployeesTab() {
                     <TD bold color="#1a8a18">{fmt(p.net)}</TD>
                     <TD>
                       <span className="text-sm font-bold" style={{ color: p.status === 'paid' ? '#1a8a18' : '#b45309' }}>
-                        {p.status === 'paid' ? 'Vyplaceno' : p.status === 'calculated' ? 'Vypocteno' : p.status || '—'}
+                        {p.status === 'paid' ? 'Vyplaceno' : p.status === 'calculated' ? 'Vypočteno' : p.status || '—'}
                       </span>
                     </TD>
                   </TRow>
@@ -198,11 +198,11 @@ function AddEmployeeModal({ onClose, onSaved }) {
   const inputStyle = { padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }
 
   return (
-    <Modal open title="Novy zamestnanec" onClose={onClose}>
+    <Modal open title="Novy zaměstnanec" onClose={onClose}>
       {err && <div className="mb-3 p-2 rounded-card" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>{err}</div>}
       <div className="space-y-3">
         <div>
-          <Label>Jmeno</Label>
+          <Label>Jméno</Label>
           <input type="text" value={form.name} onChange={e => set('name', e.target.value)}
             className="w-full rounded-btn text-sm outline-none" style={inputStyle} />
         </div>
@@ -214,7 +214,7 @@ function AddEmployeeModal({ onClose, onSaved }) {
           </select>
         </div>
         <div>
-          <Label>Hruba mzda (Kc)</Label>
+          <Label>Hrubá mzda (Kč)</Label>
           <input type="number" value={form.gross_salary} onChange={e => set('gross_salary', e.target.value)}
             className="w-full rounded-btn text-sm outline-none" style={inputStyle} />
         </div>
@@ -229,14 +229,14 @@ function AddEmployeeModal({ onClose, onSaved }) {
             className="w-full rounded-btn text-sm outline-none" style={inputStyle} />
         </div>
         <div>
-          <Label>Sleva na dani (Kc)</Label>
+          <Label>Sleva na dani (Kč)</Label>
           <input type="number" value={form.tax_discount} onChange={e => set('tax_discount', e.target.value)}
             className="w-full rounded-btn text-sm outline-none" style={inputStyle} />
         </div>
       </div>
       <div className="flex justify-end gap-2 mt-4">
-        <Button onClick={onClose}>Zrusit</Button>
-        <Button green onClick={save} disabled={saving}>{saving ? 'Ukladam...' : 'Ulozit'}</Button>
+        <Button onClick={onClose}>Zrušit</Button>
+        <Button green onClick={save} disabled={saving}>{saving ? 'Ukladam...' : 'Uložit'}</Button>
       </div>
     </Modal>
   )

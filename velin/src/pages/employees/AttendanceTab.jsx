@@ -9,7 +9,7 @@ const STATUS_MAP = {
   present: { label: 'Pritomen', color: '#1a8a18', bg: '#dcfce7' },
   absent: { label: 'Neomluven', color: '#dc2626', bg: '#fee2e2' },
   sick: { label: 'Nemoc', color: '#b45309', bg: '#fef3c7' },
-  vacation: { label: 'Dovolena', color: '#2563eb', bg: '#dbeafe' },
+  vacation: { label: 'Dovolená', color: '#2563eb', bg: '#dbeafe' },
   home_office: { label: 'Home office', color: '#7c3aed', bg: '#ede9fe' },
   half_day: { label: 'Pulden', color: '#0891b2', bg: '#cffafe' },
 }
@@ -88,7 +88,7 @@ export default function AttendanceTab() {
           <div className="text-lg font-extrabold" style={{ color: '#2563eb' }}>{presentDays} dni</div></Card>
         <Card><div className="text-sm font-extrabold uppercase" style={{ color: '#1a2e22' }}>Nemoc</div>
           <div className="text-lg font-extrabold" style={{ color: '#b45309' }}>{sickDays} dni</div></Card>
-        <Card><div className="text-sm font-extrabold uppercase" style={{ color: '#1a2e22' }}>Dovolena</div>
+        <Card><div className="text-sm font-extrabold uppercase" style={{ color: '#1a2e22' }}>Dovolená</div>
           <div className="text-lg font-extrabold" style={{ color: '#7c3aed' }}>{vacDays} dni</div></Card>
       </div>
 
@@ -174,7 +174,7 @@ function AttendanceModal({ day, rec, empId, year, month, onClose, onSaved }) {
   }
 
   return (
-    <Modal open title={`Dochazka ${day}. ${month + 1}. ${year}`} onClose={onClose}>
+    <Modal open title={`Docházka ${day}. ${month + 1}. ${year}`} onClose={onClose}>
       <div className="space-y-3">
         <div><Lbl>Stav</Lbl>
           <select value={form.status} onChange={e => set('status', e.target.value)}
@@ -190,13 +190,13 @@ function AttendanceModal({ day, rec, empId, year, month, onClose, onSaved }) {
           </div>
           <div className="text-sm font-bold" style={{ color: '#1a8a18' }}>Odpracovano: {calcHours()} h</div>
         </>}
-        <div><Lbl>Poznamka</Lbl><input type="text" value={form.note} onChange={e => set('note', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={iStyle} /></div>
+        <div><Lbl>Poznámka</Lbl><input type="text" value={form.note} onChange={e => set('note', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={iStyle} /></div>
       </div>
       <div className="flex justify-between mt-4">
         {rec ? <button onClick={remove} className="text-sm font-bold cursor-pointer" style={{ color: '#dc2626', background: 'none', border: 'none' }}>Smazat</button> : <div />}
         <div className="flex gap-2">
-          <Button onClick={onClose}>Zrusit</Button>
-          <Button green onClick={save} disabled={saving}>{saving ? 'Ukladam...' : 'Ulozit'}</Button>
+          <Button onClick={onClose}>Zrušit</Button>
+          <Button green onClick={save} disabled={saving}>{saving ? 'Ukladam...' : 'Uložit'}</Button>
         </div>
       </div>
     </Modal>

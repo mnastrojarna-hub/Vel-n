@@ -9,10 +9,10 @@ const DocumentsTab = lazy(() => import('./employees/DocumentsTab'))
 const PayrollTab = lazy(() => import('./employees/PayrollTab'))
 
 const TABS = [
-  { id: 'list', label: 'Prehled' },
-  { id: 'attendance', label: 'Dochazka' },
-  { id: 'vacation', label: 'Dovolena' },
-  { id: 'shifts', label: 'Smeny' },
+  { id: 'list', label: 'Přehled' },
+  { id: 'attendance', label: 'Docházka' },
+  { id: 'vacation', label: 'Dovolená' },
+  { id: 'shifts', label: 'Směny' },
   { id: 'documents', label: 'Dokumenty' },
   { id: 'payroll', label: 'Mzdy' },
 ]

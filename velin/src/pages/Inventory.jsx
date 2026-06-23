@@ -54,8 +54,8 @@ export default function Inventory() {
 
       let filtered = data || []
       if (filters.stocks?.length > 0) {
-        if (filters.stocks.includes('low') && !filters.stocks.includes('ok')) filtered = filtered.filter(i => i.stock <= i.min_stock)
-        else if (filters.stocks.includes('ok') && !filters.stocks.includes('low')) filtered = filtered.filter(i => i.stock > i.min_stock)
+        if (filters.stocks.includes('low') && !filters.stocks.includes('ok')) filtered = filtered.filter(i => (i.min_stock || 0) > 0 && i.stock <= i.min_stock)
+        else if (filters.stocks.includes('ok') && !filters.stocks.includes('low')) filtered = filtered.filter(i => !((i.min_stock || 0) > 0 && i.stock <= i.min_stock))
       }
 
       setItems(filtered)
@@ -99,7 +99,7 @@ export default function Inventory() {
         <strong>DIAGNOSTIKA Inventory</strong><br/>
         <div>items: {items.length} zobrazeno / {total} celkem (strana {page}/{totalPages || 1})</div>
         <div>filtry: search="{filters.search}", category={filters.category || 'vše'}, stocks=[{(filters.stocks || []).join(', ') || 'vše'}]</div>
-        <div>lowStock: {items.filter(i => i.stock <= i.min_stock).length} položek pod minimem</div>
+        <div>lowStock: {items.filter(i => (i.min_stock || 0) > 0 && i.stock <= i.min_stock).length} položek pod minimem</div>
         {error && <div style={{ color: '#dc2626' }}>ERROR: {error}</div>}
       </div>
       )}
@@ -129,7 +129,7 @@ export default function Inventory() {
             </thead>
             <tbody>
               {items.map(item => {
-                const isLow = item.stock <= item.min_stock
+                const isLow = (item.min_stock || 0) > 0 && item.stock <= item.min_stock
                 const isAcc = item.category === 'prislusenstvi'
                 return (
                   <tr
