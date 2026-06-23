@@ -169,6 +169,7 @@ function renderFooter() {
     '<div class="footer-partners"><div class="container">' .
         '<span class="footer-partners-label">' . tc('footer.partnersTitle') . '</span>' .
         '<a class="footer-partner" href="https://www.kudyznudy.cz/?utm_source=kzn&amp;utm_medium=partneri_kzn&amp;utm_campaign=banner" target="_blank" rel="noopener" aria-label="Kudy z nudy"><img src="https://www.kudyznudy.cz/getmedia/e258ea1e-6a92-4443-940f-fdafe8da106e/1012102023-online-bannery-hq-180x150.jpg.aspx" alt="Kudyznudy.cz – nejlepší začátek výletu" loading="lazy" width="180" height="150"></a>' .
+        '<a class="footer-partner" href="https://www.tripadvisor.com/Attraction_Review-g1600819-d34461468-Reviews-MotoGo24-Pelhrimov_Vysocina_Region_Moravia.html" target="_blank" rel="noopener" aria-label="MotoGo24 na Tripadvisoru"><img src="' . BASE_URL . '/gfx/tripadvisor-footer.svg" alt="MotoGo24 na Tripadvisoru" loading="lazy" width="180" height="150"></a>' .
     '</div></div>' .
     '<div class="copyright"><div class="container">' .
         '<p>' . tc('footer.copyright') . '</p>' .
@@ -195,7 +196,7 @@ function renderInlineJs() {
  * lokální SEO v Seznam.cz.
  */
 function buildSameAs() {
-    $list = [FB_URL, IG_URL, 'https://www.motogo24.cz', 'https://www.motogo24.com', 'https://www.motogo24.at', 'https://www.motogo24.es', 'https://www.motogo24.pl', 'https://www.motogo24.fr', 'https://www.motogo24.nl'];
+    $list = [FB_URL, IG_URL, 'https://www.tripadvisor.com/Attraction_Review-g1600819-d34461468-Reviews-MotoGo24-Pelhrimov_Vysocina_Region_Moravia.html', 'https://www.motogo24.cz', 'https://www.motogo24.com', 'https://www.motogo24.at', 'https://www.motogo24.es', 'https://www.motogo24.pl', 'https://www.motogo24.fr', 'https://www.motogo24.nl'];
     $extras = [
         defined('SAMEAS_FIRMY_CZ') ? SAMEAS_FIRMY_CZ : '',
         defined('SAMEAS_MAPY_CZ')  ? SAMEAS_MAPY_CZ  : '',
