@@ -157,8 +157,9 @@ $$;
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
-    PERFORM cron.unschedule('autofill-handover-protocols')
-      WHERE EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'autofill-handover-protocols');
+    IF EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'autofill-handover-protocols') THEN
+      PERFORM cron.unschedule('autofill-handover-protocols');
+    END IF;
     PERFORM cron.schedule('autofill-handover-protocols', '*/5 * * * *',
       $cron$SELECT autofill_overdue_handover_protocols();$cron$);
   END IF;

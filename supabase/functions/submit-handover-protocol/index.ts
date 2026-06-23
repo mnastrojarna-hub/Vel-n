@@ -122,7 +122,7 @@ serve(async (req) => {
     // Načtení rezervace + vozidlo + pobočka (service role, obejde RLS).
     const { data: booking, error: bErr } = await admin
       .from('bookings')
-      .select('*, motorcycles!moto_id(model, spz, vin, branch_id, branches:branch_id(type))')
+      .select('*, motorcycles!moto_id(model, spz, vin, branch_id, branches(type))')
       .eq('id', bookingId)
       .maybeSingle()
     if (bErr || !booking) return json({ success: false, error: 'not_found' }, 404)
