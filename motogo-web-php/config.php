@@ -27,7 +27,7 @@ define('FB_URL', 'https://www.facebook.com/profile.php?id=61581614672839');
 define('IG_URL', 'https://www.instagram.com/moto.go24/');
 
 // Mobilní aplikace (uzavřené testování Google Play — opt-in odkaz pro testery)
-define('PLAY_STORE_URL', 'https://play.google.com/apps/test/com.motogo24.app/34');
+define('PLAY_STORE_URL', 'https://play.google.com/apps/testing/com.motogo24.app');
 
 // Logo
 define('LOGO_SVG', 'gfx/logo.svg');
