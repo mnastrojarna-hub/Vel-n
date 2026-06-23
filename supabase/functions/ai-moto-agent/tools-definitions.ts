@@ -27,13 +27,13 @@ export const TOOLS = [
   },
   {
     name: 'get_motorcycle_manual',
-    description: 'Vrátí kompletní specifikace a návod motorky — motor, výkon, ABS, funkce, manual_url atd. Volej když potřebuješ detailní info o konkrétní motorce.',
+    description: 'OTEVŘE A PŘEČTE skutečný návod konkrétní motorky (nahrané PDF i externí odkaz výrobce) a vrátí z něj relevantní pasáže + základní specifikace. Volej, když zákazník neví, jak motorku ovládat (světla, startování, režim jízdy), nebo se ptá na technické super-detaily (tlak v pneu, druh/množství oleje, význam kontrolek, servisní intervaly, pojistky, momenty). Odpovídej VÝHRADNĚ z toho, co tool vrátí — nedomýšlej. Zadej parametr query s tím, co v návodu hledáš.',
     input_schema: {
       type: 'object' as const,
       properties: {
         motorcycle_id: {
           type: 'string',
-          description: 'UUID motorky (z výsledku get_active_booking)',
+          description: 'UUID motorky (z výsledku get_active_booking) — preferovaný způsob identifikace',
         },
         brand: {
           type: 'string',
@@ -42,6 +42,10 @@ export const TOOLS = [
         model: {
           type: 'string',
           description: 'Model motorky (alternativa k motorcycle_id)',
+        },
+        query: {
+          type: 'string',
+          description: 'Co v návodu hledáš, česky (např. „tlak v pneumatikách", „startování", „kontrolka oleje", „přepnutí jízdního režimu"). Bez query vrátí zkrácený celý text návodu.',
         },
       },
       required: [],
