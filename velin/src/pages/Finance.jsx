@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import { debugAction } from '../lib/debugLog'
 import { useDebugMode } from '../hooks/useDebugMode'
 import ErrorBoundary from '../components/ErrorBoundary'
-import { classifyEntry, isTestInvoice, isVoidInvoice, summarizeInvoices } from '../lib/revenueUtils'
+import { classifyEntry, isTestInvoice, isVoidInvoice, summarizeInvoices, INVOICE_PAID_TYPES } from '../lib/revenueUtils'
 import FinanceOverview from './FinanceOverview'
 import FinancePrehledTab from './FinancePrehledTab'
 
@@ -127,24 +127,27 @@ export default function Finance() {
   async function loadSummary() {
     const now = new Date()
     const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10)
+    const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+    // Výdaje bereme z účetních záznamů, ale tržby (příjmy) NE — accounting_entries
+    // se příjmy plní nespolehlivě (trigger bug), proto se měsíční tržby počítají
+    // KANONICKY z faktur (DP + KF + shop_final − dobropisy), shodně s Dashboardem.
     const { data } = await supabase
       .from('accounting_entries')
       .select('type, amount, category, description')
       .gte('date', start)
-    if (data) {
-      const rev = data.filter(d => classifyEntry(d) === 'revenue').reduce((s, d) => s + Math.abs(d.amount || 0), 0)
-      const exp = data.filter(d => classifyEntry(d) === 'expense').reduce((s, d) => s + Math.abs(d.amount || 0), 0)
-      setSummary({ revenue: rev, expense: exp, unpaid: 0 })
-    }
-    // Neuhrazené zálohy = zálohové faktury (ZF) bez odpovídajícího DP/KF,
-    // mimo stornované/refundované a testovací doklady (viz summarizeInvoices)
+    const expense = (data || []).filter(d => classifyEntry(d) === 'expense').reduce((s, d) => s + Math.abs(d.amount || 0), 0)
+
+    // Faktury: měsíční tržby + neuhrazené zálohy (ZF bez odpovídajícího DP/KF)
     const { data: inv } = await supabase
       .from('invoices')
-      .select('type, status, total, booking_id, order_id, bookings:booking_id(is_test), profiles:customer_id(is_test_account)')
-    if (inv) {
-      const { unpaid, unpaidCount } = summarizeInvoices(inv)
-      setSummary(s => ({ ...s, unpaid, unpaidCount }))
-    }
+      .select('type, status, total, issue_date, created_at, booking_id, order_id, bookings:booking_id(is_test), profiles:customer_id(is_test_account)')
+    const invoices = inv || []
+    const invMonth = (i) => (i.issue_date || i.created_at || '').slice(0, 7)
+    const revenue = invoices
+      .filter(i => !isVoidInvoice(i) && !isTestInvoice(i) && INVOICE_PAID_TYPES.includes(i.type) && invMonth(i) === monthKey)
+      .reduce((s, i) => s + (i.total || 0), 0)
+    const { unpaid, unpaidCount } = summarizeInvoices(invoices)
+    setSummary({ revenue, expense, unpaid, unpaidCount })
   }
 
   async function loadTransactions() {
@@ -182,20 +185,28 @@ export default function Finance() {
     const now = new Date()
     for (let i = 11; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-      months.push({ start: d.toISOString().slice(0, 10), label: d.toLocaleDateString('cs-CZ', { month: 'short' }) })
+      months.push({
+        key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
+        start: d.toISOString().slice(0, 10),
+        label: d.toLocaleDateString('cs-CZ', { month: 'short' }),
+      })
     }
-    const { data } = await supabase
-      .from('accounting_entries')
-      .select('type, amount, date, category, description')
-      .gte('date', months[0].start)
+    // Tržby z faktur (kanonický zdroj), výdaje z účetních záznamů — shodně s Dashboardem.
+    const [accRes, invRes] = await Promise.all([
+      supabase.from('accounting_entries').select('type, amount, date, category, description').gte('date', months[0].start),
+      supabase.from('invoices')
+        .select('type, status, total, issue_date, created_at, bookings:booking_id(is_test), profiles:customer_id(is_test_account)')
+        .gte('issue_date', months[0].start),
+    ])
+    const accData = accRes.data || []
+    const paidInv = (invRes.data || []).filter(i => !isVoidInvoice(i) && !isTestInvoice(i) && INVOICE_PAID_TYPES.includes(i.type))
+    const invMonth = (i) => (i.issue_date || i.created_at || '').slice(0, 7)
     const chart = months.map(m => {
       const mEnd = new Date(new Date(m.start).getFullYear(), new Date(m.start).getMonth() + 1, 0).toISOString().slice(0, 10)
-      const mData = (data || []).filter(d => d.date >= m.start && d.date <= mEnd)
-      return {
-        label: m.label,
-        revenue: mData.filter(d => classifyEntry(d) === 'revenue').reduce((s, d) => s + Math.abs(d.amount || 0), 0),
-        expense: mData.filter(d => classifyEntry(d) === 'expense').reduce((s, d) => s + Math.abs(d.amount || 0), 0),
-      }
+      const exp = accData.filter(d => d.date >= m.start && d.date <= mEnd && classifyEntry(d) === 'expense')
+        .reduce((s, d) => s + Math.abs(d.amount || 0), 0)
+      const rev = paidInv.filter(i => invMonth(i) === m.key).reduce((s, i) => s + (i.total || 0), 0)
+      return { label: m.label, revenue: rev, expense: exp }
     })
     setChartData(chart)
   }

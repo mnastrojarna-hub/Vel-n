@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import TimePeriodSelector, { filterByPeriod, hasMinimumData, diffDays } from './TimePeriodSelector'
+import { isRealizedBooking } from '../../lib/revenueUtils'
 
 const COLORS = ['#74FB71', '#22c55e', '#16a34a', '#15803d', '#166534', '#14532d', '#0d3520', '#eab308', '#f59e0b', '#dc2626']
 
@@ -18,7 +19,7 @@ export default function PoptavkaKategorii() {
     try {
       const [mRes, bRes] = await Promise.all([
         supabase.from('motorcycles').select('id, model, brand, category, purchase_price, branch_id, status'),
-        supabase.from('bookings').select('moto_id, start_date, end_date, total_price, status, created_at'),
+        supabase.from('bookings').select('moto_id, start_date, end_date, total_price, status, created_at, payment_status, is_test'),
       ])
       if (mRes.error) throw mRes.error
       if (bRes.error) throw bRes.error
@@ -31,7 +32,7 @@ export default function PoptavkaKategorii() {
   if (!raw || raw.motorcycles.length === 0) return <div className="p-8 text-center" style={{ color: '#888' }}>Žádné motorky</div>
 
   const { motorcycles, bookings } = raw
-  const completed = filterByPeriod(bookings.filter(b => b.status === 'completed'), period, 'created_at')
+  const completed = filterByPeriod(bookings.filter(isRealizedBooking), period, 'created_at')
 
   let periodDays = 365
   if (period.type === 'month') periodDays = new Date(period.year, period.month + 1, 0).getDate()
