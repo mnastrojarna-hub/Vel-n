@@ -25,6 +25,33 @@ export function isRevenueEntry(entry) {
   return classifyEntry(entry) === 'revenue'
 }
 
+// ── Realizované rezervace (obrat z rezervací) ─────────────────────────────────
+//
+// Sjednocená definice „obratu" z rezervací pro celou Analýzu (zákazníci,
+// pobočky, motorky, lokace, kategorie) i Návštěvnost. Do obratu se počítá KAŽDÁ
+// rezervace, kterou zákazník reálně ZAPLATIL a není stornovaná ani testovací —
+// tedy i nadcházející (`reserved`) a probíhající (`active`), ne pouze
+// `completed`. Dosud analytika počítala výhradně `status='completed'`, takže
+// během sezóny (většina zaplacených rezervací je teprve reserved/active)
+// systematicky podhodnocovala obrat a čísla „neseděla".
+//
+// `total_price` nese po úpravě/vratce už čistou částku (Varianta B přepisuje
+// total absolutně + přepočítá slevu), takže součet odpovídá reálné tržbě.
+export const PAID_BOOKING_STATUSES = ['paid', 'partial_refund', 'refund_pending', 'refunded']
+
+/** Rezervace, u které peníze reálně dorazily a počítá se do obratu. */
+export function isRealizedBooking(b) {
+  return !!b
+    && b.status !== 'cancelled'
+    && b.is_test !== true
+    && PAID_BOOKING_STATUSES.includes(b.payment_status)
+}
+
+/** Obrat jedné rezervace (0 pokud není realizovaná). */
+export function bookingRevenue(b) {
+  return isRealizedBooking(b) ? (Number(b.total_price) || 0) : 0
+}
+
 // ── Souhrn faktur (sdílená logika pro Dokumenty i Finance) ────────────────────
 //
 // Datový model (viz generate-invoice / invoiceUtils):

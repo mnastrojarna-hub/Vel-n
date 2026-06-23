@@ -336,7 +336,11 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
         'extras_price': breakdown.extrasTotal,
         'delivery_fee': breakdown.deliveryFee,
         'discount_amount': breakdown.discountTotal,
-        'discount_code': firstDiscount?.code,
+        // Doklad vypíše VŠECHNY uplatněné kódy (parita s webem), ne jen první;
+        // odečtená částka (discount_amount) je už součet všech slev.
+        'discount_code': draft.discounts.isNotEmpty
+            ? draft.discounts.map((d) => d.code).join(', ')
+            : null,
         if (promoCodeId != null) 'promo_code_id': promoCodeId,
         if (voucherId != null) 'voucher_id': voucherId,
         // Věrnostní sleva (ranky) — platí JEN pro app rezervace. Sloupce se

@@ -1,7 +1,9 @@
 // ===== ai-moto-agent/tools-definitions.ts =====
 // Tool definitions for Anthropic tool_use format
 
-export const TOOLS = [
+import { PUBLIC_READ_TOOLS } from './public-tools.ts'
+
+const APP_TOOLS = [
   {
     name: 'get_active_booking',
     description: 'Vrátí aktivní nebo nadcházející rezervaci zákazníka s kompletními detaily motorky. Volej jako první krok při každém dotazu, abys zjistil jakou motorku zákazník právě má.',
@@ -27,13 +29,13 @@ export const TOOLS = [
   },
   {
     name: 'get_motorcycle_manual',
-    description: 'Vrátí kompletní specifikace a návod motorky — motor, výkon, ABS, funkce, manual_url atd. Volej když potřebuješ detailní info o konkrétní motorce.',
+    description: 'OTEVŘE A PŘEČTE skutečný návod konkrétní motorky (nahrané PDF i externí odkaz výrobce) a vrátí z něj relevantní pasáže + základní specifikace. Volej, když zákazník neví, jak motorku ovládat (světla, startování, režim jízdy), nebo se ptá na technické super-detaily (tlak v pneu, druh/množství oleje, význam kontrolek, servisní intervaly, pojistky, momenty). Odpovídej VÝHRADNĚ z toho, co tool vrátí — nedomýšlej. Zadej parametr query s tím, co v návodu hledáš.',
     input_schema: {
       type: 'object' as const,
       properties: {
         motorcycle_id: {
           type: 'string',
-          description: 'UUID motorky (z výsledku get_active_booking)',
+          description: 'UUID motorky (z výsledku get_active_booking) — preferovaný způsob identifikace',
         },
         brand: {
           type: 'string',
@@ -42,6 +44,10 @@ export const TOOLS = [
         model: {
           type: 'string',
           description: 'Model motorky (alternativa k motorcycle_id)',
+        },
+        query: {
+          type: 'string',
+          description: 'Co v návodu hledáš, česky (např. „tlak v pneumatikách", „startování", „kontrolka oleje", „přepnutí jízdního režimu"). Bez query vrátí zkrácený celý text návodu.',
         },
       },
       required: [],
@@ -75,3 +81,9 @@ export const TOOLS = [
     },
   },
 ]
+
+// SOS servisní agent v appce má stejné MOŽNOSTI jako veřejný agent (search/cena/
+// dostupnost/FAQ/policies/právní dokumenty/příslušenství/pobočky/promo) — jen
+// netvoří ani neupravuje rezervace a není prodejce. App tooly (booking kontext +
+// návod + troubleshooting) + převzaté informační tooly z ai-public-agent.
+export const TOOLS = [...APP_TOOLS, ...PUBLIC_READ_TOOLS]

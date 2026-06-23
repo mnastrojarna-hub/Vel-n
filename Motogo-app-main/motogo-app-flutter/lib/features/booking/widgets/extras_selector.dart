@@ -29,12 +29,18 @@ class ExtrasSelector extends StatefulWidget {
   final ValueChanged<String?>? onPassengerJacketSizeChanged;
   final ValueChanged<String?>? onPassengerPantsSizeChanged;
 
+  /// Aktuální věrnostní rank (loyalty level) zákazníka. Od
+  /// [loyaltyFreeGearLevel] je veškerá placená výbava (výbava spolujezdce
+  /// i veškerá obuv) ZDARMA.
+  final int loyaltyLevel;
+
   const ExtrasSelector({
     super.key,
     required this.catalog,
     required this.selected,
     required this.onChanged,
     this.isDelivery = false,
+    this.loyaltyLevel = 0,
     this.helmetSize,
     this.jacketSize,
     this.pantsSize,
@@ -72,6 +78,27 @@ class _ExtrasSelectorState extends State<ExtrasSelector> {
     if (!_listEquals(oldWidget.selected, widget.selected)) {
       _selected = List.from(widget.selected);
     }
+    // Rank se mohl načíst až po zobrazení formuláře (login → loyalty). Přepočti
+    // ceny už vybrané výbavy, ať se případná sleva zdarma promítne i zpětně.
+    if (oldWidget.loyaltyLevel != widget.loyaltyLevel) {
+      var changed = false;
+      for (var i = 0; i < _selected.length; i++) {
+        final e = _selected[i];
+        if (!freeGearExtraIds.contains(e.id)) continue;
+        final item = defaultExtras.where((x) => x.id == e.id).firstOrNull;
+        if (item == null) continue;
+        final eff = _effPrice(item);
+        if (e.price != eff) {
+          _selected[i] = SelectedExtra(
+              id: e.id, name: e.name, price: eff, size: e.size);
+          changed = true;
+        }
+      }
+      if (changed) {
+        WidgetsBinding.instance.addPostFrameCallback(
+            (_) => widget.onChanged(List.of(_selected)));
+      }
+    }
   }
 
   bool _listEquals(List<SelectedExtra> a, List<SelectedExtra> b) {
@@ -84,6 +111,14 @@ class _ExtrasSelectorState extends State<ExtrasSelector> {
 
   bool _isSelected(String id) => _selected.any((e) => e.id == id);
 
+  /// Od 3. ranku je veškerá placená výbava (vč. obuvi a výbavy spolujezdce)
+  /// zdarma.
+  bool get _gearFree => widget.loyaltyLevel >= loyaltyFreeGearLevel;
+
+  /// Efektivní cena položky — 0 Kč u gear extras, pokud má zákazník nárok.
+  double _effPrice(ExtraCatalogItem item) =>
+      _gearFree && freeGearExtraIds.contains(item.id) ? 0 : item.price;
+
   void _toggle(ExtraCatalogItem item) {
     if (_isSelected(item.id)) {
       setState(() => _selected.removeWhere((e) => e.id == item.id));
@@ -91,7 +126,8 @@ class _ExtrasSelectorState extends State<ExtrasSelector> {
     } else if (item.needsSize && item.sizes.isNotEmpty) {
       _showSizeDialog(item);
     } else {
-      setState(() => _selected.add(SelectedExtra(id: item.id, name: item.name, price: item.price)));
+      setState(() => _selected.add(
+          SelectedExtra(id: item.id, name: item.name, price: _effPrice(item))));
       widget.onChanged(List.of(_selected));
     }
   }
@@ -117,7 +153,7 @@ class _ExtrasSelectorState extends State<ExtrasSelector> {
               onTap: () {
                 setState(() {
                   _selected.removeWhere((e) => e.id == item.id);
-                  _selected.add(SelectedExtra(id: item.id, name: item.name, price: item.price, size: size));
+                  _selected.add(SelectedExtra(id: item.id, name: item.name, price: _effPrice(item), size: size));
                 });
                 widget.onChanged(List.of(_selected));
                 Navigator.pop(ctx);
@@ -211,10 +247,36 @@ class _ExtrasSelectorState extends State<ExtrasSelector> {
       ],
       const SizedBox(height: 10),
 
+      // Od 3. ranku: veškerá výbava i obuv zdarma (i pro spolujezdce).
+      if (_gearFree)
+        Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: MotoGoColors.greenPale,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: MotoGoColors.green.withValues(alpha: 0.5)),
+          ),
+          child: const Row(children: [
+            Text('🏅', style: TextStyle(fontSize: 18)),
+            SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Díky tvému ranku máš veškerou výbavu i obuv — včetně výbavy spolujezdce — ZDARMA.',
+                style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: MotoGoColors.greenDarker),
+              ),
+            ),
+          ]),
+        ),
+
       // 3 paid extras
       ...items.map((item) {
         final selected = _isSelected(item.id);
         final selectedExtra = _selected.where((e) => e.id == item.id).firstOrNull;
+        final free = _effPrice(item) == 0;
         return GestureDetector(
           onTap: () => _toggle(item),
           child: Container(
@@ -242,7 +304,7 @@ class _ExtrasSelectorState extends State<ExtrasSelector> {
                       : item.description ?? '',
                   style: const TextStyle(fontSize: 10, color: MotoGoColors.g400)),
               ])),
-              Text('+${Money.czk(item.price)}',
+              Text(free ? 'ZDARMA' : '+${Money.czk(item.price)}',
                 style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: MotoGoColors.greenDark)),
             ]),
           ),

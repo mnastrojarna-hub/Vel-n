@@ -17,6 +17,7 @@
  */
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabase'
+import { isRealizedBooking } from '../../lib/revenueUtils'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, Legend, CartesianGrid } from 'recharts'
 
 const GRANULARITIES = [
@@ -74,15 +75,15 @@ export default function Navstevnost() {
       const { from, to } = range()
       const { data, error: e } = await supabase
         .from('bookings')
-        .select('total_price, payment_status, status, booking_source, created_at')
+        .select('total_price, payment_status, status, booking_source, created_at, is_test')
         .gte('created_at', from).lte('created_at', to)
       if (e) { setBiz(null); return }
-      const PAID = new Set(['paid', 'partial_refund', 'refund_pending', 'refunded'])
       const acc = { web: { count: 0, paid: 0, revenue: 0 }, app: { count: 0, paid: 0, revenue: 0 } }
       for (const b of (data || [])) {
+        if (b.is_test === true) continue
         const src = b.booking_source === 'web' ? 'web' : 'app'
         acc[src].count++
-        if (PAID.has(b.payment_status) && b.status !== 'cancelled') {
+        if (isRealizedBooking(b)) {
           acc[src].paid++
           acc[src].revenue += Number(b.total_price || 0)
         }
@@ -220,6 +221,19 @@ export default function Navstevnost() {
         ))}
         {hostList.length === 0 && <span style={{ color: '#bbb', fontSize: 12 }}>Zatím žádná data</span>}
       </div>
+
+      {/* Upřesnění období — KPI jsou SOUČET za celý zvolený rozsah, ne za dnešek */}
+      {(() => {
+        const r = range()
+        const fromD = new Date(r.from).toLocaleDateString('cs-CZ')
+        const toD = new Date(r.to).toLocaleDateString('cs-CZ')
+        const granLabel = (GRANULARITIES.find(g => g.id === gran)?.label || '').toLowerCase()
+        return (
+          <p className="text-xs mb-2" style={{ color: '#888' }}>
+            Souhrn za období <b>{fromD} – {toD}</b>{(!custom.from && !custom.to) ? ` (posledních ${GRANULARITIES.find(g => g.id === gran)?.days || ''} dní, graf po ${granLabel})` : ''} — čísla níže jsou součtem za celý rozsah, ne za dnešek.
+          </p>
+        )
+      })()}
 
       {/* KPI tiles */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">

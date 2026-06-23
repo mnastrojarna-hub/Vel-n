@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import TimePeriodSelector, { filterByPeriod, hasMinimumData, diffDays } from './TimePeriodSelector'
+import { isRealizedBooking } from '../../lib/revenueUtils'
 
 const TOTAL_SLOTS = 8
 
@@ -52,7 +53,7 @@ export default function OptimalniFlotila() {
       const [lRes, mRes, bRes] = await Promise.all([
         supabase.from('branches').select('id, name, city, location, type'),
         supabase.from('motorcycles').select('id, branch_id, category, status'),
-        supabase.from('bookings').select('moto_id, start_date, end_date, total_price, status, created_at'),
+        supabase.from('bookings').select('moto_id, start_date, end_date, total_price, status, created_at, payment_status, is_test'),
       ])
       if (lRes.error) throw lRes.error
       if (mRes.error) throw mRes.error
@@ -67,7 +68,7 @@ export default function OptimalniFlotila() {
   if (!raw || raw.locations.length === 0) return <div className="p-8 text-center" style={{ color: '#888' }}>Žádné pobočky</div>
 
   const { locations, motorcycles, bookings } = raw
-  const completed = filterByPeriod(bookings.filter(b => b.status === 'completed'), period, 'created_at')
+  const completed = filterByPeriod(bookings.filter(isRealizedBooking), period, 'created_at')
   const has3mo = hasMinimumData(bookings)
 
   let periodDays = 365

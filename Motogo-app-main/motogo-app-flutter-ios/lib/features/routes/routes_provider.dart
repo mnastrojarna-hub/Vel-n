@@ -1,10 +1,13 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 
 import '../../core/supabase_client.dart';
+import '../reservations/reservation_models.dart';
+import '../reservations/reservation_provider.dart';
 import 'routes_model.dart';
 
 const String mapyApiKey = 'whg1ilj203oYhmsqkBHVtUqpk-tYr0E-HFTx4lGdue0';
@@ -67,39 +70,186 @@ List<LatLng> orderedRoutePoints(RouteItem route, RouteBranch? branch) {
   if (start != null) pts.add(start);
   pts.addAll(route.waypoints);
   if (route.isLoop && start != null) pts.add(start);
-  // Odfiltruj duplicitní sousedy
+  return _dedupeNeighbours(pts);
+}
+
+/// Body pro routing OD zadaného startu (poloha jezdce / pobočka vyzvednutí)
+/// přes waypointy trasy. `loopBack` = bod, na který se má trasa vrátit (u okruhu
+/// pobočka), jinak null = trasa končí v posledním bodě.
+List<LatLng> navPointsFrom(LatLng start, RouteItem route, LatLng? loopBack) {
+  final pts = <LatLng>[start];
+  if (route.waypoints.isNotEmpty) {
+    pts.addAll(route.waypoints);
+  } else {
+    for (final p in route.pois) {
+      final ll = p.latLng;
+      if (ll != null) pts.add(ll);
+    }
+  }
+  if (loopBack != null) pts.add(loopBack);
+  return _dedupeNeighbours(pts);
+}
+
+List<LatLng> _dedupeNeighbours(List<LatLng> pts) {
   final out = <LatLng>[];
   for (final p in pts) {
-    if (out.isEmpty || out.last.latitude != p.latitude || out.last.longitude != p.longitude) {
+    if (out.isEmpty ||
+        out.last.latitude != p.latitude ||
+        out.last.longitude != p.longitude) {
       out.add(p);
     }
   }
   return out;
 }
 
-/// Geometrie pro vykreslení v appce: použij uloženou (cache z Velína),
-/// jinak ji dopočítej živě přes Mapy.com routing API. Když i to selže,
-/// vrátí rovné spojnice mezi body (ať se vždy něco vykreslí).
-final routeGeometryProvider =
-    FutureProvider.family<List<LatLng>, String>((ref, routeId) async {
+/// Výchozí start trasy podle stavu:
+/// - `currentLocation` = od aktuální polohy jezdce (poloha už povolena),
+/// - `pickupBranch` = od pobočky, ze které zákazník vyzvedl motorku (rezervace),
+/// - `routeBranch` = od pobočky, ke které trasa patří (výchozí).
+enum RouteOrigin { routeBranch, pickupBranch, currentLocation }
+
+/// Vykreslitelná trasa + její efektivní start a původ startu.
+class RouteDisplay {
+  final List<LatLng> geometry;
+  final LatLng? start;
+  final RouteOrigin origin;
+  const RouteDisplay({
+    required this.geometry,
+    this.start,
+    this.origin = RouteOrigin.routeBranch,
+  });
+}
+
+/// Aktuální poloha — JEN pokud je oprávnění už uděleno (bez vyžádání systémového
+/// dialogu). Vrací null, když poloha není povolená/dostupná → výchozí náhled trasy
+/// pak vychází z pobočky vyzvednutí, ne z polohy.
+final currentLocationProvider = FutureProvider<LatLng?>((ref) async {
+  try {
+    final perm = await Geolocator.checkPermission();
+    if (perm != LocationPermission.always &&
+        perm != LocationPermission.whileInUse) {
+      return null;
+    }
+    if (!await Geolocator.isLocationServiceEnabled()) return null;
+    Position? pos;
+    try {
+      pos = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 8),
+      );
+    } catch (_) {
+      pos = await Geolocator.getLastKnownPosition();
+    }
+    if (pos == null) return null;
+    return LatLng(pos.latitude, pos.longitude);
+  } catch (_) {
+    return null;
+  }
+});
+
+/// Pobočka, ze které má zákazník vyzvednout (nebo vyzvedl) motorku — vybere
+/// nejrelevantnější rezervaci (aktivní → nejbližší nadcházející zaplacenou).
+/// U přistavení (delivery) použije GPS místa přistavení. Výchozí start pro
+/// trasy „za body zájmu" bez povolené polohy.
+final pickupOriginProvider = Provider<LatLng?>((ref) {
+  final list = ref.watch(reservationsProvider).valueOrNull ?? const [];
+  Reservation? best;
+  for (final r in list) {
+    final s = r.displayStatus;
+    if (s == ResStatus.aktivni) {
+      best = r;
+      break;
+    }
+    if (s == ResStatus.nadchazejici && r.paymentStatus == 'paid') {
+      best ??= r;
+    }
+  }
+  if (best == null) return null;
+  if (best.pickupMethod == 'delivery' &&
+      best.pickupLat != null &&
+      best.pickupLng != null) {
+    return LatLng(best.pickupLat!, best.pickupLng!);
+  }
+  if (best.branchLat != null && best.branchLng != null) {
+    return LatLng(best.branchLat!, best.branchLng!);
+  }
+  return null;
+});
+
+/// Geometrie + start pro vykreslení trasy v appce.
+///
+/// Trasy „za body zájmu" (route_type='poi'):
+///   1) pokud je poloha povolená → nejrychlejší trasa BEZ DÁLNIC od aktuální polohy,
+///   2) jinak od pobočky vyzvednutí (z rezervace zákazníka),
+///   3) jinak od pobočky, ke které trasa patří.
+/// Okruhy (loop) zůstávají od pobočky trasy (cache geometrie z Velína / živý dopočet).
+final routeDisplayProvider =
+    FutureProvider.family<RouteDisplay, String>((ref, routeId) async {
   final data = await ref.watch(routesDataProvider.future);
   final route = data.routes.firstWhere(
     (r) => r.id == routeId,
     orElse: () => const RouteItem(id: '', name: ''),
   );
-  if (route.id.isEmpty) return <LatLng>[];
-  if (route.geometry.length >= 2) return route.geometry;
+  if (route.id.isEmpty) return const RouteDisplay(geometry: []);
 
-  final branch = route.branchId != null ? data.branches[route.branchId] : null;
-  final pts = orderedRoutePoints(route, branch);
-  if (pts.length < 2) return pts;
+  final routeBranch =
+      route.branchId != null ? data.branches[route.branchId] : null;
+  final routeBranchLatLng = routeBranch?.latLng;
 
+  if (route.routeType == 'poi') {
+    // 1) Od aktuální polohy (jen když už je povolená) — nejrychleji bez dálnic.
+    final myLoc = await ref.watch(currentLocationProvider.future);
+    if (myLoc != null) {
+      final pts = navPointsFrom(myLoc, route, null);
+      if (pts.length >= 2) {
+        final geo = await fetchMapyRoute(pts, avoidHighways: true);
+        return RouteDisplay(
+          geometry: geo ?? pts,
+          start: myLoc,
+          origin: RouteOrigin.currentLocation,
+        );
+      }
+    }
+    // 2) Od pobočky vyzvednutí (z rezervace), jinak od pobočky trasy.
+    final pickup = ref.watch(pickupOriginProvider);
+    final start = pickup ?? routeBranchLatLng;
+    if (start != null) {
+      final isRouteBranch = routeBranchLatLng != null &&
+          start.latitude == routeBranchLatLng.latitude &&
+          start.longitude == routeBranchLatLng.longitude;
+      final origin = (pickup != null && !isRouteBranch)
+          ? RouteOrigin.pickupBranch
+          : RouteOrigin.routeBranch;
+      // Start = pobočka trasy a máme předpočítanou geometrii → použij cache.
+      if (isRouteBranch && route.geometry.length >= 2) {
+        return RouteDisplay(
+            geometry: route.geometry, start: start, origin: origin);
+      }
+      final pts = navPointsFrom(start, route, null);
+      if (pts.length >= 2) {
+        final geo = await fetchMapyRoute(pts, avoidHighways: true);
+        return RouteDisplay(geometry: geo ?? pts, start: start, origin: origin);
+      }
+    }
+  }
+
+  // Okruh / fallback: stávající chování (start = pobočka trasy).
+  if (route.geometry.length >= 2) {
+    return RouteDisplay(geometry: route.geometry, start: routeBranchLatLng);
+  }
+  final pts = orderedRoutePoints(route, routeBranch);
+  if (pts.length < 2) {
+    return RouteDisplay(geometry: pts, start: routeBranchLatLng);
+  }
   final live = await fetchMapyRoute(pts);
-  return live ?? pts;
+  return RouteDisplay(geometry: live ?? pts, start: routeBranchLatLng);
 });
 
 /// Volání Mapy.com routing API. Vrací dekódovanou polyline nebo null.
-Future<List<LatLng>?> fetchMapyRoute(List<LatLng> points) async {
+/// `avoidHighways=true` → nejrychlejší trasa autem BEZ dálnic (parametr
+/// `avoidHighways` Mapy.com routing API).
+Future<List<LatLng>?> fetchMapyRoute(List<LatLng> points,
+    {bool avoidHighways = false}) async {
   if (points.length < 2) return null;
   final start = points.first;
   final end = points.last;
@@ -112,6 +262,7 @@ Future<List<LatLng>?> fetchMapyRoute(List<LatLng> points) async {
     'routeType': 'car_fast',
     'format': 'geojson',
   };
+  if (avoidHighways) params['avoidHighways'] = 'true';
   if (middle.isNotEmpty) {
     params['waypoints'] =
         middle.map((p) => '${p.longitude},${p.latitude}').join(';');

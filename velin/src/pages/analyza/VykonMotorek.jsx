@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import TimePeriodSelector, { filterByPeriod, hasMinimumData, diffDays } from './TimePeriodSelector'
+import { isRealizedBooking } from '../../lib/revenueUtils'
 
 const NoData = () => (
   <div className="p-6 text-center" style={{ background: '#fffbeb', borderRadius: 14, border: '1px solid #fde68a', color: '#854d0e', fontSize: 13 }}>
@@ -23,7 +24,7 @@ export default function VykonMotorek() {
     try {
       const [mRes, bRes] = await Promise.all([
         supabase.from('motorcycles').select('id, model, brand, category, purchase_price, branch_id, status'),
-        supabase.from('bookings').select('moto_id, start_date, end_date, total_price, status, created_at'),
+        supabase.from('bookings').select('moto_id, start_date, end_date, total_price, status, created_at, payment_status, is_test'),
       ])
       if (mRes.error) throw mRes.error
       if (bRes.error) throw bRes.error
@@ -36,7 +37,7 @@ export default function VykonMotorek() {
   if (!raw || raw.motorcycles.length === 0) return <div className="p-8 text-center" style={{ color: '#888' }}>Žádné motorky</div>
 
   const { motorcycles, bookings } = raw
-  const completed = filterByPeriod(bookings.filter(b => b.status === 'completed'), period, 'created_at')
+  const completed = filterByPeriod(bookings.filter(isRealizedBooking), period, 'created_at')
   const has3mo = hasMinimumData(bookings)
 
   let periodDays = 365

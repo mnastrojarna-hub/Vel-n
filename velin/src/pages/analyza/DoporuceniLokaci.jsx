@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { FLEET_CALC, calcLocationEconomics } from '../../lib/fleetCalc'
 import TimePeriodSelector, { filterByPeriod, diffDays } from './TimePeriodSelector'
+import { isRealizedBooking } from '../../lib/revenueUtils'
 
 function DataSourceBadge({ source, derivedFrom }) {
   if (source === 'real') return <span style={{ background: 'rgba(116,251,113,0.15)', color: '#166534', fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 99 }}>📊 Real data</span>
@@ -37,7 +38,7 @@ export default function DoporuceniLokaci() {
     try {
       const [lRes, bRes, mRes] = await Promise.all([
         supabase.from('branches').select('id, name, city, location, type'),
-        supabase.from('bookings').select('id, moto_id, start_date, end_date, total_price, status, created_at'),
+        supabase.from('bookings').select('id, moto_id, start_date, end_date, total_price, status, created_at, payment_status, is_test'),
         supabase.from('motorcycles').select('id, branch_id, category, model, purchase_price, status'),
       ])
       if (lRes.error) throw lRes.error; if (bRes.error) throw bRes.error; if (mRes.error) throw mRes.error
@@ -50,7 +51,7 @@ export default function DoporuceniLokaci() {
   if (!raw || raw.locations.length === 0) return <div className="p-8 text-center" style={{ color: '#888' }}>Žádné pobočky</div>
 
   const { locations, bookings, motorcycles } = raw
-  const completed = filterByPeriod(bookings.filter(b => b.status === 'completed'), period, 'created_at')
+  const completed = filterByPeriod(bookings.filter(isRealizedBooking), period, 'created_at')
 
   // Build real utilization map by branchType × category
   const realUtilByType = {}
