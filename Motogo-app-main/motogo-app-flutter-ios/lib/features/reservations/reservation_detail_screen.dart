@@ -59,6 +59,7 @@ class _DetailState extends ConsumerState<ReservationDetailScreen> {
     _refreshTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       ref.invalidate(reservationByIdProvider(widget.bookingId));
       ref.invalidate(doorCodesProvider(widget.bookingId));
+      ref.invalidate(handoverProtocolStateProvider(widget.bookingId));
     });
   }
 
@@ -66,6 +67,53 @@ class _DetailState extends ConsumerState<ReservationDetailScreen> {
   void dispose() {
     _refreshTimer?.cancel();
     super.dispose();
+  }
+
+  // Výrazné upozornění na detailu aktivní samoobslužné rezervace — dokud zákazník
+  // protokol nevyplní (can_fill). Po vyplnění/auto-fillu zmizí. Odpočet se obnovuje
+  // přes 5s refresh timer (invaliduje handoverProtocolStateProvider).
+  Widget _protocolBanner(BuildContext context, Reservation res) {
+    final async = ref.watch(handoverProtocolStateProvider(res.id));
+    final s = async.asData?.value ?? const <String, dynamic>{};
+    if (s['can_fill'] != true) return const SizedBox.shrink();
+    String remaining = '';
+    final deadline = DateTime.tryParse('${s['deadline'] ?? ''}')?.toLocal();
+    if (deadline != null) {
+      final d = deadline.difference(DateTime.now());
+      if (d.inMinutes >= 1) {
+        remaining = '${d.inMinutes} min';
+      } else if (d.inSeconds > 0) {
+        remaining = '<1 min';
+      }
+    }
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: GestureDetector(
+        onTap: () => context.push(Routes.protocol, extra: res),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(color: MotoGoColors.green, borderRadius: BorderRadius.circular(MotoGoTheme.radiusLg)),
+          child: Row(children: [
+            const Text('📝', style: TextStyle(fontSize: 24)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('Vyplňte předávací protokol',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Colors.black)),
+                const SizedBox(height: 2),
+                Text(
+                  remaining.isNotEmpty
+                      ? 'Zbývá $remaining — jinak ho vyplníme automaticky.'
+                      : 'Klepněte pro vyplnění protokolu o převzetí.',
+                  style: const TextStyle(fontSize: 12, color: Colors.black87),
+                ),
+              ]),
+            ),
+            const Icon(Icons.chevron_right, color: Colors.black),
+          ]),
+        ),
+      ),
+    );
   }
 
   @override
@@ -180,6 +228,10 @@ class _DetailState extends ConsumerState<ReservationDetailScreen> {
               ),
             ),
           ),
+
+          // ===== UPOZORNĚNÍ: vyplnit předávací protokol (samoobslužná) =====
+          if (res.branchType == 'samoobslužná' && st == ResStatus.aktivni)
+            SliverToBoxAdapter(child: _protocolBanner(context, res)),
 
           if (_activeTab == 'detail') ...[
             // ===== MOTORCYCLE IMAGE =====
