@@ -317,7 +317,9 @@ foreach ($days as $i => $day) {
 $pricesHtml = '<section class="moto-prices gr2"><div><h2>' . te('detail.priceTitle') . '</h2>' .
     '<p>' . te('detail.priceLead') . '</p>';
 if ($priceRows) $pricesHtml .= renderTable([t('detail.priceHeaderDay'), t('detail.priceHeaderPrice')], $priceRows);
-$pricesHtml .= '<p>' . t('detail.priceIncludes') . '</p></div>';
+// Vozík/přívěs (is_trailer) se půjčuje samostatně bez výbavy — větu „V ceně je zahrnuta výbava…" nezobrazujeme.
+if (empty($moto['is_trailer'])) $pricesHtml .= '<p>' . t('detail.priceIncludes') . '</p>';
+$pricesHtml .= '</div>';
 
 // Kalendář — zůstane jako JS (interaktivní komponenta), labely propagujeme do JS.
 // Min. délka pronájmu se NEZOBRAZUJE pod kalendářem — uživatel ji vidí v tabulce
