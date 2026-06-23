@@ -11,6 +11,7 @@ const NAV = [
   { id: 'finance', path: '/finance', label: 'Finance', icon: '💰' },
   { id: 'documents', path: '/dokumenty', label: 'Dokumenty', icon: '📄' },
   { id: 'branches', path: '/pobocky', label: 'Pobočky', icon: '🏢' },
+  { id: 'logistics', path: '/logistika', label: 'Logistika zboží', icon: '📦', badgeKey: 'gear' },
   { id: 'trasy', path: '/trasy', label: 'Trasy', icon: '🛣️' },
   { id: 'service', path: '/servis', label: 'Servis', icon: '🔧' },
   { id: 'messages', path: '/zpravy', label: 'Zprávy', icon: '💬', badgeKey: 'messages' },
@@ -50,7 +51,7 @@ const Logo = ({ size = 44 }) => (
 export default function Sidebar({ admin, onSignOut }) {
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [badges, setBadges] = useState({ messages: 0, sos: 0 })
+  const [badges, setBadges] = useState({ messages: 0, sos: 0, gear: 0 })
   const location = useLocation()
   const navigate = useNavigate()
 
@@ -62,19 +63,21 @@ export default function Sidebar({ admin, onSignOut }) {
     const channel = supabase.channel('sidebar-badges')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => loadBadges())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'sos_incidents' }, () => loadBadges())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'gear_shortages' }, () => loadBadges())
       .subscribe()
     return () => { clearInterval(interval); supabase.removeChannel(channel) }
   }, [])
 
   async function loadBadges() {
     try {
-      const [msgRes, sosRes] = await Promise.all([
+      const [msgRes, sosRes, gearRes] = await Promise.all([
         supabase.from('messages').select('id', { count: 'exact', head: true }).eq('direction', 'customer').is('read_at', null),
         supabase.from('sos_incidents').select('id', { count: 'exact', head: true }).in('status', ['reported', 'acknowledged', 'in_progress']),
+        supabase.from('gear_shortages').select('id', { count: 'exact', head: true }).eq('status', 'open'),
       ])
-      setBadges({ messages: msgRes.count || 0, sos: sosRes.count || 0 })
+      setBadges({ messages: msgRes.count || 0, sos: sosRes.count || 0, gear: gearRes.count || 0 })
     } catch {
-      setBadges({ messages: 0, sos: 0 })
+      setBadges({ messages: 0, sos: 0, gear: 0 })
     }
   }
 
@@ -144,8 +147,8 @@ export default function Sidebar({ admin, onSignOut }) {
                 <span className="flex items-center justify-center shrink-0"
                   style={{
                     minWidth: 18, height: 18, borderRadius: 9,
-                    background: item.badgeKey === 'sos' ? '#dc2626' : '#74FB71',
-                    color: item.badgeKey === 'sos' ? '#fff' : '#1a2e22',
+                    background: (item.badgeKey === 'sos' || item.badgeKey === 'gear') ? '#dc2626' : '#74FB71',
+                    color: (item.badgeKey === 'sos' || item.badgeKey === 'gear') ? '#fff' : '#1a2e22',
                     fontSize: 9, fontWeight: 800, padding: '0 5px',
                   }}>
                   {badges[item.badgeKey]}
