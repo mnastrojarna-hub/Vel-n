@@ -166,6 +166,19 @@ const TEMPLATE_META = {
     attachments: 'Faktura HTML v příloze',
     info: 'E-mail s konečnou fakturou za e-shop objednávku. Odesílá se při expedici fyzického zboží nebo poukazu z Velínu.',
   },
+  // Předávací / škodní protokoly — ručně z detailu rezervace
+  handover_protocol_sent: {
+    category: 'other', categoryLabel: 'Ostatní',
+    trigger: 'Ručně po uložení el. předávacího protokolu (Velín → Rezervace → Dokumenty)',
+    attachments: 'Předávací protokol (PDF/HTML v příloze)',
+    info: 'Odešle se zákazníkovi po uložení elektronického předávacího protokolu, když operátor potvrdí odeslání. Samotný podepsaný protokol jde v příloze.',
+  },
+  damage_protocol_sent: {
+    category: 'other', categoryLabel: 'Ostatní',
+    trigger: 'Ručně po uložení el. protokolu o poškození (Velín → Rezervace → Dokumenty)',
+    attachments: 'Protokol o poškození (PDF/HTML v příloze)',
+    info: 'Odešle se zákazníkovi po uložení elektronického protokolu o poškození, když operátor potvrdí odeslání. Samotný podepsaný protokol jde v příloze.',
+  },
   // Web varianty
   web_booking_reserved: { category: 'reservation', categoryLabel: 'Rezervace', trigger: 'Web platba', attachments: 'ZF, DP, Smlouva, VOP', info: 'Web varianta potvrzení rezervace. Pokud neexistuje, použije se booking_reserved.' },
   web_booking_modified: { category: 'reservation', categoryLabel: 'Rezervace', trigger: 'Úprava rezervace na webu (apply_booking_changes RPC)', attachments: 'ZF, DP, Smlouva, VOP, Dobropis', info: 'Web varianta úpravy rezervace. Posílá se po UPDATE bookings z webu (apply_booking_changes / shorten_booking_with_refund). Pokud neexistuje, použije se booking_modified. DB trigger pokrývá všechny kanály (Velín, web, app, AI agent) jednotně.' },
