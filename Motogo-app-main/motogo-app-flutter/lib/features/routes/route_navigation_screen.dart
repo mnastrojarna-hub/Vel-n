@@ -33,6 +33,12 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
   bool _locating = true;
   bool _denied = false;
 
+  // Živá trasa od aktuální polohy — nejrychlejší BEZ dálnic (Mapy.com routing).
+  RouteItem? _route;
+  RouteBranch? _branch;
+  List<LatLng>? _navGeo;
+  bool _navLoading = false;
+
   @override
   void initState() {
     super.initState();
@@ -64,6 +70,7 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
           final z = _ctrl.camera.zoom;
           _ctrl.move(me, z < 14 ? 16 : z);
         }
+        _maybeComputeNav();
       });
     } catch (_) {
       // bez streamu zkus aspoň jednorázovou polohu
@@ -71,8 +78,34 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
       if (mounted && p != null) {
         setState(() => _me = LatLng(p.latitude, p.longitude));
         if (_follow) _ctrl.move(_me!, 16);
+        _maybeComputeNav();
       }
     }
+  }
+
+  /// Spočte živou trasu od aktuální polohy přes body trasy — nejrychleji BEZ
+  /// dálnic (Mapy.com routing). Počítá se jen jednou (po prvním GPS fixu).
+  Future<void> _maybeComputeNav() async {
+    if (_navLoading || _navGeo != null) return;
+    final me = _me;
+    final route = _route;
+    if (me == null || route == null) return;
+    _navLoading = true;
+    final loopBack = route.isLoop ? _branch?.latLng : null;
+    final pts = navPointsFrom(me, route, loopBack);
+    if (pts.length < 2) {
+      _navLoading = false;
+      return;
+    }
+    final geo = await fetchMapyRoute(pts, avoidHighways: true);
+    if (!mounted) {
+      _navLoading = false;
+      return;
+    }
+    setState(() {
+      _navGeo = geo ?? pts;
+      _navLoading = false;
+    });
   }
 
   @override
@@ -103,8 +136,15 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
           );
           if (route.id.isEmpty) return _exit(context);
           final branch = route.branchId != null ? data.branches[route.branchId] : null;
-          final geoAsync = ref.watch(routeGeometryProvider(route.id));
-          final geometry = geoAsync.valueOrNull ?? route.geometry;
+          _route = route;
+          _branch = branch;
+          if (_me != null && _navGeo == null && !_navLoading) {
+            WidgetsBinding.instance.addPostFrameCallback((_) => _maybeComputeNav());
+          }
+          final displayAsync = ref.watch(routeDisplayProvider(route.id));
+          final baseGeometry = displayAsync.valueOrNull?.geometry ?? route.geometry;
+          // Po prvním GPS fixu navigujeme po živé trase od polohy (bez dálnic).
+          final geometry = _navGeo ?? baseGeometry;
           return _content(context, route, branch, geometry, lang);
         },
       ),
