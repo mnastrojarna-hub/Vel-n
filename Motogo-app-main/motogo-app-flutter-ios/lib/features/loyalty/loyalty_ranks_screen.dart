@@ -12,6 +12,10 @@ import 'loyalty_provider.dart';
 import 'loyalty_levels_provider.dart';
 import 'loyalty_leaderboard_section.dart';
 
+/// Od tohoto ranku má zákazník veškerou výbavu i obuv (vč. spolujezdce) zdarma
+/// — shodné s `loyaltyFreeGearLevel` v booking_models.dart.
+const _gearBenefitLevel = 3;
+
 /// Celostránkový animovaný přehled věrnostních ranků.
 ///
 /// Otevírá se klepnutím na „ikonu ranku" (MG logo s prstencem) v hlavičce.
@@ -435,6 +439,28 @@ class _RankTile extends StatelessWidget {
                     color: Colors.white.withValues(alpha: 0.5),
                   ),
                 ),
+                // Od 3. ranku: výbava spolujezdce i veškerá obuv zdarma.
+                if (level.level >= _gearBenefitLevel) ...[
+                  const SizedBox(height: 3),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('🎒 ', style: TextStyle(fontSize: 10.5)),
+                      Expanded(
+                        child: Text(
+                          tr('loyaltyGearBenefit'),
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: isLocked
+                                ? MotoGoColors.green.withValues(alpha: 0.5)
+                                : MotoGoColors.green,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),
@@ -565,6 +591,7 @@ class _RulesCard extends StatelessWidget {
       tr('loyaltyRulePoints'),
       tr('loyaltyRuleLong'),
       tr('loyaltyRuleLevel'),
+      tr('loyaltyRuleGear'),
       tr('loyaltyRuleAppOnly'),
       tr('loyaltyRuleCombo'),
     ];
