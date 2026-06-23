@@ -51,7 +51,7 @@ Detailní politiky:
 ### Doplněno 2026-06-04 ze snapshotu (96 tabulek má RLS; dříve nezdokumentované)
 Ověřené vzory z živého schématu (`schema_public.sql`):
 
-- **Admin-only `FOR ALL USING (is_admin())`** (účetnictví / finance / nákup / konfigurace / logy): `acc_depreciation_entries`, `acc_liabilities`, `acc_long_term_assets`, `acc_payrolls`, `acc_short_term_assets`, `acc_tax_returns`, `acc_vat_returns`, `accounting_entries`, `accounting_exceptions`, `approval_queue`, `flexi_reports`, `flexi_sync_log`, `cash_register`, `tax_records`, `daily_stats`, `branch_performance`, `moto_performance`, `predictions`, `automation_rules`, `auto_order_rules`, `notification_rules`, `notification_log`, `sent_emails`, `suppliers`, `purchase_orders`, `purchase_order_items`, `inventory_movements`, `broadcast_campaigns`, `ai_logs`.
+- **Admin-only `FOR ALL USING (is_admin())`** (účetnictví / finance / nákup / konfigurace / logy): `acc_depreciation_entries`, `acc_liabilities`, `acc_long_term_assets`, `acc_payrolls`, `acc_short_term_assets`, `acc_tax_returns`, `acc_vat_returns`, `accounting_entries`, `accounting_exceptions`, `approval_queue`, `flexi_reports`, `flexi_sync_log`, `cash_register`, `tax_records`, `daily_stats`, `branch_performance`, `moto_performance`, `predictions`, `automation_rules`, `auto_order_rules`, `notification_rules`, `notification_log`, `sent_emails`, `suppliers`, `purchase_orders`, `purchase_order_items`, `inventory_movements`, `broadcast_campaigns`, `ai_logs`, `gear_shortages` (**NEW 2026-06-23**, Logistika zboží — `gear_shortages_admin_all`).
 - **Public/anyone SELECT + admin write** (číselníky/šablony/CMS): `message_templates` (SELECT true, write is_admin), `accessory_types` (Public read + Admin full), `pricing_rules`, `feature_flags`, `cms_pages` (read true / write is_admin), `loyalty_levels` (**NEW 2026-06-11** — Public read + Admin write; věrnostní ranky pro app).
 - **Logy aplikace — admin SELECT + vlastní/anon INSERT:** `app_crash_reports` (admin ALL + INSERT WHERE user_id IS NULL OR =auth.uid()), `app_debug_logs` (dtto), `visitor_log` (admin SELECT + INSERT TO anon,authenticated WITH CHECK true).
 - **`admin_audit_log`:** admin SELECT + admin INSERT + **superadmin DELETE** (`is_superadmin()`).
@@ -75,6 +75,7 @@ Ověřené vzory z živého schématu (`schema_public.sql`):
 - `invoices`
 - `vouchers`
 - `faq_items`
+- `gear_shortages` (**NEW 2026-06-23** — badge počtu otevřených deficitů ve Velín sidebaru → Logistika zboží)
 
 ---
 
