@@ -75,7 +75,9 @@ class _BookingFormBodyState extends ConsumerState<BookingFormBody> {
                 bookingLicenseSection(context, err),
                 _pickupSection(draft),
                 _returnSection(draft),
-                _extrasSection(draft, moto),
+                // Vozík/přívěs se půjčuje samostatně bez výbavy (boty, oblečení…),
+                // proto u něj krok „VÝBAVA A DOPLŇKY" nezobrazujeme.
+                if (!moto.isTrailer) _extrasSection(draft, moto),
                 // Price summary
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
