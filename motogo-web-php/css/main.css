@@ -104,4 +104,4 @@ p>.btn:last-child{margin-bottom:0}
 .header-app-note a{color:#0d6e0d;font-weight:700;text-decoration:underline;word-break:break-word}
 .header-app-loyalty{margin:.85rem 0 0;padding-top:.7rem;border-top:1px solid #e3ece8;font-size:.74rem;line-height:1.5;color:#3a4d42}
 .header-app-loyalty strong{color:#1a2e22}
-@media (max-width:560px){.header-app-label{display:none}.header-app-btn{padding:.3rem .5rem}.header-app-pop{width:288px;max-width:88vw;padding:.85rem}.header-app-qr{width:104px;height:104px}}
+@media (max-width:560px){.header-app-label{display:none}.header-app-btn{padding:.3rem .5rem}.header-app{position:static}.header-app-pop{position:fixed;top:54px;left:8px;right:8px;width:auto;max-width:none;max-height:calc(100vh - 66px);overflow-y:auto;padding:.85rem}.header-app-pop::before{display:none}.header-app-qr{width:104px;height:104px}}
