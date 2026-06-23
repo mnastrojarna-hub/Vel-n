@@ -45,7 +45,10 @@ function visitorIsHumanBrowser($ua) {
     return (bool) preg_match(
         '/(Chrome|CriOS|Chromium|Firefox|FxiOS|Safari|Edg|EdgA|EdgiOS|OPR|Opera|OPiOS|'
         . 'SamsungBrowser|YaBrowser|Vivaldi|Brave|DuckDuckGo|UCBrowser|MiuiBrowser|'
-        . 'HuaweiBrowser|SeaMonkey|Maxthon|Trident|MSIE)/',
+        . 'HuaweiBrowser|SeaMonkey|Maxthon|Trident|MSIE|'
+        // In-app prohlížeče reálných lidí (FB/IG/Google app/WeChat/Snapchat) —
+        // jejich UA často nemá Chrome/Safari token, ale jsou to skuteční návštěvníci.
+        . 'Instagram|FBAN|FBAV|FB_IAB|FBIOS|FB4A|MicroMessenger|GSA|Snapchat)/',
         $ua
     );
 }
