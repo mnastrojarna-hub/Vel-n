@@ -121,6 +121,7 @@
 | Tabulka | Popis |
 |---------|-------|
 | `accounting_entries` | Účetní záznamy — reálné sloupce viz STATE_2 (type = ENUM `entry_type`, **category NOT NULL**) |
+| `document_number_counters` | **NEW 2026-06-23 (`20260623_atomic_document_numbering.sql`)** — Atomický čítač číselných řad dokladů. Sloupce: `prefix` text, `year` int, `last_seq` int DEFAULT 0, PK(`prefix`,`year`). Plní fce `next_document_number(prefix)` (viz STATE_3) — řeší duplicity (bug report: dvojité `DB-2026-0001`), které vznikaly neatomickým `MAX(seq)+1`. Pojistka: UNIQUE index `invoices_number_unique` na `invoices.number`. |
 | `cash_register` | Pokladna |
 | `tax_records` | Daňové záznamy |
 | `daily_stats` | Denní statistiky |
