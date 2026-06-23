@@ -1,4 +1,5 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
+import { encode as base64Encode } from 'https://deno.land/std@0.177.0/encoding/base64.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { requireAdminOrService, forbidden } from '../_shared/auth.ts'
 
@@ -86,9 +87,11 @@ function wrapInBrandedLayout(bodyHtml: string): string {
 </body></html>`
 }
 
+type Attachment = { filename: string; content: string }
+
 /** Send email via Resend with 2 retries (exponential backoff) */
 async function sendWithRetry(
-  emailData: { from: string; to: string; subject: string; html: string },
+  emailData: { from: string; to: string; subject: string; html: string; reply_to?: string; attachments?: Attachment[] },
 ): Promise<{ success: boolean; provider_id?: string; error?: string }> {
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
@@ -143,6 +146,10 @@ serve(async (req) => {
       channel,
       type,
       invoice_id,
+      // Přílohy: buď přímo base64 ({filename, content}), nebo cesty v bucketu `documents`
+      // ({filename, path}) — ty se zde stáhnou a zakódují do base64.
+      attachments: inlineAttachments = [],
+      attachment_paths = [],
     } = body
 
     // If called with type='invoice' + invoice_id, delegate to invoice logic
@@ -209,8 +216,24 @@ serve(async (req) => {
       return jsonResponse({ success: false, error: 'RESEND_API_KEY not configured' }, 500)
     }
 
+    // Resolve attachments (inline base64 + storage paths z bucketu `documents`)
+    const attachments: Attachment[] = []
+    for (const a of (Array.isArray(inlineAttachments) ? inlineAttachments : [])) {
+      if (a?.filename && a?.content) attachments.push({ filename: a.filename, content: a.content })
+    }
+    for (const a of (Array.isArray(attachment_paths) ? attachment_paths : [])) {
+      if (!a?.path) continue
+      try {
+        const { data: file, error: dlErr } = await supabase.storage.from('documents').download(a.path)
+        if (dlErr || !file) continue
+        const buf = new Uint8Array(await file.arrayBuffer())
+        const filename = a.filename || a.path.split('/').pop() || 'priloha'
+        attachments.push({ filename, content: base64Encode(buf) })
+      } catch (e) { /* příloha se nepřipojí, e-mail přesto odejde */ }
+    }
+
     // Send via Resend
-    const result = await sendWithRetry({ from: FROM_EMAIL, reply_to: REPLY_TO, to, subject, html })
+    const result = await sendWithRetry({ from: FROM_EMAIL, reply_to: REPLY_TO, to, subject, html, attachments: attachments.length ? attachments : undefined })
 
     // Log to message_log (channel=email)
     try {

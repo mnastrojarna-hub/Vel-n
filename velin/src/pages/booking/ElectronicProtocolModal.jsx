@@ -5,7 +5,7 @@ import Modal from '../../components/ui/Modal'
 import Button from '../../components/ui/Button'
 import SignaturePad from '../../components/ui/SignaturePad'
 import { buildDocVars, listAccessoryItems } from './bookingDocTemplates'
-import { buildElectronicProtocolHtml, HANDOVER_CHECKS, DAMAGE_CHECKS } from './bookingDocElectronic'
+import { buildElectronicProtocolHtml, HANDOVER_CHECKS, EXTRA_GEAR_CHECKS, DAMAGE_CHECKS } from './bookingDocElectronic'
 
 // Elektronický předávací protokol / protokol o poškození — vyplnění na tabletu
 // (checkboxy + volný text) a podpis perem. Uloží podepsané HTML do generated_documents.
@@ -40,7 +40,8 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
       setMileage(isDamage ? '' : (booking.mileage_start ? String(booking.mileage_start) : ''))
       setAccessories(listAccessoryItems(booking, booking.motorcycles || {}).map(i => ({ ...i, checked: true })))
       const init = {}
-      ;(isDamage ? DAMAGE_CHECKS : HANDOVER_CHECKS).forEach(d => { init[d.key] = isDamage ? { checked: false, note: '' } : false })
+      if (isDamage) { DAMAGE_CHECKS.forEach(d => { init[d.key] = { checked: false, note: '' } }) }
+      else { [...HANDOVER_CHECKS, ...EXTRA_GEAR_CHECKS].forEach(d => { init[d.key] = false }) }
       setChecks(init)
       setVisualState(''); setNotes(''); setDamageDesc(''); setMissingGear('')
     } catch (e) { setError(e.message) }
@@ -65,8 +66,9 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
       const filled = { ...vars, _signed_html: html, _doc_name: docName, _doc_type: type, _electronic: true, _signed_at: new Date().toISOString() }
       const { error: gErr } = await supabase.from('generated_documents').insert({ id: docId, template_id: null, booking_id: bookingId, customer_id: vars._customer_id, filled_data: filled, pdf_path: null })
       if (gErr) throw gErr
-      try { const finalPath = await uploadHtmlAsPdf(supabase, `generated/${bookingId}/${type}-${docId}.pdf`, html); await supabase.from('generated_documents').update({ pdf_path: finalPath }).eq('id', docId) } catch {}
-      onSaved && onSaved(html)
+      let pdfPath = null
+      try { pdfPath = await uploadHtmlAsPdf(supabase, `generated/${bookingId}/${type}-${docId}.pdf`, html); await supabase.from('generated_documents').update({ pdf_path: pdfPath }).eq('id', docId) } catch {}
+      onSaved && onSaved({ html, type, docId, pdfPath, docName, bookingId, customerId: vars._customer_id, customerEmail: vars.customer_email || '', customerName: vars.customer_name || '', moto: `${vars.moto_model || ''}${vars.moto_spz ? ` (${vars.moto_spz})` : ''}`, rentalPeriod: vars.rental_period || '', bookingNumber: vars.booking_number || '' })
     } catch (e) { setError('Uložení selhalo: ' + e.message) }
     setSaving(false)
   }
@@ -106,6 +108,20 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
               <h3 className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>Kontrola předání</h3>
               <div className="space-y-2">
                 {HANDOVER_CHECKS.map(c => (
+                  <label key={c.key} className="flex items-center gap-3 p-2 rounded-lg" style={{ background: '#f8faf9' }}>
+                    <input type="checkbox" checked={!!checks[c.key]} onChange={() => toggleHandover(c.key)} style={cbStyle} />
+                    <span style={labelStyle}>{c.label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {!isDamage && (
+            <div>
+              <h3 className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>Doplňkové vybavení</h3>
+              <div className="space-y-2">
+                {EXTRA_GEAR_CHECKS.map(c => (
                   <label key={c.key} className="flex items-center gap-3 p-2 rounded-lg" style={{ background: '#f8faf9' }}>
                     <input type="checkbox" checked={!!checks[c.key]} onChange={() => toggleHandover(c.key)} style={cbStyle} />
                     <span style={labelStyle}>{c.label}</span>
@@ -166,8 +182,8 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
             </div>
           )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-            <SignaturePad ref={operSig} label="Podpis pronajímatele (volitelné)" />
+          <div className={`grid grid-cols-1 ${isDamage ? 'sm:grid-cols-2' : ''} gap-4 pt-2`}>
+            {isDamage && <SignaturePad ref={operSig} label="Podpis pronajímatele (volitelné)" />}
             <SignaturePad ref={custSig} label={`Podpis nájemce — ${vars?.customer_name || ''}`} />
           </div>
 
