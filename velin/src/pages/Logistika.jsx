@@ -167,6 +167,7 @@ function WorklistTab({ branchName }) {
   const [loading, setLoading] = useState(true)
   const [showDone, setShowDone] = useState(false)
   const [busy, setBusy] = useState(null)
+  const [transferFor, setTransferFor] = useState(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -181,8 +182,9 @@ function WorklistTab({ branchName }) {
 
   useEffect(() => { load() }, [load])
 
-  async function recompute(branchId, date) {
-    await supabase.rpc('detect_gear_shortages_for_window', { p_branch_id: branchId, p_from: date, p_to: date })
+  async function recompute(branchId) {
+    const horizon = addDaysIso(120)
+    await supabase.rpc('detect_gear_shortages_for_window', { p_branch_id: branchId, p_from: todayIso(), p_to: horizon })
   }
 
   async function fillFromWarehouse(it) {
@@ -197,7 +199,22 @@ function WorklistTab({ branchName }) {
       if (row) await supabase.from('branch_accessories').update({ quantity: (row.quantity || 0) + qty }).eq('id', row.id)
       else await supabase.from('branch_accessories').insert({ branch_id: it.branch_id, type: it.accessory_type, size: it.size, quantity: qty })
       await supabase.from('gear_shortages').update({ status: 'warehouse_filled', updated_at: new Date().toISOString() }).eq('id', it.id)
-      await recompute(it.branch_id, it.shortage_date)
+      await recompute(it.branch_id)
+    } finally { setBusy(null); load() }
+  }
+
+  async function createOrder(it) {
+    setBusy(it.id)
+    try {
+      const { data, error } = await supabase.rpc('create_gear_purchase_order', { p_shortage_id: it.id, p_qty: null })
+      if (error) { alert('Chyba: ' + error.message); return }
+      if (!data?.success) {
+        if (data?.error === 'no_inventory_item') alert(`Položka „${data.sku}" není v centrálním skladu — nejdřív ji založ v Sklady.`)
+        else if (data?.error === 'no_supplier') alert('U skladové položky chybí dodavatel — doplň ho v Sklady a zkus znovu.')
+        else alert('Objednávku nelze vytvořit: ' + (data?.error || 'neznámá chyba'))
+        return
+      }
+      alert(`Vytvořena objednávka ${data.order_number} (draft). Odeslání dodavateli dokončíš v Nákupy.`)
     } finally { setBusy(null); load() }
   }
 
@@ -241,8 +258,10 @@ function WorklistTab({ branchName }) {
                   {STATUS_LABELS[it.status] || it.status}
                 </span>
                 {['open', 'warehouse_filled', 'transfer_requested', 'order_created'].includes(it.status) && (
-                  <div className="flex gap-1.5">
+                  <div className="flex gap-1.5 flex-wrap">
                     <ActBtn disabled={busy === it.id} color="#0ea5e9" onClick={() => fillFromWarehouse(it)}>Doplnit ze skladu</ActBtn>
+                    <ActBtn disabled={busy === it.id} color="#8b5cf6" onClick={() => setTransferFor(it)}>Přesunout z pobočky</ActBtn>
+                    <ActBtn disabled={busy === it.id} color="#f59e0b" onClick={() => createOrder(it)}>Vytvořit objednávku</ActBtn>
                     <ActBtn disabled={busy === it.id} color="#16a34a" onClick={() => setStatus(it, 'resolved')}>Vyřešeno</ActBtn>
                     <ActBtn disabled={busy === it.id} color="#64748b" onClick={() => setStatus(it, 'dismissed')}>Zamítnout</ActBtn>
                   </div>
@@ -251,10 +270,72 @@ function WorklistTab({ branchName }) {
             ))}
           </div>
         )}
-      <div className="text-xs mt-3" style={{ color: '#1a2e22', opacity: 0.5 }}>
-        Přesun z jiné pobočky a automatická objednávka dodavateli — připravujeme (Fáze 2/3).
-      </div>
+      {transferFor && (
+        <TransferModal it={transferFor} onClose={() => setTransferFor(null)} onDone={() => { setTransferFor(null); load() }} />
+      )}
     </Card>
+  )
+}
+
+// ─── Modal: přesun z jiné pobočky ───────────────────────────────────
+function TransferModal({ it, onClose, onDone }) {
+  const [sources, setSources] = useState(null)
+  const [qty, setQty] = useState(it.deficit_qty)
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    const horizon = addDaysIso(120)
+    supabase.rpc('find_gear_surplus_branches', {
+      p_type: it.accessory_type, p_size: it.size, p_from: it.shortage_date, p_to: horizon, p_exclude_branch: it.branch_id,
+    }).then(({ data, error }) => setSources(error ? [] : (data || [])))
+  }, [it])
+
+  async function transfer(src) {
+    const n = Math.min(qty, src.free_qty, it.deficit_qty)
+    if (n <= 0) return
+    setBusy(true)
+    const { data, error } = await supabase.rpc('transfer_branch_gear', {
+      p_from_branch: src.branch_id, p_to_branch: it.branch_id,
+      p_type: it.accessory_type, p_size: it.size, p_qty: n, p_shortage_id: it.id,
+    })
+    setBusy(false)
+    if (error || !data?.success) { alert('Přesun selhal: ' + (error?.message || data?.error || '')); return }
+    onDone()
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,.5)' }} onClick={onClose}>
+      <div className="rounded-card" style={{ background: '#fff', padding: 20, width: 'min(92vw, 440px)' }} onClick={e => e.stopPropagation()}>
+        <div className="text-base font-black mb-1" style={{ color: '#0f1a14' }}>
+          Přesun: {(TYPE_LABELS[it.accessory_type] || it.accessory_type)} {it.size}
+        </div>
+        <div className="text-xs mb-3" style={{ color: '#1a2e22', opacity: 0.7 }}>
+          Cíl: {it.branches?.name} · {fmtDay(it.shortage_date)} · chybí {it.deficit_qty} ks
+        </div>
+        <div className="flex items-center gap-2 mb-3">
+          <label className="text-sm font-bold" style={{ color: '#1a2e22' }}>Počet</label>
+          <input type="number" min={1} max={it.deficit_qty} value={qty}
+            onChange={e => setQty(Math.max(1, Number(e.target.value) || 1))}
+            className="rounded-btn text-sm outline-none w-20" style={{ padding: '5px 8px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
+        </div>
+        {sources === null ? <div className="py-4 text-center text-sm" style={{ opacity: 0.5 }}>Hledám přebytky…</div>
+          : sources.length === 0 ? <div className="py-4 text-center text-sm" style={{ color: '#dc2626' }}>Žádná pobočka nemá v termínu volný kus — vytvoř objednávku.</div>
+          : (
+            <div className="flex flex-col gap-1.5">
+              {sources.map(s => (
+                <div key={s.branch_id} className="flex items-center gap-3 rounded-btn" style={{ padding: '8px 12px', background: '#f9fdfb', border: '1px solid #e2eee8' }}>
+                  <div className="flex-1">
+                    <div className="text-sm font-bold" style={{ color: '#0f1a14' }}>{s.branch_name}</div>
+                    <div className="text-xs" style={{ color: '#16a34a' }}>volných {s.free_qty} ks</div>
+                  </div>
+                  <ActBtn disabled={busy} color="#8b5cf6" onClick={() => transfer(s)}>Přesunout {Math.min(qty, s.free_qty, it.deficit_qty)} ks</ActBtn>
+                </div>
+              ))}
+            </div>
+          )}
+        <button onClick={onClose} className="mt-4 text-sm font-bold cursor-pointer" style={{ background: 'none', border: 'none', color: '#64748b' }}>Zavřít</button>
+      </div>
+    </div>
   )
 }
 
