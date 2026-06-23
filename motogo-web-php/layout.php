@@ -169,7 +169,7 @@ function renderFooter() {
     '<div class="footer-partners"><div class="container">' .
         '<span class="footer-partners-label">' . tc('footer.partnersTitle') . '</span>' .
         '<a class="footer-partner" href="https://www.kudyznudy.cz/?utm_source=kzn&amp;utm_medium=partneri_kzn&amp;utm_campaign=banner" target="_blank" rel="noopener" aria-label="Kudy z nudy"><img src="https://www.kudyznudy.cz/getmedia/e258ea1e-6a92-4443-940f-fdafe8da106e/1012102023-online-bannery-hq-180x150.jpg.aspx" alt="Kudyznudy.cz – nejlepší začátek výletu" loading="lazy" width="180" height="150"></a>' .
-        '<a class="footer-partner" href="https://www.tripadvisor.com/Attraction_Review-g1600819-d34461468-Reviews-MotoGo24-Pelhrimov_Vysocina_Region_Moravia.html" target="_blank" rel="noopener" aria-label="MotoGo24 na Tripadvisoru"><img src="' . BASE_URL . '/gfx/tripadvisor-footer.svg" alt="MotoGo24 na Tripadvisoru" loading="lazy" width="180" height="150"></a>' .
+        '<div class="footer-partner footer-partner-ta"><div id="TA_rated863" class="TA_rated"><ul id="AKTO3nY" class="TA_links ewSpz5"><li id="gRjuuxDtbpg" class="JzvG62adkG6"><a target="_blank" href="https://www.tripadvisor.com.au/Attraction_Review-g1600819-d34461468-Reviews-MotoGo24-Pelhrimov_Vysocina_Region_Moravia.html"><img src="https://www.tripadvisor.com.au/img/cdsi/img2/badges/ollie-11424-2.gif" alt="TripAdvisor"/></a></li></ul></div><script async src="https://www.jscache.com/wejs?wtype=rated&amp;uniq=863&amp;locationId=34461468&amp;lang=en_AU&amp;display_version=2" data-loadtrk onload="this.loadtrk=true"></script></div>' .
     '</div></div>' .
     '<div class="copyright"><div class="container">' .
         '<p>' . tc('footer.copyright') . '</p>' .
