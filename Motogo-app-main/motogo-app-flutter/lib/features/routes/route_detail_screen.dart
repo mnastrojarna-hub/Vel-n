@@ -48,8 +48,10 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
   }
 
   Widget _content(BuildContext context, RouteItem route, RouteBranch? branch, String lang) {
-    final geoAsync = ref.watch(routeGeometryProvider(route.id));
-    final geometry = geoAsync.valueOrNull ?? route.geometry;
+    final displayAsync = ref.watch(routeDisplayProvider(route.id));
+    final display = displayAsync.valueOrNull;
+    final geometry = display?.geometry ?? route.geometry;
+    final mapStart = display?.start ?? branch?.latLng;
     final poiMarkers = <({LatLng point, int index})>[];
     for (var i = 0; i < route.pois.length; i++) {
       final ll = route.pois[i].latLng;
@@ -68,7 +70,7 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
                 Positioned.fill(
                   child: RouteMapView(
                     geometry: geometry,
-                    start: branch?.latLng,
+                    start: mapStart,
                     pois: poiMarkers,
                     activePoi: _activePoi,
                     onPoiTap: (i) {
@@ -77,11 +79,11 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
                     },
                   ),
                 ),
-                if (geoAsync.isLoading && route.geometry.isEmpty)
-                  const Positioned(
+                if (displayAsync.isLoading && geometry.length < 2)
+                  Positioned(
                     top: 12,
                     right: 12,
-                    child: _MapLoadingChip(),
+                    child: _MapLoadingChip(label: t(context).tr('routeNavComputing')),
                   ),
                 // Back button
                 Positioned(
@@ -333,43 +335,66 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       decoration: BoxDecoration(color: Colors.white, boxShadow: MotoGoShadows.stickyBar),
-      child: SizedBox(
-        height: 52,
-        child: PressableScale(
-          pressedScale: 0.97,
-          onTap: () => _openExportSheet(context, route, branch),
-          child: ShimmerSweep(
-            borderRadius: BorderRadius.circular(MotoGoRadius.pill),
-            child: Container(
-              decoration: BoxDecoration(
-                color: MotoGoColors.green,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Primární: navigace PŘÍMO v aplikaci přes Mapy.com (auto-navigace).
+          SizedBox(
+            height: 52,
+            child: PressableScale(
+              pressedScale: 0.97,
+              onTap: () => context.push('/route-nav/${route.id}'),
+              child: ShimmerSweep(
                 borderRadius: BorderRadius.circular(MotoGoRadius.pill),
-                boxShadow: [
-                  BoxShadow(color: MotoGoColors.green.withValues(alpha: 0.4), blurRadius: 14, offset: const Offset(0, 4)),
-                ],
-              ),
-              child: Center(
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.navigation, size: 20, color: MotoGoColors.black),
-                    const SizedBox(width: 8),
-                    Text(
-                      t(context).tr('routeNavigate'),
-                      style: const TextStyle(
-                        fontSize: MotoGoTypo.sizeXl,
-                        fontWeight: MotoGoTypo.w800,
-                        color: MotoGoColors.black,
-                        letterSpacing: MotoGoTypo.lsMedium,
-                        decoration: TextDecoration.none,
-                      ),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: MotoGoColors.green,
+                    borderRadius: BorderRadius.circular(MotoGoRadius.pill),
+                    boxShadow: [
+                      BoxShadow(color: MotoGoColors.green.withValues(alpha: 0.4), blurRadius: 14, offset: const Offset(0, 4)),
+                    ],
+                  ),
+                  child: Center(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.navigation, size: 20, color: MotoGoColors.black),
+                        const SizedBox(width: 8),
+                        Text(
+                          t(context).tr('routeNavigate'),
+                          style: const TextStyle(
+                            fontSize: MotoGoTypo.sizeXl,
+                            fontWeight: MotoGoTypo.w800,
+                            color: MotoGoColors.black,
+                            letterSpacing: MotoGoTypo.lsMedium,
+                            decoration: TextDecoration.none,
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),
           ),
-        ),
+          // Sekundární: otevřít v jiné navigaci (Mapy.com / Google / Apple Maps).
+          PressableScale(
+            pressedScale: 0.96,
+            onTap: () => _openExportSheet(context, route, branch),
+            child: Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                t(context).tr('routeNavExternal'),
+                style: const TextStyle(
+                  fontSize: MotoGoTypo.sizeMd,
+                  fontWeight: MotoGoTypo.w700,
+                  color: MotoGoColors.greenDark,
+                  decoration: TextDecoration.none,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -403,38 +428,6 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
               ),
             ),
             const SizedBox(height: 14),
-            // Navigace přímo v naší aplikaci (primární)
-            SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: PressableScale(
-                pressedScale: 0.97,
-                onTap: () { Navigator.pop(c); context.push('/route-nav/${route.id}'); },
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: MotoGoColors.green,
-                    borderRadius: BorderRadius.circular(MotoGoRadius.pill),
-                    boxShadow: [
-                      BoxShadow(color: MotoGoColors.green.withValues(alpha: 0.4), blurRadius: 14, offset: const Offset(0, 4)),
-                    ],
-                  ),
-                  child: Center(
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.navigation, size: 19, color: MotoGoColors.black),
-                        const SizedBox(width: 8),
-                        Text(
-                          t(context).tr('routeNavInApp'),
-                          style: const TextStyle(fontSize: MotoGoTypo.sizeLg, fontWeight: MotoGoTypo.w800, color: MotoGoColors.black),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
             Align(
               alignment: Alignment.centerLeft,
               child: Text(
@@ -552,7 +545,8 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
 
 /// Drobný indikátor „počítám trasu" při živém dopočtu geometrie z Mapy.com.
 class _MapLoadingChip extends StatelessWidget {
-  const _MapLoadingChip();
+  final String label;
+  const _MapLoadingChip({required this.label});
 
   @override
   Widget build(BuildContext context) {
@@ -563,18 +557,18 @@ class _MapLoadingChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(MotoGoRadius.pill),
         boxShadow: MotoGoShadows.cardSmall,
       ),
-      child: const Row(
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          SizedBox(
+          const SizedBox(
             width: 14,
             height: 14,
             child: CircularProgressIndicator(strokeWidth: 2, color: MotoGoColors.greenDark),
           ),
-          SizedBox(width: 8),
+          const SizedBox(width: 8),
           Text(
-            'Počítám trasu…',
-            style: TextStyle(
+            label,
+            style: const TextStyle(
               fontSize: MotoGoTypo.sizeMd,
               fontWeight: MotoGoTypo.w700,
               color: MotoGoColors.black,
