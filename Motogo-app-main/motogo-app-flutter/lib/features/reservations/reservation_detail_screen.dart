@@ -37,6 +37,21 @@ class _DetailState extends ConsumerState<ReservationDetailScreen> {
   int _rating = 0;
   String _activeTab = 'detail'; // 'detail' or 'card'
   Timer? _refreshTimer;
+  bool _protocolWindowKicked = false;
+
+  // Samoobslužná pobočka: jakmile zákazník otevře aktivní/rezervovanou rezervaci
+  // (na tabletu po zadání kódu ke dveřím), spustí se 1h okno pro samovyplnění
+  // předávacího protokolu. Idempotentní (server nastaví start jen poprvé), proto
+  // stačí jediný „kick" za zobrazení detailu.
+  void _maybeStartProtocolWindow(Reservation res) {
+    if (_protocolWindowKicked) return;
+    if (res.branchType != 'samoobslužná') return;
+    if (res.status != 'active' && res.status != 'reserved') return;
+    _protocolWindowKicked = true;
+    unawaited(MotoGoSupabase.client
+        .rpc('start_handover_protocol_window', params: {'p_booking_id': res.id})
+        .catchError((_) => null));
+  }
 
   @override
   void initState() {
@@ -59,9 +74,11 @@ class _DetailState extends ConsumerState<ReservationDetailScreen> {
     final doorCodesAsync = ref.watch(doorCodesProvider(widget.bookingId));
 
     return resAsync.when(
-      data: (res) => res == null
-          ? _error(t(context).tr('reservationNotFound'))
-          : _buildDetail(context, res, doorCodesAsync),
+      data: (res) {
+        if (res == null) return _error(t(context).tr('reservationNotFound'));
+        _maybeStartProtocolWindow(res);
+        return _buildDetail(context, res, doorCodesAsync);
+      },
       loading: () => const Scaffold(body: Center(child: CircularProgressIndicator(color: MotoGoColors.green))),
       error: (e, _) => _error('${t(context).error}: $e'),
     );
