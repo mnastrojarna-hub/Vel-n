@@ -49,9 +49,10 @@ export default function VykonMotorek() {
     const rentedDays = mCompleted.reduce((s, b) => s + diffDays(b.start_date, b.end_date), 0)
     const revenue = mCompleted.reduce((s, b) => s + (Number(b.total_price) || 0), 0)
     const reservationCount = mCompleted.length
+    const avgDaysPerReservation = reservationCount > 0 ? rentedDays / reservationCount : 0
     const utilizationIndex = periodDays > 0 ? (rentedDays / periodDays) * 100 : 0
     const avgDailyRate = rentedDays > 0 ? revenue / rentedDays : 0
-    return { ...m, rentedDays, revenue, reservationCount, utilizationIndex, avgDailyRate }
+    return { ...m, rentedDays, revenue, reservationCount, avgDaysPerReservation, utilizationIndex, avgDailyRate }
   }).sort((a, b) => b.revenue - a.revenue)
 
   // Brand aggregation
@@ -82,7 +83,7 @@ export default function VykonMotorek() {
         <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
-              {['Model', 'Značka', 'Kategorie', 'Pronajato dní', 'Revenue', 'Obsazenost %', 'Avg Kč/den'].map(h => (
+              {['Model', 'Značka', 'Kategorie', 'Počet rezervací', 'Pronajato dní', 'Dní/rezervace', 'Revenue', 'Obsazenost %', 'Avg Kč/den'].map(h => (
                 <th key={h} className="text-left font-bold py-2 px-3" style={{ color: '#1a2e22' }}>{h}</th>
               ))}
             </tr>
@@ -93,7 +94,9 @@ export default function VykonMotorek() {
                 <td className="py-2 px-3 font-semibold">{m.model}</td>
                 <td className="py-2 px-3">{m.brand || '—'}</td>
                 <td className="py-2 px-3">{m.category || '—'}</td>
+                <td className="py-2 px-3">{m.reservationCount}</td>
                 <td className="py-2 px-3">{m.rentedDays}</td>
+                <td className="py-2 px-3">{m.avgDaysPerReservation.toFixed(1)}</td>
                 <td className="py-2 px-3">{Math.round(m.revenue).toLocaleString('cs-CZ')} Kč</td>
                 <td className="py-2 px-3" style={{ minWidth: 120 }}>
                   <div className="flex items-center gap-2">
