@@ -104,6 +104,10 @@ class NotificationHandler {
       case 'booking':
         if (id != null) context.push('/reservations/$id');
         break;
+      case 'handover_protocol':
+        // Předávací protokol (samoobslužná) → detail rezervace (banner + tlačítko)
+        if (id != null) context.push('/reservations/$id');
+        break;
       case 'door_codes':
         // Door codes notification → go to messages to see the codes
         context.push(Routes.messages);
