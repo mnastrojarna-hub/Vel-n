@@ -173,12 +173,12 @@ function ShiftModal({ empId, date, shift, branches, onClose, onSaved }) {
           <option value="">—</option>
           {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
         </select></div>}
-        <div><Lbl>Poznamka</Lbl><input type="text" value={form.note} onChange={e => set('note', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={iStyle} /></div>
+        <div><Lbl>Poznámka</Lbl><input type="text" value={form.note} onChange={e => set('note', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={iStyle} /></div>
       </div>
       <div className="flex justify-between mt-4">
         {shift ? <button onClick={remove} className="text-sm font-bold cursor-pointer" style={{ color: '#dc2626', background: 'none', border: 'none' }}>Smazat</button> : <div />}
-        <div className="flex gap-2"><Button onClick={onClose}>Zrusit</Button>
-          <Button green onClick={save} disabled={saving}>{saving ? 'Ukladam...' : 'Ulozit'}</Button></div>
+        <div className="flex gap-2"><Button onClick={onClose}>Zrušit</Button>
+          <Button green onClick={save} disabled={saving}>{saving ? 'Ukladam...' : 'Uložit'}</Button></div>
       </div>
     </Modal>
   )

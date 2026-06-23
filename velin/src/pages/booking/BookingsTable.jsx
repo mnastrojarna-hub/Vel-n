@@ -1,6 +1,7 @@
 import { TRow, TH, TD, Table } from '../../components/ui/Table'
 import StatusBadge, { getDisplayStatus } from '../../components/ui/StatusBadge'
 import { paymentStatusInfo } from './bookingConstants'
+import { rentalDays } from '../../lib/rentalDays'
 
 export default function BookingsTable({ bookings, navigate, fmtDateRange, dpTotals, setDeleteConfirm, setCancelTarget, selectedIds, setSelectedIds }) {
   const allSelected = bookings.length > 0 && selectedIds && bookings.every(b => selectedIds.has(b.id))
@@ -34,11 +35,10 @@ export default function BookingsTable({ bookings, navigate, fmtDateRange, dpTota
       <tbody>
         {bookings.map(b => {
           const toLocalDate = d => d ? new Date(d).toLocaleDateString('sv-SE') : ''
-          const _nm = d => { const dt = new Date(d); dt.setHours(0,0,0,0); return dt }
-          const days = b.start_date && b.end_date ? Math.max(1, Math.round((_nm(b.end_date) - _nm(b.start_date)) / 86400000) + 1) : '—'
+          const days = b.start_date && b.end_date ? rentalDays(b.start_date, b.end_date) : '—'
           const hasDateChange = b.original_start_date && b.original_end_date &&
             (toLocalDate(b.start_date) !== toLocalDate(b.original_start_date) || toLocalDate(b.end_date) !== toLocalDate(b.original_end_date))
-          const origDays = hasDateChange ? Math.max(1, Math.round((_nm(b.original_end_date) - _nm(b.original_start_date)) / 86400000) + 1) : null
+          const origDays = hasDateChange ? rentalDays(b.original_start_date, b.original_end_date) : null
           const daysDelta = origDays !== null && typeof days === 'number' ? days - origDays : null
           const isSelected = selectedIds?.has(b.id)
           const rowBg = isSelected ? '#fef9c3'

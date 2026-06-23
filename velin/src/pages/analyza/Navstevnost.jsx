@@ -104,17 +104,23 @@ export default function Navstevnost() {
 
   async function loadData() {
     setLoading(true); setError(null); setNeedsSetup(false)
+    // Watchdog: kdyby RPC „viselo" (síť/RLS), neukazuj nekonečný spinner,
+    // ale po 20 s vypiš chybu — uživatel ví, co se děje, a může zkusit znovu.
+    const withTimeout = (p, ms = 20000) => Promise.race([
+      p,
+      new Promise((_, rej) => setTimeout(() => rej(new Error('Načítání trvalo příliš dlouho (timeout). Zkuste to prosím znovu.')), ms)),
+    ])
     try {
       const { from, to } = range()
       // A: vždy všechny domény (chipy + baseline)
-      const a = await supabase.rpc('get_visitor_stats', { p_from: from, p_to: to, p_host: null, p_granularity: gran })
+      const a = await withTimeout(supabase.rpc('get_visitor_stats', { p_from: from, p_to: to, p_host: null, p_granularity: gran }))
       if (a.error) {
         if (isMissing(a.error)) { setNeedsSetup(true); setAllStats(null); setStats(null); return }
         throw a.error
       }
       setAllStats(a.data || null)
       if (host) {
-        const b = await supabase.rpc('get_visitor_stats', { p_from: from, p_to: to, p_host: host, p_granularity: gran })
+        const b = await withTimeout(supabase.rpc('get_visitor_stats', { p_from: from, p_to: to, p_host: host, p_granularity: gran }))
         if (b.error && !isMissing(b.error)) throw b.error
         setStats(b.error ? null : (b.data || null))
       } else {

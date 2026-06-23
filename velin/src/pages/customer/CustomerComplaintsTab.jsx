@@ -221,7 +221,7 @@ export default function CustomerComplaintsTab({ userId }) {
                             <span className="text-sm ml-2" style={{ color: '#1a2e22' }}>{booking.motorcycles?.spz || ''}</span>
                             <span className="text-sm ml-3" style={{ color: '#1a2e22' }}>{booking.start_date} → {booking.end_date}</span>
                           </div>
-                          <span className="text-sm font-bold">{booking.total_price?.toLocaleString('cs-CZ')} Kc</span>
+                          <span className="text-sm font-bold">{booking.total_price?.toLocaleString('cs-CZ')} Kč</span>
                         </div>
                       </div>
                     )}

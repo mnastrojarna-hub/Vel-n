@@ -74,12 +74,12 @@ export default function FlexiReportsTab() {
                 {flexiInfo?.version && <span className="text-sm" style={{ color: '#6b7280' }}>v{flexiInfo.version}</span>}
               </div>
             ) : (
-              <p className="text-sm mt-1" style={{ color: '#b45309' }}>Abra Flexi neni nakonfigurovano</p>
+              <p className="text-sm mt-1" style={{ color: '#b45309' }}>Abra Flexi není nakonfigurovano</p>
             )}
           </div>
           <div className="flex gap-2">
             <Button onClick={handleTestConnection}>Test pripojeni</Button>
-            <Button green onClick={() => setShowConfig(true)}>Nastaveni</Button>
+            <Button green onClick={() => setShowConfig(true)}>Nastavení</Button>
           </div>
         </div>
       </Card>
@@ -91,13 +91,13 @@ export default function FlexiReportsTab() {
             <h3 className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>DPH</h3>
             <p className="text-sm mt-1" style={{ color: '#6b7280' }}>
               {vatStatus === 'inactive'
-                ? 'Firma neni platce DPH — struktura pripravena pro budouci registraci'
-                : 'Firma je platce DPH — data se tahaji z Abra Flexi'}
+                ? 'Firma není plátce DPH — struktura připravena pro budoucí registraci'
+                : 'Firma je plátce DPH — data se tahaji z Abra Flexi'}
             </p>
           </div>
           <span className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase"
             style={{ padding: '6px 14px', background: vatStatus === 'inactive' ? '#fef3c7' : '#dcfce7', color: vatStatus === 'inactive' ? '#b45309' : '#1a8a18' }}>
-            {vatStatus === 'inactive' ? 'Neaktivni' : 'Aktivni'}
+            {vatStatus === 'inactive' ? 'Neaktivní' : 'Aktivní'}
           </span>
         </div>
       </Card>
@@ -106,9 +106,9 @@ export default function FlexiReportsTab() {
 
       {/* Sync log */}
       <Card className="mb-4">
-        <h3 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>Posledni synchronizace</h3>
+        <h3 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>Poslední synchronizace</h3>
         {syncLog.length === 0 ? (
-          <p className="text-sm" style={{ color: '#6b7280' }}>Zadne zaznamy</p>
+          <p className="text-sm" style={{ color: '#6b7280' }}>Žádné záznamy</p>
         ) : (
           <Table>
             <thead>
@@ -175,12 +175,12 @@ function FlexiConfigModal({ config, onClose, onSaved }) {
   }
 
   return (
-    <Modal open title="Nastaveni Abra Flexi" onClose={onClose}>
+    <Modal open title="Nastavení Abra Flexi" onClose={onClose}>
       <div className="space-y-3">
         <div><Label>URL instance</Label>
           <input type="text" value={form.url} onChange={e => set('url', e.target.value)} placeholder="https://demo.flexibee.eu" className="w-full rounded-btn text-sm outline-none" style={inputStyle} />
         </div>
-        <div><Label>Nazev firmy (company)</Label>
+        <div><Label>Název firmy (company)</Label>
           <input type="text" value={form.company} onChange={e => set('company', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} />
         </div>
         <div><Label>Uzivatelske jmeno</Label>
@@ -202,14 +202,14 @@ function FlexiConfigModal({ config, onClose, onSaved }) {
             <span className="text-sm font-bold" style={{ color: '#78350f' }}>Platce DPH</span>
           </div>
           <p className="text-sm mt-1" style={{ color: '#92400e' }}>
-            {form.vat_payer ? 'DPH bude aktivne pocitano' : 'DPH je neaktivni — pripraveno pro budouci registraci'}
+            {form.vat_payer ? 'DPH bude aktivne pocitano' : 'DPH je neaktivni — připraveno pro budoucí registraci'}
           </p>
         </div>
       </div>
       {err && <p className="mt-3 text-sm" style={{ color: '#dc2626' }}>{err}</p>}
       <div className="flex justify-end gap-3 mt-5">
-        <Button onClick={onClose}>Zrusit</Button>
-        <Button green onClick={handleSave} disabled={saving}>{saving ? 'Ukladam...' : 'Ulozit'}</Button>
+        <Button onClick={onClose}>Zrušit</Button>
+        <Button green onClick={handleSave} disabled={saving}>{saving ? 'Ukladam...' : 'Uložit'}</Button>
       </div>
     </Modal>
   )

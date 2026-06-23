@@ -46,7 +46,7 @@ export default function BookingDeliverySection({
       </div>
       {(pickupMethod === 'delivery' || returnMethod === 'delivery') && (
         <div className="mt-3">
-          <label className="block text-xs font-bold uppercase mb-1" style={{ color: '#1a2e22' }}>Poplatek za doruceni (Kc)</label>
+          <label className="block text-xs font-bold uppercase mb-1" style={{ color: '#1a2e22' }}>Poplatek za doruceni (Kč)</label>
           <input type="number" value={deliveryFee} onChange={e => setDeliveryFee(Number(e.target.value) || 0)} className="text-sm rounded-btn outline-none" style={{ padding: '7px 10px', width: 140, background: '#f1faf7', border: '1px solid #d4e8e0' }} />
         </div>
       )}

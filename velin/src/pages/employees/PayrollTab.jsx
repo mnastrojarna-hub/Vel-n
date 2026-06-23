@@ -26,7 +26,7 @@ export default function PayrollTab() {
     setPayrolls(data || [])
   }
 
-  const fmt = n => (n || 0).toLocaleString('cs-CZ') + ' Kc'
+  const fmt = n => (n || 0).toLocaleString('cs-CZ') + ' Kč'
   const emp = employees.find(e => e.id === selEmp)
 
   // Souhrn za aktualni rok
@@ -47,16 +47,16 @@ export default function PayrollTab() {
           style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0' }}>
           {employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
         </select>
-        <Button green onClick={() => setShowCalc(true)}>+ Vypocitat mzdu</Button>
+        <Button green onClick={() => setShowCalc(true)}>+ Vypočítat mzdu</Button>
       </div>
 
       {emp && (
         <div className="grid grid-cols-4 gap-3 mb-4">
-          <Card><div className="text-sm font-extrabold uppercase" style={{ color: '#1a2e22' }}>Hruba mzda</div>
+          <Card><div className="text-sm font-extrabold uppercase" style={{ color: '#1a2e22' }}>Hrubá mzda</div>
             <div className="text-lg font-extrabold" style={{ color: '#1a2e22' }}>{fmt(emp.gross_salary)}</div></Card>
-          <Card><div className="text-sm font-extrabold uppercase" style={{ color: '#1a2e22' }}>Rocni hrube</div>
+          <Card><div className="text-sm font-extrabold uppercase" style={{ color: '#1a2e22' }}>Roční hrubé</div>
             <div className="text-lg font-extrabold" style={{ color: '#2563eb' }}>{fmt(totalGross)}</div></Card>
-          <Card><div className="text-sm font-extrabold uppercase" style={{ color: '#1a2e22' }}>Rocni ciste</div>
+          <Card><div className="text-sm font-extrabold uppercase" style={{ color: '#1a2e22' }}>Roční čisté</div>
             <div className="text-lg font-extrabold" style={{ color: '#1a8a18' }}>{fmt(totalNet)}</div></Card>
           <Card><div className="text-sm font-extrabold uppercase" style={{ color: '#1a2e22' }}>Odvody celkem</div>
             <div className="text-lg font-extrabold" style={{ color: '#dc2626' }}>{fmt(totalSoc + totalHealth)}</div></Card>
@@ -66,9 +66,9 @@ export default function PayrollTab() {
       <Table>
         <thead>
           <TRow header>
-            <TH>Obdobi</TH><TH>Hruba</TH><TH>SP zamest.</TH><TH>ZP zamest.</TH>
-            <TH>SP zamestnavatel</TH><TH>ZP zamestnavatel</TH>
-            <TH>Zaloha dane</TH><TH>Cista</TH><TH>Celk. naklad</TH><TH>Stav</TH>
+            <TH>Období</TH><TH>Hrubá</TH><TH>SP zamest.</TH><TH>ZP zamest.</TH>
+            <TH>SP zaměstnavatel</TH><TH>ZP zaměstnavatel</TH>
+            <TH>Záloha daně</TH><TH>Čistá</TH><TH>Celk. naklad</TH><TH>Stav</TH>
           </TRow>
         </thead>
         <tbody>
@@ -84,13 +84,13 @@ export default function PayrollTab() {
               <TD bold color="#1a8a18">{fmt(p.net)}</TD>
               <TD bold color="#dc2626">{fmt(p.total_cost)}</TD>
               <TD>
-                <Badge label={p.status === 'paid' ? 'Vyplaceno' : p.status === 'calculated' ? 'Vypocteno' : p.status || '—'}
+                <Badge label={p.status === 'paid' ? 'Vyplaceno' : p.status === 'calculated' ? 'Vypočteno' : p.status || '—'}
                   color={p.status === 'paid' ? '#1a8a18' : '#b45309'}
                   bg={p.status === 'paid' ? '#dcfce7' : '#fef3c7'} />
               </TD>
             </TRow>
           ))}
-          {payrolls.length === 0 && <TRow><TD>Zadne zaznamy</TD></TRow>}
+          {payrolls.length === 0 && <TRow><TD>Žádné záznamy</TD></TRow>}
         </tbody>
       </Table>
 
@@ -107,7 +107,7 @@ function CalcModal({ emp, onClose, onSaved }) {
   const gross = emp.gross_salary || 0
   const taxDiscount = emp.tax_discount || 2570
 
-  // Vypocet HPP (zjednoduseny dle CZ 2024/2025)
+  // Výpočet HPP (zjednoduseny dle CZ 2024/2025)
   const socEmp = Math.round(gross * 0.065)
   const healthEmp = Math.round(gross * 0.045)
   const socEmpr = Math.round(gross * 0.248)
@@ -133,35 +133,35 @@ function CalcModal({ emp, onClose, onSaved }) {
     } catch (e) { alert(e.message) } finally { setSaving(false) }
   }
 
-  const fmt = n => (n || 0).toLocaleString('cs-CZ') + ' Kc'
+  const fmt = n => (n || 0).toLocaleString('cs-CZ') + ' Kč'
 
   return (
-    <Modal open title={`Vypocet mzdy — ${emp.name}`} onClose={onClose}>
+    <Modal open title={`Výpočet mzdy — ${emp.name}`} onClose={onClose}>
       <div className="mb-3">
-        <div className="text-sm font-extrabold uppercase mb-1" style={{ color: '#1a2e22' }}>Obdobi</div>
+        <div className="text-sm font-extrabold uppercase mb-1" style={{ color: '#1a2e22' }}>Období</div>
         <input type="month" value={period} onChange={e => setPeriod(e.target.value)}
           className="rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
       </div>
       <Card style={{ background: '#f1faf7' }}>
         <div className="grid grid-cols-2 gap-2 text-sm">
-          <div className="font-bold">Hruba mzda:</div><div className="font-extrabold">{fmt(gross)}</div>
-          <div className="font-bold">SP zamestnanec (6.5%):</div><div>{fmt(socEmp)}</div>
-          <div className="font-bold">ZP zamestnanec (4.5%):</div><div>{fmt(healthEmp)}</div>
-          <div className="font-bold">Zaklad dane:</div><div>{fmt(taxBase)}</div>
-          <div className="font-bold">Dan 15%:</div><div>{fmt(taxBefore)}</div>
+          <div className="font-bold">Hrubá mzda:</div><div className="font-extrabold">{fmt(gross)}</div>
+          <div className="font-bold">SP zaměstnanec (6.5%):</div><div>{fmt(socEmp)}</div>
+          <div className="font-bold">ZP zaměstnanec (4.5%):</div><div>{fmt(healthEmp)}</div>
+          <div className="font-bold">Základ daně:</div><div>{fmt(taxBase)}</div>
+          <div className="font-bold">Daň 15%:</div><div>{fmt(taxBefore)}</div>
           <div className="font-bold">Sleva na dani:</div><div>{fmt(taxDiscount)}</div>
-          <div className="font-bold">Zaloha dane:</div><div>{fmt(tax)}</div>
-          <div className="font-extrabold text-base" style={{ color: '#1a8a18' }}>Cista mzda:</div>
+          <div className="font-bold">Záloha daně:</div><div>{fmt(tax)}</div>
+          <div className="font-extrabold text-base" style={{ color: '#1a8a18' }}>Čistá mzda:</div>
           <div className="font-extrabold text-base" style={{ color: '#1a8a18' }}>{fmt(net)}</div>
-          <div className="font-bold border-t pt-2 mt-2" style={{ borderColor: '#d4e8e0' }}>SP zamestnavatel (24.8%):</div><div className="border-t pt-2 mt-2" style={{ borderColor: '#d4e8e0' }}>{fmt(socEmpr)}</div>
-          <div className="font-bold">ZP zamestnavatel (9%):</div><div>{fmt(healthEmpr)}</div>
+          <div className="font-bold border-t pt-2 mt-2" style={{ borderColor: '#d4e8e0' }}>SP zaměstnavatel (24.8%):</div><div className="border-t pt-2 mt-2" style={{ borderColor: '#d4e8e0' }}>{fmt(socEmpr)}</div>
+          <div className="font-bold">ZP zaměstnavatel (9%):</div><div>{fmt(healthEmpr)}</div>
           <div className="font-extrabold" style={{ color: '#dc2626' }}>Celkovy naklad:</div>
           <div className="font-extrabold" style={{ color: '#dc2626' }}>{fmt(totalCost)}</div>
         </div>
       </Card>
       <div className="flex justify-end gap-2 mt-4">
-        <Button onClick={onClose}>Zrusit</Button>
-        <Button green onClick={save} disabled={saving}>{saving ? 'Ukladam...' : 'Ulozit vypocet'}</Button>
+        <Button onClick={onClose}>Zrušit</Button>
+        <Button green onClick={save} disabled={saving}>{saving ? 'Ukladam...' : 'Uložit vypocet'}</Button>
       </div>
     </Modal>
   )

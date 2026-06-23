@@ -146,7 +146,7 @@ export async function pushAsset(event) {
 /** Pull VAT summary (pripraveno pro budouci registraci k DPH) */
 export async function pullVATReport(year, quarter) {
   const cfg = await getFlexiConfig()
-  if (!cfg?.vat_payer) return { status: 'not_vat_payer', message: 'Firma neni platce DPH', data: null }
+  if (!cfg?.vat_payer) return { status: 'not_vat_payer', message: 'Firma není plátce DPH', data: null }
   return flexiRequest('GET', `evidence-dph/(datVyst >= '${year}-${(quarter-1)*3+1}-01' and datVyst <= '${year}-${quarter*3}-31').json`)
 }
 

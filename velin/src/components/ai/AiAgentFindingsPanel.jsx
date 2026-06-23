@@ -61,7 +61,7 @@ export default function AiAgentFindingsPanel() {
       {/* Souhrn */}
       <div style={{ padding: '12px 16px', borderRadius: 12, marginBottom: 12, background: totP > 0 ? '#fef2f2' : totW > 0 ? '#fef3c7' : '#dcfce7', border: `2px solid ${totP > 0 ? '#ef4444' : totW > 0 ? '#f59e0b' : '#22c55e'}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
-          <div style={{ fontWeight: 800, fontSize: 14, color: '#0f1a14' }}>{totP} {totP === 1 ? 'problém' : totP < 5 ? 'problémy' : 'problémů'} | {totW} {totW === 1 ? 'varování' : 'varování'} | {allFindings.length} kontrol celkem</div>
+          <div style={{ fontWeight: 800, fontSize: 14, color: '#0f1a14' }}>{totP} {totP === 1 ? 'problém' : (totP >= 2 && totP <= 4) ? 'problémy' : 'problémů'} | {totW} {totW === 1 ? 'varování' : 'varování'} | {allFindings.length} kontrol celkem</div>
           <div style={{ fontSize: 11, color: '#666' }}>Nálezy z posledního tréninku všech {AGENTS.length} agentů</div>
         </div>
         <label style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}><input type="checkbox" checked={showOk} onChange={e => setShowOk(e.target.checked)} /> Zobrazit i OK</label>

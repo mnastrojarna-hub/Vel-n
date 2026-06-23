@@ -48,9 +48,10 @@ export function hasMinimumData(bookings, monthsRequired = 3) {
   return diffMonths >= monthsRequired
 }
 
-export function diffDays(start, end) {
-  return Math.max(1, Math.round((new Date(end) - new Date(start)) / 86400000))
-}
+// Sjednoceno na kanonický helper `rentalDays` (inkluzivní kalendářní dny, +1) —
+// dříve počítal bez +1, takže Analýza ukazovala o den méně než Rezervace.
+// Re-export pro zpětnou kompatibilitu všech importů `diffDays` v Analýze.
+export { rentalDays as diffDays } from '../../lib/rentalDays'
 
 export default function TimePeriodSelector({ value, onChange }) {
   const [showCustom, setShowCustom] = useState(value.type === 'custom')

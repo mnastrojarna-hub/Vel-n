@@ -109,7 +109,7 @@ export default function DebugPanel() {
       {/* Log entries */}
       <div ref={logRef} className="flex-1 overflow-auto px-3 py-1" style={{ fontFamily: 'monospace', fontSize: 13, lineHeight: 1.6 }}>
         {filtered.length === 0 && (
-          <div style={{ color: '#1a2e22', padding: 20, textAlign: 'center' }}>Zadne zaznamy</div>
+          <div style={{ color: '#1a2e22', padding: 20, textAlign: 'center' }}>Žádné záznamy</div>
         )}
         {filtered.map(e => (
           <LogEntry key={e.id} entry={e} />

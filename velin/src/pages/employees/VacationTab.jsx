@@ -7,18 +7,18 @@ import Badge from '../../components/ui/Badge'
 import Modal from '../../components/ui/Modal'
 
 const TYPE_MAP = {
-  vacation: { label: 'Dovolena', color: '#2563eb', bg: '#dbeafe' },
+  vacation: { label: 'Dovolená', color: '#2563eb', bg: '#dbeafe' },
   sick: { label: 'Nemoc', color: '#b45309', bg: '#fef3c7' },
-  personal: { label: 'Osobni', color: '#7c3aed', bg: '#ede9fe' },
-  unpaid: { label: 'Neplacene', color: '#dc2626', bg: '#fee2e2' },
-  maternity: { label: 'Materstvi', color: '#0891b2', bg: '#cffafe' },
-  other: { label: 'Jine', color: '#6b7280', bg: '#f3f4f6' },
+  personal: { label: 'Osobní', color: '#7c3aed', bg: '#ede9fe' },
+  unpaid: { label: 'Neplacené', color: '#dc2626', bg: '#fee2e2' },
+  maternity: { label: 'Mateřství', color: '#0891b2', bg: '#cffafe' },
+  other: { label: 'Jiné', color: '#6b7280', bg: '#f3f4f6' },
 }
 const STATUS_MAP = {
-  pending: { label: 'Ceka', color: '#b45309', bg: '#fef3c7' },
-  approved: { label: 'Schvaleno', color: '#1a8a18', bg: '#dcfce7' },
-  rejected: { label: 'Zamitnuto', color: '#dc2626', bg: '#fee2e2' },
-  cancelled: { label: 'Zruseno', color: '#6b7280', bg: '#f3f4f6' },
+  pending: { label: 'Čeká', color: '#b45309', bg: '#fef3c7' },
+  approved: { label: 'Schváleno', color: '#1a8a18', bg: '#dcfce7' },
+  rejected: { label: 'Zamítnuto', color: '#dc2626', bg: '#fee2e2' },
+  cancelled: { label: 'Zrušeno', color: '#6b7280', bg: '#f3f4f6' },
 }
 
 export default function VacationTab() {
@@ -82,7 +82,7 @@ export default function VacationTab() {
       <Table>
         <thead>
           <TRow header>
-            <TH>Od</TH><TH>Do</TH><TH>Dni</TH><TH>Typ</TH><TH>Stav</TH><TH>Poznamka</TH><TH>Akce</TH>
+            <TH>Od</TH><TH>Do</TH><TH>Dni</TH><TH>Typ</TH><TH>Stav</TH><TH>Poznámka</TH><TH>Akce</TH>
           </TRow>
         </thead>
         <tbody>
@@ -97,14 +97,14 @@ export default function VacationTab() {
               <TD>
                 {v.status === 'pending' && <>
                   <button onClick={() => approve(v.id)} className="text-sm font-bold cursor-pointer mr-2"
-                    style={{ color: '#1a8a18', background: 'none', border: 'none' }}>Schvalit</button>
+                    style={{ color: '#1a8a18', background: 'none', border: 'none' }}>Schválit</button>
                   <button onClick={() => reject(v.id)} className="text-sm font-bold cursor-pointer"
                     style={{ color: '#dc2626', background: 'none', border: 'none' }}>Zamitnout</button>
                 </>}
               </TD>
             </TRow>
           ))}
-          {vacations.length === 0 && <TRow><TD>Zadne zaznamy</TD></TRow>}
+          {vacations.length === 0 && <TRow><TD>Žádné záznamy</TD></TRow>}
         </tbody>
       </Table>
 
@@ -155,10 +155,10 @@ function VacModal({ empId, onClose, onSaved }) {
         <div><Lbl>Typ</Lbl><select value={form.type} onChange={e => set('type', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={iStyle}>
           {Object.entries(TYPE_MAP).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
         </select></div>
-        <div><Lbl>Poznamka</Lbl><input type="text" value={form.note} onChange={e => set('note', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={iStyle} /></div>
+        <div><Lbl>Poznámka</Lbl><input type="text" value={form.note} onChange={e => set('note', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={iStyle} /></div>
       </div>
       <div className="flex justify-end gap-2 mt-4">
-        <Button onClick={onClose}>Zrusit</Button>
+        <Button onClick={onClose}>Zrušit</Button>
         <Button green onClick={save} disabled={saving}>{saving ? 'Ukladam...' : 'Podat zadost'}</Button>
       </div>
     </Modal>

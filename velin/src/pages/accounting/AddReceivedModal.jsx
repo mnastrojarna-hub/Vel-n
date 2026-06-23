@@ -5,8 +5,8 @@ import Button from '../../components/ui/Button'
 
 const EXPENSE_CATEGORIES = [
   { value: '', label: '— Vyberte typ nakladu —' },
-  { value: 'phm', label: 'PHM' }, { value: 'pojisteni', label: 'Pojisteni' },
-  { value: 'servis_opravy', label: 'Servis / Opravy' }, { value: 'najem', label: 'Najem' },
+  { value: 'phm', label: 'PHM' }, { value: 'pojištění', label: 'Pojištění' },
+  { value: 'servis_opravy', label: 'Servis / Opravy' }, { value: 'nájem', label: 'Nájem' },
   { value: 'energie', label: 'Energie' }, { value: 'telekomunikace', label: 'Telekomunikace' },
   { value: 'marketing', label: 'Marketing' }, { value: 'kancelar', label: 'Kancelar' },
   { value: 'mzdy', label: 'Mzdy' }, { value: 'dane_odvody', label: 'Dane / Odvody' },
@@ -15,7 +15,7 @@ const EXPENSE_CATEGORIES = [
 ]
 const PAYMENT_OPTIONS = [
   { value: '', label: '— Neurceno —' },
-  { value: 'bank_transfer', label: 'Bankovni prevod' },
+  { value: 'bank_transfer', label: 'Bankovni převod' },
   { value: 'cash', label: 'Hotovost' }, { value: 'card', label: 'Karta' },
 ]
 
@@ -23,9 +23,9 @@ function guessExpenseCategory(supplier, notes) {
   const text = ((supplier || '') + ' ' + (notes || '')).toLowerCase()
   const rules = [
     { keywords: ['benzin', 'phm', 'nafta', 'cerpaci', 'shell', 'omv', 'mol', 'orlen', 'eni', 'palivo'], cat: 'phm' },
-    { keywords: ['pojist', 'generali', 'allianz', 'kooper', 'ceska_pojistovna', 'uniqa', 'csob poj'], cat: 'pojisteni' },
+    { keywords: ['pojist', 'generali', 'allianz', 'kooper', 'ceska_pojistovna', 'uniqa', 'csob poj'], cat: 'pojištění' },
     { keywords: ['servis', 'oprava', 'udrzba', 'pneu', 'olej', 'filtr', 'brzdov', 'retez', 'moto dil', 'nahradni', 'dily'], cat: 'servis_opravy' },
-    { keywords: ['najem', 'pronajem', 'rent', 'nebytov'], cat: 'najem' },
+    { keywords: ['nájem', 'pronajem', 'rent', 'nebytov'], cat: 'nájem' },
     { keywords: ['elektr', 'plyn', 'voda', 'teplo', 'energie', 'cez', 'eon', 'pre', 'innogy'], cat: 'energie' },
     { keywords: ['telefon', 'mobil', 'internet', 'hosting', 'domena', 'vodafone', 'o2', 't-mobile', 'server'], cat: 'telekomunikace' },
     { keywords: ['reklam', 'market', 'propagac', 'inzer', 'google', 'facebook', 'meta', 'instagram', 'tisk', 'letak'], cat: 'marketing' },
@@ -70,7 +70,7 @@ export default function AddReceivedModal({ onClose, onSaved }) {
   }
 
   async function handleSave() {
-    if (!form.number || !form.total) return setErr('Vyplnte cislo faktury a castku.')
+    if (!form.number || !form.total) return setErr('Vyplnte číslo faktury a castku.')
     if (!form.category) {
       const guess = guessExpenseCategory(form.supplier, form.notes)
       if (guess) { set('category', guess); return setErr('AI navrhl kategorii — zkontrolujte a ulozte znovu.') }
@@ -98,15 +98,15 @@ export default function AddReceivedModal({ onClose, onSaved }) {
   }
 
   return (
-    <Modal open title="Nova prijata faktura" onClose={onClose}>
+    <Modal open title="Nova přijatá faktura" onClose={onClose}>
       <div className="space-y-3">
         <div className="grid grid-cols-2 gap-3">
-          <div><Label>Cislo faktury *</Label><input value={form.number} onChange={e => set('number', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} placeholder="FV-2026-0001" /></div>
+          <div><Label>Číslo faktury *</Label><input value={form.number} onChange={e => set('number', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} placeholder="FV-2026-0001" /></div>
           <div><Label>Datum vystaveni</Label><input type="date" value={form.issue_date} onChange={e => set('issue_date', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
         </div>
         <div style={{ position: 'relative' }}>
           <Label>Dodavatel *</Label>
-          <input value={form.supplier} onChange={e => searchSupplier(e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} placeholder="Zacnete psat nazev..." />
+          <input value={form.supplier} onChange={e => searchSupplier(e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} placeholder="Zacnete psat název..." />
           {supplierSuggestions.length > 0 && (
             <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50, background: '#fff', border: '1px solid #d4e8e0', borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
               {supplierSuggestions.map((s, i) => (
@@ -122,7 +122,7 @@ export default function AddReceivedModal({ onClose, onSaved }) {
           <div><Label>Bankovni ucet</Label><input value={form.supplier_bank_account} onChange={e => set('supplier_bank_account', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <div><Label>Castka (Kc) *</Label><input type="number" value={form.total} onChange={e => set('total', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
+          <div><Label>Částka (Kč) *</Label><input type="number" value={form.total} onChange={e => set('total', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
           <div><Label>Variabilni symbol</Label><input value={form.variable_symbol} onChange={e => set('variable_symbol', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
         </div>
         <div className="grid grid-cols-2 gap-3">
@@ -134,14 +134,14 @@ export default function AddReceivedModal({ onClose, onSaved }) {
             {EXPENSE_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
           </select>
         </div>
-        <div><Label>Poznamka</Label>
+        <div><Label>Poznámka</Label>
           <textarea value={form.notes} onChange={e => { set('notes', e.target.value); if (!form.category || aiSuggested) autoClassify(form.supplier, e.target.value) }} className="w-full rounded-btn text-sm outline-none" style={{ ...inputStyle, minHeight: 60, resize: 'vertical' }} placeholder="Popis, za co je faktura..." />
         </div>
       </div>
       {err && <p className="mt-3 text-sm" style={{ color: '#dc2626' }}>{err}</p>}
       <div className="flex justify-end gap-3 mt-5">
-        <Button onClick={onClose}>Zrusit</Button>
-        <Button green onClick={handleSave} disabled={saving}>{saving ? 'Ukladam...' : 'Ulozit'}</Button>
+        <Button onClick={onClose}>Zrušit</Button>
+        <Button green onClick={handleSave} disabled={saving}>{saving ? 'Ukladam...' : 'Uložit'}</Button>
       </div>
     </Modal>
   )

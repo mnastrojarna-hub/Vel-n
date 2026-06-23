@@ -11,10 +11,10 @@ export const FLEXI_STATUS_MAP = {
 
 // AI category → Czech label
 export const CATEGORY_LABELS = {
-  phm: 'PHM', pojisteni: 'Pojištění', servis_opravy: 'Servis/Opravy',
-  najem: 'Nájem', energie: 'Energie', telekomunikace: 'Telekomunikace',
+  phm: 'PHM', pojištění: 'Pojištění', servis_opravy: 'Servis/Opravy',
+  nájem: 'Nájem', energie: 'Energie', telekomunikace: 'Telekomunikace',
   marketing: 'Marketing', kancelar: 'Kancelář', mzdy: 'Mzdy',
-  dane_odvody: 'Daně/Odvody', ostatni_naklady: 'Ostatní',
+  dane_odvody: 'Daňě/Odvody', ostatni_naklady: 'Ostatní',
 }
 
 export function AIDetail({ label, value, mono }) {

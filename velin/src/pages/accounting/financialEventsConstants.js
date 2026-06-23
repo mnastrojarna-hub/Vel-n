@@ -1,17 +1,17 @@
 export const PER_PAGE = 25
 
 export const STATUS_MAP = {
-  pending:   { label: 'Ceka',        color: '#6b7280', bg: '#f3f4f6' },
-  enriched:  { label: 'Ke schvaleni', color: '#b45309', bg: '#fef3c7' },
+  pending:   { label: 'Čeká',        color: '#6b7280', bg: '#f3f4f6' },
+  enriched:  { label: 'Ke schválení', color: '#b45309', bg: '#fef3c7' },
   validated: { label: 'Pripraven',    color: '#2563eb', bg: '#dbeafe' },
-  exported:  { label: 'Odeslano',     color: '#7c3aed', bg: '#ede9fe' },
-  approved:  { label: 'Schvaleno',    color: '#1a8a18', bg: '#dcfce7' },
+  exported:  { label: 'Odesláno',     color: '#7c3aed', bg: '#ede9fe' },
+  approved:  { label: 'Schváleno',    color: '#1a8a18', bg: '#dcfce7' },
   submitted: { label: 'Podano FU',   color: '#059669', bg: '#d1fae5' },
   error:     { label: 'Chyba',        color: '#dc2626', bg: '#fee2e2' },
 }
 
 export const TYPE_MAP = {
-  revenue: { label: 'Prijem',  color: '#1a8a18', bg: '#dcfce7' },
+  revenue: { label: 'Příjem',  color: '#1a8a18', bg: '#dcfce7' },
   expense: { label: 'Vydaj',   color: '#dc2626', bg: '#fee2e2' },
   asset:   { label: 'Majetek', color: '#7c3aed', bg: '#ede9fe' },
   payroll: { label: 'Mzdy',    color: '#b45309', bg: '#fef3c7' },
@@ -20,9 +20,9 @@ export const TYPE_MAP = {
 export const SOURCE_LABELS = { stripe: 'Stripe', ocr: 'OCR', system: 'System', manual: 'Rucne', scanner: 'Skener' }
 
 export const DOC_TYPE_MAP = {
-  faktura_prijata: { label: 'Faktura prijata', color: '#2563eb', bg: '#dbeafe', route: 'Faktury prijate' },
+  faktura_prijata: { label: 'Faktura přijatá', color: '#2563eb', bg: '#dbeafe', route: 'Faktury přijaté' },
   dodaci_list: { label: 'Dodaci list', color: '#0891b2', bg: '#cffafe', route: 'Dodaci listy' },
-  zaloha: { label: 'Zalohova FA', color: '#7c3aed', bg: '#ede9fe', route: 'Faktury' },
+  záloha: { label: 'Zalohova FA', color: '#7c3aed', bg: '#ede9fe', route: 'Faktury' },
   doklad_platby: { label: 'Doklad k platbe', color: '#059669', bg: '#d1fae5', route: 'Faktury' },
   smlouva: { label: 'Smlouva', color: '#b45309', bg: '#fef3c7', route: 'Smlouvy' },
   pracovni_smlouva: { label: 'Pracovni smlouva', color: '#92400e', bg: '#fef3c7', route: 'Smlouvy' },
@@ -34,10 +34,10 @@ export const DOC_TYPE_MAP = {
 }
 
 export const STORAGE_FOLDERS = {
-  faktura_prijata: 'faktury-prijate',
+  faktura_prijata: 'faktury-přijaté',
   dodaci_list: 'dodaci-listy',
-  zaloha: 'faktury-prijate',
-  doklad_platby: 'faktury-prijate',
+  záloha: 'faktury-přijaté',
+  doklad_platby: 'faktury-přijaté',
   smlouva: 'smlouvy',
   pracovni_smlouva: 'zamestnanecke',
   zadost_dovolena: 'zamestnanecke',
@@ -48,7 +48,7 @@ export const STORAGE_FOLDERS = {
 }
 
 export const CATEGORY_LABELS = {
-  phm: 'PHM', pojisteni: 'Pojisteni', servis_opravy: 'Servis', najem: 'Najem',
+  phm: 'PHM', pojištění: 'Pojištění', servis_opravy: 'Servis', nájem: 'Nájem',
   energie: 'Energie', telekomunikace: 'Telekom', marketing: 'Marketing',
   kancelar: 'Kancelar', mzdy: 'Mzdy', dane_odvody: 'Dane', ostatni_naklady: 'Ostatni',
   pronajem_motorek: 'Pronajem', prodej_zbozi: 'E-shop', dlouhodoby_majetek: 'DM',
@@ -57,8 +57,8 @@ export const CATEGORY_LABELS = {
 }
 
 export const ASSET_TYPE_LABELS = {
-  dlouhodoby_majetek: 'Dlouhodoby majetek',
-  kratkodoby_majetek: 'Kratkodoby majetek',
+  dlouhodoby_majetek: 'Dlouhodobý majetek',
+  kratkodoby_majetek: 'Krátkodobý majetek',
   zbozi: 'Zbozi',
   material: 'Material',
   drobna_rezie: 'Drobna rezie',
@@ -66,7 +66,7 @@ export const ASSET_TYPE_LABELS = {
 }
 
 export const PAYMENT_LABELS = {
-  bank_transfer: 'Bankovni prevod',
+  bank_transfer: 'Bankovni převod',
   cash: 'Hotovost',
   card: 'Karta',
 }

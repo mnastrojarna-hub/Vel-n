@@ -60,7 +60,7 @@ export default function RuleModal({ rule, onClose, onSaved }) {
           </div>
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <div><Label>Skladova polozka</Label>
+          <div><Label>Skladova položka</Label>
             <select value={form.inventory_item_id} onChange={e => set('inventory_item_id', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle}>
               <option value="">— Vyberte —</option>
               {inventory.map(i => <option key={i.id} value={i.id}>{i.name} ({i.sku}) — sklad: {i.stock}/{i.min_stock}</option>)}
@@ -74,9 +74,9 @@ export default function RuleModal({ rule, onClose, onSaved }) {
             </select>
           </div>
         </div>
-        {form.trigger_type === 'stock_low' && <div><Label>Prahove mnozstvi (objednat, kdyz sklad klesne pod)</Label><input type="number" value={form.threshold_quantity} onChange={e => set('threshold_quantity', e.target.value)} placeholder={selectedItem ? String(selectedItem.min_stock) : '5'} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>}
+        {form.trigger_type === 'stock_low' && <div><Label>Prahove množství (objednat, kdyz sklad klesne pod)</Label><input type="number" value={form.threshold_quantity} onChange={e => set('threshold_quantity', e.target.value)} placeholder={selectedItem ? String(selectedItem.min_stock) : '5'} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>}
         {form.trigger_type === 'interval' && <div><Label>Interval (dni)</Label><input type="number" value={form.interval_days} onChange={e => set('interval_days', e.target.value)} placeholder="7" className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>}
-        <div><Label>Objednaci mnozstvi (ks)</Label><input type="number" value={form.order_quantity} onChange={e => set('order_quantity', e.target.value)} placeholder="10" className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
+        <div><Label>Objednaci množství (ks)</Label><input type="number" value={form.order_quantity} onChange={e => set('order_quantity', e.target.value)} placeholder="10" className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
         <div><Label>Email dodavatele (override)</Label><input value={form.email_override} onChange={e => set('email_override', e.target.value)} placeholder="Pouzije se email z profilu dodavatele" className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
         <div><Label>Poznamky</Label><textarea value={form.notes} onChange={e => set('notes', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={{ ...inputStyle, minHeight: 50, resize: 'vertical' }} /></div>
         <label className="flex items-center gap-2 cursor-pointer">
@@ -86,8 +86,8 @@ export default function RuleModal({ rule, onClose, onSaved }) {
       </div>
       {err && <p className="mt-3 text-sm" style={{ color: '#dc2626' }}>{err}</p>}
       <div className="flex justify-end gap-3 mt-5">
-        <Button onClick={onClose}>Zrusit</Button>
-        <Button green onClick={handleSave} disabled={saving || !form.supplier_id}>{saving ? 'Ukladam...' : rule ? 'Ulozit' : 'Vytvorit'}</Button>
+        <Button onClick={onClose}>Zrušit</Button>
+        <Button green onClick={handleSave} disabled={saving || !form.supplier_id}>{saving ? 'Ukladam...' : rule ? 'Uložit' : 'Vytvorit'}</Button>
       </div>
     </Modal>
   )

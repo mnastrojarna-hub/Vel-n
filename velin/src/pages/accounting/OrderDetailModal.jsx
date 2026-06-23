@@ -4,7 +4,7 @@ import Modal from '../../components/ui/Modal'
 import Button from '../../components/ui/Button'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 
-const STATUS_LABELS = { draft: 'Koncept', sent: 'Odeslano', received: 'Prijato', cancelled: 'Zruseno' }
+const STATUS_LABELS = { draft: 'Koncept', sent: 'Odesláno', received: 'Prijato', cancelled: 'Zrušeno' }
 
 export default function OrderDetailModal({ order, onClose, onUpdated, onSendEmail }) {
   const [items, setItems] = useState([])
@@ -31,7 +31,7 @@ export default function OrderDetailModal({ order, onClose, onUpdated, onSendEmai
     onUpdated()
   }
 
-  const fmt = n => n ? `${Number(n).toLocaleString('cs-CZ')} Kc` : '\u2014'
+  const fmt = n => n ? `${Number(n).toLocaleString('cs-CZ')} Kč` : '\u2014'
   const total = items.reduce((s, it) => s + (it.quantity || 0) * (it.unit_price || 0), 0)
 
   return (
@@ -40,15 +40,15 @@ export default function OrderDetailModal({ order, onClose, onUpdated, onSendEmai
         <div>Dodavatel: <strong>{order.suppliers?.name || '\u2014'}</strong></div>
         <div>Email: <strong>{order.suppliers?.contact_email || '\u2014'}</strong></div>
         <div>Stav: <strong>{STATUS_LABELS[order.status] || order.status}</strong></div>
-        <div>Vytvoreno: <strong>{order.created_at ? new Date(order.created_at).toLocaleString('cs-CZ') : '\u2014'}</strong></div>
-        {order.sent_at && <div>Odeslano: <strong>{new Date(order.sent_at).toLocaleString('cs-CZ')}</strong></div>}
+        <div>Vytvořeno: <strong>{order.created_at ? new Date(order.created_at).toLocaleString('cs-CZ') : '\u2014'}</strong></div>
+        {order.sent_at && <div>Odesláno: <strong>{new Date(order.sent_at).toLocaleString('cs-CZ')}</strong></div>}
         {order.notes && <div className="col-span-2">Poznamky: <strong>{order.notes}</strong></div>}
       </div>
       {loading ? (
         <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
       ) : (
         <Table>
-          <thead><TRow header><TH>Polozka</TH><TH>SKU</TH><TH>Mnozstvi</TH><TH>Cena/ks</TH><TH>Celkem</TH></TRow></thead>
+          <thead><TRow header><TH>Položka</TH><TH>SKU</TH><TH>Množství</TH><TH>Cena/ks</TH><TH>Celkem</TH></TRow></thead>
           <tbody>
             {items.map(it => (
               <TRow key={it.id}>
@@ -68,7 +68,7 @@ export default function OrderDetailModal({ order, onClose, onUpdated, onSendEmai
           <button onClick={() => { onClose(); onSendEmail(order) }} className="rounded-btn text-sm font-bold cursor-pointer" style={{ padding: '8px 16px', background: '#dbeafe', color: '#2563eb', border: 'none' }}>Odeslat email</button>
         )}
         {order.status !== 'cancelled' && order.status !== 'received' && (
-          <button onClick={markCancelled} className="rounded-btn text-sm font-bold cursor-pointer" style={{ padding: '8px 16px', background: '#fee2e2', color: '#dc2626', border: 'none' }}>Zrusit</button>
+          <button onClick={markCancelled} className="rounded-btn text-sm font-bold cursor-pointer" style={{ padding: '8px 16px', background: '#fee2e2', color: '#dc2626', border: 'none' }}>Zrušit</button>
         )}
         {order.status !== 'received' && order.status !== 'cancelled' && <Button green onClick={markReceived}>Potvrdit prijeti</Button>}
         <Button onClick={onClose}>Zavrit</Button>

@@ -3,6 +3,11 @@ import { supabase } from '../../lib/supabase'
 import { debugAction, debugLog, debugError } from '../../lib/debugLog'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 
+// Stav MOTORKY (ne pojistky) — stejný číselník jako v Servisu (ActiveServiceTab).
+const MOTO_STATUS_LABEL = { active: 'Aktivní', maintenance: 'V servisu', unavailable: 'Dočasně vyřazena', retired: 'Trvale vyřazena' }
+const MOTO_STATUS_COLOR = { active: '#1a8a18', maintenance: '#b45309', unavailable: '#7c3aed', retired: '#6b7280' }
+const MOTO_STATUS_BG = { active: '#dcfce7', maintenance: '#fef3c7', unavailable: '#f5f3ff', retired: '#f3f4f6' }
+
 export default function InsuranceTab() {
   const [motos, setMotos] = useState([])
   const [loading, setLoading] = useState(true)
@@ -43,12 +48,12 @@ export default function InsuranceTab() {
             <TD mono>{m.spz || '—'}</TD>
             <TD>{m.insurance_price ? `${m.insurance_price.toLocaleString('cs-CZ')} Kč` : '—'}</TD>
             <TD>
-              <span className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase" style={{
+              <span className="inline-block rounded-btn text-sm font-extrabold tracking-wide" style={{
                 padding: '4px 10px',
-                background: m.status === 'active' ? '#dcfce7' : '#fef3c7',
-                color: m.status === 'active' ? '#1a8a18' : '#b45309',
+                background: MOTO_STATUS_BG[m.status] || '#fef3c7',
+                color: MOTO_STATUS_COLOR[m.status] || '#b45309',
               }}>
-                {m.status || '—'}
+                {MOTO_STATUS_LABEL[m.status] || m.status || '—'}
               </span>
             </TD>
           </TRow>

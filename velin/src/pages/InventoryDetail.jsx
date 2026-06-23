@@ -111,7 +111,7 @@ export default function InventoryDetail() {
   if (error && !item) return <div className="p-4 rounded-card" style={{ background: '#fee2e2', color: '#dc2626' }}>{error}</div>
   if (!item) return <div className="p-4" style={{ color: '#1a2e22' }}>Položka nenalezena</div>
 
-  const isLow = item.stock <= item.min_stock
+  const isLow = (item.min_stock || 0) > 0 && item.stock <= item.min_stock
 
   return (
     <div>
