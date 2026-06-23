@@ -19,7 +19,10 @@ const todayIso = () => new Date().toISOString().slice(0, 10)
 const addDaysIso = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
 
 export default function Logistika() {
-  const [tab, setTab] = useState('calendar')
+  const [tab, setTab] = useState(() => {
+    const t = new URLSearchParams(window.location.search).get('tab')
+    return ['calendar', 'worklist', 'stock', 'receive'].includes(t) ? t : 'calendar'
+  })
   const [branches, setBranches] = useState([])
   const [branchId, setBranchId] = useState('')
   const [from, setFrom] = useState(todayIso())
