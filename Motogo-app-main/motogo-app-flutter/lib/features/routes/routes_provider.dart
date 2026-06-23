@@ -59,14 +59,17 @@ final routesDataProvider = FutureProvider<RoutesData>((ref) async {
   return RoutesData(routes: routes, branches: branches);
 });
 
-/// Sestaví uspořádaný seznam bodů pro routing/export:
-/// start = pobočka (pokud má GPS), pak waypointy, u okruhu zpět na pobočku.
-List<LatLng> orderedRoutePoints(RouteItem route, RouteBranch? branch) {
+/// Sestaví uspořádaný seznam bodů pro routing/export.
+/// - Okruh (loop): start = pobočka, waypointy, zpět na pobočku.
+/// - Za body zájmu (poi): start = aktuální poloha (`currentPos`, pokud je
+///   povolená v appce), jinak pobočka (kde je motorka); pak waypointy.
+List<LatLng> orderedRoutePoints(RouteItem route, RouteBranch? branch, {LatLng? currentPos}) {
   final pts = <LatLng>[];
-  final start = branch?.latLng;
+  final branchStart = branch?.latLng;
+  final start = route.isLoop ? branchStart : (currentPos ?? branchStart);
   if (start != null) pts.add(start);
   pts.addAll(route.waypoints);
-  if (route.isLoop && start != null) pts.add(start);
+  if (route.isLoop && branchStart != null) pts.add(branchStart);
   // Odfiltruj duplicitní sousedy
   final out = <LatLng>[];
   for (final p in pts) {
@@ -110,6 +113,7 @@ Future<List<LatLng>?> fetchMapyRoute(List<LatLng> points) async {
     'start': '${start.longitude},${start.latitude}',
     'end': '${end.longitude},${end.latitude}',
     'routeType': 'car_fast',
+    'avoidHighways': 'true',
     'format': 'geojson',
   };
   if (middle.isNotEmpty) {

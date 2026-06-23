@@ -32,6 +32,12 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
   bool _follow = true;
   bool _locating = true;
   bool _denied = false;
+  // Pro poi trasy přepočet z aktuální polohy (nejrychlejší bez dálnic).
+  RouteItem? _route;
+  RouteBranch? _branch;
+  List<LatLng>? _navGeo;
+  LatLng? _navFrom;
+  bool _navBusy = false;
 
   @override
   void initState() {
@@ -64,6 +70,7 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
           final z = _ctrl.camera.zoom;
           _ctrl.move(me, z < 14 ? 16 : z);
         }
+        _maybeRecomputeFromHere(me);
       });
     } catch (_) {
       // bez streamu zkus aspoň jednorázovou polohu
@@ -86,6 +93,28 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
     if (_me != null) _ctrl.move(_me!, 16);
   }
 
+  /// U poi tras přepočítá trasu z AKTUÁLNÍ polohy (nejrychlejší, bez dálnic).
+  /// Přepočítá při prvním fixu a pak jen když se jezdec posune o >400 m.
+  Future<void> _maybeRecomputeFromHere(LatLng me) async {
+    final r = _route;
+    if (r == null || r.isLoop || _navBusy) return;
+    if (_navFrom != null &&
+        const Distance().as(LengthUnit.Meter, _navFrom!, me) < 400) {
+      return;
+    }
+    _navBusy = true;
+    _navFrom = me;
+    try {
+      final pts = orderedRoutePoints(r, _branch, currentPos: me);
+      final geo = await fetchMapyRoute(pts);
+      if (mounted && geo != null && geo.length >= 2) {
+        setState(() => _navGeo = geo);
+      }
+    } finally {
+      _navBusy = false;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final lang = ref.watch(localeProvider).languageCode;
@@ -103,8 +132,11 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
           );
           if (route.id.isEmpty) return _exit(context);
           final branch = route.branchId != null ? data.branches[route.branchId] : null;
+          _route ??= route;
+          _branch ??= branch;
           final geoAsync = ref.watch(routeGeometryProvider(route.id));
-          final geometry = geoAsync.valueOrNull ?? route.geometry;
+          // poi: pokud máme přepočet z aktuální polohy, použij ho; jinak cache.
+          final geometry = _navGeo ?? geoAsync.valueOrNull ?? route.geometry;
           return _content(context, route, branch, geometry, lang);
         },
       ),

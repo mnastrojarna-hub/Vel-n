@@ -41,6 +41,7 @@ async function computeGeometry(branch, waypoints, routeType) {
     start: `${start[0]},${start[1]}`,
     end: `${end[0]},${end[1]}`,
     routeType: 'car_fast',
+    avoidHighways: 'true',
     format: 'geojson',
   })
   if (middle.length) params.set('waypoints', middle.map(p => `${p[0]},${p[1]}`).join(';'))
