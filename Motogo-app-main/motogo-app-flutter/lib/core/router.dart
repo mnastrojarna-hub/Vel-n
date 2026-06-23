@@ -37,6 +37,7 @@ import '../features/profile/profile_screen.dart';
 import '../features/profile/permissions_screen.dart';
 import '../features/reservations/reservation_edit_screen.dart';
 import '../features/reservations/protocol_screen.dart';
+import '../features/reservations/reservation_models.dart';
 import '../features/shop/shop_checkout_screen.dart';
 import '../features/shop/shop_screen.dart';
 import '../features/shop/product_detail_screen.dart';
@@ -370,7 +371,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: Routes.protocol,
-            builder: (context, state) => const ProtocolScreen(),
+            builder: (context, state) => ProtocolScreen(reservation: state.extra as Reservation?),
           ),
           GoRoute(
             path: Routes.loyalty,

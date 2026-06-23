@@ -50,6 +50,11 @@ verify_jwt = false
 [functions.save-verification-document]
 verify_jwt = false
 
+# Předávací protokol na samoobslužné pobočce — volá zákazník z appky (vlastní JWT)
+# i cron auto-fill (service_role). Vlastní ověření přes authClassify → verify_jwt=false.
+[functions.submit-handover-protocol]
+verify_jwt = false
+
 # SEO Health checker — server-side fetch & parse zive stranky motogo24.cz
 # (browser-side fetch z velin domeny blokuje CORS). Volá ho Velin SEO Health
 # dashboard. Read-only, jen GET na motogo24.cz whitelist domeny.
