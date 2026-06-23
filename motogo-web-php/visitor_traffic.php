@@ -30,6 +30,26 @@ function visitorIsBot($ua) {
     );
 }
 
+/**
+ * POZITIVNÍ allowlist reálných prohlížečů — klíč pro „100% reální lidé".
+ * Denylist (`visitorIsBot`) vždy mine nové/neznámé scrapery, které se
+ * netváří jako bot. Proto logujeme JEN UA, který vypadá jako skutečný
+ * prohlížeč: musí obsahovat `Mozilla/` (společné všem moderním browserům
+ * i in-app webview FB/IG) A ZÁROVEŇ token některého reálného renderovacího
+ * jádra/prohlížeče. Holé knihovní/skriptové UA (i ty s vlastním názvem)
+ * tím vypadnou, takže do konverze jdou výhradně lidé.
+ * Vrací true = vypadá jako reálný lidský prohlížeč.
+ */
+function visitorIsHumanBrowser($ua) {
+    if (!is_string($ua) || stripos($ua, 'Mozilla/') === false) return false;
+    return (bool) preg_match(
+        '/(Chrome|CriOS|Chromium|Firefox|FxiOS|Safari|Edg|EdgA|EdgiOS|OPR|Opera|OPiOS|'
+        . 'SamsungBrowser|YaBrowser|Vivaldi|Brave|DuckDuckGo|UCBrowser|MiuiBrowser|'
+        . 'HuaweiBrowser|SeaMonkey|Maxthon|Trident|MSIE)/',
+        $ua
+    );
+}
+
 /** Hrubá detekce zařízení z User-Agent. */
 function visitorDevice($ua) {
     if (preg_match('/iPad|Tablet|PlayBook|Silk|Kindle/i', $ua)) return 'tablet';
@@ -83,6 +103,8 @@ function visitorTrafficMaybeLog($path, $lang) {
     // AI boti se logují v ai_traffic.php — sem nepatří
     if (function_exists('aiTrafficDetect') && aiTrafficDetect($ua)) return;
     if (visitorIsBot($ua)) return;
+    // Pozitivní allowlist — logujeme jen UA reálného prohlížeče (100% lidé).
+    if (!visitorIsHumanBrowser($ua)) return;
 
     // Jen známé domény motogo24.* — neznámý Host = scanner subdomén / překlep,
     // nelogovat (UA-filtr výše scannery s normálním browser UA nezachytí).
