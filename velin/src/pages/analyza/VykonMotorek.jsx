@@ -22,13 +22,15 @@ export default function VykonMotorek() {
   async function loadData() {
     setLoading(true); setError(null)
     try {
-      const [mRes, bRes] = await Promise.all([
+      const [mRes, bRes, brRes] = await Promise.all([
         supabase.from('motorcycles').select('id, model, brand, category, purchase_price, branch_id, status'),
         supabase.from('bookings').select('moto_id, start_date, end_date, total_price, status, created_at, payment_status, is_test'),
+        supabase.from('branches').select('id, name'),
       ])
       if (mRes.error) throw mRes.error
       if (bRes.error) throw bRes.error
-      setRaw({ motorcycles: mRes.data || [], bookings: bRes.data || [] })
+      if (brRes.error) throw brRes.error
+      setRaw({ motorcycles: mRes.data || [], bookings: bRes.data || [], branches: brRes.data || [] })
     } catch (e) { setError(e.message) } finally { setLoading(false) }
   }
 
@@ -36,7 +38,8 @@ export default function VykonMotorek() {
   if (error) return <div className="p-4 text-center" style={{ color: '#dc2626' }}>{error}</div>
   if (!raw || raw.motorcycles.length === 0) return <div className="p-8 text-center" style={{ color: '#888' }}>Žádné motorky</div>
 
-  const { motorcycles, bookings } = raw
+  const { motorcycles, bookings, branches } = raw
+  const branchMap = Object.fromEntries((branches || []).map(b => [b.id, b.name]))
   const completed = filterByPeriod(bookings.filter(isRealizedBooking), period, 'created_at')
   const has3mo = hasMinimumData(bookings)
 
@@ -52,7 +55,8 @@ export default function VykonMotorek() {
     const avgDaysPerReservation = reservationCount > 0 ? rentedDays / reservationCount : 0
     const utilizationIndex = periodDays > 0 ? (rentedDays / periodDays) * 100 : 0
     const avgDailyRate = rentedDays > 0 ? revenue / rentedDays : 0
-    return { ...m, rentedDays, revenue, reservationCount, avgDaysPerReservation, utilizationIndex, avgDailyRate }
+    const branchName = branchMap[m.branch_id] || '—'
+    return { ...m, rentedDays, revenue, reservationCount, avgDaysPerReservation, utilizationIndex, avgDailyRate, branchName }
   }).sort((a, b) => b.revenue - a.revenue)
 
   // Brand aggregation
@@ -83,7 +87,7 @@ export default function VykonMotorek() {
         <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
-              {['Model', 'Značka', 'Kategorie', 'Počet rezervací', 'Pronajato dní', 'Dní/rezervace', 'Revenue', 'Obsazenost %', 'Avg Kč/den'].map(h => (
+              {['Model', 'Značka', 'Kategorie', 'Pobočka', 'Počet rezervací', 'Pronajato dní', 'Dní/rezervace', 'Revenue', 'Obsazenost %', 'Avg Kč/den'].map(h => (
                 <th key={h} className="text-left font-bold py-2 px-3" style={{ color: '#1a2e22' }}>{h}</th>
               ))}
             </tr>
@@ -94,6 +98,7 @@ export default function VykonMotorek() {
                 <td className="py-2 px-3 font-semibold">{m.model}</td>
                 <td className="py-2 px-3">{m.brand || '—'}</td>
                 <td className="py-2 px-3">{m.category || '—'}</td>
+                <td className="py-2 px-3">{m.branchName}</td>
                 <td className="py-2 px-3">{m.reservationCount}</td>
                 <td className="py-2 px-3">{m.rentedDays}</td>
                 <td className="py-2 px-3">{m.avgDaysPerReservation.toFixed(1)}</td>
