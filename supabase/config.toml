@@ -10,6 +10,11 @@ project_id = "vnwnqteskbykeucanlhk"
 # samy (token v body, X-Api-Key header, IP rate-limit, ...). Bez tohoto
 # nastavení Supabase gateway zablokuje i OPTIONS preflight → CORS error.
 
+# Slevomat Partner API klient — ověření/uplatnění voucherů. Volá web rezervace
+# anonymně (jen apikey), auth ke Slevomatu řeší SLEVOMAT_PARTNER_TOKEN secret.
+[functions.slevomat-voucher]
+verify_jwt = false
+
 # CMS save (volá motogo24.com admin overlay; auth = cms_admin_token v body)
 [functions.cms-save]
 verify_jwt = false
