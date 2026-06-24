@@ -46,9 +46,16 @@ class _PromoCodeInputState extends State<PromoCodeInput> {
     setState(() => _loading = false);
 
     if (result.success && result.discount != null) {
-      // Slevové kódy lze libovolně kombinovat (i víc % kódů + vouchery);
-      // celkovou slevu kapuje na cenu rezervace backend i price_calculator.
+      // K2: max jeden procentuální kód (fixní kódy/vouchery lze kombinovat libovolně)
       final newDiscount = result.discount!;
+      if (newDiscount.type == DiscountType.percent &&
+          widget.appliedCodes.any((d) => d.type == DiscountType.percent)) {
+        setState(() {
+          _error = t(context).tr('promoNoCombinePercent');
+          _success = null;
+        });
+        return;
+      }
       setState(() {
         _success = result.message(t(context).tr);
         _error = null;
