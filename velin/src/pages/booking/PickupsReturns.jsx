@@ -138,6 +138,7 @@ export default function PickupsReturns({ compact = false, onExpand }) {
   const [loading, setLoading] = useState(true)
   const [selectedDay, setSelectedDay] = useState(localIso(new Date()))
   const [subView, setSubView] = useState('list') // 'list' | 'calendar'
+  const [splitList, setSplitList] = useState(false) // seznam: společně vs. dvě tabulky
 
   useEffect(() => { loadData() }, [])
   useEffect(() => {
@@ -165,6 +166,8 @@ export default function PickupsReturns({ compact = false, onExpand }) {
   const upcoming = useMemo(() => events
     .filter(e => !e.done && e.day && e.day >= todayIso)
     .sort(cmpEvents), [events, todayIso])
+  const upcomingPickups = useMemo(() => upcoming.filter(e => e.type === 'pickup'), [upcoming])
+  const upcomingReturns = useMemo(() => upcoming.filter(e => e.type === 'return'), [upcoming])
 
   const openBooking = (id) => navigate(`/rezervace/${id}`)
 
@@ -218,6 +221,13 @@ export default function PickupsReturns({ compact = false, onExpand }) {
       <div className="flex items-center gap-2 flex-wrap">
         {toggleBtn('list', '☰ Seznam')}
         {toggleBtn('calendar', '🗓️ Kalendář')}
+        {subView === 'list' && (
+          <button onClick={() => setSplitList(s => !s)}
+            className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+            style={{ padding: '7px 14px', border: '1px solid #d4e8e0', background: splitList ? '#74FB71' : '#f1faf7', color: '#1a2e22' }}>
+            {splitList ? '⇆ Společně' : '⇆ Rozdělit'}
+          </button>
+        )}
         <span className="inline-block rounded-full text-sm font-extrabold" style={{ background: '#dcfce7', color: '#15803d', padding: '2px 10px' }}>{upcoming.length} nadcházejících</span>
         {branches.length > 1 && (
           <select value={branchFilter} onChange={e => setBranchFilter(e.target.value)}
@@ -230,9 +240,30 @@ export default function PickupsReturns({ compact = false, onExpand }) {
       </div>
 
       {subView === 'list' ? (
-        <Card style={{ padding: 14 }}>
-          <EventList events={upcoming} onOpen={openBooking} showStatus />
-        </Card>
+        splitList ? (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <Card style={{ padding: 14 }}>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-base">🛫</span>
+                <h3 className="text-sm font-extrabold uppercase tracking-wide" style={{ color: TYPE.pickup.color }}>Odjezdy (vyzvednutí)</h3>
+                <span className="inline-block rounded-full text-sm font-extrabold ml-auto" style={{ background: '#dcfce7', color: '#15803d', padding: '1px 9px' }}>{upcomingPickups.length}</span>
+              </div>
+              <EventList events={upcomingPickups} onOpen={openBooking} showStatus />
+            </Card>
+            <Card style={{ padding: 14 }}>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-base">🛬</span>
+                <h3 className="text-sm font-extrabold uppercase tracking-wide" style={{ color: TYPE.return.color }}>Návraty (vrácení)</h3>
+                <span className="inline-block rounded-full text-sm font-extrabold ml-auto" style={{ background: '#fef3c7', color: '#b45309', padding: '1px 9px' }}>{upcomingReturns.length}</span>
+              </div>
+              <EventList events={upcomingReturns} onOpen={openBooking} showStatus />
+            </Card>
+          </div>
+        ) : (
+          <Card style={{ padding: 14 }}>
+            <EventList events={upcoming} onOpen={openBooking} showStatus />
+          </Card>
+        )
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
           <div className="lg:col-span-2">
