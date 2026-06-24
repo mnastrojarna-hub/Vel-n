@@ -80,6 +80,9 @@ $static = [
     ['loc' => '/katalog/supermoto',      'priority' => '0.8',  'changefreq' => 'weekly'],
     ['loc' => '/katalog/detske',         'priority' => '0.8',  'changefreq' => 'weekly'],
     ['loc' => '/pujcovna-motorek',       'priority' => '0.8',  'changefreq' => 'monthly'],
+    // Oblasti — rozcestník krajů (SEO "motopůjčovna {město}"). Detaily krajů se
+    // doplní níže dynamicky z data/oblasti.php (jeden zdroj pravdy).
+    ['loc' => '/oblasti',                'priority' => '0.7',  'changefreq' => 'monthly'],
     // /jak-pujcit byla smazána (301 redirect na /jak-pujcit/postup), ze sitemapy
     // vyřazena aby crawler neindexoval redirect.
     ['loc' => '/jak-pujcit/postup',      'priority' => '0.7',  'changefreq' => 'monthly'],
@@ -113,6 +116,12 @@ echo '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"'
 // Statické stránky
 foreach ($static as $s) {
     echo sitemapEntry($base, $s['loc'], $s['changefreq'], $s['priority'], $today);
+}
+
+// Oblasti — krajské landing stránky z data/oblasti.php
+require_once __DIR__ . '/data/oblasti.php';
+foreach (oblastiRegions() as $r) {
+    echo sitemapEntry($base, '/oblasti/' . $r['slug'], 'monthly', '0.7', $today);
 }
 
 // Dynamické: motorky z DB — image extension obsahuje image_url + images[]

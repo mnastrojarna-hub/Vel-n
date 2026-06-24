@@ -37,6 +37,9 @@ const I18N_SLUG_ROUTES = [
     '/katalog/chopper' => ['en' => '/catalog/chopper', 'de' => '/katalog/chopper', 'es' => '/catalogo/chopper', 'fr' => '/catalogue/chopper', 'nl' => '/catalogus/chopper', 'pl' => '/katalog/chopper'],
     '/katalog/detske' => ['en' => '/catalog/kids', 'de' => '/katalog/kinder', 'es' => '/catalogo/infantiles', 'fr' => '/catalogue/enfants', 'nl' => '/catalogus/kinder', 'pl' => '/katalog/dzieciece'],
     '/pujcovna-motorek' => ['en' => '/motorcycle-rental', 'de' => '/motorradverleih', 'es' => '/alquiler-de-motos', 'fr' => '/location-de-motos', 'nl' => '/motorverhuur', 'pl' => '/wypozyczalnia-motocykli'],
+    // Oblasti (rozcestník krajů). Slugy krajů (/oblasti/vysocina…) jsou vlastní
+    // jména — překládá se jen prefix (viz I18N_SLUG_PREFIXES níže).
+    '/oblasti' => ['en' => '/areas', 'de' => '/regionen', 'es' => '/regiones', 'fr' => '/regions', 'nl' => '/regios', 'pl' => '/regiony'],
     // /jak-pujcit (rozcestník) jen 301-redirectuje na /postup — lokalizujeme i jeho.
     '/jak-pujcit' => ['en' => '/how-to-rent', 'de' => '/mietanleitung', 'es' => '/como-alquilar', 'fr' => '/comment-louer', 'nl' => '/hoe-huren', 'pl' => '/jak-wypozyczyc'],
     '/jak-pujcit/postup' => ['en' => '/how-to-rent/process', 'de' => '/mietanleitung/ablauf', 'es' => '/como-alquilar/proceso', 'fr' => '/comment-louer/procedure', 'nl' => '/hoe-huren/werkwijze', 'pl' => '/jak-wypozyczyc/proces'],
@@ -75,6 +78,7 @@ const I18N_SLUG_PREFIXES = [
     '/dokumenty/' => ['en' => '/documents/', 'de' => '/dokumente/', 'es' => '/documentos/', 'fr' => '/documents/', 'nl' => '/documenten/', 'pl' => '/dokumenty/'],
     '/eshop/' => ['en' => '/shop/', 'de' => '/shop/', 'es' => '/tienda/', 'fr' => '/boutique/', 'nl' => '/winkel/', 'pl' => '/sklep/'],
     '/blog/' => ['en' => '/blog/', 'de' => '/blog/', 'es' => '/blog/', 'fr' => '/blog/', 'nl' => '/blog/', 'pl' => '/blog/'],
+    '/oblasti/' => ['en' => '/areas/', 'de' => '/regionen/', 'es' => '/regiones/', 'fr' => '/regions/', 'nl' => '/regios/', 'pl' => '/regiony/'],
 ];
 
 /** Reverzní mapa: lokalizovaný slug (libovolný jazyk) → kanonický. */
