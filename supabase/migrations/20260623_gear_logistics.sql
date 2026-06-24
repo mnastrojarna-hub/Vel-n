@@ -74,7 +74,7 @@ begin
   ),
   calc as (
     select d.d shortage_date, bk.type, bk.size,
-           case when bk.lic = 'N' then 'child' else 'adult' end audience,
+           case when bool_or(bk.lic = 'N') then 'child' else 'adult' end audience,
            count(*)::int needed, coalesce(ba.quantity,0)::int stock_qty,
            greatest(count(*) - coalesce(ba.quantity,0), 0)::int deficit,
            array_agg(distinct bk.id) booking_ids
@@ -82,7 +82,7 @@ begin
     join bk on d.d between bk.sd and bk.ed
     left join branch_accessories ba
       on ba.branch_id = p_branch_id and ba.type = bk.type and ba.size = bk.size
-    group by d.d, bk.type, bk.size, case when bk.lic='N' then 'child' else 'adult' end, coalesce(ba.quantity,0)
+    group by d.d, bk.type, bk.size, coalesce(ba.quantity,0)
   )
   insert into gear_shortages
     (branch_id, accessory_type, size, audience, shortage_date, needed_qty, stock_qty, deficit_qty, booking_ids, status)
@@ -90,7 +90,7 @@ begin
   from calc where deficit > 0
   on conflict (branch_id, accessory_type, size, shortage_date) do update set
     needed_qty=excluded.needed_qty, stock_qty=excluded.stock_qty, deficit_qty=excluded.deficit_qty,
-    booking_ids=excluded.booking_ids, updated_at=now(),
+    booking_ids=excluded.booking_ids, audience=excluded.audience, updated_at=now(),
     status = case when gear_shortages.status in ('resolved','dismissed') then 'open' else gear_shortages.status end,
     resolved_at = case when gear_shortages.status in ('resolved','dismissed') then null else gear_shortages.resolved_at end;
 
@@ -154,12 +154,29 @@ end $$;
 revoke all on function public.detect_gear_shortages(int) from public, anon;
 grant execute on function public.detect_gear_shortages(int) to authenticated, service_role;
 
--- 5) KALENDÁŘ DOSTUPNOSTI (per den) ------------------------------------
+-- 5) KALENDÁŘ DOSTUPNOSTI (per den) — VŠECHNY aktivní typy×velikosti
+--    + příznak is_consumable (spotřební/nespotřební, jako karta pobočky)
+drop function if exists public.get_branch_gear_calendar(uuid,date,date);
 create or replace function public.get_branch_gear_calendar(p_branch_id uuid, p_from date, p_to date)
-returns table(shortage_date date, accessory_type text, size text, stock int, booked int, free int, deficit int)
+returns table(shortage_date date, accessory_type text, size text, is_consumable boolean, stock int, booked int, free int, deficit int)
 language sql stable security definer set search_path = public as $$
   with days as (select generate_series(p_from, p_to, interval '1 day')::date d),
+  types as (
+    select at.key type, s.size, coalesce(at.is_consumable,false) is_consumable, coalesce(at.sort_order,0) so
+    from accessory_types at
+    cross join lateral unnest(coalesce(at.sizes,'{}'::text[])) s(size)
+    where at.is_active = true
+  ),
   stock as (select type, size, quantity from branch_accessories where branch_id = p_branch_id),
+  universe as (
+    select type, size, is_consumable, so from types
+    union
+    select s.type, s.size,
+      coalesce((select bool_or(t.is_consumable) from types t where t.type=s.type), false),
+      coalesce((select min(t.so) from types t where t.type=s.type), 999)
+    from stock s
+    where not exists (select 1 from types t where t.type=s.type and t.size=s.size)
+  ),
   bk as (
     select b.start_date::date sd, b.end_date::date ed, x.type, x.size
     from bookings b join motorcycles m on m.id = b.moto_id
@@ -171,20 +188,19 @@ language sql stable security definer set search_path = public as $$
     ) x(type,size)
     where m.branch_id=p_branch_id and b.status in ('pending','reserved','active')
       and coalesce(b.pickup_method,'')<>'delivery' and x.size is not null and x.size<>''
-      and exists (select 1 from branch_accessories b2 where b2.type = x.type)
   ),
-  universe as (select type,size from stock union select distinct type,size from bk),
   booked as (
     select d.d, bk.type, bk.size, count(*)::int n
     from days d join bk on d.d between bk.sd and bk.ed group by d.d, bk.type, bk.size
   )
-  select d.d, u.type, u.size, coalesce(s.quantity,0)::int, coalesce(bo.n,0)::int,
+  select d.d, u.type, u.size, u.is_consumable,
+    coalesce(s.quantity,0)::int, coalesce(bo.n,0)::int,
     greatest(coalesce(s.quantity,0)-coalesce(bo.n,0),0)::int,
     greatest(coalesce(bo.n,0)-coalesce(s.quantity,0),0)::int
   from days d cross join universe u
   left join stock s on s.type=u.type and s.size=u.size
   left join booked bo on bo.d=d.d and bo.type=u.type and bo.size=u.size
-  order by u.type, u.size, d.d
+  order by u.is_consumable, u.so, u.type, u.size, d.d
 $$;
 revoke all on function public.get_branch_gear_calendar(uuid,date,date) from public, anon;
 grant execute on function public.get_branch_gear_calendar(uuid,date,date) to authenticated, service_role;
