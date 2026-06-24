@@ -25,7 +25,8 @@ const DeliveryNotesTab = lazy(() => import('./accounting/DeliveryNotesTab'))
 const ContractsTab = lazy(() => import('./accounting/ContractsTab'))
 const CreditNotesTab = lazy(() => import('./accounting/CreditNotesTab'))
 
-const FINANCE_TABS = ['Přehled', 'Faktury', 'Dobropisy', 'Dodací listy', 'Smlouvy', 'Objednávky', 'Účetnictví', 'Faktury přijaté', 'Pokladna', 'Sklad']
+// Objednávky přesunuty do Logistika zboží (/logistika → Objednávky)
+const FINANCE_TABS = ['Přehled', 'Faktury', 'Dobropisy', 'Dodací listy', 'Smlouvy', 'Účetnictví', 'Faktury přijaté', 'Pokladna', 'Sklad']
 
 const ACCOUNTING_SUBTABS = [
   { id: 'events', label: 'Finanční události' },
@@ -254,7 +255,6 @@ export default function Finance() {
       <Suspense fallback={<TabLoader />}>
       {activeTab === 'Faktury' && <ErrorBoundary><InvoicesTab /></ErrorBoundary>}
       {activeTab === 'Dobropisy' && <ErrorBoundary><CreditNotesTab /></ErrorBoundary>}
-      {activeTab === 'Objednávky' && <ErrorBoundary><AutoOrdersTab /></ErrorBoundary>}
       {activeTab === 'Dodací listy' && <ErrorBoundary><DeliveryNotesTab /></ErrorBoundary>}
       {activeTab === 'Smlouvy' && <ErrorBoundary><ContractsTab /></ErrorBoundary>}
       {activeTab === 'Faktury přijaté' && <ErrorBoundary><ReceivedInvoicesTab /></ErrorBoundary>}
