@@ -370,12 +370,16 @@ class ResDetailTabContent extends ConsumerWidget {
               label: t(context).sosTitle,
               onTap: () => context.push(Routes.sos),
             ),
-            const SizedBox(height: 8),
-            ResDetailButton.outlined(
-              emoji: '📝',
-              label: t(context).tr('handoverProtocol'),
-              onTap: () => context.push(Routes.protocol),
-            ),
+            // Předávací protokol: samoobslužná pobočka → zákazník vyplní sám v appce.
+            // Obslužná → protokol řeší obsluha ve Velíně (tlačítko se nezobrazuje).
+            if (res.branchType == 'samoobslužná') ...[
+              const SizedBox(height: 8),
+              ResDetailButton.outlined(
+                emoji: '📝',
+                label: t(context).tr('handoverProtocol'),
+                onTap: () => context.push(Routes.protocol, extra: res),
+              ),
+            ],
           ],
 
           // ===== UPCOMING ACTIONS =====

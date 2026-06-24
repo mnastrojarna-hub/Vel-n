@@ -47,6 +47,12 @@ export default function FleetDetail() {
 
   async function handleSave() {
     setSaving(true); setError(null)
+    const _today = new Date().toLocaleDateString('sv-SE')
+    if (moto.acquired_at && moto.acquired_at > _today) {
+      setError('Datum pořízení nesmí být v budoucnu.')
+      setSaving(false)
+      return
+    }
     const normalize = v => typeof v === 'string' ? v.replace(',', '.').trim() : v
     const toInt = v => {
       const s = normalize(v)

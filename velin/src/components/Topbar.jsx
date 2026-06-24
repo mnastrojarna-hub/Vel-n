@@ -12,16 +12,20 @@ const ROUTE_LABELS = {
   '/finance': 'Finance',
   '/dokumenty': 'Dokumenty',
   '/sklady': 'Sklady',
+  '/logistika': 'Logistika zboží',
   '/servis': 'Servis',
   '/zpravy': 'Zprávy',
-  '/cms': 'Web CMS',
+  '/cms': 'Texty webu',
   '/analyza': 'Analýza',
   '/e-shop': 'E-shop',
   '/statni-sprava': 'Státní správa',
   '/ai-copilot': 'AI Copilot',
+  '/orchestrator': 'AI Ředitel',
   '/sos': 'SOS Panel',
   '/pobocky': 'Pobočky',
+  '/trasy': 'Trasy',
   '/slevove-kody': 'Slevové kódy',
+  '/zamestnanci': 'Zaměstnanci',
 }
 
 export default function Topbar() {
@@ -59,7 +63,9 @@ export default function Topbar() {
         supabase.from('inventory').select('id, stock, min_stock'),
         supabase.from('motorcycles').select('id, stk_valid_until'),
       ])
-      const lowStock = (invRes.data || []).filter(i => i.stock <= (i.min_stock || 0)).length
+      // „Nízké zásoby" jen když je nastavené smysluplné minimum (> 0). Položka
+      // s minimem 0 (např. nevedená velikost) se nikdy nehlásí jako nízká.
+      const lowStock = (invRes.data || []).filter(i => (i.min_stock || 0) > 0 && i.stock <= i.min_stock).length
       const in30days = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
       const stkSoon = (stkRes.data || []).filter(m => m.stk_valid_until && m.stk_valid_until <= in30days).length
       setNotifs({ messages: msgRes.count || 0, sos: sosRes.count || 0, lowStock, stkSoon })
@@ -74,7 +80,7 @@ export default function Topbar() {
   const notifItems = [
     notifs.sos > 0 && { icon: '🚨', text: `${notifs.sos} aktivních SOS`, path: '/sos', color: '#dc2626' },
     notifs.messages > 0 && { icon: '💬', text: `${notifs.messages} nepřečtených zpráv`, path: '/zpravy', color: '#8b5cf6' },
-    notifs.lowStock > 0 && { icon: '📦', text: `${notifs.lowStock} pod minimem`, path: '/sklady', color: '#b45309' },
+    notifs.lowStock > 0 && { icon: '📦', text: `${notifs.lowStock} pod minimem`, path: '/logistika?tab=stock', color: '#b45309' },
     notifs.stkSoon > 0 && { icon: '🔧', text: `${notifs.stkSoon} STK brzy vyprší`, path: '/servis', color: '#b45309' },
   ].filter(Boolean)
 

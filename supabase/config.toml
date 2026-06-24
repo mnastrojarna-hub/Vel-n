@@ -10,6 +10,11 @@ project_id = "vnwnqteskbykeucanlhk"
 # samy (token v body, X-Api-Key header, IP rate-limit, ...). Bez tohoto
 # nastavení Supabase gateway zablokuje i OPTIONS preflight → CORS error.
 
+# Slevomat Partner API klient — ověření/uplatnění voucherů. Volá web rezervace
+# anonymně (jen apikey), auth ke Slevomatu řeší SLEVOMAT_PARTNER_TOKEN secret.
+[functions.slevomat-voucher]
+verify_jwt = false
+
 # CMS save (volá motogo24.com admin overlay; auth = cms_admin_token v body)
 [functions.cms-save]
 verify_jwt = false
@@ -48,6 +53,11 @@ verify_jwt = false
 
 # Uložení fotky verifikačního dokladu — taktéž anonymní web volání z rezervace. OFF.
 [functions.save-verification-document]
+verify_jwt = false
+
+# Předávací protokol na samoobslužné pobočce — volá zákazník z appky (vlastní JWT)
+# i cron auto-fill (service_role). Vlastní ověření přes authClassify → verify_jwt=false.
+[functions.submit-handover-protocol]
 verify_jwt = false
 
 # SEO Health checker — server-side fetch & parse zive stranky motogo24.cz

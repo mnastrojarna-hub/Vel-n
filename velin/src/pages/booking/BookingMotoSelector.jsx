@@ -72,10 +72,10 @@ export default function BookingMotoSelector({
                       <div className="text-xs" style={{ color: '#1a2e22' }}>{m.spz || '\u2014'} \u00b7 {m.category || '\u2014'}</div>
                     </div>
                     <div className="text-right">
-                      <div className="text-sm font-extrabold" style={{ color: '#0f1a14' }}>{price !== null ? fmtCZK(price) + ' Kc' : '\u2014'}</div>
+                      <div className="text-sm font-extrabold" style={{ color: '#0f1a14' }}>{price !== null ? fmtCZK(price) + ' Kč' : '\u2014'}</div>
                       {pDiff !== null && pDiff !== 0 && (
                         <div className="text-xs font-bold" style={{ color: pDiff > 0 ? '#dc2626' : '#1a8a18' }}>
-                          {pDiff > 0 ? '+' : ''}{fmtCZK(pDiff)} Kc
+                          {pDiff > 0 ? '+' : ''}{fmtCZK(pDiff)} Kč
                         </div>
                       )}
                     </div>

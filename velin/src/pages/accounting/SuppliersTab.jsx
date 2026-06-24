@@ -181,12 +181,12 @@ function SupplierModal({ supplier, onClose, onSaved }) {
   }
 
   const CATEGORIES = [
-    '', 'phm', 'pojisteni', 'servis_opravy', 'najem', 'energie',
+    '', 'phm', 'pojištění', 'servis_opravy', 'nájem', 'energie',
     'telekomunikace', 'marketing', 'kancelar', 'ostatni_naklady',
   ]
   const CAT_LABELS = {
-    '': '— Neurčeno —', phm: 'PHM', pojisteni: 'Pojištění', servis_opravy: 'Servis/Opravy',
-    najem: 'Nájem', energie: 'Energie', telekomunikace: 'Telekomunikace',
+    '': '— Neurčeno —', phm: 'PHM', pojištění: 'Pojištění', servis_opravy: 'Servis/Opravy',
+    nájem: 'Nájem', energie: 'Energie', telekomunikace: 'Telekomunikace',
     marketing: 'Marketing', kancelar: 'Kancelář', ostatni_naklady: 'Ostatní',
   }
 

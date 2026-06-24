@@ -45,7 +45,7 @@ export default function TaxReturnsTab() {
     setError(null)
     try {
       const existing = returns.find(r => r.year === year)
-      if (existing) { setError(`Danove priznani za ${year} jiz existuje`); setGenerating(false); return }
+      if (existing) { setError(`Daňové přiznání za ${year} jiz existuje`); setGenerating(false); return }
 
       const yearStart = `${year}-01-01`
       const yearEnd = `${year}-12-31`
@@ -142,7 +142,7 @@ export default function TaxReturnsTab() {
     await load()
   }
 
-  const fmt = (n) => (n || 0).toLocaleString('cs-CZ') + ' Kc'
+  const fmt = (n) => (n || 0).toLocaleString('cs-CZ') + ' Kč'
   const now = new Date()
   const prevYear = now.getFullYear() - 1
 
@@ -162,18 +162,18 @@ export default function TaxReturnsTab() {
       {loading ? (
         <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
       ) : returns.length === 0 ? (
-        <Card><p style={{ color: '#1a2e22', fontSize: 13 }}>Zadna danova priznani</p></Card>
+        <Card><p style={{ color: '#1a2e22', fontSize: 13 }}>Žádná daňová přiznání</p></Card>
       ) : (
         returns.map(r => (
           <Card key={r.id} className="mb-4">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>
-                Danove priznani {r.year}
+                Daňové přiznání {r.year}
               </h3>
               <div className="flex items-center gap-2">
                 <span className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase"
                   style={{ padding: '4px 10px', background: r.status === 'submitted' ? '#dcfce7' : '#fef3c7', color: r.status === 'submitted' ? '#1a8a18' : '#b45309' }}>
-                  {r.status === 'submitted' ? 'Podano' : 'Pripraveno'}
+                  {r.status === 'submitted' ? 'Podano' : 'Připraveno'}
                 </span>
                 {r.status !== 'submitted' && (
                   <button onClick={() => markSubmitted(r.id)} className="text-sm font-bold cursor-pointer bg-transparent border-none" style={{ color: '#b45309' }}>Oznacit podano</button>
@@ -182,24 +182,24 @@ export default function TaxReturnsTab() {
             </div>
 
             <div className="grid grid-cols-3 gap-3 mb-3">
-              <MiniStat label="Prijmy celkem" value={fmt(r.total_revenue)} color="#1a8a18" />
-              <MiniStat label="Vydaje celkem" value={fmt(r.deductible_expenses)} color="#dc2626" />
-              <MiniStat label="Zaklad dane" value={fmt(r.rounded_tax_base)} color="#1a2e22" />
+              <MiniStat label="Příjmy celkem" value={fmt(r.total_revenue)} color="#1a8a18" />
+              <MiniStat label="Výdaje celkem" value={fmt(r.deductible_expenses)} color="#dc2626" />
+              <MiniStat label="Základ daně" value={fmt(r.rounded_tax_base)} color="#1a2e22" />
             </div>
             <div className="grid grid-cols-4 gap-3 mb-3">
-              <MiniStat label="Dan 15%" value={fmt(r.income_tax_15)} color="#6b7280" />
-              <MiniStat label="Dan 23%" value={fmt(r.income_tax_23)} color="#6b7280" />
+              <MiniStat label="Daň 15%" value={fmt(r.income_tax_15)} color="#6b7280" />
+              <MiniStat label="Daň 23%" value={fmt(r.income_tax_23)} color="#6b7280" />
               <MiniStat label="Sleva na poplatnika" value={fmt(r.tax_discount)} color="#2563eb" />
-              <MiniStat label="Dan po sleve" value={fmt(r.tax_after_discount)} color="#b45309" />
+              <MiniStat label="Daň po sleve" value={fmt(r.tax_after_discount)} color="#b45309" />
             </div>
             <div className="grid grid-cols-3 gap-3">
-              <MiniStat label="Zaplacene zalohy" value={fmt(r.paid_advances)} color="#6b7280" />
+              <MiniStat label="Zaplacene zálohy" value={fmt(r.paid_advances)} color="#6b7280" />
               <MiniStat label="Doplatek" value={fmt(r.tax_to_pay)} color="#dc2626" />
               <MiniStat label="Preplatek" value={fmt(r.tax_to_refund)} color="#1a8a18" />
             </div>
 
             <div className="mt-3 text-sm" style={{ color: '#6b7280' }}>
-              Odpisy: {fmt(r.depreciation)} | Mzdy: {fmt(r.payroll_costs)} | Vydaje: {fmt(r.total_expenses)}
+              Odpisy: {fmt(r.depreciation)} | Mzdy: {fmt(r.payroll_costs)} | Výdaje: {fmt(r.total_expenses)}
             </div>
           </Card>
         ))

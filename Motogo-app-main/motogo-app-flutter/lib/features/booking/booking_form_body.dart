@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme.dart';
 import '../catalog/moto_model.dart';
+import '../loyalty/loyalty_provider.dart';
 import 'booking_models.dart';
 import 'booking_provider.dart';
 import 'widgets/address_picker.dart';
@@ -163,6 +164,7 @@ class _BookingFormBodyState extends ConsumerState<BookingFormBody> {
       onChanged: (list) => _upd((d) => d.copyWith(extras: list)),
       isDelivery: draft.pickupMethod == 'delivery' ||
           draft.returnMethod == 'delivery',
+      loyaltyLevel: ref.watch(loyaltyStatusProvider).valueOrNull?.level ?? 0,
       helmetSize: draft.helmetSize,
       jacketSize: draft.jacketSize,
       pantsSize: draft.pantsSize,

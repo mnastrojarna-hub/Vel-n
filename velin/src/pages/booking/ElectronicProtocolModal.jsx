@@ -22,6 +22,8 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
   const [damageDesc, setDamageDesc] = useState('')
   const [missingGear, setMissingGear] = useState('')
   const [checks, setChecks] = useState({})
+  // Předávací protokol — jediná kolonka „Poškození" (zaškrtnutí + popis)
+  const [handoverDamage, setHandoverDamage] = useState({ checked: false, desc: '' })
   const custSig = useRef(null)
   const operSig = useRef(null)
 
@@ -43,7 +45,7 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
       if (isDamage) { DAMAGE_CHECKS.forEach(d => { init[d.key] = { checked: false, note: '' } }) }
       else { [...HANDOVER_CHECKS, ...EXTRA_GEAR_CHECKS].forEach(d => { init[d.key] = false }) }
       setChecks(init)
-      setVisualState(''); setNotes(''); setDamageDesc(''); setMissingGear('')
+      setVisualState(''); setNotes(''); setDamageDesc(''); setMissingGear(''); setHandoverDamage({ checked: false, desc: '' })
     } catch (e) { setError(e.message) }
     setLoading(false)
   }
@@ -59,15 +61,17 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
       const customerSig = custSig.current?.toDataURL() || null
       if (!customerSig) { setError('Chybí podpis nájemce — podepište se prosím perem.'); setSaving(false); return }
       const operatorSig = operSig.current?.toDataURL() || null
-      const form = { mileage, visualState, notes, damageDesc, missingGear, accessories, checks }
+      const form = { mileage, visualState, notes, damageDesc, missingGear, accessories, checks, damage: handoverDamage }
       const html = buildElectronicProtocolHtml({ type, vars, form, signatures: { customer: customerSig, operator: operatorSig } })
       const docId = crypto.randomUUID()
       const docName = (isDamage ? 'Protokol o poškození' : 'Předávací protokol') + ' (elektronický)'
       const filled = { ...vars, _signed_html: html, _doc_name: docName, _doc_type: type, _electronic: true, _signed_at: new Date().toISOString() }
-      const { error: gErr } = await supabase.from('generated_documents').insert({ id: docId, template_id: null, booking_id: bookingId, customer_id: vars._customer_id, filled_data: filled, pdf_path: null })
-      if (gErr) throw gErr
+      // PDF nahrajeme PŘED insertem, aby sync trigger (generated_documents → documents)
+      // viděl reálnou cestu k souboru a zákazník dostal funkční dokument v appce.
       let pdfPath = null
-      try { pdfPath = await uploadHtmlAsPdf(supabase, `generated/${bookingId}/${type}-${docId}.pdf`, html); await supabase.from('generated_documents').update({ pdf_path: pdfPath }).eq('id', docId) } catch {}
+      try { pdfPath = await uploadHtmlAsPdf(supabase, `generated/${bookingId}/${type}-${docId}.pdf`, html) } catch {}
+      const { error: gErr } = await supabase.from('generated_documents').insert({ id: docId, template_id: null, booking_id: bookingId, customer_id: vars._customer_id, filled_data: filled, pdf_path: pdfPath })
+      if (gErr) throw gErr
       onSaved && onSaved({ html, type, docId, pdfPath, docName, bookingId, customerId: vars._customer_id, customerEmail: vars.customer_email || '', customerName: vars.customer_name || '', moto: `${vars.moto_model || ''}${vars.moto_spz ? ` (${vars.moto_spz})` : ''}`, rentalPeriod: vars.rental_period || '', bookingNumber: vars.booking_number || '' })
     } catch (e) { setError('Uložení selhalo: ' + e.message) }
     setSaving(false)
@@ -127,6 +131,21 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
                     <span style={labelStyle}>{c.label}</span>
                   </label>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {!isDamage && (
+            <div>
+              <h3 className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>Poškození</h3>
+              <div className="p-2 rounded-lg" style={{ background: '#f8faf9' }}>
+                <label className="flex items-center gap-3">
+                  <input type="checkbox" checked={handoverDamage.checked} onChange={() => setHandoverDamage(d => ({ ...d, checked: !d.checked }))} style={cbStyle} />
+                  <span style={labelStyle}>Poškození při předání</span>
+                </label>
+                {handoverDamage.checked && (
+                  <textarea value={handoverDamage.desc} onChange={e => setHandoverDamage(d => ({ ...d, desc: e.target.value }))} rows={2} style={{ ...inputStyle, marginTop: 8 }} placeholder="Popis poškození" />
+                )}
               </div>
             </div>
           )}

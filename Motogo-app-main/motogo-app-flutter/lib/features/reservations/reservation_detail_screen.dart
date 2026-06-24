@@ -37,6 +37,21 @@ class _DetailState extends ConsumerState<ReservationDetailScreen> {
   int _rating = 0;
   String _activeTab = 'detail'; // 'detail' or 'card'
   Timer? _refreshTimer;
+  bool _protocolWindowKicked = false;
+
+  // Samoobslužná pobočka: jakmile zákazník otevře aktivní/rezervovanou rezervaci
+  // (na tabletu po zadání kódu ke dveřím), spustí se 1h okno pro samovyplnění
+  // předávacího protokolu. Idempotentní (server nastaví start jen poprvé), proto
+  // stačí jediný „kick" za zobrazení detailu.
+  void _maybeStartProtocolWindow(Reservation res) {
+    if (_protocolWindowKicked) return;
+    if (res.branchType != 'samoobslužná') return;
+    if (res.status != 'active' && res.status != 'reserved') return;
+    _protocolWindowKicked = true;
+    unawaited(MotoGoSupabase.client
+        .rpc('start_handover_protocol_window', params: {'p_booking_id': res.id})
+        .catchError((_) => null));
+  }
 
   @override
   void initState() {
@@ -44,6 +59,7 @@ class _DetailState extends ConsumerState<ReservationDetailScreen> {
     _refreshTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       ref.invalidate(reservationByIdProvider(widget.bookingId));
       ref.invalidate(doorCodesProvider(widget.bookingId));
+      ref.invalidate(handoverProtocolStateProvider(widget.bookingId));
     });
   }
 
@@ -53,15 +69,64 @@ class _DetailState extends ConsumerState<ReservationDetailScreen> {
     super.dispose();
   }
 
+  // Výrazné upozornění na detailu aktivní samoobslužné rezervace — dokud zákazník
+  // protokol nevyplní (can_fill). Po vyplnění/auto-fillu zmizí. Odpočet se obnovuje
+  // přes 5s refresh timer (invaliduje handoverProtocolStateProvider).
+  Widget _protocolBanner(BuildContext context, Reservation res) {
+    final async = ref.watch(handoverProtocolStateProvider(res.id));
+    final s = async.asData?.value ?? const <String, dynamic>{};
+    if (s['can_fill'] != true) return const SizedBox.shrink();
+    String remaining = '';
+    final deadline = DateTime.tryParse('${s['deadline'] ?? ''}')?.toLocal();
+    if (deadline != null) {
+      final d = deadline.difference(DateTime.now());
+      if (d.inMinutes >= 1) {
+        remaining = '${d.inMinutes} min';
+      } else if (d.inSeconds > 0) {
+        remaining = '<1 min';
+      }
+    }
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: GestureDetector(
+        onTap: () => context.push(Routes.protocol, extra: res),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(color: MotoGoColors.green, borderRadius: BorderRadius.circular(MotoGoTheme.radiusLg)),
+          child: Row(children: [
+            const Text('📝', style: TextStyle(fontSize: 24)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('Vyplňte předávací protokol',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Colors.black)),
+                const SizedBox(height: 2),
+                Text(
+                  remaining.isNotEmpty
+                      ? 'Zbývá $remaining — jinak ho vyplníme automaticky.'
+                      : 'Klepněte pro vyplnění protokolu o převzetí.',
+                  style: const TextStyle(fontSize: 12, color: Colors.black87),
+                ),
+              ]),
+            ),
+            const Icon(Icons.chevron_right, color: Colors.black),
+          ]),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final resAsync = ref.watch(reservationByIdProvider(widget.bookingId));
     final doorCodesAsync = ref.watch(doorCodesProvider(widget.bookingId));
 
     return resAsync.when(
-      data: (res) => res == null
-          ? _error(t(context).tr('reservationNotFound'))
-          : _buildDetail(context, res, doorCodesAsync),
+      data: (res) {
+        if (res == null) return _error(t(context).tr('reservationNotFound'));
+        _maybeStartProtocolWindow(res);
+        return _buildDetail(context, res, doorCodesAsync);
+      },
       loading: () => const Scaffold(body: Center(child: CircularProgressIndicator(color: MotoGoColors.green))),
       error: (e, _) => _error('${t(context).error}: $e'),
     );
@@ -163,6 +228,10 @@ class _DetailState extends ConsumerState<ReservationDetailScreen> {
               ),
             ),
           ),
+
+          // ===== UPOZORNĚNÍ: vyplnit předávací protokol (samoobslužná) =====
+          if (res.branchType == 'samoobslužná' && st == ResStatus.aktivni)
+            SliverToBoxAdapter(child: _protocolBanner(context, res)),
 
           if (_activeTab == 'detail') ...[
             // ===== MOTORCYCLE IMAGE =====

@@ -26,6 +26,10 @@ class EditExtrasSection extends StatelessWidget {
   final ValueChanged<String?> onHelmetSize, onJacketSize, onPantsSize, onBootsSize, onGlovesSize;
   final ValueChanged<String?> onPassengerHelmetSize, onPassengerJacketSize, onPassengerPantsSize, onPassengerBootsSize;
 
+  /// Aktuální věrnostní rank — od [loyaltyFreeGearLevel] je veškerá placená
+  /// výbava (vč. obuvi a výbavy spolujezdce) zdarma i při úpravě.
+  final int loyaltyLevel;
+
   const EditExtrasSection({
     super.key,
     required this.selectedExtras,
@@ -33,6 +37,7 @@ class EditExtrasSection extends StatelessWidget {
     required this.returnMethod,
     this.isKids = false,
     this.ownGear = false,
+    this.loyaltyLevel = 0,
     required this.helmetSize, required this.jacketSize, required this.pantsSize,
     required this.bootsSize, required this.glovesSize,
     required this.passengerHelmetSize, required this.passengerJacketSize, required this.passengerPantsSize,
@@ -44,6 +49,9 @@ class EditExtrasSection extends StatelessWidget {
     required this.onPassengerHelmetSize, required this.onPassengerJacketSize, required this.onPassengerPantsSize,
     required this.onPassengerBootsSize,
   });
+
+  /// Od 3. ranku je veškerá placená výbava zdarma.
+  bool get _gearFree => loyaltyLevel >= loyaltyFreeGearLevel;
 
   void _addExtra(String id) {
     if (selectedExtras.contains(id)) return;
@@ -190,7 +198,7 @@ class EditExtrasSection extends StatelessWidget {
               fontWeight: checked ? FontWeight.w700 : FontWeight.w400,
               color: checked ? MotoGoColors.greenDark : MotoGoColors.g400)),
           ])),
-          Text('+${Money.czk(price)}',
+          Text(_gearFree ? 'ZDARMA' : '+${Money.czk(price)}',
             style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: MotoGoColors.greenDark)),
         ])),
     );
@@ -223,6 +231,20 @@ class EditExtrasSection extends StatelessWidget {
             const SizedBox(width: 6),
             Expanded(child: Text(t(context).tr('deliverySizeInfo'),
               style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF92400E)))),
+          ]),
+        )),
+
+      // Od 3. ranku: veškerá výbava i obuv zdarma (i pro spolujezdce).
+      if (_gearFree)
+        Padding(padding: const EdgeInsets.only(bottom: 8), child: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(color: MotoGoColors.greenPale, borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: MotoGoColors.green.withValues(alpha: 0.5))),
+          child: Row(children: [
+            const Text('🏅', style: TextStyle(fontSize: 16)),
+            const SizedBox(width: 8),
+            Expanded(child: Text(t(context).tr('loyaltyGearBenefit'),
+              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: MotoGoColors.greenDarker))),
           ]),
         )),
 

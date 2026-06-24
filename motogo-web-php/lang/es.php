@@ -300,6 +300,8 @@ return [
     'rez.gear.rider' => 'Equipo del conductor',
     'rez.gear.riderSub' => 'Casco, chaqueta, guantes, pantalones',
     'rez.gear.riderFree' => 'incluido · gratis',
+    'rez.gear.free' => 'GRATIS',
+    'rez.gear.loyaltyFree' => 'Gracias a tu rango, todo el equipo y el calzado — también del pasajero — es gratis.',
     'rez.gear.riderOwn' => 'Tengo mi propio equipo — no alquilo',
     'rez.gear.passenger' => 'Equipo del pasajero',
     'rez.gear.passengerSub' => 'Casco, chaqueta, guantes, pasamontañas',

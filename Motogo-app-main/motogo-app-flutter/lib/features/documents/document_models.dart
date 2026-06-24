@@ -43,6 +43,7 @@ class UserDocument {
     'payment_receipt' => '💰 Doklad k platbě',
     'invoice_final' => '🧾 Konečná faktura',
     'protocol' => '📝 Předávací protokol',
+    'protocol_damage' => '⚠️ Protokol o poškození',
     'id_card' => '🪪 Občanský průkaz',
     'drivers_license' => '🏍️ Řidičský průkaz',
     'passport' => '📕 Pas',

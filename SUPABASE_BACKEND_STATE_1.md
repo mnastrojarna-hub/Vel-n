@@ -121,6 +121,7 @@
 | Tabulka | Popis |
 |---------|-------|
 | `accounting_entries` | Účetní záznamy — reálné sloupce viz STATE_2 (type = ENUM `entry_type`, **category NOT NULL**) |
+| `document_number_counters` | **NEW 2026-06-23 (`20260623_atomic_document_numbering.sql`)** — Atomický čítač číselných řad dokladů. Sloupce: `prefix` text, `year` int, `last_seq` int DEFAULT 0, PK(`prefix`,`year`). Plní fce `next_document_number(prefix)` (viz STATE_3) — řeší duplicity (bug report: dvojité `DB-2026-0001`), které vznikaly neatomickým `MAX(seq)+1`. Pojistka: UNIQUE index `invoices_number_unique` na `invoices.number`. |
 | `cash_register` | Pokladna |
 | `tax_records` | Daňové záznamy |
 | `daily_stats` | Denní statistiky |
@@ -155,6 +156,7 @@
 | `suppliers` | Dodavatelé (name, normalized_name, ico, dic, address, bank_account, default_category, default_account, contact_email, notes, created_at, updated_at). Index na normalized_name a ico. Funkce normalize_supplier_name() pro matching bez diakritiky. Auto-upsert z OCR v receive-invoice. |
 | `inventory` | Skladové zásoby (category CHECK rozšířen o 'prislusenstvi') |
 | `inventory_movements` | Pohyby na skladě |
+| `gear_shortages` | **NEW 2026-06-23 (`20260623_gear_logistics.sql`)** — Fronta deficitů výbavy (Logistika zboží). Per `(branch_id, accessory_type, size, shortage_date)` UNIQUE. Sloupce: `branch_id` FK→branches CASCADE, `accessory_type` (boots/helmet/gloves/pants/jacket…), `size`, `audience` (adult/child), `shortage_date`, `needed_qty`, `stock_qty`, `deficit_qty`, `status` (open/warehouse_filled/transfer_requested/order_created/resolved/dismissed), `resolution`, `purchase_order_id` FK→purchase_orders SET NULL, `transfer_from_branch_id` FK→branches SET NULL, `booking_ids` uuid[] (rezervace, co deficit způsobily), `assigned_to`, `created_at/updated_at/resolved_at`. Plní trigger `gear_shortage_on_booking` (AFTER na bookings, exception-safe = rezervaci nikdy neshodí) + fce `detect_gear_shortages*`. Hlídá JEN typy přítomné v `branch_accessories` (bunda `jacket` až po zavedení). Pickup-at-branch (delivery pool mimo). RLS: Admin full. Realtime: ANO (badge Velín → Logistika zboží). Index `idx_gear_shortages_open`. |
 | `accessory_types` | Dynamické typy příslušenství (key, label, sizes[], is_consumable, **price_czk**, **pricing_unit** (per_booking/per_day/free), sort_order, is_active) — Velín admin spravuje (BranchAccessoryModals → „Spravovat typy"). Web `/rezervace` čte při init přes `MG._loadAccessoryConfig()` — řídí cenu i velikosti gear cards/chips v kroku 5. |
 
 ### AI a automatizace

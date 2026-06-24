@@ -13,6 +13,7 @@ import '../booking/booking_models.dart';
 import '../booking/widgets/address_picker.dart';
 import '../catalog/moto_model.dart';
 import '../catalog/catalog_provider.dart';
+import '../loyalty/loyalty_provider.dart';
 import '../payment/payment_provider.dart';
 import 'reservation_models.dart';
 import 'reservation_edit_price_calc.dart';
@@ -234,6 +235,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
       passengerPantsSize: _passengerPantsSize,
       passengerBootsSize: _passengerBootsSize,
       discountType: _discountType,
+      loyaltyLevel: ref.read(loyaltyStatusProvider).valueOrNull?.level ?? 0,
     );
   }
 
@@ -796,6 +798,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
               returnMethod: _returnMethod,
               isKids: _booking!.motoLicenseRequired == 'N',
               ownGear: _ownGear,
+              loyaltyLevel: ref.watch(loyaltyStatusProvider).valueOrNull?.level ?? 0,
               helmetSize: _helmetSize, jacketSize: _jacketSize, pantsSize: _pantsSize,
               bootsSize: _bootsSize, glovesSize: _glovesSize,
               passengerHelmetSize: _passengerHelmetSize,

@@ -28,6 +28,7 @@ const Government = lazy(() => import('./pages/Government'))
 const AICopilot = lazy(() => import('./pages/AICopilot'))
 const SOSPanel = lazy(() => import('./pages/SOSPanel'))
 const Branches = lazy(() => import('./pages/Branches'))
+const Logistika = lazy(() => import('./pages/Logistika'))
 const Trasy = lazy(() => import('./pages/Trasy'))
 const Employees = lazy(() => import('./pages/Employees'))
 const AiOrchestrator = lazy(() => import('./pages/AiOrchestrator'))
@@ -80,6 +81,7 @@ export default function App() {
           <Route path="/ai-copilot" element={<AICopilot />} />
           <Route path="/slevove-kody" element={<DiscountCodes />} />
           <Route path="/pobocky" element={<Branches />} />
+          <Route path="/logistika" element={<Logistika />} />
           <Route path="/trasy" element={<Trasy />} />
           <Route path="/sos" element={<SOSPanel />} />
           <Route path="/zamestnanci" element={<Employees />} />

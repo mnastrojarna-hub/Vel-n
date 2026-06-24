@@ -18,7 +18,7 @@ const CATEGORIES = [
   { value: 'buildings', label: 'Stavby' },
   { value: 'land', label: 'Pozemky' },
   { value: 'equipment', label: 'Vybaveni' },
-  { value: 'intangible', label: 'Nehmotny majetek' },
+  { value: 'intangible', label: 'Nehmotný majetek' },
 ]
 
 // CZ depreciation groups per § 30 ZDP
@@ -205,13 +205,13 @@ export default function LongTermAssetsTab() {
 
       await load()
     } catch (e) {
-      setError('Chyba generovani odpisu: ' + e.message)
+      setError('Chyba generovani odpisů: ' + e.message)
     } finally {
       setGenerating(false)
     }
   }
 
-  const fmt = (n) => (n || 0).toLocaleString('cs-CZ') + ' Kc'
+  const fmt = (n) => (n || 0).toLocaleString('cs-CZ') + ' Kč'
   const totalPages = Math.ceil(total / PER_PAGE)
   const now = new Date()
 
@@ -233,7 +233,7 @@ export default function LongTermAssetsTab() {
       </div>
 
       <div className="flex items-center gap-3 mb-4">
-        {subTab === 'assets' && <Button green onClick={() => setShowAdd(true)}>+ Novy dlouhodoby majetek</Button>}
+        {subTab === 'assets' && <Button green onClick={() => setShowAdd(true)}>+ Novy dlouhodobý majetek</Button>}
         {subTab === 'depreciations' && (
           <Button green onClick={() => generateDepreciation(now.getFullYear())} disabled={generating}>
             {generating ? 'Generuji...' : `Generovat odpisy ${now.getFullYear()}`}
@@ -268,9 +268,9 @@ export default function LongTermAssetsTab() {
 
       {subTab === 'assets' && assets.length > 0 && (
         <div className="grid grid-cols-3 gap-3 mb-4">
-          <MiniStat label="Porizovaci cena celkem" value={fmt(totalPurchase)} color="#1a2e22" />
+          <MiniStat label="Pořizovací cena celkem" value={fmt(totalPurchase)} color="#1a2e22" />
           <MiniStat label="Zustat. hodnota celkem" value={fmt(totalCurrent)} color="#1a8a18" />
-          <MiniStat label="Odepsano celkem" value={fmt(totalDepreciated)} color="#dc2626" />
+          <MiniStat label="Odepsáno celkem" value={fmt(totalDepreciated)} color="#dc2626" />
         </div>
       )}
 
@@ -291,8 +291,8 @@ export default function LongTermAssetsTab() {
             <thead>
               <TRow header>
                 <TH><SelectAllCheckbox items={assets} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TH>
-                <TH>Nazev</TH><TH>Kategorie</TH><TH>Sk.</TH><TH>Metoda</TH>
-                <TH>Poriz. cena</TH><TH>Zust. hodnota</TH><TH>Odepsano</TH><TH>Stav</TH><TH>Doklad</TH><TH>Akce</TH>
+                <TH>Název</TH><TH>Kategorie</TH><TH>Sk.</TH><TH>Metoda</TH>
+                <TH>Poriz. cena</TH><TH>Zust. hodnota</TH><TH>Odepsáno</TH><TH>Stav</TH><TH>Doklad</TH><TH>Akce</TH>
               </TRow>
             </thead>
             <tbody>
@@ -312,7 +312,7 @@ export default function LongTermAssetsTab() {
                     <TD>
                       <span className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase"
                         style={{ padding: '4px 10px', background: a.status === 'active' ? '#dcfce7' : a.status === 'fully_depreciated' ? '#e0e7ff' : '#fee2e2', color: a.status === 'active' ? '#1a8a18' : a.status === 'fully_depreciated' ? '#4338ca' : '#dc2626' }}>
-                        {a.status === 'active' ? 'Aktivni' : a.status === 'fully_depreciated' ? 'Odepsano' : 'Vyrazeno'}
+                        {a.status === 'active' ? 'Aktivní' : a.status === 'fully_depreciated' ? 'Odepsáno' : 'Vyřazeno'}
                       </span>
                     </TD>
                     <TD>
@@ -330,7 +330,7 @@ export default function LongTermAssetsTab() {
                   </TRow>
                 )
               })}
-              {assets.length === 0 && <TRow><TD>Zadny dlouhodoby majetek</TD></TRow>}
+              {assets.length === 0 && <TRow><TD>Zadny dlouhodobý majetek</TD></TRow>}
             </tbody>
           </Table>
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
@@ -340,7 +340,7 @@ export default function LongTermAssetsTab() {
           <Table>
             <thead>
               <TRow header>
-                <TH>Majetek</TH><TH>Rok</TH><TH>Rok odpisu</TH><TH>Rocni odpis</TH>
+                <TH>Majetek</TH><TH>Rok</TH><TH>Rok odpisů</TH><TH>Roční odpis</TH>
                 <TH>Kumulativne</TH><TH>Zbyva</TH><TH>Metoda</TH>
               </TRow>
             </thead>
@@ -356,7 +356,7 @@ export default function LongTermAssetsTab() {
                   <TD>{d.method === 'linear' ? 'Rovnomerne' : 'Zrychlene'}</TD>
                 </TRow>
               ))}
-              {depreciations.length === 0 && <TRow><TD>Zadne odpisy</TD></TRow>}
+              {depreciations.length === 0 && <TRow><TD>Žádné odpisy</TD></TRow>}
             </tbody>
           </Table>
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />

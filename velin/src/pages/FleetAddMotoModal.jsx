@@ -17,14 +17,14 @@ const CATEGORIES = [
   { value: 'ostatni', label: 'Ostatní (přívěs…)' },
 ]
 
-function FormField({ label, value, onChange, type = 'text' }) {
+function FormField({ label, value, onChange, type = 'text', max }) {
   const isNumeric = type === 'number'
   const inputType = isNumeric ? 'text' : type
   const inputMode = isNumeric ? 'decimal' : undefined
   return (
     <div>
       <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{label}</label>
-      <input type={inputType} inputMode={inputMode} value={value} onChange={e => onChange(e.target.value)} className="w-full rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }} />
+      <input type={inputType} inputMode={inputMode} max={max} value={value} onChange={e => onChange(e.target.value)} className="w-full rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }} />
     </div>
   )
 }
@@ -53,6 +53,12 @@ export default function AddMotoModal({ branches, onClose, onSaved }) {
     setSaving(true)
     setErr(null)
     try {
+      const today = new Date().toLocaleDateString('sv-SE')
+      if (form.acquired_at && form.acquired_at > today) {
+        setErr('Datum pořízení nesmí být v budoucnu.')
+        setSaving(false)
+        return
+      }
       const toInt = (v, fallback = 0) => {
         const s = typeof v === 'string' ? v.replace(',', '.').trim() : v
         const n = Number(s)
@@ -135,7 +141,7 @@ export default function AddMotoModal({ branches, onClose, onSaved }) {
             {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
           </select>
         </div>
-        <FormField label="Datum pořízení" value={form.acquired_at} onChange={v => set('acquired_at', v)} type="date" />
+        <FormField label="Datum pořízení" value={form.acquired_at} onChange={v => set('acquired_at', v)} type="date" max={new Date().toLocaleDateString('sv-SE')} />
         <FormField label="Nájezd (km)" value={form.mileage} onChange={v => set('mileage', v)} type="number" />
         <FormField label="Pořadí zobrazení (1-X, volitelné)" value={form.sort_order} onChange={v => set('sort_order', v)} type="number" />
       </div>

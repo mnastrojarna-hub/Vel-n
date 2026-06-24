@@ -2,6 +2,7 @@
 // Tool execution logic — database queries for each tool
 
 import { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { execPublicReadTool, PUBLIC_READ_TOOL_NAMES } from './public-tools.ts'
 
 // Sjednoceno s ai-public-agent: skládá zobrazovaný název motorky a dedupuje
 // značku, pokud ji `model` v DB už obsahuje (jinak „Benelli Benelli TRK 502 X").
@@ -126,7 +127,14 @@ export async function executeTool(
   input: Record<string, unknown>,
   supabaseAdmin: SupabaseClient,
   userId: string,
+  lang = 'cs',
 ): Promise<unknown> {
+  // Informační tooly převzaté z veřejného agenta (search/cena/FAQ/policies/…)
+  if (PUBLIC_READ_TOOL_NAMES.has(toolName)) {
+    const res = await execPublicReadTool(toolName, input, supabaseAdmin, lang)
+    if (res !== undefined) return res
+  }
+
   switch (toolName) {
     case 'get_active_booking': {
       const { data, error } = await supabaseAdmin

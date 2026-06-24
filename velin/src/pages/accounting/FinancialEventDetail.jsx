@@ -65,9 +65,9 @@ export default function EventDetail({ event }) {
         <div className="grid grid-cols-2 gap-x-6 gap-y-1">
           <MiniLabel label="Dodavatel" value={meta.supplier_name || '\u2014'} />
           <MiniLabel label="ICO" value={meta.supplier_ico || '\u2014'} mono />
-          <MiniLabel label="Cislo faktury" value={meta.invoice_number || '\u2014'} mono />
+          <MiniLabel label="Číslo faktury" value={meta.invoice_number || '\u2014'} mono />
           <MiniLabel label="VS" value={meta.variable_symbol || '\u2014'} mono />
-          <MiniLabel label="Cislo uctu" value={meta.supplier_bank_account || '\u2014'} mono />
+          <MiniLabel label="Číslo uctu" value={meta.supplier_bank_account || '\u2014'} mono />
           <MiniLabel label="Splatnost" value={meta.due_date ? new Date(meta.due_date).toLocaleDateString('cs-CZ') : '\u2014'} />
           <MiniLabel label="Datum prijeti" value={meta.received_date ? new Date(meta.received_date).toLocaleDateString('cs-CZ') : '\u2014'} />
           <MiniLabel label="Platba" value={PAYMENT_LABELS[meta.payment_method] || meta.payment_method || '\u2014'} />
@@ -81,7 +81,7 @@ export default function EventDetail({ event }) {
             <MiniLabel label="Kategorie" value={CATEGORY_LABELS[ai.category] || ai.category || '\u2014'} />
             <MiniLabel label="Ucet" value={ai.suggested_account || '\u2014'} mono />
             <MiniLabel label="Opakujici se" value={ai.is_recurring ? 'Ano' : 'Ne'} />
-            <MiniLabel label="Poznamka" value={ai.classification_note || '\u2014'} />
+            <MiniLabel label="Poznámka" value={ai.classification_note || '\u2014'} />
           </div>
         </div>
       )}
@@ -91,7 +91,7 @@ export default function EventDetail({ event }) {
           <div className="text-[9px] font-extrabold uppercase tracking-wide mb-2" style={{ color: '#b45309' }}>Majetek a odpisy</div>
           <div className="grid grid-cols-2 gap-x-6 gap-y-1">
             <MiniLabel label="Typ majetku" value={ASSET_TYPE_LABELS[assetCls] || assetCls} />
-            {ai?.asset_name && <MiniLabel label="Polozka" value={ai.asset_name} />}
+            {ai?.asset_name && <MiniLabel label="Položka" value={ai.asset_name} />}
             {deprGroup && (
               <>
                 <MiniLabel label="Odpis. skupina" value={deprGroup} mono />
@@ -116,7 +116,7 @@ export default function EventDetail({ event }) {
           <div className="grid grid-cols-2 gap-x-6 gap-y-1">
             <MiniLabel label="Typ dokladu" value={(DOC_TYPE_MAP[event.document_type || event.metadata?.document_type] || DOC_TYPE_MAP.other).label} />
             <MiniLabel label="Smerovano do" value={(DOC_TYPE_MAP[event.document_type || event.metadata?.document_type] || DOC_TYPE_MAP.other).route || '\u2014'} />
-            {event.metadata?.backup_path && <MiniLabel label="Zaloha foto" value={event.metadata.backup_path} mono />}
+            {event.metadata?.backup_path && <MiniLabel label="Záloha foto" value={event.metadata.backup_path} mono />}
           </div>
         </div>
       )}
@@ -126,7 +126,7 @@ export default function EventDetail({ event }) {
         <div className="grid grid-cols-2 gap-x-6 gap-y-1">
           <MiniLabel label="ID" value={event.id?.slice(0, 8)} mono />
           <MiniLabel label="Confidence" value={event.confidence_score != null ? `${(event.confidence_score * 100).toFixed(0)}%` : '\u2014'} />
-          <MiniLabel label="Vytvoreno" value={event.created_at ? new Date(event.created_at).toLocaleString('cs-CZ') : '\u2014'} />
+          <MiniLabel label="Vytvořeno" value={event.created_at ? new Date(event.created_at).toLocaleString('cs-CZ') : '\u2014'} />
           <MiniLabel label="Flexi ID" value={event.flexi_id || '\u2014'} mono />
           <MiniLabel label="Linked" value={event.linked_entity_type ? `${event.linked_entity_type} ${event.linked_entity_id?.slice(0, 8) || ''}` : '\u2014'} />
           <MiniLabel label="Zdroj" value={SOURCE_LABELS[event.source] || event.source} />

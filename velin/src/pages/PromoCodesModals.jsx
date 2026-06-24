@@ -68,9 +68,9 @@ export function PromoDetailModal({ code, onClose, onEdit }) {
     <Modal open title={`Detail: ${code.code}`} onClose={onClose}>
       <div className="grid grid-cols-2 gap-4">
         <DetailRow label="Kod" value={code.code} mono />
-        <DetailRow label="Stav" value={code.active ? 'Aktivni' : 'Neaktivni'} />
+        <DetailRow label="Stav" value={code.active ? 'Aktivní' : 'Neaktivní'} />
         <DetailRow label="Typ slevy" value={code.type === 'percent' ? 'Procentualni' : 'Pevna castka'} />
-        <DetailRow label="Hodnota" value={code.type === 'percent' ? `${code.value}%` : `${code.value?.toLocaleString('cs-CZ')} Kc`} />
+        <DetailRow label="Hodnota" value={code.type === 'percent' ? `${code.value}%` : `${code.value?.toLocaleString('cs-CZ')} Kč`} />
         <DetailRow label="Platnost od" value={code.valid_from ? new Date(code.valid_from).toLocaleDateString('cs-CZ') : 'Neuvedeno'} />
         <DetailRow label="Platnost do" value={code.valid_to ? new Date(code.valid_to).toLocaleDateString('cs-CZ') : 'Neomezena'} />
         <DetailRow label="Pouzito" value={`${code.used_count ?? 0}x`} />
@@ -81,7 +81,7 @@ export function PromoDetailModal({ code, onClose, onEdit }) {
         <h4 className="text-sm font-extrabold uppercase tracking-widest mb-3" style={{ color: '#1a2e22' }}>Historie pouziti</h4>
         {loadingUsage ? <div className="text-sm" style={{ color: '#1a2e22' }}>Nacitam...</div> : usage.length === 0 ? <div className="text-sm" style={{ color: '#1a2e22' }}>Zatim nepouzito</div> : (
           <div className="space-y-2 max-h-48 overflow-auto">
-            {usage.map(u => <div key={u.id} className="flex items-center gap-3 p-2 rounded-lg text-sm" style={{ background: '#f1faf7' }}><span className="font-bold">{u.profiles?.full_name || u.profiles?.email || 'Neznamy'}</span><span style={{ color: '#1a2e22' }}>{u.used_at ? new Date(u.used_at).toLocaleString('cs-CZ') : ''}</span><span className="ml-auto font-bold" style={{ color: '#1a8a18' }}>-{u.discount_applied?.toLocaleString('cs-CZ')} Kc</span></div>)}
+            {usage.map(u => <div key={u.id} className="flex items-center gap-3 p-2 rounded-lg text-sm" style={{ background: '#f1faf7' }}><span className="font-bold">{u.profiles?.full_name || u.profiles?.email || 'Neznámý'}</span><span style={{ color: '#1a2e22' }}>{u.used_at ? new Date(u.used_at).toLocaleString('cs-CZ') : ''}</span><span className="ml-auto font-bold" style={{ color: '#1a8a18' }}>-{u.discount_applied?.toLocaleString('cs-CZ')} Kč</span></div>)}
           </div>
         )}
       </div>

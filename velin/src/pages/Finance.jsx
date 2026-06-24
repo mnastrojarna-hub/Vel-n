@@ -25,7 +25,8 @@ const DeliveryNotesTab = lazy(() => import('./accounting/DeliveryNotesTab'))
 const ContractsTab = lazy(() => import('./accounting/ContractsTab'))
 const CreditNotesTab = lazy(() => import('./accounting/CreditNotesTab'))
 
-const FINANCE_TABS = ['Přehled', 'Faktury', 'Dobropisy', 'Dodací listy', 'Smlouvy', 'Objednávky', 'Účetnictví', 'Faktury přijaté', 'Pokladna', 'Sklad']
+// Objednávky přesunuty do Logistika zboží (/logistika → Objednávky)
+const FINANCE_TABS = ['Přehled', 'Faktury', 'Dobropisy', 'Dodací listy', 'Smlouvy', 'Účetnictví', 'Faktury přijaté', 'Pokladna', 'Sklad']
 
 const ACCOUNTING_SUBTABS = [
   { id: 'events', label: 'Finanční události' },
@@ -137,10 +138,15 @@ export default function Finance() {
       .gte('date', start)
     const expense = (data || []).filter(d => classifyEntry(d) === 'expense').reduce((s, d) => s + Math.abs(d.amount || 0), 0)
 
-    // Faktury: měsíční tržby + neuhrazené zálohy (ZF bez odpovídajícího DP/KF)
+    // Faktury: měsíční tržby + neuhrazené zálohy (ZF bez odpovídajícího DP/KF).
+    // `.order().limit()` je NUTNÝ — bez něj vrací PostgREST nedeterministických
+    // max 1000 řádků v proměnlivém pořadí, takže měsíční tržby skákaly mezi
+    // načteními. Bereme nejnovějších 1000 (shodně s Dashboardem) — tržby tohoto
+    // měsíce jsou vždy mezi nejnovějšími fakturami, zdroj je tak stabilní i jednotný.
     const { data: inv } = await supabase
       .from('invoices')
       .select('type, status, total, issue_date, created_at, booking_id, order_id, bookings:booking_id(is_test), profiles:customer_id(is_test_account)')
+      .order('created_at', { ascending: false }).limit(1000)
     const invoices = inv || []
     const invMonth = (i) => (i.issue_date || i.created_at || '').slice(0, 7)
     const revenue = invoices
@@ -192,11 +198,15 @@ export default function Finance() {
       })
     }
     // Tržby z faktur (kanonický zdroj), výdaje z účetních záznamů — shodně s Dashboardem.
+    // POZOR: faktury NEFILTRUJEME server-side přes `.gte('issue_date', …)` — faktury
+    // s `issue_date = NULL` (měsíc se bere z fallbacku `created_at`) by v Postgresu
+    // vypadly (`null >= x` = false) a graf by byl skoro prázdný, ač KPI ukazuje tržby.
+    // Měsíc proto filtrujeme klientsky přes `invMonth` (stejně jako `loadSummary`).
     const [accRes, invRes] = await Promise.all([
       supabase.from('accounting_entries').select('type, amount, date, category, description').gte('date', months[0].start),
       supabase.from('invoices')
         .select('type, status, total, issue_date, created_at, bookings:booking_id(is_test), profiles:customer_id(is_test_account)')
-        .gte('issue_date', months[0].start),
+        .order('created_at', { ascending: false }).limit(1000),
     ])
     const accData = accRes.data || []
     const paidInv = (invRes.data || []).filter(i => !isVoidInvoice(i) && !isTestInvoice(i) && INVOICE_PAID_TYPES.includes(i.type))
@@ -245,7 +255,6 @@ export default function Finance() {
       <Suspense fallback={<TabLoader />}>
       {activeTab === 'Faktury' && <ErrorBoundary><InvoicesTab /></ErrorBoundary>}
       {activeTab === 'Dobropisy' && <ErrorBoundary><CreditNotesTab /></ErrorBoundary>}
-      {activeTab === 'Objednávky' && <ErrorBoundary><AutoOrdersTab /></ErrorBoundary>}
       {activeTab === 'Dodací listy' && <ErrorBoundary><DeliveryNotesTab /></ErrorBoundary>}
       {activeTab === 'Smlouvy' && <ErrorBoundary><ContractsTab /></ErrorBoundary>}
       {activeTab === 'Faktury přijaté' && <ErrorBoundary><ReceivedInvoicesTab /></ErrorBoundary>}

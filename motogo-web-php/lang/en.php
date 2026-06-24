@@ -299,6 +299,8 @@ return [
     'rez.gear.rider' => 'Rider gear',
     'rez.gear.riderSub' => 'Helmet, jacket, gloves, trousers',
     'rez.gear.riderFree' => 'included · free of charge',
+    'rez.gear.free' => 'FREE',
+    'rez.gear.loyaltyFree' => 'Thanks to your rank, all gear and footwear — including the passenger — is free.',
     'rez.gear.riderOwn' => 'I have my own gear — not renting',
     'rez.gear.passenger' => 'Passenger gear',
     'rez.gear.passengerSub' => 'Helmet, jacket, gloves, balaclava',

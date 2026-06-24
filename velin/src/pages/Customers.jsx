@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { debugAction } from '../lib/debugLog'
+import { rentalDays } from '../lib/rentalDays'
 import { useDebugMode } from '../hooks/useDebugMode'
 import { Table, TRow, TH, TD } from '../components/ui/Table'
 import Button from '../components/ui/Button'
@@ -99,7 +100,7 @@ export default function Customers() {
         const s = map[b.user_id]
         s.total++
         s.sum += b.total_price || 0
-        const d = Math.max(1, Math.ceil((new Date(b.end_date) - new Date(b.start_date)) / 86400000))
+        const d = rentalDays(b.start_date, b.end_date)
         s.days += d
         if (b.booking_source) s.sources.add(b.booking_source)
         if (b.motorcycles?.model) s.motos[b.motorcycles.model] = (s.motos[b.motorcycles.model] || 0) + 1

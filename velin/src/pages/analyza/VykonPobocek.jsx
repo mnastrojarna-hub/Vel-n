@@ -168,8 +168,9 @@ export default function VykonPobocek() {
         <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
-              {['Název', 'Typ', 'Obrat', 'Obrat/motorku', 'Zisk/motorku', 'Rezervace', 'Obsazenost %', has3mo ? 'Klasifikace' : null].filter(Boolean).map(h => (
-                <th key={h} className="text-left font-bold py-2 px-3" style={{ color: '#1a2e22' }}>{h}</th>
+              {['Název', 'Typ', 'Obrat', 'Obrat/motorku', 'Odhad ročního zisku/motorku', 'Rezervace', 'Obsazenost %', has3mo ? 'Klasifikace' : null].filter(Boolean).map(h => (
+                <th key={h} className="text-left font-bold py-2 px-3" style={{ color: '#1a2e22' }}
+                  title={h === 'Odhad ročního zisku/motorku' ? 'Roční projekce zisku na motorku (benchmark/skutečná ekonomika), NE zisk za zvolené období — proto není srovnatelný s Obratem/motorku za období.' : undefined}>{h}</th>
               ))}
             </tr>
           </thead>
