@@ -5,6 +5,7 @@ import { debugAction, debugLog, debugError } from '../lib/debugLog'
 import { useDebugMode } from '../hooks/useDebugMode'
 import { isRevenueEntry, isTestInvoice, isVoidInvoice, summarizeInvoices, INVOICE_PAID_TYPES, INVOICE_RECEIVED_TYPES } from '../lib/revenueUtils'
 import AiDashboardWidget from '../components/ai/AiDashboardWidget'
+import PickupsReturns from './booking/PickupsReturns'
 import Stat from '../components/ui/Stat'
 import ExportBar from '../components/ui/ExportBar'
 import BannerEditor from './DashboardBannerEditor'
@@ -190,6 +191,10 @@ export default function Dashboard() {
         {clickable('/rezervace', <Stat icon="📅" label="Akt. / Čekající" value={`${data.activeBookings} / ${data.pendingBookings}`} sub="rezervací" color="#3b82f6" />)}
         {clickable('/zpravy', <Stat icon="💬" label="Nepřečtené" value={data.unreadMessages} sub="zpráv" color="#8b5cf6" />)}
         {clickable('/sos', <Stat icon="🚨" label="Aktivní SOS" value={data.sosList.length} sub={data.sosCritical > 0 ? `${data.sosCritical} kritických!` : 'incidentů'} color={data.sosList.length > 0 ? '#dc2626' : '#1a8a18'} />)}
+      </div>
+
+      <div className="mb-4">
+        <PickupsReturns compact onExpand={() => nav('/rezervace?view=odjezdy')} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
