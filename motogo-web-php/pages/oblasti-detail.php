@@ -76,7 +76,10 @@ $subst = function ($s, $extra = []) use ($region, $regionLoc, $citiesCsv) {
 
 // Per-kraj přepis hlavních textů (Velín: web.oblasti.region.<slug>.<pole>),
 // fallback na přeloženou šablonu z $D.
-$regionOverride = (isset($C['region'][$slug]) && is_array($C['region'][$slug])) ? $C['region'][$slug] : [];
+// POZOR: CMS klíč musí být [a-zA-Z0-9_] (cms-save edge KEY_RE zakazuje pomlčky),
+// proto v klíči nahradíme pomlčky podtržítky (jihomoravsky-kraj → jihomoravsky_kraj).
+$cmsSlug = str_replace('-', '_', $slug);
+$regionOverride = (isset($C['region'][$cmsSlug]) && is_array($C['region'][$cmsSlug])) ? $C['region'][$cmsSlug] : [];
 $field = function ($name) use ($regionOverride, $D, $subst) {
     if (isset($regionOverride[$name]) && is_string($regionOverride[$name]) && $regionOverride[$name] !== '') {
         return $regionOverride[$name]; // už uloženo finálně (admin přepis)
@@ -84,7 +87,7 @@ $field = function ($name) use ($regionOverride, $D, $subst) {
     return $subst($D[$name] ?? '');
 };
 
-$cmsKey = 'web.oblasti.region.' . $slug;
+$cmsKey = 'web.oblasti.region.' . $cmsSlug;
 $h1 = $field('h1');
 
 // ---- Hero banner (jako na landing page) ----
@@ -129,9 +132,15 @@ foreach ((is_array($ctaDef['buttons'] ?? null) ? $ctaDef['buttons'] : []) as $i 
         'cls' => ($i === 0 ? 'btndark pulse' : 'btndark'),
     ];
 }
+// CTA titulek/text: per-kraj přepis (regionOverride) má přednost před šablonou,
+// aby uložená inline editace (data-cms-key) byla při dalším renderu načtena.
+$ctaTitle = (isset($regionOverride['ctaTitle']) && $regionOverride['ctaTitle'] !== '')
+    ? $regionOverride['ctaTitle'] : $subst($ctaDef['title'] ?? '');
+$ctaText = (isset($regionOverride['ctaText']) && $regionOverride['ctaText'] !== '')
+    ? $regionOverride['ctaText'] : $subst($ctaDef['text'] ?? '');
 $ctaHtml = renderCta(
-    '<span data-cms-key="' . $cmsKey . '.ctaTitle">' . htmlspecialchars($subst($ctaDef['title'] ?? '')) . '</span>',
-    '<span data-cms-key="' . $cmsKey . '.ctaText">' . htmlspecialchars($subst($ctaDef['text'] ?? '')) . '</span>',
+    '<span data-cms-key="' . $cmsKey . '.ctaTitle">' . htmlspecialchars($ctaTitle) . '</span>',
+    '<span data-cms-key="' . $cmsKey . '.ctaText">' . htmlspecialchars($ctaText) . '</span>',
     $ctaButtons
 );
 
