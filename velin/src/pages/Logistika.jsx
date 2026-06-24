@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
 import { supabase } from '../lib/supabase'
 import Card from '../components/ui/Card'
 import Inventory from './Inventory'
+import { SkuConventionInfo } from '../components/ui/SkuTag'
 import { accSku, deductFromWarehouse, returnToWarehouse, loadAccessoryTypes } from './BranchHelpers'
 
 const OrdersTab = lazy(() => import('./accounting/AutoOrdersTab'))
@@ -513,21 +514,37 @@ function guessLine(desc) {
 
 function NaskladneniTab() {
   const [accTypes, setAccTypes] = useState([])
-  const [docType, setDocType] = useState('dl')
+  const [docType, setDocType] = useState('ocr')
   const [docs, setDocs] = useState([])
   const [docId, setDocId] = useState('')
   const [lines, setLines] = useState([])
   const [busy, setBusy] = useState(false)
+  const [ocrBusy, setOcrBusy] = useState(false)
+  const [ocrInfo, setOcrInfo] = useState(null)
 
   useEffect(() => { loadAccessoryTypes().then(setAccTypes) }, [])
   useEffect(() => {
-    setDocId(''); setLines([])
-    if (docType === 'manual') { setDocs([]); return }
+    setDocId(''); setLines([]); setOcrInfo(null)
+    if (docType === 'manual' || docType === 'ocr') { setDocs([]); return }
     if (docType === 'dl') supabase.from('delivery_notes').select('id, dl_number, supplier_name, items, delivery_date').order('created_at', { ascending: false }).limit(50).then(({ data }) => setDocs(data || []))
     else supabase.from('invoices').select('id, number, notes, items, issue_date').eq('type', 'received').order('issue_date', { ascending: false }).limit(50).then(({ data }) => setDocs(data || []))
   }, [docType])
 
   const mkLine = (name, price, qty) => { const g = guessLine(name); return { name: name || '', qty: qty || 1, unit_price: price || 0, mode: g.type ? 'acc' : 'manual', type: g.type, size: g.size, sku: '', category: 'inventory' } }
+
+  async function handleOcr(file) {
+    if (!file) return
+    setOcrBusy(true); setOcrInfo(null); setLines([])
+    try {
+      const b64 = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result)); r.onerror = rej; r.readAsDataURL(file) })
+      const { data, error } = await supabase.functions.invoke('extract-document', { body: { image_base64: b64, mime: file.type || 'image/jpeg' } })
+      if (error) { alert('OCR selhalo: ' + error.message); return }
+      if (!data?.success) { alert('Doklad se nepodařilo přečíst: ' + (data?.error || 'neznámá chyba')); return }
+      const items = Array.isArray(data.items) ? data.items : []
+      setOcrInfo({ supplier: data.supplier_name, number: data.invoice_number, type: data.document_type, count: items.length })
+      setLines(items.length ? items.map(it => mkLine(it.description || '', it.unit_price ?? it.amount ?? 0, it.quantity || 1)) : [mkLine('', 0, 1)])
+    } finally { setOcrBusy(false) }
+  }
   function pickDoc(id) {
     setDocId(id); const d = docs.find(x => x.id === id); const items = Array.isArray(d?.items) ? d.items : []
     setLines(items.length ? items.map(it => mkLine(it.description || it.name || '', it.amount ?? it.unit_price ?? 0, it.quantity || 1)) : [mkLine('', 0, 1)])
@@ -539,7 +556,9 @@ function NaskladneniTab() {
     const payload = lines.map(l => ({ sku: lineSku(l), name: l.name, qty: Number(l.qty) || 0, unit_price: Number(l.unit_price) || 0, category: l.mode === 'acc' ? 'prislusenstvi' : l.category })).filter(l => l.sku && l.qty > 0)
     if (!payload.length) { alert('Žádná položka nemá vyplněné SKU (typ+velikost) a počet > 0.'); return }
     const d = docs.find(x => x.id === docId)
-    const note = docType === 'manual' ? 'Ruční naskladnění' : `Naskladnění z ${docType === 'dl' ? 'DL ' + (d?.dl_number || '') : 'FA ' + (d?.number || '')}`.trim()
+    const note = docType === 'ocr' ? `Naskladnění z faktury (OCR)${ocrInfo?.supplier ? ' ' + ocrInfo.supplier : ''}${ocrInfo?.number ? ' ' + ocrInfo.number : ''}`.trim()
+      : docType === 'manual' ? 'Ruční naskladnění'
+      : `Naskladnění z ${docType === 'dl' ? 'DL ' + (d?.dl_number || '') : 'FA ' + (d?.number || '')}`.trim()
     setBusy(true)
     try {
       const { data, error } = await supabase.rpc('receive_stock_from_document', { p_lines: payload, p_note: note })
@@ -552,19 +571,33 @@ function NaskladneniTab() {
   return (
     <Card>
       <div className="flex items-center gap-2 mb-3 flex-wrap">
-        {[['dl', 'Z dodacího listu'], ['invoice', 'Z přijaté faktury'], ['manual', 'Ručně']].map(([k, l]) => (
+        {[['ocr', '📷 Vyfotit / nahrát'], ['dl', 'Z dodacího listu'], ['invoice', 'Z přijaté faktury'], ['manual', 'Ručně']].map(([k, l]) => (
           <button key={k} onClick={() => setDocType(k)} className="text-sm font-bold cursor-pointer rounded-btn"
             style={{ padding: '6px 12px', border: 'none', background: docType === k ? '#1a2e22' : '#e8f3ee', color: docType === k ? '#74FB71' : '#1a2e22' }}>{l}</button>
         ))}
-        {docType !== 'manual' && (
+        {docType === 'ocr' && (
+          <label className="rounded-btn text-sm font-bold cursor-pointer inline-flex items-center" style={{ padding: '7px 12px', background: '#1a2e22', color: '#74FB71', opacity: ocrBusy ? 0.6 : 1 }}>
+            {ocrBusy ? 'Čtu doklad…' : '📷 Vybrat / vyfotit fakturu'}
+            <input type="file" accept="image/*" capture="environment" style={{ display: 'none' }} disabled={ocrBusy} onChange={e => handleOcr(e.target.files?.[0])} />
+          </label>
+        )}
+        {(docType === 'dl' || docType === 'invoice') && (
           <select value={docId} onChange={e => pickDoc(e.target.value)} className="rounded-btn text-sm outline-none" style={{ padding: '7px 10px', background: '#f1faf7', border: '1px solid #d4e8e0', minWidth: 260 }}>
             <option value="">— vyber doklad —</option>
             {docs.map(d => <option key={d.id} value={d.id}>{docType === 'dl' ? (d.dl_number || '—') : (d.number || '—')} · {d.supplier_name || (d.notes?.split('\n')[0]) || ''} · {(Array.isArray(d.items) ? d.items.length : 0)} pol.</option>)}
           </select>
         )}
         {docType === 'manual' && <button onClick={() => setLines(ls => [...ls, mkLine('', 0, 1)])} className="text-sm font-bold cursor-pointer rounded-btn" style={{ padding: '6px 12px', border: '1px solid #1a2e22', background: '#fff', color: '#1a2e22' }}>+ Řádek</button>}
+        <span className="ml-auto"><SkuConventionInfo /></span>
       </div>
-      <div className="text-xs mb-2" style={{ color: '#1a2e22', opacity: 0.6 }}>Z faktury/DL se předvyplní položky a ceny (OCR). Zkontroluj typ+velikost (SKU), uprav počet a potvrď naskladnění.</div>
+      {docType === 'ocr' && ocrInfo && (
+        <div className="mb-2 rounded-btn text-sm font-bold" style={{ padding: '8px 12px', background: '#e3f6e8', color: '#16a34a', border: '1px solid #bbf7d0' }}>
+          ✓ Přečteno: {ocrInfo.supplier || 'dodavatel ?'}{ocrInfo.number ? ` · ${ocrInfo.number}` : ''} · {ocrInfo.count} položek. Zkontroluj typ+velikost (SKU) a počet, pak naskladni.
+        </div>
+      )}
+      <div className="text-xs mb-2" style={{ color: '#1a2e22', opacity: 0.6 }}>
+        📷 Vyfoť fakturu/dodací list → AI vypíše položky. Nebo vyber existující doklad / zadej ručně. Zkontroluj SKU a počet a potvrď naskladnění. <b>Naskladnění jde jen do skladu</b> — fakturu do financí zaneš ve Finance → Faktury přijaté.
+      </div>
 
       {lines.length === 0 ? <div className="py-8 text-center text-sm" style={{ color: '#1a2e22', opacity: 0.5 }}>Vyber doklad nebo přidej řádek.</div>
         : (

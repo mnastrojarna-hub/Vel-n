@@ -6,6 +6,7 @@ import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
 import Modal from '../components/ui/Modal'
+import SkuTag from '../components/ui/SkuTag'
 
 export default function InventoryDetail() {
   const { id } = useParams()
@@ -118,7 +119,7 @@ export default function InventoryDetail() {
       <div className="flex items-center gap-3 mb-5">
         <button onClick={() => navigate('/sklady')} className="cursor-pointer" style={{ background: 'none', border: 'none', fontSize: 18, color: '#1a2e22' }}>←</button>
         <h2 className="font-extrabold text-lg" style={{ color: '#0f1a14' }}>{item.name}</h2>
-        <span className="text-sm font-mono" style={{ color: '#1a2e22' }}>{item.sku}</span>
+        <SkuTag sku={item.sku} />
         <span className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase"
           style={{ padding: '4px 10px', background: isLow ? '#fee2e2' : '#dcfce7', color: isLow ? '#dc2626' : '#1a8a18' }}>
           Sklad: {item.stock ?? 0}
