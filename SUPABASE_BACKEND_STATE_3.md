@@ -150,7 +150,7 @@
 | `apply_profile_license_group(p_user_id uuid, p_group text) → void` | Uloží/sloučí skupinu ŘP do `profiles.license_group`. |
 | `find_email_templates_for_event(p_event_slug text) → TABLE(id, slug, name, subject, body_html, active, attachments jsonb, triggers jsonb, subject_translations, body_translations)` | Vyhledá aktivní Velín mailové šablony navázané na událost — zdroj přílohové/spouštěcí konfigurace pro send-* edge fce. |
 | `get_motos_availability_status() → TABLE(moto_id, next_available_date)` | Nejbližší dostupný den per motorka (Velín/web). |
-| `get_visitor_stats(p_from, p_to, p_host text DEFAULT NULL, p_granularity text DEFAULT 'day') → jsonb` | Agregace návštěvnosti z `visitor_log` (Velín Analýza). |
+| `get_visitor_stats(p_from, p_to, p_host text DEFAULT NULL, p_granularity text DEFAULT 'day') → jsonb` | Agregace návštěvnosti z `visitor_log` (Velín Analýza). SECURITY DEFINER, `is_admin()` guard. **2026-06-24:** `SET statement_timeout='20s'` (přebíjí ~8s limit role `authenticated`) + CTE čte jen 9 použitých sloupců (ne `select *`) — fix timeoutu. |
 | `normalize_supplier_name(input text) → text` | Normalizace názvu dodavatele bez diakritiky pro matching (`suppliers.normalized_name`). |
 | `regen_voucher_for_order(p_order_id uuid) → jsonb` | Znovu vygeneruje voucher kódy pro objednávku. |
 | `cleanup_old_verification_documents() → int` | Úklid starých naskenovaných verifikačních dokladů; vrací počet smazaných. |
