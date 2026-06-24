@@ -14,7 +14,7 @@ import {
   PER_PAGE, STATUS_MAP, TYPE_MAP, SOURCE_LABELS, DOC_TYPE_MAP,
   CATEGORY_LABELS, ALL_STATUSES, ALL_TYPES, ALL_SOURCES, ALL_DOC_TYPES,
 } from './financialEventsConstants'
-import { createLiabilityFromEvent, ensureSupplier, backupPhotoToFolder, createDeliveryNoteFromEvent, createContractFromEvent, createReceivedInvoiceFromEvent } from './financialEventsActions'
+import { createLiabilityFromEvent, ensureSupplier, backupPhotoToFolder, createDeliveryNoteFromEvent, createContractFromEvent, createReceivedInvoiceFromEvent, createAssetFromEvent } from './financialEventsActions'
 
 export default function FinancialEventsTab() {
   const [events, setEvents] = useState([])
@@ -97,7 +97,7 @@ export default function FinancialEventsTab() {
         await backupPhotoToFolder(event, docType)
         if (docType === 'dodaci_list') { await createDeliveryNoteFromEvent(event) }
         else if (['smlouva', 'pracovni_smlouva', 'zadost_dovolena'].includes(docType)) { await createContractFromEvent(event, docType) }
-        else { await createLiabilityFromEvent(event); await createReceivedInvoiceFromEvent(event) }
+        else { await createLiabilityFromEvent(event); await createReceivedInvoiceFromEvent(event); await createAssetFromEvent(event) }
         await ensureSupplier(event)
       }
       if (nextStatus === 'approved') {

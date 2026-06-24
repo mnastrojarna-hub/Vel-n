@@ -43,6 +43,28 @@ export async function createContractFromEvent(event, docType) {
   if (contract) { await supabase.from('financial_events').update({ linked_entity_type: 'contract', linked_entity_id: contract.id }).eq('id', event.id) }
 }
 
+// Založí majetek dle účetní klasifikace z OCR (dlouhodobý / krátkodobý / materiál).
+// Idempotentní přes metadata.asset_created. Chyby polkne (nesmí shodit schválení).
+export async function createAssetFromEvent(event) {
+  const meta = event.metadata || {}
+  if (meta.asset_created) return
+  const ai = meta.ai_classification || {}; const cls = meta.asset_classification || {}
+  const type = ai.asset_type || cls.type || null
+  if (!type || !['dlouhodoby_majetek', 'kratkodoby_majetek', 'material'].includes(type)) return
+  const name = ai.asset_name || cls.asset_name || meta.supplier_name || meta.invoice_number || 'Položka ze skeneru'
+  const price = event.amount_czk || 0
+  const acquired = event.duzp || new Date().toISOString().slice(0, 10)
+  try {
+    if (type === 'dlouhodoby_majetek') {
+      const grp = parseInt(String(ai.depreciation_group || cls.depreciation_group || '').replace(/\D/g, ''), 10) || 2
+      await supabase.from('acc_long_term_assets').insert({ name, category: 'equipment', purchase_price: price, current_value: price, acquired_date: acquired, depreciation_group: grp, depreciation_method: (ai.depreciation_method || cls.depreciation_method) === 'linear' ? 'linear' : 'accelerated', status: 'active' })
+    } else {
+      await supabase.from('acc_short_term_assets').insert({ name, category: type === 'material' ? 'material' : 'inventory', purchase_price: price, current_value: price, acquired_date: acquired, status: 'active' })
+    }
+    await supabase.from('financial_events').update({ metadata: { ...meta, asset_created: true } }).eq('id', event.id)
+  } catch (e) { console.error('[FE] asset create failed:', e.message) }
+}
+
 export async function createReceivedInvoiceFromEvent(event) {
   const meta = event.metadata || {}
   if (event.linked_entity_type === 'invoice' && event.linked_entity_id) return
