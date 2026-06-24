@@ -46,7 +46,7 @@ class _PromoCodeInputState extends State<PromoCodeInput> {
     setState(() => _loading = false);
 
     if (result.success && result.discount != null) {
-      // K2: max jeden procentuální kód (fixní kódy/vouchery lze kombinovat libovolně)
+      // K2: can't combine two percentage codes
       final newDiscount = result.discount!;
       if (newDiscount.type == DiscountType.percent &&
           widget.appliedCodes.any((d) => d.type == DiscountType.percent)) {

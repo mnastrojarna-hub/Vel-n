@@ -70,10 +70,7 @@ Future<DiscountResult> validateAndApplyCode(String code) async {
         .rpc('validate_promo_code', params: {'p_code': upperCode});
 
     if (promoRes != null && promoRes['valid'] == true) {
-      // Neznámý/chybějící type ber konzervativně jako fixní (ne procentuální) —
-      // jinak by se fixní kód bez type počítal jako % a falešně spustil
-      // pravidlo „max jeden procentuální kód". Shodné s backend _booking_discount_type.
-      final type = promoRes['type'] as String? ?? 'fixed';
+      final type = promoRes['type'] as String? ?? 'percent';
       final value = (promoRes['value'] as num?)?.toDouble() ?? 0;
       final id = promoRes['id'] as String?;
 
