@@ -22,6 +22,8 @@ return [
             'detail' => [
                 'seoTitle' => 'Motorradverleih {region} – Motorrad mieten in den Städten der Region | MotoGo24',
                 'seoDescription' => 'Motorradverleih in {regionLoc}. MotoGo24 liefert ein Motorrad in Städte in {regionLoc} – ohne Kaution, Online-Buchung, Ausrüstung inklusive. Wir vermieten auch in: {cities}.',
+                'heroTagline' => 'Mieten Sie ein Motorrad in {regionLoc} – ohne Kaution, mit Ausrüstung, rund um die Uhr.',
+                'heroCta' => 'MOTORRAD BUCHEN',
                 'h1' => 'Motorradverleih {region}',
                 'intro' => 'Suchen Sie einen zuverlässigen <strong>Motorradverleih in {regionLoc}</strong>? MotoGo24 bringt und liefert das Motorrad direkt in Ihre Stadt. Wir bieten <strong>Motorradverleih ohne Kaution</strong>, Online-Buchung und komplette Ausrüstung inklusive. Egal ob Großstadt oder kleinere Gemeinde – wir liefern gern.',
                 'citiesTitle' => 'Motorradverleih in den Städten der Region',

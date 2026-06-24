@@ -22,6 +22,8 @@ return [
             'detail' => [
                 'seoTitle' => 'Motorcycle rental {region} – rent a bike in towns of the region | MotoGo24',
                 'seoDescription' => 'Motorcycle rental in {regionLoc}. MotoGo24 delivers a motorcycle to towns in {regionLoc} – no deposit, online booking, gear included. We also rent in: {cities}.',
+                'heroTagline' => 'Rent a motorcycle in {regionLoc} – no deposit, gear included, 24/7 pickup.',
+                'heroCta' => 'BOOK A MOTORCYCLE',
                 'h1' => 'Motorcycle rental {region}',
                 'intro' => 'Looking for a reliable <strong>motorcycle rental in {regionLoc}</strong>? MotoGo24 brings and delivers a bike straight to your town. We offer <strong>motorcycle rental with no deposit</strong>, online booking and full riding gear included. Whether you live in a big city or a small town, we are happy to deliver.',
                 'citiesTitle' => 'Motorcycle rental in towns of the region',

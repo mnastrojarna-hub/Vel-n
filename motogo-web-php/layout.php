@@ -28,13 +28,9 @@ function getMenuItems() {
             ['label' => tc('menu.howto.faq'), 'route' => '/jak-pujcit/faq'],
             ['label' => tc('menu.rental'), 'route' => '/pujcovna-motorek'],
         ]],
-        // Oblasti — rozcestník krajů (SEO "motopůjčovna {město}"). Klikací rodič
-        // míří na přehled /oblasti, submenu rozbalí jednotlivé kraje.
-        ['label' => tc('menu.areas'), 'route' => '/oblasti', 'children' => [
-            ['label' => tc('menu.areas.vysocina'), 'route' => '/oblasti/vysocina'],
-            ['label' => tc('menu.areas.jihomoravsky'), 'route' => '/oblasti/jihomoravsky-kraj'],
-            ['label' => tc('menu.areas.jihocesky'), 'route' => '/oblasti/jihocesky-kraj'],
-        ]],
+        // Oblasti — rozcestník krajů (SEO "motopůjčovna {město}"). Obyčejný
+        // odkaz (žádné rozbalovací submenu); kraje se zobrazí až na /oblasti.
+        ['label' => tc('menu.areas'), 'route' => '/oblasti'],
         ['label' => tc('menu.vouchers'), 'route' => '/poukazy', 'highlight' => true],
         ['label' => tc('menu.shop'), 'route' => '/eshop'],
         ['label' => tc('menu.blog'), 'route' => '/blog'],

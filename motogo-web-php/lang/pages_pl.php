@@ -22,6 +22,8 @@ return [
             'detail' => [
                 'seoTitle' => 'Wypożyczalnia motocykli {region} – wynajem motocykla w miastach regionu | MotoGo24',
                 'seoDescription' => 'Wypożyczalnia motocykli w {regionLoc}. MotoGo24 dostarczy motocykl do miast w {regionLoc} – bez kaucji, rezerwacja online, wyposażenie w cenie. Wynajmujemy też w: {cities}.',
+                'heroTagline' => 'Wypożycz motocykl w {regionLoc} – bez kaucji, z wyposażeniem, odbiór 24/7.',
+                'heroCta' => 'ZAREZERWUJ MOTOCYKL',
                 'h1' => 'Wypożyczalnia motocykli {region}',
                 'intro' => 'Szukasz niezawodnej <strong>wypożyczalni motocykli w {regionLoc}</strong>? MotoGo24 przywiezie i dostarczy motocykl prosto do Twojego miasta. Oferujemy <strong>wynajem motocykli bez kaucji</strong>, rezerwację online i pełne wyposażenie motocyklowe w cenie. Niezależnie od tego, czy mieszkasz w dużym mieście, czy w mniejszej miejscowości, chętnie dostarczymy.',
                 'citiesTitle' => 'Wypożyczalnia motocykli w miastach regionu',

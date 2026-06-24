@@ -22,6 +22,8 @@ return [
             'detail' => [
                 'seoTitle' => 'Motorverhuur {region} – huur een motor in de steden van de regio | MotoGo24',
                 'seoDescription' => 'Motorverhuur in {regionLoc}. MotoGo24 bezorgt een motor in steden in {regionLoc} – zonder borg, online reserveren, uitrusting inbegrepen. We verhuren ook in: {cities}.',
+                'heroTagline' => 'Huur een motor in {regionLoc} – zonder borg, met uitrusting, 24/7 ophalen.',
+                'heroCta' => 'MOTOR RESERVEREN',
                 'h1' => 'Motorverhuur {region}',
                 'intro' => 'Op zoek naar betrouwbare <strong>motorverhuur in {regionLoc}</strong>? MotoGo24 brengt en bezorgt de motor rechtstreeks in jouw stad. We bieden <strong>motorverhuur zonder borg</strong>, online reserveren en complete motoruitrusting inbegrepen. Of je nu in een grote stad of een kleiner dorp woont, we bezorgen graag.',
                 'citiesTitle' => 'Motorverhuur in de steden van de regio',
