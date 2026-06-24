@@ -545,11 +545,17 @@ function NaskladneniTab() {
     setOcrBusy(true); setOcrInfo(null); setLines([])
     try {
       const b64 = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result)); r.onerror = rej; r.readAsDataURL(file) })
-      const { data, error } = await supabase.functions.invoke('extract-document', { body: { image_base64: b64, mime: file.type || 'image/jpeg' } })
+      // 1 foto = finance + sklad: receive-invoice založí finanční událost (→ po schválení faktura/majetek),
+      // uloží scan, přeloží cizojazyčný doklad a vrátí položky pro naskladnění.
+      const { data, error } = await supabase.functions.invoke('receive-invoice', { body: { image_base64: b64, file_name: file.name || 'foto.jpg', source: 'velin' } })
       if (error) { alert('OCR selhalo: ' + error.message); return }
       if (!data?.success) { alert('Doklad se nepodařilo přečíst: ' + (data?.error || 'neznámá chyba')); return }
-      const items = Array.isArray(data.items) ? data.items : []
-      setOcrInfo({ supplier: data.supplier_name, number: data.invoice_number, type: data.document_type, count: items.length })
+      const items = Array.isArray(data.line_items) ? data.line_items : []
+      setOcrInfo({
+        supplier: data.extracted?.supplier, number: data.extracted?.invoice_number,
+        type: data.document_type, count: items.length, eventId: data.financial_event_id,
+        lang: data.source_language, needsReview: data.needs_review,
+      })
       setLines(items.length ? items.map(it => mkLine(it.description || '', it.unit_price ?? it.amount ?? 0, it.quantity || 1)) : [mkLine('', 0, 1)])
     } finally { setOcrBusy(false) }
   }
@@ -564,7 +570,7 @@ function NaskladneniTab() {
     const payload = lines.map(l => ({ sku: lineSku(l), name: l.name, qty: Number(l.qty) || 0, unit_price: Number(l.unit_price) || 0, category: l.mode === 'acc' ? 'prislusenstvi' : (CAT_TO_INV[l.cat] || 'inventory') })).filter(l => l.sku && l.qty > 0)
     if (!payload.length) { alert('Žádná položka nemá vyplněné SKU (typ+velikost) a počet > 0.'); return }
     const d = docs.find(x => x.id === docId)
-    const note = docType === 'ocr' ? `Naskladnění z faktury (OCR)${ocrInfo?.supplier ? ' ' + ocrInfo.supplier : ''}${ocrInfo?.number ? ' ' + ocrInfo.number : ''}`.trim()
+    const note = docType === 'ocr' ? `Naskladnění z faktury (OCR)${ocrInfo?.supplier ? ' ' + ocrInfo.supplier : ''}${ocrInfo?.number ? ' ' + ocrInfo.number : ''}${ocrInfo?.eventId ? ' [FE:' + ocrInfo.eventId + ']' : ''}`.trim()
       : docType === 'manual' ? 'Ruční naskladnění'
       : `Naskladnění z ${docType === 'dl' ? 'DL ' + (d?.dl_number || '') : 'FA ' + (d?.number || '')}`.trim()
     setBusy(true)
@@ -600,11 +606,15 @@ function NaskladneniTab() {
       </div>
       {docType === 'ocr' && ocrInfo && (
         <div className="mb-2 rounded-btn text-sm font-bold" style={{ padding: '8px 12px', background: '#e3f6e8', color: '#16a34a', border: '1px solid #bbf7d0' }}>
-          ✓ Přečteno: {ocrInfo.supplier || 'dodavatel ?'}{ocrInfo.number ? ` · ${ocrInfo.number}` : ''} · {ocrInfo.count} položek. Zkontroluj typ+velikost (SKU) a počet, pak naskladni.
+          ✓ Přečteno: {ocrInfo.supplier || 'dodavatel ?'}{ocrInfo.number ? ` · ${ocrInfo.number}` : ''} · {ocrInfo.count} položek
+          {ocrInfo.lang && ocrInfo.lang !== 'cs' ? ` · přeloženo z „${ocrInfo.lang}"` : ''}
+          <div className="text-xs font-semibold mt-1" style={{ color: '#1a2e22', opacity: 0.8 }}>
+            💰 Finanční událost založena → čeká na schválení ve Finance (vznikne faktura/majetek).{ocrInfo.needsReview ? ' Nízká jistota OCR — zkontroluj ve Výjimkách.' : ''} Teď zkontroluj SKU a počet a naskladni zboží.
+          </div>
         </div>
       )}
       <div className="text-xs mb-2" style={{ color: '#1a2e22', opacity: 0.6 }}>
-        📷 Vyfoť fakturu/dodací list → AI vypíše položky. Nebo vyber existující doklad / zadej ručně. Zkontroluj SKU a počet a potvrď naskladnění. <b>Naskladnění jde jen do skladu</b> — fakturu do financí zaneš ve Finance → Faktury přijaté.
+        📷 Vyfoť fakturu/dodací list → AI ji přečte (a přeloží, když je cizojazyčná): <b>založí finanční událost</b> (→ po schválení faktura + majetek/materiál) a vypíše položky. Zkontroluj typ/velikost nebo kategorii (SKU) a počet → <b>Naskladnit</b> přidá zboží rovnou na sklad.
       </div>
 
       {lines.length === 0 ? <div className="py-8 text-center text-sm" style={{ color: '#1a2e22', opacity: 0.5 }}>Vyber doklad nebo přidej řádek.</div>

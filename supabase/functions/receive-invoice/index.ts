@@ -9,10 +9,11 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { callClaudeVision } from './vision-ocr.ts'
 import { routeDocument } from './document-routing.ts'
 import { upsertSupplier } from './supplier-utils.ts'
+import { requireAdminOrService } from '../_shared/auth.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'x-invoice-api-key, content-type',
+  'Access-Control-Allow-Headers': 'x-invoice-api-key, authorization, apikey, x-client-info, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
@@ -48,20 +49,27 @@ Deno.serve(async (req: Request) => {
   // v doc-scanner bundlu i tady → kdokoli s APK mohl volat tuto service_role
   // funkci a vkládat falešné účetní doklady; rotace secretu ho neodvolala).
   // Nyní výhradně přes secret INVOICE_API_KEY (timing-safe porovnání).
+  // Dvě cesty: a) doc-scanner mobile přes X-Invoice-Api-Key; b) Velín admin přes JWT
+  // (Logistika → Naskladnění „Vyfotit fakturu"). Stačí jedna.
   const INVOICE_API_KEY = Deno.env.get('INVOICE_API_KEY') || ''
   const apiKey = req.headers.get('x-invoice-api-key') || ''
-
   const validKey = INVOICE_API_KEY.length > 0 && timingSafeEqualStr(apiKey, INVOICE_API_KEY)
-  if (!apiKey || !validKey) {
-    return jsonResponse({ error: 'Unauthorized: invalid API key' }, 401)
+  let authed = validKey
+  if (!authed) {
+    const a = await requireAdminOrService(req)
+    authed = a.ok
+  }
+  if (!authed) {
+    return jsonResponse({ error: 'Unauthorized: invalid API key or admin token' }, 401)
   }
 
   // -- Rate limiting --
+  const rlKey = apiKey || 'admin-jwt'
   const now = Date.now()
-  const rl = rateLimitStore.get(apiKey) || { count: 0, resetAt: now + 3600_000 }
+  const rl = rateLimitStore.get(rlKey) || { count: 0, resetAt: now + 3600_000 }
   if (now > rl.resetAt) { rl.count = 0; rl.resetAt = now + 3600_000 }
   rl.count++
-  rateLimitStore.set(apiKey, rl)
+  rateLimitStore.set(rlKey, rl)
 
   if (rl.count > RATE_LIMIT_MAX) {
     return jsonResponse({ error: 'Rate limit exceeded (max 100/hour)' }, 429)
@@ -160,7 +168,9 @@ Deno.serve(async (req: Request) => {
         status: eventStatus,
         metadata: {
           document_type: documentType,
+          source_language: parsed.source_language || 'cs',
           supplier_name: parsed.supplier_name,
+          supplier_name_cs: parsed.supplier_name_cs || null,
           supplier_ico: parsed.supplier_ico,
           supplier_dic: parsed.supplier_dic,
           supplier_address: parsed.supplier_address,
@@ -354,8 +364,18 @@ Pravidla:
       ai_classification: aiClassification,
       confidence: parsed.confidence,
       needs_review: needsReview,
+      source_language: parsed.source_language || 'cs',
+      // Položky pro naskladnění (přeložené do CZ, když je doklad cizojazyčný):
+      line_items: (parsed.line_items || []).map((li: any) => ({
+        description: li?.description_cs || li?.description || '',
+        original_description: li?.description || null,
+        quantity: li?.quantity ?? null,
+        unit_price: li?.unit_price ?? null,
+        amount: li?.amount ?? null,
+      })),
       extracted: {
-        supplier: parsed.supplier_name,
+        supplier: parsed.supplier_name_cs || parsed.supplier_name,
+        supplier_original: parsed.supplier_name,
         supplier_ico: parsed.supplier_ico,
         supplier_bank_account: parsed.supplier_bank_account,
         amount: amountCzk,

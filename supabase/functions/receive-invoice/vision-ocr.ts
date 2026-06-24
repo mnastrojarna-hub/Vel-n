@@ -5,7 +5,9 @@ export const VISION_PROMPT = `Jsi účetní a právní asistent české malé fi
 Přečti dokument a vrať POUZE JSON, žádný markdown, žádný text navíc.
 {
   "document_type": "invoice|receipt|contract_purchase|contract_loan|contract_employment|contract_service|delivery_note|insurance|leasing|other",
+  "source_language": null,
   "supplier_name": null,
+  "supplier_name_cs": null,
   "supplier_ico": null,
   "supplier_dic": null,
   "supplier_address": null,
@@ -17,7 +19,7 @@ Přečti dokument a vrať POUZE JSON, žádný markdown, žádný text navíc.
   "due_date": null,
   "received_date": null,
   "payment_method": "bank_transfer|cash|card|null",
-  "line_items": [{ "description": null, "amount": null }],
+  "line_items": [{ "description": null, "description_cs": null, "quantity": null, "unit_price": null, "amount": null }],
   "asset_classification": {
     "type": "dlouhodoby_majetek|kratkodoby_majetek|zbozi|drobna_rezie|sluzba|material|null",
     "depreciation_group": null,
@@ -82,6 +84,14 @@ PRAVIDLA pro asset_classification:
 - drobna_rezie: drobné provozní náklady (poštovné, parkovné, dálniční známky, poplatky)
 - sluzba: služby (servis, účetnictví, právní služby, marketing, hosting, telekom)
 - null: nelze určit
+
+PRAVIDLA pro položky (line_items):
+- Pro KAŽDOU položku vyplň quantity (počet kusů, default 1) a unit_price (cena za kus bez měny). Když cena za kus chybí, dopočítej z amount/quantity.
+
+PRAVIDLA pro PŘEKLAD (zahraniční doklady):
+- source_language = ISO kód jazyka dokladu (cs/en/de/pl/sk/...).
+- Pokud doklad NENÍ v češtině: přelož do češtiny supplier_name_cs a u KAŽDÉ položky description_cs; ORIGINÁL ponech v supplier_name a description.
+- Pokud JE v češtině: supplier_name_cs i description_cs nech null.
 
 Pokud pole neexistuje nebo není čitelné: null.
 Částky vždy jako číslo bez mezer a měny.
