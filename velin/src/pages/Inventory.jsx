@@ -10,6 +10,8 @@ import Button from '../components/ui/Button'
 import SearchInput from '../components/ui/SearchInput'
 import Pagination from '../components/ui/Pagination'
 import Modal from '../components/ui/Modal'
+import SkuTag, { SkuConventionInfo } from '../components/ui/SkuTag'
+import { validateSku } from '../lib/sku'
 
 const PER_PAGE = 25
 
@@ -88,7 +90,8 @@ export default function Inventory() {
             Reset
           </button>
         )}
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
+          <SkuConventionInfo />
           <Button green onClick={() => setShowAdd(true)}>+ Nová položka</Button>
         </div>
       </div>
@@ -139,7 +142,7 @@ export default function Inventory() {
                     style={{ borderBottom: '1px solid #d4e8e0', background: selectedIds.has(item.id) ? '#fef9c3' : isLow ? '#fff5f5' : 'transparent' }}
                   >
                     <TD><RowCheckbox id={item.id} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TD>
-                    <TD mono bold>{item.sku || '—'}</TD>
+                    <TD onClick={e => e.stopPropagation()}><SkuTag sku={item.sku} /></TD>
                     <TD bold>{item.name}</TD>
                     <TD>{item.category || '—'}</TD>
                     <TD bold color={isLow ? '#dc2626' : '#0f1a14'}>{item.stock ?? 0}</TD>
@@ -334,6 +337,11 @@ function AddItemModal({ onClose, onSaved }) {
               SKU se skládá automaticky: <span className="font-mono">prislusenstvi-{skuType || '<typ>'}-{skuSize || '<vel>'}</span>
             </div>
           )}
+          {(skuManual || !isAcc) && form.sku && (() => {
+            const v = validateSku(form.sku)
+            return <div className="text-xs mt-1" style={{ color: v.ok ? (v.warning ? '#b45309' : '#1a8a18') : '#dc2626' }}>{v.warning || '✓ Odpovídá konvenci SKU'}</div>
+          })()}
+          {(skuManual || !isAcc) && <div className="text-xs mt-1" style={{ color: '#6b8f7b' }}>Konvence: <span className="font-mono">kategorie-typ-varianta</span> (např. <span className="font-mono">dily-olej-10w40</span>, <span className="font-mono">zbozi-tricko-logo</span>).</div>}
         </div>
         <FormField label="Počáteční stav" value={form.stock} onChange={v => set('stock', v)} type="number" />
         <FormField label="Minimum" value={form.min_stock} onChange={v => set('min_stock', v)} type="number" />

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
 import { supabase } from '../lib/supabase'
 import Card from '../components/ui/Card'
 import Inventory from './Inventory'
+import { SkuConventionInfo } from '../components/ui/SkuTag'
 import { accSku, deductFromWarehouse, returnToWarehouse, loadAccessoryTypes } from './BranchHelpers'
 
 const OrdersTab = lazy(() => import('./accounting/AutoOrdersTab'))
@@ -563,6 +564,7 @@ function NaskladneniTab() {
           </select>
         )}
         {docType === 'manual' && <button onClick={() => setLines(ls => [...ls, mkLine('', 0, 1)])} className="text-sm font-bold cursor-pointer rounded-btn" style={{ padding: '6px 12px', border: '1px solid #1a2e22', background: '#fff', color: '#1a2e22' }}>+ Řádek</button>}
+        <span className="ml-auto"><SkuConventionInfo /></span>
       </div>
       <div className="text-xs mb-2" style={{ color: '#1a2e22', opacity: 0.6 }}>Z faktury/DL se předvyplní položky a ceny (OCR). Zkontroluj typ+velikost (SKU), uprav počet a potvrď naskladnění.</div>
 
