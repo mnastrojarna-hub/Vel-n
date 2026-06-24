@@ -6,6 +6,9 @@ class BookingDraft {
   DateTime? startDate;
   DateTime? endDate;
   String? pickupTime;
+  /// Předpokládaný čas návratu (HH:MM) — povinné pole, default UI 19:00.
+  /// Zapisuje se do bookings.return_time (parita s webem).
+  String? returnTime;
   String pickupMethod; // 'store' or 'delivery'
   String returnMethod; // 'store' or 'delivery'
   String? pickupAddress;
@@ -49,6 +52,7 @@ class BookingDraft {
     this.startDate,
     this.endDate,
     this.pickupTime,
+    this.returnTime,
     this.pickupMethod = 'store',
     this.returnMethod = 'store',
     this.pickupAddress,
@@ -94,6 +98,7 @@ class BookingDraft {
     DateTime? Function()? startDate,
     DateTime? Function()? endDate,
     String? Function()? pickupTime,
+    String? Function()? returnTime,
     String? pickupMethod,
     String? returnMethod,
     String? Function()? pickupAddress,
@@ -131,6 +136,7 @@ class BookingDraft {
       startDate: startDate != null ? startDate() : this.startDate,
       endDate: endDate != null ? endDate() : this.endDate,
       pickupTime: pickupTime != null ? pickupTime() : this.pickupTime,
+      returnTime: returnTime != null ? returnTime() : this.returnTime,
       pickupMethod: pickupMethod ?? this.pickupMethod,
       returnMethod: returnMethod ?? this.returnMethod,
       pickupAddress: pickupAddress != null ? pickupAddress() : this.pickupAddress,

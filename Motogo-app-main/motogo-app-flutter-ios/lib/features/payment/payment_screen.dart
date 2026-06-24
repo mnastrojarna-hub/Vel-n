@@ -332,6 +332,8 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
         'start_date': draft.startDate != null ? _fmtDate(draft.startDate!) : '',
         'end_date': draft.endDate != null ? _fmtDate(draft.endDate!) : '',
         'pickup_time': draft.pickupTime ?? '09:00',
+        // Předpokládaný čas návratu (povinné pole, parita s webem). Default 19:00.
+        'return_time': draft.returnTime ?? '19:00',
         'total_price': breakdown.total,
         'extras_price': breakdown.extrasTotal,
         'delivery_fee': breakdown.deliveryFee,
