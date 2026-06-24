@@ -86,17 +86,28 @@ export default function Logistika() {
 function CalendarTab({ branchId, from, to, setFrom, setTo }) {
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(false)
+  const [def, setDef] = useState({ count: 0, min: null, max: null })
 
   const load = useCallback(async () => {
     if (!branchId) return
     setLoading(true)
-    // Recompute deficitů pro tento branch+okno → Chybí kus i kalendář ukazují totéž
-    try { await supabase.rpc('detect_gear_shortages_for_window', { p_branch_id: branchId, p_from: from, p_to: to }) } catch { /* noop */ }
+    // Recompute deficitů na CELÝ horizont této pobočky → kalendář i Chybí kus i banner sedí
+    try { await supabase.rpc('detect_gear_shortages_for_window', { p_branch_id: branchId, p_from: todayIso(), p_to: addDaysIso(120) }) } catch { /* noop */ }
     const { data, error } = await supabase.rpc('get_branch_gear_calendar', { p_branch_id: branchId, p_from: from, p_to: to })
     setRows(error ? [] : (data || []))
+    // Souhrn deficitů této pobočky (i mimo zobrazené okno) → navede uživatele
+    const { data: defs } = await supabase.from('gear_shortages').select('shortage_date')
+      .eq('branch_id', branchId).gt('deficit_qty', 0)
+      .in('status', ['open', 'warehouse_filled', 'transfer_requested', 'order_created'])
+    const ds = (defs || []).map(d => d.shortage_date).sort()
+    setDef({ count: ds.length, min: ds[0] || null, max: ds[ds.length - 1] || null })
     setLoading(false)
   }, [branchId, from, to])
   useEffect(() => { load() }, [load])
+
+  const outOfRange = def.count > 0 && (def.max > to || def.min < from)
+  const noDeficits = def.count === 0
+  const preset = (n) => { setFrom(todayIso()); setTo(addDaysIso(n)) }
 
   const days = []
   for (let d = new Date(from + 'T00:00:00'); d <= new Date(to + 'T00:00:00'); d.setDate(d.getDate() + 1)) days.push(d.toISOString().slice(0, 10))
@@ -122,10 +133,31 @@ function CalendarTab({ branchId, from, to, setFrom, setTo }) {
         <label className="text-sm font-bold" style={{ color: '#1a2e22' }}>Do</label>
         <input type="date" value={to} onChange={e => setTo(e.target.value)}
           className="rounded-btn text-sm outline-none" style={{ padding: '6px 10px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
+        {[['14 dní', 14], ['30 dní', 30], ['90 dní', 90]].map(([l, n]) => (
+          <button key={n} onClick={() => preset(n)} className="text-xs font-bold cursor-pointer rounded-btn"
+            style={{ padding: '5px 10px', border: '1px solid #d4e8e0', background: '#fff', color: '#1a2e22' }}>{l}</button>
+        ))}
         <div className="flex items-center gap-3 ml-auto text-xs" style={{ color: '#1a2e22' }}>
           <Legend color="#16a34a" text="volné" /><Legend color="#f59e0b" text="vyčerpáno" /><Legend color="#dc2626" text="deficit" />
         </div>
       </div>
+
+      {outOfRange && (
+        <div className="mb-3 rounded-btn flex items-center gap-3 flex-wrap" style={{ padding: '10px 12px', background: '#fff5f5', border: '1px solid #fca5a5' }}>
+          <span className="text-sm font-bold" style={{ color: '#dc2626' }}>
+            ⚠ Na této pobočce je {def.count} deficitů ({fmtDay(def.min)} – {fmtDay(def.max)}), část je mimo zobrazené období.
+          </span>
+          <button onClick={() => { setFrom(def.min < todayIso() ? todayIso() : def.min); setTo(def.max) }}
+            className="text-xs font-bold cursor-pointer rounded-btn" style={{ padding: '5px 10px', border: 'none', background: '#dc2626', color: '#fff' }}>
+            Zobrazit období deficitů
+          </button>
+        </div>
+      )}
+      {!loading && noDeficits && (
+        <div className="mb-3 text-xs" style={{ color: '#1a2e22', opacity: 0.6 }}>
+          Tato pobočka nemá žádné deficity. Deficit z „Chybí kus" může být na jiné pobočce — přepni ji v selectoru nahoře.
+        </div>
+      )}
 
       {loading ? <div className="py-8 text-center text-sm" style={{ color: '#1a2e22', opacity: 0.5 }}>Načítám…</div>
         : nonCons.length === 0 && cons.length === 0 ? <div className="py-8 text-center text-sm" style={{ color: '#1a2e22', opacity: 0.5 }}>Žádné typy příslušenství. Přidej je ve Velíně → Pobočky → Příslušenství.</div>
