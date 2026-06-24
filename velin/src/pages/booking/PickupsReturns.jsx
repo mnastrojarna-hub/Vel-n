@@ -47,8 +47,8 @@ const navBtnStyle = { background: '#f1faf7', border: '1px solid #d4e8e0', border
 
 // odjezd = vyzvednutí (zákazník odjíždí na motorce), návrat = vrácení
 const TYPE = {
-  pickup: { label: 'Vyzvednutí', emoji: '🛫', color: '#1a8a18' },
-  return: { label: 'Vrácení', emoji: '🛬', color: '#b45309' },
+  pickup: { label: 'Odjezd', emoji: '🛫', color: '#1a8a18' },
+  return: { label: 'Návrat', emoji: '🛬', color: '#b45309' },
 }
 
 // Heatmapa pracovní náročnosti dne dle počtu událostí (odjezdy + návraty).
@@ -97,22 +97,53 @@ function buildEvents(bookings) {
   return out
 }
 
-// Jednořádková kompaktní položka události
-function EventRow({ ev, onClick, showStatus }) {
+const TimeCell = ({ ev, t }) => (
+  <span className="font-extrabold" style={{ color: '#0f1a14' }}>
+    {fmtDayShort(ev.day)} <span className="font-mono" style={{ color: t.color }} title={ev.timeDefault ? 'Výchozí čas (není zadán)' : undefined}>{ev.timeDefault ? '~' : ''}{ev.time}</span>
+  </span>
+)
+
+// Jednořádková kompaktní položka události. `dense` = úzký dvouřádkový layout
+// (pro boční panel detailu dne, kde by horizontální řádek přetékal).
+function EventRow({ ev, onClick, showStatus, dense }) {
   const t = TYPE[ev.type]
+  const wrap = {
+    padding: dense ? '8px 10px' : '7px 10px', borderLeft: `4px solid ${t.color}`,
+    background: ev.done ? '#f3f4f6' : '#f8fdfb', borderBottom: '1px solid #eef5f1', opacity: ev.done ? 0.6 : 1,
+  }
+  const place = ev.delivery ? '🚚 ' + (ev.address || 'na adresu') : '🏍️ ' + (ev.branch || 'pobočka')
+  const typeTag = (
+    <span className="inline-flex items-center gap-1 shrink-0">
+      <span className="text-base" title={t.label}>{t.emoji}</span>
+      <span className="text-sm font-extrabold uppercase tracking-wide" style={{ color: t.color }}>{t.label}</span>
+    </span>
+  )
+
+  if (dense) {
+    return (
+      <div onClick={onClick} className="cursor-pointer hover:bg-[#e9f7f1] transition-colors" style={wrap}>
+        <div className="flex items-center gap-2">
+          {typeTag}
+          <span className="ml-auto text-sm"><TimeCell ev={ev} t={t} /></span>
+        </div>
+        <div className="font-extrabold text-sm mt-1 truncate" style={{ color: '#0f1a14' }}>{ev.moto}{ev.spz ? ` · ${ev.spz}` : ''}</div>
+        <div className="text-sm truncate" style={{ color: '#1a2e22' }}>{ev.customer} <span className="font-mono" style={{ color: '#64748b' }}>{bookingNo(ev.booking.id)}</span></div>
+        <div className="text-sm truncate" style={{ color: '#64748b' }}>{place}</div>
+      </div>
+    )
+  }
+
   return (
     <div onClick={onClick}
       className="flex items-center gap-2 cursor-pointer hover:bg-[#e9f7f1] transition-colors"
-      style={{ padding: '7px 10px', borderLeft: `4px solid ${t.color}`, background: ev.done ? '#f3f4f6' : '#f8fdfb', borderBottom: '1px solid #eef5f1', opacity: ev.done ? 0.6 : 1 }}>
-      <span className="shrink-0 text-base" title={t.label}>{t.emoji}</span>
-      <span className="shrink-0 text-sm font-extrabold uppercase tracking-wide hidden sm:inline" style={{ color: t.color, width: 78 }}>{t.label}</span>
+      style={wrap}>
+      <span className="shrink-0 hidden sm:flex" style={{ width: 86 }}>{typeTag}</span>
+      <span className="shrink-0 sm:hidden text-base" title={t.label}>{t.emoji}</span>
       <span className="font-extrabold text-sm truncate" style={{ color: '#0f1a14', minWidth: 0, flex: '1 1 130px' }}>{ev.moto}{ev.spz ? ` · ${ev.spz}` : ''}</span>
-      <span className="text-sm truncate hidden md:block" style={{ color: '#1a2e22', flex: '1 1 110px', minWidth: 0 }}>{ev.customer}</span>
+      <span className="text-sm truncate hidden md:block" style={{ color: '#1a2e22', flex: '1 1 100px', minWidth: 0 }}>{ev.customer}</span>
       <span className="text-sm font-mono shrink-0 hidden lg:inline" style={{ color: '#64748b' }}>{bookingNo(ev.booking.id)}</span>
       <span className="text-sm truncate hidden lg:block" style={{ color: '#64748b', flex: '1 1 90px', minWidth: 0 }}>{ev.delivery ? '🚚 ' + (ev.address || 'na adresu') : '🏍️ ' + (ev.branch || 'pobočka')}</span>
-      <span className="shrink-0 text-sm font-extrabold text-right" style={{ color: '#0f1a14', minWidth: 96 }}>
-        {fmtDayShort(ev.day)} <span className="font-mono" style={{ color: t.color }} title={ev.timeDefault ? 'Výchozí čas (není zadán)' : undefined}>{ev.timeDefault ? '~' : ''}{ev.time}</span>
-      </span>
+      <span className="shrink-0 text-sm text-right" style={{ minWidth: 96 }}><TimeCell ev={ev} t={t} /></span>
       {showStatus && <span className="shrink-0 hidden xl:inline"><StatusBadge status={getDisplayStatus(ev.booking)} /></span>}
       {ev.done && <span className="shrink-0 text-sm font-bold" style={{ color: '#15803d' }}>✓</span>}
     </div>
@@ -323,7 +354,7 @@ export default function PickupsReturns({ compact = false, onExpand }) {
                 <p className="text-sm" style={{ color: '#64748b' }}>Žádné odjezdy ani návraty v tento den</p>
               ) : (
                 <div className="rounded-lg overflow-hidden" style={{ border: '1px solid #eef5f1' }}>
-                  {selected.map((ev, i) => <EventRow key={ev.booking.id + '_' + ev.type + '_' + i} ev={ev} showStatus onClick={() => openBooking(ev.booking.id)} />)}
+                  {selected.map((ev, i) => <EventRow key={ev.booking.id + '_' + ev.type + '_' + i} ev={ev} dense onClick={() => openBooking(ev.booking.id)} />)}
                 </div>
               )}
             </Card>
