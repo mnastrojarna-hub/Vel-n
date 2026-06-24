@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { debugAction } from '../lib/debugLog'
 import { useDebugMode } from '../hooks/useDebugMode'
@@ -10,6 +10,7 @@ import ConfirmDialog from '../components/ui/ConfirmDialog'
 import NewBookingModal from './booking/NewBookingModal'
 import BookingsBulkActionsModal from './booking/BookingsBulkActionsModal'
 import GlobalCalendar from './booking/GlobalCalendar'
+import PickupsReturns from './booking/PickupsReturns'
 import BookingsTable from './booking/BookingsTable'
 import BookingsExtendedFilters from './booking/BookingsExtendedFilters'
 import BookingCancelModal from './booking/BookingCancelModal'
@@ -24,11 +25,12 @@ function localIso(d) {
 }
 
 const PER_PAGE = 25
-const VIEWS = ['Seznam', 'Kalendář']
+const VIEWS = ['Seznam', 'Kalendář', 'Odjezdy a návraty']
 
 export default function Bookings() {
   const debugMode = useDebugMode()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [bookings, setBookings] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -52,7 +54,7 @@ export default function Bookings() {
   const [showAdd, setShowAdd] = useState(false)
   const [showBulk, setShowBulk] = useState(false)
   const [selectedIds, setSelectedIds] = useState(new Set())
-  const [view, setView] = useState('Seznam')
+  const [view, setView] = useState(() => searchParams.get('view') === 'odjezdy' ? 'Odjezdy a návraty' : 'Seznam')
   const [showFilters, setShowFilters] = useState(false)
   const [branches, setBranches] = useState([])
   const [motos, setMotos] = useState([])
@@ -285,7 +287,9 @@ export default function Bookings() {
       </div>
       )}
 
-      {view === 'Kalendář' ? (
+      {view === 'Odjezdy a návraty' ? (
+        <PickupsReturns />
+      ) : view === 'Kalendář' ? (
         <GlobalCalendar />
       ) : loading ? (
         <div className="flex justify-center py-16"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
