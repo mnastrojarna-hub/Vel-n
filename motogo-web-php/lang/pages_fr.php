@@ -22,6 +22,8 @@ return [
             'detail' => [
                 'seoTitle' => 'Location de motos {region} – louez une moto dans les villes de la région | MotoGo24',
                 'seoDescription' => 'Location de motos en {regionLoc}. MotoGo24 livre une moto dans les villes de {regionLoc} – sans caution, réservation en ligne, équipement inclus. Nous louons aussi à : {cities}.',
+                'heroTagline' => 'Louez une moto en {regionLoc} – sans caution, équipement inclus, retrait 24h/24.',
+                'heroCta' => 'RÉSERVER UNE MOTO',
                 'h1' => 'Location de motos {region}',
                 'intro' => 'Vous cherchez une <strong>location de motos fiable en {regionLoc}</strong> ? MotoGo24 apporte et livre la moto directement dans votre ville. Nous proposons une <strong>location de motos sans caution</strong>, la réservation en ligne et l’équipement complet inclus. Que vous habitiez une grande ville ou une petite commune, nous vous livrons avec plaisir.',
                 'citiesTitle' => 'Location de motos dans les villes de la région',

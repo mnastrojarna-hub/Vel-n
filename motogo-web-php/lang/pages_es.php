@@ -22,6 +22,8 @@ return [
             'detail' => [
                 'seoTitle' => 'Alquiler de motos {region} – alquila una moto en las ciudades de la región | MotoGo24',
                 'seoDescription' => 'Alquiler de motos en {regionLoc}. MotoGo24 lleva una moto a ciudades de {regionLoc}: sin fianza, reserva online, equipamiento incluido. También alquilamos en: {cities}.',
+                'heroTagline' => 'Alquila una moto en {regionLoc}: sin fianza, con equipamiento y recogida 24/7.',
+                'heroCta' => 'RESERVAR MOTO',
                 'h1' => 'Alquiler de motos {region}',
                 'intro' => '¿Buscas un <strong>alquiler de motos fiable en {regionLoc}</strong>? MotoGo24 lleva y entrega la moto directamente en tu ciudad. Ofrecemos <strong>alquiler de motos sin fianza</strong>, reserva online y equipamiento de motociclista completo incluido. Tanto si vives en una gran ciudad como en un pueblo, te la llevamos encantados.',
                 'citiesTitle' => 'Alquiler de motos en las ciudades de la región',

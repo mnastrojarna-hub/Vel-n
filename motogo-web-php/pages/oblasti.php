@@ -51,9 +51,10 @@ $regionCta = $C['regionCta'] ?? 'Zobrazit kraj';
 $cards = '';
 foreach ($regions as $r) {
     $href = BASE_URL . '/oblasti/' . $r['slug'];
+    // Klik na kterékoliv město vede na stránku kraje (ne na kotvu).
     $cityLinks = [];
     foreach ($r['cities'] as $c) {
-        $cityLinks[] = '<a href="' . $href . '#mesto-' . $c['slug'] . '">' . htmlspecialchars($c['name']) . '</a>';
+        $cityLinks[] = '<a href="' . $href . '">' . htmlspecialchars($c['name']) . '</a>';
     }
     $cards .= '<div class="oblasti-card">'
         . '<h2 class="oblasti-card-title"><a href="' . $href . '">' . htmlspecialchars($r['name']) . '</a></h2>'
@@ -69,9 +70,12 @@ $regionsSection = '<section><h2 data-cms-key="web.oblasti.regionsTitle">' . ($C[
 $ctaButtons = [];
 foreach ((is_array($C['cta']['buttons'] ?? null) ? $C['cta']['buttons'] : []) as $i => $btn) {
     if (!is_array($btn)) continue;
-    $b = $btn;
-    $b['label'] = '<span data-cms-key="web.oblasti.cta.buttons.' . $i . '.label">' . ($btn['label'] ?? '') . '</span>';
-    $ctaButtons[] = $b;
+    $ctaButtons[] = [
+        'label' => '<span data-cms-key="web.oblasti.cta.buttons.' . $i . '.label">' . ($btn['label'] ?? '') . '</span>',
+        'href' => $btn['href'] ?? '#',
+        // btndark pulse = viditelný text na tmavém CTA boxu (jako homepage/pujcovna)
+        'cls' => ($i === 0 ? 'btndark pulse' : 'btndark'),
+    ];
 }
 $ctaHtml = renderCta(
     '<span data-cms-key="web.oblasti.cta.title">' . ($C['cta']['title'] ?? '') . '</span>',
