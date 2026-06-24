@@ -3,7 +3,15 @@ import { supabase } from '../lib/supabase'
 import Card from '../components/ui/Card'
 import Inventory from './Inventory'
 import { SkuConventionInfo } from '../components/ui/SkuTag'
+import { buildSku, normalizeSlug } from '../lib/sku'
 import { accSku, deductFromWarehouse, returnToWarehouse, loadAccessoryTypes } from './BranchHelpers'
+
+// Skladově se NErozlišuje řidič/spolujezdec — fyzické typy gearu (mají velikost):
+const PHYSICAL_GEAR = ['helmet', 'jacket', 'pants', 'boots', 'gloves', 'balaclava']
+const physicalTypes = (types) => (types || []).filter(t => PHYSICAL_GEAR.includes(t.key))
+// Zboží/spotřební bez velikosti (kufry, sítě, držáky, oleje…) → kategorie řídí SKU prefix + finance:
+const GOODS_CATS = [['zbozi', 'Zboží (půjčovní)'], ['spotrebni', 'Spotřební'], ['material', 'Materiál'], ['dily', 'Náhradní díl']]
+const CAT_TO_INV = { zbozi: 'inventory', spotrebni: 'supplies', material: 'material', dily: 'material' }
 
 const OrdersTab = lazy(() => import('./accounting/AutoOrdersTab'))
 
@@ -472,7 +480,7 @@ function PresunyTab({ branches }) {
         {(dir === 'wh2branch' || dir === 'branch2branch') && (
           <Field label="Na pobočku"><Sel value={toBranch} onChange={setToBranch}><option value="">—</option>{branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}</Sel></Field>
         )}
-        <Field label="Typ"><Sel value={type} onChange={v => { setType(v); setSize('') }}><option value="">—</option>{accTypes.map(t => <option key={t.key} value={t.key}>{t.label}</option>)}</Sel></Field>
+        <Field label="Typ"><Sel value={type} onChange={v => { setType(v); setSize('') }}><option value="">—</option>{physicalTypes(accTypes).map(t => <option key={t.key} value={t.key}>{t.label}</option>)}</Sel></Field>
         <Field label="Velikost"><Sel value={size} onChange={setSize}><option value="">—</option>{sizes.map(s => <option key={s} value={s}>{s}</option>)}</Sel></Field>
         <Field label="Počet">
           <input type="number" min={1} value={qty} onChange={e => setQty(e.target.value)} className="rounded-btn text-sm outline-none w-20"
@@ -530,7 +538,7 @@ function NaskladneniTab() {
     else supabase.from('invoices').select('id, number, notes, items, issue_date').eq('type', 'received').order('issue_date', { ascending: false }).limit(50).then(({ data }) => setDocs(data || []))
   }, [docType])
 
-  const mkLine = (name, price, qty) => { const g = guessLine(name); return { name: name || '', qty: qty || 1, unit_price: price || 0, mode: g.type ? 'acc' : 'manual', type: g.type, size: g.size, sku: '', category: 'inventory' } }
+  const mkLine = (name, price, qty) => { const g = guessLine(name); return { name: name || '', qty: qty || 1, unit_price: price || 0, mode: g.type ? 'acc' : 'goods', type: g.type, size: g.size, cat: 'zbozi', slug: name || '' } }
 
   async function handleOcr(file) {
     if (!file) return
@@ -550,10 +558,10 @@ function NaskladneniTab() {
     setLines(items.length ? items.map(it => mkLine(it.description || it.name || '', it.amount ?? it.unit_price ?? 0, it.quantity || 1)) : [mkLine('', 0, 1)])
   }
   const upd = (i, patch) => setLines(ls => ls.map((l, j) => j === i ? { ...l, ...patch } : l))
-  const lineSku = (l) => l.mode === 'acc' ? (l.type && l.size ? accSku(l.type, l.size) : '') : (l.sku || '').trim()
+  const lineSku = (l) => l.mode === 'acc' ? (l.type && l.size ? accSku(l.type, l.size) : '') : (l.slug ? buildSku(l.cat, l.slug) : '')
 
   async function stockAll() {
-    const payload = lines.map(l => ({ sku: lineSku(l), name: l.name, qty: Number(l.qty) || 0, unit_price: Number(l.unit_price) || 0, category: l.mode === 'acc' ? 'prislusenstvi' : l.category })).filter(l => l.sku && l.qty > 0)
+    const payload = lines.map(l => ({ sku: lineSku(l), name: l.name, qty: Number(l.qty) || 0, unit_price: Number(l.unit_price) || 0, category: l.mode === 'acc' ? 'prislusenstvi' : (CAT_TO_INV[l.cat] || 'inventory') })).filter(l => l.sku && l.qty > 0)
     if (!payload.length) { alert('Žádná položka nemá vyplněné SKU (typ+velikost) a počet > 0.'); return }
     const d = docs.find(x => x.id === docId)
     const note = docType === 'ocr' ? `Naskladnění z faktury (OCR)${ocrInfo?.supplier ? ' ' + ocrInfo.supplier : ''}${ocrInfo?.number ? ' ' + ocrInfo.number : ''}`.trim()
@@ -606,19 +614,24 @@ function NaskladneniTab() {
               <div key={i} className="flex items-center gap-2 flex-wrap rounded-btn" style={{ padding: '8px 10px', background: '#f9fdfb', border: '1px solid #e2eee8' }}>
                 <input value={l.name} onChange={e => upd(i, { name: e.target.value })} placeholder="Název položky" className="rounded-btn text-sm outline-none" style={{ padding: '5px 8px', background: '#fff', border: '1px solid #d4e8e0', flex: '1 1 160px', minWidth: 120 }} />
                 <select value={l.mode} onChange={e => upd(i, { mode: e.target.value })} className="rounded-btn text-xs outline-none" style={{ padding: '5px 6px', background: '#fff', border: '1px solid #d4e8e0' }}>
-                  <option value="acc">Příslušenství</option><option value="manual">Vlastní SKU</option>
+                  <option value="acc">Příslušenství (gear)</option><option value="goods">Zboží / spotřební</option>
                 </select>
                 {l.mode === 'acc' ? (
                   <>
                     <select value={l.type} onChange={e => upd(i, { type: e.target.value, size: '' })} className="rounded-btn text-xs outline-none" style={{ padding: '5px 6px', background: '#fff', border: '1px solid #d4e8e0' }}>
-                      <option value="">typ</option>{accTypes.map(t => <option key={t.key} value={t.key}>{t.label}</option>)}
+                      <option value="">typ</option>{physicalTypes(accTypes).map(t => <option key={t.key} value={t.key}>{t.label}</option>)}
                     </select>
                     <select value={l.size} onChange={e => upd(i, { size: e.target.value })} className="rounded-btn text-xs outline-none" style={{ padding: '5px 6px', background: '#fff', border: '1px solid #d4e8e0' }}>
                       <option value="">vel.</option>{(accTypes.find(t => t.key === l.type)?.sizes || []).map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                   </>
                 ) : (
-                  <input value={l.sku} onChange={e => upd(i, { sku: e.target.value })} placeholder="SKU" className="rounded-btn text-xs outline-none font-mono" style={{ padding: '5px 8px', background: '#fff', border: '1px solid #d4e8e0', width: 150 }} />
+                  <>
+                    <select value={l.cat} onChange={e => upd(i, { cat: e.target.value })} title="Spotřební vs zboží pro půjčovnu" className="rounded-btn text-xs outline-none" style={{ padding: '5px 6px', background: '#fff', border: '1px solid #d4e8e0' }}>
+                      {GOODS_CATS.map(([k, lab]) => <option key={k} value={k}>{lab}</option>)}
+                    </select>
+                    <input value={l.slug} onChange={e => upd(i, { slug: e.target.value })} placeholder="název (kufr-givi-46l)" className="rounded-btn text-xs outline-none" style={{ padding: '5px 8px', background: '#fff', border: '1px solid #d4e8e0', width: 150 }} />
+                  </>
                 )}
                 <input type="number" min={1} value={l.qty} onChange={e => upd(i, { qty: e.target.value })} title="Počet" className="rounded-btn text-sm outline-none w-16" style={{ padding: '5px 8px', background: '#fff', border: '1px solid #d4e8e0' }} />
                 <input type="number" min={0} value={l.unit_price} onChange={e => upd(i, { unit_price: e.target.value })} title="Cena/ks" className="rounded-btn text-sm outline-none w-20" style={{ padding: '5px 8px', background: '#fff', border: '1px solid #d4e8e0' }} />
