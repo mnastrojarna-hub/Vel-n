@@ -35,6 +35,34 @@ function timingSafeEqualStr(a: string, b: string): boolean {
   return diff === 0
 }
 
+const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
+
+// ČNB denní kurz pro převod do CZK ke dni faktury. Vrací { rate, date } kde CZK = částka * rate.
+// ČNB při zadání data vrátí kurz daného (nebo nejbližšího předchozího) pracovního dne.
+async function cnbRateToCzk(dateIso: string, currency: string): Promise<{ rate: number; date: string } | null> {
+  const cur = (currency || '').toUpperCase()
+  if (!cur || cur === 'CZK') return { rate: 1, date: dateIso }
+  try {
+    const [y, m, d] = (dateIso || '').split('-')
+    const dd = (d && m && y) ? `${d}.${m}.${y}` : ''
+    const url = `https://www.cnb.cz/cs/financni-trhy/devizovy-trh/kurzy-devizoveho-trhu/kurzy-devizoveho-trhu/denni_kurz.txt${dd ? `?date=${dd}` : ''}`
+    const r = await fetch(url)
+    if (!r.ok) return null
+    const txt = await r.text()
+    const lines = txt.trim().split('\n')
+    const headerDate = (lines[0] || '').split(' ')[0] || dateIso
+    for (let i = 2; i < lines.length; i++) {
+      const p = lines[i].split('|')
+      if (p.length >= 5 && p[3].trim().toUpperCase() === cur) {
+        const amount = parseFloat(p[2].replace(',', '.')) || 1
+        const rate = parseFloat(p[4].replace(',', '.'))
+        if (rate > 0) return { rate: rate / amount, date: headerDate }
+      }
+    }
+    return null
+  } catch { return null }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: CORS })
@@ -141,7 +169,30 @@ Deno.serve(async (req: Request) => {
 
     const confidenceScore = parsed.confidence?.overall ?? 0.5
     const documentType = parsed.document_type || 'other'
-    const amountCzk = parsed.amount_czk || parsed.purchase?.amount_czk || 0
+    const isProforma = documentType === 'proforma'
+
+    // -- Měna + převod do CZK dle ČNB ke dni faktury --
+    const issueDateForFx = parsed.issue_date || new Date().toISOString().slice(0, 10)
+    const currency = (parsed.currency || 'CZK').toUpperCase()
+    const amountOriginal = parsed.amount_czk || parsed.purchase?.amount_czk || 0
+    const fx = await cnbRateToCzk(issueDateForFx, currency)
+    const fxRate = fx ? fx.rate : 1
+    const fxFailed = currency !== 'CZK' && !fx
+    const amountCzk = currency === 'CZK' ? amountOriginal : round2(amountOriginal * fxRate)
+
+    // Položky převedené do CZK + s návrhem SKU (pro naskladnění ve Velínu)
+    const convertedItems = (parsed.line_items || []).map((li: any) => ({
+      description: li?.description_cs || li?.description || '',
+      original_description: li?.description || null,
+      quantity: li?.quantity ?? null,
+      currency,
+      unit_price_original: li?.unit_price ?? null,
+      amount_original: li?.amount ?? null,
+      unit_price: li?.unit_price != null ? round2(li.unit_price * fxRate) : null,
+      amount: li?.amount != null ? round2(li.amount * fxRate) : null,
+      sku_suggestion: li?.sku_suggestion || null,
+      category_suggestion: li?.category_suggestion || null,
+    }))
 
     // -- 4. Determine event_type based on document_type --
     const eventTypeMap: Record<string, string> = {
@@ -168,7 +219,13 @@ Deno.serve(async (req: Request) => {
         status: eventStatus,
         metadata: {
           document_type: documentType,
+          is_proforma: isProforma,
           source_language: parsed.source_language || 'cs',
+          currency,
+          amount_original: amountOriginal,
+          fx_rate: fxRate,
+          fx_date: fx?.date || null,
+          fx_failed: fxFailed,
           supplier_name: parsed.supplier_name,
           supplier_name_cs: parsed.supplier_name_cs || null,
           supplier_ico: parsed.supplier_ico,
@@ -363,16 +420,16 @@ Pravidla:
       status: eventStatus,
       ai_classification: aiClassification,
       confidence: parsed.confidence,
-      needs_review: needsReview,
+      needs_review: needsReview || fxFailed,
       source_language: parsed.source_language || 'cs',
-      // Položky pro naskladnění (přeložené do CZ, když je doklad cizojazyčný):
-      line_items: (parsed.line_items || []).map((li: any) => ({
-        description: li?.description_cs || li?.description || '',
-        original_description: li?.description || null,
-        quantity: li?.quantity ?? null,
-        unit_price: li?.unit_price ?? null,
-        amount: li?.amount ?? null,
-      })),
+      currency,
+      fx_rate: fxRate,
+      fx_date: fx?.date || null,
+      fx_failed: fxFailed,
+      is_proforma: isProforma,
+      amount_czk: amountCzk,
+      // Položky pro naskladnění: přeložené do CZ + ceny v CZK (ČNB) + návrh SKU:
+      line_items: convertedItems,
       extracted: {
         supplier: parsed.supplier_name_cs || parsed.supplier_name,
         supplier_original: parsed.supplier_name,

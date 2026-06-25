@@ -4,8 +4,9 @@
 export const VISION_PROMPT = `Jsi účetní a právní asistent české malé firmy (půjčovna motorek, neplátce DPH).
 Přečti dokument a vrať POUZE JSON, žádný markdown, žádný text navíc.
 {
-  "document_type": "invoice|receipt|contract_purchase|contract_loan|contract_employment|contract_service|delivery_note|insurance|leasing|other",
+  "document_type": "invoice|proforma|receipt|contract_purchase|contract_loan|contract_employment|contract_service|delivery_note|insurance|leasing|other",
   "source_language": null,
+  "currency": null,
   "supplier_name": null,
   "supplier_name_cs": null,
   "supplier_ico": null,
@@ -19,7 +20,7 @@ Přečti dokument a vrať POUZE JSON, žádný markdown, žádný text navíc.
   "due_date": null,
   "received_date": null,
   "payment_method": "bank_transfer|cash|card|null",
-  "line_items": [{ "description": null, "description_cs": null, "quantity": null, "unit_price": null, "amount": null }],
+  "line_items": [{ "description": null, "description_cs": null, "quantity": null, "unit_price": null, "amount": null, "sku_suggestion": null, "category_suggestion": null }],
   "asset_classification": {
     "type": "dlouhodoby_majetek|kratkodoby_majetek|zbozi|drobna_rezie|sluzba|material|null",
     "depreciation_group": null,
@@ -87,10 +88,25 @@ PRAVIDLA pro asset_classification:
 
 PRAVIDLA pro položky (line_items):
 - Pro KAŽDOU položku vyplň quantity (počet kusů, default 1) a unit_price (cena za kus bez měny). Když cena za kus chybí, dopočítej z amount/quantity.
+- amount/unit_price uváděj v PŮVODNÍ měně dokladu (nepřeváděj). Měnu uveď v poli "currency" (ISO kód, např. CZK/EUR/USD/PLN).
+
+PRAVIDLA pro typ dokladu (document_type):
+- "proforma" = zálohová/proforma/advance faktura (často text "zálohová faktura", "proforma", "advance", "anticipo", "Vorkasse", "no es factura"). Z proformy se NEnaskladňuje a NEúčtuje jako náklad — jen evidence.
+- "delivery_note" = dodací list (text "dodací list", "delivery note", "albarán", "Lieferschein") — bez cen / není daňový doklad.
+- "invoice" = daňový doklad / faktura.
+
+PRAVIDLA pro SKU (sku_suggestion + category_suggestion) — konvence skladu MotoGo
+(malá písmena, číslice, pomlčky, bez diakritiky; velikost přesně 43/XL/2XL/UNI):
+- Gear s velikostí: prislusenstvi-{typ}-{velikost}; typ ∈ helmet/jacket/pants/boots/gloves/balaclava. NErozlišuj řidič/spolujezdce — boty/kalhoty/bunda jsou prostě boots/pants/jacket. (category_suggestion="prislusenstvi")
+- Náhradní díly / servis (oleje na výměnu, filtry, brzdy…): dily-{slug} (category="dily")
+- Materiál (čističe, mazadla, spreje, kanc. potřeby): material-{slug} (category="material")
+- Zboží pro půjčovnu/prodej (kufry, sítě, držáky telefonů, tankvaky, zámky): zbozi-{slug} (category="zbozi")
+- Spotřební provoz (ubrousky, rukavice jednorázové): spotrebni-{slug} (category="spotrebni")
+slug = krátký výstižný název v češtině bez diakritiky (značka-typ-parametr).
 
 PRAVIDLA pro PŘEKLAD (zahraniční doklady):
-- source_language = ISO kód jazyka dokladu (cs/en/de/pl/sk/...).
-- Pokud doklad NENÍ v češtině: přelož do češtiny supplier_name_cs a u KAŽDÉ položky description_cs; ORIGINÁL ponech v supplier_name a description.
+- source_language = ISO kód jazyka dokladu (cs/en/de/pl/sk/es/...).
+- Pokud doklad NENÍ v češtině: přelož do češtiny supplier_name_cs a u KAŽDÉ položky description_cs; ORIGINÁL ponech v supplier_name a description. SKU vždy dle CZ názvu.
 - Pokud JE v češtině: supplier_name_cs i description_cs nech null.
 
 Pokud pole neexistuje nebo není čitelné: null.

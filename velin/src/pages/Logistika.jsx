@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import Card from '../components/ui/Card'
 import Inventory from './Inventory'
 import { SkuConventionInfo } from '../components/ui/SkuTag'
-import { buildSku, normalizeSlug } from '../lib/sku'
+import { buildSku, parseSku } from '../lib/sku'
 import { accSku, deductFromWarehouse, returnToWarehouse, loadAccessoryTypes } from './BranchHelpers'
 
 // Skladově se NErozlišuje řidič/spolujezdec — fyzické typy gearu (mají velikost):
@@ -539,6 +539,14 @@ function NaskladneniTab() {
   }, [docType])
 
   const mkLine = (name, price, qty) => { const g = guessLine(name); return { name: name || '', qty: qty || 1, unit_price: price || 0, mode: g.type ? 'acc' : 'goods', type: g.type, size: g.size, cat: 'zbozi', slug: name || '' } }
+  // Z OCR řádku poskládá položku včetně navrženého SKU (parsuje sku_suggestion).
+  const mkLineFromOcr = (it) => {
+    const price = it.unit_price ?? it.amount ?? 0
+    const p = it.sku_suggestion ? parseSku(it.sku_suggestion) : null
+    if (p && p.isAccessory && p.type && p.size) return { name: it.description || '', qty: it.quantity || 1, unit_price: price, mode: 'acc', type: p.type, size: p.size, cat: 'zbozi', slug: '' }
+    if (p && !p.isAccessory && p.slug) return { name: it.description || '', qty: it.quantity || 1, unit_price: price, mode: 'goods', type: '', size: '', cat: it.category_suggestion || p.category || 'zbozi', slug: p.slug }
+    return mkLine(it.description || '', price, it.quantity || 1)
+  }
 
   async function handleOcr(file) {
     if (!file) return
@@ -555,8 +563,9 @@ function NaskladneniTab() {
         supplier: data.extracted?.supplier, number: data.extracted?.invoice_number,
         type: data.document_type, count: items.length, eventId: data.financial_event_id,
         lang: data.source_language, needsReview: data.needs_review,
+        currency: data.currency, fxDate: data.fx_date, fxFailed: data.fx_failed, isProforma: data.is_proforma,
       })
-      setLines(items.length ? items.map(it => mkLine(it.description || '', it.unit_price ?? it.amount ?? 0, it.quantity || 1)) : [mkLine('', 0, 1)])
+      setLines(items.length ? items.map(mkLineFromOcr) : [mkLine('', 0, 1)])
     } finally { setOcrBusy(false) }
   }
   function pickDoc(id) {
@@ -567,6 +576,7 @@ function NaskladneniTab() {
   const lineSku = (l) => l.mode === 'acc' ? (l.type && l.size ? accSku(l.type, l.size) : '') : (l.slug ? buildSku(l.cat, l.slug) : '')
 
   async function stockAll() {
+    if (ocrInfo?.isProforma) { alert('Zálohová faktura (proforma) — zboží zatím nedorazilo, nenaskladňuje se.'); return }
     const payload = lines.map(l => ({ sku: lineSku(l), name: l.name, qty: Number(l.qty) || 0, unit_price: Number(l.unit_price) || 0, category: l.mode === 'acc' ? 'prislusenstvi' : (CAT_TO_INV[l.cat] || 'inventory') })).filter(l => l.sku && l.qty > 0)
     if (!payload.length) { alert('Žádná položka nemá vyplněné SKU (typ+velikost) a počet > 0.'); return }
     const d = docs.find(x => x.id === docId)
@@ -604,12 +614,18 @@ function NaskladneniTab() {
         {docType === 'manual' && <button onClick={() => setLines(ls => [...ls, mkLine('', 0, 1)])} className="text-sm font-bold cursor-pointer rounded-btn" style={{ padding: '6px 12px', border: '1px solid #1a2e22', background: '#fff', color: '#1a2e22' }}>+ Řádek</button>}
         <span className="ml-auto"><SkuConventionInfo /></span>
       </div>
-      {docType === 'ocr' && ocrInfo && (
+      {docType === 'ocr' && ocrInfo && ocrInfo.isProforma && (
+        <div className="mb-2 rounded-btn text-sm font-bold" style={{ padding: '8px 12px', background: '#fff5f5', color: '#dc2626', border: '1px solid #fca5a5' }}>
+          ⚠ Zálohová faktura (proforma) — zboží zatím nedorazilo, <b>nenaskladňuje se</b>. Slouží jen jako evidence ve finanční události.
+        </div>
+      )}
+      {docType === 'ocr' && ocrInfo && !ocrInfo.isProforma && (
         <div className="mb-2 rounded-btn text-sm font-bold" style={{ padding: '8px 12px', background: '#e3f6e8', color: '#16a34a', border: '1px solid #bbf7d0' }}>
-          ✓ Přečteno: {ocrInfo.supplier || 'dodavatel ?'}{ocrInfo.number ? ` · ${ocrInfo.number}` : ''} · {ocrInfo.count} položek
+          ✓ {ocrInfo.type === 'delivery_note' ? 'Dodací list' : 'Faktura'}: {ocrInfo.supplier || 'dodavatel ?'}{ocrInfo.number ? ` · ${ocrInfo.number}` : ''} · {ocrInfo.count} položek
           {ocrInfo.lang && ocrInfo.lang !== 'cs' ? ` · přeloženo z „${ocrInfo.lang}"` : ''}
+          {ocrInfo.currency && ocrInfo.currency !== 'CZK' ? (ocrInfo.fxFailed ? ` · ⚠ kurz ČNB nenačten — ceny v ${ocrInfo.currency}` : ` · ceny převedeny ${ocrInfo.currency}→CZK (ČNB ${ocrInfo.fxDate || ''})`) : ''}
           <div className="text-xs font-semibold mt-1" style={{ color: '#1a2e22', opacity: 0.8 }}>
-            💰 Finanční událost založena → čeká na schválení ve Finance (vznikne faktura/majetek).{ocrInfo.needsReview ? ' Nízká jistota OCR — zkontroluj ve Výjimkách.' : ''} Teď zkontroluj SKU a počet a naskladni zboží.
+            💰 Finanční událost založena → čeká na schválení ve Finance (vznikne faktura/majetek).{ocrInfo.needsReview ? ' Nízká jistota — zkontroluj ve Výjimkách.' : ''} Zkontroluj SKU a počet a naskladni zboží.
           </div>
         </div>
       )}
@@ -653,7 +669,7 @@ function NaskladneniTab() {
         )}
       {lines.length > 0 && (
         <div className="flex justify-end mt-4">
-          <button onClick={stockAll} disabled={busy} className="text-sm font-bold cursor-pointer rounded-btn" style={{ padding: '9px 18px', border: 'none', background: '#1a2e22', color: '#74FB71', opacity: busy ? 0.5 : 1 }}>{busy ? 'Naskladňuji…' : 'Naskladnit do skladu'}</button>
+          <button onClick={stockAll} disabled={busy || ocrInfo?.isProforma} title={ocrInfo?.isProforma ? 'Zálohová faktura se nenaskladňuje' : ''} className="text-sm font-bold cursor-pointer rounded-btn" style={{ padding: '9px 18px', border: 'none', background: '#1a2e22', color: '#74FB71', opacity: (busy || ocrInfo?.isProforma) ? 0.5 : 1 }}>{busy ? 'Naskladňuji…' : 'Naskladnit do skladu'}</button>
         </div>
       )}
     </Card>
