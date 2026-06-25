@@ -39,11 +39,11 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
     ref.read(bookingDraftProvider.notifier).state = fn(d);
   }
 
-  /// Gear sizes that must be filled before proceeding when the motorcycle
-  /// is delivered (přistavení). Returns a human-readable list of missing
-  /// items — empty list means OK to continue.
+  /// Gear sizes that must be filled before proceeding — independent of the
+  /// pickup method (parita s webem: velikosti se vybírají vždy, i při
+  /// vyzvednutí na pobočce, ne jen při přistavení). Returns a human-readable
+  /// list of missing items — empty list means OK to continue.
   List<String> _missingGearSizes(BuildContext context, BookingDraft d) {
-    if (d.pickupMethod != 'delivery') return const [];
     final missing = <String>[];
     // Základní výbavu zdarma vyžadujeme jen pokud zákazník NEMÁ vlastní výbavu.
     if (!d.ownGear) {
@@ -278,6 +278,8 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
                   draft: draft,
                   onTimeChanged: (t) =>
                       _upd((d) => d.copyWith(pickupTime: () => t)),
+                  onReturnTimeChanged: (t) =>
+                      _upd((d) => d.copyWith(returnTime: () => t)),
                 ),
                 BookingFormPickupSection(draft: draft, onUpd: _upd),
                 BookingFormReturnSection(draft: draft, onUpd: _upd),

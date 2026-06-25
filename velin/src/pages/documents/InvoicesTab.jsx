@@ -10,7 +10,7 @@ import Pagination from '../../components/ui/Pagination'
 import ConfirmDialog from '../../components/ui/ConfirmDialog'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 import { summarizeInvoices } from '../../lib/revenueUtils'
-import InvoiceCreateModal from './InvoiceCreateModal'
+import InvoiceCreateModal from '../accounting/InvoiceCreateModal'
 import InvoicePreviewModal from './InvoicePreviewModal'
 
 const PER_PAGE = 25

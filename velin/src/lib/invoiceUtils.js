@@ -115,11 +115,11 @@ export function calculateTotals(items) {
  * concurrent number generators — typically caused by React StrictMode double-mount,
  * concurrent autoGenerateKF + DB trigger, or two open tabs).
  */
-export async function createInvoice({ type, customer_id, booking_id, order_id, items, notes, due_date, source, status, payment }) {
+export async function createInvoice({ type, customer_id, booking_id, order_id, items, notes, due_date, issue_date, source, status, payment }) {
   const { subtotal, taxAmount, total } = calculateTotals(items)
-  // Ruční platba (převod / QR / hotově / krypto) může mít datum úhrady v minulosti —
-  // doklad se datuje ke dni přijetí platby. Bez ní = dnešek (jako dosud).
-  const issueDate = (payment && payment.paid_date) || new Date().toISOString().slice(0, 10)
+  // Datum vystavení: ručně zadané (Velín → Nová faktura) má přednost, jinak datum
+  // přijetí ruční platby (převod / QR / hotově / krypto), jinak dnešek (jako dosud).
+  const issueDate = issue_date || (payment && payment.paid_date) || new Date().toISOString().slice(0, 10)
 
   const buildPayload = (number, withOptional) => {
     const p = {

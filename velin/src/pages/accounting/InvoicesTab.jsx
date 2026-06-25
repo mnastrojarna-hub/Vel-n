@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { debugAction, debugLog, debugError } from '../../lib/debugLog'
 import { useDebugMode } from '../../hooks/useDebugMode'
-import { generateInvoiceNumber, calculateTotals } from '../../lib/invoiceUtils'
+import { renderAndStoreInvoicePdf } from '../../lib/invoiceUtils'
+import InvoiceCreateModal from './InvoiceCreateModal'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 import Button from '../../components/ui/Button'
 import StatusBadge from '../../components/ui/StatusBadge'
@@ -118,6 +119,8 @@ export default function InvoicesTab() {
   async function sendEmail(invoiceId) {
     try {
       debugLog('AccInvoicesTab', 'sendEmail', { invoiceId })
+      // Nejdřív vyrenderuj + ulož PDF (pdf_path), aby ho send-email mohl přiložit jako přílohu.
+      try { await renderAndStoreInvoicePdf(invoiceId) } catch (e) { debugError('AccInvoicesTab', 'renderPdf', e) }
       const { error } = await debugAction('functions.send-email', 'AccInvoicesTab', () =>
         supabase.functions.invoke('send-email', {
           body: { type: 'invoice', invoice_id: invoiceId },
@@ -246,7 +249,7 @@ export default function InvoicesTab() {
         </>
       )}
 
-      {showAdd && <NewInvoiceModal onClose={() => setShowAdd(false)} onSaved={() => { setShowAdd(false); load() }} />}
+      {showAdd && <InvoiceCreateModal onClose={() => setShowAdd(false)} onSaved={() => { setShowAdd(false); load() }} />}
 
       {detailInv && (
         <Modal open title={`Faktura ${detailInv.number || '—'}`} onClose={() => setDetailInv(null)}>
@@ -289,107 +292,6 @@ function SmallBtn({ children, onClick }) {
       {children}
     </button>
   )
-}
-
-function NewInvoiceModal({ onClose, onSaved }) {
-  const [customers, setCustomers] = useState([])
-  const [bookings, setBookings] = useState([])
-  const [form, setForm] = useState({ customer_id: '', booking_id: '', type: 'issued', total: '', tax_amount: '', due_date: '', description: '' })
-  const [saving, setSaving] = useState(false)
-  const [err, setErr] = useState(null)
-
-  useEffect(() => {
-    supabase.from('profiles').select('id, full_name').order('full_name').then(({ data }) => setCustomers(data || []))
-    supabase.from('bookings').select('id, start_date, motorcycles!moto_id(model)').order('start_date', { ascending: false }).limit(50).then(({ data }) => setBookings(data || []))
-  }, [])
-
-  const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
-
-  async function handleSave() {
-    setSaving(true); setErr(null)
-    try {
-      const totalVal = Number(form.total) || 0
-      const taxVal = Number(form.tax_amount) || 0
-      const subtotalVal = totalVal - taxVal
-      const number = await generateInvoiceNumber(form.type)
-      const { error } = await supabase.from('invoices').insert({
-        number,
-        type: form.type,
-        customer_id: form.customer_id || null,
-        booking_id: form.booking_id || null,
-        subtotal: subtotalVal,
-        total: totalVal,
-        tax_amount: taxVal,
-        due_date: form.due_date || null,
-        issue_date: new Date().toISOString().slice(0, 10),
-        status: 'issued',
-        notes: form.description || null,
-      })
-      if (error) throw error
-      const { data: { user } } = await supabase.auth.getUser()
-      await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action: 'invoice_created', details: { number } })
-      onSaved()
-    } catch (e) { setErr(e.message) } finally { setSaving(false) }
-  }
-
-  return (
-    <Modal open title="Nová faktura" onClose={onClose}>
-      <div className="grid grid-cols-2 gap-3">
-        <div className="col-span-2">
-          <Label>Typ faktury</Label>
-          <select value={form.type} onChange={e => set('type', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle}>
-            <option value="issued">Vystavená (FV)</option>
-            <option value="advance">Zálohová (ZF)</option>
-            <option value="final">Konečná (KF)</option>
-            <option value="payment_receipt">Doklad k platbě (DP)</option>
-            <option value="shop_proforma">Shop zálohová</option>
-            <option value="shop_final">Shop konečná</option>
-          </select>
-        </div>
-        <div className="col-span-2">
-          <Label>Zákazník</Label>
-          <select value={form.customer_id} onChange={e => set('customer_id', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle}>
-            <option value="">—</option>
-            {customers.map(c => <option key={c.id} value={c.id}>{c.full_name}</option>)}
-          </select>
-        </div>
-        <div className="col-span-2">
-          <Label>Rezervace</Label>
-          <select value={form.booking_id} onChange={e => set('booking_id', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle}>
-            <option value="">—</option>
-            {bookings.map(b => <option key={b.id} value={b.id}>{b.motorcycles?.model} — {b.start_date}</option>)}
-          </select>
-        </div>
-        <div className="col-span-2">
-          <Label>Důvod / popis</Label>
-          <input value={form.description} onChange={e => set('description', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle}
-            placeholder="Oprava poškození, pozdní vrácení, tankování…" />
-        </div>
-        <div>
-          <Label>Částka (Kč)</Label>
-          <input type="number" value={form.total} onChange={e => set('total', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} />
-        </div>
-        <div>
-          <Label>DPH (Kč)</Label>
-          <input type="number" value={form.tax_amount} onChange={e => set('tax_amount', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} />
-        </div>
-        <div>
-          <Label>Splatnost</Label>
-          <input type="date" value={form.due_date} onChange={e => set('due_date', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} />
-        </div>
-      </div>
-      {err && <p className="mt-3 text-sm" style={{ color: '#dc2626' }}>{err}</p>}
-      <div className="flex justify-end gap-3 mt-5">
-        <Button onClick={onClose}>Zrušit</Button>
-        <Button green onClick={handleSave} disabled={saving}>{saving ? 'Ukládám…' : 'Vytvořit'}</Button>
-      </div>
-    </Modal>
-  )
-}
-
-const inputStyle = { padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }
-function Label({ children }) {
-  return <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{children}</label>
 }
 
 function CheckboxFilterGroup({ label, values, onChange, options }) {
