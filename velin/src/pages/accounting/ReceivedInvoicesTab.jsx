@@ -52,6 +52,8 @@ export default function ReceivedInvoicesTab() {
   const [resultMsg, setResultMsg] = useState(null)
   // Confirm dialog for bulk
   const [showBulkConfirm, setShowBulkConfirm] = useState(false)
+  // Scan + překlad dokladu
+  const [docView, setDocView] = useState(null)
 
   useEffect(() => {
     try { localStorage.setItem(LS_KEY, JSON.stringify(filters)) } catch { /* ignore */ }
@@ -370,6 +372,10 @@ export default function ReceivedInvoicesTab() {
                               {isPushing ? '…' : '→ Flexi'}
                             </button>
                           )}
+                          {fe && (
+                            <button onClick={() => setDocView(fe)} className="text-sm font-bold cursor-pointer"
+                              style={{ color: '#7c3aed', background: 'none', border: 'none', padding: '4px 6px' }}>Doklad</button>
+                          )}
                         </div>
                       </TD>
                     </TRow>
@@ -410,6 +416,8 @@ export default function ReceivedInvoicesTab() {
 
       {showAdd && <AddReceivedModal onClose={() => setShowAdd(false)} onSaved={() => { setShowAdd(false); load() }} />}
 
+      {docView && <DocViewerModal fe={docView} onClose={() => setDocView(null)} />}
+
       {/* Bulk confirm dialog */}
       {showBulkConfirm && (
         <Modal open title="Hromadný export do Flexi" onClose={() => setShowBulkConfirm(false)}>
@@ -427,3 +435,70 @@ export default function ReceivedInvoicesTab() {
 }
 
 /* AIDetail and CheckboxFilterGroup extracted to ./ReceivedInvoicesHelpers.jsx */
+
+// Scan dokladu (private bucket → signed URL) + překlad položek/dodavatele.
+async function resolveScanUrl(meta) {
+  const tries = [['documents', meta.backup_path], ['invoices-received', meta.storage_path]].filter(([, p]) => p)
+  for (const [bucket, path] of tries) {
+    try {
+      const { data } = await supabase.storage.from(bucket).createSignedUrl(path, 600)
+      if (data?.signedUrl) return data.signedUrl
+    } catch { /* try next */ }
+  }
+  return null
+}
+
+function DocViewerModal({ fe, onClose }) {
+  const meta = fe?.metadata || {}
+  const lang = meta.source_language || 'cs'
+  const items = Array.isArray(meta.line_items) ? meta.line_items : []
+  const [url, setUrl] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => { let on = true; (async () => { const u = await resolveScanUrl(meta); if (on) { setUrl(u); setLoading(false) } })(); return () => { on = false } }, [])
+
+  const fields = [
+    ['Dodavatel', meta.supplier_name_cs || meta.supplier_name], ['Jazyk dokladu', lang],
+    ['Měna', meta.currency], ['Kurz ČNB', (meta.currency && meta.currency !== 'CZK' && meta.fx_rate) ? `${meta.fx_rate} (${meta.fx_date || ''})` : null],
+    ['Č. dokladu', meta.invoice_number], ['VS', meta.variable_symbol], ['Splatnost', meta.due_date],
+    ['IČO', meta.supplier_ico], ['Č. účtu', meta.supplier_bank_account],
+  ].filter(([, v]) => v)
+
+  return (
+    <Modal open title="Doklad — scan a překlad" onClose={onClose}>
+      <div className="flex flex-col gap-3" style={{ maxHeight: '74vh', overflowY: 'auto' }}>
+        <div className="text-sm flex flex-wrap gap-x-4 gap-y-1" style={{ color: '#1a2e22' }}>
+          {fields.map(([k, v]) => <span key={k}><b>{k}:</b> {v}</span>)}
+        </div>
+        {lang !== 'cs' && meta.supplier_name && meta.supplier_name_cs && (
+          <div className="text-xs" style={{ color: '#1a2e22', opacity: 0.7 }}>Dodavatel originál: „{meta.supplier_name}" → „{meta.supplier_name_cs}"</div>
+        )}
+        {items.length > 0 && (
+          <div className="overflow-x-auto">
+            <table className="text-xs w-full" style={{ borderCollapse: 'collapse' }}>
+              <thead><tr style={{ borderBottom: '1px solid #d4e8e0' }}>
+                {['Originál', 'Překlad (CZ)', 'Ks', 'Cena'].map(h => <th key={h} className="text-left font-extrabold uppercase" style={{ padding: '4px 6px', color: '#1a2e22' }}>{h}</th>)}
+              </tr></thead>
+              <tbody>
+                {items.map((it, i) => (
+                  <tr key={i} style={{ borderTop: '1px solid #eef5f1' }}>
+                    <td style={{ padding: '4px 6px', color: '#0f1a14' }}>{it.description || '—'}</td>
+                    <td style={{ padding: '4px 6px', color: '#0f1a14' }}>{it.description_cs || (lang === 'cs' ? (it.description || '—') : '—')}</td>
+                    <td style={{ padding: '4px 6px' }}>{it.quantity ?? '—'}</td>
+                    <td style={{ padding: '4px 6px' }}>{it.amount ?? it.unit_price ?? '—'}{meta.currency && meta.currency !== 'CZK' ? ` ${meta.currency}` : ''}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <div>
+          <div className="text-xs font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Scan dokladu</div>
+          {loading ? <div className="py-6 text-center text-sm" style={{ opacity: 0.5 }}>Načítám scan…</div>
+            : url ? <img src={url} alt="scan dokladu" style={{ maxWidth: '100%', borderRadius: 8, border: '1px solid #d4e8e0' }} />
+            : <div className="text-sm" style={{ color: '#dc2626' }}>Scan není k dispozici.</div>}
+        </div>
+      </div>
+    </Modal>
+  )
+}
