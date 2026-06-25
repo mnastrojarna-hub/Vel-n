@@ -241,6 +241,13 @@ class _PaymentConfirmationScreenState
                             '${tr.tr('pickupTimeLabel')}: ${draft.pickupTime}',
                           ),
                         ],
+                        if (draft.returnTime != null) ...[
+                          const SizedBox(height: 8),
+                          _detailRow(
+                            '⏰',
+                            '${tr.tr('returnTimeLabel')}: ${draft.returnTime}',
+                          ),
+                        ],
                       ],
                     ),
                   ),

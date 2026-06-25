@@ -9,10 +9,11 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { callClaudeVision } from './vision-ocr.ts'
 import { routeDocument } from './document-routing.ts'
 import { upsertSupplier } from './supplier-utils.ts'
+import { requireAdminOrService } from '../_shared/auth.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'x-invoice-api-key, content-type',
+  'Access-Control-Allow-Headers': 'x-invoice-api-key, authorization, apikey, x-client-info, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
@@ -34,6 +35,34 @@ function timingSafeEqualStr(a: string, b: string): boolean {
   return diff === 0
 }
 
+const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
+
+// ČNB denní kurz pro převod do CZK ke dni faktury. Vrací { rate, date } kde CZK = částka * rate.
+// ČNB při zadání data vrátí kurz daného (nebo nejbližšího předchozího) pracovního dne.
+async function cnbRateToCzk(dateIso: string, currency: string): Promise<{ rate: number; date: string } | null> {
+  const cur = (currency || '').toUpperCase()
+  if (!cur || cur === 'CZK') return { rate: 1, date: dateIso }
+  try {
+    const [y, m, d] = (dateIso || '').split('-')
+    const dd = (d && m && y) ? `${d}.${m}.${y}` : ''
+    const url = `https://www.cnb.cz/cs/financni-trhy/devizovy-trh/kurzy-devizoveho-trhu/kurzy-devizoveho-trhu/denni_kurz.txt${dd ? `?date=${dd}` : ''}`
+    const r = await fetch(url)
+    if (!r.ok) return null
+    const txt = await r.text()
+    const lines = txt.trim().split('\n')
+    const headerDate = (lines[0] || '').split(' ')[0] || dateIso
+    for (let i = 2; i < lines.length; i++) {
+      const p = lines[i].split('|')
+      if (p.length >= 5 && p[3].trim().toUpperCase() === cur) {
+        const amount = parseFloat(p[2].replace(',', '.')) || 1
+        const rate = parseFloat(p[4].replace(',', '.'))
+        if (rate > 0) return { rate: rate / amount, date: headerDate }
+      }
+    }
+    return null
+  } catch { return null }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: CORS })
@@ -48,20 +77,27 @@ Deno.serve(async (req: Request) => {
   // v doc-scanner bundlu i tady → kdokoli s APK mohl volat tuto service_role
   // funkci a vkládat falešné účetní doklady; rotace secretu ho neodvolala).
   // Nyní výhradně přes secret INVOICE_API_KEY (timing-safe porovnání).
+  // Dvě cesty: a) doc-scanner mobile přes X-Invoice-Api-Key; b) Velín admin přes JWT
+  // (Logistika → Naskladnění „Vyfotit fakturu"). Stačí jedna.
   const INVOICE_API_KEY = Deno.env.get('INVOICE_API_KEY') || ''
   const apiKey = req.headers.get('x-invoice-api-key') || ''
-
   const validKey = INVOICE_API_KEY.length > 0 && timingSafeEqualStr(apiKey, INVOICE_API_KEY)
-  if (!apiKey || !validKey) {
-    return jsonResponse({ error: 'Unauthorized: invalid API key' }, 401)
+  let authed = validKey
+  if (!authed) {
+    const a = await requireAdminOrService(req)
+    authed = a.ok
+  }
+  if (!authed) {
+    return jsonResponse({ error: 'Unauthorized: invalid API key or admin token' }, 401)
   }
 
   // -- Rate limiting --
+  const rlKey = apiKey || 'admin-jwt'
   const now = Date.now()
-  const rl = rateLimitStore.get(apiKey) || { count: 0, resetAt: now + 3600_000 }
+  const rl = rateLimitStore.get(rlKey) || { count: 0, resetAt: now + 3600_000 }
   if (now > rl.resetAt) { rl.count = 0; rl.resetAt = now + 3600_000 }
   rl.count++
-  rateLimitStore.set(apiKey, rl)
+  rateLimitStore.set(rlKey, rl)
 
   if (rl.count > RATE_LIMIT_MAX) {
     return jsonResponse({ error: 'Rate limit exceeded (max 100/hour)' }, 429)
@@ -73,67 +109,123 @@ Deno.serve(async (req: Request) => {
   )
 
   try {
-    const payload = await req.json() as {
-      image_base64: string
-      file_name?: string
-    }
-
-    if (!payload.image_base64) {
-      return jsonResponse({ error: 'image_base64 is required' }, 400)
-    }
-
-    // -- 2. Upload image to Storage --
-    let storagePath: string | null = null
-    const base64Clean = payload.image_base64.replace(/^data:image\/\w+;base64,/, '')
-
-    const imageDate = new Date()
-    const yyyy = imageDate.getFullYear()
-    const mm = String(imageDate.getMonth() + 1).padStart(2, '0')
-    const fileId = crypto.randomUUID()
-    storagePath = `${yyyy}/${mm}/${fileId}.jpg`
-
-    const binaryStr = atob(base64Clean)
-    const bytes = new Uint8Array(binaryStr.length)
-    for (let i = 0; i < binaryStr.length; i++) {
-      bytes[i] = binaryStr.charCodeAt(i)
-    }
-
-    const { error: uploadErr } = await supabase.storage
-      .from('invoices-received')
-      .upload(storagePath, bytes, { contentType: 'image/jpeg', upsert: false })
-
-    if (uploadErr) {
-      console.error('Image upload failed:', uploadErr.message)
-      storagePath = null
-    }
-
-    // -- 3. Claude Vision OCR --
+    const payload = await req.json() as any
+    // mode: 'extract' = jen vyčíst (NIC nezapisovat), 'commit' = zapsat z opravených dat,
+    // 'full' = vyčíst + zapsat (doc-scanner mobile, beze změny).
+    const mode = payload.mode === 'extract' ? 'extract' : payload.mode === 'commit' ? 'commit' : 'full'
     const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY') || ''
-    if (!ANTHROPIC_API_KEY) {
-      return jsonResponse({ error: 'ANTHROPIC_API_KEY not configured' }, 500)
+
+    let parsed: Record<string, any>
+    let storagePath: string | null = null
+    let confidenceScore: number
+    let documentType: string
+    let currency: string
+    let amountOriginal: number
+    let fxRate = 1
+    let fxFailed = false
+    let fxDate: string | null = null
+    let amountCzk: number
+    let convertedItems: any[]
+
+    if (mode === 'commit') {
+      const doc = payload.doc || {}
+      parsed = doc
+      storagePath = doc.storage_path || null
+      confidenceScore = doc.confidence?.overall ?? doc.confidence_score ?? 0.9
+      documentType = doc.document_type || 'other'
+      currency = (doc.currency || 'CZK').toUpperCase()
+      amountOriginal = doc.amount_original ?? doc.amount_czk ?? 0
+      fxRate = doc.fx_rate || 1
+      fxFailed = !!doc.fx_failed
+      fxDate = doc.fx_date || null
+      amountCzk = doc.amount_czk ?? (currency === 'CZK' ? amountOriginal : round2(amountOriginal * fxRate))
+      convertedItems = Array.isArray(doc.line_items) ? doc.line_items : []
+    } else {
+      if (!payload.image_base64) return jsonResponse({ error: 'image_base64 is required' }, 400)
+      const base64Clean = payload.image_base64.replace(/^data:image\/\w+;base64,/, '')
+      const imageDate = new Date()
+      const yyyy = imageDate.getFullYear()
+      const mm = String(imageDate.getMonth() + 1).padStart(2, '0')
+      const fileId = crypto.randomUUID()
+      storagePath = `${yyyy}/${mm}/${fileId}.jpg`
+      const binaryStr = atob(base64Clean)
+      const bytes = new Uint8Array(binaryStr.length)
+      for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i)
+      const { error: uploadErr } = await supabase.storage.from('invoices-received').upload(storagePath, bytes, { contentType: 'image/jpeg', upsert: false })
+      if (uploadErr) { console.error('Image upload failed:', uploadErr.message); storagePath = null }
+
+      if (!ANTHROPIC_API_KEY) return jsonResponse({ error: 'ANTHROPIC_API_KEY not configured' }, 500)
+      let mediaType = 'image/jpeg'
+      const dataUriMatch = payload.image_base64.match(/^data:(image\/\w+);base64,/)
+      if (dataUriMatch) mediaType = dataUriMatch[1]
+      const p = await callClaudeVision(ANTHROPIC_API_KEY, base64Clean, mediaType)
+      if (!p) {
+        try { await supabase.from('accounting_exceptions').insert({ reason: 'Claude Vision neparsoval dokument — ruční kontrola', suggested_fix: { storage_path: storagePath, hint: 'Zkontrolujte obrázek ručně.' }, assigned_to: 'admin' }) } catch (e) { /* ignore */ }
+        return jsonResponse({ error: 'Failed to parse document with Claude Vision' }, 500)
+      }
+      parsed = p
+      confidenceScore = parsed.confidence?.overall ?? 0.5
+      documentType = parsed.document_type || 'other'
+      const issueDateForFx = parsed.issue_date || new Date().toISOString().slice(0, 10)
+      currency = (parsed.currency || 'CZK').toUpperCase()
+      amountOriginal = parsed.amount_czk || parsed.purchase?.amount_czk || 0
+      const fx = await cnbRateToCzk(issueDateForFx, currency)
+      fxRate = fx ? fx.rate : 1
+      fxFailed = currency !== 'CZK' && !fx
+      fxDate = fx?.date || null
+      amountCzk = currency === 'CZK' ? amountOriginal : round2(amountOriginal * fxRate)
+      convertedItems = (parsed.line_items || []).map((li: any) => ({
+        description: li?.description_cs || li?.description || '',
+        original_description: li?.description || null,
+        quantity: li?.quantity ?? null,
+        currency,
+        unit_price_original: li?.unit_price ?? null,
+        amount_original: li?.amount ?? null,
+        unit_price: li?.unit_price != null ? round2(li.unit_price * fxRate) : null,
+        amount: li?.amount != null ? round2(li.amount * fxRate) : null,
+        size: li?.size || null,
+        color: li?.color || null,
+        sku_suggestion: li?.sku_suggestion || null,
+        category_suggestion: li?.category_suggestion || null,
+      }))
     }
 
-    // Detect media type from base64 prefix or default to jpeg
-    let mediaType = 'image/jpeg'
-    const dataUriMatch = payload.image_base64.match(/^data:(image\/\w+);base64,/)
-    if (dataUriMatch) mediaType = dataUriMatch[1]
+    const isProforma = documentType === 'proforma'
+    const needsReview = confidenceScore < 0.80
+    const todayStr = new Date().toISOString().slice(0, 10)
 
-    const parsed = await callClaudeVision(ANTHROPIC_API_KEY, base64Clean, mediaType)
-
-    if (!parsed) {
-      try {
-        await supabase.from('accounting_exceptions').insert({
-          reason: 'Claude Vision neparsoval dokument — ruční kontrola',
-          suggested_fix: { storage_path: storagePath, hint: 'Zkontrolujte obrázek ručně.' },
-          assigned_to: 'admin',
-        })
-      } catch (e) { /* ignore */ }
-      return jsonResponse({ error: 'Failed to parse document with Claude Vision' }, 500)
+    // -- EXTRACT: jen vyčíst, NIC nezapisovat (finance ani sklad). Zápis až přes 'commit'. --
+    if (mode === 'extract') {
+      return jsonResponse({
+        success: true, mode: 'extract',
+        document_type: documentType, is_proforma: isProforma,
+        source_language: parsed.source_language || 'cs', currency,
+        fx_rate: fxRate, fx_date: fxDate, fx_failed: fxFailed,
+        needs_review: needsReview || fxFailed, confidence: parsed.confidence,
+        amount_czk: amountCzk, amount_original: amountOriginal,
+        line_items: convertedItems,
+        extracted: {
+          supplier: parsed.supplier_name_cs || parsed.supplier_name, supplier_original: parsed.supplier_name,
+          supplier_ico: parsed.supplier_ico, supplier_bank_account: parsed.supplier_bank_account,
+          amount: amountCzk, date: parsed.issue_date || null, due_date: parsed.due_date || null,
+          received_date: parsed.received_date || todayStr, variable_symbol: parsed.variable_symbol,
+          payment_method: parsed.payment_method, invoice_number: parsed.invoice_number,
+          asset_classification: parsed.asset_classification,
+        },
+        // doc = vše potřebné pro pozdější commit (frontend pošle zpět po „Uložit")
+        doc: {
+          document_type: documentType, is_proforma: isProforma, source_language: parsed.source_language || 'cs',
+          currency, amount_original: amountOriginal, amount_czk: amountCzk, fx_rate: fxRate, fx_date: fxDate, fx_failed: fxFailed,
+          confidence_score: confidenceScore,
+          supplier_name: parsed.supplier_name, supplier_name_cs: parsed.supplier_name_cs || null, supplier_ico: parsed.supplier_ico,
+          supplier_dic: parsed.supplier_dic, supplier_address: parsed.supplier_address, supplier_bank_account: parsed.supplier_bank_account,
+          invoice_number: parsed.invoice_number, variable_symbol: parsed.variable_symbol, issue_date: parsed.issue_date,
+          due_date: parsed.due_date, received_date: parsed.received_date, payment_method: parsed.payment_method,
+          asset_classification: parsed.asset_classification, line_items: parsed.line_items, storage_path: storagePath,
+          loan: parsed.loan, employment: parsed.employment, insurance: parsed.insurance, purchase: parsed.purchase, notes: parsed.notes,
+        },
+      })
     }
-
-    const confidenceScore = parsed.confidence?.overall ?? 0.5
-    const documentType = parsed.document_type || 'other'
-    const amountCzk = parsed.amount_czk || parsed.purchase?.amount_czk || 0
 
     // -- 4. Determine event_type based on document_type --
     const eventTypeMap: Record<string, string> = {
@@ -160,7 +252,15 @@ Deno.serve(async (req: Request) => {
         status: eventStatus,
         metadata: {
           document_type: documentType,
+          is_proforma: isProforma,
+          source_language: parsed.source_language || 'cs',
+          currency,
+          amount_original: amountOriginal,
+          fx_rate: fxRate,
+          fx_date: fxDate,
+          fx_failed: fxFailed,
           supplier_name: parsed.supplier_name,
+          supplier_name_cs: parsed.supplier_name_cs || null,
           supplier_ico: parsed.supplier_ico,
           supplier_dic: parsed.supplier_dic,
           supplier_address: parsed.supplier_address,
@@ -328,8 +428,6 @@ Pravidla:
     }
 
     // -- 9. Low confidence -> accounting_exceptions --
-    const needsReview = confidenceScore < 0.80
-
     if (needsReview) {
       try {
         await supabase.from('accounting_exceptions').insert({
@@ -353,9 +451,19 @@ Pravidla:
       status: eventStatus,
       ai_classification: aiClassification,
       confidence: parsed.confidence,
-      needs_review: needsReview,
+      needs_review: needsReview || fxFailed,
+      source_language: parsed.source_language || 'cs',
+      currency,
+      fx_rate: fxRate,
+      fx_date: fxDate,
+      fx_failed: fxFailed,
+      is_proforma: isProforma,
+      amount_czk: amountCzk,
+      // Položky pro naskladnění: přeložené do CZ + ceny v CZK (ČNB) + návrh SKU:
+      line_items: convertedItems,
       extracted: {
-        supplier: parsed.supplier_name,
+        supplier: parsed.supplier_name_cs || parsed.supplier_name,
+        supplier_original: parsed.supplier_name,
         supplier_ico: parsed.supplier_ico,
         supplier_bank_account: parsed.supplier_bank_account,
         amount: amountCzk,

@@ -332,15 +332,13 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
         'start_date': draft.startDate != null ? _fmtDate(draft.startDate!) : '',
         'end_date': draft.endDate != null ? _fmtDate(draft.endDate!) : '',
         'pickup_time': draft.pickupTime ?? '09:00',
+        // Předpokládaný čas návratu (povinné pole, parita s webem). Default 19:00.
+        'return_time': draft.returnTime ?? '19:00',
         'total_price': breakdown.total,
         'extras_price': breakdown.extrasTotal,
         'delivery_fee': breakdown.deliveryFee,
         'discount_amount': breakdown.discountTotal,
-        // Doklad vypíše VŠECHNY uplatněné kódy (parita s webem), ne jen první;
-        // odečtená částka (discount_amount) je už součet všech slev.
-        'discount_code': draft.discounts.isNotEmpty
-            ? draft.discounts.map((d) => d.code).join(', ')
-            : null,
+        'discount_code': firstDiscount?.code,
         if (promoCodeId != null) 'promo_code_id': promoCodeId,
         if (voucherId != null) 'voucher_id': voucherId,
         // Věrnostní sleva (ranky) — platí JEN pro app rezervace. Sloupce se

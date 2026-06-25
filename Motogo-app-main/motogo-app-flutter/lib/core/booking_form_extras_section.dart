@@ -69,48 +69,48 @@ class BookingFormExtrasSection extends ConsumerWidget {
               const Icon(Icons.check_circle, size: 18, color: Color(0xFF74FB71)),
             ]),
           ),
-          if (draft.pickupMethod == 'delivery') ...[
+          // Velikosti základní výbavy zdarma se vybírají VŽDY (parita s webem),
+          // ne jen při přistavení — i při vyzvednutí na pobočce.
+          const SizedBox(height: 8),
+          // Přepínač „Mám vlastní výbavu" — zákazník nemusí vybírat velikosti
+          // základní výbavy zdarma. Při zapnutí vyčistíme dříve zvolené velikosti.
+          bookingCheckbox(
+            t(context).tr('ownGear'),
+            draft.ownGear,
+            (v) => onUpd((d) => d.copyWith(
+                  ownGear: v,
+                  helmetSize: v ? () => null : null,
+                  glovesSize: v ? () => null : null,
+                  jacketSize: v ? () => null : null,
+                  pantsSize: v ? () => null : null,
+                )),
+          ),
+          if (!draft.ownGear) ...[
             const SizedBox(height: 8),
-            // Přepínač „Mám vlastní výbavu" — zákazník nemusí vybírat velikosti
-            // základní výbavy zdarma. Při zapnutí vyčistíme dříve zvolené velikosti.
-            bookingCheckbox(
-              t(context).tr('ownGear'),
-              draft.ownGear,
-              (v) => onUpd((d) => d.copyWith(
-                    ownGear: v,
-                    helmetSize: v ? () => null : null,
-                    glovesSize: v ? () => null : null,
-                    jacketSize: v ? () => null : null,
-                    pantsSize: v ? () => null : null,
-                  )),
+            bookingGearRow(
+              t(context).tr('helmet'),
+              draft.helmetSize,
+              (s) => onUpd((d) => d.copyWith(helmetSize: () => s)),
+              sizes: gearSizesFor('helmet', kids: isKids),
             ),
-            if (!draft.ownGear) ...[
-              const SizedBox(height: 8),
-              bookingGearRow(
-                t(context).tr('helmet'),
-                draft.helmetSize,
-                (s) => onUpd((d) => d.copyWith(helmetSize: () => s)),
-                sizes: gearSizesFor('helmet', kids: isKids),
-              ),
-              bookingGearRow(
-                t(context).tr('gloves'),
-                draft.glovesSize,
-                (s) => onUpd((d) => d.copyWith(glovesSize: () => s)),
-                sizes: gearSizesFor('gloves', kids: isKids),
-              ),
-              bookingGearRow(
-                t(context).tr('jacket'),
-                draft.jacketSize,
-                (s) => onUpd((d) => d.copyWith(jacketSize: () => s)),
-                sizes: gearSizesFor('jacket', kids: isKids),
-              ),
-              bookingGearRow(
-                t(context).tr('pants'),
-                draft.pantsSize,
-                (s) => onUpd((d) => d.copyWith(pantsSize: () => s)),
-                sizes: gearSizesFor('pants', kids: isKids),
-              ),
-            ],
+            bookingGearRow(
+              t(context).tr('gloves'),
+              draft.glovesSize,
+              (s) => onUpd((d) => d.copyWith(glovesSize: () => s)),
+              sizes: gearSizesFor('gloves', kids: isKids),
+            ),
+            bookingGearRow(
+              t(context).tr('jacket'),
+              draft.jacketSize,
+              (s) => onUpd((d) => d.copyWith(jacketSize: () => s)),
+              sizes: gearSizesFor('jacket', kids: isKids),
+            ),
+            bookingGearRow(
+              t(context).tr('pants'),
+              draft.pantsSize,
+              (s) => onUpd((d) => d.copyWith(pantsSize: () => s)),
+              sizes: gearSizesFor('pants', kids: isKids),
+            ),
           ],
           const SizedBox(height: 10),
           ...(isKids
@@ -122,22 +122,20 @@ class BookingFormExtrasSection extends ConsumerWidget {
             final sel = draft.extras.any((e) => e.id == item.id);
             final selExtra =
                 sel ? draft.extras.firstWhere((e) => e.id == item.id) : null;
-            final isDelivery = draft.pickupMethod == 'delivery';
             final isSpolujezdec = item.id == 'extra-spolujezdec';
-            final needSize = sel &&
-                isDelivery &&
-                item.sizes.isNotEmpty &&
-                selExtra?.size == null;
+            // Velikost se vybírá VŽDY (parita s webem), ne jen při přistavení.
+            final needSize =
+                sel && item.sizes.isNotEmpty && selExtra?.size == null;
             return GestureDetector(
               onTap: () {
                 if (sel) {
                   final ne = List<SelectedExtra>.from(draft.extras);
                   ne.removeWhere((e) => e.id == item.id);
                   onUpd((d) => d.copyWith(extras: ne));
-                } else if (isSpolujezdec && isDelivery) {
+                } else if (isSpolujezdec) {
                   showPassengerGearSheet(context, item, ref,
                       (ne) => onUpd((d) => d.copyWith(extras: ne)));
-                } else if (isDelivery && item.sizes.isNotEmpty) {
+                } else if (item.sizes.isNotEmpty) {
                   showSizeDialog(context, item, ref,
                       (ne) => onUpd((d) => d.copyWith(extras: ne)),
                       sizesOverride: gearSizesFor('boots', kids: isKids));

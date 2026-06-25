@@ -105,3 +105,14 @@ p>.btn:last-child{margin-bottom:0}
 .header-app-loyalty{margin:.85rem 0 0;padding-top:.7rem;border-top:1px solid #e3ece8;font-size:.74rem;line-height:1.5;color:#3a4d42}
 .header-app-loyalty strong{color:#1a2e22}
 @media (max-width:560px){.header-app-label{display:none}.header-app-btn{padding:.3rem .5rem}.header-app{position:static}.header-app-pop{position:fixed;top:54px;left:8px;right:8px;width:auto;max-width:none;max-height:calc(100vh - 66px);overflow-y:auto;padding:.85rem}.header-app-pop::before{display:none}.header-app-qr{width:104px;height:104px}}
+
+/* ===== Oblasti (kraje + města) — karty ladí s .wbox ===== */
+.oblasti-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1.5rem;margin-top:1rem}
+.oblasti-card{background:#fff;border:1px solid #d4e8e0;border-radius:10px;padding:1.25rem;text-align:left;transition:border-color .2s,box-shadow .2s}
+.oblasti-card:hover{border-color:#74fb71;box-shadow:0 4px 18px rgba(13,110,13,.08)}
+.oblasti-card-title{font-size:1.15rem;margin:0 0 .5rem}
+.oblasti-card-label{font-size:.85rem;color:#5a6b62;margin:0 0 .35rem}
+.oblasti-cities{margin:0 0 .9rem;line-height:1.85}
+.oblasti-card-cta{margin:0}
+@media (max-width:980px){.oblasti-grid{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:600px){.oblasti-grid{grid-template-columns:1fr}}

@@ -61,6 +61,10 @@ return [
     'menu.blog' => 'Blog',
     'menu.shop' => 'E-shop',
     'menu.contact' => 'Kontakt',
+    'menu.areas' => 'Oblasti',
+    'menu.areas.vysocina' => 'Kraj Vysočina',
+    'menu.areas.jihomoravsky' => 'Jihomoravský kraj',
+    'menu.areas.jihocesky' => 'Jihočeský kraj',
     'menu.reservation' => 'REZERVACE',
     'menu.editReservation' => 'Upravit rezervaci',
     'menu.editReservation.aria' => 'Upravit nebo zrušit rezervaci',
@@ -170,6 +174,7 @@ return [
     'breadcrumb.blog' => 'Blog',
     'breadcrumb.shop' => 'E-shop',
     'breadcrumb.contact' => 'Kontakt',
+    'breadcrumb.areas' => 'Oblasti',
 
     // E-shop
     'shop.title' => 'E-shop MotoGo24 — motorkářské doplňky a merch',

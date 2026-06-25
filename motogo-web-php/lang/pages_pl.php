@@ -3,6 +3,50 @@
 
 return [
     'pages' => [
+        'oblasti' => [
+            'hero' => [
+                'h1' => 'Wypożyczalnia motocykli w Twoim regionie i mieście',
+                'intro' => 'Szukasz <strong>wypożyczalni motocykli</strong> w swojej okolicy? MotoGo24 dostarczy motocykl do miast w całych Czechach. Wybierz swój region i zobacz, dokąd przywozimy motocykle – <strong>bez kaucji</strong>, z <strong>rezerwacją online</strong> i pełnym wyposażeniem w cenie.',
+            ],
+            'regionsTitle' => 'Wybierz swój region',
+            'citiesLabel' => 'Wypożyczalnia motocykli w miastach:',
+            'regionCta' => 'Zobacz region',
+            'cta' => [
+                'title' => 'Nie ma Twojego miasta?',
+                'text' => 'Dostarczamy motocykle praktycznie wszędzie w Czechach. Napisz do nas lub zarezerwuj online.',
+                'buttons' => [
+                    ['label' => 'ZAREZERWUJ MOTOCYKL', 'href' => '/rezervace', 'cls' => 'btngreen pulse'],
+                    ['label' => 'Skontaktuj się z nami', 'href' => '/kontakt', 'cls' => 'btndark'],
+                ],
+            ],
+            'detail' => [
+                'seoTitle' => 'Wypożyczalnia motocykli {region} – wynajem motocykla w miastach regionu | MotoGo24',
+                'seoDescription' => 'Wypożyczalnia motocykli w {regionLoc}. MotoGo24 dostarczy motocykl do miast w {regionLoc} – bez kaucji, rezerwacja online, wyposażenie w cenie. Wynajmujemy też w: {cities}.',
+                'heroTagline' => 'Wypożycz motocykl w {regionLoc} – bez kaucji, z wyposażeniem, odbiór 24/7.',
+                'heroCta' => 'ZAREZERWUJ MOTOCYKL',
+                'h1' => 'Wypożyczalnia motocykli {region}',
+                'intro' => 'Szukasz niezawodnej <strong>wypożyczalni motocykli w {regionLoc}</strong>? MotoGo24 przywiezie i dostarczy motocykl prosto do Twojego miasta. Oferujemy <strong>wynajem motocykli bez kaucji</strong>, rezerwację online i pełne wyposażenie motocyklowe w cenie. Niezależnie od tego, czy mieszkasz w dużym mieście, czy w mniejszej miejscowości, chętnie dostarczymy.',
+                'citiesTitle' => 'Wypożyczalnia motocykli w miastach regionu',
+                'citiesIntro' => 'W tych miastach i ich okolicach dostarczamy i odbieramy motocykle:',
+                'cityTitle' => 'Wypożyczalnia motocykli {city}',
+                'cityText' => 'Wypożycz motocykl w {city} i okolicy. Dostarczymy motocykl w umówione miejsce i odbierzemy go po zakończeniu wynajmu – bez kaucji i ze wszystkim, czego potrzebujesz.',
+                'cta' => [
+                    'title' => 'Zarezerwuj motocykl w {regionLoc}',
+                    'text' => 'Wybierz motocykl, ustaw termin, a my go dostarczymy. MotoGo24 jest otwarte całą dobę.',
+                    'buttons' => [
+                        ['label' => 'ZAREZERWUJ MOTOCYKL', 'href' => '/rezervace', 'cls' => 'btngreen pulse'],
+                        ['label' => 'Zobacz motocykle', 'href' => '/katalog', 'cls' => 'btndark'],
+                    ],
+                ],
+                'faq' => [
+                    'title' => 'Najczęściej zadawane pytania',
+                    'items' => [
+                        ['q' => 'Czy dostarczycie motocykl do mojego miasta?', 'a' => 'Tak. Dostarczymy motocykl w umówione miejsce w {regionLoc} i w innych miejscach w Czechach. Wystarczy podać miejsce w rezerwacji.'],
+                        ['q' => 'Czy muszę wpłacać kaucję?', 'a' => 'Nie. Nasza <strong>wypożyczalnia motocykli</strong> nie wymaga kaucji ani blokady na karcie.'],
+                    ],
+                ],
+            ],
+        ],
         'jak_pujcit_cena' => [
             'seo' => [
                 'title' => 'Wypożyczalnia motocykli Vysočina – Jak wypożyczyć – Co jest w cenie',
