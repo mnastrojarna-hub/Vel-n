@@ -124,7 +124,7 @@
 <div class="rule"><div class="n">4</div><div><b>Cena nikdy nejde do mínusu.</b> Pevné vouchery se zastropují na zbývající cenu; přebytek voucheru propadá (nevrací se hotovost).</div></div>
 
 <h2><b>5.</b> &nbsp;Úpravy rezervace — doplatek (DP) vs. dobropis</h2>
-<div class="note"><b>Princip (varianta B):</b> Co <b>přidáš</b> (prodloužení, výbava, dražší motorka) = <b>plná cena</b>, původní sleva zůstává → <span class="dp">doplatek (rozdílový DP)</span>. Co <b>ubereš</b> (zkrácení, odebraná výbava, levnější motorka) = vrací se <b>jen vyslevovaná (poměrná) částka</b> → <span class="cn">dobropis</span>. Nikdy nevrátíme víc, než jsme vydělali.</div>
+<div class="note"><b>Princip:</b> Co <b>přidáš</b> (prodloužení, výbava, dražší motorka) = <b>plná cena</b>, původní sleva zůstává → <span class="dp">doplatek (rozdílový DP)</span>. Co <b>ubereš</b> (zkrácení, odebraná výbava, levnější motorka) = vrací se <b>jen poměr toho, co zákazník reálně zaplatil</b> (sleva i voucher se krátí stejnou efektivní sazbou <code>zaplaceno ÷ ceník</code>) → <span class="cn">dobropis</span>. <b>Nikdy nevrátíme víc, než jsme za odebraný obsah vydělali.</b> Příklad: zaplaceno 5 100 za 3 dny → za 1 den vrátíme 5 100 ÷ 3 = <b>1 700 Kč</b>.</div>
 
 <p style="font-size:13.5px;color:#475569;margin:14px 0 8px">
 <b>Výchozí rezervace:</b> 3 dny, ceník <b>9 000 Kč</b>. Sleva: <b>kód −10 %</b> + <b>voucher 3 000 Kč</b>. → 10 % z 9 000 = 900, pak voucher 3 000 = sleva <b>3 900 Kč</b>. Zákazník zaplatil <b class="mono">5 100 Kč</b>. Doklad: Pronájem 9 000 · Slevový kód 10 % −900 · Voucher −3 000.</p>
@@ -135,9 +135,9 @@
     <tr><td>Prodloužení o 1 den</td><td class="mono">+3 000</td><td>plná cena, sleva zachována</td><td class="mono">3 900</td><td class="mono">8 100</td><td class="dp">DP +3 000 Kč</td></tr>
     <tr><td>Přidání bot řidiči</td><td class="mono">+690</td><td>plná cena</td><td class="mono">3 900</td><td class="mono">5 790</td><td class="dp">DP +690 Kč</td></tr>
     <tr><td>Změna na dražší motorku</td><td class="mono">+1 500</td><td>plná cena</td><td class="mono">3 900</td><td class="mono">6 600</td><td class="dp">DP +1 500 Kč</td></tr>
-    <tr><td>Zkrácení o 1 den</td><td class="mono">−3 000</td><td>poměrná vratka (10 % z 6 000 + voucher 3 000)</td><td class="mono">3 600</td><td class="mono">2 400</td><td class="cn">Dobropis −2 700 Kč</td></tr>
-    <tr><td>Odebrání bot</td><td class="mono">−690</td><td>poměrná vratka</td><td class="mono">3 831</td><td class="mono">4 479</td><td class="cn">Dobropis −621 Kč</td></tr>
-    <tr><td>Změna na levnější motorku</td><td class="mono">−1 500</td><td>poměrná vratka</td><td class="mono">3 750</td><td class="mono">3 750</td><td class="cn">Dobropis −1 350 Kč</td></tr>
+    <tr><td>Zkrácení o 1 den</td><td class="mono">−3 000</td><td>poměrná vratka — sleva × (6 000 ÷ 9 000)</td><td class="mono">2 600</td><td class="mono">3 400</td><td class="cn">Dobropis −1 700 Kč</td></tr>
+    <tr><td>Odebrání bot</td><td class="mono">−690</td><td>poměrná vratka × (8 310 ÷ 9 000)</td><td class="mono">3 601</td><td class="mono">4 709</td><td class="cn">Dobropis −391 Kč</td></tr>
+    <tr><td>Změna na levnější motorku</td><td class="mono">−1 500</td><td>poměrná vratka × (7 500 ÷ 9 000)</td><td class="mono">3 250</td><td class="mono">4 250</td><td class="cn">Dobropis −850 Kč</td></tr>
   </tbody>
 </table>
 <div class="legend">U zkrácení se navíc uplatní <b>storno tabulka</b> (≥7 dní předem 100 %, 2–7 dní 50 %, &lt;2 dny 0 % z vratky). Příklad počítá s ≥7 dny. Sleva z ranku (app) se přepočítává také, ale platí na vše včetně úprav. Stejná pravidla platí na webu i v aplikaci.</div>
