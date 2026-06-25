@@ -20,6 +20,7 @@ export default function SuppliersTab() {
   const [editSupplier, setEditSupplier] = useState(null)
   const [showAdd, setShowAdd] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState(null)
+  const [statsSupplier, setStatsSupplier] = useState(null)
   const [selectedIds, setSelectedIds] = useState(new Set())
 
   useEffect(() => { load() }, [page, search])
@@ -98,6 +99,11 @@ export default function SuppliersTab() {
                   <TD>{s.contact_email || '—'}</TD>
                   <TD>
                     <div className="flex gap-1">
+                      <button onClick={() => setStatsSupplier(s)}
+                        className="text-sm font-bold cursor-pointer"
+                        style={{ color: '#7c3aed', background: 'none', border: 'none', padding: '4px 6px' }}>
+                        Analýza
+                      </button>
                       <button onClick={() => setEditSupplier(s)}
                         className="text-sm font-bold cursor-pointer"
                         style={{ color: '#2563eb', background: 'none', border: 'none', padding: '4px 6px' }}>
@@ -118,6 +124,8 @@ export default function SuppliersTab() {
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
         </>
       )}
+
+      {statsSupplier && <SupplierStatsModal supplier={statsSupplier} onClose={() => setStatsSupplier(null)} />}
 
       {(showAdd || editSupplier) && (
         <SupplierModal
@@ -224,4 +232,71 @@ function SupplierModal({ supplier, onClose, onSaved }) {
 const inputStyle = { padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }
 function Label({ children }) {
   return <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{children}</label>
+}
+
+// Analýza dodavatele — z napárovaných finančních událostí (metadata.supplier_id / supplier_name).
+function SupplierStatsModal({ supplier, onClose }) {
+  const [ev, setEv] = useState(null)
+  useEffect(() => {
+    (async () => {
+      let { data } = await supabase.from('financial_events').select('amount_czk, duzp, status, created_at, linked_entity_id')
+        .filter('metadata->>supplier_id', 'eq', supplier.id).limit(2000)
+      if (!data || data.length === 0) {
+        const r = await supabase.from('financial_events').select('amount_czk, duzp, status, created_at, linked_entity_id')
+          .filter('metadata->>supplier_name', 'eq', supplier.name).limit(2000)
+        data = r.data || []
+      }
+      setEv(data || [])
+    })()
+  }, [supplier])
+
+  const fmt = (n) => (n || 0).toLocaleString('cs-CZ') + ' Kč'
+  if (ev === null) return <Modal open title={`Analýza — ${supplier.name}`} onClose={onClose}><div className="py-6 text-center text-sm" style={{ opacity: 0.5 }}>Načítám…</div></Modal>
+
+  const total = ev.reduce((s, e) => s + (e.amount_czk || 0), 0)
+  const count = ev.length
+  const approved = ev.filter(e => ['approved', 'validated', 'exported', 'submitted'].includes(e.status)).length
+  const last = ev.map(e => e.duzp || (e.created_at || '').slice(0, 10)).filter(Boolean).sort().slice(-1)[0]
+  const avg = count ? Math.round(total / count) : 0
+  const months = {}
+  ev.forEach(e => { const m = (e.duzp || e.created_at || '').slice(0, 7); if (m) months[m] = (months[m] || 0) + (e.amount_czk || 0) })
+  const monthList = Object.entries(months).sort().slice(-12)
+  const maxM = Math.max(1, ...monthList.map(([, v]) => v))
+
+  return (
+    <Modal open title={`Analýza — ${supplier.name}`} onClose={onClose}>
+      <div style={{ maxHeight: '74vh', overflowY: 'auto' }}>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+          <Stat label="Dokladů celkem" value={count} color="#1a2e22" />
+          <Stat label="Zaúčtováno/zaplaceno" value={approved} color="#1a8a18" />
+          <Stat label="Obrat celkem" value={fmt(total)} color="#1a2e22" />
+          <Stat label="Průměr / doklad" value={fmt(avg)} color="#2563eb" />
+          <Stat label="Poslední nákup" value={last ? new Date(last).toLocaleDateString('cs-CZ') : '—'} color="#b45309" />
+        </div>
+        <div className="text-xs font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>Obrat v čase (12 měsíců)</div>
+        {monthList.length === 0 ? <div className="text-sm" style={{ opacity: 0.5 }}>Žádná data.</div> : (
+          <div className="flex flex-col gap-1">
+            {monthList.map(([m, v]) => (
+              <div key={m} className="flex items-center gap-2 text-xs" style={{ color: '#1a2e22' }}>
+                <span style={{ width: 64 }} className="font-mono">{m}</span>
+                <div style={{ flex: 1, background: '#eef5f1', borderRadius: 4, height: 16, overflow: 'hidden' }}>
+                  <div style={{ width: `${Math.round((v / maxM) * 100)}%`, height: '100%', background: '#74FB71' }} />
+                </div>
+                <span className="font-mono shrink-0" style={{ width: 90, textAlign: 'right' }}>{fmt(v)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="text-xs mt-3" style={{ color: '#1a2e22', opacity: 0.55 }}>Počítá se z finančních událostí napárovaných na tohoto dodavatele (přes IČO/název při OCR commitu).</div>
+      </div>
+    </Modal>
+  )
+}
+function Stat({ label, value, color }) {
+  return (
+    <div className="p-3 rounded-card" style={{ background: '#fff', border: '1px solid #d4e8e0' }}>
+      <div className="text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{label}</div>
+      <div className="text-base font-extrabold" style={{ color }}>{value}</div>
+    </div>
+  )
 }
