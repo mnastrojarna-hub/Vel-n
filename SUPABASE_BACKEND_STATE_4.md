@@ -5,6 +5,8 @@
 
 ## 5. TRIGGERY
 
+> **Živý stav: 90 triggerů** (snapshot 2026-06-24). Digest je proti tomuto snapshotu plně sesynchronizován — všechny živé triggery jsou níže zdokumentovány (bulkové `_updated`/`_updated_at` jsou vypsány buď přímo, nebo souhrnně v sekci „Doplněno 2026-06-04 ze snapshotu"), a všechny triggery dříve dokumentované jako odstraněné (SMAZÁN/DROPPED/NAHRAZENO/NENÍ V ŽIVÉ DB) v snapshotu 2026-06-24 skutečně chybí. Ze snapshotu 2026-06-24 nepřibyl ani neubyl žádný trigger oproti stavu 2026-06-23 (loyalty doména `loyalty_monthly_winners` / „loyalty award" žádný trigger nemá — věrnostní logika běží přes `trg_validate_app_loyalty` a RPC/cron, nikoli přes vlastní trigger).
+
 ### Z migrací
 | Trigger | Tabulka | Funkce |
 |---------|---------|--------|
