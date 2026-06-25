@@ -225,10 +225,11 @@ class EditPriceCalc {
   /// Nová výše slevy v Kč po úpravě — ukládá se do bookings.discount_amount.
   double get newDiscountAmount {
     if (_oldDiscount <= 0) return 0;
-    if (discountType == 'percent' && _oldGross > 0) {
-      return (newGross * _oldDiscount / _oldGross).roundToDouble();
-    }
-    return _oldDiscount > newGross ? newGross : _oldDiscount;
+    // DOPLATEK (gross >= 0): plná cena, sleva zachována (option B).
+    if (priceDiff >= 0) return _oldDiscount;
+    // VRATKA: uniformní poměrná sazba — procento i voucher se krátí stejně.
+    if (_oldGross > 0) return (newGross * _oldDiscount / _oldGross).roundToDouble();
+    return 0;
   }
 
   /// Nová celková cena (netto, po slevě) — ukládá se do bookings.total_price.
