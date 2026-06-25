@@ -2,8 +2,16 @@ import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
 import { supabase } from '../lib/supabase'
 import Card from '../components/ui/Card'
 import Inventory from './Inventory'
-import { SkuConventionInfo } from '../components/ui/SkuTag'
+import SkuTag, { SkuConventionInfo } from '../components/ui/SkuTag'
+import { buildSku, parseSku } from '../lib/sku'
 import { accSku, deductFromWarehouse, returnToWarehouse, loadAccessoryTypes } from './BranchHelpers'
+
+// Skladově se NErozlišuje řidič/spolujezdec — fyzické typy gearu (mají velikost):
+const PHYSICAL_GEAR = ['helmet', 'jacket', 'pants', 'boots', 'gloves', 'balaclava']
+const physicalTypes = (types) => (types || []).filter(t => PHYSICAL_GEAR.includes(t.key))
+// Zboží/spotřební bez velikosti (kufry, sítě, držáky, oleje…) → kategorie řídí SKU prefix + finance:
+const GOODS_CATS = [['zbozi', 'Zboží (půjčovní)'], ['spotrebni', 'Spotřební'], ['material', 'Materiál'], ['dily', 'Náhradní díl']]
+const CAT_TO_INV = { zbozi: 'inventory', spotrebni: 'supplies', material: 'material', dily: 'material' }
 
 const OrdersTab = lazy(() => import('./accounting/AutoOrdersTab'))
 
@@ -23,7 +31,7 @@ const addDaysIso = (n) => { const d = new Date(); d.setDate(d.getDate() + n); re
 
 const TABS = [
   ['calendar', 'Dostupnost'], ['worklist', 'Chybí kus'], ['transfers', 'Přesuny'],
-  ['stock', 'Sklad'], ['receive', 'Naskladnění'], ['orders', 'Objednávky'],
+  ['stock', 'Sklad'], ['receive', 'Naskladnění'], ['catalog', 'Číselník SKU'], ['orders', 'Objednávky'],
 ]
 
 export default function Logistika() {
@@ -78,6 +86,7 @@ export default function Logistika() {
         : tab === 'transfers' ? <PresunyTab branches={branches} />
         : tab === 'stock' ? <Inventory />
         : tab === 'receive' ? <NaskladneniTab />
+        : tab === 'catalog' ? <CatalogTab />
         : <Suspense fallback={<div className="py-10 text-center text-sm" style={{ opacity: .5 }}>Načítám…</div>}><OrdersTab /></Suspense>}
     </div>
   )
@@ -472,7 +481,7 @@ function PresunyTab({ branches }) {
         {(dir === 'wh2branch' || dir === 'branch2branch') && (
           <Field label="Na pobočku"><Sel value={toBranch} onChange={setToBranch}><option value="">—</option>{branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}</Sel></Field>
         )}
-        <Field label="Typ"><Sel value={type} onChange={v => { setType(v); setSize('') }}><option value="">—</option>{accTypes.map(t => <option key={t.key} value={t.key}>{t.label}</option>)}</Sel></Field>
+        <Field label="Typ"><Sel value={type} onChange={v => { setType(v); setSize('') }}><option value="">—</option>{physicalTypes(accTypes).map(t => <option key={t.key} value={t.key}>{t.label}</option>)}</Sel></Field>
         <Field label="Velikost"><Sel value={size} onChange={setSize}><option value="">—</option>{sizes.map(s => <option key={s} value={s}>{s}</option>)}</Sel></Field>
         <Field label="Počet">
           <input type="number" min={1} value={qty} onChange={e => setQty(e.target.value)} className="rounded-btn text-sm outline-none w-20"
@@ -530,19 +539,34 @@ function NaskladneniTab() {
     else supabase.from('invoices').select('id, number, notes, items, issue_date').eq('type', 'received').order('issue_date', { ascending: false }).limit(50).then(({ data }) => setDocs(data || []))
   }, [docType])
 
-  const mkLine = (name, price, qty) => { const g = guessLine(name); return { name: name || '', qty: qty || 1, unit_price: price || 0, mode: g.type ? 'acc' : 'manual', type: g.type, size: g.size, sku: '', category: 'inventory' } }
+  const mkLine = (name, price, qty) => { const g = guessLine(name); return { name: name || '', qty: qty || 1, unit_price: price || 0, mode: g.type ? 'acc' : 'goods', type: g.type, size: g.size, cat: 'zbozi', slug: name || '' } }
+  // Z OCR řádku poskládá položku včetně navrženého SKU (parsuje sku_suggestion).
+  const mkLineFromOcr = (it) => {
+    const price = it.unit_price ?? it.amount ?? 0
+    const p = it.sku_suggestion ? parseSku(it.sku_suggestion) : null
+    if (p && p.isAccessory && p.type && p.size) return { name: it.description || '', qty: it.quantity || 1, unit_price: price, mode: 'acc', type: p.type, size: p.size, cat: 'zbozi', slug: '' }
+    if (p && !p.isAccessory && p.slug) return { name: it.description || '', qty: it.quantity || 1, unit_price: price, mode: 'goods', type: '', size: '', cat: it.category_suggestion || p.category || 'zbozi', slug: p.slug }
+    return mkLine(it.description || '', price, it.quantity || 1)
+  }
 
   async function handleOcr(file) {
     if (!file) return
     setOcrBusy(true); setOcrInfo(null); setLines([])
     try {
       const b64 = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result)); r.onerror = rej; r.readAsDataURL(file) })
-      const { data, error } = await supabase.functions.invoke('extract-document', { body: { image_base64: b64, mime: file.type || 'image/jpeg' } })
+      // 1 foto = finance + sklad: receive-invoice založí finanční událost (→ po schválení faktura/majetek),
+      // uloží scan, přeloží cizojazyčný doklad a vrátí položky pro naskladnění.
+      const { data, error } = await supabase.functions.invoke('receive-invoice', { body: { image_base64: b64, file_name: file.name || 'foto.jpg', source: 'velin' } })
       if (error) { alert('OCR selhalo: ' + error.message); return }
       if (!data?.success) { alert('Doklad se nepodařilo přečíst: ' + (data?.error || 'neznámá chyba')); return }
-      const items = Array.isArray(data.items) ? data.items : []
-      setOcrInfo({ supplier: data.supplier_name, number: data.invoice_number, type: data.document_type, count: items.length })
-      setLines(items.length ? items.map(it => mkLine(it.description || '', it.unit_price ?? it.amount ?? 0, it.quantity || 1)) : [mkLine('', 0, 1)])
+      const items = Array.isArray(data.line_items) ? data.line_items : []
+      setOcrInfo({
+        supplier: data.extracted?.supplier, number: data.extracted?.invoice_number,
+        type: data.document_type, count: items.length, eventId: data.financial_event_id,
+        lang: data.source_language, needsReview: data.needs_review,
+        currency: data.currency, fxDate: data.fx_date, fxFailed: data.fx_failed, isProforma: data.is_proforma,
+      })
+      setLines(items.length ? items.map(mkLineFromOcr) : [mkLine('', 0, 1)])
     } finally { setOcrBusy(false) }
   }
   function pickDoc(id) {
@@ -550,13 +574,14 @@ function NaskladneniTab() {
     setLines(items.length ? items.map(it => mkLine(it.description || it.name || '', it.amount ?? it.unit_price ?? 0, it.quantity || 1)) : [mkLine('', 0, 1)])
   }
   const upd = (i, patch) => setLines(ls => ls.map((l, j) => j === i ? { ...l, ...patch } : l))
-  const lineSku = (l) => l.mode === 'acc' ? (l.type && l.size ? accSku(l.type, l.size) : '') : (l.sku || '').trim()
+  const lineSku = (l) => l.mode === 'acc' ? (l.type && l.size ? accSku(l.type, l.size) : '') : (l.slug ? buildSku(l.cat, l.slug) : '')
 
   async function stockAll() {
-    const payload = lines.map(l => ({ sku: lineSku(l), name: l.name, qty: Number(l.qty) || 0, unit_price: Number(l.unit_price) || 0, category: l.mode === 'acc' ? 'prislusenstvi' : l.category })).filter(l => l.sku && l.qty > 0)
+    if (ocrInfo?.isProforma) { alert('Zálohová faktura (proforma) — zboží zatím nedorazilo, nenaskladňuje se.'); return }
+    const payload = lines.map(l => ({ sku: lineSku(l), name: l.name, qty: Number(l.qty) || 0, unit_price: Number(l.unit_price) || 0, category: l.mode === 'acc' ? 'prislusenstvi' : (CAT_TO_INV[l.cat] || 'inventory') })).filter(l => l.sku && l.qty > 0)
     if (!payload.length) { alert('Žádná položka nemá vyplněné SKU (typ+velikost) a počet > 0.'); return }
     const d = docs.find(x => x.id === docId)
-    const note = docType === 'ocr' ? `Naskladnění z faktury (OCR)${ocrInfo?.supplier ? ' ' + ocrInfo.supplier : ''}${ocrInfo?.number ? ' ' + ocrInfo.number : ''}`.trim()
+    const note = docType === 'ocr' ? `Naskladnění z faktury (OCR)${ocrInfo?.supplier ? ' ' + ocrInfo.supplier : ''}${ocrInfo?.number ? ' ' + ocrInfo.number : ''}${ocrInfo?.eventId ? ' [FE:' + ocrInfo.eventId + ']' : ''}`.trim()
       : docType === 'manual' ? 'Ruční naskladnění'
       : `Naskladnění z ${docType === 'dl' ? 'DL ' + (d?.dl_number || '') : 'FA ' + (d?.number || '')}`.trim()
     setBusy(true)
@@ -590,13 +615,23 @@ function NaskladneniTab() {
         {docType === 'manual' && <button onClick={() => setLines(ls => [...ls, mkLine('', 0, 1)])} className="text-sm font-bold cursor-pointer rounded-btn" style={{ padding: '6px 12px', border: '1px solid #1a2e22', background: '#fff', color: '#1a2e22' }}>+ Řádek</button>}
         <span className="ml-auto"><SkuConventionInfo /></span>
       </div>
-      {docType === 'ocr' && ocrInfo && (
+      {docType === 'ocr' && ocrInfo && ocrInfo.isProforma && (
+        <div className="mb-2 rounded-btn text-sm font-bold" style={{ padding: '8px 12px', background: '#fff5f5', color: '#dc2626', border: '1px solid #fca5a5' }}>
+          ⚠ Zálohová faktura (proforma) — zboží zatím nedorazilo, <b>nenaskladňuje se</b>. Slouží jen jako evidence ve finanční události.
+        </div>
+      )}
+      {docType === 'ocr' && ocrInfo && !ocrInfo.isProforma && (
         <div className="mb-2 rounded-btn text-sm font-bold" style={{ padding: '8px 12px', background: '#e3f6e8', color: '#16a34a', border: '1px solid #bbf7d0' }}>
-          ✓ Přečteno: {ocrInfo.supplier || 'dodavatel ?'}{ocrInfo.number ? ` · ${ocrInfo.number}` : ''} · {ocrInfo.count} položek. Zkontroluj typ+velikost (SKU) a počet, pak naskladni.
+          ✓ {ocrInfo.type === 'delivery_note' ? 'Dodací list' : 'Faktura'}: {ocrInfo.supplier || 'dodavatel ?'}{ocrInfo.number ? ` · ${ocrInfo.number}` : ''} · {ocrInfo.count} položek
+          {ocrInfo.lang && ocrInfo.lang !== 'cs' ? ` · přeloženo z „${ocrInfo.lang}"` : ''}
+          {ocrInfo.currency && ocrInfo.currency !== 'CZK' ? (ocrInfo.fxFailed ? ` · ⚠ kurz ČNB nenačten — ceny v ${ocrInfo.currency}` : ` · ceny převedeny ${ocrInfo.currency}→CZK (ČNB ${ocrInfo.fxDate || ''})`) : ''}
+          <div className="text-xs font-semibold mt-1" style={{ color: '#1a2e22', opacity: 0.8 }}>
+            💰 Finanční událost založena → čeká na schválení ve Finance (vznikne faktura/majetek).{ocrInfo.needsReview ? ' Nízká jistota — zkontroluj ve Výjimkách.' : ''} Zkontroluj SKU a počet a naskladni zboží.
+          </div>
         </div>
       )}
       <div className="text-xs mb-2" style={{ color: '#1a2e22', opacity: 0.6 }}>
-        📷 Vyfoť fakturu/dodací list → AI vypíše položky. Nebo vyber existující doklad / zadej ručně. Zkontroluj SKU a počet a potvrď naskladnění. <b>Naskladnění jde jen do skladu</b> — fakturu do financí zaneš ve Finance → Faktury přijaté.
+        📷 Vyfoť fakturu/dodací list → AI ji přečte (a přeloží, když je cizojazyčná): <b>založí finanční událost</b> (→ po schválení faktura + majetek/materiál) a vypíše položky. Zkontroluj typ/velikost nebo kategorii (SKU) a počet → <b>Naskladnit</b> přidá zboží rovnou na sklad.
       </div>
 
       {lines.length === 0 ? <div className="py-8 text-center text-sm" style={{ color: '#1a2e22', opacity: 0.5 }}>Vyber doklad nebo přidej řádek.</div>
@@ -606,19 +641,24 @@ function NaskladneniTab() {
               <div key={i} className="flex items-center gap-2 flex-wrap rounded-btn" style={{ padding: '8px 10px', background: '#f9fdfb', border: '1px solid #e2eee8' }}>
                 <input value={l.name} onChange={e => upd(i, { name: e.target.value })} placeholder="Název položky" className="rounded-btn text-sm outline-none" style={{ padding: '5px 8px', background: '#fff', border: '1px solid #d4e8e0', flex: '1 1 160px', minWidth: 120 }} />
                 <select value={l.mode} onChange={e => upd(i, { mode: e.target.value })} className="rounded-btn text-xs outline-none" style={{ padding: '5px 6px', background: '#fff', border: '1px solid #d4e8e0' }}>
-                  <option value="acc">Příslušenství</option><option value="manual">Vlastní SKU</option>
+                  <option value="acc">Příslušenství (gear)</option><option value="goods">Zboží / spotřební</option>
                 </select>
                 {l.mode === 'acc' ? (
                   <>
                     <select value={l.type} onChange={e => upd(i, { type: e.target.value, size: '' })} className="rounded-btn text-xs outline-none" style={{ padding: '5px 6px', background: '#fff', border: '1px solid #d4e8e0' }}>
-                      <option value="">typ</option>{accTypes.map(t => <option key={t.key} value={t.key}>{t.label}</option>)}
+                      <option value="">typ</option>{physicalTypes(accTypes).map(t => <option key={t.key} value={t.key}>{t.label}</option>)}
                     </select>
                     <select value={l.size} onChange={e => upd(i, { size: e.target.value })} className="rounded-btn text-xs outline-none" style={{ padding: '5px 6px', background: '#fff', border: '1px solid #d4e8e0' }}>
                       <option value="">vel.</option>{(accTypes.find(t => t.key === l.type)?.sizes || []).map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                   </>
                 ) : (
-                  <input value={l.sku} onChange={e => upd(i, { sku: e.target.value })} placeholder="SKU" className="rounded-btn text-xs outline-none font-mono" style={{ padding: '5px 8px', background: '#fff', border: '1px solid #d4e8e0', width: 150 }} />
+                  <>
+                    <select value={l.cat} onChange={e => upd(i, { cat: e.target.value })} title="Spotřební vs zboží pro půjčovnu" className="rounded-btn text-xs outline-none" style={{ padding: '5px 6px', background: '#fff', border: '1px solid #d4e8e0' }}>
+                      {GOODS_CATS.map(([k, lab]) => <option key={k} value={k}>{lab}</option>)}
+                    </select>
+                    <input value={l.slug} onChange={e => upd(i, { slug: e.target.value })} placeholder="název (kufr-givi-46l)" className="rounded-btn text-xs outline-none" style={{ padding: '5px 8px', background: '#fff', border: '1px solid #d4e8e0', width: 150 }} />
+                  </>
                 )}
                 <input type="number" min={1} value={l.qty} onChange={e => upd(i, { qty: e.target.value })} title="Počet" className="rounded-btn text-sm outline-none w-16" style={{ padding: '5px 8px', background: '#fff', border: '1px solid #d4e8e0' }} />
                 <input type="number" min={0} value={l.unit_price} onChange={e => upd(i, { unit_price: e.target.value })} title="Cena/ks" className="rounded-btn text-sm outline-none w-20" style={{ padding: '5px 8px', background: '#fff', border: '1px solid #d4e8e0' }} />
@@ -630,9 +670,139 @@ function NaskladneniTab() {
         )}
       {lines.length > 0 && (
         <div className="flex justify-end mt-4">
-          <button onClick={stockAll} disabled={busy} className="text-sm font-bold cursor-pointer rounded-btn" style={{ padding: '9px 18px', border: 'none', background: '#1a2e22', color: '#74FB71', opacity: busy ? 0.5 : 1 }}>{busy ? 'Naskladňuji…' : 'Naskladnit do skladu'}</button>
+          <button onClick={stockAll} disabled={busy || ocrInfo?.isProforma} title={ocrInfo?.isProforma ? 'Zálohová faktura se nenaskladňuje' : ''} className="text-sm font-bold cursor-pointer rounded-btn" style={{ padding: '9px 18px', border: 'none', background: '#1a2e22', color: '#74FB71', opacity: (busy || ocrInfo?.isProforma) ? 0.5 : 1 }}>{busy ? 'Naskladňuji…' : 'Naskladnit do skladu'}</button>
         </div>
       )}
     </Card>
+  )
+}
+
+// ─── Číselník SKU (autoritativní seznam položek) ────────────────────
+function CatalogTab() {
+  const [rows, setRows] = useState([])
+  const [accTypes, setAccTypes] = useState([])
+  const [q, setQ] = useState('')
+  const [cat, setCat] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [add, setAdd] = useState(false)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    const { data, error } = await supabase.from('sku_catalog').select('*').order('category').order('sku')
+    setRows(error ? [] : (data || []))
+    setLoading(false)
+  }, [])
+  useEffect(() => { load(); loadAccessoryTypes().then(setAccTypes) }, [load])
+
+  const filtered = rows.filter(r =>
+    (!cat || r.category === cat) &&
+    (!q || r.sku.includes(q.toLowerCase()) || (r.name || '').toLowerCase().includes(q.toLowerCase()) || (r.aliases || []).join(' ').toLowerCase().includes(q.toLowerCase())))
+
+  async function del(id) { if (!confirm('Smazat položku z číselníku?')) return; await supabase.from('sku_catalog').delete().eq('id', id); load() }
+
+  return (
+    <Card>
+      <div className="flex items-center gap-2 mb-3 flex-wrap">
+        <input value={q} onChange={e => setQ(e.target.value)} placeholder="Hledat SKU / název / alias…"
+          className="rounded-btn text-sm outline-none" style={{ padding: '7px 10px', background: '#f1faf7', border: '1px solid #d4e8e0', minWidth: 220 }} />
+        <select value={cat} onChange={e => setCat(e.target.value)} className="rounded-btn text-sm outline-none" style={{ padding: '7px 10px', background: '#f1faf7', border: '1px solid #d4e8e0' }}>
+          <option value="">Vše</option>
+          {['prislusenstvi', 'dily', 'material', 'zbozi', 'spotrebni'].map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
+        <span className="text-sm" style={{ color: '#1a2e22', opacity: 0.6 }}>{filtered.length} položek</span>
+        <span className="ml-auto flex items-center gap-2">
+          <SkuConventionInfo />
+          <button onClick={() => setAdd(true)} className="text-sm font-bold cursor-pointer rounded-btn" style={{ padding: '7px 14px', border: 'none', background: '#1a2e22', color: '#74FB71' }}>+ Položka</button>
+        </span>
+      </div>
+      <div className="text-xs mb-2" style={{ color: '#1a2e22', opacity: 0.6 }}>
+        Autoritativní seznam SKU. AI při scanu navrhuje SKU dle konvence a snaží se trefit tento číselník. Aliasy = cizojazyčné/alternativní názvy pro lepší rozpoznání.
+      </div>
+      {loading ? <div className="py-8 text-center text-sm" style={{ opacity: 0.5 }}>Načítám…</div>
+        : filtered.length === 0 ? <div className="py-8 text-center text-sm" style={{ opacity: 0.5 }}>Žádné položky. Nasaď SQL `sku_catalog` + seed, nebo přidej položku.</div>
+        : (
+          <div className="overflow-x-auto">
+            <table className="text-sm w-full" style={{ borderCollapse: 'collapse' }}>
+              <thead><tr style={{ borderBottom: '1px solid #d4e8e0' }}>
+                {['SKU', 'Název', 'Kategorie', 'Aliasy', ''].map(h => <th key={h} className="text-left text-xs font-extrabold uppercase" style={{ padding: '6px 8px', color: '#1a2e22' }}>{h}</th>)}
+              </tr></thead>
+              <tbody>
+                {filtered.map(r => (
+                  <tr key={r.id} style={{ borderBottom: '1px solid #eef5f1' }}>
+                    <td style={{ padding: '5px 8px' }}><SkuTag sku={r.sku} /></td>
+                    <td style={{ padding: '5px 8px', color: '#0f1a14' }}>{r.name}</td>
+                    <td style={{ padding: '5px 8px', color: '#1a2e22' }}>{r.category}</td>
+                    <td style={{ padding: '5px 8px', color: '#1a2e22', opacity: 0.7, fontSize: 12 }}>{(r.aliases || []).join(', ')}</td>
+                    <td style={{ padding: '5px 8px' }}><button onClick={() => del(r.id)} className="text-xs font-bold cursor-pointer" style={{ background: 'none', border: 'none', color: '#dc2626' }}>✕</button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      {add && <CatalogAddModal accTypes={accTypes} onClose={() => setAdd(false)} onSaved={() => { setAdd(false); load() }} />}
+    </Card>
+  )
+}
+
+function CatalogAddModal({ accTypes, onClose, onSaved }) {
+  const [cat, setCat] = useState('zbozi')
+  const [type, setType] = useState(''); const [size, setSize] = useState('')
+  const [slug, setSlug] = useState(''); const [name, setName] = useState('')
+  const [aliases, setAliases] = useState(''); const [busy, setBusy] = useState(false); const [err, setErr] = useState(null)
+
+  const isAcc = cat === 'prislusenstvi'
+  const sizes = accTypes.find(t => t.key === type)?.sizes || []
+  const sku = isAcc ? (type && size ? accSku(type, size) : '') : (slug ? buildSku(cat, slug) : '')
+
+  async function save() {
+    setErr(null)
+    if (!sku) { setErr('Vyplň typ+velikost nebo název pro SKU.'); return }
+    setBusy(true)
+    const payload = {
+      sku, category: cat,
+      name: name || (isAcc ? `${accTypes.find(t => t.key === type)?.label || type} ${size}` : slug),
+      type: isAcc ? type : null, size: isAcc ? size : null,
+      aliases: aliases.split(',').map(s => s.trim()).filter(Boolean),
+      is_consumable: cat === 'spotrebni' || !!accTypes.find(t => t.key === type)?.is_consumable,
+    }
+    const { error } = await supabase.from('sku_catalog').insert(payload)
+    setBusy(false)
+    if (error) { setErr(error.message); return }
+    onSaved()
+  }
+
+  const F = ({ label, children }) => <div className="flex flex-col gap-1"><span className="text-xs font-extrabold uppercase" style={{ color: '#1a2e22' }}>{label}</span>{children}</div>
+  const inp = { padding: '7px 10px', background: '#f1faf7', border: '1px solid #d4e8e0', borderRadius: 10, outline: 'none', fontSize: 14 }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,.5)' }} onClick={onClose}>
+      <div className="rounded-card" style={{ background: '#fff', padding: 20, width: 'min(94vw, 440px)' }} onClick={e => e.stopPropagation()}>
+        <div className="text-base font-black mb-3" style={{ color: '#0f1a14' }}>Nová položka číselníku</div>
+        <div className="flex flex-col gap-3">
+          <F label="Kategorie">
+            <select value={cat} onChange={e => setCat(e.target.value)} style={inp}>
+              {[['prislusenstvi', 'Příslušenství (gear)'], ['zbozi', 'Zboží (půjčovní)'], ['spotrebni', 'Spotřební'], ['material', 'Materiál'], ['dily', 'Náhradní díl']].map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+            </select>
+          </F>
+          {isAcc ? (
+            <div className="flex gap-3">
+              <F label="Typ"><select value={type} onChange={e => { setType(e.target.value); setSize('') }} style={inp}><option value="">—</option>{physicalTypes(accTypes).map(t => <option key={t.key} value={t.key}>{t.label}</option>)}</select></F>
+              <F label="Velikost"><select value={size} onChange={e => setSize(e.target.value)} style={inp}><option value="">—</option>{sizes.map(s => <option key={s} value={s}>{s}</option>)}</select></F>
+            </div>
+          ) : (
+            <F label="Název pro SKU (slug)"><input value={slug} onChange={e => setSlug(e.target.value)} placeholder="kufr-givi-46l" style={inp} /></F>
+          )}
+          <F label="Název položky"><input value={name} onChange={e => setName(e.target.value)} placeholder="(volitelné — doplní se z typu/slugu)" style={inp} /></F>
+          <F label="Aliasy (čárkou) — cizojazyčné/alt názvy"><input value={aliases} onChange={e => setAliases(e.target.value)} placeholder="pantalon, hose, trousers" style={inp} /></F>
+          <div className="text-sm font-mono" style={{ color: sku ? '#16a34a' : '#dc2626' }}>{sku || 'chybí SKU'}</div>
+          {err && <div className="text-sm" style={{ color: '#dc2626' }}>{err}</div>}
+        </div>
+        <div className="flex justify-end gap-3 mt-4">
+          <button onClick={onClose} className="text-sm font-bold cursor-pointer" style={{ background: 'none', border: 'none', color: '#64748b' }}>Zrušit</button>
+          <button onClick={save} disabled={busy || !sku} className="text-sm font-bold cursor-pointer rounded-btn" style={{ padding: '8px 16px', border: 'none', background: '#1a2e22', color: '#74FB71', opacity: (busy || !sku) ? 0.5 : 1 }}>{busy ? 'Ukládám…' : 'Přidat'}</button>
+        </div>
+      </div>
+    </div>
   )
 }

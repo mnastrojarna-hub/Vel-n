@@ -9,10 +9,11 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { callClaudeVision } from './vision-ocr.ts'
 import { routeDocument } from './document-routing.ts'
 import { upsertSupplier } from './supplier-utils.ts'
+import { requireAdminOrService } from '../_shared/auth.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'x-invoice-api-key, content-type',
+  'Access-Control-Allow-Headers': 'x-invoice-api-key, authorization, apikey, x-client-info, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
@@ -34,6 +35,34 @@ function timingSafeEqualStr(a: string, b: string): boolean {
   return diff === 0
 }
 
+const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
+
+// ČNB denní kurz pro převod do CZK ke dni faktury. Vrací { rate, date } kde CZK = částka * rate.
+// ČNB při zadání data vrátí kurz daného (nebo nejbližšího předchozího) pracovního dne.
+async function cnbRateToCzk(dateIso: string, currency: string): Promise<{ rate: number; date: string } | null> {
+  const cur = (currency || '').toUpperCase()
+  if (!cur || cur === 'CZK') return { rate: 1, date: dateIso }
+  try {
+    const [y, m, d] = (dateIso || '').split('-')
+    const dd = (d && m && y) ? `${d}.${m}.${y}` : ''
+    const url = `https://www.cnb.cz/cs/financni-trhy/devizovy-trh/kurzy-devizoveho-trhu/kurzy-devizoveho-trhu/denni_kurz.txt${dd ? `?date=${dd}` : ''}`
+    const r = await fetch(url)
+    if (!r.ok) return null
+    const txt = await r.text()
+    const lines = txt.trim().split('\n')
+    const headerDate = (lines[0] || '').split(' ')[0] || dateIso
+    for (let i = 2; i < lines.length; i++) {
+      const p = lines[i].split('|')
+      if (p.length >= 5 && p[3].trim().toUpperCase() === cur) {
+        const amount = parseFloat(p[2].replace(',', '.')) || 1
+        const rate = parseFloat(p[4].replace(',', '.'))
+        if (rate > 0) return { rate: rate / amount, date: headerDate }
+      }
+    }
+    return null
+  } catch { return null }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: CORS })
@@ -48,20 +77,27 @@ Deno.serve(async (req: Request) => {
   // v doc-scanner bundlu i tady → kdokoli s APK mohl volat tuto service_role
   // funkci a vkládat falešné účetní doklady; rotace secretu ho neodvolala).
   // Nyní výhradně přes secret INVOICE_API_KEY (timing-safe porovnání).
+  // Dvě cesty: a) doc-scanner mobile přes X-Invoice-Api-Key; b) Velín admin přes JWT
+  // (Logistika → Naskladnění „Vyfotit fakturu"). Stačí jedna.
   const INVOICE_API_KEY = Deno.env.get('INVOICE_API_KEY') || ''
   const apiKey = req.headers.get('x-invoice-api-key') || ''
-
   const validKey = INVOICE_API_KEY.length > 0 && timingSafeEqualStr(apiKey, INVOICE_API_KEY)
-  if (!apiKey || !validKey) {
-    return jsonResponse({ error: 'Unauthorized: invalid API key' }, 401)
+  let authed = validKey
+  if (!authed) {
+    const a = await requireAdminOrService(req)
+    authed = a.ok
+  }
+  if (!authed) {
+    return jsonResponse({ error: 'Unauthorized: invalid API key or admin token' }, 401)
   }
 
   // -- Rate limiting --
+  const rlKey = apiKey || 'admin-jwt'
   const now = Date.now()
-  const rl = rateLimitStore.get(apiKey) || { count: 0, resetAt: now + 3600_000 }
+  const rl = rateLimitStore.get(rlKey) || { count: 0, resetAt: now + 3600_000 }
   if (now > rl.resetAt) { rl.count = 0; rl.resetAt = now + 3600_000 }
   rl.count++
-  rateLimitStore.set(apiKey, rl)
+  rateLimitStore.set(rlKey, rl)
 
   if (rl.count > RATE_LIMIT_MAX) {
     return jsonResponse({ error: 'Rate limit exceeded (max 100/hour)' }, 429)
@@ -133,7 +169,30 @@ Deno.serve(async (req: Request) => {
 
     const confidenceScore = parsed.confidence?.overall ?? 0.5
     const documentType = parsed.document_type || 'other'
-    const amountCzk = parsed.amount_czk || parsed.purchase?.amount_czk || 0
+    const isProforma = documentType === 'proforma'
+
+    // -- Měna + převod do CZK dle ČNB ke dni faktury --
+    const issueDateForFx = parsed.issue_date || new Date().toISOString().slice(0, 10)
+    const currency = (parsed.currency || 'CZK').toUpperCase()
+    const amountOriginal = parsed.amount_czk || parsed.purchase?.amount_czk || 0
+    const fx = await cnbRateToCzk(issueDateForFx, currency)
+    const fxRate = fx ? fx.rate : 1
+    const fxFailed = currency !== 'CZK' && !fx
+    const amountCzk = currency === 'CZK' ? amountOriginal : round2(amountOriginal * fxRate)
+
+    // Položky převedené do CZK + s návrhem SKU (pro naskladnění ve Velínu)
+    const convertedItems = (parsed.line_items || []).map((li: any) => ({
+      description: li?.description_cs || li?.description || '',
+      original_description: li?.description || null,
+      quantity: li?.quantity ?? null,
+      currency,
+      unit_price_original: li?.unit_price ?? null,
+      amount_original: li?.amount ?? null,
+      unit_price: li?.unit_price != null ? round2(li.unit_price * fxRate) : null,
+      amount: li?.amount != null ? round2(li.amount * fxRate) : null,
+      sku_suggestion: li?.sku_suggestion || null,
+      category_suggestion: li?.category_suggestion || null,
+    }))
 
     // -- 4. Determine event_type based on document_type --
     const eventTypeMap: Record<string, string> = {
@@ -160,7 +219,15 @@ Deno.serve(async (req: Request) => {
         status: eventStatus,
         metadata: {
           document_type: documentType,
+          is_proforma: isProforma,
+          source_language: parsed.source_language || 'cs',
+          currency,
+          amount_original: amountOriginal,
+          fx_rate: fxRate,
+          fx_date: fx?.date || null,
+          fx_failed: fxFailed,
           supplier_name: parsed.supplier_name,
+          supplier_name_cs: parsed.supplier_name_cs || null,
           supplier_ico: parsed.supplier_ico,
           supplier_dic: parsed.supplier_dic,
           supplier_address: parsed.supplier_address,
@@ -353,9 +420,19 @@ Pravidla:
       status: eventStatus,
       ai_classification: aiClassification,
       confidence: parsed.confidence,
-      needs_review: needsReview,
+      needs_review: needsReview || fxFailed,
+      source_language: parsed.source_language || 'cs',
+      currency,
+      fx_rate: fxRate,
+      fx_date: fx?.date || null,
+      fx_failed: fxFailed,
+      is_proforma: isProforma,
+      amount_czk: amountCzk,
+      // Položky pro naskladnění: přeložené do CZ + ceny v CZK (ČNB) + návrh SKU:
+      line_items: convertedItems,
       extracted: {
-        supplier: parsed.supplier_name,
+        supplier: parsed.supplier_name_cs || parsed.supplier_name,
+        supplier_original: parsed.supplier_name,
         supplier_ico: parsed.supplier_ico,
         supplier_bank_account: parsed.supplier_bank_account,
         amount: amountCzk,
