@@ -5,17 +5,18 @@
 
 ## 3. KLÍČOVÉ SLOUPCE (reálný stav DB)
 
-### accounting_entries (reálný stav DB ověřen introspekcí 2026-06-11)
+### accounting_entries (reálný stav DB ověřen introspekcí 2026-06-11, znovu ověřeno 2026-06-24)
 - id (uuid PK), **type (ENUM `entry_type`: income/expense) NOT NULL** — NE text s CHECK ('revenue','expense'), jak tvrdí migrace `20260321_accounting_entries.sql`
-- amount (numeric NOT NULL), **category (text NOT NULL)** — insert bez category tiše padá (root cause „tržby 0" ve Velínu do 2026-06-11)
-- description (text), date (date, **nullable** — Dashboard/Finance filtrují `.gte('date', ...)`, řádek s NULL date z přehledů vypadne)
+- amount (numeric(12,2) NOT NULL), **category (text NOT NULL)** — insert bez category tiše padá (root cause „tržby 0" ve Velínu do 2026-06-11)
+- description (text), date (date **DEFAULT CURRENT_DATE**, nullable — Dashboard/Finance filtrují `.gte('date', ...)`, řádek s NULL date z přehledů vypadne; nově se NULL nestane sám od sebe díky defaultu)
 - booking_id, branch_id, invoice_id, reference_id (uuid), reference_type (text)
-- tax_amount, tax_rate (numeric), created_by (uuid), created_at, updated_at
+- tax_amount (numeric(12,2)), tax_rate (numeric(4,2) **DEFAULT 21**), created_by (uuid), created_at, updated_at
 - **POZOR: sloupce `vat_rate`, `source`, `entry_date` NEEXISTUJÍ** (process-refund je do 2026-06-11 omylem používal — insert se zahazoval)
 - Frontend klasifikace příjmů: `velin/src/lib/revenueUtils.js#classifyEntry` — type='income' sám o sobě NEstačí, příjem se pozná dle category ('pronájem'/'rezervace'/...) nebo description ('platba za rezervaci...')
 
 ### admin_users
-- id, email, name, role (`admin_role` ENUM), password_hash
+- id, email, name, role (`admin_role` ENUM, DEFAULT 'viewer'), ~~password_hash~~ (odstraněno 2026-06-24 — autentizace přes `auth.users`, sloupec v reálné DB NEEXISTUJE)
+- **phone** (text), **active** (boolean NOT NULL DEFAULT true)
 - branch_access (uuid[]), permissions (jsonb)
 - last_login_at, created_at, updated_at
 
@@ -133,12 +134,20 @@
 - **registration_source** (TEXT DEFAULT NULL) — zdroj registrace: 'app' nebo 'web'
 - **password_last4_bcrypt** (TEXT) — bcrypt hash posledních 4 znaků hesla. Plní `set_web_booking_password` při nastavení/změně hesla. Používá AI agent (`find_booking_for_modification`, `apply_booking_changes_anon`) pro 3. ověřovací faktor při úpravě rezervace anonymním kanálem (booking_id + email/telefon + last4 z hesla). Existující profily mají NULL → AI úpravu nedovolí, RPC vrátí `password_check_unavailable`.
 - **app_permissions** (JSONB DEFAULT NULL) — **NEW 2026-06-07 (`20260607_profiles_app_permissions.sql`)** — poslední snapshot OS oprávnění z mobilní appky: `{location, camera, notification, photos (bool), platform ('android'/'ios'), reported_at (iso)}`. Plní Flutter appka `PermissionService.reportToProfile` (volá se při startu v `main._initPush` a po `requestAll` v obrazovce oprávnění; reportuje se od appky v1.0.8). Čte Velín → detail zákazníka (`CustomerProfileTab.jsx`) read-only v sekci „Oprávnění aplikace (telefon)". Informativní, device-level — nezasahuje do business logiky. NULL = appka oprávnění ještě nenahlásila (starší verze / web-only zákazník).
+- **docs_verified_at** (TIMESTAMPTZ), **docs_verification_status** (TEXT) — souhrnný stav ověření dokladů (vedle granulárních `id_verified_at`/`license_verified_at`/`passport_verified_at`).
+- **marketing_consent_at** (TIMESTAMPTZ) — okamžik udělení marketingového souhlasu (`marketing_consent`).
+- **preferred_channel** (TEXT DEFAULT 'sms') — preferovaný komunikační kanál (sms/email/...).
+- **phone_e164** (TEXT) — telefon v normalizovaném E.164 formátu (pro SMS/WhatsApp odesílání).
+- **loyalty_nickname** (TEXT, ověřeno 2026-06-24) — přezdívka zákazníka pro věrnostní žebříček (zobrazuje se v leaderboardu místo jména).
+- **loyalty_leaderboard_opt_in** (BOOLEAN NOT NULL DEFAULT true) — zákazník souhlasí s účastí ve veřejném věrnostním žebříčku.
+- **loyalty_bonus_points** (INTEGER NOT NULL DEFAULT 0) — ručně/akcí přidělené bonusové body do věrnostního skóre.
 
 ### payment_methods
 - id (UUID PK), user_id (UUID FK→profiles ON DELETE CASCADE)
+- **type** (TEXT NOT NULL, ověřeno 2026-06-24) — typ platební metody (card/...)
 - stripe_payment_method_id (TEXT UNIQUE) — Stripe PM ID
-- brand (TEXT DEFAULT 'unknown') — visa, mastercard, amex...
-- last4 (TEXT DEFAULT '****') — poslední 4 čísla karty
+- brand (TEXT) — visa, mastercard, amex... (reálná DB **bez** defaultu 'unknown')
+- last4 (TEXT) — poslední 4 čísla karty (reálná DB **bez** defaultu '****')
 - exp_month (INTEGER), exp_year (INTEGER) — expirace
 - holder_name (TEXT) — jméno držitele karty
 - is_default (BOOLEAN DEFAULT false) — prioritní karta
@@ -150,9 +159,9 @@
 - **unavailable_reason** (TEXT DEFAULT NULL) — důvod dočasného vyřazení (cleaning, transport, inspection, seasonal, damage_wait, other)
 - power_kw (NUMERIC(6,1)) — výkon v kW (povolena 1 desetina, např. 92.5)
 - torque_nm (NUMERIC(6,1)), fuel_tank_l (NUMERIC(4,1))
-- weight_kg (INTEGER), seat_height_mm (TEXT)
+- weight_kg (INTEGER), **seat_height_mm (INTEGER DEFAULT 0** — OPRAVA 2026-06-24: v reálné DB je INTEGER, ne TEXT)
 - license_required, has_abs, has_asc
-- **license_required** (TEXT DEFAULT 'A') — JEDNA kanonická skupina ŘP. Drží legacy logiku: dětská/`'N'` check (door codes, docs status, gear audience, AI agenti, smlouvy, web `create_web_booking` overlap). Velín ji **auto-odvozuje** z `license_groups` (`'N'` má přednost; jinak nejnižší moto rank AM<A1<A2<A; jinak B).
+- **license_required** (ENUM `license_group` DEFAULT 'A' — OPRAVA 2026-06-24: v reálné DB je typ `public.license_group`, ne TEXT) — JEDNA kanonická skupina ŘP. Drží legacy logiku: dětská/`'N'` check (door codes, docs status, gear audience, AI agenti, smlouvy, web `create_web_booking` overlap). Velín ji **auto-odvozuje** z `license_groups` (`'N'` má přednost; jinak nejnižší moto rank AM<A1<A2<A; jinak B).
 - **license_groups** (TEXT[] NOT NULL DEFAULT '{}', **NEW 2026-06-15** — migrace `20260615_moto_license_groups.sql`) — pole VŠECH přijímaných skupin ŘP (OR — stačí, aby zákazník měl kteroukoliv). Umožňuje skútr = `{A1,B}`, přívěs = `{B}` apod. Zadává se ve **Velíně** Fleet detail → „ŘP skupiny (lze vybrat více)" (chip multi-select, `'N'` výlučné). Backfill z `license_required` (jedna hodnota → pole). **Web** (`katalog.php` filtr ŘP + `katalog-detail.php`/karty výpis přes helper `motoLicenseGroups()` v `components.php`) i **App** (`Motorcycle.licenseGroups`/`licenseGroupsOrFallback`, filtr `CatalogFilter.apply` coverage mapa, `BookingValidator.checkLicense`) čtou pole, fallback na `[license_required]` když prázdné. Web `select *` / app `select('*, branches…')` propíše sloupec automaticky.
 - description, ideal_usage, features, manual_url
 - **manual_external_url** (TEXT) — externí URL na návod (např. stránka výrobce); použije se pouze pokud není nahrán PDF (`manual_url` je prázdný). PDF má vždy přednost.
@@ -187,6 +196,9 @@
 - **brake_type** (TEXT) — popis brzdové soustavy (např. „kotoučové (ABS)"). Spec tabulka.
 - **seats_count** (INTEGER) — počet míst k sezení (1 nebo 2). Spec tabulka.
 - **suitable_for** (TEXT) — HTML/text sekce „Pro koho je motorka vhodná?" (vykresluje se přes `sanitizeHtml()` v levém sloupci moto-info, mezi Krátkým popisem a Výbavou).
+- **box_number** (INTEGER, ověřeno 2026-06-24) — číslo boxu/stání na samoobslužné pobočce, kde kus stojí.
+- **unavailable_until** (TIMESTAMPTZ, ověřeno 2026-06-24) — do kdy je kus dočasně nedostupný (vazba na `status='unavailable'` + `unavailable_reason`).
+- **short_desc_fields** (TEXT[] NOT NULL DEFAULT '{}', ověřeno 2026-06-24) — výběr polí, která se mají skládat do „Krátkého popisu" na webu (spec klíče jako engine/transmission/...).
 - **image_alts** (TEXT[] DEFAULT '{}', **NEW 2026-05-17**) — paralelní pole SEO alt popisků k `images[]` (stejný index). Admin ve Velíně Fleet detail → fotky vyplňuje krátký popisek (např. „zepředu", „detail palubky"), PHP `katalog-detail.php` skládá finální alt jako `"{model} {color} – {popisek}"`. Pokud `image_alts[i]` prázdný/NULL → fallback na `"motorka {model} – půjčovna motogo24"` (původní chování). Migrace `20260517_image_alts.sql`.
 - **sort_order** (INTEGER, nullable, **NEW 2026-06-21** — migrace `20260621_motorcycles_sort_order.sql`) — ruční pořadí zobrazení (1-X) nastavované ve **Velíně** (Fleet detail → „Pořadí zobrazení (1-X)" + nepovinné pole v „Nová motorka"; Fleet list má sort „Dle pořadí (ruční)" a u modelu badge `#N`). Řídí pořadí na **webu**: krok „Vyber stroj" v rezervaci (`js/api.js#MG.fetchMotos` → `.order('sort_order',{ascending,nullsFirst:false}).order('model')`), katalog (výchozí řazení) a **pořadí fotek/videí v hero banneru** na home (`pages/home.php` čte `$motos` = `fetchMotos` v daném pořadí). PHP `supabase.php#fetchMotos` řadí `sort_order.asc.nullslast,model.asc`. NULL = neočíslováno → řadí se ZA očíslované dle modelu. Index `idx_motorcycles_sort_order`. SQL: `ALTER TABLE motorcycles ADD COLUMN IF NOT EXISTS sort_order integer;`
 - **videos** (TEXT[] NOT NULL DEFAULT '{}', **NEW 2026-06-14**) — pole veřejných URL MP4 videí motorky (bucket `media`, složka `motos/<id>/videos/`). Pořadí = pořadí přehrávání. Spravuje se ve **Velíně** Fleet detail → Fotogalerie → sekce „Videa MP4" (komponenta `VideoUploader`, ukládá `FleetDetailPhotos.jsx#syncVideos`, drag&drop / klik, bez komprese, default max 100 MB/soubor). **Web:** a) hero banner na home (`pages/home.php`) — když má aspoň jedna motorka video, hero se přepne na JS-řízený slideshow: motorka s videem hraje svá videa za sebou a přepne se na další až po dovysílání všech (čas zobrazení = délka videí), motorka bez videa zůstává časovaný foto-slide; bez jediného videa zůstává původní CSS-only crossfade. b) detail motorky (`pages/katalog-detail.php`) — video blok nad fotogalerií (autoplay muted, controls, sekvenčně). c) 2. krok rezervace (`js/pages-rezervace-steps.js` `_rezGalleryVideos`/`_rezGalleryHtml`/`_rezInitGallery`) — video(a) se zobrazí jen pokud existují, jinak fotky jako doposud. **Přehled/seznam (web i app) vždy fotka.** **App (Flutter):** model `Motorcycle.videos` (`moto_model.dart`), přehrávač `widgets/moto_video_player.dart` (balík `video_player`) na detailu (`moto_detail_page.dart`) — videa se spustí až po otevření detailu, muted s možností odmutovat, více videí jede za sebou. Web čte přes `select *` (fetchMotos, api.js), app přes `select('*, branches…')` — sloupec se propisuje sám. SQL: `ALTER TABLE motorcycles ADD COLUMN IF NOT EXISTS videos text[] NOT NULL DEFAULT '{}'::text[];`
@@ -207,7 +219,7 @@
 - **police_report_number** — číslo policejní zprávy
 - **replacement_moto_id** — ID náhradní motorky
 - **tow_requested** — požadavek na odtah (boolean)
-- type CHECK: theft/accident_minor/accident_major/breakdown_minor/breakdown_major/defect_question/location_share/other
+- **type (ENUM `sos_type` NOT NULL** — OPRAVA 2026-06-24: v reálné DB je to typ `public.sos_type`, ne text s CHECK): theft/accident_minor/accident_major/breakdown_minor/breakdown_major/defect_question/location_share/other
 - **is_test** (boolean DEFAULT false) — testovací incident z AI tréninku
 
 ### maintenance_log (nové sloupce)
@@ -215,6 +227,7 @@
 - **labor_hours** (NUMERIC DEFAULT 0) — odpracované hodiny technika
 - **extra_cost** (NUMERIC DEFAULT 0) — extra náklady (doprava, diagnostika, externí faktura)
 - **sos_incident_id** (UUID FK→sos_incidents ON DELETE SET NULL) — vazba na SOS incident pro urgent servisní záznamy
+- **is_test** (boolean DEFAULT false, ověřeno 2026-06-24) — testovací servisní záznam z AI tréninku
 
 ### acc_employees (nový sloupec)
 - **hourly_rate** (NUMERIC DEFAULT 500) — hodinová sazba technika v Kč
@@ -227,9 +240,10 @@
 
 ### invoices
 - id, number, type, customer_id, supplier_id, booking_id, order_id
-- issue_date, due_date, paid_date, issued_at
-- subtotal, tax_amount, total, amount, currency, status, pdf_path
-- items (jsonb), notes, variable_symbol, source
+- issue_date, due_date, paid_date ~~issued_at~~ (odstraněno 2026-06-24 — v reálné DB NEEXISTUJE)
+- subtotal, tax_amount, total, ~~amount, currency~~ (odstraněno 2026-06-24 — v reálné DB NEEXISTUJÍ), status (DEFAULT 'draft'), pdf_path
+- items (jsonb DEFAULT '[]'), notes, variable_symbol, source
+- **customer_snapshot** (JSONB, ověřeno 2026-06-24) — zamražený snapshot odběratele (jméno/adresa/IČO/DIČ) v okamžiku vystavení dokladu, aby pozdější změna profilu nezměnila historickou fakturu.
 - **matched_delivery_note_id** (UUID FK→delivery_notes ON DELETE SET NULL)
 - **original_invoice_id** (UUID FK→invoices ON DELETE SET NULL) — vazba dobropisu na původní fakturu
 - **stripe_refund_id** (TEXT) — ID Stripe refundu pro dobropisy — napárovaný dodací list
@@ -243,6 +257,16 @@
 - source (TEXT DEFAULT 'manual'), financial_event_id (UUID FK→financial_events)
 - matched_invoice_id (UUID FK→invoices), match_method (TEXT: ai/manual), match_confidence (NUMERIC), matched_at
 - created_at, updated_at
+
+### financial_events (klíčové sloupce, zdokumentováno 2026-06-24)
+Centrální účetní událost (jednotná vrstva nad fakturami/DL/refundy/výplatami pro FlexiBee sync a schvalování).
+- id (UUID PK), **event_type** (TEXT NOT NULL) — druh události, **source** (TEXT NOT NULL) — původ (booking/eshop/refund/manual/...)
+- **amount_czk** (NUMERIC(12,2) NOT NULL), **vat_rate** (NUMERIC(5,2) NOT NULL DEFAULT 0), **duzp** (DATE NOT NULL) — datum uskutečnění zdanitelného plnění
+- **linked_entity_type** (TEXT), **linked_entity_id** (UUID) — polymorfní vazba na zdrojový záznam (booking/invoice/...)
+- **confidence_score** (NUMERIC(3,2) DEFAULT 1.0) — jistota AI klasifikace, **document_type** (TEXT)
+- **status** (TEXT NOT NULL DEFAULT 'pending'), **flexi_id** (TEXT) — ID v FlexiBee po syncu, **metadata** (JSONB DEFAULT '{}')
+- created_at, updated_at
+- Souvisí: `flexi_sync_log`, `accounting_exceptions`, `approval_queue` (všechny FK→financial_events).
 
 ### contracts
 - id (UUID PK), contract_number, contract_type (TEXT: rental/lease/service/insurance/employment/employment_amendment/employment_termination/dpp/dpc/vacation_request/supply/nda/other)
@@ -268,6 +292,29 @@
 - valid_from, valid_to (date), max_uses (int), used_count (int NOT NULL DEFAULT 0)
 - min_order_amount (numeric), applicable_motos (text), active (boolean NOT NULL DEFAULT true), created_at
 - **source** (text, **NEW 2026-06-20**) — zdroj slevového kódu pro filtrování ve Velíně (`slevomat`/`eshop`/`spoluprace`/`vraceni`/`ostatni`, NULL = neurčeno). Zadává se v PromoModal, filtruje záložka „Promo kódy". SQL: `ALTER TABLE promo_codes ADD COLUMN IF NOT EXISTS source text;`. **Backfill + auto-tag (2026-06-20 B):** stávajícím kódům z vrácení (`code ILIKE 'VRACENI-%'`) doplněno `source='vraceni'`; budoucí auto-generované kódy z vrácení taguje trigger `trg_set_promo_code_source` (STATE_4).
+
+### loyalty_levels (klíčové sloupce, zdokumentováno 2026-06-24)
+Číselník věrnostních úrovní (rank 1–N) pro app slevy a žebříček. **PK = `level`** (integer, ne uuid).
+- **level** (INTEGER PK NOT NULL), **discount_percent** (INTEGER NOT NULL) — sleva náležící úrovni (1–20 %)
+- **min_booking_order** (INTEGER NOT NULL) — práh kvalifikujících rezervací pro dosažení úrovně
+- **name** (TEXT NOT NULL), **color_hex** (TEXT NOT NULL) — popisek a barva odznaku
+- **translations** (JSONB NOT NULL DEFAULT '{}') — překlady názvu úrovně pro web/app
+
+### loyalty_monthly_winners (NEW — klíčové sloupce, zdokumentováno 2026-06-24)
+Měsíční vítězové věrnostního žebříčku (kdo najel nejvíc dní za měsíc). **PK = `month`** (date, 1. den měsíce).
+- **month** (DATE PK NOT NULL) — měsíc ocenění (zarovnáno na 1. den)
+- **user_id** (UUID), **nickname** (TEXT) — zákazník + jeho přezdívka (`profiles.loyalty_nickname`)
+- **days** (INTEGER) — počet najetých/rezervovaných dní v daném měsíci
+- **awarded_level_before** (INTEGER) — věrnostní úroveň vítěze před udělením bonusu
+- **awarded_at** (TIMESTAMPTZ NOT NULL DEFAULT now())
+
+### service_orders (klíčové sloupce, zdokumentováno 2026-06-24)
+Servisní zakázky navázané na motorky/servisní záznamy.
+- id (UUID PK), **moto_id** (UUID NOT NULL), **maintenance_log_id** (UUID)
+- **type** (TEXT NOT NULL), **items** (JSONB NOT NULL DEFAULT '[]'), **km** (INTEGER)
+- **status** (TEXT NOT NULL DEFAULT 'pending'), **assigned_to** (TEXT), **notes** (TEXT)
+- completed_at, created_at, updated_at
+- **is_test** (boolean DEFAULT false) — testovací záznam z AI tréninku
 
 ### shop_orders
 - id (uuid PK), order_number (text UNIQUE)
