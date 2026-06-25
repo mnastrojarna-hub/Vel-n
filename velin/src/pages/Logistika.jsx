@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
 import { supabase } from '../lib/supabase'
 import Card from '../components/ui/Card'
 import Inventory from './Inventory'
-import { SkuConventionInfo } from '../components/ui/SkuTag'
+import SkuTag, { SkuConventionInfo } from '../components/ui/SkuTag'
 import { buildSku, parseSku } from '../lib/sku'
 import { accSku, deductFromWarehouse, returnToWarehouse, loadAccessoryTypes } from './BranchHelpers'
 
@@ -31,7 +31,7 @@ const addDaysIso = (n) => { const d = new Date(); d.setDate(d.getDate() + n); re
 
 const TABS = [
   ['calendar', 'Dostupnost'], ['worklist', 'Chybí kus'], ['transfers', 'Přesuny'],
-  ['stock', 'Sklad'], ['receive', 'Naskladnění'], ['orders', 'Objednávky'],
+  ['stock', 'Sklad'], ['receive', 'Naskladnění'], ['catalog', 'Číselník SKU'], ['orders', 'Objednávky'],
 ]
 
 export default function Logistika() {
@@ -86,6 +86,7 @@ export default function Logistika() {
         : tab === 'transfers' ? <PresunyTab branches={branches} />
         : tab === 'stock' ? <Inventory />
         : tab === 'receive' ? <NaskladneniTab />
+        : tab === 'catalog' ? <CatalogTab />
         : <Suspense fallback={<div className="py-10 text-center text-sm" style={{ opacity: .5 }}>Načítám…</div>}><OrdersTab /></Suspense>}
     </div>
   )
@@ -673,5 +674,135 @@ function NaskladneniTab() {
         </div>
       )}
     </Card>
+  )
+}
+
+// ─── Číselník SKU (autoritativní seznam položek) ────────────────────
+function CatalogTab() {
+  const [rows, setRows] = useState([])
+  const [accTypes, setAccTypes] = useState([])
+  const [q, setQ] = useState('')
+  const [cat, setCat] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [add, setAdd] = useState(false)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    const { data, error } = await supabase.from('sku_catalog').select('*').order('category').order('sku')
+    setRows(error ? [] : (data || []))
+    setLoading(false)
+  }, [])
+  useEffect(() => { load(); loadAccessoryTypes().then(setAccTypes) }, [load])
+
+  const filtered = rows.filter(r =>
+    (!cat || r.category === cat) &&
+    (!q || r.sku.includes(q.toLowerCase()) || (r.name || '').toLowerCase().includes(q.toLowerCase()) || (r.aliases || []).join(' ').toLowerCase().includes(q.toLowerCase())))
+
+  async function del(id) { if (!confirm('Smazat položku z číselníku?')) return; await supabase.from('sku_catalog').delete().eq('id', id); load() }
+
+  return (
+    <Card>
+      <div className="flex items-center gap-2 mb-3 flex-wrap">
+        <input value={q} onChange={e => setQ(e.target.value)} placeholder="Hledat SKU / název / alias…"
+          className="rounded-btn text-sm outline-none" style={{ padding: '7px 10px', background: '#f1faf7', border: '1px solid #d4e8e0', minWidth: 220 }} />
+        <select value={cat} onChange={e => setCat(e.target.value)} className="rounded-btn text-sm outline-none" style={{ padding: '7px 10px', background: '#f1faf7', border: '1px solid #d4e8e0' }}>
+          <option value="">Vše</option>
+          {['prislusenstvi', 'dily', 'material', 'zbozi', 'spotrebni'].map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
+        <span className="text-sm" style={{ color: '#1a2e22', opacity: 0.6 }}>{filtered.length} položek</span>
+        <span className="ml-auto flex items-center gap-2">
+          <SkuConventionInfo />
+          <button onClick={() => setAdd(true)} className="text-sm font-bold cursor-pointer rounded-btn" style={{ padding: '7px 14px', border: 'none', background: '#1a2e22', color: '#74FB71' }}>+ Položka</button>
+        </span>
+      </div>
+      <div className="text-xs mb-2" style={{ color: '#1a2e22', opacity: 0.6 }}>
+        Autoritativní seznam SKU. AI při scanu navrhuje SKU dle konvence a snaží se trefit tento číselník. Aliasy = cizojazyčné/alternativní názvy pro lepší rozpoznání.
+      </div>
+      {loading ? <div className="py-8 text-center text-sm" style={{ opacity: 0.5 }}>Načítám…</div>
+        : filtered.length === 0 ? <div className="py-8 text-center text-sm" style={{ opacity: 0.5 }}>Žádné položky. Nasaď SQL `sku_catalog` + seed, nebo přidej položku.</div>
+        : (
+          <div className="overflow-x-auto">
+            <table className="text-sm w-full" style={{ borderCollapse: 'collapse' }}>
+              <thead><tr style={{ borderBottom: '1px solid #d4e8e0' }}>
+                {['SKU', 'Název', 'Kategorie', 'Aliasy', ''].map(h => <th key={h} className="text-left text-xs font-extrabold uppercase" style={{ padding: '6px 8px', color: '#1a2e22' }}>{h}</th>)}
+              </tr></thead>
+              <tbody>
+                {filtered.map(r => (
+                  <tr key={r.id} style={{ borderBottom: '1px solid #eef5f1' }}>
+                    <td style={{ padding: '5px 8px' }}><SkuTag sku={r.sku} /></td>
+                    <td style={{ padding: '5px 8px', color: '#0f1a14' }}>{r.name}</td>
+                    <td style={{ padding: '5px 8px', color: '#1a2e22' }}>{r.category}</td>
+                    <td style={{ padding: '5px 8px', color: '#1a2e22', opacity: 0.7, fontSize: 12 }}>{(r.aliases || []).join(', ')}</td>
+                    <td style={{ padding: '5px 8px' }}><button onClick={() => del(r.id)} className="text-xs font-bold cursor-pointer" style={{ background: 'none', border: 'none', color: '#dc2626' }}>✕</button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      {add && <CatalogAddModal accTypes={accTypes} onClose={() => setAdd(false)} onSaved={() => { setAdd(false); load() }} />}
+    </Card>
+  )
+}
+
+function CatalogAddModal({ accTypes, onClose, onSaved }) {
+  const [cat, setCat] = useState('zbozi')
+  const [type, setType] = useState(''); const [size, setSize] = useState('')
+  const [slug, setSlug] = useState(''); const [name, setName] = useState('')
+  const [aliases, setAliases] = useState(''); const [busy, setBusy] = useState(false); const [err, setErr] = useState(null)
+
+  const isAcc = cat === 'prislusenstvi'
+  const sizes = accTypes.find(t => t.key === type)?.sizes || []
+  const sku = isAcc ? (type && size ? accSku(type, size) : '') : (slug ? buildSku(cat, slug) : '')
+
+  async function save() {
+    setErr(null)
+    if (!sku) { setErr('Vyplň typ+velikost nebo název pro SKU.'); return }
+    setBusy(true)
+    const payload = {
+      sku, category: cat,
+      name: name || (isAcc ? `${accTypes.find(t => t.key === type)?.label || type} ${size}` : slug),
+      type: isAcc ? type : null, size: isAcc ? size : null,
+      aliases: aliases.split(',').map(s => s.trim()).filter(Boolean),
+      is_consumable: cat === 'spotrebni' || !!accTypes.find(t => t.key === type)?.is_consumable,
+    }
+    const { error } = await supabase.from('sku_catalog').insert(payload)
+    setBusy(false)
+    if (error) { setErr(error.message); return }
+    onSaved()
+  }
+
+  const F = ({ label, children }) => <div className="flex flex-col gap-1"><span className="text-xs font-extrabold uppercase" style={{ color: '#1a2e22' }}>{label}</span>{children}</div>
+  const inp = { padding: '7px 10px', background: '#f1faf7', border: '1px solid #d4e8e0', borderRadius: 10, outline: 'none', fontSize: 14 }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,.5)' }} onClick={onClose}>
+      <div className="rounded-card" style={{ background: '#fff', padding: 20, width: 'min(94vw, 440px)' }} onClick={e => e.stopPropagation()}>
+        <div className="text-base font-black mb-3" style={{ color: '#0f1a14' }}>Nová položka číselníku</div>
+        <div className="flex flex-col gap-3">
+          <F label="Kategorie">
+            <select value={cat} onChange={e => setCat(e.target.value)} style={inp}>
+              {[['prislusenstvi', 'Příslušenství (gear)'], ['zbozi', 'Zboží (půjčovní)'], ['spotrebni', 'Spotřební'], ['material', 'Materiál'], ['dily', 'Náhradní díl']].map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+            </select>
+          </F>
+          {isAcc ? (
+            <div className="flex gap-3">
+              <F label="Typ"><select value={type} onChange={e => { setType(e.target.value); setSize('') }} style={inp}><option value="">—</option>{physicalTypes(accTypes).map(t => <option key={t.key} value={t.key}>{t.label}</option>)}</select></F>
+              <F label="Velikost"><select value={size} onChange={e => setSize(e.target.value)} style={inp}><option value="">—</option>{sizes.map(s => <option key={s} value={s}>{s}</option>)}</select></F>
+            </div>
+          ) : (
+            <F label="Název pro SKU (slug)"><input value={slug} onChange={e => setSlug(e.target.value)} placeholder="kufr-givi-46l" style={inp} /></F>
+          )}
+          <F label="Název položky"><input value={name} onChange={e => setName(e.target.value)} placeholder="(volitelné — doplní se z typu/slugu)" style={inp} /></F>
+          <F label="Aliasy (čárkou) — cizojazyčné/alt názvy"><input value={aliases} onChange={e => setAliases(e.target.value)} placeholder="pantalon, hose, trousers" style={inp} /></F>
+          <div className="text-sm font-mono" style={{ color: sku ? '#16a34a' : '#dc2626' }}>{sku || 'chybí SKU'}</div>
+          {err && <div className="text-sm" style={{ color: '#dc2626' }}>{err}</div>}
+        </div>
+        <div className="flex justify-end gap-3 mt-4">
+          <button onClick={onClose} className="text-sm font-bold cursor-pointer" style={{ background: 'none', border: 'none', color: '#64748b' }}>Zrušit</button>
+          <button onClick={save} disabled={busy || !sku} className="text-sm font-bold cursor-pointer rounded-btn" style={{ padding: '8px 16px', border: 'none', background: '#1a2e22', color: '#74FB71', opacity: (busy || !sku) ? 0.5 : 1 }}>{busy ? 'Ukládám…' : 'Přidat'}</button>
+        </div>
+      </div>
+    </div>
   )
 }
