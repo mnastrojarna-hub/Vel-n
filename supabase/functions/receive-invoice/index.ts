@@ -190,6 +190,8 @@ Deno.serve(async (req: Request) => {
       amount_original: li?.amount ?? null,
       unit_price: li?.unit_price != null ? round2(li.unit_price * fxRate) : null,
       amount: li?.amount != null ? round2(li.amount * fxRate) : null,
+      size: li?.size || null,
+      color: li?.color || null,
       sku_suggestion: li?.sku_suggestion || null,
       category_suggestion: li?.category_suggestion || null,
     }))
