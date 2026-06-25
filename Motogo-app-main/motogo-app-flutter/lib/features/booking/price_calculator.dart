@@ -254,7 +254,7 @@ class PriceCalculator {
 
     // Věrnostní sleva se KOMBINUJE s promo kódy i dárkovými vouchery —
     // slevy se sčítají. Kódy se počítají ze zbytku po věrnostní slevě
-    // (uvnitř calcDiscounts: fixní částky první, procenta ze zbytku).
+    // (uvnitř calcDiscounts: procento z plné částky, pak fixní ze zbytku).
     final discountTotal = calcDiscounts(
       discounts,
       (fullBase - loyaltyApplied).clamp(0, double.infinity).toDouble(),
@@ -292,28 +292,30 @@ class PriceCalculator {
 
   /// Apply discounts in correct order.
   /// Mirrors _recalcBookingDiscounts() from cart-booking-discount.js.
-  /// Fixed discounts first, then percentage on remaining amount.
+  /// Percentage discount first (on full base, max one), then fixed on the rest.
+  /// Parita s backendem `_calc_stacked_discount` (web i recalc úprav): procento
+  /// z plné částky, fixní slevy capované na zbytek; cena nikdy < 0.
   static double calcDiscounts(
     List<AppliedDiscount> discounts,
     double fullBase,
   ) {
     if (discounts.isEmpty) return 0;
 
-    double remaining = fullBase;
     double totalDiscount = 0;
 
-    // 1) Fixed-amount discounts first (in order applied)
-    for (final d in discounts.where((d) => d.type == DiscountType.fixed)) {
-      final amt = d.value.clamp(0, remaining);
-      d.calculatedAmount = amt.toDouble();
+    // 1) Procentní sleva NEJDŘÍV — z plné částky (pravidlo: max jedna %)
+    for (final d in discounts.where((d) => d.type == DiscountType.percent)) {
+      final amt = (fullBase * d.value / 100).roundToDouble();
+      d.calculatedAmount = amt;
       totalDiscount += amt;
-      remaining -= amt;
     }
 
-    // 2) Percentage discounts on remaining amount
-    for (final d in discounts.where((d) => d.type == DiscountType.percent)) {
-      final amt = remaining * d.value / 100;
-      d.calculatedAmount = amt.toDouble();
+    // 2) Fixní slevy ze zbytku (capováno na zbývající částku)
+    double remaining =
+        (fullBase - totalDiscount).clamp(0, double.infinity).toDouble();
+    for (final d in discounts.where((d) => d.type == DiscountType.fixed)) {
+      final amt = d.value.clamp(0, remaining).toDouble();
+      d.calculatedAmount = amt;
       totalDiscount += amt;
       remaining -= amt;
     }

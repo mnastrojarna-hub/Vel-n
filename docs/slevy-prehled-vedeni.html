@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MotoGo24 — Slevy, vouchery a kódy · přehled pro vedení</title>
+<style>
+  :root{--g:#16a34a;--gd:#1a2e22;--gl:#74FB71;--bg:#f6f8f7;--card:#fff;--bd:#e2e8e4;--amber:#b45309;--ambl:#fffbeb;--red:#dc2626;--redl:#fef2f2;--blue:#2563eb;--bluel:#eff6ff;}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;background:var(--bg);color:#0f1a14;line-height:1.5;font-size:15px}
+  .wrap{max-width:1080px;margin:0 auto;padding:32px 20px 80px}
+  header{background:linear-gradient(135deg,var(--gd),#0f1a14);color:#fff;border-radius:18px;padding:34px 36px;margin-bottom:28px}
+  header h1{margin:0 0 6px;font-size:30px;letter-spacing:-.5px}
+  header h1 span{color:var(--gl)}
+  header p{margin:0;opacity:.85;font-size:15px}
+  .tag{display:inline-block;background:rgba(116,251,113,.16);color:var(--gl);font-weight:700;font-size:12px;padding:4px 10px;border-radius:999px;margin-top:14px;letter-spacing:.3px}
+  h2{font-size:13px;letter-spacing:1.4px;text-transform:uppercase;color:var(--g);margin:38px 0 14px;font-weight:800}
+  h2 b{color:var(--gd)}
+  .grid{display:grid;gap:16px}
+  .g3{grid-template-columns:repeat(3,1fr)} .g2{grid-template-columns:repeat(2,1fr)}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:18px 20px}
+  .card h3{margin:0 0 4px;font-size:16px;display:flex;align-items:center;gap:8px}
+  .card .src{font-size:12px;color:#64748b;font-weight:600;margin-bottom:8px}
+  .card p{margin:6px 0;font-size:14px;color:#334155}
+  .pill{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;margin-right:4px}
+  .pct{background:#fee2e2;color:#b91c1c}.fix{background:#dcfce7;color:#15803d}.both{background:#e0e7ff;color:#4338ca}
+  table{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--bd);border-radius:12px;overflow:hidden;font-size:13.5px}
+  th,td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--bd);vertical-align:top}
+  th{background:#f1f5f3;font-size:11px;letter-spacing:.5px;text-transform:uppercase;color:#475569}
+  tr:last-child td{border-bottom:none}
+  .dp{color:#15803d;font-weight:700}.cn{color:var(--red);font-weight:700}
+  .mono{font-variant-numeric:tabular-nums}
+  .note{background:var(--ambl);border:1px solid #fde68a;border-radius:12px;padding:14px 18px;font-size:14px;color:#78350f}
+  .note.b{background:var(--bluel);border-color:#bfdbfe;color:#1e3a5f}
+  .flow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:10px 0}
+  .step{background:#fff;border:1px solid var(--bd);border-radius:10px;padding:8px 12px;font-size:13px;font-weight:600}
+  .arr{color:var(--g);font-weight:800}
+  .rule{display:flex;gap:12px;align-items:flex-start;background:#fff;border:1px solid var(--bd);border-left:4px solid var(--g);border-radius:10px;padding:12px 16px;margin-bottom:10px}
+  .rule .n{background:var(--g);color:#fff;font-weight:800;width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex:0 0 26px}
+  .rule b{color:var(--gd)}
+  .legend{font-size:12.5px;color:#475569;margin-top:8px}
+  footer{margin-top:46px;padding-top:18px;border-top:1px solid var(--bd);font-size:12.5px;color:#64748b}
+  @media(max-width:780px){.g3,.g2{grid-template-columns:1fr}}
+  @media print{body{background:#fff}.wrap{padding:0}header{border-radius:0}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>MotoGo24 — <span>Slevy, vouchery a kódy</span></h1>
+  <p>Kompletní přehled, jak nyní fungují všechny typy slev, jejich uplatňování na webu i v aplikaci, pravidla kombinací a chování při úpravách rezervace (doplatek i dobropis).</p>
+  <span class="tag">Stav k 25. 6. 2026 · pro vedení</span>
+</header>
+
+<h2><b>1.</b> &nbsp;Typy slev — odkud se berou</h2>
+<div class="grid g3">
+  <div class="card">
+    <h3>🏷️ Slevový kód</h3>
+    <div class="src">tabulka <code>promo_codes</code> · Velín → Slevové kódy</div>
+    <p><span class="pill pct">PROCENTO</span><span class="pill fix">PEVNÁ ČÁSTKA</span></p>
+    <p>Procentuální (např. −10 %) nebo pevná částka (např. −200 Kč). Platnost od–do, limit použití, lze i jednorázový.</p>
+    <p><b>Příklad automatu:</b> kód <code>VRACENI-…</code> (200 Kč) se vystaví zákazníkovi po dokončení rezervace.</p>
+  </div>
+  <div class="card">
+    <h3>⭐ Sleva z ranku (věrnostní)</h3>
+    <div class="src">tabulka <code>loyalty_levels</code> · <b>jen aplikace</b></div>
+    <p><span class="pill pct">PROCENTO</span></p>
+    <p>Automatická sleva 1–20 % podle počtu dokončených rezervací <b>v aplikaci</b>. Roste s věrností. Počítá se zvlášť, platí i na úpravy.</p>
+    <p><b>Neplatí na webu</b> — je to bonus za používání appky.</p>
+  </div>
+  <div class="card">
+    <h3>🎟️ Voucher (dárkový poukaz)</h3>
+    <div class="src">tabulka <code>vouchers</code> · pevná Kč hodnota</div>
+    <p><span class="pill fix">PEVNÁ ČÁSTKA</span></p>
+    <p>Předplacená hodnota, odečte se z ceny, rozdíl se doplatí. Tři zdroje → viz níže. Platnost typicky 1–3 roky.</p>
+  </div>
+</div>
+
+<h2><b>2.</b> &nbsp;Tři druhy voucherů</h2>
+<div class="grid g3">
+  <div class="card">
+    <h3>🖊️ Velínem ručně</h3>
+    <div class="src">admin vystaví ve Velíně</div>
+    <p>Dárkový poukaz na libovolnou hodnotu (spolupráce, kompenzace, marketing). Kód i platnost zadá admin.</p>
+  </div>
+  <div class="card">
+    <h3>🛒 Automaticky z e-shopu</h3>
+    <div class="src">nákup poukazu na webu/app</div>
+    <p>Zákazník koupí poukaz v e-shopu → po zaplacení se <b>automaticky vygeneruje kód</b> a <b>pošle e-mailem PDF poukaz</b>. (Beze změny — funguje jako dřív.)</p>
+  </div>
+  <div class="card">
+    <h3>🔗 Externí ze Slevomatu</h3>
+    <div class="src">prodává Slevomat · <code>source='slevomat'</code></div>
+    <p>Slevomat prodá otevřený voucher (1000–10000 Kč) se slevou 10–15 %, vystaví kód. My ho přes <b>Slevomat Partner API</b> ověříme a uplatníme; u nás se eviduje jako dárkový poukaz.</p>
+  </div>
+</div>
+<div class="note b" style="margin-top:14px"><b>Slevomat — prodejní ceny:</b> 1000 Kč za 899 (−10 %) · 2000 za 1780 (−11 %) · 3000 za 2640 (−12 %) · 5000 za 4350 (−13 %) · 10000 za 8500 (−15 %). U nás se odečítá <b>plná hodnota</b> voucheru; sleva je v prodejní ceně Slevomatu. <b>Čeká na spuštění:</b> partnerský token + ID variant od Slevomatu.</div>
+
+<h2><b>3.</b> &nbsp;Jak se uplatňují — web i aplikace</h2>
+<div class="grid g2">
+  <div class="card">
+    <h3>🌐 Web (motogo24.cz)</h3>
+    <p>V rezervaci pole <b>„Kód poukazu / slevy"</b> → zákazník zadá <b>libovolný počet</b> kódů i voucherů. Hodnota se průběžně odečítá. Slevomat kód se ověří přímo proti Slevomatu.</p>
+  </div>
+  <div class="card">
+    <h3>📱 Aplikace</h3>
+    <p>V rezervaci sekce slev → přidá <b>víc kódů i voucherů</b> do seznamu. Navíc automaticky <b>sleva z ranku</b>. Vše se uloží a po platbě uplatní.</p>
+  </div>
+</div>
+<div class="flow">
+  <span class="step">Zadání kódu</span><span class="arr">→</span>
+  <span class="step">Ověření (platný/zaplacený/nepoužitý)</span><span class="arr">→</span>
+  <span class="step">Odečtení z ceny</span><span class="arr">→</span>
+  <span class="step">Platba (doplatek)</span><span class="arr">→</span>
+  <span class="step">Uplatnění: voucher→použitý, Slevomat→nahlášeno, kód→zalogováno</span>
+</div>
+<div class="legend">Při <b>zrušení</b> rezervace se naše vouchery vrátí k použití; Slevomat voucher se nevrací (uplatnění u nich nelze vzít zpět — řeší se vratkou).</div>
+
+<h2><b>4.</b> &nbsp;Pravidla kombinací (slevová politika)</h2>
+<div class="rule"><div class="n">1</div><div><b>Víc slev najednou.</b> Lze sečíst libovolný počet voucherů i slevových kódů na jednu rezervaci (web i app).</div></div>
+<div class="rule"><div class="n">2</div><div><b>Maximálně jedna procentní sleva.</b> Procento smí být jen jedno (jeden % kód <i>nebo</i> jeden % voucher). Sleva z ranku je samostatná (jen app) a kombinuje se navíc.</div></div>
+<div class="rule"><div class="n">3</div><div><b>Pořadí výpočtu.</b> Nejdřív procento z plné ceny, pak se odečtou pevné částky (vouchery) ze zbytku. Web i aplikace počítají <b>stejně</b>.</div></div>
+<div class="rule"><div class="n">4</div><div><b>Cena nikdy nejde do mínusu.</b> Pevné vouchery se zastropují na zbývající cenu; přebytek voucheru propadá (nevrací se hotovost).</div></div>
+
+<h2><b>5.</b> &nbsp;Úpravy rezervace — doplatek (DP) vs. dobropis</h2>
+<div class="note"><b>Princip (varianta B):</b> Co <b>přidáš</b> (prodloužení, výbava, dražší motorka) = <b>plná cena</b>, původní sleva zůstává → <span class="dp">doplatek (rozdílový DP)</span>. Co <b>ubereš</b> (zkrácení, odebraná výbava, levnější motorka) = vrací se <b>jen vyslevovaná (poměrná) částka</b> → <span class="cn">dobropis</span>. Nikdy nevrátíme víc, než jsme vydělali.</div>
+
+<p style="font-size:13.5px;color:#475569;margin:14px 0 8px">
+<b>Výchozí rezervace:</b> 3 dny, ceník <b>9 000 Kč</b>. Sleva: <b>kód −10 %</b> + <b>voucher 3 000 Kč</b>. → 10 % z 9 000 = 900, pak voucher 3 000 = sleva <b>3 900 Kč</b>. Zákazník zaplatil <b class="mono">5 100 Kč</b>. Doklad: Pronájem 9 000 · Slevový kód 10 % −900 · Voucher −3 000.</p>
+
+<table>
+  <thead><tr><th>Úprava rezervace</th><th>Hrubý rozdíl</th><th>Pravidlo</th><th>Nová sleva</th><th>Nová cena</th><th>Účtuje se zákazníkovi</th></tr></thead>
+  <tbody>
+    <tr><td>Prodloužení o 1 den</td><td class="mono">+3 000</td><td>plná cena, sleva zachována</td><td class="mono">3 900</td><td class="mono">8 100</td><td class="dp">DP +3 000 Kč</td></tr>
+    <tr><td>Přidání bot řidiči</td><td class="mono">+690</td><td>plná cena</td><td class="mono">3 900</td><td class="mono">5 790</td><td class="dp">DP +690 Kč</td></tr>
+    <tr><td>Změna na dražší motorku</td><td class="mono">+1 500</td><td>plná cena</td><td class="mono">3 900</td><td class="mono">6 600</td><td class="dp">DP +1 500 Kč</td></tr>
+    <tr><td>Zkrácení o 1 den</td><td class="mono">−3 000</td><td>poměrná vratka (10 % z 6 000 + voucher 3 000)</td><td class="mono">3 600</td><td class="mono">2 400</td><td class="cn">Dobropis −2 700 Kč</td></tr>
+    <tr><td>Odebrání bot</td><td class="mono">−690</td><td>poměrná vratka</td><td class="mono">3 831</td><td class="mono">4 479</td><td class="cn">Dobropis −621 Kč</td></tr>
+    <tr><td>Změna na levnější motorku</td><td class="mono">−1 500</td><td>poměrná vratka</td><td class="mono">3 750</td><td class="mono">3 750</td><td class="cn">Dobropis −1 350 Kč</td></tr>
+  </tbody>
+</table>
+<div class="legend">U zkrácení se navíc uplatní <b>storno tabulka</b> (≥7 dní předem 100 %, 2–7 dní 50 %, &lt;2 dny 0 % z vratky). Příklad počítá s ≥7 dny. Sleva z ranku (app) se přepočítává také, ale platí na vše včetně úprav. Stejná pravidla platí na webu i v aplikaci.</div>
+
+<h2><b>6.</b> &nbsp;Faktury a doklady — položkově</h2>
+<div class="grid g2">
+  <div class="card">
+    <h3>📄 Každá sleva = vlastní řádek</h3>
+    <p>Na ZF (zálohová), DP (daňový doklad k platbě), KF (konečná) i dobropisu je <b>samostatný řádek za každý voucher i kód</b> + zvlášť sleva z ranku a sleva za pozdní vyzvednutí. Vedení i zákazník přesně vidí, z čeho se sleva skládá.</p>
+  </div>
+  <div class="card">
+    <h3>📎 Přílohy e-mailů</h3>
+    <p>Doklady se generují a přikládají do e-mailů automaticky (rezervace, úprava, dokončení). E-shop poukaz dál posílá <b>PDF voucher s kódem</b>. Součty vždy sedí na zaplacenou částku.</p>
+  </div>
+</div>
+
+<h2><b>7.</b> &nbsp;Životní cyklus voucheru / kódu</h2>
+<div class="flow">
+  <span class="step">Vznik (Velín / e-shop / Slevomat)</span><span class="arr">→</span>
+  <span class="step">Zadání v rezervaci</span><span class="arr">→</span>
+  <span class="step">Odečtení z ceny</span><span class="arr">→</span>
+  <span class="step">Platba</span><span class="arr">→</span>
+  <span class="step">Uplatnění (redeemed)</span><span class="arr">→</span>
+  <span class="step">Úprava: přepočet · Zrušení: obnova (mimo Slevomat)</span>
+</div>
+
+<footer>
+  MotoGo24 · interní přehled slevového systému · vygenerováno 25. 6. 2026.<br>
+  Stav: backend nasazen a ověřen; web a aplikace upraveny. Spuštění Slevomatu čeká na partnerský token a ID variant. Aplikace vyžaduje nový build.
+</footer>
+
+</div>
+</body>
+</html>
