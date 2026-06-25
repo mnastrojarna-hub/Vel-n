@@ -26,7 +26,10 @@ Přečti dokument a vrať POUZE JSON, žádný markdown, žádný text navíc.
     "depreciation_group": null,
     "depreciation_years": null,
     "depreciation_method": "accelerated|linear|null",
-    "asset_name": null
+    "asset_name": null,
+    "vin": null,
+    "license_plate": null,
+    "serial_number": null
   },
   "loan": {
     "provider": null,
@@ -85,6 +88,7 @@ PRAVIDLA pro asset_classification:
 - drobna_rezie: drobné provozní náklady (poštovné, parkovné, dálniční známky, poplatky)
 - sluzba: služby (servis, účetnictví, právní služby, marketing, hosting, telekom)
 - null: nelze určit
+- U VOZIDEL/MOTOREK (dlouhodobý majetek) VŽDY vyplň vin (číslo karoserie/VIN, 17 znaků) a license_plate (SPZ/registrační značka), pokud jsou na dokladu — slouží k nezaměnitelnému spárování s flotilou. U ostatního majetku vyplň serial_number (výrobní číslo), je-li uvedeno.
 
 PRAVIDLA pro položky (line_items):
 - Pro KAŽDOU položku vyplň quantity (počet kusů, default 1) a unit_price (cena za kus bez měny). Když cena za kus chybí, dopočítej z amount/quantity.

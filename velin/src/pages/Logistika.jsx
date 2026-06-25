@@ -619,6 +619,15 @@ function NaskladneniTab() {
           p_supplier_name: ex.supplier || null, p_amount: data.amount_czk || 0,
         }).catch(() => ({ data: null }))
         if (cs && cs.status && cs.status !== 'new') setOcrInfo(o => ({ ...o, dup: cs }))
+        // Kontrola duplicity MAJETKU (motorka dle VIN/SPZ, jinak dle názvu) → doplnit, ne duplikovat
+        const ac = ex.asset_classification || {}
+        if (['dlouhodoby_majetek', 'kratkodoby_majetek'].includes(ac.type)) {
+          const { data: as } = await supabase.rpc('check_asset_status', {
+            p_asset_type: ac.type, p_vin: ac.vin || null, p_spz: ac.license_plate || null,
+            p_name: ac.asset_name || null, p_amount: data.amount_czk || 0,
+          }).catch(() => ({ data: null }))
+          if (as && as.status && as.status !== 'new') setOcrInfo(o => ({ ...o, assetDup: as }))
+        }
       }
     } finally { setOcrBusy(false) }
   }
@@ -778,6 +787,17 @@ function NaskladneniTab() {
             {ocrInfo.dup.status === 'need_stock'
               ? '↪ Tato faktura už je ve financích — Uložit doplní jen naskladnění (finance se znovu nezapíší).'
               : '↪ Toto zboží už je naskladněné — Uložit doplní jen finanční evidenci (sklad se znovu nenavýší).'}
+          </div>
+        )
+      )}
+      {docType === 'ocr' && ocrInfo && ocrInfo.assetDup && ocrInfo.assetDup.status !== 'new' && (
+        ocrInfo.assetDup.status === 'duplicate_full' ? (
+          <div className="mb-2 rounded-btn text-sm font-bold" style={{ padding: '8px 12px', background: '#fff5f5', color: '#dc2626', border: '1px solid #fca5a5' }}>
+            ⛔ Tento majetek už je kompletně evidovaný{ocrInfo.assetDup.label ? `: ${ocrInfo.assetDup.label}` : ''} (cena i doklad). Uložením vznikne duplicita.
+          </div>
+        ) : (
+          <div className="mb-2 rounded-btn text-sm font-bold" style={{ padding: '8px 12px', background: '#eef6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' }}>
+            ℹ {ocrInfo.assetDup.kind === 'motorcycle' ? 'Tato motorka už je ve flotile' : 'Tento majetek už existuje'}{ocrInfo.assetDup.label ? `: ${ocrInfo.assetDup.label}` : ''}. Po schválení události se k němu jen <b>doplní chybějící doklad</b> (cena, faktura, odpisy) — <b>nevznikne duplicita</b>.
           </div>
         )
       )}
