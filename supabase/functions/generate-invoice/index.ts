@@ -516,7 +516,24 @@ serve(async (req) => {
         }
         if (booking.delivery_fee && Number(booking.delivery_fee) > 0) items.push({ description: 'Přistavení / odvoz motorky', qty: 1, unit_price: Number(booking.delivery_fee) })
         if (booking.sos_replacement && !extra_items) items.push({ description: 'Záloha na poškození motorky', qty: 1, unit_price: 30000 })
-        if (booking.discount_amount && Number(booking.discount_amount) > 0) {
+        // Slevy — KAŽDÝ promo kód i voucher samostatný řádek (z booking_discounts).
+        // Fallback: legacy rezervace bez booking_discounts → jeden souhrnný řádek.
+        const { data: bookingDiscounts } = await supabase
+          .from('booking_discounts')
+          .select('kind, code, discount_type, value, amount')
+          .eq('booking_id', booking.id)
+          .order('created_at')
+        if (bookingDiscounts && bookingDiscounts.length > 0) {
+          for (const d of bookingDiscounts) {
+            if (!d.amount || Number(d.amount) <= 0) continue
+            const lbl = d.kind === 'voucher'
+              ? `Voucher (${d.code})`
+              : (d.discount_type === 'percent'
+                  ? `Slevový kód ${d.code} (${d.value} %)`
+                  : `Slevový kód ${d.code}`)
+            items.push({ description: lbl, qty: 1, unit_price: -Number(d.amount) })
+          }
+        } else if (booking.discount_amount && Number(booking.discount_amount) > 0) {
           items.push({ description: booking.discount_code ? `Sleva (kód: ${booking.discount_code})` : 'Sleva / voucher', qty: 1, unit_price: -Number(booking.discount_amount) })
         }
         // Věrnostní sleva (ranky) — samostatný řádek; platí JEN pro rezervace
