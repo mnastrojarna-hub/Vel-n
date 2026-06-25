@@ -49,6 +49,8 @@ BEGIN
 END; $$;
 
 -- ── Re-alokace: rozpočítej discount_amount na řádky PROPORCIONÁLNĚ ────────────
+-- DROP nutný: původní verze měla parametr p_gross → CREATE OR REPLACE neumí přejmenovat.
+DROP FUNCTION IF EXISTS public._reallocate_booking_discounts(uuid, numeric);
 CREATE OR REPLACE FUNCTION public._reallocate_booking_discounts(p_booking_id uuid, p_target numeric)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
