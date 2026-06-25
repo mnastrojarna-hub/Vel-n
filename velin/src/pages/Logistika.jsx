@@ -9,9 +9,21 @@ import { accSku, deductFromWarehouse, returnToWarehouse, loadAccessoryTypes } fr
 // Skladově se NErozlišuje řidič/spolujezdec — fyzické typy gearu (mají velikost):
 const PHYSICAL_GEAR = ['helmet', 'jacket', 'pants', 'boots', 'gloves', 'balaclava']
 const physicalTypes = (types) => (types || []).filter(t => PHYSICAL_GEAR.includes(t.key))
-// Zboží/spotřební bez velikosti (kufry, sítě, držáky, oleje…) → kategorie řídí SKU prefix + finance:
-const GOODS_CATS = [['zbozi', 'Zboží (půjčovní)'], ['spotrebni', 'Spotřební'], ['material', 'Materiál'], ['dily', 'Náhradní díl']]
-const CAT_TO_INV = { zbozi: 'inventory', spotrebni: 'supplies', material: 'material', dily: 'material' }
+// Kategorie položky při naskladnění (skladová + účetní rovina). sized=gear s velikostí;
+// asset=jen finance (nenaskladňuje se na sklad); inv=inventory.category; skuCat=SKU prefix.
+// „Příslušenství" = vše půjčované k motorkám i mimo oficiální flow (zámky, páteřáky, držáky).
+const ITEM_CATS = [
+  { key: 'prislusenstvi_gear', label: 'Příslušenství – výbava (velikost)', sized: true, inv: 'prislusenstvi', skuCat: 'prislusenstvi' },
+  { key: 'prislusenstvi', label: 'Příslušenství – ostatní (zámek, páteřák, držák…)', inv: 'prislusenstvi', skuCat: 'prislusenstvi' },
+  { key: 'zbozi', label: 'Zboží – e-shop', inv: 'inventory', skuCat: 'zbozi' },
+  { key: 'dily', label: 'Náhradní díly – servis', inv: 'material', skuCat: 'dily' },
+  { key: 'material', label: 'Materiál', inv: 'material', skuCat: 'material' },
+  { key: 'spotrebni', label: 'Spotřební / režie', inv: 'supplies', skuCat: 'spotrebni' },
+  { key: 'dlouhodoby', label: 'Dlouhodobý majetek (motorka…) – jen finance', asset: true, inv: 'inventory', skuCat: 'majetek' },
+]
+const catDef = (k) => ITEM_CATS.find(c => c.key === k) || ITEM_CATS[1]
+// Mapování AI category_suggestion → naše klíče
+const AI_CAT_MAP = { prislusenstvi: 'prislusenstvi', zbozi: 'zbozi', dily: 'dily', material: 'material', spotrebni: 'spotrebni' }
 
 const OrdersTab = lazy(() => import('./accounting/AutoOrdersTab'))
 
@@ -539,14 +551,15 @@ function NaskladneniTab() {
     else supabase.from('invoices').select('id, number, notes, items, issue_date').eq('type', 'received').order('issue_date', { ascending: false }).limit(50).then(({ data }) => setDocs(data || []))
   }, [docType])
 
-  const mkLine = (name, price, qty) => { const g = guessLine(name); return { name: name || '', qty: qty || 1, unit_price: price || 0, mode: g.type ? 'acc' : 'goods', type: g.type, size: g.size, cat: 'zbozi', slug: name || '' } }
+  const mkLine = (name, price, qty) => { const g = guessLine(name); return { name: name || '', qty: qty || 1, unit_price: price || 0, cat: g.type ? 'prislusenstvi_gear' : 'prislusenstvi', type: g.type, size: g.size, slug: name || '' } }
   // Z OCR řádku poskládá položku včetně navrženého SKU (parsuje sku_suggestion).
   const mkLineFromOcr = (it) => {
     const price = it.unit_price ?? it.amount ?? 0
     const p = it.sku_suggestion ? parseSku(it.sku_suggestion) : null
-    if (p && p.isAccessory && p.type && p.size) return { name: it.description || '', qty: it.quantity || 1, unit_price: price, mode: 'acc', type: p.type, size: p.size, cat: 'zbozi', slug: '' }
-    if (p && !p.isAccessory && p.slug) return { name: it.description || '', qty: it.quantity || 1, unit_price: price, mode: 'goods', type: '', size: '', cat: it.category_suggestion || p.category || 'zbozi', slug: p.slug }
-    return mkLine(it.description || '', price, it.quantity || 1)
+    if (p && p.isAccessory && p.type && p.size) return { name: it.description || '', qty: it.quantity || 1, unit_price: price, cat: 'prislusenstvi_gear', type: p.type, size: p.size, slug: '' }
+    const aiCat = AI_CAT_MAP[it.category_suggestion] || (p && !p.isAccessory ? AI_CAT_MAP[p.category] : null) || 'prislusenstvi'
+    const slug = (p && !p.isAccessory && p.slug) ? p.slug : (it.description || '')
+    return { name: it.description || '', qty: it.quantity || 1, unit_price: price, cat: aiCat, type: '', size: '', slug }
   }
 
   async function handleOcr(file) {
@@ -560,11 +573,14 @@ function NaskladneniTab() {
       if (error) { alert('OCR selhalo: ' + error.message); return }
       if (!data?.success) { alert('Doklad se nepodařilo přečíst: ' + (data?.error || 'neznámá chyba')); return }
       const items = Array.isArray(data.line_items) ? data.line_items : []
+      const ex = data.extracted || {}
       setOcrInfo({
-        supplier: data.extracted?.supplier, number: data.extracted?.invoice_number,
+        supplier: ex.supplier, number: ex.invoice_number,
         type: data.document_type, count: items.length, eventId: data.financial_event_id,
         lang: data.source_language, needsReview: data.needs_review,
         currency: data.currency, fxDate: data.fx_date, fxFailed: data.fx_failed, isProforma: data.is_proforma,
+        amount: data.amount_czk, ico: ex.supplier_ico, bank: ex.supplier_bank_account,
+        vs: ex.variable_symbol, issue: ex.date, due: ex.due_date, pay: ex.payment_method,
       })
       setLines(items.length ? items.map(mkLineFromOcr) : [mkLine('', 0, 1)])
     } finally { setOcrBusy(false) }
@@ -574,11 +590,12 @@ function NaskladneniTab() {
     setLines(items.length ? items.map(it => mkLine(it.description || it.name || '', it.amount ?? it.unit_price ?? 0, it.quantity || 1)) : [mkLine('', 0, 1)])
   }
   const upd = (i, patch) => setLines(ls => ls.map((l, j) => j === i ? { ...l, ...patch } : l))
-  const lineSku = (l) => l.mode === 'acc' ? (l.type && l.size ? accSku(l.type, l.size) : '') : (l.slug ? buildSku(l.cat, l.slug) : '')
+  const lineSku = (l) => { const d = catDef(l.cat); if (d.asset) return ''; if (d.sized) return (l.type && l.size) ? accSku(l.type, l.size) : ''; return l.slug ? buildSku(d.skuCat, l.slug) : '' }
+  const discard = () => { setLines([]); setOcrInfo(null); setDocId('') }
 
   async function stockAll() {
     if (ocrInfo?.isProforma) { alert('Zálohová faktura (proforma) — zboží zatím nedorazilo, nenaskladňuje se.'); return }
-    const payload = lines.map(l => ({ sku: lineSku(l), name: l.name, qty: Number(l.qty) || 0, unit_price: Number(l.unit_price) || 0, category: l.mode === 'acc' ? 'prislusenstvi' : (CAT_TO_INV[l.cat] || 'inventory') })).filter(l => l.sku && l.qty > 0)
+    const payload = lines.map(l => ({ sku: lineSku(l), name: l.name, qty: Number(l.qty) || 0, unit_price: Number(l.unit_price) || 0, category: catDef(l.cat).inv })).filter(l => l.sku && l.qty > 0)
     if (!payload.length) { alert('Žádná položka nemá vyplněné SKU (typ+velikost) a počet > 0.'); return }
     const d = docs.find(x => x.id === docId)
     const note = docType === 'ocr' ? `Naskladnění z faktury (OCR)${ocrInfo?.supplier ? ' ' + ocrInfo.supplier : ''}${ocrInfo?.number ? ' ' + ocrInfo.number : ''}${ocrInfo?.eventId ? ' [FE:' + ocrInfo.eventId + ']' : ''}`.trim()
@@ -626,8 +643,14 @@ function NaskladneniTab() {
           {ocrInfo.lang && ocrInfo.lang !== 'cs' ? ` · přeloženo z „${ocrInfo.lang}"` : ''}
           {ocrInfo.currency && ocrInfo.currency !== 'CZK' ? (ocrInfo.fxFailed ? ` · ⚠ kurz ČNB nenačten — ceny v ${ocrInfo.currency}` : ` · ceny převedeny ${ocrInfo.currency}→CZK (ČNB ${ocrInfo.fxDate || ''})`) : ''}
           <div className="text-xs font-semibold mt-1" style={{ color: '#1a2e22', opacity: 0.8 }}>
-            💰 Finanční událost založena → čeká na schválení ve Finance (vznikne faktura/majetek).{ocrInfo.needsReview ? ' Nízká jistota — zkontroluj ve Výjimkách.' : ''} Zkontroluj SKU a počet a naskladni zboží.
+            💰 Uloženo do Finance → Účetnictví → Finanční události (čeká na schválení → faktura/majetek).{ocrInfo.needsReview ? ' Nízká jistota — zkontroluj ve Výjimkách.' : ''} Zkontroluj SKU a počet a naskladni zboží.
           </div>
+        </div>
+      )}
+      {docType === 'ocr' && ocrInfo && (
+        <div className="mb-2 text-xs flex flex-wrap gap-x-4 gap-y-1 rounded-btn" style={{ color: '#1a2e22', padding: '6px 10px', background: '#f1faf7', border: '1px solid #e2eee8' }}>
+          {[['Č. dokladu', ocrInfo.number], ['Částka', ocrInfo.amount != null ? `${Number(ocrInfo.amount).toLocaleString('cs-CZ')} Kč` : null], ['Splatnost', ocrInfo.due], ['Vystaveno', ocrInfo.issue], ['VS', ocrInfo.vs], ['IČO', ocrInfo.ico], ['Č. účtu', ocrInfo.bank], ['Platba', ocrInfo.pay]]
+            .filter(([, v]) => v).map(([k, v]) => <span key={k}><b>{k}:</b> {v}</span>)}
         </div>
       )}
       <div className="text-xs mb-2" style={{ color: '#1a2e22', opacity: 0.6 }}>
@@ -640,10 +663,10 @@ function NaskladneniTab() {
             {lines.map((l, i) => (
               <div key={i} className="flex items-center gap-2 flex-wrap rounded-btn" style={{ padding: '8px 10px', background: '#f9fdfb', border: '1px solid #e2eee8' }}>
                 <input value={l.name} onChange={e => upd(i, { name: e.target.value })} placeholder="Název položky" className="rounded-btn text-sm outline-none" style={{ padding: '5px 8px', background: '#fff', border: '1px solid #d4e8e0', flex: '1 1 160px', minWidth: 120 }} />
-                <select value={l.mode} onChange={e => upd(i, { mode: e.target.value })} className="rounded-btn text-xs outline-none" style={{ padding: '5px 6px', background: '#fff', border: '1px solid #d4e8e0' }}>
-                  <option value="acc">Příslušenství (gear)</option><option value="goods">Zboží / spotřební</option>
+                <select value={l.cat} onChange={e => upd(i, { cat: e.target.value, type: '', size: '' })} className="rounded-btn text-xs outline-none" style={{ padding: '5px 6px', background: '#fff', border: '1px solid #d4e8e0', maxWidth: 230 }}>
+                  {ITEM_CATS.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
                 </select>
-                {l.mode === 'acc' ? (
+                {catDef(l.cat).sized ? (
                   <>
                     <select value={l.type} onChange={e => upd(i, { type: e.target.value, size: '' })} className="rounded-btn text-xs outline-none" style={{ padding: '5px 6px', background: '#fff', border: '1px solid #d4e8e0' }}>
                       <option value="">typ</option>{physicalTypes(accTypes).map(t => <option key={t.key} value={t.key}>{t.label}</option>)}
@@ -652,25 +675,23 @@ function NaskladneniTab() {
                       <option value="">vel.</option>{(accTypes.find(t => t.key === l.type)?.sizes || []).map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                   </>
-                ) : (
-                  <>
-                    <select value={l.cat} onChange={e => upd(i, { cat: e.target.value })} title="Spotřební vs zboží pro půjčovnu" className="rounded-btn text-xs outline-none" style={{ padding: '5px 6px', background: '#fff', border: '1px solid #d4e8e0' }}>
-                      {GOODS_CATS.map(([k, lab]) => <option key={k} value={k}>{lab}</option>)}
-                    </select>
-                    <input value={l.slug} onChange={e => upd(i, { slug: e.target.value })} placeholder="název (kufr-givi-46l)" className="rounded-btn text-xs outline-none" style={{ padding: '5px 8px', background: '#fff', border: '1px solid #d4e8e0', width: 150 }} />
-                  </>
+                ) : catDef(l.cat).asset ? null : (
+                  <input value={l.slug} onChange={e => upd(i, { slug: e.target.value })} placeholder="název (kufr-givi-46l)" className="rounded-btn text-xs outline-none" style={{ padding: '5px 8px', background: '#fff', border: '1px solid #d4e8e0', width: 150 }} />
                 )}
                 <input type="number" min={1} value={l.qty} onChange={e => upd(i, { qty: e.target.value })} title="Počet" className="rounded-btn text-sm outline-none w-16" style={{ padding: '5px 8px', background: '#fff', border: '1px solid #d4e8e0' }} />
-                <input type="number" min={0} value={l.unit_price} onChange={e => upd(i, { unit_price: e.target.value })} title="Cena/ks" className="rounded-btn text-sm outline-none w-20" style={{ padding: '5px 8px', background: '#fff', border: '1px solid #d4e8e0' }} />
-                <span className="text-xs font-mono" style={{ color: lineSku(l) ? '#16a34a' : '#dc2626', minWidth: 90 }}>{lineSku(l) || 'chybí SKU'}</span>
+                <input type="number" min={0} value={l.unit_price} onChange={e => upd(i, { unit_price: e.target.value })} title="Cena/ks (CZK)" className="rounded-btn text-sm outline-none w-20" style={{ padding: '5px 8px', background: '#fff', border: '1px solid #d4e8e0' }} />
+                {catDef(l.cat).asset
+                  ? <span className="text-xs font-mono" style={{ color: '#64748b', minWidth: 90 }} title="Dlouhodobý majetek se nenaskladňuje, eviduje se ve financích">jen finance</span>
+                  : <span className="text-xs font-mono" style={{ color: lineSku(l) ? '#16a34a' : '#dc2626', minWidth: 90 }}>{lineSku(l) || 'chybí SKU'}</span>}
                 <button onClick={() => setLines(ls => ls.filter((_, j) => j !== i))} className="text-xs font-bold cursor-pointer" style={{ background: 'none', border: 'none', color: '#dc2626' }}>✕</button>
               </div>
             ))}
           </div>
         )}
       {lines.length > 0 && (
-        <div className="flex justify-end mt-4">
-          <button onClick={stockAll} disabled={busy || ocrInfo?.isProforma} title={ocrInfo?.isProforma ? 'Zálohová faktura se nenaskladňuje' : ''} className="text-sm font-bold cursor-pointer rounded-btn" style={{ padding: '9px 18px', border: 'none', background: '#1a2e22', color: '#74FB71', opacity: (busy || ocrInfo?.isProforma) ? 0.5 : 1 }}>{busy ? 'Naskladňuji…' : 'Naskladnit do skladu'}</button>
+        <div className="flex justify-end items-center gap-3 mt-4">
+          <button onClick={discard} disabled={busy} className="text-sm font-bold cursor-pointer rounded-btn" style={{ padding: '9px 16px', border: '1px solid #dc2626', background: '#fff', color: '#dc2626', opacity: busy ? 0.5 : 1 }}>Zahodit</button>
+          <button onClick={stockAll} disabled={busy || ocrInfo?.isProforma} title={ocrInfo?.isProforma ? 'Zálohová faktura se nenaskladňuje' : ''} className="text-sm font-bold cursor-pointer rounded-btn" style={{ padding: '9px 18px', border: 'none', background: '#1a2e22', color: '#74FB71', opacity: (busy || ocrInfo?.isProforma) ? 0.5 : 1 }}>{busy ? 'Ukládám…' : `Uložit – naskladnit (${lines.filter(l => lineSku(l) && Number(l.qty) > 0).length})`}</button>
         </div>
       )}
     </Card>
