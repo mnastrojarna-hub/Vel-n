@@ -12,6 +12,7 @@ export default function DetailTab({ booking, set, error, saving, actions, onActi
   const [bookingExtras, setBookingExtras] = useState([])
   const [cancellation, setCancellation] = useState(null)
   const [doorCodes, setDoorCodes] = useState([])
+  const [bookingDiscounts, setBookingDiscounts] = useState([])
 
   useEffect(() => {
     if (!booking?.id) return
@@ -25,6 +26,9 @@ export default function DetailTab({ booking, set, error, saving, actions, onActi
     supabase.from('branch_door_codes').select('*')
       .eq('booking_id', booking.id).order('code_type')
       .then(({ data }) => { if (data) setDoorCodes(data) }).catch(() => {})
+    supabase.from('booking_discounts').select('*')
+      .eq('booking_id', booking.id).order('created_at')
+      .then(({ data }) => { if (data) setBookingDiscounts(data) }).catch(() => {})
     if (booking.status === 'cancelled') {
       supabase.from('booking_cancellations').select('*')
         .eq('booking_id', booking.id).limit(1).single()
@@ -62,13 +66,18 @@ export default function DetailTab({ booking, set, error, saving, actions, onActi
 
       <SOSSection booking={booking} sosIncidents={sosIncidents} navigate={navigate} />
 
-      {(booking.discount_amount > 0 || booking.discount_code || (promoUsage && promoUsage.length > 0) || voucherUsed) && (
+      {(booking.discount_amount > 0 || booking.discount_code || (promoUsage && promoUsage.length > 0) || voucherUsed || bookingDiscounts.length > 0) && (
         <Card className="col-span-2">
           <h3 className="text-sm font-extrabold uppercase tracking-wide mb-4" style={{ color: '#b45309' }}>Uplatněné slevy a kódy</h3>
           <div className="p-4 rounded-lg" style={{ background: '#fffbeb', border: '1px solid #fde68a' }}>
             <div className="grid grid-cols-3 gap-3">
-              {booking.discount_code && <InfoRow label="Slevový kód" value={booking.discount_code} />}
-              {booking.discount_amount > 0 && <InfoRow label="Sleva" value={`-${Number(booking.discount_amount).toLocaleString('cs-CZ')} Kč`} />}
+              {bookingDiscounts.map((d, i) => (
+                <div key={d.id || i}>
+                  <InfoRow label={d.kind === 'voucher' ? 'Voucher' : (d.discount_type === 'percent' ? `Slevový kód (${d.value} %)` : 'Slevový kód')} value={`${d.code} → -${Number(d.amount || 0).toLocaleString('cs-CZ')} Kč`} />
+                </div>
+              ))}
+              {bookingDiscounts.length === 0 && booking.discount_code && <InfoRow label="Slevový kód" value={booking.discount_code} />}
+              {booking.discount_amount > 0 && <InfoRow label="Sleva celkem" value={`-${Number(booking.discount_amount).toLocaleString('cs-CZ')} Kč`} />}
               {promoUsage && promoUsage.map((pu, i) => (
                 <div key={pu.id || i}>
                   <InfoRow label={`Promo kód ${i + 1}`} value={`${pu.promo_codes?.code || '—'} (${pu.promo_codes?.type === 'percent' ? pu.promo_codes.value + '%' : pu.promo_codes?.value + ' Kč'}) → sleva ${pu.promo_codes?.type === 'percent' ? pu.promo_codes.value + '%' : Number(pu.discount_applied || 0).toLocaleString('cs-CZ') + ' Kč'}`} />
