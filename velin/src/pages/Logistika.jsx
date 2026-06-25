@@ -6,6 +6,12 @@ import SkuTag, { SkuConventionInfo } from '../components/ui/SkuTag'
 import { buildSku, parseSku, normalizeSlug } from '../lib/sku'
 import { accSku, deductFromWarehouse, returnToWarehouse, loadAccessoryTypes } from './BranchHelpers'
 
+// Bezpečné volání RPC: supabase builder NEMÁ .catch() (jen .then) → přímé `.rpc(...).catch()` hází
+// TypeError. Tady chytneme síťovou výjimku a vrátíme null (volající si ošetří).
+async function rpcSafe(fn, args) {
+  try { const { data, error } = await supabase.rpc(fn, args); return error ? null : data } catch { return null }
+}
+
 // Skladově se NErozlišuje řidič/spolujezdec — fyzické typy gearu (mají velikost):
 const PHYSICAL_GEAR = ['helmet', 'jacket', 'pants', 'boots', 'gloves', 'balaclava']
 const physicalTypes = (types) => (types || []).filter(t => PHYSICAL_GEAR.includes(t.key))
@@ -613,19 +619,19 @@ function NaskladneniTab() {
       // Kontrola duplicity (č. dokladu + datum) + zda už je ve skladu/financích → dílčí doplnění
       if (!data.is_proforma) {
         const rt = data.document_type === 'delivery_note' ? 'delivery_note' : 'invoice'
-        const { data: cs } = await supabase.rpc('check_document_status', {
+        const cs = await rpcSafe('check_document_status', {
           p_doc_type: rt, p_doc_number: ex.invoice_number || null, p_doc_date: ex.date || null,
           p_variable_symbol: ex.variable_symbol || null, p_supplier_ico: ex.supplier_ico || null,
           p_supplier_name: ex.supplier || null, p_amount: data.amount_czk || 0,
-        }).catch(() => ({ data: null }))
+        })
         if (cs && cs.status && cs.status !== 'new') setOcrInfo(o => ({ ...o, dup: cs }))
         // Kontrola duplicity MAJETKU (motorka dle VIN/SPZ, jinak dle názvu) → doplnit, ne duplikovat
         const ac = ex.asset_classification || {}
         if (['dlouhodoby_majetek', 'kratkodoby_majetek'].includes(ac.type)) {
-          const { data: as } = await supabase.rpc('check_asset_status', {
+          const as = await rpcSafe('check_asset_status', {
             p_asset_type: ac.type, p_vin: ac.vin || null, p_spz: ac.license_plate || null,
             p_name: ac.asset_name || null, p_amount: data.amount_czk || 0,
-          }).catch(() => ({ data: null }))
+          })
           if (as && as.status && as.status !== 'new') setOcrInfo(o => ({ ...o, assetDup: as }))
         }
       }
@@ -666,12 +672,11 @@ function NaskladneniTab() {
       // 0) KONTROLA DUPLICITY (klíč: č. dokladu + datum) + zda už je ve skladu/financích
       let dup = ocrInfo?.dup || null
       if (!dup && recDocType && !ocrInfo?.isProforma) {
-        const { data: cs } = await supabase.rpc('check_document_status', {
+        dup = await rpcSafe('check_document_status', {
           p_doc_type: recDocType, p_doc_number: docNumber, p_doc_date: docDate,
           p_variable_symbol: ocrInfo?.vs || d?.variable_symbol || null,
           p_supplier_ico: supIco, p_supplier_name: supName, p_amount: totalCzk,
-        }).catch(() => ({ data: null }))
-        dup = cs
+        })
       }
       if (dup?.status === 'duplicate_full') {
         const ok = window.confirm(`⚠ Tento doklad už je zaevidovaný — ${recDocType === 'delivery_note' ? 'zboží je naskladněné' : 'je ve skladu i ve financích'}${dup.match?.created_at ? ` (${new Date(dup.match.created_at).toLocaleDateString('cs-CZ')})` : ''}.\n\nOpravdu uložit znovu? Vznikne duplicita.`)
@@ -702,13 +707,12 @@ function NaskladneniTab() {
       // 3b) FÁZE 6 — zaeviduj doklad + spáruj DL ⇄ faktura. will_stock=false když jen doplňujeme finance.
       let rec = null
       if (recDocType) {
-        const { data: rr } = await supabase.rpc('record_stock_receipt', {
+        rec = await rpcSafe('record_stock_receipt', {
           p_doc_type: recDocType, p_doc_number: docNumber, p_doc_date: docDate,
           p_variable_symbol: ocrInfo?.vs || d?.variable_symbol || null,
           p_supplier_ico: supIco, p_supplier_name: supName, p_amount: totalCzk,
           p_financial_event_id: eventId || null, p_will_stock: !skipStock,
-        }).catch(() => ({ data: null }))
-        rec = rr
+        })
         loadPendingDl()
       }
       // Doplnění jen financí — zboží už naskladněno dřív (stejný doklad / protějšek DL)
