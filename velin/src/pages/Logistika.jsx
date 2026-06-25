@@ -542,6 +542,7 @@ function NaskladneniTab() {
   const [busy, setBusy] = useState(false)
   const [ocrBusy, setOcrBusy] = useState(false)
   const [ocrInfo, setOcrInfo] = useState(null)
+  const [ocrDoc, setOcrDoc] = useState(null)   // data pro commit (zápis do financí až po Uložit)
   const [catalog, setCatalog] = useState([])
 
   useEffect(() => { loadAccessoryTypes().then(setAccTypes) }, [])
@@ -562,7 +563,7 @@ function NaskladneniTab() {
       slug: cat === 'prislusenstvi_gear' ? '' : (ps && !ps.isAccessory ? ps.slug : (r.name || '')), color: it.color || '' }
   }
   useEffect(() => {
-    setDocId(''); setLines([]); setOcrInfo(null)
+    setDocId(''); setLines([]); setOcrInfo(null); setOcrDoc(null)
     if (docType === 'manual' || docType === 'ocr') { setDocs([]); return }
     if (docType === 'dl') supabase.from('delivery_notes').select('id, dl_number, supplier_name, items, delivery_date').order('created_at', { ascending: false }).limit(50).then(({ data }) => setDocs(data || []))
     else supabase.from('invoices').select('id, number, notes, items, issue_date').eq('type', 'received').order('issue_date', { ascending: false }).limit(50).then(({ data }) => setDocs(data || []))
@@ -586,16 +587,16 @@ function NaskladneniTab() {
     setOcrBusy(true); setOcrInfo(null); setLines([])
     try {
       const b64 = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result)); r.onerror = rej; r.readAsDataURL(file) })
-      // 1 foto = finance + sklad: receive-invoice založí finanční událost (→ po schválení faktura/majetek),
-      // uloží scan, přeloží cizojazyčný doklad a vrátí položky pro naskladnění.
-      const { data, error } = await supabase.functions.invoke('receive-invoice', { body: { image_base64: b64, file_name: file.name || 'foto.jpg', source: 'velin' } })
+      // EXTRACT — jen vyčíst (přeložit, ČNB, SKU). NIC se zatím nezapisuje do financí ani skladu.
+      const { data, error } = await supabase.functions.invoke('receive-invoice', { body: { mode: 'extract', image_base64: b64, file_name: file.name || 'foto.jpg', source: 'velin' } })
       if (error) { alert('OCR selhalo: ' + error.message); return }
       if (!data?.success) { alert('Doklad se nepodařilo přečíst: ' + (data?.error || 'neznámá chyba')); return }
       const items = Array.isArray(data.line_items) ? data.line_items : []
       const ex = data.extracted || {}
+      setOcrDoc(data.doc || null)
       setOcrInfo({
         supplier: ex.supplier, number: ex.invoice_number,
-        type: data.document_type, count: items.length, eventId: data.financial_event_id,
+        type: data.document_type, count: items.length, eventId: null,
         lang: data.source_language, needsReview: data.needs_review,
         currency: data.currency, fxDate: data.fx_date, fxFailed: data.fx_failed, isProforma: data.is_proforma,
         amount: data.amount_czk, ico: ex.supplier_ico, bank: ex.supplier_bank_account,
@@ -610,29 +611,44 @@ function NaskladneniTab() {
   }
   const upd = (i, patch) => setLines(ls => ls.map((l, j) => j === i ? { ...l, ...patch } : l))
   const lineSku = (l) => { const d = catDef(l.cat); if (d.asset) return ''; if (d.sized) return (l.type && l.size) ? accSku(l.type, l.size) : ''; return l.slug ? buildSku(d.skuCat, l.slug) : '' }
-  const discard = () => { setLines([]); setOcrInfo(null); setDocId('') }
+  const discard = () => { setLines([]); setOcrInfo(null); setOcrDoc(null); setDocId('') }
 
   async function stockAll() {
-    if (ocrInfo?.isProforma) { alert('Zálohová faktura (proforma) — zboží zatím nedorazilo, nenaskladňuje se.'); return }
-    const payload = lines.map(l => ({ sku: lineSku(l), name: l.color ? `${l.name} ${l.color}` : l.name, qty: Number(l.qty) || 0, unit_price: Number(l.unit_price) || 0, category: catDef(l.cat).inv })).filter(l => l.sku && l.qty > 0)
-    if (!payload.length) { alert('Žádná položka nemá vyplněné SKU (typ+velikost) a počet > 0.'); return }
-    const d = docs.find(x => x.id === docId)
-    const note = docType === 'ocr' ? `Naskladnění z faktury (OCR)${ocrInfo?.supplier ? ' ' + ocrInfo.supplier : ''}${ocrInfo?.number ? ' ' + ocrInfo.number : ''}${ocrInfo?.eventId ? ' [FE:' + ocrInfo.eventId + ']' : ''}`.trim()
-      : docType === 'manual' ? 'Ruční naskladnění'
-      : `Naskladnění z ${docType === 'dl' ? 'DL ' + (d?.dl_number || '') : 'FA ' + (d?.number || '')}`.trim()
     setBusy(true)
     try {
+      // 1) ZÁPIS DO FINANCÍ až teď (Uložit): commit OCR dokladu → finanční událost
+      let eventId = ocrInfo?.eventId
+      if (docType === 'ocr' && ocrDoc && !eventId) {
+        const { data: c, error: ce } = await supabase.functions.invoke('receive-invoice', { body: { mode: 'commit', source: 'velin', doc: ocrDoc } })
+        if (ce || !c?.success) { alert('Uložení do financí selhalo: ' + (ce?.message || c?.error || 'neznámá chyba')); return }
+        eventId = c.financial_event_id
+        setOcrInfo(o => ({ ...o, eventId }))
+      }
+      // 2) Zálohová (proforma) → jen do financí, NEnaskladňovat
+      if (ocrInfo?.isProforma) { alert('Uloženo do Finance → Účetnictví → Finanční události (zálohová faktura — nenaskladňuje se).'); discard(); return }
+
+      // 3) NASKLADNĚNÍ
+      const payload = lines.map(l => ({ sku: lineSku(l), name: l.color ? `${l.name} ${l.color}` : l.name, qty: Number(l.qty) || 0, unit_price: Number(l.unit_price) || 0, category: catDef(l.cat).inv })).filter(l => l.sku && l.qty > 0)
+      if (!payload.length) {
+        if (docType === 'ocr') { alert('Uloženo do financí. Žádná skladová položka (vyplň typ+velikost / kategorii u položek, které chceš naskladnit).'); discard() }
+        else alert('Žádná položka nemá vyplněné SKU a počet > 0.')
+        return
+      }
+      const d = docs.find(x => x.id === docId)
+      const note = docType === 'ocr' ? `Naskladnění z faktury (OCR)${ocrInfo?.supplier ? ' ' + ocrInfo.supplier : ''}${ocrInfo?.number ? ' ' + ocrInfo.number : ''}${eventId ? ' [FE:' + eventId + ']' : ''}`.trim()
+        : docType === 'manual' ? 'Ruční naskladnění'
+        : `Naskladnění z ${docType === 'dl' ? 'DL ' + (d?.dl_number || '') : 'FA ' + (d?.number || '')}`.trim()
       const { data, error } = await supabase.rpc('receive_stock_from_document', { p_lines: payload, p_note: note })
       if (error) { alert('Chyba: ' + error.message); return }
       if (!data?.success) { alert('Naskladnění selhalo: ' + (data?.error || '')); return }
-      // Učení číselníku z (případně zkorigovaných) položek → příště zařadí samo
+      // 4) Učení číselníku z (zkorigovaných) položek → příště zařadí samo
       for (const l of lines) {
         const sku = lineSku(l); if (!sku) continue
-        const d = catDef(l.cat)
-        try { await supabase.rpc('learn_sku', { p_sku: sku, p_name: l.name || sku, p_category: d.skuCat === 'majetek' ? 'zbozi' : d.skuCat, p_type: d.sized ? (l.type || '') : '', p_size: d.sized ? (l.size || '') : '', p_alias: (l.name || '').trim() }) } catch { /* noop */ }
+        const dd = catDef(l.cat)
+        try { await supabase.rpc('learn_sku', { p_sku: sku, p_name: l.name || sku, p_category: dd.skuCat === 'majetek' ? 'zbozi' : dd.skuCat, p_type: dd.sized ? (l.type || '') : '', p_size: dd.sized ? (l.size || '') : '', p_alias: (l.name || '').trim() }) } catch { /* noop */ }
       }
       supabase.from('sku_catalog').select('sku,name,category,type,size,aliases').then(({ data: c }) => setCatalog(c || []))
-      alert(`Naskladněno ${data.stocked} položek do skladu.`); setLines([]); setDocId('')
+      alert(`Uloženo${docType === 'ocr' ? ' do financí' : ''}. Naskladněno ${data.stocked} položek.`); discard()
     } finally { setBusy(false) }
   }
 
@@ -660,7 +676,7 @@ function NaskladneniTab() {
       </div>
       {docType === 'ocr' && ocrInfo && ocrInfo.isProforma && (
         <div className="mb-2 rounded-btn text-sm font-bold" style={{ padding: '8px 12px', background: '#fff5f5', color: '#dc2626', border: '1px solid #fca5a5' }}>
-          ⚠ Zálohová faktura (proforma) — zboží zatím nedorazilo, <b>nenaskladňuje se</b>. Slouží jen jako evidence ve finanční události.
+          ⚠ Zálohová faktura (proforma) — zboží zatím nedorazilo, <b>nenaskladňuje se</b>. Po <b>Uložit</b> se zapíše jen jako evidence do finanční události.
         </div>
       )}
       {docType === 'ocr' && ocrInfo && !ocrInfo.isProforma && (
@@ -669,7 +685,7 @@ function NaskladneniTab() {
           {ocrInfo.lang && ocrInfo.lang !== 'cs' ? ` · přeloženo z „${ocrInfo.lang}"` : ''}
           {ocrInfo.currency && ocrInfo.currency !== 'CZK' ? (ocrInfo.fxFailed ? ` · ⚠ kurz ČNB nenačten — ceny v ${ocrInfo.currency}` : ` · ceny převedeny ${ocrInfo.currency}→CZK (ČNB ${ocrInfo.fxDate || ''})`) : ''}
           <div className="text-xs font-semibold mt-1" style={{ color: '#1a2e22', opacity: 0.8 }}>
-            💰 Uloženo do Finance → Účetnictví → Finanční události (čeká na schválení → faktura/majetek).{ocrInfo.needsReview ? ' Nízká jistota — zkontroluj ve Výjimkách.' : ''} Zkontroluj SKU a počet a naskladni zboží.
+            💡 Zatím nic nezapsáno. Po kliknutí na <b>Uložit</b> se doklad zapíše do Finance → Účetnictví → Finanční události a zboží se naskladní.{ocrInfo.needsReview ? ' Nízká jistota OCR — zkontroluj údaje.' : ''}
           </div>
         </div>
       )}
@@ -718,7 +734,7 @@ function NaskladneniTab() {
       {lines.length > 0 && (
         <div className="flex justify-end items-center gap-3 mt-4">
           <button onClick={discard} disabled={busy} className="text-sm font-bold cursor-pointer rounded-btn" style={{ padding: '9px 16px', border: '1px solid #dc2626', background: '#fff', color: '#dc2626', opacity: busy ? 0.5 : 1 }}>Zahodit</button>
-          <button onClick={stockAll} disabled={busy || ocrInfo?.isProforma} title={ocrInfo?.isProforma ? 'Zálohová faktura se nenaskladňuje' : ''} className="text-sm font-bold cursor-pointer rounded-btn" style={{ padding: '9px 18px', border: 'none', background: '#1a2e22', color: '#74FB71', opacity: (busy || ocrInfo?.isProforma) ? 0.5 : 1 }}>{busy ? 'Ukládám…' : `Uložit – naskladnit (${lines.filter(l => lineSku(l) && Number(l.qty) > 0).length})`}</button>
+          <button onClick={stockAll} disabled={busy} className="text-sm font-bold cursor-pointer rounded-btn" style={{ padding: '9px 18px', border: 'none', background: '#1a2e22', color: '#74FB71', opacity: busy ? 0.5 : 1 }}>{busy ? 'Ukládám…' : (ocrInfo?.isProforma ? 'Uložit doklad (jen finance)' : `Uložit (${lines.filter(l => lineSku(l) && Number(l.qty) > 0).length})`)}</button>
         </div>
       )}
     </Card>
