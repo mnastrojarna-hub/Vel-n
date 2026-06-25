@@ -14,7 +14,7 @@ import {
   PER_PAGE, STATUS_MAP, TYPE_MAP, SOURCE_LABELS, DOC_TYPE_MAP,
   CATEGORY_LABELS, ALL_STATUSES, ALL_TYPES, ALL_SOURCES, ALL_DOC_TYPES,
 } from './financialEventsConstants'
-import { createLiabilityFromEvent, ensureSupplier, backupPhotoToFolder, createDeliveryNoteFromEvent, createContractFromEvent, createReceivedInvoiceFromEvent, createAssetFromEvent } from './financialEventsActions'
+import { createLiabilityFromEvent, ensureSupplier, backupPhotoToFolder, createDeliveryNoteFromEvent, createContractFromEvent, createReceivedInvoiceFromEvent, createAssetFromEvent, createExpenseEntryFromEvent } from './financialEventsActions'
 
 export default function FinancialEventsTab() {
   const [events, setEvents] = useState([])
@@ -54,7 +54,7 @@ export default function FinancialEventsTab() {
 
       let query = supabase.from('financial_events')
         .select('*', { count: 'exact' })
-        .order('duzp', { ascending: false })
+        .order('created_at', { ascending: false })
         .range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
 
       if (statusFilter.length > 0) query = query.in('status', statusFilter)
@@ -95,9 +95,10 @@ export default function FinancialEventsTab() {
       if (nextStatus === 'validated') {
         const docType = event.document_type || event.metadata?.document_type || null
         await backupPhotoToFolder(event, docType)
-        if (docType === 'dodaci_list') { await createDeliveryNoteFromEvent(event) }
+        if (docType === 'dodaci_list' || docType === 'delivery_note') { await createDeliveryNoteFromEvent(event) }
         else if (['smlouva', 'pracovni_smlouva', 'zadost_dovolena'].includes(docType)) { await createContractFromEvent(event, docType) }
-        else { await createLiabilityFromEvent(event); await createReceivedInvoiceFromEvent(event); await createAssetFromEvent(event) }
+        else if (event.metadata?.is_proforma || docType === 'proforma') { /* zálohová — jen evidence, žádný závazek/faktura/náklad/majetek */ }
+        else { await createLiabilityFromEvent(event); await createReceivedInvoiceFromEvent(event); await createExpenseEntryFromEvent(event); await createAssetFromEvent(event) }
         await ensureSupplier(event)
       }
       if (nextStatus === 'approved') {

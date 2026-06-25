@@ -65,6 +65,22 @@ export async function createAssetFromEvent(event) {
   } catch (e) { console.error('[FE] asset create failed:', e.message) }
 }
 
+// Propíše doklad do nákladů (accounting_entries, type=expense). Idempotentní. Chyby polkne.
+export async function createExpenseEntryFromEvent(event) {
+  const meta = event.metadata || {}
+  if (meta.expense_entry_created) return
+  const ai = meta.ai_classification || {}
+  const category = ai.category || meta.asset_classification?.type || 'ostatni_naklady'
+  const desc = [meta.supplier_name, meta.invoice_number].filter(Boolean).join(' ') || 'Přijatý doklad'
+  try {
+    await supabase.from('accounting_entries').insert({
+      type: 'expense', category, amount: event.amount_czk || 0,
+      date: event.duzp || new Date().toISOString().slice(0, 10), description: desc,
+    })
+    await supabase.from('financial_events').update({ metadata: { ...meta, expense_entry_created: true } }).eq('id', event.id)
+  } catch (e) { console.error('[FE] expense entry failed:', e.message) }
+}
+
 export async function createReceivedInvoiceFromEvent(event) {
   const meta = event.metadata || {}
   if (event.linked_entity_type === 'invoice' && event.linked_entity_id) return
