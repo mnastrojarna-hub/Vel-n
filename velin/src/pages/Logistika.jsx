@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import Card from '../components/ui/Card'
 import Inventory from './Inventory'
 import SkuTag, { SkuConventionInfo } from '../components/ui/SkuTag'
-import { buildSku, parseSku } from '../lib/sku'
+import { buildSku, parseSku, normalizeSlug } from '../lib/sku'
 import { accSku, deductFromWarehouse, returnToWarehouse, loadAccessoryTypes } from './BranchHelpers'
 
 // Skladově se NErozlišuje řidič/spolujezdec — fyzické typy gearu (mají velikost):
@@ -542,8 +542,25 @@ function NaskladneniTab() {
   const [busy, setBusy] = useState(false)
   const [ocrBusy, setOcrBusy] = useState(false)
   const [ocrInfo, setOcrInfo] = useState(null)
+  const [catalog, setCatalog] = useState([])
 
   useEffect(() => { loadAccessoryTypes().then(setAccTypes) }, [])
+  useEffect(() => { supabase.from('sku_catalog').select('sku,name,category,type,size,aliases').then(({ data }) => setCatalog(data || [])) }, [])
+
+  // Číselník: najdi položku podle názvu/aliasu (učí se z minulých korekcí)
+  function catalogMatch(desc) {
+    const k = normalizeSlug(desc || ''); if (!k) return null
+    for (const r of catalog) { if ([r.name, ...(r.aliases || [])].filter(Boolean).map(normalizeSlug).includes(k)) return r }
+    for (const r of catalog) { for (const a of [r.name, ...(r.aliases || [])]) { const ak = normalizeSlug(a); if (ak && ak.length > 3 && k.includes(ak)) return r } }
+    return null
+  }
+  function catRowToLine(r, it) {
+    const cat = r.category === 'prislusenstvi' ? ((r.size || r.type) ? 'prislusenstvi_gear' : 'prislusenstvi') : (AI_CAT_MAP[r.category] || 'prislusenstvi')
+    const ps = parseSku(r.sku)
+    return { name: it.description || r.name, qty: it.quantity || 1, unit_price: it.unit_price ?? it.amount ?? 0,
+      cat, type: r.type || (ps?.type || ''), size: r.size || (ps?.size || it.size || ''),
+      slug: cat === 'prislusenstvi_gear' ? '' : (ps && !ps.isAccessory ? ps.slug : (r.name || '')), color: it.color || '' }
+  }
   useEffect(() => {
     setDocId(''); setLines([]); setOcrInfo(null)
     if (docType === 'manual' || docType === 'ocr') { setDocs([]); return }
@@ -551,15 +568,17 @@ function NaskladneniTab() {
     else supabase.from('invoices').select('id, number, notes, items, issue_date').eq('type', 'received').order('issue_date', { ascending: false }).limit(50).then(({ data }) => setDocs(data || []))
   }, [docType])
 
-  const mkLine = (name, price, qty) => { const g = guessLine(name); return { name: name || '', qty: qty || 1, unit_price: price || 0, cat: g.type ? 'prislusenstvi_gear' : 'prislusenstvi', type: g.type, size: g.size, slug: name || '' } }
-  // Z OCR řádku poskládá položku včetně navrženého SKU (parsuje sku_suggestion).
+  const mkLine = (name, price, qty) => { const g = guessLine(name); return { name: name || '', qty: qty || 1, unit_price: price || 0, cat: g.type ? 'prislusenstvi_gear' : 'prislusenstvi', type: g.type, size: g.size, slug: name || '', color: '' } }
+  // Z OCR řádku poskládá položku: nejdřív zkusí číselník (naučené), pak AI návrh.
   const mkLineFromOcr = (it) => {
+    const m = catalogMatch(it.original_description) || catalogMatch(it.description)
+    if (m) return catRowToLine(m, it)
     const price = it.unit_price ?? it.amount ?? 0
     const p = it.sku_suggestion ? parseSku(it.sku_suggestion) : null
-    if (p && p.isAccessory && p.type && p.size) return { name: it.description || '', qty: it.quantity || 1, unit_price: price, cat: 'prislusenstvi_gear', type: p.type, size: p.size, slug: '' }
+    if (p && p.isAccessory) return { name: it.description || '', qty: it.quantity || 1, unit_price: price, cat: 'prislusenstvi_gear', type: p.type || '', size: it.size || p.size || '', slug: '', color: it.color || '' }
     const aiCat = AI_CAT_MAP[it.category_suggestion] || (p && !p.isAccessory ? AI_CAT_MAP[p.category] : null) || 'prislusenstvi'
     const slug = (p && !p.isAccessory && p.slug) ? p.slug : (it.description || '')
-    return { name: it.description || '', qty: it.quantity || 1, unit_price: price, cat: aiCat, type: '', size: '', slug }
+    return { name: it.description || '', qty: it.quantity || 1, unit_price: price, cat: aiCat, type: '', size: it.size || '', slug, color: it.color || '' }
   }
 
   async function handleOcr(file) {
@@ -595,7 +614,7 @@ function NaskladneniTab() {
 
   async function stockAll() {
     if (ocrInfo?.isProforma) { alert('Zálohová faktura (proforma) — zboží zatím nedorazilo, nenaskladňuje se.'); return }
-    const payload = lines.map(l => ({ sku: lineSku(l), name: l.name, qty: Number(l.qty) || 0, unit_price: Number(l.unit_price) || 0, category: catDef(l.cat).inv })).filter(l => l.sku && l.qty > 0)
+    const payload = lines.map(l => ({ sku: lineSku(l), name: l.color ? `${l.name} ${l.color}` : l.name, qty: Number(l.qty) || 0, unit_price: Number(l.unit_price) || 0, category: catDef(l.cat).inv })).filter(l => l.sku && l.qty > 0)
     if (!payload.length) { alert('Žádná položka nemá vyplněné SKU (typ+velikost) a počet > 0.'); return }
     const d = docs.find(x => x.id === docId)
     const note = docType === 'ocr' ? `Naskladnění z faktury (OCR)${ocrInfo?.supplier ? ' ' + ocrInfo.supplier : ''}${ocrInfo?.number ? ' ' + ocrInfo.number : ''}${ocrInfo?.eventId ? ' [FE:' + ocrInfo.eventId + ']' : ''}`.trim()
@@ -606,6 +625,13 @@ function NaskladneniTab() {
       const { data, error } = await supabase.rpc('receive_stock_from_document', { p_lines: payload, p_note: note })
       if (error) { alert('Chyba: ' + error.message); return }
       if (!data?.success) { alert('Naskladnění selhalo: ' + (data?.error || '')); return }
+      // Učení číselníku z (případně zkorigovaných) položek → příště zařadí samo
+      for (const l of lines) {
+        const sku = lineSku(l); if (!sku) continue
+        const d = catDef(l.cat)
+        try { await supabase.rpc('learn_sku', { p_sku: sku, p_name: l.name || sku, p_category: d.skuCat === 'majetek' ? 'zbozi' : d.skuCat, p_type: d.sized ? (l.type || '') : '', p_size: d.sized ? (l.size || '') : '', p_alias: (l.name || '').trim() }) } catch { /* noop */ }
+      }
+      supabase.from('sku_catalog').select('sku,name,category,type,size,aliases').then(({ data: c }) => setCatalog(c || []))
       alert(`Naskladněno ${data.stocked} položek do skladu.`); setLines([]); setDocId('')
     } finally { setBusy(false) }
   }
@@ -680,6 +706,7 @@ function NaskladneniTab() {
                 )}
                 <input type="number" min={1} value={l.qty} onChange={e => upd(i, { qty: e.target.value })} title="Počet" className="rounded-btn text-sm outline-none w-16" style={{ padding: '5px 8px', background: '#fff', border: '1px solid #d4e8e0' }} />
                 <input type="number" min={0} value={l.unit_price} onChange={e => upd(i, { unit_price: e.target.value })} title="Cena/ks (CZK)" className="rounded-btn text-sm outline-none w-20" style={{ padding: '5px 8px', background: '#fff', border: '1px solid #d4e8e0' }} />
+                <input value={l.color || ''} onChange={e => upd(i, { color: e.target.value })} placeholder="barva" title="Barva (zvlášť, nepatří do velikosti)" className="rounded-btn text-xs outline-none" style={{ padding: '5px 8px', background: '#fff', border: '1px solid #d4e8e0', width: 72 }} />
                 {catDef(l.cat).asset
                   ? <span className="text-xs font-mono" style={{ color: '#64748b', minWidth: 90 }} title="Dlouhodobý majetek se nenaskladňuje, eviduje se ve financích">jen finance</span>
                   : <span className="text-xs font-mono" style={{ color: lineSku(l) ? '#16a34a' : '#dc2626', minWidth: 90 }}>{lineSku(l) || 'chybí SKU'}</span>}

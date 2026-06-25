@@ -20,7 +20,7 @@ Přečti dokument a vrať POUZE JSON, žádný markdown, žádný text navíc.
   "due_date": null,
   "received_date": null,
   "payment_method": "bank_transfer|cash|card|null",
-  "line_items": [{ "description": null, "description_cs": null, "quantity": null, "unit_price": null, "amount": null, "sku_suggestion": null, "category_suggestion": null }],
+  "line_items": [{ "description": null, "description_cs": null, "quantity": null, "unit_price": null, "amount": null, "size": null, "color": null, "sku_suggestion": null, "category_suggestion": null }],
   "asset_classification": {
     "type": "dlouhodoby_majetek|kratkodoby_majetek|zbozi|drobna_rezie|sluzba|material|null",
     "depreciation_group": null,
@@ -88,6 +88,8 @@ PRAVIDLA pro asset_classification:
 
 PRAVIDLA pro položky (line_items):
 - Pro KAŽDOU položku vyplň quantity (počet kusů, default 1) a unit_price (cena za kus bez měny). Když cena za kus chybí, dopočítej z amount/quantity.
+- size = velikost SAMOSTATNĚ, i když je součástí názvu (přesně: 43, XL, 2XL, UNI, M…). NIKDY ji nenechávej jen v description.
+- color = barva SAMOSTATNĚ česky (černá, modrá…), i když je v názvu. description = čistý název produktu.
 - amount/unit_price uváděj v PŮVODNÍ měně dokladu (nepřeváděj). Měnu uveď v poli "currency" (ISO kód, např. CZK/EUR/USD/PLN).
 
 PRAVIDLA pro typ dokladu (document_type):
