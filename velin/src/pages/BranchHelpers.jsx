@@ -52,11 +52,7 @@ export async function deductFromWarehouse(sku, qty, branchName) {
   const { data: inv } = await supabase
     .from('inventory').select('id, stock').eq('sku', sku).single()
   if (!inv || inv.stock < qty) return false
-  const { data: { user } } = await supabase.auth.getUser()
-  await supabase.from('inventory_movements').insert({
-    item_id: inv.id, type: 'issue', quantity: qty,
-    note: `Výdej na pobočku ${branchName}`, performed_by: user?.id,
-  })
+  await supabase.rpc('log_stock_movement', { p_item: inv.id, p_type: 'issue', p_qty: qty, p_note: `Výdej na pobočku ${branchName}` })
   await supabase.from('inventory').update({ stock: inv.stock - qty }).eq('id', inv.id)
   return true
 }
@@ -65,11 +61,7 @@ export async function returnToWarehouse(sku, qty, branchName) {
   const { data: inv } = await supabase
     .from('inventory').select('id, stock').eq('sku', sku).single()
   if (!inv || qty <= 0) return
-  const { data: { user } } = await supabase.auth.getUser()
-  await supabase.from('inventory_movements').insert({
-    item_id: inv.id, type: 'receipt', quantity: qty,
-    note: `Vráceno z pobočky ${branchName}`, performed_by: user?.id,
-  })
+  await supabase.rpc('log_stock_movement', { p_item: inv.id, p_type: 'receipt', p_qty: qty, p_note: `Vráceno z pobočky ${branchName}` })
   await supabase.from('inventory').update({ stock: inv.stock + qty }).eq('id', inv.id)
 }
 

@@ -410,11 +410,7 @@ function IssueToBranchModal({ item, onClose, onSaved }) {
       const { error: invErr } = await supabase.from('inventory')
         .update({ stock: (item.stock || 0) - n }).eq('id', item.id)
       if (invErr) throw invErr
-      await supabase.from('inventory_movements').insert({
-        item_id: item.id, type: 'issue', quantity: n,
-        note: `Výdej na pobočku ${branchName} (${parsed.type} ${parsed.size})`,
-        performed_by: user?.id,
-      })
+      await supabase.rpc('log_stock_movement', { p_item: item.id, p_type: 'issue', p_qty: n, p_note: `Výdej na pobočku ${branchName} (${parsed.type} ${parsed.size})` })
 
       // 2) Přičíst do branch_accessories (upsert: pokud řádek existuje, sečíst)
       const { data: existing } = await supabase.from('branch_accessories')
