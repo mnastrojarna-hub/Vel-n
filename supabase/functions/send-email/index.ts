@@ -366,7 +366,21 @@ async function handleInvoiceEmail(
     return jsonResponse({ success: false, error: 'RESEND_API_KEY not configured' }, 500)
   }
 
-  const result = await sendWithRetry({ from: FROM_EMAIL, reply_to: REPLY_TO, to: profile.email, subject, html })
+  // Příloha: PDF (nebo HTML fallback) dokladu ze storage bucketu `documents`.
+  // pdf_path plní Velín (renderAndStoreInvoicePdf) před voláním této funkce.
+  const attachments: Attachment[] = []
+  if (invoice.pdf_path) {
+    try {
+      const { data: blob } = await supabase.storage.from('documents').download(invoice.pdf_path as string)
+      if (blob) {
+        const bytes = new Uint8Array(await blob.arrayBuffer())
+        const ext = /\.pdf$/i.test(invoice.pdf_path as string) ? 'pdf' : 'html'
+        attachments.push({ filename: `${invoiceLabel.replace(/ /g, '-')}-${invoice.number}.${ext}`, content: base64Encode(bytes) })
+      }
+    } catch (e) { /* příloha se nepřipojí, e-mail přesto odejde */ }
+  }
+
+  const result = await sendWithRetry({ from: FROM_EMAIL, reply_to: REPLY_TO, to: profile.email, subject, html, attachments: attachments.length ? attachments : undefined })
 
   // Log
   try {
