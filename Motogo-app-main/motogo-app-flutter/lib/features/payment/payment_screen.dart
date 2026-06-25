@@ -405,6 +405,33 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
       // Save extras to booking_extras table (fire-and-forget, like original)
       _saveBookingExtras(bookingId, draft.extras);
 
+      // Multi-sleva: zapiš VŠECHNY slevy do booking_discounts (zdroj pravdy pro
+      // rozpad na fakturách ZF/DP/KF + uplatnění voucherů/promo po platbě).
+      // promo_code_id/voucher_id na bookingu drží jen PRVNÍ (parita s webem).
+      // Fire-and-forget — nesmí blokovat potvrzení rezervace.
+      if (draft.discounts.isNotEmpty) {
+        () async {
+          try {
+            await MotoGoSupabase.client.from('booking_discounts').insert(
+              draft.discounts
+                  .map((d) => {
+                        'booking_id': bookingId,
+                        'kind': d.isVoucher ? 'voucher' : 'promo_code',
+                        'code': d.code,
+                        'promo_code_id': d.isVoucher ? null : d.promoId,
+                        'voucher_id': d.isVoucher ? d.promoId : null,
+                        'discount_type': d.type.name == 'percent' ? 'percent' : 'fixed',
+                        'value': d.value,
+                        'amount': d.calculatedAmount,
+                      })
+                  .toList(),
+            );
+          } catch (e) {
+            debugPrint('[Payment] booking_discounts insert failed: $e');
+          }
+        }();
+      }
+
       // Souhlasy z rezervačního formuláře propíšeme do profilu (parita s webem).
       // + ZAPAMATUJ velikosti výbavy do profiles.gear_sizes (struktura
       //   {rider:{helmet,gloves,jacket,pants,boots}, passenger:{...}}) — web i
