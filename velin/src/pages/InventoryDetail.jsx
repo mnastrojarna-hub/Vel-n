@@ -77,11 +77,8 @@ export default function InventoryDetail() {
   async function handleMovement(type, quantity, note) {
     await debugAction('handleMovement', 'InventoryDetail', async () => {
       const mult = type === 'receipt' ? 1 : type === 'issue' ? -1 : 0
-      const { data: { user } } = await supabase.auth.getUser()
 
-      await supabase.from('inventory_movements').insert({
-        item_id: id, type, quantity, note, performed_by: user?.id,
-      })
+      await supabase.rpc('log_stock_movement', { p_item: id, p_type: type, p_qty: quantity, p_note: note })
 
       if (type === 'correction') {
         await supabase.from('inventory').update({ stock: quantity }).eq('id', id)
