@@ -11,6 +11,7 @@ create table if not exists public.stock_receipts (
   id uuid primary key default gen_random_uuid(),
   doc_type text not null check (doc_type in ('invoice', 'delivery_note')),
   doc_number text,
+  doc_date date,                                             -- datum dokladu (klíč duplicity: č. dokladu + datum)
   variable_symbol text,
   supplier_ico text,
   supplier_name text,
@@ -23,8 +24,12 @@ create table if not exists public.stock_receipts (
   created_at timestamptz default now()
 );
 
+-- migrace existující tabulky (pokud už byla nasazená bez doc_date)
+alter table public.stock_receipts add column if not exists doc_date date;
+
 create index if not exists idx_stock_receipts_supplier on public.stock_receipts (supplier_ico, supplier_name);
 create index if not exists idx_stock_receipts_needs_dl on public.stock_receipts (needs_dl) where needs_dl = true;
+create index if not exists idx_stock_receipts_docnum on public.stock_receipts (lower(doc_number), doc_date);
 
 alter table public.stock_receipts enable row level security;
 
@@ -45,9 +50,11 @@ $$;
 
 -- Zaeviduje doklad do ledgeru, spáruje s protějškem a rozhodne, zda naskladnit.
 -- Vrací: { receipt_id, duplicate (true = NEnaskladňuj, už je), will_stock, matched_receipt_id, needs_dl }
+drop function if exists public.record_stock_receipt(text, text, text, text, text, numeric, uuid, boolean);
 create or replace function public.record_stock_receipt(
   p_doc_type text,
   p_doc_number text default null,
+  p_doc_date date default null,
   p_variable_symbol text default null,
   p_supplier_ico text default null,
   p_supplier_name text default null,
@@ -91,10 +98,10 @@ begin
   end if;
 
   insert into public.stock_receipts(
-    doc_type, doc_number, variable_symbol, supplier_ico, supplier_name,
+    doc_type, doc_number, doc_date, variable_symbol, supplier_ico, supplier_name,
     amount_czk, financial_event_id, stocked, matched_receipt_id, needs_dl)
   values (
-    p_doc_type, p_doc_number, p_variable_symbol, p_supplier_ico, p_supplier_name,
+    p_doc_type, p_doc_number, p_doc_date, p_variable_symbol, p_supplier_ico, p_supplier_name,
     p_amount, p_financial_event_id, v_effective_stock, v_cp.id, v_needs_dl)
   returning id into v_id;
 
@@ -115,6 +122,6 @@ begin
   );
 end $$;
 
-grant execute on function public.record_stock_receipt(text, text, text, text, text, numeric, uuid, boolean) to authenticated, service_role;
+grant execute on function public.record_stock_receipt(text, text, date, text, text, text, numeric, uuid, boolean) to authenticated, service_role;
 
 notify pgrst, 'reload schema';
