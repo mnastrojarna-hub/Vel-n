@@ -54,15 +54,49 @@ export async function createAssetFromEvent(event) {
   const name = ai.asset_name || cls.asset_name || meta.supplier_name || meta.invoice_number || 'Položka ze skeneru'
   const price = event.amount_czk || 0
   const acquired = event.duzp || new Date().toISOString().slice(0, 10)
+  // odpisová doba dle skupiny (§30 ZDP): sk1=3, sk2=5, sk3=10, sk4=20, sk5=30, sk6=50
+  const GROUP_YEARS = { 1: 3, 2: 5, 3: 10, 4: 20, 5: 30, 6: 50 }
   try {
     if (type === 'dlouhodoby_majetek') {
       const grp = parseInt(String(ai.depreciation_group || cls.depreciation_group || '').replace(/\D/g, ''), 10) || 2
-      await supabase.from('acc_long_term_assets').insert({ name, category: 'equipment', purchase_price: price, current_value: price, acquired_date: acquired, depreciation_group: grp, depreciation_method: (ai.depreciation_method || cls.depreciation_method) === 'linear' ? 'linear' : 'accelerated', status: 'active' })
+      const method = (ai.depreciation_method || cls.depreciation_method) === 'linear' ? 'linear' : 'accelerated'
+      const years = parseInt(String(ai.depreciation_years || cls.depreciation_years || '').replace(/\D/g, ''), 10) || GROUP_YEARS[grp] || 5
+      const { data: asset } = await supabase.from('acc_long_term_assets')
+        .insert({ name, category: 'equipment', purchase_price: price, current_value: price, acquired_date: acquired, depreciation_group: grp, depreciation_method: method, status: 'active' })
+        .select('id').single()
+      // Plán odpisů (zatím rovnoměrný; účetní může upravit). acc_depreciation_entries.
+      if (asset?.id && years > 0 && price > 0) {
+        const yearAmt = Math.round(price / years)
+        const startYear = new Date(acquired).getFullYear()
+        const rows = []; let cum = 0
+        for (let i = 1; i <= years; i++) {
+          const amt = i === years ? (price - cum) : yearAmt
+          cum += amt
+          rows.push({ asset_id: asset.id, year: startYear + i - 1, year_number: i, annual_amount: amt, cumulative_amount: cum, remaining_value: price - cum, depreciation_group: grp, method })
+        }
+        try { await supabase.from('acc_depreciation_entries').insert(rows) } catch (e) { console.error('[FE] depreciation schedule failed:', e.message) }
+      }
     } else {
       await supabase.from('acc_short_term_assets').insert({ name, category: type === 'material' ? 'material' : 'inventory', purchase_price: price, current_value: price, acquired_date: acquired, status: 'active' })
     }
     await supabase.from('financial_events').update({ metadata: { ...meta, asset_created: true } }).eq('id', event.id)
   } catch (e) { console.error('[FE] asset create failed:', e.message) }
+}
+
+// Propíše doklad do nákladů (accounting_entries, type=expense). Idempotentní. Chyby polkne.
+export async function createExpenseEntryFromEvent(event) {
+  const meta = event.metadata || {}
+  if (meta.expense_entry_created) return
+  const ai = meta.ai_classification || {}
+  const category = ai.category || meta.asset_classification?.type || 'ostatni_naklady'
+  const desc = [meta.supplier_name, meta.invoice_number].filter(Boolean).join(' ') || 'Přijatý doklad'
+  try {
+    await supabase.from('accounting_entries').insert({
+      type: 'expense', category, amount: event.amount_czk || 0,
+      date: event.duzp || new Date().toISOString().slice(0, 10), description: desc,
+    })
+    await supabase.from('financial_events').update({ metadata: { ...meta, expense_entry_created: true } }).eq('id', event.id)
+  } catch (e) { console.error('[FE] expense entry failed:', e.message) }
 }
 
 export async function createReceivedInvoiceFromEvent(event) {

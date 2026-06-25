@@ -544,9 +544,16 @@ function NaskladneniTab() {
   const [ocrInfo, setOcrInfo] = useState(null)
   const [ocrDoc, setOcrDoc] = useState(null)   // data pro commit (zápis do financí až po Uložit)
   const [catalog, setCatalog] = useState([])
+  const [pendingDl, setPendingDl] = useState([])   // Fáze 6 — faktury bez dohledaného DL
 
   useEffect(() => { loadAccessoryTypes().then(setAccTypes) }, [])
   useEffect(() => { supabase.from('sku_catalog').select('sku,name,category,type,size,aliases').then(({ data }) => setCatalog(data || [])) }, [])
+  const loadPendingDl = useCallback(() => {
+    supabase.from('stock_receipts').select('id, doc_number, supplier_name, amount_czk, variable_symbol, created_at')
+      .eq('needs_dl', true).is('matched_receipt_id', null).order('created_at', { ascending: false }).limit(50)
+      .then(({ data }) => setPendingDl(data || [])).catch(() => {})
+  }, [])
+  useEffect(() => { loadPendingDl() }, [loadPendingDl])
 
   // Číselník: najdi položku podle názvu/aliasu (učí se z minulých korekcí)
   function catalogMatch(desc) {
@@ -603,6 +610,16 @@ function NaskladneniTab() {
         vs: ex.variable_symbol, issue: ex.date, due: ex.due_date, pay: ex.payment_method,
       })
       setLines(items.length ? items.map(mkLineFromOcr) : [mkLine('', 0, 1)])
+      // Kontrola duplicity (č. dokladu + datum) + zda už je ve skladu/financích → dílčí doplnění
+      if (!data.is_proforma) {
+        const rt = data.document_type === 'delivery_note' ? 'delivery_note' : 'invoice'
+        const { data: cs } = await supabase.rpc('check_document_status', {
+          p_doc_type: rt, p_doc_number: ex.invoice_number || null, p_doc_date: ex.date || null,
+          p_variable_symbol: ex.variable_symbol || null, p_supplier_ico: ex.supplier_ico || null,
+          p_supplier_name: ex.supplier || null, p_amount: data.amount_czk || 0,
+        }).catch(() => ({ data: null }))
+        if (cs && cs.status && cs.status !== 'new') setOcrInfo(o => ({ ...o, dup: cs }))
+      }
     } finally { setOcrBusy(false) }
   }
   function pickDoc(id) {
@@ -613,47 +630,119 @@ function NaskladneniTab() {
   const lineSku = (l) => { const d = catDef(l.cat); if (d.asset) return ''; if (d.sized) return (l.type && l.size) ? accSku(l.type, l.size) : ''; return l.slug ? buildSku(d.skuCat, l.slug) : '' }
   const discard = () => { setLines([]); setOcrInfo(null); setOcrDoc(null); setDocId('') }
 
+  // Naučí číselník ze (zkorigovaných) položek → příště zařadí samo
+  async function learnFromLines() {
+    for (const l of lines) {
+      const sku = lineSku(l); if (!sku) continue
+      const dd = catDef(l.cat)
+      try { await supabase.rpc('learn_sku', { p_sku: sku, p_name: l.name || sku, p_category: dd.skuCat === 'majetek' ? 'zbozi' : dd.skuCat, p_type: dd.sized ? (l.type || '') : '', p_size: dd.sized ? (l.size || '') : '', p_alias: (l.name || '').trim() }) } catch { /* noop */ }
+    }
+    supabase.from('sku_catalog').select('sku,name,category,type,size,aliases').then(({ data: c }) => setCatalog(c || []))
+  }
+
   async function stockAll() {
     setBusy(true)
     try {
+      const d = docs.find(x => x.id === docId)
+      const recDocType = docType === 'dl' ? 'delivery_note'
+        : docType === 'invoice' ? 'invoice'
+        : docType === 'ocr' ? (ocrInfo?.type === 'delivery_note' ? 'delivery_note' : 'invoice')
+        : null   // ruční zadání se nepáruje ani nekontroluje na duplicitu
+      const docNumber = ocrInfo?.number || d?.dl_number || d?.number || null
+      const docDate = ocrInfo?.issue || d?.issue_date || d?.delivery_date || null
+      const totalCzk = ocrInfo?.amount ?? lines.reduce((s, l) => s + (Number(l.qty) || 0) * (Number(l.unit_price) || 0), 0)
+      const supName = ocrInfo?.supplier || d?.supplier_name || (d?.notes?.split('\n')[0]) || null
+      const supIco = ocrInfo?.ico || null
+
+      // 0) KONTROLA DUPLICITY (klíč: č. dokladu + datum) + zda už je ve skladu/financích
+      let dup = ocrInfo?.dup || null
+      if (!dup && recDocType && !ocrInfo?.isProforma) {
+        const { data: cs } = await supabase.rpc('check_document_status', {
+          p_doc_type: recDocType, p_doc_number: docNumber, p_doc_date: docDate,
+          p_variable_symbol: ocrInfo?.vs || d?.variable_symbol || null,
+          p_supplier_ico: supIco, p_supplier_name: supName, p_amount: totalCzk,
+        }).catch(() => ({ data: null }))
+        dup = cs
+      }
+      if (dup?.status === 'duplicate_full') {
+        const ok = window.confirm(`⚠ Tento doklad už je zaevidovaný — ${recDocType === 'delivery_note' ? 'zboží je naskladněné' : 'je ve skladu i ve financích'}${dup.match?.created_at ? ` (${new Date(dup.match.created_at).toLocaleDateString('cs-CZ')})` : ''}.\n\nOpravdu uložit znovu? Vznikne duplicita.`)
+        if (!ok) return
+      }
+      const skipFinance = dup?.status === 'need_stock'      // už ve financích → doplnit jen sklad
+      const skipStock = dup?.status === 'need_finance'      // zboží už naskladněno → doplnit jen finance
+
       // 1) ZÁPIS DO FINANCÍ až teď (Uložit): commit OCR dokladu → finanční událost
-      let eventId = ocrInfo?.eventId
-      if (docType === 'ocr' && ocrDoc && !eventId) {
+      let eventId = ocrInfo?.eventId || (skipFinance ? dup?.match?.financial_event_id : null) || null
+      if (docType === 'ocr' && ocrDoc && !eventId && !skipFinance) {
         const { data: c, error: ce } = await supabase.functions.invoke('receive-invoice', { body: { mode: 'commit', source: 'velin', doc: ocrDoc } })
         if (ce || !c?.success) { alert('Uložení do financí selhalo: ' + (ce?.message || c?.error || 'neznámá chyba')); return }
         eventId = c.financial_event_id
         setOcrInfo(o => ({ ...o, eventId }))
       }
-      // 2) Zálohová (proforma) → jen do financí, NEnaskladňovat
+      // 2) Zálohová (proforma) → jen do financí, NEnaskladňovat (a neeviduje se jako dodávka)
       if (ocrInfo?.isProforma) { alert('Uloženo do Finance → Účetnictví → Finanční události (zálohová faktura — nenaskladňuje se).'); discard(); return }
 
       // 3) NASKLADNĚNÍ
       const payload = lines.map(l => ({ sku: lineSku(l), name: l.color ? `${l.name} ${l.color}` : l.name, qty: Number(l.qty) || 0, unit_price: Number(l.unit_price) || 0, category: catDef(l.cat).inv })).filter(l => l.sku && l.qty > 0)
-      if (!payload.length) {
+      if (!skipStock && !payload.length) {
         if (docType === 'ocr') { alert('Uloženo do financí. Žádná skladová položka (vyplň typ+velikost / kategorii u položek, které chceš naskladnit).'); discard() }
         else alert('Žádná položka nemá vyplněné SKU a počet > 0.')
         return
       }
-      const d = docs.find(x => x.id === docId)
-      const note = docType === 'ocr' ? `Naskladnění z faktury (OCR)${ocrInfo?.supplier ? ' ' + ocrInfo.supplier : ''}${ocrInfo?.number ? ' ' + ocrInfo.number : ''}${eventId ? ' [FE:' + eventId + ']' : ''}`.trim()
+
+      // 3b) FÁZE 6 — zaeviduj doklad + spáruj DL ⇄ faktura. will_stock=false když jen doplňujeme finance.
+      let rec = null
+      if (recDocType) {
+        const { data: rr } = await supabase.rpc('record_stock_receipt', {
+          p_doc_type: recDocType, p_doc_number: docNumber, p_doc_date: docDate,
+          p_variable_symbol: ocrInfo?.vs || d?.variable_symbol || null,
+          p_supplier_ico: supIco, p_supplier_name: supName, p_amount: totalCzk,
+          p_financial_event_id: eventId || null, p_will_stock: !skipStock,
+        }).catch(() => ({ data: null }))
+        rec = rr
+        loadPendingDl()
+      }
+      // Doplnění jen financí — zboží už naskladněno dřív (stejný doklad / protějšek DL)
+      if (skipStock || rec?.duplicate) {
+        await learnFromLines()
+        alert(`Doklad uložen${docType === 'ocr' && !skipFinance ? ' do financí' : ''}. Zboží už je naskladněno${rec?.duplicate ? ` z ${recDocType === 'invoice' ? 'dodacího listu' : 'faktury'} (spárováno)` : ' z dřívějška'} — nenaskladňuje se znovu.`)
+        discard(); return
+      }
+
+      const note = docType === 'ocr' ? `Naskladnění z ${recDocType === 'delivery_note' ? 'DL' : 'faktury'} (OCR)${ocrInfo?.supplier ? ' ' + ocrInfo.supplier : ''}${ocrInfo?.number ? ' ' + ocrInfo.number : ''}${eventId ? ' [FE:' + eventId + ']' : ''}`.trim()
         : docType === 'manual' ? 'Ruční naskladnění'
         : `Naskladnění z ${docType === 'dl' ? 'DL ' + (d?.dl_number || '') : 'FA ' + (d?.number || '')}`.trim()
       const { data, error } = await supabase.rpc('receive_stock_from_document', { p_lines: payload, p_note: note })
       if (error) { alert('Chyba: ' + error.message); return }
       if (!data?.success) { alert('Naskladnění selhalo: ' + (data?.error || '')); return }
       // 4) Učení číselníku z (zkorigovaných) položek → příště zařadí samo
-      for (const l of lines) {
-        const sku = lineSku(l); if (!sku) continue
-        const dd = catDef(l.cat)
-        try { await supabase.rpc('learn_sku', { p_sku: sku, p_name: l.name || sku, p_category: dd.skuCat === 'majetek' ? 'zbozi' : dd.skuCat, p_type: dd.sized ? (l.type || '') : '', p_size: dd.sized ? (l.size || '') : '', p_alias: (l.name || '').trim() }) } catch { /* noop */ }
-      }
-      supabase.from('sku_catalog').select('sku,name,category,type,size,aliases').then(({ data: c }) => setCatalog(c || []))
-      alert(`Uloženo${docType === 'ocr' ? ' do financí' : ''}. Naskladněno ${data.stocked} položek.`); discard()
+      await learnFromLines()
+      const dlMsg = rec?.needs_dl ? ' ⚠ Chybí dodací list — faktura zatím bez DL.' : ''
+      const partMsg = skipFinance ? ' (finance už byly zaevidované — doplněn jen sklad)' : ''
+      alert(`Uloženo${docType === 'ocr' && !skipFinance ? ' do financí' : ''}. Naskladněno ${data.stocked} položek.${partMsg}${dlMsg}`); discard()
     } finally { setBusy(false) }
   }
 
   return (
     <Card>
+      {pendingDl.length > 0 && (
+        <div className="mb-3 rounded-btn" style={{ padding: '10px 12px', background: '#fff7ed', border: '1px solid #fdba74' }}>
+          <div className="text-sm font-extrabold mb-1" style={{ color: '#b45309' }}>⚠ Chybí dodací list ({pendingDl.length})</div>
+          <div className="text-xs font-semibold mb-2" style={{ color: '#92400e' }}>Faktury naskladněné bez spárovaného DL. Až DL dorazí, naskladni ho z fotky — spáruje se a znovu se nenaskladní.</div>
+          <div className="flex flex-col gap-1">
+            {pendingDl.slice(0, 6).map(r => (
+              <div key={r.id} className="text-xs flex items-center gap-2 flex-wrap" style={{ color: '#7c2d12' }}>
+                <span className="font-bold">{r.supplier_name || 'dodavatel ?'}</span>
+                {r.doc_number ? <span className="font-mono">· {r.doc_number}</span> : null}
+                {r.variable_symbol ? <span>· VS {r.variable_symbol}</span> : null}
+                <span>· {(r.amount_czk || 0).toLocaleString('cs-CZ')} Kč</span>
+                <span style={{ opacity: 0.7 }}>· {r.created_at ? new Date(r.created_at).toLocaleDateString('cs-CZ') : ''}</span>
+              </div>
+            ))}
+            {pendingDl.length > 6 && <div className="text-xs" style={{ color: '#92400e' }}>…a další {pendingDl.length - 6}</div>}
+          </div>
+        </div>
+      )}
       <div className="flex items-center gap-2 mb-3 flex-wrap">
         {[['ocr', '📷 Vyfotit / nahrát'], ['dl', 'Z dodacího listu'], ['invoice', 'Z přijaté faktury'], ['manual', 'Ručně']].map(([k, l]) => (
           <button key={k} onClick={() => setDocType(k)} className="text-sm font-bold cursor-pointer rounded-btn"
@@ -678,6 +767,19 @@ function NaskladneniTab() {
         <div className="mb-2 rounded-btn text-sm font-bold" style={{ padding: '8px 12px', background: '#fff5f5', color: '#dc2626', border: '1px solid #fca5a5' }}>
           ⚠ Zálohová faktura (proforma) — zboží zatím nedorazilo, <b>nenaskladňuje se</b>. Po <b>Uložit</b> se zapíše jen jako evidence do finanční události.
         </div>
+      )}
+      {docType === 'ocr' && ocrInfo && ocrInfo.dup && ocrInfo.dup.status !== 'new' && (
+        ocrInfo.dup.status === 'duplicate_full' ? (
+          <div className="mb-2 rounded-btn text-sm font-bold" style={{ padding: '8px 12px', background: '#fff5f5', color: '#dc2626', border: '1px solid #fca5a5' }}>
+            ⛔ Duplicita — tento doklad už je zaevidovaný{ocrInfo.dup.match?.created_at ? ` (${new Date(ocrInfo.dup.match.created_at).toLocaleDateString('cs-CZ')})` : ''}: {ocrInfo.type === 'delivery_note' ? 'zboží je naskladněné' : 'je ve skladu i ve financích'}. Uložením vznikne duplicita (systém se před uložením zeptá).
+          </div>
+        ) : (
+          <div className="mb-2 rounded-btn text-sm font-bold" style={{ padding: '8px 12px', background: '#fff7ed', color: '#b45309', border: '1px solid #fdba74' }}>
+            {ocrInfo.dup.status === 'need_stock'
+              ? '↪ Tato faktura už je ve financích — Uložit doplní jen naskladnění (finance se znovu nezapíší).'
+              : '↪ Toto zboží už je naskladněné — Uložit doplní jen finanční evidenci (sklad se znovu nenavýší).'}
+          </div>
+        )
       )}
       {docType === 'ocr' && ocrInfo && !ocrInfo.isProforma && (
         <div className="mb-2 rounded-btn text-sm font-bold" style={{ padding: '8px 12px', background: '#e3f6e8', color: '#16a34a', border: '1px solid #bbf7d0' }}>
