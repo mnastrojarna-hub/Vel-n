@@ -15,8 +15,9 @@ import { PromoModal, PromoDetailModal } from './PromoCodesModals'
 
 const PER_PAGE = 25
 
+// Slevomat je u nás VŽDY voucher (tabulka vouchers, source='slevomat') — nikdy
+// promo kód. Zdroj 'slevomat' proto patří jen do dárkových poukazů, ne sem.
 const SOURCE_OPTIONS = [
-  { value: 'slevomat', label: 'Slevomat' },
   { value: 'eshop', label: 'E-shop' },
   { value: 'spoluprace', label: 'Spolupráce' },
   { value: 'vraceni', label: 'Vrácení' },
