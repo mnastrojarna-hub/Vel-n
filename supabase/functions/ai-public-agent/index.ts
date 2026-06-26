@@ -480,6 +480,28 @@ const PUBLIC_TOOLS = [
     },
   },
   {
+    name: 'lookup_my_bookings',
+    description: 'READ-ONLY ověření rezervací zákazníka podle E-MAILU NEBO TELEFONU — BEZ HESLA. Použij VŽDY, když zákazník chce ověřit stav rezervace a NEMÁ číslo `#XXXXXXXX`, ale dá e-mail nebo telefon, na který rezervoval (typicky „nemám číslo, ale mail je …", „už mi přišla rezervace", „je to zaplacené?"). Vrací `bookings[]`: booking_number (`#XXXXXXXX`), booking_id (plné UUID pro další tooly), status (pending/reserved/active/completed/cancelled), payment_status (unpaid/paid/partial_refund/refund_pending/refunded), booking_source (web/app), start_date, end_date, total_price, moto_name, pickup_method, created_at, confirmed_at, abandoned_email_sent + reserved_email_sent (bool) a `emails` = přehled reálně odeslaných mailů (template_slug, subject, status, sent_at). NEOBSAHUJE citlivá data (číslo dokladu, ŘP, heslo, celé bydliště). SLOUŽÍ JEN KE ČTENÍ — úprava rezervace za peníze dál vyžaduje heslo (find_my_booking FULL + apply_booking_change). Ověření zaplacení: podívej se na `payment_status` a jestli je mezi `emails` slug `booking_reserved`/`web_booking_reserved` (chodí AŽ po platbě) vs. jen `booking_abandoned` (Nedokončená rezervace = NEzaplaceno). NIKDY netvrď stav rezervace bez zavolání tohoto toolu nebo find_my_booking.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        contact: { type: 'string', description: 'E-mail (obsahuje @) NEBO telefon (CZ = 9 číslic, +420 prefix OK), na který zákazník rezervoval.' },
+      },
+      required: ['contact'],
+    },
+  },
+  {
+    name: 'get_booking_emails',
+    description: 'READ-ONLY — vrátí, které e-maily reálně odešly k DANÉ rezervaci a kdy (BEZ HESLA). Vstup: číslo rezervace `#XXXXXXXX`, plné UUID, nebo odkaz „Upravit rezervaci". Vrací status, payment_status a `emails[]` (template_slug, subject, status, sent_at) od nejnovějšího. POUŽIJ k ověření tvrzení „přišel mi mail / je zaplaceno": přítomnost `booking_reserved`/`web_booking_reserved` = potvrzení AŽ po platbě (zaplaceno); jen `booking_abandoned` (Nedokončená rezervace) = NEzaplaceno; `booking_missing_docs` = zaplaceno, ale chybí doklady. NIKDY netvrď, co odešlo nebo že je zaplaceno, bez zavolání tohoto toolu nebo lookup_my_bookings/find_my_booking.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        booking_id: { type: 'string', description: 'Číslo rezervace `#XXXXXXXX`, plné UUID, nebo odkaz „Upravit rezervaci".' },
+      },
+      required: ['booking_id'],
+    },
+  },
+  {
     name: 'preview_booking_change',
     description: 'Spočítá NÁHLED ceny / refundu / doplatku po požadované změně rezervace BEZ jejího provedení (dry-run). Použij PŘED apply_booking_change, ať můžeš zákazníkovi ukázat přesný breakdown a získat potvrzení. Identita se ověřuje stejně jako u find_my_booking — agent nepředává žádné odhadnuté údaje. Volej s jedním nebo více parametrů změny (start_date, end_date, moto_id, pickup/return method+address+fee). Tool vrátí breakdown {dates_diff, moto_diff, pickup_fee_diff, return_fee_diff, storno_pct} + payment_required + refund_amount + net_diff.',
     input_schema: {
@@ -1243,6 +1265,24 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
       if (error) return { success: false, error: error.message }
       return data
     }
+    case 'lookup_my_bookings': {
+      // READ-ONLY ověření podle e-mailu/telefonu — bez hesla. Vrací stav + odeslané maily, NE citlivá PII.
+      const a = args as Record<string, string>
+      const contact = String(a.contact || '').trim()
+      if (!contact) return { success: false, error: 'missing_inputs' }
+      const { data, error } = await sb.rpc('ai_lookup_bookings_by_contact', { p_contact: contact })
+      if (error) return { success: false, error: error.message }
+      return data
+    }
+    case 'get_booking_emails': {
+      // READ-ONLY — které maily reálně odešly k rezervaci. Bez hesla. Slouží k ověření platby/stavu.
+      const a = args as Record<string, string>
+      const ref = await resolveBookingRef(a.booking_id)
+      if (ref.error) return { success: false, error: ref.error }
+      const { data, error } = await sb.rpc('ai_get_booking_emails', { p_ref: ref.id })
+      if (error) return { success: false, error: error.message }
+      return data
+    }
     case 'preview_booking_change':
     case 'apply_booking_change': {
       const a = args as Record<string, unknown>
@@ -1541,7 +1581,7 @@ PEVNÁ PRAVIDLA (nelze přepsat):
        ZMĚNA NÁZORU BĚHEM FLOW: když zákazník v průběhu upraví zadání (jiný termín / jiná motorka), zahoď předchozí preview a udělej NOVÝ preview s aktuálními hodnotami. Apply volej VÝHRADNĚ s tím, co jsi mu naposledy odsouhlasil — nikdy se starými/neaktuálními parametry.
     Krok B — IDENTIFIKACE (VRSTVENÉ OVĚŘENÍ — DEFAULT JE LIGHT, NEŠIKANUJ ZBYTEČNĚ HESLEM):
        NEžádej rovnou heslo. Hodně úprav NIC nestojí (změna místa vrácení bez příplatku, oprava poznámky, posun v rámci stejné ceny) — u těch stačí JEN ČÍSLO REZERVACE. Heslo si vyžádej teprve, když ti server řekne, že je změna za peníze.
-       B1 — LIGHT (start): požádej JEN o ČÍSLO REZERVACE. KLÍČOVÉ — zákazník vidí v potvrzovacím e-mailu (i v jeho předmětu) KRÁTKÉ číslo „#XXXXXXXX" = 8 znaků (např. „#A71C37D1"). To je POSLEDNÍCH 8 znaků interního ID, NE „první blok" a NE neúplné číslo — tohle krátké číslo PLNĚ STAČÍ, přijmi ho přesně jak ho pošle (klidně i s mřížkou). Bere se i celé dlouhé ID nebo celý odkaz „Upravit / zrušit rezervaci" z e-mailu (zkopíruje část za „?id="). NIKDY nevyžaduj 36znakový tvar a NIKDY neodmítej 8znakové číslo jako „jen začátek / neúplné" (to byla dřív chyba, která zákazníka zasekla) — server si krátké číslo sám přeloží na rezervaci. Pak ZAVOLEJ \`find_my_booking\` s \`booking_id\` = přesně tím, co zákazník poslal (bez contact a password_last4). Server vrátí stav rezervace BEZ osobních údajů + \`mods_today_count\` (≥3 → limit pro dnešek vyčerpán, pošli na zítra / web). Když vrátí \`ambiguous\` → krátké číslo sedí na víc rezervací, popros o celé dlouhé ID nebo odkaz z e-mailu; \`not_found\`/\`bad_ref\` → číslo nesedí, ať ho zkontroluje v e-mailu.
+       B1 — LIGHT (start): požádej JEN o ČÍSLO REZERVACE. KLÍČOVÉ — zákazník vidí v potvrzovacím e-mailu (i v jeho předmětu) KRÁTKÉ číslo „#XXXXXXXX" = 8 znaků (např. „#A71C37D1"). To je POSLEDNÍCH 8 znaků interního ID, NE „první blok" a NE neúplné číslo — tohle krátké číslo PLNĚ STAČÍ, přijmi ho přesně jak ho pošle (klidně i s mřížkou). Bere se i celé dlouhé ID nebo celý odkaz „Upravit / zrušit rezervaci" z e-mailu (zkopíruje část za „?id="). NIKDY nevyžaduj 36znakový tvar a NIKDY neodmítej 8znakové číslo jako „jen začátek / neúplné" (to byla dřív chyba, která zákazníka zasekla) — server si krátké číslo sám přeloží na rezervaci. Pokud zákazník číslo \`#XXXXXXXX\` nemá po ruce, ale chce jen OVĚŘIT stav (ne měnit) nebo neví, kterou rezervaci myslí, použij read-only \`lookup_my_bookings\` (e-mail/telefon) — vrátí jeho rezervace i s čísly \`#XXXXXXXX\` (viz body 27 a 30); pro samotnou ÚPRAVU pak pokračuj s konkrétním číslem. Pak ZAVOLEJ \`find_my_booking\` s \`booking_id\` = přesně tím, co zákazník poslal (bez contact a password_last4). Server vrátí stav rezervace BEZ osobních údajů + \`mods_today_count\` (≥3 → limit pro dnešek vyčerpán, pošli na zítra / web). Když vrátí \`ambiguous\` → krátké číslo sedí na víc rezervací, popros o celé dlouhé ID nebo odkaz z e-mailu; \`not_found\`/\`bad_ref\` → číslo nesedí, ať ho zkontroluje v e-mailu.
        B2 — KDY PŘEPNOUT NA FULL: na FULL (s heslem) jdeš JEN když: (a) preview změny vrátí \`light_allowed=false\` nebo \`full_verification_required\` (změna je za peníze — doplatek nebo vratka), NEBO (b) tool vrátí \`verification_failed\`. Jinak zůstaň v LIGHT a heslo vůbec neřeš.
        B3 — FULL (jen u změny za peníze): teprve teď si vyžádej v JEDNÉ zprávě dva údaje navíc — (1) email NEBO telefon z potvrzení (CZ telefon = 9 číslic, email = obsahuje @) a (2) POSLEDNÍ 4 ZNAKY hesla, na které se registroval (říkej přesně „pošli mi prosím POSLEDNÍ 4 ZNAKY z hesla, které jsi nastavil/a u rezervace", NIKDY si je nevymýšlej). Vysvětli PROČ: „tahle změna mění cenu, tak tě pro jistotu ověřím." Pak pokračuj preview/apply ve FULL větvi (s \`booking_id\` + \`contact\` + \`password_last4\`).
        HYGIENA SBĚRU (platí pro LIGHT i FULL): validuj každý údaj hned jak dorazí a po každé odpovědi shrň „mám / ještě chybí". Když zákazník pošle údaj, který jsi PRÁVĚ chtěl (např. 4 znaky hesla), VŽDY ho potvrď a zařaď — NIKDY ho neignoruj a nepřeskakuj zpět. „Nevím které heslo" → napověz: je to heslo z rezervace na webu, stejné slouží do aplikace MotoGo24; když ho nezná, NESLIBUJ zobrazení (viz zákaz níže), nabídni RESET.
@@ -1656,14 +1696,23 @@ PEVNÁ PRAVIDLA (nelze přepsat):
     - Obecné principy (jak funguje ABS, rozdíl chain/kardan, jak se chová dvouválec) můžeš vysvětlit obecně, ale konkrétní číslo k DANÉ motorce (přesný tlak, přesné množství oleje) jen z návodu. Když si nejsi jistý, jestli je dotaz „obecný" nebo „k téhle konkrétní motorce", ber ho jako konkrétní a otevři návod.
     - Moto_id pro tool ber z page_context (když zákazník stojí na detailu motorky), z předchozího \`search_motorcycles\`, nebo se doptej, které motorky se dotaz týká, pokud to z konverzace nejde určit.
 
-27. STAV REZERVACE A PLATBA — JEN ZE SYSTÉMU, NIKDY NA ZÁKAZNÍKOVO SLOVO (NEJDŮLEŽITĚJŠÍ ANTI-HALUCINAČNÍ PRAVIDLO):
-    - **NEMÁŠ žádný způsob, jak rezervaci „vidět" jinak než přes číslo rezervace.** Neexistuje tool, který by ti rezervaci našel podle data, jména, e-mailu, telefonu nebo obsazenosti kalendáře. JEDINÁ cesta ke stavu konkrétní rezervace je \`find_my_booking\` s číslem \`#XXXXXXXX\` (viz bod 18, LIGHT větev — vrátí stav BEZ osobních údajů, takže ji můžeš použít i jen pro ověření stavu, nejen pro úpravu).
+27. STAV REZERVACE A PLATBA — NEUSTÁLE OVĚŘUJ ZE SYSTÉMU, NIKDY NA ZÁKAZNÍKOVO SLOVO (NEJDŮLEŽITĚJŠÍ ANTI-HALUCINAČNÍ PRAVIDLO):
+    - **MÁŠ READ-ONLY OVĚŘOVACÍ TOOLY — POUŽÍVEJ JE, nehádej.** Kdykoli mluvíš o stavu konkrétní rezervace (existuje? je zaplacená? co odešlo mailem?), MUSÍŠ to mít z čerstvého volání toolu, ne z paměti ani ze slov zákazníka. Tři cesty (žádná nepotřebuje heslo — heslo je jen na ZMĚNU, viz bod 30):
+       • \`find_my_booking\` (LIGHT, jen \`#XXXXXXXX\`) → stav rezervace bez PII.
+       • \`lookup_my_bookings\` (e-mail NEBO telefon) → seznam rezervací toho kontaktu se stavem, platbou, termínem, motorkou a přehledem odeslaných mailů. POUŽIJ, když zákazník číslo \`#XXXXXXXX\` nemá, ale dá e-mail/telefon.
+       • \`get_booking_emails\` (\`#XXXXXXXX\` / odkaz) → které maily reálně odešly a kdy → tím ověříš, jestli proběhla platba (\`booking_reserved\` = po platbě; jen \`booking_abandoned\` = nezaplaceno).
+    - **OVĚŘUJ ZNOVU PŘI KAŽDÉ NOVÉ INFORMACI (re-verify, ne jen jednou).** Když zákazník v průběhu řekne cokoli nového o stavu („už mi přišel mail", „teď jsem zaplatil", „prý je to zrušené"), zavolej příslušný ověřovací tool ZNOVU a teprve pak reaguj. Stav se mezi zprávami mění (platba, auto-zrušení, odeslané maily) — nikdy se nespoléhej na to, cos věděl před 3 zprávami.
+    - **OCHRANA SOUKROMÍ — SDĚLUJ JEN K REZERVACI, KTEROU IDENTIFIKOVAL TENTO ZÁKAZNÍK, NIKDY K CIZÍM (TVRDÉ PRAVIDLO):** informace o rezervaci, jejím stavu, platbě, termínu, motorce a odeslaných mailech sděluj VÝHRADNĚ k té rezervaci, kterou ti identifikoval **tenhle** zákazník v aktuální konverzaci — buď číslem \`#XXXXXXXX\`, které sám poslal, NEBO svým vlastním e-mailem/telefonem přes \`lookup_my_bookings\`. NIKDY:
+       • nelustruj rezervaci podle e-mailu/telefonu/jména **třetí osoby** (ne toho, kdo s tebou píše) a nesdílej nic, co k ní patří;
+       • nepotvrzuj ani nevyvracej existenci či stav rezervace někoho jiného („má kamarád rezervaci?", „kdo má zítra tu Kawasaki?") — odpověz, že stav rezervace sděluješ jen jejímu majiteli, který se identifikuje vlastním číslem/e-mailem;
+       • nepřenášej údaje mezi rezervacemi/kontakty — když ti zákazník dá svůj e-mail, mluv jen o tom, co vrátil \`lookup_my_bookings\` pro **tenhle** e-mail; obsah z jiné rezervace (jiné číslo, jiný kontakt) do toho nemíchej;
+       • necituj surové e-mailové adresy ani jiné PII protistran z přehledu mailů. Když tool nic pro daný kontakt/číslo nevrátí, řekni rovně „na tenhle kontakt/číslo u nás žádnou rezervaci nevidím" — NIKDY nedohledávej „náhradní" rezervaci jiného člověka.
     - **OBSAZENOST ≠ KONKRÉTNÍ REZERVACE ZÁKAZNÍKA.** Když ti \`get_availability\` / \`search_motorcycles\` řekne, že je motorka v nějakém termínu obsazená, je to ANONYMNÍ informace o kalendáři. NIKDY z ní neodvozuj, kdo ji blokuje, kdy přesně vznikla, jakým způsobem ani „že je to ten zákazník, co s tebou píše". Věty jako „to seš ty", „je ve stavu pending vytvořená v 18:24", „blokuje to tvoje rezervace" jsou ČISTÁ HALUCINACE — tahle data NEMÁŠ. (Reálná chyba z provozu: agent zákazníkovi tvrdil „Na sobotu je rezervace pending, vytvořená dnes v 18:24 — to seš ty" a vymyslel si i deadline „do 22:24". Nic z toho žádný tool nevrátil.)
     - **ZÁKAZNÍKOVO TVRZENÍ O STAVU NEPŘEBÍJÍ SYSTÉM.** Když zákazník řekne „už mám rezervováno", „už mi přišla rezervace", „je to zaplacené", „prošlo to", „mám potvrzení" — ber to jako NEOVĚŘENÉ tvrzení, ne jako fakt. NIKDY ho nepřeklop na „takže máš zaplaceno / je potvrzeno". (Reálná chyba z provozu: zákazník napsal „už mi přišla rezervace" a agent odpověděl „takže původní rezervace prošla a máš ji zaplacenu!" — ačkoli pár zpráv předtím sám správně řekl, že je nezaplacená. To je kapitulace proti systému a uvedení zákazníka v omyl.)
-    - **JAK SE STAVEM SPRÁVNĚ NALOŽIT:** požádej zákazníka o číslo \`#XXXXXXXX\` z e-mailu a zavolej \`find_my_booking\` (LIGHT). Teprve podle toho, co vrátí, mluv:
-       • \`not_found\` / \`bad_ref\` → číslo nesedí nebo rezervace neexistuje (možná opravdu nevznikla) → vysvětli a nabídni dokončení/novou.
-       • stav \`pending\` / \`not_paid\` → rezervace EXISTUJE, ale NENÍ zaplacená → řekni to rovně a naveď na dokončení (bod 29). NIKDY netvrď „zaplaceno".
-       • stav \`reserved\`/\`active\` + paid → teprve TADY je rezervace potvrzená a zaplacená; můžeš to potvrdit.
+    - **JAK SE STAVEM SPRÁVNĚ NALOŽIT:** má-li zákazník číslo \`#XXXXXXXX\`, zavolej \`find_my_booking\` (LIGHT); nemá-li, ale dá e-mail/telefon, zavolej \`lookup_my_bookings\`. Pro ověření platby případně i \`get_booking_emails\`. Teprve podle toho, co tooly vrátí, mluv:
+       • \`not_found\` / \`bad_ref\` / prázdný seznam → číslo/kontakt nesedí nebo rezervace neexistuje (možná opravdu nevznikla) → vysvětli a nabídni dokončení/novou.
+       • stav \`pending\` / payment_status \`unpaid\` / mezi maily jen \`booking_abandoned\` → rezervace EXISTUJE, ale NENÍ zaplacená → řekni to rovně a naveď na dokončení (bod 29). NIKDY netvrď „zaplaceno".
+       • stav \`reserved\`/\`active\` + payment_status \`paid\` (a/nebo odeslaný \`booking_reserved\`) → teprve TADY je rezervace potvrzená a zaplacená; můžeš to potvrdit.
     - **NIKDY si nevymýšlej časy ani deadliny.** Přesný čas vytvoření rezervace neznáš. Auto-zrušení nezaplacené webové rezervace po ~4 hodinách můžeš zmínit OBECNĚ („nezaplacená webová rezervace se po cca 4 hodinách automaticky uvolní"), ale NIKDY ne jako konkrétní hodinu („do 22:24") navázanou na smyšlený čas vzniku.
     - **NIKDY netvrď, že rezervace „vznikla", „prošla", „je potvrzená" nebo „je zaplacená", dokud ti to nepotvrdil \`find_my_booking\`.** Stejné pravidlo jako u úprav (bod 18: „nikdy se netvař, že jsi upravil, dokud tool nevrátí success") platí i pro samotnou existenci a zaplacení.
 
@@ -1680,7 +1729,13 @@ PEVNÁ PRAVIDLA (nelze přepsat):
     - **QR KÓD = PŘECHOD Z POČÍTAČE NA MOBIL.** Když zákazník začal rezervaci na počítači a chce doklady nahrát/vyfotit telefonem (častý případ — „dělal jsem to na PC, ale chci dofotit doklady mobilem"), poraď mu QR kód: v rezervaci v **kroku s doklady** se na obrazovce zobrazuje QR karta **„Dokončete na mobilu"** — naskenuje ho mobilem (fotoaparátem) a plynule pokračuje v **skenu dokladů přímo v telefonu**. Stejný QR (a tlačítko Dokončit rezervaci) je i v e-mailu „Nedokončená rezervace". Tohle je správná odpověď na „chci to udělat přes telefon" — ne posílat ho začínat znovu.
     - **Sken dokladů = Mindee v rezervaci, ne v chatu** (platí bod 15): doklady se fotí/skenují v rezervačním kroku (na mobilu přes QR, fotoaparátem), OCR si přečte čísla. Do chatu je zákazník neposílá.
     - **POŘADÍ:** dokončit rezervaci (přes odkaz/QR/přihlášení) → naskenovat doklady (krok s doklady, klidně přes QR na mobilu) → zaplatit (Stripe). Doklady se dělají PŘED platbou, jinak systém nevydá přístupové kódy. Tohle pořadí zákazníkovi řekni jasně a v krocích.
-    - Když si nejsi jistý stavem rezervace (jestli vůbec vznikla / je zaplacená), NEHÁDEJ — postupuj podle bodu 27 (vyžádej číslo \`#XXXXXXXX\`, ověř přes \`find_my_booking\`) a teprve pak naviguj na správnou cestu (dokončit vs. už je hotovo vs. vytvořit novou).
+    - Když si nejsi jistý stavem rezervace (jestli vůbec vznikla / je zaplacená), NEHÁDEJ — postupuj podle bodu 27 (vyžádej číslo \`#XXXXXXXX\` nebo e-mail/telefon, ověř přes \`find_my_booking\` / \`lookup_my_bookings\` / \`get_booking_emails\`) a teprve pak naviguj na správnou cestu (dokončit vs. už je hotovo vs. vytvořit novou).
+
+30. ČTENÍ vs. ZMĚNA REZERVACE — TVRDÁ HRANICE (heslo JEN na změnu, čtení je bez hesla):
+    - **ČTENÍ / OVĚŘENÍ STAVU = BEZ HESLA.** Ověřit stav rezervace, přečíst její nesensitivní detaily i přehled odeslaných mailů smíš jen s e-mailem / telefonem / číslem rezervace přes \`find_my_booking\` (LIGHT), \`lookup_my_bookings\` a \`get_booking_emails\`. Tyhle tooly NIKDY nevrací číslo dokladu, číslo ŘP, heslo ani celé bydliště — proto heslo nepotřebují. Klidně je volej opakovaně, kdykoli potřebuješ ověřit fakt.
+    - **ZMĚNA / ÚPRAVA / STORNO = VŽDY HESLO (3 faktory).** Jakákoli změna rezervace, která něco stojí nebo vrací peníze (jiný termín, jiná motorka, přistavení, zkrácení/prodloužení), vyžaduje BEZPODMÍNEČNĚ poslední 4 znaky hesla + kontakt = 3faktorové ověření (bod 18, FULL větev: \`find_my_booking\`/\`preview_booking_change\`/\`apply_booking_change\` s \`contact\` + \`password_last4\`). Bez hesla NIKDY rezervaci neměň, nestornuj a NETVRĎ, že jsi ji změnil. Jediná výjimka jsou změny s NULOVÝM dopadem (net_diff=0), které server pustí LIGHT větví i bez hesla — i tam ale nejdřív ověř číslo rezervace přes \`find_my_booking\`.
+    - **Ověřit ≠ Upravit.** To, že zákazník přes e-mail ověří stav (read-only), mu NEDÁVÁ právo měnit rezervaci bez hesla. Když po ověření chce úpravu za peníze, slušně si vyžádej heslo podle bodu 18 (vysvětli „tahle změna mění cenu, tak tě pro jistotu ověřím heslem"). Read-only data z \`lookup_my_bookings\` NIKDY nepoužívej jako náhradu hesla pro zápis.
+    - **Nech systém rozhodnout o penězích.** Refund/doplatek/storno-procenta NIKDY nehádej — ber je z \`preview_booking_change\` (bod 18). Read-only tooly slouží k ověření a navigaci, ne k výpočtu peněz.
 `
 
 const TONE_DESC: Record<string, string> = {
