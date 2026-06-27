@@ -191,8 +191,25 @@ async function loadConfig(): Promise<{ cfg: WebAgentConfig; company: CompanyInfo
 // Typ paměti: module-level cache s TTL. Edge isolate ji sdílí mezi requesty, takže se DB nehamruje
 // ("načteno po zapnutí, periodicky aktualizováno"). Změny textů v CMS se projeví po vypršení TTL
 // (max pár minut) nebo po studeném startu isolate.
+// Verzovaná invalidace: Velín po každé změně FAQ/dokumentů/podmínek bumpne
+// `app_settings.ai_kb_version` (helper `bumpKbVersion` v velin/src/lib/webCache.js).
+// Při každé zprávě porovnáme tuto verzi proti té, se kterou byla KB postavena, a
+// když se liší, načteme bázi znovu HNED (ne až po TTL). TTL zůstává jako pojistka
+// (když verze chybí / bump selže / změní se dokumenty bez bumpu) — bez verze se
+// chová přesně jako dřív (zpětně kompatibilní).
 const KB_TTL_MS = 5 * 60 * 1000
-let kbCache: { at: number; byLang: Record<string, string> } | null = null
+let kbCache: { at: number; ver: string; byLang: Record<string, string> } | null = null
+
+// Lehké čtení verze znalostní báze (1 řádek z app_settings dle PK). Prázdný
+// řetězec = klíč není nastaven nebo DB nedostupná → fallback na čisté TTL chování.
+async function loadKbVersion(): Promise<string> {
+  try {
+    const { data } = await sb.from('app_settings').select('value').eq('key', 'ai_kb_version').maybeSingle()
+    return data?.value != null ? String(data.value) : ''
+  } catch {
+    return ''
+  }
+}
 
 function stripHtmlToText(html: string): string {
   return String(html || '')
@@ -208,7 +225,8 @@ function stripHtmlToText(html: string): string {
 
 async function loadKnowledgeBase(lang: string): Promise<string> {
   const L = (lang || 'cs').slice(0, 2)
-  if (kbCache && (Date.now() - kbCache.at) < KB_TTL_MS && typeof kbCache.byLang[L] === 'string') {
+  const ver = await loadKbVersion()
+  if (kbCache && kbCache.ver === ver && (Date.now() - kbCache.at) < KB_TTL_MS && typeof kbCache.byLang[L] === 'string') {
     return kbCache.byLang[L]
   }
   let faqBlock = '', legalBlock = '', policiesBlock = ''
@@ -266,7 +284,9 @@ async function loadKnowledgeBase(lang: string): Promise<string> {
   const built = sections.length
     ? `ZNALOSTNÍ BÁZE (NAČTENA DO PAMĚTI — máš ji k dispozici od první zprávy, je to TVŮJ ZÁKLAD; tooly používej jen na živá/dynamická data nad rámec tohoto):\n\n${sections.join('\n\n')}`
     : '' // prázdné = DB nedostupná nebo nic publikováno; ošetří pravidla + tooly
-  if (!kbCache || (Date.now() - kbCache.at) >= KB_TTL_MS) kbCache = { at: Date.now(), byLang: {} }
+  // Nový snapshot když cache chybí, vypršela, nebo se změnila verze KB (Velín
+  // bumpnul ai_kb_version). Jinak jen doplníme jazyk do existujícího snapshotu.
+  if (!kbCache || kbCache.ver !== ver || (Date.now() - kbCache.at) >= KB_TTL_MS) kbCache = { at: Date.now(), ver, byLang: {} }
   kbCache.byLang[L] = built
   return built
 }

@@ -56,6 +56,17 @@ export function calcBikeEconomicsReal(moto, motoBookings) {
   return { source: 'real', category: cat, utilization, rentedDays: totalRentedDays, annualRevenue: totalRevenue, totalCosts, annualProfit, purchasePrice: pp, roi, paybackMonths, count: 1 }
 }
 
+// Idle motorka — žádné rezervace v období. Nese jen fixní roční náklady
+// (servis + pojištění/čištění + ostatní); marketing = 0 (žádný obrat). Slouží pro
+// REÁLNÝ výkon pobočky, kde nevypůjčené kusy NESMÍ dosazovat idealizovaný benchmark.
+export function calcBikeEconomicsIdle(moto) {
+  const cat = (moto.category || 'naked').toLowerCase()
+  const params = FLEET_CALC.categoryParams[cat] ?? FLEET_CALC.categoryParams['naked']
+  const servicesCost = params.avgServicePerEvent * params.servicesPerYear
+  const totalCosts = servicesCost + params.insuranceCleaningYear + FLEET_CALC.otherFixedPerBike
+  return { source: 'real', category: cat, utilization: 0, rentedDays: 0, annualRevenue: 0, totalCosts, annualProfit: -totalCosts, count: 1 }
+}
+
 // Benchmark — ekonomika z konstant (žádná real data)
 export function calcBikeEconomicsBenchmark(category, branchType, realUtilOverride = null) {
   const cat = (category || 'naked').toLowerCase()
