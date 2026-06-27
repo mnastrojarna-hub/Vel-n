@@ -77,6 +77,70 @@ class LoyaltyStatus {
   }
 }
 
+/// Motorka pro level-up oslavu — z RPC `get_loyalty_celebration_motos`.
+/// Vybírá se z historie výpůjček zákazníka (nejlepší médium: video → foto).
+class CelebrationMoto {
+  final String? brand;
+  final String? model;
+  final String? color;
+  final String? imageUrl;
+  final String? videoUrl;
+
+  /// Transparentní výřez motorky bez pozadí (iOS „samolepka") — hlavní motiv
+  /// oslavy. Když existuje, „nalepí" se na cinematic scénu (přednost před
+  /// fotkou/videem). NULL → fallback na video/foto.
+  final String? cutoutUrl;
+
+  const CelebrationMoto({
+    this.brand,
+    this.model,
+    this.color,
+    this.imageUrl,
+    this.videoUrl,
+    this.cutoutUrl,
+  });
+
+  /// „Honda Africa Twin" — značka + model, prázdné kusy se vynechají.
+  String get title => [brand, model]
+      .where((e) => e != null && e.trim().isNotEmpty)
+      .join(' ')
+      .trim();
+
+  bool get hasCutout => cutoutUrl != null && cutoutUrl!.trim().isNotEmpty;
+  bool get hasVideo => videoUrl != null && videoUrl!.trim().isNotEmpty;
+  bool get hasImage => imageUrl != null && imageUrl!.trim().isNotEmpty;
+  bool get hasMedia => hasCutout || hasVideo || hasImage;
+
+  factory CelebrationMoto.fromJson(Map<dynamic, dynamic> j) => CelebrationMoto(
+        brand: j['brand'] as String?,
+        model: j['model'] as String?,
+        color: j['color'] as String?,
+        imageUrl: j['image_url'] as String?,
+        videoUrl: j['video_url'] as String?,
+        cutoutUrl: j['cutout_url'] as String?,
+      );
+}
+
+/// Fail-open: stáhne personalizované motorky pro level-up oslavu. Když RPC
+/// neexistuje / selže / vrátí prázdno, vrátí [] a animace běží bez hero média.
+Future<List<CelebrationMoto>> fetchLoyaltyCelebrationMotos() async {
+  if (MotoGoSupabase.currentUser == null) return const [];
+  try {
+    final res =
+        await MotoGoSupabase.client.rpc('get_loyalty_celebration_motos');
+    if (res is! Map) return const [];
+    final list = res['motos'];
+    if (list is! List) return const [];
+    return list
+        .whereType<Map>()
+        .map((m) => CelebrationMoto.fromJson(m))
+        .where((m) => m.hasMedia)
+        .toList();
+  } catch (_) {
+    return const [];
+  }
+}
+
 /// '#RRGGBB' → [Color]; při neplatném vstupu vrací MotoGo zelenou.
 Color colorFromHex(String hex, {Color fallback = const Color(0xFF74FB71)}) {
   final h = hex.replaceAll('#', '').trim();
