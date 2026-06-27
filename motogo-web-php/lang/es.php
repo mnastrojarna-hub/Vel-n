@@ -501,7 +501,7 @@ return [
     'rez.steps.invPrice' => 'Precio',
     'rez.steps.invTotal' => 'Total a pagar',
     'rez.steps.verifyAndPay' => 'Verificar documentos y pagar',
-    'rez.steps.qrTitle' => 'Finaliza en el móvil',
+    'rez.steps.qrTitle' => 'Escanea y finaliza la reserva en otro dispositivo',
     'rez.steps.qrScan' => 'Escanea los documentos con la cámara',
     'rez.steps.qrBranch' => 'Sucursal autónoma',
     'rez.steps.qrValid' => 'QR válido durante 4 horas',

@@ -665,7 +665,7 @@ return [
     'rez.steps.invPrice' => 'Cena',
     'rez.steps.invTotal' => 'Celkem k úhradě',
     'rez.steps.verifyAndPay' => 'Ověřit doklady a zaplatit',
-    'rez.steps.qrTitle' => 'Dokončete na mobilu',
+    'rez.steps.qrTitle' => 'Naskenujte a dokončete rezervaci na jiném zařízení',
     'rez.steps.qrScan' => 'Sken dokladů fotoaparátem',
     'rez.steps.qrBranch' => 'Autonomní pobočka',
     'rez.steps.qrValid' => 'QR platný 4 hodiny',

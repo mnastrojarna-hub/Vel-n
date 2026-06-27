@@ -500,7 +500,7 @@ return [
     'rez.steps.invPrice' => 'Prix',
     'rez.steps.invTotal' => 'Total à payer',
     'rez.steps.verifyAndPay' => 'Vérifier les documents et payer',
-    'rez.steps.qrTitle' => 'Terminez sur votre téléphone',
+    'rez.steps.qrTitle' => 'Scannez et terminez la réservation sur un autre appareil',
     'rez.steps.qrScan' => 'Scannez les documents avec la caméra',
     'rez.steps.qrBranch' => 'Agence autonome',
     'rez.steps.qrValid' => 'QR valable 4 heures',

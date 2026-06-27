@@ -486,7 +486,7 @@ return [
     'rez.steps.invPrice' => 'Cena',
     'rez.steps.invTotal' => 'Do zapłaty',
     'rez.steps.verifyAndPay' => 'Zweryfikuj dokumenty i zapłać',
-    'rez.steps.qrTitle' => 'Dokończ na telefonie',
+    'rez.steps.qrTitle' => 'Zeskanuj i dokończ rezerwację na innym urządzeniu',
     'rez.steps.qrScan' => 'Zeskanuj dokumenty aparatem',
     'rez.steps.qrBranch' => 'Oddział samoobsługowy',
     'rez.steps.qrValid' => 'Kod QR ważny 4 godziny',

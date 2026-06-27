@@ -486,7 +486,7 @@ return [
     'rez.steps.invPrice' => 'Prijs',
     'rez.steps.invTotal' => 'Totaal te betalen',
     'rez.steps.verifyAndPay' => 'Documenten verifiëren en betalen',
-    'rez.steps.qrTitle' => 'Voltooi op je telefoon',
+    'rez.steps.qrTitle' => 'Scan en voltooi de reservering op een ander apparaat',
     'rez.steps.qrScan' => 'Scan documenten met de camera',
     'rez.steps.qrBranch' => 'Zelfbedieningsvestiging',
     'rez.steps.qrValid' => 'QR 4 uur geldig',
