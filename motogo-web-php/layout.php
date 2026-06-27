@@ -100,9 +100,9 @@ function renderHeader($currentPath = '/') {
                         '<button type="button" class="header-app-close" data-mg-app-close aria-label="' . te('header.menuClose') . '">✕</button>' .
                         '<h3 class="header-app-h">' . tc('header.app.heading') . '</h3>' .
                         '<div class="header-app-body">' .
-                            '<img class="header-app-qr" src="' . BASE_URL . '/gfx/qr-google-play.svg" alt="' . te('header.app.qrAlt') . '" width="120" height="120" loading="lazy">' .
+                            '<img class="header-app-qr" src="' . BASE_URL . '/gfx/qr-testovani.svg" alt="' . te('header.app.qrAlt') . '" width="120" height="120" loading="lazy">' .
                             '<div class="header-app-col">' .
-                                '<a class="header-app-cta" href="' . PLAY_STORE_URL . '" target="_blank" rel="noopener">' . tc('header.app.getPlay') . '</a>' .
+                                '<a class="header-app-cta" href="' . BASE_URL . '/testovani">' . tc('header.app.getPlay') . '</a>' .
                                 '<p class="header-app-note">' . t('header.app.whitelist', ['email' => '<a href="mailto:' . EMAIL_FULL . '">' . EMAIL_FULL . '</a>']) . '</p>' .
                             '</div>' .
                         '</div>' .
