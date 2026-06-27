@@ -36,3 +36,25 @@ export async function purgeWebCache() {
     }).catch(() => {})
   } catch (_) { /* ignore */ }
 }
+
+// Bumpne verzi znalostní báze veřejného AI agenta (`app_settings.ai_kb_version`).
+// Edge fn `ai-public-agent` drží FAQ + smluvní dokumenty + podmínky v 5min
+// in-memory cache (`kbCache`), kterou nelze externě purgnout (běží v Deno
+// isolatu). Místo čekání na TTL agent při každé zprávě porovná tuto verzi a
+// když se změnila, načte znalostní bázi znovu hned. Volá se po každé změně
+// obsahu, který agent čte (FAQ, smluvní texty, podmínky půjčovny).
+export async function bumpKbVersion() {
+  try {
+    await supabase.from('app_settings').upsert(
+      { key: 'ai_kb_version', value: Date.now() },
+      { onConflict: 'key' }
+    )
+  } catch (_) { /* ignore — agent se i tak srovná do 5 min přes TTL */ }
+}
+
+// Zneplatní obě cache najednou: server-side cache veřejného webu (page_cache +
+// data cache) i znalostní bázi AI agenta. Použij po změně obsahu, který čte
+// jak web, tak agent (FAQ, smluvní dokumenty, podmínky).
+export async function purgeWebAndAgentCache() {
+  await Promise.all([purgeWebCache(), bumpKbVersion()])
+}
