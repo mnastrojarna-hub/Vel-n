@@ -614,6 +614,11 @@ switch (true) {
         require __DIR__ . '/pages/partneri.php';
         break;
 
+    // Onboarding beta testerů mobilní appky (uzavřené testování Google Play)
+    case $path === '/testovani':
+        require __DIR__ . '/pages/testovani.php';
+        break;
+
     // Rezervace
     case $path === '/rezervace':
         require __DIR__ . '/pages/rezervace.php';
