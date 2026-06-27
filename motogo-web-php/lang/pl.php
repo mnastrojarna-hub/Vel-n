@@ -27,9 +27,9 @@ return [
     'header.app.title' => 'Pobierz aplikację mobilną MotoGo24',
     'header.app.aria' => 'Pobierz aplikację mobilną MotoGo24 z Google Play',
     'header.app.heading' => 'Pobierz aplikację MotoGo24',
-    'header.app.qrAlt' => 'Kod QR do pobrania aplikacji MotoGo24 z Google Play',
-    'header.app.getPlay' => 'Pobierz z Google Play',
-    'header.app.whitelist' => 'Aplikacja jest obecnie w zamkniętych testach Google Play. Zanim ją zainstalujesz, wyślij nam najpierw na {email} adres e-mail, którego używasz do logowania na swoje konto Google — dodamy Cię do testerów (whitelisting).',
+    'header.app.qrAlt' => 'Kod QR z instrukcją pobrania aplikacji MotoGo24',
+    'header.app.getPlay' => 'Pobierz aplikację',
+    'header.app.whitelist' => 'Aplikacja jest w zamkniętych testach Google Play. Kliknij przycisk powyżej, dołącz do testerów (2 kroki) i zainstaluj. Jeśli pobieranie nie działa, napisz do nas na {email}.',
     'header.app.loyaltyTitle' => 'Program lojalnościowy:',
     'header.app.loyaltyText' => 'Za każdą rezerwację złożoną przez aplikację awansujesz w poziomach lojalnościowych i zdobywasz rabaty, które rosną wraz z liczbą Twoich rezerwacji.',
 

@@ -28,6 +28,10 @@ define('IG_URL', 'https://www.instagram.com/moto.go24/');
 
 // Mobilní aplikace (uzavřené testování Google Play — opt-in odkaz pro testery)
 define('PLAY_STORE_URL', 'https://play.google.com/apps/testing/com.motogo24.app');
+// Veřejný Store odkaz po ostrém spuštění
+define('PLAY_STORE_LIVE_URL', 'https://play.google.com/store/apps/details?id=com.motogo24.app');
+// Google Group testerů (self-join, krok 1 onboardingu na /testovani)
+define('TESTER_GROUP_URL', 'https://groups.google.com/g/motogo24-testeri');
 
 // Logo
 define('LOGO_SVG', 'gfx/logo.svg');

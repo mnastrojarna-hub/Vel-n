@@ -223,6 +223,19 @@ serve(async (req) => {
       handover_protocol_autofilled: autofilled,
     }).eq('id', bookingId)
 
+    // Propsat stav km z protokolu do dat (jen reálné odečty, ne auto-fill).
+    // Samostatný UPDATE jen sloupce mileage_start → spustí trigger
+    // trg_booking_mileage_to_moto, který bumpne motorcycles.mileage = GREATEST(...).
+    // Idempotentní (zapíše jen když roste), EXCEPTION-safe (neshodí protokol).
+    try {
+      const rawMileage = (form.mileage as string | undefined) ?? ''
+      const km = parseInt(String(rawMileage).replace(/[^\d]/g, ''), 10)
+      if (!autofilled && Number.isFinite(km) && km > 0 &&
+          (!booking.mileage_start || km > Number(booking.mileage_start))) {
+        await admin.from('bookings').update({ mileage_start: km }).eq('id', bookingId)
+      }
+    } catch (_) { /* propsání km je best-effort, nikdy neshodí protokol */ }
+
     return json({ success: true, doc_id: docId, autofilled })
   } catch (e) {
     return json({ success: false, error: (e as Error).message }, 500)

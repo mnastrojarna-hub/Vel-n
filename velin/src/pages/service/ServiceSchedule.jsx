@@ -35,7 +35,7 @@ export default function ServiceSchedule() {
             .eq('active', true).order('next_due', { ascending: true, nullsFirst: false })),
         supabase.from('bookings').select('moto_id, start_date, end_date')
           .in('status', ['pending', 'reserved', 'active']).gte('end_date', isoDate(new Date())),
-        supabase.from('maintenance_log').select('moto_id, mileage_at_service, created_at').order('created_at', { ascending: true }),
+        supabase.from('maintenance_log').select('moto_id, km_at_service, created_at').order('created_at', { ascending: true }),
         supabase.from('motorcycles').select('id, model, spz, stk_valid_until, license_required').order('model'),
       ])
       if (schedRes.error) throw schedRes.error
@@ -46,12 +46,12 @@ export default function ServiceSchedule() {
       // Avg km/day per motorcycle
       const logs = logRes.data || []
       const byMoto = {}
-      for (const l of logs) { if (l.moto_id && l.mileage_at_service) { if (!byMoto[l.moto_id]) byMoto[l.moto_id] = []; byMoto[l.moto_id].push(l) } }
+      for (const l of logs) { if (l.moto_id && l.km_at_service) { if (!byMoto[l.moto_id]) byMoto[l.moto_id] = []; byMoto[l.moto_id].push(l) } }
       const avgMap = {}
       for (const [motoId, entries] of Object.entries(byMoto)) {
         if (entries.length >= 2) {
           const first = entries[0], last = entries[entries.length - 1]
-          const kmDiff = (last.mileage_at_service || 0) - (first.mileage_at_service || 0)
+          const kmDiff = (last.km_at_service || 0) - (first.km_at_service || 0)
           const sDays = seasonDaysBetween(new Date(first.created_at), new Date(last.created_at))
           if (sDays > 0 && kmDiff > 0) avgMap[motoId] = kmDiff / sDays
         }
@@ -78,6 +78,7 @@ export default function ServiceSchedule() {
         : baseMileage + (s.interval_km || 0)
       const remaining = nextAt - currentKm
       const overdue = s.interval_km ? remaining <= 0 : false
+      const dueSoon = !overdue && !!s.interval_km && remaining <= Number(s.interval_km) * 0.20
       const dbDate = s.next_due || s.next_date || null
       let autoDate = null
       const motoId = s.motorcycles?.id || s.moto_id
@@ -94,7 +95,7 @@ export default function ServiceSchedule() {
           autoDate = findWinterServiceDate(winterYear, mb); mergedWithWinter = true
         } else { autoDate = findFreeServiceDate(est, mb) }
       }
-      return { ...s, remaining, overdue, nextAt, estDate: dbDate ? new Date(dbDate) : autoDate, autoDate, isAutoEstimated: !dbDate && !!autoDate, dailyKm: dailyKm || 0, mergedWithWinter }
+      return { ...s, remaining, overdue, dueSoon, nextAt, estDate: dbDate ? new Date(dbDate) : autoDate, autoDate, isAutoEstimated: !dbDate && !!autoDate, dailyKm: dailyKm || 0, mergedWithWinter }
     })
     // Virtual winter service per moto
     const motoIds = new Set(schedules.map(s => s.motorcycles?.id || s.moto_id).filter(Boolean))
@@ -196,7 +197,8 @@ export default function ServiceSchedule() {
                   {s.isStkService ? 'prosinec–únor' : s.isWinterService ? 'leden–únor' : ''}
                   {!s.isStkService && s.interval_km ? `${s.interval_km.toLocaleString('cs-CZ')} km` : ''}{!s.isStkService && s.interval_days ? ` / ${s.interval_days} dní` : ''}
                 </TD>
-                <TD style={s.overdue ? { color: '#dc2626', fontWeight: 700 } : s.mergedWithWinter ? { color: '#2563eb', fontWeight: 600 } : undefined}>
+                <TD style={s.overdue ? { color: '#dc2626', fontWeight: 700 } : s.dueSoon ? { color: '#b45309', fontWeight: 700 } : s.mergedWithWinter ? { color: '#2563eb', fontWeight: 600 } : undefined}>
+                  {s.dueSoon && <span className="font-extrabold mr-1" style={{ fontSize: 9, background: '#f59e0b', color: '#fff', borderRadius: 4, padding: '1px 5px' }}>BLÍŽÍ SE</span>}
                   {s.isStkService ? (
                     s.stkValidUntil ? (() => { const days = Math.ceil((s.stkValidUntil - new Date()) / 86400000); const c = days < 0 ? '#dc2626' : days < 30 ? '#dc2626' : days < 90 ? '#b45309' : '#1a8a18'
                       return <span style={{ color: c, fontWeight: 700 }}>{days < 0 ? `⚠ ${Math.abs(days)} dní po` : `${days} dní`}<span style={{ fontWeight: 400, color: '#6b7280', marginLeft: 6, fontSize: 11 }}>(do {s.stkValidUntil.toLocaleDateString('cs-CZ')})</span></span> })()
