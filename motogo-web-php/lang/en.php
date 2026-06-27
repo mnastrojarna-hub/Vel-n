@@ -500,7 +500,7 @@ return [
     'rez.steps.invPrice' => 'Price',
     'rez.steps.invTotal' => 'Total due',
     'rez.steps.verifyAndPay' => 'Verify documents and pay',
-    'rez.steps.qrTitle' => 'Finish on your phone',
+    'rez.steps.qrTitle' => 'Scan and finish your reservation on another device',
     'rez.steps.qrScan' => 'Scan documents with the camera',
     'rez.steps.qrBranch' => 'Self-service branch',
     'rez.steps.qrValid' => 'QR valid for 4 hours',
