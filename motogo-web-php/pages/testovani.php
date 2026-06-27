@@ -38,6 +38,8 @@ $content = <<<HTML
 .mg-t-alt{font-size:.82rem;color:#4a6b5a;line-height:1.55;margin:.85rem 0 0;padding-top:.85rem;border-top:1px dashed #cfe3d8}
 .mg-t-cta-alt{background:#eafaf0;color:#0d6e0d;border:1px solid #bfe6cd;font-size:.85rem;padding:.5rem .9rem;margin-top:.5rem}
 .mg-t-cta-alt:hover{background:#d8f3e3;color:#0d6e0d}
+.mg-t-warn{background:#fff7e6;border:1px solid #f0d28a;border-radius:10px;padding:.6rem .8rem;font-size:.85rem;line-height:1.55;color:#5a4a1a;margin:0 0 .85rem}
+.mg-t-warn em{font-style:italic}
 .mg-t-row{display:flex;gap:1.1rem;align-items:center;flex-wrap:wrap}
 .mg-t-qr{width:128px;height:128px;flex:0 0 auto;border:1px solid #e3ece8;border-radius:10px;background:#fff;display:none}
 .mg-testeri.not-android .mg-t-qr{display:block}
@@ -61,9 +63,10 @@ $content = <<<HTML
 <ol class="mg-t-steps">
   <li class="mg-t-step" data-step="1">
     <h2>Přidej se do skupiny testerů<span class="mg-t-done-badge">✓ hotovo</span></h2>
-    <p>Otevři skupinu a nahoře klepni na <strong>„Připojit se ke skupině"</strong> (Join group). Musíš být přihlášený <strong>stejným Google účtem jako v Obchodě Play</strong>. Schvalování není potřeba — přidáš se hned.</p>
+    <p>Otevři skupinu. Google nahoře ukáže název <strong>„MotoGo24 Testeri"</strong> a hned pod ním <strong>šedě orámované tlačítko „Přidat se ke skupině"</strong> — na to klepni.</p>
+    <p class="mg-t-warn">⚠️ Možná uvidíš zákazovou ikonu a hlášku <em>„Pro přístup k tomuto obsahu nemáte oprávnění"</em>. <strong>Toho se nelekej — je to normální pro nečleny.</strong> Stačí klepnout na <strong>„Přidat se ke skupině"</strong> úplně nahoře (nebo na modrý odkaz <em>„se připojit ke skupině"</em> uprostřed textu). Musíš být přihlášený <strong>stejným Google účtem jako v Obchodě Play</strong>.</p>
     <div class="mg-t-row">
-      <a class="mg-t-cta" data-step1-btn href="{$gUrl}" target="_blank" rel="noopener">Připojit se ke skupině</a>
+      <a class="mg-t-cta" data-step1-btn href="{$gUrl}" target="_blank" rel="noopener">Přidat se ke skupině</a>
       <img class="mg-t-qr" src="{$qrG}" alt="QR kód pro připojení do skupiny testerů MotoGo24" width="128" height="128" loading="lazy">
     </div>
     <p class="mg-t-alt">Nevidíš tlačítko „Připojit se"? Přidej se <strong>e-mailem</strong> — otevře se rozepsaná zpráva, kterou jen <strong>odešleš</strong> (předmět ani text neměň):<br>
@@ -71,13 +74,13 @@ $content = <<<HTML
     </p>
   </li>
   <li class="mg-t-step" data-step="2">
-    <h2>Otevři test a nainstaluj appku</h2>
-    <p>Na stránce testu klepni na <strong>„Become a tester"</strong> a pak na <strong>„Stáhnout z Google Play"</strong>. Zařazení obvykle naskočí za <strong>pár minut</strong> (výjimečně až za pár hodin).</p>
+    <h2>Nainstaluj appku z Google Play</h2>
+    <p>Jsi tester — appku máš rovnou v Obchodě. Klepni na tlačítko níž (nebo naskenuj <strong>QR kód</strong>), případně v <strong>Obchodě Play</strong> nahoře vyhledej <strong>„MotoGo24"</strong> a dej <strong>Instalovat</strong>.</p>
     <div class="mg-t-row">
-      <a class="mg-t-cta" href="{$tUrl}" target="_blank" rel="noopener">Otevřít test v Google Play</a>
-      <img class="mg-t-qr" src="{$qrT}" alt="QR kód pro otevření testu aplikace MotoGo24 v Google Play" width="128" height="128" loading="lazy">
+      <a class="mg-t-cta" href="{$lUrl}" target="_blank" rel="noopener">Otevřít MotoGo24 v Google Play</a>
+      <img class="mg-t-qr" src="{$qrT}" alt="QR kód pro stažení aplikace MotoGo24 z Google Play" width="128" height="128" loading="lazy">
     </div>
-    <p class="mg-t-retry">⏳ Píše to <em>„App not available"</em> nebo <em>„počkej pár minut"</em>? To je normální hned po přidání. Dej si pauzu pár minut a klepni na tlačítko výš znovu — <strong>QR ani nic skenovat znovu nemusíš</strong>. Appka se mezitím sama objeví i v Google Play (zkus tam hledat „MotoGo24").</p>
+    <p class="mg-t-retry">⏳ Appku v Obchodě hned nevidíš? Po přidání do skupiny chvíli trvá, než tě Google uvidí jako testera (obvykle <strong>pár minut</strong>, výjimečně až pár hodin). Dej si pauzu a zkus to znovu — objeví se sama, QR už skenovat nemusíš.</p>
   </li>
 </ol>
 
