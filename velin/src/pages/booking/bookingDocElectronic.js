@@ -67,7 +67,10 @@ export function buildElectronicProtocolHtml({ type, vars, form, signatures }) {
 
   const head = (title, color) => `<!DOCTYPE html><html lang="cs"><head><meta charset="utf-8"><title>${esc(title)}</title></head><body style="margin:0;padding:0;font-family:'Segoe UI',sans-serif;color:#1a1a1a"><div style="max-width:780px;margin:0 auto;padding:32px"><h1 style="text-align:center;font-size:19px;border-bottom:2px solid ${color};padding-bottom:12px">${esc(title)}</h1><p style="text-align:center;font-size:12px;color:#666">k rezervaci č. ${esc(v.booking_number)} ze dne ${esc(v.today)}</p>`
 
-  const parties = `<h3 style="font-size:13px;margin-top:16px">Smluvní strany a vozidlo</h3><table style="width:100%;border-collapse:collapse;font-size:12px;border:1px solid #ddd">${infoRow('Pronajímatel', v.company_name)}${infoRow('Nájemce', v.customer_name)}${infoRow('Motocykl', `${v.moto_model} (${v.moto_spz || ''})`)}${infoRow('VIN', v.moto_vin)}${infoRow('Období pronájmu', v.rental_period)}</table>`
+  const identityRow = form.identityCodeRequired
+    ? infoRow('Ověření identity (kód k motorce)', form.identityVerified ? 'Ověřeno ✓' : 'Neověřeno')
+    : ''
+  const parties = `<h3 style="font-size:13px;margin-top:16px">Smluvní strany a vozidlo</h3><table style="width:100%;border-collapse:collapse;font-size:12px;border:1px solid #ddd">${infoRow('Pronajímatel', v.company_name)}${infoRow('Nájemce', v.customer_name)}${infoRow('Motocykl', `${v.moto_model} (${v.moto_spz || ''})`)}${infoRow('VIN', v.moto_vin)}${infoRow('Období pronájmu', v.rental_period)}${identityRow}</table>`
 
   const foot = `<p style="font-size:11px;color:#666;margin-top:18px">Tento protokol byl vyplněn a elektronicky podepsán perem na zařízení provozovatele dne ${esc(signedAt)}. Podpisy jsou nedílnou součástí tohoto dokumentu.</p></div></body></html>`
 

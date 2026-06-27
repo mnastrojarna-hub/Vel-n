@@ -24,6 +24,12 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
   const [checks, setChecks] = useState({})
   // Předávací protokol — jediná kolonka „Poškození" (zaškrtnutí + popis)
   const [handoverDamage, setHandoverDamage] = useState({ checked: false, desc: '' })
+  // Ověření identity — zákazník nadiktuje svůj přístupový kód k motorce (zná ho
+  // jen on z app/e-mailu); spolu s nahranými doklady tím potvrdíme totožnost.
+  const [motoCode, setMotoCode] = useState('')        // očekávaný kód (z branch_door_codes)
+  const [codeInput, setCodeInput] = useState('')      // co zadal operátor dle zákazníka
+  const [codeVerified, setCodeVerified] = useState(false)
+  const [codeChecked, setCodeChecked] = useState(false)
   const custSig = useRef(null)
   const operSig = useRef(null)
 
@@ -46,6 +52,12 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
       else { [...HANDOVER_CHECKS, ...EXTRA_GEAR_CHECKS].forEach(d => { init[d.key] = false }) }
       setChecks(init)
       setVisualState(''); setNotes(''); setDamageDesc(''); setMissingGear(''); setHandoverDamage({ checked: false, desc: '' })
+      // Načti přístupový kód k motorce pro tuto rezervaci (pro ověření identity).
+      setCodeInput(''); setCodeVerified(false); setCodeChecked(false)
+      const { data: dc } = await supabase.from('branch_door_codes').select('door_code')
+        .eq('booking_id', bookingId).eq('code_type', 'motorcycle')
+        .order('created_at', { ascending: false }).limit(1)
+      setMotoCode(dc?.[0]?.door_code || '')
     } catch (e) { setError(e.message) }
     setLoading(false)
   }
@@ -55,13 +67,23 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
   function setDamageNote(key, note) { setChecks(c => ({ ...c, [key]: { ...(c[key] || {}), note } })) }
   function toggleAccessory(i) { setAccessories(a => a.map((x, idx) => idx === i ? { ...x, checked: !x.checked } : x)) }
 
+  function verifyCode() {
+    const ok = !!motoCode && codeInput.trim() === String(motoCode).trim()
+    setCodeVerified(ok); setCodeChecked(true)
+  }
+
   async function handleSave() {
+    // Identita: pokud má rezervace kód k motorce, musí se před uložením ověřit.
+    if (motoCode && !codeVerified) {
+      setError('Ověřte kód k motorce (identita zákazníka) — zadejte kód, který zákazník obdržel, a klikněte na „Ověřit“.')
+      return
+    }
     setSaving(true); setError(null)
     try {
       const customerSig = custSig.current?.toDataURL() || null
       if (!customerSig) { setError('Chybí podpis nájemce — podepište se prosím perem.'); setSaving(false); return }
       const operatorSig = operSig.current?.toDataURL() || null
-      const form = { mileage, visualState, notes, damageDesc, missingGear, accessories, checks, damage: handoverDamage }
+      const form = { mileage, visualState, notes, damageDesc, missingGear, accessories, checks, damage: handoverDamage, identityCodeRequired: !!motoCode, identityVerified: codeVerified }
       const html = buildElectronicProtocolHtml({ type, vars, form, signatures: { customer: customerSig, operator: operatorSig } })
       const docId = crypto.randomUUID()
       const docName = (isDamage ? 'Protokol o poškození' : 'Předávací protokol') + ' (elektronický)'
@@ -103,6 +125,28 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
               <strong>{vars.customer_name}</strong> · {vars.moto_model} ({vars.moto_spz}) · {vars.rental_period}
             </div>
           )}
+
+          {/* Ověření identity — kód k motorce (jen Velín, ne app) */}
+          <div className="p-3 rounded-card" style={{ border: '2px solid #2563eb', background: '#eff6ff' }}>
+            <label style={{ fontSize: 12, fontWeight: 800, color: '#1e3a8a', display: 'block', marginBottom: 6 }}>Ověření identity — kód k motorce</label>
+            <p style={{ fontSize: 12, color: '#1e3a8a', marginBottom: 8 }}>Požádejte zákazníka o jeho přístupový kód k motorce (z aplikace / e-mailu) a ověřte ho. Spolu s nahranými doklady tím potvrdíte totožnost přebírajícího.</p>
+            {motoCode ? (
+              <>
+                <div className="flex items-center gap-2">
+                  <input type="text" inputMode="numeric" value={codeInput}
+                    onChange={e => { setCodeInput(e.target.value); setCodeVerified(false); setCodeChecked(false) }}
+                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); verifyCode() } }}
+                    style={inputStyle} placeholder="Kód k motorce od zákazníka" />
+                  <Button onClick={verifyCode}>Ověřit</Button>
+                </div>
+                {codeChecked && (codeVerified
+                  ? <p style={{ fontSize: 12, fontWeight: 700, color: '#15803d', marginTop: 6 }}>✓ Kód souhlasí — identita ověřena.</p>
+                  : <p style={{ fontSize: 12, fontWeight: 700, color: '#dc2626', marginTop: 6 }}>✗ Kód nesouhlasí. Zkontrolujte kód u zákazníka.</p>)}
+              </>
+            ) : (
+              <p style={{ fontSize: 12, color: '#b45309' }}>Pro tuto rezervaci není vygenerován kód k motorce (např. dětská motorka nebo zadržený kód). Ověření kódem se přeskočí.</p>
+            )}
+          </div>
 
           <div>
             <label style={{ fontSize: 12, fontWeight: 700, color: '#1a2e22', display: 'block', marginBottom: 6 }}>{isDamage ? 'Stav tachometru při vrácení (km)' : 'Stav km při předání'}</label>
