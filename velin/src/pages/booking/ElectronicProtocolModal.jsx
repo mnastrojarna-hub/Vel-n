@@ -72,6 +72,15 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
       try { pdfPath = await uploadHtmlAsPdf(supabase, `generated/${bookingId}/${type}-${docId}.pdf`, html) } catch {}
       const { error: gErr } = await supabase.from('generated_documents').insert({ id: docId, template_id: null, booking_id: bookingId, customer_id: vars._customer_id, filled_data: filled, pdf_path: pdfPath })
       if (gErr) throw gErr
+      // Propsat stav tachometru z protokolu do dat. Předávací protokol → mileage_start
+      // (trigger zvedne motorcycles.mileage). Protokol o poškození → jen mileage_end
+      // (pro „Najeto" v souhrnu, motorku neovlivní). Best-effort, neblokuje uložení.
+      try {
+        const km = parseInt(String(mileage).replace(/[^\d]/g, ''), 10)
+        if (Number.isFinite(km) && km > 0) {
+          await supabase.from('bookings').update(isDamage ? { mileage_end: km } : { mileage_start: km }).eq('id', bookingId)
+        }
+      } catch {}
       onSaved && onSaved({ html, type, docId, pdfPath, docName, bookingId, customerId: vars._customer_id, customerEmail: vars.customer_email || '', customerName: vars.customer_name || '', moto: `${vars.moto_model || ''}${vars.moto_spz ? ` (${vars.moto_spz})` : ''}`, rentalPeriod: vars.rental_period || '', bookingNumber: vars.booking_number || '' })
     } catch (e) { setError('Uložení selhalo: ' + e.message) }
     setSaving(false)

@@ -83,6 +83,9 @@
 |---------|---------|--------|
 | `bookings_auto_accounting` | bookings (AFTER UPDATE OF payment_status, WHEN paid) | auto_accounting_on_booking_paid() — EXCEPTION safe. **FIX 2026-06-11:** funkce do té doby tiše padala na `category NOT NULL` → příjmy se nezapisovaly (viz STATE_3) |
 | `maintenance_log_after_insert` | maintenance_log | update_moto_after_service() |
+| `maintenance_log_after_update` | maintenance_log (AFTER UPDATE OF km_at_service, status, completed_date) | **NEW 2026-06-28 (`20260628_handover_mileage_and_service_analytics.sql`).** update_moto_after_service() — pokryje dodatečné doplnění km / přepnutí na completed (idempotentní s AFTER INSERT, bump je GREATEST). |
+| `trg_booking_mileage_to_moto` | bookings (AFTER INSERT OR UPDATE OF mileage_start) | **NEW 2026-06-28.** trg_booking_mileage_to_moto() — propíše km z předávacího protokolu na motorku `mileage = GREATEST(COALESCE(mileage,0), NEW.mileage_start)` (jen když roste a `mileage_start>0`). Column-scoped (`OF mileage_start`) → neinteraguje s `trg_booking_modified_email`/door codes/účetnictvím (ty sledují status/moto/cenu/místo/payment_status, NE mileage_start). SECURITY DEFINER, EXCEPTION-safe (chyba → `debug_log`, nikdy neshodí UPDATE rezervace). |
+| `trg_moto_purchase_mileage_floor` | motorcycles (BEFORE INSERT OR UPDATE OF mileage, purchase_mileage) | **NEW 2026-06-28.** trg_moto_purchase_mileage_floor() — když `purchase_mileage > mileage`, zvedne `NEW.mileage` na `purchase_mileage` (srovnání po vyplnění „Zakoupeno s KM"). Čistá funkce bez I/O. |
 | ~~`sos_auto_reply_on_create`~~ | ~~sos_incidents (INSERT)~~ | **DROPPED 2026-03-10** — crashoval INSERT bez error handleru |
 | ~~`admin_users_updated_at`~~ | ~~admin_users~~ | **SMAZÁN 2026-03-24** — duplicitní s trg_admin_users_updated |
 | ~~`ai_conversations_updated_at`~~ | ~~ai_conversations~~ | **SMAZÁN 2026-03-24** — duplicitní s trg_ai_conversations_updated |

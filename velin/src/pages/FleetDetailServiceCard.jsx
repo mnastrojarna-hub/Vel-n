@@ -87,18 +87,28 @@ function findFreeTueWed(baseDate, bookings) {
 
 export { SEASON_MONTHS, SEASON_START, SEASON_END, isInSeason, seasonDaysBetween, addSeasonDays, findWinterServiceDate, isLateOctober, findFreeTueWed }
 
-export function ServiceScheduleCard({ moto, schedules, avgKm, unitLabel, unit, motoBookings }) {
+export function ServiceScheduleCard({ moto, schedules, avgKm, kmStats, unitLabel, unit, motoBookings }) {
   const navigate = useNavigate()
   const currentKm = Number(moto.mileage) || 0
   const baseMileage = Number(moto.purchase_mileage) || 0
+  const perCalDay = kmStats?.avg_km_per_calendar_day
+  const perRentalDay = kmStats?.avg_km_per_rental_day
 
   return (
     <Card>
       <h3 className="text-sm font-extrabold uppercase tracking-widest mb-3" style={{ color: '#1a2e22' }}>Nájezd a servis</h3>
-      <div className="flex gap-6 mb-3">
+      <div className="flex gap-4 mb-3 flex-wrap">
         <div className="p-3 rounded-lg" style={{ background: '#f1faf7' }}>
           <div className="text-sm font-extrabold uppercase" style={{ color: '#1a2e22' }}>Měsíční průměr</div>
           <div className="text-lg font-extrabold">{avgKm != null ? `${avgKm.toLocaleString('cs-CZ')} ${unitLabel}` : '—'}</div>
+        </div>
+        <div className="p-3 rounded-lg" style={{ background: '#f1faf7' }}>
+          <div className="text-sm font-extrabold uppercase" style={{ color: '#1a2e22' }}>Na kalendářní den</div>
+          <div className="text-lg font-extrabold">{perCalDay != null ? `${Number(perCalDay).toLocaleString('cs-CZ')} ${unitLabel}` : '—'}</div>
+        </div>
+        <div className="p-3 rounded-lg" style={{ background: '#f1faf7' }}>
+          <div className="text-sm font-extrabold uppercase" style={{ color: '#1a2e22' }}>Na půjčovní den</div>
+          <div className="text-lg font-extrabold">{perRentalDay != null ? `${Number(perRentalDay).toLocaleString('cs-CZ')} ${unitLabel}` : '—'}</div>
         </div>
         <div className="p-3 rounded-lg" style={{ background: '#f1faf7' }}>
           <div className="text-sm font-extrabold uppercase" style={{ color: '#1a2e22' }}>Celkem</div>
@@ -119,6 +129,8 @@ export function ServiceScheduleCard({ moto, schedules, avgKm, unitLabel, unit, m
           }
           const rem = nextAt - currentKm
           const overdue = rem <= 0
+          // „Blíží se servis" = zbývá ≤ 20 % intervalu (doporučení s předstihem).
+          const dueSoon = !overdue && !!s.interval_km && rem <= Number(s.interval_km) * 0.20
 
           // Estimate planned service date (Tue/Wed without booking)
           let planDate = null
@@ -153,11 +165,12 @@ export function ServiceScheduleCard({ moto, schedules, avgKm, unitLabel, unit, m
           }
 
           return (
-            <div key={s.id} className="flex flex-col gap-1 p-2 rounded-lg mb-1" style={{ background: overdue ? '#fee2e2' : mergedWithWinter ? '#dbeafe' : '#f1faf7', fontSize: 12 }}>
+            <div key={s.id} className="flex flex-col gap-1 p-2 rounded-lg mb-1" style={{ background: overdue ? '#fee2e2' : dueSoon ? '#fef3c7' : mergedWithWinter ? '#dbeafe' : '#f1faf7', fontSize: 12 }}>
               <div className="flex items-center gap-3">
                 <span className="font-bold">{s.description}</span>
                 <span style={{ color: '#1a2e22' }}>každých {s.interval_km?.toLocaleString('cs-CZ')} {unitLabel}</span>
-                <span className="ml-auto font-bold" style={{ color: overdue ? '#dc2626' : mergedWithWinter ? '#2563eb' : '#1a8a18' }}>
+                {dueSoon && <span className="font-extrabold" style={{ fontSize: 9, background: '#f59e0b', color: '#fff', borderRadius: 4, padding: '1px 5px' }}>BLÍŽÍ SE SERVIS</span>}
+                <span className="ml-auto font-bold" style={{ color: overdue ? '#dc2626' : dueSoon ? '#b45309' : mergedWithWinter ? '#2563eb' : '#1a8a18' }}>
                   {overdue ? `PO TERMÍNU ${Math.abs(rem).toLocaleString('cs-CZ')} ${unitLabel}` : `za ${rem.toLocaleString('cs-CZ')} ${unitLabel}`}
                   {mergedWithWinter && ' → zimní servis'}
                   {!overdue && !mergedWithWinter && avgKm > 0 ? ` (~${Math.round((rem / avgKm) * 30)} dní ${unit === 'mh' ? 'provozu' : 'jízdy'})` : ''}

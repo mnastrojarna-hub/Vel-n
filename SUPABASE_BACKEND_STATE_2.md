@@ -41,7 +41,7 @@
 - **contract_url** — URL smlouvy
 - **insurance_type** — typ pojištění
 - **signed_contract** — podepsaná smlouva (boolean)
-- **mileage_start, mileage_end** — nájezd km
+- **mileage_start, mileage_end** — nájezd km. **2026-06-28:** `mileage_start` = stav tachometru z **předávacího protokolu** (zapisuje edge `submit-handover-protocol` v `mode=customer` + Velín `ElectronicProtocolModal`); trigger `trg_booking_mileage_to_moto` z něj bumpne `motorcycles.mileage` (GREATEST). `mileage_end` = volitelně z protokolu o poškození (jen pro „Najeto" v `BookingSummary`, motorku neovlivní). „Najeto za půjčení" se v analytice dopočítává z rozdílu po sobě jdoucích `mileage_start` téže motorky (RPC `analytics_moto_rental_km`).
 - **damage_report** — hlášení poškození
 - **promo_code** — promo kód (text)
 - **stripe_payment_intent_id** — Stripe Payment Intent ID (pro refundy)
@@ -172,7 +172,7 @@
 - **engine_cc** — objem motoru
 - **price_weekday, price_weekend** — ceny
 - **price_mon, price_tue, price_wed, price_thu, price_fri, price_sat, price_sun** — ceny dle dne
-- **mileage** — aktuální nájezd
+- **mileage** — aktuální nájezd. **2026-06-28:** udržuje se automaticky jako **nejvyšší známé čtení** — trigger `trg_booking_mileage_to_moto` (z předávacího protokolu) a `update_moto_after_service` (z `km_at_service`) dělají `GREATEST(mileage, nové)`, takže auto NIKDY neklesá. Ruční korekce přes RPC `correct_motorcycle_mileage` (smí i dolů, floored na `purchase_mileage`). Trigger `trg_moto_purchase_mileage_floor` drží `mileage ≥ purchase_mileage`.
 - **image_url** — hlavní fotka
 - **images[]** — galerie fotek
 - **color** — barva
