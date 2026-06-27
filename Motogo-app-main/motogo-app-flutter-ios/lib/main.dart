@@ -28,6 +28,7 @@ import 'core/widgets/moto_fx.dart';
 import 'core/update_check_provider.dart';
 import 'core/in_app_update_service.dart';
 import 'core/widgets/logo_header.dart' show initAppVersion;
+import 'features/loyalty/loyalty_levelup_overlay.dart';
 
 /// Global navigator key for notification deep links.
 final rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -315,6 +316,12 @@ class _MotoGoAppState extends ConsumerState<MotoGoApp>
           child: Stack(
             children: [
               child!,
+              // Věrnostní ranky — neviditelný hlídač postupu na vyšší level.
+              // Sedí NAD celou navigací, takže celoobrazovkovou oslavu
+              // (postup o 1 = standard, o 2+ = turbo „MEGA POSTUP") zobrazí
+              // na jakékoli obrazovce — i mimo spodní lištu (login, platba,
+              // „success" potvrzení rezervace…).
+              const LoyaltyLevelUpWatcher(),
               // Language selection overlay (first launch)
               if (_onboardingChecked && _showLangOverlay)
                 LanguageOverlay(onDone: _onLangDone),
