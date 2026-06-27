@@ -6,6 +6,7 @@ import RichTextEditor from '../../components/ui/RichTextEditor'
 import { autoTranslate } from '../../lib/autoTranslate'
 import { debugAction } from '../../lib/debugLog'
 import { sanitizeHtml } from '../../lib/sanitize'
+import { purgeWebAndAgentCache } from '../../lib/webCache'
 
 // Stejné kategorie jako jsou v DB seedu — přidat lze i ručně přes editor (free text).
 const DEFAULT_CATEGORIES = [
@@ -68,6 +69,7 @@ export default function FaqSection() {
     await debugAction('faq.togglePublished', 'FaqSection', () =>
       supabase.from('faq_items').update({ published: !it.published }).eq('id', it.id)
     , { id: it.id, was: it.published })
+    purgeWebAndAgentCache()
     load()
   }
 
@@ -75,6 +77,7 @@ export default function FaqSection() {
     await debugAction('faq.toggleFeatured', 'FaqSection', () =>
       supabase.from('faq_items').update({ featured_home: !it.featured_home }).eq('id', it.id)
     , { id: it.id, was: it.featured_home })
+    purgeWebAndAgentCache()
     load()
   }
 
@@ -83,6 +86,7 @@ export default function FaqSection() {
     await debugAction('faq.delete', 'FaqSection', () =>
       supabase.from('faq_items').delete().eq('id', it.id)
     , { id: it.id })
+    purgeWebAndAgentCache()
     load()
   }
 
@@ -316,6 +320,10 @@ function FaqEditor({ entry, categories, onClose, onSaved }) {
         admin_id: user?.id, action: entry ? 'faq_updated' : 'faq_created',
         details: { id: savedId, question: stripTagsLite(payload.question).slice(0, 80) }
       })
+      // Zneplatni cache webu (page_cache) i znalostní bázi AI agenta, aby se
+      // změna projevila hned — jinak web drží starý HTML až 10 min a agent
+      // starou FAQ až 5 min. Až po překladu, ať se přenesou i cizojazyčné verze.
+      purgeWebAndAgentCache()
       onSaved()
     } catch (e) {
       setErr(e.message || String(e))
