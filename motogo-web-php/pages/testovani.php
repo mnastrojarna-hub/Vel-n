@@ -74,16 +74,13 @@ $content = <<<HTML
     </p>
   </li>
   <li class="mg-t-step" data-step="2">
-    <h2>Otevři test a nainstaluj appku</h2>
-    <p>Stránka testu je <strong>v angličtině</strong> a vypadá jako běžný Google Play. Stačí dvě věci:</p>
-    <p class="mg-t-warn"><strong>1.</strong> Uvidíš-li zelené tlačítko <strong>„Become a tester"</strong> (stát se testerem) → klepni na něj.<br>
-      <strong>2.</strong> Až nahoře svítí <em>„You are a tester"</em>, klepni na <strong>modrý odkaz „download it on Google Play"</strong> — otevře appku v Obchodě, kde dáš <strong>Instalovat</strong>.</p>
-    <p>Zařazení obvykle naskočí za <strong>pár minut</strong> (výjimečně až za pár hodin).</p>
+    <h2>Nainstaluj appku z Google Play</h2>
+    <p>Jsi tester — appku máš rovnou v Obchodě. Klepni na tlačítko níž (nebo naskenuj <strong>QR kód</strong>), případně v <strong>Obchodě Play</strong> nahoře vyhledej <strong>„MotoGo24"</strong> a dej <strong>Instalovat</strong>.</p>
     <div class="mg-t-row">
-      <a class="mg-t-cta" href="{$tUrl}" target="_blank" rel="noopener">Otevřít test v Google Play</a>
-      <img class="mg-t-qr" src="{$qrT}" alt="QR kód pro otevření testu aplikace MotoGo24 v Google Play" width="128" height="128" loading="lazy">
+      <a class="mg-t-cta" href="{$lUrl}" target="_blank" rel="noopener">Otevřít MotoGo24 v Google Play</a>
+      <img class="mg-t-qr" src="{$qrT}" alt="QR kód pro stažení aplikace MotoGo24 z Google Play" width="128" height="128" loading="lazy">
     </div>
-    <p class="mg-t-retry">⏳ Píše to <em>„App not available"</em> nebo <em>„počkej pár minut"</em>? To je normální hned po přidání. Dej si pauzu pár minut a klepni na tlačítko výš znovu — <strong>QR ani nic skenovat znovu nemusíš</strong>. Appka se mezitím sama objeví i v Google Play (zkus tam hledat „MotoGo24").</p>
+    <p class="mg-t-retry">⏳ Appku v Obchodě hned nevidíš? Po přidání do skupiny chvíli trvá, než tě Google uvidí jako testera (obvykle <strong>pár minut</strong>, výjimečně až pár hodin). Dej si pauzu a zkus to znovu — objeví se sama, QR už skenovat nemusíš.</p>
   </li>
 </ol>
 
