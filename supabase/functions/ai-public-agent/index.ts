@@ -327,7 +327,8 @@ PRAVIDLA NAD TÍMTO SEZNAMEM (BEZPODMÍNEČNÁ):
 - CENU NIKDY NEUVÁDÍŠ JAKO „od X Kč/den" — zákazníka „od" ceny nezajímá a zní to jako nalákání. Když zákazník zmíní termín nebo den, MUSÍŠ rovnou zavolat \`calculate_price\` (po předchozím \`get_availability\`) a sdělit přesnou částku za konkrétní den nebo období. Pokud termín ještě nemáš, požádej o něj jednou větou — neotevírej cenu, dokud termín neznáš.
 - Cenu, dostupnost a kompletní specs konkrétního kusu řeš VÝHRADNĚ přes tooly (\`calculate_price\`, \`get_availability\`, \`search_motorcycles\`). Tento seznam je orientace co existuje, ne ceník.
 - Tento seznam je generován z DB při každém requestu — pokud uživatel tvrdí "měli jste tam Hondu", ale Honda v seznamu výše není, znamená to, že už ji nemáme. Reaguj profesionálně, neslibuj a nabídni alternativu.
-- MotoGo24 NABÍZÍ VÝHRADNĚ motorky (kategorie cestovní, naked, supermoto, dětské). NEPRONAJÍMÁME skútry — žádný v seznamu výše není a žádný neexistuje. NIKDY skútr nenabízej, nezmiňuj jako „máme" ani „máme pár"; když na něj přijde řeč, řekni rovně „skútry nepůjčujeme" a nabídni alternativu z flotily. ZÁKAZ PROTIŘEČENÍ: co v jedné větě potvrdíš (např. „máme skútry"), nesmíš v další popřít („skútry nemáme") — drž se faktu, že je nemáme.`
+- TYP STROJE (skútr, naked, cestovní, supermoto, dětská…) ŘEŠ VÝHRADNĚ PODLE TOHOTO SEZNAMU, NE z paměti. Když se zákazník zeptá „máte skútry / cestovky / …", podívej se na pole „kat." u položek výše: je-li tam aspoň jeden kus dané kategorie (skútr = kat. „scootery"), MÁME ho — potvrď a nabídni ho. Není-li tam žádný, řekni rovně, že tu kategorii teď nemáme. NIKDY netvrď paušálně „skútry nepronajímáme" — to platí jen tehdy, když v seznamu výše opravdu žádný skútr není.
+- ZÁKAZ PROTIŘEČENÍ: co v jedné větě potvrdíš, nesmíš v další popřít. Když skútr (nebo jakákoli kategorie) v seznamu výše JE, drž se toho — že ho máme.`
 }
 
 // ============================================================================
@@ -343,7 +344,7 @@ const PUBLIC_TOOLS = [
       properties: {
         brand: { type: 'string', description: 'Značka, např. "Kawasaki", "BMW", "Yamaha", "Honda", "KTM", "Husqvarna", "Ducati", "Suzuki", "Triumph". Case-insensitive substring match.' },
         model_query: { type: 'string', description: 'Volnotextový dotaz na model (např. "Z 900", "MT-09", "S 1000", "Versys"). Použij kombinovaně s brand pro přesnost.' },
-        category: { type: 'string', enum: ['cestovni', 'naked', 'supermoto', 'detske'] },
+        category: { type: 'string', enum: ['cestovni', 'naked', 'supermoto', 'detske', 'scootery'] },
         license_group: { type: 'string', enum: ['AM', 'A1', 'A2', 'A', 'B', 'N'] },
         kw_min: { type: 'number' }, kw_max: { type: 'number' },
         price_max: { type: 'number', description: 'Max Kč/den' },
@@ -1439,7 +1440,7 @@ ORIENTAČNÍ ZNALOST O FIRMĚ (všechna ostatní fakta výhradně z tools — mo
 * Platba: Stripe Checkout (Visa, Mastercard, Amex, Apple Pay, Google Pay), LIVE mode, online.
 
 — SKUPINY ŘP (obecné zákonné limity ČR; konkrétní podmínky půjčovny → get_policies) —
-* AM (od 15) — pomalé skútry, neprovozujeme.
+* AM (od 15) — mopedy / pomalé skútry do 45 km/h; stroje téhle třídy (AM) neprovozujeme. (Pozn.: běžný silniční skútr je A1 nebo B — jestli nějaký máme, řeš podle živé flotily, ne podle tohoto bodu.)
 * A1 (od 16) — do 11 kW a 125 ccm.
 * A2 (od 18) — do 35 kW.
 * A (od 24, nebo 20+ s 2 roky A2) — bez omezení výkonu.
@@ -1951,7 +1952,7 @@ function formatPageContext(ctx: PageContext | null | undefined): string {
   lines.push('- Kontext je read-only; když user explicitně řekne "ne tuhle, jinou", přepni se a použij to, co řekl.')
   if (type === 'katalog') {
     lines.push('- KATALOG: Zákazník je ve výpisu motorek. Když napíše krátký dotaz ("125ccm", "něco menšího", "co tu máte", "na tohle") bez upřesnění, ber AKTIVNÍ FILTRY KATALOGU výše jako jeho zadání a ZAVOLEJ `search_motorcycles` s odpovídajícími filtry (license_group ze „skupina ŘP", category z „kategorie", kw/ccm/cena z „hledaný text"). Odpověz POUZE z toho, co tool vrátí — nikdy „od oka".')
-    lines.push('- KATALOG obsahuje VÝHRADNĚ motorky (kategorie cestovní, naked, supermoto, dětské). MotoGo24 NEPRONAJÍMÁ skútry — žádný v nabídce není. NIKDY skútr nenabízej ani nezmiňuj jako „máme/máme pár"; když na něj přijde řeč, řekni rovně, že skútry nepůjčujeme. A NIKDY si neprotiřeč: co v jedné větě potvrdíš, v další nesmíš popřít.')
+    lines.push('- KATALOG zobrazuje aktuální flotilu. JESTLI MÁME daný typ stroje (skútr, naked, cestovní, supermoto, dětská…) NEHÁDEJ z hlavy — řiď se sekcí „KOMPLETNÍ FLOTILA" výše (pole „kat."; skútr = kategorie „scootery") a/nebo zavolej `search_motorcycles` s `category`. Když tam kategorie je, potvrď a nabídni; když není, řekni rovně, že tu kategorii teď nemáme. NIKDY netvrď paušálně „skútry nepronajímáme", pokud skútr v živé flotile je. A NIKDY si neprotiřeč: co potvrdíš, v další větě nepopři.')
     lines.push('- Když pod aktivními filtry žádná motorka není, neříkej jen „nic nemáme" — nabídni REÁLNOU alternativu z živé flotily (jiná skupina ŘP, jiná kategorie, vyšší/nižší výkon) a doptej se, co je pro zákazníka důležité. Žádnou kategorii ani typ stroje, který nemáme, si nevymýšlej.')
   }
   return lines.join('\n')
