@@ -217,17 +217,25 @@ serve(async (req) => {
     }
 
     // Resolve attachments (inline base64 + storage paths z bucketu `documents`)
+    // attachmentsMeta = {filename, storage_path} pro `sent_emails.attachments_meta`,
+    // aby Velín → Dokumenty → Zaslané maily přílohy ZOBRAZIL (náhled/stažení).
     const attachments: Attachment[] = []
+    const attachmentsMeta: { filename: string; storage_path: string | null }[] = []
     for (const a of (Array.isArray(inlineAttachments) ? inlineAttachments : [])) {
-      if (a?.filename && a?.content) attachments.push({ filename: a.filename, content: a.content })
+      if (a?.filename && a?.content) {
+        attachments.push({ filename: a.filename, content: a.content })
+        attachmentsMeta.push({ filename: a.filename, storage_path: a.storage_path || null })
+      }
     }
     for (const a of (Array.isArray(attachment_paths) ? attachment_paths : [])) {
       if (!a?.path) continue
+      const filename = a.filename || a.path.split('/').pop() || 'priloha'
+      // I když se download nepovede, příloha se reálně připojuje přes path níže — zaeviduj ji.
+      attachmentsMeta.push({ filename, storage_path: a.path })
       try {
         const { data: file, error: dlErr } = await supabase.storage.from('documents').download(a.path)
         if (dlErr || !file) continue
         const buf = new Uint8Array(await file.arrayBuffer())
-        const filename = a.filename || a.path.split('/').pop() || 'priloha'
         attachments.push({ filename, content: base64Encode(buf) })
       } catch (e) { /* příloha se nepřipojí, e-mail přesto odejde */ }
     }
@@ -266,6 +274,7 @@ serve(async (req) => {
         status: result.success ? 'sent' : 'failed',
         error_message: result.error || null,
         provider_id: result.provider_id || null,
+        attachments_meta: attachmentsMeta.length ? attachmentsMeta : null,
       })
     } catch (e) { /* ignore logging errors */ }
 
@@ -329,6 +338,26 @@ async function handleInvoiceEmail(
     return jsonResponse({ success: false, error: 'Customer has no email address' }, 400)
   }
 
+  // DEDUP: faktura se smí odeslat zákazníkovi JEN JEDNOU. Při dvojím spuštění
+  // (StrictMode re-mount, dvojklik, retry edge/Resend) by jinak odešla 2×.
+  // Pokud už za posledních 10 min existuje `sent` e-mail s tímto číslem dokladu
+  // na stejnou adresu, druhé odeslání přeskočíme (idempotentní jako jinde v repu).
+  try {
+    const since = new Date(Date.now() - 10 * 60 * 1000).toISOString()
+    const { data: dup } = await supabase
+      .from('message_log')
+      .select('id')
+      .eq('channel', 'email')
+      .eq('recipient_email', profile.email)
+      .eq('status', 'sent')
+      .ilike('content_preview', `%${invoice.number}%`)
+      .gte('created_at', since)
+      .limit(1)
+    if (dup && dup.length > 0) {
+      return jsonResponse({ success: true, deduped: true })
+    }
+  } catch (e) { /* dedup nesmí zablokovat odeslání při chybě dotazu */ }
+
   const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('cs-CZ') : '—'
   const fmtPrice = (n: number) => (n || 0).toLocaleString('cs-CZ', { minimumFractionDigits: 0 })
 
@@ -369,13 +398,16 @@ async function handleInvoiceEmail(
   // Příloha: PDF (nebo HTML fallback) dokladu ze storage bucketu `documents`.
   // pdf_path plní Velín (renderAndStoreInvoicePdf) před voláním této funkce.
   const attachments: Attachment[] = []
+  const attachmentsMeta: { filename: string; storage_path: string | null }[] = []
   if (invoice.pdf_path) {
+    const ext = /\.pdf$/i.test(invoice.pdf_path as string) ? 'pdf' : 'html'
+    const filename = `${invoiceLabel.replace(/ /g, '-')}-${invoice.number}.${ext}`
+    attachmentsMeta.push({ filename, storage_path: invoice.pdf_path as string })
     try {
       const { data: blob } = await supabase.storage.from('documents').download(invoice.pdf_path as string)
       if (blob) {
         const bytes = new Uint8Array(await blob.arrayBuffer())
-        const ext = /\.pdf$/i.test(invoice.pdf_path as string) ? 'pdf' : 'html'
-        attachments.push({ filename: `${invoiceLabel.replace(/ /g, '-')}-${invoice.number}.${ext}`, content: base64Encode(bytes) })
+        attachments.push({ filename, content: base64Encode(bytes) })
       }
     } catch (e) { /* příloha se nepřipojí, e-mail přesto odejde */ }
   }
@@ -411,6 +443,7 @@ async function handleInvoiceEmail(
       status: result.success ? 'sent' : 'failed',
       error_message: result.error || null,
       provider_id: result.provider_id || null,
+      attachments_meta: attachmentsMeta.length ? attachmentsMeta : null,
     })
   } catch (e) { /* ignore */ }
 
