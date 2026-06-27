@@ -19,12 +19,24 @@ const TYPE_LABELS = {
   vop: 'VOP',
   rental_contract: 'Smlouva',
   handover_protocol: 'Předávací protokol',
+  damage_protocol: 'Protokol o poškození',
+}
+
+// Typ dokumentu — primárně z napárované šablony, jinak z filled_data
+// (elektronické protokoly se ukládají s template_id=null a typ/název nesou
+// v filled_data._doc_type / _doc_name).
+function resolveDocType(d) {
+  return d._template?.type || d.filled_data?._doc_type || null
+}
+function resolveDocLabel(d) {
+  return TYPE_LABELS[resolveDocType(d)] || d._template?.name || d.filled_data?._doc_name || '—'
 }
 
 const TYPE_OPTIONS = [
   { value: 'vop', label: 'VOP' },
   { value: 'rental_contract', label: 'Smlouva' },
   { value: 'handover_protocol', label: 'Předávací protokol' },
+  { value: 'damage_protocol', label: 'Protokol o poškození' },
 ]
 
 const STORAGE_KEY = 'velin_generated_filters'
@@ -87,12 +99,13 @@ export default function GeneratedTab() {
       if (filters.search) {
         const s = filters.search.toLowerCase()
         items = items.filter(d =>
-          (d._template?.name || d.type || '').toLowerCase().includes(s) ||
+          (resolveDocLabel(d) || '').toLowerCase().includes(s) ||
+          (d._template?.name || d.filled_data?._doc_name || '').toLowerCase().includes(s) ||
           (d.profiles?.full_name || '').toLowerCase().includes(s)
         )
       }
       if (filters.types?.length > 0) {
-        items = items.filter(d => filters.types.includes(d._template?.type || d.type))
+        items = items.filter(d => filters.types.includes(resolveDocType(d)))
       }
 
       setDocs(items)
@@ -104,6 +117,9 @@ export default function GeneratedTab() {
   }
 
   function generateFilledHtml(doc) {
+    // Elektronické protokoly nesou hotové podepsané HTML přímo v filled_data
+    // (template_id je null, není co plnit ze šablony).
+    if (doc.filled_data?._signed_html) return doc.filled_data._signed_html
     const template = doc._template?.content_html
     const data = doc.filled_data
     if (!template || !data) return null
@@ -166,7 +182,7 @@ export default function GeneratedTab() {
       { key: 'pdf_path', label: 'Soubor' },
     ], docs.filter(d => selectedIds.has(d.id)).map(d => ({
       ...d,
-      _typeLabel: TYPE_LABELS[d._template?.type] || d._template?.name || '',
+      _typeLabel: resolveDocLabel(d) === '—' ? '' : resolveDocLabel(d),
       _customerName: d.profiles?.full_name || '',
       _motoModel: d.bookings?.motorcycles?.model || '',
       _bookingShort: d.bookings?.id ? d.bookings.id.slice(-8).toUpperCase() : '',
@@ -238,14 +254,15 @@ export default function GeneratedTab() {
             </thead>
             <tbody>
               {docs.map(d => {
-                const typeName = TYPE_LABELS[d._template?.type] || d._template?.name || '—'
+                const typeName = resolveDocLabel(d)
+                const docType = resolveDocType(d)
                 return (
                   <tr key={d.id} style={{ borderBottom: '1px solid #d4e8e0', background: selectedIds.has(d.id) ? '#fef9c3' : undefined }}>
                     <TD><RowCheckbox id={d.id} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TD>
                     <TD>
                       <Badge label={typeName}
-                        color={d._template?.type === 'rental_contract' ? '#2563eb' : d._template?.type === 'vop' ? '#059669' : '#b45309'}
-                        bg={d._template?.type === 'rental_contract' ? '#dbeafe' : d._template?.type === 'vop' ? '#d1fae5' : '#fef3c7'} />
+                        color={docType === 'rental_contract' ? '#2563eb' : docType === 'vop' ? '#059669' : '#b45309'}
+                        bg={docType === 'rental_contract' ? '#dbeafe' : docType === 'vop' ? '#d1fae5' : '#fef3c7'} />
                     </TD>
                     <TD>{d.profiles?.full_name || '—'}</TD>
                     <TD>{d.bookings?.motorcycles?.model || '—'}</TD>
@@ -272,12 +289,12 @@ export default function GeneratedTab() {
       )}
 
       {preview && (
-        <Modal open title={`Náhled: ${TYPE_LABELS[preview._template?.type] || preview._template?.name || 'Dokument'}`} onClose={() => setPreview(null)} wide>
+        <Modal open title={`Náhled: ${resolveDocLabel(preview) === '—' ? 'Dokument' : resolveDocLabel(preview)}`} onClose={() => setPreview(null)} wide>
           {preview.filled_data && (
             <div className="mb-3 p-3 rounded-lg" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
               <div className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>Vyplněná data</div>
               <div className="grid grid-cols-2 gap-1 text-sm">
-                {Object.entries(preview.filled_data).map(([k, v]) => (
+                {Object.entries(preview.filled_data).filter(([k]) => !k.startsWith('_')).map(([k, v]) => (
                   <div key={k}>
                     <span style={{ color: '#1a2e22' }}>{k}: </span>
                     <span className="font-bold" style={{ color: '#0f1a14' }}>{v || '—'}</span>

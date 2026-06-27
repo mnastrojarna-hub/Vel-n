@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
-import { calcBikeEconomicsReal, calcBikeEconomicsBenchmark } from '../../lib/fleetCalc'
+import { calcBikeEconomicsReal, calcBikeEconomicsIdle } from '../../lib/fleetCalc'
 import TimePeriodSelector, { filterByPeriod, hasMinimumData, diffDays } from './TimePeriodSelector'
 import { isRealizedBooking } from '../../lib/revenueUtils'
 
@@ -84,18 +84,21 @@ export default function VykonPobocek() {
     const totalRentedDays = days.reduce((a, b) => a + b, 0)
     const utilizationPct = motorcycleCount > 0 ? (totalRentedDays / (motorcycleCount * periodDays)) * 100 : 0
 
-    // Profit estimate per bike
+    // Odhad ročního zisku/motorku — JEN ze skutečných rezervací pobočky.
+    // Nevypůjčené kusy se počítají reálně (0 obrat → jen fixní náklady), NE
+    // idealizovaným benchmarkem (ten patří do Doporučení lokací). Průměr přes
+    // celou flotilu pobočky, aby číslo odpovídalo realitě vytíženosti.
     let avgProfitPerBike = null
     if (locMotos.length > 0) {
-      let profitSum = 0, profitCount = 0
+      let profitSum = 0
       for (const m of locMotos) {
         const mBookings = locCompleted.filter(b => b.moto_id === m.id)
         const econ = mBookings.length > 0
           ? calcBikeEconomicsReal(m, mBookings)
-          : calcBikeEconomicsBenchmark(m.category, loc.location || 'turistická')
-        if (econ) { profitSum += econ.annualProfit; profitCount++ }
+          : calcBikeEconomicsIdle(m)
+        if (econ) profitSum += econ.annualProfit
       }
-      if (profitCount > 0) avgProfitPerBike = profitSum / profitCount
+      avgProfitPerBike = profitSum / locMotos.length
     }
 
     // Classification: compare current period to previous period (only if enough data)
@@ -170,7 +173,7 @@ export default function VykonPobocek() {
             <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
               {['Název', 'Typ', 'Obrat', 'Obrat/motorku', 'Odhad ročního zisku/motorku', 'Rezervace', 'Obsazenost %', has3mo ? 'Klasifikace' : null].filter(Boolean).map(h => (
                 <th key={h} className="text-left font-bold py-2 px-3" style={{ color: '#1a2e22' }}
-                  title={h === 'Odhad ročního zisku/motorku' ? 'Roční projekce zisku na motorku (benchmark/skutečná ekonomika), NE zisk za zvolené období — proto není srovnatelný s Obratem/motorku za období.' : undefined}>{h}</th>
+                  title={h === 'Odhad ročního zisku/motorku' ? 'Roční projekce zisku na motorku jen ze skutečných rezervací pobočky (nevypůjčené kusy = jen fixní roční náklady, mohou jít do mínusu). NE zisk za zvolené období — proto není srovnatelný s Obratem/motorku za období.' : undefined}>{h}</th>
               ))}
             </tr>
           </thead>
