@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>MotoGo24 — level-up TESTER (mimo app)</title>
+<title>MotoGo24 — level-up TESTER (finál)</title>
 <style>
   :root{ color-scheme:dark; }
   *{ box-sizing:border-box; }
@@ -12,52 +12,39 @@
   h1{ text-align:center; font-size:20px; margin:0 0 2px; }
   .sub{ text-align:center; opacity:.6; font-size:12.5px; margin:0 0 18px; }
   .sub b{ color:#FFD27A; }
-
   .wrap{ display:flex; gap:30px; justify-content:center; align-items:flex-start; flex-wrap:wrap; }
 
-  /* ovládací panel */
   .panel{ width:300px; background:#0c1812; border:1px solid #16291d; border-radius:16px; padding:16px; }
   .panel h2{ font-size:13px; margin:0 0 12px; letter-spacing:.5px; color:#bdf5d4; }
   .fld{ margin-bottom:13px; }
-  .fld label{ display:block; font-size:11px; font-weight:700; opacity:.75; margin-bottom:5px; letter-spacing:.3px; }
-  .fld input[type=text], .fld input[type=number], .fld select{
-    width:100%; background:#0a130d; border:1px solid #1d3326; color:#e9f5ee; border-radius:9px; padding:8px 10px; font-size:13px; }
+  .fld label{ display:block; font-size:11px; font-weight:700; opacity:.75; margin-bottom:5px; }
+  .fld input[type=text], .fld input[type=number]{ width:100%; background:#0a130d; border:1px solid #1d3326; color:#e9f5ee; border-radius:9px; padding:8px 10px; font-size:13px; }
   .fld input[type=range]{ width:100%; }
-  .fld .row{ display:flex; gap:8px; }
-  .fld .row > *{ flex:1; }
-  .filebtn{ display:block; background:#13301f; color:#bdf5d4; border:1px dashed #2a5a39; border-radius:9px;
-            padding:10px; text-align:center; font-size:12px; font-weight:700; cursor:pointer; }
+  .filebtn{ display:block; background:#13301f; color:#bdf5d4; border:1px dashed #2a5a39; border-radius:9px; padding:10px; text-align:center; font-size:12px; font-weight:700; cursor:pointer; }
   .filebtn:hover{ background:#1b4a2c; }
   .seg{ display:flex; gap:6px; }
   .seg button{ flex:1; background:#0a130d; border:1px solid #1d3326; color:#cfe9da; border-radius:9px; padding:8px 0; font-weight:800; cursor:pointer; font-size:13px; }
   .seg button.on{ background:linear-gradient(135deg,#74FB71,#2faf4e); color:#06100a; border-color:transparent; }
-  .play{ width:100%; margin-top:6px; background:linear-gradient(135deg,#FFE7A0,#E9B24B); color:#241a06;
-         border:none; border-radius:999px; padding:12px; font-weight:900; font-size:14px; cursor:pointer; }
+  .play{ width:100%; margin-top:6px; background:linear-gradient(135deg,#FFE7A0,#E9B24B); color:#241a06; border:none; border-radius:999px; padding:12px; font-weight:900; font-size:14px; cursor:pointer; }
+  .chk{ display:flex; align-items:center; gap:8px; font-size:12px; font-weight:700; }
   .note{ font-size:10.5px; opacity:.55; line-height:1.5; margin-top:8px; }
 
-  /* telefon */
-  .phone{ position:relative; width:330px; height:680px; border-radius:42px; overflow:hidden;
-          background:#05090b; border:9px solid #161616; box-shadow:0 22px 60px rgba(0,0,0,.65); }
+  .phone{ position:relative; width:330px; height:680px; border-radius:42px; overflow:hidden; background:#05090b; border:9px solid #161616; box-shadow:0 22px 60px rgba(0,0,0,.65); }
   .notch{ position:absolute; top:0; left:50%; transform:translateX(-50%); width:128px; height:24px; background:#161616; border-radius:0 0 16px 16px; z-index:60; }
   .stage{ position:absolute; inset:0; overflow:hidden; }
-  .bg{ position:absolute; inset:0; background:radial-gradient(120% 90% at 50% 32%, #16241b 0%, #0a130d 55%, #05090b 100%); }
-  /* hero full-bleed (foto/video fallback) */
+  .bg{ position:absolute; inset:0; background:radial-gradient(120% 90% at 50% 32%, #16241b 0%, #0a130d 55%, #05090b 100%); display:flex; align-items:center; justify-content:center; color:rgba(255,255,255,.25); font-size:12px; font-weight:700; }
   .heroFull{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
-  /* hero cutout „samolepka" */
-  .heroCut{ position:absolute; left:0; right:0; top:46%; transform:translateY(-50%); margin:0 18px;
-            max-height:62%; width:calc(100% - 36px); object-fit:contain;
-            filter:drop-shadow(0 26px 34px rgba(0,0,0,.7)); }
-  .scrim{ position:absolute; inset:0; background:linear-gradient(to bottom,
-            rgba(0,0,0,.55) 0%, rgba(0,0,0,.10) 30%, rgba(0,0,0,.30) 55%, rgba(0,0,0,.88) 100%); }
-  .beam{ position:absolute; top:-20%; left:-40%; width:50%; height:150%;
-         background:linear-gradient(105deg, rgba(255,233,170,0), rgba(255,233,170,.16) 50%, rgba(255,233,170,0)); filter:blur(1px); }
+  .scrim{ position:absolute; inset:0; background:linear-gradient(to bottom, rgba(0,0,0,.55) 0%, rgba(0,0,0,.10) 30%, rgba(0,0,0,.30) 55%, rgba(0,0,0,.88) 100%); }
+  .beam{ position:absolute; top:-20%; left:-40%; width:50%; height:150%; background:linear-gradient(105deg, rgba(255,233,170,0), rgba(255,233,170,.16) 50%, rgba(255,233,170,0)); filter:blur(1px); }
+  .spot{ position:absolute; left:50%; top:38%; transform:translate(-50%,-50%); width:300px; height:300px; border-radius:50%;
+         background:radial-gradient(rgba(0,0,0,.55), rgba(0,0,0,0)); pointer-events:none; }
+  .flash{ position:absolute; inset:0; background:#fff; opacity:0; pointer-events:none; z-index:40; }
   canvas{ position:absolute; inset:0; width:100%; height:100%; z-index:20; }
 
-  .emblem{ position:absolute; top:62px; left:50%; transform:translateX(-50%); z-index:30; display:flex; flex-direction:column; align-items:center; gap:9px; }
-  .ring{ position:relative; width:90px; height:90px; border-radius:24px; padding:3px; }
-  .ring .logo{ width:100%; height:100%; border-radius:21px; background:#000; display:flex; align-items:center; justify-content:center; font-size:38px; }
-  .badge{ position:absolute; top:-12px; right:-16px; min-width:32px; padding:5px 9px; border-radius:999px;
-          font-weight:900; font-size:16px; border:2px solid #fff; text-align:center; }
+  .emblem{ position:absolute; top:38%; left:50%; transform:translate(-50%,-50%); z-index:30; display:flex; flex-direction:column; align-items:center; gap:10px; }
+  .ring{ position:relative; width:94px; height:94px; border-radius:25px; padding:3px; }
+  .ring .logo{ width:100%; height:100%; border-radius:22px; background:#000; display:flex; align-items:center; justify-content:center; font-size:40px; }
+  .badge{ position:absolute; top:-13px; right:-17px; min-width:34px; padding:5px 10px; border-radius:999px; font-weight:900; font-size:17px; border:2px solid #fff; text-align:center; color:#241a06; }
   .kick{ font-size:11px; font-weight:900; letter-spacing:5px; }
 
   .ui{ position:absolute; left:0; right:0; bottom:0; z-index:30; padding:0 24px 36px; text-align:center; }
@@ -71,230 +58,188 @@
 </style>
 </head>
 <body>
-  <h1>MotoGo24 — level-up TESTER</h1>
-  <p class="sub">Testuj a laď <b>mimo appku</b>. Nahraj <b>výřez PNG</b> (iOS samolepka) nebo vlož <b>URL fotky/MP4</b> z backendu, nastav rank a postup, a klikni Přehrát. Choreografie = 1:1 s appkou.</p>
+  <h1>MotoGo24 — level-up TESTER (finál)</h1>
+  <p class="sub">Full-screen video/foto motorky • logo <b>MotoGo24 ve středu</b> • na konci <b>přeblik staré→nové barvy ranku</b> + číslo + <b>zvuk</b>. Nahraj médium a zkoušej kombinace.</p>
 
   <div class="wrap">
     <div class="panel">
       <h2>NASTAVENÍ</h2>
-
       <div class="fld">
-        <label>Motorka — výřez PNG / foto / video</label>
-        <label class="filebtn" for="file">⬆️ Nahrát soubor (PNG / JPG / MP4)</label>
+        <label>Video / foto motorky (full-screen)</label>
+        <label class="filebtn" for="file">⬆️ Nahrát MP4 / foto</label>
         <input id="file" type="file" accept="image/*,video/*" style="display:none" />
-        <div class="row" style="margin-top:8px">
-          <input id="url" type="text" placeholder="…nebo vlož URL z backendu" />
-        </div>
+        <input id="url" type="text" placeholder="…nebo URL z backendu" style="margin-top:8px" />
         <button class="filebtn" id="loadUrl" style="margin-top:8px">Načíst URL</button>
       </div>
-
       <div class="fld">
-        <label>Typ média</label>
-        <div class="seg" id="mediaType">
-          <button data-m="cutout" class="on">Výřez (samolepka)</button>
-          <button data-m="full">Foto/Video</button>
-        </div>
+        <label>Postup o kolik ranků (mění barvu i číslo)</label>
+        <div class="seg" id="gained"><button data-g="1" class="on">+1</button><button data-g="2">+2</button><button data-g="3">+3</button></div>
       </div>
-
       <div class="fld">
-        <label>Postup o kolik ranků</label>
-        <div class="seg" id="gained">
-          <button data-g="1" class="on">+1</button>
-          <button data-g="2">+2</button>
-          <button data-g="3">+3</button>
-        </div>
-      </div>
-
-      <div class="fld">
-        <label>Level / rank: <span id="lvlVal">12</span> (čím vyšší, tím zlatější)</label>
+        <label>Nový level / rank: <span id="lvlVal">12</span> · ze starého: <span id="oldVal">11</span></label>
         <input id="level" type="range" min="1" max="20" value="12" />
       </div>
-
-      <div class="fld row">
-        <div style="flex:1"><label>Sleva %</label><input id="pct" type="number" min="1" max="20" value="12" /></div>
-      </div>
-
+      <div class="fld"><label>Sleva %</label><input id="pct" type="number" min="1" max="20" value="12" /></div>
       <div class="fld"><label>Název ranku</label><input id="rankName" type="text" value="KAPITÁN SILNIC" /></div>
-      <div class="fld"><label>Model motorky (popisek)</label><input id="bike" type="text" value="Honda Africa Twin" /></div>
-
+      <div class="fld"><label>Model motorky (popisek)</label><input id="bike" type="text" value="Kawasaki Z900" /></div>
+      <div class="fld"><label class="chk"><input id="sound" type="checkbox" checked /> Zvuk změny ranku (climax)</label></div>
+      <div class="fld">
+        <label>…nebo vlastní zvuk (volitelné)</label>
+        <label class="filebtn" for="sfile">⬆️ Nahrát zvuk (MP3/WAV)</label>
+        <input id="sfile" type="file" accept="audio/*" style="display:none" />
+      </div>
       <button class="play" id="play">▶ PŘEHRÁT</button>
-      <div class="note">Tip: výřez = transparentní PNG bez pozadí (v iOS Fotkách podrž motorku → „Zkopírovat samolepku"). Foto/Video se zobrazí přes celou plochu jako fallback.</div>
+      <div class="note">Climax (přeblik staré→nové barvy + číslo) je schválně až na konci. Bez nahraného média běží scéna na tmavém pozadí.</div>
     </div>
 
-    <div class="col">
-      <div class="phone">
-        <div class="notch"></div>
-        <div class="stage">
-          <div class="bg"></div>
-          <div id="heroWrap"></div>
-          <div class="scrim"></div>
-          <div class="beam" id="beam"></div>
-          <canvas></canvas>
-        </div>
-        <div class="emblem" id="emblem">
-          <div class="ring" id="ring"><div class="logo">🏍️</div><div class="badge" id="badge">+1</div></div>
-          <div class="kick" id="kick">NOVÝ STATUS</div>
-        </div>
-        <div class="ui" id="ui">
-          <div class="rank" id="rank">KAPITÁN SILNIC</div>
-          <div class="forever">Vaše sleva <span class="pct" id="pctTxt">12 %</span> platí napořád</div>
-          <div class="valued">Základní výhoda navždy — výhradně pro vás v aplikaci.<br/>Děkujeme, že jezdíte s MotoGo24.</div>
-          <div class="mybike" id="mybike">VAŠE MAŠINA · <span class="m" id="bikeTxt">Honda Africa Twin</span></div>
-          <div class="btn" id="btn">Pokračovat</div>
-        </div>
+    <div class="phone">
+      <div class="notch"></div>
+      <div class="stage">
+        <div class="bg" id="bg">VIDEO / FOTO MOTORKY</div>
+        <div id="heroWrap"></div>
+        <div class="scrim"></div>
+        <div class="beam" id="beam"></div>
+        <div class="spot"></div>
+        <canvas></canvas>
+        <div class="flash" id="flash"></div>
+      </div>
+      <div class="emblem" id="emblem">
+        <div class="ring" id="ring"><div class="logo">🏍️</div><div class="badge" id="badge">+1</div></div>
+        <div class="kick" id="kick">NOVÝ RANK</div>
+      </div>
+      <div class="ui" id="ui">
+        <div class="rank" id="rank">KAPITÁN SILNIC</div>
+        <div class="forever">Vaše sleva <span class="pct" id="pctTxt">12 %</span> platí napořád</div>
+        <div class="valued">Základní výhoda navždy — výhradně pro vás v aplikaci.<br/>Děkujeme, že jezdíte s MotoGo24.</div>
+        <div class="mybike">VAŠE MAŠINA · <span class="m" id="bikeTxt">Kawasaki Z900</span></div>
+        <div class="btn" id="btn">Pokračovat</div>
       </div>
     </div>
   </div>
 
 <script>
-const easeOut=t=>1-Math.pow(1-t,2);
-const easeOutCubic=t=>1-Math.pow(1-t,3);
-const easeInOutCubic=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
-function elasticOut(t){ if(t===0||t===1)return t; const p=.4; return Math.pow(2,-10*t)*Math.sin((t-p/4)*(2*Math.PI)/p)+1; }
-const clamp01=v=>Math.max(0,Math.min(1,v));
-const seg=(v,a,b,c=easeOut)=>c(clamp01((v-a)/(b-a)));
+const easeOut=t=>1-Math.pow(1-t,2),easeOutCubic=t=>1-Math.pow(1-t,3),
+ easeInOutCubic=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
+function elasticOut(t){if(t===0||t===1)return t;const p=.4;return Math.pow(2,-10*t)*Math.sin((t-p/4)*(2*Math.PI)/p)+1;}
+const c01=v=>Math.max(0,Math.min(1,v)); const seg=(v,a,b,c=easeOut)=>c(c01((v-a)/(b-a)));
+const el=id=>document.getElementById(id);
 const LEGEND=['#FFD700','#FF6B00'];
 
-const S = { mediaUrl:null, mediaKind:null, mediaType:'cutout', gained:1, level:12, pct:12,
-            rankName:'KAPITÁN SILNIC', bike:'Honda Africa Twin' };
+const S={ mediaUrl:null, mediaKind:null, gained:1, level:12, pct:12,
+          rankName:'KAPITÁN SILNIC', bike:'Kawasaki Z900', sound:true, sfx:null, heroEl:null };
 
-// odvozené
-function goldness(){ const base=clamp01((S.level-8)/12); return S.gained>=2?Math.max(base,0.45):base; }
-function isGold(){ return S.level>=20 || goldness()>=0.6; }
-function accent(){
-  // nižší rank = brandová zelená, plynule do jantarové; vysoký = zlato
-  const g=goldness();
-  const lerp=(a,b,t)=>Math.round(a+(b-a)*t);
-  const A=[0x74,0xFB,0x71], B=[0xE9,0xB2,0x4B];
-  return `rgb(${lerp(A[0],B[0],g)},${lerp(A[1],B[1],g)},${lerp(A[2],B[2],g)})`;
-}
+const oldLevel=()=>Math.max(1,S.level-S.gained);
+function goldnessOf(lvl,turbo){ const base=c01((lvl-8)/12); return turbo?Math.max(base,0.45):base; }
+function accentOf(lvl,turbo){ const g=goldnessOf(lvl,turbo); const L=(a,b)=>Math.round(a+(b-a)*g);
+  return [L(0x74,0xE9),L(0xFB,0xB2),L(0x71,0x4B)]; }
+const rgb=a=>`rgb(${a[0]},${a[1]},${a[2]})`;
+const lerpRGB=(a,b,t)=>[Math.round(a[0]+(b[0]-a[0])*t),Math.round(a[1]+(b[1]-a[1])*t),Math.round(a[2]+(b[2]-a[2])*t)];
+const isGold=()=>{ const turbo=S.gained>=2; return S.level>=20 || goldnessOf(S.level,turbo)>=0.6; };
 
-const el = id => document.getElementById(id);
-const heroWrap=el('heroWrap'), canvas=document.querySelector('canvas'), ctx=canvas.getContext('2d');
-const phone=document.querySelector('.phone');
-let W,H,t0=performance.now(), raf;
-function sizeCanvas(){ const dpr=window.devicePixelRatio||1; W=phone.clientWidth; H=phone.clientHeight;
-  canvas.width=W*dpr; canvas.height=H*dpr; ctx.setTransform(dpr,0,0,dpr,0,0); }
+const heroWrap=el('heroWrap'), cv=document.querySelector('canvas'), cx=cv.getContext('2d');
+const phone=document.querySelector('.phone'); let W,H,t0=null,raf,soundFired=false;
+function sizeCanvas(){const dpr=window.devicePixelRatio||1;W=phone.clientWidth;H=phone.clientHeight;cv.width=W*dpr;cv.height=H*dpr;cx.setTransform(dpr,0,0,dpr,0,0);}
 sizeCanvas();
 
-function rebuildHero(){
-  heroWrap.innerHTML='';
-  if(!S.mediaUrl) return;
-  if(S.mediaKind==='video'){
-    const v=document.createElement('video'); v.src=S.mediaUrl; v.muted=true; v.loop=true; v.autoplay=true; v.playsInline=true;
-    v.className = S.mediaType==='cutout' ? 'heroCut' : 'heroFull'; v.play().catch(()=>{}); heroWrap.appendChild(v);
-  } else {
-    const img=document.createElement('img'); img.src=S.mediaUrl;
-    img.className = S.mediaType==='cutout' ? 'heroCut' : 'heroFull'; heroWrap.appendChild(img);
-  }
-  S.heroEl=heroWrap.firstChild;
+function rebuildHero(){ heroWrap.innerHTML=''; el('bg').style.display=S.mediaUrl?'none':'flex';
+  if(!S.mediaUrl){S.heroEl=null;return;}
+  let e; if(S.mediaKind==='video'){e=document.createElement('video');e.src=S.mediaUrl;e.muted=true;e.loop=false;e.autoplay=true;e.playsInline=true;e.play().catch(()=>{});}
+  else{e=document.createElement('img');e.src=S.mediaUrl;}
+  e.className='heroFull'; heroWrap.appendChild(e); S.heroEl=e;
 }
 
 function applyStatic(){
-  el('rank').textContent=S.rankName; el('rankTxtSet');
-  el('pctTxt').textContent=S.pct+' %'; el('bikeTxt').textContent=S.bike;
   el('badge').textContent='+'+S.gained;
-  el('kick').textContent = S.gained>=2 ? 'MIMOŘÁDNÝ POSTUP' : 'NOVÝ STATUS';
-  const gold=isGold(), acc=accent();
-  // ring
-  el('ring').style.background = gold ? `linear-gradient(135deg,${LEGEND[0]},${LEGEND[1]})` : acc;
-  // badge
-  el('badge').style.background = gold ? `linear-gradient(135deg,#FFE7A0,#FF8C1A)` : acc;
-  el('badge').style.color = '#241a06';
-  // kicker
-  el('kick').style.color = gold ? '#FFE7A0' : '#dffbe9';
-  // rank name barva/gradient
+  el('kick').textContent=S.gained>=2?'MIMOŘÁDNÝ POSTUP':'NOVÝ RANK';
+  el('rank').textContent=S.rankName; el('pctTxt').textContent=S.pct+' %'; el('bikeTxt').textContent=S.bike;
+  const gold=isGold();
+  el('kick').style.color=gold?'#FFE7A0':'#dffbe9';
   const r=el('rank');
-  if(gold){ r.style.background='linear-gradient(135deg,#FFF4D6,#E9B24B 55%,#FFD27A)';
-    r.style.webkitBackgroundClip='text'; r.style.backgroundClip='text'; r.style.color='transparent'; }
-  else { r.style.background='none'; r.style.color=acc; r.style.webkitTextFillColor='initial'; }
-  // mybike + button
-  el('mybike').firstChild && (el('mybike').childNodes[0].nodeValue='VAŠE MAŠINA · ');
+  if(gold){r.style.background='linear-gradient(135deg,#FFF4D6,#E9B24B 55%,#FFD27A)';r.style.webkitBackgroundClip='text';r.style.backgroundClip='text';r.style.color='transparent';}
+  else{r.style.background='none';r.style.webkitTextFillColor='initial';r.style.color=rgb(accentOf(S.level,S.gained>=2));}
+  el('btn').style.background=gold?'linear-gradient(135deg,#FFE7A0,#E9B24B)':rgb(accentOf(S.level,S.gained>=2));
+  el('btn').style.color='#241a06';
   el('bikeTxt').style.color='#fff';
-  const b=el('btn'); b.style.background = gold ? `linear-gradient(135deg,#FFE7A0,#E9B24B)` : acc; b.style.color='#241a06';
+}
+
+// ── ZVUK: syntetický „rank change" (whoosh + chord + thud) přes WebAudio ──
+let actx;
+function playRankSound(){
+  if(S.sfx){ try{S.sfx.currentTime=0; S.sfx.play();}catch(e){} return; }
+  if(!S.sound) return;
+  try{
+    actx=actx||new (window.AudioContext||window.webkitAudioContext)();
+    const t=actx.currentTime, master=actx.createGain(); master.gain.value=0.0001; master.connect(actx.destination);
+    master.gain.setValueAtTime(0.0001,t); master.gain.exponentialRampToValueAtTime(0.9,t+0.02); master.gain.exponentialRampToValueAtTime(0.0008,t+1.4);
+    // sub thud
+    const o0=actx.createOscillator(),g0=actx.createGain(); o0.type='sine'; o0.frequency.setValueAtTime(150,t); o0.frequency.exponentialRampToValueAtTime(55,t+0.5);
+    g0.gain.setValueAtTime(0.9,t); g0.gain.exponentialRampToValueAtTime(0.001,t+0.6); o0.connect(g0); g0.connect(master); o0.start(t); o0.stop(t+0.65);
+    // jasný akord (durový) – „odměna"
+    [523.25,659.25,783.99,1046.5].forEach((f,i)=>{ const o=actx.createOscillator(),g=actx.createGain();
+      o.type='triangle'; o.frequency.value=f; const st=t+0.04+i*0.02;
+      g.gain.setValueAtTime(0.0001,st); g.gain.exponentialRampToValueAtTime(0.5,st+0.03); g.gain.exponentialRampToValueAtTime(0.0008,st+1.2);
+      o.connect(g); g.connect(master); o.start(st); o.stop(st+1.25); });
+    // jiskřivý třpyt
+    const o2=actx.createOscillator(),g2=actx.createGain(); o2.type='sine'; o2.frequency.setValueAtTime(2200,t+0.05); o2.frequency.exponentialRampToValueAtTime(3600,t+0.4);
+    g2.gain.setValueAtTime(0.0001,t+0.05); g2.gain.exponentialRampToValueAtTime(0.18,t+0.12); g2.gain.exponentialRampToValueAtTime(0.0006,t+0.7);
+    o2.connect(g2); g2.connect(master); o2.start(t+0.05); o2.stop(t+0.75);
+  }catch(e){}
 }
 
 function frame(now){
-  const turbo=S.gained>=2, dur=turbo?4600:3800;
-  let p=(now-t0)/dur; const hold=2.0;
-  if(p>1+hold*1000/dur){ t0=now; p=0; rebuildHero(); }
-  const v=Math.min(p,1), sh=Math.min(W,H), cx=W/2, cy=H*0.30;
+  if(t0===null)t0=now;
+  const turbo=S.gained>=2, dur=turbo?4600:3800; let v=(now-t0)/dur; const hold=2.0;
+  if(v>1+hold*1000/dur){ t0=now; v=0; soundFired=false; rebuildHero(); }
+  v=Math.min(v,1);
+  const sh=Math.min(W,H),ccx=W/2,ccy=H*0.38,idle=(Math.sin(now/900*Math.PI)+1)/2;
 
-  const mediaIn=seg(v,0,0.32,easeOutCubic);
-  const beam=seg(v,0.05,0.50,easeInOutCubic);
-  const rev=seg(v,0.30,0.48,elasticOut);
-  const emblemIn=seg(v,0.34,0.60,elasticOut);
-  const badgeIn=seg(v,0.50,0.72,elasticOut);
-  const burst=seg(v,0.40,1.0,easeOutCubic);
-  const shock=turbo?seg(v,0.40,0.92,easeOutCubic):0;
-  const textIn=seg(v,0.58,0.80);
-  const btnIn=seg(v,0.84,1.0);
-  const idle=(Math.sin(now/900*Math.PI)+1)/2;
+  const mediaIn=seg(v,0,0.30,easeOutCubic),beam=seg(v,0.05,0.55,easeInOutCubic),rev=seg(v,0.22,0.40,elasticOut),
+   emblemIn=seg(v,0.18,0.42,elasticOut), ringMix=seg(v,0.56,0.84),
+   flash=seg(v,0.58,0.66)*(1-seg(v,0.66,0.84)), badgeIn=seg(v,0.66,0.86,elasticOut),
+   burst=seg(v,0.62,1,easeOutCubic), shock=turbo?seg(v,0.62,0.95,easeOutCubic):0,
+   textIn=seg(v,0.72,0.90), btnIn=seg(v,0.90,1);
 
-  // hero příjezd
-  if(S.heroEl){
-    const sc=(1.18-0.18*mediaIn)+(turbo?0.02:0.012)*idle;
-    const dx=(1-mediaIn)*W*0.22, rot=(1-rev)*(turbo?-2.4:-1.5);
-    S.heroEl.style.opacity=mediaIn;
-    const baseY = S.mediaType==='cutout' ? 'translateY(-50%) ' : '';
-    S.heroEl.style.transform=`${baseY}translateX(${dx}px) scale(${sc}) rotate(${rot}deg)`;
-  }
-  // beam
-  el('beam').style.opacity=(beam>0&&beam<1)?0.9:0;
-  el('beam').style.transform=`translateX(${beam*W*2.2}px) rotate(6deg)`;
-  // emblem
-  el('emblem').style.opacity=seg(v,0.34,0.50);
-  el('emblem').style.transform=`translateX(-50%) scale(${0.6+0.4*emblemIn})`;
-  el('ring').style.boxShadow=`0 0 ${20+18*idle*emblemIn}px ${2*emblemIn}px ${isGold()?'rgba(255,180,60,':'rgba(120,251,113,'}${0.6*emblemIn})`;
+  // zvuk přesně v momentě překlopení
+  if(!soundFired && v>=0.62){ soundFired=true; playRankSound(); }
+
+  if(S.heroEl){ const sc=(1.18-0.18*mediaIn)+(turbo?0.02:0.012)*idle, dx=(1-mediaIn)*W*0.22;
+    S.heroEl.style.opacity=mediaIn; S.heroEl.style.transform=`translateX(${dx}px) scale(${sc})`; }
+  el('beam').style.opacity=(beam>0&&beam<1)?0.9:0; el('beam').style.transform=`translateX(${beam*W*2.2}px) rotate(6deg)`;
+
+  // logo: stará barva → nová (climax)
+  const turboF=S.gained>=2, from=accentOf(oldLevel(),false), to=accentOf(S.level,turboF), gold=isGold();
+  const ring=el('ring');
+  if(gold && ringMix>0.9){ ring.style.background='linear-gradient(135deg,#FFD700,#FF6B00)'; }
+  else { ring.style.background=rgb(lerpRGB(from,to,ringMix)); }
+  el('badge').style.background = (gold&&ringMix>0.9)?'linear-gradient(135deg,#FFE7A0,#FF8C1A)':rgb(lerpRGB(from,to,ringMix));
+  el('emblem').style.opacity=seg(v,0.18,0.36);
+  el('emblem').style.transform=`translate(-50%,-50%) scale(${0.6+0.4*emblemIn})`;
+  ring.style.boxShadow=`0 0 ${20+18*idle*emblemIn}px ${2*emblemIn}px ${gold&&ringMix>0.5?'rgba(255,180,60,':'rgba('+to.join(',')+','}${0.6*emblemIn})`;
   el('badge').style.transform=`scale(${badgeIn})`;
-  // texty
-  el('ui').style.opacity=textIn; el('ui').style.transform=`translateY(${22*(1-textIn)}px)`;
-  el('btn').style.opacity=btnIn;
 
-  // canvas FX
-  ctx.clearRect(0,0,W,H);
-  if(shock>0&&shock<1){ ctx.beginPath(); ctx.arc(cx,cy,shock*sh*0.9,0,6.283);
-    ctx.lineWidth=6*(1-shock); ctx.strokeStyle=`rgba(255,215,0,${.5*(1-shock)})`; ctx.stroke(); }
-  if(turbo){ for(let i=0;i<6;i++){ const pr=clamp01(beam*1.4-i*0.05); if(pr<=0||pr>=1)continue;
-    const yy=H*0.42+i*11, x=-W*0.6+pr*W*1.8, g=ctx.createLinearGradient(x,0,x+90,0);
-    g.addColorStop(0,'rgba(255,233,170,0)'); g.addColorStop(.5,'rgba(255,233,170,.5)'); g.addColorStop(1,'rgba(255,233,170,0)');
-    ctx.fillStyle=g; ctx.fillRect(x,yy,90,2); } }
-  if(burst>0){ const count=turbo?90:46, fade=clamp01(1-burst), gold=isGold();
-    const main=gold?'255,215,0':'120,251,113', sec=gold?'255,140,0':'255,255,255';
-    for(let i=0;i<count;i++){ const a=(i/count)*6.283+Math.sin(i*12.9898)*0.35;
-      const sp=0.55+((Math.sin(i*78.233)+1)/2)*0.45, tr=burst*sp*sh*0.8;
-      const px=cx+Math.cos(a)*tr, py=cy+Math.sin(a)*tr*0.9;
-      const rr=(2.9*(1-burst*0.6))*(0.6+((Math.sin(i*39.425)+1)/2)*0.8);
-      ctx.beginPath(); ctx.arc(px,py,rr,0,6.283);
-      ctx.fillStyle=`rgba(${i%3===0?sec:main},${0.9*fade})`; ctx.fill(); } }
+  el('flash').style.opacity = (gold?0.5:0.45)*flash;
+  el('ui').style.opacity=textIn; el('ui').style.transform=`translateY(${22*(1-textIn)}px)`; el('btn').style.opacity=btnIn;
 
+  cx.clearRect(0,0,W,H);
+  if(shock>0&&shock<1){cx.beginPath();cx.arc(ccx,ccy,shock*sh*0.9,0,6.283);cx.lineWidth=6*(1-shock);cx.strokeStyle=`rgba(255,215,0,${.5*(1-shock)})`;cx.stroke();}
+  if(turbo){for(let i=0;i<6;i++){const pr=c01(beam*1.4-i*0.05);if(pr<=0||pr>=1)continue;const yy=H*0.46+i*11,x=-W*0.6+pr*W*1.8,g=cx.createLinearGradient(x,0,x+90,0);g.addColorStop(0,'rgba(255,233,170,0)');g.addColorStop(.5,'rgba(255,233,170,.5)');g.addColorStop(1,'rgba(255,233,170,0)');cx.fillStyle=g;cx.fillRect(x,yy,90,2);}}
+  if(burst>0){const count=turbo?90:46,fade=c01(1-burst),g=isGold(),main=g?'255,215,0':to.join(','),sec=g?'255,140,0':'255,255,255';
+    for(let i=0;i<count;i++){const a=(i/count)*6.283+Math.sin(i*12.9898)*0.35,sp=0.55+((Math.sin(i*78.233)+1)/2)*0.45,tr=burst*sp*sh*0.78,px=ccx+Math.cos(a)*tr,py=ccy+Math.sin(a)*tr*0.9,rr=(2.9*(1-burst*0.6))*(0.6+((Math.sin(i*39.425)+1)/2)*0.8);cx.beginPath();cx.arc(px,py,rr,0,6.283);cx.fillStyle=`rgba(${i%3===0?sec:main},${0.9*fade})`;cx.fill();}}
   raf=requestAnimationFrame(frame);
 }
+function replay(){ applyStatic(); rebuildHero(); soundFired=false; t0=null; cancelAnimationFrame(raf); raf=requestAnimationFrame(frame); }
 
-function replay(){ applyStatic(); rebuildHero(); t0=performance.now(); cancelAnimationFrame(raf); raf=requestAnimationFrame(frame); }
-
-// ── ovládání ──
-el('file').addEventListener('change', e=>{
-  const f=e.target.files[0]; if(!f)return;
-  S.mediaUrl=URL.createObjectURL(f); S.mediaKind=f.type.startsWith('video')?'video':'image'; replay();
-});
-el('loadUrl').addEventListener('click', ()=>{
-  const u=el('url').value.trim(); if(!u)return;
-  S.mediaUrl=u; S.mediaKind=/\.(mp4|webm|mov)(\?|$)/i.test(u)?'video':'image'; replay();
-});
-document.querySelectorAll('#mediaType button').forEach(b=>b.addEventListener('click',()=>{
-  document.querySelectorAll('#mediaType button').forEach(x=>x.classList.remove('on')); b.classList.add('on');
-  S.mediaType=b.dataset.m; replay(); }));
-document.querySelectorAll('#gained button').forEach(b=>b.addEventListener('click',()=>{
-  document.querySelectorAll('#gained button').forEach(x=>x.classList.remove('on')); b.classList.add('on');
-  S.gained=+b.dataset.g; replay(); }));
-el('level').addEventListener('input', e=>{ S.level=+e.target.value; el('lvlVal').textContent=S.level;
-  el('pct').value=S.level; S.pct=S.level; applyStatic(); });
-el('pct').addEventListener('input', e=>{ S.pct=+e.target.value||0; el('pctTxt').textContent=S.pct+' %'; });
-el('rankName').addEventListener('input', e=>{ S.rankName=e.target.value; el('rank').textContent=S.rankName; applyStatic(); });
-el('bike').addEventListener('input', e=>{ S.bike=e.target.value; el('bikeTxt').textContent=S.bike; });
-el('play').addEventListener('click', replay);
-
+el('file').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;S.mediaUrl=URL.createObjectURL(f);S.mediaKind=f.type.startsWith('video')?'video':'image';replay();});
+el('loadUrl').addEventListener('click',()=>{const u=el('url').value.trim();if(!u)return;S.mediaUrl=u;S.mediaKind=/\.(mp4|webm|mov)(\?|$)/i.test(u)?'video':'image';replay();});
+el('sfile').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;S.sfx=new Audio(URL.createObjectURL(f));});
+document.querySelectorAll('#gained button').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('#gained button').forEach(x=>x.classList.remove('on'));b.classList.add('on');S.gained=+b.dataset.g;el('oldVal').textContent=oldLevel();replay();}));
+el('level').addEventListener('input',e=>{S.level=+e.target.value;el('lvlVal').textContent=S.level;el('oldVal').textContent=oldLevel();el('pct').value=S.level;S.pct=S.level;applyStatic();});
+el('pct').addEventListener('input',e=>{S.pct=+e.target.value||0;el('pctTxt').textContent=S.pct+' %';});
+el('rankName').addEventListener('input',e=>{S.rankName=e.target.value;el('rank').textContent=S.rankName;applyStatic();});
+el('bike').addEventListener('input',e=>{S.bike=e.target.value;el('bikeTxt').textContent=S.bike;});
+el('sound').addEventListener('change',e=>{S.sound=e.target.checked;});
+el('play').addEventListener('click',replay);
+el('oldVal').textContent=oldLevel();
 replay();
 </script>
 </body>
