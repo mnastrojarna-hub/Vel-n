@@ -189,21 +189,25 @@ class _LevelUpCelebrationState extends State<LevelUpCelebration>
         final size = MediaQuery.of(context).size;
         final v = _ctrl.value;
 
-        // Choreografie
-        final mediaIn = _seg(0.0, 0.32, Curves.easeOutCubic); // příjezd
-        final beam = _seg(0.05, 0.50, Curves.easeInOutCubic); // průjezd světla
-        final rev = _seg(0.30, 0.48, Curves.elasticOut); // záškub
-        final emblemIn = _seg(0.34, 0.60, Curves.elasticOut);
-        final ringMix = _seg(0.34, 0.62);
-        final badgeIn = _seg(0.50, 0.72, Curves.elasticOut);
-        final burst = _seg(0.40, 1.0, Curves.easeOutCubic);
-        final shock = _turbo ? _seg(0.40, 0.92, Curves.easeOutCubic) : 0.0;
-        final textIn = _seg(0.58, 0.80);
-        final btnIn = _seg(0.84, 1.0);
+        // Choreografie. Climax je ZÁMĚRNĚ na konci: logo MotoGo24 drží STAROU
+        // barvu ranku a teprve k závěru se přeblikne na NOVOU (ringMix) +
+        // záblesk + ukáže se číslo „+N". (Zvuk změny ranku napojíme na flash.)
+        final mediaIn = _seg(0.0, 0.30, Curves.easeOutCubic); // příjezd motorky
+        final beam = _seg(0.05, 0.55, Curves.easeInOutCubic); // průjezd světla
+        final rev = _seg(0.22, 0.40, Curves.elasticOut); // záškub
+        final emblemIn = _seg(0.18, 0.42, Curves.elasticOut); // logo (stará barva)
+        final ringMix = _seg(0.56, 0.84); // PŘEKLOPENÍ staré → nové barvy
+        final flash = _seg(0.58, 0.66) * (1 - _seg(0.66, 0.84)); // záblesk climaxu
+        final badgeIn = _seg(0.66, 0.86, Curves.elasticOut); // číslo „+N" u climaxu
+        final burst = _seg(0.62, 1.0, Curves.easeOutCubic); // jiskry u climaxu
+        final shock = _turbo ? _seg(0.62, 0.95, Curves.easeOutCubic) : 0.0;
+        final textIn = _seg(0.72, 0.90);
+        final btnIn = _seg(0.90, 1.0);
 
         final pulseGlow = (_turbo ? 24.0 : 18.0) +
             (_turbo ? 20.0 : 14.0) * _pulse.value * emblemIn;
-        final emblemCenter = Offset(size.width / 2, size.height * 0.30);
+        // Logo MotoGo24 je UPROSTŘED scény (září dle ranku) — odtud i jiskry.
+        final emblemCenter = Offset(size.width / 2, size.height * 0.42);
 
         // Příjezd zepředu: motorka „dojede" z dálky (zvětší se) + lehký drift.
         final heroScale = 1.18 - 0.18 * mediaIn + (_turbo ? 0.02 : 0.012) *
@@ -286,17 +290,49 @@ class _LevelUpCelebrationState extends State<LevelUpCelebration>
                   ),
                 ),
 
-                // Znak ranku nahoře (logo + ring + odznak +N).
+                // Měkké tmavé „spotlight" pozadí pod logem (čitelnost přes video).
                 Align(
-                  alignment: const Alignment(0, -0.42),
-                  child: Opacity(
-                    opacity: _seg(0.34, 0.50),
-                    child: Transform.scale(
-                      scale: 0.6 + 0.4 * emblemIn,
-                      child: _emblem(ringMix, pulseGlow, glow, accent, tr),
+                  alignment: const Alignment(0, -0.12),
+                  child: IgnorePointer(
+                    child: Container(
+                      width: 300,
+                      height: 300,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: RadialGradient(
+                          colors: [
+                            Colors.black.withValues(alpha: 0.55 * emblemIn),
+                            Colors.black.withValues(alpha: 0),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 ),
+
+                // Logo MotoGo24 UPROSTŘED — drží starou barvu, na konci se
+                // přeblikne na novou (ringMix) + odznak „+N".
+                Align(
+                  alignment: const Alignment(0, -0.12),
+                  child: Opacity(
+                    opacity: _seg(0.18, 0.36),
+                    child: Transform.scale(
+                      scale: 0.6 + 0.4 * emblemIn,
+                      child: _emblem(ringMix, badgeIn, pulseGlow, glow, accent, tr),
+                    ),
+                  ),
+                ),
+
+                // Záblesk v momentě překlopení ranku (climax) — krátké projasnění.
+                if (flash > 0.01)
+                  IgnorePointer(
+                    child: Container(
+                      color: (_gold
+                              ? const Color(0xFFFFE9AA)
+                              : Colors.white)
+                          .withValues(alpha: 0.45 * flash),
+                    ),
+                  ),
 
                 // Spodní prémiový text.
                 Align(
@@ -323,8 +359,8 @@ class _LevelUpCelebrationState extends State<LevelUpCelebration>
     );
   }
 
-  Widget _emblem(double ringMix, double pulseGlow, Color glow, Color accent,
-      String Function(String) tr) {
+  Widget _emblem(double ringMix, double badgeIn, double pulseGlow, Color glow,
+      Color accent, String Function(String) tr) {
     final ringColor = Color.lerp(widget.fromColor, accent, ringMix)!;
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -370,12 +406,12 @@ class _LevelUpCelebrationState extends State<LevelUpCelebration>
                 ),
               ),
             ),
-            // Vždy odznak „+N" (i pro +1).
+            // Vždy odznak „+N" (i pro +1) — naskočí v climaxu (badgeIn).
             Positioned(
               top: -12,
               right: -16,
               child: Transform.scale(
-                scale: _seg(0.50, 0.72, Curves.elasticOut),
+                scale: badgeIn,
                 child: _jumpBadge(widget.gained),
               ),
             ),
@@ -564,49 +600,17 @@ class _LevelUpCelebrationState extends State<LevelUpCelebration>
       c.computeLuminance() > 0.5 ? const Color(0xFF0F1A14) : Colors.white;
 }
 
-/// Hero motiv. Přednost: transparentní VÝŘEZ motorky (iOS „samolepka") —
-/// vycentrovaný objekt se stínem „nalepený" na scénu, NE celá fotka s pozadím.
-/// Fallback (dokud výřez není): video / foto přes celou plochu.
+/// Hero motiv = full-screen médium poslední rezervované motorky:
+/// PRIMÁRNĚ video (cover, muted, smyčka), jinak hlavní foto (cover).
 class _HeroMedia extends StatelessWidget {
   final CelebrationMoto moto;
   const _HeroMedia({required this.moto});
 
   @override
   Widget build(BuildContext context) {
-    // 1) Výřez bez pozadí = samolepka (preferované).
-    if (moto.hasCutout) {
-      return Align(
-        alignment: const Alignment(0, 0.12),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 18),
-          child: Image.network(
-            moto.cutoutUrl!,
-            fit: BoxFit.contain,
-            errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-            loadingBuilder: (ctx, child, p) =>
-                p == null ? child : const SizedBox.shrink(),
-            frameBuilder: (ctx, child, frame, sync) => DecoratedBox(
-              decoration: const BoxDecoration(
-                boxShadow: [
-                  BoxShadow(
-                    color: Color(0x99000000),
-                    blurRadius: 40,
-                    spreadRadius: -10,
-                    offset: Offset(0, 26),
-                  ),
-                ],
-              ),
-              child: child,
-            ),
-          ),
-        ),
-      );
-    }
-    // 2) Fallback: video přes celou plochu.
     if (moto.hasVideo) {
       return _HeroVideo(url: moto.videoUrl!);
     }
-    // 3) Fallback: foto přes celou plochu.
     if (moto.hasImage) {
       return Image.network(
         moto.imageUrl!,
@@ -649,7 +653,7 @@ class _HeroVideoState extends State<_HeroVideo> {
         return;
       }
       await c.setVolume(0);
-      await c.setLooping(true);
+      await c.setLooping(false); // po level-upu se přehraje JEN JEDNOU
       await c.play();
       if (mounted) setState(() => _ready = true);
     } catch (_) {

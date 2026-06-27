@@ -3,245 +3,244 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>MotoGo24 — prémiový level-up (náhled)</title>
+<title>MotoGo24 — level-up TESTER (finál)</title>
 <style>
   :root{ color-scheme:dark; }
   *{ box-sizing:border-box; }
-  body{
-    margin:0; background:#06100a; color:#e9f5ee; padding:26px 14px 70px;
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
-    -webkit-font-smoothing:antialiased;
-  }
-  h1{ text-align:center; font-size:21px; margin:0 0 4px; letter-spacing:.3px; }
-  .hint{ text-align:center; opacity:.6; font-size:12.5px; max-width:760px; margin:0 auto 22px; line-height:1.5; }
-  .hint b{ color:#FFD27A; }
-  .row{ display:flex; gap:40px; flex-wrap:wrap; justify-content:center; align-items:flex-start; }
-  .col{ display:flex; flex-direction:column; align-items:center; gap:12px; }
-  .cap{ font-size:13px; font-weight:800; } .cap .t{ font-size:11px; opacity:.6; font-weight:600; }
+  body{ margin:0; background:#06100a; color:#e9f5ee; padding:22px 14px 70px;
+        font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; -webkit-font-smoothing:antialiased; }
+  h1{ text-align:center; font-size:20px; margin:0 0 2px; }
+  .sub{ text-align:center; opacity:.6; font-size:12.5px; margin:0 0 18px; }
+  .sub b{ color:#FFD27A; }
+  .wrap{ display:flex; gap:30px; justify-content:center; align-items:flex-start; flex-wrap:wrap; }
 
-  .phone{
-    position:relative; width:330px; height:680px; border-radius:42px; overflow:hidden;
-    background:#05090b; border:9px solid #161616; box-shadow:0 22px 60px rgba(0,0,0,.65);
-  }
-  .notch{ position:absolute; top:0; left:50%; transform:translateX(-50%); width:128px; height:24px;
-          background:#161616; border-radius:0 0 16px 16px; z-index:60; }
+  .panel{ width:300px; background:#0c1812; border:1px solid #16291d; border-radius:16px; padding:16px; }
+  .panel h2{ font-size:13px; margin:0 0 12px; letter-spacing:.5px; color:#bdf5d4; }
+  .fld{ margin-bottom:13px; }
+  .fld label{ display:block; font-size:11px; font-weight:700; opacity:.75; margin-bottom:5px; }
+  .fld input[type=text], .fld input[type=number]{ width:100%; background:#0a130d; border:1px solid #1d3326; color:#e9f5ee; border-radius:9px; padding:8px 10px; font-size:13px; }
+  .fld input[type=range]{ width:100%; }
+  .filebtn{ display:block; background:#13301f; color:#bdf5d4; border:1px dashed #2a5a39; border-radius:9px; padding:10px; text-align:center; font-size:12px; font-weight:700; cursor:pointer; }
+  .filebtn:hover{ background:#1b4a2c; }
+  .seg{ display:flex; gap:6px; }
+  .seg button{ flex:1; background:#0a130d; border:1px solid #1d3326; color:#cfe9da; border-radius:9px; padding:8px 0; font-weight:800; cursor:pointer; font-size:13px; }
+  .seg button.on{ background:linear-gradient(135deg,#74FB71,#2faf4e); color:#06100a; border-color:transparent; }
+  .play{ width:100%; margin-top:6px; background:linear-gradient(135deg,#FFE7A0,#E9B24B); color:#241a06; border:none; border-radius:999px; padding:12px; font-weight:900; font-size:14px; cursor:pointer; }
+  .chk{ display:flex; align-items:center; gap:8px; font-size:12px; font-weight:700; }
+  .note{ font-size:10.5px; opacity:.55; line-height:1.5; margin-top:8px; }
 
-  /* === HERO médium (sem v reálu přijde FOTO/MP4 z backendu) === */
+  .phone{ position:relative; width:330px; height:680px; border-radius:42px; overflow:hidden; background:#05090b; border:9px solid #161616; box-shadow:0 22px 60px rgba(0,0,0,.65); }
+  .notch{ position:absolute; top:0; left:50%; transform:translateX(-50%); width:128px; height:24px; background:#161616; border-radius:0 0 16px 16px; z-index:60; }
   .stage{ position:absolute; inset:0; overflow:hidden; }
-  .media{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
-          background:radial-gradient(120% 90% at 50% 35%, #16241b 0%, #0a130d 55%, #05090b 100%); }
-  .media .moto{ width:86%; filter:drop-shadow(0 26px 30px rgba(0,0,0,.7)); transform-origin:60% 70%; }
-  .floor{ position:absolute; left:0; right:0; bottom:0; height:34%;
-          background:linear-gradient(to bottom, rgba(0,0,0,0), rgba(0,0,0,.55)); }
-  .mediaTag{ position:absolute; left:50%; bottom:14px; transform:translateX(-50%);
-             font-size:9px; letter-spacing:1.5px; color:rgba(255,255,255,.4); font-weight:700;
-             border:1px dashed rgba(255,255,255,.18); padding:4px 9px; border-radius:20px; white-space:nowrap; }
-  /* světelný kužel reflektoru, který přejede přes scénu */
-  .beam{ position:absolute; top:-20%; left:-40%; width:60%; height:150%;
-         background:linear-gradient(105deg, rgba(255,233,170,0) 0%, rgba(255,233,170,.16) 45%, rgba(255,233,170,0) 60%);
-         filter:blur(2px); }
-  /* cinematic letterbox + vinětace */
-  .vignette{ position:absolute; inset:0; box-shadow:inset 0 0 140px 40px rgba(0,0,0,.7);
-             background:linear-gradient(to bottom, rgba(0,0,0,.45) 0%, rgba(0,0,0,0) 22%, rgba(0,0,0,0) 55%, rgba(0,0,0,.85) 100%); }
+  .bg{ position:absolute; inset:0; background:radial-gradient(120% 90% at 50% 32%, #16241b 0%, #0a130d 55%, #05090b 100%); display:flex; align-items:center; justify-content:center; color:rgba(255,255,255,.25); font-size:12px; font-weight:700; }
+  .heroFull{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+  .scrim{ position:absolute; inset:0; background:linear-gradient(to bottom, rgba(0,0,0,.55) 0%, rgba(0,0,0,.10) 30%, rgba(0,0,0,.30) 55%, rgba(0,0,0,.88) 100%); }
+  .beam{ position:absolute; top:-20%; left:-40%; width:50%; height:150%; background:linear-gradient(105deg, rgba(255,233,170,0), rgba(255,233,170,.16) 50%, rgba(255,233,170,0)); filter:blur(1px); }
+  .spot{ position:absolute; left:50%; top:38%; transform:translate(-50%,-50%); width:300px; height:300px; border-radius:50%;
+         background:radial-gradient(rgba(0,0,0,.55), rgba(0,0,0,0)); pointer-events:none; }
+  .flash{ position:absolute; inset:0; background:#fff; opacity:0; pointer-events:none; z-index:40; }
   canvas{ position:absolute; inset:0; width:100%; height:100%; z-index:20; }
 
-  /* === UI vrstva === */
-  .ui{ position:absolute; inset:0; z-index:30; display:flex; flex-direction:column;
-       align-items:center; justify-content:flex-end; padding:0 22px 40px; text-align:center; pointer-events:none; }
+  .emblem{ position:absolute; top:38%; left:50%; transform:translate(-50%,-50%); z-index:30; display:flex; flex-direction:column; align-items:center; gap:10px; }
+  .ring{ position:relative; width:94px; height:94px; border-radius:25px; padding:3px; }
+  .ring .logo{ width:100%; height:100%; border-radius:22px; background:#000; display:flex; align-items:center; justify-content:center; font-size:40px; }
+  .badge{ position:absolute; top:-13px; right:-17px; min-width:34px; padding:5px 10px; border-radius:999px; font-weight:900; font-size:17px; border:2px solid #fff; text-align:center; color:#241a06; }
+  .kick{ font-size:11px; font-weight:900; letter-spacing:5px; }
 
-  /* znak ranku nahoře */
-  .emblem{ position:absolute; top:64px; left:50%; transform:translateX(-50%);
-           display:flex; flex-direction:column; align-items:center; gap:9px; }
-  .ring{ position:relative; width:96px; height:96px; border-radius:26px; padding:3px;
-         background:linear-gradient(135deg,#FFE7A0,#C8922E 40%,#FFD27A 60%,#9B6B1C); }
-  .ring .logo{ width:100%; height:100%; border-radius:23px; background:#000;
-               display:flex; align-items:center; justify-content:center; font-size:40px;
-               box-shadow:inset 0 0 22px rgba(0,0,0,.8); }
-  .badge{ position:absolute; top:-12px; right:-16px; min-width:34px; padding:5px 10px; border-radius:999px;
-          font-weight:900; font-size:17px; color:#241a06; border:2px solid #fff8e6;
-          background:linear-gradient(135deg,#FFE7A0,#FF8C1A); box-shadow:0 4px 14px rgba(255,140,0,.55); }
-  .statusKick{ font-size:11px; font-weight:800; letter-spacing:5px; color:rgba(255,233,170,.85); }
-
-  /* spodní textový blok */
-  .rank{ font-size:30px; font-weight:900; letter-spacing:1.2px; line-height:1.05;
-         background:linear-gradient(135deg,#FFF4D6,#E9B24B 55%,#FFD27A);
-         -webkit-background-clip:text; background-clip:text; color:transparent;
-         text-shadow:0 2px 18px rgba(255,180,60,.25); }
-  .forever{ margin-top:12px; font-size:16px; font-weight:800; color:#fff; }
+  .ui{ position:absolute; left:0; right:0; bottom:0; z-index:30; padding:0 24px 36px; text-align:center; }
+  .rank{ font-size:29px; font-weight:900; letter-spacing:1.1px; line-height:1.05; }
+  .forever{ margin-top:11px; font-size:16px; font-weight:800; color:#fff; }
   .forever .pct{ color:#7CFB9E; }
-  .valued{ margin-top:7px; font-size:12px; font-weight:600; color:rgba(255,255,255,.72); line-height:1.45; max-width:280px; }
-  .mybike{ margin-top:13px; font-size:10px; font-weight:800; letter-spacing:1.5px; color:rgba(255,233,170,.7); }
-  .mybike .model{ color:#fff; }
-  .btn{ margin-top:22px; padding:13px 34px; border-radius:999px; font-size:14px; font-weight:900; color:#241a06;
-        background:linear-gradient(135deg,#FFE7A0,#E9B24B); box-shadow:0 6px 20px rgba(233,178,75,.4); }
-
-  .replay{ margin-top:2px; background:#13301f; color:#bdf5d4; border:none; padding:9px 18px;
-           border-radius:999px; font-weight:700; font-size:13px; cursor:pointer; }
-  .replay:hover{ background:#1b4a2c; }
+  .valued{ margin-top:7px; font-size:12px; font-weight:600; color:rgba(255,255,255,.72); line-height:1.45; }
+  .mybike{ margin-top:12px; font-size:10px; font-weight:800; letter-spacing:1.4px; }
+  .mybike .m{ color:#fff; }
+  .btn{ margin-top:20px; display:inline-block; padding:13px 34px; border-radius:999px; font-size:14px; font-weight:900; }
 </style>
 </head>
 <body>
-  <h1>MotoGo24 — prémiový level-up</h1>
-  <p class="hint">Tohle je <b>kompozice, světlo a pohyb</b> kolem motorky. Do plochy se v reálu vloží <b>tvoje fotka nebo MP4 z backendu</b> (přes RPC <code>get_loyalty_celebration_motos</code>) — vybraná podle toho, co si zákazník dřív půjčil. Silueta zde je jen zástupný symbol. Vlevo postup o 1 rank, vpravo mimořádný o 2+.</p>
-  <div class="row" id="row"></div>
+  <h1>MotoGo24 — level-up TESTER (finál)</h1>
+  <p class="sub">Full-screen video/foto motorky • logo <b>MotoGo24 ve středu</b> • na konci <b>přeblik staré→nové barvy ranku</b> + číslo + <b>zvuk</b>. Nahraj médium a zkoušej kombinace.</p>
+
+  <div class="wrap">
+    <div class="panel">
+      <h2>NASTAVENÍ</h2>
+      <div class="fld">
+        <label>Video / foto motorky (full-screen)</label>
+        <label class="filebtn" for="file">⬆️ Nahrát MP4 / foto</label>
+        <input id="file" type="file" accept="image/*,video/*" style="display:none" />
+        <input id="url" type="text" placeholder="…nebo URL z backendu" style="margin-top:8px" />
+        <button class="filebtn" id="loadUrl" style="margin-top:8px">Načíst URL</button>
+      </div>
+      <div class="fld">
+        <label>Postup o kolik ranků (mění barvu i číslo)</label>
+        <div class="seg" id="gained"><button data-g="1" class="on">+1</button><button data-g="2">+2</button><button data-g="3">+3</button></div>
+      </div>
+      <div class="fld">
+        <label>Nový level / rank: <span id="lvlVal">12</span> · ze starého: <span id="oldVal">11</span></label>
+        <input id="level" type="range" min="1" max="20" value="12" />
+      </div>
+      <div class="fld"><label>Sleva %</label><input id="pct" type="number" min="1" max="20" value="12" /></div>
+      <div class="fld"><label>Název ranku</label><input id="rankName" type="text" value="KAPITÁN SILNIC" /></div>
+      <div class="fld"><label>Model motorky (popisek)</label><input id="bike" type="text" value="Kawasaki Z900" /></div>
+      <div class="fld"><label class="chk"><input id="sound" type="checkbox" checked /> Zvuk změny ranku (climax)</label></div>
+      <div class="fld">
+        <label>…nebo vlastní zvuk (volitelné)</label>
+        <label class="filebtn" for="sfile">⬆️ Nahrát zvuk (MP3/WAV)</label>
+        <input id="sfile" type="file" accept="audio/*" style="display:none" />
+      </div>
+      <button class="play" id="play">▶ PŘEHRÁT</button>
+      <div class="note">Climax (přeblik staré→nové barvy + číslo) je schválně až na konci. Bez nahraného média běží scéna na tmavém pozadí.</div>
+    </div>
+
+    <div class="phone">
+      <div class="notch"></div>
+      <div class="stage">
+        <div class="bg" id="bg">VIDEO / FOTO MOTORKY</div>
+        <div id="heroWrap"></div>
+        <div class="scrim"></div>
+        <div class="beam" id="beam"></div>
+        <div class="spot"></div>
+        <canvas></canvas>
+        <div class="flash" id="flash"></div>
+      </div>
+      <div class="emblem" id="emblem">
+        <div class="ring" id="ring"><div class="logo">🏍️</div><div class="badge" id="badge">+1</div></div>
+        <div class="kick" id="kick">NOVÝ RANK</div>
+      </div>
+      <div class="ui" id="ui">
+        <div class="rank" id="rank">KAPITÁN SILNIC</div>
+        <div class="forever">Vaše sleva <span class="pct" id="pctTxt">12 %</span> platí napořád</div>
+        <div class="valued">Základní výhoda navždy — výhradně pro vás v aplikaci.<br/>Děkujeme, že jezdíte s MotoGo24.</div>
+        <div class="mybike">VAŠE MAŠINA · <span class="m" id="bikeTxt">Kawasaki Z900</span></div>
+        <div class="btn" id="btn">Pokračovat</div>
+      </div>
+    </div>
+  </div>
 
 <script>
-// ── easing ────────────────────────────────────────────────
-const easeOut=t=>1-Math.pow(1-t,2);
-const easeOutCubic=t=>1-Math.pow(1-t,3);
-const easeInOutCubic=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
-function elasticOut(t){ if(t===0||t===1)return t; const p=.4; return Math.pow(2,-10*t)*Math.sin((t-p/4)*(2*Math.PI)/p)+1; }
-const clamp01=v=>Math.max(0,Math.min(1,v));
-const seg=(v,a,b,c=easeOut)=>c(clamp01((v-a)/(b-a)));
+const easeOut=t=>1-Math.pow(1-t,2),easeOutCubic=t=>1-Math.pow(1-t,3),
+ easeInOutCubic=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
+function elasticOut(t){if(t===0||t===1)return t;const p=.4;return Math.pow(2,-10*t)*Math.sin((t-p/4)*(2*Math.PI)/p)+1;}
+const c01=v=>Math.max(0,Math.min(1,v)); const seg=(v,a,b,c=easeOut)=>c(c01((v-a)/(b-a)));
+const el=id=>document.getElementById(id);
+const LEGEND=['#FFD700','#FF6B00'];
 
-// Zástupná silueta adventure/sport motorky (v reálu nahradí foto/MP4)
-const MOTO_SVG = `
-<svg class="moto" viewBox="0 0 360 200" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <linearGradient id="chrome" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#cfe9da"/><stop offset=".5" stop-color="#5c7e6c"/><stop offset="1" stop-color="#243a2e"/>
-    </linearGradient>
-    <radialGradient id="hl" cx=".5" cy=".5" r=".5">
-      <stop offset="0" stop-color="#fff6d8"/><stop offset="1" stop-color="#ffb347" stop-opacity="0"/>
-    </radialGradient>
-  </defs>
-  <!-- kola -->
-  <g stroke="#0c140f" stroke-width="3">
-    <circle cx="86" cy="148" r="40" fill="#10130f"/><circle cx="86" cy="148" r="22" fill="none" stroke="url(#chrome)" stroke-width="5"/>
-    <circle cx="282" cy="148" r="40" fill="#10130f"/><circle cx="282" cy="148" r="22" fill="none" stroke="url(#chrome)" stroke-width="5"/>
-  </g>
-  <g stroke="#3a5546" stroke-width="2">
-    ${Array.from({length:8},(_,i)=>{const a=i/8*6.283;return `<line x1="86" y1="148" x2="${86+Math.cos(a)*36}" y2="${148+Math.sin(a)*36}"/>`}).join('')}
-    ${Array.from({length:8},(_,i)=>{const a=i/8*6.283;return `<line x1="282" y1="148" x2="${282+Math.cos(a)*36}" y2="${148+Math.sin(a)*36}"/>`}).join('')}
-  </g>
-  <!-- tělo / nádrž / sedlo -->
-  <path d="M70 150 C 90 96, 150 92, 196 100 C 214 78, 250 78, 268 104 L300 116 C 312 120, 300 138, 286 138 L120 138 C 96 150, 84 152, 70 150 Z"
-        fill="url(#chrome)" stroke="#0c140f" stroke-width="2.5"/>
-  <!-- sedlo -->
-  <path d="M150 96 C 200 84, 250 86, 276 100 L276 108 L150 110 Z" fill="#1d2a22" stroke="#0c140f" stroke-width="2"/>
-  <!-- přední maska + reflektor -->
-  <path d="M286 96 C 308 96, 318 112, 312 126 L296 122 C 300 110, 296 102, 286 102 Z" fill="#16201a" stroke="#0c140f" stroke-width="2"/>
-  <circle cx="306" cy="112" r="9" fill="url(#hl)"/><circle cx="306" cy="112" r="4.5" fill="#fff7df"/>
-  <!-- řídítka -->
-  <path d="M270 86 L300 70" stroke="#39564a" stroke-width="5" stroke-linecap="round"/>
-  <!-- výfuk -->
-  <path d="M120 150 L60 162 C 48 164, 48 176, 62 174 L128 164 Z" fill="url(#chrome)" stroke="#0c140f" stroke-width="2"/>
-</svg>`;
+const S={ mediaUrl:null, mediaKind:null, gained:1, level:12, pct:12,
+          rankName:'KAPITÁN SILNIC', bike:'Kawasaki Z900', sound:true, sfx:null, heroEl:null };
 
-class Scene{
-  constructor(cfg){ this.cfg=cfg; this.turbo=cfg.gained>=2; this.dur=this.turbo?4600:3600; this.build(); this.start(); }
-  build(){
-    const c=this.cfg;
-    const col=document.createElement('div'); col.className='col';
-    col.innerHTML=`
-      <div class="cap">${c.cap} <span class="t">${c.capSub}</span></div>
-      <div class="phone">
-        <div class="notch"></div>
-        <div class="stage">
-          <div class="media">${MOTO_SVG}<div class="floor"></div>
-            <div class="mediaTag">▣ SEM PŘIJDE FOTO / MP4 MOTORKY Z BACKENDU</div>
-          </div>
-          <div class="beam"></div>
-          <div class="vignette"></div>
-          <canvas></canvas>
-        </div>
-        <div class="emblem">
-          <div class="ring"><div class="logo">🏍️</div>${this.turbo?`<div class="badge">+${c.gained}</div>`:`<div class="badge">+1</div>`}</div>
-          <div class="statusKick">${this.turbo?'MIMOŘÁDNÝ POSTUP':'NOVÝ STATUS'}</div>
-        </div>
-        <div class="ui">
-          <div class="rank">${c.rankName}</div>
-          <div class="forever">Vaše sleva <span class="pct">${c.pct} %</span> platí napořád</div>
-          <div class="valued">Základní výhoda navždy — výhradně pro vás v aplikaci.<br/>Děkujeme, že jezdíte s MotoGo24.</div>
-          <div class="mybike">VAŠE MAŠINA · <span class="model">${c.bike}</span></div>
-          <div class="btn">Pokračovat</div>
-        </div>
-      </div>
-      <button class="replay">▶ Přehrát znovu</button>`;
-    document.getElementById('row').appendChild(col);
-    this.el={ phone:col.querySelector('.phone'), media:col.querySelector('.media'),
-              moto:col.querySelector('.moto'), beam:col.querySelector('.beam'),
-              emblem:col.querySelector('.emblem'), ring:col.querySelector('.ring'),
-              badge:col.querySelector('.badge'), kick:col.querySelector('.statusKick'),
-              ui:col.querySelector('.ui'), btn:col.querySelector('.btn') };
-    this.canvas=col.querySelector('canvas'); this.ctx=this.canvas.getContext('2d');
-    col.querySelector('.replay').addEventListener('click',()=>this.start());
-    const dpr=window.devicePixelRatio||1, w=this.el.phone.clientWidth, h=this.el.phone.clientHeight;
-    this.W=w; this.H=h; this.canvas.width=w*dpr; this.canvas.height=h*dpr; this.ctx.scale(dpr,dpr);
-  }
-  start(){ this.t0=performance.now(); cancelAnimationFrame(this._raf); this.loop(); }
-  loop(){
-    const now=performance.now(); let p=(now-this.t0)/this.dur; const hold=1.8;
-    if(p>1+hold*1000/this.dur){ this.start(); return; }
-    this.draw(Math.min(p,1),now); this._raf=requestAnimationFrame(()=>this.loop());
-  }
-  draw(v,now){
-    const {W,H,ctx,turbo,el}=this, sh=Math.min(W,H), cx=W/2, cy=H*0.30;
-    // časování
-    const mediaIn = seg(v,0.00,0.30,easeOutCubic);          // foto najede + lehký zoom (Ken Burns)
-    const beamP   = seg(v,0.05,0.45,easeInOutCubic);         // reflektor přejede
-    const rev     = seg(v,0.30,0.46,elasticOut);             // „rev" – záškub motorky
-    const emblemIn= seg(v,0.34,0.60,elasticOut);
-    const badgeIn = seg(v,0.50,0.70,elasticOut);
-    const burst   = seg(v,0.40,1.0,easeOutCubic);
-    const shock   = turbo?seg(v,0.40,0.92,easeOutCubic):0;
-    const textIn  = seg(v,0.58,0.80);
-    const btnIn   = seg(v,0.82,1.0);
-    const idle    = (Math.sin(now/900*Math.PI)+1)/2;
+const oldLevel=()=>Math.max(1,S.level-S.gained);
+function goldnessOf(lvl,turbo){ const base=c01((lvl-8)/12); return turbo?Math.max(base,0.45):base; }
+function accentOf(lvl,turbo){ const g=goldnessOf(lvl,turbo); const L=(a,b)=>Math.round(a+(b-a)*g);
+  return [L(0x74,0xE9),L(0xFB,0xB2),L(0x71,0x4B)]; }
+const rgb=a=>`rgb(${a[0]},${a[1]},${a[2]})`;
+const lerpRGB=(a,b,t)=>[Math.round(a[0]+(b[0]-a[0])*t),Math.round(a[1]+(b[1]-a[1])*t),Math.round(a[2]+(b[2]-a[2])*t)];
+const isGold=()=>{ const turbo=S.gained>=2; return S.level>=20 || goldnessOf(S.level,turbo)>=0.6; };
 
-    // hero médium: zoom + jemné stoupání + vjezd zprava
-    const zoom = 1.12 - 0.12*mediaIn + (turbo?0.015:0.008)*idle;
-    el.media.style.opacity = mediaIn;
-    el.moto.style.transform = `translateX(${(1-mediaIn)*60}px) scale(${zoom}) rotate(${(1-rev)* (turbo?-2.2:-1.4)}deg)`;
-    // reflektor
-    el.beam.style.opacity = (beamP>0&&beamP<1)?0.9:0;
-    el.beam.style.transform = `translateX(${beamP*W*2.4}px) rotate(6deg)`;
+const heroWrap=el('heroWrap'), cv=document.querySelector('canvas'), cx=cv.getContext('2d');
+const phone=document.querySelector('.phone'); let W,H,t0=null,raf,soundFired=false;
+function sizeCanvas(){const dpr=window.devicePixelRatio||1;W=phone.clientWidth;H=phone.clientHeight;cv.width=W*dpr;cv.height=H*dpr;cx.setTransform(dpr,0,0,dpr,0,0);}
+sizeCanvas();
 
-    // emblém + badge + texty
-    el.emblem.style.opacity = seg(v,0.34,0.50);
-    el.emblem.style.transform = `translateX(-50%) scale(${0.6+0.4*emblemIn})`;
-    el.ring.style.boxShadow = `0 0 ${20+18*idle*emblemIn}px ${2*emblemIn}px rgba(255,180,60,${0.6*emblemIn})`;
-    if(el.badge) el.badge.style.transform = `scale(${badgeIn})`;
-    el.ui.style.opacity = textIn;
-    el.ui.style.transform = `translateY(${20*(1-textIn)}px)`;
-    el.btn.style.opacity = btnIn;
-
-    // ── canvas FX: rázová vlna (turbo), částice z reflektoru, rychlostní čáry
-    ctx.clearRect(0,0,W,H);
-    if(shock>0&&shock<1){
-      ctx.beginPath(); ctx.arc(cx,cy,shock*sh*0.9,0,6.283);
-      ctx.lineWidth=6*(1-shock); ctx.strokeStyle=`rgba(255,215,0,${.5*(1-shock)})`; ctx.stroke();
-    }
-    if(burst>0){
-      const count=turbo?80:40, fade=clamp01(1-burst);
-      for(let i=0;i<count;i++){
-        const a=(i/count)*6.283+Math.sin(i*12.9898)*0.35;
-        const sp=0.55+((Math.sin(i*78.233)+1)/2)*0.45, tr=burst*sp*sh*0.8;
-        const px=cx+Math.cos(a)*tr, py=cy+Math.sin(a)*tr*0.9;
-        const r=(2.8*(1-burst*0.6))*(0.6+((Math.sin(i*39.425)+1)/2)*0.8);
-        ctx.beginPath(); ctx.arc(px,py,r,0,6.283);
-        ctx.fillStyle = (i%3===0)?`rgba(255,210,120,${0.9*fade})`:`rgba(255,245,220,${0.8*fade})`;
-        ctx.fill();
-      }
-    }
-    // jemné rychlostní čáry (mužné, ne dětské) za motorkou
-    if(turbo){
-      for(let i=0;i<5;i++){
-        const yy=H*0.40+i*10, prog=clamp01(beamP*1.4 - i*0.05);
-        if(prog<=0||prog>=1) continue;
-        const x=-W*0.6+prog*W*1.8;
-        const g=ctx.createLinearGradient(x,0,x+90,0);
-        g.addColorStop(0,'rgba(255,233,170,0)'); g.addColorStop(.5,'rgba(255,233,170,.5)'); g.addColorStop(1,'rgba(255,233,170,0)');
-        ctx.fillStyle=g; ctx.fillRect(x,yy,90,2);
-      }
-    }
-  }
+function rebuildHero(){ heroWrap.innerHTML=''; el('bg').style.display=S.mediaUrl?'none':'flex';
+  if(!S.mediaUrl){S.heroEl=null;return;}
+  let e; if(S.mediaKind==='video'){e=document.createElement('video');e.src=S.mediaUrl;e.muted=true;e.loop=false;e.autoplay=true;e.playsInline=true;e.play().catch(()=>{});}
+  else{e=document.createElement('img');e.src=S.mediaUrl;}
+  e.className='heroFull'; heroWrap.appendChild(e); S.heroEl=e;
 }
 
-new Scene({ cap:'Postup o 1 rank', capSub:'standardní povýšení',
-  gained:1, rankName:'KAPITÁN SILNIC', pct:7, bike:'Honda Africa Twin' });
-new Scene({ cap:'Postup o 2+ ranky', capSub:'mimořádné povýšení',
-  gained:2, rankName:'VETERÁN MOTOGO', pct:10, bike:'BMW R 1250 GS' });
+function applyStatic(){
+  el('badge').textContent='+'+S.gained;
+  el('kick').textContent=S.gained>=2?'MIMOŘÁDNÝ POSTUP':'NOVÝ RANK';
+  el('rank').textContent=S.rankName; el('pctTxt').textContent=S.pct+' %'; el('bikeTxt').textContent=S.bike;
+  const gold=isGold();
+  el('kick').style.color=gold?'#FFE7A0':'#dffbe9';
+  const r=el('rank');
+  if(gold){r.style.background='linear-gradient(135deg,#FFF4D6,#E9B24B 55%,#FFD27A)';r.style.webkitBackgroundClip='text';r.style.backgroundClip='text';r.style.color='transparent';}
+  else{r.style.background='none';r.style.webkitTextFillColor='initial';r.style.color=rgb(accentOf(S.level,S.gained>=2));}
+  el('btn').style.background=gold?'linear-gradient(135deg,#FFE7A0,#E9B24B)':rgb(accentOf(S.level,S.gained>=2));
+  el('btn').style.color='#241a06';
+  el('bikeTxt').style.color='#fff';
+}
+
+// ── ZVUK: syntetický „rank change" (whoosh + chord + thud) přes WebAudio ──
+let actx;
+function playRankSound(){
+  if(S.sfx){ try{S.sfx.currentTime=0; S.sfx.play();}catch(e){} return; }
+  if(!S.sound) return;
+  try{
+    actx=actx||new (window.AudioContext||window.webkitAudioContext)();
+    const t=actx.currentTime, master=actx.createGain(); master.gain.value=0.0001; master.connect(actx.destination);
+    master.gain.setValueAtTime(0.0001,t); master.gain.exponentialRampToValueAtTime(0.9,t+0.02); master.gain.exponentialRampToValueAtTime(0.0008,t+1.4);
+    // sub thud
+    const o0=actx.createOscillator(),g0=actx.createGain(); o0.type='sine'; o0.frequency.setValueAtTime(150,t); o0.frequency.exponentialRampToValueAtTime(55,t+0.5);
+    g0.gain.setValueAtTime(0.9,t); g0.gain.exponentialRampToValueAtTime(0.001,t+0.6); o0.connect(g0); g0.connect(master); o0.start(t); o0.stop(t+0.65);
+    // jasný akord (durový) – „odměna"
+    [523.25,659.25,783.99,1046.5].forEach((f,i)=>{ const o=actx.createOscillator(),g=actx.createGain();
+      o.type='triangle'; o.frequency.value=f; const st=t+0.04+i*0.02;
+      g.gain.setValueAtTime(0.0001,st); g.gain.exponentialRampToValueAtTime(0.5,st+0.03); g.gain.exponentialRampToValueAtTime(0.0008,st+1.2);
+      o.connect(g); g.connect(master); o.start(st); o.stop(st+1.25); });
+    // jiskřivý třpyt
+    const o2=actx.createOscillator(),g2=actx.createGain(); o2.type='sine'; o2.frequency.setValueAtTime(2200,t+0.05); o2.frequency.exponentialRampToValueAtTime(3600,t+0.4);
+    g2.gain.setValueAtTime(0.0001,t+0.05); g2.gain.exponentialRampToValueAtTime(0.18,t+0.12); g2.gain.exponentialRampToValueAtTime(0.0006,t+0.7);
+    o2.connect(g2); g2.connect(master); o2.start(t+0.05); o2.stop(t+0.75);
+  }catch(e){}
+}
+
+function frame(now){
+  if(t0===null)t0=now;
+  const turbo=S.gained>=2, dur=turbo?4600:3800; let v=(now-t0)/dur; const hold=2.0;
+  if(v>1+hold*1000/dur){ t0=now; v=0; soundFired=false; rebuildHero(); }
+  v=Math.min(v,1);
+  const sh=Math.min(W,H),ccx=W/2,ccy=H*0.38,idle=(Math.sin(now/900*Math.PI)+1)/2;
+
+  const mediaIn=seg(v,0,0.30,easeOutCubic),beam=seg(v,0.05,0.55,easeInOutCubic),rev=seg(v,0.22,0.40,elasticOut),
+   emblemIn=seg(v,0.18,0.42,elasticOut), ringMix=seg(v,0.56,0.84),
+   flash=seg(v,0.58,0.66)*(1-seg(v,0.66,0.84)), badgeIn=seg(v,0.66,0.86,elasticOut),
+   burst=seg(v,0.62,1,easeOutCubic), shock=turbo?seg(v,0.62,0.95,easeOutCubic):0,
+   textIn=seg(v,0.72,0.90), btnIn=seg(v,0.90,1);
+
+  // zvuk přesně v momentě překlopení
+  if(!soundFired && v>=0.62){ soundFired=true; playRankSound(); }
+
+  if(S.heroEl){ const sc=(1.18-0.18*mediaIn)+(turbo?0.02:0.012)*idle, dx=(1-mediaIn)*W*0.22;
+    S.heroEl.style.opacity=mediaIn; S.heroEl.style.transform=`translateX(${dx}px) scale(${sc})`; }
+  el('beam').style.opacity=(beam>0&&beam<1)?0.9:0; el('beam').style.transform=`translateX(${beam*W*2.2}px) rotate(6deg)`;
+
+  // logo: stará barva → nová (climax)
+  const turboF=S.gained>=2, from=accentOf(oldLevel(),false), to=accentOf(S.level,turboF), gold=isGold();
+  const ring=el('ring');
+  if(gold && ringMix>0.9){ ring.style.background='linear-gradient(135deg,#FFD700,#FF6B00)'; }
+  else { ring.style.background=rgb(lerpRGB(from,to,ringMix)); }
+  el('badge').style.background = (gold&&ringMix>0.9)?'linear-gradient(135deg,#FFE7A0,#FF8C1A)':rgb(lerpRGB(from,to,ringMix));
+  el('emblem').style.opacity=seg(v,0.18,0.36);
+  el('emblem').style.transform=`translate(-50%,-50%) scale(${0.6+0.4*emblemIn})`;
+  ring.style.boxShadow=`0 0 ${20+18*idle*emblemIn}px ${2*emblemIn}px ${gold&&ringMix>0.5?'rgba(255,180,60,':'rgba('+to.join(',')+','}${0.6*emblemIn})`;
+  el('badge').style.transform=`scale(${badgeIn})`;
+
+  el('flash').style.opacity = (gold?0.5:0.45)*flash;
+  el('ui').style.opacity=textIn; el('ui').style.transform=`translateY(${22*(1-textIn)}px)`; el('btn').style.opacity=btnIn;
+
+  cx.clearRect(0,0,W,H);
+  if(shock>0&&shock<1){cx.beginPath();cx.arc(ccx,ccy,shock*sh*0.9,0,6.283);cx.lineWidth=6*(1-shock);cx.strokeStyle=`rgba(255,215,0,${.5*(1-shock)})`;cx.stroke();}
+  if(turbo){for(let i=0;i<6;i++){const pr=c01(beam*1.4-i*0.05);if(pr<=0||pr>=1)continue;const yy=H*0.46+i*11,x=-W*0.6+pr*W*1.8,g=cx.createLinearGradient(x,0,x+90,0);g.addColorStop(0,'rgba(255,233,170,0)');g.addColorStop(.5,'rgba(255,233,170,.5)');g.addColorStop(1,'rgba(255,233,170,0)');cx.fillStyle=g;cx.fillRect(x,yy,90,2);}}
+  if(burst>0){const count=turbo?90:46,fade=c01(1-burst),g=isGold(),main=g?'255,215,0':to.join(','),sec=g?'255,140,0':'255,255,255';
+    for(let i=0;i<count;i++){const a=(i/count)*6.283+Math.sin(i*12.9898)*0.35,sp=0.55+((Math.sin(i*78.233)+1)/2)*0.45,tr=burst*sp*sh*0.78,px=ccx+Math.cos(a)*tr,py=ccy+Math.sin(a)*tr*0.9,rr=(2.9*(1-burst*0.6))*(0.6+((Math.sin(i*39.425)+1)/2)*0.8);cx.beginPath();cx.arc(px,py,rr,0,6.283);cx.fillStyle=`rgba(${i%3===0?sec:main},${0.9*fade})`;cx.fill();}}
+  raf=requestAnimationFrame(frame);
+}
+function replay(){ applyStatic(); rebuildHero(); soundFired=false; t0=null; cancelAnimationFrame(raf); raf=requestAnimationFrame(frame); }
+
+el('file').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;S.mediaUrl=URL.createObjectURL(f);S.mediaKind=f.type.startsWith('video')?'video':'image';replay();});
+el('loadUrl').addEventListener('click',()=>{const u=el('url').value.trim();if(!u)return;S.mediaUrl=u;S.mediaKind=/\.(mp4|webm|mov)(\?|$)/i.test(u)?'video':'image';replay();});
+el('sfile').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;S.sfx=new Audio(URL.createObjectURL(f));});
+document.querySelectorAll('#gained button').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('#gained button').forEach(x=>x.classList.remove('on'));b.classList.add('on');S.gained=+b.dataset.g;el('oldVal').textContent=oldLevel();replay();}));
+el('level').addEventListener('input',e=>{S.level=+e.target.value;el('lvlVal').textContent=S.level;el('oldVal').textContent=oldLevel();el('pct').value=S.level;S.pct=S.level;applyStatic();});
+el('pct').addEventListener('input',e=>{S.pct=+e.target.value||0;el('pctTxt').textContent=S.pct+' %';});
+el('rankName').addEventListener('input',e=>{S.rankName=e.target.value;el('rank').textContent=S.rankName;applyStatic();});
+el('bike').addEventListener('input',e=>{S.bike=e.target.value;el('bikeTxt').textContent=S.bike;});
+el('sound').addEventListener('change',e=>{S.sound=e.target.checked;});
+el('play').addEventListener('click',replay);
+el('oldVal').textContent=oldLevel();
+replay();
 </script>
 </body>
 </html>
