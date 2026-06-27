@@ -16,6 +16,7 @@ $tUrl = htmlspecialchars($testUrl, ENT_QUOTES, 'UTF-8');
 $lUrl = htmlspecialchars($liveUrl, ENT_QUOTES, 'UTF-8');
 $qrG  = BASE_URL . '/gfx/qr-testeri-skupina.svg';
 $qrT  = BASE_URL . '/gfx/qr-google-play.svg';
+$gSub = 'motogo24-testeri+subscribe@googlegroups.com'; // e-mail self-join fallback
 
 $content = <<<HTML
 <main id="content"><div class="container">
@@ -34,6 +35,9 @@ $content = <<<HTML
 .mg-t-cta{display:inline-flex;align-items:center;gap:.45rem;background:#1a2e22;color:#fff;font-weight:700;font-size:.95rem;text-decoration:none;padding:.7rem 1.1rem;border-radius:10px;transition:background .15s}
 .mg-t-cta:hover{background:#0d6e0d;color:#fff}
 .mg-t-cta.is-done{background:#5edc5a;color:#0b0b0b}
+.mg-t-alt{font-size:.82rem;color:#4a6b5a;line-height:1.55;margin:.85rem 0 0;padding-top:.85rem;border-top:1px dashed #cfe3d8}
+.mg-t-cta-alt{background:#eafaf0;color:#0d6e0d;border:1px solid #bfe6cd;font-size:.85rem;padding:.5rem .9rem;margin-top:.5rem}
+.mg-t-cta-alt:hover{background:#d8f3e3;color:#0d6e0d}
 .mg-t-row{display:flex;gap:1.1rem;align-items:center;flex-wrap:wrap}
 .mg-t-qr{width:128px;height:128px;flex:0 0 auto;border:1px solid #e3ece8;border-radius:10px;background:#fff;display:none}
 .mg-testeri.not-android .mg-t-qr{display:block}
@@ -57,11 +61,14 @@ $content = <<<HTML
 <ol class="mg-t-steps">
   <li class="mg-t-step" data-step="1">
     <h2>Přidej se do skupiny testerů<span class="mg-t-done-badge">✓ hotovo</span></h2>
-    <p>Otevři skupinu a klikni na <strong>„Join group"</strong> (Připojit se). Skupina je otevřená — schvalování není potřeba.</p>
+    <p>Otevři skupinu a nahoře klepni na <strong>„Připojit se ke skupině"</strong> (Join group). Musíš být přihlášený <strong>stejným Google účtem jako v Obchodě Play</strong>. Schvalování není potřeba — přidáš se hned.</p>
     <div class="mg-t-row">
-      <a class="mg-t-cta" data-step1-btn href="{$gUrl}" target="_blank" rel="noopener">Přidat se do skupiny</a>
+      <a class="mg-t-cta" data-step1-btn href="{$gUrl}" target="_blank" rel="noopener">Připojit se ke skupině</a>
       <img class="mg-t-qr" src="{$qrG}" alt="QR kód pro připojení do skupiny testerů MotoGo24" width="128" height="128" loading="lazy">
     </div>
+    <p class="mg-t-alt">Nevidíš tlačítko „Připojit se"? Přidej se <strong>e-mailem</strong> — otevře se rozepsaná zpráva, kterou jen <strong>odešleš</strong> (předmět ani text neměň):<br>
+      <a class="mg-t-cta mg-t-cta-alt" data-step1-btn href="mailto:{$gSub}?subject=Subscribe">Přidat se e-mailem</a>
+    </p>
   </li>
   <li class="mg-t-step" data-step="2">
     <h2>Otevři test a nainstaluj appku</h2>
@@ -83,11 +90,12 @@ Až bude appka veřejně spuštěná, najdeš ji v <a href="{$lUrl}" target="_bl
   if(!root)return;
   if(!/Android/i.test(navigator.userAgent||'')) root.classList.add('not-android');
   try{ if(localStorage.getItem('mg24_step1')==='1') root.classList.add('step1-done'); }catch(e){}
-  var b=root.querySelector('[data-step1-btn]');
-  if(b)b.addEventListener('click',function(){
-    try{localStorage.setItem('mg24_step1','1');}catch(e){}
-    root.classList.add('step1-done');
-    b.classList.add('is-done');
+  var btns=root.querySelectorAll('[data-step1-btn]');
+  Array.prototype.forEach.call(btns,function(b){
+    b.addEventListener('click',function(){
+      try{localStorage.setItem('mg24_step1','1');}catch(e){}
+      root.classList.add('step1-done');
+    });
   });
 })();
 </script>
