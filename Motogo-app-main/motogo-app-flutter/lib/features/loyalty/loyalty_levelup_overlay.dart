@@ -135,14 +135,10 @@ class _LevelUpCelebrationState extends State<LevelUpCelebration>
   CelebrationMoto? get _moto =>
       widget.motos.isNotEmpty ? widget.motos.first : null;
 
-  /// „Zlatost" identity roste s rankem (0 = brandová zelená, 1 = zlato-chrom).
-  /// Mimořádný postup (turbo) ji posune výš — odměna se cítí výjimečně.
-  double get _goldness {
-    final base = ((widget.status.level - 8) / 12).clamp(0.0, 1.0).toDouble();
-    return _turbo ? math.max(base, 0.45) : base;
-  }
-
-  bool get _gold => widget.status.isLegend || _goldness >= 0.6;
+  /// Každý rank má VLASTNÍ barvu (`loyalty_levels.color_hex`) — používáme ji
+  /// pro ring, text, název, tlačítko i jiskry. Zlato-chrom gradient si necháme
+  /// jen pro vrchol „Legenda MotoGo" (level 20).
+  bool get _gold => widget.status.isLegend;
 
   @override
   void initState() {
@@ -204,8 +200,9 @@ class _LevelUpCelebrationState extends State<LevelUpCelebration>
         final textIn = _seg(0.72, 0.90);
         final btnIn = _seg(0.90, 1.0);
 
-        final pulseGlow = (_turbo ? 24.0 : 18.0) +
-            (_turbo ? 20.0 : 14.0) * _pulse.value * emblemIn;
+        // Širší, animovaná záře kolem loga (dýchá s _pulse).
+        final pulseGlow = (_turbo ? 36.0 : 30.0) +
+            (_turbo ? 30.0 : 24.0) * _pulse.value * emblemIn;
         // Logo MotoGo24 je UPROSTŘED scény (září dle ranku) — odtud i jiskry.
         final emblemCenter = Offset(size.width / 2, size.height * 0.42);
 
@@ -318,7 +315,7 @@ class _LevelUpCelebrationState extends State<LevelUpCelebration>
                     opacity: _seg(0.18, 0.36),
                     child: Transform.scale(
                       scale: 0.6 + 0.4 * emblemIn,
-                      child: _emblem(ringMix, badgeIn, pulseGlow, glow, accent, tr),
+                      child: _emblem(ringMix, emblemIn, badgeIn, pulseGlow, accent, tr),
                     ),
                   ),
                 ),
@@ -359,9 +356,11 @@ class _LevelUpCelebrationState extends State<LevelUpCelebration>
     );
   }
 
-  Widget _emblem(double ringMix, double badgeIn, double pulseGlow, Color glow,
-      Color accent, String Function(String) tr) {
+  Widget _emblem(double ringMix, double emblemIn, double badgeIn,
+      double pulseGlow, Color accent, String Function(String) tr) {
+    // Ring drží STAROU barvu a na konci se přeblikne na NOVOU (ringMix).
     final ringColor = Color.lerp(widget.fromColor, accent, ringMix)!;
+    final glowC = _gold && ringMix > 0.9 ? const Color(0xFFFF8C00) : ringColor;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -381,11 +380,17 @@ class _LevelUpCelebrationState extends State<LevelUpCelebration>
                         end: Alignment.bottomRight,
                       )
                     : null,
+                // Dvojitá záře: ostřejší jádro + široký dýchající halo.
                 boxShadow: [
                   BoxShadow(
-                    color: glow.withValues(alpha: 0.6 * ringMix),
+                    color: glowC.withValues(alpha: 0.65 * emblemIn),
                     blurRadius: pulseGlow,
-                    spreadRadius: 2 * ringMix,
+                    spreadRadius: 3 * emblemIn,
+                  ),
+                  BoxShadow(
+                    color: glowC.withValues(alpha: 0.30 * emblemIn),
+                    blurRadius: pulseGlow * 2.6,
+                    spreadRadius: 10 * emblemIn,
                   ),
                 ],
               ),
@@ -576,6 +581,11 @@ class _LevelUpCelebrationState extends State<LevelUpCelebration>
   }
 
   Widget _rankTitle(LoyaltyStatus status, Color accent) {
+    // Výrazná záře názvu ranku v barvě ranku.
+    final shadows = [
+      Shadow(color: accent.withValues(alpha: 0.9), blurRadius: 18),
+      Shadow(color: accent.withValues(alpha: 0.5), blurRadius: 36),
+    ];
     final text = Text(
       status.rankName.toUpperCase(),
       textAlign: TextAlign.center,
@@ -585,6 +595,7 @@ class _LevelUpCelebrationState extends State<LevelUpCelebration>
         letterSpacing: 1.2,
         height: 1.05,
         color: _gold ? Colors.white : accent,
+        shadows: shadows,
       ),
     );
     if (!_gold) return text;
