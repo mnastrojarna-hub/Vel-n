@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MotoGo24 — náhled level-up animací</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: #07120c; color: #e7f5ee;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 28px 16px 60px; -webkit-font-smoothing: antialiased;
+  }
+  h1 { text-align: center; font-size: 20px; margin: 0 0 4px; }
+  .hint { text-align: center; opacity: .55; font-size: 13px; margin: 0 0 26px; }
+  .row {
+    display: flex; gap: 36px; flex-wrap: wrap; justify-content: center; align-items: flex-start;
+  }
+  .col { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .label { font-size: 13px; font-weight: 800; letter-spacing: .5px; }
+  .label .tag { font-size: 11px; opacity: .6; font-weight: 600; }
+  /* Telefonní rámeček ~ poměr běžného mobilu */
+  .phone {
+    position: relative; width: 320px; height: 660px; border-radius: 40px;
+    background: #0b1f15; overflow: hidden;
+    border: 9px solid #1a1a1a; box-shadow: 0 18px 50px rgba(0,0,0,.6);
+  }
+  .notch {
+    position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+    width: 130px; height: 24px; background: #1a1a1a;
+    border-radius: 0 0 16px 16px; z-index: 40;
+  }
+  /* Fake obsah appky pod animací — ať je vidět, že je to overlay */
+  .app-bg { position: absolute; inset: 0; padding: 44px 18px 0; opacity: .9; }
+  .app-bg .bar { height: 46px; border-radius: 14px; background: #112c1f; margin-bottom: 12px; }
+  .app-bg .card { height: 120px; border-radius: 18px; background: #0f2618; margin-bottom: 14px; }
+  .app-bg .pill { height: 18px; width: 60%; border-radius: 9px; background: #143420; margin-bottom: 10px; }
+  .app-bg .pill.short { width: 40%; }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 10; }
+  .overlay { position: absolute; inset: 0; z-index: 20; display: flex; flex-direction: column;
+             align-items: center; justify-content: center; pointer-events: none; }
+  .logoWrap { position: relative; }
+  .ring { padding: 7px; border-radius: 30px; display: inline-block; }
+  .logo {
+    width: 96px; height: 96px; border-radius: 23px; background: #000;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 40px;
+  }
+  .badge {
+    position: absolute; top: -14px; right: -20px;
+    padding: 6px 12px; border-radius: 999px; font-weight: 900; font-size: 18px; color: #0f1a14;
+    background: linear-gradient(135deg, #FFD700, #FF6B00);
+    border: 2px solid #fff; box-shadow: 0 0 14px rgba(255,140,0,.6);
+  }
+  .texts { text-align: center; margin-top: 22px; padding: 0 18px; }
+  .kicker { font-size: 13px; font-weight: 900; letter-spacing: 4px; color: rgba(255,255,255,.7); }
+  .kicker.turbo { font-size: 16px; letter-spacing: 3px; color: #FFD27A; }
+  .rankname { font-size: 26px; font-weight: 900; letter-spacing: 1px; margin-top: 8px; }
+  .rankname.turbo { font-size: 30px; }
+  .grad-text {
+    background: linear-gradient(135deg, #FFD700, #FF6B00);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .sub { font-size: 13px; font-weight: 700; margin-top: 10px; color: #fff; }
+  .levelline { font-size: 10px; font-weight: 600; margin-top: 4px; color: rgba(255,255,255,.55); }
+  .btn {
+    margin-top: 28px; padding: 11px 28px; border-radius: 999px;
+    font-size: 14px; font-weight: 900; color: #fff;
+  }
+  .replay {
+    margin-top: 4px; background: #143420; color: #bdf5d4; border: none;
+    padding: 9px 18px; border-radius: 999px; font-weight: 700; font-size: 13px; cursor: pointer;
+  }
+  .replay:hover { background: #1b4a2c; }
+</style>
+</head>
+<body>
+  <h1>MotoGo24 — level-up animace</h1>
+  <p class="hint">Náhled v telefonním (úzkém) zobrazení. Vlevo postup o 1 rank, vpravo „turbo" postup o 2+ ranky.<br/>Animace se přehrávají dokola; tlačítkem je přehraješ znovu.</p>
+  <div class="row" id="row"></div>
+
+<script>
+// ── Easing (shoda s Dart Curves) ─────────────────────────────────────────
+const easeOut       = t => 1 - Math.pow(1 - t, 2);
+const easeOutCubic  = t => 1 - Math.pow(1 - t, 3);
+const easeInOutCubic= t => t < .5 ? 4*t*t*t : 1 - Math.pow(-2*t+2,3)/2;
+function elasticOut(t){
+  if (t===0||t===1) return t;
+  const p=0.4;
+  return Math.pow(2,-10*t)*Math.sin((t-p/4)*(2*Math.PI)/p)+1;
+}
+const clamp01 = v => Math.max(0, Math.min(1, v));
+// segment helper jako _seg() v Dartu
+const seg = (val, from, to, curve=easeOut) => curve(clamp01((val-from)/(to-from)));
+
+// hex → [r,g,b]
+function hex2rgb(h){ h=h.replace('#',''); return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)]; }
+function lerpColor(a,b,t){ const A=hex2rgb(a),B=hex2rgb(b);
+  return `rgb(${Math.round(A[0]+(B[0]-A[0])*t)},${Math.round(A[1]+(B[1]-A[1])*t)},${Math.round(A[2]+(B[2]-A[2])*t)})`; }
+const rgba = (h,al)=>{ const c=hex2rgb(h); return `rgba(${c[0]},${c[1]},${c[2]},${al})`; };
+
+const LEGEND = ['#FFD700','#FF6B00'];
+
+// ── Jedna oslava (jeden telefon) ─────────────────────────────────────────
+class Celebration {
+  constructor(cfg){
+    this.cfg = cfg;
+    this.turbo = cfg.gained >= 2;
+    this.dur = this.turbo ? 4200 : 3200;
+    this.build();
+    this.start();
+  }
+  build(){
+    const c = this.cfg;
+    const col = document.createElement('div'); col.className='col';
+    col.innerHTML = `
+      <div class="label">${c.title} <span class="tag">${c.subtitle}</span></div>
+      <div class="phone">
+        <div class="notch"></div>
+        <div class="app-bg">
+          <div class="bar"></div><div class="card"></div>
+          <div class="pill"></div><div class="pill short"></div>
+          <div class="card"></div><div class="pill"></div>
+        </div>
+        <canvas></canvas>
+        <div class="overlay">
+          <div class="logoWrap">
+            <div class="ring"><div class="logo">🏍️</div></div>
+            ${this.turbo ? `<div class="badge">+${c.gained}</div>`:''}
+          </div>
+          <div class="texts">
+            <div class="kicker ${this.turbo?'turbo':''}">${this.turbo?c.megaTitle:c.normTitle}</div>
+            <div class="rankname ${this.turbo?'turbo':''} ${this.turbo?'grad-text':''}">${c.rankName}</div>
+            <div class="sub">Nová sleva ${c.pct} % — jen pro rezervace v aplikaci</div>
+            <div class="levelline">Level ${c.level} / 20 · ★ Platí jen pro rezervace vytvořené v aplikaci</div>
+            <div class="btn">Potvrdit</div>
+          </div>
+        </div>
+      </div>
+      <button class="replay">▶ Přehrát znovu</button>`;
+    document.getElementById('row').appendChild(col);
+
+    this.canvas = col.querySelector('canvas');
+    this.ctx = this.canvas.getContext('2d');
+    this.ring = col.querySelector('.ring');
+    this.logoWrap = col.querySelector('.logoWrap');
+    this.badge = col.querySelector('.badge');
+    this.overlayTexts = col.querySelector('.texts');
+    this.kicker = col.querySelector('.kicker');
+    this.btn = col.querySelector('.btn');
+    col.querySelector('.replay').addEventListener('click', ()=>this.start());
+
+    // canvas rozlišení
+    const ph = col.querySelector('.phone');
+    const dpr = window.devicePixelRatio || 1;
+    const w = ph.clientWidth, h = ph.clientHeight;
+    this.W=w; this.H=h;
+    this.canvas.width = w*dpr; this.canvas.height = h*dpr;
+    this.ctx.scale(dpr,dpr);
+  }
+  start(){ this.t0 = performance.now(); cancelAnimationFrame(this._raf); this.loop(); }
+  loop(){
+    const now = performance.now();
+    let p = (now - this.t0) / this.dur;        // 0..1 hlavní postup
+    const hold = 1.4;                           // pauza na konci (s)
+    if (p > 1 + hold*1000/this.dur) { this.start(); return; }
+    this.draw(Math.min(p,1), now);
+    this._raf = requestAnimationFrame(()=>this.loop());
+  }
+  draw(v, now){
+    const c=this.cfg, W=this.W, H=this.H, ctx=this.ctx, turbo=this.turbo;
+    const shortest = Math.min(W,H);
+    const cx=W/2, cy=H*0.38;
+
+    const scrim   = seg(v,0,0.15);
+    const sweep   = seg(v,0,0.30,easeInOutCubic);
+    const logoIn  = seg(v,0.15,0.50,elasticOut);
+    const ringMix = seg(v,0.22,0.55);
+    const burst   = seg(v,0.32,1.0,easeOutCubic);
+    const shock   = turbo ? seg(v,0.30,0.85,easeOutCubic) : 0;
+    const textIn  = seg(v,0.50,0.72);
+    const badgeIn = turbo ? seg(v,0.46,0.66,elasticOut) : 0;
+    const btnIn   = seg(v,0.82,1.0);
+    const pulse   = (Math.sin(now/ (turbo?700:900) * Math.PI)+1)/2;
+
+    ctx.clearRect(0,0,W,H);
+
+    // scrim
+    ctx.fillStyle = rgba('#0A1A10',(turbo?0.95:0.92)*scrim);
+    ctx.fillRect(0,0,W,H);
+
+    // sweep stripes
+    const stripe=(prog,color,height,angle,offY)=>{
+      if(prog<=0||prog>=1) return;
+      const dx = -W*1.4 + prog*W*2.8;
+      ctx.save();
+      ctx.translate(dx, H*0.30+offY);
+      ctx.rotate(angle);
+      const g=ctx.createLinearGradient(0,0,W*1.6,0);
+      g.addColorStop(0, rgba_any(color,0)); g.addColorStop(.5, rgba_any(color,.85)); g.addColorStop(1, rgba_any(color,0));
+      ctx.fillStyle=g; ctx.fillRect(0,0,W*1.6,height);
+      ctx.restore();
+    };
+    stripe(sweep, c.to, 130, -0.32, 0);
+    stripe(clamp01(sweep-0.12), '#ffffff', 26, -0.32, 90);
+    if(turbo){
+      stripe(clamp01(sweep-0.06), '#FFD700', 70, 0.30, -120);
+      stripe(clamp01(sweep-0.20), c.to, 100, 0.30, 230);
+    }
+
+    // shockwave (turbo)
+    if(shock>0 && shock<1){
+      ctx.beginPath();
+      ctx.arc(cx,cy, shock*shortest*0.85, 0, Math.PI*2);
+      ctx.lineWidth = 6*(1-shock);
+      ctx.strokeStyle = rgba('#FFD700', .55*(1-shock));
+      ctx.stroke();
+    }
+
+    // particle burst
+    if(burst>0){
+      const count = turbo?90:42;
+      const fade = clamp01(1-burst);
+      const sec = (turbo)? LEGEND[1] : '#ffffff';
+      for(let i=0;i<count;i++){
+        const fi=i;
+        const angle=(fi/count)*2*Math.PI + Math.sin(fi*12.9898)*0.35;
+        const speed=0.55 + ((Math.sin(fi*78.233)+1)/2)*0.45;
+        const travel=burst*speed*shortest*0.78;
+        const px=cx+Math.cos(angle)*travel, py=cy+Math.sin(angle)*travel*0.9;
+        const r=(3.2*(1-burst*0.6))*(0.6+((Math.sin(fi*39.425)+1)/2)*0.8);
+        ctx.beginPath(); ctx.arc(px,py,r,0,Math.PI*2);
+        ctx.fillStyle = rgba_any(i%3===0?sec:c.to, 0.9*fade);
+        ctx.fill();
+      }
+    }
+
+    // ── DOM overlay (logo, badge, texty, tlačítko) ──
+    const ringColor = lerpColor(c.from, c.to, ringMix);
+    const useGrad = (turbo) && ringMix>0.95;
+    const glow = (turbo? '#FF8C00' : c.to);
+    const pulseGlow = (turbo?26:18) + (turbo?22:14)*pulse*ringMix;
+    this.ring.style.background = useGrad ? 'linear-gradient(135deg,#FFD700,#FF6B00)' : ringColor;
+    this.ring.style.boxShadow = `0 0 ${pulseGlow}px ${2*ringMix}px ${rgba_any(glow, 0.65*ringMix)}`;
+    this.logoWrap.style.opacity = seg(v,0.15,0.30);
+    this.logoWrap.style.transform = `scale(${0.6+0.4*logoIn})`;
+    if(this.badge){ this.badge.style.transform = `scale(${badgeIn})`; }
+
+    this.overlayTexts.style.opacity = textIn;
+    this.overlayTexts.style.transform = `translateY(${18*(1-textIn)}px)`;
+    this.btn.style.opacity = btnIn;
+    this.btn.style.background = useGrad||turbo ? 'linear-gradient(135deg,#FFD700,#FF6B00)' : c.to;
+    this.btn.style.color = (turbo) ? '#0f1a14' : '#fff';
+  }
+}
+function rgba_any(h,al){
+  if(h[0]==='#') return rgba(h,al);
+  return h; // už rgb()
+}
+
+// ── Dvě ukázky ───────────────────────────────────────────────────────────
+new Celebration({
+  title:'Postup o 1 rank', subtitle:'standardní oslava',
+  gained:1, from:'#9CA3AF', to:'#34D399',
+  rankName:'JEZDEC', pct:5, level:5,
+  normTitle:'NOVÝ RANK!', megaTitle:'MEGA POSTUP!',
+});
+new Celebration({
+  title:'Postup o 2+ ranky', subtitle:'turbo „MEGA POSTUP"',
+  gained:2, from:'#34D399', to:'#F59E0B',
+  rankName:'VETERÁN', pct:8, level:8,
+  normTitle:'NOVÝ RANK!', megaTitle:'MEGA POSTUP!',
+});
+</script>
+</body>
+</html>
