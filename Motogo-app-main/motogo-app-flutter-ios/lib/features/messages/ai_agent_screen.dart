@@ -71,6 +71,18 @@ class _AiAgentState extends State<AiAgentScreen> {
     _inputCtrl.clear();
     _scrollToBottom();
 
+    // Build conversation history (without greeting / SOS hint chips) so the
+    // agent has context of the whole chat — without this every message was
+    // answered in isolation.
+    final history = <Map<String, String>>[];
+    for (final m in _messages) {
+      if (m.isSosHint) continue;
+      if (m.isBot && m == _messages.first) continue; // skip greeting
+      history.add({'role': m.isBot ? 'assistant' : 'user', 'content': m.text});
+    }
+    // Drop the just-added user message — it's sent separately as `message`.
+    if (history.isNotEmpty && history.last['role'] == 'user') history.removeLast();
+
     try {
       final res = await MotoGoSupabase.client.functions.invoke(
         'ai-moto-agent',
@@ -78,12 +90,12 @@ class _AiAgentState extends State<AiAgentScreen> {
           'message': text,
           'booking_id': _bookingId,
           'lang': lang,
+          'conversation_history': history,
         },
       );
 
       final data = res.data as Map<String, dynamic>?;
       final replyData = data?['reply'] as String?;
-      final isRideable = data?['is_rideable'] as bool?;
       final suggestSos = data?['suggest_sos'] as bool? ?? false;
 
       if (mounted) {

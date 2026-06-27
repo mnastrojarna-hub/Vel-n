@@ -524,6 +524,13 @@ const translationsCsPl = <String, Map<String, String>>{
     'photoUploadFailed': 'Foto se nepodařilo nahrát',
     'incidentCreatedNoPhoto': 'Incident byl vytvořen bez fotodokumentace',
     'activeSosIncident': 'Aktivní SOS incident',
+    'tapToOpenDetail': 'Klepnutím zobrazíte detail →',
+    'sosReportRequiredHint': 'Popis a fotodokumentace jsou povinné — pomohou nám rychle reagovat.',
+    'sosDescriptionLabel': 'Popis problému',
+    'sosDescriptionHint': 'Co se stalo? (např. prasklé zrcátko, defekt zadní pneu…)',
+    'addAnotherPhoto': 'Přidat další fotku',
+    'continueRiding': 'Jedu dál',
+    'continueRidingMsg': 'Díky! Jeďte opatrně, MotoGo24 incident eviduje.',
     // SOS service screen
     'selfServiceTitle': 'Servis na vlastní pěst',
     'selfServiceSubtitle': 'Návštěva autorizovaného servisu',

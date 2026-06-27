@@ -355,42 +355,33 @@ class _PaymentConfirmationScreenState
                 if (_info.docsStatus == _DocsStatus.missing)
                   StaggeredReveal(
                     index: 6,
-                    child: PressableScale(
-                      child: ElevatedButton(
-                        onPressed: () {
-                          ref.invalidate(reservationsProvider);
-                          // `push` (ne `go`) — děkovací stránka zůstane v
-                          // zásobníku, takže „zpět" z Dokladů se sem vrátí a
-                          // nikdy nespadne na prázdný stack („Restartujte
-                          // aplikaci"). Po nahrání dokladů se vrací sem.
-                          context.push(Routes.docs);
-                        },
-                        style: ElevatedButton.styleFrom(
-                          minimumSize: const Size.fromHeight(52),
-                          backgroundColor: const Color(0xFFEA580C),
-                          foregroundColor: Colors.white,
-                        ),
-                        child: Text(
-                          '${tr.tr('uploadDocumentsCta')} →',
-                        ),
-                      ),
+                    child: _AnimatedCta(
+                      // `push` (ne `go`) — děkovací stránka zůstane v
+                      // zásobníku, takže „zpět" z Dokladů se sem vrátí a
+                      // nikdy nespadne na prázdný stack („Restartujte
+                      // aplikaci"). Po nahrání dokladů se vrací sem.
+                      label: '📄 ${tr.tr('uploadDocumentsCta')}',
+                      gradient: const [Color(0xFFFB923C), Color(0xFFEA580C)],
+                      glow: const Color(0xFFEA580C),
+                      textColor: Colors.white,
+                      onTap: () {
+                        ref.invalidate(reservationsProvider);
+                        context.push(Routes.docs);
+                      },
                     ),
                   )
                 else
                   StaggeredReveal(
                     index: 6,
-                    child: PressableScale(
-                      child: ElevatedButton(
-                        onPressed: () {
-                          ref.invalidate(reservationsProvider);
-                          context.go(Routes.reservations);
-                        },
-                        style: ElevatedButton.styleFrom(
-                          minimumSize: const Size.fromHeight(52),
-                        ),
-                        child: Text(
-                            '${tr.tr('successCta')} →'),
-                      ),
+                    child: _AnimatedCta(
+                      label: '🏍️ ${tr.tr('successCta')}',
+                      gradient: const [MotoGoColors.green, MotoGoColors.greenDark],
+                      glow: MotoGoColors.green,
+                      textColor: MotoGoColors.black,
+                      onTap: () {
+                        ref.invalidate(reservationsProvider);
+                        context.go(Routes.reservations);
+                      },
                     ),
                   ),
                 if (_info.docsStatus == _DocsStatus.missing) ...[
@@ -433,6 +424,89 @@ class _PaymentConfirmationScreenState
           ),
         ),
       ],
+    );
+  }
+}
+
+/// „Super" animované CTA tlačítko na děkovací stránce — pulzující záře
+/// (GlowPulse) + přejíždějící lesk (ShimmerSweep) + pružné zmáčknutí
+/// (PressableScale) + jemné „dýchání" gradientu. Pill tvar, výrazná barva.
+class _AnimatedCta extends StatefulWidget {
+  final String label;
+  final List<Color> gradient;
+  final Color glow;
+  final Color textColor;
+  final VoidCallback onTap;
+
+  const _AnimatedCta({
+    required this.label,
+    required this.gradient,
+    required this.glow,
+    required this.textColor,
+    required this.onTap,
+  });
+
+  @override
+  State<_AnimatedCta> createState() => _AnimatedCtaState();
+}
+
+class _AnimatedCtaState extends State<_AnimatedCta>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _breathe = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1800),
+  )..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _breathe.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const radius = BorderRadius.all(Radius.circular(30));
+    return PressableScale(
+      onTap: widget.onTap,
+      pressedScale: 0.95,
+      child: GlowPulse(
+        color: widget.glow,
+        borderRadius: radius,
+        minBlur: 8,
+        maxBlur: 28,
+        child: ShimmerSweep(
+          borderRadius: radius,
+          period: const Duration(milliseconds: 2600),
+          child: AnimatedBuilder(
+            animation: _breathe,
+            builder: (context, _) {
+              final t = Curves.easeInOut.transform(_breathe.value);
+              return Container(
+                height: 58,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  borderRadius: radius,
+                  gradient: LinearGradient(
+                    colors: widget.gradient,
+                    begin: Alignment(-1, -1 + t),
+                    end: Alignment(1, 1 - t),
+                  ),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  '${widget.label}  →',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.3,
+                    color: widget.textColor,
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ),
     );
   }
 }
