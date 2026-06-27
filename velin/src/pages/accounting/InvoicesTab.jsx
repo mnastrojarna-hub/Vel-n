@@ -119,14 +119,17 @@ export default function InvoicesTab() {
   async function sendEmail(invoiceId) {
     try {
       debugLog('AccInvoicesTab', 'sendEmail', { invoiceId })
-      // Nejdřív vyrenderuj + ulož PDF (pdf_path), aby ho send-email mohl přiložit jako přílohu.
+      // Nejdřív vyrenderuj + ulož PDF (pdf_path), aby ho mail mohl přiložit jako přílohu.
       try { await renderAndStoreInvoicePdf(invoiceId) } catch (e) { debugError('AccInvoicesTab', 'renderPdf', e) }
-      const { error } = await debugAction('functions.send-email', 'AccInvoicesTab', () =>
-        supabase.functions.invoke('send-email', {
-          body: { type: 'invoice', invoice_id: invoiceId },
+      // Přes `send-invoice-email` — použije e-mailovou ŠABLONU z Velína dle typu
+      // dokladu a správné označení typu (zálohová/konečná/…), ne natvrdo psaný text.
+      const { data, error } = await debugAction('functions.send-invoice-email', 'AccInvoicesTab', () =>
+        supabase.functions.invoke('send-invoice-email', {
+          body: { invoice_id: invoiceId },
         })
       )
       if (error) throw error
+      if (data && data.success === false) throw new Error(data.error || 'Odeslání selhalo')
       alert('Email odeslán')
     } catch (e) {
       debugError('AccInvoicesTab', 'sendEmail', e)

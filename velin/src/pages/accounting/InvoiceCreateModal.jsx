@@ -196,13 +196,19 @@ export default function InvoiceCreateModal({ onClose, onSaved, prefillBooking })
       // Vyrenderovat a uložit PDF, aby ho mail mohl přiložit jako přílohu
       try { await renderAndStoreInvoicePdf(invoice.id) } catch (e) { console.warn('[InvoiceCreate] renderAndStoreInvoicePdf failed:', e?.message) }
 
-      // Odeslat zákazníkovi (s PDF přílohou — pdf_path už je uložen)
+      // Odeslat zákazníkovi (s PDF přílohou — pdf_path už je uložen).
+      // Přes `send-invoice-email`, aby se použila e-mailová ŠABLONA z Velína
+      // (Dokumenty → Emailové šablony) dle typu dokladu (invoice_advance pro ZF,
+      // invoice_final pro KF/FV, invoice_payment_receipt pro DP …) a správné
+      // pojmenování typu (zálohová faktura = zálohová faktura), ne natvrdo psaný text.
       if (form.send_email && invoice) {
         const customer = customers.find(c => c.id === form.customer_id)
         if (customer?.email) {
           try {
-            const { error: efErr } = await supabase.functions.invoke('send-email', { body: { type: 'invoice', invoice_id: invoice.id } })
-            if (efErr) {
+            const { data: efData, error: efErr } = await supabase.functions.invoke('send-invoice-email', {
+              body: { invoice_id: invoice.id, customer_email: customer.email, customer_name: customer.full_name, invoice_number: invoice.number },
+            })
+            if (efErr || (efData && efData.success === false)) {
               await supabase.from('sent_emails').insert({
                 template_slug: 'invoice', recipient_email: customer.email, recipient_id: form.customer_id,
                 booking_id: form.booking_id || null, subject: `Faktura ${invoice.number} — MotoGo24`,
