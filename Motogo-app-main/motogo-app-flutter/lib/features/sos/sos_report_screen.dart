@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -52,11 +54,16 @@ class SosReportScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 16),
 
-              // Active incident banner
+              // Active incident banner — tappable, otevře detail incidentu.
+              // Zobrazuje se pro JAKÝKOLIV aktivní incident (i „v řešení"),
+              // ne jen vážný — aby na něj šlo vždy kliknout.
               activeAsync.when(
                 data: (inc) {
-                  if (inc == null || !inc.isActive || !inc.isSerious) return const SizedBox.shrink();
-                  return _ActiveBanner(incident: inc);
+                  if (inc == null || !inc.isActive) return const SizedBox.shrink();
+                  return _ActiveBanner(
+                    incident: inc,
+                    onTap: () => context.push(Routes.sosDone),
+                  );
                 },
                 loading: () => const SizedBox.shrink(),
                 error: (_, __) => const SizedBox.shrink(),
@@ -219,10 +226,16 @@ class SosReportScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _report(BuildContext context, WidgetRef ref, String type, String desc) async {
-    // 0. Confirm before creating incident
-    final confirmed = await _confirmReport(context, desc);
-    if (!confirmed || !context.mounted) return;
+  Future<void> _report(BuildContext context, WidgetRef ref, String type, String typeLabel) async {
+    // 0. POVINNÝ popis + fotodokumentace — bez nich incident nelze nahlásit.
+    //    Velín tak u KAŽDÉHO SOS vidí popis i fotky.
+    final collected = await _collectReport(context, typeLabel);
+    if (collected == null || !context.mounted) return;
+
+    final userDesc = collected.description;
+    final photos = collected.photos;
+    // Sloučíme kategorii + popis zákazníka, ať Velín vidí oboje.
+    final fullDesc = '$typeLabel — $userDesc';
 
     showMotoGoToast(context, icon: '⚠️', title: t(context).tr('reportingIncident'), message: t(context).tr('sendingToCentral'));
 
@@ -237,12 +250,12 @@ class SosReportScreen extends ConsumerWidget {
     // 2. Determine fault (major accident = ask, breakdown = not at fault)
     final bool isFault = type == SosType.accidentMajor || type == SosType.theft;
 
-    // 3. Create incident via direct INSERT with GPS
+    // 3. Create incident via direct INSERT with GPS + popis zákazníka
     String incId;
     try {
       incId = await createSosIncident(
         type: type,
-        description: desc,
+        description: fullDesc,
         lat: lat,
         lng: lng,
         isFault: isFault,
@@ -252,20 +265,12 @@ class SosReportScreen extends ConsumerWidget {
       return;
     }
 
-    // 4. Ask user if they want to add photos (optional)
-    if (context.mounted) {
-      final wantsPhoto = await _askForPhoto(context);
-      if (wantsPhoto && context.mounted) {
-        try {
-          final photos = await _capturePhotos(context);
-          if (photos.isNotEmpty) {
-            await uploadSosPhotos(incId, photos);
-          }
-        } catch (_) {
-          if (context.mounted) {
-            showMotoGoToast(context, icon: '⚠️', title: t(context).tr('photoUploadFailed'), message: t(context).tr('incidentCreatedNoPhoto'));
-          }
-        }
+    // 4. Upload povinné fotodokumentace
+    try {
+      await uploadSosPhotos(incId, photos);
+    } catch (_) {
+      if (context.mounted) {
+        showMotoGoToast(context, icon: '⚠️', title: t(context).tr('photoUploadFailed'), message: t(context).tr('incidentCreatedNoPhoto'));
       }
     }
 
@@ -285,110 +290,139 @@ class SosReportScreen extends ConsumerWidget {
     context.push(Routes.sosDone);
   }
 
-  Future<bool> _confirmReport(BuildContext context, String desc) async {
-    final result = await showModalBottomSheet<bool>(
+  /// Povinný sběr popisu + fotodokumentace před nahlášením incidentu.
+  /// Vrací `null` při zrušení; jinak popis (neprázdný) + min. 1 fotku.
+  Future<({String description, List<XFile> photos})?> _collectReport(
+      BuildContext context, String typeLabel) {
+    return showModalBottomSheet<({String description, List<XFile> photos})>(
       context: context,
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('⚠️ ${t(context).confirm}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: MotoGoColors.black)),
-              const SizedBox(height: 8),
-              Text('${t(context).tr('confirmReportQuestion')} „$desc"?', style: const TextStyle(fontSize: 13, color: MotoGoColors.g400)),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () => Navigator.pop(ctx, true),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: MotoGoColors.red,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(50)),
-                  ),
-                  child: Text(t(context).tr('yesReport'), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
-                ),
-              ),
-              const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                child: TextButton(
-                  onPressed: () => Navigator.pop(ctx, false),
-                  style: TextButton.styleFrom(
-                    foregroundColor: MotoGoColors.g400,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                  child: Text(t(context).cancel, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
-                ),
-              ),
-            ],
-          ),
-        ),
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
+      builder: (ctx) {
+        final descCtrl = TextEditingController();
+        final photos = <XFile>[];
+        return StatefulBuilder(
+          builder: (ctx, setSheet) {
+            final canSubmit = descCtrl.text.trim().length >= 3 && photos.isNotEmpty;
+            return Padding(
+              padding: EdgeInsets.fromLTRB(
+                  20, 16, 20, MediaQuery.of(ctx).viewInsets.bottom + 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40, height: 4,
+                      decoration: BoxDecoration(color: MotoGoColors.g200, borderRadius: BorderRadius.circular(2)),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Text('🆘 $typeLabel', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: MotoGoColors.black)),
+                  const SizedBox(height: 4),
+                  Text(t(context).tr('sosReportRequiredHint'), style: const TextStyle(fontSize: 12, color: MotoGoColors.g400)),
+                  const SizedBox(height: 16),
+
+                  // Popis (povinný)
+                  Text('${t(context).tr('sosDescriptionLabel')} *',
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: MotoGoColors.black)),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: descCtrl,
+                    maxLines: 3,
+                    onChanged: (_) => setSheet(() {}),
+                    decoration: InputDecoration(
+                      hintText: t(context).tr('sosDescriptionHint'),
+                      hintStyle: const TextStyle(fontSize: 12, color: MotoGoColors.g400),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: MotoGoColors.g200)),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: MotoGoColors.g200)),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Fotodokumentace (povinná)
+                  Text('${t(context).tr('photoDocumentation')} *',
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: MotoGoColors.black)),
+                  const SizedBox(height: 6),
+                  if (photos.isNotEmpty)
+                    SizedBox(
+                      height: 64,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: photos.length,
+                        separatorBuilder: (_, __) => const SizedBox(width: 6),
+                        itemBuilder: (_, i) => ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.file(File(photos[i].path), width: 64, height: 64, fit: BoxFit.cover),
+                        ),
+                      ),
+                    ),
+                  if (photos.isNotEmpty) const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      final shot = await _capturePhoto(ctx);
+                      if (shot != null) setSheet(() => photos.add(shot));
+                    },
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: MotoGoColors.greenDarker,
+                      side: const BorderSide(color: MotoGoColors.greenDark),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    icon: const Icon(Icons.camera_alt, size: 18),
+                    label: Text(photos.isEmpty ? t(context).tr('takePhoto') : t(context).tr('addAnotherPhoto'),
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
+                  ),
+                  const SizedBox(height: 18),
+
+                  // Odeslat
+                  ElevatedButton(
+                    onPressed: canSubmit
+                        ? () => Navigator.pop(ctx, (description: descCtrl.text.trim(), photos: photos))
+                        : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: MotoGoColors.red,
+                      foregroundColor: Colors.white,
+                      disabledBackgroundColor: MotoGoColors.g200,
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(50)),
+                    ),
+                    child: Text(t(context).tr('yesReport'), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900)),
+                  ),
+                  const SizedBox(height: 8),
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx, null),
+                    style: TextButton.styleFrom(foregroundColor: MotoGoColors.g400),
+                    child: Text(t(context).cancel, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
-    return result == true;
   }
 
-  Future<bool> _askForPhoto(BuildContext context) async {
-    final result = await showModalBottomSheet<bool>(
-      context: context,
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('📷 ${t(context).tr('photoDocumentation')}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: MotoGoColors.black)),
-              const SizedBox(height: 8),
-              Text(t(context).tr('wantToAddPhoto'), style: const TextStyle(fontSize: 13, color: MotoGoColors.g400)),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () => Navigator.pop(ctx, true),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: MotoGoColors.green,
-                    foregroundColor: Colors.black,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(50)),
-                  ),
-                  child: Text('📸 ${t(context).tr('takePhoto')}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
-                ),
-              ),
-              const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                child: TextButton(
-                  onPressed: () => Navigator.pop(ctx, false),
-                  style: TextButton.styleFrom(
-                    foregroundColor: MotoGoColors.g400,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                  child: Text(t(context).tr('skip'), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-    return result == true;
-  }
-
-  Future<List<XFile>> _capturePhotos(BuildContext context) async {
+  /// Vyfotí jednu fotku (kamera; při selhání nabídne galerii).
+  Future<XFile?> _capturePhoto(BuildContext context) async {
     final picker = ImagePicker();
-    final photos = <XFile>[];
     try {
-      final photo = await picker.pickImage(source: ImageSource.camera, imageQuality: 80, maxWidth: 2048);
-      if (photo != null) photos.add(photo);
-    } catch (e) {
-      if (context.mounted) {
-        showMotoGoToast(context, icon: '⚠️', title: t(context).tr('photoCaptureFailed'), message: t(context).tr('tryAgainOrSkip'));
+      return await picker.pickImage(source: ImageSource.camera, imageQuality: 80, maxWidth: 2048);
+    } catch (_) {
+      try {
+        return await picker.pickImage(source: ImageSource.gallery, imageQuality: 80, maxWidth: 2048);
+      } catch (_) {
+        if (context.mounted) {
+          showMotoGoToast(context, icon: '⚠️', title: t(context).tr('photoCaptureFailed'), message: t(context).tr('tryAgainOrSkip'));
+        }
+        return null;
       }
     }
-    return photos;
   }
 
   Future<void> _shareLocation(BuildContext context, WidgetRef ref) async {
@@ -416,25 +450,43 @@ class SosReportScreen extends ConsumerWidget {
 
 class _ActiveBanner extends StatelessWidget {
   final SosIncident incident;
-  const _ActiveBanner({required this.incident});
+  final VoidCallback onTap;
+  const _ActiveBanner({required this.incident, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    final statusLabels = {'reported': t(context).tr('reported'), 'acknowledged': t(context).tr('accepted'), 'in_progress': t(context).tr('inProgress')};
-    return Container(
-      padding: const EdgeInsets.all(12),
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: MotoGoColors.amberBg, borderRadius: BorderRadius.circular(MotoGoTheme.radiusSm),
-        border: Border.all(color: MotoGoColors.amberBorder, width: 2),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('⚠️ ${t(context).tr('activeSosIncident')}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF92400E))),
-          Text('${t(context).tr('statusLabel')}: ${statusLabels[incident.status] ?? incident.status} · ${incident.id.substring(incident.id.length - 8).toUpperCase()}',
-              style: const TextStyle(fontSize: 11, color: Color(0xFF78350F))),
-        ],
+    final statusLabels = {
+      'reported': t(context).tr('reported'),
+      'acknowledged': t(context).tr('accepted'),
+      'in_progress': t(context).tr('inProgress'),
+    };
+    return PressableScale(
+      pressedScale: 0.97,
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: MotoGoColors.amberBg, borderRadius: BorderRadius.circular(MotoGoTheme.radiusSm),
+          border: Border.all(color: MotoGoColors.amberBorder, width: 2),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('⚠️ ${t(context).tr('activeSosIncident')}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF92400E))),
+                  Text('${t(context).tr('statusLabel')}: ${statusLabels[incident.status] ?? incident.status} · ${incident.id.substring(incident.id.length - 8).toUpperCase()}',
+                      style: const TextStyle(fontSize: 11, color: Color(0xFF78350F))),
+                  Text(t(context).tr('tapToOpenDetail'),
+                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFFB45309))),
+                ],
+              ),
+            ),
+            const Text('›', style: TextStyle(fontSize: 20, color: Color(0xFF92400E))),
+          ],
+        ),
       ),
     );
   }

@@ -7,6 +7,7 @@ import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
 import 'sos_provider.dart';
 import '../../core/currency.dart';
+import '../auth/widgets/toast_helper.dart';
 
 /// SOS detail / done screen — mirrors s-sos-done from templates-res-sos3.js.
 /// Shows contextual done view based on SosDoneType, or full detail with timeline.
@@ -379,8 +380,9 @@ class SosDetailScreen extends ConsumerWidget {
               ]),
               const SizedBox(height: 16),
 
-              // Actions
-              if (inc.isActive && inc.isSerious)
+              // Actions — náhradní motorka JEN u nepojízdných / odcizených
+              // (vážné incidenty). U „pokračuji dál" se nenabízí.
+              if (inc.isActive && inc.offersReplacement)
                 ElevatedButton(
                   onPressed: () => context.push(Routes.sosReplacement),
                   child: Row(
@@ -389,6 +391,26 @@ class SosDetailScreen extends ConsumerWidget {
                     const Icon(Icons.motorcycle, size: 18),
                     const SizedBox(width: 8),
                     Text(t(context).tr('replacementMoto')),
+                  ]),
+                ),
+
+              // „Jedu dál" — u lehké nehody / drobné závady (pokračování v jízdě)
+              if (inc.isActive && inc.isMinorContinue)
+                ElevatedButton(
+                  onPressed: () => _continueRide(context, ref, inc),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: MotoGoColors.green,
+                    foregroundColor: MotoGoColors.black,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(50)),
+                  ),
+                  child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                    const Text('🏍️', style: TextStyle(fontSize: 16)),
+                    const SizedBox(width: 8),
+                    Text(t(context).tr('continueRiding'),
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900)),
                   ]),
                 ),
               const SizedBox(height: 8),
@@ -408,6 +430,17 @@ class SosDetailScreen extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _continueRide(BuildContext context, WidgetRef ref, SosIncident inc) async {
+    await sosContinueRide(inc.id);
+    ref.invalidate(activeSosProvider);
+    if (!context.mounted) return;
+    showMotoGoToast(context,
+        icon: '🏍️',
+        title: t(context).tr('continueRiding'),
+        message: t(context).tr('continueRidingMsg'));
+    context.go(Routes.home);
   }
 
   String _typeLabel(BuildContext context, String type) => switch (type) {

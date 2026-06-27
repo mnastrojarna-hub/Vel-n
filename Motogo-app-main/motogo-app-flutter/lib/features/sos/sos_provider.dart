@@ -98,6 +98,16 @@ class SosIncident {
 
   bool get isActive => !['resolved', 'closed'].contains(status);
   bool get isSerious => !['breakdown_minor', 'defect_question', 'location_share', 'other'].contains(type);
+
+  /// Náhradní motorka se nabízí JEN když je motorka nepojízdná / odcizená.
+  /// U „pokračuji dál" incidentů (lehká nehoda / drobná závada) se NENABÍZÍ.
+  bool get offersReplacement =>
+      ['accident_major', 'breakdown_major', 'theft'].contains(type);
+
+  /// „Jedu dál" incidenty — zákazník zvolil pokračovat v jízdě
+  /// (lehká nehoda / drobná závada). U nich nabízíme tlačítko „Jedu dál".
+  bool get isMinorContinue =>
+      ['accident_minor', 'breakdown_minor'].contains(type);
 }
 
 /// SOS timeline entry.
@@ -328,6 +338,25 @@ Future<bool> sosEndRide(String incidentId, {required bool isFault}) async {
     await MotoGoSupabase.client.from('sos_timeline').insert({
       'incident_id': incidentId,
       'action': 'Zákazník ukončuje jízdu — žádá odtah ($faultLabel)',
+    });
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+/// Customer continues the ride after a minor incident ("Jedu dál").
+/// Records moto as rideable + a timeline entry so Velín sees the decision.
+Future<bool> sosContinueRide(String incidentId) async {
+  try {
+    await MotoGoSupabase.client.from('sos_incidents').update({
+      'customer_decision': 'continue',
+      'moto_rideable': true,
+    }).eq('id', incidentId);
+
+    await MotoGoSupabase.client.from('sos_timeline').insert({
+      'incident_id': incidentId,
+      'action': 'Zákazník pokračuje v jízdě (jedu dál)',
     });
     return true;
   } catch (_) {
