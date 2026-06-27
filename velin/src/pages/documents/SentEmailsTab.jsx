@@ -47,6 +47,8 @@ export default function SentEmailsTab() {
   const [preview, setPreview] = useState(null)
   const [selected, setSelected] = useState(() => new Set())
   const [deleting, setDeleting] = useState(false)
+  // Historické e-maily neukládaly attachments_meta → přílohu dohledáme podle rezervace.
+  const [derivedAtt, setDerivedAtt] = useState(null) // null = neřešeno, [] = nic nenalezeno
 
   useEffect(() => { load() }, [page, filters])
 
@@ -104,6 +106,60 @@ export default function SentEmailsTab() {
   // 2026-06-08). Uložený `storage_path` v sent_emails pak míří na neexistující
   // soubor → „Object not found". Dohledáme aktuální platný soubor přes booking_id
   // ze stejných tabulek, ze kterých čte i detail zákazníka (kde přílohy fungují).
+  // Dohledá přílohy historického e-mailu (bez attachments_meta) podle rezervace
+  // + šablony. Protokoly z `documents` (file_path), faktury z `invoices.pdf_path`.
+  // Vrací [{filename, storage_path}] — stejný tvar jako attachments_meta.
+  async function deriveAttachments(email) {
+    const bookingId = email?.booking_id
+    if (!bookingId) return []
+    const slug = (email?.template_slug || '').toLowerCase()
+    const subj = (email?.subject || '').toLowerCase()
+    try {
+      // Předávací / škodní protokol
+      if (slug.includes('protocol') || slug.includes('protokol')) {
+        const isDamage = slug.includes('damage') || slug.includes('poskoz')
+        const types = isDamage ? ['damage_protocol', 'protocol_damage'] : ['handover_protocol', 'protocol']
+        const { data } = await supabase.from('documents')
+          .select('file_path, file_name, name, type, created_at')
+          .eq('booking_id', bookingId).in('type', types)
+          .not('file_path', 'is', null).order('created_at', { ascending: false })
+        return (data || []).map(d => ({ filename: d.file_name || d.name || 'protokol.pdf', storage_path: d.file_path }))
+      }
+      // Faktury / daňové doklady
+      if (slug.includes('invoice') || slug.includes('faktur')) {
+        let types = null
+        if (slug.includes('final')) types = ['final', 'shop_final']
+        else if (slug.includes('advance') || slug.includes('proforma')) types = ['advance', 'proforma', 'shop_proforma']
+        else if (slug.includes('receipt') || slug.includes('payment')) types = ['payment_receipt']
+        let q = supabase.from('invoices')
+          .select('number, type, pdf_path, created_at')
+          .eq('booking_id', bookingId)
+          .not('pdf_path', 'is', null).order('created_at', { ascending: false })
+        if (types) q = q.in('type', types)
+        const { data } = await q
+        const rows = data || []
+        // Přednostně doklad, jehož číslo je v předmětu e-mailu.
+        const matched = rows.filter(r => r.number && subj.includes(String(r.number).toLowerCase()))
+        const use = matched.length ? matched : rows
+        return use.map(r => ({ filename: `Faktura-${r.number}.pdf`, storage_path: r.pdf_path }))
+      }
+    } catch (e) {
+      debugError('SentEmailsTab', 'deriveAttachments', e)
+    }
+    return []
+  }
+
+  // Při otevření náhledu bez attachments_meta zkus přílohu dohledat podle rezervace.
+  useEffect(() => {
+    setDerivedAtt(null)
+    if (!preview) return
+    const logged = Array.isArray(preview.attachments_meta) ? preview.attachments_meta : []
+    if (logged.length > 0) return // máme uložené přílohy, dohledávat netřeba
+    let cancelled = false
+    deriveAttachments(preview).then(att => { if (!cancelled) setDerivedAtt(att) })
+    return () => { cancelled = true }
+  }, [preview])
+
   async function resolveLivePath(filename, stalePath) {
     const bookingId = preview?.booking_id
     if (!bookingId || !stalePath) return null
@@ -175,6 +231,12 @@ export default function SentEmailsTab() {
   }
 
   const totalPages = Math.ceil(total / PER_PAGE)
+
+  // Seznam příloh pro náhled: uložené (attachments_meta) mají přednost, jinak dohledané.
+  const loggedAtt = preview && Array.isArray(preview.attachments_meta) ? preview.attachments_meta : []
+  const attList = loggedAtt.length ? loggedAtt : (derivedAtt || [])
+  const attIsDerived = preview && !loggedAtt.length && (derivedAtt || []).length > 0
+  const attDeriving = preview && !loggedAtt.length && derivedAtt === null
 
   return (
     <div>
@@ -269,13 +331,23 @@ export default function SentEmailsTab() {
               <> | <span className="font-bold">Šablona:</span> {preview.template_slug}</>
             )}
           </div>
-          {Array.isArray(preview.attachments_meta) && preview.attachments_meta.length > 0 && (
+          {attDeriving && (
+            <div className="mb-3 p-3 rounded-card text-sm" style={{ background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
+              Dohledávám přílohy podle rezervace…
+            </div>
+          )}
+          {attList.length > 0 && (
             <div className="mb-3 p-3 rounded-card" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
               <div className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>
-                Přílohy ({preview.attachments_meta.length})
+                Přílohy ({attList.length})
               </div>
+              {attIsDerived && (
+                <div className="text-xs mb-2" style={{ color: '#92400e', background: '#fef3c7', border: '1px solid #fbbf24', borderRadius: 8, padding: '6px 8px' }}>
+                  ⓘ Tento e-mail neměl uložený seznam příloh — doklad byl dohledán podle rezervace. U starších faktur (před opravou) nemusela být příloha reálně přiložena; v případě pochybností fakturu zákazníkovi odešlete znovu.
+                </div>
+              )}
               <ul className="text-sm" style={{ color: '#1a2e22', listStyle: 'none', padding: 0, margin: 0 }}>
-                {preview.attachments_meta.map((a, i) => {
+                {attList.map((a, i) => {
                   const filename = (typeof a === 'string' ? a : a?.filename) || `příloha-${i + 1}`
                   const storagePath = typeof a === 'object' ? a?.storage_path : null
                   return (
