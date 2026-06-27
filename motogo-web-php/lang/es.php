@@ -26,7 +26,7 @@ return [
     'header.callUs' => 'Llámanos',
     'header.logoAlt' => 'Alquiler de motos Vysočina Motogo24',
     'header.expandSubmenu' => 'Expandir submenú',
-    'header.app.label' => 'Descargar app',
+    'header.app.label' => 'Descargar app móvil',
     'header.app.title' => 'Descargar la aplicación MotoGo24',
     'header.app.aria' => 'Descargar la aplicación MotoGo24 desde Google Play',
     'header.app.heading' => 'Descarga la app MotoGo24',
