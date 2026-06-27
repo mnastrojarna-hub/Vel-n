@@ -4,9 +4,11 @@
  * Ukazuje, kolik zákazníků má nainstalovanou mobilní appku — BEZ nového buildu
  * appky. Přesný počet instalací z Google Play (Play Developer API) nemáme, takže
  * používáme nejbližší proxy z dat, která appka už dnes posílá:
- *   - „Aktivní zařízení" = záznamy v `push_tokens` s active=true (každá instalace
- *     s povolenými notifikacemi registruje token) → nejbližší odhad počtu instalací.
- *   - Android / iOS rozpad podle `push_tokens.platform`.
+ *   - „Aktivní zařízení" = počet unikátních (user_id, platform) mezi aktivními
+ *     push tokeny. FCM token se rotuje (onTokenRefresh → nový řádek), takže
+ *     count(*) řádků reálná zařízení nadhodnocuje; dedup přes (účet, platforma)
+ *     rotované tokeny téhož zařízení sloučí → nejbližší odhad počtu instalací.
+ *   - Android / iOS rozpad = unikátní účty (distinct user_id) dané platformy.
  *   - „Uživatelé appky" = unikátní účty (distinct user_id) s aktivním zařízením.
  *   - „Rezervace přes appku" = bookings.booking_source = 'app'.
  *
@@ -17,12 +19,12 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 
 const CARDS = [
-  { key: 'active_devices', label: 'Aktivní zařízení', hint: '≈ počet instalací appky (zařízení s aktivním push tokenem)', big: true },
-  { key: 'android', label: 'Android', hint: 'aktivní zařízení Android' },
-  { key: 'ios', label: 'iOS', hint: 'aktivní zařízení iOS' },
+  { key: 'active_devices', label: 'Aktivní zařízení', hint: '≈ počet instalací appky (unikátní účet × platforma, rotované tokeny sloučeny)', big: true },
+  { key: 'android', label: 'Android', hint: 'aktivní účty na Androidu' },
+  { key: 'ios', label: 'iOS', hint: 'aktivní účty na iOS' },
   { key: 'app_users', label: 'Uživatelé appky', hint: 'unikátní účty s aktivním zařízením' },
   { key: 'app_bookings', label: 'Rezervace přes appku', hint: "booking_source = 'app'" },
-  { key: 'total_devices', label: 'Zařízení celkem', hint: 'včetně odhlášených / neplatných tokenů' },
+  { key: 'total_devices', label: 'Zařízení celkem', hint: 'vč. odhlášených (unikátní účet × platforma)' },
 ]
 
 export default function AplikaceStats() {
@@ -92,8 +94,9 @@ export default function AplikaceStats() {
 
       <p style={{ fontSize: 12.5, color: '#7a8b82', lineHeight: 1.6, maxWidth: 720 }}>
         ℹ️ Čísla jsou <strong>odhad bez nového buildu appky</strong> — vychází z registrovaných zařízení
-        (push tokeny) a rezervací přes appku. Není to oficiální počet instalací z Google Play
-        (ten by vyžadoval Play Developer API). „Aktivní zařízení" je nejbližší odhad reálných instalací.
+        (push tokeny) a rezervací přes appku. „Aktivní zařízení" se počítá jako unikátní kombinace
+        účtu a platformy, takže rotace FCM tokenu (po reinstalaci/obnově) totéž zařízení nezdvojuje.
+        Není to oficiální počet instalací z Google Play (ten by vyžadoval Play Developer API).
       </p>
     </div>
   )
