@@ -54,9 +54,9 @@ $content = <<<HTML
 </style>
 
 <h1>Staň se beta testerem aplikace MotoGo24</h1>
-<p class="mg-t-lead">Aplikace je v uzavřeném testování Google Play. Stačí dva kroky — zabere to minutu. Postupuj na <strong>telefonu s Androidem</strong> a přihlas se stejným Google účtem, jaký máš v Obchodě Play.</p>
+<p class="mg-t-lead">Aplikace je v uzavřeném testování Google Play a běží <strong>jen na Androidu</strong> (telefony i tablety). Stačí dva kroky — zabere to minutu. Postupuj na <strong>Android telefonu nebo tabletu</strong> a přihlas se stejným Google účtem, jaký máš v Obchodě Play.</p>
 
-<div class="mg-t-hint">📱 Tyto kroky proveď na <strong>Android telefonu</strong>. Na počítači nebo iPhonu otevři stránku přes přiložený QR kód na Androidu.</div>
+<div class="mg-t-hint">📱 Aplikace je <strong>jen pro Android</strong> (telefony i tablety) — na iPhonu ani počítači ji nenainstaluješ. Otevři tuto stránku na <strong>Android telefonu nebo tabletu</strong> (klidně naskenuj QR kódy níž) a pokračuj přímo tam.</div>
 
 <p class="mg-t-once">✅ <strong>QR stačí naskenovat jednou.</strong> Oba kroky jsou tady na jedné stránce a zařazení mezi testery je jednorázové — jakmile appku jednou nainstaluješ, najdeš ji pak <strong>přímo v Google Play</strong> a QR ani odkaz už znovu nepotřebuješ.</p>
 
