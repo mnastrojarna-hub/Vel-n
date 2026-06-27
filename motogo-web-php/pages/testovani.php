@@ -39,6 +39,9 @@ $content = <<<HTML
 .mg-testeri.not-android .mg-t-qr{display:block}
 .mg-t-done-badge{display:none;margin-left:.5rem;font-size:.8rem;font-weight:700;color:#0d6e0d}
 .mg-testeri.step1-done .mg-t-step[data-step="1"] .mg-t-done-badge{display:inline}
+.mg-t-once{background:#eafaf0;border:1px solid #bfe6cd;color:#1a5e2e;border-radius:10px;padding:.6rem .85rem;font-size:.83rem;line-height:1.5;margin:0 0 1.4rem}
+.mg-t-retry{display:none;margin:.85rem 0 0;padding:.6rem .8rem;background:#f4f9f6;border:1px dashed #bcd6c8;border-radius:9px;font-size:.82rem;line-height:1.5;color:#3a4d42}
+.mg-testeri.step1-done .mg-t-step[data-step="2"] .mg-t-retry{display:block}
 .mg-t-foot{margin-top:1.6rem;font-size:.82rem;color:#52655a;line-height:1.55}
 .mg-t-foot a{color:#0d6e0d;font-weight:700}
 @media (max-width:560px){.mg-testeri h1{font-size:1.4rem}.mg-t-qr{width:108px;height:108px}}
@@ -48,6 +51,8 @@ $content = <<<HTML
 <p class="mg-t-lead">Aplikace je v uzavřeném testování Google Play. Stačí dva kroky — zabere to minutu. Postupuj na <strong>telefonu s Androidem</strong> a přihlas se stejným Google účtem, jaký máš v Obchodě Play.</p>
 
 <div class="mg-t-hint">📱 Tyto kroky proveď na <strong>Android telefonu</strong>. Na počítači nebo iPhonu otevři stránku přes přiložený QR kód na Androidu.</div>
+
+<p class="mg-t-once">✅ <strong>QR stačí naskenovat jednou.</strong> Oba kroky jsou tady na jedné stránce a zařazení mezi testery je jednorázové — jakmile appku jednou nainstaluješ, najdeš ji pak <strong>přímo v Google Play</strong> a QR ani odkaz už znovu nepotřebuješ.</p>
 
 <ol class="mg-t-steps">
   <li class="mg-t-step" data-step="1">
@@ -60,11 +65,12 @@ $content = <<<HTML
   </li>
   <li class="mg-t-step" data-step="2">
     <h2>Otevři test a nainstaluj appku</h2>
-    <p>Na stránce testu klepni na <strong>„Become a tester"</strong> a pak na <strong>„Stáhnout z Google Play"</strong>. Po prvním zařazení může chvíli trvat, než tě Google Play uvidí jako testera.</p>
+    <p>Na stránce testu klepni na <strong>„Become a tester"</strong> a pak na <strong>„Stáhnout z Google Play"</strong>. Zařazení obvykle naskočí za <strong>pár minut</strong> (výjimečně až za pár hodin).</p>
     <div class="mg-t-row">
       <a class="mg-t-cta" href="{$tUrl}" target="_blank" rel="noopener">Otevřít test v Google Play</a>
       <img class="mg-t-qr" src="{$qrT}" alt="QR kód pro otevření testu aplikace MotoGo24 v Google Play" width="128" height="128" loading="lazy">
     </div>
+    <p class="mg-t-retry">⏳ Píše to <em>„App not available"</em> nebo <em>„počkej pár minut"</em>? To je normální hned po přidání. Dej si pauzu pár minut a klepni na tlačítko výš znovu — <strong>QR ani nic skenovat znovu nemusíš</strong>. Appka se mezitím sama objeví i v Google Play (zkus tam hledat „MotoGo24").</p>
   </li>
 </ol>
 
