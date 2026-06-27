@@ -26,6 +26,9 @@ export default function BookingDocumentsTab({ bookingId, userId }) {
   const [dbTemplates, setDbTemplates] = useState({})
   const [protocolChoice, setProtocolChoice] = useState(null) // 'handover_protocol' | 'damage_protocol' — dialog tištěný/elektronický
   const [electronicProtocol, setElectronicProtocol] = useState(null) // typ otevřeného elektronického protokolu
+  const [sendOffer, setSendOffer] = useState(null) // info uloženého el. protokolu → nabídka odeslání zákazníkovi
+  const [sendingProtocol, setSendingProtocol] = useState(false)
+  const [sendResult, setSendResult] = useState(null)
 
   useEffect(() => { loadAll(); loadDbTemplates() }, [bookingId])
 
@@ -194,6 +197,35 @@ export default function BookingDocumentsTab({ bookingId, userId }) {
     setGenerating(null)
   }
 
+  // Po uložení el. protokolu nabídne Velín odeslat ho zákazníkovi e-mailem.
+  // Použije e-mailovou šablonu z Velína (email_templates), protokol jde v příloze (PDF/HTML).
+  async function sendProtocolEmail(info) {
+    if (!info?.customerEmail) { setSendResult('Zákazník nemá uložený e-mail.'); return }
+    setSendingProtocol(true); setSendResult(null)
+    try {
+      const isDamage = info.type === 'damage_protocol'
+      const slug = isDamage ? 'damage_protocol_sent' : 'handover_protocol_sent'
+      const template_vars = {
+        customer_name: info.customerName || '', moto: info.moto || '', moto_model: info.moto || '',
+        rental_period: info.rentalPeriod || '', booking_number: info.bookingNumber || '', doc_name: info.docName || '',
+      }
+      const ext = info.pdfPath && info.pdfPath.toLowerCase().endsWith('.html') ? '.html' : '.pdf'
+      const filename = `${(info.docName || 'protokol').replace(/[^\wÀ-ſ]+/g, '_')}${ext}`
+      const attachment_paths = info.pdfPath ? [{ filename, path: info.pdfPath }] : []
+      const base = { to: info.customerEmail, customer_id: info.customerId || null, booking_id: info.bookingId || null, attachment_paths }
+      // 1) Primárně přes šablonu z Velína
+      let res = await supabase.functions.invoke('send-email', { body: { ...base, template_slug: slug, template_vars } })
+      const failed = res?.error || (res?.data && res.data.success === false)
+      if (failed) {
+        // 2) Fallback (šablona ještě není v DB) — pošli protokol jako obsah e-mailu
+        const res2 = await supabase.functions.invoke('send-email', { body: { ...base, template_slug: slug, subject: `${info.docName || 'Předávací protokol'} — MOTO GO 24`, raw_html: info.html } })
+        if (res2?.error || (res2?.data && res2.data.success === false)) throw new Error(res2?.error?.message || res2?.data?.error || 'Odeslání selhalo')
+      }
+      setSendResult(`✓ Protokol odeslán zákazníkovi na ${info.customerEmail}.`)
+    } catch (e) { setSendResult(`Odeslání selhalo: ${e.message || e}`) }
+    setSendingProtocol(false)
+  }
+
   if (loading) return <div className="py-8 text-center"><div className="animate-spin inline-block rounded-full h-6 w-6 border-t-2 border-brand-gd" /></div>
 
   return (
@@ -231,7 +263,7 @@ export default function BookingDocumentsTab({ bookingId, userId }) {
             }} disabled={generating === 'invoices'}>{generating === 'invoices' ? 'Generuji...' : 'Vygenerovat ZF + DP'}</Button></div>
         ) : invoices.map(inv => { const tp = INV_TYPE_MAP[inv.type] || { label: inv.type || 'Faktura', color: '#1a2e22', bg: '#f3f4f6' }; const isCN = inv.type === 'credit_note'; return (
           <div key={inv.id} className="flex items-center gap-4 p-3 rounded-lg mb-2 cursor-pointer hover:shadow-sm transition-shadow" style={{ background: isCN ? '#fef2f2' : '#f1faf7', border: isCN ? '1px solid #fca5a5' : 'none' }} onClick={() => handleViewInvoice(inv)}>
-            <span style={{ fontSize: 16 }}>{isCN ? '\u274c' : '\ud83e\uddfe'}</span><span className="text-sm font-bold font-mono" style={isCN ? { color: '#dc2626' } : {}}>{inv.number || '\u2014'}</span><Badge label={tp.label} color={tp.color} bg={tp.bg} /><span className="text-sm font-bold" style={{ color: isCN ? '#dc2626' : '#0f1a14' }}>{isCN ? '\u2212' : ''}{Math.abs(inv.total || 0).toLocaleString('cs-CZ')} Kc</span><span className="text-sm" style={{ color: '#1a2e22' }}>{inv.issue_date || '\u2014'}</span>
+            <span style={{ fontSize: 16 }}>{isCN ? '\u274c' : '\ud83e\uddfe'}</span><span className="text-sm font-bold font-mono" style={isCN ? { color: '#dc2626' } : {}}>{inv.number || '\u2014'}</span><Badge label={tp.label} color={tp.color} bg={tp.bg} /><span className="text-sm font-bold" style={{ color: isCN ? '#dc2626' : '#0f1a14' }}>{isCN ? '\u2212' : ''}{Math.abs(inv.total || 0).toLocaleString('cs-CZ')} Kč</span><span className="text-sm" style={{ color: '#1a2e22' }}>{inv.issue_date || '\u2014'}</span>
             <div className="flex gap-2 ml-auto" onClick={e => e.stopPropagation()}><button onClick={() => handleViewInvoice(inv)} className="text-sm font-bold cursor-pointer" style={{ color: '#2563eb', background: 'none', border: 'none' }}>Nahled</button><button onClick={() => handlePrintInvoice(inv)} className="text-sm font-bold cursor-pointer" style={{ color: '#1a2e22', background: 'none', border: 'none' }}>Tisk</button><button onClick={() => handleDownload(inv)} className="text-sm font-bold cursor-pointer" style={{ color: '#1a2e22', background: 'none', border: 'none' }}>Stahnout</button>{!isCN && <button onClick={() => handleRegenerateInvoice(inv)} disabled={generating === `regen-${inv.id}`} className="text-sm font-bold cursor-pointer" style={{ color: '#7c3aed', background: 'none', border: 'none' }}>{generating === `regen-${inv.id}` ? 'Generuji…' : 'Přegenerovat'}</button>}<button onClick={() => handleDeleteInvoice(inv)} className="text-sm font-bold cursor-pointer" style={{ color: '#dc2626', background: 'none', border: 'none' }}>Smazat</button></div>
           </div>
         ) })}
@@ -279,13 +311,31 @@ export default function BookingDocumentsTab({ bookingId, userId }) {
           type={electronicProtocol}
           bookingId={bookingId}
           onClose={() => setElectronicProtocol(null)}
-          onSaved={(html) => {
-            const label = (electronicProtocol === 'damage_protocol' ? 'Protokol o poškození' : 'Předávací protokol') + ' (elektronický)'
+          onSaved={(info) => {
             setElectronicProtocol(null)
             loadAll()
-            if (html) { setViewHtml(html); setViewDoc({ document_templates: { name: label } }) }
+            setSendResult(null)
+            setSendOffer(info || null)
           }}
         />
+      )}
+      {sendOffer && (
+        <Modal open title="Protokol uložen" onClose={() => setSendOffer(null)}>
+          <p style={{ fontSize: 14, color: '#1a2e22', marginBottom: 12 }}>
+            <strong>{sendOffer.docName || 'Protokol'}</strong> byl uložen a elektronicky podepsán.
+          </p>
+          {sendOffer.customerEmail ? (
+            <p style={{ fontSize: 13, color: '#1a2e22', marginBottom: 16 }}>Odeslat protokol zákazníkovi e-mailem na <strong>{sendOffer.customerEmail}</strong>?</p>
+          ) : (
+            <p style={{ fontSize: 13, color: '#b45309', marginBottom: 16 }}>Zákazník nemá uložený e-mail — protokol nelze odeslat.</p>
+          )}
+          {sendResult && <div className="p-3 rounded-card mb-3" style={{ background: sendResult.startsWith('✓') ? '#dcfce7' : '#fee2e2', color: sendResult.startsWith('✓') ? '#166534' : '#dc2626', fontSize: 13 }}>{sendResult}</div>}
+          <div className="flex justify-end gap-3">
+            <Button onClick={() => { if (sendOffer.html) { setViewHtml(sendOffer.html); setViewDoc({ document_templates: { name: sendOffer.docName || 'Protokol' } }) } setSendOffer(null) }}>Náhled</Button>
+            <Button onClick={() => setSendOffer(null)}>Zavřít</Button>
+            {sendOffer.customerEmail && !sendResult?.startsWith('✓') && <Button green disabled={sendingProtocol} onClick={() => sendProtocolEmail(sendOffer)}>{sendingProtocol ? 'Odesílám…' : 'Odeslat zákazníkovi'}</Button>}
+          </div>
+        </Modal>
       )}
     </div>
   )

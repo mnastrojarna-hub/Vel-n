@@ -20,7 +20,8 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
 
   try {
-    const { message, booking_id, conversation_history, images } = await req.json()
+    const { message, booking_id, conversation_history, images, lang } = await req.json()
+    const userLang = (typeof lang === 'string' && lang.trim()) ? lang.trim().slice(0, 5) : 'cs'
 
     if (!message || typeof message !== 'string') {
       return new Response(JSON.stringify({ error: 'Missing message' }), {
@@ -190,7 +191,7 @@ Zákazník nemá aktivní rezervaci nebo se nepodařilo načíst data. Při dota
 
         for (const toolCall of toolCalls) {
           console.log(`ai-moto-agent: tool call [${i}] ${toolCall.name}`, JSON.stringify(toolCall.input))
-          const result = await executeTool(toolCall.name, toolCall.input || {}, supabaseAdmin, user.id)
+          const result = await executeTool(toolCall.name, toolCall.input || {}, supabaseAdmin, user.id, userLang)
           toolResults.push({
             type: 'tool_result',
             tool_use_id: toolCall.id,

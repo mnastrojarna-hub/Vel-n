@@ -51,6 +51,10 @@ class Motorcycle {
   final String? branchName;
   final String? branchCity;
   final String? branchType; // 'obslužná' (staffed) / 'samoobslužná' (self-service)
+
+  /// Vozík/přívěs za auto (motorcycles.is_trailer). Půjčuje se samostatně bez
+  /// výbavy (boty, oblečení…) — rezervační flow pak krok s výbavou skryje.
+  final bool isTrailer;
   final double? depositAmount;
   final double? insurancePrice;
   final int? minRentalDays;
@@ -102,6 +106,7 @@ class Motorcycle {
     this.branchName,
     this.branchCity,
     this.branchType,
+    this.isTrailer = false,
     this.depositAmount,
     this.insurancePrice,
     this.minRentalDays,
@@ -159,6 +164,7 @@ class Motorcycle {
       branchName: branch?['name'] as String?,
       branchCity: branch?['city'] as String?,
       branchType: branch?['type'] as String?,
+      isTrailer: json['is_trailer'] as bool? ?? false,
       depositAmount: (json['deposit_amount'] as num?)?.toDouble(),
       insurancePrice: (json['insurance_price'] as num?)?.toDouble(),
       minRentalDays: (json['min_rental_days'] as num?)?.toInt(),
@@ -185,7 +191,7 @@ class Motorcycle {
     images: images, videos: videos, color: color, manualUrl: manualUrl,
     manualExternalUrl: manualExternalUrl, status: status,
     branchId: branchId, branchName: branchName, branchCity: branchCity,
-    branchType: branchType,
+    branchType: branchType, isTrailer: isTrailer,
     depositAmount: depositAmount, insurancePrice: insurancePrice,
     minRentalDays: minRentalDays, maxRentalDays: maxRentalDays,
     mileage: mileage, prices: prices, availableToday: value,

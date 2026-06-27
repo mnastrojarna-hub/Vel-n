@@ -332,6 +332,8 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
         'start_date': draft.startDate != null ? _fmtDate(draft.startDate!) : '',
         'end_date': draft.endDate != null ? _fmtDate(draft.endDate!) : '',
         'pickup_time': draft.pickupTime ?? '09:00',
+        // Předpokládaný čas návratu (povinné pole, parita s webem). Default 19:00.
+        'return_time': draft.returnTime ?? '19:00',
         'total_price': breakdown.total,
         'extras_price': breakdown.extrasTotal,
         'delivery_fee': breakdown.deliveryFee,
@@ -402,6 +404,33 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
 
       // Save extras to booking_extras table (fire-and-forget, like original)
       _saveBookingExtras(bookingId, draft.extras);
+
+      // Multi-sleva: zapiš VŠECHNY slevy do booking_discounts (zdroj pravdy pro
+      // rozpad na fakturách ZF/DP/KF + uplatnění voucherů/promo po platbě).
+      // promo_code_id/voucher_id na bookingu drží jen PRVNÍ (parita s webem).
+      // Fire-and-forget — nesmí blokovat potvrzení rezervace.
+      if (draft.discounts.isNotEmpty) {
+        () async {
+          try {
+            await MotoGoSupabase.client.from('booking_discounts').insert(
+              draft.discounts
+                  .map((d) => {
+                        'booking_id': bookingId,
+                        'kind': d.isVoucher ? 'voucher' : 'promo_code',
+                        'code': d.code,
+                        'promo_code_id': d.isVoucher ? null : d.promoId,
+                        'voucher_id': d.isVoucher ? d.promoId : null,
+                        'discount_type': d.type.name == 'percent' ? 'percent' : 'fixed',
+                        'value': d.value,
+                        'amount': d.calculatedAmount,
+                      })
+                  .toList(),
+            );
+          } catch (e) {
+            debugPrint('[Payment] booking_discounts insert failed: $e');
+          }
+        }();
+      }
 
       // Souhlasy z rezervačního formuláře propíšeme do profilu (parita s webem).
       // + ZAPAMATUJ velikosti výbavy do profiles.gear_sizes (struktura

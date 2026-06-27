@@ -27,6 +27,11 @@ class EditPriceCalc {
   /// voucher kódy v promo_codes nejsou → fixed.
   final String? discountType;
 
+  /// Aktuální věrnostní rank (loyalty level). Od [loyaltyFreeGearLevel] je
+  /// veškerá placená výbava (výbava i obuv spolujezdce/řidiče) ZDARMA — i při
+  /// úpravě rezervace.
+  final int loyaltyLevel;
+
   const EditPriceCalc({
     required this.booking,
     required this.newStart,
@@ -47,17 +52,24 @@ class EditPriceCalc {
     this.passengerHelmetSize, this.passengerJacketSize, this.passengerPantsSize,
     this.passengerBootsSize,
     this.discountType,
+    this.loyaltyLevel = 0,
   });
 
   static const _extraPrices = {'spolujezdec': 690.0, 'boty_ridic': 290.0, 'boty_spolujezdec': 290.0};
 
+  /// Od 3. ranku je veškerá placená výbava (vč. obuvi a výbavy spolujezdce)
+  /// zdarma — všechny položky v [_extraPrices] jsou gear.
+  bool get _gearFree => loyaltyLevel >= loyaltyFreeGearLevel;
+
+  double _priceFor(String id) => _gearFree ? 0.0 : (_extraPrices[id] ?? 0);
+
   /// Cena aktuálně vybraných doplňků.
   double get extrasTotal =>
-      selectedExtras.fold(0.0, (sum, id) => sum + (_extraPrices[id] ?? 0));
+      selectedExtras.fold(0.0, (sum, id) => sum + _priceFor(id));
 
   /// Cena původně zaplacených doplňků (baseline).
   double get origExtrasTotal =>
-      origExtras.fold(0.0, (sum, id) => sum + (_extraPrices[id] ?? 0));
+      origExtras.fold(0.0, (sum, id) => sum + _priceFor(id));
 
   /// ROZDÍL doplňků vůči původním — kladný = doplatek, záporný = refund.
   double get extrasDelta => extrasTotal - origExtrasTotal;
@@ -213,10 +225,11 @@ class EditPriceCalc {
   /// Nová výše slevy v Kč po úpravě — ukládá se do bookings.discount_amount.
   double get newDiscountAmount {
     if (_oldDiscount <= 0) return 0;
-    if (discountType == 'percent' && _oldGross > 0) {
-      return (newGross * _oldDiscount / _oldGross).roundToDouble();
-    }
-    return _oldDiscount > newGross ? newGross : _oldDiscount;
+    // DOPLATEK (gross >= 0): plná cena, sleva zachována (option B).
+    if (priceDiff >= 0) return _oldDiscount;
+    // VRATKA: uniformní poměrná sazba — procento i voucher se krátí stejně.
+    if (_oldGross > 0) return (newGross * _oldDiscount / _oldGross).roundToDouble();
+    return 0;
   }
 
   /// Nová celková cena (netto, po slevě) — ukládá se do bookings.total_price.

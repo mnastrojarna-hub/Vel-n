@@ -7,6 +7,52 @@
 
 return [
     'pages' => [
+        // Oblasti — referenční CS strom (master pro překlad). Pro CS samotné se
+        // bere z pages/oblasti*.php; tady jen jako šablona pro pages_<lang>.php.
+        'oblasti' => [
+            'hero' => [
+                'h1' => 'Motopůjčovna ve vašem kraji a městě',
+                'intro' => 'Hledáte <strong>půjčovnu motorek</strong> ve svém okolí? MotoGo24 přistaví a doručí motorku do měst po celé České republice. Vyberte si svůj kraj a podívejte se, kam všude motorku přivezeme – <strong>bez kauce</strong>, s <strong>online rezervací</strong> a kompletní výbavou v ceně.',
+            ],
+            'regionsTitle' => 'Vyberte si kraj',
+            'citiesLabel' => 'Půjčovna motorek ve městech:',
+            'regionCta' => 'Zobrazit kraj',
+            'cta' => [
+                'title' => 'Nenašli jste své město?',
+                'text' => 'Motorku přistavíme prakticky kamkoliv v ČR. Napište nám nebo rovnou rezervujte online.',
+                'buttons' => [
+                    ['label' => 'REZERVOVAT MOTORKU', 'href' => '/rezervace', 'cls' => 'btngreen pulse'],
+                    ['label' => 'Kontaktujte nás', 'href' => '/kontakt', 'cls' => 'btndark'],
+                ],
+            ],
+            'detail' => [
+                'seoTitle' => 'Motopůjčovna {region} – půjčovna motorek ve městech kraje | MotoGo24',
+                'seoDescription' => 'Motopůjčovna {regionLoc}. Půjčovna motorek MotoGo24 přistaví motorku do měst {regionLoc} – bez kauce, s online rezervací a výbavou v ceně. Půjčíme i ve městech: {cities}.',
+                'heroTagline' => 'Půjčte si motorku {regionLoc} – bez kauce, s výbavou v ceně a nonstop převzetím.',
+                'heroCta' => 'REZERVOVAT MOTORKU',
+                'h1' => 'Motopůjčovna {region}',
+                'intro' => 'Hledáte spolehlivou <strong>motopůjčovnu {regionLoc}</strong>? MotoGo24 vám přiveze a přistaví motorku přímo do vašeho města. Nabízíme <strong>pronájem motorek bez kauce</strong>, online rezervaci a kompletní motorkářskou výbavu v ceně. Ať bydlíte ve velkém městě, nebo menší obci, motorku vám rádi doručíme na domluvené místo.',
+                'citiesTitle' => 'Půjčovna motorek ve městech kraje',
+                'citiesIntro' => 'Motorku přistavíme i vrátíme v těchto městech a jejich okolí:',
+                'cityTitle' => 'Motopůjčovna {city}',
+                'cityText' => 'Půjčte si motorku ve městě {city} a okolí. Motorku vám přistavíme na domluvené místo a po skončení pronájmu si ji opět vyzvedneme – bez kauce a se vším potřebným.',
+                'cta' => [
+                    'title' => 'Rezervujte si motorku {regionLoc}',
+                    'text' => 'Vyberte si stroj, zvolte termín a my vám motorku přivezeme. Půjčovna MotoGo24 je otevřená nonstop.',
+                    'buttons' => [
+                        ['label' => 'REZERVOVAT MOTORKU', 'href' => '/rezervace', 'cls' => 'btngreen pulse'],
+                        ['label' => 'Zobrazit motorky', 'href' => '/katalog', 'cls' => 'btndark'],
+                    ],
+                ],
+                'faq' => [
+                    'title' => 'Často kladené otázky',
+                    'items' => [
+                        ['q' => 'Přivezete motorku až do mého města?', 'a' => 'Ano. Motorku přistavíme na domluvené místo {regionLoc} i jinde v ČR. Stačí místo uvést v rezervaci.'],
+                        ['q' => 'Musím u vás složit kauci?', 'a' => 'Ne. Naše <strong>motopůjčovna</strong> nevyžaduje žádnou kauci ani blokaci na kartě.'],
+                    ],
+                ],
+            ],
+        ],
         'jak_pujcit_cena' => [
             'h1' => 'Co je v ceně pronámu motorky',
             'intro' => 'V <strong>MotoGo24 – půjčovně motorek na Vysočině</strong> –&nbsp; dostaneš férové podmínky. <strong>Bez kauce, s výbavou pro řidiče v ceně a nonstop provozem</strong>. Vše, co potřebuješ k bezpečné a pohodové jízdě, je součástí půjčovného.',

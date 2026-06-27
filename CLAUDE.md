@@ -41,6 +41,19 @@ Toto je soustava propojených aplikací pro MotoGo24 (půjčovna motorek):
 - Firma: Bc. Petra Semorádová, IČO: 21874263
 - Kontakt: +420 774 256 271, info@motogo24.cz
 
+## SKU konvence skladu (POVINNÁ — i pro AI při naskladňování)
+
+Jednotný formát SKU pro celý sklad (`inventory.sku`). Zdroj pravdy: `velin/src/lib/sku.js`.
+Formát: `kategorie-typ-varianta` — malá písmena, číslice, pomlčky, bez mezer a diakritiky.
+
+- **Příslušenství:** `prislusenstvi-{typ}-{velikost}` — typ ∈ helmet/jacket/pants/boots/gloves/balaclava; velikost VŽDY poslední a přesně jako v číselníku (`43`, `XL`, `2XL`, `UNI`). Např. `prislusenstvi-boots-43`. Skládá se přes `accessorySku(type,size)` / `accSku` — NIKDY ručně jinak (jinak se rozbije párování se skladem a pobočkami).
+- **Náhradní díly (servis):** `dily-{slug}` — např. `dily-olej-10w40`
+- **Materiál:** `material-{slug}` — např. `material-cistic-retezu`
+- **Zboží / e-shop:** `zbozi-{slug}` — např. `zbozi-tricko-logo`
+- **Spotřební (provoz):** `spotrebni-{slug}` — např. `spotrebni-ubrousky`
+
+Pravidlo: `slug` = krátký výstižný název (značka-typ-parametr). Při zanášení na sklad (ručně i přes AI/OCR z faktury) VŽDY použij tuto konvenci a validuj přes `validateSku()`.
+
 ## Git workflow
 
 - Vždy pracuj na větvi začínající `claude/`

@@ -459,9 +459,10 @@ export default function TrasyModal({ existing, branches, onClose, onSaved }) {
                 <FormField label="Délka (lng)" value={p.lng} onChange={v => setPoi(i, 'lng', v)} type="number" />
               </div>
               <div className="col-span-2">
-                <label className={lbl} style={{ color: '#1a2e22' }}>Popis</label>
+                <label className={lbl} style={{ color: '#1a2e22' }}>Krátký popis</label>
                 <textarea value={p.description} onChange={e => setPoi(i, 'description', e.target.value)}
                   className="w-full rounded-btn text-sm outline-none"
+                  placeholder="Zobrazí se po kliknutí na tento bod zájmu v aplikaci"
                   style={{ ...inputStyle, minHeight: 48, resize: 'vertical' }} />
               </div>
               <div className="col-span-2">

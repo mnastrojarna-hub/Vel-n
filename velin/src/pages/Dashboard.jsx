@@ -5,6 +5,7 @@ import { debugAction, debugLog, debugError } from '../lib/debugLog'
 import { useDebugMode } from '../hooks/useDebugMode'
 import { isRevenueEntry, isTestInvoice, isVoidInvoice, summarizeInvoices, INVOICE_PAID_TYPES, INVOICE_RECEIVED_TYPES } from '../lib/revenueUtils'
 import AiDashboardWidget from '../components/ai/AiDashboardWidget'
+import PickupsReturns from './booking/PickupsReturns'
 import Stat from '../components/ui/Stat'
 import ExportBar from '../components/ui/ExportBar'
 import BannerEditor from './DashboardBannerEditor'
@@ -47,7 +48,6 @@ export default function Dashboard() {
       const now = new Date()
       const today = now.toISOString().split('T')[0]
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10)
-      const chartStart = new Date(now.getFullYear(), now.getMonth() - 11, 1).toISOString().slice(0, 10)
       const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString()
 
       const [motosR, bookCntR, unreadR, invStockR, eventsR, sosR, invoicesR, expenseR,
@@ -63,9 +63,13 @@ export default function Dashboard() {
             .order('start_date', { ascending: true }).limit(5),
           supabase.from('sos_incidents').select('id, type, title, severity, status, created_at')
             .in('status', ['reported', 'acknowledged', 'in_progress']).order('created_at', { ascending: false }),
+          // Bez server-side filtru na `issue_date` — faktury s `issue_date = NULL`
+          // (měsíc se bere z fallbacku `created_at`) by jinak vypadly (`null >= x`
+          // = false) a graf „Tržby dle měsíců" by za starší měsíce byl prázdný.
+          // Bereme nejnovějších 1000 faktur a měsíc filtrujeme klientsky přes invMonth.
           supabase.from('invoices')
             .select('id, number, type, status, total, issue_date, created_at, booking_id, order_id, bookings:booking_id(is_test), profiles:customer_id(full_name, is_test_account)')
-            .gte('issue_date', chartStart).order('created_at', { ascending: false }).limit(1000),
+            .order('created_at', { ascending: false }).limit(1000),
           supabase.from('accounting_entries').select('type, amount, category, description').gte('date', monthStart),
           supabase.from('bookings').select('id, user_id, moto_id, start_date, end_date, status, total_price, created_at, created_via_ai')
             .order('created_at', { ascending: false }).limit(5),
@@ -187,6 +191,10 @@ export default function Dashboard() {
         {clickable('/rezervace', <Stat icon="📅" label="Akt. / Čekající" value={`${data.activeBookings} / ${data.pendingBookings}`} sub="rezervací" color="#3b82f6" />)}
         {clickable('/zpravy', <Stat icon="💬" label="Nepřečtené" value={data.unreadMessages} sub="zpráv" color="#8b5cf6" />)}
         {clickable('/sos', <Stat icon="🚨" label="Aktivní SOS" value={data.sosList.length} sub={data.sosCritical > 0 ? `${data.sosCritical} kritických!` : 'incidentů'} color={data.sosList.length > 0 ? '#dc2626' : '#1a8a18'} />)}
+      </div>
+
+      <div className="mb-4">
+        <PickupsReturns compact onExpand={() => nav('/rezervace?view=odjezdy')} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

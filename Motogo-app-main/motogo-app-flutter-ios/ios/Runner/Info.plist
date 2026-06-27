@@ -78,8 +78,6 @@
 	<string>Přístup ke galerii umožňuje nahrát existující fotografii dokladu nebo fotku k SOS incidentu.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Ukládání pořízených fotografií dokladů a SOS incidentů do galerie.</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>Mikrofon se používá pouze jako součást rozhraní fotoaparátu, aplikace nenahrává žádný zvuk.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Polohu používáme pro zobrazení vaší pozice na mapě, výpočet vzdálenosti přistavení motorky a při SOS hlášení.</string>
 	<key>NSFaceIDUsageDescription</key>

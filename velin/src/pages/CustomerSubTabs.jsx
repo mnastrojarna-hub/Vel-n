@@ -38,7 +38,7 @@ export function CustomerBookings({ userId }) {
                 <span className="text-sm ml-3" style={{ color: '#1a2e22' }}>{b.start_date} {'\u2192'} {b.end_date}</span>
               </div>
               <StatusBadge status={getDisplayStatus(b)} />
-              <span className="text-sm font-bold">{b.total_price?.toLocaleString('cs-CZ')} Kc</span>
+              <span className="text-sm font-bold">{b.total_price?.toLocaleString('cs-CZ')} Kč</span>
               {b.motorcycles?.id && (
                 <button onClick={e => { e.stopPropagation(); navigate(`/flotila/${b.motorcycles.id}`) }}
                   className="text-sm font-bold cursor-pointer" style={{ color: '#2563eb', background: 'none', border: 'none' }}>

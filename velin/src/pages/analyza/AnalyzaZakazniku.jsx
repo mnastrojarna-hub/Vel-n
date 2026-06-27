@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import TimePeriodSelector, { filterByPeriod, hasMinimumData, diffDays } from './TimePeriodSelector'
+import { isRealizedBooking } from '../../lib/revenueUtils'
 
 const COLORS = ['#74FB71', '#22c55e', '#16a34a', '#15803d', '#166534', '#14532d', '#eab308', '#f59e0b', '#dc2626', '#7c3aed']
 
@@ -27,7 +28,7 @@ export default function AnalyzaZakazniku() {
     try {
       const [pRes, bRes, mRes, iRes, aRes] = await Promise.all([
         supabase.from('profiles').select('id, full_name, email, phone, city, date_of_birth, license_group, riding_experience, preferred_branch, created_at'),
-        supabase.from('bookings').select('id, user_id, moto_id, start_date, end_date, total_price, status, created_at, rating, booking_source, payment_status'),
+        supabase.from('bookings').select('id, user_id, moto_id, start_date, end_date, total_price, status, created_at, rating, booking_source, payment_status, is_test'),
         supabase.from('motorcycles').select('id, model, category, branch_id'),
         supabase.from('invoices').select('id, customer_id, total, status, issue_date, type').eq('type', 'issued'),
         supabase.rpc('get_app_installation_stats'),
@@ -52,7 +53,9 @@ export default function AnalyzaZakazniku() {
 
   const { profiles, bookings, motorcycles, invoices } = raw
   const filtered = filterByPeriod(bookings, period, 'created_at')
-  const completed = filtered.filter(b => b.status === 'completed')
+  // Obrat = zaplacené rezervace (reserved/active/completed), ne jen completed —
+  // jinak se během sezóny počítají jen dokončené a čísla podhodnocují realitu.
+  const completed = filtered.filter(isRealizedBooking)
   const has3mo = hasMinimumData(bookings)
 
   const motoMap = {}
@@ -116,7 +119,7 @@ export default function AnalyzaZakazniku() {
 
   // ── New vs returning ──
   const firstBookingMap = {}
-  for (const b of bookings.filter(bb => bb.status === 'completed')) {
+  for (const b of bookings.filter(isRealizedBooking)) {
     if (!firstBookingMap[b.user_id] || new Date(b.created_at) < new Date(firstBookingMap[b.user_id])) {
       firstBookingMap[b.user_id] = b.created_at
     }

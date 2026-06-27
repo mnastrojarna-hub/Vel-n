@@ -3,6 +3,50 @@
 
 return [
     'pages' => [
+        'oblasti' => [
+            'hero' => [
+                'h1' => 'Location de motos dans votre région et votre ville',
+                'intro' => 'Vous cherchez une <strong>location de motos</strong> près de chez vous ? MotoGo24 livre la moto dans les villes de toute la Tchéquie. Choisissez votre région et découvrez où nous apportons les motos – <strong>sans caution</strong>, avec <strong>réservation en ligne</strong> et équipement complet inclus.',
+            ],
+            'regionsTitle' => 'Choisissez votre région',
+            'citiesLabel' => 'Location de motos dans les villes :',
+            'regionCta' => 'Voir la région',
+            'cta' => [
+                'title' => 'Votre ville ne figure pas ici ?',
+                'text' => 'Nous livrons des motos presque partout en Tchéquie. Écrivez-nous ou réservez directement en ligne.',
+                'buttons' => [
+                    ['label' => 'RÉSERVER UNE MOTO', 'href' => '/rezervace', 'cls' => 'btngreen pulse'],
+                    ['label' => 'Contactez-nous', 'href' => '/kontakt', 'cls' => 'btndark'],
+                ],
+            ],
+            'detail' => [
+                'seoTitle' => 'Location de motos {region} – louez une moto dans les villes de la région | MotoGo24',
+                'seoDescription' => 'Location de motos en {regionLoc}. MotoGo24 livre une moto dans les villes de {regionLoc} – sans caution, réservation en ligne, équipement inclus. Nous louons aussi à : {cities}.',
+                'heroTagline' => 'Louez une moto en {regionLoc} – sans caution, équipement inclus, retrait 24h/24.',
+                'heroCta' => 'RÉSERVER UNE MOTO',
+                'h1' => 'Location de motos {region}',
+                'intro' => 'Vous cherchez une <strong>location de motos fiable en {regionLoc}</strong> ? MotoGo24 apporte et livre la moto directement dans votre ville. Nous proposons une <strong>location de motos sans caution</strong>, la réservation en ligne et l’équipement complet inclus. Que vous habitiez une grande ville ou une petite commune, nous vous livrons avec plaisir.',
+                'citiesTitle' => 'Location de motos dans les villes de la région',
+                'citiesIntro' => 'Nous livrons et récupérons les motos dans ces villes et leurs environs :',
+                'cityTitle' => 'Location de motos {city}',
+                'cityText' => 'Louez une moto à {city} et dans les environs. Nous livrons la moto à un endroit convenu et la récupérons à la fin de la location – sans caution et avec tout le nécessaire.',
+                'cta' => [
+                    'title' => 'Réservez une moto en {regionLoc}',
+                    'text' => 'Choisissez une moto, sélectionnez vos dates et nous vous la livrons. MotoGo24 est ouvert 24h/24.',
+                    'buttons' => [
+                        ['label' => 'RÉSERVER UNE MOTO', 'href' => '/rezervace', 'cls' => 'btngreen pulse'],
+                        ['label' => 'Voir les motos', 'href' => '/katalog', 'cls' => 'btndark'],
+                    ],
+                ],
+                'faq' => [
+                    'title' => 'Questions fréquentes',
+                    'items' => [
+                        ['q' => 'Livrez-vous la moto jusque dans ma ville ?', 'a' => 'Oui. Nous livrons la moto à un endroit convenu en {regionLoc} et ailleurs en Tchéquie. Indiquez simplement le lieu lors de la réservation.'],
+                        ['q' => 'Dois-je verser une caution ?', 'a' => 'Non. Notre <strong>location de motos</strong> ne demande aucune caution ni empreinte de carte.'],
+                    ],
+                ],
+            ],
+        ],
         'kontakt' => [
             'seo' => [
                 'title' => 'Contact | MotoGo24 – Location de motos Vysočina',

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { debugLog } from '../lib/debugLog'
 import VykonPobocek from './analyza/VykonPobocek'
 import VykonMotorek from './analyza/VykonMotorek'
+import VykonNajezd from './analyza/VykonNajezd'
 import PoptavkaKategorii from './analyza/PoptavkaKategorii'
 import OptimalniFlotila from './analyza/OptimalniFlotila'
 import DoporuceniPresunu from './analyza/DoporuceniPresunu'
@@ -12,7 +13,7 @@ import AiTraffic from './analyza/AiTraffic'
 import AiPublicConversations from './analyza/AiPublicConversations'
 import Statistics from './Statistics'
 
-const TABS = ['Výkon poboček', 'Výkon motorek', 'Poptávka kategorií', 'Optimální flotila', 'Doporučení přesunů', 'Doporučení lokací', 'Zákazníci', 'Návštěvnost', 'AI traffic', 'AI konverzace', 'Statistiky']
+const TABS = ['Výkon poboček', 'Výkon motorek', 'Nájezd km', 'Poptávka kategorií', 'Optimální flotila', 'Doporučení přesunů', 'Doporučení lokací', 'Zákazníci', 'Návštěvnost', 'AI traffic', 'AI konverzace', 'Statistiky']
 
 export default function Analyza() {
   const [tab, setTab] = useState(TABS[0])
@@ -45,6 +46,7 @@ export default function Analyza() {
 
       {tab === 'Výkon poboček' && <VykonPobocek />}
       {tab === 'Výkon motorek' && <VykonMotorek />}
+      {tab === 'Nájezd km' && <VykonNajezd />}
       {tab === 'Poptávka kategorií' && <PoptavkaKategorii />}
       {tab === 'Optimální flotila' && <OptimalniFlotila />}
       {tab === 'Doporučení přesunů' && <DoporuceniPresunu />}

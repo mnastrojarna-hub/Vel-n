@@ -10,6 +10,8 @@ import Button from '../components/ui/Button'
 import SearchInput from '../components/ui/SearchInput'
 import Pagination from '../components/ui/Pagination'
 import Modal from '../components/ui/Modal'
+import SkuTag, { SkuConventionInfo } from '../components/ui/SkuTag'
+import { validateSku } from '../lib/sku'
 
 const PER_PAGE = 25
 
@@ -54,8 +56,8 @@ export default function Inventory() {
 
       let filtered = data || []
       if (filters.stocks?.length > 0) {
-        if (filters.stocks.includes('low') && !filters.stocks.includes('ok')) filtered = filtered.filter(i => i.stock <= i.min_stock)
-        else if (filters.stocks.includes('ok') && !filters.stocks.includes('low')) filtered = filtered.filter(i => i.stock > i.min_stock)
+        if (filters.stocks.includes('low') && !filters.stocks.includes('ok')) filtered = filtered.filter(i => (i.min_stock || 0) > 0 && i.stock <= i.min_stock)
+        else if (filters.stocks.includes('ok') && !filters.stocks.includes('low')) filtered = filtered.filter(i => !((i.min_stock || 0) > 0 && i.stock <= i.min_stock))
       }
 
       setItems(filtered)
@@ -88,7 +90,8 @@ export default function Inventory() {
             Reset
           </button>
         )}
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
+          <SkuConventionInfo />
           <Button green onClick={() => setShowAdd(true)}>+ Nová položka</Button>
         </div>
       </div>
@@ -99,7 +102,7 @@ export default function Inventory() {
         <strong>DIAGNOSTIKA Inventory</strong><br/>
         <div>items: {items.length} zobrazeno / {total} celkem (strana {page}/{totalPages || 1})</div>
         <div>filtry: search="{filters.search}", category={filters.category || 'vše'}, stocks=[{(filters.stocks || []).join(', ') || 'vše'}]</div>
-        <div>lowStock: {items.filter(i => i.stock <= i.min_stock).length} položek pod minimem</div>
+        <div>lowStock: {items.filter(i => (i.min_stock || 0) > 0 && i.stock <= i.min_stock).length} položek pod minimem</div>
         {error && <div style={{ color: '#dc2626' }}>ERROR: {error}</div>}
       </div>
       )}
@@ -129,7 +132,7 @@ export default function Inventory() {
             </thead>
             <tbody>
               {items.map(item => {
-                const isLow = item.stock <= item.min_stock
+                const isLow = (item.min_stock || 0) > 0 && item.stock <= item.min_stock
                 const isAcc = item.category === 'prislusenstvi'
                 return (
                   <tr
@@ -139,7 +142,7 @@ export default function Inventory() {
                     style={{ borderBottom: '1px solid #d4e8e0', background: selectedIds.has(item.id) ? '#fef9c3' : isLow ? '#fff5f5' : 'transparent' }}
                   >
                     <TD><RowCheckbox id={item.id} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TD>
-                    <TD mono bold>{item.sku || '—'}</TD>
+                    <TD onClick={e => e.stopPropagation()}><SkuTag sku={item.sku} /></TD>
                     <TD bold>{item.name}</TD>
                     <TD>{item.category || '—'}</TD>
                     <TD bold color={isLow ? '#dc2626' : '#0f1a14'}>{item.stock ?? 0}</TD>
@@ -334,6 +337,11 @@ function AddItemModal({ onClose, onSaved }) {
               SKU se skládá automaticky: <span className="font-mono">prislusenstvi-{skuType || '<typ>'}-{skuSize || '<vel>'}</span>
             </div>
           )}
+          {(skuManual || !isAcc) && form.sku && (() => {
+            const v = validateSku(form.sku)
+            return <div className="text-xs mt-1" style={{ color: v.ok ? (v.warning ? '#b45309' : '#1a8a18') : '#dc2626' }}>{v.warning || '✓ Odpovídá konvenci SKU'}</div>
+          })()}
+          {(skuManual || !isAcc) && <div className="text-xs mt-1" style={{ color: '#6b8f7b' }}>Konvence: <span className="font-mono">kategorie-typ-varianta</span> (např. <span className="font-mono">dily-olej-10w40</span>, <span className="font-mono">zbozi-tricko-logo</span>).</div>}
         </div>
         <FormField label="Počáteční stav" value={form.stock} onChange={v => set('stock', v)} type="number" />
         <FormField label="Minimum" value={form.min_stock} onChange={v => set('min_stock', v)} type="number" />
@@ -402,11 +410,7 @@ function IssueToBranchModal({ item, onClose, onSaved }) {
       const { error: invErr } = await supabase.from('inventory')
         .update({ stock: (item.stock || 0) - n }).eq('id', item.id)
       if (invErr) throw invErr
-      await supabase.from('inventory_movements').insert({
-        item_id: item.id, type: 'issue', quantity: n,
-        note: `Výdej na pobočku ${branchName} (${parsed.type} ${parsed.size})`,
-        performed_by: user?.id,
-      })
+      await supabase.rpc('log_stock_movement', { p_item: item.id, p_type: 'issue', p_qty: n, p_note: `Výdej na pobočku ${branchName} (${parsed.type} ${parsed.size})` })
 
       // 2) Přičíst do branch_accessories (upsert: pokud řádek existuje, sečíst)
       const { data: existing } = await supabase.from('branch_accessories')

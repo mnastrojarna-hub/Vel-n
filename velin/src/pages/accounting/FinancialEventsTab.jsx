@@ -14,7 +14,7 @@ import {
   PER_PAGE, STATUS_MAP, TYPE_MAP, SOURCE_LABELS, DOC_TYPE_MAP,
   CATEGORY_LABELS, ALL_STATUSES, ALL_TYPES, ALL_SOURCES, ALL_DOC_TYPES,
 } from './financialEventsConstants'
-import { createLiabilityFromEvent, ensureSupplier, backupPhotoToFolder, createDeliveryNoteFromEvent, createContractFromEvent, createReceivedInvoiceFromEvent } from './financialEventsActions'
+import { createLiabilityFromEvent, ensureSupplier, backupPhotoToFolder, createDeliveryNoteFromEvent, createContractFromEvent, createReceivedInvoiceFromEvent, createAssetFromEvent, createExpenseEntryFromEvent } from './financialEventsActions'
 
 export default function FinancialEventsTab() {
   const [events, setEvents] = useState([])
@@ -54,7 +54,7 @@ export default function FinancialEventsTab() {
 
       let query = supabase.from('financial_events')
         .select('*', { count: 'exact' })
-        .order('duzp', { ascending: false })
+        .order('created_at', { ascending: false })
         .range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
 
       if (statusFilter.length > 0) query = query.in('status', statusFilter)
@@ -78,7 +78,7 @@ export default function FinancialEventsTab() {
       const action = event.event_type === 'expense' ? 'pushExpense' : event.event_type === 'asset' ? 'pushAsset' : 'pushInvoice'
       const { data, error: err } = await supabase.functions.invoke('flexi-sync', { body: { action, id: event.id } })
       if (err) throw err
-      setResultMsg(data?.ok ? `Odeslano do Flexi (ID: ${data.flexi_id})` : `Chyba Flexi: ${data?.error || 'neznama'}`)
+      setResultMsg(data?.ok ? `Odesláno do Flexi (ID: ${data.flexi_id})` : `Chyba Flexi: ${data?.error || 'neznámá'}`)
       await load()
     } catch (e) { setResultMsg(`Chyba: ${e.message}`) }
     finally { setActionId(null) }
@@ -95,18 +95,19 @@ export default function FinancialEventsTab() {
       if (nextStatus === 'validated') {
         const docType = event.document_type || event.metadata?.document_type || null
         await backupPhotoToFolder(event, docType)
-        if (docType === 'dodaci_list') { await createDeliveryNoteFromEvent(event) }
+        if (docType === 'dodaci_list' || docType === 'delivery_note') { await createDeliveryNoteFromEvent(event) }
         else if (['smlouva', 'pracovni_smlouva', 'zadost_dovolena'].includes(docType)) { await createContractFromEvent(event, docType) }
-        else { await createLiabilityFromEvent(event); await createReceivedInvoiceFromEvent(event) }
+        else if (event.metadata?.is_proforma || docType === 'proforma') { /* zálohová — jen evidence, žádný závazek/faktura/náklad/majetek */ }
+        else { await createLiabilityFromEvent(event); await createReceivedInvoiceFromEvent(event); await createExpenseEntryFromEvent(event); await createAssetFromEvent(event) }
         await ensureSupplier(event)
       }
       if (nextStatus === 'approved') {
         const meta = event.metadata || {}
         if (meta.payment_method === 'cash') {
-          await supabase.from('cash_register').insert({ type: 'expense', amount: event.amount_czk || 0, description: `Hotovostni platba: ${meta.supplier_name || ''} ${meta.invoice_number || ''}`.trim(), date: new Date().toISOString().slice(0, 10) })
+          await supabase.from('cash_register').insert({ type: 'expense', amount: event.amount_czk || 0, description: `Hotovostní platba: ${meta.supplier_name || ''} ${meta.invoice_number || ''}`.trim(), date: new Date().toISOString().slice(0, 10) })
         }
       }
-      setResultMsg(nextStatus === 'validated' ? 'Schvaleno \u2014 zavazek + faktura prijata vytvoreny' : 'Udalost schvalena' + ((event.metadata?.payment_method === 'cash' && nextStatus === 'approved') ? ' \u2014 odecteno z pokladny' : ''))
+      setResultMsg(nextStatus === 'validated' ? 'Schváleno \u2014 závazek + faktura přijatá vytvořený' : 'Událost schválena' + ((event.metadata?.payment_method === 'cash' && nextStatus === 'approved') ? ' \u2014 odečteno z pokladny' : ''))
       await load()
     } catch (e) { setResultMsg(`Chyba: ${e.message}`) }
     finally { setActionId(null) }
@@ -120,7 +121,7 @@ export default function FinancialEventsTab() {
       if (event.linked_entity_type === 'invoice' && event.linked_entity_id) { await supabase.from('invoices').delete().eq('id', event.linked_entity_id) }
       const { error: err } = await supabase.from('financial_events').delete().eq('id', event.id)
       if (err) throw err
-      setResultMsg('Udalost smazana (vcetne zavazku a faktury)'); setDeleteConfirm(null); await load()
+      setResultMsg('Událost smazaná (včetně závazků a faktury)'); setDeleteConfirm(null); await load()
     } catch (e) { setResultMsg(`Chyba: ${e.message}`) }
     finally { setActionId(null) }
   }
@@ -137,7 +138,7 @@ export default function FinancialEventsTab() {
           if (err || !data?.ok) fail++; else ok++
         } catch { fail++ }
       }
-      setResultMsg(`Export do Flexi: ${ok} uspesne, ${fail} chyb z ${(approved || []).length}`); await load()
+      setResultMsg(`Export do Flexi: ${ok} úspěšně, ${fail} chyb z ${(approved || []).length}`); await load()
     } catch (e) { setResultMsg(`Chyba: ${e.message}`) }
     finally { setBulkPushing(false) }
   }
@@ -145,14 +146,14 @@ export default function FinancialEventsTab() {
   function toggleStatus(st) { setPage(1); setStatusFilter(prev => prev.includes(st) ? prev.filter(s => s !== st) : [...prev, st]) }
 
   const totalPages = Math.ceil(total / PER_PAGE)
-  const fmt = n => (n || 0).toLocaleString('cs-CZ') + ' Kc'
+  const fmt = n => (n || 0).toLocaleString('cs-CZ') + ' Kč'
 
   return (
     <div>
       <div className="grid grid-cols-4 gap-3 mb-4">
-        <StatCard label="Cekajici ke schvaleni" value={stats.pending} color="#b45309" />
-        <StatCard label="Pripraveno k exportu" value={stats.validated} color="#2563eb" />
-        <StatCard label="Schvaleno" value={stats.approved} color="#1a8a18" />
+        <StatCard label="Čekající ke schválení" value={stats.pending} color="#b45309" />
+        <StatCard label="Připraveno k exportu" value={stats.validated} color="#2563eb" />
+        <StatCard label="Schváleno" value={stats.approved} color="#1a8a18" />
         <StatCard label="Chyby" value={stats.error} color="#dc2626" />
       </div>
 
@@ -169,15 +170,15 @@ export default function FinancialEventsTab() {
           ) })}
         </div>
         <select value={typeFilter} onChange={e => { setPage(1); setTypeFilter(e.target.value) }} className="rounded-btn text-sm outline-none" style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0' }}>
-          <option value="">Vsechny typy</option>
+          <option value="">Všechny typy</option>
           {ALL_TYPES.map(t => <option key={t} value={t}>{TYPE_MAP[t]?.label || t}</option>)}
         </select>
         <select value={sourceFilter} onChange={e => { setPage(1); setSourceFilter(e.target.value) }} className="rounded-btn text-sm outline-none" style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0' }}>
-          <option value="">Vsechny zdroje</option>
+          <option value="">Všechny zdroje</option>
           {ALL_SOURCES.map(s => <option key={s} value={s}>{SOURCE_LABELS[s]}</option>)}
         </select>
         <select value={docTypeFilter} onChange={e => { setPage(1); setDocTypeFilter(e.target.value) }} className="rounded-btn text-sm outline-none" style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0' }}>
-          <option value="">Vsechny doklady</option>
+          <option value="">Všechny doklady</option>
           {ALL_DOC_TYPES.map(dt => <option key={dt} value={dt}>{DOC_TYPE_MAP[dt].label}</option>)}
         </select>
         <input type="date" value={dateFrom} onChange={e => { setPage(1); setDateFrom(e.target.value) }} className="rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
@@ -207,7 +208,7 @@ export default function FinancialEventsTab() {
           <Table>
             <thead><TRow header>
               <TH><SelectAllCheckbox items={events} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TH>
-              <TH>Datum</TH><TH>Typ</TH><TH>Doklad</TH><TH>Dodavatel</TH><TH>Castka</TH><TH>AI kategorie</TH><TH>Status</TH><TH>Akce</TH>
+              <TH>Datum</TH><TH>Typ</TH><TH>Doklad</TH><TH>Dodavatel</TH><TH>Částka</TH><TH>AI kategorie</TH><TH>Status</TH><TH>Akce</TH>
             </TRow></thead>
             <tbody>
               {events.map(ev => {
@@ -226,7 +227,7 @@ export default function FinancialEventsTab() {
                     selectedIds={selectedIds} setSelectedIds={setSelectedIds} />
                 )
               })}
-              {events.length === 0 && <TRow><TD>Zadne financni udalosti</TD></TRow>}
+              {events.length === 0 && <TRow><TD>Žádné financni události</TD></TRow>}
             </tbody>
           </Table>
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
@@ -240,17 +241,17 @@ export default function FinancialEventsTab() {
             if (err) { setResultMsg(`Chyba: ${err.message}`); return }
             const meta = updated.metadata || {}
             await supabase.from('acc_liabilities').update({ counterparty: meta.supplier_name || null, amount: updated.amount_czk || 0, due_date: meta.due_date || null, variable_symbol: meta.variable_symbol || null, invoice_number: meta.invoice_number || null }).eq('financial_event_id', editEvent.id)
-            setResultMsg('Udalost aktualizovana (vcetne zavazku)'); setEditEvent(null); await load()
+            setResultMsg('Událost aktualizovana (včetně závazků)'); setEditEvent(null); await load()
           }} />
       )}
 
       {deleteConfirm && (
-        <Modal open title="Smazat financni udalost?" onClose={() => setDeleteConfirm(null)}>
+        <Modal open title="Smazat financni událost?" onClose={() => setDeleteConfirm(null)}>
           <p className="text-sm mb-4" style={{ color: '#1a2e22' }}>
-            Opravdu chcete smazat udalost <strong>{deleteConfirm.metadata?.supplier_name || ''} {deleteConfirm.metadata?.invoice_number || ''}</strong> ({(deleteConfirm.amount_czk || 0).toLocaleString('cs-CZ')} Kc)?<br />Smaze se i propojeny zavazek.
+            Opravdu chcete smazat událost <strong>{deleteConfirm.metadata?.supplier_name || ''} {deleteConfirm.metadata?.invoice_number || ''}</strong> ({(deleteConfirm.amount_czk || 0).toLocaleString('cs-CZ')} Kč)?<br />Smaže se i propojený závazek.
           </p>
           <div className="flex justify-end gap-3">
-            <button onClick={() => setDeleteConfirm(null)} className="text-sm font-bold cursor-pointer rounded" style={{ padding: '8px 20px', background: '#f3f4f6', border: '1px solid #d4d4d8', color: '#6b7280' }}>Zrusit</button>
+            <button onClick={() => setDeleteConfirm(null)} className="text-sm font-bold cursor-pointer rounded" style={{ padding: '8px 20px', background: '#f3f4f6', border: '1px solid #d4d4d8', color: '#6b7280' }}>Zrušit</button>
             <button onClick={() => deleteEvent(deleteConfirm)} className="text-sm font-bold cursor-pointer rounded" style={{ padding: '8px 20px', background: '#dc2626', border: 'none', color: '#fff' }}>Smazat</button>
           </div>
         </Modal>

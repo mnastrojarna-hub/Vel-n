@@ -3,6 +3,50 @@
 
 return [
     'pages' => [
+        'oblasti' => [
+            'hero' => [
+                'h1' => 'Motorverhuur in jouw regio en stad',
+                'intro' => 'Op zoek naar <strong>motorverhuur</strong> bij jou in de buurt? MotoGo24 bezorgt de motor in steden door heel Tsjechië. Kies je regio en bekijk waar we motoren brengen – <strong>zonder borg</strong>, met <strong>online reserveren</strong> en complete uitrusting inbegrepen.',
+            ],
+            'regionsTitle' => 'Kies je regio',
+            'citiesLabel' => 'Motorverhuur in de steden:',
+            'regionCta' => 'Regio bekijken',
+            'cta' => [
+                'title' => 'Staat jouw stad er niet bij?',
+                'text' => 'We bezorgen motoren vrijwel overal in Tsjechië. Stuur ons een bericht of reserveer meteen online.',
+                'buttons' => [
+                    ['label' => 'MOTOR RESERVEREN', 'href' => '/rezervace', 'cls' => 'btngreen pulse'],
+                    ['label' => 'Neem contact op', 'href' => '/kontakt', 'cls' => 'btndark'],
+                ],
+            ],
+            'detail' => [
+                'seoTitle' => 'Motorverhuur {region} – huur een motor in de steden van de regio | MotoGo24',
+                'seoDescription' => 'Motorverhuur in {regionLoc}. MotoGo24 bezorgt een motor in steden in {regionLoc} – zonder borg, online reserveren, uitrusting inbegrepen. We verhuren ook in: {cities}.',
+                'heroTagline' => 'Huur een motor in {regionLoc} – zonder borg, met uitrusting, 24/7 ophalen.',
+                'heroCta' => 'MOTOR RESERVEREN',
+                'h1' => 'Motorverhuur {region}',
+                'intro' => 'Op zoek naar betrouwbare <strong>motorverhuur in {regionLoc}</strong>? MotoGo24 brengt en bezorgt de motor rechtstreeks in jouw stad. We bieden <strong>motorverhuur zonder borg</strong>, online reserveren en complete motoruitrusting inbegrepen. Of je nu in een grote stad of een kleiner dorp woont, we bezorgen graag.',
+                'citiesTitle' => 'Motorverhuur in de steden van de regio',
+                'citiesIntro' => 'In deze steden en hun omgeving bezorgen en halen we motoren op:',
+                'cityTitle' => 'Motorverhuur {city}',
+                'cityText' => 'Huur een motor in {city} en omgeving. We bezorgen de motor op een afgesproken plek en halen hem na de huurperiode weer op – zonder borg en met alles wat je nodig hebt.',
+                'cta' => [
+                    'title' => 'Reserveer een motor in {regionLoc}',
+                    'text' => 'Kies een motor, selecteer je data en wij bezorgen hem. MotoGo24 is dag en nacht open.',
+                    'buttons' => [
+                        ['label' => 'MOTOR RESERVEREN', 'href' => '/rezervace', 'cls' => 'btngreen pulse'],
+                        ['label' => 'Motoren bekijken', 'href' => '/katalog', 'cls' => 'btndark'],
+                    ],
+                ],
+                'faq' => [
+                    'title' => 'Veelgestelde vragen',
+                    'items' => [
+                        ['q' => 'Bezorgen jullie de motor tot in mijn stad?', 'a' => 'Ja. We bezorgen de motor op een afgesproken plek in {regionLoc} en elders in Tsjechië. Geef de plek gewoon op bij je reservering.'],
+                        ['q' => 'Moet ik een borg betalen?', 'a' => 'Nee. Onze <strong>motorverhuur</strong> vraagt geen borg of creditcardblokkering.'],
+                    ],
+                ],
+            ],
+        ],
         'jak_pujcit_cena' => [
             'seo' => [
                 'title' => 'Motorverhuur Vysočina – Hoe huren – Wat is bij de prijs inbegrepen',

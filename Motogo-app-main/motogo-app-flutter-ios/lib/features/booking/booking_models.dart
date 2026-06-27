@@ -6,6 +6,9 @@ class BookingDraft {
   DateTime? startDate;
   DateTime? endDate;
   String? pickupTime;
+  /// Předpokládaný čas návratu (HH:MM) — povinné pole, default UI 19:00.
+  /// Zapisuje se do bookings.return_time (parita s webem).
+  String? returnTime;
   String pickupMethod; // 'store' or 'delivery'
   String returnMethod; // 'store' or 'delivery'
   String? pickupAddress;
@@ -19,6 +22,11 @@ class BookingDraft {
   double? returnLat;
   double? returnLng;
   String? insuranceType;
+
+  /// Přiřazený kus vozíku (motorcycles.id, is_trailer=true) když si zákazník
+  /// přidá vozík jako příslušenství. Zapisuje se do bookings.trailer_moto_id
+  /// → blokuje kalendář vozíku. NULL = vozík nevybrán.
+  String? trailerMotoId;
   List<SelectedExtra> extras;
   List<AppliedDiscount> discounts;
   String? notes;
@@ -44,6 +52,7 @@ class BookingDraft {
     this.startDate,
     this.endDate,
     this.pickupTime,
+    this.returnTime,
     this.pickupMethod = 'store',
     this.returnMethod = 'store',
     this.pickupAddress,
@@ -57,6 +66,7 @@ class BookingDraft {
     this.returnLat,
     this.returnLng,
     this.insuranceType,
+    this.trailerMotoId,
     this.extras = const [],
     this.discounts = const [],
     this.notes,
@@ -88,6 +98,7 @@ class BookingDraft {
     DateTime? Function()? startDate,
     DateTime? Function()? endDate,
     String? Function()? pickupTime,
+    String? Function()? returnTime,
     String? pickupMethod,
     String? returnMethod,
     String? Function()? pickupAddress,
@@ -101,6 +112,7 @@ class BookingDraft {
     double? Function()? returnLat,
     double? Function()? returnLng,
     String? Function()? insuranceType,
+    String? Function()? trailerMotoId,
     List<SelectedExtra>? extras,
     List<AppliedDiscount>? discounts,
     String? Function()? notes,
@@ -124,6 +136,7 @@ class BookingDraft {
       startDate: startDate != null ? startDate() : this.startDate,
       endDate: endDate != null ? endDate() : this.endDate,
       pickupTime: pickupTime != null ? pickupTime() : this.pickupTime,
+      returnTime: returnTime != null ? returnTime() : this.returnTime,
       pickupMethod: pickupMethod ?? this.pickupMethod,
       returnMethod: returnMethod ?? this.returnMethod,
       pickupAddress: pickupAddress != null ? pickupAddress() : this.pickupAddress,
@@ -137,6 +150,7 @@ class BookingDraft {
       returnLat: returnLat != null ? returnLat() : this.returnLat,
       returnLng: returnLng != null ? returnLng() : this.returnLng,
       insuranceType: insuranceType != null ? insuranceType() : this.insuranceType,
+      trailerMotoId: trailerMotoId != null ? trailerMotoId() : this.trailerMotoId,
       extras: extras ?? this.extras,
       discounts: discounts ?? this.discounts,
       notes: notes != null ? notes() : this.notes,
@@ -348,3 +362,15 @@ const defaultExtras = [
     sizes: bootSizesAdult,
   ),
 ];
+
+/// Od tohoto věrnostního ranku (loyalty level) má zákazník veškerou placenou
+/// výbavu — výbavu spolujezdce i veškerou obuv — ZDARMA. Platí v appce i na
+/// webu (web zjistí rank po přihlášení). Základní výbava řidiče je zdarma vždy.
+const loyaltyFreeGearLevel = 3;
+
+/// ID placených gear extras, které jsou od [loyaltyFreeGearLevel] zdarma.
+const freeGearExtraIds = {
+  'extra-spolujezdec',
+  'extra-boty-ridic',
+  'extra-boty-spolu',
+};

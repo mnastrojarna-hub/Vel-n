@@ -39,16 +39,16 @@ export default function EmployeeListTab() {
     } catch (e) { setError(e.message) } finally { setLoading(false) }
   }
 
-  const fmt = n => (n || 0).toLocaleString('cs-CZ') + ' Kc'
+  const fmt = n => (n || 0).toLocaleString('cs-CZ') + ' Kč'
 
   return (
     <div>
       <div className="flex items-center gap-3 mb-4 flex-wrap">
-        <Button green onClick={() => setShowAdd(true)}>+ Novy zamestnanec</Button>
+        <Button green onClick={() => setShowAdd(true)}>+ Novy zaměstnanec</Button>
         <select value={filter} onChange={e => { setPage(1); setFilter(e.target.value) }}
           className="rounded-btn text-sm outline-none"
           style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0' }}>
-          <option value="">Vsechny typy</option>
+          <option value="">Všechny typy</option>
           {CT.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
         </select>
       </div>
@@ -60,8 +60,8 @@ export default function EmployeeListTab() {
           <Table>
             <thead>
               <TRow header>
-                <TH>Jmeno</TH><TH>Telefon</TH><TH>Email</TH><TH>Pozice</TH>
-                <TH>Typ</TH><TH>Hruba mzda</TH><TH>Nastup</TH><TH>Stav</TH><TH>Akce</TH>
+                <TH>Jméno</TH><TH>Telefon</TH><TH>Email</TH><TH>Pozice</TH>
+                <TH>Typ</TH><TH>Hrubá mzda</TH><TH>Nástup</TH><TH>Stav</TH><TH>Akce</TH>
               </TRow>
             </thead>
             <tbody>
@@ -76,14 +76,14 @@ export default function EmployeeListTab() {
                   <TD bold>{fmt(emp.gross_salary)}</TD>
                   <TD>{emp.start_date ? new Date(emp.start_date).toLocaleDateString('cs-CZ') : '—'}</TD>
                   <TD><span className="text-sm font-bold" style={{ color: emp.active ? '#1a8a18' : '#dc2626' }}>
-                    {emp.active ? 'Aktivni' : 'Neaktivni'}</span></TD>
+                    {emp.active ? 'Aktivní' : 'Neaktivní'}</span></TD>
                   <TD>
                     <button onClick={() => setEditEmp(emp)} className="text-sm font-bold cursor-pointer"
                       style={{ color: '#2563eb', background: 'none', border: 'none' }}>Upravit</button>
                   </TD>
                 </TRow>
               ))}
-              {employees.length === 0 && <TRow><TD>Zadni zamestnanci</TD></TRow>}
+              {employees.length === 0 && <TRow><TD>Žádní zaměstnanci</TD></TRow>}
             </tbody>
           </Table>
           <Pagination page={page} totalPages={Math.ceil(total / PER_PAGE)} onPageChange={setPage} />
@@ -129,29 +129,29 @@ function EmpModal({ emp, onClose, onSaved }) {
   }
 
   return (
-    <Modal open title={emp ? 'Upravit zamestnance' : 'Novy zamestnanec'} onClose={onClose}>
+    <Modal open title={emp ? 'Upravit zaměstnance' : 'Novy zaměstnanec'} onClose={onClose}>
       {err && <div className="mb-3 p-2 rounded-card" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>{err}</div>}
       <div className="grid grid-cols-2 gap-3">
-        <div><Lbl>Jmeno</Lbl><input type="text" value={form.name} onChange={e => set('name', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={iStyle} /></div>
+        <div><Lbl>Jméno</Lbl><input type="text" value={form.name} onChange={e => set('name', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={iStyle} /></div>
         <div><Lbl>Pozice</Lbl><input type="text" value={form.position} onChange={e => set('position', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={iStyle} /></div>
         <div><Lbl>Telefon</Lbl><input type="text" value={form.phone} onChange={e => set('phone', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={iStyle} /></div>
         <div><Lbl>Email</Lbl><input type="email" value={form.email} onChange={e => set('email', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={iStyle} /></div>
         <div><Lbl>Typ smlouvy</Lbl><select value={form.contract_type} onChange={e => set('contract_type', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={iStyle}>
           {[{v:'hpp',l:'HPP'},{v:'dpp',l:'DPP'},{v:'dpc',l:'DPC'},{v:'ico',l:'ICO'}].map(c => <option key={c.v} value={c.v}>{c.l}</option>)}
         </select></div>
-        <div><Lbl>Hruba mzda (Kc)</Lbl><input type="number" value={form.gross_salary} onChange={e => set('gross_salary', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={iStyle} /></div>
+        <div><Lbl>Hrubá mzda (Kč)</Lbl><input type="number" value={form.gross_salary} onChange={e => set('gross_salary', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={iStyle} /></div>
         <div><Lbl>Datum nastupu</Lbl><input type="date" value={form.start_date} onChange={e => set('start_date', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={iStyle} /></div>
         <div><Lbl>Bankovni ucet</Lbl><input type="text" value={form.bank_account} onChange={e => set('bank_account', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={iStyle} /></div>
-        <div><Lbl>Sleva na dani (Kc)</Lbl><input type="number" value={form.tax_discount} onChange={e => set('tax_discount', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={iStyle} /></div>
+        <div><Lbl>Sleva na dani (Kč)</Lbl><input type="number" value={form.tax_discount} onChange={e => set('tax_discount', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={iStyle} /></div>
         <div><Lbl>Dnu dovolene</Lbl><input type="number" value={form.vacation_days_total} onChange={e => set('vacation_days_total', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={iStyle} /></div>
         {emp && <div><Lbl>Stav</Lbl><label className="flex items-center gap-2 cursor-pointer mt-1">
           <input type="checkbox" checked={form.active} onChange={e => set('active', e.target.checked)} className="w-4 h-4 accent-green-500" />
-          <span className="text-sm font-bold">{form.active ? 'Aktivni' : 'Neaktivni'}</span>
+          <span className="text-sm font-bold">{form.active ? 'Aktivní' : 'Neaktivní'}</span>
         </label></div>}
       </div>
       <div className="flex justify-end gap-2 mt-4">
-        <Button onClick={onClose}>Zrusit</Button>
-        <Button green onClick={save} disabled={saving}>{saving ? 'Ukladam...' : 'Ulozit'}</Button>
+        <Button onClick={onClose}>Zrušit</Button>
+        <Button green onClick={save} disabled={saving}>{saving ? 'Ukladam...' : 'Uložit'}</Button>
       </div>
     </Modal>
   )

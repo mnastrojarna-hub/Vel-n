@@ -1,5 +1,5 @@
 # SUPABASE BACKEND STATE — MotoGo24 (Část 1: Tabulky)
-> **Poslední aktualizace:** 2026-05-20 (Fix door codes — `auto_generate_door_codes` + `check_booking_docs_status` vyžadují fotku NEBO reálné OCR `verified_at`, holá ručně zadaná čísla už kódy neuvolní; Velín rozlišuje tři stavy ověření + nový admin upload dokladů s kamerou)
+> **Poslední aktualizace:** 2026-06-24 (Živý snapshot přes GitHub Action — přibyly tabulky `financial_events` [finanční/účetní událost: revenue/expense/asset/payroll] + `loyalty_monthly_winners` [měsíční loyalty výherci]; ENUM sekce sladěna s živými `CREATE TYPE` — doplněny `ai_suggestion_status`, `message_channel`, `sos_type`, `tax_type`, opraveny živé hodnoty `admin_role` a `document_type`)
 > **Zdroj:** Reálný stav Supabase databáze (SQL dump z dashboardu) + Edge Functions
 > **Projekt:** `vnwnqteskbykeucanlhk.supabase.co`
 > **POZOR:** Tento soubor MUSÍ být aktualizován při každé SQL změně!
@@ -11,18 +11,22 @@
 
 | Typ | Hodnoty |
 |-----|---------|
-| `admin_role` | viewer, manager, operator, technician, readonly, admin, superadmin |
-| `booking_status` | pending, reserved, active, completed, cancelled |
-| `payment_status` | unpaid, paid, refund_pending, partial_refund, refunded — **`refund_pending` NEW 2026-05-31** = „Čeká na vrácení" (storno zaplacené rezervace, Stripe refund ještě nepotvrzen; peníze jsou stále u nás). Životní cyklus: `paid` → (storno) `refund_pending` → (Stripe potvrdil) `partial_refund` (50 %) / `refunded` (100 %). Velín mapuje přes `paymentStatusInfo()` (Zaplaceno/Čeká na vrácení/Částečně vráceno/Vráceno/Nezaplaceno) + filtr `PAYMENT_STATUS_FILTER_OPTIONS`. |
+| `admin_role` | superadmin, manager, operator, viewer — **OPRAVENO 2026-06-24 dle živého snapshotu:** reálný ENUM má JEN tyto 4 hodnoty. (Dřívější docs uváděly i `technician, readonly, admin` — ty v živém typu nejsou.) |
+| `ai_suggestion_status` | pending, approved, edited, rejected, sent, auto_sent, failed — **doplněno 2026-06-24 dle snapshotu** |
+| `booking_status` | pending, active, completed, cancelled, reserved |
+| `payment_status` | unpaid, paid, refund_pending, refunded, partial_refund — **`refund_pending` NEW 2026-05-31** = „Čeká na vrácení" (storno zaplacené rezervace, Stripe refund ještě nepotvrzen; peníze jsou stále u nás). Životní cyklus: `paid` → (storno) `refund_pending` → (Stripe potvrdil) `partial_refund` (50 %) / `refunded` (100 %). Velín mapuje přes `paymentStatusInfo()` (Zaplaceno/Čeká na vrácení/Částečně vráceno/Vráceno/Nezaplaceno) + filtr `PAYMENT_STATUS_FILTER_OPTIONS`. |
+| `message_channel` | sms, whatsapp, email — **doplněno 2026-06-24 dle snapshotu** |
 | `moto_status` | active, maintenance, unavailable, retired |
 | `sos_status` | reported, acknowledged, in_progress, resolved, closed |
-| `license_group` | AM, A1, A2, A, B, N |
+| `sos_type` | accident_minor, accident_major, theft, breakdown_minor, breakdown_major, location_share — **doplněno 2026-06-24 dle snapshotu** |
+| `tax_type` | dph_monthly, dph_quarterly, dppo_annual, kontrolni_hlaseni, silnicni_dan — **doplněno 2026-06-24 dle snapshotu** |
+| `license_group` | A, A1, A2, AM, B, N |
 | `entry_type` | income, expense — **doplněno 2026-06-11**: typ sloupce `accounting_entries.type`. POZOR: migrace `20260321_accounting_entries.sql` mylně tvrdí TEXT s CHECK ('revenue','expense') — reálná DB má tento ENUM |
-| ~~`document_type`~~ | **ZRUŠENO** — sloupec `documents.type` je nyní TEXT (ne ENUM). Používané hodnoty: contract, vop, invoice_advance, payment_receipt, invoice_final, invoice_shop, protocol, credit_note |
+| `document_type` | contract, protocol, invoice, license_photo, id_photo, vop, invoice_advance, invoice_final — **OPRAVENO 2026-06-24:** ENUM typ v živé DB STÁLE EXISTUJE (toto jsou jeho reálné hodnoty), ALE sloupec `documents.type` ho už nepoužívá — je TEXT (používané hodnoty: contract, vop, invoice_advance, payment_receipt, invoice_final, invoice_shop, protocol, credit_note). Dřívější poznámka „ENUM ZRUŠENO" se týkala jen sloupce, ne typu samotného. |
 
 ---
 
-## 2. TABULKY (public schema) — 98 tabulek (živý snapshot 2026-06-04; vč. 2 dočasných `cms_variables_backup_*` určených ke smazání → cílově 96)
+## 2. TABULKY (public schema) — 102 tabulek (živý snapshot 2026-06-24; dočasné `cms_variables_backup_*` už v živém schématu NEJSOU — smazány)
 
 ### Hlavní entity
 
@@ -79,7 +83,7 @@
 | `custom_documents` | Vlastní dokumenty z Velína mimo 5 pevných smluvních typů (id uuid, title, slug UNIQUE, description, kind TEXT 'html'\|'pdf', content_html, pdf_path [veřejná URL v bucketu `media`], show_on_web BOOL, sort_order INT, active BOOL, version INT, updated_by uuid→admin_users, created_at, updated_at, **translations JSONB** = `{ "<lang>": { "title", "description", "content_html" } }` — plní edge fn `translate-document`, mig. `20260512_document_translations.sql`). Web: /jak-pujcit/dokumenty (výpis vedle kanonických karet `mgPublicDocuments()`) + /dokumenty/<slug> (HTML render přes `localized()` nebo redirect na PDF; u přeloženého PDF se na cizojazyčné verzi zobrazí přeložené HTML). Migrace `20260512_custom_documents.sql` |
 | `generated_documents` | Vygenerované dokumenty |
 | `documents` | Nahrané dokumenty (type TEXT — contract, vop, invoice_advance, payment_receipt, invoice_final, invoice_shop, protocol). Sloupce vč. `name` (TEXT — popisek řádku, např. „Doklad totožnosti — líc (web sken)"), `file_path`, `file_name`, `metadata` (jsonb), `user_id`, `booking_id`, `type`, `created_at`. **FIX 2026-06-10 (`20260610_documents_name_column.sql`):** sloupec `name` v reálné DB chyběl, ačkoli ho `save-verification-document` (i web fallback v `pages-rezervace-scan.js`) vkládá → insert padal na `Could not find the 'name' column`, funkce dělala early-return PŘED zápisem `profiles.*_verified_at` → naskenované doklady zůstávaly „Neověřeno" (fotka i čísla se uložily jinou cestou, jen verified_at ne). Přidáním sloupce se opravily všechny scan cesty (web rezervace krok 2, úprava rezervace, Flutter app). |
-| `email_templates` | Šablony emailů (slug: booking_reserved, booking_abandoned, booking_cancelled, booking_completed, voucher_purchased, booking_modified) |
+| `email_templates` | Šablony emailů (slug: booking_reserved, booking_abandoned, booking_cancelled, booking_completed, voucher_purchased, booking_modified, **handover_protocol_sent, damage_protocol_sent NEW 2026-06-23** — odeslání el. předávacího / škodního protokolu zákazníkovi z Velína, mig. `20260623_protocol_email_templates.sql`; přílohu protokolu řídí `send-email` přes `attachment_paths`, sloupec `attachments` prázdný) |
 | `sent_emails` | Log odeslaných emailů |
 
 ### E-shop
@@ -103,8 +107,10 @@
 |---------|-------|
 | `promo_codes` | Slevové kódy (type: percent/fixed; **`source` text NEW 2026-06-20** — slevomat/eshop/spoluprace/vraceni/ostatni pro Velín filtr) |
 | `promo_code_usage` | Použití slevových kódů |
-| `vouchers` | Dárkové poukazy (status: active/redeemed/expired/cancelled, order_id FK→shop_orders, source) |
+| `vouchers` | Dárkové poukazy (status: active/redeemed/expired/cancelled, order_id FK→shop_orders, source — vč. `slevomat`) |
+| `booking_discounts` | **NEW 2026-06-25 (`20260625_00_multi_discount_helpers.sql`)** — Víc slev/voucherů na jednu rezervaci (booking_id FK→bookings ON DELETE CASCADE, kind promo_code/voucher, code, promo_code_id, voucher_id, discount_type percent/fixed, value [% nebo nominální Kč], amount [skutečně odečtená Kč], created_at). Pravidlo: max JEDNA procentní sleva. Zdroj pravdy pro rozpad slev na ZF/DP/KF. Plní `create_web_booking` (p_discounts), `realloc_booking_discounts` po úpravě ceny, uplatnění `redeem_booking_discounts_on_paid`. |
 | `loyalty_levels` | **NEW 2026-06-11** — Věrnostní ranky pro APP rezervace (20 řádků: level PK 1–20 = % slevy, discount_percent, min_booking_order = od kolikáté app rezervace, name [Startér…Legenda MotoGo], color_hex [barva ringu MG loga v appce], translations jsonb). RLS: Public read + Admin write. Sleva platí JEN pro `booking_source='app'`. Mig. `20260611_loyalty_ranks.sql` |
+| `loyalty_monthly_winners` | **NEW 2026-06-24 (ze snapshotu)** — Měsíční loyalty výherci (loyalty „soutěž"). Sloupce: `month` date **PK** (jeden řádek per měsíc), `user_id` uuid, `nickname` text, `days` int (nasbírané dny), `awarded_level_before` int (level před udělením), `awarded_at` timestamptz DEFAULT now(). Plní/čte loyalty RPC (viz STATE_3). |
 
 ### Servis a údržba
 
@@ -121,6 +127,8 @@
 | Tabulka | Popis |
 |---------|-------|
 | `accounting_entries` | Účetní záznamy — reálné sloupce viz STATE_2 (type = ENUM `entry_type`, **category NOT NULL**) |
+| `financial_events` | **NEW 2026-06-24 (ze snapshotu)** — Centrální finanční/účetní událost (jednotný vstup pro účetní pipeline). Sloupce: `id`, `event_type` (CHECK revenue/expense/asset/payroll), `source` (CHECK stripe/ocr/system/manual), `amount_czk` numeric(12,2), `vat_rate` numeric(5,2) DEFAULT 0, `duzp` date NOT NULL, `linked_entity_type` text, `linked_entity_id` uuid, `confidence_score` numeric(3,2) DEFAULT 1.0 (CHECK 0–1), `status` (pending/enriched/validated/exported/approved/submitted/error) DEFAULT pending, `flexi_id` text, `metadata` jsonb DEFAULT `{}`, `document_type` text, `created_at`, `updated_at`. Trigger `trg_fe_updated` (update_updated_at). Indexy na duzp, linked_entity_id, status. Navazují FK z `acc_liabilities`, `delivery_notes`, `contracts`, `accounting_exceptions`, `approval_queue`, `flexi_sync_log`. |
+| `document_number_counters` | **NEW 2026-06-23 (`20260623_atomic_document_numbering.sql`)** — Atomický čítač číselných řad dokladů. Sloupce: `prefix` text, `year` int, `last_seq` int DEFAULT 0, PK(`prefix`,`year`). Plní fce `next_document_number(prefix)` (viz STATE_3) — řeší duplicity (bug report: dvojité `DB-2026-0001`), které vznikaly neatomickým `MAX(seq)+1`. Pojistka: UNIQUE index `invoices_number_unique` na `invoices.number`. |
 | `cash_register` | Pokladna |
 | `tax_records` | Daňové záznamy |
 | `daily_stats` | Denní statistiky |
@@ -155,6 +163,8 @@
 | `suppliers` | Dodavatelé (name, normalized_name, ico, dic, address, bank_account, default_category, default_account, contact_email, notes, created_at, updated_at). Index na normalized_name a ico. Funkce normalize_supplier_name() pro matching bez diakritiky. Auto-upsert z OCR v receive-invoice. |
 | `inventory` | Skladové zásoby (category CHECK rozšířen o 'prislusenstvi') |
 | `inventory_movements` | Pohyby na skladě |
+| `gear_shortages` | **NEW 2026-06-23 (`20260623_gear_logistics.sql`)** — Fronta deficitů výbavy (Logistika zboží). Per `(branch_id, accessory_type, size, shortage_date)` UNIQUE. Sloupce: `branch_id` FK→branches CASCADE, `accessory_type` (boots/helmet/gloves/pants/jacket…), `size`, `audience` (adult/child), `shortage_date`, `needed_qty`, `stock_qty`, `deficit_qty`, `status` (open/warehouse_filled/transfer_requested/order_created/resolved/dismissed), `resolution`, `purchase_order_id` FK→purchase_orders SET NULL, `transfer_from_branch_id` FK→branches SET NULL, `booking_ids` uuid[] (rezervace, co deficit způsobily), `assigned_to`, `created_at/updated_at/resolved_at`. Plní trigger `gear_shortage_on_booking` (AFTER na bookings, exception-safe = rezervaci nikdy neshodí) + fce `detect_gear_shortages*`. Hlídá JEN typy přítomné v `branch_accessories` (bunda `jacket` až po zavedení). Pickup-at-branch (delivery pool mimo). RLS: Admin full. Realtime: ANO (badge Velín → Logistika zboží). Index `idx_gear_shortages_open`. |
+| `stock_receipts` | **NEW 2026-06-25 (`20260625_stock_receipts_pairing.sql`)** — Ledger naskladnění pro párování DL⇄faktura, kontrolu duplicity a ochranu proti duplicitnímu naskladnění (Logistika → Naskladnění, Fáze 6). Sloupce: `doc_type` (`invoice`/`delivery_note`, CHECK), `doc_number`, **`doc_date`** (datum dokladu — klíč duplicity „č. dokladu + datum"), `variable_symbol`, `supplier_ico`, `supplier_name`, `amount_czk`, `financial_event_id`, `stocked` (zboží skutečně naskladněno z tohoto dokladu), `matched_receipt_id` FK→self (spárovaný protějšek), `needs_dl` (faktura bez DL = „chybí DL"), `note`, `created_at`. Plní RPC `record_stock_receipt`; čte `check_document_status` (STATE_3). DL = jen sklad; faktura = finance i sklad; proforma se neeviduje (nenaskladňuje se). Indexy `idx_stock_receipts_supplier`, partial `idx_stock_receipts_needs_dl`, `idx_stock_receipts_docnum (lower(doc_number), doc_date)`. RLS: authenticated full. |
 | `accessory_types` | Dynamické typy příslušenství (key, label, sizes[], is_consumable, **price_czk**, **pricing_unit** (per_booking/per_day/free), sort_order, is_active) — Velín admin spravuje (BranchAccessoryModals → „Spravovat typy"). Web `/rezervace` čte při init přes `MG._loadAccessoryConfig()` — řídí cenu i velikosti gear cards/chips v kroku 5. |
 
 ### AI a automatizace

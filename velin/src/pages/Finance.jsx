@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import { debugAction } from '../lib/debugLog'
 import { useDebugMode } from '../hooks/useDebugMode'
 import ErrorBoundary from '../components/ErrorBoundary'
-import { classifyEntry, isTestInvoice, isVoidInvoice, summarizeInvoices } from '../lib/revenueUtils'
+import { classifyEntry, isTestInvoice, isVoidInvoice, summarizeInvoices, INVOICE_PAID_TYPES } from '../lib/revenueUtils'
 import FinanceOverview from './FinanceOverview'
 import FinancePrehledTab from './FinancePrehledTab'
 
@@ -21,11 +21,13 @@ const LiabilitiesTab = lazy(() => import('./accounting/LiabilitiesTab'))
 const SuppliersTab = lazy(() => import('./accounting/SuppliersTab'))
 const AutoOrdersTab = lazy(() => import('./accounting/AutoOrdersTab'))
 const InventoryTab = lazy(() => import('./Inventory'))
+const PaymentsTab = lazy(() => import('./accounting/PaymentsTab'))
 const DeliveryNotesTab = lazy(() => import('./accounting/DeliveryNotesTab'))
 const ContractsTab = lazy(() => import('./accounting/ContractsTab'))
 const CreditNotesTab = lazy(() => import('./accounting/CreditNotesTab'))
 
-const FINANCE_TABS = ['Přehled', 'Faktury', 'Dobropisy', 'Dodací listy', 'Smlouvy', 'Objednávky', 'Účetnictví', 'Faktury přijaté', 'Pokladna', 'Sklad']
+// Objednávky přesunuty do Logistika zboží (/logistika → Objednávky)
+const FINANCE_TABS = ['Přehled', 'Faktury', 'Dobropisy', 'Dodací listy', 'Smlouvy', 'Účetnictví', 'Faktury přijaté', 'Platby', 'Pokladna', 'Sklad']
 
 const ACCOUNTING_SUBTABS = [
   { id: 'events', label: 'Finanční události' },
@@ -127,24 +129,32 @@ export default function Finance() {
   async function loadSummary() {
     const now = new Date()
     const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10)
+    const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+    // Výdaje bereme z účetních záznamů, ale tržby (příjmy) NE — accounting_entries
+    // se příjmy plní nespolehlivě (trigger bug), proto se měsíční tržby počítají
+    // KANONICKY z faktur (DP + KF + shop_final − dobropisy), shodně s Dashboardem.
     const { data } = await supabase
       .from('accounting_entries')
       .select('type, amount, category, description')
       .gte('date', start)
-    if (data) {
-      const rev = data.filter(d => classifyEntry(d) === 'revenue').reduce((s, d) => s + Math.abs(d.amount || 0), 0)
-      const exp = data.filter(d => classifyEntry(d) === 'expense').reduce((s, d) => s + Math.abs(d.amount || 0), 0)
-      setSummary({ revenue: rev, expense: exp, unpaid: 0 })
-    }
-    // Neuhrazené zálohy = zálohové faktury (ZF) bez odpovídajícího DP/KF,
-    // mimo stornované/refundované a testovací doklady (viz summarizeInvoices)
+    const expense = (data || []).filter(d => classifyEntry(d) === 'expense').reduce((s, d) => s + Math.abs(d.amount || 0), 0)
+
+    // Faktury: měsíční tržby + neuhrazené zálohy (ZF bez odpovídajícího DP/KF).
+    // `.order().limit()` je NUTNÝ — bez něj vrací PostgREST nedeterministických
+    // max 1000 řádků v proměnlivém pořadí, takže měsíční tržby skákaly mezi
+    // načteními. Bereme nejnovějších 1000 (shodně s Dashboardem) — tržby tohoto
+    // měsíce jsou vždy mezi nejnovějšími fakturami, zdroj je tak stabilní i jednotný.
     const { data: inv } = await supabase
       .from('invoices')
-      .select('type, status, total, booking_id, order_id, bookings:booking_id(is_test), profiles:customer_id(is_test_account)')
-    if (inv) {
-      const { unpaid, unpaidCount } = summarizeInvoices(inv)
-      setSummary(s => ({ ...s, unpaid, unpaidCount }))
-    }
+      .select('type, status, total, issue_date, created_at, booking_id, order_id, bookings:booking_id(is_test), profiles:customer_id(is_test_account)')
+      .order('created_at', { ascending: false }).limit(1000)
+    const invoices = inv || []
+    const invMonth = (i) => (i.issue_date || i.created_at || '').slice(0, 7)
+    const revenue = invoices
+      .filter(i => !isVoidInvoice(i) && !isTestInvoice(i) && INVOICE_PAID_TYPES.includes(i.type) && invMonth(i) === monthKey)
+      .reduce((s, i) => s + (i.total || 0), 0)
+    const { unpaid, unpaidCount } = summarizeInvoices(invoices)
+    setSummary({ revenue, expense, unpaid, unpaidCount })
   }
 
   async function loadTransactions() {
@@ -182,20 +192,32 @@ export default function Finance() {
     const now = new Date()
     for (let i = 11; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-      months.push({ start: d.toISOString().slice(0, 10), label: d.toLocaleDateString('cs-CZ', { month: 'short' }) })
+      months.push({
+        key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
+        start: d.toISOString().slice(0, 10),
+        label: d.toLocaleDateString('cs-CZ', { month: 'short' }),
+      })
     }
-    const { data } = await supabase
-      .from('accounting_entries')
-      .select('type, amount, date, category, description')
-      .gte('date', months[0].start)
+    // Tržby z faktur (kanonický zdroj), výdaje z účetních záznamů — shodně s Dashboardem.
+    // POZOR: faktury NEFILTRUJEME server-side přes `.gte('issue_date', …)` — faktury
+    // s `issue_date = NULL` (měsíc se bere z fallbacku `created_at`) by v Postgresu
+    // vypadly (`null >= x` = false) a graf by byl skoro prázdný, ač KPI ukazuje tržby.
+    // Měsíc proto filtrujeme klientsky přes `invMonth` (stejně jako `loadSummary`).
+    const [accRes, invRes] = await Promise.all([
+      supabase.from('accounting_entries').select('type, amount, date, category, description').gte('date', months[0].start),
+      supabase.from('invoices')
+        .select('type, status, total, issue_date, created_at, bookings:booking_id(is_test), profiles:customer_id(is_test_account)')
+        .order('created_at', { ascending: false }).limit(1000),
+    ])
+    const accData = accRes.data || []
+    const paidInv = (invRes.data || []).filter(i => !isVoidInvoice(i) && !isTestInvoice(i) && INVOICE_PAID_TYPES.includes(i.type))
+    const invMonth = (i) => (i.issue_date || i.created_at || '').slice(0, 7)
     const chart = months.map(m => {
       const mEnd = new Date(new Date(m.start).getFullYear(), new Date(m.start).getMonth() + 1, 0).toISOString().slice(0, 10)
-      const mData = (data || []).filter(d => d.date >= m.start && d.date <= mEnd)
-      return {
-        label: m.label,
-        revenue: mData.filter(d => classifyEntry(d) === 'revenue').reduce((s, d) => s + Math.abs(d.amount || 0), 0),
-        expense: mData.filter(d => classifyEntry(d) === 'expense').reduce((s, d) => s + Math.abs(d.amount || 0), 0),
-      }
+      const exp = accData.filter(d => d.date >= m.start && d.date <= mEnd && classifyEntry(d) === 'expense')
+        .reduce((s, d) => s + Math.abs(d.amount || 0), 0)
+      const rev = paidInv.filter(i => invMonth(i) === m.key).reduce((s, i) => s + (i.total || 0), 0)
+      return { label: m.label, revenue: rev, expense: exp }
     })
     setChartData(chart)
   }
@@ -234,10 +256,10 @@ export default function Finance() {
       <Suspense fallback={<TabLoader />}>
       {activeTab === 'Faktury' && <ErrorBoundary><InvoicesTab /></ErrorBoundary>}
       {activeTab === 'Dobropisy' && <ErrorBoundary><CreditNotesTab /></ErrorBoundary>}
-      {activeTab === 'Objednávky' && <ErrorBoundary><AutoOrdersTab /></ErrorBoundary>}
       {activeTab === 'Dodací listy' && <ErrorBoundary><DeliveryNotesTab /></ErrorBoundary>}
       {activeTab === 'Smlouvy' && <ErrorBoundary><ContractsTab /></ErrorBoundary>}
       {activeTab === 'Faktury přijaté' && <ErrorBoundary><ReceivedInvoicesTab /></ErrorBoundary>}
+      {activeTab === 'Platby' && <ErrorBoundary><PaymentsTab /></ErrorBoundary>}
       {activeTab === 'Pokladna' && <ErrorBoundary><CashRegisterTab /></ErrorBoundary>}
       {activeTab === 'Sklad' && <ErrorBoundary><InventoryTab /></ErrorBoundary>}
 

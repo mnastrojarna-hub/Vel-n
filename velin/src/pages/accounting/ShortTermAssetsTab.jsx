@@ -15,10 +15,10 @@ const CATEGORIES = [
   { value: 'material', label: 'Material' },
   { value: 'inventory', label: 'Drobny majetek' },
   { value: 'supplies', label: 'Zasoby' },
-  { value: 'receivables', label: 'Pohledavky' },
+  { value: 'receivables', label: 'Pohledávky' },
   { value: 'cash', label: 'Penize' },
   { value: 'bank', label: 'Bankovni ucet' },
-  { value: 'prepaid', label: 'Naklady pristich obdobi' },
+  { value: 'prepaid', label: 'Naklady pristich období' },
 ]
 
 export default function ShortTermAssetsTab() {
@@ -72,20 +72,20 @@ export default function ShortTermAssetsTab() {
     await load()
   }
 
-  const fmt = (n) => (n || 0).toLocaleString('cs-CZ') + ' Kc'
+  const fmt = (n) => (n || 0).toLocaleString('cs-CZ') + ' Kč'
   const totalPages = Math.ceil(total / PER_PAGE)
 
   return (
     <div>
       <div className="flex items-center gap-3 mb-4">
-        <Button green onClick={() => setShowAdd(true)}>+ Novy kratkodoby majetek</Button>
+        <Button green onClick={() => setShowAdd(true)}>+ Novy krátkodobý majetek</Button>
       </div>
 
       {error && <div className="mb-4 p-3 rounded-card" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>{error}</div>}
 
       {/* Summary */}
       <div className="grid grid-cols-4 gap-3 mb-4">
-        <MiniStat label="Kratkodoby majetek celkem" value={fmt(summary.total)} color="#1a2e22" />
+        <MiniStat label="Krátkodobý majetek celkem" value={fmt(summary.total)} color="#1a2e22" />
         {Object.entries(summary.byCategory).slice(0, 3).map(([cat, val]) => (
           <MiniStat key={cat} label={CATEGORIES.find(c => c.value === cat)?.label || cat} value={fmt(val)} color="#2563eb" />
         ))}
@@ -107,8 +107,8 @@ export default function ShortTermAssetsTab() {
             <thead>
               <TRow header>
                 <TH><SelectAllCheckbox items={assets} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TH>
-                <TH>Nazev</TH><TH>Kategorie</TH><TH>Porizovaci cena</TH><TH>Aktualni hodnota</TH>
-                <TH>Datum porizeni</TH><TH>Stav</TH><TH>Akce</TH>
+                <TH>Název</TH><TH>Kategorie</TH><TH>Pořizovací cena</TH><TH>Aktualni hodnota</TH>
+                <TH>Datum pořízení</TH><TH>Stav</TH><TH>Akce</TH>
               </TRow>
             </thead>
             <tbody>
@@ -123,7 +123,7 @@ export default function ShortTermAssetsTab() {
                   <TD>
                     <span className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase"
                       style={{ padding: '4px 10px', background: a.status === 'active' ? '#dcfce7' : '#fee2e2', color: a.status === 'active' ? '#1a8a18' : '#dc2626' }}>
-                      {a.status === 'active' ? 'Aktivni' : a.status === 'disposed' ? 'Vyrazeno' : a.status}
+                      {a.status === 'active' ? 'Aktivní' : a.status === 'disposed' ? 'Vyřazeno' : a.status}
                     </span>
                   </TD>
                   <TD>
@@ -136,7 +136,7 @@ export default function ShortTermAssetsTab() {
                   </TD>
                 </TRow>
               ))}
-              {assets.length === 0 && <TRow><TD>Zadny kratkodoby majetek</TD></TRow>}
+              {assets.length === 0 && <TRow><TD>Zadny krátkodobý majetek</TD></TRow>}
             </tbody>
           </Table>
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
@@ -147,14 +147,14 @@ export default function ShortTermAssetsTab() {
       {detail && (
         <Modal open title={`Majetek: ${detail.name}`} onClose={() => setDetail(null)}>
           <div className="grid grid-cols-2 gap-4">
-            <DetailRow label="Nazev" value={detail.name} />
+            <DetailRow label="Název" value={detail.name} />
             <DetailRow label="Kategorie" value={CATEGORIES.find(c => c.value === detail.category)?.label || detail.category} />
-            <DetailRow label="Porizovaci cena" value={fmt(detail.purchase_price)} />
+            <DetailRow label="Pořizovací cena" value={fmt(detail.purchase_price)} />
             <DetailRow label="Aktualni hodnota" value={fmt(detail.current_value)} />
-            <DetailRow label="Datum porizeni" value={detail.acquired_date ? new Date(detail.acquired_date).toLocaleDateString('cs-CZ') : '—'} />
-            <DetailRow label="Stav" value={detail.status === 'active' ? 'Aktivni' : 'Vyrazeno'} />
+            <DetailRow label="Datum pořízení" value={detail.acquired_date ? new Date(detail.acquired_date).toLocaleDateString('cs-CZ') : '—'} />
+            <DetailRow label="Stav" value={detail.status === 'active' ? 'Aktivní' : 'Vyřazeno'} />
             {detail.description && <div className="col-span-2"><DetailRow label="Popis" value={detail.description} /></div>}
-            {detail.invoice_number && <DetailRow label="Cislo faktury" value={detail.invoice_number} />}
+            {detail.invoice_number && <DetailRow label="Číslo faktury" value={detail.invoice_number} />}
             {detail.supplier && <DetailRow label="Dodavatel" value={detail.supplier} />}
           </div>
           <div className="flex justify-end mt-5"><Button onClick={() => setDetail(null)}>Zavrit</Button></div>
@@ -191,7 +191,7 @@ function AddAssetModal({ onClose, onSaved }) {
       await supabase.from('accounting_entries').insert({
         type: 'expense',
         amount: price,
-        description: `Porizeni: ${form.name}`,
+        description: `Pořízení: ${form.name}`,
         category: 'kratkodoby_majetek',
         date: form.acquired_date,
       })
@@ -201,24 +201,24 @@ function AddAssetModal({ onClose, onSaved }) {
   }
 
   return (
-    <Modal open title="Novy kratkodoby majetek" onClose={onClose}>
+    <Modal open title="Novy krátkodobý majetek" onClose={onClose}>
       <div className="space-y-3">
-        <div><Label>Nazev</Label><input type="text" value={form.name} onChange={e => set('name', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
+        <div><Label>Název</Label><input type="text" value={form.name} onChange={e => set('name', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
         <div><Label>Kategorie</Label>
           <select value={form.category} onChange={e => set('category', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle}>
             {CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
           </select>
         </div>
-        <div><Label>Porizovaci cena (Kc)</Label><input type="number" value={form.purchase_price} onChange={e => set('purchase_price', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
-        <div><Label>Datum porizeni</Label><input type="date" value={form.acquired_date} onChange={e => set('acquired_date', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
+        <div><Label>Pořizovací cena (Kč)</Label><input type="number" value={form.purchase_price} onChange={e => set('purchase_price', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
+        <div><Label>Datum pořízení</Label><input type="date" value={form.acquired_date} onChange={e => set('acquired_date', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
         <div><Label>Dodavatel</Label><input type="text" value={form.supplier} onChange={e => set('supplier', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
-        <div><Label>Cislo faktury</Label><input type="text" value={form.invoice_number} onChange={e => set('invoice_number', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
+        <div><Label>Číslo faktury</Label><input type="text" value={form.invoice_number} onChange={e => set('invoice_number', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
         <div><Label>Popis</Label><textarea value={form.description} onChange={e => set('description', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={{ ...inputStyle, minHeight: 60 }} /></div>
       </div>
       {err && <p className="mt-3 text-sm" style={{ color: '#dc2626' }}>{err}</p>}
       <div className="flex justify-end gap-3 mt-5">
-        <Button onClick={onClose}>Zrusit</Button>
-        <Button green onClick={handleSave} disabled={saving || !form.name || !form.purchase_price}>{saving ? 'Ukladam...' : 'Ulozit'}</Button>
+        <Button onClick={onClose}>Zrušit</Button>
+        <Button green onClick={handleSave} disabled={saving || !form.name || !form.purchase_price}>{saving ? 'Ukladam...' : 'Uložit'}</Button>
       </div>
     </Modal>
   )

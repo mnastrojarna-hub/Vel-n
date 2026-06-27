@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { calcBikeEconomicsReal, calcBikeEconomicsBenchmark } from '../../lib/fleetCalc'
 import TimePeriodSelector, { filterByPeriod, hasMinimumData, diffDays } from './TimePeriodSelector'
+import { isRealizedBooking } from '../../lib/revenueUtils'
 
 function classifyGrowth(cur, prev) {
   if (!prev || !cur) return 'Nedostatek dat'
@@ -40,7 +41,7 @@ export default function VykonPobocek() {
     setLoading(true); setError(null)
     try {
       const [bRes, mRes, lRes] = await Promise.all([
-        supabase.from('bookings').select('id, moto_id, start_date, end_date, total_price, status, created_at'),
+        supabase.from('bookings').select('id, moto_id, start_date, end_date, total_price, status, created_at, payment_status, is_test'),
         supabase.from('motorcycles').select('id, branch_id, model, category, brand, status'),
         supabase.from('branches').select('id, name, city, location, type'),
       ])
@@ -56,7 +57,8 @@ export default function VykonPobocek() {
   if (!raw || raw.locations.length === 0) return <div className="p-8 text-center" style={{ color: '#888' }}>Žádné pobočky</div>
 
   const { bookings, motorcycles, locations } = raw
-  const completed = filterByPeriod(bookings.filter(b => b.status === 'completed'), period, 'created_at')
+  // Obrat = zaplacené rezervace (reserved/active/completed), ne jen completed.
+  const completed = filterByPeriod(bookings.filter(isRealizedBooking), period, 'created_at')
   const has3mo = hasMinimumData(bookings)
 
   const motoBranchMap = {}
@@ -101,7 +103,7 @@ export default function VykonPobocek() {
     if (has3mo && period.type === 'month') {
       const thisM = locCompleted.reduce((s, b) => s + (Number(b.total_price) || 0), 0)
       const prevCompleted = filterByPeriod(
-        bookings.filter(b => b.status === 'completed'),
+        bookings.filter(isRealizedBooking),
         { type: 'month', year: period.month === 0 ? period.year - 1 : period.year, month: period.month === 0 ? 11 : period.month - 1 },
         'created_at'
       ).filter(b => locMotoIds.has(b.moto_id))
@@ -110,10 +112,10 @@ export default function VykonPobocek() {
     } else if (has3mo) {
       const thisYear = now.getFullYear()
       const thisMonth = now.getMonth()
-      const thisMonthRev = bookings.filter(b => b.status === 'completed' && locMotoIds.has(b.moto_id))
+      const thisMonthRev = bookings.filter(b => isRealizedBooking(b) && locMotoIds.has(b.moto_id))
         .filter(b => { const d = new Date(b.created_at); return d.getMonth() === thisMonth && d.getFullYear() === thisYear })
         .reduce((s, b) => s + (Number(b.total_price) || 0), 0)
-      const lastYearRev = bookings.filter(b => b.status === 'completed' && locMotoIds.has(b.moto_id))
+      const lastYearRev = bookings.filter(b => isRealizedBooking(b) && locMotoIds.has(b.moto_id))
         .filter(b => { const d = new Date(b.created_at); return d.getMonth() === thisMonth && d.getFullYear() === thisYear - 1 })
         .reduce((s, b) => s + (Number(b.total_price) || 0), 0)
       classification = classifyGrowth(thisMonthRev, lastYearRev)
@@ -166,8 +168,9 @@ export default function VykonPobocek() {
         <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
-              {['Název', 'Typ', 'Obrat', 'Obrat/motorku', 'Zisk/motorku', 'Rezervace', 'Obsazenost %', has3mo ? 'Klasifikace' : null].filter(Boolean).map(h => (
-                <th key={h} className="text-left font-bold py-2 px-3" style={{ color: '#1a2e22' }}>{h}</th>
+              {['Název', 'Typ', 'Obrat', 'Obrat/motorku', 'Odhad ročního zisku/motorku', 'Rezervace', 'Obsazenost %', has3mo ? 'Klasifikace' : null].filter(Boolean).map(h => (
+                <th key={h} className="text-left font-bold py-2 px-3" style={{ color: '#1a2e22' }}
+                  title={h === 'Odhad ročního zisku/motorku' ? 'Roční projekce zisku na motorku (benchmark/skutečná ekonomika), NE zisk za zvolené období — proto není srovnatelný s Obratem/motorku za období.' : undefined}>{h}</th>
               ))}
             </tr>
           </thead>

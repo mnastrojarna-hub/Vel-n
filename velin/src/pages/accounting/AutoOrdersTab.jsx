@@ -13,7 +13,7 @@ import RuleModal from './RuleModal'
 import OrderDetailModal from './OrderDetailModal'
 
 const PER_PAGE = 25
-const STATUS_LABELS = { draft: 'Koncept', sent: 'Odeslano', received: 'Prijato', cancelled: 'Zruseno' }
+const STATUS_LABELS = { draft: 'Koncept', sent: 'Odesláno', received: 'Prijato', cancelled: 'Zrušeno' }
 const TRIGGER_LABELS = { stock_low: 'Nizky sklad', interval: 'Pravidelny interval', manual: 'Jednorazova' }
 const TRIGGER_COLORS = { stock_low: '#dc2626', interval: '#2563eb', manual: '#b45309' }
 const TRIGGER_BGS = { stock_low: '#fee2e2', interval: '#dbeafe', manual: '#fef3c7' }
@@ -54,7 +54,7 @@ export default function AutoOrdersTab() {
     setResultMsg(null)
     try {
       const { data: items } = await supabase.from('purchase_order_items').select('*, inventory(name, sku)').eq('order_id', order.id)
-      const emailItems = (items || []).map(it => ({ name: it.inventory?.name || 'Neznama polozka', sku: it.inventory?.sku || '', quantity: it.quantity, unit_price: it.unit_price }))
+      const emailItems = (items || []).map(it => ({ name: it.inventory?.name || 'Neznama položka', sku: it.inventory?.sku || '', quantity: it.quantity, unit_price: it.unit_price }))
       const supplierEmail = order.suppliers?.contact_email
       if (!supplierEmail) { setError('Dodavatel nema vyplneny email.'); return }
       const result = await debugAction('order.sendEmail', 'AutoOrdersTab', () =>
@@ -75,7 +75,7 @@ export default function AutoOrdersTab() {
       const { data: sup } = await supabase.from('suppliers').select('*').eq('id', rule.supplier_id).single()
       if (!sup?.contact_email) { setError('Dodavatel nema vyplneny email.'); return }
       const qty = rule.order_quantity || (inv ? inv.min_stock * 2 - inv.stock : 10)
-      const orderPayload = { supplier_id: rule.supplier_id, notes: rule.notes || `Auto-objednavka: ${inv?.name || 'polozka'}`, status: 'draft', total_amount: qty * (inv?.unit_price || 0) }
+      const orderPayload = { supplier_id: rule.supplier_id, notes: rule.notes || `Auto-objednavka: ${inv?.name || 'položka'}`, status: 'draft', total_amount: qty * (inv?.unit_price || 0) }
       const { data: order, error: oErr } = await supabase.from('purchase_orders').insert(orderPayload).select().single()
       if (oErr) throw oErr
       await supabase.from('purchase_order_items').insert({ order_id: order.id, item_id: rule.inventory_item_id, quantity: qty, unit_price: inv?.unit_price || 0 })
@@ -87,7 +87,7 @@ export default function AutoOrdersTab() {
   }
 
   const totalPages = Math.ceil(total / PER_PAGE)
-  const fmt = n => n ? `${Number(n).toLocaleString('cs-CZ')} Kc` : '\u2014'
+  const fmt = n => n ? `${Number(n).toLocaleString('cs-CZ')} Kč` : '\u2014'
 
   return (
     <div>
@@ -120,7 +120,7 @@ export default function AutoOrdersTab() {
               <Table>
                 <thead><TRow header>
                   <TH><SelectAllCheckbox items={orders} selectedIds={selOrderIds} setSelectedIds={setSelOrderIds} /></TH>
-                  <TH>Cislo</TH><TH>Dodavatel</TH><TH>Email</TH><TH>Datum</TH><TH>Celkem</TH><TH>Stav</TH><TH>Akce</TH>
+                  <TH>Číslo</TH><TH>Dodavatel</TH><TH>Email</TH><TH>Datum</TH><TH>Celkem</TH><TH>Stav</TH><TH>Akce</TH>
                 </TRow></thead>
                 <tbody>
                   {orders.map(o => (
@@ -138,7 +138,7 @@ export default function AutoOrdersTab() {
                       <TD>{(o.status === 'draft' || o.status === 'sent') && <button onClick={() => sendOrderEmail(o)} className="rounded-btn text-sm font-bold cursor-pointer" style={{ padding: '4px 10px', background: '#dbeafe', color: '#2563eb', border: 'none' }}>{o.status === 'draft' ? 'Odeslat email' : 'Preposlat'}</button>}</TD>
                     </tr>
                   ))}
-                  {orders.length === 0 && <TRow><TD>Zadne objednavky</TD></TRow>}
+                  {orders.length === 0 && <TRow><TD>Žádné objednavky</TD></TRow>}
                 </tbody>
               </Table>
               <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
@@ -163,7 +163,7 @@ export default function AutoOrdersTab() {
             <Table>
               <thead><TRow header>
                 <TH><SelectAllCheckbox items={rules} selectedIds={selRuleIds} setSelectedIds={setSelRuleIds} /></TH>
-                <TH>Polozka</TH><TH>Dodavatel</TH><TH>Typ</TH><TH>Mnozstvi</TH><TH>Stav</TH><TH>Posledni spusteni</TH><TH>Akce</TH>
+                <TH>Položka</TH><TH>Dodavatel</TH><TH>Typ</TH><TH>Množství</TH><TH>Stav</TH><TH>Poslední spuštění</TH><TH>Akce</TH>
               </TRow></thead>
               <tbody>
                 {rules.map(r => (
@@ -173,7 +173,7 @@ export default function AutoOrdersTab() {
                     <TD>{r.suppliers?.name || '\u2014'}</TD>
                     <TD><Badge label={TRIGGER_LABELS[r.trigger_type] || r.trigger_type} color={TRIGGER_COLORS[r.trigger_type] || '#6b7280'} bg={TRIGGER_BGS[r.trigger_type] || '#f3f4f6'} />{r.trigger_type === 'stock_low' && <span style={{ fontSize: 11, color: '#6b7280', marginLeft: 4 }}>{'\u2264'}{r.threshold_quantity}</span>}{r.trigger_type === 'interval' && <span style={{ fontSize: 11, color: '#6b7280', marginLeft: 4 }}>/{r.interval_days}d</span>}</TD>
                     <TD bold>{r.order_quantity || '\u2014'} ks</TD>
-                    <TD><span className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase cursor-pointer" onClick={() => toggleRule(r)} style={{ padding: '4px 10px', background: r.is_active ? '#dcfce7' : '#f3f4f6', color: r.is_active ? '#1a8a18' : '#6b7280' }}>{r.is_active ? 'Aktivni' : 'Neaktivni'}</span></TD>
+                    <TD><span className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase cursor-pointer" onClick={() => toggleRule(r)} style={{ padding: '4px 10px', background: r.is_active ? '#dcfce7' : '#f3f4f6', color: r.is_active ? '#1a8a18' : '#6b7280' }}>{r.is_active ? 'Aktivní' : 'Neaktivní'}</span></TD>
                     <TD>{r.last_triggered_at ? new Date(r.last_triggered_at).toLocaleString('cs-CZ') : '\u2014'}</TD>
                     <TD><div className="flex gap-1">
                       <button onClick={() => runRuleNow(r)} className="rounded-btn text-sm font-bold cursor-pointer" style={{ padding: '4px 8px', background: '#dcfce7', color: '#1a8a18', border: 'none' }}>Spustit</button>
@@ -182,7 +182,7 @@ export default function AutoOrdersTab() {
                     </div></TD>
                   </TRow>
                 ))}
-                {rules.length === 0 && <TRow><TD>Zadna pravidla — pridejte prvni automatickou objednavku</TD></TRow>}
+                {rules.length === 0 && <TRow><TD>Žádná pravidla — pridejte prvni automatickou objednavku</TD></TRow>}
               </tbody>
             </Table>
             </>

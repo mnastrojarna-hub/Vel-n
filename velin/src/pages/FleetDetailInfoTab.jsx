@@ -56,6 +56,8 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
   const [schedules, setSchedules] = useState([])
   const [motoBookings, setMotoBookings] = useState([])
   const [avgKm, setAvgKm] = useState(null)
+  const [kmStats, setKmStats] = useState(null) // z analytics_moto_km (na půjčovní/kalendářní den)
+  const [correcting, setCorrecting] = useState(false)
   const [branches, setBranches] = useState([])
   const [showMigrate, setShowMigrate] = useState(false)
   const [migrateTo, setMigrateTo] = useState('')
@@ -79,12 +81,12 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
     supabase.from('sos_incidents').select('id, type, status, severity, created_at, description, booking_id')
       .eq('moto_id', moto.id).order('created_at', { ascending: false }).limit(10)
       .then(({ data }) => setSosIncidents(data || []))
-    supabase.from('maintenance_log').select('mileage_at_service, created_at').eq('moto_id', moto.id).order('created_at', { ascending: true })
+    supabase.from('maintenance_log').select('km_at_service, created_at').eq('moto_id', moto.id).order('created_at', { ascending: true })
       .then(({ data }) => {
         if (data?.length >= 2) {
-          const validEntries = data.filter(d => d.mileage_at_service != null && d.mileage_at_service > 0)
+          const validEntries = data.filter(d => d.km_at_service != null && d.km_at_service > 0)
           if (validEntries.length >= 2) {
-            const diff = validEntries[validEntries.length - 1].mileage_at_service - validEntries[0].mileage_at_service
+            const diff = validEntries[validEntries.length - 1].km_at_service - validEntries[0].km_at_service
             const sDays = seasonDaysBetween(new Date(validEntries[0].created_at), new Date(validEntries[validEntries.length - 1].created_at))
             if (sDays > 0 && diff > 0) { setAvgKm(Math.round((diff / sDays) * 30)); return }
           }
@@ -104,8 +106,28 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
         }
       })
     supabase.from('branches').select('id, name').order('name').then(({ data }) => setBranches(data || []))
+    // Přesné km průměry (na kalendářní i půjčovní den) z protokolových čtení.
+    supabase.rpc('analytics_moto_km').then(({ data }) => {
+      const row = (data || []).find(r => r.moto_id === moto.id)
+      if (row) setKmStats(row)
+    }).catch(() => {})
     loadManual()
   }, [moto.id])
+
+  // Ruční korekce nájezdu — zapíše přes RPC (audit + srovnání na purchase_mileage).
+  async function handleCorrectMileage() {
+    const cur = moto.mileage != null ? String(moto.mileage) : ''
+    const input = window.prompt(`Zadej skutečný stav ${unitLabel}:`, cur)
+    if (input == null) return
+    const km = parseInt(String(input).replace(/[^\d]/g, ''), 10)
+    if (!Number.isFinite(km) || km < 0) { alert('Neplatná hodnota.'); return }
+    setCorrecting(true)
+    const { data, error: rpcErr } = await supabase.rpc('correct_motorcycle_mileage', { p_moto_id: moto.id, p_km: km, p_note: 'Ruční korekce ve Flotile' })
+    setCorrecting(false)
+    if (rpcErr) { alert('Korekce selhala: ' + rpcErr.message); return }
+    set('mileage', data?.mileage ?? km)
+    onMotoReload && onMotoReload()
+  }
   async function loadManual() {
     try {
       const { data } = await supabase.storage.from('media').list(`motos/${moto.id}/manual`)
@@ -204,7 +226,7 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
           <Field label="Rok výroby" value={moto.year} onChange={v => set('year', v)} type="number" />
           <Field label="Objem (cc)" value={moto.engine_cc} onChange={v => set('engine_cc', v)} type="number" />
           <Field label="Barva" value={moto.color} onChange={v => set('color', v)} />
-          <Field label="Datum pořízení" value={moto.acquired_at || ''} onChange={v => set('acquired_at', v)} type="date" />
+          <Field label="Datum pořízení" value={moto.acquired_at || ''} onChange={v => set('acquired_at', v)} type="date" max={new Date().toLocaleDateString('sv-SE')} />
           <div>
             <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>STK platné do</label>
             <div className="flex items-center gap-2">
@@ -220,7 +242,19 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
               })()}
             </div>
           </div>
-          <Field label={unit === 'mh' ? 'Nájezd (MH)' : 'Nájezd (km)'} value={moto.mileage} onChange={v => set('mileage', v)} type="number" />
+          <div>
+            <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{unit === 'mh' ? 'Nájezd (MH)' : 'Nájezd (km)'}</label>
+            <div className="flex items-center gap-2">
+              <input type="text" inputMode="decimal" value={moto.mileage || ''} onChange={e => set('mileage', e.target.value)} className="flex-1 rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }} />
+              <button type="button" onClick={handleCorrectMileage} disabled={correcting}
+                className="rounded-btn text-sm font-extrabold uppercase cursor-pointer whitespace-nowrap"
+                style={{ padding: '8px 12px', background: '#dbeafe', color: '#2563eb', border: 'none' }}
+                title="Ruční korekce s auditem (např. po načtení skutečného tachometru). Aktualizuje se i automaticky z předávacích protokolů.">
+                {correcting ? '…' : 'Korigovat'}
+              </button>
+            </div>
+            <p className="text-xs mt-1" style={{ color: '#5b7065' }}>Aktualizuje se z předávacích protokolů (nejvyšší známý stav). „Korigovat“ = ruční oprava s auditem.</p>
+          </div>
           <Field label={unit === 'mh' ? 'Zakoupeno s MH' : 'Zakoupeno s KM'} value={moto.purchase_mileage} onChange={v => set('purchase_mileage', v)} type="number" placeholder={unit === 'mh' ? 'MH při zakoupení' : 'Km při zakoupení'} />
           <div>
             <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Sledování nájezdu</label>
@@ -437,13 +471,13 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
           <Button onClick={onDelete} style={{ color: '#dc2626' }}>Smazat</Button>
         </div>
       </Card>
-      <ServiceScheduleCard moto={moto} schedules={schedules} avgKm={avgKm} unitLabel={unitLabel} unit={unit} motoBookings={motoBookings} />
+      <ServiceScheduleCard moto={moto} schedules={schedules} avgKm={avgKm} kmStats={kmStats} unitLabel={unitLabel} unit={unit} motoBookings={motoBookings} />
       <SOSIncidentsCard sosIncidents={sosIncidents} motoId={moto.id} />
     </div>
   )
 }
 
-function Field({ label, value, onChange, type = 'text', disabled = false, placeholder = '' }) {
+function Field({ label, value, onChange, type = 'text', disabled = false, placeholder = '', max }) {
   // Numerická pole vykreslíme jako text+inputMode="decimal", aby šlo
   // psát jak "92.5" tak "92,5" (nativní type="number" čárku odmítá).
   const isNumeric = type === 'number'
@@ -452,7 +486,7 @@ function Field({ label, value, onChange, type = 'text', disabled = false, placeh
   return (
     <div>
       <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{label}</label>
-      <input type={inputType} inputMode={inputMode} value={value || ''} onChange={e => onChange?.(e.target.value)} disabled={disabled} placeholder={placeholder} className="w-full rounded-btn text-sm outline-none disabled:opacity-50" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }} />
+      <input type={inputType} inputMode={inputMode} max={max} value={value || ''} onChange={e => onChange?.(e.target.value)} disabled={disabled} placeholder={placeholder} className="w-full rounded-btn text-sm outline-none disabled:opacity-50" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }} />
     </div>
   )
 }

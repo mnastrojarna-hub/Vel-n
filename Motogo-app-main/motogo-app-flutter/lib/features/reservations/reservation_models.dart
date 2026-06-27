@@ -54,6 +54,7 @@ class Reservation {
   final String? branchCity;
   final double? branchLat;
   final double? branchLng;
+  final String? branchType; // 'samoobslužná' | 'obslužná'
   final double? stornoFee;
   final double? refundAmount;
   final String? motoLicenseRequired; // A, A2, A1, AM, B, N
@@ -118,6 +119,7 @@ class Reservation {
     this.branchCity,
     this.branchLat,
     this.branchLng,
+    this.branchType,
     this.stornoFee,
     this.refundAmount,
     this.motoLicenseRequired,
@@ -153,6 +155,7 @@ class Reservation {
       branchCity: branch?['city'] as String?,
       branchLat: (branch?['gps_lat'] as num?)?.toDouble(),
       branchLng: (branch?['gps_lng'] as num?)?.toDouble(),
+      branchType: branch?['type'] as String?,
       status: json['status'] as String? ?? 'pending',
       paymentStatus: json['payment_status'] as String? ?? 'unpaid',
       // tryParse + fallback — žádné chybějící/nestandardní datum nesmí shodit

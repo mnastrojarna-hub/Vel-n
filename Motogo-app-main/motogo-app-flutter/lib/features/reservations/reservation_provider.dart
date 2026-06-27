@@ -6,7 +6,20 @@ import 'reservation_models.dart';
 
 /// Booking select query — matches _getBookingById from reservations-ui.js.
 const _bookingSelect =
-    '*, motorcycles!moto_id(*, branches(name, address, city, gps_lat, gps_lng))';
+    '*, motorcycles!moto_id(*, branches(name, address, city, gps_lat, gps_lng, type))';
+
+/// Stav předávacího protokolu (samoobslužná pobočka) — `get_handover_protocol_state`.
+/// Vrací `{is_self_service, started_at, deadline, filled_at, autofilled, locked, can_fill}`.
+final handoverProtocolStateProvider =
+    FutureProvider.family<Map<String, dynamic>, String>((ref, bookingId) async {
+  try {
+    final res = await MotoGoSupabase.client
+        .rpc('get_handover_protocol_state', params: {'p_booking_id': bookingId});
+    return (res as Map?)?.cast<String, dynamic>() ?? <String, dynamic>{};
+  } catch (_) {
+    return <String, dynamic>{};
+  }
+});
 
 /// Odkaz na Google recenze — čte se ze stejného zdroje jako e-mailové šablony
 /// (`app_settings.google_review_url`), aby appka i mail vedly na FUNKČNÍ odkaz.

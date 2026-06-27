@@ -265,10 +265,10 @@ export default function CustomerScoreWidget({ userId }) {
       <Card>
         <div className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a8a18' }}>Pozitivni faktory</div>
         <div className="space-y-2">
-          <ScoreRow label="Celkovy obrat" detail={`${Math.round(breakdown.revenue.value).toLocaleString('cs-CZ')} Kc`} score={breakdown.revenue.score} max={breakdown.revenue.max} color="#1a8a18" />
+          <ScoreRow label="Celkovy obrat" detail={`${Math.round(breakdown.revenue.value).toLocaleString('cs-CZ')} Kč`} score={breakdown.revenue.score} max={breakdown.revenue.max} color="#1a8a18" />
           <ScoreRow label="Dokoncene rezervace" detail={`${breakdown.bookings.value}x`} score={breakdown.bookings.score} max={breakdown.bookings.max} color="#1a8a18" />
           <ScoreRow label="Prumerna delka pujceni" detail={`${breakdown.duration.value} dni`} score={breakdown.duration.score} max={breakdown.duration.max} color="#1a8a18" />
-          <ScoreRow label="Prumerna cena/den" detail={`${breakdown.dailyPrice.value} Kc`} score={breakdown.dailyPrice.score} max={breakdown.dailyPrice.max} color="#1a8a18" />
+          <ScoreRow label="Prumerna cena/den" detail={`${breakdown.dailyPrice.value} Kč`} score={breakdown.dailyPrice.score} max={breakdown.dailyPrice.max} color="#1a8a18" />
           <ScoreRow label="Vernost (opakovanost)" detail={breakdown.loyalty.value > 1 ? `${breakdown.loyalty.value} rezervaci` : 'Jednorazovy zakaznik'} score={breakdown.loyalty.score} max={breakdown.loyalty.max} color="#1a8a18" />
         </div>
       </Card>

@@ -5,6 +5,8 @@
 
 ## 5. TRIGGERY
 
+> **Živý stav: 90 triggerů** (snapshot 2026-06-24). Digest je proti tomuto snapshotu plně sesynchronizován — všechny živé triggery jsou níže zdokumentovány (bulkové `_updated`/`_updated_at` jsou vypsány buď přímo, nebo souhrnně v sekci „Doplněno 2026-06-04 ze snapshotu"), a všechny triggery dříve dokumentované jako odstraněné (SMAZÁN/DROPPED/NAHRAZENO/NENÍ V ŽIVÉ DB) v snapshotu 2026-06-24 skutečně chybí. Ze snapshotu 2026-06-24 nepřibyl ani neubyl žádný trigger oproti stavu 2026-06-23 (loyalty doména `loyalty_monthly_winners` / „loyalty award" žádný trigger nemá — věrnostní logika běží přes `trg_validate_app_loyalty` a RPC/cron, nikoli přes vlastní trigger).
+
 ### Z migrací
 | Trigger | Tabulka | Funkce |
 |---------|---------|--------|
@@ -41,6 +43,7 @@
 | `trg_sync_generated_doc_to_documents` | generated_documents (INSERT) | sync_generated_doc_to_documents() |
 | `trg_sync_moto_day_prices` | moto_day_prices (INSERT/UPDATE) | sync_moto_day_prices_to_motorcycles() |
 | `trg_generate_final_invoice` | bookings (AFTER UPDATE OF status, WHEN active→completed) | generate_final_invoice_on_complete() — SECURITY DEFINER, EXCEPTION safe |
+| `gear_shortage_on_booking` | bookings (AFTER INSERT OR UPDATE OF start_date, end_date, moto_id, status, 10× *_size) | **NEW 2026-06-23 (`20260623_gear_logistics.sql`, Logistika zboží).** `trg_gear_shortage_on_booking()` → přepočítá deficity výbavy (`detect_gear_shortages_for_window`) pro pobočku motorky + termín rezervace. Celá v `BEGIN/EXCEPTION WHEN OTHERS→null` → **rezervaci NIKDY neblokuje** („vždy pustit + jen flagnout"). SECURITY DEFINER. |
 | ~~`trg_auto_generate_door_codes`~~ | ~~bookings~~ | **SMAZÁN 2026-03-24** — nahrazen _insert + _update verzemi |
 | `trg_auto_generate_door_codes_insert` | bookings (AFTER INSERT, WHEN status IN active/reserved) | auto_generate_door_codes() — pro SOS replacement bookings vytvořené rovnou jako active i pro web rezervace vytvořené rovnou jako reserved |
 | `trg_auto_generate_door_codes_update` | bookings (AFTER UPDATE OF status, WHEN →active OR →reserved) | **UPDATE 2026-05-08:** auto_generate_door_codes() — SECURITY DEFINER, generuje 2 kódy (motorcycle+accessories), posílá admin_message. **Rozšířeno o přechod →reserved** (web booking confirmation pro budoucí termíny), aby `booking_reserved` mail obsahoval kódy už v okamžiku potvrzení rezervace, nikoli až při auto-aktivaci v den startu. Idempotentní (skipne, pokud `branch_door_codes` pro daný booking už existují). Pokud zákazník nahrál OP+ŘP / pas+ŘP před platbou (krok 2 web rezervace), kódy se uvolní zákazníkovi (sent_to_customer=true). Jinak `withheld_reason='Chybí doklady (OP/pas/ŘP)'` → `send-booking-email` v takovém případě v `door_codes_block` placeholderu vykreslí výzvu k nahrání dokladů + odkaz na `/upravit-rezervaci?id=…#doklady` + zmínku o osobním ověření. EXCEPTION safe |
@@ -80,6 +83,9 @@
 |---------|---------|--------|
 | `bookings_auto_accounting` | bookings (AFTER UPDATE OF payment_status, WHEN paid) | auto_accounting_on_booking_paid() — EXCEPTION safe. **FIX 2026-06-11:** funkce do té doby tiše padala na `category NOT NULL` → příjmy se nezapisovaly (viz STATE_3) |
 | `maintenance_log_after_insert` | maintenance_log | update_moto_after_service() |
+| `maintenance_log_after_update` | maintenance_log (AFTER UPDATE OF km_at_service, status, completed_date) | **NEW 2026-06-28 (`20260628_handover_mileage_and_service_analytics.sql`).** update_moto_after_service() — pokryje dodatečné doplnění km / přepnutí na completed (idempotentní s AFTER INSERT, bump je GREATEST). |
+| `trg_booking_mileage_to_moto` | bookings (AFTER INSERT OR UPDATE OF mileage_start) | **NEW 2026-06-28.** trg_booking_mileage_to_moto() — propíše km z předávacího protokolu na motorku `mileage = GREATEST(COALESCE(mileage,0), NEW.mileage_start)` (jen když roste a `mileage_start>0`). Column-scoped (`OF mileage_start`) → neinteraguje s `trg_booking_modified_email`/door codes/účetnictvím (ty sledují status/moto/cenu/místo/payment_status, NE mileage_start). SECURITY DEFINER, EXCEPTION-safe (chyba → `debug_log`, nikdy neshodí UPDATE rezervace). |
+| `trg_moto_purchase_mileage_floor` | motorcycles (BEFORE INSERT OR UPDATE OF mileage, purchase_mileage) | **NEW 2026-06-28.** trg_moto_purchase_mileage_floor() — když `purchase_mileage > mileage`, zvedne `NEW.mileage` na `purchase_mileage` (srovnání po vyplnění „Zakoupeno s KM"). Čistá funkce bez I/O. |
 | ~~`sos_auto_reply_on_create`~~ | ~~sos_incidents (INSERT)~~ | **DROPPED 2026-03-10** — crashoval INSERT bez error handleru |
 | ~~`admin_users_updated_at`~~ | ~~admin_users~~ | **SMAZÁN 2026-03-24** — duplicitní s trg_admin_users_updated |
 | ~~`ai_conversations_updated_at`~~ | ~~ai_conversations~~ | **SMAZÁN 2026-03-24** — duplicitní s trg_ai_conversations_updated |

@@ -93,6 +93,8 @@ $rezKeys = [
     'steps.pwdTitle','steps.pwdSet','steps.pwdSetSub','steps.pwdCreate','steps.pwdCreateSub','steps.pwdPh','steps.pwdConfirmPh',
     'steps.extrasTitle','steps.extrasSub','steps.loadingProducts','steps.invTitle','steps.metaCustomer','steps.metaMotoTerm',
     'steps.metaDelivery','steps.metaReturn','steps.newReservation',
+    'steps.cancelBooking','steps.cancelConfirm','steps.docsOptionalNote','steps.staffedBranchLabel','steps.staffedBranchNote',
+    'steps.pwdChange','steps.pwdCurrentPh','steps.pwdNewPh','steps.pwdSave','steps.pwdChanged','steps.pwdTooShort','steps.pwdMismatch','steps.pwdWrongCurrent',
 ];
 $rezI18n = [];
 foreach ($rezKeys as $k) {

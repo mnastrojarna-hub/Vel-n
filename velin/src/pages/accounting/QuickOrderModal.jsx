@@ -63,11 +63,11 @@ export default function QuickOrderModal({ onClose, onSaved }) {
           <input value={form.email_override} onChange={e => setForm(f => ({ ...f, email_override: e.target.value }))} placeholder={selectedSupplier?.contact_email || 'email@dodavatel.cz'} className="w-full rounded-btn text-sm outline-none" style={inputStyle} />
           <p style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>Ponechte prazdne pro pouziti emailu dodavatele.</p>
         </div>
-        <div><Label>Polozky</Label>
+        <div><Label>Položky</Label>
           {items.map((it, idx) => (
             <div key={idx} className="flex items-center gap-2 mb-2">
               <select value={it.item_id} onChange={e => selectItem(idx, e.target.value)} className="flex-1 rounded-btn text-sm outline-none" style={inputStyle}>
-                <option value="">— Polozka —</option>
+                <option value="">— Položka —</option>
                 {inventory.map(i => <option key={i.id} value={i.id}>{i.name} ({i.sku})</option>)}
               </select>
               <input type="number" value={it.quantity} onChange={e => updateItem(idx, 'quantity', e.target.value)} placeholder="Ks" className="rounded-btn text-sm outline-none" style={{ ...inputStyle, width: 70 }} />
@@ -87,7 +87,7 @@ export default function QuickOrderModal({ onClose, onSaved }) {
       </div>
       {err && <p className="mt-3 text-sm" style={{ color: '#dc2626' }}>{err}</p>}
       <div className="flex justify-end gap-3 mt-5">
-        <Button onClick={onClose}>Zrusit</Button>
+        <Button onClick={onClose}>Zrušit</Button>
         <Button green onClick={handleSave} disabled={saving || !form.supplier_id || !items.some(i => i.item_id)}>{saving ? 'Odesilam...' : sendEmail ? 'Vytvorit a odeslat' : 'Vytvorit'}</Button>
       </div>
     </Modal>

@@ -115,6 +115,30 @@ Future<DiscountResult> validateAndApplyCode(String code) async {
     }
   } catch (_) {}
 
+  // 3. Slevomat voucher přes edge fn — ověří u Slevomatu + založí voucher.
+  try {
+    final sl = await MotoGoSupabase.client.functions.invoke(
+      'slevomat-voucher',
+      body: {'action': 'check', 'code': upperCode},
+    );
+    final d = sl.data;
+    if (d is Map && d['valid'] == true && d['voucher_id'] != null) {
+      final value = (d['amount'] as num?)?.toDouble() ?? 0;
+      return DiscountResult(
+        success: true,
+        discount: AppliedDiscount(
+          code: upperCode,
+          promoId: d['voucher_id'] as String?,
+          type: DiscountType.fixed,
+          value: value,
+          isVoucher: true,
+        ),
+        messageKey: 'voucherApplied',
+        messageArgs: {'value': '${Money.czk(value)}'},
+      );
+    }
+  } catch (_) {}
+
   return DiscountResult(
     success: false,
     messageKey: 'invalidCode',

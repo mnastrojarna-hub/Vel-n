@@ -472,6 +472,17 @@ switch (true) {
         require __DIR__ . '/pages/pujcovna.php';
         break;
 
+    // Oblasti — SEO rozcestník krajů + krajské landing stránky
+    // ("motopůjčovna {město}"). Přehled /oblasti, detail /oblasti/<slug-kraje>.
+    case $path === '/oblasti':
+        require __DIR__ . '/pages/oblasti.php';
+        break;
+
+    case preg_match('#^/oblasti/([a-z0-9\-]+)$#', $path, $matches) === 1:
+        $_GET['region'] = $matches[1];
+        require __DIR__ . '/pages/oblasti-detail.php';
+        break;
+
     // Jak si půjčit — rozcestníková stránka /jak-pujcit byla odstraněna
     // (obsahově duplicitní s podstránkami). Přesměrováváme 301 na /jak-pujcit/postup,
     // aby ~550 backlinků (Google + externí) neztratilo SEO juice. V menu zůstává

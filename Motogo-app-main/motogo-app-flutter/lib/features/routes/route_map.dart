@@ -13,6 +13,7 @@ class RouteMapView extends StatefulWidget {
   final List<({LatLng point, int index})> pois;
   final bool interactive;
   final int? activePoi; // zvýrazněný POI (z karuselu detailu)
+  final void Function(int index)? onPoiTap; // klik na bod zájmu na mapě
 
   const RouteMapView({
     super.key,
@@ -21,6 +22,7 @@ class RouteMapView extends StatefulWidget {
     this.pois = const [],
     this.interactive = true,
     this.activePoi,
+    this.onPoiTap,
   });
 
   @override
@@ -125,11 +127,14 @@ class _RouteMapViewState extends State<RouteMapView> {
             for (final p in widget.pois)
               Marker(
                 point: p.point,
-                width: 30,
-                height: 30,
-                child: _PoiPin(
-                  index: p.index,
-                  active: widget.activePoi == p.index,
+                width: 34,
+                height: 34,
+                child: GestureDetector(
+                  onTap: () => widget.onPoiTap?.call(p.index),
+                  child: _PoiPin(
+                    index: p.index,
+                    active: widget.activePoi == p.index,
+                  ),
                 ),
               ),
           ],

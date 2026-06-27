@@ -1,15 +1,23 @@
-import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-/// Přenos trasy se zastávkami do externí navigace — Apple Maps (iOS) / Google
-/// Maps. Body = uspořádaný seznam (start pobočka → waypointy → u okruhu zpět).
+/// Přenos trasy se zastávkami do externí navigace — Mapy.com / Google Maps /
+/// Apple Maps. Body = uspořádaný seznam (start pobočka → waypointy → u okruhu zpět).
 class RouteExport {
   RouteExport._();
 
   static String _ll(LatLng p) =>
       '${p.latitude.toStringAsFixed(6)},${p.longitude.toStringAsFixed(6)}';
+
+  /// Mapy.com — plánovač trasy přes všechny body (otevře appku Mapy / web).
+  /// Mapy používají pořadí lon,lat (x,y).
+  static Uri mapy(List<LatLng> points) {
+    final wp = points
+        .map((p) => '${p.longitude.toStringAsFixed(6)},${p.latitude.toStringAsFixed(6)}')
+        .join(';');
+    return Uri.parse('https://mapy.com/fnc/v1/route?mapset=outdoor&routeType=car_fast&waypoints=$wp');
+  }
 
   /// Google Maps directions URL s mezizastávkami.
   static Uri googleMaps(List<LatLng> points) {
@@ -36,21 +44,20 @@ class RouteExport {
     return Uri.parse('https://maps.apple.com/?saddr=$saddr&daddr=$daddr&dirflg=d');
   }
 
-  static bool get _isIos => !kIsWeb && Platform.isIOS;
-
-  /// Dostupné cíle pro aktuální platformu (iOS → Apple + Google, jinak Google).
-  static List<RouteExportTarget> targets() {
-    if (_isIos) {
-      return const [RouteExportTarget.appleMaps, RouteExportTarget.googleMaps];
-    }
-    return const [RouteExportTarget.googleMaps];
-  }
+  /// Dostupné cíle — Mapy.com, Google Maps i Apple Maps (na všech platformách;
+  /// OS otevře appku, nebo web).
+  static List<RouteExportTarget> targets() => const [
+        RouteExportTarget.mapy,
+        RouteExportTarget.googleMaps,
+        RouteExportTarget.appleMaps,
+      ];
 
   static Future<bool> open(RouteExportTarget target, List<LatLng> points) async {
     if (points.length < 2) return false;
     final uri = switch (target) {
-      RouteExportTarget.appleMaps => appleMaps(points),
+      RouteExportTarget.mapy => mapy(points),
       RouteExportTarget.googleMaps => googleMaps(points),
+      RouteExportTarget.appleMaps => appleMaps(points),
     };
     try {
       return await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -62,16 +69,19 @@ class RouteExport {
 }
 
 enum RouteExportTarget {
-  appleMaps,
-  googleMaps;
+  mapy,
+  googleMaps,
+  appleMaps;
 
   String get label => switch (this) {
-        RouteExportTarget.appleMaps => 'Apple Maps',
+        RouteExportTarget.mapy => 'Mapy.com',
         RouteExportTarget.googleMaps => 'Google Maps',
+        RouteExportTarget.appleMaps => 'Apple Maps',
       };
 
   String get emoji => switch (this) {
-        RouteExportTarget.appleMaps => '🍎',
+        RouteExportTarget.mapy => '🧭',
         RouteExportTarget.googleMaps => '🗺️',
+        RouteExportTarget.appleMaps => '🍎',
       };
 }

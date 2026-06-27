@@ -17,6 +17,7 @@
  */
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabase'
+import { isRealizedBooking } from '../../lib/revenueUtils'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, Legend, CartesianGrid } from 'recharts'
 
 const GRANULARITIES = [
@@ -74,15 +75,15 @@ export default function Navstevnost() {
       const { from, to } = range()
       const { data, error: e } = await supabase
         .from('bookings')
-        .select('total_price, payment_status, status, booking_source, created_at')
+        .select('total_price, payment_status, status, booking_source, created_at, is_test')
         .gte('created_at', from).lte('created_at', to)
       if (e) { setBiz(null); return }
-      const PAID = new Set(['paid', 'partial_refund', 'refund_pending', 'refunded'])
       const acc = { web: { count: 0, paid: 0, revenue: 0 }, app: { count: 0, paid: 0, revenue: 0 } }
       for (const b of (data || [])) {
+        if (b.is_test === true) continue
         const src = b.booking_source === 'web' ? 'web' : 'app'
         acc[src].count++
-        if (PAID.has(b.payment_status) && b.status !== 'cancelled') {
+        if (isRealizedBooking(b)) {
           acc[src].paid++
           acc[src].revenue += Number(b.total_price || 0)
         }
@@ -103,17 +104,23 @@ export default function Navstevnost() {
 
   async function loadData() {
     setLoading(true); setError(null); setNeedsSetup(false)
+    // Watchdog: kdyby RPC „viselo" (síť/RLS), neukazuj nekonečný spinner,
+    // ale po 20 s vypiš chybu — uživatel ví, co se děje, a může zkusit znovu.
+    const withTimeout = (p, ms = 20000) => Promise.race([
+      p,
+      new Promise((_, rej) => setTimeout(() => rej(new Error('Načítání trvalo příliš dlouho (timeout). Zkuste to prosím znovu.')), ms)),
+    ])
     try {
       const { from, to } = range()
       // A: vždy všechny domény (chipy + baseline)
-      const a = await supabase.rpc('get_visitor_stats', { p_from: from, p_to: to, p_host: null, p_granularity: gran })
+      const a = await withTimeout(supabase.rpc('get_visitor_stats', { p_from: from, p_to: to, p_host: null, p_granularity: gran }))
       if (a.error) {
         if (isMissing(a.error)) { setNeedsSetup(true); setAllStats(null); setStats(null); return }
         throw a.error
       }
       setAllStats(a.data || null)
       if (host) {
-        const b = await supabase.rpc('get_visitor_stats', { p_from: from, p_to: to, p_host: host, p_granularity: gran })
+        const b = await withTimeout(supabase.rpc('get_visitor_stats', { p_from: from, p_to: to, p_host: host, p_granularity: gran }))
         if (b.error && !isMissing(b.error)) throw b.error
         setStats(b.error ? null : (b.data || null))
       } else {
@@ -220,6 +227,19 @@ export default function Navstevnost() {
         ))}
         {hostList.length === 0 && <span style={{ color: '#bbb', fontSize: 12 }}>Zatím žádná data</span>}
       </div>
+
+      {/* Upřesnění období — KPI jsou SOUČET za celý zvolený rozsah, ne za dnešek */}
+      {(() => {
+        const r = range()
+        const fromD = new Date(r.from).toLocaleDateString('cs-CZ')
+        const toD = new Date(r.to).toLocaleDateString('cs-CZ')
+        const granLabel = (GRANULARITIES.find(g => g.id === gran)?.label || '').toLowerCase()
+        return (
+          <p className="text-xs mb-2" style={{ color: '#888' }}>
+            Souhrn za období <b>{fromD} – {toD}</b>{(!custom.from && !custom.to) ? ` (posledních ${GRANULARITIES.find(g => g.id === gran)?.days || ''} dní, graf po ${granLabel})` : ''} — čísla níže jsou součtem za celý rozsah, ne za dnešek.
+          </p>
+        )
+      })()}
 
       {/* KPI tiles */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">
