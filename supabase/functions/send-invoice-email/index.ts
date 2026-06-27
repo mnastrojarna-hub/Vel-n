@@ -269,6 +269,23 @@ serve(async (req) => {
     const recipientName = customer_name || profile?.full_name
     if (!recipientEmail) return jsonResponse({ success: false, error: 'No customer email available' }, 400)
 
+    // DEDUP: faktura jen JEDNOU. Brání dvojímu odeslání téhož dokladu (StrictMode
+    // re-mount / dvojklik / retry). Shoda = `sent` e-mail s tímto číslem na stejnou
+    // adresu za posledních 10 min.
+    try {
+      const since = new Date(Date.now() - 10 * 60 * 1000).toISOString()
+      const { data: dup } = await supabase
+        .from('message_log')
+        .select('id')
+        .eq('channel', 'email')
+        .eq('recipient_email', recipientEmail)
+        .eq('status', 'sent')
+        .ilike('content_preview', `%${invoice.number}%`)
+        .gte('created_at', since)
+        .limit(1)
+      if (dup && dup.length > 0) return jsonResponse({ success: true, deduped: true })
+    } catch (e) { /* dedup nesmí zablokovat odeslání */ }
+
     const invoiceLabel = TYPE_LABELS[invoice.type] || 'Faktura'
     const templateSlug = TYPE_TO_SLUG[invoice.type] || 'invoice_final'
 
@@ -331,7 +348,11 @@ serve(async (req) => {
     // Fallback to DB email_template + branded wrapper when the file is missing.
     let html = ''
     const attachments: { content: string; filename: string }[] = []
+    const attachmentsMeta: { filename: string; storage_path: string | null }[] = []
     if (invoice.pdf_path) {
+      const isPdfPath = /\.pdf$/i.test(invoice.pdf_path)
+      const metaFilename = `${invoiceLabel.replace(/ /g, '-')}-${invoice.number}.${isPdfPath ? 'pdf' : 'html'}`
+      attachmentsMeta.push({ filename: metaFilename, storage_path: invoice.pdf_path })
       try {
         const { data: blob } = await supabase.storage.from('documents').download(invoice.pdf_path)
         if (blob) {
@@ -387,7 +408,7 @@ serve(async (req) => {
 
     // Log
     try { await supabase.from('message_log').insert({ channel: 'email', direction: 'outbound', recipient_email: recipientEmail, customer_id: invoice.customer_id || null, booking_id: invoice.booking_id || null, template_slug: templateSlug, content_preview: subject.slice(0, 160), body: html, external_id: result.provider_id || null, status: result.success ? 'sent' : 'failed', error_message: result.error || null, is_marketing: false }) } catch {}
-    try { await supabase.from('sent_emails').insert({ template_slug: templateSlug, recipient_email: recipientEmail, recipient_id: invoice.customer_id || null, booking_id: invoice.booking_id || null, subject, body_html: html, status: result.success ? 'sent' : 'failed', error_message: result.error || null, provider_id: result.provider_id || null }) } catch {}
+    try { await supabase.from('sent_emails').insert({ template_slug: templateSlug, recipient_email: recipientEmail, recipient_id: invoice.customer_id || null, booking_id: invoice.booking_id || null, subject, body_html: html, status: result.success ? 'sent' : 'failed', error_message: result.error || null, provider_id: result.provider_id || null, attachments_meta: attachmentsMeta.length ? attachmentsMeta : null }) } catch {}
 
     if (!result.success) {
       try { await supabase.from('debug_log').insert({ source: 'send-invoice-email', action: 'invoice_email_failed', component: 'edge-function', status: 'error', error_message: result.error, request_data: { invoice_id } }) } catch {}

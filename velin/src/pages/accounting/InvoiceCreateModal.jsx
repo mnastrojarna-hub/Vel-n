@@ -56,6 +56,8 @@ export default function InvoiceCreateModal({ onClose, onSaved, prefillBooking })
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState(null)
   const [showStock, setShowStock] = useState(false)
+  // Odpočty (DP/ZF) přijaté platby pro vybranou rezervaci — doklad k úhradě 0 Kč.
+  const [deductibles, setDeductibles] = useState([])
 
   useEffect(() => {
     supabase.from('profiles').select('id, full_name, email').order('full_name').then(({ data }) => setCustomers(data || []))
@@ -77,6 +79,33 @@ export default function InvoiceCreateModal({ onClose, onSaved, prefillBooking })
       if (cust) setForm(f => ({ ...f, customer_id: cust.id }))
     }
   }, [form.booking_id, bookings, customers])
+
+  // Načti zálohové faktury (ZF) a doklady k platbě (DP) navázané na vybranou
+  // rezervaci — lze je na FV odečíst, aby „K úhradě" vyšlo 0 Kč při zachování položek.
+  useEffect(() => {
+    if (!form.booking_id) { setDeductibles([]); return }
+    let cancelled = false
+    supabase.from('invoices')
+      .select('id, number, type, total')
+      .eq('booking_id', form.booking_id)
+      .in('type', ['payment_receipt', 'advance', 'proforma'])
+      .neq('status', 'cancelled')
+      .order('issue_date', { ascending: true })
+      .then(({ data }) => { if (!cancelled) setDeductibles(data || []) })
+    return () => { cancelled = true }
+  }, [form.booking_id])
+
+  const DEDUCT_LABEL = { payment_receipt: 'DP', advance: 'ZF', proforma: 'ZF' }
+  // Přidej (nebo odeber) odečítací položku za daný doklad. Záporná částka = odpočet.
+  function toggleDeduction(inv) {
+    const label = DEDUCT_LABEL[inv.type] || 'doklad'
+    const desc = `Odpočet dle ${label} ${inv.number}`
+    setItems(prev => {
+      if (prev.some(it => it.deduct_id === inv.id)) return prev.filter(it => it.deduct_id !== inv.id)
+      const base = prev.length === 1 && !prev[0].description && !prev[0].inventory_id && !prev[0].deduct_id ? [] : prev
+      return [...base, { description: desc, qty: 1, unit_price: -Math.abs(Number(inv.total) || 0), deduct_id: inv.id }]
+    })
+  }
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
   const updateItem = (idx, field, value) => setItems(prev => prev.map((it, i) => i === idx ? { ...it, [field]: value } : it))
@@ -102,6 +131,10 @@ export default function InvoiceCreateModal({ onClose, onSaved, prefillBooking })
 
   const { total } = calculateTotals(items)
   const fmt = (n) => n.toLocaleString('cs-CZ', { minimumFractionDigits: 2 }) + ' Kč'
+  // Rozpad pro souhrn: kladné položky (služby) vs. záporné (odpočty ZF/DP).
+  const servicesSum = items.reduce((s, it) => s + Math.max(0, (it.unit_price || 0) * (it.qty || 1)), 0)
+  const deductionSum = items.reduce((s, it) => s + Math.min(0, (it.unit_price || 0) * (it.qty || 1)), 0)
+  const hasDeductions = deductionSum < 0
 
   // Kontrola skladu — nelze vydat víc, než je skladem
   const stockError = useMemo(() => {
@@ -137,7 +170,7 @@ export default function InvoiceCreateModal({ onClose, onSaved, prefillBooking })
     try {
       const notesWithDesc = [form.description, form.notes].filter(Boolean).join(' — ')
       const selectedBooking = bookings.find(x => x.id === form.booking_id)
-      const cleanItems = items.filter(i => i.description).map(({ max_stock, ...rest }) => rest)
+      const cleanItems = items.filter(i => i.description).map(({ max_stock, deduct_id, ...rest }) => rest)
       const payment = (form.payment_method || form.variable_symbol || form.paid_date) ? {
         method: form.payment_method || undefined,
         vs: form.variable_symbol || undefined,
@@ -282,11 +315,49 @@ export default function InvoiceCreateModal({ onClose, onSaved, prefillBooking })
           <button onClick={addItem} className="mt-2 text-sm font-bold cursor-pointer" style={{ background: 'none', border: 'none', color: '#2563eb' }}>+ Přidat položku ručně</button>
         </div>
 
+        {/* Odpočet záloh / přijatých plateb (ZF / DP) — pro doklad „K úhradě 0 Kč" */}
+        {deductibles.length > 0 && (
+          <div className="rounded-lg" style={{ border: '1px solid #d4e8e0', background: '#f1faf7', padding: 12 }}>
+            <Label>Odpočet záloh / přijatých plateb (ZF / DP)</Label>
+            <p className="text-sm mb-2" style={{ color: '#1a2e22' }}>
+              Odečtením dokladů zůstanou položky s cenami, ale „K úhradě" klesne na 0 Kč.
+            </p>
+            <div className="space-y-1">
+              {deductibles.map(inv => {
+                const active = items.some(it => it.deduct_id === inv.id)
+                const label = DEDUCT_LABEL[inv.type] || 'Doklad'
+                return (
+                  <div key={inv.id} className="flex items-center justify-between rounded-btn" style={{ padding: '6px 10px', background: '#fff', border: '1px solid #d4e8e0' }}>
+                    <span className="text-sm" style={{ color: '#0f1a14' }}>
+                      <strong>{label}</strong> {inv.number} — {fmt(Number(inv.total) || 0)}
+                    </span>
+                    <button onClick={() => toggleDeduction(inv)} className="text-sm font-bold cursor-pointer rounded-btn"
+                      style={{ padding: '4px 12px', border: '1px solid', borderColor: active ? '#dc2626' : '#74FB71',
+                        background: active ? '#fee2e2' : '#e8fde8', color: active ? '#dc2626' : '#1a2e22' }}>
+                      {active ? '− Zrušit odpočet' : '+ Odečíst'}
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Souhrn */}
         <div className="flex justify-end">
-          <div style={{ minWidth: 220 }}>
+          <div style={{ minWidth: 240 }}>
+            {hasDeductions && (
+              <>
+                <div className="flex justify-between py-1 text-sm" style={{ color: '#1a2e22' }}>
+                  <span>Položky celkem:</span><span>{fmt(servicesSum)}</span>
+                </div>
+                <div className="flex justify-between py-1 text-sm" style={{ color: '#dc2626' }}>
+                  <span>Odpočty (ZF / DP):</span><span>{fmt(deductionSum)}</span>
+                </div>
+              </>
+            )}
             <div className="flex justify-between py-1 font-bold text-sm" style={{ borderTop: '2px solid #1a8a18', color: '#1a8a18' }}>
-              <span>Celkem:</span><span>{fmt(total)}</span>
+              <span>K úhradě:</span><span>{fmt(total)}</span>
             </div>
             <div className="py-1" style={{ color: '#1a2e22', fontSize: 13 }}>Cena je konečná — neplátce DPH</div>
           </div>
