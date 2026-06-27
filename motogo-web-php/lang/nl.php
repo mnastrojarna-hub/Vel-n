@@ -23,7 +23,7 @@ return [
     'header.callUs' => 'Bel ons',
     'header.logoAlt' => 'Motorverhuur Vysočina Motogo24',
     'header.expandSubmenu' => 'Submenu uitklappen',
-    'header.app.label' => 'App downloaden',
+    'header.app.label' => 'Mobiele app downloaden',
     'header.app.title' => 'De MotoGo24-app downloaden',
     'header.app.aria' => 'De MotoGo24-app downloaden uit Google Play',
     'header.app.heading' => 'Download de MotoGo24-app',

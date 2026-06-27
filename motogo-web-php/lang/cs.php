@@ -26,7 +26,7 @@ return [
     'header.callUs' => 'Zavolejte nám',
     'header.logoAlt' => 'Půjčovna motorek Vysočina Motogo24',
     'header.expandSubmenu' => 'Rozbalit podmenu',
-    'header.app.label' => 'Stáhnout appku',
+    'header.app.label' => 'Stáhnout mobilní apku',
     'header.app.title' => 'Stáhnout mobilní aplikaci MotoGo24',
     'header.app.aria' => 'Stáhnout mobilní aplikaci MotoGo24 z Google Play',
     'header.app.heading' => 'Stáhni si appku MotoGo24',

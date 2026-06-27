@@ -23,7 +23,7 @@ return [
     'header.callUs' => 'Zadzwoń do nas',
     'header.logoAlt' => 'Wypożyczalnia motocykli Vysočina Motogo24',
     'header.expandSubmenu' => 'Rozwiń podmenu',
-    'header.app.label' => 'Pobierz aplikację',
+    'header.app.label' => 'Pobierz aplikację mobilną',
     'header.app.title' => 'Pobierz aplikację mobilną MotoGo24',
     'header.app.aria' => 'Pobierz aplikację mobilną MotoGo24 z Google Play',
     'header.app.heading' => 'Pobierz aplikację MotoGo24',

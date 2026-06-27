@@ -25,7 +25,7 @@ return [
     'header.callUs' => 'Appelez-nous',
     'header.logoAlt' => 'Location de motos Vysočina Motogo24',
     'header.expandSubmenu' => 'Déplier le sous-menu',
-    'header.app.label' => 'Télécharger l\'appli',
+    'header.app.label' => 'Télécharger l\'appli mobile',
     'header.app.title' => 'Télécharger l\'application MotoGo24',
     'header.app.aria' => 'Télécharger l\'application MotoGo24 sur Google Play',
     'header.app.heading' => 'Téléchargez l\'appli MotoGo24',
