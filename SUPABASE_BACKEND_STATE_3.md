@@ -200,14 +200,17 @@ Evidence výbavy na pobočkách + napojení na sklad/objednávky. Velín → **�
 
 ---
 
-## `get_app_install_stats()` — NEW 2026-06-27
+## `get_app_install_stats()` — NEW 2026-06-27, **OPRAVA dedup 2026-06-27 B**
 
 SECURITY DEFINER, `set search_path = public`, gate `is_admin()` (jinak `raise exception 'admin only'`). `grant execute … to authenticated`. Vrací jeden JSON s agregáty pro **Velín → Analýza → Aplikace** — odhad počtu instalací mobilní appky **bez nového buildu** (proxy z dat, která appka už dnes posílá):
 
-- `active_devices` = `count(*) from push_tokens where active is true` — ≈ instalace (zařízení s aktivním push tokenem)
-- `total_devices` = `count(*) from push_tokens` (vč. neaktivních)
+- `active_devices` = `count(distinct (user_id, lower(platform)))` mezi aktivními tokeny (`active is true and user_id is not null`) — ≈ instalace/zařízení
+- `total_devices` = `count(distinct (user_id, lower(platform)))` přes VŠECHNY tokeny (vč. neaktivních)
 - `app_users` = `count(distinct user_id)` z aktivních tokenů
-- `android` / `ios` = aktivní zařízení dle `lower(platform)`
+- `android` / `ios` = `count(distinct user_id)` aktivních tokenů dle `lower(platform)` (platí `active_devices = android + ios`)
 - `app_bookings` = `count(*) from bookings where booking_source = 'app'`
+- `raw_active_tokens` = `count(*) from push_tokens where active` — diagnostika (rozdíl vůči `active_devices` = míra rotace tokenů; frontend kartu nerenderuje)
+
+**OPRAVA dedup 2026-06-27 B:** Původní verze počítala `active_devices`/`android`/`ios` jako `count(*)` ŘÁDKŮ `push_tokens`. Appka registruje token přes `upsert(onConflict:'token')` + `onTokenRefresh` → rotace FCM tokenu (reinstalace/obnova/clear data) zakládá nový aktivní řádek a starý zůstává `active=true` (deaktivuje se jen když na něj `send-push` dostane `UNREGISTERED`/`NOT_FOUND`). 1 zařízení = N aktivních řádků → „Aktivní zařízení" nafouklé. Bez `device_id` je nejlepší proxy dedup přes `(user_id, platform)` — sloučí rotované tokeny téhož účtu na téže platformě. (`app_users` byl správně už předtím.)
 
 Spuštěno ručně v SQL editoru 2026-06-27. Není to oficiální počet instalací z Google Play (ten by vyžadoval Play Developer API) — „aktivní zařízení" je nejbližší odhad.
