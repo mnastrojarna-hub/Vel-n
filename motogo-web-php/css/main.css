@@ -116,3 +116,11 @@ p>.btn:last-child{margin-bottom:0}
 .oblasti-card-cta{margin:0}
 @media (max-width:980px){.oblasti-grid{grid-template-columns:repeat(2,1fr)}}
 @media (max-width:600px){.oblasti-grid{grid-template-columns:1fr}}
+
+/* ===== Rezervace krok 2 — zrušení nedokončené rezervace + pozn. o dokladech ===== */
+.rez-cancel-block{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:.75rem;background:#f0faf5;border:1px solid #d4e8e0;border-radius:12px;padding:.65rem .9rem;margin:.75rem 0}
+.rez-cancel-block .rez-qr-optional{flex:1;min-width:200px;margin:0;font-size:.8rem;color:#4a6b5a;line-height:1.5}
+.rez-qr-cancel{flex-shrink:0;font-size:.8rem;padding:.5rem .9rem}
+.rez-staffed-note{background:#fff8e6;border:1px solid #f0dca0;border-radius:10px;padding:.6rem .85rem;margin:.5rem 0 .85rem;font-size:.85rem;color:#5a4a1a;line-height:1.5}
+.rez-staffed-note strong{color:#3a2f0a}
+@media (max-width:600px){.rez-cancel-block{flex-direction:column;align-items:stretch}.rez-qr-cancel{align-self:flex-start}}
