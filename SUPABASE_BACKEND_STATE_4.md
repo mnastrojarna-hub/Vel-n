@@ -97,6 +97,7 @@
 | `trg_delivery_notes_updated` | delivery_notes | update_updated_at() |
 | `trg_contracts_updated` | contracts | update_updated_at() |
 | `faq_items_set_updated_at` | faq_items (BEFORE UPDATE) | set_updated_at_now() — auto-aktualizace `updated_at` při změně FAQ položky |
+| `trg_app_installations_touch` | app_installations (BEFORE UPDATE) | **NEW 2026-06-28** — `app_installations_touch()` (dedikovaná fce, jen `new.updated_at := now()`) — auto `updated_at` při heartbeatu instalace |
 | Různé `_updated_at` triggery | více tabulek | update_updated_at() |
 
 ### Doplněno 2026-06-04 ze snapshotu (přesné vazby — „do poslední tečky")
