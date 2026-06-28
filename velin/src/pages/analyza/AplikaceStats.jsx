@@ -1,16 +1,23 @@
 /**
  * MotoGo24 Velín — Analýza / Aplikace (instalace + používání)
  *
- * Ukazuje, kolik zákazníků má nainstalovanou mobilní appku — BEZ nového buildu
- * appky. Přesný počet instalací z Google Play (Play Developer API) nemáme, takže
- * používáme nejbližší proxy z dat, která appka už dnes posílá:
- *   - „Aktivní zařízení" = počet unikátních (user_id, platform) mezi aktivními
- *     push tokeny. FCM token se rotuje (onTokenRefresh → nový řádek), takže
- *     count(*) řádků reálná zařízení nadhodnocuje; dedup přes (účet, platforma)
- *     rotované tokeny téhož zařízení sloučí → nejbližší odhad počtu instalací.
- *   - Android / iOS rozpad = unikátní účty (distinct user_id) dané platformy.
- *   - „Uživatelé appky" = unikátní účty (distinct user_id) s aktivním zařízením.
+ * Ukazuje, kolik zákazníků má nainstalovanou mobilní appku a jak ji používají.
+ * Přesný počet instalací z Google Play (Play Developer API) nemáme, ale od
+ * buildu s `InstallationService` má appka vlastní přesnou evidenci:
+ *   - Každá instalace má stabilní náhodné UUID (NE hardwarový identifikátor —
+ *     Google Play safe) a posílá „heartbeat" do `app_installations`
+ *     (device_id, user_id, platform, app_version, push_enabled, last_seen_at).
+ *   - Z toho se počítá nezávisle na souhlasu s pushem:
+ *       • „Aktivní zařízení" = MAU (instalace viděné za posledních 30 dní)
+ *       • DAU / WAU = za 24 h / 7 dní
+ *       • „Uživatelé appky" = unikátní účty (distinct user_id)
+ *       • Android / iOS rozpad, „Push povoleno"
+ *       • „Instalace celkem" = všechny evidované instalace
  *   - „Rezervace přes appku" = bookings.booking_source = 'app'.
+ *
+ * PŘECHOD: „Dle push tokenů (přechodně)" je starý odhad z `push_tokens`
+ * (dedup přes user_id+platform). Než se nový build rozšíří mezi uživatele,
+ * slouží jako referenční číslo — postupně ho nahradí přesná `app_installations`.
  *
  * Data čte server-side RPC `get_app_install_stats()` (SECURITY DEFINER, gate
  * is_admin()) — vrací jeden JSON s agregáty, nestahuje raw řádky.
@@ -19,12 +26,16 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 
 const CARDS = [
-  { key: 'active_devices', label: 'Aktivní zařízení', hint: '≈ počet instalací appky (unikátní účet × platforma, rotované tokeny sloučeny)', big: true },
-  { key: 'android', label: 'Android', hint: 'aktivní účty na Androidu' },
-  { key: 'ios', label: 'iOS', hint: 'aktivní účty na iOS' },
-  { key: 'app_users', label: 'Uživatelé appky', hint: 'unikátní účty s aktivním zařízením' },
+  { key: 'active_devices', label: 'Aktivní zařízení (30 dní)', hint: 'MAU — instalace viděné za posledních 30 dní', big: true },
+  { key: 'dau', label: 'Denně aktivní', hint: 'zařízení za posledních 24 h' },
+  { key: 'wau', label: 'Týdně aktivní', hint: 'zařízení za posledních 7 dní' },
+  { key: 'app_users', label: 'Uživatelé appky', hint: 'unikátní účty s evidovanou instalací' },
+  { key: 'android', label: 'Android', hint: 'aktivní zařízení Android (30 dní)' },
+  { key: 'ios', label: 'iOS', hint: 'aktivní zařízení iOS (30 dní)' },
+  { key: 'push_enabled_devices', label: 'Push povoleno', hint: 'aktivní zařízení s povolenými notifikacemi' },
   { key: 'app_bookings', label: 'Rezervace přes appku', hint: "booking_source = 'app'" },
-  { key: 'total_devices', label: 'Zařízení celkem', hint: 'vč. odhlášených (unikátní účet × platforma)' },
+  { key: 'installs_total', label: 'Instalace celkem', hint: 'všechny evidované instalace' },
+  { key: 'push_active_devices', label: 'Dle push tokenů (přechodně)', hint: 'starý odhad z push_tokens, než se rozšíří nový build' },
 ]
 
 export default function AplikaceStats() {
@@ -92,11 +103,13 @@ export default function AplikaceStats() {
         ))}
       </div>
 
-      <p style={{ fontSize: 12.5, color: '#7a8b82', lineHeight: 1.6, maxWidth: 720 }}>
-        ℹ️ Čísla jsou <strong>odhad bez nového buildu appky</strong> — vychází z registrovaných zařízení
-        (push tokeny) a rezervací přes appku. „Aktivní zařízení" se počítá jako unikátní kombinace
-        účtu a platformy, takže rotace FCM tokenu (po reinstalaci/obnově) totéž zařízení nezdvojuje.
-        Není to oficiální počet instalací z Google Play (ten by vyžadoval Play Developer API).
+      <p style={{ fontSize: 12.5, color: '#7a8b82', lineHeight: 1.6, maxWidth: 760 }}>
+        ℹ️ Čísla vychází z <strong>vlastní evidence instalací</strong> (každá instalace má stabilní
+        náhodný identifikátor a hlásí „heartbeat", nezávisle na souhlasu s push notifikacemi).
+        „Aktivní zařízení" = instalace aktivní za posledních 30 dní (MAU). Není to oficiální počet
+        instalací z Google Play (ten by vyžadoval Play Developer API a nepokrývá iOS). Karta
+        <strong> „Dle push tokenů (přechodně)"</strong> je starý odhad — slouží jako reference, než se
+        nový build appky rozšíří mezi uživatele; pak ji přesná evidence plně nahradí.
       </p>
     </div>
   )
