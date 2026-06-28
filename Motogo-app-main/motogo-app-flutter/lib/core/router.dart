@@ -54,6 +54,8 @@ import '../features/loyalty/loyalty_ranks_screen.dart';
 import '../features/routes/routes_screen.dart';
 import '../features/routes/route_detail_screen.dart';
 import '../features/routes/route_navigation_screen.dart';
+import '../features/routes/all_pois_screen.dart';
+import '../features/routes/routes_model.dart' show RouteItem;
 import 'currency.dart';
 
 /// All route paths — mirrors router.js screen IDs.
@@ -231,6 +233,22 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/route-nav/:id',
         builder: (context, state) =>
             RouteNavigationScreen(routeId: state.pathParameters['id']!),
+      ),
+
+      // Katalog všech bodů zájmu napříč trasami — vlastní vyjížďka
+      GoRoute(
+        path: '/pois',
+        builder: (context, state) {
+          final ids = state.extra is Set<String> ? state.extra as Set<String> : null;
+          return AllPoisScreen(initialSelected: ids);
+        },
+      ),
+
+      // Navigace přes vlastní (zákazníkem složenou) trasu z vybraných POI
+      GoRoute(
+        path: '/route-nav-custom',
+        builder: (context, state) =>
+            RouteNavigationScreen.custom(route: state.extra as RouteItem),
       ),
 
       // Main app with bottom nav shell
