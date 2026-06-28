@@ -282,9 +282,10 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
             options: MapOptions(
               initialCenter: initialCenter,
               initialZoom: _me != null ? _navZoom : 13,
-              onPositionChanged: (camera, hasGesture) {
+              onPositionChanged: (position, hasGesture) {
                 if (hasGesture) {
-                  _mapRot = camera.rotation;
+                  // MapPosition nemá rotation → vezmi ji z controlleru.
+                  _mapRot = _ctrl.camera.rotation;
                   if (_follow) setState(() => _follow = false);
                 }
               },
