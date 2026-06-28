@@ -25,6 +25,15 @@ export default function TrasyMapPicker({
   const lastCountRef = useRef(-1)
   const [mode, setMode] = useState('wp') // 'wp' | 'poi'
 
+  // Refs drží VŽDY aktuální hodnoty (režim + callbacky + pushState). Díky tomu
+  // navážeme message listener z iframe jen JEDNOU (bez neustálého re-bindu) a
+  // přesto čte aktuální stav. FIX: klik v režimu „Bod zájmu" dřív občas POI
+  // nepřidal — listener se re-bindoval na každý render (onAdd* měly novou
+  // identitu) a stihl zachytit `click` se starým `mode`. Ref to odstraní.
+  const modeRef = useRef(mode)
+  modeRef.current = mode
+  const handlersRef = useRef({})
+
   const tileUrl = `https://api.mapy.cz/v1/maptiles/outdoor/256/{z}/{x}/{y}?apikey=${MAPY_CZ_API_KEY}`
 
   // Počáteční střed — JEN jednou (stabilní srcDoc → iframe se nereloaduje).
@@ -66,27 +75,31 @@ export default function TrasyMapPicker({
     }, '*')
   }
 
-  // Příjem zpráv z iframe.
+  // Udržuj v refu vždy nejnovější callbacky + pushState (čte je listener níže).
+  handlersRef.current = { onAddWaypoint, onAddPoi, onMoveWaypoint, onMovePoi, pushState }
+
+  // Příjem zpráv z iframe — navázáno JEN JEDNOU, vše čte přes refy (žádný
+  // stale closure, žádný re-bind na každý render).
   useEffect(() => {
     function onMsg(e) {
       const d = e.data
       if (!d || d.__mg !== 'trasy-map') return
+      const h = handlersRef.current
       if (d.type === 'ready') {
         readyRef.current = true
         lastCountRef.current = -1
-        pushState(true)
+        h.pushState(true)
       } else if (d.type === 'click') {
-        if (mode === 'wp') onAddWaypoint?.(d.lat, d.lng)
-        else onAddPoi?.(d.lat, d.lng)
+        if (modeRef.current === 'wp') h.onAddWaypoint?.(d.lat, d.lng)
+        else h.onAddPoi?.(d.lat, d.lng)
       } else if (d.type === 'move') {
-        if (d.kind === 'wp') onMoveWaypoint?.(d.index, d.lat, d.lng)
-        else onMovePoi?.(d.index, d.lat, d.lng)
+        if (d.kind === 'wp') h.onMoveWaypoint?.(d.index, d.lat, d.lng)
+        else h.onMovePoi?.(d.index, d.lat, d.lng)
       }
     }
     window.addEventListener('message', onMsg)
     return () => window.removeEventListener('message', onMsg)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, onAddWaypoint, onAddPoi, onMoveWaypoint, onMovePoi])
+  }, [])
 
   // Re-render markerů/trasy. Výřez přizpůsobíme JEN když přibyl/ubyl bod
   // (ne při tažení ani při dopočtu geometrie) — ať mapa neposkakuje.
@@ -101,7 +114,7 @@ export default function TrasyMapPicker({
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script>
-<style>html,body{margin:0;padding:0;height:100%}#m{height:100%;width:100%}
+<style>html,body{margin:0;padding:0;height:100%}#m{height:100%;width:100%;cursor:crosshair}
 .pin{display:flex;align-items:center;justify-content:center;border-radius:50%;border:2px solid #fff;
   box-shadow:0 1px 4px rgba(0,0,0,.4);font-weight:800;color:#fff;font-size:12px;font-family:sans-serif}
 .wp{background:#8b5cf6;width:26px;height:26px}
@@ -166,7 +179,11 @@ send({type:'ready'});
         <span className="text-xs font-bold" style={{ color: '#1a2e22' }}>Klikni do mapy:</span>
         {tabBtn('wp', '➕ Bod trasy')}
         {tabBtn('poi', '📍 Bod zájmu')}
-        <span className="text-xs ml-auto" style={{ color: '#6b8f7b' }}>Markery lze posouvat tažením</span>
+        <span className="text-xs ml-auto font-bold" style={{ color: mode === 'wp' ? '#8b5cf6' : '#1a8a18' }}>
+          {mode === 'wp'
+            ? 'Klik = přidá fialový bod trasy (waypoint)'
+            : 'Klik = přidá zelený bod zájmu (zastávka)'}
+        </span>
       </div>
       <iframe ref={iframeRef} title="Mapa trasy" style={{ width: '100%', height: 340, border: 'none', display: 'block' }} srcDoc={srcDoc} />
     </div>
