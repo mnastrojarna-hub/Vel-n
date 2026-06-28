@@ -383,16 +383,10 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                if (route.pois.isNotEmpty) ...[
+                if (route.pois.isNotEmpty || route.waypoints.isNotEmpty) ...[
                   PressableScale(
                     pressedScale: 0.96,
-                    onTap: () {
-                      final keys = route.pois
-                          .where((p) => p.latLng != null)
-                          .map((p) => '${route.id}:${p.id}')
-                          .toSet();
-                      context.push('/pois', extra: keys);
-                    },
+                    onTap: () => context.push('/route-build', extra: route),
                     child: Text(
                       t(context).tr('routeCustomize'),
                       style: const TextStyle(

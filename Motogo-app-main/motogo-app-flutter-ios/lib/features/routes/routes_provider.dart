@@ -16,6 +16,49 @@ const _mapyHeaders = <String, String>{
   'X-Mapy-Api-Key': mapyApiKey,
 };
 
+/// Profil trasy pro routing (Mapy.com):
+/// - [recommended] = nejrychlejší autem BEZ dálnic (zážitková jízda na motorce),
+/// - [fastest] = nejrychlejší (i dálnice),
+/// - [shortest] = nejkratší.
+enum RouteProfile { recommended, fastest, shortest }
+
+({String routeType, bool avoidHighways}) _profileParams(RouteProfile p) {
+  switch (p) {
+    case RouteProfile.recommended:
+      return (routeType: 'car_fast', avoidHighways: true);
+    case RouteProfile.fastest:
+      return (routeType: 'car_fast', avoidHighways: false);
+    case RouteProfile.shortest:
+      return (routeType: 'car_short', avoidHighways: false);
+  }
+}
+
+/// Reverzní geokódování bodu na mapě → název místa (Mapy.com rgeocode).
+/// Best-effort: při chybě vrátí null a volající použije obecný popisek.
+Future<String?> reverseGeocode(LatLng p) async {
+  try {
+    final uri = Uri.https('api.mapy.cz', '/v1/rgeocode', {
+      'lon': p.longitude.toString(),
+      'lat': p.latitude.toString(),
+      'lang': 'cs',
+      'apikey': mapyApiKey,
+    });
+    final res = await http.get(uri, headers: _mapyHeaders)
+        .timeout(const Duration(seconds: 6));
+    if (res.statusCode != 200) return null;
+    final data = jsonDecode(res.body);
+    final items = data is Map ? data['items'] : null;
+    if (items is List && items.isNotEmpty) {
+      final it = items.first;
+      if (it is Map) {
+        final name = it['name'] ?? it['label'];
+        if (name is String && name.trim().isNotEmpty) return name.trim();
+      }
+    }
+  } catch (_) {}
+  return null;
+}
+
 /// Všechny publikované trasy + mapa poboček. Jedno volání RPC `get_branch_routes`
 /// (vrací trasy se zanořenými body zájmu) + lehký dotaz na pobočky kvůli názvu
 /// a GPS startu.
@@ -102,6 +145,13 @@ RouteItem buildCustomRoute(List<RoutePoi> pois, {LatLng? from, String name = ''}
     waypoints: ordered.map((p) => p.latLng!).toList(),
     pois: ordered,
   );
+}
+
+/// Argumenty pro navigaci přes vlastní složenou trasu (route + profil routingu).
+class CustomNavArgs {
+  final RouteItem route;
+  final RouteProfile profile;
+  const CustomNavArgs(this.route, this.profile);
 }
 
 List<RoutePoi> _greedyOrder(List<RoutePoi> pts, LatLng from) {
@@ -266,7 +316,7 @@ final routeDisplayProvider =
     if (myLoc != null) {
       final pts = navPointsFrom(myLoc, route, null);
       if (pts.length >= 2) {
-        final geo = await fetchMapyRoute(pts, avoidHighways: true);
+        final geo = await fetchMapyRoute(pts, profile: RouteProfile.recommended);
         return RouteDisplay(
           geometry: geo ?? pts,
           start: myLoc,
@@ -291,7 +341,7 @@ final routeDisplayProvider =
       }
       final pts = navPointsFrom(start, route, null);
       if (pts.length >= 2) {
-        final geo = await fetchMapyRoute(pts, avoidHighways: true);
+        final geo = await fetchMapyRoute(pts, profile: RouteProfile.recommended);
         return RouteDisplay(geometry: geo ?? pts, start: start, origin: origin);
       }
     }
@@ -310,23 +360,23 @@ final routeDisplayProvider =
 });
 
 /// Volání Mapy.com routing API. Vrací dekódovanou polyline nebo null.
-/// `avoidHighways=true` → nejrychlejší trasa autem BEZ dálnic (parametr
-/// `avoidHighways` Mapy.com routing API).
+/// `profile` určuje typ trasy (doporučené bez dálnic / nejrychlejší / nejkratší).
 Future<List<LatLng>?> fetchMapyRoute(List<LatLng> points,
-    {bool avoidHighways = false}) async {
+    {RouteProfile profile = RouteProfile.recommended}) async {
   if (points.length < 2) return null;
   final start = points.first;
   final end = points.last;
   final middle = points.sublist(1, points.length - 1);
+  final pp = _profileParams(profile);
   final params = <String, String>{
     'apikey': mapyApiKey,
     'lang': 'cs',
     'start': '${start.longitude},${start.latitude}',
     'end': '${end.longitude},${end.latitude}',
-    'routeType': 'car_fast',
+    'routeType': pp.routeType,
     'format': 'geojson',
   };
-  if (avoidHighways) params['avoidHighways'] = 'true';
+  if (pp.avoidHighways) params['avoidHighways'] = 'true';
   if (middle.isNotEmpty) {
     params['waypoints'] =
         middle.map((p) => '${p.longitude},${p.latitude}').join(';');

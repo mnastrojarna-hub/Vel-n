@@ -24,10 +24,17 @@ class RouteNavigationScreen extends ConsumerStatefulWidget {
   /// Vlastní trasa složená ze zákazníkem vybraných bodů zájmu (katalog POI).
   /// Když je zadaná, naviguje se přímo přes ni (bez načítání trasy z DB).
   final RouteItem? customRoute;
+  /// Profil routingu (doporučené bez dálnic / nejrychlejší / nejkratší).
+  final RouteProfile profile;
 
-  const RouteNavigationScreen({super.key, required this.routeId}) : customRoute = null;
-  const RouteNavigationScreen.custom({super.key, required RouteItem route})
-      : routeId = null,
+  const RouteNavigationScreen({super.key, required this.routeId})
+      : customRoute = null,
+        profile = RouteProfile.recommended;
+  const RouteNavigationScreen.custom({
+    super.key,
+    required RouteItem route,
+    this.profile = RouteProfile.recommended,
+  })  : routeId = null,
         customRoute = route;
 
   @override
@@ -138,7 +145,7 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
       _navLoading = false;
       return;
     }
-    final geo = await fetchMapyRoute(pts, avoidHighways: true);
+    final geo = await fetchMapyRoute(pts, profile: widget.profile);
     if (!mounted) {
       _navLoading = false;
       return;

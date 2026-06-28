@@ -55,7 +55,9 @@ import '../features/routes/routes_screen.dart';
 import '../features/routes/route_detail_screen.dart';
 import '../features/routes/route_navigation_screen.dart';
 import '../features/routes/all_pois_screen.dart';
+import '../features/routes/route_builder_screen.dart';
 import '../features/routes/routes_model.dart' show RouteItem;
+import '../features/routes/routes_provider.dart' show CustomNavArgs;
 import 'currency.dart';
 
 /// All route paths — mirrors router.js screen IDs.
@@ -244,11 +246,23 @@ final routerProvider = Provider<GoRouter>((ref) {
         },
       ),
 
+      // Editor trasy — přidat/přehazovat zastávky, profil, živý náhled
+      GoRoute(
+        path: '/route-build',
+        builder: (context, state) =>
+            RouteBuilderScreen(route: state.extra as RouteItem),
+      ),
+
       // Navigace přes vlastní (zákazníkem složenou) trasu z vybraných POI
       GoRoute(
         path: '/route-nav-custom',
-        builder: (context, state) =>
-            RouteNavigationScreen.custom(route: state.extra as RouteItem),
+        builder: (context, state) {
+          final e = state.extra;
+          if (e is CustomNavArgs) {
+            return RouteNavigationScreen.custom(route: e.route, profile: e.profile);
+          }
+          return RouteNavigationScreen.custom(route: e as RouteItem);
+        },
       ),
 
       // Main app with bottom nav shell
