@@ -128,7 +128,7 @@ foreach ($sb->fetchCustomDocuments() as $d) {
     $trTitle = localized($d, 'title'); $title = $trTitle !== '' ? $trTitle : ($d['title'] ?? '');
     $trDesc = localized($d, 'description'); $desc = $trDesc !== '' ? $trDesc : ($d['description'] ?? '');
     $name = htmlspecialchars($title);
-    $sub = $linkPdfDirect ? 'PDF · zobrazit nebo uložit' : htmlspecialchars($desc !== '' ? $desc : 'Dokument · zobrazit');
+    $sub = $linkPdfDirect ? te('doc.pdfHint') : ($desc !== '' ? htmlspecialchars($desc) : te('doc.cardView'));
     $extra = $linkPdfDirect ? ' target="_blank" rel="noopener"' : '';
     $docsCardsHtml .= '<a class="boxwhitey doc-card" href="' . htmlspecialchars($href) . '"' . $extra . ' title="' . $name . '" '
         . 'style="display:flex;align-items:center;gap:14px;padding:14px 16px;text-decoration:none;color:inherit">'

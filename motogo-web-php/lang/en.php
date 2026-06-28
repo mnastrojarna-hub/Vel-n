@@ -163,6 +163,7 @@ return [
     'doc.pdfHint' => 'PDF · view or save',
     'doc.version' => 'Version {v} · updated {date}',
     'doc.notPublished' => 'This document has not been published yet.',
+    'doc.cardView' => 'Document · view',
 
     // ===== Breadcrumbs (static labels) =====
     'breadcrumb.home' => 'Home',

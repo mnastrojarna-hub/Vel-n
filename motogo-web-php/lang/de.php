@@ -163,6 +163,7 @@ return [
     'doc.pdfHint' => 'PDF · ansehen oder speichern',
     'doc.version' => 'Version {v} · aktualisiert {date}',
     'doc.notPublished' => 'Dieses Dokument wurde noch nicht veröffentlicht.',
+    'doc.cardView' => 'Dokument · ansehen',
 
     // Breadcrumby
     'breadcrumb.home' => 'Startseite',
@@ -1097,7 +1098,15 @@ return [
     'editRez.doc.type.unknown' => 'Dokument',
     'editRez.tab.moto' => 'Motorrad wechseln',
     'editRez.tab.location' => 'Ort ändern',
+    'editRez.tab.gear' => 'Ausrüstung',
     'editRez.tab.docs' => 'Dokumente',
+    'editRez.gear.title' => 'Ausrüstung — Fahrer und Beifahrer',
+    'editRez.gear.intro' => 'Wählen Sie die Größen per Klick. Das Ändern bereits gewählter Ausrüstung ist kostenlos. Das Hinzufügen kostenpflichtiger Ausrüstung (Fahrerstiefel, Beifahrerausrüstung und -stiefel) wird berechnet.',
+    'editRez.gear.surcharge' => 'Aufpreis für hinzugefügte Ausrüstung: {amount} — weiter zur Zahlung.',
+    'editRez.gear.refund' => 'Ausrüstung entfernt — wir erstatten {amount} auf Ihre ursprüngliche Karte (in der Regel innerhalb von 5–7 Werktagen).',
+    'editRez.gear.noCharge' => 'Keine Preisänderung — das Speichern ist kostenlos.',
+    'editRez.gear.save' => 'Ausrüstung speichern',
+    'editRez.gear.saved' => 'Ausrüstung gespeichert und in Ihre Reservierung übernommen.',
     'editRez.doc.help' => 'Sie können alle Dokumente zu Ihrer Reservierung jederzeit herunterladen.',
     'editRez.moto.title' => 'Motorrad wechseln',
     'editRez.moto.help' => 'Wählen Sie ein anderes Motorrad für Ihren Termin. Nur für bevorstehende Reservierungen mit passendem Führerschein. Sie zahlen nur den Preisunterschied.',

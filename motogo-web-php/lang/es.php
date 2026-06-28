@@ -164,6 +164,7 @@ return [
     'doc.pdfHint' => 'PDF · ver o guardar',
     'doc.version' => 'Versión {v} · actualizado {date}',
     'doc.notPublished' => 'Este documento aún no ha sido publicado.',
+    'doc.cardView' => 'Documento · ver',
 
     // ===== Breadcrumby (statické labely) =====
     'breadcrumb.home' => 'Inicio',
@@ -1027,6 +1028,14 @@ return [
     'editRez.tab.location' => 'Cambiar ubicación',
     'editRez.tab.docs' => 'Documentos',
     'editRez.tab.cancel' => 'Cancelar',
+    'editRez.tab.gear' => 'Equipamiento',
+    'editRez.gear.title' => 'Equipamiento — conductor y pasajero',
+    'editRez.gear.intro' => 'Elige las tallas tocando. Cambiar el equipamiento que ya tienes es gratis. Añadir equipamiento de pago (botas del conductor, equipamiento y botas del pasajero) tiene un cargo.',
+    'editRez.gear.surcharge' => 'Suplemento por equipamiento añadido: {amount} — continúas al pago.',
+    'editRez.gear.refund' => 'Al quitar equipamiento, te devolveremos {amount} a tu tarjeta original (normalmente en 5–7 días hábiles).',
+    'editRez.gear.noCharge' => 'Sin cambio de precio — guardar es gratis.',
+    'editRez.gear.save' => 'Guardar equipamiento',
+    'editRez.gear.saved' => 'Equipamiento guardado y aplicado a tu reserva.',
     'editRez.doc.help' => 'Puedes descargar todos los documentos de tu reserva en cualquier momento.',
     'editRez.moto.title' => 'Cambiar de moto',
     'editRez.moto.help' => 'Elige otra moto para tu fecha. Solo disponible para reservas próximas con el carnet adecuado. Pagas únicamente la diferencia de precio.',
