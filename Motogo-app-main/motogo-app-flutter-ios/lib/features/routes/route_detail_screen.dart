@@ -381,44 +381,66 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
           Padding(
             padding: const EdgeInsets.only(top: 10),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 if (route.pois.isNotEmpty || route.waypoints.isNotEmpty) ...[
-                  PressableScale(
-                    pressedScale: 0.96,
-                    onTap: () => context.push('/route-build', extra: route),
-                    child: Text(
+                  Expanded(
+                    child: _secondaryBtn(
+                      context,
+                      Icons.edit_location_alt,
                       t(context).tr('routeCustomize'),
-                      style: const TextStyle(
-                        fontSize: MotoGoTypo.sizeMd,
-                        fontWeight: MotoGoTypo.w700,
-                        color: MotoGoColors.greenDark,
-                        decoration: TextDecoration.none,
-                      ),
+                      () => context.push('/route-build', extra: route),
                     ),
                   ),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 10),
-                    child: Text('·', style: TextStyle(color: MotoGoColors.g400, decoration: TextDecoration.none)),
-                  ),
+                  const SizedBox(width: 10),
                 ],
-                PressableScale(
-                  pressedScale: 0.96,
-                  onTap: () => _openExportSheet(context, route, branch),
-                  child: Text(
+                Expanded(
+                  child: _secondaryBtn(
+                    context,
+                    Icons.open_in_new,
                     t(context).tr('routeNavExternal'),
-                    style: const TextStyle(
-                      fontSize: MotoGoTypo.sizeMd,
-                      fontWeight: MotoGoTypo.w700,
-                      color: MotoGoColors.greenDark,
-                      decoration: TextDecoration.none,
-                    ),
+                    () => _openExportSheet(context, route, branch),
                   ),
                 ),
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _secondaryBtn(BuildContext context, IconData icon, String label, VoidCallback onTap) {
+    return PressableScale(
+      pressedScale: 0.97,
+      onTap: onTap,
+      child: Container(
+        height: 46,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        decoration: BoxDecoration(
+          color: MotoGoColors.greenPale,
+          borderRadius: BorderRadius.circular(MotoGoRadius.pill),
+          border: Border.all(color: MotoGoColors.green, width: 1.5),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 17, color: MotoGoColors.greenDarker),
+            const SizedBox(width: 7),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: MotoGoTypo.sizeLg,
+                  fontWeight: MotoGoTypo.w800,
+                  color: MotoGoColors.greenDarker,
+                  decoration: TextDecoration.none,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
