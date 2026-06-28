@@ -607,7 +607,10 @@ class _BgMusicState extends State<_BgMusic> {
 
   Future<void> _go() async {
     try {
-      final c = VideoPlayerController.asset('assets/levelup_music.mp3');
+      final c = VideoPlayerController.asset(
+        'assets/levelup_music.mp3',
+        videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
+      );
       _c = c;
       await c.initialize();
       if (_disposed) {
