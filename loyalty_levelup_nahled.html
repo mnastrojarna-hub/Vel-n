@@ -49,6 +49,8 @@
   .mybike .m{ color:#fff; }
   .btn{ margin-top:18px; display:inline-block; padding:13px 34px; border-radius:999px; font-size:14px; font-weight:900; opacity:0; }
   .timebar{ position:absolute; left:0; bottom:0; height:3px; background:#FFD27A; width:0; z-index:50; opacity:.5; }
+  .skip{ position:absolute; top:14px; right:14px; z-index:55; background:rgba(0,0,0,.45); color:#fff; border:1px solid rgba(255,255,255,.3); border-radius:999px; padding:7px 14px; font-size:12px; font-weight:800; cursor:pointer; }
+  .skip:hover{ background:rgba(0,0,0,.72); }
 </style>
 </head>
 <body>
@@ -105,6 +107,7 @@
         <div class="mybike" id="mybike">TVŮJ STROJ · <span class="m" id="bikeTxt">Kawasaki Z900</span></div>
         <div class="btn" id="btn">Pokračovat</div>
       </div>
+      <button class="skip" id="skip">Přeskočit ✕</button>
       <div class="timebar" id="timebar"></div>
     </div>
   </div>
@@ -160,12 +163,12 @@ function frame(now){
   const fromRGB=hx(RANKS[oldLevel()][1]), toRGB=hx(RANKS[S.level][1]), leg=isLegend();
 
   const emblemIn=seg(t,0.4,2.4,elasticOut);
-  const rs=PHOTO_AT;                          // reveal start = 62 s (s fotkou + finále hudby)
-  const ringMix=seg(t,rs,rs+3.2);
-  const flash=seg(t,rs,rs+0.9)*(1-seg(t,rs+0.9,rs+2.6));
-  const badgeIn=seg(t,rs+1.0,rs+2.8,elasticOut);
-  const burst=seg(t,rs,T,easeOutCubic);
-  const textIn=seg(t,rs+0.4,rs+2.6);
+  const rs=1.4;                               // reveal HNED na začátku (rank na začátku)
+  const ringMix=seg(t,rs,rs+3.0);
+  const flash=seg(t,rs,rs+0.8)*(1-seg(t,rs+0.8,rs+2.4));
+  const badgeIn=seg(t,rs+0.9,rs+2.6,elasticOut);
+  const burst=seg(t,rs,rs+3.4,easeOutCubic);  // oslavné jiskry u intro reveal
+  const textIn=seg(t,rs+0.3,rs+2.4);
   const bikeIn=seg(t,2.0,4.0);
 
   const ringRGB=lerp(fromRGB,toRGB,ringMix), gc=(leg&&ringMix>0.9)?[255,140,0]:ringRGB;
@@ -205,6 +208,9 @@ document.querySelectorAll('#gained button').forEach(b=>b.addEventListener('click
 el('level').addEventListener('input',e=>{S.level=+e.target.value;el('lvlVal').textContent=S.level;el('oldVal').textContent=oldLevel();el('lvlName').textContent=RANKS[S.level][0];el('pct').value=S.level;S.pct=S.level;applyStatic();});
 el('pct').addEventListener('input',e=>{S.pct=+e.target.value||0;el('pctTxt').textContent=S.pct+' %';});
 el('bike').addEventListener('input',e=>{S.bike=e.target.value;el('bikeTxt').textContent=S.bike;});
+function skip(){ cancelAnimationFrame(raf); try{audio.pause();}catch(e){} }
+el('skip').addEventListener('click',skip);
+document.querySelector('.stage').addEventListener('click',skip);
 el('play').addEventListener('click',replay);
 applyStatic();
 </script>
