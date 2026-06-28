@@ -166,6 +166,7 @@ return [
     'doc.pdfHint' => 'PDF · zobrazit nebo uložit',
     'doc.version' => 'Verze {v} · aktualizováno {date}',
     'doc.notPublished' => 'Tento dokument zatím nebyl publikován.',
+    'doc.cardView' => 'Dokument · zobrazit',
 
     // ===== Breadcrumby (statické labely) =====
     'breadcrumb.home' => 'Domů',

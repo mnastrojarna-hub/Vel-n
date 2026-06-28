@@ -163,6 +163,7 @@ return [
     'doc.pdfHint' => 'PDF · consulter ou enregistrer',
     'doc.version' => 'Version {v} · mis à jour {date}',
     'doc.notPublished' => "Ce document n'a pas encore été publié.",
+    'doc.cardView' => 'Document · consulter',
 
     // ===== Breadcrumby (statické labely) =====
     'breadcrumb.home' => 'Accueil',
@@ -1026,6 +1027,14 @@ return [
     'editRez.tab.location' => 'Changer de lieu',
     'editRez.tab.docs' => 'Documents',
     'editRez.tab.cancel' => 'Annuler',
+    'editRez.tab.gear' => 'Équipement',
+    'editRez.gear.title' => 'Équipement — conducteur et passager',
+    'editRez.gear.intro' => 'Choisissez les tailles en cliquant. Modifier un équipement déjà sélectionné est gratuit. L\'ajout d\'équipement payant (bottes du conducteur, équipement et bottes du passager) est facturé.',
+    'editRez.gear.surcharge' => 'Supplément pour l\'équipement ajouté : {amount} — vous continuez vers le paiement.',
+    'editRez.gear.refund' => 'Retrait d\'équipement — nous vous rembourserons {amount} sur votre carte d\'origine (généralement sous 5 à 7 jours ouvrés).',
+    'editRez.gear.noCharge' => 'Aucun changement de prix — l\'enregistrement est gratuit.',
+    'editRez.gear.save' => 'Enregistrer l\'équipement',
+    'editRez.gear.saved' => 'Équipement enregistré et appliqué à votre réservation.',
     'editRez.doc.help' => 'Vous pouvez télécharger tous les documents de votre réservation à tout moment.',
     'editRez.moto.title' => 'Changer de moto',
     'editRez.moto.help' => 'Choisissez une autre moto pour votre date. Disponible uniquement pour les réservations à venir avec un permis adapté. Vous payez seulement la différence de prix.',

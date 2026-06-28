@@ -4,6 +4,62 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
 const PDFSHIFT_API_KEY = Deno.env.get('PDFSHIFT_API_KEY') || ''
+const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY') || ''
+const DOC_TRANSLATE_MODEL = 'claude-sonnet-4-6'
+const DOC_LANG_NAMES: Record<string, string> = {
+  en: 'English', de: 'German (Deutsch)', es: 'Spanish (Español)',
+  fr: 'French (Français)', nl: 'Dutch (Nederlands)', pl: 'Polish (Polski)',
+}
+
+/** Strojový překlad RAW šablony dokumentu (název + content_html s {{placeholdery}})
+ *  z CZ do cílového jazyka přes Anthropic (tool-forced output, Sonnet — právní text).
+ *  Vrací {name, content} nebo null při chybě (caller pak nechá CZ). Placeholdery
+ *  {{var}} i HTML struktura zůstávají beze změny. */
+async function autoTranslateDocTemplate(nameCz: string, contentCz: string, lang: string): Promise<{ name: string; content: string } | null> {
+  if (!ANTHROPIC_API_KEY || !contentCz) return null
+  const langName = DOC_LANG_NAMES[lang] || lang
+  const system = [
+    `You are a professional Czech-to-${langName} legal/business document translator for MotoGo24 — a Czech motorcycle rental company.`,
+    'Translate the document name and HTML body into the target language. Call the submit_translation tool with the translated values.',
+    `- Language: ${langName} (${lang}). Natural, native, fluent, faithful to the legal meaning.`,
+    '- Preserve ALL HTML tags, attributes and structure EXACTLY. Keep clause numbering and order.',
+    '- DO NOT translate or change: URLs, email addresses, phone numbers, prices in Kč, IČO, DIČ, SPZ, VIN, brand names, postal codes, dates. Keep "MotoGo24" and Czech place names (Mezná, Pelhřimov) unchanged. Keep currency "Kč" as is.',
+    '- IMPORTANT: keep ALL template placeholders like {{customer_name}}, {{today}}, {{var}} EXACTLY unchanged — do not translate, remove or alter the braces.',
+  ].join('\n')
+  const tool = {
+    name: 'submit_translation',
+    description: `Submit the ${langName} translation of the provided Czech document template.`,
+    input_schema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: `Translated document name (${langName}).` },
+        content_html: { type: 'string', description: `Translated HTML body (${langName}); structure and {{placeholders}} intact.` },
+      },
+      required: ['name', 'content_html'],
+    },
+  }
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+      body: JSON.stringify({
+        model: DOC_TRANSLATE_MODEL, max_tokens: 32000, system,
+        tools: [tool], tool_choice: { type: 'tool', name: 'submit_translation' },
+        messages: [{ role: 'user', content: `Czech source JSON: ${JSON.stringify({ name: nameCz, content_html: contentCz })}` }],
+      }),
+    })
+    if (!res.ok) { console.warn('[autoTranslateDocTemplate] anthropic', res.status); return null }
+    const data = await res.json()
+    const toolUse = Array.isArray(data?.content)
+      ? data.content.find((c: { type?: string; name?: string }) => c?.type === 'tool_use' && c?.name === 'submit_translation')
+      : null
+    const input = toolUse?.input as { name?: unknown; content_html?: unknown } | undefined
+    if (!input || typeof input !== 'object') return null
+    const content = typeof input.content_html === 'string' && input.content_html.trim() ? input.content_html : contentCz
+    const name = typeof input.name === 'string' && input.name.trim() ? input.name : nameCz
+    return { name, content }
+  } catch (e) { console.warn('[autoTranslateDocTemplate]', (e as Error).message); return null }
+}
 
 /** HTML → PDF přes PDFShift API. Vrací Uint8Array nebo null při chybě / no key. */
 async function htmlToPdf(html: string): Promise<Uint8Array | null> {
@@ -326,8 +382,29 @@ serve(async (req) => {
     if (lang !== 'cs' && template) {
       const ct = (template.content_translations || {}) as Record<string, string>
       const nt = (template.name_translations || {}) as Record<string, string>
-      if (typeof ct[lang] === 'string' && ct[lang].trim()) baseContent = ct[lang]
-      if (typeof nt[lang] === 'string' && nt[lang].trim()) docTitle = nt[lang]
+      const haveContent = typeof ct[lang] === 'string' && ct[lang].trim()
+      if (haveContent) {
+        // Existující překlad (ruční z Velína nebo dřívější autopřeklad) → použij.
+        baseContent = ct[lang]
+        if (typeof nt[lang] === 'string' && nt[lang].trim()) docTitle = nt[lang]
+      } else {
+        // Strojový autopřeklad JEN při CHYBĚJÍCÍM překladu — vyplní mezeru, ale
+        // NIKDY nepřepíše ručně zrevidovaný překlad z Velína. Selhání → CZ fallback.
+        const srcContent = template.content_html || template.html_content || ''
+        const tr = await autoTranslateDocTemplate(template.name || template_slug, srcContent, lang)
+        if (tr) {
+          baseContent = tr.content
+          docTitle = tr.name
+          try {
+            const newCt = { ...ct, [lang]: tr.content }
+            const newNt = { ...nt, [lang]: tr.name }
+            await supabase.from('document_templates')
+              .update({ content_translations: newCt, name_translations: newNt })
+              .eq('id', template.id)
+          } catch { /* cache best-effort — i bez uložení se dokument vygeneruje */ }
+        }
+        // tr === null → baseContent/docTitle zůstávají CZ (fallback)
+      }
     }
 
     // Substitute variables in template HTML
