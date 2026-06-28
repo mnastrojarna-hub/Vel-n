@@ -150,7 +150,7 @@ foreach ($placePhotos as $ph) {
 
 $provozovnaBanner = '';
 if (!empty($validPhotos)) {
-    $per = 5;                                       // sekund na jednu fotku
+    $per = 8;                                       // sekund na jednu fotku
     $count = count($validPhotos);
     $cycle = $per * $count;
     $fadePct = $cycle > 0 ? round((0.8 / $cycle) * 100, 3) : 0; // ~0,8 s prolnutí
