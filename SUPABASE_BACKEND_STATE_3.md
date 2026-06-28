@@ -201,17 +201,20 @@ Evidence výbavy na pobočkách + napojení na sklad/objednávky. Velín → **�
 
 ---
 
-## `get_app_install_stats()` — NEW 2026-06-27, **OPRAVA dedup 2026-06-27 B**
+## `get_app_install_stats()` — NEW 2026-06-27, dedup 2026-06-27 B, **PŘEPIS na app_installations 2026-06-28**
 
-SECURITY DEFINER, `set search_path = public`, gate `is_admin()` (jinak `raise exception 'admin only'`). `grant execute … to authenticated`. Vrací jeden JSON s agregáty pro **Velín → Analýza → Aplikace** — odhad počtu instalací mobilní appky **bez nového buildu** (proxy z dat, která appka už dnes posílá):
+SECURITY DEFINER, `set search_path = public`, gate `is_admin()` (jinak `raise exception 'admin only'`). `grant execute … to authenticated`. Vrací jeden JSON s agregáty pro **Velín → Analýza → Aplikace**.
 
-- `active_devices` = `count(distinct (user_id, lower(platform)))` mezi aktivními tokeny (`active is true and user_id is not null`) — ≈ instalace/zařízení
-- `total_devices` = `count(distinct (user_id, lower(platform)))` přes VŠECHNY tokeny (vč. neaktivních)
-- `app_users` = `count(distinct user_id)` z aktivních tokenů
-- `android` / `ios` = `count(distinct user_id)` aktivních tokenů dle `lower(platform)` (platí `active_devices = android + ios`)
+**2026-06-28 — PŘEPIS na `app_installations` (build-based, přesné):** Hlavní metriky se nově počítají z tabulky `app_installations` (heartbeat z appky se stabilním device UUID), nezávisle na souhlasu s push:
+- `active_devices` = `count(*) from app_installations where last_seen_at > now()-interval '30 days'` (= **MAU**)
+- `mau` / `wau` / `dau` = aktivní za 30 / 7 / 1 den (z `last_seen_at`)
+- `installs_total` / `total_devices` = `count(*) from app_installations` (všechny evidované instalace)
+- `app_users` = `count(distinct user_id) from app_installations`
+- `android` / `ios` = aktivní zařízení (30 dní) dle `lower(platform)` (platí `active_devices = android + ios`)
+- `push_enabled_devices` = aktivní zařízení (30 dní) s `push_enabled is true`
 - `app_bookings` = `count(*) from bookings where booking_source = 'app'`
-- `raw_active_tokens` = `count(*) from push_tokens where active` — diagnostika (rozdíl vůči `active_devices` = míra rotace tokenů; frontend kartu nerenderuje)
+- `push_active_devices` = **legacy proxy** `count(distinct (user_id, lower(platform)))` z aktivních `push_tokens` — přechodná reference, než se rozšíří nový build appky (pak ji `app_installations` plně nahradí)
 
-**OPRAVA dedup 2026-06-27 B:** Původní verze počítala `active_devices`/`android`/`ios` jako `count(*)` ŘÁDKŮ `push_tokens`. Appka registruje token přes `upsert(onConflict:'token')` + `onTokenRefresh` → rotace FCM tokenu (reinstalace/obnova/clear data) zakládá nový aktivní řádek a starý zůstává `active=true` (deaktivuje se jen když na něj `send-push` dostane `UNREGISTERED`/`NOT_FOUND`). 1 zařízení = N aktivních řádků → „Aktivní zařízení" nafouklé. Bez `device_id` je nejlepší proxy dedup přes `(user_id, platform)` — sloučí rotované tokeny téhož účtu na téže platformě. (`app_users` byl správně už předtím.)
+**Proč přepis:** push_tokens trpí (a) nadhodnocením — rotace FCM tokenu (`onTokenRefresh`, `upsert(onConflict:'token')`) zakládá nové aktivní řádky, starý zůstává `active=true`; (b) podhodnocením — `PushService.initialize()` se ukončí, když uživatel odmítl notifikace, takže instalace bez pushů v `push_tokens` VŮBEC nejsou. `app_installations` (vlastní device UUID + heartbeat) řeší obojí a funguje i na iOS, kam Play Developer API nedosáhne. Dedup verze 2026-06-27 B (`count(distinct (user_id, platform))` nad push_tokens) zůstává zachovaná jen jako `push_active_devices`.
 
-Spuštěno ručně v SQL editoru 2026-06-27. Není to oficiální počet instalací z Google Play (ten by vyžadoval Play Developer API) — „aktivní zařízení" je nejbližší odhad.
+Tabulka `app_installations` + tato RPC spuštěny ručně v SQL editoru, ověřeno 2026-06-28. Plní appka přes `InstallationService` (build nutný — nasadit SQL PŘED rozšířením buildu). Není to oficiální počet instalací z Google Play (ten by vyžadoval Play Developer API).

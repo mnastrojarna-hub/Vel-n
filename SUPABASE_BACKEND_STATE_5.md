@@ -59,6 +59,7 @@ Ověřené vzory z živého schématu (`schema_public.sql`):
 - **`financial_events` (ověřeno 2026-06-24):** RLS zapnuté; `admin_financial_events` `FOR ALL USING (is_admin())` — admin-only (jádro účetního pipeline revenue/expense/asset/payroll).
 - **`loyalty_monthly_winners` (ověřeno 2026-06-24):** RLS zapnuté; `Public read` `FOR SELECT USING (true)` + `Admin write` `FOR ALL USING (is_admin())` — měsíční žebříček vítězů věrnostního programu (čte appka, zapisuje admin/RPC).
 - **Trasy — Public read + Admin write (NEW 2026-06-21, `20260621_routes_feature.sql`):** `routes` (`routes_public_read`: SELECT TO anon,authenticated USING `is_active=true OR is_admin()`; `routes_admin_all`: FOR ALL TO authenticated USING/CHECK `is_admin()`), `route_pois` (`route_pois_public_read`: SELECT USING EXISTS nadřazené trasy `is_active=true OR is_admin()`; `route_pois_admin_all`: FOR ALL `is_admin()`). Appka čte přes SECURITY DEFINER RPC `get_branch_routes`.
+- **`app_installations` — Owner RW + Admin read (NEW 2026-06-28, `20260628_app_installations.sql`):** `app_installations_owner_rw` (FOR ALL TO authenticated USING/CHECK `user_id = auth.uid()` — appka upsertuje jen svůj řádek heartbeatem) + `app_installations_admin_read` (FOR SELECT TO authenticated USING `is_admin()` — Velín čte vše přes RPC `get_app_install_stats`). Realtime NE.
 
 > Pozn.: jde o standardní vzory již popsané nahoře (admin full / public read / customer own). Plný a přesný výčet všech ~~224~~ **234** politik (ověřeno 2026-06-24) je v etalonu `supabase-live-snapshot:supabase/_snapshot/schema_public.sql`.
 

@@ -425,3 +425,18 @@ Servisní zakázky navázané na motorky/servisní záznamy.
 - Indexy: (category_key, sort_order), (published, sort_order) WHERE published, (featured_home, sort_order) WHERE featured_home
 - RLS: public SELECT WHERE published=true, admin ALL
 - Realtime: ANO
+
+### app_installations (NEW 2026-06-28)
+Přesná evidence instalací appky (zdroj pravdy pro DAU/WAU/MAU, instalace, uživatele) — plní `InstallationService` (oba Flutter balíky) heartbeatem.
+- **device_id** (TEXT **PK**) — stabilní náhodné UUID v4 vygenerované appkou při 1. spuštění, uloženo v `flutter_secure_storage` (klíč `mg_device_id`). **NE hardwarový identifikátor** (Google Play safe).
+- **user_id** (UUID NOT NULL FK→auth.users ON DELETE CASCADE) — heartbeat se posílá jen přihlášenému uživateli.
+- **platform** (TEXT) — 'android' / 'ios'
+- **app_version** (TEXT) — `version+buildNumber` z `package_info_plus`
+- **push_enabled** (BOOLEAN NOT NULL DEFAULT false) — zda má zařízení povolené notifikace (`Permission.notification.isGranted`)
+- **first_seen_at** / **last_seen_at** (TIMESTAMPTZ NOT NULL DEFAULT now()) — `last_seen_at` se obnovuje při každém heartbeatu (start po push initu, resume, signedIn; throttle 12 h). MAU/WAU/DAU se počítají z `last_seen_at`.
+- created_at, updated_at (TIMESTAMPTZ NOT NULL DEFAULT now())
+- Upsert z appky: `onConflict: 'device_id'` (payload bez `first_seen_at`/`created_at` → na konfliktu se zachovají).
+- Indexy: `idx_app_installations_user` (user_id), `idx_app_installations_last_seen` (last_seen_at DESC), `idx_app_installations_platform` (lower(platform))
+- Trigger: `trg_app_installations_touch` → `app_installations_touch()` (updated_at)
+- RLS: `app_installations_owner_rw` (FOR ALL, `user_id = auth.uid()`) + `app_installations_admin_read` (SELECT, `is_admin()`)
+- Realtime: NE
