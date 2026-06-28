@@ -15,6 +15,7 @@ import 'core/cache_cleanup_service.dart';
 import 'core/currency.dart';
 import 'core/crash_report_service.dart';
 import 'core/debug_logger.dart';
+import 'core/installation_service.dart';
 import 'core/offline_guard.dart';
 import 'core/push/push_service.dart';
 import 'core/push/notification_handler.dart';
@@ -192,6 +193,9 @@ class _MotoGoAppState extends ConsumerState<MotoGoApp>
       NotificationHandler.initialize(rootNavigatorKey);
       // Mirror OS permission grants to the profile (Velín customer detail).
       await PermissionService.reportToProfile();
+      // Record this installation for accurate app analytics (independent of
+      // push consent). Non-blocking, throttled, swallows errors.
+      await InstallationService.beat();
     } catch (_) {
       // Non-blocking — push is optional functionality
     }
@@ -230,6 +234,9 @@ class _MotoGoAppState extends ConsumerState<MotoGoApp>
       AppDebugLogger.instance.flushNow();
       CrashReportService.instance.flushNow();
       CacheCleanupService.run();
+    } else if (state == AppLifecycleState.resumed) {
+      // Refresh installation heartbeat on resume (throttled internally).
+      InstallationService.beat();
     }
   }
 
@@ -243,6 +250,12 @@ class _MotoGoAppState extends ConsumerState<MotoGoApp>
       final session = data.session;
 
       if (event == AuthChangeEvent.signedOut) return; // already handled
+
+      // Right after sign-in we have a user → record the installation so a
+      // freshly logged-in device shows up in app analytics immediately.
+      if (event == AuthChangeEvent.signedIn) {
+        InstallationService.beat();
+      }
 
       // Token refresh attempt produced no session → refresh token is invalid
       // or revoked. This is the one case where we must force sign-out so the
