@@ -1,0 +1,602 @@
+import 'dart:async';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:go_router/go_router.dart';
+import 'package:latlong2/latlong.dart';
+
+import '../../core/theme.dart';
+import '../../core/router.dart' show MotoGoBackNav;
+import '../../core/i18n/i18n_provider.dart';
+import '../../core/widgets/moto_fx.dart';
+import 'routes_model.dart';
+import 'routes_provider.dart';
+import 'all_pois_screen.dart';
+
+/// Jedna zastávka editoru trasy.
+class _Stop {
+  LatLng point;
+  String? name; // null = obecný popisek „Zastávka N"
+  RoutePoi? poi; // odkud pochází (bod zájmu), když je z katalogu
+  _Stop(this.point, {this.name, this.poi});
+}
+
+/// Editor trasy — zákazník si trasu poskládá/upraví: přidá libovolné místo
+/// klikem do mapy, přidá body zájmu z katalogu, mění pořadí tažením, vybere
+/// profil (doporučené bez dálnic / nejrychlejší / nejkratší) a živě vidí trasu,
+/// délku i čas. „Trasa je jen doporučení" — tady vzniká vlastní vyjížďka.
+class RouteBuilderScreen extends ConsumerStatefulWidget {
+  final RouteItem route;
+  const RouteBuilderScreen({super.key, required this.route});
+
+  @override
+  ConsumerState<RouteBuilderScreen> createState() => _RouteBuilderScreenState();
+}
+
+class _RouteBuilderScreenState extends ConsumerState<RouteBuilderScreen> {
+  final MapController _ctrl = MapController();
+  final List<_Stop> _stops = [];
+  RouteProfile _profile = RouteProfile.recommended;
+  List<LatLng> _geometry = const [];
+  double? _distanceM;
+  bool _computing = false;
+  bool _mapReady = false;
+  Timer? _debounce;
+  int _reqId = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    final r = widget.route;
+    if (r.pois.isNotEmpty) {
+      for (final p in r.pois) {
+        if (p.latLng != null) _stops.add(_Stop(p.latLng!, name: p.name, poi: p));
+      }
+    } else {
+      for (final w in r.waypoints) {
+        _stops.add(_Stop(w));
+      }
+    }
+    _geometry = r.geometry;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _fit();
+      _recompute();
+    });
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    super.dispose();
+  }
+
+  // ── Změny zastávek ──
+  void _addPoint(LatLng p) {
+    final stop = _Stop(p);
+    setState(() => _stops.add(stop));
+    _scheduleRecompute();
+    // Best-effort doplnění názvu místa.
+    reverseGeocode(p).then((name) {
+      if (!mounted || name == null) return;
+      setState(() => stop.name = name);
+    });
+  }
+
+  Future<void> _addFromPois() async {
+    final picked = await Navigator.of(context).push<List<RoutePoi>>(
+      MaterialPageRoute(builder: (_) => const AllPoisScreen(pickMode: true)),
+    );
+    if (picked == null || picked.isEmpty) return;
+    setState(() {
+      for (final p in picked) {
+        if (p.latLng != null) _stops.add(_Stop(p.latLng!, name: p.name, poi: p));
+      }
+    });
+    _fit();
+    _recompute();
+  }
+
+  void _removeAt(int i) {
+    setState(() => _stops.removeAt(i));
+    _scheduleRecompute();
+  }
+
+  void _reorder(int oldI, int newI) {
+    setState(() {
+      if (newI > oldI) newI -= 1;
+      final s = _stops.removeAt(oldI);
+      _stops.insert(newI, s);
+    });
+    _scheduleRecompute();
+  }
+
+  void _setProfile(RouteProfile p) {
+    if (p == _profile) return;
+    setState(() => _profile = p);
+    _recompute();
+  }
+
+  // ── Výpočet trasy ──
+  void _scheduleRecompute() {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 500), _recompute);
+  }
+
+  Future<void> _recompute() async {
+    final pts = _stops.map((s) => s.point).toList();
+    if (pts.length < 2) {
+      setState(() {
+        _geometry = const [];
+        _distanceM = null;
+        _computing = false;
+      });
+      return;
+    }
+    final req = ++_reqId;
+    setState(() => _computing = true);
+    final geo = await fetchMapyRoute(pts, profile: _profile);
+    if (!mounted || req != _reqId) return;
+    final g = geo ?? pts;
+    setState(() {
+      _geometry = g;
+      _distanceM = _polyLen(g);
+      _computing = false;
+    });
+  }
+
+  double _polyLen(List<LatLng> g) {
+    const d = Distance();
+    double s = 0;
+    for (var i = 0; i < g.length - 1; i++) {
+      s += d.as(LengthUnit.Meter, g[i], g[i + 1]);
+    }
+    return s;
+  }
+
+  void _fit() {
+    if (!_mapReady) return;
+    final pts = _geometry.length >= 2 ? _geometry : _stops.map((s) => s.point).toList();
+    if (pts.length < 2) {
+      if (pts.length == 1) _ctrl.move(pts.first, 13);
+      return;
+    }
+    try {
+      _ctrl.fitCamera(CameraFit.bounds(
+        bounds: LatLngBounds.fromPoints(pts),
+        padding: const EdgeInsets.all(40),
+      ));
+    } catch (_) {}
+  }
+
+  void _navigate() {
+    if (_stops.length < 2) return;
+    final pois = _stops.where((s) => s.poi != null).map((s) => s.poi!).toList();
+    final route = RouteItem(
+      id: 'custom',
+      name: widget.route.name.isNotEmpty ? widget.route.name : t(context).tr('poiCustomRouteTitle'),
+      routeType: 'poi',
+      waypoints: _stops.map((s) => s.point).toList(),
+      pois: pois,
+    );
+    context.push('/route-nav-custom', extra: CustomNavArgs(route, _profile));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final canNav = _stops.length >= 2;
+    return Scaffold(
+      backgroundColor: MotoGoColors.bg,
+      body: Column(
+        children: [
+          _mapSection(context),
+          _statsBar(context),
+          Expanded(child: _stopsList(context)),
+          _bottomBar(context, canNav),
+        ],
+      ),
+    );
+  }
+
+  // ── Mapa ──
+  Widget _mapSection(BuildContext context) {
+    final markers = <Marker>[];
+    for (var i = 0; i < _stops.length; i++) {
+      markers.add(Marker(
+        point: _stops[i].point,
+        width: 30,
+        height: 30,
+        child: _numPin(i + 1),
+      ));
+    }
+    final center = _stops.isNotEmpty
+        ? _stops.first.point
+        : (_geometry.isNotEmpty ? _geometry.first : const LatLng(49.8175, 15.4730));
+    return SizedBox(
+      height: 260,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: FlutterMap(
+              mapController: _ctrl,
+              options: MapOptions(
+                initialCenter: center,
+                initialZoom: _stops.isEmpty ? 7 : 11,
+                onMapReady: () {
+                  _mapReady = true;
+                  _fit();
+                },
+                onTap: (_, p) => _addPoint(p),
+              ),
+              children: [
+                TileLayer(
+                  urlTemplate:
+                      'https://api.mapy.cz/v1/maptiles/outdoor/256/{z}/{x}/{y}?apikey=$mapyApiKey',
+                  userAgentPackageName: 'com.motogo24.app',
+                  maxZoom: 19,
+                ),
+                if (_geometry.length >= 2)
+                  PolylineLayer(polylines: [
+                    Polyline(points: _geometry, strokeWidth: 7, color: MotoGoColors.dark.withValues(alpha: 0.25)),
+                    Polyline(points: _geometry, strokeWidth: 5, color: MotoGoColors.greenDark),
+                  ]),
+                MarkerLayer(markers: markers),
+                RichAttributionWidget(
+                  attributions: const [TextSourceAttribution('Mapy.com')],
+                ),
+              ],
+            ),
+          ),
+          // Zpět
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 8,
+            left: 12,
+            child: _circleBtn(Icons.arrow_back, () => context.backOr('/routes')),
+          ),
+          // Indikátor počítání
+          if (_computing)
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 10,
+              right: 12,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(MotoGoRadius.pill),
+                  boxShadow: MotoGoShadows.cardSmall,
+                ),
+                child: const SizedBox(
+                  width: 16, height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: MotoGoColors.greenDark),
+                ),
+              ),
+            ),
+          // Nápověda
+          Positioned(
+            left: 12, right: 12,
+            bottom: 10,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.94),
+                borderRadius: BorderRadius.circular(MotoGoRadius.pill),
+                boxShadow: MotoGoShadows.cardSmall,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.touch_app, size: 15, color: MotoGoColors.greenDark),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      t(context).tr('routeBuilderHint'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: MotoGoTypo.sizeMd,
+                        fontWeight: MotoGoTypo.w700,
+                        color: MotoGoColors.black,
+                        decoration: TextDecoration.none,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Lišta: délka + čas + profil ──
+  Widget _statsBar(BuildContext context) {
+    final km = _distanceM == null ? '–' : '${(_distanceM! / 1000).toStringAsFixed(1)} km';
+    String tmin = '–';
+    if (_distanceM != null) {
+      final spd = _profile == RouteProfile.fastest ? 75.0 : 55.0; // km/h odhad
+      final mins = (_distanceM! / 1000 / spd * 60).round();
+      tmin = mins >= 60 ? '${mins ~/ 60} h ${mins % 60} min' : '$mins min';
+    }
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              _statChip(Icons.straighten, km),
+              const SizedBox(width: 10),
+              _statChip(Icons.schedule, tmin),
+              const Spacer(),
+              Text('${_stops.length} × ${t(context).tr('routeBuilderStop').toLowerCase()}',
+                  style: const TextStyle(
+                      fontSize: MotoGoTypo.sizeMd,
+                      fontWeight: MotoGoTypo.w700,
+                      color: MotoGoColors.g500,
+                      decoration: TextDecoration.none)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              _profileChip(RouteProfile.recommended, t(context).tr('routeProfileRecommended')),
+              const SizedBox(width: 8),
+              _profileChip(RouteProfile.fastest, t(context).tr('routeProfileFastest')),
+              const SizedBox(width: 8),
+              _profileChip(RouteProfile.shortest, t(context).tr('routeProfileShortest')),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _statChip(IconData icon, String text) => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: MotoGoColors.greenDark),
+          const SizedBox(width: 5),
+          Text(text,
+              style: const TextStyle(
+                  fontSize: MotoGoTypo.sizeLg,
+                  fontWeight: MotoGoTypo.w900,
+                  color: MotoGoColors.black,
+                  decoration: TextDecoration.none)),
+        ],
+      );
+
+  Widget _profileChip(RouteProfile p, String label) {
+    final active = _profile == p;
+    return Expanded(
+      child: PressableScale(
+        pressedScale: 0.95,
+        onTap: () => _setProfile(p),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 9),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: active ? MotoGoColors.greenDark : MotoGoColors.greenPale,
+            borderRadius: BorderRadius.circular(MotoGoRadius.pill),
+            border: Border.all(color: active ? MotoGoColors.greenDark : MotoGoColors.g200, width: 1.5),
+          ),
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: MotoGoTypo.sizeMd,
+              fontWeight: active ? MotoGoTypo.w800 : MotoGoTypo.w700,
+              color: active ? Colors.white : MotoGoColors.greenDarker,
+              decoration: TextDecoration.none,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Seznam zastávek (přehazovatelný) ──
+  Widget _stopsList(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 12, 6),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  t(context).tr('routePoisHeader'),
+                  style: const TextStyle(
+                      fontSize: MotoGoTypo.sizeH3,
+                      fontWeight: MotoGoTypo.w900,
+                      color: MotoGoColors.black,
+                      decoration: TextDecoration.none),
+                ),
+              ),
+              PressableScale(
+                pressedScale: 0.96,
+                onTap: _addFromPois,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: MotoGoColors.greenPale,
+                    borderRadius: BorderRadius.circular(MotoGoRadius.pill),
+                    border: Border.all(color: MotoGoColors.green, width: 1.2),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.add_location_alt, size: 15, color: MotoGoColors.greenDarker),
+                      const SizedBox(width: 5),
+                      Text(
+                        t(context).tr('routeBuilderAddPoi'),
+                        style: const TextStyle(
+                            fontSize: MotoGoTypo.sizeMd,
+                            fontWeight: MotoGoTypo.w800,
+                            color: MotoGoColors.greenDarker,
+                            decoration: TextDecoration.none),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: _stops.isEmpty
+              ? Center(
+                  child: Text(
+                    t(context).tr('routeBuilderEmpty'),
+                    style: const TextStyle(
+                        fontSize: MotoGoTypo.sizeLg,
+                        fontWeight: MotoGoTypo.w700,
+                        color: MotoGoColors.g500,
+                        decoration: TextDecoration.none),
+                  ),
+                )
+              : ReorderableListView.builder(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                  itemCount: _stops.length,
+                  onReorder: _reorder,
+                  itemBuilder: (context, i) => _stopTile(context, i),
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _stopTile(BuildContext context, int i) {
+    final s = _stops[i];
+    final label = s.name ?? '${t(context).tr('routeBuilderStop')} ${i + 1}';
+    return Container(
+      key: ValueKey(s),
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(MotoGoRadius.xl),
+        border: Border.all(color: MotoGoColors.g200),
+        boxShadow: MotoGoShadows.cardSmall,
+      ),
+      child: Row(
+        children: [
+          _numPin(i + 1),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                      fontSize: MotoGoTypo.sizeLg,
+                      fontWeight: MotoGoTypo.w800,
+                      color: MotoGoColors.black,
+                      decoration: TextDecoration.none),
+                ),
+                Text(
+                  '${s.point.latitude.toStringAsFixed(4)}, ${s.point.longitude.toStringAsFixed(4)}',
+                  style: const TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: MotoGoTypo.w600,
+                      color: MotoGoColors.g400,
+                      decoration: TextDecoration.none),
+                ),
+              ],
+            ),
+          ),
+          GestureDetector(
+            onTap: () => _removeAt(i),
+            child: const Padding(
+              padding: EdgeInsets.all(6),
+              child: Icon(Icons.close, size: 18, color: Color(0xFFD93636)),
+            ),
+          ),
+          ReorderableDragStartListener(
+            index: i,
+            child: const Padding(
+              padding: EdgeInsets.only(left: 4),
+              child: Icon(Icons.drag_handle, size: 20, color: MotoGoColors.g400),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Spodní lišta: Navigovat ──
+  Widget _bottomBar(BuildContext context, bool canNav) {
+    return Container(
+      padding: EdgeInsets.fromLTRB(16, 12, 16, MediaQuery.of(context).padding.bottom + 12),
+      decoration: BoxDecoration(color: Colors.white, boxShadow: MotoGoShadows.stickyBar),
+      child: PressableScale(
+        pressedScale: 0.97,
+        onTap: canNav ? _navigate : () {},
+        child: Opacity(
+          opacity: canNav ? 1 : 0.45,
+          child: Container(
+            height: 52,
+            decoration: BoxDecoration(
+              color: MotoGoColors.green,
+              borderRadius: BorderRadius.circular(MotoGoRadius.pill),
+              boxShadow: [
+                BoxShadow(color: MotoGoColors.green.withValues(alpha: 0.4), blurRadius: 14, offset: const Offset(0, 4)),
+              ],
+            ),
+            child: Center(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.navigation, size: 20, color: MotoGoColors.black),
+                  const SizedBox(width: 8),
+                  Text(
+                    t(context).tr('routeBuilderNavigate'),
+                    style: const TextStyle(
+                        fontSize: MotoGoTypo.sizeXl,
+                        fontWeight: MotoGoTypo.w800,
+                        color: MotoGoColors.black,
+                        letterSpacing: MotoGoTypo.lsMedium,
+                        decoration: TextDecoration.none),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _numPin(int n) => Container(
+        width: 26,
+        height: 26,
+        decoration: BoxDecoration(
+          color: MotoGoColors.greenDarker,
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.white, width: 2),
+        ),
+        child: Center(
+          child: Text('$n',
+              style: const TextStyle(
+                  fontSize: 12, fontWeight: FontWeight.w900, color: Colors.white, decoration: TextDecoration.none)),
+        ),
+      );
+
+  Widget _circleBtn(IconData icon, VoidCallback onTap) => GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: 40, height: 40,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(MotoGoRadius.lg),
+            boxShadow: MotoGoShadows.cardSmall,
+          ),
+          child: Icon(icon, size: 20, color: MotoGoColors.black),
+        ),
+      );
+}

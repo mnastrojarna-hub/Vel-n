@@ -17,7 +17,10 @@ import 'route_poi_sheet.dart';
 class AllPoisScreen extends ConsumerStatefulWidget {
   /// Předvybrané body (klíče `routeId:poiId`) — např. „uprav tuto trasu".
   final Set<String>? initialSelected;
-  const AllPoisScreen({super.key, this.initialSelected});
+  /// Režim výběru pro editor trasy: spodní tlačítko vrátí vybrané body
+  /// (Navigator.pop) místo přechodu na sestavení/navigaci.
+  final bool pickMode;
+  const AllPoisScreen({super.key, this.initialSelected, this.pickMode = false});
 
   @override
   ConsumerState<AllPoisScreen> createState() => _AllPoisScreenState();
@@ -101,7 +104,9 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
           Row(
             children: [
               GestureDetector(
-                onTap: () => context.backOr('/routes'),
+                onTap: () => widget.pickMode
+                    ? Navigator.of(context).pop()
+                    : context.backOr('/routes'),
                 child: const Padding(
                   padding: EdgeInsets.all(6),
                   child: Icon(Icons.arrow_back, color: Colors.white, size: 22),
@@ -388,10 +393,10 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.navigation, size: 18, color: MotoGoColors.black),
+                      Icon(widget.pickMode ? Icons.add : Icons.navigation, size: 18, color: MotoGoColors.black),
                       const SizedBox(width: 8),
                       Text(
-                        t(context).tr('poiNavigateThrough'),
+                        t(context).tr(widget.pickMode ? 'poiAddToRoute' : 'poiContinue'),
                         style: const TextStyle(
                           fontSize: MotoGoTypo.sizeXl,
                           fontWeight: MotoGoTypo.w800,
@@ -413,8 +418,14 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
   void _navigate(BuildContext context, List<PoiEntry> all, LatLng? me) {
     final pois = all.where((e) => _selected.contains(e.key)).map((e) => e.poi).toList();
     if (pois.isEmpty) return;
+    // Režim výběru → vrať body do editoru trasy.
+    if (widget.pickMode) {
+      Navigator.of(context).pop(pois);
+      return;
+    }
+    // Jinak sestav trasu (greedy od polohy) a otevři editor pro doladění.
     final route = buildCustomRoute(pois, from: me, name: t(context).tr('poiCustomRouteTitle'));
-    context.push('/route-nav-custom', extra: route);
+    context.push('/route-build', extra: route);
   }
 
   Widget _empty(BuildContext context) {
