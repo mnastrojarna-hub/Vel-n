@@ -1,0 +1,31 @@
+name: motogo_locker_kiosk
+description: MotoGo24 — samoobslužná pobočka (AlzaBox na motorky) kiosk pro průmyslový Android tablet
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.6.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Backend
+  supabase_flutter: ^2.3.0
+
+  # HTTP klient pro Shelly relé na LAN (otevření dveří, světla, hudba)
+  http: ^1.2.0
+
+  # Bezpečné uložení branch_code + kiosk_token na tabletu
+  flutter_secure_storage: ^9.0.0
+
+  # Drží obrazovku zapnutou (kiosk běží nonstop)
+  wakelock_plus: ^1.2.5
+
+dev_dependencies:
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/logo.png

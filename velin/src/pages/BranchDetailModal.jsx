@@ -6,6 +6,7 @@ import { mapyLinkUrl } from '../lib/mapyCz'
 import { DETAIL_TABS, MAX_MOTOS, Spinner, EmptyState, DRow } from './BranchHelpers'
 import { TabAccessories } from './BranchAccessories'
 import { TabDoorCodes } from './BranchDoorCodes'
+import { TabSelfService } from './BranchSelfService'
 
 function BranchDetailModal({ branch, stats: branchStats, bookings, onClose, onEdit, onRefresh }) {
   const [tab, setTab] = useState(0)
@@ -169,6 +170,9 @@ function BranchDetailModal({ branch, stats: branchStats, bookings, onClose, onEd
           activeBookings={activeBookings}
           onRefresh={() => { loadDoorCodes(); loadActiveBookings() }}
         />
+      )}
+      {tab === 4 && (
+        <TabSelfService branchId={branch.id} branchName={branch.name} motos={motos} />
       )}
 
       <div className="flex justify-end gap-3 mt-5">
