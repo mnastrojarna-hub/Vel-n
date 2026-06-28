@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import StatusBadge, { getDisplayStatus } from '../../components/ui/StatusBadge'
 import Card from '../../components/ui/Card'
+import CheckInModal from './CheckInModal'
 
 // Odjezdy (vyzvednutí) a návraty (vrácení) — události seřazené podle data a času,
 // kdy se zákazník má dostavit na pobočku. Plus kalendář (heatmapa) zvýrazňující
@@ -45,10 +46,11 @@ const DAYS = ['Po', 'Út', 'St', 'Čt', 'Pá', 'So', 'Ne']
 const MONTHS_FULL = ['Leden', 'Únor', 'Březen', 'Duben', 'Květen', 'Červen', 'Červenec', 'Srpen', 'Září', 'Říjen', 'Listopad', 'Prosinec']
 const navBtnStyle = { background: '#f1faf7', border: '1px solid #d4e8e0', borderRadius: 8, padding: '4px 12px', cursor: 'pointer', fontWeight: 800 }
 
-// odjezd = vyzvednutí (zákazník odjíždí na motorce), návrat = vrácení
+// odjezd = vyzvednutí (zákazník odjíždí na motorce), návrat = vrácení.
+// Ikona = šipka: odjezd ➡️ (ven), návrat ⬅️ (zpět na pobočku).
 const TYPE = {
-  pickup: { label: 'Odjezd', emoji: '🛫', color: '#1a8a18' },
-  return: { label: 'Návrat', emoji: '🛬', color: '#b45309' },
+  pickup: { label: 'Odjezd', emoji: '➡️', color: '#1a8a18' },
+  return: { label: 'Návrat', emoji: '⬅️', color: '#b45309' },
 }
 
 // Heatmapa pracovní náročnosti dne dle počtu událostí (odjezdy + návraty).
@@ -80,6 +82,7 @@ function buildEvents(bookings) {
       moto: b.motorcycles?.model || '—',
       spz: b.motorcycles?.spz || null,
       branch,
+      branchType: b.motorcycles?.branches?.type || null,
     }
     if (b.start_date) {
       const time = fmtTime(b.pickup_time) || DEFAULT_TIME.pickup
@@ -103,15 +106,27 @@ const TimeCell = ({ ev, t }) => (
   </span>
 )
 
+// Tlačítko „Odbavit" — otevře CheckInModal pro danou událost (odjezd/návrat).
+const checkInBtnStyle = {
+  background: '#74FB71', border: 'none', borderRadius: 8, padding: '4px 10px',
+  fontSize: 12, fontWeight: 800, color: '#1a2e22', cursor: 'pointer', whiteSpace: 'nowrap',
+  boxShadow: '0 2px 8px rgba(116,251,113,.35)',
+}
+const CheckInBtn = ({ ev, onCheckIn }) => (
+  <button title="Odbavit" style={checkInBtnStyle}
+    onClick={(e) => { e.stopPropagation(); onCheckIn(ev) }}>Odbavit</button>
+)
+
 // Jednořádková kompaktní položka události. `dense` = úzký dvouřádkový layout
 // (pro boční panel detailu dne, kde by horizontální řádek přetékal).
-function EventRow({ ev, onClick, showStatus, dense }) {
+function EventRow({ ev, onClick, showStatus, dense, onCheckIn }) {
   const t = TYPE[ev.type]
   const wrap = {
     padding: dense ? '8px 10px' : '7px 10px', borderLeft: `4px solid ${t.color}`,
     background: ev.done ? '#f3f4f6' : '#f8fdfb', borderBottom: '1px solid #eef5f1', opacity: ev.done ? 0.6 : 1,
   }
   const place = ev.delivery ? '🚚 ' + (ev.address || 'na adresu') : '🏍️ ' + (ev.branch || 'pobočka')
+  const canCheckIn = onCheckIn && !ev.done
   const typeTag = (
     <span className="inline-flex items-center gap-1 shrink-0">
       <span className="text-base" title={t.label}>{t.emoji}</span>
@@ -128,7 +143,10 @@ function EventRow({ ev, onClick, showStatus, dense }) {
         </div>
         <div className="font-extrabold text-sm mt-1 truncate" style={{ color: '#0f1a14' }}>{ev.moto}{ev.spz ? ` · ${ev.spz}` : ''}</div>
         <div className="text-sm truncate" style={{ color: '#1a2e22' }}>{ev.customer} <span className="font-mono" style={{ color: '#64748b' }}>{bookingNo(ev.booking.id)}</span></div>
-        <div className="text-sm truncate" style={{ color: '#64748b' }}>{place}</div>
+        <div className="flex items-center gap-2">
+          <span className="text-sm truncate" style={{ color: '#64748b' }}>{place}</span>
+          {canCheckIn && <span className="ml-auto"><CheckInBtn ev={ev} onCheckIn={onCheckIn} /></span>}
+        </div>
       </div>
     )
   }
@@ -145,17 +163,19 @@ function EventRow({ ev, onClick, showStatus, dense }) {
       <span className="text-sm truncate hidden lg:block" style={{ color: '#64748b', flex: '1 1 90px', minWidth: 0 }}>{ev.delivery ? '🚚 ' + (ev.address || 'na adresu') : '🏍️ ' + (ev.branch || 'pobočka')}</span>
       <span className="shrink-0 text-sm text-right" style={{ minWidth: 96 }}><TimeCell ev={ev} t={t} /></span>
       {showStatus && <span className="shrink-0 hidden xl:inline"><StatusBadge status={getDisplayStatus(ev.booking)} /></span>}
-      {ev.done && <span className="shrink-0 text-sm font-bold" style={{ color: '#15803d' }}>✓</span>}
+      {ev.done
+        ? <span className="shrink-0 text-sm font-bold" style={{ color: '#15803d' }}>✓</span>
+        : canCheckIn && <CheckInBtn ev={ev} onCheckIn={onCheckIn} />}
     </div>
   )
 }
 
-function EventList({ events, onOpen, limit, showStatus }) {
+function EventList({ events, onOpen, limit, showStatus, onCheckIn }) {
   const shown = limit ? events.slice(0, limit) : events
   if (shown.length === 0) return <p className="text-sm" style={{ color: '#64748b', padding: '8px 4px' }}>Žádné nadcházející odjezdy ani návraty</p>
   return (
     <div className="rounded-lg overflow-hidden" style={{ border: '1px solid #eef5f1' }}>
-      {shown.map((ev, i) => <EventRow key={ev.booking.id + '_' + ev.type + '_' + i} ev={ev} showStatus={showStatus} onClick={() => onOpen(ev.booking.id)} />)}
+      {shown.map((ev, i) => <EventRow key={ev.booking.id + '_' + ev.type + '_' + i} ev={ev} showStatus={showStatus} onCheckIn={onCheckIn} onClick={() => onOpen(ev.booking.id)} />)}
     </div>
   )
 }
@@ -170,6 +190,7 @@ export default function PickupsReturns({ compact = false, onExpand }) {
   const [selectedDay, setSelectedDay] = useState(localIso(new Date()))
   const [subView, setSubView] = useState('list') // 'list' | 'calendar'
   const [splitList, setSplitList] = useState(false) // seznam: společně vs. dvě tabulky
+  const [checkInEvent, setCheckInEvent] = useState(null) // událost odbavovaná v CheckInModal
 
   useEffect(() => { loadData() }, [])
   useEffect(() => {
@@ -180,7 +201,7 @@ export default function PickupsReturns({ compact = false, onExpand }) {
   async function loadData() {
     setLoading(true)
     const { data } = await supabase.from('bookings')
-      .select('id, start_date, end_date, pickup_time, return_time, status, payment_status, picked_up_at, returned_at, pickup_method, return_method, pickup_address, return_address, user_id, moto_id, ended_by_sos, profiles(full_name), motorcycles!moto_id(model, spz, branch_id, branches(name))')
+      .select('id, start_date, end_date, pickup_time, return_time, status, payment_status, picked_up_at, returned_at, pickup_method, return_method, pickup_address, return_address, user_id, moto_id, ended_by_sos, profiles(full_name), motorcycles!moto_id(model, spz, branch_id, branches(name, type))')
       .in('status', ['reserved', 'active', 'pending'])
       .order('start_date', { ascending: true })
     setBookings(data || [])
@@ -201,13 +222,14 @@ export default function PickupsReturns({ compact = false, onExpand }) {
   const upcomingReturns = useMemo(() => upcoming.filter(e => e.type === 'return'), [upcoming])
 
   const openBooking = (id) => navigate(`/rezervace/${id}`)
+  const handleCheckInDone = () => { setCheckInEvent(null); loadData() }
 
   // ── Compact (Dashboard widget) ──
   if (compact) {
     return (
       <Card style={{ padding: 16 }}>
         <div className="flex items-center gap-2 mb-3 cursor-pointer" onClick={onExpand}>
-          <span className="text-base">🛫🛬</span>
+          <span className="text-base">➡️⬅️</span>
           <h3 className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#0f1a14' }}>Odjezdy a návraty</h3>
           <span className="inline-block rounded-full text-sm font-extrabold" style={{ background: '#dcfce7', color: '#15803d', padding: '1px 9px' }}>{upcoming.length}</span>
           <span className="ml-auto text-sm font-bold" style={{ color: '#1a8a18' }}>Otevřít kalendář →</span>
@@ -275,24 +297,24 @@ export default function PickupsReturns({ compact = false, onExpand }) {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <Card style={{ padding: 14 }}>
               <div className="flex items-center gap-2 mb-3">
-                <span className="text-base">🛫</span>
+                <span className="text-base">➡️</span>
                 <h3 className="text-sm font-extrabold uppercase tracking-wide" style={{ color: TYPE.pickup.color }}>Odjezdy (vyzvednutí)</h3>
                 <span className="inline-block rounded-full text-sm font-extrabold ml-auto" style={{ background: '#dcfce7', color: '#15803d', padding: '1px 9px' }}>{upcomingPickups.length}</span>
               </div>
-              <EventList events={upcomingPickups} onOpen={openBooking} showStatus />
+              <EventList events={upcomingPickups} onOpen={openBooking} showStatus onCheckIn={setCheckInEvent} />
             </Card>
             <Card style={{ padding: 14 }}>
               <div className="flex items-center gap-2 mb-3">
-                <span className="text-base">🛬</span>
+                <span className="text-base">⬅️</span>
                 <h3 className="text-sm font-extrabold uppercase tracking-wide" style={{ color: TYPE.return.color }}>Návraty (vrácení)</h3>
                 <span className="inline-block rounded-full text-sm font-extrabold ml-auto" style={{ background: '#fef3c7', color: '#b45309', padding: '1px 9px' }}>{upcomingReturns.length}</span>
               </div>
-              <EventList events={upcomingReturns} onOpen={openBooking} showStatus />
+              <EventList events={upcomingReturns} onOpen={openBooking} showStatus onCheckIn={setCheckInEvent} />
             </Card>
           </div>
         ) : (
           <Card style={{ padding: 14 }}>
-            <EventList events={upcoming} onOpen={openBooking} showStatus />
+            <EventList events={upcoming} onOpen={openBooking} showStatus onCheckIn={setCheckInEvent} />
           </Card>
         )
       ) : (
@@ -318,7 +340,7 @@ export default function PickupsReturns({ compact = false, onExpand }) {
                   const h = heatColor(evs.length, monthMax)
                   return (
                     <div key={day} onClick={() => setSelectedDay(iso)}
-                      title={evs.length ? `${evs.length} událostí (🛫 ${pickups} / 🛬 ${returns})` : 'Žádný odjezd ani návrat'}
+                      title={evs.length ? `${evs.length} událostí (➡️ ${pickups} / ⬅️ ${returns})` : 'Žádný odjezd ani návrat'}
                       style={{ minHeight: 60, padding: '5px 4px', borderRadius: 8, cursor: 'pointer',
                         background: h.bg, color: h.color, border: `1px solid ${h.border}`,
                         outline: isSel ? '2px solid #0f1a14' : (isToday ? '2px solid #15803d' : 'none') }}>
@@ -328,7 +350,7 @@ export default function PickupsReturns({ compact = false, onExpand }) {
                       </div>
                       {evs.length > 0 && (
                         <div style={{ fontSize: 9, fontWeight: 800, marginTop: 2, opacity: 0.85 }}>
-                          🛫{pickups} 🛬{returns}
+                          ➡️{pickups} ⬅️{returns}
                         </div>
                       )}
                     </div>
@@ -343,7 +365,7 @@ export default function PickupsReturns({ compact = false, onExpand }) {
                   ))}
                   <span style={{ color: '#1a2e22' }}>Více odjezdů/návratů</span>
                 </div>
-                <div className="mt-1 text-sm" style={{ color: '#64748b' }}>Bílá = žádný odjezd ani návrat. Číslo v buňce = celkový počet (🛫 odjezdy / 🛬 návraty).</div>
+                <div className="mt-1 text-sm" style={{ color: '#64748b' }}>Bílá = žádný odjezd ani návrat. Číslo v buňce = celkový počet (➡️ odjezdy / ⬅️ návraty).</div>
               </div>
             </Card>
           </div>
@@ -354,12 +376,21 @@ export default function PickupsReturns({ compact = false, onExpand }) {
                 <p className="text-sm" style={{ color: '#64748b' }}>Žádné odjezdy ani návraty v tento den</p>
               ) : (
                 <div className="rounded-lg overflow-hidden" style={{ border: '1px solid #eef5f1' }}>
-                  {selected.map((ev, i) => <EventRow key={ev.booking.id + '_' + ev.type + '_' + i} ev={ev} dense onClick={() => openBooking(ev.booking.id)} />)}
+                  {selected.map((ev, i) => <EventRow key={ev.booking.id + '_' + ev.type + '_' + i} ev={ev} dense onCheckIn={setCheckInEvent} onClick={() => openBooking(ev.booking.id)} />)}
                 </div>
               )}
             </Card>
           </div>
         </div>
+      )}
+
+      {checkInEvent && (
+        <CheckInModal
+          open
+          event={checkInEvent}
+          onClose={() => setCheckInEvent(null)}
+          onDone={handleCheckInDone}
+        />
       )}
     </div>
   )
