@@ -42,10 +42,8 @@ class RouteNavigationScreen extends ConsumerStatefulWidget {
 }
 
 class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
-  // Zoom při navigaci — dost blízko, ať jezdec vidí odbočky.
-  static const double _navZoom = 16.5;
   // Pod touto rychlostí (km/h) je GPS heading nespolehlivý → mapou neotáčíme.
-  static const double _moveThreshold = 6;
+  static const double _moveThreshold = 5;
 
   final MapController _ctrl = MapController();
   StreamSubscription<Position>? _sub;
@@ -60,6 +58,26 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
   bool _firstFix = true;
   double _smoothHeading = 0; // vyhlazený směr (proti cukání mapy)
   double _mapRot = 0; // aktuální rotace mapy (pro kompas)
+  double _zoomBias = 0; // ruční doladění zoomu (tlačítka +/−)
+  double _zoomSpeed = 0; // vyhlazená rychlost pro adaptivní zoom (proti blikání)
+
+  /// Adaptivní zoom podle rychlosti: pomalu (obec, odbočka, sjezd) → blíž,
+  /// rychle (silnice, dálnice) → dál. Plus ruční bias z tlačítek +/−.
+  double _targetZoom(double kmh) {
+    double z;
+    if (kmh < 5) {
+      z = 17.0; // stojím / pomalu (křižovatka, sjezd)
+    } else if (kmh < 30) {
+      z = 16.7; // obec
+    } else if (kmh < 55) {
+      z = 15.8; // okreska
+    } else if (kmh < 85) {
+      z = 14.8; // silnice
+    } else {
+      z = 13.8; // rychle / dálnice
+    }
+    return (z + _zoomBias).clamp(10.0, 18.5);
+  }
 
   // Živá trasa od aktuální polohy — nejrychlejší BEZ dálnic (Mapy.com routing).
   RouteItem? _route;
@@ -103,6 +121,7 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
     final alt = pos.altitude.isFinite && pos.altitude != 0 ? pos.altitude : null;
     final moving = spd > _moveThreshold && hdg != null;
     if (moving) _smoothHeading = _lerpAngle(_smoothHeading, hdg!, 0.35);
+    _zoomSpeed = _zoomSpeed * 0.7 + spd * 0.3;
 
     setState(() {
       _me = me;
@@ -111,21 +130,20 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
       _altitude = alt;
     });
 
-    // Sledování polohy + (volitelně) otáčení mapy po směru jízdy.
+    // Sledování polohy + adaptivní zoom + (volitelně) otáčení po směru jízdy.
     final wantRot = _follow && _headingUp && moving;
-    final rot = wantRot ? -_smoothHeading : (_headingUp ? _mapRot : 0.0);
+    final rot = wantRot ? -_smoothHeading : _mapRot;
+    final z = _targetZoom(_zoomSpeed);
     if (_firstFix) {
       _firstFix = false;
-      _ctrl.moveAndRotate(me, _navZoom, wantRot ? rot : _mapRot);
-      _mapRot = wantRot ? rot : _mapRot;
+      _ctrl.moveAndRotate(me, z, rot);
+      _mapRot = rot;
     } else if (_follow) {
-      final z = _ctrl.camera.zoom;
-      final nz = z < 14 ? _navZoom : z;
       if (wantRot) {
-        _ctrl.moveAndRotate(me, nz, rot);
+        _ctrl.moveAndRotate(me, z, rot);
         _mapRot = rot;
       } else {
-        _ctrl.move(me, nz);
+        _ctrl.move(me, z);
       }
     }
     _maybeComputeNav();
@@ -170,11 +188,24 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
     final me = _me;
     if (me == null) return;
     final moving = _speedKmh > _moveThreshold && _heading != null;
+    final z = _targetZoom(_speedKmh);
     if (moving) {
       _mapRot = -_smoothHeading;
-      _ctrl.moveAndRotate(me, _navZoom, _mapRot);
+      _ctrl.moveAndRotate(me, z, _mapRot);
     } else {
-      _ctrl.move(me, _navZoom);
+      _ctrl.move(me, z);
+    }
+  }
+
+  /// Ruční zoom (tlačítka +/−). Ve follow režimu posune bias adaptivního zoomu
+  /// (drží se i při jízdě), jinak jen přiblíží aktuální výřez.
+  void _zoomBy(double d) {
+    if (_follow && _me != null) {
+      setState(() => _zoomBias = (_zoomBias + d).clamp(-3.0, 4.0));
+      _ctrl.move(_me!, _targetZoom(_speedKmh));
+    } else {
+      final c = _ctrl.camera;
+      _ctrl.move(c.center, (c.zoom + d).clamp(3.0, 19.0));
     }
   }
 
@@ -281,7 +312,7 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
             mapController: _ctrl,
             options: MapOptions(
               initialCenter: initialCenter,
-              initialZoom: _me != null ? _navZoom : 13,
+              initialZoom: _me != null ? _targetZoom(_speedKmh) : 13,
               onPositionChanged: (position, hasGesture) {
                 if (hasGesture) {
                   // MapPosition nemá rotation → vezmi ji z controlleru.
@@ -301,15 +332,15 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
               if (doneGeo.length >= 2)
                 PolylineLayer(
                   polylines: [
-                    Polyline(points: doneGeo, strokeWidth: 5, color: MotoGoColors.g400.withValues(alpha: 0.55)),
+                    Polyline(points: doneGeo, strokeWidth: 3.5, color: MotoGoColors.g400.withValues(alpha: 0.5)),
                   ],
                 ),
-              // Zbývající část — výrazná zelená s tmavým podkladem.
+              // Zbývající část — výrazná zelená s jemným tmavým podkladem.
               if (aheadGeo.length >= 2)
                 PolylineLayer(
                   polylines: [
-                    Polyline(points: aheadGeo, strokeWidth: 9, color: MotoGoColors.dark.withValues(alpha: 0.3)),
-                    Polyline(points: aheadGeo, strokeWidth: 6, color: MotoGoColors.greenDark),
+                    Polyline(points: aheadGeo, strokeWidth: 6, color: MotoGoColors.dark.withValues(alpha: 0.22)),
+                    Polyline(points: aheadGeo, strokeWidth: 4, color: MotoGoColors.greenDark),
                   ],
                 ),
               MarkerLayer(markers: [
@@ -430,16 +461,25 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
             ),
           ),
 
-        // Recenter — nad spodním HUD
+        // Ovládání mapy — zoom +/− a recenter (nad spodním HUD)
         Positioned(
           right: 16, bottom: 150,
-          child: FloatingActionButton(
-            heroTag: 'route-nav-recenter',
-            mini: true,
-            backgroundColor: _follow ? MotoGoColors.greenDark : Colors.white,
-            foregroundColor: _follow ? Colors.white : MotoGoColors.greenDark,
-            onPressed: _recenter,
-            child: const Icon(Icons.navigation_outlined),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _mapBtn(Icons.add, () => _zoomBy(0.8)),
+              const SizedBox(height: 8),
+              _mapBtn(Icons.remove, () => _zoomBy(-0.8)),
+              const SizedBox(height: 14),
+              FloatingActionButton(
+                heroTag: 'route-nav-recenter',
+                mini: true,
+                backgroundColor: _follow ? MotoGoColors.greenDark : Colors.white,
+                foregroundColor: _follow ? Colors.white : MotoGoColors.greenDark,
+                onPressed: _recenter,
+                child: const Icon(Icons.navigation_outlined),
+              ),
+            ],
           ),
         ),
 
@@ -467,6 +507,19 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
             boxShadow: MotoGoShadows.cardSmall,
           ),
           child: Icon(icon, size: 20, color: MotoGoColors.black),
+        ),
+      );
+
+  Widget _mapBtn(IconData icon, VoidCallback onTap) => GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: 40, height: 40,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
+            boxShadow: MotoGoShadows.cardSmall,
+          ),
+          child: Icon(icon, size: 22, color: MotoGoColors.greenDarker),
         ),
       );
 
