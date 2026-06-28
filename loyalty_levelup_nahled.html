@@ -49,8 +49,6 @@
   .mybike .m{ color:#fff; }
   .btn{ margin-top:18px; display:inline-block; padding:13px 34px; border-radius:999px; font-size:14px; font-weight:900; opacity:0; }
   .timebar{ position:absolute; left:0; bottom:0; height:3px; background:#FFD27A; width:0; z-index:50; opacity:.5; }
-  .skip{ position:absolute; top:14px; right:14px; z-index:55; background:rgba(0,0,0,.45); color:#fff; border:1px solid rgba(255,255,255,.3); border-radius:999px; padding:7px 14px; font-size:12px; font-weight:800; cursor:pointer; }
-  .skip:hover{ background:rgba(0,0,0,.72); }
 </style>
 </head>
 <body>
@@ -107,7 +105,6 @@
         <div class="mybike" id="mybike">TVŮJ STROJ · <span class="m" id="bikeTxt">Kawasaki Z900</span></div>
         <div class="btn" id="btn">Pokračovat</div>
       </div>
-      <button class="skip" id="skip">Přeskočit ✕</button>
       <div class="timebar" id="timebar"></div>
     </div>
   </div>
@@ -208,9 +205,8 @@ document.querySelectorAll('#gained button').forEach(b=>b.addEventListener('click
 el('level').addEventListener('input',e=>{S.level=+e.target.value;el('lvlVal').textContent=S.level;el('oldVal').textContent=oldLevel();el('lvlName').textContent=RANKS[S.level][0];el('pct').value=S.level;S.pct=S.level;applyStatic();});
 el('pct').addEventListener('input',e=>{S.pct=+e.target.value||0;el('pctTxt').textContent=S.pct+' %';});
 el('bike').addEventListener('input',e=>{S.bike=e.target.value;el('bikeTxt').textContent=S.bike;});
-function skip(){ cancelAnimationFrame(raf); try{audio.pause();}catch(e){} }
-el('skip').addEventListener('click',skip);
-document.querySelector('.stage').addEventListener('click',skip);
+function closeCeleb(){ cancelAnimationFrame(raf); try{audio.pause();}catch(e){} }
+el('btn').addEventListener('click',closeCeleb);   // dole „Pokračovat" = zavřít
 el('play').addEventListener('click',replay);
 applyStatic();
 </script>
