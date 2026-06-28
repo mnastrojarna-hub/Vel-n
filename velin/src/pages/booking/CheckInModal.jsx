@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabase'
 import Modal from '../../components/ui/Modal'
 import Button from '../../components/ui/Button'
 import { logAudit } from './bookingMessageHelpers'
-import ElectronicProtocolModal from './ElectronicProtocolModal'
+import PickupReadiness from './PickupReadiness'
 
 // Odbavení odjezdu (vyzvednutí) a návratu (vrácení) přímo z přehledu „Odjezdy a návraty".
 // Pravidla:
@@ -14,6 +14,16 @@ import ElectronicProtocolModal from './ElectronicProtocolModal'
 
 const TWO_HOURS_MS = 2 * 60 * 60 * 1000
 const fmtDT = (s) => (s ? new Date(s).toLocaleString('cs-CZ', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—')
+
+// Plánovaný čas vyzvednutí (start_date + pickup_time) — fallback pro 2h pravidlo,
+// když neznáme reálný picked_up_at (např. odjezd odbaven jen protokolem).
+function schedPickupMs(b) {
+  const d = (b?.start_date || '').split('T')[0]
+  if (!d) return null
+  const t = (b?.pickup_time || '09:00').slice(0, 5)
+  const dt = new Date(`${d}T${t}:00`)
+  return isNaN(dt.getTime()) ? null : dt.getTime()
+}
 
 const inputStyle = { width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #b6dccb', fontSize: 14 }
 const noteBox = (border, bg, color) => ({ border: `2px solid ${border}`, background: bg, color, borderRadius: 10, padding: 12, fontSize: 13 })
@@ -31,11 +41,10 @@ export default function CheckInModal({ open, event, onClose, onDone }) {
   const [codeOk, setCodeOk] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
-  const [showProtocol, setShowProtocol] = useState(false)
 
   useEffect(() => {
     if (!open || !booking?.id) return
-    setCodeInput(''); setCodeChecked(false); setCodeOk(false); setError(null); setShowProtocol(false)
+    setCodeInput(''); setCodeChecked(false); setCodeOk(false); setError(null)
     setLoadingCode(true)
     supabase.from('branch_door_codes').select('door_code')
       .eq('booking_id', booking.id).eq('code_type', 'motorcycle')
@@ -43,11 +52,13 @@ export default function CheckInModal({ open, event, onClose, onDone }) {
       .then(({ data }) => { setMotoCode(data?.[0]?.door_code || ''); setLoadingCode(false) })
   }, [open, booking?.id])
 
-  // 2h pravidlo pro návrat na samoobslužné pobočce — měří se od reálného vyzvednutí.
-  const pickedUpAt = booking?.picked_up_at ? new Date(booking.picked_up_at).getTime() : null
-  const earliestReturn = pickedUpAt ? pickedUpAt + TWO_HOURS_MS : null
+  // Odjezd je vyřízen, když má rezervace picked_up_at / aktivní stav / protokol
+  // (event.pickupDone). 2h pravidlo měří od reálného vyzvednutí (event.pickupAt),
+  // při neznámém čase od plánovaného vyzvednutí.
+  const pickupRefMs = event?.pickupAt ? new Date(event.pickupAt).getTime() : schedPickupMs(booking)
+  const earliestReturn = pickupRefMs ? pickupRefMs + TWO_HOURS_MS : null
   const returnTooEarly = !isPickup && selfService && !!earliestReturn && Date.now() < earliestReturn
-  const notPickedUp = !isPickup && !pickedUpAt
+  const notPickedUp = !isPickup && !event?.pickupDone
 
   function verifyCode() {
     const ok = !!motoCode && codeInput.trim() === String(motoCode).trim()
@@ -76,19 +87,6 @@ export default function CheckInModal({ open, event, onClose, onDone }) {
   }
 
   if (!open || !event) return null
-
-  // Elektronický předávací protokol (obslužná pobočka) — po podpisu označíme jako vyzvednuté.
-  if (showProtocol) {
-    return (
-      <ElectronicProtocolModal
-        open
-        type="handover_protocol"
-        bookingId={booking.id}
-        onClose={() => setShowProtocol(false)}
-        onSaved={() => markPickedUp('protocol')}
-      />
-    )
-  }
 
   const title = isPickup ? 'Odbavit odjezd (vyzvednutí)' : 'Odbavit návrat (vrácení)'
 
@@ -156,15 +154,7 @@ export default function CheckInModal({ open, event, onClose, onDone }) {
             {codeBlock('Odbavit odjezd', () => markPickedUp('self_service_code'))}
           </>
         ) : (
-          <>
-            <div style={noteBox('#2563eb', '#eff6ff', '#1e3a8a')}>
-              <strong>Obslužná pobočka.</strong> Odjezd se odbavuje podpisem předávacího protokolu zákazníkem.
-            </div>
-            <div className="flex justify-end gap-3">
-              <Button onClick={onClose} disabled={saving}>Zrušit</Button>
-              <Button green onClick={() => setShowProtocol(true)} disabled={saving}>✍️ Předávací protokol</Button>
-            </div>
-          </>
+          <PickupReadiness booking={booking} onClose={onClose} onProtocolDone={() => markPickedUp('protocol')} />
         ))}
 
         {/* ── NÁVRAT ── */}
@@ -180,7 +170,7 @@ export default function CheckInModal({ open, event, onClose, onDone }) {
             <>
               <div style={noteBox('#b45309', '#fffbeb', '#92400e')}>
                 Návrat lze na samoobslužné pobočce odbavit <strong>nejdříve 2 hodiny od vyzvednutí</strong>.
-                <div className="mt-1">Vyzvednuto: {fmtDT(booking.picked_up_at)} · nejdříve lze odbavit: <strong>{fmtDT(new Date(earliestReturn).toISOString())}</strong>.</div>
+                <div className="mt-1">Vyzvednuto: {fmtDT(event?.pickupAt) === '—' ? 'dle plánu' : fmtDT(event?.pickupAt)} · nejdříve lze odbavit: <strong>{fmtDT(new Date(earliestReturn).toISOString())}</strong>.</div>
               </div>
               <div className="flex justify-end"><Button onClick={onClose}>Zavřít</Button></div>
             </>
