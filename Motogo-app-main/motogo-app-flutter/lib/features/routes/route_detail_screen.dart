@@ -377,21 +377,51 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
               ),
             ),
           ),
-          // Sekundární: otevřít v jiné navigaci (Mapy.com / Google / Apple Maps).
-          PressableScale(
-            pressedScale: 0.96,
-            onTap: () => _openExportSheet(context, route, branch),
-            child: Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(
-                t(context).tr('routeNavExternal'),
-                style: const TextStyle(
-                  fontSize: MotoGoTypo.sizeMd,
-                  fontWeight: MotoGoTypo.w700,
-                  color: MotoGoColors.greenDark,
-                  decoration: TextDecoration.none,
+          // Sekundární akce: upravit body (vlastní vyjížďka) | jiná navigace.
+          Padding(
+            padding: const EdgeInsets.only(top: 10),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (route.pois.isNotEmpty) ...[
+                  PressableScale(
+                    pressedScale: 0.96,
+                    onTap: () {
+                      final keys = route.pois
+                          .where((p) => p.latLng != null)
+                          .map((p) => '${route.id}:${p.id}')
+                          .toSet();
+                      context.push('/pois', extra: keys);
+                    },
+                    child: Text(
+                      t(context).tr('routeCustomize'),
+                      style: const TextStyle(
+                        fontSize: MotoGoTypo.sizeMd,
+                        fontWeight: MotoGoTypo.w700,
+                        color: MotoGoColors.greenDark,
+                        decoration: TextDecoration.none,
+                      ),
+                    ),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 10),
+                    child: Text('·', style: TextStyle(color: MotoGoColors.g400, decoration: TextDecoration.none)),
+                  ),
+                ],
+                PressableScale(
+                  pressedScale: 0.96,
+                  onTap: () => _openExportSheet(context, route, branch),
+                  child: Text(
+                    t(context).tr('routeNavExternal'),
+                    style: const TextStyle(
+                      fontSize: MotoGoTypo.sizeMd,
+                      fontWeight: MotoGoTypo.w700,
+                      color: MotoGoColors.greenDark,
+                      decoration: TextDecoration.none,
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ),
           ),
         ],

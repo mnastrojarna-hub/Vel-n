@@ -101,6 +101,59 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen> {
       onRefresh: () async => ref.invalidate(routesDataProvider),
       child: CustomScrollView(
         slivers: [
+          // CTA: katalog všech bodů zájmu — vlastní vyjížďka
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: PressableScale(
+                pressedScale: 0.98,
+                onTap: () => context.push('/pois'),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: MotoGoColors.greenPale,
+                    borderRadius: BorderRadius.circular(MotoGoRadius.card),
+                    border: Border.all(color: MotoGoColors.green, width: 1.5),
+                  ),
+                  child: Row(
+                    children: [
+                      const Text('📍', style: TextStyle(fontSize: 22)),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              t(context).tr('poiBrowseAll'),
+                              style: const TextStyle(
+                                fontSize: MotoGoTypo.sizeLg,
+                                fontWeight: MotoGoTypo.w900,
+                                color: MotoGoColors.black,
+                                decoration: TextDecoration.none,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              t(context).tr('poiBrowseSub'),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: MotoGoTypo.sizeMd,
+                                fontWeight: MotoGoTypo.w600,
+                                color: MotoGoColors.g600,
+                                decoration: TextDecoration.none,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.arrow_forward_ios, size: 14, color: MotoGoColors.greenDark),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
           // Filtr poboček
           if (branches.length > 1)
             SliverToBoxAdapter(

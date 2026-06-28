@@ -62,6 +62,70 @@ final routesDataProvider = FutureProvider<RoutesData>((ref) async {
   return RoutesData(routes: routes, branches: branches);
 });
 
+/// Jeden bod zájmu + odkaz na trasu a pobočku, ke které patří. Slouží katalogu
+/// všech POI v appce (zákazník si skládá vlastní vyjížďku napříč trasami).
+class PoiEntry {
+  final RoutePoi poi;
+  final RouteItem route;
+  final RouteBranch? branch;
+  const PoiEntry(this.poi, this.route, this.branch);
+  LatLng? get latLng => poi.latLng;
+  String get key => '${route.id}:${poi.id}';
+}
+
+/// Všechny body zájmu napříč všemi (aktivními) trasami — pro katalog v appce.
+/// Trasa je jen doporučení; přes tento katalog si zákazník vybere zastávky
+/// z různých tras, případně dvě trasy spojí v jednu vlastní vyjížďku.
+final allPoisProvider = Provider<List<PoiEntry>>((ref) {
+  final data = ref.watch(routesDataProvider).valueOrNull;
+  if (data == null) return const [];
+  final out = <PoiEntry>[];
+  for (final r in data.routes) {
+    final b = r.branchId != null ? data.branches[r.branchId] : null;
+    for (final p in r.pois) {
+      if (p.latLng != null) out.add(PoiEntry(p, r, b));
+    }
+  }
+  return out;
+});
+
+/// Sestaví „vlastní" trasu z vybraných bodů zájmu (spojení bodů z více tras).
+/// Pořadí = hladový nejbližší soused od startu `from` (poloha jezdce / pobočka),
+/// jinak se zachová vstupní pořadí. Výsledek se naviguje jako běžná POI trasa.
+RouteItem buildCustomRoute(List<RoutePoi> pois, {LatLng? from, String name = ''}) {
+  final pts = pois.where((p) => p.latLng != null).toList();
+  final ordered = from != null ? _greedyOrder(pts, from) : pts;
+  return RouteItem(
+    id: 'custom',
+    name: name,
+    routeType: 'poi',
+    waypoints: ordered.map((p) => p.latLng!).toList(),
+    pois: ordered,
+  );
+}
+
+List<RoutePoi> _greedyOrder(List<RoutePoi> pts, LatLng from) {
+  const dist = Distance();
+  final remaining = [...pts];
+  final out = <RoutePoi>[];
+  var cur = from;
+  while (remaining.isNotEmpty) {
+    var bi = 0;
+    var bd = double.infinity;
+    for (var i = 0; i < remaining.length; i++) {
+      final d = dist.as(LengthUnit.Meter, cur, remaining[i].latLng!);
+      if (d < bd) {
+        bd = d;
+        bi = i;
+      }
+    }
+    final n = remaining.removeAt(bi);
+    out.add(n);
+    cur = n.latLng!;
+  }
+  return out;
+}
+
 /// Sestaví uspořádaný seznam bodů pro routing/export:
 /// start = pobočka (pokud má GPS), pak waypointy, u okruhu zpět na pobočku.
 List<LatLng> orderedRoutePoints(RouteItem route, RouteBranch? branch) {

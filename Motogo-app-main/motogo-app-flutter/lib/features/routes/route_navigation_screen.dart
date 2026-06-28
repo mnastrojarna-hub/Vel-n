@@ -20,8 +20,15 @@ import 'route_poi_sheet.dart';
 /// rychlost, zbývající vzdálenost PO TRASE, čas dojezdu, čas příjezdu a
 /// nadmořskou výšku. Bez závislosti na externí navigaci.
 class RouteNavigationScreen extends ConsumerStatefulWidget {
-  final String routeId;
-  const RouteNavigationScreen({super.key, required this.routeId});
+  final String? routeId;
+  /// Vlastní trasa složená ze zákazníkem vybraných bodů zájmu (katalog POI).
+  /// Když je zadaná, naviguje se přímo přes ni (bez načítání trasy z DB).
+  final RouteItem? customRoute;
+
+  const RouteNavigationScreen({super.key, required this.routeId}) : customRoute = null;
+  const RouteNavigationScreen.custom({super.key, required RouteItem route})
+      : routeId = null,
+        customRoute = route;
 
   @override
   ConsumerState<RouteNavigationScreen> createState() => _RouteNavigationScreenState();
@@ -173,6 +180,22 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
   @override
   Widget build(BuildContext context) {
     final lang = ref.watch(localeProvider).languageCode;
+
+    // Vlastní trasa z vybraných bodů zájmu — naviguj přímo, bez DB lookupu.
+    final custom = widget.customRoute;
+    if (custom != null) {
+      _route = custom;
+      _branch = null;
+      if (_me != null && _navGeo == null && !_navLoading) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => _maybeComputeNav());
+      }
+      final geometry = _navGeo ?? custom.geometry;
+      return Scaffold(
+        backgroundColor: MotoGoColors.bg,
+        body: _content(context, custom, null, geometry, lang),
+      );
+    }
+
     final dataAsync = ref.watch(routesDataProvider);
 
     return Scaffold(
