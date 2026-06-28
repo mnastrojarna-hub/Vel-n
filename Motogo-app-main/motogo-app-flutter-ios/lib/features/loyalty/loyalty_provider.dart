@@ -86,9 +86,10 @@ class CelebrationMoto {
   final String? imageUrl;
   final String? videoUrl;
 
-  /// Transparentní výřez motorky bez pozadí (iOS „samolepka") — hlavní motiv
-  /// oslavy. Když existuje, „nalepí" se na cinematic scénu (přednost před
-  /// fotkou/videem). NULL → fallback na video/foto.
+  /// Všechna videa této motorky (montáž po sobě). Pořadí = pořadí přehrávání.
+  final List<String> videos;
+
+  /// Transparentní výřez motorky bez pozadí (iOS „samolepka") — rezervováno.
   final String? cutoutUrl;
 
   const CelebrationMoto({
@@ -97,6 +98,7 @@ class CelebrationMoto {
     this.color,
     this.imageUrl,
     this.videoUrl,
+    this.videos = const [],
     this.cutoutUrl,
   });
 
@@ -107,18 +109,33 @@ class CelebrationMoto {
       .trim();
 
   bool get hasCutout => cutoutUrl != null && cutoutUrl!.trim().isNotEmpty;
-  bool get hasVideo => videoUrl != null && videoUrl!.trim().isNotEmpty;
+  bool get hasVideo => videos.isNotEmpty ||
+      (videoUrl != null && videoUrl!.trim().isNotEmpty);
   bool get hasImage => imageUrl != null && imageUrl!.trim().isNotEmpty;
   bool get hasMedia => hasCutout || hasVideo || hasImage;
 
-  factory CelebrationMoto.fromJson(Map<dynamic, dynamic> j) => CelebrationMoto(
-        brand: j['brand'] as String?,
-        model: j['model'] as String?,
-        color: j['color'] as String?,
-        imageUrl: j['image_url'] as String?,
-        videoUrl: j['video_url'] as String?,
-        cutoutUrl: j['cutout_url'] as String?,
-      );
+  factory CelebrationMoto.fromJson(Map<dynamic, dynamic> j) {
+    final raw = j['videos'];
+    final vids = <String>[];
+    if (raw is List) {
+      for (final v in raw) {
+        if (v is String && v.trim().isNotEmpty) vids.add(v);
+      }
+    }
+    final single = j['video_url'] as String?;
+    if (vids.isEmpty && single != null && single.trim().isNotEmpty) {
+      vids.add(single);
+    }
+    return CelebrationMoto(
+      brand: j['brand'] as String?,
+      model: j['model'] as String?,
+      color: j['color'] as String?,
+      imageUrl: j['image_url'] as String?,
+      videoUrl: vids.isNotEmpty ? vids.first : single,
+      videos: vids,
+      cutoutUrl: j['cutout_url'] as String?,
+    );
+  }
 }
 
 /// Fail-open: stáhne personalizované motorky pro level-up oslavu. Když RPC

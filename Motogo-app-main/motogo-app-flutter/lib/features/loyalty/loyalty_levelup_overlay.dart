@@ -15,11 +15,12 @@ import 'loyalty_provider.dart';
 /// Sedí neviditelně NAD celou navigací (v `MaterialApp.builder`), takže je
 /// přítomný na KAŽDÉ obrazovce. Jakmile `get_loyalty_status` vrátí vyšší
 /// level, než si appka pamatuje (SharedPreferences per-user), stáhne
-/// personalizovanou motorku (RPC `get_loyalty_celebration_motos` — z historie
-/// výpůjček, nejlepší médium: video → foto) a přehraje celoobrazovkovou
-/// prémiovou oslavu: motorka přijíždí jako hlavní hrdina, identita se mění
-/// dle ranku (nižší = brandová zelená, vyšší = zlato-chrom), vždy odznak
-/// „+N". Postup o 2+ ranky = „mimořádný postup" se silnějšími efekty.
+/// personalizovanou motorku (RPC `get_loyalty_celebration_motos` — poslední
+/// dokončená rezervace + její videa/foto) a přehraje celoobrazovkovou oslavu:
+/// montáž videí motorky s hudbou na pozadí (~67 s, 1×), po videích zůstane
+/// hlavní animovaná fotka (posledních 5 s vždy fotka), reveal ranku HNED na
+/// začátku (logo MotoGo24 ve středu se přeblikne ze staré barvy na novou +
+/// odznak „+N"), vše skončí s koncem hudby. Dole tlačítko „Pokračovat".
 ///
 /// Spolehlivost: nový level se do SharedPreferences zapíše až PO zobrazení
 /// oslavy — když se watcher mezitím odmountuje, oslava se neztratí.
@@ -44,7 +45,6 @@ class _LoyaltyLevelUpWatcherState extends ConsumerState<LoyaltyLevelUpWatcher> {
     final last = prefs.getInt(_lvlKey);
     final lastColorHex = prefs.getString(_colorKey);
 
-    // První zjištění ranku (čerstvá instalace / nový login) — jen uložit.
     if (last == null) {
       await prefs.setInt(_lvlKey, status.level);
       await prefs.setString(_colorKey, status.colorHex);
@@ -62,7 +62,6 @@ class _LoyaltyLevelUpWatcherState extends ConsumerState<LoyaltyLevelUpWatcher> {
     final gained = status.level - last;
     _showing = true;
 
-    // Personalizovaná motorka z historie výpůjček (fail-open → prázdné).
     final motos = await fetchLoyaltyCelebrationMotos();
     if (!mounted) {
       _showing = false;
@@ -84,7 +83,6 @@ class _LoyaltyLevelUpWatcherState extends ConsumerState<LoyaltyLevelUpWatcher> {
     );
     _showing = false;
 
-    // Teprve po zobrazení posuň zapamatovaný level.
     await prefs.setInt(_lvlKey, status.level);
     await prefs.setString(_colorKey, status.colorHex);
   }
@@ -107,7 +105,7 @@ class _LoyaltyLevelUpWatcherState extends ConsumerState<LoyaltyLevelUpWatcher> {
   }
 }
 
-/// Celoobrazovková prémiová level-up oslava s motorkou jako hlavním motivem.
+/// Celoobrazovková prémiová level-up oslava (montáž videí + hudba, ~67 s).
 class LevelUpCelebration extends StatefulWidget {
   final LoyaltyStatus status;
   final Color fromColor;
@@ -128,6 +126,11 @@ class LevelUpCelebration extends StatefulWidget {
 
 class _LevelUpCelebrationState extends State<LevelUpCelebration>
     with TickerProviderStateMixin {
+  // Délka = délka hudby (ořez 0:25–1:32 ≈ 67 s). Master clock celé scény.
+  static const double _T = 67.0;
+  static const double _photoAt = _T - 5.0; // posledních 5 s vždy fotka
+  static const double _rs = 1.4; // reveal ranku HNED na začátku
+
   late final AnimationController _ctrl;
   late final AnimationController _pulse;
 
@@ -135,23 +138,27 @@ class _LevelUpCelebrationState extends State<LevelUpCelebration>
   CelebrationMoto? get _moto =>
       widget.motos.isNotEmpty ? widget.motos.first : null;
 
-  /// Každý rank má VLASTNÍ barvu (`loyalty_levels.color_hex`) — používáme ji
-  /// pro ring, text, název, tlačítko i jiskry. Zlato-chrom gradient si necháme
-  /// jen pro vrchol „Legenda MotoGo" (level 20).
+  /// Jen vrchol „Legenda MotoGo" (level 20) má zlato-chrom gradient;
+  /// ostatní ranky používají svou skutečnou barvu (`color_hex`).
   bool get _gold => widget.status.isLegend;
+
+  double get _t => _ctrl.value * _T;
 
   @override
   void initState() {
     super.initState();
     _ctrl = AnimationController(
       vsync: this,
-      duration: Duration(milliseconds: _turbo ? 4600 : 3800),
-    )..forward();
+      duration: const Duration(milliseconds: 67000), // = _T (67 s)
+    )
+      ..addStatusListener((s) {
+        if (s == AnimationStatus.completed) _close();
+      })
+      ..forward();
     _pulse = AnimationController(
       vsync: this,
-      duration: Duration(milliseconds: _turbo ? 700 : 900),
+      duration: const Duration(milliseconds: 1100),
     )..repeat(reverse: true);
-    Future.delayed(Duration(seconds: _turbo ? 9 : 8), _close);
   }
 
   void _close() {
@@ -167,15 +174,16 @@ class _LevelUpCelebrationState extends State<LevelUpCelebration>
     super.dispose();
   }
 
+  /// Segment v sekundách na hlavní časové ose.
   double _seg(double from, double to, [Curve curve = Curves.easeOut]) {
-    final v = ((_ctrl.value - from) / (to - from)).clamp(0.0, 1.0);
+    final v = ((_t - from) / (to - from)).clamp(0.0, 1.0);
     return curve.transform(v);
   }
 
   @override
   Widget build(BuildContext context) {
     final status = widget.status;
-    final accent = status.color; // barva ranku z DB
+    final accent = status.color; // skutečná barva ranku z DB
     final glow = _gold ? const Color(0xFFFF8C00) : accent;
     String tr(String key) => t(context).tr(key);
 
@@ -183,173 +191,146 @@ class _LevelUpCelebrationState extends State<LevelUpCelebration>
       animation: Listenable.merge([_ctrl, _pulse]),
       builder: (context, _) {
         final size = MediaQuery.of(context).size;
-        final v = _ctrl.value;
 
-        // Choreografie. Climax je ZÁMĚRNĚ na konci: logo MotoGo24 drží STAROU
-        // barvu ranku a teprve k závěru se přeblikne na NOVOU (ringMix) +
-        // záblesk + ukáže se číslo „+N". (Zvuk změny ranku napojíme na flash.)
-        final mediaIn = _seg(0.0, 0.30, Curves.easeOutCubic); // příjezd motorky
-        final beam = _seg(0.05, 0.55, Curves.easeInOutCubic); // průjezd světla
-        final rev = _seg(0.22, 0.40, Curves.elasticOut); // záškub
-        final emblemIn = _seg(0.18, 0.42, Curves.elasticOut); // logo (stará barva)
-        final ringMix = _seg(0.56, 0.84); // PŘEKLOPENÍ staré → nové barvy
-        final flash = _seg(0.58, 0.66) * (1 - _seg(0.66, 0.84)); // záblesk climaxu
-        final badgeIn = _seg(0.66, 0.86, Curves.elasticOut); // číslo „+N" u climaxu
-        final burst = _seg(0.62, 1.0, Curves.easeOutCubic); // jiskry u climaxu
-        final shock = _turbo ? _seg(0.62, 0.95, Curves.easeOutCubic) : 0.0;
-        final textIn = _seg(0.72, 0.90);
-        final btnIn = _seg(0.90, 1.0);
+        final beam = _seg(0.2, 2.6, Curves.easeInOutCubic); // úvodní průjezd světla
+        final emblemIn = _seg(0.4, 2.4, Curves.elasticOut);
+        final ringMix = _seg(_rs, _rs + 3.0); // přeblik stará → nová barva
+        final flash = _seg(_rs, _rs + 0.8) * (1 - _seg(_rs + 0.8, _rs + 2.4));
+        final badgeIn = _seg(_rs + 0.9, _rs + 2.6, Curves.elasticOut);
+        final burst = _seg(_rs, _rs + 3.4, Curves.easeOutCubic);
+        final shock = _turbo ? _seg(_rs, _rs + 3.0, Curves.easeOutCubic) : 0.0;
+        final textIn = _seg(_rs + 0.3, _rs + 2.4);
+        final btnIn = _seg(_rs + 1.6, _rs + 3.2);
 
-        // Širší, animovaná záře kolem loga (dýchá s _pulse).
         final pulseGlow = (_turbo ? 36.0 : 30.0) +
             (_turbo ? 30.0 : 24.0) * _pulse.value * emblemIn;
-        // Logo MotoGo24 je UPROSTŘED scény (září dle ranku) — odtud i jiskry.
         final emblemCenter = Offset(size.width / 2, size.height * 0.42);
+        final forcePhoto = _t >= _photoAt;
 
-        // Příjezd zepředu: motorka „dojede" z dálky (zvětší se) + lehký drift.
-        final heroScale = 1.18 - 0.18 * mediaIn + (_turbo ? 0.02 : 0.012) *
-            _pulse.value;
-        final heroDx = (1 - mediaIn) * size.width * 0.22;
-        final heroRot = (1 - rev) * (_turbo ? -0.04 : -0.025);
+        return Material(
+          color: Colors.transparent,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // Tmavý cinematic podklad (i kdyby médium chybělo).
+              Container(
+                decoration: const BoxDecoration(
+                  gradient: RadialGradient(
+                    center: Alignment(0, -0.4),
+                    radius: 1.1,
+                    colors: [Color(0xFF16241B), Color(0xFF070E09)],
+                  ),
+                ),
+              ),
 
-        return GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: () {
-            if (v > 0.6) _close();
-          },
-          child: Material(
-            color: Colors.transparent,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                // Tmavý cinematic podklad (i kdyby médium chybělo).
-                Container(
-                  decoration: const BoxDecoration(
-                    gradient: RadialGradient(
-                      center: Alignment(0, -0.4),
-                      radius: 1.1,
-                      colors: [Color(0xFF16241B), Color(0xFF070E09)],
+              // Hudba na pozadí (přehraje se 1×) — neviditelná.
+              const _BgMusic(),
+
+              // HERO médium: montáž videí motorky → hlavní fotka (Ken Burns).
+              if (_moto != null)
+                _MediaMontage(
+                  videos: _moto!.videos,
+                  imageUrl: _moto!.imageUrl,
+                  forcePhoto: forcePhoto,
+                ),
+
+              // Cinematic scrim — nahoře i dole ztmavit kvůli čitelnosti.
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.black.withValues(alpha: 0.55),
+                      Colors.black.withValues(alpha: 0.10),
+                      Colors.black.withValues(alpha: 0.30),
+                      Colors.black.withValues(alpha: 0.88),
+                    ],
+                    stops: const [0.0, 0.30, 0.55, 1.0],
+                  ),
+                ),
+              ),
+
+              _beamSweep(size, beam),
+
+              // Ohňostroj + rázová vlna z místa emblému (úvodní reveal).
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: CustomPaint(
+                    painter: _BurstPainter(
+                      progress: burst,
+                      shock: shock,
+                      speed: _turbo ? beam : 0.0,
+                      count: _turbo ? 90 : 46,
+                      color: _gold ? const Color(0xFFFFD700) : accent,
+                      secondary:
+                          _gold ? const Color(0xFFFF8C00) : Colors.white,
+                      center: emblemCenter,
                     ),
                   ),
                 ),
+              ),
 
-                // HERO médium — motorka přijíždí (video > foto).
-                if (_moto != null)
-                  Opacity(
-                    opacity: mediaIn,
-                    child: Transform.translate(
-                      offset: Offset(heroDx, 0),
-                      child: Transform.rotate(
-                        angle: heroRot,
-                        child: Transform.scale(
-                          scale: heroScale,
-                          child: _HeroMedia(moto: _moto!),
-                        ),
-                      ),
-                    ),
-                  ),
-
-                // Cinematic scrim — nahoře i dole ztmavit kvůli čitelnosti.
-                Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.black.withValues(alpha: 0.55),
-                        Colors.black.withValues(alpha: 0.10),
-                        Colors.black.withValues(alpha: 0.30),
-                        Colors.black.withValues(alpha: 0.88),
-                      ],
-                      stops: const [0.0, 0.30, 0.55, 1.0],
-                    ),
-                  ),
-                ),
-
-                // Reflektor přejede scénou (průjezd světla).
-                _beamSweep(size, beam),
-
-                // Ohňostroj + rázová vlna z místa emblému.
-                Positioned.fill(
-                  child: IgnorePointer(
-                    child: CustomPaint(
-                      painter: _BurstPainter(
-                        progress: burst,
-                        shock: shock,
-                        speed: _turbo ? beam : 0.0,
-                        count: _turbo ? 90 : 46,
-                        color: _gold ? const Color(0xFFFFD700) : accent,
-                        secondary:
-                            _gold ? const Color(0xFFFF8C00) : Colors.white,
-                        center: emblemCenter,
-                      ),
-                    ),
-                  ),
-                ),
-
-                // Měkké tmavé „spotlight" pozadí pod logem (čitelnost přes video).
-                Align(
-                  alignment: const Alignment(0, -0.12),
-                  child: IgnorePointer(
-                    child: Container(
-                      width: 300,
-                      height: 300,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: RadialGradient(
-                          colors: [
-                            Colors.black.withValues(alpha: 0.55 * emblemIn),
-                            Colors.black.withValues(alpha: 0),
-                          ],
-                        ),
+              // Měkké tmavé „spotlight" pozadí pod logem (čitelnost přes video).
+              Align(
+                alignment: const Alignment(0, -0.12),
+                child: IgnorePointer(
+                  child: Container(
+                    width: 300,
+                    height: 300,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: RadialGradient(
+                        colors: [
+                          Colors.black.withValues(alpha: 0.5 * emblemIn),
+                          Colors.black.withValues(alpha: 0),
+                        ],
                       ),
                     ),
                   ),
                 ),
+              ),
 
-                // Logo MotoGo24 UPROSTŘED — drží starou barvu, na konci se
-                // přeblikne na novou (ringMix) + odznak „+N".
-                Align(
-                  alignment: const Alignment(0, -0.12),
+              // Logo MotoGo24 UPROSTŘED — reveal ranku na začátku.
+              Align(
+                alignment: const Alignment(0, -0.12),
+                child: Opacity(
+                  opacity: _seg(0.18, 0.9),
+                  child: Transform.scale(
+                    scale: 0.6 + 0.4 * emblemIn,
+                    child:
+                        _emblem(ringMix, emblemIn, badgeIn, pulseGlow, accent, tr),
+                  ),
+                ),
+              ),
+
+              // Záblesk v momentě přeblku barvy (reveal).
+              if (flash > 0.01)
+                IgnorePointer(
+                  child: Container(
+                    color: (_gold ? const Color(0xFFFFE9AA) : Colors.white)
+                        .withValues(alpha: 0.45 * flash),
+                  ),
+                ),
+
+              // Spodní prémiový text + tlačítko „Pokračovat".
+              Align(
+                alignment: Alignment.bottomCenter,
+                child: Padding(
+                  padding: EdgeInsets.only(
+                      left: 26,
+                      right: 26,
+                      bottom: 34 + MediaQuery.of(context).padding.bottom),
                   child: Opacity(
-                    opacity: _seg(0.18, 0.36),
-                    child: Transform.scale(
-                      scale: 0.6 + 0.4 * emblemIn,
-                      child: _emblem(ringMix, emblemIn, badgeIn, pulseGlow, accent, tr),
+                    opacity: textIn,
+                    child: Transform.translate(
+                      offset: Offset(0, 22 * (1 - textIn)),
+                      child: _bottomTexts(status, accent, glow, btnIn, tr),
                     ),
                   ),
                 ),
-
-                // Záblesk v momentě překlopení ranku (climax) — krátké projasnění.
-                if (flash > 0.01)
-                  IgnorePointer(
-                    child: Container(
-                      color: (_gold
-                              ? const Color(0xFFFFE9AA)
-                              : Colors.white)
-                          .withValues(alpha: 0.45 * flash),
-                    ),
-                  ),
-
-                // Spodní prémiový text.
-                Align(
-                  alignment: Alignment.bottomCenter,
-                  child: Padding(
-                    padding: EdgeInsets.only(
-                        left: 26,
-                        right: 26,
-                        bottom: 34 + MediaQuery.of(context).padding.bottom),
-                    child: Opacity(
-                      opacity: textIn,
-                      child: Transform.translate(
-                        offset: Offset(0, 22 * (1 - textIn)),
-                        child: _bottomTexts(status, accent, glow, btnIn, tr),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         );
       },
@@ -358,7 +339,6 @@ class _LevelUpCelebrationState extends State<LevelUpCelebration>
 
   Widget _emblem(double ringMix, double emblemIn, double badgeIn,
       double pulseGlow, Color accent, String Function(String) tr) {
-    // Ring drží STAROU barvu a na konci se přeblikne na NOVOU (ringMix).
     final ringColor = Color.lerp(widget.fromColor, accent, ringMix)!;
     final glowC = _gold && ringMix > 0.9 ? const Color(0xFFFF8C00) : ringColor;
     return Column(
@@ -380,7 +360,6 @@ class _LevelUpCelebrationState extends State<LevelUpCelebration>
                         end: Alignment.bottomRight,
                       )
                     : null,
-                // Dvojitá záře: ostřejší jádro + široký dýchající halo.
                 boxShadow: [
                   BoxShadow(
                     color: glowC.withValues(alpha: 0.65 * emblemIn),
@@ -411,7 +390,7 @@ class _LevelUpCelebrationState extends State<LevelUpCelebration>
                 ),
               ),
             ),
-            // Vždy odznak „+N" (i pro +1) — naskočí v climaxu (badgeIn).
+            // Vždy odznak „+N" (i pro +1).
             Positioned(
               top: -12,
               right: -16,
@@ -445,10 +424,8 @@ class _LevelUpCelebrationState extends State<LevelUpCelebration>
       children: [
         _rankTitle(status, accent),
         const SizedBox(height: 12),
-        // „Vaše sleva X % platí napořád"
         Text(
-          tr('loyaltyDiscountForever')
-              .replaceAll('{pct}', '${status.percent}'),
+          tr('loyaltyDiscountForever').replaceAll('{pct}', '${status.percent}'),
           textAlign: TextAlign.center,
           style: const TextStyle(
             fontSize: 16,
@@ -485,7 +462,7 @@ class _LevelUpCelebrationState extends State<LevelUpCelebration>
         Opacity(
           opacity: btnIn,
           child: GestureDetector(
-            onTap: _close,
+            onTap: _close, // „Pokračovat" = zavřít oslavu
             child: Container(
               padding:
                   const EdgeInsets.symmetric(horizontal: 34, vertical: 13),
@@ -496,12 +473,11 @@ class _LevelUpCelebrationState extends State<LevelUpCelebration>
                     : null,
                 borderRadius: BorderRadius.circular(999),
                 boxShadow: [
-                  BoxShadow(
-                      color: glow.withValues(alpha: 0.5), blurRadius: 18),
+                  BoxShadow(color: glow.withValues(alpha: 0.5), blurRadius: 18),
                 ],
               ),
               child: Text(
-                tr('confirm'),
+                tr('loyaltyContinue'),
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w900,
@@ -546,13 +522,13 @@ class _LevelUpCelebrationState extends State<LevelUpCelebration>
         style: TextStyle(
           fontSize: 17,
           fontWeight: FontWeight.w900,
-          color: _gold ? const Color(0xFF241A06) : _onColor(widget.status.color),
+          color:
+              _gold ? const Color(0xFF241A06) : _onColor(widget.status.color),
         ),
       ),
     );
   }
 
-  /// Reflektor / světelný pruh přejede obrazovku (průjezd světla).
   Widget _beamSweep(Size size, double progress) {
     if (progress <= 0 || progress >= 1) return const SizedBox.shrink();
     final dx = -size.width * 0.8 + progress * size.width * 2.2;
@@ -581,7 +557,6 @@ class _LevelUpCelebrationState extends State<LevelUpCelebration>
   }
 
   Widget _rankTitle(LoyaltyStatus status, Color accent) {
-    // Výrazná záře názvu ranku v barvě ranku.
     final shadows = [
       Shadow(color: accent.withValues(alpha: 0.9), blurRadius: 18),
       Shadow(color: accent.withValues(alpha: 0.5), blurRadius: 36),
@@ -611,78 +586,182 @@ class _LevelUpCelebrationState extends State<LevelUpCelebration>
       c.computeLuminance() > 0.5 ? const Color(0xFF0F1A14) : Colors.white;
 }
 
-/// Hero motiv = full-screen médium poslední rezervované motorky:
-/// PRIMÁRNĚ video (cover, muted, smyčka), jinak hlavní foto (cover).
-class _HeroMedia extends StatelessWidget {
-  final CelebrationMoto moto;
-  const _HeroMedia({required this.moto});
-
+/// Hudba na pozadí — přehraje se JEN JEDNOU. Přehráváme přes `video_player`
+/// (umí audio-only asset), takže nepotřebujeme další závislost. Fail-open:
+/// když se nepovede, scéna běží dál bez hudby (master clock je controller).
+class _BgMusic extends StatefulWidget {
+  const _BgMusic();
   @override
-  Widget build(BuildContext context) {
-    if (moto.hasVideo) {
-      return _HeroVideo(url: moto.videoUrl!);
-    }
-    if (moto.hasImage) {
-      return Image.network(
-        moto.imageUrl!,
-        fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-        loadingBuilder: (ctx, child, p) =>
-            p == null ? child : const SizedBox.shrink(),
-      );
-    }
-    return const SizedBox.shrink();
-  }
+  State<_BgMusic> createState() => _BgMusicState();
 }
 
-class _HeroVideo extends StatefulWidget {
-  final String url;
-  const _HeroVideo({required this.url});
-
-  @override
-  State<_HeroVideo> createState() => _HeroVideoState();
-}
-
-class _HeroVideoState extends State<_HeroVideo> {
+class _BgMusicState extends State<_BgMusic> {
   VideoPlayerController? _c;
-  bool _ready = false;
   bool _disposed = false;
 
   @override
   void initState() {
     super.initState();
-    _load();
+    _go();
   }
 
-  Future<void> _load() async {
-    final c = VideoPlayerController.networkUrl(Uri.parse(widget.url));
+  Future<void> _go() async {
+    try {
+      final c = VideoPlayerController.asset('assets/levelup_music.mp3');
+      _c = c;
+      await c.initialize();
+      if (_disposed) {
+        await c.dispose();
+        return;
+      }
+      await c.setVolume(1.0);
+      await c.setLooping(false);
+      await c.play();
+    } catch (_) {/* fail-open */}
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    _c?.pause();
+    _c?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => const SizedBox.shrink();
+}
+
+/// Montáž médií poslední rezervované motorky: videa se přehrají po sobě
+/// (full-screen, muted, každé 1×), po dojetí všech zůstane hlavní fotka
+/// (Ken Burns). `forcePhoto` (posledních 5 s) přepne na fotku okamžitě.
+class _MediaMontage extends StatefulWidget {
+  final List<String> videos;
+  final String? imageUrl;
+  final bool forcePhoto;
+  const _MediaMontage({
+    required this.videos,
+    this.imageUrl,
+    this.forcePhoto = false,
+  });
+
+  @override
+  State<_MediaMontage> createState() => _MediaMontageState();
+}
+
+class _MediaMontageState extends State<_MediaMontage> {
+  VideoPlayerController? _c;
+  int _idx = 0;
+  bool _photo = false;
+  bool _advancing = false;
+  bool _disposed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.forcePhoto || widget.videos.isEmpty) {
+      _photo = true;
+    } else {
+      _load(0);
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _MediaMontage old) {
+    super.didUpdateWidget(old);
+    if (widget.forcePhoto && !_photo) _toPhoto();
+  }
+
+  Future<void> _load(int i) async {
+    _advancing = false;
+    final old = _c;
+    final c = VideoPlayerController.networkUrl(Uri.parse(widget.videos[i]));
     _c = c;
+    _idx = i;
     try {
       await c.initialize();
       if (_disposed) {
         await c.dispose();
         return;
       }
-      await c.setVolume(0);
-      await c.setLooping(false); // po level-upu se přehraje JEN JEDNOU
+      await c.setVolume(0); // hudba jde z pozadí, videa němá
+      await c.setLooping(false);
       await c.play();
-      if (mounted) setState(() => _ready = true);
+      c.addListener(_tick);
+      if (mounted) setState(() {});
     } catch (_) {
-      // Video nešlo — hero zůstane na podkladu (gradient).
+      if (!_disposed && i + 1 < widget.videos.length) {
+        _load(i + 1);
+      } else {
+        _toPhoto();
+      }
     }
+    old?.removeListener(_tick);
+    await old?.dispose();
+  }
+
+  void _tick() {
+    final c = _c;
+    if (c == null || _disposed || _advancing) return;
+    final v = c.value;
+    if (!v.isInitialized) return;
+    if (widget.forcePhoto) {
+      _toPhoto();
+      return;
+    }
+    if (v.duration > Duration.zero &&
+        v.position >= v.duration - const Duration(milliseconds: 90)) {
+      _advancing = true;
+      if (_idx + 1 < widget.videos.length) {
+        _load(_idx + 1);
+      } else {
+        _toPhoto();
+      }
+    }
+  }
+
+  void _toPhoto() {
+    if (_photo) return;
+    _photo = true;
+    final c = _c;
+    _c = null;
+    c?.removeListener(_tick);
+    c?.pause();
+    c?.dispose();
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
     _disposed = true;
+    _c?.removeListener(_tick);
     _c?.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_photo) {
+      final url = widget.imageUrl;
+      if (url == null || url.trim().isEmpty) return const SizedBox.shrink();
+      return TweenAnimationBuilder<double>(
+        tween: Tween(begin: 1.0, end: 1.14),
+        duration: const Duration(seconds: 9),
+        curve: Curves.easeOut,
+        builder: (_, s, __) => Transform.scale(
+          scale: s,
+          child: Image.network(
+            url,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+            loadingBuilder: (ctx, child, p) =>
+                p == null ? child : const SizedBox.shrink(),
+          ),
+        ),
+      );
+    }
     final c = _c;
-    if (!_ready || c == null) return const SizedBox.shrink();
+    if (c == null || !c.value.isInitialized) return const SizedBox.shrink();
     return FittedBox(
       fit: BoxFit.cover,
       clipBehavior: Clip.hardEdge,
@@ -699,7 +778,7 @@ class _HeroVideoState extends State<_HeroVideo> {
 class _BurstPainter extends CustomPainter {
   final double progress;
   final double shock;
-  final double speed; // 0..1 fáze rychlostních čar (turbo)
+  final double speed;
   final int count;
   final Color color;
   final Color secondary;
@@ -717,7 +796,6 @@ class _BurstPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Rázová vlna (turbo)
     if (shock > 0 && shock < 1) {
       final r = shock * size.shortestSide * 0.9;
       final ring = Paint()
@@ -727,7 +805,6 @@ class _BurstPainter extends CustomPainter {
       canvas.drawCircle(center, r, ring);
     }
 
-    // Rychlostní čáry (jen turbo) — mužné, vodorovné, jemné.
     if (speed > 0 && speed < 1) {
       for (var i = 0; i < 6; i++) {
         final prog = (speed * 1.4 - i * 0.05).clamp(0.0, 1.0);
@@ -757,8 +834,8 @@ class _BurstPainter extends CustomPainter {
       final radius = (2.9 * (1 - progress * 0.6)) *
           (0.6 + ((math.sin(fi * 39.425) + 1) / 2) * 0.8);
       final paint = Paint()
-        ..color = (i % 3 == 0 ? secondary : color)
-            .withValues(alpha: 0.9 * fade);
+        ..color =
+            (i % 3 == 0 ? secondary : color).withValues(alpha: 0.9 * fade);
       canvas.drawCircle(pos, radius, paint);
     }
   }
