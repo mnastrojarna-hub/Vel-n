@@ -72,7 +72,19 @@ function heatColor(count, max) {
   return { bg: '#13803d', color: '#fff', border: '#13803d' }
 }
 
-function buildEvents(bookings) {
+// Odjezd je vyřízený, když je rezervace vyzvednutá (picked_up_at), je už ve stavu
+// active/completed, má vyplněný samoobslužný protokol, NEBO existuje předávací
+// protokol v dokladech (`protocolIds`). Návrat je vyřízený při returned_at nebo
+// stavu completed. Vyřízené události se neukazují v „nadcházejících".
+function pickupDone(b, protocolIds) {
+  return !!b.picked_up_at || b.status === 'active' || b.status === 'completed'
+    || !!b.handover_protocol_filled_at || protocolIds?.has(b.id)
+}
+function returnDone(b) {
+  return !!b.returned_at || b.status === 'completed'
+}
+
+function buildEvents(bookings, protocolIds) {
   const out = []
   for (const b of bookings) {
     const branch = b.motorcycles?.branches?.name || null
@@ -87,13 +99,13 @@ function buildEvents(bookings) {
     if (b.start_date) {
       const time = fmtTime(b.pickup_time) || DEFAULT_TIME.pickup
       out.push({ ...base, type: 'pickup', day: dateOnly(b.start_date), time, timeDefault: !fmtTime(b.pickup_time),
-        when: eventDateTime(b.start_date, time), done: !!b.picked_up_at,
+        when: eventDateTime(b.start_date, time), done: pickupDone(b, protocolIds),
         delivery: b.pickup_method === 'delivery', address: b.pickup_address })
     }
     if (b.end_date) {
       const time = fmtTime(b.return_time) || DEFAULT_TIME.return
       out.push({ ...base, type: 'return', day: dateOnly(b.end_date), time, timeDefault: !fmtTime(b.return_time),
-        when: eventDateTime(b.end_date, time), done: !!b.returned_at,
+        when: eventDateTime(b.end_date, time), done: returnDone(b),
         delivery: b.return_method === 'delivery', address: b.return_address })
     }
   }
@@ -191,6 +203,7 @@ export default function PickupsReturns({ compact = false, onExpand }) {
   const [subView, setSubView] = useState('list') // 'list' | 'calendar'
   const [splitList, setSplitList] = useState(false) // seznam: společně vs. dvě tabulky
   const [checkInEvent, setCheckInEvent] = useState(null) // událost odbavovaná v CheckInModal
+  const [protocolIds, setProtocolIds] = useState(() => new Set()) // rezervace s předávacím protokolem
 
   useEffect(() => { loadData() }, [])
   useEffect(() => {
@@ -201,10 +214,20 @@ export default function PickupsReturns({ compact = false, onExpand }) {
   async function loadData() {
     setLoading(true)
     const { data } = await supabase.from('bookings')
-      .select('id, start_date, end_date, pickup_time, return_time, status, payment_status, picked_up_at, returned_at, pickup_method, return_method, pickup_address, return_address, user_id, moto_id, ended_by_sos, profiles(full_name), motorcycles!moto_id(model, spz, branch_id, branches(name, type))')
+      .select('id, start_date, end_date, pickup_time, return_time, status, payment_status, picked_up_at, returned_at, handover_protocol_filled_at, pickup_method, return_method, pickup_address, return_address, user_id, moto_id, ended_by_sos, profiles(full_name), motorcycles!moto_id(model, spz, branch_id, branches(name, type))')
       .in('status', ['reserved', 'active', 'pending'])
       .order('start_date', { ascending: true })
-    setBookings(data || [])
+    const list = data || []
+    setBookings(list)
+    // Zjisti, které rezervace už mají vystavený předávací protokol (odjezd odbaven).
+    const ids = list.map(b => b.id)
+    let pSet = new Set()
+    if (ids.length) {
+      const { data: docs } = await supabase.from('documents')
+        .select('booking_id, type').in('booking_id', ids).in('type', ['protocol', 'handover_protocol'])
+      pSet = new Set((docs || []).map(d => d.booking_id))
+    }
+    setProtocolIds(pSet)
     setLoading(false)
   }
 
@@ -212,7 +235,7 @@ export default function PickupsReturns({ compact = false, onExpand }) {
     () => (branchFilter ? bookings.filter(b => b.motorcycles?.branch_id === branchFilter) : bookings),
     [bookings, branchFilter]
   )
-  const events = useMemo(() => buildEvents(filtered), [filtered])
+  const events = useMemo(() => buildEvents(filtered, protocolIds), [filtered, protocolIds])
 
   const todayIso = localIso(new Date())
   const upcoming = useMemo(() => events
