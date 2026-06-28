@@ -13,14 +13,14 @@ class SetupScreen extends StatefulWidget {
 }
 
 class _SetupScreenState extends State<SetupScreen> {
-  final _branch = TextEditingController(text: KioskStorage.instance.branchCode ?? '');
-  final _token = TextEditingController(text: KioskStorage.instance.token ?? '');
+  final _device = TextEditingController(text: KioskStorage.instance.deviceId ?? '');
+  final _token = TextEditingController(text: KioskStorage.instance.deviceToken ?? '');
   bool _busy = false;
   String? _error;
 
   @override
   void dispose() {
-    _branch.dispose();
+    _device.dispose();
     _token.dispose();
     super.dispose();
   }
@@ -30,7 +30,7 @@ class _SetupScreenState extends State<SetupScreen> {
       _busy = true;
       _error = null;
     });
-    final err = await KioskApi.instance.validatePairing(_branch.text, _token.text);
+    final err = await KioskApi.instance.validatePairing(_device.text, _token.text);
     if (err != null) {
       setState(() {
         _busy = false;
@@ -38,7 +38,7 @@ class _SetupScreenState extends State<SetupScreen> {
       });
       return;
     }
-    await KioskStorage.instance.save(branchCode: _branch.text, token: _token.text);
+    await KioskStorage.instance.save(deviceId: _device.text, deviceToken: _token.text);
     if (mounted) widget.onDone();
   }
 
@@ -64,13 +64,13 @@ class _SetupScreenState extends State<SetupScreen> {
                     textAlign: TextAlign.center,
                     style: TextStyle(color: MG.white, fontSize: 26, fontWeight: FontWeight.w900)),
                 const SizedBox(height: 8),
-                Text('Spárujte tablet s pobočkou. Údaje najdete ve Velíně → Pobočky → Samoobsluha.',
+                Text('Spárujte tablet se zařízením. Údaje najdete ve Velíně → Pobočky → Samoobsluha → Zařízení.',
                     textAlign: TextAlign.center,
                     style: TextStyle(color: MG.white.withValues(alpha: 0.7), fontSize: 15)),
                 const SizedBox(height: 28),
-                _field('Kód pobočky', _branch, 'např. 000126'),
+                _field('ID zařízení', _device, 'UUID z Velína'),
                 const SizedBox(height: 16),
-                _field('Kiosk token', _token, 'UUID z Velína'),
+                _field('Token zařízení', _token, 'UUID z Velína'),
                 if (_error != null) ...[
                   const SizedBox(height: 16),
                   Container(

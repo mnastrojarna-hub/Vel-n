@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../config.dart';
 import '../theme.dart';
 import '../services/api.dart';
+import '../services/command_listener.dart';
 import '../services/hardware.dart';
 import '../services/kiosk_storage.dart';
 import '../widgets/keyboards.dart';
@@ -21,13 +22,53 @@ class _KioskScreenState extends State<KioskScreen> {
   bool _busy = false;
   Widget? _overlay; // status / service picker
   Timer? _hideTimer;
+  Timer? _hbTimer;
+  bool _online = false;
 
   static const int _maxLen = 24;
 
   @override
+  void initState() {
+    super.initState();
+    CommandListener.instance
+      ..onIdentify = _onIdentify
+      ..onReload = _onReload
+      ..start();
+    _heartbeat();
+    _hbTimer = Timer.periodic(KioskConfig.heartbeatInterval, (_) => _heartbeat());
+  }
+
+  @override
   void dispose() {
     _hideTimer?.cancel();
+    _hbTimer?.cancel();
+    CommandListener.instance.stop();
     super.dispose();
+  }
+
+  Future<void> _heartbeat() async {
+    final res = await KioskApi.instance.heartbeat(platform: 'android');
+    if (mounted) setState(() => _online = res != null);
+    // Pojistka: stáhni i vzdálené příkazy, kdyby broadcast nedorazil.
+    CommandListener.instance.drain();
+  }
+
+  void _onIdentify(String label) {
+    if (!mounted) return;
+    _showOverlay(StatusOverlay(
+      kind: StatusKind.success,
+      title: 'Tady jsem 👋',
+      subtitle: 'Identifikace z Velína ($label)',
+      onDismiss: _hideOverlay,
+    ));
+    _autoHide();
+  }
+
+  void _onReload() {
+    if (!mounted) return;
+    setState(() => _entry = '');
+    _hideOverlay();
+    _heartbeat();
   }
 
   // ── Zadávání ──────────────────────────────────────────────────────────────
@@ -221,6 +262,15 @@ class _KioskScreenState extends State<KioskScreen> {
                           child: Image.asset('assets/logo.png', height: 48),
                         ),
                         const Spacer(),
+                        Container(
+                          width: 10,
+                          height: 10,
+                          margin: const EdgeInsets.only(right: 8),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: _online ? MG.green : MG.red,
+                          ),
+                        ),
                         Text(branchName,
                             style: TextStyle(
                                 color: MG.white.withValues(alpha: 0.85),

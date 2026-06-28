@@ -1,54 +1,59 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-/// Uložení párování kiosku s pobočkou (branch_code + kiosk_token) v secure storage.
-/// Nastaví se jednou při prvním spuštění (Setup), tablet je pak natrvalo
-/// přiřazený k jedné pobočce.
+/// Identita tabletu (zařízení) — unikátní device_id + device_token z Velína.
+/// Nastaví se jednou při prvním spuštění (Setup); tablet je pak natrvalo
+/// přiřazený k jednomu zařízení/pobočce.
 class KioskStorage {
   KioskStorage._();
   static final KioskStorage instance = KioskStorage._();
 
-  static const _kBranchCode = 'mg_kiosk_branch_code';
+  static const _kDeviceId = 'mg_kiosk_device_id';
+  static const _kDeviceToken = 'mg_kiosk_device_token';
   static const _kBranchName = 'mg_kiosk_branch_name';
-  static const _kToken = 'mg_kiosk_token';
 
   final _storage = const FlutterSecureStorage(
     aOptions: AndroidOptions(encryptedSharedPreferences: true),
   );
 
-  String? branchCode;
+  String? deviceId;
+  String? deviceToken;
   String? branchName;
-  String? token;
 
   bool get isConfigured =>
-      (branchCode?.isNotEmpty ?? false) && (token?.isNotEmpty ?? false);
+      (deviceId?.isNotEmpty ?? false) && (deviceToken?.isNotEmpty ?? false);
 
   Future<void> load() async {
-    branchCode = await _storage.read(key: _kBranchCode);
+    deviceId = await _storage.read(key: _kDeviceId);
+    deviceToken = await _storage.read(key: _kDeviceToken);
     branchName = await _storage.read(key: _kBranchName);
-    token = await _storage.read(key: _kToken);
   }
 
   Future<void> save({
-    required String branchCode,
-    required String token,
+    required String deviceId,
+    required String deviceToken,
     String? branchName,
   }) async {
-    this.branchCode = branchCode.trim();
-    this.token = token.trim();
-    this.branchName = branchName?.trim();
-    await _storage.write(key: _kBranchCode, value: this.branchCode);
-    await _storage.write(key: _kToken, value: this.token);
+    this.deviceId = deviceId.trim();
+    this.deviceToken = deviceToken.trim();
+    if (branchName != null) this.branchName = branchName.trim();
+    await _storage.write(key: _kDeviceId, value: this.deviceId);
+    await _storage.write(key: _kDeviceToken, value: this.deviceToken);
     if (this.branchName != null) {
       await _storage.write(key: _kBranchName, value: this.branchName);
     }
   }
 
+  Future<void> setBranchName(String name) async {
+    branchName = name;
+    await _storage.write(key: _kBranchName, value: name);
+  }
+
   Future<void> clear() async {
-    branchCode = null;
+    deviceId = null;
+    deviceToken = null;
     branchName = null;
-    token = null;
-    await _storage.delete(key: _kBranchCode);
+    await _storage.delete(key: _kDeviceId);
+    await _storage.delete(key: _kDeviceToken);
     await _storage.delete(key: _kBranchName);
-    await _storage.delete(key: _kToken);
   }
 }
