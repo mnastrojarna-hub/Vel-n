@@ -714,6 +714,11 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
         case CardSheetStatus.paid:
           await _verifyAndComplete();
           break;
+        case CardSheetStatus.processing:
+          // Stripe platbu zatím NEPOTVRDIL (PaymentIntent = Processing). Doklady
+          // se NESMÍ vystavit dokud potvrzení nepřijde ze serveru (webhook).
+          await _awaitProcessingConfirmation();
+          break;
         case CardSheetStatus.cancelled:
           // Zákazník zavřel sheet — žádná chyba, jen reset.
           setState(() => _processing = false);
@@ -861,23 +866,94 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
     showMotoGoToast(context,
         icon: '\u231b', title: t(context).tr('verifyingPayment'), message: t(context).tr('waitingConfirmation'));
 
-    bool paid = false;
-    if (_pendingOrderId != null) {
-      paid = await StripeService.pollOrderPaymentStatus(_pendingOrderId!);
-    } else if (_pendingBookingId != null) {
-      paid = await StripeService.pollBookingPaymentStatus(_pendingBookingId!);
-    } else {
-      paid = true; // No ID to poll — trust Payment Sheet success
-    }
-
+    final confirmed = await _serverConfirmed();
     if (!mounted) return;
 
-    if (paid) {
+    if (confirmed) {
+      _onPaymentSuccess();
+    } else if (_ctx?.flowType == PaymentFlowType.extension) {
+      // Succeeded PI = Stripe doplatek potvrdil; serverový signál pro velký
+      // payload (změna se nevejde do Stripe metadat) neexistuje → dokonči na
+      // základě potvrzeného PI, jinak by zaplacená úprava nešla nikdy uložit.
       _onPaymentSuccess();
     } else {
-      // Payment Sheet succeeded but DB not yet updated — trust it
-      _onPaymentSuccess();
+      // Webhook ještě nepotvrdil → NEvystavuj doklady; ukaž průběžný stav.
+      _showProcessingPending();
     }
+  }
+
+  /// Striktní serverové potvrzení platby PŘED vystavením dokladů. Vrací true JEN
+  /// když platbu reálně potvrdil server (Stripe webhook):
+  ///  • objednávka  → `shop_orders.payment_status = 'paid'`
+  ///  • doplatek úpravy (extension) → webhook aplikoval změnu
+  ///    (`bookings.total_price` == očekávaná nová cena); booking je už `paid`
+  ///    z původní platby, takže `payment_status` NELZE použít jako důkaz
+  ///  • nová / dokončovaná rezervace → `bookings.payment_status = 'paid'`
+  Future<bool> _serverConfirmed({int maxAttempts = 8}) async {
+    const interval = Duration(seconds: 1);
+    if (_pendingOrderId != null) {
+      return StripeService.pollOrderPaymentStatus(_pendingOrderId!,
+          maxAttempts: maxAttempts, interval: interval);
+    }
+    if (_ctx?.flowType == PaymentFlowType.extension) {
+      final expected =
+          (_ctx?.pendingEditChanges?['total_price'] as num?)?.toDouble();
+      final bid = _pendingBookingId;
+      if (expected == null || bid == null) return false;
+      for (var i = 0; i < maxAttempts; i++) {
+        try {
+          final row = await MotoGoSupabase.client
+              .from('bookings')
+              .select('total_price')
+              .eq('id', bid)
+              .maybeSingle();
+          final cur = (row?['total_price'] as num?)?.toDouble();
+          if (cur != null && (cur - expected).abs() < 0.5) return true;
+        } catch (_) {/* keep polling */}
+        await Future.delayed(interval);
+      }
+      return false;
+    }
+    if (_pendingBookingId != null) {
+      return StripeService.pollBookingPaymentStatus(_pendingBookingId!,
+          maxAttempts: maxAttempts, interval: interval);
+    }
+    return false;
+  }
+
+  /// PaymentIntent je ve stavu `Processing` — Stripe platbu NEPOTVRDIL. Nikdy
+  /// nevystavuj doklady optimisticky; počkej na serverové potvrzení a když
+  /// nedorazí v okně, ukaž „platba se zpracovává" (potvrzení + doklady dorazí
+  /// e-mailem) BEZ vystavení dokladu / aplikace úpravy.
+  Future<void> _awaitProcessingConfirmation() async {
+    showMotoGoToast(context,
+        icon: '⌛',
+        title: t(context).tr('verifyingPayment'),
+        message: t(context).tr('waitingConfirmation'));
+
+    final confirmed = await _serverConfirmed(maxAttempts: 10);
+    if (!mounted) return;
+
+    if (confirmed) {
+      _onPaymentSuccess();
+    } else {
+      _showProcessingPending();
+    }
+  }
+
+  /// Průběžný stav: platba běží, ale server ji zatím nepotvrdil. Žádné doklady
+  /// se nevystavují — potvrzení i doklady dorazí e-mailem po potvrzení webhookem.
+  void _showProcessingPending() {
+    if (_completed) return;
+    _completed = true;
+    _countdownTimer?.cancel();
+    ref.read(paymentContextProvider.notifier).state = null;
+    final tr = t(context);
+    showMotoGoToast(context,
+        icon: '⏳',
+        title: tr.tr('verifyingPayment'),
+        message: '${tr.tr('waitingConfirmation')} ${tr.tr('successEmailSent')}');
+    context.go(Routes.reservations);
   }
 
   /// Potvrzen\u00ed rezervace pln\u011b pokryt\u00e9 slevou (0 K\u010d). KRITICK\u00c9: \u00fasp\u011bch se
