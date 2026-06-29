@@ -277,40 +277,49 @@ class _KioskScreenState extends State<KioskScreen> {
                                 fontWeight: FontWeight.w800)),
                       ],
                     ),
-                    const Spacer(),
+                    const SizedBox(height: 16),
                     // Výzva + display kódu
                     Text('Zadejte přístupový kód',
-                        style: TextStyle(color: MG.white.withValues(alpha: 0.7), fontSize: 22)),
-                    const SizedBox(height: 16),
+                        style: TextStyle(color: MG.white.withValues(alpha: 0.7), fontSize: 20)),
+                    const SizedBox(height: 12),
                     Container(
-                      height: 84,
+                      height: 78,
                       width: double.infinity,
                       constraints: const BoxConstraints(maxWidth: 720),
                       alignment: Alignment.center,
                       decoration: MG.glass(radius: 18),
-                      child: Text(
-                        _entry.isEmpty ? '— — — — — —' : _entry.toUpperCase(),
-                        style: TextStyle(
-                          color: _entry.isEmpty ? MG.white.withValues(alpha: 0.3) : MG.green,
-                          fontSize: 44,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 8,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Text(
+                            _entry.isEmpty ? '— — — — — —' : _entry.toUpperCase(),
+                            style: TextStyle(
+                              color: _entry.isEmpty ? MG.white.withValues(alpha: 0.3) : MG.green,
+                              fontSize: 44,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 8,
+                            ),
+                          ),
                         ),
                       ),
                     ),
-                    const Spacer(),
-                    // Klávesnice
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 1000),
-                      child: KioskKeyboards(
-                        enabled: !_busy,
-                        onChar: _onChar,
-                        onBackspace: _onBackspace,
-                        onEnter: _submit,
-                        onClear: _onClear,
+                    const SizedBox(height: 14),
+                    // Klávesnice — vyplní zbylou výšku (responzivní, bez overflow)
+                    Expanded(
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 1000),
+                          child: KioskKeyboards(
+                            enabled: !_busy,
+                            onChar: _onChar,
+                            onBackspace: _onBackspace,
+                            onEnter: _submit,
+                            onClear: _onClear,
+                          ),
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 8),
                   ],
                 ),
               ),
