@@ -82,6 +82,10 @@ class CommandListener {
           onReload?.call();
           ok = true;
           break;
+        case 'camera_control':
+        case 'http_get':
+          ok = await Hardware.instance.httpGet(params['url'] as String?);
+          break;
         default:
           result['error'] = 'unknown_command';
       }

@@ -18,6 +18,8 @@ function TabSelfService({ branchId, branchName, motos }) {
   const [doors, setDoors] = useState([])
   const [codes, setCodes] = useState([])
   const [events, setEvents] = useState([])
+  const [cameras, setCameras] = useState([])
+  const [power, setPower] = useState(null)
   const [busy, setBusy] = useState(false)
   const [now, setNow] = useState(Date.now())
 
@@ -30,18 +32,22 @@ function TabSelfService({ branchId, branchName, motos }) {
     setLoading(true)
     setError(null)
     try {
-      const [c, dev, d, s, ev] = await Promise.all([
+      const [c, dev, d, s, ev, cam, pw] = await Promise.all([
         supabase.from('branch_kiosk_config').select('*').eq('branch_id', branchId).maybeSingle(),
         supabase.from('kiosk_devices').select('*').eq('branch_id', branchId).order('created_at'),
         supabase.from('branch_doors').select('*').eq('branch_id', branchId).order('door_kind').order('box_number'),
         supabase.from('branch_service_codes').select('*').eq('branch_id', branchId).order('created_at'),
         supabase.from('branch_door_events').select('*').eq('branch_id', branchId).order('created_at', { ascending: false }).limit(30),
+        supabase.from('branch_cameras').select('*').eq('branch_id', branchId).order('sort_order').order('created_at'),
+        supabase.from('branch_power_status').select('*').eq('branch_id', branchId).maybeSingle(),
       ])
       setCfg(c.data || null)
       setDevices(dev.data || [])
       setDoors(d.data || [])
       setCodes(s.data || [])
       setEvents(ev.data || [])
+      setCameras(cam.data || [])
+      setPower(pw.data || null)
     } catch (e) {
       setError(e.message)
     } finally {
@@ -133,6 +139,28 @@ function TabSelfService({ branchId, branchName, motos }) {
     await load()
   }
 
+  // ── Kamery ──
+  async function addCamera() {
+    setBusy(true)
+    try {
+      const { error } = await supabase.from('branch_cameras').insert({ branch_id: branchId, name: 'Nová kamera', kind: 'snapshot' })
+      if (error) throw error
+      await load()
+    } catch (e) { setError(e.message) } finally { setBusy(false) }
+  }
+  async function saveCamera(id, patch) {
+    setCameras(cs => cs.map(c => c.id === id ? { ...c, ...patch } : c))
+    try {
+      const { error } = await supabase.from('branch_cameras').update(patch).eq('id', id)
+      if (error) throw error
+    } catch (e) { setError(e.message) }
+  }
+  async function deleteCamera(id) {
+    if (!window.confirm('Smazat kameru?')) return
+    await supabase.from('branch_cameras').delete().eq('id', id)
+    await load()
+  }
+
   // ── Servisní hesla ──
   async function addCode(code, label) {
     if (!code.trim()) return
@@ -180,6 +208,9 @@ function TabSelfService({ branchId, branchName, motos }) {
       ) : (
         <>
           <ControlPanelBlock doors={doors} cfg={cfg} onlineDevice={onlineDevice} onRemote={remote} onRefresh={load} />
+          <PowerBlock power={power} cfg={cfg} now={now} onSave={saveCfg} onRefresh={load} />
+          <CamerasBlock cameras={cameras} onlineDevice={onlineDevice} busy={busy}
+            onAdd={addCamera} onSave={saveCamera} onDelete={deleteCamera} onRemote={remote} />
           <DevicesBlock devices={devices} doors={doors} cfg={cfg} now={now} busy={busy}
             onAdd={addDevice} onSave={saveDevice} onDelete={deleteDevice} onCommand={sendCommand} />
           <KioskConfigBlock cfg={cfg} onSave={saveCfg} />
@@ -432,6 +463,10 @@ function KioskConfigBlock({ cfg, onSave }) {
           <Field label="Světlo (s)" type="number" value={cfg.light_seconds} onCommit={v => onSave({ light_seconds: v })} width={130} />
           <Field label="Hudba (s)" type="number" value={cfg.music_seconds} onCommit={v => onSave({ music_seconds: v })} width={130} />
         </div>
+        <div className="flex gap-3 flex-wrap pt-2" style={{ borderTop: '1px dashed #d4e8e0' }}>
+          <Field label="FV elektrárna — URL stavu (JSON na LAN)" value={cfg.power_status_url} onCommit={v => onSave({ power_status_url: v })} placeholder="http://192.168.1.60/status" width={340} />
+          <Field label="Interval čtení (s)" type="number" value={cfg.power_poll_seconds} onCommit={v => onSave({ power_poll_seconds: v })} width={130} />
+        </div>
       </div>
     </Section>
   )
@@ -514,6 +549,153 @@ function ServiceCodesBlock({ codes, onAdd, onToggle, onDelete, busy }) {
         </div>
       )}
     </Section>
+  )
+}
+
+// ─── Stav ostrovní FV elektrárny ──────────────────────────────────────────
+function PowerBlock({ power, cfg, now, onSave, onRefresh }) {
+  const ageMs = power?.updated_at ? (now - new Date(power.updated_at).getTime()) : null
+  const stale = ageMs == null || ageMs > 5 * 60 * 1000
+  const fmt = (v, unit) => (v == null ? '—' : `${Number(v).toLocaleString('cs-CZ')} ${unit}`)
+  const soc = power?.battery_soc
+  const socColor = soc == null ? '#6b8c7a' : (soc >= 50 ? '#1a8a18' : soc >= 20 ? '#b45309' : '#dc2626')
+  return (
+    <Section title="Solární elektrárna (ostrovní systém)"
+      hint="Stav posílá tablet z měniče na pobočce. Nastav URL stavu v sekci „Hudba & časování“."
+      action={
+        <button onClick={onRefresh} className="rounded-btn text-sm font-bold cursor-pointer border-none"
+          style={{ padding: '4px 10px', background: '#dbeafe', color: '#2563eb' }}>Obnovit</button>
+      }>
+      {!power ? (
+        <EmptyState text={cfg.power_status_url ? 'Zatím nedorazil žádný stav z tabletu.' : 'Není nastavená URL stavu elektrárny.'} />
+      ) : (
+        <div className="p-3 rounded-card" style={{ background: stale ? '#fef3c7' : '#f1faf7', border: `1px solid ${stale ? '#fde68a' : '#d4e8e0'}` }}>
+          <div className="flex flex-wrap gap-4 items-center">
+            <div className="flex flex-col items-center" style={{ minWidth: 110 }}>
+              <span className="text-[11px] font-bold uppercase" style={{ color: '#6b8c7a' }}>Baterie</span>
+              <span style={{ fontSize: 34, fontWeight: 900, color: socColor }}>{soc == null ? '—' : `${soc}%`}</span>
+              <span className="text-[12px]" style={{ color: '#1a2e22' }}>{fmt(power.battery_voltage, 'V')}</span>
+            </div>
+            <Metric label="FV výroba" value={fmt(power.pv_power_w, 'W')} color="#1a8a18" />
+            <Metric label="Spotřeba" value={fmt(power.load_power_w, 'W')} color="#2563eb" />
+            <Metric label="Baterie tok" value={fmt(power.battery_power_w, 'W')} color="#1a2e22" />
+            <div className="flex flex-col gap-1">
+              <Flag on={power.grid_present} labelOn="Síť/gen připojeno" labelOff="Ostrovní provoz" />
+              {power.generator_on != null && <Flag on={power.generator_on} labelOn="Generátor běží" labelOff="Generátor vypnutý" />}
+            </div>
+          </div>
+          <div className="text-[12px] mt-2" style={{ color: stale ? '#b45309' : '#6b8c7a' }}>
+            {stale ? '⚠ Data nejsou aktuální — ' : ''}poslední aktualizace: {power.updated_at ? new Date(power.updated_at).toLocaleString('cs-CZ') : '—'}
+          </div>
+        </div>
+      )}
+    </Section>
+  )
+}
+
+function Metric({ label, value, color }) {
+  return (
+    <div className="flex flex-col items-center" style={{ minWidth: 100 }}>
+      <span className="text-[11px] font-bold uppercase" style={{ color: '#6b8c7a' }}>{label}</span>
+      <span style={{ fontSize: 22, fontWeight: 800, color }}>{value}</span>
+    </div>
+  )
+}
+
+function Flag({ on, labelOn, labelOff }) {
+  if (on == null) return null
+  return (
+    <span className="inline-block rounded-btn text-[10px] font-extrabold uppercase"
+      style={{ padding: '3px 8px', background: on ? '#dcfce7' : '#eef6f2', color: on ? '#1a8a18' : '#6b8c7a' }}>
+      {on ? labelOn : labelOff}
+    </span>
+  )
+}
+
+// ─── Kamery (náhled + ovládání přes tablet) ───────────────────────────────
+function CamerasBlock({ cameras, onlineDevice, busy, onAdd, onSave, onDelete, onRemote }) {
+  return (
+    <Section title="Kamerový systém" hint="Náhled (snapshot/HLS/iframe) a ovládání kamer. Ovládací akce se posílají přes tablet (LAN)."
+      action={
+        <button onClick={onAdd} disabled={busy} className="rounded-btn text-sm font-bold cursor-pointer border-none"
+          style={{ padding: '4px 10px', background: '#1a2e22', color: '#74FB71', opacity: busy ? 0.5 : 1 }}>Přidat kameru</button>
+      }>
+      {cameras.length === 0 ? (
+        <EmptyState text="Žádné kamery. Přidej kameru a zadej URL náhledu." />
+      ) : (
+        <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
+          {cameras.map(cam => (
+            <CameraCard key={cam.id} cam={cam} onlineDevice={onlineDevice} onSave={onSave} onDelete={onDelete} onRemote={onRemote} />
+          ))}
+        </div>
+      )}
+    </Section>
+  )
+}
+
+function CameraCard({ cam, onlineDevice, onSave, onDelete, onRemote }) {
+  const [edit, setEdit] = useState(false)
+  const [tick, setTick] = useState(Date.now())
+  // snapshot auto-refresh á 5 s
+  useEffect(() => {
+    if (cam.kind !== 'snapshot' || !cam.snapshot_url) return
+    const t = setInterval(() => setTick(Date.now()), 5000)
+    return () => clearInterval(t)
+  }, [cam.kind, cam.snapshot_url])
+
+  const sep = (cam.snapshot_url || '').includes('?') ? '&' : '?'
+  return (
+    <div className="rounded-card overflow-hidden" style={{ background: '#0f1a14', border: '1px solid #d4e8e0' }}>
+      <div style={{ aspectRatio: '16 / 9', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        {cam.kind === 'snapshot' && cam.snapshot_url ? (
+          <img src={`${cam.snapshot_url}${sep}_t=${tick}`} alt={cam.name || 'kamera'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        ) : cam.kind === 'mjpeg' && cam.stream_url ? (
+          <img src={cam.stream_url} alt={cam.name || 'kamera'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        ) : (cam.kind === 'hls' || cam.kind === 'iframe') && cam.stream_url ? (
+          <iframe src={cam.stream_url} title={cam.name || 'kamera'} style={{ width: '100%', height: '100%', border: 'none' }} allow="autoplay; fullscreen" />
+        ) : (
+          <span style={{ color: '#6b8c7a', fontSize: 13 }}>Bez náhledu — nastav URL</span>
+        )}
+      </div>
+      <div className="p-2">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="font-bold text-sm" style={{ color: '#fff' }}>{cam.name || 'Kamera'}</span>
+          <span className="inline-block rounded-btn text-[9px] font-extrabold uppercase" style={{ padding: '2px 6px', background: '#1a2e22', color: '#74FB71' }}>{cam.kind}</span>
+          <div className="ml-auto flex gap-1">
+            {cam.control_url && (
+              <button onClick={() => onRemote('camera_control', { url: cam.control_url })} disabled={!onlineDevice}
+                title={!onlineDevice ? 'Žádný tablet online' : 'Spustit akci kamery přes tablet'}
+                className="rounded-btn text-[11px] font-bold cursor-pointer border-none"
+                style={{ padding: '3px 8px', background: '#dbeafe', color: '#2563eb', opacity: onlineDevice ? 1 : 0.5 }}>Akce</button>
+            )}
+            <button onClick={() => setEdit(e => !e)} className="rounded-btn text-[11px] font-bold cursor-pointer border-none"
+              style={{ padding: '3px 8px', background: '#eef6f2', color: '#1a2e22' }}>{edit ? 'Hotovo' : 'Upravit'}</button>
+          </div>
+        </div>
+        {edit && (
+          <div className="space-y-2 pt-1">
+            <div className="flex gap-2 flex-wrap">
+              <Field label="Název" value={cam.name} onCommit={v => onSave(cam.id, { name: v })} width={150} />
+              <label className="flex flex-col gap-0.5" style={{ width: 120 }}>
+                <span className="text-[11px] font-bold" style={{ color: '#9fb8ac' }}>Typ náhledu</span>
+                <select value={cam.kind} onChange={e => onSave(cam.id, { kind: e.target.value })}
+                  className="rounded-btn text-sm outline-none" style={{ padding: '6px 8px', background: '#f1faf7', border: '1px solid #d4e8e0' }}>
+                  <option value="snapshot">snapshot (JPEG)</option>
+                  <option value="mjpeg">mjpeg</option>
+                  <option value="hls">hls (iframe)</option>
+                  <option value="iframe">iframe</option>
+                </select>
+              </label>
+            </div>
+            <Field label="Snapshot URL (JPEG)" value={cam.snapshot_url} onCommit={v => onSave(cam.id, { snapshot_url: v })} placeholder="http://nvr/cam1/snapshot.jpg" width="100%" />
+            <Field label="Stream URL (HLS/MJPEG/iframe)" value={cam.stream_url} onCommit={v => onSave(cam.id, { stream_url: v })} placeholder="https://nvr/cam1/index.m3u8" width="100%" />
+            <Field label="Ovládací URL (PTZ/relé — přes tablet)" value={cam.control_url} onCommit={v => onSave(cam.id, { control_url: v })} placeholder="http://nvr/cam1/preset?n=1" width="100%" />
+            <button onClick={() => onDelete(cam.id)} className="rounded-btn text-[11px] font-bold cursor-pointer border-none"
+              style={{ padding: '4px 10px', background: '#fee2e2', color: '#dc2626' }}>Smazat kameru</button>
+          </div>
+        )}
+      </div>
+    </div>
   )
 }
 

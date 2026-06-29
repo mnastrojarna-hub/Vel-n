@@ -21,6 +21,9 @@ class Hardware {
   /// Zastaví hudbu (volitelné).
   Future<bool> stopMusic(String? musicOffUrl) => _fire(musicOffUrl);
 
+  /// Obecné HTTP GET na LAN (ovládání kamer, PTZ presety apod.).
+  Future<bool> httpGet(String? url) => _fire(url);
+
   Future<bool> _fire(String? url) async {
     if (url == null || url.trim().isEmpty) return false;
     try {
