@@ -533,6 +533,7 @@ return [
     'rez.steps.licConfirmText' => '* Confirmo que poseo un permiso de conducir válido y cumplo los requisitos legales para conducir la moto reservada.',
     'rez.steps.uploadTitle' => 'Subida de documentos',
     'rez.steps.uploadSub' => 'Opcional — agiliza el registro. Reconoceremos las fotos automáticamente y rellenaremos los datos. Para el documento de identidad y el permiso de conducir, fotografía el <strong>anverso y el reverso</strong>.',
+    'rez.steps.docsSpeedupQuestion' => '¿Quieres agilizar la recogida de la moto? Sí, subiré mis documentos ahora.',
     'rez.steps.frontShort' => 'Anverso',
     'rez.steps.backShort' => 'Reverso',
     'rez.steps.pwdTitle' => 'Contraseña para gestionar la reserva',
