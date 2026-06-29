@@ -95,6 +95,10 @@ function buildEvents(bookings, protocolIds) {
       spz: b.motorcycles?.spz || null,
       branch,
       branchType: b.motorcycles?.branches?.type || null,
+      // Odjezd vyřízen (i protokolem/aktivací) + nejlepší známý čas vyzvednutí pro
+      // pravidlo „návrat nejdříve 2 h po vyzvednutí".
+      pickupDone: pickupDone(b, protocolIds),
+      pickupAt: b.picked_up_at || b.handover_protocol_filled_at || null,
     }
     if (b.start_date) {
       const time = fmtTime(b.pickup_time) || DEFAULT_TIME.pickup
