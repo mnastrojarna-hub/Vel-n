@@ -106,6 +106,7 @@ const translationsExt1EsFr = <String, Map<String, String>>{
     // Calendar
     'calMon': 'Lu', 'calTue': 'Ma', 'calWed': 'Mi', 'calThu': 'Ju',
     'calFri': 'Vi', 'calSat': 'Sá', 'calSun': 'Do',
+        'dateDay': 'Día', 'dateMonth': 'Mes', 'dateYear': 'Año',
     'calJan': 'Enero', 'calFeb': 'Febrero', 'calMar': 'Marzo',
     'calApr': 'Abril', 'calMay': 'Mayo', 'calJun': 'Junio',
     'calJul': 'Julio', 'calAug': 'Agosto', 'calSep': 'Septiembre',
@@ -273,6 +274,7 @@ const translationsExt1EsFr = <String, Map<String, String>>{
     // Calendar
     'calMon': 'Lu', 'calTue': 'Ma', 'calWed': 'Me', 'calThu': 'Je',
     'calFri': 'Ve', 'calSat': 'Sa', 'calSun': 'Di',
+        'dateDay': 'Jour', 'dateMonth': 'Mois', 'dateYear': 'Année',
     'calJan': 'Janvier', 'calFeb': 'Février', 'calMar': 'Mars',
     'calApr': 'Avril', 'calMay': 'Mai', 'calJun': 'Juin',
     'calJul': 'Juillet', 'calAug': 'Août', 'calSep': 'Septembre',
