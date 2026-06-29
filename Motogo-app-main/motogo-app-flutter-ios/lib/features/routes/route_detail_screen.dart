@@ -62,9 +62,9 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
       bottom: false,
       child: Column(
         children: [
-          // ── Mapa (fixní horní část) ──
+          // ── Mapa (kompaktní náhled, ~polovina) ──
           SizedBox(
-            height: 300,
+            height: 188,
             child: Stack(
               children: [
                 Positioned.fill(
@@ -101,6 +101,39 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
                         boxShadow: MotoGoShadows.cardSmall,
                       ),
                       child: const Icon(Icons.arrow_back, size: 20, color: MotoGoColors.black),
+                    ),
+                  ),
+                ),
+                // Zvětšit mapu (fullscreen náhled trasy)
+                Positioned(
+                  right: 12,
+                  bottom: 12,
+                  child: PressableScale(
+                    pressedScale: 0.95,
+                    onTap: () => _openFullMap(context, geometry, mapStart, poiMarkers, route, lang),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(MotoGoRadius.pill),
+                        boxShadow: MotoGoShadows.cardSmall,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.fullscreen, size: 17, color: MotoGoColors.greenDarker),
+                          const SizedBox(width: 5),
+                          Text(
+                            t(context).tr('routeShowOnMap'),
+                            style: const TextStyle(
+                              fontSize: MotoGoTypo.sizeMd,
+                              fontWeight: MotoGoTypo.w800,
+                              color: MotoGoColors.greenDarker,
+                              decoration: TextDecoration.none,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -443,6 +476,43 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
         ),
       ),
     );
+  }
+
+  void _openFullMap(BuildContext context, List<LatLng> geometry, LatLng? start,
+      List<({LatLng point, int index})> poiMarkers, RouteItem route, String lang) {
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => Scaffold(
+        backgroundColor: MotoGoColors.bg,
+        body: Stack(
+          children: [
+            Positioned.fill(
+              child: RouteMapView(
+                geometry: geometry,
+                start: start,
+                pois: poiMarkers,
+                onPoiTap: (i) => showRoutePoiSheet(context, route.pois[i], lang, index: i),
+              ),
+            ),
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 10,
+              left: 12,
+              child: GestureDetector(
+                onTap: () => Navigator.of(context).pop(),
+                child: Container(
+                  width: 42, height: 42,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(MotoGoRadius.lg),
+                    boxShadow: MotoGoShadows.cardSmall,
+                  ),
+                  child: const Icon(Icons.close, size: 22, color: MotoGoColors.black),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ));
   }
 
   void _openExportSheet(BuildContext context, RouteItem route, RouteBranch? branch) {
