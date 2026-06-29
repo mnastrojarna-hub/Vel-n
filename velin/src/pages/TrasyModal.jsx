@@ -452,6 +452,11 @@ export default function TrasyModal({ existing, branches, onClose, onSaved }) {
               <span className="text-xs font-extrabold" style={{ color: '#8b5cf6' }}>BOD ZÁJMU {i + 1}</span>
               <button onClick={() => rmPoi(i)} className="cursor-pointer text-sm font-bold" style={{ background: 'none', border: 'none', color: '#dc2626' }}>Odebrat ✕</button>
             </div>
+            {(p.lat === '' || p.lng === '' || p.lat == null || p.lng == null) && (
+              <div className="text-xs font-bold mb-2 rounded-btn" style={{ color: '#b45309', background: '#fff7ed', border: '1px solid #fdba74', padding: '6px 10px' }}>
+                ⚠ Chybí souřadnice — tento bod zájmu se NEZOBRAZÍ jako pin na mapě v aplikaci. Klikni do mapy výše v režimu „📍 Bod zájmu", nebo vyplň lat/lng ručně.
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-2">
               <FormField label="Název" value={p.name} onChange={v => setPoi(i, 'name', v)} />
               <div className="grid grid-cols-2 gap-2">

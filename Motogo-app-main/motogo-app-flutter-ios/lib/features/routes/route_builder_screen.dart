@@ -512,16 +512,26 @@ class _RouteBuilderScreenState extends ConsumerState<RouteBuilderScreen> {
           ),
           GestureDetector(
             onTap: () => _removeAt(i),
-            child: const Padding(
-              padding: EdgeInsets.all(6),
-              child: Icon(Icons.close, size: 18, color: Color(0xFFD93636)),
+            behavior: HitTestBehavior.opaque,
+            child: Container(
+              width: 42, height: 42,
+              decoration: BoxDecoration(
+                color: const Color(0xFFD93636).withValues(alpha: 0.10),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.delete_outline, size: 22, color: Color(0xFFD93636)),
             ),
           ),
+          const SizedBox(width: 6),
           ReorderableDragStartListener(
             index: i,
-            child: const Padding(
-              padding: EdgeInsets.only(left: 4),
-              child: Icon(Icons.drag_handle, size: 20, color: MotoGoColors.g400),
+            child: Container(
+              width: 42, height: 42,
+              decoration: BoxDecoration(
+                color: MotoGoColors.greenPale,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.drag_indicator, size: 24, color: MotoGoColors.greenDark),
             ),
           ),
         ],

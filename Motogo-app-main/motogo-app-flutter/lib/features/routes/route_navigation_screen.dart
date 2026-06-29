@@ -428,7 +428,7 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
         // Banner při zamítnuté poloze
         if (_denied)
           Positioned(
-            left: 16, right: 16, bottom: 150,
+            left: 16, right: 16, bottom: MediaQuery.of(context).padding.bottom + 134,
             child: Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -454,7 +454,7 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
         // Příští bod zájmu — drobná pilulka nad HUD.
         if (nextPoi != null)
           Positioned(
-            left: 16, right: 72, bottom: 150,
+            left: 16, right: 72, bottom: MediaQuery.of(context).padding.bottom + 134,
             child: Align(
               alignment: Alignment.centerLeft,
               child: _NextPoiPill(name: nextPoi.$1.nameFor(lang), distanceM: nextPoi.$2),
@@ -463,7 +463,7 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
 
         // Ovládání mapy — zoom +/− a recenter (nad spodním HUD)
         Positioned(
-          right: 16, bottom: 150,
+          right: 16, bottom: MediaQuery.of(context).padding.bottom + 134,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
