@@ -77,6 +77,45 @@ Oba workflowy nativní `android/` projekt **vygenerují samy** (`flutter create`
   (generuje `flutter create`) — appka volá Supabase i LAN relé.
 - Tablet a relé Shelly musí být ve stejné LAN síti.
 
-### Skrytý vstup do nastavení
+### Vstup do nastavení (servisní)
 
-Na hlavní obrazovce **5× klepnout na logo** (do 2 s) → otevře se párování pobočky.
+Hlavní obrazovka je pro zákazníka strohá (jen kód). Veškeré nastavení/ovládání
+se zobrazí **až po zadání servisního hesla** (servisní panel: otevřít dveře, hudba,
+stav zařízení, přepárování). První spuštění bez spárování zobrazí Setup automaticky.
+
+## Co se nastavuje KDE (Velín vs. tablet)
+
+**Vše o hardwaru se nastavuje ve Velíně** (centrálně, dle požadavku „vše se ovládá z Velína"):
+- URL relé dveří + světel, hudba, kamery (náhled/ovládání), URL měniče FV — tabulky
+  `branch_doors`, `branch_kiosk_config`, `branch_cameras`.
+- Tablet si konfiguraci stahuje přes `kiosk_heartbeat` a relé/kamery/měnič volá podle ní.
+
+**Na tabletu na místě se dělá jen:**
+1. **Spárování** — při prvním spuštění zadat `ID zařízení` + `token` (z Velína → Zařízení).
+2. **Síť** — tablet musí být na stejné LAN jako relé/kamery/měnič (Wi‑Fi/ethernet tabletu).
+3. **Test/uvedení do provozu** — zadat servisní heslo → servisní panel → otevřít každé
+   dveře (ověří relé + světlo), spustit hudbu, akci kamery. Tím se na místě ověří zapojení.
+
+> Tablet tedy NEMÁ vlastní HW konfiguraci — je to „tenká brána" na LAN. Když přidáš/změníš
+> relé nebo kameru, měníš to jen ve Velíně; tablet se srovná do ~30 s (heartbeat).
+
+## Kde zákazník najde přístupový kód
+V potvrzení rezervace — **e‑mail** nebo **aplikace MotoGo24** (po dokončení rezervace a ověření
+dokladů). Stejné pole na kiosku přijímá kód k oblečení i k motorce; appka sama pozná který je který.
+Servisní heslo je jen pro obsluhu/techniky (z Velína).
+
+## Kiosk lockdown — zamčení tabletu (aby nešel zavřít)
+CI buildy (oba kiosk workflowy) appku připraví na kiosk:
+- registrují ji jako **HOME launcher** (po restartu/odchodu se appka vrátí),
+- v `MainActivity.onResume` volají **`startLockTask()`** (lock task / screen pinning).
+
+Pro **plné zamčení bez možnosti odejít** (skrytí systémových gest a lišt natvrdo) je potřeba
+nastavit appku jako **device owner** nebo ji spravovat přes **MDM**:
+```bash
+# tablet bez Google účtu, jednorázově přes ADB:
+adb shell dpm set-device-owner com.motogo24.motogo_locker_kiosk/.MainActivity
+```
+Jako device owner `startLockTask()` zamkne zařízení bez „pinning" dialogu (zákazník appku
+neopustí). Bez device owneru funguje screen pinning (lze opustit kombinací tlačítek) — proto
+pro produkci doporučeno device owner / MDM. Alternativně nastav appku jako výchozí **Domovskou
+obrazovku** (Nastavení → Aplikace → Výchozí → Domů).

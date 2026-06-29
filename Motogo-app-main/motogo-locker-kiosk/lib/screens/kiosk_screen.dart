@@ -187,10 +187,15 @@ class _KioskScreenState extends State<KioskScreen> {
     );
 
     if (opened) {
+      final next = kind == 'accessories'
+          ? '$name\n\nPo vyzvednutí oblečení zavřete dveře a zadejte kód k motorce.'
+          : kind == 'motorcycle'
+              ? '$name\n\nPříjemnou cestu! 🏍️'
+              : name;
       _showOverlay(StatusOverlay(
         kind: StatusKind.success,
         title: 'Otevřeno',
-        subtitle: name,
+        subtitle: next,
         onDismiss: _hideOverlay,
       ));
     } else {
@@ -277,10 +282,17 @@ class _KioskScreenState extends State<KioskScreen> {
                                 fontWeight: FontWeight.w800)),
                       ],
                     ),
-                    const SizedBox(height: 16),
-                    // Výzva + display kódu
+                    const SizedBox(height: 12),
+                    // Výzva + stručný postup pro zákazníka
                     Text('Zadejte přístupový kód',
-                        style: TextStyle(color: MG.white.withValues(alpha: 0.7), fontSize: 20)),
+                        style: TextStyle(color: MG.white, fontSize: 22, fontWeight: FontWeight.w800)),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Kód najdete v potvrzení rezervace — e‑mail nebo aplikace MotoGo24.\n'
+                      '1) Kód k oblečení otevře skříň  ·  2) po zavření kód k motorce otevře vaši garáž.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: MG.white.withValues(alpha: 0.6), fontSize: 14, height: 1.35),
+                    ),
                     const SizedBox(height: 12),
                     Container(
                       height: 78,
