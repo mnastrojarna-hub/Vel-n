@@ -5,6 +5,7 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
+import 'debug_logger.dart';
 import 'supabase_client.dart';
 
 /// Severity levels for crash reports.
@@ -136,6 +137,22 @@ class CrashReportService {
       _recentErrors.removeWhere(
           (_, ts) => now.difference(ts) > _dedupWindow);
 
+      // For a FATAL crash (the kind that shows the „Restartujte aplikaci"
+      // screen) enrich the report so Velín receives a COMPLETE, solvable bug:
+      // the recent breadcrumb trail (actions/API calls/screens that led up to
+      // it) + the screen the user was on. Non-fatal reports stay lightweight.
+      final bool isFatal = severity == CrashSeverity.critical;
+      String? effScreen = screen;
+      Map<String, dynamic>? effExtra = extra;
+      if (isFatal) {
+        effScreen = screen ?? AppDebugLogger.instance.currentScreen;
+        effExtra = {
+          if (extra != null) ...extra,
+          'current_screen': AppDebugLogger.instance.currentScreen,
+          'breadcrumbs': AppDebugLogger.instance.breadcrumbSnapshot(),
+        };
+      }
+
       // Add to queue (cap size)
       if (_queue.length >= _maxQueueSize) {
         _queue.removeFirst();
@@ -145,14 +162,15 @@ class CrashReportService {
         errorType: errorType,
         errorMessage: errorMessage,
         stackTrace: stackTrace,
-        screen: screen,
+        screen: effScreen,
         action: action,
         severity: severity,
-        extra: extra,
+        extra: effExtra,
       ));
 
-      // Flush immediately if batch is full
-      if (_queue.length >= _batchSize) {
+      // Flush immediately on a fatal crash (deliver before a possible restart)
+      // or when the batch is full.
+      if (isFatal || _queue.length >= _batchSize) {
         _flush();
       }
     } catch (_) {

@@ -283,6 +283,27 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
           await confirmShopPayment(orderId, 'card');
           _onSuccess(orderId);
           break;
+        case CardSheetStatus.processing:
+          // Stripe platbu zatím NEPOTVRDIL (PaymentIntent = Processing).
+          // Nepotvrzuj objednávku optimisticky — počkej na serverové potvrzení
+          // (webhook). Když nedorazí v okně, ukaž průběžný stav (potvrzení dorazí
+          // e-mailem) místo falešného úspěchu.
+          {
+            final ok = await StripeService.pollOrderPaymentStatus(orderId,
+                maxAttempts: 10, interval: const Duration(seconds: 1));
+            if (!mounted) break;
+            if (ok) {
+              _onSuccess(orderId);
+            } else {
+              setState(() => _processing = false);
+              showMotoGoToast(context,
+                  icon: '⏳',
+                  title: t(context).tr('verifyingPayment'),
+                  message:
+                      '${t(context).tr('waitingConfirmation')} ${t(context).tr('successEmailSent')}');
+            }
+          }
+          break;
         case CardSheetStatus.cancelled:
           setState(() => _processing = false);
           break;

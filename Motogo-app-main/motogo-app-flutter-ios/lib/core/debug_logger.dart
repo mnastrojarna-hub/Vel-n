@@ -246,6 +246,29 @@ class AppDebugLogger {
   /// Get recent logs (for local debug panel if needed).
   List<DebugLogEntry> get recentLogs => List.unmodifiable(_recentLogs);
 
+  /// Compact snapshot of the most recent breadcrumb logs.
+  ///
+  /// Attached to fatal crash reports (the ones that show the
+  /// „Restartujte aplikaci" screen) so each bug in Velín carries the exact
+  /// trail of actions/API calls/screens that led up to it — a complete,
+  /// solvable bug report instead of a bare stack trace.
+  List<Map<String, dynamic>> breadcrumbSnapshot({int limit = 40}) {
+    try {
+      final start =
+          _recentLogs.length > limit ? _recentLogs.length - limit : 0;
+      return _recentLogs.sublist(start).map((e) => <String, dynamic>{
+            't': e.timestamp.toUtc().toIso8601String(),
+            'cat': e.category.name,
+            'action': e.action,
+            if (e.detail != null) 'detail': e.detail,
+            if (e.durationMs != null) 'ms': e.durationMs,
+            if (e.data != null) 'data': e.data,
+          }).toList();
+    } catch (_) {
+      return const [];
+    }
+  }
+
   // ── Flush logic ──
 
   void _startFlushTimer() {
