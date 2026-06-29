@@ -533,6 +533,7 @@ return [
     'rez.steps.uploadTitle' => 'Document upload',
     'rez.steps.uploadSub' => 'Uploading documents in advance is optional and only speeds up the handover at the branch.',
     'rez.steps.docsSpeedupQuestion' => 'Want to speed up your bike pickup? Yes, I’ll upload my documents now.',
+    'rez.steps.docsAlreadyUploaded' => 'You already have your documents uploaded with us — no need to upload them again.',
     'rez.steps.frontShort' => 'Front',
     'rez.steps.backShort' => 'Back',
     'rez.steps.pwdTitle' => 'Password to manage your reservation',

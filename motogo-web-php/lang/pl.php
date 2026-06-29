@@ -519,6 +519,7 @@ return [
     'rez.steps.uploadTitle' => 'Przesyłanie dokumentów',
     'rez.steps.uploadSub' => 'Wcześniejsze przesłanie dokumentów jest opcjonalne i przyspiesza tylko odbiór w oddziale.',
     'rez.steps.docsSpeedupQuestion' => 'Chcesz przyspieszyć odbiór motocykla? Tak, prześlę dokumenty teraz.',
+    'rez.steps.docsAlreadyUploaded' => 'Twoje dokumenty są już u nas przesłane — nie musisz ich przesyłać ponownie.',
     'rez.steps.frontShort' => 'Awers',
     'rez.steps.backShort' => 'Rewers',
     'rez.steps.pwdTitle' => 'Hasło do zarządzania rezerwacją',

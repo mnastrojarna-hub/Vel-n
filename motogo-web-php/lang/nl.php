@@ -519,6 +519,7 @@ return [
     'rez.steps.uploadTitle' => 'Documenten uploaden',
     'rez.steps.uploadSub' => 'Het vooraf uploaden van documenten is optioneel en versnelt alleen de overdracht bij de vestiging.',
     'rez.steps.docsSpeedupQuestion' => 'Wil je het ophalen van de motor versnellen? Ja, ik upload mijn documenten nu.',
+    'rez.steps.docsAlreadyUploaded' => 'Je documenten zijn al bij ons geüpload — je hoeft ze niet opnieuw te uploaden.',
     'rez.steps.frontShort' => 'Voorkant',
     'rez.steps.backShort' => 'Achterkant',
     'rez.steps.pwdTitle' => 'Wachtwoord om je reservering te beheren',

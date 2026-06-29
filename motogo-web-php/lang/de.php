@@ -533,6 +533,7 @@ return [
     'rez.steps.uploadTitle' => 'Dokumente hochladen',
     'rez.steps.uploadSub' => 'Das Hochladen der Dokumente im Voraus ist optional und beschleunigt nur die Übergabe in der Filiale.',
     'rez.steps.docsSpeedupQuestion' => 'Möchten Sie die Übernahme des Motorrads beschleunigen? Ja, ich lade die Dokumente jetzt hoch.',
+    'rez.steps.docsAlreadyUploaded' => 'Ihre Dokumente sind bei uns bereits hochgeladen — Sie müssen sie nicht erneut hochladen.',
     'rez.steps.frontShort' => 'Vorderseite',
     'rez.steps.backShort' => 'Rückseite',
     'rez.steps.pwdTitle' => 'Passwort zur Verwaltung der Reservierung',

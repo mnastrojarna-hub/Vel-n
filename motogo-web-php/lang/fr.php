@@ -533,6 +533,7 @@ return [
     'rez.steps.uploadTitle' => 'Téléversement des documents',
     'rez.steps.uploadSub' => 'Le téléversement des documents à l\'avance est facultatif et ne fait qu\'accélérer la remise à l\'agence.',
     'rez.steps.docsSpeedupQuestion' => 'Vous voulez accélérer la prise en main de la moto ? Oui, je télécharge mes documents maintenant.',
+    'rez.steps.docsAlreadyUploaded' => 'Vos documents sont déjà téléversés chez nous — inutile de les importer à nouveau.',
     'rez.steps.frontShort' => 'Recto',
     'rez.steps.backShort' => 'Verso',
     'rez.steps.pwdTitle' => 'Mot de passe pour gérer la réservation',

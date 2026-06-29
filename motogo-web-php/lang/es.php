@@ -534,6 +534,7 @@ return [
     'rez.steps.uploadTitle' => 'Subida de documentos',
     'rez.steps.uploadSub' => 'Subir los documentos por adelantado es opcional y solo agiliza la entrega en la sucursal.',
     'rez.steps.docsSpeedupQuestion' => '¿Quieres agilizar la recogida de la moto? Sí, subiré mis documentos ahora.',
+    'rez.steps.docsAlreadyUploaded' => 'Ya tienes tus documentos subidos con nosotros — no necesitas volver a subirlos.',
     'rez.steps.frontShort' => 'Anverso',
     'rez.steps.backShort' => 'Reverso',
     'rez.steps.pwdTitle' => 'Contraseña para gestionar la reserva',
