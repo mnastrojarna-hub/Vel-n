@@ -17,18 +17,24 @@ class UpsellSection extends ConsumerWidget {
   final double? insurancePrice;
   final bool insuranceSelected;
   final ValueChanged<bool> onInsuranceChanged;
+  /// Doprodej (e-shopové produkty) — řízeno feature flagem reservation_upsell.
+  final bool showProducts;
 
   const UpsellSection({
     super.key,
     this.insurancePrice,
     required this.insuranceSelected,
     required this.onInsuranceChanged,
+    this.showProducts = true,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final productsAsync = ref.watch(productsProvider);
     final upsellItems = ref.watch(bookingUpsellProvider);
+    final hasInsurance = insurancePrice != null && insurancePrice! > 0;
+    // Když je doprodej vypnutý a není pojištění, sekci vůbec nevykreslíme.
+    if (!showProducts && !hasInsurance) return const SizedBox.shrink();
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -65,8 +71,8 @@ class UpsellSection extends ConsumerWidget {
           if (insurancePrice != null && insurancePrice! > 0)
             const SizedBox(height: 10),
 
-          // Featured shop products (max 3)
-          productsAsync.when(
+          // Featured shop products (max 3) — jen když je doprodej zapnutý
+          if (showProducts) productsAsync.when(
             data: (products) {
               final featured = products.take(3).toList();
               if (featured.isEmpty) return const SizedBox.shrink();

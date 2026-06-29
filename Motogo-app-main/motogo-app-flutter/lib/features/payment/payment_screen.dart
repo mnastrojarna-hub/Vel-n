@@ -17,6 +17,7 @@ import '../booking/booking_models.dart';
 import '../booking/widgets/price_summary.dart';
 import '../reservations/reservation_provider.dart' show releaseDoorCodes, reservationsProvider, reservationByIdProvider;
 import 'booking_upsell_provider.dart';
+import '../../core/feature_flags.dart';
 import 'stripe_service.dart';
 import 'payment_provider.dart';
 import 'payment_error_mapper.dart';
@@ -1151,6 +1152,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
                     if (_isNewBooking && moto != null)
                       UpsellSection(
                         insurancePrice: moto.insurancePrice,
+                        showProducts: ref.watch(reservationUpsellEnabledProvider).maybeWhen(data: (v) => v, orElse: () => false),
                         insuranceSelected: _insuranceSelected,
                         onInsuranceChanged: (v) =>
                             setState(() => _insuranceSelected = v),
