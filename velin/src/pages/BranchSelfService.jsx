@@ -4,27 +4,39 @@ import { Spinner, EmptyState } from './BranchHelpers'
 
 // ─── Tab: Samoobsluha (kiosk) ─────────────────────────────────────────────
 // Konfigurace samoobslužné pobočky pro kiosk appku:
-//  - kiosk token + hudba + časování (branch_kiosk_config)
+//  - zařízení/tablety (kiosk_devices) — unikátní ID + token, online stav, vzdálené ovládání
+//  - hudba + časování (branch_kiosk_config)
 //  - mapování dveří na Shelly relé/světlo (branch_doors)
 //  - servisní hesla (branch_service_codes)
+const ONLINE_MS = 70 * 1000
+
 function TabSelfService({ branchId, branchName, motos }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [cfg, setCfg] = useState(null)
+  const [devices, setDevices] = useState([])
   const [doors, setDoors] = useState([])
   const [codes, setCodes] = useState([])
   const [busy, setBusy] = useState(false)
+  const [now, setNow] = useState(Date.now())
+
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 15000)
+    return () => clearInterval(t)
+  }, [])
 
   const load = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      const [c, d, s] = await Promise.all([
+      const [c, dev, d, s] = await Promise.all([
         supabase.from('branch_kiosk_config').select('*').eq('branch_id', branchId).maybeSingle(),
+        supabase.from('kiosk_devices').select('*').eq('branch_id', branchId).order('created_at'),
         supabase.from('branch_doors').select('*').eq('branch_id', branchId).order('door_kind').order('box_number'),
         supabase.from('branch_service_codes').select('*').eq('branch_id', branchId).order('created_at'),
       ])
       setCfg(c.data || null)
+      setDevices(dev.data || [])
       setDoors(d.data || [])
       setCodes(s.data || [])
     } catch (e) {
@@ -53,12 +65,38 @@ function TabSelfService({ branchId, branchName, motos }) {
     } catch (e) { setError(e.message) }
   }
 
-  async function regenToken() {
-    if (!window.confirm('Vygenerovat nový kiosk token? Tablet bude nutné znovu spárovat.')) return
-    const token = crypto.randomUUID()
-    await saveCfg({ kiosk_token: token })
+  // ── Zařízení ──
+  async function addDevice(name) {
+    setBusy(true)
+    try {
+      const { error } = await supabase.from('kiosk_devices').insert({ branch_id: branchId, name: name?.trim() || 'Nový tablet' })
+      if (error) throw error
+      await load()
+    } catch (e) { setError(e.message) } finally { setBusy(false) }
+  }
+  async function saveDevice(id, patch) {
+    setDevices(ds => ds.map(d => d.id === id ? { ...d, ...patch } : d))
+    try {
+      const { error } = await supabase.from('kiosk_devices').update(patch).eq('id', id)
+      if (error) throw error
+    } catch (e) { setError(e.message) }
+  }
+  async function deleteDevice(id) {
+    if (!window.confirm('Smazat zařízení? Tablet bude nutné znovu spárovat.')) return
+    await supabase.from('kiosk_devices').delete().eq('id', id)
+    await load()
+  }
+  async function sendCommand(device, command, params = {}) {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      const { error } = await supabase.from('kiosk_commands').insert({
+        device_id: device.id, branch_id: branchId, command, params, created_by: user?.id || null,
+      })
+      if (error) throw error
+    } catch (e) { setError(e.message) }
   }
 
+  // ── Dveře ──
   async function ensureDoors() {
     setBusy(true)
     try {
@@ -79,7 +117,6 @@ function TabSelfService({ branchId, branchName, motos }) {
       await load()
     } catch (e) { setError(e.message) } finally { setBusy(false) }
   }
-
   async function saveDoor(id, patch) {
     setDoors(ds => ds.map(d => d.id === id ? { ...d, ...patch } : d))
     try {
@@ -87,13 +124,13 @@ function TabSelfService({ branchId, branchName, motos }) {
       if (error) throw error
     } catch (e) { setError(e.message) }
   }
-
   async function deleteDoor(id) {
     if (!window.confirm('Smazat tyto dveře?')) return
     await supabase.from('branch_doors').delete().eq('id', id)
     await load()
   }
 
+  // ── Servisní hesla ──
   async function addCode(code, label) {
     if (!code.trim()) return
     setBusy(true)
@@ -106,12 +143,10 @@ function TabSelfService({ branchId, branchName, motos }) {
       await load()
     } catch (e) { setError(e.message) } finally { setBusy(false) }
   }
-
   async function toggleCode(c) {
     await supabase.from('branch_service_codes').update({ is_active: !c.is_active }).eq('id', c.id)
     await load()
   }
-
   async function deleteCode(id) {
     if (!window.confirm('Smazat servisní heslo?')) return
     await supabase.from('branch_service_codes').delete().eq('id', id)
@@ -134,7 +169,9 @@ function TabSelfService({ branchId, branchName, motos }) {
         </div>
       ) : (
         <>
-          <KioskConfigBlock cfg={cfg} onSave={saveCfg} onRegen={regenToken} branchName={branchName} />
+          <DevicesBlock devices={devices} doors={doors} cfg={cfg} now={now} busy={busy}
+            onAdd={addDevice} onSave={saveDevice} onDelete={deleteDevice} onCommand={sendCommand} />
+          <KioskConfigBlock cfg={cfg} onSave={saveCfg} />
           <DoorsBlock doors={doors} onEnsure={ensureDoors} onSave={saveDoor} onDelete={deleteDoor} busy={busy} />
           <ServiceCodesBlock codes={codes} onAdd={addCode} onToggle={toggleCode} onDelete={deleteCode} busy={busy} />
         </>
@@ -173,21 +210,107 @@ function Field({ label, value, onCommit, placeholder, type = 'text', width }) {
   )
 }
 
-function KioskConfigBlock({ cfg, onSave, onRegen, branchName }) {
+function copy(text) { navigator.clipboard?.writeText(text) }
+
+// ─── Zařízení (tablety) + vzdálené ovládání ───────────────────────────────
+function DevicesBlock({ devices, doors, cfg, now, busy, onAdd, onSave, onDelete, onCommand }) {
+  const [name, setName] = useState('')
   return (
-    <Section title="Kiosk — párování & hudba"
-      hint="Token zadejte do tabletu při prvním spuštění (5× klepnutí na logo → nastavení).">
-      <div className="p-3 rounded-card space-y-3" style={{ background: '#f8fcfa', border: '1px solid #d4e8e0' }}>
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-[11px] font-bold" style={{ color: '#6b8c7a' }}>KIOSK TOKEN</span>
-          <span className="font-mono text-sm font-bold" style={{ color: '#0f1a14', background: '#dcfce7', padding: '4px 8px', borderRadius: 6 }}>
-            {cfg.kiosk_token}
-          </span>
-          <button onClick={() => navigator.clipboard?.writeText(cfg.kiosk_token)} className="rounded-btn text-[11px] font-bold cursor-pointer border-none"
-            style={{ padding: '4px 8px', background: '#dbeafe', color: '#2563eb' }}>Kopírovat</button>
-          <button onClick={onRegen} className="rounded-btn text-[11px] font-bold cursor-pointer border-none"
-            style={{ padding: '4px 8px', background: '#fee2e2', color: '#dc2626' }}>Nový token</button>
+    <Section title="Zařízení (tablety)"
+      hint="Každý tablet má unikátní ID + token (zadej je v appce při párování). Online = poslední ozvání < 70 s.">
+      <div className="flex items-end gap-2 mb-3 flex-wrap">
+        <label className="flex flex-col gap-0.5" style={{ width: 220 }}>
+          <span className="text-[11px] font-bold" style={{ color: '#6b8c7a' }}>Název nového zařízení</span>
+          <input value={name} onChange={e => setName(e.target.value)} placeholder="např. Brno — hlavní vchod"
+            className="rounded-btn text-sm outline-none" style={{ padding: '6px 8px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
+        </label>
+        <button onClick={() => { onAdd(name); setName('') }} disabled={busy}
+          className="rounded-btn text-sm font-bold cursor-pointer border-none"
+          style={{ padding: '6px 12px', background: '#1a2e22', color: '#74FB71', opacity: busy ? 0.5 : 1 }}>Přidat zařízení</button>
+      </div>
+      {devices.length === 0 ? (
+        <EmptyState text="Žádná zařízení. Přidej tablet a zadej jeho ID + token do appky." />
+      ) : (
+        <div className="space-y-2">
+          {devices.map(dev => (
+            <DeviceRow key={dev.id} dev={dev} doors={doors} cfg={cfg} now={now}
+              onSave={onSave} onDelete={onDelete} onCommand={onCommand} />
+          ))}
         </div>
+      )}
+    </Section>
+  )
+}
+
+function DeviceRow({ dev, doors, cfg, now, onSave, onDelete, onCommand }) {
+  const [doorId, setDoorId] = useState('')
+  const online = dev.last_seen_at && (now - new Date(dev.last_seen_at).getTime()) < ONLINE_MS
+  const lastSeen = dev.last_seen_at ? new Date(dev.last_seen_at).toLocaleString('cs-CZ') : 'nikdy'
+  const selectedDoor = doors.find(d => d.id === doorId)
+
+  function openRemote() {
+    if (!selectedDoor) return
+    onCommand(dev, 'open_door', {
+      door_id: selectedDoor.id, relay_url: selectedDoor.relay_url,
+      light_url: selectedDoor.light_url, label: selectedDoor.label,
+    })
+  }
+
+  return (
+    <div className="p-3 rounded-card" style={{ background: '#f8fcfa', border: '1px solid #d4e8e0' }}>
+      <div className="flex items-center gap-2 flex-wrap mb-2">
+        <span style={{ width: 10, height: 10, borderRadius: 999, background: online ? '#1a8a18' : '#dc2626', display: 'inline-block' }} />
+        <Field label="Název" value={dev.name} onCommit={v => onSave(dev.id, { name: v })} width={200} />
+        <span className="inline-block rounded-btn text-[9px] font-extrabold uppercase"
+          style={{ padding: '2px 6px', background: online ? '#dcfce7' : '#fee2e2', color: online ? '#1a8a18' : '#dc2626' }}>
+          {online ? 'Online' : 'Offline'}
+        </span>
+        <span className="text-[11px]" style={{ color: '#6b8c7a' }}>posl. {lastSeen}{dev.app_version ? ` · v${dev.app_version}` : ''}</span>
+        <button onClick={() => onSave(dev.id, { is_active: !dev.is_active })}
+          className="rounded-btn text-[11px] font-bold cursor-pointer border-none"
+          style={{ padding: '4px 8px', background: dev.is_active ? '#fef3c7' : '#dcfce7', color: dev.is_active ? '#b45309' : '#1a8a18' }}>
+          {dev.is_active ? 'Deaktivovat' : 'Aktivovat'}
+        </button>
+        <button onClick={() => onDelete(dev.id)} className="rounded-btn text-[11px] font-bold cursor-pointer border-none"
+          style={{ padding: '4px 8px', background: '#fee2e2', color: '#dc2626' }}>Smazat</button>
+      </div>
+
+      {/* Párovací údaje */}
+      <div className="flex items-center gap-2 flex-wrap mb-2 text-[12px]" style={{ color: '#1a2e22' }}>
+        <span className="font-bold">ID:</span>
+        <code style={{ background: '#eef6f2', padding: '2px 6px', borderRadius: 6 }}>{dev.id}</code>
+        <button onClick={() => copy(dev.id)} className="rounded-btn text-[10px] font-bold cursor-pointer border-none" style={{ padding: '2px 6px', background: '#dbeafe', color: '#2563eb' }}>Kopírovat</button>
+        <span className="font-bold ml-2">Token:</span>
+        <code style={{ background: '#eef6f2', padding: '2px 6px', borderRadius: 6 }}>{dev.device_token}</code>
+        <button onClick={() => copy(dev.device_token)} className="rounded-btn text-[10px] font-bold cursor-pointer border-none" style={{ padding: '2px 6px', background: '#dbeafe', color: '#2563eb' }}>Kopírovat</button>
+      </div>
+
+      {/* Vzdálené ovládání */}
+      <div className="flex items-center gap-2 flex-wrap pt-2" style={{ borderTop: '1px dashed #d4e8e0' }}>
+        <span className="text-[11px] font-extrabold uppercase" style={{ color: '#6b8c7a' }}>Na dálku:</span>
+        <select value={doorId} onChange={e => setDoorId(e.target.value)}
+          className="rounded-btn text-sm outline-none" style={{ padding: '5px 8px', background: '#fff', border: '1px solid #d4e8e0' }}>
+          <option value="">— vyber dveře —</option>
+          {doors.map(d => <option key={d.id} value={d.id}>{d.label || (d.door_kind === 'accessories' ? 'Oblečení' : `Koje #${d.box_number}`)}</option>)}
+        </select>
+        <button onClick={openRemote} disabled={!selectedDoor}
+          className="rounded-btn text-[12px] font-bold cursor-pointer border-none"
+          style={{ padding: '5px 10px', background: '#1a2e22', color: '#74FB71', opacity: selectedDoor ? 1 : 0.5 }}>Otevřít dveře</button>
+        <button onClick={() => onCommand(dev, 'music_on', { music_url: cfg.music_on_url })} disabled={!cfg.music_on_url}
+          className="rounded-btn text-[12px] font-bold cursor-pointer border-none" style={{ padding: '5px 10px', background: '#dcfce7', color: '#1a8a18', opacity: cfg.music_on_url ? 1 : 0.5 }}>Hudba ▶</button>
+        <button onClick={() => onCommand(dev, 'music_off', { music_url: cfg.music_off_url })} disabled={!cfg.music_off_url}
+          className="rounded-btn text-[12px] font-bold cursor-pointer border-none" style={{ padding: '5px 10px', background: '#fee2e2', color: '#dc2626', opacity: cfg.music_off_url ? 1 : 0.5 }}>Hudba ⏹</button>
+        <button onClick={() => onCommand(dev, 'identify', { label: 'Velín' })}
+          className="rounded-btn text-[12px] font-bold cursor-pointer border-none" style={{ padding: '5px 10px', background: '#dbeafe', color: '#2563eb' }}>Identifikuj</button>
+      </div>
+    </div>
+  )
+}
+
+function KioskConfigBlock({ cfg, onSave }) {
+  return (
+    <Section title="Hudba & časování" hint="Hudba se spustí na celé pobočce při zadání kódu; světlo se rozsvítí v dané garáži.">
+      <div className="p-3 rounded-card space-y-3" style={{ background: '#f8fcfa', border: '1px solid #d4e8e0' }}>
         <div className="flex gap-3 flex-wrap">
           <Field label="Hudba — URL spuštění" value={cfg.music_on_url} onCommit={v => onSave({ music_on_url: v })} placeholder="http://192.168.1.50/relay/0?turn=on" width={300} />
           <Field label="Hudba — URL zastavení (volitelné)" value={cfg.music_off_url} onCommit={v => onSave({ music_off_url: v })} placeholder="http://192.168.1.50/relay/0?turn=off" width={300} />

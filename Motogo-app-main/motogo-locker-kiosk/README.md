@@ -16,18 +16,26 @@ rezervace). Appka je jen ověří přes RPC a fyzicky otevře dveře.
 
 ## Architektura
 
-- **Ověření kódu:** Supabase RPC `kiosk_resolve_code(branch_code, kiosk_token, code)`
+- **Identita zařízení:** každý tablet = řádek v `kiosk_devices` s unikátním
+  `id` + `device_token`. Pobočka má unikátní `branch_code`. Tablet je natrvalo
+  spárovaný přes `device_id` + `device_token` (uloženo v secure storage).
+- **Ověření kódu:** Supabase RPC `kiosk_resolve_code(device_id, device_token, code)`
   (SECURITY DEFINER) — vrátí, které dveře otevřít + URL relé/světla/hudby.
 - **Fyzické ovládání:** appka volá HTTP přímo na **Shelly relé na LAN**
   (otevírání tak funguje i bez internetu; ověření kódu internet potřebuje).
+- **Online stav:** appka posílá `kiosk_heartbeat` každých 30 s → Velín vidí online/offline.
+- **Vzdálené ovládání (realtime):** appka poslouchá `kiosk_commands` přes Supabase
+  Realtime; Velín pošle příkaz (otevři dveře / hudba / identifikuj) → tablet ho
+  provede a nahlásí výsledek (`kiosk_complete_command`).
 - **Audit:** každé otevření se loguje přes RPC `kiosk_log_open` → `branch_door_events`.
 
-Tablet je natrvalo spárovaný s pobočkou přes `branch_code` + `kiosk_token`
-(uloženo v secure storage). Token se generuje ve Velíně → Pobočky → **Samoobsluha**.
+Údaje pro párování (ID + token) se generují ve Velíně → Pobočky → **Samoobsluha → Zařízení**.
 
 ## Konfigurace ve Velíně (per pobočka → záložka „Samoobsluha")
 
-- **Kiosk token** — vygeneruje se; zadá se do tabletu při prvním spuštění.
+- **Zařízení (tablety)** — přidej tablet → dostaneš `ID` + `token` (zadej do appky).
+  Vidíš online/offline stav, verzi appky a můžeš ho ovládat na dálku (otevřít
+  dveře, hudba, identifikuj) nebo deaktivovat/smazat (revokace párování).
 - **Hudba** — `music_on_url` (a volitelně `music_off_url`) = HTTP endpoint, který
   spustí hudbu na pobočce.
 - **Dveře (relé + světlo):** pro každou kóji motorky (`box_number`) a pro sdílené

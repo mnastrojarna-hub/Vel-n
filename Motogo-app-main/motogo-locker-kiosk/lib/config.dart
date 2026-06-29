@@ -15,4 +15,7 @@ class KioskConfig {
 
   /// Timeout HTTP volání na relé (LAN).
   static const Duration relayTimeout = Duration(seconds: 6);
+
+  /// Jak často posílat heartbeat (online stav ve Velíně).
+  static const Duration heartbeatInterval = Duration(seconds: 30);
 }

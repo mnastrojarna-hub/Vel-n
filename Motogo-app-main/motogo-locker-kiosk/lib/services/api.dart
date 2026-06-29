@@ -41,8 +41,8 @@ class ResolveResult {
   final int musicSeconds;
   final int doorOpenSeconds;
   final int lightSeconds;
-  final DoorInfo? door; // u zákaznického kódu
-  final List<DoorInfo> doors; // u servisního hesla (výběr)
+  final DoorInfo? door;
+  final List<DoorInfo> doors;
   final bool doorConfigured;
 
   ResolveResult({
@@ -84,7 +84,7 @@ class ResolveResult {
   }
 }
 
-/// Komunikace s backendem (Supabase RPC).
+/// Komunikace s backendem (Supabase RPC) — autentizace per zařízení.
 class KioskApi {
   KioskApi._();
   static final KioskApi instance = KioskApi._();
@@ -92,14 +92,34 @@ class KioskApi {
   SupabaseClient get _sb => Supabase.instance.client;
   KioskStorage get _store => KioskStorage.instance;
 
-  /// Ověří kód (zákaznický nebo servisní) → vrátí které dveře otevřít.
+  Map<String, dynamic> get _auth => {
+        'p_device_id': _store.deviceId,
+        'p_device_token': _store.deviceToken,
+      };
+
+  /// Heartbeat — online stav + verze + konfigurace pobočky. Vrací branch_name.
+  Future<Map?> heartbeat({String? appVersion, String? platform}) async {
+    try {
+      final res = await _sb.rpc('kiosk_heartbeat', params: {
+        ..._auth,
+        'p_app_version': appVersion,
+        'p_platform': platform,
+      });
+      if (res is Map && res['ok'] == true) {
+        final name = res['branch_name'] as String?;
+        if (name != null && name.isNotEmpty) await _store.setBranchName(name);
+        return res;
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Ověří kód → vrátí které dveře otevřít.
   Future<ResolveResult> resolveCode(String code) async {
     try {
-      final res = await _sb.rpc('kiosk_resolve_code', params: {
-        'p_branch_code': _store.branchCode,
-        'p_kiosk_token': _store.token,
-        'p_code': code,
-      });
+      final res = await _sb.rpc('kiosk_resolve_code', params: {..._auth, 'p_code': code});
       if (res is Map) return ResolveResult.fromMap(res);
       return ResolveResult(ok: false, error: 'bad_response');
     } catch (e) {
@@ -107,7 +127,7 @@ class KioskApi {
     }
   }
 
-  /// Zapíše audit otevření (best-effort, chyba nikdy neshodí flow).
+  /// Audit otevření (best-effort).
   Future<void> logOpen({
     String? doorId,
     required String kind,
@@ -117,34 +137,50 @@ class KioskApi {
   }) async {
     try {
       await _sb.rpc('kiosk_log_open', params: {
-        'p_branch_code': _store.branchCode,
-        'p_kiosk_token': _store.token,
+        ..._auth,
         'p_door_id': doorId,
         'p_kind': kind,
         'p_booking_id': bookingId,
         'p_success': success,
         'p_detail': detail,
       });
-    } catch (_) {/* ignore */}
+    } catch (_) {}
   }
 
-  /// Ověření párovacích údajů při Setupu — zkusí libovolný kód;
-  /// 'unauthorized' = špatný token, 'branch_not_found' = špatný kód pobočky.
-  /// Cokoliv jiného (invalid_code, missing_inputs) = párování OK.
-  Future<String?> validatePairing(String branchCode, String token) async {
+  /// Stáhne čekající vzdálené příkazy (token-ověřeno).
+  Future<List<Map>> fetchCommands() async {
     try {
-      final res = await _sb.rpc('kiosk_resolve_code', params: {
-        'p_branch_code': branchCode.trim(),
-        'p_kiosk_token': token.trim(),
-        'p_code': '__pairing_check__',
-      });
-      if (res is Map) {
-        final err = res['error'];
-        if (err == 'branch_not_found') return 'Neplatný kód pobočky.';
-        if (err == 'unauthorized') return 'Neplatný kiosk token pro tuto pobočku.';
-        return null; // párování funguje
+      final res = await _sb.rpc('kiosk_fetch_commands', params: _auth);
+      if (res is Map && res['ok'] == true) {
+        return ((res['commands'] as List?) ?? const []).whereType<Map>().toList();
       }
-      return 'Neočekávaná odpověď serveru.';
+      return const [];
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  /// Nahlásí výsledek vzdáleného příkazu z Velína.
+  Future<void> completeCommand(String commandId, bool success, {Map<String, dynamic> result = const {}}) async {
+    try {
+      await _sb.rpc('kiosk_complete_command', params: {
+        ..._auth,
+        'p_command_id': commandId,
+        'p_success': success,
+        'p_result': result,
+      });
+    } catch (_) {}
+  }
+
+  /// Ověření párovacích údajů při Setupu (heartbeat = ok znamená platné).
+  Future<String?> validatePairing(String deviceId, String token) async {
+    try {
+      final res = await _sb.rpc('kiosk_heartbeat', params: {
+        'p_device_id': deviceId.trim(),
+        'p_device_token': token.trim(),
+      });
+      if (res is Map && res['ok'] == true) return null;
+      return 'Neplatné ID zařízení nebo token.';
     } catch (e) {
       return 'Chyba spojení se serverem.';
     }
