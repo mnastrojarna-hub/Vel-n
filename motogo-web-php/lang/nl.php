@@ -516,7 +516,7 @@ return [
     'rez.steps.licExpiryLabel' => '* Rijbewijs geldig tot',
     'rez.steps.licConfirmText' => '* Ik bevestig dat ik een geldig rijbewijs heb en voldoe aan de wettelijke voorwaarden om de gereserveerde motor te besturen.',
     'rez.steps.uploadTitle' => 'Documenten uploaden',
-    'rez.steps.uploadSub' => 'Optioneel — versnelt de check-in. We herkennen de foto\'s automatisch en vullen de gegevens in. Fotografeer bij identiteitsbewijs en rijbewijs de <strong>voor- en achterkant</strong>.',
+    'rez.steps.uploadSub' => 'Optioneel — versnelt de check-in. Vul de gegevens handmatig in het formulier in. Fotografeer bij identiteitsbewijs en rijbewijs de <strong>voor- en achterkant</strong>.',
     'rez.steps.docsSpeedupQuestion' => 'Wil je het ophalen van de motor versnellen? Ja, ik upload mijn documenten nu.',
     'rez.steps.frontShort' => 'Voorkant',
     'rez.steps.backShort' => 'Achterkant',

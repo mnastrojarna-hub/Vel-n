@@ -530,7 +530,7 @@ return [
     'rez.steps.licExpiryLabel' => '* Permis valable jusqu\'au',
     'rez.steps.licConfirmText' => '* Je confirme que je possède un permis de conduire valide et que je remplis les conditions légales pour conduire la moto réservée.',
     'rez.steps.uploadTitle' => 'Téléversement des documents',
-    'rez.steps.uploadSub' => 'Facultatif — accélère l\'enregistrement. Nous reconnaîtrons les photos automatiquement et remplirons les informations. Pour la pièce d\'identité et le permis, photographiez le <strong>recto et le verso</strong>.',
+    'rez.steps.uploadSub' => 'Facultatif — accélère l\'enregistrement. Saisissez les informations manuellement dans le formulaire. Pour la pièce d\'identité et le permis, photographiez le <strong>recto et le verso</strong>.',
     'rez.steps.docsSpeedupQuestion' => 'Vous voulez accélérer la prise en main de la moto ? Oui, je télécharge mes documents maintenant.',
     'rez.steps.frontShort' => 'Recto',
     'rez.steps.backShort' => 'Verso',
