@@ -517,6 +517,7 @@ return [
     'rez.steps.licConfirmText' => '* Potwierdzam, że posiadam ważne prawo jazdy i spełniam wymogi prawne do kierowania zarezerwowanym motocyklem.',
     'rez.steps.uploadTitle' => 'Przesyłanie dokumentów',
     'rez.steps.uploadSub' => 'Opcjonalne — przyspiesza odprawę. Automatycznie rozpoznamy zdjęcia i uzupełnimy dane. W przypadku dowodu i prawa jazdy sfotografuj <strong>awers i rewers</strong>.',
+    'rez.steps.docsSpeedupQuestion' => 'Chcesz przyspieszyć odbiór motocykla? Tak, prześlę dokumenty teraz.',
     'rez.steps.frontShort' => 'Awers',
     'rez.steps.backShort' => 'Rewers',
     'rez.steps.pwdTitle' => 'Hasło do zarządzania rezerwacją',
