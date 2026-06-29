@@ -17,6 +17,7 @@ function TabSelfService({ branchId, branchName, motos }) {
   const [devices, setDevices] = useState([])
   const [doors, setDoors] = useState([])
   const [codes, setCodes] = useState([])
+  const [events, setEvents] = useState([])
   const [busy, setBusy] = useState(false)
   const [now, setNow] = useState(Date.now())
 
@@ -29,16 +30,18 @@ function TabSelfService({ branchId, branchName, motos }) {
     setLoading(true)
     setError(null)
     try {
-      const [c, dev, d, s] = await Promise.all([
+      const [c, dev, d, s, ev] = await Promise.all([
         supabase.from('branch_kiosk_config').select('*').eq('branch_id', branchId).maybeSingle(),
         supabase.from('kiosk_devices').select('*').eq('branch_id', branchId).order('created_at'),
         supabase.from('branch_doors').select('*').eq('branch_id', branchId).order('door_kind').order('box_number'),
         supabase.from('branch_service_codes').select('*').eq('branch_id', branchId).order('created_at'),
+        supabase.from('branch_door_events').select('*').eq('branch_id', branchId).order('created_at', { ascending: false }).limit(30),
       ])
       setCfg(c.data || null)
       setDevices(dev.data || [])
       setDoors(d.data || [])
       setCodes(s.data || [])
+      setEvents(ev.data || [])
     } catch (e) {
       setError(e.message)
     } finally {
@@ -153,6 +156,13 @@ function TabSelfService({ branchId, branchName, motos }) {
     await load()
   }
 
+  // První online aktivní zařízení = přes něj se posílají vzdálené příkazy z panelu
+  const onlineDevice = devices.find(d => d.is_active && d.last_seen_at && (now - new Date(d.last_seen_at).getTime()) < ONLINE_MS) || null
+  async function remote(command, params = {}) {
+    if (!onlineDevice) { setError('Žádný tablet na pobočce není online — vzdálené ovládání nedostupné.'); return }
+    await sendCommand(onlineDevice, command, params)
+  }
+
   if (loading) return <Spinner />
 
   return (
@@ -169,11 +179,13 @@ function TabSelfService({ branchId, branchName, motos }) {
         </div>
       ) : (
         <>
+          <ControlPanelBlock doors={doors} cfg={cfg} onlineDevice={onlineDevice} onRemote={remote} onRefresh={load} />
           <DevicesBlock devices={devices} doors={doors} cfg={cfg} now={now} busy={busy}
             onAdd={addDevice} onSave={saveDevice} onDelete={deleteDevice} onCommand={sendCommand} />
           <KioskConfigBlock cfg={cfg} onSave={saveCfg} />
           <DoorsBlock doors={doors} onEnsure={ensureDoors} onSave={saveDoor} onDelete={deleteDoor} busy={busy} />
           <ServiceCodesBlock codes={codes} onAdd={addCode} onToggle={toggleCode} onDelete={deleteCode} busy={busy} />
+          <AuditBlock events={events} doors={doors} devices={devices} onRefresh={load} />
         </>
       )}
     </div>
@@ -211,6 +223,106 @@ function Field({ label, value, onCommit, placeholder, type = 'text', width }) {
 }
 
 function copy(text) { navigator.clipboard?.writeText(text) }
+
+// ─── Ovládací panel pobočky (vzdálené ovládání přes online tablet) ────────────
+function ControlPanelBlock({ doors, cfg, onlineDevice, onRemote, onRefresh }) {
+  const motoDoors = doors.filter(d => d.door_kind === 'motorcycle')
+  const accDoor = doors.find(d => d.door_kind === 'accessories')
+  function open(d) {
+    onRemote('open_door', { door_id: d.id, relay_url: d.relay_url, light_url: d.light_url, label: d.label })
+  }
+  return (
+    <Section title="Ovládání pobočky"
+      hint="Otevírání dveří a hudba na dálku — odešle se přes online tablet pobočky."
+      action={
+        <button onClick={onRefresh} className="rounded-btn text-sm font-bold cursor-pointer border-none"
+          style={{ padding: '4px 10px', background: '#dbeafe', color: '#2563eb' }}>Obnovit</button>
+      }>
+      <div className="p-3 rounded-card" style={{ background: onlineDevice ? '#f1faf7' : '#fef3c7', border: `1px solid ${onlineDevice ? '#d4e8e0' : '#fde68a'}` }}>
+        <div className="flex items-center gap-2 mb-3 text-sm" style={{ color: '#1a2e22' }}>
+          <span style={{ width: 10, height: 10, borderRadius: 999, background: onlineDevice ? '#1a8a18' : '#dc2626', display: 'inline-block' }} />
+          {onlineDevice
+            ? <span>Pobočka <strong>online</strong> — ovládá se přes „{onlineDevice.name || 'tablet'}“.</span>
+            : <span><strong>Žádný tablet není online.</strong> Vzdálené ovládání je nedostupné.</span>}
+          <div className="ml-auto flex gap-2">
+            <button onClick={() => onRemote('music_on', { music_url: cfg.music_on_url })} disabled={!onlineDevice || !cfg.music_on_url}
+              className="rounded-btn text-[12px] font-bold cursor-pointer border-none"
+              style={{ padding: '5px 10px', background: '#dcfce7', color: '#1a8a18', opacity: (onlineDevice && cfg.music_on_url) ? 1 : 0.5 }}>Hudba ▶</button>
+            <button onClick={() => onRemote('music_off', { music_url: cfg.music_off_url })} disabled={!onlineDevice || !cfg.music_off_url}
+              className="rounded-btn text-[12px] font-bold cursor-pointer border-none"
+              style={{ padding: '5px 10px', background: '#fee2e2', color: '#dc2626', opacity: (onlineDevice && cfg.music_off_url) ? 1 : 0.5 }}>Hudba ⏹</button>
+          </div>
+        </div>
+        {doors.length === 0 ? (
+          <EmptyState text="Nejsou nastavené dveře." />
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {accDoor && <DoorOpenBtn door={accDoor} disabled={!onlineDevice} onClick={() => open(accDoor)} />}
+            {motoDoors.map(d => <DoorOpenBtn key={d.id} door={d} disabled={!onlineDevice} onClick={() => open(d)} />)}
+          </div>
+        )}
+      </div>
+    </Section>
+  )
+}
+
+function DoorOpenBtn({ door, disabled, onClick }) {
+  const isAcc = door.door_kind === 'accessories'
+  const configured = (door.relay_url || '').trim() !== ''
+  const title = isAcc ? 'Oblečení' : `#${door.box_number}`
+  return (
+    <button onClick={onClick} disabled={disabled || !configured}
+      title={!configured ? 'Dveře nemají nastavené relé' : (door.label || title)}
+      className="rounded-card font-bold cursor-pointer border-none flex flex-col items-center"
+      style={{
+        padding: '10px 14px', minWidth: 84,
+        background: isAcc ? '#dbeafe' : '#dcfce7',
+        color: isAcc ? '#2563eb' : '#1a8a18',
+        opacity: (disabled || !configured) ? 0.4 : 1,
+        border: `1px solid ${configured ? 'transparent' : '#fca5a5'}`,
+      }}>
+      <span style={{ fontSize: 18 }}>{isAcc ? '🧥' : '🏍️'}</span>
+      <span className="text-[13px] mt-0.5">{title}</span>
+      <span className="text-[10px] font-extrabold uppercase mt-0.5">Otevřít</span>
+    </button>
+  )
+}
+
+// ─── Log otevření (audit) ─────────────────────────────────────────────────────
+function AuditBlock({ events, doors, devices, onRefresh }) {
+  const doorMap = Object.fromEntries(doors.map(d => [d.id, d]))
+  const devMap = Object.fromEntries(devices.map(d => [d.id, d]))
+  const kindLabel = { motorcycle: 'Motorka', accessories: 'Oblečení', service: 'Servis' }
+  return (
+    <Section title="Log otevření" hint="Posledních 30 událostí na pobočce."
+      action={
+        <button onClick={onRefresh} className="rounded-btn text-sm font-bold cursor-pointer border-none"
+          style={{ padding: '4px 10px', background: '#dbeafe', color: '#2563eb' }}>Obnovit</button>
+      }>
+      {events.length === 0 ? (
+        <EmptyState text="Zatím žádné záznamy" />
+      ) : (
+        <div className="space-y-1 max-h-60 overflow-y-auto">
+          {events.map(e => {
+            const d = doorMap[e.door_id]
+            const doorName = d ? (d.label || (d.door_kind === 'accessories' ? 'Oblečení' : `Koje #${d.box_number}`)) : '—'
+            return (
+              <div key={e.id} className="flex items-center gap-2 p-2 rounded-lg text-sm" style={{ background: '#f8fcfa', border: '1px solid #d4e8e0' }}>
+                <span style={{ width: 8, height: 8, borderRadius: 999, background: e.success ? '#1a8a18' : '#dc2626', display: 'inline-block' }} />
+                <span className="font-bold" style={{ color: '#0f1a14' }}>{doorName}</span>
+                <span className="inline-block rounded-btn text-[9px] font-extrabold uppercase"
+                  style={{ padding: '2px 6px', background: '#eef6f2', color: '#1a2e22' }}>{kindLabel[e.kind] || e.kind || '—'}</span>
+                {devMap[e.device_id]?.name && <span className="text-[12px]" style={{ color: '#6b8c7a' }}>{devMap[e.device_id].name}</span>}
+                {!e.success && <span className="text-[11px] font-bold" style={{ color: '#dc2626' }}>neúspěch</span>}
+                <span className="ml-auto text-[12px]" style={{ color: '#6b8c7a' }}>{new Date(e.created_at).toLocaleString('cs-CZ')}</span>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </Section>
+  )
+}
 
 // ─── Zařízení (tablety) + vzdálené ovládání ───────────────────────────────
 function DevicesBlock({ devices, doors, cfg, now, busy, onAdd, onSave, onDelete, onCommand }) {
