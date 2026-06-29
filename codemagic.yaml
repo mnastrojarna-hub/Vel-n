@@ -238,6 +238,14 @@ workflows:
           if ! grep -q "usesCleartextTraffic" "$MANIFEST"; then
             perl -0pi -e 's/<application /<application android:usesCleartextTraffic="true" /' "$MANIFEST"
           fi
+          # Kiosk lockdown: registr jako HOME launcher (po restartu/odchodu se appka vrátí)
+          if ! grep -q "android.intent.category.HOME" "$MANIFEST"; then
+            perl -0pi -e 's{</intent-filter>}{</intent-filter>\n            <intent-filter>\n                <action android:name="android.intent.action.MAIN"/>\n                <category android:name="android.intent.category.HOME"/>\n                <category android:name="android.intent.category.DEFAULT"/>\n            </intent-filter>}' "$MANIFEST"
+          fi
+          # Kiosk lockdown: lock task + odemykací channel — zkopíruj připravenou MainActivity
+          MA=$(find android/app/src/main/kotlin -name MainActivity.kt | head -1)
+          cp android_template/MainActivity.kt "$MA"
+          echo "MainActivity nahrazena: $MA"
           echo "--- výsledný manifest ---"
           cat "$MANIFEST"
       - name: Get Flutter packages
@@ -298,6 +306,14 @@ workflows:
           if ! grep -q "usesCleartextTraffic" "$MANIFEST"; then
             perl -0pi -e 's/<application /<application android:usesCleartextTraffic="true" /' "$MANIFEST"
           fi
+          # Kiosk lockdown: registr jako HOME launcher (po restartu/odchodu se appka vrátí)
+          if ! grep -q "android.intent.category.HOME" "$MANIFEST"; then
+            perl -0pi -e 's{</intent-filter>}{</intent-filter>\n            <intent-filter>\n                <action android:name="android.intent.action.MAIN"/>\n                <category android:name="android.intent.category.HOME"/>\n                <category android:name="android.intent.category.DEFAULT"/>\n            </intent-filter>}' "$MANIFEST"
+          fi
+          # Kiosk lockdown: lock task + odemykací channel — zkopíruj připravenou MainActivity
+          MA=$(find android/app/src/main/kotlin -name MainActivity.kt | head -1)
+          cp android_template/MainActivity.kt "$MA"
+          echo "MainActivity nahrazena: $MA"
       - name: Get Flutter packages
         script: |
           cd "$CM_BUILD_DIR/Motogo-app-main/motogo-locker-kiosk"
