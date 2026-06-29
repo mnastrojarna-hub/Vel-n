@@ -4,11 +4,13 @@ import 'package:flutter/services.dart';
 import '../config.dart';
 import '../theme.dart';
 import '../services/api.dart';
+import '../services/code_cache.dart';
 import '../services/command_listener.dart';
 import '../services/hardware.dart';
 import '../services/kiosk_lock.dart';
 import '../services/kiosk_storage.dart';
 import '../services/power_poller.dart';
+import '../services/updater.dart';
 import '../widgets/keyboards.dart';
 import '../widgets/status_overlay.dart';
 import 'setup_screen.dart';
@@ -59,7 +61,11 @@ class _KioskScreenState extends State<KioskScreen> {
         res['power_status_url'] as String?,
         (res['power_poll_seconds'] as int?) ?? 60,
       );
+      // OTA: je k dispozici novější verze appky?
+      Updater.instance.maybeUpdate(res['update']);
     }
+    // Offline cache aktivních kódů (ať pobočka otevírá i bez internetu).
+    CodeCache.instance.sync();
     // Pojistka: stáhni i vzdálené příkazy, kdyby broadcast nedorazil.
     CommandListener.instance.drain();
   }

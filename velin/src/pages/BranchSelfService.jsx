@@ -20,6 +20,8 @@ function TabSelfService({ branchId, branchName, motos }) {
   const [events, setEvents] = useState([])
   const [cameras, setCameras] = useState([])
   const [power, setPower] = useState(null)
+  const [logs, setLogs] = useState([])
+  const [ota, setOta] = useState({})
   const [busy, setBusy] = useState(false)
   const [now, setNow] = useState(Date.now())
 
@@ -32,7 +34,7 @@ function TabSelfService({ branchId, branchName, motos }) {
     setLoading(true)
     setError(null)
     try {
-      const [c, dev, d, s, ev, cam, pw] = await Promise.all([
+      const [c, dev, d, s, ev, cam, pw, lg, otaRow] = await Promise.all([
         supabase.from('branch_kiosk_config').select('*').eq('branch_id', branchId).maybeSingle(),
         supabase.from('kiosk_devices').select('*').eq('branch_id', branchId).order('created_at'),
         supabase.from('branch_doors').select('*').eq('branch_id', branchId).order('door_kind').order('box_number'),
@@ -40,6 +42,8 @@ function TabSelfService({ branchId, branchName, motos }) {
         supabase.from('branch_door_events').select('*').eq('branch_id', branchId).order('created_at', { ascending: false }).limit(30),
         supabase.from('branch_cameras').select('*').eq('branch_id', branchId).order('sort_order').order('created_at'),
         supabase.from('branch_power_status').select('*').eq('branch_id', branchId).maybeSingle(),
+        supabase.from('kiosk_logs').select('*').eq('branch_id', branchId).order('created_at', { ascending: false }).limit(40),
+        supabase.from('app_settings').select('value').eq('key', 'kiosk_app').maybeSingle(),
       ])
       setCfg(c.data || null)
       setDevices(dev.data || [])
@@ -48,6 +52,8 @@ function TabSelfService({ branchId, branchName, motos }) {
       setEvents(ev.data || [])
       setCameras(cam.data || [])
       setPower(pw.data || null)
+      setLogs(lg.data || [])
+      setOta(otaRow.data?.value || {})
     } catch (e) {
       setError(e.message)
     } finally {
@@ -139,6 +145,16 @@ function TabSelfService({ branchId, branchName, motos }) {
     await load()
   }
 
+  // ── OTA verze appky (globální, app_settings) ──
+  async function saveOta(patch) {
+    const next = { ...ota, ...patch }
+    setOta(next)
+    try {
+      const { error } = await supabase.from('app_settings').upsert({ key: 'kiosk_app', value: next }, { onConflict: 'key' })
+      if (error) throw error
+    } catch (e) { setError(e.message) }
+  }
+
   // ── Kamery ──
   async function addCamera() {
     setBusy(true)
@@ -214,9 +230,11 @@ function TabSelfService({ branchId, branchName, motos }) {
           <DevicesBlock devices={devices} doors={doors} cfg={cfg} now={now} busy={busy}
             onAdd={addDevice} onSave={saveDevice} onDelete={deleteDevice} onCommand={sendCommand} />
           <KioskConfigBlock cfg={cfg} onSave={saveCfg} />
+          <OtaBlock ota={ota} onSave={saveOta} />
           <DoorsBlock doors={doors} onEnsure={ensureDoors} onSave={saveDoor} onDelete={deleteDoor} busy={busy} />
           <ServiceCodesBlock codes={codes} onAdd={addCode} onToggle={toggleCode} onDelete={deleteCode} busy={busy} />
           <AuditBlock events={events} doors={doors} devices={devices} onRefresh={load} />
+          <DiagnosticsBlock logs={logs} devices={devices} onRefresh={load} />
         </>
       )}
     </div>
@@ -445,6 +463,8 @@ function DeviceRow({ dev, doors, cfg, now, onSave, onDelete, onCommand }) {
           className="rounded-btn text-[12px] font-bold cursor-pointer border-none" style={{ padding: '5px 10px', background: '#fee2e2', color: '#dc2626', opacity: cfg.music_off_url ? 1 : 0.5 }}>Hudba ⏹</button>
         <button onClick={() => onCommand(dev, 'identify', { label: 'Velín' })}
           className="rounded-btn text-[12px] font-bold cursor-pointer border-none" style={{ padding: '5px 10px', background: '#dbeafe', color: '#2563eb' }}>Identifikuj</button>
+        <button onClick={() => { if (window.confirm('Restartovat appku na tomto tabletu?')) onCommand(dev, 'restart', {}) }}
+          className="rounded-btn text-[12px] font-bold cursor-pointer border-none" style={{ padding: '5px 10px', background: '#fef3c7', color: '#b45309' }}>Restart</button>
       </div>
     </div>
   )
@@ -696,6 +716,53 @@ function CameraCard({ cam, onlineDevice, onSave, onDelete, onRemote }) {
         )}
       </div>
     </div>
+  )
+}
+
+// ─── OTA — nejnovější verze appky (globální pro všechny kiosky) ───────────────
+function OtaBlock({ ota, onSave }) {
+  return (
+    <Section title="Aktualizace appky (OTA)"
+      hint="Globální pro všechny kiosky. Po zvýšení version_code si tablety appku samy stáhnou a nainstalují (tichá instalace přes MDM/device owner).">
+      <div className="p-3 rounded-card flex gap-3 flex-wrap" style={{ background: '#f8fcfa', border: '1px solid #d4e8e0' }}>
+        <Field label="version_code (číslo, rostoucí)" type="number" value={ota.version_code} onCommit={v => onSave({ version_code: v })} width={170} />
+        <Field label="version_name" value={ota.version_name} onCommit={v => onSave({ version_name: v })} placeholder="1.0.1" width={130} />
+        <Field label="URL APK ke stažení" value={ota.apk_url} onCommit={v => onSave({ apk_url: v })} placeholder="https://…/motogo_kiosk.apk" width={340} />
+        <Field label="Poznámka" value={ota.notes} onCommit={v => onSave({ notes: v })} width={200} />
+      </div>
+    </Section>
+  )
+}
+
+// ─── Diagnostika — logy/chyby/pády z kiosků ──────────────────────────────────
+function DiagnosticsBlock({ logs, devices, onRefresh }) {
+  const devMap = Object.fromEntries(devices.map(d => [d.id, d]))
+  const color = { info: '#6b8c7a', warn: '#b45309', error: '#dc2626', crash: '#dc2626' }
+  return (
+    <Section title="Diagnostika (chyby & události)" hint="Posledních 40 hlášení z tabletů pobočky."
+      action={
+        <button onClick={onRefresh} className="rounded-btn text-sm font-bold cursor-pointer border-none"
+          style={{ padding: '4px 10px', background: '#dbeafe', color: '#2563eb' }}>Obnovit</button>
+      }>
+      {logs.length === 0 ? (
+        <EmptyState text="Žádné záznamy — vše běží bez chyb." />
+      ) : (
+        <div className="space-y-1 max-h-72 overflow-y-auto">
+          {logs.map(l => (
+            <div key={l.id} className="flex items-center gap-2 p-2 rounded-lg text-sm" style={{ background: '#f8fcfa', border: '1px solid #d4e8e0' }}>
+              <span className="inline-block rounded-btn text-[9px] font-extrabold uppercase"
+                style={{ padding: '2px 6px', background: (l.level === 'info' ? '#eef6f2' : '#fee2e2'), color: color[l.level] || '#1a2e22' }}>
+                {l.level}
+              </span>
+              {l.source && <span className="text-[11px] font-bold" style={{ color: '#6b8c7a' }}>{l.source}</span>}
+              <span style={{ color: '#0f1a14' }}>{l.message}</span>
+              {devMap[l.device_id]?.name && <span className="text-[11px]" style={{ color: '#6b8c7a' }}>· {devMap[l.device_id].name}</span>}
+              <span className="ml-auto text-[12px]" style={{ color: '#6b8c7a' }}>{new Date(l.created_at).toLocaleString('cs-CZ')}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </Section>
   )
 }
 
