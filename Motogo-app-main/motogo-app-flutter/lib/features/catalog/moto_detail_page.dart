@@ -159,13 +159,13 @@ class _MotoDetailPageState extends ConsumerState<MotoDetailPage> {
           ),
         ),
 
-        // === DESCRIPTION === (plain text — HTML markup stripped)
-        if (moto.descriptionPlain != null)
+        // === DESCRIPTION === (plain text — HTML markup stripped, lokalizovaný)
+        if (moto.descriptionPlainFor(t(ctx).lang) != null)
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
               child: Text(
-                moto.descriptionPlain!,
+                moto.descriptionPlainFor(t(ctx).lang)!,
                 style: const TextStyle(
                   fontSize: 13,
                   height: 1.6,

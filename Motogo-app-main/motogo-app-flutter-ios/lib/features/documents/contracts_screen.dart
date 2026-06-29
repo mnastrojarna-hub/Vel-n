@@ -179,8 +179,16 @@ class ContractsScreen extends ConsumerWidget {
           .limit(1)
           .maybeSingle();
       if (res != null) {
-        title = _localizedName(res, lang) ?? fallbackTitle;
-        contentHtml = _localizedContent(res, lang);
+        // Vzor (bez konkrétní rezervace): preferuj přeložený název šablony;
+        // když překlad chybí, použij UŽ lokalizovaný UI titulek (NE český DB
+        // `name`, jinak má cizojazyčná appka český nadpis „Předávací protokol").
+        final tn = res['name_translations'];
+        if (tn is Map && tn[lang] is String && (tn[lang] as String).trim().isNotEmpty) {
+          title = (tn[lang] as String).trim();
+        }
+        // Nevyplněné {{placeholdery}} (vzor nemá data rezervace) nahraď prázdným
+        // polem — ať se zákazníkovi nezobrazují syrové značky „{{customer_name}}".
+        contentHtml = _stripPlaceholders(_localizedContent(res, lang));
       }
     } catch (e) {
       debugPrint('[CONTRACTS] Template sample fetch failed ($type): $e');
@@ -358,6 +366,15 @@ class ContractsScreen extends ConsumerWidget {
       'technical_state': '',
     };
   }
+
+  /// Pro „vzor" (bez rezervace) nahradí nevyplněné `{{placeholdery}}` prázdným
+  /// polem, ať se v náhledu nezobrazují syrové značky. Bezpečně bere jen
+  /// dvojité složené závorky (`{{key}}`), takže se nedotkne případného CSS
+  /// `{ }` ve `<style>` šablony.
+  String _stripPlaceholders(String html) => html.replaceAll(
+        RegExp(r'\{\{\s*[\w.]+\s*\}\}'),
+        '<span style="color:#9aa6a0">—</span>',
+      );
 
   /// Replace both {{key}} and {key} placeholders in template HTML.
   String _replacePlaceholders(String html, Map<String, String> vars) {

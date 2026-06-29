@@ -26,6 +26,8 @@ class Motorcycle {
   final bool? hasAbs;
   final bool? hasAsc;
   final String? description;
+  /// Auto-překlady z Velína (`motorcycles.translations` = `{lang:{description:…}}`).
+  final Map? translations;
   final String? idealUsage;
   final List<String> features;
 
@@ -86,6 +88,7 @@ class Motorcycle {
     this.hasAbs,
     this.hasAsc,
     this.description,
+    this.translations,
     this.idealUsage,
     this.features = const [],
     this.shortDescFields = const [],
@@ -140,6 +143,7 @@ class Motorcycle {
       hasAbs: json['has_abs'] as bool?,
       hasAsc: json['has_asc'] as bool?,
       description: json['description'] as String?,
+      translations: json['translations'] as Map?,
       idealUsage: _parseStringList(json['ideal_usage']).join(', '),
       features: _parseStringList(json['features']),
       shortDescFields: _parseStringList(json['short_desc_fields']),
@@ -175,6 +179,7 @@ class Motorcycle {
     topSpeedKmh: topSpeedKmh, brakeType: brakeType, seatsCount: seatsCount,
     seatHeightMm: seatHeightMm, year: year,
     hasAbs: hasAbs, hasAsc: hasAsc, description: description,
+    translations: translations,
     idealUsage: idealUsage, features: features,
     shortDescFields: shortDescFields, imageUrl: imageUrl,
     images: images, videos: videos, color: color, manualUrl: manualUrl,
@@ -213,6 +218,21 @@ class Motorcycle {
   /// must not leak into the UI as raw markup. Returns null when empty.
   String? get descriptionPlain {
     final d = description;
+    if (d == null) return null;
+    final p = stripHtml(d);
+    return p.isEmpty ? null : p;
+  }
+
+  /// Lokalizovaný popis pro daný jazyk — přednost má auto-překlad z Velína
+  /// (`translations[lang].description`), fallback na český `description`.
+  /// Bez tohoto se v cizojazyčné appce zobrazoval popis vždy česky.
+  String? descriptionPlainFor(String lang) {
+    String? d = description;
+    final tr = translations;
+    if (tr is Map && tr[lang] is Map) {
+      final v = (tr[lang] as Map)['description'];
+      if (v is String && v.trim().isNotEmpty) d = v;
+    }
     if (d == null) return null;
     final p = stripHtml(d);
     return p.isEmpty ? null : p;

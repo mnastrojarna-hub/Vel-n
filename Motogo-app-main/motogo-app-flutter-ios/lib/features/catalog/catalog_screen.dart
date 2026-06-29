@@ -67,7 +67,7 @@ class CatalogScreen extends ConsumerWidget {
                     return Padding(
                       padding: const EdgeInsets.only(right: 6),
                       child: ChoiceChip(
-                        label: Text(e.value),
+                        label: Text(t(context).tr(MotoCategory.labelKey(e.key))),
                         selected: active,
                         onSelected: (_) {
                           ref.read(catalogFilterProvider.notifier).state =

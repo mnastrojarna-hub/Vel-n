@@ -211,4 +211,29 @@ class MotoCategory {
     'detske': 'Dětské',
     'ostatni': 'Ostatní',
   };
+
+  /// i18n klíč pro lokalizovaný název kategorie (filtr) — místo natvrdo psaného
+  /// českého labelu výše. Klíče existují ve všech jazycích (translations_ext_1_*).
+  static String labelKey(String? slug) {
+    switch (slug) {
+      case 'cestovni':
+        return 'motoCardCategoryTravel';
+      case 'sportovni':
+        return 'motoCardCategorySport';
+      case 'naked':
+        return 'motoCardCategoryNaked';
+      case 'chopper':
+        return 'motoCardCategoryChopper';
+      case 'supermoto':
+        return 'motoCardCategorySupermoto';
+      case 'scootery':
+        return 'motoCardCategoryScooters';
+      case 'detske':
+        return 'motoCardCategoryChildren';
+      case 'ostatni':
+        return 'motoCardCategoryOther';
+      default:
+        return 'all'; // null = „Vše" / „Todo" / …
+    }
+  }
 }
