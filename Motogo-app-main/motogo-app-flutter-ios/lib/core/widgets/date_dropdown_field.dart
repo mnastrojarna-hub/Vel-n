@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme.dart';
+import '../i18n/i18n_provider.dart';
 
 /// Jednotné zadávání data 3 rozbalovacími nabídkami (den / měsíc / rok).
 /// Etalon UI pro celou appku i web — používá se všude, kde se zadává datum
@@ -34,9 +35,9 @@ class DateDropdownField extends StatefulWidget {
 }
 
 class _DateDropdownFieldState extends State<DateDropdownField> {
-  static const List<String> _months = [
-    'Leden', 'Únor', 'Březen', 'Duben', 'Květen', 'Červen',
-    'Červenec', 'Srpen', 'Září', 'Říjen', 'Listopad', 'Prosinec',
+  static const List<String> _monthAbbrKeys = [
+    'calJan', 'calFeb', 'calMar', 'calApr', 'calMay', 'calJun',
+    'calJul', 'calAug', 'calSep', 'calOct', 'calNov', 'calDec',
   ];
   int? _day;
   int? _month;
@@ -90,6 +91,8 @@ class _DateDropdownFieldState extends State<DateDropdownField> {
 
   @override
   Widget build(BuildContext context) {
+    final tr = t(context);
+    final monthNames = [for (final k in _monthAbbrKeys) tr.tr(k)];
     final years = <int>[];
     if (widget.yearsDescending) {
       for (var y = widget.lastYear; y >= widget.firstYear; y--) {
@@ -122,7 +125,7 @@ class _DateDropdownFieldState extends State<DateDropdownField> {
                 flex: 3,
                 child: _dd<int>(
                   value: _day,
-                  hint: 'Den',
+                  hint: tr.tr('dateDay'),
                   items: [
                     for (var d = 1; d <= 31; d++)
                       DropdownMenuItem(
@@ -139,13 +142,13 @@ class _DateDropdownFieldState extends State<DateDropdownField> {
                 flex: 5,
                 child: _dd<int>(
                   value: _month,
-                  hint: 'Měsíc',
+                  hint: tr.tr('dateMonth'),
                   items: [
                     for (var m = 1; m <= 12; m++)
                       DropdownMenuItem(
                         value: m,
                         child: Text(
-                          '${m.toString().padLeft(2, '0')} — ${_months[m - 1]}',
+                          '${m.toString().padLeft(2, '0')} — ${monthNames[m - 1]}',
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -161,7 +164,7 @@ class _DateDropdownFieldState extends State<DateDropdownField> {
                 flex: 4,
                 child: _dd<int>(
                   value: _year,
-                  hint: 'Rok',
+                  hint: tr.tr('dateYear'),
                   items: [
                     for (final y in years)
                       DropdownMenuItem(value: y, child: Text(y.toString())),

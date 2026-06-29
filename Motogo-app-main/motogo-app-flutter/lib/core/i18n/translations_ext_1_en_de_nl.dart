@@ -113,6 +113,7 @@ const translationsExt1EnDeNl = <String, Map<String, String>>{
     // Calendar
     'calMon': 'Mo', 'calTue': 'Tu', 'calWed': 'We', 'calThu': 'Th',
     'calFri': 'Fr', 'calSat': 'Sa', 'calSun': 'Su',
+        'dateDay': 'Day', 'dateMonth': 'Month', 'dateYear': 'Year',
     'calJan': 'January', 'calFeb': 'February', 'calMar': 'March',
     'calApr': 'April', 'calMay': 'May', 'calJun': 'June',
     'calJul': 'July', 'calAug': 'August', 'calSep': 'September',
@@ -287,6 +288,7 @@ const translationsExt1EnDeNl = <String, Map<String, String>>{
     // Calendar
     'calMon': 'Mo', 'calTue': 'Di', 'calWed': 'Mi', 'calThu': 'Do',
     'calFri': 'Fr', 'calSat': 'Sa', 'calSun': 'So',
+        'dateDay': 'Tag', 'dateMonth': 'Monat', 'dateYear': 'Jahr',
     'calJan': 'Januar', 'calFeb': 'Februar', 'calMar': 'März',
     'calApr': 'April', 'calMay': 'Mai', 'calJun': 'Juni',
     'calJul': 'Juli', 'calAug': 'August', 'calSep': 'September',
@@ -461,6 +463,7 @@ const translationsExt1EnDeNl = <String, Map<String, String>>{
     // Calendar
     'calMon': 'Ma', 'calTue': 'Di', 'calWed': 'Wo', 'calThu': 'Do',
     'calFri': 'Vr', 'calSat': 'Za', 'calSun': 'Zo',
+        'dateDay': 'Dag', 'dateMonth': 'Maand', 'dateYear': 'Jaar',
     'calJan': 'Januari', 'calFeb': 'Februari', 'calMar': 'Maart',
     'calApr': 'April', 'calMay': 'Mei', 'calJun': 'Juni',
     'calJul': 'Juli', 'calAug': 'Augustus', 'calSep': 'September',
