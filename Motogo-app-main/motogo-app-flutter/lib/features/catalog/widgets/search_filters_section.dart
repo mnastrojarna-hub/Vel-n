@@ -144,7 +144,7 @@ class _SearchFiltersSectionState extends ConsumerState<SearchFiltersSection> {
                       style: const TextStyle(fontSize: 13, color: MotoGoColors.black),
                       items: MotoCategory.labels.entries.map((e) => DropdownMenuItem(
                         value: e.key,
-                        child: Text(e.value, style: const TextStyle(fontSize: 13)),
+                        child: Text(t(context).tr(MotoCategory.labelKey(e.key)), style: const TextStyle(fontSize: 13)),
                       )).toList(),
                       onChanged: (v) {
                         ref.read(catalogFilterProvider.notifier).state =
