@@ -41,6 +41,12 @@ rezervace). Appka je jen ověří přes RPC a fyzicky otevře dveře.
 - **Dveře (relé + světlo):** pro každou kóji motorky (`box_number`) a pro sdílené
   dveře oblečení se nastaví `relay_url` (otevření zámku) a `light_url` (světlo).
 - **Servisní hesla** — seznam aktivních hesel pro techniky.
+- **Kamery** — náhled (snapshot/HLS/iframe) přímo ve Velíně; ovládací akce (PTZ/relé)
+  se posílají přes tablet na LAN (`camera_control`). URL náhledu musí být dostupná
+  z prostředí Velína (cloud/NVR), ovládací URL stačí na LAN.
+- **Solární (ostrovní) elektrárna** — tablet stahuje stav z měniče na LAN
+  (`power_status_url`, JSON) a posílá ho do Supabase (`kiosk_report_power`); Velín
+  zobrazuje SoC baterie, FV výrobu, spotřebu, tok baterie a stav sítě/generátoru.
 
 ## Spuštění / build
 

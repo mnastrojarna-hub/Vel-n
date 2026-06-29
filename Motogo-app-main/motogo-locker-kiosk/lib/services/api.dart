@@ -147,6 +147,13 @@ class KioskApi {
     } catch (_) {}
   }
 
+  /// Nahlásí stav ostrovní FV elektrárny (raw JSON z měniče na LAN).
+  Future<void> reportPower(Map<String, dynamic> payload) async {
+    try {
+      await _sb.rpc('kiosk_report_power', params: {..._auth, 'p_payload': payload});
+    } catch (_) {}
+  }
+
   /// Stáhne čekající vzdálené příkazy (token-ověřeno).
   Future<List<Map>> fetchCommands() async {
     try {

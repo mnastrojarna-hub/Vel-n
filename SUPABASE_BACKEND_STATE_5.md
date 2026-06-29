@@ -368,3 +368,11 @@ Tyto 4 byly `ON DELETE NO ACTION` a blokovaly smazání auth účtu (admina/zák
 - `booking_complaints.resolved_by` → `auth.users.id` (**ON DELETE SET NULL** — dříve NO ACTION)
 
 > **Audit 2026-05-29:** Všechny FK mířící na `profiles` jsou již `CASCADE` nebo `SET NULL` (žádný `NO ACTION`/`RESTRICT`) → smazání zákazníka (`delete_customer_account`) na FK nepadá. FK na `auth.users` spravované Supabase Auth (`identities`, `sessions`, `mfa_factors`, `one_time_tokens`, `webauthn_*`, `oauth_*`, `admin_users.id`, `profiles.id`, `ai_customer_conversations.user_id`) jsou `CASCADE`.
+
+### Samoobslužná pobočka (kiosk) — NEW 2026-06-29 (`20260628_selfservice_kiosk.sql` + `20260629_kiosk_cameras_power.sql`)
+**RLS — vše admin-only `FOR ALL USING (is_admin())`** (kiosk se k datům dostane VÝHRADNĚ přes SECURITY DEFINER RPC, NE přímo): `branch_kiosk_config` (`branch_kiosk_config_admin`), `kiosk_devices` (`kiosk_devices_admin`), `branch_doors` (`branch_doors_admin`), `branch_service_codes` (`branch_service_codes_admin`), `kiosk_commands` (`kiosk_commands_admin`), `branch_cameras` (`branch_cameras_admin`).
+**Admin SELECT only:** `branch_door_events` (`branch_door_events_admin`, zápis přes RPC), `branch_power_status` (`branch_power_status_admin`, zápis přes `kiosk_report_power`).
+
+**Realtime:** kiosk_commands se NEPŘIDÁVÁ do `supabase_realtime` publication (kiosk je anon → RLS by řádky nedoručila). Místo toho **Broadcast z DB**: trigger `trg_kiosk_command_broadcast` → `realtime.send(payload, 'cmd', 'kiosk:<device_id>', false)`. Kiosk subscribuje broadcast topic `kiosk:<device_id>` (jen probuzení), příkazy stáhne přes token-ověřenou `kiosk_fetch_commands` + poll při heartbeatu jako pojistka.
+
+**Architektura ovládání:** tablet = brána pobočky na LAN. Ověření kódů / heartbeat / příkazy / stav energie jdou přes Supabase RPC (cloud); fyzické akce (Shelly relé otevření dveří, světlo, hudba, kamery PTZ) volá tablet HTTP přímo na LAN → funguje i offline (kromě ověření kódu, které potřebuje internet). Stav ostrovní FV elektrárny tablet stahuje z měniče na LAN (`power_status_url` JSON) a hlásí přes `kiosk_report_power`.
