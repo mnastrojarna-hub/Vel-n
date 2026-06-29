@@ -60,6 +60,16 @@ flutter pub get
 flutter run        # nebo: flutter build apk --release
 ```
 
+### Build přes Codemagic (CI)
+
+V kořenovém `codemagic.yaml` jsou dva workflowy:
+- **`kiosk-android-debug`** — nepodepsaný debug APK (nejjednodušší sideload na tablet, QR ke stažení).
+- **`kiosk-android-release`** — podepsaný release APK (keystore `motogo24_upload`).
+
+Oba workflowy nativní `android/` projekt **vygenerují samy** (`flutter create`) a do
+`AndroidManifest.xml` doplní `INTERNET` + `android:usesCleartextTraffic="true"`
+(relé/kamery/měnič na LAN jezdí přes `http://`). Nativní složky se proto necommitují.
+
 ### Doporučená nastavení tabletu (kiosk)
 
 - Zapnout **Android kiosk / lock task mode** (pinned app) nebo MDM, ať appku nelze opustit.
