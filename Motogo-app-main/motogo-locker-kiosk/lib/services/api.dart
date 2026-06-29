@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'kiosk_storage.dart';
+import 'code_cache.dart';
 
 /// Jedny dveře vrácené z backendu (relé + světlo).
 class DoorInfo {
@@ -117,14 +118,49 @@ class KioskApi {
   }
 
   /// Ověří kód → vrátí které dveře otevřít.
+  /// Při výpadku internetu spadne na offline cache (kiosk_sync_codes).
   Future<ResolveResult> resolveCode(String code) async {
     try {
       final res = await _sb.rpc('kiosk_resolve_code', params: {..._auth, 'p_code': code});
       if (res is Map) return ResolveResult.fromMap(res);
       return ResolveResult(ok: false, error: 'bad_response');
     } catch (e) {
+      // Offline fallback — ověř kód proti lokální cache
+      final local = CodeCache.instance.resolveLocal(code);
+      if (local != null) return local;
       return ResolveResult(ok: false, error: 'network');
     }
+  }
+
+  /// Stáhne aktivní kódy + mapování dveří pro offline cache.
+  Future<Map?> syncCodes() async {
+    try {
+      final res = await _sb.rpc('kiosk_sync_codes', params: _auth);
+      if (res is Map && res['ok'] == true) return res;
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Pošle diagnostický log/chybu do Velína.
+  Future<void> logEvent({
+    required String level,
+    required String source,
+    required String message,
+    Map<String, dynamic> detail = const {},
+    String? appVersion,
+  }) async {
+    try {
+      await _sb.rpc('kiosk_log_event', params: {
+        ..._auth,
+        'p_level': level,
+        'p_source': source,
+        'p_message': message,
+        'p_detail': detail,
+        'p_app_version': appVersion,
+      });
+    } catch (_) {}
   }
 
   /// Audit otevření (best-effort).

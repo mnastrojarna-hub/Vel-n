@@ -16,4 +16,9 @@ class KioskLock {
   static Future<void> unlock() async {
     try { await _ch.invokeMethod('unlockKiosk'); } catch (_) {}
   }
+
+  /// Restartuje appku (vzdálený příkaz z Velína).
+  static Future<void> restartApp() async {
+    try { await _ch.invokeMethod('restartApp'); } catch (_) {}
+  }
 }

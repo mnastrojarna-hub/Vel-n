@@ -1,31 +1,60 @@
+import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 import 'config.dart';
 import 'theme.dart';
+import 'services/code_cache.dart';
+import 'services/diag.dart';
 import 'services/kiosk_storage.dart';
+import 'services/updater.dart';
 import 'screens/kiosk_screen.dart';
 import 'screens/setup_screen.dart';
 
 Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+  runZonedGuarded<Future<void>>(() async {
+    WidgetsFlutterBinding.ensureInitialized();
 
-  // Kiosk: landscape, fullscreen immersive, obrazovka stále zapnutá
-  await SystemChrome.setPreferredOrientations(
-      [DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]);
-  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-  await WakelockPlus.enable();
+    // Pády frameworku → vzdálená diagnostika (kiosk_logs)
+    FlutterError.onError = (details) {
+      FlutterError.presentError(details);
+      KioskDiag.crash('flutter', details.exceptionAsString(),
+          {'library': details.library ?? ''});
+    };
+    PlatformDispatcher.instance.onError = (error, stack) {
+      KioskDiag.crash('platform', error.toString(), {'stack': stack.toString()});
+      return true;
+    };
 
-  await Supabase.initialize(
-    url: KioskConfig.supabaseUrl,
-    anonKey: KioskConfig.supabaseAnonKey,
-  );
+    // Kiosk: landscape, fullscreen immersive, obrazovka stále zapnutá
+    await SystemChrome.setPreferredOrientations(
+        [DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]);
+    await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    await WakelockPlus.enable();
 
-  await KioskStorage.instance.load();
+    await Supabase.initialize(
+      url: KioskConfig.supabaseUrl,
+      anonKey: KioskConfig.supabaseAnonKey,
+    );
 
-  runApp(const KioskApp());
+    // Verze appky (OTA porovnání + diagnostika)
+    try {
+      final info = await PackageInfo.fromPlatform();
+      KioskDiag.appVersion = '${info.version}+${info.buildNumber}';
+      Updater.instance.currentBuild = int.tryParse(info.buildNumber) ?? 0;
+    } catch (_) {}
+
+    await KioskStorage.instance.load();
+    await CodeCache.instance.load();
+
+    runApp(const KioskApp());
+  }, (error, stack) {
+    KioskDiag.crash('zone', error.toString(), {'stack': stack.toString()});
+  });
 }
 
 class KioskApp extends StatelessWidget {

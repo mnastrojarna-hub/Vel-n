@@ -22,6 +22,10 @@ dependencies:
   # Drží obrazovku zapnutou (kiosk běží nonstop)
   wakelock_plus: ^1.2.5
 
+  # Verze appky (OTA porovnání) + dočasná složka pro stažené APK
+  package_info_plus: ^8.0.0
+  path_provider: ^2.1.2
+
 dev_dependencies:
   flutter_lints: ^4.0.0
 

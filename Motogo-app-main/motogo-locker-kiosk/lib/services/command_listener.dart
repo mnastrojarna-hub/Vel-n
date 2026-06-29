@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'api.dart';
 import 'hardware.dart';
+import 'kiosk_lock.dart';
 import 'kiosk_storage.dart';
 
 /// Vzdálené ovládání z Velína.
@@ -82,6 +83,11 @@ class CommandListener {
           onReload?.call();
           ok = true;
           break;
+        case 'restart':
+          ok = true;
+          await KioskApi.instance.completeCommand(id, true, result: {'restarting': true});
+          await KioskLock.restartApp();
+          return;
         case 'camera_control':
         case 'http_get':
           ok = await Hardware.instance.httpGet(params['url'] as String?);

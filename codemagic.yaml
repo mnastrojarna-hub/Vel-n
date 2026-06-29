@@ -246,6 +246,15 @@ workflows:
           MA=$(find android/app/src/main/kotlin -name MainActivity.kt | head -1)
           cp android_template/MainActivity.kt "$MA"
           echo "MainActivity nahrazena: $MA"
+          # OTA: oprávnění k instalaci + FileProvider (sdílení staženého APK instalátoru)
+          if ! grep -q "REQUEST_INSTALL_PACKAGES" "$MANIFEST"; then
+            perl -0pi -e 's/(<manifest[^>]*>)/$1\n    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"\/>/' "$MANIFEST"
+          fi
+          if ! grep -q "androidx.core.content.FileProvider" "$MANIFEST"; then
+            perl -0pi -e 's{(</application>)}{    <provider android:name="androidx.core.content.FileProvider" android:authorities="\${applicationId}.fileprovider" android:exported="false" android:grantUriPermissions="true">\n            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="\@xml\/file_paths"\/>\n        </provider>\n    $1}' "$MANIFEST"
+          fi
+          mkdir -p android/app/src/main/res/xml
+          cp android_template/file_paths.xml android/app/src/main/res/xml/file_paths.xml
           echo "--- výsledný manifest ---"
           cat "$MANIFEST"
       - name: Get Flutter packages
@@ -314,6 +323,15 @@ workflows:
           MA=$(find android/app/src/main/kotlin -name MainActivity.kt | head -1)
           cp android_template/MainActivity.kt "$MA"
           echo "MainActivity nahrazena: $MA"
+          # OTA: oprávnění k instalaci + FileProvider (sdílení staženého APK instalátoru)
+          if ! grep -q "REQUEST_INSTALL_PACKAGES" "$MANIFEST"; then
+            perl -0pi -e 's/(<manifest[^>]*>)/$1\n    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"\/>/' "$MANIFEST"
+          fi
+          if ! grep -q "androidx.core.content.FileProvider" "$MANIFEST"; then
+            perl -0pi -e 's{(</application>)}{    <provider android:name="androidx.core.content.FileProvider" android:authorities="\${applicationId}.fileprovider" android:exported="false" android:grantUriPermissions="true">\n            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="\@xml\/file_paths"\/>\n        </provider>\n    $1}' "$MANIFEST"
+          fi
+          mkdir -p android/app/src/main/res/xml
+          cp android_template/file_paths.xml android/app/src/main/res/xml/file_paths.xml
       - name: Get Flutter packages
         script: |
           cd "$CM_BUILD_DIR/Motogo-app-main/motogo-locker-kiosk"
