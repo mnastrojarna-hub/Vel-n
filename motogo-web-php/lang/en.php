@@ -531,7 +531,7 @@ return [
     'rez.steps.licExpiryLabel' => '* Licence valid until',
     'rez.steps.licConfirmText' => '* I confirm that I hold a valid driving licence and meet the legal requirements to ride the reserved motorcycle.',
     'rez.steps.uploadTitle' => 'Document upload',
-    'rez.steps.uploadSub' => 'Optional — speeds up check-in. We will recognise the photos automatically and fill in the details. For the ID and driving licence, photograph the <strong>front and back</strong>.',
+    'rez.steps.uploadSub' => 'Optional — speeds up check-in. Enter the details manually in the form. For the ID and driving licence, photograph the <strong>front and back</strong>.',
     'rez.steps.docsSpeedupQuestion' => 'Want to speed up your bike pickup? Yes, I’ll upload my documents now.',
     'rez.steps.frontShort' => 'Front',
     'rez.steps.backShort' => 'Back',

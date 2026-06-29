@@ -531,7 +531,7 @@ return [
     'rez.steps.licExpiryLabel' => '* Führerschein gültig bis',
     'rez.steps.licConfirmText' => '* Ich bestätige, dass ich einen gültigen Führerschein besitze und die gesetzlichen Voraussetzungen zum Führen des reservierten Motorrads erfülle.',
     'rez.steps.uploadTitle' => 'Dokumente hochladen',
-    'rez.steps.uploadSub' => 'Optional — beschleunigt die Abfertigung. Wir erkennen die Fotos automatisch und füllen die Daten aus. Fotografieren Sie bei Ausweis und Führerschein <strong>Vorder- und Rückseite</strong>.',
+    'rez.steps.uploadSub' => 'Optional — beschleunigt die Abfertigung. Die Daten tragen Sie manuell in das Formular ein. Fotografieren Sie bei Ausweis und Führerschein <strong>Vorder- und Rückseite</strong>.',
     'rez.steps.docsSpeedupQuestion' => 'Möchten Sie die Übernahme des Motorrads beschleunigen? Ja, ich lade die Dokumente jetzt hoch.',
     'rez.steps.frontShort' => 'Vorderseite',
     'rez.steps.backShort' => 'Rückseite',
