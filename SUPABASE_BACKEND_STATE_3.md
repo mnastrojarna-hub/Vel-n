@@ -218,3 +218,19 @@ SECURITY DEFINER, `set search_path = public`, gate `is_admin()` (jinak `raise ex
 **Proč přepis:** push_tokens trpí (a) nadhodnocením — rotace FCM tokenu (`onTokenRefresh`, `upsert(onConflict:'token')`) zakládá nové aktivní řádky, starý zůstává `active=true`; (b) podhodnocením — `PushService.initialize()` se ukončí, když uživatel odmítl notifikace, takže instalace bez pushů v `push_tokens` VŮBEC nejsou. `app_installations` (vlastní device UUID + heartbeat) řeší obojí a funguje i na iOS, kam Play Developer API nedosáhne. Dedup verze 2026-06-27 B (`count(distinct (user_id, platform))` nad push_tokens) zůstává zachovaná jen jako `push_active_devices`.
 
 Tabulka `app_installations` + tato RPC spuštěny ručně v SQL editoru, ověřeno 2026-06-28. Plní appka přes `InstallationService` (build nutný — nasadit SQL PŘED rozšířením buildu). Není to oficiální počet instalací z Google Play (ten by vyžadoval Play Developer API).
+
+### Samoobslužná pobočka (kiosk) — NEW 2026-06-29 (`20260628_selfservice_kiosk.sql` + `20260629_kiosk_cameras_power.sql`, APLIKOVÁNO + OVĚŘENO)
+Všechny SECURITY DEFINER, `SET search_path=public`. Autentizace kiosku přes (device_id + device_token) přes helper níže; kiosk běží pod anon klíčem a k tabulkám se NEdostane přímo (admin-only RLS), jen přes tyto RPC.
+
+| Funkce | Popis |
+|--------|-------|
+| `kiosk_device_branch(p_device_id, p_device_token, p_touch)` | **INTERNÍ helper** (REVOKE FROM public — volá se jen z ostatních kiosk RPC). Ověří zařízení (`is_active`, token sedí), vrátí `branch_id` nebo NULL; při `p_touch=true` bumpne `last_seen_at`. |
+| `kiosk_heartbeat(p_device_id, p_device_token, p_app_version, p_platform)` | Online stav (update last_seen + verze/platforma) + vrací konfiguraci pobočky: branch_name, music URL, časování, `power_status_url`, `power_poll_seconds`. GRANT anon/authenticated/service_role. |
+| `kiosk_resolve_code(p_device_id, p_device_token, p_code)` | Ověří zadaný kód. Pořadí: **servisní heslo** (`branch_service_codes`) → vrátí `kind:'service'` + seznam VŠECH aktivních dveří; jinak **zákaznický kód** (`branch_door_codes` aktivní/vydaný/v platnosti/této pobočky) → vrátí `kind` (motorcycle/accessories) + konkrétní dveře (accessories door, nebo motorcycle dveře dle `motorcycles.box_number`) vč. relay_url/light_url + music URL; jinak `{ok:false,error:invalid_code}`. Bumpne last_seen. GRANT anon. |
+| `kiosk_log_open(p_device_id, p_device_token, p_door_id, p_kind, p_booking_id, p_success, p_detail)` | Audit otevření → `branch_door_events`. GRANT anon. |
+| `kiosk_fetch_commands(p_device_id, p_device_token)` | Vrátí čekající (`status=pending`) příkazy pro zařízení (id/command/params) — kiosk je stahuje po broadcast probuzení i při heartbeatu (pojistka). GRANT anon. |
+| `kiosk_complete_command(p_device_id, p_device_token, p_command_id, p_success, p_result)` | Označí příkaz done/failed + `executed_at`. GRANT anon. |
+| `kiosk_report_power(p_device_id, p_device_token, p_payload)` | Upsert `branch_power_status` pro pobočku zařízení. Mapuje běžné klíče měničů přes `kiosk_jnum`/`kiosk_jbool` (soc/battery_soc, pvPower/pv_power_w, loadPower…, grid/gen) + ukládá celý `raw`. GRANT anon. |
+| `kiosk_jnum(p jsonb, VARIADIC keys)` / `kiosk_jbool(p jsonb, VARIADIC keys)` | IMMUTABLE helpery — bezpečné čtení numeric/bool z jsonb dle prvního přítomného klíče (try/cast). |
+| `touch_updated_at()` | Generický `RETURNS trigger` — `NEW.updated_at := now()` (sdílený pro kiosk tabulky; viz STATE_4). |
+| `kiosk_command_broadcast()` | `RETURNS trigger` (AFTER INSERT na kiosk_commands WHERE pending) — pošle `realtime.send({id}, 'cmd', 'kiosk:<device_id>', false)`. Obaleno EXCEPTION (insert nikdy neshodí, i kdyby `realtime.send` chyběl → fallback poll). |

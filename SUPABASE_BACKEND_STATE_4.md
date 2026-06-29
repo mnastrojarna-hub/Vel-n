@@ -111,3 +111,13 @@
 | `trg_release_codes_on_profile_verify` | profiles (AFTER UPDATE OF id_verified_at, passport_verified_at, license_verified_at, id_number, license_number) | release_codes_on_profile_verify() — po ověření dokladů v profilu uvolní zadržené door codes (souběžně s `trg_release_codes_on_doc_upload` na `documents`) |
 | `trg_sync_moto_to_assets` | motorcycles (AFTER INSERT/UPDATE) | sync_motorcycle_to_assets() — zrcadlí motorku do `acc_long_term_assets` (dlouhodobý majetek) |
 
+
+### Samoobslužná pobočka (kiosk) — NEW 2026-06-29
+| Trigger | Tabulka | Funkce |
+|---------|---------|--------|
+| `trg_branch_kiosk_config_touch` | branch_kiosk_config | `touch_updated_at()` (BEFORE UPDATE) |
+| `trg_kiosk_devices_touch` | kiosk_devices | `touch_updated_at()` |
+| `trg_branch_doors_touch` | branch_doors | `touch_updated_at()` |
+| `trg_branch_service_codes_touch` | branch_service_codes | `touch_updated_at()` |
+| `trg_branch_cameras_touch` | branch_cameras | `touch_updated_at()` |
+| `trg_kiosk_command_broadcast` | kiosk_commands | `kiosk_command_broadcast()` (AFTER INSERT WHEN status='pending') — DB Broadcast `realtime.send` na topic `kiosk:<device_id>` (vzdálené ovládání bez vystavení anon na admin-only tabulku) |

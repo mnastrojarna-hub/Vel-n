@@ -440,3 +440,41 @@ Přesná evidence instalací appky (zdroj pravdy pro DAU/WAU/MAU, instalace, už
 - Trigger: `trg_app_installations_touch` → `app_installations_touch()` (updated_at)
 - RLS: `app_installations_owner_rw` (FOR ALL, `user_id = auth.uid()`) + `app_installations_admin_read` (SELECT, `is_admin()`)
 - Realtime: NE
+
+### Samoobslužná pobočka (kiosk) — NEW 2026-06-29
+Klíčové sloupce (plný popis tabulek v STATE_1, RPC v STATE_3, triggery STATE_4, RLS STATE_5):
+
+#### branch_kiosk_config
+- **branch_id** (uuid PK FK→branches CASCADE)
+- **music_on_url** / **music_off_url** (text) — HTTP GET spuštění/zastavení hudby na celé pobočce
+- **door_open_seconds** (int DEFAULT 8) / **light_seconds** (int DEFAULT 120) / **music_seconds** (int DEFAULT 90)
+- **power_status_url** (text) — LAN JSON endpoint měniče, který tablet stahuje a hlásí přes `kiosk_report_power`
+- **power_poll_seconds** (int DEFAULT 60), **relay_base_url** (text, informativní), **is_active** (bool DEFAULT true)
+
+#### kiosk_devices
+- **id** (uuid PK) — unikátní identita zařízení (zadává se v appce při párování)
+- **device_token** (uuid DEFAULT gen_random_uuid()) — tajný párovací token (autentizace všech kiosk RPC)
+- **branch_id** (uuid FK→branches CASCADE), **name**, **platform**, **app_version**
+- **last_seen_at** (timestamptz) — heartbeat á 30 s; online = < 70 s; **is_active** (revokace)
+
+#### branch_doors
+- **door_kind** (text CHECK motorcycle/accessories), **box_number** (int; = `motorcycles.box_number`, NULL u oblečení)
+- **relay_url** (text — otevření zámku), **light_url** (text — světlo v garáži), **label**, **is_active**, **sort_order**
+- UNIQUE index (branch_id, box_number) WHERE motorcycle; UNIQUE (branch_id) WHERE accessories
+
+#### branch_service_codes
+- **code** (text), **label**, **is_active**, **created_by** — UNIQUE(branch_id, code) WHERE is_active
+
+#### kiosk_commands
+- **device_id** (uuid FK→kiosk_devices CASCADE), **command** (CHECK open_door/music_on/music_off/identify/reload/camera_control/http_get)
+- **params** (jsonb — např. {relay_url, light_url, music_url, url}), **status** (pending/done/failed/expired), **result** (jsonb), **executed_at**
+
+#### branch_door_events
+- **device_id** (uuid FK→kiosk_devices SET NULL), **door_id** (FK→branch_doors SET NULL), **kind**, **booking_id**, **success** (bool), **detail** (jsonb), **code_masked**
+
+#### branch_cameras
+- **kind** (CHECK snapshot/mjpeg/hls/iframe), **snapshot_url**, **stream_url**, **control_url** (PTZ/relé přes tablet), **sort_order**, **is_active**
+
+#### branch_power_status
+- **branch_id** (uuid PK), **battery_soc** numeric(5,1), **battery_voltage** numeric(6,2), **battery_power_w**/**pv_power_w**/**load_power_w** numeric(10,1)
+- **grid_present** / **generator_on** (bool), **raw** (jsonb — celý payload z měniče), **updated_at**
