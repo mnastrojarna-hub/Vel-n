@@ -109,6 +109,11 @@ CI buildy (oba kiosk workflowy) appku připraví na kiosk:
 - registrují ji jako **HOME launcher** (po restartu/odchodu se appka vrátí),
 - v `MainActivity.onResume` volají **`startLockTask()`** (lock task / screen pinning).
 
+**Vypnutí celoobrazovkového režimu (servis):** na kiosku zadej **servisní heslo** (z Velína)
+→ servisní panel → „Vypnout celoobrazovkový režim (odemknout tablet)". Zruší se lock task,
+zobrazí se systémové lišty a technik může z appky odejít. Platí do restartu appky — po
+restartu se kiosk znovu zamkne. (Servisní heslo se spravuje ve Velíně → Samoobsluha → Servisní hesla.)
+
 Pro **plné zamčení bez možnosti odejít** (skrytí systémových gest a lišt natvrdo) je potřeba
 nastavit appku jako **device owner** nebo ji spravovat přes **MDM**:
 ```bash

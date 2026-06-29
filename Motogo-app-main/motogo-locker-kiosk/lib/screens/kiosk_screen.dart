@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../config.dart';
 import '../theme.dart';
 import '../services/api.dart';
 import '../services/command_listener.dart';
 import '../services/hardware.dart';
+import '../services/kiosk_lock.dart';
 import '../services/kiosk_storage.dart';
 import '../services/power_poller.dart';
 import '../widgets/keyboards.dart';
@@ -228,8 +230,17 @@ class _KioskScreenState extends State<KioskScreen> {
       onMusicOn: () => Hardware.instance.startMusic(res.musicOnUrl),
       onMusicOff: () => Hardware.instance.stopMusic(res.musicOffUrl),
       onRepair: _openSetup,
+      onDisableKiosk: _disableKiosk,
       onClose: _hideOverlay,
     ));
+  }
+
+  // Vypne celoobrazovkový režim + odemkne lock task (po servisním hesle).
+  // Platí do restartu appky, pak se kiosk znovu zamkne.
+  Future<void> _disableKiosk() async {
+    await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    await KioskLock.unlock();
+    _hideOverlay();
   }
 
   Future<void> _openSetup() async {
@@ -267,20 +278,47 @@ class _KioskScreenState extends State<KioskScreen> {
             decoration: const BoxDecoration(gradient: MG.bgGradient),
             child: SafeArea(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(40, 24, 40, 24),
+                padding: const EdgeInsets.fromLTRB(28, 16, 28, 18),
                 child: Column(
                   children: [
-                    // Hlavička — strohá (logo + název pobočky)
-                    Row(
-                      children: [
-                        Image.asset('assets/logo.png', height: 48),
-                        const Spacer(),
-                        Text(branchName,
-                            style: TextStyle(
-                                color: MG.white.withValues(alpha: 0.85),
-                                fontSize: 22,
-                                fontWeight: FontWeight.w800)),
-                      ],
+                    // Hlavička — logo + značka „PŮJČOVNA MOTOREK" přes celou šířku
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.only(bottom: 14),
+                      decoration: const BoxDecoration(
+                        border: Border(bottom: BorderSide(color: Color(0x33FFFFFF), width: 1)),
+                      ),
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Image.asset('assets/logo.png', height: 64),
+                              const SizedBox(width: 18),
+                              Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text('MotoGo24',
+                                      style: TextStyle(color: MG.green, fontSize: 42, fontWeight: FontWeight.w900, height: 1.0)),
+                                  Text('PŮJČOVNA MOTOREK',
+                                      style: TextStyle(
+                                          color: MG.white.withValues(alpha: 0.75),
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w700,
+                                          letterSpacing: 6)),
+                                ],
+                              ),
+                            ],
+                          ),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: Text(branchName,
+                                style: TextStyle(color: MG.white.withValues(alpha: 0.85), fontSize: 20, fontWeight: FontWeight.w800)),
+                          ),
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 12),
                     // Výzva + stručný postup pro zákazníka
@@ -321,7 +359,7 @@ class _KioskScreenState extends State<KioskScreen> {
                     Expanded(
                       child: Center(
                         child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 1000),
+                          constraints: const BoxConstraints(maxWidth: 1600),
                           child: KioskKeyboards(
                             enabled: !_busy,
                             onChar: _onChar,
@@ -352,6 +390,7 @@ class _ServicePanel extends StatelessWidget {
   final VoidCallback onMusicOn;
   final VoidCallback onMusicOff;
   final VoidCallback onRepair;
+  final VoidCallback onDisableKiosk;
   final VoidCallback onClose;
   const _ServicePanel({
     required this.res,
@@ -360,6 +399,7 @@ class _ServicePanel extends StatelessWidget {
     required this.onMusicOn,
     required this.onMusicOff,
     required this.onRepair,
+    required this.onDisableKiosk,
     required this.onClose,
   });
 
@@ -433,6 +473,12 @@ class _ServicePanel extends StatelessWidget {
                   _panelBtn(Icons.link_rounded, 'Přepárovat', MG.white.withValues(alpha: 0.1), MG.white, onRepair),
                 ],
               ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: _panelBtn(Icons.fullscreen_exit_rounded, 'Vypnout celoobrazovkový režim (odemknout tablet)',
+                  MG.amber.withValues(alpha: 0.18), MG.white, onDisableKiosk),
             ),
           ],
         ),

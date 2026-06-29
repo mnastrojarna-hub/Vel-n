@@ -112,27 +112,36 @@ class _Key extends StatelessWidget {
           child: InkWell(
             borderRadius: BorderRadius.circular(14),
             onTap: enabled ? onTap : null,
-            child: Container(
-              alignment: Alignment.center,
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: MG.white.withValues(alpha: 0.10)),
-              ),
-              // FittedBox = obsah se vždy zmenší tak, aby se vešel (žádný overflow).
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: icon != null
-                    ? Icon(icon, color: foreground, size: 30)
-                    : Text(
-                        label ?? '',
-                        style: TextStyle(
-                          color: foreground,
-                          fontSize: (label != null && label!.length > 2) ? 22 : 30,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-              ),
+            child: LayoutBuilder(
+              builder: (ctx, c) {
+                // Velikost obsahu podle velikosti klávesy → veliké na velkém tabletu.
+                final base = c.maxHeight.isFinite ? c.maxHeight : 64.0;
+                final multi = label != null && label!.length > 2;
+                final fontSize = (multi ? base * 0.34 : base * 0.6).clamp(16.0, 120.0);
+                final iconSize = (base * 0.5).clamp(18.0, 110.0);
+                return Container(
+                  alignment: Alignment.center,
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: MG.white.withValues(alpha: 0.10)),
+                  ),
+                  // FittedBox = obsah se vždy vejde (pojistka proti overflow).
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: icon != null
+                        ? Icon(icon, color: foreground, size: iconSize)
+                        : Text(
+                            label ?? '',
+                            style: TextStyle(
+                              color: foreground,
+                              fontSize: fontSize,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                  ),
+                );
+              },
             ),
           ),
         ),
