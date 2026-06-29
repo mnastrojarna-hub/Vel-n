@@ -121,7 +121,7 @@ class _KioskScreenState extends State<KioskScreen> {
 
     if (res.isService) {
       _busy = false;
-      _showServicePicker(res);
+      _showServicePanel(res);
       return;
     }
 
@@ -195,10 +195,13 @@ class _KioskScreenState extends State<KioskScreen> {
     _autoHide();
   }
 
-  // ── Servisní režim — výběr dveří ────────────────────────────────────────────
-  void _showServicePicker(ResolveResult res) {
-    _showOverlay(_ServicePicker(
+  // ── Servisní režim — panel (dveře + hudba + nastavení) ──────────────────────
+  // Zobrazí se VÝHRADNĚ po zadání servisního hesla. Pro běžného uživatele je
+  // appka strohá (jen zadání kódu); zákaznický kód otevírá vše automaticky.
+  void _showServicePanel(ResolveResult res) {
+    _showOverlay(_ServicePanel(
       res: res,
+      online: _online,
       onPick: (door) async {
         await _openDoor(
           door: door,
@@ -208,8 +211,22 @@ class _KioskScreenState extends State<KioskScreen> {
           doorConfigured: (door.relayUrl ?? '').isNotEmpty,
         );
       },
+      onMusicOn: () => Hardware.instance.startMusic(res.musicOnUrl),
+      onMusicOff: () => Hardware.instance.stopMusic(res.musicOffUrl),
+      onRepair: _openSetup,
       onClose: _hideOverlay,
     ));
+  }
+
+  Future<void> _openSetup() async {
+    _hideOverlay();
+    await Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => SetupScreen(onDone: () => Navigator.of(context).pop()),
+    ));
+    // Po případném přepárování restartuj realtime + heartbeat
+    CommandListener.instance.start();
+    _heartbeat();
+    if (mounted) setState(() {});
   }
 
   String _errorText(String? error) {
@@ -226,21 +243,6 @@ class _KioskScreenState extends State<KioskScreen> {
     }
   }
 
-  // ── Skrytý vstup do nastavení (5× klepnutí na logo) ─────────────────────────
-  int _logoTaps = 0;
-  Timer? _logoTimer;
-  void _onLogoTap() {
-    _logoTaps++;
-    _logoTimer?.cancel();
-    _logoTimer = Timer(const Duration(seconds: 2), () => _logoTaps = 0);
-    if (_logoTaps >= 5) {
-      _logoTaps = 0;
-      Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => SetupScreen(onDone: () => Navigator.of(context).pop()),
-      ));
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final branchName = KioskStorage.instance.branchName ?? 'Samoobslužná pobočka';
@@ -254,23 +256,11 @@ class _KioskScreenState extends State<KioskScreen> {
                 padding: const EdgeInsets.fromLTRB(40, 24, 40, 24),
                 child: Column(
                   children: [
-                    // Hlavička
+                    // Hlavička — strohá (logo + název pobočky)
                     Row(
                       children: [
-                        GestureDetector(
-                          onTap: _onLogoTap,
-                          child: Image.asset('assets/logo.png', height: 48),
-                        ),
+                        Image.asset('assets/logo.png', height: 48),
                         const Spacer(),
-                        Container(
-                          width: 10,
-                          height: 10,
-                          margin: const EdgeInsets.only(right: 8),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: _online ? MG.green : MG.red,
-                          ),
-                        ),
                         Text(branchName,
                             style: TextStyle(
                                 color: MG.white.withValues(alpha: 0.85),
@@ -324,21 +314,34 @@ class _KioskScreenState extends State<KioskScreen> {
   }
 }
 
-// ── Výběr dveří v servisním režimu ────────────────────────────────────────────
-class _ServicePicker extends StatelessWidget {
+// ── Servisní panel (dveře + hudba + nastavení) — jen po servisním hesle ───────
+class _ServicePanel extends StatelessWidget {
   final ResolveResult res;
+  final bool online;
   final Future<void> Function(DoorInfo door) onPick;
+  final VoidCallback onMusicOn;
+  final VoidCallback onMusicOff;
+  final VoidCallback onRepair;
   final VoidCallback onClose;
-  const _ServicePicker({required this.res, required this.onPick, required this.onClose});
+  const _ServicePanel({
+    required this.res,
+    required this.online,
+    required this.onPick,
+    required this.onMusicOn,
+    required this.onMusicOff,
+    required this.onRepair,
+    required this.onClose,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final store = KioskStorage.instance;
     return Container(
-      color: Colors.black.withValues(alpha: 0.85),
+      color: Colors.black.withValues(alpha: 0.88),
       alignment: Alignment.center,
       child: Container(
-        width: 900,
-        constraints: const BoxConstraints(maxHeight: 700),
+        width: 920,
+        constraints: const BoxConstraints(maxHeight: 760),
         padding: const EdgeInsets.all(32),
         decoration: MG.glass(radius: 28),
         child: Column(
@@ -348,19 +351,17 @@ class _ServicePicker extends StatelessWidget {
               children: [
                 const Icon(Icons.build_rounded, color: MG.amber, size: 30),
                 const SizedBox(width: 12),
-                const Text('Servisní režim — vyberte dveře',
-                    style: TextStyle(color: MG.white, fontSize: 26, fontWeight: FontWeight.w900)),
+                Text('Servisní režim — ${res.kind == 'service' ? (store.branchName ?? 'pobočka') : ''}',
+                    style: const TextStyle(color: MG.white, fontSize: 26, fontWeight: FontWeight.w900)),
                 const Spacer(),
-                IconButton(
-                  onPressed: onClose,
-                  icon: const Icon(Icons.close_rounded, color: MG.white, size: 30),
-                ),
+                IconButton(onPressed: onClose, icon: const Icon(Icons.close_rounded, color: MG.white, size: 30)),
               ],
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 8),
+            _label('Otevřít dveře'),
             if (res.doors.isEmpty)
               Padding(
-                padding: const EdgeInsets.all(24),
+                padding: const EdgeInsets.all(16),
                 child: Text('Pro tuto pobočku nejsou nastavené žádné dveře.',
                     style: TextStyle(color: MG.white.withValues(alpha: 0.7), fontSize: 18)),
               )
@@ -372,13 +373,66 @@ class _ServicePicker extends StatelessWidget {
                   mainAxisSpacing: 14,
                   crossAxisSpacing: 14,
                   childAspectRatio: 1.3,
-                  children: [
-                    for (final d in res.doors)
-                      _DoorTile(door: d, onTap: () => onPick(d)),
-                  ],
+                  children: [for (final d in res.doors) _DoorTile(door: d, onTap: () => onPick(d))],
                 ),
               ),
+            const SizedBox(height: 16),
+            _label('Hudba'),
+            Row(
+              children: [
+                _panelBtn(Icons.play_arrow_rounded, 'Spustit hudbu', MG.green, MG.black, onMusicOn),
+                const SizedBox(width: 12),
+                _panelBtn(Icons.stop_rounded, 'Zastavit hudbu', MG.white.withValues(alpha: 0.1), MG.white, onMusicOff),
+              ],
+            ),
+            const SizedBox(height: 20),
+            _label('Nastavení zařízení'),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: MG.glass(radius: 14),
+              child: Row(
+                children: [
+                  Container(width: 10, height: 10, decoration: BoxDecoration(shape: BoxShape.circle, color: online ? MG.green : MG.red)),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      '${online ? 'Online' : 'Offline'} · pobočka: ${store.branchName ?? '—'}\nID: ${store.deviceId ?? '—'}',
+                      style: TextStyle(color: MG.white.withValues(alpha: 0.8), fontSize: 14),
+                    ),
+                  ),
+                  _panelBtn(Icons.link_rounded, 'Přepárovat', MG.white.withValues(alpha: 0.1), MG.white, onRepair),
+                ],
+              ),
+            ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _label(String t) => Align(
+        alignment: Alignment.centerLeft,
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 8, top: 4),
+          child: Text(t.toUpperCase(),
+              style: TextStyle(color: MG.white.withValues(alpha: 0.5), fontSize: 13, fontWeight: FontWeight.w800, letterSpacing: 1)),
+        ),
+      );
+
+  Widget _panelBtn(IconData icon, String label, Color bg, Color fg, VoidCallback onTap) {
+    return Material(
+      color: bg,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(icon, color: fg, size: 22),
+            const SizedBox(width: 8),
+            Text(label, style: TextStyle(color: fg, fontSize: 16, fontWeight: FontWeight.w800)),
+          ]),
         ),
       ),
     );
