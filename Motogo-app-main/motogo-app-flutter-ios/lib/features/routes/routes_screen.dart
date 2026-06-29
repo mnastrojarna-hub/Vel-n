@@ -7,6 +7,7 @@ import '../../core/i18n/i18n_provider.dart';
 import '../../core/widgets/moto_fx.dart';
 import 'routes_model.dart';
 import 'routes_provider.dart';
+import 'community_submit.dart';
 
 /// Obrazovka „Trasy" — doporučené motorkářské trasy od poboček.
 /// Nahrazuje tab E-shop ve spodní liště.
@@ -29,16 +30,32 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen> {
       color: MotoGoColors.bg,
       child: SafeArea(
         bottom: false,
-        child: Column(
+        child: Stack(
           children: [
-            _header(context),
-            Expanded(
-              child: dataAsync.when(
-                data: (data) => _body(context, data, lang),
-                loading: () => const Center(
-                  child: CircularProgressIndicator(color: MotoGoColors.greenDark),
+            Column(
+              children: [
+                _header(context),
+                Expanded(
+                  child: dataAsync.when(
+                    data: (data) => _body(context, data, lang),
+                    loading: () => const Center(
+                      child: CircularProgressIndicator(color: MotoGoColors.greenDark),
+                    ),
+                    error: (e, _) => _errorState(context, e),
+                  ),
                 ),
-                error: (e, _) => _errorState(context, e),
+              ],
+            ),
+            // „+" — navrhnout trasu / bod zájmu (komunitní obsah)
+            Positioned(
+              right: 16,
+              bottom: 16,
+              child: FloatingActionButton(
+                heroTag: 'routes-add',
+                backgroundColor: MotoGoColors.green,
+                foregroundColor: MotoGoColors.black,
+                onPressed: () => showCommunityAddMenu(context),
+                child: const Icon(Icons.add, size: 28),
               ),
             ),
           ],

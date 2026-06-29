@@ -34,6 +34,9 @@ class RoutePoi {
   final String? imageUrl;
   final List<String> images;
   final Map? translations;
+  final double? avgRating; // průměrné hodnocení (z RPC)
+  final int ratingCount; // počet hodnocení
+  final bool isUserPoi; // bod zájmu od uživatele (komunitní)
 
   const RoutePoi({
     required this.id,
@@ -44,6 +47,9 @@ class RoutePoi {
     this.imageUrl,
     this.images = const [],
     this.translations,
+    this.avgRating,
+    this.ratingCount = 0,
+    this.isUserPoi = false,
   });
 
   LatLng? get latLng => (lat != null && lng != null) ? LatLng(lat!, lng!) : null;
@@ -63,6 +69,24 @@ class RoutePoi {
       imageUrl: j['image_url']?.toString(),
       images: (j['images'] as List?)?.map((e) => e.toString()).toList() ?? const [],
       translations: j['translations'] is Map ? j['translations'] as Map : null,
+      avgRating: _toD(j['avg_rating']),
+      ratingCount: _toI(j['rating_count']) ?? 0,
+      isUserPoi: j['is_user_poi'] == true,
+    );
+  }
+
+  /// Bod zájmu navržený uživatelem (z RPC `get_user_pois`).
+  factory RoutePoi.fromUserJson(Map<String, dynamic> j) {
+    return RoutePoi(
+      id: j['id']?.toString() ?? '',
+      name: j['name']?.toString() ?? '',
+      description: j['description']?.toString(),
+      lat: _toD(j['lat']),
+      lng: _toD(j['lng']),
+      imageUrl: j['image_url']?.toString(),
+      avgRating: _toD(j['avg_rating']),
+      ratingCount: _toI(j['rating_count']) ?? 0,
+      isUserPoi: true,
     );
   }
 }
