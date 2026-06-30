@@ -286,6 +286,7 @@ Centrální účetní událost (jednotná vrstva nad fakturami/DL/refundy/výpla
 - created_by
 - **order_id** (FK→shop_orders) — vazba na e-shop objednávku
 - **source** (text) — zdroj voucheru. Plní `auto_process_voucher_order` hodnotou `'eshop'` (poukaz z e-shop objednávky); admin poukazy z Velína mají NULL nebo hodnotu vybranou v modálu. **Velín filtr (2026-06-20):** Slevomat=`slevomat`, E-shop=`eshop`, Spolupráce=`spoluprace`, Vrácení=`vraceni`, Ostatní=`ostatni` (filtr „Ostatní" zahrnuje i NULL).
+- **slevomat_apply_status, slevomat_applied_at, slevomat_apply_error, slevomat_apply_attempts (DEFAULT 0), slevomat_apply_last_at** (**NEW 2026-06-30**) — sledování automatického uplatnění Slevomat poukazů přes Partner API. Plní edge `slevomat-voucher` (`action='apply'`, volaná triggerem `redeem_booking_discounts` po zaplacení rezervace + pojistným triggerem `trg_slevomat_auto_apply` na `vouchers`). `slevomat_apply_status` ∈ `applied`/`already_redeemed`/`invalid`/`not_paid`/`cancelled`/`failed`; `slevomat_applied_at` se nastaví u `applied`/`already_redeemed` (= idempotence, znovu se Slevomat nevolá). Velín záložka **Slevomat** (`/slevomat`) tyto sloupce živě zobrazuje. Browser-fallback (`slevomat-bot/`) čte stejné sloupce. SQL: `ALTER TABLE vouchers ADD COLUMN IF NOT EXISTS slevomat_applied_at timestamptz; … slevomat_apply_status text; … slevomat_apply_error text; … slevomat_apply_attempts int NOT NULL DEFAULT 0; … slevomat_apply_last_at timestamptz;`
 
 ### promo_codes
 - id (uuid PK), code (text UNIQUE), type (text CHECK percent/fixed), value (numeric)

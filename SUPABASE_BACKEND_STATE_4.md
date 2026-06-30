@@ -36,6 +36,7 @@
 | `trg_one_active_sos` | sos_incidents (BEFORE INSERT) | check_one_active_sos() — SECURITY DEFINER, blokuje duplikáty |
 | `trg_bridge_admin_message` | messages (INSERT) | bridge_admin_message_to_app() |
 | `trg_restore_vouchers_on_cancel` | bookings (UPDATE) | restore_vouchers_on_cancel() |
+| `trg_slevomat_auto_apply` | vouchers (AFTER INSERT OR UPDATE OF status) | **NEW 2026-06-30** — `slevomat_auto_apply_on_redeem()` SECURITY DEFINER. Pojistka k `redeem_booking_discounts`: při přechodu Slevomat poukazu (`source='slevomat'`) na `status='redeemed'` (a `slevomat_applied_at IS NULL`) zavolá přes `pg_net` edge `slevomat-voucher` `action='apply'` → nahlásí uplatnění Partner API. Pokrývá i uplatnění mimo rezervaci (ruční Velín). Idempotentní (edge přeskočí už uplatněné; na rez. cestě se apply zavolá 2× → druhé dostane „už uplatněn"). URL+klíč z `app_settings` (`supabase_url`/`service_role_key`), EXCEPTION→`debug_log`. Mig. text v chatu 2026-06-30. |
 | `trg_auto_process_voucher_order` | shop_orders (BEFORE UPDATE OF payment_status, WHEN paid) | auto_process_voucher_order() — auto voucher kódy + in-app notifikace + status update |
 | `trg_sync_invoice_to_documents` | invoices (INSERT) | sync_invoice_to_documents() |
 | `trg_sync_invoice_pdf_update` | invoices (UPDATE pdf_path) | sync_invoice_pdf_update() |
