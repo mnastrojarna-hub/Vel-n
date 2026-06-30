@@ -93,6 +93,12 @@ drop trigger if exists trg_poi_ratings_updated on public.poi_ratings;
 create trigger trg_poi_ratings_updated before update on public.poi_ratings
   for each row execute function public.set_updated_at();
 
+-- Práva rolí (Supabase default privileges to obvykle pokryje; explicitně pro jistotu).
+grant select, insert, update, delete on public.user_pois to authenticated;
+grant select on public.user_pois to anon;
+grant select, insert, update, delete on public.poi_ratings to authenticated;
+grant select on public.poi_ratings to anon;
+
 -- 4) RPC: ohodnoť bod (upsert, max 1 na uživatele; rating mimo 1–5 = zruš) ---
 create or replace function public.rate_poi(
   p_route_poi_id uuid, p_user_poi_id uuid, p_rating int)
@@ -170,3 +176,12 @@ language sql stable security definer set search_path = public as $$
   ) t;
 $$;
 grant execute on function public.get_branch_routes(uuid) to anon, authenticated;
+
+-- 8) STORAGE: foto uživatelských bodů zájmu → bucket `media` pod prefix
+-- `user-pois/` smí nahrát kdokoli přihlášený (čtení je public přes existující
+-- politiku bucketu `media`).
+drop policy if exists media_user_poi_upload on storage.objects;
+create policy media_user_poi_upload on storage.objects
+  for insert to authenticated
+  with check (bucket_id = 'media' and (storage.foldername(name))[1] = 'user-pois');
+

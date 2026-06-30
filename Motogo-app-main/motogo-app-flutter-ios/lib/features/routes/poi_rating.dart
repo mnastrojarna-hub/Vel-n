@@ -35,6 +35,19 @@ class _PoiRatingBarState extends State<PoiRatingBar> {
       ? {'p_route_poi_id': null, 'p_user_poi_id': widget.poi.id}
       : {'p_route_poi_id': widget.poi.id, 'p_user_poi_id': null};
 
+  // Postgres numeric chodí přes PostgREST jako String ("4.5") → parsuj robustně.
+  static double? _toD(dynamic v) {
+    if (v == null) return null;
+    if (v is num) return v.toDouble();
+    return double.tryParse(v.toString());
+  }
+
+  static int? _toI(dynamic v) {
+    if (v == null) return null;
+    if (v is num) return v.toInt();
+    return int.tryParse(v.toString());
+  }
+
   Future<void> _load() async {
     try {
       final res = await MotoGoSupabase.client.rpc('poi_rating_summary', params: _args);
@@ -42,9 +55,9 @@ class _PoiRatingBarState extends State<PoiRatingBar> {
       final row = (res is List && res.isNotEmpty) ? res.first : res;
       if (row is Map) {
         setState(() {
-          _avg = (row['avg_rating'] as num?)?.toDouble();
-          _count = (row['rating_count'] as num?)?.toInt() ?? 0;
-          _mine = (row['my_rating'] as num?)?.toInt();
+          _avg = _toD(row['avg_rating']);
+          _count = _toI(row['rating_count']) ?? 0;
+          _mine = _toI(row['my_rating']);
         });
       }
     } catch (_) {/* ponech iniciální hodnoty */}
