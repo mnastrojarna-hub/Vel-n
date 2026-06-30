@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme.dart';
 import 'routes_model.dart';
+import 'poi_rating.dart';
 
 /// Spodní panel s detailem bodu zájmu — zobrazí se po kliknutí na bod (na mapě
 /// i v navigaci): galerie fotek (klik = zvětšit přes celou obrazovku s
@@ -127,8 +128,10 @@ void showRoutePoiSheet(BuildContext context, RoutePoi poi, String lang, {int? in
                   ),
                 ],
               ),
+              const SizedBox(height: 12),
+              PoiRatingBar(poi: poi),
               if (desc != null && desc.trim().isNotEmpty) ...[
-                const SizedBox(height: 10),
+                const SizedBox(height: 12),
                 Text(
                   desc,
                   style: const TextStyle(

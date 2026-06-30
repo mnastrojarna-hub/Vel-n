@@ -249,6 +249,8 @@ export default function TrasyModal({ existing, branches, onClose, onSaved }) {
         image_alts: imageAlts,
         is_active: form.is_active,
         sort_order: Number(form.sort_order) || 0,
+        // Uložení adminem = schválení (potvrdí i uživatelský návrh trasy)
+        status: 'approved',
         updated_at: new Date().toISOString(),
       }
 

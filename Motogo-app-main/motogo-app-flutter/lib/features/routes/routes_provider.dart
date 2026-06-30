@@ -109,12 +109,27 @@ final routesDataProvider = FutureProvider<RoutesData>((ref) async {
 /// všech POI v appce (zákazník si skládá vlastní vyjížďku napříč trasami).
 class PoiEntry {
   final RoutePoi poi;
-  final RouteItem route;
+  final RouteItem? route; // null = komunitní bod zájmu (od uživatele)
   final RouteBranch? branch;
   const PoiEntry(this.poi, this.route, this.branch);
   LatLng? get latLng => poi.latLng;
-  String get key => '${route.id}:${poi.id}';
+  String get key => route != null ? '${route!.id}:${poi.id}' : 'user:${poi.id}';
 }
+
+/// Schválené uživatelské body zájmu (komunitní) — RPC `get_user_pois`.
+final userPoisProvider = FutureProvider<List<RoutePoi>>((ref) async {
+  try {
+    final res = await MotoGoSupabase.client.rpc('get_user_pois');
+    final list = res is List ? res : const [];
+    return list
+        .whereType<Map>()
+        .map((e) => RoutePoi.fromUserJson(Map<String, dynamic>.from(e)))
+        .where((p) => p.latLng != null)
+        .toList();
+  } catch (_) {
+    return const [];
+  }
+});
 
 /// Všechny body zájmu napříč všemi (aktivními) trasami — pro katalog v appce.
 /// Trasa je jen doporučení; přes tento katalog si zákazník vybere zastávky

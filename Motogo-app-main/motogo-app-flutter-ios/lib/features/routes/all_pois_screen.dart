@@ -40,16 +40,22 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
   @override
   Widget build(BuildContext context) {
     final lang = ref.watch(localeProvider).languageCode;
-    final all = ref.watch(allPoisProvider);
+    // Body z tras + komunitní (uživatelské) body zájmu.
+    final routePois = ref.watch(allPoisProvider);
+    final userPois = ref.watch(userPoisProvider).valueOrNull ?? const [];
+    final all = <PoiEntry>[
+      ...routePois,
+      ...userPois.map((p) => PoiEntry(p, null, null)),
+    ];
     final me = ref.watch(currentLocationProvider).valueOrNull;
 
     // Filtr + řazení (podle vzdálenosti od jezdce, jinak dle názvu trasy).
     final q = _query.trim().toLowerCase();
     final list = all.where((e) {
-      if (_routeFilter != null && e.route.id != _routeFilter) return false;
+      if (_routeFilter != null && e.route?.id != _routeFilter) return false;
       if (q.isEmpty) return true;
       return e.poi.nameFor(lang).toLowerCase().contains(q) ||
-          e.route.nameFor(lang).toLowerCase().contains(q);
+          (e.route?.nameFor(lang).toLowerCase().contains(q) ?? false);
     }).toList();
     if (me != null) {
       const d = Distance();
@@ -60,8 +66,8 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
 
     // Trasy, které mají aspoň jeden POI (pro filtr).
     final routesWithPois = <String, RouteItem>{};
-    for (final e in all) {
-      routesWithPois[e.route.id] = e.route;
+    for (final e in routePois) {
+      if (e.route != null) routesWithPois[e.route!.id] = e.route!;
     }
 
     return Scaffold(
@@ -278,11 +284,11 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
                       const SizedBox(height: 3),
                       Row(
                         children: [
-                          const Icon(Icons.route, size: 12, color: MotoGoColors.greenDark),
+                          Icon(e.route != null ? Icons.route : Icons.groups, size: 12, color: MotoGoColors.greenDark),
                           const SizedBox(width: 4),
                           Flexible(
                             child: Text(
-                              e.route.nameFor(lang),
+                              e.route?.nameFor(lang) ?? 'Komunitní bod',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
@@ -293,6 +299,20 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
                               ),
                             ),
                           ),
+                          if (e.poi.ratingCount > 0) ...[
+                            const SizedBox(width: 8),
+                            const Icon(Icons.star, size: 12, color: Color(0xFFF5B301)),
+                            const SizedBox(width: 2),
+                            Text(
+                              (e.poi.avgRating ?? 0).toStringAsFixed(1),
+                              style: const TextStyle(
+                                fontSize: MotoGoTypo.sizeMd,
+                                fontWeight: MotoGoTypo.w700,
+                                color: MotoGoColors.g500,
+                                decoration: TextDecoration.none,
+                              ),
+                            ),
+                          ],
                           if (distTxt != null) ...[
                             const SizedBox(width: 8),
                             const Icon(Icons.near_me, size: 12, color: MotoGoColors.g400),
