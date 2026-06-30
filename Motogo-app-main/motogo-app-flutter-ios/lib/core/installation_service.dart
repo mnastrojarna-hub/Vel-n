@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:permission_handler/permission_handler.dart' as ph;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'supabase_client.dart';
 
@@ -31,18 +32,42 @@ class InstallationService {
   static const _throttle = Duration(hours: 12);
 
   /// Get-or-create stabilního per-install device id (náhodné UUID v4).
+  ///
+  /// Zdroj pravdy je běžné [SharedPreferences] — to PŘEŽIJE aktualizaci buildu
+  /// (přes Google Play i ručně) a maže se až při odinstalaci. Install id NENÍ
+  /// tajemství (jen anonymní analytický identifikátor), takže secure storage
+  /// nepotřebujeme — a vyhneme se tím tomu, že Android Keystore po aktualizaci
+  /// občas hodnotu nepřečte a appka by vygenerovala nové UUID → falešné „nové
+  /// aktivní zařízení" ve Velíně. Staré instalace migrujeme ze secure storage.
   static Future<String> _getDeviceId() async {
     if (_deviceId != null) return _deviceId!;
     try {
-      var id = await _storage.read(key: _deviceIdKey);
-      if (id == null || id.isEmpty) {
-        id = _randomUuidV4();
-        await _storage.write(key: _deviceIdKey, value: id);
+      final prefs = await SharedPreferences.getInstance();
+
+      // 1) Durable id (běžné updaty appky čtou odtud → stejné zařízení).
+      final fromPrefs = prefs.getString(_deviceIdKey);
+      if (fromPrefs != null && fromPrefs.isNotEmpty) {
+        _deviceId = fromPrefs;
+        return fromPrefs;
       }
+
+      // 2) Migrace z původní secure storage (instalace z prvních buildů).
+      String? id;
+      try {
+        id = await _storage.read(key: _deviceIdKey);
+      } catch (_) {/* po updatu může selhat — ignoruj a vygeneruj níž */}
+      if (id == null || id.isEmpty) id = _randomUuidV4();
+
+      // Ulož durably; best-effort zrcadlo i do secure storage (zpětná kompat.).
+      await prefs.setString(_deviceIdKey, id);
+      try {
+        await _storage.write(key: _deviceIdKey, value: id);
+      } catch (_) {/* ignore */}
+
       _deviceId = id;
       return id;
     } catch (_) {
-      // Secure storage nedostupné → efemérní id (aspoň session se započítá).
+      // I prefs selhalo → efemérní id (aspoň session se započítá).
       _deviceId ??= _randomUuidV4();
       return _deviceId!;
     }
