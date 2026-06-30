@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react'
 import { debugLog } from '../lib/debugLog'
 import PromoCodes from './PromoCodes'
 import GiftVouchers from './GiftVouchers'
+import Slevomat from './Slevomat'
 
-const TABS = ['Promo kódy', 'Dárkové poukazy']
+const TABS = ['Promo kódy', 'Dárkové poukazy', 'Slevomat']
 
 export default function DiscountCodes() {
   const [tab, setTab] = useState(TABS[0])
@@ -36,6 +37,7 @@ export default function DiscountCodes() {
 
       {tab === 'Promo kódy' && <PromoCodes />}
       {tab === 'Dárkové poukazy' && <GiftVouchers />}
+      {tab === 'Slevomat' && <Slevomat />}
     </div>
   )
 }
