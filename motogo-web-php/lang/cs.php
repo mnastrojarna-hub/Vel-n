@@ -166,6 +166,7 @@ return [
     'doc.pdfHint' => 'PDF · zobrazit nebo uložit',
     'doc.version' => 'Verze {v} · aktualizováno {date}',
     'doc.notPublished' => 'Tento dokument zatím nebyl publikován.',
+    'doc.cardView' => 'Dokument · zobrazit',
 
     // ===== Breadcrumby (statické labely) =====
     'breadcrumb.home' => 'Domů',
@@ -695,7 +696,9 @@ return [
     'rez.steps.licExpiryLabel' => '* Platnost ŘP do',
     'rez.steps.licConfirmText' => '* Potvrzuji, že jsem držitelem platného řidičského oprávnění a splňuji zákonné podmínky k řízení rezervovaného motocyklu.',
     'rez.steps.uploadTitle' => 'Nahrání dokladů',
-    'rez.steps.uploadSub' => 'Volitelné — zrychlí odbavení. Fotografie automaticky rozpoznáme a údaje doplníme do formuláře. U občanského a řidičského průkazu vyfoťte <strong>líc i rub</strong>.',
+    'rez.steps.uploadSub' => 'Nahrání dokladů předem je volitelné a slouží jen pro urychlení převzetí na pobočce.',
+    'rez.steps.docsSpeedupQuestion' => 'Chcete si urychlit převzetí motorky? Ano, nahraju doklady teď.',
+    'rez.steps.docsAlreadyUploaded' => 'Doklady už u nás máte nahrané — znovu je nahrávat nemusíte.',
     'rez.steps.frontShort' => 'Líc',
     'rez.steps.backShort' => 'Rub',
     'rez.steps.pwdTitle' => 'Heslo pro správu rezervace',

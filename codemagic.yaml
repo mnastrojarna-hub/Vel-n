@@ -209,3 +209,155 @@ workflows:
         notify:
           success: true
           failure: true
+
+  kiosk-android-debug:
+    name: MotoGo24 Kiosk (samoobsluha) — Android Debug APK
+    max_build_duration: 30
+    instance_type: mac_mini_m2
+    environment:
+      flutter: stable
+      java: 17
+    scripts:
+      - name: Accept Android licenses
+        script: |
+          yes | flutter doctor --android-licenses || true
+      - name: Generate native Android project (kiosk balík nemá android/)
+        script: |
+          cd "$CM_BUILD_DIR/Motogo-app-main/motogo-locker-kiosk"
+          # Vygeneruje jen platformu Android; lib/, pubspec.yaml a assets zůstávají.
+          flutter create --platforms=android --org com.motogo24 --project-name motogo_locker_kiosk .
+      - name: Patch AndroidManifest (INTERNET + cleartext HTTP pro Shelly LAN)
+        script: |
+          cd "$CM_BUILD_DIR/Motogo-app-main/motogo-locker-kiosk"
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+          # INTERNET (Supabase + LAN relé)
+          if ! grep -q "android.permission.INTERNET" "$MANIFEST"; then
+            perl -0pi -e 's/(<manifest[^>]*>)/$1\n    <uses-permission android:name="android.permission.INTERNET"\/>/' "$MANIFEST"
+          fi
+          # Cleartext HTTP — relé/kamery/měnič na LAN jezdí přes http://
+          if ! grep -q "usesCleartextTraffic" "$MANIFEST"; then
+            perl -0pi -e 's/<application /<application android:usesCleartextTraffic="true" /' "$MANIFEST"
+          fi
+          # Kiosk lockdown: registr jako HOME launcher (po restartu/odchodu se appka vrátí)
+          if ! grep -q "android.intent.category.HOME" "$MANIFEST"; then
+            perl -0pi -e 's{</intent-filter>}{</intent-filter>\n            <intent-filter>\n                <action android:name="android.intent.action.MAIN"/>\n                <category android:name="android.intent.category.HOME"/>\n                <category android:name="android.intent.category.DEFAULT"/>\n            </intent-filter>}' "$MANIFEST"
+          fi
+          # Kiosk lockdown: lock task + odemykací channel — zkopíruj připravenou MainActivity
+          MA=$(find android/app/src/main/kotlin -name MainActivity.kt | head -1)
+          cp android_template/MainActivity.kt "$MA"
+          echo "MainActivity nahrazena: $MA"
+          # OTA: oprávnění k instalaci + FileProvider (sdílení staženého APK instalátoru)
+          if ! grep -q "REQUEST_INSTALL_PACKAGES" "$MANIFEST"; then
+            perl -0pi -e 's/(<manifest[^>]*>)/$1\n    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"\/>/' "$MANIFEST"
+          fi
+          if ! grep -q "androidx.core.content.FileProvider" "$MANIFEST"; then
+            perl -0pi -e 's{(</application>)}{    <provider android:name="androidx.core.content.FileProvider" android:authorities="\${applicationId}.fileprovider" android:exported="false" android:grantUriPermissions="true">\n            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="\@xml\/file_paths"\/>\n        </provider>\n    $1}' "$MANIFEST"
+          fi
+          mkdir -p android/app/src/main/res/xml
+          cp android_template/file_paths.xml android/app/src/main/res/xml/file_paths.xml
+          echo "--- výsledný manifest ---"
+          cat "$MANIFEST"
+      - name: Get Flutter packages
+        script: |
+          cd "$CM_BUILD_DIR/Motogo-app-main/motogo-locker-kiosk"
+          flutter pub get
+      - name: Build debug APK
+        script: |
+          cd "$CM_BUILD_DIR/Motogo-app-main/motogo-locker-kiosk"
+          flutter build apk --debug --build-number=$BUILD_NUMBER
+      - name: Generate QR code for APK download
+        script: |
+          brew install qrencode
+          APK_PATH=$(find "$CM_BUILD_DIR/Motogo-app-main/motogo-locker-kiosk/build" -name "*.apk" | head -1)
+          if [ -n "$APK_PATH" ]; then
+            BUILD_URL="https://codemagic.io/app/${CM_PROJECT_ID}/build/${CM_BUILD_ID}"
+            qrencode -t UTF8 "$BUILD_URL"
+            qrencode -o "$CM_BUILD_DIR/qr_download.png" -s 10 "$BUILD_URL"
+            echo "========================================="
+            echo "Naskenuj QR výše nebo otevři: $BUILD_URL"
+            echo "========================================="
+          fi
+    artifacts:
+      - Motogo-app-main/motogo-locker-kiosk/build/**/outputs/**/*.apk
+      - qr_download.png
+    publishing:
+      email:
+        recipients:
+          - mnastrojarna@gmail.com
+        notify:
+          success: true
+          failure: true
+
+  kiosk-android-release:
+    name: MotoGo24 Kiosk (samoobsluha) — Android Release APK (podepsaný)
+    max_build_duration: 30
+    instance_type: mac_mini_m2
+    environment:
+      flutter: stable
+      java: 17
+      android_signing:
+        - motogo24_upload
+    scripts:
+      - name: Accept Android licenses
+        script: |
+          yes | flutter doctor --android-licenses || true
+      - name: Generate native Android project (kiosk balík nemá android/)
+        script: |
+          cd "$CM_BUILD_DIR/Motogo-app-main/motogo-locker-kiosk"
+          flutter create --platforms=android --org com.motogo24 --project-name motogo_locker_kiosk .
+      - name: Patch AndroidManifest (INTERNET + cleartext HTTP pro Shelly LAN)
+        script: |
+          cd "$CM_BUILD_DIR/Motogo-app-main/motogo-locker-kiosk"
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+          if ! grep -q "android.permission.INTERNET" "$MANIFEST"; then
+            perl -0pi -e 's/(<manifest[^>]*>)/$1\n    <uses-permission android:name="android.permission.INTERNET"\/>/' "$MANIFEST"
+          fi
+          if ! grep -q "usesCleartextTraffic" "$MANIFEST"; then
+            perl -0pi -e 's/<application /<application android:usesCleartextTraffic="true" /' "$MANIFEST"
+          fi
+          # Kiosk lockdown: registr jako HOME launcher (po restartu/odchodu se appka vrátí)
+          if ! grep -q "android.intent.category.HOME" "$MANIFEST"; then
+            perl -0pi -e 's{</intent-filter>}{</intent-filter>\n            <intent-filter>\n                <action android:name="android.intent.action.MAIN"/>\n                <category android:name="android.intent.category.HOME"/>\n                <category android:name="android.intent.category.DEFAULT"/>\n            </intent-filter>}' "$MANIFEST"
+          fi
+          # Kiosk lockdown: lock task + odemykací channel — zkopíruj připravenou MainActivity
+          MA=$(find android/app/src/main/kotlin -name MainActivity.kt | head -1)
+          cp android_template/MainActivity.kt "$MA"
+          echo "MainActivity nahrazena: $MA"
+          # OTA: oprávnění k instalaci + FileProvider (sdílení staženého APK instalátoru)
+          if ! grep -q "REQUEST_INSTALL_PACKAGES" "$MANIFEST"; then
+            perl -0pi -e 's/(<manifest[^>]*>)/$1\n    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"\/>/' "$MANIFEST"
+          fi
+          if ! grep -q "androidx.core.content.FileProvider" "$MANIFEST"; then
+            perl -0pi -e 's{(</application>)}{    <provider android:name="androidx.core.content.FileProvider" android:authorities="\${applicationId}.fileprovider" android:exported="false" android:grantUriPermissions="true">\n            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="\@xml\/file_paths"\/>\n        </provider>\n    $1}' "$MANIFEST"
+          fi
+          mkdir -p android/app/src/main/res/xml
+          cp android_template/file_paths.xml android/app/src/main/res/xml/file_paths.xml
+      - name: Get Flutter packages
+        script: |
+          cd "$CM_BUILD_DIR/Motogo-app-main/motogo-locker-kiosk"
+          flutter pub get
+      - name: Build release APK (podepsaný, k sideloadu na tablet)
+        script: |
+          cd "$CM_BUILD_DIR/Motogo-app-main/motogo-locker-kiosk"
+          # versionCode = Codemagic $BUILD_NUMBER (unikátní a rostoucí).
+          flutter build apk --release --build-number=$BUILD_NUMBER
+      - name: Generate QR code for APK download
+        script: |
+          brew install qrencode
+          APK_PATH=$(find "$CM_BUILD_DIR/Motogo-app-main/motogo-locker-kiosk/build" -name "*.apk" | head -1)
+          if [ -n "$APK_PATH" ]; then
+            BUILD_URL="https://codemagic.io/app/${CM_PROJECT_ID}/build/${CM_BUILD_ID}"
+            qrencode -t UTF8 "$BUILD_URL"
+            qrencode -o "$CM_BUILD_DIR/qr_download.png" -s 10 "$BUILD_URL"
+            echo "Otevři: $BUILD_URL"
+          fi
+    artifacts:
+      - Motogo-app-main/motogo-locker-kiosk/build/**/outputs/**/*.apk
+      - qr_download.png
+    publishing:
+      email:
+        recipients:
+          - mnastrojarna@gmail.com
+        notify:
+          success: true
+          failure: true

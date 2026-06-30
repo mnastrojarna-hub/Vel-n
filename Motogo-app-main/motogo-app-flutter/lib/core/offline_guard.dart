@@ -3,6 +3,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
+import '../main.dart' show rootNavigatorKey;
 import 'supabase_client.dart';
 import 'theme.dart';
 import 'i18n/i18n_provider.dart';
@@ -39,9 +40,9 @@ class OfflineGuard {
     _subscription?.cancel();
     _subscription = _connectivity.onConnectivityChanged.listen((result) {
       if (result == ConnectivityResult.none) {
-        _showOverlay(context);
+        _showOverlay();
       } else {
-        _hideOverlay(context);
+        _hideOverlay();
       }
     });
   }
@@ -56,7 +57,7 @@ class OfflineGuard {
   static Future<bool> requireOnline(BuildContext context) async {
     final online = await isOnline();
     if (!online) {
-      _showOverlay(context);
+      _showOverlay();
       return false;
     }
     return true;
@@ -64,22 +65,31 @@ class OfflineGuard {
 
   static OverlayEntry? _overlayEntry;
 
-  static void _showOverlay(BuildContext context) {
+  /// Root overlay spravovany hlavnim navigatorem. Drive se bralo
+  /// `Overlay.of(context)` z navigatoroveho contextu — jenze navigatoruv
+  /// Overlay je jeho POTOMEK, ne predek, takze lookup nahoru nic nenasel a
+  /// `Overlay.of` hodil „Null check operator used on a null value". Bereme ho
+  /// primo z `NavigatorState.overlay`, ktery je vzdy ten spravny.
+  static OverlayState? get _overlay => rootNavigatorKey.currentState?.overlay;
+
+  static void _showOverlay() {
     if (_overlayEntry != null) return;
+    final overlay = _overlay;
+    if (overlay == null || !overlay.mounted) return; // appka jeste/uz nestoji
     _overlayEntry = OverlayEntry(
-      builder: (ctx) => _OfflineOverlay(onRetry: () => _retry(context)),
+      builder: (ctx) => _OfflineOverlay(onRetry: _retry),
     );
-    Overlay.of(context).insert(_overlayEntry!);
+    overlay.insert(_overlayEntry!);
   }
 
-  static void _hideOverlay(BuildContext context) {
+  static void _hideOverlay() {
     _overlayEntry?.remove();
     _overlayEntry = null;
   }
 
-  static Future<void> _retry(BuildContext context) async {
+  static Future<void> _retry() async {
     final online = await isOnline();
-    if (online) _hideOverlay(context);
+    if (online) _hideOverlay();
   }
 }
 

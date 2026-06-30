@@ -25,7 +25,7 @@ export async function loadAccessoryTypes() {
 }
 
 export const MAX_MOTOS = 24
-export const DETAIL_TABS = ['Info', 'Motorky & Koje', 'Příslušenství', 'Přístupové kódy']
+export const DETAIL_TABS = ['Info', 'Motorky & Koje', 'Příslušenství', 'Přístupové kódy', 'Samoobsluha']
 
 export function generateDoorCode() {
   return String(Math.floor(100000 + Math.random() * 900000))

@@ -3,12 +3,15 @@ import 'package:flutter/material.dart';
 import '../features/booking/booking_models.dart';
 import '../features/booking/booking_ui_helpers.dart';
 import 'i18n/i18n_provider.dart';
+import 'widgets/time_dropdown_field.dart';
 
-/// Time section — pickup time + estimated return time. Tap a tile to open the
-/// native 24h time picker. Return time is mandatory (mirrors the web), so it is
-/// shown right under the pickup time. There is intentionally only ONE time per
-/// direction here — when the customer chooses delivery (přistavení) no extra /
-/// duplicate time field is added; this pickup time doubles as the delivery time.
+/// Time section — pickup time + estimated return time. Hodina a minuta se volí
+/// dvěma rozbalovacími nabídkami (stejné UI jako nastavení platnosti ŘP / datum
+/// narození) místo nativního hodinového „showTimePicker". Return time is
+/// mandatory (mirrors the web), so it is shown right under the pickup time.
+/// There is intentionally only ONE time per direction here — when the customer
+/// chooses delivery (přistavení) no extra / duplicate time field is added; this
+/// pickup time doubles as the delivery time.
 class BookingFormTimeSection extends StatelessWidget {
   const BookingFormTimeSection({
     super.key,
@@ -32,9 +35,9 @@ class BookingFormTimeSection extends StatelessWidget {
       Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _TimeTile(
+          TimeDropdownField(
             value: pickupLabel,
-            onPicked: onTimeChanged,
+            onChanged: onTimeChanged,
           ),
           const SizedBox(height: 12),
           Text(
@@ -48,101 +51,11 @@ class BookingFormTimeSection extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 6),
-          _TimeTile(
+          TimeDropdownField(
             value: returnLabel,
-            onPicked: onReturnTimeChanged,
+            onChanged: onReturnTimeChanged,
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// Single tappable time tile that opens a 24h time picker.
-class _TimeTile extends StatelessWidget {
-  const _TimeTile({required this.value, required this.onPicked});
-
-  final String value;
-  final void Function(String newTime) onPicked;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () async {
-        final parts = value.split(':');
-        final initial = TimeOfDay(
-          hour: int.parse(parts[0]),
-          minute: int.parse(parts[1]),
-        );
-        final picked = await showTimePicker(
-          context: context,
-          initialTime: initial,
-          builder: (ctx, child) => MediaQuery(
-            data: MediaQuery.of(ctx).copyWith(
-              alwaysUse24HourFormat: true,
-            ),
-            child: Theme(
-              data: Theme.of(ctx).copyWith(
-                colorScheme: const ColorScheme.light(
-                  primary: Color(0xFF1A8A18),
-                  onPrimary: Colors.white,
-                  surface: Colors.white,
-                  onSurface: Color(0xFF0F1A14),
-                ),
-              ),
-              child: child!,
-            ),
-          ),
-        );
-        if (picked != null) {
-          final hh = picked.hour.toString().padLeft(2, '0');
-          final mm = picked.minute.toString().padLeft(2, '0');
-          onPicked('$hh:$mm');
-        }
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          color: const Color(0xFFE8FFE8),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: const Color(0xFF74FB71), width: 1.5),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.access_time, size: 18, color: Color(0xFF1A8A18)),
-            const SizedBox(width: 8),
-            Text(
-              value,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w900,
-                color: Color(0xFF0F1A14),
-                decoration: TextDecoration.none,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              t(context).tr('hours'),
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF8AAB99),
-                decoration: TextDecoration.none,
-              ),
-            ),
-            const Spacer(),
-            Text(
-              t(context).tr('changeBtn'),
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-                color: Color(0xFF3DBA3A),
-                decoration: TextDecoration.none,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

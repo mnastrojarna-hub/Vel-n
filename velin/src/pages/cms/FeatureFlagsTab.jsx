@@ -13,6 +13,12 @@ const KNOWN_FLAGS = {
     on: 'Web při výběru helmy/bundy/bot/rukavic kontroluje SKUTEČNÝ počet kusů na pobočce a souběžné rezervace (RPC get_accessory_availability) — vyprodané velikosti zešednou.',
     off: 'Web nabízí všechny velikosti bez kontroly skladu (jako dřív). Bezpečné vypnout, pokud sklad ještě není naplněný.',
   },
+  reservation_upsell: {
+    title: 'Doprodej v rezervaci (doplňky z e-shopu)',
+    controls: 'Rezervační flow — web (PC i mobil) i mobilní aplikace: sekce „Doplňky na cestu" / doporučené produkty z e-shopu.',
+    on: 'Zákazníkovi se v rezervaci nabízí doprodej zboží z e-shopu (přidá k objednávce, samostatná faktura).',
+    off: 'Doprodej je skrytý — rezervace nenabízí žádné e-shopové doplňky. Doporučený stav, dokud doprodej nedoplníme.',
+  },
   debug_mode: {
     title: 'Debug režim Velínu',
     controls: 'Tento administrační panel (Velín).',

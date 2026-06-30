@@ -11,6 +11,7 @@ import '../../core/widgets/logo_header.dart';
 import '../../core/auth_guard.dart';
 import '../../core/supabase_client.dart';
 import '../../core/widgets/moto_fx.dart';
+import '../../core/widgets/date_dropdown_field.dart';
 import '../auth/auth_provider.dart';
 import '../auth/widgets/toast_helper.dart';
 import '../home/nickname_provider.dart';
@@ -108,7 +109,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     return DateTime.tryParse(s);
   }
 
-  String _fmtDate(DateTime? d) => d == null ? '' : '${d.day}. ${d.month}. ${d.year}';
 
   /// ISO yyyy-MM-dd for storage in a Postgres `date` column.
   static String _isoDate(DateTime d) =>
@@ -286,52 +286,27 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ProfileField(ctrl: _zipCtrl, label: t(context).tr('zip')),
         ProfileField(ctrl: _streetCtrl, label: t(context).tr('streetShort')),
         ProfileField(ctrl: _countryCtrl, label: t(context).tr('countryLabel')),
-        _dateField(
+        DateDropdownField(
           label: t(context).tr('dob'),
           value: _dob,
-          hint: t(context).tr('selectDob'),
-          onTap: () => _pickDob(),
+          firstYear: DateTime.now().year - 100,
+          lastYear: DateTime.now().year - 15,
+          yearsDescending: true,
+          onChanged: (d) => setState(() => _dob = d),
         ),
         ProfileField(ctrl: _idNumCtrl, label: t(context).tr('idNumberFull')),
         ProfileField(ctrl: _licNumCtrl, label: t(context).tr('licenseNumberFull')),
-        _dateField(
+        DateDropdownField(
           label: t(context).tr('licenseExpiry'),
           value: _licExp,
-          hint: t(context).tr('selectLicenseExpiry'),
-          onTap: () => _pickLicenseExpiry(),
+          firstYear: DateTime.now().year,
+          lastYear: DateTime.now().year + 20,
+          onChanged: (d) => setState(() => _licExp = d),
         ),
         _categoryPicker(),
         const SizedBox(height: 8),
         ElevatedButton.icon(onPressed: _save, style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(44)), icon: const Icon(Icons.save, size: 16), label: Text(t(context).tr('saveChanges'))),
       ]),
-    );
-  }
-
-  /// Read-only field that opens a branded calendar picker on tap.
-  Widget _dateField({
-    required String label,
-    required DateTime? value,
-    required String hint,
-    required VoidCallback onTap,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: GestureDetector(
-        onTap: onTap,
-        child: InputDecorator(
-          decoration: InputDecoration(
-            labelText: label,
-            suffixIcon: const Icon(Icons.calendar_today, size: 18, color: MotoGoColors.g400),
-          ),
-          child: Text(
-            value != null ? _fmtDate(value) : hint,
-            style: TextStyle(
-              fontSize: 14,
-              color: value != null ? MotoGoColors.black : MotoGoColors.g500,
-            ),
-          ),
-        ),
-      ),
     );
   }
 
@@ -383,30 +358,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ],
       ),
     );
-  }
-
-  Future<void> _pickDob() async {
-    final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _dob ?? DateTime(now.year - 25),
-      firstDate: DateTime(1930),
-      lastDate: now,
-      locale: const Locale('cs'),
-    );
-    if (picked != null) setState(() => _dob = picked);
-  }
-
-  Future<void> _pickLicenseExpiry() async {
-    final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _licExp ?? now.add(const Duration(days: 365)),
-      firstDate: now,
-      lastDate: DateTime(2040),
-      locale: const Locale('cs'),
-    );
-    if (picked != null) setState(() => _licExp = picked);
   }
 
   void _showBranches(BuildContext context) => showBranchesSheet(context);

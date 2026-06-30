@@ -134,3 +134,7 @@ p>.btn:last-child{margin-bottom:0}
 .rez-staffed-note{background:#fff8e6;border:1px solid #f0dca0;border-radius:10px;padding:.6rem .85rem;margin:.5rem 0 .85rem;font-size:.85rem;color:#5a4a1a;line-height:1.5}
 .rez-staffed-note strong{color:#3a2f0a}
 @media (max-width:600px){.rez-cancel-block{flex-direction:column;align-items:stretch}.rez-qr-cancel{align-self:flex-start}}
+/* Mobilní menu: overlay je uvnitř .header (stacking context z-index:100), takže
+   .header-topbar (z-index:101) jinak překryje první položky menu (Vyber si stroj,
+   Jak půjčit). Při otevřeném menu zvedneme .header nad topbar, aby overlay přes ně přešel. */
+body.menu-open .header{z-index:1002}

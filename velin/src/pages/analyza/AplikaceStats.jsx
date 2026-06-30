@@ -24,6 +24,7 @@
  */
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
+import AppCrashReports from './AppCrashReports'
 
 const CARDS = [
   { key: 'active_devices', label: 'Aktivní zařízení (30 dní)', hint: 'MAU — instalace viděné za posledních 30 dní', big: true },
@@ -111,6 +112,8 @@ export default function AplikaceStats() {
         <strong> „Dle push tokenů (přechodně)"</strong> je starý odhad — slouží jako reference, než se
         nový build appky rozšíří mezi uživatele; pak ji přesná evidence plně nahradí.
       </p>
+
+      <AppCrashReports />
     </div>
   )
 }

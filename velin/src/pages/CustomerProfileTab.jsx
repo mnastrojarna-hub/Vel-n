@@ -205,6 +205,9 @@ export default function ProfileTab({ customer, set, error, saving, onSave, onDel
       {/* Rychlý přehled */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
         <PlatformChip userId={customer.id} fallback={customer.registration_source} />
+        <Chip label="Registrace přes"
+          value={customer.registration_source === 'app' ? 'APP' : customer.registration_source === 'web' ? 'WEB' : '—'}
+          tone={customer.registration_source === 'app' ? 'green' : customer.registration_source === 'web' ? 'blue' : undefined} />
         <LoyaltyChip userId={customer.id} />
         <Chip label="Jazyk" value={(customer.language || '—').toUpperCase()} />
         <Chip label="Registrace" value={fmtDate(customer.created_at) || '—'} />

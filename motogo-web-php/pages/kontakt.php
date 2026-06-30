@@ -128,7 +128,69 @@ $kontaktOutroHtml = '<section class="kontakt-outro">'
     . '<p data-cms-key="web.kontakt.outro.body2">' . sanitizeHtml($kontaktOutro['body2']) . '</p>'
     . '</section>';
 
-$content = '<main id="content"><div class="container contact">' . $bc .
+// ===== Hero banner provozovny — rotující fotky po 5 s (CSS-only crossfade) =====
+// Stejný princip jako CSS-only slideshow na homepage (.banner-slideshow):
+// každý snímek je vidět $per s, mezi snímky ~0,8 s prolnutí, smyčka je bezešvá.
+// Respektuje prefers-reduced-motion (zobrazí jen první fotku) — řešeno v main.css.
+// Fotky lze přepsat z CMS přes klíč `place_photos`, jinak fallback níže.
+$placeDefaults = [
+    ['img' => 'gfx/provozovna-1.jpg', 'alt' => 'Showroom půjčovny motorek MotoGo24 v Pelhřimově'],
+    ['img' => 'gfx/provozovna-2.jpg', 'alt' => 'Provozovna MotoGo24 — motorky připravené k zapůjčení'],
+    ['img' => 'gfx/provozovna-3.jpg', 'alt' => 'Adventure motorky v půjčovně MotoGo24'],
+    ['img' => 'gfx/provozovna-4.jpg', 'alt' => 'Sklad výbavy — helmy a oblečení v ceně zápůjčky'],
+];
+$placePhotos = (isset($C['place_photos']) && is_array($C['place_photos']) && !empty($C['place_photos']))
+    ? $C['place_photos'] : $placeDefaults;
+
+$validPhotos = [];
+foreach ($placePhotos as $ph) {
+    if (!is_array($ph) || empty($ph['img'])) continue;
+    $validPhotos[] = $ph;
+}
+
+$provozovnaBanner = '';
+if (!empty($validPhotos)) {
+    $per = 8;                                       // sekund na jednu fotku
+    $count = count($validPhotos);
+    $cycle = $per * $count;
+    $fadePct = $cycle > 0 ? round((0.8 / $cycle) * 100, 3) : 0; // ~0,8 s prolnutí
+    $onePct = round(100 / $count, 3);
+    // Fotky provozovny jsou nízkého rozlišení → NEroztahujeme je přes celou šířku
+    // (na velkém monitoru by byly rozmazané). Každý snímek: ostrá fotka v původním
+    // poměru vycentrovaná (object-fit:contain) + rozmazaná kopie téže fotky na pozadí
+    // vyplní zbytek banneru. Výška banneru je responzivní (clamp), aby se na velkých
+    // monitorech extrémně nezvětšovala.
+    $heroCss = '.banner.contact-provozovna{min-height:clamp(200px,26vw,360px);background:#0e1a13}'
+        . '.contact-provozovna .mg-hero-slide{display:block;gap:0;-webkit-mask-image:none;mask-image:none}'
+        . '.contact-provozovna .mg-hero-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:blur(22px) brightness(.6);transform:scale(1.12)}'
+        . '.contact-provozovna .mg-hero-fg{position:absolute;inset:0;margin:auto;width:auto;height:100%;max-width:100%;object-fit:contain}';
+    if ($count > 1) {
+        $kIn = $fadePct;                            // fade-in hotový
+        $kHold = $onePct;                           // konec viditelnosti snímku
+        $kOut = round($onePct + $fadePct, 3);       // fade-out hotový
+        $heroCss .= '@keyframes mgHeroFade{0%{opacity:0}' . $kIn . '%{opacity:1}' . $kHold . '%{opacity:1}' . $kOut . '%{opacity:0}100%{opacity:0}}'
+            . '.contact-provozovna .mg-hero-slide{animation:mgHeroFade ' . $cycle . 's linear infinite both}';
+    } else {
+        $heroCss .= '.contact-provozovna .mg-hero-slide{opacity:1}';
+    }
+    $heroStyle = '<style>' . $heroCss . '</style>';
+    $slidesHtml = '';
+    foreach ($validPhotos as $i => $ph) {
+        $src = BASE_URL . '/' . ltrim((string)$ph['img'], '/');
+        $srcEsc = htmlspecialchars($src);
+        $alt = htmlspecialchars((string)($ph['alt'] ?? ''));
+        $eager = ($i === 0);
+        $load = $eager ? ' fetchpriority="high" decoding="async"' : ' loading="lazy" decoding="async"';
+        $slidesHtml .= '<div class="mg-hero-slide" style="animation-delay:' . ($i * $per) . 's">'
+            . '<img class="mg-hero-bg" src="' . $srcEsc . '" alt="" aria-hidden="true" decoding="async"'
+            . ($eager ? ' fetchpriority="high"' : ' loading="lazy"') . '>'
+            . '<img class="mg-hero-fg" src="' . $srcEsc . '" alt="' . $alt . '"' . $load . '>'
+            . '</div>';
+    }
+    $provozovnaBanner = $heroStyle . '<div class="banner banner-slideshow contact-provozovna">' . $slidesHtml . '</div>';
+}
+
+$content = $provozovnaBanner . '<main id="content"><div class="container contact">' . $bc .
     '<div class="ccontent contacts">' .
     '<h1 data-cms-key="web.kontakt.h1">' . htmlspecialchars($C['h1']) . '</h1>' .
     '<p data-cms-key="web.kontakt.intro">' . $C['intro'] . '</p><p>&nbsp;</p>' .

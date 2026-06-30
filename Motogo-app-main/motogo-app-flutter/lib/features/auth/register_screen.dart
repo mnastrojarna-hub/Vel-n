@@ -5,6 +5,7 @@ import '../../core/theme.dart';
 import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/widgets/moto_fx.dart';
+import '../../core/widgets/date_dropdown_field.dart';
 import 'auth_provider.dart';
 import 'widgets/toast_helper.dart';
 
@@ -252,20 +253,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
-  Future<void> _pickDate(TextEditingController ctrl) async {
-    final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: ctrl == _dobCtrl ? DateTime(now.year - 25) : now.add(const Duration(days: 365)),
-      firstDate: ctrl == _dobCtrl ? DateTime(1930) : now,
-      lastDate: ctrl == _dobCtrl ? now : DateTime(2040),
-      locale: const Locale('cs'),
-    );
-    if (picked != null) {
-      ctrl.text = '${picked.day}. ${picked.month}. ${picked.year}';
-    }
-  }
-
   @override
   void dispose() {
     _fnameCtrl.dispose(); _lnameCtrl.dispose(); _emailCtrl.dispose();
@@ -452,11 +439,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
       const SizedBox(height: 9),
       TextField(controller: _phoneCtrl, decoration: InputDecoration(labelText: t(context).tr('phone')), keyboardType: TextInputType.phone, autofillHints: const [AutofillHints.telephoneNumber]),
       const SizedBox(height: 9),
-      GestureDetector(
-        onTap: () => _pickDate(_dobCtrl),
-        child: AbsorbPointer(
-          child: TextField(controller: _dobCtrl, decoration: InputDecoration(labelText: t(context).tr('dob'), suffixIcon: const Icon(Icons.calendar_today, size: 18))),
-        ),
+      DateDropdownField(
+        controller: _dobCtrl,
+        label: t(context).tr('dob'),
+        firstYear: DateTime.now().year - 100,
+        lastYear: DateTime.now().year - 15,
+        yearsDescending: true,
       ),
       const SizedBox(height: 9),
       TextField(controller: _passCtrl, decoration: InputDecoration(labelText: t(context).tr('passwordMin8')), obscureText: true),
@@ -498,11 +486,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
       const SizedBox(height: 9),
       TextField(controller: _licNumCtrl, decoration: InputDecoration(labelText: t(context).tr('licenseNumber'))),
       const SizedBox(height: 9),
-      GestureDetector(
-        onTap: () => _pickDate(_licExpiryCtrl),
-        child: AbsorbPointer(
-          child: TextField(controller: _licExpiryCtrl, decoration: InputDecoration(labelText: t(context).tr('licenseExpiry'), suffixIcon: const Icon(Icons.calendar_today, size: 18))),
-        ),
+      DateDropdownField(
+        controller: _licExpiryCtrl,
+        label: t(context).tr('licenseExpiry'),
+        firstYear: DateTime.now().year,
+        lastYear: DateTime.now().year + 20,
       ),
       const SizedBox(height: 9),
       DropdownButtonFormField<String>(

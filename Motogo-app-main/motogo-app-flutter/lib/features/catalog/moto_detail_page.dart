@@ -159,13 +159,13 @@ class _MotoDetailPageState extends ConsumerState<MotoDetailPage> {
           ),
         ),
 
-        // === DESCRIPTION === (plain text — HTML markup stripped)
-        if (moto.descriptionPlain != null)
+        // === DESCRIPTION === (plain text — HTML markup stripped, lokalizovaný)
+        if (moto.descriptionPlainFor(t(ctx).lang) != null)
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
               child: Text(
-                moto.descriptionPlain!,
+                moto.descriptionPlainFor(t(ctx).lang)!,
                 style: const TextStyle(
                   fontSize: 13,
                   height: 1.6,
@@ -359,7 +359,10 @@ class _MotoDetailPageState extends ConsumerState<MotoDetailPage> {
             top: MediaQuery.of(ctx).padding.top + 8,
             left: 12,
             child: GestureDetector(
-              onTap: () => ctx.pop(),
+              // Detail lze otevřít i deep-linkem/notifikací → v zásobníku není
+              // co popnout a `pop()` by hodil „GoError: nothing to pop". Fallback
+              // na katalog.
+              onTap: () => ctx.canPop() ? ctx.pop() : ctx.go('/search'),
               child: Container(
                 width: 38,
                 height: 38,

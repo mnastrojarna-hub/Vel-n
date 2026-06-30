@@ -1,0 +1,33 @@
+{
+  "_comment": "Portálově specifická konfigurace pro Slevomat Partner. Zkopíruj na config.json. Hodnoty níže odpovídají reálnému partner portálu MotoGo24 (z dodaného HTML). partnerHash je v URL každé partnerské stránky.",
+
+  "loginUrl": "https://www.slevomat.cz/prihlaseni",
+  "partnerHash": "9d78158c40db418a",
+  "dashboardPath": "/partner/{hash}/rozhrani",
+
+  "selectors": {
+    "_comment": "Krok 1 (Ověřit) je z dodaného HTML přesný. Krok 2 (Uplatnit) + potvrzení se na dashboardu objeví až PO ověření platného voucheru — řeší se textovými lokátory (redeemButtonText) a confirmSubmit.",
+    "loggedInMarker": "a[href='/odhlaseni']",
+    "codeInput": "#frm-voucherVerificationControl-verificationForm-code",
+    "verifySubmit": "input[name='check']",
+    "confirmSubmit": ".js-confirm-dialog-submit",
+    "resultMarker": ".js-flash-message-text, .message, .v-alert, .content-message"
+  },
+
+  "redeemButtonText": "Uplatnit",
+  "confirmButtonText": "Potvrdit",
+
+  "outcomes": {
+    "_comment": "Regulární výrazy (case-insensitive) proti textu výsledku. Pořadí kontroly v kódu: alreadyRedeemed → cancelled → notPaid → invalid → applied (aby 'už byl uplatněn' nespadlo omylem do 'applied'). Uprav podle skutečných hlášek, které uvidíš v screenshotech ze složky screenshots/.",
+    "alreadyRedeemed": ["už byl uplatněn", "již byl uplatněn", "již uplatněn", "byl uplatněn dříve"],
+    "cancelled": ["stornován", "refundován", "vrácen"],
+    "notPaid": ["nebyl zaplacen", "nezaplacen", "není zaplacen"],
+    "invalid": ["neexistuje", "neplatný", "nenalezen", "nebyl nalezen"],
+    "applied": ["úspěšně", "byl uplatněn", "uplatnění proběhlo", "voucher uplatněn"]
+  },
+
+  "timeouts": {
+    "navigationMs": 30000,
+    "actionMs": 15000
+  }
+}

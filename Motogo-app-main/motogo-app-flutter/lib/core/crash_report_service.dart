@@ -5,6 +5,7 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
+import 'debug_logger.dart';
 import 'supabase_client.dart';
 
 /// Severity levels for crash reports.
@@ -123,6 +124,12 @@ class CrashReportService {
     Map<String, dynamic>? extra,
   }) {
     try {
+      // Re-classify known non-fatal errors that surface through the global
+      // handlers as „critical" even though the app keeps running. Without this
+      // Velín shows them as „Kritická (restart appky)", drowning the real
+      // crashes in noise. Only ever downgrades — never hides a true crash.
+      severity = _effectiveSeverity(errorType, errorMessage, severity);
+
       // Deduplicate: same error+screen within 60s → skip
       final fingerprint = '$errorType:$errorMessage:$screen';
       final now = DateTime.now();
@@ -136,6 +143,22 @@ class CrashReportService {
       _recentErrors.removeWhere(
           (_, ts) => now.difference(ts) > _dedupWindow);
 
+      // For a FATAL crash (the kind that shows the „Restartujte aplikaci"
+      // screen) enrich the report so Velín receives a COMPLETE, solvable bug:
+      // the recent breadcrumb trail (actions/API calls/screens that led up to
+      // it) + the screen the user was on. Non-fatal reports stay lightweight.
+      final bool isFatal = severity == CrashSeverity.critical;
+      String? effScreen = screen;
+      Map<String, dynamic>? effExtra = extra;
+      if (isFatal) {
+        effScreen = screen ?? AppDebugLogger.instance.currentScreen;
+        effExtra = {
+          if (extra != null) ...extra,
+          'current_screen': AppDebugLogger.instance.currentScreen,
+          'breadcrumbs': AppDebugLogger.instance.breadcrumbSnapshot(),
+        };
+      }
+
       // Add to queue (cap size)
       if (_queue.length >= _maxQueueSize) {
         _queue.removeFirst();
@@ -145,14 +168,15 @@ class CrashReportService {
         errorType: errorType,
         errorMessage: errorMessage,
         stackTrace: stackTrace,
-        screen: screen,
+        screen: effScreen,
         action: action,
         severity: severity,
-        extra: extra,
+        extra: effExtra,
       ));
 
-      // Flush immediately if batch is full
-      if (_queue.length >= _batchSize) {
+      // Flush immediately on a fatal crash (deliver before a possible restart)
+      // or when the batch is full.
+      if (isFatal || _queue.length >= _batchSize) {
         _flush();
       }
     } catch (_) {
@@ -193,6 +217,51 @@ class CrashReportService {
         'silent': details.silent,
       },
     );
+  }
+
+  /// Downgrade a „critical" report to `warning` when it matches a known
+  /// non-fatal pattern. The app does NOT restart for any of these:
+  /// - Google Fonts runtime fetch failure (offline) — text falls back.
+  /// - Transient network / DNS errors (host lookup, socket, timeout).
+  /// - Expired/revoked refresh token — handled by the auth listener (sign-out).
+  /// - RenderFlex layout overflow — cosmetic, app continues.
+  /// - Secure-storage keystore rotation (BadPaddingException) — recovered by
+  ///   clearing the corrupted entry.
+  /// Everything else stays `critical`.
+  static CrashSeverity _effectiveSeverity(
+      String errorType, String message, CrashSeverity requested) {
+    if (requested != CrashSeverity.critical) return requested;
+    final blob = '$errorType $message'.toLowerCase();
+    bool has(String s) => blob.contains(s);
+
+    if (has('failed to load font')) return CrashSeverity.warning;
+
+    if (has('failed host lookup') ||
+        has('socketexception') ||
+        has('clientexception') ||
+        has('authretryablefetchexception') ||
+        has('connection closed') ||
+        has('connection reset') ||
+        has('handshakeexception') ||
+        has('timeoutexception')) {
+      return CrashSeverity.warning;
+    }
+
+    if (has('authapiexception') ||
+        has('refresh token') ||
+        has('refresh_token')) {
+      return CrashSeverity.warning;
+    }
+
+    if (has('renderflex overflowed') || has('overflowed by')) {
+      return CrashSeverity.warning;
+    }
+
+    if (has('badpaddingexception') || has('bad_decrypt')) {
+      return CrashSeverity.warning;
+    }
+
+    return CrashSeverity.critical;
   }
 
   // ── Internal flush logic ──

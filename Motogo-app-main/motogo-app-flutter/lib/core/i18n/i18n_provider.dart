@@ -18,6 +18,13 @@ const supportedLocales = [
 
 const _langKey = 'mg_language';
 
+/// Posledni znamy jazyk appky (zdroj pravdy = localeProvider). Slouzi jako
+/// fallback pro `t()`, kdyz `Localizations.localeOf` jeste neni pripravene
+/// (delegaty se nacitaji asynchronne; behem prepnuti jazyka je locale chvili
+/// null → `Localizations.localeOf` hodi „Null check operator used on a null
+/// value"). Drzime ho synchronne, aby preklad nikdy nespadl.
+String _lastKnownLang = 'cs';
+
 /// Current locale provider.
 final localeProvider = StateNotifierProvider<LocaleNotifier, Locale>(
   (ref) => LocaleNotifier(),
@@ -31,11 +38,15 @@ class LocaleNotifier extends StateNotifier<Locale> {
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
     final code = prefs.getString(_langKey);
-    if (code != null) state = Locale(code);
+    if (code != null) {
+      state = Locale(code);
+      _lastKnownLang = code;
+    }
   }
 
   Future<void> setLocale(Locale locale) async {
     state = locale;
+    _lastKnownLang = locale.languageCode;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_langKey, locale.languageCode);
 
@@ -54,8 +65,17 @@ class LocaleNotifier extends StateNotifier<Locale> {
 /// Get translation string — shorthand for T.of(context).
 /// Usage: t(context).login, t(context).bookingTitle, etc.
 AppTranslations t(BuildContext context) {
-  final locale = Localizations.localeOf(context);
-  return AppTranslations.of(locale.languageCode);
+  // `Localizations.localeOf` hodi null-check, kdyz delegaty jeste nejsou
+  // nactene (prvni frame / behem prepnuti jazyka). Odchytime a spadneme na
+  // posledni znamy jazyk — preklad tak nikdy neshodi appku (drive padalo na
+  // language pickeru i promo dialogu).
+  try {
+    final locale = Localizations.localeOf(context);
+    _lastKnownLang = locale.languageCode;
+    return AppTranslations.of(locale.languageCode);
+  } catch (_) {
+    return AppTranslations.of(_lastKnownLang);
+  }
 }
 
 /// All translations — simple key-value map approach.

@@ -7,7 +7,7 @@ import '../../../core/theme.dart';
 import '../../../core/i18n/i18n_provider.dart';
 
 /// Výsledek vlastního platebního sheetu s kartou.
-enum CardSheetStatus { paid, cancelled, failed }
+enum CardSheetStatus { paid, processing, cancelled, failed }
 
 class CardSheetResult {
   final CardSheetStatus status;
@@ -105,10 +105,25 @@ class _CardSheetBodyState extends State<_CardSheetBody> {
     }
   }
 
-  bool _isPaid(PaymentIntentsStatus status) =>
-      status == PaymentIntentsStatus.Succeeded ||
-      status == PaymentIntentsStatus.RequiresCapture ||
-      status == PaymentIntentsStatus.Processing;
+  /// Mapuje finální stav PaymentIntentu na výsledek sheetu.
+  ///
+  /// POZOR (finanční korektnost): `Processing` znamená, že Stripe platbu zatím
+  /// NEPOTVRDIL — nesmí se brát jako zaplaceno. Dřív se Processing počítal jako
+  /// `paid`, takže appka vystavila doklad (DP) / aplikovala úpravu i pro platbu,
+  /// kterou Stripe nepotvrdil (a mohla ještě selhat). Nově je `Processing` =
+  /// `processing` → appka počká na serverové potvrzení (webhook) a teprve pak
+  /// vystaví doklady. Potvrzeno je JEN `Succeeded` / `RequiresCapture`.
+  CardSheetResult _resultFor(PaymentIntentsStatus status, String label) {
+    if (status == PaymentIntentsStatus.Succeeded ||
+        status == PaymentIntentsStatus.RequiresCapture) {
+      return const CardSheetResult(CardSheetStatus.paid);
+    }
+    if (status == PaymentIntentsStatus.Processing) {
+      return const CardSheetResult(CardSheetStatus.processing);
+    }
+    return CardSheetResult(CardSheetStatus.failed,
+        otherError: '$label status: $status');
+  }
 
   Future<void> _payWithCard() async {
     if (_processing || !_cardComplete) return;
@@ -123,12 +138,7 @@ class _CardSheetBodyState extends State<_CardSheetBody> {
         ),
       );
       if (!mounted) return;
-      Navigator.of(context).pop(
-        _isPaid(intent.status)
-            ? const CardSheetResult(CardSheetStatus.paid)
-            : CardSheetResult(CardSheetStatus.failed,
-                otherError: 'intent status: ${intent.status}'),
-      );
+      Navigator.of(context).pop(_resultFor(intent.status, 'intent'));
     } on StripeException catch (e) {
       if (!mounted) return;
       // Zákazník zavřel 3DS / zrušil — zůstaň v sheetu, ať může zkusit znovu.
@@ -179,10 +189,7 @@ class _CardSheetBodyState extends State<_CardSheetBody> {
       );
       if (!mounted) return;
       Navigator.of(context).pop(
-        _isPaid(intent.status)
-            ? const CardSheetResult(CardSheetStatus.paid)
-            : CardSheetResult(CardSheetStatus.failed,
-                otherError: 'platform pay status: ${intent.status}'),
+        _resultFor(intent.status, 'platform pay'),
       );
     } on StripeException catch (e) {
       if (!mounted) return;

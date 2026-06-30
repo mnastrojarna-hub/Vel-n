@@ -106,6 +106,7 @@ const translationsExt1CsPl = <String, Map<String, String>>{
     // Calendar
     'calMon': 'Po', 'calTue': 'Út', 'calWed': 'St', 'calThu': 'Čt',
     'calFri': 'Pá', 'calSat': 'So', 'calSun': 'Ne',
+        'dateDay': 'Den', 'dateMonth': 'Měsíc', 'dateYear': 'Rok',
     'calJan': 'Leden', 'calFeb': 'Únor', 'calMar': 'Březen',
     'calApr': 'Duben', 'calMay': 'Květen', 'calJun': 'Červen',
     'calJul': 'Červenec', 'calAug': 'Srpen', 'calSep': 'Září',
@@ -273,6 +274,7 @@ const translationsExt1CsPl = <String, Map<String, String>>{
     // Calendar
     'calMon': 'Pn', 'calTue': 'Wt', 'calWed': 'Śr', 'calThu': 'Cz',
     'calFri': 'Pt', 'calSat': 'So', 'calSun': 'Nd',
+        'dateDay': 'Dzień', 'dateMonth': 'Miesiąc', 'dateYear': 'Rok',
     'calJan': 'Styczeń', 'calFeb': 'Luty', 'calMar': 'Marzec',
     'calApr': 'Kwiecień', 'calMay': 'Maj', 'calJun': 'Czerwiec',
     'calJul': 'Lipiec', 'calAug': 'Sierpień', 'calSep': 'Wrzesień',

@@ -6,11 +6,125 @@ import { requireAdminOrService, forbidden } from '../_shared/auth.ts'
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') || ''
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
+const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY') || ''
 const FROM_EMAIL = Deno.env.get('FROM_EMAIL') || 'noreply@motogo24.cz'
 const REPLY_TO = 'info@motogo24.cz'
 const SITE_URL = Deno.env.get('SITE_URL') || 'https://www.motogo24.cz'
 const FB_URL = 'https://www.facebook.com/profile.php?id=61581614672839'
 const IG_URL = 'https://www.instagram.com/moto.go24/'
+
+// =============================================================================
+// i18n — šablonové maily zákazníkům (handover/damage protokoly, oznámení…)
+// 1:1 mechanismus jako send-booking-email: cache v email_templates.{subject,body}
+// _translations[lang] + __src_<lang> hash; non-cz se přeloží přes Anthropic a
+// zacachuje. Při JAKÉMKOLI selhání → CZ (mail vždy odejde — nic se nerozbije).
+// =============================================================================
+const SUPPORTED_LANGS = ['cs', 'en', 'de', 'nl', 'es', 'fr', 'pl']
+const DEFAULT_LANG = 'cs'
+const TRANSLATE_MODEL = 'claude-haiku-4-5-20251001'
+const LANG_NAMES: Record<string, string> = {
+  en: 'English', de: 'German (Deutsch)', es: 'Spanish (Español)',
+  fr: 'French (Français)', nl: 'Dutch (Nederlands)', pl: 'Polish (Polski)',
+}
+
+function normalizeLang(lang: string | null | undefined): string {
+  if (!lang) return DEFAULT_LANG
+  const l = lang.toLowerCase().trim().slice(0, 2)
+  return SUPPORTED_LANGS.includes(l) ? l : DEFAULT_LANG
+}
+
+// Lokalizované texty fixního layoutu (patička / help karta / podnadpis loga).
+const TAGLINE: Record<string, string> = {
+  cs: 'PŮJČOVNA MOTOREK', en: 'MOTORCYCLE RENTAL', de: 'MOTORRADVERLEIH',
+  nl: 'MOTORVERHUUR', es: 'ALQUILER DE MOTOS', fr: 'LOCATION DE MOTOS', pl: 'WYPOŻYCZALNIA MOTOCYKLI',
+}
+const HELP_TITLE: Record<string, string> = {
+  cs: 'Máte dotaz?', en: 'Have a question?', de: 'Haben Sie eine Frage?',
+  nl: 'Heeft u een vraag?', es: '¿Tienes alguna pregunta?', fr: 'Une question ?', pl: 'Masz pytanie?',
+}
+const HELP_TEXT: Record<string, string> = {
+  cs: 'Pokud budete mít jakýkoliv dotaz, jsme vám k dispozici.',
+  en: 'If you have any questions, we are here to help.',
+  de: 'Bei Fragen stehen wir Ihnen gerne zur Verfügung.',
+  nl: 'Heeft u vragen? We staan voor u klaar.',
+  es: 'Si tienes cualquier pregunta, estamos a tu disposición.',
+  fr: 'Pour toute question, nous sommes à votre disposition.',
+  pl: 'W razie jakichkolwiek pytań jesteśmy do Twojej dyspozycji.',
+}
+const FOLLOW_US: Record<string, string> = {
+  cs: 'SLEDUJTE NÁS', en: 'FOLLOW US', de: 'FOLGEN SIE UNS', nl: 'VOLG ONS',
+  es: 'SÍGUENOS', fr: 'SUIVEZ-NOUS', pl: 'OBSERWUJ NAS',
+}
+
+/** SHA-1 hex zdroje (detekce změny CZ šablony → invalidace cache). */
+async function sha1Hex(s: string): Promise<string> {
+  const buf = await crypto.subtle.digest('SHA-1', new TextEncoder().encode(s))
+  return Array.from(new Uint8Array(buf), (b) => b.toString(16).padStart(2, '0')).join('')
+}
+
+/** Přeloží subject+body RAW šablony z CZ do cílového jazyka přes Anthropic.
+ *  Vrací {subject, body} nebo null při chybě (caller pak nechá CZ). */
+async function translateEmailTemplate(subjectCz: string, bodyCz: string, lang: string): Promise<{ subject: string; body: string } | null> {
+  if (!ANTHROPIC_API_KEY) return null
+  const langName = LANG_NAMES[lang] || lang
+  const system = [
+    `You are a professional Czech-to-${langName} translator for MotoGo24 — a Czech motorcycle rental company.`,
+    'Translate the provided JSON object with keys "subject" and "body". Output STRICTLY a valid JSON object with the same two keys and translated values.',
+    'STRICT RULES:',
+    `- Output language: ${langName} (${lang}). Natural, native, fluent.`,
+    '- Preserve ALL HTML tags, attributes, inline styles and structure EXACTLY.',
+    '- DO NOT translate or change: URLs, email addresses, phone numbers, prices, IČO, DIČ, brand names. Keep the company name "MotoGo24" unchanged. Keep currency "Kč" as is.',
+    '- Keep ALL template placeholders like {{var}} EXACTLY unchanged.',
+    '- Do NOT add commentary, do NOT add markdown fences. Output ONLY the raw JSON object.',
+  ].join('\n')
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+      body: JSON.stringify({ model: TRANSLATE_MODEL, max_tokens: 4096, system, messages: [{ role: 'user', content: JSON.stringify({ subject: subjectCz, body: bodyCz }) }] }),
+    })
+    if (!res.ok) { console.warn('[translateEmailTemplate] anthropic', res.status); return null }
+    const data = await res.json()
+    const text = (data?.content?.[0]?.text || '').trim()
+    let parsed: { subject?: unknown; body?: unknown }
+    try { parsed = JSON.parse(text) } catch {
+      const s = text.indexOf('{'), e = text.lastIndexOf('}')
+      if (s < 0 || e <= s) return null
+      parsed = JSON.parse(text.slice(s, e + 1))
+    }
+    return {
+      subject: typeof parsed.subject === 'string' ? parsed.subject : subjectCz,
+      body: typeof parsed.body === 'string' ? parsed.body : bodyCz,
+    }
+  } catch (e) { console.warn('[translateEmailTemplate]', (e as Error).message); return null }
+}
+
+/** Vyřeší subject+body DB šablony pro daný jazyk: cs → CZ originál; non-cz →
+ *  čerstvý cache překlad, jinak přeloží přes API a zacachuje. Při selhání → CZ. */
+async function resolveTemplateForLang(
+  supabase: ReturnType<typeof createClient>,
+  tpl: { slug: string; subject: string | null; body_html: string; subject_translations: Record<string, string> | null; body_translations: Record<string, string> | null },
+  lang: string,
+): Promise<{ subject: string; body: string }> {
+  const subjCz = tpl.subject || ''
+  const bodyCz = tpl.body_html || ''
+  if (lang === 'cs') return { subject: subjCz, body: bodyCz }
+  const subjT = tpl.subject_translations || {}
+  const bodyT = tpl.body_translations || {}
+  const srcHash = await sha1Hex(`${subjCz} ${bodyCz}`)
+  const fresh = bodyT['__src_' + lang] === srcHash && typeof bodyT[lang] === 'string' && !!bodyT[lang]
+  if (fresh) {
+    return { subject: (typeof subjT[lang] === 'string' && subjT[lang]) ? subjT[lang] : subjCz, body: bodyT[lang] }
+  }
+  const tr = await translateEmailTemplate(subjCz, bodyCz, lang)
+  if (!tr) return { subject: subjCz, body: bodyCz } // API selhalo → CZ fallback
+  try {
+    const newSubjT = { ...subjT, [lang]: tr.subject, ['__src_' + lang]: srcHash }
+    const newBodyT = { ...bodyT, [lang]: tr.body, ['__src_' + lang]: srcHash }
+    await supabase.from('email_templates').update({ subject_translations: newSubjT, body_translations: newBodyT }).eq('slug', tpl.slug)
+  } catch { /* ignore */ }
+  return tr
+}
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -37,19 +151,20 @@ function renderTemplate(template: string, vars: Record<string, string>): string 
 }
 
 /** Wrap body HTML in unified MotoGo24 email layout (1:1 with invoice design + screen reference) */
-function wrapInBrandedLayout(bodyHtml: string): string {
+function wrapInBrandedLayout(bodyHtml: string, lang = 'cs'): string {
+  const L = SUPPORTED_LANGS.includes(lang) ? lang : 'cs'
   const header = `<div style="background:#0a1f15;padding:24px 32px">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse"><tr>
       <td style="vertical-align:middle;padding-right:14px;width:52px"><img src="${SITE_URL}/gfx/logo-icon.png" alt="MotoGo24" width="52" height="52" style="display:block;border:0"/></td>
       <td style="vertical-align:middle">
         <div style="color:#74FB71;font-size:20px;font-weight:900;letter-spacing:1px;line-height:1">MOTO GO 24</div>
-        <div style="color:#74FB71;font-size:9px;font-weight:700;letter-spacing:2px;margin-top:4px">P\u016eJ\u010cOVNA MOTOREK</div>
+        <div style="color:#74FB71;font-size:9px;font-weight:700;letter-spacing:2px;margin-top:4px">${TAGLINE[L]}</div>
       </td>
     </tr></table>
   </div>`
   const helpCard = `<div style="margin:24px 32px 0;background:#0a1f15;border:2px solid #74FB71;border-radius:8px;padding:24px">
-    <div style="color:#74FB71;font-size:18px;font-weight:800;margin:0 0 8px">M\u00e1te dotaz?</div>
-    <div style="color:#ffffff;font-size:13px;margin:0 0 16px">Pokud budete m\u00edt jak\u00fdkoliv dotaz, jsme v\u00e1m k dispozici.</div>
+    <div style="color:#74FB71;font-size:18px;font-weight:800;margin:0 0 8px">${HELP_TITLE[L]}</div>
+    <div style="color:#ffffff;font-size:13px;margin:0 0 16px">${HELP_TEXT[L]}</div>
     <a href="mailto:info@motogo24.cz" style="display:inline-block;background:#74FB71;color:#0a1f15;font-size:13px;font-weight:700;text-decoration:none;padding:12px 28px;border-radius:24px">info@motogo24.cz</a>
   </div>`
   const footer = `<div style="background:#0a1f15;padding:24px 32px;margin-top:24px">
@@ -70,13 +185,13 @@ function wrapInBrandedLayout(bodyHtml: string): string {
       </td>
     </tr></table>
     <div style="text-align:center;margin-top:18px;padding-top:16px;border-top:1px solid #1f3a2c">
-      <div style="color:#9ca3af;font-size:11px;letter-spacing:2px;margin-bottom:10px">SLEDUJTE NÁS</div>
+      <div style="color:#9ca3af;font-size:11px;letter-spacing:2px;margin-bottom:10px">${FOLLOW_US[L]}</div>
       <a href="${FB_URL}" style="display:inline-block;margin:0 6px;text-decoration:none" target="_blank" rel="noopener"><img src="${SITE_URL}/gfx/facebook-footer.svg" alt="Facebook" width="32" height="32" style="display:inline-block;border:0"/></a>
       <a href="${IG_URL}" style="display:inline-block;margin:0 6px;text-decoration:none" target="_blank" rel="noopener"><img src="${SITE_URL}/gfx/instagram-footer.svg" alt="Instagram" width="32" height="32" style="display:inline-block;border:0"/></a>
     </div>
   </div>`
 
-  return `<!DOCTYPE html><html lang="cs"><head><meta charset="UTF-8"></head>
+  return `<!DOCTYPE html><html lang="${L}"><head><meta charset="UTF-8"></head>
 <body style="margin:0;padding:0;background:#d9dee2;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#0f1a14;-webkit-font-smoothing:antialiased">
   <div style="max-width:780px;margin:0 auto;background:#ffffff">
     ${header}
@@ -138,6 +253,8 @@ serve(async (req) => {
       template_vars = {},
       customer_id,
       booking_id,
+      order_id,
+      language,
       subject: subjectOverride,
       raw_html,
       raw_body,
@@ -157,6 +274,21 @@ serve(async (req) => {
       return await handleInvoiceEmail(supabase, invoice_id)
     }
 
+    // i18n: jazyk zákazníka — 1) explicit `language`, 2) RPC z DB, 3) 'cs'.
+    // Týká se POUZE šablonových mailů (template_slug); raw_html/raw_body zůstávají
+    // tak, jak je admin složil (default cs layout).
+    let custLang = normalizeLang(language)
+    if (!language && (booking_id || order_id || customer_id)) {
+      try {
+        const { data: langData } = await supabase.rpc('detect_customer_language', {
+          p_user_id:    customer_id || null,
+          p_booking_id: booking_id || null,
+          p_order_id:   order_id || null,
+        })
+        custLang = normalizeLang(langData as string | null)
+      } catch { /* ignore — zůstane 'cs' */ }
+    }
+
     // Resolve email content
     let html = ''
     let subject = subjectOverride || ''
@@ -174,10 +306,10 @@ serve(async (req) => {
       if (!subject) subject = 'Zpráva od MOTO GO 24'
       isMarketing = true
     } else if (template_slug) {
-      // Load from email_templates table
+      // Load from email_templates table (vč. překladových cache sloupců)
       const { data: tpl, error: tplErr } = await supabase
         .from('email_templates')
-        .select('slug, name, subject, body_html, active')
+        .select('slug, name, subject, body_html, active, subject_translations, body_translations')
         .eq('slug', template_slug)
         .eq('active', true)
         .maybeSingle()
@@ -189,9 +321,11 @@ serve(async (req) => {
         }, 404)
       }
 
-      const renderedBody = renderTemplate(tpl.body_html || '', template_vars)
-      subject = subjectOverride || renderTemplate(tpl.subject || '', template_vars) || `${tpl.name} — MOTO GO 24`
-      html = wrapInBrandedLayout(renderedBody)
+      // Přeloží šablonu do jazyka zákazníka (cache + Anthropic, CZ fallback).
+      const resolved = await resolveTemplateForLang(supabase, tpl as Parameters<typeof resolveTemplateForLang>[1], custLang)
+      const renderedBody = renderTemplate(resolved.body || '', template_vars)
+      subject = subjectOverride || renderTemplate(resolved.subject || '', template_vars) || `${tpl.name} — MOTO GO 24`
+      html = wrapInBrandedLayout(renderedBody, custLang)
       resolvedSlug = tpl.slug
     } else {
       return jsonResponse({ success: false, error: 'Must provide raw_html, raw_body, or template_slug' }, 400)
