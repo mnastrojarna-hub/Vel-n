@@ -1,0 +1,70 @@
+name: Slevomat vouchery (auto-uplatnění)
+
+# Nezávislý automat: jednou denně (a na ruční spuštění) projde uplatněné
+# Slevomat poukazy z DB a odklikne je na partner portálu přes Playwright.
+# Běží plně v cloudu GitHubu — žádné zapnuté PC. Výsledek zapisuje zpět do
+# vouchers.slevomat_apply_* (Velín záložka Slevomat to pak živě zobrazuje).
+#
+# Potřebné repo secrets:
+#   SUPABASE_SERVICE_ROLE_KEY  — service role klíč projektu
+#   SLEVOMAT_STORAGE_STATE     — obsah sessions/storageState.json (z `npm run login`)
+#
+# Když session vyprší, krok `run` selže (NeedLoginError) a GitHub pošle e-mail
+# = čas znovu se přihlásit lokálně přes `npm run login` a aktualizovat secret
+# SLEVOMAT_STORAGE_STATE.
+
+on:
+  schedule:
+    - cron: '0 6 * * *' # denně 06:00 UTC (~08:00 CEST)
+  workflow_dispatch: {}
+
+# Nikdy neběž dvakrát současně (zabrání souběžnému uplatňování).
+concurrency:
+  group: slevomat-vouchers
+  cancel-in-progress: false
+
+jobs:
+  redeem:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: slevomat-bot
+    env:
+      SUPABASE_URL: https://vnwnqteskbykeucanlhk.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install deps
+        run: npm install --no-audit --no-fund
+
+      - name: Install Chromium + system deps
+        run: npx playwright install --with-deps chromium
+
+      - name: Připrav config a session
+        env:
+          STORAGE_STATE: ${{ secrets.SLEVOMAT_STORAGE_STATE }}
+        run: |
+          cp config.example.json config.json
+          mkdir -p sessions
+          if [ -z "$STORAGE_STATE" ]; then
+            echo "::error::Chybí secret SLEVOMAT_STORAGE_STATE — přihlas se lokálně (npm run login) a vlož obsah sessions/storageState.json do secretu."
+            exit 1
+          fi
+          printf '%s' "$STORAGE_STATE" > sessions/storageState.json
+
+      - name: Uplatnit poukazy
+        run: node src/cli.mjs run
+
+      - name: Ulož screenshoty při chybě
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: slevomat-screenshots
+          path: slevomat-bot/screenshots/
+          if-no-files-found: ignore
+          retention-days: 14

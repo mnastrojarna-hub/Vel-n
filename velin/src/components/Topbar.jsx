@@ -25,6 +25,7 @@ const ROUTE_LABELS = {
   '/pobocky': 'Pobočky',
   '/trasy': 'Trasy',
   '/slevove-kody': 'Slevové kódy',
+  '/slevomat': 'Slevomat',
   '/zamestnanci': 'Zaměstnanci',
 }
 
