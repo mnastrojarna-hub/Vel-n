@@ -33,13 +33,12 @@ export function loadEnv() {
   return {
     supabaseUrl: url,
     supabaseKey: key,
-    slevomatUser: process.env.SLEVOMAT_USERNAME || '',
-    slevomatPass: process.env.SLEVOMAT_PASSWORD || '',
     batchLimit: num('BATCH_LIMIT', 0),
     delayBetweenMs: num('DELAY_BETWEEN_MS', 1500),
     maxAttempts: num('MAX_ATTEMPTS', 3),
     headful: process.env.HEADFUL === '1',
     triggerPort: num('TRIGGER_PORT', 8787),
+    pollIntervalSec: num('POLL_INTERVAL_SEC', 60),
   };
 }
 
@@ -50,14 +49,19 @@ export function loadConfig() {
     );
   }
   const cfg = JSON.parse(fs.readFileSync(PATHS.config, 'utf8'));
-  for (const key of ['loginUrl', 'redeemUrl', 'selectors', 'outcomes']) {
+  for (const key of ['loginUrl', 'partnerHash', 'dashboardPath', 'selectors', 'outcomes']) {
     if (!cfg[key]) throw new Error(`config.json: chybí povinná sekce "${key}".`);
   }
-  for (const sel of ['codeInput', 'redeemSubmit', 'loggedInMarker']) {
+  for (const sel of ['codeInput', 'verifySubmit', 'loggedInMarker']) {
     if (!cfg.selectors[sel]) {
       throw new Error(`config.json: chybí selektor selectors.${sel} (nutný pro běh).`);
     }
   }
+  // Sestav absolutní URL dashboardu z partnerHash + dashboardPath.
+  const origin = new URL(cfg.loginUrl).origin;
+  cfg.dashboardUrl = origin + cfg.dashboardPath.replace('{hash}', cfg.partnerHash);
+  cfg.redeemButtonText = cfg.redeemButtonText || 'Uplatnit';
+  cfg.confirmButtonText = cfg.confirmButtonText || 'Potvrdit';
   cfg.timeouts = cfg.timeouts || {};
   cfg.timeouts.navigationMs = cfg.timeouts.navigationMs || 30000;
   cfg.timeouts.actionMs = cfg.timeouts.actionMs || 15000;

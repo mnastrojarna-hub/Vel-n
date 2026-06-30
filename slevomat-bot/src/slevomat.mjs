@@ -1,4 +1,9 @@
 // Playwright vrstva nad Slevomat partner portálem.
+// Flow uplatnění je dvoukrokový (dle reálného portálu):
+//   1) zadat kód → „Ověřit" (input[name=check])
+//   2) u platného voucheru → „Uplatnit" → potvrzovací dialog „Potvrdit"
+// Login má reCAPTCHA, proto se přihlašuje jednorázově ručně (`npm run login`)
+// a běhy používají uloženou session (sessions/storageState.json).
 import fs from 'node:fs';
 import path from 'node:path';
 import { chromium } from 'playwright';
@@ -11,28 +16,27 @@ function compile(patterns) {
   return (patterns || []).map((p) => new RegExp(p, 'i'));
 }
 
-export async function createSession(env, cfg, { interactive = false } = {}) {
+export async function createSession(env, cfg) {
   const hasSession = fs.existsSync(PATHS.session);
-  const browser = await chromium.launch({ headless: interactive ? false : !env.headful });
-  const context = await browser.newContext(
-    hasSession ? { storageState: PATHS.session } : undefined
-  );
+  if (!hasSession) {
+    throw new NeedLoginError(
+      'Chybí uložená session (sessions/storageState.json). Spusť nejdřív `npm run login`.'
+    );
+  }
+  const browser = await chromium.launch({ headless: !env.headful });
+  const context = await browser.newContext({ storageState: PATHS.session });
   context.setDefaultNavigationTimeout(cfg.timeouts.navigationMs);
   context.setDefaultTimeout(cfg.timeouts.actionMs);
   const page = await context.newPage();
 
   const outcomes = {
-    applied: compile(cfg.outcomes.applied),
     alreadyRedeemed: compile(cfg.outcomes.alreadyRedeemed),
-    invalid: compile(cfg.outcomes.invalid),
-    notPaid: compile(cfg.outcomes.notPaid),
     cancelled: compile(cfg.outcomes.cancelled),
+    notPaid: compile(cfg.outcomes.notPaid),
+    invalid: compile(cfg.outcomes.invalid),
+    applied: compile(cfg.outcomes.applied),
   };
-
-  async function saveSession() {
-    fs.mkdirSync(path.dirname(PATHS.session), { recursive: true });
-    await context.storageState({ path: PATHS.session });
-  }
+  const redeemRe = new RegExp(cfg.redeemButtonText, 'i');
 
   async function isLoggedIn() {
     try {
@@ -46,32 +50,12 @@ export async function createSession(env, cfg, { interactive = false } = {}) {
     }
   }
 
-  // Programatické přihlášení (jen bez 2FA/captcha). Při 2FA použij `npm run login`.
   async function ensureLoggedIn() {
-    await page.goto(cfg.redeemUrl, { waitUntil: 'domcontentloaded' });
+    await page.goto(cfg.dashboardUrl, { waitUntil: 'domcontentloaded' });
     if (await isLoggedIn()) return;
-
-    if (!env.slevomatUser || !env.slevomatPass) {
-      throw new NeedLoginError(
-        'Není platná session a nejsou vyplněné přihlašovací údaje. Spusť `npm run login` a přihlas se ručně (zvládne i 2FA).'
-      );
-    }
-    log.info('Session neplatná → zkouším programatické přihlášení.');
-    await page.goto(cfg.loginUrl, { waitUntil: 'domcontentloaded' });
-    await page.fill(cfg.selectors.usernameInput, env.slevomatUser);
-    await page.fill(cfg.selectors.passwordInput, env.slevomatPass);
-    await Promise.all([
-      page.waitForLoadState('networkidle').catch(() => {}),
-      page.click(cfg.selectors.loginSubmit),
-    ]);
-    if (!(await isLoggedIn())) {
-      await screenshot('login-failed');
-      throw new NeedLoginError(
-        'Přihlášení selhalo (špatné údaje, 2FA nebo captcha). Spusť `npm run login` a přihlas se ručně.'
-      );
-    }
-    await saveSession();
-    log.ok('Přihlášení OK, session uložena.');
+    throw new NeedLoginError(
+      'Uložená session je neplatná/vypršela. Spusť `npm run login` a přihlas se znovu.'
+    );
   }
 
   async function screenshot(name) {
@@ -86,47 +70,109 @@ export async function createSession(env, cfg, { interactive = false } = {}) {
     }
   }
 
+  // Vrátí první viditelný lokátor z kandidátů (nebo null).
+  async function firstVisible(locators, timeoutMs) {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      for (const loc of locators) {
+        try {
+          const el = loc.first();
+          if (await el.isVisible()) return el;
+        } catch {
+          /* lokátor nepasuje, zkus další */
+        }
+      }
+      await page.waitForTimeout(250);
+    }
+    return null;
+  }
+
+  async function readResult() {
+    try {
+      const marker = page.locator(cfg.selectors.resultMarker).first();
+      await marker.waitFor({ state: 'visible', timeout: cfg.timeouts.actionMs });
+      return await marker.innerText();
+    } catch {
+      return (await page.locator('body').innerText().catch(() => '')) || '';
+    }
+  }
+
   function classify(text) {
     const t = (text || '').replace(/\s+/g, ' ').trim();
-    if (outcomes.applied.some((r) => r.test(t))) return { status: 'applied', message: t };
-    if (outcomes.alreadyRedeemed.some((r) => r.test(t)))
-      return { status: 'already_redeemed', message: t };
+    // Pořadí záměrně: terminální/chybové stavy dřív než 'applied'
+    // (aby „už byl uplatněn" nespadlo omylem do úspěchu).
+    if (outcomes.alreadyRedeemed.some((r) => r.test(t))) return { status: 'already_redeemed', message: t };
     if (outcomes.cancelled.some((r) => r.test(t))) return { status: 'cancelled', message: t };
     if (outcomes.notPaid.some((r) => r.test(t))) return { status: 'not_paid', message: t };
     if (outcomes.invalid.some((r) => r.test(t))) return { status: 'invalid', message: t };
-    // Neznámou hlášku bereme jako přechodnou chybu (retry) + uložíme screenshot.
+    if (outcomes.applied.some((r) => r.test(t))) return { status: 'applied', message: t };
     return { status: 'failed', message: t || 'Neznámý výsledek (prázdná hláška).' };
   }
 
-  /** Uplatní jeden kód. Vrací { status, message }. */
+  /** Uplatní jeden kód. Vrací { status, message, screenshot? }. */
   async function applyVoucher(code) {
-    await page.goto(cfg.redeemUrl, { waitUntil: 'domcontentloaded' });
+    await page.goto(cfg.dashboardUrl, { waitUntil: 'domcontentloaded' });
     if (!(await isLoggedIn())) throw new NeedLoginError('Session vypršela během běhu.');
 
+    // Krok 1 — zadat kód a Ověřit.
     const input = page.locator(cfg.selectors.codeInput).first();
     await input.waitFor({ state: 'visible' });
     await input.fill('');
     await input.fill(code);
     await Promise.all([
       page.waitForLoadState('networkidle').catch(() => {}),
-      page.click(cfg.selectors.redeemSubmit),
+      page.locator(cfg.selectors.verifySubmit).first().click(),
     ]);
 
-    let text = '';
-    try {
-      const marker = page.locator(cfg.selectors.resultMarker).first();
-      await marker.waitFor({ state: 'visible', timeout: cfg.timeouts.actionMs });
-      text = await marker.innerText();
-    } catch {
-      text = await page.locator('body').innerText().catch(() => '');
+    // Krok 2 — pokud se objeví akce „Uplatnit", klikni a potvrď.
+    const redeemCandidates = [
+      page.getByRole('button', { name: redeemRe }),
+      page.getByRole('link', { name: redeemRe }),
+      page.locator(`input[type="submit"][value*="${cfg.redeemButtonText}" i]`),
+      page.locator(`button:has-text("${cfg.redeemButtonText}"), a:has-text("${cfg.redeemButtonText}")`),
+    ];
+    const redeem = await firstVisible(redeemCandidates, 4000);
+    let redeemClicked = false;
+    if (redeem) {
+      redeemClicked = true;
+      await redeem.click();
+      // Potvrzovací dialog (js-confirm-dialog) — pokud se ukáže.
+      const confirm = page.locator(cfg.selectors.confirmSubmit).first();
+      try {
+        await confirm.waitFor({ state: 'visible', timeout: 3000 });
+        await Promise.all([
+          page.waitForLoadState('networkidle').catch(() => {}),
+          confirm.click(),
+        ]);
+      } catch {
+        /* dialog se neobjevil — některé akce potvrzení nevyžadují */
+      }
     }
 
-    const result = classify(text);
-    if (result.status === 'failed' || result.status === 'invalid') {
+    const result = classify(await readResult());
+    // Klikli jsme Uplatnit, ale výsledek je nejednoznačný → uložit screenshot,
+    // ať se dá hláška dohledat a doladit outcomes v config.json.
+    const needShot = result.status === 'failed' || result.status === 'invalid';
+    if (needShot || (redeemClicked && result.status !== 'applied')) {
       result.screenshot = await screenshot(`voucher-${code}-${result.status}`);
+    }
+    if (!redeem && result.status === 'failed') {
+      result.message =
+        'Po ověření se neobjevila akce „Uplatnit" ani známá hláška. ' +
+        'Zkontroluj screenshot a uprav redeemButtonText/outcomes v config.json. ' +
+        result.message;
     }
     return result;
   }
 
-  return { page, context, browser, ensureLoggedIn, isLoggedIn, applyVoucher, saveSession, screenshot, close: () => browser.close() };
+  return {
+    page,
+    context,
+    browser,
+    ensureLoggedIn,
+    isLoggedIn,
+    applyVoucher,
+    screenshot,
+    close: () => browser.close(),
+  };
 }

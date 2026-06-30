@@ -11,8 +11,10 @@ export async function interactiveLogin(cfg) {
   const context = await browser.newContext();
   const page = await context.newPage();
 
-  log.info('Otevírám partner portál — přihlas se v okně prohlížeče (vč. 2FA).');
-  await page.goto(cfg.loginUrl, { waitUntil: 'domcontentloaded' }).catch(() => {});
+  log.info('Otevírám partner portál — přihlas se v okně prohlížeče (vč. captchy).');
+  // Jdeme rovnou na dashboard: nepřihlášeného Slevomat přesměruje na login
+  // a po přihlášení zpět, takže marker „Odhlásit" se objeví na správné stránce.
+  await page.goto(cfg.dashboardUrl, { waitUntil: 'domcontentloaded' }).catch(() => {});
 
   // Čekáme až 5 minut, dokud se neobjeví prvek viditelný jen po přihlášení.
   const deadline = Date.now() + 5 * 60 * 1000;

@@ -4,7 +4,7 @@ import { spawn } from 'node:child_process';
 import { loadEnv, loadConfig } from './config.mjs';
 import { makeDb } from './db.mjs';
 import { interactiveLogin } from './login.mjs';
-import { runOnce } from './run.mjs';
+import { runOnce, runWatch } from './run.mjs';
 import { startServer } from './server.mjs';
 import { log } from './logger.mjs';
 
@@ -19,6 +19,10 @@ async function main() {
     }
     case 'run': {
       await runOnce({ dryRun: flags.has('--dry-run') });
+      break;
+    }
+    case 'watch': {
+      await runWatch();
       break;
     }
     case 'status': {
@@ -40,7 +44,7 @@ async function main() {
       break;
     }
     default:
-      log.info('Použití: slevomat-bot <login|run [--dry-run]|status|record|serve>');
+      log.info('Použití: slevomat-bot <login|run [--dry-run]|watch|status|record|serve>');
   }
 }
 

@@ -72,6 +72,27 @@ export async function runOnce({ dryRun = false } = {}) {
   return { processed: results.length, applied, failed, results };
 }
 
+/**
+ * Watch režim — periodicky hlídá DB a nově uplatněné Slevomat poukazy hned
+ * odešle na portál. Když není co dělat, jen levně dotáže DB (prohlížeč se
+ * nespouští). Běží dokud ho nevypneš (Ctrl+C).
+ */
+export async function runWatch() {
+  const env = loadEnv();
+  const intervalMs = Math.max(15, env.pollIntervalSec) * 1000;
+  log.info(`Watch režim spuštěn (interval ${Math.round(intervalMs / 1000)} s). Ctrl+C pro ukončení.`);
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    try {
+      await runOnce({});
+    } catch (e) {
+      log.error('Watch cyklus selhal:', e.message);
+      // NeedLoginError apod. — počkej a zkus znovu (uživatel mezitím udělá login).
+    }
+    await sleep(intervalMs);
+  }
+}
+
 // Retry jen pro přechodné chyby (status 'failed'); terminální stavy vrací hned.
 async function applyWithRetry(session, voucher, env, db) {
   let last;
