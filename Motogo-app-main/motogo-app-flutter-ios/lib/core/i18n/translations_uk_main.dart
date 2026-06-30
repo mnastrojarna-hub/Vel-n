@@ -50,7 +50,7 @@ const translationsUkMain = <String, Map<String, String>>{
     'timeRemaining': 'Залишилося часу на оплату',
     'paymentConfirmed': 'Бронювання підтверджено!',
     // Shop
-    'shopTitle': 'MotoGo Shop', 'addToCart': 'Додати в кошик',
+    'shopTitle': 'MotoGo Магазин', 'addToCart': 'Додати в кошик',
     'sizeLabel': 'Розмір', 'selectSizeFirst': 'Спочатку оберіть розмір', 'shopEmpty': 'Поки що немає товарів', 'backToShop': 'Назад до магазину',
     'cart': 'Кошик', 'checkout': 'До оплати',
     'giftVoucher': 'Подарунковий сертифікат', 'digital': 'Електронний',
