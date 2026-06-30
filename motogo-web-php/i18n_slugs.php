@@ -29,56 +29,56 @@
 require_once __DIR__ . '/config.php';
 
 const I18N_SLUG_ROUTES = [
-    '/katalog' => ['en' => '/catalog', 'de' => '/katalog', 'es' => '/catalogo', 'fr' => '/catalogue', 'nl' => '/catalogus', 'pl' => '/katalog'],
-    '/katalog/cestovni' => ['en' => '/catalog/touring', 'de' => '/katalog/reise', 'es' => '/catalogo/turismo', 'fr' => '/catalogue/routieres', 'nl' => '/catalogus/toer', 'pl' => '/katalog/turystyczne'],
-    '/katalog/sportovni' => ['en' => '/catalog/sport', 'de' => '/katalog/sport', 'es' => '/catalogo/deportivas', 'fr' => '/catalogue/sportives', 'nl' => '/catalogus/sport', 'pl' => '/katalog/sportowe'],
-    '/katalog/naked' => ['en' => '/catalog/naked', 'de' => '/katalog/naked', 'es' => '/catalogo/naked', 'fr' => '/catalogue/naked', 'nl' => '/catalogus/naked', 'pl' => '/katalog/naked'],
-    '/katalog/supermoto' => ['en' => '/catalog/supermoto', 'de' => '/katalog/supermoto', 'es' => '/catalogo/supermoto', 'fr' => '/catalogue/supermoto', 'nl' => '/catalogus/supermoto', 'pl' => '/katalog/supermoto'],
-    '/katalog/chopper' => ['en' => '/catalog/chopper', 'de' => '/katalog/chopper', 'es' => '/catalogo/chopper', 'fr' => '/catalogue/chopper', 'nl' => '/catalogus/chopper', 'pl' => '/katalog/chopper'],
-    '/katalog/detske' => ['en' => '/catalog/kids', 'de' => '/katalog/kinder', 'es' => '/catalogo/infantiles', 'fr' => '/catalogue/enfants', 'nl' => '/catalogus/kinder', 'pl' => '/katalog/dzieciece'],
-    '/pujcovna-motorek' => ['en' => '/motorcycle-rental', 'de' => '/motorradverleih', 'es' => '/alquiler-de-motos', 'fr' => '/location-de-motos', 'nl' => '/motorverhuur', 'pl' => '/wypozyczalnia-motocykli'],
+    '/katalog' => ['en' => '/catalog', 'de' => '/katalog', 'es' => '/catalogo', 'fr' => '/catalogue', 'nl' => '/catalogus', 'pl' => '/katalog', 'uk' => '/catalog'],
+    '/katalog/cestovni' => ['en' => '/catalog/touring', 'de' => '/katalog/reise', 'es' => '/catalogo/turismo', 'fr' => '/catalogue/routieres', 'nl' => '/catalogus/toer', 'pl' => '/katalog/turystyczne', 'uk' => '/catalog/touring'],
+    '/katalog/sportovni' => ['en' => '/catalog/sport', 'de' => '/katalog/sport', 'es' => '/catalogo/deportivas', 'fr' => '/catalogue/sportives', 'nl' => '/catalogus/sport', 'pl' => '/katalog/sportowe', 'uk' => '/catalog/sport'],
+    '/katalog/naked' => ['en' => '/catalog/naked', 'de' => '/katalog/naked', 'es' => '/catalogo/naked', 'fr' => '/catalogue/naked', 'nl' => '/catalogus/naked', 'pl' => '/katalog/naked', 'uk' => '/catalog/naked'],
+    '/katalog/supermoto' => ['en' => '/catalog/supermoto', 'de' => '/katalog/supermoto', 'es' => '/catalogo/supermoto', 'fr' => '/catalogue/supermoto', 'nl' => '/catalogus/supermoto', 'pl' => '/katalog/supermoto', 'uk' => '/catalog/supermoto'],
+    '/katalog/chopper' => ['en' => '/catalog/chopper', 'de' => '/katalog/chopper', 'es' => '/catalogo/chopper', 'fr' => '/catalogue/chopper', 'nl' => '/catalogus/chopper', 'pl' => '/katalog/chopper', 'uk' => '/catalog/chopper'],
+    '/katalog/detske' => ['en' => '/catalog/kids', 'de' => '/katalog/kinder', 'es' => '/catalogo/infantiles', 'fr' => '/catalogue/enfants', 'nl' => '/catalogus/kinder', 'pl' => '/katalog/dzieciece', 'uk' => '/catalog/kids'],
+    '/pujcovna-motorek' => ['en' => '/motorcycle-rental', 'de' => '/motorradverleih', 'es' => '/alquiler-de-motos', 'fr' => '/location-de-motos', 'nl' => '/motorverhuur', 'pl' => '/wypozyczalnia-motocykli', 'uk' => '/motorcycle-rental'],
     // Oblasti (rozcestník krajů). Slugy krajů (/oblasti/vysocina…) jsou vlastní
     // jména — překládá se jen prefix (viz I18N_SLUG_PREFIXES níže).
-    '/oblasti' => ['en' => '/areas', 'de' => '/regionen', 'es' => '/regiones', 'fr' => '/regions', 'nl' => '/regios', 'pl' => '/regiony'],
+    '/oblasti' => ['en' => '/areas', 'de' => '/regionen', 'es' => '/regiones', 'fr' => '/regions', 'nl' => '/regios', 'pl' => '/regiony', 'uk' => '/areas'],
     // /jak-pujcit (rozcestník) jen 301-redirectuje na /postup — lokalizujeme i jeho.
-    '/jak-pujcit' => ['en' => '/how-to-rent', 'de' => '/mietanleitung', 'es' => '/como-alquilar', 'fr' => '/comment-louer', 'nl' => '/hoe-huren', 'pl' => '/jak-wypozyczyc'],
-    '/jak-pujcit/postup' => ['en' => '/how-to-rent/process', 'de' => '/mietanleitung/ablauf', 'es' => '/como-alquilar/proceso', 'fr' => '/comment-louer/procedure', 'nl' => '/hoe-huren/werkwijze', 'pl' => '/jak-wypozyczyc/proces'],
-    '/jak-pujcit/pristaveni' => ['en' => '/how-to-rent/delivery', 'de' => '/mietanleitung/lieferung', 'es' => '/como-alquilar/entrega', 'fr' => '/comment-louer/livraison', 'nl' => '/hoe-huren/bezorging', 'pl' => '/jak-wypozyczyc/dostawa'],
-    '/jak-pujcit/prevzeti' => ['en' => '/how-to-rent/pickup', 'de' => '/mietanleitung/abholung', 'es' => '/como-alquilar/recogida', 'fr' => '/comment-louer/retrait', 'nl' => '/hoe-huren/afhalen', 'pl' => '/jak-wypozyczyc/odbior'],
-    '/jak-pujcit/vraceni-pujcovna' => ['en' => '/how-to-rent/return-at-branch', 'de' => '/mietanleitung/rueckgabe-filiale', 'es' => '/como-alquilar/devolucion-sucursal', 'fr' => '/comment-louer/retour-agence', 'nl' => '/hoe-huren/terugbrengen-filiaal', 'pl' => '/jak-wypozyczyc/zwrot-w-wypozyczalni'],
-    '/jak-pujcit/vraceni-jinde' => ['en' => '/how-to-rent/return-elsewhere', 'de' => '/mietanleitung/rueckgabe-anderswo', 'es' => '/como-alquilar/devolucion-otro-lugar', 'fr' => '/comment-louer/retour-ailleurs', 'nl' => '/hoe-huren/terugbrengen-elders', 'pl' => '/jak-wypozyczyc/zwrot-w-innym-miejscu'],
-    '/jak-pujcit/co-v-cene' => ['en' => '/how-to-rent/whats-included', 'de' => '/mietanleitung/was-ist-im-preis', 'es' => '/como-alquilar/que-incluye', 'fr' => '/comment-louer/ce-qui-est-inclus', 'nl' => '/hoe-huren/wat-is-inbegrepen', 'pl' => '/jak-wypozyczyc/co-w-cenie'],
-    '/jak-pujcit/dokumenty' => ['en' => '/how-to-rent/documents', 'de' => '/mietanleitung/dokumente', 'es' => '/como-alquilar/documentos', 'fr' => '/comment-louer/documents', 'nl' => '/hoe-huren/documenten', 'pl' => '/jak-wypozyczyc/dokumenty'],
-    '/jak-pujcit/faq' => ['en' => '/how-to-rent/faq', 'de' => '/mietanleitung/faq', 'es' => '/como-alquilar/faq', 'fr' => '/comment-louer/faq', 'nl' => '/hoe-huren/faq', 'pl' => '/jak-wypozyczyc/faq'],
-    '/poukazy' => ['en' => '/vouchers', 'de' => '/gutscheine', 'es' => '/tarjetas-regalo', 'fr' => '/bons-cadeaux', 'nl' => '/cadeaubonnen', 'pl' => '/vouchery'],
-    '/koupit-darkovy-poukaz' => ['en' => '/buy-gift-voucher', 'de' => '/gutschein-kaufen', 'es' => '/comprar-tarjeta-regalo', 'fr' => '/acheter-bon-cadeau', 'nl' => '/cadeaubon-kopen', 'pl' => '/kup-voucher'],
-    '/kontakt' => ['en' => '/contact', 'de' => '/kontakt', 'es' => '/contacto', 'fr' => '/contact', 'nl' => '/contact', 'pl' => '/kontakt'],
-    '/mapa-stranek' => ['en' => '/sitemap', 'de' => '/seitenuebersicht', 'es' => '/mapa-del-sitio', 'fr' => '/plan-du-site', 'nl' => '/sitemap', 'pl' => '/mapa-strony'],
-    '/partneri' => ['en' => '/partners', 'de' => '/partner', 'es' => '/socios', 'fr' => '/partenaires', 'nl' => '/partners', 'pl' => '/partnerzy'],
-    '/smazani-uctu' => ['en' => '/account-deletion', 'de' => '/konto-loeschen', 'es' => '/eliminar-cuenta', 'fr' => '/suppression-de-compte', 'nl' => '/account-verwijderen', 'pl' => '/usuniecie-konta'],
+    '/jak-pujcit' => ['en' => '/how-to-rent', 'de' => '/mietanleitung', 'es' => '/como-alquilar', 'fr' => '/comment-louer', 'nl' => '/hoe-huren', 'pl' => '/jak-wypozyczyc', 'uk' => '/how-to-rent'],
+    '/jak-pujcit/postup' => ['en' => '/how-to-rent/process', 'de' => '/mietanleitung/ablauf', 'es' => '/como-alquilar/proceso', 'fr' => '/comment-louer/procedure', 'nl' => '/hoe-huren/werkwijze', 'pl' => '/jak-wypozyczyc/proces', 'uk' => '/how-to-rent/process'],
+    '/jak-pujcit/pristaveni' => ['en' => '/how-to-rent/delivery', 'de' => '/mietanleitung/lieferung', 'es' => '/como-alquilar/entrega', 'fr' => '/comment-louer/livraison', 'nl' => '/hoe-huren/bezorging', 'pl' => '/jak-wypozyczyc/dostawa', 'uk' => '/how-to-rent/delivery'],
+    '/jak-pujcit/prevzeti' => ['en' => '/how-to-rent/pickup', 'de' => '/mietanleitung/abholung', 'es' => '/como-alquilar/recogida', 'fr' => '/comment-louer/retrait', 'nl' => '/hoe-huren/afhalen', 'pl' => '/jak-wypozyczyc/odbior', 'uk' => '/how-to-rent/pickup'],
+    '/jak-pujcit/vraceni-pujcovna' => ['en' => '/how-to-rent/return-at-branch', 'de' => '/mietanleitung/rueckgabe-filiale', 'es' => '/como-alquilar/devolucion-sucursal', 'fr' => '/comment-louer/retour-agence', 'nl' => '/hoe-huren/terugbrengen-filiaal', 'pl' => '/jak-wypozyczyc/zwrot-w-wypozyczalni', 'uk' => '/how-to-rent/return-at-branch'],
+    '/jak-pujcit/vraceni-jinde' => ['en' => '/how-to-rent/return-elsewhere', 'de' => '/mietanleitung/rueckgabe-anderswo', 'es' => '/como-alquilar/devolucion-otro-lugar', 'fr' => '/comment-louer/retour-ailleurs', 'nl' => '/hoe-huren/terugbrengen-elders', 'pl' => '/jak-wypozyczyc/zwrot-w-innym-miejscu', 'uk' => '/how-to-rent/return-elsewhere'],
+    '/jak-pujcit/co-v-cene' => ['en' => '/how-to-rent/whats-included', 'de' => '/mietanleitung/was-ist-im-preis', 'es' => '/como-alquilar/que-incluye', 'fr' => '/comment-louer/ce-qui-est-inclus', 'nl' => '/hoe-huren/wat-is-inbegrepen', 'pl' => '/jak-wypozyczyc/co-w-cenie', 'uk' => '/how-to-rent/whats-included'],
+    '/jak-pujcit/dokumenty' => ['en' => '/how-to-rent/documents', 'de' => '/mietanleitung/dokumente', 'es' => '/como-alquilar/documentos', 'fr' => '/comment-louer/documents', 'nl' => '/hoe-huren/documenten', 'pl' => '/jak-wypozyczyc/dokumenty', 'uk' => '/how-to-rent/documents'],
+    '/jak-pujcit/faq' => ['en' => '/how-to-rent/faq', 'de' => '/mietanleitung/faq', 'es' => '/como-alquilar/faq', 'fr' => '/comment-louer/faq', 'nl' => '/hoe-huren/faq', 'pl' => '/jak-wypozyczyc/faq', 'uk' => '/how-to-rent/faq'],
+    '/poukazy' => ['en' => '/vouchers', 'de' => '/gutscheine', 'es' => '/tarjetas-regalo', 'fr' => '/bons-cadeaux', 'nl' => '/cadeaubonnen', 'pl' => '/vouchery', 'uk' => '/vouchers'],
+    '/koupit-darkovy-poukaz' => ['en' => '/buy-gift-voucher', 'de' => '/gutschein-kaufen', 'es' => '/comprar-tarjeta-regalo', 'fr' => '/acheter-bon-cadeau', 'nl' => '/cadeaubon-kopen', 'pl' => '/kup-voucher', 'uk' => '/buy-gift-voucher'],
+    '/kontakt' => ['en' => '/contact', 'de' => '/kontakt', 'es' => '/contacto', 'fr' => '/contact', 'nl' => '/contact', 'pl' => '/kontakt', 'uk' => '/contact'],
+    '/mapa-stranek' => ['en' => '/sitemap', 'de' => '/seitenuebersicht', 'es' => '/mapa-del-sitio', 'fr' => '/plan-du-site', 'nl' => '/sitemap', 'pl' => '/mapa-strony', 'uk' => '/sitemap'],
+    '/partneri' => ['en' => '/partners', 'de' => '/partner', 'es' => '/socios', 'fr' => '/partenaires', 'nl' => '/partners', 'pl' => '/partnerzy', 'uk' => '/partners'],
+    '/smazani-uctu' => ['en' => '/account-deletion', 'de' => '/konto-loeschen', 'es' => '/eliminar-cuenta', 'fr' => '/suppression-de-compte', 'nl' => '/account-verwijderen', 'pl' => '/usuniecie-konta', 'uk' => '/account-deletion'],
     // E-shop a blog (blog = stejné slovo ve všech 7 jazycích)
-    '/eshop' => ['en' => '/shop', 'de' => '/shop', 'es' => '/tienda', 'fr' => '/boutique', 'nl' => '/winkel', 'pl' => '/sklep'],
-    '/blog' => ['en' => '/blog', 'de' => '/blog', 'es' => '/blog', 'fr' => '/blog', 'nl' => '/blog', 'pl' => '/blog'],
+    '/eshop' => ['en' => '/shop', 'de' => '/shop', 'es' => '/tienda', 'fr' => '/boutique', 'nl' => '/winkel', 'pl' => '/sklep', 'uk' => '/shop'],
+    '/blog' => ['en' => '/blog', 'de' => '/blog', 'es' => '/blog', 'fr' => '/blog', 'nl' => '/blog', 'pl' => '/blog', 'uk' => '/blog'],
     // Transakční cesty (noindex) — lokalizované od 2026-06-12. České URL
     // z JS/mailů/edge funkcí dál fungují přes 301 se zachovaným query
     // stringem (?resume=, ?order_id=, ?booking_id=, ?paid_booking=).
     // POZOR: nové lokalizované tvary /rezervace a /potvrzeni musí být
     // disallow-nuté i v robots.txt (jsou).
-    '/rezervace' => ['en' => '/booking', 'de' => '/reservierung', 'es' => '/reserva', 'fr' => '/reservation', 'nl' => '/reservering', 'pl' => '/rezerwacja'],
-    '/upravit-rezervaci' => ['en' => '/manage-booking', 'de' => '/reservierung-verwalten', 'es' => '/gestionar-reserva', 'fr' => '/gerer-reservation', 'nl' => '/reservering-beheren', 'pl' => '/zarzadzaj-rezerwacja'],
-    '/potvrzeni' => ['en' => '/confirmation', 'de' => '/bestaetigung', 'es' => '/confirmacion', 'fr' => '/confirmation', 'nl' => '/bevestiging', 'pl' => '/potwierdzenie'],
-    '/kosik' => ['en' => '/cart', 'de' => '/warenkorb', 'es' => '/cesta', 'fr' => '/panier', 'nl' => '/winkelwagen', 'pl' => '/koszyk'],
-    '/objednavka' => ['en' => '/checkout', 'de' => '/kasse', 'es' => '/pedido', 'fr' => '/commande', 'nl' => '/afrekenen', 'pl' => '/zamowienie'],
-    '/objednavka/dokoncit' => ['en' => '/checkout/complete', 'de' => '/kasse/abgeschlossen', 'es' => '/pedido/completado', 'fr' => '/commande/terminee', 'nl' => '/afrekenen/voltooid', 'pl' => '/zamowienie/zakonczone'],
+    '/rezervace' => ['en' => '/booking', 'de' => '/reservierung', 'es' => '/reserva', 'fr' => '/reservation', 'nl' => '/reservering', 'pl' => '/rezerwacja', 'uk' => '/booking'],
+    '/upravit-rezervaci' => ['en' => '/manage-booking', 'de' => '/reservierung-verwalten', 'es' => '/gestionar-reserva', 'fr' => '/gerer-reservation', 'nl' => '/reservering-beheren', 'pl' => '/zarzadzaj-rezerwacja', 'uk' => '/manage-booking'],
+    '/potvrzeni' => ['en' => '/confirmation', 'de' => '/bestaetigung', 'es' => '/confirmacion', 'fr' => '/confirmation', 'nl' => '/bevestiging', 'pl' => '/potwierdzenie', 'uk' => '/confirmation'],
+    '/kosik' => ['en' => '/cart', 'de' => '/warenkorb', 'es' => '/cesta', 'fr' => '/panier', 'nl' => '/winkelwagen', 'pl' => '/koszyk', 'uk' => '/cart'],
+    '/objednavka' => ['en' => '/checkout', 'de' => '/kasse', 'es' => '/pedido', 'fr' => '/commande', 'nl' => '/afrekenen', 'pl' => '/zamowienie', 'uk' => '/checkout'],
+    '/objednavka/dokoncit' => ['en' => '/checkout/complete', 'de' => '/kasse/abgeschlossen', 'es' => '/pedido/completado', 'fr' => '/commande/terminee', 'nl' => '/afrekenen/voltooid', 'pl' => '/zamowienie/zakonczone', 'uk' => '/checkout/complete'],
 ];
 
 // Prefixy pro dynamické cesty (UUID/slug za prefixem se nepřekládá).
 const I18N_SLUG_PREFIXES = [
-    '/katalog/' => ['en' => '/catalog/', 'de' => '/katalog/', 'es' => '/catalogo/', 'fr' => '/catalogue/', 'nl' => '/catalogus/', 'pl' => '/katalog/'],
-    '/dokumenty/' => ['en' => '/documents/', 'de' => '/dokumente/', 'es' => '/documentos/', 'fr' => '/documents/', 'nl' => '/documenten/', 'pl' => '/dokumenty/'],
-    '/eshop/' => ['en' => '/shop/', 'de' => '/shop/', 'es' => '/tienda/', 'fr' => '/boutique/', 'nl' => '/winkel/', 'pl' => '/sklep/'],
-    '/blog/' => ['en' => '/blog/', 'de' => '/blog/', 'es' => '/blog/', 'fr' => '/blog/', 'nl' => '/blog/', 'pl' => '/blog/'],
-    '/oblasti/' => ['en' => '/areas/', 'de' => '/regionen/', 'es' => '/regiones/', 'fr' => '/regions/', 'nl' => '/regios/', 'pl' => '/regiony/'],
+    '/katalog/' => ['en' => '/catalog/', 'de' => '/katalog/', 'es' => '/catalogo/', 'fr' => '/catalogue/', 'nl' => '/catalogus/', 'pl' => '/katalog/', 'uk' => '/catalog/'],
+    '/dokumenty/' => ['en' => '/documents/', 'de' => '/dokumente/', 'es' => '/documentos/', 'fr' => '/documents/', 'nl' => '/documenten/', 'pl' => '/dokumenty/', 'uk' => '/documents/'],
+    '/eshop/' => ['en' => '/shop/', 'de' => '/shop/', 'es' => '/tienda/', 'fr' => '/boutique/', 'nl' => '/winkel/', 'pl' => '/sklep/', 'uk' => '/shop/'],
+    '/blog/' => ['en' => '/blog/', 'de' => '/blog/', 'es' => '/blog/', 'fr' => '/blog/', 'nl' => '/blog/', 'pl' => '/blog/', 'uk' => '/blog/'],
+    '/oblasti/' => ['en' => '/areas/', 'de' => '/regionen/', 'es' => '/regiones/', 'fr' => '/regions/', 'nl' => '/regios/', 'pl' => '/regiony/', 'uk' => '/areas/'],
 ];
 
 /** Reverzní mapa: lokalizovaný slug (libovolný jazyk) → kanonický. */

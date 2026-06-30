@@ -32,7 +32,7 @@ $homeUrl = BASE_URL . '/';
 $shopUrl = BASE_URL . $lpp('/eshop');
 $cartUrl = BASE_URL . $lpp('/kosik');
 $rezUrl  = BASE_URL . $lpp('/rezervace');
-$localeMap = ['cs' => 'cs-CZ', 'en' => 'en-GB', 'de' => 'de-DE', 'es' => 'es-ES', 'fr' => 'fr-FR', 'nl' => 'nl-NL', 'pl' => 'pl-PL'];
+$localeMap = ['cs' => 'cs-CZ', 'en' => 'en-GB', 'de' => 'de-DE', 'es' => 'es-ES', 'fr' => 'fr-FR', 'nl' => 'nl-NL', 'pl' => 'pl-PL', 'uk' => 'uk-UA'];
 $jsLocale = $localeMap[$lang] ?? 'cs-CZ';
 
 // Dictionary předáme JS — JS pak nahrazuje {placeholdery} ručně

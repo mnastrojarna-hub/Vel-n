@@ -37,7 +37,7 @@ if (!function_exists('str_contains')) {
     }
 }
 
-const I18N_SUPPORTED = ['cs', 'en', 'de', 'es', 'fr', 'nl', 'pl'];
+const I18N_SUPPORTED = ['cs', 'en', 'de', 'es', 'fr', 'nl', 'pl', 'uk'];
 // Globální defaultní jazyk (pro slovníkový fallback). Per-doména default
 // se počítá v i18nSiteDefaultLang() a má přednost při detekci.
 const I18N_DEFAULT = 'cs';
@@ -67,6 +67,7 @@ const I18N_HREFLANG_LIVE = [
     'pl' => true,   // motogo24.pl — funguje
     'fr' => true,   // motogo24.fr — funguje
     'nl' => false,  // motogo24.nl — Seobility 'Domain not connected' (stale cache?)
+    'uk' => false,  // ukrajinština nemá vlastní TLD — bydlí na .com s ?lang=uk
 ];
 
 // Doménové mapování — určuje, na které doméně bydlí "kanonická" verze jazyka.
@@ -106,6 +107,7 @@ const I18N_LANGUAGES = [
     'fr' => ['flag' => '🇫🇷', 'name' => 'Français'],
     'nl' => ['flag' => '🇳🇱', 'name' => 'Nederlands'],
     'pl' => ['flag' => '🇵🇱', 'name' => 'Polski'],
+    'uk' => ['flag' => '🇺🇦', 'name' => 'Українська'],
 ];
 
 /**
@@ -528,7 +530,7 @@ function i18nHtmlLang() {
     $lang = i18nDetectLanguage();
     $map = [
         'cs' => 'cs-CZ', 'en' => 'en-GB', 'de' => 'de-DE', 'es' => 'es-ES',
-        'fr' => 'fr-FR', 'nl' => 'nl-NL', 'pl' => 'pl-PL',
+        'fr' => 'fr-FR', 'nl' => 'nl-NL', 'pl' => 'pl-PL', 'uk' => 'uk-UA',
     ];
     return $map[$lang] ?? 'cs-CZ';
 }
