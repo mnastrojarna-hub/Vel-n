@@ -58,9 +58,9 @@ function applyStatusFromCode(code: number): string {
     case 1104: return 'not_paid';
     case 1106:
     case 1107: return 'cancelled';
-    case 1108:
-    case 1109:
-    case 1112: return 'invalid';
+    case 1108: // akce už vyúčtována — nelze uplatnit
+    case 1112: return 'invalid'; // jen přes rezervaci (cestování) → API apply nepůjde
+    // 1109 (platnost ještě nezačala) je dočasné → 'failed' (zkusit znovu později)
     default: return 'failed';
   }
 }
