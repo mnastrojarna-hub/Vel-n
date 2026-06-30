@@ -22,7 +22,8 @@ class DocumentCameraScreen extends StatefulWidget {
   State<DocumentCameraScreen> createState() => _DocumentCameraScreenState();
 }
 
-class _DocumentCameraScreenState extends State<DocumentCameraScreen> {
+class _DocumentCameraScreenState extends State<DocumentCameraScreen>
+    with WidgetsBindingObserver {
   CameraController? _controller;
   bool _isInitialized = false;
   bool _isCapturing = false;
@@ -31,7 +32,29 @@ class _DocumentCameraScreenState extends State<DocumentCameraScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _initCamera();
+  }
+
+  /// Když appka jde na pozadí, OS uvolní kameru → controller se znevalidní a
+  /// `CameraPreview` (interní ValueListenableBuilder) by se překreslil nad už
+  /// disposnutým controllerem → „buildPreview() on a disposed CameraController"
+  /// → pád / „Restartujte aplikaci". Proto kameru při pauze zavřeme (a schováme
+  /// preview PŘED dispose) a po návratu znovu nahodíme.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final controller = _controller;
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      if (controller != null) {
+        if (mounted) setState(() => _isInitialized = false);
+        controller.dispose();
+        _controller = null;
+      }
+    } else if (state == AppLifecycleState.resumed) {
+      if (_controller == null && _error == null) _initCamera();
+    }
   }
 
   Future<void> _initCamera() async {
@@ -64,7 +87,10 @@ class _DocumentCameraScreenState extends State<DocumentCameraScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _isInitialized = false;
     _controller?.dispose();
+    _controller = null;
     super.dispose();
   }
 
@@ -90,7 +116,9 @@ class _DocumentCameraScreenState extends State<DocumentCameraScreen> {
         fit: StackFit.expand,
         children: [
           // Camera preview
-          if (_isInitialized && _controller != null)
+          if (_isInitialized &&
+              _controller != null &&
+              _controller!.value.isInitialized)
             Center(child: CameraPreview(_controller!))
           else if (_error != null)
             Center(

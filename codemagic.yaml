@@ -134,9 +134,11 @@ workflows:
         script: |
           cd $CM_BUILD_DIR/Motogo-app-main/motogo-app-flutter-ios
           # CFBundleVersion = Codemagic $BUILD_NUMBER (vždy unikátní a rostoucí),
-          # CFBundleShortVersionString (1.1.0) zůstává z pubspec.yaml.
+          # CFBundleShortVersionString = 2.0.9.1 (přes --build-name; 4místná verze
+          # není validní pubspec semver).
           flutter build ipa --release \
             --build-number=$BUILD_NUMBER \
+            --build-name=2.0.9.1 \
             --export-options-plist=/Users/builder/export_options.plist
     artifacts:
       - Motogo-app-main/motogo-app-flutter-ios/build/ios/ipa/*.ipa
@@ -178,13 +180,15 @@ workflows:
           cd $CM_BUILD_DIR/Motogo-app-main/motogo-app-flutter
           # versionCode = Codemagic build number ($BUILD_NUMBER), který se automaticky
           # zvyšuje s každým buildem → je vždy unikátní a rostoucí, takže Google Play už
-          # nikdy neodmítne "verze byla použita". versionName (1.0.1) zůstává z pubspec.yaml.
-          flutter build apk --release --build-number=$BUILD_NUMBER
+          # nikdy neodmítne "verze byla použita". versionName = 2.0.9.1 (4místná verze
+          # není validní pubspec semver, proto se předává přes --build-name).
+          flutter build apk --release --build-number=$BUILD_NUMBER --build-name=2.0.9.1
       - name: Build release AAB (Play Store)
         script: |
           cd $CM_BUILD_DIR/Motogo-app-main/motogo-app-flutter
           # Stejný build number jako u APK (jeden release = jeden versionCode).
-          flutter build appbundle --release --build-number=$BUILD_NUMBER
+          # versionName = 2.0.9.1 (viz výše — předáno přes --build-name).
+          flutter build appbundle --release --build-number=$BUILD_NUMBER --build-name=2.0.9.1
       - name: Generate QR code for APK download
         script: |
           brew install qrencode
