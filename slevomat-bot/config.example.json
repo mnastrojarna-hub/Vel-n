@@ -1,0 +1,32 @@
+{
+  "_comment": "Portálově specifická konfigurace. Zkopíruj na config.json a vyplň podle skutečného partner portálu (viz README → 'Zjištění selektorů'). Selektory mohou být CSS, nebo Playwright text=/role= zápis. Nech '' u nepoužitých.",
+
+  "loginUrl": "https://www.slevomat.cz/partner/prihlaseni",
+  "redeemUrl": "https://www.slevomat.cz/partner/vouchery/uplatnit",
+
+  "selectors": {
+    "_comment": "DOPLNIT z reálného portálu. loggedInMarker = prvek viditelný JEN po přihlášení (např. odkaz Odhlásit). Slouží k detekci platné session.",
+    "usernameInput": "input[name='username']",
+    "passwordInput": "input[name='password']",
+    "loginSubmit": "button[type='submit']",
+    "loggedInMarker": "a[href*='odhlasit'], a[href*='logout']",
+
+    "codeInput": "input[name='code']",
+    "redeemSubmit": "button[type='submit']",
+    "resultMarker": ".alert, .message, [role='alert']"
+  },
+
+  "outcomes": {
+    "_comment": "Regulární výrazy (case-insensitive) proti textu výsledkové hlášky portálu. Pořadí: nejdřív se zkouší 'applied', pak chybové třídy. DOPLNIT podle skutečných hlášek.",
+    "applied": ["uplatněn", "úspěšně", "voucher byl přijat"],
+    "alreadyRedeemed": ["již byl uplatněn", "už byl uplatněn", "already"],
+    "invalid": ["neexistuje", "neplatný", "nenalezen"],
+    "notPaid": ["nebyl zaplacen", "nezaplacen"],
+    "cancelled": ["stornován", "refundován"]
+  },
+
+  "timeouts": {
+    "navigationMs": 30000,
+    "actionMs": 15000
+  }
+}
