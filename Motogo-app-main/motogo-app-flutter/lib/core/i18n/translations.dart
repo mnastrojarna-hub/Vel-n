@@ -23,6 +23,10 @@ import 'translations_ext_8_ui.dart';
 import 'translations_ext_9_cardpay.dart';
 import 'translations_ext_10_loyalty.dart';
 import 'translations_ext_11_routes.dart';
+import 'translations_uk_main.dart';
+import 'translations_uk_ext_a.dart';
+import 'translations_uk_ext_b.dart';
+import 'translations_uk_fill.dart';
 
 /// Deep-merges translation maps so all language keys are combined.
 final translations = _mergeAll([
@@ -42,6 +46,18 @@ final translations = _mergeAll([
   translationsExt9CardPay,
   translationsExt10Loyalty,
   translationsExt11Routes,
+  translationsUkMain,
+  translationsUkExt1,
+  translationsUkExt6,
+  translationsUkExt8,
+  translationsUkExt2,
+  translationsUkExt3,
+  translationsUkExt4,
+  translationsUkExt5,
+  translationsUkExt9,
+  translationsUkExt10,
+  translationsUkExt11,
+  translationsUkFill,
 ]);
 
 Map<String, Map<String, String>> _mergeAll(

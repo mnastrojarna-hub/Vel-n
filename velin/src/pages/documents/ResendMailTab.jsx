@@ -6,7 +6,7 @@ import Button from '../../components/ui/Button'
 import Badge from '../../components/ui/Badge'
 
 // Mapování jazyka na vlaječku/label pro náhled (informativní).
-const LANG_LABEL = { cs: '🇨🇿 Čeština', en: '🇬🇧 English', de: '🇩🇪 Deutsch', es: '🇪🇸 Español', fr: '🇫🇷 Français', nl: '🇳🇱 Nederlands', pl: '🇵🇱 Polski' }
+const LANG_LABEL = { cs: '🇨🇿 Čeština', en: '🇬🇧 English', de: '🇩🇪 Deutsch', es: '🇪🇸 Español', fr: '🇫🇷 Français', nl: '🇳🇱 Nederlands', pl: '🇵🇱 Polski', uk: '🇺🇦 Українська' }
 const langLabel = (l) => LANG_LABEL[String(l || 'cs').slice(0, 2)] || (l || 'cs')
 
 const STATUS_LABEL = {

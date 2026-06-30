@@ -14,6 +14,7 @@ const supportedLocales = [
   Locale('fr'), // Français
   Locale('nl'), // Nederlands
   Locale('pl'), // Polski
+  Locale('uk'), // Українська
 ];
 
 const _langKey = 'mg_language';
@@ -171,4 +172,5 @@ const availableLanguages = [
   LangInfo('fr', '🇫🇷', 'Français'),
   LangInfo('nl', '🇳🇱', 'Nederlands'),
   LangInfo('pl', '🇵🇱', 'Polski'),
+  LangInfo('uk', '🇺🇦', 'Українська'),
 ];

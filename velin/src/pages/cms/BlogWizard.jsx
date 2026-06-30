@@ -216,7 +216,7 @@ export default function BlogWizard({ entry, onClose, onSaved }) {
       details: { slug: payload.slug, title: payload.title, published: payload.published },
     })
 
-    // Auto-překlad do 6 jazyků (en, de, es, fr, nl, pl) — vždy, i pro koncept,
+    // Auto-překlad do 7 jazyků (en, de, es, fr, nl, pl, uk) — vždy, i pro koncept,
     // aby web měl přeložené texty hned jakmile uživatel přepne na publikováno.
     if (id) {
       setTranslating(true)
@@ -451,7 +451,7 @@ function Hint({ text }) {
 function TranslationStatus({ status }) {
   if (!status) return null
   const map = {
-    translating: { bg: '#dbeafe', color: '#1d4ed8', text: '🌍 Překládám do 6 jazyků (en, de, es, fr, nl, pl) — Anthropic Claude…' },
+    translating: { bg: '#dbeafe', color: '#1d4ed8', text: '🌍 Překládám do 7 jazyků (en, de, es, fr, nl, pl, uk) — Anthropic Claude…' },
     done:        { bg: '#dcfce7', color: '#166534', text: `✓ Přeloženo do ${(status.languages || []).length} jazyků` },
     error:       { bg: '#fee2e2', color: '#dc2626', text: `⚠️ Překlad selhal: ${status.error || 'neznámá chyba'} (článek je uložen, můžete přeložit později)` },
     skipped:     { bg: '#f3f4f6', color: '#6b7280', text: 'ℹ️ Žádný text k překladu' },

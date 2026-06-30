@@ -39,7 +39,7 @@ const CORS = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-const DEFAULT_LANGS = ['en', 'de', 'es', 'fr', 'nl', 'pl']
+const DEFAULT_LANGS = ['en', 'de', 'es', 'fr', 'nl', 'pl', 'uk']
 const LANG_NAMES: Record<string, string> = {
   en: 'English',
   de: 'German (Deutsch)',
@@ -47,6 +47,7 @@ const LANG_NAMES: Record<string, string> = {
   fr: 'French (Français)',
   nl: 'Dutch (Nederlands)',
   pl: 'Polish (Polski)',
+  uk: 'Ukrainian (Українська)',
 }
 
 // Live HTTP master endpointy nejsou v defaultu — nasazení PHP routy je nestabilní

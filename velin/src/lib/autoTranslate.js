@@ -14,7 +14,7 @@
 
 import { supabase, supabaseUrl, supabaseAnonKey } from './supabase'
 
-export const TRANSLATE_TARGET_LANGS = ['en', 'de', 'es', 'fr', 'nl', 'pl']
+export const TRANSLATE_TARGET_LANGS = ['en', 'de', 'es', 'fr', 'nl', 'pl', 'uk']
 
 const FIELD_MAP = {
   cms_pages: ['title', 'excerpt', 'content'],

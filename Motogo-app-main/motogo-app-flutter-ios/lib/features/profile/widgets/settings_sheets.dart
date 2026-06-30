@@ -74,6 +74,7 @@ void showLanguagePickerSheet(BuildContext context, WidgetRef ref) {
     ('fr', 'Français 🇫🇷'),
     ('nl', 'Nederlands 🇳🇱'),
     ('pl', 'Polski 🇵🇱'),
+    ('uk', 'Українська 🇺🇦'),
   ];
   showModalBottomSheet(
     context: context,
