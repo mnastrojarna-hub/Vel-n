@@ -99,12 +99,22 @@ Future<void> _initAndRun() async {
 
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 
+  // Android 15 (SDK 35): zobrazení bez okrajů (edge-to-edge) je výchozí.
+  // Explicitně ho zapneme, aby se appka chovala správně i na starších verzích,
+  // a systémové lišty necháme PRŮHLEDNÉ. Tím se vyhneme zastaralým API
+  // Window.setStatusBarColor / setNavigationBarColor (Google Play warning) —
+  // neprůhledná barva (dříve černá nav lišta) je totiž volala.
+  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
     statusBarIconBrightness: Brightness.light,
     statusBarBrightness: Brightness.dark,
-    systemNavigationBarColor: Colors.black,
+    systemStatusBarContrastEnforced: false,
+    systemNavigationBarColor: Colors.transparent,
+    systemNavigationBarDividerColor: Colors.transparent,
     systemNavigationBarIconBrightness: Brightness.light,
+    systemNavigationBarContrastEnforced: false,
   ));
 
   // Initialize Firebase (required for firebase_messaging)
