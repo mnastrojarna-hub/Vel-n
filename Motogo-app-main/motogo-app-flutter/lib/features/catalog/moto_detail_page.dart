@@ -359,7 +359,10 @@ class _MotoDetailPageState extends ConsumerState<MotoDetailPage> {
             top: MediaQuery.of(ctx).padding.top + 8,
             left: 12,
             child: GestureDetector(
-              onTap: () => ctx.pop(),
+              // Detail lze otevřít i deep-linkem/notifikací → v zásobníku není
+              // co popnout a `pop()` by hodil „GoError: nothing to pop". Fallback
+              // na katalog.
+              onTap: () => ctx.canPop() ? ctx.pop() : ctx.go('/search'),
               child: Container(
                 width: 38,
                 height: 38,

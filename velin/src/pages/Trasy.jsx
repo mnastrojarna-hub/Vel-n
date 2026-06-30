@@ -55,6 +55,7 @@ function Trasy() {
   const [showModal, setShowModal] = useState(false)
   const [editing, setEditing] = useState(null)
   const [deleteConfirm, setDeleteConfirm] = useState(null)
+  const [pendingPois, setPendingPois] = useState([])
 
   useEffect(() => { load() }, [])
 
@@ -85,6 +86,12 @@ function Trasy() {
         ;(pois || []).forEach(p => { c[p.route_id] = (c[p.route_id] || 0) + 1 })
         setPoiCounts(c)
       } catch (e) { console.warn('[Trasy] POI counts failed:', e.message) }
+
+      // Komunitní (uživatelské) body zájmu ke schválení
+      try {
+        const { data: up } = await supabase.from('user_pois').select('*').eq('status', 'pending').order('created_at', { ascending: false })
+        setPendingPois(up || [])
+      } catch (e) { console.warn('[Trasy] user_pois failed:', e.message) }
     } catch (e) {
       setError(e.message)
     } finally {
@@ -135,7 +142,33 @@ function Trasy() {
     }
   }
 
+  async function setPoiStatus(poi, status) {
+    try {
+      const { error: err } = await supabase.from('user_pois')
+        .update({ status, updated_at: new Date().toISOString() }).eq('id', poi.id)
+      if (err) throw err
+      setPendingPois(ps => ps.filter(p => p.id !== poi.id))
+      await logAudit(status === 'approved' ? 'user_poi_approved' : 'user_poi_rejected', { name: poi.name })
+    } catch (e) {
+      setError(`Změna stavu bodu zájmu selhala: ${e.message}`)
+    }
+  }
+
+  async function rejectRoute(route) {
+    try {
+      const { error: err } = await supabase.from('routes')
+        .update({ status: 'rejected', is_active: false, updated_at: new Date().toISOString() }).eq('id', route.id)
+      if (err) throw err
+      await logAudit('route_rejected', { name: route.name })
+      load()
+    } catch (e) {
+      setError(`Zamítnutí trasy selhalo: ${e.message}`)
+    }
+  }
+
   const branchName = (id) => branches.find(b => b.id === id)?.name || '—'
+
+  const pendingRoutes = routes.filter(r => r.status === 'pending')
 
   const filtered = routes.filter(r => {
     if (branchFilter !== 'all' && r.branch_id !== branchFilter) return false
@@ -181,6 +214,43 @@ function Trasy() {
             style={{ background: 'none', border: 'none', color: '#dc2626' }}>
             Zkusit znovu
           </button>
+        </div>
+      )}
+
+      {(pendingRoutes.length > 0 || pendingPois.length > 0) && (
+        <div className="mb-5 rounded-card" style={{ background: '#fff7ed', border: '1px solid #fdba74', padding: 14 }}>
+          <div className="text-sm font-extrabold mb-3" style={{ color: '#b45309' }}>
+            🔔 Komunitní návrhy ke schválení ({pendingRoutes.length + pendingPois.length})
+          </div>
+
+          {pendingRoutes.map(r => (
+            <div key={r.id} className="flex items-center gap-3 mb-2 rounded-btn" style={{ background: '#fff', padding: '8px 10px', border: '1px solid #fed7aa' }}>
+              <span className="text-xs font-bold" style={{ background: '#8b5cf6', color: '#fff', padding: '2px 7px', borderRadius: 6 }}>TRASA</span>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-bold truncate" style={{ color: '#1a2e22' }}>{r.name}</div>
+                {r.mapy_url && <a href={r.mapy_url} target="_blank" rel="noreferrer" className="text-xs underline truncate block" style={{ color: '#2563eb' }}>{r.mapy_url}</a>}
+              </div>
+              <Button small onClick={() => { setEditing(r); setShowModal(true) }}>Otevřít & doplnit</Button>
+              <button onClick={() => rejectRoute(r)} className="text-xs font-bold cursor-pointer" style={{ background: 'none', border: 'none', color: '#dc2626' }}>Zamítnout</button>
+            </div>
+          ))}
+
+          {pendingPois.map(p => (
+            <div key={p.id} className="flex items-center gap-3 mb-2 rounded-btn" style={{ background: '#fff', padding: '8px 10px', border: '1px solid #fed7aa' }}>
+              {p.image_url
+                ? <img src={p.image_url} alt={p.name} style={{ width: 44, height: 44, objectFit: 'cover', borderRadius: 8 }} onError={e => { e.target.style.opacity = 0.3 }} />
+                : <div style={{ width: 44, height: 44, borderRadius: 8, background: '#e2f5ec', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>📍</div>}
+              <span className="text-xs font-bold" style={{ background: '#1a8a18', color: '#fff', padding: '2px 7px', borderRadius: 6 }}>BOD</span>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-bold truncate" style={{ color: '#1a2e22' }}>{p.name}</div>
+                <div className="text-xs" style={{ color: '#6b8f7b' }}>
+                  {p.description ? `${p.description.slice(0, 60)} · ` : ''}{Number(p.lat).toFixed(4)}, {Number(p.lng).toFixed(4)}
+                </div>
+              </div>
+              <Button small green onClick={() => setPoiStatus(p, 'approved')}>Schválit</Button>
+              <button onClick={() => setPoiStatus(p, 'rejected')} className="text-xs font-bold cursor-pointer" style={{ background: 'none', border: 'none', color: '#dc2626' }}>Zamítnout</button>
+            </div>
+          ))}
         </div>
       )}
 

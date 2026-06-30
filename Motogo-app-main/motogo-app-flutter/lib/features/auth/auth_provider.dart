@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -377,7 +378,25 @@ class AuthService {
 
   /// Read stored bio user data.
   static Future<Map<String, dynamic>?> getBioUser() async {
-    final raw = await _secureStorage.read(key: _bioUserKey);
+    String? raw;
+    try {
+      raw = await _secureStorage.read(key: _bioUserKey);
+    } on PlatformException catch (_) {
+      // Android keystore klíč se po reinstalaci / obnově ze zálohy / update OS
+      // přegeneruje → uložený blob už nelze dešifrovat (BadPaddingException:
+      // BAD_DECRYPT) a appka při každém startu padala. Smaž poškozený záznam a
+      // vypni biometriku — uživatel se přihlásí heslem, žádný crash.
+      try {
+        await _secureStorage.deleteAll();
+      } catch (_) {}
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool(_bioEnabledKey, false);
+      } catch (_) {}
+      return null;
+    } catch (_) {
+      return null;
+    }
     if (raw == null) return null;
     try {
       return jsonDecode(raw) as Map<String, dynamic>;
