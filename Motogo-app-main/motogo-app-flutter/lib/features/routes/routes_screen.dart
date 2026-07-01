@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -29,6 +31,17 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen> {
   RangeValues? _fDur; // minuty
 
   static const _kAbroad = '__abroad__';
+
+  // Náhodné pořadí tras — nové při každém otevření obrazovky (i po startu appky),
+  // aby nahoře nebyla pokaždé stejná trasa. Seed je stálý po dobu života State,
+  // takže se pořadí nemíchá při scrollování/filtrování.
+  late final int _shuffleSeed;
+
+  @override
+  void initState() {
+    super.initState();
+    _shuffleSeed = Random().nextInt(0x7fffffff);
+  }
 
   int get _activeFilterCount =>
       (_fType.isEmpty ? 0 : 1) +
@@ -163,7 +176,9 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen> {
     final byBranch = _branchId == null
         ? data.routes
         : data.routes.where((r) => r.branchId == _branchId).toList();
-    final routes = byBranch
+    // Náhodné pořadí (stálé po dobu života obrazovky) → filtr.
+    final shuffled = List<RouteItem>.from(byBranch)..shuffle(Random(_shuffleSeed));
+    final routes = shuffled
         .where((r) => _routeMatches(r, _fType, _fDiff, _fCountry, _fDist, _fDur))
         .toList();
 

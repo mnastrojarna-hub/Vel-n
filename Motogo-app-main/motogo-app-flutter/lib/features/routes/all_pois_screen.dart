@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -35,9 +37,14 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
   /// Sentinel filtru pro komunitní (uživatelské) body zájmu.
   static const _kCommunity = '__community__';
 
+  // Náhodné pořadí bodů — nové při každém otevření (i po startu appky). Použije
+  // se, když není známá poloha; se známou polohou vyhrává řazení dle vzdálenosti.
+  late final int _shuffleSeed;
+
   @override
   void initState() {
     super.initState();
+    _shuffleSeed = Random().nextInt(0x7fffffff);
     if (widget.initialSelected != null) _selected.addAll(widget.initialSelected!);
   }
 
@@ -50,7 +57,7 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
     final all = <PoiEntry>[
       ...routePois,
       ...userPois.map((p) => PoiEntry(p, null, null)),
-    ];
+    ]..shuffle(Random(_shuffleSeed));
     final me = ref.watch(currentLocationProvider).valueOrNull;
 
     // Filtr + řazení (podle vzdálenosti od jezdce, jinak dle názvu trasy).
