@@ -30,7 +30,10 @@ class AllPoisScreen extends ConsumerStatefulWidget {
 class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
   final Set<String> _selected = {};
   String _query = '';
-  String? _routeFilter; // null = všechny trasy
+  String? _routeFilter; // null = vše, _kCommunity = komunitní body, jinak id trasy
+
+  /// Sentinel filtru pro komunitní (uživatelské) body zájmu.
+  static const _kCommunity = '__community__';
 
   @override
   void initState() {
@@ -53,7 +56,11 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
     // Filtr + řazení (podle vzdálenosti od jezdce, jinak dle názvu trasy).
     final q = _query.trim().toLowerCase();
     final list = all.where((e) {
-      if (_routeFilter != null && e.route?.id != _routeFilter) return false;
+      if (_routeFilter == _kCommunity) {
+        if (e.route != null) return false; // jen komunitní body
+      } else if (_routeFilter != null && e.route?.id != _routeFilter) {
+        return false;
+      }
       if (q.isEmpty) return true;
       return e.poi.nameFor(lang).toLowerCase().contains(q) ||
           (e.route?.nameFor(lang).toLowerCase().contains(q) ?? false);
@@ -78,7 +85,7 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
         child: Column(
           children: [
             _header(context),
-            _filters(context, lang, routesWithPois.values.toList()),
+            _filters(context, lang, routesWithPois.values.toList(), all),
             Expanded(
               child: all.isEmpty
                   ? _empty(context)
@@ -179,44 +186,82 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
     );
   }
 
-  // ── Filtr tras ──
-  Widget _filters(BuildContext context, String lang, List<RouteItem> routes) {
-    if (routes.length < 2) return const SizedBox(height: 8);
+  // ── Filtr bodů zájmu: zdroj (vše / komunitní / dle trasy) ──
+  Widget _filters(BuildContext context, String lang, List<RouteItem> routes, List<PoiEntry> all) {
+    final communityCount = all.where((e) => e.route == null).length;
+    // Není co filtrovat (méně než 2 trasy a žádné komunitní body) → jen mezera.
+    if (routes.length < 2 && communityCount == 0) return const SizedBox(height: 8);
+
+    int countFor(String? id) {
+      if (id == null) return all.length;
+      if (id == _kCommunity) return communityCount;
+      return all.where((e) => e.route?.id == id).length;
+    }
+
     return SizedBox(
-      height: 48,
+      height: 54,
       child: ListView(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+        clipBehavior: Clip.none,
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
         children: [
-          _routeChip(t(context).tr('poiAllRoutes'), null),
-          ...routes.map((r) => _routeChip(r.nameFor(lang), r.id)),
+          _filterChip(t(context).tr('poiAllRoutes'), null, Icons.apps, countFor(null)),
+          if (communityCount > 0)
+            _filterChip(t(context).tr('poiCommunity'), _kCommunity, Icons.groups, communityCount),
+          ...routes.map((r) => _filterChip(r.nameFor(lang), r.id, Icons.route, countFor(r.id))),
         ],
       ),
     );
   }
 
-  Widget _routeChip(String label, String? id) {
+  Widget _filterChip(String label, String? id, IconData icon, int count) {
     final active = _routeFilter == id;
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: PressableScale(
         pressedScale: 0.94,
         onTap: () => setState(() => _routeFilter = id),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
             color: active ? MotoGoColors.greenDark : Colors.white,
             borderRadius: BorderRadius.circular(MotoGoRadius.pill),
             border: Border.all(color: active ? MotoGoColors.greenDark : MotoGoColors.g200, width: 1.5),
+            boxShadow: active ? MotoGoShadows.cardSmall : null,
           ),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: MotoGoTypo.sizeBase,
-              fontWeight: active ? MotoGoTypo.w800 : MotoGoTypo.w600,
-              color: active ? Colors.white : MotoGoColors.black,
-              decoration: TextDecoration.none,
-            ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 15, color: active ? Colors.white : MotoGoColors.greenDark),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: MotoGoTypo.sizeBase,
+                  fontWeight: active ? MotoGoTypo.w800 : MotoGoTypo.w600,
+                  color: active ? Colors.white : MotoGoColors.black,
+                  decoration: TextDecoration.none,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: active ? Colors.white.withValues(alpha: 0.22) : MotoGoColors.greenPale,
+                  borderRadius: BorderRadius.circular(MotoGoRadius.pill),
+                ),
+                child: Text(
+                  '$count',
+                  style: TextStyle(
+                    fontSize: MotoGoTypo.sizeSm,
+                    fontWeight: MotoGoTypo.w800,
+                    color: active ? Colors.white : MotoGoColors.greenDark,
+                    decoration: TextDecoration.none,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),

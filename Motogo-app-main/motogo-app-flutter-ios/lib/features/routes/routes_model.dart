@@ -110,6 +110,7 @@ class RouteItem {
   final Map? translations;
   final double? reviewAvg; // průměrné hodnocení trasy (recenze)
   final int reviewCount; // počet recenzí
+  final List<String> countries; // ISO kódy zemí, kterými trasa vede (CZ, DE, …)
 
   const RouteItem({
     required this.id,
@@ -129,9 +130,12 @@ class RouteItem {
     this.translations,
     this.reviewAvg,
     this.reviewCount = 0,
+    this.countries = const [],
   });
 
   bool get isLoop => routeType == 'loop';
+  /// Vede trasa i mimo ČR?
+  bool get isAbroad => countries.any((c) => c != 'CZ');
   String? get cover => coverImage ?? (images.isNotEmpty ? images.first : null);
 
   String nameFor(String lang) => _loc(translations, lang, 'name', name);
@@ -191,6 +195,11 @@ class RouteItem {
       translations: j['translations'] is Map ? j['translations'] as Map : null,
       reviewAvg: _toD(j['review_avg']),
       reviewCount: _toI(j['review_count']) ?? 0,
+      countries: (j['countries'] as List?)
+              ?.map((e) => e.toString().toUpperCase())
+              .where((e) => e.isNotEmpty)
+              .toList() ??
+          const [],
     );
   }
 }
