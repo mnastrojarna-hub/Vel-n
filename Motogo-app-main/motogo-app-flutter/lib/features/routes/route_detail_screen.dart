@@ -481,7 +481,11 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
   void _openFullMap(BuildContext context, List<LatLng> geometry, LatLng? start,
       List<({LatLng point, int index})> poiMarkers, RouteItem route, String lang) {
     Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => Scaffold(
+      // Používej VLASTNÍ kontext route builderu (ctx), NE zachycený vnější
+      // `context`. Vnější kontext může být po uspání/obnovení appky neplatný
+      // (bez MediaQuery předka) → MediaQuery.of hodil „Null check operator used
+      // on a null value" a shodil appku (crash v2.0.9). ctx je vždy pod MaterialApp.
+      builder: (ctx) => Scaffold(
         backgroundColor: MotoGoColors.bg,
         body: Stack(
           children: [
@@ -490,14 +494,14 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
                 geometry: geometry,
                 start: start,
                 pois: poiMarkers,
-                onPoiTap: (i) => showRoutePoiSheet(context, route.pois[i], lang, index: i),
+                onPoiTap: (i) => showRoutePoiSheet(ctx, route.pois[i], lang, index: i),
               ),
             ),
             Positioned(
-              top: MediaQuery.of(context).padding.top + 10,
+              top: MediaQuery.of(ctx).padding.top + 10,
               left: 12,
               child: GestureDetector(
-                onTap: () => Navigator.of(context).pop(),
+                onTap: () => Navigator.of(ctx).pop(),
                 child: Container(
                   width: 42, height: 42,
                   decoration: BoxDecoration(
