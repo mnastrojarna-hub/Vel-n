@@ -44,6 +44,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _licExpiryCtrl = TextEditingController();
   String _licGroup = 'A2';
 
+  // Step 3: povinné souhlasy — tvrdý gate. Bez nich nelze dokončit registraci.
+  // Zákazník je smí kdykoli odvolat v Nastavení; nová rezervace si je vyžádá znovu.
+  bool _consentVop = false;
+  bool _consentGdpr = false;
+
   void _next() {
     if (_step == 1 && !_validateStep1()) return;
     if (_step == 2 && !_validateStep2()) return;
@@ -200,6 +205,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
           message: t(context).tr('licenseMinValid'));
       return false;
     }
+    // Povinné souhlasy — bez VOP a zpracování osobních údajů registraci nedokončíme.
+    if (!_consentVop || !_consentGdpr) {
+      showMotoGoToast(context, icon: '⚠️', title: t(context).tr('regConsentTitle'),
+          message: t(context).tr('consentRequiredMsg'));
+      return false;
+    }
     return true;
   }
 
@@ -232,6 +243,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
         'license_number': _licNumCtrl.text.trim(),
         'license_expiry': _toIsoDate(_licExpiryCtrl.text.trim()),
         'license_group': [_licGroup],
+        // Povinné souhlasy zákazník aktivně odklikl v kroku 3 (gate ve
+        // _validateStep3). Zapisujeme je explicitně, ať Velín ukazuje reálný
+        // stav a nespoléháme na server-side default.
+        'consent_vop': _consentVop,
+        'consent_gdpr': _consentGdpr,
+        'consent_data_processing': _consentGdpr,
       },
     );
 
@@ -503,5 +520,44 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ],
         onChanged: (v) => setState(() => _licGroup = v ?? _licGroup),
       ),
+      const SizedBox(height: 14),
+      Container(height: 1, color: MotoGoColors.g200),
+      const SizedBox(height: 10),
+      Text(t(context).tr('regConsentTitle'),
+          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: MotoGoColors.black)),
+      const SizedBox(height: 2),
+      _consentCheckbox(t(context).tr('consentTermsVop'), _consentVop,
+          (v) => setState(() => _consentVop = v)),
+      _consentCheckbox(t(context).tr('consentPersonalData'), _consentGdpr,
+          (v) => setState(() => _consentGdpr = v)),
   ]);
+
+  /// Zaškrtávací řádek pro povinný souhlas (VOP / zpracování osobních údajů).
+  Widget _consentCheckbox(String label, bool value, ValueChanged<bool> onChanged) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => onChanged(!value),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Container(
+            width: 22, height: 22,
+            margin: const EdgeInsets.only(top: 1),
+            decoration: BoxDecoration(
+              color: value ? MotoGoColors.green : Colors.transparent,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                  color: value ? MotoGoColors.green : MotoGoColors.g300, width: 2),
+            ),
+            child: value ? const Icon(Icons.check, size: 15, color: Colors.black) : null,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(label,
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: MotoGoColors.black)),
+          ),
+        ]),
+      ),
+    );
+  }
 }
