@@ -199,6 +199,11 @@ function LoyaltyChip({ userId }) {
 export default function ProfileTab({ customer, set, error, saving, onSave, onDelete, onBlock }) {
   const age = czAge(customer.date_of_birth)
   const groups = customer.license_group || []
+  // NULL/undefined souhlas = zákazník ho nikdy explicitně nenastavil (stará
+  // verze appky / řádek před sjednocením defaultů). Zbytek systému (app, web)
+  // bere NULL jako zapnuto, proto ho nezobrazujeme jako červené „NE", ale jako
+  // šedé „Neznámé". Explicitní false zůstává „NE".
+  const unknownC = (v) => v === null || v === undefined
 
   return (
     <div className="space-y-5">
@@ -281,21 +286,21 @@ export default function ProfileTab({ customer, set, error, saving, onSave, onDel
         {/* Komunikace a notifikace — položkově */}
         <Card>
           <SectionTitle right={<span className="text-[11px]" style={{ color: C.muted }}>Klikem přepneš</span>}>Komunikace a notifikace</SectionTitle>
-          <ConsentRow label="Email" desc="Transakční vždy · marketing jen se souhlasem" checked={!!customer.consent_email} onChange={v => set('consent_email', v)} />
-          <ConsentRow label="SMS" desc="Transakční vždy · marketing jen se souhlasem" checked={!!customer.consent_sms} onChange={v => set('consent_sms', v)} />
-          <ConsentRow label="WhatsApp" desc="Transakční vždy · marketing jen se souhlasem" checked={!!customer.consent_whatsapp} onChange={v => set('consent_whatsapp', v)} />
-          <ConsentRow label="Push" desc="Při vypnutí se push neodešle (mimo rezervaci)" checked={!!customer.consent_push} onChange={v => set('consent_push', v)} />
-          <ConsentRow label="Marketing" desc="Hromadné kampaně (broadcast)" checked={!!customer.marketing_consent} onChange={v => set('marketing_consent', v)} />
+          <ConsentRow label="Email" desc="Transakční vždy · marketing jen se souhlasem" checked={!!customer.consent_email} unknown={unknownC(customer.consent_email)} onChange={v => set('consent_email', v)} />
+          <ConsentRow label="SMS" desc="Transakční vždy · marketing jen se souhlasem" checked={!!customer.consent_sms} unknown={unknownC(customer.consent_sms)} onChange={v => set('consent_sms', v)} />
+          <ConsentRow label="WhatsApp" desc="Transakční vždy · marketing jen se souhlasem" checked={!!customer.consent_whatsapp} unknown={unknownC(customer.consent_whatsapp)} onChange={v => set('consent_whatsapp', v)} />
+          <ConsentRow label="Push" desc="Při vypnutí se push neodešle (mimo rezervaci)" checked={!!customer.consent_push} unknown={unknownC(customer.consent_push)} onChange={v => set('consent_push', v)} />
+          <ConsentRow label="Marketing" desc="Hromadné kampaně (broadcast)" checked={!!customer.marketing_consent} unknown={unknownC(customer.marketing_consent)} onChange={v => set('marketing_consent', v)} />
         </Card>
 
         {/* Soukromí a souhlasy — položkově */}
         <Card>
           <SectionTitle right={<span className="text-[11px]" style={{ color: C.muted }}>Klikem přepneš</span>}>Soukromí a souhlasy</SectionTitle>
-          <ConsentRow label="VOP" required desc="Obchodní podmínky — nutné pro rezervaci" checked={!!customer.consent_vop} onChange={v => set('consent_vop', v)} />
-          <ConsentRow label="GDPR" required desc="Souhlas se zpracováním osobních údajů" checked={!!customer.consent_gdpr} onChange={v => set('consent_gdpr', v)} />
-          <ConsentRow label="Zpracování dat" required desc="Nutné pro vyřízení rezervace" checked={!!customer.consent_data_processing} onChange={v => set('consent_data_processing', v)} />
-          <ConsentRow label="Smlouva" desc="Souhlas s nájemní smlouvou" checked={!!customer.consent_contract} onChange={v => set('consent_contract', v)} />
-          <ConsentRow label="Foto" desc="Souhlas s fotodokumentací" checked={!!customer.consent_photo} onChange={v => set('consent_photo', v)} />
+          <ConsentRow label="VOP" required desc="Obchodní podmínky — nutné pro rezervaci" checked={!!customer.consent_vop} unknown={unknownC(customer.consent_vop)} onChange={v => set('consent_vop', v)} />
+          <ConsentRow label="GDPR" required desc="Souhlas se zpracováním osobních údajů" checked={!!customer.consent_gdpr} unknown={unknownC(customer.consent_gdpr)} onChange={v => set('consent_gdpr', v)} />
+          <ConsentRow label="Zpracování dat" required desc="Nutné pro vyřízení rezervace" checked={!!customer.consent_data_processing} unknown={unknownC(customer.consent_data_processing)} onChange={v => set('consent_data_processing', v)} />
+          <ConsentRow label="Smlouva" desc="Souhlas s nájemní smlouvou" checked={!!customer.consent_contract} unknown={unknownC(customer.consent_contract)} onChange={v => set('consent_contract', v)} />
+          <ConsentRow label="Foto" desc="Souhlas s fotodokumentací" checked={!!customer.consent_photo} unknown={unknownC(customer.consent_photo)} onChange={v => set('consent_photo', v)} />
         </Card>
 
         {/* OS oprávnění z telefonu (zrcadlí app_permissions) */}
