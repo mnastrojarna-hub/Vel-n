@@ -1,6 +1,6 @@
 # Přehled naseedovaných tras — k revizi
 
-> **105 tras · 923 bodů zájmu · 1837 fotek.** SQL: `supabase/migrations/20260701_seed_recommended_routes.sql`.
+> **105 tras · 923 bodů zájmu · 1837 fotek.** SQL: `..._routes_1.sql` + `..._routes_2.sql` (rozděleno na 2 části — spusť obě).
 > Trasy = **Skryto** (`is_active=false`); ve Velíně zkontroluj a **Publikuj** (nebo hromadně přes publikační SQL).
 > Každý bod zájmu má 1–3 fotky (Wikimedia Commons), každá trasa český popis, GPS, odkaz na mapu, **státy** (filtr) a **🍽 doporučenou restauraci**.
 
