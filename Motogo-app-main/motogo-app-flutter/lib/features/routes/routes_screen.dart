@@ -1,6 +1,5 @@
 import 'dart:math';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -10,6 +9,7 @@ import '../../core/i18n/i18n_provider.dart';
 import '../../core/widgets/moto_fx.dart';
 import 'routes_model.dart';
 import 'routes_provider.dart';
+import 'route_image.dart';
 import 'community_submit.dart';
 
 /// Obrazovka „Trasy" — doporučené motorkářské trasy od poboček.
@@ -857,12 +857,11 @@ class _RouteCard extends StatelessWidget {
                 fit: StackFit.expand,
                 children: [
                   if (cover != null)
-                    CachedNetworkImage(
-                      imageUrl: cover,
-                      fit: BoxFit.cover,
-                      fadeInDuration: const Duration(milliseconds: 200),
-                      placeholder: (_, __) => _coverFallback(),
-                      errorWidget: (_, __, ___) => _coverFallback(),
+                    RouteImage(
+                      url: cover,
+                      targetWidth: 800,
+                      placeholder: (_) => _coverFallback(),
+                      error: (_) => _coverFallback(),
                     )
                   else
                     _coverFallback(),

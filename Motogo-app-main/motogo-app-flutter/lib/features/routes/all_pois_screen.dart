@@ -1,6 +1,5 @@
 import 'dart:math';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -12,6 +11,7 @@ import '../../core/i18n/i18n_provider.dart';
 import '../../core/widgets/moto_fx.dart';
 import 'routes_model.dart';
 import 'routes_provider.dart';
+import 'route_image.dart';
 import 'route_poi_sheet.dart';
 
 /// Katalog VŠECH bodů zájmu napříč trasami. Trasa je jen doporučení — tady si
@@ -312,10 +312,12 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
                 width: 84,
                 height: 84,
                 child: e.poi.cover != null
-                    ? CachedNetworkImage(imageUrl: e.poi.cover!, fit: BoxFit.cover,
-                        fadeInDuration: const Duration(milliseconds: 200),
-                        placeholder: (_, __) => _thumbFallback(),
-                        errorWidget: (_, __, ___) => _thumbFallback())
+                    ? RouteImage(
+                        url: e.poi.cover!,
+                        targetWidth: 300,
+                        placeholder: (_) => _thumbFallback(),
+                        error: (_) => _thumbFallback(),
+                      )
                     : _thumbFallback(),
               ),
               Expanded(

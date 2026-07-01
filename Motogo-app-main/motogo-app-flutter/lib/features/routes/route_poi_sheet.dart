@@ -1,8 +1,8 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/theme.dart';
 import 'routes_model.dart';
+import 'route_image.dart';
 import 'poi_rating.dart';
 import '../../core/i18n/i18n_provider.dart';
 
@@ -35,17 +35,16 @@ void showRoutePoiSheet(BuildContext context, RoutePoi poi, String lang, {int? in
               borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
               child: Stack(
                 children: [
-                  CachedNetworkImage(
-                    imageUrl: imgs.first,
+                  RouteImage(
+                    url: imgs.first,
                     height: 190,
                     width: double.infinity,
-                    fit: BoxFit.cover,
-                    fadeInDuration: const Duration(milliseconds: 200),
-                    placeholder: (_, __) => Container(
+                    targetWidth: 1000,
+                    placeholder: (_) => Container(
                       height: 190,
                       color: MotoGoColors.greenPale,
                     ),
-                    errorWidget: (_, __, ___) => Container(
+                    error: (_) => Container(
                       height: 120,
                       color: MotoGoColors.greenPale,
                       child: const Center(child: Text('📍', style: TextStyle(fontSize: 34))),
@@ -91,14 +90,14 @@ void showRoutePoiSheet(BuildContext context, RoutePoi poi, String lang, {int? in
                 onTap: () => _openImageViewer(context, imgs, i),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(10),
-                  child: CachedNetworkImage(
-                    imageUrl: imgs[i],
-                    width: 84, height: 60, fit: BoxFit.cover,
-                    fadeInDuration: const Duration(milliseconds: 200),
-                    placeholder: (_, __) => Container(
+                  child: RouteImage(
+                    url: imgs[i],
+                    width: 84, height: 60,
+                    targetWidth: 300,
+                    placeholder: (_) => Container(
                       width: 84, color: MotoGoColors.greenPale,
                     ),
-                    errorWidget: (_, __, ___) => Container(
+                    error: (_) => Container(
                       width: 84, color: MotoGoColors.greenPale,
                       child: const Center(child: Text('📍')),
                     ),
@@ -178,10 +177,12 @@ void _openImageViewer(BuildContext context, List<String> imgs, int start) {
               minScale: 1,
               maxScale: 5,
               child: Center(
-                child: CachedNetworkImage(
-                  imageUrl: imgs[i],
+                child: RouteImage(
+                  url: imgs[i],
                   fit: BoxFit.contain,
-                  errorWidget: (_, __, ___) =>
+                  targetWidth: 1600,
+                  placeholder: (_) => const SizedBox.shrink(),
+                  error: (_) =>
                       const Center(child: Text('📍', style: TextStyle(fontSize: 48))),
                 ),
               ),
