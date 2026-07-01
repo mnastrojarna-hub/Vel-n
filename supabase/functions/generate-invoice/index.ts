@@ -634,10 +634,38 @@ serve(async (req) => {
     let dpDeduction = 0; let dpNumber = ''
     const isShopFinal = invoiceType === 'shop_final'
     if (isShopFinal && order_id) {
-      const { data: dpRows } = await supabase.from('invoices').select('number, total')
+      let { data: dpRows } = await supabase.from('invoices').select('number, total')
         .eq('order_id', order_id).eq('type', 'payment_receipt')
         .neq('status', 'cancelled')
         .order('created_at', { ascending: true })
+      // Konečná faktura MUSÍ odečíst DP → doplatek 0 Kč. shop_final se ale často
+      // generuje DŘÍV, než vznikne DP (DB trigger generate_shop_final_on_ship +
+      // confirmShopPayment volají KF hned, DP se doplní až přílohou
+      // voucher_purchased/shop_order_confirmed mailu). Bez DP by KF zůstala na plné
+      // částce a platba by se v tržbách počítala 2× (poukaz „počítaný 2×"). Proto
+      // když pro (už zaplacenou) objednávku DP ještě neexistuje, vystavíme ho TEĎ
+      // synchronně a až pak KF s jeho odečtem. Idempotentní: DP má unikátní index
+      // na (order_id, type), souběžné generování vrátí existující doklad.
+      if (!dpRows?.length) {
+        try {
+          await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
+              'apikey': SUPABASE_SERVICE_KEY,
+            },
+            body: JSON.stringify({ type: 'payment_receipt', order_id, source: 'shop', send_email: false }),
+          })
+        } catch (e) {
+          console.warn('[generate-invoice] shop_final: auto-DP generate failed:', (e as Error).message)
+        }
+        const reDp = await supabase.from('invoices').select('number, total')
+          .eq('order_id', order_id).eq('type', 'payment_receipt')
+          .neq('status', 'cancelled')
+          .order('created_at', { ascending: true })
+        dpRows = reDp.data
+      }
       if (dpRows?.length) {
         dpRows.forEach((dp: any) => {
           items.push({ description: `Odečet DP ${dp.number || ''} (již uhrazeno)`, qty: 1, unit_price: -Number(dp.total || 0) })
