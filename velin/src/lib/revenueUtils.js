@@ -112,6 +112,22 @@ export function sumInvoiceRevenue(invoices) {
 }
 
 /**
+ * Vrátí řádky faktur reprezentující reálně přijaté platby (DP + KF + shop_final)
+ * BEZ dvojího ZOBRAZENÍ e-shop platby: u objednávky s DP (payment_receipt)
+ * vynechá shop_final (Shop KF) — je to táž platba (viz `sumInvoiceRevenue`).
+ * Bez dedupu by se e-shop objednávka v „Poslední přijaté platby" objevila 2×
+ * (jednou jako DP, jednou jako Shop KF). Pořadí vstupu zůstává zachováno.
+ */
+export function receivedInvoiceRows(invoices) {
+  const rows = (invoices || [])
+    .filter(i => !isVoidInvoice(i) && !isTestInvoice(i) && INVOICE_RECEIVED_TYPES.includes(i.type))
+  const ordersWithReceipt = new Set(
+    rows.filter(i => i.type === 'payment_receipt' && i.order_id).map(i => i.order_id)
+  )
+  return rows.filter(i => !(i.type === 'shop_final' && i.order_id && ordersWithReceipt.has(i.order_id)))
+}
+
+/**
  * Spočítá souhrn faktur: Zaplaceno / Nezaplaceno / Celkem / Stornováno.
  *
  * Vstup: pole řádků z `invoices` načtené min. se sloupci
