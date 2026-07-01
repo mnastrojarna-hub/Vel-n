@@ -46,6 +46,9 @@ void showChangePasswordSheet(BuildContext context) {
             }
             final err = await AuthService.updatePassword(passCtrl.text);
             if (ctx.mounted) Navigator.pop(ctx);
+            // Po awaitu ověř, že vnější obrazovka je stále v tree — jinak by
+            // toast na neplatném contextu spadl (parita s lang/currency sheety).
+            if (!context.mounted) return;
             if (err != null) {
               showMotoGoToast(context, icon: '✗', title: t(context).tr('error'), message: err);
             } else {
