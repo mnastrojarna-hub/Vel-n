@@ -12,6 +12,7 @@ import 'routes_provider.dart';
 import 'route_map.dart';
 import 'route_export.dart';
 import 'route_poi_sheet.dart';
+import 'route_reviews.dart';
 
 class RouteDetailScreen extends ConsumerStatefulWidget {
   final String routeId;
@@ -170,6 +171,8 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
                   const SizedBox(height: 10),
                   _gallery(route),
                 ],
+                const SizedBox(height: 24),
+                RouteReviewsSection(routeId: route.id),
               ],
             ),
           ),

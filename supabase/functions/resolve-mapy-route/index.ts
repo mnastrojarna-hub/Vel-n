@@ -92,6 +92,55 @@ function rcFromUrl(url: string): string | null {
   }
 }
 
+const r6 = (v: number) => Math.round(v * 1e6) / 1e6
+
+function isGoogle(url: string): boolean {
+  return /(?:google\.[a-z.]+\/maps|maps\.app\.goo\.gl|goo\.gl\/maps)/i.test(url)
+}
+
+function isGoogleShort(url: string): boolean {
+  return /(?:maps\.app\.goo\.gl|goo\.gl\/maps)\//i.test(url)
+}
+
+/** Body trasy z PLNÉ Google Maps URL (port z velin/src/lib/mapyRoute.js). */
+function decodeGoogleRouteCoords(url: string): Array<{ lat: number; lng: number }> {
+  const out: Array<{ lat: number; lng: number }> = []
+  // 1) data param: !1d<lng>!2d<lat>
+  const re = /!1d(-?\d+(?:\.\d+)?)!2d(-?\d+(?:\.\d+)?)/g
+  let m: RegExpExecArray | null
+  while ((m = re.exec(url)) !== null) {
+    const lng = Number(m[1]); const lat = Number(m[2])
+    if (isFinite(lat) && isFinite(lng)) out.push({ lat: r6(lat), lng: r6(lng) })
+  }
+  if (out.length) return out
+  // 2) api=1 query
+  try {
+    const q = new URL(url).searchParams
+    const pushLL = (val: string | null) => {
+      if (!val) return
+      const p = val.split(',').map((x) => Number(x.trim()))
+      if (p.length >= 2 && isFinite(p[0]) && isFinite(p[1])) out.push({ lat: r6(p[0]), lng: r6(p[1]) })
+    }
+    pushLL(q.get('origin'))
+    const wp = q.get('waypoints')
+    if (wp) wp.split('|').forEach(pushLL)
+    pushLL(q.get('destination'))
+    if (out.length) return out
+    const at = url.match(/@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/)
+    if (at) { const lat = Number(at[1]); const lng = Number(at[2]); if (isFinite(lat) && isFinite(lng)) out.push({ lat: r6(lat), lng: r6(lng) }) }
+    const pl = url.match(/!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/)
+    if (!out.length && pl) { const lat = Number(pl[1]); const lng = Number(pl[2]); if (isFinite(lat) && isFinite(lng)) out.push({ lat: r6(lat), lng: r6(lng) }) }
+  } catch { /* neplatná URL */ }
+  return out
+}
+
+const BROWSER_HEADERS = {
+  'User-Agent':
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
+  'Accept-Language': 'cs,en;q=0.8',
+  'Accept': 'text/html,application/xhtml+xml',
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
   if (req.method !== 'POST') return json({ success: false, error: 'Method not allowed' }, 405)
@@ -110,6 +159,32 @@ serve(async (req) => {
 
     const { url } = await req.json().catch(() => ({}))
     if (!url || typeof url !== 'string') return json({ success: false, error: 'Chybí odkaz (url)' }, 400)
+
+    // ── Google Maps větev ──────────────────────────────────────────────
+    if (isGoogle(url)) {
+      let gUrl = url
+      if (isGoogleShort(url)) {
+        // Zkrácený maps.app.goo.gl → následuj redirect na plnou URL.
+        try {
+          const res = await fetch(url, { redirect: 'follow', headers: BROWSER_HEADERS })
+          gUrl = res.url || url
+          if (!/[!@]/.test(gUrl) || !decodeGoogleRouteCoords(gUrl).length) {
+            // Někdy je plná URL až v těle (JS redirect / consent stránka).
+            const body = await res.text().catch(() => '')
+            const mm = body.match(/https?:\/\/www\.google\.[a-z.]+\/maps\/[^\s"'\\<]+/)
+            if (mm) gUrl = mm[0].replace(/\\u003d/g, '=').replace(/\\u0026/g, '&')
+          }
+        } catch { /* necháme gUrl = url */ }
+      }
+      const gWaypoints = decodeGoogleRouteCoords(gUrl)
+      if (!gWaypoints.length) {
+        return json({
+          success: false,
+          error: 'V Google odkazu se nepodařilo najít body trasy. Otevři odkaz v Google Maps, přepni na „Trasu" (dir) a zkopíruj plnou URL z adresního řádku.',
+        }, 422)
+      }
+      return json({ success: true, provider: 'google', url: gUrl, waypoints: gWaypoints })
+    }
 
     // Plná URL už rc obsahuje — dekódovat rovnou (bez fetche).
     let finalUrl = url

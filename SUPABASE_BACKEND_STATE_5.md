@@ -171,8 +171,10 @@ Ověřené vzory z živého schématu (`schema_public.sql`):
 | Bucket | Přístup | Použití |
 |--------|---------|---------|
 | `documents` | **private** | Faktury (invoices/{id}.html), generované dokumenty (generated/{uuid}.html), smlouvy, naskenované doklady zákazníků (`<user_id>/<doc>_<ts>.<ext>`) |
-| `media` | **public** | Fotky motorek, loga, marketingové materiály |
+| `media` | **public** | Fotky motorek, loga, marketingové materiály, trasy (`routes/...`), komunitní body zájmu (`user-pois/...`), **fotky recenzí tras (`route-reviews/<uid>/...`) NEW 2026-07-01** |
 | `sos-photos` | **private** | Fotky z SOS incidentů (poškození, nehody) |
+
+**Storage politiky pro `media` (komunitní obsah):** `media_user_poi_upload` (authenticated INSERT, prefix `user-pois/`, mig. 20260629) + **`media_route_review_upload` (authenticated INSERT, prefix `route-reviews/`, mig. `20260701_route_reviews.sql`)**. Čtení je public přes existující politiku bucketu `media`.
 
 ### RLS politiky `storage.objects` pro bucket `documents` (2026-05-05)
 Před opravou byl pro authenticated zákazníka přístup do bucketu zamaskován jako 404 „Bucket not found" (chyběla SELECT politika); v Supabase Storage se 403 vrací jako 404, aby se neleakly názvy bucketů. Velín admin fungoval díky `is_admin()` bypassu.
