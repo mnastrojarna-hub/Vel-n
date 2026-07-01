@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -194,8 +195,10 @@ class _RouteReviewsSectionState extends State<RouteReviewsSection> {
                   separatorBuilder: (_, __) => const SizedBox(width: 8),
                   itemBuilder: (_, i) => ClipRRect(
                     borderRadius: BorderRadius.circular(10),
-                    child: Image.network(photos[i], width: 72, height: 72, fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(width: 72, height: 72, color: MotoGoColors.greenPale)),
+                    child: CachedNetworkImage(imageUrl: photos[i], width: 72, height: 72, fit: BoxFit.cover,
+                        fadeInDuration: const Duration(milliseconds: 200),
+                        placeholder: (_, __) => Container(width: 72, height: 72, color: MotoGoColors.greenPale),
+                        errorWidget: (_, __, ___) => Container(width: 72, height: 72, color: MotoGoColors.greenPale)),
                   ),
                 ),
               ),

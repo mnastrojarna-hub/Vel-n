@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -360,10 +361,12 @@ class _RouteCard extends StatelessWidget {
                 fit: StackFit.expand,
                 children: [
                   if (cover != null)
-                    Image.network(
-                      cover,
+                    CachedNetworkImage(
+                      imageUrl: cover,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => _coverFallback(),
+                      fadeInDuration: const Duration(milliseconds: 200),
+                      placeholder: (_, __) => _coverFallback(),
+                      errorWidget: (_, __, ___) => _coverFallback(),
                     )
                   else
                     _coverFallback(),

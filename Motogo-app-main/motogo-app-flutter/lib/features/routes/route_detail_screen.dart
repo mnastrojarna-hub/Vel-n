@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -271,8 +272,12 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
                       fit: StackFit.expand,
                       children: [
                         if (p.cover != null)
-                          Image.network(p.cover!, fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => _poiFallback())
+                          CachedNetworkImage(
+                              imageUrl: p.cover!,
+                              fit: BoxFit.cover,
+                              fadeInDuration: const Duration(milliseconds: 200),
+                              placeholder: (_, __) => _poiFallback(),
+                              errorWidget: (_, __, ___) => _poiFallback())
                         else
                           _poiFallback(),
                         Positioned(
@@ -350,12 +355,17 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
         separatorBuilder: (_, __) => const SizedBox(width: 10),
         itemBuilder: (context, i) => ClipRRect(
           borderRadius: BorderRadius.circular(MotoGoRadius.xl),
-          child: Image.network(
-            route.images[i],
+          child: CachedNetworkImage(
+            imageUrl: route.images[i],
             width: 170,
             height: 120,
             fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => Container(
+            fadeInDuration: const Duration(milliseconds: 200),
+            placeholder: (_, __) => Container(
+              width: 170,
+              color: MotoGoColors.greenPale,
+            ),
+            errorWidget: (_, __, ___) => Container(
               width: 170,
               color: MotoGoColors.greenPale,
               child: const Center(child: Text('🏞️', style: TextStyle(fontSize: 28))),
