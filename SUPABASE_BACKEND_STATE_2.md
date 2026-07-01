@@ -104,7 +104,7 @@
 - license_group (`license_group[]` — pole ENUM hodnot AM/A1/A2/A/B/N, **OPRAVA 2026-06-11:** dříve chybně dokumentováno jako text[]; update vyžaduje cast `ARRAY['A']::license_group[]`), riding_experience
 - emergency_contact, emergency_phone
 - gear_sizes (jsonb), reliability_score (jsonb)
-- marketing_consent (boolean DEFAULT **true**)
+- marketing_consent (boolean DEFAULT **false** — **ZMĚNA 2026-07-01** z `true` na `false`, marketing je nově opt-in; mig. `20260701_app_save_full_profile_marketing_optin.sql`. Registrace v appce (RPC `app_save_full_profile`) ani web (`create_web_booking`) marketing nesbírají → nově zůstává vypnutý, dokud ho zákazník výslovně nezapne)
 - **date_of_birth** — datum narození
 - **avatar_url** — URL avataru
 - **preferred_branch** — preferovaná pobočka
@@ -122,7 +122,7 @@
 - **consent_photo** (boolean DEFAULT **true**) — souhlas fotografování dokladů
 - **consent_whatsapp** (boolean DEFAULT **true**) — souhlas WhatsApp komunikace
 - **consent_contract** (boolean DEFAULT **true**) — souhlas s návrhem smlouvy na motogo24.cz
-- **POZN.** Všech 10 consent sloupců default `true` (změna 2026-04-29). Backfill NULL→true proběhl. Frontend v upravit-rezervaci navíc bere NULL jako ON, jen explicitní `false` zobrazí jako vypnuté.
+- **POZN.** 9 consent sloupců default `true` (změna 2026-04-29), **`marketing_consent` nově default `false`** (opt-in, změna 2026-07-01 — viz výše). Backfill NULL→true proběhl (marketing historicky taky true — ALTER defaultu ovlivní jen NOVÉ řádky, existující marketingové souhlasy nemění). Frontend v upravit-rezervaci navíc bere NULL jako ON, jen explicitní `false` zobrazí jako vypnuté. **Velín `CustomerProfileTab` (2026-07-01):** NULL/undefined souhlas zobrazuje jako šedé „Neznámé" (ne červené „NE").
 - **stripe_customer_id** (TEXT) — Stripe Customer ID pro uložené platební metody
 - **id_number** (TEXT DEFAULT NULL) — číslo dokladu totožnosti (OP nebo pas) z Mindee OCR
 - **id_verified_at** (TIMESTAMPTZ) — datum ověření OP přes Mindee OCR
