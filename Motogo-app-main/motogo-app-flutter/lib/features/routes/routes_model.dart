@@ -108,6 +108,8 @@ class RouteItem {
   final List<String> images;
   final List<RoutePoi> pois;
   final Map? translations;
+  final double? reviewAvg; // průměrné hodnocení trasy (recenze)
+  final int reviewCount; // počet recenzí
 
   const RouteItem({
     required this.id,
@@ -125,6 +127,8 @@ class RouteItem {
     this.images = const [],
     this.pois = const [],
     this.translations,
+    this.reviewAvg,
+    this.reviewCount = 0,
   });
 
   bool get isLoop => routeType == 'loop';
@@ -185,6 +189,8 @@ class RouteItem {
       images: (j['images'] as List?)?.map((e) => e.toString()).toList() ?? const [],
       pois: poiList,
       translations: j['translations'] is Map ? j['translations'] as Map : null,
+      reviewAvg: _toD(j['review_avg']),
+      reviewCount: _toI(j['review_count']) ?? 0,
     );
   }
 }

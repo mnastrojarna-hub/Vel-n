@@ -8,6 +8,7 @@ import ConfirmDialog from '../components/ui/ConfirmDialog'
 import SearchInput from '../components/ui/SearchInput'
 import { StatCard, SmallBtn } from './BranchHelpers'
 import TrasyModal from './TrasyModal'
+import TrasyReviewsModal from './TrasyReviewsModal'
 
 // ─── Error boundary (stejný vzor jako Branches) ──────────────────────
 class TrasyErrorBoundary extends Component {
@@ -56,6 +57,8 @@ function Trasy() {
   const [editing, setEditing] = useState(null)
   const [deleteConfirm, setDeleteConfirm] = useState(null)
   const [pendingPois, setPendingPois] = useState([])
+  const [reviewStats, setReviewStats] = useState({})
+  const [reviewsFor, setReviewsFor] = useState(null)
 
   useEffect(() => { load() }, [])
 
@@ -92,6 +95,20 @@ function Trasy() {
         const { data: up } = await supabase.from('user_pois').select('*').eq('status', 'pending').order('created_at', { ascending: false })
         setPendingPois(up || [])
       } catch (e) { console.warn('[Trasy] user_pois failed:', e.message) }
+
+      // Agregace recenzí tras (počet + průměr, jen schválené)
+      try {
+        const { data: revs } = await supabase.from('route_reviews').select('route_id, rating, status')
+        const agg = {}
+        ;(revs || []).forEach(r => {
+          if (r.status !== 'approved') return
+          const a = agg[r.route_id] || { sum: 0, count: 0 }
+          a.sum += r.rating; a.count += 1; agg[r.route_id] = a
+        })
+        const stats = {}
+        Object.entries(agg).forEach(([id, a]) => { stats[id] = { avg: Math.round((a.sum / a.count) * 10) / 10, count: a.count } })
+        setReviewStats(stats)
+      } catch (e) { console.warn('[Trasy] route_reviews failed:', e.message) }
     } catch (e) {
       setError(e.message)
     } finally {
@@ -274,7 +291,7 @@ function Trasy() {
           <thead>
             <TRow header>
               <TH>Náhled</TH><TH>Název</TH><TH>Pobočka</TH><TH>Typ</TH><TH>Délka</TH>
-              <TH>Body zájmu</TH><TH>Stav</TH><TH>Akce</TH>
+              <TH>Body zájmu</TH><TH>Recenze</TH><TH>Stav</TH><TH>Akce</TH>
             </TRow>
           </thead>
           <tbody>
@@ -300,6 +317,13 @@ function Trasy() {
                   <span className="font-bold" style={{ color: poiCounts[r.id] > 0 ? '#8b5cf6' : '#1a2e22' }}>
                     {poiCounts[r.id] || 0}
                   </span>
+                </TD>
+                <TD>
+                  <button onClick={e => { e.stopPropagation(); setReviewsFor(r) }}
+                    className="cursor-pointer text-sm font-bold" style={{ background: 'none', border: 'none', color: reviewStats[r.id] ? '#f59e0b' : '#6b8f7b' }}
+                    title="Zobrazit / moderovat recenze">
+                    {reviewStats[r.id] ? `★ ${reviewStats[r.id].avg} (${reviewStats[r.id].count})` : '—'}
+                  </button>
                 </TD>
                 <TD>
                   <span className="inline-block rounded-btn text-[9px] font-extrabold tracking-wide uppercase"
@@ -331,6 +355,14 @@ function Trasy() {
           branches={branches}
           onClose={() => { setShowModal(false); setEditing(null) }}
           onSaved={() => { setShowModal(false); setEditing(null); load() }}
+        />
+      )}
+
+      {reviewsFor && (
+        <TrasyReviewsModal
+          route={reviewsFor}
+          onClose={() => setReviewsFor(null)}
+          onChanged={load}
         />
       )}
 

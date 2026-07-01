@@ -8,6 +8,7 @@ import '../../core/i18n/i18n_provider.dart';
 import '../../core/supabase_client.dart';
 import '../../core/native/gps_service.dart';
 import 'routes_provider.dart' show mapyApiKey, reverseGeocode;
+import 'route_submit_screen.dart';
 
 /// Menu „Přidat" (z FAB v Trasách) — uživatel navrhne trasu (odkaz z Mapy.com)
 /// nebo bod zájmu. Návrhy jdou do moderace (status='pending'); admin ve Velíně
@@ -24,9 +25,13 @@ void showCommunityAddMenu(BuildContext context) {
           const SizedBox(height: 12),
           Container(width: 40, height: 4, decoration: BoxDecoration(color: MotoGoColors.g200, borderRadius: BorderRadius.circular(2))),
           const SizedBox(height: 12),
-          _menuItem(c, Icons.route, t(c).tr('poiSubmitRoute'), () {
+          _menuItem(c, Icons.route, t(c).tr('routeSubmitTitle'), () {
             Navigator.pop(c);
-            _showRouteSubmit(context);
+            if (MotoGoSupabase.currentUser == null) {
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t(context).tr('poiRateLogin'))));
+              return;
+            }
+            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const RouteSubmitScreen()));
           }),
           _menuItem(c, Icons.add_location_alt, t(c).tr('poiSubmitPoi'), () {
             Navigator.pop(c);
@@ -45,70 +50,6 @@ Widget _menuItem(BuildContext c, IconData icon, String label, VoidCallback onTap
           style: const TextStyle(fontSize: MotoGoTypo.sizeXl, fontWeight: MotoGoTypo.w800, color: MotoGoColors.black)),
       onTap: onTap,
     );
-
-/// Návrh trasy přes odkaz z Mapy.com — uloží jen název + URL jako pending.
-void _showRouteSubmit(BuildContext context) {
-  if (MotoGoSupabase.currentUser == null) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t(context).tr('poiRateLogin'))));
-    return;
-  }
-  final nameCtrl = TextEditingController();
-  final urlCtrl = TextEditingController();
-  bool busy = false;
-  showDialog(
-    context: context,
-    builder: (dctx) => StatefulBuilder(
-      builder: (dctx, setLocal) => AlertDialog(
-        backgroundColor: Colors.white,
-        title: Text(t(dctx).tr('poiSubmitRoute'), style: const TextStyle(fontSize: MotoGoTypo.sizeH3, fontWeight: MotoGoTypo.w900)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(controller: nameCtrl, decoration: InputDecoration(labelText: t(dctx).tr('poiSubmitName'))),
-            const SizedBox(height: 8),
-            TextField(controller: urlCtrl, decoration: InputDecoration(labelText: t(dctx).tr('poiSubmitUrl'), hintText: 'mapy.com/s/…')),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(dctx), child: Text(t(dctx).tr('routesRetry'))),
-          ElevatedButton(
-            onPressed: busy
-                ? null
-                : () async {
-                    final name = nameCtrl.text.trim();
-                    final url = urlCtrl.text.trim();
-                    if (name.isEmpty) {
-                      ScaffoldMessenger.of(dctx).showSnackBar(SnackBar(content: Text(t(dctx).tr('poiSubmitNameReq'))));
-                      return;
-                    }
-                    setLocal(() => busy = true);
-                    try {
-                      await MotoGoSupabase.client.from('routes').insert({
-                        'name': name,
-                        'mapy_url': url.isEmpty ? null : url,
-                        'route_type': 'poi',
-                        'created_by': MotoGoSupabase.currentUser!.id,
-                        'status': 'pending',
-                        'is_active': false,
-                      });
-                      if (dctx.mounted) Navigator.pop(dctx);
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t(context).tr('routeSubmitThanks'))));
-                      }
-                    } catch (_) {
-                      setLocal(() => busy = false);
-                      if (dctx.mounted) {
-                        ScaffoldMessenger.of(dctx).showSnackBar(SnackBar(content: Text(t(dctx).tr('poiSubmitErr'))));
-                      }
-                    }
-                  },
-            child: Text(t(dctx).tr('poiSubmitSend')),
-          ),
-        ],
-      ),
-    ),
-  );
-}
 
 /// Obrazovka návrhu bodu zájmu — poloha (mapa / GPS), název, popis, foto.
 class PoiSubmitScreen extends StatefulWidget {

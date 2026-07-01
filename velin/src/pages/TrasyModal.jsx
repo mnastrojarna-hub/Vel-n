@@ -7,12 +7,28 @@ import ImageUploader from '../components/ui/ImageUploader'
 import { FormField } from './BranchHelpers'
 import { autoTranslateRow } from '../lib/autoTranslate'
 import TrasyMapPicker from './TrasyMapPicker'
-import { decodeRouteCoords, extractMapyUrl, getRcFromUrl, extractRouteGeometry } from '../lib/mapyRoute'
+import { decodeRouteCoords, getRcFromUrl, extractRouteGeometry,
+  extractMapUrl, decodeGoogleRouteCoords, isGoogleShareLink } from '../lib/mapyRoute'
 
 const r6 = (v) => Math.round(Number(v) * 1e6) / 1e6
 
 // Mapy.com API klíč (stejný jako v mobilní appce) — pro výpočet geometrie trasy.
 const MAPY_KEY = 'whg1ilj203oYhmsqkBHVtUqpk-tYr0E-HFTx4lGdue0'
+
+/** Reverzní geokódování (Mapy.com) → název místa. Best-effort, chyba → null. */
+async function reverseGeocode(lat, lng) {
+  try {
+    const p = new URLSearchParams({ lon: String(lng), lat: String(lat), lang: 'cs', apikey: MAPY_KEY })
+    const res = await fetch(`https://api.mapy.cz/v1/rgeocode?${p.toString()}`, {
+      headers: { 'X-Mapy-Api-Key': MAPY_KEY, Accept: 'application/json' },
+    })
+    if (!res.ok) return null
+    const data = await res.json()
+    const it = Array.isArray(data?.items) && data.items[0]
+    const name = it && (it.name || it.label)
+    return typeof name === 'string' && name.trim() ? name.trim() : null
+  } catch { return null }
+}
 
 /**
  * Best-effort výpočet geometrie trasy přes Mapy.com routing API.
@@ -97,6 +113,7 @@ export default function TrasyModal({ existing, branches, onClose, onSaved }) {
   const [importMsg, setImportMsg] = useState('')
   const [importErr, setImportErr] = useState(null)
   const [geometry, setGeometry] = useState(existing?.geometry || null)
+  const [showLinkHelp, setShowLinkHelp] = useState(false)
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
   const branch = branches.find(b => b.id === form.branch_id)
@@ -168,27 +185,66 @@ export default function TrasyModal({ existing, branches, onClose, onSaved }) {
   // Plná URL s `rc` se dekóduje rovnou v prohlížeči; zkrácený /s/ odkaz nebo
   // iframe rozbalí edge fn resolve-mapy-route (prohlížeč kvůli CORS nezvládne).
   function applyImported(pts, finalUrl) {
-    setWaypoints(pts.map(p => ({ lat: r6(p.lat), lng: r6(p.lng), label: '' })))
+    const wp = pts.map(p => ({ lat: r6(p.lat), lng: r6(p.lng), label: '' }))
+    setWaypoints(wp)
     if (finalUrl) set('mapy_url', finalUrl)
     setGeometry(null) // přepočítá se přes routing (debounced effect) → trasa po silnici
     setShowMap(true)
-    setImportMsg(`Načteno ${pts.length} bodů trasy ✓ — trasa po silnici, délka a čas se dopočítají z mapy; body zájmu přidej ručně níže`)
+    // Automaticky promítni body trasy do bodů zájmu (jen když ještě žádné nejsou) —
+    // admin je pak doplní o popis a fotky, nebo přebytečné smaže.
+    projectWaypointsToPois(wp, { onlyIfEmpty: true })
+    setImportMsg(`Načteno ${pts.length} bodů trasy ✓ — body trasy se promítly i do bodů zájmu níže (doplň popis/foto nebo přebytečné smaž). Trasa po silnici i délka/čas se dopočítají z mapy.`)
+  }
+
+  // Promítne body trasy (waypointy) do bodů zájmu. Best-effort doplní názvy
+  // přes reverzní geokódování. `onlyIfEmpty` = nedělej nic, když už POI existují.
+  function projectWaypointsToPois(wp, { onlyIfEmpty = false } = {}) {
+    const src = (wp || waypoints).filter(w => w.lat !== '' && w.lng !== '' && !isNaN(Number(w.lat)) && !isNaN(Number(w.lng)))
+    if (!src.length) return
+    setPois(prev => {
+      if (onlyIfEmpty && prev.length) return prev
+      const existing = new Set(prev.map(p => `${r6(p.lat)},${r6(p.lng)}`))
+      const added = src
+        .filter(w => !existing.has(`${r6(w.lat)},${r6(w.lng)}`))
+        .map(w => ({ ...emptyPoi(), name: w.label?.trim() || '', lat: r6(w.lat), lng: r6(w.lng) }))
+      const next = [...prev, ...added]
+      // Doplň chybějící názvy přes reverzní geokódování (na pozadí).
+      added.forEach((poi) => {
+        if (poi.name) return
+        reverseGeocode(poi.lat, poi.lng).then(name => {
+          if (!name) return
+          setPois(cur => cur.map(p => (p.lat === poi.lat && p.lng === poi.lng && !p.name?.trim() ? { ...p, name } : p)))
+        })
+      })
+      return next
+    })
   }
 
   async function importFromMapy() {
     setImportErr(null); setImportMsg('')
-    const url = extractMapyUrl(form.mapy_url) || (form.mapy_url || '').trim()
-    if (!url) { setImportErr('Vlož odkaz na Mapy.com (nebo celý <iframe> kód).'); return }
+    const raw = (form.mapy_url || '').trim()
+    const detected = extractMapUrl(raw)
+    const url = detected?.url || raw
+    if (!url) { setImportErr('Vlož odkaz na Mapy.com nebo Google Maps (i celý <iframe> kód).'); return }
+    const isGoogle = detected?.provider === 'google'
     setImporting(true)
     try {
-      const rc = getRcFromUrl(url)
-      if (rc) {
-        const pts = decodeRouteCoords(rc)
-        if (!pts.length) throw new Error('V odkazu se nenašly žádné body trasy.')
-        applyImported(pts, url)
-        return
+      // Klientská cesta bez edge fn:
+      //  - Mapy.com plná URL s `rc`,
+      //  - Google plná URL (data !1d/!2d, ?api=1 nebo /@lat,lng).
+      if (!isGoogle) {
+        const rc = getRcFromUrl(url)
+        if (rc) {
+          const pts = decodeRouteCoords(rc)
+          if (!pts.length) throw new Error('V odkazu se nenašly žádné body trasy.')
+          applyImported(pts, url); return
+        }
+      } else if (!isGoogleShareLink(url)) {
+        const pts = decodeGoogleRouteCoords(url)
+        if (pts.length) { applyImported(pts, url); return }
+        // plná google URL bez rozpoznaných bodů → zkusíme ještě edge fn
       }
-      // Zkrácený odkaz → rozbalit přes edge fn
+      // Zkrácený odkaz (mapy.com/s/… i maps.app.goo.gl/…) → rozbalit přes edge fn
       setImportMsg('Rozbaluji odkaz…')
       const { data: { session } } = await supabase.auth.getSession()
       const res = await fetch(`${supabaseUrl}/functions/v1/resolve-mapy-route`, {
@@ -353,17 +409,31 @@ export default function TrasyModal({ existing, branches, onClose, onSaved }) {
             placeholder="Co zákazníka na trase čeká, doporučení, zajímavosti…" />
         </div>
         <div className="col-span-2">
-          <label className={lbl} style={{ color: '#1a2e22' }}>Odkaz na Mapy.com — automatický import trasy</label>
+          <div className="flex items-center gap-2 mb-1">
+            <label className={lbl} style={{ color: '#1a2e22', marginBottom: 0 }}>Odkaz na Mapy.com / Google Maps — automatický import trasy</label>
+            <button type="button" onClick={() => setShowLinkHelp(s => !s)} title="Kde vzít odkaz?"
+              className="cursor-pointer flex items-center justify-center"
+              style={{ width: 18, height: 18, borderRadius: '50%', background: '#8b5cf6', color: '#fff', border: 'none', fontSize: 12, fontWeight: 900, lineHeight: 1 }}>
+              i
+            </button>
+          </div>
+          {showLinkHelp && (
+            <div className="text-xs mb-2 rounded-btn" style={{ background: '#f5f3ff', border: '1px solid #ddd6fe', color: '#4c1d95', padding: '8px 10px', lineHeight: 1.5 }}>
+              <div className="font-extrabold mb-1">📍 Kde odkaz najdeš (fungují jen tyto formáty):</div>
+              <div className="mb-1"><b>Mapy.com</b> — naplánuj trasu → <b>Sdílet</b> → zkopíruj <b>zkrácený odkaz</b> (<code>mapy.com/s/…</code>) nebo celou URL z adresního řádku. Funguje i <code>&lt;iframe&gt;</code> kód a QR kód (naskenuj telefonem → vlož odkaz).</div>
+              <div><b>Google Maps</b> — přepni na <b>Trasu</b> (šipka „Navigovat") → <b>Sdílet nebo vložit mapu</b> / zkopíruj odkaz z adresního řádku (<code>google.com/maps/dir/…</code> i zkrácený <code>maps.app.goo.gl/…</code>).</div>
+            </div>
+          )}
           <div className="flex gap-2 items-start">
             <input type="text" value={form.mapy_url} onChange={e => { set('mapy_url', e.target.value); setImportErr(null); setImportMsg('') }}
-              placeholder="Vlož mapy.com/s/… , plnou URL nebo celý <iframe> kód"
+              placeholder="Vlož mapy.com/s/… , maps.app.goo.gl/… , plnou URL nebo celý <iframe> kód"
               className="flex-1 rounded-btn text-sm outline-none" style={inputStyle} />
             <Button green onClick={importFromMapy} disabled={importing || !form.mapy_url?.trim()}>
               {importing ? 'Načítám…' : '📥 Načíst trasu'}
             </Button>
           </div>
           <p className="text-xs mt-1" style={{ color: '#6b8f7b' }}>
-            Naimportuje body trasy z odkazu (plná URL i zkrácený mapy.com/s/… i iframe). Body zájmu přidáš ručně níže.
+            Naimportuje body trasy z odkazu (Mapy.com i Google Maps, plná i zkrácená URL, iframe). Body trasy se rovnou promítnou do bodů zájmu níže — doplň popis/foto nebo přebytečné smaž.
           </p>
           {importMsg && <p className="text-xs mt-1 font-bold" style={{ color: '#1a8a18' }}>{importMsg}</p>}
           {importErr && <p className="text-xs mt-1" style={{ color: '#dc2626' }}>{importErr}</p>}
@@ -443,7 +513,14 @@ export default function TrasyModal({ existing, branches, onClose, onSaved }) {
       <div className="mt-5">
         <div className="flex items-center justify-between mb-2">
           <label className={lbl} style={{ color: '#1a2e22', marginBottom: 0 }}>Body zájmu (POI)</label>
-          <Button small onClick={addPoi}>+ Bod zájmu</Button>
+          <div className="flex gap-2">
+            <Button small onClick={() => projectWaypointsToPois()}
+              disabled={!waypoints.some(w => w.lat !== '' && w.lng !== '')}
+              title="Přidá body zájmu z aktuálních bodů trasy (názvy doplní z mapy)">
+              ↧ Z bodů trasy
+            </Button>
+            <Button small onClick={addPoi}>+ Bod zájmu</Button>
+          </div>
         </div>
         {pois.length === 0 && (
           <p className="text-xs" style={{ color: '#6b8f7b' }}>Zatím žádné body zájmu. Přidejte zastávky s popisem a fotkou.</p>

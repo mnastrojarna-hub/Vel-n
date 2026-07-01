@@ -11,6 +11,8 @@
 
 const ALPHABET = '0ABCD2EFGH4IJKLMN6OPQRST8UVWXYZ-1abcd3efgh5ijklmn7opqrst9uvwxyz.'
 
+const r6 = (v) => Math.round(Number(v) * 1e6) / 1e6
+
 function parseNumber(arr, count) {
   let result = 0
   let i = count
@@ -68,6 +70,83 @@ export function extractMapyUrl(text) {
   const url = t.match(/https?:\/\/[^\s"']*mapy\.(?:com|cz)[^\s"']*/i)
   if (url) return url[0]
   return null
+}
+
+/** Je odkaz z Google Maps (plný i zkrácený goo.gl / maps.app.goo.gl)? */
+export function isGoogleMapsUrl(url) {
+  return /(?:google\.[a-z.]+\/maps|maps\.app\.goo\.gl|goo\.gl\/maps)/i.test(url || '')
+}
+
+/** Zkrácený Google odkaz (maps.app.goo.gl/… / goo.gl/maps/…) — nutno rozbalit. */
+export function isGoogleShareLink(url) {
+  return /(?:maps\.app\.goo\.gl|goo\.gl\/maps)\//i.test(url || '')
+}
+
+/**
+ * Z textu vytáhne odkaz na Mapy.com NEBO Google Maps (i z <iframe> src).
+ * Vrací { url, provider:'mapy'|'google' } nebo null.
+ */
+export function extractMapUrl(text) {
+  if (!text) return null
+  const t = String(text).trim()
+  const mapy = extractMapyUrl(t)
+  if (mapy) return { url: mapy, provider: 'mapy' }
+  const gsrc = t.match(/src=["']([^"']*(?:google\.[a-z.]+\/maps|maps\.app\.goo\.gl|goo\.gl\/maps)[^"']*)["']/i)
+  if (gsrc) return { url: gsrc[1], provider: 'google' }
+  const gurl = t.match(/https?:\/\/[^\s"']*(?:google\.[a-z.]+\/maps|maps\.app\.goo\.gl|goo\.gl\/maps)[^\s"']*/i)
+  if (gurl) return { url: gurl[0], provider: 'google' }
+  return null
+}
+
+/**
+ * Dekóduje body trasy z PLNÉ Google Maps URL (google.com/maps/dir/…).
+ * Podporuje dva tvary:
+ *   1) `data=…!1d<lng>!2d<lat>…` (běžný /dir/ odkaz z prohlížeče) — každá
+ *      zastávka je dvojice `!1d<lng>!2d<lat>` v pořadí trasy,
+ *   2) `?api=1&origin=lat,lng&waypoints=lat,lng|…&destination=lat,lng`
+ *      (oficiální sdílecí/deeplink formát).
+ * Fallback: `/@lat,lng` střed → jeden bod. Vrací pole [{lat,lng}] (pořadí trasy).
+ * Zkrácený maps.app.goo.gl NEJDE dekódovat v prohlížeči (CORS redirect) —
+ * musí ho rozbalit edge fn resolve-mapy-route.
+ */
+export function decodeGoogleRouteCoords(url) {
+  if (!url) return []
+  const s = String(url)
+  const out = []
+
+  // 1) data param: …!1d<lng>!2d<lat>… (pořadí = pořadí v řetězci)
+  const re = /!1d(-?\d+(?:\.\d+)?)!2d(-?\d+(?:\.\d+)?)/g
+  let m
+  while ((m = re.exec(s)) !== null) {
+    const lng = Number(m[1]); const lat = Number(m[2])
+    if (isFinite(lat) && isFinite(lng)) out.push({ lat: r6(lat), lng: r6(lng) })
+  }
+  if (out.length) return out
+
+  // 2) api=1 query (origin / waypoints / destination jako "lat,lng")
+  try {
+    const u = new URL(s)
+    const q = u.searchParams
+    const pushLL = (val) => {
+      if (!val) return
+      const parts = String(val).split(',').map(x => Number(x.trim()))
+      if (parts.length >= 2 && isFinite(parts[0]) && isFinite(parts[1])) {
+        out.push({ lat: r6(parts[0]), lng: r6(parts[1]) })
+      }
+    }
+    pushLL(q.get('origin'))
+    const wp = q.get('waypoints')
+    if (wp) wp.split('|').forEach(pushLL)
+    pushLL(q.get('destination'))
+    if (out.length) return out
+    // 3) /@lat,lng střed → aspoň jeden bod (POI)
+    const at = s.match(/@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/)
+    if (at) { const lat = Number(at[1]); const lng = Number(at[2]); if (isFinite(lat) && isFinite(lng)) out.push({ lat: r6(lat), lng: r6(lng) }) }
+    // 3b) /place/…!3d<lat>!4d<lng> → jeden bod
+    const pl = s.match(/!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/)
+    if (!out.length && pl) { const lat = Number(pl[1]); const lng = Number(pl[2]); if (isFinite(lat) && isFinite(lng)) out.push({ lat: r6(lat), lng: r6(lng) }) }
+  } catch { /* neplatná URL */ }
+  return out
 }
 
 /** Vrátí hodnotu `rc` z URL, nebo null. */
