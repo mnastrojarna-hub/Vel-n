@@ -36,6 +36,7 @@ const CURRENCY_LANG_DEFAULTS = [
     'cs' => 'CZK',
     'pl' => 'PLN',
     'en' => 'EUR', 'de' => 'EUR', 'es' => 'EUR', 'fr' => 'EUR', 'nl' => 'EUR',
+    'uk' => 'EUR',
 ];
 
 // Bezpečné záchytné kurzy (CZK na 1 jednotku měny). Používá se jen když ČNB

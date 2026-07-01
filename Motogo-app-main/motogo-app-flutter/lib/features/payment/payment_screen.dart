@@ -468,6 +468,9 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
           await MotoGoSupabase.client.from('profiles').update({
             'consent_vop': draft.consentVop,
             'consent_gdpr': draft.consentGdpr,
+            // Zpracování osobních údajů = tentýž souhlas jako GDPR checkbox
+            // (povinné pole ve Velíně). Bez toho zůstávalo „NE"/NULL i po rezervaci.
+            'consent_data_processing': draft.consentGdpr,
             'gear_sizes': gearSizes,
           }).eq('id', user.id);
         } catch (_) {/* ignore */}

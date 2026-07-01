@@ -103,10 +103,10 @@ function renderHeader($currentPath = '/') {
                         '<button type="button" class="header-app-close" data-mg-app-close aria-label="' . te('header.menuClose') . '">✕</button>' .
                         '<h3 class="header-app-h">' . tc('header.app.heading') . '</h3>' .
                         '<div class="header-app-body">' .
-                            '<img class="header-app-qr" src="' . BASE_URL . '/gfx/qr-testovani.svg" alt="' . te('header.app.qrAlt') . '" width="120" height="120" loading="lazy">' .
+                            '<img class="header-app-qr" src="' . BASE_URL . '/gfx/qr-google-play.svg" alt="' . te('header.app.qrAlt') . '" width="120" height="120" loading="lazy">' .
                             '<div class="header-app-col">' .
-                                '<a class="header-app-cta" href="' . BASE_URL . '/testovani">' . tc('header.app.getPlay') . '</a>' .
-                                '<p class="header-app-note">' . t('header.app.whitelist', ['email' => '<a href="mailto:' . EMAIL_FULL . '">' . EMAIL_FULL . '</a>']) . '</p>' .
+                                '<a class="header-app-cta" href="' . PLAY_STORE_LIVE_URL . '" target="_blank" rel="noopener">' . tc('header.app.getPlay') . '</a>' .
+                                '<p class="header-app-note">' . tc('header.app.whitelist') . '</p>' .
                             '</div>' .
                         '</div>' .
                         '<p class="header-app-loyalty"><strong>' . tc('header.app.loyaltyTitle') . '</strong> ' . tc('header.app.loyaltyText') . '</p>' .
@@ -561,7 +561,7 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
         "priceRange": "990 – 5000 Kč/den",
         "currenciesAccepted": "CZK, EUR, USD",
         "paymentAccepted": "Cash, Credit Card, Debit Card, Apple Pay, Google Pay",
-        "knowsLanguage": ["cs","en","de","es","fr","nl","pl"],
+        "knowsLanguage": ["cs","en","de","es","fr","nl","pl","uk"],
         "keywords": "motopůjčovna, motopůjčovna Vysočina, motopůjčovna Pelhřimov, půjčovna motorek, půjčovna motorek Vysočina, pronájem motorek, půjčovna motocyklů, motorka bez kauce, MotoGo24",
         "address": {"@type":"PostalAddress","streetAddress":"Mezná 9","addressLocality":"Pelhřimov","postalCode":"393 01","addressRegion":"Vysočina","addressCountry":"CZ"},
         "geo": {"@type":"GeoCoordinates","latitude":49.3464,"longitude":15.2119},

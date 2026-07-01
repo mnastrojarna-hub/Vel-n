@@ -80,9 +80,8 @@ export default function Slevomat() {
 
   return (
     <div>
-      <h1 className="text-2xl font-extrabold mb-1" style={{ color: '#1a2e22' }}>Slevomat</h1>
       <p className="text-sm mb-5" style={{ color: '#888' }}>
-        Automatické uplatňování poukazů na partner portálu · automat běží denně, panel se obnovuje každých 30 s
+        Automatické uplatňování poukazů přes Slevomat Partner API · panel se obnovuje každých 30 s
       </p>
 
       <div className="flex gap-3 mb-5 flex-wrap">

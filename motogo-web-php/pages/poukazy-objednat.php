@@ -102,7 +102,7 @@ $content = '<main id="content" class="voucher-page"><section aria-label="' . te(
     $bc . '<div class="pcontent">' . $form . $pvOutroHtml . '</div></section></main>' . $pageStyle;
 
 $lang = function_exists('i18nDetectLanguage') ? i18nDetectLanguage() : 'cs';
-$localeMap = ['cs' => 'cs-CZ', 'en' => 'en-GB', 'de' => 'de-DE', 'es' => 'es-ES', 'fr' => 'fr-FR', 'nl' => 'nl-NL', 'pl' => 'pl-PL'];
+$localeMap = ['cs' => 'cs-CZ', 'en' => 'en-GB', 'de' => 'de-DE', 'es' => 'es-ES', 'fr' => 'fr-FR', 'nl' => 'nl-NL', 'pl' => 'pl-PL', 'uk' => 'uk-UA'];
 $jsLocale = $localeMap[$lang] ?? 'cs-CZ';
 
 $js = '<script>

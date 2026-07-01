@@ -32,7 +32,6 @@ const Logistika = lazy(() => import('./pages/Logistika'))
 const Trasy = lazy(() => import('./pages/Trasy'))
 const Employees = lazy(() => import('./pages/Employees'))
 const AiOrchestrator = lazy(() => import('./pages/AiOrchestrator'))
-const Slevomat = lazy(() => import('./pages/Slevomat'))
 
 function PageLoader() {
   return (
@@ -81,7 +80,6 @@ export default function App() {
           <Route path="/statni-sprava" element={<Government />} />
           <Route path="/ai-copilot" element={<AICopilot />} />
           <Route path="/slevove-kody" element={<DiscountCodes />} />
-          <Route path="/slevomat" element={<Slevomat />} />
           <Route path="/pobocky" element={<Branches />} />
           <Route path="/logistika" element={<Logistika />} />
           <Route path="/trasy" element={<Trasy />} />

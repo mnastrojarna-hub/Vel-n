@@ -19,6 +19,7 @@ class LanguageOverlay extends StatelessWidget {
     ('fr', '🇫🇷', 'Français'),
     ('es', '🇪🇸', 'Español'),
     ('nl', '🇳🇱', 'Nederlands'),
+    ('uk', '🇺🇦', 'Українська'),
   ];
 
   static Future<bool> shouldShow() async {
