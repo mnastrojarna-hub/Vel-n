@@ -9,13 +9,14 @@ import DoporuceniPresunu from './analyza/DoporuceniPresunu'
 import DoporuceniLokaci from './analyza/DoporuceniLokaci'
 import AnalyzaZakazniku from './analyza/AnalyzaZakazniku'
 import WebRezervacniFunnel from './analyza/WebRezervacniFunnel'
+import AppRezervacniFunnel from './analyza/AppRezervacniFunnel'
 import Navstevnost from './analyza/Navstevnost'
 import AplikaceStats from './analyza/AplikaceStats'
 import AiTraffic from './analyza/AiTraffic'
 import AiPublicConversations from './analyza/AiPublicConversations'
 import Statistics from './Statistics'
 
-const TABS = ['Výkon poboček', 'Výkon motorek', 'Nájezd km', 'Poptávka kategorií', 'Optimální flotila', 'Doporučení přesunů', 'Doporučení lokací', 'Zákazníci', 'Web funnel', 'Návštěvnost', 'Aplikace', 'AI traffic', 'AI konverzace', 'Statistiky']
+const TABS = ['Výkon poboček', 'Výkon motorek', 'Nájezd km', 'Poptávka kategorií', 'Optimální flotila', 'Doporučení přesunů', 'Doporučení lokací', 'Zákazníci', 'Web funnel', 'App funnel', 'Návštěvnost', 'Aplikace', 'AI traffic', 'AI konverzace', 'Statistiky']
 
 export default function Analyza() {
   const [tab, setTab] = useState(TABS[0])
@@ -55,6 +56,7 @@ export default function Analyza() {
       {tab === 'Doporučení lokací' && <DoporuceniLokaci />}
       {tab === 'Zákazníci' && <AnalyzaZakazniku />}
       {tab === 'Web funnel' && <WebRezervacniFunnel />}
+      {tab === 'App funnel' && <AppRezervacniFunnel />}
       {tab === 'Návštěvnost' && <Navstevnost />}
       {tab === 'Aplikace' && <AplikaceStats />}
       {tab === 'AI traffic' && <AiTraffic />}
