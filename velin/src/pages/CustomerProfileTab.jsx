@@ -160,8 +160,10 @@ function PlatformChip({ userId, fallback }) {
   if (src && src.size) {
     const a = src.has('app'), w = src.has('web')
     val = a && w ? 'WEB + APP' : a ? 'APP' : 'WEB'
-  } else if (fallback) {
-    val = String(fallback).toUpperCase()
+  } else if (fallback === 'app' || fallback === 'web') {
+    // Jen skutečné platformy — placeholder z auth triggeru ('auth_trigger')
+    // ani jiné neznámé hodnoty nezobrazujeme, jinak by chip ukázal AUTH_TRIGGER.
+    val = fallback.toUpperCase()
   }
   return <Chip label="Platforma" value={val} tone={val === '—' ? undefined : (val.includes('WEB') ? 'blue' : 'green')} />
 }
