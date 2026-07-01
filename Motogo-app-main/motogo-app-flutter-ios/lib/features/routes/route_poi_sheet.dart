@@ -30,7 +30,7 @@ void showRoutePoiSheet(BuildContext context, RoutePoi poi, String lang, {int? in
       children: [
         if (imgs.isNotEmpty)
           GestureDetector(
-            onTap: () => _openImageViewer(context, imgs, 0),
+            onTap: () => _openImageViewer(context, imgs, 0, lang),
             child: ClipRRect(
               borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
               child: Stack(
@@ -87,7 +87,7 @@ void showRoutePoiSheet(BuildContext context, RoutePoi poi, String lang, {int? in
               itemCount: imgs.length,
               separatorBuilder: (_, __) => const SizedBox(width: 8),
               itemBuilder: (_, i) => GestureDetector(
-                onTap: () => _openImageViewer(context, imgs, i),
+                onTap: () => _openImageViewer(context, imgs, i, lang),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(10),
                   child: RouteImage(
@@ -162,7 +162,7 @@ void showRoutePoiSheet(BuildContext context, RoutePoi poi, String lang, {int? in
 
 /// Fullscreen prohlížeč fotek bodu zájmu — listování (PageView) + přibližování
 /// prsty (InteractiveViewer). Zavře se křížkem nebo tapnutím mimo.
-void _openImageViewer(BuildContext context, List<String> imgs, int start) {
+void _openImageViewer(BuildContext context, List<String> imgs, int start, String lang) {
   showDialog(
     context: context,
     barrierColor: Colors.black,
