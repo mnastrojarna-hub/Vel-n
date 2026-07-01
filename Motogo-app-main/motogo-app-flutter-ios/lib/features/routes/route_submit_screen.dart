@@ -76,7 +76,7 @@ class _RouteSubmitScreenState extends State<RouteSubmitScreen> {
         });
       }
     } catch (e) {
-      if (mounted) setState(() => _linkErr = '${t(context).tr('routeSubmitDecodeErr')}: $e');
+      if (mounted) setState(() => _linkErr = t(context).tr('routeSubmitDecodeErr'));
     } finally {
       if (mounted) setState(() => _decoding = false);
     }

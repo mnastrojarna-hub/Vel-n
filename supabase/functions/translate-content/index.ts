@@ -9,7 +9,7 @@
  * POST /functions/v1/translate-content
  * Body:
  *   {
- *     table: 'cms_pages' | 'cms_variables' | 'products' | 'motorcycles' | 'branches',
+ *     table: 'cms_pages' | 'cms_variables' | 'products' | 'motorcycles' | 'branches' | 'faq_items' | 'routes' | 'route_pois',
  *     id: string,                        // PK řádku
  *     fields: { [name]: string },        // pole k přeložení (CZ text)
  *     target_langs?: string[],           // default ['en','de','es','fr','nl','pl']
@@ -45,7 +45,7 @@ const LANG_NAMES: Record<string, string> = {
   uk: 'Ukrainian (Українська)',
 }
 
-const ALLOWED_TABLES = new Set(['cms_pages', 'cms_variables', 'products', 'motorcycles', 'branches', 'faq_items'])
+const ALLOWED_TABLES = new Set(['cms_pages', 'cms_variables', 'products', 'motorcycles', 'branches', 'faq_items', 'routes', 'route_pois'])
 const MODEL = 'claude-haiku-4-5-20251001'
 
 function jsonResponse(body: Record<string, unknown>, status = 200) {

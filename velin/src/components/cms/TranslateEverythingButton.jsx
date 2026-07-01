@@ -45,6 +45,8 @@ const PHASES = [
   { key: 'cms_variables', label: 'CMS proměnné (web.*)' },
   { key: 'faq_items',     label: 'FAQ položky' },
   { key: 'cms_pages',     label: 'Blog články' },
+  { key: 'routes',        label: 'Trasy (název/popis)' },
+  { key: 'route_pois',    label: 'Body zájmu tras' },
 ]
 
 function rowsNeedingTranslation(table, rows, force) {
@@ -70,7 +72,7 @@ export default function TranslateEverythingButton() {
   const [doneSummary, setDoneSummary] = useState(null)
 
   async function run() {
-    if (!confirm('Spustit překlad VŠEHO do EN/DE/ES/FR/NL/PL? Trvá 5–15 minut, projde pages master + cms_variables + FAQ + blog. Můžeš zavřít kartu — překlady už uložené v DB zůstanou.')) return
+    if (!confirm('Spustit překlad VŠEHO do EN/DE/ES/FR/NL/PL/UK? Trvá 5–15 minut, projde pages master + cms_variables + FAQ + blog + trasy + body zájmu. Můžeš zavřít kartu — překlady už uložené v DB zůstanou.')) return
     setRunning(true); setPhase(null); setErrors([]); setDoneSummary(null)
     const newErrors = []
 
@@ -110,6 +112,8 @@ export default function TranslateEverythingButton() {
       { key: 'cms_variables', selectColumns: 'id, key, value, translations, category', filter: r => typeof r.key === 'string' && r.key.startsWith('web.'), labelOf: r => r.key },
       { key: 'faq_items',     selectColumns: 'id, question, answer, translations',     filter: null,                       labelOf: r => r.question },
       { key: 'cms_pages',     selectColumns: 'id, title, excerpt, content, translations', filter: null,                    labelOf: r => r.title },
+      { key: 'routes',        selectColumns: 'id, name, description, translations',       filter: null,                    labelOf: r => r.name },
+      { key: 'route_pois',    selectColumns: 'id, name, description, translations',       filter: null,                    labelOf: r => r.name },
     ]
     for (const ph of dbPhases) {
       setPhase(ph.key)
@@ -148,8 +152,8 @@ export default function TranslateEverythingButton() {
       <div className="flex items-center gap-3 flex-wrap">
         <Button green onClick={run} disabled={running}>
           {running
-            ? `🌍 Fáze ${phaseIdx + 1}/4 · ${progress.done}/${progress.total} (${pct}%)`
-            : '🌍 Přeložit vše do EN/DE/ES/FR/NL/PL'}
+            ? `🌍 Fáze ${phaseIdx + 1}/${PHASES.length} · ${progress.done}/${progress.total} (${pct}%)`
+            : '🌍 Přeložit vše do EN/DE/ES/FR/NL/PL/UK'}
         </Button>
         <label className="flex items-center gap-1.5 text-xs font-bold cursor-pointer" style={{ color: '#9a3412' }} title="Bez zaškrtnutí se doplní jen chybějící překlady. Zaškrtni, když jsi po překladu změnil český text (eyebrow, popisky tlačítek, …) a chceš ho přeložit znovu — přepíše i existující překlady (FAQ/blog/cms_variables). Trvá déle.">
           <input type="checkbox" checked={force} onChange={e => setForce(e.target.checked)} disabled={running} />
