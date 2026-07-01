@@ -84,6 +84,34 @@ export function isVoidInvoice(i) {
 }
 
 /**
+ * Sečte tržby z faktur (DP + KF + shop_final − dobropisy) BEZ dvojího započítání
+ * e-shop / voucher plateb.
+ *
+ * U e-shop/voucher objednávky se generuje jak `payment_receipt` (DP, na 100 %
+ * ceny), tak `shop_final` (Shop KF). `shop_final` MÁ částku DP odečíst záporným
+ * řádkem → správně vyjde 0. Jenže `shop_final` často vzniká DŘÍV než DP (DB
+ * trigger `generate_shop_final_on_ship` + `confirmShopPayment` generují KF hned,
+ * DP se doplní až přílohou `voucher_purchased` mailu), takže `shop_final` zůstane
+ * na plné částce a stejná platba se do tržeb započítá 2× (poukaz „počítaný 2×").
+ *
+ * Řešení: pro objednávku (`order_id`), která má nestornovaný DP, `shop_final` do
+ * tržeb NEpřičítáme — platbu reprezentuje DP. Když DP chybí, `shop_final` se
+ * počítá (žádný podhodnocený obrat). Vyžaduje, aby řádky faktur nesly `order_id`;
+ * bez něj se chová jako prostý součet (bezpečný fallback).
+ */
+export function sumInvoiceRevenue(invoices) {
+  const rows = (invoices || [])
+    .filter(i => !isVoidInvoice(i) && !isTestInvoice(i) && INVOICE_PAID_TYPES.includes(i.type))
+  const ordersWithReceipt = new Set(
+    rows.filter(i => i.type === 'payment_receipt' && i.order_id).map(i => i.order_id)
+  )
+  return rows.reduce((s, i) => {
+    if (i.type === 'shop_final' && i.order_id && ordersWithReceipt.has(i.order_id)) return s
+    return s + (i.total || 0)
+  }, 0)
+}
+
+/**
  * Spočítá souhrn faktur: Zaplaceno / Nezaplaceno / Celkem / Stornováno.
  *
  * Vstup: pole řádků z `invoices` načtené min. se sloupci
@@ -98,9 +126,8 @@ export function isVoidInvoice(i) {
 export function summarizeInvoices(invoices) {
   const nonTest = (invoices || []).filter(i => !isTestInvoice(i))
 
-  const paid = nonTest
-    .filter(i => !isVoidInvoice(i) && INVOICE_PAID_TYPES.includes(i.type))
-    .reduce((s, i) => s + (i.total || 0), 0)
+  // Zaplaceno = DP + KF + shop_final − dobropisy, bez dvojího počítání e-shop plateb.
+  const paid = sumInvoiceRevenue(invoices)
 
   // Rezervace/objednávky, u kterých už platba reálně dorazila (existuje DP/KF)
   const received = nonTest.filter(i => !isVoidInvoice(i) && INVOICE_RECEIVED_TYPES.includes(i.type))
