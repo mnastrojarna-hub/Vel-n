@@ -1,10 +1,10 @@
 # Přehled naseedovaných tras — k revizi
 
-> **64 tras · 517 bodů zájmu · 982 fotek.** SQL: `supabase/migrations/20260701_seed_recommended_routes.sql`.
+> **105 tras · 923 bodů zájmu · 1837 fotek.** SQL: `supabase/migrations/20260701_seed_recommended_routes.sql`.
 > Trasy = **Skryto** (`is_active=false`); ve Velíně zkontroluj a **Publikuj** (nebo hromadně přes publikační SQL).
-> Každý bod zájmu má 1–3 fotky (Wikimedia Commons), každá trasa český popis, GPS, odkaz na mapu, **státy** (nový filtr) a **doporučenou restauraci** (🍽, dobré hodnocení).
+> Každý bod zájmu má 1–3 fotky (Wikimedia Commons), každá trasa český popis, GPS, odkaz na mapu, **státy** (filtr) a **🍽 doporučenou restauraci**.
 
-## 🇨🇿 Tuzemské trasy (od pobočky Mezná)  (12)
+## 🇨🇿 Tuzemské trasy  (26)
 
 ### Hrady a zámky jižní Vysočiny
 *okruh · střední · 175 km · ~225 min · 6 bodů · 🌍 Česko*
@@ -90,7 +90,105 @@ Okruh vede z Mezné u Pelhřimova přes východní Vysočinu po malebných silni
 
 Body zájmu: Zámek Žďár nad Sázavou a Zelená hora · Nové Město na Moravě – náměstí a Horácká galerie · 🍽 Penzion U Martina (Nové Město na Moravě) · Rozhledna Horní les · Hrad Pernštejn · Bystřice nad Pernštejnem a hrad Zubštejn
 
-## 🏔️ Zahraniční klasiky  (12)
+### Velký okruh Šumavou
+*okruh · náročná · 385 km · ~660 min · 15 bodů · 🌍 CZ*
+
+Velký okruh Šumavou je náročná vícedenní smyčka pro zkušené jezdce, která protíná nejdivočejší kout jižních Čech od Železné Rudy až po Lipno a zpět. Trasa je záměrně vedena po klikatých okreskách a horských silnicích druhé a třetí třídy a zcela se vyhýbá dálnicím (D3 i D5) i rychlostním obchvatům, aby si jezdec užil svah kopců, ledovcová jezera a hluboké pralesy. Doporučené rozdělení: 1. den Železná Ruda – Prášily – Srní – Modrava – Povydří – Kašperk (nocleh v okolí Kašperských Hor či Vimperka), 2. den Vimperk – Kvilda/Bučina – Boubín – Lipno se Stezkou korunami stromů, 3. den návrat přes Churáňov/Zadov zpět k Železné Rudě. Počítejte s pomalým tempem, úzkými silnicemi v národním parku a uzavírkami vjezdu k jezerům (poslední úsek pěšky). Celkem přibližně 385 km rozdělených do dvou až tří dní podle chuti a počasí.
+
+Body zájmu: Železná Ruda · Černé jezero · Prášily · Srní · Modrava · Povydří (řeka Vydra) · Hrad Kašperk · 🍽 Nebespán (Kašperské Hory) · Vimperk · 🍽 Vodník (Vimperk) · Kvilda · Bučina · Boubínský prales · Stezka korunami stromů Lipno · Churáňov / Zadov
+
+### Český ráj a Krkonoše
+*za body zájmu · střední · 265 km · ~480 min · 12 bodů · 🌍 CZ*
+
+Dvoudenní scénická trasa spojuje pískovcová skalní města a hrady Českého ráje s velehorskou scenérií Krkonoš. Trasa ZÁMĚRNĚ VYNECHÁVÁ DÁLNICE a vede po silnicích nižších tříd (II. a III. třídy), aby si motorkář užil zatáčky, aleje a výhledy. První den je věnován Českému ráji – od Jičína přes Prachovské skály, hrad Kost, Trosky, Hrubou Skálu a Valdštejn směrem k Turnovu. Druhý den míří do hor přes Vrchlabí a Špindlerův Mlýn na Sněžku a končí u Mumlavského vodopádu v Harrachově. Očekávejte úzké okresky, výškové převýšení a v Krkonoších pomalejší tempo kvůli horským serpentinám.
+
+Body zájmu: Trosky · Hrubá Skála · Hrad Kost · Prachovské skály · Hrad Valdštejn · 🍽 Kozlovna U Anděla (Jičín) · Vrchlabí · Špindlerův Mlýn · 🍽 Orange le Moon (Špindlerův Mlýn) · Sněžka (Pec pod Sněžkou) · Harrachov – Mumlavský vodopád · Jičín
+
+### České Švýcarsko a Lužické hory
+*okruh · střední · 215 km · ~480 min · 10 bodů · 🌍 Česko*
+
+Okružní scénická trasa spojuje ty nejkrásnější skalní útvary Českého Švýcarska s tajemnými vrcholy Lužických hor. Vede přes symbol národního parku Pravčickou bránu, romantické soutěsky Kamenice u Hřenska, bludiště Tiských stěn, vyhlídky nad Jetřichovicemi až k děčínskému zámku nad Labem. Východní část okruhu nabízí čedičové varhany Panské skály, pohádkový skalní hrad Sloup, majestátní zříceninu Bezděz a nejvyšší horu Lužických hor Luž. Trasa je navržena tak, aby se ZÁMĚRNĚ VYHNULA dálnicím a rychlostním silnicím – vede výhradně po klidných krajských a lesních silnicích s výhledy do krajiny, což z ní dělá ideální motorkářský zážitek na jeden až dva dny. Doporučujeme rozdělit okruh na dvě etapy s přenocováním v okolí Děčína nebo Jetřichovic.
+
+Body zájmu: Pravčická brána · Hřensko – soutěsky Kamenice · Tisá – Tiské stěny · Jetřichovice – Mariina vyhlídka · Děčín – zámek · 🍽 ARRIGŌ (Děčín) · Panská skála (Kamenický Šenov) · Sloup v Čechách – skalní hrad · Hrad Bezděz · Luž (Lužické hory)
+
+### Jeseníky velký okruh
+*okruh · náročná · 165 km · ~420 min · 11 bodů · 🌍 Česko*
+
+Náročný dvoudenní okruh Hrubým i Nízkým Jeseníkem, který spojuje nejvyšší horu Moravy Praděd s lázněmi, rašeliništi, zámky i technickými skvosty. Trasa se záměrně vyhýbá dálnicím a vede výhradně po klikatých horských silnicích I. a II. třídy (I/44, II/445, II/450, II/369) přes slavná horská sedla plná serpentin. První den doporučujeme sever a východ okruhu: Praděd, Červenohorské sedlo, Karlova Studánka, Rejvíz a Ramzová se Šerákem s přespáním v okolí Jeseníku či Ramzové. Druhý den pokračujte přes Velké Losiny, Dlouhé Stráně, Bruntál zpět k Videlskému kříži a Pradědu. Kvůli převýšení, úzkým vozovkám a hustému provozu ve špičce v lázeňských obcích je okruh vhodný pro zkušenější jezdce a počítejte s pomalejším tempem.
+
+Body zájmu: Praděd (vysílač a rozhledna) · Červenohorské sedlo · Karlova Studánka (lázně) · Rejvíz (rašeliniště) · Ramzová / Šerák · Velké Losiny (zámek a papírna) · Dlouhé Stráně (přečerpávací elektrárna) · Bruntál (zámek) · Videlský kříž · 🍽 Bistro Hubertus (Karlova Studánka) · 🍽 Radegastovna Bruntál (Bruntál)
+
+### Beskydy a Valašsko
+*okruh · střední · 235 km · ~420 min · 11 bodů · 🌍 Česko*
+
+Okružní scénická jízda srdcem Beskyd a Valašska, která záměrně vynechává dálnice a vede výhradně po klikatých silnicích II. a III. třídy s nádhernými výhledy do hor. Trasa startuje v Rožnově pod Radhoštěm, stoupá k Pustevnám a soše Radegasta na Radhošti, míří k hraničnímu sedlu Bumbálka a přes malebné Velké Karlovice a hřeben Soláně se vrací zpět. První den doporučujeme věnovat západní části okruhu (Rožnov, Pustevny, Radhošť, Bumbálka, Velké Karlovice, Soláň) s noclehem v okolí Velkých Karlovic. Druhý den pokračujte přes poutní Svatý Hostýn a středověký Štramberk s věží Trúba až k nejvyššímu vrcholu Lysé hoře. Po celé trase se vyhýbáme dálnici D48 i D1 - jedeme jen po serpentinách, které jsou pro motorkáře tím pravým zážitkem.
+
+Body zájmu: Rožnov pod Radhoštěm (Valašské muzeum v přírodě) · Pustevny · Radhošť (socha Radegasta) · Bumbálka · Velké Karlovice (kostel Panny Marie Sněžné) · Soláň · Svatý Hostýn (bazilika Nanebevzetí Panny Marie) · Štramberk (Trúba) · Lysá hora · 🍽 Villa Rosenaw (Rožnov pod Radhoštěm) · 🍽 Valašská hospůdka Horal (Velké Karlovice)
+
+### Jižní Morava – Pálava a vinné sklepy
+*okruh · lehká · 165 km · ~420 min · 9 bodů · 🌍 Česko*
+
+Dvoudenní okruh po nejkrásnějších koutech jižní Moravy, který spojuje vápencové vrchy Pálavy, památky UNESCO Lednicko-valtického areálu a vinařská městečka Znojemska. Trasa záměrně vede výhradně po silnicích nižších tříd a vyhýbá se dálnicím (D2 i D52), takže si užijete klidné projížďky mezi vinicemi, sady a hladinami Novomlýnských nádrží místo hukotu kamionů. První den doporučujeme věnovat Mikulovu, Pálavě s Děvičkami, Pavlovu a Lednicko-valtickému areálu s přespáním v okolí Valtic. Druhý den pokračujete přes vinařský venkov do Znojma za rotundou a podzemím, k Malovanému sklepu v Šatově a zpět k Novomlýnským nádržím. Okruh je fyzicky nenáročný, ideální pro pohodovou jízdu s ochutnávkami vína a výhledy do kraje.
+
+Body zájmu: Mikulov (zámek a Svatý kopeček) · Pálava – Dívčí hrady (Děvičky) · Pavlov · Novomlýnské nádrže (Pálava) · Lednice (zámek a minaret) · Valtice (zámek) · Znojmo (rotunda a podzemí) · Šatov (Malovaný sklep) · 🍽 Hospůdka Maxwilliam (Znojmo)
+
+### Moravský kras a Slovácko
+*za body zájmu · střední · 205 km · ~420 min · 10 bodů · 🌍 Česko*
+
+Dvoudenní scénická trasa spojuje tajemný podzemní svět Moravského krasu s malebnou krajinou vinařského Slovácka a barokními skvosty Zlínského kraje. Trasa je záměrně vedena po klidných silnicích II. a III. třídy skrz Chřiby a údolí Moravy a zcela se VYHÝBÁ dálnicím (D1 ani D2 nikde nepoužíváte), takže si užijete zatáčky a výhledy bez kamionů. První den patří severu – propasti Macocha, Punkevním i Sloupsko-šošůvským jeskyním – a večer dojedete do Kroměříže. Druhý den sjíždíte na jih přes zámek Buchlovice, hrad Buchlov, poutní Velehrad, přístav Baťova kanálu ve Spytihněvi až do skanzenu ve Strážnici. Počítejte s prohlídkami jeskyní (nutná rezervace) a jednou delší zastávkou na oběd; celkově pohodové tempo pro celou posádku.
+
+Body zájmu: Punkevní jeskyně a propast Macocha · Sloupsko-šošůvské jeskyně · Arcibiskupský zámek a zahrady Kroměříž (UNESCO) · Zámek Buchlovice · Hrad Buchlov · Velehrad – bazilika Nanebevzetí Panny Marie a sv. Cyrila a Metoděje · Baťův kanál – přístav Spytihněv · Skanzen Strážnice – Muzeum vesnice jihovýchodní Moravy · 🍽 Pivovar Černý Orel (Kroměříž) · 🍽 Makalu (Uherské Hradiště)
+
+### Karlovarsko a Krušné hory
+*za body zájmu · střední · 235 km · ~375 min · 12 bodů · 🌍 Česko*
+
+Dvoudenní scénická okružní jízda po Karlovarsku, která záměrně obchází dálnice a vede výhradně po klidnějších silnicích I. a II. třídy údolími Ohře a Teplé i horskými serpentinami Krušných hor. První den startuje v lázeňských Karlových Varech (kolonáda, rozhledna Diana) a stoupá přes Jáchymov na nejvýše položené město Boží Dar a vrchol Klínovce. Druhý den se okruh vrací lázeňskou krajinou přes hrad Loket, tajemný Bečov nad Teplou s relikviářem svatého Maura a rašeliniště Kladská do trojice slavných lázní Mariánské a Františkovy Lázně. Trasa je díky vyhýbání se dálnicím pomalejší, ale nabízí nepřetržité výhledy, lázeňské kolonády a horské scenérie. Ideální rozdělení: 1. den Karlovy Vary a Krušné hory, 2. den lázeňský okruh a Slavkovský les.
+
+Body zájmu: Karlovy Vary – Mlýnská kolonáda · Rozhledna Diana (Karlovy Vary) · 🍽 Ventura Pub Evropák (Karlovy Vary) · Jáchymov – Královská mincovna · Boží Dar · Klínovec – rozhledna · Hrad Loket · Bečov nad Teplou – hrad a zámek (relikviář sv. Maura) · Kladská – rašeliniště a naučná stezka · Mariánské Lázně – Zpívající fontána · 🍽 Gourmet Restaurant Villa Patriot (Mariánské Lázně) · Františkovy Lázně – Františkův pramen
+
+### Hrady kolem Prahy
+*okruh · lehká · 195 km · ~330 min · 8 bodů · 🌍 Česko*
+
+Jednodenní okruh za nejkrásnějšími hrady, zámky a přírodními skvosty ve Středních Čechách kousek od Prahy. Trasa vás provede romantickým Karlštejnem, tajemným Křivoklátem, podzemím Koněpruských jeskyní i honosným Konopištěm a přes Kokořínsko se vrací zpět. Záměrně se vyhýbá dálnicím (D1, D5 ani D8 se nedotkne) a vede po klidnějších silnicích I. a II. třídy údolím Berounky, Křivoklátskem a Kokořínským dolem, kde si užijete zatáčky, lesy a výhledy. Cesta je nenáročná, ideální i pro méně zkušené motorkáře a rodinné výlety. Počítejte s častými zastávkami, takže vyjeďte brzy ráno a dopřejte si čas na prohlídky i oběd na půli cesty.
+
+Body zájmu: Hrad Karlštejn · Koněpruské jeskyně · Beroun (medvědi na Městské hoře) · 🍽 Konírna Nižbor (Nižbor) · Nižbor (sklárna Rückl a keltské oppidum) · Hrad Křivoklát · Zámek Konopiště · Hrad Kokořín
+
+### Kutná Hora a Železné hory
+*za body zájmu · střední · 118 km · ~210 min · 9 bodů · 🌍 Česko*
+
+Jednodenní scénický okruh spojuje stříbrné bohatství Kutné Hory s divokou přírodou Železných hor. Trasa začíná u gotického chrámu sv. Barbory a slavné kostnice v Sedlci, pokračuje k empírovému zámku Kačina a romantickému zámku Žleby. Přes zříceninu hradu Lichnice s rozhlednou Miladou sjedete k malebné přehradě Seč, kde je ideální zastávka na oběd. Cestu zakončuje pietní památník Ležáky a loutkářská Chrudim s renesančním Mydlářovským domem. Trasa je vedena výhradně po silnicích II. a III. třídy a okresních cestách přírodou Železných hor, dálnicím a rychlostním silnicím se zcela vyhýbá kvůli zážitku z jízdy a klidnějšímu provozu. Počítejte s klikatými úseky a stoupáními, která ocení každý motorkář.
+
+Body zájmu: Kutná Hora – chrám sv. Barbory (UNESCO) · Sedlec – kostnice · Zámek Kačina · Zámek Žleby · Hrad Lichnice · Přehrada Seč · 🍽 Hostinec Pod Drnem (Seč) · Památník Ležáky · Chrudim – Muzeum loutkářských kultur
+
+### Orlické hory, Adršpach a Broumovsko
+*okruh · střední · 245 km · ~360 min · 11 bodů · 🌍 Česko*
+
+Dvoudenní okruh po nejkrásnějších koutech Kladského pomezí a Orlických hor, který vás provede skalními městy, historickými zámky, pohraničními pevnostmi i horskými hřebeny. Trasa se záměrně vyhýbá dálnicím a vede výhradně po klidných silnicích druhé a třetí třídy, aby si motorkář naplno vychutnal serpentiny, výhledy a atmosféru podhůří. První den doporučujeme věnovat severní části okruhu: Adršpašsko-teplickým skálám, Broumovským stěnám, zámku v Náchodě a pevnosti Dobrošov s přespáním v okolí Náchoda nebo Deštného. Druhý den zamíříte do Orlických hor přes Deštné a Masarykovu chatu na Šerlichu, sjedete údolím Metuje k romantickému Peklu a přes Nové Město nad Metují se vydáte až k dominantní Kunětické hoře, odkud se vrátíte zpět. Počítejte s převýšeními, úzkými horskými úseky a nutností plánovat zastávky na jídlo, protože v horách bývají restaurace jen v obcích. Celý okruh je fyzicky i řidičsky středně náročný a odměnou jsou jedny z nejfotogeničtějších scenérií východních Čech.
+
+Body zájmu: Adršpašsko-teplické skály · Broumovské stěny · Zámek Náchod · 🍽 U Slovana (Náchod) · Pevnost Dobrošov · Deštné v Orlických horách · 🍽 Kozí chlívek (Deštné v Orlických horách) · Masarykova chata na Šerlichu · Peklo (Bartoňova útulna) · Nové Město nad Metují (zámek) · Kunětická hora
+
+### České středohoří a Litoměřicko
+*okruh · lehká · 118 km · ~320 min · 9 bodů · 🌍 Česko*
+
+Jednodenní okruh Českým středohořím a Litoměřickem, který spojuje sopečné vrcholy, románské památky, majestátní zříceniny i barokní zámek nad meandry Labe. Trasa začíná i končí pod Milešovkou, vede přes horu Říp, Házmburk, Terezín, historické jádro Litoměřic a hrad Střekov až k proslulé Portě Bohemice a zámku Ploskovice. Celý okruh je záměrně vedený po silnicích II. a III. třídy a vyhýbá se dálnicím (D8) i rychlostním úsekům, abyste si užili klidnou jízdu krajinou plnou vyhaslých sopek, vinic a výhledů. Silnice jsou zvlněné a v serpentinách pod vrcholy nabízejí zábavnou, ale nenáročnou jízdu vhodnou i pro méně zkušené motorkáře. Ideální je vyrazit za jasného počasí, kdy je z hřebenů středohoří vidět daleko do Polabí i k Krušným horám.
+
+Body zájmu: Milešovka · Říp (rotunda sv. Jiří) · hrad Házmburk · Terezín (památník) · Litoměřice (náměstí) · 🍽 Dobrá Bašta (Litoměřice) · Střekov (hrad, Ústí nad Labem) · Porta Bohemica (vyhlídka) · zámek Ploskovice
+
+### Vranovsko, Bítov a Národní park Podyjí
+*za body zájmu · střední · 118 km · ~430 min · 11 bodů · 🌍 Česko, Rakousko*
+
+Malebná dvoudenní okružní jízda podél hlubokého kaňonu řeky Dyje, která propojuje romantické zámky, hrady i zříceniny s divokou přírodou Národního parku Podyjí. Trasa začíná u pohádkového zámku Vranov nad Dyjí, pokračuje kolem Vranovské přehrady k mohutnému hradu Bítov a tajemné zřícenině Cornštejn. Odtud se stáčí přes vyhlídky Podyjí do nejmenšího rakouského města Hardegg a končí v historickém Znojmě se slavnou rotundou, podzemím a vinařským Šatovem. Jízda záměrně vede pouze po klidných silnicích II. a III. třídy a okresních spojkách údolím Dyje, takže se úplně vyhýbá dálnicím i rychlostním silnicím. Serpentiny nad přehradou a lesní úseky Podyjí nabízejí požitkářskou jízdu s neustálými výhledy, proto počítejte s pomalejším tempem a častými zastávkami.
+
+Body zájmu: Vranov nad Dyjí (zámek) · Vranovská přehrada · Hrad Bítov · Zřícenina Cornštejn · 🍽 U Vodnáře (Vranov nad Dyjí) · NP Podyjí – Sealsfieldův kámen · Hardegg · Znojmo – rotunda svaté Kateřiny · Znojemské podzemí · 🍽 Bistrograf (Znojmo) · Šatov
+
+### Plzeňsko, Český les a Chodsko
+*okruh · střední · 265 km · ~420 min · 11 bodů · 🌍 Česko*
+
+Okruh z Plzně vede za nejkrásnějšími hrady a rozhlednami západních Čech a záměrně se vyhýbá dálnicím i rychlostním silnicím – jede se výhradně po klidných silnicích II. a III. třídy, které lemují řeky Úhlavu a Otavu a stoupají do hřebenů Českého lesa. První den doporučujeme z Plzně přes vodní hrad Švihov a mohutnou zříceninu Rabí až do Domažlic, srdce Chodska, kde je ideální přenocovat. Druhý den pokračujete k nejstaršímu kamennému hradu v Česku Přimdě, na nejvyšší vrchol Českého lesa Čerchov a přes rozhlednu Koráb u Kdyně zpět přes Klatovy do Plzně. Trasa je zvlněná, s řadou zatáček a stoupání, proto ji hodnotíme jako středně náročnou a ideální na dva dny. Motorkáři ocení plynulé okresky bez kamionů, výhledy na bavorské pomezí a hustou síť hradů, muzeí a chodských hospůdek.
+
+Body zájmu: Plzeň – Pivovar Plzeňský Prazdroj · Plzeň – Katedrála sv. Bartoloměje · Vodní hrad Švihov · Hrad Rabí · Domažlice – náměstí Míru a Chodský hrad · 🍽 Městský pivovar Domažlice (Domažlice) · Hrad Přimda – nejstarší hrad v Česku · Čerchov – Kurzova rozhledna (Klenčí pod Čerchovem) · Rozhledna Koráb (Kdyně) · Klatovy – Černá věž a katakomby · 🍽 Pilsner Urquell Original Restaurant Střelnice (Klatovy)
+
+## 🏔️ Zahraniční klasiky (Alpy, jižní Evropa)  (12)
 
 ### Passo dello Stelvio – král alpských průsmyků
 *za body zájmu · náročná · 49 km · ~110 min · 6 bodů · 🌍 Itálie, Švýcarsko*
@@ -457,4 +555,195 @@ Body zájmu: Sigulda – Nový zámek · Turaida (hrad a muzeum) · Gūtmaņova 
 Pohodová dvoudenní jízda po estonských pobřežních a ostrovních silnicích, která záměrně vynechává dálnice a drží se malebných venkovských cest podél moře. První den vyrazíte z Tallinnu, projedete středověké staré město a zamíříte na východ do národního parku Lahemaa za panskými sídly Palmse a Sagadi. Druhý den se vydáte na západ k přístavu Virtsu, kde nasednete na trajekt Virtsu–Kuivastu přes úžinu Suur väin na ostrov Muhu a dále na Saaremaa (trajekt jede cca 25–30 minut, rezervaci doporučujeme v hlavní sezóně). Na Saaremaa objedete meteoritický kráter Kaali, útes Panga pank, větrné mlýny v Angle, biskupský hrad v Kuressaare a nejjižnější maják na Sõrve. Silnice jsou tu klidné, rovné až mírně zvlněné a ideální pro pomalé vychutnávání krajiny, takže počítejte spíš s fotopauzami než s kilometry v kuse.
 
 Body zájmu: Tallinn – staré město (Raekoja plats) · 🍽 Rataskaevu 16 (Tallinn) · Palmse mõis (Lahemaa) · Sagadi mõis (Lahemaa) · Trajekt Virtsu–Kuivastu · Kaali – meteoritický kráter · Angla – větrné mlýny · Panga pank – útes · Kuressaare – biskupský hrad · 🍽 MO Restaurant (Kuressaare) · Sõrve – maják
+
+## 🧭 Blízké oblíbené země (podrobně)  (27)
+
+### Malá Fatra a Terchová
+*okruh · střední · 165 km · ~690 min · 10 bodů · 🌍 Slovensko*
+
+Okružní scénická trasa srdcem Malé Fatry, která spojuje divokou Vrátnu dolinu, romantické soutěsky a folklorní klenoty Terchovska a Rajecka. Z Terchové vyrazíte k Jánošíkovým dierám a k monumentální soše Juraje Jánošíka, poté sjedete pod hrad Strečno nad Váhom a zamíříte za malovanými domy v Čičmanech. Cestou zpět projedete kolem bizarních Súľovských skal a přes Žilinu se vrátíte zpět do Terchové. Trasa je koncipována výhradně po silnicích II. a III. třídy a údolními cestami — dálnicím a rychlostním silnicím (např. D1 a D3) se záměrně vyhýbá, aby si motorkář vychutnal serpentiny, vyhlídky a klidný provoz. Ideální je rozložit okruh na 1–2 dny s přenocováním v Terchové nebo Žilině.
+
+Body zájmu: Vrátna dolina (Terchová) · Jánošíkove diery · Rozhľadňa / socha Jánošík (Terchová) · Malý Rozsutec · 🍽 Koliba Starý dvor Vrátna (Terchová) · Hrad Strečno · Čičmany (maľované domy) · Súľovské skaly · 🍽 Terchovská Koliba Diery (Terchová) · Žilina
+
+### Nízke Tatry – Chopok a Demänovská dolina
+*za body zájmu · střední · 175 km · ~540 min · 10 bodů · 🌍 Slovensko*
+
+Dvoudenní scénická jízda srdcem slovenských Nízkých Tater, která spojuje velehorské panorama Chopku s tajemným podzemím Demänovské doliny a malebnými dědinami Liptova. Trasa se záměrně vyhýbá dálnicím (D1) a vede po klidných horských a údolních silnicích, kde si užijete zatáčky, výhledy a autentickou atmosféru regionu. První den projedete Demänovskou dolinou k lanovce na Chopok, navštívíte obě slavné jeskyně a přenocujete v okolí Jasné či Ružomberku. Druhý den vede přes UNESCO dědinu Vlkolínec, kolem přehrady Liptovská Mara a přes Ružomberok dolů k rekreačnímu středisku Tále a hornické obci Špania Dolina. Počítejte s pomalejším tempem v horských úsecích a na úzkých silnicích k dědinám. Rozdělení: 1. den – Demänovská dolina, Chopok a jeskyně; 2. den – Vlkolínec, Liptovská Mara, Ružomberok, Tále a Špania Dolina. Pozn.: celá trasa se vyhýbá dálnicím a využívá výhradně silnice nižších tříd s výhledy do krajiny.
+
+Body zájmu: Chopok (Jasná) · Demänovská jaskyňa slobody · Demänovská ľadová jaskyňa · Vlkolínec (UNESCO) · Liptovská Mara · Ružomberok · Bystrá / Tále · Špania Dolina · 🍽 Slovenská Koliba Jasná (Demänovská Dolina) · 🍽 Koliba pod Vlkolíncom (Ružomberok)
+
+### Orava – Oravský hrad a Roháče
+*za body zájmu · střední · 195 km · ~420 min · 10 bodů · 🌍 Slovensko*
+
+Scénická dvoudenní jízda srdcem slovenské Oravy, která spojuje majestátní Oravský hrad, tyrkysovou Oravskou priehradu a divoké štíty Roháčů v Západních Tatrách. Trasa se záměrně vyhýbá dálnicím a rychlostním silnicím – vede výhradně po klidných regionálních silnicích II. a III. třídy s výhledy na hory, dřevěné oravské vesnice a horské doliny. První den vyrazíte od Oravského hradu k Oravské priehrade a Slanickému ostrovu umenia, zastavíte se v Trstené a přespíte v okolí Zuberce. Druhý den vás čeká skanzen Brestová, výjezd na Zverovku k Ťatliakovu plesu, návrat přes Dolný Kubín a závěrečná procházka romantickou Kvačianskou dolinou. Počítejte s úzkými serpentinami a horským počasím – jízda je fyzicky i technicky středně náročná, odměnou jsou ale jedny z nejkrásnějších výhledů na severním Slovensku.
+
+Body zájmu: Oravský hrad (Oravský Podzámok) · Oravská priehrada · Slanický ostrov umenia · Trstená · 🍽 Koliba pod Roháčmi (Zuberec) · Zuberec (skanzen Brestová) · Roháče / Zverovka (Ťatliakovo pleso) · 🍽 Reštaurácia Marína (Dolný Kubín) · Dolný Kubín · Kvačianska dolina
+
+### Banská Štiavnica a Štiavnické vrchy
+*okruh · střední · 128 km · ~210 min · 9 bodů · 🌍 Slovensko*
+
+Jednodenní okruh po srdci Štiavnických vrchov, který spojuje středověké báňské město Banská Štiavnica se sopečnými kopci, tajchy a barokními památkami regionu Hont. Trasa vede po malebných regionálních cestách přes Svätý Anton, Počúvadlo a přes hřebeny až k Banské Bystrici a zpět. Vědomě se vyhýbá dálnicím a rychlostním silnicím (žiadna diaľnica) – jede se výhradně po klikatých silnicích druhé a třetí třídy s množstvím zatáček a výhledů, což je pro motorkáře to pravé. Cestou nabírá výšku k rozhledně Sitno, nejvyššímu vrcholu pohoří, a klesá k romantickému jezeru Počúvadlo. Počítejte s pomalejším tempem kvůli úzkým a členitým úsekům, zato s odměnou v podobě panoramat, UNESCO památek a klidných horských serpentin.
+
+Body zájmu: Banská Štiavnica – Starý zámok · Banská Štiavnica – Nový zámok · Kalvária Banská Štiavnica · Kaštieľ Svätý Anton · Sitno – rozhľadňa · Tajch Počúvadlo · 🍽 4Sochy Restaurant (Banská Štiavnica) · Banská Bystrica – Námestie SNP · Vartovka – rozhľadňa a hvezdáreň
+
+### Slovenský kras a Zádielska tiesňava
+*za body zájmu · střední · 175 km · ~690 min · 10 bodů · 🌍 Slovensko*
+
+Táto scénická okružná trasa vás prevedie srdcom Slovenského krasu, jedinečnej krasovej krajiny zapísanej v zozname UNESCO. Začína v najhlbšej rokline Slovenska, Zádielskej tiesňave, a pokračuje popri slávnych jaskyniach Domica, Gombasecká a Jasovská, pričom nevynechá ani majestátny hrad Krásna Hôrka a romantický kaštieľ Betliar. Vyvrcholením je návšteva metropoly východu Košíc s dominantným Dómom svätej Alžbety. Trasa je vedená zámerne po malebných okresných a druhotriednych cestách cez planiny a údolia Rožňavska, dálniciam a rýchlostným cestám sa úplne vyhýba, aby ste si naplno vychutnali kľukaté serpentíny a výhľady. Vzhľadom na množstvo zastávok a jaskynné prehliadky odporúčame rozdeliť si okruh na dva dni s prenocovaním v okolí Rožňavy alebo Košíc.
+
+Body zájmu: Zádielska tiesňava · Silická ľadnica · jaskyňa Domica · Gombasecká jaskyňa · 🍽 Apetit reštaurácia (Rožňava) · hrad Krásna Hôrka · kaštieľ Betliar · Jasovská jaskyňa · Košice (Dóm sv. Alžbety) · 🍽 Med Malina (Košice)
+
+### Wachau – údolí Dunaje a vinice
+*za body zájmu · lehká · 78 km · ~180 min · 9 bodů · 🌍 Rakousko*
+
+Wachau je jeden z nejkrásnějších úseků Dunaje a zapsaný na seznamu UNESCO – kombinace strmých vinic, barokních klášterů, hradních zřícenin a malebných vinařských městeček. Trasa vede po obou březích Dunaje mezi Melkem a Kremží, kde se silnice line těsně podél řeky a mezi terasovitými vinohrady. Začnete u velkolepého benediktinského opatství Melk, projedete kolem zříceniny Aggstein a Willendorfu, kde byla nalezena slavná Venuše. Přejedete přívozem nebo mostem na druhý břeh a pokračujete přes Spitz, Weißenkirchen a Dürnstein až do Kremže, zakončeno návštěvou opatství Göttweig na protějším kopci. Trasa se ZÁMĚRNĚ VYHÝBÁ dálnicím (dálnici A1 nechte stranou) – jede se pomalými panoramatickými silnicemi B3 a B33 po březích Dunaje, kde si vychutnáte scenérii a zastávky. Ideální jednodenní výlet plný vína, historie a nádherných výhledů na řeku.
+
+Body zájmu: Klášter Melk (Stift Melk) · Zřícenina Aggstein (Burgruine Aggstein) · Willendorf (naleziště Venuše) · Spitz an der Donau · Weißenkirchen in der Wachau (vinice) · 🍽 Heuriger Walter Denk (Weißenkirchen) · Dürnstein (zřícenina a modrá věž) · Krems an der Donau (Steiner Tor) · Klášter Göttweig (Stift Göttweig)
+
+### Salzkammergut – Hallstatt a jezera
+*okruh · střední · 265 km · ~660 min · 10 bodů · 🌍 Rakousko*
+
+Okružní scénická trasa srdcem rakouského Salzkammergutu, kraje smaragdových jezer, alpských štítů a císařských měst. Vede výhradně po klikatých spolkových a regionálních silnicích kolem jezer Wolfgangsee, Traunsee, Attersee a Mondsee, s odbočkami k Hallstattu, Gosausee a horskému masivu Dachstein. Dálnicím (dálnice/Autobahn) se trasa záměrně vyhýbá, jede se po vedlejších horských a příjezerních silnicích, které nabízejí nejkrásnější výhledy a jsou pro motorkáře nejzábavnější. Den 1: Hallstatt – Dachstein/Krippenstein – Gosausee – Bad Ischl – St. Wolfgang (přenocování u Wolfgangsee). Den 2: St. Wolfgang – Gmunden (Traunsee) – Attersee – Mondsee – zpět do Hallstattu. Počítejte s úzkými serpentinami, letním provozem u Hallstattu a chladnějším počasím ve vyšších polohách u Dachsteinu.
+
+Body zájmu: Hallstatt · Dachstein – Krippenstein (Five Fingers) · Gosausee · Bad Ischl – Kaiservilla · St. Wolfgang im Salzkammergut (Wolfgangsee) · Gmunden – zámek Ort (Traunsee) · Attersee · Mondsee · 🍽 Weinhaus Attwenger (Bad Ischl) · 🍽 Seerestaurant im Weissen Rössl (St. Wolfgang)
+
+### Zillertal a Gerlos Alpenstrasse
+*za body zájmu · náročná · 205 km · ~420 min · 8 bodů · 🌍 Rakousko*
+
+Náročný jednodenní okruh srdcem tyrolského Zillertalu, který spojuje ledovcová panoramata, horské průsmyky a nejvyšší vodopád Rakouska. Trasa záměrně vede pouze po malebných horských a údolních silnicích a zcela se vyhýbá dálnicím (dálnicím se vyhýbáme). Počítejte se zpoplatněnými alpskými silnicemi – Gerlos Alpenstrasse i Zillertaler Höhenstraße vybírají mýtné na mýtnicích. Serpentiny, prudká stoupání a úzké panoramatické úseky kladou vysoké nároky na řidiče i motorku, proto je trasa hodnocena jako obtížná. Odměnou jsou výhledy na ledovec Hintertux, tyrkysové jezero Achensee a hukot Krimmelských vodopádů. Ideální na celý den s dostatkem času na zastávky a fotografování.
+
+Body zájmu: Mayrhofen · Zell am Ziller · Gerlos Alpenstrasse (Gerlospass) · Krimmelské vodopády (Krimml) · 🍽 Hanke's Café Restaurant (Krimml) · Zillertaler Höhenstraße · Achensee · Hintertux (ledovec)
+
+### Silvretta Hochalpenstrasse
+*za body zájmu · náročná · 92 km · ~190 min · 8 bodů · 🌍 Rakousko*
+
+Silvretta Hochalpenstrasse patří k nejkrásnějším alpským silnicím Evropy a spojuje vorarlberský Montafon s tyrolským Paznaunem přes sedlo Bielerhöhe ve výšce 2032 metrů. Trasa začíná v Partenenu, stoupá 34 serpentinami k tyrkysovému Silvretta-Stausee a klesá do Galtüru a Ischglu, přičemž po celou dobu nabízí výhledy na ledovce a vrchol Piz Buin. Jde o náročnou jednodenní trasu s prudkými stoupáními, ostrými zatáčkami a nadmořskou výškou přes 2000 metrů, proto je vhodná pro zkušené motorkáře. Záměrně se vyhýbáme dálnicím (rakouským Autobahnám) a jedeme výhradně scénickými horskými silnicemi, abyste si užili panorama a klid Alp. Silvretta Hochalpenstrasse je zpoplatněná mýtem (osobní automobily a motocykly platí za průjezd), silnice bývá kvůli sněhu otevřená zhruba od června do října. Pro jízdu si vyhraďte celý den a počítejte s chladnějším počasím ve výškách.
+
+Body zájmu: Bielerhöhe (Silvretta-Stausee) · Partenen · Galtür · Montafon (Schruns) · Kops Stausee · Bludenz · Ischgl · 🍽 Tiroler Stube (Galtür)
+
+### Semmering a Mariazell
+*okruh · střední · 265 km · ~420 min · 8 bodů · 🌍 Rakousko*
+
+Okružní trasa spojuje dva klenoty rakouských předalpin — historický průsmyk Semmering a poutní městečko Mariazell. Vyjíždí se od úpatí Rax a Schneebergu, kde se silnice vine údolím Höllental, pokračuje přes zvlněné hřebeny do Štýrska a zpět. Cesta je vedena záměrně po malebných horských a údolních silnicích, VYHÝBÁ SE DÁLNICÍM (dálnice) — místo rychlé A2 volíme klikaté okresní silnice se sériemi zatáček, výhledy na viadukty Semmeringbahn a lesnaté sedla. Počítejte s pomalejším tempem, mnoha vyhlídkami a možností rozdělit trasu do dvou dnů s přespáním v Mariazell. Ideální je jaro až podzim, kdy jsou v provozu horské dráhy i lanovky.
+
+Body zájmu: Semmering — viadukt Kalte Rinne (Semmeringbahn, UNESCO) · Höllental a Rax — lanovka Raxseilbahn · Schneeberg — zubačka Salamander (Puchberg am Schneeberg) · Bruck an der Mur — Hauptplatz a Železná studna · Hochschwab — vrchol masivu · Mariazell — bazilika Panny Marie · Bärenschützklamm — soutěska (Mixnitz) · 🍽 Brauhaus Mariazell (Mariazell)
+
+### Deutsche Alpenstraße – Neuschwanstein a Berchtesgaden
+*za body zájmu · náročná · 385 km · ~690 min · 13 bodů · 🌍 Německo*
+
+Legendární Německá alpská silnice (Deutsche Alpenstraße) vede podél celého bavorského podhůří Alp od pohádkového zámku Neuschwanstein až po Berchtesgaden u rakouských hranic. Trasa je záměrně vedena po klikatých panoramatických silnicích a horských průsmycích – dálnicím (Autobahn) se cíleně vyhýbáme, protože kouzlo této cesty spočívá v pomalé jízdě serpentinami kolem tyrkysových jezer a alpských luk. Doporučujeme rozdělit trasu na 2–3 dny: 1. den Neuschwanstein → Wieskirche → Oberammergau → Garmisch-Partenkirchen (přenocování pod Zugspitze), 2. den Walchensee → Sylvensteinsee → Tegernsee, 3. den Berchtesgaden → Königssee → Roßfeld panoramatická silnice → Orlí hnízdo. Silnice jsou úzké, s prudkými zatáčkami a horskými stoupáními, proto je obtížnost hodnocena jako náročná. Naplánujte si dostatek času na fotopauzy – výhledy na Zugspitze, Watzmann a alpská jezera patří k nejkrásnějším v Německu.
+
+Body zájmu: Zámek Neuschwanstein (Schwangau) · Wieskirche (Steingaden) · Oberammergau · Garmisch-Partenkirchen (Zugspitze) · 🍽 Zum Wildschütz (Garmisch-Partenkirchen) · Walchensee · Sylvensteinsee · Tegernsee · Berchtesgaden · 🍽 Gasthof Neuhaus (Berchtesgaden) · Königssee · Roßfeld panoramatická silnice · Kehlsteinhaus (Orlí hnízdo)
+
+### Bavorský les (Bayerischer Wald)
+*okruh · střední · 185 km · ~480 min · 11 bodů · 🌍 Německo*
+
+Okruh Bavorským lesem je jedna z nejkrásnějších motorkářských tras příhraničního Bavorska, plná táhlých zatáček, hlubokých smrkových lesů a výhledů na nejvyšší vrcholy Šumavy z německé strany. Trasa spojuje sklářská města Zwiesel, Frauenau a Bodenmais s národním parkem Bavorský les, korunovou stezkou v Neuschönau i romantickou hradní zříceninou Weißenstein nad Regenem. Vede převážně po klikatých okreskách a horských silnicích údolím Lamer Winkel a pod masivy Velkého Javoru (Großer Arber) a Rachelu. Doporučujeme rozložit okruh na jeden až dva dny a spojit ho s prohlídkou sklárny nebo výstupem lanovkou na Javor. Trasa se ZÁMĚRNĚ VYHÝBÁ dálnicím a rychlostním silnicím (Autobahn) — jede se jen po scénických silnicích druhé a třetí třídy, aby si jezdec užil krajinu i požitek z řízení.
+
+Body zájmu: Velký Javor (Großer Arber) · Rachel (Großer Rachel) · Zwiesel (sklárny) · Bodenmais · Korunová stezka Neuschönau (Baumwipfelpfad) · Národní park Bavorský les (Nationalpark Bayerischer Wald) · Frauenau (muzeum skla) · Regen (hrad Weißenstein) · Lam · 🍽 Zur Waldbahn (Zwiesel) · 🍽 Genussrestaurant DAS FRANZ (Bodenmais)
+
+### Saské Švýcarsko – Bastei
+*okruh · lehká · 78 km · ~210 min · 9 bodů · 🌍 Německo*
+
+Jednodenní okružní jízda po nejkrásnějších místech Saského Švýcarska (Sächsische Schweiz) na německé straně Labských pískovců. Trasa spojuje slavný skalní most Bastei, mohutnou pevnost Königstein, romantické jezírko Amselsee v Rathenu a stolovou horu Lilienstein s divokými skalisky Schrammsteine a skalní bránou Kuhstall. Zpáteční část vede přes historická náměstí měst Pirna a Stadt Wehlen podél řeky Labe. Trasa se záměrně VYHÝBÁ dálnicím a Autobahnům – jede se výhradně po klikatých krajinských a údolních silnicích s nádhernými výhledy na pískovcové skály. Ideální celodenní scénický okruh pro milovníky přírody a fotografie.
+
+Body zájmu: Bastei (skalní most) · Pevnost Königstein · Rathen – Amselsee · Lilienstein · 🍽 zum Franz (Bad Schandau) · Schrammsteine · Kuhstall · Pirna (staré město) · Stadt Wehlen
+
+### Franské Švýcarsko (Fränkische Schweiz)
+*okruh · střední · 165 km · ~240 min · 9 bodů · 🌍 Německo*
+
+Okružní jednodenní vyjížďka srdcem Franského Švýcarska, kraje bílých vápencových skalních věží, hlubokých údolí řek Wiesent a Püttlach a stovek jeskyní. Trasa vědomě obchází dálnice (Autobahn A9/A73) a vede po malebných zemských a okresních silnicích, které se vinou pod skalními stěnami, kolem hradů a poutních kostelů. Začínáme v Pottensteinu u Čertovy jeskyně, projedeme skalní vesnicí Tüchersfeld, kolem baziliky v Gößweinsteinu a romantickými lázeňskými obcemi Streitberg a Muggendorf v údolí Wiesent. Sever okruhu tvoří skalní zahrada Sanspareil a hrad Rabenstein, na jihozápadě si můžeme odbočkou přidat světové dědictví UNESCO Bamberg. Silnice jsou úzké a klikaté s množstvím zatáček, proto je vhodná spíše pro pokročilejší jezdce a pomalejší tempo se vyplatí.
+
+Body zájmu: Pottenstein – Teufelská jeskyně (Teufelshöhle) · Tüchersfeld – Fränkische-Schweiz-Museum · Gößweinstein – bazilika a hrad · 🍽 Gasthof Zur Guten Einkehr (Gößweinstein-Morschreuth) · Streitberg – zřícenina Streitburg a Neideck · Muggendorf · Sanspareil – skalní zahrada a hrad Zwernitz · Hrad Rabenstein (Ahorntal) · Bamberg – historické centrum (UNESCO)
+
+### Kladsko – Kotlina Kłodzka
+*okruh · střední · 185 km · ~420 min · 10 bodů · 🌍 Polsko, Česko*
+
+Okruh Kladskou kotlinou (Kotlina Kłodzka) je nádherná scénická trasa spojující Stolové hory, lázeňská městečka a historické pevnosti na česko-polském pomezí. Vyjíždí se přes hraniční přechody u Náchodu nebo Zlatých Hor a projíždí se klikatými silnicemi mezi Kudowou-Zdrój, Kłodzkem a Bystrzycí Kłodzkou. Trasa je ideální na jeden delší nebo pohodový dvoudenní výlet s noclehem v některém z lázeňských měst. Krajina střídá skalní města, pískovcové věže, barokní baziliky a horské průsmyky. Silnice jsou úzké a zatáčkovité, což z okruhu dělá zážitek přesně pro motorkáře. Trasa se ZÁMĚRNĚ VYHÝBÁ dálnicím a rychlostním silnicím – vede výhradně po scénických regionálních a horských silnicích, aby si jezdec užil výhledy a plynulé zatáčky.
+
+Body zájmu: Szczeliniec Wielki (Stolové hory / Góry Stołowe) · Błędne Skały · Kudowa-Zdrój · Wambierzyce (bazilika) · Kłodzko (pevnost + podzemí) · 🍽 Restauracja Korona (Kłodzko) · 🍽 Restauracja Merkury (Kudowa-Zdrój) · Bystrzyca Kłodzka · Duszniki-Zdrój (Muzeum papírnictví) · Zlatý Stok / Złoty Stok (jeskyně a zlatý důl)
+
+### Karkonosze a Dolní Slezsko
+*za body zájmu · střední · 385 km · ~690 min · 10 bodů · 🌍 Polsko*
+
+Dvoudenní scénická okružní jízda polskou stranou Krkonoš (Karkonosze) a bohatým Dolním Slezskem, plná horských serpentin, gotických zámků a památek UNESCO. Trasa záměrně vede po klidných regionálních a horských silnicích a zcela se vyhýbá dálnicím (autostrada A4) i rychlostním silnicím — jedeme kvůli výhledům, ne kvůli rychlosti. První den (cca 2,5 hodiny čisté jízdy) věnujeme srdci Krkonoš: Szklarska Poręba s vodopádem Kamieńczyka, Karpacz s dřevěným norským kostelem Wang, výstup na Śnieżku, ruiny hradu Chojnik a nocleh v Jelení Hoře (Jelenia Góra). Druhý den (cca 4 hodiny jízdy) míří přes majestátní zámek Książ a Kostel míru ve Świdnici na listu UNESCO až do velkolepé Vratislavi (Wrocław) s jejím Rynkem a slavnými trpaslíky. Zpáteční cesta se opět drží vedlejších silnic podél úpatí Sudet. Vhodné boty a rezerva času na výstupy jsou nutností, protože nejkrásnější místa se dají dosáhnout jen pěšky.
+
+Body zájmu: Wodospad Kamieńczyka (Szklarska Poręba) · Kostel Wang (Karpacz) · Śnieżka (polská strana) · Hrad Chojnik (Sobieszów) · Jelenia Góra (Plac Ratuszowy) · 🍽 Kuźnia Smaku (Jelenia Góra) · Zámek Książ (Wałbrzych) · 🍽 Rynek 43 (Świdnica) · Kostel míru (Świdnica, UNESCO) · Wrocław (Rynek a trpaslíci)
+
+### Kraków, Wieliczka a Ojców
+*za body zájmu · lehká · 165 km · ~540 min · 11 bodů · 🌍 Polsko*
+
+Dvoudenní scénická smyčka po okolí Krakova, která spojuje královské památky, podzemní zázraky a divokou přírodu Krakovsko-čenstochovské jury. Trasa se záměrně vyhýbá dálnicím a rychlostním silnicím (A4, S7) a vede klidnými krajskými a lokálními silnicemi údolím řeky Prądnik a kolem Visly, aby si motorkář užil zatáčky, výhledy a klid. První den poznáte srdce Krakova s Wawelem a Rynkiem Głównym, sestoupíte do solného dolu ve Wieliczce a přenocujete ve městě. Druhý den zamíříte na sever do Ojcovského národního parku k bizarní skále Maczuga Herkulesa a zámku Pieskowa Skała, poté na jih do poutních míst Kalwaria Zebrzydowska a Wadowice a přes benediktinské opatství Tyniec a jezero Zakrzówek zpět. Den 1: Kraków (Wawel, Rynek), Wieliczka a večer nocleh v Krakově. Den 2: Ojców, Pieskowa Skała, Kalwaria Zebrzydowska, Wadowice, Tyniec a Zakrzówek. Poznámka: celá trasa je vedena mimo dálnice, po malebných silnicích nižších tříd.
+
+Body zájmu: Wawelský hrad (Kraków) · Rynek Główny (Kraków) · Solný důl Wieliczka (UNESCO) · 🍽 Pod Aniołami (Kraków) · Maczuga Herkulesa (Ojcowski NP) · Zámek Pieskowa Skała · Kalwaria Zebrzydowska (UNESCO) · Wadowice · 🍽 Pestka Restaurant (Wadowice) · Opatství Tyniec (benediktini) · Zakrzówek (Kraków)
+
+### Istrie – Rovinj, Motovun a Pula
+*okruh · střední · 235 km · ~420 min · 10 bodů · 🌍 Chorvatsko*
+
+Okružní projížďka srdcem Istrie spojuje pobřežní klenoty s kopcovitým vnitrozemím a jeho středověkými městečky posazenými na vrcholech kopců. Trasa záměrně vede po malebných regionálních a místních silnicích a zcela se vyhýbá dálnicím (istrijskému ipsilonu A8/A9) – jede se pomalu, s výhledy na vinice, olivové háje a moře. První den: Rovinj – Limský záliv – Poreč – Grožnjan – Motovun s přenocováním v okolí Motovunu nebo Pazinu. Druhý den: Pazin – Hum – zpět dolů k jihu a přes vnitrozemí do Puly a zpět podél západního pobřeží do Rovinje. Silnice jsou úzké a klikaté, proto počítejte s pomalejším tempem a častými zastávkami na fotografování; ideální jsou jarní a podzimní měsíce mimo hlavní sezónu.
+
+Body zájmu: Rovinj – kostel sv. Eufemie · 🍽 Monte (Rovinj) · Limský záliv (Limska draga) · Poreč – Eufraziova bazilika (UNESCO) · Grožnjan · Motovun – hradby · Pazin – jáma a hrad · Hum – nejmenší město · Pula – amfiteátr Arena · 🍽 Konoba Batelina (Banjole)
+
+### Plitvická jezera a Lika
+*za body zájmu · střední · 330 km · ~540 min · 9 bodů · 🌍 Chorvatsko*
+
+Dvoudenní scénická cesta srdcem chorvatského vnitrozemí, která propojuje slavná Plitvická jezera s divokým a málo turisticky vytíženým krajem Lika pod pohořím Velebit. Trasa se záměrně vyhýbá dálnici A1 i rychlostním úsekům a vede výhradně po klikatých státních a horských silnicích (D1, D25, D50 a průsmyk Baške Oštarije), takže si užijete pomalou jízdu s výhledy místo tunelů a mýtných bran. První den vede od kaskád Plitvických jezer přes vodopády Rastoke a krápníkové jeskyně Barać až k Národnímu parku Sjeverni Velebit a přenocování v okolí Gospiće. Druhý den seskočíte velebitským průsmykem Baške Oštarije, prohlédnete si historické město Gospić, sestoupíte k obřím Cerovackým jeskyním u Rizvanuše a cestu zakončíte v malebném Otočci nad řekou Gackou. Počítejte s úzkými serpentinami, kozami na silnici a čerpacími stanicemi jen ve větších obcích - nádrž doplňte v Gospići.
+
+Body zájmu: Národní park Plitvická jezera · Rastoke (Slunj) · Barać jeskyně (Rakovica) · NP Sjeverni Velebit · Baške Oštarije (velebitský průsmyk) · Gospić · 🍽 Maki (Gospić) · Cerovac jeskyně (Rizvanuša) · Otočac
+
+### Dalmácie – Split, Krka a Trogir
+*za body zájmu · střední · 265 km · ~660 min · 10 bodů · 🌍 Chorvatsko*
+
+Panoramatická dalmatská smyčka spojuje antické, středověké i přírodní klenoty střední Dalmácie a záměrně se vyhýbá dálnici A1 – jede se výhradně po pobřežní silnici D8 (Jadranská magistrála) a klikatých vnitrozemských okreskách, což je pomalejší, ale mnohem malebnější. Trasa začíná v Splitu s Diokleciánovým palácem, míří do vodopádů národního parku Krka, k UNESCO památkám v Trogiru a Šibeniku a vrací se přes dramatický kaňon Cetiny v Omiši. Doporučujeme rozdělit cestu na 2–3 dny. 1. den: Split – pevnost Klis – Trogir – Primošten s noclehem v okolí Šibeniku (pobřežní magistrála D8). 2. den: Šibenik – Skradinski buk – Roški slap v NP Krka a zpět. 3. den: návrat podél moře přes Primošten do Omiše ke kaňonu Cetiny a do Splitu. Bez použití dálnice – veškeré přejezdy vedou po pobřežních a vnitrozemských silnicích s výhledy na moře.
+
+Body zájmu: Split (Diokleciánův palác) · Pevnost Klis · Trogir (UNESCO) · Primošten · Šibenik (katedrála sv. Jakuba UNESCO) · NP Krka (Skradinski buk) · Vodopád Roški slap · Omiš (kaňon Cetiny) · 🍽 Pelegrini (Šibenik) · 🍽 Konoba Toni (Skradin)
+
+### Toskánsko – Val d'Orcia a Chianti
+*za body zájmu · střední · 245 km · ~660 min · 10 bodů · 🌍 Itálie*
+
+Malebná okružní jízda srdcem Toskánska propojuje ikonická středověká města s pastelovou krajinou Val d'Orcia, kterou UNESCO chrání jako mistrovské dílo lidského a přírodního souznění. Trasa vede výhradně po klikatých panoramatických silnicích SR2 (Via Cassia) a lokálních cestách mezi vinicemi Chianti a Brunella – dálnicím a autostrádám se zcela vyhýbáme, protože smyslem cesty je vychutnat si cypřišové aleje, kopce a jílové vlny krajiny. Vyjíždíme ze Sieny přes San Gimignano a Chianti, sjíždíme do renesanční Pienzy, Montepulciana a Montalcina a končíme mezi cypřiši u San Quirica d'Orcia a v termální Bagno Vignoni. Ideálně rozvržte trasu na 2–3 dny: první den Siena – San Gimignano – Greve in Chianti, druhý den Pienza – Montepulciano – Montalcino, třetí den Val d'Orcia a Bagno Vignoni. Jeďte v klidu, silnice jsou úzké a plné vyhlídek, kde se vyplatí zastavit a fotit. Vyhněte se poledním vedrům a naplánujte si obědové zastávky ve vinařských městech.
+
+Body zájmu: Siena (Piazza del Campo) · San Gimignano (věže) · Greve in Chianti (Piazza Matteotti) · Pienza · 🍽 Trattoria Latte di Luna (Pienza) · Montepulciano (Piazza Grande) · 🍽 Osteria Acquacheta (Montepulciano) · Montalcino · San Quirico d'Orcia (cypřiše Val d'Orcia) · Bagno Vignoni
+
+### Passo Gavia a Mortirolo
+*okruh · náročná · 118 km · ~300 min · 6 bodů · 🌍 Itálie*
+
+Náročná jednodenní smyčka italskými Alpami spojující dva legendární průsmyky – divoký Passo Gavia (2621 m) a strmý Passo del Mortirolo, který proslavila cyklistika. Trasa vede úzkými horskými silnicemi plnými serpentin, přes zelené doliny Valcamoniky a Valtelliny a nabízí dechberoucí výhledy na ledovce masivu Ortles-Cevedale. Jede se výhradně po scénických horských silnicích (SS300, SS42, provinční cesty) a dálnicím se zcela vyhýbá – žádná autostrada, jen zatáčky a průsmyky. Silnice jsou úzké, místy bez svodidel a technicky náročné, proto je trasa vhodná pro zkušené jezdce. Ideální sezóna je léto, kdy jsou průsmyky spolehlivě bez sněhu (Gavia bývá otevřen zhruba od června do října). Počítejte s prudkými stoupáními, chladem ve výškách a doporučujeme vyjet brzy ráno, dokud je provoz nízký.
+
+Body zájmu: Passo Gavia · Passo del Mortirolo · Ponte di Legno · Passo del Tonale · Edolo · 🍽 Ristorante Frigidolfo (Ponte di Legno)
+
+### Lago di Como a průsmyk Splügen
+*okruh · střední · 245 km · ~600 min · 10 bodů · 🌍 Itálie, Švýcarsko*
+
+Dvoudenní okruh kolem severního cípu jezera Lago di Como, který spojuje elegantní jezerní městečka s divokým alpským průsmykem Passo dello Spluga na hranici Itálie a Švýcarska. Z Coma stoupáte serpentinami k slavné kapli Madonna del Ghisallo, patronky cyklistů, a pak sjíždíte k třpytivým vodám jezera v Bellagiu, Varenně a Menaggiu. Druhý den vás čeká výjezd do Chiavenny a přes vysokohorský Splügenpass s jeho ikonickými zatáčkami až na švýcarskou stranu, odkud se vracíte zpět k jezeru. Trasa záměrně vede po malebných horských a jezerních silnicích a zcela se vyhýbá dálnicím (autostradě A9) i tunelovým zkratkám. Počítejte s úzkými serpentinami, převýšením přes 2000 metrů na průsmyku a nádhernými výhledy, které patří k nejkrásnějším v celých Alpách.
+
+Body zájmu: Como (katedrála) · Madonna del Ghisallo (kaple + muzeum cyklistiky) · Bellagio · Varenna · 🍽 Crotto Quartino - Valchiavenna (Piuro) · Chiavenna · Passo dello Spluga (Splügenpass, hranice IT/CH) · Menaggio · 🍽 B-Lake Restaurant (Bellagio) · Lecco
+
+### Bled, Bohinj a Pokljuka
+*okruh · střední · 92 km · ~420 min · 9 bodů · 🌍 Slovinsko*
+
+Okružní vyjížďka srdcem Julských Alp, která spojuje dvě nejkrásnější slovinská jezera s divokými soutěskami a tichou horskou plošinou. Z Bledu se vydáte přes soutěsku Vintgar dolů do údolí a odtud po malebných okreskách k Bohinjskému jezeru a vodopádu Savica. Zpáteční část vede přes lesnatou plošinu Pokljuka a končí v medovém městečku Radovljica. Trasa je koncipovaná jako celodenní až dvoudenní zážitek s množstvím zastávek na fotografování a procházky. Silnice jsou úzké, klikaté a horské, proto jeďte opatrně a počítejte s nižší průměrnou rychlostí. Záměrně se celá trasa vyhýbá dálnicím a rychlostním silnicím (žádná dálnice / dálniční známka není potřeba) a vede výhradně po scénických regionálních silnicích.
+
+Body zájmu: Bledské jezero (ostrov a hrad Bled) · Soutěska Vintgar · Bohinjské jezero · Vodopád Savica · Soutěska Mostnica (Stara Fužina) · Pokljuka (plošina) · Radovljica (medové centrum) · 🍽 Gostilna Mihovc (Stara Fužina) · 🍽 Pizzeria Rustika (Bled)
+
+### Logarská dolina a Solčavská panoramatická cesta
+*okruh · náročná · 118 km · ~300 min · 8 bodů · 🌍 Slovinsko*
+
+Náročný jednodenní okruh po nejkrásnějším koutu slovinských Kamnicko-Savinjských Alp, který spojuje ledovcovou Logarskou dolinu s vyhlídkovou Solčavskou panoramatickou cestou. Trasa je pojatá záměrně bez dálnic (dálnice) a vede výhradně po klikatých horských a údolních silnicích s ostrými serpentinami, prudkými stoupáními a nádhernými výhledy na alpské štíty. Z Kamniku se vydáte přes Kamnickou Bistrici k lanovce na Velikou planinu, poté horskými průsmyky do Solčavska, projedete Logarskou dolinu až k vodopádu Rinka a vrátíte se přes vysoko položené Jezersko s jezerem Planšarsko. Kvůli velkému převýšení, úzkým vozovkám a technicky náročným úsekům je okruh vhodný pro zkušené motorkáře a počítejte s celodenním tempem. Panoramatické úseky si vyloženě žádají časté zastávky u vyhlídek a horských statků.
+
+Body zájmu: Kamnik · Velika planina (lanovka) · Solčava · Solčavská panoramatická cesta · Logarská dolina · Vodopád Rinka · Jezersko (Planšarsko jezero) · 🍽 Hotel Plesnik (Logarská dolina)
+
+### Eger, Bükk a Tokaj
+*za body zájmu · střední · 340 km · ~660 min · 11 bodů · 🌍 Maďarsko*
+
+Dvoudenní scénická okružní jízda severním Maďarskem, která spojuje barokní Eger, lesnaté hory Bükku a proslulé vinice Tokaje. Trasa záměrně vede po klikatých okreskách a horských silnicích (č. 25, 24, 2506 a 26) a zcela se VYHÝBÁ dálnicím (M3) — jedeme kvůli zážitku, ne kvůli rychlosti. První den vyrazíte z Egeru přes Szilvásvárad s lipicány a horské serpentiny k vodopádu v Lillafüredu, den zakončíte v jeskynních lázních Miskolctapolca. Druhý den zamíříte k vinicím Tokaje pod ochranou UNESCO, ke krápníkové jeskyni Baradla v Aggteleku a k pohádkové vesnici Hollókő. Počítejte s úzkými, ale nádhernými úseky lesních silnic přes Bükk — jsou to nejkrásnější kilometry celé cesty. Rozdělení: 1. den Eger → Szilvásvárad → Lillafüred → Miskolctapolca (cca 130 km), 2. den Miskolctapolca → Tokaj → Aggtelek → Hollókő (cca 210 km).
+
+Body zájmu: Egerský hrad · Egerský minaret · Údolí krásných paní (Szépasszony-völgy) · 🍽 Macok Bisztró (Eger) · Szilvásvárad — lipicáni · Lillafüred a vodopád Szinva · Jeskynní lázně Miskolctapolca · Tokaj — vinice UNESCO · 🍽 Bobajka (Tarcal) · Jeskyně Baradla, Aggtelek · Hollókő — vesnice UNESCO
+
+### Dunakanyar – ohyb Dunaje a Budapešť
+*okruh · lehká · 165 km · ~300 min · 9 bodů · 🌍 Maďarsko*
+
+Okružní jednodenní jízda Dunakanyarem (Ohybem Dunaje) severně od Budapešti patří k nejmalebnějším trasám v Maďarsku. Z Budapešti stoupáte podél pravého břehu Dunaje přes Szentendre do Visegrádu s jeho královským palácem a citadelou, pokračujete do Esztergomu s obří bazilikou a přes Zebegény a Vác se vracíte zpět do metropole. Trasa vede záměrně po klidných silnicích druhé a třetí třídy kopírujících řeku a horské hřbety Visegrádského pohoří, s nádhernými výhledy na zákrut Dunaje. Cíleně se vyhýbá dálnicím (M0, M2) – ty sice ušetří čas, ale ochudí vás o panoramata, serpentiny a atmosféru starých dunajských městeček. Počítejte s častými zastávkami na vyhlídkách a v historických centrech, ideální je vyrazit brzy ráno a klidné úseky si vychutnat bez spěchu.
+
+Body zájmu: Szentendre – staré město · Visegrád – citadela (Fellegvár) · Visegrád – královský palác · 🍽 Renaissance Étterem (Visegrád) · Prédikálószék – vyhlídka (Dunakanyar) · Esztergom – bazilika · Zebegény – dunajská vesnice · Vác – hlavní náměstí · Budapešť – Hradní vrch a Rybářská bašta
 
