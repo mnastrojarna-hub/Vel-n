@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -259,8 +260,10 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
                 width: 84,
                 height: 84,
                 child: e.poi.cover != null
-                    ? Image.network(e.poi.cover!, fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => _thumbFallback())
+                    ? CachedNetworkImage(imageUrl: e.poi.cover!, fit: BoxFit.cover,
+                        fadeInDuration: const Duration(milliseconds: 200),
+                        placeholder: (_, __) => _thumbFallback(),
+                        errorWidget: (_, __, ___) => _thumbFallback())
                     : _thumbFallback(),
               ),
               Expanded(
