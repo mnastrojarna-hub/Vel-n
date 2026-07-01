@@ -21,6 +21,56 @@ class RoutesScreen extends ConsumerStatefulWidget {
 
 class _RoutesScreenState extends ConsumerState<RoutesScreen> {
   String? _branchId; // null = vše
+  // Rozšířené filtry (prázdné = bez omezení).
+  final Set<String> _fType = {}; // 'loop' | 'poi'
+  final Set<String> _fDiff = {}; // 'easy' | 'medium' | 'hard'
+  final Set<String> _fCountry = {}; // ISO kódy + sentinel '__abroad__'
+  RangeValues? _fDist; // km
+  RangeValues? _fDur; // minuty
+
+  static const _kAbroad = '__abroad__';
+
+  int get _activeFilterCount =>
+      (_fType.isEmpty ? 0 : 1) +
+      (_fDiff.isEmpty ? 0 : 1) +
+      (_fCountry.isEmpty ? 0 : 1) +
+      (_fDist == null ? 0 : 1) +
+      (_fDur == null ? 0 : 1);
+
+  void _clearFilters() => setState(() {
+        _fType.clear();
+        _fDiff.clear();
+        _fCountry.clear();
+        _fDist = null;
+        _fDur = null;
+      });
+
+  /// Vyhovuje trasa zadané kombinaci filtrů? (statické parametry — sdílí seznam i náhled v sheetu)
+  static bool _routeMatches(
+    RouteItem r,
+    Set<String> types,
+    Set<String> diffs,
+    Set<String> countries,
+    RangeValues? dist,
+    RangeValues? dur,
+  ) {
+    if (types.isNotEmpty && !types.contains(r.routeType)) return false;
+    if (diffs.isNotEmpty && (r.difficulty == null || !diffs.contains(r.difficulty))) return false;
+    // Vzdálenost/čas filtrujeme jen u tras, které hodnotu mají (neznámé nevyřazujeme).
+    if (dist != null && r.distanceKm != null &&
+        (r.distanceKm! < dist.start - 0.5 || r.distanceKm! > dist.end + 0.5)) return false;
+    if (dur != null && r.durationMin != null &&
+        (r.durationMin! < dur.start - 0.5 || r.durationMin! > dur.end + 0.5)) return false;
+    if (countries.isNotEmpty) {
+      final wantAbroad = countries.contains(_kAbroad);
+      final specific = countries.where((c) => c != _kAbroad).toSet();
+      var ok = false;
+      if (wantAbroad && r.isAbroad) ok = true;
+      if (!ok && specific.isNotEmpty && r.countries.any(specific.contains)) ok = true;
+      if (!ok) return false;
+    }
+    return true;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -110,9 +160,12 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen> {
     if (data.routes.isEmpty) return _emptyState(context);
 
     final branches = data.branchesWithRoutes;
-    final routes = _branchId == null
+    final byBranch = _branchId == null
         ? data.routes
         : data.routes.where((r) => r.branchId == _branchId).toList();
+    final routes = byBranch
+        .where((r) => _routeMatches(r, _fType, _fDiff, _fCountry, _fDist, _fDur))
+        .toList();
 
     return RefreshIndicator(
       color: MotoGoColors.greenDark,
@@ -187,28 +240,33 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen> {
                 ),
               ),
             ),
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 100),
-            sliver: SliverList.builder(
-              itemCount: routes.length,
-              itemBuilder: (context, i) {
-                final r = routes[i];
-                return StaggeredReveal(
-                  index: i,
-                  baseDelay: const Duration(milliseconds: 60),
-                  child: Padding(
-                    padding: const EdgeInsets.only(bottom: 14),
-                    child: _RouteCard(
-                      route: r,
-                      branch: r.branchId != null ? data.branches[r.branchId] : null,
-                      lang: lang,
-                      onTap: () => context.push('/routes/${r.id}'),
+          // Rozšířené filtry (typ, obtížnost, délka, čas, země)
+          SliverToBoxAdapter(child: _filterBar(context, data)),
+          if (routes.isEmpty)
+            SliverToBoxAdapter(child: _filterEmpty(context))
+          else
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
+              sliver: SliverList.builder(
+                itemCount: routes.length,
+                itemBuilder: (context, i) {
+                  final r = routes[i];
+                  return StaggeredReveal(
+                    index: i,
+                    baseDelay: const Duration(milliseconds: 60),
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 14),
+                      child: _RouteCard(
+                        route: r,
+                        branch: r.branchId != null ? data.branches[r.branchId] : null,
+                        lang: lang,
+                        onTap: () => context.push('/routes/${r.id}'),
+                      ),
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
-          ),
         ],
       ),
     );
@@ -244,6 +302,429 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen> {
         ),
       ),
     );
+  }
+
+  // ── Lišta rozšířených filtrů (tlačítko + rychlé zrušení) ──
+  Widget _filterBar(BuildContext context, RoutesData data) {
+    final n = _activeFilterCount;
+    final active = n > 0;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+      child: Row(
+        children: [
+          PressableScale(
+            pressedScale: 0.96,
+            onTap: () => _openFilterSheet(context, data),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+              decoration: BoxDecoration(
+                color: active ? MotoGoColors.greenDark : Colors.white,
+                borderRadius: BorderRadius.circular(MotoGoRadius.pill),
+                border: Border.all(
+                  color: active ? MotoGoColors.greenDark : MotoGoColors.g200,
+                  width: 1.5,
+                ),
+                boxShadow: active ? MotoGoShadows.cardSmall : null,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.tune, size: 16, color: active ? Colors.white : MotoGoColors.greenDark),
+                  const SizedBox(width: 7),
+                  Text(
+                    t(context).tr('routesFilter'),
+                    style: TextStyle(
+                      fontSize: MotoGoTypo.sizeLg,
+                      fontWeight: MotoGoTypo.w800,
+                      color: active ? Colors.white : MotoGoColors.black,
+                      decoration: TextDecoration.none,
+                    ),
+                  ),
+                  if (active) ...[
+                    const SizedBox(width: 7),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.24),
+                        borderRadius: BorderRadius.circular(MotoGoRadius.pill),
+                      ),
+                      child: Text(
+                        '$n',
+                        style: const TextStyle(
+                          fontSize: MotoGoTypo.sizeSm,
+                          fontWeight: MotoGoTypo.w800,
+                          color: Colors.white,
+                          decoration: TextDecoration.none,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          const Spacer(),
+          if (active)
+            GestureDetector(
+              onTap: _clearFilters,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.close, size: 15, color: MotoGoColors.g500),
+                    const SizedBox(width: 3),
+                    Text(
+                      t(context).tr('routesFilterClear'),
+                      style: const TextStyle(
+                        fontSize: MotoGoTypo.sizeBase,
+                        fontWeight: MotoGoTypo.w700,
+                        color: MotoGoColors.g500,
+                        decoration: TextDecoration.none,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _filterEmpty(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 48, 24, 24),
+      child: Column(
+        children: [
+          const Text('🔍', style: TextStyle(fontSize: 44)),
+          const SizedBox(height: 12),
+          Text(
+            t(context).tr('routesFilterEmpty'),
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: MotoGoTypo.sizeLg,
+              fontWeight: MotoGoTypo.w700,
+              color: MotoGoColors.g500,
+              decoration: TextDecoration.none,
+            ),
+          ),
+          const SizedBox(height: 14),
+          PressableScale(
+            pressedScale: 0.96,
+            onTap: _clearFilters,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              decoration: BoxDecoration(
+                color: MotoGoColors.green,
+                borderRadius: BorderRadius.circular(MotoGoRadius.pill),
+              ),
+              child: Text(
+                t(context).tr('routesFilterClear'),
+                style: const TextStyle(
+                  fontSize: MotoGoTypo.sizeLg,
+                  fontWeight: MotoGoTypo.w800,
+                  color: MotoGoColors.black,
+                  decoration: TextDecoration.none,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Bottom sheet se všemi filtry ──
+  void _openFilterSheet(BuildContext context, RoutesData data) {
+    // Základ pro náhled počtu = trasy aktuálně zvolené pobočky.
+    final base = _branchId == null
+        ? data.routes
+        : data.routes.where((r) => r.branchId == _branchId).toList();
+
+    // Meze posuvníků z dat.
+    final dists = base.map((r) => r.distanceKm).whereType<double>().toList()..sort();
+    final hasDist = dists.length >= 2 && dists.first < dists.last;
+    final dMin = hasDist ? dists.first.floorToDouble() : 0.0;
+    final dMax = hasDist ? dists.last.ceilToDouble() : 0.0;
+
+    final durs = base.map((r) => r.durationMin).whereType<int>().toList()..sort();
+    final hasDur = durs.length >= 2 && durs.first < durs.last;
+    final tMin = hasDur ? durs.first.toDouble() : 0.0;
+    final tMax = hasDur ? durs.last.toDouble() : 0.0;
+
+    // Země přítomné v datech.
+    final countryCodes = <String>{for (final r in base) ...r.countries}.toList()..sort();
+    final anyAbroad = base.any((r) => r.isAbroad);
+
+    // Pracovní kopie (potvrdí se tlačítkem).
+    final tType = {..._fType};
+    final tDiff = {..._fDiff};
+    final tCountry = {..._fCountry};
+    var tDist = _fDist;
+    var tDur = _fDur;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder: (sheetCtx) {
+        return StatefulBuilder(
+          builder: (sheetCtx, setSheet) {
+            final count = base
+                .where((r) => _routeMatches(r, tType, tDiff, tCountry, tDist, tDur))
+                .length;
+            void toggle(Set<String> s, String v) =>
+                setSheet(() => s.contains(v) ? s.remove(v) : s.add(v));
+
+            return SafeArea(
+              top: false,
+              child: Padding(
+                padding: EdgeInsets.only(bottom: MediaQuery.of(sheetCtx).viewInsets.bottom),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Držadlo
+                    Container(
+                      margin: const EdgeInsets.only(top: 10, bottom: 6),
+                      width: 40, height: 4,
+                      decoration: BoxDecoration(
+                        color: MotoGoColors.g200,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 6, 20, 0),
+                      child: Row(
+                        children: [
+                          Text(
+                            t(sheetCtx).tr('routesFilterTitle'),
+                            style: const TextStyle(
+                              fontSize: MotoGoTypo.sizeH2,
+                              fontWeight: MotoGoTypo.w900,
+                              color: MotoGoColors.black,
+                              decoration: TextDecoration.none,
+                            ),
+                          ),
+                          const Spacer(),
+                          GestureDetector(
+                            onTap: () => setSheet(() {
+                              tType.clear();
+                              tDiff.clear();
+                              tCountry.clear();
+                              tDist = null;
+                              tDur = null;
+                            }),
+                            child: Text(
+                              t(sheetCtx).tr('routesFilterClear'),
+                              style: const TextStyle(
+                                fontSize: MotoGoTypo.sizeBase,
+                                fontWeight: MotoGoTypo.w700,
+                                color: MotoGoColors.greenDark,
+                                decoration: TextDecoration.none,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Flexible(
+                      child: ListView(
+                        shrinkWrap: true,
+                        padding: const EdgeInsets.fromLTRB(20, 14, 20, 8),
+                        children: [
+                          // Typ trasy
+                          _sheetSection(t(sheetCtx).tr('routesFilterType')),
+                          Wrap(spacing: 8, runSpacing: 8, children: [
+                            _selChip('🔄 ${t(sheetCtx).tr('routeTypeLoop')}', tType.contains('loop'),
+                                () => toggle(tType, 'loop')),
+                            _selChip('📍 ${t(sheetCtx).tr('routeTypePoi')}', tType.contains('poi'),
+                                () => toggle(tType, 'poi')),
+                          ]),
+                          const SizedBox(height: 18),
+                          // Obtížnost
+                          _sheetSection(t(sheetCtx).tr('routesFilterDifficulty')),
+                          Wrap(spacing: 8, runSpacing: 8, children: [
+                            _selChip('🟢 ${t(sheetCtx).tr('routeDiffEasy')}', tDiff.contains('easy'),
+                                () => toggle(tDiff, 'easy')),
+                            _selChip('🟠 ${t(sheetCtx).tr('routeDiffMedium')}', tDiff.contains('medium'),
+                                () => toggle(tDiff, 'medium')),
+                            _selChip('🔴 ${t(sheetCtx).tr('routeDiffHard')}', tDiff.contains('hard'),
+                                () => toggle(tDiff, 'hard')),
+                          ]),
+                          // Délka
+                          if (hasDist) ...[
+                            const SizedBox(height: 18),
+                            _sheetSection(
+                                '${t(sheetCtx).tr('routesFilterDistance')}  ·  ${(tDist?.start ?? dMin).round()}–${(tDist?.end ?? dMax).round()} km'),
+                            RangeSlider(
+                              min: dMin,
+                              max: dMax,
+                              values: tDist ?? RangeValues(dMin, dMax),
+                              activeColor: MotoGoColors.greenDark,
+                              inactiveColor: MotoGoColors.g200,
+                              labels: RangeLabels(
+                                '${(tDist?.start ?? dMin).round()}',
+                                '${(tDist?.end ?? dMax).round()}',
+                              ),
+                              onChanged: (v) => setSheet(() => tDist = v),
+                            ),
+                          ],
+                          // Čas jízdy
+                          if (hasDur) ...[
+                            const SizedBox(height: 6),
+                            _sheetSection(
+                                '${t(sheetCtx).tr('routesFilterDuration')}  ·  ${_fmtDur((tDur?.start ?? tMin).round())}–${_fmtDur((tDur?.end ?? tMax).round())}'),
+                            RangeSlider(
+                              min: tMin,
+                              max: tMax,
+                              values: tDur ?? RangeValues(tMin, tMax),
+                              activeColor: MotoGoColors.greenDark,
+                              inactiveColor: MotoGoColors.g200,
+                              labels: RangeLabels(
+                                _fmtDur((tDur?.start ?? tMin).round()),
+                                _fmtDur((tDur?.end ?? tMax).round()),
+                              ),
+                              onChanged: (v) => setSheet(() => tDur = v),
+                            ),
+                          ],
+                          // Země
+                          if (countryCodes.isNotEmpty || anyAbroad) ...[
+                            const SizedBox(height: 18),
+                            _sheetSection(t(sheetCtx).tr('routesFilterCountry')),
+                            Wrap(spacing: 8, runSpacing: 8, children: [
+                              if (anyAbroad)
+                                _selChip('✈️ ${t(sheetCtx).tr('routesFilterAbroad')}',
+                                    tCountry.contains(_kAbroad), () => toggle(tCountry, _kAbroad)),
+                              ...countryCodes.map((c) =>
+                                  _selChip(_countryLabel(c), tCountry.contains(c), () => toggle(tCountry, c))),
+                            ]),
+                          ],
+                        ],
+                      ),
+                    ),
+                    // Potvrzení
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 6, 20, 12),
+                      child: PressableScale(
+                        pressedScale: 0.98,
+                        onTap: () {
+                          setState(() {
+                            _fType
+                              ..clear()
+                              ..addAll(tType);
+                            _fDiff
+                              ..clear()
+                              ..addAll(tDiff);
+                            _fCountry
+                              ..clear()
+                              ..addAll(tCountry);
+                            // Plný rozsah = žádný filtr.
+                            _fDist = (tDist == null || (tDist!.start <= dMin && tDist!.end >= dMax))
+                                ? null
+                                : tDist;
+                            _fDur = (tDur == null || (tDur!.start <= tMin && tDur!.end >= tMax))
+                                ? null
+                                : tDur;
+                          });
+                          Navigator.of(sheetCtx).pop();
+                        },
+                        child: Container(
+                          height: 52,
+                          decoration: BoxDecoration(
+                            color: MotoGoColors.green,
+                            borderRadius: BorderRadius.circular(MotoGoRadius.pill),
+                            boxShadow: [
+                              BoxShadow(
+                                  color: MotoGoColors.green.withValues(alpha: 0.35),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 4)),
+                            ],
+                          ),
+                          child: Center(
+                            child: Text(
+                              '${t(sheetCtx).tr('routesFilterApply')} ($count)',
+                              style: const TextStyle(
+                                fontSize: MotoGoTypo.sizeXl,
+                                fontWeight: MotoGoTypo.w800,
+                                color: MotoGoColors.black,
+                                decoration: TextDecoration.none,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _sheetSection(String label) => Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Text(
+          label,
+          style: const TextStyle(
+            fontSize: MotoGoTypo.sizeLg,
+            fontWeight: MotoGoTypo.w900,
+            color: MotoGoColors.black,
+            decoration: TextDecoration.none,
+          ),
+        ),
+      );
+
+  Widget _selChip(String label, bool active, VoidCallback onTap) {
+    return PressableScale(
+      pressedScale: 0.94,
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+        decoration: BoxDecoration(
+          color: active ? MotoGoColors.greenDark : Colors.white,
+          borderRadius: BorderRadius.circular(MotoGoRadius.pill),
+          border: Border.all(
+            color: active ? MotoGoColors.greenDark : MotoGoColors.g200,
+            width: 1.5,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: MotoGoTypo.sizeBase,
+            fontWeight: active ? MotoGoTypo.w800 : MotoGoTypo.w600,
+            color: active ? Colors.white : MotoGoColors.black,
+            decoration: TextDecoration.none,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Vlaječka + kód země (jazykově neutrální).
+  String _countryLabel(String code) {
+    const flags = {
+      'CZ': '🇨🇿', 'DE': '🇩🇪', 'AT': '🇦🇹', 'PL': '🇵🇱', 'SK': '🇸🇰',
+      'HU': '🇭🇺', 'IT': '🇮🇹', 'CH': '🇨🇭', 'SI': '🇸🇮',
+    };
+    return '${flags[code] ?? '🏳️'} $code';
+  }
+
+  String _fmtDur(int minutes) {
+    final h = minutes ~/ 60;
+    final m = minutes % 60;
+    if (h <= 0) return '${m}m';
+    if (m == 0) return '${h}h';
+    return '${h}h ${m}m';
   }
 
   Widget _emptyState(BuildContext context) {
