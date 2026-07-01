@@ -30,9 +30,9 @@ return [
     'header.app.title' => 'Stáhnout mobilní aplikaci MotoGo24',
     'header.app.aria' => 'Stáhnout mobilní aplikaci MotoGo24 z Google Play',
     'header.app.heading' => 'Stáhni si appku MotoGo24',
-    'header.app.qrAlt' => 'QR kód s návodem ke stažení aplikace MotoGo24',
+    'header.app.qrAlt' => 'QR kód pro stažení aplikace MotoGo24 z Google Play',
     'header.app.getPlay' => 'Stáhnout aplikaci',
-    'header.app.whitelist' => 'Aplikace je v uzavřeném testování Google Play. Klepni na tlačítko výš, přidej se mezi testery (2 kroky) a nainstaluj. Když se nedaří stáhnout, napiš nám na {email}.',
+    'header.app.whitelist' => 'Appka je zdarma na Google Play. Naskenuj QR kód nebo klepni na tlačítko a nainstaluj — appka je pro Android (telefony i tablety).',
     'header.app.loyaltyTitle' => 'Věrnostní program:',
     'header.app.loyaltyText' => 'Za každou rezervaci přes aplikaci postupuješ ve věrnostních úrovních a získáváš slevy, které rostou s počtem tvých rezervací.',
 

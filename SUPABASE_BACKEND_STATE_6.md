@@ -335,3 +335,17 @@
 
 - **RPC `get_app_install_stats()`** (SECURITY DEFINER + `is_admin()` gate) — viz STATE_3. Nový tab **„Aplikace"** v `velin/src/pages/Analyza.jsx` (komponenta `analyza/AplikaceStats.jsx`): odhad instalací appky bez nového buildu — proxy z `push_tokens` (aktivní zařízení, Android/iOS, uživatelé) + `bookings.booking_source='app'`.
 - **Web:** nová stránka `/testovani` (onboarding beta testerů — self-join Google Group + opt-in), hlavičková bublina „Stáhnout mobilní apku" vede na `/testovani` + výrazná animace tlačítka (glow/wiggle/shine), rezervace **krok 2** — tlačítko zrušení nedokončené rezervace přebarveno na červené (`btnred`).
+
+---
+
+### 2026-07-01 — Appka veřejně v Google Play (produkce): web napojen na živý Store
+
+Aplikace `com.motogo24.app` je veřejně v Obchodě Play (produkce). Web:
+- Hlavičková bublina „Stáhnout aplikaci" — tlačítko i QR nově míří **přímo na
+  živou appku** `https://play.google.com/store/apps/details?id=com.motogo24.app`
+  (QR = `gfx/qr-google-play.svg`), text přepsán na veřejné stažení (bez uzavřeného
+  testování / e-mailu / skupiny). QR na mobilu skryté (stačí tlačítko).
+- `/testovani` (starý onboarding testerů: Google Group + opt-in) **zrušen** →
+  301 redirect na Obchod Play. Smazáno `pages/testovani.php`, `gfx/qr-testovani.svg`,
+  `gfx/qr-testeri-skupina.svg`. Konstanty `TESTER_GROUP_URL` a `PLAY_STORE_URL`
+  (opt-in) odstraněny z `config.php`; zůstává `PLAY_STORE_LIVE_URL`.

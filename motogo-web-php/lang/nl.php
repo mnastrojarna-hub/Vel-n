@@ -27,9 +27,9 @@ return [
     'header.app.title' => 'De MotoGo24-app downloaden',
     'header.app.aria' => 'De MotoGo24-app downloaden uit Google Play',
     'header.app.heading' => 'Download de MotoGo24-app',
-    'header.app.qrAlt' => 'QR-code met instructies om de MotoGo24-app te downloaden',
+    'header.app.qrAlt' => 'QR-code om de MotoGo24-app uit Google Play te downloaden',
     'header.app.getPlay' => 'App downloaden',
-    'header.app.whitelist' => 'De app zit in een gesloten test van Google Play. Tik op de knop hierboven, word tester (2 stappen) en installeer. Lukt het downloaden niet, mail ons op {email}.',
+    'header.app.whitelist' => 'De app is gratis in Google Play. Scan de QR-code of tik op de knop om te installeren — de app is voor Android (telefoons en tablets).',
     'header.app.loyaltyTitle' => 'Loyaliteitsprogramma:',
     'header.app.loyaltyText' => 'Bij elke boeking via de app stijg je in loyaliteitsniveaus en krijg je kortingen die groeien met het aantal van je boekingen.',
 
