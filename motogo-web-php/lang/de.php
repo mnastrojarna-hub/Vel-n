@@ -29,9 +29,9 @@ return [
     'header.app.title' => 'MotoGo24-App herunterladen',
     'header.app.aria' => 'MotoGo24-App bei Google Play herunterladen',
     'header.app.heading' => 'Hol dir die MotoGo24-App',
-    'header.app.qrAlt' => 'QR-Code mit Anleitung zum Herunterladen der MotoGo24-App',
+    'header.app.qrAlt' => 'QR-Code zum Herunterladen der MotoGo24-App bei Google Play',
     'header.app.getPlay' => 'App installieren',
-    'header.app.whitelist' => 'Die App ist im geschlossenen Test bei Google Play. Tippe oben auf den Button, werde Tester (2 Schritte) und installiere. Klappt der Download nicht, schreib uns an {email}.',
+    'header.app.whitelist' => 'Die App ist kostenlos bei Google Play. Scanne den QR-Code oder tippe auf den Button, um sie zu installieren — die App ist für Android (Handys und Tablets).',
     'header.app.loyaltyTitle' => 'Treueprogramm:',
     'header.app.loyaltyText' => 'Mit jeder Buchung über die App steigst du in den Treuestufen auf und erhältst Rabatte, die mit der Anzahl deiner Buchungen wachsen.',
 

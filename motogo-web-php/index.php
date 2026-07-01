@@ -625,10 +625,12 @@ switch (true) {
         require __DIR__ . '/pages/partneri.php';
         break;
 
-    // Onboarding beta testerů mobilní appky (uzavřené testování Google Play)
+    // Aplikace je veřejně v Google Play — původní testovací onboarding (skupina
+    // + opt-in) je zrušený. Staré odkazy/QR na /testovani přesměrujeme přímo
+    // na Obchod Play, ať vždy vedou na živou appku.
     case $path === '/testovani':
-        require __DIR__ . '/pages/testovani.php';
-        break;
+        header('Location: ' . PLAY_STORE_LIVE_URL, true, 301);
+        exit;
 
     // Rezervace
     case $path === '/rezervace':
