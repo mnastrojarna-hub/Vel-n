@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme.dart';
 import 'routes_model.dart';
 import 'poi_rating.dart';
+import '../../core/i18n/i18n_provider.dart';
 
 /// Spodní panel s detailem bodu zájmu — zobrazí se po kliknutí na bod (na mapě
 /// i v navigaci): galerie fotek (klik = zvětšit přes celou obrazovku s
@@ -213,7 +214,7 @@ void _openImageViewer(BuildContext context, List<String> imgs, int start) {
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    '${imgs.length} foto',
+                    '${imgs.length} ${AppTranslations.of(lang).tr('poiPhotoSuffix')}',
                     style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700),
                   ),
                 ),
