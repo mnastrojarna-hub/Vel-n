@@ -206,12 +206,21 @@ class CrashReportService {
 
   /// Convenience: report a FlutterErrorDetails.
   void reportFlutterError(FlutterErrorDetails details) {
+    // A „silent" FlutterError is one the framework itself does NOT surface
+    // (it never triggers the ErrorWidget / „Restartujte aplikaci" screen).
+    // The classic case is the image resource service failing to fetch a
+    // picture (HTTP 429/404, offline, …) — the app keeps running and just
+    // shows the placeholder. Reporting these as „critical" made Velín label
+    // them „Kritická (restart appky)", burying the real crashes in noise.
+    // Non-silent framework errors stay critical.
+    final severity =
+        details.silent ? CrashSeverity.warning : CrashSeverity.critical;
     report(
       errorType: 'FlutterError',
       errorMessage: details.exceptionAsString(),
       stackTrace: details.stack?.toString(),
       screen: details.context?.toString(),
-      severity: CrashSeverity.critical,
+      severity: severity,
       extra: {
         'library': details.library,
         'silent': details.silent,
@@ -235,6 +244,16 @@ class CrashReportService {
     bool has(String s) => blob.contains(s);
 
     if (has('failed to load font')) return CrashSeverity.warning;
+
+    // Image resource service failing to fetch a picture (rate-limit 429,
+    // 404, transient HTTP error). Only the placeholder is affected — the
+    // app never restarts.
+    if (has('http request failed') ||
+        has('image resource service') ||
+        has('networkimage') ||
+        has('errorwhenfetchingimage')) {
+      return CrashSeverity.warning;
+    }
 
     if (has('failed host lookup') ||
         has('socketexception') ||

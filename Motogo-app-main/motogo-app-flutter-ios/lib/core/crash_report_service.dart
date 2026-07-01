@@ -124,6 +124,12 @@ class CrashReportService {
     Map<String, dynamic>? extra,
   }) {
     try {
+      // Re-classify known non-fatal errors that surface through the global
+      // handlers as „critical" even though the app keeps running. Without this
+      // Velín shows them as „Kritická (restart appky)", drowning the real
+      // crashes in noise. Only ever downgrades — never hides a true crash.
+      severity = _effectiveSeverity(errorType, errorMessage, severity);
+
       // Deduplicate: same error+screen within 60s → skip
       final fingerprint = '$errorType:$errorMessage:$screen';
       final now = DateTime.now();
@@ -200,17 +206,81 @@ class CrashReportService {
 
   /// Convenience: report a FlutterErrorDetails.
   void reportFlutterError(FlutterErrorDetails details) {
+    // A „silent" FlutterError is one the framework itself does NOT surface
+    // (it never triggers the ErrorWidget / „Restartujte aplikaci" screen).
+    // The classic case is the image resource service failing to fetch a
+    // picture (HTTP 429/404, offline, …) — the app keeps running and just
+    // shows the placeholder. Reporting these as „critical" made Velín label
+    // them „Kritická (restart appky)", burying the real crashes in noise.
+    // Non-silent framework errors stay critical.
+    final severity =
+        details.silent ? CrashSeverity.warning : CrashSeverity.critical;
     report(
       errorType: 'FlutterError',
       errorMessage: details.exceptionAsString(),
       stackTrace: details.stack?.toString(),
       screen: details.context?.toString(),
-      severity: CrashSeverity.critical,
+      severity: severity,
       extra: {
         'library': details.library,
         'silent': details.silent,
       },
     );
+  }
+
+  /// Downgrade a „critical" report to `warning` when it matches a known
+  /// non-fatal pattern. The app does NOT restart for any of these:
+  /// - Google Fonts runtime fetch failure (offline) — text falls back.
+  /// - Transient network / DNS errors (host lookup, socket, timeout).
+  /// - Expired/revoked refresh token — handled by the auth listener (sign-out).
+  /// - RenderFlex layout overflow — cosmetic, app continues.
+  /// - Secure-storage keystore rotation (BadPaddingException) — recovered by
+  ///   clearing the corrupted entry.
+  /// Everything else stays `critical`.
+  static CrashSeverity _effectiveSeverity(
+      String errorType, String message, CrashSeverity requested) {
+    if (requested != CrashSeverity.critical) return requested;
+    final blob = '$errorType $message'.toLowerCase();
+    bool has(String s) => blob.contains(s);
+
+    if (has('failed to load font')) return CrashSeverity.warning;
+
+    // Image resource service failing to fetch a picture (rate-limit 429,
+    // 404, transient HTTP error). Only the placeholder is affected — the
+    // app never restarts.
+    if (has('http request failed') ||
+        has('image resource service') ||
+        has('networkimage') ||
+        has('errorwhenfetchingimage')) {
+      return CrashSeverity.warning;
+    }
+
+    if (has('failed host lookup') ||
+        has('socketexception') ||
+        has('clientexception') ||
+        has('authretryablefetchexception') ||
+        has('connection closed') ||
+        has('connection reset') ||
+        has('handshakeexception') ||
+        has('timeoutexception')) {
+      return CrashSeverity.warning;
+    }
+
+    if (has('authapiexception') ||
+        has('refresh token') ||
+        has('refresh_token')) {
+      return CrashSeverity.warning;
+    }
+
+    if (has('renderflex overflowed') || has('overflowed by')) {
+      return CrashSeverity.warning;
+    }
+
+    if (has('badpaddingexception') || has('bad_decrypt')) {
+      return CrashSeverity.warning;
+    }
+
+    return CrashSeverity.critical;
   }
 
   // ── Internal flush logic ──
