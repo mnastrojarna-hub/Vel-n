@@ -154,10 +154,14 @@ class _PermissionsScreenState extends ConsumerState<PermissionsScreen>
                   if (!_bioEnabled) {
                     final ok = await BiometricService.authenticate();
                     if (ok) {
+                      // Ulož povolení + bio-uživatele (jinak se zapnutí neuloží
+                      // a přepínač spadne zpět na OFF).
+                      final saved = await AuthService.enableBiometric();
+                      if (!mounted) return;
                       showMotoGoToast(context,
-                          icon: '✓',
+                          icon: saved ? '✓' : 'ℹ️',
                           title: t(context).tr('biometricsTitle'),
-                          message: t(context).tr('activated'));
+                          message: t(context).tr(saved ? 'activated' : 'sessionExpired'));
                     }
                   } else {
                     await AuthService.clearBioData();

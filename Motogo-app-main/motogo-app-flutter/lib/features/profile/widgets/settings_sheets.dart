@@ -252,10 +252,15 @@ class _PermissionsSheetState extends State<_PermissionsSheet>
                 if (!_bioEnabled) {
                   final ok = await BiometricService.authenticate();
                   if (ok) {
-                    showMotoGoToast(context, icon: '✓', title: t(context).tr('biometricsTitle'), message: t(context).tr('activated'));
+                    // Ulož povolení + bio-uživatele (jinak se zapnutí neuloží
+                    // a přepínač spadne zpět na OFF).
+                    final saved = await AuthService.enableBiometric();
+                    if (!mounted) return;
+                    showMotoGoToast(context, icon: saved ? '✓' : 'ℹ️', title: t(context).tr('biometricsTitle'), message: t(context).tr(saved ? 'activated' : 'sessionExpired'));
                   }
                 } else {
                   await AuthService.clearBioData();
+                  if (!mounted) return;
                   showMotoGoToast(context, icon: 'ℹ️', title: t(context).tr('biometricsTitle'), message: t(context).tr('deactivated'));
                 }
                 await _loadBio();

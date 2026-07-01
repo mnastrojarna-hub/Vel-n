@@ -392,6 +392,30 @@ class AuthService {
     return prefs.getBool(_bioEnabledKey) ?? false;
   }
 
+  /// Enable biometric login from the CURRENT active session (Nastavení →
+  /// přepínač). Uloží bio-uživatele (email + refresh token aktuální session) a
+  /// nastaví `mg_bio_enabled=true`, aby zapnutí PŘETRVALO. Bez tohoto přepínač
+  /// jen ověřil otisk, ukázal „aktivováno", ale nic neuložil → po reloadu se
+  /// vrátil na OFF (a při odhlášení nebylo z čeho session obnovit). Heslo tu
+  /// nemáme — na obnovení stačí refresh token; kdyby vypršel, fallback při
+  /// dalším přihlášení uloží i heslo. Registrace/login enablují přes _storeBioUser.
+  /// Vrací true při úspěchu, false když není aktivní session.
+  static Future<bool> enableBiometric() async {
+    final session = _client.auth.currentSession;
+    final user = session?.user;
+    final email = user?.email;
+    if (session == null || user == null || email == null || email.isEmpty) {
+      return false;
+    }
+    await _storeBioUser(
+      userId: user.id,
+      email: email,
+      refreshToken: session.refreshToken,
+    );
+    await _saveEmail(email);
+    return true;
+  }
+
   /// Restore Supabase session from stored bio credentials.
   /// Mirrors _bioRestoreSession from auth-ui.js.
   static Future<bool> bioRestoreSession() async {
