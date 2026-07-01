@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { debugAction, debugLog, debugError } from '../lib/debugLog'
 import { useDebugMode } from '../hooks/useDebugMode'
-import { isRevenueEntry, isTestInvoice, isVoidInvoice, summarizeInvoices, INVOICE_PAID_TYPES, INVOICE_RECEIVED_TYPES } from '../lib/revenueUtils'
+import { isRevenueEntry, isTestInvoice, isVoidInvoice, summarizeInvoices, sumInvoiceRevenue, INVOICE_RECEIVED_TYPES } from '../lib/revenueUtils'
 import AiDashboardWidget from '../components/ai/AiDashboardWidget'
 import PickupsReturns from './booking/PickupsReturns'
 import Stat from '../components/ui/Stat'
@@ -102,7 +102,6 @@ export default function Dashboard() {
       // ── Tržby z faktur (DP + KF + shop_final − dobropisy) — kanonický zdroj.
       // accounting_entries příjmy neplníme spolehlivě (trigger bug), proto faktury.
       const invoices = val(invoicesR)
-      const paidInv = invoices.filter(i => !isVoidInvoice(i) && !isTestInvoice(i) && INVOICE_PAID_TYPES.includes(i.type))
       const invMonth = (i) => (i.issue_date || i.created_at || '').slice(0, 7)
       const monthKeys = []
       for (let m = 11; m >= 0; m--) {
@@ -113,7 +112,7 @@ export default function Dashboard() {
           full: `${MONTHS_FULL[d.getMonth()]} ${d.getFullYear()}`,
         })
       }
-      const revenueByMonth = monthKeys.map(mk => paidInv.filter(i => invMonth(i) === mk.key).reduce((s, i) => s + (i.total || 0), 0))
+      const revenueByMonth = monthKeys.map(mk => sumInvoiceRevenue(invoices.filter(i => invMonth(i) === mk.key)))
       const monthRevenue = revenueByMonth[11]
       const lastMonthRevenue = revenueByMonth[10]
 

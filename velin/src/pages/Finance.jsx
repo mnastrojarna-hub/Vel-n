@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import { debugAction } from '../lib/debugLog'
 import { useDebugMode } from '../hooks/useDebugMode'
 import ErrorBoundary from '../components/ErrorBoundary'
-import { classifyEntry, isTestInvoice, isVoidInvoice, summarizeInvoices, INVOICE_PAID_TYPES } from '../lib/revenueUtils'
+import { classifyEntry, isTestInvoice, isVoidInvoice, summarizeInvoices, sumInvoiceRevenue } from '../lib/revenueUtils'
 import FinanceOverview from './FinanceOverview'
 import FinancePrehledTab from './FinancePrehledTab'
 
@@ -150,9 +150,7 @@ export default function Finance() {
       .order('created_at', { ascending: false }).limit(1000)
     const invoices = inv || []
     const invMonth = (i) => (i.issue_date || i.created_at || '').slice(0, 7)
-    const revenue = invoices
-      .filter(i => !isVoidInvoice(i) && !isTestInvoice(i) && INVOICE_PAID_TYPES.includes(i.type) && invMonth(i) === monthKey)
-      .reduce((s, i) => s + (i.total || 0), 0)
+    const revenue = sumInvoiceRevenue(invoices.filter(i => invMonth(i) === monthKey))
     const { unpaid, unpaidCount } = summarizeInvoices(invoices)
     setSummary({ revenue, expense, unpaid, unpaidCount })
   }
@@ -206,17 +204,17 @@ export default function Finance() {
     const [accRes, invRes] = await Promise.all([
       supabase.from('accounting_entries').select('type, amount, date, category, description').gte('date', months[0].start),
       supabase.from('invoices')
-        .select('type, status, total, issue_date, created_at, bookings:booking_id(is_test), profiles:customer_id(is_test_account)')
+        .select('type, status, total, issue_date, created_at, order_id, bookings:booking_id(is_test), profiles:customer_id(is_test_account)')
         .order('created_at', { ascending: false }).limit(1000),
     ])
     const accData = accRes.data || []
-    const paidInv = (invRes.data || []).filter(i => !isVoidInvoice(i) && !isTestInvoice(i) && INVOICE_PAID_TYPES.includes(i.type))
+    const allInv = invRes.data || []
     const invMonth = (i) => (i.issue_date || i.created_at || '').slice(0, 7)
     const chart = months.map(m => {
       const mEnd = new Date(new Date(m.start).getFullYear(), new Date(m.start).getMonth() + 1, 0).toISOString().slice(0, 10)
       const exp = accData.filter(d => d.date >= m.start && d.date <= mEnd && classifyEntry(d) === 'expense')
         .reduce((s, d) => s + Math.abs(d.amount || 0), 0)
-      const rev = paidInv.filter(i => invMonth(i) === m.key).reduce((s, i) => s + (i.total || 0), 0)
+      const rev = sumInvoiceRevenue(allInv.filter(i => invMonth(i) === m.key))
       return { label: m.label, revenue: rev, expense: exp }
     })
     setChartData(chart)
