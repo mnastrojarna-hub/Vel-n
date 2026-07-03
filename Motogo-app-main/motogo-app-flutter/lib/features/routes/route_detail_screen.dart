@@ -7,9 +7,9 @@ import '../../core/theme.dart';
 import '../../core/router.dart' show MotoGoBackNav;
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/widgets/moto_fx.dart';
-import '../../core/widgets/net_image.dart';
 import 'routes_model.dart';
 import 'routes_provider.dart';
+import 'route_image.dart';
 import 'route_map.dart';
 import 'route_export.dart';
 import 'route_poi_sheet.dart';
@@ -272,11 +272,12 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
                       fit: StackFit.expand,
                       children: [
                         if (p.cover != null)
-                          MgImage(p.cover!,
-                              thumbWidth: 480,
-                              fit: BoxFit.cover,
-                              placeholder: _poiFallback(),
-                              error: _poiFallback())
+                          RouteImage(
+                            url: p.cover!,
+                            targetWidth: 500,
+                            placeholder: (_) => _poiFallback(),
+                            error: (_) => _poiFallback(),
+                          )
                         else
                           _poiFallback(),
                         Positioned(
@@ -354,17 +355,16 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
         separatorBuilder: (_, __) => const SizedBox(width: 10),
         itemBuilder: (context, i) => ClipRRect(
           borderRadius: BorderRadius.circular(MotoGoRadius.xl),
-          child: MgImage(
-            route.images[i],
-            thumbWidth: 400,
+          child: RouteImage(
+            url: route.images[i],
             width: 170,
             height: 120,
-            fit: BoxFit.cover,
-            placeholder: Container(
+            targetWidth: 400,
+            placeholder: (_) => Container(
               width: 170,
               color: MotoGoColors.greenPale,
             ),
-            error: Container(
+            error: (_) => Container(
               width: 170,
               color: MotoGoColors.greenPale,
               child: const Center(child: Text('🏞️', style: TextStyle(fontSize: 28))),

@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme.dart';
-import '../../core/widgets/net_image.dart';
 import 'routes_model.dart';
+import 'route_image.dart';
 import 'poi_rating.dart';
+import '../../core/i18n/i18n_provider.dart';
 
 /// Spodní panel s detailem bodu zájmu — zobrazí se po kliknutí na bod (na mapě
 /// i v navigaci): galerie fotek (klik = zvětšit přes celou obrazovku s
@@ -29,22 +30,21 @@ void showRoutePoiSheet(BuildContext context, RoutePoi poi, String lang, {int? in
       children: [
         if (imgs.isNotEmpty)
           GestureDetector(
-            onTap: () => _openImageViewer(context, imgs, 0),
+            onTap: () => _openImageViewer(context, imgs, 0, lang),
             child: ClipRRect(
               borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
               child: Stack(
                 children: [
-                  MgImage(
-                    imgs.first,
-                    thumbWidth: 800,
+                  RouteImage(
+                    url: imgs.first,
                     height: 190,
                     width: double.infinity,
-                    fit: BoxFit.cover,
-                    placeholder: Container(
+                    targetWidth: 1000,
+                    placeholder: (_) => Container(
                       height: 190,
                       color: MotoGoColors.greenPale,
                     ),
-                    error: Container(
+                    error: (_) => Container(
                       height: 120,
                       color: MotoGoColors.greenPale,
                       child: const Center(child: Text('📍', style: TextStyle(fontSize: 34))),
@@ -87,17 +87,17 @@ void showRoutePoiSheet(BuildContext context, RoutePoi poi, String lang, {int? in
               itemCount: imgs.length,
               separatorBuilder: (_, __) => const SizedBox(width: 8),
               itemBuilder: (_, i) => GestureDetector(
-                onTap: () => _openImageViewer(context, imgs, i),
+                onTap: () => _openImageViewer(context, imgs, i, lang),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(10),
-                  child: MgImage(
-                    imgs[i],
-                    thumbWidth: 200,
-                    width: 84, height: 60, fit: BoxFit.cover,
-                    placeholder: Container(
+                  child: RouteImage(
+                    url: imgs[i],
+                    width: 84, height: 60,
+                    targetWidth: 300,
+                    placeholder: (_) => Container(
                       width: 84, color: MotoGoColors.greenPale,
                     ),
-                    error: Container(
+                    error: (_) => Container(
                       width: 84, color: MotoGoColors.greenPale,
                       child: const Center(child: Text('📍')),
                     ),
@@ -162,7 +162,7 @@ void showRoutePoiSheet(BuildContext context, RoutePoi poi, String lang, {int? in
 
 /// Fullscreen prohlížeč fotek bodu zájmu — listování (PageView) + přibližování
 /// prsty (InteractiveViewer). Zavře se křížkem nebo tapnutím mimo.
-void _openImageViewer(BuildContext context, List<String> imgs, int start) {
+void _openImageViewer(BuildContext context, List<String> imgs, int start, String lang) {
   showDialog(
     context: context,
     barrierColor: Colors.black,
@@ -177,13 +177,13 @@ void _openImageViewer(BuildContext context, List<String> imgs, int start) {
               minScale: 1,
               maxScale: 5,
               child: Center(
-                child: MgImage(
-                  imgs[i],
-                  thumbWidth: 1600,
+                child: RouteImage(
+                  url: imgs[i],
                   fit: BoxFit.contain,
-                  placeholder: const Center(
-                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)),
-                  error: const Center(child: Text('📍', style: TextStyle(fontSize: 48))),
+                  targetWidth: 1600,
+                  placeholder: (_) => const SizedBox.shrink(),
+                  error: (_) =>
+                      const Center(child: Text('📍', style: TextStyle(fontSize: 48))),
                 ),
               ),
             ),
@@ -215,7 +215,7 @@ void _openImageViewer(BuildContext context, List<String> imgs, int start) {
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    '${imgs.length} foto',
+                    '${imgs.length} ${AppTranslations.of(lang).tr('poiPhotoSuffix')}',
                     style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700),
                   ),
                 ),

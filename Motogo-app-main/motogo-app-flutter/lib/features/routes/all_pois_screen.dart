@@ -9,9 +9,9 @@ import '../../core/theme.dart';
 import '../../core/router.dart' show MotoGoBackNav;
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/widgets/moto_fx.dart';
-import '../../core/widgets/net_image.dart';
 import 'routes_model.dart';
 import 'routes_provider.dart';
+import 'route_image.dart';
 import 'route_poi_sheet.dart';
 
 /// Katalog VŠECH bodů zájmu napříč trasami. Trasa je jen doporučení — tady si
@@ -611,9 +611,12 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
                 width: 84,
                 height: 84,
                 child: e.poi.cover != null
-                    ? MgImage(e.poi.cover!, thumbWidth: 200, fit: BoxFit.cover,
-                        placeholder: _thumbFallback(),
-                        error: _thumbFallback())
+                    ? RouteImage(
+                        url: e.poi.cover!,
+                        targetWidth: 300,
+                        placeholder: (_) => _thumbFallback(),
+                        error: (_) => _thumbFallback(),
+                      )
                     : _thumbFallback(),
               ),
               Expanded(

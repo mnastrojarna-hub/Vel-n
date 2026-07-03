@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { debugAction, debugLog, debugError } from '../lib/debugLog'
 import { useDebugMode } from '../hooks/useDebugMode'
-import { isRevenueEntry, isTestInvoice, isVoidInvoice, summarizeInvoices, sumInvoiceRevenue, INVOICE_RECEIVED_TYPES } from '../lib/revenueUtils'
+import { isRevenueEntry, isTestInvoice, summarizeInvoices, sumInvoiceRevenue, receivedInvoiceRows } from '../lib/revenueUtils'
 import AiDashboardWidget from '../components/ai/AiDashboardWidget'
 import PickupsReturns from './booking/PickupsReturns'
 import Stat from '../components/ui/Stat'
@@ -121,8 +121,9 @@ export default function Dashboard() {
       const { unpaid } = summarizeInvoices(invoices)
 
       // ── Poslední přijaté platby (rezervace = DP/KF, e-shop = shop_final) ──
-      const payments = invoices
-        .filter(i => !isVoidInvoice(i) && !isTestInvoice(i) && INVOICE_RECEIVED_TYPES.includes(i.type))
+      // `receivedInvoiceRows` deduplikuje e-shop platbu (objednávka s DP se
+      // neukáže i jako shop_final) — stejně jako `sumInvoiceRevenue`.
+      const payments = receivedInvoiceRows(invoices)
         .slice(0, 5).map(i => ({ ...i, customer_name: i.profiles?.full_name }))
 
       // ── Vystavené dokumenty (posledních 5 faktur všech typů) ──

@@ -7,9 +7,9 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/widgets/moto_fx.dart';
-import '../../core/widgets/net_image.dart';
 import 'routes_model.dart';
 import 'routes_provider.dart';
+import 'route_image.dart';
 import 'community_submit.dart';
 
 /// Obrazovka „Trasy" — doporučené motorkářské trasy od poboček.
@@ -857,12 +857,11 @@ class _RouteCard extends StatelessWidget {
                 fit: StackFit.expand,
                 children: [
                   if (cover != null)
-                    MgImage(
-                      cover,
-                      thumbWidth: 800,
-                      fit: BoxFit.cover,
-                      placeholder: _coverFallback(),
-                      error: _coverFallback(),
+                    RouteImage(
+                      url: cover,
+                      targetWidth: 800,
+                      placeholder: (_) => _coverFallback(),
+                      error: (_) => _coverFallback(),
                     )
                   else
                     _coverFallback(),

@@ -172,7 +172,7 @@ class _RouteReviewsSectionState extends State<RouteReviewsSection> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  (r['is_mine'] == true) ? t(context).tr('routeReviewYours') : (r['author']?.toString() ?? 'Motorkář'),
+                  (r['is_mine'] == true) ? t(context).tr('routeReviewYours') : (r['author']?.toString() ?? t(context).tr('routeReviewAnonymous')),
                   maxLines: 1, overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontSize: MotoGoTypo.sizeMd, fontWeight: MotoGoTypo.w800, color: MotoGoColors.black, decoration: TextDecoration.none),
                 ),

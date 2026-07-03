@@ -53,6 +53,7 @@ function Trasy() {
   const [error, setError] = useState(null)
   const [search, setSearch] = useState('')
   const [branchFilter, setBranchFilter] = useState('all')
+  const [countryFilter, setCountryFilter] = useState('all')
   const [showModal, setShowModal] = useState(false)
   const [editing, setEditing] = useState(null)
   const [deleteConfirm, setDeleteConfirm] = useState(null)
@@ -187,12 +188,19 @@ function Trasy() {
 
   const pendingRoutes = routes.filter(r => r.status === 'pending')
 
+  // Všechny státy napříč trasami (pro filtr „projíždí státem")
+  const allCountries = Array.from(
+    new Set(routes.flatMap(r => Array.isArray(r.countries) ? r.countries : []))
+  ).sort((a, b) => a.localeCompare(b, 'cs'))
+
   const filtered = routes.filter(r => {
     if (branchFilter !== 'all' && r.branch_id !== branchFilter) return false
+    if (countryFilter !== 'all' && !(Array.isArray(r.countries) && r.countries.includes(countryFilter))) return false
     if (!search) return true
     const s = search.toLowerCase()
     return (r.name || '').toLowerCase().includes(s) ||
       (r.description || '').toLowerCase().includes(s) ||
+      (Array.isArray(r.countries) && r.countries.join(' ').toLowerCase().includes(s)) ||
       branchName(r.branch_id).toLowerCase().includes(s)
   })
 
@@ -219,6 +227,16 @@ function Trasy() {
           <option value="all">Všechny pobočky</option>
           {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
         </select>
+        {allCountries.length > 0 && (
+          <select
+            value={countryFilter}
+            onChange={e => setCountryFilter(e.target.value)}
+            className="rounded-btn text-sm font-bold outline-none cursor-pointer"
+            style={{ padding: '7px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
+            <option value="all">🌍 Všechny státy</option>
+            {allCountries.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+        )}
         <div className="ml-auto">
           <Button green onClick={() => { setEditing(null); setShowModal(true) }}>+ Nová trasa</Button>
         </div>
@@ -309,7 +327,17 @@ function Trasy() {
                     <div style={{ width: 56, height: 38, borderRadius: 8, background: '#e2f5ec', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>🛣️</div>
                   )}
                 </TD>
-                <TD bold>{r.name}</TD>
+                <TD bold>
+                  {r.name}
+                  {Array.isArray(r.countries) && r.countries.length > 0 && (
+                    <div className="flex gap-1 flex-wrap mt-1">
+                      {r.countries.map(c => (
+                        <span key={c} className="inline-block rounded-btn text-[9px] font-bold"
+                          style={{ padding: '1px 6px', background: '#eef2ff', color: '#4338ca' }}>{c}</span>
+                      ))}
+                    </div>
+                  )}
+                </TD>
                 <TD>{branchName(r.branch_id)}</TD>
                 <TD>{TYPE_LABEL[r.route_type] || r.route_type || '—'}</TD>
                 <TD bold>{r.distance_km ? `${r.distance_km} km` : '—'}</TD>

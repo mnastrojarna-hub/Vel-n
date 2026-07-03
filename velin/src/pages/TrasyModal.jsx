@@ -93,6 +93,7 @@ export default function TrasyModal({ existing, branches, onClose, onSaved }) {
     duration_min: existing?.duration_min ?? '',
     difficulty: existing?.difficulty || '',
     mapy_url: existing?.mapy_url || '',
+    countries: Array.isArray(existing?.countries) ? existing.countries.join(', ') : '',
     is_active: existing?.is_active ?? true,
     sort_order: existing?.sort_order ?? 0,
   })
@@ -298,6 +299,7 @@ export default function TrasyModal({ existing, branches, onClose, onSaved }) {
           : (geo?.duration_s ? Math.round(geo.duration_s / 60) : null),
         difficulty: form.difficulty || null,
         mapy_url: form.mapy_url?.trim() || null,
+        countries: (form.countries || '').split(',').map(s => s.trim()).filter(Boolean),
         waypoints: cleanWp,
         geometry: (geo && geo.coordinates) ? { coordinates: geo.coordinates } : (geometry || existing?.geometry || null),
         cover_image: cover[0] || null,
@@ -401,6 +403,8 @@ export default function TrasyModal({ existing, branches, onClose, onSaved }) {
           placeholder="prázdné = dopočítá se z mapy" />
         <FormField label="Doba (min)" value={form.duration_min} onChange={v => set('duration_min', v)} type="number"
           placeholder="prázdné = dopočítá se z mapy" />
+        <FormField label="Státy (oddělené čárkou)" value={form.countries} onChange={v => set('countries', v)}
+          placeholder="např. Itálie, Švýcarsko" />
         <div className="col-span-2">
           <label className={lbl} style={{ color: '#1a2e22' }}>Popis trasy</label>
           <textarea value={form.description} onChange={e => set('description', e.target.value)}
