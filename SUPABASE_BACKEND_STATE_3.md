@@ -242,3 +242,4 @@ Všechny SECURITY DEFINER, `SET search_path=public`. Autentizace kiosku přes (d
 | `kiosk_jnum(p jsonb, VARIADIC keys)` / `kiosk_jbool(p jsonb, VARIADIC keys)` | IMMUTABLE helpery — bezpečné čtení numeric/bool z jsonb dle prvního přítomného klíče (try/cast). |
 | `touch_updated_at()` | Generický `RETURNS trigger` — `NEW.updated_at := now()` (sdílený pro kiosk tabulky; viz STATE_4). |
 | `kiosk_command_broadcast()` | `RETURNS trigger` (AFTER INSERT na kiosk_commands WHERE pending) — pošle `realtime.send({id}, 'cmd', 'kiosk:<device_id>', false)`. Obaleno EXCEPTION (insert nikdy neshodí, i kdyby `realtime.send` chyběl → fallback poll). |
+| `mirror_route_images_tick()` | **NEW 2026-07-03:** SECURITY DEFINER void — přes `net.http_post` zavolá edge fn `mirror-route-images` (Authorization: service_role_key z `app_settings`). Volá ji cron job `mirror-route-images` (id 18, */6 min). Bez klíče v app_settings tiše no-op. |
