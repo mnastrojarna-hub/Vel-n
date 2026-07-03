@@ -2,7 +2,7 @@ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 /**
- * Edge Function: send-push
+ * Edge Function: send-push (redeploy 2026-07-03 — FCM v1 notification_priority fix)
  * Sends FCM push notifications to a user's registered devices.
  * Called from SQL triggers via send_push_via_edge().
  *
@@ -155,7 +155,7 @@ async function sendFCM(
             notification: {
               channel_id: 'motogo_notifications',
               sound: 'default',
-              priority: 'HIGH',
+              notification_priority: 'PRIORITY_HIGH',
             },
           },
           apns: {
