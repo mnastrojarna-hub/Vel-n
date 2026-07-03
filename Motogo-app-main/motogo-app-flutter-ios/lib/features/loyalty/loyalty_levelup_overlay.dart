@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../core/supabase_client.dart';
+import '../../core/widgets/net_image.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../reservations/reservation_provider.dart';
 import 'loyalty_provider.dart';
@@ -753,12 +754,12 @@ class _MediaMontageState extends State<_MediaMontage> {
         curve: Curves.easeOut,
         builder: (_, s, __) => Transform.scale(
           scale: s,
-          child: Image.network(
+          child: MgImage(
             url,
+            thumbWidth: 1000,
             fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-            loadingBuilder: (ctx, child, p) =>
-                p == null ? child : const SizedBox.shrink(),
+            placeholder: const SizedBox.shrink(),
+            error: const SizedBox.shrink(),
           ),
         ),
       );

@@ -10,7 +10,7 @@ publish_to: 'none'
 #        by spadl. Pro release se proto skutečné versionName nastavuje v
 #        codemagic.yaml přes `--build-name=2.0.9.1` (workflow motogo-android/ios-release).
 #        Zde držíme jen semver fallback pro lokální/debug build.
-version: 2.1.0+14
+version: 2.1.1+15
 
 environment:
   sdk: '>=3.6.0 <4.0.0'

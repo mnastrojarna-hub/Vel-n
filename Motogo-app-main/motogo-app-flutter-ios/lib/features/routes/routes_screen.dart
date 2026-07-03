@@ -1,6 +1,5 @@
 import 'dart:math';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -8,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/widgets/moto_fx.dart';
+import '../../core/widgets/net_image.dart';
 import 'routes_model.dart';
 import 'routes_provider.dart';
 import 'community_submit.dart';
@@ -857,12 +857,12 @@ class _RouteCard extends StatelessWidget {
                 fit: StackFit.expand,
                 children: [
                   if (cover != null)
-                    CachedNetworkImage(
-                      imageUrl: cover,
+                    MgImage(
+                      cover,
+                      thumbWidth: 800,
                       fit: BoxFit.cover,
-                      fadeInDuration: const Duration(milliseconds: 200),
-                      placeholder: (_, __) => _coverFallback(),
-                      errorWidget: (_, __, ___) => _coverFallback(),
+                      placeholder: _coverFallback(),
+                      error: _coverFallback(),
                     )
                   else
                     _coverFallback(),

@@ -1,11 +1,11 @@
 import 'dart:async';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme.dart';
+import '../../core/widgets/net_image.dart';
 import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/supabase_client.dart';
@@ -255,10 +255,11 @@ class _DetailState extends ConsumerState<ReservationDetailScreen> {
                               color: MotoGoColors.g200,
                               child: const Icon(Icons.motorcycle, size: 48, color: MotoGoColors.g400),
                             )
-                          : CachedNetworkImage(
-                              imageUrl: res.motoImage!,
+                          : MgImage(
+                              res.motoImage!,
+                              thumbWidth: 800,
                               fit: BoxFit.cover,
-                              errorWidget: (_, __, ___) => Container(
+                              error: Container(
                                 color: MotoGoColors.g200,
                                 child: const Icon(Icons.motorcycle, size: 48, color: MotoGoColors.g400),
                               ),

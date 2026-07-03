@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme.dart';
+import '../../../core/widgets/net_image.dart';
 import '../../../core/i18n/i18n_provider.dart';
 
 /// Compact list of motorcycles available at a branch.
@@ -92,12 +93,13 @@ class BranchMotoList extends StatelessWidget {
         ClipRRect(
           borderRadius: BorderRadius.circular(8),
           child: imageUrl != null
-              ? Image.network(
+              ? MgImage(
                   imageUrl,
+                  thumbWidth: 200,
                   width: 56,
                   height: 40,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => _placeholder(),
+                  error: _placeholder(),
                 )
               : _placeholder(),
         ),

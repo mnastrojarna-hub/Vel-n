@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../core/theme.dart';
@@ -8,6 +9,7 @@ import '../../core/i18n/i18n_provider.dart';
 import '../../core/supabase_client.dart';
 import 'routes_provider.dart' show mapyApiKey, fetchMapyRoute, reverseGeocode;
 import 'map_link.dart';
+import 'submit_common.dart';
 
 /// Jedna zastávka navrhované trasy.
 class _Stop {
@@ -34,9 +36,11 @@ class _RouteSubmitScreenState extends State<RouteSubmitScreen> {
   final List<_Stop> _stops = [];
   List<LatLng> _geometry = const [];
   String? _mapyUrl;
+  List<XFile> _photos = [];
   bool _mapReady = false;
   bool _decoding = false;
   bool _busy = false;
+  bool _uploading = false; // fáze: nahrávání fotek vs. odesílání
   bool _showHelp = false;
   String? _linkMsg;
   String? _linkErr;
@@ -152,8 +156,10 @@ class _RouteSubmitScreenState extends State<RouteSubmitScreen> {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t(context).tr('routeSubmitNeedPoints'))));
       return;
     }
-    setState(() => _busy = true);
+    setState(() { _busy = true; _uploading = _photos.isNotEmpty; });
     try {
+      final urls = await uploadSubmitPhotos(uid, _photos);
+      if (mounted) setState(() => _uploading = false);
       final waypoints = <Map<String, dynamic>>[];
       for (var i = 0; i < _stops.length; i++) {
         final s = _stops[i];
@@ -170,16 +176,18 @@ class _RouteSubmitScreenState extends State<RouteSubmitScreen> {
         'route_type': 'poi',
         'waypoints': waypoints,
         'mapy_url': _mapyUrl,
+        'cover_image': urls.isNotEmpty ? urls.first : null,
+        'images': urls,
         'created_by': uid,
         'status': 'pending',
         'is_active': false,
       });
       if (!mounted) return;
-      Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t(context).tr('routeSubmitThanks'))));
+      await showSubmitSuccess(context);
+      if (mounted) Navigator.of(context).pop();
     } catch (_) {
       if (mounted) {
-        setState(() => _busy = false);
+        setState(() { _busy = false; _uploading = false; });
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t(context).tr('poiSubmitErr'))));
       }
     }
@@ -198,6 +206,8 @@ class _RouteSubmitScreenState extends State<RouteSubmitScreen> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
         children: [
+          const SubmitIntroBanner(),
+          const SizedBox(height: 14),
           TextField(controller: _nameCtrl, decoration: InputDecoration(labelText: t(context).tr('poiSubmitName'))),
           const SizedBox(height: 14),
           _linkRow(context),
@@ -212,6 +222,14 @@ class _RouteSubmitScreenState extends State<RouteSubmitScreen> {
           _stopsList(context),
           const SizedBox(height: 14),
           TextField(controller: _descCtrl, maxLines: 3, decoration: InputDecoration(labelText: t(context).tr('routeSubmitDescLabel'))),
+          const SizedBox(height: 16),
+          // Fotky z vyjížďky (max 6, první = titulní)
+          SubmitPhotosSection(
+            photos: _photos,
+            max: 6,
+            hint: t(context).tr('submitPhotosHint'),
+            onChanged: (v) => setState(() => _photos = v),
+          ),
         ],
       ),
       bottomSheet: Container(
@@ -226,8 +244,23 @@ class _RouteSubmitScreenState extends State<RouteSubmitScreen> {
               foregroundColor: MotoGoColors.black,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(MotoGoRadius.pill)),
             ),
-            child: Text(_busy ? '…' : t(context).tr('poiSubmitSend'),
-                style: const TextStyle(fontSize: MotoGoTypo.sizeXl, fontWeight: MotoGoTypo.w800)),
+            child: _busy
+                ? Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const SizedBox(
+                        width: 18, height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: MotoGoColors.black),
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        t(context).tr(_uploading ? 'submitUploading' : 'submitSending'),
+                        style: const TextStyle(fontSize: MotoGoTypo.sizeXl, fontWeight: MotoGoTypo.w800),
+                      ),
+                    ],
+                  )
+                : Text(t(context).tr('poiSubmitSend'),
+                    style: const TextStyle(fontSize: MotoGoTypo.sizeXl, fontWeight: MotoGoTypo.w800)),
           ),
         ),
       ),

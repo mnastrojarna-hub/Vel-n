@@ -6,6 +6,7 @@ import '../main.dart' show rootNavigatorKey;
 import 'app_shell.dart';
 import 'booking_form_widget.dart';
 import 'widgets/moto_fx.dart';
+import 'widgets/net_image.dart';
 import 'supabase_client.dart';
 import '../features/booking/booking_models.dart';
 import '../features/booking/booking_provider.dart';
@@ -516,9 +517,9 @@ class _BDWState extends ConsumerState<_BookingDebugWrapper> {
     secs.add(bookingCard(1, 'MOTORKA',
       Row(children: [
         ClipRRect(borderRadius: BorderRadius.circular(8),
-          child: Image.network(moto.displayImage,
-            width: 56, height: 42, fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => Container(
+          child: MgImage(moto.displayImage,
+            thumbWidth: 200, width: 56, height: 42, fit: BoxFit.cover,
+            error: Container(
               width: 56, height: 42,
               color: const Color(0xFFD4E8E0),
               child: const Icon(Icons.motorcycle,

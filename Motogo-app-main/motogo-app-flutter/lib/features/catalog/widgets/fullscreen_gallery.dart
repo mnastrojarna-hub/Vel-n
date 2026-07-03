@@ -1,7 +1,7 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/theme.dart';
+import '../../../core/widgets/net_image.dart';
 
 /// Fullscreen zoomable image gallery.
 /// Supports swipe between images, pinch-to-zoom, close via X or swipe down.
@@ -95,15 +95,16 @@ class _FullscreenGalleryState extends State<FullscreenGallery> {
                   minScale: 1.0,
                   maxScale: 4.0,
                   child: Center(
-                    child: CachedNetworkImage(
-                      imageUrl: widget.images[i],
+                    child: MgImage(
+                      widget.images[i],
+                      thumbWidth: 1600,
                       fit: BoxFit.contain,
-                      placeholder: (_, __) => const Center(
+                      placeholder: const Center(
                         child: CircularProgressIndicator(
                           color: MotoGoColors.green,
                         ),
                       ),
-                      errorWidget: (_, __, ___) => const Icon(
+                      error: const Icon(
                         Icons.motorcycle,
                         size: 64,
                         color: MotoGoColors.g400,

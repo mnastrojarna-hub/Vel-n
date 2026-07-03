@@ -1,10 +1,10 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme.dart';
 import '../../core/widgets/moto_fx.dart';
+import '../../core/widgets/net_image.dart';
 import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../auth/widgets/toast_helper.dart';
@@ -56,9 +56,9 @@ class _ProductDetailState extends ConsumerState<ProductDetailScreen> {
                 PageView.builder(
                   itemCount: images.length,
                   onPageChanged: (i) => setState(() => _imageIndex = i),
-                  itemBuilder: (_, i) => CachedNetworkImage(
-                    imageUrl: images[i], fit: BoxFit.cover, width: double.infinity,
-                    errorWidget: (_, __, ___) => Container(color: MotoGoColors.g200),
+                  itemBuilder: (_, i) => MgImage(
+                    images[i], thumbWidth: 1000, fit: BoxFit.cover, width: double.infinity,
+                    error: Container(color: MotoGoColors.g200),
                   ),
                 ),
                 Positioned(top: MediaQuery.of(context).padding.top + 8, left: 12,

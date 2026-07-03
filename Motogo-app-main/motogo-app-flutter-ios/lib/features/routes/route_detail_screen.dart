@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -8,6 +7,7 @@ import '../../core/theme.dart';
 import '../../core/router.dart' show MotoGoBackNav;
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/widgets/moto_fx.dart';
+import '../../core/widgets/net_image.dart';
 import 'routes_model.dart';
 import 'routes_provider.dart';
 import 'route_map.dart';
@@ -272,12 +272,11 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
                       fit: StackFit.expand,
                       children: [
                         if (p.cover != null)
-                          CachedNetworkImage(
-                              imageUrl: p.cover!,
+                          MgImage(p.cover!,
+                              thumbWidth: 480,
                               fit: BoxFit.cover,
-                              fadeInDuration: const Duration(milliseconds: 200),
-                              placeholder: (_, __) => _poiFallback(),
-                              errorWidget: (_, __, ___) => _poiFallback())
+                              placeholder: _poiFallback(),
+                              error: _poiFallback())
                         else
                           _poiFallback(),
                         Positioned(
@@ -355,17 +354,17 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
         separatorBuilder: (_, __) => const SizedBox(width: 10),
         itemBuilder: (context, i) => ClipRRect(
           borderRadius: BorderRadius.circular(MotoGoRadius.xl),
-          child: CachedNetworkImage(
-            imageUrl: route.images[i],
+          child: MgImage(
+            route.images[i],
+            thumbWidth: 400,
             width: 170,
             height: 120,
             fit: BoxFit.cover,
-            fadeInDuration: const Duration(milliseconds: 200),
-            placeholder: (_, __) => Container(
+            placeholder: Container(
               width: 170,
               color: MotoGoColors.greenPale,
             ),
-            errorWidget: (_, __, ___) => Container(
+            error: Container(
               width: 170,
               color: MotoGoColors.greenPale,
               child: const Center(child: Text('🏞️', style: TextStyle(fontSize: 28))),

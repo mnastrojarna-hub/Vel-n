@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme.dart';
+import '../../core/widgets/net_image.dart';
 // NOTE: NO import of router.dart — circular dependency kills rendering!
 import '../catalog/catalog_provider.dart';
 import '../catalog/widgets/availability_calendar.dart';
@@ -96,8 +97,8 @@ class _BookingFormScreenState extends ConsumerState<BookingFormScreen> {
             },
             child: Row(children: [
               ClipRRect(borderRadius: BorderRadius.circular(8),
-                child: Image.network(moto.displayImage, width: 48, height: 36, fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(width: 48, height: 36, color: MotoGoColors.g200,
+                child: MgImage(moto.displayImage, thumbWidth: 150, width: 48, height: 36, fit: BoxFit.cover,
+                  error: Container(width: 48, height: 36, color: MotoGoColors.g200,
                     child: const Icon(Icons.motorcycle, size: 18, color: MotoGoColors.g400)))),
               const SizedBox(width: 10),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

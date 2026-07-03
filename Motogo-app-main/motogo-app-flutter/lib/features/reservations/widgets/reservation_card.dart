@@ -1,9 +1,9 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme.dart';
 import '../../../core/widgets/moto_fx.dart';
+import '../../../core/widgets/net_image.dart';
 import '../../../core/router.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../reservation_models.dart';
@@ -60,10 +60,11 @@ class ReservationCard extends StatelessWidget {
                               color: MotoGoColors.g200,
                               child: const Center(child: Text('🏍️', style: TextStyle(fontSize: 32))),
                             )
-                          : CachedNetworkImage(
-                              imageUrl: reservation.motoImage!,
+                          : MgImage(
+                              reservation.motoImage!,
+                              thumbWidth: 800,
                               fit: BoxFit.cover,
-                              errorWidget: (_, __, ___) => Container(
+                              error: Container(
                                 color: MotoGoColors.g200,
                                 child: const Center(child: Text('🏍️', style: TextStyle(fontSize: 32))),
                               ),

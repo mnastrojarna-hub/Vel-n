@@ -1,9 +1,9 @@
 import 'dart:async';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/theme.dart';
+import '../../../core/widgets/net_image.dart';
 
 /// Swipeable motorcycle photo gallery for payment summary screen.
 /// Shows all motorcycle images with dot indicators and swipe navigation.
@@ -94,11 +94,12 @@ class _MotoGalleryCardState extends State<MotoGalleryCard> {
                           ),
                         );
                       }
-                      return CachedNetworkImage(
-                        imageUrl: url,
+                      return MgImage(
+                        url,
+                        thumbWidth: 800,
                         fit: BoxFit.cover,
                         width: double.infinity,
-                        placeholder: (_, __) => Container(
+                        placeholder: Container(
                           color: MotoGoColors.g100,
                           child: const Center(
                             child: CircularProgressIndicator(
@@ -107,7 +108,7 @@ class _MotoGalleryCardState extends State<MotoGalleryCard> {
                             ),
                           ),
                         ),
-                        errorWidget: (_, __, ___) => Container(
+                        error: Container(
                           color: MotoGoColors.g100,
                           child: const Center(
                             child: Icon(Icons.motorcycle,
