@@ -155,7 +155,7 @@ async function sendFCM(
             notification: {
               channel_id: 'motogo_notifications',
               sound: 'default',
-              priority: 'HIGH',
+              notification_priority: 'PRIORITY_HIGH',
             },
           },
           apns: {
