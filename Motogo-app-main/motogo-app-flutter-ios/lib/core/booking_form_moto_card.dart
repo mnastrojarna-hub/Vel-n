@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../features/catalog/moto_model.dart';
 import '../features/booking/booking_ui_helpers.dart';
 import 'i18n/i18n_provider.dart';
+import 'widgets/net_image.dart';
 
 /// Card showing the selected motorcycle summary inside the booking form.
 class BookingFormMotoCard extends StatelessWidget {
@@ -18,12 +19,13 @@ class BookingFormMotoCard extends StatelessWidget {
       Row(children: [
         ClipRRect(
           borderRadius: BorderRadius.circular(8),
-          child: Image.network(
+          child: MgImage(
             moto.displayImage,
+            thumbWidth: 200,
             width: 56,
             height: 42,
             fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => Container(
+            error: Container(
               width: 56,
               height: 42,
               color: const Color(0xFFD4E8E0),

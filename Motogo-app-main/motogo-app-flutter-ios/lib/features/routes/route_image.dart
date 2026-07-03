@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/theme.dart';
+import '../../core/widgets/net_image.dart' show mgThumbUrl;
 
 /// HTTP hlavičky pro načítání fotek tras / bodů zájmu.
 ///
@@ -24,7 +25,10 @@ const Map<String, String> kRouteImageHeaders = {
 /// „zasekne". Přidáním `?width=` vrátí Wikimedia zmenšený thumbnail (řádově
 /// menší) → rychlé a spolehlivé načtení.
 ///
-/// Pro ostatní URL (Supabase apod.) vrací původní URL beze změny.
+/// Supabase public storage URL (nahrané fotky z mobilů, běžně stovky KB až MB)
+/// přepíše na server-side zmenšeninu přes `render/image` endpoint (mgThumbUrl);
+/// při nedostupné transformaci RouteImage automaticky spadne na originál.
+/// Ostatní URL vrací beze změny.
 String mgImageUrl(String url, {int width = 800}) {
   if (url.isEmpty) return url;
   final lower = url.toLowerCase();
@@ -34,7 +38,7 @@ String mgImageUrl(String url, {int width = 800}) {
     final sep = url.contains('?') ? '&' : '?';
     return '$url${sep}width=$width';
   }
-  return url;
+  return mgThumbUrl(url, width: width);
 }
 
 /// Síťová fotka trasy / bodu zájmu s optimalizací velikosti a Wikimedia
@@ -69,22 +73,43 @@ class RouteImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dpr = MediaQuery.of(context).devicePixelRatio;
+    final memW = (targetWidth * dpr).round();
+    final optimized = mgImageUrl(url, width: targetWidth);
+
+    Widget errorFallback(BuildContext c) =>
+        error?.call(c) ??
+        Container(
+          color: MotoGoColors.greenPale,
+          child: const Center(child: Text('📍', style: TextStyle(fontSize: 28))),
+        );
+
+    // Originál — poslední záchrana, když zmenšenina selže (např. Supabase
+    // transformace nedostupná). Uživatel chybu nevidí, jen o chlup delší load.
+    Widget original(BuildContext c) => CachedNetworkImage(
+          imageUrl: url,
+          httpHeaders: kRouteImageHeaders,
+          width: width,
+          height: height,
+          fit: fit,
+          memCacheWidth: memW,
+          fadeInDuration: const Duration(milliseconds: 200),
+          placeholder: (cc, _) =>
+              placeholder?.call(cc) ?? Container(color: MotoGoColors.greenPale),
+          errorWidget: (cc, _, __) => errorFallback(cc),
+        );
+
+    if (optimized == url) return original(context);
     return CachedNetworkImage(
-      imageUrl: mgImageUrl(url, width: targetWidth),
+      imageUrl: optimized,
       httpHeaders: kRouteImageHeaders,
       width: width,
       height: height,
       fit: fit,
-      memCacheWidth: (targetWidth * dpr).round(),
+      memCacheWidth: memW,
       fadeInDuration: const Duration(milliseconds: 200),
       placeholder: (c, _) =>
           placeholder?.call(c) ?? Container(color: MotoGoColors.greenPale),
-      errorWidget: (c, _, __) =>
-          error?.call(c) ??
-          Container(
-            color: MotoGoColors.greenPale,
-            child: const Center(child: Text('📍', style: TextStyle(fontSize: 28))),
-          ),
+      errorWidget: (c, _, __) => original(c),
     );
   }
 }

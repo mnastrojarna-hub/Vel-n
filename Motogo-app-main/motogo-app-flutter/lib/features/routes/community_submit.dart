@@ -9,6 +9,7 @@ import '../../core/supabase_client.dart';
 import '../../core/native/gps_service.dart';
 import 'routes_provider.dart' show mapyApiKey, reverseGeocode;
 import 'route_submit_screen.dart';
+import 'submit_common.dart';
 
 /// Menu „Přidat" (z FAB v Trasách) — uživatel navrhne trasu (odkaz z Mapy.com)
 /// nebo bod zájmu. Návrhy jdou do moderace (status='pending'); admin ve Velíně
@@ -35,6 +36,10 @@ void showCommunityAddMenu(BuildContext context) {
           }),
           _menuItem(c, Icons.add_location_alt, t(c).tr('poiSubmitPoi'), () {
             Navigator.pop(c);
+            if (MotoGoSupabase.currentUser == null) {
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t(context).tr('poiRateLogin'))));
+              return;
+            }
             Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PoiSubmitScreen()));
           }),
           const SizedBox(height: 12),
@@ -63,8 +68,9 @@ class _PoiSubmitScreenState extends State<PoiSubmitScreen> {
   final _nameCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
   LatLng _point = const LatLng(49.8175, 15.4730);
-  XFile? _photo;
+  List<XFile> _photos = [];
   bool _busy = false;
+  bool _uploading = false; // fáze: nahrávání fotky vs. odesílání
   bool _located = false;
 
   @override
@@ -85,26 +91,6 @@ class _PoiSubmitScreenState extends State<PoiSubmitScreen> {
     if (mounted && name != null && _nameCtrl.text.isEmpty) _nameCtrl.text = name;
   }
 
-  Future<void> _pickPhoto() async {
-    final picker = ImagePicker();
-    final x = await picker.pickImage(source: ImageSource.gallery, imageQuality: 80, maxWidth: 2048);
-    if (x != null) setState(() => _photo = x);
-  }
-
-  Future<String?> _uploadPhoto(String uid) async {
-    final x = _photo;
-    if (x == null) return null;
-    try {
-      final bytes = await x.readAsBytes();
-      final ext = x.name.contains('.') ? x.name.split('.').last : 'jpg';
-      final path = 'user-pois/$uid/${DateTime.now().millisecondsSinceEpoch}.$ext';
-      await MotoGoSupabase.client.storage.from('media').uploadBinary(path, bytes);
-      return MotoGoSupabase.client.storage.from('media').getPublicUrl(path);
-    } catch (_) {
-      return null;
-    }
-  }
-
   Future<void> _submit() async {
     final uid = MotoGoSupabase.currentUser?.id;
     if (uid == null) {
@@ -116,24 +102,25 @@ class _PoiSubmitScreenState extends State<PoiSubmitScreen> {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t(context).tr('poiSubmitNameReq'))));
       return;
     }
-    setState(() => _busy = true);
+    setState(() { _busy = true; _uploading = _photos.isNotEmpty; });
     try {
-      final imageUrl = await _uploadPhoto(uid);
+      final urls = await uploadSubmitPhotos(uid, _photos);
+      if (mounted) setState(() => _uploading = false);
       await MotoGoSupabase.client.from('user_pois').insert({
         'user_id': uid,
         'name': name,
         'description': _descCtrl.text.trim().isEmpty ? null : _descCtrl.text.trim(),
         'lat': _point.latitude,
         'lng': _point.longitude,
-        'image_url': imageUrl,
+        'image_url': urls.isNotEmpty ? urls.first : null,
         'status': 'pending',
       });
       if (!mounted) return;
-      Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t(context).tr('poiSubmitThanks'))));
+      await showSubmitSuccess(context);
+      if (mounted) Navigator.of(context).pop();
     } catch (_) {
       if (mounted) {
-        setState(() => _busy = false);
+        setState(() { _busy = false; _uploading = false; });
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t(context).tr('poiSubmitErr'))));
       }
     }
@@ -152,6 +139,8 @@ class _PoiSubmitScreenState extends State<PoiSubmitScreen> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
         children: [
+          const SubmitIntroBanner(),
+          const SizedBox(height: 14),
           // Mapa – klepnutím nastavíš polohu
           SizedBox(
             height: 220,
@@ -201,26 +190,12 @@ class _PoiSubmitScreenState extends State<PoiSubmitScreen> {
             decoration: InputDecoration(labelText: t(context).tr('poiSubmitDesc')),
           ),
           const SizedBox(height: 16),
-          // Foto
-          GestureDetector(
-            onTap: _pickPhoto,
-            child: Container(
-              height: 56,
-              decoration: BoxDecoration(
-                color: MotoGoColors.greenPale,
-                borderRadius: BorderRadius.circular(MotoGoRadius.xl),
-                border: Border.all(color: MotoGoColors.green, width: 1.2),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(_photo == null ? Icons.add_a_photo : Icons.check_circle, size: 20, color: MotoGoColors.greenDarker),
-                  const SizedBox(width: 8),
-                  Text(_photo == null ? t(context).tr('poiAddPhoto') : (_photo!.name),
-                      style: const TextStyle(fontWeight: MotoGoTypo.w800, color: MotoGoColors.greenDarker)),
-                ],
-              ),
-            ),
+          // Foto s náhledem (1 fotka — user_pois má jedno image_url)
+          SubmitPhotosSection(
+            photos: _photos,
+            max: 1,
+            hint: t(context).tr('submitPhotoHintPoi'),
+            onChanged: (v) => setState(() => _photos = v),
           ),
         ],
       ),
@@ -236,8 +211,23 @@ class _PoiSubmitScreenState extends State<PoiSubmitScreen> {
               foregroundColor: MotoGoColors.black,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(MotoGoRadius.pill)),
             ),
-            child: Text(_busy ? '…' : t(context).tr('poiSubmitSend'),
-                style: const TextStyle(fontSize: MotoGoTypo.sizeXl, fontWeight: MotoGoTypo.w800)),
+            child: _busy
+                ? Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const SizedBox(
+                        width: 18, height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: MotoGoColors.black),
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        t(context).tr(_uploading ? 'submitUploading' : 'submitSending'),
+                        style: const TextStyle(fontSize: MotoGoTypo.sizeXl, fontWeight: MotoGoTypo.w800),
+                      ),
+                    ],
+                  )
+                : Text(t(context).tr('poiSubmitSend'),
+                    style: const TextStyle(fontSize: MotoGoTypo.sizeXl, fontWeight: MotoGoTypo.w800)),
           ),
         ),
       ),

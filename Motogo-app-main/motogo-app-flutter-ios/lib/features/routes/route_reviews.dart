@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -6,6 +5,7 @@ import '../../core/theme.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/supabase_client.dart';
 import '../../core/widgets/moto_fx.dart';
+import '../../core/widgets/net_image.dart';
 
 /// Recenze trasy — hvězdičkové hodnocení + textová recenze + fotky. Každý
 /// přihlášený uživatel může jednu trasu ohodnotit (lze upravit). Čtení přes RPC
@@ -195,10 +195,9 @@ class _RouteReviewsSectionState extends State<RouteReviewsSection> {
                   separatorBuilder: (_, __) => const SizedBox(width: 8),
                   itemBuilder: (_, i) => ClipRRect(
                     borderRadius: BorderRadius.circular(10),
-                    child: CachedNetworkImage(imageUrl: photos[i], width: 72, height: 72, fit: BoxFit.cover,
-                        fadeInDuration: const Duration(milliseconds: 200),
-                        placeholder: (_, __) => Container(width: 72, height: 72, color: MotoGoColors.greenPale),
-                        errorWidget: (_, __, ___) => Container(width: 72, height: 72, color: MotoGoColors.greenPale)),
+                    child: MgImage(photos[i], thumbWidth: 200, width: 72, height: 72, fit: BoxFit.cover,
+                        placeholder: Container(width: 72, height: 72, color: MotoGoColors.greenPale),
+                        error: Container(width: 72, height: 72, color: MotoGoColors.greenPale)),
                   ),
                 ),
               ),

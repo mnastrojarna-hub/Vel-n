@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme.dart';
+import '../../../core/widgets/net_image.dart';
 import '../../catalog/moto_model.dart';
 import 'booking_section_wrapper.dart';
 
@@ -12,12 +13,13 @@ Widget bookingMotoSection(Motorcycle moto) {
     Row(children: [
       ClipRRect(
         borderRadius: BorderRadius.circular(8),
-        child: Image.network(
+        child: MgImage(
           moto.displayImage,
+          thumbWidth: 150,
           width: 48,
           height: 36,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => Container(
+          error: Container(
             width: 48,
             height: 36,
             color: MotoGoColors.g200,

@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -6,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme.dart';
 import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
+import '../../core/widgets/net_image.dart';
 import 'shop_models.dart';
 import 'shop_provider.dart';
 import '../../core/currency.dart';
@@ -211,9 +211,9 @@ class _ProductCard extends StatelessWidget {
             Expanded(
               child: ClipRRect(
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(MotoGoTheme.radiusLg)),
-                child: CachedNetworkImage(
-                  imageUrl: product.displayImage, fit: BoxFit.cover,
-                  errorWidget: (_, __, ___) => Container(color: MotoGoColors.g200, child: const Center(child: Text('🛍️', style: TextStyle(fontSize: 32)))),
+                child: MgImage(
+                  product.displayImage, thumbWidth: 500, fit: BoxFit.cover,
+                  error: Container(color: MotoGoColors.g200, child: const Center(child: Text('🛍️', style: TextStyle(fontSize: 32)))),
                 ),
               ),
             ),

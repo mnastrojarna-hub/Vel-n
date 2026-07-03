@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -6,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/moto_fx.dart';
+import '../../core/widgets/net_image.dart';
 import '../../core/router.dart';
 import '../booking/booking_provider.dart';
 import '../booking/booking_models.dart';
@@ -272,13 +272,13 @@ class _MotoDetailPageState extends ConsumerState<MotoDetailPage> {
                     controller: _pageCtrl,
                     itemCount: images.length,
                     onPageChanged: (i) => setState(() => _imageIndex = i),
-                    itemBuilder: (_, i) => CachedNetworkImage(
-                      imageUrl: images[i],
+                    itemBuilder: (_, i) => MgImage(
+                      images[i],
+                      thumbWidth: 1000,
                       fit: BoxFit.cover,
                       width: double.infinity,
-                      placeholder: (_, __) =>
-                          Container(color: MotoGoColors.g200),
-                      errorWidget: (_, __, ___) => Container(
+                      placeholder: Container(color: MotoGoColors.g200),
+                      error: Container(
                         color: MotoGoColors.g200,
                         child: const Icon(Icons.motorcycle,
                             size: 48, color: MotoGoColors.g400),
@@ -288,14 +288,14 @@ class _MotoDetailPageState extends ConsumerState<MotoDetailPage> {
                 // Single image (or none) – no PageView so horizontal gestures
                 // propagate to the outer motorcycle pager.
                 : images.isNotEmpty
-                    ? CachedNetworkImage(
-                        imageUrl: images.first,
+                    ? MgImage(
+                        images.first,
+                        thumbWidth: 1000,
                         fit: BoxFit.cover,
                         width: double.infinity,
                         height: 260,
-                        placeholder: (_, __) =>
-                            Container(color: MotoGoColors.g200),
-                        errorWidget: (_, __, ___) => Container(
+                        placeholder: Container(color: MotoGoColors.g200),
+                        error: Container(
                           color: MotoGoColors.g200,
                           child: const Icon(Icons.motorcycle,
                               size: 48, color: MotoGoColors.g400),

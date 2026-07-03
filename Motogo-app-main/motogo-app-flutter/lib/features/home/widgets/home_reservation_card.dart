@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme.dart';
+import '../../../core/widgets/net_image.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../../reservations/reservation_models.dart';
 
@@ -63,10 +64,11 @@ class HomeReservationCard extends StatelessWidget {
               child: reservation.motoImage != null
                   ? ClipRRect(
                       borderRadius: BorderRadius.circular(10),
-                      child: Image.network(
+                      child: MgImage(
                         reservation.motoImage!,
+                        thumbWidth: 200,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => const Icon(
+                        error: const Icon(
                           Icons.motorcycle,
                           color: MotoGoColors.g400,
                         ),

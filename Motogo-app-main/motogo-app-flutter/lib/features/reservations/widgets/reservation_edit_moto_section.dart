@@ -1,8 +1,8 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme.dart';
+import '../../../core/widgets/net_image.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../../catalog/moto_model.dart';
 import '../../catalog/catalog_provider.dart';
@@ -119,8 +119,8 @@ class EditMotoChangeSection extends ConsumerWidget {
                   child: Row(children: [
                     ClipRRect(borderRadius: BorderRadius.circular(6),
                       child: m.displayImage.isNotEmpty
-                          ? CachedNetworkImage(imageUrl: m.displayImage, width: 48, height: 36, fit: BoxFit.cover,
-                              errorWidget: (_, __, ___) => Container(width: 48, height: 36, color: MotoGoColors.g200))
+                          ? MgImage(m.displayImage, thumbWidth: 150, width: 48, height: 36, fit: BoxFit.cover,
+                              error: Container(width: 48, height: 36, color: MotoGoColors.g200))
                           : Container(width: 48, height: 36, color: MotoGoColors.g200)),
                     const SizedBox(width: 8),
                     Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

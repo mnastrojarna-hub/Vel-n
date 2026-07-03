@@ -1,8 +1,8 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme.dart';
+import '../../../core/widgets/net_image.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../../shop/shop_models.dart';
 import '../../shop/shop_provider.dart';
@@ -252,12 +252,13 @@ class _ProductTile extends StatelessWidget {
                 ClipRRect(
                   borderRadius: BorderRadius.circular(8),
                   child: product.displayImage.isNotEmpty
-                      ? CachedNetworkImage(
-                          imageUrl: product.displayImage,
+                      ? MgImage(
+                          product.displayImage,
+                          thumbWidth: 150,
                           width: 44,
                           height: 44,
                           fit: BoxFit.cover,
-                          errorWidget: (_, __, ___) => _placeholder(),
+                          error: _placeholder(),
                         )
                       : _placeholder(),
                 ),

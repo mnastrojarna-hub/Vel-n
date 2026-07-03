@@ -1,8 +1,8 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/theme.dart';
+import '../../../core/widgets/net_image.dart';
 import '../moto_model.dart';
 
 /// Full-width motorcycle card — 1:1 replica of Capacitor MotoGo24 design.
@@ -93,11 +93,12 @@ class _MotoCardState extends State<MotoCard> {
                               setState(() => _currentImageIndex = i),
                           itemBuilder: (_, i) => GestureDetector(
                             onTap: widget.onTap,
-                            child: CachedNetworkImage(
-                              imageUrl: _images[i],
+                            child: MgImage(
+                              _images[i],
+                              thumbWidth: 800,
                               fit: BoxFit.cover,
                               width: double.infinity,
-                              placeholder: (_, __) => Container(
+                              placeholder: Container(
                                 color: MotoGoColors.g200,
                                 child: const Center(
                                   child: CircularProgressIndicator(
@@ -106,7 +107,7 @@ class _MotoCardState extends State<MotoCard> {
                                   ),
                                 ),
                               ),
-                              errorWidget: (_, __, ___) => Container(
+                              error: Container(
                                 color: MotoGoColors.g200,
                                 child: const Icon(
                                   Icons.motorcycle,

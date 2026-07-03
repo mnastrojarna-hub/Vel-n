@@ -33,9 +33,48 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
   final Set<String> _selected = {};
   String _query = '';
   String? _routeFilter; // null = vše, _kCommunity = komunitní body, jinak id trasy
+  final Set<String> _cats = {}; // aktivní kategorie (prázdné = všechny)
 
   /// Sentinel filtru pro komunitní (uživatelské) body zájmu.
   static const _kCommunity = '__community__';
+
+  /// Kategorie bodů zájmu — odvozují se heuristicky z názvu/popisu.
+  static const List<_PoiCat> _catDefs = [
+    _PoiCat('food', '🍽️', 'poiCatFood'),
+    _PoiCat('castle', '🏰', 'poiCatCastle'),
+    _PoiCat('lookout', '🗼', 'poiCatLookout'),
+    _PoiCat('water', '🌊', 'poiCatWater'),
+    _PoiCat('sights', '⛪', 'poiCatSights'),
+    _PoiCat('nature', '🌳', 'poiCatNature'),
+    _PoiCat('other', '📍', 'poiCatOther'),
+  ];
+
+  // „hrad" jen na začátku slova — jinak chytá „zahrada" i „přehrada".
+  static final RegExp _reHrad = RegExp(r'\bhrad');
+
+  /// Odstranění diakritiky pro porovnávání klíčových slov.
+  static String _fold(String s) {
+    const from = 'áäàâčćďéěèêíìîïľĺňóöôřšťúůüýžź';
+    const to = 'aaaaccdeeeeiiiillnooorstuuuyzz';
+    final b = StringBuffer();
+    for (final ch in s.toLowerCase().split('')) {
+      final i = from.indexOf(ch);
+      b.write(i >= 0 ? to[i] : ch);
+    }
+    return b.toString();
+  }
+
+  static String _catOf(RoutePoi p) {
+    final n = _fold('${p.name} ${p.description ?? ''}');
+    bool has(List<String> ks) => ks.any(n.contains);
+    if (has(const ['restaur', 'hospod', 'hostin', 'pivovar', 'kavar', 'cafe', 'cukrar', 'obcerstv', 'bistro', 'motorest', 'vinar', 'grill', 'pizz'])) return 'food';
+    if (_reHrad.hasMatch(n) || has(const ['zamek', 'zamec', 'zricen', 'tvrz', 'palac', 'castle', 'schloss'])) return 'castle';
+    if (has(const ['rozhled', 'vyhlid', 'vyhled', 'vez'])) return 'lookout';
+    if (has(const ['prehrad', 'rybnik', 'jezer', 'vodopad', 'nadrz', 'plaz', 'splav', 'soutok'])) return 'water';
+    if (has(const ['kostel', 'klaster', 'kaple', 'katedral', 'bazilik', 'poutni', 'pamatnik', 'muzeum', 'synagog', 'mohyla', 'pomnik', 'betlem', 'krizov'])) return 'sights';
+    if (has(const ['jeskyn', 'propast', 'skal', 'prales', 'park', 'vrch', 'hora', 'sedlo', 'prusmyk', 'soutesk', 'udol', 'pramen', 'zahrad'])) return 'nature';
+    return 'other';
+  }
 
   // Náhodné pořadí bodů — nové při každém otevření (i po startu appky). Použije
   // se, když není známá poloha; se známou polohou vyhrává řazení dle vzdálenosti.
@@ -62,7 +101,8 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
 
     // Filtr + řazení (podle vzdálenosti od jezdce, jinak dle názvu trasy).
     final q = _query.trim().toLowerCase();
-    final list = all.where((e) {
+    // 1) Zdroj (vše / komunitní / trasa) + hledání — základ pro počty kategorií.
+    final sourceFiltered = all.where((e) {
       if (_routeFilter == _kCommunity) {
         if (e.route != null) return false; // jen komunitní body
       } else if (_routeFilter != null && e.route?.id != _routeFilter) {
@@ -72,6 +112,10 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
       return e.poi.nameFor(lang).toLowerCase().contains(q) ||
           (e.route?.nameFor(lang).toLowerCase().contains(q) ?? false);
     }).toList();
+    // 2) Kategorie.
+    final list = _cats.isEmpty
+        ? sourceFiltered
+        : sourceFiltered.where((e) => _cats.contains(_catOf(e.poi))).toList();
     if (me != null) {
       const d = Distance();
       list.sort((a, b) => d
@@ -92,9 +136,9 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
         child: Column(
           children: [
             _header(context),
-            _filters(context, lang, routesWithPois.values.toList(), all),
+            _filters(context, lang, routesWithPois.values.toList(), all, sourceFiltered),
             Expanded(
-              child: all.isEmpty
+              child: list.isEmpty
                   ? _empty(context)
                   : ListView.builder(
                       padding: EdgeInsets.fromLTRB(16, 8, 16, _selected.isEmpty ? 24 : 110),
@@ -193,41 +237,80 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
     );
   }
 
-  // ── Filtr bodů zájmu: zdroj (vše / komunitní / dle trasy) ──
-  Widget _filters(BuildContext context, String lang, List<RouteItem> routes, List<PoiEntry> all) {
+  // ── Filtry: řádek zdroje (vše / komunitní / trasa) + řádek kategorií ──
+  Widget _filters(BuildContext context, String lang, List<RouteItem> routes,
+      List<PoiEntry> all, List<PoiEntry> sourceFiltered) {
     final communityCount = all.where((e) => e.route == null).length;
-    // Není co filtrovat (méně než 2 trasy a žádné komunitní body) → jen mezera.
     if (routes.length < 2 && communityCount == 0) return const SizedBox(height: 8);
 
-    int countFor(String? id) {
-      if (id == null) return all.length;
-      if (id == _kCommunity) return communityCount;
-      return all.where((e) => e.route?.id == id).length;
+    // Počty kategorií z aktuálního zdroje (bez zapnutých kategorií).
+    final catCounts = <String, int>{};
+    for (final e in sourceFiltered) {
+      final c = _catOf(e.poi);
+      catCounts[c] = (catCounts[c] ?? 0) + 1;
     }
 
-    return SizedBox(
-      height: 54,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        clipBehavior: Clip.none,
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
-        children: [
-          _filterChip(t(context).tr('poiAllRoutes'), null, Icons.apps, countFor(null)),
-          if (communityCount > 0)
-            _filterChip(t(context).tr('poiCommunity'), _kCommunity, Icons.groups, communityCount),
-          ...routes.map((r) => _filterChip(r.nameFor(lang), r.id, Icons.route, countFor(r.id))),
-        ],
-      ),
+    RouteItem? selRoute;
+    if (_routeFilter != null && _routeFilter != _kCommunity) {
+      for (final r in routes) {
+        if (r.id == _routeFilter) {
+          selRoute = r;
+          break;
+        }
+      }
+    }
+
+    return Column(
+      children: [
+        SizedBox(
+          height: 50,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            clipBehavior: Clip.none,
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 2),
+            children: [
+              _srcChip(t(context).tr('poiAllRoutes'), Icons.apps, _routeFilter == null,
+                  all.length, () => setState(() => _routeFilter = null)),
+              if (communityCount > 0)
+                _srcChip(t(context).tr('poiCommunity'), Icons.groups, _routeFilter == _kCommunity,
+                    communityCount, () => setState(() => _routeFilter = _kCommunity)),
+              // Výběr konkrétní trasy — otevře sheet s hledáním (923 bodů ≠ řada chipů).
+              _srcChip(
+                selRoute != null ? selRoute.nameFor(lang) : t(context).tr('poiRoutePick'),
+                Icons.route,
+                selRoute != null,
+                selRoute != null ? all.where((e) => e.route?.id == selRoute.id).length : null,
+                () => _openRoutePicker(context, lang, routes, all),
+                trailing: Icons.arrow_drop_down,
+              ),
+            ],
+          ),
+        ),
+        // Kategorie (jen ty, co mají v aktuálním zdroji aspoň 1 bod).
+        SizedBox(
+          height: 44,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            clipBehavior: Clip.none,
+            padding: const EdgeInsets.fromLTRB(16, 6, 16, 4),
+            children: [
+              for (final c in _catDefs)
+                if ((catCounts[c.key] ?? 0) > 0 || _cats.contains(c.key))
+                  _catChip(context, c, catCounts[c.key] ?? 0),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
-  Widget _filterChip(String label, String? id, IconData icon, int count) {
-    final active = _routeFilter == id;
+  Widget _srcChip(String label, IconData icon, bool active, int? count, VoidCallback onTap,
+      {IconData? trailing}) {
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: PressableScale(
         pressedScale: 0.94,
-        onTap: () => setState(() => _routeFilter = id),
+        onTap: onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -242,35 +325,251 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
             children: [
               Icon(icon, size: 15, color: active ? Colors.white : MotoGoColors.greenDark),
               const SizedBox(width: 6),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 180),
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: MotoGoTypo.sizeBase,
+                    fontWeight: active ? MotoGoTypo.w800 : MotoGoTypo.w600,
+                    color: active ? Colors.white : MotoGoColors.black,
+                    decoration: TextDecoration.none,
+                  ),
+                ),
+              ),
+              if (count != null) ...[
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: active ? Colors.white.withValues(alpha: 0.22) : MotoGoColors.greenPale,
+                    borderRadius: BorderRadius.circular(MotoGoRadius.pill),
+                  ),
+                  child: Text(
+                    '$count',
+                    style: TextStyle(
+                      fontSize: MotoGoTypo.sizeSm,
+                      fontWeight: MotoGoTypo.w800,
+                      color: active ? Colors.white : MotoGoColors.greenDark,
+                      decoration: TextDecoration.none,
+                    ),
+                  ),
+                ),
+              ],
+              if (trailing != null)
+                Icon(trailing, size: 18, color: active ? Colors.white : MotoGoColors.g500),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _catChip(BuildContext context, _PoiCat c, int count) {
+    final active = _cats.contains(c.key);
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: PressableScale(
+        pressedScale: 0.94,
+        onTap: () => setState(() => active ? _cats.remove(c.key) : _cats.add(c.key)),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+          decoration: BoxDecoration(
+            color: active ? MotoGoColors.greenPale : Colors.white,
+            borderRadius: BorderRadius.circular(MotoGoRadius.pill),
+            border: Border.all(
+                color: active ? MotoGoColors.greenDark : MotoGoColors.g200,
+                width: active ? 1.6 : 1),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(c.emoji, style: const TextStyle(fontSize: 13)),
+              const SizedBox(width: 5),
               Text(
-                label,
+                t(context).tr(c.i18nKey),
                 style: TextStyle(
                   fontSize: MotoGoTypo.sizeBase,
                   fontWeight: active ? MotoGoTypo.w800 : MotoGoTypo.w600,
-                  color: active ? Colors.white : MotoGoColors.black,
+                  color: active ? MotoGoColors.greenDarker : MotoGoColors.black,
                   decoration: TextDecoration.none,
                 ),
               ),
-              const SizedBox(width: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                decoration: BoxDecoration(
-                  color: active ? Colors.white.withValues(alpha: 0.22) : MotoGoColors.greenPale,
-                  borderRadius: BorderRadius.circular(MotoGoRadius.pill),
-                ),
-                child: Text(
-                  '$count',
-                  style: TextStyle(
-                    fontSize: MotoGoTypo.sizeSm,
-                    fontWeight: MotoGoTypo.w800,
-                    color: active ? Colors.white : MotoGoColors.greenDark,
-                    decoration: TextDecoration.none,
-                  ),
+              const SizedBox(width: 5),
+              Text(
+                '$count',
+                style: TextStyle(
+                  fontSize: MotoGoTypo.sizeSm,
+                  fontWeight: MotoGoTypo.w800,
+                  color: active ? MotoGoColors.greenDarker : MotoGoColors.g400,
+                  decoration: TextDecoration.none,
                 ),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  // ── Sheet s výběrem trasy (hledání + počty bodů) ──
+  void _openRoutePicker(
+      BuildContext context, String lang, List<RouteItem> routes, List<PoiEntry> all) {
+    final sorted = List<RouteItem>.from(routes)
+      ..sort((a, b) => a.nameFor(lang).compareTo(b.nameFor(lang)));
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(22))),
+      builder: (sheetCtx) {
+        var q = '';
+        return StatefulBuilder(
+          builder: (sheetCtx, setSheet) {
+            final qq = q.trim().toLowerCase();
+            final filtered = qq.isEmpty
+                ? sorted
+                : sorted.where((r) => r.nameFor(lang).toLowerCase().contains(qq)).toList();
+            return SafeArea(
+              top: false,
+              child: Padding(
+                padding: EdgeInsets.only(bottom: MediaQuery.of(sheetCtx).viewInsets.bottom),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      margin: const EdgeInsets.only(top: 10, bottom: 6),
+                      width: 40, height: 4,
+                      decoration: BoxDecoration(
+                          color: MotoGoColors.g200, borderRadius: BorderRadius.circular(2)),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 6, 20, 10),
+                      child: Row(
+                        children: [
+                          Text(
+                            t(sheetCtx).tr('poiRoutePickTitle'),
+                            style: const TextStyle(
+                              fontSize: MotoGoTypo.sizeH2,
+                              fontWeight: MotoGoTypo.w900,
+                              color: MotoGoColors.black,
+                              decoration: TextDecoration.none,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: MotoGoColors.g100,
+                          borderRadius: BorderRadius.circular(MotoGoRadius.pill),
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.search, size: 18, color: MotoGoColors.g400),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: TextField(
+                                autofocus: false,
+                                onChanged: (v) => setSheet(() => q = v),
+                                decoration: InputDecoration(
+                                  isDense: true,
+                                  border: InputBorder.none,
+                                  hintText: t(sheetCtx).tr('poiRouteSearch'),
+                                  hintStyle: const TextStyle(
+                                      color: MotoGoColors.g400, fontSize: MotoGoTypo.sizeBase),
+                                ),
+                                style: const TextStyle(
+                                    fontSize: MotoGoTypo.sizeLg, color: MotoGoColors.black),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Flexible(
+                      child: ListView(
+                        shrinkWrap: true,
+                        padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+                        children: [
+                          _routePickTile(sheetCtx, Icons.apps, t(sheetCtx).tr('poiAllRoutes'),
+                              all.length, _routeFilter == null, () {
+                            setState(() => _routeFilter = null);
+                            Navigator.of(sheetCtx).pop();
+                          }),
+                          for (final r in filtered)
+                            _routePickTile(
+                              sheetCtx,
+                              Icons.route,
+                              r.nameFor(lang),
+                              all.where((e) => e.route?.id == r.id).length,
+                              _routeFilter == r.id,
+                              () {
+                                setState(() => _routeFilter = r.id);
+                                Navigator.of(sheetCtx).pop();
+                              },
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _routePickTile(BuildContext context, IconData icon, String label, int count,
+      bool active, VoidCallback onTap) {
+    return ListTile(
+      dense: true,
+      onTap: onTap,
+      leading: Icon(icon, size: 20, color: active ? MotoGoColors.greenDark : MotoGoColors.g500),
+      title: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          fontSize: MotoGoTypo.sizeLg,
+          fontWeight: active ? MotoGoTypo.w900 : MotoGoTypo.w600,
+          color: MotoGoColors.black,
+          decoration: TextDecoration.none,
+        ),
+      ),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: MotoGoColors.greenPale,
+              borderRadius: BorderRadius.circular(MotoGoRadius.pill),
+            ),
+            child: Text(
+              '$count',
+              style: const TextStyle(
+                fontSize: MotoGoTypo.sizeSm,
+                fontWeight: MotoGoTypo.w800,
+                color: MotoGoColors.greenDark,
+                decoration: TextDecoration.none,
+              ),
+            ),
+          ),
+          if (active) ...[
+            const SizedBox(width: 8),
+            const Icon(Icons.check, size: 18, color: MotoGoColors.greenDark),
+          ],
+        ],
       ),
     );
   }
@@ -525,4 +824,12 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
       ),
     );
   }
+}
+
+/// Definice kategorie bodů zájmu (klíč + emoji + i18n klíč popisku).
+class _PoiCat {
+  final String key;
+  final String emoji;
+  final String i18nKey;
+  const _PoiCat(this.key, this.emoji, this.i18nKey);
 }

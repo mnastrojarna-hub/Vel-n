@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme.dart';
+import '../../core/widgets/net_image.dart';
 import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
 import 'sos_provider.dart';
@@ -330,8 +331,8 @@ class SosDetailScreen extends ConsumerWidget {
                       separatorBuilder: (_, __) => const SizedBox(width: 6),
                       itemBuilder: (_, i) => ClipRRect(
                         borderRadius: BorderRadius.circular(8),
-                        child: Image.network(inc.photos[i],
-                            width: 70, height: 70, fit: BoxFit.cover),
+                        child: MgImage(inc.photos[i],
+                            thumbWidth: 200, width: 70, height: 70, fit: BoxFit.cover),
                       ),
                     ),
                   ),
