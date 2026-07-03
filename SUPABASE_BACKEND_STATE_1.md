@@ -69,7 +69,7 @@
 | `admin_messages` | Admin zprávy (type TEXT, bez CHECK constraintu — používané hodnoty: sos_response, accident_response, replacement, tow, info, thanks, voucher, door_codes) |
 | `notification_log` | Log notifikací |
 | `notification_rules` | Pravidla notifikací |
-| `push_tokens` | Push tokeny zařízení |
+| `push_tokens` | Push tokeny zařízení (id uuid PK, user_id, token NOT NULL, platform, active default true, created_at). **FIX 2026-07-03:** doplněn chybějící `UNIQUE (token)` (`push_tokens_token_key`) — bez něj appčí upsert `onConflict:'token'` padal u VŠECH uživatelů (tabulka byla trvale prázdná → žádné FCM pushe). Viz changelog. |
 | `message_log` | Centrální log všech odeslaných zpráv (SMS, WhatsApp, email) — channel, recipient, template_slug, status, provider_response, metadata |
 | `broadcast_campaigns` | **NEW v docs 2026-06-04 (ze snapshotu)** — Hromadné kampaně (name, channel, template_id, segment, segment_filter jsonb, template_vars jsonb, scheduled_at, status, total_recipients, sent_count, failed_count, created_by, completed_at) — edge fn `send-broadcast` |
 | `message_templates_sms` | SMS/WhatsApp šablony (slug unikátní, body_template s {{placeholdery}}) |
