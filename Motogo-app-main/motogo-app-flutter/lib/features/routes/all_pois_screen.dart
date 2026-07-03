@@ -279,7 +279,9 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
                 selRoute != null ? selRoute.nameFor(lang) : t(context).tr('poiRoutePick'),
                 Icons.route,
                 selRoute != null,
-                selRoute != null ? all.where((e) => e.route?.id == selRoute.id).length : null,
+                selRoute != null
+                    ? all.where((e) => e.route?.id == selRoute!.id).length
+                    : null,
                 () => _openRoutePicker(context, lang, routes, all),
                 trailing: Icons.arrow_drop_down,
               ),
