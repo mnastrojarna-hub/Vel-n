@@ -99,10 +99,35 @@ serve(async (req) => {
     }
   }
 
+  // pg_net (cron tick) čeká na odpověď jen ~5 s — kdyby se odpovídalo až po
+  // dávce, gateway spojení utne a runtime funkci zabije bez vykonané práce.
+  // Proto: odpověz HNED a dávku zpracuj na pozadí (EdgeRuntime.waitUntil,
+  // limit 400 s wall-clock i po odeslání odpovědi).
+  const task = runBatch(sb).catch(async (e) => {
+    await sb.from('debug_log').insert({
+      source: 'mirror-route-images',
+      action: 'batch',
+      component: 'edge_function',
+      status: 'error',
+      request_data: { error: String(e) },
+    }).then(() => {}, () => {})
+  })
+  // deno-lint-ignore no-explicit-any
+  const rt = (globalThis as any).EdgeRuntime
+  if (rt?.waitUntil) {
+    rt.waitUntil(task)
+    return json({ success: true, started: true }, 202)
+  }
+  await task // lokální běh bez EdgeRuntime
+  return json({ success: true, started: true, awaited: true })
+})
+
+/// Jedna dávka zrcadlení — max MAX_IMAGES fotek / TIME_BUDGET_MS.
+async function runBatch(sb: ReturnType<typeof createClient>) {
   const t0 = Date.now()
   const outOfBudget = () => Date.now() - t0 > TIME_BUDGET_MS
 
-  try {
+  {
     // ── Načti kandidáty (malé sloupce; ~50 tras + ~950 bodů) ──
     const [routesQ, poisQ] = await Promise.all([
       sb.from('routes').select('id, cover_image, images'),
@@ -188,23 +213,15 @@ serve(async (req) => {
       ms: Date.now() - t0,
     }
 
-    await sb.from('debug_log').insert({
-      source: 'mirror-route-images',
-      action: 'batch',
-      component: 'edge_function',
-      status: failed.size > 0 ? 'partial' : 'ok',
-      request_data: result,
-    })
-
-    return json({ success: true, ...result })
-  } catch (e) {
-    await sb.from('debug_log').insert({
-      source: 'mirror-route-images',
-      action: 'batch',
-      component: 'edge_function',
-      status: 'error',
-      request_data: { error: String(e) },
-    }).then(() => {}, () => {})
-    return json({ success: false, error: String(e) }, 500)
+    // Loguj jen běhy, které něco dělaly (jinak by no-op cron spamoval debug_log).
+    if (rows.length > 0 || failed.size > 0) {
+      await sb.from('debug_log').insert({
+        source: 'mirror-route-images',
+        action: 'batch',
+        component: 'edge_function',
+        status: failed.size > 0 ? 'partial' : 'ok',
+        request_data: result,
+      })
+    }
   }
-})
+}
