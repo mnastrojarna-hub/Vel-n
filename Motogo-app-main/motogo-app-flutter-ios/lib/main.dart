@@ -322,6 +322,7 @@ class _MotoGoAppState extends ConsumerState<MotoGoApp>
       supportedLocales: const [
         Locale('cs'), Locale('en'), Locale('de'),
         Locale('es'), Locale('fr'), Locale('nl'), Locale('pl'),
+        Locale('uk'),
       ],
       builder: (context, child) {
         return MediaQuery(
