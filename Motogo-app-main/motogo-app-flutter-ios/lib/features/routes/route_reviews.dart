@@ -7,6 +7,179 @@ import '../../core/supabase_client.dart';
 import '../../core/widgets/moto_fx.dart';
 import '../../core/widgets/net_image.dart';
 
+double? _toD(dynamic v) => v == null ? null : (v is num ? v.toDouble() : double.tryParse(v.toString()));
+int _toI(dynamic v) => v == null ? 0 : (v is num ? v.toInt() : int.tryParse(v.toString()) ?? 0);
+
+/// Řádek hvězdiček (plná/půl/prázdná) pro hodnotu 0–5.
+Widget routeStars(double v, {double size = 18}) => Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (var i = 1; i <= 5; i++)
+          Icon(v >= i ? Icons.star : (v >= i - 0.5 ? Icons.star_half : Icons.star_border), size: size, color: const Color(0xFFF5B301)),
+      ],
+    );
+
+/// Karta jedné recenze (hvězdy, autor, text, fotky) — sdílí detail trasy i sheet z náhledu.
+Widget routeReviewTile(BuildContext context, Map<String, dynamic> r) {
+  final photos = (r['photos'] as List? ?? const []).map((e) => e.toString()).toList();
+  final txt = r['review_text']?.toString() ?? '';
+  final hidden = r['status'] == 'hidden';
+  return Container(
+    margin: const EdgeInsets.only(bottom: 10),
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: hidden ? const Color(0xFFFBEAEA) : Colors.white,
+      borderRadius: BorderRadius.circular(MotoGoRadius.card),
+      border: Border.all(color: MotoGoColors.g200),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            routeStars(_toI(r['rating']).toDouble(), size: 15),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                (r['is_mine'] == true) ? t(context).tr('routeReviewYours') : (r['author']?.toString() ?? t(context).tr('routeReviewAnonymous')),
+                maxLines: 1, overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: MotoGoTypo.sizeMd, fontWeight: MotoGoTypo.w800, color: MotoGoColors.black, decoration: TextDecoration.none),
+              ),
+            ),
+          ],
+        ),
+        if (txt.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text(txt, style: const TextStyle(fontSize: MotoGoTypo.sizeMd, height: 1.4, color: MotoGoColors.g600, decoration: TextDecoration.none)),
+          ),
+        if (photos.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: SizedBox(
+              height: 72,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: photos.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                itemBuilder: (_, i) => ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: MgImage(photos[i], thumbWidth: 200, width: 72, height: 72, fit: BoxFit.cover,
+                      placeholder: Container(width: 72, height: 72, color: MotoGoColors.greenPale),
+                      error: Container(width: 72, height: 72, color: MotoGoColors.greenPale)),
+                ),
+              ),
+            ),
+          ),
+      ],
+    ),
+  );
+}
+
+/// Bottom sheet s recenzemi trasy (jen čtení) — otevírá se hvězdičkami na kartě
+/// trasy v seznamu. Načítá přes RPC `get_route_reviews`.
+void showRouteReviewsSheet(BuildContext context, {required String routeId, required String routeName}) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.white,
+    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+    builder: (_) => _ReviewsSheet(routeId: routeId, routeName: routeName),
+  );
+}
+
+class _ReviewsSheet extends StatefulWidget {
+  final String routeId;
+  final String routeName;
+  const _ReviewsSheet({required this.routeId, required this.routeName});
+
+  @override
+  State<_ReviewsSheet> createState() => _ReviewsSheetState();
+}
+
+class _ReviewsSheetState extends State<_ReviewsSheet> {
+  double? _avg;
+  int _count = 0;
+  List<Map<String, dynamic>> _reviews = const [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final res = await MotoGoSupabase.client.rpc('get_route_reviews', params: {'p_route_id': widget.routeId});
+      if (!mounted) return;
+      setState(() {
+        if (res is Map) {
+          _avg = _toD(res['avg']);
+          _count = _toI(res['count']);
+          _reviews = (res['reviews'] as List? ?? const [])
+              .whereType<Map>()
+              .map((e) => Map<String, dynamic>.from(e))
+              .toList();
+        }
+        _loading = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final maxH = MediaQuery.of(context).size.height * 0.75;
+    return Container(
+      constraints: BoxConstraints(maxHeight: maxH),
+      padding: EdgeInsets.fromLTRB(20, 12, 20, MediaQuery.of(context).padding.bottom + 16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: MotoGoColors.g200, borderRadius: BorderRadius.circular(2)))),
+          const SizedBox(height: 14),
+          Text(widget.routeName, maxLines: 2, overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: MotoGoTypo.sizeH3, fontWeight: MotoGoTypo.w900, color: MotoGoColors.black, decoration: TextDecoration.none)),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Text(t(context).tr('routeReviewsHeader'),
+                  style: const TextStyle(fontSize: MotoGoTypo.sizeLg, fontWeight: MotoGoTypo.w800, color: MotoGoColors.g600, decoration: TextDecoration.none)),
+              const Spacer(),
+              if (_count > 0) ...[
+                routeStars(_avg ?? 0, size: 16),
+                const SizedBox(width: 6),
+                Text('${(_avg ?? 0).toStringAsFixed(1)} · $_count ${t(context).tr('routeReviewCountSuffix')}',
+                    style: const TextStyle(fontSize: MotoGoTypo.sizeMd, fontWeight: MotoGoTypo.w700, color: MotoGoColors.g600, decoration: TextDecoration.none)),
+              ],
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (_loading)
+            const Padding(padding: EdgeInsets.symmetric(vertical: 24),
+                child: Center(child: SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: MotoGoColors.greenDark))))
+          else if (_reviews.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Text(t(context).tr('routeReviewsNone'),
+                  style: const TextStyle(fontSize: MotoGoTypo.sizeMd, fontWeight: MotoGoTypo.w600, color: MotoGoColors.g500, decoration: TextDecoration.none)),
+            )
+          else
+            Flexible(
+              child: ListView(
+                shrinkWrap: true,
+                children: [for (final r in _reviews) routeReviewTile(context, r)],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Recenze trasy — hvězdičkové hodnocení + textová recenze + fotky. Každý
 /// přihlášený uživatel může jednu trasu ohodnotit (lze upravit). Čtení přes RPC
 /// `get_route_reviews`, zápis přes `submit_route_review`, foto do bucketu `media`
@@ -31,9 +204,6 @@ class _RouteReviewsSectionState extends State<RouteReviewsSection> {
     super.initState();
     _load();
   }
-
-  static double? _toD(dynamic v) => v == null ? null : (v is num ? v.toDouble() : double.tryParse(v.toString()));
-  static int _toI(dynamic v) => v == null ? 0 : (v is num ? v.toInt() : int.tryParse(v.toString()) ?? 0);
 
   Future<void> _load() async {
     try {
@@ -97,7 +267,7 @@ class _RouteReviewsSectionState extends State<RouteReviewsSection> {
             _sectionTitle(t(context).tr('routeReviewsHeader')),
             const Spacer(),
             if (_count > 0) ...[
-              _stars(_avg ?? 0, size: 16),
+              routeStars(_avg ?? 0, size: 16),
               const SizedBox(width: 6),
               Text('${(_avg ?? 0).toStringAsFixed(1)} · $_count ${t(context).tr('routeReviewCountSuffix')}',
                   style: const TextStyle(fontSize: MotoGoTypo.sizeMd, fontWeight: MotoGoTypo.w700, color: MotoGoColors.g600, decoration: TextDecoration.none)),
@@ -146,77 +316,13 @@ class _RouteReviewsSectionState extends State<RouteReviewsSection> {
                 style: const TextStyle(fontSize: MotoGoTypo.sizeMd, fontWeight: MotoGoTypo.w600, color: MotoGoColors.g500, decoration: TextDecoration.none)),
           )
         else
-          ..._reviews.map(_reviewTile),
+          ..._reviews.map((r) => routeReviewTile(context, r)),
       ],
-    );
-  }
-
-  Widget _reviewTile(Map<String, dynamic> r) {
-    final photos = (r['photos'] as List? ?? const []).map((e) => e.toString()).toList();
-    final txt = r['review_text']?.toString() ?? '';
-    final hidden = r['status'] == 'hidden';
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: hidden ? const Color(0xFFFBEAEA) : Colors.white,
-        borderRadius: BorderRadius.circular(MotoGoRadius.card),
-        border: Border.all(color: MotoGoColors.g200),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              _stars(_toI(r['rating']).toDouble(), size: 15),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  (r['is_mine'] == true) ? t(context).tr('routeReviewYours') : (r['author']?.toString() ?? t(context).tr('routeReviewAnonymous')),
-                  maxLines: 1, overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: MotoGoTypo.sizeMd, fontWeight: MotoGoTypo.w800, color: MotoGoColors.black, decoration: TextDecoration.none),
-                ),
-              ),
-            ],
-          ),
-          if (txt.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: Text(txt, style: const TextStyle(fontSize: MotoGoTypo.sizeMd, height: 1.4, color: MotoGoColors.g600, decoration: TextDecoration.none)),
-            ),
-          if (photos.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: SizedBox(
-                height: 72,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: photos.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 8),
-                  itemBuilder: (_, i) => ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: MgImage(photos[i], thumbWidth: 200, width: 72, height: 72, fit: BoxFit.cover,
-                        placeholder: Container(width: 72, height: 72, color: MotoGoColors.greenPale),
-                        error: Container(width: 72, height: 72, color: MotoGoColors.greenPale)),
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
     );
   }
 
   Widget _sectionTitle(String s) => Text(s,
       style: const TextStyle(fontSize: MotoGoTypo.sizeH3, fontWeight: MotoGoTypo.w900, color: MotoGoColors.black, decoration: TextDecoration.none));
-
-  Widget _stars(double v, {double size = 18}) => Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (var i = 1; i <= 5; i++)
-            Icon(v >= i ? Icons.star : (v >= i - 0.5 ? Icons.star_half : Icons.star_border), size: size, color: const Color(0xFFF5B301)),
-        ],
-      );
 }
 
 /// Editor recenze (bottom sheet) — hvězdy, text, fotky.
