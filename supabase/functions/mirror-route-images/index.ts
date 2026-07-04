@@ -61,23 +61,46 @@ const EXT: Record<string, string> = {
   'image/gif': 'gif',
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
 /// Stáhne fotku — nejdřív zmenšeninu (?width=), při neúspěchu originál.
-async function fetchWiki(url: string): Promise<{ bytes: Uint8Array; type: string } | null> {
+/// Retry na 429/5xx/síťové chyby (Wikimedia z datacentra škrtí). Vrací bajty
+/// nebo důvod selhání (pro diagnostiku).
+async function fetchWiki(url: string): Promise<{ bytes: Uint8Array; type: string } | { err: string }> {
   const sep = url.includes('?') ? '&' : '?'
-  for (const u of [`${url}${sep}width=${THUMB_WIDTH}`, url]) {
-    try {
-      const r = await fetch(u, { headers: WIKI_HEADERS })
-      if (!r.ok) continue
-      const type = (r.headers.get('content-type') || 'image/jpeg').split(';')[0].trim()
-      if (!type.startsWith('image/')) continue
-      const bytes = new Uint8Array(await r.arrayBuffer())
-      if (bytes.length < 100) continue
-      return { bytes, type }
-    } catch (_) {
-      /* zkus další variantu */
+  const variants = [`${url}${sep}width=${THUMB_WIDTH}`, url]
+  let lastErr = 'unknown'
+  for (const u of variants) {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const r = await fetch(u, { headers: WIKI_HEADERS, redirect: 'follow' })
+        if (r.status === 429 || r.status >= 500) {
+          lastErr = `http_${r.status}`
+          await r.body?.cancel().catch(() => {})
+          await sleep(600 * (attempt + 1)) // 600/1200/1800 ms
+          continue // retry stejnou variantu
+        }
+        if (!r.ok) {
+          lastErr = `http_${r.status}`
+          await r.body?.cancel().catch(() => {})
+          break // 404 apod. → zkus druhou variantu (bez retry)
+        }
+        const type = (r.headers.get('content-type') || 'image/jpeg').split(';')[0].trim()
+        if (!type.startsWith('image/')) {
+          lastErr = `bad_type_${type}`
+          await r.body?.cancel().catch(() => {})
+          break
+        }
+        const bytes = new Uint8Array(await r.arrayBuffer())
+        if (bytes.length < 100) { lastErr = 'too_small'; break }
+        return { bytes, type }
+      } catch (e) {
+        lastErr = `fetch_err_${String(e).slice(0, 40)}`
+        await sleep(600 * (attempt + 1))
+      }
     }
   }
-  return null
+  return { err: lastErr }
 }
 
 serve(async (req) => {
@@ -91,22 +114,41 @@ serve(async (req) => {
   // Přijmi, když bearer == env service key, NEBO == app_settings.service_role_key
   // (přesně to, co posílá cron tick), NEBO jde o admin user JWT (Velín).
   const bearer = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '').trim()
-  let authorized = bearer.length > 0 && bearer === SERVICE_KEY
-  if (!authorized && bearer.length > 0) {
+  const svcMatch = bearer.length > 0 && bearer === SERVICE_KEY
+  let appFound = false
+  let appMatch = false
+  if (!svcMatch && bearer.length > 0) {
     const { data: row } = await sb
       .from('app_settings').select('value').eq('key', 'service_role_key').maybeSingle()
-    if (row?.value && bearer === String(row.value).trim()) authorized = true
+    appFound = !!row?.value
+    if (row?.value && bearer === String(row.value).trim()) appMatch = true
   }
-  if (!authorized && bearer.length > 0) {
+  let adminMatch = false
+  if (!svcMatch && !appMatch && bearer.length > 0) {
     try {
       const caller = createClient(SUPABASE_URL, Deno.env.get('SUPABASE_ANON_KEY') || '', {
         global: { headers: { Authorization: `Bearer ${bearer}` } },
       })
       const { data: isAdmin } = await caller.rpc('is_admin')
-      authorized = isAdmin === true
+      adminMatch = isAdmin === true
     } catch (_) { /* ne */ }
   }
-  if (!authorized) return json({ error: 'forbidden' }, 403)
+  if (!svcMatch && !appMatch && !adminMatch) {
+    // Zaloguj DŮVOD (jednou), ať víme, proč cron neprojde — bez úniku klíčů.
+    const reason = {
+      hasBearer: bearer.length > 0,
+      bearerLen: bearer.length,
+      bearerTail: bearer.slice(-6),
+      svcMatch, appFound, appMatch, adminMatch,
+      svcKeyLen: SERVICE_KEY.length,
+      svcKeyTail: SERVICE_KEY.slice(-6),
+    }
+    await sb.from('debug_log').insert({
+      source: 'mirror-route-images', action: 'auth_denied', component: 'edge_function',
+      status: 'error', request_data: reason,
+    }).then(() => {}, () => {})
+    return json({ error: 'forbidden', reason }, 403)
+  }
 
   const task = runBatch(sb).catch(async (e) => {
     await sb.from('debug_log').insert({
@@ -169,9 +211,12 @@ async function runBatch(sb: ReturnType<typeof createClient>) {
     // ── Zrcadli (cache přes duplicitní URL — stejná fotka u více řádků) ──
     const mirrored = new Map<string, string>() // stará URL → nová URL
     const failed = new Set<string>()
+    const failSamples: Record<string, number> = {} // důvod → počet
     let images = 0
     let updated = 0
     let processedRows = 0
+
+    const note = (why: string) => { failSamples[why] = (failSamples[why] || 0) + 1 }
 
     for (const row of rows) {
       if (outOfBudget() || images >= MAX_IMAGES) break
@@ -185,14 +230,14 @@ async function runBatch(sb: ReturnType<typeof createClient>) {
         const img = await fetchWiki(url)
         images++
         await new Promise((res) => setTimeout(res, FETCH_DELAY_MS))
-        if (!img) { failed.add(url); rowOk = false; continue }
+        if ('err' in img) { failed.add(url); note(img.err); rowOk = false; continue }
 
         const path = `routes-mirror/${await sha1hex(url)}.${EXT[img.type] || 'jpg'}`
         const up = await sb.storage.from('media').upload(path, img.bytes, {
           contentType: img.type,
           upsert: true,
         })
-        if (up.error) { failed.add(url); rowOk = false; continue }
+        if (up.error) { failed.add(url); note(`upload_${up.error.message}`.slice(0, 40)); rowOk = false; continue }
         mirrored.set(url, sb.storage.from('media').getPublicUrl(path).data.publicUrl)
       }
 
@@ -222,6 +267,7 @@ async function runBatch(sb: ReturnType<typeof createClient>) {
       rows_updated: updated,
       images_fetched: images,
       images_failed: failed.size,
+      fail_reasons: failSamples, // důvod → počet (diagnostika Wikimedia)
       remaining_rows: Math.max(0, rows.length - processedRows),
       ms: Date.now() - t0,
     }
