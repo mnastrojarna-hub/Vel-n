@@ -17,9 +17,11 @@ class OfflineGuard {
   static StreamSubscription? _subscription;
 
   /// Quick sync check — navigator.onLine equivalent.
+  /// connectivity_plus 6+ vrací List<ConnectivityResult> (zařízení může mít
+  /// víc aktivních spojení najednou) — offline = seznam obsahuje jen `none`.
   static Future<bool> isOnline() async {
     final result = await _connectivity.checkConnectivity();
-    return result != ConnectivityResult.none;
+    return !result.contains(ConnectivityResult.none);
   }
 
   /// Real async ping to Supabase REST endpoint.
@@ -39,7 +41,7 @@ class OfflineGuard {
   static void startWatching(BuildContext context) {
     _subscription?.cancel();
     _subscription = _connectivity.onConnectivityChanged.listen((result) {
-      if (result == ConnectivityResult.none) {
+      if (result.contains(ConnectivityResult.none)) {
         _showOverlay();
       } else {
         _hideOverlay();

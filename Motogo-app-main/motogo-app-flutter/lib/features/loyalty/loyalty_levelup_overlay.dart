@@ -377,7 +377,7 @@ class _LevelUpCelebrationState extends State<LevelUpCelebration>
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(22),
                 child: Image.asset(
-                  'assets/logo.png',
+                  'assets/logo.webp',
                   width: 92,
                   height: 92,
                   fit: BoxFit.cover,

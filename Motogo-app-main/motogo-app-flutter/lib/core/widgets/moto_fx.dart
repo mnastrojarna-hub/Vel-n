@@ -505,7 +505,7 @@ class _MotoIntroOverlayState extends State<MotoIntroOverlay>
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(22),
                               child: Image.asset(
-                                'assets/logo.png',
+                                'assets/logo.webp',
                                 width: 104,
                                 height: 104,
                                 fit: BoxFit.cover,

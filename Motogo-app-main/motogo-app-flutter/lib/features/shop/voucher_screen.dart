@@ -164,7 +164,7 @@ class _VoucherState extends ConsumerState<VoucherScreen> {
           boxShadow: [BoxShadow(color: MotoGoColors.dark.withValues(alpha: 0.4), blurRadius: 20, offset: const Offset(0, 8))],
         ),
         child: Image.asset(
-          'assets/darkovy-poukaz.jpg',
+          'assets/darkovy-poukaz.webp',
           fit: BoxFit.cover,
         ),
       ),
