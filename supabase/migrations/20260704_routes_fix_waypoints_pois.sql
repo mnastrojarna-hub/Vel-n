@@ -1,6 +1,6 @@
 -- ════════════════════════════════════════════════════════════════════
 -- MotoGo24 — OPRAVA všech seedovaných tras a bodů zájmu (2026-07-04)
--- NEAPLIKOVÁNO na živou DB — spuštění je na adminovi (viz chat/analýza).
+-- APLIKOVÁNO na živou DB uživatelem (success) — zde pro historii/reprodukovatelnost.
 --
 -- Co dělá (idempotentní, lze pouštět opakovaně):
 --  1) routes.waypoints: přegenerováno tak, aby trasa vedla PŘES VŠECHNY

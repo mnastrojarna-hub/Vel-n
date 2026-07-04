@@ -75,7 +75,7 @@ Analytický skript s kompletními seznamy: session scratchpad `analyze_routes.py
 
 Pozn.: první běh analyzéru ukusoval POI bloky na středníku v popisu — po opravě parseru je dataset **384 tras / 2 546 POI** a přesná „před" čísla: A = 39 POI >8 km od trasy, B = 171 dvojic <300 m, C = 92 tras se špatnými km, D = 109 hrubých souřadnic.
 
-1. **SQL `supabase/migrations/20260704_routes_fix_waypoints_pois.sql` (NUTNO APLIKOVAT):**
+1. **SQL `supabase/migrations/20260704_routes_fix_waypoints_pois.sql` (APLIKOVÁNO na živou DB 2026-07-04):**
    - `waypoints` všech 384 tras přegenerovány: start + všechny body zájmu (optimální pořadí, dedup, zachovaná původní průjezdní města, max 15 průjezdních bodů) + cíl,
    - `distance_km`/`duration_min` přepočteny u 155 tras (odhad: vzdušná délka × 1,35, ~42 km/h — Mapy.com routing byl v sandboxu blokován politikou sítě; po aplikaci lze zpřesnit reálným routingem),
    - `mapy_url` přegenerován, `geometry = null` (cache se dopočte živě z nových waypointů),
