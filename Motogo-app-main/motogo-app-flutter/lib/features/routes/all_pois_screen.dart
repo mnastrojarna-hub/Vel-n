@@ -74,7 +74,7 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
     final me = ref.watch(currentLocationProvider).valueOrNull;
 
     // Filtr + řazení (podle vzdálenosti od jezdce, jinak dle názvu trasy).
-    final q = _query.trim().toLowerCase();
+    final q = _query.trim();
     // 1) Zdroj (vše / komunitní / trasa) + hledání — základ pro počty kategorií.
     final sourceFiltered = all.where((e) {
       if (_routeFilter == _kCommunity) {
@@ -85,8 +85,10 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
         return false;
       }
       if (q.isEmpty) return true;
-      return e.poi.nameFor(lang).toLowerCase().contains(q) ||
-          (e.route?.nameFor(lang).toLowerCase().contains(q) ?? false);
+      // Hloubkové hledání: název, popis i překlady bodu (bez diakritiky),
+      // případně název trasy, ke které bod patří.
+      return searchMatches(e.poi.searchBlob, q) ||
+          (e.route != null && searchMatches(e.route!.nameBlob, q));
     }).toList();
     // 2) „V okolí výběru" — po výběru bodu nabídne další body do X km od něj
     //    (vybrané zůstávají vidět vždy). Kategorie se filtrují až nad tím.
@@ -455,10 +457,11 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
         var q = '';
         return StatefulBuilder(
           builder: (sheetCtx, setSheet) {
-            final qq = q.trim().toLowerCase();
+            final qq = q.trim();
+            // Hloubkové hledání trasy — i podle měst na cestě a bodů zájmu.
             final filtered = qq.isEmpty
                 ? sorted
-                : sorted.where((r) => r.nameFor(lang).toLowerCase().contains(qq)).toList();
+                : sorted.where((r) => searchMatches(r.searchBlob, qq)).toList();
             return SafeArea(
               top: false,
               child: Padding(

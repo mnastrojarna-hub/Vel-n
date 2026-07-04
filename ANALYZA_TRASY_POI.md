@@ -83,3 +83,40 @@ Pozn.: první běh analyzéru ukusoval POI bloky na středníku v popisu — po 
    - **Verifikace po opravě: A 39→0, C 92→0, B 171→159** (zbytek jsou reálně sousedící objekty — restaurace u památky).
 2. **Appka (oba Flutter balíky, commit `ba5d06e`):** start z pobočky/polohy/vyzvednutí jen do 50 km od trasy (`startIsNearRoute()`); vzdálené trasy startují od prvního waypointu — detail už neukazuje „Start: MotoGo24 Mezná" u zahraničních tras, navigace neplánuje ~1 500 km přejezd a okruh se nevrací na Meznou.
 3. **Neřešeno (vědomě):** kosmetický offset překrývajících se markerů (159 reálně sousedících dvojic) — šlo by o změnu UX, případně samostatně.
+
+---
+
+## DOPLNĚNÍ POI PODÉL TRAS + HLOUBKOVÉ VYHLEDÁVÁNÍ (2026-07-04, větev claude/route-poi-search-exkpkj)
+
+Nový problém (hlášeno uživatelem): řada tras má body zájmu nahloučené v jednom místě
+a dlouhé úseky bez jediné zastávky — např. „Sozopol a jižní Černomoří" měla mezery
+30/37/27 km, „Belogradčické skály a Vraca" 100+81 km, dálkové trasy z dávky batch12
+až 248 km (Finské Laponsko). Celkem **137 tras mělo úsek ≥ 30 km bez POI (≥ 30 % délky)**.
+
+1. **SQL `supabase/migrations/20260705_route_pois_fill_gaps.sql` (NUTNO APLIKOVAT):**
+   - do všech úseků ≥ 30 km bez POI doplněno **238 nových bodů do 116 tras**:
+     - **212 z katalogu `points_of_interest`** (≤ 7 km od čáry, výběr dle proslulosti
+       [rank], max 2 stejné kategorie na úsek, rozestup, max 8 bodů na trasu),
+     - **26 ručně kurátorovaných** pro země bez katalogového pokrytí (BG 13, EE 5,
+       LT 2, MD 2, MK 4) — souřadnice ověřeny webovými agenty (Wikipedia/Wikidata/
+       latitude.to; mj. nalezeny 3 chybné výchozí odhady: Beglik Tash, Țipova, Bay of Bones),
+   - sort_order všech bodů dotčených tras přečíslován dle pořadí na trase,
+   - waypoints přegenerovány (trasa nově vede přes doplněné body), distance_km/
+     duration_min přepočteny při odchylce > 15 %, mapy_url obnoven, geometry = null,
+   - kurátorované body nemají překlady → na konci migrace se přeplánuje cron
+     `backfill-route-translations` (katalogové body mají překlady rovnou).
+   - Generátor: `tools/fill_route_poi_gaps.py` (+ `tools/route_poi_gap_curated.json`,
+     report `tools/route_poi_gap_report.txt` se všemi 238 doplněnými body).
+2. **Appka — hloubkové vyhledávání (oba Flutter balíky):**
+   - **Trasy** (`routes_screen.dart`): nové search pole v hlavičce. Hledá bez diakritiky
+     napříč: název + popis trasy (vč. všech jazykových mutací), **popisky waypointů
+     (města/místa na cestě)** a názvy+popisy všech bodů zájmu trasy. Víceslovný dotaz
+     = AND přes slova. „Zrušit filtry" čistí i hledání.
+   - **Katalog POI** (`all_pois_screen.dart`): stávající hledání prohloubeno — dříve jen
+     název bodu/trasy v aktivním jazyce, nyní název + popis + kategorie + všechny
+     jazykové mutace bodu (bez diakritiky), + název trasy ve všech jazycích.
+     Vyhledávání trasy v route pickeru rovněž hloubkové (i podle bodů a měst na trase).
+   - Implementace: `routes_model.dart` — `searchNorm()` (odstranění diakritiky),
+     `searchMatches()` (AND tokeny), cachované `RoutePoi.searchBlob` /
+     `RouteItem.searchBlob` / `RouteItem.nameBlob` (Expando), model nově drží
+     `waypointLabels`. Překladový klíč `routesSearch` (7 jazyků).

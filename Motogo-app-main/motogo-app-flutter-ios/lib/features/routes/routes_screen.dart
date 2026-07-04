@@ -23,6 +23,10 @@ class RoutesScreen extends ConsumerStatefulWidget {
 }
 
 class _RoutesScreenState extends ConsumerState<RoutesScreen> {
+  // Hloubkové vyhledávání — název, popis, města na cestě i body zájmu trasy.
+  String _query = '';
+  final TextEditingController _searchCtl = TextEditingController();
+
   // Rozšířené filtry (prázdné = bez omezení).
   final Set<String> _fType = {}; // 'loop' | 'poi'
   final Set<String> _fDiff = {}; // 'easy' | 'medium' | 'hard'
@@ -56,7 +60,15 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen> {
         _fCountry.clear();
         _fDist = null;
         _fDur = null;
+        _query = '';
+        _searchCtl.clear();
       });
+
+  @override
+  void dispose() {
+    _searchCtl.dispose();
+    super.dispose();
+  }
 
   /// Vyhovuje trasa zadané kombinaci filtrů? (statické parametry — sdílí seznam i náhled v sheetu)
   static bool _routeMatches(
@@ -164,6 +176,34 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen> {
               decoration: TextDecoration.none,
             ),
           ),
+          const SizedBox(height: 12),
+          // Hloubkové hledání — trasa, místo, město na cestě, bod zájmu…
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(MotoGoRadius.pill),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            child: Row(
+              children: [
+                const Icon(Icons.search, size: 18, color: MotoGoColors.g400),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: _searchCtl,
+                    onChanged: (v) => setState(() => _query = v),
+                    decoration: InputDecoration(
+                      isDense: true,
+                      border: InputBorder.none,
+                      hintText: t(context).tr('routesSearch'),
+                      hintStyle: const TextStyle(color: MotoGoColors.g400, fontSize: MotoGoTypo.sizeBase),
+                    ),
+                    style: const TextStyle(fontSize: MotoGoTypo.sizeLg, color: MotoGoColors.black),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -175,10 +215,12 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen> {
     final branches = data.branchesWithRoutes;
     // Filtr poboček zrušen — trasy se neváží na pobočku, poloha jezdce je GPS.
     final byBranch = data.routes;
-    // Náhodné pořadí (stálé po dobu života obrazovky) → filtr.
+    // Náhodné pořadí (stálé po dobu života obrazovky) → hledání → filtr.
     final shuffled = List<RouteItem>.from(byBranch)..shuffle(Random(_shuffleSeed));
+    final q = _query.trim();
     final routes = shuffled
-        .where((r) => _routeMatches(r, _fType, _fDiff, _fCountry, _fDist, _fDur))
+        .where((r) => (q.isEmpty || searchMatches(r.searchBlob, q)) &&
+            _routeMatches(r, _fType, _fDiff, _fCountry, _fDist, _fDur))
         .toList();
 
     return RefreshIndicator(

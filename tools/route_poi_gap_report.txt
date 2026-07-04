@@ -1,0 +1,356 @@
+[batch12] Finské Laponsko (+8):
+   +Norvajärvi  @8 km, 6.8 km od čáry (katalog r20293)
+   +Lokka  @172 km, 1.2 km od čáry (katalog r11708)
+   +Luirojärvi  @210 km, 2.9 km od čáry (katalog r13997)
+   +Lake Paatari  @348 km, 5.4 km od čáry (katalog r14929)
+   +Čoahpejávri  @569 km, 4.6 km od čáry (katalog r24115)
+   +Peerajärvi  @596 km, 4.2 km od čáry (katalog r24180)
+   +Sieppijärvi  @738 km, 0.7 km od čáry (katalog r24248)
+   +Pallasjärvi  @755 km, 0.2 km od čáry (katalog r20333)
+[batch12] Skotsko – North Coast 500 (+8):
+   +Beaufort Castle  @16 km, 1.9 km od čáry (katalog r16491)
+   +Loch Monar  @53 km, 3.5 km od čáry (katalog r15860)
+   +Loch Dùghaill  @67 km, 3.4 km od čáry (katalog r13867)
+   +Loch Maree  @133 km, 4.9 km od čáry (katalog r10635)
+   +Loch Stack  @223 km, 5.8 km od čáry (katalog r19913)
+   +Loch Hope  @285 km, 2.3 km od čáry (katalog r14698)
+   +Loch Naver  @309 km, 0.9 km od čáry (katalog r17550)
+   +Loch Watten  @418 km, 2.3 km od čáry (katalog r15880)
+[batch12] Nizozemsko – Afsluitdijk a Veluwe (+8):
+   +Slotermeer, Friesland  @43 km, 4.5 km od čáry (katalog r15888)
+   +Weerribben-Wieden National Park  @69 km, 0.2 km od čáry (katalog r11508)
+   +Zwarte Meer  @92 km, 1.3 km od čáry (katalog r12800)
+   +Uddelermeer  @137 km, 4.7 km od čáry (katalog r19947)
+   +Utrechtse Heuvelrug National Park  @183 km, 0.9 km od čáry (katalog r11507)
+   +Nieuwpoort  @222 km, 0.8 km od čáry (katalog r12224)
+   +Schielands Hoge Zeedijk  @255 km, 0.1 km od čáry (katalog r19949)
+   +Sloterplas  @294 km, 2.2 km od čáry (katalog r19945)
+[batch12] Portugalsko – údolí Douro a Serra da Estrela (+7):
+   +Barragem de Daivões  @125 km, 2.9 km od čáry (katalog r20027)
+   +Castle of Carrazeda (ruins)  @187 km, 5.9 km od čáry (katalog r21681)
+   +Castle of Penas Róias  @245 km, 1.7 km od čáry (katalog r21698)
+   +Bemposta Dam  @306 km, 0.6 km od čáry (katalog r13248)
+   +Saucelle Dam  @346 km, 6.5 km od čáry (katalog r13855)
+   +Castle of Castelo Rodrigo  @369 km, 6.2 km od čáry (katalog r18664)
+   +Centum Cellas  @479 km, 5.7 km od čáry (katalog r18689)
+[pt] Historické vesnice středního Portugalska (+6):
+   +Cave of Aroeira  @49 km, 3.4 km od čáry (katalog r14568)
+   +Castelo do Bode Dam  @79 km, 4.5 km od čáry (katalog r13926)
+   +Belver Dam  @107 km, 4.5 km od čáry (katalog r13927)
+   +Castle of Abrantes  @232 km, 1.7 km od čáry (katalog r16686)
+   +Boquilobo Bog Natural Reserve  @262 km, 5.0 km od čáry (katalog r15648)
+   +Salinas da Fonte da Bica  @297 km, 2.7 km od čáry (katalog r23721)
+[batch12] Estonsko – Saaremaa a Lahemaa (+5):
+   +Vodopád Jägala  @25 km, 1.4 km od čáry (KURÁTOR)
+   +Rašeliniště Viru (Lahemaa)  @52 km, 2.8 km od čáry (KURÁTOR)
+   +Rummu – zatopený lom  @187 km, 36.7 km od čáry (KURÁTOR)
+   +Haapsalu – biskupský hrad  @235 km, 32.7 km od čáry (KURÁTOR)
+   +Koguva – muzejní vesnice (Muhu)  @285 km, 3.6 km od čáry (KURÁTOR)
+[bg] Sozopol a jižní Černomoří (+5):
+   +Carevo  @31 km, 0.9 km od čáry (KURÁTOR)
+   +Beglik Tash – thrácká svatyně  @69 km, 0.4 km od čáry (KURÁTOR)
+   +Pomorie – solné jezero a Muzeum soli  @120 km, 6.1 km od čáry (KURÁTOR)
+   +Přímořská zahrada Burgas  @129 km, 18.4 km od čáry (KURÁTOR)
+   +Černomorec  @133 km, 4.9 km od čáry (KURÁTOR)
+[se] Švédsko – Skåne: Ales stenar a Kullaberg (+5):
+   +Landskrona Citadel  @32 km, 0.9 km od čáry (katalog r14276)
+   +Borgeby Castle  @157 km, 5.2 km od čáry (katalog r12994)
+   +Národní park Dalby Söderskog  @176 km, 0.3 km od čáry (katalog r10944)
+   +Vombsjön  @191 km, 5.6 km od čáry (katalog r13308)
+   +Svaneholm Castle  @291 km, 0.3 km od čáry (katalog r15290)
+[batch12] Žďárské vrchy – skály a serpentiny (+4):
+   +Čermákovy louky  @9 km, 0.7 km od čáry (katalog r5838)
+   +Žďár nad Sázavou  @58 km, 4.8 km od čáry (katalog r2507)
+   +Baba – V Bukách  @128 km, 1.9 km od čáry (katalog r5928)
+   +Zaječí skok  @152 km, 0.4 km od čáry (katalog r5926)
+[batch12] Plzeňsko, Český les a Chodsko (+4):
+   +Nebílovy  @14 km, 0.5 km od čáry (katalog r2092)
+   +Zavlekov  @67 km, 1.7 km od čáry (katalog r4528)
+   +zámek Poběžovice  @126 km, 2.8 km od čáry (katalog r3296)
+   +Pivoňský klášter  @169 km, 0.4 km od čáry (katalog r3292)
+[batch12] Jadranská magistrála – chorvatské pobřeží (+4):
+   +Rijeka Cathedral  @9 km, 6.0 km od čáry (katalog r11155)
+   +jeskyně Biserujka  @29 km, 2.2 km od čáry (katalog r12388)
+   +Národní park Severní Velebit  @87 km, 0.9 km od čáry (katalog r10445)
+   +Paklenica  @133 km, 4.1 km od čáry (katalog r10404)
+[batch12] Severní Makedonie – Ochridské jezero a Mavrovo (+4):
+   +Prameny Vevčani  @27 km, 15.6 km od čáry (KURÁTOR)
+   +Kruševo – Makedonium  @126 km, 16.9 km od čáry (KURÁTOR)
+   +Heraclea Lyncestis  @161 km, 2.3 km od čáry (KURÁTOR)
+   +Zátoka kostí – muzeum na vodě  @221 km, 6.1 km od čáry (KURÁTOR)
+[bg] Belogradčické skály a Vraca (+4):
+   +Přehrada Ogosta  @76 km, 3.6 km od čáry (KURÁTOR)
+   +Jeskyně Ledenika  @108 km, 3.3 km od čáry (KURÁTOR)
+   +Berkovica  @149 km, 9.7 km od čáry (KURÁTOR)
+   +Čiprovci  @175 km, 9.9 km od čáry (KURÁTOR)
+[cz_vysocina] Dalešice a Mohelno – přehrady v údolí Jihlavy (+4):
+   +Roštejn  @18 km, 4.3 km od čáry (katalog r2472)
+   +Hošťanka  @52 km, 1.7 km od čáry (katalog r2754)
+   +Bazilika svatého Prokopa  @102 km, 0.1 km od čáry (katalog r1095)
+   +Synagoga v Třešti  @132 km, 0.1 km od čáry (katalog r5256)
+[cz_vysocina] Vírská přehrada a horní Svratka (+4):
+   +Zaječí skok  @24 km, 0.5 km od čáry (katalog r5926)
+   +Baba – V Bukách  @49 km, 1.7 km od čáry (katalog r5928)
+   +Žďár nad Sázavou  @118 km, 3.0 km od čáry (katalog r2507)
+   +Chvojnov  @160 km, 0.1 km od čáry (katalog r5774)
+[cz_vysocina] Mohelenská hadcová step a údolí Oslavy (+4):
+   +V Klučí  @23 km, 1.4 km od čáry (katalog r3782)
+   +Bazilika svatého Prokopa  @50 km, 3.3 km od čáry (katalog r1095)
+   +Hošťanka  @116 km, 2.0 km od čáry (katalog r2754)
+   +Roštejn  @150 km, 4.4 km od čáry (katalog r2472)
+[se] Švédsko – Öland: ostrov větrných mlýnů a majáků (+4):
+   +Byrums raukar  @73 km, 1.6 km od čáry (katalog r17228)
+   +Hornsjön  @114 km, 1.5 km od čáry (katalog r20088)
+   +Ismantorp Fortress  @167 km, 1.0 km od čáry (katalog r15312)
+   +Hrad Eketorp  @218 km, 3.2 km od čáry (katalog r11592)
+[batch12] Za hradem Pernštejn a Novým Městem na Moravě (+3):
+   +Čermákovy louky  @9 km, 0.0 km od čáry (katalog r5838)
+   +Baba – V Bukách  @128 km, 0.1 km od čáry (katalog r5928)
+   +Synagoga v Jihlavě  @149 km, 1.5 km od čáry (katalog r5288)
+[batch12] Deutsche Alpenstraße – Neuschwanstein a Berchtesgaden (+3):
+   +Spitzingsee  @114 km, 3.4 km od čáry (katalog r11343)
+   +Walchsee  @147 km, 0.7 km od čáry (katalog r1561)
+   +Schloss Grubhof  @176 km, 1.8 km od čáry (katalog r5044)
+[batch12] Route des Grandes Alpes – francouzské průsmyky (+3):
+   +Tignes Dam  @56 km, 0.4 km od čáry (katalog r13833)
+   +Národní park Vanoise  @85 km, 1.2 km od čáry (katalog r10323)
+   +Bissorte Dam  @110 km, 6.8 km od čáry (katalog r17452)
+[batch12] Hrady a jeskyně kolem Prahy (+3):
+   +vodní nádrž Štěchovice  @72 km, 2.0 km od čáry (katalog r1980)
+   +Jenštejn  @132 km, 0.5 km od čáry (katalog r4352)
+   +Slatinná louka u Liblic  @149 km, 0.1 km od čáry (katalog r5609)
+[cz_vysocina] Zámky na Oslavě – Velké Meziříčí a Náměšť (+3):
+   +Rokštejn  @37 km, 1.8 km od čáry (katalog r3213)
+   +Bazilika svatého Prokopa  @102 km, 1.5 km od čáry (katalog r1095)
+   +Synagoga v Batelově  @138 km, 0.0 km od čáry (katalog r5277)
+[cz_vysocina] Rozhledny a zámek Přibyslav (+3):
+   +Želivský klášter  @20 km, 0.0 km od čáry (katalog r2667)
+   +hrad Lipnice nad Sázavou  @71 km, 2.7 km od čáry (katalog r2079)
+   +Synagoga v Polné  @117 km, 0.6 km od čáry (katalog r5253)
+[dk] Divoké západní pobřeží Jutska (+3):
+   +Filsø  @43 km, 4.6 km od čáry (katalog r23838)
+   +Vest Stadil Fjord  @130 km, 1.5 km od čáry (katalog r17680)
+   +Nørresø  @197 km, 0.1 km od čáry (katalog r23828)
+[dk] Limfjord a severní Jutsko (+3):
+   +Navnsø  @34 km, 5.4 km od čáry (katalog r20079)
+   +Aggersborg  @158 km, 0.3 km od čáry (katalog r11591)
+   +Vejlen  @183 km, 5.6 km od čáry (katalog r23807)
+[fr] Route Napoléon – z Grasse do Grenoblu (+3):
+   +Senez Cathedral  @50 km, 1.9 km od čáry (katalog r18930)
+   +Gap Cathedral  @142 km, 0.0 km od čáry (katalog r15384)
+   +Sautet Lake  @173 km, 0.5 km od čáry (katalog r17429)
+[no] Helgeland – pobřežní cesta Fv17 za polární kruh (+3):
+   +Helgåvatnet  @138 km, 2.9 km od čáry (katalog r17776)
+   +Langvatnet  @202 km, 0.2 km od čáry (katalog r17856)
+   +Valnesvatnet  @233 km, 1.9 km od čáry (katalog r20224)
+[pt] Alentejem přes Évoru a Monsaraz (+3):
+   +Castle of Valongo  @23 km, 4.5 km od čáry (katalog r21704)
+   +Castle of Redondo  @79 km, 4.6 km od čáry (katalog r16702)
+   +Castle of Evoramonte  @114 km, 3.4 km od čáry (katalog r18663)
+[pt] Trás-os-Montes a Miranda do Douro (+3):
+   +Castle of Vinhais  @26 km, 3.1 km od čáry (katalog r18685)
+   +Castle of Algoso  @209 km, 0.6 km od čáry (katalog r21685)
+   +Fortaleza do Outeiro  @275 km, 3.8 km od čáry (katalog r21713)
+[batch12] UNESCO trojúhelník – Telč, Třebíč, Zelená hora (+2):
+   +Nová Říše  @34 km, 2.3 km od čáry (katalog r5222)
+   +Baba – V Bukách  @100 km, 5.4 km od čáry (katalog r5928)
+[batch12] Zillertal a Gerlos Alpenstrasse (+2):
+   +Burg Lichtenwerth  @67 km, 5.1 km od čáry (katalog r2576)
+   +Burg Freundsberg  @87 km, 1.0 km od čáry (katalog r1604)
+[batch12] Semmering a Mariazell (+2):
+   +Ruine Hohenwang  @52 km, 0.7 km od čáry (katalog r5001)
+   +Sackwiesensee  @119 km, 1.9 km od čáry (katalog r2398)
+[batch12] Karkonosze a Dolní Slezsko (+2):
+   +Kamienna Góra Castle  @61 km, 0.1 km od čáry (katalog r3328)
+   +Mietkowski Lake  @108 km, 4.4 km od čáry (katalog r2938)
+[batch12] Lago di Como a průsmyk Splügen (+2):
+   +Lago di Cama  @58 km, 4.1 km od čáry (katalog r14720)
+   +Lago di Mezzola  @124 km, 3.4 km od čáry (katalog r13232)
+[batch12] Eger, Bükk a Tokaj (+2):
+   +Synagogue Mád  @116 km, 3.4 km od čáry (katalog r17092)
+   +Šomoška  @240 km, 3.0 km od čáry (katalog r1695)
+[batch12] Nockalmstraße a přehrada Kölnbreinsperre (+2):
+   +Schloss Dornbach  @32 km, 2.6 km od čáry (katalog r3516)
+   +Burgruine Gmünd  @73 km, 3.6 km od čáry (katalog r2167)
+[batch12] Belgie – Ardeny (+2):
+   +Caves of Hotton  @11 km, 4.3 km od čáry (katalog r17194)
+   +Franchimont  @53 km, 0.7 km od čáry (katalog r15213)
+[batch12] Moldavsko – Orheiul Vechi a Cricova (+2):
+   +Skalní klášter Țipova  @66 km, 0.9 km od čáry (KURÁTOR)
+   +Klášter Japca  @113 km, 9.2 km od čáry (KURÁTOR)
+[batch12] Litva – Kurská kosa (+2):
+   +Zámek Plungė (Oginští)  @174 km, 37.5 km od čáry (KURÁTOR)
+   +Telšiai – město sedmi kopců  @200 km, 31.7 km od čáry (KURÁTOR)
+[batch12] Velký okruh Šumavou (+2):
+   +Pod Farským lesem  @88 km, 5.4 km od čáry (katalog r5953)
+   +vodní nádrž Lipno  @132 km, 3.1 km od čáry (katalog r1233)
+[batch12] Beskydy a Valašsko (+2):
+   +vodní nádrž Bystřička  @10 km, 1.5 km od čáry (katalog r3912)
+   +Nový Šaumburk  @42 km, 1.0 km od čáry (katalog r3250)
+[bg] Rodopy a soutěska Trigrad (+2):
+   +Smoljanská jezera  @6 km, 0.2 km od čáry (KURÁTOR)
+   +Jagodinská jeskyně  @46 km, 4.1 km od čáry (KURÁTOR)
+[cz_jizni_cechy] Novohradské hory a Terčino údolí (+2):
+   +zámek Borovany  @15 km, 2.1 km od čáry (katalog r4661)
+   +vodní nádrž Římov  @91 km, 0.0 km od čáry (katalog r1982)
+[cz_vysocina] Údolím Želetavky – Police, Jemnice a Uherčice (+2):
+   +Roštejn  @18 km, 4.1 km od čáry (katalog r2472)
+   +Velký Pařezitý rybník  @123 km, 2.1 km od čáry (katalog r2756)
+[cz_vysocina] Rozhledny a zámky Třebíčska (Mařenka a Babylon) (+2):
+   +Roštejn  @19 km, 3.2 km od čáry (katalog r2472)
+   +Synagoga v Třešti  @129 km, 0.2 km od čáry (katalog r5256)
+[cz_vysocina] Údolí Doubravy a Stvořidla (+2):
+   +Vodní nádrž Sedlice  @19 km, 0.2 km od čáry (katalog r2811)
+   +zámek Herálec  @95 km, 0.9 km od čáry (katalog r4639)
+[dk] Severní Sjælland – zámky a hrady (+2):
+   +Søndersø  @41 km, 4.9 km od čáry (katalog r23800)
+   +Buresø  @85 km, 0.1 km od čáry (katalog r14786)
+[fi] Koli a jezero Pielinen (+2):
+   +Höytiäinen  @19 km, 3.6 km od čáry (katalog r11707)
+   +Viekijärvi  @103 km, 0.1 km od čáry (katalog r20307)
+[gb] Anglie – Kent a Sussex, bílé útesy (+2):
+   +Saltwood Castle  @41 km, 2.5 km od čáry (katalog r14127)
+   +Pevensey Castle  @101 km, 4.2 km od čáry (katalog r11402)
+[gr] Kréta – Chania, Elafonisi a Falassarna (+2):
+   +Moni Gonia Monastery  @22 km, 5.4 km od čáry (katalog r19205)
+   +Agia lake  @110 km, 1.2 km od čáry (katalog r17655)
+[ie] Irsko – Connemara, Sky Road a fjord Killary (+2):
+   +Lettercraffroe Lough  @27 km, 0.4 km od čáry (katalog r23777)
+   +Aughnanure Castle  @138 km, 2.8 km od čáry (katalog r12987)
+[no] Hardanger – vodopády a ovocné sady (+2):
+   +Veivatnet  @103 km, 5.2 km od čáry (katalog r16141)
+   +Langavatnet  @125 km, 0.3 km od čáry (katalog r16138)
+[no] Valdresflye – náhorní cestou do Jotunheimenu (+2):
+   +Slidrefjord  @18 km, 6.3 km od čáry (katalog r13947)
+   +Lemonsjøen  @103 km, 0.6 km od čáry (katalog r14891)
+[ro] Banát – vodopád Bigăr a soutěska Nery (+2):
+   +Národní park Semenic-Cheile Carașului  @23 km, 1.5 km od čáry (katalog r11512)
+   +Peștera cu Oase  @94 km, 5.8 km od čáry (katalog r11044)
+[se] Švédsko – Gotland: Visby a vápencové rauky (+2):
+   +Tingstäde träsk  @38 km, 3.7 km od čáry (katalog r13940)
+   +Närsholmen  @93 km, 5.7 km od čáry (katalog r19335)
+[se] Švédsko – Velký okruh kolem Vätternu (+2):
+   +Tåkern  @74 km, 0.7 km od čáry (katalog r11702)
+   +Näs  @192 km, 4.6 km od čáry (katalog r15285)
+[batch12] Husitské Táborsko a Chýnovská jeskyně (+1):
+   +Choustník  @90 km, 0.9 km od čáry (katalog r2465)
+[batch12] Orlické hory, Adršpach a Broumovsko (+1):
+   +zámek Opočno  @80 km, 3.7 km od čáry (katalog r2080)
+[batch12] Malá Fatra a Terchová (+1):
+   +Bazilika Narození Přeblahoslavené Panny Marie  @49 km, 1.3 km od čáry (katalog r2209)
+[batch12] Banská Štiavnica a Štiavnické vrchy (+1):
+   +Boky  @34 km, 1.8 km od čáry (katalog r3835)
+[batch12] Slovenský kras a Zádielska tiesňava (+1):
+   +Hrušovská jeskyně  @13 km, 4.2 km od čáry (katalog r3800)
+[batch12] Silvretta Hochalpenstrasse (+1):
+   +Herzsee  @49 km, 0.5 km od čáry (katalog r4294)
+[batch12] Plitvická jezera a Lika (+1):
+   +Udbina Castle  @95 km, 4.8 km od čáry (katalog r21603)
+[batch12] Toskánsko – Val d'Orcia a Chianti (+1):
+   +Monteriggioni  @73 km, 3.7 km od čáry (katalog r10049)
+[batch12] Okolo Lago di Garda (+1):
+   +Sanctuary of Our Lady of the Crown  @27 km, 4.3 km od čáry (katalog r13069)
+[batch12] Korsika – horské silnice ostrova krásy (+1):
+   +Torra di Sagone  @154 km, 0.7 km od čáry (katalog r20867)
+[batch12] Ronda a bílá města Andalusie (+1):
+   +El Torcal de Antequera  @122 km, 0.7 km od čáry (katalog r10752)
+[batch12] Švédsko – Divočinská cesta Vildmarksvägen (+1):
+   +Ströms vattudal  @15 km, 5.5 km od čáry (katalog r14788)
+[batch12] Irsko – Ring of Kerry (+1):
+   +Caragh Lake  @26 km, 2.9 km od čáry (katalog r15952)
+[batch12] Polsko – Tatry a Morskie Oko (+1):
+   +Lovecký zámeček Hohenlohe  @34 km, 2.1 km od čáry (katalog r4704)
+[batch12] Řecko – Meteora a Pindos (+1):
+   +Lake Aoos  @52 km, 3.1 km od čáry (katalog r17651)
+[batch12] České Švýcarsko a Lužické hory (+1):
+   +Hradčanské rybníky  @101 km, 0.7 km od čáry (katalog r5746)
+[batch12] Jeseníky velký okruh (+1):
+   +Karlovice - sever  @92 km, 1.7 km od čáry (katalog r5761)
+[batch12] Moravský kras a Slovácko (+1):
+   +Ferdinandsko  @21 km, 0.6 km od čáry (katalog r2494)
+[at] Waldviertel – hrady na Kampu a přehrada Ottenstein (+1):
+   +hrad Rastenberg  @29 km, 0.6 km od čáry (katalog r4883)
+[at] Mühlviertel a dunajská smyčka Schlögen (+1):
+   +Wildberg  @26 km, 4.8 km od čáry (katalog r4993)
+[be] Gent a Flanderské Ardeny – Koppenberg a Muur (+1):
+   +Leeuwergem Castle  @20 km, 0.5 km od čáry (katalog r14204)
+[bg] Pirin, Bansko a Melnik (+1):
+   +Sandanski – lázně pod Pirinem  @41 km, 9.6 km od čáry (KURÁTOR)
+[bg] Severní Černomoří – Kaliakra a Balčik (+1):
+   +Zátoka Bolata  @30 km, 0.9 km od čáry (KURÁTOR)
+[cz_jizni_cechy] Perly Vltavy – Český Krumlov a Rožmberk (+1):
+   +vodní nádrž Římov  @75 km, 0.0 km od čáry (katalog r1982)
+[cz_jizni_cechy] Renesanční Kratochvíle a Zlatá stezka (+1):
+   +Dehtář  @79 km, 2.1 km od čáry (katalog r1797)
+[cz_jizni_cechy] Přehrady Malše a Vltavy – Římov a Hněvkovice (+1):
+   +Libochovka  @46 km, 1.5 km od čáry (katalog r5890)
+[cz_stredni_cechy] Brdy a Příbramsko (+1):
+   +Valdek  @56 km, 4.6 km od čáry (katalog r3184)
+[cz_vysocina] Polná, Brtnice a zřícenina Rokštejn (+1):
+   +Chvojnov  @16 km, 0.2 km od čáry (katalog r5774)
+[cz_vysocina] Za muzei a podzemím Jihlavska (+1):
+   +Orlík  @103 km, 0.8 km od čáry (katalog r3155)
+[de] Eifel – Nürburgring a sopečné maary (+1):
+   +Pulvermaar  @63 km, 3.4 km od čáry (katalog r13804)
+[de] Romantická cesta – Würzburg, Rothenburg a Nördlingen (+1):
+   +Marstadter See  @27 km, 0.6 km od čáry (katalog r23112)
+[de] Švábská Alba – hrad Hohenzollern a údolí Dunaje (+1):
+   +Grafeneck Euthanasia Centre  @91 km, 6.4 km od čáry (katalog r12480)
+[dk] Jižní Jutsko a Ribe (+1):
+   +Marsk Tower  @87 km, 4.4 km od čáry (katalog r18801)
+[es] Extremadura – Trujillo, Guadalupe a Monfragüe (+1):
+   +Arrocampo Reservoir  @141 km, 6.4 km od čáry (katalog r17492)
+[es] Kastilské hrady – Segovia, Pedraza a Coca (+1):
+   +Nuestra Señora de la Soterraña  @27 km, 5.7 km od čáry (katalog r19066)
+[fi] Saariston rengastie – okruh Turkuským souostrovím (+1):
+   +Kultaranta  @146 km, 1.3 km od čáry (katalog r12255)
+[fi] Údolí řeky Tornio – hranicí dvou zemí (+1):
+   +Aapajärvi  @133 km, 1.5 km od čáry (katalog r20273)
+[fi] Päijänne a hřebenovka Pulkkilanharju (+1):
+   +Vesijärvi  @9 km, 0.2 km od čáry (katalog r10966)
+[fr] Auvergne – kraj vyhaslých sopek (+1):
+   +Randol Abbey  @71 km, 4.7 km od čáry (katalog r18888)
+[fr] Normandie – útesy Étretat a Honfleur (+1):
+   +Abbaye de Graville  @35 km, 6.5 km od čáry (katalog r18914)
+[gb] Anglie – Cornwall a Land's End (+1):
+   +The Loe  @68 km, 5.9 km od čáry (katalog r17566)
+[gb] Anglie – Northumberland, hrady a Hadriánův val (+1):
+   +Chipchase Castle  @32 km, 2.3 km od čáry (katalog r16497)
+[hr] Lika a hrad Sokolac (+1):
+   +Národní park Severní Velebit  @83 km, 0.7 km od čáry (katalog r10445)
+[hu] Severní břeh Balatonu (+1):
+   +Balaton  @17 km, 1.2 km od čáry (katalog r10010)
+[ie] Irsko – Cliffs of Moher a kraj Burren (+1):
+   +Burren National Park  @18 km, 3.2 km od čáry (katalog r11046)
+[ie] Irsko – Inishowen 100 a Malin Head (+1):
+   +Enagh Lough  @84 km, 6.5 km od čáry (katalog r23495)
+[no] Lysevegen a Kjerag – serpentiny nad Lysefjordem (+1):
+   +Valevatn  @31 km, 1.8 km od čáry (katalog r17864)
+[no] Ryfylke – Preikestolen a cesta vodopádů do Saudy (+1):
+   +Tysdalsvatnet  @37 km, 5.0 km od čáry (katalog r16125)
+[pl] Orlí hnízda – Jura Krakowsko-Częstochowska (+1):
+   +Synagogue in Żarki  @30 km, 1.8 km od čáry (katalog r5391)
+[ro] Cazanele Dunării – rumunský břeh Železných vrat (+1):
+   +Národní park Djerdap  @13 km, 5.3 km od čáry (katalog r10357)
+[ro] Dobrudža – hory Măcin, Enisala a antická Histria (+1):
+   +Cocoș Monastery  @174 km, 2.9 km od čáry (katalog r14494)
+[ro] Soutěska Bicaz, Rudé jezero a Ceahlău (+1):
+   +Lázár Castle  @65 km, 6.1 km od čáry (katalog r16665)
+[se] Švédsko – Dalarna: okruh kolem jezera Siljan (+1):
+   +Siljan  @27 km, 4.3 km od čáry (katalog r10293)
+[se] Švédsko – Värmland: Klarälven a jezero Fryken (+1):
+   +Nedre Fryken  @187 km, 3.5 km od čáry (katalog r23856)
+[se] Švédsko – Stockholmské souostroví: Vaxholm a Dalarö (+1):
+   +Ådran  @19 km, 0.3 km od čáry (katalog r17734)
+[se] Švédsko – Vänern: Läckö, Kinnekulle a Trollhättan (+1):
+   +Hindens rev  @115 km, 4.3 km od čáry (katalog r19343)
+[si] Prekmurje a Prlekija – Ptuj, Jeruzalem a Vinarium (+1):
+   +Ormožské jezero  @22 km, 2.3 km od čáry (katalog r14742)
+[sk] Šariš – Bardejov a dřevěné kostelíky (+1):
+   +Demjatské kopce  @60 km, 2.9 km od čáry (katalog r5991)
+[sk] Rajecká dolina a zámek Bojnice (+1):
+   +Kľacký vodopád  @66 km, 0.3 km od čáry (katalog r2258)
+[sk] Podunají – Žitný ostrov, Komárno a Štúrovo (+1):
+   +Gerulata  @9 km, 5.0 km od čáry (katalog r1366)
+
+Celkem: 238 bodů do 116 tras

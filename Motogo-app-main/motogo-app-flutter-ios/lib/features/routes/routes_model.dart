@@ -13,6 +13,57 @@ int? _toI(dynamic v) {
   return int.tryParse(v.toString());
 }
 
+/// Normalizace textu pro vyhledávání — malá písmena bez diakritiky.
+/// (Dart nemá unicodedata; mapa pokrývá evropské jazyky appky vč. cs/pl/ro/sk.)
+String searchNorm(String s) {
+  const map = {
+    'á': 'a', 'à': 'a', 'â': 'a', 'ä': 'a', 'ã': 'a', 'å': 'a', 'ą': 'a', 'ā': 'a',
+    'č': 'c', 'ç': 'c', 'ć': 'c', 'ď': 'd', 'đ': 'd',
+    'é': 'e', 'è': 'e', 'ê': 'e', 'ë': 'e', 'ě': 'e', 'ę': 'e', 'ē': 'e',
+    'í': 'i', 'ì': 'i', 'î': 'i', 'ï': 'i', 'ī': 'i',
+    'ľ': 'l', 'ĺ': 'l', 'ł': 'l', 'ň': 'n', 'ñ': 'n', 'ń': 'n',
+    'ó': 'o', 'ò': 'o', 'ô': 'o', 'ö': 'o', 'õ': 'o', 'ø': 'o', 'ő': 'o', 'ō': 'o',
+    'ř': 'r', 'ŕ': 'r', 'š': 's', 'ś': 's', 'ş': 's', 'ș': 's', 'ß': 'ss',
+    'ť': 't', 'ţ': 't', 'ț': 't',
+    'ú': 'u', 'ù': 'u', 'û': 'u', 'ü': 'u', 'ů': 'u', 'ű': 'u', 'ū': 'u',
+    'ý': 'y', 'ÿ': 'y', 'ž': 'z', 'ź': 'z', 'ż': 'z', 'æ': 'ae', 'œ': 'oe',
+  };
+  final sb = StringBuffer();
+  for (final r in s.toLowerCase().runes) {
+    final ch = String.fromCharCode(r);
+    sb.write(map[ch] ?? ch);
+  }
+  return sb.toString();
+}
+
+/// Hloubková shoda dotazu: KAŽDÉ slovo dotazu se musí vyskytovat
+/// v (už normalizovaném) textu `normBlob`. Bez diakritiky, bez velikosti písmen.
+bool searchMatches(String normBlob, String query) {
+  for (final tk in searchNorm(query).split(' ')) {
+    final tok = tk.trim();
+    if (tok.isEmpty) continue;
+    if (!normBlob.contains(tok)) return false;
+  }
+  return true;
+}
+
+/// Přidá do bufferu name+description ze všech jazyků `translations`.
+void _appendTranslations(StringBuffer sb, Map? translations) {
+  translations?.forEach((_, v) {
+    if (v is Map) {
+      final n = v['name'];
+      final d = v['description'];
+      if (n is String && n.isNotEmpty) sb..write(' ')..write(n);
+      if (d is String && d.isNotEmpty) sb..write(' ')..write(d);
+    }
+  });
+}
+
+// Cache vyhledávacích textů (objekty z providerů jsou stabilní).
+final Expando<String> _poiBlobCache = Expando<String>();
+final Expando<String> _routeBlobCache = Expando<String>();
+final Expando<String> _routeNameBlobCache = Expando<String>();
+
 /// Lokalizace pole z jsonb `translations = {lang:{field:value}}`.
 String _loc(Map? translations, String lang, String field, String fallback) {
   if (translations == null) return fallback;
@@ -63,6 +114,17 @@ class RoutePoi {
   String? descFor(String lang) =>
       description == null ? null : _loc(translations, lang, 'description', description!);
 
+  /// Normalizovaný text pro hloubkové vyhledávání: název, popis, kategorie
+  /// a všechny jazykové mutace (cachováno).
+  String get searchBlob => _poiBlobCache[this] ??= _buildSearchBlob();
+  String _buildSearchBlob() {
+    final sb = StringBuffer(name);
+    if (description != null) sb..write(' ')..write(description);
+    if (category != null) sb..write(' ')..write(category);
+    _appendTranslations(sb, translations);
+    return searchNorm(sb.toString());
+  }
+
   factory RoutePoi.fromJson(Map<String, dynamic> j) {
     return RoutePoi(
       id: j['id']?.toString() ?? '',
@@ -110,6 +172,7 @@ class RouteItem {
   final int? durationMin;
   final String? difficulty; // easy | medium | hard
   final List<LatLng> waypoints;
+  final List<String> waypointLabels; // popisky průjezdních bodů (města/místa na cestě)
   final List<LatLng> geometry; // dekódovaná polyline (lat,lng)
   final String? mapyUrl;
   final String? coverImage;
@@ -130,6 +193,7 @@ class RouteItem {
     this.durationMin,
     this.difficulty,
     this.waypoints = const [],
+    this.waypointLabels = const [],
     this.geometry = const [],
     this.mapyUrl,
     this.coverImage,
@@ -150,6 +214,35 @@ class RouteItem {
   String? descFor(String lang) =>
       description == null ? null : _loc(translations, lang, 'description', description!);
 
+  /// Normalizovaný NÁZEV trasy ve všech jazycích (užší shoda — např. pro
+  /// dohledání bodů podle názvu jejich trasy v katalogu POI).
+  String get nameBlob => _routeNameBlobCache[this] ??= _buildNameBlob();
+  String _buildNameBlob() {
+    final sb = StringBuffer(name);
+    translations?.forEach((_, v) {
+      if (v is Map && v['name'] is String) sb..write(' ')..write(v['name']);
+    });
+    return searchNorm(sb.toString());
+  }
+
+  /// Normalizovaný text pro hloubkové vyhledávání trasy: název, popis,
+  /// všechny jazykové mutace, popisky průjezdních bodů (města na cestě)
+  /// a názvy/popisy všech bodů zájmu na trase (cachováno).
+  String get searchBlob => _routeBlobCache[this] ??= _buildSearchBlob();
+  String _buildSearchBlob() {
+    final sb = StringBuffer(name);
+    if (description != null) sb..write(' ')..write(description);
+    for (final l in waypointLabels) {
+      sb..write(' ')..write(l);
+    }
+    _appendTranslations(sb, translations);
+    var blob = searchNorm(sb.toString());
+    for (final p in pois) {
+      blob = '$blob ${p.searchBlob}';
+    }
+    return blob;
+  }
+
   factory RouteItem.fromJson(Map<String, dynamic> j) {
     // geometry = {coordinates:[[lng,lat],…]}  (GeoJSON pořadí)
     final geo = <LatLng>[];
@@ -166,13 +259,18 @@ class RouteItem {
 
     // waypoints = [{lat,lng,label,order}]
     final wps = <LatLng>[];
+    final wpLabels = <String>[];
     final w = j['waypoints'];
     if (w is List) {
       for (final p in w) {
         if (p is Map) {
           final lat = _toD(p['lat']);
           final lng = _toD(p['lng']);
-          if (lat != null && lng != null) wps.add(LatLng(lat, lng));
+          if (lat != null && lng != null) {
+            wps.add(LatLng(lat, lng));
+            final label = p['label'];
+            if (label is String && label.trim().isNotEmpty) wpLabels.add(label.trim());
+          }
         }
       }
     }
@@ -195,6 +293,7 @@ class RouteItem {
       durationMin: _toI(j['duration_min']),
       difficulty: j['difficulty']?.toString(),
       waypoints: wps,
+      waypointLabels: wpLabels,
       geometry: geo,
       mapyUrl: j['mapy_url']?.toString(),
       coverImage: j['cover_image']?.toString(),
