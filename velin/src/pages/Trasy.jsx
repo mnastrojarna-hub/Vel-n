@@ -72,20 +72,27 @@ function Trasy() {
     setLoading(true)
     setError(null)
     try {
-      const [routesRes, branchesRes] = await Promise.all([
-        supabase.from('routes').select('*').order('sort_order').order('distance_km'),
-        supabase.from('branches').select('id, name, city, gps_lat, gps_lng, active').order('name'),
-      ])
-      if (routesRes.error) {
-        const e = routesRes.error
-        throw new Error(
-          `Načtení tras selhalo: ${e.message || 'neznámá chyba'}` +
-          (e.code === '42P01' || (e.message || '').includes('does not exist')
-            ? '\n\nTabulka "routes" zatím v databázi neexistuje — spusťte prosím SQL migraci tras.'
-            : e.code === '42501' ? '\n\nChybí RLS politika pro tabulku "routes".' : '')
-        )
+      // Trasy stránkovaně — PostgREST vrací max 1000 řádků na dotaz, jediný
+      // select bez range uřízl seznam i „Tras celkem" na 1000.
+      const allRoutes = []
+      for (let from = 0; ; from += 1000) {
+        const routesRes = await supabase.from('routes').select('*')
+          .order('sort_order').order('distance_km').range(from, from + 999)
+        if (routesRes.error) {
+          const e = routesRes.error
+          throw new Error(
+            `Načtení tras selhalo: ${e.message || 'neznámá chyba'}` +
+            (e.code === '42P01' || (e.message || '').includes('does not exist')
+              ? '\n\nTabulka "routes" zatím v databázi neexistuje — spusťte prosím SQL migraci tras.'
+              : e.code === '42501' ? '\n\nChybí RLS politika pro tabulku "routes".' : '')
+          )
+        }
+        allRoutes.push(...(routesRes.data || []))
+        if (!routesRes.data || routesRes.data.length < 1000) break
       }
-      setRoutes(routesRes.data || [])
+      const branchesRes = await supabase.from('branches')
+        .select('id, name, city, gps_lat, gps_lng, active').order('name')
+      setRoutes(allRoutes)
       setBranches(branchesRes.data || [])
 
       // POI counts per route — stránkovaně: PostgREST vrací max 1000 řádků
@@ -115,9 +122,16 @@ function Trasy() {
         setPendingPois(up || [])
       } catch (e) { console.warn('[Trasy] user_pois failed:', e.message) }
 
-      // Agregace recenzí tras (počet + průměr, jen schválené)
+      // Agregace recenzí tras (počet + průměr, jen schválené) — stránkovaně
       try {
-        const { data: revs } = await supabase.from('route_reviews').select('route_id, rating, status')
+        const revs = []
+        for (let from = 0; ; from += 1000) {
+          const { data: page, error: re } = await supabase
+            .from('route_reviews').select('route_id, rating, status').range(from, from + 999)
+          if (re) throw re
+          revs.push(...(page || []))
+          if (!page || page.length < 1000) break
+        }
         const agg = {}
         ;(revs || []).forEach(r => {
           if (r.status !== 'approved') return
