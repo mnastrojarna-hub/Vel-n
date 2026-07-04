@@ -36,16 +36,10 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen> {
 
   static const _kAbroad = '__abroad__';
 
-  // Náhodné pořadí tras — nové při každém otevření obrazovky (i po startu appky),
-  // aby nahoře nebyla pokaždé stejná trasa. Seed je stálý po dobu života State,
-  // takže se pořadí nemíchá při scrollování/filtrování.
-  late final int _shuffleSeed;
-
-  @override
-  void initState() {
-    super.initState();
-    _shuffleSeed = Random().nextInt(0x7fffffff);
-  }
+  // Náhodné pořadí tras — losuje se jen JEDNOU za běh appky (static), takže se
+  // pořadí nemění při přepínání tabů ani při návratu na obrazovku. Nové
+  // promíchání až po restartu appky.
+  static final int _shuffleSeed = Random().nextInt(0x7fffffff);
 
   int get _activeFilterCount =>
       (_fType.isEmpty ? 0 : 1) +
