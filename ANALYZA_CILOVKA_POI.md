@@ -78,3 +78,24 @@ Totéž platí pro EU trasy: Normandie, linie Maginot, Overloon, Sinsheim/Speyer
 | Doplnění do tras + nové tematické trasy | reuse existujících toolů |
 
 Analytický skript: session scratchpad `analyze_target_pois.py`.
+
+---
+
+## PROVEDENO (2026-07-04, větev `claude/target-demographic-analysis-sqbwp9`)
+
+Body 1, 2 a 5 z doporučení realizovány, celoevropsky:
+
+1. **Kategorie** `military` 🪖 / `aviation` ✈️ / `tech` 🏭 / `moto` 🏁 — DB migrace
+   `20260706_poi_categories_cilovka.sql` (CHECK + reklasifikace bunkrů z castle),
+   appka (oba balíky: chips, heuristika, i18n 7 jazyků), Velín (CAT + zdroj filtru).
+2. **+10 214 bodů** z Wikidata pro 24 zemí: aviation 3 717, tech 3 081, military 1 723,
+   moto 903, lookout 790 (`20260706_poi_catalog_cilovka*_batch*.sql`; dedup, ověřené
+   GPS/fotky/8 jazyků, vyřazeno 295 aktivních vojenských základen). Katalog po nasazení
+   ~37 000 bodů.
+3. **+200 tras** kotvených na bodech cílovky (military 60, aviation 50, tech 50,
+   moto 40; 22 zemí, 25–260 km) — `20260706_routes_from_catalog_cilovka_batch1..4.sql`,
+   skryté (`is_active=false`), publikace po kontrole ve Velíně.
+
+Nerealizováno (další vlna): kurátorovaná CZ/SK dávka malých letišť s restauracemi
+a krytů studené války (bod 4.3), doplnění bodů do STÁVAJÍCÍCH tras (4.4), ručně
+laděné tematické trasy CZ/SK (4.5).
