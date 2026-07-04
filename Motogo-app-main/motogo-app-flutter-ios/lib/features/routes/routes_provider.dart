@@ -109,12 +109,34 @@ final routesDataProvider = FutureProvider<RoutesData>((ref) async {
 /// všech POI v appce (zákazník si skládá vlastní vyjížďku napříč trasami).
 class PoiEntry {
   final RoutePoi poi;
-  final RouteItem? route; // null = komunitní bod zájmu (od uživatele)
+  final RouteItem? route; // null = bod bez trasy (katalog / komunitní)
   final RouteBranch? branch;
-  const PoiEntry(this.poi, this.route, this.branch);
+  final bool catalog; // samostatný bod z katalogu „zajímavá místa" (ne od uživatele)
+  const PoiEntry(this.poi, this.route, this.branch, {this.catalog = false});
   LatLng? get latLng => poi.latLng;
-  String get key => route != null ? '${route!.id}:${poi.id}' : 'user:${poi.id}';
+  /// Komunitní = navržený uživatelem (bez trasy a mimo katalog).
+  bool get isCommunity => route == null && !catalog;
+  String get key => route != null
+      ? '${route!.id}:${poi.id}'
+      : (catalog ? 'catalog:${poi.id}' : 'user:${poi.id}');
 }
+
+/// Katalog samostatných bodů zájmu (přehrady, jezera, hrady, rozhledny,
+/// památky, přírodní rezervace…) — nezávislé na trasách. RPC `get_pois_catalog`.
+/// Best-effort: dokud RPC/tabulka neexistuje, vrátí prázdný seznam.
+final catalogPoisProvider = FutureProvider<List<RoutePoi>>((ref) async {
+  try {
+    final res = await MotoGoSupabase.client.rpc('get_pois_catalog');
+    final list = res is List ? res : const [];
+    return list
+        .whereType<Map>()
+        .map((e) => RoutePoi.fromJson(Map<String, dynamic>.from(e)))
+        .where((p) => p.latLng != null)
+        .toList();
+  } catch (_) {
+    return const [];
+  }
+});
 
 /// Schválené uživatelské body zájmu (komunitní) — RPC `get_user_pois`.
 final userPoisProvider = FutureProvider<List<RoutePoi>>((ref) async {

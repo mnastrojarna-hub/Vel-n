@@ -38,6 +38,10 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
   /// Sentinel filtru pro komunitní (uživatelské) body zájmu.
   static const _kCommunity = '__community__';
 
+  /// Sentinel filtru pro katalogová „zajímavá místa" (samostatné body zájmu
+  /// nezávislé na trasách — přehrady, hrady, rozhledny, památky, rezervace…).
+  static const _kCatalog = '__catalog__';
+
   /// Kategorie bodů zájmu — odvozují se heuristicky z názvu/popisu.
   static const List<_PoiCat> _catDefs = [
     _PoiCat('food', '🍽️', 'poiCatFood'),
@@ -140,8 +144,10 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
     // Body z tras + komunitní (uživatelské) body zájmu.
     final routePois = ref.watch(allPoisProvider);
     final userPois = ref.watch(userPoisProvider).valueOrNull ?? const [];
+    final catalogPois = ref.watch(catalogPoisProvider).valueOrNull ?? const [];
     final all = <PoiEntry>[
       ...routePois,
+      ...catalogPois.map((p) => PoiEntry(p, null, null, catalog: true)),
       ...userPois.map((p) => PoiEntry(p, null, null)),
     ]..shuffle(Random(_shuffleSeed));
     final me = ref.watch(currentLocationProvider).valueOrNull;
@@ -151,7 +157,9 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
     // 1) Zdroj (vše / komunitní / trasa) + hledání — základ pro počty kategorií.
     final sourceFiltered = all.where((e) {
       if (_routeFilter == _kCommunity) {
-        if (e.route != null) return false; // jen komunitní body
+        if (!e.isCommunity) return false; // jen komunitní (uživatelské) body
+      } else if (_routeFilter == _kCatalog) {
+        if (!e.catalog) return false; // jen katalogová zajímavá místa
       } else if (_routeFilter != null && e.route?.id != _routeFilter) {
         return false;
       }
@@ -287,8 +295,11 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
   // ── Filtry: řádek zdroje (vše / komunitní / trasa) + řádek kategorií ──
   Widget _filters(BuildContext context, String lang, List<RouteItem> routes,
       List<PoiEntry> all, List<PoiEntry> sourceFiltered) {
-    final communityCount = all.where((e) => e.route == null).length;
-    if (routes.length < 2 && communityCount == 0) return const SizedBox(height: 8);
+    final communityCount = all.where((e) => e.isCommunity).length;
+    final catalogCount = all.where((e) => e.catalog).length;
+    if (routes.length < 2 && communityCount == 0 && catalogCount == 0) {
+      return const SizedBox(height: 8);
+    }
 
     // Počty kategorií z aktuálního zdroje (bez zapnutých kategorií).
     final catCounts = <String, int>{};
@@ -318,6 +329,9 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
             children: [
               _srcChip(t(context).tr('poiAllRoutes'), Icons.apps, _routeFilter == null,
                   all.length, () => setState(() => _routeFilter = null)),
+              if (catalogCount > 0)
+                _srcChip(t(context).tr('poiCatalog'), Icons.place, _routeFilter == _kCatalog,
+                    catalogCount, () => setState(() => _routeFilter = _kCatalog)),
               if (communityCount > 0)
                 _srcChip(t(context).tr('poiCommunity'), Icons.groups, _routeFilter == _kCommunity,
                     communityCount, () => setState(() => _routeFilter = _kCommunity)),
@@ -689,11 +703,19 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
                       const SizedBox(height: 3),
                       Row(
                         children: [
-                          Icon(e.route != null ? Icons.route : Icons.groups, size: 12, color: MotoGoColors.greenDark),
+                          Icon(
+                              e.route != null
+                                  ? Icons.route
+                                  : (e.catalog ? Icons.place : Icons.groups),
+                              size: 12,
+                              color: MotoGoColors.greenDark),
                           const SizedBox(width: 4),
                           Flexible(
                             child: Text(
-                              e.route?.nameFor(lang) ?? 'Komunitní bod',
+                              e.route?.nameFor(lang) ??
+                                  (e.catalog
+                                      ? t(context).tr('poiCatalog')
+                                      : t(context).tr('poiCommunityPoint')),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(

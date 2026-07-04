@@ -31,9 +31,11 @@ class _PoiRatingBarState extends State<PoiRatingBar> {
     _load();
   }
 
-  Map<String, dynamic> get _args => widget.poi.isUserPoi
-      ? {'p_route_poi_id': null, 'p_user_poi_id': widget.poi.id}
-      : {'p_route_poi_id': widget.poi.id, 'p_user_poi_id': null};
+  Map<String, dynamic> get _args => widget.poi.isCatalogPoi
+      ? {'p_route_poi_id': null, 'p_user_poi_id': null, 'p_poi_id': widget.poi.id}
+      : widget.poi.isUserPoi
+          ? {'p_route_poi_id': null, 'p_user_poi_id': widget.poi.id}
+          : {'p_route_poi_id': widget.poi.id, 'p_user_poi_id': null};
 
   // Postgres numeric chodí přes PostgREST jako String ("4.5") → parsuj robustně.
   static double? _toD(dynamic v) {
