@@ -39,7 +39,10 @@ android {
 
     defaultConfig {
         applicationId "com.motogo24.app"
-        minSdk 21
+        // flutter.minSdkVersion = minimum podporované aktuálním Flutter SDK
+        // (3.44 → API 24). Firebase BOM a flutter_secure_storage 10 vyžadují
+        // min. 23 — pevná 21 by po upgradu pluginů rozbila manifest merge.
+        minSdk flutter.minSdkVersion
         targetSdk 35
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
