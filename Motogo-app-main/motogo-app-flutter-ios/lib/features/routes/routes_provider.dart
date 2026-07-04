@@ -429,9 +429,69 @@ final routeDisplayProvider =
   return RouteDisplay(geometry: live ?? pts, start: displayStart);
 });
 
-/// Volání Mapy.com routing API. Vrací dekódovanou polyline nebo null.
-/// `profile` určuje typ trasy (doporučené bez dálnic / nejrychlejší / nejkratší).
+/// Výsledek Mapy.com routingu: geometrie + reálná délka/čas po silnici z API.
+class MapyRouteInfo {
+  final List<LatLng> geometry;
+  final double? lengthM; // reálná délka po silnici v metrech (pole `length`)
+  final int? durationS; // čas jízdy v sekundách (pole `duration`)
+  const MapyRouteInfo(this.geometry, {this.lengthM, this.durationS});
+}
+
+/// Délka polyline v metrech (součet úseků). Nad geometrií z routingu je to
+/// reálná délka po silnici — na rozdíl od vzdušné čáry mezi zastávkami.
+double polylineLengthM(List<LatLng> g) {
+  const d = Distance();
+  double s = 0;
+  for (var i = 0; i < g.length - 1; i++) {
+    s += d.as(LengthUnit.Meter, g[i], g[i + 1]);
+  }
+  return s;
+}
+
+/// Reálná délka trasy po silnici v km (místo odhadu `distance_km` z DB):
+/// 1) z předpočítané geometrie trasy (reálná polyline z Velína) bez volání API,
+/// 2) jinak živý dopočet přes Mapy.com routing nad body trasy samotné
+///    (bez polohy jezdce — délka trasy se nemění podle toho, kdo se dívá).
+/// null = nejde spočítat → UI ukáže `distance_km` z DB jako fallback.
+final routeRealLengthKmProvider =
+    FutureProvider.family<double?, String>((ref, routeId) async {
+  final data = await ref.watch(routesDataProvider.future);
+  final route = data.routes.firstWhere(
+    (r) => r.id == routeId,
+    orElse: () => const RouteItem(id: '', name: ''),
+  );
+  if (route.id.isEmpty) return null;
+
+  if (route.geometry.length >= 2) {
+    return polylineLengthM(route.geometry) / 1000;
+  }
+
+  final branch = route.branchId != null ? data.branches[route.branchId] : null;
+  var pts = orderedRoutePoints(route, branch);
+  if (pts.length < 2) {
+    // Trasa bez waypointů — body zájmu v uloženém pořadí.
+    pts = _dedupeNeighbours([
+      for (final p in route.pois)
+        if (p.latLng != null) p.latLng!,
+    ]);
+  }
+  if (pts.length < 2) return null;
+  final info = await fetchMapyRouteInfo(pts);
+  if (info == null) return null;
+  return (info.lengthM ?? polylineLengthM(info.geometry)) / 1000;
+});
+
+/// Volání Mapy.com routing API — jen geometrie (pro vykreslení trasy).
 Future<List<LatLng>?> fetchMapyRoute(List<LatLng> points,
+    {RouteProfile profile = RouteProfile.recommended}) async {
+  final info = await fetchMapyRouteInfo(points, profile: profile);
+  return info?.geometry;
+}
+
+/// Volání Mapy.com routing API. Vrací dekódovanou polyline + reálnou délku
+/// a čas po silnici (pole `length`/`duration` z odpovědi), nebo null.
+/// `profile` určuje typ trasy (doporučené bez dálnic / nejrychlejší / nejkratší).
+Future<MapyRouteInfo?> fetchMapyRouteInfo(List<LatLng> points,
     {RouteProfile profile = RouteProfile.recommended}) async {
   if (points.length < 2) return null;
   final start = points.first;
@@ -467,11 +527,25 @@ Future<List<LatLng>?> fetchMapyRoute(List<LatLng> points,
         out.add(LatLng(lat, lng));
       }
     }
-    return out.length >= 2 ? out : null;
+    if (out.length < 2) return null;
+    return MapyRouteInfo(
+      out,
+      lengthM: _numField(data, 'length'),
+      durationS: _numField(data, 'duration')?.round(),
+    );
   } catch (e) {
     debugPrint('[routes] Mapy routing selhalo: $e');
     return null;
   }
+}
+
+/// Číselné pole z odpovědi routingu — přímo v kořeni nebo v `summary`
+/// (délka v metrech / čas v sekundách). Vrací null, když chybí nebo je 0.
+double? _numField(dynamic data, String key) {
+  if (data is! Map) return null;
+  var v = data[key];
+  if (v == null && data['summary'] is Map) v = (data['summary'] as Map)[key];
+  return (v is num && v > 0) ? v.toDouble() : null;
 }
 
 /// Vytáhne geometrii trasy z odpovědi Mapy routing (GeoJSON i polyline string).
