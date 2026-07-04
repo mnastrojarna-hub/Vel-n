@@ -99,10 +99,6 @@ serve(async (req) => {
     }
   }
 
-  // pg_net (cron tick) čeká na odpověď jen ~5 s — kdyby se odpovídalo až po
-  // dávce, gateway spojení utne a runtime funkci zabije bez vykonané práce.
-  // Proto: odpověz HNED a dávku zpracuj na pozadí (EdgeRuntime.waitUntil,
-  // limit 400 s wall-clock i po odeslání odpovědi).
   const task = runBatch(sb).catch(async (e) => {
     await sb.from('debug_log').insert({
       source: 'mirror-route-images',
@@ -111,15 +107,23 @@ serve(async (req) => {
       status: 'error',
       request_data: { error: String(e) },
     }).then(() => {}, () => {})
+    return { error: String(e) }
   })
+
+  // ?wait=1 → počkej a vrať výsledek (ruční kick curl-em / ověření).
+  // Jinak (cron přes pg_net, který čeká jen ~5 s): odpověz HNED a dávku
+  // dokonči na pozadí, ať gateway spojení neutne a runtime funkci nezabije.
+  const wait = new URL(req.url).searchParams.get('wait')
+  if (wait === '1' || wait === 'true') {
+    return json({ success: true, ...(await task) })
+  }
   // deno-lint-ignore no-explicit-any
   const rt = (globalThis as any).EdgeRuntime
   if (rt?.waitUntil) {
     rt.waitUntil(task)
     return json({ success: true, started: true }, 202)
   }
-  await task // lokální běh bez EdgeRuntime
-  return json({ success: true, started: true, awaited: true })
+  return json({ success: true, ...(await task) }) // lokální běh bez EdgeRuntime
 })
 
 /// Jedna dávka zrcadlení — max MAX_IMAGES fotek / TIME_BUDGET_MS.
@@ -223,5 +227,6 @@ async function runBatch(sb: ReturnType<typeof createClient>) {
         request_data: result,
       })
     }
+    return result
   }
 }
