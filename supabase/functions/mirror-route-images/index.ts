@@ -85,19 +85,28 @@ serve(async (req) => {
 
   const sb = createClient(SUPABASE_URL, SERVICE_KEY)
 
-  // ── Autorizace: service role key, nebo admin JWT ──
-  const bearer = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '')
-  if (bearer !== SERVICE_KEY) {
+  // ── Autorizace (verify_jwt=false na bráně → řešíme tady) ──
+  // Projekt používá nový formát klíčů (sb_secret_…, NEJSOU JWT), takže se
+  // nelze spolehnout na shodu env SERVICE_KEY s klíčem, který posílá cron.
+  // Přijmi, když bearer == env service key, NEBO == app_settings.service_role_key
+  // (přesně to, co posílá cron tick), NEBO jde o admin user JWT (Velín).
+  const bearer = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '').trim()
+  let authorized = bearer.length > 0 && bearer === SERVICE_KEY
+  if (!authorized && bearer.length > 0) {
+    const { data: row } = await sb
+      .from('app_settings').select('value').eq('key', 'service_role_key').maybeSingle()
+    if (row?.value && bearer === String(row.value).trim()) authorized = true
+  }
+  if (!authorized && bearer.length > 0) {
     try {
       const caller = createClient(SUPABASE_URL, Deno.env.get('SUPABASE_ANON_KEY') || '', {
         global: { headers: { Authorization: `Bearer ${bearer}` } },
       })
       const { data: isAdmin } = await caller.rpc('is_admin')
-      if (isAdmin !== true) return json({ error: 'forbidden' }, 403)
-    } catch (_) {
-      return json({ error: 'forbidden' }, 403)
-    }
+      authorized = isAdmin === true
+    } catch (_) { /* ne */ }
   }
+  if (!authorized) return json({ error: 'forbidden' }, 403)
 
   const task = runBatch(sb).catch(async (e) => {
     await sb.from('debug_log').insert({

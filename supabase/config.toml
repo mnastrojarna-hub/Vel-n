@@ -146,3 +146,10 @@ verify_jwt = false
 verify_jwt = false
 [functions.translate-pages-master]
 verify_jwt = false
+
+# Zrcadlení fotek tras (cron mirror-route-images + ruční kick). Volá se s klíčem
+# z app_settings.service_role_key (NOVÝ formát sb_secret_ → NENÍ JWT), takže
+# verify_jwt=true by bránil s UNAUTHORIZED_INVALID_JWT_FORMAT. Autorizaci si
+# funkce dělá sama uvnitř (porovnání se service key / is_admin).
+[functions.mirror-route-images]
+verify_jwt = false
