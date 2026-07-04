@@ -385,7 +385,7 @@ Aplikace `com.motogo24.app` je veřejně v Obchodě Play (produkce). Web:
 a dlouhé úseky bez jediné zastávky (např. „Sozopol a jižní Černomoří" mezery 30/37/27 km,
 „Belogradčické skály a Vraca" 100+81 km). Celkem 137 tras mělo úsek ≥ 30 km bez POI.
 
-- **SQL `20260705_route_pois_fill_gaps.sql` (NUTNO APLIKOVAT):** 238 nových `route_pois`
+- **SQL `20260705_route_pois_fill_gaps.sql` (auto-aplikace po merge do main přes deploy-sql.yml):** 238 nových `route_pois`
   do 116 tras — 212 z katalogu `points_of_interest` (≤ 7 km od čáry, dle proslulosti,
   max 8/trasu), 26 kurátorovaných pro země bez katalogu (BG 13, EE 5, LT 2, MD 2, MK 4;
   souřadnice ověřeny webovými agenty). Sort_order dotčených tras přečíslován dle pořadí
@@ -412,7 +412,7 @@ a dlouhé úseky bez jediné zastávky (např. „Sozopol a jižní Černomoří
   na cronu `backfill-route-translations` (běží od 2026-07-04; stav nutno ověřit v DB)
 - `user_pois` (komunitní body): tabulka NEMÁ sloupec translations — nepřekládá se (vědomé omezení)
 
-**Nalezené díry + oprava `20260705_translations_backfill_fix.sql` (NUTNO APLIKOVAT) + redeploy edge `backfill-route-translations`:**
+**Nalezené díry + oprava `20260705_translations_backfill_fix.sql` + edge `backfill-route-translations` (obojí se nasadí automaticky po merge do main: deploy-sql.yml + deploy-functions.yml):**
 1. Detekce „nepřeloženo" byla jen `translations->'en'->>'name' IS NULL` (DB fce i edge).
    Částečně přeložený řádek (padlý jazyk; `translate-content` zapisuje i částečný
    úspěch) se už nikdy nedopřeložil. Nově se kontroluje všech 7 jazyků, name

@@ -93,7 +93,7 @@ a dlouhé úseky bez jediné zastávky — např. „Sozopol a jižní Černomo�
 30/37/27 km, „Belogradčické skály a Vraca" 100+81 km, dálkové trasy z dávky batch12
 až 248 km (Finské Laponsko). Celkem **137 tras mělo úsek ≥ 30 km bez POI (≥ 30 % délky)**.
 
-1. **SQL `supabase/migrations/20260705_route_pois_fill_gaps.sql` (NUTNO APLIKOVAT):**
+1. **SQL `supabase/migrations/20260705_route_pois_fill_gaps.sql` (auto-aplikace po merge do main přes deploy-sql.yml):**
    - do všech úseků ≥ 30 km bez POI doplněno **238 nových bodů do 116 tras**:
      - **212 z katalogu `points_of_interest`** (≤ 7 km od čáry, výběr dle proslulosti
        [rank], max 2 stejné kategorie na úsek, rozestup, max 8 bodů na trasu),
@@ -146,7 +146,7 @@ dosažitelná (síťová politika blokuje supabase.co) → statická kontrola re
    částečném úspěchu zapíše jen zvládnuté jazyky → řádek s en+de (bez fr/uk/…) se už
    nikdy nedopřeložil; totéž řádek s přeloženým name, ale nepřeloženým description.
    Nově: kontrola všech 7 jazyků na name i description (DB fce EXISTS/unnest,
-   edge PostgREST `.or()`). **Edge fn NUTNO REDEPLOY.**
+   edge PostgREST `.or()`). **Edge fn se redeployne automaticky po merge do main (deploy-functions.yml).**
 2. **7 přejmenovaných tras bez uk názvu** — `20260704_routes_postseed_fixes.sql` přepsal
    názvy jen v 6 jazycích; uk název zůstal starý (pokud backfill stihl přeložit před
    rename) nebo se popis/uk vůbec nepřeložil (pokud rename proběhl dřív — en.name byl
