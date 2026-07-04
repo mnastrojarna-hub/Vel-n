@@ -40,7 +40,7 @@ class ShopScreen extends ConsumerWidget {
                       Row(children: [
                         ClipRRect(
                           borderRadius: BorderRadius.circular(8),
-                          child: Image.asset('assets/logo.png', width: 28, height: 28, fit: BoxFit.cover,
+                          child: Image.asset('assets/logo.webp', width: 28, height: 28, fit: BoxFit.cover,
                             errorBuilder: (_, __, ___) => Container(width: 28, height: 28, decoration: BoxDecoration(color: MotoGoColors.green, borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.motorcycle, size: 16, color: Colors.black))),
                         ),
                         const SizedBox(width: 8),
@@ -98,7 +98,7 @@ class ShopScreen extends ConsumerWidget {
                       ClipRRect(
                         borderRadius: const BorderRadius.vertical(top: Radius.circular(MotoGoTheme.radiusLg)),
                         child: Image.asset(
-                          'assets/darkovy-poukaz.jpg',
+                          'assets/darkovy-poukaz.webp',
                           fit: BoxFit.cover,
                         ),
                       ),

@@ -29,7 +29,7 @@ class LoginHeader extends StatelessWidget {
               ClipRRect(
                 borderRadius: BorderRadius.circular(14),
                 child: Image.asset(
-                  'assets/logo.png',
+                  'assets/logo.webp',
                   width: 64,
                   height: 64,
                   fit: BoxFit.cover,

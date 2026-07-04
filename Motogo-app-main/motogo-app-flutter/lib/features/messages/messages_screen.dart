@@ -39,7 +39,7 @@ class _MessagesState extends ConsumerState<MessagesScreen> {
           ),
         ),
         title: Row(children: [
-          ClipRRect(borderRadius: BorderRadius.circular(8), child: Image.asset('assets/logo.png', width: 24, height: 24, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(width: 24, height: 24, decoration: BoxDecoration(color: MotoGoColors.green, borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.motorcycle, size: 14, color: Colors.black)))),
+          ClipRRect(borderRadius: BorderRadius.circular(8), child: Image.asset('assets/logo.webp', width: 24, height: 24, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(width: 24, height: 24, decoration: BoxDecoration(color: MotoGoColors.green, borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.motorcycle, size: 14, color: Colors.black)))),
           const SizedBox(width: 8),
           Text(t(context).tr('messagesTitle')),
         ]),

@@ -225,7 +225,7 @@ class _HeroState extends State<_Hero> with SingleTickerProviderStateMixin {
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(22),
                         child: Image.asset(
-                          'assets/logo.png',
+                          'assets/logo.webp',
                           width: 96,
                           height: 96,
                           fit: BoxFit.cover,
