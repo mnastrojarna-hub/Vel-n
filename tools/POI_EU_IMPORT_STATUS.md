@@ -16,7 +16,7 @@
 
 ## Probíhá / zbývá
 
-- [ ] **Evropa 15 000 bodů, 20 zemí** — generace z Wikidata. Příkaz
+- [x] **Evropa — VYGENEROVÁNO: 14 807 bodů, 20 zemí** (batch1..15 v gitu) — generace z Wikidata. Příkaz
       (spustit znovu při přerušení; síť musí být povolená — Wikidata):
 
       python3 tools/generate_poi_batches.py \
@@ -27,10 +27,10 @@
         --sort-offset 10000
 
       Výstup: `supabase/migrations/20260704_poi_catalog_wikidata_eu_batch{1..15}.sql`
-- [ ] Validace výstupu (vzor: scratchpad skript ze session — parsování SQL
+- [x] Validace výstupu (0 problémů) (vzor: scratchpad skript ze session — parsování SQL
       literálů, JSON překladů, souřadnice v BBOX; dedupe proti curated není
       potřeba — jiné země). Kontrola konců souborů `);`.
-- [ ] Commit dávek (klidně po částech, každá dávka je samostatný idempotentní
+- [x] Commit dávek (3 commity po 5, pushnuto) (klidně po částech, každá dávka je samostatný idempotentní
       soubor `delete where source=… + insert`).
 - [ ] Merge do main → auto-deploy SQL dávek + edge fn.
 - [ ] Po nasazení: kontrola `select source, count(*) from points_of_interest
