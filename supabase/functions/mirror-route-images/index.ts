@@ -218,12 +218,15 @@ async function runBatch(sb: ReturnType<typeof createClient>) {
       return out
     }
 
-    const [routesData, poisData] = await Promise.all([
+    const [routesData, poisData, catalogData] = await Promise.all([
       fetchAll('routes', 'id, cover_image, images'),
       fetchAll('route_pois', 'id, image_url, images'),
+      // Katalog samostatných bodů zájmu (points_of_interest, ~5000 bodů
+      // z Wikidata) hotlinkuje Commons stejně jako seed tras → zrcadlit taky.
+      fetchAll('points_of_interest', 'id, image_url, images'),
     ])
 
-    type Row = { table: 'routes' | 'route_pois'; id: string; patch: Record<string, unknown>; urls: string[] }
+    type Row = { table: 'routes' | 'route_pois' | 'points_of_interest'; id: string; patch: Record<string, unknown>; urls: string[] }
     const rows: Row[] = []
     for (const r of routesData) {
       const urls = [
@@ -232,13 +235,17 @@ async function runBatch(sb: ReturnType<typeof createClient>) {
       ]
       if (urls.length) rows.push({ table: 'routes', id: r.id as string, patch: { cover_image: r.cover_image, images: r.images }, urls })
     }
-    for (const p of poisData) {
-      const urls = [
-        ...(isWiki(p.image_url) ? [p.image_url as string] : []),
-        ...((p.images || []) as unknown[]).filter(isWiki),
-      ]
-      if (urls.length) rows.push({ table: 'route_pois', id: p.id as string, patch: { image_url: p.image_url, images: p.images }, urls })
+    const addPoiRows = (data: Record<string, unknown>[], table: 'route_pois' | 'points_of_interest') => {
+      for (const p of data) {
+        const urls = [
+          ...(isWiki(p.image_url) ? [p.image_url as string] : []),
+          ...((p.images || []) as unknown[]).filter(isWiki),
+        ]
+        if (urls.length) rows.push({ table, id: p.id as string, patch: { image_url: p.image_url, images: p.images }, urls })
+      }
     }
+    addPoiRows(poisData, 'route_pois')
+    addPoiRows(catalogData, 'points_of_interest')
 
     // ── Zrcadli (cache přes duplicitní URL — stejná fotka u více řádků) ──
     const mirrored = new Map<string, string>() // stará URL → nová URL
