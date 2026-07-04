@@ -22,7 +22,6 @@ class RoutesScreen extends ConsumerStatefulWidget {
 }
 
 class _RoutesScreenState extends ConsumerState<RoutesScreen> {
-  String? _branchId; // null = vše
   // Rozšířené filtry (prázdné = bez omezení).
   final Set<String> _fType = {}; // 'loop' | 'poi'
   final Set<String> _fDiff = {}; // 'easy' | 'medium' | 'hard'
@@ -173,9 +172,8 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen> {
     if (data.routes.isEmpty) return _emptyState(context);
 
     final branches = data.branchesWithRoutes;
-    final byBranch = _branchId == null
-        ? data.routes
-        : data.routes.where((r) => r.branchId == _branchId).toList();
+    // Filtr poboček zrušen — trasy se neváží na pobočku, poloha jezdce je GPS.
+    final byBranch = data.routes;
     // Náhodné pořadí (stálé po dobu života obrazovky) → filtr.
     final shuffled = List<RouteItem>.from(byBranch)..shuffle(Random(_shuffleSeed));
     final routes = shuffled
@@ -240,21 +238,6 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen> {
               ),
             ),
           ),
-          // Filtr poboček
-          if (branches.length > 1)
-            SliverToBoxAdapter(
-              child: SizedBox(
-                height: 46,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-                  children: [
-                    _branchChip(t(context).tr('routesAllBranches'), null),
-                    ...branches.map((b) => _branchChip(b.name, b.id)),
-                  ],
-                ),
-              ),
-            ),
           // Rozšířené filtry (typ, obtížnost, délka, čas, země)
           SliverToBoxAdapter(child: _filterBar(context, data)),
           if (routes.isEmpty)
@@ -287,37 +270,6 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen> {
     );
   }
 
-  Widget _branchChip(String label, String? id) {
-    final active = _branchId == id;
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: PressableScale(
-        pressedScale: 0.94,
-        onTap: () => setState(() => _branchId = id),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 220),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
-          decoration: BoxDecoration(
-            color: active ? MotoGoColors.greenDark : Colors.white,
-            borderRadius: BorderRadius.circular(MotoGoRadius.pill),
-            border: Border.all(
-              color: active ? MotoGoColors.greenDark : MotoGoColors.g200,
-              width: 1.5,
-            ),
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: MotoGoTypo.sizeLg,
-              fontWeight: active ? MotoGoTypo.w800 : MotoGoTypo.w600,
-              color: active ? Colors.white : MotoGoColors.black,
-              decoration: TextDecoration.none,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 
   // ── Lišta rozšířených filtrů (tlačítko + rychlé zrušení) ──
   Widget _filterBar(BuildContext context, RoutesData data) {
@@ -454,9 +406,7 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen> {
   // ── Bottom sheet se všemi filtry ──
   void _openFilterSheet(BuildContext context, RoutesData data) {
     // Základ pro náhled počtu = trasy aktuálně zvolené pobočky.
-    final base = _branchId == null
-        ? data.routes
-        : data.routes.where((r) => r.branchId == _branchId).toList();
+    final base = data.routes;
 
     // Meze posuvníků z dat.
     final dists = base.map((r) => r.distanceKm).whereType<double>().toList()..sort();

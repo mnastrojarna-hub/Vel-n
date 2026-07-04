@@ -4,3 +4,7 @@ package.json
 
 # motogo-web-php runtime artefakty
 motogo-web-php/.cache/
+
+# Python cache
+__pycache__/
+*.pyc
