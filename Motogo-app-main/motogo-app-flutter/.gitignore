@@ -1,0 +1,15 @@
+# Flutter/Dart build artefakty — generují se při každém buildu
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+build/
+
+# pubspec.lock se ZÁMĚRNĚ necommituje (viz komentář v pubspec.yaml) —
+# Codemagic resolvuje nejnovější verze v rámci constraints.
+pubspec.lock
+
+# Lokální cesty k SDK
+android/local.properties
+
+# Generovaný registrant pluginů (flutter tool ho přepisuje při buildu)
+android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
