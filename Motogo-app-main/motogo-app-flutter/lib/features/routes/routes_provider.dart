@@ -213,11 +213,38 @@ List<RoutePoi> _greedyOrder(List<RoutePoi> pts, LatLng from) {
   return out;
 }
 
+/// Pobočka / poloha / pobočka vyzvednutí se jako start trasy použije jen
+/// když leží do [kStartNearRouteKm] od prvního bodu trasy. Vzdálené trasy
+/// (zahraniční seedy patřící domovské pobočce) jinak startují od svého
+/// prvního waypointu — bez limitu by se kreslil a navigoval i přejezd
+/// z pobočky přes půl Evropy.
+const double kStartNearRouteKm = 50;
+
+/// První bod trasy (waypoint, jinak první bod zájmu s GPS).
+LatLng? routeAnchor(RouteItem route) {
+  if (route.waypoints.isNotEmpty) return route.waypoints.first;
+  for (final p in route.pois) {
+    final ll = p.latLng;
+    if (ll != null) return ll;
+  }
+  return null;
+}
+
+bool startIsNearRoute(RouteItem route, LatLng? start) {
+  if (start == null) return false;
+  final anchor = routeAnchor(route);
+  if (anchor == null) return true; // trasa bez bodů — chovej se postaru
+  return const Distance().as(LengthUnit.Kilometer, start, anchor) <=
+      kStartNearRouteKm;
+}
+
 /// Sestaví uspořádaný seznam bodů pro routing/export:
-/// start = pobočka (pokud má GPS), pak waypointy, u okruhu zpět na pobočku.
+/// start = pobočka (pokud má GPS a je poblíž trasy), pak waypointy,
+/// u okruhu zpět na pobočku.
 List<LatLng> orderedRoutePoints(RouteItem route, RouteBranch? branch) {
   final pts = <LatLng>[];
-  final start = branch?.latLng;
+  final start =
+      startIsNearRoute(route, branch?.latLng) ? branch?.latLng : null;
   if (start != null) pts.add(start);
   pts.addAll(route.waypoints);
   if (route.isLoop && start != null) pts.add(start);
@@ -348,9 +375,10 @@ final routeDisplayProvider =
   final routeBranchLatLng = routeBranch?.latLng;
 
   if (route.routeType == 'poi') {
-    // 1) Od aktuální polohy (jen když už je povolená) — nejrychleji bez dálnic.
+    // 1) Od aktuální polohy (jen když už je povolená a je poblíž trasy) —
+    //    nejrychleji bez dálnic.
     final myLoc = await ref.watch(currentLocationProvider.future);
-    if (myLoc != null) {
+    if (myLoc != null && startIsNearRoute(route, myLoc)) {
       final pts = navPointsFrom(myLoc, route, null);
       if (pts.length >= 2) {
         final geo = await fetchMapyRoute(pts, profile: RouteProfile.recommended);
@@ -361,9 +389,11 @@ final routeDisplayProvider =
         );
       }
     }
-    // 2) Od pobočky vyzvednutí (z rezervace), jinak od pobočky trasy.
+    // 2) Od pobočky vyzvednutí (z rezervace), jinak od pobočky trasy —
+    //    jen pokud je start poblíž trasy (vzdálené trasy kreslíme samotné).
     final pickup = ref.watch(pickupOriginProvider);
-    final start = pickup ?? routeBranchLatLng;
+    final start0 = pickup ?? routeBranchLatLng;
+    final start = startIsNearRoute(route, start0) ? start0 : null;
     if (start != null) {
       final isRouteBranch = routeBranchLatLng != null &&
           start.latitude == routeBranchLatLng.latitude &&
@@ -384,16 +414,19 @@ final routeDisplayProvider =
     }
   }
 
-  // Okruh / fallback: stávající chování (start = pobočka trasy).
+  // Okruh / fallback: start = pobočka trasy, u vzdálené trasy její první bod.
+  final displayStart = startIsNearRoute(route, routeBranchLatLng)
+      ? routeBranchLatLng
+      : routeAnchor(route);
   if (route.geometry.length >= 2) {
-    return RouteDisplay(geometry: route.geometry, start: routeBranchLatLng);
+    return RouteDisplay(geometry: route.geometry, start: displayStart);
   }
   final pts = orderedRoutePoints(route, routeBranch);
   if (pts.length < 2) {
-    return RouteDisplay(geometry: pts, start: routeBranchLatLng);
+    return RouteDisplay(geometry: pts, start: displayStart);
   }
   final live = await fetchMapyRoute(pts);
-  return RouteDisplay(geometry: live ?? pts, start: routeBranchLatLng);
+  return RouteDisplay(geometry: live ?? pts, start: displayStart);
 });
 
 /// Volání Mapy.com routing API. Vrací dekódovanou polyline nebo null.
