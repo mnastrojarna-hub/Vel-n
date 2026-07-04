@@ -186,6 +186,10 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
   }
 
   Widget _titleBlock(BuildContext context, RouteItem route, RouteBranch? branch, String lang) {
+    // Reálná délka po silnici (geometrie / Mapy.com API); dokud se počítá,
+    // drží se hodnota `distance_km` z DB, aby chip neproblikával.
+    final realKm = ref.watch(routeRealLengthKmProvider(route.id)).valueOrNull;
+    final distKm = realKm ?? route.distanceKm;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -224,8 +228,8 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
           children: [
             _chip(route.isLoop ? '🔄' : '📍',
                 route.isLoop ? t(context).tr('routeTypeLoop') : t(context).tr('routeTypePoi')),
-            if (route.distanceKm != null)
-              _chip('📏', '${route.distanceKm!.toStringAsFixed(0)} km'),
+            if (distKm != null)
+              _chip('📏', '${distKm.toStringAsFixed(0)} km'),
             if (route.durationMin != null) _chip('⏱️', _dur(route.durationMin!)),
             if (route.difficulty != null) _chip('⛰️', _diff(context, route.difficulty!)),
             if (route.reviewCount > 0)
