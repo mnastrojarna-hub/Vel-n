@@ -1,18 +1,18 @@
--- ════════════════════════════════════════════════════════════════════
+-- ==================================================================
 -- MotoGo24 — KATALOG BODŮ ZÁJMU: DÁVKA 1 (flagship CZ/SK/PL/AT)
 -- Ověřené souřadnice + vícejazyčné popisy (cs kanonicky + en/de/pl/nl/es/fr/uk
 -- v translations). Kategorie je EXPLICITNÍ → filtr je 100% spolehlivý
 -- (hrad = 'castle', přehrada/jezero = 'water', … nikdy se neplete do „jídla").
 -- Idempotentní: mazání dle (name, source) před vložením.
 -- Další dávky přidávej stejným vzorem (viz TRASY / POI přehled).
--- ════════════════════════════════════════════════════════════════════
+-- ==================================================================
 
 delete from public.points_of_interest where source = 'curated-batch1';
 
 insert into public.points_of_interest
   (category, name, description, lat, lng, country, source, sort_order, translations)
 values
--- ── VODA: přehrady, jezera, velké rybníky ──────────────────────────
+-- == VODA: přehrady, jezera, velké rybníky =======================
 ('water', 'Lipno – přehrada a jezero',
  'Největší vodní plocha v Česku na Šumavě; okolní silnice nabízejí plynulé zatáčky a výhledy na hladinu.',
  48.6408, 14.2233, 'CZ', 'curated-batch1', 10,
@@ -79,7 +79,7 @@ values
    "fr":{"name":"Lac de Hallstatt","description":"Un lac alpin dans le Salzkammergut autrichien au pied des sommets ; l''un des arrêts les plus photogéniques de la région."},
    "uk":{"name":"Гальштатське озеро","description":"Альпійське озеро в австрійському Зальцкаммергуті під вершинами; одна з найфотогенічніших зупинок регіону."}}'::jsonb),
 
--- ── HRADY A ZÁMKY ─────────────────────────────────────────────────
+-- == HRADY A ZÁMKY ===============================================
 ('castle', 'Hrad Karlštejn',
  'Slavný gotický hrad Karla IV. nad údolím Berounky; ikonická zastávka kousek od Prahy.',
  49.9395, 14.1881, 'CZ', 'curated-batch1', 20,
@@ -135,7 +135,7 @@ values
    "fr":{"name":"Forteresse de Hohensalzburg","description":"Une puissante forteresse médiévale au-dessus de Salzbourg avec panorama alpin ; l''un des châteaux les mieux conservés d''Europe."},
    "uk":{"name":"Фортеця Гогензальцбург","description":"Могутня середньовічна фортеця над Зальцбургом з панорамою Альп; одна з найкраще збережених у Європі."}}'::jsonb),
 
--- ── ROZHLEDNY A VYHLÍDKY ──────────────────────────────────────────
+-- == ROZHLEDNY A VYHLÍDKY ========================================
 ('lookout', 'Ještěd',
  'Ikonická horská vysílač-hotel nad Libercem s kruhovým výhledem na severní Čechy.',
  50.7328, 14.9849, 'CZ', 'curated-batch1', 30,
@@ -169,7 +169,7 @@ values
    "fr":{"name":"Pyramidenkogel","description":"La plus haute tour panoramique en bois du monde au-dessus du Wörthersee en Carinthie, avec toboggan pour redescendre."},
    "uk":{"name":"Пірамідекогель","description":"Найвища дерев''яна оглядова вежа світу над озером Вертерзе в Каринтії, зі спуском-гіркою вниз."}}'::jsonb),
 
--- ── PAMÁTKY ───────────────────────────────────────────────────────
+-- == PAMÁTKY =====================================================
 ('sights', 'Kutná Hora – chrám sv. Barbory',
  'Skvostná gotická katedrála zapsaná v UNESCO, symbol stříbrného bohatství středověké Kutné Hory.',
  49.9448, 15.2634, 'CZ', 'curated-batch1', 40,
@@ -203,7 +203,7 @@ values
    "fr":{"name":"Abbaye de Melk","description":"Une monumentale abbaye bénédictine baroque au-dessus du Danube, porte de la vallée de la Wachau."},
    "uk":{"name":"Абатство Мельк","description":"Монументальне барокове бенедиктинське абатство над Дунаєм, брама до долини Вахау."}}'::jsonb),
 
--- ── PŘÍRODA A REZERVACE ───────────────────────────────────────────
+-- == PŘÍRODA A REZERVACE =========================================
 ('nature', 'Pravčická brána',
  'Největší skalní brána v Evropě v NP České Švýcarsko; symbol pískovcových skal severu Čech.',
  50.8762, 14.2790, 'CZ', 'curated-batch1', 50,

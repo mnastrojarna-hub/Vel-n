@@ -1,4 +1,4 @@
--- ════════════════════════════════════════════════════════════════════
+-- ==================================================================
 -- MotoGo24 — KATALOG SAMOSTATNÝCH BODŮ ZÁJMU (points_of_interest)
 -- Body zájmu nezávislé na trasách: přehrady, velké rybníky a jezera,
 -- hrady a zámky, rozhledny a vyhlídky, památky, přírodní rezervace…
@@ -6,7 +6,7 @@
 -- Vícejazyčné popisy v jsonb `translations = {lang:{name,description}}`.
 -- Appka je čte přes RPC `get_pois_catalog()` a zobrazuje v katalogu POI
 -- (obrazovka „Všechny body zájmu") vedle bodů z tras a komunitních bodů.
--- ════════════════════════════════════════════════════════════════════
+-- ==================================================================
 
 -- 1) TABULKA ----------------------------------------------------------
 create table if not exists public.points_of_interest (
