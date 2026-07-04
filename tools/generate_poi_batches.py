@@ -38,7 +38,17 @@ UA = "MotoGo24-POI-import/1.0 (info@motogo24.cz)"
 LANGS = ["cs", "en", "de", "pl", "nl", "es", "fr", "uk"]
 
 # Wikidata třídy (P31/P279*) → naše kategorie
+# Pořadí = priorita při kolizi (bod padne do PRVNÍ kategorie, která ho stáhne)
+# — specifické kategorie cílovky (moto/aviation/military/tech) proto stojí
+# před obecnými. POZOR: pro military NEpoužívat Q57821 (fortification) —
+# hrad (Q23413) je jeho podtřída a ukradl by celou kategorii castle.
 CATEGORY_CLASSES = {
+    "moto":     ["Q1777138", "Q787934"],                  # závodní okruh, automobilové/moto muzeum
+    "aviation": ["Q4828724", "Q62447"],                   # letecké muzeum, letiště/aerodrom
+    "military": ["Q2772772", "Q91122", "Q1785071",        # vojenské muzeum, bunkr, fort
+                 "Q4895508"],                             # bojiště
+    "tech":     ["Q2398990", "Q18704634", "Q819426",      # technické, železniční, hornické muzeum
+                 "Q820477", "Q420962", "Q2516357"],       # důl, nostalgická železnice, muzeum dopravy
     "water":   ["Q131681", "Q23397", "Q12323"],          # přehrada, jezero, hráz
     "castle":  ["Q23413", "Q751876", "Q57821"],          # hrad, zámek, pevnost
     "lookout": ["Q1440300", "Q2075301", "Q6017969"],      # rozhledna, výhled, vyhlídkové místo
@@ -162,6 +172,46 @@ CATEGORY_SENTENCES = {
         "es": "Un paraje natural {country}: un lugar para estirar las piernas en plena naturaleza.",
         "fr": "Un site naturel {country} — un endroit où se dégourdir les jambes en pleine nature.",
         "uk": "Природна пам''ятка {country} — місце розім''яти ноги серед природи.",
+    },
+    "military": {
+        "cs": "Vojenská historie {country} — opevnění, technika a příběhy, které stojí za zastávku.",
+        "en": "Military history {country} — fortifications, hardware and stories worth the stop.",
+        "de": "Militärgeschichte {country} — Befestigungen, Technik und Geschichten, die den Halt lohnen.",
+        "pl": "Historia wojskowa {country} — fortyfikacje, sprzęt i historie warte postoju.",
+        "nl": "Militaire geschiedenis {country} — vestingwerken, materieel en verhalen die de stop waard zijn.",
+        "es": "Historia militar {country}: fortificaciones, material y relatos que merecen la parada.",
+        "fr": "Histoire militaire {country} — fortifications, matériel et récits qui valent l''arrêt.",
+        "uk": "Військова історія {country} — укріплення, техніка та історії, варті зупинки.",
+    },
+    "aviation": {
+        "cs": "Letecký cíl {country} — letadla zblízka a vůně ranveje, oblíbená motorkářská zastávka.",
+        "en": "An aviation sight {country} — aircraft up close and runway vibes, a favourite riders'' stop.",
+        "de": "Ein Luftfahrt-Ziel {country} — Flugzeuge hautnah und Flugplatz-Flair, ein beliebter Bikerstopp.",
+        "pl": "Cel lotniczy {country} — samoloty z bliska i klimat pasa startowego, ulubiony przystanek motocyklistów.",
+        "nl": "Een luchtvaartdoel {country} — vliegtuigen van dichtbij en start­baansfeer, favoriete stop van motorrijders.",
+        "es": "Un destino aeronáutico {country}: aviones de cerca y ambiente de pista, parada favorita de moteros.",
+        "fr": "Un site aéronautique {country} — des avions de près et l''ambiance des pistes, un arrêt apprécié des motards.",
+        "uk": "Авіаційна пам''ятка {country} — літаки зблизька й атмосфера злітної смуги, улюблена зупинка мотоциклістів.",
+    },
+    "tech": {
+        "cs": "Technická památka {country} — doly, železnice a stroje, na kterých stojí historie kraje.",
+        "en": "A technical monument {country} — mines, railways and machines behind the region''s history.",
+        "de": "Ein technisches Denkmal {country} — Bergwerke, Bahnen und Maschinen der Regionalgeschichte.",
+        "pl": "Zabytek techniki {country} — kopalnie, koleje i maszyny, na których stoi historia regionu.",
+        "nl": "Een technisch monument {country} — mijnen, spoorwegen en machines achter de streekgeschiedenis.",
+        "es": "Un monumento técnico {country}: minas, ferrocarriles y máquinas de la historia local.",
+        "fr": "Un monument technique {country} — mines, chemins de fer et machines qui ont fait l''histoire locale.",
+        "uk": "Технічна пам''ятка {country} — шахти, залізниці й машини, на яких стоїть історія краю.",
+    },
+    "moto": {
+        "cs": "Motoristický cíl {country} — rychlost, okruhy a legendy motorismu na dosah.",
+        "en": "A motorsport sight {country} — speed, circuits and motoring legends within reach.",
+        "de": "Ein Motorsport-Ziel {country} — Geschwindigkeit, Rennstrecken und Legenden zum Anfassen.",
+        "pl": "Cel motoryzacyjny {country} — prędkość, tory i legendy motoryzacji na wyciągnięcie ręki.",
+        "nl": "Een autosportdoel {country} — snelheid, circuits en motorlegendes binnen handbereik.",
+        "es": "Un destino del motor {country}: velocidad, circuitos y leyendas del motor al alcance.",
+        "fr": "Un site du sport mécanique {country} — vitesse, circuits et légendes de la moto à portée de main.",
+        "uk": "Мотоспортивна пам''ятка {country} — швидкість, треки й легенди автоспорту поруч.",
     },
 }
 
@@ -312,6 +362,37 @@ def esc(s):
     return s.replace("'", "''")
 
 
+def load_existing_points(outdir):
+    """Body již přítomné v katalogových SQL dávkách (dedup nových importů).
+    Vrací (množina (name_lower, country), mřížkový index souřadnic)."""
+    import glob as _glob
+    names = set()
+    grid = {}
+    row_re = re.compile(
+        r"\('(\w+)', '((?:[^']|'')*)', '(?:[^']|'')*', (-?[\d.]+), (-?[\d.]+), '(\w\w)'")
+    for f in _glob.glob(f"{outdir}/*poi_catalog*batch*.sql"):
+        for m in row_re.finditer(open(f, encoding="utf-8").read()):
+            name = m.group(2).replace("''", "'").lower()
+            lat, lng, iso = float(m.group(3)), float(m.group(4)), m.group(5)
+            names.add((name, iso))
+            grid.setdefault((round(lat, 2), round(lng, 2)), []).append((lat, lng))
+    return names, grid
+
+
+def is_duplicate(item, names, grid, radius_km=0.3):
+    if ((item["name"] or "").lower(), item["country"]) in names:
+        return True
+    la, ln = item["lat"], item["lng"]
+    cell = (round(la, 2), round(ln, 2))
+    for dy in (-0.01, 0.0, 0.01):
+        for dx in (-0.01, 0.0, 0.01):
+            for (elat, elng) in grid.get((round(cell[0] + dy, 2), round(cell[1] + dx, 2)), []):
+                dkm = ((la - elat) * 111.0) ** 2 + ((ln - elng) * 111.0 * 0.67) ** 2
+                if dkm <= radius_km ** 2:
+                    return True
+    return False
+
+
 def build_description(item, lang):
     """Hezký popis: šablona kategorie + (je-li) popis z Wikidata."""
     tpl = CATEGORY_SENTENCES[item["category"]][lang]
@@ -358,7 +439,16 @@ def main():
                     help="prefix názvu SQL souborů")
     ap.add_argument("--sort-offset", type=int, default=1000)
     ap.add_argument("--min-sitelinks", type=int, default=1)
+    ap.add_argument("--categories", default="",
+                    help="CSV kategorií k fetchi (prázdné = všechny)")
+    ap.add_argument("--dedup-existing", action="store_true",
+                    help="přeskočit body, které už jsou v katalogových dávkách")
     args = ap.parse_args()
+
+    cats_filter = {c.strip() for c in args.categories.split(",") if c.strip()}
+    for c in cats_filter:
+        if c not in CATEGORY_CLASSES:
+            sys.exit(f"Neznámá kategorie: {c} (podporované: {', '.join(CATEGORY_CLASSES)})")
 
     countries = {}
     for iso in args.countries.split(","):
@@ -367,8 +457,15 @@ def main():
             sys.exit(f"Neznámá země: {iso} (podporované: {', '.join(ALL_COUNTRIES)})")
         countries[iso] = ALL_COUNTRIES[iso]
 
+    existing_names, existing_grid = (set(), {})
+    if args.dedup_existing:
+        existing_names, existing_grid = load_existing_points(args.outdir)
+        print(f"Dedup: {len(existing_names)} bodů už v katalogových dávkách")
+
     items = {}
     for cat, classes in CATEGORY_CLASSES.items():
+        if cats_filter and cat not in cats_filter:
+            continue
         for iso, qid in countries.items():
             print(f"Stahuji {cat} / {iso} …", flush=True)
             for it in fetch_category(cat, classes, iso, qid, args.per_query_limit, args.min_sitelinks):
@@ -376,12 +473,35 @@ def main():
                 items.setdefault(it["qid"], it)
             time.sleep(2)  # ohleduplnost k WDQS
 
+    if args.dedup_existing:
+        before = len(items)
+        items = {q: it for q, it in items.items()
+                 if not is_duplicate(it, existing_names, existing_grid)}
+        print(f"Dedup souřadnicí: {before} → {len(items)}")
+
     ranked = sorted(items.values(), key=lambda x: -x["sitelinks"])[: args.target]
     print(f"Celkem kandidátů: {len(items)}, vybráno: {len(ranked)}")
 
     print("Stahuji názvy a popisy (8 jazyků) …", flush=True)
     fetch_labels(ranked)
     ranked = [it for it in ranked if it["name"] and not re.match(r"^Q\d+$", it["name"])]
+    if args.dedup_existing:  # jménem lze dedupovat až po stažení labelů
+        ranked = [it for it in ranked
+                  if (it["name"].lower(), it["country"]) not in existing_names]
+
+    # Bezpečnost: AKTIVNÍ vojenské letecké základny neseedovat (vstup zakázán);
+    # bývalé/opuštěné a muzejní ponechat — to jsou naopak skvělé cíle.
+    re_base = re.compile(r"air (force )?base|military air|letecká základna|fliegerhorst|"
+                         r"militärflugplatz|air station|baza lotnicza", re.I)
+    re_former = re.compile(r"former|abandoned|býval|zanikl|ehemalig|disused|closed|"
+                           r"dawn[ay]|muzeum|museum|heritage", re.I)
+    def _active_base(it):
+        blob = " ".join(filter(None, [it["name"]] + list(it["descs"].values())))
+        return bool(re_base.search(blob)) and not re_former.search(blob)
+    before = len(ranked)
+    ranked = [it for it in ranked if it["category"] != "aviation" or not _active_base(it)]
+    if before != len(ranked):
+        print(f"Vyřazeno aktivních vojenských základen: {before - len(ranked)}")
     print(f"Po doplnění labelů použitelných: {len(ranked)}")
 
     for n in range(0, len(ranked), args.batch_size):
