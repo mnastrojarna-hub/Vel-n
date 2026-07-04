@@ -60,13 +60,17 @@ class ReservationCard extends StatelessWidget {
                               color: MotoGoColors.g200,
                               child: const Center(child: Text('🏍️', style: TextStyle(fontSize: 32))),
                             )
-                          : MgImage(
-                              reservation.motoImage!,
-                              thumbWidth: 800,
-                              fit: BoxFit.cover,
-                              error: Container(
-                                color: MotoGoColors.g200,
-                                child: const Center(child: Text('🏍️', style: TextStyle(fontSize: 32))),
+                          : ColoredBox(
+                              color: MotoGoColors.g100,
+                              child: MgImage(
+                                reservation.motoImage!,
+                                thumbWidth: 800,
+                                // contain = celá fotka viditelná (jako ve velíně)
+                                fit: BoxFit.contain,
+                                error: Container(
+                                  color: MotoGoColors.g200,
+                                  child: const Center(child: Text('🏍️', style: TextStyle(fontSize: 32))),
+                                ),
                               ),
                             ),
                     ),

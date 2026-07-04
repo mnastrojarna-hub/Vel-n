@@ -1,27 +1,24 @@
 /**
  * MotoGo24 — Edge Function: backfill-route-translations
  *
- * Dávkově dopřeloží VŠECHNY trasy (`routes`) a body zájmu (`route_pois`) —
- * pole `name` + `description` — do všech jazyků, aby žádná trasa ani bod
- * nezůstaly bez překladu. Interně volá ověřenou funkci `translate-content`
- * (per řádek), takže překlad je konzistentní se zbytkem webu/appky.
+ * Dávkově dopřeloží trasy (`routes`) a body zájmu (`route_pois`) — pole
+ * `name` + `description` — do všech jazyků, aby žádná trasa ani bod nezůstaly
+ * bez překladu. Interně volá ověřenou funkci `translate-content` (per řádek).
  *
- * Proč dávkově: řádků jsou tisíce a jedna edge invokace má časový limit.
- * Voláš opakovaně s posunem `offset`, dokud `processed > 0`.
+ * „Samovyprazdňovací" model: vybere řádky, které JEŠTĚ nemají překlad
+ * (`translations->'en'->>'name' IS NULL`), přeloží jich max `limit` a skončí.
+ * Opakovaným voláním (cron) se DB postupně vyprázdní; když už nic nechybí,
+ * vrátí `processed:0`. Není potřeba stránkovat offsetem.
  *
  * POST /functions/v1/backfill-route-translations
  * Body (vše volitelné):
- *   {
- *     scope?: 'routes' | 'pois' | 'all',   // default 'all'
- *     limit?: number,                       // řádků na běh (default 12, max 40)
- *     offset?: number,                      // stránkování (default 0)
- *     only_missing?: boolean,               // default true = přeskoč už přeložené
- *     target_langs?: string[],              // default = jako translate-content
- *     concurrency?: number,                 // souběžných řádků (default 3)
- *   }
- * Odpověď: { success, scope, limit, offset, scanned, processed, skipped, failed, next_offset, details[] }
+ *   { scope?: 'routes'|'pois'|'all' (def 'all'), limit?: number (def 12, max 40),
+ *     target_langs?: string[], concurrency?: number (def 3) }
+ * Odpověď: { success, table, limit, processed, failed, details[] }
  *
- * Bezpečnost: vyžaduje service_role Bearer token.
+ * Volá se buď ručně (Bearer service_role), nebo z DB cronu
+ * `trigger_route_translation_backfill()` (klíč z app_settings) — stejný vzor
+ * jako send-push.
  */
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
@@ -42,81 +39,76 @@ function jsonResponse(body: Record<string, unknown>, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { ...CORS, 'Content-Type': 'application/json' } })
 }
 
-/** Potřebuje řádek překlad? = některý cílový jazyk nemá přeložený `name`
- *  (nebo `description`, pokud v CZ existuje). */
-function needsTranslation(row: any, langs: string[]): boolean {
-  const tr = row.translations && typeof row.translations === 'object' ? row.translations : {}
-  const hasDesc = typeof row.description === 'string' && row.description.trim().length > 0
-  for (const l of langs) {
-    const t = tr[l]
-    if (!t || typeof t !== 'object') return true
-    if (typeof t.name !== 'string' || t.name.trim() === '') return true
-    if (hasDesc && (typeof t.description !== 'string' || t.description.trim() === '')) return true
-  }
-  return false
-}
-
 async function callTranslateContent(table: string, id: string, fields: Record<string, string>, langs: string[]): Promise<boolean> {
   const res = await fetch(`${SUPABASE_URL}/functions/v1/translate-content`, {
     method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
-      'Content-Type': 'application/json',
-    },
+    headers: { 'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ table, id, fields, target_langs: langs }),
   })
   return res.ok
+}
+
+/** Vybere řádky, kterým chybí anglický překlad názvu (proxy „nepřeloženo"). */
+async function fetchMissing(db: any, table: string, limit: number) {
+  const { data, error } = await db
+    .from(table)
+    .select('id, name, description')
+    .is('translations->en->>name', null)
+    .limit(limit)
+  if (error) throw new Error(error.message)
+  return data || []
+}
+
+async function processTable(db: any, table: string, rows: any[], langs: string[], concurrency: number) {
+  let processed = 0, failed = 0
+  const details: any[] = []
+  for (let i = 0; i < rows.length; i += concurrency) {
+    const chunk = rows.slice(i, i + concurrency)
+    await Promise.all(chunk.map(async (r: any) => {
+      const fields: Record<string, string> = {}
+      if (typeof r.name === 'string' && r.name.trim()) fields.name = r.name
+      if (typeof r.description === 'string' && r.description.trim()) fields.description = r.description
+      if (Object.keys(fields).length === 0) return
+      const ok = await callTranslateContent(table, r.id, fields, langs)
+      if (ok) processed++; else { failed++; details.push({ table, id: r.id, name: r.name }) }
+    }))
+  }
+  return { processed, failed, details }
 }
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
 
   const auth = req.headers.get('authorization') || ''
-  if (!auth.includes(SUPABASE_SERVICE_KEY)) {
-    return jsonResponse({ error: 'service_role required' }, 401)
-  }
+  if (!auth.includes(SUPABASE_SERVICE_KEY)) return jsonResponse({ error: 'service_role required' }, 401)
 
   const body = await req.json().catch(() => ({}))
   const scope: string = body.scope || 'all'
   const limit: number = Math.min(Math.max(Number(body.limit) || 12, 1), 40)
-  const offset: number = Number(body.offset) || 0
-  const onlyMissing: boolean = body.only_missing !== false
-  const langs: string[] = Array.isArray(body.target_langs) && body.target_langs.length > 0
-    ? body.target_langs : DEFAULT_LANGS
+  const langs: string[] = Array.isArray(body.target_langs) && body.target_langs.length > 0 ? body.target_langs : DEFAULT_LANGS
   const concurrency: number = Math.min(Math.max(Number(body.concurrency) || 3, 1), 6)
 
   const db = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
-  const table = scope === 'pois' ? 'route_pois' : 'routes' // 'all' zpracuj po dvou bězích (routes, pak pois)
 
-  const { data, error } = await db
-    .from(table)
-    .select('id, name, description, translations')
-    .order('created_at')
-    .range(offset, offset + limit - 1)
-  if (error) return jsonResponse({ error: error.message }, 500)
+  try {
+    // Pořadí: nejdřív trasy, pak body zájmu (u scope='all').
+    let table = 'routes'
+    let rows: any[] = []
+    if (scope === 'pois') {
+      table = 'route_pois'
+      rows = await fetchMissing(db, table, limit)
+    } else if (scope === 'routes') {
+      rows = await fetchMissing(db, 'routes', limit)
+    } else {
+      rows = await fetchMissing(db, 'routes', limit)
+      if (rows.length === 0) { table = 'route_pois'; rows = await fetchMissing(db, table, limit) }
+    }
 
-  const rows = data || []
-  let processed = 0, skipped = 0, failed = 0
-  const details: any[] = []
+    if (rows.length === 0) return jsonResponse({ success: true, table, limit, processed: 0, failed: 0, done: true })
 
-  // zpracuj po malých skupinách (concurrency), aby se nepřekročil rate limit
-  for (let i = 0; i < rows.length; i += concurrency) {
-    const chunk = rows.slice(i, i + concurrency)
-    await Promise.all(chunk.map(async (r: any) => {
-      if (onlyMissing && !needsTranslation(r, langs)) { skipped++; return }
-      const fields: Record<string, string> = {}
-      if (typeof r.name === 'string' && r.name.trim()) fields.name = r.name
-      if (typeof r.description === 'string' && r.description.trim()) fields.description = r.description
-      if (Object.keys(fields).length === 0) { skipped++; return }
-      const ok = await callTranslateContent(table, r.id, fields, langs)
-      if (ok) { processed++ } else { failed++; details.push({ id: r.id, name: r.name }) }
-    }))
+    const { processed, failed, details } = await processTable(db, table, rows, langs, concurrency)
+    return jsonResponse({ success: true, table, limit, processed, failed, details: details.slice(0, 40) })
+  } catch (e) {
+    return jsonResponse({ error: String(e instanceof Error ? e.message : e) }, 500)
   }
-
-  return jsonResponse({
-    success: true, scope: table, limit, offset,
-    scanned: rows.length, processed, skipped, failed,
-    next_offset: rows.length === limit ? offset + limit : null, // null = konec
-    details: details.slice(0, 40),
-  })
 })

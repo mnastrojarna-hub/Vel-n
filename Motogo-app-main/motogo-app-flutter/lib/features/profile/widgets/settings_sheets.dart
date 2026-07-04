@@ -68,7 +68,7 @@ void showChangePasswordSheet(BuildContext context) {
 }
 
 /// Shows a bottom sheet for selecting the app language.
-void showLanguagePickerSheet(BuildContext context, WidgetRef ref) {
+void showLanguagePickerSheet(BuildContext context) {
   final langs = [
     ('cs', 'Čeština 🇨🇿'),
     ('en', 'English 🇬🇧'),
@@ -82,20 +82,23 @@ void showLanguagePickerSheet(BuildContext context, WidgetRef ref) {
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
-    builder: (ctx) => SafeArea(
+    // Consumer: sheet má vlastní ref žijící v jeho stromu. Ref z obrazovky
+    // pod ním může být po resume/redirectu odpojený a jeho čtení shodí appku
+    // („Bad state: No ProviderScope found").
+    builder: (ctx) => Consumer(builder: (ctx, sheetRef, _) => SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Text(t(context).tr('language'),
+          Text(t(ctx).tr('language'),
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: MotoGoColors.black)),
           const SizedBox(height: 16),
           ...langs.map((l) => ListTile(
             title: Text(l.$2, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-            trailing: ref.read(localeProvider).languageCode == l.$1
+            trailing: sheetRef.read(localeProvider).languageCode == l.$1
                 ? const Icon(Icons.check, color: MotoGoColors.greenDark)
                 : null,
             onTap: () async {
-              await ref.read(localeProvider.notifier).setLocale(Locale(l.$1));
+              await sheetRef.read(localeProvider.notifier).setLocale(Locale(l.$1));
               if (ctx.mounted) Navigator.pop(ctx);
               if (context.mounted) {
                 showMotoGoToast(context, icon: '🌐', title: t(context).tr('languageChanged'), message: l.$2);
@@ -106,24 +109,25 @@ void showLanguagePickerSheet(BuildContext context, WidgetRef ref) {
           )),
         ]),
       ),
-    ),
+    )),
   );
 }
 
 /// Bottom sheet pro volbu měny (CZK/EUR/PLN) — parita s webem: ceny se jen
 /// ZOBRAZUJÍ v přepočtu dle kurzu ČNB, platby kartou probíhají vždy v CZK.
-void showCurrencyPickerSheet(BuildContext context, WidgetRef ref) {
+void showCurrencyPickerSheet(BuildContext context) {
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
-    builder: (ctx) => SafeArea(
+    // Consumer: vlastní ref sheetu — viz komentář u language pickeru.
+    builder: (ctx) => Consumer(builder: (ctx, sheetRef, _) => SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Text(t(context).tr('currency'),
+          Text(t(ctx).tr('currency'),
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: MotoGoColors.black)),
           const SizedBox(height: 6),
-          Text(t(context).tr('currencyNote'),
+          Text(t(ctx).tr('currencyNote'),
               textAlign: TextAlign.center,
               style: const TextStyle(fontSize: 11, color: MotoGoColors.g400)),
           const SizedBox(height: 12),
@@ -134,11 +138,11 @@ void showCurrencyPickerSheet(BuildContext context, WidgetRef ref) {
                 ? null
                 : Text('1 ${c.code} ≈ ${(Money.rates[c.code] ?? 0).toStringAsFixed(2)} Kč (ČNB)',
                     style: const TextStyle(fontSize: 10, color: MotoGoColors.g400)),
-            trailing: ref.read(currencyProvider) == c.code
+            trailing: sheetRef.read(currencyProvider) == c.code
                 ? const Icon(Icons.check, color: MotoGoColors.greenDark)
                 : null,
             onTap: () async {
-              await ref.read(currencyProvider.notifier).setCurrency(c.code);
+              await sheetRef.read(currencyProvider.notifier).setCurrency(c.code);
               if (ctx.mounted) Navigator.pop(ctx);
               if (context.mounted) {
                 showMotoGoToast(context, icon: '💱',
@@ -151,7 +155,7 @@ void showCurrencyPickerSheet(BuildContext context, WidgetRef ref) {
           )),
         ]),
       ),
-    ),
+    )),
   );
 }
 
