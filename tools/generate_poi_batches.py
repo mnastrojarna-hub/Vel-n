@@ -41,7 +41,7 @@ LANGS = ["cs", "en", "de", "pl", "nl", "es", "fr", "uk"]
 CATEGORY_CLASSES = {
     "water":   ["Q131681", "Q23397", "Q12323"],          # přehrada, jezero, hráz
     "castle":  ["Q23413", "Q751876", "Q57821"],          # hrad, zámek, pevnost
-    "lookout": ["Q641226"],                               # rozhledna / vyhl. věž
+    "lookout": ["Q1440300"],                              # rozhledna (observation tower)
     "sights":  ["Q44613", "Q2977", "Q163687", "Q34627"],  # klášter, katedrála, bazilika, synagoga
     "nature":  ["Q179049", "Q46169", "Q35509", "Q34038"], # rezervace, NP, jeskyně, vodopád
 }
@@ -144,29 +144,20 @@ def sparql(query, retries=4):
 
 
 def fetch_category(cat, classes, iso, country_qid, limit):
-    """Stáhne položky jedné kategorie v jedné zemi vč. labelů 8 jazyků."""
-    label_vars = " ".join(f"?l_{l}" for l in LANGS)
-    label_opts = "\n".join(
-        f'  OPTIONAL {{ ?item rdfs:label ?l_{l} . FILTER(lang(?l_{l}) = "{l}") }}'
-        for l in LANGS
-    )
-    desc_opts = "\n".join(
-        f'  OPTIONAL {{ ?item schema:description ?d_{l} . FILTER(lang(?d_{l}) = "{l}") }}'
-        for l in LANGS
-    )
-    desc_vars = " ".join(f"?d_{l}" for l in LANGS)
+    """FÁZE 1: lehký SPARQL — jen QID, GPS, významnost a fotka (bez labelů;
+    16 OPTIONAL labelů v jednom dotazu WDQS neutáhne → 502)."""
     values = " ".join(f"wd:{q}" for q in classes)
     q = f"""
-SELECT ?item ?lat ?lon ?sl ?img {label_vars} {desc_vars} WHERE {{
+SELECT ?item ?lat ?lon ?sl (SAMPLE(?im) AS ?img) WHERE {{
   VALUES ?cls {{ {values} }}
   ?item wdt:P31/wdt:P279* ?cls ;
         wdt:P17 wd:{country_qid} ;
         p:P625 [ psv:P625 [ wikibase:geoLatitude ?lat ; wikibase:geoLongitude ?lon ] ] ;
         wikibase:sitelinks ?sl .
-  OPTIONAL {{ ?item wdt:P18 ?img }}
-{label_opts}
-{desc_opts}
+  FILTER(?sl >= 1)
+  OPTIONAL {{ ?item wdt:P18 ?im }}
 }}
+GROUP BY ?item ?lat ?lon ?sl
 ORDER BY DESC(?sl)
 LIMIT {limit}
 """
@@ -180,24 +171,62 @@ LIMIT {limit}
         lo = BBOX[iso]
         if not (lo[0] <= lat <= lo[1] and lo[2] <= lon <= lo[3]):
             continue  # souřadnice mimo zemi → data jsou podezřelá, přeskoč
-        labels = {l: b.get(f"l_{l}", {}).get("value") for l in LANGS}
-        descs = {l: b.get(f"d_{l}", {}).get("value") for l in LANGS}
-        name = labels["cs"] or labels["en"] or labels["de"]
-        if not name or re.match(r"^Q\d+$", name):
-            continue  # bez použitelného názvu nemá v katalogu smysl
         out[qid] = {
             "qid": qid,
             "category": cat,
             "country": iso,
-            "name": name,
+            "name": None,  # doplní fetch_labels
             "lat": round(lat, 5),
             "lng": round(lon, 5),
             "sitelinks": int(b["sl"]["value"]),
             "image": b.get("img", {}).get("value"),
-            "labels": labels,
-            "descs": descs,
+            "labels": {},
+            "descs": {},
         }
     return list(out.values())
+
+
+def fetch_labels(items, chunk=50):
+    """FÁZE 2: labely + popisy 8 jazyků přes wbgetentities (spolehlivé, po 50)."""
+    ids = [it["qid"] for it in items]
+    by_qid = {it["qid"]: it for it in items}
+    for i in range(0, len(ids), chunk):
+        batch = ids[i : i + chunk]
+        for attempt in range(4):
+            try:
+                r = requests.get(
+                    "https://www.wikidata.org/w/api.php",
+                    params={
+                        "action": "wbgetentities",
+                        "ids": "|".join(batch),
+                        "props": "labels|descriptions",
+                        "languages": "|".join(LANGS),
+                        "format": "json",
+                    },
+                    headers={"User-Agent": UA},
+                    timeout=60,
+                ).json()
+                for qid, ent in r.get("entities", {}).items():
+                    it = by_qid.get(qid)
+                    if not it:
+                        continue
+                    labs = ent.get("labels", {})
+                    dscs = ent.get("descriptions", {})
+                    it["labels"] = {l: labs.get(l, {}).get("value") for l in LANGS}
+                    it["descs"] = {l: dscs.get(l, {}).get("value") for l in LANGS}
+                    it["name"] = (
+                        it["labels"].get("cs") or it["labels"].get("en")
+                        or it["labels"].get("de") or it["labels"].get("pl")
+                    )
+                break
+            except Exception as e:  # noqa: BLE001
+                if attempt == 3:
+                    raise
+                print(f"  ! labels {e} — retry", file=sys.stderr)
+                time.sleep(2 ** attempt * 3)
+        if (i // chunk) % 10 == 0:
+            print(f"  labely {i + len(batch)}/{len(ids)}", flush=True)
+        time.sleep(0.3)
 
 
 def esc(s):
@@ -255,6 +284,11 @@ def main():
 
     ranked = sorted(items.values(), key=lambda x: -x["sitelinks"])[: args.target]
     print(f"Celkem kandidátů: {len(items)}, vybráno: {len(ranked)}")
+
+    print("Stahuji názvy a popisy (8 jazyků) …", flush=True)
+    fetch_labels(ranked)
+    ranked = [it for it in ranked if it["name"] and not re.match(r"^Q\d+$", it["name"])]
+    print(f"Po doplnění labelů použitelných: {len(ranked)}")
 
     for n in range(0, len(ranked), args.batch_size):
         batch_no = n // args.batch_size + 1
