@@ -5,8 +5,10 @@
  * `name` + `description` — do všech jazyků, aby žádná trasa ani bod nezůstaly
  * bez překladu. Interně volá ověřenou funkci `translate-content` (per řádek).
  *
- * „Samovyprazdňovací" model: vybere řádky, které JEŠTĚ nemají překlad
- * (`translations->'en'->>'name' IS NULL`), přeloží jich max `limit` a skončí.
+ * „Samovyprazdňovací" model: vybere řádky, kterým chybí KTERÝKOLI z cílových
+ * jazyků (name, nebo description pokud řádek popis má) — dřívější proxy „chybí
+ * jen en.name" nechávala částečně přeložené řádky (padlý jazyk, ručně přepsaný
+ * název) navždy nedopřeložené. Přeloží jich max `limit` a skončí.
  * Opakovaným voláním (cron) se DB postupně vyprázdní; když už nic nechybí,
  * vrátí `processed:0`. Není potřeba stránkovat offsetem.
  *
@@ -48,12 +50,19 @@ async function callTranslateContent(table: string, id: string, fields: Record<st
   return res.ok
 }
 
-/** Vybere řádky, kterým chybí anglický překlad názvu (proxy „nepřeloženo"). */
+/** PostgREST OR podmínka: chybí name v některém jazyce, nebo description
+ *  v některém jazyce u řádku, který popis má. */
+const MISSING_OR = DEFAULT_LANGS.flatMap((l) => [
+  `translations->${l}->>name.is.null`,
+  `and(description.not.is.null,translations->${l}->>description.is.null)`,
+]).join(',')
+
+/** Vybere řádky, kterým chybí překlad v kterémkoli cílovém jazyce. */
 async function fetchMissing(db: any, table: string, limit: number) {
   const { data, error } = await db
     .from(table)
     .select('id, name, description')
-    .is('translations->en->>name', null)
+    .or(MISSING_OR)
     .limit(limit)
   if (error) throw new Error(error.message)
   return data || []

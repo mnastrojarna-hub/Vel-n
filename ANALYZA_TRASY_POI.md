@@ -120,3 +120,60 @@ až 248 km (Finské Laponsko). Celkem **137 tras mělo úsek ≥ 30 km bez POI (
      `searchMatches()` (AND tokeny), cachované `RoutePoi.searchBlob` /
      `RouteItem.searchBlob` / `RouteItem.nameBlob` (Expando), model nově drží
      `waypointLabels`. Překladový klíč `routesSearch` (7 jazyků).
+
+---
+
+## KONTROLA PŘEKLADŮ (2026-07-04, tatáž větev)
+
+Zadání: ověřit, že všechny trasy, popisy tras i body zájmu jsou přeložené do všech
+jazyků (en/de/es/fr/nl/pl/uk; cs = kanonické sloupce). Živá DB není ze sandboxu
+dosažitelná (síťová politika blokuje supabase.co) → statická kontrola repa
++ ověřovací SQL pro dashboard (níže).
+
+**Co JE kompletní přímo v seedech (ověřeno parserem přes všechny soubory):**
+- `points_of_interest` — 19 745 bodů, 7 jazyků name+description, žádné chybějící pole,
+- catalog-trasy `20260705_routes_from_catalog_*` — 540 tras (translations 7 jazyků
+  name+description) + 3 845 route_pois (překlady zkopírované z katalogu),
+- 212 bodů doplněných migrací `20260705_route_pois_fill_gaps.sql` (překlady z katalogu).
+
+**Co stojí na backfill cronu (seedy překlady neobsahují):**
+- všech 384 seedovaných tras (20260701+20260703) a jejich ~2 546 route_pois,
+- 26 kurátorovaných bodů z fill migrace.
+
+**Nalezené díry (opraveno v `20260705_translations_backfill_fix.sql` + edge fn):**
+1. **Detekce „nepřeloženo" jen přes `en.name`** — DB fce `trigger_route_translation_backfill`
+   i edge `backfill-route-translations/fetchMissing`. `translate-content` přitom při
+   částečném úspěchu zapíše jen zvládnuté jazyky → řádek s en+de (bez fr/uk/…) se už
+   nikdy nedopřeložil; totéž řádek s přeloženým name, ale nepřeloženým description.
+   Nově: kontrola všech 7 jazyků na name i description (DB fce EXISTS/unnest,
+   edge PostgREST `.or()`). **Edge fn NUTNO REDEPLOY.**
+2. **7 přejmenovaných tras bez uk názvu** — `20260704_routes_postseed_fixes.sql` přepsal
+   názvy jen v 6 jazycích; uk název zůstal starý (pokud backfill stihl přeložit před
+   rename) nebo se popis/uk vůbec nepřeložil (pokud rename proběhl dřív — en.name byl
+   nastaven ručně a stará detekce trasu přeskočila). Migrace doplňuje uk názvy ručně,
+   zbytek dožene cron s novou detekcí.
+3. **`user_pois` nemá sloupec translations** — komunitní body zájmu se nepřekládají
+   (vědomé omezení schématu, případné řešení = samostatná změna).
+
+**Ověřovací SQL (spustit v Supabase SQL editoru po doběhnutí cronu — vše má být 0):**
+```sql
+with langs as (select unnest(array['en','de','es','fr','nl','pl','uk']) lang)
+select 'routes' tabulka, l.lang,
+       count(*) filter (where r.translations->l.lang->>'name' is null)        chybi_nazev,
+       count(*) filter (where r.description is not null
+                          and r.translations->l.lang->>'description' is null) chybi_popis
+from public.routes r cross join langs l group by 1,2
+union all
+select 'route_pois', l.lang,
+       count(*) filter (where p.translations->l.lang->>'name' is null),
+       count(*) filter (where p.description is not null
+                          and p.translations->l.lang->>'description' is null)
+from public.route_pois p cross join langs l group by 1,2
+union all
+select 'points_of_interest', l.lang,
+       count(*) filter (where c.translations->l.lang->>'name' is null),
+       count(*) filter (where c.description is not null
+                          and c.translations->l.lang->>'description' is null)
+from public.points_of_interest c cross join langs l group by 1,2
+order by 1,2;
+```

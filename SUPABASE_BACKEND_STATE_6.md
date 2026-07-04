@@ -399,3 +399,26 @@ a dlouhé úseky bez jediné zastávky (např. „Sozopol a jižní Černomoří
   z labelů waypointů + názvy a popisy bodů zájmu trasy; bez diakritiky, AND slova).
   — Katalog POI: hledání prohloubeno o popisy, kategorie a všechny jazykové mutace;
   route picker hledá trasy i podle bodů/měst na nich. Detail: `ANALYZA_TRASY_POI.md`.
+
+---
+
+### 2026-07-04 (D) — Kontrola překladů tras/bodů + oprava backfillu
+
+**Kontrola „je vše přeložené?"** (statická — živá DB není ze sandboxu dosažitelná; ověřovací SQL viz níže v chatu / ANALYZA_TRASY_POI.md):
+- `points_of_interest` (19 745): překlady kompletní INLINE v seedech — 7 jazyků, name+description ✅
+- catalog-trasy `20260705_routes_from_catalog_*` (540 + 3 845 POI): kompletní ✅
+- 384 seedovaných tras + ~2 546 route_pois: seedy překlady NEobsahují — vše stojí
+  na cronu `backfill-route-translations` (běží od 2026-07-04; stav nutno ověřit v DB)
+- `user_pois` (komunitní body): tabulka NEMÁ sloupec translations — nepřekládá se (vědomé omezení)
+
+**Nalezené díry + oprava `20260705_translations_backfill_fix.sql` (NUTNO APLIKOVAT) + redeploy edge `backfill-route-translations`:**
+1. Detekce „nepřeloženo" byla jen `translations->'en'->>'name' IS NULL` (DB fce i edge).
+   Částečně přeložený řádek (padlý jazyk; `translate-content` zapisuje i částečný
+   úspěch) se už nikdy nedopřeložil. Nově se kontroluje všech 7 jazyků, name
+   i description — v DB fci `trigger_route_translation_backfill` (přepsána) i v edge
+   `fetchMissing` (PostgREST `.or()` přes všechny jazyky).
+2. 7 tras přejmenovaných v `20260704_routes_postseed_fixes.sql` dostalo nové názvy
+   jen v en/de/es/fr/nl/pl — ukrajinský název zůstal starý/chybí a null-check ho
+   nezachytí. Migrace doplňuje uk názvy ručně (popisy se rename neměnily).
+3. Cron přeplánován — podle nové detekce dopřeloží i 26 kurátorovaných bodů
+   z `20260705_route_pois_fill_gaps.sql` a všechny částečné řádky, pak se odplánuje.
