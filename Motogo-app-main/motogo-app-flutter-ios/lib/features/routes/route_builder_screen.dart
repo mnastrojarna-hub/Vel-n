@@ -8,9 +8,12 @@ import 'package:latlong2/latlong.dart';
 import '../../core/theme.dart';
 import '../../core/router.dart' show MotoGoBackNav;
 import '../../core/i18n/i18n_provider.dart';
+import '../../core/supabase_client.dart';
 import '../../core/widgets/moto_fx.dart';
+import 'poi_suggest.dart';
 import 'routes_model.dart';
 import 'routes_provider.dart';
+import 'submit_common.dart';
 import 'all_pois_screen.dart';
 
 /// Jedna zastávka editoru trasy.
@@ -80,6 +83,15 @@ class _RouteBuilderScreenState extends ConsumerState<RouteBuilderScreen> {
       if (!mounted || name == null) return;
       setState(() => stop.name = name);
     });
+  }
+
+  /// Přidání bodu z panelu „v okolí trasy" (návrhy do X km od zastávek).
+  void _addSuggestedPoi(RoutePoi p) {
+    final ll = p.latLng;
+    if (ll == null) return;
+    setState(() => _stops.add(_Stop(ll, name: p.name, poi: p)));
+    _fit();
+    _scheduleRecompute();
   }
 
   Future<void> _addFromPois() async {
@@ -190,6 +202,12 @@ class _RouteBuilderScreenState extends ConsumerState<RouteBuilderScreen> {
         children: [
           _mapSection(context),
           _statsBar(context),
+          NearbyPoiPanel(
+            stops: _stops.map((s) => s.point).toList(),
+            excludedPoiIds:
+                _stops.map((s) => s.poi?.id).whereType<String>().toSet(),
+            onAdd: _addSuggestedPoi,
+          ),
           Expanded(child: _stopsList(context)),
           _bottomBar(context, canNav),
         ],
@@ -539,47 +557,230 @@ class _RouteBuilderScreenState extends ConsumerState<RouteBuilderScreen> {
     );
   }
 
-  // ── Spodní lišta: Navigovat ──
+  // ── Spodní lišta: Navrhnout ostatním + Navigovat ──
   Widget _bottomBar(BuildContext context, bool canNav) {
     return Container(
       padding: EdgeInsets.fromLTRB(16, 12, 16, MediaQuery.of(context).padding.bottom + 12),
       decoration: BoxDecoration(color: Colors.white, boxShadow: MotoGoShadows.stickyBar),
-      child: PressableScale(
-        pressedScale: 0.97,
-        onTap: canNav ? _navigate : () {},
-        child: Opacity(
-          opacity: canNav ? 1 : 0.45,
-          child: Container(
-            height: 52,
-            decoration: BoxDecoration(
-              color: MotoGoColors.green,
-              borderRadius: BorderRadius.circular(MotoGoRadius.pill),
-              boxShadow: [
-                BoxShadow(color: MotoGoColors.green.withValues(alpha: 0.4), blurRadius: 14, offset: const Offset(0, 4)),
-              ],
-            ),
-            child: Center(
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.navigation, size: 20, color: MotoGoColors.black),
-                  const SizedBox(width: 8),
-                  Text(
-                    t(context).tr('routeBuilderNavigate'),
-                    style: const TextStyle(
-                        fontSize: MotoGoTypo.sizeXl,
-                        fontWeight: MotoGoTypo.w800,
-                        color: MotoGoColors.black,
-                        letterSpacing: MotoGoTypo.lsMedium,
-                        decoration: TextDecoration.none),
-                  ),
-                ],
+      child: Row(
+        children: [
+          // Sekundární akce: odeslat poskládanou trasu jako návrh do moderace.
+          PressableScale(
+            pressedScale: 0.97,
+            onTap: canNav ? _openSuggestSheet : () {},
+            child: Opacity(
+              opacity: canNav ? 1 : 0.45,
+              child: Container(
+                height: 52,
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                decoration: BoxDecoration(
+                  color: MotoGoColors.greenPale,
+                  borderRadius: BorderRadius.circular(MotoGoRadius.pill),
+                  border: Border.all(color: MotoGoColors.green, width: 1.4),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.outgoing_mail, size: 20, color: MotoGoColors.greenDarker),
+                    const SizedBox(width: 6),
+                    Text(
+                      t(context).tr('routeSuggestBtn'),
+                      style: const TextStyle(
+                          fontSize: MotoGoTypo.sizeLg,
+                          fontWeight: MotoGoTypo.w800,
+                          color: MotoGoColors.greenDarker,
+                          decoration: TextDecoration.none),
+                    ),
+                  ],
+                ),
               ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: PressableScale(
+              pressedScale: 0.97,
+              onTap: canNav ? _navigate : () {},
+              child: Opacity(
+                opacity: canNav ? 1 : 0.45,
+                child: Container(
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: MotoGoColors.green,
+                    borderRadius: BorderRadius.circular(MotoGoRadius.pill),
+                    boxShadow: [
+                      BoxShadow(color: MotoGoColors.green.withValues(alpha: 0.4), blurRadius: 14, offset: const Offset(0, 4)),
+                    ],
+                  ),
+                  child: Center(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.navigation, size: 20, color: MotoGoColors.black),
+                        const SizedBox(width: 8),
+                        Text(
+                          t(context).tr('routeBuilderNavigate'),
+                          style: const TextStyle(
+                              fontSize: MotoGoTypo.sizeXl,
+                              fontWeight: MotoGoTypo.w800,
+                              color: MotoGoColors.black,
+                              letterSpacing: MotoGoTypo.lsMedium,
+                              decoration: TextDecoration.none),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Návrh trasy ostatním (moderace ve Velíně, status='pending') ──
+  void _openSuggestSheet() {
+    if (MotoGoSupabase.currentUser == null) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(t(context).tr('poiRateLogin'))));
+      return;
+    }
+    if (_stops.length < 2) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(t(context).tr('routeSubmitNeedPoints'))));
+      return;
+    }
+    final nameCtrl = TextEditingController(
+        text: widget.route.id == 'custom' ? '' : widget.route.name);
+    final descCtrl = TextEditingController();
+    var busy = false;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(22))),
+      builder: (sheetCtx) => StatefulBuilder(
+        builder: (sheetCtx, setSheet) => SafeArea(
+          top: false,
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+                20, 16, 20, MediaQuery.of(sheetCtx).viewInsets.bottom + 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  t(sheetCtx).tr('routeSuggestTitle'),
+                  style: const TextStyle(
+                      fontSize: MotoGoTypo.sizeH2,
+                      fontWeight: MotoGoTypo.w900,
+                      color: MotoGoColors.black,
+                      decoration: TextDecoration.none),
+                ),
+                const SizedBox(height: 12),
+                const SubmitIntroBanner(),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: nameCtrl,
+                  decoration:
+                      InputDecoration(labelText: t(sheetCtx).tr('poiSubmitName')),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: descCtrl,
+                  maxLines: 3,
+                  decoration: InputDecoration(
+                      labelText: t(sheetCtx).tr('routeSubmitDescLabel')),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: ElevatedButton(
+                    onPressed: busy
+                        ? null
+                        : () async {
+                            if (nameCtrl.text.trim().isEmpty) {
+                              ScaffoldMessenger.of(sheetCtx).showSnackBar(SnackBar(
+                                  content:
+                                      Text(t(sheetCtx).tr('poiSubmitNameReq'))));
+                              return;
+                            }
+                            setSheet(() => busy = true);
+                            final ok = await _submitSuggestion(
+                                nameCtrl.text.trim(), descCtrl.text.trim());
+                            if (!sheetCtx.mounted) return;
+                            if (ok) {
+                              Navigator.of(sheetCtx).pop();
+                              if (mounted) await showSubmitSuccess(context);
+                            } else {
+                              setSheet(() => busy = false);
+                              ScaffoldMessenger.of(sheetCtx).showSnackBar(SnackBar(
+                                  content: Text(t(sheetCtx).tr('poiSubmitErr'))));
+                            }
+                          },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: MotoGoColors.green,
+                      foregroundColor: MotoGoColors.black,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                          borderRadius:
+                              BorderRadius.circular(MotoGoRadius.pill)),
+                    ),
+                    child: Text(
+                      t(sheetCtx).tr(busy ? 'submitSending' : 'poiSubmitSend'),
+                      style: const TextStyle(
+                          fontSize: MotoGoTypo.sizeXl,
+                          fontWeight: MotoGoTypo.w800),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
       ),
     );
+  }
+
+  /// Uloží poskládanou trasu jako zákaznický návrh (stejné flow jako
+  /// „Navrhnout trasu" — řádek v `routes` se status='pending', schvaluje Velín).
+  Future<bool> _submitSuggestion(String name, String desc) async {
+    final uid = MotoGoSupabase.currentUser?.id;
+    if (uid == null) return false;
+    try {
+      final waypoints = <Map<String, dynamic>>[];
+      for (var i = 0; i < _stops.length; i++) {
+        final s = _stops[i];
+        waypoints.add({
+          'lat': s.point.latitude,
+          'lng': s.point.longitude,
+          'label': (s.name != null && s.name!.trim().isNotEmpty)
+              ? s.name!.trim()
+              : null,
+          'order': i,
+        });
+      }
+      final km = _distanceM == null
+          ? null
+          : double.parse((_distanceM! / 1000).toStringAsFixed(1));
+      await MotoGoSupabase.client.from('routes').insert({
+        'name': name,
+        'description': desc.isEmpty ? null : desc,
+        'route_type': 'poi',
+        'waypoints': waypoints,
+        'distance_km': km,
+        'duration_min': km == null ? null : (km / 55 * 60).round(),
+        'created_by': uid,
+        'status': 'pending',
+        'is_active': false,
+      });
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   Widget _numPin(int n) => Container(
