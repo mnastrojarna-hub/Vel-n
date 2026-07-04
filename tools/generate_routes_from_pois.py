@@ -92,8 +92,7 @@ def haversine(a, b):
 def load_points():
     """Body katalogu ze SQL dávek (curated + wikidata + eu)."""
     pts = []
-    files = (glob.glob("supabase/migrations/20260704_poi_catalog_seed_batch*.sql")
-             + glob.glob("supabase/migrations/20260704_poi_catalog_wikidata*batch*.sql"))
+    files = glob.glob("supabase/migrations/202607*_poi_catalog*batch*.sql")
     row_re = re.compile(
         r"\('(\w+)', '((?:[^']|'')*)', '((?:[^']|'')*)', (-?[\d.]+), (-?[\d.]+), '(\w\w)', "
         r"'[^']*', (\d+)(?:, (null|'(?:[^']|'')*'))?, '(\{.*?\})'::jsonb\)", re.S)
@@ -114,7 +113,7 @@ def load_points():
     return pts
 
 
-def build_clusters(points):
+def build_clusters(points, taken=frozenset()):
     routes = []
     for theme, (cats, radius, mn, mx, quota) in THEMES.items():
         pool = sorted([p for p in points if p["category"] in cats], key=lambda p: p["rank"])
@@ -126,6 +125,8 @@ def build_clusters(points):
             sid = id(seed)
             if sid in used:
                 continue
+            if NAME_TPL[theme]["cs"].format(a=seed["name"]) in taken:
+                continue  # kotva už má trasu z dřívější vlny
             near = [p for p in pool if id(p) not in used and p["country"] == seed["country"]
                     and haversine((seed["lat"], seed["lng"]), (p["lat"], p["lng"])) <= radius]
             if len(near) < mn:
@@ -216,14 +217,43 @@ def route_sql(r, sort_order, name_used):
 
 
 def main():
+    global SORT_BASE
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--countries", default="")      # CSV filtr; prázdné = vše
+    ap.add_argument("--sort-base", type=int, default=SORT_BASE)
+    ap.add_argument("--file-prefix", default="20260705_routes_from_catalog_batch")
+    ap.add_argument("--quotas", default="")          # napr. water=45,mixed=75
+    args = ap.parse_args()
+    SORT_BASE = args.sort_base
+    if args.quotas:
+        for kv in args.quotas.split(","):
+            k, v = kv.split("=")
+            c, r, mn, mx, _ = THEMES[k.strip()]
+            THEMES[k.strip()] = (c, r, mn, mx, int(v))
+
     points = load_points()
+    if args.countries:
+        allowed = {c.strip().upper() for c in args.countries.split(",")}
+        points = [p for p in points if p["country"] in allowed]
     print(f"Načteno bodů z katalogových dávek: {len(points)}")
     if len(points) < 1000:
         sys.exit("Podezřele málo bodů — zkontroluj parser.")
-    routes = build_clusters(points)
+
+    # Ochrana proti duplicitním trasám: kotvy/názvy už vygenerovaných tras.
+    taken_names = set()
+    for rf in glob.glob("supabase/migrations/*_routes_from_catalog_batch*.sql"):
+        if rf.startswith(f"supabase/migrations/{args.file_prefix}"):
+            continue  # vlastní výstup (přegenerování)
+        for m in re.finditer(r"delete from public\.routes where name = '((?:[^']|'')*)'",
+                             open(rf, encoding="utf-8").read()):
+            taken_names.add(m.group(1).replace("''", "'"))
+    print(f"Názvů tras z dřívějších vln: {len(taken_names)}")
+
+    routes = build_clusters(points, taken=taken_names)
     print(f"Sestaveno tras: {len(routes)}")
 
-    name_used = set()
+    name_used = set(taken_names)
     for n in range(0, len(routes), ROUTES_PER_FILE):
         chunk = routes[n:n + ROUTES_PER_FILE]
         bno = n // ROUTES_PER_FILE + 1
@@ -241,7 +271,7 @@ def main():
             + "\n\n".join(body)
             + "\nend $$;\n"
         )
-        path = f"supabase/migrations/20260705_routes_from_catalog_batch{bno}.sql"
+        path = f"supabase/migrations/{args.file_prefix}{bno}.sql"
         with open(path, "w", encoding="utf-8") as f:
             f.write(sql)
         themes = {}
