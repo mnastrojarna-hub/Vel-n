@@ -38,12 +38,22 @@ LANGS = poigen.LANGS
 SORT_BASE = 5000          # pásmo sort_order nových tras (idempotence mazání)
 ROUTES_PER_FILE = 50
 THEMES = {
-    # klíč: (kategorie, rádius km, min bodů, max bodů, kvóta tras)
+    # klíč: (kategorie, rádius km, min bodů, max bodů, kvóta tras[, kotevní kategorie])
+    # 6. prvek (volitelný): kotva trasy smí být JEN z těchto kategorií — trasa
+    # "Za letadly" se kotví na letišti/leteckém muzeu a doplní okolními body.
     "water":   (("water",), 45, 5, 7, 120),
     "nature":  (("nature",), 50, 5, 7, 80),
     "history": (("castle", "sights"), 40, 5, 7, 150),
     "lookout": (("lookout",), 60, 4, 7, 25),
     "mixed":   (("water", "castle", "sights", "nature", "lookout", "food", "other"), 30, 5, 8, 175),
+    # Témata cílovky (muži 40–50) — viz ANALYZA_CILOVKA_POI.md
+    "military": (("military",), 55, 4, 7, 0),
+    "aviation": (("aviation", "military", "tech", "moto", "castle", "water",
+                  "nature", "sights", "lookout"), 40, 5, 7, 0, ("aviation",)),
+    "moto":     (("moto", "aviation", "military", "tech", "castle", "water",
+                  "nature", "sights", "lookout"), 40, 5, 7, 0, ("moto",)),
+    "tech":     (("tech", "military", "castle", "water", "nature", "sights",
+                  "lookout"), 40, 5, 7, 0, ("tech",)),
 }
 NAME_TPL = {
     "water":   {"cs": "Vodní krásy: {a} a okolí", "en": "Waterside ride: {a} and around",
@@ -66,6 +76,22 @@ NAME_TPL = {
                 "de": "Highlights rund um {a}", "pl": "Najlepsze w okolicy: {a}",
                 "nl": "Hoogtepunten rond {a}", "es": "Lo mejor cerca de {a}",
                 "fr": "Les incontournables autour de {a}", "uk": "Найкраще навколо: {a}"},
+    "military": {"cs": "Vojenská historie: {a} a okolí", "en": "Military history: {a} and around",
+                 "de": "Militärgeschichte: {a} und Umgebung", "pl": "Historia wojskowa: {a} i okolice",
+                 "nl": "Militaire geschiedenis: {a} en omgeving", "es": "Historia militar: {a} y alrededores",
+                 "fr": "Histoire militaire : {a} et environs", "uk": "Військова історія: {a} та околиці"},
+    "aviation": {"cs": "Za letadly: {a} a okolí", "en": "Wings & wheels: {a} and around",
+                 "de": "Zu den Flugzeugen: {a} und Umgebung", "pl": "Szlakiem samolotów: {a} i okolice",
+                 "nl": "Langs vliegtuigen: {a} en omgeving", "es": "Tras los aviones: {a} y alrededores",
+                 "fr": "Sur la piste des avions : {a} et environs", "uk": "До літаків: {a} та околиці"},
+    "moto":     {"cs": "Rychlost a legendy: {a} a okolí", "en": "Speed & legends: {a} and around",
+                 "de": "Tempo & Legenden: {a} und Umgebung", "pl": "Prędkość i legendy: {a} i okolice",
+                 "nl": "Snelheid & legendes: {a} en omgeving", "es": "Velocidad y leyendas: {a} y alrededores",
+                 "fr": "Vitesse et légendes : {a} et environs", "uk": "Швидкість і легенди: {a} та околиці"},
+    "tech":     {"cs": "Technika a průmysl: {a} a okolí", "en": "Tech & industry: {a} and around",
+                 "de": "Technik & Industrie: {a} und Umgebung", "pl": "Technika i przemysł: {a} i okolice",
+                 "nl": "Techniek & industrie: {a} en omgeving", "es": "Técnica e industria: {a} y alrededores",
+                 "fr": "Technique et industrie : {a} et environs", "uk": "Техніка і промисловість: {a} та околиці"},
 }
 DESC_TPL = {
     "cs": "Vyjížďka za body zájmu {country}: {list}. Celkem {n} zastávek, přibližně {dist} km — pořadí si můžeš v aplikaci upravit a navigovat rovnou z ní.",
@@ -115,11 +141,16 @@ def load_points():
 
 def build_clusters(points, taken=frozenset()):
     routes = []
-    for theme, (cats, radius, mn, mx, quota) in THEMES.items():
+    for theme, spec in THEMES.items():
+        cats, radius, mn, mx, quota = spec[:5]
+        anchor_cats = spec[5] if len(spec) > 5 else cats
+        if quota <= 0:
+            continue
         pool = sorted([p for p in points if p["category"] in cats], key=lambda p: p["rank"])
+        anchors = [p for p in pool if p["category"] in anchor_cats]
         used = set()
         made = 0
-        for seed in pool:
+        for seed in anchors:
             if made >= quota:
                 break
             sid = id(seed)
@@ -133,6 +164,8 @@ def build_clusters(points, taken=frozenset()):
                 continue
             near.sort(key=lambda p: p["rank"])
             members = near[:mx]
+            if seed not in members:  # kotva tématu musí být na trase vždy
+                members = [seed] + members[: mx - 1]
             # pořadí zastávek: nearest neighbor od kotvy
             ordered = [seed] if seed in members else [members[0]]
             rest = [p for p in members if p is not ordered[0]]
@@ -229,8 +262,8 @@ def main():
     if args.quotas:
         for kv in args.quotas.split(","):
             k, v = kv.split("=")
-            c, r, mn, mx, _ = THEMES[k.strip()]
-            THEMES[k.strip()] = (c, r, mn, mx, int(v))
+            spec = THEMES[k.strip()]
+            THEMES[k.strip()] = spec[:4] + (int(v),) + spec[5:]
 
     points = load_points()
     if args.countries:
@@ -242,7 +275,7 @@ def main():
 
     # Ochrana proti duplicitním trasám: kotvy/názvy už vygenerovaných tras.
     taken_names = set()
-    for rf in glob.glob("supabase/migrations/*_routes_from_catalog_batch*.sql"):
+    for rf in glob.glob("supabase/migrations/*_routes_from_catalog*batch*.sql"):
         if rf.startswith(f"supabase/migrations/{args.file_prefix}"):
             continue  # vlastní výstup (přegenerování)
         for m in re.finditer(r"delete from public\.routes where name = '((?:[^']|'')*)'",

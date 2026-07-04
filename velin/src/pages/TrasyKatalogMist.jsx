@@ -13,13 +13,16 @@ import { SmallBtn, Spinner, EmptyState } from './BranchHelpers'
 
 const CAT = {
   food: '🍽️ Jídlo a pití', castle: '🏰 Hrady a zámky', lookout: '🗼 Rozhledny',
-  water: '🌊 Voda', sights: '⛪ Památky', nature: '🌳 Příroda', other: '📍 Ostatní',
+  water: '🌊 Voda', sights: '⛪ Památky', nature: '🌳 Příroda',
+  military: '🪖 Vojenství', aviation: '✈️ Letectví', tech: '🏭 Technika',
+  moto: '🏁 Motorismus', other: '📍 Ostatní',
 }
 const SOURCES = [
   ['all', 'Všechny zdroje'],
   ['curated-', 'Ruční (curated)'],
   ['wikidata-batch', 'Wikidata CZ/SK/PL/AT'],
   ['wikidata-eu-', 'Wikidata Evropa'],
+  ['wikidata-cilovka-', 'Wikidata cílovka (military/aviation/tech/moto)'],
 ]
 const COUNTRIES = ['CZ','SK','PL','AT','DE','FR','IT','ES','GB','NL','BE','CH','SI','HR','HU','RO','RS','GR','PT','IE','DK','SE','NO','FI']
 const PAGE = 50
