@@ -48,13 +48,11 @@ const DIFF_LABEL = { easy: 'Lehká', medium: 'Střední', hard: 'Náročná' }
 
 function Trasy() {
   const [routes, setRoutes] = useState([])
-  const [branches, setBranches] = useState([])
   const [poiCounts, setPoiCounts] = useState({})
   const [catalogCount, setCatalogCount] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [search, setSearch] = useState('')
-  const [branchFilter, setBranchFilter] = useState('all')
   const [countryFilter, setCountryFilter] = useState('all')
   const [showModal, setShowModal] = useState(false)
   const [editing, setEditing] = useState(null)
@@ -90,10 +88,7 @@ function Trasy() {
         allRoutes.push(...(routesRes.data || []))
         if (!routesRes.data || routesRes.data.length < 1000) break
       }
-      const branchesRes = await supabase.from('branches')
-        .select('id, name, city, gps_lat, gps_lng, active').order('name')
       setRoutes(allRoutes)
-      setBranches(branchesRes.data || [])
 
       // POI counts per route — stránkovaně: PostgREST vrací max 1000 řádků
       // na dotaz, takže jediný select bez range uřízl součet na 1000.
@@ -276,8 +271,6 @@ function Trasy() {
     load()
   }
 
-  const branchName = (id) => branches.find(b => b.id === id)?.name || '—'
-
   const pendingRoutes = routes.filter(r => r.status === 'pending')
 
   // Všechny státy napříč trasami (pro filtr „projíždí státem")
@@ -286,14 +279,12 @@ function Trasy() {
   ).sort((a, b) => a.localeCompare(b, 'cs'))
 
   const filtered = routes.filter(r => {
-    if (branchFilter !== 'all' && r.branch_id !== branchFilter) return false
     if (countryFilter !== 'all' && !(Array.isArray(r.countries) && r.countries.includes(countryFilter))) return false
     if (!search) return true
     const s = search.toLowerCase()
     return (r.name || '').toLowerCase().includes(s) ||
       (r.description || '').toLowerCase().includes(s) ||
-      (Array.isArray(r.countries) && r.countries.join(' ').toLowerCase().includes(s)) ||
-      branchName(r.branch_id).toLowerCase().includes(s)
+      (Array.isArray(r.countries) && r.countries.join(' ').toLowerCase().includes(s))
   })
 
   const activeCount = routes.filter(r => r.is_active).length
@@ -311,15 +302,7 @@ function Trasy() {
       </div>
 
       <div className="flex items-center gap-3 mb-5 flex-wrap">
-        <SearchInput value={search} onChange={setSearch} placeholder="Hledat trasu, pobočku…" />
-        <select
-          value={branchFilter}
-          onChange={e => setBranchFilter(e.target.value)}
-          className="rounded-btn text-sm font-bold outline-none cursor-pointer"
-          style={{ padding: '7px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
-          <option value="all">Všechny pobočky</option>
-          {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-        </select>
+        <SearchInput value={search} onChange={setSearch} placeholder="Hledat trasu…" />
         {allCountries.length > 0 && (
           <select
             value={countryFilter}
@@ -423,7 +406,7 @@ function Trasy() {
                   checked={filtered.length > 0 && filtered.every(r => selected.has(r.id))}
                   onChange={e => setSelected(e.target.checked ? new Set(filtered.map(r => r.id)) : new Set())} />
               </TH>
-              <TH>Náhled</TH><TH>Název</TH><TH>Pobočka</TH><TH>Typ</TH><TH>Délka</TH>
+              <TH>Náhled</TH><TH>Název</TH><TH>Typ</TH><TH>Délka</TH>
               <TH>Body zájmu</TH><TH>Recenze</TH><TH>Stav</TH><TH>Akce</TH>
             </TRow>
           </thead>
@@ -458,7 +441,6 @@ function Trasy() {
                     </div>
                   )}
                 </TD>
-                <TD>{branchName(r.branch_id)}</TD>
                 <TD>{TYPE_LABEL[r.route_type] || r.route_type || '—'}</TD>
                 <TD bold>{r.distance_km ? `${r.distance_km} km` : '—'}</TD>
                 <TD>
@@ -503,7 +485,6 @@ function Trasy() {
       {showModal && (
         <TrasyModal
           existing={editing}
-          branches={branches}
           onClose={() => { setShowModal(false); setEditing(null) }}
           onSaved={() => { setShowModal(false); setEditing(null); load() }}
         />
