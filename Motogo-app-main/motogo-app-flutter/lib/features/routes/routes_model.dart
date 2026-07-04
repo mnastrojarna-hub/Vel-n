@@ -37,6 +37,7 @@ class RoutePoi {
   final double? avgRating; // průměrné hodnocení (z RPC)
   final int ratingCount; // počet hodnocení
   final bool isUserPoi; // bod zájmu od uživatele (komunitní)
+  final String? category; // explicitní kategorie z backendu (food/castle/…), jinak null
 
   const RoutePoi({
     required this.id,
@@ -50,6 +51,7 @@ class RoutePoi {
     this.avgRating,
     this.ratingCount = 0,
     this.isUserPoi = false,
+    this.category,
   });
 
   LatLng? get latLng => (lat != null && lng != null) ? LatLng(lat!, lng!) : null;
@@ -72,6 +74,9 @@ class RoutePoi {
       avgRating: _toD(j['avg_rating']),
       ratingCount: _toI(j['rating_count']) ?? 0,
       isUserPoi: j['is_user_poi'] == true,
+      category: (j['category']?.toString().trim().isNotEmpty ?? false)
+          ? j['category'].toString().trim()
+          : null,
     );
   }
 
