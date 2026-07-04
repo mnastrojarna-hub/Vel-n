@@ -329,10 +329,10 @@ class _MotoGoAppState extends ConsumerState<MotoGoApp>
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      supportedLocales: const [
-        Locale('cs'), Locale('en'), Locale('de'),
-        Locale('es'), Locale('fr'), Locale('nl'), Locale('pl'),
-      ],
+      // Sdílený seznam z i18n_provider.dart — musí obsahovat VŠECHNY jazyky
+      // z pickeru (vč. 'uk'), jinak Flutter locale resolvuje fallbackem na cs
+      // a přepnutí jazyka se v UI neprojeví.
+      supportedLocales: supportedLocales,
       builder: (context, child) {
         return MediaQuery(
           data: MediaQuery.of(context).copyWith(textScaler: TextScaler.noScaling),
