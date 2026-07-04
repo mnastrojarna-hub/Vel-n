@@ -28,9 +28,9 @@ const CORS = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-const MAX_IMAGES = 200 // strop fotek na jeden běh
+const MAX_IMAGES = 800 // strop fotek na jeden běh (reálně limituje čas níže)
 const TIME_BUDGET_MS = 280_000 // ~280 s (limit gatewaye je 400 s wall-clock)
-const FETCH_DELAY_MS = 120 // slušnost k Wikimedii
+const CONCURRENCY = 6 // souběžných stažení+uploadů (weserv/storage to zvládnou)
 const THUMB_WIDTH = 1280 // dost pro hero i fullscreen, ~150–400 KB
 
 // Wikimedia vyžaduje popisný User-Agent, jinak 403.
@@ -237,38 +237,47 @@ async function runBatch(sb: ReturnType<typeof createClient>) {
     let images = 0
     let updated = 0
     let processedRows = 0
-
     const note = (why: string) => { failSamples[why] = (failSamples[why] || 0) + 1 }
 
+    // Unikátní wiki URL v pořadí řádků (stejná fotka u více bodů se řeší jednou).
+    const pending: string[] = []
+    const seenUrl = new Set<string>()
     for (const row of rows) {
-      if (outOfBudget() || images >= MAX_IMAGES) break
-      let rowOk = true // true = žádné DOČASNÉ selhání → řádek hotový (trvalé neblokují)
-
-      for (const url of new Set(row.urls)) {
-        if (mirrored.has(url) || failedPermanent.has(url)) continue
-        if (failedTransient.has(url)) { rowOk = false; continue }
-        if (outOfBudget() || images >= MAX_IMAGES) { rowOk = false; break }
-
-        const img = await fetchWiki(url)
-        images++
-        await new Promise((res) => setTimeout(res, FETCH_DELAY_MS))
-        if ('err' in img) {
-          note(img.err)
-          if (img.permanent) { failedPermanent.add(url) } // neblokuje „hotovo"
-          else { failedTransient.add(url); rowOk = false }
-          continue
-        }
-
-        const path = `routes-mirror/${await sha1hex(url)}.${EXT[img.type] || 'jpg'}`
-        const up = await sb.storage.from('media').upload(path, img.bytes, {
-          contentType: img.type,
-          upsert: true,
-        })
-        if (up.error) { failedTransient.add(url); note(`upload_${up.error.message}`.slice(0, 40)); rowOk = false; continue }
-        mirrored.set(url, sb.storage.from('media').getPublicUrl(path).data.publicUrl)
+      for (const u of row.urls) {
+        if (!seenUrl.has(u)) { seenUrl.add(u); pending.push(u) }
       }
+    }
 
-      // Přepiš URL v řádku (jen ty úspěšně zrcadlené; zbytek doběhne příště).
+    // Zrcadlení jedné fotky (stáhni → ulož do storage).
+    const mirrorOne = async (url: string) => {
+      const img = await fetchWiki(url)
+      if ('err' in img) {
+        note(img.err)
+        ;(img.permanent ? failedPermanent : failedTransient).add(url)
+        return
+      }
+      const path = `routes-mirror/${await sha1hex(url)}.${EXT[img.type] || 'jpg'}`
+      const up = await sb.storage.from('media').upload(path, img.bytes, { contentType: img.type, upsert: true })
+      if (up.error) { failedTransient.add(url); note(`upload_${up.error.message}`.slice(0, 40)); return }
+      mirrored.set(url, sb.storage.from('media').getPublicUrl(path).data.publicUrl)
+    }
+
+    // Paralelní pool (CONCURRENCY souběžně) — weserv/storage to zvládnou a je
+    // to řádově rychlejší než sekvenčně; respektuje časový budget i MAX_IMAGES.
+    let idx = 0
+    const worker = async () => {
+      while (idx < pending.length && images < MAX_IMAGES && !outOfBudget()) {
+        const url = pending[idx++]
+        images++
+        await mirrorOne(url)
+      }
+    }
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, pending.length) }, worker))
+
+    // Přepiš URL v řádcích. Řádek je „hotový" (počítá se do rows_done), jen když
+    // jsou VŠECHNY jeho wiki URL buď zrcadlené, nebo trvale mrtvé (404) — dočasně
+    // selhané / nestihnuté se dojedou příště.
+    for (const row of rows) {
       const swap = (v: unknown) => (typeof v === 'string' && mirrored.has(v) ? mirrored.get(v)! : v)
       const patch: Record<string, unknown> = {}
       if ('cover_image' in row.patch && isWiki(row.patch.cover_image) && mirrored.has(row.patch.cover_image as string)) {
@@ -285,7 +294,8 @@ async function runBatch(sb: ReturnType<typeof createClient>) {
         const upd = await sb.from(row.table).update(patch).eq('id', row.id)
         if (!upd.error) updated++
       }
-      if (rowOk) processedRows++
+      const rowDone = [...new Set(row.urls)].every((u) => mirrored.has(u) || failedPermanent.has(u))
+      if (rowDone) processedRows++
     }
 
     const failedCount = failedTransient.size + failedPermanent.size
