@@ -228,6 +228,8 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
               _chip('📏', '${route.distanceKm!.toStringAsFixed(0)} km'),
             if (route.durationMin != null) _chip('⏱️', _dur(route.durationMin!)),
             if (route.difficulty != null) _chip('⛰️', _diff(context, route.difficulty!)),
+            if (route.reviewCount > 0)
+              _chip('⭐', '${(route.reviewAvg ?? 0).toStringAsFixed(1)} (${route.reviewCount})'),
           ],
         ),
       ],

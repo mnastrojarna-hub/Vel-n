@@ -10,6 +10,7 @@ import '../../core/widgets/moto_fx.dart';
 import 'routes_model.dart';
 import 'routes_provider.dart';
 import 'route_image.dart';
+import 'route_reviews.dart';
 import 'community_submit.dart';
 
 /// Obrazovka „Trasy" — doporučené motorkářské trasy od poboček.
@@ -940,13 +941,21 @@ class _RouteCard extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
               child: Row(
                 children: [
-                  if (route.distanceKm != null)
-                    _meta(Icons.straighten, '${route.distanceKm!.toStringAsFixed(0)} km'),
-                  if (route.durationMin != null)
-                    _meta(Icons.schedule, _dur(route.durationMin!)),
-                  if (route.pois.isNotEmpty)
-                    _meta(Icons.place, '${route.pois.length} ${t(context).tr('routePoiShort')}'),
-                  const Spacer(),
+                  Expanded(
+                    child: Wrap(
+                      runSpacing: 6,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        if (route.distanceKm != null)
+                          _meta(Icons.straighten, '${route.distanceKm!.toStringAsFixed(0)} km'),
+                        if (route.durationMin != null)
+                          _meta(Icons.schedule, _dur(route.durationMin!)),
+                        if (route.pois.isNotEmpty)
+                          _meta(Icons.place, '${route.pois.length} ${t(context).tr('routePoiShort')}'),
+                        _ratingMeta(context),
+                      ],
+                    ),
+                  ),
                   const Icon(Icons.arrow_forward_ios, size: 14, color: MotoGoColors.greenDark),
                 ],
               ),
@@ -979,6 +988,36 @@ class _RouteCard extends StatelessWidget {
             fontWeight: MotoGoTypo.w800,
             color: fg,
             decoration: TextDecoration.none,
+          ),
+        ),
+      );
+
+  /// Hvězdičkové hodnocení trasy od uživatelů — klepnutím se otevřou recenze
+  /// (komentáře) v bottom sheetu, bez nutnosti otevírat detail trasy.
+  Widget _ratingMeta(BuildContext context) => GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => showRouteReviewsSheet(context,
+            routeId: route.id, routeName: route.nameFor(lang)),
+        child: Padding(
+          padding: const EdgeInsets.only(right: 14),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(route.reviewCount > 0 ? Icons.star : Icons.star_border,
+                  size: 15, color: const Color(0xFFF5B301)),
+              const SizedBox(width: 4),
+              Text(
+                route.reviewCount > 0
+                    ? '${(route.reviewAvg ?? 0).toStringAsFixed(1)} (${route.reviewCount})'
+                    : '(0)',
+                style: const TextStyle(
+                  fontSize: MotoGoTypo.sizeBase,
+                  fontWeight: MotoGoTypo.w700,
+                  color: MotoGoColors.g600,
+                  decoration: TextDecoration.none,
+                ),
+              ),
+            ],
           ),
         ),
       );

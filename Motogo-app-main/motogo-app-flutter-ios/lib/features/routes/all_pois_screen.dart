@@ -693,7 +693,7 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
                             const Icon(Icons.star, size: 12, color: Color(0xFFF5B301)),
                             const SizedBox(width: 2),
                             Text(
-                              (e.poi.avgRating ?? 0).toStringAsFixed(1),
+                              '${(e.poi.avgRating ?? 0).toStringAsFixed(1)} (${e.poi.ratingCount})',
                               style: const TextStyle(
                                 fontSize: MotoGoTypo.sizeMd,
                                 fontWeight: MotoGoTypo.w700,
