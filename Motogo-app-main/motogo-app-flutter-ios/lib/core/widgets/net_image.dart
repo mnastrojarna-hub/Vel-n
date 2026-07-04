@@ -6,6 +6,12 @@ import '../theme.dart';
 /// URL server-side zmenšeného náhledu ze Supabase Storage (`render/image`
 /// endpoint — vrací KB místo MB originálů z mobilů). Ne-Supabase URL (nebo už
 /// transformovanou) vrací beze změny.
+///
+/// **`resize=contain` je POVINNÉ:** bez něj render/image aplikuje výchozí režim
+/// `cover`, který obrázek ořízne (přiblíží) na cílový rámeček → fotky motorek se
+/// zobrazovaly „zoomnuté", nebylo na nich nic vidět. `contain` zachová poměr
+/// stran a nic neořízne — je to čistě zmenšenina originálu. Výřez si dál řeší
+/// `BoxFit` ve widgetu, přesně jako u originálu (žádná změna vizuálu).
 String mgThumbUrl(String url, {int width = 800, int quality = 75}) {
   const marker = '/storage/v1/object/public/';
   final i = url.indexOf(marker);
@@ -15,7 +21,8 @@ String mgThumbUrl(String url, {int width = 800, int quality = 75}) {
   final q = path.indexOf('?');
   if (q >= 0) path = path.substring(0, q);
   if (path.isEmpty) return url;
-  return '$base/storage/v1/render/image/public/$path?width=$width&quality=$quality';
+  return '$base/storage/v1/render/image/public/$path'
+      '?width=$width&quality=$quality&resize=contain';
 }
 
 /// Rychlé síťové foto pro celou appku:
