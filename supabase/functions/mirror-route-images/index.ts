@@ -204,29 +204,40 @@ async function runBatch(sb: ReturnType<typeof createClient>) {
   const outOfBudget = () => Date.now() - t0 > TIME_BUDGET_MS
 
   {
-    // ── Načti kandidáty (malé sloupce; ~50 tras + ~950 bodů) ──
-    const [routesQ, poisQ] = await Promise.all([
-      sb.from('routes').select('id, cover_image, images'),
-      sb.from('route_pois').select('id, image_url, images'),
+    // ── Načti VŠECHNY kandidáty (PostgREST vrací max 1000/dotaz → stránkuj,
+    // jinak funkce nikdy neuvidí body zájmu za hranicí 1000 a count neklesne) ──
+    async function fetchAll(table: string, cols: string): Promise<Record<string, unknown>[]> {
+      const out: Record<string, unknown>[] = []
+      const page = 1000
+      for (let from = 0; ; from += page) {
+        const { data, error } = await sb.from(table).select(cols).range(from, from + page - 1)
+        if (error) throw error
+        out.push(...((data || []) as Record<string, unknown>[]))
+        if (!data || data.length < page) break
+      }
+      return out
+    }
+
+    const [routesData, poisData] = await Promise.all([
+      fetchAll('routes', 'id, cover_image, images'),
+      fetchAll('route_pois', 'id, image_url, images'),
     ])
-    if (routesQ.error) throw routesQ.error
-    if (poisQ.error) throw poisQ.error
 
     type Row = { table: 'routes' | 'route_pois'; id: string; patch: Record<string, unknown>; urls: string[] }
     const rows: Row[] = []
-    for (const r of routesQ.data || []) {
+    for (const r of routesData) {
       const urls = [
-        ...(isWiki(r.cover_image) ? [r.cover_image] : []),
+        ...(isWiki(r.cover_image) ? [r.cover_image as string] : []),
         ...((r.images || []) as unknown[]).filter(isWiki),
       ]
-      if (urls.length) rows.push({ table: 'routes', id: r.id, patch: { cover_image: r.cover_image, images: r.images }, urls })
+      if (urls.length) rows.push({ table: 'routes', id: r.id as string, patch: { cover_image: r.cover_image, images: r.images }, urls })
     }
-    for (const p of poisQ.data || []) {
+    for (const p of poisData) {
       const urls = [
-        ...(isWiki(p.image_url) ? [p.image_url] : []),
+        ...(isWiki(p.image_url) ? [p.image_url as string] : []),
         ...((p.images || []) as unknown[]).filter(isWiki),
       ]
-      if (urls.length) rows.push({ table: 'route_pois', id: p.id, patch: { image_url: p.image_url, images: p.images }, urls })
+      if (urls.length) rows.push({ table: 'route_pois', id: p.id as string, patch: { image_url: p.image_url, images: p.images }, urls })
     }
 
     // ── Zrcadli (cache přes duplicitní URL — stejná fotka u více řádků) ──
