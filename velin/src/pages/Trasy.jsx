@@ -9,6 +9,7 @@ import SearchInput from '../components/ui/SearchInput'
 import { StatCard, SmallBtn } from './BranchHelpers'
 import TrasyModal from './TrasyModal'
 import TrasyReviewsModal from './TrasyReviewsModal'
+import TrasyKatalogMist from './TrasyKatalogMist'
 
 // ─── Error boundary (stejný vzor jako Branches) ──────────────────────
 class TrasyErrorBoundary extends Component {
@@ -49,6 +50,7 @@ function Trasy() {
   const [routes, setRoutes] = useState([])
   const [branches, setBranches] = useState([])
   const [poiCounts, setPoiCounts] = useState({})
+  const [catalogCount, setCatalogCount] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [search, setSearch] = useState('')
@@ -83,13 +85,26 @@ function Trasy() {
       setRoutes(routesRes.data || [])
       setBranches(branchesRes.data || [])
 
-      // POI counts per route
+      // POI counts per route — stránkovaně: PostgREST vrací max 1000 řádků
+      // na dotaz, takže jediný select bez range uřízl součet na 1000.
       try {
-        const { data: pois } = await supabase.from('route_pois').select('route_id')
         const c = {}
-        ;(pois || []).forEach(p => { c[p.route_id] = (c[p.route_id] || 0) + 1 })
+        for (let from = 0; ; from += 1000) {
+          const { data: pois, error: pe } = await supabase
+            .from('route_pois').select('route_id').range(from, from + 999)
+          if (pe) throw pe
+          ;(pois || []).forEach(p => { c[p.route_id] = (c[p.route_id] || 0) + 1 })
+          if (!pois || pois.length < 1000) break
+        }
         setPoiCounts(c)
       } catch (e) { console.warn('[Trasy] POI counts failed:', e.message) }
+
+      // Katalog samostatných zajímavých míst (points_of_interest) — jen počet
+      try {
+        const { count } = await supabase
+          .from('points_of_interest').select('id', { count: 'exact', head: true })
+        setCatalogCount(count ?? 0)
+      } catch (e) { console.warn('[Trasy] catalog count failed:', e.message) }
 
       // Komunitní (uživatelské) body zájmu ke schválení
       try {
@@ -210,11 +225,12 @@ function Trasy() {
 
   return (
     <div>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">
         <StatCard label="Tras celkem" value={routes.length} color="#0f1a14" />
         <StatCard label="Publikované" value={activeCount} color="#1a8a18" />
         <StatCard label="Okruhy" value={loopCount} color="#2563eb" />
-        <StatCard label="Body zájmu" value={totalPois} color="#8b5cf6" />
+        <StatCard label="Body zájmu tras" value={totalPois} color="#8b5cf6" />
+        <StatCard label="Katalog míst" value={catalogCount ?? '…'} color="#0d9488" />
       </div>
 
       <div className="flex items-center gap-3 mb-5 flex-wrap">
@@ -376,6 +392,9 @@ function Trasy() {
           </tbody>
         </Table>
       )}
+
+      {/* Katalog samostatných zajímavých míst (points_of_interest) */}
+      <TrasyKatalogMist />
 
       {showModal && (
         <TrasyModal
