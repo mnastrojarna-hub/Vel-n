@@ -9,6 +9,7 @@ import '../../core/theme.dart';
 import '../../core/router.dart' show MotoGoBackNav;
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/widgets/moto_fx.dart';
+import 'poi_categories.dart';
 import 'routes_model.dart';
 import 'routes_provider.dart';
 import 'route_image.dart';
@@ -42,90 +43,10 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
   /// nezávislé na trasách — přehrady, hrady, rozhledny, památky, rezervace…).
   static const _kCatalog = '__catalog__';
 
-  /// Kategorie bodů zájmu — odvozují se heuristicky z názvu/popisu.
-  static const List<_PoiCat> _catDefs = [
-    _PoiCat('food', '🍽️', 'poiCatFood'),
-    _PoiCat('castle', '🏰', 'poiCatCastle'),
-    _PoiCat('lookout', '🗼', 'poiCatLookout'),
-    _PoiCat('water', '🌊', 'poiCatWater'),
-    _PoiCat('sights', '⛪', 'poiCatSights'),
-    _PoiCat('nature', '🌳', 'poiCatNature'),
-    _PoiCat('other', '📍', 'poiCatOther'),
-  ];
-
-  // „hrad" jen na začátku slova — jinak chytá „zahrada" i „přehrada".
-  static final RegExp _reHrad = RegExp(r'\bhrad');
-
-  /// Známé klíče kategorií (pro validaci explicitní hodnoty z backendu).
-  static const Set<String> _catKeys = {
-    'food', 'castle', 'lookout', 'water', 'sights', 'nature', 'other'
-  };
-
-  // Klíčová slova (bez diakritiky, malá písmena). Kryjí i SK/PL/DE/AT varianty.
-  static const List<String> _kwFood = [
-    'restaur', 'hospod', 'hostin', 'pivovar', 'kavar', 'cafe', 'cukrar',
-    'obcerstv', 'bistro', 'motorest', 'vinar', 'grill', 'pizz', 'krcma',
-    'koliba', 'salas', 'bufet', 'gostiln', 'gasthof', 'gasthaus', 'brauhaus'
-  ];
-  static const List<String> _kwCastle = [
-    'zamek', 'zamec', 'zamok', 'zricen', 'tvrz', 'palac', 'castle', 'schloss',
-    'pevnost', 'hradisk', 'hradisc', 'burg', 'chateau', 'castel', 'citadel'
-  ];
-  static const List<String> _kwLookout = [
-    'rozhled', 'vyhlid', 'vyhled', 'vez', 'aussicht', 'panorama'
-  ];
-  static const List<String> _kwWater = [
-    'prehrad', 'priehrad', 'rybnik', 'jezer', 'jazer', 'vodopad', 'nadrz',
-    'plaz', 'splav', 'soutok', 'see', 'loch', 'fjord', 'lago', 'jazior'
-  ];
-  static const List<String> _kwSights = [
-    'kostel', 'klaster', 'klastor', 'kaple', 'kaplnk', 'katedral', 'bazilik',
-    'poutni', 'pamatnik', 'pamatn', 'muzeum', 'muzej', 'museum', 'synagog',
-    'mohyla', 'pomnik', 'betlem', 'krizov', 'rotund', 'namesti', 'namest',
-    'hrobka', 'skanzen', 'radnice', 'chram', 'opatstv', 'sgrafit'
-  ];
-  static const List<String> _kwNature = [
-    'jeskyn', 'jaskyn', 'propast', 'skal', 'prales', 'park', 'vrch', 'hora',
-    'sedlo', 'prusmyk', 'priesmyk', 'soutesk', 'udol', 'dolin', 'pramen',
-    'zahrad', 'steny', 'stena', 'kamen', 'ostrov', 'pleso', 'plesa', 'kopec',
-    'klamm', 'kanon', 'rezerv', 'jezirk', 'diery'
-  ];
-
-  /// Odstranění diakritiky pro porovnávání klíčových slov.
-  static String _fold(String s) {
-    const from = 'áäàâčćďéěèêíìîïľĺňñóöòôřšśťúůüýžźż';
-    const to = 'aaaaccdeeeeiiiillnnoooorsstuuuyzzz';
-    final b = StringBuffer();
-    for (final ch in s.toLowerCase().split('')) {
-      final i = from.indexOf(ch);
-      b.write(i >= 0 ? to[i] : ch);
-    }
-    return b.toString();
-  }
-
-  /// Kategorie bodu zájmu. Přednost má explicitní `category` z backendu; jinak
-  /// se odvodí z NÁZVU (spolehlivé — „Zámek …", „Rozhledna …", „Restaurace …")
-  /// a teprve když název mlčí, z popisu. „Jídlo a pití" se z popisu NEODVOZUJE:
-  /// skoro každý popis zmiňuje kavárnu/restauraci poblíž, což dřív házelo hrady
-  /// a rozhledny do kategorie jídla (např. zámek Jindřichův Hradec).
-  static String _catOf(RoutePoi p) {
-    final explicit = p.category?.toLowerCase();
-    if (explicit != null && _catKeys.contains(explicit)) return explicit;
-    final byName = _catByText(_fold(p.name), allowFood: true);
-    if (byName != 'other') return byName;
-    return _catByText(_fold(p.description ?? ''), allowFood: false);
-  }
-
-  static String _catByText(String n, {required bool allowFood}) {
-    bool has(List<String> ks) => ks.any(n.contains);
-    if (allowFood && has(_kwFood)) return 'food';
-    if (_reHrad.hasMatch(n) || has(_kwCastle)) return 'castle';
-    if (has(_kwLookout)) return 'lookout';
-    if (has(_kwWater)) return 'water';
-    if (has(_kwSights)) return 'sights';
-    if (has(_kwNature)) return 'nature';
-    return 'other';
-  }
+  // Filtr „v okolí výběru" — nabídne další body do X km od už vybraných.
+  bool _nearbyOn = false;
+  double _nearbyKm = 10;
+  static const List<double> _nearbyKmOptions = [5, 10, 25, 50];
 
   // Náhodné pořadí bodů — nové při každém otevření (i po startu appky). Použije
   // se, když není známá poloha; se známou polohou vyhrává řazení dle vzdálenosti.
@@ -167,15 +88,41 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
       return e.poi.nameFor(lang).toLowerCase().contains(q) ||
           (e.route?.nameFor(lang).toLowerCase().contains(q) ?? false);
     }).toList();
-    // 2) Kategorie.
-    final list = _cats.isEmpty
+    // 2) „V okolí výběru" — po výběru bodu nabídne další body do X km od něj
+    //    (vybrané zůstávají vidět vždy). Kategorie se filtrují až nad tím.
+    const dist = Distance();
+    final selPts = _nearbyOn && _selected.isNotEmpty
+        ? all
+            .where((e) => _selected.contains(e.key) && e.latLng != null)
+            .map((e) => e.latLng!)
+            .toList()
+        : const <LatLng>[];
+    double nearestSel(PoiEntry e) {
+      var best = double.infinity;
+      for (final p in selPts) {
+        final d = dist.as(LengthUnit.Meter, p, e.latLng!);
+        if (d < best) best = d;
+      }
+      return best;
+    }
+    final nearFiltered = selPts.isEmpty
         ? sourceFiltered
-        : sourceFiltered.where((e) => _cats.contains(_catOf(e.poi))).toList();
-    if (me != null) {
-      const d = Distance();
-      list.sort((a, b) => d
+        : sourceFiltered
+            .where((e) =>
+                _selected.contains(e.key) ||
+                (e.latLng != null && nearestSel(e) <= _nearbyKm * 1000))
+            .toList();
+    // 3) Kategorie.
+    final list = _cats.isEmpty
+        ? nearFiltered
+        : nearFiltered.where((e) => _cats.contains(poiCategoryOf(e.poi))).toList();
+    if (selPts.isNotEmpty) {
+      // Řazení od vybraných bodů — nejbližší návrhy nahoře.
+      list.sort((a, b) => nearestSel(a).compareTo(nearestSel(b)));
+    } else if (me != null) {
+      list.sort((a, b) => dist
           .as(LengthUnit.Meter, me, a.latLng!)
-          .compareTo(d.as(LengthUnit.Meter, me, b.latLng!)));
+          .compareTo(dist.as(LengthUnit.Meter, me, b.latLng!)));
     }
 
     // Trasy, které mají aspoň jeden POI (pro filtr).
@@ -191,7 +138,7 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
         child: Column(
           children: [
             _header(context),
-            _filters(context, lang, routesWithPois.values.toList(), all, sourceFiltered),
+            _filters(context, lang, routesWithPois.values.toList(), all, nearFiltered),
             Expanded(
               child: list.isEmpty
                   ? _empty(context)
@@ -297,14 +244,15 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
       List<PoiEntry> all, List<PoiEntry> sourceFiltered) {
     final communityCount = all.where((e) => e.isCommunity).length;
     final catalogCount = all.where((e) => e.catalog).length;
-    if (routes.length < 2 && communityCount == 0 && catalogCount == 0) {
+    if (routes.length < 2 && communityCount == 0 && catalogCount == 0 &&
+        _selected.isEmpty) {
       return const SizedBox(height: 8);
     }
 
     // Počty kategorií z aktuálního zdroje (bez zapnutých kategorií).
     final catCounts = <String, int>{};
     for (final e in sourceFiltered) {
-      final c = _catOf(e.poi);
+      final c = poiCategoryOf(e.poi);
       catCounts[c] = (catCounts[c] ?? 0) + 1;
     }
 
@@ -327,6 +275,20 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
             clipBehavior: Clip.none,
             padding: const EdgeInsets.fromLTRB(16, 10, 16, 2),
             children: [
+              // „V okolí výběru" — objeví se, jakmile je vybraný aspoň 1 bod.
+              if (_selected.isNotEmpty)
+                _srcChip(
+                  '${t(context).tr('poiNearby')} ${_nearbyKm.round()} km',
+                  Icons.radar,
+                  _nearbyOn,
+                  null,
+                  () => setState(() => _nearbyOn = !_nearbyOn),
+                ),
+              if (_selected.isNotEmpty && _nearbyOn)
+                for (final km in _nearbyKmOptions)
+                  _srcChip('${km.round()} km', Icons.circle_outlined,
+                      _nearbyKm == km, null,
+                      () => setState(() => _nearbyKm = km)),
               _srcChip(t(context).tr('poiAllRoutes'), Icons.apps, _routeFilter == null,
                   all.length, () => setState(() => _routeFilter = null)),
               if (catalogCount > 0)
@@ -357,7 +319,7 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
             clipBehavior: Clip.none,
             padding: const EdgeInsets.fromLTRB(16, 6, 16, 4),
             children: [
-              for (final c in _catDefs)
+              for (final c in kPoiCats)
                 if ((catCounts[c.key] ?? 0) > 0 || _cats.contains(c.key))
                   _catChip(context, c, catCounts[c.key] ?? 0),
             ],
@@ -430,7 +392,7 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
     );
   }
 
-  Widget _catChip(BuildContext context, _PoiCat c, int count) {
+  Widget _catChip(BuildContext context, PoiCat c, int count) {
     final active = _cats.contains(c.key);
     return Padding(
       padding: const EdgeInsets.only(right: 8),
@@ -895,12 +857,4 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
       ),
     );
   }
-}
-
-/// Definice kategorie bodů zájmu (klíč + emoji + i18n klíč popisku).
-class _PoiCat {
-  final String key;
-  final String emoji;
-  final String i18nKey;
-  const _PoiCat(this.key, this.emoji, this.i18nKey);
 }
