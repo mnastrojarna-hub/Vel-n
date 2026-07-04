@@ -157,7 +157,11 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
     final route = _route;
     if (me == null || route == null) return;
     _navLoading = true;
-    final loopBack = route.isLoop ? _branch?.latLng : null;
+    // Okruh se vrací na pobočku jen když je poblíž trasy — u vzdálené
+    // (zahraniční) trasy se návrat přes půl Evropy neplánuje.
+    final loopBack = route.isLoop && startIsNearRoute(route, _branch?.latLng)
+        ? _branch?.latLng
+        : null;
     final pts = navPointsFrom(me, route, loopBack);
     if (pts.length < 2) {
       _navLoading = false;
@@ -302,8 +306,9 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
     final nextPoi = _nearestPoi(route, _me);
 
     final initialCenter = _me ??
+        (geometry.isNotEmpty ? geometry.first : null) ??
         branch?.latLng ??
-        (geometry.isNotEmpty ? geometry.first : const LatLng(49.3464, 15.2119));
+        const LatLng(49.3464, 15.2119);
 
     return Stack(
       children: [

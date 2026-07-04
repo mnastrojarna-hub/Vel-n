@@ -53,7 +53,8 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
     final displayAsync = ref.watch(routeDisplayProvider(route.id));
     final display = displayAsync.valueOrNull;
     final geometry = display?.geometry ?? route.geometry;
-    final mapStart = display?.start ?? branch?.latLng;
+    final mapStart = display?.start ??
+        (startIsNearRoute(route, branch?.latLng) ? branch?.latLng : null);
     final poiMarkers = <({LatLng point, int index})>[];
     for (var i = 0; i < route.pois.length; i++) {
       final ll = route.pois[i].latLng;
@@ -197,7 +198,7 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
             decoration: TextDecoration.none,
           ),
         ),
-        if (branch != null)
+        if (branch != null && startIsNearRoute(route, branch.latLng))
           Padding(
             padding: const EdgeInsets.only(top: 4),
             child: Row(
