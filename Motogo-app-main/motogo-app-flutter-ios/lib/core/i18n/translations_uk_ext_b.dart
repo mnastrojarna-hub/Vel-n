@@ -211,6 +211,8 @@ const translationsUkExt11 = <String, Map<String, String>>{
     'routeReviewErr': 'Не вдалося зберегти відгук',
     'routeReviewCountSuffix': 'відгуків',
     'poiPhotoSuffix': 'фото',
+    'poiPhotoCredit': 'Фото з Wikimedia Commons — автор і ліцензія на сторінці джерела.',
+    'poiPhotoCreditOpen': 'Показати джерело',
     'routeReviewAnonymous': 'Мотоцикліст',
   },
 };

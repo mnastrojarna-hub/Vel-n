@@ -1,0 +1,95 @@
+name: Deploy SQL migrations
+
+# Automaticke nasazovani SQL migraci do Supabase po merge do main.
+# Obdoba deploy-functions.yml, ale pro supabase/migrations/*.sql.
+#
+# Jak to funguje:
+#   - V DB se vede evidencni tabulka public._git_migrations (filename PK).
+#   - Workflow projde soubory supabase/migrations/*.sql v abecednim poradi
+#     a aplikuje JEN ty, ktere jeste v evidenci nejsou. Kazdy soubor bezi
+#     v jedne transakci (ON_ERROR_STOP) - pri chybe se nic zpola neaplikuje
+#     a workflow spadne (dalsi soubory se nespousti).
+#
+# PRVNI SPUSTENI (POVINNE, jednorazove):
+#   Actions -> Deploy SQL migrations -> Run workflow -> baseline = true
+#   Tim se vsechny SOUCASNE soubory jen zaeviduji jako aplikovane (nic se
+#   nespusti) - historicke migrace uz v DB jsou rucne. Bez baseline se
+#   workflow odmitne spustit, aby se stare migrace omylem neaplikovaly znovu.
+#
+# Pozadovany GitHub secret (uz existuje pro daily-backup.yml):
+#   SUPABASE_DB_URL = postgresql://postgres:<HESLO>@db.<ref>.supabase.co:5432/postgres
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "supabase/migrations/**.sql"
+  workflow_dispatch:
+    inputs:
+      baseline:
+        description: "Jen zaevidovat existujici soubory jako aplikovane (NIC nespoustet)"
+        type: boolean
+        default: false
+      only:
+        description: "Volitelne: aplikovat jen soubory, jejichz nazev obsahuje tento retezec"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-sql
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Aplikuj nove migrace
+        env:
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          BASELINE: ${{ inputs.baseline }}
+          ONLY: ${{ inputs.only }}
+        run: |
+          set -euo pipefail
+          psql_q() { psql "$DB_URL" -v ON_ERROR_STOP=1 -qtA -c "$1"; }
+
+          # Guard: bez evidencni tabulky smi bezet jen baseline rezim -
+          # jinak by se vsechny historicke (rucne aplikovane) migrace
+          # spustily znovu.
+          has_table=$(psql_q "select count(*) from information_schema.tables
+                              where table_schema='public' and table_name='_git_migrations'")
+          if [ "$has_table" = "0" ] && [ "${BASELINE:-false}" != "true" ]; then
+            echo "::error::Evidencni tabulka _git_migrations neexistuje. Spust nejdriv workflow rucne s baseline=true (zaeviduje soucasne soubory bez spousteni)."
+            exit 1
+          fi
+
+          psql_q "create table if not exists public._git_migrations (
+                    filename   text primary key,
+                    applied_at timestamptz not null default now(),
+                    baseline   boolean not null default false)" >/dev/null
+
+          applied=0; skipped=0
+          for f in $(ls supabase/migrations/*.sql | sort); do
+            base=$(basename "$f")
+            if [ -n "${ONLY:-}" ] && [[ "$base" != *"$ONLY"* ]]; then
+              continue
+            fi
+            exists=$(psql_q "select count(*) from public._git_migrations where filename='$base'")
+            if [ "$exists" != "0" ]; then
+              skipped=$((skipped+1)); continue
+            fi
+            if [ "${BASELINE:-false}" = "true" ]; then
+              psql_q "insert into public._git_migrations(filename, baseline) values ('$base', true)" >/dev/null
+              echo "BASELINE  $base"
+            else
+              echo "APPLYING  $base"
+              psql "$DB_URL" -v ON_ERROR_STOP=1 --single-transaction -f "$f"
+              psql_q "insert into public._git_migrations(filename) values ('$base')" >/dev/null
+            fi
+            applied=$((applied+1))
+          done
+          echo "Hotovo: zpracovano=$applied, preskoceno(uz aplikovane)=$skipped"
