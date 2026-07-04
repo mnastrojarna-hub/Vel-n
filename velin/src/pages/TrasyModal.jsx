@@ -45,7 +45,12 @@ export async function computeGeometry(branch, waypoints, routeType) {
       pts.push([Number(w.lng), Number(w.lat)])
     }
   }
-  if (routeType === 'loop' && hasBranch) pts.push([Number(branch.gps_lng), Number(branch.gps_lat)])
+  // Okruh se uzavírá zpět na první bod trasy (pokud už uzavřený není)
+  if (routeType === 'loop' && pts.length >= 2) {
+    const first = pts[0]
+    const last = pts[pts.length - 1]
+    if (first[0] !== last[0] || first[1] !== last[1]) pts.push([first[0], first[1]])
+  }
   if (pts.length < 2) return null
 
   const start = pts[0]
@@ -82,10 +87,9 @@ export async function computeGeometry(branch, waypoints, routeType) {
 const emptyWaypoint = () => ({ lat: '', lng: '', label: '' })
 const emptyPoi = () => ({ name: '', description: '', lat: '', lng: '', image_url: '', images: [] })
 
-export default function TrasyModal({ existing, branches, onClose, onSaved }) {
+export default function TrasyModal({ existing, onClose, onSaved }) {
   const isEdit = !!existing
   const [form, setForm] = useState({
-    branch_id: existing?.branch_id || (branches[0]?.id || ''),
     name: existing?.name || '',
     description: existing?.description || '',
     route_type: existing?.route_type || 'loop',
@@ -117,7 +121,6 @@ export default function TrasyModal({ existing, branches, onClose, onSaved }) {
   const [showLinkHelp, setShowLinkHelp] = useState(false)
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
-  const branch = branches.find(b => b.id === form.branch_id)
 
   // Načti existující POI při editaci
   useEffect(() => {
@@ -138,14 +141,14 @@ export default function TrasyModal({ existing, branches, onClose, onSaved }) {
   }, [])
 
   // Náhled SKUTEČNÉ trasy po silnici na mapě + dopočet délky/času přes Mapy.com
-  // routing (debounced). Reaguje na změnu waypointů, pobočky i typu trasy.
+  // routing (debounced). Reaguje na změnu waypointů i typu trasy.
   useEffect(() => {
     if (!showMap) return
     const wp = waypoints.filter(w => w.lat !== '' && w.lng !== '' && !isNaN(Number(w.lat)) && !isNaN(Number(w.lng)))
     if (wp.length < 2) { setGeometry(null); return }
     let cancelled = false
     const tid = setTimeout(async () => {
-      const geo = await computeGeometry(branch, wp, form.route_type)
+      const geo = await computeGeometry(null, wp, form.route_type)
       if (cancelled || !geo) return
       if (geo.coordinates) setGeometry({ coordinates: geo.coordinates })
       setForm(f => ({
@@ -156,7 +159,7 @@ export default function TrasyModal({ existing, branches, onClose, onSaved }) {
     }, 600)
     return () => { cancelled = true; clearTimeout(tid) }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [waypoints, showMap, form.route_type, form.branch_id])
+  }, [waypoints, showMap, form.route_type])
 
   // ── Waypoints helpers ──
   const setWp = (i, k, v) => setWaypoints(ws => ws.map((w, idx) => idx === i ? { ...w, [k]: v } : w))
@@ -275,7 +278,6 @@ export default function TrasyModal({ existing, branches, onClose, onSaved }) {
 
   async function handleSave() {
     if (!form.name?.trim()) { setErr('Název trasy je povinný.'); return }
-    if (!form.branch_id) { setErr('Vyberte pobočku, od které trasa vede.'); return }
     setSaving(true); setErr(null)
     try {
       const cleanWp = waypoints
@@ -284,12 +286,11 @@ export default function TrasyModal({ existing, branches, onClose, onSaved }) {
 
       // Geometrie přes Mapy.com (best-effort, cache do DB)
       setSavingNote('Počítám trasu v mapách…')
-      const geo = await computeGeometry(branch, cleanWp, form.route_type)
+      const geo = await computeGeometry(null, cleanWp, form.route_type)
       setSavingNote('Ukládám…')
 
       const { data: { user } } = await supabase.auth.getUser()
       const payload = {
-        branch_id: form.branch_id,
         name: form.name.trim(),
         description: form.description?.trim() || null,
         route_type: form.route_type,
@@ -316,7 +317,7 @@ export default function TrasyModal({ existing, branches, onClose, onSaved }) {
         isEdit
           ? supabase.from('routes').update(payload).eq('id', existing.id).select().single()
           : supabase.from('routes').insert(payload).select().single()
-      , { name: payload.name, branch_id: payload.branch_id })
+      , { name: payload.name })
       if (result?.error) {
         const m = result.error.message || 'Neznámá chyba'
         throw new Error(m + (result.error.code === '42501' ? ' — Zkontrolujte RLS politiky v Supabase.' : ''))
@@ -372,20 +373,12 @@ export default function TrasyModal({ existing, branches, onClose, onSaved }) {
   return (
     <Modal open title={isEdit ? `Upravit trasu: ${existing.name}` : 'Nová trasa'} onClose={onClose} wide>
       <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className={lbl} style={{ color: '#1a2e22' }}>Pobočka *</label>
-          <select value={form.branch_id} onChange={e => set('branch_id', e.target.value)}
-            className="w-full rounded-btn text-sm outline-none" style={inputStyle}>
-            <option value="">— vyberte pobočku —</option>
-            {branches.map(b => <option key={b.id} value={b.id}>{b.name}{b.city ? `, ${b.city}` : ''}</option>)}
-          </select>
-        </div>
         <FormField label="Název trasy *" value={form.name} onChange={v => set('name', v)} />
         <div>
           <label className={lbl} style={{ color: '#1a2e22' }}>Typ trasy</label>
           <select value={form.route_type} onChange={e => set('route_type', e.target.value)}
             className="w-full rounded-btn text-sm outline-none" style={inputStyle}>
-            <option value="loop">Okruh (zpět na pobočku)</option>
+            <option value="loop">Okruh (návrat na start)</option>
             <option value="poi">Za body zájmu</option>
           </select>
         </div>
@@ -452,13 +445,7 @@ export default function TrasyModal({ existing, branches, onClose, onSaved }) {
         </div>
         {showMap && (
           <>
-            {!branch?.gps_lat && (
-              <p className="text-xs mb-2" style={{ color: '#b45309' }}>
-                Tato pobočka nemá v Pobočkách vyplněné GPS — start trasy se na mapě nezobrazí, ale body jdou přidávat normálně.
-              </p>
-            )}
             <TrasyMapPicker
-              start={branch?.gps_lat != null && branch?.gps_lng != null ? { lat: branch.gps_lat, lng: branch.gps_lng } : null}
               waypoints={waypoints}
               pois={pois}
               geometry={geometry}
@@ -479,7 +466,7 @@ export default function TrasyModal({ existing, branches, onClose, onSaved }) {
           <Button small onClick={addWp}>+ Bod</Button>
         </div>
         <p className="text-xs mb-2" style={{ color: '#6b8f7b' }}>
-          Souřadnice ve směru jízdy. Trasa začíná na pobočce{form.route_type === 'loop' ? ' a okruhem se na ni vrací' : ''}.
+          Souřadnice ve směru jízdy — první bod je start trasy{form.route_type === 'loop' ? ' a okruh se na něj vrací' : ''}.
           Geometrie se po uložení spočítá přes Mapy.com.
         </p>
         {waypoints.map((w, i) => (
@@ -581,7 +568,7 @@ export default function TrasyModal({ existing, branches, onClose, onSaved }) {
       <div className="flex justify-end items-center gap-3 mt-5">
         {saving && savingNote && <span className="text-sm" style={{ color: '#6b8f7b' }}>{savingNote}</span>}
         <Button onClick={onClose}>Zrušit</Button>
-        <Button green onClick={handleSave} disabled={saving || !form.name?.trim() || !form.branch_id}>
+        <Button green onClick={handleSave} disabled={saving || !form.name?.trim()}>
           {saving ? 'Ukládám…' : isEdit ? 'Uložit změny' : 'Vytvořit trasu'}
         </Button>
       </div>
