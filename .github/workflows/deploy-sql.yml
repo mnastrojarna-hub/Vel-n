@@ -34,6 +34,10 @@ on:
         description: "Volitelne: aplikovat jen soubory, jejichz nazev obsahuje tento retezec"
         required: false
         default: ""
+      force:
+        description: "Aplikovat soubory vyhovujici 'only' i kdyz uz jsou v evidenci (napr. baseline je zaevidoval bez spusteni). Vyzaduje vyplnene 'only'."
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -46,13 +50,14 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Aplikuj nove migrace
         env:
           DB_URL: ${{ secrets.SUPABASE_DB_URL }}
           BASELINE: ${{ inputs.baseline }}
           ONLY: ${{ inputs.only }}
+          FORCE: ${{ inputs.force }}
         run: |
           set -euo pipefail
           psql_q() { psql "$DB_URL" -v ON_ERROR_STOP=1 -qtA -c "$1"; }
@@ -72,6 +77,15 @@ jobs:
                     applied_at timestamptz not null default now(),
                     baseline   boolean not null default false)" >/dev/null
 
+          # FORCE: znovu aplikuje soubory vyhovujici ONLY, i kdyz uz jsou
+          # v evidenci (typicky po baseline, ktery je zaevidoval BEZ spusteni).
+          # Bezpecnostni podminka: FORCE vyzaduje neprazdne ONLY, aby neslo
+          # omylem preaplikovat vsech ~100 migraci najednou.
+          if [ "${FORCE:-false}" = "true" ] && [ -z "${ONLY:-}" ]; then
+            echo "::error::force=true vyzaduje vyplnene 'only' (filtr souboru)."
+            exit 1
+          fi
+
           applied=0; skipped=0
           for f in $(ls supabase/migrations/*.sql | sort); do
             base=$(basename "$f")
@@ -79,16 +93,18 @@ jobs:
               continue
             fi
             exists=$(psql_q "select count(*) from public._git_migrations where filename='$base'")
-            if [ "$exists" != "0" ]; then
+            if [ "$exists" != "0" ] && [ "${FORCE:-false}" != "true" ]; then
               skipped=$((skipped+1)); continue
             fi
             if [ "${BASELINE:-false}" = "true" ]; then
-              psql_q "insert into public._git_migrations(filename, baseline) values ('$base', true)" >/dev/null
+              psql_q "insert into public._git_migrations(filename, baseline) values ('$base', true)
+                      on conflict (filename) do nothing" >/dev/null
               echo "BASELINE  $base"
             else
               echo "APPLYING  $base"
               psql "$DB_URL" -v ON_ERROR_STOP=1 --single-transaction -f "$f"
-              psql_q "insert into public._git_migrations(filename) values ('$base')" >/dev/null
+              psql_q "insert into public._git_migrations(filename) values ('$base')
+                      on conflict (filename) do update set applied_at = now(), baseline = false" >/dev/null
             fi
             applied=$((applied+1))
           done
