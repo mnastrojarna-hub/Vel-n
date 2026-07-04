@@ -171,7 +171,7 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
                   const SizedBox(height: 22),
                   _sectionTitle(t(context).tr('routeGalleryHeader')),
                   const SizedBox(height: 10),
-                  _gallery(route),
+                  _gallery(context, route, lang),
                 ],
                 const SizedBox(height: 24),
                 RouteReviewsSection(routeId: route.id),
@@ -347,28 +347,33 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
     );
   }
 
-  Widget _gallery(RouteItem route) {
+  // Galerie trasy — klik na náhled otevře fullscreen prohlížeč (stejný jako
+  // u bodů zájmu: listování, zoom, kredit fotky přes mini ikonku © v rohu).
+  Widget _gallery(BuildContext context, RouteItem route, String lang) {
     return SizedBox(
       height: 120,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: route.images.length,
         separatorBuilder: (_, __) => const SizedBox(width: 10),
-        itemBuilder: (context, i) => ClipRRect(
-          borderRadius: BorderRadius.circular(MotoGoRadius.xl),
-          child: RouteImage(
-            url: route.images[i],
-            width: 170,
-            height: 120,
-            targetWidth: 400,
-            placeholder: (_) => Container(
+        itemBuilder: (context, i) => GestureDetector(
+          onTap: () => openPoiImageViewer(context, route.images, i, lang),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(MotoGoRadius.xl),
+            child: RouteImage(
+              url: route.images[i],
               width: 170,
-              color: MotoGoColors.greenPale,
-            ),
-            error: (_) => Container(
-              width: 170,
-              color: MotoGoColors.greenPale,
-              child: const Center(child: Text('🏞️', style: TextStyle(fontSize: 28))),
+              height: 120,
+              targetWidth: 400,
+              placeholder: (_) => Container(
+                width: 170,
+                color: MotoGoColors.greenPale,
+              ),
+              error: (_) => Container(
+                width: 170,
+                color: MotoGoColors.greenPale,
+                child: const Center(child: Text('🏞️', style: TextStyle(fontSize: 28))),
+              ),
             ),
           ),
         ),
