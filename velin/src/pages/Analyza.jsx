@@ -13,7 +13,7 @@ import AppRezervacniFunnel from './analyza/AppRezervacniFunnel'
 import Navstevnost from './analyza/Navstevnost'
 import AplikaceStats from './analyza/AplikaceStats'
 import AiTraffic from './analyza/AiTraffic'
-import AiPublicConversations from './analyza/AiPublicConversations'
+import AiConversations from './analyza/AiConversations'
 import Statistics from './Statistics'
 
 const TABS = ['Výkon poboček', 'Výkon motorek', 'Nájezd km', 'Poptávka kategorií', 'Optimální flotila', 'Doporučení přesunů', 'Doporučení lokací', 'Zákazníci', 'Web funnel', 'App funnel', 'Návštěvnost', 'Aplikace', 'AI traffic', 'AI konverzace', 'Statistiky']
@@ -60,7 +60,7 @@ export default function Analyza() {
       {tab === 'Návštěvnost' && <Navstevnost />}
       {tab === 'Aplikace' && <AplikaceStats />}
       {tab === 'AI traffic' && <AiTraffic />}
-      {tab === 'AI konverzace' && <AiPublicConversations />}
+      {tab === 'AI konverzace' && <AiConversations />}
       {tab === 'Statistiky' && <Statistics />}
     </div>
   )

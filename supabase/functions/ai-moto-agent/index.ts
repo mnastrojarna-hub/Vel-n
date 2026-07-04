@@ -225,6 +225,54 @@ Zákazník nemá aktivní rezervaci nebo se nepodařilo načíst data. Při dota
       reply = finalText.replace(/---JSON---[\s\S]*?---END---/, '').trim()
     }
 
+    // -- Log konverzace do ai_customer_conversations (Velín → Analýza → AI konverzace) --
+    // Appka posílá celou historii při každé zprávě: prázdná historie = nová
+    // konverzace (INSERT), jinak se přepíše poslední konverzace uživatele.
+    try {
+      const MSG_CAP = 8000
+      const historyMsgs = (Array.isArray(conversation_history) ? conversation_history : [])
+        .filter((m: { role?: string; content?: unknown }) =>
+          (m?.role === 'user' || m?.role === 'assistant') && typeof m?.content === 'string')
+        .map((m: { role: string; content: string }) => ({
+          role: m.role,
+          content: m.content.slice(0, MSG_CAP),
+        }))
+      const userContent = hasImages ? `[${images.length}× foto] ${message}` : message
+      const fullMessages = [
+        ...historyMsgs,
+        { role: 'user', content: String(userContent).slice(0, MSG_CAP) },
+        { role: 'assistant', content: reply.slice(0, MSG_CAP) },
+      ]
+
+      let updatedId: string | null = null
+      if (historyMsgs.length > 0) {
+        const { data: last } = await supabaseAdmin
+          .from('ai_customer_conversations')
+          .select('id')
+          .eq('user_id', user.id)
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        if (last) {
+          const { error: updErr } = await supabaseAdmin
+            .from('ai_customer_conversations')
+            .update({ messages: fullMessages, ...(booking_id ? { booking_id } : {}) })
+            .eq('id', last.id)
+          if (!updErr) updatedId = last.id
+        }
+      }
+      if (!updatedId) {
+        await supabaseAdmin.from('ai_customer_conversations').insert({
+          user_id: user.id,
+          title: String(message).slice(0, 80),
+          messages: fullMessages,
+          booking_id: booking_id || null,
+        })
+      }
+    } catch (logErr) {
+      console.error('ai-moto-agent: conversation log error', logErr)
+    }
+
     return new Response(JSON.stringify({ reply, suggest_sos }), {
       headers: { ...CORS, 'Content-Type': 'application/json' },
     })
