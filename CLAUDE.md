@@ -24,11 +24,32 @@ Toto je soustava propojených aplikací pro MotoGo24 (půjčovna motorek):
 - **supabase/** — Backend: Edge Functions + SQL migrace
 - **doc-scanner/** - Mobilní capacitor vstup pro účetní přijaté dokumenty všeho druhu do velínu
 
+## Nasazení (autodeploy přes git — NIC se nenasazuje ručně)
+
+**Merge do `main` = živé nasazení.** Supabase se nasazuje přes GitHub Actions pomocí tokenů uložených v repo secrets (Settings → Secrets and variables → Actions). Project ref: `vnwnqteskbykeucanlhk`.
+
+| Co | Workflow | Trigger | Secret |
+|---|---|---|---|
+| Velín (React) | Vercel | push do `main` | — (spravuje Vercel) |
+| Edge funkce | `.github/workflows/deploy-functions.yml` | push do `main` v `supabase/functions/**` nebo `config.toml` | `ACCESS_TOKEN` = Supabase personal access token (CLI ho čte jako `SUPABASE_ACCESS_TOKEN`) |
+| SQL migrace | `.github/workflows/deploy-sql.yml` | push do `main` v `supabase/migrations/**.sql` | `SUPABASE_DB_URL` = postgres connection string |
+
+**Jak funguje SQL autodeploy (`deploy-sql.yml`):**
+- Evidence aplikovaných souborů drží DB tabulka `public._git_migrations` (filename PK). Workflow projde `supabase/migrations/*.sql` abecedně a aplikuje JEN soubory, které v evidenci nejsou — každý v jedné transakci (`ON_ERROR_STOP`), při chybě se nic zpola neaplikuje a workflow spadne.
+- Chybující migrace **blokuje všechny další** — opakuje se při každém dalším pushi do migrations, dokud se neopraví. Proto: migrace commitovaná do main MUSÍ být finální, validní a idempotentní; název souboru po aplikaci neměnit (evidence je dle filename).
+- Ruční běh (Actions → Run workflow) má vstupy `baseline` (jen zaevidovat bez spuštění), `only` (filtr na název) a `force` (re-aplikace souborů vyhovujících `only`).
+
+**Edge funkce (`deploy-functions.yml`):** nasazuje VŠECHNY funkce z repa přes Supabase CLI, `verify_jwt` bere z `supabase/config.toml` (žádný fallback na true). Funkce existující jen v dashboardu (cron-*, …) se netknou.
+
+**Ostatní workflows:** `snapshot-supabase.yml` (ruční snapshot živého stavu do větve `supabase-live-snapshot` pro diff s main), `daily-backup.yml` (denně 6:00 kompletní šifrovaná záloha DB + Storage + git).
+
+**Kontrola/rotace tokenů:** platnost se ověřuje podle výsledků běhů v Actions (zelený deploy = token platí). Nový Supabase PAT: https://supabase.com/dashboard/account/tokens → vložit do repo secretu `ACCESS_TOKEN`; DB heslo → `SUPABASE_DB_URL`.
+
 ## Pravidla
 
 1. **NIKDY neměň UX, UI ani flow** pokud to uživatel výslovně nepožaduje
 2. **pro celý repozitář:** Maximálně 5000 tokenů na soubor pokud je to technicky možné a neomezí to funkčnost.
-3. **SQL změny:** Vždy dej SQL příkazy jako text do chatu, NIKDY rovnou do gitu. Až po implementaci a ověření commitni
+3. **SQL změny:** Vždy dej SQL příkazy jako text do chatu, NIKDY rovnou do gitu. Až po implementaci a ověření commitni. POZOR: merge migrace do `main` ji přes `deploy-sql.yml` automaticky aplikuje na živou DB (viz Nasazení)
 4. **SUPABASE_BACKEND_STATE_*.md:** Po každé SQL změně MUSÍŠ aktualizovat příslušný soubor (1-6)
 5. **Backend first:** Před každou frontendovou změnou ověř, že backend (tabulky, RLS, funkce) podporuje požadovanou funkcionalitu
 
