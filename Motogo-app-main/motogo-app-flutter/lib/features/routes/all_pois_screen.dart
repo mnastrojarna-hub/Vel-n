@@ -52,10 +52,45 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
   // „hrad" jen na začátku slova — jinak chytá „zahrada" i „přehrada".
   static final RegExp _reHrad = RegExp(r'\bhrad');
 
+  /// Známé klíče kategorií (pro validaci explicitní hodnoty z backendu).
+  static const Set<String> _catKeys = {
+    'food', 'castle', 'lookout', 'water', 'sights', 'nature', 'other'
+  };
+
+  // Klíčová slova (bez diakritiky, malá písmena). Kryjí i SK/PL/DE/AT varianty.
+  static const List<String> _kwFood = [
+    'restaur', 'hospod', 'hostin', 'pivovar', 'kavar', 'cafe', 'cukrar',
+    'obcerstv', 'bistro', 'motorest', 'vinar', 'grill', 'pizz', 'krcma',
+    'koliba', 'salas', 'bufet', 'gostiln', 'gasthof', 'gasthaus', 'brauhaus'
+  ];
+  static const List<String> _kwCastle = [
+    'zamek', 'zamec', 'zamok', 'zricen', 'tvrz', 'palac', 'castle', 'schloss',
+    'pevnost', 'hradisk', 'hradisc', 'burg', 'chateau', 'castel', 'citadel'
+  ];
+  static const List<String> _kwLookout = [
+    'rozhled', 'vyhlid', 'vyhled', 'vez', 'aussicht', 'panorama'
+  ];
+  static const List<String> _kwWater = [
+    'prehrad', 'priehrad', 'rybnik', 'jezer', 'jazer', 'vodopad', 'nadrz',
+    'plaz', 'splav', 'soutok', 'see', 'loch', 'fjord', 'lago', 'jazior'
+  ];
+  static const List<String> _kwSights = [
+    'kostel', 'klaster', 'klastor', 'kaple', 'kaplnk', 'katedral', 'bazilik',
+    'poutni', 'pamatnik', 'pamatn', 'muzeum', 'muzej', 'museum', 'synagog',
+    'mohyla', 'pomnik', 'betlem', 'krizov', 'rotund', 'namesti', 'namest',
+    'hrobka', 'skanzen', 'radnice', 'chram', 'opatstv', 'sgrafit'
+  ];
+  static const List<String> _kwNature = [
+    'jeskyn', 'jaskyn', 'propast', 'skal', 'prales', 'park', 'vrch', 'hora',
+    'sedlo', 'prusmyk', 'priesmyk', 'soutesk', 'udol', 'dolin', 'pramen',
+    'zahrad', 'steny', 'stena', 'kamen', 'ostrov', 'pleso', 'plesa', 'kopec',
+    'klamm', 'kanon', 'rezerv', 'jezirk', 'diery'
+  ];
+
   /// Odstranění diakritiky pro porovnávání klíčových slov.
   static String _fold(String s) {
-    const from = 'áäàâčćďéěèêíìîïľĺňóöôřšťúůüýžź';
-    const to = 'aaaaccdeeeeiiiillnooorstuuuyzz';
+    const from = 'áäàâčćďéěèêíìîïľĺňñóöòôřšśťúůüýžźż';
+    const to = 'aaaaccdeeeeiiiillnnoooorsstuuuyzzz';
     final b = StringBuffer();
     for (final ch in s.toLowerCase().split('')) {
       final i = from.indexOf(ch);
@@ -64,15 +99,27 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
     return b.toString();
   }
 
+  /// Kategorie bodu zájmu. Přednost má explicitní `category` z backendu; jinak
+  /// se odvodí z NÁZVU (spolehlivé — „Zámek …", „Rozhledna …", „Restaurace …")
+  /// a teprve když název mlčí, z popisu. „Jídlo a pití" se z popisu NEODVOZUJE:
+  /// skoro každý popis zmiňuje kavárnu/restauraci poblíž, což dřív házelo hrady
+  /// a rozhledny do kategorie jídla (např. zámek Jindřichův Hradec).
   static String _catOf(RoutePoi p) {
-    final n = _fold('${p.name} ${p.description ?? ''}');
+    final explicit = p.category?.toLowerCase();
+    if (explicit != null && _catKeys.contains(explicit)) return explicit;
+    final byName = _catByText(_fold(p.name), allowFood: true);
+    if (byName != 'other') return byName;
+    return _catByText(_fold(p.description ?? ''), allowFood: false);
+  }
+
+  static String _catByText(String n, {required bool allowFood}) {
     bool has(List<String> ks) => ks.any(n.contains);
-    if (has(const ['restaur', 'hospod', 'hostin', 'pivovar', 'kavar', 'cafe', 'cukrar', 'obcerstv', 'bistro', 'motorest', 'vinar', 'grill', 'pizz'])) return 'food';
-    if (_reHrad.hasMatch(n) || has(const ['zamek', 'zamec', 'zricen', 'tvrz', 'palac', 'castle', 'schloss'])) return 'castle';
-    if (has(const ['rozhled', 'vyhlid', 'vyhled', 'vez'])) return 'lookout';
-    if (has(const ['prehrad', 'rybnik', 'jezer', 'vodopad', 'nadrz', 'plaz', 'splav', 'soutok'])) return 'water';
-    if (has(const ['kostel', 'klaster', 'kaple', 'katedral', 'bazilik', 'poutni', 'pamatnik', 'muzeum', 'synagog', 'mohyla', 'pomnik', 'betlem', 'krizov'])) return 'sights';
-    if (has(const ['jeskyn', 'propast', 'skal', 'prales', 'park', 'vrch', 'hora', 'sedlo', 'prusmyk', 'soutesk', 'udol', 'pramen', 'zahrad'])) return 'nature';
+    if (allowFood && has(_kwFood)) return 'food';
+    if (_reHrad.hasMatch(n) || has(_kwCastle)) return 'castle';
+    if (has(_kwLookout)) return 'lookout';
+    if (has(_kwWater)) return 'water';
+    if (has(_kwSights)) return 'sights';
+    if (has(_kwNature)) return 'nature';
     return 'other';
   }
 
