@@ -79,44 +79,54 @@ const EXT: Record<string, string> = {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
-/// Stáhne fotku — nejdřív zmenšeninu (?width=), při neúspěchu originál.
-/// Retry na 429/5xx/síťové chyby (Wikimedia z datacentra škrtí). Vrací bajty
-/// nebo důvod selhání (pro diagnostiku).
-async function fetchWiki(url: string): Promise<{ bytes: Uint8Array; type: string } | { err: string }> {
+type FetchOk = { bytes: Uint8Array; type: string }
+type FetchErr = { err: string; permanent: boolean }
+
+/// Jedno stažení z jedné URL. Vrací bajty, HTTP status (číslo), nebo síťovou chybu.
+async function tryFetch(u: string, headers: Record<string, string>): Promise<FetchOk | { status: number } | { neterr: string }> {
+  try {
+    const r = await fetch(u, { headers, redirect: 'follow' })
+    if (!r.ok) { await r.body?.cancel().catch(() => {}); return { status: r.status } }
+    const type = (r.headers.get('content-type') || 'image/jpeg').split(';')[0].trim()
+    if (!type.startsWith('image/')) { await r.body?.cancel().catch(() => {}); return { status: 415 } }
+    const bytes = new Uint8Array(await r.arrayBuffer())
+    if (bytes.length < 100) return { status: 422 }
+    return { bytes, type }
+  } catch (e) {
+    return { neterr: String(e).slice(0, 40) }
+  }
+}
+
+/// Stáhne + zmenší fotku. Přednostně přes proxy images.weserv.nl (stahuje ze
+/// své infrastruktury s dobrou reputací → Wikimedia neškrtí jako cloud IP a
+/// rovnou zmenší), fallback přímo na Wikimedia (?width= i originál). Rozlišuje
+/// trvalé selhání (404/415/422 — nemá smysl opakovat) od dočasného (429/5xx/net).
+async function fetchWiki(url: string): Promise<FetchOk | FetchErr> {
   const sep = url.includes('?') ? '&' : '?'
-  const variants = [`${url}${sep}width=${THUMB_WIDTH}`, url]
+  const candidates: Array<{ u: string; h: Record<string, string> }> = [
+    { u: `https://images.weserv.nl/?url=${encodeURIComponent(url)}&w=${THUMB_WIDTH}&output=jpg&q=80`, h: {} },
+    { u: `${url}${sep}width=${THUMB_WIDTH}`, h: WIKI_HEADERS },
+    { u: url, h: WIKI_HEADERS },
+  ]
   let lastErr = 'unknown'
-  for (const u of variants) {
-    for (let attempt = 0; attempt < 3; attempt++) {
-      try {
-        const r = await fetch(u, { headers: WIKI_HEADERS, redirect: 'follow' })
-        if (r.status === 429 || r.status >= 500) {
-          lastErr = `http_${r.status}`
-          await r.body?.cancel().catch(() => {})
-          await sleep(600 * (attempt + 1)) // 600/1200/1800 ms
-          continue // retry stejnou variantu
-        }
-        if (!r.ok) {
-          lastErr = `http_${r.status}`
-          await r.body?.cancel().catch(() => {})
-          break // 404 apod. → zkus druhou variantu (bez retry)
-        }
-        const type = (r.headers.get('content-type') || 'image/jpeg').split(';')[0].trim()
-        if (!type.startsWith('image/')) {
-          lastErr = `bad_type_${type}`
-          await r.body?.cancel().catch(() => {})
-          break
-        }
-        const bytes = new Uint8Array(await r.arrayBuffer())
-        if (bytes.length < 100) { lastErr = 'too_small'; break }
-        return { bytes, type }
-      } catch (e) {
-        lastErr = `fetch_err_${String(e).slice(0, 40)}`
-        await sleep(600 * (attempt + 1))
+  let lastStatus = 0
+  for (const { u, h } of candidates) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const res = await tryFetch(u, h)
+      if ('bytes' in res) return res
+      if ('status' in res) {
+        lastStatus = res.status
+        lastErr = `http_${res.status}`
+        if (res.status === 429 || res.status >= 500) { await sleep(700 * (attempt + 1)); continue } // retry
+        break // 404/415/422 → další kandidát, bez retry
+      } else {
+        lastErr = `net_${res.neterr}`
+        await sleep(700 * (attempt + 1))
       }
     }
   }
-  return { err: lastErr }
+  const permanent = lastStatus === 404 || lastStatus === 415 || lastStatus === 422
+  return { err: lastErr, permanent }
 }
 
 serve(async (req) => {
@@ -221,7 +231,8 @@ async function runBatch(sb: ReturnType<typeof createClient>) {
 
     // ── Zrcadli (cache přes duplicitní URL — stejná fotka u více řádků) ──
     const mirrored = new Map<string, string>() // stará URL → nová URL
-    const failed = new Set<string>()
+    const failedTransient = new Set<string>() // 429/5xx/net — zkusí se příště
+    const failedPermanent = new Set<string>() // 404/415/422 — nemá smysl opakovat
     const failSamples: Record<string, number> = {} // důvod → počet
     let images = 0
     let updated = 0
@@ -231,24 +242,29 @@ async function runBatch(sb: ReturnType<typeof createClient>) {
 
     for (const row of rows) {
       if (outOfBudget() || images >= MAX_IMAGES) break
-      let rowOk = true
+      let rowOk = true // true = žádné DOČASNÉ selhání → řádek hotový (trvalé neblokují)
 
       for (const url of new Set(row.urls)) {
-        if (mirrored.has(url)) continue
-        if (failed.has(url)) { rowOk = false; continue }
+        if (mirrored.has(url) || failedPermanent.has(url)) continue
+        if (failedTransient.has(url)) { rowOk = false; continue }
         if (outOfBudget() || images >= MAX_IMAGES) { rowOk = false; break }
 
         const img = await fetchWiki(url)
         images++
         await new Promise((res) => setTimeout(res, FETCH_DELAY_MS))
-        if ('err' in img) { failed.add(url); note(img.err); rowOk = false; continue }
+        if ('err' in img) {
+          note(img.err)
+          if (img.permanent) { failedPermanent.add(url) } // neblokuje „hotovo"
+          else { failedTransient.add(url); rowOk = false }
+          continue
+        }
 
         const path = `routes-mirror/${await sha1hex(url)}.${EXT[img.type] || 'jpg'}`
         const up = await sb.storage.from('media').upload(path, img.bytes, {
           contentType: img.type,
           upsert: true,
         })
-        if (up.error) { failed.add(url); note(`upload_${up.error.message}`.slice(0, 40)); rowOk = false; continue }
+        if (up.error) { failedTransient.add(url); note(`upload_${up.error.message}`.slice(0, 40)); rowOk = false; continue }
         mirrored.set(url, sb.storage.from('media').getPublicUrl(path).data.publicUrl)
       }
 
@@ -272,24 +288,26 @@ async function runBatch(sb: ReturnType<typeof createClient>) {
       if (rowOk) processedRows++
     }
 
+    const failedCount = failedTransient.size + failedPermanent.size
     const result = {
       rows_with_wiki: rows.length,
       rows_done: processedRows,
       rows_updated: updated,
       images_fetched: images,
-      images_failed: failed.size,
-      fail_reasons: failSamples, // důvod → počet (diagnostika Wikimedia)
+      images_failed: failedCount,
+      images_failed_permanent: failedPermanent.size,
+      fail_reasons: failSamples, // důvod → počet (diagnostika stahování)
       remaining_rows: Math.max(0, rows.length - processedRows),
       ms: Date.now() - t0,
     }
 
     // Loguj jen běhy, které něco dělaly (jinak by no-op cron spamoval debug_log).
-    if (rows.length > 0 || failed.size > 0) {
+    if (rows.length > 0 || failedCount > 0) {
       await sb.from('debug_log').insert({
         source: 'mirror-route-images',
         action: 'batch',
         component: 'edge_function',
-        status: failed.size > 0 ? 'partial' : 'ok',
+        status: failedCount > 0 ? 'partial' : 'ok',
         request_data: result,
       })
     }
