@@ -93,26 +93,30 @@ class _MotoCardState extends State<MotoCard> {
                               setState(() => _currentImageIndex = i),
                           itemBuilder: (_, i) => GestureDetector(
                             onTap: widget.onTap,
-                            child: MgImage(
-                              _images[i],
-                              thumbWidth: 800,
-                              fit: BoxFit.cover,
-                              width: double.infinity,
-                              placeholder: Container(
-                                color: MotoGoColors.g200,
-                                child: const Center(
-                                  child: CircularProgressIndicator(
-                                    color: MotoGoColors.green,
-                                    strokeWidth: 2,
+                            child: ColoredBox(
+                              color: MotoGoColors.g100,
+                              child: MgImage(
+                                _images[i],
+                                thumbWidth: 800,
+                                // contain = celá fotka viditelná (jako ve velíně)
+                                fit: BoxFit.contain,
+                                width: double.infinity,
+                                placeholder: Container(
+                                  color: MotoGoColors.g200,
+                                  child: const Center(
+                                    child: CircularProgressIndicator(
+                                      color: MotoGoColors.green,
+                                      strokeWidth: 2,
+                                    ),
                                   ),
                                 ),
-                              ),
-                              error: Container(
-                                color: MotoGoColors.g200,
-                                child: const Icon(
-                                  Icons.motorcycle,
-                                  size: 48,
-                                  color: MotoGoColors.g400,
+                                error: Container(
+                                  color: MotoGoColors.g200,
+                                  child: const Icon(
+                                    Icons.motorcycle,
+                                    size: 48,
+                                    color: MotoGoColors.g400,
+                                  ),
                                 ),
                               ),
                             ),
