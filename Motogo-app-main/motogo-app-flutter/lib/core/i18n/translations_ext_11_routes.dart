@@ -144,6 +144,8 @@ const translationsExt11Routes = <String, Map<String, String>>{
     'routeReviewErr': 'Recenzi se nepodařilo uložit',
     'routeReviewCountSuffix': 'recenzí',
     'poiPhotoSuffix': 'foto',
+    'poiPhotoCredit': 'Fotografie pochází z Wikimedia Commons — autora a licenci najdeš na stránce zdroje.',
+    'poiPhotoCreditOpen': 'Zobrazit zdroj',
     'routeReviewAnonymous': 'Motorkář',
   },
   'en': {
@@ -287,6 +289,8 @@ const translationsExt11Routes = <String, Map<String, String>>{
     'routeReviewErr': 'Could not save the review',
     'routeReviewCountSuffix': 'reviews',
     'poiPhotoSuffix': 'photos',
+    'poiPhotoCredit': 'Photo from Wikimedia Commons — author and licence on the source page.',
+    'poiPhotoCreditOpen': 'View source',
     'routeReviewAnonymous': 'Rider',
   },
   'de': {
@@ -430,6 +434,8 @@ const translationsExt11Routes = <String, Map<String, String>>{
     'routeReviewErr': 'Bewertung konnte nicht gespeichert werden',
     'routeReviewCountSuffix': 'Bewertungen',
     'poiPhotoSuffix': 'Fotos',
+    'poiPhotoCredit': 'Foto von Wikimedia Commons — Autor und Lizenz auf der Quellseite.',
+    'poiPhotoCreditOpen': 'Quelle anzeigen',
     'routeReviewAnonymous': 'Biker',
   },
   'nl': {
@@ -573,6 +579,8 @@ const translationsExt11Routes = <String, Map<String, String>>{
     'routeReviewErr': 'Kon de beoordeling niet opslaan',
     'routeReviewCountSuffix': 'beoordelingen',
     'poiPhotoSuffix': 'foto’s',
+    'poiPhotoCredit': 'Foto van Wikimedia Commons — auteur en licentie op de bronpagina.',
+    'poiPhotoCreditOpen': 'Bron bekijken',
     'routeReviewAnonymous': 'Motorrijder',
   },
   'es': {
@@ -716,6 +724,8 @@ const translationsExt11Routes = <String, Map<String, String>>{
     'routeReviewErr': 'No se pudo guardar la reseña',
     'routeReviewCountSuffix': 'reseñas',
     'poiPhotoSuffix': 'fotos',
+    'poiPhotoCredit': 'Foto de Wikimedia Commons: autor y licencia en la página de origen.',
+    'poiPhotoCreditOpen': 'Ver fuente',
     'routeReviewAnonymous': 'Motorista',
   },
   'fr': {
@@ -859,6 +869,8 @@ const translationsExt11Routes = <String, Map<String, String>>{
     'routeReviewErr': 'Impossible d’enregistrer l’avis',
     'routeReviewCountSuffix': 'avis',
     'poiPhotoSuffix': 'photos',
+    'poiPhotoCredit': 'Photo de Wikimedia Commons — auteur et licence sur la page source.',
+    'poiPhotoCreditOpen': 'Voir la source',
     'routeReviewAnonymous': 'Motard',
   },
   'pl': {
@@ -1002,6 +1014,8 @@ const translationsExt11Routes = <String, Map<String, String>>{
     'routeReviewErr': 'Nie udało się zapisać recenzji',
     'routeReviewCountSuffix': 'recenzji',
     'poiPhotoSuffix': 'zdjęć',
+    'poiPhotoCredit': 'Zdjęcie z Wikimedia Commons — autor i licencja na stronie źródłowej.',
+    'poiPhotoCreditOpen': 'Pokaż źródło',
     'routeReviewAnonymous': 'Motocyklista',
   },
 };

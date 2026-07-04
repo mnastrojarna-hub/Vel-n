@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/theme.dart';
 import 'routes_model.dart';
@@ -168,11 +169,14 @@ void _openImageViewer(BuildContext context, List<String> imgs, int start, String
     barrierColor: Colors.black,
     builder: (dctx) {
       final controller = PageController(initialPage: start);
-      return Stack(
+      var current = start; // aktuální fotka — kvůli odkazu na zdroj (kredit)
+      return StatefulBuilder(
+        builder: (dctx, setSt) => Stack(
         children: [
           PageView.builder(
             controller: controller,
             itemCount: imgs.length,
+            onPageChanged: (i) => setSt(() => current = i),
             itemBuilder: (_, i) => InteractiveViewer(
               minScale: 1,
               maxScale: 5,
@@ -221,8 +225,85 @@ void _openImageViewer(BuildContext context, List<String> imgs, int start, String
                 ),
               ),
             ),
+          // Kredit fotky (licence Wikimedia Commons) — záměrně skoro neviditelná
+          // mini ikonka v rohu; detail (autor/licence/zdroj) až po kliknutí.
+          Positioned(
+            left: 10,
+            bottom: MediaQuery.of(dctx).padding.bottom + 14,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => _showPhotoCredit(dctx, imgs[current], lang),
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: Icon(Icons.copyright, size: 14,
+                    color: Colors.white.withValues(alpha: 0.25)),
+              ),
+            ),
+          ),
         ],
+        ),
       );
     },
+  );
+}
+
+/// Ze zdrojové URL fotky odvodí stránku souboru na Wikimedia Commons
+/// (`Special:FilePath/<název>` → `File:<název>` s autorem a licencí).
+/// Pro jiné zdroje (vlastní fotky, zrcadlo v bucketu) vrátí null.
+String? _commonsFilePage(String url) {
+  final m = RegExp(r'wik(?:imedia|ipedia)\.org/wiki/Special:FilePath/(.+)$')
+      .firstMatch(url);
+  if (m == null) return null;
+  return 'https://commons.wikimedia.org/wiki/File:${m.group(1)}';
+}
+
+/// Malý panel s kreditem fotky: obecná věta (autoři a licence na zdrojové
+/// stránce) + tlačítko na otevření zdroje, pokud je fotka z Commons.
+void _showPhotoCredit(BuildContext context, String url, String lang) {
+  final source = _commonsFilePage(url);
+  showModalBottomSheet(
+    context: context,
+    backgroundColor: Colors.white,
+    shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18))),
+    builder: (c) => SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.copyright, size: 18, color: MotoGoColors.g500),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    AppTranslations.of(lang).tr('poiPhotoCredit'),
+                    style: const TextStyle(
+                      fontSize: MotoGoTypo.sizeBase,
+                      fontWeight: MotoGoTypo.w600,
+                      color: MotoGoColors.g600,
+                      height: 1.4,
+                      decoration: TextDecoration.none,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            if (source != null) ...[
+              const SizedBox(height: 10),
+              TextButton.icon(
+                onPressed: () => launchUrl(Uri.parse(source),
+                    mode: LaunchMode.externalApplication),
+                icon: const Icon(Icons.open_in_new, size: 16),
+                label: Text(AppTranslations.of(lang).tr('poiPhotoCreditOpen')),
+              ),
+            ],
+          ],
+        ),
+      ),
+    ),
   );
 }
