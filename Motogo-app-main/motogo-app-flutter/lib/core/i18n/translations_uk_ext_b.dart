@@ -180,6 +180,8 @@ const translationsUkExt11 = <String, Map<String, String>>{
     'routesFilterApply': 'Показати',
     'routesFilterEmpty': 'Жоден маршрут не відповідає фільтру',
     'poiCommunity': 'Спільнота',
+    'poiCatalog': 'Цікаві місця',
+    'poiCommunityPoint': 'Точка спільноти',
     'routeSubmitTitle': 'Запропонувати маршрут',
     'routeSubmitLinkLabel': 'Посилання з Mapy.com або Google Maps',
     'routeSubmitLinkHint': 'mapy.com/s/… · maps.app.goo.gl/… · повна URL',
