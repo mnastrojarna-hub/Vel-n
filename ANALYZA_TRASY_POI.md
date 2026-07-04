@@ -68,3 +68,18 @@ Všechny seedy přiřazují `branch_id` nejbližší pobočce k Mezné. Důsledk
 4. **Appka — kosmetika:** drobný offset překrývajících se markerů (68+75 dvojic <300 m), jinak zůstanou „hrbolky" jako na screenshotu i po opravě dat.
 
 Analytický skript s kompletními seznamy: session scratchpad `analyze_routes.py` + `report.txt` (A: 36 POI mimo trasu, B: 277 překryvů, C: 92 poměrů km, D: 104 hrubých souřadnic). Před opravami v DB nutno SQL odsouhlasit v chatu (pravidlo repa) — tento dokument žádná data nemění.
+
+---
+
+## PROVEDENÉ OPRAVY (2026-07-04, tatáž větev)
+
+Pozn.: první běh analyzéru ukusoval POI bloky na středníku v popisu — po opravě parseru je dataset **384 tras / 2 546 POI** a přesná „před" čísla: A = 39 POI >8 km od trasy, B = 171 dvojic <300 m, C = 92 tras se špatnými km, D = 109 hrubých souřadnic.
+
+1. **SQL `supabase/migrations/20260704_routes_fix_waypoints_pois.sql` (NUTNO APLIKOVAT):**
+   - `waypoints` všech 384 tras přegenerovány: start + všechny body zájmu (optimální pořadí, dedup, zachovaná původní průjezdní města, max 15 průjezdních bodů) + cíl,
+   - `distance_km`/`duration_min` přepočteny u 155 tras (odhad: vzdušná délka × 1,35, ~42 km/h — Mapy.com routing byl v sandboxu blokován politikou sítě; po aplikaci lze zpřesnit reálným routingem),
+   - `mapy_url` přegenerován, `geometry = null` (cache se dopočte živě z nových waypointů),
+   - **145 souřadnicových korekcí** `route_pois` — 178 podezřelých POI ověřeno webovými agenty (Wikipedia, mapcarta, latitude.to…): 138 high / 37 medium / 3 low (ponechány).
+   - **Verifikace po opravě: A 39→0, C 92→0, B 171→159** (zbytek jsou reálně sousedící objekty — restaurace u památky).
+2. **Appka (oba Flutter balíky, commit `ba5d06e`):** start z pobočky/polohy/vyzvednutí jen do 50 km od trasy (`startIsNearRoute()`); vzdálené trasy startují od prvního waypointu — detail už neukazuje „Start: MotoGo24 Mezná" u zahraničních tras, navigace neplánuje ~1 500 km přejezd a okruh se nevrací na Meznou.
+3. **Neřešeno (vědomě):** kosmetický offset překrývajících se markerů (159 reálně sousedících dvojic) — šlo by o změnu UX, případně samostatně.
