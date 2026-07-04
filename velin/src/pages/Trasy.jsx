@@ -7,7 +7,7 @@ import Card from '../components/ui/Card'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
 import SearchInput from '../components/ui/SearchInput'
 import { StatCard, SmallBtn } from './BranchHelpers'
-import TrasyModal from './TrasyModal'
+import TrasyModal, { computeGeometry } from './TrasyModal'
 import TrasyReviewsModal from './TrasyReviewsModal'
 import TrasyKatalogMist from './TrasyKatalogMist'
 
@@ -62,6 +62,9 @@ function Trasy() {
   const [pendingPois, setPendingPois] = useState([])
   const [reviewStats, setReviewStats] = useState({})
   const [reviewsFor, setReviewsFor] = useState(null)
+  const [selected, setSelected] = useState(new Set())          // hromadný výběr tras
+  const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false)
+  const [bulkGeo, setBulkGeo] = useState(null)                 // {done,total} při dopočtu map
 
   useEffect(() => { load() }, [])
 
@@ -199,6 +202,66 @@ function Trasy() {
     }
   }
 
+  // ── Hromadná správa tras ──
+  const toggleSel = (id) => setSelected(prev => {
+    const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n
+  })
+
+  async function bulkSetActive(active) {
+    const ids = [...selected]
+    try {
+      const { error: err } = await supabase.from('routes')
+        .update({ is_active: active, updated_at: new Date().toISOString() }).in('id', ids)
+      if (err) throw err
+      await logAudit(active ? 'routes_bulk_published' : 'routes_bulk_hidden', { count: ids.length })
+      setSelected(new Set())
+      load()
+    } catch (e) { setError(`Hromadná změna selhala: ${e.message}`) }
+  }
+
+  async function bulkDelete() {
+    const ids = [...selected]
+    try {
+      await supabase.from('route_pois').delete().in('route_id', ids)
+      const { error: err } = await supabase.from('routes').delete().in('id', ids)
+      if (err) throw err
+      await logAudit('routes_bulk_deleted', { count: ids.length })
+      setBulkDeleteConfirm(false)
+      setSelected(new Set())
+      load()
+    } catch (e) { setError(`Hromadné smazání selhalo: ${e.message}`); setBulkDeleteConfirm(false) }
+  }
+
+  /** Hromadný dopočet geometrie (mapy) přes Mapy.com pro vybrané trasy.
+   *  Přeskakuje trasy, které už geometrii mají nebo nemají aspoň 2 waypointy.
+   *  Ukládá i reálnou délku/čas z routingu (zpřesní odhady generátoru). */
+  async function bulkComputeMaps() {
+    const targets = routes.filter(r => selected.has(r.id)
+      && !(r.geometry && r.geometry.coordinates)
+      && Array.isArray(r.waypoints) && r.waypoints.length >= 2)
+    if (targets.length === 0) { setError('Vybrané trasy už mapu mají (nebo nemají dost bodů).'); return }
+    setBulkGeo({ done: 0, total: targets.length })
+    let okCount = 0
+    for (const r of targets) {
+      try {
+        const geo = await computeGeometry(null, r.waypoints, r.route_type)
+        if (geo && geo.coordinates) {
+          const patch = { geometry: { coordinates: geo.coordinates }, updated_at: new Date().toISOString() }
+          if (geo.length_m) patch.distance_km = Math.round(geo.length_m / 1000)
+          if (geo.duration_s) patch.duration_min = Math.round(geo.duration_s / 60)
+          const { error: err } = await supabase.from('routes').update(patch).eq('id', r.id)
+          if (!err) okCount++
+        }
+      } catch {}
+      setBulkGeo(g => g ? { ...g, done: g.done + 1 } : g)
+      await new Promise(res => setTimeout(res, 350)) // šetrně k Mapy API
+    }
+    await logAudit('routes_bulk_geometry', { requested: targets.length, ok: okCount })
+    setBulkGeo(null)
+    setSelected(new Set())
+    load()
+  }
+
   const branchName = (id) => branches.find(b => b.id === id)?.name || '—'
 
   const pendingRoutes = routes.filter(r => r.status === 'pending')
@@ -268,6 +331,23 @@ function Trasy() {
         </div>
       )}
 
+      {selected.size > 0 && (
+        <div className="mb-4 flex items-center gap-3 flex-wrap rounded-card"
+          style={{ background: '#eef6ff', border: '1px solid #bfdbfe', padding: '10px 14px' }}>
+          <span className="text-sm font-extrabold" style={{ color: '#1d4ed8' }}>
+            Vybráno tras: {selected.size}
+          </span>
+          <SmallBtn color="#1a8a18" onClick={() => bulkSetActive(true)}>Publikovat vybrané</SmallBtn>
+          <SmallBtn color="#b45309" onClick={() => bulkSetActive(false)}>Skrýt vybrané</SmallBtn>
+          <SmallBtn color="#0d9488" onClick={bulkComputeMaps}>
+            {bulkGeo ? `Dopočítávám mapy… ${bulkGeo.done}/${bulkGeo.total}` : 'Dopočítat mapy'}
+          </SmallBtn>
+          <SmallBtn color="#dc2626" onClick={() => setBulkDeleteConfirm(true)}>Smazat vybrané</SmallBtn>
+          <button onClick={() => setSelected(new Set())} className="text-sm font-bold cursor-pointer"
+            style={{ background: 'none', border: 'none', color: '#6b7280' }}>✕ Zrušit výběr</button>
+        </div>
+      )}
+
       {(pendingRoutes.length > 0 || pendingPois.length > 0) && (
         <div className="mb-5 rounded-card" style={{ background: '#fff7ed', border: '1px solid #fdba74', padding: 14 }}>
           <div className="text-sm font-extrabold mb-3" style={{ color: '#b45309' }}>
@@ -324,6 +404,11 @@ function Trasy() {
         <Table>
           <thead>
             <TRow header>
+              <TH>
+                <input type="checkbox" title="Vybrat vše (dle filtru)"
+                  checked={filtered.length > 0 && filtered.every(r => selected.has(r.id))}
+                  onChange={e => setSelected(e.target.checked ? new Set(filtered.map(r => r.id)) : new Set())} />
+              </TH>
               <TH>Náhled</TH><TH>Název</TH><TH>Pobočka</TH><TH>Typ</TH><TH>Délka</TH>
               <TH>Body zájmu</TH><TH>Recenze</TH><TH>Stav</TH><TH>Akce</TH>
             </TRow>
@@ -334,6 +419,11 @@ function Trasy() {
                 className="cursor-pointer hover:bg-[#f1faf7] transition-colors"
                 style={{ borderBottom: '1px solid #d4e8e0', opacity: r.is_active ? 1 : 0.5 }}
                 onClick={() => { setEditing(r); setShowModal(true) }}>
+                <TD>
+                  <input type="checkbox" checked={selected.has(r.id)}
+                    onClick={e => e.stopPropagation()}
+                    onChange={() => toggleSel(r.id)} />
+                </TD>
                 <TD>
                   {r.cover_image ? (
                     <img src={r.cover_image} alt={r.name} loading="lazy"
@@ -410,6 +500,15 @@ function Trasy() {
           route={reviewsFor}
           onClose={() => setReviewsFor(null)}
           onChanged={load}
+        />
+      )}
+
+      {bulkDeleteConfirm && (
+        <ConfirmDialog
+          open title="Smazat vybrané trasy?"
+          message={`Opravdu chcete NEVRATNĚ smazat ${selected.size} tras včetně jejich bodů zájmu?`}
+          danger onConfirm={bulkDelete}
+          onCancel={() => setBulkDeleteConfirm(false)}
         />
       )}
 

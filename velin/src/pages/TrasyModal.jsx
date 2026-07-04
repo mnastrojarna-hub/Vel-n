@@ -36,7 +36,7 @@ async function reverseGeocode(lat, lng) {
  * Pokud volání selže (CORS/limit), vrátí null — appka si geometrii dopočítá
  * sama z waypointů při zobrazení.
  */
-async function computeGeometry(branch, waypoints, routeType) {
+export async function computeGeometry(branch, waypoints, routeType) {
   const pts = []
   const hasBranch = branch && branch.gps_lat != null && branch.gps_lng != null
   if (hasBranch) pts.push([Number(branch.gps_lng), Number(branch.gps_lat)])

@@ -41,9 +41,11 @@ LANGS = ["cs", "en", "de", "pl", "nl", "es", "fr", "uk"]
 CATEGORY_CLASSES = {
     "water":   ["Q131681", "Q23397", "Q12323"],          # přehrada, jezero, hráz
     "castle":  ["Q23413", "Q751876", "Q57821"],          # hrad, zámek, pevnost
-    "lookout": ["Q1440300"],                              # rozhledna (observation tower)
-    "sights":  ["Q44613", "Q2977", "Q163687", "Q34627"],  # klášter, katedrála, bazilika, synagoga
-    "nature":  ["Q179049", "Q46169", "Q35509", "Q34038"], # rezervace, NP, jeskyně, vodopád
+    "lookout": ["Q1440300", "Q2075301", "Q6017969"],      # rozhledna, výhled, vyhlídkové místo
+    "sights":  ["Q44613", "Q2977", "Q163687", "Q34627",   # klášter, katedrála, bazilika, synagoga
+                "Q33506", "Q756102", "Q43501"],           # muzeum, skanzen, zoo
+    "nature":  ["Q179049", "Q46169", "Q35509", "Q34038",  # rezervace, NP, jeskyně, vodopád
+                "Q133056", "Q23790", "Q167346"],          # průsmyk, přírodní památka, botanická zahrada
 }
 # Všechny podporované země (ISO → Wikidata QID). Výběr přes --countries.
 ALL_COUNTRIES = {
@@ -216,7 +218,7 @@ def sparql(query, retries=4):
     return []
 
 
-def fetch_category(cat, classes, iso, country_qid, limit):
+def fetch_category(cat, classes, iso, country_qid, limit, minsl=1):
     """FÁZE 1: lehký SPARQL — jen QID, GPS, významnost a fotka (bez labelů;
     16 OPTIONAL labelů v jednom dotazu WDQS neutáhne → 502)."""
     rows = []
@@ -227,13 +229,13 @@ SELECT ?item ?lat ?lon ?sl (SAMPLE(?im) AS ?img) WHERE {{
         wdt:P17 wd:{country_qid} ;
         p:P625 [ psv:P625 [ wikibase:geoLatitude ?lat ; wikibase:geoLongitude ?lon ] ] ;
         wikibase:sitelinks ?sl .
-  FILTER(?sl >= 1)
+  FILTER(?sl >= {minsl})
   OPTIONAL {{ ?item wdt:P18 ?im }}
 }}
 GROUP BY ?item ?lat ?lon ?sl
 ORDER BY DESC(?sl)
 LIMIT {limit}
-"""
+""".replace("{minsl}", str(minsl))
         try:
             rows.extend(sparql(q))
         except Exception as e:  # noqa: BLE001
@@ -355,6 +357,7 @@ def main():
     ap.add_argument("--file-prefix", default="20260704_poi_catalog_wikidata_batch",
                     help="prefix názvu SQL souborů")
     ap.add_argument("--sort-offset", type=int, default=1000)
+    ap.add_argument("--min-sitelinks", type=int, default=1)
     args = ap.parse_args()
 
     countries = {}
@@ -368,7 +371,7 @@ def main():
     for cat, classes in CATEGORY_CLASSES.items():
         for iso, qid in countries.items():
             print(f"Stahuji {cat} / {iso} …", flush=True)
-            for it in fetch_category(cat, classes, iso, qid, args.per_query_limit):
+            for it in fetch_category(cat, classes, iso, qid, args.per_query_limit, args.min_sitelinks):
                 # při kolizi kategorií vyhrává specifičtější (první výskyt)
                 items.setdefault(it["qid"], it)
             time.sleep(2)  # ohleduplnost k WDQS
