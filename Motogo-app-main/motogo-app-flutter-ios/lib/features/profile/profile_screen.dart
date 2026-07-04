@@ -416,9 +416,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     showModalBottomSheet(context: context, builder: (_) => ConsentSheet(section: section));
   }
 
-  void _showLanguagePicker(BuildContext context) => showLanguagePickerSheet(context, ref);
+  void _showLanguagePicker(BuildContext context) => showLanguagePickerSheet(context);
 
-  void _showCurrencyPicker(BuildContext context) => showCurrencyPickerSheet(context, ref);
+  void _showCurrencyPicker(BuildContext context) => showCurrencyPickerSheet(context);
 
   void _showChangePassword(BuildContext context) => showChangePasswordSheet(context);
 
