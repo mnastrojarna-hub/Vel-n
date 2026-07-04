@@ -146,23 +146,15 @@ class _RouteBuilderScreenState extends ConsumerState<RouteBuilderScreen> {
     }
     final req = ++_reqId;
     setState(() => _computing = true);
-    final geo = await fetchMapyRoute(pts, profile: _profile);
+    final info = await fetchMapyRouteInfo(pts, profile: _profile);
     if (!mounted || req != _reqId) return;
-    final g = geo ?? pts;
+    final g = info?.geometry ?? pts;
     setState(() {
       _geometry = g;
-      _distanceM = _polyLen(g);
+      // Reálná délka po silnici z API; fallback = délka vrácené polyline.
+      _distanceM = info?.lengthM ?? polylineLengthM(g);
       _computing = false;
     });
-  }
-
-  double _polyLen(List<LatLng> g) {
-    const d = Distance();
-    double s = 0;
-    for (var i = 0; i < g.length - 1; i++) {
-      s += d.as(LengthUnit.Meter, g[i], g[i + 1]);
-    }
-    return s;
   }
 
   void _fit() {

@@ -268,13 +268,13 @@ def poi_sql_values(v, sort):
         p = catalog[v["ci"]]
         img = p["image_raw"]  # včetně uvozovek / None
         img_col = img if img else "null"
-        imgs_col = "'{\"" + img[1:-1] + "\"}'::text[]" if img else "null"
+        imgs_col = "'{\"" + img[1:-1] + "\"}'::text[]" if img else "'{}'::text[]"
         return (f"    (v_route, '{p['name_raw']}', '{p['desc_raw']}', {p['lat']}, {p['lng']}, "
                 f"{img_col}, {imgs_col}, {sort}, '{p['tr_raw']}'::jsonb)")
     else:
         img = v.get("image")
         img_col = f"'{sqlesc(img)}'" if img else "null"
-        imgs_col = "'{\"" + sqlesc(img) + "\"}'::text[]" if img else "null"
+        imgs_col = "'{\"" + sqlesc(img) + "\"}'::text[]" if img else "'{}'::text[]"
         return (f"    (v_route, '{sqlesc(v['name'])}', '{sqlesc(v['desc'])}', {v['lat']}, {v['lng']}, "
                 f"{img_col}, {imgs_col}, {sort}, '{{}}'::jsonb)")
 

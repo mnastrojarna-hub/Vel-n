@@ -41,6 +41,7 @@ on:
 
 permissions:
   contents: read
+  issues: write  # zpetna vazba: pri selhani se automaticky zaklada issue `sql-deploy-failed`
 
 concurrency:
   group: deploy-sql
@@ -60,6 +61,8 @@ jobs:
           FORCE: ${{ inputs.force }}
         run: |
           set -euo pipefail
+          # Kompletni vystup kroku jde i do logu pro pripadne issue pri selhani
+          exec > >(tee "$RUNNER_TEMP/deploy-sql.log") 2>&1
           psql_q() { psql "$DB_URL" -v ON_ERROR_STOP=1 -qtA -c "$1"; }
 
           # Guard: bez evidencni tabulky smi bezet jen baseline rezim -
@@ -109,3 +112,68 @@ jobs:
             applied=$((applied+1))
           done
           echo "Hotovo: zpracovano=$applied, preskoceno(uz aplikovane)=$skipped"
+
+      # ── Zpetna vazba pro Claude ─────────────────────────────────────
+      # Pri selhani se automaticky zalozi (nebo doplni) GitHub issue
+      # s labelem `sql-deploy-failed`, logem chyby a pokyny k oprave.
+      # CLAUDE.md prikazuje toto issue resit jako prioritu c. 1.
+      - name: Pri selhani zaloz issue pro Claude
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const LABEL = 'sql-deploy-failed';
+            let log = '';
+            try { log = fs.readFileSync(process.env.RUNNER_TEMP + '/deploy-sql.log', 'utf8'); } catch {}
+            const tail = log.split('\n').slice(-50).join('\n').slice(-6000) || '(log se nepodarilo zachytit — otevri beh nize)';
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const failing = (log.match(/APPLYING\s+(\S+)/g) || []).pop() || 'viz log';
+
+            try {
+              await github.rest.issues.createLabel({ ...context.repo, name: LABEL, color: 'b60205',
+                description: 'SQL autodeploy spadl — blokuje vsechny dalsi migrace' });
+            } catch (e) { /* label uz existuje */ }
+
+            const { data: open } = await github.rest.issues.listForRepo({ ...context.repo, state: 'open', labels: LABEL });
+            const detail = [
+              `**Běh:** ${runUrl}`,
+              `**Commit:** \`${context.sha.slice(0,7)}\` — ${context.payload.head_commit?.message?.split('\n')[0] ?? context.eventName}`,
+              `**Padající soubor:** ${failing}`,
+              '', '### Konec logu', '```', tail, '```',
+            ].join('\n');
+
+            if (open.length) {
+              await github.rest.issues.createComment({ ...context.repo, issue_number: open[0].number,
+                body: `🔴 Další selhání deploye:\n\n${detail}` });
+              core.notice(`Selhani doplneno do issue #${open[0].number}`);
+            } else {
+              const body = [
+                '@claude SQL autodeploy do Supabase spadl a **blokuje aplikaci všech dalších migrací**. Oprav to hned:',
+                '',
+                detail,
+                '',
+                '### Postup opravy (pro Claude)',
+                '1. Chyba je v souboru u posledního `APPLYING …` v logu výše. Migrace se NEaplikovala (transakce = rollback), úprava souboru je tedy bezpečná.',
+                '2. Oprav soubor na větvi `claude/…`, aktualizuj SUPABASE_BACKEND_STATE_* dle pravidel, vytvoř PR do `main` a merge.',
+                '3. Merge automaticky spustí `deploy-sql.yml`, který doaplikuje celou frontu.',
+                '4. Toto issue se po prvním zeleném běhu **zavře samo** — nechej ho otevřené jako signál.',
+              ].join('\n');
+              const { data: issue } = await github.rest.issues.create({ ...context.repo,
+                title: '🔴 SQL autodeploy selhal — zablokovaná fronta migrací', labels: [LABEL], body });
+              core.notice(`Zalozeno issue #${issue.number}`);
+            }
+
+      - name: Po uspechu zavri sql-deploy-failed issues
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const LABEL = 'sql-deploy-failed';
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const { data: open } = await github.rest.issues.listForRepo({ ...context.repo, state: 'open', labels: LABEL });
+            for (const i of open) {
+              await github.rest.issues.createComment({ ...context.repo, issue_number: i.number,
+                body: `✅ Vyřešeno — deploy proběhl zeleně: ${runUrl}` });
+              await github.rest.issues.update({ ...context.repo, issue_number: i.number, state: 'closed', state_reason: 'completed' });
+            }

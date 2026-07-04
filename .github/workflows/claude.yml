@@ -1,0 +1,47 @@
+name: Claude Code
+
+# Zmínka @claude v issue / PR komentáři spustí Claude Code, který úkol
+# rovnou zpracuje (typicky: oprava vadné migrace z auto-issue
+# `sql-deploy-failed`, reakce na review komentáře, drobné fixy).
+#
+# AKTIVACE (jednorázově, vyžaduje admin repa):
+#   1. Nainstalovat GitHub App: https://github.com/apps/claude (tomuto repu)
+#   2. Přidat repo secret ANTHROPIC_API_KEY (API klíč z https://console.anthropic.com)
+# Bez secretu běh jen spadne — ničemu jinému (deploye, issues) to nevadí.
+# POZOR: běhy se účtují jako API kredity (nezávisle na Pro/Max předplatném).
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+  issues:
+    types: [opened, assigned]
+  pull_request_review:
+    types: [submitted]
+
+jobs:
+  claude:
+    # Spustí se JEN pokud text obsahuje @claude (issue body/title, komentář, review)
+    if: |
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
+      (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+      actions: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Run Claude Code
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
