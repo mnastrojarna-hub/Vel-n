@@ -48,14 +48,14 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
   double _nearbyKm = 10;
   static const List<double> _nearbyKmOptions = [5, 10, 25, 50];
 
-  // Náhodné pořadí bodů — nové při každém otevření (i po startu appky). Použije
-  // se, když není známá poloha; se známou polohou vyhrává řazení dle vzdálenosti.
-  late final int _shuffleSeed;
+  // Náhodné pořadí bodů — losuje se jen JEDNOU za běh appky (static), takže se
+  // nemění při návratu na obrazovku; nové promíchání až po restartu appky.
+  // Použije se, když není známá poloha; se známou polohou vyhrává vzdálenost.
+  static final int _shuffleSeed = Random().nextInt(0x7fffffff);
 
   @override
   void initState() {
     super.initState();
-    _shuffleSeed = Random().nextInt(0x7fffffff);
     if (widget.initialSelected != null) _selected.addAll(widget.initialSelected!);
   }
 
