@@ -272,33 +272,41 @@ class _MotoDetailPageState extends ConsumerState<MotoDetailPage> {
                     controller: _pageCtrl,
                     itemCount: images.length,
                     onPageChanged: (i) => setState(() => _imageIndex = i),
-                    itemBuilder: (_, i) => MgImage(
-                      images[i],
-                      thumbWidth: 1000,
-                      fit: BoxFit.cover,
-                      width: double.infinity,
-                      placeholder: Container(color: MotoGoColors.g200),
-                      error: Container(
-                        color: MotoGoColors.g200,
-                        child: const Icon(Icons.motorcycle,
-                            size: 48, color: MotoGoColors.g400),
+                    itemBuilder: (_, i) => ColoredBox(
+                      color: MotoGoColors.g100,
+                      child: MgImage(
+                        images[i],
+                        thumbWidth: 1000,
+                        // contain = celá fotka viditelná (jako ve velíně)
+                        fit: BoxFit.contain,
+                        width: double.infinity,
+                        placeholder: Container(color: MotoGoColors.g200),
+                        error: Container(
+                          color: MotoGoColors.g200,
+                          child: const Icon(Icons.motorcycle,
+                              size: 48, color: MotoGoColors.g400),
+                        ),
                       ),
                     ),
                   )
                 // Single image (or none) – no PageView so horizontal gestures
                 // propagate to the outer motorcycle pager.
                 : images.isNotEmpty
-                    ? MgImage(
-                        images.first,
-                        thumbWidth: 1000,
-                        fit: BoxFit.cover,
-                        width: double.infinity,
-                        height: 260,
-                        placeholder: Container(color: MotoGoColors.g200),
-                        error: Container(
-                          color: MotoGoColors.g200,
-                          child: const Icon(Icons.motorcycle,
-                              size: 48, color: MotoGoColors.g400),
+                    ? ColoredBox(
+                        color: MotoGoColors.g100,
+                        child: MgImage(
+                          images.first,
+                          thumbWidth: 1000,
+                          // contain = celá fotka viditelná (jako ve velíně)
+                          fit: BoxFit.contain,
+                          width: double.infinity,
+                          height: 260,
+                          placeholder: Container(color: MotoGoColors.g200),
+                          error: Container(
+                            color: MotoGoColors.g200,
+                            child: const Icon(Icons.motorcycle,
+                                size: 48, color: MotoGoColors.g400),
+                          ),
                         ),
                       )
                     : Container(

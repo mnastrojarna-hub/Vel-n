@@ -94,25 +94,29 @@ class _MotoGalleryCardState extends State<MotoGalleryCard> {
                           ),
                         );
                       }
-                      return MgImage(
-                        url,
-                        thumbWidth: 800,
-                        fit: BoxFit.cover,
-                        width: double.infinity,
-                        placeholder: Container(
-                          color: MotoGoColors.g100,
-                          child: const Center(
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: MotoGoColors.green,
+                      return ColoredBox(
+                        color: MotoGoColors.g100,
+                        child: MgImage(
+                          url,
+                          thumbWidth: 800,
+                          // contain = celá fotka viditelná (jako ve velíně)
+                          fit: BoxFit.contain,
+                          width: double.infinity,
+                          placeholder: Container(
+                            color: MotoGoColors.g100,
+                            child: const Center(
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: MotoGoColors.green,
+                              ),
                             ),
                           ),
-                        ),
-                        error: Container(
-                          color: MotoGoColors.g100,
-                          child: const Center(
-                            child: Icon(Icons.motorcycle,
-                                size: 48, color: MotoGoColors.g400),
+                          error: Container(
+                            color: MotoGoColors.g100,
+                            child: const Center(
+                              child: Icon(Icons.motorcycle,
+                                  size: 48, color: MotoGoColors.g400),
+                            ),
                           ),
                         ),
                       );

@@ -255,13 +255,17 @@ class _DetailState extends ConsumerState<ReservationDetailScreen> {
                               color: MotoGoColors.g200,
                               child: const Icon(Icons.motorcycle, size: 48, color: MotoGoColors.g400),
                             )
-                          : MgImage(
-                              res.motoImage!,
-                              thumbWidth: 800,
-                              fit: BoxFit.cover,
-                              error: Container(
-                                color: MotoGoColors.g200,
-                                child: const Icon(Icons.motorcycle, size: 48, color: MotoGoColors.g400),
+                          : ColoredBox(
+                              color: MotoGoColors.g100,
+                              child: MgImage(
+                                res.motoImage!,
+                                thumbWidth: 800,
+                                // contain = celá fotka viditelná (jako ve velíně)
+                                fit: BoxFit.contain,
+                                error: Container(
+                                  color: MotoGoColors.g200,
+                                  child: const Icon(Icons.motorcycle, size: 48, color: MotoGoColors.g400),
+                                ),
                               ),
                             ),
                     ),

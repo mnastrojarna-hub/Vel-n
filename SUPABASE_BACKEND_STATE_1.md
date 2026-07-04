@@ -176,7 +176,7 @@
 | Tabulka | Popis |
 |---------|-------|
 | `ai_conversations` | Konverzace s AI Copilotem (admin_id, messages jsonb) |
-| `ai_customer_conversations` | **NEW v docs 2026-06-04 (ze snapshotu)** — Konverzace zákazníka s AI (user_id, title, messages jsonb, booking_id, created_at, updated_at) — odlišné od `ai_public_conversations` (anonymní web widget) |
+| `ai_customer_conversations` | **NEW v docs 2026-06-04 (ze snapshotu)** — Konverzace zákazníka s AI (user_id, title, messages jsonb, booking_id, created_at, updated_at) — odlišné od `ai_public_conversations` (anonymní web widget). **UPDATE 2026-07-04:** nově plní edge fn `ai-moto-agent` po každé odpovědi (dosud do tabulky nikdo nezapisoval — konverzace z appky se neukládaly); Velín → Analýza → AI konverzace → zdroj „AI agent (appka)" (čte přes `is_admin()` RLS) |
 | `ai_actions` | AI akce |
 | `ai_logs` | AI logy |
 | `automation_rules` | Automatizační pravidla |
