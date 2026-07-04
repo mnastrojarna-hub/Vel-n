@@ -375,3 +375,27 @@ Aplikace `com.motogo24.app` je veřejně v Obchodě Play (produkce). Web:
   301 redirect na Obchod Play. Smazáno `pages/testovani.php`, `gfx/qr-testovani.svg`,
   `gfx/qr-testeri-skupina.svg`. Konstanty `TESTER_GROUP_URL` a `PLAY_STORE_URL`
   (opt-in) odstraněny z `config.php`; zůstává `PLAY_STORE_LIVE_URL`.
+
+---
+
+### 2026-07-04 (C) — Body zájmu PODÉL tras (konec „nudných" úseků) + hloubkové vyhledávání v appce
+
+**Problém (hlášeno uživatelem):** řada tras měla body zájmu nahloučené v jednom místě
+a dlouhé úseky bez jediné zastávky (např. „Sozopol a jižní Černomoří" mezery 30/37/27 km,
+„Belogradčické skály a Vraca" 100+81 km). Celkem 137 tras mělo úsek ≥ 30 km bez POI.
+
+- **SQL `20260705_route_pois_fill_gaps.sql` (NUTNO APLIKOVAT):** 238 nových `route_pois`
+  do 116 tras — 212 z katalogu `points_of_interest` (≤ 7 km od čáry, dle proslulosti,
+  max 8/trasu), 26 kurátorovaných pro země bez katalogu (BG 13, EE 5, LT 2, MD 2, MK 4;
+  souřadnice ověřeny webovými agenty). Sort_order dotčených tras přečíslován dle pořadí
+  na trase, `waypoints` přegenerovány (trasa vede přes nové body), `distance_km`/
+  `duration_min` přepočteny při odchylce > 15 %, `mapy_url` obnoven, `geometry` = null
+  (dopočte se živě). Na konci se přeplánuje cron `backfill-route-translations`
+  (kurátorované body jsou bez překladů; katalogové je mají rovnou).
+  Generátor: `tools/fill_route_poi_gaps.py` + `tools/route_poi_gap_curated.json`;
+  kompletní seznam doplněných bodů: `tools/route_poi_gap_report.txt`.
+- **Appka (oba Flutter balíky, bez DB změn):** hloubkové vyhledávání
+  — Trasy: nové search pole (název/popis trasy vč. překladů + města na cestě
+  z labelů waypointů + názvy a popisy bodů zájmu trasy; bez diakritiky, AND slova).
+  — Katalog POI: hledání prohloubeno o popisy, kategorie a všechny jazykové mutace;
+  route picker hledá trasy i podle bodů/měst na nich. Detail: `ANALYZA_TRASY_POI.md`.
