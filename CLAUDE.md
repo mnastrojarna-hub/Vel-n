@@ -45,6 +45,8 @@ Toto je soustava propojených aplikací pro MotoGo24 (půjčovna motorek):
 
 **Kontrola/rotace tokenů:** platnost se ověřuje podle výsledků běhů v Actions (zelený deploy = token platí). Nový Supabase PAT: https://supabase.com/dashboard/account/tokens → vložit do repo secretu `ACCESS_TOKEN`; DB heslo → `SUPABASE_DB_URL`.
 
+**Zpětná vazba při selhání SQL deploye (POVINNÁ kontrola):** když `deploy-sql.yml` spadne, workflow sám založí GitHub issue s labelem **`sql-deploy-failed`** (log chyby + padající soubor + pokyny) a při opakovaném selhání do něj přidává komentáře; po prvním zeleném běhu se issue zavře samo. **Claude MUSÍ na začátku každé session zkontrolovat otevřená issues s labelem `sql-deploy-failed`** (GitHub MCP `list_issues`, label `sql-deploy-failed`) — pokud nějaké existuje, oprava zablokovaného autodeploye má přednost před veškerou další prací (vadná migrace blokuje aplikaci všech následujících).
+
 ## Pravidla
 
 1. **NIKDY neměň UX, UI ani flow** pokud to uživatel výslovně nepožaduje
