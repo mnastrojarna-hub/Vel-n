@@ -30,7 +30,7 @@ const CORS = {
 
 const MAX_IMAGES = 800 // strop fotek na jeden běh (reálně limituje čas níže)
 const TIME_BUDGET_MS = 280_000 // ~280 s (limit gatewaye je 400 s wall-clock)
-const CONCURRENCY = 6 // souběžných stažení+uploadů (weserv/storage to zvládnou)
+const CONCURRENCY = 4 // souběžných stažení+uploadů (výš už weserv škrtí 429)
 const THUMB_WIDTH = 1280 // dost pro hero i fullscreen, ~150–400 KB
 
 // Wikimedia vyžaduje popisný User-Agent, jinak 403.
