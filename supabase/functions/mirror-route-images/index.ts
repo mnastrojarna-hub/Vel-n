@@ -42,6 +42,22 @@ const isWiki = (u: unknown): u is string =>
   typeof u === 'string' &&
   (u.includes('wikimedia.org') || u.includes('wikipedia.org'))
 
+/// Je token service_role JWT? Kontroluje claim `role`, ne přesnou shodu —
+/// projekt může mít po rotaci/migraci klíčů víc platných service_role klíčů
+/// zároveň (viz send-push FIX 2026-06-06). Bez ověření podpisu (na bráně je
+/// verify_jwt=false; pro tuhle low-risk fn stačí claim, jako u send-push).
+function isServiceRole(token: string): boolean {
+  try {
+    const p = token.split('.')
+    if (p.length !== 3) return false
+    const pad = '='.repeat((4 - (p[1].length % 4)) % 4)
+    const payload = JSON.parse(atob(p[1].replace(/-/g, '+').replace(/_/g, '/') + pad))
+    return payload.role === 'service_role'
+  } catch (_) {
+    return false
+  }
+}
+
 function json(body: Record<string, unknown>, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
@@ -113,18 +129,21 @@ serve(async (req) => {
   // nelze spolehnout na shodu env SERVICE_KEY s klíčem, který posílá cron.
   // Přijmi, když bearer == env service key, NEBO == app_settings.service_role_key
   // (přesně to, co posílá cron tick), NEBO jde o admin user JWT (Velín).
-  const bearer = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '').trim()
+  let bearer = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '').trim()
+  // Klíč mohl přijít jako JSON string (jsonb bez `#>> '{}'`) → obalený "…".
+  if (bearer.length > 1 && bearer.startsWith('"') && bearer.endsWith('"')) {
+    bearer = bearer.slice(1, -1)
+  }
   const svcMatch = bearer.length > 0 && bearer === SERVICE_KEY
-  let appFound = false
+  const roleMatch = !svcMatch && isServiceRole(bearer) // JWT s claim role=service_role
   let appMatch = false
-  if (!svcMatch && bearer.length > 0) {
+  if (!svcMatch && !roleMatch && bearer.length > 0) {
     const { data: row } = await sb
       .from('app_settings').select('value').eq('key', 'service_role_key').maybeSingle()
-    appFound = !!row?.value
     if (row?.value && bearer === String(row.value).trim()) appMatch = true
   }
   let adminMatch = false
-  if (!svcMatch && !appMatch && bearer.length > 0) {
+  if (!svcMatch && !roleMatch && !appMatch && bearer.length > 0) {
     try {
       const caller = createClient(SUPABASE_URL, Deno.env.get('SUPABASE_ANON_KEY') || '', {
         global: { headers: { Authorization: `Bearer ${bearer}` } },
@@ -133,21 +152,13 @@ serve(async (req) => {
       adminMatch = isAdmin === true
     } catch (_) { /* ne */ }
   }
-  if (!svcMatch && !appMatch && !adminMatch) {
-    // Zaloguj DŮVOD (jednou), ať víme, proč cron neprojde — bez úniku klíčů.
-    const reason = {
-      hasBearer: bearer.length > 0,
-      bearerLen: bearer.length,
-      bearerTail: bearer.slice(-6),
-      svcMatch, appFound, appMatch, adminMatch,
-      svcKeyLen: SERVICE_KEY.length,
-      svcKeyTail: SERVICE_KEY.slice(-6),
-    }
+  if (!svcMatch && !roleMatch && !appMatch && !adminMatch) {
     await sb.from('debug_log').insert({
       source: 'mirror-route-images', action: 'auth_denied', component: 'edge_function',
-      status: 'error', request_data: reason,
+      status: 'error',
+      request_data: { hasBearer: bearer.length > 0, bearerLen: bearer.length, bearerTail: bearer.slice(-6) },
     }).then(() => {}, () => {})
-    return json({ error: 'forbidden', reason }, 403)
+    return json({ error: 'forbidden' }, 403)
   }
 
   const task = runBatch(sb).catch(async (e) => {
