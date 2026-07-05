@@ -177,3 +177,35 @@ select 'points_of_interest', l.lang,
 from public.points_of_interest c cross join langs l group by 1,2
 order by 1,2;
 ```
+
+---
+
+## POŘADÍ BODŮ ZÁJMU PO SMĚRU TRASY (2026-07-07, větev claude/motogo-waypoint-order-p42keh)
+
+Problém (hlášeno uživatelem): na trase v appce jsou body zájmu **1–x očíslované
+„na přeskáčku"**, ne po směru jízdy. Kdo by jel podle nich, musel by skákat sem a
+tam místo plynulého 1 → 2 → 3 → … po trase.
+
+**Příčina:** appka čísluje markery `i+1` v pořadí, v jakém body vrací RPC
+`get_branch_routes` (`order by route_pois.sort_order`). `sort_order` přečíslovala
+po směru trasy jen migrace `20260705_route_pois_fill_gaps.sql`, a to **pouze u 116
+tras**, kterým doplňovala body do mezer. Ostatní trasy si nesly původní `sort_order`
+ze seedu, který směr jízdy nerespektoval → markery rozházené.
+
+**Oprava — `supabase/migrations/20260707_route_pois_reorder_along_route.sql`
+(auto-aplikace po merge do main přes deploy-sql.yml):**
+- dočasná PL/pgSQL fce `_poi_route_pos(lat, lng, waypoints)` promítne bod na čáru
+  trasy (nejbližší segment, ekvirektangulární projekce — **totožná matematika jako
+  `tools/fill_route_poi_gaps.py#project()`**) a vrátí vzdálenost podél čáry,
+- jedním `UPDATE … row_number() over (partition by route_id order by pos)` se
+  `sort_order` (0-based) přečísluje po směru trasy u **všech** tras s použitelnou
+  čárou (`waypoints` ≥ 2 body a ≥ 2 pozicované body),
+- body bez souřadnic se řadí na konec; trasy bez použitelných waypointů zůstanou
+  nedotčené; `sort_order is distinct from` = žádné zbytečné zápisy; opakovaný běh =
+  0 změn (idempotentní); fce se na konci zahodí (`drop function`),
+- `waypoints`/`geometry` se **nemění** (mění se jen pořadí markerů) → appka bez úpravy.
+
+**Ověřeno** na dočasném lokálním PostgreSQL 16 clusteru (živá DB je ze sandboxu
+nedosažitelná): rovná trasa se `sort_order` 0,1,2,3 rozházeným (C,A,D,B) → po
+migraci A,B,C,D po směru; trasa bez waypointů nedotčena; bod bez souřadnic na konci;
+jednobodová (< 2 pozicované body) trasa nedotčena; 2. běh = `UPDATE 0`.
