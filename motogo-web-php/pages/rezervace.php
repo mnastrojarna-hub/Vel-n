@@ -50,7 +50,7 @@ $rezKeys = [
     'alert.name','alert.dob','alert.street','alert.city','alert.zip','alert.email','alert.phone',
     'alert.terms','alert.gdpr','alert.guardian','alert.dates','alert.moto','alert.pickupTime',
     'alert.minTime','alert.minTimeDelivery','alert.returnTime',
-    'alert.bookingOverlap','alert.bookingOverlapOwn','alert.error','alert.saveError',
+    'alert.bookingOverlap','alert.bookingOverlapOwn','alert.userDayOverlap','alert.error','alert.saveError',
     'alert.selectSize','alert.emailExists','alert.emailMismatch','alert.minRentalDays',
     // Přihlášení / obnova hesla v rezervaci (pages-rezervace-auth.js)
     'auth.returning.title','auth.returning.sub',

@@ -500,6 +500,7 @@ return [
     'rez.alert.returnTime' => 'Vyplňte prosím čas vrácení motorky.',
     'rez.alert.bookingOverlap' => 'Tuto motorku právě rezervoval jiný zákazník ve stejném termínu. Zvolte prosím jiný termín nebo jinou motorku.',
     'rez.alert.bookingOverlapOwn' => 'V tomto termínu již máte jinou aktivní rezervaci.',
+    'rez.alert.userDayOverlap' => 'Na tento termín už máte rezervaci — na jeden den lze mít jen jednu rezervaci. Vyberte prosím jiný termín, nebo upravte stávající rezervaci.',
     'rez.alert.error' => 'Chyba: {msg}',
     'rez.alert.saveError' => 'Chyba při ukládání: {msg}',
     'rez.alert.selectSize' => 'Nejdřív vyberte velikost.',

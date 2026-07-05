@@ -124,9 +124,25 @@ export default function CustomerDetail() {
       // RPC proběhla, ale vrátila byznys-chybu uvnitř JSONB payloadu.
       // Bez tohoto větvení admin viděl "smazáno", i když auth.users zůstal nedotčený.
       const e = result.data.error
-      const msg = e === 'active_bookings'
-        ? `Zákazník má ${result.data.count ?? ''} aktivních/čekajících rezervací. Nejdřív je stornujte.`
-        : e === 'not_authorized'
+      if (e === 'active_bookings') {
+        // Vypiš KONKRÉTNÍ blokující rezervace (číslo/stav/termín) — ať admin nehledá
+        // „neviditelnou" rezervaci (může být skrytá filtrem v seznamu / 1denní).
+        let list = ''
+        try {
+          const { data: bks } = await supabase.from('bookings')
+            .select('id, status, start_date, end_date')
+            .eq('user_id', id)
+            .in('status', ['active', 'pending', 'reserved'])
+            .order('start_date', { ascending: true })
+          list = (bks || []).map(b =>
+            `#${String(b.id).slice(-8).toUpperCase()} · ${b.status} · ${(b.start_date || '').slice(0, 10)}–${(b.end_date || '').slice(0, 10)}`
+          ).join('   ·   ')
+        } catch { /* ignore */ }
+        setError(`Zákazník má ${result.data.count ?? ''} aktivních/čekajících rezervací — nejdřív je stornujte: ${list || '(otevřete rezervace zákazníka)'}`)
+        setConfirmDelete(false)
+        return
+      }
+      const msg = e === 'not_authorized'
         ? 'Nemáte oprávnění smazat tento účet.'
         : `Smazání selhalo: ${e}`
       setError(msg)
