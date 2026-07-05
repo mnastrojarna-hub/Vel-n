@@ -85,19 +85,41 @@ async function processTable(db: any, table: string, rows: any[], langs: string[]
   return { processed, failed, details }
 }
 
+/** Je token service_role JWT? Kontroluje claim `role` (ne přesnou shodu) —
+ *  projekt může mít nový formát klíčů sb_secret_ / víc platných klíčů. */
+function isServiceRole(token: string): boolean {
+  try {
+    const p = token.split('.')
+    if (p.length !== 3) return false
+    const pad = '='.repeat((4 - (p[1].length % 4)) % 4)
+    const payload = JSON.parse(atob(p[1].replace(/-/g, '+').replace(/_/g, '/') + pad))
+    return payload.role === 'service_role'
+  } catch (_) { return false }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
 
-  const auth = req.headers.get('authorization') || ''
-  if (!auth.includes(SUPABASE_SERVICE_KEY)) return jsonResponse({ error: 'service_role required' }, 401)
+  const db = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+
+  // ── Autorizace (tolerantní jako mirror-route-images) — cron posílá Bearer =
+  // app_settings.service_role_key, který se u nového formátu klíčů (sb_secret_…)
+  // NEROVNÁ env SUPABASE_SERVICE_ROLE_KEY → striktní shoda dávala 401 a překlady
+  // se nedoplňovaly. Přijmi env klíč, JWT service_role, nebo app_settings klíč.
+  let bearer = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '').trim()
+  if (bearer.length > 1 && bearer.startsWith('"') && bearer.endsWith('"')) bearer = bearer.slice(1, -1)
+  let authOk = bearer.length > 0 && (bearer === SUPABASE_SERVICE_KEY || isServiceRole(bearer))
+  if (!authOk && bearer.length > 0) {
+    const { data: row } = await db.from('app_settings').select('value').eq('key', 'service_role_key').maybeSingle()
+    if (row?.value && bearer === String(row.value).replace(/^"|"$/g, '').trim()) authOk = true
+  }
+  if (!authOk) return jsonResponse({ error: 'service_role required' }, 401)
 
   const body = await req.json().catch(() => ({}))
   const scope: string = body.scope || 'all'
   const limit: number = Math.min(Math.max(Number(body.limit) || 12, 1), 40)
   const langs: string[] = Array.isArray(body.target_langs) && body.target_langs.length > 0 ? body.target_langs : DEFAULT_LANGS
   const concurrency: number = Math.min(Math.max(Number(body.concurrency) || 3, 1), 6)
-
-  const db = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
   try {
     // Pořadí: nejdřív trasy, pak body zájmu (u scope='all').
