@@ -36,8 +36,13 @@ const DEFAULT_LIMIT = 60 // bodů na jeden běh
 const MAX_LIMIT = 300
 const TIME_BUDGET_MS = 120_000
 const CONCURRENCY = 3
-const GEO_RADIUS_M = 1500 // okruh pro geosearch fotek
-const MIN_SCORE = 0.5 // min. shoda názvu (0..1), aby se fotka přijala
+const GEO_RADIUS_M = 1200 // okruh pro geosearch fotek
+const MIN_SCORE = 0.5 // min. shoda názvu (0..1)
+// KONTROLA „fotka opravdu zobrazuje dané místo" = GEOGRAFICKÁ shoda + shoda názvu.
+const WD_RADIUS_KM = 0.6 // Wikidata: entita s fotkou musí ležet do 600 m od bodu
+const WIKI_NEAR_M = 700 // Wikipedie: článek se souřadnicemi do 700 m od bodu
+const WIKI_NAME_ONLY = 0.8 // Wikipedie bez souřadnic: jen skoro přesná shoda názvu
+const GEO_MIN_SCORE = 0.66 // Commons geosearch (bez entity): vyžaduj silnou shodu názvu
 
 const WIKI_HEADERS = {
   'User-Agent': 'MotoGo24Backfill/1.0 (+https://motogo24.cz; info@motogo24.cz)',
@@ -115,8 +120,39 @@ async function getJson(url: string): Promise<Record<string, unknown> | null> {
 type Poi = { id: string; name: string; lat: number; lng: number; country: string | null; alt?: string }
 type Hit = { url: string; source: string; score: number } | null
 
-/// 1) Úvodní foto článku na Wikipedii, jehož název sedí s bodem (a je-li známá
-///    poloha, leží poblíž). Úvodní foto článku je skoro vždy o daném místě.
+/// 1) NEJSILNĚJŠÍ kontrola: Wikidata entita S FOTKOU (P18) ležící PŘÍMO na místě
+///    bodu (do WD_RADIUS_KM) a se sedícím názvem → fotka je vázaná na konkrétní
+///    objekt na daných souřadnicích, takže skoro jistě zobrazuje to, co má.
+async function viaWikidata(p: Poi): Promise<Hit> {
+  const sparql = `SELECT ?itemLabel ?img ?d WHERE {
+    SERVICE wikibase:around {
+      ?item wdt:P625 ?loc .
+      bd:serviceParam wikibase:center "Point(${p.lng} ${p.lat})"^^geo:wktLiteral .
+      bd:serviceParam wikibase:radius "${WD_RADIUS_KM}" .
+      bd:serviceParam wikibase:distance ?d .
+    }
+    ?item wdt:P18 ?img .
+    SERVICE wikibase:label { bd:serviceParam wikibase:language "en,cs,de,sk,pl,fr,it,es,nl". }
+  } ORDER BY ?d LIMIT 15`
+  const url = `https://query.wikidata.org/sparql?format=json&query=${encodeURIComponent(sparql)}`
+  const data = await getJson(url)
+  const rows = ((data?.results as Record<string, unknown> | undefined)?.bindings
+    as Array<Record<string, Record<string, unknown>>> | undefined) || []
+  for (const r of rows) {
+    const label = r.itemLabel?.value ? String(r.itemLabel.value) : ''
+    const img = r.img?.value ? String(r.img.value) : ''
+    if (!img) continue
+    const score = Math.max(nameScore(p.name, label), p.alt ? nameScore(p.alt, label) : 0)
+    if (score >= MIN_SCORE) {
+      // Hodnota P18 už je Special:FilePath URL (jen vynuť https).
+      return { url: img.replace(/^http:/, 'https:'), source: 'wikidata', score: Math.min(1, score + 0.2) }
+    }
+  }
+  return null
+}
+
+/// 2) Úvodní foto článku na Wikipedii shodného názvu, jehož poloha sedí s bodem
+///    (do WIKI_NEAR_M). Úvodní foto článku je skoro vždy o daném místě.
 async function viaWikipedia(p: Poi): Promise<Hit> {
   const langs = [...(WIKI_LANGS[(p.country || '').toUpperCase()] || []), 'en']
   const seen = new Set<string>()
@@ -134,23 +170,29 @@ async function viaWikipedia(p: Poi): Promise<Hit> {
       const title = String(pg.title || '')
       const file = pg.pageimage ? String(pg.pageimage) : ''
       if (!file) continue
-      let score = Math.max(nameScore(p.name, title), p.alt ? nameScore(p.alt, title) : 0)
-      // Když má stránka souřadnice, ověř blízkost (do ~4 km) a lehce zvýhodni.
+      const score = Math.max(nameScore(p.name, title), p.alt ? nameScore(p.alt, title) : 0)
       const co = (pg.coordinates as Array<Record<string, unknown>> | undefined)?.[0]
-      if (co && typeof co.lat === 'number' && typeof co.lon === 'number') {
-        const d = haversine(p.lat, p.lng, co.lat as number, co.lon as number)
-        if (d > 4000) continue
-        if (d < 800) score += 0.2
+      const hasCo = !!co && typeof co.lat === 'number' && typeof co.lon === 'number'
+      let ok = false
+      if (hasCo) {
+        // Kontrola polohy: článek musí ležet U BODU (do WIKI_NEAR_M) A sedět názvem.
+        const d = haversine(p.lat, p.lng, co!.lat as number, co!.lon as number)
+        ok = d <= WIKI_NEAR_M && score >= MIN_SCORE
+      } else {
+        // Bez souřadnic přijmi jen skoro přesnou shodu názvu (opatrně).
+        ok = score >= WIKI_NAME_ONLY
       }
-      if (score >= MIN_SCORE) {
-        return { url: filePathUrl(file), source: `wikipedia:${lang}`, score: Math.min(1, score) }
+      if (ok) {
+        return { url: filePathUrl(file), source: `wikipedia:${lang}`, score: Math.min(1, score + (hasCo ? 0.2 : 0)) }
       }
     }
   }
   return null
 }
 
-/// 2) Geotagovaná fotka z Commons poblíž bodu, jejíž název sedí s bodem.
+/// 3) Poslední záloha: geotagovaná fotka z Commons blízko bodu. Nemá za sebou
+///    entitu, tak vyžaduj SILNOU shodu názvu (GEO_MIN_SCORE), ať nechytne
+///    náhodnou fotku odjinud poblíž.
 async function viaCommonsGeo(p: Poi): Promise<Hit> {
   const url = `https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*` +
     `&generator=geosearch&ggscoord=${p.lat}|${p.lng}&ggsradius=${GEO_RADIUS_M}` +
@@ -163,7 +205,7 @@ async function viaCommonsGeo(p: Poi): Promise<Hit> {
     const title = String(pg.title || '') // "File:Xxx.jpg"
     if (!/\.(jpe?g|png|webp)$/i.test(title)) continue
     const score = Math.max(nameScore(p.name, title), p.alt ? nameScore(p.alt, title) : 0)
-    if (score >= MIN_SCORE && (!best || score > best.score)) {
+    if (score >= GEO_MIN_SCORE && (!best || score > best.score)) {
       best = { url: filePathUrl(title), source: 'commons-geo', score }
     }
   }
@@ -179,7 +221,8 @@ function haversine(la1: number, lo1: number, la2: number, lo2: number): number {
 }
 
 async function findPhoto(p: Poi): Promise<Hit> {
-  return (await viaWikipedia(p)) || (await viaCommonsGeo(p))
+  // Od nejsilnější kontroly (Wikidata entita na místě) po nejslabší (geosearch).
+  return (await viaWikidata(p)) || (await viaWikipedia(p)) || (await viaCommonsGeo(p))
 }
 
 serve(async (req) => {
