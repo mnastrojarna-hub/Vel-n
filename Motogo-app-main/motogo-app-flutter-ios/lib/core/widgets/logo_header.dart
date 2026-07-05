@@ -34,7 +34,9 @@ class LogoRow extends ConsumerWidget {
     final double logoRadius = compact ? 12 : 14;
     final double iconSize = compact ? 26 : 36;
     final double titleSize = compact ? 22 : 26;
-    final double subtitleSize = compact ? 11 : 14;
+    // O maličko menší podtitulek + užší prostrkání, aby se vešlo celé
+    // „PŮJČOVNA MOTOREK" a neořezávalo se na „MOTORE…".
+    final double subtitleSize = compact ? 10 : 12.5;
     // Široký barevný proužek kolem loga dle ranku.
     final double ringWidth = compact ? 4 : 5;
 
@@ -119,7 +121,7 @@ class LogoRow extends ConsumerWidget {
                   fontSize: subtitleSize,
                   fontWeight: FontWeight.w700,
                   color: Colors.white38,
-                  letterSpacing: 2.0,
+                  letterSpacing: 1.2,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
