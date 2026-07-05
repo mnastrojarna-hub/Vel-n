@@ -52,6 +52,7 @@ function Trasy() {
   const [catalogCount, setCatalogCount] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [tab, setTab] = useState('routes')              // 'routes' | 'catalog'
   const [search, setSearch] = useState('')
   const [countryFilter, setCountryFilter] = useState('all')
   const [sortBy, setSortBy] = useState('default')       // řazení seznamu tras
@@ -308,13 +309,41 @@ function Trasy() {
   return (
     <div>
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">
-        <StatCard label="Tras celkem" value={routes.length} color="#0f1a14" />
+        <div onClick={() => setTab('routes')} className="cursor-pointer" title="Zobrazit trasy">
+          <StatCard label="Tras celkem" value={routes.length} color="#0f1a14" />
+        </div>
         <StatCard label="Publikované" value={activeCount} color="#1a8a18" />
         <StatCard label="Okruhy" value={loopCount} color="#2563eb" />
         <StatCard label="Body zájmu tras" value={totalPois} color="#8b5cf6" />
-        <StatCard label="Katalog míst" value={catalogCount ?? '…'} color="#0d9488" />
+        <div onClick={() => setTab('catalog')} className="cursor-pointer" title="Otevřít katalog míst">
+          <StatCard label="Katalog míst" value={catalogCount ?? '…'} color="#0d9488" />
+        </div>
       </div>
 
+      {/* Přepínač: seznam tras vs. katalog samostatných zajímavých míst */}
+      <div className="flex gap-2 mb-5 flex-wrap">
+        {[
+          { id: 'routes', label: `🛣️ Trasy (${routes.length})` },
+          { id: 'catalog', label: `📍 Katalog míst (${catalogCount ?? '…'})` },
+        ].map(t => (
+          <button key={t.id} onClick={() => setTab(t.id)}
+            className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+            style={{
+              padding: '8px 18px',
+              background: tab === t.id ? '#74FB71' : '#f1faf7',
+              color: '#1a2e22',
+              border: 'none',
+              boxShadow: tab === t.id ? '0 4px 16px rgba(116,251,113,.35)' : 'none',
+            }}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'catalog' ? (
+        <TrasyKatalogMist />
+      ) : (
+      <>
       <div className="flex items-center gap-3 mb-5 flex-wrap">
         <SearchInput value={search} onChange={setSearch} placeholder="Hledat trasu…" />
         {allCountries.length > 0 && (
@@ -505,9 +534,8 @@ function Trasy() {
           </tbody>
         </Table>
       )}
-
-      {/* Katalog samostatných zajímavých míst (points_of_interest) */}
-      <TrasyKatalogMist />
+      </>
+      )}
 
       {showModal && (
         <TrasyModal
