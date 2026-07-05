@@ -120,10 +120,77 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
     return merged;
   }
 
+  // Memoizace sloučeného (deduplikovaného) seznamu pro pohled „vše" — stejně
+  // jako _mergedAll běží jen když se zdrojový seznam (referenčně) změní, ať se
+  // O(n) průchod přes desítky tisíc bodů neopakuje při každém build() (hledání,
+  // přepínání filtrů). `all` je stabilní instance z _mergedAll, takže identical
+  // spolehlivě pozná „nová data" vs. pouhé překreslení.
+  List<PoiEntry>? _dedupCache;
+  List<PoiEntry>? _dedupSrc;
+
+  List<PoiEntry> _dedupAll(List<PoiEntry> all) {
+    if (_dedupCache != null && identical(_dedupSrc, all)) return _dedupCache!;
+    final deduped = _dedupPlaces(all);
+    _dedupCache = deduped;
+    _dedupSrc = all;
+    return deduped;
+  }
+
   /// Vzdálenost bodu od zadaného místa (∞ pro body bez GPS — spadnou dolů).
   double _distTo(Distance dist, LatLng from, PoiEntry e) {
     final ll = e.latLng;
     return ll == null ? double.infinity : dist.as(LengthUnit.Meter, from, ll);
+  }
+
+  /// Normalizovaný název místa pro slučování duplicit — malá písmena, sloučené
+  /// mezery a bez vedoucího druhového slova (zámek/hrad/…), aby „Zámek Žirovnice"
+  /// a „zámek Žirovnice" (i „Zámek Kamenice nad Lipou" vs „Kamenice nad Lipou")
+  /// spadly na stejný klíč.
+  static String _placeName(String raw) {
+    var s = raw.trim().toLowerCase();
+    const prefixes = [
+      'zřícenina hradu ', 'zřícenina ', 'zámek ', 'hrad ', 'klášter ',
+      'burgruine ', 'schloss ', 'burg ', 'château ', 'castle ',
+    ];
+    for (final p in prefixes) {
+      if (s.startsWith(p)) {
+        s = s.substring(p.length);
+        break;
+      }
+    }
+    return s.replaceAll(RegExp(r'\s+'), ' ').trim();
+  }
+
+  /// Sloučí body, které představují STEJNÉ fyzické místo (shodný normalizovaný
+  /// název + poloha v ~5 km rastru), do JEDNÉ položky. V katalogu „napříč
+  /// trasami" se tak místo ležící na více trasách (Kamenice nad Lipou, zámek
+  /// Žirovnice, Orlík…) ukáže jen jednou. Data tras se NEMĚNÍ — jde čistě o
+  /// zobrazení. Jako reprezentanta upřednostní bod s fotkou, pak katalogový.
+  static List<PoiEntry> _dedupPlaces(List<PoiEntry> src) {
+    String bucket(double v) => (v / 0.05).round().toString();
+    final index = <String, int>{};
+    final out = <PoiEntry>[];
+    for (final e in src) {
+      final ll = e.latLng;
+      // Body bez GPS nikdy neslučuj (nedají se spolehlivě ztotožnit).
+      final key = ll == null
+          ? 'id:${e.key}'
+          : 'p:${_placeName(e.poi.name)}@${bucket(ll.latitude)},${bucket(ll.longitude)}';
+      final at = index[key];
+      if (at == null) {
+        index[key] = out.length;
+        out.add(e);
+      } else {
+        final cur = out[at];
+        final curCover = cur.poi.cover != null;
+        final candCover = e.poi.cover != null;
+        final replace = curCover != candCover
+            ? candCover // bod s fotkou vyhrává
+            : (cur.catalog != e.catalog ? e.catalog : false); // katalog je kanonický
+        if (replace) out[at] = e;
+      }
+    }
+    return out;
   }
 
   /// Kotva (start / první bod) naposledy zvolené trasy — pro řazení „od zvolené
@@ -175,10 +242,15 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
 
     // Filtr + řazení (podle vzdálenosti od jezdce, jinak dle názvu trasy).
     final q = _query.trim();
+    // V pohledu „vše" (bez filtru na konkrétní trasu) sluč body, které jsou
+    // stejné fyzické místo opakující se přes více tras, do jedné položky — aby
+    // se místo ležící na více trasách neukazovalo vícekrát. Data tras se NEMĚNÍ,
+    // jde čistě o zobrazení; filtr na konkrétní trasu necháváme kompletní.
+    final base = _routeFilter == null ? _dedupAll(all) : all;
     // 1) Volitelný filtr podle konkrétní trasy + hledání — základ pro počty
     //    kategorií. (Zdrojové rozlišení „katalog / komunitní / trasa" se
     //    nefiltruje — pro uživatele je bod jen bod; všechny se zobrazí spolu.)
-    final sourceFiltered = all.where((e) {
+    final sourceFiltered = base.where((e) {
       if (_routeFilter != null && e.route?.id != _routeFilter) return false;
       if (q.isEmpty) return true;
       // Hloubkové hledání: název, popis i překlady bodu (bez diakritiky),
