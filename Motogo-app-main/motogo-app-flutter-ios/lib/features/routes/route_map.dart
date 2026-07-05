@@ -66,9 +66,22 @@ class _RouteMapViewState extends State<RouteMapView> {
   @override
   void didUpdateWidget(RouteMapView old) {
     super.didUpdateWidget(old);
+    if (!_ready) return;
+    // Geometrie/body se u detailu dopočítávají ASYNCHRONNĚ (živý routing přes
+    // Mapy.com) — když dorazí až PO `onMapReady`, kamera se musí znovu
+    // přizpůsobit celé trase. Bez toho zůstane na úvodním výřezu (spočteném
+    // z prázdné/cache geometrie) a mapa se „nezobrazí dobře".
+    final pointsChanged = old.geometry.length != widget.geometry.length ||
+        old.pois.length != widget.pois.length ||
+        old.start != widget.start;
+    if (pointsChanged) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _fit();
+      });
+      return;
+    }
     // Při změně zvýrazněného POI plynule odcentruj.
-    if (_ready &&
-        widget.activePoi != old.activePoi &&
+    if (widget.activePoi != old.activePoi &&
         widget.activePoi != null &&
         widget.activePoi! >= 0 &&
         widget.activePoi! < widget.pois.length) {

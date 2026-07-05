@@ -291,7 +291,7 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
                   _srcChip('${km.round()} km', Icons.circle_outlined,
                       _nearbyKm == km, null,
                       () => setState(() => _nearbyKm = km)),
-              _srcChip(t(context).tr('poiAllRoutes'), Icons.apps, _routeFilter == null,
+              _srcChip(t(context).tr('poiAllPoints'), Icons.apps, _routeFilter == null,
                   all.length, () => setState(() => _routeFilter = null)),
               if (catalogCount > 0)
                 _srcChip(t(context).tr('poiCatalog'), Icons.place, _routeFilter == _kCatalog,
