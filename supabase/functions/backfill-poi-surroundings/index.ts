@@ -171,7 +171,7 @@ serve(async (req) => {
   const limit: number = Math.min(Math.max(Number(body.limit) || 8, 1), 25)
   const concurrency: number = Math.min(Math.max(Number(body.concurrency) || 2, 1), 4)
 
-  try {
+  const runBatch = async () => {
     // Pořadí: nejdřív katalogové body (vidí je nejvíc uživatelů), pak body na trase.
     let table = 'points_of_interest'
     let rows: any[] = []
@@ -181,10 +181,26 @@ serve(async (req) => {
       rows = await fetchMissing(db, 'points_of_interest', limit)
       if (rows.length === 0) { table = 'route_pois'; rows = await fetchMissing(db, table, limit) }
     }
-    if (rows.length === 0) return jsonResponse({ success: true, table, processed: 0, failed: 0, done: true })
+    if (rows.length === 0) return { table, processed: 0, failed: 0, done: true }
     const { processed, failed } = await processTable(db, table, rows, concurrency)
-    return jsonResponse({ success: true, table, limit, processed, failed })
-  } catch (e) {
-    return jsonResponse({ error: String(e instanceof Error ? e.message : e) }, 500)
+    return { table, limit, processed, failed }
   }
+
+  const task = runBatch().catch(async (e) => {
+    await db.from('debug_log').insert({
+      source: 'backfill-poi-surroundings', action: 'batch', component: 'edge_function',
+      status: 'error', request_data: { error: String(e) },
+    }).then(() => {}, () => {})
+    return { error: String(e instanceof Error ? e.message : e) }
+  })
+
+  // ?wait=1 → počkej a vrať výsledek (ruční ověření curl-em). Jinak (cron přes
+  // pg_net čeká jen ~5 s, ale AI generace + překlad trvá déle) → odpověz HNED
+  // 202 a dávku dokonči na pozadí přes EdgeRuntime.waitUntil (vzor mirror-route-images).
+  const wantWait = new URL(req.url).searchParams.get('wait')
+  if (wantWait === '1' || wantWait === 'true') return jsonResponse({ success: true, ...(await task) })
+  // deno-lint-ignore no-explicit-any
+  const rt = (globalThis as any).EdgeRuntime
+  if (rt?.waitUntil) { rt.waitUntil(task); return jsonResponse({ success: true, started: true }, 202) }
+  return jsonResponse({ success: true, ...(await task) })
 })

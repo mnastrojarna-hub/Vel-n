@@ -121,7 +121,7 @@ serve(async (req) => {
   const langs: string[] = Array.isArray(body.target_langs) && body.target_langs.length > 0 ? body.target_langs : DEFAULT_LANGS
   const concurrency: number = Math.min(Math.max(Number(body.concurrency) || 3, 1), 6)
 
-  try {
+  const runBatch = async () => {
     // Pořadí: nejdřív trasy, pak body zájmu (u scope='all').
     let table = 'routes'
     let rows: any[] = []
@@ -134,12 +134,19 @@ serve(async (req) => {
       rows = await fetchMissing(db, 'routes', limit)
       if (rows.length === 0) { table = 'route_pois'; rows = await fetchMissing(db, table, limit) }
     }
-
-    if (rows.length === 0) return jsonResponse({ success: true, table, limit, processed: 0, failed: 0, done: true })
-
+    if (rows.length === 0) return { table, limit, processed: 0, failed: 0, done: true }
     const { processed, failed, details } = await processTable(db, table, rows, langs, concurrency)
-    return jsonResponse({ success: true, table, limit, processed, failed, details: details.slice(0, 40) })
-  } catch (e) {
-    return jsonResponse({ error: String(e instanceof Error ? e.message : e) }, 500)
+    return { table, limit, processed, failed, details: details.slice(0, 40) }
   }
+
+  const task = runBatch().catch((e) => ({ error: String(e instanceof Error ? e.message : e) }))
+
+  // ?wait=1 → počkej (ruční ověření). Jinak (cron přes pg_net čeká jen ~5 s, ale
+  // překlad do 7 jazyků trvá déle) → odpověz HNED 202 a dokonči na pozadí.
+  const wantWait = new URL(req.url).searchParams.get('wait')
+  if (wantWait === '1' || wantWait === 'true') return jsonResponse({ success: true, ...(await task) })
+  // deno-lint-ignore no-explicit-any
+  const rt = (globalThis as any).EdgeRuntime
+  if (rt?.waitUntil) { rt.waitUntil(task); return jsonResponse({ success: true, started: true }, 202) }
+  return jsonResponse({ success: true, ...(await task) })
 })
