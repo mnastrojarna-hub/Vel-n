@@ -285,9 +285,18 @@ async function runBatch(
     .select('id', { count: 'exact', head: true })
     .is('image_url', null).eq('is_active', true)
 
+  // Kolik bodů se ještě NEZKOUŠELO (skutečná práce pro cron; když 0 → job končí).
+  const { count: remainingUnchecked } = await sb.from('points_of_interest')
+    .select('id', { count: 'exact', head: true })
+    .is('image_url', null).is('photo_checked_at', null).eq('is_active', true)
+
+  // Bere jen body, u kterých se fotka JEŠTĚ nezkoušela (photo_checked_at null) —
+  // jinak by dávka pořád narážela na vodní blok bodů BEZ dohledatelné fotky na
+  // začátku řazení a nikdy nepostoupila dál. Každý bod se po pokusu označí jako
+  // „zkoušený", takže se okno posouvá a backfill monotónně dojede.
   const { data, error } = await sb.from('points_of_interest')
     .select('id, name, lat, lng, country, translations')
-    .is('image_url', null).eq('is_active', true)
+    .is('image_url', null).is('photo_checked_at', null).eq('is_active', true)
     .order('sort_order', { ascending: true, nullsFirst: false })
     .order('id', { ascending: true })
     .limit(opts.limit)
@@ -304,16 +313,24 @@ async function runBatch(
   let updated = 0, skipped = 0
   let idx = 0
 
+  const nowIso = new Date().toISOString()
   const worker = async () => {
     while (idx < pois.length && Date.now() - t0 < TIME_BUDGET_MS) {
       const p = pois[idx++]
       const hit = await findPhoto(p)
-      if (!hit) { skipped++; continue }
-      bySource[hit.source] = (bySource[hit.source] || 0) + 1
-      proposals.push({ id: p.id, name: p.name, url: hit.url, source: hit.source, score: Math.round(hit.score * 100) / 100 })
+      if (hit) {
+        bySource[hit.source] = (bySource[hit.source] || 0) + 1
+        proposals.push({ id: p.id, name: p.name, url: hit.url, source: hit.source, score: Math.round(hit.score * 100) / 100 })
+      } else {
+        skipped++
+      }
+      // Ostrý běh: označ bod jako „zkoušený" (i bez nálezu), ať se příště
+      // nepřeskenovává donekonečna; při nálezu rovnou doplň i image_url.
       if (!opts.dryRun) {
-        const upd = await sb.from('points_of_interest').update({ image_url: hit.url }).eq('id', p.id).is('image_url', null)
-        if (!upd.error) updated++
+        const patch: Record<string, unknown> = { photo_checked_at: nowIso }
+        if (hit) patch.image_url = hit.url
+        const upd = await sb.from('points_of_interest').update(patch).eq('id', p.id).is('image_url', null)
+        if (!upd.error && hit) updated++
       }
     }
   }
@@ -326,6 +343,7 @@ async function runBatch(
     skipped,
     updated,
     remaining_without_photo: remaining ?? null,
+    remaining_unchecked: remainingUnchecked ?? null,
     by_source: bySource,
     ms: Date.now() - t0,
     // v dry-run vrať i vzorek návrhů ke kontrole (max 40)
