@@ -20,21 +20,23 @@ import { computeDocVerification } from '../../lib/docVerification'
 //   • doklady = computeDocVerification (fotka NEBO Mindee OCR verified_at; dětská motorka N bez ŘP)
 //
 // 4 vzájemně se vylučující koše (priorita shora):
-//   paid            → Zaplaceno
-//   gateway_unpaid  → Na platební bráně, nezaplaceno (krok 3)
-//   step2_docs_done → Krok 2: doklady vyplněny, ale neklikl zaplatit
-//   step2_no_docs   → Krok 2 nedokončen: doklady nevyplněny
+//   paid_docs_done  → Zaplaceno + doklady (dokončeno)
+//   paid_no_docs    → Zaplaceno, čeká na doklady (krok 3 — legitimní mezistav)
+//   gateway_unpaid  → Zvolil platbu / na bráně, nezaplaceno (krok 2)
+//   step2_unpaid    → Krok 2 (přehled/platba) nedokončen, nezaplaceno
 // ───────────────────────────────────────────────────────────────────────────
 
 const VERIFICATION_TYPES = ['id_card', 'id_photo', 'passport', 'drivers_license', 'license_photo']
 
+// NOVÝ FLOW (platba PŘED doklady): krok 2 = přehled + platba, krok 3 = doklady.
+// „Zaplaceno, čeká na doklady" je LEGITIMNÍ krok, ne anomálie.
 const STAGE_META = {
-  step2_no_docs:   { label: 'Krok 2 nedokončen — doklady nevyplněny', color: '#dc2626', short: 'Bez dokladů' },
-  step2_docs_done: { label: 'Krok 2 — doklady vyplněny, neklikl zaplatit', color: '#f59e0b', short: 'Doklady OK, bez platby' },
-  gateway_unpaid:  { label: 'Na platební bráně — nezaplaceno (krok 3)', color: '#7c3aed', short: 'Brána, nezaplaceno' },
-  paid:            { label: 'Zaplaceno', color: '#16a34a', short: 'Zaplaceno' },
+  step2_unpaid:    { label: 'Krok 2 (přehled/platba) nedokončen — nezaplaceno', color: '#dc2626', short: 'Nezaplaceno' },
+  gateway_unpaid:  { label: 'Zvolil platbu / na bráně — nezaplaceno', color: '#f59e0b', short: 'Brána, nezaplaceno' },
+  paid_no_docs:    { label: 'Zaplaceno — čeká na doklady (krok 3)', color: '#7c3aed', short: 'Zapl., čeká doklady' },
+  paid_docs_done:  { label: 'Zaplaceno + doklady (dokončeno)', color: '#16a34a', short: 'Dokončeno' },
 }
-const STAGE_ORDER = ['step2_no_docs', 'step2_docs_done', 'gateway_unpaid', 'paid']
+const STAGE_ORDER = ['step2_unpaid', 'gateway_unpaid', 'paid_no_docs', 'paid_docs_done']
 
 const DEVICE_META = {
   pc:      { label: 'PC', color: '#4285f4' },
@@ -66,7 +68,7 @@ export default function WebRezervacniFunnel() {
     try {
       const [bRes, pRes, dRes, mRes] = await Promise.all([
         supabase.from('bookings')
-          .select('id, user_id, moto_id, created_at, created_device, completed_device, status, payment_status, is_test, checkout_started_at, stripe_checkout_url, confirmed_at, booking_source')
+          .select('id, user_id, moto_id, created_at, created_device, completed_device, status, payment_status, is_test, checkout_started_at, stripe_checkout_url, confirmed_at, booking_source, chosen_payment_method, pay_channel, docs_completed_at')
           .eq('booking_source', 'web'),
         supabase.from('profiles')
           .select('id, license_number, id_number, license_verified_at, id_verified_at, passport_verified_at, license_expiry, license_group'),
@@ -109,13 +111,14 @@ export default function WebRezervacniFunnel() {
       const docsDone = dv.isChildMoto ? dv.hasIdentity : (dv.hasIdentity && dv.hasLicense)
 
       const paid = PAID_BOOKING_STATUSES.includes(b.payment_status)
-      const reachedGateway = !!(b.checkout_started_at || b.stripe_checkout_url)
+      // „zvolil platbu / na bráně" = Stripe checkout NEBO zvolená metoda (QR / karta)
+      const reachedGateway = !!(b.checkout_started_at || b.stripe_checkout_url || b.pay_channel === 'qr' || b.chosen_payment_method)
 
       let stage
-      if (paid) stage = 'paid'
+      if (paid && docsDone) stage = 'paid_docs_done'
+      else if (paid) stage = 'paid_no_docs'
       else if (reachedGateway) stage = 'gateway_unpaid'
-      else if (docsDone) stage = 'step2_docs_done'
-      else stage = 'step2_no_docs'
+      else stage = 'step2_unpaid'
 
       // „Kde byl, když odpadl" — poslední známé zařízení (krok 2, jinak krok 1)
       const device = devNorm(b.completed_device || b.created_device)
@@ -138,8 +141,8 @@ export default function WebRezervacniFunnel() {
       if (!b.paid) unfinishedByDevice[b.device]++
     }
 
-    const paid = byStage.paid
-    const reachedGateway = byStage.paid + byStage.gateway_unpaid
+    const paid = byStage.paid_docs_done + byStage.paid_no_docs
+    const reachedGateway = paid + byStage.gateway_unpaid
     const unfinished = total - paid
 
     return {
@@ -168,8 +171,9 @@ export default function WebRezervacniFunnel() {
   // ── Lineární funnel (monotonní): Zahájeno → Na platební bránu → Zaplaceno
   const funnelNodes = [
     { key: 'started', label: 'Zahájeno (krok 1)', value: total, color: '#1a2e22' },
-    { key: 'gateway', label: 'Dostal se na platební bránu (krok 3)', value: model.reachedGateway, color: '#7c3aed' },
-    { key: 'paid', label: 'Zaplaceno', value: model.paid, color: '#16a34a' },
+    { key: 'gateway', label: 'Zvolil platbu / brána (krok 2)', value: model.reachedGateway, color: '#f59e0b' },
+    { key: 'paid', label: 'Zaplaceno (krok 2 dokončen)', value: model.paid, color: '#7c3aed' },
+    { key: 'done', label: 'Zaplaceno + doklady (krok 3 dokončen)', value: model.byStage.paid_docs_done, color: '#16a34a' },
   ]
 
   const kpis = [
@@ -342,9 +346,9 @@ export default function WebRezervacniFunnel() {
           <div className="text-xs mt-0.5" style={{ color: '#888' }}>existuje Stripe odkaz, unpaid</div>
         </div>
         <div style={{ ...cardStyle, padding: '18px 16px' }}>
-          <div className="text-2xl font-extrabold" style={{ color: model.paidWithoutDocs > 0 ? '#f59e0b' : '#166534' }}>{model.paidWithoutDocs}</div>
-          <div className="text-xs mt-1 font-bold" style={{ color: '#1a2e22' }}>Zaplaceno bez dokladů</div>
-          <div className="text-xs mt-0.5" style={{ color: '#888' }}>zaplatil, doklady chybí</div>
+          <div className="text-2xl font-extrabold" style={{ color: '#7c3aed' }}>{model.paidWithoutDocs}</div>
+          <div className="text-xs mt-1 font-bold" style={{ color: '#1a2e22' }}>Zaplaceno — čeká na doklady</div>
+          <div className="text-xs mt-0.5" style={{ color: '#888' }}>krok 3 (doklady po platbě)</div>
         </div>
       </div>
 

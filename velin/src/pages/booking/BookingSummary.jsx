@@ -295,6 +295,12 @@ export default function BookingSummary({ booking, sosIncidents, bookingExtras, c
       {Number.isFinite(b.payment_fill_seconds) && b.payment_fill_seconds >= 0 && (
         <SumRow label="Doba do zaplacení" value={fmtDuration(b.payment_fill_seconds)} />
       )}
+      {b.booking_source === 'web' && b.payment_status !== 'paid' && b.chosen_payment_method && (
+        <SumRow label="Zvolená platba" value={b.chosen_payment_method === 'qr' ? 'QR / převod' : 'Karta (online)'} />
+      )}
+      {b.docs_completed_at && (
+        <SumRow label="Doklady doplněny (po platbě)" value={fmtDT(b.docs_completed_at)} color="#7c3aed" />
+      )}
       <SumRow label="Potvrzeno" value={fmtDT(b.confirmed_at)} />
       <SumRow label="Vydáno" value={fmtDT(b.picked_up_at)} />
       <SumRow label="Vráceno" value={fmtDT(b.returned_at)} />
