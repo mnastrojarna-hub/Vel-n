@@ -1,0 +1,299 @@
+// backfill-poi-photos — doplnění fotek bodů zájmu z VOLNÝCH zdrojů.
+//
+// PROČ: většina katalogových bodů (`points_of_interest`, generováno z Wikidata)
+// nemá fotku, protože jejich entita na Wikidatech nemá P18. Tahle funkce se
+// pokusí najít fotku s volnou licencí (Wikimedia Commons / Wikipedia) a doplnit
+// `image_url`. Následně ji cron `mirror-route-images` zrcadlí do bucketu `media`
+// (points_of_interest už pokrývá) → v appce se pak načítá rychle.
+//
+// BEZPEČNOST (proti „špatné fotce u špatného místa"):
+//  - bere JEN Commons/Wikipedia (vše CC/public-domain, kredit i mirror fungují),
+//  - fotku přijme jen při SHODĚ NÁZVU (token-overlap), jinak bod nechá bez fotky,
+//  - `?dry_run=1` NIC nezapíše, jen vrátí návrhy (bod → URL → zdroj → jistota),
+//    ať se dá výsledek zkontrolovat, než se zapne cron.
+//
+// Auth: stejná jako mirror-route-images (service_role z app_settings / admin JWT),
+// verify_jwt=false v config.toml.
+//
+// Použití:
+//   dry-run (nezapisuje):  POST ...&dry_run=1&limit=40&wait=1
+//   ostrý běh:             POST ...&limit=100&wait=1
+//   cron:                  RPC backfill_poi_photos_tick() → pg_net POST (bez wait)
+
+import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
+const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
+
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+const DEFAULT_LIMIT = 60 // bodů na jeden běh
+const MAX_LIMIT = 300
+const TIME_BUDGET_MS = 120_000
+const CONCURRENCY = 3
+const GEO_RADIUS_M = 1500 // okruh pro geosearch fotek
+const MIN_SCORE = 0.5 // min. shoda názvu (0..1), aby se fotka přijala
+
+const WIKI_HEADERS = {
+  'User-Agent': 'MotoGo24Backfill/1.0 (+https://motogo24.cz; info@motogo24.cz)',
+}
+
+// Které jazykové Wikipedie zkusit dle země bodu (+ vždy en jako záloha).
+const WIKI_LANGS: Record<string, string[]> = {
+  CZ: ['cs'], SK: ['sk', 'cs'], PL: ['pl'], DE: ['de'], AT: ['de'], CH: ['de', 'fr', 'it'],
+  FR: ['fr'], IT: ['it'], ES: ['es'], NL: ['nl'], BE: ['nl', 'fr'], PT: ['pt'],
+  HU: ['hu'], SI: ['sl'], HR: ['hr'], RO: ['ro'], BG: ['bg'], RS: ['sr'], GR: ['el'],
+  DK: ['da'], SE: ['sv'], NO: ['no'], FI: ['fi'], GB: ['en'], IE: ['en'],
+  LT: ['lt'], LV: ['lv'], EE: ['et'], MD: ['ro'], MK: ['mk'],
+}
+
+function json(body: Record<string, unknown>, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...CORS, 'Content-Type': 'application/json' },
+  })
+}
+
+function isServiceRole(token: string): boolean {
+  try {
+    const p = token.split('.')
+    if (p.length !== 3) return false
+    const pad = '='.repeat((4 - (p[1].length % 4)) % 4)
+    const payload = JSON.parse(atob(p[1].replace(/-/g, '+').replace(/_/g, '/') + pad))
+    return payload.role === 'service_role'
+  } catch (_) {
+    return false
+  }
+}
+
+// ── Porovnání názvů (bez diakritiky, token-overlap) ──
+function fold(s: string): string {
+  // Odstraň diakritiku (kombinující znaky U+0300–U+036F) přes NFD rozklad.
+  return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+}
+const STOP = new Set([
+  'the', 'a', 'an', 'of', 'de', 'la', 'le', 'el', 'und', 'and', 'na', 'v', 've', 'u',
+  'nad', 'pod', 'pri', 'die', 'der', 'das', 'von', 'zum', 'zur', 'am', 'im',
+  'hrad', 'zamek', 'rozhledna', 'kostel', 'jezero', 'rybnik', 'prehrada', 'vrch',
+  'castle', 'lake', 'tower', 'church', 'mount', 'burg', 'schloss', 'see',
+])
+function tokset(s: string): Set<string> {
+  const out = new Set<string>()
+  for (const t of fold(s).replace(/[^a-z0-9\s]/g, ' ').split(/\s+/)) {
+    if (t.length >= 3 && !STOP.has(t)) out.add(t)
+  }
+  return out
+}
+/// Shoda 0..1 = kolik VÝZNAMOVÝCH tokenů názvu bodu je i v názvu kandidáta.
+function nameScore(poiName: string, candidate: string): number {
+  const a = tokset(poiName)
+  if (a.size === 0) return 0
+  const b = tokset(candidate)
+  let hit = 0
+  for (const t of a) if (b.has(t)) hit++
+  return hit / a.size
+}
+
+const filePathUrl = (file: string) =>
+  `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(file.replace(/^File:/i, '').replace(/ /g, '_'))}`
+
+async function getJson(url: string): Promise<Record<string, unknown> | null> {
+  try {
+    const r = await fetch(url, { headers: WIKI_HEADERS })
+    if (!r.ok) { await r.body?.cancel().catch(() => {}); return null }
+    return await r.json() as Record<string, unknown>
+  } catch (_) {
+    return null
+  }
+}
+
+type Poi = { id: string; name: string; lat: number; lng: number; country: string | null; alt?: string }
+type Hit = { url: string; source: string; score: number } | null
+
+/// 1) Úvodní foto článku na Wikipedii, jehož název sedí s bodem (a je-li známá
+///    poloha, leží poblíž). Úvodní foto článku je skoro vždy o daném místě.
+async function viaWikipedia(p: Poi): Promise<Hit> {
+  const langs = [...(WIKI_LANGS[(p.country || '').toUpperCase()] || []), 'en']
+  const seen = new Set<string>()
+  for (const lang of langs) {
+    if (seen.has(lang)) continue
+    seen.add(lang)
+    const q = encodeURIComponent(p.name)
+    const url = `https://${lang}.wikipedia.org/w/api.php?action=query&format=json&origin=*` +
+      `&generator=search&gsrsearch=${q}&gsrlimit=3&gsrnamespace=0` +
+      `&prop=pageimages|coordinates&piprop=name&colimit=3`
+    const data = await getJson(url)
+    const pages = (data?.query as Record<string, unknown> | undefined)?.pages as Record<string, Record<string, unknown>> | undefined
+    if (!pages) continue
+    for (const pg of Object.values(pages)) {
+      const title = String(pg.title || '')
+      const file = pg.pageimage ? String(pg.pageimage) : ''
+      if (!file) continue
+      let score = Math.max(nameScore(p.name, title), p.alt ? nameScore(p.alt, title) : 0)
+      // Když má stránka souřadnice, ověř blízkost (do ~4 km) a lehce zvýhodni.
+      const co = (pg.coordinates as Array<Record<string, unknown>> | undefined)?.[0]
+      if (co && typeof co.lat === 'number' && typeof co.lon === 'number') {
+        const d = haversine(p.lat, p.lng, co.lat as number, co.lon as number)
+        if (d > 4000) continue
+        if (d < 800) score += 0.2
+      }
+      if (score >= MIN_SCORE) {
+        return { url: filePathUrl(file), source: `wikipedia:${lang}`, score: Math.min(1, score) }
+      }
+    }
+  }
+  return null
+}
+
+/// 2) Geotagovaná fotka z Commons poblíž bodu, jejíž název sedí s bodem.
+async function viaCommonsGeo(p: Poi): Promise<Hit> {
+  const url = `https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*` +
+    `&generator=geosearch&ggscoord=${p.lat}|${p.lng}&ggsradius=${GEO_RADIUS_M}` +
+    `&ggslimit=20&ggsnamespace=6`
+  const data = await getJson(url)
+  const pages = (data?.query as Record<string, unknown> | undefined)?.pages as Record<string, Record<string, unknown>> | undefined
+  if (!pages) return null
+  let best: Hit = null
+  for (const pg of Object.values(pages)) {
+    const title = String(pg.title || '') // "File:Xxx.jpg"
+    if (!/\.(jpe?g|png|webp)$/i.test(title)) continue
+    const score = Math.max(nameScore(p.name, title), p.alt ? nameScore(p.alt, title) : 0)
+    if (score >= MIN_SCORE && (!best || score > best.score)) {
+      best = { url: filePathUrl(title), source: 'commons-geo', score }
+    }
+  }
+  return best
+}
+
+function haversine(la1: number, lo1: number, la2: number, lo2: number): number {
+  const R = 6371000, r = Math.PI / 180
+  const dLa = (la2 - la1) * r, dLo = (lo2 - lo1) * r
+  const s = Math.sin(dLa / 2) ** 2 +
+    Math.cos(la1 * r) * Math.cos(la2 * r) * Math.sin(dLo / 2) ** 2
+  return 2 * R * Math.asin(Math.min(1, Math.sqrt(s)))
+}
+
+async function findPhoto(p: Poi): Promise<Hit> {
+  return (await viaWikipedia(p)) || (await viaCommonsGeo(p))
+}
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response(null, { headers: CORS })
+
+  const sb = createClient(SUPABASE_URL, SERVICE_KEY)
+
+  // ── Autorizace (shodná s mirror-route-images) ──
+  let bearer = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '').trim()
+  if (bearer.length > 1 && bearer.startsWith('"') && bearer.endsWith('"')) bearer = bearer.slice(1, -1)
+  const svcMatch = bearer.length > 0 && bearer === SERVICE_KEY
+  const roleMatch = !svcMatch && isServiceRole(bearer)
+  let appMatch = false
+  if (!svcMatch && !roleMatch && bearer.length > 0) {
+    const { data: row } = await sb.from('app_settings').select('value').eq('key', 'service_role_key').maybeSingle()
+    if (row?.value && bearer === String(row.value).trim()) appMatch = true
+  }
+  let adminMatch = false
+  if (!svcMatch && !roleMatch && !appMatch && bearer.length > 0) {
+    try {
+      const caller = createClient(SUPABASE_URL, Deno.env.get('SUPABASE_ANON_KEY') || '', {
+        global: { headers: { Authorization: `Bearer ${bearer}` } },
+      })
+      const { data: isAdmin } = await caller.rpc('is_admin')
+      adminMatch = isAdmin === true
+    } catch (_) { /* ne */ }
+  }
+  if (!svcMatch && !roleMatch && !appMatch && !adminMatch) {
+    return json({ error: 'forbidden' }, 403)
+  }
+
+  const params = new URL(req.url).searchParams
+  const dryRun = ['1', 'true'].includes(params.get('dry_run') || '')
+  const limit = Math.min(MAX_LIMIT, Math.max(1, parseInt(params.get('limit') || '', 10) || DEFAULT_LIMIT))
+  const wait = ['1', 'true'].includes(params.get('wait') || '')
+
+  const task = runBatch(sb, { dryRun, limit }).catch(async (e) => {
+    await sb.from('debug_log').insert({
+      source: 'backfill-poi-photos', action: 'batch', component: 'edge_function',
+      status: 'error', request_data: { error: String(e) },
+    }).then(() => {}, () => {})
+    return { error: String(e) }
+  })
+
+  if (wait || dryRun) return json({ success: true, ...(await task) })
+  // deno-lint-ignore no-explicit-any
+  const rt = (globalThis as any).EdgeRuntime
+  if (rt?.waitUntil) { rt.waitUntil(task); return json({ success: true, started: true }, 202) }
+  return json({ success: true, ...(await task) })
+})
+
+async function runBatch(
+  sb: ReturnType<typeof createClient>,
+  opts: { dryRun: boolean; limit: number },
+) {
+  const t0 = Date.now()
+
+  // Kolik bodů bez fotky ještě zbývá (informativně).
+  const { count: remaining } = await sb.from('points_of_interest')
+    .select('id', { count: 'exact', head: true })
+    .is('image_url', null).eq('is_active', true)
+
+  const { data, error } = await sb.from('points_of_interest')
+    .select('id, name, lat, lng, country, translations')
+    .is('image_url', null).eq('is_active', true)
+    .order('sort_order', { ascending: true, nullsFirst: false })
+    .order('id', { ascending: true })
+    .limit(opts.limit)
+  if (error) throw error
+
+  const pois: Poi[] = (data || []).map((r) => {
+    const tr = r.translations as Record<string, Record<string, unknown>> | null
+    const alt = tr?.en?.name ? String(tr.en.name) : undefined
+    return { id: String(r.id), name: String(r.name), lat: Number(r.lat), lng: Number(r.lng), country: r.country as string | null, alt }
+  }).filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng) && p.name)
+
+  const proposals: Array<{ id: string; name: string; url: string; source: string; score: number }> = []
+  const bySource: Record<string, number> = {}
+  let updated = 0, skipped = 0
+  let idx = 0
+
+  const worker = async () => {
+    while (idx < pois.length && Date.now() - t0 < TIME_BUDGET_MS) {
+      const p = pois[idx++]
+      const hit = await findPhoto(p)
+      if (!hit) { skipped++; continue }
+      bySource[hit.source] = (bySource[hit.source] || 0) + 1
+      proposals.push({ id: p.id, name: p.name, url: hit.url, source: hit.source, score: Math.round(hit.score * 100) / 100 })
+      if (!opts.dryRun) {
+        const upd = await sb.from('points_of_interest').update({ image_url: hit.url }).eq('id', p.id).is('image_url', null)
+        if (!upd.error) updated++
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(CONCURRENCY, pois.length) }, worker))
+
+  const result = {
+    dry_run: opts.dryRun,
+    scanned: pois.length,
+    found: proposals.length,
+    skipped,
+    updated,
+    remaining_without_photo: remaining ?? null,
+    by_source: bySource,
+    ms: Date.now() - t0,
+    // v dry-run vrať i vzorek návrhů ke kontrole (max 40)
+    ...(opts.dryRun ? { samples: proposals.slice(0, 40) } : {}),
+  }
+
+  if (pois.length > 0) {
+    await sb.from('debug_log').insert({
+      source: 'backfill-poi-photos', action: 'batch', component: 'edge_function',
+      status: 'ok', request_data: result,
+    }).then(() => {}, () => {})
+  }
+  return result
+}
