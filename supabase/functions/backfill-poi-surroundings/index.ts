@@ -123,23 +123,25 @@ async function fetchMissing(db: any, table: string, limit: number) {
 async function processTable(db: any, table: string, rows: any[], concurrency: number) {
   const catalog = table === 'points_of_interest'
   let processed = 0, failed = 0
+  const reasons: Record<string, number> = {} // důvod selhání → počet (diagnostika)
+  const note = (why: string) => { reasons[why] = (reasons[why] || 0) + 1 }
   for (let i = 0; i < rows.length; i += concurrency) {
     const chunk = rows.slice(i, i + concurrency)
     await Promise.all(chunk.map(async (r: any) => {
       try {
         const gen = await generate(r, catalog)
-        if (!gen || !gen.surroundings) { failed++; return }
+        if (!gen || !gen.surroundings) { failed++; note('empty_generation'); return }
         const patch: Record<string, string> = { surroundings: gen.surroundings }
         if (gen.description) patch.description = gen.description
         const { error } = await db.from(table).update(patch).eq('id', r.id)
-        if (error) { failed++; return }
+        if (error) { failed++; note(`update_${String(error.message).slice(0, 40)}`); return }
         // Hned přelož do všech jazyků (surroundings + případně nový description).
         await translate(table, r.id, patch)
         processed++
-      } catch (_) { failed++ }
+      } catch (e) { failed++; note(String(e instanceof Error ? e.message : e).slice(0, 60)) }
     }))
   }
-  return { processed, failed }
+  return { processed, failed, reasons }
 }
 
 /** Je token service_role JWT? Kontroluje claim `role` (ne přesnou shodu) —
@@ -186,6 +188,18 @@ serve(async (req) => {
     const t0 = Date.now()
     let table = 'points_of_interest'
     let totalP = 0, totalF = 0
+    const allReasons: Record<string, number> = {}
+    const logResult = async (extra: Record<string, unknown>) => {
+      // Zaloguj vždy, když něco selhalo (ať je příčina — např. Anthropic 429/kredit —
+      // vidět přímo v SQL přes debug_log, ne jen v dashboard logu).
+      if (totalF > 0 || Object.keys(allReasons).length > 0) {
+        await db.from('debug_log').insert({
+          source: 'backfill-poi-surroundings', action: 'batch', component: 'edge_function',
+          status: totalF > 0 && totalP === 0 ? 'error' : 'partial',
+          request_data: { processed: totalP, failed: totalF, reasons: allReasons, ...extra },
+        }).then(() => {}, () => {})
+      }
+    }
     while (Date.now() - t0 < budgetMs) {
       // Pořadí: nejdřív katalogové body (vidí je nejvíc uživatelů), pak body na trase.
       let rows: any[] = []
@@ -195,11 +209,13 @@ serve(async (req) => {
         table = 'points_of_interest'; rows = await fetchMissing(db, table, limit)
         if (rows.length === 0) { table = 'route_pois'; rows = await fetchMissing(db, table, limit) }
       }
-      if (rows.length === 0) return { table, processed: totalP, failed: totalF, done: true }
-      const { processed, failed } = await processTable(db, table, rows, concurrency)
+      if (rows.length === 0) { await logResult({ table, done: true }); return { table, processed: totalP, failed: totalF, done: true } }
+      const { processed, failed, reasons } = await processTable(db, table, rows, concurrency)
       totalP += processed; totalF += failed
+      for (const [k, v] of Object.entries(reasons)) allReasons[k] = (allReasons[k] || 0) + v
     }
-    return { table, processed: totalP, failed: totalF }
+    await logResult({ table })
+    return { table, processed: totalP, failed: totalF, reasons: allReasons }
   }
 
   const task = runBatch().catch(async (e) => {
