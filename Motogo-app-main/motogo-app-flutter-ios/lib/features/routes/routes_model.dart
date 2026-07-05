@@ -80,6 +80,7 @@ class RoutePoi {
   final String id;
   final String name;
   final String? description;
+  final String? surroundings; // popis okolí bodu (z backendu), lokalizovaný přes translations
   final double? lat;
   final double? lng;
   final String? imageUrl;
@@ -95,6 +96,7 @@ class RoutePoi {
     required this.id,
     required this.name,
     this.description,
+    this.surroundings,
     this.lat,
     this.lng,
     this.imageUrl,
@@ -113,6 +115,9 @@ class RoutePoi {
   String nameFor(String lang) => _loc(translations, lang, 'name', name);
   String? descFor(String lang) =>
       description == null ? null : _loc(translations, lang, 'description', description!);
+  /// Lokalizovaný popis okolí bodu (klíč 'surroundings' v translations).
+  String? surroundingsFor(String lang) =>
+      surroundings == null ? null : _loc(translations, lang, 'surroundings', surroundings!);
 
   /// Normalizovaný text pro hloubkové vyhledávání: název, popis, kategorie
   /// a všechny jazykové mutace (cachováno).
@@ -130,6 +135,7 @@ class RoutePoi {
       id: j['id']?.toString() ?? '',
       name: j['name']?.toString() ?? '',
       description: j['description']?.toString(),
+      surroundings: j['surroundings']?.toString(),
       lat: _toD(j['lat']),
       lng: _toD(j['lng']),
       imageUrl: j['image_url']?.toString(),
@@ -151,6 +157,7 @@ class RoutePoi {
       id: j['id']?.toString() ?? '',
       name: j['name']?.toString() ?? '',
       description: j['description']?.toString(),
+      surroundings: j['surroundings']?.toString(),
       lat: _toD(j['lat']),
       lng: _toD(j['lng']),
       imageUrl: j['image_url']?.toString(),

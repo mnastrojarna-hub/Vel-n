@@ -6,158 +6,249 @@ import 'routes_model.dart';
 import 'route_image.dart';
 import 'poi_categories.dart';
 import 'poi_rating.dart';
+import 'poi_reviews.dart';
 import '../../core/i18n/i18n_provider.dart';
 
-/// Spodní panel s detailem bodu zájmu — zobrazí se po kliknutí na bod (na mapě
-/// i v navigaci): galerie fotek (klik = zvětšit přes celou obrazovku s
-/// přibližováním), název a krátký popis (lokalizovaný).
+/// Nadpis sekce v detailu bodu zájmu — výrazný, prominentní.
+Widget _poiSectionTitle(String s) => Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Text(
+        s,
+        style: const TextStyle(
+          fontSize: MotoGoTypo.sizeH3,
+          fontWeight: MotoGoTypo.w900,
+          color: MotoGoColors.black,
+          decoration: TextDecoration.none,
+        ),
+      ),
+    );
+
+/// Velký, obsáhlý detail bodu zájmu — otevírá se jako vysoký, scrollovatelný
+/// panel (rozbalitelný na skoro celou výšku). Pořadí sekcí: titulní fotka +
+/// galerie → název + kategorie → popis → Okolí → hvězdy → recenze/komentáře.
+/// Fotky lze zvětšit přes celou obrazovku s přibližováním.
 void showRoutePoiSheet(BuildContext context, RoutePoi poi, String lang, {int? index}) {
   final desc = poi.descFor(lang);
+  final surr = poi.surroundingsFor(lang);
   // Všechny fotky bodu (titulní + galerie), bez duplicit, v pořadí.
   final imgs = <String>{
     if (poi.imageUrl != null && poi.imageUrl!.isNotEmpty) poi.imageUrl!,
     ...poi.images.where((e) => e.isNotEmpty),
   }.toList();
+  // Kategorie bodu (emoji + lokalizovaný popisek) do štítku pod názvem.
+  final catKey = poiCategoryOf(poi);
+  final cat = kPoiCats.firstWhere((c) => c.key == catKey, orElse: () => kPoiCats.last);
 
   showModalBottomSheet(
     context: context,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.transparent,
     isScrollControlled: true,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-    ),
-    builder: (c) => Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (imgs.isNotEmpty)
-          GestureDetector(
-            onTap: () => openPoiImageViewer(context, imgs, 0, lang),
-            child: ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-              child: Stack(
-                children: [
-                  RouteImage(
-                    url: imgs.first,
-                    height: 190,
-                    width: double.infinity,
-                    targetWidth: 1000,
-                    placeholder: (_) => Container(
-                      height: 190,
-                      color: MotoGoColors.greenPale,
-                    ),
-                    error: (_) => Container(
-                      height: 120,
-                      color: MotoGoColors.greenPale,
-                      child: Center(child: Text(poiCatEmoji(poi), style: const TextStyle(fontSize: 34))),
-                    ),
-                  ),
-                  // Náznak „klikni pro zvětšení"
-                  Positioned(
-                    right: 12, top: 12,
-                    child: Container(
-                      padding: const EdgeInsets.all(7),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.45),
-                        shape: BoxShape.circle,
+    builder: (c) => DraggableScrollableSheet(
+      initialChildSize: 0.85,
+      minChildSize: 0.5,
+      maxChildSize: 0.97,
+      expand: false,
+      builder: (c, scrollController) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: ListView(
+          controller: scrollController,
+          padding: EdgeInsets.zero,
+          children: [
+            // ── Velká titulní fotka (klik = fullscreen) ──
+            if (imgs.isNotEmpty)
+              GestureDetector(
+                onTap: () => openPoiImageViewer(context, imgs, 0, lang),
+                child: Stack(
+                  children: [
+                    RouteImage(
+                      url: imgs.first,
+                      height: 250,
+                      width: double.infinity,
+                      targetWidth: 1200,
+                      placeholder: (_) => Container(height: 250, color: MotoGoColors.greenPale),
+                      error: (_) => Container(
+                        height: 250,
+                        color: MotoGoColors.greenPale,
+                        child: Center(child: Text(poiCatEmoji(poi), style: const TextStyle(fontSize: 48))),
                       ),
-                      child: const Icon(Icons.zoom_out_map, size: 18, color: Colors.white),
                     ),
+                    // Táhlo panelu (přes fotku)
+                    Positioned(
+                      top: 10, left: 0, right: 0,
+                      child: Center(
+                        child: Container(
+                          width: 40, height: 4,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.85),
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                      ),
+                    ),
+                    // Náznak „klikni pro zvětšení"
+                    Positioned(
+                      right: 12, top: 12,
+                      child: Container(
+                        padding: const EdgeInsets.all(7),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.45),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.zoom_out_map, size: 18, color: Colors.white),
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: Center(
+                  child: Container(
+                    width: 40, height: 4,
+                    decoration: BoxDecoration(color: MotoGoColors.g200, borderRadius: BorderRadius.circular(2)),
                   ),
-                ],
+                ),
               ),
-            ),
-          )
-        else
-          Padding(
-            padding: const EdgeInsets.only(top: 12),
-            child: Center(
-              child: Container(
-                width: 40, height: 4,
-                decoration: BoxDecoration(color: MotoGoColors.g200, borderRadius: BorderRadius.circular(2)),
-              ),
-            ),
-          ),
 
-        // Galerie miniatur (od druhé fotky)
-        if (imgs.length > 1)
-          SizedBox(
-            height: 66,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-              itemCount: imgs.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
-              itemBuilder: (_, i) => GestureDetector(
-                onTap: () => openPoiImageViewer(context, imgs, i, lang),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: RouteImage(
-                    url: imgs[i],
-                    width: 84, height: 60,
-                    targetWidth: 300,
-                    placeholder: (_) => Container(
-                      width: 84, color: MotoGoColors.greenPale,
-                    ),
-                    error: (_) => Container(
-                      width: 84, color: MotoGoColors.greenPale,
-                      child: const Center(child: Text('📍')),
+            // ── Galerie miniatur (od druhé fotky) ──
+            if (imgs.length > 1)
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: SizedBox(
+                  height: 72,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: imgs.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 8),
+                    itemBuilder: (_, i) => GestureDetector(
+                      onTap: () => openPoiImageViewer(context, imgs, i, lang),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: RouteImage(
+                          url: imgs[i],
+                          width: 96, height: 66,
+                          targetWidth: 300,
+                          placeholder: (_) => Container(width: 96, color: MotoGoColors.greenPale),
+                          error: (_) => Container(
+                            width: 96, color: MotoGoColors.greenPale,
+                            child: const Center(child: Text('📍')),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-          ),
 
-        Padding(
-          padding: EdgeInsets.fromLTRB(20, 16, 20, MediaQuery.of(c).padding.bottom + 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+            Padding(
+              padding: EdgeInsets.fromLTRB(20, 18, 20, MediaQuery.of(c).padding.bottom + 28),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (index != null) ...[
-                    Container(
-                      width: 26, height: 26,
-                      decoration: const BoxDecoration(color: MotoGoColors.greenDarker, shape: BoxShape.circle),
-                      child: Center(
-                        child: Text('${index + 1}',
-                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Colors.white)),
+                  // ── Název + pořadové číslo ──
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (index != null) ...[
+                        Container(
+                          width: 30, height: 30,
+                          decoration: const BoxDecoration(color: MotoGoColors.greenDarker, shape: BoxShape.circle),
+                          child: Center(
+                            child: Text('${index + 1}',
+                                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Colors.white)),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                      ],
+                      Expanded(
+                        child: Text(
+                          poi.nameFor(lang),
+                          style: const TextStyle(
+                            fontSize: MotoGoTypo.sizeH1,
+                            fontWeight: MotoGoTypo.w900,
+                            color: MotoGoColors.black,
+                            decoration: TextDecoration.none,
+                          ),
+                        ),
                       ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  // ── Štítek kategorie ──
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: MotoGoColors.greenPale,
+                      borderRadius: BorderRadius.circular(MotoGoRadius.pill),
                     ),
-                    const SizedBox(width: 10),
-                  ],
-                  Expanded(
-                    child: Text(
-                      poi.nameFor(lang),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(cat.emoji, style: const TextStyle(fontSize: 14)),
+                        const SizedBox(width: 6),
+                        Text(
+                          t(context).tr(cat.i18nKey),
+                          style: const TextStyle(
+                            fontSize: MotoGoTypo.sizeMd,
+                            fontWeight: MotoGoTypo.w800,
+                            color: MotoGoColors.greenDarker,
+                            decoration: TextDecoration.none,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // ── Popis (celý text, čitelný) ──
+                  if (desc != null && desc.trim().isNotEmpty) ...[
+                    const SizedBox(height: 20),
+                    Text(
+                      desc,
                       style: const TextStyle(
-                        fontSize: MotoGoTypo.sizeH2,
-                        fontWeight: MotoGoTypo.w900,
-                        color: MotoGoColors.black,
+                        fontSize: MotoGoTypo.sizeLg,
+                        height: 1.6,
+                        color: MotoGoColors.g600,
                         decoration: TextDecoration.none,
                       ),
                     ),
-                  ),
+                  ],
+
+                  // ── Okolí ──
+                  if (surr != null && surr.trim().isNotEmpty) ...[
+                    const SizedBox(height: 22),
+                    _poiSectionTitle(t(context).tr('poiSurroundings')),
+                    Text(
+                      surr,
+                      style: const TextStyle(
+                        fontSize: MotoGoTypo.sizeLg,
+                        height: 1.6,
+                        color: MotoGoColors.g600,
+                        decoration: TextDecoration.none,
+                      ),
+                    ),
+                  ],
+
+                  // ── Hvězdy (rychlé hodnocení) ──
+                  const SizedBox(height: 22),
+                  const Divider(height: 1, color: MotoGoColors.g200),
+                  const SizedBox(height: 16),
+                  PoiRatingBar(poi: poi),
+
+                  // ── Recenze / komentáře bodu ──
+                  const SizedBox(height: 22),
+                  PoiReviewsSection(target: poiReviewTarget(poi)),
                 ],
               ),
-              const SizedBox(height: 12),
-              PoiRatingBar(poi: poi),
-              if (desc != null && desc.trim().isNotEmpty) ...[
-                const SizedBox(height: 12),
-                Text(
-                  desc,
-                  style: const TextStyle(
-                    fontSize: MotoGoTypo.sizeLg,
-                    height: 1.5,
-                    color: MotoGoColors.g600,
-                    decoration: TextDecoration.none,
-                  ),
-                ),
-              ],
-            ],
-          ),
+            ),
+          ],
         ),
-      ],
+      ),
     ),
   );
 }

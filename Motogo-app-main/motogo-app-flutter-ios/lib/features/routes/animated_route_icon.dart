@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme.dart';
 
-/// Jemně animovaná ikona „Trasy" do hlavičky obrazovky. Klikatá silnice
+/// Jemně animovaná ikona „Trasy" do hlavičky obrazovky. Uzavřený okruh (smyčka)
 /// s přerušovanou středovou čarou, po které v nekonečné smyčce jede světlá
-/// tečka (jezdec na trase) — nenápadné „wow" bez rušivého blikání.
+/// tečka (jezdec na okruhu) — nenápadné „wow" bez rušivého blikání.
 class AnimatedRouteIcon extends StatefulWidget {
   final double size;
   const AnimatedRouteIcon({super.key, this.size = 28});
@@ -53,11 +53,19 @@ class _RoutePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final w = size.width, h = size.height;
 
-    // Klikatá „silnice" — spojitá S-křivka přes celý rámeček.
+    // Uzavřený okruh (smyčka) — spojitá vlnitá klička, konec navazuje na začátek.
+    // Čtyři kubiky kolem středu dají „okruh", který působí jako trasa, ne jen
+    // kruh; `close()` spojí konec se začátkem.
+    final cx = w * 0.5, cy = h * 0.5;
+    final rx = w * 0.34, ry = h * 0.32;
+    final k = 0.5522847; // aproximace kruhu Bézierem, mírně rozladěná = živější okruh
     final path = Path()
-      ..moveTo(w * 0.16, h * 0.88)
-      ..cubicTo(w * 0.02, h * 0.56, w * 0.42, h * 0.54, w * 0.5, h * 0.4)
-      ..cubicTo(w * 0.6, h * 0.24, w * 0.94, h * 0.32, w * 0.84, h * 0.08);
+      ..moveTo(cx, cy - ry)
+      ..cubicTo(cx + rx * k, cy - ry, cx + rx, cy - ry * k * 0.8, cx + rx, cy)
+      ..cubicTo(cx + rx, cy + ry * k, cx + rx * k * 0.8, cy + ry, cx, cy + ry)
+      ..cubicTo(cx - rx * k, cy + ry, cx - rx, cy + ry * k * 0.8, cx - rx, cy)
+      ..cubicTo(cx - rx, cy - ry * k, cx - rx * k * 0.8, cy - ry, cx, cy - ry)
+      ..close();
 
     final road = Paint()
       ..style = PaintingStyle.stroke

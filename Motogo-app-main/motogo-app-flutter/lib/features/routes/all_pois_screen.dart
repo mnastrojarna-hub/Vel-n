@@ -15,6 +15,10 @@ import 'routes_provider.dart';
 import 'route_image.dart';
 import 'route_poi_sheet.dart';
 
+/// Řazení seznamu bodů zájmu. (Délka/čas se u samostatných bodů neuplatní —
+/// smysluplné je náhodně, od polohy a od zvolené trasy.)
+enum _PoiSort { random, nearMe, nearRoute }
+
 /// Katalog VŠECH bodů zájmu napříč trasami. Trasa je jen doporučení — tady si
 /// zákazník vybere zastávky z různých tras (i ze dvou tras najednou) a sestaví
 /// si vlastní vyjížďku, kterou pak naviguje přímo v appce.
@@ -49,6 +53,22 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
   double _nearbyKm = 10;
   static const List<double> _nearbyKmOptions = [5, 10, 25, 50];
 
+  // Řazení + rozšířené filtry (kombinovatelné se zdrojem/kategorií/„v okolí").
+  _PoiSort _sort = _PoiSort.random;
+  final Set<String> _fCountry = {}; // ISO kódy zemí (z tras bodů)
+  double _minRating = 0; // 0 = bez omezení, jinak minimální průměr hvězd
+  bool _onlyPhoto = false; // jen body s fotkou
+
+  int get _extraFilterCount =>
+      (_fCountry.isEmpty ? 0 : 1) + (_minRating > 0 ? 1 : 0) + (_onlyPhoto ? 1 : 0);
+
+  void _clearTools() => setState(() {
+        _sort = _PoiSort.random;
+        _fCountry.clear();
+        _minRating = 0;
+        _onlyPhoto = false;
+      });
+
   // Náhodné pořadí bodů — losuje se jen JEDNOU za běh appky (static), takže se
   // nemění při návratu na obrazovku; nové promíchání až po restartu appky.
   // Použije se, když není známá poloha; se známou polohou vyhrává vzdálenost.
@@ -63,6 +83,25 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
   /// Stabilní pseudonáhodné pořadí bodu (nezávislé na tom, kdy dorazí který
   /// zdroj) — seznam se pak při postupném načítání zdrojů nepřeskládává.
   int _stableOrder(PoiEntry e) => (e.key.hashCode ^ _shuffleSeed) & 0x7fffffff;
+
+  /// Vzdálenost bodu od zadaného místa (∞ pro body bez GPS — spadnou dolů).
+  double _distTo(Distance dist, LatLng from, PoiEntry e) {
+    final ll = e.latLng;
+    return ll == null ? double.infinity : dist.as(LengthUnit.Meter, from, ll);
+  }
+
+  /// Kotva (start / první bod) naposledy zvolené trasy — pro řazení „od zvolené
+  /// trasy". null = žádná trasa dosud otevřená / trasy nenačteny.
+  LatLng? _selectedRouteAnchor() {
+    final lastId = ref.read(lastOpenedRouteProvider);
+    if (lastId == null) return null;
+    final data = ref.read(routesDataProvider).valueOrNull;
+    if (data == null) return null;
+    for (final r in data.routes) {
+      if (r.id == lastId) return routeAnchor(r);
+    }
+    return null;
+  }
 
   /// Přednačte náhledy prvních bodů v seznamu, ať se při scrollu nezobrazují
   /// „jak se načítají". Dedup přes _precachedUrls, jen prvních ~18.
@@ -144,16 +183,44 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
                 (e.latLng != null && nearestSel(e) <= _nearbyKm * 1000))
             .toList();
     // 3) Kategorie.
-    final list = _cats.isEmpty
+    var list = _cats.isEmpty
         ? nearFiltered
         : nearFiltered.where((e) => _cats.contains(poiCategoryOf(e.poi))).toList();
+    // 4) Rozšířené filtry (jen s fotkou / minimální hodnocení / země).
+    if (_onlyPhoto || _minRating > 0 || _fCountry.isNotEmpty) {
+      list = list.where((e) {
+        if (_onlyPhoto && e.poi.cover == null) return false;
+        if (_minRating > 0 &&
+            (e.poi.avgRating == null || e.poi.avgRating! < _minRating)) return false;
+        if (_fCountry.isNotEmpty) {
+          final cs = e.route?.countries ?? const <String>[];
+          if (!cs.any(_fCountry.contains)) return false;
+        }
+        return true;
+      }).toList();
+    }
+    // 5) Řazení. „V okolí výběru" má přednost (návrhy od vybraných bodů nahoře),
+    //    jinak dle zvoleného řazení.
+    final selRouteAnchor = _selectedRouteAnchor();
     if (selPts.isNotEmpty) {
-      // Řazení od vybraných bodů — nejbližší návrhy nahoře.
       list.sort((a, b) => nearestSel(a).compareTo(nearestSel(b)));
-    } else if (me != null) {
-      list.sort((a, b) => dist
-          .as(LengthUnit.Meter, me, a.latLng!)
-          .compareTo(dist.as(LengthUnit.Meter, me, b.latLng!)));
+    } else {
+      switch (_sort) {
+        case _PoiSort.random:
+          break; // stabilní pseudonáhodné pořadí zůstává zachováno
+        case _PoiSort.nearMe:
+          if (me != null) {
+            list.sort((a, b) =>
+                _distTo(dist, me, a).compareTo(_distTo(dist, me, b)));
+          }
+          break;
+        case _PoiSort.nearRoute:
+          if (selRouteAnchor != null) {
+            list.sort((a, b) => _distTo(dist, selRouteAnchor, a)
+                .compareTo(_distTo(dist, selRouteAnchor, b)));
+          }
+          break;
+      }
     }
     _precacheThumbs(context, list);
 
@@ -162,6 +229,12 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
     for (final e in routePois) {
       if (e.route != null) routesWithPois[e.route!.id] = e.route!;
     }
+    // Země přítomné v datech (z tras, ke kterým body patří) — pro filtr země.
+    final availableCountries = <String>{
+      for (final e in all)
+        if (e.route != null) ...e.route!.countries
+    }.toList()
+      ..sort();
 
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
@@ -170,7 +243,8 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
         child: Column(
           children: [
             _header(context),
-            _filters(context, lang, routesWithPois.values.toList(), all, nearFiltered),
+            _filters(context, lang, routesWithPois.values.toList(), all, nearFiltered,
+                me != null, selRouteAnchor != null, availableCountries),
             Expanded(
               child: sourcesLoading
                   ? const Center(
@@ -276,7 +350,8 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
 
   // ── Filtry: řádek zdroje (vše / komunitní / trasa) + řádek kategorií ──
   Widget _filters(BuildContext context, String lang, List<RouteItem> routes,
-      List<PoiEntry> all, List<PoiEntry> sourceFiltered) {
+      List<PoiEntry> all, List<PoiEntry> sourceFiltered,
+      bool meAvail, bool routeAvail, List<String> availableCountries) {
     final communityCount = all.where((e) => e.isCommunity).length;
     final catalogCount = all.where((e) => e.catalog).length;
     if (routes.length < 2 && communityCount == 0 && catalogCount == 0 &&
@@ -310,6 +385,15 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
             clipBehavior: Clip.none,
             padding: const EdgeInsets.fromLTRB(16, 10, 16, 2),
             children: [
+              // Řazení + rozšířené filtry (země / hodnocení / jen s fotkou).
+              _srcChip(
+                _sortLabel(context, _sort),
+                Icons.tune,
+                _sort != _PoiSort.random || _extraFilterCount > 0,
+                _extraFilterCount > 0 ? _extraFilterCount : null,
+                () => _openPoiToolsSheet(context, meAvail, routeAvail, availableCountries),
+                trailing: Icons.arrow_drop_down,
+              ),
               // „V okolí výběru" — objeví se, jakmile je vybraný aspoň 1 bod.
               if (_selected.isNotEmpty)
                 _srcChip(
@@ -361,6 +445,242 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  String _sortLabel(BuildContext context, _PoiSort s) {
+    switch (s) {
+      case _PoiSort.random:
+        return t(context).tr('sortRandom');
+      case _PoiSort.nearMe:
+        return t(context).tr('sortNearMe');
+      case _PoiSort.nearRoute:
+        return t(context).tr('sortNearRoute');
+    }
+  }
+
+  /// Vlaječka + kód země (jazykově neutrální).
+  String _countryLabel(String code) {
+    const flags = {
+      'CZ': '🇨🇿', 'DE': '🇩🇪', 'AT': '🇦🇹', 'PL': '🇵🇱', 'SK': '🇸🇰',
+      'HU': '🇭🇺', 'IT': '🇮🇹', 'CH': '🇨🇭', 'SI': '🇸🇮', 'HR': '🇭🇷',
+      'FR': '🇫🇷', 'ES': '🇪🇸', 'PT': '🇵🇹', 'NL': '🇳🇱', 'BE': '🇧🇪',
+      'LU': '🇱🇺', 'DK': '🇩🇰', 'SE': '🇸🇪', 'NO': '🇳🇴', 'FI': '🇫🇮',
+      'GB': '🇬🇧', 'IE': '🇮🇪', 'RO': '🇷🇴', 'BG': '🇧🇬', 'RS': '🇷🇸',
+      'GR': '🇬🇷', 'ME': '🇲🇪', 'BA': '🇧🇦', 'MK': '🇲🇰', 'AL': '🇦🇱',
+      'AD': '🇦🇩', 'LI': '🇱🇮', 'IS': '🇮🇸', 'MD': '🇲🇩', 'LT': '🇱🇹',
+      'LV': '🇱🇻', 'EE': '🇪🇪',
+    };
+    return '${flags[code] ?? '🏳️'} $code';
+  }
+
+  // ── Bottom sheet: řazení + rozšířené filtry bodů zájmu ──
+  void _openPoiToolsSheet(BuildContext context, bool meAvail, bool routeAvail,
+      List<String> availableCountries) {
+    // Pracovní kopie (potvrdí se tlačítkem).
+    var tSort = _sort;
+    final tCountry = {..._fCountry};
+    var tMin = _minRating;
+    var tPhoto = _onlyPhoto;
+    const ratingOptions = <double>[3, 4, 4.5];
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(22))),
+      builder: (sheetCtx) {
+        return StatefulBuilder(
+          builder: (sheetCtx, setSheet) {
+            Widget chip(String label, bool active, VoidCallback? onTap) {
+              final enabled = onTap != null;
+              return PressableScale(
+                pressedScale: 0.94,
+                onTap: onTap ?? () {},
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 160),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                  decoration: BoxDecoration(
+                    color: active ? MotoGoColors.greenDark : Colors.white,
+                    borderRadius: BorderRadius.circular(MotoGoRadius.pill),
+                    border: Border.all(
+                      color: active ? MotoGoColors.greenDark : MotoGoColors.g200,
+                      width: 1.5,
+                    ),
+                  ),
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: MotoGoTypo.sizeBase,
+                      fontWeight: active ? MotoGoTypo.w800 : MotoGoTypo.w600,
+                      color: active
+                          ? Colors.white
+                          : (enabled ? MotoGoColors.black : MotoGoColors.g400),
+                      decoration: TextDecoration.none,
+                    ),
+                  ),
+                ),
+              );
+            }
+
+            Widget section(String label) => Padding(
+                  padding: const EdgeInsets.only(bottom: 10, top: 4),
+                  child: Text(
+                    label,
+                    style: const TextStyle(
+                      fontSize: MotoGoTypo.sizeLg,
+                      fontWeight: MotoGoTypo.w900,
+                      color: MotoGoColors.black,
+                      decoration: TextDecoration.none,
+                    ),
+                  ),
+                );
+
+            return SafeArea(
+              top: false,
+              child: Padding(
+                padding: EdgeInsets.only(bottom: MediaQuery.of(sheetCtx).viewInsets.bottom),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      margin: const EdgeInsets.only(top: 10, bottom: 6),
+                      width: 40, height: 4,
+                      decoration: BoxDecoration(
+                          color: MotoGoColors.g200, borderRadius: BorderRadius.circular(2)),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 6, 20, 0),
+                      child: Row(
+                        children: [
+                          Text(
+                            t(sheetCtx).tr('poiFilterTitle'),
+                            style: const TextStyle(
+                              fontSize: MotoGoTypo.sizeH2,
+                              fontWeight: MotoGoTypo.w900,
+                              color: MotoGoColors.black,
+                              decoration: TextDecoration.none,
+                            ),
+                          ),
+                          const Spacer(),
+                          GestureDetector(
+                            onTap: () => setSheet(() {
+                              tSort = _PoiSort.random;
+                              tCountry.clear();
+                              tMin = 0;
+                              tPhoto = false;
+                            }),
+                            child: Text(
+                              t(sheetCtx).tr('poiFilterClear'),
+                              style: const TextStyle(
+                                fontSize: MotoGoTypo.sizeBase,
+                                fontWeight: MotoGoTypo.w700,
+                                color: MotoGoColors.greenDark,
+                                decoration: TextDecoration.none,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Flexible(
+                      child: ListView(
+                        shrinkWrap: true,
+                        padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+                        children: [
+                          // Řazení
+                          section(t(sheetCtx).tr('sortTitle')),
+                          Wrap(spacing: 8, runSpacing: 8, children: [
+                            chip(_sortLabel(sheetCtx, _PoiSort.random),
+                                tSort == _PoiSort.random,
+                                () => setSheet(() => tSort = _PoiSort.random)),
+                            chip(_sortLabel(sheetCtx, _PoiSort.nearMe),
+                                tSort == _PoiSort.nearMe,
+                                meAvail ? () => setSheet(() => tSort = _PoiSort.nearMe) : null),
+                            chip(_sortLabel(sheetCtx, _PoiSort.nearRoute),
+                                tSort == _PoiSort.nearRoute,
+                                routeAvail ? () => setSheet(() => tSort = _PoiSort.nearRoute) : null),
+                          ]),
+                          const SizedBox(height: 18),
+                          // Jen s fotkou
+                          section(t(sheetCtx).tr('poiFilterMinRating')),
+                          Wrap(spacing: 8, runSpacing: 8, children: [
+                            chip(t(sheetCtx).tr('poiFilterAny'), tMin == 0,
+                                () => setSheet(() => tMin = 0)),
+                            for (final r in ratingOptions)
+                              chip('★ ${r % 1 == 0 ? r.toStringAsFixed(0) : r.toStringAsFixed(1)}+',
+                                  tMin == r, () => setSheet(() => tMin = r)),
+                          ]),
+                          const SizedBox(height: 18),
+                          Wrap(spacing: 8, runSpacing: 8, children: [
+                            chip('📷 ${t(sheetCtx).tr('poiFilterOnlyPhoto')}', tPhoto,
+                                () => setSheet(() => tPhoto = !tPhoto)),
+                          ]),
+                          // Země
+                          if (availableCountries.isNotEmpty) ...[
+                            const SizedBox(height: 18),
+                            section(t(sheetCtx).tr('poiFilterCountry')),
+                            Wrap(spacing: 8, runSpacing: 8, children: [
+                              for (final c in availableCountries)
+                                chip(_countryLabel(c), tCountry.contains(c), () {
+                                  setSheet(() =>
+                                      tCountry.contains(c) ? tCountry.remove(c) : tCountry.add(c));
+                                }),
+                            ]),
+                          ],
+                        ],
+                      ),
+                    ),
+                    // Potvrzení
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 6, 20, 12),
+                      child: PressableScale(
+                        pressedScale: 0.98,
+                        onTap: () {
+                          setState(() {
+                            _sort = tSort;
+                            _fCountry
+                              ..clear()
+                              ..addAll(tCountry);
+                            _minRating = tMin;
+                            _onlyPhoto = tPhoto;
+                          });
+                          Navigator.of(sheetCtx).pop();
+                        },
+                        child: Container(
+                          height: 52,
+                          decoration: BoxDecoration(
+                            color: MotoGoColors.green,
+                            borderRadius: BorderRadius.circular(MotoGoRadius.pill),
+                            boxShadow: [
+                              BoxShadow(
+                                  color: MotoGoColors.green.withValues(alpha: 0.35),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 4)),
+                            ],
+                          ),
+                          child: Center(
+                            child: Text(
+                              t(sheetCtx).tr('poiFilterApply'),
+                              style: const TextStyle(
+                                fontSize: MotoGoTypo.sizeXl,
+                                fontWeight: MotoGoTypo.w800,
+                                color: MotoGoColors.black,
+                                decoration: TextDecoration.none,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 

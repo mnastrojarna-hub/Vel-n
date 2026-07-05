@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../core/theme.dart';
 import '../../core/i18n/i18n_provider.dart';
@@ -13,6 +14,9 @@ import 'route_image.dart';
 import 'route_reviews.dart';
 import 'community_submit.dart';
 import 'animated_route_icon.dart';
+
+/// Řazení seznamu tras.
+enum _RouteSort { random, length, duration, nearMe, nearRoute }
 
 /// Obrazovka „Trasy" — doporučené motorkářské trasy od poboček.
 /// Nahrazuje tab E-shop ve spodní liště.
@@ -43,6 +47,9 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen> {
   // promíchání až po restartu appky.
   static final int _shuffleSeed = Random().nextInt(0x7fffffff);
 
+  // Řazení seznamu tras (výchozí náhodně = stabilní seed za běh).
+  _RouteSort _sort = _RouteSort.random;
+
   int get _activeFilterCount =>
       (_fType.isEmpty ? 0 : 1) +
       (_fDiff.isEmpty ? 0 : 1) +
@@ -56,6 +63,7 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen> {
         _fCountry.clear();
         _fDist = null;
         _fDur = null;
+        _sort = _RouteSort.random;
         _query = '';
         _searchCtl.clear();
       });
@@ -124,7 +132,7 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen> {
           children: [
             Column(
               children: [
-                _header(context),
+                _header(context, dataAsync.valueOrNull?.routes.length),
                 Expanded(
                   child: dataAsync.when(
                     data: (data) => _body(context, data, lang),
@@ -154,7 +162,11 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen> {
     );
   }
 
-  Widget _header(BuildContext context) {
+  Widget _header(BuildContext context, int? routeCount) {
+    // Dynamický, poutavější podtitulek s aktuálním počtem načtených tras.
+    final subtitle = (routeCount != null && routeCount > 0)
+        ? t(context).tr('routesDiscoverCount').replaceFirst('{count}', '$routeCount')
+        : t(context).tr('routesSubtitle');
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 18),
@@ -182,7 +194,7 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen> {
           ),
           const SizedBox(height: 4),
           Text(
-            t(context).tr('routesSubtitle'),
+            subtitle,
             style: const TextStyle(
               fontSize: MotoGoTypo.sizeBase,
               fontWeight: MotoGoTypo.w600,
@@ -236,6 +248,20 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen> {
         .where((r) => (q.isEmpty || searchMatches(r.searchBlob, q)) &&
             _routeMatches(r, _fType, _fDiff, _fCountry, _fDist, _fDur))
         .toList();
+
+    // Řazení (poloha jezdce / od zvolené trasy).
+    final me = ref.watch(currentLocationProvider).valueOrNull;
+    final lastId = ref.watch(lastOpenedRouteProvider);
+    LatLng? selAnchor;
+    if (lastId != null) {
+      for (final r in data.routes) {
+        if (r.id == lastId) {
+          selAnchor = routeAnchor(r);
+          break;
+        }
+      }
+    }
+    _sortRoutes(routes, me, selAnchor);
     _precacheCovers(context, routes);
 
     return RefreshIndicator(
@@ -296,8 +322,8 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen> {
               ),
             ),
           ),
-          // Rozšířené filtry (typ, obtížnost, délka, čas, země)
-          SliverToBoxAdapter(child: _filterBar(context, data)),
+          // Rozšířené filtry (typ, obtížnost, délka, čas, země) + řazení
+          SliverToBoxAdapter(child: _filterBar(context, data, me != null, selAnchor != null)),
           if (routes.isEmpty)
             SliverToBoxAdapter(child: _filterEmpty(context))
           else
@@ -316,7 +342,11 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen> {
                         route: r,
                         branch: r.branchId != null ? data.branches[r.branchId] : null,
                         lang: lang,
-                        onTap: () => context.push('/routes/${r.id}'),
+                        onTap: () {
+                          // Zapamatuj zvolenou trasu pro řazení „od zvolené trasy".
+                          ref.read(lastOpenedRouteProvider.notifier).state = r.id;
+                          context.push('/routes/${r.id}');
+                        },
                       ),
                     ),
                   );
@@ -329,8 +359,109 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen> {
   }
 
 
-  // ── Lišta rozšířených filtrů (tlačítko + rychlé zrušení) ──
-  Widget _filterBar(BuildContext context, RoutesData data) {
+  // ── Řazení tras ──
+  String _sortLabel(BuildContext context, _RouteSort s) {
+    switch (s) {
+      case _RouteSort.random:
+        return t(context).tr('sortRandom');
+      case _RouteSort.length:
+        return t(context).tr('sortLength');
+      case _RouteSort.duration:
+        return t(context).tr('sortDuration');
+      case _RouteSort.nearMe:
+        return t(context).tr('sortNearMe');
+      case _RouteSort.nearRoute:
+        return t(context).tr('sortNearRoute');
+    }
+  }
+
+  double _routeDistFrom(Distance dist, LatLng from, RouteItem r) {
+    final a = routeAnchor(r);
+    return a == null ? double.infinity : dist.as(LengthUnit.Meter, from, a);
+  }
+
+  void _sortRoutes(List<RouteItem> routes, LatLng? me, LatLng? selAnchor) {
+    const dist = Distance();
+    switch (_sort) {
+      case _RouteSort.random:
+        break; // už zamícháno stabilním seedem
+      case _RouteSort.length:
+        routes.sort((a, b) =>
+            (a.distanceKm ?? double.infinity).compareTo(b.distanceKm ?? double.infinity));
+        break;
+      case _RouteSort.duration:
+        routes.sort((a, b) =>
+            (a.durationMin ?? 1 << 30).compareTo(b.durationMin ?? 1 << 30));
+        break;
+      case _RouteSort.nearMe:
+        if (me != null) {
+          routes.sort((a, b) =>
+              _routeDistFrom(dist, me, a).compareTo(_routeDistFrom(dist, me, b)));
+        }
+        break;
+      case _RouteSort.nearRoute:
+        if (selAnchor != null) {
+          routes.sort((a, b) => _routeDistFrom(dist, selAnchor, a)
+              .compareTo(_routeDistFrom(dist, selAnchor, b)));
+        }
+        break;
+    }
+  }
+
+  void _openSortSheet(BuildContext context, bool meAvail, bool routeAvail) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (sc) {
+        Widget opt(_RouteSort s, IconData ic, bool enabled) => ListTile(
+              enabled: enabled,
+              leading: Icon(ic,
+                  color: enabled ? MotoGoColors.greenDark : MotoGoColors.g300),
+              title: Text(_sortLabel(context, s),
+                  style: TextStyle(
+                    fontSize: MotoGoTypo.sizeLg,
+                    fontWeight: _sort == s ? MotoGoTypo.w900 : MotoGoTypo.w600,
+                    color: enabled ? MotoGoColors.black : MotoGoColors.g400,
+                    decoration: TextDecoration.none,
+                  )),
+              trailing: _sort == s
+                  ? const Icon(Icons.check, color: MotoGoColors.greenDark)
+                  : null,
+              onTap: enabled
+                  ? () {
+                      setState(() => _sort = s);
+                      Navigator.of(sc).pop();
+                    }
+                  : null,
+            );
+        return SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 10, bottom: 4),
+                width: 40, height: 4,
+                decoration: BoxDecoration(
+                    color: MotoGoColors.g200, borderRadius: BorderRadius.circular(2)),
+              ),
+              opt(_RouteSort.random, Icons.shuffle, true),
+              opt(_RouteSort.length, Icons.straighten, true),
+              opt(_RouteSort.duration, Icons.schedule, true),
+              opt(_RouteSort.nearMe, Icons.my_location, meAvail),
+              opt(_RouteSort.nearRoute, Icons.route, routeAvail),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // ── Lišta rozšířených filtrů (tlačítko + řazení + rychlé zrušení) ──
+  Widget _filterBar(BuildContext context, RoutesData data, bool meAvail, bool routeAvail) {
     final n = _activeFilterCount;
     final active = n > 0;
     return Padding(
@@ -385,6 +516,42 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen> {
                       ),
                     ),
                   ],
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Řazení
+          PressableScale(
+            pressedScale: 0.96,
+            onTap: () => _openSortSheet(context, meAvail, routeAvail),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+              decoration: BoxDecoration(
+                color: _sort != _RouteSort.random ? MotoGoColors.greenDark : Colors.white,
+                borderRadius: BorderRadius.circular(MotoGoRadius.pill),
+                border: Border.all(
+                  color: _sort != _RouteSort.random ? MotoGoColors.greenDark : MotoGoColors.g200,
+                  width: 1.5,
+                ),
+                boxShadow: _sort != _RouteSort.random ? MotoGoShadows.cardSmall : null,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.swap_vert, size: 16,
+                      color: _sort != _RouteSort.random ? Colors.white : MotoGoColors.greenDark),
+                  const SizedBox(width: 6),
+                  Text(
+                    _sortLabel(context, _sort),
+                    style: TextStyle(
+                      fontSize: MotoGoTypo.sizeBase,
+                      fontWeight: MotoGoTypo.w800,
+                      color: _sort != _RouteSort.random ? Colors.white : MotoGoColors.black,
+                      decoration: TextDecoration.none,
+                    ),
+                  ),
                 ],
               ),
             ),

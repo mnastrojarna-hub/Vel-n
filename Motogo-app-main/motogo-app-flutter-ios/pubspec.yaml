@@ -6,7 +6,7 @@ publish_to: 'none'
 # +1    = JEN fallback pro lokální build. V CI (Codemagic) se PŘEPISUJE automaticky
 #         přes --build-number=$BUILD_NUMBER, aby byl CFBundleVersion vždy unikátní
 #         a rostoucí → App Store Connect nikdy neodmítne "build už existuje".
-version: 2.4.0+17
+version: 2.5.0+18
 
 environment:
   sdk: '>=3.6.0 <4.0.0'
