@@ -33,6 +33,9 @@ interface TemplateParams {
   paidDate?: string
   // i18n — jazyk zákazníka; localizuje pouze ODKAZY (web/QR), text zůstává CZ.
   lang?: string
+  // QR / bankovní převod ZF — VS pro párování + text splatnosti do bankovního bloku.
+  variableSymbol?: string | null
+  dueNote?: string | null
 }
 
 // Split "Pronájem BMW R 1200 GS — 13.5.2026 – 13.5.2026" → name + desc
@@ -121,6 +124,18 @@ export function generateInvoiceHtml(p: TemplateParams): string {
       <span style="color:#16a34a;font-weight:600">Banka</span>
       <span style="color:#0f1a14;font-weight:700">${p.company.bank || 'mBank'}</span>
     </div>
+    ${p.variableSymbol ? `<div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0">
+      <span style="color:#16a34a;font-weight:600">Variabilní symbol</span>
+      <span style="color:#0f1a14;font-weight:700;font-variant-numeric:tabular-nums">${p.variableSymbol}</span>
+    </div>` : ''}
+    <div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0">
+      <span style="color:#16a34a;font-weight:600">Částka k úhradě</span>
+      <span style="color:#0f1a14;font-weight:700;font-variant-numeric:tabular-nums">${fmtPrice(p.total)} Kč</span>
+    </div>
+    ${p.dueNote ? `<div style="display:flex;justify-content:space-between;font-size:12px;padding:6px 0">
+      <span style="color:#b91c1c;font-weight:700">Splatnost</span>
+      <span style="color:#b91c1c;font-weight:700">${p.dueNote}</span>
+    </div>` : ''}
   `
 
   const badgeBg = badge.tone === 'paid' ? '#74FB71' : '#fbbf24'
