@@ -59,18 +59,28 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
     if (widget.initialSelected != null) _selected.addAll(widget.initialSelected!);
   }
 
+  /// Stabilní pseudonáhodné pořadí bodu (nezávislé na tom, kdy dorazí který
+  /// zdroj) — seznam se pak při postupném načítání zdrojů nepřeskládává.
+  int _stableOrder(PoiEntry e) => (e.key.hashCode ^ _shuffleSeed) & 0x7fffffff;
+
   @override
   Widget build(BuildContext context) {
     final lang = ref.watch(localeProvider).languageCode;
     // Body z tras + komunitní (uživatelské) body zájmu.
     final routePois = ref.watch(allPoisProvider);
-    final userPois = ref.watch(userPoisProvider).valueOrNull ?? const [];
-    final catalogPois = ref.watch(catalogPoisProvider).valueOrNull ?? const [];
+    final catalogAsync = ref.watch(catalogPoisProvider);
+    final userAsync = ref.watch(userPoisProvider);
+    final catalogPois = catalogAsync.valueOrNull ?? const <RoutePoi>[];
+    final userPois = userAsync.valueOrNull ?? const <RoutePoi>[];
+    // Dokud se katalog / komunitní body teprve načítají, NErenderuj seznam
+    // „po dávkách" — jinak se po otevření několikrát přeskládá (uživatel viděl
+    // 3 rychlé změny po sobě). Počkej na zdroje a zobraz je naráz.
+    final sourcesLoading = catalogAsync.isLoading || userAsync.isLoading;
     final all = <PoiEntry>[
       ...routePois,
       ...catalogPois.map((p) => PoiEntry(p, null, null, catalog: true)),
       ...userPois.map((p) => PoiEntry(p, null, null)),
-    ]..shuffle(Random(_shuffleSeed));
+    ]..sort((a, b) => _stableOrder(a).compareTo(_stableOrder(b)));
     final me = ref.watch(currentLocationProvider).valueOrNull;
 
     // Filtr + řazení (podle vzdálenosti od jezdce, jinak dle názvu trasy).
@@ -142,14 +152,17 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
             _header(context),
             _filters(context, lang, routesWithPois.values.toList(), all, nearFiltered),
             Expanded(
-              child: list.isEmpty
-                  ? _empty(context)
-                  : ListView.builder(
-                      padding: EdgeInsets.fromLTRB(16, 8, 16, _selected.isEmpty ? 24 : 110),
-                      itemCount: list.length,
-                      itemBuilder: (context, i) =>
-                          _poiCard(context, list[i], lang, me),
-                    ),
+              child: sourcesLoading
+                  ? const Center(
+                      child: CircularProgressIndicator(color: MotoGoColors.greenDark))
+                  : list.isEmpty
+                      ? _empty(context)
+                      : ListView.builder(
+                          padding: EdgeInsets.fromLTRB(16, 8, 16, _selected.isEmpty ? 24 : 110),
+                          itemCount: list.length,
+                          itemBuilder: (context, i) =>
+                              _poiCard(context, list[i], lang, me),
+                        ),
             ),
           ],
         ),

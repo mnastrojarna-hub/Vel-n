@@ -12,6 +12,7 @@ import 'routes_provider.dart';
 import 'route_image.dart';
 import 'route_reviews.dart';
 import 'community_submit.dart';
+import 'animated_route_icon.dart';
 
 /// Obrazovka „Trasy" — doporučené motorkářské trasy od poboček.
 /// Nahrazuje tab E-shop ve spodní liště.
@@ -147,7 +148,7 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen> {
         children: [
           Row(
             children: [
-              const Text('🛣️', style: TextStyle(fontSize: 24)),
+              const AnimatedRouteIcon(size: 28),
               const SizedBox(width: 10),
               Text(
                 t(context).tr('routesTitle'),
