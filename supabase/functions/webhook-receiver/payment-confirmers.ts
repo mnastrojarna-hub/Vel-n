@@ -189,17 +189,18 @@ export async function confirmBookingPayment(
         const source = booking.booking_source || 'app'
         const moto = booking.motorcycles as { model?: string; manual_url?: string } | null
 
-        // POZN.: send-booking-email pro `booking_reserved` generuje 4 PDF přílohy
-        // (ZF, DP, Smlouva, VOP) přes PDFShift — to může trvat dlouho a v časově
-        // omezené webhookové cestě se odeslání může „utnout" dřív, než se vůbec
-        // zaloguje (mail pak tiše zmizí). Proto VÝSLEDEK tohoto volání logujeme do
-        // debug_log (ok/error) a delivery navíc jistí cron
-        // send_missing_booking_reserved_emails() (dedup přes message_log).
+        // NOVÝ FLOW (POUZE WEB, platba PŘED doklady): po úspěšné Stripe platbě webové
+        // rezervace posíláme JEN potvrzení platby `invoice_payment_receipt` (ZF + DP).
+        // Smlouva + VOP + přístupové kódy chodí AŽ po naskenování dokladů (krok 3) mailem
+        // `web_booking_reserved`, který dispatchne cron send_missing_booking_reserved_emails()
+        // s guardem „doklady OK" (check_booking_docs_status IS NULL) — jinak by se smlouva
+        // generovala s prázdnými čísly dokladů. APP rezervace zůstávají BEZE ZMĚNY
+        // (`booking_reserved` = ZF+DP+Smlouva+VOP najednou). Výsledek logujeme do debug_log.
         try {
           const resp = await fetch(`${SUPABASE_URL}/functions/v1/send-booking-email`, {
             method: 'POST', headers,
             body: JSON.stringify({
-              type: 'booking_reserved',
+              type: source === 'web' ? 'invoice_payment_receipt' : 'booking_reserved',
               booking_id: bookingId,
               customer_email: profile.email,
               customer_name: profile.full_name || '',
@@ -214,7 +215,7 @@ export async function confirmBookingPayment(
           try {
             await supabase.from('debug_log').insert({
               source: 'webhook-receiver',
-              action: resp.ok ? 'booking_reserved_mail_sent' : 'booking_reserved_mail_http_error',
+              action: resp.ok ? 'payment_receipt_mail_sent' : 'payment_receipt_mail_http_error',
               component: 'send-booking-email',
               status: resp.ok ? 'ok' : 'error',
               request_data: { booking_id: bookingId, source, http_status: resp.status },
@@ -224,7 +225,7 @@ export async function confirmBookingPayment(
         } catch (e) {
           try {
             await supabase.from('debug_log').insert({
-              source: 'webhook-receiver', action: 'booking_reserved_mail_failed',
+              source: 'webhook-receiver', action: 'payment_receipt_mail_failed',
               component: 'send-booking-email', status: 'error',
               request_data: { booking_id: bookingId },
               error_message: (e as Error).message,
@@ -234,7 +235,7 @@ export async function confirmBookingPayment(
       } else {
         try {
           await supabase.from('debug_log').insert({
-            source: 'webhook-receiver', action: 'booking_reserved_mail_no_email',
+            source: 'webhook-receiver', action: 'payment_receipt_mail_no_email',
             component: 'send-booking-email', status: 'warning',
             request_data: { booking_id: bookingId },
           })
@@ -243,7 +244,7 @@ export async function confirmBookingPayment(
     } catch (e) {
       try {
         await supabase.from('debug_log').insert({
-          source: 'webhook-receiver', action: 'booking_reserved_mail_outer_exception',
+          source: 'webhook-receiver', action: 'payment_receipt_mail_outer_exception',
           component: 'send-booking-email', status: 'error',
           request_data: { booking_id: bookingId },
           error_message: (e as Error).message,
