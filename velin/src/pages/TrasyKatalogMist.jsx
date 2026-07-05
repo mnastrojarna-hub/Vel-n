@@ -5,6 +5,7 @@ import Card from '../components/ui/Card'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
 import SearchInput from '../components/ui/SearchInput'
 import { SmallBtn, Spinner, EmptyState } from './BranchHelpers'
+import PoiReviewsModal from './PoiReviewsModal'
 
 // Sekce „Zajímavá místa (katalog)" v záložce Trasy — správa tabulky
 // points_of_interest (~20k samostatných bodů zájmu pro appku: přehrady,
@@ -39,13 +40,15 @@ export default function TrasyKatalogMist() {
   const [error, setError] = useState(null)
   const [editing, setEditing] = useState(null)
   const [deleteConfirm, setDeleteConfirm] = useState(null)
+  const [reviewsFor, setReviewsFor] = useState(null)
+  const [stats, setStats] = useState({})
 
   const load = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
       let q = supabase.from('points_of_interest')
-        .select('id, name, description, category, country, lat, lng, image_url, source, is_active', { count: 'exact' })
+        .select('id, name, description, surroundings, category, country, lat, lng, image_url, source, is_active', { count: 'exact' })
       if (cat !== 'all') q = q.eq('category', cat)
       if (country !== 'all') q = q.eq('country', country)
       if (source !== 'all') q = q.like('source', `${source}%`)
@@ -56,6 +59,7 @@ export default function TrasyKatalogMist() {
       if (err) throw err
       setRows(data || [])
       setTotal(count ?? 0)
+      loadStats(data || [])
     } catch (e) {
       setError(`Načtení katalogu selhalo: ${e.message}`)
     } finally {
@@ -66,6 +70,24 @@ export default function TrasyKatalogMist() {
   useEffect(() => { load() }, [load])
   // Změna filtru → zpět na první stránku
   useEffect(() => { setPage(0) }, [search, cat, country, source])
+
+  // Spočítá průměr a počet hodnocení (poi_ratings) pro aktuálně zobrazené body.
+  async function loadStats(list) {
+    const ids = list.map(p => p.id)
+    if (!ids.length) { setStats({}); return }
+    try {
+      const { data } = await supabase.from('poi_ratings').select('poi_id, rating').in('poi_id', ids)
+      const acc = {}
+      ;(data || []).forEach(r => {
+        if (r.poi_id == null) return
+        const s = acc[r.poi_id] || (acc[r.poi_id] = { sum: 0, count: 0 })
+        s.sum += Number(r.rating) || 0; s.count += 1
+      })
+      const map = {}
+      Object.entries(acc).forEach(([id, s]) => { map[id] = { avg: (s.sum / s.count).toFixed(1), count: s.count } })
+      setStats(map)
+    } catch { /* stats jsou nepovinné */ }
+  }
 
   async function logAudit(action, details) {
     try {
@@ -96,9 +118,9 @@ export default function TrasyKatalogMist() {
 
   async function saveEdit() {
     try {
-      const { id, name, description, category, country: ctry, image_url, is_active } = editing
+      const { id, name, description, surroundings, category, country: ctry, image_url, is_active } = editing
       const { error: err } = await supabase.from('points_of_interest')
-        .update({ name, description, category, country: ctry, image_url: image_url || null, is_active, updated_at: new Date().toISOString() })
+        .update({ name, description, surroundings: surroundings || null, category, country: ctry, image_url: image_url || null, is_active, updated_at: new Date().toISOString() })
         .eq('id', id)
       if (err) throw err
       await logAudit('catalog_poi_updated', { name })
@@ -165,6 +187,9 @@ export default function TrasyKatalogMist() {
                 <TD>
                   <div className="flex gap-1 flex-wrap">
                     <SmallBtn color="#2563eb" onClick={() => setEditing({ ...p })}>Upravit</SmallBtn>
+                    <SmallBtn color={stats[p.id] ? '#f59e0b' : '#6b7280'} onClick={() => setReviewsFor(p)}>
+                      {stats[p.id] ? `★ ${stats[p.id].avg} (${stats[p.id].count})` : '💬 Komentáře'}
+                    </SmallBtn>
                     <SmallBtn color={p.is_active ? '#b45309' : '#1a8a18'} onClick={() => toggleActive(p)}>
                       {p.is_active ? 'Skrýt' : 'Aktivovat'}
                     </SmallBtn>
@@ -195,6 +220,10 @@ export default function TrasyKatalogMist() {
             <label className="block text-xs font-bold mb-1">Popis (česky)</label>
             <textarea style={{ ...sel, width: '100%', minHeight: 90, marginBottom: 10 }} value={editing.description || ''}
               onChange={e => setEditing(s => ({ ...s, description: e.target.value }))} />
+            <label className="block text-xs font-bold mb-1">Popis okolí (česky)</label>
+            <textarea style={{ ...sel, width: '100%', minHeight: 70, marginBottom: 10 }} value={editing.surroundings || ''}
+              placeholder="Co je v okolí — tipy na zastávky, občerstvení, výhledy…"
+              onChange={e => setEditing(s => ({ ...s, surroundings: e.target.value }))} />
             <div className="flex gap-3 mb-3">
               <div style={{ flex: 1 }}>
                 <label className="block text-xs font-bold mb-1">Kategorie</label>
@@ -226,6 +255,15 @@ export default function TrasyKatalogMist() {
             </div>
           </div>
         </div>
+      )}
+
+      {reviewsFor && (
+        <PoiReviewsModal
+          poi={reviewsFor}
+          poiType="catalog"
+          onClose={() => setReviewsFor(null)}
+          onChanged={() => loadStats(rows)}
+        />
       )}
 
       {deleteConfirm && (
