@@ -11,6 +11,7 @@ import 'routes_model.dart';
 import 'routes_provider.dart';
 import 'route_image.dart';
 import 'route_map.dart';
+import 'poi_categories.dart';
 import 'route_export.dart';
 import 'route_poi_sheet.dart';
 import 'route_reviews.dart';
@@ -282,11 +283,11 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
                           RouteImage(
                             url: p.cover!,
                             targetWidth: 500,
-                            placeholder: (_) => _poiFallback(),
-                            error: (_) => _poiFallback(),
+                            placeholder: (_) => _poiFallback(p),
+                            error: (_) => _poiFallback(p),
                           )
                         else
-                          _poiFallback(),
+                          _poiFallback(p),
                         Positioned(
                           top: 8,
                           left: 8,
@@ -664,9 +665,12 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
         ),
       );
 
-  Widget _poiFallback() => Container(
+  Widget _poiFallback([RoutePoi? poi]) => Container(
         color: MotoGoColors.greenPale,
-        child: const Center(child: Text('📍', style: TextStyle(fontSize: 30))),
+        child: Center(
+          child: Text(poi != null ? poiCatEmoji(poi) : '📍',
+              style: const TextStyle(fontSize: 30)),
+        ),
       );
 
   Widget _missing(BuildContext context) => Center(

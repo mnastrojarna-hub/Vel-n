@@ -108,6 +108,16 @@ String poiCategoryOf(RoutePoi p) {
   return _catByText(poiFold(p.description ?? ''), allowFood: false);
 }
 
+/// Emoji kategorie bodu zájmu — použije se jako zástupný náhled, když bod
+/// nemá fotku (místo obecného špendlíku 📍 ukáže 🏰 hrad, 🌊 vodu, 🗼 rozhlednu…).
+String poiCatEmoji(RoutePoi p) {
+  final k = poiCategoryOf(p);
+  for (final c in kPoiCats) {
+    if (c.key == k) return c.emoji;
+  }
+  return '📍';
+}
+
 String _catByText(String n, {required bool allowFood}) {
   bool has(List<String> ks) => ks.any(n.contains);
   if (allowFood && has(_kwFood)) return 'food';

@@ -642,10 +642,10 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
                     ? RouteImage(
                         url: e.poi.cover!,
                         targetWidth: 300,
-                        placeholder: (_) => _thumbFallback(),
-                        error: (_) => _thumbFallback(),
+                        placeholder: (_) => _thumbFallback(e.poi),
+                        error: (_) => _thumbFallback(e.poi),
                       )
-                    : _thumbFallback(),
+                    : _thumbFallback(e.poi),
               ),
               Expanded(
                 child: Padding(
@@ -759,9 +759,12 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
     );
   }
 
-  Widget _thumbFallback() => Container(
+  Widget _thumbFallback([RoutePoi? poi]) => Container(
         color: MotoGoColors.greenPale,
-        child: const Center(child: Text('📍', style: TextStyle(fontSize: 26))),
+        child: Center(
+          child: Text(poi != null ? poiCatEmoji(poi) : '📍',
+              style: const TextStyle(fontSize: 26)),
+        ),
       );
 
   // ── Spodní lišta „Navigovat přes vybrané" ──
