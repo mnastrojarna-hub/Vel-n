@@ -12,6 +12,7 @@ import 'routes_provider.dart';
 import 'route_image.dart';
 import 'route_reviews.dart';
 import 'community_submit.dart';
+import 'animated_route_icon.dart';
 
 /// Obrazovka „Trasy" — doporučené motorkářské trasy od poboček.
 /// Nahrazuje tab E-shop ve spodní liště.
@@ -26,6 +27,7 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen> {
   // Hloubkové vyhledávání — název, popis, města na cestě i body zájmu trasy.
   String _query = '';
   final TextEditingController _searchCtl = TextEditingController();
+  final Set<String> _precachedCovers = {}; // covers už poslané do precache
 
   // Rozšířené filtry (prázdné = bez omezení).
   final Set<String> _fType = {}; // 'loop' | 'poi'
@@ -62,6 +64,24 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen> {
   void dispose() {
     _searchCtl.dispose();
     super.dispose();
+  }
+
+  /// Přednačte náhledové fotky prvních tras, ať se v seznamu nezobrazují
+  /// „jak se načítají". Dedup přes _precachedCovers, jen prvních ~8.
+  void _precacheCovers(BuildContext context, List<RouteItem> routes) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      var n = 0;
+      for (final r in routes) {
+        if (n >= 8) break;
+        final c = r.cover;
+        if (c == null) continue;
+        n++;
+        if (_precachedCovers.add(c)) {
+          precacheRouteImage(context, c, targetWidth: 800);
+        }
+      }
+    });
   }
 
   /// Vyhovuje trasa zadané kombinaci filtrů? (statické parametry — sdílí seznam i náhled v sheetu)
@@ -147,7 +167,7 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen> {
         children: [
           Row(
             children: [
-              const Text('🛣️', style: TextStyle(fontSize: 24)),
+              const AnimatedRouteIcon(size: 28),
               const SizedBox(width: 10),
               Text(
                 t(context).tr('routesTitle'),
@@ -216,6 +236,7 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen> {
         .where((r) => (q.isEmpty || searchMatches(r.searchBlob, q)) &&
             _routeMatches(r, _fType, _fDiff, _fCountry, _fDist, _fDur))
         .toList();
+    _precacheCovers(context, routes);
 
     return RefreshIndicator(
       color: MotoGoColors.greenDark,
