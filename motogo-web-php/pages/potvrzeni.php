@@ -99,6 +99,12 @@ $confirmI18n = [
     'errorContactPhone'   => t('confirm.error.contactPhone'),
     'errorTryAgain'       => t('confirm.error.tryAgain'),
     'errorMissingId'      => t('confirm.error.missingId'),
+    // QR/převod — děkovací stránka po nahrání dokladů (platba ještě nepotvrzena)
+    'qrDocsTitle'         => t('confirm.qrdocs.title'),
+    'qrDocsLead'          => t('confirm.qrdocs.lead'),
+    'qrDocsPayInfo'       => t('confirm.qrdocs.payInfo'),
+    'qrDocsEmailInfo'     => t('confirm.qrdocs.emailInfo'),
+    'qrDocsCodesInfo'     => t('confirm.qrdocs.codesInfo'),
 ];
 
 // Mapa jsKey → CMS klíč (bez prefixu `web.layout.`) pro inline edit přes
@@ -161,6 +167,11 @@ $confirmCmsKeys = [
     'errorContactPhone'   => 'confirm.error.contactPhone',
     'errorTryAgain'       => 'confirm.error.tryAgain',
     'errorMissingId'      => 'confirm.error.missingId',
+    'qrDocsTitle'         => 'confirm.qrdocs.title',
+    'qrDocsLead'          => 'confirm.qrdocs.lead',
+    'qrDocsPayInfo'       => 'confirm.qrdocs.payInfo',
+    'qrDocsEmailInfo'     => 'confirm.qrdocs.emailInfo',
+    'qrDocsCodesInfo'     => 'confirm.qrdocs.codesInfo',
 ];
 
 // Per-type varianty stavu „Pending" (rezervace / objednávka / poukaz) + samostatný

@@ -285,6 +285,16 @@ export default function BookingSummary({ booking, sosIncidents, bookingExtras, c
       )}
 
       <div className="text-sm font-extrabold uppercase tracking-wide mt-4 mb-2" style={{ color: '#1a2e22' }}>Průběh</div>
+      {b.booking_source === 'web' && (() => {
+        const paid = ['paid', 'partial_refund', 'refund_pending'].includes(b.payment_status)
+        const reachedGw = !!(b.checkout_started_at || b.stripe_checkout_url || b.chosen_payment_method || b.pay_channel)
+        let step, label, color
+        if (paid && b.docs_completed_at) { step = 4; label = 'dokončeno (doklady vyplněny)'; color = '#16a34a' }
+        else if (paid) { step = 4; label = 'doklady (zaplaceno, čeká na doklady)'; color = '#7c3aed' }
+        else if (reachedGw) { step = 3; label = 'platba / brána (nezaplaceno)'; color = '#f59e0b' }
+        else { step = 2; label = 'přehled + platba (nezaplaceno)'; color = '#dc2626' }
+        return <SumRow label="Krok ve flow" value={`${step}/4 — ${label}`} color={color} />
+      })()}
       <SumRow label="Vytvořeno" value={fmtDT(b.created_at)} />
       {b.booking_source === 'web' && deviceVal && (
         <SumRow label="Zařízení" value={deviceVal} color={devStart && devEnd && devEnd !== devStart ? '#7c3aed' : undefined} />
