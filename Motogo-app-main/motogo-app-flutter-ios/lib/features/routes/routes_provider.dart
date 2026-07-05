@@ -105,6 +105,11 @@ final routesDataProvider = FutureProvider<RoutesData>((ref) async {
   return RoutesData(routes: routes, branches: branches);
 });
 
+/// Naposledy otevřená (zvolená) trasa — jen její id. Slouží řazení „od zvolené
+/// trasy" v seznamu tras i bodů zájmu (bez polohy jezdce). Nastavuje se při
+/// otevření detailu trasy.
+final lastOpenedRouteProvider = StateProvider<String?>((ref) => null);
+
 /// Jeden bod zájmu + odkaz na trasu a pobočku, ke které patří. Slouží katalogu
 /// všech POI v appce (zákazník si skládá vlastní vyjížďku napříč trasami).
 class PoiEntry {
