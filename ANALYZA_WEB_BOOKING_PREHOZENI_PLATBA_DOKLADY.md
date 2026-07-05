@@ -126,9 +126,9 @@ KROK 3  DOKLADY (nově samostatný krok PO platbě):
 | 2 | Zaplaceno online (Stripe) | payment=paid, kanál=stripe | **ZF** (už při redirectu) + **DP** | `invoice_payment_receipt` (+ DP, metoda=stripe) | **BEZ Smlouvy, BEZ VOP, BEZ door codes** — ještě nejsou doklady |
 | 3 | Volba QR/převod na kroku 2 | kanál=qr | **ZF v2** (advance, VS+banka, 4 h) | `booking_qr_payment` (QR) + ops mail | jako dnes |
 | 4 | Nedokončeno na kroku 2 (nezaplaceno) — stripe | pending/unpaid, 15 min | — | `web_booking_abandoned` | jako dnes |
-| 4b | Nedokončeno na kroku 2 — QR zvoleno, nezaplaceno | pay_channel=qr, 15 min | ZF v2 | `booking_qr_payment` / nová QR šablona | viz Q3 (dnes chodí hned, ne po 15 min) |
+| 4b | Volba QR/převod na kroku 2 | pay_channel=qr | ZF v2 (advance, VS) | `booking_qr_payment` **HNED při volbě** (jako dnes) | Q3 vyřešeno: chodí okamžitě, abandoned potlačen |
 | 5 | Přechod na krok 3 (doklady) | po platbě | — | — | jen navigace |
-| 6 | Opuštěno na kroku 3 (zaplaceno, chybí doklady) | paid, bez dokladů, X min | — | `booking_missing_docs` **nebo** `booking_abandoned_full` | viz Q2 — dnes missing_docs po 5 min |
+| 6 | Opuštěno na kroku 3 (zaplaceno, chybí doklady) | paid, bez dokladů, **~30–60 min** | — | `booking_missing_docs` (jedna šablona, všechny kanály) | Q2 vyřešeno: prodloužit práh z 5 min |
 | 7 | Doklady vyplněny + zaplaceno | paid + docs OK | **Smlouva + VOP** (BEZ ZF/DP) | **`web_booking_reserved`** (potvrzení rezervace) + **door codes** | upřesněno: jen Smlouva+VOP, vždy s čísly dokladů |
 | 8 | Dokončení pronájmu (vrácení motorky) | active→completed | **KF** | `web_booking_completed` | beze změny, mimo tento flow |
 
@@ -211,9 +211,9 @@ Dnešní web funnel (`WebRezervacniFunnel.jsx`) i detail rezervace jsou postaven
 
 - **Q1 — VYŘEŠENO (2026-07-05):** „kompletní" mail po dokladech = `web_booking_reserved`, **bez ZF/DP, jen Smlouva + VOP** (+ door codes), vždy s vyplněnými čísly. `web_booking_completed` zůstává pro konec pronájmu (mimo tento flow).
 - **Q5 — POTVRZENO zadavatelem (2026-07-05):** v okamžiku platby (krok 2) NEjde Smlouva, VOP ani door codes; jde jen `invoice_payment_receipt` se ZF+DP. Smlouva+VOP+door codes až po dokladech (krok 3).
-- **Q2 — po platbě opuštěné doklady:** `booking_missing_docs` NEBO `booking_abandoned_full`? Zadání zmiňuje obojí („booking_abandoned_full pokud stripe nebo booking_missing_docs"). Který kanál dostane kterou šablonu?
-- **Q3 — QR připomínka:** dnes `booking_qr_payment` + ZF chodí HNED při volbě QR (a abandoned je potlačen). Chcete to nechat hned, nebo posílat až po 15 min jako u Stripe? A je „ZF verze 2" jiný doklad než ZF u Stripe, nebo tatáž advance ZF s VS?
-- **Q4 — jsou doklady v kroku 3 povinné?** Blokují dokončení? A jaký práh připomínky (dnes 5 min)? Platí i pro delivery / obslužnou pobočku / dětskou motorku (dnes se u nich připomínka přeskakuje)?
+- **Q2 — VYŘEŠENO (2026-07-05):** po platbě opuštěné doklady → **jedna šablona `booking_missing_docs` pro všechny kanály** (Stripe i QR), **práh prodloužit z 5 min na ~30–60 min** od `confirmed_at`, aby připomínka nechodila každému během vyplňování kroku 3. `booking_abandoned_full` se v tomto flow nepoužije.
+- **Q3 — VYŘEŠENO (2026-07-05):** QR mail (`booking_qr_payment` + ZF s VS) chodí **HNED při volbě QR** (zachovat současné chování z 2026-07-05, abandoned potlačen). „ZF verze 2" = tatáž advance ZF s VS, ne nový typ dokladu.
+- **Q4 — VYŘEŠENO (2026-07-05):** doklady v kroku 3 jsou **povinné** pro uvolnění door codes a mail `web_booking_reserved`, ale se **stávajícími výjimkami**: delivery, obslužná pobočka (Mezná) a dětská motorka (`license_required='N'`) doklady nevyžadují (ověří obsluha osobně) — stejné výjimky jako dnešní `booking_missing_docs` / `check_booking_docs_status`.
 
 ---
 
