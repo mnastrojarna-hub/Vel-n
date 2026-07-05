@@ -135,17 +135,41 @@ async function processTable(db: any, table: string, rows: any[], concurrency: nu
   return { processed, failed }
 }
 
+/** Je token service_role JWT? Kontroluje claim `role` (ne přesnou shodu) —
+ *  projekt může mít víc platných service klíčů / nový formát sb_secret_. */
+function isServiceRole(token: string): boolean {
+  try {
+    const p = token.split('.')
+    if (p.length !== 3) return false
+    const pad = '='.repeat((4 - (p[1].length % 4)) % 4)
+    const payload = JSON.parse(atob(p[1].replace(/-/g, '+').replace(/_/g, '/') + pad))
+    return payload.role === 'service_role'
+  } catch (_) { return false }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
-  const auth = req.headers.get('authorization') || ''
-  if (!auth.includes(SUPABASE_SERVICE_KEY)) return jsonResponse({ error: 'service_role required' }, 401)
   if (!ANTHROPIC_API_KEY) return jsonResponse({ error: 'ANTHROPIC_API_KEY not configured' }, 500)
+  const db = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+
+  // ── Autorizace (tolerantní jako mirror-route-images) ──
+  // Cron posílá Bearer = app_settings.service_role_key, který se u nového formátu
+  // klíčů (sb_secret_…) NEROVNÁ env SUPABASE_SERVICE_ROLE_KEY → striktní shoda
+  // dávala 401 a cron nic nezapsal. Přijmi: env klíč, JWT s claim service_role,
+  // nebo app_settings.service_role_key.
+  let bearer = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '').trim()
+  if (bearer.length > 1 && bearer.startsWith('"') && bearer.endsWith('"')) bearer = bearer.slice(1, -1)
+  let ok = bearer.length > 0 && (bearer === SUPABASE_SERVICE_KEY || isServiceRole(bearer))
+  if (!ok && bearer.length > 0) {
+    const { data: row } = await db.from('app_settings').select('value').eq('key', 'service_role_key').maybeSingle()
+    if (row?.value && bearer === String(row.value).replace(/^"|"$/g, '').trim()) ok = true
+  }
+  if (!ok) return jsonResponse({ error: 'service_role required' }, 401)
 
   const body = await req.json().catch(() => ({}))
   const scope: string = body.scope || 'all'
   const limit: number = Math.min(Math.max(Number(body.limit) || 8, 1), 25)
   const concurrency: number = Math.min(Math.max(Number(body.concurrency) || 2, 1), 4)
-  const db = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
   try {
     // Pořadí: nejdřív katalogové body (vidí je nejvíc uživatelů), pak body na trase.
