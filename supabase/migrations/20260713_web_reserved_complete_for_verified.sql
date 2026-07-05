@@ -172,6 +172,10 @@ VALUES (
   true,
   '["ZF","DP"]'::jsonb
 )
-ON CONFLICT (slug) DO NOTHING;
+ON CONFLICT (slug) DO UPDATE SET
+  subject     = EXCLUDED.subject,
+  body_html   = EXCLUDED.body_html,
+  attachments = EXCLUDED.attachments,
+  active      = true;
 
 NOTIFY pgrst, 'reload schema';
