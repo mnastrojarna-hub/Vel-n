@@ -3,6 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/theme.dart';
 import 'routes_model.dart';
+import 'routes_provider.dart';
 import 'route_image.dart';
 import 'poi_categories.dart';
 import 'poi_rating.dart';
@@ -28,17 +29,6 @@ Widget _poiSectionTitle(String s) => Padding(
 /// galerie → název + kategorie → popis → Okolí → hvězdy → recenze/komentáře.
 /// Fotky lze zvětšit přes celou obrazovku s přibližováním.
 void showRoutePoiSheet(BuildContext context, RoutePoi poi, String lang, {int? index}) {
-  final desc = poi.descFor(lang);
-  final surr = poi.surroundingsFor(lang);
-  // Všechny fotky bodu (titulní + galerie), bez duplicit, v pořadí.
-  final imgs = <String>{
-    if (poi.imageUrl != null && poi.imageUrl!.isNotEmpty) poi.imageUrl!,
-    ...poi.images.where((e) => e.isNotEmpty),
-  }.toList();
-  // Kategorie bodu (emoji + lokalizovaný popisek) do štítku pod názvem.
-  final catKey = poiCategoryOf(poi);
-  final cat = kPoiCats.firstWhere((c) => c.key == catKey, orElse: () => kPoiCats.last);
-
   showModalBottomSheet(
     context: context,
     backgroundColor: Colors.transparent,
@@ -48,7 +38,78 @@ void showRoutePoiSheet(BuildContext context, RoutePoi poi, String lang, {int? in
       minChildSize: 0.5,
       maxChildSize: 0.97,
       expand: false,
-      builder: (c, scrollController) => Container(
+      builder: (c, scrollController) => _PoiSheetContent(
+        poi: poi,
+        lang: lang,
+        index: index,
+        controller: scrollController,
+      ),
+    ),
+  );
+}
+
+/// Obsah detailu bodu. Katalogové body se do seznamu načítají odlehčené (bez
+/// popisu / okolí / galerie / překladů popisů kvůli velikosti payloadu) — tady
+/// se jejich plný detail dotáhne per-bod přes `get_poi_detail`. Trasové a
+/// komunitní body už mají vše načtené, takže se nedotahují a vykreslí se hned.
+class _PoiSheetContent extends StatefulWidget {
+  final RoutePoi poi;
+  final String lang;
+  final int? index;
+  final ScrollController controller;
+  const _PoiSheetContent({
+    required this.poi,
+    required this.lang,
+    required this.index,
+    required this.controller,
+  });
+
+  @override
+  State<_PoiSheetContent> createState() => _PoiSheetContentState();
+}
+
+class _PoiSheetContentState extends State<_PoiSheetContent> {
+  late RoutePoi _poi = widget.poi;
+  bool _loadingDetail = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final p = widget.poi;
+    // Odlehčený katalogový bod = katalog bez popisu/okolí/galerie → dotáhni.
+    if (p.isCatalogPoi &&
+        p.description == null &&
+        p.surroundings == null &&
+        p.images.isEmpty) {
+      _loadingDetail = true;
+      fetchCatalogPoiDetail(p.id).then((full) {
+        if (!mounted) return;
+        setState(() {
+          if (full != null) _poi = full;
+          _loadingDetail = false;
+        });
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final poi = _poi;
+    final lang = widget.lang;
+    final index = widget.index;
+    final scrollController = widget.controller;
+    final desc = poi.descFor(lang);
+    final surr = poi.surroundingsFor(lang);
+    // Všechny fotky bodu (titulní + galerie), bez duplicit, v pořadí.
+    final imgs = <String>{
+      if (poi.imageUrl != null && poi.imageUrl!.isNotEmpty) poi.imageUrl!,
+      ...poi.images.where((e) => e.isNotEmpty),
+    }.toList();
+    // Kategorie bodu (emoji + lokalizovaný popisek) do štítku pod názvem.
+    final catKey = poiCategoryOf(poi);
+    final cat = kPoiCats.firstWhere((c) => c.key == catKey, orElse: () => kPoiCats.last);
+
+    return Container(
         decoration: const BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -147,7 +208,7 @@ void showRoutePoiSheet(BuildContext context, RoutePoi poi, String lang, {int? in
               ),
 
             Padding(
-              padding: EdgeInsets.fromLTRB(20, 18, 20, MediaQuery.of(c).padding.bottom + 28),
+              padding: EdgeInsets.fromLTRB(20, 18, 20, MediaQuery.of(context).padding.bottom + 28),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -205,6 +266,23 @@ void showRoutePoiSheet(BuildContext context, RoutePoi poi, String lang, {int? in
                     ),
                   ),
 
+                  // Donačítání plného detailu katalogového bodu (popis/okolí/
+                  // galerie) — jemný indikátor, ať karta nepůsobí prázdně.
+                  if (_loadingDetail) ...[
+                    const SizedBox(height: 20),
+                    const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(8),
+                        child: SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2.4, color: MotoGoColors.greenDark),
+                        ),
+                      ),
+                    ),
+                  ],
+
                   // ── Popis (celý text, čitelný) ──
                   if (desc != null && desc.trim().isNotEmpty) ...[
                     const SizedBox(height: 20),
@@ -248,9 +326,8 @@ void showRoutePoiSheet(BuildContext context, RoutePoi poi, String lang, {int? in
             ),
           ],
         ),
-      ),
-    ),
-  );
+      );
+  }
 }
 
 /// Fullscreen prohlížeč fotek s kreditem — sdílený: POI sheet i galerie

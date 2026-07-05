@@ -143,6 +143,24 @@ final catalogPoisProvider = FutureProvider<List<RoutePoi>>((ref) async {
   }
 });
 
+/// Donačte PLNÝ detail katalogového bodu (popis, okolí, galerie, kompletní
+/// překlady) — RPC `get_poi_detail`. Katalog se do seznamu posílá odlehčený
+/// (bez těchto polí kvůli velikosti payloadu), detail se tak dotáhne až při
+/// otevření konkrétního bodu. Best-effort: při chybě/neexistenci vrátí null
+/// a UI zůstane u toho, co má z odlehčeného seznamu.
+Future<RoutePoi?> fetchCatalogPoiDetail(String id) async {
+  try {
+    final res = await MotoGoSupabase.client
+        .rpc('get_poi_detail', params: {'p_id': id});
+    if (res is Map && res.isNotEmpty) {
+      return RoutePoi.fromJson(Map<String, dynamic>.from(res));
+    }
+    return null;
+  } catch (_) {
+    return null;
+  }
+}
+
 /// Schválené uživatelské body zájmu (komunitní) — RPC `get_user_pois`.
 final userPoisProvider = FutureProvider<List<RoutePoi>>((ref) async {
   try {
