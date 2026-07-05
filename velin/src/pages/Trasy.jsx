@@ -54,6 +54,7 @@ function Trasy() {
   const [error, setError] = useState(null)
   const [search, setSearch] = useState('')
   const [countryFilter, setCountryFilter] = useState('all')
+  const [sortBy, setSortBy] = useState('default')       // řazení seznamu tras
   const [showModal, setShowModal] = useState(false)
   const [editing, setEditing] = useState(null)
   const [deleteConfirm, setDeleteConfirm] = useState(null)
@@ -287,6 +288,19 @@ function Trasy() {
       (Array.isArray(r.countries) && r.countries.join(' ').toLowerCase().includes(s))
   })
 
+  // Řazení nad už vyfiltrovaným seznamem (client-side). Hodnocení bere průměr
+  // ze spočítaných reviewStats; trasy bez recenzí jdou na konec.
+  const sorted = [...filtered].sort((a, b) => {
+    switch (sortBy) {
+      case 'name': return (a.name || '').localeCompare(b.name || '', 'cs')
+      case 'distance': return (b.distance_km || 0) - (a.distance_km || 0)
+      case 'duration': return (b.duration_min || 0) - (a.duration_min || 0)
+      case 'rating': return (reviewStats[b.id]?.avg || 0) - (reviewStats[a.id]?.avg || 0)
+      case 'newest': return new Date(b.created_at || 0) - new Date(a.created_at || 0)
+      default: return 0
+    }
+  })
+
   const activeCount = routes.filter(r => r.is_active).length
   const loopCount = routes.filter(r => r.route_type === 'loop').length
   const totalPois = Object.values(poiCounts).reduce((s, v) => s + v, 0)
@@ -313,6 +327,19 @@ function Trasy() {
             {allCountries.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
         )}
+        <select
+          value={sortBy}
+          onChange={e => setSortBy(e.target.value)}
+          title="Řadit dle"
+          className="rounded-btn text-sm font-bold outline-none cursor-pointer"
+          style={{ padding: '7px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
+          <option value="default">↕ Řadit dle…</option>
+          <option value="name">Název (A–Z)</option>
+          <option value="distance">Délka</option>
+          <option value="duration">Čas</option>
+          <option value="rating">Hodnocení</option>
+          <option value="newest">Nejnovější</option>
+        </select>
         <div className="ml-auto">
           <Button green onClick={() => { setEditing(null); setShowModal(true) }}>+ Nová trasa</Button>
         </div>
@@ -411,7 +438,7 @@ function Trasy() {
             </TRow>
           </thead>
           <tbody>
-            {filtered.map(r => (
+            {sorted.map(r => (
               <tr key={r.id}
                 className="cursor-pointer hover:bg-[#f1faf7] transition-colors"
                 style={{ borderBottom: '1px solid #d4e8e0', opacity: r.is_active ? 1 : 0.5 }}

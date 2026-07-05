@@ -36,6 +36,10 @@ export default function TrasyKatalogMist() {
   const [cat, setCat] = useState('all')
   const [country, setCountry] = useState('all')
   const [source, setSource] = useState('all')
+  const [sortBy, setSortBy] = useState('default')     // default | name | newest | rating
+  const [onlyPhoto, setOnlyPhoto] = useState(false)   // jen s fotkou (server-side)
+  const [onlySurroundings, setOnlySurroundings] = useState(false) // jen s popisem okolí (server-side)
+  const [minRating, setMinRating] = useState('all')   // min. hodnocení (client-side nad stránkou)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [editing, setEditing] = useState(null)
@@ -48,13 +52,20 @@ export default function TrasyKatalogMist() {
     setError(null)
     try {
       let q = supabase.from('points_of_interest')
-        .select('id, name, description, surroundings, category, country, lat, lng, image_url, source, is_active', { count: 'exact' })
+        .select('id, name, description, surroundings, category, country, lat, lng, image_url, source, is_active, created_at', { count: 'exact' })
       if (cat !== 'all') q = q.eq('category', cat)
       if (country !== 'all') q = q.eq('country', country)
       if (source !== 'all') q = q.like('source', `${source}%`)
       if (search) q = q.ilike('name', `%${search}%`)
+      if (onlyPhoto) q = q.not('image_url', 'is', null)
+      if (onlySurroundings) q = q.not('surroundings', 'is', null)
+      // Server-side řazení. „Hodnocení" (rating) se řadí client-side nad
+      // aktuální stránkou v derivaci `displayRows` (poi_ratings se počítají
+      // až po načtení), takže na serveru zůstává výchozí pořadí.
+      if (sortBy === 'name') q = q.order('name')
+      else if (sortBy === 'newest') q = q.order('created_at', { ascending: false })
+      else q = q.order('sort_order').order('name')
       const { data, count, error: err } = await q
-        .order('sort_order').order('name')
         .range(page * PAGE, page * PAGE + PAGE - 1)
       if (err) throw err
       setRows(data || [])
@@ -65,11 +76,11 @@ export default function TrasyKatalogMist() {
     } finally {
       setLoading(false)
     }
-  }, [page, search, cat, country, source])
+  }, [page, search, cat, country, source, onlyPhoto, onlySurroundings, sortBy])
 
   useEffect(() => { load() }, [load])
   // Změna filtru → zpět na první stránku
-  useEffect(() => { setPage(0) }, [search, cat, country, source])
+  useEffect(() => { setPage(0) }, [search, cat, country, source, onlyPhoto, onlySurroundings, sortBy])
 
   // Spočítá průměr a počet hodnocení (poi_ratings) pro aktuálně zobrazené body.
   async function loadStats(list) {
@@ -132,6 +143,16 @@ export default function TrasyKatalogMist() {
   const pages = Math.max(1, Math.ceil(total / PAGE))
   const sel = { padding: '7px 10px', borderRadius: 8, border: '1px solid #d6ddd8', fontSize: 13, background: '#fff' }
 
+  // Řazení dle hodnocení a filtr min. hodnocení běží client-side JEN nad
+  // aktuální stránkou (poi_ratings se agregují až po načtení řádků).
+  let displayRows = rows
+  if (minRating !== 'all') {
+    displayRows = displayRows.filter(p => Number(stats[p.id]?.avg || 0) >= Number(minRating))
+  }
+  if (sortBy === 'rating') {
+    displayRows = [...displayRows].sort((a, b) => Number(stats[b.id]?.avg || 0) - Number(stats[a.id]?.avg || 0))
+  }
+
   return (
     <Card className="mt-6">
       <div className="flex flex-wrap items-center gap-3 mb-4">
@@ -149,13 +170,33 @@ export default function TrasyKatalogMist() {
         <select style={sel} value={source} onChange={e => setSource(e.target.value)}>
           {SOURCES.map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
+        <select style={sel} value={sortBy} onChange={e => setSortBy(e.target.value)} title="Řadit dle">
+          <option value="default">↕ Řadit dle…</option>
+          <option value="name">Název (A–Z)</option>
+          <option value="rating">Hodnocení (stránka)</option>
+          <option value="newest">Nejnovější</option>
+        </select>
+        <select style={sel} value={minRating} onChange={e => setMinRating(e.target.value)} title="Min. hodnocení (aktuální stránka)">
+          <option value="all">★ min (vše)</option>
+          <option value="3">★ 3+</option>
+          <option value="4">★ 4+</option>
+          <option value="4.5">★ 4,5+</option>
+        </select>
+        <label className="flex items-center gap-1 text-sm font-semibold cursor-pointer" style={{ color: '#374151' }}>
+          <input type="checkbox" checked={onlyPhoto} onChange={e => setOnlyPhoto(e.target.checked)} />
+          🖼 s fotkou
+        </label>
+        <label className="flex items-center gap-1 text-sm font-semibold cursor-pointer" style={{ color: '#374151' }}>
+          <input type="checkbox" checked={onlySurroundings} onChange={e => setOnlySurroundings(e.target.checked)} />
+          🧭 s popisem okolí
+        </label>
       </div>
 
       {error && (
         <div className="p-3 mb-3 rounded-card text-sm" style={{ background: '#fee2e2', color: '#dc2626', whiteSpace: 'pre-wrap' }}>{error}</div>
       )}
 
-      {loading ? <Spinner /> : rows.length === 0 ? (
+      {loading ? <Spinner /> : displayRows.length === 0 ? (
         <EmptyState text="Žádná místa neodpovídají filtru." />
       ) : (
         <>
@@ -163,7 +204,7 @@ export default function TrasyKatalogMist() {
             <TRow header>
               <TH>Foto</TH><TH>Název</TH><TH>Kategorie</TH><TH>Země</TH><TH>GPS</TH><TH>Zdroj</TH><TH>Stav</TH><TH>Akce</TH>
             </TRow>
-            {rows.map(p => (
+            {displayRows.map(p => (
               <TRow key={p.id}>
                 <TD>
                   {p.image_url
