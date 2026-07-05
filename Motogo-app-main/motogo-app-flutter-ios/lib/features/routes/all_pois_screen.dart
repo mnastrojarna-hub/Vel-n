@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -37,16 +38,14 @@ class AllPoisScreen extends ConsumerStatefulWidget {
 class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
   final Set<String> _selected = {};
   String _query = '';
-  String? _routeFilter; // null = vše, _kCommunity = komunitní body, jinak id trasy
+  String? _routeFilter; // null = všechny body, jinak id konkrétní zvolené trasy
   final Set<String> _cats = {}; // aktivní kategorie (prázdné = všechny)
   final Set<String> _precachedUrls = {}; // náhledy už poslané do precache
 
-  /// Sentinel filtru pro komunitní (uživatelské) body zájmu.
-  static const _kCommunity = '__community__';
-
-  /// Sentinel filtru pro katalogová „zajímavá místa" (samostatné body zájmu
-  /// nezávislé na trasách — přehrady, hrady, rozhledny, památky, rezervace…).
-  static const _kCatalog = '__catalog__';
+  // Debounce vyhledávání — filtr běží nad desítkami tisíc bodů, takže
+  // přefiltrovat při KAŽDÉM stisku klávesy sekalo. Přefiltruje se až po
+  // krátké pauze v psaní; napsaný text v poli zůstává responzivní hned.
+  Timer? _searchDebounce;
 
   // Filtr „v okolí výběru" — nabídne další body do X km od už vybraných.
   bool _nearbyOn = false;
@@ -80,9 +79,46 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
     if (widget.initialSelected != null) _selected.addAll(widget.initialSelected!);
   }
 
+  @override
+  void dispose() {
+    _searchDebounce?.cancel();
+    super.dispose();
+  }
+
   /// Stabilní pseudonáhodné pořadí bodu (nezávislé na tom, kdy dorazí který
   /// zdroj) — seznam se pak při postupném načítání zdrojů nepřeskládává.
   int _stableOrder(PoiEntry e) => (e.key.hashCode ^ _shuffleSeed) & 0x7fffffff;
+
+  // Memoizace sloučeného seznamu bodů. Sloučit tři zdroje (~desítky tisíc
+  // katalogových bodů) a stabilně je seřadit je O(n log n) — bez cache by se to
+  // dělo při KAŽDÉM build() (i při každém setState z hledání/filtrů) a obrazovka
+  // by „zamrzala" už při otevření i při psaní. Přepočítá se jen když se některý
+  // zdroj (referenčně) změní — providery vrací stejné instance, dokud se nezmění
+  // data, takže identical() spolehlivě rozliší „nové načtení" od překreslení.
+  List<PoiEntry>? _mergedCache;
+  List<PoiEntry>? _mergedRouteSrc;
+  List<RoutePoi>? _mergedCatalogSrc;
+  List<RoutePoi>? _mergedUserSrc;
+
+  List<PoiEntry> _mergedAll(List<PoiEntry> routePois,
+      List<RoutePoi> catalogPois, List<RoutePoi> userPois) {
+    if (_mergedCache != null &&
+        identical(_mergedRouteSrc, routePois) &&
+        identical(_mergedCatalogSrc, catalogPois) &&
+        identical(_mergedUserSrc, userPois)) {
+      return _mergedCache!;
+    }
+    final merged = <PoiEntry>[
+      ...routePois,
+      ...catalogPois.map((p) => PoiEntry(p, null, null, catalog: true)),
+      ...userPois.map((p) => PoiEntry(p, null, null)),
+    ]..sort((a, b) => _stableOrder(a).compareTo(_stableOrder(b)));
+    _mergedCache = merged;
+    _mergedRouteSrc = routePois;
+    _mergedCatalogSrc = catalogPois;
+    _mergedUserSrc = userPois;
+    return merged;
+  }
 
   /// Vzdálenost bodu od zadaného místa (∞ pro body bez GPS — spadnou dolů).
   double _distTo(Distance dist, LatLng from, PoiEntry e) {
@@ -134,24 +170,16 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
     // „po dávkách" — jinak se po otevření několikrát přeskládá (uživatel viděl
     // 3 rychlé změny po sobě). Počkej na zdroje a zobraz je naráz.
     final sourcesLoading = catalogAsync.isLoading || userAsync.isLoading;
-    final all = <PoiEntry>[
-      ...routePois,
-      ...catalogPois.map((p) => PoiEntry(p, null, null, catalog: true)),
-      ...userPois.map((p) => PoiEntry(p, null, null)),
-    ]..sort((a, b) => _stableOrder(a).compareTo(_stableOrder(b)));
+    final all = _mergedAll(routePois, catalogPois, userPois);
     final me = ref.watch(currentLocationProvider).valueOrNull;
 
     // Filtr + řazení (podle vzdálenosti od jezdce, jinak dle názvu trasy).
     final q = _query.trim();
-    // 1) Zdroj (vše / komunitní / trasa) + hledání — základ pro počty kategorií.
+    // 1) Volitelný filtr podle konkrétní trasy + hledání — základ pro počty
+    //    kategorií. (Zdrojové rozlišení „katalog / komunitní / trasa" se
+    //    nefiltruje — pro uživatele je bod jen bod; všechny se zobrazí spolu.)
     final sourceFiltered = all.where((e) {
-      if (_routeFilter == _kCommunity) {
-        if (!e.isCommunity) return false; // jen komunitní (uživatelské) body
-      } else if (_routeFilter == _kCatalog) {
-        if (!e.catalog) return false; // jen katalogová zajímavá místa
-      } else if (_routeFilter != null && e.route?.id != _routeFilter) {
-        return false;
-      }
+      if (_routeFilter != null && e.route?.id != _routeFilter) return false;
       if (q.isEmpty) return true;
       // Hloubkové hledání: název, popis i překlady bodu (bez diakritiky),
       // případně název trasy, ke které bod patří.
@@ -330,7 +358,15 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: TextField(
-                    onChanged: (v) => setState(() => _query = v),
+                    onChanged: (v) {
+                      _searchDebounce?.cancel();
+                      _searchDebounce = Timer(
+                        const Duration(milliseconds: 280),
+                        () {
+                          if (mounted) setState(() => _query = v);
+                        },
+                      );
+                    },
                     decoration: InputDecoration(
                       isDense: true,
                       border: InputBorder.none,
@@ -348,14 +384,11 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
     );
   }
 
-  // ── Filtry: řádek zdroje (vše / komunitní / trasa) + řádek kategorií ──
+  // ── Filtry: řádek nástrojů (řazení/filtry, „v okolí", trasa) + řádek kategorií ──
   Widget _filters(BuildContext context, String lang, List<RouteItem> routes,
       List<PoiEntry> all, List<PoiEntry> sourceFiltered,
       bool meAvail, bool routeAvail, List<String> availableCountries) {
-    final communityCount = all.where((e) => e.isCommunity).length;
-    final catalogCount = all.where((e) => e.catalog).length;
-    if (routes.length < 2 && communityCount == 0 && catalogCount == 0 &&
-        _selected.isEmpty) {
+    if (routes.length < 2 && all.isEmpty && _selected.isEmpty) {
       return const SizedBox(height: 8);
     }
 
@@ -367,7 +400,7 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
     }
 
     RouteItem? selRoute;
-    if (_routeFilter != null && _routeFilter != _kCommunity) {
+    if (_routeFilter != null) {
       for (final r in routes) {
         if (r.id == _routeFilter) {
           selRoute = r;
@@ -408,14 +441,6 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
                   _srcChip('${km.round()} km', Icons.circle_outlined,
                       _nearbyKm == km, null,
                       () => setState(() => _nearbyKm = km)),
-              _srcChip(t(context).tr('poiAllPoints'), Icons.apps, _routeFilter == null,
-                  all.length, () => setState(() => _routeFilter = null)),
-              if (catalogCount > 0)
-                _srcChip(t(context).tr('poiCatalog'), Icons.place, _routeFilter == _kCatalog,
-                    catalogCount, () => setState(() => _routeFilter = _kCatalog)),
-              if (communityCount > 0)
-                _srcChip(t(context).tr('poiCommunity'), Icons.groups, _routeFilter == _kCommunity,
-                    communityCount, () => setState(() => _routeFilter = _kCommunity)),
               // Výběr konkrétní trasy — otevře sheet s hledáním (923 bodů ≠ řada chipů).
               _srcChip(
                 selRoute != null ? selRoute.nameFor(lang) : t(context).tr('poiRoutePick'),
