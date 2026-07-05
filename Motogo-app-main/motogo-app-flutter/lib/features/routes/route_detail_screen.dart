@@ -26,6 +26,24 @@ class RouteDetailScreen extends ConsumerStatefulWidget {
 
 class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
   int? _activePoi;
+  String? _precachedFor;
+
+  /// Přednačte fotky bodů zájmu i galerie trasy hned po otevření detailu, ať
+  /// je uživatel při scrollu vidí okamžitě (ne „jak se načítají").
+  void _precacheImages(BuildContext context, RouteItem route) {
+    if (_precachedFor == route.id) return;
+    _precachedFor = route.id;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      for (final p in route.pois) {
+        final c = p.cover;
+        if (c != null) precacheRouteImage(context, c, targetWidth: 500);
+      }
+      for (final img in route.images) {
+        precacheRouteImage(context, img, targetWidth: 400);
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -51,6 +69,7 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
   }
 
   Widget _content(BuildContext context, RouteItem route, RouteBranch? branch, String lang) {
+    _precacheImages(context, route);
     final displayAsync = ref.watch(routeDisplayProvider(route.id));
     final display = displayAsync.valueOrNull;
     final geometry = display?.geometry ?? route.geometry;

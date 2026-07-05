@@ -35,6 +35,7 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
   String _query = '';
   String? _routeFilter; // null = vše, _kCommunity = komunitní body, jinak id trasy
   final Set<String> _cats = {}; // aktivní kategorie (prázdné = všechny)
+  final Set<String> _precachedUrls = {}; // náhledy už poslané do precache
 
   /// Sentinel filtru pro komunitní (uživatelské) body zájmu.
   static const _kCommunity = '__community__';
@@ -62,6 +63,24 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
   /// Stabilní pseudonáhodné pořadí bodu (nezávislé na tom, kdy dorazí který
   /// zdroj) — seznam se pak při postupném načítání zdrojů nepřeskládává.
   int _stableOrder(PoiEntry e) => (e.key.hashCode ^ _shuffleSeed) & 0x7fffffff;
+
+  /// Přednačte náhledy prvních bodů v seznamu, ať se při scrollu nezobrazují
+  /// „jak se načítají". Dedup přes _precachedUrls, jen prvních ~18.
+  void _precacheThumbs(BuildContext context, List<PoiEntry> list) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      var n = 0;
+      for (final e in list) {
+        if (n >= 18) break;
+        final c = e.poi.cover;
+        if (c == null) continue;
+        n++;
+        if (_precachedUrls.add(c)) {
+          precacheRouteImage(context, c, targetWidth: 300);
+        }
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -136,6 +155,7 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
           .as(LengthUnit.Meter, me, a.latLng!)
           .compareTo(dist.as(LengthUnit.Meter, me, b.latLng!)));
     }
+    _precacheThumbs(context, list);
 
     // Trasy, které mají aspoň jeden POI (pro filtr).
     final routesWithPois = <String, RouteItem>{};

@@ -41,6 +41,20 @@ String mgImageUrl(String url, {int width = 800}) {
   return mgThumbUrl(url, width: width);
 }
 
+/// Přednačte fotku do cache (disk + paměť) přes STEJNÝ klíč/URL, jaký použije
+/// [RouteImage]. Díky tomu ji uživatel při zobrazení uvidí okamžitě a nevidí,
+/// „jak se načítá". Best-effort — chyby (403/timeout) tiše ignoruje.
+Future<void> precacheRouteImage(BuildContext context, String url,
+    {int targetWidth = 500}) {
+  if (url.isEmpty) return Future<void>.value();
+  final optimized = mgImageUrl(url, width: targetWidth);
+  return precacheImage(
+    CachedNetworkImageProvider(optimized, headers: kRouteImageHeaders),
+    context,
+    onError: (_, __) {},
+  );
+}
+
 /// Síťová fotka trasy / bodu zájmu s optimalizací velikosti a Wikimedia
 /// hlavičkami. Sjednocuje `CachedNetworkImage` napříč obrazovkami tras:
 /// - přepíše Wikimedia URL na thumbnail dané šířky ([targetWidth]),
