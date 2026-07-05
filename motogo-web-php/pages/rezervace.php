@@ -95,6 +95,8 @@ $rezKeys = [
     'steps.metaDelivery','steps.metaReturn','steps.newReservation',
     'steps.cancelBooking','steps.cancelConfirm','steps.docsOptionalNote','steps.staffedBranchLabel','steps.staffedBranchNote','steps.docsSpeedupQuestion','steps.docsAlreadyUploaded',
     'steps.pwdChange','steps.pwdCurrentPh','steps.pwdNewPh','steps.pwdSave','steps.pwdChanged','steps.pwdTooShort','steps.pwdMismatch','steps.pwdWrongCurrent',
+    'pay.chooseMethod','pay.online','pay.onlineNote','pay.qr','pay.qrNote',
+    'qrpay.title','qrpay.sub','qrpay.amount','qrpay.account','qrpay.bank','qrpay.vs','qrpay.deadline','qrpay.note','qrpay.done',
 ];
 $rezI18n = [];
 foreach ($rezKeys as $k) {

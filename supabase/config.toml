@@ -37,6 +37,11 @@ verify_jwt = false
 [functions.process-payment]
 verify_jwt = false
 
+# QR / bankovní převod platba na webu (krok 2). Volá se anon apikey z prohlížeče,
+# dovnitř běží service role (RPC set_booking_qr_payment + generate-invoice + send-email). OFF.
+[functions.qr-payment]
+verify_jwt = false
+
 # Generuje faktury/doklady — volá Velín (admin JWT) i triggery/webhook (service key).
 # verify_jwt=false ať CLI deploy nezmění dokumentovaný stav (OFF).
 [functions.generate-invoice]

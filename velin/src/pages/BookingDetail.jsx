@@ -362,6 +362,13 @@ export default function BookingDetail() {
             </span>
           )
         })()}
+        {booking.pay_channel === 'qr' && booking.payment_status !== 'paid' && (
+          <span className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase"
+            style={{ padding: '3px 8px', background: '#fef3c7', color: '#b45309', border: '1px solid #fcd34d' }}
+            title="Zákazník zvolil platbu QR / bankovním převodem — zkontroluj připsání na účtu a potvrď platbu">
+            QR/PŘEVOD — ČEKÁ{booking.payment_vs ? ` · VS ${booking.payment_vs}` : ''}
+          </span>
+        )}
         {hasCreditNote && (
           <span className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase"
             style={{ padding: '3px 8px', background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5' }}>

@@ -168,6 +168,8 @@ serve(async (req) => {
       invoice_date, // YYYY-MM-DD — override data vystavení i splatnosti (využívá Velín u přegenerování)
       render_existing, // dorenderuj PDF pro EXISTUJÍCÍ doklad bez pdf_path (NEpřepočítává položky)
       price_difference, // source='edit': částka doplatku (Kč) — posílá send-booking-email z trigger payloadu
+      variable_symbol: reqVariableSymbol, // QR/převod ZF: číselný VS pro párování platby (jinak = číslo dokladu)
+      due_note: reqDueNote, // QR/převod ZF: text splatnosti do bloku bankovní platby (např. "Splatnost do 4 hodin")
     } = await req.json()
     if (!booking_id && !order_id) return new Response(JSON.stringify({ error: 'Missing booking_id or order_id' }), { status: 400 })
 
@@ -698,7 +700,8 @@ serve(async (req) => {
       const invoicePayload: any = {
         number, type: invoiceType, customer_id: customerId,
         items, subtotal, tax_amount: 0, total,
-        issue_date: issueDate, due_date: dueDate, status: 'issued', variable_symbol: number,
+        issue_date: issueDate, due_date: dueDate, status: 'issued',
+        variable_symbol: (reqVariableSymbol && String(reqVariableSymbol).trim()) ? String(reqVariableSymbol).trim() : number,
         source: invoiceSource,
       }
       if (booking_id) invoicePayload.booking_id = booking_id
@@ -752,6 +755,8 @@ serve(async (req) => {
       title, number, accent, issueDate, dueDate, total, company: COMPANY, customer, items,
       voucher_codes, voucherValidUntil, doorCodes, isProforma, isPaymentReceipt, isShopFinal, dpNumber, bookingNumber,
       paymentMethodLabel, cardInfo, isEdit, lang: invLang, stripePaymentIntentId: stripePaymentId,
+      variableSymbol: (reqVariableSymbol && String(reqVariableSymbol).trim()) ? String(reqVariableSymbol).trim() : null,
+      dueNote: (reqDueNote && String(reqDueNote).trim()) ? String(reqDueNote).trim() : null,
     })
 
     // Pokus o PDF přes PDFShift; když není API key nebo konverze selže, fallback na HTML.

@@ -138,3 +138,24 @@ p>.btn:last-child{margin-bottom:0}
    .header-topbar (z-index:101) jinak překryje první položky menu (Vyber si stroj,
    Jak půjčit). Při otevřeném menu zvedneme .header nad topbar, aby overlay přes ně přešel. */
 body.menu-open .header{z-index:1002}
+
+/* ===== QR / bankovní převod platba (krok 2 rezervace) ===== */
+.rez-pay-method{margin:1rem 0;padding:1rem;border:1px solid #d4e8e0;border-radius:12px;background:#f8fbfa}
+.rez-pay-method-title{font-weight:700;font-size:.95rem;margin-bottom:.6rem;color:#1a2e22}
+.rez-pay-opt{display:flex;align-items:flex-start;gap:.6rem;padding:.7rem .8rem;border:1.5px solid #d4e8e0;border-radius:10px;background:#fff;cursor:pointer;margin-bottom:.5rem;transition:border-color .15s,background .15s}
+.rez-pay-opt:last-child{margin-bottom:0}
+.rez-pay-opt:hover{border-color:#74FB71;background:#f0faf5}
+.rez-pay-opt input{margin-top:.25rem;flex-shrink:0}
+.rez-pay-opt-body{display:flex;flex-direction:column;gap:.15rem}
+.rez-pay-opt-body strong{font-size:.95rem;color:#1a2e22}
+.rez-pay-opt-body small{font-size:.8rem;color:#6b7280}
+.rez-qr-pay{text-align:center}
+.rez-qr-pay-img{margin:1rem auto;max-width:280px}
+.rez-qr-pay-img img{width:100%;height:auto;border:1px solid #e5e7eb;border-radius:12px}
+.rez-qr-pay-tbl{width:100%;max-width:420px;margin:0 auto 1rem;border-collapse:collapse;text-align:left}
+.rez-qr-pay-tbl td{padding:.55rem .2rem;border-bottom:1px solid #eef2f0;font-size:.95rem}
+.rez-qr-pay-tbl td:first-child{color:#16a34a;font-weight:600}
+.rez-qr-pay-tbl td:last-child{text-align:right;font-weight:700;color:#0f1a14;font-variant-numeric:tabular-nums}
+.rez-qr-pay-tbl td.big{font-size:1.25rem}
+.rez-qr-pay-warn{max-width:520px;margin:0 auto 1rem;padding:.85rem 1rem;background:#fef2f2;border-radius:10px;color:#b91c1c;font-weight:700;font-size:.9rem}
+.rez-qr-pay-note{max-width:520px;margin:0 auto 1.2rem;color:#4b5563;font-size:.85rem}
