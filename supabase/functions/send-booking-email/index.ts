@@ -306,6 +306,7 @@ const FALLBACK_SUBJECTS: Record<string, (vars: Record<string, string>) => string
   booking_abandoned: (v) => `Dokon\u010dete svou rezervaci \u010d. ${v.booking_number} motocyklu u MotoGo24`,
   booking_abandoned_full: (v) => `Dokon\u010dete rezervaci \u010d. ${v.booking_number} \u2014 chyb\u00ed platba a doklady`,
   booking_missing_docs: (v) => `Nahrajte doklady k rezervaci \u010d. ${v.booking_number} \u2014 MotoGo24`,
+  invoice_payment_receipt: (v) => `Potvrzen\u00ed platby k rezervaci \u010d. ${v.booking_number} \u2014 MotoGo24`,
   booking_cancelled: (v) => `Va\u0161e rezervace \u010d. ${v.booking_number} motocyklu u MotoGo24 byla \u00fasp\u011b\u0161n\u011b stornov\u00e1na`,
   sos_incident: () => `SOS \u2014 MotoGo24 je na cest\u011b`,
   door_codes: (v) => `P\u0159\u00edstupov\u00e9 k\u00f3dy k pobo\u010dce \u2014 rezervace \u010d. ${v.booking_number}`,
@@ -1057,7 +1058,9 @@ serve(async (req) => {
         } catch { /* ignore */ }
       }
       if (needsDocs) {
-        const docsLink = docs_url || `${siteForLang(custLang)}/upravit-rezervaci?id=${booking_id}#doklady`
+        // Odkaz na doplnění dokladů vede na POSLEDNÍ KROK rezervačního flow (krok dokladů
+        // po platbě), ne na /upravit-rezervaci — zákazník pokračuje tam, kde skončil.
+        const docsLink = docs_url || `${siteForLang(custLang)}/rezervace?resume=${booking_id}`
         vars.docs_url = docsLink
         vars.door_codes_block = renderDocsRequiredBlock(custLang, docsLink)
       }
