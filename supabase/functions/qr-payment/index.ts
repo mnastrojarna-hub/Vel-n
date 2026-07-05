@@ -98,23 +98,63 @@ serve(async (req) => {
       }
     } catch (e) { console.warn('[qr-payment] ZF gen failed:', (e as Error).message) }
 
-    // 5) Mail zákazníkovi s platebními údaji + ZF v příloze
+    // 5) Mail zákazníkovi s platebními údaji + ZF v příloze.
+    //    Text i předmět jsou editovatelné ve Velíně (email_templates slug
+    //    'booking_qr_payment') a obsah je 1:1 s mailem, který dosud chodil.
+    //    Fallback na inline HTML (stejné znění), aby mail odešel i kdyby šablona
+    //    chyběla nebo byla deaktivovaná.
     const custEmail = (bk as any).profiles?.email || null
     const custName = (bk as any).profiles?.full_name || ''
     if (custEmail) {
-      try {
-        await fetch(SUPABASE_URL + '/functions/v1/send-email', {
+      const attachment_paths = invoicePath
+        ? [{ filename: (invoiceNumber || 'zalohova-faktura') + '.pdf', path: invoicePath }]
+        : []
+      const subject = 'Platební údaje k rezervaci #' + bookingNumber + ' — QR / bankovní převod'
+      // Placeholdery pro šablonu = 1:1 znění mailu, který dosud chodil (viz
+      // customerEmailHtml). `lead` a `invoice_suffix` skládají podmíněné části
+      // (jméno / číslo ZF), aby text šablony zůstal 1:1 a přitom editovatelný.
+      const tvars = {
+        lead: custName ? custName + ', děkujeme' : 'Děkujeme',
+        booking_number: bookingNumber,
+        qr_url: qrUrl,
+        amount: fmtAmount(amount) + ' Kč',
+        account,
+        iban: iban.replace(/(.{4})/g, '$1 ').trim(),
+        bank,
+        vs,
+        invoice_suffix: invoiceNumber ? ' (č. ' + invoiceNumber + ')' : '',
+      }
+      const postEmail = (payload: Record<string, unknown>) =>
+        fetch(SUPABASE_URL + '/functions/v1/send-email', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + SERVICE_KEY, apikey: SERVICE_KEY },
-          body: JSON.stringify({
+          body: JSON.stringify(payload),
+        })
+      let sentOk = false
+      try {
+        const r = await postEmail({
+          to: custEmail,
+          template_slug: 'booking_qr_payment',
+          template_vars: tvars,
+          language: locale || 'cs',
+          booking_id,
+          attachment_paths,
+        })
+        const rj = await r.json().catch(() => ({}))
+        sentOk = !!(rj as any)?.success
+        if (!sentOk) console.warn('[qr-payment] template mail not sent:', JSON.stringify(rj))
+      } catch (e) { console.warn('[qr-payment] template mail error:', (e as Error).message) }
+      if (!sentOk) {
+        try {
+          await postEmail({
             to: custEmail,
-            subject: 'Platební údaje k rezervaci #' + bookingNumber + ' — QR / bankovní převod',
+            subject,
             raw_html: customerEmailHtml({ custName, amount, account, iban, bank, vs, qrUrl, bookingNumber, invoiceNumber }),
             booking_id,
-            attachment_paths: invoicePath ? [{ filename: (invoiceNumber || 'zalohova-faktura') + '.pdf', path: invoicePath }] : [],
-          }),
-        })
-      } catch (e) { console.warn('[qr-payment] customer mail failed:', (e as Error).message) }
+            attachment_paths,
+          })
+        } catch (e) { console.warn('[qr-payment] fallback mail failed:', (e as Error).message) }
+      }
     }
 
     // 6) Upozornění na info@motogo24.cz
@@ -147,6 +187,8 @@ function row(label: string, value: string, big = false): string {
   </tr>`
 }
 
+// Fallback HTML — 1:1 se šablonou email_templates('booking_qr_payment') i s
+// mailem, který dosud chodil. Použije se, jen když šablona chybí/je vypnutá.
 function customerEmailHtml(p: {
   custName: string; amount: number; account: string; iban: string; bank: string;
   vs: string; qrUrl: string; bookingNumber: string; invoiceNumber: string | null
