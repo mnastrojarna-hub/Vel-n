@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme.dart';
+import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../catalog/catalog_provider.dart';
 import '../catalog/widgets/moto_card.dart';
@@ -207,6 +208,50 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 child: const Icon(Icons.arrow_upward, color: Colors.black),
               ),
             ),
+
+          // AI asistent FAB — vlevo dole, otevře AI servisního agenta
+          // (technická podpora + rádce). Zrcadlí scroll-to-top vpravo.
+          Positioned(
+            left: 16,
+            bottom: 16,
+            child: GestureDetector(
+              onTap: () => context.push(Routes.aiAgent),
+              child: Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [MotoGoColors.green, MotoGoColors.greenDark],
+                  ),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: MotoGoColors.green.withValues(alpha: 0.5),
+                      blurRadius: 16,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: const Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.smart_toy, size: 22, color: Colors.black),
+                    Text(
+                      'AI',
+                      style: TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.black,
+                        height: 1.0,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
