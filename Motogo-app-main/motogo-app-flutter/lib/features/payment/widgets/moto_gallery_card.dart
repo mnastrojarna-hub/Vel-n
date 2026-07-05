@@ -42,13 +42,20 @@ class _MotoGalleryCardState extends State<MotoGalleryCard> {
   void _startAutoSwipe() {
     _autoSwipeTimer?.cancel();
     if (_imgs.length <= 1) return;
-    _autoSwipeTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+    _autoSwipeTimer = Timer.periodic(const Duration(seconds: 6), (_) {
       if (!_controller.hasClients) return;
       final next = (_currentPage + 1) % _imgs.length;
       _controller.animateToPage(next,
           duration: const Duration(milliseconds: 400),
           curve: Curves.easeInOut);
     });
+  }
+
+  /// Jakmile uživatel na galerii sáhne (chce si fotku prohlédnout), automatické
+  /// přetáčení natrvalo vypneme — jinak by mu fotka „ujela" pod prstem.
+  void _stopAutoSwipe() {
+    _autoSwipeTimer?.cancel();
+    _autoSwipeTimer = null;
   }
 
   @override
@@ -77,8 +84,10 @@ class _MotoGalleryCardState extends State<MotoGalleryCard> {
               height: 200,
               child: Stack(
                 children: [
-                  // PageView
-                  PageView.builder(
+                  // PageView — dotyk vypne auto-přetáčení, ať si fotku prohlédneš.
+                  Listener(
+                    onPointerDown: (_) => _stopAutoSwipe(),
+                    child: PageView.builder(
                     controller: _controller,
                     itemCount: _imgs.length,
                     onPageChanged: (i) =>
@@ -121,6 +130,7 @@ class _MotoGalleryCardState extends State<MotoGalleryCard> {
                         ),
                       );
                     },
+                  ),
                   ),
 
                   // Gradient overlay at bottom

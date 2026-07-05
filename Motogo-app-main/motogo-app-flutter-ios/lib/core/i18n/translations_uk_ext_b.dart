@@ -171,6 +171,7 @@ const translationsUkExt11 = <String, Map<String, String>>{
     'poiSubmitNameReq': 'Заповніть назву',
     'routeSubmitThanks': 'Дякуємо! Ми надіслали маршрут на схвалення.',
     'poiAllRoutes': 'Усі маршрути',
+    'poiAllPoints': 'Усі точки',
     'poiEmpty': 'Поки що немає точок інтересу',
     'routeNavNoLocation': 'Для навігації дозвольте доступ до місцезнаходження в налаштуваннях телефону.',
     'routesFilter': 'Фільтри',

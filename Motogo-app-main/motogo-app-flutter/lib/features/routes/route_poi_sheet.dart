@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/theme.dart';
 import 'routes_model.dart';
 import 'route_image.dart';
+import 'poi_categories.dart';
 import 'poi_rating.dart';
 import '../../core/i18n/i18n_provider.dart';
 
@@ -48,7 +49,7 @@ void showRoutePoiSheet(BuildContext context, RoutePoi poi, String lang, {int? in
                     error: (_) => Container(
                       height: 120,
                       color: MotoGoColors.greenPale,
-                      child: const Center(child: Text('📍', style: TextStyle(fontSize: 34))),
+                      child: Center(child: Text(poiCatEmoji(poi), style: const TextStyle(fontSize: 34))),
                     ),
                   ),
                   // Náznak „klikni pro zvětšení"
