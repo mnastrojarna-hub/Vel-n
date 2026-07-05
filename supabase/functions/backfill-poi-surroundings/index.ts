@@ -75,12 +75,19 @@ function buildPrompt(row: any, catalog: boolean): string {
 }
 
 async function generate(row: any, catalog: boolean): Promise<{ surroundings?: string; description?: string } | null> {
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: { 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-    body: JSON.stringify({ model: MODEL, max_tokens: 700, messages: [{ role: 'user', content: buildPrompt(row, catalog) }] }),
-  })
-  if (!res.ok) throw new Error(`anthropic ${res.status}: ${(await res.text()).slice(0, 200)}`)
+  let res: Response | null = null
+  for (let attempt = 0; attempt < 3; attempt++) {
+    res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+      body: JSON.stringify({ model: MODEL, max_tokens: 700, messages: [{ role: 'user', content: buildPrompt(row, catalog) }] }),
+    })
+    if (res.ok) break
+    // 429/5xx = přetížení → chvíli počkej a zkus znovu (vyšší souběžnost bezpečně).
+    if (res.status === 429 || res.status >= 500) { await new Promise((r) => setTimeout(r, 2500 * (attempt + 1))); continue }
+    break
+  }
+  if (!res || !res.ok) throw new Error(`anthropic ${res?.status}: ${res ? (await res.text()).slice(0, 200) : 'no response'}`)
   const data = await res.json()
   const text = (data?.content?.[0]?.text || '').trim()
   let parsed: Record<string, string>
@@ -169,21 +176,30 @@ serve(async (req) => {
   const body = await req.json().catch(() => ({}))
   const scope: string = body.scope || 'all'
   const limit: number = Math.min(Math.max(Number(body.limit) || 8, 1), 25)
-  const concurrency: number = Math.min(Math.max(Number(body.concurrency) || 2, 1), 4)
+  const concurrency: number = Math.min(Math.max(Number(body.concurrency) || 2, 1), 8)
+  // Časový rozpočet jednoho běhu — jeden běh zpracuje víc dávek po sobě, dokud
+  // nedojde čas nebo řádky (lepší využití než 1 dávka/min). Cron je nastaven
+  // tak, aby interval > budget → běhy se nepřekrývají (žádná dvojitá práce).
+  const budgetMs: number = Math.min(Math.max(Number(body.budget_ms) || 220_000, 20_000), 280_000)
 
   const runBatch = async () => {
-    // Pořadí: nejdřív katalogové body (vidí je nejvíc uživatelů), pak body na trase.
+    const t0 = Date.now()
     let table = 'points_of_interest'
-    let rows: any[] = []
-    if (scope === 'route_pois') { table = 'route_pois'; rows = await fetchMissing(db, table, limit) }
-    else if (scope === 'catalog') { rows = await fetchMissing(db, table, limit) }
-    else {
-      rows = await fetchMissing(db, 'points_of_interest', limit)
-      if (rows.length === 0) { table = 'route_pois'; rows = await fetchMissing(db, table, limit) }
+    let totalP = 0, totalF = 0
+    while (Date.now() - t0 < budgetMs) {
+      // Pořadí: nejdřív katalogové body (vidí je nejvíc uživatelů), pak body na trase.
+      let rows: any[] = []
+      if (scope === 'route_pois') { table = 'route_pois'; rows = await fetchMissing(db, table, limit) }
+      else if (scope === 'catalog') { table = 'points_of_interest'; rows = await fetchMissing(db, table, limit) }
+      else {
+        table = 'points_of_interest'; rows = await fetchMissing(db, table, limit)
+        if (rows.length === 0) { table = 'route_pois'; rows = await fetchMissing(db, table, limit) }
+      }
+      if (rows.length === 0) return { table, processed: totalP, failed: totalF, done: true }
+      const { processed, failed } = await processTable(db, table, rows, concurrency)
+      totalP += processed; totalF += failed
     }
-    if (rows.length === 0) return { table, processed: 0, failed: 0, done: true }
-    const { processed, failed } = await processTable(db, table, rows, concurrency)
-    return { table, limit, processed, failed }
+    return { table, processed: totalP, failed: totalF }
   }
 
   const task = runBatch().catch(async (e) => {
