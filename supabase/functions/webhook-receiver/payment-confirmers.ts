@@ -189,18 +189,31 @@ export async function confirmBookingPayment(
         const source = booking.booking_source || 'app'
         const moto = booking.motorcycles as { model?: string; manual_url?: string } | null
 
-        // NOVÝ FLOW (POUZE WEB, platba PŘED doklady): po úspěšné Stripe platbě webové
-        // rezervace posíláme JEN potvrzení platby `invoice_payment_receipt` (ZF + DP).
-        // Smlouva + VOP + přístupové kódy chodí AŽ po naskenování dokladů (krok 3) mailem
-        // `web_booking_reserved`, který dispatchne cron send_missing_booking_reserved_emails()
-        // s guardem „doklady OK" (check_booking_docs_status IS NULL) — jinak by se smlouva
-        // generovala s prázdnými čísly dokladů. APP rezervace zůstávají BEZE ZMĚNY
-        // (`booking_reserved` = ZF+DP+Smlouva+VOP najednou). Výsledek logujeme do debug_log.
+        // NOVÝ FLOW (WEB, platba PŘED doklady): rozhodni podle stavu dokladů při platbě.
+        //  • Doklady OK (přihlášený zákazník s ověřenými doklady) → pošli KOMPLETNÍ
+        //    `web_booking_reserved` (ZF+DP+VOP+Smlouva+kódy) jako dřív.
+        //  • Doklady chybí (nový zákazník) → jen potvrzení platby `invoice_payment_receipt`
+        //    (ZF+DP); Smlouva+VOP+kódy dorazí po naskenování dokladů (reserved cron).
+        // APP: vždy `booking_reserved` (beze změny). Bez tohoto rozhodnutí by se smlouva
+        // buď generovala s prázdnými čísly (nový), nebo by přihlášený nedostal komplet.
+        let mailType = 'booking_reserved'
+        if (source === 'web') {
+          let docsOk = false
+          try {
+            const { data: ds } = await supabase.rpc('check_booking_docs_status', {
+              p_user_id: booking.user_id,
+              p_end_date: String(booking.end_date || '').slice(0, 10),
+              p_moto_id: booking.moto_id,
+            })
+            docsOk = (ds === null || ds === undefined)
+          } catch { docsOk = false }
+          mailType = docsOk ? 'booking_reserved' : 'invoice_payment_receipt'
+        }
         try {
           const resp = await fetch(`${SUPABASE_URL}/functions/v1/send-booking-email`, {
             method: 'POST', headers,
             body: JSON.stringify({
-              type: source === 'web' ? 'invoice_payment_receipt' : 'booking_reserved',
+              type: mailType,
               booking_id: bookingId,
               customer_email: profile.email,
               customer_name: profile.full_name || '',

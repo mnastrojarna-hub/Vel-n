@@ -306,7 +306,7 @@ const FALLBACK_SUBJECTS: Record<string, (vars: Record<string, string>) => string
   booking_abandoned: (v) => `Dokon\u010dete svou rezervaci \u010d. ${v.booking_number} motocyklu u MotoGo24`,
   booking_abandoned_full: (v) => `Dokon\u010dete rezervaci \u010d. ${v.booking_number} \u2014 chyb\u00ed platba a doklady`,
   booking_missing_docs: (v) => `Nahrajte doklady k rezervaci \u010d. ${v.booking_number} \u2014 MotoGo24`,
-  invoice_payment_receipt: (v) => `Potvrzen\u00ed platby k rezervaci \u010d. ${v.booking_number} \u2014 MotoGo24`,
+  invoice_payment_receipt: (v) => `Platba p\u0159ijata \u2014 rezervace \u010d. ${v.booking_number}, nahrajte doklady \u2014 MotoGo24`,
   booking_cancelled: (v) => `Va\u0161e rezervace \u010d. ${v.booking_number} motocyklu u MotoGo24 byla \u00fasp\u011b\u0161n\u011b stornov\u00e1na`,
   sos_incident: () => `SOS \u2014 MotoGo24 je na cest\u011b`,
   door_codes: (v) => `P\u0159\u00edstupov\u00e9 k\u00f3dy k pobo\u010dce \u2014 rezervace \u010d. ${v.booking_number}`,
@@ -1070,6 +1070,12 @@ serve(async (req) => {
     // Vars se sestavily před detekcí jazyka, takže přepíšeme až teď.
     vars.site_url = siteForLang(custLang)
 
+    // Nový flow (platba PŘED doklady): potvrzení platby `invoice_payment_receipt` má CTA
+    // „Nahrát doklady" → poslední krok flow. Webhook/QR trigger docs_url neposílá, doplníme.
+    if (type === 'invoice_payment_receipt' && !vars.docs_url && booking_id) {
+      vars.docs_url = `${siteForLang(custLang)}/rezervace?resume=${booking_id}`
+    }
+
     // Try to load template from DB (first web-specific, then generic)
     const slug = resolveSlug(type, source)
     let templateHtml = ''
@@ -1154,6 +1160,16 @@ ${vars.resume_link ? `<div style="text-align:center;margin:24px 0"><a href="${va
 <p>Aby vám dorazil <strong>přístupový kód k motorce</strong>, ještě potřebujeme naskenovat doklady (občanku/pas + řidičák). Sken přes mobil díky Mindee OCR zabere 30 vteřin.</p>
 ${vars.docs_url ? `<div style="text-align:center;margin:24px 0"><a href="${vars.docs_url}" style="display:inline-block;background:#74FB71;color:#1a2e22;padding:14px 28px;border-radius:25px;text-decoration:none;font-weight:800;font-size:15px">Nahrát doklady</a></div>` : ''}
 <p>Bez nahraných dokladů systém kódy nevydá — a platit za něco, co si nemůžete vyzvednout, by byla škoda.</p>
+<p>Tým MotoGo24</p>`
+      } else if (type === 'invoice_payment_receipt') {
+        // Nový flow (platba PŘED doklady) — FALLBACK, když chybí DB šablona web_invoice_payment_receipt.
+        // Primárně se renderuje editovatelná Velín šablona (viz migrace 20260713).
+        const paidDocsUrl = vars.docs_url || `${siteForLang(custLang)}/rezervace?resume=${booking_id}`
+        templateHtml = `<p>Dobrý den,</p>
+<p>vaše platba za rezervaci č. <strong>${vars.booking_number}</strong> motocyklu <strong>${vars.motorcycle}</strong> na <strong>${vars.start_date} – ${vars.end_date}</strong> byla úspěšně přijata — děkujeme!</p>
+<p>V příloze najdete <strong>zálohovou fakturu</strong> a <strong>doklad o přijaté platbě</strong> (celkem ${vars.total_price}).</p>
+<p>Ještě jeden krok: nahrajte prosím doklady (občanku/pas + řidičák) — teprve pak vám pošleme <strong>nájemní smlouvu a přístupové kódy</strong> k motorce a výbavě.</p>
+<div style="text-align:center;margin:24px 0"><a href="${paidDocsUrl}" style="display:inline-block;background:#74FB71;color:#1a2e22;padding:14px 28px;border-radius:25px;text-decoration:none;font-weight:800;font-size:15px">Nahrát doklady</a></div>
 <p>Tým MotoGo24</p>`
       } else if (type === 'booking_reserved') {
         templateHtml = `<p>Dobr\u00fd den,</p>
