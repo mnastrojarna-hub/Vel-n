@@ -153,3 +153,9 @@ verify_jwt = false
 # funkce dělá sama uvnitř (porovnání se service key / is_admin).
 [functions.mirror-route-images]
 verify_jwt = false
+
+# Doplnění fotek bodů zájmu z volných zdrojů (Wikimedia Commons / Wikipedia).
+# Volá se stejným klíčem jako mirror-route-images (service_role z app_settings)
+# nebo admin JWT; autorizaci si dělá sama uvnitř → verify_jwt=false.
+[functions.backfill-poi-photos]
+verify_jwt = false
