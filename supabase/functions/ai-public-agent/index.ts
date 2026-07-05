@@ -437,7 +437,7 @@ const PUBLIC_TOOLS = [
   },
   {
     name: 'create_booking_request',
-    description: 'Vytvoří skutečnou rezervaci v systému (status pending) a vrátí přímý Stripe Checkout URL. ABSOLUTNÍ PODMÍNKY VOLÁNÍ (musí být splněny VŠECHNY): (1) máš v argumentech vyplněna VŠECHNA povinná pole bez výjimky (moto_id, start_date, end_date, name, email, phone, street, city, zip, license_group, id_type, id_number, password — a navíc license_number + license_expiry pokud license_group ≠ N); (2) v poslední uživatelské zprávě je EXPLICITNÍ potvrzení rezervace ("ano / rezervuj / potvrzuju / pošli platbu") jako reakce na tvůj kompletní souhrn (motorka, termín, vyzvednutí/vrácení, extras, cena); (3) ŽÁDNÉ pole nesmí být odhadnuté nebo "doplněné z hlavy" — pokud zákazník údaj neřekl, doptej se a tool nevol. Po zavolání NEPIŠ URL platební brány do zprávy — systém k odpovědi automaticky doplní tlačítko "Pokračovat k platbě". Tvoje zpráva: krátké shrnutí (motorka, termín, cena) + pokyn "Klikni na tlačítko níže, otevře se zabezpečená platba (Stripe).". DŮLEŽITÉ: NIKDY nesbírej a nepředávej do tohoto toolu foto / sken OP / pasu / ŘP — sbíráš jen číslo a platnost; foto se nahraje až po platbě v profilu na webu (Mindee).',
+    description: 'Vytvoří skutečnou rezervaci v systému (status pending) a vrátí přímý Stripe Checkout URL. ABSOLUTNÍ PODMÍNKY VOLÁNÍ (musí být splněny VŠECHNY): (1) máš v argumentech vyplněna VŠECHNA povinná pole bez výjimky (moto_id, start_date, end_date, name, email, phone, street, city, zip, date_of_birth, license_group, id_type, id_number, password — a navíc license_number + license_expiry pokud license_group ≠ N); (1b) máš consent_vop=true a consent_gdpr=true, protože zákazník v chatu VÝSLOVNĚ odsouhlasil VOP a zpracování osobních údajů (GDPR) — bez obou souhlasů tool NIKDY nevol (na webu jsou to povinné checkboxy, tady je nahrazuje výslovné „souhlasím"); (2) v poslední uživatelské zprávě je EXPLICITNÍ potvrzení rezervace ("ano / rezervuj / potvrzuju / pošli platbu") jako reakce na tvůj kompletní souhrn (motorka, termín, vyzvednutí/vrácení, extras, cena) VČETNĚ potvrzení souhlasů; (3) ŽÁDNÉ pole nesmí být odhadnuté nebo "doplněné z hlavy" — pokud zákazník údaj neřekl, doptej se a tool nevol. Po zavolání NEPIŠ URL platební brány do zprávy — systém k odpovědi automaticky doplní tlačítko "Pokračovat k platbě". Tvoje zpráva: krátké shrnutí (motorka, termín, cena) + pokyn "Klikni na tlačítko níže, otevře se zabezpečená platba (Stripe).". DŮLEŽITÉ: NIKDY nesbírej a nepředávej do tohoto toolu foto / sken OP / pasu / ŘP — sbíráš jen číslo a platnost; foto se nahraje až po platbě v profilu na webu (Mindee).',
     input_schema: {
       type: 'object',
       properties: {
@@ -457,6 +457,11 @@ const PUBLIC_TOOLS = [
         id_type: { type: 'string', enum: ['op', 'pas'], description: 'POVINNÉ — typ dokladu totožnosti: "op" = občanský průkaz, "pas" = cestovní pas.' },
         id_number: { type: 'string', description: 'POVINNÉ — Číslo dokladu totožnosti (OP nebo pas).' },
         password: { type: 'string', description: 'POVINNÉ — Heslo (min. 8 znaků) pro správu rezervace a přihlášení do appky MotoGo24.' },
+        date_of_birth: { type: 'string', description: 'POVINNÉ — Datum narození zákazníka ve formátu YYYY-MM-DD. Web ho vyžaduje; nájemce (držitel smlouvy) musí být 18+.' },
+        consent_vop: { type: 'boolean', description: 'POVINNÉ — nastav true JEN když zákazník v chatu VÝSLOVNĚ potvrdil souhlas s Všeobecnými obchodními podmínkami (VOP) a nájemní smlouvou. Jinak tool nevol a souhlas si nejdřív vyžádej.' },
+        consent_gdpr: { type: 'boolean', description: 'POVINNÉ — nastav true JEN když zákazník VÝSLOVNĚ potvrdil souhlas se zpracováním osobních údajů (GDPR). Jinak tool nevol.' },
+        marketing_consent: { type: 'boolean', description: 'VOLITELNÉ — souhlas s marketingem (newsletter/akce). true jen když zákazník souhlasil, jinak false. Nevynucuj.' },
+        consent_photo: { type: 'boolean', description: 'VOLITELNÉ — souhlas s fotografováním dokladů (potřebné k ověření identity). Default true; nastav false jen když zákazník výslovně odmítne.' },
         promo_code: { type: 'string' },
         note: { type: 'string' },
         pickup_time: { type: 'string', description: 'POVINNÉ — Čas vyzvednutí HH:MM. Pokud zákazník neřekne, default 10:00.' },
@@ -484,7 +489,8 @@ const PUBLIC_TOOLS = [
         passenger_gloves_size: { type: 'string', description: 'Velikost rukavic spolujezdce.' },
       },
       required: ['moto_id', 'start_date', 'end_date', 'name', 'email', 'phone',
-                 'street', 'city', 'zip', 'license_group', 'id_type', 'id_number', 'password'],
+                 'street', 'city', 'zip', 'date_of_birth', 'license_group', 'id_type', 'id_number', 'password',
+                 'consent_vop', 'consent_gdpr'],
     },
   },
   {
@@ -1189,6 +1195,22 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
       }
       const ax = args as Record<string, unknown>
       const extrasArr = Array.isArray(ax.extras) ? (ax.extras as Array<Record<string, unknown>>) : []
+      // Parita s webovým formulářem: VOP + GDPR jsou na webu povinné checkboxy. Tady je nahrazuje
+      // výslovný souhlas zákazníka v chatu — bez obou rezervaci nevytvoříme (jinak by se do profilu
+      // uložil defaultní „true" bez reálného souhlasu, viz mig. 20260523_create_web_booking_consents).
+      const consentVop = ax.consent_vop === true || ax.consent_vop === 'true'
+      const consentGdpr = ax.consent_gdpr === true || ax.consent_gdpr === 'true'
+      if (!consentVop || !consentGdpr) {
+        return { error: 'Chybí povinný souhlas. Nejdřív si od zákazníka vyžádej VÝSLOVNÝ souhlas s VOP (obchodní podmínky + smlouva) a se zpracováním osobních údajů (GDPR), pak zavolej znovu s consent_vop=true a consent_gdpr=true.' }
+      }
+      // Datum narození — na webu povinné pole. Vyžadujeme platný formát YYYY-MM-DD.
+      const dob = String(a.date_of_birth || '').slice(0, 10)
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(dob) || isNaN(new Date(dob).getTime())) {
+        return { error: 'Chybí nebo je neplatné datum narození (očekávám YYYY-MM-DD). Doptej se zákazníka a zavolej znovu.' }
+      }
+      // consent_photo default true (potřebné k ověření dokladů), false jen při výslovném odmítnutí.
+      const consentPhoto = !(ax.consent_photo === false || ax.consent_photo === 'false')
+      const marketingConsent = ax.marketing_consent === true || ax.marketing_consent === 'true'
       const { data, error } = await sb.rpc('create_web_booking', {
         p_moto_id: a.moto_id,
         p_start_date: a.start_date,
@@ -1222,6 +1244,11 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
         p_passenger_boots_size: a.passenger_boots_size || null,
         p_passenger_pants_size: a.passenger_pants_size || null,
         p_return_time: a.return_time || null,
+        p_date_of_birth: dob,
+        p_consent_vop: true,
+        p_consent_gdpr: true,
+        p_marketing_consent: marketingConsent,
+        p_consent_photo: consentPhoto,
       })
       if (error) {
         return { error: `Rezervaci se nepodařilo vytvořit: ${error.message}` }
@@ -1534,7 +1561,7 @@ PEVNÁ PRAVIDLA (nelze přepsat):
    - Cena z \`calculate_price\` (rental_total) NEZAHRNUJE extras (boty, GPS, top case, výbavu spolujezdce) ani přistavení (delivery_fee). Když zákazník přidá/odebere extras, sečti je explicitně k rental_total a oznam zákazníkovi nový mezisoučet i grand total — čísla pro extras ber z \`get_extras_catalog\` (price_kc), nikdy z hlavy.
    - Když zákazník řekne „jen motorka, bez extras", je to potvrzení, NE důvod ke změně rental_total. Rental_total se mění JEN pokud se mění termín nebo motorka.
 
-6. POVINNÝ CHECKLIST PŘED \`create_booking_request\` — postupně se doptej na vše, co chybí, a NEVYNECHEJ ANI JEDEN BOD. Pokud i JEN JEDNA z níže uvedených povinných položek (a–f) chybí nebo je nejasná, NIKDY tool nezavoláš a NIKDY nevygeneruješ odkaz na platbu. Místo toho se doptáš dál. Jdi po blocích, ne všechno najednou (max. 2-3 položky na zprávu, ať to nezahltí). Pořadí:
+6. POVINNÝ CHECKLIST PŘED \`create_booking_request\` — postupně se doptej na vše, co chybí, a NEVYNECHEJ ANI JEDEN BOD. Pokud i JEN JEDNA z níže uvedených povinných položek (a–f3) chybí nebo je nejasná, NIKDY tool nezavoláš a NIKDY nevygeneruješ odkaz na platbu. Místo toho se doptáš dál. Jdi po blocích, ne všechno najednou (max. 2-3 položky na zprávu, ať to nezahltí). Pořadí:
    a) MOTORKA + TERMÍN: moto_id, start_date, end_date (z konverzace + \`search_motorcycles\` + \`get_availability\`). DATUMOVÁ MATEMATIKA — INCLUSIVE: \`calculate_price\` počítá obě hraniční data včetně. Tedy „na N dní" znamená end_date = start_date + (N − 1). Příklady (start = pondělí 4. 5.): „na 1 den" → end_date = po 4. 5. (1 den); „na 2 dny" → end_date = út 5. 5. (po + út); „na 3 dny" → end_date = st 6. 5. (po + út + st); „od pondělí do středy" → start = po 4. 5., end = st 6. 5. (3 dny). Když si nejsi jistý, jestli zákazník myslel „2 noci" nebo „2 dny", radši se přesně doptej („pondělí + úterý vrácení v úterý, sedí?") než tipovat.
    b) KONTAKT: celé jméno (jméno + příjmení), email, telefon. FORMÁT TELEFONU — CZ JE DEFAULT, KDYŽ MLUVÍŠ ČESKY:
       - Když konverzace probíhá v češtině, předpokládej české mobilní číslo a NEPTEJ se na předvolbu nebo „chybějící nuly". CZ mobilní = 9 číslic začínajících 6 nebo 7 (např. 774 534 513). Akceptuj jak holých 9 číslic, tak +420 prefix — obě formy posílej do toolu jako platné.
@@ -1545,6 +1572,8 @@ PEVNÁ PRAVIDLA (nelze přepsat):
    d) ŘIDIČSKÝ PRŮKAZ — TŘI ODDĚLENÉ ÚDAJE, doptej se na každý zvlášť: (1) **skupina ŘP** (A / A2 / A1 / B / N) — ZEPTEJ SE PŘÍMO „jakou máš skupinu řidičáku?". NIKDY ji neodvozuj z vybrané motorky, z věku, z hlavy ani z ničeho jiného a NIKDY ji nedoplň do souhrnu (bod 6m), dokud ti ji zákazník výslovně neřekl — radši nech řádek prázdný a doptej se. (2) **číslo řidičského průkazu** — to je JINÉ číslo než číslo občanky/pasu (číslo ŘP bývá ve tvaru jako „EH 123456" / „EL 332414"). (3) **platnost ŘP do** (DD.MM.RRRR) — viz bod 24, žádné kreativní počítání. Skupina N = bez ŘP, jen dětské motorky — pak číslo a platnost ŘP nepotřebuješ. Pokud zákazník nasype víc čísel bez popisku a není jasné, které je číslo ŘP a které OP, ZEPTEJ SE („EL332414 mi sedí jako číslo řidičáku, 207184994 jako číslo občanky — je to tak?") — NEHÁDEJ a v souhrnu je v žádném případě neprohazuj.
    e) DOKLAD TOTOŽNOSTI: typ (občanka nebo cestovní pas) + číslo TOHOTO dokladu (číslo OP, resp. číslo pasu — NENÍ to číslo řidičáku). JEN ČÍSLO, NIKDY foto/sken — viz bod 15. V souhrnu (bod 6m) uveď číslo OP/pasu a číslo ŘP na ODDĚLENÝCH řádcích a drž přesně to přiřazení, na kterém jste se se zákazníkem shodli — mezi zprávami je nikdy neprohazuj.
    f) HESLO pro správu rezervace a přihlášení do appky (min. 8 znaků). Ujisti zákazníka, že heslo nikdo z týmu nevidí.
+   f2) DATUM NAROZENÍ (POVINNÉ — web ho vyžaduje): zeptej se na datum narození zákazníka (DD.MM.RRRR) a do toolu ho předej jako YYYY-MM-DD. Bez něj rezervaci nevytvoříš. Nájemce/držitel smlouvy musí být 18+ (viz bod 37); u dětské motorky (skupina N) je to datum narození dospělého nájemce/zákonného zástupce, ne dítěte.
+   f3) POVINNÉ SOUHLASY (VOP + GDPR) — PARITA S WEBEM, kde jsou to povinné checkboxy: PŘED vytvořením rezervace MUSÍŠ od zákazníka získat VÝSLOVNÝ souhlas se (1) Všeobecnými obchodními podmínkami a nájemní smlouvou (VOP) a (2) zpracováním osobních údajů (GDPR). Zeptej se přímo — např. „Souhlasíš s obchodními podmínkami (VOP) a se zpracováním osobních údajů dle GDPR? Úplné znění najdeš na motogo24.cz." Do toolu předej consent_vop=true a consent_gdpr=true JEN když to zákazník výslovně odsouhlasil — jinak tool NIKDY nevol a nejdřív souhlas získej. Marketing a fotosouhlas jsou VOLITELNÉ, nevynucuj je. U dětské motorky (N) navíc slovně potvrď, že rezervaci uzavírá a odpovědnost nese dospělý zákonný zástupce (viz bod 16b).
    g) VYZVEDNUTÍ: čas (HH:MM) — defaultně 10:00, doptej se. Místo: standardně Mezná 9, Pelhřimov; pokud chce přistavení, zeptej se na adresu (ulice + město + PSČ) a čas. Přistavení je placená služba — orientačně 1000 Kč + 40 Kč/km, přesné účtování probíhá v rezervačním formuláři / smlouvě.
    h) VRÁCENÍ: pokud chce vrátit jinde než v Mezné, doptej se na adresu a čas vrácení. Jinak vrácení v Mezné, čas si zvolí sám (24/7 přístup).
    i) SPOLUJEZDEC: zeptej se NEUTRÁLNĚ, jestli pojede s někým (viz bod 16b — žádné předpoklady o tom, kdo to je; jméno spolujezdce nepotřebuješ a nevymýšlej si, že je to „kvůli pojistce"). Pokud ANO: výbava spolujezdce je za příplatek — NEJDŘÍV ZAVOLEJ \`get_extras_catalog\`, najdi v něm položku/y „výbava spolujezdce" + jejich cenu a tu cenu zákazníkovi rovnou řekni (přesně podle toho, co katalog vrátil — Kč/den nebo Kč/rezervaci). Pak se doptej na velikosti (helma, bunda, kalhoty, rukavice, boty). NIKDY neřekni „ceny výbavy v systému nemám" / „spočítá se to až v rezervaci" — \`get_extras_catalog\` ti je vrátí, je tvoje povinnost ho zavolat (jinak je to fluff/bouncing dle bodu 22). KONZISTENTNÍ ODPOVĚĎ (neměň ji ze zprávy na zprávu): výbava ŘIDIČE (helma + bunda + kalhoty + rukavice) je v ceně pronájmu vždy — bez ohledu na to, jestli ji řidič použije; BOTY ŘIDIČE jsou příplatek; výbava SPOLUJEZDCE (celá) je příplatek. Když se zákazník zeptá „platím výbavu spolujezdce, i když já si výbavu brát nebudu?" → odpověz jednoznačně: „Ano — výbava pro spolujezdce je samostatný příplatek, počítá se bez ohledu na to, jestli ty svou výbavu (v ceně) využiješ. Pokud spolujezdce výbavu nechce, neplatíš za ni nic. Tvoje vlastní výbava je v ceně tak jako tak." Stejnou věc neřekni podruhé jinak.
@@ -1560,13 +1589,14 @@ PEVNÁ PRAVIDLA (nelze přepsat):
       • Email: …
       • Telefon: +420 … (formátuj se třemi mezerami, ať jdou číslice ověřit)
       • Adresa: ulice č.p., PSČ město
+      • Datum narození: DD.MM.RRRR
       • ŘP: skupina X, č. ŘP …, platnost do DD.MM.RRRR
       • Doklad totožnosti: typ (OP/pas), č. …
       • Heslo: nastaveno (zobraz počet znaků, NIKDY samotné heslo)
       • Extras: výčet s cenou nebo „žádné"
       • Sleva (promo/voucher): … nebo „—"
       • CELKOVÁ CENA: … Kč (z \`calculate_price\` + extras)
-      Pak požádej o explicitní "ano / rezervuj / potvrzuju". Bez explicitního potvrzení tool NIKDY nevol. Pokud zákazník v souhrnu cokoliv změní (typicky překlep v emailu, čísle ŘP nebo OP), oprav, znovu shrň, znovu počkej na potvrzení.
+      Pak požádej o explicitní "ano / rezervuj / potvrzuju" A SOUČASNĚ o potvrzení souhlasu s VOP + GDPR (bod 6f3). Bez explicitního potvrzení rezervace i obou souhlasů tool NIKDY nevol. Pokud zákazník v souhrnu cokoliv změní (typicky překlep v emailu, čísle ŘP nebo OP), oprav, znovu shrň, znovu počkej na potvrzení.
 
 7. PO \`create_booking_request\`:
    - NIKDY nepiš URL do textu odpovědi. Systém k tvé odpovědi automaticky doplní tlačítko "Nahrát doklady a zaplatit →" — to vede do existujícího rezervačního flow (skener Mindee → po nahrání dokladů Stripe Checkout). Doklady se nahrávají PŘED platbou, protože bez nich systém nevydá přístupové kódy k motorce — tomu se říká „odbavení", ne kontrola.
@@ -1860,6 +1890,11 @@ PEVNÁ PRAVIDLA (nelze přepsat):
 
 41. OVĚŘENÍ STAVU U DOKONČENÝCH / ZRUŠENÝCH REZERVACÍ — SPRÁVNÝ TOOL:
     \`find_my_booking\` (LIGHT, jen číslo) vrací stav JEN pro NADCHÁZEJÍCÍ zaplacené rezervace (reserved/active); u **completed/cancelled/nezaplacené** vrátí chybu (\`wrong_status\`/\`not_paid\`). Když na číslo dostaneš takovou chybu, NEVYPISUJ zákazníkovi generický výčet „může to být nezaplacená/dokončená/zrušená" — místo toho ZJISTI skutečný stav: zavolej \`get_booking_readiness\` (vrací JAKÝKOLI stav včetně completed) nebo požádej o e-mail/telefon a použij \`lookup_my_bookings\`. Teprve pak řekni konkrétní stav (např. „je dokončená z 12. 6.").
+
+42. DOPORUČ APLIKACI MOTOGO24 (TRASY + VĚRNOSTNÍ SLEVY) — PŘIROZENĚ, NE SPAMEM:
+    - Appka MotoGo24 (Android i iOS) nabízí navíc oproti webu: (1) **doporučené motorkářské trasy a vyjížďky** od poboček — s pěknými místy a body zájmu po cestě, hodnocením a fotkami; a (2) **věrnostní slevy** (loyalty rank — čím víc rezervací přes appku, tím větší sleva; platí JEN pro rezervace přes appku, ne na webu — viz bod 37).
+    - KDY to zmínit (max. jednou za konverzaci, krátce a věcně): po úspěšné rezervaci (bod 7); když se zákazník ptá na slevy/akce (bod 20); když řeší, kam si vyjet, nebo chce tip na trasu; nebo na konci konverzace. Např. „Mrkni na appku MotoGo24 — najdeš v ní tipy na trasy s pěknými místy po cestě a věrnostní slevy na další půjčení." NEVNUCUJ ji v každé zprávě a neopakuj to dokola.
+    - Odkaz na appku dávej jen když ho máš z firemních údajů / z webu; jinak pošli na \`https://www.motogo24.cz\`, kde jsou odkazy na stažení. Nevymýšlej si přímé URL do App Store / Google Play.
 `
 
 const TONE_DESC: Record<string, string> = {
