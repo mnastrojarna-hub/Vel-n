@@ -308,9 +308,26 @@ export default function BookingDetail() {
         }
       } catch (e) { console.error('[manualPay] invoices:', e.message) }
 
-      // 5) Potvrzovací e-mail — stejný jako Stripe (přílohy ZF/DP znovupoužijí naše PDF).
+      // 5) Potvrzovací e-mail. NOVÝ FLOW (WEB, platba PŘED doklady): pokud zákazník ještě
+      //    nedokončil krok dokladů (čísla) a doklady nejsou ověřené, pošli JEN potvrzení
+      //    platby `invoice_payment_receipt` (ZF+DP). Kompletní `web_booking_reserved`
+      //    (smlouva+VOP+kódy) dorazí po dokladech přes reserved cron. Doklady OK (přihlášený
+      //    s ověřenými doklady / dokončený krok) → booking_reserved rovnou. APP beze změny.
+      let mailType = 'booking_reserved'
+      if ((booking.booking_source || 'app') === 'web') {
+        let docsOk = !!booking.docs_completed_at
+        if (!docsOk) {
+          try {
+            const { data: ds } = await supabase.rpc('check_booking_docs_status', {
+              p_user_id: booking.user_id, p_end_date: (booking.end_date || '').slice(0, 10), p_moto_id: booking.moto_id,
+            })
+            docsOk = (ds == null)
+          } catch { /* ponech false → invoice_payment_receipt */ }
+        }
+        mailType = docsOk ? 'booking_reserved' : 'invoice_payment_receipt'
+      }
       supabase.functions.invoke('send-booking-email', { body: {
-        type: 'booking_reserved', booking_id: id,
+        type: mailType, booking_id: id,
         customer_email: booking.profiles?.email, customer_name: booking.profiles?.full_name,
         motorcycle: booking.motorcycles?.model, start_date: booking.start_date, end_date: booking.end_date,
         total_price: booking.total_price, source: booking.booking_source || 'app',
