@@ -136,11 +136,11 @@ async function viaWikidata(p: Poi): Promise<Hit> {
   } ORDER BY ?d LIMIT 15`
   const url = `https://query.wikidata.org/sparql?format=json&query=${encodeURIComponent(sparql)}`
   const data = await getJson(url)
-  const rows = ((data?.results as Record<string, unknown> | undefined)?.bindings
-    as Array<Record<string, Record<string, unknown>>> | undefined) || []
+  const results = data?.results as Record<string, unknown> | undefined
+  const rows = (results?.bindings as Array<Record<string, { value?: unknown }>> | undefined) || []
   for (const r of rows) {
-    const label = r.itemLabel?.value ? String(r.itemLabel.value) : ''
-    const img = r.img?.value ? String(r.img.value) : ''
+    const label = r.itemLabel?.value != null ? String(r.itemLabel.value) : ''
+    const img = r.img?.value != null ? String(r.img.value) : ''
     if (!img) continue
     const score = Math.max(nameScore(p.name, label), p.alt ? nameScore(p.alt, label) : 0)
     if (score >= MIN_SCORE) {
