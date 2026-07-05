@@ -85,7 +85,7 @@ export async function computeGeometry(branch, waypoints, routeType) {
 }
 
 const emptyWaypoint = () => ({ lat: '', lng: '', label: '' })
-const emptyPoi = () => ({ name: '', description: '', lat: '', lng: '', image_url: '', images: [] })
+const emptyPoi = () => ({ name: '', description: '', surroundings: '', lat: '', lng: '', image_url: '', images: [] })
 
 export default function TrasyModal({ existing, onClose, onSaved }) {
   const isEdit = !!existing
@@ -131,6 +131,7 @@ export default function TrasyModal({ existing, onClose, onSaved }) {
         if (cancelled) return
         setPois((data || []).map(p => ({
           name: p.name || '', description: p.description || '',
+          surroundings: p.surroundings || '',
           lat: p.lat ?? '', lng: p.lng ?? '',
           image_url: p.image_url || '',
           images: Array.isArray(p.images) ? p.images : [],
@@ -333,6 +334,7 @@ export default function TrasyModal({ existing, onClose, onSaved }) {
           route_id: routeId,
           name: p.name.trim(),
           description: p.description?.trim() || null,
+          surroundings: p.surroundings?.trim() || null,
           lat: p.lat !== '' ? Number(p.lat) : null,
           lng: p.lng !== '' ? Number(p.lng) : null,
           image_url: p.image_url || (Array.isArray(p.images) && p.images[0]) || null,
@@ -538,6 +540,13 @@ export default function TrasyModal({ existing, onClose, onSaved }) {
                 <textarea value={p.description} onChange={e => setPoi(i, 'description', e.target.value)}
                   className="w-full rounded-btn text-sm outline-none"
                   placeholder="Zobrazí se po kliknutí na tento bod zájmu v aplikaci"
+                  style={{ ...inputStyle, minHeight: 48, resize: 'vertical' }} />
+              </div>
+              <div className="col-span-2">
+                <label className={lbl} style={{ color: '#1a2e22' }}>Popis okolí</label>
+                <textarea value={p.surroundings} onChange={e => setPoi(i, 'surroundings', e.target.value)}
+                  className="w-full rounded-btn text-sm outline-none"
+                  placeholder="Co je v okolí bodu — tipy na zastávky, občerstvení, výhledy…"
                   style={{ ...inputStyle, minHeight: 48, resize: 'vertical' }} />
               </div>
               <div className="col-span-2">
