@@ -625,6 +625,7 @@ return [
     'rez.pay.onlineNote' => 'Okamžité potvrzení rezervace',
     'rez.pay.qr' => 'Platba QR kódem / převodem na účet',
     'rez.pay.qrNote' => 'Uhraďte do 4 hodin, přijetí potvrdíme ručně',
+    'rez.payfail.notice' => 'Platba nebyla dokončena. Zkuste to prosím znovu — můžete zvolit i jinou platební metodu (kartu nebo QR kód / převod). Vaše rezervace je uložená.',
     'rez.qrpay.title' => 'Zaplaťte QR kódem nebo převodem',
     'rez.qrpay.sub' => 'Rezervace #{n} — uhraďte prosím částku do 4 hodin. Po připsání vám rezervaci potvrdíme e-mailem.',
     'rez.qrpay.amount' => 'Částka',

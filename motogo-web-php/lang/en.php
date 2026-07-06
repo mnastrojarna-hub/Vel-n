@@ -459,6 +459,7 @@ return [
     'rez.pay.onlineNote' => 'Instant booking confirmation',
     'rez.pay.qr' => 'QR code / bank transfer',
     'rez.pay.qrNote' => 'Pay within 4 hours, we confirm receipt manually',
+    'rez.payfail.notice' => 'Your payment was not completed. Please try again — you can also choose a different payment method (card or QR code / bank transfer). Your reservation is saved.',
     'rez.qrpay.title' => 'Pay by QR code or bank transfer',
     'rez.qrpay.sub' => 'Booking #{n} — please pay within 4 hours. We will confirm your booking by e-mail once received.',
     'rez.qrpay.amount' => 'Amount',

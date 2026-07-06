@@ -460,6 +460,7 @@ return [
     'rez.pay.onlineNote' => 'Confirmación inmediata de la reserva',
     'rez.pay.qr' => 'Código QR / transferencia bancaria',
     'rez.pay.qrNote' => 'Pague en un plazo de 4 horas, confirmamos el pago manualmente',
+    'rez.payfail.notice' => 'El pago no se completó. Inténtalo de nuevo — también puedes elegir otro método de pago (tarjeta o código QR / transferencia). Tu reserva está guardada.',
     'rez.qrpay.title' => 'Pague con código QR o transferencia',
     'rez.qrpay.sub' => 'Reserva #{n} — pague en un plazo de 4 horas. Tras recibir el pago le confirmaremos la reserva por correo.',
     'rez.qrpay.amount' => 'Importe',

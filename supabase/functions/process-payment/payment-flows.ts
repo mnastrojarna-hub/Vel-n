@@ -109,7 +109,7 @@ export async function handleWebBookingCheckout(
       setup_intent_data: { metadata: setupMetadata },
       client_reference_id: body.booking_id!,
       success_url: withLangParam(`${returnOriginFree}/potvrzeni?session_id={CHECKOUT_SESSION_ID}`, body.locale),
-      cancel_url: withLangParam(`${returnOriginFree}/rezervace?resume=${body.booking_id}`, body.locale),
+      cancel_url: withLangParam(`${returnOriginFree}/rezervace?resume=${body.booking_id}&payfail=1`, body.locale),
       locale: resolveStripeLocale(body.locale) as Stripe.Checkout.SessionCreateParams.Locale,
     })
 
@@ -203,7 +203,7 @@ export async function handleWebBookingCheckout(
     payment_intent_data: { metadata: sessionMetadata },
     client_reference_id: body.booking_id!,
     success_url: withLangParam(`${returnOrigin}/potvrzeni?session_id={CHECKOUT_SESSION_ID}`, body.locale),
-    cancel_url: withLangParam(`${returnOrigin}/rezervace?resume=${body.booking_id}`, body.locale),
+    cancel_url: withLangParam(`${returnOrigin}/rezervace?resume=${body.booking_id}&payfail=1`, body.locale),
     locale: resolveStripeLocale(body.locale) as Stripe.Checkout.SessionCreateParams.Locale,
   })
 

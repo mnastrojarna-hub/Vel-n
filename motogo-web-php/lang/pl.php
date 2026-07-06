@@ -445,6 +445,7 @@ return [
     'rez.pay.onlineNote' => 'Natychmiastowe potwierdzenie rezerwacji',
     'rez.pay.qr' => 'Kod QR / przelew bankowy',
     'rez.pay.qrNote' => 'Zapłać w ciągu 4 godzin, wpłatę potwierdzamy ręcznie',
+    'rez.payfail.notice' => 'Płatność nie została zakończona. Spróbuj ponownie — możesz też wybrać inną metodę płatności (karta lub kod QR / przelew). Twoja rezerwacja jest zapisana.',
     'rez.qrpay.title' => 'Zapłać kodem QR lub przelewem',
     'rez.qrpay.sub' => 'Rezerwacja #{n} — prosimy o zapłatę w ciągu 4 godzin. Po zaksięgowaniu potwierdzimy rezerwację e-mailem.',
     'rez.qrpay.amount' => 'Kwota',
