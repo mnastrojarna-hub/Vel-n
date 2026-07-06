@@ -292,7 +292,7 @@ export default function BookingSummary({ booking, sosIncidents, bookingExtras, c
         if (paid && b.docs_completed_at) { step = 4; label = 'dokončeno (doklady vyplněny)'; color = '#16a34a' }
         else if (paid) { step = 4; label = 'doklady (zaplaceno, čeká na doklady)'; color = '#7c3aed' }
         else if (reachedGw) { step = 3; label = 'platba / brána (nezaplaceno)'; color = '#f59e0b' }
-        else { step = 2; label = 'přehled + platba (nezaplaceno)'; color = '#dc2626' }
+        else { step = 2; label = 'přehled'; color = '#dc2626' }
         return <SumRow label="Krok ve flow" value={`${step}/4 — ${label}`} color={color} />
       })()}
       <SumRow label="Vytvořeno" value={fmtDT(b.created_at)} />
