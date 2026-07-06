@@ -1,0 +1,443 @@
+<title>MotoGo24 — Mapa mailů webové rezervace</title>
+<style>
+  :root{
+    --bg:#f4f7f1; --panel:#ffffff; --panel-2:#eef2e8;
+    --ink:#14170f; --ink-soft:#4b5348; --ink-faint:#79826f;
+    --line:#dde3d5; --line-soft:#e8ede1;
+    --brand:#1f9d3a; --brand-ink:#0f6b25; --brand-wash:#e4f6e2;
+    --qr:#7a52d6; --qr-wash:#efe9fb;
+    --stripe:#2b6de0; --stripe-wash:#e6effb;
+    --both:#0f766e; --both-wash:#dcf1ee;
+    --none:#b23b34; --none-wash:#f8e5e3;
+    --wait:#b8791a; --wait-wash:#fbf0da;
+    --ok:#1f9d3a; --ok-wash:#e4f6e2;
+    --shadow:0 1px 2px rgba(20,30,15,.05), 0 8px 26px -14px rgba(20,40,15,.22);
+    --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --bg:#0c0f0b; --panel:#14180f; --panel-2:#191e13;
+      --ink:#eef3e6; --ink-soft:#aab3a0; --ink-faint:#77806c;
+      --line:#28301f; --line-soft:#1f2618;
+      --brand:#74FB71; --brand-ink:#9dfd9a; --brand-wash:#12240f;
+      --qr:#b79bff; --qr-wash:#1c1630;
+      --stripe:#7db0ff; --stripe-wash:#101d30;
+      --both:#5fd6c8; --both-wash:#0d221f;
+      --none:#ff8b82; --none-wash:#2c1512;
+      --wait:#f0be5f; --wait-wash:#2a2110;
+      --ok:#74FB71; --ok-wash:#12240f;
+      --shadow:0 1px 2px rgba(0,0,0,.4), 0 14px 34px -18px rgba(0,0,0,.8);
+    }
+  }
+  :root[data-theme="light"]{
+    --bg:#f4f7f1; --panel:#ffffff; --panel-2:#eef2e8;
+    --ink:#14170f; --ink-soft:#4b5348; --ink-faint:#79826f;
+    --line:#dde3d5; --line-soft:#e8ede1;
+    --brand:#1f9d3a; --brand-ink:#0f6b25; --brand-wash:#e4f6e2;
+    --qr:#7a52d6; --qr-wash:#efe9fb; --stripe:#2b6de0; --stripe-wash:#e6effb;
+    --both:#0f766e; --both-wash:#dcf1ee; --none:#b23b34; --none-wash:#f8e5e3;
+    --wait:#b8791a; --wait-wash:#fbf0da; --ok:#1f9d3a; --ok-wash:#e4f6e2;
+    --shadow:0 1px 2px rgba(20,30,15,.05), 0 8px 26px -14px rgba(20,40,15,.22);
+  }
+  :root[data-theme="dark"]{
+    --bg:#0c0f0b; --panel:#14180f; --panel-2:#191e13;
+    --ink:#eef3e6; --ink-soft:#aab3a0; --ink-faint:#77806c;
+    --line:#28301f; --line-soft:#1f2618;
+    --brand:#74FB71; --brand-ink:#9dfd9a; --brand-wash:#12240f;
+    --qr:#b79bff; --qr-wash:#1c1630; --stripe:#7db0ff; --stripe-wash:#101d30;
+    --both:#5fd6c8; --both-wash:#0d221f; --none:#ff8b82; --none-wash:#2c1512;
+    --wait:#f0be5f; --wait-wash:#2a2110; --ok:#74FB71; --ok-wash:#12240f;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 14px 34px -18px rgba(0,0,0,.8);
+  }
+
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+    line-height:1.5;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:1180px;margin:0 auto;padding:clamp(20px,4vw,52px) clamp(16px,4vw,40px) 90px;}
+
+  /* ---- header ---- */
+  header.mast{display:flex;flex-wrap:wrap;align-items:flex-end;gap:20px 28px;
+    justify-content:space-between;padding-bottom:26px;border-bottom:2px solid var(--line);}
+  .brand{display:flex;align-items:center;gap:14px;}
+  .logo{font-family:var(--mono);font-weight:700;letter-spacing:.5px;font-size:13px;
+    background:var(--ink);color:var(--bg);padding:7px 11px;border-radius:7px;line-height:1;
+    box-shadow:inset 0 0 0 2px var(--brand);}
+  .logo b{color:var(--brand)}
+  h1{font-size:clamp(1.5rem,3.4vw,2.35rem);margin:0;letter-spacing:-.02em;
+    line-height:1.05;text-wrap:balance;font-weight:800;}
+  .sub{color:var(--ink-soft);font-size:.95rem;margin:.5rem 0 0;max-width:60ch;}
+  .themebtn{font:inherit;font-size:.8rem;color:var(--ink-soft);background:var(--panel);
+    border:1px solid var(--line);border-radius:999px;padding:7px 14px;cursor:pointer;}
+  .themebtn:hover{border-color:var(--brand);color:var(--ink)}
+
+  h2{font-size:.82rem;text-transform:uppercase;letter-spacing:.14em;
+    color:var(--ink-faint);margin:52px 0 16px;font-weight:700;
+    display:flex;align-items:center;gap:12px;}
+  h2::after{content:"";flex:1;height:1px;background:var(--line);}
+  h2 .n{font-family:var(--mono);color:var(--brand-ink);font-size:.78rem;}
+
+  /* ---- flow rail ---- */
+  .flow{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;}
+  .step{background:var(--panel);border:1px solid var(--line);border-radius:13px;
+    padding:15px 16px 16px;box-shadow:var(--shadow);position:relative;overflow:hidden;}
+  .step::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--brand);}
+  .step .k{font-family:var(--mono);font-size:.7rem;letter-spacing:.08em;color:var(--ink-faint);
+    text-transform:uppercase;}
+  .step h3{margin:.3rem 0 .35rem;font-size:1.02rem;letter-spacing:-.01em;}
+  .step p{margin:0;font-size:.82rem;color:var(--ink-soft);}
+  .step .mail{margin-top:11px;display:flex;flex-wrap:wrap;gap:5px;}
+
+  /* ---- chips / pills ---- */
+  .pill{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);
+    font-size:.7rem;font-weight:600;padding:3px 8px;border-radius:6px;line-height:1.35;
+    border:1px solid transparent;white-space:nowrap;}
+  .pill.slug{background:var(--brand-wash);color:var(--brand-ink);border-color:color-mix(in srgb,var(--brand) 32%,transparent);}
+  .pill.qr{background:var(--qr-wash);color:var(--qr);border-color:color-mix(in srgb,var(--qr) 32%,transparent);}
+  .pill.stripe{background:var(--stripe-wash);color:var(--stripe);border-color:color-mix(in srgb,var(--stripe) 32%,transparent);}
+  .pill.both{background:var(--both-wash);color:var(--both);border-color:color-mix(in srgb,var(--both) 32%,transparent);}
+  .pill.none{background:var(--none-wash);color:var(--none);border-color:color-mix(in srgb,var(--none) 30%,transparent);}
+  .pill.wait{background:var(--wait-wash);color:var(--wait);border-color:color-mix(in srgb,var(--wait) 30%,transparent);}
+  .pill.ok{background:var(--ok-wash);color:var(--brand-ink);border-color:color-mix(in srgb,var(--ok) 30%,transparent);}
+  .pill.ghost{background:var(--panel-2);color:var(--ink-soft);border-color:var(--line);}
+  .att{display:inline-block;font-size:.72rem;padding:2px 6px;border-radius:5px;margin:1px 2px 1px 0;
+    background:var(--panel-2);border:1px solid var(--line-soft);color:var(--ink-soft);white-space:nowrap;}
+
+  /* ---- filter bar ---- */
+  .filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 14px;}
+  .filters .lab{font-size:.78rem;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.1em;margin-right:2px;}
+  .fbtn{font:inherit;font-size:.82rem;cursor:pointer;padding:6px 13px;border-radius:999px;
+    border:1px solid var(--line);background:var(--panel);color:var(--ink-soft);display:inline-flex;align-items:center;gap:6px;}
+  .fbtn .dot{width:8px;height:8px;border-radius:50%;background:currentColor;opacity:.55}
+  .fbtn[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink);}
+  .fbtn.qr[aria-pressed="true"]{background:var(--qr);border-color:var(--qr);color:#fff}
+  .fbtn.stripe[aria-pressed="true"]{background:var(--stripe);border-color:var(--stripe);color:#fff}
+
+  /* ---- table ---- */
+  .tscroll{overflow-x:auto;border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);background:var(--panel);}
+  table{border-collapse:collapse;width:100%;min-width:940px;font-size:.86rem;}
+  thead th{position:sticky;top:0;background:var(--panel-2);text-align:left;
+    font-size:.7rem;text-transform:uppercase;letter-spacing:.09em;color:var(--ink-faint);
+    padding:11px 13px;border-bottom:1px solid var(--line);font-weight:700;z-index:2;white-space:nowrap;}
+  tbody td{padding:12px 13px;border-bottom:1px solid var(--line-soft);vertical-align:top;}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:hover{background:color-mix(in srgb,var(--brand) 6%,transparent);}
+  tbody tr.dim{opacity:.28;filter:saturate(.4);}
+  td .moment{font-weight:650;letter-spacing:-.01em;display:block;margin-bottom:3px;}
+  td .ph{font-family:var(--mono);font-size:.66rem;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-faint);}
+  td .when{font-variant-numeric:tabular-nums;}
+  td .trig{font-family:var(--mono);font-size:.74rem;color:var(--ink-soft);word-break:break-word;}
+  td.center{text-align:center;white-space:nowrap;}
+  .note-cell{color:var(--ink-soft);font-size:.8rem;}
+
+  /* ---- matrix cards ---- */
+  .matrix{display:grid;grid-template-columns:repeat(auto-fit,minmax(255px,1fr));gap:14px;}
+  .mcard{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 17px;box-shadow:var(--shadow);}
+  .mcard .top{display:flex;align-items:center;gap:9px;margin-bottom:12px;flex-wrap:wrap;}
+  .mcard h3{margin:0;font-size:.98rem;letter-spacing:-.01em;}
+  .mrow{display:flex;gap:10px;padding:9px 0;border-top:1px solid var(--line-soft);align-items:baseline;}
+  .mrow:first-of-type{border-top:none;}
+  .mrow .mk{flex:0 0 116px;font-size:.78rem;color:var(--ink-faint);}
+  .mrow .mv{flex:1;font-size:.85rem;}
+
+  /* ---- timing strip ---- */
+  .timing{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;}
+  .tcell{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:13px 15px;box-shadow:var(--shadow);}
+  .tcell .big{font-size:1.35rem;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums;color:var(--brand-ink);}
+  .tcell .lab2{font-size:.82rem;color:var(--ink);margin-top:1px;font-weight:600;}
+  .tcell .src{font-family:var(--mono);font-size:.7rem;color:var(--ink-faint);margin-top:4px;display:block;word-break:break-word;}
+
+  /* ---- notes ---- */
+  .notes{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:6px 20px;box-shadow:var(--shadow);}
+  .notes details{border-bottom:1px solid var(--line-soft);}
+  .notes details:last-child{border-bottom:none;}
+  .notes summary{cursor:pointer;padding:14px 0;font-weight:650;font-size:.92rem;list-style:none;
+    display:flex;align-items:center;gap:10px;}
+  .notes summary::-webkit-details-marker{display:none;}
+  .notes summary::before{content:"+";font-family:var(--mono);color:var(--brand-ink);font-weight:700;width:14px;}
+  .notes details[open] summary::before{content:"–";}
+  .notes .body{padding:0 0 16px 24px;color:var(--ink-soft);font-size:.87rem;}
+  .notes .body strong{color:var(--ink);}
+  .notes code{font-family:var(--mono);font-size:.82em;background:var(--panel-2);padding:1px 5px;border-radius:4px;border:1px solid var(--line-soft);}
+
+  .legend{display:flex;flex-wrap:wrap;gap:8px 16px;margin:10px 0 0;font-size:.78rem;color:var(--ink-soft);}
+  .legend span{display:inline-flex;align-items:center;gap:6px;}
+  .foot{margin-top:46px;padding-top:18px;border-top:1px solid var(--line);color:var(--ink-faint);font-size:.78rem;}
+  a{color:var(--brand-ink);}
+  @media (max-width:560px){.mrow .mk{flex-basis:96px}}
+</style>
+
+<div class="wrap">
+  <header class="mast">
+    <div>
+      <div class="brand">
+        <span class="logo">MOTO<b>GO</b>24</span>
+        <span class="pill ghost">web · motogo24.cz</span>
+      </div>
+      <h1>Mapa e‑mailů webové rezervace</h1>
+      <p class="sub">Kdy, čím a s jakou přílohou odchází každá šablona — napříč platbou (Stripe / QR‑převod), stavem dokladů a fází opuštění. Živý stav: flow <strong>platba PŘED doklady</strong>.</p>
+    </div>
+    <button class="themebtn" id="theme" type="button">◐ Přepnout motiv</button>
+  </header>
+
+  <!-- FLOW -->
+  <h2><span class="n">01</span> Rezervační flow (3 kroky)</h2>
+  <div class="flow">
+    <div class="step">
+      <span class="k">Krok 1 · formulář</span>
+      <h3>Sestavení rezervace</h3>
+      <p>Motorka, termín, kontakt, místo, výbava, souhlasy → <code>create_web_booking</code> (pending / unpaid).</p>
+      <div class="mail"><span class="pill ghost">bez mailu</span></div>
+    </div>
+    <div class="step">
+      <span class="k">Krok 2 · platba</span>
+      <h3>Přehled &amp; zaplacení</h3>
+      <p>Rozpis ceny + volba metody. Zaplacení kartou (Stripe) nebo QR/převodem.</p>
+      <div class="mail">
+        <span class="pill qr">booking_qr_payment</span>
+        <span class="pill both">invoice_payment_receipt</span>
+        <span class="pill wait">web_booking_abandoned</span>
+      </div>
+    </div>
+    <div class="step">
+      <span class="k">Krok 3 · doklady</span>
+      <h3>Naskenování dokladů</h3>
+      <p>OP/pas + ŘP <em>po platbě</em>. Teprve doklady odemknou smlouvu a přístupové kódy.</p>
+      <div class="mail">
+        <span class="pill slug">web_booking_reserved</span>
+        <span class="pill wait">booking_missing_docs</span>
+      </div>
+    </div>
+    <div class="step">
+      <span class="k">Po pronájmu</span>
+      <h3>Vrácení motorky</h3>
+      <p>Přechod <code>active → completed</code> + konečná faktura (KF).</p>
+      <div class="mail"><span class="pill slug">web_booking_completed</span></div>
+    </div>
+  </div>
+
+  <!-- MASTER TABLE -->
+  <h2><span class="n">02</span> Všechny mailové momenty</h2>
+  <div class="filters">
+    <span class="lab">Platební kanál:</span>
+    <button class="fbtn all" data-f="all" aria-pressed="true" type="button">Vše</button>
+    <button class="fbtn stripe" data-f="stripe" aria-pressed="false" type="button"><span class="dot"></span>Stripe (karta)</button>
+    <button class="fbtn qr" data-f="qr" aria-pressed="false" type="button"><span class="dot"></span>QR / převod</button>
+  </div>
+  <div class="tscroll">
+    <table>
+      <thead>
+        <tr>
+          <th>Okamžik / spouštěč</th>
+          <th>Šablona (slug)</th>
+          <th>Kdy přesně</th>
+          <th>Mechanismus</th>
+          <th>Kanál</th>
+          <th>Doklady</th>
+          <th>Přílohy</th>
+        </tr>
+      </thead>
+      <tbody id="tbody">
+        <!-- rows -->
+        <tr data-ch="qr">
+          <td><span class="moment">Volba QR / bankovní převod</span><span class="ph">krok 2 · platba</span></td>
+          <td><span class="pill qr">booking_qr_payment</span></td>
+          <td class="when"><strong>Ihned</strong> při volbě QR</td>
+          <td class="trig">edge <b>qr-payment</b> → set_booking_qr_payment (VS, mBank)</td>
+          <td class="center"><span class="pill qr">QR</span></td>
+          <td class="center"><span class="pill ghost">—</span></td>
+          <td><span class="att">ZF (VS, splatnost 4 h)</span></td>
+        </tr>
+        <tr data-ch="stripe">
+          <td><span class="moment">Opuštěno na platbě (nezaplaceno)</span><span class="ph">krok 2 · abandoned</span></td>
+          <td><span class="pill wait">web_booking_abandoned</span></td>
+          <td class="when"><strong>15 min</strong> od založení<br><span class="note-cell">cron každé 2 min · Path AB</span></td>
+          <td class="trig">cron <b>send_abandoned_booking_emails</b> (pending+unpaid+web)</td>
+          <td class="center"><span class="pill stripe">Stripe</span></td>
+          <td class="center"><span class="pill ghost">—</span></td>
+          <td><span class="att">ZF</span></td>
+        </tr>
+        <tr data-ch="stripe">
+          <td><span class="moment">Zaplaceno kartou</span><span class="ph">krok 2 · platba</span></td>
+          <td><span class="pill both">invoice_payment_receipt</span></td>
+          <td class="when"><strong>Ihned</strong> po platbě</td>
+          <td class="trig">edge <b>webhook-receiver</b> (payment-confirmers)</td>
+          <td class="center"><span class="pill stripe">Stripe</span></td>
+          <td class="center"><span class="pill ghost">—</span></td>
+          <td><span class="att">ZF</span><span class="att">DP</span></td>
+        </tr>
+        <tr data-ch="qr">
+          <td><span class="moment">QR platba potvrzena ve Velíně</span><span class="ph">krok 2 · platba</span></td>
+          <td><span class="pill both">invoice_payment_receipt</span></td>
+          <td class="when">Při <strong>ručním potvrzení</strong> (bank_transfer)</td>
+          <td class="trig">trigger <b>trg_qr_payment_receipt</b> (paid + pay_channel=qr)</td>
+          <td class="center"><span class="pill qr">QR</span></td>
+          <td class="center"><span class="pill ghost">—</span></td>
+          <td><span class="att">ZF</span><span class="att">DP</span></td>
+        </tr>
+        <tr data-ch="both">
+          <td><span class="moment">Doklady nahrané → rezervace potvrzena</span><span class="ph">krok 3 · doklady</span></td>
+          <td><span class="pill slug">web_booking_reserved</span></td>
+          <td class="when"><strong>~3 min</strong> po platbě, <em>až jsou doklady OK</em><br><span class="note-cell">reserved cron</span></td>
+          <td class="trig">cron <b>send_missing_booking_reserved_emails</b> (guard: doklady OK)</td>
+          <td class="center"><span class="pill both">Oboje</span></td>
+          <td class="center"><span class="pill ok">✓ nahrané</span></td>
+          <td><span class="att">Smlouva</span><span class="att">VOP</span><span class="att">+ přístupové kódy</span></td>
+        </tr>
+        <tr data-ch="both">
+          <td><span class="moment">Zaplaceno, ale chybí doklady</span><span class="ph">krok 3 · připomínka</span></td>
+          <td><span class="pill wait">booking_missing_docs</span></td>
+          <td class="when"><strong>30 min</strong> od potvrzení platby<br><span class="note-cell">cron Path C</span></td>
+          <td class="trig">cron <b>send_abandoned_booking_emails</b> (paid + doklady chybí)</td>
+          <td class="center"><span class="pill both">Oboje</span></td>
+          <td class="center"><span class="pill none">✗ chybí</span></td>
+          <td><span class="att">— (odkaz na krok dokladů)</span></td>
+        </tr>
+        <tr data-ch="both">
+          <td><span class="moment">Přístupové kódy dodatečně</span><span class="ph">krok 3 · door codes</span></td>
+          <td><span class="pill slug">web_door_codes</span></td>
+          <td class="when">Když kódy nebyly v <code>reserved</code> mailu</td>
+          <td class="trig">release_withheld_door_codes → send_door_codes_email</td>
+          <td class="center"><span class="pill both">Oboje</span></td>
+          <td class="center"><span class="pill ok">✓ nahrané</span></td>
+          <td><span class="att">—</span></td>
+        </tr>
+        <tr data-ch="both">
+          <td><span class="moment">Úprava rezervace</span><span class="ph">kdykoli</span></td>
+          <td><span class="pill slug">web_booking_modified</span></td>
+          <td class="when">Při změně termínu / motorky / ceny / místa<br><span class="note-cell">dedup 5 min</span></td>
+          <td class="trig">trigger <b>trg_booking_modified_email</b></td>
+          <td class="center"><span class="pill both">Oboje</span></td>
+          <td class="center"><span class="pill ghost">—</span></td>
+          <td><span class="att">rozdílový DP / Dobropis</span><span class="att">Smlouva</span><span class="att">VOP</span></td>
+        </tr>
+        <tr data-ch="both">
+          <td><span class="moment">Storno rezervace</span><span class="ph">kdykoli</span></td>
+          <td><span class="pill slug">web_booking_cancelled</span></td>
+          <td class="when">Přechod na <code>cancelled</code> + Stripe refund dle tabulky</td>
+          <td class="trig">RPC <b>cancel_booking_tracked</b> (+ legacy trigger)</td>
+          <td class="center"><span class="pill both">Oboje</span></td>
+          <td class="center"><span class="pill ghost">—</span></td>
+          <td><span class="att">Dobropis</span></td>
+        </tr>
+        <tr data-ch="both">
+          <td><span class="moment">Dokončení pronájmu</span><span class="ph">po vrácení moto</span></td>
+          <td><span class="pill slug">web_booking_completed</span></td>
+          <td class="when"><code>active → completed</code> + vložení KF<br><span class="note-cell">auto-complete denně 00:01</span></td>
+          <td class="trig">trigger <b>trg_send_booking_completed_email</b> (on invoices=final)</td>
+          <td class="center"><span class="pill both">Oboje</span></td>
+          <td class="center"><span class="pill ghost">—</span></td>
+          <td><span class="att">KF</span><span class="att">recenze + kód VRACENI-…</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="legend">
+    <span><span class="pill stripe">Stripe</span> jen při platbě kartou</span>
+    <span><span class="pill qr">QR</span> jen při QR/převodu</span>
+    <span><span class="pill both">Oboje</span> nezávisí na kanálu</span>
+    <span><span class="pill ok">✓</span> vyžaduje nahrané doklady</span>
+    <span><span class="pill none">✗</span> spouští se když doklady chybí</span>
+  </div>
+
+  <!-- MATRIX -->
+  <h2><span class="n">03</span> Kombinace kanál × doklady</h2>
+  <div class="matrix">
+    <div class="mcard">
+      <div class="top"><span class="pill stripe">Stripe</span><h3>Karta / Apple / Google Pay</h3></div>
+      <div class="mrow"><span class="mk">Po platbě</span><span class="mv"><span class="pill both">invoice_payment_receipt</span> ihned (webhook) — <span class="att">ZF+DP</span></span></div>
+      <div class="mrow"><span class="mk">Nezaplaceno</span><span class="mv"><span class="pill wait">web_booking_abandoned</span> za 15 min — <span class="att">ZF</span></span></div>
+      <div class="mrow"><span class="mk">Doklady OK</span><span class="mv"><span class="pill slug">web_booking_reserved</span> — Smlouva+VOP+kódy</span></div>
+      <div class="mrow"><span class="mk">Doklady chybí</span><span class="mv"><span class="pill wait">booking_missing_docs</span> za 30 min</span></div>
+    </div>
+    <div class="mcard">
+      <div class="top"><span class="pill qr">QR</span><h3>QR kód / bankovní převod</h3></div>
+      <div class="mrow"><span class="mk">Při volbě QR</span><span class="mv"><span class="pill qr">booking_qr_payment</span> <strong>ihned</strong> — <span class="att">ZF (VS, 4 h)</span> + ops mail</span></div>
+      <div class="mrow"><span class="mk">Abandoned</span><span class="mv"><span class="pill none">potlačen</span> — volba QR nastaví <code>abandoned_email_sent_at</code></span></div>
+      <div class="mrow"><span class="mk">Po potvrzení</span><span class="mv"><span class="pill both">invoice_payment_receipt</span> (trigger) — <span class="att">ZF+DP</span></span></div>
+      <div class="mrow"><span class="mk">Doklady OK</span><span class="mv"><span class="pill slug">web_booking_reserved</span> — Smlouva+VOP+kódy</span></div>
+    </div>
+    <div class="mcard">
+      <div class="top"><span class="pill slug">Doklady</span><h3>Vliv nahraných dokladů</h3></div>
+      <div class="mrow"><span class="mk">Nahrané ✓</span><span class="mv">Uvolní přístupové kódy + Smlouvu → <span class="pill slug">web_booking_reserved</span></span></div>
+      <div class="mrow"><span class="mk">Chybí ✗</span><span class="mv">Kódy zadržené (<code>withheld</code>) → připomínka <span class="pill wait">booking_missing_docs</span></span></div>
+      <div class="mrow"><span class="mk">Výjimky</span><span class="mv">Delivery, obslužná pobočka (Mezná), dětská moto — doklady se neověřují, připomínka nechodí</span></div>
+    </div>
+    <div class="mcard">
+      <div class="top"><span class="pill ghost">Registrace</span><h3>Registrovaný vs. host</h3></div>
+      <div class="mrow"><span class="mk">Sada mailů</span><span class="mv"><strong>Identická.</strong> Web rezervace vždy vytvoří profil (krok hesla).</span></div>
+      <div class="mrow"><span class="mk">Šablony</span><span class="mv">Vždy <code>web_*</code> varianty (fallback na základní app šablonu)</span></div>
+      <div class="mrow"><span class="mk">Rozdíl</span><span class="mv">Tón textu <code>web</code> vs <code>app</code>, ne registrace zákazníka</span></div>
+    </div>
+  </div>
+
+  <!-- TIMING -->
+  <h2><span class="n">04</span> Časování — tahák</h2>
+  <div class="timing">
+    <div class="tcell"><div class="big">ihned</div><div class="lab2">QR mail při volbě</div><span class="src">edge qr-payment</span></div>
+    <div class="tcell"><div class="big">ihned</div><div class="lab2">DP po Stripe platbě</div><span class="src">webhook-receiver</span></div>
+    <div class="tcell"><div class="big">15 min</div><div class="lab2">Opuštěná platba (abandoned)</div><span class="src">cron */2 min · Path AB</span></div>
+    <div class="tcell"><div class="big">~3 min</div><div class="lab2">Potvrzení po dokladech</div><span class="src">reserved cron (guard doklady OK)</span></div>
+    <div class="tcell"><div class="big">30 min</div><div class="lab2">Připomínka chybějících dokladů</div><span class="src">cron Path C (dříve 5 min)</span></div>
+    <div class="tcell"><div class="big">4 h</div><div class="lab2">Auto-zrušení nezaplacené (web)</div><span class="src">auto_cancel_expired_pending · bez mailu</span></div>
+    <div class="tcell"><div class="big">00:01</div><div class="lab2">Auto-dokončení propadlých</div><span class="src">denní cron</span></div>
+    <div class="tcell"><div class="big">01:00</div><div class="lab2">Expirace poukazů (UTC)</div><span class="src">denní cron</span></div>
+  </div>
+
+  <!-- NOTES -->
+  <h2><span class="n">05</span> Detaily, na které pozor</h2>
+  <div class="notes">
+    <details open>
+      <summary>Potvrzovací mail je rozdělený na dva momenty</summary>
+      <div class="body">V novém flow „platba PŘED doklady" nechodí jeden velký mail. <strong>Po platbě</strong> jde <code>invoice_payment_receipt</code> (ZF+DP, „zaplaceno"). <strong>Po nahrání dokladů</strong> jde <code>web_booking_reserved</code> (Smlouva + VOP + přístupové kódy, „rezervace potvrzena"). Smlouva se generuje až s vyplněnými čísly dokladů — proto nesmí vyjít při platbě.</div>
+    </details>
+    <details>
+      <summary>QR volba potlačí abandoned mail</summary>
+      <div class="body"><code>set_booking_qr_payment</code> nastaví <code>abandoned_email_sent_at = now()</code>, takže zákazník s QR nedostane „opuštěná rezervace". Místo toho dostane hned <code>booking_qr_payment</code> se ZF (VS + mBank + splatnost 4 h). Do redakce info@motogo24.cz jde zároveň provozní upozornění „zkontroluj účet, potvrď ve Velíně".</div>
+    </details>
+    <details>
+      <summary>Přílohy řídí Velín šablona, ne kód</summary>
+      <div class="body">Sada příloh (ZF/DP/Smlouva/VOP) se bere z <code>email_templates.attachments</code>. Migrace nastavila: <code>web_booking_reserved</code> → jen Smlouva+VOP, <code>invoice_payment_receipt</code> → ZF+DP. Základní <code>booking_reserved</code> (APP) zůstává ZF+DP+Smlouva+VOP — nesahat.</div>
+    </details>
+    <details>
+      <summary>Web vs. App šablony (prefix web_)</summary>
+      <div class="body">Edge funkce nejdřív hledá <code>web_&lt;type&gt;</code>; když web varianta chybí, spadne na základní (app) šablonu. Web rezervace = <code>source:'web'</code> → <code>web_*</code>. Faktury, <code>sos_incident</code>, e-shop a <code>invoice_payment_receipt</code> web/app variantu nerozlišují.</div>
+    </details>
+    <details>
+      <summary>Reset hesla je mimo tabulku šablon</summary>
+      <div class="body">Mail „Reset hesla" (<code>recovery_otp</code>) se needituje ve Velíně — je natvrdo v edge funkci <code>send-recovery-otp</code> (zelený box s 8znakovým kódem, platnost 1 h).</div>
+    </details>
+    <details>
+      <summary>Dedup — každý mail jednou</summary>
+      <div class="body">Všechny cesty kontrolují <code>message_log</code> (kombinace <code>booking_id</code> + <code>template_slug</code> + <code>channel='email'</code>), takže se mail neodešle podruhé i když trigger/cron proběhne opakovaně. Reserved cron navíc hlídá <code>reserved_email_sent_at</code>, abandoned <code>abandoned_email_sent_at</code>, připomínka <code>docs_reminder_sent_at</code>.</div>
+    </details>
+  </div>
+
+  <div class="foot">
+    Zdroj pravdy: edge <code>send-booking-email</code>, <code>qr-payment</code>, <code>webhook-receiver</code> · migrace <code>20260705_qr_bank_payment.sql</code>, <code>20260710_web_pay_before_docs.sql</code> · <code>SUPABASE_BACKEND_STATE_4.md</code>. Rozsah: pouze web (motogo24.cz) — APP a Velín rezervace se řídí jinými cestami.
+  </div>
+</div>
+
+<script>
+  (function(){
+    var root=document.documentElement;
+    document.getElementById('theme').addEventListener('click',function(){
+      var cur=root.getAttribute('data-theme');
+      if(!cur){cur=matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light';}
+      root.setAttribute('data-theme',cur==='dark'?'light':'dark');
+    });
+    var rows=[].slice.call(document.querySelectorAll('#tbody tr'));
+    var btns=[].slice.call(document.querySelectorAll('.fbtn'));
+    btns.forEach(function(b){
+      b.addEventListener('click',function(){
+        var f=b.getAttribute('data-f');
+        btns.forEach(function(x){x.setAttribute('aria-pressed', x===b?'true':'false');});
+        rows.forEach(function(r){
+          var ch=r.getAttribute('data-ch');
+          var show=(f==='all')||(ch==='both')||(ch===f);
+          r.classList.toggle('dim',!show);
+        });
+      });
+    });
+  })();
+</script>
