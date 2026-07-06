@@ -104,6 +104,8 @@ export const PAGE_POTVRZENI = {
     { id: 'booking', label: 'Rezervace (obecná)', icon: '🏍️' },
     { id: 'booking_codes', label: 'Rezervace + kódy připraveny', icon: '🔑' },
     { id: 'booking_nocodes', label: 'Rezervace bez kódů (čeká na doklady)', icon: '⏳' },
+    { id: 'paydocs', label: 'Platba přijata → doklady (krok 4)', icon: '💳' },
+    { id: 'qrdocs', label: 'QR — doklady nahrány, čeká platba', icon: '📷' },
     { id: 'order', label: 'Objednávka', icon: '🛒' },
     { id: 'voucher', label: 'Poukaz', icon: '🎁' },
     { id: 'pending', label: 'Pending (rezervace)', icon: '⏳' },
@@ -165,6 +167,49 @@ export const PAGE_POTVRZENI = {
         { key: 'web.layout.confirm.success.seeYouSoon', label: 'Závěrečná věta', default: 'Brzy nashledanou!' },
         { key: 'web.layout.confirm.success.backHome', label: 'Tlačítko „Zpět na úvod"', default: 'Zpět na úvod' },
         { key: 'web.layout.confirm.success.continueShopping', label: 'Tlačítko „Pokračovat v nákupu"', default: 'Pokračovat v nákupu' },
+      ]
+    },
+    {
+      // Štítky stavu dokladů v souhrnu + hlášky „Co dál" pro rezervaci.
+      // Zobrazí se na děkovací stránce po platbě podle toho, zda jsou doklady
+      // ověřené (✓) nebo chybí (⚠). Náhled: „Rezervace + kódy připraveny".
+      id: 'docs_status', label: 'Rezervace — stav dokladů', preview: 'booking_codes',
+      fields: [
+        { key: 'web.layout.confirm.success.docsLabel', label: 'Štítek „Doklady"', default: 'Doklady' },
+        { key: 'web.layout.confirm.success.docsVerified', label: 'Štítek „Ověřeny"', default: 'Ověřeny' },
+        { key: 'web.layout.confirm.success.docsNotVerified', label: 'Štítek „Neověřeny"', default: 'Neověřeny' },
+        { key: 'web.layout.confirm.success.nextBookingDocsDone', label: 'Hláška — doklady ověřeny (žádná akce)', type: 'textarea', default: 'Doklady jsme ověřili — žádná akce není potřeba.' },
+        { key: 'web.layout.confirm.success.nextBookingDocsMissing', label: 'Hláška — doklady neověřeny (výzva)', type: 'textarea', default: 'Doklady zatím nejsou ověřené — můžeš je ověřit dodatečně v úpravě rezervace (foto OP/pasu + ŘP) nebo osobně při vyzvednutí.' },
+        { key: 'web.layout.confirm.success.editReservation', label: 'Tlačítko „Upravit / zrušit rezervaci"', default: 'Upravit / zrušit rezervaci' },
+      ]
+    },
+    {
+      // Stránka C — po ONLINE (Stripe) platbě, když ještě chybí doklady:
+      // „Platba přijata → pokračuj na krok 4 (doklady)". Tlačítko vede na
+      // /rezervace?resume=<id> (krok dokladů). Náhled: „Platba přijata → doklady".
+      id: 'paydocs', label: 'Platba přijata → doklady (krok 4)', preview: 'paydocs',
+      fields: [
+        { key: 'web.layout.confirm.paydocs.title', label: 'Nadpis', default: 'Platba přijata, děkujeme!' },
+        { key: 'web.layout.confirm.paydocs.lead', label: 'Úvod (zákazník v DB, {name})', type: 'textarea', default: 'Děkujeme, {name}. Platba proběhla v pořádku. Zbývá poslední krok — vyplnit a nahrát doklady, ať ti můžeme rezervaci potvrdit a poslat přístupové kódy.' },
+        { key: 'web.layout.confirm.paydocs.leadAnon', label: 'Úvod (anonymní)', type: 'textarea', default: 'Děkujeme. Platba proběhla v pořádku. Zbývá poslední krok — vyplnit a nahrát doklady, ať ti můžeme rezervaci potvrdit a poslat přístupové kódy.' },
+        { key: 'web.layout.confirm.paydocs.emailInfo', label: 'Hláška o e-mailu (ZF+DP)', type: 'textarea', default: 'Doklad o přijaté platbě (zálohovou fakturu i doklad o platbě) jsme ti právě poslali e-mailem.' },
+        { key: 'web.layout.confirm.paydocs.step1', label: 'Krok 1 — čísla dokladů', type: 'textarea', default: 'Vyplň čísla dokladu totožnosti (OP/pas) a řidičského průkazu.' },
+        { key: 'web.layout.confirm.paydocs.step2', label: 'Krok 2 — foto dokladů', type: 'textarea', default: 'Nahraj fotky dokladů (OP/pas + ŘP). Foto je dobrovolné — bez ověření ti ale nepošleme přístupové kódy předem a doklady zkontrolujeme až na pobočce.' },
+        { key: 'web.layout.confirm.paydocs.step3', label: 'Krok 3 — potvrzení', type: 'textarea', default: 'Jakmile doklady vyplníš, potvrdíme rezervaci a pošleme smlouvu i přístupové kódy k motorce a výbavě.' },
+        { key: 'web.layout.confirm.paydocs.continueDocs', label: 'Tlačítko „Pokračovat na krok 4"', default: 'Pokračovat na krok 4 — doklady' },
+        { key: 'web.layout.confirm.paydocs.later', label: 'Tlačítko „Doplním později"', default: 'Doplním doklady později' },
+      ]
+    },
+    {
+      // Stav po QR/převodu — zákazník nahrál doklady, ale platba ještě nedorazila
+      // (potvrzuje se ručně ve Velíně). Náhled: „QR — doklady nahrány, čeká platba".
+      id: 'qrdocs', label: 'QR/převod — doklady nahrány, čeká platba', preview: 'qrdocs',
+      fields: [
+        { key: 'web.layout.confirm.qrdocs.title', label: 'Nadpis', default: 'Doklady nahrány, děkujeme!' },
+        { key: 'web.layout.confirm.qrdocs.lead', label: 'Úvod', type: 'textarea', default: 'Moc děkujeme za nahrání dokladů. Rezervaci dokončíme, jakmile dorazí vaše platba.' },
+        { key: 'web.layout.confirm.qrdocs.payInfo', label: 'Info o platbě QR/převodem', type: 'textarea', default: 'Platíte QR kódem / bankovním převodem. Jakmile platbu odešlete, ověříme ji obvykle do 4 hodin (v pracovní době) a rezervaci potvrdíme.' },
+        { key: 'web.layout.confirm.qrdocs.emailInfo', label: 'Info o e-mailu s platebními údaji', type: 'textarea', default: 'Platební údaje (QR kód, číslo účtu a variabilní symbol) i zálohovou fakturu najdete v e-mailu, který jsme vám poslali.' },
+        { key: 'web.layout.confirm.qrdocs.codesInfo', label: 'Info o kódech po platbě', type: 'textarea', default: 'Po připsání platby vám e-mailem, SMS i WhatsAppem pošleme potvrzení rezervace, smlouvu a přístupové kódy k motorce a výbavě.' },
       ]
     },
     // Pozn.: stav „Pending" má 4 nezávislé varianty. Každá se zobrazí v jiné situaci:

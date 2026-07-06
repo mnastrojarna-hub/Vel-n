@@ -105,6 +105,16 @@ $confirmI18n = [
     'qrDocsPayInfo'       => t('confirm.qrdocs.payInfo'),
     'qrDocsEmailInfo'     => t('confirm.qrdocs.emailInfo'),
     'qrDocsCodesInfo'     => t('confirm.qrdocs.codesInfo'),
+    // Stránka C — „Platba přijata → pokračuj na krok 4 (doklady)" (Stripe, chybí doklady)
+    'paydocsTitle'        => t('confirm.paydocs.title'),
+    'paydocsLead'         => t('confirm.paydocs.lead'),
+    'paydocsLeadAnon'     => t('confirm.paydocs.leadAnon'),
+    'paydocsEmailInfo'    => t('confirm.paydocs.emailInfo'),
+    'paydocsStep1'        => t('confirm.paydocs.step1'),
+    'paydocsStep2'        => t('confirm.paydocs.step2'),
+    'paydocsStep3'        => t('confirm.paydocs.step3'),
+    'paydocsContinueDocs' => t('confirm.paydocs.continueDocs'),
+    'paydocsLater'        => t('confirm.paydocs.later'),
 ];
 
 // Mapa jsKey → CMS klíč (bez prefixu `web.layout.`) pro inline edit přes
@@ -172,6 +182,15 @@ $confirmCmsKeys = [
     'qrDocsPayInfo'       => 'confirm.qrdocs.payInfo',
     'qrDocsEmailInfo'     => 'confirm.qrdocs.emailInfo',
     'qrDocsCodesInfo'     => 'confirm.qrdocs.codesInfo',
+    'paydocsTitle'        => 'confirm.paydocs.title',
+    'paydocsLead'         => 'confirm.paydocs.lead',
+    'paydocsLeadAnon'     => 'confirm.paydocs.leadAnon',
+    'paydocsEmailInfo'    => 'confirm.paydocs.emailInfo',
+    'paydocsStep1'        => 'confirm.paydocs.step1',
+    'paydocsStep2'        => 'confirm.paydocs.step2',
+    'paydocsStep3'        => 'confirm.paydocs.step3',
+    'paydocsContinueDocs' => 'confirm.paydocs.continueDocs',
+    'paydocsLater'        => 'confirm.paydocs.later',
 ];
 
 // Per-type varianty stavu „Pending" (rezervace / objednávka / poukaz) + samostatný

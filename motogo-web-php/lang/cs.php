@@ -1509,6 +1509,18 @@ return [
     'confirm.qrdocs.payInfo' => 'Platíte QR kódem / bankovním převodem. Jakmile platbu odešlete, ověříme ji obvykle do 4 hodin (v pracovní době) a rezervaci potvrdíme.',
     'confirm.qrdocs.emailInfo' => 'Platební údaje (QR kód, číslo účtu a variabilní symbol) i zálohovou fakturu najdete v e-mailu, který jsme vám poslali.',
     'confirm.qrdocs.codesInfo' => 'Po připsání platby vám e-mailem, SMS i WhatsAppem pošleme potvrzení rezervace, smlouvu a přístupové kódy k motorce a výbavě.',
+    // Děkovací stránka po ONLINE (Stripe) platbě, když ještě chybí doklady —
+    // „Platba přijata → pokračuj na krok 4 (doklady)". Zobrazí se registrovaným
+    // i neregistrovaným, dokud nejsou vyplněné doklady (docs_status != null).
+    'confirm.paydocs.title' => 'Platba přijata, děkujeme!',
+    'confirm.paydocs.lead' => 'Děkujeme, {name}. Platba proběhla v pořádku. Zbývá poslední krok — vyplnit a nahrát doklady, ať ti můžeme rezervaci potvrdit a poslat přístupové kódy.',
+    'confirm.paydocs.leadAnon' => 'Děkujeme. Platba proběhla v pořádku. Zbývá poslední krok — vyplnit a nahrát doklady, ať ti můžeme rezervaci potvrdit a poslat přístupové kódy.',
+    'confirm.paydocs.emailInfo' => 'Doklad o přijaté platbě (zálohovou fakturu i doklad o platbě) jsme ti právě poslali e-mailem.',
+    'confirm.paydocs.step1' => 'Vyplň čísla dokladu totožnosti (OP/pas) a řidičského průkazu.',
+    'confirm.paydocs.step2' => 'Nahraj fotky dokladů (OP/pas + ŘP). Foto je dobrovolné — bez ověření ti ale nepošleme přístupové kódy předem a doklady zkontrolujeme až na pobočce.',
+    'confirm.paydocs.step3' => 'Jakmile doklady vyplníš, potvrdíme rezervaci a pošleme smlouvu i přístupové kódy k motorce a výbavě.',
+    'confirm.paydocs.continueDocs' => 'Pokračovat na krok 4 — doklady',
+    'confirm.paydocs.later' => 'Doplním doklady později',
     'category.cestovni' => 'Cestovní',
     'category.sportovni' => 'Sportovní',
     'category.naked' => 'Naked',
