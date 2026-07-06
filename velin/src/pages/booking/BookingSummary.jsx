@@ -288,11 +288,12 @@ export default function BookingSummary({ booking, sosIncidents, bookingExtras, c
       {b.booking_source === 'web' && (() => {
         const paid = ['paid', 'partial_refund', 'refund_pending'].includes(b.payment_status)
         const reachedGw = !!(b.checkout_started_at || b.stripe_checkout_url || b.chosen_payment_method || b.pay_channel)
+        const isQr = b.chosen_payment_method === 'qr' || b.pay_channel === 'qr'
         let step, label, color
         if (paid && b.docs_completed_at) { step = 4; label = 'dokončeno (doklady vyplněny)'; color = '#16a34a' }
         else if (paid) { step = 4; label = 'doklady (zaplaceno, čeká na doklady)'; color = '#7c3aed' }
-        else if (reachedGw) { step = 3; label = 'platba / brána (nezaplaceno)'; color = '#f59e0b' }
-        else { step = 2; label = 'přehled + platba (nezaplaceno)'; color = '#dc2626' }
+        else if (reachedGw) { step = 3; label = isQr ? 'QR / bankovní převod (čeká na připsání)' : 'platba kartou / brána (nezaplaceno)'; color = '#f59e0b' }
+        else { step = 2; label = 'přehled'; color = '#dc2626' }
         return <SumRow label="Krok ve flow" value={`${step}/4 — ${label}`} color={color} />
       })()}
       <SumRow label="Vytvořeno" value={fmtDT(b.created_at)} />

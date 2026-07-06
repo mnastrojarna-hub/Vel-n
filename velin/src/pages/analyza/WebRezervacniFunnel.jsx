@@ -48,6 +48,20 @@ const DEVICE_ORDER = ['pc', 'mobile', 'tablet', 'unknown']
 
 const cardStyle = { background: '#fff', borderRadius: 14, padding: 16, boxShadow: '0 1px 4px rgba(0,0,0,.06)' }
 
+// ── Přepínač flow „před / po změně" ─────────────────────────────────────────
+// Nový web flow „platba PŘED doklady" šel do provozu 5.–6. 7. 2026. Rezervace
+// založené PŘED tímto datem prošly STARÝM flow (doklady před platbou), od data
+// NOVÝM flow. Přepínač umožní porovnat konverzi/odpady odděleně, protože jinak
+// se obě populace v jednom funnelu mísí a čísla nejsou srovnatelná.
+const FLOW_CHANGE_DATE = '2026-07-06' // hranice starý/nový flow ("od dneška")
+const FLOW_CHANGE_AT = new Date(`${FLOW_CHANGE_DATE}T00:00:00`) // lokální půlnoc
+const FLOW_CHANGE_LABEL = '6. 7. 2026'
+const FLOW_PHASES = [
+  { key: 'all', label: 'Vše' },
+  { key: 'before', label: `Před změnou (do ${FLOW_CHANGE_LABEL})` },
+  { key: 'after', label: `Po změně (od ${FLOW_CHANGE_LABEL})` },
+]
+
 const devNorm = (d) => {
   const v = String(d || '').toLowerCase()
   return v === 'pc' || v === 'mobile' || v === 'tablet' ? v : 'unknown'
@@ -55,11 +69,36 @@ const devNorm = (d) => {
 const pct = (n, d) => (d > 0 ? (n / d) * 100 : 0)
 const fmtPct = (n, d) => `${pct(n, d).toFixed(1)} %`
 
+function FlowPhaseToggle({ value, onChange }) {
+  return (
+    <div className="flex items-center gap-2 flex-wrap mb-4">
+      <span className="text-xs font-bold" style={{ color: '#888' }}>Web flow:</span>
+      <div className="inline-flex rounded-btn overflow-hidden" style={{ border: '1px solid #d4e8e0' }}>
+        {FLOW_PHASES.map((p, i) => {
+          const active = value === p.key
+          return (
+            <button key={p.key} onClick={() => onChange(p.key)}
+              className="text-xs font-extrabold uppercase tracking-wide cursor-pointer"
+              style={{
+                padding: '7px 12px', border: 'none',
+                borderRight: i < FLOW_PHASES.length - 1 ? '1px solid #d4e8e0' : 'none',
+                background: active ? '#74FB71' : '#fff', color: '#1a2e22',
+              }}>
+              {p.label}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 export default function WebRezervacniFunnel() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [raw, setRaw] = useState(null)
   const [period, setPeriod] = useState({ type: 'all' })
+  const [flowPhase, setFlowPhase] = useState('all') // 'all' | 'before' | 'after' — starý/nový web flow
 
   useEffect(() => { loadData() }, [])
 
@@ -103,7 +142,13 @@ export default function WebRezervacniFunnel() {
       docsByUser.get(d.user_id).push(d)
     }
 
-    const filtered = filterByPeriod(raw.bookings, period, 'created_at')
+    const periodFiltered = filterByPeriod(raw.bookings, period, 'created_at')
+    // Přepínač starý/nový flow dle data založení rezervace (created_at vs. datum změny)
+    const filtered = flowPhase === 'all' ? periodFiltered : periodFiltered.filter(b => {
+      const t = b.created_at ? new Date(b.created_at) : null
+      if (!t || isNaN(t)) return flowPhase === 'before' // bez data → počítej jako starý flow
+      return flowPhase === 'before' ? t < FLOW_CHANGE_AT : t >= FLOW_CHANGE_AT
+    })
 
     const classified = filtered.map(b => {
       const moto = motoById.get(b.moto_id)
@@ -149,7 +194,7 @@ export default function WebRezervacniFunnel() {
       total, byStage, paid, reachedGateway, unfinished,
       docsDoneCount, paidWithoutDocs, unfinishedByDevice, stageDevice,
     }
-  }, [raw, period])
+  }, [raw, period, flowPhase])
 
   if (loading) return <div className="text-sm" style={{ color: '#888' }}>Načítám…</div>
   if (error) return <div className="text-sm" style={{ color: '#dc2626' }}>Chyba: {error}</div>
@@ -161,8 +206,10 @@ export default function WebRezervacniFunnel() {
     return (
       <div>
         <TimePeriodSelector value={period} onChange={setPeriod} />
+        <FlowPhaseToggle value={flowPhase} onChange={setFlowPhase} />
         <div className="text-sm" style={{ ...cardStyle, color: '#888' }}>
-          Žádné webové rezervace v období „{getTimePeriodLabel(period)}".
+          Žádné webové rezervace v období „{getTimePeriodLabel(period)}"
+          {flowPhase !== 'all' && ` (${FLOW_PHASES.find(p => p.key === flowPhase)?.label})`}.
         </div>
       </div>
     )
@@ -197,6 +244,12 @@ export default function WebRezervacniFunnel() {
   return (
     <div>
       <TimePeriodSelector value={period} onChange={setPeriod} />
+      <FlowPhaseToggle value={flowPhase} onChange={setFlowPhase} />
+      {flowPhase !== 'all' && (
+        <div className="text-xs mb-4" style={{ color: '#888' }}>
+          Zobrazeny jen rezervace {flowPhase === 'before' ? `založené do ${FLOW_CHANGE_LABEL}` : `založené od ${FLOW_CHANGE_LABEL}`} (dle data vzniku rezervace). Staré rezervace prošly flow „doklady před platbou", nové „platba před doklady".
+        </div>
+      )}
 
       {/* KPI */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">

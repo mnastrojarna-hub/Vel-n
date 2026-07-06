@@ -48,6 +48,16 @@ const SAMPLE_VARS = {
   pickup_location: 'Mezná 9, 393 01 Mezná', return_location: 'Mezná 9, 393 01 Mezná',
   // Cancellation vars
   cancellation_reason: 'Změna plánů', refund_amount: '7 800', refund_percent: '100',
+  // Odkazy na tlačítka v mailech (nahrazuje je send-booking-email živě; tady mock pro náhled)
+  docs_url: 'https://www.motogo24.cz/rezervace?resume=abc123',
+  pay_url: 'https://www.motogo24.cz/rezervace?resume=abc123',
+  // QR / bankovní převod (booking_qr_payment)
+  qr_url: 'https://api.qrgenerator.cz/spd?size=180&data=SPD*1.0*ACC:CZ6555000000001234567890*AM:7800.00*CC:CZK*X-VS:20260001',
+  amount: '7 800 Kč', account: '670100-2225851630/6210', iban: 'CZ65 5500 0000 0012 3456 7890',
+  bank: 'mBank', vs: '20260001', lead: 'Děkujeme za rezervaci! Níže najdete platební údaje pro QR platbu nebo bankovní převod.',
+  invoice_suffix: '2026-0001',
+  // Door codes blok (renderuje send-booking-email dynamicky; mock pro náhled)
+  door_codes_block: '<div style="background:#eaf7ea;border:1px solid #74FB71;border-radius:12px;padding:16px;margin:16px 0"><strong>Přístupové kódy</strong><br>Motorka: <strong>1234</strong> · Výbava: <strong>5678</strong></div>',
 }
 
 const GOOGLE_REVIEW_URL = 'https://g.page/r/CUmeYvk-sNf6EBM/review'
@@ -186,6 +196,11 @@ const TEMPLATE_META = {
   web_booking_cancelled: { category: 'storno', categoryLabel: 'Storno', trigger: 'Storno web rezervace', attachments: 'Dobropis', info: 'Web varianta storna. Pokud neexistuje, použije se booking_cancelled.' },
   web_booking_completed: { category: 'reservation', categoryLabel: 'Rezervace', trigger: 'Dokončení web pronájmu', attachments: 'KF', info: 'Web varianta dokončení. Pokud neexistuje, použije se booking_completed.' },
   web_voucher_purchased: { category: 'shop', categoryLabel: 'E-shop', trigger: 'Web nákup poukazu', attachments: 'ZF, DP, Voucher, FV', info: 'Web varianta nákupu poukazu. Pokud neexistuje, použije se voucher_purchased.' },
+  // Nový flow „platba PŘED doklady" (web)
+  web_invoice_payment_receipt: { category: 'reservation', categoryLabel: 'Rezervace', trigger: 'Web platba (Stripe webhook / potvrzení QR ve Velíně) — když ještě chybí doklady', attachments: 'ZF, DP', info: 'Web „Platba přijata" — pošle se po zaplacení, dokud chybí doklady. V příloze ZF + DP, zelené tlačítko „Nahrát doklady" ({{docs_url}} → /rezervace?resume). Po doplnění dokladů následuje web_booking_reserved (smlouva + VOP + kódy). Pokud neexistuje, použije se invoice_payment_receipt.' },
+  booking_missing_docs: { category: 'reservation', categoryLabel: 'Rezervace', trigger: 'Cron ~30 min po platbě, když chybí doklady', attachments: 'Žádné', info: 'Připomínka „zaplaceno, doplňte doklady". Cron send_abandoned_booking_emails (Path C) ~30 min po potvrzení platby, pokud zákazník nevyplnil doklady. Tlačítko „Nahrát doklady" ({{docs_url}} → /rezervace?resume). Přeskakuje delivery / obslužnou pobočku / dětskou motorku.' },
+  web_booking_missing_docs: { category: 'reservation', categoryLabel: 'Rezervace', trigger: 'Cron ~30 min po platbě (web), když chybí doklady', attachments: 'Žádné', info: 'Web varianta připomínky doplnění dokladů. Pokud neexistuje, použije se booking_missing_docs.' },
+  booking_qr_payment: { category: 'invoice', categoryLabel: 'Faktura', trigger: 'Volba QR / bankovního převodu (web, krok 2)', attachments: 'ZF (přikládá edge fn qr-payment)', info: 'Platební údaje pro QR platbu / bankovní převod — QR kód ({{qr_url}}), číslo účtu, IBAN, VS, částka. Posílá se hned při volbě QR. ZF přikládá napevno edge funkce qr-payment (ne přes sloupec attachments).' },
 }
 
 const CATEGORIES = [
