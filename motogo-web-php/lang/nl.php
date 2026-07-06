@@ -445,6 +445,7 @@ return [
     'rez.pay.onlineNote' => 'Directe bevestiging van de reservering',
     'rez.pay.qr' => 'QR-code / bankoverschrijving',
     'rez.pay.qrNote' => 'Betaal binnen 4 uur, ontvangst bevestigen we handmatig',
+    'rez.payfail.notice' => 'Je betaling is niet voltooid. Probeer het opnieuw — je kunt ook een andere betaalmethode kiezen (kaart of QR-code / overschrijving). Je reservering is opgeslagen.',
     'rez.qrpay.title' => 'Betaal met QR-code of overschrijving',
     'rez.qrpay.sub' => 'Reservering #{n} — betaal binnen 4 uur. Na ontvangst bevestigen we de reservering per e-mail.',
     'rez.qrpay.amount' => 'Bedrag',

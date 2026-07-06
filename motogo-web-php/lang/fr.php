@@ -459,6 +459,7 @@ return [
     'rez.pay.onlineNote' => 'Confirmation immédiate de la réservation',
     'rez.pay.qr' => 'Code QR / virement bancaire',
     'rez.pay.qrNote' => 'Payez sous 4 heures, nous confirmons la réception manuellement',
+    'rez.payfail.notice' => 'Votre paiement n\'a pas abouti. Veuillez réessayer — vous pouvez aussi choisir un autre moyen de paiement (carte ou code QR / virement). Votre réservation est enregistrée.',
     'rez.qrpay.title' => 'Payez par code QR ou virement',
     'rez.qrpay.sub' => 'Réservation #{n} — merci de payer sous 4 heures. Dès réception, nous confirmerons votre réservation par e-mail.',
     'rez.qrpay.amount' => 'Montant',
