@@ -1474,6 +1474,7 @@ return [
     'confirm.success.docsLabel' => 'Documents',
     'confirm.success.docsVerified' => 'Verified',
     'confirm.success.docsNotVerified' => 'Not verified',
+    'confirm.success.docsFilledOptional' => 'Filled in — photo optional',
     'confirm.success.editReservation' => 'Edit / cancel booking',
     'confirm.paydocs.title' => 'Payment received, thank you!',
     'confirm.paydocs.lead' => 'Thank you, {name}. Your payment went through successfully. One last step remains — fill in and upload your documents so we can confirm your booking and send the access codes.',

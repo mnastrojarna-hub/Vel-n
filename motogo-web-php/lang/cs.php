@@ -1459,6 +1459,7 @@ return [
     'confirm.success.docsLabel' => 'Doklady',
     'confirm.success.docsVerified' => 'Ověřeny',
     'confirm.success.docsNotVerified' => 'Neověřeny',
+    'confirm.success.docsFilledOptional' => 'Vyplněny — foto nepovinné',
     'confirm.success.editReservation' => 'Upravit / zrušit rezervaci',
     'confirm.success.nextBookingCodes' => 'Po ověření dokladů obdržíte 6místné přístupové kódy k motorce i výbavě (e-mailem, SMS a WhatsAppem).',
     'confirm.success.nextBookingCodesDone' => '6místné přístupové kódy k motorce i výbavě vám pošleme e-mailem, SMS a WhatsAppem před začátkem rezervace.',

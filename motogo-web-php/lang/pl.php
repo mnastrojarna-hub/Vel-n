@@ -1437,6 +1437,7 @@ return [
     'confirm.success.docsLabel' => 'Dokumenty',
     'confirm.success.docsVerified' => 'Zweryfikowane',
     'confirm.success.docsNotVerified' => 'Niezweryfikowane',
+    'confirm.success.docsFilledOptional' => 'Uzupełnione — zdjęcie opcjonalne',
     'confirm.success.editReservation' => 'Edytuj / anuluj rezerwację',
     'confirm.paydocs.title' => 'Płatność otrzymana, dziękujemy!',
     'confirm.paydocs.lead' => 'Dziękujemy, {name}. Twoja płatność przebiegła pomyślnie. Został ostatni krok — uzupełnij i prześlij dokumenty, abyśmy mogli potwierdzić rezerwację i wysłać kody dostępu.',

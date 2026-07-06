@@ -1459,6 +1459,7 @@ return [
     'confirm.success.docsLabel' => 'Documentos',
     'confirm.success.docsVerified' => 'Verificados',
     'confirm.success.docsNotVerified' => 'Sin verificar',
+    'confirm.success.docsFilledOptional' => 'Rellenados — foto opcional',
     'confirm.success.editReservation' => 'Editar / cancelar reserva',
     'confirm.paydocs.title' => '¡Pago recibido, gracias!',
     'confirm.paydocs.lead' => 'Gracias, {name}. Tu pago se ha realizado correctamente. Queda un último paso: rellenar y subir tus documentos para que podamos confirmar tu reserva y enviarte los códigos de acceso.',

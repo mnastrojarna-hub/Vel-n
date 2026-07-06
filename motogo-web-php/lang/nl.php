@@ -1437,6 +1437,7 @@ return [
     'confirm.success.docsLabel' => 'Documenten',
     'confirm.success.docsVerified' => 'Geverifieerd',
     'confirm.success.docsNotVerified' => 'Niet geverifieerd',
+    'confirm.success.docsFilledOptional' => 'Ingevuld — foto optioneel',
     'confirm.success.editReservation' => 'Reservering bewerken / annuleren',
     'confirm.paydocs.title' => 'Betaling ontvangen, bedankt!',
     'confirm.paydocs.lead' => 'Bedankt, {name}. Je betaling is gelukt. Er rest nog één stap — vul je documenten in en upload ze, zodat we je reservering kunnen bevestigen en de toegangscodes kunnen sturen.',

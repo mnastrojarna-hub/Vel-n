@@ -315,7 +315,15 @@ export default function BookingDetail() {
       //    s ověřenými doklady / dokončený krok) → booking_reserved rovnou. APP beze změny.
       let mailType = 'booking_reserved'
       if ((booking.booking_source || 'app') === 'web') {
-        let docsOk = !!booking.docs_completed_at
+        // REAL-TIME stav dokladů: NEČTI ze zastaralého `booking` z mountu — QR/převod se
+        // potvrzuje ručně klidně hodinu po platbě a zákazník mohl doklady mezitím dokončit.
+        // Nejdřív čerstvě přečti `docs_completed_at` (vyplněná čísla = povinná část smlouvy),
+        // teprve když chybí, ověř scan přes check_booking_docs_status.
+        let docsOk = false
+        try {
+          const { data: fresh } = await supabase.from('bookings').select('docs_completed_at').eq('id', id).maybeSingle()
+          docsOk = !!fresh?.docs_completed_at
+        } catch { /* ignore → padne na docs-check níže */ }
         if (!docsOk) {
           try {
             const { data: ds } = await supabase.rpc('check_booking_docs_status', {
@@ -324,6 +332,10 @@ export default function BookingDetail() {
             docsOk = (ds == null)
           } catch { /* ponech false → invoice_payment_receipt */ }
         }
+        // docsOk → zákazník má vše splněné (čísla vyplněná NEBO scan ověřený) → kompletní
+        // web_booking_reserved (smlouva+VOP+kódy; kódy se vykreslí, jsou-li uvolněné).
+        // Jinak invoice_payment_receipt (ZF+DP + výzva doplnit údaje). Reserved cron
+        // dohlídne pozdější doplnění dokladů; message_log dedup zabrání duplicitě.
         mailType = docsOk ? 'booking_reserved' : 'invoice_payment_receipt'
       }
       supabase.functions.invoke('send-booking-email', { body: {

@@ -1456,6 +1456,7 @@ return [
     'confirm.success.docsLabel' => 'Документи',
     'confirm.success.docsVerified' => 'Перевірені',
     'confirm.success.docsNotVerified' => 'Не перевірені',
+    'confirm.success.docsFilledOptional' => 'Заповнені — фото необовʼязкове',
     'confirm.success.editReservation' => 'Змінити / скасувати бронювання',
     'confirm.paydocs.title' => 'Оплату отримано, дякуємо!',
     'confirm.paydocs.lead' => 'Дякуємо, {name}. Ваша оплата пройшла успішно. Залишився останній крок — заповніть і завантажте документи, щоб ми могли підтвердити бронювання та надіслати коди доступу.',
