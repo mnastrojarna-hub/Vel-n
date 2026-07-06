@@ -881,6 +881,8 @@ return [
     'confirm.success.voucherTitle' => 'Gutschein bezahlt!',
     'confirm.success.thanks' => 'Danke, {name}. Ihre Zahlung wurde erfolgreich erhalten.',
     'confirm.success.thanksAnon' => 'Danke. Ihre Zahlung wurde erfolgreich erhalten.',
+    'confirm.success.thanksDocsFilled' => 'Danke, {name}! Deine Dokumentdaten und deine Zahlung haben wir — deine Buchung ist vollständig.',
+    'confirm.success.thanksDocsFilledAnon' => 'Danke! Deine Dokumentdaten und deine Zahlung haben wir — deine Buchung ist vollständig.',
     'confirm.success.summaryTitle' => 'Zusammenfassung',
     'confirm.success.period' => 'Zeitraum',
     'confirm.success.total' => 'Gesamtpreis',

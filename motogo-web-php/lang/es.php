@@ -750,6 +750,8 @@ return [
     'confirm.success.voucherTitle' => '¡Vale pagado!',
     'confirm.success.thanks' => 'Gracias, {name}. Tu pago se ha recibido correctamente.',
     'confirm.success.thanksAnon' => 'Gracias. Tu pago se ha recibido correctamente.',
+    'confirm.success.thanksDocsFilled' => '¡Gracias, {name}! Tenemos los datos de tus documentos y tu pago — tu reserva está completa.',
+    'confirm.success.thanksDocsFilledAnon' => '¡Gracias! Tenemos los datos de tus documentos y tu pago — tu reserva está completa.',
     'confirm.success.summaryTitle' => 'Resumen',
     'confirm.success.period' => 'Periodo',
     'confirm.success.total' => 'Precio total',
