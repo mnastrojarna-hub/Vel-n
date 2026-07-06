@@ -728,6 +728,8 @@ return [
     'confirm.success.voucherTitle' => 'Cadeaubon betaald!',
     'confirm.success.thanks' => 'Bedankt, {name}. Uw betaling is succesvol ontvangen.',
     'confirm.success.thanksAnon' => 'Bedankt. Uw betaling is succesvol ontvangen.',
+    'confirm.success.thanksDocsFilled' => 'Bedankt, {name}! We hebben je documentgegevens en je betaling — je reservering is compleet.',
+    'confirm.success.thanksDocsFilledAnon' => 'Bedankt! We hebben je documentgegevens en je betaling — je reservering is compleet.',
     'confirm.success.summaryTitle' => 'Samenvatting',
     'confirm.success.period' => 'Periode',
     'confirm.success.total' => 'Totaalprijs',

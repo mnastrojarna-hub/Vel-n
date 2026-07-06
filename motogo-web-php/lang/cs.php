@@ -1440,6 +1440,8 @@ return [
     'confirm.success.voucherTitle' => 'Poukaz zaplacen!',
     'confirm.success.thanks' => 'Děkujeme, {name}. Vaše platba byla úspěšně přijata.',
     'confirm.success.thanksAnon' => 'Děkujeme. Vaše platba byla úspěšně přijata.',
+    'confirm.success.thanksDocsFilled' => 'Děkujeme, {name}! Údaje z dokladů máme a platba je uhrazená — rezervace je kompletní.',
+    'confirm.success.thanksDocsFilledAnon' => 'Děkujeme! Údaje z dokladů máme a platba je uhrazená — rezervace je kompletní.',
     'confirm.success.summaryTitle' => 'Souhrn',
     'confirm.success.period' => 'Termín',
     'confirm.success.total' => 'Celková cena',

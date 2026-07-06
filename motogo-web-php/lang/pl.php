@@ -728,6 +728,8 @@ return [
     'confirm.success.voucherTitle' => 'Bon opłacony!',
     'confirm.success.thanks' => 'Dziękujemy, {name}. Twoja płatność została pomyślnie odebrana.',
     'confirm.success.thanksAnon' => 'Dziękujemy. Twoja płatność została pomyślnie odebrana.',
+    'confirm.success.thanksDocsFilled' => 'Dziękujemy, {name}! Mamy dane z Twoich dokumentów i Twoją płatność — rezerwacja jest kompletna.',
+    'confirm.success.thanksDocsFilledAnon' => 'Dziękujemy! Mamy dane z Twoich dokumentów i Twoją płatność — rezerwacja jest kompletna.',
     'confirm.success.summaryTitle' => 'Podsumowanie',
     'confirm.success.period' => 'Termin',
     'confirm.success.total' => 'Cena całkowita',

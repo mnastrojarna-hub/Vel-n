@@ -1437,6 +1437,8 @@ return [
     'confirm.success.voucherTitle' => 'Сертифікат оплачено!',
     'confirm.success.thanks' => 'Дякуємо, {name}. Ваш платіж успішно прийнято.',
     'confirm.success.thanksAnon' => 'Дякуємо. Ваш платіж успішно прийнято.',
+    'confirm.success.thanksDocsFilled' => 'Дякуємо, {name}! Дані ваших документів і оплату маємо — бронювання завершене.',
+    'confirm.success.thanksDocsFilledAnon' => 'Дякуємо! Дані ваших документів і оплату маємо — бронювання завершене.',
     'confirm.success.summaryTitle' => 'Підсумок',
     'confirm.success.period' => 'Дата',
     'confirm.success.total' => 'Загальна вартість',

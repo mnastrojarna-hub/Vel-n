@@ -1051,6 +1051,8 @@ return [
     'confirm.success.voucherTitle' => 'Voucher paid!',
     'confirm.success.thanks' => 'Thank you, {name}. Your payment was successfully received.',
     'confirm.success.thanksAnon' => 'Thank you. Your payment was successfully received.',
+    'confirm.success.thanksDocsFilled' => 'Thank you, {name}! We have your document details and your payment — your booking is complete.',
+    'confirm.success.thanksDocsFilledAnon' => 'Thank you! We have your document details and your payment — your booking is complete.',
     'confirm.success.summaryTitle' => 'Summary',
     'confirm.success.period' => 'Period',
     'confirm.success.total' => 'Total price',
