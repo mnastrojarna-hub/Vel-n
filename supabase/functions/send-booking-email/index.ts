@@ -306,6 +306,7 @@ const FALLBACK_SUBJECTS: Record<string, (vars: Record<string, string>) => string
   booking_abandoned: (v) => `Dokon\u010dete svou rezervaci \u010d. ${v.booking_number} motocyklu u MotoGo24`,
   booking_abandoned_full: (v) => `Dokon\u010dete rezervaci \u010d. ${v.booking_number} \u2014 chyb\u00ed platba a doklady`,
   booking_missing_docs: (v) => `Nahrajte doklady k rezervaci \u010d. ${v.booking_number} \u2014 MotoGo24`,
+  invoice_payment_receipt: (v) => `Platba p\u0159ijata \u2014 rezervace #${v.booking_number}, dopl\u0148te doklady \u2014 MotoGo24`,
   booking_cancelled: (v) => `Va\u0161e rezervace \u010d. ${v.booking_number} motocyklu u MotoGo24 byla \u00fasp\u011b\u0161n\u011b stornov\u00e1na`,
   sos_incident: () => `SOS \u2014 MotoGo24 je na cest\u011b`,
   door_codes: (v) => `P\u0159\u00edstupov\u00e9 k\u00f3dy k pobo\u010dce \u2014 rezervace \u010d. ${v.booking_number}`,
@@ -1063,6 +1064,13 @@ serve(async (req) => {
       }
     }
 
+    // invoice_payment_receipt (web): platba přijata, ale chybí POVINNÁ čísla dokladů.
+    // Zajisti odkaz na doplnění (číslo OP/ŘP + skupina + dobrovolný scan) v jazyce
+    // zákazníka, i když ho caller nepředal — DB šablona ho používá přes {{docs_url}}.
+    if (type === 'invoice_payment_receipt' && !vars.docs_url && booking_id) {
+      vars.docs_url = docs_url || `${siteForLang(custLang)}/upravit-rezervaci?id=${booking_id}#doklady`
+    }
+
     // i18n: {{site_url}} placeholder → doména zákazníka (.cz pro cs, .com jinak).
     // Vars se sestavily před detekcí jazyka, takže přepíšeme až teď.
     vars.site_url = siteForLang(custLang)
@@ -1151,6 +1159,17 @@ ${vars.resume_link ? `<div style="text-align:center;margin:24px 0"><a href="${va
 <p>Aby vám dorazil <strong>přístupový kód k motorce</strong>, ještě potřebujeme naskenovat doklady (občanku/pas + řidičák). Sken přes mobil díky Mindee OCR zabere 30 vteřin.</p>
 ${vars.docs_url ? `<div style="text-align:center;margin:24px 0"><a href="${vars.docs_url}" style="display:inline-block;background:#74FB71;color:#1a2e22;padding:14px 28px;border-radius:25px;text-decoration:none;font-weight:800;font-size:15px">Nahrát doklady</a></div>` : ''}
 <p>Bez nahraných dokladů systém kódy nevydá — a platit za něco, co si nemůžete vyzvednout, by byla škoda.</p>
+<p>Tým MotoGo24</p>`
+      } else if (type === 'invoice_payment_receipt') {
+        // Platba přijata, ale chybí POVINNÁ čísla dokladů → jen ZF+DP + výzva
+        // doplnit čísla (povinné pro smlouvu) + dobrovolný scan. NE smlouva/VOP.
+        // (Fallback — reálné tělo edituje admin ve Velíně: web_invoice_payment_receipt.)
+        templateHtml = `<p>Dobrý den,</p>
+<p>vaše platba za rezervaci č. <strong>${vars.booking_number}</strong> motocyklu <strong>${vars.motorcycle}</strong> na <strong>${vars.start_date} – ${vars.end_date}</strong> byla úspěšně přijata — děkujeme!</p>
+<p>V příloze najdete <strong>zálohovou fakturu</strong> a <strong>doklad o přijaté platbě</strong> (celkem ${vars.total_price}).</p>
+<p>Ještě jeden krok: pro přípravu <strong>nájemní smlouvy</strong> prosím doplňte <strong>čísla dokladů</strong> (občanky/pasu a řidičského průkazu) a <strong>skupinu ŘP</strong> — to je povinné. Nahrání fotek dokladů je dobrovolné, ale předem odemkne přístupové kódy ke dveřím (nutné u autonomních poboček).</p>
+${vars.docs_url ? `<div style="text-align:center;margin:24px 0"><a href="${vars.docs_url}" style="display:inline-block;background:#74FB71;color:#1a2e22;padding:14px 28px;border-radius:25px;text-decoration:none;font-weight:800;font-size:15px">Doplnit doklady</a></div>` : ''}
+<p>Nájemní smlouvu a VOP vám pošleme, jakmile budou čísla dokladů vyplněná.</p>
 <p>Tým MotoGo24</p>`
       } else if (type === 'booking_reserved') {
         templateHtml = `<p>Dobr\u00fd den,</p>

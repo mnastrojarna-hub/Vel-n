@@ -189,6 +189,21 @@ export async function confirmBookingPayment(
         const source = booking.booking_source || 'app'
         const moto = booking.motorcycles as { model?: string; manual_url?: string } | null
 
+        // Rozhodni typ potvrzovacího mailu podle POVINNÝCH ČÍSEL dokladů (číslo
+        // OP/pasu + ŘP + skupina). Bez nich NELZE vygenerovat nájemní smlouvu →
+        // pošli jen potvrzení platby (invoice_payment_receipt: ZF+DP) + výzvu
+        // k doplnění, NE smlouvu/VOP (booking_reserved). Scan (foto/OCR) NENÍ
+        // podmínka smlouvy — odemyká jen door codes. Jakmile zákazník čísla
+        // doplní, smlouvu automaticky došle cron send_missing_booking_reserved_emails().
+        // Při chybě RPC (např. ještě nenasazená migrace) padni na původní chování.
+        let mailType = 'booking_reserved'
+        try {
+          const { data: docsState } = await supabase.rpc('check_booking_docs_state', { p_booking_id: bookingId })
+          if (docsState && typeof docsState === 'object' && (docsState as Record<string, unknown>).numbers_ok === false) {
+            mailType = 'invoice_payment_receipt'
+          }
+        } catch { /* fallback: booking_reserved */ }
+
         // POZN.: send-booking-email pro `booking_reserved` generuje 4 PDF přílohy
         // (ZF, DP, Smlouva, VOP) přes PDFShift — to může trvat dlouho a v časově
         // omezené webhookové cestě se odeslání může „utnout" dřív, než se vůbec
@@ -199,7 +214,7 @@ export async function confirmBookingPayment(
           const resp = await fetch(`${SUPABASE_URL}/functions/v1/send-booking-email`, {
             method: 'POST', headers,
             body: JSON.stringify({
-              type: 'booking_reserved',
+              type: mailType,
               booking_id: bookingId,
               customer_email: profile.email,
               customer_name: profile.full_name || '',
@@ -217,7 +232,7 @@ export async function confirmBookingPayment(
               action: resp.ok ? 'booking_reserved_mail_sent' : 'booking_reserved_mail_http_error',
               component: 'send-booking-email',
               status: resp.ok ? 'ok' : 'error',
-              request_data: { booking_id: bookingId, source, http_status: resp.status },
+              request_data: { booking_id: bookingId, source, mail_type: mailType, http_status: resp.status },
               error_message: resp.ok ? null : (await resp.text().catch(() => `HTTP ${resp.status}`)),
             })
           } catch { /* ignore */ }
