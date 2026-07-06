@@ -1168,8 +1168,8 @@ ${vars.docs_url ? `<div style="text-align:center;margin:24px 0"><a href="${vars.
         templateHtml = `<p>Dobrý den,</p>
 <p>vaše platba za rezervaci č. <strong>${vars.booking_number}</strong> motocyklu <strong>${vars.motorcycle}</strong> na <strong>${vars.start_date} – ${vars.end_date}</strong> byla úspěšně přijata — děkujeme!</p>
 <p>V příloze najdete <strong>zálohovou fakturu</strong> a <strong>doklad o přijaté platbě</strong> (celkem ${vars.total_price}).</p>
-<p>Ještě jeden krok: nahrajte prosím doklady (občanku/pas + řidičák) — teprve pak vám pošleme <strong>nájemní smlouvu a přístupové kódy</strong> k motorce a výbavě.</p>
-<div style="text-align:center;margin:24px 0"><a href="${paidDocsUrl}" style="display:inline-block;background:#74FB71;color:#1a2e22;padding:14px 28px;border-radius:25px;text-decoration:none;font-weight:800;font-size:15px">Nahrát doklady</a></div>
+<p>Ještě jeden krok: doplňte prosím údaje z dokladů (občanka/pas + řidičák) — teprve pak vám pošleme <strong>nájemní smlouvu a přístupové kódy</strong> k motorce a výbavě.</p>
+<div style="text-align:center;margin:24px 0"><a href="${paidDocsUrl}" style="display:inline-block;background:#74FB71;color:#1a2e22;padding:14px 28px;border-radius:25px;text-decoration:none;font-weight:800;font-size:15px">Doplnit údaje</a></div>
 <p>Tým MotoGo24</p>`
       } else if (type === 'booking_reserved') {
         templateHtml = `<p>Dobr\u00fd den,</p>
