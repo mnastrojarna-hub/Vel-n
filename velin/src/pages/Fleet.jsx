@@ -48,7 +48,8 @@ export default function Fleet() {
   useEffect(() => { localStorage.setItem('velin_fleet_filters', JSON.stringify(filters)) }, [filters])
   const [showAdd, setShowAdd] = useState(false)
   const [showBulk, setShowBulk] = useState(false)
-  const [selectedIds, setSelectedIds] = useState(new Set())
+  // Map<id, row> — drží celé řádky napříč stránkami, aby hromadná akce zahrnula i výběr z jiných stránek
+  const [selected, setSelected] = useState(new Map())
   const [actionMoto, setActionMoto] = useState(null)
   const [bookingCounts, setBookingCounts] = useState({})
   const [todayOccupied, setTodayOccupied] = useState(new Set())
@@ -263,9 +264,9 @@ export default function Fleet() {
           Reset
         </button>
         <div className="ml-auto flex items-center gap-2">
-          <Button onClick={() => setShowBulk(true)} disabled={selectedIds.size === 0}
-            style={{ background: selectedIds.size > 0 ? '#fde68a' : '#f1faf7', color: '#92400e', opacity: selectedIds.size === 0 ? 0.5 : 1 }}>
-            ☰ Hromadná správa{selectedIds.size > 0 ? ` (${selectedIds.size})` : ''}
+          <Button onClick={() => setShowBulk(true)} disabled={selected.size === 0}
+            style={{ background: selected.size > 0 ? '#fde68a' : '#f1faf7', color: '#92400e', opacity: selected.size === 0 ? 0.5 : 1 }}>
+            ☰ Hromadná správa{selected.size > 0 ? ` (${selected.size})` : ''}
           </Button>
           <Button green onClick={() => setShowAdd(true)}>+ Nová motorka</Button>
         </div>
@@ -300,12 +301,12 @@ export default function Fleet() {
               <TRow header>
                 <TH>
                   <input type="checkbox" className="accent-[#1a8a18] cursor-pointer" style={{ width: 16, height: 16 }}
-                    checked={motos.length > 0 && motos.every(m => selectedIds.has(m.id))}
+                    checked={motos.length > 0 && motos.every(m => selected.has(m.id))}
                     onChange={e => {
-                      const next = new Set(selectedIds)
-                      if (e.target.checked) motos.forEach(m => next.add(m.id))
+                      const next = new Map(selected)
+                      if (e.target.checked) motos.forEach(m => next.set(m.id, m))
                       else motos.forEach(m => next.delete(m.id))
-                      setSelectedIds(next)
+                      setSelected(next)
                     }} />
                 </TH>
                 <TH>Foto</TH><TH>Model</TH><TH>SPZ</TH><TH>Kategorie</TH><TH>Pobočka</TH>
@@ -320,16 +321,16 @@ export default function Fleet() {
                   key={m.id}
                   onClick={() => navigate(`/flotila/${m.id}`)}
                   className="cursor-pointer hover:bg-[#f1faf7] transition-colors"
-                  style={{ borderBottom: '1px solid #d4e8e0', background: selectedIds.has(m.id) ? '#fef9c3' : undefined }}
+                  style={{ borderBottom: '1px solid #d4e8e0', background: selected.has(m.id) ? '#fef9c3' : undefined }}
                 >
                   <TD>
                     <input type="checkbox" className="accent-[#1a8a18] cursor-pointer" style={{ width: 16, height: 16 }}
-                      checked={selectedIds.has(m.id)}
+                      checked={selected.has(m.id)}
                       onClick={e => e.stopPropagation()}
                       onChange={e => {
-                        const next = new Set(selectedIds)
-                        if (e.target.checked) next.add(m.id); else next.delete(m.id)
-                        setSelectedIds(next)
+                        const next = new Map(selected)
+                        if (e.target.checked) next.set(m.id, m); else next.delete(m.id)
+                        setSelected(next)
                       }} />
                   </TD>
                   <TD>
@@ -385,8 +386,8 @@ export default function Fleet() {
 
       {showAdd && <AddMotoModal branches={branches} onClose={() => setShowAdd(false)} onSaved={() => { setShowAdd(false); loadMotos() }} />}
       <MotoActionModal open={!!actionMoto} moto={actionMoto} onClose={() => setActionMoto(null)} onUpdated={() => { loadMotos(); setActionMoto(null) }} />
-      <FleetBulkActionsModal open={showBulk} onClose={() => setShowBulk(false)}
-        selectedMotos={motos.filter(m => selectedIds.has(m.id))}
+      <FleetBulkActionsModal open={showBulk} onClose={() => { setShowBulk(false); setSelected(new Map()) }}
+        selectedMotos={[...selected.values()]}
         onUpdated={() => { loadMotos(); loadBookingStats() }} />
     </div>
   )
