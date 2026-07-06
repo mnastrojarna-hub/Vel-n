@@ -888,6 +888,12 @@ return [
     'confirm.success.seeYouSoon' => 'Wir freuen uns auf Sie! 🏍️',
     'confirm.success.backHome' => 'Zurück zur Startseite',
     'confirm.success.continueShopping' => 'Weiter einkaufen',
+    // Dokumentenstatus auf der Danke-Seite — trennt strikt die PFLICHT-Dokumentnummern/Führerscheinklasse (für den Vertrag) vom OPTIONALEN Scan (schaltet Türcodes frei)
+    'confirm.docs.numbersDone' => '✓ Dokumentnummern und Führerscheinklasse ausgefüllt (für den Vertrag erforderlich).',
+    'confirm.docs.scanMissing' => '⚠ Der Dokumentenscan fehlt noch.',
+    'confirm.docs.scanMissingNote' => 'Der Scan (Foto von Ausweis/Reisepass + Führerschein) ist in bedienten Filialen nicht erforderlich — unser Personal prüft Ihre Dokumente bei der Übernahme. Wenn Sie den Scan vorab hochladen, schalten Sie die Türzugangscodes frei, die in Selbstbedienungsfilialen erforderlich sind.',
+    'confirm.docs.scanCta' => 'Dokumentenscan hochladen',
+    'confirm.docs.scanDone' => '✓ Wir haben Ihren Dokumentenscan — Prüfung abgeschlossen.',
     'confirm.pending.title' => 'Zahlung wird verarbeitet',
     'confirm.pending.text1' => 'Ihre Zahlung wurde gesendet und wartet auf die Bestätigung der Bank.',
     'confirm.pending.text2' => 'Sobald die Bank die Zahlung bestätigt, senden wir Ihnen per E-Mail die Buchungsbestätigung, eine Vorausrechnung, eine Anleitung zum Hochladen Ihrer Dokumente und nach der Verifizierung die Zugangscodes für das Motorrad.',

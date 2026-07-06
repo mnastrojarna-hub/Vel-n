@@ -1058,6 +1058,12 @@ return [
     'confirm.success.seeYouSoon' => 'See you soon! 🏍️',
     'confirm.success.backHome' => 'Back to homepage',
     'confirm.success.continueShopping' => 'Continue shopping',
+    // Document status on the thank-you page — strictly separates MANDATORY document numbers/licence group (for the contract) vs. OPTIONAL scan (unlocks door codes)
+    'confirm.docs.numbersDone' => '✓ Document numbers and licence group filled in (required for the contract).',
+    'confirm.docs.scanMissing' => '⚠ The document scan is still missing.',
+    'confirm.docs.scanMissingNote' => 'The scan (photo of ID/passport + driving licence) is not required at staffed branches — our staff will verify your documents on pickup. Uploading the scan in advance unlocks the door access codes, which are required at self-service branches.',
+    'confirm.docs.scanCta' => 'Upload document scan',
+    'confirm.docs.scanDone' => '✓ We have your document scan — verification completed.',
     'confirm.pending.title' => 'Payment is being processed',
     'confirm.pending.text1' => 'Your payment was sent and is awaiting confirmation from the bank.',
     'confirm.pending.text2' => 'As soon as the bank confirms the payment we will email you the booking confirmation, an advance invoice, instructions to upload your documents and — once verified — the motorcycle access codes.',

@@ -757,6 +757,12 @@ return [
     'confirm.success.seeYouSoon' => '¡Te esperamos! 🏍️',
     'confirm.success.backHome' => 'Volver a la página principal',
     'confirm.success.continueShopping' => 'Seguir comprando',
+    // Estado de los documentos en la página de agradecimiento — separa estrictamente los números de documento/categoría del permiso OBLIGATORIOS (para el contrato) del escaneo OPCIONAL (desbloquea los códigos de puerta)
+    'confirm.docs.numbersDone' => '✓ Números de documento y categoría del permiso rellenados (obligatorio para el contrato).',
+    'confirm.docs.scanMissing' => '⚠ Todavía falta el escaneo de los documentos.',
+    'confirm.docs.scanMissingNote' => 'El escaneo (foto del DNI/pasaporte + permiso de conducir) no es obligatorio en las sucursales atendidas — nuestro personal verificará tus documentos en la recogida. Subir el escaneo con antelación desbloquea los códigos de acceso a la puerta, necesarios en las sucursales de autoservicio.',
+    'confirm.docs.scanCta' => 'Subir escaneo de los documentos',
+    'confirm.docs.scanDone' => '✓ Tenemos el escaneo de tus documentos — verificación completada.',
     'confirm.pending.title' => 'Procesando el pago',
     'confirm.pending.text1' => 'Tu pago se ha enviado y está esperando la confirmación del banco.',
     'confirm.pending.text2' => 'En cuanto el banco confirme el pago te enviaremos por correo la confirmación de la reserva, una factura proforma, las instrucciones para subir tus documentos y, una vez verificados, los códigos de acceso a la moto.',

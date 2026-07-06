@@ -735,6 +735,12 @@ return [
     'confirm.success.seeYouSoon' => 'Do zobaczenia! 🏍️',
     'confirm.success.backHome' => 'Powrót na stronę główną',
     'confirm.success.continueShopping' => 'Kontynuuj zakupy',
+    // Status dokumentów na stronie podziękowania — ściśle rozdziela OBOWIĄZKOWE numery dokumentów/kategorię prawa jazdy (do umowy) od OPCJONALNEGO skanu (odblokowuje kody do drzwi)
+    'confirm.docs.numbersDone' => '✓ Numery dokumentów i kategoria prawa jazdy uzupełnione (wymagane do umowy).',
+    'confirm.docs.scanMissing' => '⚠ Skan dokumentów wciąż brakuje.',
+    'confirm.docs.scanMissingNote' => 'Skan (zdjęcie dowodu/paszportu + prawa jazdy) nie jest wymagany w oddziałach z obsługą — nasz personel zweryfikuje dokumenty przy odbiorze. Przesłanie skanu z wyprzedzeniem odblokowuje kody dostępu do drzwi, wymagane w oddziałach samoobsługowych.',
+    'confirm.docs.scanCta' => 'Prześlij skan dokumentów',
+    'confirm.docs.scanDone' => '✓ Mamy skan Twoich dokumentów — weryfikacja zakończona.',
     'confirm.pending.title' => 'Płatność jest przetwarzana',
     'confirm.pending.text1' => 'Twoja płatność została wysłana i czeka na potwierdzenie z banku.',
     'confirm.pending.text2' => 'Gdy bank potwierdzi płatność, prześlemy Ci e-mailem potwierdzenie rezerwacji, fakturę zaliczkową, instrukcję wgrania dokumentów oraz — po weryfikacji — kody dostępu do motocykla.',

@@ -1452,6 +1452,12 @@ return [
     'confirm.success.seeYouSoon' => 'Těšíme se na vás! 🏍️',
     'confirm.success.backHome' => 'Zpět na úvodní stránku',
     'confirm.success.continueShopping' => 'Pokračovat v nákupu',
+    // Stav dokladů na děkovací stránce — striktně rozlišuje POVINNÁ čísla dokladů/skupinu ŘP (do smlouvy) vs. VOLITELNÝ sken (odemyká door codes)
+    'confirm.docs.numbersDone' => '✓ Čísla dokladů a skupina ŘP vyplněny (povinné pro smlouvu).',
+    'confirm.docs.scanMissing' => '⚠ Sken dokladů zatím chybí.',
+    'confirm.docs.scanMissingNote' => 'Sken (foto OP/pasu + ŘP) není na obslužné pobočce povinný — doklady ověří obsluha při převzetí. Nahráním scanu předem ale odemknete přístupové kódy ke dveřím, nutné u autonomních poboček.',
+    'confirm.docs.scanCta' => 'Nahrát sken dokladů',
+    'confirm.docs.scanDone' => '✓ Sken dokladů máme — ověření proběhlo.',
     'confirm.pending.title' => 'Platba se zpracovává',
     'confirm.pending.text1' => 'Vaše platba byla odeslána a čeká na potvrzení od banky.',
     'confirm.pending.text2' => 'Jakmile banka platbu potvrdí, pošleme vám e-mailem zálohovou fakturu, návod na nahrání dokladů a po ověření také přístupové kódy k motorce.',

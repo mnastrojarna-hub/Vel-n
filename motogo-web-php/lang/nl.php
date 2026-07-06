@@ -735,6 +735,12 @@ return [
     'confirm.success.seeYouSoon' => 'Tot snel! 🏍️',
     'confirm.success.backHome' => 'Terug naar de startpagina',
     'confirm.success.continueShopping' => 'Verder winkelen',
+    // Documentstatus op de bedankpagina — scheidt strikt de VERPLICHTE documentnummers/rijbewijscategorie (voor het contract) van de OPTIONELE scan (ontgrendelt deurcodes)
+    'confirm.docs.numbersDone' => '✓ Documentnummers en rijbewijscategorie ingevuld (verplicht voor het contract).',
+    'confirm.docs.scanMissing' => '⚠ De scan van de documenten ontbreekt nog.',
+    'confirm.docs.scanMissingNote' => 'De scan (foto van ID/paspoort + rijbewijs) is niet verplicht bij bemande vestigingen — onze medewerkers controleren je documenten bij het ophalen. Door de scan vooraf te uploaden ontgrendel je de deurtoegangscodes, die nodig zijn bij selfservicevestigingen.',
+    'confirm.docs.scanCta' => 'Scan van documenten uploaden',
+    'confirm.docs.scanDone' => '✓ We hebben de scan van je documenten — verificatie voltooid.',
     'confirm.pending.title' => 'Betaling wordt verwerkt',
     'confirm.pending.text1' => 'Uw betaling is verzonden en wacht op bevestiging van de bank.',
     'confirm.pending.text2' => 'Zodra de bank de betaling bevestigt, sturen we u per e-mail de boekingsbevestiging, een voorschotfactuur, instructies om uw documenten te uploaden en — na verificatie — de toegangscodes voor de motor.',

@@ -756,6 +756,12 @@ return [
     'confirm.success.seeYouSoon' => 'À bientôt ! 🏍️',
     'confirm.success.backHome' => 'Retour à la page d\'accueil',
     'confirm.success.continueShopping' => 'Continuer mes achats',
+    // Statut des documents sur la page de remerciement — sépare strictement les numéros de document/catégorie de permis OBLIGATOIRES (pour le contrat) du scan FACULTATIF (débloque les codes de porte)
+    'confirm.docs.numbersDone' => '✓ Numéros de document et catégorie de permis renseignés (obligatoire pour le contrat).',
+    'confirm.docs.scanMissing' => '⚠ Le scan des documents est encore manquant.',
+    'confirm.docs.scanMissingNote' => 'Le scan (photo de la pièce d\'identité/du passeport + permis de conduire) n\'est pas obligatoire dans les agences avec personnel — notre équipe vérifiera vos documents lors de la prise en charge. En téléversant le scan à l\'avance, vous débloquez les codes d\'accès à la porte, nécessaires dans les agences en libre-service.',
+    'confirm.docs.scanCta' => 'Téléverser le scan des documents',
+    'confirm.docs.scanDone' => '✓ Nous avons le scan de vos documents — vérification terminée.',
     'confirm.pending.title' => 'Paiement en cours de traitement',
     'confirm.pending.text1' => 'Votre paiement a été envoyé et attend la confirmation de la banque.',
     'confirm.pending.text2' => 'Dès que la banque confirme le paiement, nous vous enverrons par e-mail la confirmation de la réservation, une facture d\'acompte, les instructions pour téléverser vos documents et, après vérification, les codes d\'accès à la moto.',
