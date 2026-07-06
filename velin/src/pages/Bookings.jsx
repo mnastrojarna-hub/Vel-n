@@ -53,7 +53,8 @@ export default function Bookings() {
   useEffect(() => { localStorage.setItem('velin_bookings_filters', JSON.stringify(filters)) }, [filters])
   const [showAdd, setShowAdd] = useState(false)
   const [showBulk, setShowBulk] = useState(false)
-  const [selectedIds, setSelectedIds] = useState(new Set())
+  // Map<id, row> — drží celé řádky napříč stránkami, aby hromadná akce zahrnula i výběr z jiných stránek
+  const [selected, setSelected] = useState(new Map())
   const [view, setView] = useState(() => searchParams.get('view') === 'odjezdy' ? 'Odjezdy a návraty' : 'Seznam')
   const [showFilters, setShowFilters] = useState(false)
   const [branches, setBranches] = useState([])
@@ -257,9 +258,9 @@ export default function Bookings() {
         )}
         <div className="ml-auto flex items-center gap-2">
           {view === 'Seznam' && (
-            <Button onClick={() => setShowBulk(true)} disabled={selectedIds.size === 0}
-              style={{ background: selectedIds.size > 0 ? '#fde68a' : '#f1faf7', color: '#92400e', opacity: selectedIds.size === 0 ? 0.5 : 1 }}>
-              ☰ Hromadná správa{selectedIds.size > 0 ? ` (${selectedIds.size})` : ''}
+            <Button onClick={() => setShowBulk(true)} disabled={selected.size === 0}
+              style={{ background: selected.size > 0 ? '#fde68a' : '#f1faf7', color: '#92400e', opacity: selected.size === 0 ? 0.5 : 1 }}>
+              ☰ Hromadná správa{selected.size > 0 ? ` (${selected.size})` : ''}
             </Button>
           )}
           <Button green onClick={() => setShowAdd(true)}>+ Nová rezervace</Button>
@@ -296,15 +297,15 @@ export default function Bookings() {
       ) : (
         <>
           <BookingsTable bookings={bookings} navigate={navigate} fmtDateRange={fmtDateRange} dpTotals={dpTotals} setDeleteConfirm={setDeleteConfirm} setCancelTarget={setCancelTarget}
-            selectedIds={selectedIds} setSelectedIds={setSelectedIds} />
+            selected={selected} setSelected={setSelected} />
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
         </>
       )}
 
       {showAdd && <NewBookingModal onClose={() => setShowAdd(false)} onSaved={() => { setShowAdd(false); loadBookings() }} />}
 
-      <BookingsBulkActionsModal open={showBulk} onClose={() => setShowBulk(false)}
-        selectedBookings={bookings.filter(b => selectedIds.has(b.id))}
+      <BookingsBulkActionsModal open={showBulk} onClose={() => { setShowBulk(false); setSelected(new Map()) }}
+        selectedBookings={[...selected.values()]}
         onUpdated={() => { loadBookings() }} />
 
       {deleteConfirm && (

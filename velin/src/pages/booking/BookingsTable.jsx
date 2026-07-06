@@ -3,26 +3,27 @@ import StatusBadge, { getDisplayStatus } from '../../components/ui/StatusBadge'
 import { paymentStatusInfo } from './bookingConstants'
 import { rentalDays } from '../../lib/rentalDays'
 
-export default function BookingsTable({ bookings, navigate, fmtDateRange, dpTotals, setDeleteConfirm, setCancelTarget, selectedIds, setSelectedIds }) {
-  const allSelected = bookings.length > 0 && selectedIds && bookings.every(b => selectedIds.has(b.id))
+export default function BookingsTable({ bookings, navigate, fmtDateRange, dpTotals, setDeleteConfirm, setCancelTarget, selected, setSelected }) {
+  // `selected` je Map<id, row> — drží celé řádky napříč stránkami, aby hromadná akce zahrnula i výběr z jiných stránek
+  const allSelected = bookings.length > 0 && selected && bookings.every(b => selected.has(b.id))
   const toggleAll = e => {
-    if (!setSelectedIds) return
-    const next = new Set(selectedIds)
-    if (e.target.checked) bookings.forEach(b => next.add(b.id))
+    if (!setSelected) return
+    const next = new Map(selected)
+    if (e.target.checked) bookings.forEach(b => next.set(b.id, b))
     else bookings.forEach(b => next.delete(b.id))
-    setSelectedIds(next)
+    setSelected(next)
   }
-  const toggleOne = (id, checked) => {
-    if (!setSelectedIds) return
-    const next = new Set(selectedIds)
-    if (checked) next.add(id); else next.delete(id)
-    setSelectedIds(next)
+  const toggleOne = (row, checked) => {
+    if (!setSelected) return
+    const next = new Map(selected)
+    if (checked) next.set(row.id, row); else next.delete(row.id)
+    setSelected(next)
   }
   return (
     <Table>
       <thead>
         <TRow header>
-          {selectedIds && (
+          {selected && (
             <TH>
               <input type="checkbox" checked={allSelected} onChange={toggleAll}
                 className="accent-[#1a8a18] cursor-pointer" style={{ width: 16, height: 16 }} />
@@ -40,7 +41,7 @@ export default function BookingsTable({ bookings, navigate, fmtDateRange, dpTota
             (toLocalDate(b.start_date) !== toLocalDate(b.original_start_date) || toLocalDate(b.end_date) !== toLocalDate(b.original_end_date))
           const origDays = hasDateChange ? rentalDays(b.original_start_date, b.original_end_date) : null
           const daysDelta = origDays !== null && typeof days === 'number' ? days - origDays : null
-          const isSelected = selectedIds?.has(b.id)
+          const isSelected = selected?.has(b.id)
           const rowBg = isSelected ? '#fef9c3'
             : b.booking_source === 'web' ? '#eff6ff'
             : b.booking_source === 'app' ? '#f0fff0' : undefined
@@ -48,11 +49,11 @@ export default function BookingsTable({ bookings, navigate, fmtDateRange, dpTota
             <tr key={b.id} onClick={() => navigate(`/rezervace/${b.id}`)}
               className="cursor-pointer hover:bg-[#f1faf7] transition-colors"
               style={{ borderBottom: '1px solid #d4e8e0', background: rowBg }}>
-              {selectedIds && (
+              {selected && (
                 <TD>
                   <input type="checkbox" checked={!!isSelected}
                     onClick={e => e.stopPropagation()}
-                    onChange={e => toggleOne(b.id, e.target.checked)}
+                    onChange={e => toggleOne(b, e.target.checked)}
                     className="accent-[#1a8a18] cursor-pointer" style={{ width: 16, height: 16 }} />
                 </TD>
               )}
