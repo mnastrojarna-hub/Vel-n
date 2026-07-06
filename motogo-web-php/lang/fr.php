@@ -1458,6 +1458,7 @@ return [
     'confirm.success.docsLabel' => 'Documents',
     'confirm.success.docsVerified' => 'Vérifiés',
     'confirm.success.docsNotVerified' => 'Non vérifiés',
+    'confirm.success.docsFilledOptional' => 'Renseignés — photo facultative',
     'confirm.success.editReservation' => 'Modifier / annuler la réservation',
     'confirm.paydocs.title' => 'Paiement reçu, merci !',
     'confirm.paydocs.lead' => 'Merci, {name}. Votre paiement a bien été effectué. Il ne reste qu\'une dernière étape : renseigner et téléverser vos documents pour que nous puissions confirmer votre réservation et envoyer les codes d\'accès.',

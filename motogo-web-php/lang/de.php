@@ -1472,6 +1472,7 @@ return [
     'confirm.success.docsLabel' => 'Dokumente',
     'confirm.success.docsVerified' => 'Verifiziert',
     'confirm.success.docsNotVerified' => 'Nicht verifiziert',
+    'confirm.success.docsFilledOptional' => 'Ausgefüllt — Foto optional',
     'confirm.success.editReservation' => 'Buchung bearbeiten / stornieren',
     'confirm.paydocs.title' => 'Zahlung erhalten, danke!',
     'confirm.paydocs.lead' => 'Danke, {name}. Deine Zahlung war erfolgreich. Ein letzter Schritt bleibt — fülle deine Dokumente aus und lade sie hoch, damit wir deine Buchung bestätigen und die Zugangscodes senden können.',
