@@ -11,10 +11,19 @@ $startDate = $_GET['start'] ?? '';
 $endDate = $_GET['end'] ?? '';
 $delivery = $_GET['delivery'] ?? '';
 $resume = $_GET['resume'] ?? '';
+// Návrat ze zamítnuté / zrušené platby (Stripe cancel_url = /rezervace?resume=<id>&payfail=1).
+// Zákazník se vrací na krok platby — banner mu nabídne opakování / jinou metodu.
+// Renderujeme MIMO #rezervace-app (ten JS přepíše), aby hláška zůstala nahoře.
+$payfail = ($_GET['payfail'] ?? '') === '1';
+$payfailBanner = $payfail
+    ? '<div class="rez-payfail-notice" role="alert" style="margin:0 0 16px;padding:14px 18px;border-radius:12px;background:#fff4e5;border:1px solid #f0b268;color:#8a4b00;font-weight:600;line-height:1.5">'
+        . '⚠ ' . te('rez.payfail.notice') . '</div>'
+    : '';
 
 $content = '<main id="content"><div class="container">' . $bc .
     '<div class="ccontent pcontent pcontent-wide">' .
     '<h1>' . te('rez.h1') . '</h1>' .
+    $payfailBanner .
     '<div id="rezervace-app"><div class="loading-overlay"><span class="spinner"></span> ' . te('rezervace.loading') . '</div></div>' .
     '</div></div></main>';
 
