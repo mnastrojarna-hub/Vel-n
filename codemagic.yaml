@@ -127,6 +127,18 @@ workflows:
         script: |
           cd $CM_BUILD_DIR/Motogo-app-main/motogo-app-flutter-ios
           flutter pub get
+      - name: Fetch / create signing files (cert + App Store profil)
+        script: |
+          # Integrace app_store_connect exportuje API-klíč do env (APP_STORE_CONNECT_*),
+          # takže app-store-connect CLI se jím autentizuje sám.
+          # --create zaregistruje chybějící App ID, vytvoří distribuční certifikát
+          # a App Store provisioning profil pro com.motogo24.app, pokud ještě nejsou
+          # v Apple Developer portálu → řeší "No matching profiles found".
+          keychain initialize
+          app-store-connect fetch-signing-files "com.motogo24.app" \
+            --type IOS_APP_STORE \
+            --create
+          keychain add-certificates
       - name: Apply provisioning profiles
         script: |
           xcode-project use-profiles --project="$CM_BUILD_DIR/Motogo-app-main/motogo-app-flutter-ios/ios/Runner.xcodeproj"
