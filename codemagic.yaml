@@ -110,6 +110,9 @@ workflows:
         # Env group "firebase_ios" se secure proměnnou GOOGLE_SERVICE_INFO_PLIST
         # (base64 obsahu GoogleService-Info.plist z Firebase console).
         - firebase_ios
+        # Env group "ios_signing" se secure proměnnou CERTIFICATE_PRIVATE_KEY
+        # (RSA privátní klíč pro distribuční certifikát — viz krok níže).
+        - ios_signing
     scripts:
       - name: Write GoogleService-Info.plist (Firebase iOS config)
         script: |
@@ -129,14 +132,27 @@ workflows:
           flutter pub get
       - name: Fetch / create signing files (cert + App Store profil)
         script: |
-          # Integrace app_store_connect exportuje API-klíč do env (APP_STORE_CONNECT_*),
+          # Integrace app_store_connect exportuje ASC API-klíč do env (APP_STORE_CONNECT_*),
           # takže app-store-connect CLI se jím autentizuje sám.
-          # --create zaregistruje chybějící App ID, vytvoří distribuční certifikát
-          # a App Store provisioning profil pro com.motogo24.app, pokud ještě nejsou
-          # v Apple Developer portálu → řeší "No matching profiles found".
+          # CERTIFICATE_PRIVATE_KEY = TRVALÝ RSA privátní klíč (env group ios_signing),
+          # kterým se distribuční certifikát vytvoří a v dalších buildech spáruje.
+          # Bez něj fetch-signing-files neumí certifikát uložit
+          # ("Cannot save Signing Certificates without certificate private key"),
+          # protože Apple privátní klíč existujícího certifikátu nikdy nevydá.
+          if [ -z "$CERTIFICATE_PRIVATE_KEY" ]; then
+            echo "ERROR: CERTIFICATE_PRIVATE_KEY není nastavená."
+            echo "Vygeneruj klíč:  ssh-keygen -t rsa -b 2048 -m PEM -f cert_key -q -N ''"
+            echo "a obsah souboru 'cert_key' vlož jako SECURE env var CERTIFICATE_PRIVATE_KEY"
+            echo "do env group 'ios_signing' v Codemagicu."
+            exit 1
+          fi
           keychain initialize
+          # --certificate-key: privátní klíč pro certifikát; --create vytvoří nový
+          # distribuční cert (spárovaný s tímto klíčem) i App Store provisioning
+          # profil pro com.motogo24.app, pokud ještě nejsou v Apple Developer portálu.
           app-store-connect fetch-signing-files "com.motogo24.app" \
             --type IOS_APP_STORE \
+            --certificate-key @env:CERTIFICATE_PRIVATE_KEY \
             --create
           keychain add-certificates
       - name: Apply provisioning profiles
