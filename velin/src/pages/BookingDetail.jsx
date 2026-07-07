@@ -431,7 +431,7 @@ export default function BookingDetail() {
       {tab === 'Reklamace' && <ComplaintsTab bookingId={id} booking={booking} setBooking={setBooking} />}
       {confirm && <ConfirmDialog open title={`${confirm.label}?`} message={`Změnit stav na "${confirm.label}"?`} danger={confirm.danger} onConfirm={() => changeStatus(confirm.status)} onCancel={() => setConfirm(null)} />}
       <BookingCancelModal open={showCancelModal} onClose={() => setShowCancelModal(false)} cancelReason={cancelReason} setCancelReason={setCancelReason} cancelReasonCustom={cancelReasonCustom} setCancelReasonCustom={setCancelReasonCustom} onCancel={handleCancel} saving={saving} error={error} />
-      <PaymentConfirmModal open={showPaymentModal} onClose={() => { setShowPaymentModal(false); setError(null) }} onConfirm={confirmManualPayment} saving={saving} error={error} total={booking?.total_price} bookingId={id} />
+      <PaymentConfirmModal open={showPaymentModal} onClose={() => { setShowPaymentModal(false); setError(null) }} onConfirm={confirmManualPayment} saving={saving} error={error} total={booking?.total_price} bookingId={id} payChannel={booking?.pay_channel} paymentVs={booking?.payment_vs} />
     </div>
   )
 }
