@@ -126,6 +126,17 @@ workflows:
           fi
           echo "$GOOGLE_SERVICE_INFO_PLIST" | base64 --decode > "$PLIST_PATH"
           plutil -lint "$PLIST_PATH"
+      - name: Disable Swift Package Manager (Firebase pody ho nepodporují)
+        script: |
+          # firebase_core / firebase_messaging / connectivity_plus /
+          # flutter_secure_storage NEPODPORUJÍ Swift Package Manager. Když má
+          # Flutter na build stroji SPM zapnutý, `flutter build ipa` přidá SPM
+          # integraci ("Adding Swift Package Manager integration"), PŘEPÍŠE
+          # Podfile a změní stavbu modulů → úpravy Podfile (CLANG_ALLOW i
+          # linkage) se vůbec neprojeví a firebase_messaging padá na
+          # non-modular <Firebase/Firebase.h>. Vypnutím SPM se použije čistý
+          # CocoaPods flow s naším Podfile.
+          flutter config --no-enable-swift-package-manager
       - name: Get Flutter packages
         script: |
           cd $CM_BUILD_DIR/Motogo-app-main/motogo-app-flutter-ios
