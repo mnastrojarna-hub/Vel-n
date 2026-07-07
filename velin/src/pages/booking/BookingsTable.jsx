@@ -3,7 +3,7 @@ import StatusBadge, { getDisplayStatus } from '../../components/ui/StatusBadge'
 import { paymentStatusInfo } from './bookingConstants'
 import { rentalDays } from '../../lib/rentalDays'
 
-export default function BookingsTable({ bookings, navigate, fmtDateRange, dpTotals, setDeleteConfirm, setCancelTarget, selected, setSelected }) {
+export default function BookingsTable({ bookings, navigate, fmtDateRange, dpTotals, scanStatus = {}, setDeleteConfirm, setCancelTarget, selected, setSelected }) {
   // `selected` je Map<id, row> — drží celé řádky napříč stránkami, aby hromadná akce zahrnula i výběr z jiných stránek
   const allSelected = bookings.length > 0 && selected && bookings.every(b => selected.has(b.id))
   const toggleAll = e => {
@@ -30,7 +30,7 @@ export default function BookingsTable({ bookings, navigate, fmtDateRange, dpTota
             </TH>
           )}
           <TH>ID</TH><TH>Zákazník</TH><TH>Motorka</TH>
-          <TH>Od</TH><TH>Do</TH><TH>Dní</TH><TH>Částka</TH><TH>Platba</TH><TH>Stav</TH><TH>Vytvořeno</TH><TH>Akce</TH>
+          <TH>Od</TH><TH>Do</TH><TH>Dní</TH><TH>Částka</TH><TH>Platba</TH><TH>Stav</TH><TH>Doklady</TH><TH>Vytvořeno</TH><TH>Akce</TH>
         </TRow>
       </thead>
       <tbody>
@@ -85,6 +85,31 @@ export default function BookingsTable({ bookings, navigate, fmtDateRange, dpTota
                 {b.sos_replacement && <span className="ml-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-btn" style={{ background: '#dcfce7', color: '#1a8a18' }}>SOS</span>}
                 {b.ended_by_sos && <span className="ml-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-btn" style={{ background: '#fee2e2', color: '#b91c1c' }}>SOS</span>}
                 {b.complaint_status && <span className="ml-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-btn" style={{ background: '#fef3c7', color: '#92400e' }}>RKL</span>}
+              </TD>
+              <TD>
+                {(() => {
+                  const pill = (label, title, color, bg) => (
+                    <span title={title} className="inline-flex items-center text-[10px] font-extrabold rounded-btn"
+                      style={{ padding: '2px 6px', background: bg, color, whiteSpace: 'nowrap' }}>{label}</span>
+                  )
+                  const isWeb = b.booking_source === 'web'
+                  const docsDone = !!b.docs_completed_at
+                  const scan = scanStatus[b.user_id] || { count: 0, ok: 0 }
+                  return (
+                    <div className="flex items-center gap-1">
+                      {/* Krok 4 — vypsaná čísla dokladů (jen web flow; app tento krok nemá) */}
+                      {docsDone
+                        ? pill('Č ✓', 'Krok 4 dokončen — čísla dokladů vyplněna', '#166534', '#dcfce7')
+                        : isWeb
+                          ? pill('Č ✗', 'Krok 4 nedokončen — čísla dokladů zatím nevyplněna', '#b91c1c', '#fee2e2')
+                          : pill('Č —', 'Vypsání čísel dokladů (krok 4) se týká jen webových rezervací', '#5a6b63', '#eef2f0')}
+                      {/* Sken dokladů (OP/ŘP/pas) nahraný zákazníkem */}
+                      {scan.count > 0
+                        ? pill(`📷 ${scan.ok > 0 ? scan.ok + '✓' : 'ano'}`, `Sken dokladů nahrán (${scan.count} ks, z toho ${scan.ok} ověřeno OCR)`, '#166534', '#dcfce7')
+                        : pill('📷 ✗', 'Sken dokladů nenahrán', '#b91c1c', '#fee2e2')}
+                    </div>
+                  )
+                })()}
               </TD>
               <TD><span className="text-sm" style={{ color: '#1a2e22' }}>{b.created_at ? new Date(b.created_at).toLocaleString('cs-CZ') : '—'}</span></TD>
               <TD>

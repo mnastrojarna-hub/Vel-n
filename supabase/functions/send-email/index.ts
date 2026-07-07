@@ -396,12 +396,16 @@ serve(async (req) => {
       })
     } catch (e) { /* ignore logging errors */ }
 
-    // Also log to sent_emails for backwards compatibility
+    // Also log to sent_emails (Velín → Dokumenty → Zaslané maily).
+    // POZOR: sloupce MUSÍ odpovídat živé tabulce (vytvořené v dashboardu, ne migrací).
+    // `recipient_id` v živé `sent_emails` NEEXISTUJE → jeho uvedení shazovalo CELÝ
+    // insert (tichý catch) a mail se do „Zaslané maily" NEULOŽIL (např. booking_qr_payment).
+    // send-booking-email/send-cancellation-email ho proto neuvádějí a logují korektně —
+    // sjednoceno na stejný ověřený tvar sloupců.
     try {
       await supabase.from('sent_emails').insert({
         template_slug: resolvedSlug || 'manual',
         recipient_email: to,
-        recipient_id: customer_id || null,
         booking_id: booking_id || null,
         subject,
         body_html: html,
@@ -567,10 +571,11 @@ async function handleInvoiceEmail(
   } catch (e) { /* ignore */ }
 
   try {
+    // `recipient_id` neuvádět — v živé sent_emails neexistuje (viz pozn. výše), jinak
+    // by tichý catch zahodil celý insert a doklad by se neuložil do „Zaslané maily".
     await supabase.from('sent_emails').insert({
       template_slug: 'invoice',
       recipient_email: profile.email,
-      recipient_id: invoice.customer_id || null,
       booking_id: invoice.booking_id || null,
       subject,
       body_html: html,

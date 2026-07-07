@@ -66,6 +66,9 @@ export default function Bookings() {
   const [cancelSaving, setCancelSaving] = useState(false)
   const [cancelError, setCancelError] = useState(null)
   const [dpTotals, setDpTotals] = useState({})
+  // Map<user_id, {count, ok}> — počet nahraných skenů dokladů (OP/ŘP/pas) zákazníka
+  // pro sloupec „Doklady" v seznamu (sken ano/ne + kolik ověřeno OCR).
+  const [scanStatus, setScanStatus] = useState({})
 
   useEffect(() => { if (view === 'Seznam') loadBookings() }, [page, filters, view])
   useEffect(() => {
@@ -180,6 +183,25 @@ export default function Bookings() {
           dpInvoices.forEach(i => { map[i.booking_id] = (map[i.booking_id] || 0) + Number(i.total || 0) })
           setDpTotals(map)
         }
+      }
+      // Sken dokladů (sloupec „Doklady"): dávkově zjisti, kolik ověřovacích skenů
+      // (OP/ŘP/pas) má každý zákazník ze zobrazené stránky. Jeden dotaz s `in`.
+      const userIds = [...new Set(data.map(b => b.user_id).filter(Boolean))]
+      if (userIds.length > 0) {
+        const { data: docs } = await supabase.from('documents')
+          .select('user_id, metadata')
+          .in('user_id', userIds)
+          .in('type', ['drivers_license', 'license_photo', 'id_card', 'id_photo', 'passport'])
+        const smap = {}
+        ;(docs || []).forEach(d => {
+          const cur = smap[d.user_id] || { count: 0, ok: 0 }
+          cur.count++
+          if (d?.metadata?.mindee_status === 'ok') cur.ok++
+          smap[d.user_id] = cur
+        })
+        setScanStatus(smap)
+      } else {
+        setScanStatus({})
       }
     } catch (e) {
       setError(e.message)
@@ -296,7 +318,7 @@ export default function Bookings() {
         <div className="flex justify-center py-16"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
       ) : (
         <>
-          <BookingsTable bookings={bookings} navigate={navigate} fmtDateRange={fmtDateRange} dpTotals={dpTotals} setDeleteConfirm={setDeleteConfirm} setCancelTarget={setCancelTarget}
+          <BookingsTable bookings={bookings} navigate={navigate} fmtDateRange={fmtDateRange} dpTotals={dpTotals} scanStatus={scanStatus} setDeleteConfirm={setDeleteConfirm} setCancelTarget={setCancelTarget}
             selected={selected} setSelected={setSelected} />
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
         </>

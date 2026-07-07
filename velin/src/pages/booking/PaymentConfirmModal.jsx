@@ -14,7 +14,7 @@ import { MANUAL_PAYMENT_METHODS } from './bookingConstants'
  * Pokud k rezervaci existují vystavené zálohové faktury (ZF), nabídne jejich výběr,
  * aby se platba + DP navázaly na konkrétní ZF (spárování dokladů a VS).
  */
-export default function PaymentConfirmModal({ open, onClose, onConfirm, saving, error, total, bookingId }) {
+export default function PaymentConfirmModal({ open, onClose, onConfirm, saving, error, total, bookingId, payChannel, paymentVs }) {
   const today = new Date().toISOString().slice(0, 10)
   const [method, setMethod] = useState('bank_transfer')
   const [vs, setVs] = useState('')
@@ -22,14 +22,35 @@ export default function PaymentConfirmModal({ open, onClose, onConfirm, saving, 
   const [txRef, setTxRef] = useState('')
   const [advances, setAdvances] = useState([])
   const [advanceId, setAdvanceId] = useState('')
+  // Skutečný VS, kterým zákazník platil QR / převodem (bookings.payment_vs). Je to
+  // ZDROJ PRAVDY — QR kód i ZF nesou právě tento číselný VS. Když existuje, VŽDY
+  // přebije fakturní VS/číslo (i při ruční změně ZF v selectu), ať se platba spáruje.
+  const [qrVs, setQrVs] = useState('')
 
-  // Načti vystavené ZF (zálohové / proforma) k rezervaci při otevření.
-  // - existuje ZF → VS z ní (zákazník platil tímto VS)
-  // - žádná ZF → nabídni automaticky následující číslo DP jako VS
+  // Načti vystavené ZF (zálohové / proforma) k rezervaci při otevření + skutečný VS
+  // QR platby. Priorita VS:
+  //   1) QR/převod → bookings.payment_vs (číselný VS z QR kódu / ZF) — vždy správně
+  //   2) existuje ZF → variable_symbol z ní (jinak její číslo)
+  //   3) žádná ZF → nabídni automaticky následující číslo DP jako VS
   useEffect(() => {
     if (!open || !bookingId) return
     let active = true
+    setQrVs('')
     ;(async () => {
+      // payment_vs se plní jen u QR/převodu; když ho parent nepředal, dočti ho z DB
+      // (rezervace se potvrzuje ručně klidně hodinu po platbě → čti čerstvě).
+      let channel = payChannel || null
+      let vsNum = (channel === 'qr' && paymentVs) ? String(paymentVs) : ''
+      if (!vsNum) {
+        try {
+          const { data: bk } = await supabase.from('bookings')
+            .select('pay_channel, payment_vs').eq('id', bookingId).maybeSingle()
+          if (bk?.pay_channel === 'qr' && bk?.payment_vs) vsNum = String(bk.payment_vs)
+        } catch { /* ignore → padne na fakturní VS */ }
+      }
+      if (!active) return
+      setQrVs(vsNum)
+
       const { data } = await supabase.from('invoices')
         .select('id, number, total, issue_date, variable_symbol')
         .eq('booking_id', bookingId).in('type', ['advance', 'proforma']).neq('status', 'cancelled')
@@ -38,8 +59,14 @@ export default function PaymentConfirmModal({ open, onClose, onConfirm, saving, 
       const list = data || []
       setAdvances(list)
       if (list.length > 0) {
-        setAdvanceId(list[0].id)
-        setVs(list[0].variable_symbol || list[0].number || '')
+        // Přednostně vyber ZF, jejíž VS odpovídá skutečnému QR VS (spárování platby).
+        const match = vsNum ? list.find(a => String(a.variable_symbol || '') === vsNum) : null
+        const chosen = match || list[0]
+        setAdvanceId(chosen.id)
+        setVs(vsNum || chosen.variable_symbol || chosen.number || '')
+      } else if (vsNum) {
+        // QR bez vystavené ZF (např. selhala generace) → drž skutečný VS zákazníka.
+        setVs(vsNum)
       } else {
         try {
           const next = await generateInvoiceNumber('payment_receipt')
@@ -48,7 +75,7 @@ export default function PaymentConfirmModal({ open, onClose, onConfirm, saving, 
       }
     })()
     return () => { active = false }
-  }, [open, bookingId])
+  }, [open, bookingId, payChannel, paymentVs])
 
   if (!open) return null
 
@@ -60,7 +87,8 @@ export default function PaymentConfirmModal({ open, onClose, onConfirm, saving, 
   function pickAdvance(id) {
     setAdvanceId(id)
     const adv = advances.find(a => a.id === id)
-    if (adv) setVs(adv.variable_symbol || adv.number || '')
+    // U QR/převodu zůstává VS = skutečný VS zákazníka i po ruční změně ZF.
+    if (adv) setVs(qrVs || adv.variable_symbol || adv.number || '')
   }
 
   function submit() {

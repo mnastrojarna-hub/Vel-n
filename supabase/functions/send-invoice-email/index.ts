@@ -408,7 +408,8 @@ serve(async (req) => {
 
     // Log
     try { await supabase.from('message_log').insert({ channel: 'email', direction: 'outbound', recipient_email: recipientEmail, customer_id: invoice.customer_id || null, booking_id: invoice.booking_id || null, template_slug: templateSlug, content_preview: subject.slice(0, 160), body: html, external_id: result.provider_id || null, status: result.success ? 'sent' : 'failed', error_message: result.error || null, is_marketing: false }) } catch {}
-    try { await supabase.from('sent_emails').insert({ template_slug: templateSlug, recipient_email: recipientEmail, recipient_id: invoice.customer_id || null, booking_id: invoice.booking_id || null, subject, body_html: html, status: result.success ? 'sent' : 'failed', error_message: result.error || null, provider_id: result.provider_id || null, attachments_meta: attachmentsMeta.length ? attachmentsMeta : null }) } catch {}
+    // `recipient_id` neuvádět — v živé sent_emails neexistuje, jinak tichý catch zahodí celý insert (mail se neuloží do „Zaslané maily").
+    try { await supabase.from('sent_emails').insert({ template_slug: templateSlug, recipient_email: recipientEmail, booking_id: invoice.booking_id || null, subject, body_html: html, status: result.success ? 'sent' : 'failed', error_message: result.error || null, provider_id: result.provider_id || null, attachments_meta: attachmentsMeta.length ? attachmentsMeta : null }) } catch {}
 
     if (!result.success) {
       try { await supabase.from('debug_log').insert({ source: 'send-invoice-email', action: 'invoice_email_failed', component: 'edge-function', status: 'error', error_message: result.error, request_data: { invoice_id } }) } catch {}
