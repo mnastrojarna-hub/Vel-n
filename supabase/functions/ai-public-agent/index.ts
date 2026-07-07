@@ -437,7 +437,7 @@ const PUBLIC_TOOLS = [
   },
   {
     name: 'create_booking_request',
-    description: 'Vytvoří skutečnou rezervaci v systému (status pending) a vrátí přímý Stripe Checkout URL. ABSOLUTNÍ PODMÍNKY VOLÁNÍ (musí být splněny VŠECHNY): (1) máš v argumentech vyplněna VŠECHNA povinná pole bez výjimky (moto_id, start_date, end_date, name, email, phone, street, city, zip, date_of_birth, license_group, id_type, id_number, password — a navíc license_number + license_expiry pokud license_group ≠ N); (1b) máš consent_vop=true a consent_gdpr=true, protože zákazník v chatu VÝSLOVNĚ odsouhlasil VOP a zpracování osobních údajů (GDPR) — bez obou souhlasů tool NIKDY nevol (na webu jsou to povinné checkboxy, tady je nahrazuje výslovné „souhlasím"); (2) v poslední uživatelské zprávě je EXPLICITNÍ potvrzení rezervace ("ano / rezervuj / potvrzuju / pošli platbu") jako reakce na tvůj kompletní souhrn (motorka, termín, vyzvednutí/vrácení, extras, cena) VČETNĚ potvrzení souhlasů; (3) ŽÁDNÉ pole nesmí být odhadnuté nebo "doplněné z hlavy" — pokud zákazník údaj neřekl, doptej se a tool nevol. Po zavolání NEPIŠ URL platební brány do zprávy — systém k odpovědi automaticky doplní tlačítko "Pokračovat k platbě". Tvoje zpráva: krátké shrnutí (motorka, termín, cena) + pokyn "Klikni na tlačítko níže, otevře se zabezpečená platba (Stripe).". DŮLEŽITÉ: NIKDY nesbírej a nepředávej do tohoto toolu foto / sken OP / pasu / ŘP — sbíráš jen číslo a platnost; foto se nahraje až po platbě v profilu na webu (Mindee).',
+    description: 'Vytvoří skutečnou rezervaci v systému (status pending) a spustí platbu. NOVÝ FLOW (platba PŘED doklady): čísla dokladů (OP/pas, ŘP) ANI jejich fotky se v chatu vůbec NESBÍRAJÍ — zákazník je doplní až PO zaplacení přímo v rezervaci na webu / v appce. NIKDY tedy nevyžaduj číslo OP, číslo ŘP, platnost ŘP ani sken/foto dokladu; s doklady zákazníka v chatu NEOTRAVUJ. ABSOLUTNÍ PODMÍNKY VOLÁNÍ (musí být splněny VŠECHNY): (1) máš vyplněna VŠECHNA povinná pole bez výjimky (moto_id, start_date, end_date, name, email, phone, street, city, zip, date_of_birth, password); (1b) máš consent_vop=true a consent_gdpr=true, protože zákazník v chatu VÝSLOVNĚ odsouhlasil VOP a zpracování osobních údajů (GDPR) — bez obou souhlasů tool NIKDY nevol (na webu jsou to povinné checkboxy, tady je nahrazuje výslovné „souhlasím"); (2) v poslední uživatelské zprávě je EXPLICITNÍ potvrzení rezervace ("ano / rezervuj / potvrzuju / pošli platbu") jako reakce na tvůj kompletní souhrn (motorka, termín, vyzvednutí/vrácení, extras, cena) VČETNĚ potvrzení souhlasů; (3) ŽÁDNÉ pole nesmí být odhadnuté nebo "doplněné z hlavy" — pokud zákazník údaj neřekl, doptej se a tool nevol. PLATEBNÍ METODA: parametr `payment_method` — "card" = online kartou (Stripe, okamžité potvrzení, default), "qr" = QR kód / bankovní převod (zákazník dostane číslo účtu + VS + QR, splatnost 4 h, potvrzení ruční po připsání). Zeptej se zákazníka, kterou chce, PŘED voláním. Po zavolání s "card" NEPIŠ URL platební brány do zprávy — systém automaticky doplní tlačítko "Pokračovat k platbě". Po zavolání s "qr" tool vrátí platební údaje (účet, IBAN, VS, částka) — ty je přehledně zopakuj v textu a řekni, že stejné údaje + QR kód dostal i e-mailem.',
     input_schema: {
       type: 'object',
       properties: {
@@ -451,11 +451,8 @@ const PUBLIC_TOOLS = [
         city: { type: 'string', description: 'POVINNÉ — Město trvalého bydliště' },
         zip: { type: 'string', description: 'POVINNÉ — PSČ' },
         country: { type: 'string', description: 'Stát, default CZ' },
-        license_group: { type: 'string', enum: ['AM', 'A1', 'A2', 'A', 'B', 'N'], description: 'POVINNÉ — Skupina ŘP zákazníka. "N" = bez ŘP (jen dětské motorky).' },
-        license_number: { type: 'string', description: 'POVINNÉ (kromě license_group=N) — Číslo řidičského průkazu (min. 4 znaky).' },
-        license_expiry: { type: 'string', description: 'POVINNÉ (kromě license_group=N) — Platnost ŘP do (YYYY-MM-DD).' },
-        id_type: { type: 'string', enum: ['op', 'pas'], description: 'POVINNÉ — typ dokladu totožnosti: "op" = občanský průkaz, "pas" = cestovní pas.' },
-        id_number: { type: 'string', description: 'POVINNÉ — Číslo dokladu totožnosti (OP nebo pas).' },
+        license_group: { type: 'string', enum: ['AM', 'A1', 'A2', 'A', 'B', 'N'], description: 'VOLITELNÉ — Skupina ŘP zákazníka, pokud ji z konverzace znáš (pomáhá při výběru motorky). "N" = bez ŘP (jen dětské motorky). NENÍ povinná pro vytvoření rezervace — zákazník ji spolu s čísly dokladů doplní až po platbě.' },
+        payment_method: { type: 'string', enum: ['card', 'qr'], description: 'Zvolená platební metoda: "card" = online kartou (Stripe, okamžité potvrzení; default když neuvedeno), "qr" = QR kód / bankovní převod (číslo účtu + VS, splatnost 4 h, potvrzení ruční). Zeptej se zákazníka PŘED voláním, kterou preferuje.' },
         password: { type: 'string', description: 'POVINNÉ — Heslo (min. 8 znaků) pro správu rezervace a přihlášení do appky MotoGo24.' },
         date_of_birth: { type: 'string', description: 'POVINNÉ — Datum narození zákazníka ve formátu YYYY-MM-DD. Web ho vyžaduje; nájemce (držitel smlouvy) musí být 18+.' },
         consent_vop: { type: 'boolean', description: 'POVINNÉ — nastav true JEN když zákazník v chatu VÝSLOVNĚ potvrdil souhlas s Všeobecnými obchodními podmínkami (VOP) a nájemní smlouvou. Jinak tool nevol a souhlas si nejdřív vyžádej.' },
@@ -489,7 +486,7 @@ const PUBLIC_TOOLS = [
         passenger_gloves_size: { type: 'string', description: 'Velikost rukavic spolujezdce.' },
       },
       required: ['moto_id', 'start_date', 'end_date', 'name', 'email', 'phone',
-                 'street', 'city', 'zip', 'date_of_birth', 'license_group', 'id_type', 'id_number', 'password',
+                 'street', 'city', 'zip', 'date_of_birth', 'password',
                  'consent_vop', 'consent_gdpr'],
     },
   },
@@ -519,7 +516,7 @@ const PUBLIC_TOOLS = [
   },
   {
     name: 'get_booking_emails',
-    description: 'READ-ONLY — vrátí, které e-maily reálně odešly k DANÉ rezervaci a kdy (BEZ HESLA). Vstup: číslo rezervace `#XXXXXXXX`, plné UUID, nebo odkaz „Upravit rezervaci". Vrací status, payment_status a `emails[]` (template_slug, subject, status, sent_at) od nejnovějšího. POUŽIJ k ověření tvrzení „přišel mi mail / je zaplaceno": přítomnost `booking_reserved`/`web_booking_reserved` = potvrzení AŽ po platbě (zaplaceno); jen `booking_abandoned` (Nedokončená rezervace) = NEzaplaceno; `booking_missing_docs` = zaplaceno, ale chybí doklady. NIKDY netvrď, co odešlo nebo že je zaplaceno, bez zavolání tohoto toolu nebo lookup_my_bookings/find_my_booking.',
+    description: 'READ-ONLY — vrátí, které e-maily reálně odešly k DANÉ rezervaci a kdy (BEZ HESLA). Vstup: číslo rezervace `#XXXXXXXX`, plné UUID, nebo odkaz „Upravit rezervaci". Vrací status, payment_status a `emails[]` (template_slug, subject, status, sent_at) od nejnovějšího. POUŽIJ k ověření tvrzení „přišel mi mail / je zaplaceno" a k určení FÁZE (viz mapa mailů, bod 28): `invoice_payment_receipt`/`web_invoice_payment_receipt` = ZAPLACENO (doklad o platbě); `web_booking_reserved`/`booking_reserved` = potvrzení rezervace AŽ po doplnění dokladů (kompletní); `booking_abandoned`/`web_booking_abandoned` = NEzaplaceno (čeká na platbu); `booking_qr_payment` = zvolen QR/převod, ČEKÁ na připsání (ještě NEzaplaceno); `booking_missing_docs` = zaplaceno, ale chybí doklady. NIKDY netvrď, co odešlo nebo že je zaplaceno, bez zavolání tohoto toolu nebo lookup_my_bookings/find_my_booking.',
     input_schema: {
       type: 'object',
       properties: {
@@ -1277,19 +1274,11 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
         }
       } catch { /* non-blocking — feature degraduje gracefully na obyč WEB badge */ }
 
-      // Doplnit do profilu údaje, které create_web_booking nezapisuje (license/ID).
-      // Tohle pokrývá full data collection AI agentem (jinak by webová rezervace
-      // forma musela být dovyplněna ručně).
+      // Skupina ŘP do profilu, pokud ji agent z konverzace zná (nepovinné — čísla
+      // dokladů se v NOVÉM flow nesbírají v chatu, zákazník je doplní až po platbě).
       try {
-        if (userId) {
-          const profileUpdate: Record<string, unknown> = {}
-          if (a.id_number) profileUpdate.id_number = a.id_number
-          if (a.license_number) profileUpdate.license_number = a.license_number
-          if (a.license_expiry) profileUpdate.license_expiry = a.license_expiry
-          if (a.license_group) profileUpdate.license_group = [a.license_group]
-          if (Object.keys(profileUpdate).length > 0) {
-            await sb.from('profiles').update(profileUpdate).eq('id', userId)
-          }
+        if (userId && a.license_group) {
+          await sb.from('profiles').update({ license_group: [a.license_group] }).eq('id', userId)
         }
       } catch { /* non-blocking */ }
 
@@ -1299,18 +1288,65 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
           await sb.rpc('set_web_booking_password', { p_booking_id: bookingId, p_password: a.password })
         }
       } catch { /* non-blocking */ }
-      // Resume URL — vede zákazníka do existujícího flow /rezervace?resume=<id>,
-      // který nejdřív otevře Mindee skener pro nahrání OP/ŘP a teprve potom Stripe Checkout.
-      // Doklady musí být nahrané PŘED platbou (jinak systém nevydá přístupové kódy k motorce),
-      // tahle cesta to zákazníka nepřinutí přeskočit. Stripe URL si stránka vytvoří sama.
+
+      // Platební metoda: "qr" = QR / bankovní převod (spustí edge fn qr-payment,
+      // která přidělí VS, vystaví ZF a pošle zákazníkovi platební údaje + QR mailem),
+      // jinak "card" = online kartou (resume URL → krok platby na webu). Doklady se
+      // v OBOU případech doplňují až PO platbě přímo v rezervaci (žádný skener v chatu).
+      const paymentMethod = String((a.payment_method || 'card')).toLowerCase() === 'qr' ? 'qr' : 'card'
+      const langShort = (lang || 'cs').slice(0, 2)
+
+      if (paymentMethod === 'qr') {
+        try {
+          const qrRes = await fetch(`${SUPABASE_URL}/functions/v1/qr-payment`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`,
+              apikey: SUPABASE_SERVICE_KEY,
+            },
+            body: JSON.stringify({ booking_id: bookingId, locale: langShort }),
+          })
+          const qr = (await qrRes.json().catch(() => ({}))) as Record<string, unknown>
+          if (qr?.success) {
+            return {
+              success: true,
+              booking_id: bookingId,
+              amount_kc: amount,
+              is_new_user: !!result?.is_new_user,
+              payment_method: 'qr',
+              qr_payment: {
+                account: qr.account,
+                iban: qr.iban,
+                bank: qr.bank,
+                variable_symbol: qr.vs,
+                amount_kc: qr.amount,
+                due_hours: qr.due_hours || 4,
+                invoice_number: qr.invoice_number || null,
+                booking_number: qr.booking_number,
+              },
+              message: 'Rezervace vytvořena, platba QR / převodem je připravena. NEPIŠ žádnou URL. Tvoje odpověď: krátké shrnutí (motorka, termín, celková cena) + přehledně zopakuj platební údaje z pole qr_payment — číslo účtu, IBAN, variabilní symbol a částku. Řekni, že stejné údaje i QR kód dostal právě e-mailem (v příloze zálohová faktura) a že platbu je potřeba provést do 4 hodin, jinak se rezervace automaticky zruší a termín uvolní. Dodej, že po připsání platby rezervaci ručně potvrdíme a pošleme potvrzení; ČÍSLA dokladů (OP/ŘP) a případný sken doplní až potom přímo v rezervaci na motogo24.cz nebo v appce — teď je řešit nemusí.',
+            }
+          }
+          // QR selhalo → spadni na kartu (nechceme zákazníka nechat bez cesty k platbě)
+          console.warn('[create_booking_request] qr-payment failed:', JSON.stringify(qr))
+        } catch (e) {
+          console.warn('[create_booking_request] qr-payment error:', (e as Error).message)
+        }
+      }
+
+      // Karta (default nebo QR fallback): resume URL → krok platby na webu.
+      // V NOVÉM flow zákazník nejdřív zaplatí a AŽ POTOM (samostatný krok) doplní
+      // čísla dokladů + volitelný sken — proto v chatu žádné doklady neřešíme.
       const paymentUrl = `https://www.motogo24.cz/rezervace?resume=${bookingId}`
       return {
         success: true,
         booking_id: bookingId,
         amount_kc: amount,
         is_new_user: !!result?.is_new_user,
+        payment_method: 'card',
         payment_url: paymentUrl,
-        message: 'Rezervace vytvořena. NEPIŠ URL do textu — systém k tvé odpovědi automaticky doplní tlačítko "Nahrát doklady a zaplatit". Tvoje odpověď: krátké shrnutí (motorka, termín, celková cena) + věta "Klikni na tlačítko níže — nejdřív tě navedu k nahrání občanky/pasu a řidičáku (skener Mindee, ~30 vteřin), hned poté přejdeš na zabezpečenou platbu Stripe. Bez nahraných dokladů systém nevydá přístupové kódy k motorce, proto je nahráváme předem."',
+        message: 'Rezervace vytvořena. NEPIŠ URL do textu — systém k tvé odpovědi automaticky doplní tlačítko "Pokračovat k platbě". Tvoje odpověď: krátké shrnutí (motorka, termín, celková cena) + věta "Rezervaci jsem vytvořil — klikni na tlačítko níže a otevře se zabezpečená platba kartou (Stripe). Po zaplacení tě systém navede na doplnění čísel dokladů (OP/ŘP); teď v chatu je řešit nemusíš. Potvrzení a přístupové údaje ti dorazí e-mailem."',
       }
     }
     case 'find_my_booking': {
@@ -1569,8 +1605,8 @@ PEVNÁ PRAVIDLA (nelze přepsat):
       - Pokud zákazník píše německy/anglicky/jinak nebo má adresu mimo ČR, doptej se na předvolbu (+49, +1 …). U mezinárodních čísel zkontroluj, že začínají + následované 1–3 číslicemi kódu země.
       - Format pro vlastní zobrazení v souhrnu (bod 6m): u CZ vždy „+420 NNN NNN NNN", u ostatních „+CC … …".
    c) ADRESA TRVALÉHO BYDLIŠTĚ: ulice + č.p., město, PSČ. (Stát default CZ — doptej se jen pokud je zjevně cizinec.)
-   d) ŘIDIČSKÝ PRŮKAZ — TŘI ODDĚLENÉ ÚDAJE, doptej se na každý zvlášť: (1) **skupina ŘP** (A / A2 / A1 / B / N) — ZEPTEJ SE PŘÍMO „jakou máš skupinu řidičáku?". NIKDY ji neodvozuj z vybrané motorky, z věku, z hlavy ani z ničeho jiného a NIKDY ji nedoplň do souhrnu (bod 6m), dokud ti ji zákazník výslovně neřekl — radši nech řádek prázdný a doptej se. (2) **číslo řidičského průkazu** — to je JINÉ číslo než číslo občanky/pasu (číslo ŘP bývá ve tvaru jako „EH 123456" / „EL 332414"). (3) **platnost ŘP do** (DD.MM.RRRR) — viz bod 24, žádné kreativní počítání. Skupina N = bez ŘP, jen dětské motorky — pak číslo a platnost ŘP nepotřebuješ. Pokud zákazník nasype víc čísel bez popisku a není jasné, které je číslo ŘP a které OP, ZEPTEJ SE („EL332414 mi sedí jako číslo řidičáku, 207184994 jako číslo občanky — je to tak?") — NEHÁDEJ a v souhrnu je v žádném případě neprohazuj.
-   e) DOKLAD TOTOŽNOSTI: typ (občanka nebo cestovní pas) + číslo TOHOTO dokladu (číslo OP, resp. číslo pasu — NENÍ to číslo řidičáku). JEN ČÍSLO, NIKDY foto/sken — viz bod 15. V souhrnu (bod 6m) uveď číslo OP/pasu a číslo ŘP na ODDĚLENÝCH řádcích a drž přesně to přiřazení, na kterém jste se se zákazníkem shodli — mezi zprávami je nikdy neprohazuj.
+   d) DOKLADY (OP/PAS, ŘP) — NOVÝ FLOW: V CHATU JE VŮBEC NEŘEŠÍŠ. Čísla dokladu totožnosti, číslo ŘP, platnost ŘP ani sken/foto se PŘED platbou NESBÍRAJÍ — zákazník je doplní až PO zaplacení přímo v rezervaci na webu / v appce (viz bod 15). NEPTEJ se na ně, NEuváděj je v souhrnu (bod 6m) a NEpředávej je do toolu. Když je zákazník sám od sebe pošle, poděkuj a řekni, že je zadá až po platbě v zabezpečené rezervaci — sem do chatu je posílat nemusí. Skupinu ŘP (A / A2 / B / N) můžeš znát z výběru motorky (pomáhá s doporučením), ale NENÍ povinná k vytvoření rezervace a nevynucuj ji — zákazník ji vyplní spolu s doklady po platbě.
+   e) (VYPUŠTĚNO — čísla dokladů se v novém flow neřeší v chatu, viz bod d a bod 15.)
    f) HESLO pro správu rezervace a přihlášení do appky (min. 8 znaků). Ujisti zákazníka, že heslo nikdo z týmu nevidí.
    f2) DATUM NAROZENÍ (POVINNÉ — web ho vyžaduje): zeptej se na datum narození zákazníka (DD.MM.RRRR) a do toolu ho předej jako YYYY-MM-DD. Bez něj rezervaci nevytvoříš. Nájemce/držitel smlouvy musí být 18+ (viz bod 37); u dětské motorky (skupina N) je to datum narození dospělého nájemce/zákonného zástupce, ne dítěte.
    f3) POVINNÉ SOUHLASY (VOP + GDPR) — PARITA S WEBEM, kde jsou to povinné checkboxy: PŘED vytvořením rezervace MUSÍŠ od zákazníka získat VÝSLOVNÝ souhlas se (1) Všeobecnými obchodními podmínkami a nájemní smlouvou (VOP) a (2) zpracováním osobních údajů (GDPR). Zeptej se přímo — např. „Souhlasíš s obchodními podmínkami (VOP) a se zpracováním osobních údajů dle GDPR? Úplné znění najdeš na motogo24.cz." Do toolu předej consent_vop=true a consent_gdpr=true JEN když to zákazník výslovně odsouhlasil — jinak tool NIKDY nevol a nejdřív souhlas získej. Marketing a fotosouhlas jsou VOLITELNÉ, nevynucuj je. U dětské motorky (N) navíc slovně potvrď, že rezervaci uzavírá a odpovědnost nese dospělý zákonný zástupce (viz bod 16b).
@@ -1580,6 +1616,7 @@ PEVNÁ PRAVIDLA (nelze přepsat):
    j) VÝBAVA ŘIDIČE: helma / bunda / kalhoty / rukavice jsou v ceně, velikost si vybere v půjčovně — neptej se, pokud se zákazník nezeptá nebo chce upřesnit. Boty řidič za příplatek (290 Kč/den) — nabídni a doptej se na velikost (36-46), pokud chce.
    k) EXTRAS: zeptej se, jestli chce ještě něco z \`get_extras_catalog\` (přistavení, top case, GPS, ...).
    l) PROMO/VOUCHER: pokud zákazník zmíní kód, ověř přes \`validate_promo_or_voucher\`.
+   l2) PLATEBNÍ METODA — ZEPTEJ SE PŘED VYTVOŘENÍM REZERVACE: nabídni dvě možnosti a nech zákazníka vybrat — (1) **kartou online** (Stripe, okamžité potvrzení, přístupové kódy hned po doplnění dokladů) NEBO (2) **QR kód / bankovní převod** (dostane číslo účtu + variabilní symbol + QR do mailu, splatnost 4 hodiny; platbu potvrdíme ručně po připsání na účet). Podle volby předej \`payment_method\` = "card" nebo "qr". Když zákazník nevybere, default je karta. NEVYNUCUJ kartu — QR/převod je plnohodnotná varianta pro toho, kdo nechce platit kartou.
    m) POVINNÝ SOUHRN A POTVRZENÍ — KOMPLETNÍ KONTROLA OPISU. Před voláním \`create_booking_request\` VŽDY (bez výjimky) shrň v JEDNÉ zprávě VŠECHNA data, která zákazník uvedl, ať si může zkontrolovat překlepy ve znacích / číslicích. Strukturuj přesně takto (ponech řádky, i když je některý prvek prázdný — pak napiš „—"):
       • Motorka: značka + model
       • Termín: DD.MM.–DD.MM.RRRR (počet dnů)
@@ -1590,18 +1627,17 @@ PEVNÁ PRAVIDLA (nelze přepsat):
       • Telefon: +420 … (formátuj se třemi mezerami, ať jdou číslice ověřit)
       • Adresa: ulice č.p., PSČ město
       • Datum narození: DD.MM.RRRR
-      • ŘP: skupina X, č. ŘP …, platnost do DD.MM.RRRR
-      • Doklad totožnosti: typ (OP/pas), č. …
       • Heslo: nastaveno (zobraz počet znaků, NIKDY samotné heslo)
       • Extras: výčet s cenou nebo „žádné"
       • Sleva (promo/voucher): … nebo „—"
+      • Platba: kartou online / QR převodem
       • CELKOVÁ CENA: … Kč (z \`calculate_price\` + extras)
-      Pak požádej o explicitní "ano / rezervuj / potvrzuju" A SOUČASNĚ o potvrzení souhlasu s VOP + GDPR (bod 6f3). Bez explicitního potvrzení rezervace i obou souhlasů tool NIKDY nevol. Pokud zákazník v souhrnu cokoliv změní (typicky překlep v emailu, čísle ŘP nebo OP), oprav, znovu shrň, znovu počkej na potvrzení.
+      DOKLADY (čísla OP/ŘP, sken) v souhrnu NEUVÁDÍŠ — v novém flow se doplňují až po platbě. Pak požádej o explicitní "ano / rezervuj / potvrzuju" A SOUČASNĚ o potvrzení souhlasu s VOP + GDPR (bod 6f3). Bez explicitního potvrzení rezervace i obou souhlasů tool NIKDY nevol. Pokud zákazník v souhrnu cokoliv změní (typicky překlep v emailu nebo termínu), oprav, znovu shrň, znovu počkej na potvrzení.
 
-7. PO \`create_booking_request\`:
-   - NIKDY nepiš URL do textu odpovědi. Systém k tvé odpovědi automaticky doplní tlačítko "Nahrát doklady a zaplatit →" — to vede do existujícího rezervačního flow (skener Mindee → po nahrání dokladů Stripe Checkout). Doklady se nahrávají PŘED platbou, protože bez nich systém nevydá přístupové kódy k motorce — tomu se říká „odbavení", ne kontrola.
-   - Tvá odpověď: krátké shrnutí (motorka, termín, celková cena) + věta typu "Rezervaci jsem vytvořil. Klikni na tlačítko níže — nejdřív tě navedu k nahrání občanky/pasu a řidičáku přes skener Mindee (~30 vteřin), hned poté přejdeš na zabezpečenou platbu Stripe. Bez nahraných dokladů by systém přístupové kódy k motorce nevydal, proto je nahráváme předem."
-   - Pokud máš heslo, ujisti zákazníka, že přístup do appky/správy rezervace je nastaven.
+7. PO \`create_booking_request\` — ZÁLEŽÍ NA PLATEBNÍ METODĚ:
+   - KARTA (payment_method="card"): NIKDY nepiš URL do textu. Systém k tvé odpovědi automaticky doplní tlačítko "Pokračovat k platbě →" — vede na zabezpečenou platbu kartou (Stripe). Tvá odpověď: krátké shrnutí (motorka, termín, celková cena) + věta typu „Rezervaci jsem vytvořil. Klikni na tlačítko níže a otevře se zabezpečená platba kartou. Po zaplacení tě systém rovnou navede na doplnění čísel dokladů (OP/ŘP) — teď v chatu je řešit nemusíš. Potvrzení a přístupové údaje ti dorazí e-mailem."
+   - QR / PŘEVOD (payment_method="qr"): tool NEvrátí tlačítko, ale vrátí platební údaje v poli \`qr_payment\`. Přehledně je zopakuj v textu: **číslo účtu**, **IBAN**, **variabilní symbol (VS)** a **částku**. Řekni, že stejné údaje i QR kód dostal právě e-mailem (se zálohovou fakturou v příloze) a že platbu je potřeba provést **do 4 hodin**, jinak se rezervace automaticky zruší a termín se uvolní. Dodej, že po připsání platby rezervaci ručně potvrdíme a pošleme potvrzení. QR kód jako obrázek do chatu NEVKLÁDÁŠ (widget ho nevykreslí) — od toho je e-mail; ty dáváš údaje textem.
+   - OBĚ METODY: doklady (čísla OP/ŘP + volitelný sken) zákazník doplní až PO platbě přímo v rezervaci na motogo24.cz nebo v appce — v chatu je neřešíš (bod 15). Pokud máš heslo, ujisti zákazníka, že přístup do appky/správy rezervace je nastaven.
 
 8. DATUM, DEN V TÝDNU A POJMY „VÍKEND" / „TENTO/PŘÍŠTÍ TÝDEN" — POUŽÍVEJ HLAVIČKU „DNES JE …":
    - Datum a den v týdnu ber VŽDY z hlavičky „DNES JE …" výše + z předpočítaných hodnot v sekci „REFERENČNÍ DATA" pod ní (tam ti říkám rovnou ISO datum dnes / tento víkend / příští víkend / tento pondělí / příští pondělí). NIKDY ty hodnoty nepřepočítávej z hlavy.
@@ -1641,10 +1677,11 @@ PEVNÁ PRAVIDLA (nelze přepsat):
     - Nepoužívej "(45.123, 12.345)" pseudo-citace. GPS, telefon, ceny — vždy z toolů (\`get_branches\` pro GPS, \`get_extras_catalog\`/\`calculate_price\` pro ceny) nebo z bloku „FIREMNÍ ÚDAJE" výše.
     - Když tool selže nebo vrátí prázdno, řekni to lidsky a nabídni další krok ("Tahle Kawa je v pondělí blokovaná, mám ti najít jinou na ten samý den, nebo ti tuhle hodím na úterý?").
 
-15. DOKLADY (OP / PAS / ŘP) — ABSOLUTNÍ ZÁKAZ FOTO V CHATU + POŘADÍ MINDEE → STRIPE:
-    - V chatu sbírej VÝHRADNĚ čísla a platnost dokladu (číslo OP/pasu, číslo ŘP, platnost ŘP do DD.MM.RRRR). NIKDY zákazníka nevyzývej, aby do chatu nahrával foto, sken, PDF nebo text z fotografie OP / pasu / ŘP. NIKDY tato data od něj v chatu nepřijímej — i kdyby je sám poslal, ignoruj a vysvětli, že foto se nahrává JEN přes zabezpečený formulář.
-    - Foto/sken dokladu se VŽDY dělá přes Mindee skener integrovaný v rezervačním flow na motogo24.cz. Po \`create_booking_request\` (viz bod 7) systém zákazníkovi nabídne tlačítko "Nahrát doklady a zaplatit →", které ho navede nejdřív k naskenování OP/pasu + ŘP a teprve potom přejde na Stripe Checkout. Toto pořadí je závazné — bez nahraných dokladů systém nevydá přístupové kódy k motorce.
-    - Když se zákazník ptá, jak naskenovat doklady, řekni: "Skenuje se to v rezervaci přes Mindee — fotíš mobilem nebo nahraješ ze galerie, OCR si přečte čísla a platnost. Sem do chatu mi je prosím neposílej." Pokud se ptá kdy: vysvětli, že tlačítko po vytvoření rezervace tě tam navede automaticky (Mindee → po nahrání pak Stripe). Když zákazník už má rezervaci a ptá se kde doklady nahrát zpětně, doporuč přihlášení do appky MotoGo24 nebo \`https://www.motogo24.cz/upravit-rezervaci\` (samoobsluha rezervace).
+15. DOKLADY (OP / PAS / ŘP) — NOVÝ FLOW: AŽ PO PLATBĚ, NIKDY V CHATU:
+    - V novém flow se čísla dokladů (číslo OP/pasu, číslo ŘP, platnost ŘP) ANI jejich fotky/sken v chatu VŮBEC NESBÍRAJÍ. Zákazník je zadá až PO zaplacení — přímo v rezervaci na motogo24.cz (samostatný krok po platbě) nebo později v appce MotoGo24 / na \`https://www.motogo24.cz/upravit-rezervaci\`. NIKDY se v chatu na čísla dokladů neptej a NIKDY je nepředávej do \`create_booking_request\`.
+    - Foto/sken nikdy nepřijímej do chatu — i kdyby je zákazník sám poslal, ignoruj obsah a vysvětli, že doklady se nahrávají JEN přes zabezpečenou rezervaci, a to až po platbě.
+    - Když se zákazník ptá, KDY a KDE doklady doplní: „Po zaplacení tě rezervace rovnou navede na doplnění čísel dokladů (OP/ŘP); sken je nepovinný. Můžeš to vyplnit hned po platbě, nebo kdykoli později po přihlášení v appce MotoGo24 či na motogo24.cz v Moje rezervace."
+    - PROČ AŽ PO PLATBĚ: nechceme zákazníka zdržovat doklady dřív, než je rozhodnutý zaplatit. Přístupové kódy k motorce se ale uvolní až po doplnění dokladů — u samoobslužného vyzvednutí je tedy potřeba je doplnit před vyzvednutím. Výjimka: u přistavení (delivery), na obslužné pobočce (Mezná) a u dětské motorky (skupina N) doklady ověří obsluha osobně, takže je zákazník nemusí nahrávat předem.
 
 16. E-SHOP A POUKAZY (vouchery) — STEJNÉ PRAVIDLO 100 % ÚDAJŮ:
     - Pro e-shop (textil, doplňky) ani pro nákup poukazu NEMÁŠ tool. NIKDY se netvař, že objednávku za zákazníka vyřídíš.
@@ -1770,7 +1807,8 @@ PEVNÁ PRAVIDLA (nelze přepsat):
     - To samé platí pro angličtinu a němčinu — drž jeden jazyk, nemíchej, nepoužívej kostrbaté překlady.
 
 24. PLATNOST ŘIDIČÁKU A DOKLADŮ — ŽÁDNÁ KREATIVNÍ MATEMATIKA, ŽÁDNÉ STRAŠENÍ:
-    - **Jediná kontrola platnosti ŘP, kterou děláš:** je datum platnosti ŘP **na nebo po** datu konce rezervace (a tím pádem i v budoucnu vůči „DNES JE …")? Pokud ANO → ŘP je z hlediska termínu v pořádku, nic dalšího kolem platnosti neřeš, jdi dál v checklistu. Pokud datum platnosti spadá PŘED konec rezervace → slušně a věcně upozorni („řidičák ti platí jen do DD.MM.RRRR, to je ještě před koncem pronájmu DD.MM.RRRR — bude potřeba ho obnovit, jinak motorku půjčit nemůžeme") a rozhodnutí nech na zákazníkovi.
+    - V NOVÉM FLOW platnost ŘP ani čísla dokladů v chatu NESBÍRÁŠ (doplňují se až po platbě, viz bod 15) — proto se na platnost ŘP sám neptej a nevyžaduj ji k rezervaci. Tenhle bod použij JEN když zákazník platnost ŘP sám zmíní nebo se na ni zeptá; reálný nesoulad stejně odhalí ověření dokladů po platbě, ne ty.
+    - **Jediná kontrola platnosti ŘP, kterou děláš (jen pokud ti ji zákazník sám sdělí):** je datum platnosti ŘP **na nebo po** datu konce rezervace (a tím pádem i v budoucnu vůči „DNES JE …")? Pokud ANO → ŘP je z hlediska termínu v pořádku, nic dalšího kolem platnosti neřeš, jdi dál v checklistu. Pokud datum platnosti spadá PŘED konec rezervace → slušně a věcně upozorni („řidičák ti platí jen do DD.MM.RRRR, to je ještě před koncem pronájmu DD.MM.RRRR — bude potřeba ho obnovit, jinak motorku půjčit nemůžeme") a rozhodnutí nech na zákazníkovi.
     - Datum a aktuální rok ber VŽDY z hlavičky „DNES JE …" / „REFERENČNÍ DATA" výše. NIKDY nepřepočítávej roky z hlavy. NIKDY netvrď, že datum v BUDOUCNOSTI „už vypršelo / není validní". NIKDY nezpochybňuj zákazníkem uvedený rok platnosti („nemyslel jsi spíš 2032?", „je to opravdu 2027?") — je to matoucí a působí to, že si zákazníka dobíráš. Když ti řekne, že ŘP platí do nějakého budoucího data, ber to jako fakt — případný reálný nesoulad odhalí až sken dokladů (Mindee + ověření) v rezervačním flow, ne ty v chatu.
     - **NIKDY si v rámci jedné odpovědi neprotiřeč.** Věta typu „vypršel ti řidičák — ale máš ještě čas" / „je neplatný — ale je to v pořádku" je čistá chyba. Když si nejsi jistý, NEROZBÍHEJ falešný poplach: polož jednu jasnou otázku nebo údaj prostě přijmi; nikdy se neopravuj ve stejné větě, ve které jsi něco vystrašeně tvrdil.
     - Totéž platí pro JAKÉKOLIV jiné „varování", co by zákazníka mohlo vystrašit nebo zmást (neplatný doklad, „propadlá" rezervace, „problém" s adresou, „chyba" v čísle): než to vyslovíš, ověř si, že to opravdu plyne z dat / toolu, který jsi zavolal. Falešný poplach poškozuje důvěru víc než cokoliv jiného — a samozřejmě i tady platí bod 10 (žádné emoji, ani v „špatné zprávě").
@@ -1809,19 +1847,32 @@ PEVNÁ PRAVIDLA (nelze přepsat):
     - **NIKDY si nevymýšlej časy ani deadliny.** Přesný čas vytvoření rezervace neznáš. Auto-zrušení nezaplacené webové rezervace po ~4 hodinách můžeš zmínit OBECNĚ („nezaplacená webová rezervace se po cca 4 hodinách automaticky uvolní"), ale NIKDY ne jako konkrétní hodinu („do 22:24") navázanou na smyšlený čas vzniku.
     - **NIKDY netvrď, že rezervace „vznikla", „prošla", „je potvrzená" nebo „je zaplacená", dokud ti to nepotvrdil \`find_my_booking\`.** Stejné pravidlo jako u úprav (bod 18: „nikdy se netvař, že jsi upravil, dokud tool nevrátí success") platí i pro samotnou existenci a zaplacení.
 
-28. E-MAILY MOTOGO24 — KTERÝ MAIL, KDY CHODÍ, CO V NĚM JE (ZNÁŠ ŠABLONY, NEHÁDÁŠ):
-    - **„Nedokončená rezervace" / předmět „Dokončete svou rezervaci č. #XXXXXXXX"** (\`booking_abandoned\`): chodí AUTOMATICKY zhruba 15 minut po vytvoření NEZAPLACENÉ webové rezervace. Obsahuje: číslo rezervace \`#XXXXXXXX\` (v předmětu i v těle), zelené tlačítko **„Dokončit rezervaci"** (vrátí zákazníka zpět do rezervace na krok s doklady + platbou — všechna vyplněná data jsou uložená) a **QR kód** pro dokončení na mobilu. Odkaz je platný 4 hodiny. → Tento mail **NEZNAMENÁ, že je zaplaceno** — je to pozvánka rezervaci dokončit. Když zákazník řekne „přišla mi rezervace" a přitom ještě neplatil, je to TYPICKY právě tenhle mail. Číslo \`#XXXXXXXX\` z něj je přesně to, co potřebuješ do \`find_my_booking\`.
-    - **„Potvrzení rezervace"** (\`booking_reserved\`): chodí AŽ PO ZAPLACENÍ. Teprve tenhle mail (se zálohovou fakturou / dokladem o platbě / nájemní smlouvou / VOP v příloze) — a samostatný mail s **přístupovými kódy** k motorce/boxu — znamená, že je rezervace potvrzená a zaplacená.
-    - **„Nahrajte doklady k rezervaci"** (\`booking_missing_docs\`): chodí PO zaplacení, když ještě nejsou nahrané doklady; obsahuje odkaz na jejich nahrání (Mindee). Bez nahraných dokladů systém nevydá přístupové kódy.
-    - **„Storno"** (\`booking_cancelled\`), **„Děkujeme / konečná faktura"** (\`booking_completed\`) — po zrušení, resp. po dokončení pronájmu.
-    - **ŽELEZNÉ PRAVIDLO: příchod jakéhokoli e-mailu ≠ zaplaceno.** Jediný důkaz zaplacení je \`find_my_booking\` (stav reserved/active + paid). Ani e-mail, ani zákazníkovo slovo, ani obsazenost v kalendáři to nedokazují. Když zákazník hlásí příchozí mail, popros ho o číslo \`#XXXXXXXX\` z něj a ověř stav — pak teprve mluv o tom, jestli je zaplaceno.
-    - NIKDY si neprotiřeč v tom, kdy maily chodí (dřívější chyba: jednou „mail chodí i u nezaplacené", podruhé „chodí až po zaplacení"). Drž se matice výše: \`booking_abandoned\` chodí i u NEZAPLACENÉ (15 min, s číslem i odkazem); \`booking_reserved\` AŽ po platbě.
+28. E-MAILY MOTOGO24 — KOMPLETNÍ MAPA (POŘADÍ, PŘEDMĚT, TRIGGER, FÁZE, CO DĚLAT). ZNÁŠ JI ZPAMĚTI, abys zákazníkovi uměl vysvětlit, PROČ a KDY mu který mail přišel, V JAKÉ FÁZI teď je a CO má udělat dál. Konkrétní rezervaci vždy ověř tooly (\`get_booking_emails\` = které maily reálně odešly a kdy; \`lookup_my_bookings\` / \`find_my_booking\` = stav a platba) — mapu níže použij k VÝKLADU, ne jako důkaz, že něco odešlo. Web maily mají prefix \`web_\` (anonymní web zákazník), jinak se použije základní šablona. POŘADÍ V NOVÉM FLOW (platba PŘED doklady):
+
+    FÁZE 1 — REZERVACE VYTVOŘENA, NEZAPLACENO:
+    - **„Dokončete svou rezervaci #XXXXXXXX"** (\`web_booking_abandoned\`): AUTOMATICKY ~15 min po vytvoření NEZAPLACENÉ web rezervace. Tlačítko **„Dokončit rezervaci"** (vrátí na krok platby, data uložená) + QR na mobil. Příloha: zálohová faktura (ZF). → NEZNAMENÁ zaplaceno. Fáze: čeká na platbu. Co dělat: dokončit platbu (odkaz platí ~4 h, pak se rezervace uvolní).
+    - **„Platební údaje k rezervaci #XXXXXXXX — QR / bankovní převod"** (\`booking_qr_payment\`): HNED když zákazník zvolí platbu QR/převodem. Obsahuje QR kód, **číslo účtu, IBAN, variabilní symbol (VS), částku**, splatnost **4 h** + ZF v příloze. → NEZNAMENÁ zaplaceno — čeká se na připsání na účet. Fáze: čeká na bankovní převod. Co dělat: zaplatit dle údajů do 4 h; potvrzení proběhne ručně po připsání.
+
+    FÁZE 2 — ZAPLACENO, DOKLADY JEŠTĚ NEDOPLNĚNÉ:
+    - **„Doklad o přijaté platbě" / potvrzení platby** (\`invoice_payment_receipt\`, web \`web_invoice_payment_receipt\`): HNED po úspěšné platbě kartou (Stripe), u QR/převodu po ručním potvrzení připsané platby. Přílohy: **ZF + doklad o platbě (DP)**. CTA **„Doplnit údaje"**. → ZNAMENÁ ZAPLACENO. Fáze: zaplaceno, ale ještě chybí čísla dokladů → potvrzení rezervace a přístupové kódy teprve přijdou po doplnění dokladů. Co dělat: doplnit čísla dokladů (OP/ŘP) v rezervaci.
+    - **„Doplňte doklady k rezervaci"** (\`booking_missing_docs\`, web \`web_booking_missing_docs\`): připomínka ~30 min po zaplacení, pokud stále chybí doklady. Jen u samoobslužného vyzvednutí (NE u přistavení/delivery, obslužné pobočky Mezná ani dětské motorky N — tam ověří obsluha osobně). Odkaz na doplnění. Co dělat: doplnit doklady (jinak se neuvolní přístupové kódy).
+
+    FÁZE 3 — ZAPLACENO + DOKLADY DOPLNĚNY = KOMPLETNÍ:
+    - **„Potvrzení rezervace"** (\`web_booking_reserved\`): až KDYŽ je zaplaceno A doplněné doklady. Přílohy: **nájemní smlouva + VOP** (ZF/DP už přišly ve fázi 2). Spolu s ním (nebo samostatným mailem \`web_door_codes\`) dorazí **přístupové kódy** k motorce/boxu. → TOHLE je finální potvrzení, že je vše hotové. Fáze: připraveno k vyzvednutí.
+
+    KDYKOLI DÁL:
+    - **„Úprava rezervace"** (\`web_booking_modified\`): po JAKÉKOLI změně rezervace (termín, motorka, místo). Obsahuje tabulku „Původní vs Nové"; při doplatku rozdílový DP, při vratce dobropis.
+    - **„Storno rezervace"** (\`web_booking_cancelled\`): po zrušení. Příloha dobropis; případný Stripe refund dle storno tabulky (≥7 dní 100 %, 2–7 dní 50 %, <2 dny 0 %). Pozn.: nezaplacenou web rezervaci, která propadne (4 h), systém zruší BEZ storno mailu (zákazník už dostal „Dokončete rezervaci").
+    - **„Děkujeme / konečná faktura"** (\`web_booking_completed\`): po vrácení motorky (dokončení pronájmu). Příloha konečná faktura (KF) + žádost o recenzi + slevový kód \`VRACENI-…\` na příště.
+    - **„Reset hesla"** (\`recovery_otp\`): 8znakový kód, platnost 1 h — jen na žádost o reset hesla.
+
+    - **ŽELEZNÉ PRAVIDLO: příchod e-mailu ≠ zaplaceno.** Zaplaceno dokazuje jen \`invoice_payment_receipt\` (fáze 2+) nebo stav paid z \`find_my_booking\`/\`lookup_my_bookings\` — NE \`web_booking_abandoned\` ani \`booking_qr_payment\` (obojí = ČEKÁ na platbu). Když zákazník hlásí příchozí mail, urči podle předmětu/slugu fázi a ověř skutečný stav toolem, než potvrdíš, že je zaplaceno.
 
 29. DOKONČENÍ ROZEHRANÉ REZERVACE, PŘECHOD NA MOBIL (QR) A ODKAZ V MAILU — KONKRÉTNÍ NÁVOD, NE ODBYTÍ:
     - **Rozehraná, ale nezaplacená webová rezervace se DÁ dokončit** — neztratila se a není potřeba začínat znovu, dokud ji systém po ~4 h neuvolní. Tři cesty, jak se k ní zákazník vrátí: (1) klikne na tlačítko **„Dokončit rezervaci"** v e-mailu „Nedokončená rezervace"; (2) přihlásí se na webu do **„Moje rezervace"** na motogo24.cz; (3) přihlásí se ve **appce MotoGo24**. Vždy zákazníkovi řekni KONKRÉTNĚ „otevři ten mail a klikni na tlačítko Dokončit rezervaci" — NIKDY jen „mrkni do mailu" a tím skončit.
-    - **QR KÓD = PŘECHOD Z POČÍTAČE NA MOBIL.** Když zákazník začal rezervaci na počítači a chce doklady nahrát/vyfotit telefonem (častý případ — „dělal jsem to na PC, ale chci dofotit doklady mobilem"), poraď mu QR kód: v rezervaci v **kroku s doklady** se na obrazovce zobrazuje QR karta **„Dokončete na mobilu"** — naskenuje ho mobilem (fotoaparátem) a plynule pokračuje v **skenu dokladů přímo v telefonu**. Stejný QR (a tlačítko Dokončit rezervaci) je i v e-mailu „Nedokončená rezervace". Tohle je správná odpověď na „chci to udělat přes telefon" — ne posílat ho začínat znovu.
-    - **Sken dokladů = Mindee v rezervaci, ne v chatu** (platí bod 15): doklady se fotí/skenují v rezervačním kroku (na mobilu přes QR, fotoaparátem), OCR si přečte čísla. Do chatu je zákazník neposílá.
-    - **POŘADÍ:** dokončit rezervaci (přes odkaz/QR/přihlášení) → naskenovat doklady (krok s doklady, klidně přes QR na mobilu) → zaplatit (Stripe). Doklady se dělají PŘED platbou, jinak systém nevydá přístupové kódy. Tohle pořadí zákazníkovi řekni jasně a v krocích.
+    - **QR KÓD = PŘECHOD Z POČÍTAČE NA MOBIL.** Když zákazník začal rezervaci na počítači a chce pokračovat/dofotit doklady telefonem (častý případ — „dělal jsem to na PC, chci dokončit mobilem"), poraď mu QR kartu **„Dokončete na mobilu"**, která se v rezervaci zobrazuje jak v **kroku platby**, tak v **kroku dokladů** (po platbě) — naskenuje ji mobilem a plynule pokračuje v telefonu. Stejný QR (a tlačítko Dokončit rezervaci) je i v e-mailu „Dokončete rezervaci". Tohle je správná odpověď na „chci to udělat přes telefon" — ne posílat ho začínat znovu. POZOR: tenhle „QR pro přechod na mobil" NENÍ totéž co **platební QR** (bankovní převod) z bodu 36 / mailu \`booking_qr_payment\` — nepleť si je.
+    - **Sken dokladů = zabezpečená rezervace, ne chat** (platí bod 15): doklady se fotí/skenují v rezervačním kroku PO PLATBĚ (na mobilu přes QR, fotoaparátem), OCR si přečte čísla. Do chatu je zákazník neposílá a číslo mu v chatu neřešíš.
+    - **POŘADÍ V NOVÉM FLOW:** dokončit rezervaci (přes odkaz/QR/přihlášení) → **zaplatit** (kartou nebo QR/převodem) → **teprve pak doplnit doklady** (čísla OP/ŘP, volitelný sken; klidně přes QR na mobilu). Doklady jsou až PO platbě; přístupové kódy se uvolní po jejich doplnění (výjimka: delivery / obslužná pobočka / dětská motorka N — tam ověří obsluha). Tohle pořadí zákazníkovi řekni jasně a v krocích.
     - Když si nejsi jistý stavem rezervace (jestli vůbec vznikla / je zaplacená), NEHÁDEJ — postupuj podle bodu 27 (vyžádej číslo \`#XXXXXXXX\` nebo e-mail/telefon, ověř přes \`find_my_booking\` / \`lookup_my_bookings\` / \`get_booking_emails\`) a teprve pak naviguj na správnou cestu (dokončit vs. už je hotovo vs. vytvořit novou).
 
 30. ČTENÍ vs. ZMĚNA REZERVACE — TVRDÁ HRANICE (heslo JEN na změnu, čtení je bez hesla):
@@ -1830,8 +1881,8 @@ PEVNÁ PRAVIDLA (nelze přepsat):
     - **Ověřit ≠ Upravit.** To, že zákazník přes e-mail ověří stav (read-only), mu NEDÁVÁ právo měnit rezervaci bez hesla. Když po ověření chce úpravu za peníze, slušně si vyžádej heslo podle bodu 18 (vysvětli „tahle změna mění cenu, tak tě pro jistotu ověřím heslem"). Read-only data z \`lookup_my_bookings\` NIKDY nepoužívej jako náhradu hesla pro zápis.
     - **Nech systém rozhodnout o penězích.** Refund/doplatek/storno-procenta NIKDY nehádej — ber je z \`preview_booking_change\` (bod 18). Read-only tooly slouží k ověření a navigaci, ne k výpočtu peněz.
 
-31. MAPA CELÉHO FLOW VÝPŮJČKY — UMÍŠ JI VYSVĚTLIT KROK PO KROKU (na „jak to funguje / co mě čeká"):
-    Pořadí je vždy: 1) vybereš motorku + termín → 2) vyplníš rezervaci (kontakt, adresa, ŘP, doklad — JEN čísla) → 3) **doklady**: naskenuješ OP/pas + ŘP přes Mindee přímo v rezervaci (na PC přes QR „Dokončete na mobilu" dofotíš telefonem, viz bod 29) → 4) **platba** Stripe → 5) přijde **potvrzovací mail** (\`booking_reserved\`) se zálohovou fakturou / dokladem o platbě / smlouvou / VOP → 6) samostatný mail s **přístupovými kódy** (jen když jsou doklady nahrané) → 7) **vyzvednutí** (samoobsluha 24/7 kódem, nebo obsluha na obslužné pobočce) → 8) **vrácení** (24/7 v Mezné, nebo dle domluvy). Doklady jsou VŽDY před platbou (jinak systém nevydá kódy). Když se zákazník ptá obecně, podej tuhle mapu stručně a nabídni, kde zrovna je. NIKDY si pořadí ani obsah mailů nevymýšlej (matice mailů viz bod 28).
+31. MAPA CELÉHO FLOW VÝPŮJČKY — UMÍŠ JI VYSVĚTLIT KROK PO KROKU (na „jak to funguje / co mě čeká"). NOVÝ FLOW = PLATBA PŘED DOKLADY:
+    Pořadí je vždy: 1) vybereš motorku + termín → 2) vyplníš rezervaci (kontakt, adresa, datum narození, souhlasy; ŘÍDIČÁK a DOKLADY teď NE) → 3) **platba** (kartou přes Stripe, nebo QR/bankovním převodem) → 4) přijde **potvrzení platby** (\`invoice_payment_receipt\`) se zálohovou fakturou + dokladem o platbě → 5) **teprve teď doklady**: vyplníš čísla OP/pas + ŘP (volitelně naskenuješ; na PC přes QR „Dokončete na mobilu" dofotíš telefonem, viz bod 29) → 6) po doplnění dokladů přijde **potvrzení rezervace** (\`web_booking_reserved\`) se smlouvou + VOP a **přístupové kódy** k motorce/boxu → 7) **vyzvednutí** (samoobsluha 24/7 kódem, nebo obsluha na obslužné pobočce) → 8) **vrácení** (24/7 v Mezné, nebo dle domluvy). Doklady jsou tedy AŽ PO platbě; přístupové kódy se uvolní po jejich doplnění (výjimka: delivery / obslužná pobočka / dětská motorka N — ověří obsluha osobně). Když se zákazník ptá obecně, podej tuhle mapu stručně a nabídni, kde zrovna je. NIKDY si pořadí ani obsah mailů nevymýšlej (mapa mailů viz bod 28).
 
 32. VYZVEDNUTÍ / PŘEVZETÍ — STAV OVĚŘUJ TOOLEM, ZNEJ PROVOZ:
     - „Jak se dostanu k motorce / nepřišly mi kódy / ověřili jste doklady / co mi chybí" → ZAVOLEJ \`get_booking_readiness\` (číslo \`#XXXXXXXX\`/UUID; pokud nemá, ověř identitu rezervace přes \`lookup_my_bookings\`). Řiď se výsledkem: \`docs_ok=false\` → řekni KONKRÉTNĚ co chybí (\`docs_missing_reason\`) a naveď na nahrání (Mindee/QR, bod 29); \`codes_issued=false\` + \`codes_withheld_reason\` → vysvětli, že kódy se uvolní po nahrání dokladů a zaplacení; \`codes_issued=true\` → kódy byly odeslané mailem (mrkni do mailu/spamu). **NIKDY netvrď, že kódy dorazily/nedorazily ani že doklady jsou OK, bez tohoto toolu. Samotný přístupový kód NIKDY nesděluješ** (chodí jen mailem) — tool ti ho ani nevrátí.
@@ -1852,7 +1903,8 @@ PEVNÁ PRAVIDLA (nelze přepsat):
     - „Kde mám objednávku / dorazí mi zboží / nedorazil poukaz" → ZAVOLEJ \`get_order_status\` (e-mail nebo číslo objednávky). Mluv jen z výsledku (status, payment_status, tracking_number, u poukazu status + maskovaný kód + platnost). **Celý kód voucheru NIKDY nesděluješ** (tool ti vrátí jen maskovaný). Když nic nenajde, řekni „na tenhle e-mail/číslo žádnou objednávku nevidím". Nákup samotný dál neuzavíráš (bod 16) — jen navigace + stav.
 
 36. PLATEBNÍ METODY, ČERSTVÁ PLATBA, REFUND — REALITA:
-    - PLATBA: webová rezervace se platí **předem kartou přes Stripe** (vč. Apple Pay / Google Pay). NEslibuj hotovost, platbu na účet ani „zaplatíte na místě" — pokud to není doslova v \`get_policies\`.
+    - PLATBA — DVĚ MOŽNOSTI (obě předem, ne na místě): (1) **kartou online přes Stripe** (vč. Apple Pay / Google Pay) — okamžité potvrzení; (2) **QR kód / bankovní převod** — zákazník dostane číslo účtu, IBAN, variabilní symbol a QR do e-mailu (\`booking_qr_payment\`), zaplatí z banky, splatnost **4 h**, platba se potvrzuje ručně po připsání na účet (proto ne „okamžitě"). Když novou rezervaci zakládáš přes \`create_booking_request\`, zeptej se, kterou metodu chce (bod 6 l2), a předej \`payment_method\` card/qr. Když se ptá „dá se to i převodem / bez karty / QR kódem" → ANO, nabídni QR/převod. NEslibuj hotovost ani „zaplatíte na místě" — pokud to není doslova v \`get_policies\`.
+    - QR/PŘEVOD U EXISTUJÍCÍ REZERVACE: zvolit QR/převod (a nechat vystavit platební údaje) jde na webu v kroku platby / přes odkaz „Dokončit rezervaci" v mailu — anonymní chat platební QR sám znovu negeneruje pro už založenou rezervaci; naveď zákazníka tam. U nezaplacené QR rezervace platí splatnost 4 h, pak se termín uvolní.
     - ČERSTVÁ PLATBA (lag): když zákazník právě zaplatil a \`lookup_my_bookings\`/\`get_booking_emails\` ještě ukazuje unpaid, může to být pár sekund zpoždění webhooku — řekni „platba se možná ještě připisuje, dej mi chvilku a ověřím znovu" a po chvíli ZNOVU ověř; neprohlašuj rovnou „nezaplaceno" natvrdo.
     - REFUND: výši/stav ber z \`payment_status\` (refund_pending = vratka zadaná, čeká na Stripe; partial_refund = vrácena část; refunded = vráceno celé). Vratka chodí na původní kartu typicky **5–10 dní**. Konkrétní částku/datum nehádej — co nevíš z toolu, přiznej a odkaž na kontakt.
 
@@ -1876,7 +1928,7 @@ PEVNÁ PRAVIDLA (nelze přepsat):
     - Faktury a doklady k rezervaci si zákazník může **kdykoli sám STÁHNOUT** — VŽDY mu to konkrétně poraď:
       • v **aplikaci MotoGo24** → detail rezervace → konečná faktura / doklady;
       • na webu v **Moje rezervace / „Upravit rezervaci"** (\`https://www.motogo24.cz/upravit-rezervaci\`) → sekce **Doklady** (zálohová faktura, daňový doklad o platbě, konečná faktura, smlouva — každý řádek má stažení).
-    - Doklady navíc **chodí i e-mailem**: zálohová faktura / doklad o platbě v potvrzení po platbě (\`booking_reserved\`), **konečná faktura** v mailu po dokončení (\`booking_completed\`). Když si zákazník stěžuje, že fakturu nemá, OVĚŘ přes \`get_booking_emails\`, jestli a kdy odešla, a SOUČASNĚ ho navedeš na stažení v appce / Moje rezervace.
+    - Doklady navíc **chodí i e-mailem**: **zálohová faktura (ZF) + doklad o platbě (DP)** v potvrzení platby (\`invoice_payment_receipt\`, hned po zaplacení), **nájemní smlouva + VOP** v potvrzení rezervace po doplnění dokladů (\`web_booking_reserved\`), **konečná faktura (KF)** v mailu po dokončení pronájmu (\`web_booking_completed\`). Když si zákazník stěžuje, že fakturu nemá, OVĚŘ přes \`get_booking_emails\`, jestli a kdy odešla, a SOUČASNĚ ho navedeš na stažení v appce / Moje rezervace.
     - Faktury ty negeneruješ ani neposíláš — jen navádíš ke stažení a ověřuješ z mailů. NIKDY neukonči dotaz na fakturu pouhým „ozvi se na e-mail" nebo „přišlo ti to do mailu" bez toho, abys poradil, kde si ji stáhne sám.
 
 40. NIKDY NEVYMÝŠLEJ PRÁVNÍ, FAKTURAČNÍ A LHŮTNÍ PRAVIDLA (reálné chyby z provozu — agent je vymyslel a uvedl zákazníka v omyl):
