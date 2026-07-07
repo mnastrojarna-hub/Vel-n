@@ -186,9 +186,13 @@ workflows:
     publishing:
       app_store_connect:
         auth: integration
-        # Nahraje build do TestFlightu; do recenze/App Store se posílá ručně
-        # z App Store Connect (submit_to_app_store: false = žádné překvapení).
-        submit_to_testflight: true
+        # Upload IPA do App Store Connectu proběhne tak jako tak (nezávisle na
+        # submit_*). submit_to_testflight=false: nesubmitujeme do EXTERNÍHO
+        # TestFlight beta review — to vyžaduje Beta App Information (feedback
+        # e-mail, kontakt na review) a jinak končí build červeně. Nepotřebujeme
+        # ho: appka jde rovnou do App Store review a interní TestFlight funguje
+        # i bez toho. Do App Store se odesílá ručně z ASC (submit_to_app_store=false).
+        submit_to_testflight: false
         submit_to_app_store: false
       email:
         recipients:
