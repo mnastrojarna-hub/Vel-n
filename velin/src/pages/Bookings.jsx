@@ -128,7 +128,7 @@ export default function Bookings() {
       const result = await debugAction('bookings.load', 'Bookings', () => {
         let query = supabase
           .from('bookings')
-          .select('*, motorcycles!moto_id(model, spz, branch_id), profiles(full_name, email, phone, country, license_group)', { count: 'exact' })
+          .select('*, motorcycles!moto_id(model, spz, branch_id, license_required), profiles(full_name, email, phone, country, license_group, id_number, license_number, id_verified_at, license_verified_at, passport_verified_at)', { count: 'exact' })
         if (filters.statuses.length > 0) {
           const hasUpcoming = filters.statuses.includes('upcoming')
           const dbStatuses = filters.statuses.filter(s => s !== 'upcoming')
@@ -184,19 +184,21 @@ export default function Bookings() {
           setDpTotals(map)
         }
       }
-      // Sken dokladů (sloupec „Doklady"): dávkově zjisti, kolik ověřovacích skenů
-      // (OP/ŘP/pas) má každý zákazník ze zobrazené stránky. Jeden dotaz s `in`.
+      // Sken dokladů (sloupec „Doklady"): dávkově zjisti, které typy skenů (ŘP / OP /
+      // pas) má každý zákazník ze zobrazené stránky. Jeden dotaz s `in`. Sken se počítá
+      // BEZ ohledu na Mindee status (i ručně nahraná / neověřená fotka je sken).
       const userIds = [...new Set(data.map(b => b.user_id).filter(Boolean))]
       if (userIds.length > 0) {
         const { data: docs } = await supabase.from('documents')
-          .select('user_id, metadata')
+          .select('user_id, type')
           .in('user_id', userIds)
           .in('type', ['drivers_license', 'license_photo', 'id_card', 'id_photo', 'passport'])
         const smap = {}
         ;(docs || []).forEach(d => {
-          const cur = smap[d.user_id] || { count: 0, ok: 0 }
-          cur.count++
-          if (d?.metadata?.mindee_status === 'ok') cur.ok++
+          const cur = smap[d.user_id] || { license: false, id: false, passport: false }
+          if (d.type === 'drivers_license' || d.type === 'license_photo') cur.license = true
+          else if (d.type === 'id_card' || d.type === 'id_photo') cur.id = true
+          else if (d.type === 'passport') cur.passport = true
           smap[d.user_id] = cur
         })
         setScanStatus(smap)

@@ -92,21 +92,32 @@ export default function BookingsTable({ bookings, navigate, fmtDateRange, dpTota
                     <span title={title} className="inline-flex items-center text-[10px] font-extrabold rounded-btn"
                       style={{ padding: '2px 6px', background: bg, color, whiteSpace: 'nowrap' }}>{label}</span>
                   )
-                  const isWeb = b.booking_source === 'web'
-                  const docsDone = !!b.docs_completed_at
-                  const scan = scanStatus[b.user_id] || { count: 0, ok: 0 }
+                  const filled = v => !!(v != null && String(v).trim() !== '')
+                  const p = b.profiles || {}
+                  const isChild = String(b.motorcycles?.license_required || '').toUpperCase() === 'N'
+                  const scan = scanStatus[b.user_id] || { license: false, id: false, passport: false }
+                  // KROK 4 = reálné vyplnění ČÍSEL dokladů v profilu (ne příznak docs_completed_at,
+                  // který staré rezervace nemají). Bez ŘP u dětské motorky (N).
+                  const idNum = filled(p.id_number)
+                  const licNum = filled(p.license_number)
+                  const numbersOk = isChild ? idNum : (idNum && licNum)
+                  // SKEN = nahraná fotka (i bez Mindee ověření) NEBO reálný OCR sken (verified_at).
+                  const licScan = scan.license || filled(p.license_verified_at)
+                  const idScan = scan.id || scan.passport || filled(p.id_verified_at) || filled(p.passport_verified_at)
+                  const scanOk = isChild ? idScan : (licScan && idScan)
+                  const scanPartial = !scanOk && (licScan || idScan)
                   return (
                     <div className="flex items-center gap-1">
-                      {/* Krok 4 — vypsaná čísla dokladů (jen web flow; app tento krok nemá) */}
-                      {docsDone
-                        ? pill('Č ✓', 'Krok 4 dokončen — čísla dokladů vyplněna', '#166534', '#dcfce7')
-                        : isWeb
-                          ? pill('Č ✗', 'Krok 4 nedokončen — čísla dokladů zatím nevyplněna', '#b91c1c', '#fee2e2')
-                          : pill('Č —', 'Vypsání čísel dokladů (krok 4) se týká jen webových rezervací', '#5a6b63', '#eef2f0')}
-                      {/* Sken dokladů (OP/ŘP/pas) nahraný zákazníkem */}
-                      {scan.count > 0
-                        ? pill(`📷 ${scan.ok > 0 ? scan.ok + '✓' : 'ano'}`, `Sken dokladů nahrán (${scan.count} ks, z toho ${scan.ok} ověřeno OCR)`, '#166534', '#dcfce7')
-                        : pill('📷 ✗', 'Sken dokladů nenahrán', '#b91c1c', '#fee2e2')}
+                      {/* Krok 4 — vypsaná čísla dokladů (reálně z profilu) */}
+                      {numbersOk
+                        ? pill('Č ✓', isChild ? 'Číslo dokladu totožnosti vyplněno (dětská motorka — ŘP netřeba)' : 'Čísla dokladů vyplněna (doklad totožnosti + ŘP)', '#166534', '#dcfce7')
+                        : pill('Č ✗', isChild ? 'Chybí číslo dokladu totožnosti' : `Chybí čísla dokladů: ${[!idNum && 'doklad totožnosti', !licNum && 'ŘP'].filter(Boolean).join(' + ')}`, '#b91c1c', '#fee2e2')}
+                      {/* Sken dokladů (fotka nebo OCR ověření) */}
+                      {scanOk
+                        ? pill('📷 ✓', 'Doklady naskenované (fotka nebo OCR sken)', '#166534', '#dcfce7')
+                        : scanPartial
+                          ? pill('📷 ½', `Naskenován jen ${licScan ? 'ŘP' : 'doklad totožnosti'} — druhý chybí`, '#b45309', '#fef3c7')
+                          : pill('📷 ✗', 'Doklady nenaskenované', '#b91c1c', '#fee2e2')}
                     </div>
                   )
                 })()}
