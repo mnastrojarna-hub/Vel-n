@@ -41,6 +41,13 @@ post_install do |installer|
     target.build_configurations.each do |config|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
 
+      # firebase_messaging 14.7.10 importuje v hlavičce ne-modulární
+      # <Firebase/Firebase.h>; při modulárním buildu (use_frameworks! +
+      # use_modular_headers!) to jinak shodí clang chybou
+      # "Include of non-modular header inside framework module
+      # 'firebase_messaging.FLTFirebaseMessagingPlugin'".
+      config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
+
       # permission_handler — kompilují se JEN handlery, které appka reálně
       # používá (App Review odmítá binárky s nepoužitými permission API).
       # Appka žádá: notifikace, kameru, fotky (galerii) a polohu.
