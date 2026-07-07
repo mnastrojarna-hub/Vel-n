@@ -141,25 +141,6 @@ workflows:
         script: |
           cd $CM_BUILD_DIR/Motogo-app-main/motogo-app-flutter-ios
           flutter pub get
-      - name: DIAG — manual pod install + marker check (dočasné)
-        script: |
-          # Flutter při `flutter build ipa` sbaluje `pod install` do jednoho
-          # řádku, takže náš Podfile marker není v logu vidět. Tady pustíme
-          # pod install ručně (mimo Flutter) — celý výstup i marker jsou vidět
-          # a vypíšeme jednoznačný top-level řádek MARKER FOUND / MISSING.
-          # Až potvrdíme příčinu, tento krok se zase odstraní.
-          cd $CM_BUILD_DIR/Motogo-app-main/motogo-app-flutter-ios/ios
-          echo "===== Podfile na disku PŘED pod install ====="
-          grep -nE "MOTOGO24 Podfile post_install|CLANG_ALLOW|use_frameworks|use_modular_headers|linkage" Podfile || echo "(nic nenalezeno)"
-          echo "===== firebase verze z pubspec ====="
-          grep -nE "firebase_(core|messaging):" ../pubspec.yaml || true
-          echo "===== pod install (plný výstup, mimo Flutter) ====="
-          pod install 2>&1 | tee /tmp/pod.log || true
-          if grep -q "MOTOGO24 Podfile post_install ACTIVE" /tmp/pod.log; then
-            echo ">>> MARKER FOUND — Podfile post_install se aplikuje <<<"
-          else
-            echo ">>> MARKER MISSING — Podfile se ignoruje/prepisuje <<<"
-          fi
       - name: Fetch / create signing files (cert + App Store profil)
         script: |
           # Integrace app_store_connect exportuje ASC API-klíč do env (APP_STORE_CONNECT_*),

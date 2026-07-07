@@ -80,6 +80,8 @@
 	<string>Ukládání pořízených fotografií dokladů a SOS incidentů do galerie.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Polohu používáme pro zobrazení vaší pozice na mapě, výpočet vzdálenosti přistavení motorky a při SOS hlášení.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Polohu na pozadí využíváme pouze při aktivním SOS hlášení, abychom mohli sdílet vaši polohu se zákaznickou podporou a asistenční službou.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Face ID umožňuje rychlé a bezpečné přihlášení do aplikace.</string>
 
