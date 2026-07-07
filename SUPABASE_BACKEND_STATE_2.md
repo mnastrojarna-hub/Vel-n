@@ -238,8 +238,9 @@
 - **hourly_rate** (NUMERIC DEFAULT 500) — hodinová sazba technika v Kč
 
 ### sent_emails
-- id, template_slug, recipient_email, recipient_id, booking_id
+- id, template_slug, recipient_email, booking_id, sent_at, created_at
 - subject, body_html, status (queued/sent/failed/bounced), error_message, provider_id
+- **POZOR — `recipient_id` v živé tabulce NEEXISTUJE** (tabulka vznikla v dashboardu, ne migrací; dřívější docs ho mylně uváděly). Edge fn `send-email` a `send-invoice-email` ho v `INSERT` uváděly → celý insert padal (tichý catch) a mail se NEULOŽIL do „Zaslané maily" (např. `booking_qr_payment`). **FIX 2026-07-07:** `recipient_id` odstraněn ze všech `sent_emails` insertů (send-email 2×, send-invoice-email); tvar sloupců sjednocen s ověřeným `send-booking-email`/`send-cancellation-email`. Do `sent_emails` nově loguje i `send-broadcast` (hromadné maily). Výjimka bez logu: mail obnovy hesla (`send-recovery-otp`).
 - **attachments_meta** (jsonb) — `[{filename, storage_path?}]` — `storage_path` cíluje do bucketu `documents` (`invoices/<id>.pdf`, `generated/<...>.pdf`, `vouchers/<order_id>/<code>.pdf`); Velín → Dokumenty → Zaslané maily generuje signed URL pro náhled / stažení. Legacy záznamy mohou mít jen `{filename}`.
 - created_at
 

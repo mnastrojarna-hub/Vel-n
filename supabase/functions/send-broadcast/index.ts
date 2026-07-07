@@ -264,6 +264,19 @@ serve(async (req) => {
             customer_id: recipient.id,
           })
         } catch (e) { /* ignore */ }
+
+        // Log to sent_emails (Velín → Dokumenty → Zaslané maily) — i hromadné/marketingové
+        // maily se musí evidovat. Tvar sloupců 1:1 s ověřeným send-booking-email
+        // (bez `recipient_id` — v živé tabulce neexistuje).
+        try {
+          await supabase.from('sent_emails').insert({
+            template_slug: templateSlug || 'broadcast',
+            recipient_email: recipient.email,
+            subject: renderedSubject,
+            body_html: html,
+            status: success ? 'sent' : 'failed',
+          })
+        } catch (e) { /* ignore */ }
       } else {
         // SMS or WhatsApp
         success = await sendSmsOrWa(
