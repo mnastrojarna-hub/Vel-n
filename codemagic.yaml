@@ -98,14 +98,14 @@ workflows:
       flutter: stable
       xcode: latest
       cocoapods: default
-      ios_signing:
-        # Codemagic si přes App Store Connect integraci sám stáhne/vytvoří
-        # distribuční certifikát + provisioning profil pro tento bundle ID.
-        # App ID com.motogo24.app musí mít v Apple Developer portálu zapnuté
-        # capabilities: Push Notifications, Apple Pay (merchant.cz.motogo24),
-        # Associated Domains — viz APPLE_RELEASE_SETUP.md.
-        distribution_type: app_store
-        bundle_identifier: com.motogo24.app
+      # POZOR: NErozšiřovat o automatický `ios_signing` blok (distribution_type +
+      # bundle_identifier). Ten se spouští při přípravě prostředí ještě před skripty
+      # a profil jen HLEDÁ (nevytváří) → míchání s manuálním fetch-signing-files
+      # níže vyhazuje "No matching profiles found for bundle identifier ...".
+      # Podepisování řešíme plně MANUÁLNĚ v krocích níže (fetch-signing-files --create
+      # + use-profiles). App ID com.motogo24.app musí mít v Apple Developer portálu
+      # zapnuté capabilities: Push Notifications, Apple Pay (merchant.cz.motogo24),
+      # Associated Domains — viz APPLE_RELEASE_SETUP.md.
       groups:
         # Env group "firebase_ios" se secure proměnnou GOOGLE_SERVICE_INFO_PLIST
         # (base64 obsahu GoogleService-Info.plist z Firebase console).
