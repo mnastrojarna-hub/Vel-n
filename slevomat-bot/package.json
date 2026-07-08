@@ -1,0 +1,28 @@
+{
+  "name": "slevomat-bot",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "MotoGo24 — automatické uplatňování Slevomat poukazů na partner portálu (Playwright).",
+  "engines": {
+    "node": ">=18"
+  },
+  "bin": {
+    "slevomat-bot": "src/cli.mjs"
+  },
+  "scripts": {
+    "login": "node src/cli.mjs login",
+    "run": "node src/cli.mjs run",
+    "dry-run": "node src/cli.mjs run --dry-run",
+    "watch": "node src/cli.mjs watch",
+    "status": "node src/cli.mjs status",
+    "record": "node src/cli.mjs record",
+    "serve": "node src/cli.mjs serve",
+    "postinstall": "playwright install chromium"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.4",
+    "dotenv": "^16.4.5",
+    "playwright": "^1.48.2"
+  }
+}

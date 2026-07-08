@@ -2,6 +2,11 @@ node_modules/
 package-lock.json
 package.json
 
+# slevomat-bot je samostatný Node projekt nasazovaný přes GitHub Actions —
+# jeho manifest MUSÍ být v gitu, jinak `npm install` na runneru spadne (ENOENT).
+!slevomat-bot/package.json
+!slevomat-bot/package-lock.json
+
 # motogo-web-php runtime artefakty
 motogo-web-php/.cache/
 
