@@ -11,6 +11,7 @@ import '../../core/i18n/i18n_provider.dart';
 import '../../core/supabase_client.dart';
 import '../../core/widgets/moto_fx.dart';
 import 'poi_suggest.dart';
+import 'map_fit.dart';
 import 'routes_model.dart';
 import 'routes_provider.dart';
 import 'submit_common.dart';
@@ -160,20 +161,11 @@ class _RouteBuilderScreenState extends ConsumerState<RouteBuilderScreen> {
   void _fit() {
     if (!_mapReady) return;
     final pts = _geometry.length >= 2 ? _geometry : _stops.map((s) => s.point).toList();
-    if (pts.length < 2) {
-      if (pts.length == 1) _ctrl.move(pts.first, 13);
-      return;
-    }
-    try {
-      _ctrl.fitCamera(CameraFit.bounds(
-        bounds: LatLngBounds.fromPoints(pts),
-        padding: const EdgeInsets.all(40),
-      ));
-    } catch (_) {}
+    fitMapSafe(_ctrl, pts, padding: const EdgeInsets.all(40));
   }
 
   void _navigate() {
-    if (_stops.length < 2) return;
+    if (_stops.isEmpty) return;
     final pois = _stops.where((s) => s.poi != null).map((s) => s.poi!).toList();
     final route = RouteItem(
       id: 'custom',
@@ -187,7 +179,10 @@ class _RouteBuilderScreenState extends ConsumerState<RouteBuilderScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final canNav = _stops.length >= 2;
+    // Navigovat lze i k JEDNOMU bodu (naviguje se od živé polohy jezdce k němu).
+    // Návrh trasy „ostatním" ale dává smysl až od 2 bodů (jedno místo není trasa).
+    final canNav = _stops.isNotEmpty;
+    final canSuggest = _stops.length >= 2;
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
       body: Column(
@@ -201,7 +196,7 @@ class _RouteBuilderScreenState extends ConsumerState<RouteBuilderScreen> {
             onAdd: _addSuggestedPoi,
           ),
           Expanded(child: _stopsList(context)),
-          _bottomBar(context, canNav),
+          _bottomBar(context, canNav, canSuggest),
         ],
       ),
     );
@@ -550,7 +545,7 @@ class _RouteBuilderScreenState extends ConsumerState<RouteBuilderScreen> {
   }
 
   // ── Spodní lišta: Navrhnout ostatním + Navigovat ──
-  Widget _bottomBar(BuildContext context, bool canNav) {
+  Widget _bottomBar(BuildContext context, bool canNav, bool canSuggest) {
     return Container(
       padding: EdgeInsets.fromLTRB(16, 12, 16, MediaQuery.of(context).padding.bottom + 12),
       decoration: BoxDecoration(color: Colors.white, boxShadow: MotoGoShadows.stickyBar),
@@ -559,9 +554,9 @@ class _RouteBuilderScreenState extends ConsumerState<RouteBuilderScreen> {
           // Sekundární akce: odeslat poskládanou trasu jako návrh do moderace.
           PressableScale(
             pressedScale: 0.97,
-            onTap: canNav ? _openSuggestSheet : () {},
+            onTap: canSuggest ? _openSuggestSheet : () {},
             child: Opacity(
-              opacity: canNav ? 1 : 0.45,
+              opacity: canSuggest ? 1 : 0.45,
               child: Container(
                 height: 52,
                 padding: const EdgeInsets.symmetric(horizontal: 14),

@@ -173,11 +173,11 @@ workflows:
         script: |
           cd $CM_BUILD_DIR/Motogo-app-main/motogo-app-flutter-ios
           # CFBundleVersion = Codemagic $BUILD_NUMBER (vždy unikátní a rostoucí),
-          # CFBundleShortVersionString = 2.3.0 (release versionName se řídí zde přes
+          # CFBundleShortVersionString = 2.5.0 (release versionName se řídí zde přes
           # --build-name, aby byl nezávislý na semver fallbacku v pubspec.yaml).
           flutter build ipa --release \
             --build-number=$BUILD_NUMBER \
-            --build-name=2.3.0 \
+            --build-name=2.5.0 \
             --export-options-plist=/Users/builder/export_options.plist
     artifacts:
       - Motogo-app-main/motogo-app-flutter-ios/build/ios/ipa/*.ipa
@@ -223,15 +223,15 @@ workflows:
           cd $CM_BUILD_DIR/Motogo-app-main/motogo-app-flutter
           # versionCode = Codemagic build number ($BUILD_NUMBER), který se automaticky
           # zvyšuje s každým buildem → je vždy unikátní a rostoucí, takže Google Play už
-          # nikdy neodmítne "verze byla použita". versionName = 2.3.0 (release verze
+          # nikdy neodmítne "verze byla použita". versionName = 2.5.0 (release verze
           # se řídí zde přes --build-name, nezávisle na semver fallbacku v pubspec.yaml).
-          flutter build apk --release --build-number=$BUILD_NUMBER --build-name=2.3.0
+          flutter build apk --release --build-number=$BUILD_NUMBER --build-name=2.5.0
       - name: Build release AAB (Play Store)
         script: |
           cd $CM_BUILD_DIR/Motogo-app-main/motogo-app-flutter
           # Stejný build number jako u APK (jeden release = jeden versionCode).
-          # versionName = 2.3.0 (viz výše — předáno přes --build-name).
-          flutter build appbundle --release --build-number=$BUILD_NUMBER --build-name=2.3.0
+          # versionName = 2.5.0 (viz výše — předáno přes --build-name).
+          flutter build appbundle --release --build-number=$BUILD_NUMBER --build-name=2.5.0
       - name: Generate QR code for APK download
         script: |
           brew install qrencode

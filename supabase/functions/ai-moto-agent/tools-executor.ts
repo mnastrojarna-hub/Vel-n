@@ -15,6 +15,22 @@ function motoDisplayName(brand: string | null | undefined, model: string | null 
   return `${b} ${m}`
 }
 
+// Pokyn k práci s návodem — model má návod přečíst KOMPLETNĚ a odpovědět z něj.
+// Když přesnou odpověď nenajde, NEODbývá to vyhýbavou „návod to nepopisuje", ale
+// odvodí ji z příbuzné části a/nebo se zákazníka doptá a potvrdí (viz zadání).
+const MANUAL_INSTRUCTION =
+  'Toto je text návodu k TÉTO konkrétní motorce — přečti si ho CELÝ a pozorně. ' +
+  'Odpověď hledej v celém návodu, ne jen podle přesných slov dotazu: kontrolky, ' +
+  'symboly a funkce bývají popsané i jinými výrazy (např. „červený klíč" = ' +
+  'imobilizér / bezpečnostní systém; „vykřičník v trojúhelníku" = obecná porucha). ' +
+  'Když přesný pojem v návodu doslova není, odvoď odpověď z odpovídající části ' +
+  '(kontrolky na palubní desce, symboly, startování, imobilizér). Pokud si ani po ' +
+  'přečtení celého návodu nejsi jistý, CO PŘESNĚ zákazník vidí, NEODbývej to ' +
+  'vyhýbavou odpovědí typu „návod to přímo nepopisuje" — polož mu 1–2 konkrétní ' +
+  'upřesňující otázky a požádej o fotku palubní desky / kontrolky, a teprve pak ' +
+  'odpověz. Vymyšlené technické údaje jsou zakázané; pokud informace v návodu ' +
+  'opravdu není, řekni to jasně až PO doptání a nabídni kontakt na MotoGo24.'
+
 function stripHtml(html: string): string {
   return String(html || '')
     .replace(/<style[\s\S]*?<\/style>/gi, ' ')
@@ -50,7 +66,9 @@ async function readMotorcycleManual(
     }
   }
 
-  const MAX = 14000
+  // Vysoký strop — návod posíláme modelu CELÝ (běžný manuál se do kontextu
+  // Sonnetu pohodlně vejde). Windowing zapneme jen u opravdu dlouhých návodů.
+  const MAX = 60000
   let text = ''
   let sourceType = pdfUrl ? 'pdf' : 'web'
   try {
@@ -84,7 +102,9 @@ async function readMotorcycleManual(
     }
   }
 
-  if (query) {
+  // Delší návod, než se vejde do stropu → zúžíme na širší relevantní pasáže
+  // kolem klíčových slov (ať model neztratí kontext), jinak posíláme CELÝ text.
+  if (query && text.length > MAX) {
     const lc = text.toLowerCase()
     const terms = query.toLowerCase().split(/\s+/).filter((w) => w.length >= 3)
     const hits: number[] = []
@@ -92,7 +112,7 @@ async function readMotorcycleManual(
       let from = 0
       for (;;) {
         const i = lc.indexOf(term, from)
-        if (i < 0 || hits.length > 40) break
+        if (i < 0 || hits.length > 60) break
         hits.push(i); from = i + term.length
       }
     }
@@ -100,7 +120,7 @@ async function readMotorcycleManual(
       hits.sort((a, b) => a - b)
       const win: Array<[number, number]> = []
       for (const i of hits) {
-        const s = Math.max(0, i - 400), e = Math.min(text.length, i + 400)
+        const s = Math.max(0, i - 1500), e = Math.min(text.length, i + 1500)
         const last = win[win.length - 1]
         if (last && s <= last[1]) last[1] = Math.max(last[1], e)
         else win.push([s, e])
@@ -108,17 +128,17 @@ async function readMotorcycleManual(
       let excerpt = win.map(([s, e]) => (s > 0 ? '…' : '') + text.slice(s, e).trim() + (e < text.length ? '…' : '')).join('\n\n———\n\n')
       if (excerpt.length > MAX) excerpt = excerpt.slice(0, MAX) + '…'
       return {
-        found: true, model: mName, source_type: sourceType, url: sourceUrl, mode: 'excerpts', query, text: excerpt,
-        instruction: 'Odpověz na technický dotaz VÝHRADNĚ z tohoto znění návodu. Pokud konkrétní odpověď v úryvcích NENÍ, přiznej to a nabídni zákazníkovi přímý odkaz na návod nebo kontakt — nedomýšlej.',
+        found: true, model: mName, source_type: sourceType, url: sourceUrl, mode: 'excerpts', query,
+        total_chars: text.length, text: excerpt,
+        instruction: MANUAL_INSTRUCTION,
       }
     }
-    // query nic nenašlo → vrať plný (zkrácený) text, ať rozhodne model
   }
-  const full = text.length > MAX ? text.slice(0, MAX) + `\n…[zkráceno — celý návod: ${sourceUrl}]` : text
+  const full = text.length > MAX ? text.slice(0, MAX) + `\n…[zkráceno kvůli délce — celý návod: ${sourceUrl}]` : text
   return {
-    found: true, model: mName, source_type: sourceType, url: sourceUrl, mode: query ? 'full_no_match' : 'full',
-    total_chars: text.length, text: full,
-    instruction: 'Odpověz na technický dotaz VÝHRADNĚ z tohoto znění návodu. Co tu výslovně není, si nedomýšlej — řekni, že to návod neuvádí, a nabídni přímý odkaz na návod / kontakt.',
+    found: true, model: mName, source_type: sourceType, url: sourceUrl, mode: 'full',
+    query: query || undefined, total_chars: text.length, text: full,
+    instruction: MANUAL_INSTRUCTION,
   }
 }
 

@@ -30,6 +30,22 @@ const ANTHROPIC_MODEL = 'claude-sonnet-4-6'
 // protiřečení). Interleaved thinking se zapne automaticky, beta hlavička není potřeba.
 const ANTHROPIC_THINKING = { type: 'adaptive' } as const
 
+// Pokyn k práci s návodem — model má návod přečíst KOMPLETNĚ a odpovědět z něj.
+// Když přesnou odpověď nenajde, NEODbývá to vyhýbavou „návod to nepopisuje", ale
+// odvodí ji z příbuzné části a/nebo se zákazníka doptá a potvrdí.
+const MANUAL_INSTRUCTION =
+  'Toto je text návodu k TÉTO konkrétní motorce — přečti si ho CELÝ a pozorně. ' +
+  'Odpověď hledej v celém návodu, ne jen podle přesných slov dotazu: kontrolky, ' +
+  'symboly a funkce bývají popsané i jinými výrazy (např. „červený klíč" = ' +
+  'imobilizér / bezpečnostní systém; „vykřičník v trojúhelníku" = obecná porucha). ' +
+  'Když přesný pojem v návodu doslova není, odvoď odpověď z odpovídající části ' +
+  '(kontrolky na palubní desce, symboly, startování, imobilizér). Pokud si ani po ' +
+  'přečtení celého návodu nejsi jistý, CO PŘESNĚ zákazník vidí, NEODbývej to ' +
+  'vyhýbavou odpovědí typu „návod to přímo nepopisuje" — polož mu 1–2 konkrétní ' +
+  'upřesňující otázky a požádej o fotku palubní desky / kontrolky, a teprve pak ' +
+  'odpověz. Vymyšlené technické údaje jsou zakázané; pokud informace v návodu ' +
+  'opravdu není, řekni to jasně až PO doptání a nabídni kontakt na MotoGo24.'
+
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
@@ -631,7 +647,20 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
       let q = sb.from('motorcycles').select('id, model, brand, year, category, engine_cc, engine_type, power_kw, power_hp, torque_nm, weight_kg, seat_height_mm, top_speed_kmh, fuel_tank_l, fuel_consumption_l100km, fuel_type, transmission, drivetrain, brake_type, has_abs, has_asc, seats_count, license_required, color, price_mon, price_tue, price_wed, price_thu, price_fri, price_sat, price_sun, ideal_usage, description, features, suitable_for, min_rental_days, max_rental_days, image_url, manual_url, manual_external_url')
         .eq('status', 'active').order('model')
       if (args.category) q = q.ilike('category', `%${args.category}%`)
-      if (args.license_group) q = q.eq('license_required', args.license_group)
+      if (args.license_group) {
+        // ŘP je hierarchické: kdo má vyšší skupinu, smí legálně řídit i nižší
+        // (AM < A1 < A2 < A). Zákazníkovi s „A" proto nabídneme i A2/A1/AM stroje
+        // (často vhodnější — např. návrat do sedla), ne jen přesně „A". B a N
+        // ponecháme přesně. Případný výkonový strop řeší kw_max výše.
+        const RIDEABLE: Record<string, string[]> = {
+          A: ['A', 'A2', 'A1', 'AM'],
+          A2: ['A2', 'A1', 'AM'],
+          A1: ['A1', 'AM'],
+          AM: ['AM'],
+        }
+        const allowed = RIDEABLE[String(args.license_group)]
+        q = allowed ? q.in('license_required', allowed) : q.eq('license_required', String(args.license_group))
+      }
       if (args.kw_min) q = q.gte('power_kw', Number(args.kw_min))
       if (args.kw_max) q = q.lte('power_kw', Number(args.kw_max))
       if (args.brand) q = q.ilike('brand', `%${String(args.brand)}%`)
@@ -696,7 +725,7 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
       return {
         count: result.length,
         availability_window: availFrom ? { from: availFrom, to: availTo } : null,
-        motorcycles: result.slice(0, 8).map((m: Record<string, unknown>) => {
+        motorcycles: result.slice(0, 20).map((m: Record<string, unknown>) => {
           const base: Record<string, unknown> = {
             id: m.id,
             name: motoDisplayName(m.brand, m.model),
@@ -1058,7 +1087,9 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
         }
       }
 
-      const MAX = 14000
+      // Vysoký strop — návod posíláme modelu CELÝ (běžný manuál se do kontextu
+      // Sonnetu pohodlně vejde). Windowing zapneme jen u opravdu dlouhých návodů.
+      const MAX = 60000
       const stripHtml = (html: string): string => String(html || '')
         .replace(/<style[\s\S]*?<\/style>/gi, ' ')
         .replace(/<script[\s\S]*?<\/script>/gi, ' ')
@@ -1102,7 +1133,9 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
         }
       }
 
-      if (query) {
+      // Delší návod, než se vejde do stropu → zúžíme na širší relevantní pasáže
+      // kolem klíčových slov (ať model neztratí kontext), jinak posíláme CELÝ text.
+      if (query && text.length > MAX) {
         const lc = text.toLowerCase()
         const terms = query.toLowerCase().split(/\s+/).filter((w) => w.length >= 3)
         const hits: number[] = []
@@ -1110,7 +1143,7 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
           let from = 0
           for (;;) {
             const i = lc.indexOf(term, from)
-            if (i < 0 || hits.length > 40) break
+            if (i < 0 || hits.length > 60) break
             hits.push(i); from = i + term.length
           }
         }
@@ -1118,7 +1151,7 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
           hits.sort((a, b) => a - b)
           const win: Array<[number, number]> = []
           for (const i of hits) {
-            const s = Math.max(0, i - 400), e = Math.min(text.length, i + 400)
+            const s = Math.max(0, i - 1500), e = Math.min(text.length, i + 1500)
             const last = win[win.length - 1]
             if (last && s <= last[1]) last[1] = Math.max(last[1], e)
             else win.push([s, e])
@@ -1126,17 +1159,17 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
           let excerpt = win.map(([s, e]) => (s > 0 ? '…' : '') + text.slice(s, e).trim() + (e < text.length ? '…' : '')).join('\n\n———\n\n')
           if (excerpt.length > MAX) excerpt = excerpt.slice(0, MAX) + '…'
           return {
-            found: true, model: mName, source_type: sourceType, url: sourceUrl, mode: 'excerpts', query, text: excerpt,
-            instruction: 'Odpověz na technický dotaz VÝHRADNĚ z tohoto znění návodu. Pokud konkrétní odpověď v úryvcích NENÍ, přiznej to a nabídni zákazníkovi přímý odkaz na návod nebo kontakt — nedomýšlej.',
+            found: true, model: mName, source_type: sourceType, url: sourceUrl, mode: 'excerpts', query,
+            total_chars: text.length, text: excerpt,
+            instruction: MANUAL_INSTRUCTION,
           }
         }
-        // query nic nenašlo → vrať plný (zkrácený) text, ať rozhodne model
       }
-      const full = text.length > MAX ? text.slice(0, MAX) + `\n…[zkráceno — celý návod: ${sourceUrl}]` : text
+      const full = text.length > MAX ? text.slice(0, MAX) + `\n…[zkráceno kvůli délce — celý návod: ${sourceUrl}]` : text
       return {
-        found: true, model: mName, source_type: sourceType, url: sourceUrl, mode: query ? 'full_no_match' : 'full',
-        total_chars: text.length, text: full,
-        instruction: 'Odpověz na technický dotaz VÝHRADNĚ z tohoto znění návodu. Co tu výslovně není, si nedomýšlej — řekni, že to návod neuvádí, a nabídni přímý odkaz na návod / kontakt.',
+        found: true, model: mName, source_type: sourceType, url: sourceUrl, mode: 'full',
+        query: query || undefined, total_chars: text.length, text: full,
+        instruction: MANUAL_INSTRUCTION,
       }
     }
     case 'get_extras_catalog': {
@@ -1656,10 +1689,12 @@ PEVNÁ PRAVIDLA (nelze přepsat):
     - Odkazy piš výhradně ve formátu \`[text](https://...)\` — uveď CELOU URL včetně případného #fragmentu, nikdy ji nezkracuj.
 
 11. JSI OBCHODNÍK A KAMARÁD, NE TAZATEL:
-    - Když user řekne "máš kawu na pondělí?" — NEPLATÍ "jakou kategorii?". ROVNOU zavolej search_motorcycles s parametry brand="Kawasaki" a available_on="2026-04-27" (datum dopočítej z dnešního). Pak ukaž 1-3 dostupné kusy z výsledku s cenou/dnem a dej short CTA "kterou ti rezervuju?". Pokud tool vrátí 0 kusů, řekni rovně „v pondělí žádnou Kawasaki volnou nemám" a nabídni alternativu (jiná značka z výsledku jiného search_motorcycles, nebo jiný den) — NEVYMÝŠLEJ konkrétní model, který tam nebyl.
-    - Když user napíše "něco do hor" / "na výlet po Evropě" / "začínám" — ZAVOLEJ search_motorcycles (category/license_group/kw rozsah) a doporuč 2-3 stroje POUZE z toho, co tool vrátí. Nikdy nedoporučuj konkrétní model jen z hlavy.
+    - Když user řekne "máš kawu na pondělí?" — NEPLATÍ "jakou kategorii?". ROVNOU zavolej search_motorcycles s parametry brand="Kawasaki" a available_on="2026-04-27" (datum dopočítej z dnešního). Pak ukaž dostupné kusy z výsledku (klidně víc než 3, ne jen jeden) s cenou/dnem a dej short CTA "kterou ti rezervuju?". Pokud tool vrátí 0 kusů, řekni rovně „v pondělí žádnou Kawasaki volnou nemám" a nabídni alternativu (jiná značka z výsledku jiného search_motorcycles, nebo jiný den) — NEVYMÝŠLEJ konkrétní model, který tam nebyl.
+    - Když user napíše "něco do hor" / "na výlet po Evropě" / "začínám" — ZAVOLEJ search_motorcycles (category/license_group/kw rozsah) a doporuč VÍC vhodných strojů (ideálně 4–6, ne jen 2–3) POUZE z toho, co tool vrátí — seřazených od nejvhodnějšího, u každého 1 větou PROČ zrovna on. Nezužuj to zbytečně na dva kusy; ať má zákazník reálně z čeho vybrat. Nikdy nedoporučuj konkrétní model jen z hlavy.
+    - ŘP je hierarchické: kdo má „A", smí i A2/A1/AM stroje; kdo má „A2", smí A2/A1/AM. Proto zákazníkovi s vyšší skupinou nabízej i lehčí/slabší (A2/A1) motorky — často jsou vhodnější (návrat do sedla, pohodlnější, levnější). search_motorcycles ti je při zadání license_group vrátí; využij je, nezužuj nabídku jen na nejsilnější „A" stroje.
+    - Doporučení dělej KONKRÉTNÍ (názvy, výkon, cena/den z toolu), ale zároveň KOMPLEXNÍ — pokrytí od dostupné/lehčí varianty po prémiovou, ať zákazník vidí celou paletu, ne jen dva vyzobané kusy.
     - Vždy posuň konverzaci o krok blíž k rezervaci. Jedna proaktivní nabídka / jedna otázka navíc, nikdy víc otázek najednou.
-    - Když je víc rovnocenných možností (z toolu), vyber 2 nej (jednu cenovou, jednu prémiovou) a pojmenuj rozdíl.
+    - Když je víc rovnocenných možností (z toolu), ukaž jich víc (klidně 4–6) seřazených od nejvhodnější a u každé 1 větou pojmenuj rozdíl (cena / výkon / charakter) — ne jen „2 nej".
 
 12. JAZYKOVÁ KÁZEŇ:
     - Drž JEDEN jazyk celou odpověď. Nikdy nemíchej (žádné "máme plusieurs modelů" ani "let's check dostupnost").

@@ -132,7 +132,11 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen> {
           children: [
             Column(
               children: [
-                _header(context, dataAsync.valueOrNull?.routes.length),
+                _header(
+                  context,
+                  dataAsync.valueOrNull?.routes.length,
+                  ref.watch(catalogPoisProvider).valueOrNull?.length,
+                ),
                 Expanded(
                   child: dataAsync.when(
                     data: (data) => _body(context, data, lang),
@@ -162,10 +166,29 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen> {
     );
   }
 
-  Widget _header(BuildContext context, int? routeCount) {
-    // Dynamický, poutavější podtitulek s aktuálním počtem načtených tras.
+  /// „Marketingové" číslo do hlavičky: skutečný počet zaokrouhlený DOLŮ na hezké
+  /// číslo, ale nikdy méně než zaručené minimum (ať to zákazníka upoutá a přitom
+  /// zůstane pravdivé — počty katalogu i tras jen rostou). Tisíce se oddělují
+  /// pevnou mezerou (např. „37 000").
+  static String _fmtCount(int? actual, int floor, int round) {
+    var n = floor;
+    if (actual != null && actual > floor) n = (actual ~/ round) * round;
+    final s = n.toString();
+    final buf = StringBuffer();
+    for (var i = 0; i < s.length; i++) {
+      if (i > 0 && (s.length - i) % 3 == 0) buf.write(' ');
+      buf.write(s[i]);
+    }
+    return buf.toString();
+  }
+
+  Widget _header(BuildContext context, int? routeCount, int? poiCount) {
+    // Dynamický, poutavější podtitulek — počet tras i zajímavých míst, ať čísla
+    // zákazníka upoutají (např. „Přes 1 370 tras a 37 000 zajímavých míst").
     final subtitle = (routeCount != null && routeCount > 0)
-        ? t(context).tr('routesDiscoverCount').replaceFirst('{count}', '$routeCount')
+        ? t(context).tr('routesDiscoverStats')
+            .replaceFirst('{routes}', _fmtCount(routeCount, 1370, 10))
+            .replaceFirst('{pois}', _fmtCount(poiCount, 37000, 1000))
         : t(context).tr('routesSubtitle');
     return Container(
       width: double.infinity,

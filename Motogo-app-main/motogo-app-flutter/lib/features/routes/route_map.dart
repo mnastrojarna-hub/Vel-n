@@ -3,6 +3,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../core/theme.dart';
+import 'map_fit.dart';
 import 'routes_provider.dart' show mapyApiKey;
 
 /// Interaktivní náhled trasy v Mapy.com dlaždicích — polyline + start pobočky
@@ -53,14 +54,7 @@ class _RouteMapViewState extends State<RouteMapView> {
   void _fit() {
     final pts = _allPoints;
     if (pts.length < 2) return;
-    try {
-      _ctrl.fitCamera(
-        CameraFit.bounds(
-          bounds: LatLngBounds.fromPoints(pts),
-          padding: const EdgeInsets.all(36),
-        ),
-      );
-    } catch (_) {}
+    fitMapSafe(_ctrl, pts, padding: const EdgeInsets.all(36));
   }
 
   @override
