@@ -214,7 +214,7 @@ export default function CustomerDetail() {
 
   const set = (k, v) => setCustomer(c => ({ ...c, [k]: v }))
 
-  if (loading) return <div className="flex justify-center py-16"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
+  if (loading && !customer) return <div className="flex justify-center py-16"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
   if (error && !customer) return <div className="p-4 rounded-card" style={{ background: '#fee2e2', color: '#dc2626' }}>{error}</div>
   if (!customer) return <div className="p-4" style={{ color: '#1a2e22' }}>Zákazník nenalezen</div>
 
