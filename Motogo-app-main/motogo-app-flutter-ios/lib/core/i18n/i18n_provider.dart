@@ -54,9 +54,16 @@ class LocaleNotifier extends StateNotifier<Locale> {
 
 /// Get translation string — shorthand for T.of(context).
 /// Usage: t(context).login, t(context).bookingTitle, etc.
+///
+/// Uses `maybeLocaleOf` (not `localeOf`) so a context whose Localizations
+/// scope is no longer reachable — e.g. an outer context captured by a modal
+/// bottom-sheet / dialog builder that gets rebuilt after the origin element is
+/// gone — falls back to the default locale instead of crashing with
+/// "Null check operator used on a null value". 'cs' matches both the app's
+/// default locale and the translation fallback in `_get`.
 AppTranslations t(BuildContext context) {
-  final locale = Localizations.localeOf(context);
-  return AppTranslations.of(locale.languageCode);
+  final locale = Localizations.maybeLocaleOf(context);
+  return AppTranslations.of(locale?.languageCode ?? 'cs');
 }
 
 /// All translations — simple key-value map approach.
