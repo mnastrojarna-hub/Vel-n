@@ -360,7 +360,7 @@ export default function BookingDetail() {
     setSaving(false)
   }
 
-  if (loading) return <div className="flex justify-center py-16"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
+  if (loading && !booking) return <div className="flex justify-center py-16"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
   if (!booking) return <div className="p-4" style={{ color: '#1a2e22' }}>{error || 'Rezervace nenalezena'}</div>
 
   const actions = (booking.status === 'completed' && booking.sos_replacement && !booking.ended_by_sos)

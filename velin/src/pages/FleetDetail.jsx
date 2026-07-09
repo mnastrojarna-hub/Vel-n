@@ -185,7 +185,7 @@ export default function FleetDetail() {
 
   const set = (k, v) => setMoto(m => ({ ...m, [k]: v }))
 
-  if (loading) return <div className="flex justify-center py-16"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
+  if (loading && !moto) return <div className="flex justify-center py-16"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
   if (!moto) return <div className="p-4" style={{ color: '#1a2e22' }}>{error || 'Motorka nenalezena'}</div>
 
   return (

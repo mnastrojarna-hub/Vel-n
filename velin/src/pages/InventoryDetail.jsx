@@ -105,7 +105,7 @@ export default function InventoryDetail() {
   const set = (k, v) => setItem(i => { const updated = { ...i, [k]: v }; autoSave(updated); return updated })
   const fmt = (n) => (n || 0).toLocaleString('cs-CZ') + ' Kč'
 
-  if (loading) return <div className="flex justify-center py-16"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
+  if (loading && !item) return <div className="flex justify-center py-16"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
   if (error && !item) return <div className="p-4 rounded-card" style={{ background: '#fee2e2', color: '#dc2626' }}>{error}</div>
   if (!item) return <div className="p-4" style={{ color: '#1a2e22' }}>Položka nenalezena</div>
 
