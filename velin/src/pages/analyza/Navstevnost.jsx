@@ -38,6 +38,19 @@ const DEVICE_COLORS = { desktop: '#74FB71', mobile: '#4285f4', tablet: '#d4a017'
 
 const MONTHS_SHORT = ['led', 'úno', 'bře', 'dub', 'kvě', 'čvn', 'čvc', 'srp', 'zář', 'říj', 'lis', 'pro']
 
+// Dny v týdnu — index = ISODOW z RPC (1=Po … 7=Ne)
+const DOW_LABELS = { 1: 'Po', 2: 'Út', 3: 'St', 4: 'Čt', 5: 'Pá', 6: 'So', 7: 'Ne' }
+const DOW_LABELS_LONG = { 1: 'Pondělí', 2: 'Úterý', 3: 'Středa', 4: 'Čtvrtek', 5: 'Pátek', 6: 'Sobota', 7: 'Neděle' }
+
+// Barva buňky heatmapy dle intenzity (0–1) — světlá → značková zelená
+function heatColor(t) {
+  if (!t || t <= 0) return '#f4f8f6'
+  // interpolace mezi světlou (#eafbe9) a plnou zelenou (#1a8c1a)
+  const from = [234, 251, 233], to = [26, 140, 26]
+  const c = from.map((f, i) => Math.round(f + (to[i] - f) * Math.min(1, t)))
+  return `rgb(${c[0]},${c[1]},${c[2]})`
+}
+
 function formatBucket(iso, gran) {
   const d = new Date(iso)
   if (isNaN(d)) return iso
@@ -151,6 +164,46 @@ export default function Navstevnost() {
 
   const devicePie = Object.entries(stats?.by_device || {})
     .map(([k, v]) => ({ name: DEVICE_LABELS[k] || k, value: Number(v), color: DEVICE_COLORS[k] || '#888' }))
+
+  // Vytíženost po hodinách (napříč všemi dny) — vždy 0–23 (chybějící = 0)
+  const hourly = useMemo(() => {
+    const m = {}
+    for (const r of (stats?.by_hour || [])) m[Number(r.hour)] = { views: Number(r.views || 0), visitors: Number(r.visitors || 0) }
+    return Array.from({ length: 24 }, (_, h) => ({
+      hour: h, label: `${String(h).padStart(2, '0')}`, views: m[h]?.views || 0, visitors: m[h]?.visitors || 0,
+    }))
+  }, [stats])
+  const peakHour = useMemo(() => hourly.reduce((a, b) => (b.views > a.views ? b : a), hourly[0] || { hour: 0, views: 0 }), [hourly])
+
+  // Vytíženost po dnech v týdnu (Po–Ne) — vždy 1–7 (chybějící = 0)
+  const dow = useMemo(() => {
+    const m = {}
+    for (const r of (stats?.by_dow || [])) m[Number(r.dow)] = { views: Number(r.views || 0), visitors: Number(r.visitors || 0) }
+    return [1, 2, 3, 4, 5, 6, 7].map(d => ({
+      dow: d, label: DOW_LABELS[d], views: m[d]?.views || 0, visitors: m[d]?.visitors || 0,
+    }))
+  }, [stats])
+  const peakDow = useMemo(() => dow.reduce((a, b) => (b.views > a.views ? b : a), dow[0] || { dow: 1, views: 0 }), [dow])
+
+  // Heatmapa den × hodina (7×24) — max pro škálování barvy
+  const heat = useMemo(() => {
+    const grid = {}
+    let max = 0
+    for (const r of (stats?.by_dow_hour || [])) {
+      const d = Number(r.dow), h = Number(r.hour), v = Number(r.views || 0)
+      grid[`${d}_${h}`] = v
+      if (v > max) max = v
+    }
+    return { grid, max }
+  }, [stats])
+  const peakCell = useMemo(() => {
+    let best = { dow: 1, hour: 0, views: 0 }
+    for (const r of (stats?.by_dow_hour || [])) {
+      const v = Number(r.views || 0)
+      if (v > best.views) best = { dow: Number(r.dow), hour: Number(r.hour), views: v }
+    }
+    return best
+  }, [stats])
 
   const refDomains = (stats?.by_referrer_domain || []).map(r => ({ name: r.name, count: Number(r.count) }))
   const topPaths = (stats?.top_paths || []).map(r => ({ path: r.path, count: Number(r.count) }))
@@ -284,6 +337,112 @@ export default function Navstevnost() {
             </LineChart>
           </ResponsiveContainer>
         )}
+      </div>
+
+      {/* Vytíženost po hodinách a dnech v týdnu (napříč všemi dny rozsahu) */}
+      <div style={{ background: '#fff', borderRadius: 14, padding: 16, border: '1px solid #e3e8e5', marginBottom: 20 }}>
+        <div className="flex items-center justify-between flex-wrap gap-2 mb-1">
+          <h3 className="font-extrabold text-sm" style={{ color: '#1a2e22' }}>Vytíženost dne a týdne</h3>
+          {(peakCell.views > 0) && (
+            <span className="text-xs" style={{ color: '#1a8c1a', fontWeight: 700 }}>
+              Špička: {DOW_LABELS_LONG[peakCell.dow]} {String(peakCell.hour).padStart(2, '0')}:00 ({peakCell.views.toLocaleString('cs-CZ')} zobrazení)
+            </span>
+          )}
+        </div>
+        <p className="text-xs mb-3" style={{ color: '#888' }}>
+          Kdy chodí na web nejvíc lidí — sečteno přes všechny dny zvoleného období. Hodiny jsou v čase Evropa/Praha.
+        </p>
+
+        {/* Heatmapa den × hodina */}
+        {heat.max === 0 ? <NoData /> : (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ borderCollapse: 'separate', borderSpacing: 2, margin: '0 auto' }}>
+              <thead>
+                <tr>
+                  <th style={{ width: 34 }} />
+                  {Array.from({ length: 24 }, (_, h) => (
+                    <th key={h} style={{ fontSize: 9, color: '#aaa', fontWeight: 600, padding: 0, width: 20 }}>
+                      {h % 3 === 0 ? String(h).padStart(2, '0') : ''}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {[1, 2, 3, 4, 5, 6, 7].map(d => (
+                  <tr key={d}>
+                    <td style={{ fontSize: 11, fontWeight: 700, color: '#1a2e22', textAlign: 'right', paddingRight: 6, whiteSpace: 'nowrap' }}>
+                      {DOW_LABELS[d]}
+                    </td>
+                    {Array.from({ length: 24 }, (_, h) => {
+                      const v = heat.grid[`${d}_${h}`] || 0
+                      return (
+                        <td key={h}
+                          title={`${DOW_LABELS_LONG[d]} ${String(h).padStart(2, '0')}:00 — ${v.toLocaleString('cs-CZ')} zobrazení`}
+                          style={{
+                            width: 20, height: 20, borderRadius: 4, background: heatColor(v / heat.max),
+                            textAlign: 'center', fontSize: 8, color: v / heat.max > 0.55 ? '#fff' : '#5a6b60', cursor: 'default',
+                          }}>
+                          {v > 0 && v === peakCell.views ? '★' : ''}
+                        </td>
+                      )
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div className="flex items-center gap-2 mt-2 justify-end">
+              <span style={{ fontSize: 10, color: '#aaa' }}>méně</span>
+              {[0, 0.25, 0.5, 0.75, 1].map(t => (
+                <span key={t} style={{ width: 16, height: 12, borderRadius: 3, background: heatColor(t), display: 'inline-block' }} />
+              ))}
+              <span style={{ fontSize: 10, color: '#aaa' }}>více</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Po hodinách (bar) + po dnech v týdnu (bar) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+        <div style={{ background: '#fff', borderRadius: 14, padding: 16, border: '1px solid #e3e8e5' }}>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-extrabold text-sm" style={{ color: '#1a2e22' }}>Po hodinách (0–23 h)</h3>
+            {peakHour.views > 0 && <span className="text-xs" style={{ color: '#1a8c1a', fontWeight: 700 }}>Nejvíc v {String(peakHour.hour).padStart(2, '0')}:00</span>}
+          </div>
+          {hourly.every(x => x.views === 0) ? <NoData /> : (
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={hourly}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f1f1" />
+                <XAxis dataKey="label" fontSize={9} interval={1} />
+                <YAxis fontSize={10} allowDecimals={false} />
+                <Tooltip formatter={(v, n) => [Number(v).toLocaleString('cs-CZ'), n === 'views' ? 'Zobrazení' : 'Návštěvníci']}
+                  labelFormatter={l => `${l}:00`} />
+                <Bar dataKey="views" name="views" radius={[4, 4, 0, 0]}>
+                  {hourly.map((d, i) => <Cell key={i} fill={d.hour === peakHour.hour && d.views > 0 ? '#1a8c1a' : '#74FB71'} />)}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+        <div style={{ background: '#fff', borderRadius: 14, padding: 16, border: '1px solid #e3e8e5' }}>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-extrabold text-sm" style={{ color: '#1a2e22' }}>Po dnech v týdnu</h3>
+            {peakDow.views > 0 && <span className="text-xs" style={{ color: '#1a8c1a', fontWeight: 700 }}>Nejvíc {DOW_LABELS_LONG[peakDow.dow]}</span>}
+          </div>
+          {dow.every(x => x.views === 0) ? <NoData /> : (
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={dow}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f1f1" />
+                <XAxis dataKey="label" fontSize={11} />
+                <YAxis fontSize={10} allowDecimals={false} />
+                <Tooltip formatter={(v, n) => [Number(v).toLocaleString('cs-CZ'), n === 'views' ? 'Zobrazení' : 'Návštěvníci']}
+                  labelFormatter={l => DOW_LABELS_LONG[dow.find(x => x.label === l)?.dow] || l} />
+                <Bar dataKey="views" name="views" radius={[4, 4, 0, 0]}>
+                  {dow.map((d, i) => <Cell key={i} fill={d.dow === peakDow.dow && d.views > 0 ? '#1a8c1a' : '#74FB71'} />)}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </div>
       </div>
 
       {/* Domény (bar) + zdroj návštěv (pie) */}
