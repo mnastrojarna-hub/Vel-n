@@ -118,11 +118,16 @@ class _LangBtn extends StatelessWidget {
 
 /// Permission request overlay — shown after language selection.
 /// Mirrors perm-overlay from index.html + grantPerms() from native-bridge.js.
-/// Actually requests native permissions when user taps "Povolit vše".
+/// Actually requests native permissions when user taps "Pokračovat".
+///
+/// Apple App Store guideline 5.1.1(iv): the priming message before a system
+/// permission request must NOT use "Allow"-style wording on its button and must
+/// NOT offer a skip/close exit — the user always proceeds to the system prompt
+/// after reading it. So this screen has a single "Continue" (next) button that
+/// leads straight into the native permission dialogs.
 class PermissionOverlay extends StatelessWidget {
   final VoidCallback onAllow;
-  final VoidCallback onSkip;
-  const PermissionOverlay({super.key, required this.onAllow, required this.onSkip});
+  const PermissionOverlay({super.key, required this.onAllow});
 
   // (icon, titleKey, descKey) — texts resolved via t(context).tr in _PermItem.
   static const _perms = [
@@ -172,14 +177,8 @@ class PermissionOverlay extends StatelessWidget {
                     await requestAllPermissions();
                     onAllow();
                   },
-                  child: Text(t(context).tr('allowAllContinue')),
+                  child: Text(t(context).tr('next')),
                 ),
-              ),
-              const SizedBox(height: 8),
-              TextButton(
-                onPressed: onSkip,
-                child: Text(t(context).tr('skipSetupLater'),
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 13)),
               ),
             ],
           ),

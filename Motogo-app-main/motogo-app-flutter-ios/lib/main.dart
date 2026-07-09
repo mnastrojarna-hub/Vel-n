@@ -342,7 +342,6 @@ class _MotoGoAppState extends ConsumerState<MotoGoApp>
               if (_onboardingChecked && _showPermOverlay)
                 PermissionOverlay(
                   onAllow: _onPermDone,
-                  onSkip: _onPermDone,
                 ),
               // Intro animace při prvním spuštění — NAD ostatními overlayi,
               // po doběhnutí odhalí výběr jazyka.
