@@ -133,13 +133,10 @@ export default function FleetDetail() {
     else purgeWebCache()
     await logAudit('motorcycle_updated', { moto_id: id })
     // Auto-překlad textových polí motorky pro web (na pozadí, neblokuje UI).
-    // Web čte translations jsonb pro `description` přes localized().
+    // Web čte translations jsonb: `description` přes localized(), `features` (text[])
+    // přes localizedList(). pickTranslatableFields() pole `features` spojí do \n-stringu.
     if (!result?.error) {
-      const translateFields = {}
-      if (description && description.trim().length > 0) translateFields.description = description
-      if (Object.keys(translateFields).length > 0) {
-        autoTranslateRow({ table: 'motorcycles', id, row: translateFields })
-      }
+      autoTranslateRow({ table: 'motorcycles', id, row: { description, features: updateData.features } })
     }
     setSaving(false)
   }

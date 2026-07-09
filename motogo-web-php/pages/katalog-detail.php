@@ -117,7 +117,9 @@ if ($features) {
 }
 if (!empty($moto['features'])) {
     $descHtml .= '<h3>' . te('detail.featuresAdvantages') . '</h3><ul>';
-    $featArr = is_string($moto['features']) ? explode(',', $moto['features']) : ($moto['features'] ?? []);
+    // Auto-překlad: pole `features` (text[]) se pro cizí jazyk čte z translations JSONB
+    // (uloženo jako \n-spojený string), CZ fallback je původní sloupec.
+    $featArr = localizedList($moto, 'features');
     foreach ($featArr as $f) { if (trim($f)) $descHtml .= '<li>' . htmlspecialchars(trim($f)) . '</li>'; }
     $descHtml .= '</ul>';
 }

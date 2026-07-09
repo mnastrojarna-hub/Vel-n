@@ -20,7 +20,7 @@ const FIELD_MAP = {
   cms_pages: ['title', 'excerpt', 'content'],
   cms_variables: ['value'],
   products: ['name', 'description', 'color', 'material'],
-  motorcycles: ['description'],
+  motorcycles: ['description', 'features'],
   branches: ['notes'],
   faq_items: ['question', 'answer'],
   routes: ['name', 'description'],
@@ -30,13 +30,18 @@ const FIELD_MAP = {
 /**
  * Vyfiltruje z `row` jen překládaná pole pro danou tabulku.
  * Vrací jen pole, která mají nenulovou délku (po trim).
+ * Pole typu array (text[], např. `motorcycles.features`) se spojí do `\n`-stringu
+ * (jeden prvek na řádek) — web ho zpět rozdělí přes localizedList().
  */
 export function pickTranslatableFields(table, row) {
   const allowed = FIELD_MAP[table]
   if (!allowed || !row) return {}
   const out = {}
   for (const f of allowed) {
-    const v = row[f]
+    let v = row[f]
+    if (Array.isArray(v)) {
+      v = v.map(x => (x == null ? '' : String(x)).trim()).filter(Boolean).join('\n')
+    }
     if (typeof v === 'string' && v.trim().length > 0) out[f] = v
   }
   return out
