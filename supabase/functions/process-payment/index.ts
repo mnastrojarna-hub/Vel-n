@@ -690,7 +690,11 @@ Deno.serve(async (req: Request) => {
         quantity: 1,
       }],
       mode: 'payment',
-      payment_method_types: ['card', 'link'],
+      // Hosted Checkout „stránka stripe" (web, např. úprava rezervace): JEN karta +
+      // Apple Pay/Google Pay (card wallets), bez Linku — aby default nebyla matoucí
+      // „Link-first" přihlašovací obrazovka. Shodné s handleWeb*Checkout v payment-flows.ts.
+      // (App native Payment Sheet výše, mode:'intent', Link ZÁMĚRNĚ drží.)
+      payment_method_types: ['card'],
       success_url: finalSuccessUrl,
       cancel_url: finalCancelUrl,
       metadata,
