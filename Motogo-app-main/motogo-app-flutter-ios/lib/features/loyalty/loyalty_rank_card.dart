@@ -197,7 +197,13 @@ class LoyaltyRankCard extends ConsumerWidget {
 
   /// Bottom sheet s podmínkami věrnostního programu.
   void _showProgramInfo(BuildContext context) {
+    // Resolve ALL strings up-front against the (valid) caller context. The
+    // modal bottom sheet builder runs in its own element subtree, and calling
+    // t(ctx)/Localizations.localeOf inside it against the captured outer
+    // context can crash on rebuild ("Null check operator used on a null value")
+    // once that context's Localizations scope is no longer reachable.
     String tr(String key) => t(context).tr(key);
+    final title = tr('loyaltyInfoTitle');
     final rules = [
       tr('loyaltyRulePoints'),
       tr('loyaltyRuleLong'),
@@ -219,7 +225,7 @@ class LoyaltyRankCard extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '🏅 ${tr('loyaltyInfoTitle')}',
+                '🏅 $title',
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w900,
