@@ -8,6 +8,7 @@ import '../../core/theme.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/supabase_client.dart';
 import 'routes_provider.dart' show mapyApiKey, fetchMapyRoute, reverseGeocode;
+import 'map_fit.dart';
 import 'map_link.dart';
 import 'submit_common.dart';
 
@@ -130,16 +131,7 @@ class _RouteSubmitScreenState extends State<RouteSubmitScreen> {
   void _fit() {
     if (!_mapReady) return;
     final pts = _geometry.length >= 2 ? _geometry : _stops.map((s) => s.point).toList();
-    if (pts.length < 2) {
-      if (pts.length == 1) _ctrl.move(pts.first, 13);
-      return;
-    }
-    try {
-      _ctrl.fitCamera(CameraFit.bounds(
-        bounds: LatLngBounds.fromPoints(pts),
-        padding: const EdgeInsets.all(40),
-      ));
-    } catch (_) {}
+    fitMapSafe(_ctrl, pts, padding: const EdgeInsets.all(40));
   }
 
   Future<void> _submit() async {

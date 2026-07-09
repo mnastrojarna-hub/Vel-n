@@ -137,7 +137,18 @@ export async function execPublicReadTool(
       let q = sb.from('motorcycles').select('id, model, brand, year, category, engine_cc, engine_type, power_kw, power_hp, torque_nm, weight_kg, seat_height_mm, top_speed_kmh, fuel_tank_l, fuel_consumption_l100km, fuel_type, transmission, drivetrain, brake_type, has_abs, has_asc, seats_count, license_required, color, price_mon, price_tue, price_wed, price_thu, price_fri, price_sat, price_sun, ideal_usage, description, features, suitable_for, min_rental_days, max_rental_days, image_url, manual_url, manual_external_url')
         .eq('status', 'active').order('model')
       if (args.category) q = q.ilike('category', `%${args.category}%`)
-      if (args.license_group) q = q.eq('license_required', args.license_group)
+      if (args.license_group) {
+        // ŘP je hierarchické (AM < A1 < A2 < A) — kdo má vyšší, smí i nižší.
+        // Zákazníkovi s „A" tak vrátíme i A2/A1/AM stroje, ne jen přesně „A".
+        const RIDEABLE: Record<string, string[]> = {
+          A: ['A', 'A2', 'A1', 'AM'],
+          A2: ['A2', 'A1', 'AM'],
+          A1: ['A1', 'AM'],
+          AM: ['AM'],
+        }
+        const allowed = RIDEABLE[String(args.license_group)]
+        q = allowed ? q.in('license_required', allowed) : q.eq('license_required', String(args.license_group))
+      }
       if (args.kw_min) q = q.gte('power_kw', Number(args.kw_min))
       if (args.kw_max) q = q.lte('power_kw', Number(args.kw_max))
       if (args.brand) q = q.ilike('brand', `%${String(args.brand)}%`)
