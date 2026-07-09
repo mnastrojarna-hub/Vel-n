@@ -718,6 +718,7 @@ const translationsUkMain = <String, Map<String, String>>{
     'noSavedCards': 'Немає збережених карток',
     'addCardForFaster': 'Додайте картку для швидших платежів',
     'addNewCard': 'Додати нову картку',
+    'cardsSavedAtCheckout': 'Картка збережеться автоматично під час оплати бронювання.',
     'cardsSecuredByStripe': 'Дані карток захищені через Stripe.\nMotoGo24 ніколи не зберігає номер картки.',
     'removeCard': 'Видалити картку?',
     'removeBtn': 'Видалити',

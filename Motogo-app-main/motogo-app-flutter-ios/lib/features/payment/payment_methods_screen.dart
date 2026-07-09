@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme.dart';
-import '../../core/widgets/moto_fx.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/supabase_client.dart';
 import '../auth/widgets/toast_helper.dart';
@@ -69,8 +67,9 @@ class PaymentMethodsScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  t(context).tr('addCardForFaster'),
+                  t(context).tr('cardsSavedAtCheckout'),
                   style: const TextStyle(fontSize: 12, color: MotoGoColors.g400),
+                  textAlign: TextAlign.center,
                 ),
               ],
             ),
@@ -86,19 +85,18 @@ class PaymentMethodsScreen extends ConsumerWidget {
               ),
             )),
 
-        const SizedBox(height: 12),
-
-        // Add new card button
-        OutlinedButton.icon(
-          onPressed: () => _addNewCard(context, ref),
-          icon: const Text('+ ', style: TextStyle(fontSize: 16)),
-          label: Text(t(context).tr('addNewCard')),
-          style: OutlinedButton.styleFrom(
-            minimumSize: const Size.fromHeight(48),
-            side: const BorderSide(color: MotoGoColors.green, width: 2),
-            foregroundColor: MotoGoColors.greenDarker,
+        // Cards are added automatically during a real payment via Stripe
+        // (Payment Sheet saves the card to the Stripe Customer). We deliberately
+        // do NOT offer a manual card-entry form here — collecting a raw card
+        // number / CVV in a custom field is an App Store 5.1.1 / PCI problem.
+        if (cards.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Text(
+            t(context).tr('cardsSavedAtCheckout'),
+            style: TextStyle(fontSize: 12, color: MotoGoColors.g400),
+            textAlign: TextAlign.center,
           ),
-        ),
+        ],
 
         const SizedBox(height: 12),
         Text(
@@ -153,154 +151,6 @@ class PaymentMethodsScreen extends ConsumerWidget {
     } else {
       showMotoGoToast(context,
           icon: '✗', title: t(context).error, message: t(context).tr('setFailed'));
-    }
-  }
-
-  Future<void> _addNewCard(BuildContext context, WidgetRef ref) async {
-    final cardNumberCtrl = TextEditingController();
-    final expCtrl = TextEditingController();
-    final holderCtrl = TextEditingController();
-    final cvvCtrl = TextEditingController();
-
-    final result = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => SingleChildScrollView(
-        padding: EdgeInsets.fromLTRB(
-            20, 0, 20, MediaQuery.of(ctx).viewInsets.bottom + 16),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          // Drag handle
-          Container(
-            width: 40,
-            height: 4,
-            margin: const EdgeInsets.only(top: 12, bottom: 12),
-            decoration: BoxDecoration(
-              color: MotoGoColors.g300,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          Text(t(context).tr('addPaymentCard'),
-              style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w900,
-                  color: MotoGoColors.black)),
-          const SizedBox(height: 4),
-          Text(t(context).tr('cardSavedInApp'),
-              style: TextStyle(fontSize: 11, color: MotoGoColors.g400),
-              textAlign: TextAlign.center),
-          const SizedBox(height: 16),
-          TextField(
-            controller: holderCtrl,
-            decoration: InputDecoration(
-                labelText: t(context).tr('cardHolderName')),
-            textInputAction: TextInputAction.next,
-            textCapitalization: TextCapitalization.words,
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: cardNumberCtrl,
-            decoration: InputDecoration(
-                labelText: t(context).tr('cardNumber'),
-                hintText: '1234 5678 9012 3456'),
-            keyboardType: TextInputType.number,
-            inputFormatters: [_CardNumberFormatter()],
-            textInputAction: TextInputAction.next,
-          ),
-          const SizedBox(height: 12),
-          Row(children: [
-            Expanded(
-              child: TextField(
-                controller: expCtrl,
-                decoration: InputDecoration(
-                    labelText: t(context).tr('cardExpiry'),
-                    hintText: 'MM/YY'),
-                keyboardType: TextInputType.number,
-                inputFormatters: [_ExpiryDateFormatter()],
-                textInputAction: TextInputAction.next,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: TextField(
-                controller: cvvCtrl,
-                decoration: const InputDecoration(
-                    labelText: 'CVV',
-                    hintText: '123'),
-                keyboardType: TextInputType.number,
-                obscureText: true,
-                inputFormatters: [_CvvFormatter()],
-                textInputAction: TextInputAction.done,
-              ),
-            ),
-          ]),
-          const SizedBox(height: 16),
-          PressableScale(child: ElevatedButton(
-            onPressed: () {
-              final digits =
-                  cardNumberCtrl.text.replaceAll(RegExp(r'\s'), '');
-              if (digits.length < 13) return;
-              if (cvvCtrl.text.length < 3) return;
-              if (expCtrl.text.length < 5) return;
-              Navigator.pop(ctx, true);
-            },
-            style: ElevatedButton.styleFrom(
-                minimumSize: const Size.fromHeight(48)),
-            child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.save, size: 18),
-                  const SizedBox(width: 8),
-                  Text(t(context).tr('saveCard')),
-                ]),
-          )),
-        ]),
-      ),
-    );
-    if (result != true || !context.mounted) return;
-
-    // Save to Supabase payment_methods table
-    final user = MotoGoSupabase.currentUser;
-    if (user == null) return;
-    try {
-      final digits = cardNumberCtrl.text.replaceAll(RegExp(r'\s'), '');
-      final last4 = digits.length >= 4
-          ? digits.substring(digits.length - 4)
-          : digits;
-      // Detect brand from card number prefix
-      String brand = 'Card';
-      if (digits.startsWith('4')) {
-        brand = 'Visa';
-      } else if (digits.startsWith('5') || digits.startsWith('2')) {
-        brand = 'Mastercard';
-      }
-      final expParts = expCtrl.text.split('/');
-      await MotoGoSupabase.client.from('payment_methods').insert({
-        'user_id': user.id,
-        'type': 'card',
-        'brand': brand,
-        'last4': last4,
-        'exp_month': expParts.isNotEmpty ? int.tryParse(expParts[0]) : null,
-        'exp_year': expParts.length > 1
-            ? int.tryParse('20${expParts[1]}')
-            : null,
-        'holder_name': holderCtrl.text.trim(),
-        'is_default': true,
-      });
-      if (context.mounted) {
-        showMotoGoToast(context,
-            icon: '✓',
-            title: t(context).tr('cardSaved'),
-            message: '•••• $last4');
-        ref.invalidate(paymentMethodsProvider);
-      }
-    } catch (e) {
-      if (context.mounted) {
-        showMotoGoToast(context,
-            icon: '✗', title: t(context).error, message: '$e');
-      }
     }
   }
 }
@@ -383,58 +233,3 @@ class _CardTile extends StatelessWidget {
   }
 }
 
-/// Formats card number: digits only, spaces every 4, max 16 digits.
-/// "1234567890123456" → "1234 5678 9012 3456"
-class _CardNumberFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-      TextEditingValue oldValue, TextEditingValue newValue) {
-    final digits = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
-    final limited = digits.length > 16 ? digits.substring(0, 16) : digits;
-    final buf = StringBuffer();
-    for (var i = 0; i < limited.length; i++) {
-      if (i > 0 && i % 4 == 0) buf.write(' ');
-      buf.write(limited[i]);
-    }
-    final formatted = buf.toString();
-    return TextEditingValue(
-      text: formatted,
-      selection: TextSelection.collapsed(offset: formatted.length),
-    );
-  }
-}
-
-/// Formats expiry date: digits only, auto-slash after MM, max 4 digits.
-/// "1228" → "12/28"
-class _ExpiryDateFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-      TextEditingValue oldValue, TextEditingValue newValue) {
-    final digits = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
-    final limited = digits.length > 4 ? digits.substring(0, 4) : digits;
-    final buf = StringBuffer();
-    for (var i = 0; i < limited.length; i++) {
-      if (i == 2) buf.write('/');
-      buf.write(limited[i]);
-    }
-    final formatted = buf.toString();
-    return TextEditingValue(
-      text: formatted,
-      selection: TextSelection.collapsed(offset: formatted.length),
-    );
-  }
-}
-
-/// CVV formatter: digits only, max 4.
-class _CvvFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-      TextEditingValue oldValue, TextEditingValue newValue) {
-    final digits = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
-    final limited = digits.length > 4 ? digits.substring(0, 4) : digits;
-    return TextEditingValue(
-      text: limited,
-      selection: TextSelection.collapsed(offset: limited.length),
-    );
-  }
-}
