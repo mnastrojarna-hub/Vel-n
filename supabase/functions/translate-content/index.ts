@@ -65,6 +65,7 @@ function buildSystemPrompt(targetLang: string, langName: string): string {
     '- Keep currency "Kč" as is (not "CZK", not converted).',
     '- Keep Czech proper nouns and place names (Mezná, Vysočina, Praha) unchanged.',
     '- Keep template placeholders like {placeholder}, {{var}}, %s, %d unchanged.',
+    '- Preserve line breaks: if a value contains multiple lines (\\n), output the SAME number of lines in the SAME order (e.g. bullet lists — one item per line). Never merge or split lines.',
     '- Keep emoji unchanged.',
     '- For very short fields (single words like "Vyber motorku") translate naturally and concisely.',
     '- Do NOT add commentary, do NOT add markdown fences, do NOT wrap in objects. Output ONLY the raw JSON object.',

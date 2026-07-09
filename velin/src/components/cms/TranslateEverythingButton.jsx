@@ -47,6 +47,7 @@ const PHASES = [
   { key: 'cms_pages',     label: 'Blog články' },
   { key: 'routes',        label: 'Trasy (název/popis)' },
   { key: 'route_pois',    label: 'Body zájmu tras' },
+  { key: 'motorcycles',   label: 'Motorky (popis/vlastnosti)' },
 ]
 
 function rowsNeedingTranslation(table, rows, force) {
@@ -72,7 +73,7 @@ export default function TranslateEverythingButton() {
   const [doneSummary, setDoneSummary] = useState(null)
 
   async function run() {
-    if (!confirm('Spustit překlad VŠEHO do EN/DE/ES/FR/NL/PL/UK? Trvá 5–15 minut, projde pages master + cms_variables + FAQ + blog + trasy + body zájmu. Můžeš zavřít kartu — překlady už uložené v DB zůstanou.')) return
+    if (!confirm('Spustit překlad VŠEHO do EN/DE/ES/FR/NL/PL/UK? Trvá 5–15 minut, projde pages master + cms_variables + FAQ + blog + trasy + body zájmu + motorky. Můžeš zavřít kartu — překlady už uložené v DB zůstanou.')) return
     setRunning(true); setPhase(null); setErrors([]); setDoneSummary(null)
     const newErrors = []
 
@@ -114,6 +115,7 @@ export default function TranslateEverythingButton() {
       { key: 'cms_pages',     selectColumns: 'id, title, excerpt, content, translations', filter: null,                    labelOf: r => r.title },
       { key: 'routes',        selectColumns: 'id, name, description, translations',       filter: null,                    labelOf: r => r.name },
       { key: 'route_pois',    selectColumns: 'id, name, description, translations',       filter: null,                    labelOf: r => r.name },
+      { key: 'motorcycles',   selectColumns: 'id, model, description, features, translations', filter: null,                labelOf: r => r.model },
     ]
     for (const ph of dbPhases) {
       setPhase(ph.key)

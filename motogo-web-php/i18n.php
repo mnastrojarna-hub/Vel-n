@@ -663,3 +663,36 @@ function localized($row, $field, $lang = null) {
 function localizedEsc($row, $field, $lang = null) {
     return htmlspecialchars(localized($row, $field, $lang), ENT_QUOTES | ENT_HTML5, 'UTF-8');
 }
+
+/**
+ * Přeložený SEZNAM (pole) pro sloupce typu text[] (např. `motorcycles.features`),
+ * které se do JSONB `translations` ukládají jako `\n`-spojený řetězec (jeden prvek
+ * na řádek). Vrací pole položek v cílovém jazyce, nebo původní CZ pole jako fallback.
+ * Čeština (nebo chybějící překlad) → vždy původní pole ze zdrojového sloupce.
+ *
+ * @param array|null $row    Řádek z DB
+ * @param string     $field  Název sloupce (features, ...)
+ * @param string|null $lang  Cílový jazyk (default: aktuální detekovaný)
+ * @return array             Pole položek (nikdy null)
+ */
+function localizedList($row, $field, $lang = null) {
+    if (!is_array($row)) return [];
+    $raw = $row[$field] ?? [];
+    // Zdrojové pole (CZ) — text[] přijde jako pole, defenzivně i CSV string.
+    $rawArr = is_array($raw)
+        ? array_values(array_filter(array_map('trim', $raw), function ($x) { return $x !== ''; }))
+        : (is_string($raw) && $raw !== '' ? array_map('trim', explode(',', $raw)) : []);
+    $lang = $lang ?: i18nDetectLanguage();
+    if ($lang === I18N_DEFAULT) return $rawArr;
+    $tr = $row['translations'] ?? null;
+    if (is_string($tr)) {
+        $decoded = json_decode($tr, true);
+        $tr = is_array($decoded) ? $decoded : null;
+    }
+    if (is_array($tr) && isset($tr[$lang][$field]) && is_string($tr[$lang][$field]) && trim($tr[$lang][$field]) !== '') {
+        $parts = preg_split('/\r\n|\r|\n/', $tr[$lang][$field]);
+        $parts = array_values(array_filter(array_map('trim', $parts), function ($x) { return $x !== ''; }));
+        if ($parts) return $parts;
+    }
+    return $rawArr;
+}
