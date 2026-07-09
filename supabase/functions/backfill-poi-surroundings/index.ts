@@ -13,6 +13,10 @@
  * `trigger_poi_surroundings_backfill`) se DB postupně vyprázdní; když už nic
  * nechybí, vrátí `done:true` a cron se sám odplánuje.
  *
+ * Pořadí „víc vidět → první" (nic se nevynechává, jen se upřednostní): nejdřív
+ * body NA TRASE (`route_pois`), pak katalog — a v rámci katalogu nejdřív body
+ * S FOTKOU (poutavé karty v appce), teprve pak zbytek bez fotky.
+ *
  * POST /functions/v1/backfill-poi-surroundings
  * Body (vše volitelné): { scope?: 'catalog'|'route_pois'|'all' (def 'all'),
  *   limit?: number (def 8, max 25), concurrency?: number (def 2) }
@@ -115,7 +119,16 @@ async function fetchMissing(db: any, table: string, limit: number) {
   const cols = table === 'points_of_interest'
     ? 'id, name, description, category, country, region, lat, lng'
     : 'id, name, description, lat, lng'
-  const { data, error } = await db.from(table).select(cols).is('surroundings', null).limit(limit)
+  // Priorita „víc vidět → první": body S FOTKOU (image_url != null) se v appce
+  // zobrazují jako poutavé karty, tak je zpracuj dřív než ty bez fotky. PostgREST
+  // `nullsFirst:false` = řádky s hodnotou první, NULL až nakonec. (Uvnitř tabulky;
+  // route_pois jde před katalog už na úrovni scope='all' — viz runBatch.)
+  const { data, error } = await db
+    .from(table)
+    .select(cols)
+    .is('surroundings', null)
+    .order('image_url', { nullsFirst: false })
+    .limit(limit)
   if (error) throw new Error(error.message)
   return data || []
 }
@@ -201,13 +214,15 @@ serve(async (req) => {
       }
     }
     while (Date.now() - t0 < budgetMs) {
-      // Pořadí: nejdřív katalogové body (vidí je nejvíc uživatelů), pak body na trase.
+      // Pořadí „víc vidět → první": nejdřív body NA TRASE (route_pois — uživatel je
+      // vidí, když si trasu otevře/jede), pak katalogové body (v rámci katalogu jdou
+      // první ty s fotkou, viz fetchMissing). Nic se nevynechává, jen se upřednostní.
       let rows: any[] = []
       if (scope === 'route_pois') { table = 'route_pois'; rows = await fetchMissing(db, table, limit) }
       else if (scope === 'catalog') { table = 'points_of_interest'; rows = await fetchMissing(db, table, limit) }
       else {
-        table = 'points_of_interest'; rows = await fetchMissing(db, table, limit)
-        if (rows.length === 0) { table = 'route_pois'; rows = await fetchMissing(db, table, limit) }
+        table = 'route_pois'; rows = await fetchMissing(db, table, limit)
+        if (rows.length === 0) { table = 'points_of_interest'; rows = await fetchMissing(db, table, limit) }
       }
       if (rows.length === 0) { await logResult({ table, done: true }); return { table, processed: totalP, failed: totalF, done: true } }
       const { processed, failed, reasons } = await processTable(db, table, rows, concurrency)
