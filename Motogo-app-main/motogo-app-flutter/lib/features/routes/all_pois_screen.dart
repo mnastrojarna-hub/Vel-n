@@ -47,7 +47,8 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
   // krátké pauze v psaní; napsaný text v poli zůstává responzivní hned.
   Timer? _searchDebounce;
 
-  // Filtr „v okolí výběru" — nabídne další body do X km od už vybraných.
+  // Filtr „v okolí výběru" — nabídne další body do X km od PRVNÍHO vybraného
+  // bodu (stabilní kotva, aby se okruh s přibývajícím výběrem nerozrůstal).
   bool _nearbyOn = false;
   double _nearbyKm = 10;
   static const List<double> _nearbyKmOptions = [5, 10, 25, 50];
@@ -258,29 +259,31 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
       return searchMatches(e.poi.searchBlob, q) ||
           (e.route != null && searchMatches(e.route!.nameBlob, q));
     }).toList();
-    // 2) „V okolí výběru" — po výběru bodu nabídne další body do X km od něj
-    //    (vybrané zůstávají vidět vždy). Kategorie se filtrují až nad tím.
+    // 2) „V okolí výběru" — nabídne další body do X km od PRVNÍHO vybraného bodu
+    //    (stabilní střed vyjížďky). Dřív se okruh počítal od VŠECH vybraných, takže
+    //    s každým přidaným návrhem se oblast rozrůstala (sjednocení kruhů) a filtr
+    //    přestal zužovat. Kotva = první stále vybraný bod → okruh drží na místě.
+    //    Vybrané body zůstávají vidět vždy; kategorie se filtrují až nad tím.
     const dist = Distance();
-    final selPts = _nearbyOn && _selected.isNotEmpty
-        ? all
-            .where((e) => _selected.contains(e.key) && e.latLng != null)
-            .map((e) => e.latLng!)
-            .toList()
-        : const <LatLng>[];
-    double nearestSel(PoiEntry e) {
-      var best = double.infinity;
-      for (final p in selPts) {
-        final d = dist.as(LengthUnit.Meter, p, e.latLng!);
-        if (d < best) best = d;
+    LatLng? nearbyAnchor;
+    if (_nearbyOn && _selected.isNotEmpty) {
+      final anchorKey = _selected.first; // Set literál = pořadí vkládání
+      for (final e in all) {
+        if (e.key == anchorKey) {
+          nearbyAnchor = e.latLng;
+          break;
+        }
       }
-      return best;
     }
-    final nearFiltered = selPts.isEmpty
+    double distToAnchor(PoiEntry e) => (nearbyAnchor == null || e.latLng == null)
+        ? double.infinity
+        : dist.as(LengthUnit.Meter, nearbyAnchor!, e.latLng!);
+    final nearFiltered = nearbyAnchor == null
         ? sourceFiltered
         : sourceFiltered
             .where((e) =>
                 _selected.contains(e.key) ||
-                (e.latLng != null && nearestSel(e) <= _nearbyKm * 1000))
+                (e.latLng != null && distToAnchor(e) <= _nearbyKm * 1000))
             .toList();
     // 3) Kategorie.
     var list = _cats.isEmpty
@@ -302,8 +305,8 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
     // 5) Řazení. „V okolí výběru" má přednost (návrhy od vybraných bodů nahoře),
     //    jinak dle zvoleného řazení.
     final selRouteAnchor = _selectedRouteAnchor();
-    if (selPts.isNotEmpty) {
-      list.sort((a, b) => nearestSel(a).compareTo(nearestSel(b)));
+    if (nearbyAnchor != null) {
+      list.sort((a, b) => distToAnchor(a).compareTo(distToAnchor(b)));
     } else {
       switch (_sort) {
         case _PoiSort.random:
