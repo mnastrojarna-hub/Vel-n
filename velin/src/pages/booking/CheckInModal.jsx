@@ -67,8 +67,14 @@ export default function CheckInModal({ open, event, onClose, onDone }) {
 
   async function markPickedUp(via) {
     setSaving(true); setError(null)
+    const now = new Date().toISOString()
+    const upd = { status: 'active', picked_up_at: now }
+    // Na OBSLUŽNÉ pobočce je aktivace vázaná na předávací protokol — označíme ho
+    // jako vyplněný, aby přechod prošel strážcem trg_gate_obsluzna_activation.
+    // Samoobslužná (kód) se strážcem neřídí a protokol si plní zákazník v appce.
+    if (!selfService) upd.handover_protocol_filled_at = now
     const { error: err } = await supabase.from('bookings')
-      .update({ status: 'active', picked_up_at: new Date().toISOString() }).eq('id', booking.id)
+      .update(upd).eq('id', booking.id)
     if (err) { setError(err.message); setSaving(false); return }
     await logAudit('booking_checkin_pickup', { booking_id: booking.id, method: via, branch_type: branchType })
     setSaving(false)
