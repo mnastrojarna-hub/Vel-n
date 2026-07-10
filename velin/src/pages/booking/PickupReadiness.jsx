@@ -176,7 +176,15 @@ export default function PickupReadiness({ booking, onClose, onProtocolDone }) {
       <div className="p-3 rounded-card" style={{ background: '#f8faf9', border: '1px solid #eef5f1' }}>
         <StepHead n={3} label="Předávací protokol" done={false} />
         {ready ? (
-          <Button green onClick={() => setShowProtocol(true)}>✍️ Otevřít předávací protokol</Button>
+          <div className="space-y-2">
+            <Button green onClick={() => setShowProtocol(true)}>✍️ Otevřít předávací protokol (elektronicky)</Button>
+            <div>
+              <Button onClick={() => {
+                if (window.confirm('Potvrdit, že byl s klientem vyplněn a podepsán TIŠTĚNÝ předávací protokol? Rezervace se aktivuje (předání) a zaznamená se čas.')) onProtocolDone?.()
+              }}>🖨️ Potvrdit tištěný protokol</Button>
+              <p className="text-xs mt-1" style={{ color: '#64748b' }}>Použijte, když protokol vyplňujete na papír — bez elektronického podpisu.</p>
+            </div>
+          </div>
         ) : (
           <div className="text-sm" style={{ color: '#b45309' }}>Nejprve doplňte chybějící údaje a doklady výše.</div>
         )}
