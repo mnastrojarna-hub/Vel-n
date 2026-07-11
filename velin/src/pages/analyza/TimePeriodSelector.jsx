@@ -38,14 +38,14 @@ export function filterByPeriod(items, period, dateField = 'created_at') {
   })
 }
 
-export function hasMinimumData(bookings, monthsRequired = 3) {
-  if (!bookings || bookings.length === 0) return false
-  const dates = bookings.map(b => new Date(b.created_at || b.start_date)).filter(d => !isNaN(d))
-  if (dates.length === 0) return false
-  const oldest = Math.min(...dates)
-  const diffMs = Date.now() - oldest
-  const diffMonths = diffMs / (1000 * 60 * 60 * 24 * 30)
-  return diffMonths >= monthsRequired
+// Dříve vyžadovalo data alespoň za 3 měsíce, než se v Analýze zobrazily závěry
+// (výkon motorek/poboček, optimální flotila, doporučení přesunů, segmenty zákazníků).
+// Na přání provozu je tato časová podmínka ZRUŠENA — data už reálně sbíráme, takže
+// analýzy se zobrazují hned, jakmile existuje aspoň jedna rezervace (i orientačně /
+// klidně zavádějící u krátkého období). Ponechán jen guard proti úplně prázdným datům
+// (jinak by agregace typu Math.max(...[]) padaly na -Infinity).
+export function hasMinimumData(bookings) {
+  return Array.isArray(bookings) && bookings.length > 0
 }
 
 // Sjednoceno na kanonický helper `rentalDays` (inkluzivní kalendářní dny, +1) —

@@ -24,8 +24,8 @@ const classColors = {
 const NoData = () => (
   <div className="p-6 text-center" style={{ background: '#fffbeb', borderRadius: 14, border: '1px solid #fde68a', color: '#854d0e', fontSize: 13 }}>
     <div style={{ fontSize: 32 }}>⏳</div>
-    <div className="font-bold mt-2">Nedostatek dat pro analýzu</div>
-    <div className="mt-1">Pro zobrazení závěrů jsou potřeba data alespoň za 3 měsíce zpětně.</div>
+    <div className="font-bold mt-2">Zatím žádná data pro analýzu</div>
+    <div className="mt-1">Jakmile přibude první rezervace, zobrazí se tu závěry (i orientačně za kratší období).</div>
   </div>
 )
 

@@ -33,10 +33,11 @@ export default function PickupReadiness({ booking, onClose, onProtocolDone }) {
   const [showUpload, setShowUpload] = useState(false)
   const [showProtocol, setShowProtocol] = useState(false)
   const [error, setError] = useState(null)
-  // Editace údajů ŘP
+  // Editace údajů dokladů (ŘP + číslo OP/pasu)
   const [licNo, setLicNo] = useState('')
   const [licExp, setLicExp] = useState('')
   const [groups, setGroups] = useState([])
+  const [idNo, setIdNo] = useState('')
   const [savingData, setSavingData] = useState(false)
 
   useEffect(() => { load() }, [booking?.id])
@@ -56,6 +57,7 @@ export default function PickupReadiness({ booking, onClose, onProtocolDone }) {
       setLicNo(p?.license_number || '')
       setLicExp(p?.license_expiry ? String(p.license_expiry).slice(0, 10) : '')
       setGroups(Array.isArray(p?.license_group) ? p.license_group : [])
+      setIdNo(p?.id_number || '')
     } catch (e) { setError(e.message) }
     setLoading(false)
   }
@@ -72,9 +74,13 @@ export default function PickupReadiness({ booking, onClose, onProtocolDone }) {
 
   const vs = computeDocVerification(docs, profile, licenseRequired)
   const isChild = vs.isChildMoto
-  const dataOk = isChild || (vs.licenseValid && vs.licenseGroupFilled && vs.hasMotoGroup)
+  // Čísla dokladů (ŘP i OP/pas) jsou POVINNÁ — bez nich odbavení nepustí a operátor
+  // je vyzván k doplnění (dřív se ptalo jen na platnost/skupiny ŘP, ne na číslo OP/pasu).
+  const dataOk = isChild || (vs.licenseNumberFilled && vs.idNumberFilled && vs.licenseValid && vs.licenseGroupFilled && vs.hasMotoGroup)
   const docsOk = isChild || (vs.hasLicense && vs.hasIdentity)
-  const ready = isChild || vs.allOk
+  // Protokol (a tím odbavení) lze otevřít, až když jsou vyplněná čísla dokladů (dataOk)
+  // i ověřené doklady (allOk) — jinak by šlo odbavit s prázdným číslem OP/pasu.
+  const ready = isChild || (dataOk && vs.allOk)
 
   function toggleGroup(g) { setGroups(gs => gs.includes(g) ? gs.filter(x => x !== g) : [...gs, g]) }
 
@@ -84,6 +90,7 @@ export default function PickupReadiness({ booking, onClose, onProtocolDone }) {
     if (licNo.trim()) upd.license_number = licNo.trim()
     if (licExp) { upd.license_expiry = licExp; upd.license_verified_until = licExp }
     if (groups.length) upd.license_group = groups
+    if (idNo.trim()) upd.id_number = idNo.trim()
     try {
       const { error: e } = await supabase.from('profiles').update(upd).eq('id', booking.user_id)
       if (e) throw e
@@ -118,16 +125,22 @@ export default function PickupReadiness({ booking, onClose, onProtocolDone }) {
         <>
           {/* 1) ÚDAJE ŘP */}
           <div className="p-3 rounded-card" style={{ background: '#f8faf9', border: '1px solid #eef5f1' }}>
-            <StepHead n={1} label="Údaje řidičského průkazu" done={dataOk} />
+            <StepHead n={1} label="Údaje dokladů (ŘP + číslo OP/pasu)" done={dataOk} />
             {dataOk ? (
-              <div className="text-sm" style={{ color: '#15803d' }}>✓ Platnost i skupiny v pořádku ({(profile?.license_group || []).join(', ')}, platí do {profile?.license_expiry}).</div>
+              <div className="text-sm" style={{ color: '#15803d' }}>✓ Čísla dokladů, platnost i skupiny ŘP v pořádku ({(profile?.license_group || []).join(', ')}, platí do {profile?.license_expiry}).</div>
             ) : (
               <div className="space-y-2">
+                {!vs.licenseNumberFilled && <div style={note('#b45309', '#fffbeb', '#92400e')}>Není vyplněné číslo ŘP.</div>}
+                {!vs.idNumberFilled && <div style={note('#b45309', '#fffbeb', '#92400e')}>Není vyplněné číslo dokladu totožnosti (OP/pas).</div>}
                 {!vs.licenseValid && <div style={note('#b45309', '#fffbeb', '#92400e')}>{profile?.license_expiry ? 'ŘP je expirovaný — ověřte a opravte platnost.' : 'Není vyplněná platnost ŘP.'}</div>}
                 {(!vs.licenseGroupFilled || !vs.hasMotoGroup) && <div style={note('#b45309', '#fffbeb', '#92400e')}>Chybí skupina ŘP pro motorku (A/A2/A1/AM).</div>}
                 <div>
                   <label className="text-xs font-bold" style={{ color: '#1a2e22' }}>Číslo ŘP</label>
                   <input value={licNo} onChange={e => setLicNo(e.target.value)} style={inputStyle} placeholder="číslo ŘP" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold" style={{ color: '#1a2e22' }}>Číslo dokladu totožnosti (OP/pas)</label>
+                  <input value={idNo} onChange={e => setIdNo(e.target.value)} style={inputStyle} placeholder="číslo OP nebo pasu" />
                 </div>
                 <div>
                   <label className="text-xs font-bold" style={{ color: '#1a2e22' }}>Platnost ŘP do</label>
