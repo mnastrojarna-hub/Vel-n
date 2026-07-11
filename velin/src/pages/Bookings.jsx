@@ -152,7 +152,12 @@ export default function Bookings() {
         const todayStr = localIso(new Date())
         data = data.filter(b => {
           if (filters.statuses.includes(b.status)) return true
-          if (['active', 'reserved'].includes(b.status) && b.start_date?.split('T')[0] > todayStr) return true
+          // `reserved` = potvrzeno, ale nevyzvednuto → vždy „nadcházející", i když
+          // start je dnes/v minulosti (na obslužné pobočce se aktivuje až předáním
+          // protokolu, takže reserved zůstává i pro dnešek — dřív ho půlnoční cron
+          // překlopil na active a spadalo to sem přes `active & start > dnes`).
+          if (b.status === 'reserved') return true
+          if (b.status === 'active' && b.start_date?.split('T')[0] > todayStr) return true
           return false
         })
       }
