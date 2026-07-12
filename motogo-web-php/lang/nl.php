@@ -1074,6 +1074,21 @@ return [
     'editRez.move.errNoChange' => 'Kies een nieuwe datum.',
     'editRez.move.errCustomerOverlap' => 'Je hebt al een andere reservering in deze periode. Kies een andere datum.',
 
+    // Výměna motorky (uprostřed rezervace)
+    'editRez.swap.tab' => 'Motor wisselen',
+    'editRez.swap.title' => 'Motor wisselen tijdens de reservering',
+    'editRez.swap.help' => 'Vanaf de gekozen dag (en tijd) rijd je op een andere motor — alles onder één reservering. Huidige data: {start} – {end}.',
+    'editRez.swap.pickDate' => 'Wisseldatum',
+    'editRez.swap.pickTime' => 'Wisseltijd',
+    'editRez.swap.pickMoto' => 'Kies de nieuwe motor',
+    'editRez.swap.confirm' => 'Naar deze wisselen',
+    'editRez.swap.confirming' => 'Wisselen…',
+    'editRez.swap.success' => 'Klaar! Vanaf {date} rijd je op de nieuwe motor. Het blijft één reservering.',
+    'editRez.swap.priceNote' => 'De prijs van de reservering verandert niet; een eventueel verschil regelt de verhuur.',
+    'editRez.swap.noOptions' => 'Er is op dit moment geen andere motor beschikbaar.',
+    'editRez.swap.err.unavailable' => 'De gekozen motor is niet beschikbaar in deze periode. Kies een andere.',
+    'editRez.swap.err.dateRange' => 'De wisseldatum moet binnen de reserveringsperiode vallen.',
+
     'editRez.extend.title' => 'Reservering verlengen',
     'editRez.extend.help' => 'Kies een nieuwe (latere) einddatum in de kalender. U betaalt alleen het verschil via Stripe.',
     'editRez.extend.helpUpcoming' => 'Kies nieuwe datums — u kunt het begin vervroegen of het einde verlaten.',

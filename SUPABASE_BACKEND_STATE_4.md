@@ -11,6 +11,9 @@
 | Trigger | Tabulka | Funkce |
 |---------|---------|--------|
 | `trg_admin_users_updated` | admin_users | update_updated_at() |
+| `trg_shorten_predecessor_on_swap_paid` | bookings (AFTER UPDATE OF payment_status, WHEN paid & continues_booking_id NOT NULL) | shorten_predecessor_on_swap_paid() — **NEW 2026-07-21 (`20260721_moto_swap_split.sql`).** Po zaplacení navazující rezervace B (výměna motorky, Model B split) zkrátí původní A na [start..B.start-1], nastaví `original_end_date`, sníží `total_price` o odebrané dny a dispatchne `process-refund` (app_settings, izolovaně). Idempotentní (přeskočí už zkrácené), EXCEPTION-safe. |
+| `trg_withhold_swap_next_codes` | branch_door_codes (BEFORE INSERT) | withhold_swap_next_codes() — **NEW 2026-07-21.** Na SAMOOBSLUŽNÉ pobočce zadrží kód k nové motorce navazující rezervace (`continues_booking_id` NOT NULL), dokud zákazník nevrátí původní (`withheld_reason='Vraťte nejdřív původní motorku'`). Obslužná/svoz beze změny. |
+| `trg_release_swap_next_codes` | bookings (AFTER UPDATE OF status,returned_at, WHEN completed/returned) | release_swap_next_codes() — **NEW 2026-07-21.** Po vrácení původní motorky A uvolní zadržené kódy navazující rezervace B (viz výše) + notifikuje zákazníka (`send_door_codes_email`). |
 | `trg_promo_usage_increment` | promo_code_usage | increment_promo_used_count() |
 | `trg_set_promo_code_source` | promo_codes (BEFORE INSERT) | set_promo_code_source() — **NEW 2026-06-20.** Když je `source` NULL a `code ILIKE 'VRACENI-%'`, nastaví `source='vraceni'`, aby automaticky generované kódy z vrácení (z `generate_final_invoice_on_complete`) byly ve Velíně filtrovatelné dle zdroje. Jen nastavuje NEW.source, nikdy nevyhazuje výjimku — insert nemůže shodit. |
 | `trg_sos_auto_severity` | sos_incidents (INSERT) | sos_auto_severity() |

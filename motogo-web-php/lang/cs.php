@@ -954,6 +954,21 @@ return [
     'editRez.move.errNoChange' => 'Vyberte prosím nový termín.',
     'editRez.move.errCustomerOverlap' => 'V tomto termínu už máte jinou rezervaci. Vyberte prosím jiný termín.',
 
+    // Výměna motorky (uprostřed rezervace)
+    'editRez.swap.tab' => 'Výměna motorky',
+    'editRez.swap.title' => 'Výměna motorky uprostřed rezervace',
+    'editRez.swap.help' => 'Od zvoleného dne (a času) pojedete na jiné motorce — vše zůstává pod jednou rezervací. Aktuální termín: {start} – {end}.',
+    'editRez.swap.pickDate' => 'Datum výměny',
+    'editRez.swap.pickTime' => 'Čas výměny',
+    'editRez.swap.pickMoto' => 'Vyberte novou motorku',
+    'editRez.swap.confirm' => 'Vyměnit za tuto',
+    'editRez.swap.confirming' => 'Vyměňuji…',
+    'editRez.swap.success' => 'Hotovo! Od {date} pojedete na nové motorce.',
+    'editRez.swap.priceNote' => 'Na novou motorku vznikne navazující rezervace, kterou dokončíte platbou; nevyužité dny původní motorky vám vrátíme. Výměna proběhne po podpisu předávacího protokolu na pobočce.',
+    'editRez.swap.noOptions' => 'Momentálně není k dispozici žádná jiná motorka.',
+    'editRez.swap.err.unavailable' => 'Vybraná motorka není v tomto termínu dostupná. Vyberte prosím jinou.',
+    'editRez.swap.err.dateRange' => 'Datum výměny musí být uvnitř termínu rezervace.',
+
     // Extend
     'editRez.extend.title' => 'Prodloužit rezervaci',
     'editRez.extend.help' => 'V kalendáři klikněte na den před původním začátkem (vyzvednutí dříve) nebo na den po původním konci (vrácení později). Zaplatíte pouze rozdíl ceny.',

@@ -54,6 +54,12 @@ $keys = [
     'editRez.move.title','editRez.move.help','editRez.move.cta','editRez.move.confirming',
     'editRez.move.success','editRez.move.occupiedRange','editRez.move.legendNew',
     'editRez.move.errLength','editRez.move.errNoChange','editRez.move.errCustomerOverlap',
+
+    // Výměna motorky (uprostřed rezervace)
+    'editRez.swap.tab','editRez.swap.title','editRez.swap.help','editRez.swap.pickDate',
+    'editRez.swap.pickTime','editRez.swap.pickMoto','editRez.swap.confirm','editRez.swap.confirming',
+    'editRez.swap.success','editRez.swap.priceNote','editRez.swap.noOptions',
+    'editRez.swap.err.unavailable','editRez.swap.err.dateRange',
     'editRez.doc.help','editRez.moto.title','editRez.moto.help','editRez.loc.title','editRez.loc.help',
     'editRez.moto.licReq','editRez.moto.licenseInsufficient','editRez.moto.notAvailable',
     'editRez.moto.noOptions','editRez.moto.confirm',
@@ -225,6 +231,7 @@ if (typeof MG.t !== "function") {
 <script src="' . assetUrl('/js/pages-rezervace-scan.js') . '"></script>
 <script src="' . assetUrl('/js/pages-upravit-rezervaci.js') . '"></script>
 <script src="' . assetUrl('/js/pages-upravit-rezervaci-move.js') . '"></script>
+<script src="' . assetUrl('/js/pages-upravit-rezervaci-swap.js') . '"></script>
 <script src="' . assetUrl('/js/pages-upravit-rezervaci-resume.js') . '"></script>
 <script>
 (function(){
