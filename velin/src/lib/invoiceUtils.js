@@ -62,13 +62,22 @@ function buildDailyLineItems(moto, startDate, endDate) {
 }
 
 /**
- * Build booking line items: daily breakdown + extras/delivery/discount
+ * Build booking line items: daily breakdown + extras/delivery + VŠECHNY slevy.
+ *
+ * DŮLEŽITÉ: musí odečíst KAŽDÝ druh slevy zvlášť — promo/voucher (discount_amount),
+ * věrnost (loyalty_discount_amount) i pozdní vyzvednutí (late_pickup_discount_amount) —
+ * aby Celkem DP/KF == booking.total_price (netto). Když se odečte jen část slev, DP
+ * vyjde vyšší než total_price a KF trigger na rozdíl vystaví fantomový dobropis
+ * (bug: věrnostní a late sleva na DP chyběly → přeplatek 806 Kč). Zrcadlí edge
+ * `generate-invoice` (samostatné řádky slev) i KF trigger generate_final_invoice_on_complete.
  */
 function buildBookingItems(moto, booking) {
   const items = buildDailyLineItems(moto, booking.start_date, booking.end_date)
   if (booking.extras_price > 0) items.push({ description: 'Příslušenství / doplňky', qty: 1, unit_price: booking.extras_price })
   if (booking.delivery_fee > 0) items.push({ description: 'Doručení', qty: 1, unit_price: booking.delivery_fee })
   if (booking.discount_amount > 0) items.push({ description: `Sleva${booking.discount_code ? ` (${booking.discount_code})` : ''}`, qty: 1, unit_price: -booking.discount_amount })
+  if (booking.loyalty_discount_amount > 0) items.push({ description: `Věrnostní sleva${booking.loyalty_percent ? ` ${booking.loyalty_percent} %` : ''} — rezervace přes aplikaci MotoGo24`, qty: 1, unit_price: -booking.loyalty_discount_amount })
+  if (booking.late_pickup_discount_amount > 0) items.push({ description: 'Sleva 50 % na 1. den (pozdní vyzvednutí)', qty: 1, unit_price: -booking.late_pickup_discount_amount })
   return items
 }
 
