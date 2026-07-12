@@ -1065,6 +1065,40 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
 
       switch (_ctx!.flowType) {
         case PaymentFlowType.extension:
+          // VÝMĚNA MOTORKY — doplatek (net>0) byl právě zaplacen → teprve TEĎ se smí
+          // provést server-side COMMIT výměny (RPC split_booking_moto_swap dry_run:false),
+          // který zkrátí původní rezervaci, vytvoří druhou (paid) a sám rozešle její
+          // „reserved" mail + smlouvu. COMMIT se NIKDY nevolá před vypořádáním platby.
+          final swapCommit = _ctx!.pendingEditChanges?['_swap_commit'];
+          if (swapCommit is Map) {
+            try {
+              await MotoGoSupabase.client.rpc('split_booking_moto_swap', params: {
+                'p_booking_id': swapCommit['p_booking_id'],
+                'p_new_moto_id': swapCommit['p_new_moto_id'],
+                'p_swap_date': swapCommit['p_swap_date'],
+                'p_swap_time': swapCommit['p_swap_time'],
+                'p_dry_run': false,
+              });
+            } catch (e) {
+              debugPrint('[Payment] swap commit err: $e');
+            }
+            ref.invalidate(reservationsProvider);
+            if (_pendingBookingId != null) {
+              ref.invalidate(reservationByIdProvider(_pendingBookingId!));
+            }
+            if (!mounted) return;
+            goResult(
+              PaymentOutcome(
+                title: tr.tr('paid'),
+                subtitle: tr.tr('swap.successTitle'),
+                lines: [PaymentOutcomeLine('💳', '${_ctx!.label}: $amountStr')],
+                nextStepNote: tr.tr('successEmailSent'),
+                ctaLabel: tr.tr('successCta'),
+                ctaRoute: Routes.reservations,
+              ),
+            );
+            return;
+          }
           // Apply pending edit changes ONLY after Stripe payment is confirmed.
           // Mirrors _onInlinePaymentSuccess from Capacitor payment-ui-3.js.
           if (_pendingBookingId != null && _ctx!.pendingEditChanges != null) {

@@ -144,61 +144,166 @@
     renderMotos();
   };
 
-  // ---- Odeslání výměny ----
+  // localStorage klíč pro „swap čeká na commit po zaplacení doplatku" (net>0).
+  var SWAP_KEY = 'editRez_swap_pending_';
+
+  // Mapování chybových kódů RPC → hláška.
+  function swapErr(res, sent) {
+    var code = (res.data && res.data.error) || (res.error && (res.error.message || res.error.code)) || '';
+    console.error('[editRez] swap failed', { sent: sent, code: code, error: res.error, data: res.data });
+    var map = {
+      not_found: 'editRez.err.notFound',
+      forbidden: 'editRez.err.generic',
+      wrong_status: 'editRez.err.wrongStatus',
+      not_paid: 'editRez.err.notPaid',
+      invalid_new_moto: 'editRez.swap.err.unavailable',
+      new_moto_unavailable: 'editRez.swap.err.unavailable',
+      swap_date_out_of_range: 'editRez.swap.err.dateRange',
+      already_split: 'editRez.swap.err.dateRange'
+    };
+    var key = map[code];
+    ER._showError(key ? MG.t(key) : (code || MG.t('editRez.err.generic')));
+  }
+
+  // Vrácení (net<0) na PŮVODNÍ rezervaci přes edge process-refund. Vrací {ok, msg}.
+  async function swapRefund(bookingId, amount) {
+    try {
+      var d = await window.sb.auth.getSession();
+      var tok = d && d.data && d.data.session && d.data.session.access_token;
+      if (!tok) return { ok: false, msg: MG.t('editRez.err.generic') };
+      var url = window.MOTOGO_CONFIG.SUPABASE_URL + '/functions/v1/process-refund';
+      var r = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tok, apikey: window.MOTOGO_CONFIG.SUPABASE_ANON_KEY },
+        body: JSON.stringify({ booking_id: bookingId, amount: amount, reason: 'moto_swap' })
+      });
+      var j = await r.json().catch(function () { return null; });
+      if (!r.ok || !j || j.success !== true) {
+        return { ok: false, msg: (j && j.error) || MG.t('editRez.err.generic') };
+      }
+      return { ok: true };
+    } catch (e) {
+      console.error('[editRez] swap refund exception', e);
+      return { ok: false, msg: MG.t('editRez.err.generic') };
+    }
+  }
+
+  // Úspěšná obrazovka po commitu (inline, net<=0).
+  function swapSuccessUI(swapDate) {
+    var msg = MG.t('editRez.swap.success', { date: MG.formatDate(swapDate) });
+    var content = document.getElementById('edit-rez-tab-content');
+    if (!content) return;
+    content.innerHTML = '<div class="edit-rez-success-box"><h3>✓</h3><p>' + msg + '</p>' +
+      '<button type="button" class="btn btngreen-small" id="edit-rez-swap-back">' + MG.t('editRez.list.title') + '</button></div>';
+    var back = document.getElementById('edit-rez-swap-back');
+    if (back) back.addEventListener('click', async function () {
+      ER.selectedBooking = null;
+      await ER._loadBookings();
+      ER._goto('list');
+    });
+  }
+
+  // ---- Odeslání výměny (dvoukrokový backend) ----
+  // POŘADÍ (kritické): 1) dry-run zjistí net → 2) vypořádej net → 3) COMMIT (dry_run:false).
+  //   • net>0 → doplatek přes STÁVAJÍCÍ edit-platbu (process-payment typu 'extension',
+  //     checkout redirect); COMMIT až PO návratu z úspěšné platby (paid_booking →
+  //     _applyPendingAfterPayment, viz wrap níže). BEZ `change` → webhook původní
+  //     rezervaci nezmění, jen potvrdí doplatek.
+  //   • net<0 → refund na PŮVODNÍ rezervaci PŘED commitem (process-refund).
+  //   • net==0 → rovnou COMMIT.
+  //   COMMIT sám server-side vytvoří druhou (paid) rezervaci a rozešle její mail + smlouvu.
   ER._submitSwap = async function (newMotoId, swapDate, swapTime) {
     if (ER.busy) return;
     var b = ER.selectedBooking;
     ER._setBusy(true);
     try {
-      // Split: vytvoří DRUHOU (nezaplacenou) rezervaci na novou motorku od data výměny.
-      // Původní se zkrátí + refunduje AŽ po zaplacení té druhé (backend trigger).
-      var payload = { p_booking_id: b.id, p_new_moto_id: newMotoId, p_swap_date: swapDate };
-      if (swapTime) payload.p_swap_time = swapTime;
-      var res = await window.sb.rpc('split_booking_moto_swap', payload);
+      var base = { p_booking_id: b.id, p_new_moto_id: newMotoId, p_swap_date: swapDate };
+      if (swapTime) base.p_swap_time = swapTime;
 
-      if (res.error || !res.data || res.data.success === false) {
-        var code = (res.data && res.data.error) || (res.error && (res.error.message || res.error.code)) || '';
-        console.error('[editRez] swap failed', { sent: payload, code: code, error: res.error, data: res.data });
-        var map = {
-          not_found: 'editRez.err.notFound',
-          forbidden: 'editRez.err.generic',
-          wrong_status: 'editRez.err.wrongStatus',
-          not_paid: 'editRez.err.notPaid',
-          invalid_new_moto: 'editRez.swap.err.unavailable',
-          new_moto_unavailable: 'editRez.swap.err.unavailable',
-          swap_date_out_of_range: 'editRez.swap.err.dateRange',
-          already_split: 'editRez.swap.err.dateRange'
-        };
-        var key = map[code];
-        ER._showError(key ? MG.t(key) : (code || MG.t('editRez.err.generic')));
-        return;
-      }
+      // 1) DRY RUN — spočítej net, nic nezapisuj.
+      var dry = await window.sb.rpc('split_booking_moto_swap', Object.assign({ p_dry_run: true }, base));
+      if (dry.error || !dry.data || dry.data.success === false) { swapErr(dry, base); return; }
+      var net = Number(dry.data.net || 0);
 
-      // Druhou rezervaci je potřeba zaplatit → přesměruj na platební krok (resume).
-      var nb = res.data.new_booking_id;
-      if (res.data.payment_required && nb) {
-        window.location.href = '/rezervace?resume=' + encodeURIComponent(nb);
-        return;
-      }
-
-      var msg = MG.t('editRez.swap.success', { date: MG.formatDate(swapDate) });
-      var content = document.getElementById('edit-rez-tab-content');
-      if (content) {
-        content.innerHTML = '<div class="edit-rez-success-box"><h3>✓</h3><p>' + msg + '</p>' +
-          '<button type="button" class="btn btngreen-small" id="edit-rez-swap-back">' + MG.t('editRez.list.title') + '</button></div>';
-        var back = document.getElementById('edit-rez-swap-back');
-        if (back) back.addEventListener('click', async function () {
-          ER.selectedBooking = null;
-          await ER._loadBookings();
-          ER._goto('list');
+      // 2a) DOPLATEK (net>0) — přes stávající edit-platbu; COMMIT až po úspěšné platbě.
+      if (net > 0.5) {
+        try { localStorage.setItem(SWAP_KEY + b.id, JSON.stringify({ base: base, swapDate: swapDate, ts: Date.now() })); } catch (e) {}
+        var sd = await window.sb.auth.getSession();
+        var stok = sd && sd.data && sd.data.session && sd.data.session.access_token;
+        if (!stok) throw new Error('no-auth');
+        var pu = window.MOTOGO_CONFIG.SUPABASE_URL + '/functions/v1/process-payment';
+        var pr = await fetch(pu, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + stok, apikey: window.MOTOGO_CONFIG.SUPABASE_ANON_KEY },
+          body: JSON.stringify({
+            type: 'extension', mode: 'checkout', booking_id: b.id, amount: net,
+            // Záměrně BEZ `change` → applyExtensionChange se přeskočí a webhook
+            // původní rezervaci nezmění (jen potvrdí doplatek). COMMIT výměny
+            // provede _applyPendingAfterPayment po návratu z úspěšné platby.
+            success_url: window.location.origin + '/upravit-rezervaci?paid_booking=' + b.id,
+            cancel_url: window.location.origin + '/upravit-rezervaci?edit_booking=' + b.id + '&edit_tab=' + TAB
+          })
         });
+        var pj = await pr.json().catch(function () { return null; });
+        var checkout = pj && (pj.checkout_url || pj.url);
+        if (!pr.ok || !checkout) {
+          console.error('[editRez] swap payment err', pr.status, pj);
+          try { localStorage.removeItem(SWAP_KEY + b.id); } catch (e) {}
+          ER._showError(pj && pj.error ? pj.error : MG.t('editRez.err.generic'));
+          return;
+        }
+        window.location.href = checkout;
+        return;
       }
+
+      // 2b) VRÁCENÍ (net<0) — refund PŘED commitem; když selže, NEcommituj.
+      if (net < -0.5) {
+        var rf = await swapRefund(b.id, -net);
+        if (!rf.ok) { ER._showError(rf.msg || MG.t('editRez.err.generic')); return; }
+      }
+
+      // 3) COMMIT — net (<=0) vypořádán, teprve teď zapiš.
+      var done = await window.sb.rpc('split_booking_moto_swap', Object.assign({ p_dry_run: false }, base));
+      if (done.error || !done.data || done.data.success === false) { swapErr(done, base); return; }
+      swapSuccessUI(swapDate);
     } catch (e) {
       console.error('[editRez] swap exception', e);
       ER._showError(MG.t('editRez.err.generic'));
     } finally {
       ER._setBusy(false);
     }
+  };
+
+  // ---- COMMIT výměny po návratu z úspěšné platby doplatku (net>0) ----
+  // Jádro (_editRezInit) po Stripe redirectu na ?paid_booking=<id> volá
+  // ER._applyPendingAfterPayment(id). Obalíme ji: když pro <id> existuje swap-pending,
+  // znamená to, že doplatek byl zaplacen (na success_url se dostaneme jen po úspěšné
+  // platbě) → provedeme COMMIT (dry_run:false). Jinak deleguj na původní (prodloužení/úprava).
+  // Stejná technika jako wrap _renderTabLocation v resume.js — bez zásahu do minifikovaného jádra.
+  var _origApply = ER._applyPendingAfterPayment;
+  ER._applyPendingAfterPayment = async function (id) {
+    var raw = null;
+    try { raw = localStorage.getItem(SWAP_KEY + id); } catch (e) {}
+    if (raw) {
+      var pend = null;
+      try { pend = JSON.parse(raw); } catch (e) {}
+      try { localStorage.removeItem(SWAP_KEY + id); } catch (e) {}
+      // Ať jádro nezkusí na tuto rezervaci aplikovat bookings.update z extend/edit pendingu.
+      try { localStorage.removeItem('editRez_pending_' + id); } catch (e) {}
+      if (!pend || !pend.base) return false;
+      try {
+        var done = await window.sb.rpc('split_booking_moto_swap', Object.assign({ p_dry_run: false }, pend.base));
+        if (done.error || !done.data || done.data.success === false) {
+          console.error('[editRez] swap commit after payment failed', done.error, done.data);
+          return false;
+        }
+        return true;
+      } catch (e) {
+        console.error('[editRez] swap commit after payment exception', e);
+        return false;
+      }
+    }
+    return _origApply ? _origApply.apply(this, arguments) : false;
   };
 
   // ---- Vložení záložky do tab baru (bez zásahu do minifikovaného jádra) ----
