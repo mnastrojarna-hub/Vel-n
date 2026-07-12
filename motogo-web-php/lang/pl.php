@@ -1074,6 +1074,21 @@ return [
     'editRez.move.errNoChange' => 'Wybierz nowy termin.',
     'editRez.move.errCustomerOverlap' => 'Masz już inną rezerwację w tym okresie. Wybierz inny termin.',
 
+    // Výměna motorky (uprostřed rezervace)
+    'editRez.swap.tab' => 'Zmień motocykl',
+    'editRez.swap.title' => 'Zmiana motocykla w trakcie rezerwacji',
+    'editRez.swap.help' => 'Od wybranego dnia (i godziny) jedziesz na innym motocyklu — wszystko w ramach jednej rezerwacji. Aktualny termin: {start} – {end}.',
+    'editRez.swap.pickDate' => 'Data zmiany',
+    'editRez.swap.pickTime' => 'Godzina zmiany',
+    'editRez.swap.pickMoto' => 'Wybierz nowy motocykl',
+    'editRez.swap.confirm' => 'Zmień na ten',
+    'editRez.swap.confirming' => 'Zmieniam…',
+    'editRez.swap.success' => 'Gotowe! Od {date} jedziesz na nowym motocyklu. Pozostaje jedna rezerwacja.',
+    'editRez.swap.priceNote' => 'Cena rezerwacji się nie zmienia; ewentualną różnicę rozliczy wypożyczalnia.',
+    'editRez.swap.noOptions' => 'Obecnie nie ma dostępnego innego motocykla.',
+    'editRez.swap.err.unavailable' => 'Wybrany motocykl nie jest dostępny w tym terminie. Wybierz inny.',
+    'editRez.swap.err.dateRange' => 'Data zmiany musi mieścić się w okresie rezerwacji.',
+
     'editRez.extend.title' => 'Przedłuż rezerwację',
     'editRez.extend.help' => 'Wybierz nową (późniejszą) datę zakończenia w kalendarzu. Zapłacisz tylko różnicę przez Stripe.',
     'editRez.extend.helpUpcoming' => 'Wybierz nowe daty — możesz przesunąć początek wcześniej lub koniec później.',

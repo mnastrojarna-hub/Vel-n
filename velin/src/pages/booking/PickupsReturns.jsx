@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase'
 import StatusBadge, { getDisplayStatus } from '../../components/ui/StatusBadge'
 import Card from '../../components/ui/Card'
 import CheckInModal from './CheckInModal'
+import SwapModal from './SwapModal'
 
 // Odjezdy (vyzvednutí) a návraty (vrácení) — události seřazené podle data a času,
 // kdy se zákazník má dostavit na pobočku. Plus kalendář (heatmapa) zvýrazňující
@@ -41,6 +42,34 @@ const fmtDayShort = (s) => {
   return new Date(`${d}T00:00:00`).toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric' })
 }
 const bookingNo = (id) => (id ? '#' + String(id).slice(-8).toUpperCase() : '—')
+
+// Detekce „výměny motorky bez přerušení": stejný zákazník má dvě NAVAZUJÍCÍ
+// rezervace na RŮZNÉ motorky, obě na OBSLUŽNÉ pobočce, kde B začíná den po konci A
+// (B.start = A.end + 1). Vrací mapu next.id → předchozí rezervace (A).
+function detectSwapPairs(bookings) {
+  const byUser = {}
+  for (const b of bookings) {
+    if (!b.user_id) continue
+    ;(byUser[b.user_id] || (byUser[b.user_id] = [])).push(b)
+  }
+  const pairs = {}
+  for (const list of Object.values(byUser)) {
+    for (const a of list) {
+      const aEnd = dateOnly(a.end_date)
+      if (!aEnd) continue
+      const nextDay = new Date(aEnd + 'T00:00:00'); nextDay.setDate(nextDay.getDate() + 1)
+      const nextIso = localIso(nextDay)
+      for (const b of list) {
+        if (a.id === b.id || a.moto_id === b.moto_id) continue
+        if (dateOnly(b.start_date) !== nextIso) continue
+        if (a.motorcycles?.branches?.type !== 'obslužná') continue
+        if (b.motorcycles?.branches?.type !== 'obslužná') continue
+        pairs[b.id] = a
+      }
+    }
+  }
+  return pairs
+}
 
 const DAYS = ['Po', 'Út', 'St', 'Čt', 'Pá', 'So', 'Ne']
 const MONTHS_FULL = ['Leden', 'Únor', 'Březen', 'Duben', 'Květen', 'Červen', 'Červenec', 'Srpen', 'Září', 'Říjen', 'Listopad', 'Prosinec']
@@ -84,7 +113,7 @@ function returnDone(b) {
   return !!b.returned_at || b.status === 'completed'
 }
 
-function buildEvents(bookings, protocolIds) {
+function buildEvents(bookings, protocolIds, swapPairs) {
   const out = []
   for (const b of bookings) {
     const branch = b.motorcycles?.branches?.name || null
@@ -102,9 +131,11 @@ function buildEvents(bookings, protocolIds) {
     }
     if (b.start_date) {
       const time = fmtTime(b.pickup_time) || DEFAULT_TIME.pickup
+      // Je tento odjezd výměnou motorky (navazuje na předchozí rezervaci)?
+      const swapPrev = swapPairs ? swapPairs[b.id] : null
       out.push({ ...base, type: 'pickup', day: dateOnly(b.start_date), time, timeDefault: !fmtTime(b.pickup_time),
         when: eventDateTime(b.start_date, time), done: pickupDone(b, protocolIds),
-        delivery: b.pickup_method === 'delivery', address: b.pickup_address })
+        delivery: b.pickup_method === 'delivery', address: b.pickup_address, swapPrev })
     }
     if (b.end_date) {
       const time = fmtTime(b.return_time) || DEFAULT_TIME.return
@@ -133,16 +164,29 @@ const CheckInBtn = ({ ev, onCheckIn }) => (
     onClick={(e) => { e.stopPropagation(); onCheckIn(ev) }}>Odbavit</button>
 )
 
+// Tlačítko „Výměna" — odjezd, který navazuje na předchozí rezervaci (switch motorky).
+const swapBtnStyle = {
+  background: '#2563eb', border: 'none', borderRadius: 8, padding: '4px 10px',
+  fontSize: 12, fontWeight: 800, color: '#fff', cursor: 'pointer', whiteSpace: 'nowrap',
+  boxShadow: '0 2px 8px rgba(37,99,235,.35)',
+}
+const SwapBtn = ({ ev, onSwap }) => (
+  <button title="Výměna motorky (bez přerušení)" style={swapBtnStyle}
+    onClick={(e) => { e.stopPropagation(); onSwap(ev) }}>🔄 Výměna</button>
+)
+
 // Jednořádková kompaktní položka události. `dense` = úzký dvouřádkový layout
 // (pro boční panel detailu dne, kde by horizontální řádek přetékal).
-function EventRow({ ev, onClick, showStatus, dense, onCheckIn }) {
+function EventRow({ ev, onClick, showStatus, dense, onCheckIn, onSwap }) {
   const t = TYPE[ev.type]
   const wrap = {
     padding: dense ? '8px 10px' : '7px 10px', borderLeft: `4px solid ${t.color}`,
     background: ev.done ? '#f3f4f6' : '#f8fdfb', borderBottom: '1px solid #eef5f1', opacity: ev.done ? 0.6 : 1,
   }
   const place = ev.delivery ? '🚚 ' + (ev.address || 'na adresu') : '🏍️ ' + (ev.branch || 'pobočka')
-  const canCheckIn = onCheckIn && !ev.done
+  // Odjezd navazující na předchozí rezervaci → nabídni „Výměna" místo běžného „Odbavit".
+  const canSwap = onSwap && ev.swapPrev && !ev.done && ev.type === 'pickup'
+  const canCheckIn = onCheckIn && !ev.done && !canSwap
   const typeTag = (
     <span className="inline-flex items-center gap-1 shrink-0">
       <span className="text-base" title={t.label}>{t.emoji}</span>
@@ -161,6 +205,7 @@ function EventRow({ ev, onClick, showStatus, dense, onCheckIn }) {
         <div className="text-sm truncate" style={{ color: '#1a2e22' }}>{ev.customer} <span className="font-mono" style={{ color: '#64748b' }}>{bookingNo(ev.booking.id)}</span></div>
         <div className="flex items-center gap-2">
           <span className="text-sm truncate" style={{ color: '#64748b' }}>{place}</span>
+          {canSwap && <span className="ml-auto"><SwapBtn ev={ev} onSwap={onSwap} /></span>}
           {canCheckIn && <span className="ml-auto"><CheckInBtn ev={ev} onCheckIn={onCheckIn} /></span>}
         </div>
       </div>
@@ -181,17 +226,17 @@ function EventRow({ ev, onClick, showStatus, dense, onCheckIn }) {
       {showStatus && <span className="shrink-0 hidden xl:inline"><StatusBadge status={getDisplayStatus(ev.booking)} /></span>}
       {ev.done
         ? <span className="shrink-0 text-sm font-bold" style={{ color: '#15803d' }}>✓</span>
-        : canCheckIn && <CheckInBtn ev={ev} onCheckIn={onCheckIn} />}
+        : (canSwap ? <SwapBtn ev={ev} onSwap={onSwap} /> : (canCheckIn && <CheckInBtn ev={ev} onCheckIn={onCheckIn} />))}
     </div>
   )
 }
 
-function EventList({ events, onOpen, limit, showStatus, onCheckIn }) {
+function EventList({ events, onOpen, limit, showStatus, onCheckIn, onSwap }) {
   const shown = limit ? events.slice(0, limit) : events
   if (shown.length === 0) return <p className="text-sm" style={{ color: '#64748b', padding: '8px 4px' }}>Žádné nadcházející odjezdy ani návraty</p>
   return (
     <div className="rounded-lg overflow-hidden" style={{ border: '1px solid #eef5f1' }}>
-      {shown.map((ev, i) => <EventRow key={ev.booking.id + '_' + ev.type + '_' + i} ev={ev} showStatus={showStatus} onCheckIn={onCheckIn} onClick={() => onOpen(ev.booking.id)} />)}
+      {shown.map((ev, i) => <EventRow key={ev.booking.id + '_' + ev.type + '_' + i} ev={ev} showStatus={showStatus} onCheckIn={onCheckIn} onSwap={onSwap} onClick={() => onOpen(ev.booking.id)} />)}
     </div>
   )
 }
@@ -207,6 +252,7 @@ export default function PickupsReturns({ compact = false, onExpand }) {
   const [subView, setSubView] = useState('list') // 'list' | 'calendar'
   const [splitList, setSplitList] = useState(false) // seznam: společně vs. dvě tabulky
   const [checkInEvent, setCheckInEvent] = useState(null) // událost odbavovaná v CheckInModal
+  const [swapEvent, setSwapEvent] = useState(null) // odjezd odbavovaný jako výměna motorky
   const [protocolIds, setProtocolIds] = useState(() => new Set()) // rezervace s předávacím protokolem
 
   useEffect(() => { loadData() }, [])
@@ -239,7 +285,8 @@ export default function PickupsReturns({ compact = false, onExpand }) {
     () => (branchFilter ? bookings.filter(b => b.motorcycles?.branch_id === branchFilter) : bookings),
     [bookings, branchFilter]
   )
-  const events = useMemo(() => buildEvents(filtered, protocolIds), [filtered, protocolIds])
+  const swapPairs = useMemo(() => detectSwapPairs(bookings), [bookings])
+  const events = useMemo(() => buildEvents(filtered, protocolIds, swapPairs), [filtered, protocolIds, swapPairs])
 
   const todayIso = localIso(new Date())
   const upcoming = useMemo(() => events
@@ -250,6 +297,7 @@ export default function PickupsReturns({ compact = false, onExpand }) {
 
   const openBooking = (id) => navigate(`/rezervace/${id}`)
   const handleCheckInDone = () => { setCheckInEvent(null); loadData() }
+  const handleSwapDone = () => { setSwapEvent(null); loadData() }
 
   // ── Compact (Dashboard widget) ──
   if (compact) {
@@ -264,7 +312,10 @@ export default function PickupsReturns({ compact = false, onExpand }) {
         {loading ? (
           <div className="py-6 text-center"><div className="animate-spin inline-block rounded-full h-6 w-6 border-t-2 border-brand-gd" /></div>
         ) : (
-          <EventList events={upcoming} onOpen={openBooking} limit={8} />
+          <EventList events={upcoming} onOpen={openBooking} limit={8} onSwap={setSwapEvent} />
+        )}
+        {swapEvent && (
+          <SwapModal open prev={swapEvent.swapPrev} next={swapEvent.booking} onClose={() => setSwapEvent(null)} onDone={handleSwapDone} />
         )}
       </Card>
     )
@@ -328,7 +379,7 @@ export default function PickupsReturns({ compact = false, onExpand }) {
                 <h3 className="text-sm font-extrabold uppercase tracking-wide" style={{ color: TYPE.pickup.color }}>Odjezdy (vyzvednutí)</h3>
                 <span className="inline-block rounded-full text-sm font-extrabold ml-auto" style={{ background: '#dcfce7', color: '#15803d', padding: '1px 9px' }}>{upcomingPickups.length}</span>
               </div>
-              <EventList events={upcomingPickups} onOpen={openBooking} showStatus onCheckIn={setCheckInEvent} />
+              <EventList events={upcomingPickups} onOpen={openBooking} showStatus onCheckIn={setCheckInEvent} onSwap={setSwapEvent} />
             </Card>
             <Card style={{ padding: 14 }}>
               <div className="flex items-center gap-2 mb-3">
@@ -341,7 +392,7 @@ export default function PickupsReturns({ compact = false, onExpand }) {
           </div>
         ) : (
           <Card style={{ padding: 14 }}>
-            <EventList events={upcoming} onOpen={openBooking} showStatus onCheckIn={setCheckInEvent} />
+            <EventList events={upcoming} onOpen={openBooking} showStatus onCheckIn={setCheckInEvent} onSwap={setSwapEvent} />
           </Card>
         )
       ) : (
@@ -403,7 +454,7 @@ export default function PickupsReturns({ compact = false, onExpand }) {
                 <p className="text-sm" style={{ color: '#64748b' }}>Žádné odjezdy ani návraty v tento den</p>
               ) : (
                 <div className="rounded-lg overflow-hidden" style={{ border: '1px solid #eef5f1' }}>
-                  {selected.map((ev, i) => <EventRow key={ev.booking.id + '_' + ev.type + '_' + i} ev={ev} dense onCheckIn={setCheckInEvent} onClick={() => openBooking(ev.booking.id)} />)}
+                  {selected.map((ev, i) => <EventRow key={ev.booking.id + '_' + ev.type + '_' + i} ev={ev} dense onCheckIn={setCheckInEvent} onSwap={setSwapEvent} onClick={() => openBooking(ev.booking.id)} />)}
                 </div>
               )}
             </Card>
@@ -418,6 +469,9 @@ export default function PickupsReturns({ compact = false, onExpand }) {
           onClose={() => setCheckInEvent(null)}
           onDone={handleCheckInDone}
         />
+      )}
+      {swapEvent && (
+        <SwapModal open prev={swapEvent.swapPrev} next={swapEvent.booking} onClose={() => setSwapEvent(null)} onDone={handleSwapDone} />
       )}
     </div>
   )

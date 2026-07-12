@@ -650,6 +650,21 @@ return [
     'editRez.move.errNoChange' => 'Bitte wählen Sie einen neuen Termin.',
     'editRez.move.errCustomerOverlap' => 'Sie haben in diesem Zeitraum bereits eine andere Reservierung. Bitte wählen Sie einen anderen Termin.',
 
+    // Výměna motorky (uprostřed rezervace)
+    'editRez.swap.tab' => 'Motorrad wechseln',
+    'editRez.swap.title' => 'Motorrad mitten in der Reservierung wechseln',
+    'editRez.swap.help' => 'Ab dem gewählten Tag (und der Uhrzeit) fahren Sie ein anderes Motorrad — alles unter einer Reservierung. Aktueller Termin: {start} – {end}.',
+    'editRez.swap.pickDate' => 'Wechseldatum',
+    'editRez.swap.pickTime' => 'Wechselzeit',
+    'editRez.swap.pickMoto' => 'Neues Motorrad wählen',
+    'editRez.swap.confirm' => 'Dieses wählen',
+    'editRez.swap.confirming' => 'Wechsle…',
+    'editRez.swap.success' => 'Fertig! Ab {date} fahren Sie das neue Motorrad. Es bleibt eine Reservierung.',
+    'editRez.swap.priceNote' => 'Der Reservierungspreis ändert sich nicht; eine eventuelle Differenz regelt die Vermietung.',
+    'editRez.swap.noOptions' => 'Derzeit ist kein anderes Motorrad verfügbar.',
+    'editRez.swap.err.unavailable' => 'Das gewählte Motorrad ist in diesem Zeitraum nicht verfügbar. Bitte wählen Sie ein anderes.',
+    'editRez.swap.err.dateRange' => 'Das Wechseldatum muss innerhalb des Reservierungszeitraums liegen.',
+
     'editRez.extend.title' => 'Reservierung verlängern',
     'editRez.extend.help' => 'Wählen Sie ein neues (späteres) Enddatum im Kalender. Sie zahlen nur die Preisdifferenz über Stripe.',
     'editRez.extend.helpUpcoming' => 'Wählen Sie neue Termine — Sie können den Beginn vorverlegen oder das Ende verlängern.',

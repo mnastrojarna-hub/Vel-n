@@ -23,6 +23,7 @@ import 'widgets/reservation_edit_confirm_page.dart';
 import 'widgets/reservation_edit_moto_section.dart';
 import 'widgets/reservation_edit_extras_section.dart';
 import 'widgets/reservation_edit_calendar_section.dart';
+import 'widgets/reservation_swap_section.dart';
 import '../../core/currency.dart';
 
 /// Edit upcoming reservation — compact single-page layout.
@@ -704,9 +705,37 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
                 EditTabBtn(label: t(context).tr('moveChangePlace'), active: _tab == 'move',
                   onTap: () => setState(() { _tab = 'move'; _shortenDir = null; _newStart = _booking!.startDate; _newEnd = _booking!.endDate; })),
               ],
+              // Výměna motorky uprostřed rezervace — reserved/active + zaplaceno.
+              if ((_booking!.status == 'reserved' || _booking!.status == 'active') &&
+                  _booking!.paymentStatus == 'paid') ...[
+                const SizedBox(width: 6),
+                EditTabBtn(label: t(context).tr('swap.tab'), active: _tab == 'swap',
+                  onTap: () => setState(() { _tab = 'swap'; _shortenDir = null; _newStart = _booking!.startDate; _newEnd = _booking!.endDate; })),
+              ],
             ])),
 
+          // === VÝMĚNA MOTORKY UPROSTŘED REZERVACE ===
+          if (_tab == 'swap')
+            SwapMotoSection(
+              booking: _booking!,
+              userLicense: userLicense,
+              onSwapped: (swapDate, swapTime, newMotoName) {
+                ref.invalidate(reservationsProvider);
+                ref.invalidate(reservationByIdProvider(widget.bookingId));
+                ref.invalidate(doorCodesProvider(widget.bookingId));
+                ref.invalidate(bookedDatesProvider(_booking!.motoId ?? ''));
+                _showConfirmation(
+                  title: t(context).tr('swap.successTitle'),
+                  message: t(context).tr('swap.success')
+                      .replaceAll('{date}', _fmt(swapDate))
+                      .replaceAll('{time}', swapTime)
+                      .replaceAll('{moto}', newMotoName),
+                );
+              },
+            ),
+
           // === TERMÍN ===
+          if (_tab != 'swap')
           EditCalendarSection(
             tab: _tab,
             isActive: _isActive,
@@ -743,7 +772,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
                 ]))),
 
           // === PŘISTAVENÍ MOTORKY (only for upcoming) ===
-          if (!_isActive && _tab != 'move')
+          if (!_isActive && _tab != 'move' && _tab != 'swap')
             EditCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
                 const Icon(Icons.motorcycle, size: 16, color: MotoGoColors.greenDark),
@@ -761,7 +790,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
             ])),
 
           // === VRÁCENÍ MOTORKY ===
-          if (_tab != 'move')
+          if (_tab != 'move' && _tab != 'swap')
             EditCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
               const Icon(Icons.assignment_return, size: 16, color: MotoGoColors.greenDark),
@@ -779,7 +808,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
           ])),
 
           // === ZMĚNA MOTORKY (collapsible, only for upcoming) ===
-          if (!_isActive && _tab != 'move')
+          if (!_isActive && _tab != 'move' && _tab != 'swap')
             EditMotoChangeSection(
               currentMotoName: _booking!.motoName,
               currentMotoId: _booking!.motoId,
@@ -791,7 +820,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
             ),
 
           // === DOPLŇKY (only for upcoming) ===
-          if (!_isActive && _tab != 'move')
+          if (!_isActive && _tab != 'move' && _tab != 'swap')
             EditExtrasSection(
               selectedExtras: _selectedExtras,
               pickupMethod: _pickupMethod,
@@ -830,7 +859,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
           ],
 
           // === CENOVÝ PŘEHLED ===
-          if (calc.hasChanges && _tab != 'move')
+          if (calc.hasChanges && _tab != 'move' && _tab != 'swap')
             EditCard(child: Column(children: [
               EditPriceRow(t(context).tr('originalPrice'), '${Money.czk(_booking!.totalPrice)}'),
               EditPriceRow(t(context).tr('originalDuration'), '${calc.origDays} ${calc.origDays == 1 ? t(context).tr("day1") : calc.origDays < 5 ? t(context).tr("days24") : t(context).tr("days5")}'),
@@ -865,7 +894,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
             ])),
 
           // === MISSING SIZES WARNING (přistavení) ===
-          if (_tab != 'move' && _missingGearSizes().isNotEmpty)
+          if (_tab != 'move' && _tab != 'swap' && _missingGearSizes().isNotEmpty)
             Padding(padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
               child: Container(padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
@@ -884,7 +913,8 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
                   ])),
                 ]))),
 
-          // === CTA BUTTON ===
+          // === CTA BUTTON (swap má vlastní tlačítko v sekci) ===
+          if (_tab != 'swap')
           Padding(padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
             child: SizedBox(height: 52, child: PressableScale(
               enabled: !_saving,

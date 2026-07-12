@@ -951,6 +951,21 @@ return [
     'editRez.move.errNoChange' => 'Виберіть, будь ласка, нову дату.',
     'editRez.move.errCustomerOverlap' => 'На цю дату у вас уже є інше бронювання. Виберіть, будь ласка, іншу дату.',
 
+    // Výměna motorky (uprostřed rezervace)
+    'editRez.swap.tab' => 'Замінити мотоцикл',
+    'editRez.swap.title' => 'Заміна мотоцикла посеред бронювання',
+    'editRez.swap.help' => 'Від обраного дня (і часу) ви їдете на іншому мотоциклі — усе в межах одного бронювання. Поточні дати: {start} – {end}.',
+    'editRez.swap.pickDate' => 'Дата заміни',
+    'editRez.swap.pickTime' => 'Час заміни',
+    'editRez.swap.pickMoto' => 'Виберіть новий мотоцикл',
+    'editRez.swap.confirm' => 'Замінити на цей',
+    'editRez.swap.confirming' => 'Замінюю…',
+    'editRez.swap.success' => 'Готово! Від {date} ви їдете на новому мотоциклі. Залишається одне бронювання.',
+    'editRez.swap.priceNote' => 'Ціна бронювання не змінюється; можливу різницю врегулює прокат.',
+    'editRez.swap.noOptions' => 'Наразі немає іншого доступного мотоцикла.',
+    'editRez.swap.err.unavailable' => 'Обраний мотоцикл недоступний у цей період. Виберіть інший.',
+    'editRez.swap.err.dateRange' => 'Дата заміни має бути в межах періоду бронювання.',
+
     // Extend
     'editRez.extend.title' => 'Продовжити бронювання',
     'editRez.extend.help' => 'У календарі натисніть на день перед початковим початком (отримання раніше) або на день після початкового кінця (повернення пізніше). Ви сплатите лише різницю в ціні.',
