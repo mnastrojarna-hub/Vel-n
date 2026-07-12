@@ -1,4 +1,6 @@
-/// Výměna motorky uprostřed rezervace (swap_moto_within_booking).
+/// Výměna motorky uprostřed rezervace (split_booking_moto_swap).
+/// Na pozadí vznikne navazující rezervace na novou motorku (platí se zvlášť),
+/// původní se zkrátí a nevyužité dny se vrátí; switch přes předávací protokol.
 /// Prefix `swap.` — kompletní sada pro cs/en/de/es/fr/nl/pl/uk.
 const translationsExt12Swap = <String, Map<String, String>>{
   'cs': {
@@ -32,7 +34,7 @@ const translationsExt12Swap = <String, Map<String, String>>{
     'swap.pickTime': 'Swap time',
     'swap.pickMoto': 'New motorcycle',
     'swap.confirm': 'Confirm swap',
-    'swap.priceNote': 'The reservation price does not change; any difference is settled by the rental.',
+    'swap.priceNote': 'A follow-up reservation is created for the new motorcycle, which you complete by paying; unused days of the original motorcycle are refunded. The swap takes place after signing the handover protocol at the branch.',
     'swap.occupied': 'Occupied',
     'swap.noMoto': 'No suitable motorcycle to swap to.',
     'swap.successTitle': 'Swap confirmed',
@@ -54,7 +56,7 @@ const translationsExt12Swap = <String, Map<String, String>>{
     'swap.pickTime': 'Tauschzeit',
     'swap.pickMoto': 'Neues Motorrad',
     'swap.confirm': 'Tausch bestätigen',
-    'swap.priceNote': 'Der Buchungspreis ändert sich nicht; eine etwaige Differenz regelt die Vermietung.',
+    'swap.priceNote': 'Für das neue Motorrad entsteht eine Anschlussbuchung, die Sie durch Zahlung abschließen; nicht genutzte Tage des ursprünglichen Motorrads werden erstattet. Der Wechsel erfolgt nach Unterzeichnung des Übergabeprotokolls in der Filiale.',
     'swap.occupied': 'Belegt',
     'swap.noMoto': 'Kein passendes Motorrad zum Tausch.',
     'swap.successTitle': 'Tausch bestätigt',
@@ -76,7 +78,7 @@ const translationsExt12Swap = <String, Map<String, String>>{
     'swap.pickTime': 'Hora del cambio',
     'swap.pickMoto': 'Nueva moto',
     'swap.confirm': 'Confirmar cambio',
-    'swap.priceNote': 'El precio de la reserva no cambia; cualquier diferencia la gestiona el alquiler.',
+    'swap.priceNote': 'Para la nueva moto se crea una reserva vinculada que completas con el pago; los días no utilizados de la moto original se reembolsan. El cambio se realiza tras firmar el protocolo de entrega en la sucursal.',
     'swap.occupied': 'Ocupada',
     'swap.noMoto': 'No hay moto adecuada para el cambio.',
     'swap.successTitle': 'Cambio confirmado',
@@ -98,7 +100,7 @@ const translationsExt12Swap = <String, Map<String, String>>{
     'swap.pickTime': 'Heure du changement',
     'swap.pickMoto': 'Nouvelle moto',
     'swap.confirm': 'Confirmer le changement',
-    'swap.priceNote': 'Le prix de la réservation ne change pas ; toute différence est réglée par le loueur.',
+    'swap.priceNote': 'Une réservation de suite est créée pour la nouvelle moto, que vous finalisez en payant ; les jours non utilisés de la moto d\'origine sont remboursés. L\'échange a lieu après la signature du protocole de remise à l\'agence.',
     'swap.occupied': 'Occupée',
     'swap.noMoto': 'Aucune moto adaptée pour le changement.',
     'swap.successTitle': 'Changement confirmé',
@@ -120,7 +122,7 @@ const translationsExt12Swap = <String, Map<String, String>>{
     'swap.pickTime': 'Wisseltijd',
     'swap.pickMoto': 'Nieuwe motor',
     'swap.confirm': 'Wissel bevestigen',
-    'swap.priceNote': 'De prijs van de reservering verandert niet; een eventueel verschil regelt de verhuur.',
+    'swap.priceNote': 'Voor de nieuwe motor wordt een vervolgreservering aangemaakt die u met betaling afrondt; niet-gebruikte dagen van de oorspronkelijke motor worden terugbetaald. De wissel vindt plaats na ondertekening van het overdrachtsprotocol op de vestiging.',
     'swap.occupied': 'Bezet',
     'swap.noMoto': 'Geen geschikte motor om naar te wisselen.',
     'swap.successTitle': 'Wissel bevestigd',
@@ -142,7 +144,7 @@ const translationsExt12Swap = <String, Map<String, String>>{
     'swap.pickTime': 'Godzina zmiany',
     'swap.pickMoto': 'Nowy motocykl',
     'swap.confirm': 'Potwierdź zmianę',
-    'swap.priceNote': 'Cena rezerwacji się nie zmienia; ewentualną różnicę rozliczy wypożyczalnia.',
+    'swap.priceNote': 'Dla nowego motocykla powstaje powiązana rezerwacja, którą finalizujesz płatnością; niewykorzystane dni pierwotnego motocykla zwracamy. Wymiana następuje po podpisaniu protokołu przekazania w oddziale.',
     'swap.occupied': 'Zajęty',
     'swap.noMoto': 'Brak odpowiedniego motocykla do zmiany.',
     'swap.successTitle': 'Zmiana potwierdzona',
@@ -164,7 +166,7 @@ const translationsExt12Swap = <String, Map<String, String>>{
     'swap.pickTime': 'Час заміни',
     'swap.pickMoto': 'Новий мотоцикл',
     'swap.confirm': 'Підтвердити заміну',
-    'swap.priceNote': 'Ціна бронювання не змінюється; можливу різницю врегулює прокат.',
+    'swap.priceNote': 'Для нового мотоцикла створюється пов\'язане бронювання, яке ви завершуєте оплатою; невикористані дні початкового мотоцикла повертаються. Заміна відбувається після підписання протоколу передачі у відділенні.',
     'swap.occupied': 'Зайнято',
     'swap.noMoto': 'Немає відповідного мотоцикла для заміни.',
     'swap.successTitle': 'Заміну підтверджено',

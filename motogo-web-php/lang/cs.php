@@ -957,7 +957,7 @@ return [
     // Výměna motorky (uprostřed rezervace)
     'editRez.swap.tab' => 'Výměna motorky',
     'editRez.swap.title' => 'Výměna motorky uprostřed rezervace',
-    'editRez.swap.help' => 'Od zvoleného dne (a času) pojedete na jiné motorce — vše zůstává pod jednou rezervací. Aktuální termín: {start} – {end}.',
+    'editRez.swap.help' => 'Od zvoleného dne a času pojedete na nové motorce. Aktuální termín: {start} – {end}.',
     'editRez.swap.pickDate' => 'Datum výměny',
     'editRez.swap.pickTime' => 'Čas výměny',
     'editRez.swap.pickMoto' => 'Vyberte novou motorku',
