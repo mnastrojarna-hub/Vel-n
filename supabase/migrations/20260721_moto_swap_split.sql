@@ -62,6 +62,11 @@ DECLARE
   v_b_total   numeric;
   v_net       numeric;
   v_new_id    uuid;
+  -- Věrnostní sleva (JEN booking_source='app', aktuální rank zákazníka).
+  v_loy_level int := 0;
+  v_loy_pct   int := 0;
+  v_b_disc    numeric := 0;   -- sleva na cenu B
+  v_a_disc    numeric := 0;   -- sleva na odebrané dny A (net vypořádání)
   v_url text; v_key text; v_email text; v_name text; v_moto text;
 BEGIN
   SELECT * INTO b FROM bookings WHERE id = p_booking_id;
@@ -106,12 +111,26 @@ BEGIN
   -- NET rozdíl: hodnota nové motorky za [swap..end] − hodnota odebraných dní staré.
   v_a_removed := _moto_dayprice_sum(b.moto_id, p_swap_date, b.end_date::date);
   v_b_total   := _moto_dayprice_sum(p_new_moto_id, p_swap_date, b.end_date::date);
-  v_net       := v_b_total - v_a_removed;
+
+  -- Věrnostní sleva JEN pro app rezervace (aktuální rank zákazníka). Level = %:
+  --   level = min(20, ceil((počet dokončených app rezervací + 1)/2)); % = discount_percent.
+  IF b.booking_source = 'app' THEN
+    v_loy_level := LEAST(20, CEIL((_loyalty_qualifying_count(b.user_id) + 1) / 2.0))::int;
+    SELECT COALESCE(discount_percent, 0) INTO v_loy_pct FROM loyalty_levels WHERE level = v_loy_level;
+    v_loy_pct := COALESCE(v_loy_pct, 0);
+    v_b_disc := round(v_b_total   * v_loy_pct / 100.0);
+    v_a_disc := round(v_a_removed * v_loy_pct / 100.0);
+  END IF;
+
+  -- Net = (cena B po slevě) − (odebrané dny A po slevě).
+  v_net := (v_b_total - v_b_disc) - (v_a_removed - v_a_disc);
 
   IF p_dry_run THEN
     RETURN jsonb_build_object(
       'success', true, 'dry_run', true,
-      'net', v_net, 'a_removed', v_a_removed, 'b_total', v_b_total,
+      'net', v_net,
+      'a_removed', (v_a_removed - v_a_disc), 'b_total', (v_b_total - v_b_disc),
+      'loyalty_percent', v_loy_pct, 'loyalty_level', v_loy_level,
       'a_new_end', (p_swap_date - 1), 'b_start', p_swap_date, 'b_end', b.end_date::date
     );
   END IF;
@@ -121,7 +140,7 @@ BEGIN
   UPDATE bookings SET
     end_date = (p_swap_date - 1),
     original_end_date = COALESCE(original_end_date, end_date),
-    total_price = GREATEST(total_price - v_a_removed, 0),
+    total_price = GREATEST(total_price - (v_a_removed - v_a_disc), 0),
     modification_history = COALESCE(modification_history, '[]'::jsonb) || jsonb_build_object(
       'at', now(), 'type', 'moto_swap_shorten', 'to_end', (p_swap_date - 1),
       'new_moto_id', p_new_moto_id, 'net', v_net, 'source', 'moto_swap')
@@ -132,10 +151,12 @@ BEGIN
   INSERT INTO bookings (
     user_id, moto_id, start_date, end_date, pickup_time, return_time,
     status, payment_status, total_price, delivery_fee, deposit,
+    loyalty_level, loyalty_percent, loyalty_discount_amount,
     booking_source, continues_booking_id, notes
   ) VALUES (
     b.user_id, p_new_moto_id, p_swap_date, b.end_date, COALESCE(p_swap_time, b.pickup_time), b.return_time,
-    'reserved', 'paid', v_b_total, 0, 0,
+    'reserved', 'paid', (v_b_total - v_b_disc), 0, 0,
+    NULLIF(v_loy_level, 0), NULLIF(v_loy_pct, 0), v_b_disc,
     COALESCE(b.booking_source, 'web'), p_booking_id,
     'Výměna motorky — navazuje na rezervaci ' || upper(right(p_booking_id::text, 8))
   ) RETURNING id INTO v_new_id;
