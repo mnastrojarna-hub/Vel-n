@@ -52,23 +52,26 @@ SET search_path = public
 AS $$
   SELECT b.start_date::date,
          CASE
-           -- Blokuj do dneška JEN když: motorka je fyzicky venku (active, nevrácená)
-           -- A ZÁROVEŇ má tento zákazník navazující rezervaci na JINOU motorku
-           -- (výměna bez přerušení). Běžné rezervace blokují jen do end_date.
-           WHEN b.status = 'active' AND b.returned_at IS NULL
-                AND EXISTS (
-                  SELECT 1 FROM bookings s
-                  WHERE s.user_id = b.user_id
-                    AND s.moto_id <> b.moto_id
-                    AND s.status IN ('pending','reserved','active')
-                    AND s.start_date::date BETWEEN b.end_date::date AND b.end_date::date + 1
-                )
-             THEN GREATEST(b.end_date::date, CURRENT_DATE)
+           -- Když má tento zákazník NAVAZUJÍCÍ rezervaci na JINOU motorku (výměna),
+           -- blokuj tuto (starou) motorku AŽ DO DNE VÝMĚNY (= start navazující rezervace)
+           -- OKAMŽITĚ, jakmile navazující rezervace existuje (ne až v den výměny) —
+           -- aby v mezidobí nikdo nezarezervoval motorku, kterou zákazník ještě nevrátil.
+           -- + CURRENT_DATE drží blok i při zpožděném vrácení. Běžné rezervace beze změny.
+           WHEN b.status IN ('reserved','active') AND b.returned_at IS NULL AND nb.next_start IS NOT NULL
+             THEN GREATEST(b.end_date::date, nb.next_start, CURRENT_DATE)
            ELSE b.end_date::date
          END,
          b.status::text,
          b.created_at
   FROM bookings b
+  LEFT JOIN LATERAL (
+    SELECT max(s.start_date::date) AS next_start
+    FROM bookings s
+    WHERE s.user_id = b.user_id
+      AND s.moto_id <> b.moto_id
+      AND s.status IN ('pending','reserved','active')
+      AND s.start_date::date BETWEEN b.end_date::date AND b.end_date::date + 1
+  ) nb ON true
   WHERE b.moto_id = p_moto_id
     AND b.status IN ('pending','reserved','active')
 
@@ -188,5 +191,50 @@ $$;
 
 REVOKE ALL ON FUNCTION swap_handoff_bookings(uuid, uuid) FROM public, anon;
 GRANT EXECUTE ON FUNCTION swap_handoff_bookings(uuid, uuid) TO authenticated;
+
+-- 5) auto_complete_expired_bookings — nedokončuj starou motorku s čekající výměnou -
+--    Aby stará motorka zůstala blokovaná (active, nevrácená) až do fyzického switche
+--    (protokol), NE aby ji půlnoční cron v den výměny dokončil a uvolnil. Fallback:
+--    jakmile i navazující rezervace skončí (end_date < dnes), stará se dokončí normálně.
+--    Netýká se běžných rezervací (bez navazující výměny) — ty se dokončují jako dosud.
+--    (Reprodukce těla z 20260719 + přidaný guard na krok 2.)
+CREATE OR REPLACE FUNCTION auto_complete_expired_bookings()
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  -- Krok 1: dozvednuté paid rezervace po end_date promotuj reserved→active
+  -- (obslužná bez ručního předání). Označ protokol jako auto-vyplněný.
+  UPDATE bookings SET
+    status = 'active'::booking_status,
+    picked_up_at = COALESCE(picked_up_at, NOW()),
+    handover_protocol_autofilled = CASE
+      WHEN handover_protocol_filled_at IS NULL THEN true
+      ELSE handover_protocol_autofilled END,
+    handover_protocol_filled_at = COALESCE(handover_protocol_filled_at, NOW())
+  WHERE status = 'reserved'
+    AND end_date < CURRENT_DATE
+    AND payment_status IN ('paid', 'partial_refund', 'refund_pending');
+
+  -- Krok 2: dokonči aktivní po end_date → spustí KF. VÝJIMKA: nedokončuj motorku,
+  -- která má ČEKAJÍCÍ navazující výměnu (jiná moto téhož zákazníka, start = boundary,
+  -- navazující ještě běží) — tu dokončí až switch (swap_handoff_bookings).
+  UPDATE bookings b SET
+    status = 'completed'::booking_status,
+    returned_at = NOW()
+  WHERE b.status = 'active'
+    AND b.end_date < CURRENT_DATE
+    AND b.payment_status IN ('paid', 'partial_refund', 'refund_pending')
+    AND NOT EXISTS (
+      SELECT 1 FROM bookings nb
+      WHERE nb.user_id = b.user_id
+        AND nb.moto_id <> b.moto_id
+        AND nb.status NOT IN ('cancelled','completed')
+        AND nb.end_date::date >= CURRENT_DATE
+        AND nb.start_date::date BETWEEN b.end_date::date AND b.end_date::date + 1
+    );
+END;
+$$;
 
 NOTIFY pgrst, 'reload schema';
