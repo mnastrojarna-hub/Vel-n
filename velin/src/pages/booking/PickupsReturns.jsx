@@ -115,6 +115,10 @@ function returnDone(b) {
 
 function buildEvents(bookings, protocolIds, swapPairs) {
   const out = []
+  // Rezervace, které jsou PŘEDCHŮDCEM výměny (pokračují switchem) — jejich NÁVRAT
+  // se nezobrazuje; místo něj je „🔄 Výměna" na odjezdu navazující rezervace
+  // (v datu/čase startu nové rezervace). Vrácení staré řeší přímo SwapModal.
+  const predIds = swapPairs ? new Set(Object.values(swapPairs).map(a => a.id)) : new Set()
   for (const b of bookings) {
     const branch = b.motorcycles?.branches?.name || null
     const base = {
@@ -137,7 +141,8 @@ function buildEvents(bookings, protocolIds, swapPairs) {
         when: eventDateTime(b.start_date, time), done: pickupDone(b, protocolIds),
         delivery: b.pickup_method === 'delivery', address: b.pickup_address, swapPrev })
     }
-    if (b.end_date) {
+    // Návrat rezervace, která pokračuje výměnou, se NEzobrazuje (řeší ho „Výměna").
+    if (b.end_date && !predIds.has(b.id)) {
       const time = fmtTime(b.return_time) || DEFAULT_TIME.return
       out.push({ ...base, type: 'return', day: dateOnly(b.end_date), time, timeDefault: !fmtTime(b.return_time),
         when: eventDateTime(b.end_date, time), done: returnDone(b),
