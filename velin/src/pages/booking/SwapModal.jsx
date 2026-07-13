@@ -45,6 +45,13 @@ export default function SwapModal({ open, prev, next, onClose, onDone }) {
       const { data, error: e2 } = await supabase.rpc('swap_handoff_bookings', { p_prev: prev.id, p_next: next.id })
       if (e2) throw new Error(e2.message)
       if (data && data.success === false) throw new Error(data.error || 'swap_failed')
+      // RPC vrací výsledné stavy — ověř, že se switch reálně provedl (stará→completed,
+      // nová→active). Když ne, nahlas přesný stav místo tichého „hotovo".
+      if (data && (data.prev_completed === false || data.next_active === false)) {
+        throw new Error(
+          `switch neproběhl (stará: ${data.prev_status || '?'}, nová: ${data.next_status || '?'})`
+        )
+      }
 
       await logAudit('booking_moto_handoff_switch', { prev_booking_id: prev.id, next_booking_id: next.id })
 
