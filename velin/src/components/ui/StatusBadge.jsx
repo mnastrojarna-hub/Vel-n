@@ -31,8 +31,14 @@ export function getDisplayStatus(booking) {
     const startLocal = new Date(start.getFullYear(), start.getMonth(), start.getDate())
     const end = booking.end_date ? new Date(booking.end_date) : null
     const endLocal = end ? new Date(end.getFullYear(), end.getMonth(), end.getDate()) : null
-    // end_date < today → expired, show as completed
-    if (endLocal && endLocal < todayLocal) return 'completed'
+    // end_date < today → expired, show as completed. VÝJIMKA: aktivní NEVRÁCENÁ
+    // rezervace po termínu zůstává „aktivní" (přetahuje / čeká na výměnu
+    // předávacím protokolem — stará se nedokončí, dokud switch/vrácení reálně
+    // neproběhne). Jinak by přehled ukazoval „dokončeno" u motorky, co je pořád venku.
+    if (endLocal && endLocal < todayLocal) {
+      if (booking.status === 'active' && !booking.returned_at) return 'active'
+      return 'completed'
+    }
     if (startLocal > todayLocal) return 'upcoming'
   }
   return booking.status
