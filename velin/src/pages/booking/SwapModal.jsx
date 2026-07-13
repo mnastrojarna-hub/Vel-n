@@ -35,13 +35,10 @@ export default function SwapModal({ open, prev, next, onClose, onDone }) {
   async function afterProtocol(info) {
     setPhase('swapping'); setBusy(true); setError(null)
     try {
-      const now = new Date().toISOString()
-      // 1) Zamkni protokol B → projde strážcem aktivace + guard RPC.
-      const { error: e1 } = await supabase.from('bookings')
-        .update({ handover_protocol_filled_at: now }).eq('id', next.id)
-      if (e1) throw new Error(e1.message)
-
-      // 2) Atomický switch: A completed, B active + vazba řetězu.
+      // Atomický switch: A completed, B active + vazba řetězu. RPC si sama nastaví
+      // B.handover_protocol_filled_at (projde strážcem trg_gate_obsluzna_activation),
+      // takže NEPOTŘEBUJEME křehký samostatný frontendový UPDATE před ní (ten mohl
+      // při RLS tiše selhat / rozbít pořadí). Vše v jedné transakci RPC.
       const { data, error: e2 } = await supabase.rpc('swap_handoff_bookings', { p_prev: prev.id, p_next: next.id })
       if (e2) throw new Error(e2.message)
       if (data && data.success === false) throw new Error(data.error || 'swap_failed')
