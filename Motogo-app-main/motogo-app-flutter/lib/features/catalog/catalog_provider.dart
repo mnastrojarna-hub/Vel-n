@@ -18,12 +18,15 @@ final motorcyclesProvider = FutureProvider<List<Motorcycle>>((ref) async {
 
     final motos = (res as List).map((e) => Motorcycle.fromJson(e)).toList();
 
-    // Batch-check today's availability for badge display
+    // Batch-check today's availability for badge display.
+    // POZOR: get_moto_booked_dates (NE check_moto_availability) — zahrnuje i
+    // SERVISNÍ bloky (status='service'), takže motorka v servisu se dnes
+    // správně tváří jako nedostupná. check_moto_availability servis IGNORUJE
+    // (kontroluje jen rezervace) → falešně ukazovala „dnes dostupné". Stejný
+    // zdroj jako kalendář v detailu i jako web.
     final today = DateTime.now();
-    final todayStart = DateTime(today.year, today.month, today.day);
-    final todayEnd = todayStart.add(const Duration(days: 1));
     final checks = await Future.wait(
-      motos.map((m) => checkMotoAvailability(m.id, todayStart, todayEnd)),
+      motos.map((m) => motoFreeToday(m.id, today)),
     );
     return [
       for (int i = 0; i < motos.length; i++)
@@ -61,6 +64,24 @@ Future<bool> checkMotoAvailability(String motoId, DateTime start, DateTime end, 
     if (excludeBookingId != null) params['p_exclude_booking_id'] = excludeBookingId;
     final res = await MotoGoSupabase.client.rpc('check_moto_availability', params: params);
     return res == true;
+  } catch (_) {
+    return false;
+  }
+}
+
+/// „Dnes dostupné" pro katalogový odznak: motorka je dnes volná, když dnešek
+/// nespadá do žádného blokovaného rozsahu z `get_moto_booked_dates` — což jsou
+/// rezervace I SERVISNÍ bloky (status='service'). Narozdíl od
+/// `check_moto_availability` (ta servis IGNORUJE → motorka v servisu ukazovala
+/// „dnes dostupné"). Shodné s kalendářem v detailu i s webem. Chyba → false
+/// (odznak se raději skryje, než by falešně sliboval dostupnost).
+Future<bool> motoFreeToday(String motoId, DateTime today) async {
+  try {
+    final res = await MotoGoSupabase.client
+        .rpc('get_moto_booked_dates', params: {'p_moto_id': motoId});
+    final blocked = (res as List).any((e) =>
+        BookedDateRange.fromJson(e as Map<String, dynamic>).containsDate(today));
+    return !blocked;
   } catch (_) {
     return false;
   }

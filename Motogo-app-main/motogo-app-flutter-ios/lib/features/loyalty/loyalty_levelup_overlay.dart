@@ -33,40 +33,98 @@ class LoyaltyLevelUpWatcher extends ConsumerStatefulWidget {
       _LoyaltyLevelUpWatcherState();
 }
 
-class _LoyaltyLevelUpWatcherState extends ConsumerState<LoyaltyLevelUpWatcher> {
+class _LoyaltyLevelUpWatcherState extends ConsumerState<LoyaltyLevelUpWatcher>
+    with WidgetsBindingObserver {
   bool _showing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// Návrat appky do popředí → znovu načti rank. Bez toho by povýšení, které
+  /// nastalo, když byl uživatel pryč (rezervace dokončena server-side), appka
+  /// při „warm resume" vůbec nezaznamenala a oslava by se nikdy nepřehrála.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed &&
+        MotoGoSupabase.currentUser != null) {
+      ref.invalidate(loyaltyStatusProvider);
+    }
+  }
 
   String get _lvlKey =>
       'mg_loyalty_last_level_${MotoGoSupabase.currentUser?.id ?? 'anon'}';
   String get _colorKey =>
       'mg_loyalty_last_color_${MotoGoSupabase.currentUser?.id ?? 'anon'}';
 
+  /// „Už oslaveno na level N" — SERVER je zdroj pravdy (`profiles`), takže
+  /// povýšení uvidí uživatel VŽDY a právě JEDNOU: přežije reinstal, nové
+  /// zařízení i smazaná data. Vrací null, když RPC ještě není nasazené →
+  /// fallback na lokální SharedPreferences baseline (appka funguje jako dřív).
+  Future<int?> _serverCelebrated() async {
+    if (MotoGoSupabase.currentUser == null) return null;
+    try {
+      final res = await MotoGoSupabase.client.rpc('loyalty_get_celebrated');
+      if (res is num) return res.toInt();
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _advanceServer(int level) async {
+    if (MotoGoSupabase.currentUser == null) return;
+    try {
+      await MotoGoSupabase.client
+          .rpc('loyalty_advance_celebrated', params: {'p_level': level});
+    } catch (_) {/* fail-open */}
+  }
+
+  Future<void> _persistLocal(
+      SharedPreferences prefs, LoyaltyStatus status) async {
+    await prefs.setInt(_lvlKey, status.level);
+    await prefs.setString(_colorKey, status.colorHex);
+  }
+
   Future<void> _maybeCelebrate(LoyaltyStatus status) async {
+    if (!mounted || _showing) return;
     final prefs = await SharedPreferences.getInstance();
-    final last = prefs.getInt(_lvlKey);
     final lastColorHex = prefs.getString(_colorKey);
 
-    if (last == null) {
-      await prefs.setInt(_lvlKey, status.level);
-      await prefs.setString(_colorKey, status.colorHex);
+    // Baseline = server (autoritativní, přežije reinstal), jinak lokální mirror.
+    final serverBaseline = await _serverCelebrated();
+    final bool serverMode = serverBaseline != null;
+    final int? baseline = serverBaseline ?? prefs.getInt(_lvlKey);
+
+    // Neseednuto (server 0 nebo lokálně nic) → jen zaznamenej aktuální level,
+    // NEoslavuj (na úplně prvním pozorování není co „povyšovat").
+    if (baseline == null || (serverMode && baseline == 0)) {
+      await _persistLocal(prefs, status);
+      if (serverMode) await _advanceServer(status.level);
       return;
     }
-    if (status.level <= last) {
-      if (status.level != last) {
-        await prefs.setInt(_lvlKey, status.level);
-        await prefs.setString(_colorKey, status.colorHex);
-      }
+
+    if (status.level <= baseline) {
+      await _persistLocal(prefs, status);
       return;
     }
 
     if (!mounted || _showing) return;
-    final gained = status.level - last;
+    final gained = status.level - baseline;
     _showing = true;
 
     final motos = await fetchLoyaltyCelebrationMotos();
     if (!mounted) {
       _showing = false;
-      return; // NEukládáme — oslava se dožene příště.
+      return; // NEukládáme — oslava se dožene příště (baseline zůstává nižší).
     }
 
     await showGeneralDialog(
@@ -84,8 +142,10 @@ class _LoyaltyLevelUpWatcherState extends ConsumerState<LoyaltyLevelUpWatcher> {
     );
     _showing = false;
 
-    await prefs.setInt(_lvlKey, status.level);
-    await prefs.setString(_colorKey, status.colorHex);
+    // Zapiš „oslaveno" AŽ po přehrání → přežije zabití appky uprostřed videa
+    // (příště se dožene). Server GREATEST → i napříč zařízeními jen jednou.
+    await _persistLocal(prefs, status);
+    if (serverMode) await _advanceServer(status.level);
   }
 
   @override
