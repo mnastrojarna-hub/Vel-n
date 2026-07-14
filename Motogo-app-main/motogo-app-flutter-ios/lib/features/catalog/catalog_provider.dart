@@ -87,6 +87,44 @@ Future<bool> motoFreeToday(String motoId, DateTime today) async {
   }
 }
 
+/// Dostupnost motorky pro zvolený termín v katalogovém filtru: musí projít
+/// `check_moto_availability` (překryv rezervací, časově přesné) A ZÁROVEŇ nesmí
+/// v rozsahu ležet SERVISNÍ blok (status='service') — ten `check_moto_availability`
+/// ignoruje, takže bez této kontroly by motorka v servisu šla ve filtru vybrat.
+/// Obě kontroly běží paralelně. Booking-kontrola je fail-closed (chyba → skryto),
+/// servisní kontrola fail-open (výpadek nemá zbytečně skrývat motorky).
+Future<bool> motoAvailableForRange(String motoId, DateTime start, DateTime end) async {
+  final results = await Future.wait([
+    checkMotoAvailability(motoId, start, end),
+    _noServiceBlockInRange(motoId, start, end),
+  ]);
+  return results[0] && results[1];
+}
+
+/// V rozsahu [start..end] (dny inkluzivně) neleží žádný SERVISNÍ blok z
+/// `get_moto_booked_dates`. Booking bloky se ignorují (řeší check_moto_availability
+/// časově přesně) — tady jde jen o servis, aby se nezměnila overlap semantika
+/// zpětných rezervací (den vrácení × den vyzvednutí). Chyba → true (fail-open).
+Future<bool> _noServiceBlockInRange(String motoId, DateTime start, DateTime end) async {
+  try {
+    final res = await MotoGoSupabase.client
+        .rpc('get_moto_booked_dates', params: {'p_moto_id': motoId});
+    DateTime d(DateTime x) => DateTime(x.year, x.month, x.day);
+    final s = d(start);
+    final e = d(end);
+    for (final item in (res as List)) {
+      final r = BookedDateRange.fromJson(item as Map<String, dynamic>);
+      if (r.status != 'service') continue;
+      final rs = d(r.start);
+      final re = d(r.end);
+      if (!s.isAfter(re) && !rs.isAfter(e)) return false; // překryv se servisem
+    }
+    return true;
+  } catch (_) {
+    return true;
+  }
+}
+
 /// Current filter state for catalog/search screens.
 class CatalogFilter {
   final String? category;
@@ -159,10 +197,13 @@ final filteredMotorcyclesProvider = FutureProvider<List<Motorcycle>>((ref) async
   final filter = ref.watch(catalogFilterProvider);
   final filtered = filter.apply(motos);
 
-  // If dates selected, filter by availability (parallel checks)
+  // If dates selected, filter by availability (parallel checks).
+  // motoAvailableForRange = rezervace (check_moto_availability, časově přesné)
+  // A ZÁROVEŇ žádný SERVISNÍ blok v termínu — bez toho by šla motorka v servisu
+  // ve filtru „vybrat" (check_moto_availability servis ignoruje).
   if (filter.startDate != null && filter.endDate != null) {
     final checks = await Future.wait(
-      filtered.map((m) => checkMotoAvailability(m.id, filter.startDate!, filter.endDate!)),
+      filtered.map((m) => motoAvailableForRange(m.id, filter.startDate!, filter.endDate!)),
     );
     return [
       for (int i = 0; i < filtered.length; i++)
