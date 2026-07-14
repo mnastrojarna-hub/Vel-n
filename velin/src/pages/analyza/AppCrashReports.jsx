@@ -154,8 +154,32 @@ export default function AppCrashReports() {
   const [error, setError] = useState(null)
   const [filter, setFilter] = useState('fatal')
   const [lastLoaded, setLastLoaded] = useState(null)
+  const [deleting, setDeleting] = useState(false)
   const filterRef = useRef(filter)
   filterRef.current = filter
+
+  /// Smaže hlášení dle aktivního filtru (RLS: admin ALL na app_crash_reports).
+  /// Maže VŠECHNY odpovídající řádky v DB, ne jen zobrazených ≤200.
+  async function deleteAll() {
+    const f = FILTERS.find(x => x.key === filterRef.current)
+    const scope = f?.sevs ? `všechna hlášení typu „${f.label}"` : 'ÚPLNĚ VŠECHNA hlášení chyb'
+    if (!window.confirm(`Opravdu smazat ${scope}? Akce je nevratná.`)) return
+    setDeleting(true)
+    setError(null)
+    try {
+      let q = supabase.from('app_crash_reports').delete()
+      // supabase-js vyžaduje u delete() aspoň jeden filtr — bez severity
+      // filtru mažeme vše přes vždy-pravdivou podmínku na id.
+      q = f?.sevs ? q.in('severity', f.sevs) : q.not('id', 'is', null)
+      const { error } = await q
+      if (error) throw error
+      await load()
+    } catch (e) {
+      setError(e?.message || String(e))
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   async function load() {
     setError(null)
@@ -212,6 +236,16 @@ export default function AppCrashReports() {
         >
           Obnovit
         </button>
+        {rows.length > 0 && (
+          <button
+            onClick={deleteAll}
+            disabled={deleting}
+            title="Smaže všechna hlášení odpovídající aktivnímu filtru (nevratné)"
+            style={{ padding: '6px 14px', background: '#fde8e8', color: '#9a2a2a', border: '1px solid #f0c0c0', borderRadius: 8, fontWeight: 700, cursor: deleting ? 'wait' : 'pointer', fontSize: 13, opacity: deleting ? 0.6 : 1 }}
+          >
+            {deleting ? 'Mažu…' : '🗑 Smazat chyby'}
+          </button>
+        )}
       </div>
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
