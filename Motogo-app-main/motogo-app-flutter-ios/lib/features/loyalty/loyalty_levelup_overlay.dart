@@ -8,6 +8,7 @@ import 'package:video_player/video_player.dart';
 import '../../core/supabase_client.dart';
 import '../../core/widgets/net_image.dart';
 import '../../core/i18n/i18n_provider.dart';
+import '../../main.dart' show rootNavigatorKey;
 import '../reservations/reservation_provider.dart';
 import 'loyalty_provider.dart';
 
@@ -122,13 +123,17 @@ class _LoyaltyLevelUpWatcherState extends ConsumerState<LoyaltyLevelUpWatcher>
     _showing = true;
 
     final motos = await fetchLoyaltyCelebrationMotos();
-    if (!mounted) {
+    // Watcher sedí v MaterialApp.builder VEDLE navigátoru (ne pod ním), takže
+    // jeho vlastní context žádný Navigator nemá a Navigator.of() by spadl na
+    // null check. Dialog proto otevíráme přes context root navigátoru.
+    final navCtx = rootNavigatorKey.currentContext;
+    if (!mounted || navCtx == null || !navCtx.mounted) {
       _showing = false;
       return; // NEukládáme — oslava se dožene příště (baseline zůstává nižší).
     }
 
     await showGeneralDialog(
-      context: context,
+      context: navCtx,
       barrierDismissible: false,
       barrierColor: Colors.transparent,
       barrierLabel: 'levelup',
