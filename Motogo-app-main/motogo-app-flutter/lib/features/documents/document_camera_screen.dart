@@ -58,10 +58,11 @@ class _DocumentCameraScreenState extends State<DocumentCameraScreen>
   }
 
   Future<void> _initCamera() async {
+    CameraController? controller;
     try {
       final cameras = await availableCameras();
       if (cameras.isEmpty) {
-        setState(() => _error = 'Kamera není dostupná');
+        if (mounted) setState(() => _error = 'Kamera není dostupná');
         return;
       }
 
@@ -70,17 +71,24 @@ class _DocumentCameraScreenState extends State<DocumentCameraScreen>
         orElse: () => cameras.first,
       );
 
-      _controller = CameraController(
+      controller = CameraController(
         backCamera,
         ResolutionPreset.high,
         enableAudio: false,
         imageFormatGroup: ImageFormatGroup.jpeg,
       );
+      _controller = controller;
 
-      await _controller!.initialize();
-      if (!mounted) return;
+      await controller.initialize();
+      if (!mounted || _controller != controller) {
+        // Mezitím zavřeno (pauza appky) → uklidit osiřelý controller.
+        if (_controller != controller) await controller.dispose();
+        return;
+      }
       setState(() => _isInitialized = true);
     } catch (e) {
+      // Dispose během initu (pauza appky) není chyba — resume kameru nahodí.
+      if (!mounted || (controller != null && _controller != controller)) return;
       setState(() => _error = 'Chyba kamery: $e');
     }
   }

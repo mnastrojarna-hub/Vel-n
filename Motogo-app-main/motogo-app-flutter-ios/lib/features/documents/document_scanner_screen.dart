@@ -36,7 +36,8 @@ class DocumentScannerScreen extends ConsumerStatefulWidget {
 
 enum _ResultKind { none, success, error, contactFallback }
 
-class _ScannerState extends ConsumerState<DocumentScannerScreen> {
+class _ScannerState extends ConsumerState<DocumentScannerScreen>
+    with WidgetsBindingObserver {
   String? _idType;
   int _stepIdx = 0;
   bool _scanning = false;
@@ -89,23 +90,49 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen> {
   // ── Camera ──
 
   Future<void> _initCamera() async {
+    CameraController? cam;
     try {
       final cameras = await availableCameras();
       if (cameras.isEmpty) {
-        setState(() => _camError = t(context).tr('cameraNotAvailable'));
+        if (mounted) {
+          setState(() => _camError = t(context).tr('cameraNotAvailable'));
+        }
         return;
       }
       final back = cameras.firstWhere(
         (c) => c.lensDirection == CameraLensDirection.back,
         orElse: () => cameras.first,
       );
-      _cam = CameraController(back, ResolutionPreset.high,
+      cam = CameraController(back, ResolutionPreset.high,
           enableAudio: false, imageFormatGroup: ImageFormatGroup.jpeg);
-      await _cam!.initialize();
-      if (!mounted) return;
+      _cam = cam;
+      await cam.initialize();
+      if (!mounted || _cam != cam) {
+        // Mezitím zavřeno (pauza appky / odchod ze skeneru) → uklidit.
+        if (_cam != cam) await cam.dispose();
+        return;
+      }
       setState(() => _camReady = true);
     } catch (e) {
+      // Dispose během initu (pauza appky) není chyba — resume kameru nahodí.
+      if (!mounted || (cam != null && _cam != cam)) return;
       setState(() => _camError = '${t(context).tr('cameraError')}: $e');
+    }
+  }
+
+  /// Když appka jde na pozadí, OS uvolní kameru → controller se znevalidní a
+  /// `CameraPreview` (interní ValueListenableBuilder) by se překreslil nad už
+  /// disposnutým controllerem → pád „buildPreview() was called on a disposed
+  /// CameraController". Kameru proto při pauze zavřeme (preview se schová PŘED
+  /// dispose) a po návratu do popředí ji znovu nahodíme.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      if (_cam != null) _disposeCamera();
+    } else if (state == AppLifecycleState.resumed) {
+      if (_idType != null && _cam == null && _camError == null) _initCamera();
     }
   }
 
@@ -115,9 +142,14 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen> {
   }
 
   Future<void> _disposeCamera() async {
-    await _cam?.dispose();
+    // Nejdřív schovat preview (setState + zahodit referenci), TEPRVE PAK
+    // dispose — jinak se CameraPreview během await překreslí nad už
+    // disposnutým controllerem a appka spadne.
+    final cam = _cam;
     _cam = null;
     _camReady = false;
+    if (mounted) setState(() {});
+    await cam?.dispose();
   }
 
   /// Zpět ze skeneru i bez zásobníku (deep link / context.go) — jinak by
@@ -132,7 +164,9 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _cam?.dispose();
+    _cam = null;
     super.dispose();
   }
 
@@ -550,6 +584,7 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // If scanMode is 'dl_only', skip the ID choice screen entirely
     if (widget.scanMode == 'dl_only') {
       _idType = 'dl_only';
@@ -638,7 +673,7 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen> {
       backgroundColor: Colors.black,
       body: Stack(fit: StackFit.expand, children: [
         // Camera preview
-        if (_camReady && _cam != null)
+        if (_camReady && _cam != null && _cam!.value.isInitialized)
           Center(child: CameraPreview(_cam!))
         else if (_camError != null)
           Center(child: Text(_camError!,

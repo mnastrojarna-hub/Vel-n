@@ -1,17 +1,14 @@
-# Flutter-specific
--keep class io.flutter.app.** { *; }
--keep class io.flutter.plugin.** { *; }
--keep class io.flutter.util.** { *; }
--keep class io.flutter.view.** { *; }
--keep class io.flutter.** { *; }
--keep class io.flutter.plugins.** { *; }
+# Google Play doporučení „Optimalizací R8 můžete zlepšit paměť a výkon":
+# dřívější plošná pravidla `-keep class io.flutter.** { *; }` a
+# `-keep class com.google.firebase.** { *; }` držela v DEXu prakticky celý
+# engine + Firebase neoptimalizované a R8 tím de facto vypínala.
+# Flutter embedding i Firebase si svá keep pravidla dodávají samy
+# (consumer rules v AAR + @Keep anotace) — plošné keepy nejsou potřeba.
 
-# Stripe SDK
+# Stripe SDK — platby jsou kritické, Payment Sheet používá reflexi/Parcelable
+# napříč SDK, proto tady plošný keep záměrně NECHÁVÁME.
 -dontwarn com.stripe.android.**
 -keep class com.stripe.android.** { *; }
-
-# Firebase
--keep class com.google.firebase.** { *; }
 
 # Supabase / OkHttp / Retrofit (used internally)
 -dontwarn okhttp3.**
