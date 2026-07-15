@@ -59,6 +59,8 @@ import '../features/routes/all_pois_screen.dart';
 import '../features/routes/route_builder_screen.dart';
 import '../features/routes/routes_model.dart' show RouteItem;
 import '../features/routes/routes_provider.dart' show CustomNavArgs;
+import '../features/routes/my_experiences_provider.dart' show RouteBuilderArgs;
+import '../features/routes/my_experiences_screen.dart';
 import 'currency.dart';
 
 /// All route paths — mirrors router.js screen IDs.
@@ -247,11 +249,24 @@ final routerProvider = Provider<GoRouter>((ref) {
         },
       ),
 
-      // Editor trasy — přidat/přehazovat zastávky, profil, živý náhled
+      // Editor trasy — přidat/přehazovat zastávky, profil, živý náhled.
+      // Extra: RouteItem (z detailu trasy) NEBO RouteBuilderArgs (uložená
+      // trasa z Mých zážitků — nese explicitní zastávky vč. bodů zájmu).
       GoRoute(
         path: '/route-build',
-        builder: (context, state) =>
-            RouteBuilderScreen(route: state.extra as RouteItem),
+        builder: (context, state) {
+          final e = state.extra;
+          if (e is RouteBuilderArgs) {
+            return RouteBuilderScreen(route: e.route, initialStops: e.stops);
+          }
+          return RouteBuilderScreen(route: e as RouteItem);
+        },
+      ),
+
+      // Moje zážitky — uložené trasy + objevená místa (osobní deník jezdce)
+      GoRoute(
+        path: '/my-experiences',
+        builder: (context, state) => const MyExperiencesScreen(),
       ),
 
       // Navigace přes vlastní (zákazníkem složenou) trasu z vybraných POI

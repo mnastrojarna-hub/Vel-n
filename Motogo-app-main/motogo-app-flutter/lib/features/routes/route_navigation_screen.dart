@@ -10,15 +10,27 @@ import '../../core/theme.dart';
 import '../../core/router.dart' show MotoGoBackNav;
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/native/gps_service.dart';
+import '../../core/supabase_client.dart';
 import 'routes_model.dart';
 import 'routes_provider.dart';
 import 'route_poi_sheet.dart';
+import 'route_nav_widgets.dart';
+import 'route_reviews.dart';
+import 'my_experiences_provider.dart';
 
 /// Navigace trasy PŘÍMO v aplikaci — plnohodnotný navigátor: fullscreen mapa
 /// Mapy.com, živá poloha jezdce, sledování (follow) s otáčením mapy po směru
 /// jízdy (heading-up), projetá část trasy se odečítá (šedne) a HUD ukazuje
 /// rychlost, zbývající vzdálenost PO TRASE, čas dojezdu, čas příjezdu a
-/// nadmořskou výšku. Bez závislosti na externí navigaci.
+/// nadmořskou výšku.
+///
+/// REAL-TIME chování:
+/// - vybočení z trasy → trasa se do pár vteřin PŘEPOČÍTÁ od aktuální polohy,
+/// - dojezd na zastávku/bod zájmu → bod se odškrtne, místo se označí jako
+///   OBJEVENÉ (Moje zážitky) a karta nabídne navigaci na DALŠÍ bod trasy
+///   (nebo výběr jiného bodu),
+/// - projeté průjezdní body se odečítají automaticky (reroute je nevrací),
+/// - po dokončení trasy nabídne hodnocení / uložení vlastní vyjížďky.
 class RouteNavigationScreen extends ConsumerStatefulWidget {
   final String? routeId;
   /// Vlastní trasa složená ze zákazníkem vybraných bodů zájmu (katalog POI).
@@ -41,9 +53,29 @@ class RouteNavigationScreen extends ConsumerStatefulWidget {
   ConsumerState<RouteNavigationScreen> createState() => _RouteNavigationScreenState();
 }
 
+/// Zastávka trasy pro navigaci — waypoint, případně s přiřazeným bodem zájmu.
+class _NavStop {
+  final LatLng point;
+  String? label;
+  RoutePoi? poi;
+  bool reached = false;
+  _NavStop(this.point, {this.label, this.poi});
+}
+
 class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
   // Pod touto rychlostí (km/h) je GPS heading nespolehlivý → mapou neotáčíme.
   static const double _moveThreshold = 5;
+  // Vybočení z trasy: dál než [_kOffRouteM] po [_kOffRouteFixes] po sobě
+  // jdoucích GPS fixech → přepočet trasy od aktuální polohy.
+  static const double _kOffRouteM = 70;
+  static const int _kOffRouteFixes = 3;
+  // Min. rozestup mezi automatickými přepočty (šetří API i baterii).
+  static const Duration _kRerouteCooldown = Duration(seconds: 8);
+  // Dojezd na zastávku / objevení bodu zájmu (metry vzdušně).
+  static const double _kReachM = 150;
+  static const double _kPoiVisitM = 200;
+  // Průjezdní bod je „projetý", když jsem po trase dál než bod + rezerva.
+  static const double _kPassedSlackM = 400;
 
   final MapController _ctrl = MapController();
   StreamSubscription<Position>? _sub;
@@ -79,11 +111,29 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
     return (z + _zoomBias).clamp(10.0, 18.5);
   }
 
-  // Živá trasa od aktuální polohy — nejrychlejší BEZ dálnic (Mapy.com routing).
+  // Živá trasa od aktuální polohy — dle zvoleného profilu (Mapy.com routing).
   RouteItem? _route;
   RouteBranch? _branch;
   List<LatLng>? _navGeo;
   bool _navLoading = false;
+  bool _rerouting = false; // přepočet po vybočení (odlišný text ve stavové liště)
+  double? _navLengthM; // reálná délka aktuální trasy (pro přesné ETA)
+  int? _navDurationS; // reálný čas jízdy z routingu
+
+  // Zastávky trasy + průběh.
+  final List<_NavStop> _stops = [];
+  bool _stopsBuilt = false;
+  final Map<_NavStop, double?> _stopAlongM = {}; // pozice zastávky po trase (cache)
+  int _offRouteFixes = 0;
+  DateTime? _lastRerouteAt;
+
+  // Objevování míst + karty.
+  final Set<String> _visitSent = {}; // POI, pro které už šel zápis návštěvy
+  VisitResult? _lastVisit; // výsledek posledního zápisu (badge na kartě)
+  _NavStop? _reachedCard; // právě dosažená zastávka (karta s dalším bodem)
+  bool _routeDone = false;
+  bool _doneCardDismissed = false;
+  Timer? _cardTimer;
 
   @override
   void initState() {
@@ -146,41 +196,364 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
         _ctrl.move(me, z);
       }
     }
-    _maybeComputeNav();
+    _updateProgress(me);
   }
 
-  /// Spočte živou trasu od aktuální polohy přes body trasy — nejrychleji BEZ
-  /// dálnic (Mapy.com routing). Počítá se jen jednou (po prvním GPS fixu).
+  // ── Real-time průběh: zastávky, objevování, off-route reroute ──
+
+  void _updateProgress(LatLng me) {
+    final route = _route;
+    if (route == null) return;
+    if (_stopsBuilt) _checkStops(me, route);
+
+    final geo = _navGeo;
+    if (geo == null || geo.length < 2) {
+      _maybeComputeNav();
+      return;
+    }
+    final prog = _projectOnRoute(geo, me);
+    if (prog == null) return;
+    if (prog.distM > _kOffRouteM) {
+      // Mimo trasu — po několika fixech přepočítej od aktuální polohy.
+      _offRouteFixes++;
+      if (_offRouteFixes >= _kOffRouteFixes) _reroute();
+    } else {
+      _offRouteFixes = 0;
+      _autoPassStops(prog);
+    }
+  }
+
+  /// Dojezd na zastávky + objevení bodů zájmu (vzdušná vzdálenost).
+  void _checkStops(LatLng me, RouteItem route) {
+    const dist = Distance();
+    // 1) Objevení bodů zájmu — nezávisle na zastávkách (Moje zážitky).
+    for (final poi in route.pois) {
+      final ll = poi.latLng;
+      if (ll == null || poi.id.isEmpty || _visitSent.contains(poi.id)) continue;
+      if (dist.as(LengthUnit.Meter, me, ll) <= _kPoiVisitM) {
+        _visitSent.add(poi.id);
+        _recordVisit(poi);
+      }
+    }
+    // 2) Dojezd na zastávky trasy.
+    var changed = false;
+    for (final s in _stops) {
+      if (s.reached) continue;
+      if (dist.as(LengthUnit.Meter, me, s.point) <= _kReachM) {
+        s.reached = true;
+        changed = true;
+        // Karta „dojel jsi" jen u pojmenované zastávky / bodu zájmu —
+        // bezejmenné průjezdní body se odškrtávají potichu.
+        if (s.poi != null || (s.label ?? '').isNotEmpty) _showReachedCard(s);
+      }
+    }
+    if (changed) {
+      if (_stops.isNotEmpty && _stops.every((x) => x.reached) && !_routeDone) {
+        _routeDone = true;
+        _reachedCard = null;
+        _cardTimer?.cancel();
+      }
+      setState(() {});
+    }
+  }
+
+  /// Zapíše objevené místo (best-effort, nesmí rušit navigaci).
+  Future<void> _recordVisit(RoutePoi poi) async {
+    final res = await markPlaceVisited(poi, routeId: widget.routeId);
+    if (!mounted || res == null) return;
+    setState(() => _lastVisit = res);
+  }
+
+  void _showReachedCard(_NavStop s) {
+    _cardTimer?.cancel();
+    _lastVisit = null; // badge dorazí async z _recordVisit
+    _reachedCard = s;
+    _cardTimer = Timer(const Duration(seconds: 45), () {
+      if (mounted) setState(() => _reachedCard = null);
+    });
+  }
+
+  /// Průjezdní body, které jsem po trase minul (jsem po trase DÁL než bod),
+  /// odškrtni automaticky — přepočet trasy se k nim už nevrací.
+  void _autoPassStops(_RouteProgress prog) {
+    final riderAlong = prog.totalM - prog.remainingM;
+    var changed = false;
+    for (final s in _stops) {
+      if (s.reached) continue;
+      final along = _stopAlongM[s];
+      if (along == null) continue; // zastávka mimo aktuální polyline
+      if (along < riderAlong - _kPassedSlackM) {
+        s.reached = true;
+        changed = true;
+      }
+    }
+    if (changed) setState(() {});
+  }
+
+  /// První výpočet živé trasy od polohy jezdce přes zastávky trasy.
   Future<void> _maybeComputeNav() async {
     if (_navLoading || _navGeo != null) return;
     final me = _me;
     final route = _route;
     if (me == null || route == null) return;
+    _buildStops(route);
+    final pts = _routingPoints(me);
+    if (pts.length < 2) return;
     _navLoading = true;
-    // Okruh se vrací na pobočku jen když je poblíž trasy — u vzdálené
-    // (zahraniční) trasy se návrat přes půl Evropy neplánuje.
-    final loopBack = route.isLoop && startIsNearRoute(route, _branch?.latLng)
-        ? _branch?.latLng
-        : null;
-    final pts = navPointsFrom(me, route, loopBack);
-    if (pts.length < 2) {
-      _navLoading = false;
-      return;
-    }
-    final geo = await fetchMapyRoute(pts, profile: widget.profile);
+    final info = await fetchMapyRouteInfo(pts, profile: widget.profile);
     if (!mounted) {
       _navLoading = false;
       return;
     }
     setState(() {
-      _navGeo = geo ?? pts;
+      _applyNavInfo(info, fallback: pts);
       _navLoading = false;
     });
+  }
+
+  /// Přepočet trasy od aktuální polohy přes NEprojeté zastávky. Throttlované
+  /// (cooldown), `force` = vyžádané uživatelem (tlačítko další bod / výběr).
+  Future<void> _reroute({bool force = false}) async {
+    final me = _me;
+    if (me == null || _navLoading) return;
+    final now = DateTime.now();
+    if (!force &&
+        _lastRerouteAt != null &&
+        now.difference(_lastRerouteAt!) < _kRerouteCooldown) {
+      return;
+    }
+    final pts = _routingPoints(me);
+    if (pts.length < 2) return;
+    _lastRerouteAt = now;
+    setState(() {
+      _navLoading = true;
+      _rerouting = true;
+    });
+    final info = await fetchMapyRouteInfo(pts, profile: widget.profile);
+    if (!mounted) return;
+    setState(() {
+      if (info != null && info.geometry.length >= 2) {
+        _applyNavInfo(info, fallback: pts);
+      }
+      _navLoading = false;
+      _rerouting = false;
+      _offRouteFixes = 0;
+    });
+  }
+
+  List<LatLng> _routingPoints(LatLng me) {
+    final pts = <LatLng>[me];
+    for (final s in _stops) {
+      if (!s.reached) pts.add(s.point);
+    }
+    return pts;
+  }
+
+  void _applyNavInfo(MapyRouteInfo? info, {required List<LatLng> fallback}) {
+    final geo = (info != null && info.geometry.length >= 2) ? info.geometry : fallback;
+    _navGeo = geo;
+    _navLengthM = info?.lengthM ?? polylineLengthM(geo);
+    _navDurationS = info?.durationS;
+    _computeStopAlong(geo);
+  }
+
+  /// Pozice každé neprojeté zastávky PO TRASE (metry od startu) — cache pro
+  /// levné auto-odškrtávání projetých bodů při každém GPS fixu.
+  void _computeStopAlong(List<LatLng> geo) {
+    _stopAlongM.clear();
+    if (geo.length < 2) return;
+    for (final s in _stops) {
+      if (s.reached) continue;
+      final p = _projectOnRoute(geo, s.point);
+      _stopAlongM[s] =
+          (p != null && p.distM <= 120) ? (p.totalM - p.remainingM) : null;
+    }
+  }
+
+  /// Zastávky trasy: waypointy (jinak body zájmu) + u okruhu návrat na pobočku.
+  /// Bodům zájmu se přiřadí odpovídající zastávka (≤ 40 m).
+  void _buildStops(RouteItem route) {
+    if (_stopsBuilt) return;
+    _stopsBuilt = true;
+    final pts = <LatLng>[];
+    if (route.waypoints.isNotEmpty) {
+      pts.addAll(route.waypoints);
+    } else {
+      for (final p in route.pois) {
+        final ll = p.latLng;
+        if (ll != null) pts.add(ll);
+      }
+    }
+    for (final p in pts) {
+      if (_stops.isEmpty ||
+          _stops.last.point.latitude != p.latitude ||
+          _stops.last.point.longitude != p.longitude) {
+        _stops.add(_NavStop(p));
+      }
+    }
+    // Okruh se vrací na pobočku jen když je poblíž trasy — u vzdálené
+    // (zahraniční) trasy se návrat přes půl Evropy neplánuje.
+    if (route.isLoop && startIsNearRoute(route, _branch?.latLng)) {
+      final b = _branch?.latLng;
+      if (b != null) _stops.add(_NavStop(b, label: _branch?.name));
+    }
+    const dist = Distance();
+    for (final poi in route.pois) {
+      final ll = poi.latLng;
+      if (ll == null) continue;
+      _NavStop? best;
+      double bestM = 40;
+      for (final s in _stops) {
+        if (s.poi != null) continue;
+        final d = dist.as(LengthUnit.Meter, ll, s.point);
+        if (d < bestM) {
+          bestM = d;
+          best = s;
+        }
+      }
+      if (best != null) {
+        best.poi = poi;
+        best.label ??= poi.name;
+      }
+    }
+  }
+
+  _NavStop? get _nextStop {
+    for (final s in _stops) {
+      if (!s.reached) return s;
+    }
+    return null;
+  }
+
+  String _stopLabel(_NavStop s, String lang) {
+    final poi = s.poi;
+    if (poi != null) return poi.nameFor(lang);
+    if ((s.label ?? '').isNotEmpty) return s.label!;
+    final i = _stops.indexOf(s);
+    return '${t(context).tr('routeBuilderStop')} ${i + 1}';
+  }
+
+  // ── Akce z karty dojezdu / sheetu zastávek ──
+
+  void _goToNextStop() {
+    _cardTimer?.cancel();
+    setState(() => _reachedCard = null);
+    _reroute(force: true);
+  }
+
+  /// Navigovat rovnou na zvolenou zastávku — dřívější nedojeté body se přeskočí.
+  void _navigateToStop(int index) {
+    if (index < 0 || index >= _stops.length) return;
+    _cardTimer?.cancel();
+    setState(() {
+      for (var i = 0; i < index; i++) {
+        _stops[i].reached = true;
+      }
+      _reachedCard = null;
+    });
+    _reroute(force: true);
+  }
+
+  void _openStopsSheet(String lang) {
+    if (_stops.isEmpty) return;
+    final next = _nextStop;
+    final views = <NavStopView>[];
+    for (var i = 0; i < _stops.length; i++) {
+      final s = _stops[i];
+      views.add(NavStopView(
+        index: i,
+        label: _stopLabel(s, lang),
+        reached: s.reached,
+        isNext: identical(s, next),
+        hasPoi: s.poi != null,
+      ));
+    }
+    showNavStopsSheet(context, stops: views, onNavigateTo: _navigateToStop);
+  }
+
+  /// Uložení vlastní vyjížďky do Mých tras (po dokončení navigace).
+  Future<void> _saveCustomRoute() async {
+    final route = _route;
+    if (route == null) return;
+    if (MotoGoSupabase.currentUser == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(t(context).tr('routeSaveLogin'))));
+      return;
+    }
+    final nameCtrl = TextEditingController(
+        text: route.name.isNotEmpty ? route.name : '');
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (dc) => AlertDialog(
+        backgroundColor: Colors.white,
+        title: Text(t(dc).tr('routeSaveTitle'),
+            style: const TextStyle(
+                fontSize: MotoGoTypo.sizeH3, fontWeight: MotoGoTypo.w900)),
+        content: TextField(
+          controller: nameCtrl,
+          autofocus: true,
+          decoration: InputDecoration(labelText: t(dc).tr('routeSaveName')),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(dc, false),
+              child: Text(t(dc).tr('routesFilterClear'))),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+                backgroundColor: MotoGoColors.green,
+                foregroundColor: MotoGoColors.black),
+            onPressed: () => Navigator.pop(dc, true),
+            child: Text(t(dc).tr('routeSaveBtn')),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final name = nameCtrl.text.trim();
+    if (name.isEmpty) return;
+    final waypoints = <Map<String, dynamic>>[];
+    final poiRefs = <Map<String, dynamic>>[];
+    for (var i = 0; i < _stops.length; i++) {
+      final s = _stops[i];
+      waypoints.add({
+        'lat': s.point.latitude,
+        'lng': s.point.longitude,
+        'label': (s.label ?? '').isEmpty ? null : s.label,
+        'order': i,
+      });
+      final poi = s.poi;
+      if (poi != null && poi.id.isNotEmpty) {
+        poiRefs.add({
+          'order': i,
+          'kind': poi.isUserPoi ? 'user' : (poi.isCatalogPoi ? 'catalog' : 'route'),
+          'id': poi.id,
+          'name': poi.name,
+          'lat': poi.lat,
+          'lng': poi.lng,
+          'image_url': poi.imageUrl,
+        });
+      }
+    }
+    final saved = await saveUserRoute(
+      name: name,
+      sourceRouteId: widget.routeId,
+      waypoints: waypoints,
+      poiRefs: poiRefs,
+      profile: widget.profile,
+      distanceKm:
+          _navLengthM == null ? null : double.parse((_navLengthM! / 1000).toStringAsFixed(1)),
+      durationMin: _navDurationS == null ? null : (_navDurationS! / 60).round(),
+    );
+    if (!mounted) return;
+    ref.invalidate(mySavedRoutesProvider);
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(t(context).tr(saved ? 'routeSaved' : 'routeSaveErr'))));
   }
 
   @override
   void dispose() {
     _sub?.cancel();
+    _cardTimer?.cancel();
     super.dispose();
   }
 
@@ -259,7 +632,7 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
           }
           final displayAsync = ref.watch(routeDisplayProvider(route.id));
           final baseGeometry = displayAsync.valueOrNull?.geometry ?? route.geometry;
-          // Po prvním GPS fixu navigujeme po živé trase od polohy (bez dálnic).
+          // Po prvním GPS fixu navigujeme po živé trase od polohy jezdce.
           final geometry = _navGeo ?? baseGeometry;
           return _content(context, route, branch, geometry, lang);
         },
@@ -281,7 +654,7 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
           height: 34,
           child: GestureDetector(
             onTap: () => showRoutePoiSheet(context, poi, lang, index: idx),
-            child: _NumPin(index: idx),
+            child: NavNumPin(index: idx, visited: _visitSent.contains(poi.id)),
           ),
         ));
       }
@@ -301,14 +674,31 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
     final fraction = (prog != null && prog.totalM > 0)
         ? ((prog.totalM - prog.remainingM) / prog.totalM).clamp(0.0, 1.0)
         : 0.0;
+    // Přesné ETA z routingu, škálované na zbytek trasy.
+    double? etaMin;
+    if (prog != null &&
+        _navGeo != null &&
+        _navLengthM != null &&
+        _navLengthM! > 0 &&
+        _navDurationS != null) {
+      etaMin = _navDurationS! / 60 * (prog.remainingM / _navLengthM!);
+    }
 
-    // Nejbližší bod zájmu (vzdušně) — drobná nápověda „co tě čeká".
-    final nextPoi = _nearestPoi(route, _me);
+    // Příští zastávka trasy (odškrtává se průjezdem) — pilulka nad HUD.
+    final next = _nextStop;
+    final reachedCount = _stops.where((s) => s.reached).length;
+    double? nextDistM;
+    if (next != null && _me != null) {
+      nextDistM = const Distance().as(LengthUnit.Meter, _me!, next.point);
+    }
 
     final initialCenter = _me ??
         (geometry.isNotEmpty ? geometry.first : null) ??
         branch?.latLng ??
         const LatLng(49.3464, 15.2119);
+
+    final showDoneCard = _routeDone && !_doneCardDismissed;
+    final bottomInset = MediaQuery.of(context).padding.bottom;
 
     return Stack(
       children: [
@@ -370,7 +760,7 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
                     width: 34,
                     height: 34,
                     // Šipka ukazuje skutečný směr jízdy i při otočené mapě.
-                    child: _MeMarker(
+                    child: NavMeMarker(
                       arrowDeg: _heading == null ? null : _heading! + _mapRot,
                     ),
                   ),
@@ -382,7 +772,7 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
           ),
         ),
 
-        // Horní lišta — zpět + název trasy
+        // Horní lišta — zpět + název trasy + seznam zastávek
         Positioned(
           top: 0, left: 0, right: 0,
           child: Container(
@@ -396,7 +786,8 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
             ),
             child: Row(
               children: [
-                _circleBtn(Icons.arrow_back, () => context.backOr('/routes/${route.id}')),
+                _circleBtn(Icons.arrow_back, () => context.backOr(
+                    widget.routeId != null ? '/routes/${widget.routeId}' : '/routes')),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Column(
@@ -409,14 +800,41 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
                         style: const TextStyle(fontSize: 15, fontWeight: MotoGoTypo.w800, color: Colors.white, decoration: TextDecoration.none),
                       ),
                       Text(
-                        _locating
-                            ? t(context).tr('routeNavLocating')
-                            : (_navLoading ? t(context).tr('routeNavComputing') : t(context).tr('routeNavTitle')),
+                        _statusLine(context),
                         style: const TextStyle(fontSize: 12, fontWeight: MotoGoTypo.w600, color: Color(0xFF8AAB99), decoration: TextDecoration.none),
                       ),
                     ],
                   ),
                 ),
+                if (_stops.isNotEmpty) ...[
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: () => _openStopsSheet(lang),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(MotoGoRadius.lg),
+                        boxShadow: MotoGoShadows.cardSmall,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.checklist, size: 18, color: MotoGoColors.greenDarker),
+                          const SizedBox(width: 4),
+                          Text(
+                            '$reachedCount/${_stops.length}',
+                            style: const TextStyle(
+                                fontSize: MotoGoTypo.sizeMd,
+                                fontWeight: MotoGoTypo.w800,
+                                color: MotoGoColors.black,
+                                decoration: TextDecoration.none),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -427,13 +845,13 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
           Positioned(
             top: MediaQuery.of(context).padding.top + 64,
             right: 16,
-            child: _CompassButton(rotationDeg: _mapRot, onTap: _resetNorth),
+            child: NavCompassButton(rotationDeg: _mapRot, onTap: _resetNorth),
           ),
 
         // Banner při zamítnuté poloze
         if (_denied)
           Positioned(
-            left: 16, right: 16, bottom: MediaQuery.of(context).padding.bottom + 134,
+            left: 16, right: 16, bottom: bottomInset + 134,
             child: Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -456,19 +874,58 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
             ),
           ),
 
-        // Příští bod zájmu — drobná pilulka nad HUD.
-        if (nextPoi != null)
+        // Karta dojezdu na bod / dokončení trasy — má přednost před pilulkou.
+        if (_reachedCard != null)
           Positioned(
-            left: 16, right: 72, bottom: MediaQuery.of(context).padding.bottom + 134,
+            left: 12, right: 64, bottom: bottomInset + 134,
+            child: StopReachedCard(
+              name: _stopLabel(_reachedCard!, lang),
+              visit: _lastVisit,
+              nextLabel: next == null ? null : _stopLabel(next, lang),
+              onNext: _goToNextStop,
+              onChoose: () => _openStopsSheet(lang),
+              onClose: () {
+                _cardTimer?.cancel();
+                setState(() => _reachedCard = null);
+              },
+            ),
+          )
+        else if (showDoneCard)
+          Positioned(
+            left: 12, right: 64, bottom: bottomInset + 134,
+            child: RouteDoneCard(
+              canRate: widget.routeId != null,
+              canSave: widget.routeId == null,
+              onRate: () {
+                setState(() => _doneCardDismissed = true);
+                showRouteReviewsSheet(context,
+                    routeId: route.id, routeName: route.nameFor(lang));
+              },
+              onSave: () {
+                setState(() => _doneCardDismissed = true);
+                _saveCustomRoute();
+              },
+              onClose: () => setState(() => _doneCardDismissed = true),
+            ),
+          )
+        // Příští zastávka trasy — pilulka nad HUD (klik = seznam zastávek).
+        else if (next != null && !_denied)
+          Positioned(
+            left: 16, right: 72, bottom: bottomInset + 134,
             child: Align(
               alignment: Alignment.centerLeft,
-              child: _NextPoiPill(name: nextPoi.$1.nameFor(lang), distanceM: nextPoi.$2),
+              child: NavNextStopPill(
+                name: _stopLabel(next, lang),
+                distanceM: nextDistM,
+                progress: '${reachedCount + 1}/${_stops.length}',
+                onTap: () => _openStopsSheet(lang),
+              ),
             ),
           ),
 
         // Ovládání mapy — zoom +/− a recenter (nad spodním HUD)
         Positioned(
-          right: 16, bottom: MediaQuery.of(context).padding.bottom + 134,
+          right: 16, bottom: bottomInset + 134,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -491,15 +948,25 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
         // Spodní HUD — rychlost / zbývá / čas / příjezd / výška + progress
         Positioned(
           left: 0, right: 0, bottom: 0,
-          child: _NavHud(
+          child: NavHud(
             remainingM: prog?.remainingM,
             speedKmh: _speedKmh,
             altitude: _altitude,
             fraction: fraction,
+            etaMinutes: etaMin,
           ),
         ),
       ],
     );
+  }
+
+  String _statusLine(BuildContext context) {
+    if (_locating) return t(context).tr('routeNavLocating');
+    if (_navLoading) {
+      return t(context).tr(_rerouting ? 'routeNavRerouting' : 'routeNavComputing');
+    }
+    if (_offRouteFixes >= _kOffRouteFixes) return t(context).tr('routeNavOffRoute');
+    return t(context).tr('routeNavTitle');
   }
 
   Widget _circleBtn(IconData icon, VoidCallback onTap) => GestureDetector(
@@ -536,25 +1003,6 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
       );
 }
 
-/// Nejbližší bod zájmu (vzdušnou čarou) od polohy — vrací (POI, metry) nebo null.
-(RoutePoi, double)? _nearestPoi(RouteItem route, LatLng? me) {
-  if (me == null) return null;
-  const dist = Distance();
-  RoutePoi? best;
-  double bestM = double.infinity;
-  for (final p in route.pois) {
-    final ll = p.latLng;
-    if (ll == null) continue;
-    final d = dist.as(LengthUnit.Meter, me, ll);
-    if (d < bestM) {
-      bestM = d;
-      best = p;
-    }
-  }
-  if (best == null || bestM > 30000) return null; // přes 30 km už nezobrazuj
-  return (best, bestM);
-}
-
 /// Vyhlazení úhlu nejkratší cestou (zamezí skoku 359°→0°).
 double _lerpAngle(double a, double b, double t) {
   double d = (b - a) % 360;
@@ -569,7 +1017,9 @@ class _RouteProgress {
   final LatLng snapped; // nejbližší bod na trase
   final double remainingM; // metry do cíle PO TRASE
   final double totalM; // celková délka trasy
-  const _RouteProgress(this.segIndex, this.snapped, this.remainingM, this.totalM);
+  final double distM; // vzdálenost polohy od trasy (off-route detekce)
+  const _RouteProgress(
+      this.segIndex, this.snapped, this.remainingM, this.totalM, this.distM);
 }
 
 /// Promítne polohu na nejbližší segment trasy a spočítá zbývající i celkovou délku.
@@ -597,7 +1047,7 @@ _RouteProgress? _projectOnRoute(List<LatLng> geo, LatLng me) {
   for (var i = bestSeg + 1; i < geo.length - 1; i++) {
     rem += segLen[i];
   }
-  return _RouteProgress(bestSeg, bestSnap, rem, total);
+  return _RouteProgress(bestSeg, bestSnap, rem, total, best);
 }
 
 /// Nejbližší bod na úsečce a-b k bodu p (lokální rovinná aproximace v metrech).
@@ -613,288 +1063,4 @@ LatLng _closestOnSeg(LatLng a, LatLng b, LatLng p) {
   t = t.clamp(0.0, 1.0);
   final sx = t * bx, sy = t * by;
   return LatLng(a.latitude + sy / mPerLat, a.longitude + sx / mPerLng);
-}
-
-/// Kompas — ukazuje sever; klik vrátí mapu na sever.
-class _CompassButton extends StatelessWidget {
-  final double rotationDeg;
-  final VoidCallback onTap;
-  const _CompassButton({required this.rotationDeg, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 42,
-        height: 42,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          shape: BoxShape.circle,
-          boxShadow: MotoGoShadows.cardSmall,
-        ),
-        child: Transform.rotate(
-          angle: rotationDeg * math.pi / 180,
-          child: const Icon(Icons.navigation, size: 22, color: Color(0xFFD93636)),
-        ),
-      ),
-    );
-  }
-}
-
-/// Pilulka „příští bod zájmu" + vzdálenost.
-class _NextPoiPill extends StatelessWidget {
-  final String name;
-  final double distanceM;
-  const _NextPoiPill({required this.name, required this.distanceM});
-
-  @override
-  Widget build(BuildContext context) {
-    final d = distanceM >= 1000
-        ? '${(distanceM / 1000).toStringAsFixed(1)} km'
-        : '${distanceM.round()} m';
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(MotoGoRadius.pill),
-        boxShadow: MotoGoShadows.cardSmall,
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.place, size: 15, color: MotoGoColors.greenDark),
-          const SizedBox(width: 5),
-          Flexible(
-            child: Text(
-              '${t(context).tr('routeNavNext')}: $name · $d',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                  fontSize: MotoGoTypo.sizeMd,
-                  fontWeight: MotoGoTypo.w700,
-                  color: MotoGoColors.black,
-                  decoration: TextDecoration.none),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Spodní HUD navigace — velký tachometr + zbývá / čas / příjezd / výška + progress.
-class _NavHud extends StatelessWidget {
-  final double? remainingM;
-  final double speedKmh;
-  final double? altitude;
-  final double fraction;
-  const _NavHud({
-    required this.remainingM,
-    required this.speedKmh,
-    required this.altitude,
-    required this.fraction,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final arrived = remainingM != null && remainingM! < 40;
-    final remTxt = remainingM == null
-        ? '–'
-        : (remainingM! >= 1000
-            ? '${(remainingM! / 1000).toStringAsFixed(1)} km'
-            : '${remainingM!.round()} m');
-    // ETA: jede-li jezdec rozumně rychle, počítej z aktuální rychlosti, jinak
-    // odhad 50 km/h (vedlejší silnice).
-    String etaTxt = '–';
-    String arrTxt = '–';
-    if (remainingM != null) {
-      final mPerS = speedKmh > 8 ? speedKmh / 3.6 : 50 / 3.6;
-      final mins = (remainingM! / mPerS / 60).round();
-      etaTxt = mins < 1 ? '<1 min' : (mins >= 60 ? '${mins ~/ 60} h ${mins % 60} min' : '$mins min');
-      final arr = DateTime.now().add(Duration(minutes: mins));
-      arrTxt = '${arr.hour.toString().padLeft(2, '0')}:${arr.minute.toString().padLeft(2, '0')}';
-    }
-    final altTxt = altitude == null ? '–' : '${altitude!.round()} m';
-
-    return Container(
-      margin: EdgeInsets.fromLTRB(12, 0, 12, MediaQuery.of(context).padding.bottom + 12),
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(MotoGoRadius.card),
-        boxShadow: MotoGoShadows.cardSmall,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Progress trasy.
-          ClipRRect(
-            borderRadius: BorderRadius.circular(3),
-            child: LinearProgressIndicator(
-              value: fraction,
-              minHeight: 5,
-              backgroundColor: MotoGoColors.g200,
-              valueColor: const AlwaysStoppedAnimation(MotoGoColors.greenDark),
-            ),
-          ),
-          const SizedBox(height: 12),
-          arrived
-              ? Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  child: Text(
-                    t(context).tr('routeNavArrived'),
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                        fontSize: MotoGoTypo.sizeH3,
-                        fontWeight: MotoGoTypo.w900,
-                        color: MotoGoColors.greenDarker,
-                        decoration: TextDecoration.none),
-                  ),
-                )
-              : Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    _speedBlock(),
-                    Container(width: 1, height: 56, color: MotoGoColors.g200),
-                    Expanded(
-                      child: Column(
-                        children: [
-                          Row(children: [
-                            _stat(Icons.flag_outlined, remTxt, t(context).tr('routeNavRemaining')),
-                            _stat(Icons.schedule, etaTxt, t(context).tr('routeNavEta')),
-                          ]),
-                          const SizedBox(height: 10),
-                          Row(children: [
-                            _stat(Icons.access_time_filled, arrTxt, t(context).tr('routeNavArrival')),
-                            _stat(Icons.terrain, altTxt, t(context).tr('routeNavAltitude')),
-                          ]),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-        ],
-      ),
-    );
-  }
-
-  Widget _speedBlock() => Padding(
-        padding: const EdgeInsets.only(right: 12),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              '${speedKmh.round()}',
-              style: const TextStyle(
-                  fontSize: 34,
-                  height: 1.0,
-                  fontWeight: MotoGoTypo.w900,
-                  color: MotoGoColors.black,
-                  decoration: TextDecoration.none),
-            ),
-            const Text(
-              'km/h',
-              style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: MotoGoTypo.w700,
-                  color: MotoGoColors.g500,
-                  decoration: TextDecoration.none),
-            ),
-          ],
-        ),
-      );
-
-  Widget _stat(IconData icon, String value, String label) => Expanded(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, size: 14, color: MotoGoColors.greenDark),
-                const SizedBox(width: 5),
-                Flexible(
-                  child: Text(
-                    value,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        fontSize: MotoGoTypo.sizeLg,
-                        fontWeight: MotoGoTypo.w900,
-                        color: MotoGoColors.black,
-                        decoration: TextDecoration.none),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: const TextStyle(
-                  fontSize: 10.5,
-                  fontWeight: MotoGoTypo.w600,
-                  color: MotoGoColors.g500,
-                  decoration: TextDecoration.none),
-            ),
-          ],
-        ),
-      );
-}
-
-/// Modrý marker aktuální polohy se šipkou směru jízdy.
-class _MeMarker extends StatelessWidget {
-  final double? arrowDeg; // směr šipky na obrazovce (stupně, po směru hod. ručiček)
-  const _MeMarker({this.arrowDeg});
-
-  @override
-  Widget build(BuildContext context) {
-    final dot = Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF2563EB),
-        shape: BoxShape.circle,
-        border: Border.all(color: Colors.white, width: 3),
-        boxShadow: [BoxShadow(color: const Color(0xFF2563EB).withValues(alpha: 0.5), blurRadius: 8)],
-      ),
-    );
-    if (arrowDeg == null) return dot;
-    return Transform.rotate(
-      angle: arrowDeg! * math.pi / 180,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          const Positioned(top: 0, child: Icon(Icons.navigation, size: 16, color: Color(0xFF2563EB))),
-          Container(
-            width: 16,
-            height: 16,
-            decoration: BoxDecoration(
-              color: const Color(0xFF2563EB),
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 3),
-              boxShadow: [BoxShadow(color: const Color(0xFF2563EB).withValues(alpha: 0.5), blurRadius: 8)],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _NumPin extends StatelessWidget {
-  final int index;
-  const _NumPin({required this.index});
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: MotoGoColors.greenDarker,
-        shape: BoxShape.circle,
-        border: Border.all(color: Colors.white, width: 2),
-      ),
-      child: Center(
-        child: Text('${index + 1}',
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: Colors.white, decoration: TextDecoration.none)),
-      ),
-    );
-  }
 }
