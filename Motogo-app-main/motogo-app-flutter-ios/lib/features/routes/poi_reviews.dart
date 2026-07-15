@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/theme.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/supabase_client.dart';
+import '../../core/debug_logger.dart';
 import '../../core/widgets/moto_fx.dart';
 import 'routes_model.dart';
+import 'routes_provider.dart' show routesDataProvider, catalogPoisProvider, userPoisProvider;
 import 'route_reviews.dart' show routeReviewTile, routeStars;
 
 double? _toD(dynamic v) => v == null ? null : (v is num ? v.toDouble() : double.tryParse(v.toString()));
@@ -24,17 +27,17 @@ Map<String, dynamic> poiReviewTarget(RoutePoi poi) => poi.isCatalogPoi
 /// přihlášený uživatel může bod jednou ohodnotit (lze upravit). Čtení přes RPC
 /// `get_poi_reviews`, zápis přes `submit_poi_review`, mazání `delete_poi_review`,
 /// foto do bucketu `media` pod prefixem `poi-reviews/`. Sdílí vizuál recenzí tras.
-class PoiReviewsSection extends StatefulWidget {
+class PoiReviewsSection extends ConsumerStatefulWidget {
   /// Identifikace cíle (`p_route_poi_id` / `p_user_poi_id` / `p_poi_id`) —
   /// vytvoř přes [poiReviewTarget].
   final Map<String, dynamic> target;
   const PoiReviewsSection({super.key, required this.target});
 
   @override
-  State<PoiReviewsSection> createState() => _PoiReviewsSectionState();
+  ConsumerState<PoiReviewsSection> createState() => _PoiReviewsSectionState();
 }
 
-class _PoiReviewsSectionState extends State<PoiReviewsSection> {
+class _PoiReviewsSectionState extends ConsumerState<PoiReviewsSection> {
   double? _avg;
   int _count = 0;
   Map<String, dynamic>? _my;
@@ -83,7 +86,14 @@ class _PoiReviewsSectionState extends State<PoiReviewsSection> {
       builder: (_) => _PoiReviewEditor(
         target: widget.target,
         existing: _my,
-        onSaved: () { Navigator.of(context).maybePop(); _load(); },
+        onSaved: () {
+          Navigator.of(context).maybePop();
+          _load();
+          // Promítni hodnocení do seznamů (trasy / katalog / komunitní body).
+          ref.invalidate(routesDataProvider);
+          ref.invalidate(catalogPoisProvider);
+          ref.invalidate(userPoisProvider);
+        },
       ),
     );
   }
@@ -92,7 +102,13 @@ class _PoiReviewsSectionState extends State<PoiReviewsSection> {
     try {
       await MotoGoSupabase.client.rpc('delete_poi_review', params: widget.target);
       await _load();
-    } catch (_) {}
+      ref.invalidate(routesDataProvider);
+      ref.invalidate(catalogPoisProvider);
+      ref.invalidate(userPoisProvider);
+    } catch (e) {
+      AppDebugLogger.instance.log(LogCategory.error, 'delete_poi_review_failed',
+          detail: e.toString(), data: {'target': widget.target.toString()});
+    }
   }
 
   @override
@@ -238,7 +254,10 @@ class _PoiReviewEditorState extends State<_PoiReviewEditor> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t(context).tr('routeReviewThanks'))));
       widget.onSaved();
-    } catch (_) {
+    } catch (e) {
+      AppDebugLogger.instance.log(LogCategory.error, 'submit_poi_review_failed',
+          detail: e.toString(),
+          data: {'target': widget.target.toString(), 'rating': _rating});
       if (mounted) {
         setState(() => _busy = false);
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t(context).tr('routeReviewErr'))));
