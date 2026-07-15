@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/theme.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/supabase_client.dart';
+import '../../core/debug_logger.dart';
 import '../../core/widgets/moto_fx.dart';
 import '../../core/widgets/net_image.dart';
+import 'routes_provider.dart' show routesDataProvider;
 
 double? _toD(dynamic v) => v == null ? null : (v is num ? v.toDouble() : double.tryParse(v.toString()));
 int _toI(dynamic v) => v == null ? 0 : (v is num ? v.toInt() : int.tryParse(v.toString()) ?? 0);
@@ -76,8 +79,10 @@ Widget routeReviewTile(BuildContext context, Map<String, dynamic> r) {
   );
 }
 
-/// Bottom sheet s recenzemi trasy (jen čtení) — otevírá se hvězdičkami na kartě
-/// trasy v seznamu. Načítá přes RPC `get_route_reviews`.
+/// Bottom sheet s recenzemi trasy — otevírá se hvězdičkami na kartě trasy
+/// v seznamu. Načítá přes RPC `get_route_reviews` a umí recenzi rovnou NAPSAT
+/// (stejný editor jako v detailu trasy) — hodnocení je tak na dva kliky přímo
+/// ze seznamu tras.
 void showRouteReviewsSheet(BuildContext context, {required String routeId, required String routeName}) {
   showModalBottomSheet(
     context: context,
@@ -88,18 +93,19 @@ void showRouteReviewsSheet(BuildContext context, {required String routeId, requi
   );
 }
 
-class _ReviewsSheet extends StatefulWidget {
+class _ReviewsSheet extends ConsumerStatefulWidget {
   final String routeId;
   final String routeName;
   const _ReviewsSheet({required this.routeId, required this.routeName});
 
   @override
-  State<_ReviewsSheet> createState() => _ReviewsSheetState();
+  ConsumerState<_ReviewsSheet> createState() => _ReviewsSheetState();
 }
 
-class _ReviewsSheetState extends State<_ReviewsSheet> {
+class _ReviewsSheetState extends ConsumerState<_ReviewsSheet> {
   double? _avg;
   int _count = 0;
+  Map<String, dynamic>? _my;
   List<Map<String, dynamic>> _reviews = const [];
   bool _loading = true;
 
@@ -117,6 +123,7 @@ class _ReviewsSheetState extends State<_ReviewsSheet> {
         if (res is Map) {
           _avg = _toD(res['avg']);
           _count = _toI(res['count']);
+          _my = res['my'] is Map ? Map<String, dynamic>.from(res['my']) : null;
           _reviews = (res['reviews'] as List? ?? const [])
               .whereType<Map>()
               .map((e) => Map<String, dynamic>.from(e))
@@ -124,9 +131,34 @@ class _ReviewsSheetState extends State<_ReviewsSheet> {
         }
         _loading = false;
       });
-    } catch (_) {
+    } catch (e) {
+      AppDebugLogger.instance.log(LogCategory.api, 'get_route_reviews_failed',
+          detail: e.toString(), data: {'route': widget.routeId});
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  void _openEditor() {
+    if (MotoGoSupabase.currentUser == null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t(context).tr('routeReviewLogin'))));
+      return;
+    }
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => _ReviewEditor(
+        routeId: widget.routeId,
+        existing: _my,
+        onSaved: () {
+          Navigator.of(context).maybePop(); // zavři editor
+          _load();
+          // Promítni nové hodnocení do seznamu tras (review_avg/count na kartách).
+          ref.invalidate(routesDataProvider);
+        },
+      ),
+    );
   }
 
   @override
@@ -158,6 +190,31 @@ class _ReviewsSheetState extends State<_ReviewsSheet> {
             ],
           ),
           const SizedBox(height: 12),
+          // Napsat / upravit recenzi přímo odsud (stejný editor jako v detailu).
+          PressableScale(
+            pressedScale: 0.97,
+            onTap: _openEditor,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: MotoGoColors.greenPale,
+                borderRadius: BorderRadius.circular(MotoGoRadius.pill),
+                border: Border.all(color: MotoGoColors.green, width: 1.4),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(_my != null ? Icons.edit : Icons.rate_review, size: 18, color: MotoGoColors.greenDarker),
+                  const SizedBox(width: 8),
+                  Text(_my != null ? t(context).tr('routeReviewEdit') : t(context).tr('routeReviewAdd'),
+                      style: const TextStyle(fontSize: MotoGoTypo.sizeLg, fontWeight: MotoGoTypo.w800, color: MotoGoColors.greenDarker, decoration: TextDecoration.none)),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
           if (_loading)
             const Padding(padding: EdgeInsets.symmetric(vertical: 24),
                 child: Center(child: SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: MotoGoColors.greenDark))))
@@ -184,15 +241,15 @@ class _ReviewsSheetState extends State<_ReviewsSheet> {
 /// přihlášený uživatel může jednu trasu ohodnotit (lze upravit). Čtení přes RPC
 /// `get_route_reviews`, zápis přes `submit_route_review`, foto do bucketu `media`
 /// pod prefixem `route-reviews/`.
-class RouteReviewsSection extends StatefulWidget {
+class RouteReviewsSection extends ConsumerStatefulWidget {
   final String routeId;
   const RouteReviewsSection({super.key, required this.routeId});
 
   @override
-  State<RouteReviewsSection> createState() => _RouteReviewsSectionState();
+  ConsumerState<RouteReviewsSection> createState() => _RouteReviewsSectionState();
 }
 
-class _RouteReviewsSectionState extends State<RouteReviewsSection> {
+class _RouteReviewsSectionState extends ConsumerState<RouteReviewsSection> {
   double? _avg;
   int _count = 0;
   Map<String, dynamic>? _my;
@@ -241,7 +298,12 @@ class _RouteReviewsSectionState extends State<RouteReviewsSection> {
       builder: (_) => _ReviewEditor(
         routeId: widget.routeId,
         existing: _my,
-        onSaved: () { Navigator.of(context).maybePop(); _load(); },
+        onSaved: () {
+          Navigator.of(context).maybePop();
+          _load();
+          // Promítni nové hodnocení do seznamu tras (review_avg/count na kartách).
+          ref.invalidate(routesDataProvider);
+        },
       ),
     );
   }
@@ -250,7 +312,11 @@ class _RouteReviewsSectionState extends State<RouteReviewsSection> {
     try {
       await MotoGoSupabase.client.rpc('delete_route_review', params: {'p_route_id': widget.routeId});
       await _load();
-    } catch (_) {}
+      ref.invalidate(routesDataProvider);
+    } catch (e) {
+      AppDebugLogger.instance.log(LogCategory.error, 'delete_route_review_failed',
+          detail: e.toString(), data: {'route': widget.routeId});
+    }
   }
 
   @override
@@ -396,7 +462,9 @@ class _ReviewEditorState extends State<_ReviewEditor> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t(context).tr('routeReviewThanks'))));
       widget.onSaved();
-    } catch (_) {
+    } catch (e) {
+      AppDebugLogger.instance.log(LogCategory.error, 'submit_route_review_failed',
+          detail: e.toString(), data: {'route': widget.routeId, 'rating': _rating});
       if (mounted) {
         setState(() => _busy = false);
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t(context).tr('routeReviewErr'))));

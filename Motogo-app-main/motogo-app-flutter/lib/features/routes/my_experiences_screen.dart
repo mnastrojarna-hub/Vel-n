@@ -214,17 +214,93 @@ class _MyExperiencesScreenState extends ConsumerState<MyExperiencesScreen> {
   Widget _routesList(BuildContext context, AsyncValue<List<SavedRoute>> async) {
     return async.when(
       loading: () => const Center(child: CircularProgressIndicator(color: MotoGoColors.greenDark)),
-      error: (_, __) => _empty(context, '🗺️', 'myExpEmptyRoutes', 'myExpEmptyRoutesSub'),
-      data: (routes) {
-        if (routes.isEmpty) {
-          return _empty(context, '🗺️', 'myExpEmptyRoutes', 'myExpEmptyRoutesSub');
-        }
-        return ListView.builder(
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 40),
-          itemCount: routes.length,
-          itemBuilder: (c, i) => _routeCard(context, routes[i]),
-        );
-      },
+      error: (_, __) => ListView(
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 40),
+        children: [
+          _createRouteCard(context),
+          ..._emptyChildren(context, '🗺️', 'myExpEmptyRoutes', 'myExpEmptyRoutesSub'),
+        ],
+      ),
+      data: (routes) => ListView(
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 40),
+        children: [
+          // Vždy viditelný vstup do editoru — odtud vzniká nová vlastní trasa.
+          _createRouteCard(context),
+          if (routes.isEmpty)
+            ..._emptyChildren(context, '🗺️', 'myExpEmptyRoutes', 'myExpEmptyRoutesSub')
+          else
+            ...routes.map((r) => _routeCard(context, r)),
+        ],
+      ),
+    );
+  }
+
+  /// Výrazné tlačítko „Vytvořit novou trasu" → otevře editor s prázdnou
+  /// trasou (klikáním do mapy / přidáním bodů zájmu si jezdec trasu poskládá
+  /// a uloží ji záložkou 🔖).
+  Widget _createRouteCard(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: PressableScale(
+        pressedScale: 0.97,
+        onTap: () => context.push(
+          '/route-build',
+          extra: const RouteItem(id: 'custom', name: '', routeType: 'poi'),
+        ),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          decoration: BoxDecoration(
+            color: MotoGoColors.green,
+            borderRadius: BorderRadius.circular(MotoGoRadius.card),
+            boxShadow: [
+              BoxShadow(
+                  color: MotoGoColors.green.withValues(alpha: 0.35),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4)),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 40, height: 40,
+                decoration: BoxDecoration(
+                  color: MotoGoColors.black.withValues(alpha: 0.10),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.add_location_alt, size: 22, color: MotoGoColors.black),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      t(context).tr('myExpCreateRoute'),
+                      style: const TextStyle(
+                          fontSize: MotoGoTypo.sizeXl,
+                          fontWeight: MotoGoTypo.w900,
+                          color: MotoGoColors.black,
+                          decoration: TextDecoration.none),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      t(context).tr('myExpCreateRouteSub'),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          fontSize: MotoGoTypo.sizeMd,
+                          fontWeight: MotoGoTypo.w600,
+                          color: MotoGoColors.black.withValues(alpha: 0.65),
+                          decoration: TextDecoration.none),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.arrow_forward_ios, size: 15, color: MotoGoColors.black),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -544,35 +620,38 @@ class _MyExperiencesScreenState extends ConsumerState<MyExperiencesScreen> {
   }
 
   Widget _empty(BuildContext context, String emoji, String titleKey, String subKey) {
-    return ListView(
-      children: [
-        const SizedBox(height: 60),
-        Center(child: Text(emoji, style: const TextStyle(fontSize: 48))),
-        const SizedBox(height: 12),
-        Center(
-          child: Text(
-            t(context).tr(titleKey),
-            style: const TextStyle(
-                fontSize: MotoGoTypo.sizeXl,
-                fontWeight: MotoGoTypo.w800,
-                color: MotoGoColors.black,
-                decoration: TextDecoration.none),
-          ),
+    return ListView(children: _emptyChildren(context, emoji, titleKey, subKey));
+  }
+
+  List<Widget> _emptyChildren(
+      BuildContext context, String emoji, String titleKey, String subKey) {
+    return [
+      const SizedBox(height: 60),
+      Center(child: Text(emoji, style: const TextStyle(fontSize: 48))),
+      const SizedBox(height: 12),
+      Center(
+        child: Text(
+          t(context).tr(titleKey),
+          style: const TextStyle(
+              fontSize: MotoGoTypo.sizeXl,
+              fontWeight: MotoGoTypo.w800,
+              color: MotoGoColors.black,
+              decoration: TextDecoration.none),
         ),
-        const SizedBox(height: 8),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 40),
-          child: Text(
-            t(context).tr(subKey),
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-                fontSize: MotoGoTypo.sizeBase,
-                color: MotoGoColors.g400,
-                decoration: TextDecoration.none),
-          ),
+      ),
+      const SizedBox(height: 8),
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 40),
+        child: Text(
+          t(context).tr(subKey),
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+              fontSize: MotoGoTypo.sizeBase,
+              color: MotoGoColors.g400,
+              decoration: TextDecoration.none),
         ),
-      ],
-    );
+      ),
+    ];
   }
 
   Widget _loginPrompt(BuildContext context) {

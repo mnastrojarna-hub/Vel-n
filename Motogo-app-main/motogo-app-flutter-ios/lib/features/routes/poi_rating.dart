@@ -1,23 +1,31 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/supabase_client.dart';
+import '../../core/debug_logger.dart';
 import 'routes_model.dart';
+import 'routes_provider.dart';
 
 /// Hvězdičkové hodnocení bodu zájmu. Každý přihlášený uživatel může dát právě
 /// jedno hodnocení (1–5), které lze kdykoli změnit. Ukazuje průměr + počet
 /// hodnocení a vlastní hodnocení. Zápis přes RPC `rate_poi`, čtení přes
-/// `poi_rating_summary` (route_poi i user_poi).
-class PoiRatingBar extends StatefulWidget {
+/// `poi_rating_summary` (route_poi / user_poi / katalogový poi).
+///
+/// Zápis dává OKAMŽITOU zpětnou vazbu (snackbar uloženo/chyba — nic se
+/// nepolyká potichu, chyby jdou i do app_debug_logs) a po úspěchu invaliduje
+/// providery tras/katalogu, aby se nové hodnocení hned promítlo do všech
+/// seznamů (a po refetchi ho vidí všechny telefony).
+class PoiRatingBar extends ConsumerStatefulWidget {
   final RoutePoi poi;
   const PoiRatingBar({super.key, required this.poi});
 
   @override
-  State<PoiRatingBar> createState() => _PoiRatingBarState();
+  ConsumerState<PoiRatingBar> createState() => _PoiRatingBarState();
 }
 
-class _PoiRatingBarState extends State<PoiRatingBar> {
+class _PoiRatingBarState extends ConsumerState<PoiRatingBar> {
   double? _avg;
   int _count = 0;
   int? _mine;
@@ -62,7 +70,11 @@ class _PoiRatingBarState extends State<PoiRatingBar> {
           _mine = _toI(row['my_rating']);
         });
       }
-    } catch (_) {/* ponech iniciální hodnoty */}
+    } catch (e) {
+      AppDebugLogger.instance.log(LogCategory.api, 'poi_rating_summary_failed',
+          detail: e.toString(), data: {'args': _args.toString()});
+      // ponech iniciální hodnoty
+    }
   }
 
   Future<void> _rate(int star) async {
@@ -73,14 +85,35 @@ class _PoiRatingBarState extends State<PoiRatingBar> {
       return;
     }
     if (_busy) return;
+    final prev = _mine;
     setState(() {
       _busy = true;
       _mine = star; // optimisticky
     });
     try {
       await MotoGoSupabase.client.rpc('rate_poi', params: {..._args, 'p_rating': star});
+      AppDebugLogger.instance.log(LogCategory.api, 'rate_poi_ok',
+          data: {'poi': widget.poi.id, 'rating': star});
       await _load();
-    } catch (_) {
+      // Promítni nové hodnocení do seznamů tras / katalogu bodů zájmu.
+      ref.invalidate(routesDataProvider);
+      ref.invalidate(catalogPoisProvider);
+      ref.invalidate(userPoisProvider);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(t(context).tr('poiRateSaved'))),
+        );
+      }
+    } catch (e) {
+      AppDebugLogger.instance.log(LogCategory.error, 'rate_poi_failed',
+          detail: e.toString(),
+          data: {'args': _args.toString(), 'rating': star});
+      if (mounted) {
+        setState(() => _mine = prev); // vrať optimistickou hodnotu
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(t(context).tr('poiRateErr'))),
+        );
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -109,7 +142,12 @@ class _PoiRatingBarState extends State<PoiRatingBar> {
                 ),
               ),
             const SizedBox(width: 8),
-            if (_count > 0)
+            if (_busy)
+              const SizedBox(
+                width: 14, height: 14,
+                child: CircularProgressIndicator(strokeWidth: 2, color: MotoGoColors.greenDark),
+              )
+            else if (_count > 0)
               Text(
                 '${(_avg ?? 0).toStringAsFixed(1)} · $_count',
                 style: const TextStyle(
