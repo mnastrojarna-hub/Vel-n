@@ -345,6 +345,58 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen> {
               ),
             ),
           ),
+          // CTA: Moje zážitky — uložené trasy a objevená místa jezdce
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+              child: PressableScale(
+                pressedScale: 0.98,
+                onTap: () => context.push('/my-experiences'),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: MotoGoColors.dark,
+                    borderRadius: BorderRadius.circular(MotoGoRadius.card),
+                  ),
+                  child: Row(
+                    children: [
+                      const Text('🏍️', style: TextStyle(fontSize: 22)),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              t(context).tr('myExpEntryTitle'),
+                              style: const TextStyle(
+                                fontSize: MotoGoTypo.sizeLg,
+                                fontWeight: MotoGoTypo.w900,
+                                color: Colors.white,
+                                decoration: TextDecoration.none,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              t(context).tr('myExpEntrySub'),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: MotoGoTypo.sizeMd,
+                                fontWeight: MotoGoTypo.w600,
+                                color: Color(0xFF8AAB99),
+                                decoration: TextDecoration.none,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.arrow_forward_ios, size: 14, color: MotoGoColors.green),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
           // Rozšířené filtry (typ, obtížnost, délka, čas, země) + řazení
           SliverToBoxAdapter(child: _filterBar(context, data, me != null, selAnchor != null)),
           if (routes.isEmpty)

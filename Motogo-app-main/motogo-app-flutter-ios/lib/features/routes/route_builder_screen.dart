@@ -16,6 +16,7 @@ import 'routes_model.dart';
 import 'routes_provider.dart';
 import 'submit_common.dart';
 import 'all_pois_screen.dart';
+import 'my_experiences_provider.dart';
 
 /// Jedna zastávka editoru trasy.
 class _Stop {
@@ -31,7 +32,10 @@ class _Stop {
 /// délku i čas. „Trasa je jen doporučení" — tady vzniká vlastní vyjížďka.
 class RouteBuilderScreen extends ConsumerStatefulWidget {
   final RouteItem route;
-  const RouteBuilderScreen({super.key, required this.route});
+  /// Explicitní zastávky (uložená trasa z Mých zážitků) — mají přednost před
+  /// odvozením z route.pois/waypoints, drží popisky i vazbu na body zájmu.
+  final List<BuilderStopSpec>? initialStops;
+  const RouteBuilderScreen({super.key, required this.route, this.initialStops});
 
   @override
   ConsumerState<RouteBuilderScreen> createState() => _RouteBuilderScreenState();
@@ -52,7 +56,12 @@ class _RouteBuilderScreenState extends ConsumerState<RouteBuilderScreen> {
   void initState() {
     super.initState();
     final r = widget.route;
-    if (r.pois.isNotEmpty) {
+    final init = widget.initialStops;
+    if (init != null && init.isNotEmpty) {
+      for (final s in init) {
+        _stops.add(_Stop(s.point, name: s.name, poi: s.poi));
+      }
+    } else if (r.pois.isNotEmpty) {
       for (final p in r.pois) {
         if (p.latLng != null) _stops.add(_Stop(p.latLng!, name: p.name, poi: p));
       }
@@ -551,6 +560,26 @@ class _RouteBuilderScreenState extends ConsumerState<RouteBuilderScreen> {
       decoration: BoxDecoration(color: Colors.white, boxShadow: MotoGoShadows.stickyBar),
       child: Row(
         children: [
+          // Uložit trasu jen pro sebe (Moje zážitky → Moje trasy).
+          PressableScale(
+            pressedScale: 0.97,
+            onTap: canSuggest ? _openSaveSheet : () {},
+            child: Opacity(
+              opacity: canSuggest ? 1 : 0.45,
+              child: Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: MotoGoColors.greenPale,
+                  borderRadius: BorderRadius.circular(MotoGoRadius.pill),
+                  border: Border.all(color: MotoGoColors.green, width: 1.4),
+                ),
+                child: const Icon(Icons.bookmark_add_outlined,
+                    size: 22, color: MotoGoColors.greenDarker),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
           // Sekundární akce: odeslat poskládanou trasu jako návrh do moderace.
           PressableScale(
             pressedScale: 0.97,
@@ -624,6 +653,164 @@ class _RouteBuilderScreenState extends ConsumerState<RouteBuilderScreen> {
         ],
       ),
     );
+  }
+
+  // ── Uložení trasy JEN PRO SEBE (Moje zážitky → Moje trasy) ──
+  void _openSaveSheet() {
+    if (MotoGoSupabase.currentUser == null) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(t(context).tr('routeSaveLogin'))));
+      return;
+    }
+    if (_stops.length < 2) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(t(context).tr('routeSubmitNeedPoints'))));
+      return;
+    }
+    final nameCtrl = TextEditingController(
+        text: widget.route.id == 'custom' ? '' : widget.route.name);
+    final descCtrl = TextEditingController();
+    var busy = false;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(22))),
+      builder: (sheetCtx) => StatefulBuilder(
+        builder: (sheetCtx, setSheet) => SafeArea(
+          top: false,
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+                20, 16, 20, MediaQuery.of(sheetCtx).viewInsets.bottom + 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  t(sheetCtx).tr('routeSaveTitle'),
+                  style: const TextStyle(
+                      fontSize: MotoGoTypo.sizeH2,
+                      fontWeight: MotoGoTypo.w900,
+                      color: MotoGoColors.black,
+                      decoration: TextDecoration.none),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  t(sheetCtx).tr('routeSaveHint'),
+                  style: const TextStyle(
+                      fontSize: MotoGoTypo.sizeMd,
+                      fontWeight: MotoGoTypo.w600,
+                      color: MotoGoColors.g500,
+                      decoration: TextDecoration.none),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: nameCtrl,
+                  decoration:
+                      InputDecoration(labelText: t(sheetCtx).tr('routeSaveName')),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: descCtrl,
+                  maxLines: 2,
+                  decoration: InputDecoration(
+                      labelText: t(sheetCtx).tr('routeSaveDesc')),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: ElevatedButton(
+                    onPressed: busy
+                        ? null
+                        : () async {
+                            if (nameCtrl.text.trim().isEmpty) {
+                              ScaffoldMessenger.of(sheetCtx).showSnackBar(SnackBar(
+                                  content:
+                                      Text(t(sheetCtx).tr('poiSubmitNameReq'))));
+                              return;
+                            }
+                            setSheet(() => busy = true);
+                            final ok = await _saveMyRoute(
+                                nameCtrl.text.trim(), descCtrl.text.trim());
+                            if (!sheetCtx.mounted) return;
+                            if (ok) {
+                              Navigator.of(sheetCtx).pop();
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                    content:
+                                        Text(t(context).tr('routeSaved'))));
+                              }
+                            } else {
+                              setSheet(() => busy = false);
+                              ScaffoldMessenger.of(sheetCtx).showSnackBar(SnackBar(
+                                  content: Text(t(sheetCtx).tr('routeSaveErr'))));
+                            }
+                          },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: MotoGoColors.green,
+                      foregroundColor: MotoGoColors.black,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                          borderRadius:
+                              BorderRadius.circular(MotoGoRadius.pill)),
+                    ),
+                    child: Text(
+                      t(sheetCtx).tr(busy ? 'submitSending' : 'routeSaveBtn'),
+                      style: const TextStyle(
+                          fontSize: MotoGoTypo.sizeXl,
+                          fontWeight: MotoGoTypo.w800),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<bool> _saveMyRoute(String name, String desc) async {
+    final waypoints = <Map<String, dynamic>>[];
+    final poiRefs = <Map<String, dynamic>>[];
+    for (var i = 0; i < _stops.length; i++) {
+      final s = _stops[i];
+      waypoints.add({
+        'lat': s.point.latitude,
+        'lng': s.point.longitude,
+        'label': (s.name != null && s.name!.trim().isNotEmpty) ? s.name!.trim() : null,
+        'order': i,
+      });
+      final poi = s.poi;
+      if (poi != null && poi.id.isNotEmpty) {
+        poiRefs.add({
+          'order': i,
+          'kind': poi.isUserPoi ? 'user' : (poi.isCatalogPoi ? 'catalog' : 'route'),
+          'id': poi.id,
+          'name': poi.name,
+          'lat': poi.lat,
+          'lng': poi.lng,
+          'image_url': poi.imageUrl,
+        });
+      }
+    }
+    final km = _distanceM == null
+        ? null
+        : double.parse((_distanceM! / 1000).toStringAsFixed(1));
+    final ok = await saveUserRoute(
+      name: name,
+      description: desc.isEmpty ? null : desc,
+      sourceRouteId: widget.route.id == 'custom' ? null : widget.route.id,
+      waypoints: waypoints,
+      poiRefs: poiRefs,
+      profile: _profile,
+      distanceKm: km,
+      durationMin: km == null ? null : (km / 55 * 60).round(),
+    );
+    if (ok) ref.invalidate(mySavedRoutesProvider);
+    return ok;
   }
 
   // ── Návrh trasy ostatním (moderace ve Velíně, status='pending') ──
