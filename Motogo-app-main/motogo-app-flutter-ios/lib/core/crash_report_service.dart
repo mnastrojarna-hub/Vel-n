@@ -236,6 +236,8 @@ class CrashReportService {
   /// - RenderFlex layout overflow — cosmetic, app continues.
   /// - Secure-storage keystore rotation (BadPaddingException) — recovered by
   ///   clearing the corrupted entry.
+  /// - Stripe CardField focus/blur on a disposed platform view
+  ///   (MissingPluginException on flutter.stripe/card_field).
   /// Everything else stays `critical`.
   static CrashSeverity _effectiveSeverity(
       String errorType, String message, CrashSeverity requested) {
@@ -277,6 +279,13 @@ class CrashReportService {
     }
 
     if (has('badpaddingexception') || has('bad_decrypt')) {
+      return CrashSeverity.warning;
+    }
+
+    // flutter_stripe CardField: `focus`/`blur` doručené na nativní pole,
+    // které systém mezitím zahodil (návrat z pozadí, 3DS, zavřený sheet).
+    // Appka běží dál — nejde o pád, jen o osiřelý platform-view kanál.
+    if (has('missingpluginexception') && has('flutter.stripe')) {
       return CrashSeverity.warning;
     }
 
