@@ -65,6 +65,12 @@ function applyStatusFromCode(code: number): string {
   }
 }
 
+type SlevomatJson = {
+  result?: boolean;
+  data?: { voucherData?: Record<string, unknown> };
+  error?: { code?: number; message?: string };
+} | null;
+
 Deno.serve(async (req: Request): Promise<Response> => {
   if (req.method === 'OPTIONS') return corsResponse();
 
@@ -83,10 +89,33 @@ Deno.serve(async (req: Request): Promise<Response> => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
 
+    // Volání Slevomat API — vrací i surové tělo (raw), protože při souběhu
+    // dvou apply volání umí Slevomat vrátit ne-JSON (chybovou stránku).
+    const callSlevomat = async (endpoint: 'voucherapply' | 'vouchercheck') => {
+      const res = await fetch(`${SLEVOMAT_API}/${endpoint}?code=${encodeURIComponent(code)}&token=${encodeURIComponent(token)}`);
+      const raw = await res.text();
+      let json: SlevomatJson = null;
+      try { json = JSON.parse(raw); } catch { /* ne-JSON */ }
+      return { http: res.status, raw, json };
+    };
+
+    const logSlevomat = (component: string, r: { http: number; raw: string; json: SlevomatJson }) =>
+      sb.from('debug_log').insert({
+        source: 'slevomat-voucher', action, component,
+        status: r.json?.result ? 'ok' : 'error',
+        request_data: { code, http_status: r.http },
+        response_data: r.json ?? { raw: r.raw.slice(0, 2000) },
+        error_message: r.json?.error?.message ?? (r.json ? null : 'no-json'),
+      });
+
     // =====================================================================
     // APPLY — nahlášení uplatnění na Slevomat + zápis výsledku do
-    // vouchers.slevomat_apply_* (volá DB trigger redeem_booking_discounts).
+    // vouchers.slevomat_apply_* (volají DB triggery redeem_booking_discounts
+    // a trg_slevomat_auto_apply — na rezervační cestě tedy běží 2× SOUBĚŽNĚ).
     // Idempotentní: když už je slevomat_applied_at, Slevomat znovu nevoláme.
+    // Souběh: read-check nestačí (oba čtou před zápisem druhého), proto navíc
+    //   • ne-JSON odpověď se ověřuje přes vouchercheck (1105 = reálně uplatněn),
+    //   • neúspěch NIKDY nepřepíše už zapsaný úspěch (guard na applied_at NULL).
     // =====================================================================
     if (action === 'apply') {
       const { data: existing } = await sb
@@ -98,22 +127,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
         return jsonResponse({ valid: true, action, already: true, status: 'applied', voucher_id: existing.id });
       }
 
-      const url = `${SLEVOMAT_API}/voucherapply?code=${encodeURIComponent(code)}&token=${encodeURIComponent(token)}`;
-      const res = await fetch(url);
-      const json = await res.json().catch(() => null) as
-        | { result?: boolean; error?: { code?: number; message?: string } } | null;
-
-      await sb.from('debug_log').insert({
-        source: 'slevomat-voucher', action, component: 'voucherapply',
-        status: json?.result ? 'ok' : 'error',
-        request_data: { code }, response_data: json,
-        error_message: json?.error?.message ?? (json ? null : 'no-json'),
-      });
+      const apply = await callSlevomat('voucherapply');
+      await logSlevomat('voucherapply', apply);
 
       const nowIso = new Date().toISOString();
       const attempts = (existing?.slevomat_apply_attempts ?? 0) + 1;
 
-      if (json?.result === true) {
+      if (apply.json?.result === true) {
         await sb.from('vouchers').update({
           slevomat_apply_status: 'applied',
           slevomat_applied_at: nowIso,
@@ -124,18 +144,31 @@ Deno.serve(async (req: Request): Promise<Response> => {
         return jsonResponse({ valid: true, action, status: 'applied', voucher_id: existing?.id ?? null });
       }
 
-      // Chyba u Slevomatu → zmapuj stav a zaznamenej.
-      const ecode = json?.error?.code ?? 0;
+      // Ne-JSON odpověď ≠ neúspěch: požadavek mohl na Slevomatu projít (souběh
+      // dvou apply, useknuté tělo…). Ověř přes vouchercheck — 1105 „už uplatněn"
+      // znamená, že voucher na Slevomatu uplatněný JE → bereme jako hotovo.
+      let ecode = apply.json?.error?.code ?? 0;
+      if (!apply.json) {
+        const verify = await callSlevomat('vouchercheck');
+        await logSlevomat('voucherapply-verify', verify);
+        const vcode = verify.json?.error?.code ?? 0;
+        if (vcode === 1105) ecode = 1105;
+      }
+
       const st = ecode ? applyStatusFromCode(ecode) : 'failed';
       const msg = ecode ? errMsg(ecode) : 'Uplatnění se nepodařilo (no-json)';
       const done = st === 'already_redeemed'; // na Slevomatu už uplatněno = hotovo
-      await sb.from('vouchers').update({
+      const upd: Record<string, unknown> = {
         slevomat_apply_status: st,
-        slevomat_applied_at: done ? nowIso : null,
         slevomat_apply_last_at: nowIso,
         slevomat_apply_error: done ? null : msg,
         slevomat_apply_attempts: attempts,
-      }).eq('code', code);
+      };
+      if (done) upd.slevomat_applied_at = nowIso;
+      // Neúspěch zapisuj jen dokud úspěch nezapsal někdo jiný (souběžné volání).
+      let q = sb.from('vouchers').update(upd).eq('code', code);
+      if (!done) q = q.is('slevomat_applied_at', null);
+      await q;
       return jsonResponse({ valid: done, action, status: st, slevomat_error_code: ecode, error: done ? null : msg }, 200);
     }
 
@@ -143,18 +176,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
     // CHECK — ověření voucheru u Slevomatu + založení řádku ve `vouchers`
     // (web rezervace: pole „Kód poukazu"). Beze změny chování.
     // =====================================================================
-    const url = `${SLEVOMAT_API}/vouchercheck?code=${encodeURIComponent(code)}&token=${encodeURIComponent(token)}`;
-    const res = await fetch(url);
-    const json = await res.json().catch(() => null) as
-      | { result?: boolean; data?: { voucherData?: Record<string, unknown> }; error?: { code?: number; message?: string } }
-      | null;
-
-    await sb.from('debug_log').insert({
-      source: 'slevomat-voucher', action, component: 'vouchercheck',
-      status: json?.result ? 'ok' : 'error',
-      request_data: { code }, response_data: json,
-      error_message: json?.error?.message ?? (json ? null : 'no-json'),
-    });
+    const check = await callSlevomat('vouchercheck');
+    await logSlevomat('vouchercheck', check);
+    const json = check.json;
 
     if (!json || json.result !== true) {
       const ecode = json?.error?.code ?? 0;
