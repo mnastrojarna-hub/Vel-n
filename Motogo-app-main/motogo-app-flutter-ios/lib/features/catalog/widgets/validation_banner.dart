@@ -34,7 +34,7 @@ class ValidationBanner extends ConsumerWidget {
     }
     final licenseErr = BookingValidator.checkLicense(
       userLicenseGroups: userGroups,
-      motoLicense: moto.licenseRequired,
+      motoLicenseGroups: moto.licenseGroupsOrFallback,
     );
 
     // Overlap check

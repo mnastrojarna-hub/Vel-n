@@ -6,6 +6,7 @@ import '../../../core/widgets/net_image.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../../catalog/moto_model.dart';
 import '../../catalog/catalog_provider.dart';
+import '../../booking/booking_validator.dart';
 import 'reservation_edit_widgets.dart';
 
 /// Moto change collapsible card for reservation edit.
@@ -94,11 +95,13 @@ class EditMotoChangeSection extends ConsumerWidget {
           data: (motos) {
             final available = motos.where((m) {
               if (m.id == currentMotoId) return false;
-              if (userLicense != null && m.licenseRequired != null) {
-                const hierarchy = ['AM', 'A1', 'A2', 'A', 'N'];
-                final userIdx = hierarchy.indexOf(userLicense!);
-                final motoIdx = hierarchy.indexOf(m.licenseRequired!);
-                if (userIdx >= 0 && motoIdx >= 0 && motoIdx > userIdx) return false;
+              // OR-match přes přijímané skupiny ŘP vozidla (vč. B pro skútry/přívěs).
+              if (userLicense != null) {
+                final ok = BookingValidator.checkLicense(
+                  userLicenseGroups: [userLicense!],
+                  motoLicenseGroups: m.licenseGroupsOrFallback,
+                ) == null;
+                if (!ok) return false;
               }
               return true;
             }).toList();
@@ -122,7 +125,7 @@ class EditMotoChangeSection extends ConsumerWidget {
                     const SizedBox(width: 8),
                     Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text(m.model, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: MotoGoColors.black)),
-                      Text('${m.licenseRequired ?? '–'} · ${m.priceLabel}/den',
+                      Text('${m.licenseGroupsOrFallback.where((g) => g != 'N').join(' / ').isEmpty ? '–' : m.licenseGroupsOrFallback.where((g) => g != 'N').join(' / ')} · ${m.priceLabel}/den',
                         style: const TextStyle(fontSize: 10, color: MotoGoColors.g400)),
                     ])),
                   ]),

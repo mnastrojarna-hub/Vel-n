@@ -189,7 +189,7 @@ final licenseValidationProvider = Provider<String?>((ref) {
 
   return BookingValidator.checkLicense(
     userLicenseGroups: userGroups,
-    motoLicense: moto.licenseRequired,
+    motoLicenseGroups: moto.licenseGroupsOrFallback,
   );
 });
 
@@ -279,5 +279,34 @@ final extrasCatalogProvider =
     return items.isNotEmpty ? items : defaultExtras;
   } catch (_) {
     return defaultExtras;
+  }
+});
+
+/// Dostupnost vozíku (příslušenství „Vozík") pro daný termín. count = počet
+/// volných kusů, trailerId = první volný kus k přiřazení. Backend RPC
+/// `get_trailer_availability` počítá obsazenost z přímých rezervací (moto_id)
+/// i z gear-přiřazení (trailer_moto_id) + servisu.
+class TrailerAvailability {
+  final int count;
+  final String? trailerId;
+  const TrailerAvailability(this.count, this.trailerId);
+  bool get hasFree => count > 0 && trailerId != null;
+}
+
+final trailerAvailabilityProvider = FutureProvider.family<TrailerAvailability,
+    ({DateTime? start, DateTime? end})>((ref, range) async {
+  final s = range.start, e = range.end;
+  if (s == null || e == null) return const TrailerAvailability(0, null);
+  String d(DateTime x) =>
+      '${x.year.toString().padLeft(4, '0')}-${x.month.toString().padLeft(2, '0')}-${x.day.toString().padLeft(2, '0')}';
+  try {
+    final res = await MotoGoSupabase.client.rpc('get_trailer_availability',
+        params: {'p_start': d(s), 'p_end': d(e)});
+    final m = res as Map<String, dynamic>?;
+    if (m == null) return const TrailerAvailability(0, null);
+    return TrailerAvailability(
+        (m['available_count'] as num?)?.toInt() ?? 0, m['trailer_id'] as String?);
+  } catch (_) {
+    return const TrailerAvailability(0, null);
   }
 });
