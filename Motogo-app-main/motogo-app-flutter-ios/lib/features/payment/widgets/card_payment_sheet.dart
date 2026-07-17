@@ -84,7 +84,8 @@ class _CardSheetBody extends StatefulWidget {
   State<_CardSheetBody> createState() => _CardSheetBodyState();
 }
 
-class _CardSheetBodyState extends State<_CardSheetBody> {
+class _CardSheetBodyState extends State<_CardSheetBody>
+    with WidgetsBindingObserver {
   bool _cardComplete = false;
   bool _processing = false;
   bool _platformPayReady = false;
@@ -92,7 +93,28 @@ class _CardSheetBodyState extends State<_CardSheetBody> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     if (widget.allowPlatformPay) _checkPlatformPay();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // CardField (flutter_stripe) drží fokus na nativním platform view. Když
+    // appka odejde na pozadí, systém může nativní view zahodit; po návratu
+    // Flutter fokus obnoví a plugin zavolá `focus` na mrtvém kanálu
+    // (flutter.stripe/card_field) → MissingPluginException. Proto fokus
+    // pustíme ještě před odchodem na pozadí — blur proběhne na živém kanálu
+    // a po resume se žádný fokus neobnovuje.
+    if (state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.paused) {
+      FocusManager.instance.primaryFocus?.unfocus();
+    }
   }
 
   /// Apple Pay (iOS) / Google Pay (Android) — jen na podporovaných zařízeních.
@@ -128,6 +150,10 @@ class _CardSheetBodyState extends State<_CardSheetBody> {
   Future<void> _payWithCard() async {
     if (_processing || !_cardComplete) return;
     setState(() => _processing = true);
+    // Zavřít klávesnici a pustit fokus z CardFieldu PŘED confirmem — 3DS
+    // otevírá externí okno (pauza/resume) a obnovení fokusu na mezitím
+    // zahozený nativní view by spadlo na MissingPluginException.
+    FocusManager.instance.primaryFocus?.unfocus();
     try {
       // confirmPayment použije kartu z vykresleného CardFieldu a sám dotáhne
       // případné 3DS (SCA) — vrací finální stav PaymentIntentu.
@@ -159,6 +185,9 @@ class _CardSheetBodyState extends State<_CardSheetBody> {
   Future<void> _payWithPlatformPay() async {
     if (_processing) return;
     setState(() => _processing = true);
+    // Stejně jako u karty — Apple/Google Pay překryje appku nativním sheetem,
+    // fokus na CardFieldu by se po návratu obnovoval na mrtvém kanálu.
+    FocusManager.instance.primaryFocus?.unfocus();
     try {
       final confirmParams = Platform.isIOS
           ? PlatformPayConfirmParams.applePay(
