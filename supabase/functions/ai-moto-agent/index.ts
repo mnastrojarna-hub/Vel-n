@@ -2,7 +2,7 @@ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { TOOLS } from './tools-definitions.ts'
 import { executeTool } from './tools-executor.ts'
-import { loadAgentConfig, buildSystemPrompt, formatBookingContext, formatMultipleBookingsContext } from './booking-context.ts'
+import { loadAgentConfig, buildSystemPrompt, buildDateHeader, formatBookingContext, formatMultipleBookingsContext } from './booking-context.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
@@ -56,7 +56,7 @@ serve(async (req) => {
     // -- Load agent config from app_settings --
     const agentConfig = await loadAgentConfig(supabaseAdmin)
     const dynamicSystemPrompt = buildSystemPrompt(agentConfig)
-    const maxTokens = agentConfig?.max_tokens || 2048
+    let maxTokens = agentConfig?.max_tokens || 2048
 
     // -- Build messages from conversation history --
     const apiMessages: Array<{ role: string; content: unknown }> = []
@@ -145,37 +145,71 @@ Zákazník nemá aktivní rezervaci nebo se nepodařilo načíst data. Při dota
       bookingContext = '\n\nNepodařilo se předem načíst rezervaci. Použij get_active_booking.'
     }
 
-    const systemPrompt = dynamicSystemPrompt + bookingContext
+    const systemPrompt = dynamicSystemPrompt + buildDateHeader() + bookingContext
 
     // -- Agentic loop --
     let finalText = ''
     for (let i = 0; i < MAX_ITERATIONS; i++) {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'x-api-key': ANTHROPIC_API_KEY,
-          'anthropic-version': '2023-06-01',
-          'content-type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
-          max_tokens: maxTokens,
-          system: systemPrompt,
-          tools: TOOLS,
-          messages: apiMessages,
-        }),
-      })
+      // Retry až 3× na 429/5xx/timeout/síťovou chybu (stejná pojistka jako ai-public-agent) —
+      // dřív jediný transientní výpadek Anthropic shodil celý request na 502 a chat v appce umřel.
+      let response: Response | null = null
+      let lastErr = ''
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const ctrl = new AbortController()
+        const timer = setTimeout(() => ctrl.abort(), 45_000) // per-call timeout
+        try {
+          response = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: {
+              'x-api-key': ANTHROPIC_API_KEY,
+              'anthropic-version': '2023-06-01',
+              'content-type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: 'claude-sonnet-4-6',
+              max_tokens: maxTokens,
+              system: systemPrompt,
+              tools: TOOLS,
+              messages: apiMessages,
+            }),
+            signal: ctrl.signal,
+          })
+        } catch (e) {
+          response = null
+          lastErr = `fetch_failed: ${(e as Error).message}`
+          clearTimeout(timer)
+          await new Promise((r) => setTimeout(r, 300 * (attempt + 1) ** 2))
+          continue
+        }
+        clearTimeout(timer)
+        if (response.ok) break
+        lastErr = await response.text()
+        if (response.status >= 500 || response.status === 429) {
+          await new Promise((r) => setTimeout(r, 300 * (attempt + 1) ** 2))
+          continue
+        }
+        break
+      }
 
-      if (!response.ok) {
-        const errText = await response.text()
-        console.error(`Anthropic API error (iteration ${i}):`, response.status, errText)
-        return new Response(JSON.stringify({ error: 'AI service error' }), {
-          status: 502, headers: { ...CORS, 'Content-Type': 'application/json' },
-        })
+      if (!response || !response.ok) {
+        // Po vyčerpání pokusů vrať slušnou odpověď místo 502 — konverzace v appce zůstane živá
+        // a historie se neztratí; zákazník nemusí nic opakovat, stačí napsat „pokračuj".
+        console.error(`Anthropic API failed (iteration ${i}):`, response?.status || 'no-resp', String(lastErr).slice(0, 300))
+        return new Response(JSON.stringify({
+          reply: 'Omlouvám se, odpověď mi teď trvala moc dlouho. Napište prosím jen „pokračuj" — celou konverzaci si pamatuji a navážu, nemusíte nic opakovat.',
+          suggest_sos: false,
+        }), { headers: { ...CORS, 'Content-Type': 'application/json' } })
       }
 
       const aiResult = await response.json()
       const stopReason = aiResult.stop_reason
+
+      // Odpověď uříznutá limitem tokenů → jednou zopakuj s maximálním stropem, ať zákazník
+      // nedostane radu useknutou uprostřed věty.
+      if (stopReason === 'max_tokens' && maxTokens < 8000) {
+        maxTokens = 8000
+        continue
+      }
 
       if (stopReason === 'end_turn') {
         const textBlocks = (aiResult.content || []).filter((c: { type: string }) => c.type === 'text')
