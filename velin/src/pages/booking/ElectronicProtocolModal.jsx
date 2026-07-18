@@ -6,6 +6,7 @@ import Button from '../../components/ui/Button'
 import SignaturePad from '../../components/ui/SignaturePad'
 import { buildDocVars, listAccessoryItems } from './bookingDocTemplates'
 import { buildElectronicProtocolHtml, HANDOVER_CHECKS, EXTRA_GEAR_CHECKS, DAMAGE_CHECKS } from './bookingDocElectronic'
+import { sendProtocolEmail } from './protocolEmail'
 
 // Elektronický předávací protokol / protokol o poškození — vyplnění na tabletu
 // (checkboxy + volný text) a podpis perem. Uloží podepsané HTML do generated_documents.
@@ -103,7 +104,16 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
           await supabase.from('bookings').update(isDamage ? { mileage_end: km } : { mileage_start: km }).eq('id', bookingId)
         }
       } catch {}
-      onSaved && onSaved({ html, type, docId, pdfPath, docName, bookingId, customerId: vars._customer_id, customerEmail: vars.customer_email || '', customerName: vars.customer_name || '', moto: `${vars.moto_model || ''}${vars.moto_spz ? ` (${vars.moto_spz})` : ''}`, rentalPeriod: vars.rental_period || '', bookingNumber: vars.booking_number || '' })
+      const info = { html, type, docId, pdfPath, docName, bookingId, customerId: vars._customer_id, customerEmail: vars.customer_email || '', customerName: vars.customer_name || '', moto: `${vars.moto_model || ''}${vars.moto_spz ? ` (${vars.moto_spz})` : ''}`, rentalPeriod: vars.rental_period || '', bookingNumber: vars.booking_number || '' }
+      // Protokol se zákazníkovi odešle e-mailem AUTOMATICKY hned po uložení
+      // (dřív jen z karty Doklady po ručním kliknutí — z odbavení odjezdu
+      // se neposílal vůbec). Best-effort: selhání mailu uložení neshodí,
+      // rodič dostane výsledek v info.emailSent/emailError (možnost „Odeslat znovu").
+      let emailResult = { sent: false, error: null }
+      if (info.customerEmail) {
+        try { emailResult = await sendProtocolEmail(info) } catch (e) { emailResult = { sent: false, error: e.message || String(e) } }
+      }
+      onSaved && onSaved({ ...info, emailSent: emailResult.sent, emailError: emailResult.error })
     } catch (e) { setError('Uložení selhalo: ' + e.message) }
     setSaving(false)
   }
