@@ -5,8 +5,10 @@
 //
 // Sestaví HTML (jen podpis nájemce — MotoGo automaticky souhlasí), vyrenderuje PDF
 // přes render-pdf, uloží do bucketu `documents`, vloží `generated_documents`
-// (sync trigger → `documents`, zobrazí se v appce) a zamkne protokol
-// (`bookings.handover_protocol_filled_at`). Idempotentní (druhé volání vrátí existující).
+// (sync trigger → `documents`, zobrazí se v appce), zamkne protokol
+// (`bookings.handover_protocol_filled_at`) a odešle protokol zákazníkovi e-mailem
+// (send-email, šablona handover_protocol_sent, PDF v příloze — best-effort).
+// Idempotentní (druhé volání vrátí existující).
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -236,7 +238,38 @@ serve(async (req) => {
       }
     } catch (_) { /* propsání km je best-effort, nikdy neshodí protokol */ }
 
-    return json({ success: true, doc_id: docId, autofilled })
+    // Protokol zákazníkovi e-mailem (best-effort — v appce ho už má přes sync
+    // do `documents`, mailem chodí navíc s PDF přílohou; selhání protokol neshodí).
+    let emailSent = false
+    const custEmail = (customer.email as string) || ''
+    if (custEmail) {
+      try {
+        const filename = `Predavaci_protokol_${bn}.${pdfPath.endsWith('.html') ? 'html' : 'pdf'}`
+        const er = await fetch(`${SUPABASE_URL}/functions/v1/send-email`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SERVICE_KEY}` },
+          body: JSON.stringify({
+            to: custEmail,
+            template_slug: 'handover_protocol_sent',
+            template_vars: {
+              customer_name: vars.customer_name,
+              moto: `${vars.moto_model}${vars.moto_spz ? ` (${vars.moto_spz})` : ''}`,
+              moto_model: vars.moto_model,
+              rental_period: vars.rental_period,
+              booking_number: bn,
+              doc_name: 'Předávací protokol',
+            },
+            customer_id: booking.user_id || null,
+            booking_id: bookingId,
+            attachment_paths: [{ filename, path: pdfPath }],
+          }),
+        })
+        const ej = await er.json().catch(() => null)
+        emailSent = !!(er.ok && ej && ej.success !== false)
+      } catch (_) { /* mail je best-effort */ }
+    }
+
+    return json({ success: true, doc_id: docId, autofilled, email_sent: emailSent })
   } catch (e) {
     return json({ success: false, error: (e as Error).message }, 500)
   }

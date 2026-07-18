@@ -30,9 +30,9 @@ export default function SwapModal({ open, prev, next, onClose, onDone }) {
 
   if (!open || !prev || !next) return null
 
-  // Po podpisu protokolu B: zamkni protokol (handover_protocol_filled_at),
-  // pošli protokol e-mailem (best-effort) a proveď atomický switch.
-  async function afterProtocol(info) {
+  // Po podpisu protokolu B proveď atomický switch. Protokol e-mailem
+  // zákazníkovi odešle automaticky už ElectronicProtocolModal při uložení.
+  async function afterProtocol() {
     setPhase('swapping'); setBusy(true); setError(null)
     try {
       // Atomický switch: A completed, B active + vazba řetězu. RPC si sama nastaví
@@ -52,30 +52,10 @@ export default function SwapModal({ open, prev, next, onClose, onDone }) {
 
       await logAudit('booking_moto_handoff_switch', { prev_booking_id: prev.id, next_booking_id: next.id })
 
-      // 3) Protokol B e-mailem zákazníkovi (best-effort — switch už proběhl).
-      try { await sendProtocolEmail(info) } catch (_) { /* nekritické */ }
-
       setBusy(false)
       onDone?.()
     } catch (e) {
       setBusy(false); setPhase('intro'); setError('Výměna selhala: ' + (e.message || e))
-    }
-  }
-
-  async function sendProtocolEmail(info) {
-    if (!info?.customerEmail) return
-    const template_vars = {
-      customer_name: info.customerName || '', moto: info.moto || '', moto_model: info.moto || '',
-      rental_period: info.rentalPeriod || '', booking_number: info.bookingNumber || '', doc_name: info.docName || '',
-    }
-    const ext = info.pdfPath && info.pdfPath.toLowerCase().endsWith('.html') ? '.html' : '.pdf'
-    const filename = `${(info.docName || 'protokol').replace(/[^\wÀ-ſ]+/g, '_')}${ext}`
-    const attachment_paths = info.pdfPath ? [{ filename, path: info.pdfPath }] : []
-    const base = { to: info.customerEmail, customer_id: info.customerId || null, booking_id: info.bookingId || null, attachment_paths }
-    let res = await supabase.functions.invoke('send-email', { body: { ...base, template_slug: 'handover_protocol_sent', template_vars } })
-    const failed = res?.error || (res?.data && res.data.success === false)
-    if (failed) {
-      await supabase.functions.invoke('send-email', { body: { ...base, template_slug: 'handover_protocol_sent', subject: `${info.docName || 'Předávací protokol'} — MOTO GO 24`, raw_html: info.html } })
     }
   }
 
@@ -86,7 +66,7 @@ export default function SwapModal({ open, prev, next, onClose, onDone }) {
         type="handover_protocol"
         bookingId={next.id}
         onClose={() => setPhase('intro')}
-        onSaved={(info) => afterProtocol(info)}
+        onSaved={() => afterProtocol()}
       />
     )
   }

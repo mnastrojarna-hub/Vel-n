@@ -12,6 +12,7 @@ import { getClientTemplate, buildDocVars, fillTemplate, rebuildFromFilledData } 
 import { DOC_ICONS, INV_TYPE_MAP } from './bookingDocConstants'
 import BookingCustomerDocsStatus from './BookingCustomerDocsStatus'
 import ElectronicProtocolModal from './ElectronicProtocolModal'
+import { sendProtocolEmail } from './protocolEmail'
 
 export default function BookingDocumentsTab({ bookingId, userId }) {
   const [docs, setDocs] = useState([])
@@ -197,32 +198,13 @@ export default function BookingDocumentsTab({ bookingId, userId }) {
     setGenerating(null)
   }
 
-  // Po uložení el. protokolu nabídne Velín odeslat ho zákazníkovi e-mailem.
-  // Použije e-mailovou šablonu z Velína (email_templates), protokol jde v příloze (PDF/HTML).
-  async function sendProtocolEmail(info) {
-    if (!info?.customerEmail) { setSendResult('Zákazník nemá uložený e-mail.'); return }
+  // El. protokol se zákazníkovi odesílá AUTOMATICKY už při uložení
+  // (ElectronicProtocolModal → protocolEmail.js). Tady zůstává jen ruční
+  // „Odeslat znovu" pro případ, že automatické odeslání selhalo.
+  async function resendProtocolEmail(info) {
     setSendingProtocol(true); setSendResult(null)
-    try {
-      const isDamage = info.type === 'damage_protocol'
-      const slug = isDamage ? 'damage_protocol_sent' : 'handover_protocol_sent'
-      const template_vars = {
-        customer_name: info.customerName || '', moto: info.moto || '', moto_model: info.moto || '',
-        rental_period: info.rentalPeriod || '', booking_number: info.bookingNumber || '', doc_name: info.docName || '',
-      }
-      const ext = info.pdfPath && info.pdfPath.toLowerCase().endsWith('.html') ? '.html' : '.pdf'
-      const filename = `${(info.docName || 'protokol').replace(/[^\wÀ-ſ]+/g, '_')}${ext}`
-      const attachment_paths = info.pdfPath ? [{ filename, path: info.pdfPath }] : []
-      const base = { to: info.customerEmail, customer_id: info.customerId || null, booking_id: info.bookingId || null, attachment_paths }
-      // 1) Primárně přes šablonu z Velína
-      let res = await supabase.functions.invoke('send-email', { body: { ...base, template_slug: slug, template_vars } })
-      const failed = res?.error || (res?.data && res.data.success === false)
-      if (failed) {
-        // 2) Fallback (šablona ještě není v DB) — pošli protokol jako obsah e-mailu
-        const res2 = await supabase.functions.invoke('send-email', { body: { ...base, template_slug: slug, subject: `${info.docName || 'Předávací protokol'} — MOTO GO 24`, raw_html: info.html } })
-        if (res2?.error || (res2?.data && res2.data.success === false)) throw new Error(res2?.error?.message || res2?.data?.error || 'Odeslání selhalo')
-      }
-      setSendResult(`✓ Protokol odeslán zákazníkovi na ${info.customerEmail}.`)
-    } catch (e) { setSendResult(`Odeslání selhalo: ${e.message || e}`) }
+    const r = await sendProtocolEmail(info)
+    setSendResult(r.sent ? `✓ Protokol odeslán zákazníkovi na ${info.customerEmail}.` : `Odeslání selhalo: ${r.error}`)
     setSendingProtocol(false)
   }
 
@@ -314,7 +296,10 @@ export default function BookingDocumentsTab({ bookingId, userId }) {
           onSaved={(info) => {
             setElectronicProtocol(null)
             loadAll()
-            setSendResult(null)
+            // Odeslání proběhlo automaticky v modalu — tady jen zobrazíme výsledek.
+            setSendResult(info?.emailSent
+              ? `✓ Protokol odeslán zákazníkovi na ${info.customerEmail}.`
+              : (info?.customerEmail ? `Odeslání selhalo: ${info?.emailError || 'neznámá chyba'}` : null))
             setSendOffer(info || null)
           }}
         />
@@ -324,16 +309,17 @@ export default function BookingDocumentsTab({ bookingId, userId }) {
           <p style={{ fontSize: 14, color: '#1a2e22', marginBottom: 12 }}>
             <strong>{sendOffer.docName || 'Protokol'}</strong> byl uložen a elektronicky podepsán.
           </p>
-          {sendOffer.customerEmail ? (
-            <p style={{ fontSize: 13, color: '#1a2e22', marginBottom: 16 }}>Odeslat protokol zákazníkovi e-mailem na <strong>{sendOffer.customerEmail}</strong>?</p>
-          ) : (
-            <p style={{ fontSize: 13, color: '#b45309', marginBottom: 16 }}>Zákazník nemá uložený e-mail — protokol nelze odeslat.</p>
+          {!sendOffer.customerEmail && (
+            <p style={{ fontSize: 13, color: '#b45309', marginBottom: 16 }}>Zákazník nemá uložený e-mail — protokol nelze odeslat, má ho k dispozici v aplikaci.</p>
+          )}
+          {sendOffer.customerEmail && !sendResult?.startsWith('✓') && (
+            <p style={{ fontSize: 13, color: '#1a2e22', marginBottom: 16 }}>Automatické odeslání na <strong>{sendOffer.customerEmail}</strong> selhalo — můžete ho zkusit odeslat znovu.</p>
           )}
           {sendResult && <div className="p-3 rounded-card mb-3" style={{ background: sendResult.startsWith('✓') ? '#dcfce7' : '#fee2e2', color: sendResult.startsWith('✓') ? '#166534' : '#dc2626', fontSize: 13 }}>{sendResult}</div>}
           <div className="flex justify-end gap-3">
             <Button onClick={() => { if (sendOffer.html) { setViewHtml(sendOffer.html); setViewDoc({ document_templates: { name: sendOffer.docName || 'Protokol' } }) } setSendOffer(null) }}>Náhled</Button>
             <Button onClick={() => setSendOffer(null)}>Zavřít</Button>
-            {sendOffer.customerEmail && !sendResult?.startsWith('✓') && <Button green disabled={sendingProtocol} onClick={() => sendProtocolEmail(sendOffer)}>{sendingProtocol ? 'Odesílám…' : 'Odeslat zákazníkovi'}</Button>}
+            {sendOffer.customerEmail && !sendResult?.startsWith('✓') && <Button green disabled={sendingProtocol} onClick={() => resendProtocolEmail(sendOffer)}>{sendingProtocol ? 'Odesílám…' : 'Odeslat znovu'}</Button>}
           </div>
         </Modal>
       )}
