@@ -87,8 +87,8 @@ export default function AppAgentSettingsPanel() {
         onChange={updateField}
         toneOptions={SOS_TONE_OPTIONS}
         maxTokensDefault={2048}
-        maxTokensMin={512}
-        maxTokensMax={4096}
+        maxTokensMin={1024}
+        maxTokensMax={8000}
         maxTokensStep={256}
         personaPlaceholder="např. AI Servisní technik, Asistent na cestě..."
       />

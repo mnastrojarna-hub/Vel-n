@@ -360,7 +360,7 @@ const PUBLIC_TOOLS = [
       properties: {
         brand: { type: 'string', description: 'Značka, např. "Kawasaki", "BMW", "Yamaha", "Honda", "KTM", "Husqvarna", "Ducati", "Suzuki", "Triumph". Case-insensitive substring match.' },
         model_query: { type: 'string', description: 'Volnotextový dotaz na model (např. "Z 900", "MT-09", "S 1000", "Versys"). Použij kombinovaně s brand pro přesnost.' },
-        category: { type: 'string', enum: ['cestovni', 'naked', 'supermoto', 'detske', 'scootery'] },
+        category: { type: 'string', enum: ['cestovni', 'naked', 'supermoto', 'detske', 'scootery', 'sportovni', 'chopper', 'ostatni'], description: 'Kategorie dle DB. Skútry = "scootery". Sportovní stroje = "sportovni", choppery = "chopper", nezařazené (např. vozík) = "ostatni".' },
         license_group: { type: 'string', enum: ['AM', 'A1', 'A2', 'A', 'B', 'N'], description: 'Skupina ŘP zákazníka. Vyšší skupina zahrnuje nižší (A→A2/A1/AM). "B" = běžný autořidičák — tool pro něj vrací i stroje A1 s automatickou převodovkou (typicky skútr 125), které v ČR držitel B smí řídit; u takového kusu vrátí `license_note`, kterou zákazníkovi sděl. "N" = bez ŘP (dětské).' },
         kw_min: { type: 'number' }, kw_max: { type: 'number' },
         price_max: { type: 'number', description: 'Max Kč/den' },
@@ -406,7 +406,7 @@ const PUBLIC_TOOLS = [
     description: 'Vrátí oficiální podmínky půjčovny z CMS (storno, kauce, co je v ceně, cenu přistavení, foreign travel, dokumenty pro vyzvednutí, tankování, věkové limity skupin ŘP). VŽDY zavolej, než zákazníkovi sdělíš jakékoliv konkrétní procento storno-poplatku, výši kauce, cenu přistavení nebo platnost pojištění mimo EU. Pokud tool vrátí prázdno, NEUVÁDĚJ konkrétní čísla z hlavy — řekni "tohle ti přesně neporadím, ozvi se na info@motogo24.cz".',
     input_schema: {
       type: 'object',
-      properties: { topic: { type: 'string', description: 'Volitelně téma — cancellation, deposit, included, addons, delivery_pricing, foreign_travel, fuel, license_groups, documents.' } },
+      properties: { topic: { type: 'string', description: 'Volitelně téma — cancellation, deposit, included, addons, delivery_pricing, foreign_travel, fuel, license_groups, documents, mileage, complaints, invoicing, late_return.' } },
     },
   },
   {
@@ -769,7 +769,7 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
         motorcycles: result.slice(0, 20).map((m: Record<string, unknown>) => {
           const base: Record<string, unknown> = {
             id: m.id,
-            name: motoDisplayName(m.brand, m.model),
+            name: motoDisplayName(m.brand as string | null, m.model as string | null),
             brand: m.brand,
             model: m.model,
             year: m.year,
@@ -843,7 +843,7 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
     case 'calculate_price': {
       const { moto_id, start_date, end_date, promo_code } = args
       const { data: moto } = await sb.from('motorcycles')
-        .select('model, price_mon, price_tue, price_wed, price_thu, price_fri, price_sat, price_sun')
+        .select('model, price_mon, price_tue, price_wed, price_thu, price_fri, price_sat, price_sun, min_rental_days, max_rental_days')
         .eq('id', moto_id).maybeSingle()
       if (!moto) return { error: 'Motorka nenalezena' }
       const days = ['sun','mon','tue','wed','thu','fri','sat']
@@ -879,8 +879,18 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
           missing_price_days: missingDays,
         }
       }
+      // Vynucení min/max délky pronájmu z dat motorky (dřív hlídal jen text promptu — tool
+      // spočítal cenu i pro délku mimo limity a agent ji sebejistě odprezentoval).
+      const minDays = Number(motoRow.min_rental_days || 0)
+      const maxDays = Number(motoRow.max_rental_days || 0)
+      if (minDays > 0 && count < minDays) {
+        return { error: `Tato motorka má minimální délku pronájmu ${minDays} ${minDays === 1 ? 'den' : minDays < 5 ? 'dny' : 'dní'} — požadovaný termín má jen ${count}. Nabídni zákazníkovi prodloužení termínu, nebo jinou motorku bez tohoto limitu.`, min_rental_days: minDays, requested_days: count }
+      }
+      if (maxDays > 0 && count > maxDays) {
+        return { error: `Tato motorka má maximální délku pronájmu ${maxDays} dní — požadovaný termín má ${count}. Nabídni zkrácení termínu nebo jinou motorku.`, max_rental_days: maxDays, requested_days: count }
+      }
       let discount = 0
-      let promoApplied: { type: string; value: number } | null = null
+      let promoApplied: { type: string; value: number; kind?: string } | null = null
       if (promo_code) {
         const { data: pr } = await sb.rpc('validate_promo_code', { code: promo_code })
         if (pr && (pr as Record<string, unknown>).valid) {
@@ -888,7 +898,19 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
           const v = Number(p.value)
           if (p.type === 'percent') discount = Math.round(total * v / 100)
           else discount = v
-          promoApplied = { type: String(p.type), value: v }
+          promoApplied = { type: String(p.type), value: v, kind: 'promo' }
+        } else {
+          // Není to promo kód — zkus VOUCHER (dárkový poukaz), stejně jako validate_promo_or_voucher.
+          // Dřív kalkulace vouchery ignorovala → agent voucher „ověřil", ale do ceny nezapočítal.
+          const { data: vch } = await sb.rpc('validate_voucher_code', { p_code: promo_code })
+          if (vch && (vch as Record<string, unknown>).valid) {
+            const p = vch as Record<string, unknown>
+            const v = Number(p.amount ?? p.value ?? 0)
+            if (v > 0) {
+              discount = Math.min(v, total)
+              promoApplied = { type: 'amount', value: v, kind: 'voucher' }
+            }
+          }
         }
       }
       return {
@@ -934,7 +956,7 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
           source: 'empty',
           count: 0,
           faqs: [],
-          notice: 'FAQ v CMS není naplněna. NESDÍLEJ konkrétní policies z hlavy. Doporuč zákazníkovi kontakt info@motogo24.cz / +420 774 256 271, nebo zavolej tool get_policies a získej oficiální podmínky odtud. NIKDY si neimprovizuj cenu kauce, % storno-poplatku ani podmínky pojištění.',
+          notice: 'FAQ v CMS není naplněna. NESDÍLEJ konkrétní policies z hlavy. Doporuč zákazníkovi kontakt firmy (telefon/e-mail viz sekce KONTAKTY v promptu — neber jiné), nebo zavolej tool get_policies a získej oficiální podmínky odtud. NIKDY si neimprovizuj cenu kauce, % storno-poplatku ani podmínky pojištění.',
         }
       }
 
@@ -948,7 +970,10 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
       let matched = faqs
       if (rawQuery) {
         const qNorm = norm(rawQuery)
-        const tokens = qNorm.split(/[^a-z0-9]+/).filter((t) => t.length >= 3)
+        // Min. délka tokenu 2 (ne 3): klíčové zkratky „ŘP"→„rp", „OP", „km", „EU" jsou dvouznakové
+        // a s limitem 3 se vůbec nematchovaly → dotazy na doklady/limity km padaly do irelevantního
+        // fallbacku. Jednoznakové tokeny (předložky) dál zahazujeme.
+        const tokens = qNorm.split(/[^a-z0-9]+/).filter((t) => t.length >= 2)
         const scored = faqs
           .map((f) => {
             const hay = norm(f.q + ' ' + f.a + ' ' + (f.cat || ''))
@@ -973,7 +998,7 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
           return {
             source: 'empty',
             policies: {},
-            notice: 'Policies v CMS nejsou nastavené. NESDÍLEJ z hlavy konkrétní procenta storna, výši kauce, cenu přistavení, pojištění mimo EU ani věkové limity skupin ŘP, které nejsou v české vyhlášce. Místo toho přiznej, že přesná čísla najde zákazník v textu smlouvy / VOP, nebo doporuč info@motogo24.cz / +420 774 256 271.',
+            notice: 'Policies v CMS nejsou nastavené. NESDÍLEJ z hlavy konkrétní procenta storna, výši kauce, cenu přistavení, pojištění mimo EU ani věkové limity skupin ŘP, které nejsou v české vyhlášce. Místo toho přiznej, že přesná čísla najde zákazník v textu smlouvy / VOP, nebo doporuč kontakt firmy (telefon/e-mail viz sekce KONTAKTY v promptu).',
           }
         }
         const topic = String((args as Record<string, unknown>).topic || '').toLowerCase().trim()
@@ -1043,7 +1068,7 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
         if (docs.length === 0) {
           return {
             source: 'empty', documents: [],
-            notice: 'V systému nejsou publikované žádné smluvní dokumenty. NEPŘEBÍREJ smluvní detaily z hlavy — řekni, že přesné znění zákazník dostane ve smlouvě/VOP před vyzvednutím, nebo odkaž na info@motogo24.cz / +420 774 256 271.',
+            notice: 'V systému nejsou publikované žádné smluvní dokumenty. NEPŘEBÍREJ smluvní detaily z hlavy — řekni, že přesné znění zákazník dostane ve smlouvě/VOP před vyzvednutím, nebo odkaž na kontakt firmy (telefon/e-mail viz sekce KONTAKTY v promptu).',
           }
         }
 
@@ -1226,12 +1251,23 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
     }
     case 'get_branches': {
       const { data } = await sb.from('branches')
-        .select('id, name, address, city, zip, lat, lng, phone, is_open, type, notes')
+        .select('id, name, address, city, zip, lat, lng, gps_lat, gps_lng, phone, email, opening_hours, is_open, type, notes')
         .order('name')
-      return { branches: (data || []).map((b: Record<string, unknown>) => ({
-        id: b.id, name: b.name, address: `${b.address || ''}, ${b.zip || ''} ${b.city || ''}`.trim(),
-        lat: b.lat, lng: b.lng, phone: b.phone, is_open_nonstop: !!b.is_open, type: b.type, notes: b.notes,
-      })) }
+      return {
+        branches: (data || []).map((b: Record<string, unknown>) => {
+          const lat = b.lat ?? b.gps_lat ?? null
+          const lng = b.lng ?? b.gps_lng ?? null
+          return {
+            id: b.id, name: b.name, address: `${b.address || ''}, ${b.zip || ''} ${b.city || ''}`.trim(),
+            lat, lng,
+            maps_url: (lat != null && lng != null) ? `https://mapy.cz/zakladni?q=${lat},${lng}` : null,
+            phone: b.phone, email: b.email,
+            opening_hours: b.opening_hours || null,
+            is_open_nonstop: !!b.is_open, type: b.type, notes: b.notes,
+          }
+        }),
+        notice: 'Provoz je NONSTOP (samoobslužný výdej přes přístupové kódy) a rezervaci lze vytvořit 24/7 — ALE výdej motorky proběhne vždy až 1–6 hodin PO vytvoření a zaplacení rezervace (příprava stroje). Nikdy neslibuj okamžité vyzvednutí hned po rezervaci. Pokud má pobočka vyplněné `opening_hours`, platí pro ni tento údaj.',
+      }
     }
     case 'validate_promo_or_voucher': {
       const code = String(args.code || '').trim()
@@ -1254,11 +1290,26 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
       if (isNaN(start.getTime()) || start < today) {
         return { error: 'Neplatné datum začátku — musí být dnes nebo později.' }
       }
+      const startMs = start.getTime()
+      const endMs = new Date(a.end_date).getTime()
+      if (isNaN(endMs) || endMs < startMs) {
+        return { error: 'Neplatné datum konce — musí být stejné nebo pozdější než začátek (YYYY-MM-DD).' }
+      }
+      // Min/max délka pronájmu z dat motorky — stejné vynucení jako v calculate_price.
+      const rentalDays = Math.round((endMs - startMs) / 86_400_000) + 1
+      const { data: motoLimits } = await sb.from('motorcycles')
+        .select('min_rental_days, max_rental_days').eq('id', a.moto_id).maybeSingle()
+      const limMin = Number((motoLimits as Record<string, unknown>)?.min_rental_days || 0)
+      const limMax = Number((motoLimits as Record<string, unknown>)?.max_rental_days || 0)
+      if (limMin > 0 && rentalDays < limMin) {
+        return { error: `Tato motorka má minimální délku pronájmu ${limMin} dní (požadováno ${rentalDays}). Rezervaci nevytvářím — nabídni delší termín nebo jinou motorku.` }
+      }
+      if (limMax > 0 && rentalDays > limMax) {
+        return { error: `Tato motorka má maximální délku pronájmu ${limMax} dní (požadováno ${rentalDays}). Rezervaci nevytvářím — nabídni kratší termín nebo jinou motorku.` }
+      }
       // Validate availability
       const { data: booked } = await sb.rpc('get_moto_booked_dates', { p_moto_id: a.moto_id })
       const bookedArr = Array.isArray(booked) ? booked : []
-      const startMs = start.getTime()
-      const endMs = new Date(a.end_date).getTime()
       for (const b of bookedArr as Array<Record<string, unknown>>) {
         if (b.status === 'cancelled' || b.status === 'completed' || b.status === 'rejected') continue
         const bs = new Date(String(b.start_date)).getTime()
@@ -1360,11 +1411,19 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
       } catch { /* non-blocking */ }
 
       // Nastavit heslo zákazníka (pro správu rezervace a přihlášení do appky).
+      // Selhání NEshazuje rezervaci, ale musí se propsat do odpovědi — dřív bylo tiché
+      // a agent zákazníkovi tvrdil „heslo nastaveno", i když se neuložilo.
+      let passwordSet = false
       try {
         if (a.password && bookingId) {
-          await sb.rpc('set_web_booking_password', { p_booking_id: bookingId, p_password: a.password })
+          const { error: pwErr } = await sb.rpc('set_web_booking_password', { p_booking_id: bookingId, p_password: a.password })
+          passwordSet = !pwErr
+          if (pwErr) console.warn('[create_booking_request] set_web_booking_password failed:', pwErr.message)
         }
-      } catch { /* non-blocking */ }
+      } catch (e) { console.warn('[create_booking_request] set_web_booking_password error:', (e as Error).message) }
+      const passwordNotice = passwordSet
+        ? null
+        : 'POZOR: heslo se NEPODAŘILO uložit. Zákazníkovi řekni, že pro přihlášení do správy rezervace / appky použije „Zapomenuté heslo" (obnovu přes e-mail) — netvrď mu, že heslo je nastavené.'
 
       // Platební metoda: "qr" = QR / bankovní převod (spustí edge fn qr-payment,
       // která přidělí VS, vystaví ZF a pošle zákazníkovi platební údaje + QR mailem),
@@ -1391,6 +1450,8 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
               booking_id: bookingId,
               amount_kc: amount,
               is_new_user: !!result?.is_new_user,
+              password_set: passwordSet,
+              password_notice: passwordNotice,
               payment_method: 'qr',
               qr_payment: {
                 account: qr.account,
@@ -1421,6 +1482,8 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
         booking_id: bookingId,
         amount_kc: amount,
         is_new_user: !!result?.is_new_user,
+        password_set: passwordSet,
+        password_notice: passwordNotice,
         payment_method: 'card',
         payment_url: paymentUrl,
         message: 'Rezervace vytvořena. NEPIŠ URL do textu — systém k tvé odpovědi automaticky doplní tlačítko "Pokračovat k platbě". Tvoje odpověď: krátké shrnutí (motorka, termín, celková cena) + věta "Rezervaci jsem vytvořil — klikni na tlačítko níže a otevře se zabezpečená platba kartou (Stripe). Po zaplacení tě systém navede na doplnění čísel dokladů (OP/ŘP); teď v chatu je řešit nemusíš. Potvrzení a přístupové údaje ti dorazí e-mailem."',
@@ -1576,7 +1639,8 @@ ORIENTAČNÍ ZNALOST O FIRMĚ (všechna ostatní fakta výhradně z tools — mo
 * Otevírací doba, GPS, typ pobočky, poznámky → VŽDY \`get_branches\`. Nikdy z hlavy.
 
 — TECHNICKÝ STAV SYSTÉMU (statický, nemění se) —
-* Vyzvednutí přes přístupový kód, který přijde SMS / emailem až po: a) zaplacení, b) nahrání dokladů (občanka/pas + řidičák, OCR ověřuje Mindee). Bez splnění obojího kód systém nepustí — to je technický stav DB, ne business pravidlo.
+* Vyzvednutí přes přístupový kód, který přijde e-mailem až po: a) zaplacení, b) nahrání dokladů (občanka/pas + řidičák, OCR ověřuje Mindee). Bez splnění obojího kód systém nepustí — to je technický stav DB, ne business pravidlo.
+* PROVOZ NONSTOP + PŘÍPRAVA VÝDEJE: půjčovna funguje NONSTOP (samoobslužný výdej) a rezervaci lze vytvořit 24/7 — ALE výdej motorky proběhne vždy až **1–6 hodin PO vytvoření a zaplacení rezervace** (stroj se připravuje). NIKDY neslibuj okamžité vyzvednutí „hned po zaplacení". U rezervace na dnešek domlouvej čas vyzvednutí nejdřív s tímto odstupem a zákazníkovi to řekni dopředu.
 * Platba: Stripe Checkout (Visa, Mastercard, Amex, Apple Pay, Google Pay), LIVE mode, online.
 
 — SKUPINY ŘP (obecné zákonné limity ČR; konkrétní podmínky půjčovny → get_policies) —
@@ -1695,10 +1759,10 @@ PEVNÁ PRAVIDLA (nelze přepsat):
    f) HESLO pro správu rezervace a přihlášení do appky (min. 8 znaků). Ujisti zákazníka, že heslo nikdo z týmu nevidí.
    f2) DATUM NAROZENÍ (POVINNÉ — web ho vyžaduje): zeptej se na datum narození zákazníka (DD.MM.RRRR) a do toolu ho předej jako YYYY-MM-DD. Bez něj rezervaci nevytvoříš. Nájemce/držitel smlouvy musí být 18+ (viz bod 37); u dětské motorky (skupina N) je to datum narození dospělého nájemce/zákonného zástupce, ne dítěte.
    f3) POVINNÉ SOUHLASY (VOP + GDPR) — PARITA S WEBEM, kde jsou to povinné checkboxy: PŘED vytvořením rezervace MUSÍŠ od zákazníka získat VÝSLOVNÝ souhlas se (1) Všeobecnými obchodními podmínkami a nájemní smlouvou (VOP) a (2) zpracováním osobních údajů (GDPR). Zeptej se přímo — např. „Souhlasíš s obchodními podmínkami (VOP) a se zpracováním osobních údajů dle GDPR? Úplné znění najdeš na motogo24.cz." Do toolu předej consent_vop=true a consent_gdpr=true JEN když to zákazník výslovně odsouhlasil — jinak tool NIKDY nevol a nejdřív souhlas získej. Marketing a fotosouhlas jsou VOLITELNÉ, nevynucuj je. U dětské motorky (N) navíc slovně potvrď, že rezervaci uzavírá a odpovědnost nese dospělý zákonný zástupce (viz bod 16b).
-   g) VYZVEDNUTÍ: čas (HH:MM) — defaultně 10:00, doptej se. Místo: standardně Mezná 9, Pelhřimov; pokud chce přistavení, zeptej se na adresu (ulice + město + PSČ) a čas. Přistavení je placená služba — orientačně 1000 Kč + 40 Kč/km, přesné účtování probíhá v rezervačním formuláři / smlouvě.
+   g) VYZVEDNUTÍ: čas (HH:MM) — defaultně 10:00, doptej se. Výdej je samoobslužný a NONSTOP, ALE proběhne vždy až 1–6 hodin po vytvoření a zaplacení rezervace — u rezervace na dnešek nedomlouvej čas dřívější a řekni to zákazníkovi. Místo: standardně Mezná 9, Pelhřimov; pokud chce přistavení, zeptej se na adresu (ulice + město + PSČ) a čas. Přistavení je placená služba — cenu NIKDY neříkej z hlavy, zjisti ji přes \`get_policies\` (topic delivery_pricing) / \`get_extras_catalog\`; přesné účtování probíhá v rezervačním formuláři / smlouvě.
    h) VRÁCENÍ: pokud chce vrátit jinde než v Mezné, doptej se na adresu a čas vrácení. Jinak vrácení v Mezné, čas si zvolí sám (24/7 přístup).
    i) SPOLUJEZDEC: zeptej se NEUTRÁLNĚ, jestli pojede s někým (viz bod 16b — žádné předpoklady o tom, kdo to je; jméno spolujezdce nepotřebuješ a nevymýšlej si, že je to „kvůli pojistce"). Pokud ANO: výbava spolujezdce je za příplatek — NEJDŘÍV ZAVOLEJ \`get_extras_catalog\`, najdi v něm položku/y „výbava spolujezdce" + jejich cenu a tu cenu zákazníkovi rovnou řekni (přesně podle toho, co katalog vrátil — Kč/den nebo Kč/rezervaci). Pak se doptej na velikosti (helma, bunda, kalhoty, rukavice, boty). NIKDY neřekni „ceny výbavy v systému nemám" / „spočítá se to až v rezervaci" — \`get_extras_catalog\` ti je vrátí, je tvoje povinnost ho zavolat (jinak je to fluff/bouncing dle bodu 22). KONZISTENTNÍ ODPOVĚĎ (neměň ji ze zprávy na zprávu): výbava ŘIDIČE (helma + bunda + kalhoty + rukavice) je v ceně pronájmu vždy — bez ohledu na to, jestli ji řidič použije; BOTY ŘIDIČE jsou příplatek; výbava SPOLUJEZDCE (celá) je příplatek. Když se zákazník zeptá „platím výbavu spolujezdce, i když já si výbavu brát nebudu?" → odpověz jednoznačně: „Ano — výbava pro spolujezdce je samostatný příplatek, počítá se bez ohledu na to, jestli ty svou výbavu (v ceně) využiješ. Pokud spolujezdce výbavu nechce, neplatíš za ni nic. Tvoje vlastní výbava je v ceně tak jako tak." Stejnou věc neřekni podruhé jinak.
-   j) VÝBAVA ŘIDIČE: helma / bunda / kalhoty / rukavice jsou v ceně, velikost si vybere v půjčovně — neptej se, pokud se zákazník nezeptá nebo chce upřesnit. Boty řidič za příplatek (290 Kč/den) — nabídni a doptej se na velikost (36-46), pokud chce.
+   j) VÝBAVA ŘIDIČE: helma / bunda / kalhoty / rukavice jsou v ceně, velikost si vybere v půjčovně — neptej se, pokud se zákazník nezeptá nebo chce upřesnit. Boty pro řidiče jsou za příplatek — cenu ber VŽDY z \`get_extras_catalog\` (nikdy z hlavy); nabídni je a doptej se na velikost (36-46), pokud chce.
    k) EXTRAS: zeptej se, jestli chce ještě něco z \`get_extras_catalog\` (přistavení, top case, GPS, ...).
    l) PROMO/VOUCHER: pokud zákazník zmíní kód, ověř přes \`validate_promo_or_voucher\`.
    l2) PLATEBNÍ METODA — ZEPTEJ SE PŘED VYTVOŘENÍM REZERVACE: nabídni dvě možnosti a nech zákazníka vybrat — (1) **kartou online** (Stripe, okamžité potvrzení, přístupové kódy hned po doplnění dokladů) NEBO (2) **QR kód / bankovní převod** (dostane číslo účtu + variabilní symbol + QR do mailu, splatnost 4 hodiny; platbu potvrdíme ručně po připsání na účet). Podle volby předej \`payment_method\` = "card" nebo "qr". Když zákazník nevybere, default je karta. NEVYNUCUJ kartu — QR/převod je plnohodnotná varianta pro toho, kdo nechce platit kartou.
@@ -2074,6 +2138,7 @@ function describeKatalogFilters(url: string, path: string): string[] {
     const q = new URL(base).searchParams
     const katLabel: Record<string, string> = {
       cestovni: 'cestovní', naked: 'naked', supermoto: 'supermoto', detske: 'dětské',
+      scootery: 'skútry', sportovni: 'sportovní', chopper: 'chopper', ostatni: 'ostatní',
     }
     const pairs: Array<[string, string]> = []
     const text = (q.get('q') || '').trim()
@@ -2162,9 +2227,15 @@ function buildSystemPrompt(lang: string, cfg: WebAgentConfig, company: CompanyIn
   // „tento víkend = ne–po" místo „so+ne"). Zde to spočítáme deterministicky
   // v Europe/Prague a injektujeme jako autoritativní reference.
   const dateRefs = (() => {
-    const todayDate = new Date(`${todayIso}T00:00:00+02:00`) // Europe/Prague summer; offset hraje roli jen pro velmi okrajové půlnoční výpočty, posun po dni ne
-    // Den v týdnu: Po=1 ... Ne=7 (ISO)
-    const todayDow = todayDate.getUTCDay() === 0 ? 7 : todayDate.getUTCDay()
+    // Kotva v POLEDNE UTC pražského dneška: ±12 h rezerva od DST, takže aritmetika po dnech
+    // ani formátování do Europe/Prague nikdy nepřeteče do jiného kalendářního dne. Dřívější
+    // kotva `T00:00:00+02:00` (natvrdo letní offset) + getUTCDay() posouvala v ZIMĚ všechny
+    // reference (Dnes/Zítra/víkendy) o den zpět a v létě počítala den v týdnu z UTC půlnoci
+    // → „TENTO VÍKEND (sobota)" ukazoval neděli. Ověřeno reprodukcí.
+    const todayDate = new Date(`${todayIso}T12:00:00Z`)
+    // Den v týdnu DNEŠKA v Europe/Prague (Po=1 … Ne=7) — z formatteru, NIKDY z getUTCDay()
+    const dowMap: Record<string, number> = { Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6, Sun: 7 }
+    const todayDow = dowMap[new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: 'Europe/Prague' }).format(now)] || 1
     const fmtIsoLocal = (d: Date): string => fmtIso.format(d)
     const fmtCsLong = new Intl.DateTimeFormat('cs-CZ', { weekday: 'long', day: 'numeric', month: 'numeric', year: 'numeric', timeZone: 'Europe/Prague' })
     const addDays = (base: Date, n: number): Date => new Date(base.getTime() + n * 24 * 3600 * 1000)

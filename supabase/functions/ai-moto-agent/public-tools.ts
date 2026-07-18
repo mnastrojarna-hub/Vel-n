@@ -39,7 +39,7 @@ export const PUBLIC_READ_TOOLS = [
       properties: {
         brand: { type: 'string', description: 'Značka, např. Kawasaki, BMW, Yamaha, Honda. Case-insensitive substring.' },
         model_query: { type: 'string', description: 'Volnotextový dotaz na model (např. "Z 900", "MT-09").' },
-        category: { type: 'string', enum: ['cestovni', 'naked', 'supermoto', 'detske', 'scootery'], description: 'Kategorie. Skútry = "scootery" (na dotaz „máte skútr / scooter 125" filtruj category=scootery, NE model_query).' },
+        category: { type: 'string', enum: ['cestovni', 'naked', 'supermoto', 'detske', 'scootery', 'sportovni', 'chopper', 'ostatni'], description: 'Kategorie dle DB. Sportovní = "sportovni", choppery = "chopper", nezařazené = "ostatni". Skútry = "scootery" (na dotaz „máte skútr / scooter 125" filtruj category=scootery, NE model_query).' },
         license_group: { type: 'string', enum: ['AM', 'A1', 'A2', 'A', 'B', 'N'], description: 'Skupina ŘP zákazníka. Vyšší skupina zahrnuje nižší (A→A2/A1/AM). "B" = běžný autořidičák — tool pro něj vrací i stroje A1 s automatickou převodovkou (typicky skútr 125), které v ČR držitel B smí řídit; u takového kusu vrátí `license_note`, kterou zákazníkovi sděl. "N" = bez ŘP (dětské).' },
         kw_min: { type: 'number' }, kw_max: { type: 'number' },
         price_max: { type: 'number', description: 'Max Kč/den' },
@@ -252,7 +252,7 @@ export async function execPublicReadTool(
               ? 'Stroje v `out_of_service_matches` ve flotile EXISTUJÍ, ale právě NEJSOU v nabídce (typicky v servisu / dočasně mimo provoz). Řekni zákazníkovi „máme, ale momentálně je v servisu / mimo provoz" a nabídni alternativu nebo pozdější termín. NIKDY netvrď, že takový stroj vůbec nemáme.'
               : undefined))
           : undefined,
-        motorcycles: result.slice(0, 8).map((m: Record<string, unknown>) => {
+        motorcycles: result.slice(0, 20).map((m: Record<string, unknown>) => {
           const base: Record<string, unknown> = {
             id: m.id,
             name: motoDisplayName(m.brand as string, m.model as string),
@@ -304,7 +304,7 @@ export async function execPublicReadTool(
     case 'calculate_price': {
       const { moto_id, start_date, end_date, promo_code } = args
       const { data: moto } = await sb.from('motorcycles')
-        .select('model, price_mon, price_tue, price_wed, price_thu, price_fri, price_sat, price_sun')
+        .select('model, price_mon, price_tue, price_wed, price_thu, price_fri, price_sat, price_sun, min_rental_days, max_rental_days')
         .eq('id', moto_id).maybeSingle()
       if (!moto) return { error: 'Motorka nenalezena' }
       const days = ['sun','mon','tue','wed','thu','fri','sat']
@@ -339,8 +339,17 @@ export async function execPublicReadTool(
           missing_price_days: missingDays,
         }
       }
+      // Vynucení min/max délky pronájmu z dat motorky (1:1 s ai-public-agent).
+      const minDays = Number(motoRow.min_rental_days || 0)
+      const maxDays = Number(motoRow.max_rental_days || 0)
+      if (minDays > 0 && count < minDays) {
+        return { error: `Tato motorka má minimální délku pronájmu ${minDays} ${minDays === 1 ? 'den' : minDays < 5 ? 'dny' : 'dní'} — požadovaný termín má jen ${count}. Nabídni zákazníkovi prodloužení termínu, nebo jinou motorku bez tohoto limitu.`, min_rental_days: minDays, requested_days: count }
+      }
+      if (maxDays > 0 && count > maxDays) {
+        return { error: `Tato motorka má maximální délku pronájmu ${maxDays} dní — požadovaný termín má ${count}. Nabídni zkrácení termínu nebo jinou motorku.`, max_rental_days: maxDays, requested_days: count }
+      }
       let discount = 0
-      let promoApplied: { type: string; value: number } | null = null
+      let promoApplied: { type: string; value: number; kind?: string } | null = null
       if (promo_code) {
         const { data: pr } = await sb.rpc('validate_promo_code', { code: promo_code })
         if (pr && (pr as Record<string, unknown>).valid) {
@@ -348,7 +357,18 @@ export async function execPublicReadTool(
           const v = Number(p.value)
           if (p.type === 'percent') discount = Math.round(total * v / 100)
           else discount = v
-          promoApplied = { type: String(p.type), value: v }
+          promoApplied = { type: String(p.type), value: v, kind: 'promo' }
+        } else {
+          // Není to promo kód — zkus VOUCHER (dárkový poukaz), 1:1 s ai-public-agent.
+          const { data: vch } = await sb.rpc('validate_voucher_code', { p_code: promo_code })
+          if (vch && (vch as Record<string, unknown>).valid) {
+            const p = vch as Record<string, unknown>
+            const v = Number(p.amount ?? p.value ?? 0)
+            if (v > 0) {
+              discount = Math.min(v, total)
+              promoApplied = { type: 'amount', value: v, kind: 'voucher' }
+            }
+          }
         }
       }
       return {
@@ -390,7 +410,8 @@ export async function execPublicReadTool(
       let matched = faqs
       if (rawQuery) {
         const qNorm = norm(rawQuery)
-        const tokens = qNorm.split(/[^a-z0-9]+/).filter((t) => t.length >= 3)
+        // Min. délka tokenu 2: zkratky „ŘP"→„rp", „OP", „km", „EU" jsou dvouznakové (1:1 s ai-public-agent).
+        const tokens = qNorm.split(/[^a-z0-9]+/).filter((t) => t.length >= 2)
         const scored = faqs
           .map((f) => {
             const hay = norm(f.q + ' ' + f.a + ' ' + (f.cat || ''))
@@ -539,12 +560,23 @@ export async function execPublicReadTool(
     }
     case 'get_branches': {
       const { data } = await sb.from('branches')
-        .select('id, name, address, city, zip, lat, lng, phone, is_open, type, notes')
+        .select('id, name, address, city, zip, lat, lng, gps_lat, gps_lng, phone, email, opening_hours, is_open, type, notes')
         .order('name')
-      return { branches: (data || []).map((b: Record<string, unknown>) => ({
-        id: b.id, name: b.name, address: `${b.address || ''}, ${b.zip || ''} ${b.city || ''}`.trim(),
-        lat: b.lat, lng: b.lng, phone: b.phone, is_open_nonstop: !!b.is_open, type: b.type, notes: b.notes,
-      })) }
+      return {
+        branches: (data || []).map((b: Record<string, unknown>) => {
+          const lat = b.lat ?? b.gps_lat ?? null
+          const lng = b.lng ?? b.gps_lng ?? null
+          return {
+            id: b.id, name: b.name, address: `${b.address || ''}, ${b.zip || ''} ${b.city || ''}`.trim(),
+            lat, lng,
+            maps_url: (lat != null && lng != null) ? `https://mapy.cz/zakladni?q=${lat},${lng}` : null,
+            phone: b.phone, email: b.email,
+            opening_hours: b.opening_hours || null,
+            is_open_nonstop: !!b.is_open, type: b.type, notes: b.notes,
+          }
+        }),
+        notice: 'Provoz je NONSTOP (samoobslužný výdej přes přístupové kódy) a rezervaci lze vytvořit 24/7 — ALE výdej motorky proběhne vždy až 1–6 hodin PO vytvoření a zaplacení rezervace (příprava stroje). Nikdy neslibuj okamžité vyzvednutí hned po rezervaci. Pokud má pobočka vyplněné `opening_hours`, platí pro ni tento údaj.',
+      }
     }
     case 'validate_promo_or_voucher': {
       const code = String(args.code || '').trim()

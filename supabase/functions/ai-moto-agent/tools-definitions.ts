@@ -35,7 +35,7 @@ const APP_TOOLS = [
       properties: {
         motorcycle_id: {
           type: 'string',
-          description: 'UUID motorky (z výsledku get_active_booking) — preferovaný způsob identifikace',
+          description: 'UUID motorky (z výsledku get_active_booking nebo search_motorcycles) — preferovaný způsob identifikace. Alias `moto_id` funguje také.',
         },
         brand: {
           type: 'string',
@@ -61,11 +61,7 @@ const APP_TOOLS = [
       properties: {
         query: {
           type: 'string',
-          description: 'Popis problému nebo hledaný výraz (česky)',
-        },
-        motorcycle_id: {
-          type: 'string',
-          description: 'UUID motorky pro filtraci výsledků (volitelné)',
+          description: 'Popis problému nebo hledaný výraz (česky). Bez čárek a závorek — prostá klíčová slova.',
         },
       },
       required: ['query'],
