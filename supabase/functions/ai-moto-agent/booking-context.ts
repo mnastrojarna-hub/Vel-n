@@ -78,6 +78,28 @@ suggest_sos: true pokud je závada vážná a zákazník by měl kontaktovat SOS
 
 Odpovídej v češtině, stručně a konkrétně pro daný model motorky.`
 
+// Hlavička s aktuálním datem (Europe/Prague) — počítá se PER REQUEST a připojuje k system
+// promptu v index.ts. Bez ní model hádal rok z trénovacích dat (reálná konverzace: zákazník
+// chtěl „neděli 19. 7." r. 2026, agent tvrdil „neděle je fakticky sobota 19. 7. 2025" a
+// nacenil sobotním ceníkem). Stejný princip jako „DNES JE" v ai-public-agent.
+export function buildDateHeader(): string {
+  const now = new Date()
+  const fmtIso = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Prague', year: 'numeric', month: '2-digit', day: '2-digit' })
+  const fmtCsLong = new Intl.DateTimeFormat('cs-CZ', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Prague' })
+  const fmtCs = new Intl.DateTimeFormat('cs-CZ', { weekday: 'long', day: 'numeric', month: 'numeric', year: 'numeric', timeZone: 'Europe/Prague' })
+  const label = (d: Date) => `${fmtIso.format(d)} (${fmtCs.format(d)})`
+  const add = (n: number) => new Date(now.getTime() + n * 86_400_000)
+  const dowMap: Record<string, number> = { Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6, Sun: 7 }
+  const dow = dowMap[new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: 'Europe/Prague' }).format(now)] || 1
+  const satOff = dow <= 5 ? 6 - dow : dow === 6 ? 0 : -1
+  return `
+
+## DNES JE ${fmtCsLong.format(now)} (ISO ${fmtIso.format(now)}, Europe/Prague) — JEDINÝ zdroj pravdy o aktuálním datu.
+- Dnes: ${label(now)} | Zítra: ${label(add(1))} | Tento víkend: ${label(add(satOff))} + ${label(add(satOff + 1))}
+- Rok ani den v týdnu NIKDY nehádej z hlavy ani z trénovacích dat — vždy vycházej z těchto hodnot. Když zákazník řekne datum bez roku (např. „19. 7."), platí AKTUÁLNÍ rok z hlavičky (příští rok jen pokud datum letos už proběhlo).
+- Den v týdnu k datu urči VÝHRADNĚ z ISO kalendáře aktuálního roku. NIKDY zákazníka „neopravuj" na jiný den v týdnu podle jiného roku; pokud jeho datum a den v týdnu opravdu nesedí ani v aktuálním roce, zdvořile se doptej, co platí.`
+}
+
 const TONE_MAP: Record<string, string> = {
   friendly: 'Komunikuj přátelsky a neformálně, buď vlídný a vstřícný.',
   professional: 'Komunikuj profesionálně a formálně, buď věcný a stručný.',

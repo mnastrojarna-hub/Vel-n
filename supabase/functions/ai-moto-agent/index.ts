@@ -2,7 +2,7 @@ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { TOOLS } from './tools-definitions.ts'
 import { executeTool } from './tools-executor.ts'
-import { loadAgentConfig, buildSystemPrompt, formatBookingContext, formatMultipleBookingsContext } from './booking-context.ts'
+import { loadAgentConfig, buildSystemPrompt, buildDateHeader, formatBookingContext, formatMultipleBookingsContext } from './booking-context.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
@@ -145,7 +145,7 @@ Zákazník nemá aktivní rezervaci nebo se nepodařilo načíst data. Při dota
       bookingContext = '\n\nNepodařilo se předem načíst rezervaci. Použij get_active_booking.'
     }
 
-    const systemPrompt = dynamicSystemPrompt + bookingContext
+    const systemPrompt = dynamicSystemPrompt + buildDateHeader() + bookingContext
 
     // -- Agentic loop --
     let finalText = ''

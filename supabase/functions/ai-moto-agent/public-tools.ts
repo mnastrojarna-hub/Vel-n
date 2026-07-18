@@ -39,8 +39,8 @@ export const PUBLIC_READ_TOOLS = [
       properties: {
         brand: { type: 'string', description: 'Značka, např. Kawasaki, BMW, Yamaha, Honda. Case-insensitive substring.' },
         model_query: { type: 'string', description: 'Volnotextový dotaz na model (např. "Z 900", "MT-09").' },
-        category: { type: 'string', enum: ['cestovni', 'naked', 'supermoto', 'detske'] },
-        license_group: { type: 'string', enum: ['AM', 'A1', 'A2', 'A', 'B', 'N'] },
+        category: { type: 'string', enum: ['cestovni', 'naked', 'supermoto', 'detske', 'scootery'], description: 'Kategorie. Skútry = "scootery" (na dotaz „máte skútr / scooter 125" filtruj category=scootery, NE model_query).' },
+        license_group: { type: 'string', enum: ['AM', 'A1', 'A2', 'A', 'B', 'N'], description: 'Skupina ŘP zákazníka. Vyšší skupina zahrnuje nižší (A→A2/A1/AM). "B" = běžný autořidičák — tool pro něj vrací i stroje A1 s automatickou převodovkou (typicky skútr 125), které v ČR držitel B smí řídit; u takového kusu vrátí `license_note`, kterou zákazníkovi sděl. "N" = bez ŘP (dětské).' },
         kw_min: { type: 'number' }, kw_max: { type: 'number' },
         price_max: { type: 'number', description: 'Max Kč/den' },
         available_on: { type: 'string', description: 'Datum YYYY-MM-DD — vrátí jen motorky volné v tento den.' },
@@ -137,24 +137,34 @@ export async function execPublicReadTool(
       let q = sb.from('motorcycles').select('id, model, brand, year, category, engine_cc, engine_type, power_kw, power_hp, torque_nm, weight_kg, seat_height_mm, top_speed_kmh, fuel_tank_l, fuel_consumption_l100km, fuel_type, transmission, drivetrain, brake_type, has_abs, has_asc, seats_count, license_required, color, price_mon, price_tue, price_wed, price_thu, price_fri, price_sat, price_sun, ideal_usage, description, features, suitable_for, min_rental_days, max_rental_days, image_url, manual_url, manual_external_url')
         .eq('status', 'active').order('model')
       if (args.category) q = q.ilike('category', `%${args.category}%`)
-      if (args.license_group) {
-        // ŘP je hierarchické (AM < A1 < A2 < A) — kdo má vyšší, smí i nižší.
-        // Zákazníkovi s „A" tak vrátíme i A2/A1/AM stroje, ne jen přesně „A".
-        const RIDEABLE: Record<string, string[]> = {
-          A: ['A', 'A2', 'A1', 'AM'],
-          A2: ['A2', 'A1', 'AM'],
-          A1: ['A1', 'AM'],
-          AM: ['AM'],
-        }
-        const allowed = RIDEABLE[String(args.license_group)]
-        q = allowed ? q.in('license_required', allowed) : q.eq('license_required', String(args.license_group))
+      // ŘP je hierarchické (AM < A1 < A2 < A) — kdo má vyšší, smí i nižší.
+      // Zákazníkovi s „A" tak vrátíme i A2/A1/AM stroje, ne jen přesně „A".
+      // „B" (autořidičák): vlastní B/AM stroje + A1 s AUTOMATICKOU převodovkou (typicky
+      // skútr 125) — ty v ČR držitel B řídit smí (viz pravidla ŘP v promptu). A1 s manuální
+      // převodovkou se pro B odfiltruje níže v JS.
+      const RIDEABLE: Record<string, string[]> = {
+        A: ['A', 'A2', 'A1', 'AM'],
+        A2: ['A2', 'A1', 'AM'],
+        A1: ['A1', 'AM'],
+        AM: ['AM'],
+        B: ['B', 'AM', 'A1'],
       }
+      const licGroup = args.license_group ? String(args.license_group) : ''
+      const licAllowed = licGroup ? (RIDEABLE[licGroup] || [licGroup]) : null
+      if (licAllowed) q = q.in('license_required', licAllowed)
       if (args.kw_min) q = q.gte('power_kw', Number(args.kw_min))
       if (args.kw_max) q = q.lte('power_kw', Number(args.kw_max))
       if (args.brand) q = q.ilike('brand', `%${String(args.brand)}%`)
       if (args.model_query) q = q.ilike('model', `%${String(args.model_query)}%`)
       const { data } = await q
       let result = data || []
+      // Skupina B: z přibraných A1 strojů nech jen ty s automatickou převodovkou (skútry) —
+      // jen ty smí držitel B v ČR řídit. Manuální A1 pro B nenabízíme.
+      const isAutomatic = (m: Record<string, unknown>) =>
+        /scoot/i.test(String(m.category || '')) || /automat|cvt|bezstup/i.test(`${m.transmission || ''} ${m.engine_type || ''}`)
+      if (licGroup === 'B') {
+        result = result.filter((m: Record<string, unknown>) => m.license_required !== 'A1' || isAutomatic(m))
+      }
       if (args.price_max) {
         const maxP = Number(args.price_max)
         result = result.filter((m: Record<string, unknown>) => {
@@ -166,6 +176,9 @@ export async function execPublicReadTool(
 
       const availFrom = args.available_on ? String(args.available_on) : (args.available_from ? String(args.available_from) : null)
       const availTo = args.available_on ? String(args.available_on) : (args.available_to ? String(args.available_to) : null)
+      // Jména strojů, které filtrům vyhověly, ale v termínu jsou OBSAZENÉ — agent pak umí říct
+      // „máme, ale v tom termínu je obsazený" místo nepravdivého „nemáme".
+      let bookedInWindow: string[] = []
       if (availFrom && availTo) {
         const checks = await Promise.all(result.map(async (m: Record<string, unknown>) => {
           const { data: booked } = await sb.rpc('get_moto_booked_dates', { p_moto_id: m.id })
@@ -173,7 +186,25 @@ export async function execPublicReadTool(
           const conflict = ranges.some((r) => !(availTo < r.start_date || availFrom > r.end_date))
           return { moto: m, free: !conflict }
         }))
+        bookedInWindow = checks.filter((c) => !c.free)
+          .map((c) => motoDisplayName((c.moto as Record<string, unknown>).brand as string, (c.moto as Record<string, unknown>).model as string))
         result = checks.filter((c) => c.free).map((c) => c.moto as Record<string, unknown>)
+      }
+
+      // Nic nevyhovělo, ale hledala se konkrétní kategorie/značka/model → zjisti, jestli takový
+      // stroj ve flotile EXISTUJE, jen právě není v nabídce (status service/inactive…). Agent pak
+      // řekne „máme, ale momentálně je v servisu" místo nepravdivého „nemáme vůbec".
+      let outOfService: Array<Record<string, unknown>> = []
+      if (result.length === 0 && bookedInWindow.length === 0 && (args.category || args.brand || args.model_query)) {
+        let q2 = sb.from('motorcycles').select('brand, model, status, category, license_required').neq('status', 'active')
+        if (args.category) q2 = q2.ilike('category', `%${args.category}%`)
+        if (args.brand) q2 = q2.ilike('brand', `%${String(args.brand)}%`)
+        if (args.model_query) q2 = q2.ilike('model', `%${String(args.model_query)}%`)
+        if (licAllowed) q2 = q2.in('license_required', licAllowed)
+        const { data: d2 } = await q2
+        outOfService = ((d2 || []) as Array<Record<string, unknown>>)
+          .filter((m) => licGroup !== 'B' || m.license_required !== 'A1' || isAutomatic(m))
+          .map((m) => ({ name: motoDisplayName(m.brand as string, m.model as string), status: m.status, category: m.category, license: m.license_required }))
       }
 
       const minPriceFor = (m: Record<string, unknown>): number => {
@@ -210,6 +241,17 @@ export async function execPublicReadTool(
       return {
         count: result.length,
         availability_window: availFrom ? { from: availFrom, to: availTo } : null,
+        // Stroje vyhovující filtrům, ale OBSAZENÉ v požadovaném termínu (jen když nic volného nezbylo).
+        booked_in_window: (result.length === 0 && bookedInWindow.length > 0) ? bookedInWindow : undefined,
+        // Stroje, které ve flotile existují, ale nejsou právě v nabídce (servis/mimo provoz).
+        out_of_service_matches: outOfService.length > 0 ? outOfService : undefined,
+        notice: result.length === 0
+          ? (bookedInWindow.length > 0
+            ? 'Stroje v `booked_in_window` MÁME a filtrům vyhovují, ale v požadovaném termínu jsou OBSAZENÉ. Řekni to zákazníkovi přesně takto a nabídni jiný termín (get_availability ukáže obsazené rozsahy). NIKDY netvrď, že takový stroj nemáme.'
+            : (outOfService.length > 0
+              ? 'Stroje v `out_of_service_matches` ve flotile EXISTUJÍ, ale právě NEJSOU v nabídce (typicky v servisu / dočasně mimo provoz). Řekni zákazníkovi „máme, ale momentálně je v servisu / mimo provoz" a nabídni alternativu nebo pozdější termín. NIKDY netvrď, že takový stroj vůbec nemáme.'
+              : undefined))
+          : undefined,
         motorcycles: result.slice(0, 8).map((m: Record<string, unknown>) => {
           const base: Record<string, unknown> = {
             id: m.id,
@@ -232,6 +274,9 @@ export async function execPublicReadTool(
             suitable_for: typeof m.suitable_for === 'string' ? String(m.suitable_for).slice(0, 500) : null,
             image_url: m.image_url,
             url: `https://www.motogo24.cz/katalog/${m.id}`,
+          }
+          if (licGroup === 'B' && m.license_required === 'A1') {
+            base.license_note = 'Stroj skupiny A1 s automatickou převodovkou — v ČR ho smí řídit i držitel ŘP B (dle zákonných podmínek délky držení ŘP). Zákazníkovi to výslovně řekni a podmínky ať si ověří dle svého ŘP.'
           }
           if (availFrom && availTo) {
             const pr = priceForRange(m, availFrom, availTo)
