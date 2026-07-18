@@ -27,8 +27,10 @@ const MANUAL_INSTRUCTION =
   '(kontrolky na palubní desce, symboly, startování, imobilizér). Pokud si ani po ' +
   'přečtení celého návodu nejsi jistý, CO PŘESNĚ zákazník vidí, NEODbývej to ' +
   'vyhýbavou odpovědí typu „návod to přímo nepopisuje" — polož mu 1–2 konkrétní ' +
-  'upřesňující otázky a požádej o fotku palubní desky / kontrolky, a teprve pak ' +
-  'odpověz. Vymyšlené technické údaje jsou zakázané; pokud informace v návodu ' +
+  'upřesňující otázky (kterou kontrolku přesně vidí, jakou má barvu a symbol, kdy ' +
+  'svítí) a teprve pak odpověz. O FOTKU NEŽÁDEJ — chat zatím neumí přílohy; když ' +
+  'zákazník fotku pošle sám, samozřejmě ji vyhodnoť. Vymyšlené technické údaje ' +
+  'jsou zakázané; pokud informace v návodu ' +
   'opravdu není, řekni to jasně až PO doptání a nabídni kontakt na MotoGo24.'
 
 function stripHtml(html: string): string {
@@ -209,8 +211,9 @@ export async function executeTool(
       let q = supabaseAdmin.from('motorcycles')
         .select('id, brand, model, year, category, engine_type, engine_cc, power_kw, power_hp, has_abs, has_asc, fuel_tank_l, seat_height_mm, weight_kg, features, manual_url, manual_external_url')
 
-      if (input.motorcycle_id) {
-        q = q.eq('id', input.motorcycle_id)
+      const motoIdArg = input.motorcycle_id || input.moto_id // alias: public agent/page_context používají moto_id
+      if (motoIdArg) {
+        q = q.eq('id', motoIdArg)
       } else if (input.brand || input.model) {
         if (input.brand) q = q.ilike('brand', `%${input.brand}%`)
         if (input.model) q = q.ilike('model', `%${input.model}%`)
@@ -243,7 +246,9 @@ export async function executeTool(
     }
 
     case 'search_troubleshooting': {
-      const searchQuery = (input.query as string) || ''
+      // Sanitizace: čárka/závorky/hvězdička v dotazu rozbíjejí syntaxi PostgREST .or()
+      // filtru („brzda, kontrolka (žlutá)" → chyba → falešné prázdno). Nahradíme mezerou.
+      const searchQuery = String(input.query || '').replace(/[,()*%]/g, ' ').replace(/\s+/g, ' ').trim()
 
       const { data: kbData, error: kbError } = await supabaseAdmin
         .from('motorcycle_knowledge_base')
@@ -274,15 +279,35 @@ export async function executeTool(
     }
 
     case 'get_fleet_overview': {
+      // Ceny: reálný ceník je per den v týdnu (price_mon..sun) — dřívější price_weekday/
+      // price_weekend jsou zastaralé sloupce a neodpovídaly skutečné ceně. Vracíme jen
+      // orientační min_price_kc + pokyn použít calculate_price pro přesnou cenu termínu.
       const { data, error } = await supabaseAdmin
         .from('motorcycles')
-        .select('id, brand, model, category, engine_cc, engine_type, power_kw, power_hp, has_abs, has_asc, license_required, seat_height_mm, weight_kg, fuel_tank_l, price_weekday, price_weekend, image_url')
+        .select('id, brand, model, category, engine_cc, engine_type, power_kw, power_hp, has_abs, has_asc, license_required, seat_height_mm, weight_kg, fuel_tank_l, price_mon, price_tue, price_wed, price_thu, price_fri, price_sat, price_sun, image_url')
         .eq('status', 'active')
         .order('brand')
 
       if (error) return { error: error.message }
       if (!data || data.length === 0) return { message: 'Žádné aktivní motorky ve flotile.' }
-      return data
+      const DAY_KEYS = ['price_mon','price_tue','price_wed','price_thu','price_fri','price_sat','price_sun']
+      return {
+        notice: 'Ceník je dle dne v týdnu — min_price_kc je jen NEJLEVNĚJŠÍ den pro orientaci. Přesnou cenu pro konkrétní termín VŽDY spočítej přes calculate_price, nikdy ji neodvozuj z min_price_kc.',
+        motorcycles: (data as Array<Record<string, unknown>>).map((m) => {
+          const ps = DAY_KEYS.map((k) => Number(m[k] || 0)).filter((v) => v > 0)
+          return {
+            id: m.id, name: motoDisplayName(m.brand as string, m.model as string),
+            brand: m.brand, model: m.model, category: m.category,
+            engine_cc: m.engine_cc, engine_type: m.engine_type,
+            power_kw: m.power_kw, power_hp: m.power_hp,
+            has_abs: m.has_abs, has_asc: m.has_asc,
+            license: m.license_required, seat_height_mm: m.seat_height_mm,
+            weight_kg: m.weight_kg, fuel_tank_l: m.fuel_tank_l,
+            min_price_kc: ps.length ? Math.min(...ps) : null,
+            image_url: m.image_url,
+          }
+        }),
+      }
     }
 
     default:
