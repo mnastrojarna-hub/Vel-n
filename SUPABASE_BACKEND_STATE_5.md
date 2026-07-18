@@ -10,7 +10,8 @@ Všechny tabulky mají RLS zapnuté. Vzory:
 - **Superadmin write:** `FOR ALL USING (is_superadmin())`
 - **Customer read own:** `FOR SELECT USING (user_id = auth.uid())`
 - **Customer insert own:** `FOR INSERT WITH CHECK (user_id = auth.uid())`
-- **Public read:** `FOR SELECT USING (true)` — branches, moto_locations, moto_day_prices, promo_codes(active), app_settings, motorcycles
+- **Public read:** `FOR SELECT USING (true)` — branches, moto_locations, moto_day_prices, promo_codes(active), motorcycles
+- **app_settings — UPDATE 2026-07-18 (SECURITY FIX, aplikováno ručně v SQL editoru, mimo git):** dřívější `FOR SELECT USING (true)` umožňovala komukoli s anon klíčem přečíst `key='service_role_key'` (plný přístup k DB) a `cms_admin_token`. Všechny SELECT policies nahrazeny jedinou **`Public read non-secret`**: `FOR SELECT USING (key NOT IN ('service_role_key','cms_admin_token'))` — vše ostatní (CMS texty `site.*`/`pages_overlay.*`, `header_banner`, `min_app_version`, `google_review_url`, `company_info`, `ai_public_agent_config`, …) zůstává anon-čitelné (web/appka na tom závisí). Ověřeno testem `SET LOCAL ROLE anon`: secrets skryté, veřejné klíče čitelné. Interní čtení secrets funguje dál: SQL funkce (`send_push_via_edge`, `send_abandoned_booking_emails`) běží jako vlastník tabulky (RLS je neomezuje), edge fn čtou service_role klíčem; `cms_admin_token` ověřuje primárně edge `cms-admin-auth` (fix 2026-06-10), anon fallback v PHP tím definitivně přestal fungovat (záměr).
 - **Branch-based admin access:** Některé politiky kontrolují `admin_users.branch_access` pro omezení přístupu dle pobočky
 
 Detailní politiky:
@@ -225,7 +226,7 @@ Důsledek: tlačítko „Stáhnout" v `motogo24.cz/upravit-rezervaci?` (Doklady 
 | `app.settings.supabase_url` | URL pro `send_push_via_edge()` SQL helper (GUC, na Supabase managed nepřístupný k zápisu) |
 | `app.settings.service_role_key` | Service role key pro autorizaci `send-push` z DB triggerů (GUC) |
 | `app_settings(key='supabase_url')` | URL pro `send_abandoned_booking_emails()` — uloženo jako jsonb string v public tabulce, čte se přes `value #>> '{}'`. Použito místo GUC, protože `ALTER DATABASE` vyhazuje na Supabase managed `permission denied`. |
-| `app_settings(key='service_role_key')` | Service role JWT pro autorizaci pg_net.http_post z `send_abandoned_booking_emails()`. |
+| `app_settings(key='service_role_key')` | Service role JWT pro autorizaci pg_net.http_post z `send_abandoned_booking_emails()`. **Od 2026-07-18 skrytý před anon rolí** (RLS `Public read non-secret`, viz sekce RLS) — SQL funkce ho čtou dál (owner bypass). |
 
 **Frontend config (ne secret):**
 | Klíč | Hodnota |
