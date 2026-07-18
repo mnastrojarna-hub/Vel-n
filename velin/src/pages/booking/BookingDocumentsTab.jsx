@@ -30,6 +30,8 @@ export default function BookingDocumentsTab({ bookingId, userId }) {
   const [sendOffer, setSendOffer] = useState(null) // info uloženého el. protokolu → nabídka odeslání zákazníkovi
   const [sendingProtocol, setSendingProtocol] = useState(false)
   const [sendResult, setSendResult] = useState(null)
+  const [sendingDocId, setSendingDocId] = useState(null) // id protokolu odesílaného ze seznamu
+  const [protoSendMsg, setProtoSendMsg] = useState(null)
 
   useEffect(() => { loadAll(); loadDbTemplates() }, [bookingId])
 
@@ -208,6 +210,45 @@ export default function BookingDocumentsTab({ bookingId, userId }) {
     setSendingProtocol(false)
   }
 
+  function protocolDocType(d) {
+    const t = d.document_templates?.type || d.filled_data?._doc_type || ''
+    if (t === 'handover_protocol') return 'handover_protocol'
+    if (t === 'damage_protocol' || t === 'protocol_damage') return 'damage_protocol'
+    return null
+  }
+
+  // Odeslání (i opakované) uloženého protokolu zákazníkovi přímo ze seznamu
+  // vygenerovaných dokumentů — funguje pro elektronické (podepsané HTML ve
+  // filled_data) i tištěné protokoly (HTML se doskládá ze šablony).
+  async function resendSavedProtocol(d) {
+    const type = protocolDocType(d)
+    if (!type) return
+    setSendingDocId(d.id); setProtoSendMsg(null)
+    try {
+      const { data: booking } = await supabase.from('bookings').select('*, motorcycles!moto_id(model, spz, vin, year, license_required)').eq('id', bookingId).single()
+      let customer = {}
+      if (booking?.user_id) { const { data: prof } = await supabase.from('profiles').select('id, full_name, email, phone, street, city, zip, country, ico, dic, license_number, license_expiry').eq('id', booking.user_id).single(); if (prof) customer = prof }
+      const vars = (d.filled_data && d.filled_data.customer_name) ? d.filled_data : buildDocVars(booking || {}, customer, bookingId)
+      let html = d.filled_data?._signed_html || null
+      if (!html) {
+        const tpl = d.document_templates?.content_html || getClientTemplate(type, dbTemplates)
+        if (tpl) html = fillTemplate(tpl, vars)
+      }
+      const docName = d.filled_data?._doc_name || d.document_templates?.name || (type === 'damage_protocol' ? 'Protokol o poškození' : 'Předávací protokol')
+      const moto = `${vars.moto_model || booking?.motorcycles?.model || ''}${vars.moto_spz ? ` (${vars.moto_spz})` : ''}`
+      const info = {
+        html, type, docId: d.id, pdfPath: d.pdf_path || null, docName, bookingId,
+        customerId: booking?.user_id || d.customer_id || null,
+        customerEmail: customer.email || vars.customer_email || '',
+        customerName: customer.full_name || vars.customer_name || '',
+        moto, rentalPeriod: vars.rental_period || '', bookingNumber: vars.booking_number || (bookingId || '').slice(-8).toUpperCase(),
+      }
+      const r = await sendProtocolEmail(info)
+      setProtoSendMsg(r.sent ? `✓ ${docName} odeslán zákazníkovi na ${info.customerEmail}.` : `Odeslání selhalo: ${r.error}`)
+    } catch (e) { setProtoSendMsg(`Odeslání selhalo: ${e.message}`) }
+    setSendingDocId(null)
+  }
+
   if (loading) return <div className="py-8 text-center"><div className="animate-spin inline-block rounded-full h-6 w-6 border-t-2 border-brand-gd" /></div>
 
   return (
@@ -252,10 +293,11 @@ export default function BookingDocumentsTab({ bookingId, userId }) {
       </Card>
       <Card>
         <h3 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>Vygenerovane dokumenty</h3>
+        {protoSendMsg && <div className="p-3 rounded-card mb-3" style={{ background: protoSendMsg.startsWith('\u2713') ? '#dcfce7' : '#fee2e2', color: protoSendMsg.startsWith('\u2713') ? '#166534' : '#dc2626', fontSize: 13 }}>{protoSendMsg}</div>}
         {generatedDocs.length === 0 ? <p style={{ color: '#1a2e22', fontSize: 13 }}>Zadne vygenerovane dokumenty</p> : generatedDocs.map(d => { const docType = d.document_templates?.type || d.filled_data?._doc_type || 'contract'; return (
           <div key={d.id} className="flex items-center gap-4 p-3 rounded-lg mb-2 cursor-pointer hover:shadow-sm transition-shadow" style={{ background: '#f1faf7' }} onClick={() => handleViewGeneratedDoc(d)}>
             <span style={{ fontSize: 16 }}>{DOC_ICONS[docType] || '\ud83d\udcc4'}</span><div className="flex-1"><span className="text-sm font-bold">{d.document_templates?.name || d.filled_data?._doc_name || 'Dokument'}</span>{d.filled_data?._electronic && <span className="text-xs ml-2 px-2 py-0.5 rounded-full" style={{ background: '#dcfce7', color: '#166534', fontWeight: 700 }}>el. podeps\u00e1no</span>}<span className="text-sm ml-3" style={{ color: '#1a2e22' }}>{d.created_at?.slice(0, 10)}</span></div>
-            <div className="flex gap-2" onClick={e => e.stopPropagation()}><button onClick={() => handleViewGeneratedDoc(d)} className="text-sm font-bold cursor-pointer" style={{ color: '#2563eb', background: 'none', border: 'none' }}>Zobrazit</button><button onClick={() => handleDownload(d)} className="text-sm font-bold cursor-pointer" style={{ color: '#1a2e22', background: 'none', border: 'none' }}>Stahnout</button></div>
+            <div className="flex gap-2" onClick={e => e.stopPropagation()}>{protocolDocType(d) && <button onClick={() => resendSavedProtocol(d)} disabled={sendingDocId === d.id} className="text-sm font-bold cursor-pointer" style={{ color: '#15803d', background: 'none', border: 'none' }}>{sendingDocId === d.id ? 'Odes\u00edl\u00e1m\u2026' : '\ud83d\udce7 Poslat z\u00e1kazn\u00edkovi'}</button>}<button onClick={() => handleViewGeneratedDoc(d)} className="text-sm font-bold cursor-pointer" style={{ color: '#2563eb', background: 'none', border: 'none' }}>Zobrazit</button><button onClick={() => handleDownload(d)} className="text-sm font-bold cursor-pointer" style={{ color: '#1a2e22', background: 'none', border: 'none' }}>Stahnout</button></div>
           </div>
         ) })}
       </Card>

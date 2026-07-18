@@ -861,6 +861,14 @@ return [
     'editRez.doc.uploadingMsg' => 'Nahrávám a skenuji…',
     'editRez.doc.scanOk' => 'Doklad uložen ✓ — pokud je rezervace zaplacená, kódy ti dorazí na email/SMS.',
     'editRez.doc.scanFail' => 'Sken se nepodařil — zkus znovu nebo lépe nasviť.',
+    'editRez.doc.licTitle' => 'Řidičský průkaz — skupina a platnost',
+    'editRez.doc.licHelp' => 'Doplňte skupinu(y) vašeho ŘP a datum platnosti — údaje se ukládají automaticky.',
+    'editRez.doc.licGroupLabel' => 'Skupina ŘP',
+    'editRez.doc.licExpiryLabel' => 'Platnost ŘP do',
+    'editRez.doc.licNone' => 'Bez ŘP',
+    'editRez.doc.licSaved' => 'Uloženo ✓',
+    'editRez.doc.licSaveErr' => 'Uložení se nepodařilo — zkuste to znovu.',
+    'editRez.doc.licExpiryInvalid' => 'Platnost ŘP je v minulosti — zkontrolujte datum.',
 
     // Statuses
     'editRez.status.pending' => 'Čeká na zaplacení',

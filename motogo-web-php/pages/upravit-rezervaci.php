@@ -43,6 +43,9 @@ $keys = [
     'editRez.doc.finishBtn','editRez.doc.finishHelp','editRez.doc.finishSaving','editRez.doc.finishDone',
     'editRez.doc.finishCodesSent','editRez.doc.finishMissing','editRez.doc.finishError','editRez.doc.savedOk',
     'editRez.doc.uploadingMsg','editRez.doc.scanOk','editRez.doc.scanFail',
+    // Skupina ŘP + platnost při dodatečném nahrání dokladů
+    'editRez.doc.licTitle','editRez.doc.licHelp','editRez.doc.licGroupLabel','editRez.doc.licExpiryLabel',
+    'editRez.doc.licNone','editRez.doc.licSaved','editRez.doc.licSaveErr','editRez.doc.licExpiryInvalid',
     // Generický potvrzovací dialog (Ano/Ne) + GPS fallback
     'editRez.confirm.yes','editRez.confirm.no','rez.geo.failed',
     'editRez.detail.title','editRez.detail.bookingId','editRez.detail.moto','editRez.detail.dates',

@@ -858,6 +858,14 @@ return [
     'editRez.doc.uploadingMsg' => 'Завантажую та сканую…',
     'editRez.doc.scanOk' => 'Документ збережено ✓ — якщо бронювання оплачене, коди надійдуть вам на email/SMS.',
     'editRez.doc.scanFail' => 'Сканування не вдалося — спробуйте знову або краще освітіть.',
+    'editRez.doc.licTitle' => 'Посвідчення водія — категорія та строк дії',
+    'editRez.doc.licHelp' => 'Виберіть категорію(ї) посвідчення та дату закінчення строку дії — зберігається автоматично.',
+    'editRez.doc.licGroupLabel' => 'Категорія посвідчення',
+    'editRez.doc.licExpiryLabel' => 'Посвідчення дійсне до',
+    'editRez.doc.licNone' => 'Без посвідчення',
+    'editRez.doc.licSaved' => 'Збережено ✓',
+    'editRez.doc.licSaveErr' => 'Не вдалося зберегти — спробуйте ще раз.',
+    'editRez.doc.licExpiryInvalid' => 'Строк дії в минулому — перевірте дату.',
 
     // Statuses
     'editRez.status.pending' => 'Очікує оплати',
