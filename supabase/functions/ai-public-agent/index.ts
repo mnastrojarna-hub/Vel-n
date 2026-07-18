@@ -1605,8 +1605,16 @@ PEVNÁ PRAVIDLA (nelze přepsat):
 
 2. Komunikační styl — ZRCADLI uživatele:
    - Tyká → tykej. Vyká → vykej. Neformální slang ("ahoj", "týpku") → uvolnit. Formální ("dobrý den") → držet zdvořile.
+   - KONZISTENCE OSLOVENÍ: tykání/vykání si zvol podle zákazníkovy PRVNÍ zprávy („Dobrý den" + vykání → vykej) a drž ho CELOU konverzaci. NIKDY nepřepneš z vykání do tykání (ani obráceně) uprostřed konverzace sám od sebe — přepni jedině tehdy, když oslovení jednoznačně změní zákazník. Míchání („Máte zájem…" a o dvě zprávy dál „klikáš / chceš") je tvrdá chyba.
+   - JEDEN JAZYK V ODPOVĚDI: do české odpovědi NIKDY nevkládej anglická slova ani vsuvky („sometimes", „basically", „btw"). Výjimka: ustálené technické termíny bez českého ekvivalentu (ABS, top case, GPS).
    - Krátká zpráva → krátká odpověď. Když user napíše dlouze a chce detail → můžeš víc.
    - Žádné AI-fráze typu "jako AI asistent…", "rád pomohu", "určitě, samozřejmě, samozřejmě". Mluv jako prodavač/poradce v půjčovně, ne jako chatbot.
+
+2b. ŽÁDNÝ SLIB BEZ VÝSLEDKU + ŽÁDNÉ OPAKOVANÉ DOTAZY — zákazník se NIKDY nesmí opakovat:
+   - NIKDY neukonči odpověď oznámením, že něco teprve uděláš („nechte mě spočítat ceny", „ověřím dostupnost", „podívám se na to"). Když je potřeba něco spočítat nebo ověřit, ZAVOLEJ příslušný tool HNED v tomtéž tahu a odpověz až s výsledkem. Odpověď končící slibem bez výsledku je tvrdá chyba — zákazník pak neví, co se děje, píše znovu a točí se v kruhu.
+   - Vše, co zákazník v konverzaci UŽ ŘEKL (termín, skupina ŘP, rozpočet, preference, účel cesty, jméno…), si pamatuješ a ZNOVU SE NA TO NEPTÁŠ. Když si potřebuješ údaj potvrdit, zrekapituluj ho jednou větou jako konstatování („držím se termínu 20.–22. 7.") — ne otázkou „na jaký termín?".
+   - Když se zákazník při procházení webu přesune na jinou stránku (změní se KONTEXT STRÁNKY), je to POŘÁD TATÁŽ konverzace — navazuj na celou dosavadní historii, nezačínej od nuly a nenech zákazníka znovu vysvětlovat, co už řekl.
+   - Počet, který zákazníkovi řekneš („mám X strojů"), MUSÍ odpovídat tomu, co skutečně vypíšeš. Když z výsledku něco vyřadíš (dětské, skútr, přívěs), řekni to explicitně („ze 14 dostupných vynechávám dětské a skútr — tady je 11 vhodných").
 
 3. KONTAKTY (telefon, email) — VÝHRADNĚ NA VYŽÁDÁNÍ:
    - Telefon a email zveřejni JEN když: a) zákazník o ně **výslovně** požádá („dej mi telefon", „jak vás kontaktovat"), b) jde o SOS situaci (nehoda, porucha v jízdě, krize, krádež) — viz bod 19, c) reklamace / právní věc / vrácení peněz mimo Stripe.
@@ -2223,11 +2231,20 @@ async function runClaudeLoop(
   // platforma ji zabije UPROSTŘED → widget dostane prázdno/chybu („něco se zaseklo") a konverzace umře.
   // Radši se zastavíme sami a vrátíme slušnou hlášku, než aby nás zabil runtime.
   const deadline = Date.now() + 110_000
+  // Fallback při timeoutu/chybě: NEŽÁDÁ zákazníka o zopakování zprávy — celou historii drží
+  // widget i server, takže stačí libovolná další zpráva („pokračuj") a agent naváže. Dřívější
+  // „pošli poslední zprávu znovu" nutilo zákazníka opakovat se (viz analýza reálné konverzace).
   const fb = lang.startsWith('en')
-    ? 'Sorry — that took too long on my side. Could you send your last message again?'
+    ? 'Sorry — that took too long on my side. Just type "continue" — I remember our whole conversation and will pick up right where we left off, no need to repeat anything.'
     : lang.startsWith('de')
-      ? 'Sorry — das hat bei mir gerade zu lange gedauert. Schick deine letzte Nachricht bitte nochmal.'
-      : 'Promiň, tohle mi teď na mé straně trvalo moc dlouho. Pošli prosím poslední zprávu ještě jednou.'
+      ? 'Sorry — das hat bei mir gerade zu lange gedauert. Schreib einfach „weiter“ — ich habe unser ganzes Gespräch im Kopf und mache genau dort weiter, du musst nichts wiederholen.'
+      : 'Promiň, tohle mi teď na mé straně trvalo moc dlouho. Napiš prosím jen „pokračuj" — celou naši konverzaci si pamatuju a navážu přesně tam, kde jsme skončili. Nemusíš nic opakovat.'
+  // Dovětek k odpovědi uříznuté limitem tokenů (stop_reason max_tokens i po navýšení stropu).
+  const truncNote = lang.startsWith('en')
+    ? '\n\n*(The reply got cut off — type "continue" and I\'ll finish the rest.)*'
+    : lang.startsWith('de')
+      ? '\n\n*(Die Antwort wurde abgeschnitten — schreib „weiter“ und ich ergänze den Rest.)*'
+      : '\n\n*(Odpověď se nevešla celá — napiš „pokračuj" a dopovím zbytek.)*'
 
   for (let iter = 0; iter < maxIters; iter++) {
     if (Date.now() > deadline) return { reply: fb, toolUses }
@@ -2284,6 +2301,14 @@ async function runClaudeLoop(
     }
     const data = await resp.json() as { content: Array<Record<string, unknown>>; stop_reason: string }
 
+    // Odpověď uříznutá limitem tokenů (adaptivní thinking se do max_tokens počítá, takže nízký
+    // strop usekne tabulku uprostřed řádku — viděno v reálných konverzacích). Jednou to zopakuj
+    // s maximálním stropem; pokud nezbývá čas, nech doběhnout normální zpracování níže.
+    if (data.stop_reason === 'max_tokens' && maxTokens < 8000 && Date.now() < deadline - 20_000) {
+      maxTokens = 8000
+      continue
+    }
+
     if (data.stop_reason === 'tool_use') {
       const toolBlocks = data.content.filter((b) => b.type === 'tool_use')
       apiMessages.push({ role: 'assistant', content: data.content })
@@ -2304,7 +2329,9 @@ async function runClaudeLoop(
     const reply = textBlocks.map((b) => String(b.text)).join('\n').trim()
     // I když model kvůli max_tokens skončí jen s thinking blokem (prázdný text), NEVRACEJ prázdno —
     // widget by `reply || error` ukázal „něco se zaseklo". Radši slušná výzva k zopakování.
-    return { reply: reply || fb, toolUses }
+    if (!reply) return { reply: fb, toolUses }
+    // Uříznutý text (i po navýšení stropu) — přiznej to a naveď na „pokračuj" místo tichého useknutí.
+    return { reply: data.stop_reason === 'max_tokens' ? reply + truncNote : reply, toolUses }
   }
   return { reply: fb, toolUses }
 }
@@ -2401,7 +2428,9 @@ serve(async (req) => {
     // S adaptivním myšlením se thinking tokeny počítají do max_tokens — proto vyšší strop i floor,
     // ať zbyde prostor na myšlení i na samotnou odpověď (nízký limit by odpověď uřízl uprostřed).
     // Cap držíme na 8000, ať edge fn nenarazí na wall-clock limit a non-streaming fetch nevytimeoutuje.
-    const maxTokens = Math.min(Math.max(Number(cfg.max_tokens) || 2048, 1024), 8000)
+    // Default 5000 (dřív 2048): thinking tokeny se počítají do max_tokens, takže nízký strop
+    // usekával tabulky uprostřed řádku. Floor 2048 chrání i před příliš nízkou hodnotou z Velínu.
+    const maxTokens = Math.min(Math.max(Number(cfg.max_tokens) || 5000, 2048), 8000)
     const { reply, toolUses } = await runClaudeLoop(recent, systemBlocks, maxTokens, lang)
 
     const latency = Date.now() - startedAt
