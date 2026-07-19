@@ -19,10 +19,21 @@ Tyto soubory obsahují kompletní stav Supabase backendu — všechny tabulky, s
 
 Toto je soustava propojených aplikací pro MotoGo24 (půjčovna motorek):
 
-- **motogo-app-flutter/** — Mobilní appka pro zákazníky (codemagic build)
+- **Motogo-app-main/motogo-app-flutter/** — Mobilní appka pro zákazníky, Android MASTER (codemagic build)
+- **Motogo-app-main/motogo-app-flutter-ios/** — iOS kopie appky pro App Store (codemagic build) — viz pravidla synchronizace níže
 - **velin/** — Velín = superadmin dashboard (React 18 + Vite + TailwindCSS)
 - **supabase/** — Backend: Edge Functions + SQL migrace
 - **doc-scanner/** - Mobilní capacitor vstup pro účetní přijaté dokumenty všeho druhu do velínu
+
+## Appka: dva stromy (Android + iOS) — POVINNÁ synchronizace
+
+Flutter appka existuje ve DVOU kopiích se stejnou sadou souborů: `motogo-app-flutter` (Android, master) a `motogo-app-flutter-ios` (iOS). Historicky tu vznikal drift (např. vozík zdarma chyběl v iOS → zákazníci na iPhonu ho neviděli). Pravidla:
+
+1. **Každou změnu sdíleného kódu appky proveď VŽDY v OBOU stromech ve stejném commitu.** Po změně ověř `diff -rq` obou `lib/` — lišit se smí POUZE soubory ze seznamu záměrných rozdílů níže.
+2. **Záměrné platformní rozdíly (NEsjednocovat slepě):** `main.dart` (edge-to-edge vs. App Store onboarding), `core/overlays/onboarding_overlays.dart` (App Store 5.1.1(iv) — bez „Povolit vše/Přeskočit"), `core/update_check_provider.dart` (App Store vs. Play URL), `core/offline_guard.dart` (iOS drží starší API connectivity_plus 5), `features/payment/payment_methods_screen.dart` (iOS BEZ ručního zadání karty — App Store 5.1.1/PCI), `features/payment/widgets/card_payment_sheet.dart` (Apple Pay vs. Google Pay), `features/payment/payment_error_mapper.dart` (substituce Apple Pay), `core/i18n/translations_*` hlavní soubory (iOS-only klíč `cardsSavedAtCheckout`).
+3. **iOS pubspec pinuje STARŠÍ verze balíčků** (connectivity_plus ^5, flutter_stripe ^11, firebase 15/3.x kvůli Xcode, permission_handler ^11, secure_storage ^9, geolocator ^10…). Kód portovaný z Androidu MUSÍ používat API kompatibilní s těmito piny — nikdy nebumpuj iOS závislosti jen kvůli portu.
+4. **Ostrý rezervační formulář je JEN `core/booking_form_widget.dart`** (route `/booking`, sekce 1–6). Starší generace (`booking_form_screen`, `booking_form_body` + widgety) byly smazané jako mrtvý kód — neobnovovat, nové soubory formuláře nezakládat.
+5. Assety: oba stromy používají **webp** (`logo.webp`, `darkovy-poukaz.webp`).
 
 ## Nasazení (autodeploy přes git — NIC se nenasazuje ručně)
 

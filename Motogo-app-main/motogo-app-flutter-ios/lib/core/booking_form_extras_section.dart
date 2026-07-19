@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../features/booking/booking_models.dart';
+import '../features/booking/booking_provider.dart';
 import '../features/booking/booking_ui_helpers.dart';
 import 'booking_size_dialogs.dart';
 import 'i18n/i18n_provider.dart';
@@ -225,7 +226,101 @@ class BookingFormExtrasSection extends ConsumerWidget {
               ),
             );
           }),
+          // Vozík (přívěs) — zdarma v appce; přiřadí volný kus a blokuje jeho
+          // kalendář. Skryté u dětských motorek i když není volný kus.
+          if (!isKids) _buildTrailerTile(context, ref),
         ],
+      ),
+    );
+  }
+
+  Widget _buildTrailerTile(BuildContext context, WidgetRef ref) {
+    final selected = draft.trailerMotoId != null;
+    final avail = ref
+        .watch(trailerAvailabilityProvider((start: draft.startDate, end: draft.endDate)));
+    final candidate = avail.valueOrNull;
+    // Skryj, pokud vozík není vybraný a žádný volný kus není dostupný.
+    if (!selected && (candidate == null || !candidate.hasFree)) {
+      return const SizedBox.shrink();
+    }
+    final assignId = selected ? draft.trailerMotoId : candidate?.trailerId;
+    return GestureDetector(
+      onTap: () {
+        if (selected) {
+          final ne = List<SelectedExtra>.from(draft.extras)
+            ..removeWhere((e) => e.id == 'extra-vozik');
+          onUpd((d) => d.copyWith(extras: ne, trailerMotoId: () => null));
+        } else if (assignId != null) {
+          final ne = List<SelectedExtra>.from(draft.extras)
+            ..add(SelectedExtra(
+                id: 'extra-vozik',
+                name: t(context).tr('gearTrailer'),
+                price: 0));
+          onUpd((d) => d.copyWith(extras: ne, trailerMotoId: () => assignId));
+        }
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 6),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFFE8FFE8) : Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: selected ? const Color(0xFF74FB71) : const Color(0xFFD4E8E0),
+            width: selected ? 2 : 1,
+          ),
+        ),
+        child: Row(children: [
+          Container(
+            width: 20,
+            height: 20,
+            decoration: BoxDecoration(
+              color: selected ? const Color(0xFF74FB71) : Colors.transparent,
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(
+                color: selected ? const Color(0xFF74FB71) : const Color(0xFFD4E8E0),
+                width: 2,
+              ),
+            ),
+            child: selected
+                ? const Icon(Icons.check, size: 14, color: Colors.black)
+                : null,
+          ),
+          const SizedBox(width: 10),
+          const Text('🛻 ', style: TextStyle(fontSize: 18)),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  t(context).tr('gearTrailer'),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    decoration: TextDecoration.none,
+                  ),
+                ),
+                Text(
+                  t(context).tr('gearTrailerDesc'),
+                  style: const TextStyle(
+                    fontSize: 10,
+                    color: Color(0xFF8AAB99),
+                    decoration: TextDecoration.none,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            t(context).tr('gearFree'),
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF3DBA3A),
+              decoration: TextDecoration.none,
+            ),
+          ),
+        ]),
       ),
     );
   }

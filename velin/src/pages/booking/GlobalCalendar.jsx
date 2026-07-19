@@ -32,8 +32,10 @@ export default function GlobalCalendar() {
     const endStr = localIso(end)
 
     const [bRes, mRes] = await Promise.all([
+      // trailer_moto_id = kus přiřazený jako příslušenství „Vozík" — blokuje
+      // jeho kalendář stejně jako přímá rezervace (parita s get_moto_booked_dates).
       supabase.from('bookings')
-        .select('id, start_date, end_date, status, moto_id, profiles(full_name), motorcycles!moto_id(model, spz), total_price')
+        .select('id, start_date, end_date, status, moto_id, trailer_moto_id, profiles(full_name), motorcycles!moto_id(model, spz), trailer:motorcycles!trailer_moto_id(model, spz), total_price')
         .in('status', ['pending', 'active', 'reserved', 'completed'])
         .gte('end_date', startStr).lte('start_date', endStr),
       supabase.from('motorcycles').select('id, model, spz, branch_id, branches(name)').eq('status', 'active'),
@@ -58,7 +60,7 @@ export default function GlobalCalendar() {
   function getDayInfo(day) {
     const dateStr = `${year}-${String(mon + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
     const dayBookings = getDayBookings(day)
-    const occupiedCount = new Set(dayBookings.map(b => b.moto_id)).size
+    const occupiedCount = new Set(dayBookings.flatMap(b => [b.moto_id, b.trailer_moto_id].filter(Boolean))).size
     const isToday = dateStr === todayStr
     const ratio = occupiedCount / totalMotos
     if (occupiedCount === 0) return { bg: isToday ? '#bbf7d0' : '#dcfce7', color: '#15803d', label: 'Vše volné', count: 0 }
@@ -132,11 +134,12 @@ export default function GlobalCalendar() {
                         {b.profiles?.full_name || 'Zákazník'}
                         <span className="ml-2" style={{ color: '#1a2e22' }}>{b.start_date ? new Date(b.start_date).toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric' }) : ''} → {b.end_date ? new Date(b.end_date).toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric', year: 'numeric' }) : ''}</span>
                       </div>
+                      {b.trailer_moto_id && <div className="text-sm mt-1" style={{ color: '#1a2e22' }}>🛻 + Vozík: {b.trailer?.model || '—'} {b.trailer?.spz || ''}</div>}
                       {b.total_price && <div className="text-sm font-bold mt-1" style={{ color: '#3dba3a' }}>{Number(b.total_price).toLocaleString('cs-CZ')} Kč</div>}
                     </div>
                   ))}
                   {showFree && (() => {
-                    const occupiedMotoIds = new Set(dayDetail.map(b => b.moto_id))
+                    const occupiedMotoIds = new Set(dayDetail.flatMap(b => [b.moto_id, b.trailer_moto_id].filter(Boolean)))
                     const freeMotos = motos.filter(m => !occupiedMotoIds.has(m.id))
                     if (freeMotos.length === 0) return <p style={{ color: '#1a2e22', fontSize: 12, marginTop: 8 }}>Žádné volné motorky</p>
                     return (

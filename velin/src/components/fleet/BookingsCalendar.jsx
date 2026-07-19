@@ -44,9 +44,11 @@ export default function BookingsCalendar({ motoId, onSwitchTab }) {
     const endStr = end.toISOString().split('T')[0]
 
     const [bRes, mRes] = await Promise.all([
+      // Kus blokují i rezervace, kde je přiřazený jako příslušenství „Vozík"
+      // (bookings.trailer_moto_id) — stejná logika jako RPC get_moto_booked_dates.
       supabase.from('bookings')
-        .select('id, start_date, end_date, status, user_id, profiles(full_name), total_price')
-        .eq('moto_id', motoId)
+        .select('id, start_date, end_date, status, user_id, moto_id, trailer_moto_id, profiles(full_name), total_price')
+        .or(`moto_id.eq.${motoId},trailer_moto_id.eq.${motoId}`)
         .in('status', ['pending', 'active', 'reserved', 'completed'])
         .gte('end_date', startStr).lte('start_date', endStr),
       // Servis blokuje POUZE rozsah service_date → scheduled_date. Nefiltrujeme
@@ -91,11 +93,13 @@ export default function BookingsCalendar({ motoId, onSwitchTab }) {
     // Booking check
     const booking = bookings.find(b => dateStr >= b.start_date.split('T')[0] && dateStr <= b.end_date.split('T')[0])
     if (booking) {
+      // Gear přiřazení: tento kus (vozík) je příslušenstvím cizí rezervace.
+      const gear = booking.moto_id !== motoId ? ' · Vozík k rezervaci' : ''
       if (booking.status === 'pending' || booking.status === 'reserved')
-        return { type: 'unconfirmed', bg: '#ffffff', color: '#1a2e22', border: '2px dashed #d4e8e0', label: `${booking.profiles?.full_name || '?'} · Nepotvrzeno`, booking }
+        return { type: 'unconfirmed', bg: '#ffffff', color: '#1a2e22', border: '2px dashed #d4e8e0', label: `${booking.profiles?.full_name || '?'} · Nepotvrzeno${gear}`, booking }
       if (booking.status === 'completed' || isPast)
-        return { type: 'history', bg: '#166534', color: '#fff', label: `${booking.profiles?.full_name || '?'} · Dokončeno`, booking }
-      return { type: 'occupied', bg: '#15803d', color: '#fff', label: `${booking.profiles?.full_name || '?'} · ${booking.status}`, booking }
+        return { type: 'history', bg: '#166534', color: '#fff', label: `${booking.profiles?.full_name || '?'} · Dokončeno${gear}`, booking }
+      return { type: 'occupied', bg: '#15803d', color: '#fff', label: `${booking.profiles?.full_name || '?'} · ${booking.status}${gear}`, booking }
     }
 
     // Free day (light green)

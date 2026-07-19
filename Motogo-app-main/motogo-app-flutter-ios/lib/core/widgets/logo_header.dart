@@ -45,7 +45,7 @@ class LogoRow extends ConsumerWidget {
     Widget logo = ClipRRect(
       borderRadius: BorderRadius.circular(logoRadius),
       child: Image.asset(
-        'assets/logo.png',
+        'assets/logo.webp',
         width: logoSize,
         height: logoSize,
         fit: BoxFit.cover,

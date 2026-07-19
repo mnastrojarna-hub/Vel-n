@@ -86,7 +86,7 @@ class _ReservationsScreenState extends ConsumerState<ReservationsScreen> {
                   Row(children: [
                     ClipRRect(
                       borderRadius: BorderRadius.circular(8),
-                      child: Image.asset('assets/logo.png', width: 28, height: 28, fit: BoxFit.cover,
+                      child: Image.asset('assets/logo.webp', width: 28, height: 28, fit: BoxFit.cover,
                         errorBuilder: (_, __, ___) => Container(width: 28, height: 28,
                           decoration: BoxDecoration(color: MotoGoColors.green, borderRadius: BorderRadius.circular(8)),
                           child: const Icon(Icons.motorcycle, size: 16, color: Colors.black))),
