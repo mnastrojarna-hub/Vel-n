@@ -522,6 +522,8 @@ return [
     'rez.steps.qrValid' => 'QR valable 4 heures',
     'rez.steps.cancelBooking' => 'Annuler la réservation non terminée',
     'rez.steps.cancelConfirm' => 'Annuler vraiment cette réservation non terminée ? Les informations saisies seront supprimées.',
+    'rez.steps.cancelFailed' => 'L’annulation a échoué. Veuillez réessayer.',
+    'rez.steps.cancelNotCancelable' => 'Cette réservation ne peut plus être annulée ici — elle est déjà confirmée ou payée.',
     'rez.steps.docsOptionalNote' => 'Vous n\'avez pas besoin de télécharger les documents maintenant : dans les agences avec personnel, cela ne fait qu\'accélérer la remise, vous pouvez tout régler sur place.',
     'rez.steps.staffedBranchLabel' => 'Agence avec personnel :',
     'rez.steps.staffedBranchNote' => 'le téléchargement des documents n\'est pas obligatoire, il ne fait qu\'accélérer la remise. Dans les agences autonomes, la vérification des documents est obligatoire.',

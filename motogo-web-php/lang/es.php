@@ -523,6 +523,8 @@ return [
     'rez.steps.qrValid' => 'QR válido durante 4 horas',
     'rez.steps.cancelBooking' => 'Cancelar reserva sin terminar',
     'rez.steps.cancelConfirm' => '¿Seguro que quieres cancelar esta reserva sin terminar? Se descartarán los datos introducidos.',
+    'rez.steps.cancelFailed' => 'No se pudo cancelar. Inténtalo de nuevo.',
+    'rez.steps.cancelNotCancelable' => 'Esta reserva ya no se puede cancelar aquí — ya está confirmada o pagada.',
     'rez.steps.docsOptionalNote' => 'No es necesario subir los documentos ahora: en las sucursales con personal solo agiliza la entrega, puedes gestionarlo todo en persona.',
     'rez.steps.staffedBranchLabel' => 'Sucursal con personal:',
     'rez.steps.staffedBranchNote' => 'subir los documentos no es obligatorio, solo agiliza la entrega. En las sucursales autónomas la verificación de documentos es obligatoria.',

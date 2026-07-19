@@ -688,6 +688,8 @@ return [
     'rez.steps.qrValid' => 'QR platný 4 hodiny',
     'rez.steps.cancelBooking' => 'Zrušit nedokončenou rezervaci',
     'rez.steps.cancelConfirm' => 'Opravdu zrušit tuto nedokončenou rezervaci? Rozpracované údaje se vymažou.',
+    'rez.steps.cancelFailed' => 'Zrušení se nepodařilo. Zkuste to prosím znovu.',
+    'rez.steps.cancelNotCancelable' => 'Tuto rezervaci už zde nelze zrušit — je potvrzená nebo zaplacená.',
     'rez.steps.docsOptionalNote' => 'Doklady teď nahrávat nemusíte – u obslužných poboček slouží jen pro urychlení převzetí, vše vyřídíte i osobně na pobočce.',
     'rez.steps.staffedBranchLabel' => 'Obslužná pobočka:',
     'rez.steps.staffedBranchNote' => 'nahrání dokladů není povinné, slouží jen pro urychlení převzetí. U autonomních poboček je ověření dokladů nutné.',
