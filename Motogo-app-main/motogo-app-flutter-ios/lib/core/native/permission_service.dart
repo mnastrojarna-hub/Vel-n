@@ -15,12 +15,17 @@ class PermissionService {
   static const _grantedKey = 'mg_perms_granted';
 
   /// All runtime permissions the app needs.
-  static const _allPermissions = [
-    Permission.location,
-    Permission.camera,
-    Permission.notification,
-    Permission.photos, // gallery on iOS / READ_MEDIA_IMAGES on Android 13+
-  ];
+  /// Android NEŽÁDÁ Permission.photos — READ_MEDIA_IMAGES je z manifestu
+  /// odstraněno (Google Play policy: občasný výběr fotek = systémový Photo
+  /// Picker bez oprávnění; image_picker ho na Androidu 13+ používá sám).
+  /// Request na nedeklarované oprávnění by se jen tiše zamítl a v nastavení
+  /// by viselo věčně "neuděleno". iOS galerii (Permission.photos) potřebuje.
+  static List<Permission> get _allPermissions => [
+        Permission.location,
+        Permission.camera,
+        Permission.notification,
+        if (Platform.isIOS) Permission.photos,
+      ];
 
   /// Request ALL permissions at once. Called from onboarding overlay.
   /// Sets the permissions in system settings so point-of-use never re-asks.
@@ -100,13 +105,16 @@ class PermissionService {
         desc: 'permNotifDesc',
         granted: await Permission.notification.isGranted,
       ),
-      PermissionInfo(
-        key: 'photos',
-        icon: '🖼️',
-        title: 'permPhotosTitle',
-        desc: 'permPhotosDesc',
-        granted: await Permission.photos.isGranted,
-      ),
+      // Android: fotky jdou přes systémový Photo Picker (bez oprávnění),
+      // řádek by ukazoval věčné "neuděleno" — zobrazujeme jen na iOS.
+      if (Platform.isIOS)
+        PermissionInfo(
+          key: 'photos',
+          icon: '🖼️',
+          title: 'permPhotosTitle',
+          desc: 'permPhotosDesc',
+          granted: await Permission.photos.isGranted,
+        ),
     ];
   }
 
