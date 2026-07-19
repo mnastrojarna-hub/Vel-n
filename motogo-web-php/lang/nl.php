@@ -508,6 +508,8 @@ return [
     'rez.steps.qrValid' => 'QR 4 uur geldig',
     'rez.steps.cancelBooking' => 'Onafgemaakte reservering annuleren',
     'rez.steps.cancelConfirm' => 'Weet je zeker dat je deze onafgemaakte reservering wilt annuleren? Ingevoerde gegevens worden gewist.',
+    'rez.steps.cancelFailed' => 'Annuleren is mislukt. Probeer het opnieuw.',
+    'rez.steps.cancelNotCancelable' => 'Deze boeking kan hier niet meer worden geannuleerd — deze is al bevestigd of betaald.',
     'rez.steps.docsOptionalNote' => 'Je hoeft de documenten nu niet te uploaden – bij bemande vestigingen versnelt het alleen de overdracht, je kunt alles ook ter plekke regelen.',
     'rez.steps.staffedBranchLabel' => 'Bemande vestiging:',
     'rez.steps.staffedBranchNote' => 'het uploaden van documenten is niet verplicht, het versnelt alleen de overdracht. Bij autonome vestigingen is documentverificatie verplicht.',

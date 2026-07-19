@@ -522,6 +522,8 @@ return [
     'rez.steps.qrValid' => 'QR valid for 4 hours',
     'rez.steps.cancelBooking' => 'Cancel unfinished reservation',
     'rez.steps.cancelConfirm' => 'Really cancel this unfinished reservation? Your entered details will be discarded.',
+    'rez.steps.cancelFailed' => 'Cancellation failed. Please try again.',
+    'rez.steps.cancelNotCancelable' => 'This booking can no longer be cancelled here — it is already confirmed or paid.',
     'rez.steps.docsOptionalNote' => 'You don\'t have to upload documents now – at staffed branches it only speeds up the handover, you can sort everything out in person.',
     'rez.steps.staffedBranchLabel' => 'Staffed branch:',
     'rez.steps.staffedBranchNote' => 'uploading documents is not required, it only speeds up the handover. At autonomous branches document verification is required.',

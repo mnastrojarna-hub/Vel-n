@@ -508,6 +508,8 @@ return [
     'rez.steps.qrValid' => 'Kod QR ważny 4 godziny',
     'rez.steps.cancelBooking' => 'Anuluj niedokończoną rezerwację',
     'rez.steps.cancelConfirm' => 'Na pewno anulować tę niedokończoną rezerwację? Wprowadzone dane zostaną usunięte.',
+    'rez.steps.cancelFailed' => 'Anulowanie nie powiodło się. Spróbuj ponownie.',
+    'rez.steps.cancelNotCancelable' => 'Tej rezerwacji nie można już tutaj anulować — jest potwierdzona lub opłacona.',
     'rez.steps.docsOptionalNote' => 'Nie musisz teraz przesyłać dokumentów – w oddziałach z obsługą przyspiesza to tylko odbiór, wszystko załatwisz też osobiście.',
     'rez.steps.staffedBranchLabel' => 'Oddział z obsługą:',
     'rez.steps.staffedBranchNote' => 'przesłanie dokumentów nie jest wymagane, przyspiesza tylko odbiór. W oddziałach autonomicznych weryfikacja dokumentów jest wymagana.',

@@ -522,6 +522,8 @@ return [
     'rez.steps.qrValid' => 'QR 4 Stunden gültig',
     'rez.steps.cancelBooking' => 'Unfertige Reservierung abbrechen',
     'rez.steps.cancelConfirm' => 'Diese unfertige Reservierung wirklich abbrechen? Ihre eingegebenen Daten werden verworfen.',
+    'rez.steps.cancelFailed' => 'Stornierung fehlgeschlagen. Bitte versuchen Sie es erneut.',
+    'rez.steps.cancelNotCancelable' => 'Diese Buchung kann hier nicht mehr storniert werden — sie ist bereits bestätigt oder bezahlt.',
     'rez.steps.docsOptionalNote' => 'Sie müssen die Dokumente jetzt nicht hochladen – bei bedienten Filialen beschleunigt es nur die Übergabe, Sie können alles auch persönlich erledigen.',
     'rez.steps.staffedBranchLabel' => 'Bediente Filiale:',
     'rez.steps.staffedBranchNote' => 'das Hochladen der Dokumente ist nicht erforderlich, es beschleunigt nur die Übergabe. Bei autonomen Filialen ist die Dokumentenprüfung erforderlich.',
