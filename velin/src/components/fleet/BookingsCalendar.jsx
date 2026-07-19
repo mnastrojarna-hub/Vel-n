@@ -47,7 +47,7 @@ export default function BookingsCalendar({ motoId, onSwitchTab }) {
       // Kus blokují i rezervace, kde je přiřazený jako příslušenství „Vozík"
       // (bookings.trailer_moto_id) — stejná logika jako RPC get_moto_booked_dates.
       supabase.from('bookings')
-        .select('id, start_date, end_date, status, user_id, moto_id, trailer_moto_id, profiles(full_name), total_price')
+        .select('id, start_date, end_date, status, payment_status, user_id, moto_id, trailer_moto_id, profiles(full_name), total_price')
         .or(`moto_id.eq.${motoId},trailer_moto_id.eq.${motoId}`)
         .in('status', ['pending', 'active', 'reserved', 'completed'])
         .gte('end_date', startStr).lte('start_date', endStr),
@@ -95,11 +95,15 @@ export default function BookingsCalendar({ motoId, onSwitchTab }) {
     if (booking) {
       // Gear přiřazení: tento kus (vozík) je příslušenstvím cizí rezervace.
       const gear = booking.moto_id !== motoId ? ' · Vozík k rezervaci' : ''
-      if (booking.status === 'pending' || booking.status === 'reserved')
-        return { type: 'unconfirmed', bg: '#ffffff', color: '#1a2e22', border: '2px dashed #d4e8e0', label: `${booking.profiles?.full_name || '?'} · Nepotvrzeno${gear}`, booking }
+      // Zaplacená rezervace (vč. částečného refundu) = potvrzená → Obsazeno.
+      // „Nepotvrzeno" je jen neuhrazený draft (pending / reserved bez platby).
+      const paid = ['paid', 'partial_refund', 'refund_pending'].includes(booking.payment_status)
+      if ((booking.status === 'pending' || booking.status === 'reserved') && !paid)
+        return { type: 'unconfirmed', bg: '#ffffff', color: '#1a2e22', border: '2px dashed #d4e8e0', label: `${booking.profiles?.full_name || '?'} · Nepotvrzeno / nezaplaceno${gear}`, booking }
       if (booking.status === 'completed' || isPast)
-        return { type: 'history', bg: '#166534', color: '#fff', label: `${booking.profiles?.full_name || '?'} · Dokončeno${gear}`, booking }
-      return { type: 'occupied', bg: '#15803d', color: '#fff', label: `${booking.profiles?.full_name || '?'} · ${booking.status}${gear}`, booking }
+        return { type: 'history', bg: '#64748b', color: '#fff', label: `${booking.profiles?.full_name || '?'} · Dokončeno${gear}`, booking }
+      const stLabel = booking.status === 'active' ? 'Aktivní' : 'Rezervováno · zaplaceno'
+      return { type: 'occupied', bg: '#15803d', color: '#fff', label: `${booking.profiles?.full_name || '?'} · ${stLabel}${gear}`, booking }
     }
 
     // Free day (light green)
@@ -165,10 +169,10 @@ export default function BookingsCalendar({ motoId, onSwitchTab }) {
         {/* Legenda */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 14, fontSize: 13, fontWeight: 700 }}>
           <Legend bg="#dcfce7" label="Volno" />
-          <Legend bg="#15803d" label="Obsazeno" white />
-          <Legend bg="#166534" label="Historie" white />
+          <Legend bg="#15803d" label="Obsazeno (zaplaceno)" white />
+          <Legend bg="#64748b" label="Historie" white />
           <Legend bg="#dc2626" label="Servis" white />
-          <Legend bg="#fff" label="Nepotvrzeno" border dot />
+          <Legend bg="#fff" label="Nepotvrzeno / nezaplaceno" border dot />
         </div>
 
         {/* Seznam rezervací pod kalendářem */}
