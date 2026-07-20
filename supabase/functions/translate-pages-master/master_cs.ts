@@ -1330,6 +1330,18 @@ export const MASTER_CS_BUNDLED = {
                     "href": "#",
                     "icon": "gfx/instagram.svg",
                     "alt": "Instagram"
+                },
+                {
+                    "label": "tiktok",
+                    "href": "#",
+                    "icon": "gfx/tiktok.svg",
+                    "alt": "TikTok"
+                },
+                {
+                    "label": "youtube",
+                    "href": "#",
+                    "icon": "gfx/youtube.svg",
+                    "alt": "YouTube"
                 }
             ],
             "side_cta": {
