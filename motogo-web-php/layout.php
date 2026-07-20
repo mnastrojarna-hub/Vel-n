@@ -160,7 +160,9 @@ function renderFooter() {
         '<div><h3>' . tc('footer.aboutTitle') . '</h3><ul>' . $menuHtml . '</ul></div>' .
         '<div><h3>' . tc('footer.socialTitle') . '</h3>' .
             '<p class="dfc"><span class="footer-social-icon"><img alt="Facebook ikona" src="' . BASE_URL . '/gfx/facebook-footer.svg" width="18" height="18"></span>&nbsp;<a href="' . FB_URL . '">facebook</a></p><p>&nbsp;</p>' .
-            '<p class="dfc"><span class="footer-social-icon"><img alt="Instagram ikona" src="' . BASE_URL . '/gfx/instagram-footer.svg" width="18" height="18"></span>&nbsp;<a href="' . IG_URL . '">instagram</a></p>' .
+            '<p class="dfc"><span class="footer-social-icon"><img alt="Instagram ikona" src="' . BASE_URL . '/gfx/instagram-footer.svg" width="18" height="18"></span>&nbsp;<a href="' . IG_URL . '">instagram</a></p><p>&nbsp;</p>' .
+            '<p class="dfc"><span class="footer-social-icon"><img alt="TikTok ikona" src="' . BASE_URL . '/gfx/tiktok-footer.svg" width="18" height="18"></span>&nbsp;<a href="' . TIKTOK_URL . '">tiktok</a></p><p>&nbsp;</p>' .
+            '<p class="dfc"><span class="footer-social-icon"><img alt="YouTube ikona" src="' . BASE_URL . '/gfx/youtube-footer.svg" width="18" height="18"></span>&nbsp;<a href="' . YT_URL . '">youtube</a></p>' .
         '</div>' .
         '<div class="footer-contact">' . $helpTitleHtml .
             '<div class="footer-phone dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/telefon.svg" alt="' . te('footer.iconPhone') . '" class="icon-small" loading="lazy" width="20" height="20"></div><div><p>' . $callUsHtml . '<strong><a href="' . PHONE_LINK . '">' . PHONE . '</a></strong></p></div></div>' .
@@ -201,7 +203,7 @@ function renderInlineJs() {
  * lokální SEO v Seznam.cz.
  */
 function buildSameAs() {
-    $list = [FB_URL, IG_URL, 'https://www.tripadvisor.com/Attraction_Review-g1600819-d34461468-Reviews-MotoGo24-Pelhrimov_Vysocina_Region_Moravia.html', 'https://www.motogo24.cz', 'https://www.motogo24.com', 'https://www.motogo24.at', 'https://www.motogo24.es', 'https://www.motogo24.pl', 'https://www.motogo24.fr', 'https://www.motogo24.nl'];
+    $list = [FB_URL, IG_URL, TIKTOK_URL, YT_URL, 'https://www.tripadvisor.com/Attraction_Review-g1600819-d34461468-Reviews-MotoGo24-Pelhrimov_Vysocina_Region_Moravia.html', 'https://www.motogo24.cz', 'https://www.motogo24.com', 'https://www.motogo24.at', 'https://www.motogo24.es', 'https://www.motogo24.pl', 'https://www.motogo24.fr', 'https://www.motogo24.nl'];
     $extras = [
         defined('SAMEAS_FIRMY_CZ') ? SAMEAS_FIRMY_CZ : '',
         defined('SAMEAS_MAPY_CZ')  ? SAMEAS_MAPY_CZ  : '',

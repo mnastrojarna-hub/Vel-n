@@ -19,6 +19,8 @@ if (!defined('COMPANY_ADDRESS')) define('COMPANY_ADDRESS', 'Mezná 9, 393 01 Pel
 if (!defined('COMPANY_ICO')) define('COMPANY_ICO', '21874263');
 if (!defined('FB_URL')) define('FB_URL', '#');
 if (!defined('IG_URL')) define('IG_URL', '#');
+if (!defined('TIKTOK_URL')) define('TIKTOK_URL', '#');
+if (!defined('YT_URL')) define('YT_URL', '#');
 if (!defined('LOGO_SVG')) define('LOGO_SVG', 'gfx/logo.svg');
 if (!defined('SUPABASE_URL')) define('SUPABASE_URL', '');
 if (!defined('SUPABASE_ANON_KEY')) define('SUPABASE_ANON_KEY', '');

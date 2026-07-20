@@ -44,11 +44,13 @@ export const PAGE_KONTAKT = {
       ]
     },
     {
-      id: 'social', label: 'Sociální sítě', location: 'Odkazy na Facebook a Instagram (text odkazu; URL se mění v kódu)',
+      id: 'social', label: 'Sociální sítě', location: 'Odkazy na Facebook, Instagram, TikTok a YouTube (text odkazu; URL se mění v kódu)',
       fields: [
         { key: 'web.kontakt.social_title', label: 'Nadpis sekce', default: 'Sledujte nás' },
         { key: 'web.kontakt.social.0.label', label: 'Odkaz 1 — text', default: 'facebook' },
         { key: 'web.kontakt.social.1.label', label: 'Odkaz 2 — text', default: 'instagram' },
+        { key: 'web.kontakt.social.2.label', label: 'Odkaz 3 — text', default: 'tiktok' },
+        { key: 'web.kontakt.social.3.label', label: 'Odkaz 4 — text', default: 'youtube' },
       ]
     },
     {

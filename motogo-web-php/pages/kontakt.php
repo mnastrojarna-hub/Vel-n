@@ -33,6 +33,8 @@ $defaults = [
     'social' => [
         ['label' => 'facebook', 'href' => FB_URL, 'icon' => 'gfx/facebook.svg', 'alt' => 'Facebook'],
         ['label' => 'instagram', 'href' => IG_URL, 'icon' => 'gfx/instagram.svg', 'alt' => 'Instagram'],
+        ['label' => 'tiktok', 'href' => TIKTOK_URL, 'icon' => 'gfx/tiktok.svg', 'alt' => 'TikTok'],
+        ['label' => 'youtube', 'href' => YT_URL, 'icon' => 'gfx/youtube.svg', 'alt' => 'YouTube'],
     ],
     'side_cta' => [
         'title' => 'Chcete si domluvit rezervaci?',
@@ -98,10 +100,13 @@ $infoSection = '<div class="gr2 contact-info"><section>' .
     '</section><div>';
 
 $infoSection .= '<section><h2 data-cms-key="web.kontakt.social_title">' . htmlspecialchars((string)($C['social_title'] ?? '')) . '</h2>';
-foreach ((is_array($C['social'] ?? null) ? $C['social'] : []) as $i => $s) {
-    if (!is_array($s)) continue;
-    $iconSrc = BASE_URL . '/' . ltrim((string)($s['icon'] ?? ''), '/');
-    $infoSection .= '<p class="dfc"><span class="social-icon"><img alt="' . htmlspecialchars((string)($s['alt'] ?? '')) . '" src="' . htmlspecialchars($iconSrc) . '"></span>&nbsp;<a href="' . htmlspecialchars((string)($s['href'] ?? '#')) . '" data-cms-key="web.kontakt.social.' . $i . '.label">' . htmlspecialchars((string)($s['label'] ?? '')) . '</a></p><p>&nbsp;</p>';
+// URL a ikony sítí jdou vždy z defaults (kód = zdroj pravdy) — jazykové/CMS
+// overlaye nesou u social jen texty odkazů (v překladech mají href '#').
+foreach ($defaults['social'] as $i => $s) {
+    $ov = (is_array($C['social'] ?? null) && is_array($C['social'][$i] ?? null)) ? $C['social'][$i] : [];
+    $label = trim((string)($ov['label'] ?? '')) !== '' ? (string)$ov['label'] : (string)$s['label'];
+    $iconSrc = BASE_URL . '/' . ltrim((string)$s['icon'], '/');
+    $infoSection .= '<p class="dfc"><span class="social-icon"><img alt="' . htmlspecialchars((string)$s['alt']) . '" src="' . htmlspecialchars($iconSrc) . '"></span>&nbsp;<a href="' . htmlspecialchars((string)$s['href']) . '" data-cms-key="web.kontakt.social.' . $i . '.label">' . htmlspecialchars($label) . '</a></p><p>&nbsp;</p>';
 }
 $infoSection .= '</section>';
 
