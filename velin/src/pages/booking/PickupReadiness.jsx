@@ -25,7 +25,9 @@ function StepHead({ n, label, done }) {
   )
 }
 
-export default function PickupReadiness({ booking, onClose, onProtocolDone }) {
+// `verifiedCode` — kód motorky, kterým byla rezervace nalezena a identita ověřena
+// (rychlé odbavení z Velína); v protokolu je pak předvyplněný jako ověřený.
+export default function PickupReadiness({ booking, onClose, onProtocolDone, verifiedCode = '' }) {
   const [loading, setLoading] = useState(true)
   const [profile, setProfile] = useState(null)
   const [docs, setDocs] = useState([])
@@ -105,6 +107,7 @@ export default function PickupReadiness({ booking, onClose, onProtocolDone }) {
         open
         type="handover_protocol"
         bookingId={booking.id}
+        verifiedCode={verifiedCode}
         onClose={() => setShowProtocol(false)}
         onSaved={() => onProtocolDone?.()}
       />

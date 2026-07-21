@@ -6,6 +6,7 @@ import { useDebugMode } from '../hooks/useDebugMode'
 import { isRevenueEntry, isTestInvoice, summarizeInvoices, sumInvoiceRevenue, receivedInvoiceRows } from '../lib/revenueUtils'
 import AiDashboardWidget from '../components/ai/AiDashboardWidget'
 import PickupsReturns from './booking/PickupsReturns'
+import QuickCheckInModal from './booking/QuickCheckInModal'
 import Stat from '../components/ui/Stat'
 import ExportBar from '../components/ui/ExportBar'
 import BannerEditor from './DashboardBannerEditor'
@@ -35,6 +36,8 @@ export default function Dashboard() {
   const nav = useNavigate()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [quickCheckIn, setQuickCheckIn] = useState(false) // rychlé odbavení kódem motorky
+  const [pickupsKey, setPickupsKey] = useState(0) // remount widgetu Odjezdy a návraty po odbavení
 
   useEffect(() => {
     debugLog('page.mount', 'Dashboard')
@@ -194,7 +197,16 @@ export default function Dashboard() {
       </div>
 
       <div className="mb-4">
-        <PickupsReturns compact onExpand={() => nav('/rezervace?view=odjezdy')} />
+        <button onClick={() => setQuickCheckIn(true)} title="Odbavit odjezd kódem motorky — bez hledání rezervace"
+          className="cursor-pointer"
+          style={{ background: '#74FB71', border: 'none', borderRadius: 12, padding: '11px 22px',
+            fontSize: 14, fontWeight: 800, color: '#1a2e22', boxShadow: '0 4px 14px rgba(116,251,113,.35)' }}>
+          🏍️ Odbavit (kódem motorky)
+        </button>
+      </div>
+
+      <div className="mb-4">
+        <PickupsReturns key={pickupsKey} compact onExpand={() => nav('/rezervace?view=odjezdy')} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -273,6 +285,13 @@ export default function Dashboard() {
           <div>visitors 7d: {data.visitors ? `${data.visitors.visitors} / ${data.visitors.views} views` : 'N/A'}, AI konverzace 7d: {data.ai ? data.ai.total : 'N/A'}</div>
           <div>messages: {data.messages.length} (unread: {data.unreadMessages}), SOS: {data.sosList.length}</div>
         </div>
+      )}
+      {quickCheckIn && (
+        <QuickCheckInModal
+          open
+          onClose={() => setQuickCheckIn(false)}
+          onDone={() => { setQuickCheckIn(false); setPickupsKey(k => k + 1); fetchDashboardData() }}
+        />
       )}
       <ExportBar />
     </div>
