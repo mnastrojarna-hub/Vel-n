@@ -44,6 +44,7 @@ export default function QuickCheckInModal({ open, onClose, onDone }) {
   const [error, setError] = useState(null)
   const [candidates, setCandidates] = useState(null) // víc rezervací se stejným kódem — výběr
   const [booking, setBooking] = useState(null)
+  const [verifiedCode, setVerifiedCode] = useState('') // kód, kterým byla rezervace nalezena — jde předvyplněný do protokolu
   const [saving, setSaving] = useState(false)
 
   async function search() {
@@ -65,6 +66,7 @@ export default function QuickCheckInModal({ open, onClose, onDone }) {
       found.push(b)
     }
     const waiting = found.filter(eligible)
+    setVerifiedCode(code)
     if (waiting.length === 1) setBooking(waiting[0])
     else if (waiting.length > 1) setCandidates(waiting)
     else if (found.length > 0) setError('Rezervace s tímto kódem už je odbavená nebo ukončená. Zkontrolujte ji v Rezervacích.')
@@ -140,8 +142,8 @@ export default function QuickCheckInModal({ open, onClose, onDone }) {
                 ↩ Jiný kód
               </button>
             </div>
-            <div className="text-sm font-bold" style={{ color: '#15803d' }}>✓ Kód souhlasí — identita ověřena.</div>
-            <PickupReadiness booking={booking} codePreVerified onClose={onClose} onProtocolDone={markPickedUp} />
+            <div className="text-sm font-bold" style={{ color: '#15803d' }}>✓ Kód souhlasí — identita ověřena, v protokolu bude předvyplněný.</div>
+            <PickupReadiness booking={booking} verifiedCode={verifiedCode} onClose={onClose} onProtocolDone={markPickedUp} />
           </>
         )}
       </div>

@@ -10,9 +10,9 @@ import { sendProtocolEmail } from './protocolEmail'
 
 // Elektronický předávací protokol / protokol o poškození — vyplnění na tabletu
 // (checkboxy + volný text) a podpis perem. Uloží podepsané HTML do generated_documents.
-// `codePreVerified` — identita už byla ověřena kódem motorky při vyhledání rezervace
-// (rychlé odbavení kódem z Velína); kód se zde předvyplní jako ověřený.
-export default function ElectronicProtocolModal({ open, type, bookingId, onClose, onSaved, codePreVerified = false }) {
+// `verifiedCode` — kód motorky, kterým byla rezervace při rychlém odbavení z Velína
+// nalezena (= ověření identity); protokol ho má předvyplněný a označený jako ověřený.
+export default function ElectronicProtocolModal({ open, type, bookingId, onClose, onSaved, verifiedCode = '' }) {
   const isDamage = type === 'damage_protocol'
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -61,8 +61,8 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
         .eq('booking_id', bookingId).eq('code_type', 'motorcycle')
         .order('created_at', { ascending: false }).limit(1)
       const code = dc?.[0]?.door_code || ''
-      setMotoCode(code)
-      if (codePreVerified && code) { setCodeInput(code); setCodeVerified(true); setCodeChecked(true) }
+      setMotoCode(code || verifiedCode)
+      if (verifiedCode) { setCodeInput(verifiedCode); setCodeVerified(true); setCodeChecked(true) }
     } catch (e) { setError(e.message) }
     setLoading(false)
   }
@@ -144,7 +144,14 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
           <div className="p-3 rounded-card" style={{ border: '2px solid #2563eb', background: '#eff6ff' }}>
             <label style={{ fontSize: 12, fontWeight: 800, color: '#1e3a8a', display: 'block', marginBottom: 6 }}>Ověření identity — kód k motorce</label>
             <p style={{ fontSize: 12, color: '#1e3a8a', marginBottom: 8 }}>Požádejte zákazníka o jeho přístupový kód k motorce (z aplikace / e-mailu) a ověřte ho. Spolu s nahranými doklady tím potvrdíte totožnost přebírajícího.</p>
-            {motoCode ? (
+            {verifiedCode && codeVerified ? (
+              // Rychlé odbavení kódem: rezervace byla nalezena právě tímto kódem,
+              // identita je ověřena — kolonka je vyplněná a zamčená.
+              <>
+                <input type="text" value={codeInput} readOnly disabled style={{ ...inputStyle, background: '#f1faf7', fontWeight: 800, letterSpacing: 2 }} />
+                <p style={{ fontSize: 12, fontWeight: 700, color: '#15803d', marginTop: 6 }}>✓ Kód souhlasí — rezervace jím byla vyhledána, identita ověřena.</p>
+              </>
+            ) : motoCode ? (
               <>
                 <div className="flex items-center gap-2">
                   <input type="text" inputMode="numeric" value={codeInput}
