@@ -78,6 +78,14 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
   const newTotalPrice = newCalcPrice + newDeliveryFee
   const priceDiff = newTotalPrice - origPaidPrice
 
+  // Doplatkové flow (2026-07-27): je-li PŮVODNÍ rezervace zaplacená a úprava vyžaduje
+  // doplatek, neposílá se hned booking_modified mail — zákazník dostane výzvu k platbě
+  // (šablona booking_qr_payment_surcharge) a potvrzení úpravy odejde až po potvrzení
+  // doplatku v detailu rezervace („Potvrdit doplatek"). Dlužný doplatek je kumulativní
+  // (další úprava před zaplacením předchozího doplatku ho navyšuje/snižuje).
+  const origPaid = ['paid', 'partial_refund'].includes(booking.payment_status)
+  const pendingSurcharge = Number(booking.mod_surcharge_due) || 0
+
   const selectedMoto = allMotos.find(m => m.id === selectedMotoId)
   const motoChanged = selectedMotoId !== booking.moto_id
   const datesChanged = isoDate(startDate) !== isoDate(origStart) || isoDate(endDate) !== isoDate(origEnd)
@@ -107,6 +115,29 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
         return_method: returnMethod, return_address: returnAddress || null, delivery_fee: newDeliveryFee,
       }
       if (motoChanged) saveData.moto_id = selectedMotoId
+      // Doplatek u zaplacené rezervace: dlužná částka = předchozí nezaplacený doplatek
+      // + rozdíl této úpravy. mod_surcharge_due jde ve STEJNÉM UPDATE jako úprava —
+      // DB trigger díky tomu booking_modified mail odloží (payload uschová) místo
+      // okamžitého odeslání. Vyjde-li dluh <= 0, doplatek se ruší a zbytek se vrací.
+      let surchargeDue = 0
+      let refundAmount = chargeCustomer && priceDiff < 0 ? Math.abs(priceDiff) : 0
+      if (chargeCustomer && origPaid) {
+        const newDue = pendingSurcharge + priceDiff
+        if (newDue > 0) {
+          surchargeDue = newDue
+          refundAmount = 0
+          saveData.mod_surcharge_due = newDue
+          saveData.mod_surcharge_requested_at = new Date().toISOString()
+          saveData.mod_surcharge_paid_at = null
+        } else {
+          // Nezaplacený doplatek se touto úpravou vynuloval — vrací se jen to,
+          // co zákazník skutečně zaplatil (částka pod původní zaplacenou cenu).
+          // Odložený mail payload se uklidí; trigger pošle booking_modified hned.
+          saveData.mod_surcharge_due = null
+          if (pendingSurcharge > 0) saveData.mod_email_payload = null
+          refundAmount = Math.abs(newDue)
+        }
+      }
       if (datesChanged) {
         const { data: dbBooking } = await supabase.from('bookings')
           .select('start_date, end_date, original_start_date, original_end_date, modification_history')
@@ -124,7 +155,17 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
           saveData.modification_history = history
         }
       }
-      const { error: saveErr } = await supabase.from('bookings').update(saveData).eq('id', booking.id)
+      let { error: saveErr } = await supabase.from('bookings').update(saveData).eq('id', booking.id)
+      if (saveErr && 'mod_surcharge_due' in saveData && /mod_surcharge|mod_email_payload/.test(saveErr.message || '')) {
+        // Fallback: DB migrace doplatkových sloupců ještě neproběhla → ulož úpravu
+        // postaru (mail odejde hned triggerem, bez QR výzvy k doplatku).
+        delete saveData.mod_surcharge_due
+        delete saveData.mod_surcharge_requested_at
+        delete saveData.mod_surcharge_paid_at
+        delete saveData.mod_email_payload
+        surchargeDue = 0
+        ;({ error: saveErr } = await supabase.from('bookings').update(saveData).eq('id', booking.id))
+      }
       if (saveErr) throw saveErr
       try {
         const { data: { user } } = await supabase.auth.getUser()
@@ -133,15 +174,31 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
           details: { booking_id: booking.id, dates_changed: datesChanged, moto_changed: motoChanged, delivery_changed: deliveryChanged, price_diff: priceDiff, charged: chargeCustomer, new_total: chargeCustomer ? newTotalPrice : origPaidPrice }
         })
       } catch {}
-      // Při zkrácení rezervace (záporný rozdíl) + placeno kartou → automatický Stripe refund + dobropis
+      // Při zkrácení rezervace (záporný rozdíl) + placeno kartou → automatický Stripe refund + dobropis.
       // Proběhne jen pokud admin označil "naúčtovat zákazníkovi" (jinak je zkrácení bez vratky).
-      if (chargeCustomer && priceDiff < 0 && booking.stripe_payment_intent_id) {
+      // refundAmount je už očištěný o případný nezaplacený doplatek (nevrací se, co nepřišlo).
+      if (chargeCustomer && refundAmount > 0 && booking.stripe_payment_intent_id) {
         try {
           await supabase.functions.invoke('process-refund', {
-            body: { booking_id: booking.id, amount: Math.abs(priceDiff), reason: 'shortening' },
+            body: { booking_id: booking.id, amount: refundAmount, reason: 'shortening' },
           })
         } catch (refundErr) {
           console.warn('[BookingModify] refund failed:', refundErr?.message)
+        }
+      }
+
+      // Doplatek → výzva k platbě zákazníkovi (QR + účet + VS na částku doplatku,
+      // šablona booking_qr_payment_surcharge) + upozornění na info@. Částku si edge fn
+      // čte z bookings.mod_surcharge_due (uložené výše), VS přidělí RPC.
+      if (surchargeDue > 0) {
+        try {
+          const { data: qr, error: qrErr } = await supabase.functions.invoke('qr-payment', {
+            body: { booking_id: booking.id, surcharge: true, locale: booking.language || 'cs' },
+          })
+          if (qrErr || qr?.success === false) throw new Error(qr?.error || qrErr?.message || 'qr-payment failed')
+        } catch (qrE) {
+          console.warn('[BookingModify] surcharge payment mail failed:', qrE?.message)
+          window.alert('Úprava je uložená, ale odeslání platebních údajů k doplatku selhalo (' + (qrE?.message || 'chyba') + '). Zkontrolujte doručení / pošlete údaje zákazníkovi ručně.')
         }
       }
 
@@ -149,6 +206,8 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
       // (po UPDATE bookings) — netřeba volat send-booking-email z Velinu.
       // Trigger detekuje změnu polí (moto, datumy, cena, místo, čas) a pošle mail s diff
       // tabulkou + autoGenerateAttachments fetchne již existující DP úpravy / dobropis.
+      // VÝJIMKA: při nezaplaceném doplatku (mod_surcharge_due > 0) trigger mail ODLOŽÍ —
+      // odejde až po „Potvrdit doplatek" v detailu rezervace (confirm_booking_surcharge).
       onSaved()
     } catch (e) { setError(e.message) }
     finally { setSaving(false) }

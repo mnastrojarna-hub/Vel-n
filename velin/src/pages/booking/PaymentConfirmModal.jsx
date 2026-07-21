@@ -14,7 +14,13 @@ import { MANUAL_PAYMENT_METHODS } from './bookingConstants'
  * Pokud k rezervaci existují vystavené zálohové faktury (ZF), nabídne jejich výběr,
  * aby se platba + DP navázaly na konkrétní ZF (spárování dokladů a VS).
  */
-export default function PaymentConfirmModal({ open, onClose, onConfirm, saving, error, total, bookingId, payChannel, paymentVs }) {
+/**
+ * Režim `surcharge` (2026-07-27): potvrzuje se JEN doplatek za úpravu už zaplacené
+ * rezervace (bookings.mod_surcharge_due) — bez párování na ZF (u úprav se ZF
+ * nevystavuje), VS se předvyplní z bookings.mod_surcharge_vs (VS z QR výzvy).
+ * Po potvrzení odejde odložený booking_modified mail (confirm_booking_surcharge).
+ */
+export default function PaymentConfirmModal({ open, onClose, onConfirm, saving, error, total, bookingId, payChannel, paymentVs, surcharge = false, surchargeVs = null }) {
   const today = new Date().toISOString().slice(0, 10)
   const [method, setMethod] = useState('bank_transfer')
   const [vs, setVs] = useState('')
@@ -36,6 +42,19 @@ export default function PaymentConfirmModal({ open, onClose, onConfirm, saving, 
     if (!open || !bookingId) return
     let active = true
     setQrVs('')
+    // Doplatek za úpravu: žádné ZF párování, VS = VS doplatku z QR výzvy.
+    if (surcharge) {
+      setAdvances([]); setAdvanceId('')
+      if (surchargeVs) { setVs(String(surchargeVs)); return }
+      ;(async () => {
+        try {
+          const { data: bk } = await supabase.from('bookings')
+            .select('mod_surcharge_vs').eq('id', bookingId).maybeSingle()
+          if (active && bk?.mod_surcharge_vs) setVs(String(bk.mod_surcharge_vs))
+        } catch { /* VS zůstane prázdný */ }
+      })()
+      return () => { active = false }
+    }
     ;(async () => {
       // payment_vs se plní jen u QR/převodu; když ho parent nepředal, dočti ho z DB
       // (rezervace se potvrzuje ručně klidně hodinu po platbě → čti čerstvě).
@@ -75,7 +94,7 @@ export default function PaymentConfirmModal({ open, onClose, onConfirm, saving, 
       }
     })()
     return () => { active = false }
-  }, [open, bookingId, payChannel, paymentVs])
+  }, [open, bookingId, payChannel, paymentVs, surcharge, surchargeVs])
 
   if (!open) return null
 
@@ -103,14 +122,23 @@ export default function PaymentConfirmModal({ open, onClose, onConfirm, saving, 
   }
 
   return (
-    <Modal open title="Potvrdit platbu" onClose={onClose}>
+    <Modal open title={surcharge ? 'Potvrdit doplatek za úpravu' : 'Potvrdit platbu'} onClose={onClose}>
+      {surcharge ? (
+        <p className="text-sm mb-4" style={{ color: '#1a2e22' }}>
+          Potvrzuje se <strong>pouze doplatek za úpravu</strong> — původní rezervace je už zaplacená.
+          Po potvrzení zákazníkovi odejde e-mail o úpravě rezervace (booking modified) s dokladem
+          o platbě a aktualizovanou smlouvou.
+          {total != null && <> Částka doplatku: <strong>{Number(total).toLocaleString('cs-CZ')} Kč</strong>.</>}
+        </p>
+      ) : (
       <p className="text-sm mb-4" style={{ color: '#1a2e22' }}>
         Rezervace se označí jako <strong>zaplacená</strong> a přejde do stavu <strong>Nadcházející / Aktivní</strong> (dle data) —
         proběhne stejné flow jako u platby kartou (doklady, e-mail, přístupové kódy).
         {total != null && <> Částka: <strong>{Number(total).toLocaleString('cs-CZ')} Kč</strong>.</>}
       </p>
+      )}
 
-      {advances.length > 0 ? (
+      {surcharge ? null : advances.length > 0 ? (
         <>
           <label className={labelCls} style={{ color: '#1a2e22' }}>Spárovat se zálohovou fakturou (ZF)</label>
           <select value={advanceId} onChange={e => pickAdvance(e.target.value)}
@@ -158,7 +186,7 @@ export default function PaymentConfirmModal({ open, onClose, onConfirm, saving, 
       <div className="flex justify-end gap-3 mt-2">
         <Button onClick={onClose} disabled={saving}>Zpět</Button>
         <Button onClick={submit} green disabled={saving || !paidDate}>
-          {saving ? 'Potvrzuji…' : 'Potvrdit platbu'}
+          {saving ? 'Potvrzuji…' : surcharge ? 'Potvrdit doplatek' : 'Potvrdit platbu'}
         </Button>
       </div>
     </Modal>

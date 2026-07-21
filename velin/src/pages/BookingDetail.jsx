@@ -31,6 +31,7 @@ export default function BookingDetail() {
   const [saving, setSaving] = useState(false)
   const [showCancelModal, setShowCancelModal] = useState(false)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [surchargeMode, setSurchargeMode] = useState(false)
   const [cancelReason, setCancelReason] = useState('')
   const [cancelReasonCustom, setCancelReasonCustom] = useState('')
   const [showModifyModal, setShowModifyModal] = useState(false)
@@ -251,10 +252,37 @@ export default function BookingDetail() {
   const set = (k, v) => setBooking(b => ({ ...b, [k]: v }))
   function handleAction(action) {
     if (action.status === 'cancelled') { setShowCancelModal(true); return }
+    // „Potvrdit doplatek" (úprava zaplacené rezervace): potvrzuje se JEN nezaplacená
+    // část (doplatek) — původní platba zůstává. RPC confirm_booking_surcharge pak
+    // odešle odložený booking_modified mail. Rozlišeno od potvrzení celé rezervace.
+    if (action.surcharge) { setSurchargeMode(true); setShowPaymentModal(true); return }
     // Potvrzení NEZAPLACENÉ rezervace → ruční potvrzení platby (parita se Stripe):
     // vyber způsob platby (QR/převod/hotově…), VS, datum, č. transakce → confirm_payment.
-    if (booking.payment_status !== 'paid' && booking.status === 'pending') { setShowPaymentModal(true); return }
+    if (booking.payment_status !== 'paid' && booking.status === 'pending') { setSurchargeMode(false); setShowPaymentModal(true); return }
     setConfirm(action)
+  }
+
+  // Potvrzení DOPLATKU za úpravu rezervace — nezaplacená část se označí jako
+  // uhrazená a RPC odešle odložený booking_modified mail (+ in-app zprávu).
+  async function confirmSurchargePayment(payment) {
+    setSaving(true); setError(null)
+    try {
+      const res = await debugAction('booking.confirm_surcharge', 'BookingDetail', () =>
+        supabase.rpc('confirm_booking_surcharge', {
+          p_booking_id: id, p_method: payment.method, p_vs: payment.vs,
+          p_paid_date: payment.paid_date, p_transaction_ref: payment.transaction_ref,
+        })
+      , { booking_id: id, method: payment.method })
+      if (res?.error) { setError(res.error.message); setSaving(false); return }
+      if (res?.data && res.data.success === false) { setError(res.data.error || 'Potvrzení doplatku selhalo'); setSaving(false); return }
+      await logAudit('booking_surcharge_confirmed', {
+        booking_id: id, amount: res?.data?.amount, method: payment.method,
+        vs: payment.vs, paid_date: payment.paid_date, transaction_ref: payment.transaction_ref,
+      })
+      setShowPaymentModal(false); setSurchargeMode(false)
+      await loadBooking()
+    } catch (e) { setError(e.message) }
+    setSaving(false)
   }
 
   // Ruční potvrzení platby — projde STEJNÉ flow jako Stripe webhook (confirm_payment RPC
@@ -365,6 +393,11 @@ export default function BookingDetail() {
 
   const actions = (booking.status === 'completed' && booking.sos_replacement && !booking.ended_by_sos)
     ? ACTIONS.completed_sos_replacement || [] : ACTIONS[booking.status] || []
+  // Nezaplacený doplatek za úpravu (zaplacená rezervace) → samostatná akce.
+  const surchargeDue = Number(booking.mod_surcharge_due) || 0
+  const actionsWithSurcharge = (surchargeDue > 0 && ['reserved', 'active'].includes(booking.status))
+    ? [{ label: `Potvrdit doplatek (${surchargeDue.toLocaleString('cs-CZ')} Kč)`, status: 'confirm_surcharge', green: true, surcharge: true }, ...actions]
+    : actions
 
   return (
     <div>
@@ -391,6 +424,13 @@ export default function BookingDetail() {
             </span>
           )
         })()}
+        {surchargeDue > 0 && (
+          <span className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase"
+            style={{ padding: '3px 8px', background: '#fef3c7', color: '#b45309', border: '1px solid #fcd34d' }}
+            title="Úprava rezervace čeká na doplatek — po připsání potvrď tlačítkem Potvrdit doplatek; teprve pak zákazníkovi odejde potvrzení úpravy">
+            DOPLATEK — ČEKÁ · {surchargeDue.toLocaleString('cs-CZ')} Kč{booking.mod_surcharge_vs ? ` · VS ${booking.mod_surcharge_vs}` : ''}
+          </span>
+        )}
         {booking.pay_channel === 'qr' && booking.payment_status !== 'paid' && (
           <span className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase"
             style={{ padding: '3px 8px', background: '#fef3c7', color: '#b45309', border: '1px solid #fcd34d' }}
@@ -423,7 +463,7 @@ export default function BookingDetail() {
         {error && <div style={{ color: '#dc2626' }}>ERROR: {error}</div>}
       </div>
       )}
-      {tab === 'Detail' && <DetailTab booking={booking} set={set} error={error} saving={saving} actions={actions} onAction={handleAction} navigate={navigate} promoUsage={promoUsage} voucherUsed={voucherUsed} onModify={() => setShowModifyModal(true)} />}
+      {tab === 'Detail' && <DetailTab booking={booking} set={set} error={error} saving={saving} actions={actionsWithSurcharge} onAction={handleAction} navigate={navigate} promoUsage={promoUsage} voucherUsed={voucherUsed} onModify={() => setShowModifyModal(true)} />}
       {showModifyModal && booking && <BookingModifyModal booking={booking} onClose={() => setShowModifyModal(false)} onSaved={() => { setShowModifyModal(false); loadBooking() }} />}
       {tab === 'Kalendář motorky' && booking.motorcycles?.id && <BookingsCalendar motoId={booking.motorcycles.id} />}
       {tab === 'Dokumenty' && <BookingDocumentsTab bookingId={id} userId={booking?.user_id} />}
@@ -431,7 +471,10 @@ export default function BookingDetail() {
       {tab === 'Reklamace' && <ComplaintsTab bookingId={id} booking={booking} setBooking={setBooking} />}
       {confirm && <ConfirmDialog open title={`${confirm.label}?`} message={`Změnit stav na "${confirm.label}"?`} danger={confirm.danger} onConfirm={() => changeStatus(confirm.status)} onCancel={() => setConfirm(null)} />}
       <BookingCancelModal open={showCancelModal} onClose={() => setShowCancelModal(false)} cancelReason={cancelReason} setCancelReason={setCancelReason} cancelReasonCustom={cancelReasonCustom} setCancelReasonCustom={setCancelReasonCustom} onCancel={handleCancel} saving={saving} error={error} />
-      <PaymentConfirmModal open={showPaymentModal} onClose={() => { setShowPaymentModal(false); setError(null) }} onConfirm={confirmManualPayment} saving={saving} error={error} total={booking?.total_price} bookingId={id} payChannel={booking?.pay_channel} paymentVs={booking?.payment_vs} />
+      <PaymentConfirmModal open={showPaymentModal} onClose={() => { setShowPaymentModal(false); setSurchargeMode(false); setError(null) }}
+        onConfirm={surchargeMode ? confirmSurchargePayment : confirmManualPayment} saving={saving} error={error}
+        total={surchargeMode ? surchargeDue : booking?.total_price} bookingId={id} payChannel={booking?.pay_channel} paymentVs={booking?.payment_vs}
+        surcharge={surchargeMode} surchargeVs={booking?.mod_surcharge_vs} />
     </div>
   )
 }

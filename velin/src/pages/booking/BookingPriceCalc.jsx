@@ -43,6 +43,12 @@ export default function BookingPriceCalc({
               <div>
                 <div className="text-sm font-bold" style={{ color: '#0f1a14' }}>{priceDiff > 0 ? `Zákazník doplatí (+${fmtCZK(priceDiff)} Kč)` : `Vrátit zákazníkovi (${fmtCZK(Math.abs(priceDiff))} Kč)`}</div>
                 <div className="text-xs" style={{ color: '#1a2e22' }}>Celkem bude {fmtCZK(newTotalPrice)} Kč</div>
+                {priceDiff > 0 && ['paid', 'partial_refund'].includes(booking.payment_status) && (
+                  <div className="text-xs mt-1 font-semibold" style={{ color: '#b45309' }}>
+                    Zákazníkovi odejde e-mail s QR platebními údaji k doplatku. Potvrzení úpravy
+                    (booking modified) se odešle až po potvrzení doplatku v detailu rezervace.
+                  </div>
+                )}
               </div>
             </label>
             <label className="flex items-center gap-2 cursor-pointer p-2 rounded-lg" style={{ background: !chargeCustomer ? '#eafbe9' : '#fff', border: `1px solid ${!chargeCustomer ? '#74FB71' : '#e5e7eb'}` }}>
