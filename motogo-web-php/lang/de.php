@@ -318,6 +318,8 @@ return [
     'rez.gear.trailer' => 'Anhänger',
     'rez.gear.trailerSub' => 'Anhänger zum Transport des Motorrads',
     'rez.gear.perDay' => '/ Tag',
+    'rez.note.toggle' => 'Anmerkung zur Reservierung hinzufügen (optional)',
+    'rez.note.placeholder' => 'Teilen Sie uns alles mit, was wir wissen sollten — Wünsche, Fragen, Details…',
     'rez.gear.item.trailer' => 'Anhänger',
     'rez.gear.sizeHintGear' => '✅ Oben anhaken, um Größen zu wählen (sonst probieren wir sie vor Ort an)',
     'rez.gear.sizeHintPassenger' => '✅ Oben anhaken, um die Größenauswahl für Beifahrer zu öffnen',

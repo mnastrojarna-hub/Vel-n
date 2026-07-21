@@ -1122,16 +1122,8 @@ class _BDWState extends ConsumerState<_BookingDebugWrapper> {
               backgroundColor: Color(0xFF1A2E22)));
             return;
           }
-          // Velikosti výbavy jsou POVINNÉ (i bez přistavení), pokud zákazník
-          // nemá vlastní výbavu.
-          if (!draft.ownGear &&
-              (draft.helmetSize == null || draft.glovesSize == null ||
-               draft.jacketSize == null || draft.pantsSize == null)) {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text('Vyber prosím velikosti výbavy (helma, rukavice, bunda, kalhoty), nebo zaškrtni „Mám vlastní výbavu".'),
-              backgroundColor: Color(0xFF1A2E22)));
-            return;
-          }
+          // Základní výbava zdarma je volitelná po kusech — nevybraná
+          // velikost = zákazník daný kus nechce, pokračování neblokuje.
           GoRouter.of(context).push('/payment');
         },
         style: ElevatedButton.styleFrom(

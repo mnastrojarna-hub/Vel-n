@@ -51,6 +51,7 @@ $rezKeys = [
     'gear.label.helmet','gear.label.jacket','gear.label.gloves','gear.label.pants','gear.label.boots',
     'gear.item.passengerExtras','gear.item.bootsRider','gear.item.bootsPassenger','gear.item.trailer',
     'gear.item.delivery','gear.item.return',
+    'note.toggle','note.placeholder',
     'agree.terms','agree.gdpr','agree.guardian','agree.marketing','agree.photo',
     'cta.continue','cta.continuePay','totalPrice','discount','latePickupDiscount',
     'motoSelect.label','motoSelect.any',

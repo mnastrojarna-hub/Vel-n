@@ -318,6 +318,8 @@ return [
     'rez.gear.trailer' => 'Trailer',
     'rez.gear.trailerSub' => 'Trailer for transporting the motorcycle',
     'rez.gear.perDay' => '/ day',
+    'rez.note.toggle' => 'Add a note to your reservation (optional)',
+    'rez.note.placeholder' => 'Tell us anything we should know — requests, questions, details…',
     'rez.gear.item.trailer' => 'Trailer',
     'rez.gear.sizeHintGear' => '✅ Tick above to choose sizes (otherwise we\'ll try them on at the rental)',
     'rez.gear.sizeHintPassenger' => '✅ Tick above to expand passenger size selection',

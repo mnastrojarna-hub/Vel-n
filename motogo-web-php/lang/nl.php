@@ -304,6 +304,8 @@ return [
     'rez.gear.trailer' => 'Aanhanger',
     'rez.gear.trailerSub' => 'Aanhanger voor vervoer van de motor',
     'rez.gear.perDay' => '/ dag',
+    'rez.note.toggle' => 'Voeg een opmerking toe aan uw reservering (optioneel)',
+    'rez.note.placeholder' => 'Laat ons weten wat we moeten weten — wensen, vragen, details…',
     'rez.gear.item.trailer' => 'Aanhanger',
     'rez.gear.sizeHintGear' => '✅ Vink hierboven aan om maten te kiezen (anders passen we ze op locatie)',
     'rez.gear.sizeHintPassenger' => '✅ Vink hierboven aan om de maatselectie van de passagier te openen',

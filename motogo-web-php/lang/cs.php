@@ -439,6 +439,8 @@ return [
     'rez.gear.trailer' => 'Vozík / přívěs',
     'rez.gear.trailerSub' => 'Přívěs pro převoz motorky',
     'rez.gear.perDay' => '/ den',
+    'rez.note.toggle' => 'Přidat poznámku k rezervaci (nepovinné)',
+    'rez.note.placeholder' => 'Napište nám cokoliv, co bychom měli vědět — přání, dotazy, upřesnění…',
     'rez.gear.item.trailer' => 'Vozík',
     'rez.gear.sizeHintGear' => '✅ Zaškrtněte výše pro výběr velikostí (jinak se vyzkouší na místě)',
     'rez.gear.sizeHintPassenger' => '✅ Zaškrtněte výše a rozbalí se výběr velikostí spolujezdce',

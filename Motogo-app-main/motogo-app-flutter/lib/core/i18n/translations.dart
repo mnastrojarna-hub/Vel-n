@@ -24,6 +24,7 @@ import 'translations_ext_9_cardpay.dart';
 import 'translations_ext_10_loyalty.dart';
 import 'translations_ext_11_routes.dart';
 import 'translations_ext_12_swap.dart';
+import 'translations_ext_13_note.dart';
 import 'translations_uk_main.dart';
 import 'translations_uk_ext_a.dart';
 import 'translations_uk_ext_b.dart';
@@ -48,6 +49,7 @@ final translations = _mergeAll([
   translationsExt10Loyalty,
   translationsExt11Routes,
   translationsExt12Swap,
+  translationsExt13Note,
   translationsUkMain,
   translationsUkExt1,
   translationsUkExt6,

@@ -318,6 +318,8 @@ return [
     'rez.gear.trailer' => 'Remorque',
     'rez.gear.trailerSub' => 'Remorque pour transporter la moto',
     'rez.gear.perDay' => '/ jour',
+    'rez.note.toggle' => 'Ajouter une note à la réservation (facultatif)',
+    'rez.note.placeholder' => 'Écrivez-nous tout ce que nous devrions savoir — demandes, questions, précisions…',
     'rez.gear.item.trailer' => 'Remorque',
     'rez.gear.sizeHintGear' => '✅ Cochez ci-dessus pour choisir les tailles (sinon, nous les essaierons sur place)',
     'rez.gear.sizeHintPassenger' => '✅ Cochez ci-dessus pour ouvrir la sélection des tailles passager',
