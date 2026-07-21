@@ -5,6 +5,14 @@
 // pending/unpaid → admin ji ručně potvrdí (PaymentConfirmModal → confirm_payment),
 // nezaplacené QR ruší cron auto_cancel_expired_pending() po 4 h. POUZE WEB, ne appka.
 // verify_jwt=false (volá se anon apikey z prohlížeče); dovnitř běží service role.
+//
+// REŽIM SURCHARGE (2026-07-27, `{booking_id, surcharge:true}` — volá Velín po
+// úpravě ZAPLACENÉ rezervace s doplatkem): částka = bookings.mod_surcharge_due
+// (server-side, klient ji neposílá), VS přidělí RPC set_booking_mod_surcharge
+// (stejná sekvence booking_vs_seq), NEgeneruje se ZF, neběží 4h auto-cancel a
+// mail jde ze sesterské šablony `booking_qr_payment_surcharge` (stejný vzhled,
+// text sedí na doplatek). Potvrzení pak ve Velíně přes „Potvrdit doplatek"
+// (RPC confirm_booking_surcharge → teprve pak odejde booking_modified mail).
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -39,25 +47,36 @@ function buildSpd(iban: string, amount: number, vs: string, msg: string): string
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
   try {
-    const { booking_id, locale } = await req.json().catch(() => ({}))
+    const { booking_id, locale, surcharge } = await req.json().catch(() => ({}))
     if (!booking_id) return json({ success: false, error: 'missing_booking_id' }, 400)
     const sb = createClient(SUPABASE_URL, SERVICE_KEY)
 
-    // 1) Rezervace (jen web, nezaplacená)
+    // 1) Rezervace. Základní režim = jen web + nezaplacená (celá platba rezervace).
+    //    Režim surcharge = doplatek za úpravu (rezervace je naopak už zaplacená;
+    //    zdroj web i app — bankovní převod funguje pro oba). Sloupce doplatku se
+    //    tu záměrně NEselectují (guard + částka jde z RPC) — select tak nespadne,
+    //    dokud migrace 20260727 neproběhne, a základní web flow zůstane netknutý.
     const { data: bk } = await sb.from('bookings')
       .select('id, booking_source, payment_status, total_price, profiles(full_name, email)')
       .eq('id', booking_id).maybeSingle()
     if (!bk) return json({ success: false, error: 'not_found' }, 404)
-    if (bk.booking_source !== 'web') return json({ success: false, error: 'not_web_booking' }, 400)
-    if (bk.payment_status === 'paid') return json({ success: false, error: 'already_paid' }, 400)
+    if (!surcharge) {
+      if (bk.booking_source !== 'web') return json({ success: false, error: 'not_web_booking' }, 400)
+      if (bk.payment_status === 'paid') return json({ success: false, error: 'already_paid' }, 400)
+    }
 
-    // 2) Přiděl VS + označ kanál (idempotentní)
-    const { data: rpc, error: rpcErr } = await sb.rpc('set_booking_qr_payment', { p_booking_id: booking_id })
+    // 2) Přiděl VS (idempotentní). Surcharge má vlastní VS (mod_surcharge_vs) a RPC
+    //    hlídá i guard `no_surcharge_pending`; základní režim značí kanál
+    //    (pay_channel='qr') + potlačí abandoned mail.
+    const { data: rpc, error: rpcErr } = await sb.rpc(
+      surcharge ? 'set_booking_mod_surcharge' : 'set_booking_qr_payment',
+      { p_booking_id: booking_id },
+    )
     if (rpcErr || !rpc || rpc.success === false) {
       return json({ success: false, error: rpc?.error || rpcErr?.message || 'rpc_failed' }, 400)
     }
     const vs = String(rpc.vs)
-    const amount = Number(rpc.amount ?? bk.total_price ?? 0)
+    const amount = Number(rpc.amount ?? (surcharge ? 0 : bk.total_price) ?? 0)
 
     // 3) Číslo účtu / IBAN z company_info (fallback konstanty)
     let iban = IBAN_FALLBACK, account = ACCOUNT_FALLBACK, bank = BANK_FALLBACK
@@ -70,13 +89,16 @@ serve(async (req) => {
     } catch { /* fallback */ }
 
     const bookingNumber = String(booking_id).slice(-8).toUpperCase()
-    const spd = buildSpd(iban, amount, vs, 'MotoGo24 ' + bookingNumber)
+    const spd = buildSpd(iban, amount, vs, 'MotoGo24 ' + (surcharge ? 'doplatek ' : '') + bookingNumber)
     const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=' + encodeURIComponent(spd)
 
     // 4) ZF (bank blok + VS + splatnost 4 h). Reuse existující advance ZF, ať se netvoří duplikáty.
+    //    V režimu surcharge se ZF NEgeneruje (rozdílový DP vznikne až po potvrzení
+    //    doplatku v odloženém booking_modified mailu — pravidlo 2026-06-11: u úprav
+    //    se proforma neposílá).
     let invoiceNumber: string | null = null
     let invoicePath: string | null = null
-    try {
+    if (!surcharge) try {
       const { data: existing } = await sb.from('invoices')
         .select('number, pdf_path').eq('booking_id', booking_id).eq('type', 'advance')
         .neq('status', 'cancelled').order('created_at', { ascending: false }).limit(1)
@@ -109,12 +131,17 @@ serve(async (req) => {
       const attachment_paths = invoicePath
         ? [{ filename: (invoiceNumber || 'zalohova-faktura') + '.pdf', path: invoicePath }]
         : []
-      const subject = 'Platební údaje k rezervaci #' + bookingNumber + ' — QR / bankovní převod'
+      const subject = surcharge
+        ? 'Doplatek k rezervaci #' + bookingNumber + ' — QR / bankovní převod'
+        : 'Platební údaje k rezervaci #' + bookingNumber + ' — QR / bankovní převod'
       // Placeholdery pro šablonu = 1:1 znění mailu, který dosud chodil (viz
       // customerEmailHtml). `lead` a `invoice_suffix` skládají podmíněné části
       // (jméno / číslo ZF), aby text šablony zůstal 1:1 a přitom editovatelný.
+      // Surcharge šablona začíná "{{lead}} <strong>#X</strong> se váže doplatek."
+      // → lead = "Jméno, k úpravě vaší rezervace" / "K úpravě vaší rezervace".
+      const surchargeLead = (custName ? custName + ', k' : 'K') + ' úpravě vaší rezervace'
       const tvars = {
-        lead: custName ? custName + ', děkujeme' : 'Děkujeme',
+        lead: surcharge ? surchargeLead : (custName ? custName + ', děkujeme' : 'Děkujeme'),
         booking_number: bookingNumber,
         qr_url: qrUrl,
         amount: fmtAmount(amount) + ' Kč',
@@ -134,7 +161,7 @@ serve(async (req) => {
       try {
         const r = await postEmail({
           to: custEmail,
-          template_slug: 'booking_qr_payment',
+          template_slug: surcharge ? 'booking_qr_payment_surcharge' : 'booking_qr_payment',
           template_vars: tvars,
           language: locale || 'cs',
           booking_id,
@@ -149,7 +176,9 @@ serve(async (req) => {
           await postEmail({
             to: custEmail,
             subject,
-            raw_html: customerEmailHtml({ custName, amount, account, iban, bank, vs, qrUrl, bookingNumber, invoiceNumber }),
+            raw_html: surcharge
+              ? surchargeEmailHtml({ custName, amount, account, iban, bank, vs, qrUrl, bookingNumber })
+              : customerEmailHtml({ custName, amount, account, iban, bank, vs, qrUrl, bookingNumber, invoiceNumber }),
             booking_id,
             attachment_paths,
           })
@@ -164,8 +193,8 @@ serve(async (req) => {
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + SERVICE_KEY, apikey: SERVICE_KEY },
         body: JSON.stringify({
           to: OPS_EMAIL,
-          subject: '🔔 QR/převod platba — VS ' + vs + ' — ' + fmtAmount(amount) + ' Kč (rez. #' + bookingNumber + ')',
-          raw_html: opsEmailHtml({ custName, custEmail, amount, vs, bookingNumber, account }),
+          subject: '🔔 ' + (surcharge ? 'DOPLATEK (úprava rezervace)' : 'QR/převod platba') + ' — VS ' + vs + ' — ' + fmtAmount(amount) + ' Kč (rez. #' + bookingNumber + ')',
+          raw_html: opsEmailHtml({ custName, custEmail, amount, vs, bookingNumber, account, surcharge: !!surcharge }),
         }),
       })
     } catch (e) { console.warn('[qr-payment] ops mail failed:', (e as Error).message) }
@@ -210,12 +239,35 @@ function customerEmailHtml(p: {
   `
 }
 
-function opsEmailHtml(p: {
-  custName: string; custEmail: string | null; amount: number; vs: string; bookingNumber: string; account: string
+// Fallback HTML pro DOPLATEK za úpravu rezervace — bez 4h splatnosti a bez ZF
+// (rezervace je zaplacená, nic se automaticky neruší; doklad přijde po potvrzení).
+function surchargeEmailHtml(p: {
+  custName: string; amount: number; account: string; iban: string; bank: string;
+  vs: string; qrUrl: string; bookingNumber: string
 }): string {
   return `
-  <h2 style="margin:0 0 8px;font-size:18px;color:#0f1a14">🔔 Čeká na bankovní převod</h2>
-  <p style="margin:0 0 12px;color:#374151;font-size:14px">Zákazník zvolil platbu QR / převodem. Zkontrolujte prosím připsání na účtu a po přijetí platbu potvrďte ve Velíně (rezervace → Potvrdit platbu → Bankovní převod).</p>
+  <h2 style="margin:0 0 6px;font-size:20px;color:#0f1a14">Doplatek za úpravu rezervace — QR / bankovní převod</h2>
+  <p style="margin:0 0 16px;color:#374151;font-size:14px">${p.custName ? p.custName + ', k' : 'K'} úpravě vaší rezervace <strong>#${p.bookingNumber}</strong> se váže doplatek. Uhraďte ho prosím bankovním převodem nebo naskenováním QR kódu v mobilní bankovní aplikaci.</p>
+  <div style="text-align:center;margin:0 0 16px"><img src="${p.qrUrl}" alt="QR Platba" style="width:240px;height:240px;border:1px solid #e5e7eb;border-radius:12px"></div>
+  <table style="width:100%;border-collapse:collapse;margin:0 0 14px">
+    ${row('Částka', fmtAmount(p.amount) + ' Kč', true)}
+    ${row('Číslo účtu', p.account)}
+    ${row('IBAN', p.iban.replace(/(.{4})/g, '$1 ').trim())}
+    ${row('Banka', p.bank)}
+    ${row('Variabilní symbol', p.vs)}
+  </table>
+  <p style="margin:0;color:#374151;font-size:13px">Po připsání platby vám úpravu rezervace potvrdíme e-mailem spolu s dokladem o platbě a aktualizovanou smlouvou.</p>
+  `
+}
+
+function opsEmailHtml(p: {
+  custName: string; custEmail: string | null; amount: number; vs: string; bookingNumber: string; account: string; surcharge?: boolean
+}): string {
+  return `
+  <h2 style="margin:0 0 8px;font-size:18px;color:#0f1a14">🔔 ${p.surcharge ? 'Čeká na DOPLATEK za úpravu rezervace' : 'Čeká na bankovní převod'}</h2>
+  <p style="margin:0 0 12px;color:#374151;font-size:14px">${p.surcharge
+    ? 'Admin upravil zaplacenou rezervaci s doplatkem. Zkontrolujte prosím připsání na účtu a po přijetí doplatek potvrďte ve Velíně (detail rezervace → Potvrdit doplatek) — teprve pak zákazníkovi odejde potvrzení úpravy.'
+    : 'Zákazník zvolil platbu QR / převodem. Zkontrolujte prosím připsání na účtu a po přijetí platbu potvrďte ve Velíně (rezervace → Potvrdit platbu → Bankovní převod).'}</p>
   <table style="width:100%;border-collapse:collapse;margin:0 0 12px">
     ${row('Rezervace', '#' + p.bookingNumber)}
     ${row('Zákazník', (p.custName || '—') + (p.custEmail ? ' · ' + p.custEmail : ''))}
@@ -223,6 +275,8 @@ function opsEmailHtml(p: {
     ${row('Částka', fmtAmount(p.amount) + ' Kč', true)}
     ${row('Účet', p.account)}
   </table>
-  <p style="margin:0;color:#b91c1c;font-weight:700;font-size:13px">Splatnost 4 h. Nezaplacená rezervace se pak automaticky zruší. Případnou pozdní/duplicitní platbu vraťte převodem zpět.</p>
+  ${p.surcharge
+    ? '<p style="margin:0;color:#374151;font-weight:700;font-size:13px">Rezervace je jinak zaplacená — nic se automaticky neruší.</p>'
+    : '<p style="margin:0;color:#b91c1c;font-weight:700;font-size:13px">Splatnost 4 h. Nezaplacená rezervace se pak automaticky zruší. Případnou pozdní/duplicitní platbu vraťte převodem zpět.</p>'}
   `
 }
