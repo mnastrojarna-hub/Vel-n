@@ -10,7 +10,9 @@ import { sendProtocolEmail } from './protocolEmail'
 
 // Elektronický předávací protokol / protokol o poškození — vyplnění na tabletu
 // (checkboxy + volný text) a podpis perem. Uloží podepsané HTML do generated_documents.
-export default function ElectronicProtocolModal({ open, type, bookingId, onClose, onSaved }) {
+// `codePreVerified` — identita už byla ověřena kódem motorky při vyhledání rezervace
+// (rychlé odbavení kódem z Velína); kód se zde předvyplní jako ověřený.
+export default function ElectronicProtocolModal({ open, type, bookingId, onClose, onSaved, codePreVerified = false }) {
   const isDamage = type === 'damage_protocol'
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -58,7 +60,9 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
       const { data: dc } = await supabase.from('branch_door_codes').select('door_code')
         .eq('booking_id', bookingId).eq('code_type', 'motorcycle')
         .order('created_at', { ascending: false }).limit(1)
-      setMotoCode(dc?.[0]?.door_code || '')
+      const code = dc?.[0]?.door_code || ''
+      setMotoCode(code)
+      if (codePreVerified && code) { setCodeInput(code); setCodeVerified(true); setCodeChecked(true) }
     } catch (e) { setError(e.message) }
     setLoading(false)
   }
