@@ -320,13 +320,8 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
       return const [];
     }
     final missing = <String>[];
-    // Vlastní výbava → základní velikosti řidiče se neřeší.
-    if (!_ownGear) {
-      if (_helmetSize == null) missing.add(t(context).tr('gearHelmetDriver'));
-      if (_glovesSize == null) missing.add(t(context).tr('gearGlovesDriver'));
-      if (_jacketSize == null) missing.add(t(context).tr('gearJacketDriver'));
-      if (_pantsSize == null) missing.add(t(context).tr('gearPantsDriver'));
-    }
+    // Základní výbava řidiče je volitelná PO KUSECH (parita s rezervačním
+    // formulářem) — nevybraná velikost = kus nechce, uložení neblokuje.
     // Placené boty mají vlastní velikost (i u vlastní výbavy je nutná).
     if (_selectedExtras.contains('boty_ridic') && _bootsSize == null) {
       missing.add(t(context).tr('gearBootsDriver'));

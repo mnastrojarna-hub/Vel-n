@@ -319,6 +319,8 @@ return [
     'rez.gear.trailer' => 'Remolque',
     'rez.gear.trailerSub' => 'Remolque para transportar la moto',
     'rez.gear.perDay' => '/ día',
+    'rez.note.toggle' => 'Añadir una nota a la reserva (opcional)',
+    'rez.note.placeholder' => 'Escríbanos cualquier cosa que debamos saber: peticiones, preguntas, detalles…',
     'rez.gear.item.trailer' => 'Remolque',
     'rez.gear.sizeHintGear' => '✅ Marque arriba para elegir tallas (de lo contrario, las probamos en el alquiler)',
     'rez.gear.sizeHintPassenger' => '✅ Marque arriba para abrir la selección de tallas del pasajero',

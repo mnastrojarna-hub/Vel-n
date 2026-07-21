@@ -304,6 +304,8 @@ return [
     'rez.gear.trailer' => 'Przyczepka',
     'rez.gear.trailerSub' => 'Przyczepka do transportu motocykla',
     'rez.gear.perDay' => '/ dzień',
+    'rez.note.toggle' => 'Dodaj uwagę do rezerwacji (opcjonalnie)',
+    'rez.note.placeholder' => 'Napisz nam wszystko, co powinniśmy wiedzieć — prośby, pytania, szczegóły…',
     'rez.gear.item.trailer' => 'Przyczepka',
     'rez.gear.sizeHintGear' => '✅ Zaznacz powyżej, aby wybrać rozmiary (w przeciwnym razie przymierzymy na miejscu)',
     'rez.gear.sizeHintPassenger' => '✅ Zaznacz powyżej, aby otworzyć wybór rozmiarów pasażera',

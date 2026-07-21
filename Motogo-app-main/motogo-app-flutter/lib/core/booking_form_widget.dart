@@ -33,25 +33,124 @@ class BookingDebugWrapper extends ConsumerStatefulWidget {
 
 class _BDWState extends ConsumerState<BookingDebugWrapper> {
   bool _calOpen = false;
+  // Poznámka k rezervaci — sbalená, aby se formulář neprodlužoval.
+  bool _noteOpen = false;
+  late final TextEditingController _noteCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _noteCtrl = TextEditingController(
+        text: ref.read(bookingDraftProvider).notes ?? '');
+    _noteOpen = _noteCtrl.text.trim().isNotEmpty;
+  }
+
+  @override
+  void dispose() {
+    _noteCtrl.dispose();
+    super.dispose();
+  }
 
   void _upd(BookingDraft Function(BookingDraft) fn) {
     final d = ref.read(bookingDraftProvider);
     ref.read(bookingDraftProvider.notifier).state = fn(d);
   }
 
+  // ─── Poznámka k rezervaci (rozbalovací karta) ────────────────────
+  Widget _buildNoteSection(BuildContext context) {
+    final hasNote = _noteCtrl.text.trim().isNotEmpty;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withValues(alpha: 0.06), blurRadius: 12),
+          ],
+        ),
+        child: Column(children: [
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => setState(() => _noteOpen = !_noteOpen),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(children: [
+                const Icon(Icons.edit_note,
+                    size: 20, color: Color(0xFF1A8A18)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    t(context).tr('bookingNoteToggle'),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF0F1A14),
+                      decoration: TextDecoration.none,
+                    ),
+                  ),
+                ),
+                if (!_noteOpen && hasNote)
+                  const Padding(
+                    padding: EdgeInsets.only(right: 6),
+                    child: Icon(Icons.check_circle,
+                        size: 16, color: Color(0xFF3DBA3A)),
+                  ),
+                Icon(_noteOpen ? Icons.expand_less : Icons.expand_more,
+                    size: 20, color: const Color(0xFF8AAB99)),
+              ]),
+            ),
+          ),
+          if (_noteOpen)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: TextField(
+                controller: _noteCtrl,
+                maxLines: 3,
+                maxLength: 500,
+                style: const TextStyle(
+                    fontSize: 13, color: Color(0xFF0F1A14)),
+                decoration: InputDecoration(
+                  hintText: t(context).tr('bookingNotePlaceholder'),
+                  hintStyle: const TextStyle(
+                      fontSize: 12, color: Color(0xFF8AAB99)),
+                  filled: true,
+                  fillColor: const Color(0xFFF4FAF7),
+                  contentPadding: const EdgeInsets.all(12),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide:
+                        const BorderSide(color: Color(0xFFD4E8E0)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide:
+                        const BorderSide(color: Color(0xFFD4E8E0)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(
+                        color: Color(0xFF74FB71), width: 2),
+                  ),
+                ),
+                onChanged: (v) => _upd((d) => d.copyWith(
+                    notes: () => v.trim().isEmpty ? null : v.trim())),
+              ),
+            ),
+        ]),
+      ),
+    );
+  }
+
   /// Gear sizes that must be filled before proceeding — independent of the
-  /// pickup method (parita s webem: velikosti se vybírají vždy, i při
-  /// vyzvednutí na pobočce, ne jen při přistavení). Returns a human-readable
-  /// list of missing items — empty list means OK to continue.
+  /// pickup method. Základní výbava zdarma je volitelná PO KUSECH (parita
+  /// s webem): nevybraná velikost = zákazník daný kus nechce a rezervaci to
+  /// neblokuje (klidně jen rukavice nebo jen bunda). Velikost je povinná jen
+  /// u zaškrtnutých doplňků se sedícími velikostmi (boty, spolujezdec).
+  /// Returns a human-readable list of missing items — empty list means OK.
   List<String> _missingGearSizes(BuildContext context, BookingDraft d) {
     final missing = <String>[];
-    // Základní výbavu zdarma vyžadujeme jen pokud zákazník NEMÁ vlastní výbavu.
-    if (!d.ownGear) {
-      if (d.helmetSize == null) missing.add(t(context).tr('gearHelmetDriver'));
-      if (d.glovesSize == null) missing.add(t(context).tr('gearGlovesDriver'));
-      if (d.jacketSize == null) missing.add(t(context).tr('gearJacketDriver'));
-      if (d.pantsSize == null) missing.add(t(context).tr('gearPantsDriver'));
-    }
     SelectedExtra? findExtra(String id) =>
         d.extras.where((e) => e.id == id).firstOrNull;
     final botyRidic = findExtra('extra-boty-ridic');
@@ -286,6 +385,7 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
                 BookingFormExtrasSection(draft: draft, onUpd: _upd, isKids: isKids),
                 BookingFormPriceSection(draft: draft, bd: bd, dayCount: dc),
                 BookingFormPromoSection(draft: draft, onUpd: _upd),
+                _buildNoteSection(context),
                 // SOUHLASY — only kids consent needed for children's bikes
                 if (isKids)
                   Padding(
