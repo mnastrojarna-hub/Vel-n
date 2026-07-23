@@ -101,7 +101,7 @@ export const PUBLIC_READ_TOOLS = [
   },
   {
     name: 'get_extras_catalog',
-    description: 'Vrátí seznam příslušenství, které lze přiobjednat (boty, výbava spolujezdce, přistavení, atd.) s cenami.',
+    description: 'Vrátí seznam příslušenství, které lze přiobjednat (top case, GPS, přistavení, atd.) s cenami + ceník výbavy/oblečení v `gear_pricing` (helma, bunda, kalhoty, rukavice, boty, kukla — pro řidiče i spolujezdce, vč. toho co je v ceně a co za příplatek).',
     input_schema: { type: 'object' as const, properties: {} },
   },
   {
@@ -192,11 +192,13 @@ export async function execPublicReadTool(
       }
 
       // Nic nevyhovělo, ale hledala se konkrétní kategorie/značka/model → zjisti, jestli takový
-      // stroj ve flotile EXISTUJE, jen právě není v nabídce (status service/inactive…). Agent pak
-      // řekne „máme, ale momentálně je v servisu" místo nepravdivého „nemáme vůbec".
+      // stroj ve flotile EXISTUJE, jen právě není v nabídce (status maintenance/unavailable). Agent
+      // pak řekne „máme, ale momentálně je v servisu" místo nepravdivého „nemáme vůbec".
+      // POZOR: `retired` sem NESMÍ — vyřazený stroj už ve flotile NENÍ (prodaný/odepsaný); hlásit ho
+      // jako „v servisu" je dezinformace (reálný incident: agent sliboval choppery, které firma nemá).
       let outOfService: Array<Record<string, unknown>> = []
       if (result.length === 0 && bookedInWindow.length === 0 && (args.category || args.brand || args.model_query)) {
-        let q2 = sb.from('motorcycles').select('brand, model, status, category, license_required').neq('status', 'active')
+        let q2 = sb.from('motorcycles').select('brand, model, status, category, license_required').in('status', ['maintenance', 'unavailable'])
         if (args.category) q2 = q2.ilike('category', `%${args.category}%`)
         if (args.brand) q2 = q2.ilike('brand', `%${String(args.brand)}%`)
         if (args.model_query) q2 = q2.ilike('model', `%${String(args.model_query)}%`)
@@ -204,7 +206,12 @@ export async function execPublicReadTool(
         const { data: d2 } = await q2
         outOfService = ((d2 || []) as Array<Record<string, unknown>>)
           .filter((m) => licGroup !== 'B' || m.license_required !== 'A1' || isAutomatic(m))
-          .map((m) => ({ name: motoDisplayName(m.brand as string, m.model as string), status: m.status, category: m.category, license: m.license_required }))
+          .map((m) => ({
+            name: motoDisplayName(m.brand as string, m.model as string),
+            status: m.status,
+            status_note: m.status === 'maintenance' ? 'v servisu' : 'dočasně mimo nabídku',
+            category: m.category, license: m.license_required,
+          }))
       }
 
       const minPriceFor = (m: Record<string, unknown>): number => {
@@ -249,7 +256,7 @@ export async function execPublicReadTool(
           ? (bookedInWindow.length > 0
             ? 'Stroje v `booked_in_window` MÁME a filtrům vyhovují, ale v požadovaném termínu jsou OBSAZENÉ. Řekni to zákazníkovi přesně takto a nabídni jiný termín (get_availability ukáže obsazené rozsahy). NIKDY netvrď, že takový stroj nemáme.'
             : (outOfService.length > 0
-              ? 'Stroje v `out_of_service_matches` ve flotile EXISTUJÍ, ale právě NEJSOU v nabídce (typicky v servisu / dočasně mimo provoz). Řekni zákazníkovi „máme, ale momentálně je v servisu / mimo provoz" a nabídni alternativu nebo pozdější termín. NIKDY netvrď, že takový stroj vůbec nemáme.'
+              ? 'Stroje v `out_of_service_matches` ve flotile EXISTUJÍ, ale právě NEJSOU v nabídce — použij přesně důvod ze `status_note` každého stroje („v servisu" vs. „dočasně mimo nabídku") a nabídni alternativu nebo pozdější termín. NIKDY netvrď, že takový stroj vůbec nemáme. Stroje mimo tento seznam a mimo aktivní flotilu NEEXISTUJÍ — žádné jiné modely si nedomýšlej.'
               : undefined))
           : undefined,
         motorcycles: result.slice(0, 20).map((m: Record<string, unknown>) => {
@@ -551,12 +558,28 @@ export async function execPublicReadTool(
       }
     }
     case 'get_extras_catalog': {
-      const { data } = await sb.from('extras_catalog')
-        .select('id, name, description, price, unit, category, is_active')
-        .eq('is_active', true).order('sort_order', { ascending: true }).order('name')
-      return { extras: (data || []).map((e: Record<string, unknown>) => ({
-        id: e.id, name: e.name, price_kc: e.price, unit: e.unit || 'ks', category: e.category, description: e.description,
-      })) }
+      // Dva zdroje: `extras_catalog` (top case, GPS, přistavení…) + `accessory_types` (ceník
+      // OBLEČENÍ/výbavy — helma, bunda, kalhoty, rukavice, boty, kukla; stejný zdroj jako
+      // rezervační formulář na webu). Bez druhého zdroje agent neuměl říct cenu výbavy spolujezdce.
+      const [{ data }, { data: acc }] = await Promise.all([
+        sb.from('extras_catalog')
+          .select('id, name, description, price, unit, category, is_active')
+          .eq('is_active', true).order('sort_order', { ascending: true }).order('name'),
+        sb.from('accessory_types')
+          .select('key, label, sizes, price_czk, pricing_unit, is_active')
+          .eq('is_active', true).order('sort_order', { ascending: true }),
+      ])
+      return {
+        extras: (data || []).map((e: Record<string, unknown>) => ({
+          id: e.id, name: e.name, price_kc: e.price, unit: e.unit || 'ks', category: e.category, description: e.description,
+        })),
+        gear_pricing: (acc || []).map((a: Record<string, unknown>) => ({
+          type: a.key, label: a.label, sizes: a.sizes,
+          price_kc: a.pricing_unit === 'free' ? 0 : Number(a.price_czk || 0),
+          pricing_unit: a.pricing_unit, // free = v ceně | per_booking = jednorázově za rezervaci | per_day = za každý den
+        })),
+        gear_notice: 'Ceny výbavy (oblečení) ber VÝHRADNĚ z `gear_pricing`: `free`/0 Kč = v ceně pronájmu, `per_booking` = jednorázový příplatek za rezervaci, `per_day` = příplatek za každý den. Základní výbava ŘIDIČE (helma, bunda, kalhoty, rukavice) je v ceně; placené bývají boty řidiče a výbava spolujezdce — ale řiď se daty, ne touto větou. Když je `gear_pricing` prázdné, řekni, že přesný ceník výbavy potvrdí půjčovna — NEVYMÝŠLEJ částky.',
+      }
     }
     case 'get_branches': {
       const { data } = await sb.from('branches')
