@@ -123,20 +123,19 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
   }
 
   /// Varianta B: zjisti typ slevy rezervace pro přepočet ceny při úpravě.
-  /// Voucher kódy v promo_codes nejsou → maybeSingle vrátí null → 'fixed'
+  /// Voucher kódy v promo_codes nejsou → RPC vrátí null → 'fixed'
   /// (konzervativní default, shodný se SQL helperem _booking_discount_type).
+  /// Čte přes SECURITY DEFINER RPC `get_promo_code_type` — promo_codes už
+  /// není čitelné anon/authenticated klíčem napřímo (RLS security fix).
   Future<void> _loadDiscountType(Reservation res) async {
     if ((res.discountAmount ?? 0) <= 0) return;
     var type = 'fixed';
     final code = res.discountCode;
     if (code != null && code.isNotEmpty) {
       try {
-        final row = await MotoGoSupabase.client
-            .from('promo_codes')
-            .select('type')
-            .eq('code', code.toUpperCase())
-            .maybeSingle();
-        type = (row?['type'] as String?) ?? 'fixed';
+        final result = await MotoGoSupabase.client
+            .rpc('get_promo_code_type', params: {'p_code': code.toUpperCase()});
+        type = (result as String?) ?? 'fixed';
       } catch (_) { /* fallback fixed */ }
     }
     if (mounted) setState(() => _discountType = type);
