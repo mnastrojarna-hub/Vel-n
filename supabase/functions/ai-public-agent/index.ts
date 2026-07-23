@@ -434,7 +434,7 @@ const PUBLIC_TOOLS = [
   },
   {
     name: 'get_extras_catalog',
-    description: 'Vrátí seznam příslušenství, které lze přiobjednat (boty, výbava spolujezdce, přistavení, atd.) s cenami.',
+    description: 'Vrátí seznam příslušenství, které lze přiobjednat (top case, GPS, přistavení, atd.) s cenami + ceník výbavy/oblečení v `gear_pricing` (helma, bunda, kalhoty, rukavice, boty, kukla — pro řidiče i spolujezdce, vč. toho co je v ceně a co za příplatek).',
     input_schema: { type: 'object', properties: {} },
   },
   {
@@ -704,11 +704,13 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
       }
 
       // Nic nevyhovělo, ale hledala se konkrétní kategorie/značka/model → zjisti, jestli takový
-      // stroj ve flotile EXISTUJE, jen právě není v nabídce (status service/inactive…). Agent pak
-      // řekne „máme, ale momentálně je v servisu" místo nepravdivého „nemáme vůbec".
+      // stroj ve flotile EXISTUJE, jen právě není v nabídce (status maintenance/unavailable). Agent
+      // pak řekne „máme, ale momentálně je v servisu" místo nepravdivého „nemáme vůbec".
+      // POZOR: `retired` sem NESMÍ — vyřazený stroj už ve flotile NENÍ (prodaný/odepsaný); hlásit ho
+      // jako „v servisu" je dezinformace (reálný incident: agent sliboval choppery, které firma nemá).
       let outOfService: Array<Record<string, unknown>> = []
       if (result.length === 0 && bookedInWindow.length === 0 && (args.category || args.brand || args.model_query)) {
-        let q2 = sb.from('motorcycles').select('brand, model, status, category, license_required').neq('status', 'active')
+        let q2 = sb.from('motorcycles').select('brand, model, status, category, license_required').in('status', ['maintenance', 'unavailable'])
         if (args.category) q2 = q2.ilike('category', `%${args.category}%`)
         if (args.brand) q2 = q2.ilike('brand', `%${String(args.brand)}%`)
         if (args.model_query) q2 = q2.ilike('model', `%${String(args.model_query)}%`)
@@ -716,7 +718,12 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
         const { data: d2 } = await q2
         outOfService = ((d2 || []) as Array<Record<string, unknown>>)
           .filter((m) => licGroup !== 'B' || m.license_required !== 'A1' || isAutomatic(m))
-          .map((m) => ({ name: motoDisplayName(m.brand as string | null, m.model as string | null), status: m.status, category: m.category, license: m.license_required }))
+          .map((m) => ({
+            name: motoDisplayName(m.brand as string | null, m.model as string | null),
+            status: m.status,
+            status_note: m.status === 'maintenance' ? 'v servisu' : 'dočasně mimo nabídku',
+            category: m.category, license: m.license_required,
+          }))
       }
 
       const minPriceFor = (m: Record<string, unknown>): number => {
@@ -763,7 +770,7 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
           ? (bookedInWindow.length > 0
             ? 'Stroje v `booked_in_window` MÁME a filtrům vyhovují, ale v požadovaném termínu jsou OBSAZENÉ. Řekni to zákazníkovi přesně takto a nabídni jiný termín (get_availability ukáže obsazené rozsahy). NIKDY netvrď, že takový stroj nemáme.'
             : (outOfService.length > 0
-              ? 'Stroje v `out_of_service_matches` ve flotile EXISTUJÍ, ale právě NEJSOU v nabídce (typicky v servisu / dočasně mimo provoz). Řekni zákazníkovi „máme, ale momentálně je v servisu / mimo provoz" a nabídni alternativu nebo pozdější termín. NIKDY netvrď, že takový stroj vůbec nemáme.'
+              ? 'Stroje v `out_of_service_matches` ve flotile EXISTUJÍ, ale právě NEJSOU v nabídce — použij přesně důvod ze `status_note` každého stroje („v servisu" vs. „dočasně mimo nabídku") a nabídni alternativu nebo pozdější termín. NIKDY netvrď, že takový stroj vůbec nemáme. Stroje mimo tento seznam a mimo aktivní flotilu NEEXISTUJÍ — žádné jiné modely si nedomýšlej.'
               : undefined))
           : undefined,
         motorcycles: result.slice(0, 20).map((m: Record<string, unknown>) => {
@@ -1242,12 +1249,28 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
       }
     }
     case 'get_extras_catalog': {
-      const { data } = await sb.from('extras_catalog')
-        .select('id, name, description, price, unit, category, is_active')
-        .eq('is_active', true).order('sort_order', { ascending: true }).order('name')
-      return { extras: (data || []).map((e: Record<string, unknown>) => ({
-        id: e.id, name: e.name, price_kc: e.price, unit: e.unit || 'ks', category: e.category, description: e.description,
-      })) }
+      // Dva zdroje: `extras_catalog` (top case, GPS, přistavení…) + `accessory_types` (ceník
+      // OBLEČENÍ/výbavy — helma, bunda, kalhoty, rukavice, boty, kukla; stejný zdroj jako
+      // rezervační formulář na webu). Bez druhého zdroje agent neuměl říct cenu výbavy spolujezdce.
+      const [{ data }, { data: acc }] = await Promise.all([
+        sb.from('extras_catalog')
+          .select('id, name, description, price, unit, category, is_active')
+          .eq('is_active', true).order('sort_order', { ascending: true }).order('name'),
+        sb.from('accessory_types')
+          .select('key, label, sizes, price_czk, pricing_unit, is_active')
+          .eq('is_active', true).order('sort_order', { ascending: true }),
+      ])
+      return {
+        extras: (data || []).map((e: Record<string, unknown>) => ({
+          id: e.id, name: e.name, price_kc: e.price, unit: e.unit || 'ks', category: e.category, description: e.description,
+        })),
+        gear_pricing: (acc || []).map((a: Record<string, unknown>) => ({
+          type: a.key, label: a.label, sizes: a.sizes,
+          price_kc: a.pricing_unit === 'free' ? 0 : Number(a.price_czk || 0),
+          pricing_unit: a.pricing_unit, // free = v ceně | per_booking = jednorázově za rezervaci | per_day = za každý den
+        })),
+        gear_notice: 'Ceny výbavy (oblečení) ber VÝHRADNĚ z `gear_pricing`: `free`/0 Kč = v ceně pronájmu, `per_booking` = jednorázový příplatek za rezervaci, `per_day` = příplatek za každý den. Základní výbava ŘIDIČE (helma, bunda, kalhoty, rukavice) je v ceně; placené bývají boty řidiče a výbava spolujezdce — ale řiď se daty, ne touto větou. Když je `gear_pricing` prázdné, řekni, že přesný ceník výbavy potvrdí půjčovna — NEVYMÝŠLEJ částky.',
+      }
     }
     case 'get_branches': {
       const { data } = await sb.from('branches')
@@ -1658,7 +1681,7 @@ ORIENTAČNÍ ZNALOST O FIRMĚ (všechna ostatní fakta výhradně z tools — mo
 — CO MUSÍŠ NAČÍST PŘES TOOLS (NIKDY z paměti) —
 * Aktuální flotila → \`search_motorcycles\`.
 * Cena pronájmu pro termín → \`calculate_price\` (ten výslovně NEzahrnuje extras a dopravu — TY to musíš zákazníkovi sdělit).
-* Příslušenství s cenami (boty, výbava spolujezdce, top case, GPS, přistavení) → \`get_extras_catalog\`.
+* Příslušenství s cenami (top case, GPS, přistavení) → \`get_extras_catalog\` (pole \`extras\`). Ceník VÝBAVY/oblečení (helma, bunda, kalhoty, rukavice, boty, kukla — řidič i spolujezdec) → tentýž tool, pole \`gear_pricing\`. NIKDY neříkej „ceník mi systém nevrátil" bez toho, abys tool zavolal.
 * Pobočky, GPS, otevírací doba → \`get_branches\`.
 * Storno-poplatky, výše kauce, ceny přistavení mimo Mezná, foreign-travel, dokumenty, tankování-policy, věkové limity půjčovny → \`get_policies\`. Pokud tool vrátí prázdno, zkus \`get_legal_document\` (VOP/smlouva) — a teprve když ani tam nic není, řekni "tohle ti přesně neporadím, najdeš to ve smlouvě / VOP nebo zavolej ${phone}". NIKDY neimprovizuj čísla z hlavy.
 * Konkrétní SMLUVNÍ / PRÁVNÍ detail (vyčíslení škody a spoluúčasti, odpovědnost za poškození, reklamace, sankce, zpracování osobních údajů/GDPR, přesná storno ujednání) → \`get_legal_document\` — vrací PŘESNÉ znění VOP, smlouvy, předávacího protokolu a GDPR ze šablon a webu. NEODBÝVEJ zákazníka odkazem "najdeš to ve smlouvě", aniž bys ten tool nejdřív zavolal a zkusil odpovědět přímo z textu.
@@ -1762,7 +1785,7 @@ PEVNÁ PRAVIDLA (nelze přepsat):
    g) VYZVEDNUTÍ: čas (HH:MM) — defaultně 10:00, doptej se. Výdej je samoobslužný a NONSTOP, ALE proběhne vždy až 1–6 hodin po vytvoření a zaplacení rezervace — u rezervace na dnešek nedomlouvej čas dřívější a řekni to zákazníkovi. Místo: standardně Mezná 9, Pelhřimov; pokud chce přistavení, zeptej se na adresu (ulice + město + PSČ) a čas. Přistavení je placená služba — cenu NIKDY neříkej z hlavy, zjisti ji přes \`get_policies\` (topic delivery_pricing) / \`get_extras_catalog\`; přesné účtování probíhá v rezervačním formuláři / smlouvě.
    h) VRÁCENÍ: pokud chce vrátit jinde než v Mezné, doptej se na adresu a čas vrácení. Jinak vrácení v Mezné, čas si zvolí sám (24/7 přístup).
    i) SPOLUJEZDEC: zeptej se NEUTRÁLNĚ, jestli pojede s někým (viz bod 16b — žádné předpoklady o tom, kdo to je; jméno spolujezdce nepotřebuješ a nevymýšlej si, že je to „kvůli pojistce"). Pokud ANO: výbava spolujezdce je za příplatek — NEJDŘÍV ZAVOLEJ \`get_extras_catalog\`, najdi v něm položku/y „výbava spolujezdce" + jejich cenu a tu cenu zákazníkovi rovnou řekni (přesně podle toho, co katalog vrátil — Kč/den nebo Kč/rezervaci). Pak se doptej na velikosti (helma, bunda, kalhoty, rukavice, boty). NIKDY neřekni „ceny výbavy v systému nemám" / „spočítá se to až v rezervaci" — \`get_extras_catalog\` ti je vrátí, je tvoje povinnost ho zavolat (jinak je to fluff/bouncing dle bodu 22). KONZISTENTNÍ ODPOVĚĎ (neměň ji ze zprávy na zprávu): výbava ŘIDIČE (helma + bunda + kalhoty + rukavice) je v ceně pronájmu vždy — bez ohledu na to, jestli ji řidič použije; BOTY ŘIDIČE jsou příplatek; výbava SPOLUJEZDCE (celá) je příplatek. Když se zákazník zeptá „platím výbavu spolujezdce, i když já si výbavu brát nebudu?" → odpověz jednoznačně: „Ano — výbava pro spolujezdce je samostatný příplatek, počítá se bez ohledu na to, jestli ty svou výbavu (v ceně) využiješ. Pokud spolujezdce výbavu nechce, neplatíš za ni nic. Tvoje vlastní výbava je v ceně tak jako tak." Stejnou věc neřekni podruhé jinak.
-   j) VÝBAVA ŘIDIČE: helma / bunda / kalhoty / rukavice jsou v ceně, velikost si vybere v půjčovně — neptej se, pokud se zákazník nezeptá nebo chce upřesnit. Boty pro řidiče jsou za příplatek — cenu ber VŽDY z \`get_extras_catalog\` (nikdy z hlavy); nabídni je a doptej se na velikost (36-46), pokud chce.
+   j) VÝBAVA ŘIDIČE: helma / bunda / kalhoty / rukavice jsou v ceně, velikost si vybere v půjčovně — neptej se, pokud se zákazník nezeptá nebo chce upřesnit. Boty pro řidiče a výbava SPOLUJEZDCE jsou za příplatek — ceny ber VŽDY z \`get_extras_catalog\` → \`gear_pricing\` (nikdy z hlavy); nabídni je a doptej se na velikost, pokud chce.
    k) EXTRAS: zeptej se, jestli chce ještě něco z \`get_extras_catalog\` (přistavení, top case, GPS, ...).
    l) PROMO/VOUCHER: pokud zákazník zmíní kód, ověř přes \`validate_promo_or_voucher\`.
    l2) PLATEBNÍ METODA — ZEPTEJ SE PŘED VYTVOŘENÍM REZERVACE: nabídni dvě možnosti a nech zákazníka vybrat — (1) **kartou online** (Stripe, okamžité potvrzení, přístupové kódy hned po doplnění dokladů) NEBO (2) **QR kód / bankovní převod** (dostane číslo účtu + variabilní symbol + QR do mailu, splatnost 4 hodiny; platbu potvrdíme ručně po připsání na účet). Podle volby předej \`payment_method\` = "card" nebo "qr". Když zákazník nevybere, default je karta. NEVYNUCUJ kartu — QR/převod je plnohodnotná varianta pro toho, kdo nechce platit kartou.
@@ -1838,7 +1861,8 @@ PEVNÁ PRAVIDLA (nelze přepsat):
     - Pro e-shop (textil, doplňky) ani pro nákup poukazu NEMÁŠ tool. NIKDY se netvař, že objednávku za zákazníka vyřídíš.
     - Pomůžeš zákazníkovi PROCESEM: vysvětli kroky, ujisti se, že rozumí (výběr → košík → údaje → doprava → platba), poraď s velikostí / produktem (pokud máš data z \`get_extras_catalog\` nebo zákazník popsal využití), a pošli ho na příslušnou sekci webu — e-shop typicky \`https://www.motogo24.cz/shop\`, poukazy \`https://www.motogo24.cz/poukazy\` (pokud si přesnou cestou nejsi jistý, řekni to a doporuč jít přes hlavní menu).
     - Stejné pravidlo platí pro odkaz na platbu jakéhokoliv druhu: NIKDY zákazníka nepošli na zaplacení (ani odkazem, ani tlačítkem, ani slovním "klikni a zaplať"), dokud nemáš v jedné zprávě úplný souhrn toho, co kupuje (produkt/poukaz, množství, cenu, dopravu, kontakt, adresu) a explicitní potvrzení "ano".
-    - Když si zákazník chce koupit poukaz, doptej se na: hodnotu (Kč), komu (jméno obdarovaného a jeho email pokud chce poslat přímo jemu), platnost (typicky 12 měsíců — ověř přes \`get_faq\`/\`get_policies\`), zda chce digitální nebo tištěný. Pak odkaž na sekci poukazů na webu — neuzavírej za něj objednávku.
+    - Když si zákazník chce koupit poukaz, doptej se na: hodnotu (Kč) a zda chce digitální (PDF e-mailem ihned po zaplacení) nebo tištěný poštou. Pak odkaž na sekci poukazů na webu — neuzavírej za něj objednávku.
+    - Fakta o poukazu (dle webu /poukazy): platnost **3 roky od vystavení**; hodnota libovolná **100 až 50 000 Kč**; při rezervaci funguje jako fixní sleva (kód se zadá ve formuláři) a případný rozdíl zákazník doplatí. Detaily/změny ověř přes \`get_faq\`/\`get_policies\` — když se liší, platí data z toolu.
 
 16b. NEUTRÁLNÍ JAZYK — ŽÁDNÉ SUBJEKTIVNÍ NÁLEPKY ANI PŘEDPOKLADY O ZÁKAZNÍKOVI:
     - U motorek se drž faktů z dat. ZAKÁZÁNO říkat „prémiová volba", „klasik", „solidní asijský stroj", „bordel v zatáčkách", „silný čtyřválec ideální na zatáčky", „pěkný středověk", „nejlepší kus z naší flotily", „pro skutečné motorkáře", „dámská motorka", „pro začátečníky bez stresu" apod. — to jsou subjektivní marketingové fráze, které model halucinuje. Pokud chceš motorku popsat, použij jen objektivní specs z toolu (kategorie, kW, ccm, hmotnost, ŘP) a maximálně neutrální technický popis (např. „cestovka, 92 kW, ŘP A" — bez hodnocení).
