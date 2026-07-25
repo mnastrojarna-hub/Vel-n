@@ -342,6 +342,7 @@ class StopReachedCard extends StatelessWidget {
   final VoidCallback onNext;
   final VoidCallback onChoose;
   final VoidCallback onClose;
+  final VoidCallback? onRate; // hodnocení + komentář dosaženého bodu zájmu
   const StopReachedCard({
     super.key,
     required this.name,
@@ -350,6 +351,7 @@ class StopReachedCard extends StatelessWidget {
     required this.onNext,
     required this.onChoose,
     required this.onClose,
+    this.onRate,
   });
 
   @override
@@ -461,6 +463,23 @@ class StopReachedCard extends StatelessWidget {
                   ),
                 ),
               ),
+              if (onRate != null) ...[
+                const SizedBox(width: 8),
+                // Ohodnotit dosažený bod (hvězdy + komentář v detailu bodu).
+                GestureDetector(
+                  onTap: onRate,
+                  child: Container(
+                    height: 44,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: MotoGoColors.greenPale,
+                      borderRadius: BorderRadius.circular(MotoGoRadius.pill),
+                      border: Border.all(color: MotoGoColors.green, width: 1.3),
+                    ),
+                    child: const Icon(Icons.star, size: 20, color: Color(0xFFF5B301)),
+                  ),
+                ),
+              ],
               const SizedBox(width: 8),
               GestureDetector(
                 onTap: onChoose,

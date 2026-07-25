@@ -1,6 +1,6 @@
 import 'dart:async';
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
@@ -11,8 +11,10 @@ import '../../core/router.dart' show MotoGoBackNav;
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/native/gps_service.dart';
 import '../../core/supabase_client.dart';
+import 'active_ride_provider.dart';
 import 'routes_model.dart';
 import 'routes_provider.dart';
+import 'route_nav_motion.dart';
 import 'route_poi_sheet.dart';
 import 'route_nav_widgets.dart';
 import 'route_reviews.dart';
@@ -62,7 +64,8 @@ class _NavStop {
   _NavStop(this.point, {this.label, this.poi});
 }
 
-class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
+class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
+    with SingleTickerProviderStateMixin {
   // Pod touto rychlostí (km/h) je GPS heading nespolehlivý → mapou neotáčíme.
   static const double _moveThreshold = 5;
   // Vybočení z trasy: dál než [_kOffRouteM] po [_kOffRouteFixes] po sobě
@@ -79,6 +82,8 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
 
   final MapController _ctrl = MapController();
   StreamSubscription<Position>? _sub;
+  // Zobrazovaná (animovaná) poloha — plynule se blíží k predikované cílové
+  // poloze; surový GPS fix je v [_fix]. Zbytek obrazovky pracuje s [_me].
   LatLng? _me;
   double? _heading;
   double _speedKmh = 0;
@@ -92,6 +97,27 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
   double _mapRot = 0; // aktuální rotace mapy (pro kompas)
   double _zoomBias = 0; // ruční doladění zoomu (tlačítka +/−)
   double _zoomSpeed = 0; // vyhlazená rychlost pro adaptivní zoom (proti blikání)
+  double _animZoom = 15; // plynule dopočítávaný zoom (žádné skoky mezi stupni)
+
+  // Poslední GPS fix + jeho projekce na zobrazenou trasu (pro predikci).
+  LatLng? _fix;
+  DateTime? _fixAt;
+  double _fixSpeedMps = 0;
+  double? _fixAlongM; // pozice fixu PO TRASE (metry od startu polyline)
+  double _fixSnapDistM = double.infinity; // kolmá vzdálenost fixu od trasy
+
+  // Animační smyčka (per-frame interpolace polohy, rotace a zoomu).
+  Ticker? _ticker;
+  Duration _lastElapsed = Duration.zero;
+
+  // Cache geometrií: zobrazená polyline + živá navigační polyline.
+  RouteGeoCache? _dispCache; // geometrie právě vykreslené trasy
+  RouteGeoCache? _dispBase; // cache pro základní (ne-nav) geometrii
+  List<LatLng>? _dispSrc;
+  int? _dispSegHint; // okno pro levnou projekci (poslední segment)
+  RouteGeoCache? _navCache; // geometrie z routingu (_navGeo)
+  int? _navSegHint;
+  double? _riderAlongM; // postup jezdce po navigační trase (metry)
 
   /// Adaptivní zoom podle rychlosti: pomalu (obec, odbočka, sjezd) → blíž,
   /// rychle (silnice, dálnice) → dál. Plus ruční bias z tlačítek +/−.
@@ -135,6 +161,9 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
   bool _doneCardDismissed = false;
   Timer? _cardTimer;
 
+  // Persistence rozjeté jízdy (přežije zavření appky; ruší se jen křížkem).
+  bool _rideSynced = false;
+
   @override
   void initState() {
     super.initState();
@@ -163,40 +192,102 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
     }
   }
 
+  /// Nový GPS fix: uloží se surová poloha + její projekce na trasu. Zobrazení
+  /// NEskáče — fix jen potvrdí/zkoriguje predikovanou polohu a animační
+  /// smyčka [_onTick] k ní marker plynule dovede.
   void _onPosition(Position pos) {
     if (!mounted) return;
-    final me = LatLng(pos.latitude, pos.longitude);
+    final fix = LatLng(pos.latitude, pos.longitude);
     final hdg = (pos.heading >= 0 && pos.heading <= 360) ? pos.heading : null;
     final spd = pos.speed.isFinite && pos.speed > 0 ? pos.speed * 3.6 : 0.0;
     final alt = pos.altitude.isFinite && pos.altitude != 0 ? pos.altitude : null;
-    final moving = spd > _moveThreshold && hdg != null;
-    if (moving) _smoothHeading = _lerpAngle(_smoothHeading, hdg!, 0.35);
+
+    _fix = fix;
+    _fixAt = DateTime.now();
+    _fixSpeedMps = spd / 3.6;
+    _heading = hdg;
+    _speedKmh = spd;
+    _altitude = alt;
     _zoomSpeed = _zoomSpeed * 0.7 + spd * 0.3;
 
-    setState(() {
-      _me = me;
-      _heading = hdg;
-      _speedKmh = spd;
-      _altitude = alt;
-    });
+    // Snap fixu na zobrazenou polyline — potvrzení / korekce predikce.
+    final cache = _dispCache;
+    if (cache != null) {
+      final p = cache.project(fix, hintSeg: _dispSegHint);
+      _dispSegHint = p.segIndex;
+      _fixAlongM = p.alongM;
+      _fixSnapDistM = p.distM;
+    } else {
+      _fixAlongM = null;
+      _fixSnapDistM = double.infinity;
+    }
 
-    // Sledování polohy + adaptivní zoom + (volitelně) otáčení po směru jízdy.
-    final wantRot = _follow && _headingUp && moving;
-    final rot = wantRot ? -_smoothHeading : _mapRot;
-    final z = _targetZoom(_zoomSpeed);
     if (_firstFix) {
       _firstFix = false;
-      _ctrl.moveAndRotate(me, z, rot);
-      _mapRot = rot;
-    } else if (_follow) {
-      if (wantRot) {
-        _ctrl.moveAndRotate(me, z, rot);
-        _mapRot = rot;
+      _me = _onRouteNow && cache != null && _fixAlongM != null
+          ? cache.pointAt(_fixAlongM!)
+          : fix;
+      _animZoom = _targetZoom(_zoomSpeed);
+      final moving = spd > _moveThreshold && hdg != null;
+      if (moving) _smoothHeading = hdg!;
+      _mapRot = _follow && _headingUp && moving ? -_smoothHeading : 0.0;
+      _ctrl.moveAndRotate(_me!, _animZoom, _mapRot);
+      setState(() {});
+    }
+    _ticker ??= createTicker(_onTick)..start();
+    _updateProgress(fix);
+  }
+
+  /// Jedu po trase? (fix je dost blízko polyline pro snap + predikci)
+  bool get _onRouteNow => _fixSnapDistM <= 45;
+
+  /// Cílová poloha markeru: fix promítnutý na trasu; mezi GPS fixy se
+  /// PŘEDPOKLÁDÁ pokračování jízdy po trase aktuální rychlostí — další fix
+  /// predikci jen potvrdí, nebo přehodnotí (koriguje). Mimo trasu drží fix.
+  LatLng _predictedPosition() {
+    final cache = _dispCache;
+    final along = _fixAlongM;
+    if (cache == null || along == null || !_onRouteNow) return _fix!;
+    if (_fixSpeedMps < 1.5 || _fixAt == null) return cache.pointAt(along);
+    final age = (DateTime.now().difference(_fixAt!).inMilliseconds / 1000.0)
+        .clamp(0.0, 2.5);
+    return cache.pointAt(along + _fixSpeedMps * age);
+  }
+
+  /// Animační smyčka: každý snímek se zobrazená poloha exponenciálně blíží
+  /// k cílové (predikované), spojitě se dopočítává i směr mapy a zoom —
+  /// výsledkem je plynulý pohyb bez skoků po GPS ficích.
+  void _onTick(Duration elapsed) {
+    final dt = ((elapsed - _lastElapsed).inMicroseconds / 1e6).clamp(0.0, 0.1);
+    _lastElapsed = elapsed;
+    if (!mounted || _fix == null || dt <= 0) return;
+
+    final target = _predictedPosition();
+    _me = _me == null ? target : lerpLatLng(_me!, target, expSmooth(dt, 4.5));
+
+    // Směr: po trase (stabilní bearing segmentu), jinak GPS heading.
+    final moving = _speedKmh > _moveThreshold;
+    double? desired;
+    if (moving) {
+      if (_onRouteNow && _dispSegHint != null && _fixSpeedMps > 1.5) {
+        desired = _dispCache?.segBearing(_dispSegHint!);
+      }
+      desired ??= _heading;
+    }
+    if (desired != null) {
+      _smoothHeading = lerpAngle(_smoothHeading, desired, expSmooth(dt, 4.0));
+    }
+    _animZoom += (_targetZoom(_zoomSpeed) - _animZoom) * expSmooth(dt, 2.5);
+
+    if (_follow && _me != null) {
+      if (_headingUp && moving) {
+        _mapRot = -_smoothHeading;
+        _ctrl.moveAndRotate(_me!, _animZoom, _mapRot);
       } else {
-        _ctrl.move(me, z);
+        _ctrl.move(_me!, _animZoom);
       }
     }
-    _updateProgress(me);
+    setState(() {});
   }
 
   // ── Real-time průběh: zastávky, objevování, off-route reroute ──
@@ -204,15 +295,16 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
   void _updateProgress(LatLng me) {
     final route = _route;
     if (route == null) return;
-    if (_stopsBuilt) _checkStops(me, route);
-
-    final geo = _navGeo;
-    if (geo == null || geo.length < 2) {
+    final cache = _navCache;
+    if (cache == null) {
+      if (_stopsBuilt) _checkStops(me, route);
       _maybeComputeNav();
       return;
     }
-    final prog = _projectOnRoute(geo, me);
-    if (prog == null) return;
+    final prog = cache.project(me, hintSeg: _navSegHint);
+    _navSegHint = prog.segIndex;
+    _riderAlongM = prog.alongM;
+    if (_stopsBuilt) _checkStops(me, route);
     if (prog.distM > _kOffRouteM) {
       // Mimo trasu — po několika fixech přepočítej od aktuální polohy.
       _offRouteFixes++;
@@ -235,17 +327,26 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
         _recordVisit(poi);
       }
     }
-    // 2) Dojezd na zastávky trasy.
+    // 2) Dojezd na zastávky trasy. Vzdušný dojezd platí JEN pro PŘÍŠTÍ
+    // zastávku, případně pro bod, u kterého jezdec je i podle postupu PO
+    // TRASE — u okruhu (start = cíl) se jinak hned na startu chybně
+    // odškrtl i poslední bod trasy.
     var changed = false;
-    for (final s in _stops) {
+    final nextIdx = _stops.indexWhere((s) => !s.reached);
+    for (var i = 0; i < _stops.length; i++) {
+      final s = _stops[i];
       if (s.reached) continue;
-      if (dist.as(LengthUnit.Meter, me, s.point) <= _kReachM) {
-        s.reached = true;
-        changed = true;
-        // Karta „dojel jsi" jen u pojmenované zastávky / bodu zájmu —
-        // bezejmenné průjezdní body se odškrtávají potichu.
-        if (s.poi != null || (s.label ?? '').isNotEmpty) _showReachedCard(s);
-      }
+      if (dist.as(LengthUnit.Meter, me, s.point) > _kReachM) continue;
+      final along = _stopAlongM[s];
+      final byRoute = along != null &&
+          _riderAlongM != null &&
+          (along - _riderAlongM!).abs() <= _kPassedSlackM;
+      if (i != nextIdx && !byRoute) continue;
+      s.reached = true;
+      changed = true;
+      // Karta „dojel jsi" jen u pojmenované zastávky / bodu zájmu —
+      // bezejmenné průjezdní body se odškrtávají potichu.
+      if (s.poi != null || (s.label ?? '').isNotEmpty) _showReachedCard(s);
     }
     if (changed) {
       if (_stops.isNotEmpty && _stops.every((x) => x.reached) && !_routeDone) {
@@ -253,6 +354,7 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
         _reachedCard = null;
         _cardTimer?.cancel();
       }
+      _persistProgress();
       setState(() {});
     }
   }
@@ -275,8 +377,8 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
 
   /// Průjezdní body, které jsem po trase minul (jsem po trase DÁL než bod),
   /// odškrtni automaticky — přepočet trasy se k nim už nevrací.
-  void _autoPassStops(_RouteProgress prog) {
-    final riderAlong = prog.totalM - prog.remainingM;
+  void _autoPassStops(RouteProgress prog) {
+    final riderAlong = prog.alongM;
     var changed = false;
     for (final s in _stops) {
       if (s.reached) continue;
@@ -287,16 +389,20 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
         changed = true;
       }
     }
-    if (changed) setState(() {});
+    if (changed) {
+      _persistProgress();
+      setState(() {});
+    }
   }
 
   /// První výpočet živé trasy od polohy jezdce přes zastávky trasy.
   Future<void> _maybeComputeNav() async {
     if (_navLoading || _navGeo != null) return;
-    final me = _me;
+    final me = _fix ?? _me;
     final route = _route;
     if (me == null || route == null) return;
     _buildStops(route);
+    _syncRideStart(route);
     final pts = _routingPoints(me);
     if (pts.length < 2) return;
     _navLoading = true;
@@ -314,7 +420,7 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
   /// Přepočet trasy od aktuální polohy přes NEprojeté zastávky. Throttlované
   /// (cooldown), `force` = vyžádané uživatelem (tlačítko další bod / výběr).
   Future<void> _reroute({bool force = false}) async {
-    final me = _me;
+    final me = _fix ?? _me;
     if (me == null || _navLoading) return;
     final now = DateTime.now();
     if (!force &&
@@ -352,21 +458,23 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
   void _applyNavInfo(MapyRouteInfo? info, {required List<LatLng> fallback}) {
     final geo = (info != null && info.geometry.length >= 2) ? info.geometry : fallback;
     _navGeo = geo;
+    _navCache = RouteGeoCache.build(geo);
+    _navSegHint = null;
     _navLengthM = info?.lengthM ?? polylineLengthM(geo);
     _navDurationS = info?.durationS;
-    _computeStopAlong(geo);
+    _computeStopAlong();
   }
 
   /// Pozice každé neprojeté zastávky PO TRASE (metry od startu) — cache pro
   /// levné auto-odškrtávání projetých bodů při každém GPS fixu.
-  void _computeStopAlong(List<LatLng> geo) {
+  void _computeStopAlong() {
     _stopAlongM.clear();
-    if (geo.length < 2) return;
+    final cache = _navCache;
+    if (cache == null) return;
     for (final s in _stops) {
       if (s.reached) continue;
-      final p = _projectOnRoute(geo, s.point);
-      _stopAlongM[s] =
-          (p != null && p.distM <= 120) ? (p.totalM - p.remainingM) : null;
+      final p = cache.project(s.point);
+      _stopAlongM[s] = p.distM <= 120 ? p.alongM : null;
     }
   }
 
@@ -451,7 +559,134 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
       }
       _reachedCard = null;
     });
+    _persistProgress();
     _reroute(force: true);
+  }
+
+  // ── Persistence rozjeté jízdy (FAB „Pokračovat v trase" + historie) ──
+
+  /// Serializace vlastní trasy pro pozdější obnovu (DB trasa má jen routeId).
+  Map<String, dynamic>? _customPayload(RouteItem route) {
+    if (widget.routeId != null) return null;
+    final wps = <Map<String, dynamic>>[];
+    for (var i = 0; i < route.waypoints.length; i++) {
+      final w = route.waypoints[i];
+      wps.add({'lat': w.latitude, 'lng': w.longitude, 'order': i});
+    }
+    final pois = <Map<String, dynamic>>[];
+    for (final p in route.pois) {
+      pois.add({
+        'id': p.id,
+        'kind': p.isUserPoi ? 'user' : (p.isCatalogPoi ? 'catalog' : 'route'),
+        'name': p.name,
+        'lat': p.lat,
+        'lng': p.lng,
+        'image_url': p.imageUrl,
+      });
+    }
+    return {
+      'waypoints': wps,
+      'pois': pois,
+      'distance_km': route.distanceKm,
+      'duration_min': route.durationMin,
+    };
+  }
+
+  /// Po sestavení zastávek: obnov případnou rozjetou jízdu STEJNÉ trasy
+  /// (dojeté body) a zapiš/aktualizuj aktivní jízdu — trasa pak přežije
+  /// zavření appky a jde v ní pokračovat přes FAB nebo historii.
+  void _syncRideStart(RouteItem route) {
+    if (_rideSynced) return;
+    final st = ref.read(activeRideProvider);
+    if (!st.loaded) {
+      // Persistence se ještě načítá — zkus to za chvíli znovu.
+      Future.delayed(const Duration(milliseconds: 400), () {
+        if (mounted && !_rideSynced) _syncRideStart(route);
+      });
+      return;
+    }
+    _rideSynced = true;
+    final key = widget.routeId ?? customRideKey(route);
+    final existing =
+        (st.active != null && st.active!.key == key) ? st.active : null;
+    var restored = false;
+    if (existing != null) {
+      for (final i in existing.reached) {
+        if (i >= 0 && i < _stops.length && !_stops[i].reached) {
+          _stops[i].reached = true;
+          restored = true;
+        }
+      }
+      if (_stops.isNotEmpty && _stops.every((s) => s.reached)) _routeDone = true;
+    }
+    final lang = ref.read(localeProvider).languageCode;
+    final name = route.nameFor(lang);
+    ref.read(activeRideProvider.notifier).startRide(ActiveRide(
+          id: existing?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
+          key: key,
+          name: name.isNotEmpty ? name : route.name,
+          routeId: widget.routeId,
+          profile: profileToString(widget.profile),
+          reached: [
+            for (var i = 0; i < _stops.length; i++)
+              if (_stops[i].reached) i
+          ],
+          totalStops: _stops.length,
+          done: _routeDone,
+          startedAt: existing?.startedAt ?? DateTime.now(),
+          updatedAt: DateTime.now(),
+          custom: _customPayload(route),
+        ));
+    if (restored) {
+      // Obnovené dojeté body → přepočítej trasu jen přes zbývající zastávky.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _navGeo != null && !_navLoading) _reroute(force: true);
+      });
+      setState(() {});
+    }
+  }
+
+  /// Průběžný zápis postupu do aktivní jízdy.
+  void _persistProgress() {
+    if (!_rideSynced) return;
+    ref.read(activeRideProvider.notifier).updateProgress(
+      reached: [
+        for (var i = 0; i < _stops.length; i++)
+          if (_stops[i].reached) i
+      ],
+      totalStops: _stops.length,
+      done: _routeDone,
+    );
+  }
+
+  /// Křížek = definitivní zavření trasy (jízda se přesune do historie).
+  Future<void> _endRide() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (dc) => AlertDialog(
+        backgroundColor: Colors.white,
+        title: Text(t(dc).tr('routeEndConfirmTitle'),
+            style: const TextStyle(
+                fontSize: MotoGoTypo.sizeH3, fontWeight: MotoGoTypo.w900)),
+        content: Text(t(dc).tr('routeEndConfirm')),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(dc, false),
+              child: Text(t(dc).tr('routesFilterClear'))),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFB91C1C),
+                foregroundColor: Colors.white),
+            onPressed: () => Navigator.pop(dc, true),
+            child: Text(t(dc).tr('routeEndBtn')),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    ref.read(activeRideProvider.notifier).endRide();
+    context.backOr(
+        widget.routeId != null ? '/routes/${widget.routeId}' : '/routes');
   }
 
   void _openStopsSheet(String lang) {
@@ -554,6 +789,7 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
   void dispose() {
     _sub?.cancel();
     _cardTimer?.cancel();
+    _ticker?.dispose();
     super.dispose();
   }
 
@@ -564,13 +800,12 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
     });
     final me = _me;
     if (me == null) return;
-    final moving = _speedKmh > _moveThreshold && _heading != null;
-    final z = _targetZoom(_speedKmh);
+    final moving = _speedKmh > _moveThreshold;
     if (moving) {
       _mapRot = -_smoothHeading;
-      _ctrl.moveAndRotate(me, z, _mapRot);
+      _ctrl.moveAndRotate(me, _animZoom, _mapRot);
     } else {
-      _ctrl.move(me, z);
+      _ctrl.move(me, _animZoom);
     }
   }
 
@@ -579,10 +814,39 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
   void _zoomBy(double d) {
     if (_follow && _me != null) {
       setState(() => _zoomBias = (_zoomBias + d).clamp(-3.0, 4.0));
-      _ctrl.move(_me!, _targetZoom(_speedKmh));
+      _animZoom = _targetZoom(_zoomSpeed);
+      _ctrl.move(_me!, _animZoom);
     } else {
       final c = _ctrl.camera;
       _ctrl.move(c.center, (c.zoom + d).clamp(3.0, 19.0));
+    }
+  }
+
+  /// Cache pro právě zobrazovanou geometrii (navigační polyline sdílí cache
+  /// s [_navCache]; základní geometrie trasy má vlastní).
+  RouteGeoCache? _cacheFor(List<LatLng> geometry) {
+    if (identical(geometry, _navGeo)) return _navCache;
+    if (!identical(_dispSrc, geometry)) {
+      _dispSrc = geometry;
+      _dispBase = RouteGeoCache.build(geometry);
+    }
+    return _dispBase;
+  }
+
+  /// Přepnutí zobrazované polyline (základní → navigační, reroute) — přepočti
+  /// projekci posledního fixu, ať predikce nejede po staré geometrii.
+  void _setDispCache(RouteGeoCache? c) {
+    if (identical(c, _dispCache)) return;
+    _dispCache = c;
+    _dispSegHint = null;
+    if (c != null && _fix != null) {
+      final p = c.project(_fix!);
+      _dispSegHint = p.segIndex;
+      _fixAlongM = p.alongM;
+      _fixSnapDistM = p.distM;
+    } else {
+      _fixAlongM = null;
+      _fixSnapDistM = double.infinity;
     }
   }
 
@@ -601,7 +865,7 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
     if (custom != null) {
       _route = custom;
       _branch = null;
-      if (_me != null && _navGeo == null && !_navLoading) {
+      if (_fix != null && _navGeo == null && !_navLoading) {
         WidgetsBinding.instance.addPostFrameCallback((_) => _maybeComputeNav());
       }
       final geometry = _navGeo ?? custom.geometry;
@@ -627,7 +891,7 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
           final branch = route.branchId != null ? data.branches[route.branchId] : null;
           _route = route;
           _branch = branch;
-          if (_me != null && _navGeo == null && !_navLoading) {
+          if (_fix != null && _navGeo == null && !_navLoading) {
             WidgetsBinding.instance.addPostFrameCallback((_) => _maybeComputeNav());
           }
           final displayAsync = ref.watch(routeDisplayProvider(route.id));
@@ -662,8 +926,9 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
 
     // Projekce polohy na trasu → rozdělení na PROJETOU (šedá) a ZBÝVAJÍCÍ (zelená)
     // + zbývající a celková vzdálenost PO TRASE (ne vzdušnou čarou).
-    final prog = (_me != null && geometry.length >= 2)
-        ? _projectOnRoute(geometry, _me!)
+    _setDispCache(_cacheFor(geometry));
+    final prog = (_me != null && _dispCache != null)
+        ? _dispCache!.project(_me!, hintSeg: _dispSegHint)
         : null;
     List<LatLng> doneGeo = const [];
     List<LatLng> aheadGeo = geometry;
@@ -835,6 +1100,10 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
                     ),
                   ),
                 ],
+                // Křížek = ZAVŘÍT trasu (šipka zpět ji nechává rozjetou —
+                // jde v ní pokračovat přes FAB / historii / po startu appky).
+                const SizedBox(width: 8),
+                _circleBtn(Icons.close, _endRide, color: const Color(0xFFB91C1C)),
               ],
             ),
           ),
@@ -884,6 +1153,15 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
               nextLabel: next == null ? null : _stopLabel(next, lang),
               onNext: _goToNextStop,
               onChoose: () => _openStopsSheet(lang),
+              // Hodnocení + komentář dosaženého bodu zájmu přímo z karty.
+              onRate: _reachedCard!.poi == null
+                  ? null
+                  : () {
+                      final poi = _reachedCard!.poi!;
+                      final idx = route.pois.indexOf(poi);
+                      showRoutePoiSheet(context, poi, lang,
+                          index: idx >= 0 ? idx : null);
+                    },
               onClose: () {
                 _cardTimer?.cancel();
                 setState(() => _reachedCard = null);
@@ -969,7 +1247,8 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
     return t(context).tr('routeNavTitle');
   }
 
-  Widget _circleBtn(IconData icon, VoidCallback onTap) => GestureDetector(
+  Widget _circleBtn(IconData icon, VoidCallback onTap, {Color? color}) =>
+      GestureDetector(
         onTap: onTap,
         child: Container(
           width: 40, height: 40,
@@ -978,7 +1257,7 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
             borderRadius: BorderRadius.circular(MotoGoRadius.lg),
             boxShadow: MotoGoShadows.cardSmall,
           ),
-          child: Icon(icon, size: 20, color: MotoGoColors.black),
+          child: Icon(icon, size: 20, color: color ?? MotoGoColors.black),
         ),
       );
 
@@ -1003,64 +1282,5 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
       );
 }
 
-/// Vyhlazení úhlu nejkratší cestou (zamezí skoku 359°→0°).
-double _lerpAngle(double a, double b, double t) {
-  double d = (b - a) % 360;
-  if (d > 180) d -= 360;
-  if (d < -180) d += 360;
-  return a + d * t;
-}
-
-/// Výsledek projekce polohy na polyline trasy.
-class _RouteProgress {
-  final int segIndex; // index počátku segmentu, na který poloha spadla
-  final LatLng snapped; // nejbližší bod na trase
-  final double remainingM; // metry do cíle PO TRASE
-  final double totalM; // celková délka trasy
-  final double distM; // vzdálenost polohy od trasy (off-route detekce)
-  const _RouteProgress(
-      this.segIndex, this.snapped, this.remainingM, this.totalM, this.distM);
-}
-
-/// Promítne polohu na nejbližší segment trasy a spočítá zbývající i celkovou délku.
-_RouteProgress? _projectOnRoute(List<LatLng> geo, LatLng me) {
-  if (geo.length < 2) return null;
-  const dist = Distance();
-  double best = double.infinity;
-  int bestSeg = 0;
-  LatLng bestSnap = geo.first;
-  final segLen = <double>[];
-  double total = 0;
-  for (var i = 0; i < geo.length - 1; i++) {
-    final l = dist.as(LengthUnit.Meter, geo[i], geo[i + 1]);
-    segLen.add(l);
-    total += l;
-    final snap = _closestOnSeg(geo[i], geo[i + 1], me);
-    final d = dist.as(LengthUnit.Meter, me, snap);
-    if (d < best) {
-      best = d;
-      bestSeg = i;
-      bestSnap = snap;
-    }
-  }
-  double rem = dist.as(LengthUnit.Meter, bestSnap, geo[bestSeg + 1]);
-  for (var i = bestSeg + 1; i < geo.length - 1; i++) {
-    rem += segLen[i];
-  }
-  return _RouteProgress(bestSeg, bestSnap, rem, total, best);
-}
-
-/// Nejbližší bod na úsečce a-b k bodu p (lokální rovinná aproximace v metrech).
-LatLng _closestOnSeg(LatLng a, LatLng b, LatLng p) {
-  const mPerLat = 111320.0;
-  final mPerLng = 111320.0 * math.cos(a.latitude * math.pi / 180);
-  final bx = (b.longitude - a.longitude) * mPerLng;
-  final by = (b.latitude - a.latitude) * mPerLat;
-  final px = (p.longitude - a.longitude) * mPerLng;
-  final py = (p.latitude - a.latitude) * mPerLat;
-  final len2 = bx * bx + by * by;
-  double t = len2 == 0 ? 0 : (px * bx + py * by) / len2;
-  t = t.clamp(0.0, 1.0);
-  final sx = t * bx, sy = t * by;
-  return LatLng(a.latitude + sy / mPerLat, a.longitude + sx / mPerLng);
-}
+// Pozn.: projekce na trasu, predikce polohy mezi GPS fixy a úhlové/souřadnicové
+// interpolace jsou v route_nav_motion.dart (RouteGeoCache, lerpAngle, …).
