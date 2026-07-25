@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import TimePeriodSelector, { filterByPeriod, hasMinimumData, diffDays } from './TimePeriodSelector'
 import { isRealizedBooking } from '../../lib/revenueUtils'
+import NavratnostKapitalu from './NavratnostKapitalu'
 
 const NoData = () => (
   <div className="p-6 text-center" style={{ background: '#fffbeb', borderRadius: 14, border: '1px solid #fde68a', color: '#854d0e', fontSize: 13 }}>
@@ -117,6 +118,9 @@ export default function VykonMotorek() {
           </tbody>
         </table>
       </div>
+
+      {/* KPI: návratnost kapitálu (tržby vs. pořizovací cena) */}
+      <NavratnostKapitalu motoStats={motoStats} periodDays={periodDays} />
 
       {/* Brand table - only show conclusions if enough data */}
       {has3mo ? (
