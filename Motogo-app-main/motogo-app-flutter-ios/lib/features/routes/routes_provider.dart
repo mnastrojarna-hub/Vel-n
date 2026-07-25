@@ -8,6 +8,7 @@ import 'package:latlong2/latlong.dart';
 import '../../core/supabase_client.dart';
 import '../reservations/reservation_models.dart';
 import '../reservations/reservation_provider.dart';
+import 'routes_cache.dart';
 import 'routes_model.dart';
 
 const String mapyApiKey = 'whg1ilj203oYhmsqkBHVtUqpk-tYr0E-HFTx4lGdue0';
@@ -59,51 +60,90 @@ Future<String?> reverseGeocode(LatLng p) async {
   return null;
 }
 
-/// Všechny publikované trasy + mapa poboček. Jedno volání RPC `get_branch_routes`
-/// (vrací trasy se zanořenými body zájmu) + lehký dotaz na pobočky kvůli názvu
-/// a GPS startu.
-final routesDataProvider = FutureProvider<RoutesData>((ref) async {
-  final client = MotoGoSupabase.client;
+/// Všechny publikované trasy + mapa poboček. Payload RPC `get_branch_routes`
+/// má jednotky MB, proto se stahuje a parsuje v isolate (routes_cache.dart)
+/// a tělo se drží v diskové cache: otevření tabu zobrazí data OKAMŽITĚ z cache
+/// a síť je jen tiše obnoví na pozadí (stale-while-revalidate).
+final routesDataProvider =
+    AsyncNotifierProvider<RoutesDataNotifier, RoutesData>(RoutesDataNotifier.new);
 
-  // 1) Trasy přes RPC (public, vrací jsonb pole). Fallback na přímý select,
-  //    kdyby RPC ještě nebyla nasazená.
-  List rawRoutes;
-  try {
-    final res = await client.rpc('get_branch_routes');
-    rawRoutes = res is List ? res : (res == null ? const [] : List.from(res as Iterable));
-  } catch (e) {
-    debugPrint('[routes] RPC get_branch_routes selhalo, fallback na select: $e');
-    final res = await client
+/// Do kdy je cache „čerstvá" = při startu se vůbec nestahuje ze sítě.
+/// Explicitní invalidate (pull-to-refresh, nová recenze…) jde VŽDY na síť.
+const _routesCacheTtl = Duration(minutes: 15);
+const _catalogCacheTtl = Duration(hours: 12);
+
+// Top-level flagy: přežijí i znovuvytvoření notifieru při invalidate.
+// true = v tomto běhu appky už proběhl (nebo nebyl potřeba) síťový load,
+// další rebuild provideru tedy jde rovnou na síť (čerstvá data po invalidate).
+bool _routesNetworkDone = false;
+bool _catalogNetworkDone = false;
+
+class RoutesDataNotifier extends AsyncNotifier<RoutesData> {
+  @override
+  Future<RoutesData> build() async {
+    if (!_routesNetworkDone) {
+      final cached = await loadRoutesCache();
+      if (cached != null && cached.isNotEmpty) {
+        final age = await cacheAge(RoutesCacheFiles.routes);
+        if (age != null && age < _routesCacheTtl) {
+          _routesNetworkDone = true; // čerstvé — bez zbytečného stahování
+        } else {
+          _refreshInBackground(); // fire-and-forget, cache se mezitím zobrazí
+        }
+        return RoutesData(routes: cached, branches: await _branches());
+      }
+    }
+    return _fetchFresh();
+  }
+
+  Future<RoutesData> _fetchFresh() async {
+    final routes = await _fetchRoutes();
+    _routesNetworkDone = true;
+    return RoutesData(routes: routes, branches: await _branches());
+  }
+
+  Future<void> _refreshInBackground() async {
+    try {
+      state = AsyncData(await _fetchFresh());
+    } catch (_) {} // cache zůstává zobrazená (i StateError po dispose)
+  }
+
+  Future<List<RouteItem>> _fetchRoutes() async {
+    // Primárně REST RPC v isolate (bez zámrazu UI). Fallback na přímý select
+    // přes klienta, kdyby RPC/REST selhalo.
+    final viaIsolate = await fetchRoutesRemote();
+    if (viaIsolate != null) return viaIsolate;
+    debugPrint('[routes] REST get_branch_routes selhalo, fallback na select');
+    final res = await MotoGoSupabase.client
         .from('routes')
         .select('*, pois:route_pois(*)')
         .eq('is_active', true)
         .order('sort_order');
-    rawRoutes = res as List;
+    return (res as List)
+        .whereType<Map>()
+        .map((e) => RouteItem.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
   }
 
-  final routes = rawRoutes
-      .whereType<Map>()
-      .map((e) => RouteItem.fromJson(Map<String, dynamic>.from(e)))
-      .toList();
-
-  // 2) Pobočky (jen ty, na které trasy odkazují — ale načteme všechny aktivní,
-  //    je to levné a pokryje to i budoucí přiřazení).
-  final branches = <String, RouteBranch>{};
-  try {
-    final bRes = await client
-        .from('branches')
-        .select('id, name, city, gps_lat, gps_lng')
-        .eq('active', true);
-    for (final b in (bRes as List)) {
-      final rb = RouteBranch.fromJson(Map<String, dynamic>.from(b as Map));
-      branches[rb.id] = rb;
+  /// Pobočky (jen ty, na které trasy odkazují — ale načteme všechny aktivní,
+  /// je to levné a pokryje to i budoucí přiřazení).
+  Future<Map<String, RouteBranch>> _branches() async {
+    final branches = <String, RouteBranch>{};
+    try {
+      final bRes = await MotoGoSupabase.client
+          .from('branches')
+          .select('id, name, city, gps_lat, gps_lng')
+          .eq('active', true);
+      for (final b in (bRes as List)) {
+        final rb = RouteBranch.fromJson(Map<String, dynamic>.from(b as Map));
+        branches[rb.id] = rb;
+      }
+    } catch (e) {
+      debugPrint('[routes] načtení poboček selhalo: $e');
     }
-  } catch (e) {
-    debugPrint('[routes] načtení poboček selhalo: $e');
+    return branches;
   }
-
-  return RoutesData(routes: routes, branches: branches);
-});
+}
 
 /// Naposledy otevřená (zvolená) trasa — jen její id. Slouží řazení „od zvolené
 /// trasy" v seznamu tras i bodů zájmu (bez polohy jezdce). Nastavuje se při
@@ -127,21 +167,43 @@ class PoiEntry {
 }
 
 /// Katalog samostatných bodů zájmu (přehrady, jezera, hrady, rozhledny,
-/// památky, přírodní rezervace…) — nezávislé na trasách. RPC `get_pois_catalog`.
-/// Best-effort: dokud RPC/tabulka neexistuje, vrátí prázdný seznam.
-final catalogPoisProvider = FutureProvider<List<RoutePoi>>((ref) async {
-  try {
-    final res = await MotoGoSupabase.client.rpc('get_pois_catalog');
-    final list = res is List ? res : const [];
-    return list
-        .whereType<Map>()
-        .map((e) => RoutePoi.fromJson(Map<String, dynamic>.from(e)))
-        .where((p) => p.latLng != null)
-        .toList();
-  } catch (_) {
-    return const [];
+/// památky, přírodní rezervace…) — nezávislé na trasách. RPC `get_pois_catalog`
+/// (desítky tisíc bodů) — stejný režim jako trasy: isolate + disková cache,
+/// zobrazí se okamžitě a obnoví na pozadí. Best-effort: při selhání [].
+final catalogPoisProvider =
+    AsyncNotifierProvider<CatalogPoisNotifier, List<RoutePoi>>(
+        CatalogPoisNotifier.new);
+
+class CatalogPoisNotifier extends AsyncNotifier<List<RoutePoi>> {
+  @override
+  Future<List<RoutePoi>> build() async {
+    if (!_catalogNetworkDone) {
+      final cached = await loadCatalogPoisCache();
+      if (cached != null && cached.isNotEmpty) {
+        final age = await cacheAge(RoutesCacheFiles.catalogPois);
+        if (age != null && age < _catalogCacheTtl) {
+          _catalogNetworkDone = true;
+        } else {
+          _refreshInBackground();
+        }
+        return cached;
+      }
+    }
+    final list = await fetchCatalogPoisRemote();
+    _catalogNetworkDone = true;
+    return list ?? const [];
   }
-});
+
+  Future<void> _refreshInBackground() async {
+    try {
+      final list = await fetchCatalogPoisRemote();
+      if (list != null) {
+        _catalogNetworkDone = true;
+        state = AsyncData(list);
+      }
+    } catch (_) {}
+  }
+}
 
 /// Donačte PLNÝ detail katalogového bodu (popis, okolí, galerie, kompletní
 /// překlady) — RPC `get_poi_detail`. Katalog se do seznamu posílá odlehčený
