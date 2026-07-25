@@ -271,6 +271,9 @@ export default function PickupsReturns({ compact = false, onExpand }) {
     const { data } = await supabase.from('bookings')
       .select('id, start_date, end_date, pickup_time, return_time, status, payment_status, picked_up_at, returned_at, handover_protocol_filled_at, pickup_method, return_method, pickup_address, return_address, user_id, moto_id, ended_by_sos, profiles(full_name), motorcycles!moto_id(model, spz, branch_id, branches(name, type))')
       .in('status', ['reserved', 'active', 'pending'])
+      // Nezaplacené rezervace (unpaid) se v odjezdech a návratech nezobrazují —
+      // dokud zákazník nezaplatí, není co odbavovat.
+      .neq('payment_status', 'unpaid')
       .order('start_date', { ascending: true })
     const list = data || []
     setBookings(list)
