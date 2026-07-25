@@ -150,6 +150,53 @@ class RoutesDataNotifier extends AsyncNotifier<RoutesData> {
 /// otevření detailu trasy.
 final lastOpenedRouteProvider = StateProvider<String?>((ref) => null);
 
+/// PLNÁ data jedné trasy (popis, galerie, geometry, POI s popisy a překlady).
+/// Seznam jede odlehčeně přes `get_branch_routes_lite`, detail se dotáhne
+/// per trasa přes RPC `get_route_detail` až při otevření. Fallback: položka
+/// ze seznamu (ta je plná, dokud lite RPC není nasazená / při chybě).
+final routeFullProvider =
+    FutureProvider.family<RouteItem?, String>((ref, id) async {
+  final data = await ref.watch(routesDataProvider.future);
+  RouteItem? listItem;
+  for (final r in data.routes) {
+    if (r.id == id) {
+      listItem = r;
+      break;
+    }
+  }
+  // Plná položka (fallback režim) → detail netahej.
+  if (listItem != null &&
+      (listItem.description != null ||
+          listItem.images.isNotEmpty ||
+          listItem.geometry.isNotEmpty)) {
+    return listItem;
+  }
+  try {
+    final res = await MotoGoSupabase.client
+        .rpc('get_route_detail', params: {'p_id': id});
+    if (res is Map && res.isNotEmpty) {
+      return RouteItem.fromJson(Map<String, dynamic>.from(res));
+    }
+  } catch (e) {
+    debugPrint('[routes] get_route_detail selhalo: $e');
+  }
+  return listItem;
+});
+
+/// Plný detail trasového bodu (popis, okolí, galerie, překlady) — RPC
+/// `get_route_poi_detail`. Odlehčený seznam tras tato pole u POI neposílá,
+/// dotahují se až při otevření bodu. Best-effort: při chybě null.
+Future<RoutePoi?> fetchRoutePoiDetail(String id) async {
+  try {
+    final res = await MotoGoSupabase.client
+        .rpc('get_route_poi_detail', params: {'p_id': id});
+    if (res is Map && res.isNotEmpty) {
+      return RoutePoi.fromJson(Map<String, dynamic>.from(res));
+    }
+  } catch (_) {}
+  return null;
+}
+
 /// Jeden bod zájmu + odkaz na trasu a pobočku, ke které patří. Slouží katalogu
 /// všech POI v appce (zákazník si skládá vlastní vyjížďku napříč trasami).
 class PoiEntry {
@@ -449,10 +496,9 @@ final pickupOriginProvider = Provider<LatLng?>((ref) {
 final routeDisplayProvider =
     FutureProvider.family<RouteDisplay, String>((ref, routeId) async {
   final data = await ref.watch(routesDataProvider.future);
-  final route = data.routes.firstWhere(
-    (r) => r.id == routeId,
-    orElse: () => const RouteItem(id: '', name: ''),
-  );
+  // Plná trasa kvůli geometry (odlehčený seznam ji neposílá).
+  final route = await ref.watch(routeFullProvider(routeId).future) ??
+      const RouteItem(id: '', name: '');
   if (route.id.isEmpty) return const RouteDisplay(geometry: []);
 
   final routeBranch =
@@ -541,10 +587,9 @@ double polylineLengthM(List<LatLng> g) {
 final routeRealLengthKmProvider =
     FutureProvider.family<double?, String>((ref, routeId) async {
   final data = await ref.watch(routesDataProvider.future);
-  final route = data.routes.firstWhere(
-    (r) => r.id == routeId,
-    orElse: () => const RouteItem(id: '', name: ''),
-  );
+  // Plná trasa kvůli geometry (odlehčený seznam ji neposílá).
+  final route = await ref.watch(routeFullProvider(routeId).future) ??
+      const RouteItem(id: '', name: '');
   if (route.id.isEmpty) return null;
 
   if (route.geometry.length >= 2) {

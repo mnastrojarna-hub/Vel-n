@@ -619,11 +619,15 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen> {
         loading: () => const Center(child: CircularProgressIndicator(color: MotoGoColors.greenDark)),
         error: (_, __) => _exit(context),
         data: (data) {
-          final route = data.routes.firstWhere(
+          final listRoute = data.routes.firstWhere(
             (r) => r.id == widget.routeId,
             orElse: () => const RouteItem(id: '', name: ''),
           );
-          if (route.id.isEmpty) return _exit(context);
+          if (listRoute.id.isEmpty) return _exit(context);
+          // Plná trasa (geometry, POI popisy) — seznam je odlehčený.
+          final route =
+              ref.watch(routeFullProvider(widget.routeId)).valueOrNull ??
+                  listRoute;
           final branch = route.branchId != null ? data.branches[route.branchId] : null;
           _route = route;
           _branch = branch;

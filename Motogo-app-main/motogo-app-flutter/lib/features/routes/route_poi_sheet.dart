@@ -76,19 +76,25 @@ class _PoiSheetContentState extends State<_PoiSheetContent> {
   void initState() {
     super.initState();
     final p = widget.poi;
-    // Odlehčený katalogový bod = katalog bez popisu/okolí/galerie → dotáhni.
-    if (p.isCatalogPoi &&
-        p.description == null &&
-        p.surroundings == null &&
-        p.images.isEmpty) {
-      _loadingDetail = true;
-      fetchCatalogPoiDetail(p.id).then((full) {
-        if (!mounted) return;
-        setState(() {
-          if (full != null) _poi = full;
-          _loadingDetail = false;
+    // Odlehčený bod (katalogový i trasový) = bez popisu/okolí/galerie →
+    // dotáhni plný detail příslušnou RPC.
+    if (p.description == null && p.surroundings == null && p.images.isEmpty) {
+      Future<RoutePoi?>? load;
+      if (p.isCatalogPoi) {
+        load = fetchCatalogPoiDetail(p.id);
+      } else if (!p.isUserPoi) {
+        load = fetchRoutePoiDetail(p.id);
+      }
+      if (load != null) {
+        _loadingDetail = true;
+        load.then((full) {
+          if (!mounted) return;
+          setState(() {
+            if (full != null) _poi = full;
+            _loadingDetail = false;
+          });
         });
-      });
+      }
     }
   }
 

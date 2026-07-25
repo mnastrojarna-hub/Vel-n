@@ -487,3 +487,6 @@ Klíčové sloupce (plný popis tabulek v STATE_1, RPC v STATE_3, triggery STATE
 #### branch_power_status
 - **branch_id** (uuid PK), **battery_soc** numeric(5,1), **battery_voltage** numeric(6,2), **battery_power_w**/**pv_power_w**/**load_power_w** numeric(10,1)
 - **grid_present** / **generator_on** (bool), **raw** (jsonb — celý payload z měniče), **updated_at**
+
+#### points_of_interest (doplněk 2026-07-25)
+- **translations_names** (jsonb GENERATED ALWAYS AS `jsonb_name_translations(translations)` STORED) — jen názvy překladů `{lang:{name}}`; čte `get_pois_catalog` (seznam v appce), ať se nerozbaluje velké `translations` (příčina statement timeoutu). Samoúdržba při UPDATE translations (crony).
