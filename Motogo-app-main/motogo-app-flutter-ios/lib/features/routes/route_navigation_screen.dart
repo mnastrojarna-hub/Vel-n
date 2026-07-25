@@ -14,6 +14,7 @@ import '../../core/supabase_client.dart';
 import 'active_ride_provider.dart';
 import 'routes_model.dart';
 import 'routes_provider.dart';
+import 'route_nav_loop.dart';
 import 'route_nav_motion.dart';
 import 'route_poi_sheet.dart';
 import 'route_nav_widgets.dart';
@@ -119,6 +120,10 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
   int? _navSegHint;
   double? _riderAlongM; // postup jezdce po navigační trase (metry)
 
+  // Projetá cesta (vzorky à ~30 m) — koridor pro „nejezdi zpátky po stejné
+  // silnici": při přepočtu se nový nájezd porovnává s tím, kudy jezdec přijel.
+  final List<LatLng> _traveled = [];
+
   /// Adaptivní zoom podle rychlosti: pomalu (obec, odbočka, sjezd) → blíž,
   /// rychle (silnice, dálnice) → dál. Plus ruční bias z tlačítek +/−.
   double _targetZoom(double kmh) {
@@ -220,6 +225,16 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
     } else {
       _fixAlongM = null;
       _fixSnapDistM = double.infinity;
+    }
+
+    // Záznam projeté cesty (po trase snapnuté, jinak surový fix).
+    final rec = (_onRouteNow && cache != null && _fixAlongM != null)
+        ? cache.pointAt(_fixAlongM!)
+        : fix;
+    if (_traveled.isEmpty ||
+        const Distance().as(LengthUnit.Meter, _traveled.last, rec) >= 30) {
+      _traveled.add(rec);
+      if (_traveled.length > 400) _traveled.removeAt(0);
     }
 
     if (_firstFix) {
@@ -406,7 +421,9 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
     final pts = _routingPoints(me);
     if (pts.length < 2) return;
     _navLoading = true;
-    final info = await fetchMapyRouteInfo(pts, profile: widget.profile);
+    // Výpočet s potlačením otoček — mezi body se nevracet po stejné silnici.
+    final info = await fetchNavRouteInfo(pts,
+        profile: widget.profile, traveled: _traveled);
     if (!mounted) {
       _navLoading = false;
       return;
@@ -435,7 +452,8 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
       _navLoading = true;
       _rerouting = true;
     });
-    final info = await fetchMapyRouteInfo(pts, profile: widget.profile);
+    final info = await fetchNavRouteInfo(pts,
+        profile: widget.profile, traveled: _traveled);
     if (!mounted) return;
     setState(() {
       if (info != null && info.geometry.length >= 2) {

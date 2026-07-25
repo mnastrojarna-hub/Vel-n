@@ -80,8 +80,8 @@ class RouteGeoCache {
     return RouteProgress(bestSeg, bestSnap, totalM - along, totalM, best);
   }
 
-  /// Bod ve vzdálenosti [alongM] metrů po trase (predikce mezi GPS fixy).
-  LatLng pointAt(double alongM) {
+  /// Index segmentu ve vzdálenosti [alongM] metrů po trase.
+  int segAt(double alongM) {
     final m = alongM.clamp(0.0, totalM);
     var lo = 0, hi = segLen.length - 1;
     while (lo < hi) {
@@ -92,12 +92,22 @@ class RouteGeoCache {
         hi = mid - 1;
       }
     }
+    return lo;
+  }
+
+  /// Bod ve vzdálenosti [alongM] metrů po trase (predikce mezi GPS fixy).
+  LatLng pointAt(double alongM) {
+    final m = alongM.clamp(0.0, totalM);
+    final lo = segAt(alongM);
     final l = segLen[lo];
     final t = l <= 0 ? 0.0 : ((m - cum[lo]) / l).clamp(0.0, 1.0);
     final a = pts[lo], b = pts[lo + 1];
     return LatLng(a.latitude + (b.latitude - a.latitude) * t,
         a.longitude + (b.longitude - a.longitude) * t);
   }
+
+  /// Směr jízdy (bearing) ve vzdálenosti [alongM] po trase.
+  double bearingAt(double alongM) => segBearing(segAt(alongM));
 
   /// Směr jízdy (bearing ve stupních) segmentu [seg] — stabilnější než GPS
   /// heading, když jedu po trase.
@@ -143,3 +153,28 @@ double expSmooth(double dtSeconds, double rate) =>
 LatLng lerpLatLng(LatLng a, LatLng b, double t) => LatLng(
     a.latitude + (b.latitude - a.latitude) * t,
     a.longitude + (b.longitude - a.longitude) * t);
+
+/// Směr (bearing ve stupních 0–360) z bodu [a] do bodu [b].
+double bearingBetween(LatLng a, LatLng b) {
+  final dLng =
+      (b.longitude - a.longitude) * math.cos(a.latitude * math.pi / 180);
+  final dLat = b.latitude - a.latitude;
+  return (math.atan2(dLng, dLat) * 180 / math.pi + 360) % 360;
+}
+
+/// Nejmenší úhlový rozdíl dvou směrů (0–180°).
+double angleDiff(double a, double b) {
+  final d = (a - b).abs() % 360;
+  return d > 180 ? 360 - d : d;
+}
+
+/// Bod ve vzdálenosti [distM] metrů od [from] ve směru [bearingDeg]
+/// (lokální rovinná aproximace — pro krátké vzdálenosti bohatě stačí).
+LatLng offsetLatLng(LatLng from, double bearingDeg, double distM) {
+  final rad = bearingDeg * math.pi / 180;
+  final dLat = distM * math.cos(rad) / 111320.0;
+  final dLng = distM *
+      math.sin(rad) /
+      (111320.0 * math.cos(from.latitude * math.pi / 180));
+  return LatLng(from.latitude + dLat, from.longitude + dLng);
+}
