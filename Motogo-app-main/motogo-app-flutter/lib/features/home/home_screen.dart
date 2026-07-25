@@ -10,6 +10,7 @@ import '../catalog/widgets/moto_card.dart';
 import '../loyalty/loyalty_rank_card.dart';
 import '../reservations/reservation_models.dart';
 import '../reservations/reservation_provider.dart';
+import '../routes/routes_provider.dart';
 import 'widgets/home_filter_section.dart';
 import 'widgets/home_header.dart';
 import 'widgets/home_reservations_section.dart';
@@ -36,6 +37,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _scrollCtrl.addListener(() {
       final show = _scrollCtrl.offset > 600;
       if (show != _showScrollToTop) setState(() => _showScrollToTop = show);
+    });
+    // Warm-up tabu „Trasy": těžké payloady (trasy + katalog POI) se přednačtou
+    // na pozadí po vykreslení domů, ať se tab otevře okamžitě. Stahování i
+    // parsování běží v isolate a přes diskovou cache (routes_cache.dart),
+    // takže domů nezdrží ani nezasekne.
+    Future.delayed(const Duration(seconds: 2), () {
+      if (!mounted) return;
+      ref.read(routesDataProvider);
+      ref.read(catalogPoisProvider);
     });
   }
 
