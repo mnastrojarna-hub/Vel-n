@@ -8,6 +8,7 @@ import '../../core/router.dart' show MotoGoBackNav;
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/supabase_client.dart';
 import '../../core/widgets/moto_fx.dart';
+import 'active_ride_provider.dart';
 import 'routes_model.dart';
 import 'routes_provider.dart' show CustomNavArgs;
 import 'route_image.dart';
@@ -23,7 +24,7 @@ class MyExperiencesScreen extends ConsumerStatefulWidget {
 }
 
 class _MyExperiencesScreenState extends ConsumerState<MyExperiencesScreen> {
-  int _tab = 0; // 0 = Moje trasy, 1 = Moje místa
+  int _tab = 0; // 0 = Moje trasy, 1 = Moje místa, 2 = Historie jízd
 
   @override
   Widget build(BuildContext context) {
@@ -38,23 +39,25 @@ class _MyExperiencesScreenState extends ConsumerState<MyExperiencesScreen> {
         child: Column(
           children: [
             _header(context, routes.valueOrNull?.length, places.valueOrNull?.length),
-            if (!loggedIn)
-              Expanded(child: _loginPrompt(context))
-            else ...[
-              _tabBar(context),
-              Expanded(
-                child: RefreshIndicator(
-                  color: MotoGoColors.greenDark,
-                  onRefresh: () async {
-                    ref.invalidate(mySavedRoutesProvider);
-                    ref.invalidate(myPlacesProvider);
-                  },
-                  child: _tab == 0
-                      ? _routesList(context, routes)
-                      : _placesList(context, places),
-                ),
-              ),
-            ],
+            _tabBar(context),
+            Expanded(
+              // Historie jízd je lokální (funguje i bez přihlášení);
+              // trasy a místa vyžadují účet.
+              child: _tab == 2
+                  ? _historyList(context)
+                  : !loggedIn
+                      ? _loginPrompt(context)
+                      : RefreshIndicator(
+                          color: MotoGoColors.greenDark,
+                          onRefresh: () async {
+                            ref.invalidate(mySavedRoutesProvider);
+                            ref.invalidate(myPlacesProvider);
+                          },
+                          child: _tab == 0
+                              ? _routesList(context, routes)
+                              : _placesList(context, places),
+                        ),
+            ),
           ],
         ),
       ),
@@ -203,8 +206,123 @@ class _MyExperiencesScreenState extends ConsumerState<MyExperiencesScreen> {
       child: Row(
         children: [
           tabBtn(0, '🗺️', t(context).tr('myExpRoutesTab')),
-          const SizedBox(width: 10),
+          const SizedBox(width: 8),
           tabBtn(1, '📍', t(context).tr('myExpPlacesTab')),
+          const SizedBox(width: 8),
+          tabBtn(2, '🕘', t(context).tr('myExpHistoryTab')),
+        ],
+      ),
+    );
+  }
+
+  // ── Historie jízd (lokální) — s tlačítkem „Pokračovat v trase" ──
+  Widget _historyList(BuildContext context) {
+    final st = ref.watch(activeRideProvider);
+    final items = <ActiveRide>[if (st.active != null) st.active!, ...st.history];
+    if (items.isEmpty) {
+      return _empty(context, '🕘', 'myExpHistoryEmpty', 'myExpHistoryEmptySub');
+    }
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 40),
+      itemCount: items.length,
+      itemBuilder: (c, i) => _historyCard(context, items[i],
+          isActive: st.active != null && i == 0),
+    );
+  }
+
+  Widget _historyCard(BuildContext context, ActiveRide r,
+      {required bool isActive}) {
+    final chipLabel = isActive
+        ? t(context).tr('myExpRideActive')
+        : (r.done ? t(context).tr('myExpRideDone') : null);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(MotoGoRadius.card),
+        boxShadow: MotoGoShadows.cardSmall,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  r.name.isNotEmpty ? r.name : t(context).tr('routeNavTitle'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                      fontSize: MotoGoTypo.sizeXl,
+                      fontWeight: MotoGoTypo.w900,
+                      color: MotoGoColors.black,
+                      decoration: TextDecoration.none),
+                ),
+              ),
+              if (chipLabel != null)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: isActive
+                        ? MotoGoColors.green
+                        : MotoGoColors.greenPale,
+                    borderRadius: BorderRadius.circular(MotoGoRadius.pill),
+                  ),
+                  child: Text(
+                    chipLabel,
+                    style: TextStyle(
+                        fontSize: MotoGoTypo.sizeSm,
+                        fontWeight: MotoGoTypo.w800,
+                        color: isActive
+                            ? MotoGoColors.black
+                            : MotoGoColors.greenDarker,
+                        decoration: TextDecoration.none),
+                  ),
+                ),
+              GestureDetector(
+                onTap: () {
+                  final n = ref.read(activeRideProvider.notifier);
+                  if (isActive) {
+                    n.endRide(); // aktivní → ukončit (spadne do historie)
+                  } else {
+                    n.removeFromHistory(r.id);
+                  }
+                },
+                behavior: HitTestBehavior.opaque,
+                child: const Padding(
+                  padding: EdgeInsets.all(4),
+                  child: Icon(Icons.delete_outline,
+                      size: 20, color: Color(0xFFD93636)),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 12,
+            runSpacing: 4,
+            children: [
+              _meta(Icons.event, _date(r.updatedAt)),
+              if (r.totalStops > 0)
+                _meta(Icons.place, '${r.reached.length}/${r.totalStops}'),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _actionBtn(
+            context,
+            r.done && !isActive ? Icons.replay : Icons.navigation,
+            t(context).tr(
+                r.done && !isActive ? 'myExpRideAgain' : 'myExpContinueRoute'),
+            primary: true,
+            onTap: () {
+              final n = ref.read(activeRideProvider.notifier);
+              // „Jet znovu" = nová jízda od začátku; jinak pokračování.
+              if (!isActive) n.resume(r, fresh: r.done);
+              openRide(context, r);
+            },
+          ),
         ],
       ),
     );

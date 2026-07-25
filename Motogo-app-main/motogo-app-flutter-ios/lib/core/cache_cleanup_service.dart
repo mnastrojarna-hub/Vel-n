@@ -31,6 +31,8 @@ class CacheCleanupService {
     'mg_locale', // selected language (overlay)
     'mg_language', // selected language (i18n)
     'mg_perms_shown', // permission overlay shown
+    'mg_active_ride', // rozjetá navigace trasy (ruší se jen křížkem)
+    'mg_ride_history', // historie jízd (Moje zážitky → Historie)
     _versionKey, // app version marker (update detection)
   };
 

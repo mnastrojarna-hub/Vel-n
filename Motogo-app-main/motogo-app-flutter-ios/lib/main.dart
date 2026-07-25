@@ -30,6 +30,8 @@ import 'core/update_check_provider.dart';
 import 'core/in_app_update_service.dart';
 import 'core/widgets/logo_header.dart' show initAppVersion;
 import 'features/loyalty/loyalty_levelup_overlay.dart';
+import 'features/routes/active_ride_provider.dart'
+    show maybeResumeActiveRideOnLaunch;
 
 /// Global navigator key for notification deep links.
 final rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -184,6 +186,15 @@ class _MotoGoAppState extends ConsumerState<MotoGoApp>
     _listenAuthExpiration();
     _initPush();
     _initOfflineGuard();
+    _resumeActiveRide();
+  }
+
+  /// Rozjetá trasa (nezavřená křížkem) → po startu appky se otevře zpět
+  /// navigace na ní. Persistence viz features/routes/active_ride_provider.dart.
+  void _resumeActiveRide() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      maybeResumeActiveRideOnLaunch(rootNavigatorKey);
+    });
   }
 
   /// Initialize push notifications + notification handler.

@@ -17,6 +17,7 @@ import '../features/payment/payment_provider.dart';
 import 'widgets/moto_fx.dart';
 import '../features/reservations/reservation_models.dart';
 import '../features/reservations/reservation_provider.dart';
+import '../features/routes/active_ride_provider.dart';
 import '../features/shop/shop_provider.dart';
 
 /// Main app shell — bottom nav bar + optional header banner.
@@ -84,6 +85,15 @@ class AppShell extends ConsumerWidget {
     final showBookingFabZone =
         !hideBookingFabOn.contains(location) && !onPaymentScreen;
     final pendingBooking = ref.watch(pendingBookingFabProvider);
+    final bookingFabVisible = showBookingFabZone &&
+        pendingBooking.valueOrNull != null &&
+        !pendingBooking.valueOrNull!.isExpired;
+
+    // Route FAB — rozjetá trasa (navigace opuštěná šipkou zpět / zavřením
+    // appky). Stejný vizuál jako booking FAB; křížek trasu definitivně ukončí.
+    final activeRide = ref.watch(activeRideProvider).active;
+    final showRouteFab = activeRide != null && !onPaymentScreen &&
+        !hideBookingFabOn.contains(location);
 
     // SOS FAB: hide on SOS flow & auth screens
     final hideSosFabOn = [
@@ -249,6 +259,16 @@ class AppShell extends ConsumerWidget {
                 onDismiss: () =>
                     ref.read(_docsFabDismissedProvider.notifier).state = true,
               ),
+            ),
+          // Route FAB — pokračovat v rozjeté trase (nad ostatními FABy,
+          // pokud horní pozici zrovna drží booking/docs FAB).
+          if (showRouteFab && activeRide != null)
+            Positioned(
+              left: 0, right: 0,
+              bottom: (bookingFabVisible || showDocsFab)
+                  ? fabBottomUpper + 58
+                  : fabBottomUpper,
+              child: _RouteFab(ride: activeRide),
             ),
           // Pozn.: hlídač postupu na vyšší rank (LoyaltyLevelUpWatcher) už
           // nesedí zde, ale v MaterialApp.builder (main.dart) — je tak
@@ -559,6 +579,87 @@ class _BookingFab extends ConsumerWidget {
             await cancelPendingBooking(booking.id);
             ref.invalidate(pendingBookingFabProvider);
           },
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+            constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+            decoration: const BoxDecoration(
+              color: Color(0xFFB91C1C),
+              borderRadius: BorderRadius.only(
+                topRight: Radius.circular(MotoGoRadius.pill),
+                bottomRight: Radius.circular(MotoGoRadius.pill),
+              ),
+              boxShadow: _fabShadow,
+            ),
+            child: const Text(
+              '✕',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: MotoGoTypo.w900,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Route FAB — „Pokračovat v trase" pro rozjetou navigaci. Stejný vzor jako
+/// booking FAB (zelená pilulka + červený křížek). Křížek trasu UKONČÍ
+/// (přesune do historie v Mých zážitcích) — jediná cesta, jak trasu zavřít.
+class _RouteFab extends ConsumerWidget {
+  final ActiveRide ride;
+  const _RouteFab({required this.ride});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final maxW = MediaQuery.of(context).size.width - 120;
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Main green button (left pill)
+        PressableScale(
+          pressedScale: 0.93,
+          onTap: () => openRide(context, ride),
+          child: Container(
+            padding: const EdgeInsets.only(left: 24, right: 16, top: 14, bottom: 14),
+            constraints: BoxConstraints(maxWidth: maxW),
+            decoration: const BoxDecoration(
+              color: MotoGoColors.green,
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(MotoGoRadius.pill),
+                bottomLeft: Radius.circular(MotoGoRadius.pill),
+              ),
+              boxShadow: _fabShadow,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('🧭', style: TextStyle(fontSize: 14)),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    ride.name.isNotEmpty
+                        ? '${t(context).tr('routeFabContinue')} · ${ride.name}'
+                        : t(context).tr('routeFabContinue'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: MotoGoTypo.w800,
+                      color: MotoGoColors.black,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        // Red dismiss button (right pill) — ukončí trasu
+        GestureDetector(
+          onTap: () => ref.read(activeRideProvider.notifier).endRide(),
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
             constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
