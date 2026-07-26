@@ -7,7 +7,7 @@ import BookingMotoSelector from './BookingMotoSelector'
 import BookingMapPicker from './BookingMapPicker'
 import BookingPriceCalc from './BookingPriceCalc'
 import BookingDeliverySection from './BookingDeliverySection'
-import { isoDate, toDate, fmtDate, fmtCZK, countDays, calcDayBreakdown } from './bookingModifyHelpers'
+import { isoDate, toDate, fmtDate, fmtCZK, fmtTimeHM, countDays, calcDayBreakdown } from './bookingModifyHelpers'
 import { findFeeExtra, feeAmount } from './DetailTabSections'
 
 export default function BookingModifyModal({ booking, onClose, onSaved }) {
@@ -17,6 +17,12 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
   const [endDate, setEndDate] = useState(origEnd)
   const [calStep, setCalStep] = useState(0)
   const [calMonth, setCalMonth] = useState(() => ({ m: origStart.getMonth(), y: origStart.getFullYear() }))
+  // Časy vyzvednutí/vrácení (HH:MM) — DB může mít i vteřiny ('11:00:00' z webu),
+  // proto normalizace přes fmtTimeHM i pro detekci změny.
+  const origPickupTime = fmtTimeHM(booking.pickup_time, '')
+  const origReturnTime = fmtTimeHM(booking.return_time, '')
+  const [pickupTime, setPickupTime] = useState(origPickupTime)
+  const [returnTime, setReturnTime] = useState(origReturnTime)
 
   const [changingMoto, setChangingMoto] = useState(false)
   const [allMotos, setAllMotos] = useState([])
@@ -123,7 +129,8 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
   const motoChanged = selectedMotoId !== booking.moto_id
   const datesChanged = isoDate(startDate) !== isoDate(origStart) || isoDate(endDate) !== isoDate(origEnd)
   const deliveryChanged = pickupMethod !== origDelivery.pickup || returnMethod !== origDelivery.ret || pickupAddress !== (booking.pickup_address || '') || returnAddress !== (booking.return_address || '') || newDeliveryFee !== origDelivery.fee
-  const hasChanges = datesChanged || motoChanged || deliveryChanged || notes !== (booking.notes || '')
+  const timesChanged = pickupTime !== origPickupTime || returnTime !== origReturnTime
+  const hasChanges = datesChanged || motoChanged || deliveryChanged || timesChanged || notes !== (booking.notes || '')
 
   const days = countDays(startDate, endDate)
   const origDays = countDays(origStart, origEnd)
@@ -166,6 +173,10 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
         saveData.pickup_method = pickupMethod; saveData.pickup_address = pickupAddress || null
         saveData.return_method = returnMethod; saveData.return_address = returnAddress || null
         saveData.delivery_fee = newDeliveryFee
+      }
+      if (timesChanged) {
+        saveData.pickup_time = pickupTime || null
+        saveData.return_time = returnTime || null
       }
       if (motoChanged) saveData.moto_id = selectedMotoId
       // Doplatek u zaplacené rezervace: dlužná částka = předchozí nezaplacený doplatek
@@ -224,7 +235,7 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
         const { data: { user } } = await supabase.auth.getUser()
         await supabase.from('admin_audit_log').insert({
           admin_id: user?.id, action: 'booking_modified',
-          details: { booking_id: booking.id, dates_changed: datesChanged, moto_changed: motoChanged, delivery_changed: deliveryChanged, price_diff: priceDiff, charged: chargeCustomer, new_total: chargeCustomer ? newTotalPrice : origPaidPrice }
+          details: { booking_id: booking.id, dates_changed: datesChanged, times_changed: timesChanged, moto_changed: motoChanged, delivery_changed: deliveryChanged, price_diff: priceDiff, charged: chargeCustomer, new_total: chargeCustomer ? newTotalPrice : origPaidPrice }
         })
       } catch {}
       // Při zkrácení rezervace (záporný rozdíl) + placeno kartou → automatický Stripe refund + dobropis.
@@ -312,11 +323,17 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
                 <div className="text-xs font-bold uppercase" style={{ color: '#1a2e22' }}>Od</div>
                 <div className="text-sm font-extrabold" style={{ color: datesChanged ? '#2563eb' : '#0f1a14' }}>{fmtDate(startDate)}</div>
                 {datesChanged && <div className="text-xs" style={{ color: '#9ca3af' }}>bylo: {fmtDate(origStart)}</div>}
+                <input type="time" value={pickupTime} onChange={e => setPickupTime(e.target.value)} title="Cas vyzvednuti"
+                  className="mt-1 text-xs font-bold rounded outline-none cursor-pointer" style={{ padding: '2px 6px', background: '#fff', border: `1px solid ${pickupTime !== origPickupTime ? '#2563eb' : '#d4e8e0'}`, color: pickupTime !== origPickupTime ? '#2563eb' : '#1a2e22' }} />
+                {pickupTime !== origPickupTime && <div className="text-xs" style={{ color: '#9ca3af' }}>bylo: {origPickupTime || '\u2014'}</div>}
               </div>
               <div>
                 <div className="text-xs font-bold uppercase" style={{ color: '#1a2e22' }}>Do</div>
                 <div className="text-sm font-extrabold" style={{ color: datesChanged ? '#2563eb' : '#0f1a14' }}>{endDate ? fmtDate(endDate) : '\u2014'}</div>
                 {datesChanged && <div className="text-xs" style={{ color: '#9ca3af' }}>bylo: {fmtDate(origEnd)}</div>}
+                <input type="time" value={returnTime} onChange={e => setReturnTime(e.target.value)} title="Cas vraceni"
+                  className="mt-1 text-xs font-bold rounded outline-none cursor-pointer" style={{ padding: '2px 6px', background: '#fff', border: `1px solid ${returnTime !== origReturnTime ? '#2563eb' : '#d4e8e0'}`, color: returnTime !== origReturnTime ? '#2563eb' : '#1a2e22' }} />
+                {returnTime !== origReturnTime && <div className="text-xs" style={{ color: '#9ca3af' }}>bylo: {origReturnTime || '\u2014'}</div>}
               </div>
               <div>
                 <div className="text-xs font-bold uppercase" style={{ color: '#1a2e22' }}>Dni</div>
@@ -352,7 +369,7 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
         <div className="flex items-center justify-between pt-3" style={{ borderTop: '1px solid #e5e7eb' }}>
           <div className="text-xs" style={{ color: '#9ca3af' }}>
             {hasChanges ? (
-              <span style={{ color: '#2563eb', fontWeight: 700 }}>Zmeny: {[datesChanged && 'termin', motoChanged && 'motorka', deliveryChanged && 'doruceni', notes !== (booking.notes || '') && 'poznamky'].filter(Boolean).join(', ')}</span>
+              <span style={{ color: '#2563eb', fontWeight: 700 }}>Zmeny: {[datesChanged && 'termin', timesChanged && 'cas', motoChanged && 'motorka', deliveryChanged && 'doruceni', notes !== (booking.notes || '') && 'poznamky'].filter(Boolean).join(', ')}</span>
             ) : 'Zadne zmeny'}
           </div>
           <div className="flex gap-3">
