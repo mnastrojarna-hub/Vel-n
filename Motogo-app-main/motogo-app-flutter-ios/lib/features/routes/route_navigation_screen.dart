@@ -73,6 +73,12 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
   // jdoucích GPS fixech → přepočet trasy od aktuální polohy.
   static const double _kOffRouteM = 70;
   static const int _kOffRouteFixes = 3;
+  // Jízda PROTI směru trasy (jsem na lince, ale jedu opačně) → přepočet
+  // po [_kWrongWayFixes] fixech — jinak by se linka nikdy nepřekreslila.
+  static const int _kWrongWayFixes = 5;
+  // Mapy.com routing zvládá omezený počet průjezdních bodů — delší trasy se
+  // počítají po okně; vzdálenější zastávky se přidají po dojezdu dřívějších.
+  static const int _kMaxRoutingStops = 15;
   // Min. rozestup mezi automatickými přepočty (šetří API i baterii).
   static const Duration _kRerouteCooldown = Duration(seconds: 8);
   // Dojezd na zastávku / objevení bodu zájmu (metry vzdušně).
@@ -156,6 +162,7 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
   bool _stopsBuilt = false;
   final Map<_NavStop, double?> _stopAlongM = {}; // pozice zastávky po trase (cache)
   int _offRouteFixes = 0;
+  int _wrongWayFixes = 0;
   DateTime? _lastRerouteAt;
 
   // Objevování míst + karty.
@@ -262,7 +269,9 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
   LatLng _predictedPosition() {
     final cache = _dispCache;
     final along = _fixAlongM;
-    if (cache == null || along == null || !_onRouteNow) return _fix!;
+    // Přísnější práh než [_onRouteNow]: po přepočtu začíná linka ~40 m před
+    // jezdcem — marker se na ni nesmí přichytit skokem, doplyne po silnici.
+    if (cache == null || along == null || _fixSnapDistM > 30) return _fix!;
     if (_fixSpeedMps < 1.5 || _fixAt == null) return cache.pointAt(along);
     final age = (DateTime.now().difference(_fixAt!).inMilliseconds / 1000.0)
         .clamp(0.0, 2.5);
@@ -327,7 +336,40 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
     } else {
       _offRouteFixes = 0;
       _autoPassStops(prog);
+      // Na lince, ale PROTI jejímu směru (otočka / jiná cesta po stejné
+      // silnici) → taky přepočet, jinak zelená linka zůstane stará. Výjimka:
+      // trasa tu legitimně vede oběma směry (tam a zpět ke slepému bodu).
+      final brg = _travelBearing();
+      if (_speedKmh > _moveThreshold &&
+          brg != null &&
+          angleDiff(brg, cache.bearingAt(prog.alongM)) > 120 &&
+          !_hasForwardTwin(cache, me, brg)) {
+        _wrongWayFixes++;
+        if (_wrongWayFixes >= _kWrongWayFixes) _reroute();
+      } else {
+        _wrongWayFixes = 0;
+      }
     }
+  }
+
+  /// Aktuální směr jízdy: GPS heading, jinak z posledních projetých bodů.
+  double? _travelBearing() {
+    if (_heading != null) return _heading;
+    if (_traveled.length >= 2) {
+      return bearingBetween(_traveled[_traveled.length - 2], _traveled.last);
+    }
+    return null;
+  }
+
+  /// Vede trasa poblíž [me] i SOUHLASNĚ se směrem [brg]? (úsek tam-a-zpět —
+  /// jízda „proti" jedné polovině je pak v pořádku, jedu po té druhé.)
+  bool _hasForwardTwin(RouteGeoCache cache, LatLng me, double brg) {
+    const dist = Distance();
+    for (var i = 0; i < cache.pts.length - 1; i++) {
+      if (dist.as(LengthUnit.Meter, me, cache.pts[i]) > 60) continue;
+      if (angleDiff(brg, cache.segBearing(i)) <= 60) return true;
+    }
+    return false;
   }
 
   /// Dojezd na zastávky + objevení bodů zájmu (vzdušná vzdálenost).
@@ -457,18 +499,36 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
     if (!mounted) return;
     setState(() {
       if (info != null && info.geometry.length >= 2) {
+        // Nová geometrie → zelená linka se překreslí hned v tomto framu.
         _applyNavInfo(info, fallback: pts);
+        _offRouteFixes = 0;
+        _wrongWayFixes = 0;
+      } else {
+        // Selhání (síť/API) → zkrať cooldown, ať se přepočet brzy zopakuje
+        // a jezdec nezůstane koukat na starou linku.
+        _lastRerouteAt =
+            DateTime.now().subtract(_kRerouteCooldown - const Duration(seconds: 3));
       }
       _navLoading = false;
       _rerouting = false;
-      _offRouteFixes = 0;
     });
   }
 
   List<LatLng> _routingPoints(LatLng me) {
-    final pts = <LatLng>[me];
+    // Start mírně PŘED jezdcem ve směru jízdy — API neumí předat heading,
+    // takže by jinak nová trasa klidně začala otočkou zpět. Takhle přepočet
+    // pokračuje po silnici, kterou si jezdec právě vybral.
+    var start = me;
+    final brg = _travelBearing();
+    if (brg != null && _speedKmh > _moveThreshold) {
+      start = offsetLatLng(me, brg, 40);
+    }
+    final pts = <LatLng>[start];
+    var added = 0;
     for (final s in _stops) {
-      if (!s.reached) pts.add(s.point);
+      if (s.reached) continue;
+      pts.add(s.point);
+      if (++added >= _kMaxRoutingStops) break; // limit průjezdních bodů API
     }
     return pts;
   }
