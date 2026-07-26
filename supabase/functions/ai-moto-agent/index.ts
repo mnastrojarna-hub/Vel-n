@@ -20,7 +20,7 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
 
   try {
-    const { message, booking_id, conversation_history, images, lang, conversation_id } = await req.json()
+    const { message, booking_id, conversation_history, images, lang, conversation_id, supports_images } = await req.json()
     // conversation_id (volitelné, UUID): appka jím může adresovat KONKRÉTNÍ vlákno logu.
     // Bez něj platí dosavadní heuristika „update poslední konverzace uživatele" — ta se
     // ale při dvou souběžných konverzacích slévá; appka by měla id začít posílat.
@@ -175,7 +175,15 @@ Zákazník nemá aktivní rezervaci nebo se nepodařilo načíst data. Při dota
       bookingContext = '\n\nNepodařilo se předem načíst rezervaci. Použij get_active_booking.'
     }
 
-    const systemPrompt = dynamicSystemPrompt + buildDateHeader() + bookingContext
+    // Fotky: novější buildy appky umí přiložit fotky budíků (posílají supports_images=true)
+    // — agent o ně smí AKTIVNĚ požádat. Starší buildy tlačítko nemají, tam žádost o fotku
+    // zákazníka jen frustruje.
+    const photoRules = supports_images === true
+      ? `\n\n## FOTKY OD ZÁKAZNÍKA:
+Appka umí k zprávě přiložit až 3 fotky (tlačítko fotoaparátu v chatu). Když si nejsi jistý, kterou kontrolku zákazník vidí nebo jak přesně vypadá problém, AKTIVNĚ ho popros o fotku budíků / přístrojové desky — je to rychlejší a přesnější než slovní popis. Došlou fotku vyhodnoť: popiš, které kontrolky/údaje na ní vidíš, a jejich význam VŽDY ověř v návodu té konkrétní motorky (get_motorcycle_manual) — nikdy jen „od oka".`
+      : `\n\n## FOTKY OD ZÁKAZNÍKA:
+Tato verze appky přílohy NEUMÍ — o fotku NEŽÁDEJ, doptávej se slovně. Když fotka přesto přijde, vyhodnoť ji.`
+    const systemPrompt = dynamicSystemPrompt + buildDateHeader() + photoRules + bookingContext
 
     // -- Agentic loop --
     let finalText = ''

@@ -49,9 +49,11 @@ const MANUAL_INSTRUCTION =
   'přečtení celého návodu nejsi jistý, CO PŘESNĚ zákazník vidí, NEODbývej to ' +
   'vyhýbavou odpovědí typu „návod to přímo nepopisuje" — polož mu 1–2 konkrétní ' +
   'upřesňující otázky (kterou kontrolku přesně vidí, jakou má barvu a symbol, kdy ' +
-  'svítí) a teprve pak odpověz. O FOTKU NEŽÁDEJ — chat zatím neumí přílohy; když ' +
-  'zákazník fotku pošle sám, samozřejmě ji vyhodnoť. Vymyšlené technické údaje ' +
-  'jsou zakázané; pokud informace v návodu ' +
+  'svítí); zda smíš požádat o fotku budíků, určuje sekce FOTKY OD ZÁKAZNÍKA. ' +
+  'Když návod velí „okamžitě zastavte / vyhledejte servis", NEpřenášej to na ' +
+  'zákazníka doslova — přelož to podle sekce KALIBRACE ZÁVAŽNOSTI (uklidnit, ' +
+  'jednoduché řešení, nahlásit technikům; zastavení jen u skutečně kritických ' +
+  'příznaků). Vymyšlené technické údaje jsou zakázané; pokud informace v návodu ' +
   'opravdu není, řekni to jasně až PO doptání a nabídni kontakt na MotoGo24.'
 
 export async function executeTool(

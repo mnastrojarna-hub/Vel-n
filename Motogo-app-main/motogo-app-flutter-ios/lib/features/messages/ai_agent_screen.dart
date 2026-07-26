@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../core/theme.dart';
 import '../../core/router.dart';
@@ -23,6 +25,9 @@ class _AiAgentState extends State<AiAgentScreen> {
   final _messages = <_ChatMsg>[];
   bool _sending = false;
   String? _bookingId;
+  // Fotky budíků/kontrolek přiložené k příští zprávě (JPEG bytes, max 3) —
+  // AI je porovná s návodem motorky (backend ai-moto-agent už images umí).
+  final _pendingImages = <Uint8List>[];
 
   bool _greeted = false;
 
@@ -64,13 +69,17 @@ class _AiAgentState extends State<AiAgentScreen> {
   }
 
   Future<void> _send() async {
-    final text = _inputCtrl.text.trim();
-    if (text.isEmpty || _sending) return;
+    var text = _inputCtrl.text.trim();
+    final images = List<Uint8List>.from(_pendingImages);
+    if ((text.isEmpty && images.isEmpty) || _sending) return;
+    // Samotná fotka bez textu: backend vyžaduje neprázdnou zprávu.
+    if (text.isEmpty) text = t(context).tr('aiPhotoOnlyMsg');
 
     final lang = Localizations.localeOf(context).languageCode;
 
     setState(() {
-      _messages.add(_ChatMsg(text: text, isBot: false));
+      _messages.add(_ChatMsg(text: text, isBot: false, images: images));
+      _pendingImages.clear();
       _sending = true;
     });
     _inputCtrl.clear();
@@ -96,6 +105,12 @@ class _AiAgentState extends State<AiAgentScreen> {
           'booking_id': _bookingId,
           'lang': lang,
           'conversation_history': history,
+          'supports_images': true,
+          if (images.isNotEmpty)
+            'images': [
+              for (final img in images)
+                {'base64': base64Encode(img), 'media_type': 'image/jpeg'},
+            ],
         },
       );
 
@@ -128,6 +143,44 @@ class _AiAgentState extends State<AiAgentScreen> {
     if (mounted) {
       setState(() => _sending = false);
       _scrollToBottom();
+    }
+  }
+
+  Future<void> _attachPhoto() async {
+    if (_pendingImages.length >= 3) {
+      showMotoGoToast(context, icon: '📷', title: t(context).tr('aiPhotoLimit'));
+      return;
+    }
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          ListTile(
+            leading: const Icon(Icons.photo_camera_outlined),
+            title: Text(t(ctx).tr('aiTakePhoto')),
+            onTap: () => Navigator.pop(ctx, ImageSource.camera),
+          ),
+          ListTile(
+            leading: const Icon(Icons.photo_library_outlined),
+            title: Text(t(ctx).tr('aiPickGallery')),
+            onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+          ),
+        ]),
+      ),
+    );
+    if (source == null) return;
+    try {
+      // Komprese jako v SOS reportu; 1280 px bohatě stačí na čitelnost kontrolek
+      // a 3 fotky se vejdou do request limitu edge funkce.
+      final picked = await ImagePicker().pickImage(
+        source: source, imageQuality: 75, maxWidth: 1280,
+      );
+      if (picked == null) return;
+      final bytes = await picked.readAsBytes();
+      if (!mounted) return;
+      setState(() => _pendingImages.add(bytes));
+    } catch (_) {
+      if (mounted) showMotoGoToast(context, icon: '⚠️', title: t(context).tr('aiPhotoError'));
     }
   }
 
@@ -190,6 +243,37 @@ class _AiAgentState extends State<AiAgentScreen> {
             ),
           ),
 
+          // Náhledy přiložených fotek
+          if (_pendingImages.isNotEmpty)
+            Container(
+              color: Colors.white,
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: Row(children: [
+                for (var i = 0; i < _pendingImages.length; i++)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: Stack(children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.memory(_pendingImages[i],
+                            width: 56, height: 56, fit: BoxFit.cover),
+                      ),
+                      Positioned(
+                        top: 0, right: 0,
+                        child: GestureDetector(
+                          onTap: () => setState(() => _pendingImages.removeAt(i)),
+                          child: Container(
+                            decoration: const BoxDecoration(
+                                color: Colors.black54, shape: BoxShape.circle),
+                            child: const Icon(Icons.close, size: 16, color: Colors.white),
+                          ),
+                        ),
+                      ),
+                    ]),
+                  ),
+              ]),
+            ),
+
           // Input bar
           Container(
             padding: EdgeInsets.fromLTRB(16, 8, 16, MediaQuery.of(context).padding.bottom + 10),
@@ -198,6 +282,15 @@ class _AiAgentState extends State<AiAgentScreen> {
               border: Border(top: BorderSide(color: MotoGoColors.g200)),
             ),
             child: Row(children: [
+              GestureDetector(
+                onTap: _attachPhoto,
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: Icon(Icons.photo_camera_outlined,
+                      size: 26,
+                      color: _pendingImages.isEmpty ? MotoGoColors.g400 : MotoGoColors.green),
+                ),
+              ),
               Expanded(
                 child: TextField(
                   controller: _inputCtrl,
@@ -269,7 +362,20 @@ class _AiAgentState extends State<AiAgentScreen> {
           ),
           boxShadow: [BoxShadow(color: MotoGoColors.black.withValues(alpha: 0.06), blurRadius: 4)],
         ),
-        child: Text(msg.text, style: const TextStyle(fontSize: 13, color: MotoGoColors.black, height: 1.5)),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          if (msg.images.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Wrap(spacing: 6, runSpacing: 6, children: [
+                for (final img in msg.images)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.memory(img, width: 120, fit: BoxFit.cover),
+                  ),
+              ]),
+            ),
+          Text(msg.text, style: const TextStyle(fontSize: 13, color: MotoGoColors.black, height: 1.5)),
+        ]),
       ),
     );
   }
@@ -279,5 +385,6 @@ class _ChatMsg {
   final String text;
   final bool isBot;
   final bool isSosHint;
-  _ChatMsg({required this.text, required this.isBot, this.isSosHint = false});
+  final List<Uint8List> images;
+  _ChatMsg({required this.text, required this.isBot, this.isSosHint = false, this.images = const []});
 }
