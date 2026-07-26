@@ -9,6 +9,14 @@ export function isoDate(d) {
 }
 
 export function toDate(s) { if (!s) return null; const d = new Date(s); d.setHours(0, 0, 0, 0); return d }
+
+// Jednotné zobrazení času vyzvednutí/vrácení napříč Velínem: bookings.pickup_time /
+// return_time ořízne na „HH:MM" (web ukládá i s vteřinami '11:00:00', appka bez).
+// Default, když čas u rezervace chybí: vyzvednutí 09:00, vrácení 20:00 — stejné
+// hodnoty jako přehled Vyzvednutí/Vrácení (PickupsReturns).
+export const fmtTimeHM = (t, fallback = null) => (t ? String(t).slice(0, 5) : fallback)
+export const DEFAULT_PICKUP_TIME = '09:00'
+export const DEFAULT_RETURN_TIME = '20:00'
 export function fmtDate(d) { return d ? (typeof d === 'string' ? new Date(d + 'T00:00:00') : d).toLocaleDateString('cs-CZ') : '\u2014' }
 export function fmtCZK(n) { return Number(n || 0).toLocaleString('cs-CZ') }
 

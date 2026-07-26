@@ -3,6 +3,7 @@ import { getDisplayStatus } from '../../components/ui/StatusBadge'
 import { SumRow } from './BookingUIHelpers'
 import { STATUS_LABELS, CANCEL_SOURCE_LABELS, describeModification, fmtDT, paymentMethodInfo, paymentStatusInfo, stripePaymentIntentUrl, hasPassengerGearOrdered } from './bookingConstants'
 import { mapyLinkUrl } from '../../lib/mapyCz'
+import { fmtTimeHM, DEFAULT_PICKUP_TIME, DEFAULT_RETURN_TIME } from './bookingModifyHelpers'
 
 // Doba vyplnění formuláře v sekundách → čitelný formát (např. „2 min 15 s")
 function fmtDuration(s) {
@@ -82,8 +83,8 @@ export default function BookingSummary({ booking, sosIncidents, bookingExtras, c
       <SumRow label="Zdroj" value={`${b.booking_source === 'web' ? 'Web (motogo24.cz)' : b.booking_source === 'app' ? 'Mobilní aplikace' : '—'}${b.created_via_ai ? ' 🤖 (přes AI asistenta)' : ''}`} color={b.booking_source === 'web' ? '#2563eb' : b.booking_source === 'app' ? '#16a34a' : undefined} />
 
       <div className="text-sm font-extrabold uppercase tracking-wide mt-4 mb-2" style={{ color: '#1a2e22' }}>Termín</div>
-      <SumRow label="Začátek" value={`${new Date(b.start_date).toLocaleDateString('cs-CZ')} v ${b.pickup_time || '9:00'}`} />
-      <SumRow label="Konec" value={`${new Date(b.end_date).toLocaleDateString('cs-CZ')} v 9:00`} />
+      <SumRow label="Začátek" value={`${new Date(b.start_date).toLocaleDateString('cs-CZ')} v ${fmtTimeHM(b.pickup_time, DEFAULT_PICKUP_TIME)}`} />
+      <SumRow label="Konec" value={`${new Date(b.end_date).toLocaleDateString('cs-CZ')} v ${fmtTimeHM(b.return_time, DEFAULT_RETURN_TIME)}`} />
       <SumRow label="Délka" value={`${days} ${days === 1 ? 'den' : days < 5 ? 'dny' : 'dní'}`} />
 
       {hasModification && (
