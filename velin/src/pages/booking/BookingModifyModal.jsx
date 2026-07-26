@@ -95,10 +95,20 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
   const days = countDays(startDate, endDate)
   const origDays = countDays(origStart, origEnd)
 
+  // Vyzvednuti u bezici rezervace uz je v minulosti (v kalendari nejde zakliknout) —
+  // editace pak zacina rovnou vyberem data vraceni, OD zustava.
+  const todayMid = new Date(); todayMid.setHours(0, 0, 0, 0)
+  const startInPast = origStart < todayMid
+
+  // Rozsah OD-DO se pri klikani nikdy nerozbije (DO se nenuluje) — termin jde
+  // jednim klikem prodlouzit i zkratit a "Dni" nikdy neukaze zaporne cislo.
   function handleCalClick(date) {
-    if (calStep === 1) { setStartDate(date); setEndDate(null); setCalStep(2) }
-    else if (calStep === 2) {
-      if (date < startDate) { setStartDate(date); setEndDate(null); setCalStep(2) }
+    if (calStep === 1) {
+      setStartDate(date)
+      if (!endDate || date > endDate) setEndDate(date)
+      setCalStep(2)
+    } else if (calStep === 2) {
+      if (startDate && date < startDate) setStartDate(date)
       else { setEndDate(date); setCalStep(0) }
     }
   }
@@ -237,9 +247,15 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Termin</h3>
             {calStep === 0 ? (
-              <button onClick={() => setCalStep(1)} className="text-sm font-bold cursor-pointer" style={{ color: '#2563eb', background: 'none', border: 'none', padding: 0 }}>Zmenit termin</button>
+              <button onClick={() => setCalStep(startInPast ? 2 : 1)} className="text-sm font-bold cursor-pointer" style={{ color: '#2563eb', background: 'none', border: 'none', padding: 0 }}>Zmenit termin</button>
             ) : (
-              <span className="text-sm font-bold" style={{ color: '#f59e0b' }}>{calStep === 1 ? 'Kliknete na datum vyzvednuti' : 'Kliknete na datum vraceni'}</span>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold" style={{ color: '#f59e0b' }}>{calStep === 1 ? 'Kliknete na datum vyzvednuti' : 'Kliknete na datum vraceni'}</span>
+                <button onClick={() => setCalStep(1)} className="text-xs font-bold cursor-pointer" title={startInPast ? 'Vyzvednuti uz probehlo — zmenit lze jen na budouci datum' : 'Zmenit datum vyzvednuti'}
+                  style={{ padding: '3px 10px', borderRadius: 999, background: calStep === 1 ? '#74FB71' : '#f1faf7', border: calStep === 1 ? '2px solid #3dba3a' : '1px solid #d4e8e0', color: '#0f1a14' }}>OD</button>
+                <button onClick={() => setCalStep(2)} className="text-xs font-bold cursor-pointer" title="Zmenit datum vraceni"
+                  style={{ padding: '3px 10px', borderRadius: 999, background: calStep === 2 ? '#74FB71' : '#f1faf7', border: calStep === 2 ? '2px solid #3dba3a' : '1px solid #d4e8e0', color: '#0f1a14' }}>DO</button>
+              </div>
             )}
           </div>
           {calStep > 0 && <BookingCalendar calMonth={calMonth} setCalMonth={setCalMonth} calStep={calStep} startDate={startDate} endDate={endDate} origStart={origStart} origEnd={origEnd} onCalClick={handleCalClick} />}
