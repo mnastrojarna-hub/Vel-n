@@ -31,8 +31,11 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
   /// Přednačte fotky bodů zájmu i galerie trasy hned po otevření detailu, ať
   /// je uživatel při scrollu vidí okamžitě (ne „jak se načítají").
   void _precacheImages(BuildContext context, RouteItem route) {
-    if (_precachedFor == route.id) return;
-    _precachedFor = route.id;
+    // Klíč zahrnuje počty fotek/POI — po dotažení plného detailu (galerie,
+    // popisy POI) se přednačtení spustí znovu nad kompletními daty.
+    final key = '${route.id}:${route.images.length}:${route.pois.length}';
+    if (_precachedFor == key) return;
+    _precachedFor = key;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       for (final p in route.pois) {
@@ -56,11 +59,17 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
         loading: () => const Center(child: CircularProgressIndicator(color: MotoGoColors.greenDark)),
         error: (e, _) => _missing(context),
         data: (data) {
-          final route = data.routes.firstWhere(
+          final listRoute = data.routes.firstWhere(
             (r) => r.id == widget.routeId,
             orElse: () => const RouteItem(id: '', name: ''),
           );
-          if (route.id.isEmpty) return _missing(context);
+          if (listRoute.id.isEmpty) return _missing(context);
+          // Odlehčený seznam nemá popis/galerii/popisy POI — plná data se
+          // dotáhnou přes routeFullProvider; do té doby se hned vykreslí
+          // lite verze (název, mapa, body) bez čekání.
+          final route =
+              ref.watch(routeFullProvider(widget.routeId)).valueOrNull ??
+                  listRoute;
           final branch = route.branchId != null ? data.branches[route.branchId] : null;
           return _content(context, route, branch, lang);
         },
