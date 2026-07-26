@@ -46,15 +46,20 @@ class _AiAgentState extends State<AiAgentScreen> {
     try {
       final user = MotoGoSupabase.currentUser;
       if (user == null) return;
-      final res = await MotoGoSupabase.client.from('bookings')
-          .select('id')
+      // Servisní chat se má vztahovat k motorce, na které zákazník PRÁVĚ jede.
+      // Dřívější `limit(1)` řazený dle start_date vracel budoucí rezervaci místo
+      // běžícího pronájmu (novější start_date vyhrál) → agent radil k jiné motorce.
+      final rows = await MotoGoSupabase.client.from('bookings')
+          .select('id, status')
           .eq('user_id', user.id)
           .inFilter('status', ['active', 'reserved'])
           .eq('payment_status', 'paid')
           .order('start_date', ascending: false)
-          .limit(1)
-          .maybeSingle();
-      if (res != null) _bookingId = res['id'] as String;
+          .limit(10) as List;
+      if (rows.isEmpty) return;
+      final active = rows.cast<Map<String, dynamic>>()
+          .where((r) => r['status'] == 'active').toList();
+      _bookingId = (active.isNotEmpty ? active.first : rows.first)['id'] as String;
     } catch (_) {}
   }
 
