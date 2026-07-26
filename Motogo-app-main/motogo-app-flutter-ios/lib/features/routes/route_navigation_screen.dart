@@ -908,7 +908,7 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
           if (listRoute.id.isEmpty) return _exit(context);
           // Plná trasa (geometry, POI popisy) — seznam je odlehčený.
           final route =
-              ref.watch(routeFullProvider(widget.routeId)).valueOrNull ??
+              ref.watch(routeFullProvider(listRoute.id)).valueOrNull ??
                   listRoute;
           final branch = route.branchId != null ? data.branches[route.branchId] : null;
           _route = route;
