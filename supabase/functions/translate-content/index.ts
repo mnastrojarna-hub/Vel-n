@@ -52,6 +52,18 @@ function jsonResponse(body: Record<string, unknown>, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { ...CORS, 'Content-Type': 'application/json' } })
 }
 
+/** Je token service_role JWT? Kontroluje claim `role` (ne přesnou shodu) —
+ *  projekt může mít nový formát klíčů sb_secret_ / víc platných klíčů. */
+function isServiceRole(token: string): boolean {
+  try {
+    const p = token.split('.')
+    if (p.length !== 3) return false
+    const pad = '='.repeat((4 - (p[1].length % 4)) % 4)
+    const payload = JSON.parse(atob(p[1].replace(/-/g, '+').replace(/_/g, '/') + pad))
+    return payload.role === 'service_role'
+  } catch (_) { return false }
+}
+
 function buildSystemPrompt(targetLang: string, langName: string): string {
   return [
     `You are a professional Czech-to-${langName} translator for MotoGo24 — a Czech motorcycle rental company.`,
@@ -151,8 +163,20 @@ serve(async (req: Request): Promise<Response> => {
     if (!authHeader.startsWith('Bearer ')) return jsonResponse({ error: 'Unauthorized' }, 401)
 
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
-    const token = authHeader.replace('Bearer ', '')
-    if (token !== SUPABASE_SERVICE_KEY) {
+    let token = authHeader.replace(/^Bearer\s+/i, '').trim()
+    if (token.length > 1 && token.startsWith('"') && token.endsWith('"')) token = token.slice(1, -1)
+
+    // Tolerantní service-role auth (jako backfill fce): env klíč / JWT s claim
+    // service_role / app_settings.service_role_key. U nového formátu klíčů
+    // (sb_secret_…) se app_settings klíč NEROVNÁ env klíči → striktní shoda
+    // dávala 401 při přímém volání z pg_net (dopřeklad okolí). Fallback = user
+    // JWT (Velín admin volá s admin user tokenem).
+    let authOk = token === SUPABASE_SERVICE_KEY || isServiceRole(token)
+    if (!authOk) {
+      const { data: row } = await supabaseAdmin.from('app_settings').select('value').eq('key', 'service_role_key').maybeSingle()
+      if (row?.value && token === String(row.value).replace(/^"|"$/g, '').trim()) authOk = true
+    }
+    if (!authOk) {
       const { data: { user }, error: userErr } = await supabaseAdmin.auth.getUser(token)
       if (userErr || !user) return jsonResponse({ error: 'Unauthorized: invalid token' }, 401)
     }
