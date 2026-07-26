@@ -8,6 +8,7 @@ import BookingMapPicker from './BookingMapPicker'
 import BookingPriceCalc from './BookingPriceCalc'
 import BookingDeliverySection from './BookingDeliverySection'
 import { isoDate, toDate, fmtDate, fmtCZK, countDays, calcDayBreakdown } from './bookingModifyHelpers'
+import { findFeeExtra, feeAmount } from './DetailTabSections'
 
 export default function BookingModifyModal({ booking, onClose, onSaved }) {
   const origStart = toDate(booking.start_date)
@@ -25,11 +26,22 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
   const [branches, setBranches] = useState([])
   const [branchFilter, setBranchFilter] = useState('')
 
-  const [pickupMethod, setPickupMethod] = useState(booking.pickup_method || 'on_branch')
+  // Přistavení/svoz se předvyplňuje podle SKUTEČNÉHO stavu rezervace. DB hodnoty
+  // metod nejsou jednotné ('delivery' vs. 'rental'/'store'/'branch'/NULL u pobočky)
+  // a poplatek může být místo bookings.delivery_fee v booking_extras (řádek
+  // „Přistavení"/„Svoz") — ten se dočte async v load() níže.
+  const rawDeliveryFee = Number(booking.delivery_fee) || 0
+  const initPickupDelivery = booking.pickup_method === 'delivery' || (!!booking.pickup_address && rawDeliveryFee > 0)
+  const initReturnDelivery = booking.return_method === 'delivery' || (!!booking.return_address && rawDeliveryFee > 0)
+  const initOrigFee = (initPickupDelivery || initReturnDelivery) ? rawDeliveryFee : 0
+  const [pickupMethod, setPickupMethod] = useState(initPickupDelivery ? 'delivery' : 'on_branch')
   const [pickupAddress, setPickupAddress] = useState(booking.pickup_address || '')
-  const [returnMethod, setReturnMethod] = useState(booking.return_method || 'on_branch')
+  const [returnMethod, setReturnMethod] = useState(initReturnDelivery ? 'delivery' : 'on_branch')
   const [returnAddress, setReturnAddress] = useState(booking.return_address || '')
-  const [deliveryFee, setDeliveryFee] = useState(Number(booking.delivery_fee) || 0)
+  const [deliveryFee, setDeliveryFee] = useState(initOrigFee)
+  // Normalizovaný původní stav doručení — proti němu se detekuje změna
+  // a počítá cenový rozdíl (změna přistavného).
+  const [origDelivery, setOrigDelivery] = useState({ pickup: initPickupDelivery ? 'delivery' : 'on_branch', ret: initReturnDelivery ? 'delivery' : 'on_branch', fee: initOrigFee })
   const [showMapPicker, setShowMapPicker] = useState(null)
 
   const [chargeCustomer, setChargeCustomer] = useState(true)
@@ -41,16 +53,32 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
   useEffect(() => {
     async function load() {
       setLoadingMotos(true)
-      const [motosRes, pricesRes, branchesRes] = await Promise.all([
+      const [motosRes, pricesRes, branchesRes, extrasRes] = await Promise.all([
         supabase.from('motorcycles').select('id, model, spz, category, image_url, status, branch_id, license_required, price_mon, price_tue, price_wed, price_thu, price_fri, price_sat, price_sun').order('model'),
         supabase.from('moto_day_prices').select('*'),
         supabase.from('branches').select('id, name').order('name'),
+        supabase.from('booking_extras').select('*, extras_catalog(name, price_per_day)').eq('booking_id', booking.id),
       ])
       setAllMotos(motosRes.data || [])
       const pm = {}; (pricesRes.data || []).forEach(p => { pm[p.moto_id] = p })
       setMotoPrices(pm)
       setBranches(branchesRes.data || [])
       setLoadingMotos(false)
+      // Přistavení/svoz účtované přes booking_extras (bookings.delivery_fee = 0):
+      // dopředvyplní metody + poplatek podle reálného stavu rezervace.
+      if (rawDeliveryFee === 0) {
+        const extras = extrasRes.data || []
+        const pFee = feeAmount(findFeeExtra(extras, 'pickup'))
+        const rFee = feeAmount(findFeeExtra(extras, 'return'))
+        if (pFee > 0 || rFee > 0) {
+          const pd = initPickupDelivery || pFee > 0
+          const rd = initReturnDelivery || rFee > 0
+          setPickupMethod(pd ? 'delivery' : 'on_branch')
+          setReturnMethod(rd ? 'delivery' : 'on_branch')
+          setDeliveryFee(pFee + rFee)
+          setOrigDelivery({ pickup: pd ? 'delivery' : 'on_branch', ret: rd ? 'delivery' : 'on_branch', fee: pFee + rFee })
+        }
+      }
     }
     load()
   }, [])
@@ -74,7 +102,7 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
   const origCalcPrice = origBreakdown.reduce((s, d) => s + d.price, 0)
   const newCalcPrice = newBreakdown.reduce((s, d) => s + d.price, 0)
   const origPaidPrice = Number(booking.total_price) || 0
-  const origDeliveryFee = Number(booking.delivery_fee) || 0
+  const origDeliveryFee = origDelivery.fee
   const newDeliveryFee = (pickupMethod === 'delivery' || returnMethod === 'delivery') ? deliveryFee : 0
   // Doplatek/vratka = ROZDÍL dle ceníku (nový termín/motorka − původní) + změna
   // přistavného. NE „nová cena − zaplaceno": zaplacená částka obsahuje i výbavu,
@@ -94,7 +122,7 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
   const selectedMoto = allMotos.find(m => m.id === selectedMotoId)
   const motoChanged = selectedMotoId !== booking.moto_id
   const datesChanged = isoDate(startDate) !== isoDate(origStart) || isoDate(endDate) !== isoDate(origEnd)
-  const deliveryChanged = pickupMethod !== (booking.pickup_method || 'on_branch') || returnMethod !== (booking.return_method || 'on_branch') || pickupAddress !== (booking.pickup_address || '') || returnAddress !== (booking.return_address || '')
+  const deliveryChanged = pickupMethod !== origDelivery.pickup || returnMethod !== origDelivery.ret || pickupAddress !== (booking.pickup_address || '') || returnAddress !== (booking.return_address || '') || newDeliveryFee !== origDelivery.fee
   const hasChanges = datesChanged || motoChanged || deliveryChanged || notes !== (booking.notes || '')
 
   const days = countDays(startDate, endDate)
@@ -128,8 +156,16 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
       const saveData = {
         start_date: isoDate(startDate), end_date: isoDate(endDate),
         total_price: chargeCustomer ? newTotalPrice : origPaidPrice,
-        notes: notes || null, pickup_method: pickupMethod, pickup_address: pickupAddress || null,
-        return_method: returnMethod, return_address: returnAddress || null, delivery_fee: newDeliveryFee,
+        notes: notes || null,
+      }
+      // Doručovací pole se přepisují JEN při reálné změně doručení — DB drží
+      // historické hodnoty metod ('rental'/'store'/…) a poplatek může být v
+      // booking_extras; bezdůvodný přepis by trigger booking_modified vyhodnotil
+      // jako změnu místa a poslal ji zákazníkovi v mailu.
+      if (deliveryChanged) {
+        saveData.pickup_method = pickupMethod; saveData.pickup_address = pickupAddress || null
+        saveData.return_method = returnMethod; saveData.return_address = returnAddress || null
+        saveData.delivery_fee = newDeliveryFee
       }
       if (motoChanged) saveData.moto_id = selectedMotoId
       // Doplatek u zaplacené rezervace: dlužná částka = předchozí nezaplacený doplatek
