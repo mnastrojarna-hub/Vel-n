@@ -209,14 +209,15 @@ export function LocationShareRow({ sosIncidents }) {
 
 // Heuristika: vytáhne z booking_extras položku, která vypadá jako poplatek za
 // přistavení nebo vrácení (admin si je v různých rezervacích pojmenoval různě).
-function findFeeExtra(extras, kind) {
+// Sdíleno s BookingModifyModal (předvyplnění přistavení v úpravě rezervace).
+export function findFeeExtra(extras, kind) {
   const re = kind === 'pickup'
     ? /(p[rř]istav|delivery|dovoz)/i
     : /(vr[aá]cen[ií]|return|svoz)/i
   return (extras || []).find(e => re.test(e?.name || e?.extras_catalog?.name || ''))
 }
 
-function feeAmount(extra) {
+export function feeAmount(extra) {
   if (!extra) return 0
   const unit = Number(extra.unit_price || extra.extras_catalog?.price_per_day || 0)
   const qty = Number(extra.quantity || 1)
