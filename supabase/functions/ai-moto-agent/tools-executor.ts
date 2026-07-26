@@ -4,6 +4,25 @@
 import { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { execPublicReadTool, PUBLIC_READ_TOOL_NAMES } from './public-tools.ts'
 import { readManual } from '../_shared/manual-reader.ts'
+import { getBundledManualText } from '../_shared/manual-texts/index.ts'
+
+// Normalizace pro fuzzy hledání stroje: bez diakritiky, jen [a-z0-9] tokeny.
+function normName(s: unknown): string {
+  return String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, ' ').trim()
+}
+
+// Kolik tokenů dotazu sedí na název stroje. „v strom" musí najít „V-strom",
+// „vstrom 650" taky (squash bez mezer); krátké tokeny (v, gs, x) jen jako celá slova.
+function matchScore(qTokens: string[], name: string): number {
+  const padded = ` ${name} `
+  const squashed = name.replace(/ /g, '')
+  let sc = 0
+  for (const t of qTokens) {
+    if (t.length <= 2 ? padded.includes(` ${t} `) : (name.includes(t) || squashed.includes(t.replace(/ /g, '')))) sc++
+  }
+  return sc
+}
 
 // Sjednoceno s ai-public-agent: skládá zobrazovaný název motorky a dedupuje
 // značku, pokud ji `model` v DB už obsahuje (jinak „Benelli Benelli TRK 502 X").
@@ -99,29 +118,52 @@ export async function executeTool(
       // veřejný agent. `query` = co v návodu hledáš (tlak v pneu, druh oleje,
       // kontrolky, startování, režim jízdy, pojistky…); bez query vrátí (zkrácený)
       // celý text. Když návod chybí, vrátí specifikace motorky + upozornění.
-      let q = supabaseAdmin.from('motorcycles')
-        .select('id, brand, model, year, category, engine_type, engine_cc, power_kw, power_hp, has_abs, has_asc, fuel_tank_l, seat_height_mm, weight_kg, features, manual_url, manual_external_url')
-
+      const MOTO_COLS = 'id, brand, model, year, category, engine_type, engine_cc, power_kw, power_hp, has_abs, has_asc, fuel_tank_l, seat_height_mm, weight_kg, features, manual_url, manual_external_url'
       const motoIdArg = input.motorcycle_id || input.moto_id // alias: public agent/page_context používají moto_id
+      let moto: Record<string, unknown> | null = null
+
       if (motoIdArg) {
-        q = q.eq('id', motoIdArg)
+        const { data, error } = await supabaseAdmin.from('motorcycles').select(MOTO_COLS).eq('id', motoIdArg).limit(1)
+        if (error) return { error: error.message }
+        moto = (data?.[0] as Record<string, unknown>) || null
       } else if (input.brand || input.model) {
-        if (input.brand) q = q.ilike('brand', `%${input.brand}%`)
-        if (input.model) q = q.ilike('model', `%${input.model}%`)
+        // FUZZY hledání přes celou flotilu. Dřívější `ilike '%model%'` selhal na
+        // interpunkci: zákazník napsal „v strom", DB má „Suzuki DL 650 V-strom"
+        // → „Motorka nenalezena" → agent návod vůbec nečetl (reálný případ 26. 7.).
+        const { data: all, error } = await supabaseAdmin.from('motorcycles').select(MOTO_COLS).limit(200)
+        if (error) return { error: error.message }
+        const qTokens = normName(`${input.brand || ''} ${input.model || ''}`).split(' ').filter(Boolean)
+        const scored = ((all || []) as Array<Record<string, unknown>>)
+          .map((m) => ({ m, sc: matchScore(qTokens, normName(`${m.brand} ${m.model} ${m.year || ''}`)) }))
+          .filter((x) => x.sc > 0)
+          .sort((a, b) => b.sc - a.sc)
+        if (scored.length === 0) {
+          return {
+            message: 'Motorka nenalezena ve flotile MotoGo24.',
+            fleet: ((all || []) as Array<Record<string, unknown>>).map((m) => motoDisplayName(m.brand as string, m.model as string)),
+            instruction: 'Tohle je KOMPLETNÍ flotila. Zeptej se zákazníka, který z těchto strojů má — nenabízej varianty, které v seznamu nejsou.',
+          }
+        }
+        // Víc strojů se stejným nejlepším skóre → nech agenta doptat se.
+        const top = scored.filter((x) => x.sc === scored[0].sc)
+        if (top.length > 1) {
+          return {
+            multiple_matches: top.map((x) => ({ id: x.m.id, name: motoDisplayName(x.m.brand as string, x.m.model as string) })),
+            message: 'Popisu odpovídá víc strojů z flotily. Zeptej se zákazníka, který z nich má, a zavolej tool znovu s motorcycle_id.',
+          }
+        }
+        moto = scored[0].m
       } else {
         return { error: 'Musíš zadat motorcycle_id nebo brand+model.' }
       }
 
-      const { data, error } = await q.limit(1)
-      if (error) return { error: error.message }
-      if (!data || data.length === 0) return { message: 'Motorka nenalezena.' }
-
-      const moto = data[0] as Record<string, unknown>
+      if (!moto) return { message: 'Motorka nenalezena.' }
       const query = typeof input.query === 'string' ? input.query.trim() : ''
       const manual = await readManual({
         modelName: motoDisplayName(moto.brand as string, moto.model as string),
         pdfUrl: moto.manual_url as string, extUrl: moto.manual_external_url as string,
         query, instruction: MANUAL_INSTRUCTION,
+        cachedText: await getBundledManualText(moto.id as string) || undefined,
       })
 
       // Specs jsou NADŘAZENÉ (kW, ccm, ABS, hmotnost, výška sedla) — vracíme je

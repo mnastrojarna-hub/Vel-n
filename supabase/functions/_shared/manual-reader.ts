@@ -147,21 +147,23 @@ function windowExcerpts(text: string, query: string): string | null {
 }
 
 /**
- * Přečte návod motorky. Zkouší postupně PDF (`pdfUrl`, priorita) a externí
- * odkaz (`extUrl`) — použije PRVNÍ zdroj s použitelným textem. Při `query` a
- * dlouhém textu vrátí relevantní pasáže, jinak celý (zkrácený) text.
+ * Přečte návod motorky. Priorita zdrojů: `cachedText` (předextrahovaný text,
+ * např. OCR naskenovaného PDF z _shared/manual-texts/) → PDF (`pdfUrl`) →
+ * externí odkaz (`extUrl`) — použije PRVNÍ zdroj s použitelným textem. Při
+ * `query` a dlouhém textu vrátí relevantní pasáže, jinak celý (zkrácený) text.
  * `instruction` = pokyn pro model přiložený k úspěšnému výsledku (agenti se
  * liší: app zakazuje žádat o fotku, veřejný web o ni žádat smí).
  */
 export async function readManual(opts: {
-  modelName: string; pdfUrl?: string; extUrl?: string; query?: string; instruction: string; contactHint?: string
+  modelName: string; pdfUrl?: string; extUrl?: string; query?: string; instruction: string; contactHint?: string; cachedText?: string
 }): Promise<Record<string, unknown>> {
   const { modelName, query = '', instruction } = opts
   const pdfUrl = String(opts.pdfUrl || '').trim()
   const extUrl = String(opts.extUrl || '').trim()
   const contact = opts.contactHint || 'kontakt MotoGo24 (+420 774 256 271)'
+  const cached = String(opts.cachedText || '').trim()
   const candidates = [...new Set([pdfUrl, extUrl].filter(Boolean))]
-  if (candidates.length === 0) {
+  if (candidates.length === 0 && !cached) {
     return {
       found: false, model: modelName,
       notice: `K motorce ${modelName} není v systému nahraný návod ani externí odkaz. NEVYMÝŠLEJ si technické údaje (tlak v pneu, druh oleje, kontrolky, postup startování apod.) — řekni, že návod k téhle motorce nemáš k dispozici, a nabídni ${contact}.`,
@@ -170,13 +172,18 @@ export async function readManual(opts: {
 
   let best: { text: string; sourceType: string; url: string } | null = null
   let lastErr = ''
+  if (cached.length >= 200) {
+    // Předextrahovaný text (OCR skenu apod.) — živé stahování se přeskočí.
+    best = { text: cached, sourceType: 'cached_text', url: extUrl || pdfUrl }
+  }
   for (const u of candidates) {
+    if (best && best.text.length >= 200) break
     try {
       const r = await readSource(u, u === pdfUrl && !!pdfUrl)
-      if (r.text.length >= 200) { best = r; break } // použitelný text → dál nezkoušet
       if (!best || r.text.length > best.text.length) best = r
     } catch (e) {
       lastErr = (e as Error).message
+      console.error(`manual-reader: fetch failed ${u}: ${lastErr}`)
     }
   }
 
