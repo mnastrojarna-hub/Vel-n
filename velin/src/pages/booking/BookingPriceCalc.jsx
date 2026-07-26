@@ -2,7 +2,7 @@ import { fmtCZK } from './bookingModifyHelpers'
 
 export default function BookingPriceCalc({
   newBreakdown, selectedMoto, booking, origCalcPrice, origPaidPrice,
-  origDays, newCalcPrice, newDeliveryFee, newTotalPrice, priceDiff,
+  origDays, newCalcPrice, newDeliveryFee, extrasCarry, newTotalPrice, priceDiff,
   days, chargeCustomer, setChargeCustomer,
 }) {
   return (
@@ -27,6 +27,7 @@ export default function BookingPriceCalc({
           {origCalcPrice > 0 && origCalcPrice !== origPaidPrice && <div className="flex justify-between text-xs"><span style={{ color: '#9ca3af' }}>Dle ceníku (původní motorka × {origDays}d)</span><span style={{ color: '#9ca3af' }}>{fmtCZK(origCalcPrice)} Kč</span></div>}
           <div className="flex justify-between text-sm"><span style={{ color: '#1a2e22' }}>Nová cena dle ceníku ({days}d)</span><span className="font-bold" style={{ color: '#0f1a14' }}>{fmtCZK(newCalcPrice)} Kč</span></div>
           {newDeliveryFee > 0 && <div className="flex justify-between text-sm"><span style={{ color: '#1a2e22' }}>Doručení</span><span className="font-bold">{fmtCZK(newDeliveryFee)} Kč</span></div>}
+          {extrasCarry !== 0 && <div className="flex justify-between text-xs"><span style={{ color: '#9ca3af' }}>Ostatní položky rezervace (výbava, slevy…) — beze změny</span><span style={{ color: '#9ca3af' }}>{extrasCarry > 0 ? '+' : ''}{fmtCZK(extrasCarry)} Kč</span></div>}
           <div style={{ borderTop: '2px solid #d4e8e0', paddingTop: 8, marginTop: 4 }}><div className="flex justify-between text-sm font-extrabold"><span style={{ color: '#1a2e22' }}>Nová celková cena</span><span style={{ color: '#0f1a14' }}>{fmtCZK(newTotalPrice)} Kč</span></div></div>
           {priceDiff !== 0 && (
             <div className="flex justify-between text-sm font-extrabold mt-1 p-2 rounded" style={{ background: priceDiff > 0 ? '#fee2e2' : '#dcfce7', border: `1px solid ${priceDiff > 0 ? '#fca5a5' : '#86efac'}` }}>
