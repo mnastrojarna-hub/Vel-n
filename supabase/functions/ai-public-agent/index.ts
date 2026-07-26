@@ -20,6 +20,7 @@
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { readManual } from '../_shared/manual-reader.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
@@ -1180,90 +1181,12 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
         }
       }
 
-      // Vysoký strop — návod posíláme modelu CELÝ (běžný manuál se do kontextu
-      // Sonnetu pohodlně vejde). Windowing zapneme jen u opravdu dlouhých návodů.
-      const MAX = 60000
-      const stripHtml = (html: string): string => String(html || '')
-        .replace(/<style[\s\S]*?<\/style>/gi, ' ')
-        .replace(/<script[\s\S]*?<\/script>/gi, ' ')
-        .replace(/<\/(p|div|li|tr|h[1-6])>/gi, '\n')
-        .replace(/<br\s*\/?>/gi, '\n')
-        .replace(/<[^>]+>/g, ' ')
-        .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#3[49];/g, "'")
-        .replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim()
-
-      let text = ''
-      let sourceType = pdfUrl ? 'pdf' : 'web'
-      try {
-        const resp = await fetch(sourceUrl, { headers: { 'User-Agent': 'MotoGo24-AI/1.0 (+https://www.motogo24.cz)' } })
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
-        const ctype = (resp.headers.get('content-type') || '').toLowerCase()
-        const looksPdf = !!pdfUrl || ctype.includes('pdf') || /\.pdf(\?|#|$)/i.test(sourceUrl)
-        if (looksPdf) {
-          sourceType = 'pdf'
-          const buf = new Uint8Array(await resp.arrayBuffer())
-          // Dynamický import — unpdf načteme jen když opravdu parsujeme PDF (šetří cold-start).
-          const { extractText, getDocumentProxy } = await import('https://esm.sh/unpdf@0.12.1')
-          const pdf = await getDocumentProxy(buf)
-          const res = await extractText(pdf, { mergePages: true }) as { text?: string }
-          text = String(res.text || '').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim()
-        } else {
-          sourceType = 'web'
-          text = stripHtml(await resp.text())
-        }
-      } catch (e) {
-        return {
-          found: true, model: mName, source_type: sourceType, url: sourceUrl, fetch_failed: true,
-          notice: `Návod k ${mName} se nepodařilo strojově otevřít (${(e as Error).message}). Pošli zákazníkovi přímý odkaz na návod (${sourceUrl}), ať si detail najde sám. NEVYMÝŠLEJ si obsah návodu.`,
-        }
-      }
-
-      if (!text || text.length < 30) {
-        return {
-          found: true, model: mName, source_type: sourceType, url: sourceUrl,
-          notice: `Z návodu k ${mName} se nepodařilo vytáhnout čitelný text (nejspíš skenované PDF bez textové vrstvy). Pošli zákazníkovi přímý odkaz na návod (${sourceUrl}) a ať si detail najde sám. NEVYMÝŠLEJ obsah.`,
-        }
-      }
-
-      // Delší návod, než se vejde do stropu → zúžíme na širší relevantní pasáže
-      // kolem klíčových slov (ať model neztratí kontext), jinak posíláme CELÝ text.
-      if (query && text.length > MAX) {
-        const lc = text.toLowerCase()
-        const terms = query.toLowerCase().split(/\s+/).filter((w) => w.length >= 3)
-        const hits: number[] = []
-        for (const term of terms) {
-          let from = 0
-          for (;;) {
-            const i = lc.indexOf(term, from)
-            if (i < 0 || hits.length > 60) break
-            hits.push(i); from = i + term.length
-          }
-        }
-        if (hits.length > 0) {
-          hits.sort((a, b) => a - b)
-          const win: Array<[number, number]> = []
-          for (const i of hits) {
-            const s = Math.max(0, i - 1500), e = Math.min(text.length, i + 1500)
-            const last = win[win.length - 1]
-            if (last && s <= last[1]) last[1] = Math.max(last[1], e)
-            else win.push([s, e])
-          }
-          let excerpt = win.map(([s, e]) => (s > 0 ? '…' : '') + text.slice(s, e).trim() + (e < text.length ? '…' : '')).join('\n\n———\n\n')
-          if (excerpt.length > MAX) excerpt = excerpt.slice(0, MAX) + '…'
-          return {
-            found: true, model: mName, source_type: sourceType, url: sourceUrl, mode: 'excerpts', query,
-            total_chars: text.length, text: excerpt,
-            instruction: MANUAL_INSTRUCTION,
-          }
-        }
-      }
-      const full = text.length > MAX ? text.slice(0, MAX) + `\n…[zkráceno kvůli délce — celý návod: ${sourceUrl}]` : text
-      return {
-        found: true, model: mName, source_type: sourceType, url: sourceUrl, mode: 'full',
-        query: query || undefined, total_chars: text.length, text: full,
-        instruction: MANUAL_INSTRUCTION,
-      }
+      // Stažení + parsování dělá sdílený ../_shared/manual-reader.ts (browser UA,
+      // retry, PDF magic bytes, PDF odkazy z rozcestníku, oba zdroje) — viz komentář tam.
+      return await readManual({
+        modelName: mName, pdfUrl, extUrl, query, instruction: MANUAL_INSTRUCTION,
+        contactHint: `detail motorky (https://www.motogo24.cz/katalog/${motoId}) nebo kontakt firmy`,
+      })
     }
     case 'get_extras_catalog': {
       // Dva zdroje: `extras_catalog` (top case, GPS, přistavení…) + `accessory_types` (ceník

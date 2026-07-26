@@ -121,15 +121,27 @@ serve(async (req) => {
       `
 
       if (booking_id) {
-        const { data, error } = await supabaseAdmin
-          .from('bookings')
-          .select(bookingFields)
-          .eq('user_id', user.id)
-          .eq('id', booking_id)
-          .limit(1)
-
-        if (!error && data && data.length > 0) {
-          bookingContext = formatBookingContext(data[0], null)
+        // Appka volí booking_id heuristikou „nejnovější zaplacená active/reserved dle
+        // start_date" — když má zákazník AKTIVNÍ pronájem a k tomu pozdější budoucí
+        // rezervaci, přišlo id té BUDOUCÍ a agent diagnostikoval úplně jinou motorku
+        // (reálný případ 26. 7. 2026: zákazník jel na V-Stromu, kontext tvrdil Tiger).
+        // Servisní agent proto VŽDY preferuje aktivní pronájem; pinovaná rezervace
+        // se použije, jen když žádný aktivní není, a ostatní se vypíšou jako další.
+        const [pinnedRes, listRes] = await Promise.all([
+          supabaseAdmin.from('bookings').select(bookingFields)
+            .eq('user_id', user.id).eq('id', booking_id).limit(1),
+          supabaseAdmin.from('bookings').select(bookingFields)
+            .eq('user_id', user.id).in('status', ['active', 'confirmed', 'reserved'])
+            .order('start_date', { ascending: false }).limit(10),
+        ])
+        const pinned = (!pinnedRes.error && pinnedRes.data?.[0]) || null
+        const list = (!listRes.error && listRes.data) || []
+        const active = list.find(b => b.status === 'active') || (pinned?.status === 'active' ? pinned : null)
+        const primary = active || pinned
+        if (primary) {
+          const others = list.filter(b => b.id !== primary.id)
+          if (pinned && pinned.id !== primary.id && !others.some(b => b.id === pinned.id)) others.push(pinned)
+          bookingContext = formatBookingContext(primary, others.length > 0 ? others : null)
         }
       } else {
         const { data: allBookings, error: allErr } = await supabaseAdmin
