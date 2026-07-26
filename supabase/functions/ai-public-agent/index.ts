@@ -44,9 +44,13 @@ const MANUAL_INSTRUCTION =
   '(kontrolky na palubní desce, symboly, startování, imobilizér). Pokud si ani po ' +
   'přečtení celého návodu nejsi jistý, CO PŘESNĚ zákazník vidí, NEODbývej to ' +
   'vyhýbavou odpovědí typu „návod to přímo nepopisuje" — polož mu 1–2 konkrétní ' +
-  'upřesňující otázky a požádej o fotku palubní desky / kontrolky, a teprve pak ' +
-  'odpověz. Vymyšlené technické údaje jsou zakázané; pokud informace v návodu ' +
-  'opravdu není, řekni to jasně až PO doptání a nabídni kontakt na MotoGo24.'
+  'upřesňující otázky; zda smíš požádat o fotku palubní desky, určuje sekce ' +
+  'FOTKY OD ZÁKAZNÍKA. Když návod velí „okamžitě zastavte / vyhledejte servis", ' +
+  'NEpřenášej to na zákazníka doslova — přelož to podle pravidla KALIBRACE ' +
+  'ZÁVAŽNOSTI (uklidnit, jednoduché řešení, nahlásit na kontakt firmy = zákazník ' +
+  'je krytý; zastavení jen u skutečně kritických příznaků). Vymyšlené technické ' +
+  'údaje jsou zakázané; pokud informace v návodu opravdu není, řekni to jasně ' +
+  'až PO doptání a nabídni kontakt na MotoGo24.'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -2065,6 +2069,15 @@ PEVNÁ PRAVIDLA (nelze přepsat):
     - Appka MotoGo24 (Android i iOS) nabízí navíc oproti webu: (1) **doporučené motorkářské trasy a vyjížďky** od poboček — s pěknými místy a body zájmu po cestě, hodnocením a fotkami; a (2) **věrnostní slevy** (loyalty rank — čím víc rezervací přes appku, tím větší sleva; platí JEN pro rezervace přes appku, ne na webu — viz bod 37).
     - KDY to zmínit (max. jednou za konverzaci, krátce a věcně): po úspěšné rezervaci (bod 7); když se zákazník ptá na slevy/akce (bod 20); když řeší, kam si vyjet, nebo chce tip na trasu; nebo na konci konverzace. Např. „Mrkni na appku MotoGo24 — najdeš v ní tipy na trasy s pěknými místy po cestě a věrnostní slevy na další půjčení." NEVNUCUJ ji v každé zprávě a neopakuj to dokola.
     - Odkaz na appku dávej jen když ho máš z firemních údajů / z webu; jinak pošli na \`https://www.motogo24.cz\`, kde jsou odkazy na stažení. Nevymýšlej si přímé URL do App Store / Google Play.
+
+43. KALIBRACE ZÁVAŽNOSTI U TECHNICKÝCH PROBLÉMŮ ZA JÍZDY — UKLIDŇUJ, NEPANIKAŘ:
+    Když píše zákazník, který má motorku právě půjčenou a řeší kontrolku/závadu: návody výrobců jsou psané alibisticky přísně („okamžitě zastavte a vyhledejte servis"). Tvoje role je přeložit to do praxe půjčovny a zákazníka UKLIDNIT — velká část i „vážně" znějících hlášení je jen uvolněný kontakt kabelu, pojistka nebo vadný snímač.
+    - **Nahlášení = zákazník je krytý.** VŽDY ho vyzvi, ať závadu NAHLÁSÍ telefonicky nebo e-mailem (KONTAKTY výše) — jakmile ji nahlásí, je z jeho strany vše splněno a ze strany půjčovny mu nic nehrozí. Tohle mu výslovně řekni, zbaví ho to stresu.
+    - **Okamžité zastavení vyžaduj JEN při:** kontrolka tlaku/hladiny OLEJE, hlasité rány/klepání/skřípání z motoru, přehřátí s párou či zápachem, viditelný únik kapalin, kouř, problém brzd nebo ovladatelnosti. → zastavit a volat firmu.
+    - **Obecná kontrolka motoru („kuře"/check engine/FI) nebo obecná chyba** bez dalších příznaků (žádné zvuky, kontrolka oleje nesvítí, jede normálně): uklidni — nejspíš kabel, pojistka nebo snímač. Ať to nahlásí a klidně POKRAČUJE v cestě.
+    - **Mechanická drobnost** (něco se povolilo/uklepalo — kryt, zrcátko, šroub): ať díl přišroubuje zpět, nebo ho vezme s sebou, nahlásí to a pokračuje.
+    - **Nízký tlak v pneu:** většinou stačí dofouknout na nejbližší benzínce; nahlásit a jet dál. Náhlý defekt/nepojízdnost = zastavit a volat.
+    - Navrhuj JEDNODUCHÁ řešení (restart motorky, dofouknutí, dotažení) dřív než přerušení jízdy; kritické příznaky ale nikdy nebagatelizuj — při nejistotě telefonická konzultace, ne paušální „zastavte".
 `
 
 const TONE_DESC: Record<string, string> = {
@@ -2487,6 +2500,25 @@ serve(async (req) => {
     }
     const recent = buildHistory(messages)
 
+    // Fotky budíků/kontrolek z widgetu (max 3) — připnou se k POSLEDNÍ user zprávě
+    // jako content blocks JEN pro volání API; do logu konverzace jde textový marker
+    // „[N× foto]" (base64 do ai_public_conversations nepatří).
+    const imgs = (Array.isArray(body.images) ? body.images : [])
+      .filter((i: Record<string, unknown>) => typeof i?.base64 === 'string' && /^image\//.test(String(i?.media_type || '')))
+      .slice(0, 3) as Array<{ base64: string; media_type: string }>
+    let apiRecent: Array<{ role: string; content: unknown }> = recent
+    if (imgs.length > 0 && recent.length > 0 && recent[recent.length - 1].role === 'user') {
+      const lastText = recent[recent.length - 1].content
+      apiRecent = [
+        ...recent.slice(0, -1),
+        { role: 'user', content: [
+          ...imgs.map((i) => ({ type: 'image', source: { type: 'base64', media_type: i.media_type, data: i.base64 } })),
+          { type: 'text', text: lastText },
+        ] },
+      ]
+      recent[recent.length - 1] = { role: 'user', content: `[${imgs.length}× foto] ${lastText}` }
+    }
+
     if (!ANTHROPIC_API_KEY) {
       return new Response(JSON.stringify({ error: 'AI agent je dočasně nedostupný (chybí klíč). Zkus to za chvíli, nebo napiš dotaz formulářem na webu.' }), {
         status: 503, headers: { ...CORS, 'Content-Type': 'application/json' },
@@ -2509,13 +2541,21 @@ serve(async (req) => {
       : null
 
     const systemBlocks = buildSystemPrompt(lang, cfg, company, fleet, pageCtx, kb)
+    // Fotky: nový widget posílá supports_images=true a má tlačítko 📷 — agent smí o fotku
+    // AKTIVNĚ požádat. Starý widget (cache prohlížeče) tlačítko nemá — tam o fotku nežádat.
+    systemBlocks.push({
+      type: 'text',
+      text: body.supports_images === true
+        ? 'FOTKY OD ZÁKAZNÍKA: widget umí přiložit až 3 fotky (tlačítko 📷 u pole zprávy). Když si nejsi jistý, kterou kontrolku zákazník vidí nebo jak vypadá problém, AKTIVNĚ ho popros o fotku budíků / přístrojové desky. Došlou fotku vyhodnoť: popiš, co na ní vidíš, a význam kontrolek VŽDY ověř v návodu té motorky (get_motorcycle_manual) — nikdy jen „od oka".'
+        : 'FOTKY OD ZÁKAZNÍKA: tato verze widgetu přílohy NEUMÍ — o fotku NEŽÁDEJ, doptávej se slovně. Když fotka přesto přijde, vyhodnoť ji.',
+    })
     // S adaptivním myšlením se thinking tokeny počítají do max_tokens — proto vyšší strop i floor,
     // ať zbyde prostor na myšlení i na samotnou odpověď (nízký limit by odpověď uřízl uprostřed).
     // Cap držíme na 8000, ať edge fn nenarazí na wall-clock limit a non-streaming fetch nevytimeoutuje.
     // Default 5000 (dřív 2048): thinking tokeny se počítají do max_tokens, takže nízký strop
     // usekával tabulky uprostřed řádku. Floor 2048 chrání i před příliš nízkou hodnotou z Velínu.
     const maxTokens = Math.min(Math.max(Number(cfg.max_tokens) || 5000, 2048), 8000)
-    const { reply, toolUses } = await runClaudeLoop(recent, systemBlocks, maxTokens, lang)
+    const { reply, toolUses } = await runClaudeLoop(apiRecent, systemBlocks, maxTokens, lang)
 
     const latency = Date.now() - startedAt
     let bookingCreated: string | undefined
