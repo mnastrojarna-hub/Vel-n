@@ -74,9 +74,14 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
   const origCalcPrice = origBreakdown.reduce((s, d) => s + d.price, 0)
   const newCalcPrice = newBreakdown.reduce((s, d) => s + d.price, 0)
   const origPaidPrice = Number(booking.total_price) || 0
+  const origDeliveryFee = Number(booking.delivery_fee) || 0
   const newDeliveryFee = (pickupMethod === 'delivery' || returnMethod === 'delivery') ? deliveryFee : 0
-  const newTotalPrice = newCalcPrice + newDeliveryFee
-  const priceDiff = newTotalPrice - origPaidPrice
+  // Doplatek/vratka = ROZDÍL dle ceníku (nový termín/motorka − původní) + změna
+  // přistavného. NE „nová cena − zaplaceno": zaplacená částka obsahuje i výbavu,
+  // slevy apod., které se úpravou termínu nemění — ty v ceně zůstávají (extrasCarry).
+  const priceDiff = (newCalcPrice - origCalcPrice) + (newDeliveryFee - origDeliveryFee)
+  const extrasCarry = origPaidPrice - origCalcPrice - origDeliveryFee
+  const newTotalPrice = origPaidPrice + priceDiff
 
   // Doplatkové flow (2026-07-27): je-li PŮVODNÍ rezervace zaplacená a úprava vyžaduje
   // doplatek, neposílá se hned booking_modified mail — zákazník dostane výzvu k platbě
@@ -293,13 +298,13 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
         </div>
 
         {/* MOTORCYCLE */}
-        <BookingMotoSelector changingMoto={changingMoto} setChangingMoto={setChangingMoto} branchFilter={branchFilter} setBranchFilter={setBranchFilter} branches={branches} availableMotos={availableMotos} unavailableMotos={unavailableMotos} loadingMotos={loadingMotos} selectedMotoId={selectedMotoId} setSelectedMotoId={setSelectedMotoId} booking={booking} motoChanged={motoChanged} selectedMoto={selectedMoto} calcMotoPrice={calcMotoPrice} newDeliveryFee={newDeliveryFee} origPaidPrice={origPaidPrice} fmtCZK={fmtCZK} />
+        <BookingMotoSelector changingMoto={changingMoto} setChangingMoto={setChangingMoto} branchFilter={branchFilter} setBranchFilter={setBranchFilter} branches={branches} availableMotos={availableMotos} unavailableMotos={unavailableMotos} loadingMotos={loadingMotos} selectedMotoId={selectedMotoId} setSelectedMotoId={setSelectedMotoId} booking={booking} motoChanged={motoChanged} selectedMoto={selectedMoto} calcMotoPrice={calcMotoPrice} newDeliveryFee={newDeliveryFee} origCalcPrice={origCalcPrice} origDeliveryFee={origDeliveryFee} fmtCZK={fmtCZK} />
 
         {/* PICKUP & RETURN */}
         <BookingDeliverySection pickupMethod={pickupMethod} setPickupMethod={setPickupMethod} pickupAddress={pickupAddress} setPickupAddress={setPickupAddress} returnMethod={returnMethod} setReturnMethod={setReturnMethod} returnAddress={returnAddress} setReturnAddress={setReturnAddress} deliveryFee={deliveryFee} setDeliveryFee={setDeliveryFee} setShowMapPicker={setShowMapPicker} />
 
         {/* PRICE CALCULATION */}
-        <BookingPriceCalc newBreakdown={newBreakdown} selectedMoto={selectedMoto} booking={booking} origCalcPrice={origCalcPrice} origPaidPrice={origPaidPrice} origDays={origDays} newCalcPrice={newCalcPrice} newDeliveryFee={newDeliveryFee} newTotalPrice={newTotalPrice} priceDiff={priceDiff} days={days} chargeCustomer={chargeCustomer} setChargeCustomer={setChargeCustomer} />
+        <BookingPriceCalc newBreakdown={newBreakdown} selectedMoto={selectedMoto} booking={booking} origCalcPrice={origCalcPrice} origPaidPrice={origPaidPrice} origDays={origDays} newCalcPrice={newCalcPrice} newDeliveryFee={newDeliveryFee} extrasCarry={extrasCarry} newTotalPrice={newTotalPrice} priceDiff={priceDiff} days={days} chargeCustomer={chargeCustomer} setChargeCustomer={setChargeCustomer} />
 
         {/* NOTES */}
         <div className="mb-5">

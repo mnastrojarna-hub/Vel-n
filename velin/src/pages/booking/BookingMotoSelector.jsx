@@ -1,7 +1,7 @@
 export default function BookingMotoSelector({
   changingMoto, setChangingMoto, branchFilter, setBranchFilter, branches,
   availableMotos, unavailableMotos, loadingMotos, selectedMotoId, setSelectedMotoId,
-  booking, motoChanged, selectedMoto, calcMotoPrice, newDeliveryFee, origPaidPrice, fmtCZK,
+  booking, motoChanged, selectedMoto, calcMotoPrice, newDeliveryFee, origCalcPrice, origDeliveryFee, fmtCZK,
 }) {
   return (
     <div className="mb-5">
@@ -53,7 +53,7 @@ export default function BookingMotoSelector({
                 const price = calcMotoPrice(m.id)
                 const isSelected = m.id === selectedMotoId
                 const isCurrent = m.id === booking.moto_id
-                const pDiff = price !== null ? price + newDeliveryFee - origPaidPrice : null
+                const pDiff = price !== null ? (price - origCalcPrice) + (newDeliveryFee - origDeliveryFee) : null
                 return (
                   <div key={m.id} onClick={() => setSelectedMotoId(m.id)}
                     className="flex items-center gap-3 p-2 rounded-lg mb-1 cursor-pointer" style={{
