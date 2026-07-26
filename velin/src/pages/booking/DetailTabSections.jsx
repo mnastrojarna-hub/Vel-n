@@ -3,6 +3,7 @@ import { InfoRow } from './BookingUIHelpers'
 import { CANCEL_REASONS, describeModification, paymentMethodInfo, paymentStatusInfo, stripePaymentIntentUrl, stripeRefundUrl, cardLabel } from './bookingConstants'
 import Button from '../../components/ui/Button'
 import { mapyLinkUrl, mapyNavigateUrl } from '../../lib/mapyCz'
+import { fmtTimeHM, DEFAULT_PICKUP_TIME, DEFAULT_RETURN_TIME } from './bookingModifyHelpers'
 
 export function SOSSection({ booking, sosIncidents, navigate }) {
   if (!booking.sos_replacement && !booking.ended_by_sos && sosIncidents.length === 0) return null
@@ -288,8 +289,8 @@ export function DatesAndPaymentSection({ booking, bookingExtras, sosIncidents, o
 
       {/* Termín — výrazné rámečky */}
       <div className="grid grid-cols-4 gap-3 p-3 rounded-lg" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
-        <KeyValueTile label="Od" value={booking.start_date ? new Date(booking.start_date + 'T00:00:00').toLocaleDateString('cs-CZ') : '—'} sub={booking.pickup_time ? `v ${booking.pickup_time}` : null} />
-        <KeyValueTile label="Do" value={booking.end_date ? new Date(booking.end_date + 'T00:00:00').toLocaleDateString('cs-CZ') : '—'} sub={booking.return_time ? `v ${booking.return_time}` : null} />
+        <KeyValueTile label="Od" value={booking.start_date ? new Date(booking.start_date + 'T00:00:00').toLocaleDateString('cs-CZ') : '—'} sub={`v ${fmtTimeHM(booking.pickup_time, DEFAULT_PICKUP_TIME)}`} />
+        <KeyValueTile label="Do" value={booking.end_date ? new Date(booking.end_date + 'T00:00:00').toLocaleDateString('cs-CZ') : '—'} sub={`v ${fmtTimeHM(booking.return_time, DEFAULT_RETURN_TIME)}`} />
         <KeyValueTile label="Celkem k úhradě" value={`${Number(booking.total_price || 0).toLocaleString('cs-CZ')} Kč`} accent="#1a8a18" big />
         <KeyValueTile label="Dní" value={(() => { const d = Math.max(1, Math.round((new Date(booking.end_date) - new Date(booking.start_date)) / 86400000) + 1); return `${d} ${d === 1 ? 'den' : d < 5 ? 'dny' : 'dní'}` })()} />
       </div>
@@ -297,8 +298,8 @@ export function DatesAndPaymentSection({ booking, bookingExtras, sosIncidents, o
       {/* Místo + pojištění */}
       <div className="mt-3 p-3 rounded-lg" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
         <div className="grid grid-cols-3 gap-3">
-          <AddressBlock label="Přistavení" method={booking.pickup_method} address={booking.pickup_address} branchName={branchName} lat={booking.pickup_lat} lng={booking.pickup_lng} fee={pickupFee} time={booking.pickup_time} />
-          <AddressBlock label="Vrácení" method={booking.return_method} address={booking.return_address} branchName={branchName} lat={booking.return_lat} lng={booking.return_lng} fee={returnFee} time={booking.return_time} />
+          <AddressBlock label="Přistavení" method={booking.pickup_method} address={booking.pickup_address} branchName={branchName} lat={booking.pickup_lat} lng={booking.pickup_lng} fee={pickupFee} time={fmtTimeHM(booking.pickup_time)} />
+          <AddressBlock label="Vrácení" method={booking.return_method} address={booking.return_address} branchName={branchName} lat={booking.return_lat} lng={booking.return_lng} fee={returnFee} time={fmtTimeHM(booking.return_time)} />
           <div className="rounded-lg p-3" style={{ background: '#fff', border: '1px solid #d4e8e0' }}>
             <div className="text-xs font-extrabold uppercase tracking-wider mb-1.5" style={{ color: '#4a5a52' }}>Pojištění</div>
             <div className="text-sm font-extrabold" style={{ color: '#0f1a14' }}>
