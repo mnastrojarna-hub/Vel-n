@@ -1,7 +1,9 @@
 // Návratnost kapitálu motorek — tržby za období vztažené k pořizovací ceně.
-// Počítá se z TRŽEB (isRealizedBooking), ne ze zisku — provozní náklady se neodečítají;
-// jde o hrubou návratnost vloženého kapitálu. Roční tempo přepočítává tržby období
-// na 365 dní (stejná aproximace jako obsazenost ve VykonMotorek).
+// Počítá se z TRŽEB (isRealizedBooking, vč. hodnoty uplatněných dárkových poukazů),
+// ne ze zisku — provozní náklady se neodečítají; jde o hrubou návratnost vloženého
+// kapitálu. Roční tempo přepočítává tržby na 365 dní z REÁLNÉ doby provozu motorky
+// (`opDays` z VykonMotorek: od data pořízení, nejdéle po dnešek) — motorka koupená
+// před 2 měsíci se splaceným 35 % tak ukáže odhad doplacení v řádu měsíců, ne roků.
 
 const fmtKc = n => `${Math.round(n).toLocaleString('cs-CZ')} Kč`
 
@@ -13,14 +15,14 @@ const Card = ({ label, value, sub, accent }) => (
   </div>
 )
 
-export default function NavratnostKapitalu({ motoStats, periodDays }) {
+export default function NavratnostKapitalu({ motoStats }) {
   const withPrice = motoStats.filter(m => Number(m.purchase_price) > 0)
   const missingPrice = motoStats.length - withPrice.length
 
   const rows = withPrice.map(m => {
     const pp = Number(m.purchase_price)
     const returnPct = (m.revenue / pp) * 100
-    const annualRevenue = periodDays > 0 ? (m.revenue / periodDays) * 365 : 0
+    const annualRevenue = m.opDays > 0 ? (m.revenue / m.opDays) * 365 : 0
     const annualReturnPct = (annualRevenue / pp) * 100
     const remaining = Math.max(0, pp - m.revenue)
     const paybackMonths = remaining === 0 ? 0 : (annualRevenue > 0 ? remaining / (annualRevenue / 12) : null)
@@ -87,8 +89,8 @@ export default function NavratnostKapitalu({ motoStats, periodDays }) {
               </tbody>
             </table>
             <div style={{ fontSize: 11, color: '#888', marginTop: 10 }}>
-              Návratnost = tržby z realizovaných rezervací za vybrané období / pořizovací cena (hrubá, bez odečtu nákladů).
-              Odhad splacení vychází z ročního tempa tržeb za vybrané období.
+              Návratnost = tržby z realizovaných rezervací za vybrané období (vč. hodnoty zakoupených dárkových poukazů uplatněných na motorce) / pořizovací cena (hrubá, bez odečtu nákladů).
+              Roční tempo a odhad splacení se počítají z reálné doby provozu motorky — od data pořízení (bez něj od první rezervace), nejdéle po dnešek.
               {missingPrice > 0 && <> U {missingPrice} {missingPrice === 1 ? 'motorky' : 'motorek'} chybí pořizovací cena — nejsou zahrnuty.</>}
             </div>
           </div>
