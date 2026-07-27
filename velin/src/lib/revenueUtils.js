@@ -52,6 +52,32 @@ export function bookingRevenue(b) {
   return isRealizedBooking(b) ? (Number(b.total_price) || 0) : 0
 }
 
+// ── Dárkové poukazy jako příjem rezervace ─────────────────────────────────────
+//
+// Uplatněný poukaz snižuje `total_price` (je to sleva na rezervaci), ale peníze
+// za něj reálně dorazily už při jeho PRODEJI. Výkonová analytika proto hodnotu
+// poukazu přičítá zpět k rezervaci (motorce), na které byl uplatněn — jinak
+// rezervace placená poukazem vypadá jako (skoro) nulový příjem.
+//
+// Nepočítají se poukazy, za které nikdo neplatil: `vraceni` (kompenzace za
+// storno — příjem už nese původní rezervace) a `spoluprace` (marketingový dar).
+export const NON_PURCHASED_VOUCHER_SOURCES = ['vraceni', 'spoluprace']
+
+/**
+ * Mapa booking_id → součet hodnot zakoupených poukazů uplatněných na rezervaci.
+ * Vstup: řádky `vouchers` min. se sloupci `booking_id, amount, status, source`.
+ */
+export function voucherRevenueByBooking(vouchers) {
+  const map = {}
+  for (const v of (vouchers || [])) {
+    if (!v?.booking_id) continue
+    if (v.status === 'cancelled' || v.status === 'expired') continue
+    if (NON_PURCHASED_VOUCHER_SOURCES.includes(v.source)) continue
+    map[v.booking_id] = (map[v.booking_id] || 0) + (Number(v.amount) || 0)
+  }
+  return map
+}
+
 // ── Souhrn faktur (sdílená logika pro Dokumenty i Finance) ────────────────────
 //
 // Datový model (viz generate-invoice / invoiceUtils):

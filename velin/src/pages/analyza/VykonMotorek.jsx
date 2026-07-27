@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import TimePeriodSelector, { filterByPeriod, hasMinimumData, diffDays } from './TimePeriodSelector'
-import { isRealizedBooking } from '../../lib/revenueUtils'
+import { isRealizedBooking, voucherRevenueByBooking } from '../../lib/revenueUtils'
 import NavratnostKapitalu from './NavratnostKapitalu'
 
 const NoData = () => (
@@ -23,15 +23,17 @@ export default function VykonMotorek() {
   async function loadData() {
     setLoading(true); setError(null)
     try {
-      const [mRes, bRes, brRes] = await Promise.all([
-        supabase.from('motorcycles').select('id, model, brand, category, purchase_price, branch_id, status'),
-        supabase.from('bookings').select('moto_id, start_date, end_date, total_price, status, created_at, payment_status, is_test'),
+      const [mRes, bRes, brRes, vRes] = await Promise.all([
+        supabase.from('motorcycles').select('id, model, brand, category, purchase_price, branch_id, status, acquired_at'),
+        supabase.from('bookings').select('id, moto_id, start_date, end_date, total_price, status, created_at, payment_status, is_test'),
         supabase.from('branches').select('id, name'),
+        supabase.from('vouchers').select('booking_id, amount, status, source').not('booking_id', 'is', null),
       ])
       if (mRes.error) throw mRes.error
       if (bRes.error) throw bRes.error
       if (brRes.error) throw brRes.error
-      setRaw({ motorcycles: mRes.data || [], bookings: bRes.data || [], branches: brRes.data || [] })
+      if (vRes.error) throw vRes.error
+      setRaw({ motorcycles: mRes.data || [], bookings: bRes.data || [], branches: brRes.data || [], vouchers: vRes.data || [] })
     } catch (e) { setError(e.message) } finally { setLoading(false) }
   }
 
@@ -39,8 +41,9 @@ export default function VykonMotorek() {
   if (error) return <div className="p-4 text-center" style={{ color: '#dc2626' }}>{error}</div>
   if (!raw || raw.motorcycles.length === 0) return <div className="p-8 text-center" style={{ color: '#888' }}>Žádné motorky</div>
 
-  const { motorcycles, bookings, branches } = raw
+  const { motorcycles, bookings, branches, vouchers } = raw
   const branchMap = Object.fromEntries((branches || []).map(b => [b.id, b.name]))
+  const voucherByBooking = voucherRevenueByBooking(vouchers)
   const completed = filterByPeriod(bookings.filter(isRealizedBooking), period, 'created_at')
   const has3mo = hasMinimumData(bookings)
 
@@ -48,16 +51,33 @@ export default function VykonMotorek() {
   if (period.type === 'month') periodDays = new Date(period.year, period.month + 1, 0).getDate()
   else if (period.type === 'custom' && period.from && period.to) periodDays = Math.max(1, diffDays(period.from, period.to))
 
+  // Reálné okno pozorování pro tempo tržeb (návratnost kapitálu) — konec okna
+  // nejpozději dnes (budoucí část období ještě nic nevydělala).
+  const now = new Date()
+  let winFrom = null
+  let winTo = now
+  if (period.type === 'month') { winFrom = new Date(period.year, period.month, 1); winTo = new Date(period.year, period.month + 1, 0) }
+  else if (period.type === 'calendar_year') { winFrom = new Date(period.year, 0, 1); winTo = new Date(period.year, 11, 31) }
+  else if (period.type === 'fiscal_year') { winFrom = new Date(period.year - 1, 3, 1); winTo = new Date(period.year, 2, 31) }
+  else if (period.type === 'custom' && period.from && period.to) { winFrom = new Date(period.from); winTo = new Date(period.to) }
+  if (winTo > now) winTo = now
+
   const motoStats = motorcycles.map(m => {
     const mCompleted = completed.filter(b => b.moto_id === m.id)
     const rentedDays = mCompleted.reduce((s, b) => s + diffDays(b.start_date, b.end_date), 0)
-    const revenue = mCompleted.reduce((s, b) => s + (Number(b.total_price) || 0), 0)
+    const revenue = mCompleted.reduce((s, b) => s + (Number(b.total_price) || 0) + (voucherByBooking[b.id] || 0), 0)
     const reservationCount = mCompleted.length
+    // Doba, po kterou motorka v okně reálně vydělávala — od data pořízení
+    // (bez něj od první rezervace motorky). Základ ročního tempa splácení.
+    const firstBookingAt = bookings.reduce((min, b) => (b.moto_id === m.id && b.is_test !== true && (!min || b.created_at < min) ? b.created_at : min), null)
+    let opStart = m.acquired_at ? new Date(m.acquired_at) : (firstBookingAt ? new Date(firstBookingAt) : null)
+    if (winFrom && (!opStart || winFrom > opStart)) opStart = winFrom
+    const opDays = opStart ? (opStart > winTo ? 0 : diffDays(opStart, winTo)) : periodDays
     const avgDaysPerReservation = reservationCount > 0 ? rentedDays / reservationCount : 0
     const utilizationIndex = periodDays > 0 ? (rentedDays / periodDays) * 100 : 0
     const avgDailyRate = rentedDays > 0 ? revenue / rentedDays : 0
     const branchName = branchMap[m.branch_id] || '—'
-    return { ...m, rentedDays, revenue, reservationCount, avgDaysPerReservation, utilizationIndex, avgDailyRate, branchName }
+    return { ...m, rentedDays, revenue, reservationCount, avgDaysPerReservation, utilizationIndex, avgDailyRate, branchName, opDays }
   }).sort((a, b) => b.revenue - a.revenue)
 
   // Brand aggregation
@@ -84,7 +104,8 @@ export default function VykonMotorek() {
 
       {/* Ranking table */}
       <div style={{ background: '#fff', borderRadius: 14, padding: 16, marginBottom: 24, overflowX: 'auto', boxShadow: '0 1px 4px rgba(0,0,0,.06)' }}>
-        <div className="font-bold mb-3" style={{ color: '#1a2e22' }}>Ranking motorek podle revenue</div>
+        <div className="font-bold" style={{ color: '#1a2e22' }}>Ranking motorek podle revenue</div>
+        <div className="mb-3" style={{ fontSize: 11, color: '#888' }}>Revenue = zaplacené rezervace vč. hodnoty zakoupených dárkových poukazů uplatněných na motorce.</div>
         <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
@@ -120,7 +141,7 @@ export default function VykonMotorek() {
       </div>
 
       {/* KPI: návratnost kapitálu (tržby vs. pořizovací cena) */}
-      <NavratnostKapitalu motoStats={motoStats} periodDays={periodDays} />
+      <NavratnostKapitalu motoStats={motoStats} />
 
       {/* Brand table - only show conclusions if enough data */}
       {has3mo ? (
