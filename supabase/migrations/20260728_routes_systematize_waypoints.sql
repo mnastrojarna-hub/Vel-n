@@ -1,30 +1,42 @@
 -- ════════════════════════════════════════════════════════════════════════
---  SYSTEMATIZACE POŘADÍ WAYPOINTŮ VŠECH TRAS (2026-07-28)
+--  SYSTEMATIZACE TRAS: OKRUHY BEZ VRACENÍ + POŘADÍ WAYPOINTŮ (2026-07-28)
 --  ─────────────────────────────────────────────────────────────────────────
 --  Problém (hlášeno uživatelem, foto z appky): trasy navádějí nesystematicky —
 --  čára trasy se vrací tam a zpátky, kličkuje v kruzích a body zájmu na mapě
 --  nejdou očíslované za sebou. Dřívější oprava 20260707 přečíslovala jen
 --  sort_order bodů PODLE stávající čáry — ale když samotné pořadí waypointů
---  (z něhož se počítá čára přes Mapy routing) kličkuje, problém zůstal.
---  Analýza repliky DB: 683 z 1374 tras má neoptimální pořadí waypointů,
---  401 tras kličkuje výrazně (>3 % a >3 km navíc; nejhorší o 123 km).
+--  (z něhož Mapy.cz routing počítá čáru v appce, Velíně i exportu do navigací)
+--  kličkuje, problém zůstal. Analýza repliky DB: 683 z 1374 tras má
+--  neoptimální pořadí waypointů, 401 kličkuje výrazně (nejhorší o 123 km).
 --
---  Řešení: pro každou trasu se přeuspořádají waypointy tak, aby na sebe body
---  navazovaly nejkratší cestou (žádné vracení):
+--  CÍL (zadání uživatele): OKRUHY, kde se jezdec nikdy nevrací stejnou
+--  cestou — každý bod je průjezdný na cestě k dalšímu a trasa se vrací
+--  do startu jinudy. Protože appka, Velín i exporty (Mapy.com / Google /
+--  Apple) posílají waypointy v pořadí pole, stačí data: uzavřít trasu
+--  a uspořádat body jako nejkratší CYKLUS.
+--
+--  Řešení pro každou trasu:
 --   • start (1. bod) zůstává VŽDY pevný;
---   • konec zůstává pevný u okruhů (první≈poslední < 1 km) a u tras,
---     jejichž poslední bod má label „Cíl…"; jinak je konec volný;
---   • pořadí prostředních bodů řeší EXAKTNĚ Held-Karp DP (≤13 volných bodů,
---     pokrývá ~99 % tras), pro větší trasy nearest-neighbor + 2-opt + relokace;
---   • nové pořadí se použije jen při zkrácení čáry o > 0.2 km (idempotence);
---   • u změněných tras: mapy_url přegenerován, geometry = null (cache čáry
---     se dopočte živě), distance_km/duration_min přepočteny odhadem
---     (délka čáry × 1.35, ~42 km/h) při odchylce > 15 % — stejné konvence
---     jako 20260704_routes_fix_waypoints_pois.sql.
+--   • okruhy (první≈poslední < 1 km): prostřední body se uspořádají jako
+--     nejkratší uzavřený cyklus start → … → start;
+--   • trasy s explicitním koncem (poslední bod s labelem „Cíl…" jinde než
+--     start — záměrné přejezdy typu Stelvio, Jadranská magistrála):
+--     zůstávají A→B, jen se prostřední body seřadí nejkratší cestou;
+--   • VŠECHNY OSTATNÍ (dosud „volný konec" — trasa končila v poli):
+--     UZAVŘOU SE DO OKRUHU — na konec se přidá bod = kopie startu
+--     (label „Cíl: …"), body se uspořádají jako nejkratší cyklus
+--     a route_type se nastaví na 'loop';
+--   • pořadí řeší EXAKTNĚ Held-Karp DP (≤13 volných bodů, ~99 % tras),
+--     pro větší trasy nearest-neighbor + 2-opt + relokace;
+--   • u přeuspořádaných tras: mapy_url přegenerován, geometry = null
+--     (cache čáry se dopočte živě), distance_km/duration_min přepočteny
+--     odhadem (délka čáry × 1.35, ~42 km/h) při odchylce > 15 % — stejné
+--     konvence jako 20260704_routes_fix_waypoints_pois.sql.
 --  Nakonec se sort_order VŠECH route_pois přečísluje projekcí na (novou)
 --  čáru trasy — stejná mechanika jako 20260707_route_pois_reorder_along_route.
 --  Komunitní trasy (created_by is not null) se NEMĚNÍ — pořadí jejich bodů
---  je autorovo. Idempotentní: opakované spuštění nic nezmění.
+--  je autorovo. Idempotentní: po prvním běhu jsou trasy uzavřené a optimální,
+--  opakované spuštění nic nezmění.
 -- ════════════════════════════════════════════════════════════════════════
 
 begin;
@@ -41,11 +53,12 @@ begin
 end $fn$;
 
 -- ── Pomocná funkce: optimální pořadí waypointů trasy ─────────────────────
--- Vrací o = nové pořadí (1-based indexy do původního pole) a lnew = novou
--- délku čáry v km; o je NULL, pokud není co měnit (zlepšení ≤ 0.2 km,
--- málo bodů, chybějící souřadnice).
+-- Vrací o = nové pořadí (1-based indexy do původního pole; u mkloop je
+-- poslední prvek 1 = virtuální návrat do startu), lnew = novou délku čáry
+-- v km a mkloop = zda se trasa uzavírá do okruhu. o je NULL, pokud není
+-- co měnit (už optimální, málo bodů, chybějící souřadnice).
 create or replace function public._wp_optimal_order(wps jsonb)
-returns table(o int[], lnew double precision)
+returns table(o int[], lnew double precision, mkloop boolean)
 language plpgsql immutable as $fn$
 declare
   n int; m int; i int; j int; k int;
@@ -54,6 +67,7 @@ declare
   clat double precision := 0; kx double precision;
   d double precision[];
   closed boolean; fixed_end boolean; ll text;
+  endidx int;
   mids int[]; ord int[]; cur int[];
   fullm int; mask int; nm int; idx int;
   dp double precision[]; par int[];
@@ -63,10 +77,10 @@ declare
   freep int[]; seq int[]; tmp int[]; chunk int;
   improved boolean; qmax int;
 begin
-  o := null; lnew := null;
+  o := null; lnew := null; mkloop := false;
   if wps is null or jsonb_typeof(wps) <> 'array' then return next; return; end if;
   n := jsonb_array_length(wps);
-  if n < 4 then return next; return; end if;
+  if n < 3 then return next; return; end if;
 
   la := array[]::double precision[]; lo := array[]::double precision[];
   for i in 1..n loop
@@ -97,18 +111,31 @@ begin
   closed := d[(1-1)*n + n] < 1.0;
   ll := lower(coalesce(wps->(n-1)->>'label',''));
   fixed_end := closed or ll like 'cíl%' or ll like 'cil%';
+  mkloop := not fixed_end;              -- volný konec → uzavřít do okruhu
+  endidx := case when fixed_end then n else 1 end;
 
-  -- prostřední (volné) body
+  -- volné (přeuspořádatelné) body
   mids := array[]::int[];
   for i in 2..(case when fixed_end then n-1 else n end) loop
     mids := mids || i;
   end loop;
   m := coalesce(array_length(mids,1),0);
-  if m < 2 then return next; return; end if;
+  if m < 2 then
+    if mkloop then
+      -- i bez přeuspořádání se trasa musí uzavřít do startu
+      ord := array[]::int[];
+      for i in 1..n loop ord := ord || i; end loop;
+      ord := ord || 1;
+      o := ord; lnew := public._wp_plen(ord, d, n);
+    end if;
+    return next; return;
+  end if;
 
-  -- aktuální pořadí + délka
+  -- aktuální pořadí + délka (u mkloop včetně virtuálního návratu do startu,
+  -- aby se porovnával cyklus s cyklem)
   cur := array[]::int[];
   for i in 1..n loop cur := cur || i; end loop;
+  if mkloop then cur := cur || 1; end if;
   lold := public._wp_plen(cur, d, n);
 
   if m <= 13 then
@@ -136,11 +163,10 @@ begin
         end loop;
       end loop;
     end loop;
-    -- nejlepší koncový volný bod
+    -- nejlepší poslední volný bod (leg do endidx = cíl, u okruhu start)
     best := 'infinity'::double precision; besti := 0;
     for i in 1..m loop
-      cand := dp[(fullm-1)*m + i]
-              + case when fixed_end then d[(mids[i]-1)*n + n] else 0 end;
+      cand := dp[(fullm-1)*m + i] + d[(mids[i]-1)*n + endidx];
       if cand < best then best := cand; besti := i; end if;
     end loop;
     -- rekonstrukce posloupnosti (pozpátku)
@@ -152,7 +178,7 @@ begin
       i := j;
     end loop;
     ord := 1 || seq;
-    if fixed_end then ord := ord || n; end if;
+    ord := ord || endidx;
   else
     -- ── HEURISTIKA pro velké trasy: nearest neighbor + 2-opt + relokace ──
     freep := mids; ord := array[1]; k := 1;
@@ -167,13 +193,14 @@ begin
       ord := ord || k;
       freep := freep[1:besti-1] || freep[besti+1:array_length(freep,1)];
     end loop;
-    if fixed_end then ord := ord || n; end if;
+    ord := ord || endidx;
 
+    -- oba konce jsou teď pevné (cíl, nebo virtuální návrat do startu)
     lbest := public._wp_plen(ord, d, n);
     improved := true;
     while improved loop
       improved := false;
-      qmax := array_length(ord,1) - case when fixed_end then 1 else 0 end;
+      qmax := array_length(ord,1) - 1;
       -- 2-opt: reverze úseku i..j
       for i in 2..qmax-1 loop
         for j in i+1..qmax loop
@@ -188,8 +215,7 @@ begin
       for i in 2..qmax loop
         chunk := ord[i];
         tmp := ord[1:i-1] || ord[i+1:array_length(ord,1)];
-        for k in 2..(array_length(tmp,1) + case when fixed_end then 0 else 1 end) loop
-          exit when fixed_end and k > array_length(tmp,1);
+        for k in 2..array_length(tmp,1) loop
           seq := tmp[1:k-1] || chunk || tmp[k:array_length(tmp,1)];
           l := public._wp_plen(seq, d, n);
           if l < lbest - 1e-9 then ord := seq; lbest := l; improved := true; exit; end if;
@@ -200,34 +226,54 @@ begin
   end if;
 
   lnew := public._wp_plen(ord, d, n);
-  -- změna jen při reálném zkrácení (zaručuje idempotenci a nulový churn)
-  if lnew >= lold - 0.2 then o := null; lnew := null; end if;
-  o := case when lnew is null then null else ord end;
+  -- Uzavření do okruhu se aplikuje vždy (trasa se mění přidáním návratu);
+  -- u už uzavřených / A→B tras jen při reálném zkrácení (idempotence).
+  if not mkloop and lnew >= lold - 0.2 then
+    o := null; lnew := null;
+  else
+    o := ord;
+  end if;
   return next;
 end $fn$;
 
--- ── Aplikace: přeuspořádání waypointů, mapy_url, km/min, reset geometry ──
+-- ── Aplikace: okruhy, přeuspořádání, mapy_url, km/min, reset geometry ──
 do $$
 declare
   r record; res record;
-  newwps jsonb; i int;
+  newwps jsonb; elem jsonb; i int; olen int;
   org text; dst text; mids text;
+  lbl text; newlbl text;
   est double precision;
-  n_changed int := 0;
+  n_changed int := 0; n_loops int := 0;
 begin
   for r in
-    select id, name, waypoints, distance_km, duration_min
+    select id, name, waypoints, route_type, distance_km, duration_min
     from public.routes
     where created_by is null
       and jsonb_typeof(waypoints) = 'array'
-      and jsonb_array_length(waypoints) >= 4
+      and jsonb_array_length(waypoints) >= 3
   loop
     select * into res from public._wp_optimal_order(r.waypoints);
     if res.o is null then continue; end if;
 
+    olen := array_length(res.o,1);
     newwps := '[]'::jsonb;
-    for i in 1..array_length(res.o,1) loop
-      newwps := newwps || jsonb_build_array(r.waypoints->(res.o[i]-1));
+    for i in 1..olen loop
+      if res.mkloop and i = olen then
+        -- závěrečný bod okruhu = kopie startu s labelem „Cíl…"
+        lbl := r.waypoints->0->>'label';
+        if lbl is null or lbl = '' then
+          newlbl := 'Cíl';
+        elsif lbl ilike 'start%' then
+          newlbl := 'Cíl' || substring(lbl from 6);
+        else
+          newlbl := 'Cíl: ' || lbl;
+        end if;
+        elem := jsonb_set(r.waypoints->0, '{label}', to_jsonb(newlbl));
+      else
+        elem := r.waypoints->(res.o[i]-1);
+      end if;
+      newwps := newwps || jsonb_build_array(elem);
     end loop;
 
     org := (newwps->0->>'lat') || ',' || (newwps->0->>'lng');
@@ -242,6 +288,7 @@ begin
 
     update public.routes set
       waypoints = newwps,
+      route_type = case when res.mkloop then 'loop' else route_type end,
       geometry  = null,
       mapy_url  = 'https://www.google.com/maps/dir/?api=1&origin=' || org
                   || '&destination=' || dst || '&travelmode=driving'
@@ -260,8 +307,10 @@ begin
     where id = r.id;
 
     n_changed := n_changed + 1;
+    if res.mkloop then n_loops := n_loops + 1; end if;
   end loop;
-  raise notice 'Systematizace waypointů: přeuspořádáno % tras.', n_changed;
+  raise notice 'Systematizace tras: změněno % tras, z toho % uzavřeno do okruhu.',
+    n_changed, n_loops;
 end $$;
 
 drop function if exists public._wp_optimal_order(jsonb);
