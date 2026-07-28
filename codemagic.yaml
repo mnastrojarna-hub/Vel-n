@@ -53,6 +53,23 @@ workflows:
       - name: Accept Android licenses
         script: |
           yes | flutter doctor --android-licenses || true
+      - name: Gradle init script (repa pro Kotlin plugin Flutter SDK buildu)
+        script: |
+          # Vnitřní build Flutter SDK (flutter_tools/gradle) resolvuje svůj
+          # Kotlin plugin JEN z Gradle Plugin Portalu — repozitáře ze
+          # settings.gradle appky se na included build nevztahují. Když portál
+          # artefakt nevydá, padá "Plugin org.jetbrains.kotlin.jvm ... was not
+          # found". Init script přidá google() + mavenCentral() VŠEM buildům.
+          mkdir -p ~/.gradle
+          cat > ~/.gradle/init.gradle <<'EOF'
+          settingsEvaluated { settings ->
+              settings.pluginManagement.repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+          EOF
       - name: Get Flutter packages
         script: |
           cd $CM_BUILD_DIR/Motogo-app-main/motogo-app-flutter
@@ -214,6 +231,20 @@ workflows:
       - name: Accept Android licenses
         script: |
           yes | flutter doctor --android-licenses || true
+      - name: Gradle init script (repa pro Kotlin plugin Flutter SDK buildu)
+        script: |
+          # Viz motogo-android-debug — bez tohoto padá resolvování
+          # org.jetbrains.kotlin.jvm pro flutter_tools/gradle included build.
+          mkdir -p ~/.gradle
+          cat > ~/.gradle/init.gradle <<'EOF'
+          settingsEvaluated { settings ->
+              settings.pluginManagement.repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+          EOF
       - name: Get Flutter packages
         script: |
           cd $CM_BUILD_DIR/Motogo-app-main/motogo-app-flutter
@@ -268,6 +299,20 @@ workflows:
       - name: Accept Android licenses
         script: |
           yes | flutter doctor --android-licenses || true
+      - name: Gradle init script (repa pro Kotlin plugin Flutter SDK buildu)
+        script: |
+          # Viz motogo-android-debug — bez tohoto padá resolvování
+          # org.jetbrains.kotlin.jvm pro flutter_tools/gradle included build.
+          mkdir -p ~/.gradle
+          cat > ~/.gradle/init.gradle <<'EOF'
+          settingsEvaluated { settings ->
+              settings.pluginManagement.repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+          EOF
       - name: Generate native Android project (kiosk balík nemá android/)
         script: |
           cd "$CM_BUILD_DIR/Motogo-app-main/motogo-locker-kiosk"
@@ -348,6 +393,20 @@ workflows:
       - name: Accept Android licenses
         script: |
           yes | flutter doctor --android-licenses || true
+      - name: Gradle init script (repa pro Kotlin plugin Flutter SDK buildu)
+        script: |
+          # Viz motogo-android-debug — bez tohoto padá resolvování
+          # org.jetbrains.kotlin.jvm pro flutter_tools/gradle included build.
+          mkdir -p ~/.gradle
+          cat > ~/.gradle/init.gradle <<'EOF'
+          settingsEvaluated { settings ->
+              settings.pluginManagement.repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+          EOF
       - name: Generate native Android project (kiosk balík nemá android/)
         script: |
           cd "$CM_BUILD_DIR/Motogo-app-main/motogo-locker-kiosk"
