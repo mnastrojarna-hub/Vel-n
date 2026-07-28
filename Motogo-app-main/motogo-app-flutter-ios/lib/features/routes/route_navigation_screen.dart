@@ -279,7 +279,14 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
     if (moving && (_heading != null || (onRoute && _fixSpeedMps > 1.5))) {
       return _smoothHeading;
     }
-    if (onRoute) return cache.bearingAt(_fixAlongM!);
+    if (onRoute) {
+      final routeBrg = cache.bearingAt(_fixAlongM!);
+      final brg = _travelBearing();
+      // Jedu-li jiným směrem, než vede trasa, má reálný směr přednost —
+      // šipka se nesmí přetočit ke staré lince (do přepočtu trasy).
+      if (brg != null && angleDiff(brg, routeBrg) > 100) return brg;
+      return routeBrg;
+    }
     return _travelBearing();
   }
 
@@ -293,6 +300,12 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
     // jezdcem — marker se na ni nesmí přichytit skokem, doplyne po silnici.
     if (cache == null || along == null || _fixSnapDistM > 30) return _fix!;
     if (_fixSpeedMps < 1.5 || _fixAt == null) return cache.pointAt(along);
+    // Dopředná predikce jen při jízdě VE směru trasy — v protisměru by
+    // marker mezi fixy ujížděl špatným směrem a skákal zpět.
+    final brg = _travelBearing();
+    if (brg != null && angleDiff(brg, cache.bearingAt(along)) > 100) {
+      return cache.pointAt(along);
+    }
     final age = (DateTime.now().difference(_fixAt!).inMilliseconds / 1000.0)
         .clamp(0.0, 2.5);
     return cache.pointAt(along + _fixSpeedMps * age);
@@ -310,11 +323,18 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
     _me = _me == null ? target : lerpLatLng(_me!, target, expSmooth(dt, 4.5));
 
     // Směr: po trase (stabilní bearing segmentu), jinak GPS heading.
+    // Bearing trasy se použije JEN když souhlasí s reálným směrem jízdy —
+    // při jízdě protisměrem/jiným směrem by se mapa chaoticky přetáčela
+    // mezi směrem trasy a GPS headingem tam a zpět.
     final moving = _speedKmh > _moveThreshold;
     double? desired;
     if (moving) {
       if (_onRouteNow && _dispSegHint != null && _fixSpeedMps > 1.5) {
-        desired = _dispCache?.segBearing(_dispSegHint!);
+        final segBrg = _dispCache?.segBearing(_dispSegHint!);
+        if (segBrg != null &&
+            (_heading == null || angleDiff(segBrg, _heading!) <= 100)) {
+          desired = segBrg;
+        }
       }
       desired ??= _heading;
     }
