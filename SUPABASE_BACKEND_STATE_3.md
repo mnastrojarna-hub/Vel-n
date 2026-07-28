@@ -237,6 +237,14 @@ Evidence výbavy na pobočkách + napojení na sklad/objednávky. Velín → **�
 
 ---
 
+## `get_app_install_timeseries()` — NEW 2026-07-28 (`20260728b_app_install_timeseries.sql`, APLIKUJE AUTO-DEPLOY po merge)
+
+SECURITY DEFINER, STABLE, `set search_path = public`, gate `is_admin()` (jinak `raise exception 'admin only'`), REVOKE public/anon + GRANT authenticated/service_role. Vrací jeden JSON pro **graf instalací appky v čase** (Velín → Analýza → Aplikace, komponenta `analyza/InstallsChart.jsx`):
+- `installs` = `[{d 'YYYY-MM-DD', android, ios, other}]` — NOVÉ instalace per den dle `app_installations.first_seen_at` × `lower(platform)`. Přesné od 2026-06-28 (build s `InstallationService`); starší instalace se objeví v den prvního heartbeatu (hlubší per-platform historie z Play/App Store v DB není).
+- `registrations` = `[{d, n}]` — registrace účtů per den (`profiles.created_at`) — kompletní historie růstu uživatelské základny (historická křivka, bez platform rozpadu).
+- `tracking_since` = první den evidence instalací.
+Agregaci (den/týden/měsíc), časové úseky (14 d–Vše), kumulativní režim a Android/iOS/celkem křivky dělá frontend nad denními řádky (řádků jsou max stovky).
+
 ## `get_app_install_stats()` — NEW 2026-06-27, dedup 2026-06-27 B, **PŘEPIS na app_installations 2026-06-28**
 
 SECURITY DEFINER, `set search_path = public`, gate `is_admin()` (jinak `raise exception 'admin only'`). `grant execute … to authenticated`. Vrací jeden JSON s agregáty pro **Velín → Analýza → Aplikace**.
