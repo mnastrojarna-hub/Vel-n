@@ -11,6 +11,7 @@ import SearchInput from '../components/ui/SearchInput'
 import Pagination from '../components/ui/Pagination'
 import Modal from '../components/ui/Modal'
 import CustomersBulkActionsModal from './CustomersBulkActionsModal'
+import DocsStatusPills, { loadDocScans } from '../components/DocsStatusPills'
 
 const PER_PAGE = 25
 
@@ -41,6 +42,9 @@ export default function Customers() {
     registrationSource: '',
     sortBy: 'full_name', sortDir: 'asc'
   }
+  // Map<user_id, {license,id,passport}> — skeny dokladů pro sloupec „Doklady"
+  // (stejné UI jako v seznamu rezervací; čísla dokladů jdou přímo z profilu)
+  const [scanStatus, setScanStatus] = useState({})
   const [filters, setFilters] = useState(() => {
     try {
       const saved = localStorage.getItem('velin_customers_filters')
@@ -80,6 +84,8 @@ export default function Customers() {
       setTotal(result?.count || 0)
       // Load aggregated stats for active filters
       loadStats(data)
+      // Sloupec „Doklady": dávkově skeny dokladů zobrazené stránky (jeden dotaz s `in`)
+      loadDocScans(supabase, data.map(c => c.id)).then(setScanStatus)
     } catch (e) {
       setError(e.message)
     } finally {
@@ -232,7 +238,7 @@ export default function Customers() {
                     }} />
                 </TH>
                 <TH>Jméno</TH><TH>Email</TH><TH>Telefon</TH>
-                <TH>Skupiny</TH><TH>Město</TH><TH>Země</TH><TH>Zdroj</TH><TH>Registrace</TH><TH>Rezervací</TH>
+                <TH>Skupiny</TH><TH>Doklady</TH><TH>Město</TH><TH>Země</TH><TH>Zdroj</TH><TH>Registrace</TH><TH>Rezervací</TH>
                 <TH>Ø částka</TH><TH>Ø délka</TH><TH>Top motorka</TH><TH>Top pobočka</TH>
               </TRow>
             </thead>
@@ -260,6 +266,7 @@ export default function Customers() {
                       : '—'
                     }
                   </TD>
+                  <TD><DocsStatusPills profile={c} scan={scanStatus[c.id]} /></TD>
                   <TD>{c.city || '—'}</TD>
                   <TD>{c.country || '—'}</TD>
                   <TD>{c.registration_source === 'app'
