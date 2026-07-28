@@ -7,6 +7,9 @@ import { execReadHR } from './tools-read-hr.ts'
 import { execReadAccounting } from './tools-read-accounting.ts'
 import { execReadExtra } from './tools-read-extra.ts'
 import { execAnalytics } from './tools-analytics.ts'
+import { execReadAnalyticsPlus } from './tools-read-analytics-plus.ts'
+import { execReadOpsPlus } from './tools-read-ops-plus.ts'
+import { execGuide } from './tools-guide.ts'
 import { execWriteCore } from './tools-write-core.ts'
 import { execWriteOps } from './tools-write-ops.ts'
 import { execOrchestrator } from './tools-orchestrator.ts'
@@ -37,6 +40,7 @@ export async function executeTool(
   toolInput: Record<string, unknown>,
   supabaseAdmin: SB,
   dryRun = false,
+  supabaseUser?: SB,
 ): Promise<unknown> {
   const startTime = Date.now()
   try {
@@ -49,6 +53,9 @@ export async function executeTool(
       () => execReadAccounting(toolName, toolInput, supabaseAdmin),
       () => execReadExtra(toolName, toolInput, supabaseAdmin),
       () => execAnalytics(toolName, toolInput, supabaseAdmin),
+      () => execReadAnalyticsPlus(toolName, toolInput, supabaseAdmin, supabaseUser),
+      () => execReadOpsPlus(toolName, toolInput, supabaseAdmin),
+      () => Promise.resolve(execGuide(toolName, toolInput)),
       () => execWriteCore(toolName, toolInput, supabaseAdmin, dryRun),
       () => execWriteOps(toolName, toolInput, supabaseAdmin, dryRun),
       () => execOrchestrator(toolName, toolInput, supabaseAdmin),

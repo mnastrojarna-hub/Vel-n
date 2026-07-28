@@ -1,4 +1,4 @@
-// Combined tool definitions: 31 read + 26 write tools
+// Combined tool definitions: 77 read (vč. univerzálního query_table + get_system_guide) + write tools
 import { WRITE_TOOLS_DEFINITION } from './tools-def-write.ts'
 
 const T = 'object' as const
@@ -69,12 +69,33 @@ const READ_TOOLS = [
   { name: 'get_performance_stats', description: 'Výkonnostní statistiky motorek a poboček', input_schema: { type: T, properties: {}, required: [] } },
   { name: 'get_suppliers', description: 'Seznam dodavatelů', input_schema: { type: T, properties: {}, required: [] } },
   { name: 'get_delivery_notes', description: 'Dodací listy s párováním na faktury', input_schema: { type: T, properties: { unmatched_only: { type: 'boolean' }, limit: { type: 'number' } }, required: [] } },
+  // Analýza+ (návštěvnost, funnely, AI, aplikace, km, servisní plán, loyalty, trasy)
+  { name: 'get_web_traffic', description: 'Návštěvnost webu motogo24.cz (visitor_log) — zdroje, země, zařízení, timeline, hodiny/dny', input_schema: { type: T, properties: { days: { type: 'number', description: 'Období zpět (default 30)' }, host: { type: 'string', description: 'Filtr domény (motogo24.cz/.com/...)' }, granularity: { type: 'string', description: 'day/week/month/year' } }, required: [] } },
+  { name: 'get_web_funnel', description: 'Web rezervační funnel — konverze krok 1→platba→doklady, zařízení, časy vyplnění, odpady', input_schema: { type: T, properties: { days: { type: 'number', description: 'Období zpět (default 30)' } }, required: [] } },
+  { name: 'get_ai_agents_analytics', description: 'AI konverzace a provoz — web widget, appka agent, AI traffic (crawleři/API), citace, rezervace přes AI', input_schema: { type: T, properties: { days: { type: 'number' }, limit: { type: 'number' } }, required: [] } },
+  { name: 'get_app_stats', description: 'Mobilní aplikace — instalace, DAU/WAU/MAU, platformy, push, pády appky', input_schema: { type: T, properties: {}, required: [] } },
+  { name: 'get_km_analytics', description: 'Nájezd km z předávacích protokolů — per motorka i top zákazníci', input_schema: { type: T, properties: {}, required: [] } },
+  { name: 'get_service_plan', description: 'Servisní plán per motorka × typ (olej/pneu/komplet) — due_soon, overdue, odhad termínu', input_schema: { type: T, properties: { default_daily_km: { type: 'number' } }, required: [] } },
+  { name: 'get_loyalty_overview', description: 'Věrnostní program — úrovně 1-20, měsíční výherci, čerpání app slev', input_schema: { type: T, properties: {}, required: [] } },
+  { name: 'get_routes_overview', description: 'Trasy a komunitní obsah — počty, návrhy ke schválení, recenze, body zájmu', input_schema: { type: T, properties: {}, required: [] } },
+  // Provoz+ (detail rezervace, logistika, finanční události, komunikace, kiosk)
+  { name: 'get_booking_detail', description: 'KOMPLETNÍ detail jedné rezervace — zákazník, motorka, slevy, výbava, faktury, storno, reklamace, door codes, protokol, doplatek', input_schema: { type: T, properties: { booking_id: { type: 'string', description: 'UUID rezervace' } }, required: ['booking_id'] } },
+  { name: 'get_gear_logistics', description: 'Logistika výbavy — deficity (gear_shortages) + naskladnění (stock_receipts, chybějící DL)', input_schema: { type: T, properties: { limit: { type: 'number' } }, required: [] } },
+  { name: 'get_financial_events', description: 'Finanční události (účetní pipeline) — stavy, výjimky, schvalovací fronta, Flexi sync chyby', input_schema: { type: T, properties: { status: { type: 'string' }, event_type: { type: 'string' }, limit: { type: 'number' } }, required: [] } },
+  { name: 'get_message_log', description: 'Log odeslané komunikace (SMS/WhatsApp/email) + hromadné kampaně', input_schema: { type: T, properties: { channel: { type: 'string' }, status: { type: 'string' }, limit: { type: 'number' } }, required: [] } },
+  { name: 'get_kiosk_status', description: 'Samoobslužné pobočky — kiosk zařízení online, FV elektrárna, otevření dveří', input_schema: { type: T, properties: { limit: { type: 'number' } }, required: [] } },
+  // Univerzální — VŽDY dostupné
+  { name: 'query_table', description: 'UNIVERZÁLNÍ čtení KTERÉKOLIV tabulky v DB (100+ tabulek) s filtry — použij, když neexistuje specializovaný nástroj. NIKDY neříkej, že k datům nemáš přístup.', input_schema: { type: T, properties: { table: { type: 'string', description: 'Název tabulky (public schema)' }, columns: { type: 'string', description: 'Sloupce oddělené čárkou (default *)' }, filters: { type: 'array', description: 'Filtry [{column, op: eq/neq/gt/gte/lt/lte/like/in/is_null/not_null, value}]', items: { type: 'object' } }, order_by: { type: 'string' }, ascending: { type: 'boolean' }, limit: { type: 'number', description: 'Max 100 (default 20)' }, count_only: { type: 'boolean', description: 'Vrátit jen počet řádků' } }, required: ['table'] } },
+  { name: 'get_system_guide', description: 'ENCYKLOPEDIE + NÁVOD K OBSLUZE celého MotoGo24 — sekce Velína, web flow, mobilní appka, procesy (platby, storna, výměny, SOS, sklad), integrace, pojmy. Použij na KAŽDOU otázku „jak funguje / jak udělám / kde najdu".', input_schema: { type: T, properties: { topic: { type: 'string', description: 'Konkrétní téma (bez topic vrátí obsah)' }, query: { type: 'string', description: 'Fulltext hledání v témách' } }, required: [] } },
 ]
 
 export const TOOLS_DEFINITION = [...READ_TOOLS, ...WRITE_TOOLS_DEFINITION]
 
+// Nástroje dostupné VŽDY, bez ohledu na zapnuté agenty (fallback + nápověda)
+const ALWAYS_ON_TOOLS = ['query_table', 'get_system_guide']
+
 // Filter tools by enabled list
 export function filterToolsByEnabled(enabledTools?: string[]) {
   if (!enabledTools || enabledTools.length === 0) return TOOLS_DEFINITION
-  return TOOLS_DEFINITION.filter(t => enabledTools.includes(t.name))
+  return TOOLS_DEFINITION.filter(t => enabledTools.includes(t.name) || ALWAYS_ON_TOOLS.includes(t.name))
 }

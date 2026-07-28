@@ -29,14 +29,22 @@ export const FLEET_CALC = {
   } as Record<string, Record<string, number>>,
 }
 
+// Sjednocená definice „realizované" rezervace (= obrat) dle velin/src/lib/revenueUtils.js:
+// zaplaceno (vč. částečných refundů), není storno, není testovací.
+export const PAID_BOOKING_STATUSES = ['paid', 'partial_refund', 'refund_pending', 'refunded']
+// deno-lint-ignore no-explicit-any
+export function isRealizedBooking(b: Record<string, any>): boolean {
+  return !!b && b.status !== 'cancelled' && b.is_test !== true && PAID_BOOKING_STATUSES.includes(b.payment_status)
+}
+
 export async function fetchAnalyticsRawData(sb: SB, months: number) {
   const since = new Date()
   since.setMonth(since.getMonth() - months)
   const [bRes, mRes, lRes, pRes] = await Promise.all([
-    sb.from('bookings').select('id, user_id, moto_id, start_date, end_date, total_price, status, created_at, booking_source, rating, payment_status').gte('created_at', since.toISOString()),
+    sb.from('bookings').select('id, user_id, moto_id, start_date, end_date, total_price, status, created_at, booking_source, rating, payment_status, is_test').gte('created_at', since.toISOString()).eq('is_test', false),
     sb.from('motorcycles').select('id, model, brand, category, branch_id, status, purchase_price, mileage'),
     sb.from('branches').select('id, name, city, type'),
-    sb.from('profiles').select('id, full_name, email, city, license_group, riding_experience, created_at'),
+    sb.from('profiles').select('id, full_name, email, city, license_group, riding_experience, created_at, is_test_account').eq('is_test_account', false),
   ])
   return { bookings: bRes.data || [], motorcycles: mRes.data || [], branches: lRes.data || [], profiles: pRes.data || [] }
 }
