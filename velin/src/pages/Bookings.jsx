@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { debugAction } from '../lib/debugLog'
 import { useDebugMode } from '../hooks/useDebugMode'
+import { loadDocScans } from '../components/DocsStatusPills'
 import Button from '../components/ui/Button'
 import SearchInput from '../components/ui/SearchInput'
 import Pagination from '../components/ui/Pagination'
@@ -192,24 +193,7 @@ export default function Bookings() {
       // Sken dokladů (sloupec „Doklady"): dávkově zjisti, které typy skenů (ŘP / OP /
       // pas) má každý zákazník ze zobrazené stránky. Jeden dotaz s `in`. Sken se počítá
       // BEZ ohledu na Mindee status (i ručně nahraná / neověřená fotka je sken).
-      const userIds = [...new Set(data.map(b => b.user_id).filter(Boolean))]
-      if (userIds.length > 0) {
-        const { data: docs } = await supabase.from('documents')
-          .select('user_id, type')
-          .in('user_id', userIds)
-          .in('type', ['drivers_license', 'license_photo', 'id_card', 'id_photo', 'passport'])
-        const smap = {}
-        ;(docs || []).forEach(d => {
-          const cur = smap[d.user_id] || { license: false, id: false, passport: false }
-          if (d.type === 'drivers_license' || d.type === 'license_photo') cur.license = true
-          else if (d.type === 'id_card' || d.type === 'id_photo') cur.id = true
-          else if (d.type === 'passport') cur.passport = true
-          smap[d.user_id] = cur
-        })
-        setScanStatus(smap)
-      } else {
-        setScanStatus({})
-      }
+      setScanStatus(await loadDocScans(supabase, data.map(b => b.user_id)))
     } catch (e) {
       setError(e.message)
     } finally {
