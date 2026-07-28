@@ -126,6 +126,12 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
   int? _navSegHint;
   double? _riderAlongM; // postup jezdce po navigační trase (metry)
 
+  // Cache projekce PŘÍŠTÍHO navigovaného bodu na zobrazenou polyline —
+  // ořez zelené linky (počítá se jen při změně bodu / geometrie, ne každý frame).
+  _NavStop? _clipStop;
+  RouteGeoCache? _clipCache;
+  double? _clipAlongM;
+
   // Projetá cesta (vzorky à ~30 m) — koridor pro „nejezdi zpátky po stejné
   // silnici": při přepočtu se nový nájezd porovnává s tím, kudy jezdec přijel.
   final List<LatLng> _traveled = [];
@@ -688,6 +694,19 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
     return null;
   }
 
+  /// Pozice příštího navigovaného bodu PO zobrazené trase (metry od startu)
+  /// pro ořez zelené linky. Cachované — projekce běží jen při změně bodu
+  /// nebo geometrie. Bod daleko od polyline (> 150 m) → null (bez ořezu).
+  double? _nextStopAlong(RouteGeoCache c, _NavStop next) {
+    if (!identical(_clipStop, next) || !identical(_clipCache, c)) {
+      _clipStop = next;
+      _clipCache = c;
+      final p = c.project(next.point);
+      _clipAlongM = p.distM <= 150 ? p.alongM : null;
+    }
+    return _clipAlongM;
+  }
+
   String _stopLabel(_NavStop s, String lang) {
     final poi = s.poi;
     if (poi != null) return poi.nameFor(lang);
@@ -1103,9 +1122,29 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
         : null;
     List<LatLng> doneGeo = const [];
     List<LatLng> aheadGeo = geometry;
+    // Při navigaci se zelená linka kreslí JEN k příštímu navigovanému bodu —
+    // celá trasa je přes křižující se úseky (mezi body 1–2 a zároveň 3–4)
+    // zmatečná. Celá trasa zůstává jen v náhledu před prvním GPS fixem a
+    // v detailu trasy; po potvrzení bodu / „navigovat na" jiný bod se
+    // linka natáhne k dalšímu cíli.
+    final navTarget = _nextStop;
     if (prog != null) {
       doneGeo = [...geometry.sublist(0, prog.segIndex + 1), prog.snapped];
       aheadGeo = [prog.snapped, ...geometry.sublist(prog.segIndex + 1)];
+      if (navTarget != null) {
+        final c = _dispCache!;
+        final na = _nextStopAlong(c, navTarget);
+        if (na != null && na > prog.alongM) {
+          final endSeg = c.segAt(na);
+          if (endSeg >= prog.segIndex) {
+            aheadGeo = [
+              prog.snapped,
+              ...c.pts.sublist(prog.segIndex + 1, endSeg + 1),
+              c.pointAt(na),
+            ];
+          }
+        }
+      }
     }
     final fraction = (prog != null && prog.totalM > 0)
         ? ((prog.totalM - prog.remainingM) / prog.totalM).clamp(0.0, 1.0)
@@ -1123,7 +1162,7 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
     final arrowBrg = _arrowBearing();
 
     // Příští zastávka trasy — pilulka nad HUD.
-    final next = _nextStop;
+    final next = navTarget;
     // Další bod PO právě potvrzované zastávce (pro tlačítko na kartě) —
     // potvrzovaná zastávka ještě není odškrtnutá, takže se přeskakuje.
     _NavStop? afterCard;
