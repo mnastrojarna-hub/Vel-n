@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../../core/theme.dart';
 import '../../core/router.dart' show MotoGoBackNav;
@@ -29,10 +30,10 @@ import 'my_experiences_provider.dart';
 ///
 /// REAL-TIME chování:
 /// - vybočení z trasy → trasa se do pár vteřin PŘEPOČÍTÁ od aktuální polohy,
-/// - dojezd na zastávku/bod zájmu → bod se odškrtne, místo se označí jako
-///   OBJEVENÉ (Moje zážitky) a karta nabídne navigaci na DALŠÍ bod trasy
-///   (nebo výběr jiného bodu),
-/// - projeté průjezdní body se odečítají automaticky (reroute je nevrací),
+/// - dojezd na zastávku/bod zájmu → vyskočí potvrzovací karta (hvězdičky +
+///   komentář + Pokračovat); bod se odškrtne AŽ ručním potvrzením — NIKDY
+///   sám. Potvrzením se místo označí jako OBJEVENÉ (Moje zážitky),
+/// - bezejmenné průjezdní body (jen tvar trasy) se odbavují potichu,
 /// - po dokončení trasy nabídne hodnocení / uložení vlastní vyjížďky.
 class RouteNavigationScreen extends ConsumerStatefulWidget {
   final String? routeId;
@@ -70,20 +71,19 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
   // Pod touto rychlostí (km/h) je GPS heading nespolehlivý → mapou neotáčíme.
   static const double _moveThreshold = 5;
   // Vybočení z trasy: dál než [_kOffRouteM] po [_kOffRouteFixes] po sobě
-  // jdoucích GPS fixech → přepočet trasy od aktuální polohy.
+  // jdoucích GPS fixech → okamžitý přepočet trasy od aktuální polohy.
   static const double _kOffRouteM = 70;
-  static const int _kOffRouteFixes = 3;
+  static const int _kOffRouteFixes = 2;
   // Jízda PROTI směru trasy (jsem na lince, ale jedu opačně) → přepočet
-  // po [_kWrongWayFixes] fixech — jinak by se linka nikdy nepřekreslila.
-  static const int _kWrongWayFixes = 5;
+  // hned po [_kWrongWayFixes] detekcích — linka se nesmí držet stará.
+  static const int _kWrongWayFixes = 2;
   // Mapy.com routing zvládá omezený počet průjezdních bodů — delší trasy se
   // počítají po okně; vzdálenější zastávky se přidají po dojezdu dřívějších.
   static const int _kMaxRoutingStops = 15;
   // Min. rozestup mezi automatickými přepočty (šetří API i baterii).
   static const Duration _kRerouteCooldown = Duration(seconds: 8);
-  // Dojezd na zastávku / objevení bodu zájmu (metry vzdušně).
+  // Dojezd na zastávku (metry vzdušně) → potvrzovací karta.
   static const double _kReachM = 150;
-  static const double _kPoiVisitM = 200;
   // Průjezdní bod je „projetý", když jsem po trase dál než bod + rezerva.
   static const double _kPassedSlackM = 400;
 
@@ -167,11 +167,11 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
 
   // Objevování míst + karty.
   final Set<String> _visitSent = {}; // POI, pro které už šel zápis návštěvy
+  final Set<_NavStop> _prompted = {}; // zastávky s už vyskočenou potvrzovací kartou
   VisitResult? _lastVisit; // výsledek posledního zápisu (badge na kartě)
-  _NavStop? _reachedCard; // právě dosažená zastávka (karta s dalším bodem)
+  _NavStop? _reachedCard; // dosažená zastávka čekající na RUČNÍ potvrzení
   bool _routeDone = false;
   bool _doneCardDismissed = false;
-  Timer? _cardTimer;
 
   // Persistence rozjeté jízdy (přežije zavření appky; ruší se jen křížkem).
   bool _rideSynced = false;
@@ -179,6 +179,8 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
   @override
   void initState() {
     super.initState();
+    // Během navigace se displej NIKDY nesmí vypnout (Android i iOS).
+    WakelockPlus.enable();
     _start();
   }
 
@@ -263,6 +265,30 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
   /// Jedu po trase? (fix je dost blízko polyline pro snap + predikci)
   bool get _onRouteNow => _fixSnapDistM <= 45;
 
+  /// Směr šipky jezdce (stupně od severu): při jízdě VYHLAZENÝ reálný směr
+  /// jízdy (po trase dotažený ke stabilnímu směru trasy), při stání nebo bez
+  /// GPS headingu PŘEDPOKLÁDANÝ směr dle trasy, jinak poslední známý směr
+  /// z projetých bodů. Šipka tak nikdy neukazuje do strany.
+  double? _arrowBearing() {
+    final cache = _dispCache;
+    final onRoute = _onRouteNow && cache != null && _fixAlongM != null;
+    final moving = _speedKmh > _moveThreshold;
+    // [_smoothHeading] živí animační smyčka jen když má z čeho (GPS heading,
+    // nebo segment trasy při reálné rychlosti) — jinak by byl zastaralý.
+    if (moving && (_heading != null || (onRoute && _fixSpeedMps > 1.5))) {
+      return _smoothHeading;
+    }
+    if (onRoute) {
+      final routeBrg = cache.bearingAt(_fixAlongM!);
+      final brg = _travelBearing();
+      // Jedu-li jiným směrem, než vede trasa, má reálný směr přednost —
+      // šipka se nesmí přetočit ke staré lince (do přepočtu trasy).
+      if (brg != null && angleDiff(brg, routeBrg) > 100) return brg;
+      return routeBrg;
+    }
+    return _travelBearing();
+  }
+
   /// Cílová poloha markeru: fix promítnutý na trasu; mezi GPS fixy se
   /// PŘEDPOKLÁDÁ pokračování jízdy po trase aktuální rychlostí — další fix
   /// predikci jen potvrdí, nebo přehodnotí (koriguje). Mimo trasu drží fix.
@@ -273,6 +299,12 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
     // jezdcem — marker se na ni nesmí přichytit skokem, doplyne po silnici.
     if (cache == null || along == null || _fixSnapDistM > 30) return _fix!;
     if (_fixSpeedMps < 1.5 || _fixAt == null) return cache.pointAt(along);
+    // Dopředná predikce jen při jízdě VE směru trasy — v protisměru by
+    // marker mezi fixy ujížděl špatným směrem a skákal zpět.
+    final brg = _travelBearing();
+    if (brg != null && angleDiff(brg, cache.bearingAt(along)) > 100) {
+      return cache.pointAt(along);
+    }
     final age = (DateTime.now().difference(_fixAt!).inMilliseconds / 1000.0)
         .clamp(0.0, 2.5);
     return cache.pointAt(along + _fixSpeedMps * age);
@@ -290,11 +322,18 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
     _me = _me == null ? target : lerpLatLng(_me!, target, expSmooth(dt, 4.5));
 
     // Směr: po trase (stabilní bearing segmentu), jinak GPS heading.
+    // Bearing trasy se použije JEN když souhlasí s reálným směrem jízdy —
+    // při jízdě protisměrem/jiným směrem by se mapa chaoticky přetáčela
+    // mezi směrem trasy a GPS headingem tam a zpět.
     final moving = _speedKmh > _moveThreshold;
     double? desired;
     if (moving) {
       if (_onRouteNow && _dispSegHint != null && _fixSpeedMps > 1.5) {
-        desired = _dispCache?.segBearing(_dispSegHint!);
+        final segBrg = _dispCache?.segBearing(_dispSegHint!);
+        if (segBrg != null &&
+            (_heading == null || angleDiff(segBrg, _heading!) <= 100)) {
+          desired = segBrg;
+        }
       }
       desired ??= _heading;
     }
@@ -372,22 +411,15 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
     return false;
   }
 
-  /// Dojezd na zastávky + objevení bodů zájmu (vzdušná vzdálenost).
+  /// Dojezd na zastávky trasy (vzdušná vzdálenost). Bod zájmu / pojmenovaná
+  /// zastávka se NIKDY neodškrtne sama — vyskočí potvrzovací karta
+  /// (hvězdičky + komentář + Pokračovat) a odškrtne se až ručně v
+  /// [_confirmReached]. Bezejmenné průjezdní body se odbavují potichu.
   void _checkStops(LatLng me, RouteItem route) {
     const dist = Distance();
-    // 1) Objevení bodů zájmu — nezávisle na zastávkách (Moje zážitky).
-    for (final poi in route.pois) {
-      final ll = poi.latLng;
-      if (ll == null || poi.id.isEmpty || _visitSent.contains(poi.id)) continue;
-      if (dist.as(LengthUnit.Meter, me, ll) <= _kPoiVisitM) {
-        _visitSent.add(poi.id);
-        _recordVisit(poi);
-      }
-    }
-    // 2) Dojezd na zastávky trasy. Vzdušný dojezd platí JEN pro PŘÍŠTÍ
-    // zastávku, případně pro bod, u kterého jezdec je i podle postupu PO
-    // TRASE — u okruhu (start = cíl) se jinak hned na startu chybně
-    // odškrtl i poslední bod trasy.
+    // Vzdušný dojezd platí JEN pro PŘÍŠTÍ zastávku, případně pro bod, u
+    // kterého jezdec je i podle postupu PO TRASE — u okruhu (start = cíl)
+    // se jinak hned na startu chybně odbavil i poslední bod trasy.
     var changed = false;
     final nextIdx = _stops.indexWhere((s) => !s.reached);
     for (var i = 0; i < _stops.length; i++) {
@@ -399,17 +431,17 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
           _riderAlongM != null &&
           (along - _riderAlongM!).abs() <= _kPassedSlackM;
       if (i != nextIdx && !byRoute) continue;
-      s.reached = true;
-      changed = true;
-      // Karta „dojel jsi" jen u pojmenované zastávky / bodu zájmu —
-      // bezejmenné průjezdní body se odškrtávají potichu.
-      if (s.poi != null || (s.label ?? '').isNotEmpty) _showReachedCard(s);
+      if (s.poi != null || (s.label ?? '').isNotEmpty) {
+        _promptStop(s);
+      } else {
+        s.reached = true;
+        changed = true;
+      }
     }
     if (changed) {
       if (_stops.isNotEmpty && _stops.every((x) => x.reached) && !_routeDone) {
         _routeDone = true;
         _reachedCard = null;
-        _cardTimer?.cancel();
       }
       _persistProgress();
       setState(() {});
@@ -423,17 +455,18 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
     setState(() => _lastVisit = res);
   }
 
-  void _showReachedCard(_NavStop s) {
-    _cardTimer?.cancel();
-    _lastVisit = null; // badge dorazí async z _recordVisit
-    _reachedCard = s;
-    _cardTimer = Timer(const Duration(seconds: 45), () {
-      if (mounted) setState(() => _reachedCard = null);
-    });
+  /// Vyskočí potvrzovací kartu zastávky (jen jednou na dojezd). Karta NEmizí
+  /// sama — čeká, až jezdec ohodnotí a klikne na Pokračovat (nebo ji zavře).
+  void _promptStop(_NavStop s) {
+    if (_prompted.contains(s)) return;
+    _prompted.add(s);
+    _lastVisit = null; // badge objevení dorazí async až po potvrzení
+    setState(() => _reachedCard = s);
   }
 
-  /// Průjezdní body, které jsem po trase minul (jsem po trase DÁL než bod),
-  /// odškrtni automaticky — přepočet trasy se k nim už nevrací.
+  /// Průjezdní body, které jsem po trase minul (jsem po trase DÁL než bod):
+  /// bezejmenné (jen tvar trasy) se odškrtnou potichu; bod zájmu /
+  /// pojmenovaná zastávka NIKDY sama — místo toho vyskočí potvrzovací karta.
   void _autoPassStops(RouteProgress prog) {
     final riderAlong = prog.alongM;
     var changed = false;
@@ -442,8 +475,12 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
       final along = _stopAlongM[s];
       if (along == null) continue; // zastávka mimo aktuální polyline
       if (along < riderAlong - _kPassedSlackM) {
-        s.reached = true;
-        changed = true;
+        if (s.poi != null || (s.label ?? '').isNotEmpty) {
+          _promptStop(s);
+        } else {
+          s.reached = true;
+          changed = true;
+        }
       }
     }
     if (changed) {
@@ -561,13 +598,30 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
   void _buildStops(RouteItem route) {
     if (_stopsBuilt) return;
     _stopsBuilt = true;
-    final pts = <LatLng>[];
+    var pts = <LatLng>[];
     if (route.waypoints.isNotEmpty) {
       pts.addAll(route.waypoints);
     } else {
       for (final p in route.pois) {
         final ll = p.latLng;
         if (ll != null) pts.add(ll);
+      }
+    }
+    // LOGICKÉ pořadí bodů — navigace vede bod po bodu, po sobě jdoucí body
+    // jsou blízko sebe (žádné 1 a 3 u sebe a 2 úplně jinde): s geometrií
+    // podle pozice PO TRASE, bez ní (vlastní trasa) řetěz nejbližších
+    // sousedů od polohy jezdce.
+    if (pts.length > 2) {
+      final geoCache =
+          route.geometry.length >= 2 ? RouteGeoCache.build(route.geometry) : null;
+      if (geoCache != null) {
+        final along = [for (final p in pts) (p, geoCache.project(p).alongM)];
+        along.sort((a, b) => a.$2.compareTo(b.$2));
+        pts = [for (final e in along) e.$1];
+      } else {
+        // Od PRVNÍHO bodu (ne od jezdce) — pořadí je deterministické, takže
+        // sedí s indexy odškrtnutých bodů uložené rozjeté jízdy.
+        pts = _nearestChain(pts.first, pts);
       }
     }
     for (final p in pts) {
@@ -604,6 +658,29 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
     }
   }
 
+  /// Hladový řetěz nejbližších sousedů od [from] — každý další bod je ten
+  /// nejbližší k předchozímu (logické pořadí bez geometrie trasy).
+  List<LatLng> _nearestChain(LatLng from, List<LatLng> pts) {
+    const dist = Distance();
+    final remaining = [...pts];
+    final out = <LatLng>[];
+    var cur = from;
+    while (remaining.isNotEmpty) {
+      var bi = 0;
+      var bd = double.infinity;
+      for (var i = 0; i < remaining.length; i++) {
+        final d = dist.as(LengthUnit.Meter, cur, remaining[i]);
+        if (d < bd) {
+          bd = d;
+          bi = i;
+        }
+      }
+      cur = remaining.removeAt(bi);
+      out.add(cur);
+    }
+    return out;
+  }
+
   _NavStop? get _nextStop {
     for (final s in _stops) {
       if (!s.reached) return s;
@@ -621,16 +698,28 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
 
   // ── Akce z karty dojezdu / sheetu zastávek ──
 
-  void _goToNextStop() {
-    _cardTimer?.cancel();
+  /// „Pokračovat" na potvrzovací kartě — TEPRVE TEĎ se bod ručně odškrtne,
+  /// zapíše se objevení bodu zájmu (Moje zážitky) a naviguje se na další bod.
+  void _confirmReached() {
+    final s = _reachedCard;
+    if (s != null && !s.reached) {
+      s.reached = true;
+      final poi = s.poi;
+      if (poi != null && poi.id.isNotEmpty && !_visitSent.contains(poi.id)) {
+        _visitSent.add(poi.id);
+        _recordVisit(poi);
+      }
+      if (_stops.isNotEmpty && _stops.every((x) => x.reached)) _routeDone = true;
+      _persistProgress();
+    }
     setState(() => _reachedCard = null);
-    _reroute(force: true);
+    if (!_routeDone) _reroute(force: true);
   }
 
-  /// Navigovat rovnou na zvolenou zastávku — dřívější nedojeté body se přeskočí.
+  /// Navigovat rovnou na zvolenou zastávku — dřívější nedojeté body se
+  /// přeskočí (vědomá volba jezdce v seznamu zastávek, ne automatika).
   void _navigateToStop(int index) {
     if (index < 0 || index >= _stops.length) return;
-    _cardTimer?.cancel();
     setState(() {
       for (var i = 0; i < index; i++) {
         _stops[i].reached = true;
@@ -865,8 +954,8 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
 
   @override
   void dispose() {
+    WakelockPlus.disable();
     _sub?.cancel();
-    _cardTimer?.cancel();
     _ticker?.dispose();
     super.dispose();
   }
@@ -1030,9 +1119,22 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
         _navDurationS != null) {
       etaMin = _navDurationS! / 60 * (prog.remainingM / _navLengthM!);
     }
+    // Směr šipky jezdce — až PO [_setDispCache] (počítá se z aktuální trasy).
+    final arrowBrg = _arrowBearing();
 
-    // Příští zastávka trasy (odškrtává se průjezdem) — pilulka nad HUD.
+    // Příští zastávka trasy — pilulka nad HUD.
     final next = _nextStop;
+    // Další bod PO právě potvrzované zastávce (pro tlačítko na kartě) —
+    // potvrzovaná zastávka ještě není odškrtnutá, takže se přeskakuje.
+    _NavStop? afterCard;
+    if (_reachedCard != null) {
+      for (final s in _stops) {
+        if (!s.reached && !identical(s, _reachedCard)) {
+          afterCard = s;
+          break;
+        }
+      }
+    }
     final reachedCount = _stops.where((s) => s.reached).length;
     double? nextDistM;
     if (next != null && _me != null) {
@@ -1106,9 +1208,10 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
                     point: _me!,
                     width: 34,
                     height: 34,
-                    // Šipka ukazuje skutečný směr jízdy i při otočené mapě.
+                    // Šipka drží reálný směr jízdy (na trase směr trasy) i při
+                    // otočené mapě — viz [_arrowBearing].
                     child: NavMeMarker(
-                      arrowDeg: _heading == null ? null : _heading! + _mapRot,
+                      arrowDeg: arrowBrg == null ? null : arrowBrg + _mapRot,
                     ),
                   ),
               ]),
@@ -1225,15 +1328,18 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
             ),
           ),
 
-        // Karta dojezdu na bod / dokončení trasy — má přednost před pilulkou.
+        // Potvrzovací karta dojezdu na bod / dokončení trasy — přednost před
+        // pilulkou. Bod se odškrtne AŽ tlačítkem Pokračovat ([_confirmReached]).
         if (_reachedCard != null)
           Positioned(
             left: 12, right: 64, bottom: bottomInset + 134,
             child: StopReachedCard(
               name: _stopLabel(_reachedCard!, lang),
               visit: _lastVisit,
-              nextLabel: next == null ? null : _stopLabel(next, lang),
-              onNext: _goToNextStop,
+              // Další bod PO právě potvrzované zastávce (ta ještě NENÍ
+              // odškrtnutá, takže ji z výběru vynech).
+              nextLabel: afterCard == null ? null : _stopLabel(afterCard, lang),
+              onNext: _confirmReached,
               onChoose: () => _openStopsSheet(lang),
               // Hodnocení + komentář dosaženého bodu zájmu přímo z karty.
               onRate: _reachedCard!.poi == null
@@ -1244,10 +1350,8 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
                       showRoutePoiSheet(context, poi, lang,
                           index: idx >= 0 ? idx : null);
                     },
-              onClose: () {
-                _cardTimer?.cancel();
-                setState(() => _reachedCard = null);
-              },
+              // Zavření karty bod NEpotvrzuje — zůstane neodškrtnutý.
+              onClose: () => setState(() => _reachedCard = null),
             ),
           )
         else if (showDoneCard)
