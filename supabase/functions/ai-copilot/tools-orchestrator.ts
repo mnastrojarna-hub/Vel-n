@@ -13,17 +13,18 @@ export async function execOrchestrator(name: string, input: R, sb: SB): Promise<
     // === ORCHESTRATOR: Daily Briefing ===
     case 'generate_daily_briefing': {
       const [bookingsR, activeR, sosR, invR, svcR, msgR, statsR, motosR] = await Promise.all([
-        sb.from('bookings').select('id, status, payment_status, total_price, created_at').gte('created_at', today + 'T00:00:00'),
+        sb.from('bookings').select('id, status, payment_status, total_price, created_at, is_test').eq('is_test', false).gte('created_at', today + 'T00:00:00'),
         sb.from('bookings').select('id, status, payment_status').in('status', ['active', 'reserved', 'pending']),
         sb.from('sos_incidents').select('id, status, severity, created_at').in('status', ['reported', 'acknowledged', 'in_progress']),
-        sb.from('invoices').select('id, total, status, due_date').eq('status', 'unpaid'),
+        sb.from('invoices').select('id, total, status, due_date, type').in('type', ['advance', 'proforma', 'shop_proforma']).not('status', 'in', '(cancelled,refunded,paid)'),
         sb.from('motorcycles').select('id, model, next_service_date, status, stk_valid_until').eq('status', 'active'),
         sb.from('message_threads').select('id, status').eq('status', 'open'),
         sb.from('daily_stats').select('*').gte('date', new Date(now.getTime() - 7 * 86400000).toISOString().slice(0, 10)).order('date', { ascending: false }),
         sb.from('motorcycles').select('id, status'),
       ])
       const todayBookings = bookingsR.data || []
-      const todayRevenue = todayBookings.filter((b: R) => b.payment_status === 'paid').reduce((s: number, b: R) => s + (b.total_price || 0), 0)
+      const PAID = ['paid', 'partial_refund', 'refund_pending', 'refunded']
+      const todayRevenue = todayBookings.filter((b: R) => PAID.includes(b.payment_status) && b.status !== 'cancelled').reduce((s: number, b: R) => s + (b.total_price || 0), 0)
       const active = activeR.data || []
       const sos = sosR.data || []
       const unpaidInv = invR.data || []
@@ -56,7 +57,7 @@ export async function execOrchestrator(name: string, input: R, sb: SB): Promise<
         alerts: {
           active_sos: sos.length,
           critical_sos: sos.filter((s: R) => s.severity === 'critical').length,
-          unpaid_invoices: unpaidInv.length,
+          proforma_awaiting_payment: unpaidInv.length,
           overdue_invoices: overdue.length,
           overdue_total: overdue.reduce((s: number, i: R) => s + (i.total || 0), 0),
           service_due_30d: svcDue.length,
@@ -103,7 +104,7 @@ export async function execOrchestrator(name: string, input: R, sb: SB): Promise<
       const { data: activeSos } = await sb.from('sos_incidents').select('id, title, severity, created_at').in('status', ['reported', 'acknowledged']).order('severity').limit(5)
       for (const s of (activeSos || [])) priorities.push({ type: 'sos_incident', severity: s.severity === 'critical' ? 'critical' : 'high', entity_id: s.id, title: s.title })
       // Overdue invoices
-      const { data: overdueInv } = await sb.from('invoices').select('id, number, total, due_date').eq('status', 'unpaid').lt('due_date', today).limit(5)
+      const { data: overdueInv } = await sb.from('invoices').select('id, number, total, due_date, type').in('type', ['advance', 'proforma', 'shop_proforma']).not('status', 'in', '(cancelled,refunded,paid)').lt('due_date', today).limit(5)
       for (const i of (overdueInv || [])) priorities.push({ type: 'overdue_invoice', severity: 'medium', entity_id: i.id, number: i.number, total: i.total, days_overdue: diffDays(i.due_date, today) })
       // Unread messages > 2h
       const h2ago = new Date(now.getTime() - 7200000).toISOString()
@@ -118,12 +119,12 @@ export async function execOrchestrator(name: string, input: R, sb: SB): Promise<
     case 'test_booking_flow': {
       const issues: R[] = []
       // Check booking lifecycle integrity
-      const { data: activeNoPickup } = await sb.from('bookings').select('id', { count: 'exact', head: true }).eq('status', 'active').is('picked_up_at', null)
-      if ((activeNoPickup?.length || 0) > 0) issues.push({ flow: 'booking_activation', issue: 'Active bookings without picked_up_at', count: activeNoPickup?.length || 0, severity: 'medium' })
-      const { data: completedNoPay } = await sb.from('bookings').select('id', { count: 'exact', head: true }).eq('status', 'completed').eq('payment_status', 'unpaid')
-      if ((completedNoPay?.length || 0) > 0) issues.push({ flow: 'booking_completion', issue: 'Completed but unpaid bookings', count: completedNoPay?.length || 0, severity: 'high' })
-      const { data: reservedNoConfirm } = await sb.from('bookings').select('id', { count: 'exact', head: true }).eq('status', 'reserved').is('confirmed_at', null)
-      if ((reservedNoConfirm?.length || 0) > 0) issues.push({ flow: 'booking_reservation', issue: 'Reserved without confirmed_at', count: reservedNoConfirm?.length || 0, severity: 'low' })
+      const { count: activeNoPickup } = await sb.from('bookings').select('id', { count: 'exact', head: true }).eq('status', 'active').is('picked_up_at', null)
+      if ((activeNoPickup || 0) > 0) issues.push({ flow: 'booking_activation', issue: 'Active bookings without picked_up_at', count: activeNoPickup || 0, severity: 'medium' })
+      const { count: completedNoPay } = await sb.from('bookings').select('id', { count: 'exact', head: true }).eq('status', 'completed').eq('payment_status', 'unpaid')
+      if ((completedNoPay || 0) > 0) issues.push({ flow: 'booking_completion', issue: 'Completed but unpaid bookings', count: completedNoPay || 0, severity: 'high' })
+      const { count: reservedNoConfirm } = await sb.from('bookings').select('id', { count: 'exact', head: true }).eq('status', 'reserved').is('confirmed_at', null)
+      if ((reservedNoConfirm || 0) > 0) issues.push({ flow: 'booking_reservation', issue: 'Reserved without confirmed_at', count: reservedNoConfirm || 0, severity: 'low' })
       // Check moto availability consistency
       const { data: maintenanceActive } = await sb.from('bookings').select('b:id, m:moto_id').eq('status', 'active').not('moto_id', 'is', null)
       if (maintenanceActive) {
