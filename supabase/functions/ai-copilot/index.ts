@@ -48,6 +48,7 @@ KLÍČOVÁ DOMÉNOVÁ PRAVIDLA (dodržuj v číslech!):
 - Věrnostní sleva 1–20 % platí JEN pro rezervace z aplikace.
 - Sloupce faktur: issue_date (ne issued_at); shop_orders.total (ne total_amount); promo_codes.value+active.
 - Souhlasy (marketing_consent...), zdroj registrace a blokace zákazníků vrací get_customers (vč. agregací přes všechny). „Kolik zákazníků má appku" → get_app_stats.customers_with_app (instalace + app rezervace + registrace přes app; web se nepočítá). Vazba zákazník↔rezervace: bookings.user_id (get_bookings_detail vrací customer, query_table umí filtrovat).
+- profiles.registration_source='auth_trigger' je TECHNICKÝ PLACEHOLDER (bug triggeru handle_new_user), NIKDY to neinterpretuj jako skutečný zdroj registrace. Skutečný zdroj odvozuj: aktivní instalace / nestornovaná app rezervace → app; jinak web rezervace → web; jinak neznámý. Účet v systému NEZNAMENÁ automaticky appku — registrace vzniká i z webu (create_web_booking zakládá auth účet).
 
 Při analýze VŽDY: rozlišuj reálná data vs odhad, upozorni na předběžnost, uváděj confidence level.
 

@@ -74,12 +74,12 @@ export async function execReadAnalyticsPlus(name: string, input: R, sb: SB, sbUs
 
     // Mobilní aplikace — instalace, DAU/WAU/MAU, pády + KDO z registrovaných zákazníků appku reálně má
     case 'get_app_stats': {
-      const [statsR, instR, crashR, profR, appBookR] = await Promise.all([
+      const [statsR, instR, crashR, profR, bookR] = await Promise.all([
         rpc.rpc('get_app_install_stats'),
         sb.from('app_installations').select('device_id, user_id, platform, push_enabled, last_seen_at'),
         sb.from('app_crash_reports').select('id, app_version, platform, screen, error_type, severity, created_at').order('created_at', { ascending: false }).limit(10),
         sb.from('profiles').select('id, registration_source, is_test_account').limit(10000),
-        sb.from('bookings').select('user_id').eq('booking_source', 'app').eq('is_test', false).limit(10000),
+        sb.from('bookings').select('user_id, booking_source, status').eq('is_test', false).limit(10000),
       ])
       const inst = instR.data || []
       const since = (d: number) => new Date(now.getTime() - d * 86400000).toISOString()
@@ -87,9 +87,20 @@ export async function execReadAnalyticsPlus(name: string, input: R, sb: SB, sbUs
       const byPlatform: R = {}; for (const i of inst) { const p = (i.platform || 'unknown').toLowerCase(); byPlatform[p] = (byPlatform[p] || 0) + 1 }
       const realProfiles = (profR.data || []).filter((p: R) => !p.is_test_account)
       const usersWithInstall = new Set(inst.map((i: R) => i.user_id).filter(Boolean))
-      const usersWithAppBooking = new Set((appBookR.data || []).map((b: R) => b.user_id).filter(Boolean))
+      const books = bookR.data || []
+      const appBookUsers = new Set(books.filter((b: R) => b.booking_source === 'app' && b.status !== 'cancelled').map((b: R) => b.user_id).filter(Boolean))
+      const webBookUsers = new Set(books.filter((b: R) => b.booking_source === 'web' && b.status !== 'cancelled').map((b: R) => b.user_id).filter(Boolean))
+      const anyBookUsers = new Set(books.map((b: R) => b.user_id).filter(Boolean))
+      const cancelledOnlyUsers = new Set([...anyBookUsers].filter(u => !appBookUsers.has(u) && !webBookUsers.has(u)))
+      // POZOR: registration_source='auth_trigger' je technický placeholder — jako 'app' počítej JEN explicitní 'app'
       const regApp = realProfiles.filter((p: R) => p.registration_source === 'app').length
-      const hasApp = realProfiles.filter((p: R) => usersWithInstall.has(p.id) || usersWithAppBooking.has(p.id) || p.registration_source === 'app').length
+      const hasApp = realProfiles.filter((p: R) => usersWithInstall.has(p.id) || appBookUsers.has(p.id) || p.registration_source === 'app').length
+      const seg = {
+        no_booking_at_all: realProfiles.filter((p: R) => !anyBookUsers.has(p.id)).length,
+        only_cancelled_bookings: realProfiles.filter((p: R) => cancelledOnlyUsers.has(p.id)).length,
+        with_app_booking: realProfiles.filter((p: R) => appBookUsers.has(p.id)).length,
+        with_web_booking_only: realProfiles.filter((p: R) => webBookUsers.has(p.id) && !appBookUsers.has(p.id)).length,
+      }
       return {
         install_stats_rpc: statsR.error ? { error: statsR.error.message } : statsR.data,
         installations_total: inst.length, by_platform: byPlatform,
@@ -100,10 +111,11 @@ export async function execReadAnalyticsPlus(name: string, input: R, sb: SB, sbUs
           with_app_any_signal: hasApp,
           with_app_pct: realProfiles.length ? Math.round(hasApp / realProfiles.length * 1000) / 10 : null,
           via_active_installation: usersWithInstall.size,
-          via_app_booking: usersWithAppBooking.size,
-          registered_via_app: regApp,
-          note: 'appku má = aktivní instalace (app_installations) NEBO app rezervace (booking_source=app) NEBO registrace přes appku; web rezervace se NEpočítají',
+          via_app_booking: appBookUsers.size,
+          registered_via_app_explicit: regApp,
+          note: 'appku má = aktivní instalace (app_installations) NEBO nestornovaná app rezervace NEBO registration_source=app. Placeholder auth_trigger NENÍ zdroj — ignoruj ho. Web rezervace appku nedokazují.',
         },
+        customer_booking_segments: { ...seg, note: 'segmenty přes reálné (netestovací) zákazníky × nestornované rezervace dle booking_source' },
         recent_crashes: crashR.data || [],
       }
     }
