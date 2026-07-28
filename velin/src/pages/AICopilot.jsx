@@ -18,7 +18,8 @@ const QUICK_ACTIONS = [
   { cat: '🏍️ Flotila & Servis', items: ['Stav celé flotily', 'Které motorky potřebují servis?', 'STK a pojistky - co expiruje?'] },
   { cat: '🆘 SOS & Zákazníci', items: ['Aktivní SOS incidenty', 'Noví zákazníci tento měsíc', 'Segmentace zákazníků'] },
   { cat: '💰 Finance & Sklady', items: ['Finanční přehled měsíce', 'Stav skladů - co dochází?', 'Nezaplacené faktury'] },
-  { cat: '📈 Analýza', items: ['Výkon poboček', 'Ranking motorek', 'Optimální složení flotily'] },
+  { cat: '📈 Analýza', items: ['Výkon poboček', 'Ranking motorek', 'Optimální složení flotily', 'Návštěvnost webu za 30 dní', 'Web rezervační funnel', 'Statistiky mobilní aplikace', 'Přehled AI konverzací'] },
+  { cat: '📚 Nápověda & návody', items: ['Jak funguje rezervační flow na webu?', 'Co všechno umí mobilní aplikace?', 'Jak potvrdím QR platbu rezervace?', 'Jak funguje věrnostní program?', 'Jak řešit SOS incident?'] },
   { cat: '⚡ Akce (write)', items: ['Změň stav motorky XY na maintenance', 'Zablokuj zákazníka xyz', 'Vytvoř promo kód SLEVA20 na 20%'] },
 ]
 
@@ -262,7 +263,7 @@ export default function AICopilot() {
                 <div className="text-3xl mb-3">🤖</div>
                 <div className="text-sm font-bold" style={{ color: '#0f1a14' }}>AI Copilot — Čtení i Zápis</div>
                 <div className="text-sm mt-1 mb-4" style={{ color: '#1a2e22' }}>
-                  {enabledCount} agentů | 57 nástrojů | Plný přístup k databázi
+                  {enabledCount} agentů | 100+ nástrojů | Plný přístup k celé databázi + encyklopedie a návod k obsluze systému
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-left" style={{ maxWidth: 600, margin: '0 auto' }}>
                   {QUICK_ACTIONS.map(qa => (

@@ -6,6 +6,7 @@ import { TOOL_RISK } from './tools-def-write.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
+const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') || ''
 const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY') || ''
 
 const CORS = {
@@ -20,10 +21,15 @@ function jsonResponse(body: Record<string, unknown>, status = 200) {
 
 // Build system prompt with agent corrections
 function buildSystemPrompt(corrections?: Record<string, string[]>) {
-  let prompt = `Jsi AI Copilot pro Velín — superadmin dashboard půjčovny motorek MotoGo24.
+  let prompt = `Jsi AI Copilot pro Velín — superadmin dashboard půjčovny motorek MotoGo24. Máš 100% přehled o CELÉM ekosystému: Velín, web motogo24.cz, mobilní aplikace (Android+iOS), backend Supabase.
 Firma: Bc. Petra Semorádová, IČO: 21874263, Mezná 9, 393 01. Kontakt: +420 774 256 271, info@motogo24.cz
 
 Máš k dispozici nástroje pro ČTENÍ i ZÁPIS dat. VŽDY si nejdřív sáhni pro data než odpovíš.
+
+ŽELEZNÉ PRAVIDLO — NIKDY neříkej „k tomu nemám přístup / to nevím / to neumím spočítat":
+- Když neexistuje specializovaný nástroj, použij query_table (umí číst KAŽDOU tabulku v DB s filtry i počty řádků).
+- Na otázky „jak funguje / jak se ovládá / kde najdu / co umí appka nebo web" VŽDY použij get_system_guide (encyklopedie + návod k obsluze celého systému). Jsi zároveň manuál Velína, webu i aplikace.
+- Když výpočet nejde udělat nástrojem, stáhni si surová data přes query_table a spočítej to sám.
 
 WRITE NÁSTROJE — DŮLEŽITÉ:
 - Při volání WRITE nástroje vrátí PREVIEW (status:"preview") s popisem co se změní
@@ -31,18 +37,24 @@ WRITE NÁSTROJE — DŮLEŽITÉ:
 - Uživatel musí potvrdit před provedením
 - Formát: [PENDING_ACTIONS]{"actions":[{"tool":"nazev","input":{...},"summary":"popis"}]}[/PENDING_ACTIONS]
 
-PROVOZNÍ OBLASTI:
-Rezervace, Flotila, Pobočky, SOS, Zákazníci, Sklady, Finance, E-shop, Vouchery, Servis, Zprávy, Dokumenty, CMS, Audit, Státní správa, Zaměstnanci
+PROVOZNÍ OBLASTI (vše pokrýváš):
+Rezervace, Flotila, Pobočky (vč. samoobslužných kiosků), SOS, Zákazníci, Sklady, Logistika výbavy, Finance a účetnictví (faktury, finanční události, DPH, Flexi), E-shop, Vouchery a promo (vč. Slevomat), Servis, Zprávy a kampaně, Dokumenty, CMS, Trasy, Věrnostní program, Audit, Státní správa, Zaměstnanci, Analýza (návštěvnost, funnely, AI konverzace, aplikace, km).
 
-ANALYTICKÉ SCHOPNOSTI:
-Výkon poboček/motorek, poptávka kategorií, optimalizace flotily, segmentace zákazníků, predikce
+KLÍČOVÁ DOMÉNOVÁ PRAVIDLA (dodržuj v číslech!):
+- Obrat z rezervací = ZAPLACENÉ (payment_status ∈ paid/partial_refund/refund_pending/refunded) + nestornované + is_test=false. NE jen „completed"!
+- Testovací data (bookings.is_test, profiles.is_test_account) VŽDY vyřazuj z analýz.
+- Faktury: zaplacení se pozná dle TYPU dokladu (payment_receipt/final/shop_final; credit_note=záporný refund), NE dle statusu. ZF (advance/proforma) = jen výzva k platbě.
+- Storno tabulka: ≥7 dní 100 %, 2–7 dní 50 %, <2 dny 0 % refund.
+- Věrnostní sleva 1–20 % platí JEN pro rezervace z aplikace.
+- Sloupce faktur: issue_date (ne issued_at); shop_orders.total (ne total_amount); promo_codes.value+active.
+- Souhlasy (marketing_consent...), zdroj registrace a blokace zákazníků vrací get_customers (vč. agregací přes všechny). „Kolik zákazníků má appku" → get_app_stats.customers_with_app (instalace + app rezervace + registrace přes app; web se nepočítá). Vazba zákazník↔rezervace: bookings.user_id (get_bookings_detail vrací customer, query_table umí filtrovat).
 
 Při analýze VŽDY: rozlišuj reálná data vs odhad, upozorni na předběžnost, uváděj confidence level.
 
 NAVIGACE:
 - Zprávy uživatele mohou začínat [Kontext: stránka "X"] — to značí odkud se ptá
 - Pokud je vhodné přejít na jinou stránku, přidej do odpovědi [NAV:/cesta] (např. [NAV:/flotila/uuid])
-- Dostupné cesty: /, /flotila, /flotila/:id, /rezervace, /rezervace/:id, /zakaznici, /zakaznici/:id, /finance, /dokumenty, /pobocky, /servis, /zpravy, /cms, /analyza, /slevove-kody, /e-shop, /statni-sprava, /sos, /zamestnanci, /sklady, /ai-copilot
+- Dostupné cesty: /, /flotila, /flotila/:id, /rezervace, /rezervace/:id, /zakaznici, /zakaznici/:id, /finance, /dokumenty, /pobocky, /logistika, /trasy, /servis, /zpravy, /cms, /analyza, /slevove-kody, /e-shop, /statni-sprava, /sos, /zamestnanci, /sklady, /sklady/:id, /orchestrator, /ai-copilot
 
 Odpovídej v češtině, stručně, s konkrétními čísly.`
 
@@ -71,12 +83,14 @@ serve(async (req) => {
     const token = authHeader.replace('Bearer ', '')
     const { data: { user }, error: userErr } = await supabaseAdmin.auth.getUser(token)
     if (userErr || !user) return jsonResponse({ error: 'Unauthorized' }, 401)
+    // User-scoped klient pro RPC s is_admin() guardem (auth.uid() musí být admin, ne NULL ze service role)
+    const supabaseUser = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { global: { headers: { Authorization: authHeader } }, auth: { persistSession: false } })
 
     // MODE: EXECUTE — confirm and run pending actions
     if (mode === 'execute' && Array.isArray(actions)) {
       const results = []
       for (const action of actions) {
-        const result = await executeTool(action.tool, action.input, supabaseAdmin, false)
+        const result = await executeTool(action.tool, action.input, supabaseAdmin, false, supabaseUser)
         results.push({ tool: action.tool, result, success: !(result as Record<string, unknown>)?.error })
       }
       // Log to ai_actions
@@ -118,7 +132,7 @@ serve(async (req) => {
     if (agent_memory && typeof agent_memory === 'string') systemPrompt += agent_memory
 
     // Agentic loop
-    const MAX_ITER = 10, TIMEOUT = 30000, t0 = Date.now()
+    const MAX_ITER = 15, TIMEOUT = 60000, t0 = Date.now()
     const pendingActions: Array<Record<string, unknown>> = []
 
     for (let i = 0; i < MAX_ITER; i++) {
@@ -168,7 +182,7 @@ serve(async (req) => {
         for (const tc of ai.content.filter((b: any) => b.type === 'tool_use')) {
           // Write tools: dry run (preview only)
           const isDry = isWriteTool(tc.name)
-          const data = await executeTool(tc.name, tc.input || {}, supabaseAdmin, isDry)
+          const data = await executeTool(tc.name, tc.input || {}, supabaseAdmin, isDry, supabaseUser)
           // If preview, collect as pending action
           if (isDry && (data as Record<string, unknown>)?.status === 'preview') {
             pendingActions.push({

@@ -62,7 +62,7 @@ export async function execReadMisc(name: string, input: R, sb: SB): Promise<unkn
     case 'get_audit_log': {
       try {
         const limit = (input.limit as number) || 30
-        let q = sb.from('admin_audit_log').select('id, admin_id, action, details, ip_address, created_at').order('created_at', { ascending: false }).limit(limit)
+        let q = sb.from('admin_audit_log').select('id, admin_id, action, entity_type, entity_id, old_data, new_data, ip_address, created_at').order('created_at', { ascending: false }).limit(limit)
         if (input.admin_id) q = q.eq('admin_id', input.admin_id)
         if (input.action) q = q.ilike('action', `%${input.action}%`)
         const { data: logs, error: err } = await q

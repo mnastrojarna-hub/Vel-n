@@ -10,7 +10,7 @@ export const AGENTS = [
     icon: '📅',
     desc: 'Správa rezervací, potvrzení plateb, storna, úpravy termínů, extras',
     tools: ['update_booking_status', 'update_booking_details', 'confirm_booking_payment', 'cancel_booking', 'create_booking'],
-    readTools: ['get_bookings_summary', 'get_bookings_detail', 'get_booking_extras', 'get_booking_cancellations'],
+    readTools: ['get_bookings_summary', 'get_bookings_detail', 'get_booking_detail', 'get_booking_extras', 'get_booking_cancellations'],
     defaultEnabled: false,
   },
   {
@@ -19,7 +19,7 @@ export const AGENTS = [
     icon: '🏍️',
     desc: 'Správa motorek, stavů, ceníku, poboček, příslušenství',
     tools: ['update_motorcycle', 'update_motorcycle_pricing', 'update_branch', 'update_branch_accessories'],
-    readTools: ['get_fleet_overview', 'get_motorcycle_detail', 'get_branches', 'get_branch_detail', 'get_pricing_overview'],
+    readTools: ['get_fleet_overview', 'get_motorcycle_detail', 'get_branches', 'get_branch_detail', 'get_pricing_overview', 'get_kiosk_status', 'get_routes_overview'],
     defaultEnabled: false,
   },
   {
@@ -28,7 +28,7 @@ export const AGENTS = [
     icon: '👥',
     desc: 'Profily zákazníků, blokace, komunikace, reklamace, platební metody',
     tools: ['update_customer', 'block_customer', 'send_customer_message'],
-    readTools: ['get_customers', 'get_customer_detail', 'get_messages_overview', 'get_reviews', 'get_booking_complaints', 'get_payment_methods', 'get_notification_log'],
+    readTools: ['get_customers', 'get_customer_detail', 'get_messages_overview', 'get_reviews', 'get_booking_complaints', 'get_payment_methods', 'get_notification_log', 'get_message_log', 'get_loyalty_overview'],
     defaultEnabled: false,
   },
   {
@@ -37,7 +37,7 @@ export const AGENTS = [
     icon: '💰',
     desc: 'Účetnictví, fakturace, DPH, párování dokladů, závazky, majetek, odpisy',
     tools: ['create_invoice', 'update_invoice_status', 'create_accounting_entry', 'match_delivery_note'],
-    readTools: ['get_financial_overview', 'get_invoices', 'get_vouchers_and_promos', 'get_accounting_entries', 'get_cash_register', 'get_long_term_assets', 'get_short_term_assets', 'get_depreciation', 'get_liabilities', 'get_vat_returns', 'get_tax_returns', 'get_tax_records', 'get_flexi_reports'],
+    readTools: ['get_financial_overview', 'get_invoices', 'get_vouchers_and_promos', 'get_accounting_entries', 'get_cash_register', 'get_long_term_assets', 'get_short_term_assets', 'get_depreciation', 'get_liabilities', 'get_vat_returns', 'get_tax_returns', 'get_tax_records', 'get_flexi_reports', 'get_financial_events'],
     defaultEnabled: false,
   },
   {
@@ -46,7 +46,7 @@ export const AGENTS = [
     icon: '🔧',
     desc: 'Plánování servisů, objednávky dílů, přidělování techniků, GPS lokace',
     tools: ['create_service_order', 'update_service_order', 'complete_service', 'create_maintenance_log', 'create_purchase_order', 'create_inventory_movement'],
-    readTools: ['get_service_status', 'get_inventory', 'get_inventory_movements', 'get_service_parts', 'get_moto_locations', 'get_purchase_orders', 'get_auto_order_rules', 'get_suppliers', 'get_delivery_notes'],
+    readTools: ['get_service_status', 'get_service_plan', 'get_inventory', 'get_inventory_movements', 'get_service_parts', 'get_moto_locations', 'get_purchase_orders', 'get_auto_order_rules', 'get_suppliers', 'get_delivery_notes', 'get_gear_logistics'],
     defaultEnabled: false,
   },
   {
@@ -64,7 +64,7 @@ export const AGENTS = [
     icon: '🛒',
     desc: 'Objednávky, produkty, sklad, vouchery, promo kódy, příslušenství',
     tools: ['update_shop_order', 'update_product', 'create_product', 'create_promo_code', 'create_voucher'],
-    readTools: ['get_shop_orders', 'get_accessory_types'],
+    readTools: ['get_shop_orders', 'get_accessory_types', 'get_vouchers_and_promos'],
     defaultEnabled: false,
   },
   {
@@ -73,7 +73,7 @@ export const AGENTS = [
     icon: '📊',
     desc: 'Statistiky, reporty, predikce, segmentace, optimalizace, performance',
     tools: [],
-    readTools: ['get_daily_stats', 'analyze_branch_performance', 'analyze_motorcycle_performance', 'analyze_category_demand', 'analyze_optimal_fleet', 'analyze_customers', 'forecast_predictions', 'get_performance_stats'],
+    readTools: ['get_daily_stats', 'analyze_branch_performance', 'analyze_motorcycle_performance', 'analyze_category_demand', 'analyze_optimal_fleet', 'analyze_customers', 'forecast_predictions', 'get_performance_stats', 'get_web_traffic', 'get_web_funnel', 'get_ai_agents_analytics', 'get_app_stats', 'get_km_analytics', 'get_loyalty_overview', 'get_routes_overview'],
     defaultEnabled: false,
   },
   {
@@ -109,7 +109,7 @@ export const AGENTS = [
     icon: '👔',
     desc: 'Denní briefing, KPI monitoring, prioritní fronta, eskalace, autonomní řízení',
     tools: ['generate_daily_briefing', 'check_agent_health', 'get_priority_queue'],
-    readTools: ['get_bookings_summary', 'get_fleet_overview', 'get_financial_overview', 'get_sos_incidents', 'get_daily_stats'],
+    readTools: ['get_bookings_summary', 'get_fleet_overview', 'get_financial_overview', 'get_sos_incidents', 'get_daily_stats', 'get_gear_logistics', 'get_financial_events', 'get_app_stats'],
     defaultEnabled: false,
   },
 ]

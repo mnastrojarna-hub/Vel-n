@@ -1,5 +1,6 @@
 // Read tools 9-18: Finance, Invoices, Shop, Vouchers, Service, Messages, Stats, Inventory, Branch Detail
 import type { SB } from './tools-constants.ts'
+import { PAID_BOOKING_STATUSES } from './tools-constants.ts'
 
 // deno-lint-ignore no-explicit-any
 type R = Record<string, any>
@@ -16,22 +17,24 @@ export async function execReadFinance(name: string, input: R, sb: SB): Promise<u
       else if (period === 'week') dateFrom = new Date(now.getTime() - 7 * 86400000).toISOString()
       else if (period === 'quarter') { const qm = Math.floor(now.getMonth() / 3) * 3; dateFrom = new Date(now.getFullYear(), qm, 1).toISOString() }
       else dateFrom = monthStart
-      const [revenueR, invoicesR, shopR, vouchersR] = await Promise.all([
-        sb.from('bookings').select('total_price').eq('payment_status', 'paid').gte('created_at', dateFrom),
-        sb.from('invoices').select('id, total, status').gte('issued_at', dateFrom),
-        sb.from('shop_orders').select('id, total_amount, payment_status').gte('created_at', dateFrom),
+      const [revenueR, invoicesR, shopR, vouchersR, expR] = await Promise.all([
+        sb.from('bookings').select('total_price, status, payment_status, is_test').in('payment_status', PAID_BOOKING_STATUSES).neq('status', 'cancelled').eq('is_test', false).gte('created_at', dateFrom),
+        sb.from('invoices').select('id, total, status, type').gte('issue_date', dateFrom.slice(0, 10)),
+        sb.from('shop_orders').select('id, total, payment_status').gte('created_at', dateFrom),
         sb.from('vouchers').select('amount').eq('status', 'active'),
+        sb.from('accounting_entries').select('amount, type, category').eq('type', 'expense').gte('date', dateFrom.slice(0, 10)),
       ])
       const revenue = (revenueR.data || []).reduce((s: number, b: R) => s + (b.total_price || 0), 0)
       const invoiceTotal = (invoicesR.data || []).reduce((s: number, i: R) => s + (i.total || 0), 0)
-      const shopTotal = (shopR.data || []).reduce((s: number, o: R) => s + (o.total_amount || 0), 0)
+      const shopTotal = (shopR.data || []).filter((o: R) => o.payment_status === 'paid').reduce((s: number, o: R) => s + (o.total || 0), 0)
       const voucherValue = (vouchersR.data || []).reduce((s: number, v: R) => s + (v.amount || 0), 0)
-      return { period, revenue, invoice_count: (invoicesR.data || []).length, invoice_total: invoiceTotal, shop_orders_count: (shopR.data || []).length, shop_total: shopTotal, voucher_value: voucherValue }
+      const expenses = (expR.data || []).reduce((s: number, e: R) => s + (e.amount || 0), 0)
+      return { period, revenue_bookings: revenue, revenue_note: 'Obrat = zaplacené, nestornované, netestovací rezervace (vč. partial_refund/refund_pending) dle vzniku v období', invoice_count: (invoicesR.data || []).length, invoice_total: invoiceTotal, shop_orders_paid_total: shopTotal, shop_orders_count: (shopR.data || []).length, active_voucher_value: voucherValue, expenses_accounting: expenses }
     }
 
     case 'get_invoices': {
       const limit = (input.limit as number) || 20
-      let q = sb.from('invoices').select('id, number, type, customer_id, booking_id, order_id, total, status, issued_at, due_date, paid_date, source, variable_symbol').order('issued_at', { ascending: false }).limit(limit)
+      let q = sb.from('invoices').select('id, number, type, customer_id, booking_id, order_id, subtotal, tax_amount, total, status, issue_date, due_date, paid_date, source, variable_symbol').order('issue_date', { ascending: false }).limit(limit)
       if (input.status) q = q.eq('status', input.status)
       if (input.type) q = q.eq('type', input.type)
       const { data } = await q
@@ -40,7 +43,7 @@ export async function execReadFinance(name: string, input: R, sb: SB): Promise<u
 
     case 'get_shop_orders': {
       const limit = (input.limit as number) || 20
-      let q = sb.from('shop_orders').select('id, order_number, customer_id, status, payment_status, payment_method, total_amount, shipping_method, created_at, confirmed_at').order('created_at', { ascending: false }).limit(limit)
+      let q = sb.from('shop_orders').select('id, order_number, customer_id, customer_name, customer_email, status, payment_status, payment_method, subtotal, shipping_cost, discount, total, shipping_method, tracking_number, created_at, confirmed_at').order('created_at', { ascending: false }).limit(limit)
       if (input.status) q = q.eq('status', input.status)
       const { data } = await q
       return { orders: data || [], count: (data || []).length }
@@ -48,10 +51,10 @@ export async function execReadFinance(name: string, input: R, sb: SB): Promise<u
 
     case 'get_vouchers_and_promos': {
       const activeOnly = input.active_only !== false
-      let vQ = sb.from('vouchers').select('id, code, amount, status, valid_from, valid_until, buyer_name, buyer_email, category, redeemed_at')
+      let vQ = sb.from('vouchers').select('id, code, amount, status, valid_from, valid_until, buyer_name, buyer_email, category, source, redeemed_at, booking_id, slevomat_apply_status, slevomat_applied_at')
       if (activeOnly) vQ = vQ.eq('status', 'active')
-      let pQ = sb.from('promo_codes').select('id, code, type, discount_value, is_active, used_count, max_uses, valid_to')
-      if (activeOnly) pQ = pQ.eq('is_active', true)
+      let pQ = sb.from('promo_codes').select('id, code, type, value, active, source, used_count, max_uses, valid_from, valid_to, min_order_amount')
+      if (activeOnly) pQ = pQ.eq('active', true)
       const [vR, pR] = await Promise.all([vQ, pQ])
       const vouchers = vR.data || []
       return { vouchers, promo_codes: pR.data || [], total_voucher_value: vouchers.reduce((s: number, v: R) => s + (v.amount || 0), 0) }
