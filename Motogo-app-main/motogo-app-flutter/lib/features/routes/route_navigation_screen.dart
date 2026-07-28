@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../../core/theme.dart';
 import '../../core/router.dart' show MotoGoBackNav;
@@ -70,12 +71,12 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
   // Pod touto rychlostí (km/h) je GPS heading nespolehlivý → mapou neotáčíme.
   static const double _moveThreshold = 5;
   // Vybočení z trasy: dál než [_kOffRouteM] po [_kOffRouteFixes] po sobě
-  // jdoucích GPS fixech → přepočet trasy od aktuální polohy.
+  // jdoucích GPS fixech → okamžitý přepočet trasy od aktuální polohy.
   static const double _kOffRouteM = 70;
-  static const int _kOffRouteFixes = 3;
+  static const int _kOffRouteFixes = 2;
   // Jízda PROTI směru trasy (jsem na lince, ale jedu opačně) → přepočet
-  // po [_kWrongWayFixes] fixech — jinak by se linka nikdy nepřekreslila.
-  static const int _kWrongWayFixes = 5;
+  // hned po [_kWrongWayFixes] detekcích — linka se nesmí držet stará.
+  static const int _kWrongWayFixes = 2;
   // Mapy.com routing zvládá omezený počet průjezdních bodů — delší trasy se
   // počítají po okně; vzdálenější zastávky se přidají po dojezdu dřívějších.
   static const int _kMaxRoutingStops = 15;
@@ -179,6 +180,8 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
   @override
   void initState() {
     super.initState();
+    // Během navigace se displej NIKDY nesmí vypnout (Android i iOS).
+    WakelockPlus.enable();
     _start();
   }
 
@@ -262,6 +265,23 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
 
   /// Jedu po trase? (fix je dost blízko polyline pro snap + predikci)
   bool get _onRouteNow => _fixSnapDistM <= 45;
+
+  /// Směr šipky jezdce (stupně od severu): při jízdě VYHLAZENÝ reálný směr
+  /// jízdy (po trase dotažený ke stabilnímu směru trasy), při stání nebo bez
+  /// GPS headingu PŘEDPOKLÁDANÝ směr dle trasy, jinak poslední známý směr
+  /// z projetých bodů. Šipka tak nikdy neukazuje do strany.
+  double? _arrowBearing() {
+    final cache = _dispCache;
+    final onRoute = _onRouteNow && cache != null && _fixAlongM != null;
+    final moving = _speedKmh > _moveThreshold;
+    // [_smoothHeading] živí animační smyčka jen když má z čeho (GPS heading,
+    // nebo segment trasy při reálné rychlosti) — jinak by byl zastaralý.
+    if (moving && (_heading != null || (onRoute && _fixSpeedMps > 1.5))) {
+      return _smoothHeading;
+    }
+    if (onRoute) return cache.bearingAt(_fixAlongM!);
+    return _travelBearing();
+  }
 
   /// Cílová poloha markeru: fix promítnutý na trasu; mezi GPS fixy se
   /// PŘEDPOKLÁDÁ pokračování jízdy po trase aktuální rychlostí — další fix
@@ -865,6 +885,7 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
 
   @override
   void dispose() {
+    WakelockPlus.disable();
     _sub?.cancel();
     _cardTimer?.cancel();
     _ticker?.dispose();
@@ -1030,6 +1051,8 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
         _navDurationS != null) {
       etaMin = _navDurationS! / 60 * (prog.remainingM / _navLengthM!);
     }
+    // Směr šipky jezdce — až PO [_setDispCache] (počítá se z aktuální trasy).
+    final arrowBrg = _arrowBearing();
 
     // Příští zastávka trasy (odškrtává se průjezdem) — pilulka nad HUD.
     final next = _nextStop;
@@ -1106,9 +1129,10 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
                     point: _me!,
                     width: 34,
                     height: 34,
-                    // Šipka ukazuje skutečný směr jízdy i při otočené mapě.
+                    // Šipka drží reálný směr jízdy (na trase směr trasy) i při
+                    // otočené mapě — viz [_arrowBearing].
                     child: NavMeMarker(
-                      arrowDeg: _heading == null ? null : _heading! + _mapRot,
+                      arrowDeg: arrowBrg == null ? null : arrowBrg + _mapRot,
                     ),
                   ),
               ]),

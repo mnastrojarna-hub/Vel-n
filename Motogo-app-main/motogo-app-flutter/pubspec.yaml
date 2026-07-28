@@ -82,6 +82,9 @@ dependencies:
   # GPS
   geolocator: ^14.0.3
 
+  # Displej nesmí zhasnout během navigace (route_navigation_screen)
+  wakelock_plus: ^1.6.1
+
   # Maps
   flutter_map: ^6.1.0
   latlong2: ^0.9.0
