@@ -89,6 +89,10 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
   static const double _kPassedSlackM = 400;
 
   final MapController _ctrl = MapController();
+  // MapController je použitelný AŽ po vykreslení FlutterMap (onMapReady) —
+  // GPS fix může přijít dřív (data trasy se ještě načítají a mapa není
+  // v tree) a pohyb kamery by spadl na LateInitializationError.
+  bool _mapReady = false;
   StreamSubscription<Position>? _sub;
   // Zobrazovaná (animovaná) poloha — plynule se blíží k predikované cílové
   // poloze; surový GPS fix je v [_fix]. Zbytek obrazovky pracuje s [_me].
@@ -262,7 +266,7 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
       final moving = spd > _moveThreshold && hdg != null;
       if (moving) _smoothHeading = hdg!;
       _mapRot = _follow && _headingUp && moving ? -_smoothHeading : 0.0;
-      _ctrl.moveAndRotate(_me!, _animZoom, _mapRot);
+      if (_mapReady) _ctrl.moveAndRotate(_me!, _animZoom, _mapRot);
       setState(() {});
     }
     _ticker ??= createTicker(_onTick)..start();
@@ -349,7 +353,7 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
     }
     _animZoom += (_targetZoom(_zoomSpeed) - _animZoom) * expSmooth(dt, 2.5);
 
-    if (_follow && _me != null) {
+    if (_follow && _me != null && _mapReady) {
       if (_headingUp && moving) {
         _mapRot = -_smoothHeading;
         _ctrl.moveAndRotate(_me!, _animZoom, _mapRot);
@@ -1046,7 +1050,7 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
       _headingUp = true;
     });
     final me = _me;
-    if (me == null) return;
+    if (me == null || !_mapReady) return;
     final moving = _speedKmh > _moveThreshold;
     if (moving) {
       _mapRot = -_smoothHeading;
@@ -1059,6 +1063,7 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
   /// Ruční zoom (tlačítka +/−). Ve follow režimu posune bias adaptivního zoomu
   /// (drží se i při jízdě), jinak jen přiblíží aktuální výřez.
   void _zoomBy(double d) {
+    if (!_mapReady) return;
     if (_follow && _me != null) {
       setState(() => _zoomBias = (_zoomBias + d).clamp(-3.0, 4.0));
       _animZoom = _targetZoom(_zoomSpeed);
@@ -1100,7 +1105,7 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
   void _resetNorth() {
     setState(() => _headingUp = false);
     _mapRot = 0;
-    _ctrl.rotate(0);
+    if (_mapReady) _ctrl.rotate(0);
   }
 
   @override
@@ -1262,6 +1267,9 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
             options: MapOptions(
               initialCenter: initialCenter,
               initialZoom: _me != null ? _targetZoom(_speedKmh) : 13,
+              // Kamera se smí ovládat až od teď — dřívější GPS fixy by na
+              // neattachnutém controlleru spadly (LateInitializationError).
+              onMapReady: () => _mapReady = true,
               onPositionChanged: (position, hasGesture) {
                 if (hasGesture) {
                   // MapPosition nemá rotation → vezmi ji z controlleru.
