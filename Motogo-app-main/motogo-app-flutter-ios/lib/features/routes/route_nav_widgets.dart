@@ -717,22 +717,32 @@ void showNavStopsSheet(
                                 color: MotoGoColors.greenDark),
                           )
                         : null,
-                    trailing: s.reached
-                        ? const Icon(Icons.check_circle,
-                            size: 20, color: MotoGoColors.greenDark)
-                        : TextButton(
-                            onPressed: () {
-                              Navigator.of(sc).pop();
-                              onNavigateTo(s.index);
-                            },
-                            child: Text(
-                              t(sc).tr('navNavigateHere'),
-                              style: const TextStyle(
-                                  fontSize: MotoGoTypo.sizeMd,
-                                  fontWeight: MotoGoTypo.w800,
-                                  color: MotoGoColors.greenDarker),
-                            ),
+                    // Navštívený bod má fajfku, ale „navigovat sem" zůstává
+                    // i u něj — jde se na místo vrátit a navigovat znovu.
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (s.reached)
+                          const Padding(
+                            padding: EdgeInsets.only(right: 4),
+                            child: Icon(Icons.check_circle,
+                                size: 20, color: MotoGoColors.greenDark),
                           ),
+                        TextButton(
+                          onPressed: () {
+                            Navigator.of(sc).pop();
+                            onNavigateTo(s.index);
+                          },
+                          child: Text(
+                            t(sc).tr('navNavigateHere'),
+                            style: const TextStyle(
+                                fontSize: MotoGoTypo.sizeMd,
+                                fontWeight: MotoGoTypo.w800,
+                                color: MotoGoColors.greenDarker),
+                          ),
+                        ),
+                      ],
+                    ),
                   );
                 },
               ),

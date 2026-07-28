@@ -737,11 +737,20 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
 
   /// Navigovat rovnou na zvolenou zastávku — dřívější nedojeté body se
   /// přeskočí (vědomá volba jezdce v seznamu zastávek, ne automatika).
+  /// Jde i na UŽ NAVŠTÍVENÝ bod: fajfka se mu zruší a naviguje se na něj
+  /// znovu — vrátí se po novém ručním potvrzení dojezdu.
   void _navigateToStop(int index) {
     if (index < 0 || index >= _stops.length) return;
     setState(() {
       for (var i = 0; i < index; i++) {
         _stops[i].reached = true;
+      }
+      final s = _stops[index];
+      if (s.reached) {
+        s.reached = false;
+        _prompted.remove(s); // potvrzovací karta smí vyskočit znovu
+        _routeDone = false;
+        _doneCardDismissed = false;
       }
       _reachedCard = null;
     });
