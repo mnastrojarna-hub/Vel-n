@@ -34,8 +34,9 @@ export async function execReadCore(name: string, input: R, sb: SB): Promise<unkn
     case 'get_bookings_detail': {
       const limit = (input.limit as number) || 20
       let q = sb.from('bookings')
-        .select('id, user_id, moto_id, start_date, end_date, status, payment_status, total_price, pickup_method, return_method, booking_source, notes, created_at, pickup_time, promo_code, discount_amount, extras_price, deposit')
+        .select('id, user_id, moto_id, start_date, end_date, status, payment_status, total_price, pickup_method, return_method, booking_source, notes, created_at, pickup_time, promo_code, discount_amount, extras_price, deposit, created_via_ai, is_test')
         .order('start_date', { ascending: false }).limit(limit)
+      if (input.include_test !== true) q = q.eq('is_test', false)
       if (input.status) q = q.eq('status', input.status)
       if (input.date_from) q = q.gte('start_date', input.date_from)
       if (input.date_to) q = q.lte('start_date', input.date_to)

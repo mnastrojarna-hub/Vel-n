@@ -35,10 +35,11 @@ export async function execE2ETest(name: string, input: R, sb: SB): Promise<unkno
     // === CREATE TEST PROMO CODE (100%) ===
     case 'create_test_promo': {
       const code = `${TEST_PROMO_PREFIX}${Date.now().toString(36).toUpperCase()}`
+      // Reálné sloupce: value + active (description v tabulce není)
       const { data, error } = await sb.from('promo_codes').insert({
-        code, type: 'percent', discount_value: 100, max_uses: 10,
+        code, type: 'percent', value: 100, max_uses: 10,
         valid_to: new Date(now.getTime() + 7 * 86400000).toISOString().slice(0, 10),
-        is_active: true, description: 'AI Tester - 100% sleva pro testování',
+        active: true, source: 'ostatni',
       }).select().single()
       if (error) return { error: error.message }
       return {
@@ -214,13 +215,13 @@ export async function execE2ETest(name: string, input: R, sb: SB): Promise<unkno
       })
 
       // Active promo codes
-      const { data: promos } = await sb.from('promo_codes').select('code, type, discount_value, is_active, valid_to').eq('is_active', true)
+      const { data: promos } = await sb.from('promo_codes').select('code, type, value, active, valid_to').eq('active', true)
       const expired = (promos || []).filter((p: R) => p.valid_to && p.valid_to < now.toISOString().slice(0, 10))
       report.sections.push({
         name: 'Promo kódy',
         status: expired.length === 0 ? 'ok' : 'warn',
         details: `${(promos || []).length} aktivních, ${expired.length} expirovaných (ale stále active)`,
-        issues: expired.map((p: R) => `${p.code} expiroval ${p.valid_to} ale je stále is_active=true`),
+        issues: expired.map((p: R) => `${p.code} expiroval ${p.valid_to} ale je stále active=true`),
       })
 
       // Open branches

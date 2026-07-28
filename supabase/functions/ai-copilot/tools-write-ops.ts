@@ -158,7 +158,8 @@ export async function execWriteOps(name: string, input: R, sb: SB, dryRun: boole
       const { code, type: pType, discount_value, max_uses, valid_to } = input
       const summary = `Vytvoření promo kódu "${code}": ${pType} ${discount_value}${pType === 'percent' ? '%' : ' Kč'}`
       if (dryRun) return { status: 'preview', summary, data: input }
-      const { error } = await sb.from('promo_codes').insert({ code, type: pType, discount_value, max_uses: max_uses || 100, valid_to, is_active: true })
+      // Reálné sloupce: value + active (NE discount_value/is_active)
+      const { error } = await sb.from('promo_codes').insert({ code, type: pType, value: discount_value, max_uses: max_uses || 100, valid_to, active: true })
       if (error) return { error: error.message }
       return { status: 'executed', summary }
     }
@@ -183,7 +184,8 @@ export async function execWriteOps(name: string, input: R, sb: SB, dryRun: boole
       if (!item) return { error: 'Skladová položka nenalezena' }
       const summary = `Pohyb skladu: ${mType} ${quantity}× "${item.name}" (aktuální: ${item.stock})`
       if (dryRun) return { status: 'preview', summary, current: item }
-      const { error } = await sb.from('inventory_movements').insert({ item_id, type: mType, quantity, notes, created_at: new Date().toISOString() })
+      // Reálný sloupec je `note` (singulár)
+      const { error } = await sb.from('inventory_movements').insert({ item_id, type: mType, quantity, note: notes, created_at: new Date().toISOString() })
       if (error) return { error: error.message }
       const newStock = mType === 'receipt' ? item.stock + quantity : item.stock - quantity
       await sb.from('inventory').update({ stock: newStock }).eq('id', item_id)
@@ -197,7 +199,7 @@ export async function execWriteOps(name: string, input: R, sb: SB, dryRun: boole
       if (dryRun) return { status: 'preview', summary, key, new_value: value }
       let parsedValue
       try { parsedValue = JSON.parse(value) } catch { parsedValue = value }
-      const { error } = await sb.from('app_settings').update({ value: parsedValue }).eq('key', key)
+      const { error } = await sb.from('app_settings').upsert({ key, value: parsedValue }, { onConflict: 'key' })
       if (error) return { error: error.message }
       return { status: 'executed', summary }
     }
@@ -206,7 +208,12 @@ export async function execWriteOps(name: string, input: R, sb: SB, dryRun: boole
       const { flag_name, enabled } = input
       const summary = `Feature flag "${flag_name}": ${enabled ? 'ZAPNUTO' : 'VYPNUTO'}`
       if (dryRun) return { status: 'preview', summary }
-      const { error } = await sb.from('feature_flags').update({ enabled }).eq('name', flag_name)
+      // Kanonický identifikátor je `key`; fallback na legacy `name`
+      const { data: byKey } = await sb.from('feature_flags').select('id').eq('key', flag_name).limit(1)
+      let flagId = byKey?.[0]?.id
+      if (!flagId) { const { data: byName } = await sb.from('feature_flags').select('id').eq('name', flag_name).limit(1); flagId = byName?.[0]?.id }
+      if (!flagId) return { error: `Feature flag "${flag_name}" nenalezen` }
+      const { error } = await sb.from('feature_flags').update({ enabled }).eq('id', flagId)
       if (error) return { error: error.message }
       return { status: 'executed', summary }
     }
@@ -228,8 +235,9 @@ export async function execWriteOps(name: string, input: R, sb: SB, dryRun: boole
         checks.push({ area: 'fleet', no_price: noPrice || 0, no_branch: noBranch || 0 })
       }
       if (scope === 'all' || scope === 'finance') {
-        const { count: unpaid } = await sb.from('invoices').select('id', { count: 'exact', head: true }).eq('status', 'unpaid')
-        checks.push({ area: 'finance', unpaid_invoices: unpaid || 0 })
+        // „Nezaplaceno" = zálohovky (advance/proforma) bez zrušení — status 'unpaid' v DB neexistuje
+        const { count: unpaid } = await sb.from('invoices').select('id', { count: 'exact', head: true }).in('type', ['advance', 'proforma', 'shop_proforma']).not('status', 'in', '(cancelled,refunded,paid)')
+        checks.push({ area: 'finance', proforma_awaiting_payment: unpaid || 0 })
       }
       return { status: 'executed', summary, checks }
     }
