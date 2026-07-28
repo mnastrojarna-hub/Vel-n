@@ -624,10 +624,14 @@ class NavStopView {
 
 /// Sheet se zastávkami trasy — odškrtnuté projeté, klepnutí na budoucí bod
 /// = navigovat rovnou na něj (dřívější nedojeté body se přeskočí).
+/// [branchLabel] = pobočka MotoGo24 jako NEAKTIVNÍ poslední bod každé trasy;
+/// „navigovat sem" ji přidá na konec trasy a rovnou na ni naviguje.
 void showNavStopsSheet(
   BuildContext context, {
   required List<NavStopView> stops,
   required void Function(int index) onNavigateTo,
+  String? branchLabel,
+  VoidCallback? onNavigateToBranch,
 }) {
   showModalBottomSheet(
     context: context,
@@ -685,8 +689,52 @@ void showNavStopsSheet(
               child: ListView.builder(
                 shrinkWrap: true,
                 padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
-                itemCount: stops.length,
+                itemCount: stops.length + (branchLabel == null ? 0 : 1),
                 itemBuilder: (c, i) {
+                  // NEAKTIVNÍ poslední bod: pobočka MotoGo24 — „navigovat
+                  // sem" ji přidá na konec trasy a rovnou na ni naviguje.
+                  if (i == stops.length) {
+                    return ListTile(
+                      dense: true,
+                      leading: Container(
+                        width: 30,
+                        height: 30,
+                        decoration: BoxDecoration(
+                          color: MotoGoColors.g200,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
+                        ),
+                        child: const Icon(Icons.flag,
+                            size: 16, color: MotoGoColors.greenDarker),
+                      ),
+                      title: Text(
+                        branchLabel!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: MotoGoTypo.sizeLg,
+                          fontWeight: MotoGoTypo.w700,
+                          color: MotoGoColors.g500,
+                          decoration: TextDecoration.none,
+                        ),
+                      ),
+                      trailing: TextButton(
+                        onPressed: onNavigateToBranch == null
+                            ? null
+                            : () {
+                                Navigator.of(sc).pop();
+                                onNavigateToBranch();
+                              },
+                        child: Text(
+                          t(sc).tr('navNavigateHere'),
+                          style: const TextStyle(
+                              fontSize: MotoGoTypo.sizeMd,
+                              fontWeight: MotoGoTypo.w800,
+                              color: MotoGoColors.greenDarker),
+                        ),
+                      ),
+                    );
+                  }
                   final s = stops[i];
                   return ListTile(
                     dense: true,

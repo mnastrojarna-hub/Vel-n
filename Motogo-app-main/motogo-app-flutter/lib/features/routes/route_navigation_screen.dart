@@ -63,7 +63,8 @@ class _NavStop {
   String? label;
   RoutePoi? poi;
   bool reached = false;
-  _NavStop(this.point, {this.label, this.poi});
+  final bool isBranch; // návrat na pobočku MotoGo24 (aktivuje se ručně)
+  _NavStop(this.point, {this.label, this.poi, this.isBranch = false});
 }
 
 class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
@@ -637,12 +638,9 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
         _stops.add(_NavStop(p));
       }
     }
-    // Okruh se vrací na pobočku jen když je poblíž trasy — u vzdálené
-    // (zahraniční) trasy se návrat přes půl Evropy neplánuje.
-    if (route.isLoop && startIsNearRoute(route, _branch?.latLng)) {
-      final b = _branch?.latLng;
-      if (b != null) _stops.add(_NavStop(b, label: _branch?.name));
-    }
+    // Pobočka MotoGo24 (odkud motorka pochází) se NEpřidává automaticky —
+    // u KAŽDÉ trasy je v seznamu zastávek jako NEAKTIVNÍ poslední bod
+    // s možností „navigovat sem" (aktivace = [_activateBranchReturn]).
     const dist = Distance();
     for (final poi in route.pois) {
       final ll = poi.latLng;
@@ -753,6 +751,49 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
         _doneCardDismissed = false;
       }
       _reachedCard = null;
+    });
+    _persistProgress();
+    _reroute(force: true);
+  }
+
+  /// „Moje" pobočka pro vlastní trasu (bez pobočky trasy): nejbližší pobočka
+  /// MotoGo24 ke startu trasy / poloze jezdce.
+  RouteBranch? _nearestBranchFor(
+      Map<String, RouteBranch> branches, RouteItem route) {
+    var anchor =
+        _fix ?? (route.waypoints.isNotEmpty ? route.waypoints.first : null);
+    if (anchor == null && route.pois.isNotEmpty) {
+      anchor = route.pois.first.latLng;
+    }
+    if (anchor == null) return null;
+    const dist = Distance();
+    RouteBranch? best;
+    var bd = double.infinity;
+    for (final b in branches.values) {
+      final ll = b.latLng;
+      if (ll == null) continue;
+      final d = dist.as(LengthUnit.Meter, anchor, ll);
+      if (d < bd) {
+        bd = d;
+        best = b;
+      }
+    }
+    return best;
+  }
+
+  bool get _branchAdded => _stops.any((s) => s.isBranch);
+
+  /// Aktivace návratu na pobočku MotoGo24: pobočka se přidá jako POSLEDNÍ
+  /// zastávka trasy a rovnou se na ni naviguje. Dojezd se pak potvrzuje
+  /// ručně stejně jako u bodů zájmu.
+  void _activateBranchReturn() {
+    final b = _branch;
+    final ll = b?.latLng;
+    if (b == null || ll == null || _branchAdded) return;
+    setState(() {
+      _stops.add(_NavStop(ll, label: b.name, isBranch: true));
+      _routeDone = false;
+      _doneCardDismissed = false;
     });
     _persistProgress();
     _reroute(force: true);
@@ -898,7 +939,18 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
         hasPoi: s.poi != null,
       ));
     }
-    showNavStopsSheet(context, stops: views, onNavigateTo: _navigateToStop);
+    final b = _branch;
+    showNavStopsSheet(
+      context,
+      stops: views,
+      onNavigateTo: _navigateToStop,
+      // Pobočka MotoGo24 jako NEAKTIVNÍ poslední bod každé trasy — dokud
+      // není přidaná; pak už je v seznamu jako běžná zastávka.
+      branchLabel: (!_branchAdded && b?.latLng != null)
+          ? 'MotoGo24 · ${b!.name}'
+          : null,
+      onNavigateToBranch: _activateBranchReturn,
+    );
   }
 
   /// Uložení vlastní vyjížďky do Mých tras (po dokončení navigace).
@@ -1059,7 +1111,12 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
     final custom = widget.customRoute;
     if (custom != null) {
       _route = custom;
-      _branch = null;
+      // I vlastní trasa nabízí návrat na „moji" pobočku MotoGo24 —
+      // bez pobočky trasy se vezme nejbližší ke startu / jezdci
+      // (jednou nalezená se drží, ať se nabídka nemění za jízdy).
+      final data = ref.watch(routesDataProvider).valueOrNull;
+      _branch ??=
+          data == null ? null : _nearestBranchFor(data.branches, custom);
       if (_fix != null && _navGeo == null && !_navLoading) {
         WidgetsBinding.instance.addPostFrameCallback((_) => _maybeComputeNav());
       }
