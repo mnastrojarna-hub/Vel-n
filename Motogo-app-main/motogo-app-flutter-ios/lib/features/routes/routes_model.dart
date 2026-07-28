@@ -1,5 +1,7 @@
 import 'package:latlong2/latlong.dart';
 
+import 'route_nav_motion.dart' show RouteGeoCache;
+
 /// Pomocné parsování čísla z dynamic (DB vrací num/string).
 double? _toD(dynamic v) {
   if (v == null) return null;
@@ -305,7 +307,8 @@ class RouteItem {
       mapyUrl: j['mapy_url']?.toString(),
       coverImage: j['cover_image']?.toString(),
       images: (j['images'] as List?)?.map((e) => e.toString()).toList() ?? const [],
-      pois: poiList,
+      // Přečíslování: body zájmu v pořadí PO TRASE (viz sortPoisAlongGeometry)
+      pois: sortPoisAlongGeometry(poiList, geo),
       translations: j['translations'] is Map ? j['translations'] as Map : null,
       reviewAvg: _toD(j['review_avg']),
       reviewCount: _toI(j['review_count']) ?? 0,
@@ -316,6 +319,28 @@ class RouteItem {
           const [],
     );
   }
+}
+
+/// PŘEČÍSLOVÁNÍ bodů zájmu: seřadí body podle pozice PO TRASE (projekce na
+/// geometrii, metry od startu) — čísla pinů 1..N pak jdou logicky za sebou
+/// ve směru jízdy na všech trasách; nikdy 1 a 3 vedle sebe a 2 úplně jinde.
+/// Body bez souřadnic zůstávají na konci v původním pořadí.
+List<RoutePoi> sortPoisAlongGeometry(List<RoutePoi> pois, List<LatLng> geo) {
+  if (pois.length < 2 || geo.length < 2) return pois;
+  final cache = RouteGeoCache.build(geo);
+  if (cache == null) return pois;
+  final located = <(RoutePoi, double)>[];
+  final unlocated = <RoutePoi>[];
+  for (final p in pois) {
+    final ll = p.latLng;
+    if (ll == null) {
+      unlocated.add(p);
+    } else {
+      located.add((p, cache.project(ll).alongM));
+    }
+  }
+  located.sort((a, b) => a.$2.compareTo(b.$2));
+  return [for (final e in located) e.$1, ...unlocated];
 }
 
 /// Pobočka — startovní bod tras (jméno + GPS).

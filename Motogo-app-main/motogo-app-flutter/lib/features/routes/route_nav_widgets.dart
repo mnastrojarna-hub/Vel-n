@@ -431,7 +431,9 @@ class StopReachedCard extends StatelessWidget {
             children: [
               Expanded(
                 child: GestureDetector(
-                  onTap: nextLabel != null ? onNext : onClose,
+                  // Vždy [onNext] = RUČNÍ potvrzení dojezdu — bod se odškrtne
+                  // až tímto tlačítkem (i u posledního bodu trasy).
+                  onTap: onNext,
                   child: Container(
                     height: 44,
                     padding: const EdgeInsets.symmetric(horizontal: 10),
