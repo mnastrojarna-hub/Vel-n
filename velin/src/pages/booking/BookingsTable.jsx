@@ -2,6 +2,7 @@ import { TRow, TH, TD, Table } from '../../components/ui/Table'
 import StatusBadge, { getDisplayStatus } from '../../components/ui/StatusBadge'
 import { paymentStatusInfo } from './bookingConstants'
 import { rentalDays } from '../../lib/rentalDays'
+import DocsStatusPills from '../../components/DocsStatusPills'
 
 export default function BookingsTable({ bookings, navigate, fmtDateRange, dpTotals, scanStatus = {}, setDeleteConfirm, setCancelTarget, selected, setSelected }) {
   // `selected` je Map<id, row> — drží celé řádky napříč stránkami, aby hromadná akce zahrnula i výběr z jiných stránek
@@ -87,40 +88,10 @@ export default function BookingsTable({ bookings, navigate, fmtDateRange, dpTota
                 {b.complaint_status && <span className="ml-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-btn" style={{ background: '#fef3c7', color: '#92400e' }}>RKL</span>}
               </TD>
               <TD>
-                {(() => {
-                  const pill = (label, title, color, bg) => (
-                    <span title={title} className="inline-flex items-center text-[10px] font-extrabold rounded-btn"
-                      style={{ padding: '2px 6px', background: bg, color, whiteSpace: 'nowrap' }}>{label}</span>
-                  )
-                  const filled = v => !!(v != null && String(v).trim() !== '')
-                  const p = b.profiles || {}
-                  const isChild = String(b.motorcycles?.license_required || '').toUpperCase() === 'N'
-                  const scan = scanStatus[b.user_id] || { license: false, id: false, passport: false }
-                  // KROK 4 = reálné vyplnění ČÍSEL dokladů v profilu (ne příznak docs_completed_at,
-                  // který staré rezervace nemají). Bez ŘP u dětské motorky (N).
-                  const idNum = filled(p.id_number)
-                  const licNum = filled(p.license_number)
-                  const numbersOk = isChild ? idNum : (idNum && licNum)
-                  // SKEN = nahraná fotka (i bez Mindee ověření) NEBO reálný OCR sken (verified_at).
-                  const licScan = scan.license || filled(p.license_verified_at)
-                  const idScan = scan.id || scan.passport || filled(p.id_verified_at) || filled(p.passport_verified_at)
-                  const scanOk = isChild ? idScan : (licScan && idScan)
-                  const scanPartial = !scanOk && (licScan || idScan)
-                  return (
-                    <div className="flex items-center gap-1">
-                      {/* Krok 4 — vypsaná čísla dokladů (reálně z profilu) */}
-                      {numbersOk
-                        ? pill('Č ✓', isChild ? 'Číslo dokladu totožnosti vyplněno (dětská motorka — ŘP netřeba)' : 'Čísla dokladů vyplněna (doklad totožnosti + ŘP)', '#166534', '#dcfce7')
-                        : pill('Č ✗', isChild ? 'Chybí číslo dokladu totožnosti' : `Chybí čísla dokladů: ${[!idNum && 'doklad totožnosti', !licNum && 'ŘP'].filter(Boolean).join(' + ')}`, '#b91c1c', '#fee2e2')}
-                      {/* Sken dokladů (fotka nebo OCR ověření) */}
-                      {scanOk
-                        ? pill('📷 ✓', 'Doklady naskenované (fotka nebo OCR sken)', '#166534', '#dcfce7')
-                        : scanPartial
-                          ? pill('📷 ½', `Naskenován jen ${licScan ? 'ŘP' : 'doklad totožnosti'} — druhý chybí`, '#b45309', '#fef3c7')
-                          : pill('📷 ✗', 'Doklady nenaskenované', '#b91c1c', '#fee2e2')}
-                    </div>
-                  )
-                })()}
+                {/* KROK 4 = čísla dokladů z profilu; SKEN = fotka/OCR. Bez ŘP u dětské
+                    motorky (N). Sdílené UI s Customers.jsx (DocsStatusPills). */}
+                <DocsStatusPills profile={b.profiles} scan={scanStatus[b.user_id]}
+                  requireLicense={String(b.motorcycles?.license_required || '').toUpperCase() !== 'N'} />
               </TD>
               <TD><span className="text-sm" style={{ color: '#1a2e22' }}>{b.created_at ? new Date(b.created_at).toLocaleString('cs-CZ') : '—'}</span></TD>
               <TD>

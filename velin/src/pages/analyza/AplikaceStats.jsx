@@ -25,6 +25,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import AppCrashReports from './AppCrashReports'
+import InstallsChart from './InstallsChart'
 
 const CARDS = [
   { key: 'active_devices', label: 'Aktivní zařízení (30 dní)', hint: 'MAU — instalace viděné za posledních 30 dní', big: true },
@@ -103,6 +104,8 @@ export default function AplikaceStats() {
           </div>
         ))}
       </div>
+
+      <InstallsChart />
 
       <p style={{ fontSize: 12.5, color: '#7a8b82', lineHeight: 1.6, maxWidth: 760 }}>
         ℹ️ Čísla vychází z <strong>vlastní evidence instalací</strong> (každá instalace má stabilní
