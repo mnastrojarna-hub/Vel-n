@@ -145,6 +145,9 @@ $keys = [
     'editRez.history.empty','editRez.history.startChanged','editRez.history.endChanged',
     'editRez.history.motoChanged','editRez.history.locationChanged','editRez.history.generic',
     'editRez.history.sourceWeb','editRez.history.sourceApp','editRez.history.sourceAdmin','editRez.history.sourceSystem',
+    'editRez.history.pickupTimeChanged','editRez.history.returnTimeChanged','editRez.history.gearChanged',
+    'editRez.history.extrasChanged','editRez.history.sourceCustomer','editRez.history.gearItem','editRez.history.passengerShort',
+    'editRez.gear.none','editRez.change.successWithRefund',
     'editRez.detail.priceDiscount','editRez.detail.priceTotal',
 
     // Souhlasy
@@ -235,6 +238,7 @@ if (typeof MG.t !== "function") {
 <script src="' . assetUrl('/js/pages-upravit-rezervaci.js') . '"></script>
 <script src="' . assetUrl('/js/pages-upravit-rezervaci-move.js') . '"></script>
 <script src="' . assetUrl('/js/pages-upravit-rezervaci-swap.js') . '"></script>
+<script src="' . assetUrl('/js/pages-upravit-rezervaci-gear.js') . '"></script>
 <script src="' . assetUrl('/js/pages-upravit-rezervaci-resume.js') . '"></script>
 <script>
 (function(){

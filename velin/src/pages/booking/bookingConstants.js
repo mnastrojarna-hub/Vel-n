@@ -64,6 +64,82 @@ export function fmtDT(iso) {
   return new Date(iso).toLocaleString('cs-CZ')
 }
 
+// Jednotné labely zdroje úpravy — sdílí detail rezervace i Dashboard.
+export const MOD_SOURCE_LABELS = {
+  web_customer: 'zákazník (web)', app_customer: 'zákazník (app)', app: 'zákazník (app)',
+  customer: 'zákazník', ai_agent: 'AI agent', velin: 'Velín', admin: 'Velín',
+  system: 'systém', stripe_webhook: 'doplatek (Stripe)',
+}
+
+const GEAR_CHANGE_LABELS = {
+  helmet: 'Helma', jacket: 'Bunda', pants: 'Kalhoty', boots: 'Boty', gloves: 'Rukavice',
+  passenger_helmet: 'Helma spolujezdce', passenger_jacket: 'Bunda spolujezdce',
+  passenger_pants: 'Kalhoty spolujezdce', passenger_boots: 'Boty spolujezdce',
+  passenger_gloves: 'Rukavice spolujezdce',
+}
+
+const METHOD_CHANGE_LABELS = {
+  delivery: 'přistavení na adresu', pickup_at_rental: 'na pobočce', return_to_rental: 'na pobočce', branch: 'na pobočce',
+}
+
+const _histTime = t => t ? String(t).slice(0, 5) : null
+const _histDate = d => d ? new Date(d).toLocaleDateString('cs-CZ') : '—'
+const _isUuid = s => typeof s === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(s)
+
+// Popíše JEDEN záznam modification_history vč. změn času, motorky, místa a výbavy.
+// Vrací { typeLabel, color, bg, changes: [text], sourceLabel, dateChanged }.
+// Záznamy zapisují: RPC _apply_booking_changes_core, appka, Velín modaly a
+// DB trigger track_booking_content_changes (auto:true) — klíče se liší podle
+// zapisovatele, proto se každá dvojice from/to porovnává (core píše i nezměněné).
+export function describeHistoryEntry(h) {
+  const dm = describeModification(h.from_start, h.from_end, h.to_start, h.to_end)
+  const dateChanged = dm.startDelta !== 0 || dm.endDelta !== 0
+  const changes = []
+  if (dateChanged) changes.push(`termín ${_histDate(h.from_start)} – ${_histDate(h.from_end)} → ${_histDate(h.to_start)} – ${_histDate(h.to_end)} (${dm.detail})`)
+
+  const fpt = _histTime(h.from_pickup_time), tpt = _histTime(h.to_pickup_time)
+  const pickupTimeChanged = tpt && fpt !== tpt
+  if (pickupTimeChanged) changes.push(`čas vyzvednutí ${fpt || '—'} → ${tpt}`)
+  const frt = _histTime(h.from_return_time), trt = _histTime(h.to_return_time)
+  const returnTimeChanged = trt && frt !== trt
+  if (returnTimeChanged) changes.push(`čas vrácení ${frt || '—'} → ${trt}`)
+
+  const motoChanged = (h.from_moto && h.to_moto && String(h.from_moto) !== String(h.to_moto))
+    || (h.from_moto_id && h.to_moto_id && h.from_moto_id !== h.to_moto_id) || h.moto_changed
+  if (motoChanged) {
+    if (h.from_moto && h.to_moto && !_isUuid(h.from_moto) && !_isUuid(h.to_moto)) changes.push(`motorka ${h.from_moto} → ${h.to_moto}`)
+    else changes.push('výměna motorky')
+  }
+
+  const methodLbl = m => METHOD_CHANGE_LABELS[m] || m || '—'
+  if (h.to_pickup_method && h.to_pickup_method !== h.from_pickup_method) changes.push(`vyzvednutí: ${methodLbl(h.from_pickup_method)} → ${methodLbl(h.to_pickup_method)}`)
+  if (h.to_pickup_address && h.to_pickup_address !== h.from_pickup_address) changes.push(`adresa přistavení: ${h.to_pickup_address}`)
+  if (h.to_return_method && h.to_return_method !== h.from_return_method) changes.push(`vrácení: ${methodLbl(h.from_return_method)} → ${methodLbl(h.to_return_method)}`)
+  if (h.to_return_address && h.to_return_address !== h.from_return_address) changes.push(`adresa vrácení: ${h.to_return_address}`)
+
+  const gear = h.gear_changes && typeof h.gear_changes === 'object' ? h.gear_changes : null
+  const gearChanged = gear && Object.keys(gear).length > 0
+  if (gearChanged) {
+    const parts = Object.entries(gear).map(([k, v]) =>
+      `${GEAR_CHANGE_LABELS[k] || k} ${v?.from || '—'} → ${v?.to || 'odebráno'}`)
+    changes.push(`výbava: ${parts.join(', ')}`)
+  }
+
+  const diff = Number(h.price_diff ?? h.net_diff ?? NaN)
+  if (Number.isFinite(diff) && diff !== 0) changes.push(diff > 0 ? `doplatek +${Math.abs(diff).toLocaleString('cs-CZ')} Kč` : `vratka −${Math.abs(diff).toLocaleString('cs-CZ')} Kč`)
+
+  let typeLabel, color, bg
+  if (dateChanged) { typeLabel = dm.type; color = dm.color; bg = dm.bg }
+  else if (motoChanged) { typeLabel = 'výměna motorky'; color = '#7c3aed'; bg = '#ede9fe' }
+  else if (pickupTimeChanged || returnTimeChanged) { typeLabel = 'změna času'; color = '#d97706'; bg = '#fef3c7' }
+  else if (gearChanged) { typeLabel = 'změna výbavy'; color = '#0891b2'; bg = '#cffafe' }
+  else if (changes.length > 0) { typeLabel = 'změna místa'; color = '#0891b2'; bg = '#cffafe' }
+  else { typeLabel = 'upraveno'; color = '#4a5a52'; bg = '#f1faf7' }
+  if (changes.length === 0) changes.push('úprava rezervace')
+
+  return { typeLabel, color, bg, changes, dateChanged, sourceLabel: MOD_SOURCE_LABELS[h.source] || h.source || '—' }
+}
+
 const PAYMENT_METHOD_LABELS = {
   card: { label: 'Platební karta', icon: '💳', tone: '#2563eb' },
   stripe: { label: 'Online (Stripe)', icon: '💳', tone: '#2563eb' },

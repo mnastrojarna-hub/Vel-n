@@ -86,6 +86,10 @@ export default function BookingsTable({ bookings, navigate, fmtDateRange, dpTota
                 {b.sos_replacement && <span className="ml-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-btn" style={{ background: '#dcfce7', color: '#1a8a18' }}>SOS</span>}
                 {b.ended_by_sos && <span className="ml-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-btn" style={{ background: '#fee2e2', color: '#b91c1c' }}>SOS</span>}
                 {b.complaint_status && <span className="ml-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-btn" style={{ background: '#fef3c7', color: '#92400e' }}>RKL</span>}
+                {/* Upraveno = má historii změn (i změna jen času/výbavy/místa bez posunu termínu) */}
+                {Array.isArray(b.modification_history) && b.modification_history.length > 0 &&
+                  <span className="ml-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-btn" title={`Historie úprav: ${b.modification_history.length}×`}
+                    style={{ background: '#fef3c7', color: '#d97706' }}>✏️ {b.modification_history.length}×</span>}
               </TD>
               <TD>
                 {/* KROK 4 = čísla dokladů z profilu; SKEN = fotka/OCR. Bez ŘP u dětské
