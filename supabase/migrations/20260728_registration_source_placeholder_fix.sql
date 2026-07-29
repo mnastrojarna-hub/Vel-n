@@ -13,9 +13,17 @@
 --   2) DEFAULT pryč (idempotentní pojistka, kdyby ho něco vrátilo)
 --   3) backfill existujících placeholderů: aktivní instalace appky → 'app';
 --      jinak zdroj nejstarší rezervace; jinak NULL (doplní RPC při první akci)
--- Idempotentní — opakované spuštění nic nerozbije.
+--
+-- DEADLOCK-SAFE (1. běh 2026-07-28 v SQL editoru spadl na 40P01): DDL na profiles potřebuje
+-- AccessExclusiveLock a v původním pořadí se bral až PO doteku jiných tabulek → křížení se
+-- souběžným provozem. Nově: lock_timeout 5 s (radši spadnout a zopakovat než viset) a exkluzivní
+-- zámek na profiles se bere EXPLICITNĚ JAKO PRVNÍ (LOCK TABLE) před vším ostatním — v rámci
+-- transakce migrace pak už deadlock z naší strany nemůže vzniknout. Idempotentní; při pádu na
+-- lock_timeout se soubor při dalším pushi do migrations pustí znovu.
 
--- 1) Normalizace placeholderu při zápisu
+SET lock_timeout = '5s';
+
+-- 0) Funkce (nesahá na profiles — smí před zámkem)
 CREATE OR REPLACE FUNCTION public.normalize_registration_source()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -29,13 +37,16 @@ BEGIN
 END
 $$;
 
+-- 1) PRVNÍ dotek dat: exkluzivní zámek na profiles (pořadí zámků = prevence deadlocku)
+LOCK TABLE public.profiles IN ACCESS EXCLUSIVE MODE;
+
+-- 2) DDL pod drženým zámkem
+ALTER TABLE public.profiles ALTER COLUMN registration_source DROP DEFAULT;
+
 DROP TRIGGER IF EXISTS trg_normalize_registration_source ON public.profiles;
 CREATE TRIGGER trg_normalize_registration_source
   BEFORE INSERT OR UPDATE OF registration_source ON public.profiles
   FOR EACH ROW EXECUTE FUNCTION public.normalize_registration_source();
-
--- 2) Default pryč (pojistka)
-ALTER TABLE public.profiles ALTER COLUMN registration_source DROP DEFAULT;
 
 -- 3a) Backfill: aktivní instalace appky = jasný důkaz 'app'
 UPDATE public.profiles p
