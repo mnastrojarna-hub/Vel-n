@@ -3,6 +3,7 @@ import Badge from '../../components/ui/Badge'
 import MiniChart from '../../components/ui/MiniChart'
 import { getDisplayStatus } from '../../components/ui/StatusBadge'
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts'
+import { describeHistoryEntry } from '../booking/bookingConstants'
 
 export const STATUS_MAP = {
   active: { label: 'Aktivní', color: '#1a8a18', bg: '#dcfce7' },
@@ -107,27 +108,22 @@ export function RevenueChartCard({ data, nav }) {
   )
 }
 
-const MOD_SOURCE_LABELS = {
-  web_customer: 'zákazník (web)', app: 'zákazník (app)', ai_agent: 'AI agent',
-  velin: 'Velín', admin: 'Velín', stripe_webhook: 'doplatek (Stripe)',
-}
-
 export function ModificationsCard({ mods, nav }) {
   return (
     <WidgetCard icon="✏️" title="Poslední úpravy rezervací" onOpen={() => nav('/rezervace')}>
       {mods.length === 0 ? <Empty>Žádné úpravy rezervací</Empty> : mods.map(m => {
         const e = m.lastMod
-        const dateChange = e.to_start && (e.to_start !== e.from_start || e.to_end !== e.from_end)
+        // describeHistoryEntry popíše i změnu času, výbavy, motorky a místa
+        const de = describeHistoryEntry(e)
         const what = e.free_move ? `posun zdarma → ${fmtD(e.to_start)} – ${fmtD(e.to_end)}`
-          : dateChange ? `termín ${fmtD(e.from_start)} – ${fmtD(e.from_end)} → ${fmtD(e.to_start)} – ${fmtD(e.to_end)}`
-          : 'úprava rezervace'
+          : de.changes.join(' · ')
         const diff = Number(e.price_diff ?? e.gross_diff)
         return (
           <Row key={m.id} onClick={() => nav(`/rezervace/${m.id}`)}
             title={`${m.customer_name || 'Zákazník'} · ${m.motorcycle_name || 'Motorka'}`}
             sub={`${fmtDT(e.at)} · ${what}`}
             right={Number.isFinite(diff) && diff !== 0 ? `${diff > 0 ? '+' : '−'}${fmtKc(Math.abs(diff))}` : null}
-            badge={<Badge label={MOD_SOURCE_LABELS[e.source] || e.source || '—'} color="#7c3aed" bg="#ede9fe" />}
+            badge={<Badge label={de.sourceLabel} color="#7c3aed" bg="#ede9fe" />}
           />
         )
       })}

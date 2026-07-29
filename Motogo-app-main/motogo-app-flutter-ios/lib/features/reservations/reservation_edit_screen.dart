@@ -489,14 +489,40 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
       }
 
       // Build modification_history entry — tracks ALL changes:
-      // dates, motorcycle, pickup/return method & address.
+      // dates, times, motorcycle, pickup/return method & address, gear, extras.
       final fmtD = (DateTime d) => d.toIso8601String().substring(0, 10);
-      final datesChanged = calc.diffDays != 0;
+      final datesChanged = fmtD(_newStart!) != fmtD(_booking!.startDate) ||
+          fmtD(_newEnd!) != fmtD(_booking!.endDate);
       final motoChanged = _newMotoId != null && _newMotoId != _booking!.motoId;
       final pickupMethodChanged = _pickupMethod != _booking!.pickupMethod;
       final returnMethodChanged = _returnMethod != _booking!.returnMethod;
-      // Always record history when any significant change occurs
-      if (datesChanged || motoChanged || pickupMethodChanged || returnMethodChanged || calc.hasChanges) {
+      // Čas se porovnává na HH:MM (DB může vracet HH:MM:SS); default zrcadlí init.
+      String normT(String? v, String def) {
+        final s = (v == null || v.isEmpty) ? def : v;
+        return s.length >= 5 ? s.substring(0, 5) : s;
+      }
+      final pickupTimeChanged =
+          normT(_pickupTime, '09:00') != normT(_booking!.pickupTime, '09:00');
+      final returnTimeChanged =
+          normT(_returnTime, '19:00') != normT(_booking!.returnTime, '19:00');
+      final gearChanges = <String, Map<String, String?>>{};
+      void trackGear(String key, String? from, String? to) {
+        if ((from ?? '') != (to ?? '')) gearChanges[key] = {'from': from, 'to': to};
+      }
+      trackGear('helmet', _booking!.helmetSize, _helmetSize);
+      trackGear('jacket', _booking!.jacketSize, _jacketSize);
+      trackGear('pants', _booking!.pantsSize, _pantsSize);
+      trackGear('boots', _booking!.bootsSize, _bootsSize);
+      trackGear('gloves', _booking!.glovesSize, _glovesSize);
+      trackGear('passenger_helmet', _booking!.passengerHelmetSize, _passengerHelmetSize);
+      trackGear('passenger_jacket', _booking!.passengerJacketSize, _passengerJacketSize);
+      trackGear('passenger_pants', _booking!.passengerPantsSize, _passengerPantsSize);
+      trackGear('passenger_boots', _booking!.passengerBootsSize, _passengerBootsSize);
+      // Always record history when any significant change occurs — including
+      // time-only and gear-only edits (must show up in Velín/app/web history).
+      if (datesChanged || motoChanged || pickupMethodChanged || returnMethodChanged ||
+          pickupTimeChanged || returnTimeChanged || gearChanges.isNotEmpty ||
+          extrasChanged || calc.hasChanges) {
         // Store original dates on first-ever modification
         if (_booking!.originalStartDate == null) {
           changes['original_start_date'] = fmtD(_booking!.startDate);
@@ -528,6 +554,18 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
           entry['from_return_method'] = _booking!.returnMethod;
           entry['to_return_method'] = _returnMethod;
         }
+        // Track pickup/return time change (HH:MM)
+        if (pickupTimeChanged) {
+          entry['from_pickup_time'] = normT(_booking!.pickupTime, '09:00');
+          entry['to_pickup_time'] = normT(_pickupTime, '09:00');
+        }
+        if (returnTimeChanged) {
+          entry['from_return_time'] = normT(_booking!.returnTime, '19:00');
+          entry['to_return_time'] = normT(_returnTime, '19:00');
+        }
+        // Track gear size changes {field: {from, to}}
+        if (gearChanges.isNotEmpty) entry['gear_changes'] = gearChanges;
+        if (extrasChanged) entry['extras_changed'] = true;
         // Track address changes (delivery addresses)
         if (_pickupMethod == 'delivery' && _booking!.pickupMethod == 'delivery' &&
             _booking!.pickupAddress != null) {

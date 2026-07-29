@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { getDisplayStatus } from '../../components/ui/StatusBadge'
 import { SumRow } from './BookingUIHelpers'
-import { STATUS_LABELS, CANCEL_SOURCE_LABELS, describeModification, fmtDT, paymentMethodInfo, paymentStatusInfo, stripePaymentIntentUrl, hasPassengerGearOrdered } from './bookingConstants'
+import { STATUS_LABELS, CANCEL_SOURCE_LABELS, describeModification, describeHistoryEntry, fmtDT, paymentMethodInfo, paymentStatusInfo, stripePaymentIntentUrl, hasPassengerGearOrdered } from './bookingConstants'
 import { mapyLinkUrl } from '../../lib/mapyCz'
 import { fmtTimeHM, DEFAULT_PICKUP_TIME, DEFAULT_RETURN_TIME } from './bookingModifyHelpers'
 
@@ -87,15 +87,20 @@ export default function BookingSummary({ booking, sosIncidents, bookingExtras, c
       <SumRow label="Konec" value={`${new Date(b.end_date).toLocaleDateString('cs-CZ')} v ${fmtTimeHM(b.return_time, DEFAULT_RETURN_TIME)}`} />
       <SumRow label="Délka" value={`${days} ${days === 1 ? 'den' : days < 5 ? 'dny' : 'dní'}`} />
 
-      {hasModification && (
-        <div className="my-3 p-3 rounded-lg" style={{ background: mod.bg, border: `1px solid ${mod.color}55` }}>
+      {(hasModification || history.length > 0) && (() => {
+        // I změna bez posunu termínu (čas, výbava, motorka, místo) se hlásí jako úprava
+        const last = history.length > 0 ? describeHistoryEntry(history[history.length - 1]) : null
+        const banner = mod || { bg: last?.bg || '#fef3c7', color: last?.color || '#d97706', type: last?.typeLabel || 'upraveno', detail: last ? last.changes.join(' · ') : 'Rezervace byla upravena' }
+        return (
+        <div className="my-3 p-3 rounded-lg" style={{ background: banner.bg, border: `1px solid ${banner.color}55` }}>
           <div className="flex items-center gap-2 mb-2 flex-wrap">
-            <span className="inline-block rounded-btn text-[11px] font-extrabold uppercase tracking-wider" style={{ padding: '2px 8px', background: mod.color, color: '#fff' }}>
+            <span className="inline-block rounded-btn text-[11px] font-extrabold uppercase tracking-wider" style={{ padding: '2px 8px', background: banner.color, color: '#fff' }}>
               ✏️ Záznam úprav
             </span>
-            <span className="text-xs font-extrabold uppercase" style={{ color: mod.color }}>{mod.type}</span>
-            <span className="text-xs font-bold" style={{ color: '#1a2e22' }}>{mod.detail}</span>
+            <span className="text-xs font-extrabold uppercase" style={{ color: banner.color }}>{banner.type}</span>
+            <span className="text-xs font-bold" style={{ color: '#1a2e22' }}>{banner.detail}</span>
           </div>
+          {hasModification && (
           <div className="grid grid-cols-2 gap-3 text-xs">
             <div className="rounded p-2" style={{ background: 'rgba(255,255,255,.7)' }}>
               <div className="font-extrabold uppercase tracking-wider mb-0.5" style={{ color: '#4a5a52' }}>Původní termín</div>
@@ -110,19 +115,20 @@ export default function BookingSummary({ booking, sosIncidents, bookingExtras, c
               </div>
             </div>
           </div>
+          )}
           {history.length > 0 && (
-            <div className="mt-2 pt-2 text-xs" style={{ borderTop: `1px dashed ${mod.color}55` }}>
+            <div className="mt-2 pt-2 text-xs" style={{ borderTop: `1px dashed ${banner.color}55` }}>
               <div className="font-extrabold uppercase tracking-wider mb-1" style={{ color: '#4a5a52' }}>Historie úprav ({history.length}×)</div>
               {history.map((h, i) => {
-                const hm = describeModification(h.from_start, h.from_end, h.to_start, h.to_end)
+                const hm = describeHistoryEntry(h)
                 return (
                   <div key={i} className="py-0.5 flex items-baseline gap-2 flex-wrap" style={{ color: '#0f1a14' }}>
                     <span className="font-bold">{i + 1}.</span>
                     <span className="font-mono">{new Date(h.at).toLocaleString('cs-CZ')}</span>
-                    <span className="font-extrabold" style={{ color: hm.color }}>{hm.type}</span>
-                    <span>({hm.detail})</span>
-                    <span className="rounded-btn font-extrabold uppercase" style={{ padding: '1px 6px', fontSize: 10, background: h.source === 'admin' ? '#dbeafe' : '#dcfce7', color: h.source === 'admin' ? '#1d4ed8' : '#166534' }}>
-                      {h.source === 'admin' ? 'admin' : 'zákazník'}
+                    <span className="font-extrabold" style={{ color: hm.color }}>{hm.typeLabel}</span>
+                    <span>({hm.changes.join(' · ')})</span>
+                    <span className="rounded-btn font-extrabold uppercase" style={{ padding: '1px 6px', fontSize: 10, background: h.source === 'admin' || h.source === 'velin' ? '#dbeafe' : '#dcfce7', color: h.source === 'admin' || h.source === 'velin' ? '#1d4ed8' : '#166534' }}>
+                      {hm.sourceLabel}
                     </span>
                   </div>
                 )
@@ -130,7 +136,8 @@ export default function BookingSummary({ booking, sosIncidents, bookingExtras, c
             </div>
           )}
         </div>
-      )}
+        )
+      })()}
 
       <div className="text-sm font-extrabold uppercase tracking-wide mt-4 mb-2" style={{ color: '#1a2e22' }}>Vyzvednutí a vrácení</div>
       <SumAddressRow label="Přistavení" method={b.pickup_method} address={b.pickup_address} branchName={branchName} lat={b.pickup_lat} lng={b.pickup_lng} />
