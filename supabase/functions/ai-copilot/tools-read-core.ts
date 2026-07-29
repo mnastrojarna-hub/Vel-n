@@ -1,5 +1,6 @@
 // Read tools 1-8: Bookings, Fleet, SOS, Branches, Customers
 import type { SB } from './tools-constants.ts'
+import { PAID_BOOKING_STATUSES } from './tools-constants.ts'
 
 // deno-lint-ignore no-explicit-any
 type R = Record<string, any>
@@ -17,8 +18,8 @@ export async function execReadCore(name: string, input: R, sb: SB): Promise<unkn
         sb.from('bookings').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
         sb.from('bookings').select('id', { count: 'exact', head: true }).eq('status', 'completed').gte('updated_at', monthStart),
         sb.from('bookings').select('id', { count: 'exact', head: true }).eq('status', 'cancelled').gte('updated_at', monthStart),
-        sb.from('bookings').select('total_price').eq('payment_status', 'paid').gte('created_at', monthStart),
-        sb.from('bookings').select('total_price').eq('payment_status', 'paid').gte('created_at', prevMonthStart).lt('created_at', monthStart),
+        sb.from('bookings').select('total_price').in('payment_status', PAID_BOOKING_STATUSES).neq('status', 'cancelled').eq('is_test', false).gte('created_at', monthStart),
+        sb.from('bookings').select('total_price').in('payment_status', PAID_BOOKING_STATUSES).neq('status', 'cancelled').eq('is_test', false).gte('created_at', prevMonthStart).lt('created_at', monthStart),
       ])
       const revThis = (revThisR.data || []).reduce((s: number, b: R) => s + (b.total_price || 0), 0)
       const revPrev = (revPrevR.data || []).reduce((s: number, b: R) => s + (b.total_price || 0), 0)
@@ -33,8 +34,9 @@ export async function execReadCore(name: string, input: R, sb: SB): Promise<unkn
     case 'get_bookings_detail': {
       const limit = (input.limit as number) || 20
       let q = sb.from('bookings')
-        .select('id, user_id, moto_id, start_date, end_date, status, payment_status, total_price, pickup_method, return_method, booking_source, notes, created_at, pickup_time, promo_code, discount_amount, extras_price, deposit')
+        .select('id, user_id, moto_id, start_date, end_date, status, payment_status, total_price, pickup_method, return_method, booking_source, notes, created_at, pickup_time, promo_code, discount_amount, extras_price, deposit, created_via_ai, is_test')
         .order('start_date', { ascending: false }).limit(limit)
+      if (input.include_test !== true) q = q.eq('is_test', false)
       if (input.status) q = q.eq('status', input.status)
       if (input.date_from) q = q.gte('start_date', input.date_from)
       if (input.date_to) q = q.lte('start_date', input.date_to)
@@ -100,11 +102,23 @@ export async function execReadCore(name: string, input: R, sb: SB): Promise<unkn
 
     case 'get_customers': {
       const limit = (input.limit as number) || 20
-      const { count } = await sb.from('profiles').select('id', { count: 'exact', head: true })
-      let q = sb.from('profiles').select('id, full_name, email, phone, city, created_at, reliability_score, preferred_branch').order('created_at', { ascending: false }).limit(limit)
+      // Agregace přes VŠECHNY profily (souhlasy, zdroj registrace, blokace, testovací) — ne jen přes limitovaný výpis
+      const { data: allP } = await sb.from('profiles').select('id, marketing_consent, registration_source, is_blocked, is_test_account, created_at').limit(10000)
+      const all = allP || []
+      const real = all.filter((p: R) => !p.is_test_account)
+      // 'auth_trigger' je technický placeholder (bug handle_new_user), NE reálný zdroj → počítej jako neznámý
+      const bySrc: R = {}; for (const p of real) { const raw = p.registration_source; const s = !raw || raw === 'auth_trigger' ? 'neznámý (placeholder)' : raw; bySrc[s] = (bySrc[s] || 0) + 1 }
+      let q = sb.from('profiles').select('id, full_name, email, phone, city, created_at, reliability_score, preferred_branch, marketing_consent, registration_source, is_blocked, is_test_account, language').order('created_at', { ascending: false }).limit(limit)
       if (input.search) q = q.or(`full_name.ilike.%${input.search}%,email.ilike.%${input.search}%`)
       const { data } = await q
-      return { total_count: count || 0, customers: data || [] }
+      return {
+        total_count: all.length, real_customers: real.length, test_accounts: all.length - real.length,
+        marketing_consent_on: real.filter((p: R) => p.marketing_consent === true).length,
+        marketing_consent_off_or_unknown: real.filter((p: R) => p.marketing_consent !== true).length,
+        blocked: real.filter((p: R) => p.is_blocked).length,
+        by_registration_source: bySrc,
+        customers: data || [],
+      }
     }
 
     case 'get_customer_detail': {

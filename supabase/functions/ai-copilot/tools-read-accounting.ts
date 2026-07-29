@@ -17,9 +17,12 @@ export async function execReadAccounting(name: string, input: R, sb: SB): Promis
 
     case 'get_cash_register': {
       const limit = (input.limit as number) || 30
-      const { data } = await sb.from('cash_register').select('*').order('created_at', { ascending: false }).limit(limit)
-      const balance = (data || []).reduce((s: number, e: R) => s + (e.amount || 0), 0)
-      return { entries: data || [], count: (data || []).length, balance }
+      const [{ data }, allR] = await Promise.all([
+        sb.from('cash_register').select('*').order('date', { ascending: false }).limit(limit),
+        sb.from('cash_register').select('type, amount'),
+      ])
+      const balance = (allR.data || []).reduce((s: number, e: R) => s + (e.type === 'expense' ? -(e.amount || 0) : (e.amount || 0)), 0)
+      return { entries: data || [], count: (data || []).length, balance_note: 'zůstatek = příjmy − výdaje za celou historii', balance }
     }
 
     case 'get_long_term_assets': {
@@ -38,17 +41,19 @@ export async function execReadAccounting(name: string, input: R, sb: SB): Promis
     case 'get_depreciation': {
       const year = (input.year as number) || new Date().getFullYear()
       const { data } = await sb.from('acc_depreciation_entries').select('*, acc_long_term_assets(name)').eq('year', year).order('created_at')
-      const totalDepreciation = (data || []).reduce((s: number, d: R) => s + (d.annual_depreciation || 0), 0)
+      const totalDepreciation = (data || []).reduce((s: number, d: R) => s + (d.annual_amount || d.annual_depreciation || 0), 0)
       return { entries: data || [], count: (data || []).length, year, total_depreciation: totalDepreciation }
     }
 
     case 'get_liabilities': {
       let q = sb.from('acc_liabilities').select('*').order('due_date')
-      if (input.unpaid_only) q = q.eq('is_paid', false)
+      if (input.unpaid_only) q = q.neq('status', 'paid')
       const { data } = await q
+      const remaining = (l: R) => (l.amount || 0) - (l.paid_amount || 0)
       const total = (data || []).reduce((s: number, l: R) => s + (l.amount || 0), 0)
-      const overdue = (data || []).filter((l: R) => !l.is_paid && l.due_date && l.due_date < new Date().toISOString().slice(0, 10))
-      return { liabilities: data || [], count: (data || []).length, total, overdue_count: overdue.length, overdue_total: overdue.reduce((s: number, l: R) => s + (l.amount || 0), 0) }
+      const today = new Date().toISOString().slice(0, 10)
+      const overdue = (data || []).filter((l: R) => l.status !== 'paid' && remaining(l) > 0 && l.due_date && l.due_date < today)
+      return { liabilities: data || [], count: (data || []).length, total, total_unpaid_remaining: (data || []).filter((l: R) => l.status !== 'paid').reduce((s: number, l: R) => s + remaining(l), 0), overdue_count: overdue.length, overdue_total: overdue.reduce((s: number, l: R) => s + remaining(l), 0) }
     }
 
     case 'get_vat_returns': {

@@ -1,6 +1,6 @@
 // Analytics tools 26-31: Branch/Moto/Category performance, Optimal fleet, Customers, Forecast
 import type { SB } from './tools-constants.ts'
-import { FLEET_CALC, fetchAnalyticsRawData, diffDays } from './tools-constants.ts'
+import { FLEET_CALC, fetchAnalyticsRawData, diffDays, isRealizedBooking, PAID_BOOKING_STATUSES } from './tools-constants.ts'
 
 // deno-lint-ignore no-explicit-any
 type R = Record<string, any>
@@ -13,7 +13,7 @@ export async function execAnalytics(name: string, input: R, sb: SB): Promise<unk
       const pd = pm * 30, nd = new Date()
       const cms = new Date(nd.getFullYear(), nd.getMonth(), 1).toISOString()
       const pms = new Date(nd.getFullYear(), nd.getMonth() - 1, 1).toISOString()
-      const completed = raw.bookings.filter((b: R) => b.status === 'completed' && b.payment_status === 'paid')
+      const completed = raw.bookings.filter((b: R) => isRealizedBooking(b))
       const mbm: R = {}, mcm: R = {}
       for (const m of raw.motorcycles) { mbm[m.id] = m.branch_id; mcm[m.id] = m.category || 'unknown' }
       const stats = raw.branches.map((branch: R) => {
@@ -41,7 +41,7 @@ export async function execAnalytics(name: string, input: R, sb: SB): Promise<unk
       const pm = (input.period_months as number) || 6
       const raw = await fetchAnalyticsRawData(sb, pm)
       const pd = pm * 30
-      const completed = raw.bookings.filter((b: R) => b.status === 'completed' && b.payment_status === 'paid')
+      const completed = raw.bookings.filter((b: R) => isRealizedBooking(b))
       const ms = raw.motorcycles.map((moto: R) => {
         const mb = completed.filter((b: R) => b.moto_id === moto.id)
         const rev = mb.reduce((s: number, b: R) => s + (b.total_price || 0), 0)
@@ -64,7 +64,7 @@ export async function execAnalytics(name: string, input: R, sb: SB): Promise<unk
       const raw = await fetchAnalyticsRawData(sb, pm)
       const pd = pm * 30
       const mcm: R = {}; for (const m of raw.motorcycles) mcm[m.id] = m.category || 'unknown'
-      const completed = raw.bookings.filter((b: R) => b.status === 'completed' && b.payment_status === 'paid')
+      const completed = raw.bookings.filter((b: R) => isRealizedBooking(b))
       const cmc: R = {}; for (const m of raw.motorcycles) { const c = m.category || 'unknown'; cmc[c] = (cmc[c] || 0) + 1 }
       const cs: R = {}
       for (const b of completed) { const c = mcm[b.moto_id] || 'unknown'; if (!cs[c]) cs[c] = { res: 0, rev: 0, rd: 0 }; cs[c].res++; cs[c].rev += b.total_price || 0; cs[c].rd += diffDays(b.start_date, b.end_date) }
@@ -86,7 +86,7 @@ export async function execAnalytics(name: string, input: R, sb: SB): Promise<unk
       const bMotos = raw.motorcycles.filter((m: R) => m.branch_id === branchId)
       const bmIds = bMotos.map((m: R) => m.id)
       const mcm: R = {}; for (const m of bMotos) mcm[m.id] = m.category || 'unknown'
-      const completed = raw.bookings.filter((b: R) => b.status === 'completed' && b.payment_status === 'paid' && bmIds.includes(b.moto_id))
+      const completed = raw.bookings.filter((b: R) => isRealizedBooking(b) && bmIds.includes(b.moto_id))
       const cf: R = {}
       for (const m of bMotos) { const c = m.category || 'unknown'; if (!cf[c]) cf[c] = { count: 0, rev: 0, rd: 0 }; cf[c].count++ }
       for (const b of completed) { const c = mcm[b.moto_id] || 'unknown'; if (cf[c]) { cf[c].rev += b.total_price || 0; cf[c].rd += diffDays(b.start_date, b.end_date) } }
@@ -115,7 +115,7 @@ export async function execAnalytics(name: string, input: R, sb: SB): Promise<unk
       const pm = (input.period_months as number) || 12
       const raw = await fetchAnalyticsRawData(sb, pm)
       const mcm: R = {}; for (const m of raw.motorcycles) mcm[m.id] = m.category || 'unknown'
-      const completed = raw.bookings.filter((b: R) => b.status === 'completed' && b.payment_status === 'paid')
+      const completed = raw.bookings.filter((b: R) => isRealizedBooking(b))
       const cs: R = {}
       for (const b of completed) { const uid = b.user_id; if (!uid) continue; if (!cs[uid]) cs[uid] = { rev: 0, res: 0, cats: {} as R, srcs: {} as R }; cs[uid].rev += b.total_price || 0; cs[uid].res++; const c = mcm[b.moto_id] || 'unknown'; cs[uid].cats[c] = (cs[uid].cats[c] || 0) + 1; const src = b.booking_source || 'app'; cs[uid].srcs[src] = (cs[uid].srcs[src] || 0) + 1 }
       let vip = 0, regular = 0, occasional = 0, inactive = 0
@@ -133,7 +133,7 @@ export async function execAnalytics(name: string, input: R, sb: SB): Promise<unk
     case 'forecast_predictions': {
       const ma = (input.months_ahead as number) || 3
       const branchId = input.branch_id as string | undefined
-      let bQ = sb.from('bookings').select('id, moto_id, total_price, start_date, end_date, status, payment_status, created_at').eq('status', 'completed').eq('payment_status', 'paid').order('created_at', { ascending: true })
+      let bQ = sb.from('bookings').select('id, moto_id, total_price, start_date, end_date, status, payment_status, created_at').neq('status', 'cancelled').in('payment_status', PAID_BOOKING_STATUSES).eq('is_test', false).order('created_at', { ascending: true })
       if (branchId) { const { data: bm } = await sb.from('motorcycles').select('id').eq('branch_id', branchId); const mids = (bm || []).map((m: R) => m.id); if (mids.length > 0) bQ = bQ.in('moto_id', mids); else return { error: 'Pobočka nemá žádné motorky' } }
       const { data: allB } = await bQ
       if (!allB || allB.length === 0) return { error: 'Nedostatek dat pro predikci', available_months: 0 }
