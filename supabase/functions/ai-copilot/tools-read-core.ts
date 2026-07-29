@@ -106,7 +106,8 @@ export async function execReadCore(name: string, input: R, sb: SB): Promise<unkn
       const { data: allP } = await sb.from('profiles').select('id, marketing_consent, registration_source, is_blocked, is_test_account, created_at').limit(10000)
       const all = allP || []
       const real = all.filter((p: R) => !p.is_test_account)
-      const bySrc: R = {}; for (const p of real) { const s = p.registration_source || 'neznámý'; bySrc[s] = (bySrc[s] || 0) + 1 }
+      // 'auth_trigger' je technický placeholder (bug handle_new_user), NE reálný zdroj → počítej jako neznámý
+      const bySrc: R = {}; for (const p of real) { const raw = p.registration_source; const s = !raw || raw === 'auth_trigger' ? 'neznámý (placeholder)' : raw; bySrc[s] = (bySrc[s] || 0) + 1 }
       let q = sb.from('profiles').select('id, full_name, email, phone, city, created_at, reliability_score, preferred_branch, marketing_consent, registration_source, is_blocked, is_test_account, language').order('created_at', { ascending: false }).limit(limit)
       if (input.search) q = q.or(`full_name.ilike.%${input.search}%,email.ilike.%${input.search}%`)
       const { data } = await q

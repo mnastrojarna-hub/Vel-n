@@ -11,6 +11,7 @@
 | Trigger | Tabulka | Funkce |
 |---------|---------|--------|
 | `trg_admin_users_updated` | admin_users | update_updated_at() |
+| `trg_normalize_registration_source` | profiles (BEFORE INSERT OR UPDATE OF registration_source) | normalize_registration_source() — **NEW 2026-07-28 (`20260728_registration_source_placeholder_fix.sql`).** Zahodí technický placeholder `'auth_trigger'` (→ NULL), který živý `handle_new_user()` explicitně vkládá při každé registraci a blokoval tak COALESCE doplnění zdroje v `app_save_full_profile`/`create_web_booking`. Jen normalizuje NEW, nikdy nevyhazuje výjimku. |
 | `trg_withhold_swap_next_codes` | branch_door_codes (BEFORE INSERT) | withhold_swap_next_codes() — **NEW 2026-07-21.** Na SAMOOBSLUŽNÉ pobočce zadrží kód k nové motorce navazující rezervace (`continues_booking_id` NOT NULL), dokud zákazník nevrátí původní (`withheld_reason='Vraťte nejdřív původní motorku'`). Obslužná/svoz beze změny. |
 | `trg_release_swap_next_codes` | bookings (AFTER UPDATE OF status,returned_at, WHEN completed/returned) | release_swap_next_codes() — **NEW 2026-07-21.** Po vrácení původní motorky A uvolní zadržené kódy navazující rezervace B (viz výše) + notifikuje zákazníka (`send_door_codes_email`). |
 | `trg_promo_usage_increment` | promo_code_usage | increment_promo_used_count() |
