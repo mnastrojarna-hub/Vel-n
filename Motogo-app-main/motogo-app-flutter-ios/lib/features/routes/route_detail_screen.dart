@@ -84,9 +84,14 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
     final geometry = display?.geometry ?? route.geometry;
     final mapStart = display?.start ??
         (startIsNearRoute(route, branch?.latLng) ? branch?.latLng : null);
+    // U okruhu se body číslují od NEJBLIŽŠÍHO k aktuální poloze jezdce —
+    // cyklické pootočení, směr trasy se nemění. Bez povolené polohy (provider
+    // nikdy nevyvolá systémový dialog) zůstává pořadí z DB.
+    final userPos = ref.watch(currentLocationProvider).valueOrNull;
+    final pois = rotateLoopPoisForPosition(route, userPos);
     final poiMarkers = <({LatLng point, int index})>[];
-    for (var i = 0; i < route.pois.length; i++) {
-      final ll = route.pois[i].latLng;
+    for (var i = 0; i < pois.length; i++) {
+      final ll = pois[i].latLng;
       if (ll != null) poiMarkers.add((point: ll, index: i));
     }
 
@@ -107,7 +112,7 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
                     activePoi: _activePoi,
                     onPoiTap: (i) {
                       setState(() => _activePoi = i);
-                      showRoutePoiSheet(context, route.pois[i], lang, index: i);
+                      showRoutePoiSheet(context, pois[i], lang, index: i);
                     },
                   ),
                 ),
@@ -142,7 +147,7 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
                   bottom: 12,
                   child: PressableScale(
                     pressedScale: 0.95,
-                    onTap: () => _openFullMap(context, geometry, mapStart, poiMarkers, route, lang),
+                    onTap: () => _openFullMap(context, geometry, mapStart, poiMarkers, pois, lang),
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
@@ -190,11 +195,11 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
                     ),
                   ),
                 ],
-                if (route.pois.isNotEmpty) ...[
+                if (pois.isNotEmpty) ...[
                   const SizedBox(height: 22),
                   _sectionTitle(t(context).tr('routePoisHeader')),
                   const SizedBox(height: 10),
-                  _poiCarousel(context, route, lang),
+                  _poiCarousel(context, pois, lang),
                 ],
                 if (route.images.isNotEmpty) ...[
                   const SizedBox(height: 22),
@@ -269,15 +274,15 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
     );
   }
 
-  Widget _poiCarousel(BuildContext context, RouteItem route, String lang) {
+  Widget _poiCarousel(BuildContext context, List<RoutePoi> pois, String lang) {
     return SizedBox(
       height: 196,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        itemCount: route.pois.length,
+        itemCount: pois.length,
         separatorBuilder: (_, __) => const SizedBox(width: 12),
         itemBuilder: (context, i) {
-          final p = route.pois[i];
+          final p = pois[i];
           final active = _activePoi == i;
           return PressableScale(
             pressedScale: 0.96,
@@ -532,7 +537,7 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
   }
 
   void _openFullMap(BuildContext context, List<LatLng> geometry, LatLng? start,
-      List<({LatLng point, int index})> poiMarkers, RouteItem route, String lang) {
+      List<({LatLng point, int index})> poiMarkers, List<RoutePoi> pois, String lang) {
     Navigator.of(context).push(MaterialPageRoute(
       // Používej VLASTNÍ kontext route builderu (ctx), NE zachycený vnější
       // `context`. Vnější kontext může být po uspání/obnovení appky neplatný
@@ -547,7 +552,7 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
                 geometry: geometry,
                 start: start,
                 pois: poiMarkers,
-                onPoiTap: (i) => showRoutePoiSheet(ctx, route.pois[i], lang, index: i),
+                onPoiTap: (i) => showRoutePoiSheet(ctx, pois[i], lang, index: i),
               ),
             ),
             Positioned(
@@ -573,7 +578,11 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
   }
 
   void _openExportSheet(BuildContext context, RouteItem route, RouteBranch? branch) {
-    final points = orderedRoutePoints(route, branch);
+    // U okruhu začni v bodě nejblíž aktuální poloze (stejné pootočení jako
+    // číslování bodů v detailu) — externí navigace pak vede rovnou k č. 1.
+    final userPos = ref.read(currentLocationProvider).valueOrNull;
+    final points = rotateLoopPointsForPosition(
+        orderedRoutePoints(route, branch), userPos);
     if (points.length < 2) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(t(context).tr('routeNoNavData'))),

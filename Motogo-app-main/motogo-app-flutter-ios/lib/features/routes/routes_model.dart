@@ -343,6 +343,61 @@ List<RoutePoi> sortPoisAlongGeometry(List<RoutePoi> pois, List<LatLng> geo) {
   return [for (final e in located) e.$1, ...unlocated];
 }
 
+/// Je trasa uzavřený okruh? Dle typu, nebo geometricky (první ≈ poslední
+/// waypoint < 1 km) — starší okruhy mají v DB route_type 'poi'.
+bool isClosedLoopRoute(RouteItem route) {
+  if (route.isLoop) return true;
+  final w = route.waypoints;
+  if (w.length < 3) return false;
+  const d = Distance();
+  return d.as(LengthUnit.Meter, w.first, w.last) < 1000;
+}
+
+/// POOTOČENÍ číslování okruhu podle polohy jezdce: u uzavřeného okruhu je
+/// jedno, kde se nastoupí — bod č. 1 má být logicky NEJBLÍŽ aktuální poloze
+/// a další čísla pokračují po směru trasy (cyklická rotace, směr se nemění).
+/// Bez polohy / u lineární trasy (A→B) vrací pořadí beze změny.
+List<RoutePoi> rotateLoopPoisForPosition(RouteItem route, LatLng? pos) {
+  final pois = route.pois;
+  if (pos == null || pois.length < 3 || !isClosedLoopRoute(route)) return pois;
+  const d = Distance();
+  var best = -1;
+  var bestM = double.infinity;
+  for (var i = 0; i < pois.length; i++) {
+    final ll = pois[i].latLng;
+    if (ll == null) continue;
+    final m = d.as(LengthUnit.Meter, ll, pos);
+    if (m < bestM) {
+      bestM = m;
+      best = i;
+    }
+  }
+  if (best <= 0) return pois;
+  return [...pois.sublist(best), ...pois.sublist(0, best)];
+}
+
+/// Stejná rotace pro BODY ROUTINGU uzavřeného okruhu (export do navigací):
+/// okruh se pootočí tak, aby začínal (a končil) v bodě nejblíž poloze jezdce,
+/// směr průjezdu zůstává. `pts` musí být uzavřený cyklus (první ≈ poslední).
+List<LatLng> rotateLoopPointsForPosition(List<LatLng> pts, LatLng? pos) {
+  if (pos == null || pts.length < 4) return pts;
+  const d = Distance();
+  if (d.as(LengthUnit.Meter, pts.first, pts.last) >= 1000) return pts;
+  final cycle = pts.sublist(0, pts.length - 1); // bez duplikátu startu na konci
+  var best = 0;
+  var bestM = double.infinity;
+  for (var i = 0; i < cycle.length; i++) {
+    final m = d.as(LengthUnit.Meter, cycle[i], pos);
+    if (m < bestM) {
+      bestM = m;
+      best = i;
+    }
+  }
+  if (best == 0) return pts;
+  final rotated = [...cycle.sublist(best), ...cycle.sublist(0, best)];
+  return [...rotated, rotated.first];
+}
+
 /// Pobočka — startovní bod tras (jméno + GPS).
 class RouteBranch {
   final String id;
