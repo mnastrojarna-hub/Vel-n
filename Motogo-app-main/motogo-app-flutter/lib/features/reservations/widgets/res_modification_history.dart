@@ -180,8 +180,34 @@ class ResModificationHistory extends StatelessWidget {
   Widget _buildHistoryEntry(BuildContext context, int idx, ModificationEntry mod) {
     final hm = ModDescription.describe(
         mod.fromStart, mod.fromEnd, mod.toStart, mod.toEnd);
-    final source = mod.source == 'admin' ? 'admin' : t(context).tr('customerLabel');
+    final source = mod.source == 'admin' || mod.source == 'velin'
+        ? 'admin'
+        : mod.source == 'system'
+            ? t(context).tr('systemLabel')
+            : t(context).tr('customerLabel');
     final changes = <Widget>[];
+    String hmT(String? v) =>
+        (v == null || v.isEmpty) ? '—' : (v.length >= 5 ? v.substring(0, 5) : v);
+    // Chip: u záznamu bez posunu termínu popiš skutečný druh změny
+    // (ModDescription by ukázal jen „beze změny").
+    var typeLabel = hm.type;
+    var typeColor = hm.color;
+    if (!mod.hasDateChange) {
+      if (mod.hasMotoChange) {
+        typeLabel = t(context).tr('histMotoChange');
+        typeColor = const Color(0xFF7C3AED);
+      } else if (mod.hasPickupTimeChange || mod.hasReturnTimeChange) {
+        typeLabel = t(context).tr('histTimeChange');
+        typeColor = const Color(0xFFD97706);
+      } else if (mod.hasGearChange || mod.extrasChanged) {
+        typeLabel = t(context).tr('histGearChange');
+        typeColor = const Color(0xFF0891B2);
+      } else if (mod.hasPickupMethodChange || mod.hasReturnMethodChange ||
+          mod.hasPickupAddressChange || mod.hasReturnAddressChange) {
+        typeLabel = t(context).tr('histPlaceChange');
+        typeColor = const Color(0xFF0891B2);
+      }
+    }
 
     // Date change detail
     if (mod.hasDateChange) {
@@ -280,13 +306,68 @@ class ResModificationHistory extends StatelessWidget {
       ));
     }
 
+    // Pickup time change
+    if (mod.hasPickupTimeChange) {
+      changes.add(_changeRow(
+        t(context).tr('pickupTimeEdit'),
+        hmT(mod.fromPickupTime),
+        hmT(mod.toPickupTime),
+        null,
+        const Color(0xFFD97706),
+      ));
+    }
+
+    // Return time change
+    if (mod.hasReturnTimeChange) {
+      changes.add(_changeRow(
+        t(context).tr('returnTimeEdit'),
+        hmT(mod.fromReturnTime),
+        hmT(mod.toReturnTime),
+        null,
+        const Color(0xFFD97706),
+      ));
+    }
+
+    // Gear size changes {field: {from, to}}
+    if (mod.hasGearChange) {
+      mod.gearChanges.forEach((key, v) {
+        final isPassenger = key.startsWith('passenger_');
+        final base = isPassenger ? key.substring('passenger_'.length) : key;
+        final label = t(context).tr(base) +
+            (isPassenger ? ' (${t(context).tr('histPassenger')})' : '');
+        changes.add(_changeRow(
+          label,
+          (v['from'] == null || v['from']!.isEmpty) ? '—' : v['from']!,
+          (v['to'] == null || v['to']!.isEmpty)
+              ? t(context).tr('histRemoved')
+              : v['to']!,
+          null,
+          const Color(0xFF0891B2),
+        ));
+      });
+    }
+
+    // Extras changed (řádky doplňků drží booking_extras — tady jen signál)
+    if (mod.extrasChanged) {
+      changes.add(Padding(
+        padding: const EdgeInsets.only(top: 3),
+        child: Text(
+          t(context).tr('histExtrasChanged'),
+          style: const TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF0891B2)),
+        ),
+      ));
+    }
+
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: hm.color.withValues(alpha: 0.06),
+        color: typeColor.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: hm.color.withValues(alpha: 0.2)),
+        border: Border.all(color: typeColor.withValues(alpha: 0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -297,7 +378,7 @@ class ResModificationHistory extends StatelessWidget {
               width: 22,
               height: 22,
               decoration: BoxDecoration(
-                color: hm.color,
+                color: typeColor,
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Center(
@@ -324,15 +405,15 @@ class ResModificationHistory extends StatelessWidget {
               padding:
                   const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
-                color: hm.color.withValues(alpha: 0.15),
+                color: typeColor.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(50),
               ),
               child: Text(
-                hm.type,
+                typeLabel,
                 style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w800,
-                    color: hm.color),
+                    color: typeColor),
               ),
             ),
           ]),

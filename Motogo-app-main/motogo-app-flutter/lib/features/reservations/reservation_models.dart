@@ -292,7 +292,13 @@ class ModificationEntry {
   final String? toReturnMethod;
   final String? fromReturnAddress;
   final String? toReturnAddress;
-  final String source; // 'customer' or 'admin'
+  final String? fromPickupTime;
+  final String? toPickupTime;
+  final String? fromReturnTime;
+  final String? toReturnTime;
+  final Map<String, Map<String, String?>> gearChanges;
+  final bool extrasChanged;
+  final String source; // 'customer', 'admin', 'system', 'web_customer', ...
 
   const ModificationEntry({
     required this.at,
@@ -310,6 +316,12 @@ class ModificationEntry {
     this.toReturnMethod,
     this.fromReturnAddress,
     this.toReturnAddress,
+    this.fromPickupTime,
+    this.toPickupTime,
+    this.fromReturnTime,
+    this.toReturnTime,
+    this.gearChanges = const {},
+    this.extrasChanged = false,
     this.source = 'customer',
   });
 
@@ -330,8 +342,28 @@ class ModificationEntry {
       toReturnMethod: json['to_return_method'] as String?,
       fromReturnAddress: json['from_return_address'] as String?,
       toReturnAddress: json['to_return_address'] as String?,
+      fromPickupTime: json['from_pickup_time'] as String?,
+      toPickupTime: json['to_pickup_time'] as String?,
+      fromReturnTime: json['from_return_time'] as String?,
+      toReturnTime: json['to_return_time'] as String?,
+      gearChanges: _parseGearChanges(json['gear_changes']),
+      extrasChanged: json['extras_changed'] == true,
       source: json['source'] as String? ?? 'customer',
     );
+  }
+
+  static Map<String, Map<String, String?>> _parseGearChanges(dynamic raw) {
+    if (raw is! Map) return const {};
+    final out = <String, Map<String, String?>>{};
+    raw.forEach((k, v) {
+      if (v is Map) {
+        out[k.toString()] = {
+          'from': v['from']?.toString(),
+          'to': v['to']?.toString(),
+        };
+      }
+    });
+    return out;
   }
 
   Map<String, dynamic> toJson() => {
@@ -350,11 +382,28 @@ class ModificationEntry {
     if (toReturnMethod != null) 'to_return_method': toReturnMethod,
     if (fromReturnAddress != null) 'from_return_address': fromReturnAddress,
     if (toReturnAddress != null) 'to_return_address': toReturnAddress,
+    if (fromPickupTime != null) 'from_pickup_time': fromPickupTime,
+    if (toPickupTime != null) 'to_pickup_time': toPickupTime,
+    if (fromReturnTime != null) 'from_return_time': fromReturnTime,
+    if (toReturnTime != null) 'to_return_time': toReturnTime,
+    if (gearChanges.isNotEmpty) 'gear_changes': gearChanges,
+    if (extrasChanged) 'extras_changed': true,
     'source': source,
   };
 
+  // Čas se porovnává na HH:MM — DB trigger ukládá i sekundy (HH:MM:SS).
+  static String? _hm(String? v) =>
+      v == null ? null : (v.length >= 5 ? v.substring(0, 5) : v);
+
   bool get hasDateChange => fromStart != toStart || fromEnd != toEnd;
-  bool get hasMotoChange => fromMoto != null && toMoto != null;
+  // from/to porovnat — RPC jádro zapisuje from_moto/to_moto i beze změny
+  bool get hasMotoChange =>
+      fromMoto != null && toMoto != null && fromMoto != toMoto;
+  bool get hasPickupTimeChange =>
+      toPickupTime != null && _hm(fromPickupTime) != _hm(toPickupTime);
+  bool get hasReturnTimeChange =>
+      toReturnTime != null && _hm(fromReturnTime) != _hm(toReturnTime);
+  bool get hasGearChange => gearChanges.isNotEmpty;
   bool get hasPickupMethodChange =>
       fromPickupMethod != null && toPickupMethod != null &&
       fromPickupMethod != toPickupMethod;

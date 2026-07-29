@@ -1,6 +1,6 @@
 import Card from '../../components/ui/Card'
 import { InfoRow } from './BookingUIHelpers'
-import { CANCEL_REASONS, describeModification, paymentMethodInfo, paymentStatusInfo, stripePaymentIntentUrl, stripeRefundUrl, cardLabel } from './bookingConstants'
+import { CANCEL_REASONS, describeModification, describeHistoryEntry, paymentMethodInfo, paymentStatusInfo, stripePaymentIntentUrl, stripeRefundUrl, cardLabel } from './bookingConstants'
 import Button from '../../components/ui/Button'
 import { mapyLinkUrl, mapyNavigateUrl } from '../../lib/mapyCz'
 import { fmtTimeHM, DEFAULT_PICKUP_TIME, DEFAULT_RETURN_TIME } from './bookingModifyHelpers'
@@ -263,23 +263,36 @@ export function DatesAndPaymentSection({ booking, bookingExtras, sosIncidents, o
             style={{ padding: '6px 16px', background: '#2563eb', color: '#fff', border: 'none', boxShadow: '0 2px 8px rgba(37,99,235,.25)' }}>Upravit rezervaci</button>
         )}
       </div>
-      {hasModification && (() => {
-        const mod = describeModification(booking.original_start_date, booking.original_end_date, booking.start_date, booking.end_date)
+      {(() => {
         const history = Array.isArray(booking.modification_history) ? booking.modification_history : []
+        // Změna se hlásí i bez posunu termínu — historie eviduje i změnu času,
+        // výbavy, motorky a místa (zapisuje ji i DB trigger track_booking_content_changes)
+        if (!hasModification && history.length === 0) return null
+        const mod = hasModification
+          ? describeModification(booking.original_start_date, booking.original_end_date, booking.start_date, booking.end_date)
+          : null
+        const last = history.length > 0 ? describeHistoryEntry(history[history.length - 1]) : null
+        const banner = mod || { bg: last?.bg || '#fef3c7', color: last?.color || '#d97706', type: last?.typeLabel || 'upraveno' }
         return (
           <div className="mb-3 space-y-1">
-            <div className="p-2.5 rounded-lg flex items-center gap-3 flex-wrap" style={{ background: mod.bg, fontSize: 13, border: `1px solid ${mod.color}33` }}>
-              <span className="font-extrabold uppercase tracking-wide text-xs rounded-btn" style={{ color: '#fff', background: mod.color, padding: '2px 8px' }}>{mod.type}</span>
+            <div className="p-2.5 rounded-lg flex items-center gap-3 flex-wrap" style={{ background: banner.bg, fontSize: 13, border: `1px solid ${banner.color}33` }}>
+              <span className="font-extrabold uppercase tracking-wide text-xs rounded-btn" style={{ color: '#fff', background: banner.color, padding: '2px 8px' }}>{banner.type}</span>
               <span style={{ color: '#1a2e22' }}>
-                {mod.detail} · Původní: {new Date(booking.original_start_date).toLocaleDateString('cs-CZ')} – {new Date(booking.original_end_date).toLocaleDateString('cs-CZ')} ({mod.origDays}d)
+                {mod
+                  ? `${mod.detail} · Původní: ${new Date(booking.original_start_date).toLocaleDateString('cs-CZ')} – ${new Date(booking.original_end_date).toLocaleDateString('cs-CZ')} (${mod.origDays}d)`
+                  : (last ? last.changes.join(' · ') : 'Rezervace byla upravena')}
               </span>
             </div>
             {history.length > 0 && (
               <div className="text-sm px-2 py-1 rounded" style={{ background: '#f1faf7', color: '#1a2e22' }}>
                 <span className="font-extrabold">Historie úprav ({history.length}×):</span>
                 {history.map((h, i) => {
-                  const m = describeModification(h.from_start, h.from_end, h.to_start, h.to_end)
-                  return <div key={i} className="ml-2">{i + 1}. {new Date(h.at).toLocaleString('cs-CZ')} — <span className="font-bold" style={{ color: m.color }}>{m.type}</span> ({m.detail})</div>
+                  const m = describeHistoryEntry(h)
+                  return (
+                    <div key={i} className="ml-2">
+                      {i + 1}. {new Date(h.at).toLocaleString('cs-CZ')} — <span className="font-bold" style={{ color: m.color }}>{m.typeLabel}</span> ({m.changes.join(' · ')}) — <span className="font-bold">{m.sourceLabel}</span>
+                    </div>
+                  )
                 })}
               </div>
             )}
