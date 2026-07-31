@@ -151,7 +151,7 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
           'not_paid': t(context).tr('swap.err.notPaid'),
           'invalid_new_moto': t(context).tr('swap.err.invalidMoto'),
           'swap_date_out_of_range': t(context).tr('swap.err.dateRange'),
-          'already_split': t(context).tr('swap.err.dateRange'),
+          'already_split': t(context).tr('swap.err.alreadySplit'),
           'new_moto_unavailable': t(context).tr('swap.err.unavailable'),
         }[code] ??
         t(context).error;
