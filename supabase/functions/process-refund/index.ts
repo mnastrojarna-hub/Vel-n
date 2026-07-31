@@ -537,6 +537,25 @@ Deno.serve(async (req: Request) => {
     }
 
     if (!stripePaymentIntentId) {
+      // Výměna motorky (moto_swap) u rezervace BEZ Stripe platby (QR/převod/
+      // hotově/ručně označená paid): automatický refund nejde, ale výměnu kvůli
+      // tomu NEblokujeme — rezervace se označí 'refund_pending' („Čeká na
+      // vrácení" ve Velíně) a vrátíme success, aby swap commit proběhl.
+      // Peníze pošle admin ručně a stav pak ve Velíně přepne na refunded.
+      // Ostatní reasony (storno, zkrácení, Velín) se chovají jako dřív (400).
+      if (booking_id && reason === 'moto_swap') {
+        await supabase.from('bookings')
+          .update({ payment_status: 'refund_pending' })
+          .eq('id', booking_id)
+        await dlog('manual_refund_pending', 'info', {
+          manual: true,
+          note: 'no Stripe payment — vratka za výměnu motorky k ručnímu vyřízení',
+        })
+        return new Response(
+          JSON.stringify({ success: true, manual: true, code: 'manual_refund_pending', amount: amount ?? null }),
+          { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } }
+        )
+      }
       return new Response(
         JSON.stringify({
           success: false,

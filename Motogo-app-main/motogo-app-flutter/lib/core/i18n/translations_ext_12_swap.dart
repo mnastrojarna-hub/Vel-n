@@ -4,6 +4,10 @@
 /// Prefix `swap.` — kompletní sada pro cs/en/de/es/fr/nl/pl/uk.
 const translationsExt12Swap = <String, Map<String, String>>{
   'cs': {
+    'swap.net.title': 'Cenový rozdíl',
+    'swap.net.surcharge': 'Doplatek za výměnu',
+    'swap.net.refund': 'Vrátíme vám',
+    'swap.net.same': 'Výměna beze změny ceny',
     'swap.tab': 'Výměna motorky',
     'swap.title': 'Výměna motorky uprostřed rezervace',
     'swap.subtitle': 'Část termínu pojedete na aktuální motorce, od zvoleného data a času na nové.',
@@ -28,6 +32,10 @@ const translationsExt12Swap = <String, Map<String, String>>{
     'swap.err.alreadySplit': 'Výměna už na této rezervaci proběhla — druhou najdete v přehledu rezervací.',
   },
   'en': {
+    'swap.net.title': 'Price difference',
+    'swap.net.surcharge': 'Swap surcharge',
+    'swap.net.refund': 'We will refund you',
+    'swap.net.same': 'No price change',
     'swap.tab': 'Swap motorcycle',
     'swap.title': 'Swap motorcycle mid-reservation',
     'swap.subtitle': 'You ride the current motorcycle for part of the term, then the new one from the chosen date and time.',
@@ -52,6 +60,10 @@ const translationsExt12Swap = <String, Map<String, String>>{
     'swap.err.alreadySplit': 'A swap has already been made on this reservation — you can find the follow-up one in your reservations.',
   },
   'de': {
+    'swap.net.title': 'Preisdifferenz',
+    'swap.net.surcharge': 'Aufpreis für den Tausch',
+    'swap.net.refund': 'Wir erstatten Ihnen',
+    'swap.net.same': 'Keine Preisänderung',
     'swap.tab': 'Motorrad tauschen',
     'swap.title': 'Motorrad mitten in der Buchung tauschen',
     'swap.subtitle': 'Einen Teil des Zeitraums fahren Sie das aktuelle Motorrad, ab dem gewählten Datum und Uhrzeit das neue.',
@@ -76,6 +88,10 @@ const translationsExt12Swap = <String, Map<String, String>>{
     'swap.err.alreadySplit': 'Für diese Buchung wurde bereits ein Tausch durchgeführt — die Folgebuchung finden Sie in Ihren Buchungen.',
   },
   'es': {
+    'swap.net.title': 'Diferencia de precio',
+    'swap.net.surcharge': 'Suplemento por el cambio',
+    'swap.net.refund': 'Te devolveremos',
+    'swap.net.same': 'Sin cambio de precio',
     'swap.tab': 'Cambiar moto',
     'swap.title': 'Cambiar de moto a mitad de la reserva',
     'swap.subtitle': 'Parte del periodo irás en la moto actual y, desde la fecha y hora elegidas, en la nueva.',
@@ -100,6 +116,10 @@ const translationsExt12Swap = <String, Map<String, String>>{
     'swap.err.alreadySplit': 'Ya se realizó un cambio en esta reserva — encontrarás la reserva de continuación en tus reservas.',
   },
   'fr': {
+    'swap.net.title': 'Différence de prix',
+    'swap.net.surcharge': 'Supplément pour le changement',
+    'swap.net.refund': 'Nous vous remboursons',
+    'swap.net.same': 'Pas de changement de prix',
     'swap.tab': 'Changer de moto',
     'swap.title': 'Changer de moto en cours de réservation',
     'swap.subtitle': 'Vous roulez une partie de la période sur la moto actuelle, puis sur la nouvelle à partir de la date et heure choisies.',
@@ -124,6 +144,10 @@ const translationsExt12Swap = <String, Map<String, String>>{
     'swap.err.alreadySplit': 'Un changement a déjà été effectué sur cette réservation — vous trouverez la réservation suivante dans vos réservations.',
   },
   'nl': {
+    'swap.net.title': 'Prijsverschil',
+    'swap.net.surcharge': 'Toeslag voor de wissel',
+    'swap.net.refund': 'U krijgt terug',
+    'swap.net.same': 'Geen prijswijziging',
     'swap.tab': 'Motor wisselen',
     'swap.title': 'Motor wisselen tijdens de reservering',
     'swap.subtitle': 'Een deel van de periode rijd je op de huidige motor, vanaf de gekozen datum en tijd op de nieuwe.',
@@ -148,6 +172,10 @@ const translationsExt12Swap = <String, Map<String, String>>{
     'swap.err.alreadySplit': 'Er is al een wissel uitgevoerd op deze reservering — de vervolgreservering vindt u bij uw reserveringen.',
   },
   'pl': {
+    'swap.net.title': 'Różnica w cenie',
+    'swap.net.surcharge': 'Dopłata za wymianę',
+    'swap.net.refund': 'Zwrócimy Ci',
+    'swap.net.same': 'Bez zmiany ceny',
     'swap.tab': 'Zmiana motocykla',
     'swap.title': 'Zmiana motocykla w trakcie rezerwacji',
     'swap.subtitle': 'Część terminu jedziesz obecnym motocyklem, a od wybranej daty i godziny nowym.',
@@ -172,6 +200,10 @@ const translationsExt12Swap = <String, Map<String, String>>{
     'swap.err.alreadySplit': 'Wymiana na tej rezerwacji już się odbyła — kolejną rezerwację znajdziesz w swoich rezerwacjach.',
   },
   'uk': {
+    'swap.net.title': 'Різниця в ціні',
+    'swap.net.surcharge': 'Доплата за обмін',
+    'swap.net.refund': 'Повернемо вам',
+    'swap.net.same': 'Без зміни ціни',
     'swap.tab': 'Заміна мотоцикла',
     'swap.title': 'Заміна мотоцикла всередині бронювання',
     'swap.subtitle': 'Частину терміну ви їдете на поточному мотоциклі, а з обраної дати й часу — на новому.',
