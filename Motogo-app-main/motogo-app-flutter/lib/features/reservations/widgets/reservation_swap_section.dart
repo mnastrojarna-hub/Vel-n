@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/theme.dart';
 import '../../../core/router.dart';
+import '../../../core/currency.dart';
 import '../../../core/widgets/net_image.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/supabase_client.dart';
@@ -50,6 +51,11 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
   bool _availLoading = false;
   bool _availInit = false;
   int _availToken = 0; // proti zápisu zastaralého výsledku při rychlé změně data
+
+  // Náhled cenového rozdílu (net z dry-run): >0 doplatek, <0 vratka, 0 beze změny.
+  double? _net;
+  bool _netLoading = false;
+  int _netToken = 0;
 
   DateTime get _rangeStart {
     final b = widget.booking.startDate;
@@ -120,6 +126,35 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
     });
   }
 
+  /// Náhled cenového rozdílu pro zvolené datum + motorku (server-side dry-run,
+  /// stejná RPC jako potvrzení — zahrnuje i věrnostní slevu). Nic nezapisuje.
+  Future<void> _recomputeNet() async {
+    final date = _swapDate;
+    final motoId = _newMotoId;
+    final token = ++_netToken;
+    if (date == null || motoId == null) {
+      setState(() { _net = null; _netLoading = false; });
+      return;
+    }
+    setState(() { _net = null; _netLoading = true; });
+    try {
+      final res = await MotoGoSupabase.client.rpc('split_booking_moto_swap', params: {
+        'p_booking_id': widget.booking.id,
+        'p_new_moto_id': motoId,
+        'p_swap_date': date.toIso8601String().substring(0, 10),
+        'p_swap_time': _swapTime,
+        'p_dry_run': true,
+      });
+      if (!mounted || token != _netToken) return;
+      setState(() {
+        _net = (res is Map && res['success'] == true) ? ((res['net'] as num?)?.toDouble() ?? 0) : null;
+        _netLoading = false;
+      });
+    } catch (_) {
+      if (mounted && token == _netToken) setState(() => _netLoading = false);
+    }
+  }
+
   Future<void> _pickDate() async {
     final picked = await showDatePicker(
       context: context,
@@ -133,6 +168,7 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
         _swapDate = DateTime(picked.year, picked.month, picked.day);
         _newMotoId = null; // dostupnost se změnou data přepočítá
       });
+      _recomputeNet(); // reset náhledu ceny (motorka zrušena)
       final motos = ref.read(motorcyclesProvider).valueOrNull;
       if (motos != null) _recomputeAvail(motos);
     }
@@ -381,7 +417,12 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
                   final selectable = free == true;
                   final selected = _newMotoId == m.id;
                   return GestureDetector(
-                    onTap: selectable ? () => setState(() => _newMotoId = selected ? null : m.id) : null,
+                    onTap: selectable
+                        ? () {
+                            setState(() => _newMotoId = selected ? null : m.id);
+                            _recomputeNet();
+                          }
+                        : null,
                     child: Opacity(
                       opacity: (free == false) ? 0.45 : 1,
                       child: Container(
@@ -441,6 +482,56 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
           ),
         ]),
       ),
+
+      // === CENOVÝ ROZDÍL (živý náhled z dry-run — doplatek / vratka) ===
+      if (_newMotoId != null)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: MotoGoColors.greenPale,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: MotoGoColors.green, width: 1.5),
+            ),
+            child: Row(children: [
+              Icon(
+                _net == null
+                    ? Icons.payments
+                    : _net! > 0.5
+                        ? Icons.add_card
+                        : _net! < -0.5
+                            ? Icons.savings
+                            : Icons.check_circle,
+                size: 18,
+                color: MotoGoColors.greenDarker,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  _net == null
+                      ? t(context).tr('swap.net.title')
+                      : _net! > 0.5
+                          ? t(context).tr('swap.net.surcharge')
+                          : _net! < -0.5
+                              ? t(context).tr('swap.net.refund')
+                              : t(context).tr('swap.net.same'),
+                  style: const TextStyle(
+                      fontSize: 12, fontWeight: FontWeight.w700, color: MotoGoColors.greenDarker),
+                ),
+              ),
+              if (_netLoading)
+                const SizedBox(
+                    width: 16, height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: MotoGoColors.green))
+              else if (_net != null && _net!.abs() > 0.5)
+                Text(
+                  '${_net! > 0 ? '+' : '−'}${Money.czk(_net!.abs())}',
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: MotoGoColors.black),
+                ),
+            ]),
+          ),
+        ),
 
       // === POTVRDIT ===
       Padding(
