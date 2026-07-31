@@ -184,6 +184,18 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
     if (_ctx?.flowType != PaymentFlowType.extension) return null;
     final src = _ctx?.pendingEditChanges;
     if (src == null || src.isEmpty) return null;
+    // Výměna motorky: kompaktní `_swap` metadata → webhook provede COMMIT
+    // server-side, i když je appka po platbě zabita (pojistka k `_swap_commit`).
+    final swapCommit = src['_swap_commit'];
+    if (swapCommit is Map) {
+      return {
+        '_swap': {
+          'm': swapCommit['p_new_moto_id'],
+          'd': swapCommit['p_swap_date'],
+          't': swapCommit['p_swap_time'],
+        },
+      };
+    }
     const keep = {
       'start_date', 'end_date', 'moto_id', 'pickup_method', 'pickup_address',
       'return_method', 'return_address', 'pickup_time', 'return_time',
@@ -1074,16 +1086,29 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
           // „reserved" mail + smlouvu. COMMIT se NIKDY nevolá před vypořádáním platby.
           final swapCommit = _ctx!.pendingEditChanges?['_swap_commit'];
           if (swapCommit is Map) {
-            try {
-              await MotoGoSupabase.client.rpc('split_booking_moto_swap', params: {
-                'p_booking_id': swapCommit['p_booking_id'],
-                'p_new_moto_id': swapCommit['p_new_moto_id'],
-                'p_swap_date': swapCommit['p_swap_date'],
-                'p_swap_time': swapCommit['p_swap_time'],
-                'p_dry_run': false,
-              });
-            } catch (e) {
-              debugPrint('[Payment] swap commit err: $e');
+            // Commit s kontrolou VÝSLEDKU + retry. `already_split` /
+            // `invalid_new_moto` = commit už provedl webhook (`_swap` metadata)
+            // → v pořádku. Když selžou všechny pokusy, webhook je pojistka —
+            // definitivní selhání obou cest loguje server (swap_commit_failed).
+            var committed = false;
+            for (var attempt = 0; attempt < 3 && !committed; attempt++) {
+              if (attempt > 0) await Future.delayed(const Duration(seconds: 2));
+              try {
+                final res = await MotoGoSupabase.client.rpc('split_booking_moto_swap', params: {
+                  'p_booking_id': swapCommit['p_booking_id'],
+                  'p_new_moto_id': swapCommit['p_new_moto_id'],
+                  'p_swap_date': swapCommit['p_swap_date'],
+                  'p_swap_time': swapCommit['p_swap_time'],
+                  'p_dry_run': false,
+                });
+                final code = res is Map ? res['error']?.toString() : null;
+                committed = (res is Map && res['success'] == true) ||
+                    code == 'already_split' ||
+                    code == 'invalid_new_moto';
+                if (!committed) debugPrint('[Payment] swap commit failed: $code');
+              } catch (e) {
+                debugPrint('[Payment] swap commit err: $e');
+              }
             }
             ref.invalidate(reservationsProvider);
             if (_pendingBookingId != null) {
