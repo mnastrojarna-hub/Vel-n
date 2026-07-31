@@ -361,7 +361,7 @@ class ResDetailTabContent extends ConsumerWidget {
           if (st == ResStatus.aktivni) ...[
             ResDetailButton.primary(
               emoji: '✏️',
-              label: t(context).tr('extendShorten'),
+              label: t(context).edit,
               onTap: () => context.push('/reservations/${res.id}/edit'),
             ),
             const SizedBox(height: 8),

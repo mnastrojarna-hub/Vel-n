@@ -25,6 +25,7 @@ const translationsExt12Swap = <String, Map<String, String>>{
     'swap.err.wrongStatus': 'Výměnu lze provést jen u nadcházející nebo probíhající rezervace.',
     'swap.err.notPaid': 'Rezervace není zaplacená.',
     'swap.err.invalidMoto': 'Zvolenou motorku nelze použít.',
+    'swap.err.alreadySplit': 'Výměna už na této rezervaci proběhla — druhou najdete v přehledu rezervací.',
   },
   'en': {
     'swap.tab': 'Swap motorcycle',
@@ -48,6 +49,7 @@ const translationsExt12Swap = <String, Map<String, String>>{
     'swap.err.wrongStatus': 'A swap is only possible for an upcoming or active reservation.',
     'swap.err.notPaid': 'The reservation is not paid.',
     'swap.err.invalidMoto': 'The selected motorcycle cannot be used.',
+    'swap.err.alreadySplit': 'A swap has already been made on this reservation — you can find the follow-up one in your reservations.',
   },
   'de': {
     'swap.tab': 'Motorrad tauschen',
@@ -71,6 +73,7 @@ const translationsExt12Swap = <String, Map<String, String>>{
     'swap.err.wrongStatus': 'Ein Tausch ist nur bei bevorstehender oder aktiver Buchung möglich.',
     'swap.err.notPaid': 'Die Buchung ist nicht bezahlt.',
     'swap.err.invalidMoto': 'Das gewählte Motorrad kann nicht verwendet werden.',
+    'swap.err.alreadySplit': 'Für diese Buchung wurde bereits ein Tausch durchgeführt — die Folgebuchung finden Sie in Ihren Buchungen.',
   },
   'es': {
     'swap.tab': 'Cambiar moto',
@@ -94,6 +97,7 @@ const translationsExt12Swap = <String, Map<String, String>>{
     'swap.err.wrongStatus': 'El cambio solo es posible en una reserva próxima o activa.',
     'swap.err.notPaid': 'La reserva no está pagada.',
     'swap.err.invalidMoto': 'La moto seleccionada no se puede usar.',
+    'swap.err.alreadySplit': 'Ya se realizó un cambio en esta reserva — encontrarás la reserva de continuación en tus reservas.',
   },
   'fr': {
     'swap.tab': 'Changer de moto',
@@ -117,6 +121,7 @@ const translationsExt12Swap = <String, Map<String, String>>{
     'swap.err.wrongStatus': 'Le changement n\'est possible que pour une réservation à venir ou active.',
     'swap.err.notPaid': 'La réservation n\'est pas payée.',
     'swap.err.invalidMoto': 'La moto sélectionnée ne peut pas être utilisée.',
+    'swap.err.alreadySplit': 'Un changement a déjà été effectué sur cette réservation — vous trouverez la réservation suivante dans vos réservations.',
   },
   'nl': {
     'swap.tab': 'Motor wisselen',
@@ -140,6 +145,7 @@ const translationsExt12Swap = <String, Map<String, String>>{
     'swap.err.wrongStatus': 'Wisselen kan alleen bij een aankomende of actieve reservering.',
     'swap.err.notPaid': 'De reservering is niet betaald.',
     'swap.err.invalidMoto': 'De geselecteerde motor kan niet worden gebruikt.',
+    'swap.err.alreadySplit': 'Er is al een wissel uitgevoerd op deze reservering — de vervolgreservering vindt u bij uw reserveringen.',
   },
   'pl': {
     'swap.tab': 'Zmiana motocykla',
@@ -163,6 +169,7 @@ const translationsExt12Swap = <String, Map<String, String>>{
     'swap.err.wrongStatus': 'Zmiana jest możliwa tylko dla nadchodzącej lub aktywnej rezerwacji.',
     'swap.err.notPaid': 'Rezerwacja nie jest opłacona.',
     'swap.err.invalidMoto': 'Wybranego motocykla nie można użyć.',
+    'swap.err.alreadySplit': 'Wymiana na tej rezerwacji już się odbyła — kolejną rezerwację znajdziesz w swoich rezerwacjach.',
   },
   'uk': {
     'swap.tab': 'Заміна мотоцикла',
@@ -186,5 +193,6 @@ const translationsExt12Swap = <String, Map<String, String>>{
     'swap.err.wrongStatus': 'Заміна можлива лише для майбутнього або активного бронювання.',
     'swap.err.notPaid': 'Бронювання не оплачено.',
     'swap.err.invalidMoto': 'Обраний мотоцикл не можна використати.',
+    'swap.err.alreadySplit': 'Обмін за цим бронюванням уже відбувся — наступне бронювання знайдете у своїх бронюваннях.',
   },
 };
