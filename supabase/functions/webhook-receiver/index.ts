@@ -43,6 +43,38 @@ async function applyExtensionChange(
   try { a = JSON.parse(chgStr) as Record<string, unknown> } catch { return }
   if (!a || typeof a !== 'object') return
 
+  // ── Výměna motorky (swap) — server-side COMMIT po zaplacení doplatku ─────────
+  // Appka commit volá klientsky po platbě (payment_screen `_swap_commit`), ale
+  // když selže / je zabita, výměna se tiše neprovede a peníze jsou strženy
+  // (incident #EEC9CA33). Webhook je proto pojistka: `_swap` metadata → zavolej
+  // COMMIT RPC (service_role — pouští ho rev.5 split_booking_moto_swap).
+  // Idempotence s appkou: `already_split` (split už vznikl) a `invalid_new_moto`
+  // (replace už proběhl → moto_id == nová) znamenají „appka byla rychlejší" = OK.
+  const swap = a._swap as { m?: string; d?: string; t?: string } | undefined
+  if (swap && typeof swap === 'object' && swap.m && swap.d) {
+    const { data, error } = await supabase.rpc('split_booking_moto_swap', {
+      p_booking_id: bookingId,
+      p_new_moto_id: swap.m,
+      p_swap_date: swap.d,
+      p_swap_time: swap.t || null,
+      p_dry_run: false,
+    })
+    const res = (data || {}) as { success?: boolean; error?: string }
+    const ok = !error && (res.success === true ||
+      res.error === 'already_split' || res.error === 'invalid_new_moto')
+    try {
+      await supabase.from('debug_log').insert({
+        source: 'webhook-receiver',
+        action: ok ? 'swap_commit_applied' : 'swap_commit_failed',
+        component: 'stripe',
+        status: ok ? 'ok' : 'error',
+        error_message: error?.message || (res.success !== true ? String(res.error || '') : null),
+        request_data: { booking_id: bookingId, swap, rpc_result: res },
+      })
+    } catch { /* ignore */ }
+    return
+  }
+
   // ── Změna výbavy (placená gear) — řeší vlastní SECURITY DEFINER RPC ──────────
   // gear se neukládá pouhým bookings.update (mění i booking_extras + extras_price).
   // apply_paid_gear_change(p_booking_id, p_sizes) je service-role wrapper, který

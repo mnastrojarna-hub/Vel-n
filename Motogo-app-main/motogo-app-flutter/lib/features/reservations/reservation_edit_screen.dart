@@ -842,6 +842,9 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
           // === ZMĚNA MOTORKY (collapsible, only for upcoming) ===
           if (!_isActive && _tab != 'move' && _tab != 'swap')
             EditMotoChangeSection(
+              bookingId: widget.bookingId,
+              rangeStart: _newStart ?? _booking!.startDate,
+              rangeEnd: _newEnd ?? _booking!.endDate,
               currentMotoName: _booking!.motoName,
               currentMotoId: _booking!.motoId,
               newMotoId: _newMotoId,
