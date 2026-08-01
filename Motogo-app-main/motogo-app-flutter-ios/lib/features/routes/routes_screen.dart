@@ -39,6 +39,7 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen> {
   final Set<String> _fCountry = {}; // ISO kódy + sentinel '__abroad__'
   RangeValues? _fDist; // km
   RangeValues? _fDur; // minuty
+  RangeValues? _fFromMe; // km dojezdu od aktuální polohy (odhad)
 
   static const _kAbroad = '__abroad__';
 
@@ -55,7 +56,8 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen> {
       (_fDiff.isEmpty ? 0 : 1) +
       (_fCountry.isEmpty ? 0 : 1) +
       (_fDist == null ? 0 : 1) +
-      (_fDur == null ? 0 : 1);
+      (_fDur == null ? 0 : 1) +
+      (_fFromMe == null ? 0 : 1);
 
   void _clearFilters() => setState(() {
         _fType.clear();
@@ -63,6 +65,7 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen> {
         _fCountry.clear();
         _fDist = null;
         _fDur = null;
+        _fFromMe = null;
         _sort = _RouteSort.random;
         _query = '';
         _searchCtl.clear();
@@ -100,6 +103,8 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen> {
     Set<String> countries,
     RangeValues? dist,
     RangeValues? dur,
+    LatLng? me,
+    RangeValues? fromMe,
   ) {
     if (types.isNotEmpty && !types.contains(r.routeType)) return false;
     if (diffs.isNotEmpty && (r.difficulty == null || !diffs.contains(r.difficulty))) return false;
@@ -108,6 +113,12 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen> {
         (r.distanceKm! < dist.start - 0.5 || r.distanceKm! > dist.end + 0.5)) return false;
     if (dur != null && r.durationMin != null &&
         (r.durationMin! < dur.start - 0.5 || r.durationMin! > dur.end + 0.5)) return false;
+    // Dojezd od polohy jezdce (odhad) — bez polohy / bez GPS trasy nevyřazujeme.
+    if (fromMe != null && me != null) {
+      final est = approachEstimate(me, r);
+      if (est != null &&
+          (est.km < fromMe.start - 0.5 || est.km > fromMe.end + 0.5)) return false;
+    }
     if (countries.isNotEmpty) {
       final wantAbroad = countries.contains(_kAbroad);
       final specific = countries.where((c) => c != _kAbroad).toSet();
@@ -267,13 +278,14 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen> {
     // Náhodné pořadí (stálé po dobu života obrazovky) → hledání → filtr.
     final shuffled = List<RouteItem>.from(byBranch)..shuffle(Random(_shuffleSeed));
     final q = _query.trim();
+    // Poloha jezdce — pro dojezd „od tebe" na kartách, filtr i řazení.
+    final me = ref.watch(currentLocationProvider).valueOrNull;
     final routes = shuffled
         .where((r) => (q.isEmpty || searchMatches(r.searchBlob, q)) &&
-            _routeMatches(r, _fType, _fDiff, _fCountry, _fDist, _fDur))
+            _routeMatches(r, _fType, _fDiff, _fCountry, _fDist, _fDur, me, _fFromMe))
         .toList();
 
     // Řazení (poloha jezdce / od zvolené trasy).
-    final me = ref.watch(currentLocationProvider).valueOrNull;
     final lastId = ref.watch(lastOpenedRouteProvider);
     LatLng? selAnchor;
     if (lastId != null) {
@@ -397,8 +409,8 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen> {
               ),
             ),
           ),
-          // Rozšířené filtry (typ, obtížnost, délka, čas, země) + řazení
-          SliverToBoxAdapter(child: _filterBar(context, data, me != null, selAnchor != null)),
+          // Rozšířené filtry (typ, obtížnost, délka, čas, země, dojezd) + řazení
+          SliverToBoxAdapter(child: _filterBar(context, data, me, selAnchor != null)),
           if (routes.isEmpty)
             SliverToBoxAdapter(child: _filterEmpty(context))
           else
@@ -417,6 +429,9 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen> {
                         route: r,
                         branch: r.branchId != null ? data.branches[r.branchId] : null,
                         lang: lang,
+                        // Dojezd od aktuální polohy (odhad) — původní délka/čas
+                        // trasy na kartě zůstávají, tohle se jen přidává.
+                        approach: me == null ? null : approachEstimate(me, r),
                         onTap: () {
                           // Zapamatuj zvolenou trasu pro řazení „od zvolené trasy".
                           ref.read(lastOpenedRouteProvider.notifier).state = r.id;
@@ -536,7 +551,7 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen> {
   }
 
   // ── Lišta rozšířených filtrů (tlačítko + řazení + rychlé zrušení) ──
-  Widget _filterBar(BuildContext context, RoutesData data, bool meAvail, bool routeAvail) {
+  Widget _filterBar(BuildContext context, RoutesData data, LatLng? me, bool routeAvail) {
     final n = _activeFilterCount;
     final active = n > 0;
     return Padding(
@@ -545,7 +560,7 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen> {
         children: [
           PressableScale(
             pressedScale: 0.96,
-            onTap: () => _openFilterSheet(context, data),
+            onTap: () => _openFilterSheet(context, data, me),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 180),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
@@ -599,7 +614,7 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen> {
           // Řazení
           PressableScale(
             pressedScale: 0.96,
-            onTap: () => _openSortSheet(context, meAvail, routeAvail),
+            onTap: () => _openSortSheet(context, me != null, routeAvail),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 180),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
@@ -704,7 +719,7 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen> {
   }
 
   // ── Bottom sheet se všemi filtry ──
-  void _openFilterSheet(BuildContext context, RoutesData data) {
+  void _openFilterSheet(BuildContext context, RoutesData data, LatLng? me) {
     // Základ pro náhled počtu = trasy aktuálně zvolené pobočky.
     final base = data.routes;
 
@@ -719,6 +734,19 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen> {
     final tMin = hasDur ? durs.first.toDouble() : 0.0;
     final tMax = hasDur ? durs.last.toDouble() : 0.0;
 
+    // Dojezd od aktuální polohy (odhad) — jen s povolenou polohou.
+    final fromKms = <double>[];
+    if (me != null) {
+      for (final r in base) {
+        final e = approachEstimate(me, r);
+        if (e != null) fromKms.add(e.km);
+      }
+      fromKms.sort();
+    }
+    final hasFromMe = fromKms.length >= 2 && fromKms.last > 1;
+    const fMin = 0.0;
+    final fMax = hasFromMe ? fromKms.last.ceilToDouble() : 0.0;
+
     // Země přítomné v datech.
     final countryCodes = <String>{for (final r in base) ...r.countries}.toList()..sort();
     final anyAbroad = base.any((r) => r.isAbroad);
@@ -729,6 +757,7 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen> {
     final tCountry = {..._fCountry};
     var tDist = _fDist;
     var tDur = _fDur;
+    var tFromMe = _fFromMe;
 
     showModalBottomSheet(
       context: context,
@@ -741,7 +770,8 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen> {
         return StatefulBuilder(
           builder: (sheetCtx, setSheet) {
             final count = base
-                .where((r) => _routeMatches(r, tType, tDiff, tCountry, tDist, tDur))
+                .where((r) =>
+                    _routeMatches(r, tType, tDiff, tCountry, tDist, tDur, me, tFromMe))
                 .length;
             void toggle(Set<String> s, String v) =>
                 setSheet(() => s.contains(v) ? s.remove(v) : s.add(v));
@@ -783,6 +813,7 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen> {
                               tCountry.clear();
                               tDist = null;
                               tDur = null;
+                              tFromMe = null;
                             }),
                             child: Text(
                               t(sheetCtx).tr('routesFilterClear'),
@@ -857,6 +888,24 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen> {
                               onChanged: (v) => setSheet(() => tDur = v),
                             ),
                           ],
+                          // Dojezd od aktuální polohy (odhad ~) — jen s polohou
+                          if (hasFromMe) ...[
+                            const SizedBox(height: 6),
+                            _sheetSection(
+                                '${t(sheetCtx).tr('routesFilterFromMe')}  ·  ~${(tFromMe?.start ?? fMin).round()}–${(tFromMe?.end ?? fMax).round()} km'),
+                            RangeSlider(
+                              min: fMin,
+                              max: fMax,
+                              values: tFromMe ?? RangeValues(fMin, fMax),
+                              activeColor: MotoGoColors.greenDark,
+                              inactiveColor: MotoGoColors.g200,
+                              labels: RangeLabels(
+                                '${(tFromMe?.start ?? fMin).round()}',
+                                '${(tFromMe?.end ?? fMax).round()}',
+                              ),
+                              onChanged: (v) => setSheet(() => tFromMe = v),
+                            ),
+                          ],
                           // Země
                           if (countryCodes.isNotEmpty || anyAbroad) ...[
                             const SizedBox(height: 18),
@@ -895,6 +944,10 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen> {
                             _fDur = (tDur == null || (tDur!.start <= tMin && tDur!.end >= tMax))
                                 ? null
                                 : tDur;
+                            _fFromMe = (tFromMe == null ||
+                                    (tFromMe!.start <= fMin && tFromMe!.end >= fMax))
+                                ? null
+                                : tFromMe;
                           });
                           Navigator.of(sheetCtx).pop();
                         },
@@ -1077,17 +1130,20 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen> {
 }
 
 /// Karta trasy — cover s gradientem, název, badge délka/čas/typ + počet POI.
+/// K původní délce/času trasy se navíc ukazuje odhad dojezdu od polohy jezdce.
 class _RouteCard extends StatelessWidget {
   final RouteItem route;
   final RouteBranch? branch;
   final String lang;
   final VoidCallback onTap;
+  final ({double km, int min})? approach; // dojezd od aktuální polohy (odhad)
 
   const _RouteCard({
     required this.route,
     required this.branch,
     required this.lang,
     required this.onTap,
+    this.approach,
   });
 
   @override
@@ -1201,6 +1257,10 @@ class _RouteCard extends StatelessWidget {
                           _meta(Icons.schedule, _dur(route.durationMin!)),
                         if (route.pois.isNotEmpty)
                           _meta(Icons.place, '${route.pois.length} ${t(context).tr('routePoiShort')}'),
+                        // Dojezd od aktuální polohy — doplněk k údajům trasy výše.
+                        if (approach != null)
+                          _meta(Icons.near_me,
+                              '${t(context).tr('routeFromMe')} ~${approach!.km.round()} km · ~${_dur(approach!.min)}'),
                         _ratingMeta(context),
                       ],
                     ),
