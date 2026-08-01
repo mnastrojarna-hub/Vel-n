@@ -239,6 +239,8 @@ const translationsUkExt11 = <String, Map<String, String>>{
     'sortLength': 'Довжина',
     'sortDuration': 'Час',
     'sortNearMe': 'Поруч зі мною',
+    'routeFromMe': 'Від тебе:',
+    'routesFilterFromMe': 'Відстань від тебе (км)',
     'sortNearRoute': 'Від обраного маршруту',
     'poiFilterTitle': 'Сортувати та фільтрувати',
     'poiFilterCountry': 'Країна',

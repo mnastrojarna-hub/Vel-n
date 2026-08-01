@@ -370,6 +370,58 @@ bool startIsNearRoute(RouteItem route, LatLng? start) {
       kStartNearRouteKm;
 }
 
+// ── Dojezd od polohy jezdce k startu trasy ──
+/// Odhad pro SEZNAM tras (bez volání API pro stovky tras): vzdušná čára ×
+/// koeficient klikatosti silnic, čas při průměrné cestovní rychlosti.
+/// Detail trasy používá reálný routing (routeApproachProvider).
+const double kApproachRoadFactor = 1.3;
+const double kApproachAvgKmh = 60;
+
+/// Odhad dojezdu (km po silnici, minuty) od [me] k startu trasy.
+/// null = trasa nemá žádný bod s GPS.
+({double km, int min})? approachEstimate(LatLng me, RouteItem route) {
+  final a = routeAnchor(route);
+  if (a == null) return null;
+  final km =
+      const Distance().as(LengthUnit.Kilometer, me, a) * kApproachRoadFactor;
+  return (km: km, min: (km / kApproachAvgKmh * 60).round());
+}
+
+/// Reálný dojezd od aktuální polohy k startu trasy po silnici (Mapy.com,
+/// stejný profil bez dálnic jako navigace v appce) — pro DETAIL trasy.
+/// `exact` = spočteno routingem (false = fallback na odhad vzdušnou čárou).
+/// null = poloha nepovolená / trasa bez bodů s GPS.
+final routeApproachProvider =
+    FutureProvider.family<({double km, int min, bool exact})?, String>(
+        (ref, routeId) async {
+  final me = await ref.watch(currentLocationProvider.future);
+  if (me == null) return null;
+  final data = await ref.watch(routesDataProvider.future);
+  RouteItem? route;
+  for (final r in data.routes) {
+    if (r.id == routeId) {
+      route = r;
+      break;
+    }
+  }
+  if (route == null) return null;
+  final a = routeAnchor(route);
+  if (a == null) return null;
+  final info =
+      await fetchMapyRouteInfo([me, a], profile: RouteProfile.recommended);
+  final lenM =
+      info?.lengthM ?? (info != null ? polylineLengthM(info.geometry) : null);
+  if (info == null || lenM == null) {
+    final est = approachEstimate(me, route);
+    return est == null ? null : (km: est.km, min: est.min, exact: false);
+  }
+  final km = lenM / 1000;
+  final min = info.durationS != null
+      ? (info.durationS! / 60).round()
+      : (km / kApproachAvgKmh * 60).round();
+  return (km: km, min: min, exact: true);
+});
+
 /// Sestaví uspořádaný seznam bodů pro routing/export:
 /// start = pobočka (pokud má GPS a je poblíž trasy), pak waypointy,
 /// u okruhu zpět na pobočku.
@@ -505,10 +557,12 @@ final routeDisplayProvider =
       route.branchId != null ? data.branches[route.branchId] : null;
   final routeBranchLatLng = routeBranch?.latLng;
 
+  // Aktuální poloha (jen když už je oprávnění uděleno — bez dialogu).
+  final myLoc = await ref.watch(currentLocationProvider.future);
+
   if (route.routeType == 'poi') {
     // 1) Od aktuální polohy (jen když už je povolená a je poblíž trasy) —
     //    nejrychleji bez dálnic.
-    final myLoc = await ref.watch(currentLocationProvider.future);
     if (myLoc != null && startIsNearRoute(route, myLoc)) {
       final pts = navPointsFrom(myLoc, route, null);
       if (pts.length >= 2) {
@@ -549,15 +603,31 @@ final routeDisplayProvider =
   final displayStart = startIsNearRoute(route, routeBranchLatLng)
       ? routeBranchLatLng
       : routeAnchor(route);
+  List<LatLng> base;
   if (route.geometry.length >= 2) {
-    return RouteDisplay(geometry: route.geometry, start: displayStart);
+    base = route.geometry;
+  } else {
+    final pts = orderedRoutePoints(route, routeBranch);
+    if (pts.length < 2) {
+      return RouteDisplay(geometry: pts, start: displayStart);
+    }
+    base = await fetchMapyRoute(pts) ?? pts;
   }
-  final pts = orderedRoutePoints(route, routeBranch);
-  if (pts.length < 2) {
-    return RouteDisplay(geometry: pts, start: displayStart);
+  // Náhled od aktuální polohy: před okruh se předřadí dojezdový úsek od
+  // jezdce k startu trasy (jen s povolenou polohou poblíž trasy — vzdálené
+  // trasy se kreslí samotné, okruh sám se nemění).
+  if (myLoc != null && startIsNearRoute(route, myLoc) && base.length >= 2) {
+    final approach =
+        await fetchMapyRoute([myLoc, base.first], profile: RouteProfile.recommended);
+    if (approach != null && approach.length >= 2) {
+      return RouteDisplay(
+        geometry: [...approach, ...base],
+        start: myLoc,
+        origin: RouteOrigin.currentLocation,
+      );
+    }
   }
-  final live = await fetchMapyRoute(pts);
-  return RouteDisplay(geometry: live ?? pts, start: displayStart);
+  return RouteDisplay(geometry: base, start: displayStart);
 });
 
 /// Výsledek Mapy.com routingu: geometrie + reálná délka/čas po silnici z API.

@@ -224,6 +224,9 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
     // drží se hodnota `distance_km` z DB, aby chip neproblikával.
     final realKm = ref.watch(routeRealLengthKmProvider(route.id)).valueOrNull;
     final distKm = realKm ?? route.distanceKm;
+    // Dojezd od aktuální polohy k startu trasy (Mapy.com routing; ~ = odhad).
+    // Doplněk — původní délka/čas samotné trasy zůstávají vedle.
+    final approach = ref.watch(routeApproachProvider(route.id)).valueOrNull;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -265,6 +268,9 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
             if (distKm != null)
               _chip('📏', '${distKm.toStringAsFixed(0)} km'),
             if (route.durationMin != null) _chip('⏱️', _dur(route.durationMin!)),
+            if (approach != null)
+              _chip('🧭',
+                  '${t(context).tr('routeFromMe')} ${approach.exact ? '' : '~'}${approach.km.round()} km · ${approach.exact ? '' : '~'}${_dur(approach.min)}'),
             if (route.difficulty != null) _chip('⛰️', _diff(context, route.difficulty!)),
             if (route.reviewCount > 0)
               _chip('⭐', '${(route.reviewAvg ?? 0).toStringAsFixed(1)} (${route.reviewCount})'),
