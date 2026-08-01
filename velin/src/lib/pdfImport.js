@@ -42,10 +42,24 @@ export async function convertPdfToHtml(file) {
     })
     const data = await response.json().catch(() => ({}))
     if (!response.ok || !data?.success || !data?.html) {
-      return { success: false, error: data?.error || `HTTP ${response.status}` }
+      return { success: false, error: data?.error || httpHint(response.status) }
     }
     return { success: true, html: data.html }
   } catch (e) {
-    return { success: false, error: e?.message || String(e) }
+    const msg = e?.message || String(e)
+    // fetch hodí TypeError bez HTTP statusu — síť / CORS / utnuté spojení
+    return { success: false, error: /failed to fetch|networkerror|load failed/i.test(msg) ? `síťová chyba nebo utnuté spojení (${msg}) — zkuste to znovu` : msg }
   }
+}
+
+function httpHint(status) {
+  const hints = {
+    401: 'přihlášení vypršelo — obnovte stránku a přihlaste se znovu',
+    404: 'edge funkce pdf-to-html není nasazená (merge do main ještě neproběhl?)',
+    413: 'PDF je pro server příliš velké — zmenšete ho',
+    429: 'příliš mnoho požadavků — zkuste za chvíli',
+    504: 'zpracování trvalo příliš dlouho — zkuste kratší PDF',
+    546: 'edge funkce narazila na limit (čas/paměť) — zkuste kratší PDF',
+  }
+  return `HTTP ${status}${hints[status] ? ` — ${hints[status]}` : ''}`
 }
