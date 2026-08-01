@@ -70,6 +70,12 @@ verify_jwt = false
 [functions.extract-document]
 verify_jwt = false
 
+# Převod nahraného PDF na HTML pro smluvní šablony (Velín → Dokumenty →
+# Smluvní texty). Jen převod (žádný zápis do DB). Vlastní ověření admina
+# přes requireAdminOrService → verify_jwt=false.
+[functions.pdf-to-html]
+verify_jwt = false
+
 # SEO Health checker — server-side fetch & parse zive stranky motogo24.cz
 # (browser-side fetch z velin domeny blokuje CORS). Volá ho Velin SEO Health
 # dashboard. Read-only, jen GET na motogo24.cz whitelist domeny.
