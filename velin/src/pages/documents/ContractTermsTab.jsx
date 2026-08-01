@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { openPrintWindow } from '../../lib/sanitize'
 import { supabase } from '../../lib/supabase'
 import { debugAction } from '../../lib/debugLog'
@@ -8,6 +8,7 @@ import Modal from '../../components/ui/Modal'
 import RichTextEditor, { buildPreviewHtml } from '../../components/ui/RichTextEditor'
 import CustomDocumentsSection from './CustomDocumentsSection'
 import { translateDocument, TRANSLATE_TARGET_LANGS } from '../../lib/autoTranslate'
+import { convertPdfToHtml } from '../../lib/pdfImport'
 
 const CONTRACT_TYPES = [
   { type: 'vop', label: 'Obchodní podmínky (VOP)', icon: '📜', description: 'Všeobecné obchodní podmínky pro pronájem motocyklů' },
@@ -63,6 +64,39 @@ export default function ContractTermsTab() {
   const [translatingType, setTranslatingType] = useState(null)
   const [trMsg, setTrMsg] = useState({}) // type -> { ok, text }
   const [bulk, setBulk] = useState(null) // null | { text } | { text, done:true }
+  const [importingType, setImportingType] = useState(null) // typ, u kterého běží převod PDF
+  const fileInputRef = useRef(null)
+  const importTypeRef = useRef(null) // typ šablony, pro kterou byl otevřen výběr PDF
+
+  // Nahrání PDF: převede se přes edge fn `pdf-to-html` na HTML a předvyplní
+  // do editačního modalu — admin zkontroluje a uloží stávající cestou
+  // (content_html), takže překlady, generování i mailové přílohy fungují dál.
+  function handlePdfPick(type) {
+    importTypeRef.current = type
+    if (fileInputRef.current) { fileInputRef.current.value = ''; fileInputRef.current.click() }
+  }
+
+  async function handlePdfSelected(e) {
+    const file = e.target.files?.[0]
+    const type = importTypeRef.current
+    if (!file || !type) return
+    const ct = CONTRACT_TYPES.find(c => c.type === type)
+    setImportingType(type)
+    setTrMsg(m => ({ ...m, [type]: { ok: true, text: `Převádím „${file.name}" na text… (může trvat až minutu)` } }))
+    const res = await convertPdfToHtml(file)
+    setImportingType(null)
+    if (!res.success) {
+      setTrMsg(m => ({ ...m, [type]: { ok: false, text: `Nahrání PDF selhalo: ${res.error}` } }))
+      return
+    }
+    setTrMsg(m => ({ ...m, [type]: { ok: true, text: `PDF „${file.name}" převedeno — zkontrolujte obsah a uložte.` } }))
+    const tpl = getTemplate(type)
+    setEditing({
+      ...(tpl || { type, name: ct?.label || type, version: 0 }),
+      content_html: res.html,
+      _fromPdf: true,
+    })
+  }
 
   // Přeloží naráz všechny smluvní šablony do všech 6 jazyků — přeskočí to, co
   // už je hotové, každý jazyk 3× zkusí. Pro jednorázové „dožeň všechno".
@@ -153,6 +187,14 @@ export default function ContractTermsTab() {
 
       {error && <div className="p-3 rounded-card" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>{error}</div>}
 
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="application/pdf,.pdf"
+        style={{ display: 'none' }}
+        onChange={handlePdfSelected}
+      />
+
       <div className="flex items-center gap-3 flex-wrap">
         <Button green onClick={handleTranslateAll} disabled={!!bulk && !bulk.done}>
           {bulk && !bulk.done ? 'Překládám…' : '🌍 Přeložit všechny smluvní texty do 6 jazyků'}
@@ -207,6 +249,9 @@ export default function ContractTermsTab() {
                   {tpl && translatingType !== ct.type && Object.keys(tpl.content_translations || {}).filter(k => TRANSLATE_TARGET_LANGS.includes(k)).length > 0 && (
                     <Button onClick={() => handleTranslate(tpl, { force: true })}>Přeložit znovu vše</Button>
                   )}
+                  <Button onClick={() => handlePdfPick(ct.type)} disabled={importingType === ct.type}>
+                    {importingType === ct.type ? 'Převádím PDF…' : '📄 Nahrát PDF'}
+                  </Button>
                   <Button green onClick={() => setEditing(tpl || { type: ct.type, name: ct.label, content_html: '', version: 0 })}>
                     {tpl ? 'Upravit' : 'Vytvořit'}
                   </Button>
@@ -324,6 +369,13 @@ function EditContractModal({ template, onClose, onSaved }) {
   return (
     <Modal open title={isNew ? `Vytvořit: ${name || template.type}` : `Upravit: ${name}`} onClose={onClose} wide>
       <div className="space-y-3">
+        {template._fromPdf && (
+          <div className="p-3 rounded-card" style={{ background: '#eff6ff', border: '1px solid #bfdbfe', fontSize: 12, color: '#1e40af' }}>
+            📄 Obsah byl načten z nahraného PDF (dosavadní text šablony se uložením PŘEPÍŠE).
+            Zkontrolujte text a formátování, případně vložte proměnné z menu „+ Proměnná…“.
+            Po uložení spusťte „Přeložit znovu vše“, aby se přegenerovaly překlady z nového znění.
+          </div>
+        )}
         <div>
           <Label>Název</Label>
           <input type="text" value={name} onChange={e => setName(e.target.value)}
