@@ -82,7 +82,7 @@ export default function ContractTermsTab() {
     if (!file || !type) return
     const ct = CONTRACT_TYPES.find(c => c.type === type)
     setImportingType(type)
-    setTrMsg(m => ({ ...m, [type]: { ok: true, text: `Převádím „${file.name}" na text… (může trvat až minutu)` } }))
+    setTrMsg(m => ({ ...m, [type]: { ok: true, text: `Převádím „${file.name}" na text… (u delších dokumentů to může trvat i několik minut — nechte stránku otevřenou)` } }))
     const res = await convertPdfToHtml(file)
     setImportingType(null)
     if (!res.success) {
