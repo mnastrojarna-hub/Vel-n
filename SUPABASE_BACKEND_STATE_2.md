@@ -357,7 +357,7 @@ Servisní zakázky navázané na motorky/servisní záznamy.
 ### branches (nové sloupce)
 - **branch_code** (TEXT UNIQUE) — unikátní kód pobočky (6 číslic, např. "000126")
 - **is_open** (BOOLEAN DEFAULT false) — otevřená (nonstop provoz) / zavřená
-- **type** (TEXT DEFAULT NULL) — typ pobočky: turistická, městská, horská, rekreační voda, metropolitní centrum, městská tranzitní
+- **type** (TEXT DEFAULT NULL) — REŽIM pobočky: `'samoobslužná'` (výdej/vrácení 24/7 kódem) / `'obslužná'` (předává obsluha, servisní místo) — jediné hodnoty, které ukládá Velín (`BranchModal.jsx`); podle nich se řídí missing-docs maily, handover protokol i `ai-public-agent` (oprava 2026-08-03: dřívější popis „turistická/městská/…" neodpovídal realitě)
 - **translations** (JSONB DEFAULT '{}') — auto-překlady pro web (notes), plní `translate-content`
 
 ### Sloupec `translations` — auto-překlady pro veřejný web

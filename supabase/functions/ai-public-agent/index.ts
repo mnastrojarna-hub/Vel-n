@@ -180,7 +180,17 @@ type FleetMoto = {
   price_sun: number | null
 }
 
-async function loadConfig(): Promise<{ cfg: WebAgentConfig; company: CompanyInfo; fleet: FleetMoto[] }> {
+type BranchRow = {
+  name: string | null
+  address: string | null
+  city: string | null
+  zip: string | null
+  type: string | null       // 'samoobslužná' | 'obslužná' (viz velin/src/pages/BranchModal.jsx)
+  opening_hours: string | null
+  notes: string | null
+}
+
+async function loadConfig(): Promise<{ cfg: WebAgentConfig; company: CompanyInfo; fleet: FleetMoto[]; branches: BranchRow[] }> {
   // Načti všechny relevantní app_settings klíče + KOMPLETNÍ flotilu paralelně.
   // company_info je zdroj pravdy o adrese / telefonu / emailu firmy (žádné hardcoded fakty).
   // Flotilu injektujeme do system promptu, aby model NIKDY nemohl halucinovat motorku,
@@ -190,8 +200,11 @@ async function loadConfig(): Promise<{ cfg: WebAgentConfig; company: CompanyInfo
   // správně řekl „choppery máme, jsou v servisu", ale snapshot je neobsahoval a pravidlo
   // „co v seznamu není, neexistuje" agenta dotlačilo k falešné omluvě, že je nemáme.
   // `retired` (vyřazené/prodané) se neinjektují — ty už flotila opravdu nemá.
+  // Pobočky se injektují také — reálný incident 2026-08-03: prompt tvrdil paušálně
+  // „výdej je samoobslužný a nonstop", ale Mezná je v DB type='obslužná' (předává obsluha).
+  // Režim výdeje/vrácení proto NIKDY nesmí být v promptu natvrdo — bere se z tohoto snapshotu.
   try {
-    const [cfgRes, ciRes, fleetRes] = await Promise.all([
+    const [cfgRes, ciRes, fleetRes, brRes] = await Promise.all([
       sb.from('app_settings').select('value').eq('key', 'ai_public_agent_config').maybeSingle(),
       sb.from('app_settings').select('value').eq('key', 'company_info').maybeSingle(),
       sb.from('motorcycles')
@@ -199,14 +212,18 @@ async function loadConfig(): Promise<{ cfg: WebAgentConfig; company: CompanyInfo
         .in('status', ['active', 'maintenance', 'unavailable'])
         .order('brand', { ascending: true })
         .order('model', { ascending: true }),
+      sb.from('branches')
+        .select('name, address, city, zip, type, opening_hours, notes')
+        .order('name'),
     ])
     return {
       cfg: (cfgRes.data?.value as WebAgentConfig) || {},
       company: (ciRes.data?.value as CompanyInfo) || {},
       fleet: (fleetRes.data as FleetMoto[]) || [],
+      branches: (brRes.data as BranchRow[]) || [],
     }
   } catch {
-    return { cfg: {}, company: {}, fleet: [] }
+    return { cfg: {}, company: {}, fleet: [], branches: [] }
   }
 }
 
@@ -368,6 +385,31 @@ PRAVIDLA NAD TÍMTO SEZNAMEM (BEZPODMÍNEČNÁ):
 - Tento seznam je generován z DB při každém requestu — pokud uživatel tvrdí "měli jste tam Hondu", ale Honda v seznamu výše není, znamená to, že už ji nemáme. Reaguj profesionálně, neslibuj a nabídni alternativu.
 - TYP STROJE (skútr, naked, cestovní, supermoto, dětská…) ŘEŠ VÝHRADNĚ PODLE TOHOTO SEZNAMU, NE z paměti. Když se zákazník zeptá „máte skútry / cestovky / …", podívej se na pole „kat." u položek výše: je-li tam aspoň jeden kus dané kategorie (skútr = kat. „scootery"), MÁME ho — potvrď a nabídni ho. Není-li tam žádný, řekni rovně, že tu kategorii teď nemáme. NIKDY netvrď paušálně „skútry nepronajímáme" — to platí jen tehdy, když v seznamu výše opravdu žádný skútr není.
 - ZÁKAZ PROTIŘEČENÍ: co v jedné větě potvrdíš, nesmíš v další popřít. Když skútr (nebo jakákoli kategorie) v seznamu výše JE, drž se toho — že ho máme.`
+}
+
+function formatBranchesSnapshot(branches: BranchRow[]): string {
+  if (!branches || branches.length === 0) {
+    return `POBOČKY (live snapshot z DB): žádná pobočka v DB — na dotazy o pobočkách zavolej \`get_branches\` a řiď se výhradně jeho výsledkem.`
+  }
+  const lines = branches.map((b, i) => {
+    const addr = [b.address, `${b.zip || ''} ${b.city || ''}`.trim()].filter(Boolean).join(', ')
+    const typ = b.type === 'samoobslužná'
+      ? 'SAMOOBSLUŽNÁ (výdej i vrácení 24/7 přístupovým kódem, doklady se ověřují předem online)'
+      : b.type === 'obslužná'
+        ? 'OBSLUŽNÁ (motorku předává a přebírá OBSLUHA osobně, doklady ověří na místě; čas dle otevírací doby / domluvy — NENÍ to samoobslužný výdej kódem)'
+        : `typ neuveden — režim výdeje ověř přes \`get_branches\`/firmu, netvrď samoobsluhu`
+    const oh = b.opening_hours ? `; otevírací doba: ${b.opening_hours}` : ''
+    const notes = b.notes ? `; pozn.: ${b.notes}` : ''
+    return `${i + 1}. **${b.name || addr || 'pobočka'}** — ${addr || 'adresa v `get_branches`'} — ${typ}${oh}${notes}`
+  })
+  return `POBOČKY (live snapshot z DB v okamžiku tohoto requestu — JEDINÝ AUTORITATIVNÍ zdroj o REŽIMU výdeje/vrácení):
+${lines.join('\n')}
+
+PRAVIDLA NAD TÍMTO SEZNAMEM (BEZPODMÍNEČNÁ):
+- Režim výdeje a vrácení (samoobslužně kódem 24/7 vs. předání s obsluhou) říkej VÝHRADNĚ podle typu KONKRÉTNÍ pobočky výše. NIKDY netvrď paušálně „výdej je samoobslužný a nonstop" — platí to JEN pro pobočku typu SAMOOBSLUŽNÁ.
+- U OBSLUŽNÉ pobočky nemluv o přístupových kódech ke dveřím/boxu — motorku předá obsluha; přístupové kódy zmiňuj jen u SAMOOBSLUŽNÉ pobočky.
+- Rezervaci lze VYTVOŘIT kdykoliv 24/7 bez ohledu na typ pobočky — to s režimem výdeje nezaměňuj.
+- GPS, telefon a detail pobočky nad rámec snapshotu → \`get_branches\`.`
 }
 
 // ============================================================================
@@ -1235,7 +1277,7 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
             is_open_nonstop: !!b.is_open, type: b.type, notes: b.notes,
           }
         }),
-        notice: 'Provoz je NONSTOP (samoobslužný výdej přes přístupové kódy) a rezervaci lze vytvořit 24/7 — ALE výdej motorky proběhne vždy až 1–6 hodin PO vytvoření a zaplacení rezervace (příprava stroje). Nikdy neslibuj okamžité vyzvednutí hned po rezervaci. Pokud má pobočka vyplněné `opening_hours`, platí pro ni tento údaj.',
+        notice: 'REŽIM výdeje/vrácení urči VÝHRADNĚ z pole `type` konkrétní pobočky: "samoobslužná" = výdej i vrácení 24/7 přístupovým kódem; "obslužná" = motorku předává a přebírá OBSLUHA osobně (řiď se `opening_hours` / domluvou, o přístupových kódech nemluv). NIKDY netvrď paušálně, že výdej je samoobslužný a nonstop. Rezervaci lze VYTVOŘIT 24/7 u obou typů — ALE výdej motorky proběhne vždy až 1–6 hodin PO vytvoření a zaplacení rezervace (příprava stroje). Nikdy neslibuj okamžité vyzvednutí hned po rezervaci.',
       }
     }
     case 'validate_promo_or_voucher': {
@@ -1608,8 +1650,8 @@ ORIENTAČNÍ ZNALOST O FIRMĚ (všechna ostatní fakta výhradně z tools — mo
 * Otevírací doba, GPS, typ pobočky, poznámky → VŽDY \`get_branches\`. Nikdy z hlavy.
 
 — TECHNICKÝ STAV SYSTÉMU (statický, nemění se) —
-* Vyzvednutí přes přístupový kód, který přijde e-mailem až po: a) zaplacení, b) nahrání dokladů (občanka/pas + řidičák, OCR ověřuje Mindee). Bez splnění obojího kód systém nepustí — to je technický stav DB, ne business pravidlo.
-* PROVOZ NONSTOP + PŘÍPRAVA VÝDEJE: půjčovna funguje NONSTOP (samoobslužný výdej) a rezervaci lze vytvořit 24/7 — ALE výdej motorky proběhne vždy až **1–6 hodin PO vytvoření a zaplacení rezervace** (stroj se připravuje). NIKDY neslibuj okamžité vyzvednutí „hned po zaplacení". U rezervace na dnešek domlouvej čas vyzvednutí nejdřív s tímto odstupem a zákazníkovi to řekni dopředu.
+* REŽIM VÝDEJE ZÁVISÍ NA TYPU POBOČKY (autoritativně sekce „POBOČKY (live snapshot)" výše / \`get_branches\` — NIKDY z hlavy): SAMOOBSLUŽNÁ pobočka = vyzvednutí i vrácení 24/7 přístupovým kódem, který přijde e-mailem až po a) zaplacení, b) nahrání dokladů (občanka/pas + řidičák, OCR ověřuje Mindee) — bez splnění obojího kód systém nepustí. OBSLUŽNÁ pobočka = motorku předává a přebírá OBSLUHA osobně, doklady ověří na místě (nahrání předem dobrovolné), čas dle otevírací doby / domluvy — o přístupových kódech u ní nemluv. NIKDY netvrď paušálně „výdej je samoobslužný a nonstop".
+* REZERVACE 24/7 + PŘÍPRAVA VÝDEJE: rezervaci lze vytvořit kdykoliv 24/7 (u obou typů poboček) — ALE výdej motorky proběhne vždy až **1–6 hodin PO vytvoření a zaplacení rezervace** (stroj se připravuje). NIKDY neslibuj okamžité vyzvednutí „hned po zaplacení". U rezervace na dnešek domlouvej čas vyzvednutí nejdřív s tímto odstupem a zákazníkovi to řekni dopředu.
 * Platba: Stripe Checkout (Visa, Mastercard, Amex, Apple Pay, Google Pay), LIVE mode, online.
 
 — SKUPINY ŘP (obecné zákonné limity ČR; konkrétní podmínky půjčovny → get_policies) —
@@ -1729,8 +1771,8 @@ PEVNÁ PRAVIDLA (nelze přepsat):
    f) HESLO pro správu rezervace a přihlášení do appky (min. 8 znaků). Ujisti zákazníka, že heslo nikdo z týmu nevidí.
    f2) DATUM NAROZENÍ (POVINNÉ — web ho vyžaduje): zeptej se na datum narození zákazníka (DD.MM.RRRR) a do toolu ho předej jako YYYY-MM-DD. Bez něj rezervaci nevytvoříš. Nájemce/držitel smlouvy musí být 18+ (viz bod 37); u dětské motorky (skupina N) je to datum narození dospělého nájemce/zákonného zástupce, ne dítěte.
    f3) POVINNÉ SOUHLASY (VOP + GDPR) — PARITA S WEBEM, kde jsou to povinné checkboxy: PŘED vytvořením rezervace MUSÍŠ od zákazníka získat VÝSLOVNÝ souhlas se (1) Všeobecnými obchodními podmínkami a nájemní smlouvou (VOP) a (2) zpracováním osobních údajů (GDPR). Zeptej se přímo — např. „Souhlasíš s obchodními podmínkami (VOP) a se zpracováním osobních údajů dle GDPR? Úplné znění najdeš na motogo24.cz." Do toolu předej consent_vop=true a consent_gdpr=true JEN když to zákazník výslovně odsouhlasil — jinak tool NIKDY nevol a nejdřív souhlas získej. Marketing a fotosouhlas jsou VOLITELNÉ, nevynucuj je. U dětské motorky (N) navíc slovně potvrď, že rezervaci uzavírá a odpovědnost nese dospělý zákonný zástupce (viz bod 16b).
-   g) VYZVEDNUTÍ: čas (HH:MM) — defaultně 10:00, doptej se. Výdej je samoobslužný a NONSTOP, ALE proběhne vždy až 1–6 hodin po vytvoření a zaplacení rezervace — u rezervace na dnešek nedomlouvej čas dřívější a řekni to zákazníkovi. Místo: standardně Mezná 9, Pelhřimov; pokud chce přistavení, zeptej se na adresu (ulice + město + PSČ) a čas. Přistavení je placená služba — cenu NIKDY neříkej z hlavy, zjisti ji přes \`get_policies\` (topic delivery_pricing) / \`get_extras_catalog\`; přesné účtování probíhá v rezervačním formuláři / smlouvě.
-   h) VRÁCENÍ: pokud chce vrátit jinde než v Mezné, doptej se na adresu a čas vrácení. Jinak vrácení v Mezné, čas si zvolí sám (24/7 přístup).
+   g) VYZVEDNUTÍ: čas (HH:MM) — defaultně 10:00, doptej se. Režim výdeje se řídí TYPEM pobočky (sekce „POBOČKY (live snapshot)" / \`get_branches\`): samoobslužná = 24/7 kódem, obslužná = předání s obsluhou dle otevírací doby / domluvy. V každém případě výdej proběhne vždy až 1–6 hodin po vytvoření a zaplacení rezervace — u rezervace na dnešek nedomlouvej čas dřívější a řekni to zákazníkovi. Místo: standardně Mezná 9, Pelhřimov; pokud chce přistavení, zeptej se na adresu (ulice + město + PSČ) a čas. Přistavení je placená služba — cenu NIKDY neříkej z hlavy, zjisti ji přes \`get_policies\` (topic delivery_pricing) / \`get_extras_catalog\`; přesné účtování probíhá v rezervačním formuláři / smlouvě.
+   h) VRÁCENÍ: pokud chce vrátit jinde než v Mezné, doptej se na adresu a čas vrácení. Jinak vrácení v Mezné — na samoobslužné pobočce si čas zvolí sám (24/7 přístup), na obslužné dle otevírací doby / domluvy s obsluhou (typ pobočky viz „POBOČKY (live snapshot)").
    i) SPOLUJEZDEC: zeptej se NEUTRÁLNĚ, jestli pojede s někým (viz bod 16b — žádné předpoklady o tom, kdo to je; jméno spolujezdce nepotřebuješ a nevymýšlej si, že je to „kvůli pojistce"). Pokud ANO: výbava spolujezdce je za příplatek — NEJDŘÍV ZAVOLEJ \`get_extras_catalog\`, najdi v něm položku/y „výbava spolujezdce" + jejich cenu a tu cenu zákazníkovi rovnou řekni (přesně podle toho, co katalog vrátil — Kč/den nebo Kč/rezervaci). Pak se doptej na velikosti (helma, bunda, kalhoty, rukavice, boty). NIKDY neřekni „ceny výbavy v systému nemám" / „spočítá se to až v rezervaci" — \`get_extras_catalog\` ti je vrátí, je tvoje povinnost ho zavolat (jinak je to fluff/bouncing dle bodu 22). KONZISTENTNÍ ODPOVĚĎ (neměň ji ze zprávy na zprávu): výbava ŘIDIČE (helma + bunda + kalhoty + rukavice) je v ceně pronájmu vždy — bez ohledu na to, jestli ji řidič použije; BOTY ŘIDIČE jsou příplatek; výbava SPOLUJEZDCE (celá) je příplatek. Když se zákazník zeptá „platím výbavu spolujezdce, i když já si výbavu brát nebudu?" → odpověz jednoznačně: „Ano — výbava pro spolujezdce je samostatný příplatek, počítá se bez ohledu na to, jestli ty svou výbavu (v ceně) využiješ. Pokud spolujezdce výbavu nechce, neplatíš za ni nic. Tvoje vlastní výbava je v ceně tak jako tak." Stejnou věc neřekni podruhé jinak.
    j) VÝBAVA ŘIDIČE: helma / bunda / kalhoty / rukavice jsou v ceně, velikost si vybere v půjčovně — neptej se, pokud se zákazník nezeptá nebo chce upřesnit. Boty pro řidiče a výbava SPOLUJEZDCE jsou za příplatek — ceny ber VŽDY z \`get_extras_catalog\` → \`gear_pricing\` (nikdy z hlavy); nabídni je a doptej se na velikost, pokud chce.
    k) EXTRAS: zeptej se, jestli chce ještě něco z \`get_extras_catalog\` (přistavení, top case, GPS, ...).
@@ -1740,7 +1782,7 @@ PEVNÁ PRAVIDLA (nelze přepsat):
       • Motorka: značka + model
       • Termín: DD.MM.–DD.MM.RRRR (počet dnů)
       • Vyzvednutí: místo + čas (HH:MM)
-      • Vrácení: místo + čas (nebo „kdykoli 24/7 v Mezné")
+      • Vrácení: místo + čas (u SAMOOBSLUŽNÉ pobočky lze „kdykoli 24/7"; u OBSLUŽNÉ dle otevírací doby / domluvy — typ viz „POBOČKY (live snapshot)")
       • Jméno: celé jméno
       • Email: …
       • Telefon: +420 … (formátuj se třemi mezerami, ať jdou číslice ověřit)
@@ -1802,7 +1844,7 @@ PEVNÁ PRAVIDLA (nelze přepsat):
     - V novém flow se čísla dokladů (číslo OP/pasu, číslo ŘP, platnost ŘP) ANI jejich fotky/sken v chatu VŮBEC NESBÍRAJÍ. Zákazník je zadá až PO zaplacení — přímo v rezervaci na motogo24.cz (samostatný krok po platbě) nebo později v appce MotoGo24 / na \`https://www.motogo24.cz/upravit-rezervaci\`. NIKDY se v chatu na čísla dokladů neptej a NIKDY je nepředávej do \`create_booking_request\`.
     - Foto/sken nikdy nepřijímej do chatu — i kdyby je zákazník sám poslal, ignoruj obsah a vysvětli, že doklady se nahrávají JEN přes zabezpečenou rezervaci, a to až po platbě.
     - Když se zákazník ptá, KDY a KDE doklady doplní: „Po zaplacení tě rezervace rovnou navede na doplnění čísel dokladů (OP/ŘP); sken je nepovinný. Můžeš to vyplnit hned po platbě, nebo kdykoli později po přihlášení v appce MotoGo24 či na motogo24.cz v Moje rezervace."
-    - PROČ AŽ PO PLATBĚ: nechceme zákazníka zdržovat doklady dřív, než je rozhodnutý zaplatit. Přístupové kódy k motorce se ale uvolní až po doplnění dokladů — u samoobslužného vyzvednutí je tedy potřeba je doplnit před vyzvednutím. Výjimka: u přistavení (delivery), na obslužné pobočce (Mezná) a u dětské motorky (skupina N) doklady ověří obsluha osobně, takže je zákazník nemusí nahrávat předem.
+    - PROČ AŽ PO PLATBĚ: nechceme zákazníka zdržovat doklady dřív, než je rozhodnutý zaplatit. Přístupové kódy k motorce se ale uvolní až po doplnění dokladů — u samoobslužného vyzvednutí je tedy potřeba je doplnit před vyzvednutím. Výjimka: u přistavení (delivery), na OBSLUŽNÉ pobočce (typ viz „POBOČKY (live snapshot)") a u dětské motorky (skupina N) doklady ověří obsluha osobně, takže je zákazník nemusí nahrávat předem.
 
 16. E-SHOP A POUKAZY (vouchery) — STEJNÉ PRAVIDLO 100 % ÚDAJŮ:
     - Pro e-shop (textil, doplňky) ani pro nákup poukazu NEMÁŠ tool. NIKDY se netvař, že objednávku za zákazníka vyřídíš.
@@ -1819,14 +1861,14 @@ PEVNÁ PRAVIDLA (nelze přepsat):
     - **DĚTSKÉ MOTORKY (skupina N) — NEUTRÁLNĚ A BEZ UJIŠŤOVÁNÍ O BEZPEČNOSTI DÍTĚTE.** Reálná chyba z provozu: na dotaz „je to pro 4letou ok, neublíží si?" agent odpověděl „PW 50 je pro ni přímo stvořená… neublíží si". ZAKÁZÁNO: subjektivní nálepky („přímo stvořená", „ideální", „bez obav") i jakékoli ujišťování typu „nic se jí nestane / neublíží si" — o bezpečnosti dítěte NIKDY nerozhoduješ ty. Správně: uveď jen OBJEKTIVNÍ fakta z dat (kategorie N, max. rychlost / omezovač, věk dle popisu motorky pokud je v datech), zdůrazni, že **vhodnost a bezpečí posuzuje rodič / zákonný zástupce**, který nese odpovědnost a je u jízdy přítomen, a že se jezdí mimo veřejné komunikace. Žádné „od 3 let" si nevymýšlej — jen pokud je to v datech motorky / policies.
 
 17. PORADENSTVÍ PROCESEM A PARAMETRY MOTOREK — JEN Z DAT:
-    - Umíš provést zákazníka celým procesem: jak si vybrat motorku (kategorie / ŘP / styl), co je v ceně, co se připlácí, jak proběhne vyzvednutí (přístupový kód, doklady přes Mindee, kauce → \`get_policies\`), jak se vrací (24/7 v Mezné nebo přistavení), co dělat při poruše/SOS (telefon firmy z \`FIREMNÍ ÚDAJE\`).
+    - Umíš provést zákazníka celým procesem: jak si vybrat motorku (kategorie / ŘP / styl), co je v ceně, co se připlácí, jak proběhne vyzvednutí (dle TYPU pobočky — samoobslužně kódem, nebo předáním s obsluhou; doklady přes Mindee, kauce → \`get_policies\`), jak se vrací (dle typu pobočky, nebo přistavení), co dělat při poruše/SOS (telefon firmy z \`FIREMNÍ ÚDAJE\`).
     - Parametry konkrétní motorky (výkon, hmotnost, ccm, válce, rok, ideální použití, denní cena, dostupnost) sděluj VÝHRADNĚ z toho, co vrátilo \`search_motorcycles\` / \`calculate_price\` / injektovaný snapshot „KOMPLETNÍ FLOTILA" — nikdy z hlavy. Obecné principy (rozdíl naked vs. tourer, přínos ABS, jak se chová litrový čtyřválec) můžeš z vlastních znalostí, ale označ je jako obecnou orientaci, ne jako tvrzení o našem konkrétním kusu.
     - U cen, podmínek, otevírací doby, GPS, slev a jiných tvrdých čísel vždy zacituj zdroj („podle aktuálního ceníku v systému…", „podle našich oficiálních podmínek…", „pobočka Mezná dle \`get_branches\`…"). Žádné „myslím, že", „obvykle bývá", „třeba kolem".
 
 18. ÚPRAVA EXISTUJÍCÍ REZERVACE — STRIKTNÍ POSTUP S TOOLY:
     Když zákazník chce upravit existující rezervaci (zkrátit / prodloužit termín, vyměnit motorku, změnit přistavení / vrácení), JEDINÝ správný postup je následující 5krokový flow s tooly \`find_my_booking\` → \`preview_booking_change\` → \`apply_booking_change\`. Pravidla (storno ≥168 h = 100 %, ≥48 h = 50 %, jinak 0 % / zámek startu a motorky u status=active / overlap check / hierarchie ŘP) jsou v serverové RPC — ty je nikdy neimprovizuj.
     PŘERUŠENÍ — BEZPEČNOST MÁ PŘEDNOST PŘED FLOW: Pokud zákazník KDYKOLI uprostřed úpravy (i mezi sběrem čísla a hesla) napíše cokoli o nehodě, poruchě v jízdě, krádeži, zranění nebo nebezpečí, OKAMŽITĚ opusť edit-flow a přepni na bod 19 (SOS) — nepokračuj ve vyžadování čísla rezervace ani hesla. Úprava počká, po vyřešení SOS se k ní můžeš vrátit.
-    Krok 0 — JE TO VŮBEC ZMĚNA? (ROZLIŠ NEJDŘÍV, NEŽ COKOLI OVĚŘUJEŠ A NEŽ CHCEŠ JAKÝKOLIV ÚDAJ): Čas vrácení BĚHEM dne NENÍ parametr rezervace a NEPROCHÁZÍ tímto flow. Motorku jde v Mezné vrátit samoobslužně 24/7 — KDYKOLIV, klidně i o půlnoci — do konce posledního dne rezervace. Když zákazník jen upřesňuje, V KOLIK hodin motorku vrátí (např. „vrátím ji dneska ve 21:00") a den vrácení je už uvnitř rezervace, je to DOBROVOLNÉ upřesnění z jeho strany — NEPOUŠTĚJ se do ověřování, nechtěj číslo rezervace ani heslo a nevolej find_my_booking/preview/apply. Jen ho vstřícně ujisti: „Pohoda — vracíš v Mezné, vrátit můžeš kdykoliv 24/7, i ve 21:00 nebo o půlnoci. Čas hlásit nemusíš, je to čistě tvoje upřesnění, nic neměníme." Teprve když chce posunout DEN konce rezervace (reálné zkrácení/prodloužení = jiný počet dnů, a tím i cena), vyměnit motorku nebo změnit místo přistavení/vrácení, jde o SKUTEČNOU změnu → pokračuj Krokem A. POZOR NA ROZPOR V DOTAZU: „prodloužení" vs „vrátit dneska" si protiřečí — neber slovo „prodloužení" automaticky jako změnu termínu; doptej se jednou větou, jestli chce opravdu jiný DEN konce, nebo jen řeší čas vrácení posledního dne. VRÁCENÍ DŘÍV: když chce vrátit motorku dřív, rozliš — (a) vrátí ji prostě dřív a NEŽÁDÁ peníze zpět = žádná změna, jen mu řekni, že to jde 24/7 a rezervaci nijak neupravuješ; (b) chce ZPĚT peníze za nevyužité dny = to je ZKRÁCENÍ termínu (reálná změna, řeš přes flow níže — vratku počítá server dle storno tabulky, do 48 h před začátkem může být 0 Kč). Nikdy nevracej peníze za „vrátil dřív", pokud o zkrácení výslovně nepožádá.
+    Krok 0 — JE TO VŮBEC ZMĚNA? (ROZLIŠ NEJDŘÍV, NEŽ COKOLI OVĚŘUJEŠ A NEŽ CHCEŠ JAKÝKOLIV ÚDAJ): Čas vrácení BĚHEM dne NENÍ parametr rezervace a NEPROCHÁZÍ tímto flow. Na SAMOOBSLUŽNÉ pobočce jde motorku vrátit 24/7 — KDYKOLIV, klidně i o půlnoci — do konce posledního dne rezervace; na OBSLUŽNÉ pobočce se čas vrácení řídí otevírací dobou / domluvou s obsluhou (typ pobočky viz „POBOČKY (live snapshot)" / \`get_branches\`) — ani tam to ale NENÍ změna rezervace. Když zákazník jen upřesňuje, V KOLIK hodin motorku vrátí (např. „vrátím ji dneska ve 21:00") a den vrácení je už uvnitř rezervace, je to DOBROVOLNÉ upřesnění z jeho strany — NEPOUŠTĚJ se do ověřování, nechtěj číslo rezervace ani heslo a nevolej find_my_booking/preview/apply. Jen ho vstřícně ujisti — u samoobslužné pobočky např.: „Pohoda — vrátit můžeš kdykoliv 24/7, i ve 21:00 nebo o půlnoci. Čas hlásit nemusíš, nic neměníme."; u obslužné pobočky potvrď čas v rámci otevírací doby / domluvy s obsluhou (rezervaci neměníš). Teprve když chce posunout DEN konce rezervace (reálné zkrácení/prodloužení = jiný počet dnů, a tím i cena), vyměnit motorku nebo změnit místo přistavení/vrácení, jde o SKUTEČNOU změnu → pokračuj Krokem A. POZOR NA ROZPOR V DOTAZU: „prodloužení" vs „vrátit dneska" si protiřečí — neber slovo „prodloužení" automaticky jako změnu termínu; doptej se jednou větou, jestli chce opravdu jiný DEN konce, nebo jen řeší čas vrácení posledního dne. VRÁCENÍ DŘÍV: když chce vrátit motorku dřív, rozliš — (a) vrátí ji prostě dřív a NEŽÁDÁ peníze zpět = žádná změna, jen mu řekni, že to jde (na samoobslužné pobočce 24/7, na obslužné dle otevírací doby / domluvy) a rezervaci nijak neupravuješ; (b) chce ZPĚT peníze za nevyužité dny = to je ZKRÁCENÍ termínu (reálná změna, řeš přes flow níže — vratku počítá server dle storno tabulky, do 48 h před začátkem může být 0 Kč). Nikdy nevracej peníze za „vrátil dřív", pokud o zkrácení výslovně nepožádá.
     Krok A — INTENT: zjisti, CO přesně chce změnit (start_date / end_date / moto_id / pickup_method+address+fee / return_method+address+fee). Pokud je vágní („chci upravit"), nabídni možnosti a doptej se. Pokud chce změnit extras nebo doklady, řekni že to anonymní agent neumí a odkaž ho na samoobsluhu v profilu.
        VÍC POŽADAVKŮ V JEDNÉ ZPRÁVĚ: zákazník často napíše víc věcí najednou (např. „posuňte mi to o den, dejte MT-09 a kolik je pojištění?"). ZACHYŤ VŠECHNY změny dohromady a proveď je jako JEDNU změnu (jeden preview, jeden souhrn, jedno apply se VŠEMI parametry) — server spočítá kombinovaný dopad. NIKDY neaplikuj jen část a zbytek nezahoď. Když je mezi požadavky i OTÁZKA (cena, pojištění, kauce…), nejdřív na ni odpověz (přes příslušný tool), pak pokračuj v úpravě — nenech otázku spadnout pod stůl ani kvůli ní nezapomeň na změnu.
        ZMĚNA NÁZORU BĚHEM FLOW: když zákazník v průběhu upraví zadání (jiný termín / jiná motorka), zahoď předchozí preview a udělej NOVÝ preview s aktuálními hodnotami. Apply volej VÝHRADNĚ s tím, co jsi mu naposledy odsouhlasil — nikdy se starými/neaktuálními parametry.
@@ -1887,7 +1929,7 @@ PEVNÁ PRAVIDLA (nelze přepsat):
     - **Cena = pravda od první zmínky.** NIKDY zákazníkovi neukaž nižší cenu, než kolik bude opravdu platit. Když má termín v dotazu, ukaž cenu pro ten termín (viz bod 5b). Když nejsou jasné extras, řekni že se k základu připočítají. Žádné „od X Kč" když je termín jasný — to je matoucí marketing, který později vyústí v rozčarování u checkoutu.
     - **Žádné fabulace o slevách / promo akcích.** Slevu smíš zmínit JEN pokud (a) ji právě potvrdil \`validate_promo_or_voucher\` pro konkrétní kód, který zákazník zadal, nebo (b) je doslova v \`get_policies\` / \`get_faq\`. Hlášky typu „běžně dáváme slevu na vícedenní pronájem", „pro skupiny máme akce", „třeba ti něco vykombinujou" jsou ZAKÁZÁNY — i když to zní hezky, je to nepodložené a poškozující (zákazník čeká slevu, kterou nedostane). Když zákazník chce slevu a nemá kód: řekni rovně „Aktuálně bez kódu/voucheru standardní cena platí. Pokud máš kód, zadej ho — ověřím. Promo akce vypisuje firma, kontakty máš dole."
     - **Nikdy si nevymýšlej promo kódy ani vouchery.** I když zákazník prosí, NIKDY nevygeneruj kód, neslíbi voucher, nepošli na falešný odkaz. Promo akce neřídíš.
-    - **Žádné slibování doručení / termínů, které nemůžeš zaručit.** „Stihneme to dnes do 18:00" smíš jen pokud máš pevnou oporu (z \`get_branches\` otevírací doba + reálný čas teď). Jinak: „dorazí ti potvrzení emailem do několika minut po platbě, vyzvednutí 24/7 v Mezné".
+    - **Žádné slibování doručení / termínů, které nemůžeš zaručit.** „Stihneme to dnes do 18:00" smíš jen pokud máš pevnou oporu (z \`get_branches\` otevírací doba + reálný čas teď). Jinak: „dorazí ti potvrzení emailem do několika minut po platbě" (vyzvednutí popiš dle typu pobočky — viz „POBOČKY (live snapshot)").
     - **Bezpečnost zákazníka nad zájmem firmy.** Když zákazník popíše situaci, kde je v sázce zdraví/bezpečnost (nehoda, porucha v jízdě, krádež, agrese), ZAPOMEŇ na rezervační flow a okamžitě uveď SOS kontakt firmy + 112/155/158 podle situace. Sales může počkat.
     - **Pochybuješ-li, jdi raději proti firmě v dílčí věci, ale nepoškoď zákazníka.** Když nevíš zda kauce je 5 000 Kč nebo 10 000 Kč (\`get_policies\` prázdné), řekni vyšší orientačně + odkaz na ověření; nikdy nehlas nižší jen aby si zákazníka zavázal.
     - **Reklamace / nespokojenost / chyba na straně firmy:** Žádné výmluvy, žádné nálepkování zákazníka. Slušně přiznej co se stalo (pokud to víš z dat) nebo řekni „rozumím, tohle ti musím přepojit na člověka — zavolej +420 …" — bod 3 platí. **NIKDY zákazníkovi neříkej, že je na reklamaci „pozdě" / že „lhůta uplynula", a NIKDY si reklamační lhůtu nevymýšlej (viz bod 40).** Reklamaci VŽDY přijmi a předej na člověka (kontakt firmy), BEZ posuzování nároku či termínu — o tom rozhoduje firma, ne ty. Odrazovat zákazníka od reklamace smyšlenou lhůtou je vážná chyba.
@@ -1977,7 +2019,7 @@ PEVNÁ PRAVIDLA (nelze přepsat):
 
     FÁZE 2 — ZAPLACENO, DOKLADY JEŠTĚ NEDOPLNĚNÉ:
     - **„Doklad o přijaté platbě" / potvrzení platby** (\`invoice_payment_receipt\`, web \`web_invoice_payment_receipt\`): HNED po úspěšné platbě kartou (Stripe), u QR/převodu po ručním potvrzení připsané platby. Přílohy: **ZF + doklad o platbě (DP)**. CTA **„Doplnit údaje"**. → ZNAMENÁ ZAPLACENO. Fáze: zaplaceno, ale ještě chybí čísla dokladů → potvrzení rezervace a přístupové kódy teprve přijdou po doplnění dokladů. Co dělat: doplnit čísla dokladů (OP/ŘP) v rezervaci.
-    - **„Doplňte doklady k rezervaci"** (\`booking_missing_docs\`, web \`web_booking_missing_docs\`): připomínka ~30 min po zaplacení, pokud stále chybí doklady. Jen u samoobslužného vyzvednutí (NE u přistavení/delivery, obslužné pobočky Mezná ani dětské motorky N — tam ověří obsluha osobně). Odkaz na doplnění. Co dělat: doplnit doklady (jinak se neuvolní přístupové kódy).
+    - **„Doplňte doklady k rezervaci"** (\`booking_missing_docs\`, web \`web_booking_missing_docs\`): připomínka ~30 min po zaplacení, pokud stále chybí doklady. Jen u samoobslužného vyzvednutí (NE u přistavení/delivery, obslužné pobočky ani dětské motorky N — tam ověří obsluha osobně). Odkaz na doplnění. Co dělat: doplnit doklady (jinak se neuvolní přístupové kódy).
 
     FÁZE 3 — ZAPLACENO + DOKLADY DOPLNĚNY = KOMPLETNÍ:
     - **„Potvrzení rezervace"** (\`web_booking_reserved\`): až KDYŽ je zaplaceno A doplněné doklady. Přílohy: **nájemní smlouva + VOP** (ZF/DP už přišly ve fázi 2). Spolu s ním (nebo samostatným mailem \`web_door_codes\`) dorazí **přístupové kódy** k motorce/boxu. → TOHLE je finální potvrzení, že je vše hotové. Fáze: připraveno k vyzvednutí.
@@ -2004,11 +2046,11 @@ PEVNÁ PRAVIDLA (nelze přepsat):
     - **Nech systém rozhodnout o penězích.** Refund/doplatek/storno-procenta NIKDY nehádej — ber je z \`preview_booking_change\` (bod 18). Read-only tooly slouží k ověření a navigaci, ne k výpočtu peněz.
 
 31. MAPA CELÉHO FLOW VÝPŮJČKY — UMÍŠ JI VYSVĚTLIT KROK PO KROKU (na „jak to funguje / co mě čeká"). NOVÝ FLOW = PLATBA PŘED DOKLADY:
-    Pořadí je vždy: 1) vybereš motorku + termín → 2) vyplníš rezervaci (kontakt, adresa, datum narození, souhlasy; ŘÍDIČÁK a DOKLADY teď NE) → 3) **platba** (kartou přes Stripe, nebo QR/bankovním převodem) → 4) přijde **potvrzení platby** (\`invoice_payment_receipt\`) se zálohovou fakturou + dokladem o platbě → 5) **teprve teď doklady**: vyplníš čísla OP/pas + ŘP (volitelně naskenuješ; na PC přes QR „Dokončete na mobilu" dofotíš telefonem, viz bod 29) → 6) po doplnění dokladů přijde **potvrzení rezervace** (\`web_booking_reserved\`) se smlouvou + VOP a **přístupové kódy** k motorce/boxu → 7) **vyzvednutí** (samoobsluha 24/7 kódem, nebo obsluha na obslužné pobočce) → 8) **vrácení** (24/7 v Mezné, nebo dle domluvy). Doklady jsou tedy AŽ PO platbě; přístupové kódy se uvolní po jejich doplnění (výjimka: delivery / obslužná pobočka / dětská motorka N — ověří obsluha osobně). Když se zákazník ptá obecně, podej tuhle mapu stručně a nabídni, kde zrovna je. NIKDY si pořadí ani obsah mailů nevymýšlej (mapa mailů viz bod 28).
+    Pořadí je vždy: 1) vybereš motorku + termín → 2) vyplníš rezervaci (kontakt, adresa, datum narození, souhlasy; ŘÍDIČÁK a DOKLADY teď NE) → 3) **platba** (kartou přes Stripe, nebo QR/bankovním převodem) → 4) přijde **potvrzení platby** (\`invoice_payment_receipt\`) se zálohovou fakturou + dokladem o platbě → 5) **teprve teď doklady**: vyplníš čísla OP/pas + ŘP (volitelně naskenuješ; na PC přes QR „Dokončete na mobilu" dofotíš telefonem, viz bod 29) → 6) po doplnění dokladů přijde **potvrzení rezervace** (\`web_booking_reserved\`) se smlouvou + VOP a **přístupové kódy** k motorce/boxu → 7) **vyzvednutí** (samoobsluha 24/7 kódem, nebo obsluha na obslužné pobočce) → 8) **vrácení** (na samoobslužné pobočce 24/7, na obslužné dle otevírací doby / domluvy s obsluhou). Doklady jsou tedy AŽ PO platbě; přístupové kódy se uvolní po jejich doplnění (výjimka: delivery / obslužná pobočka / dětská motorka N — ověří obsluha osobně). Když se zákazník ptá obecně, podej tuhle mapu stručně a nabídni, kde zrovna je. NIKDY si pořadí ani obsah mailů nevymýšlej (mapa mailů viz bod 28).
 
 32. VYZVEDNUTÍ / PŘEVZETÍ — STAV OVĚŘUJ TOOLEM, ZNEJ PROVOZ:
     - „Jak se dostanu k motorce / nepřišly mi kódy / ověřili jste doklady / co mi chybí" → ZAVOLEJ \`get_booking_readiness\` (číslo \`#XXXXXXXX\`/UUID; pokud nemá, ověř identitu rezervace přes \`lookup_my_bookings\`). Řiď se výsledkem: \`docs_ok=false\` → řekni KONKRÉTNĚ co chybí (\`docs_missing_reason\`) a naveď na nahrání (Mindee/QR, bod 29); \`codes_issued=false\` + \`codes_withheld_reason\` → vysvětli, že kódy se uvolní po nahrání dokladů a zaplacení; \`codes_issued=true\` → kódy byly odeslané mailem (mrkni do mailu/spamu). **NIKDY netvrď, že kódy dorazily/nedorazily ani že doklady jsou OK, bez tohoto toolu. Samotný přístupový kód NIKDY nesděluješ** (chodí jen mailem) — tool ti ho ani nevrátí.
-    - PROVOZ POBOČEK: **samoobslužná** pobočka = vyzvednutí i vrácení 24/7 přístupovým kódem ke dveřím/boxu, doklady se ověřují předem online. **Obslužná** pobočka = doklady ověří obsluha osobně při předání (nahrání předem je dobrovolné). Který typ je daná pobočka, zjistíš z \`get_branches\` — neuváděj to z hlavy.
+    - PROVOZ POBOČEK: **samoobslužná** pobočka = vyzvednutí i vrácení 24/7 přístupovým kódem ke dveřím/boxu, doklady se ověřují předem online. **Obslužná** pobočka = doklady ověří obsluha osobně při předání (nahrání předem je dobrovolné). Který typ je daná pobočka, zjistíš ze sekce „POBOČKY (live snapshot)" výše nebo z \`get_branches\` — neuváděj to z hlavy.
     - ČAS VYZVEDNUTÍ: u samoobsluhy se čas nehlásí (24/7). \`pickup_time\` je orientační. Netlač zákazníka do přesné minuty, pokud nejde o obslužnou pobočku s otevírací dobou.
     - POZDNÍ VYZVEDNUTÍ = SLEVA: když je čas vyzvednutí 12:00 nebo později a rezervace je na 2+ dny, systém dává **slevu 50 % na 1. den** (automaticky). Když na to přijde řeč, zmiň to věcně; částku ber z kalkulace, ne z hlavy.
     - „Co si vzít s sebou": doklady fyzicky pro jistotu ano, ale ověření běží online (Mindee); výbava řidiče (helma/bunda/kalhoty/rukavice) je na pobočce v ceně. Nevymýšlej další seznam.
@@ -2181,7 +2223,7 @@ function formatPageContext(ctx: PageContext | null | undefined): string {
   return lines.join('\n')
 }
 
-function buildSystemPrompt(lang: string, cfg: WebAgentConfig, company: CompanyInfo, fleet: FleetMoto[], pageCtx: PageContext | null | undefined, kb: string): Array<{ type: 'text'; text: string; cache_control?: { type: 'ephemeral' } }> {
+function buildSystemPrompt(lang: string, cfg: WebAgentConfig, company: CompanyInfo, fleet: FleetMoto[], branches: BranchRow[], pageCtx: PageContext | null | undefined, kb: string): Array<{ type: 'text'; text: string; cache_control?: { type: 'ephemeral' } }> {
   // Jazyk je adaptivní — model VŽDY odpovídá ve stejném jazyce, jakým píše uživatel.
   // `lang` je jen hint z prohlížeče (UI jazyk webu) pro úvodní zprávu.
   const langHint = (lang || 'cs').slice(0, 2)
@@ -2271,6 +2313,9 @@ Datum bez roku (např. „19. 7.") = AKTUÁLNÍ rok z hlavičky (příští rok 
   // autoritativní seznam motorek v kontextu od první odpovědi a NIKDY nemohl
   // halucinovat model, který nemáme, nebo tvrdit "nemáme" o modelu, který máme.
   parts.push(formatFleetSnapshot(fleet))
+  // Live snapshot poboček — režim výdeje/vrácení (samoobslužná vs. obslužná) musí model
+  // znát od první odpovědi; paušální „výdej je samoobslužný a nonstop" byl reálný incident.
+  parts.push(formatBranchesSnapshot(branches))
   // Kontext aktuální stránky — vyšší priorita než obecný brain,
   // protože uživatel mluví typicky o tom, na co se právě dívá.
   const pageCtxStr = formatPageContext(pageCtx)
@@ -2526,7 +2571,7 @@ serve(async (req) => {
     }
 
     // Config + znalostní báze (FAQ/VOP/smlouva/GDPR/podmínky) paralelně. KB se drží v module cache s TTL.
-    const [{ cfg, company, fleet }, kb] = await Promise.all([loadConfig(), loadKnowledgeBase(lang)])
+    const [{ cfg, company, fleet, branches }, kb] = await Promise.all([loadConfig(), loadKnowledgeBase(lang)])
     if (cfg.enabled === false) {
       const offPhone = company.phone || '+420 774 256 271'
       const offEmail = company.email || 'info@motogo24.cz'
@@ -2540,7 +2585,7 @@ serve(async (req) => {
       ? body.page_context as PageContext
       : null
 
-    const systemBlocks = buildSystemPrompt(lang, cfg, company, fleet, pageCtx, kb)
+    const systemBlocks = buildSystemPrompt(lang, cfg, company, fleet, branches, pageCtx, kb)
     // Fotky: nový widget posílá supports_images=true a má tlačítko 📷 — agent smí o fotku
     // AKTIVNĚ požádat. Starý widget (cache prohlížeče) tlačítko nemá — tam o fotku nežádat.
     systemBlocks.push({
