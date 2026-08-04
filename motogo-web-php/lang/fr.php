@@ -303,7 +303,7 @@ return [
     // ===== Réservation — équipement =====
     'rez.gear.intro' => 'Choisissez les tailles en cliquant sur les carrés ci-dessous. Si vous ne choisissez pas, nous l\'essaierons sur place.',
     'rez.gear.rider' => 'Équipement du conducteur',
-    'rez.gear.riderSub' => 'Casque, blouson, gants, pantalon',
+    'rez.gear.riderSub' => 'Casque, blouson, gants, pantalon, cagoule',
     'rez.gear.riderFree' => 'inclus · gratuit',
     'rez.gear.free' => 'OFFERT',
     'rez.gear.loyaltyFree' => 'Grâce à votre rang, tout l’équipement et les chaussures — passager compris — sont offerts.',

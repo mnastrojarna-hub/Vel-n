@@ -13,6 +13,7 @@ export const HANDOVER_CHECKS = [
 // Doplňkové vybavení / příslušenství — operátor zaškrtne, co reálně předal.
 export const EXTRA_GEAR_CHECKS = [
   { key: 'phone_holder', label: 'Držák na telefon' },
+  { key: 'usb_adapter', label: 'USB 12V přechodka' },
   { key: 'disc_lock', label: 'Kotoučový zámek' },
   { key: 'rain_suit', label: 'Set nepromokavé bundy a kalhot' },
   { key: 'rain_boots', label: 'Nepromoky na nohy' },

@@ -376,7 +376,7 @@ const translationsUkMain = <String, Map<String, String>>{
     'returnAddressLabel': 'Адреса повернення',
     'gearAndAddons': 'ЕКІПІРУВАННЯ ТА АКСЕСУАРИ',
     'basicGearFree': 'Базове екіпірування безкоштовно',
-    'basicGearList': 'Шолом, рукавички, куртка, штани',
+    'basicGearList': 'Шолом, рукавички, куртка, штани, підшоломник',
     'ownGear': 'Маю власне екіпірування',
     'helmet': 'Шолом',
     'gloves': 'Рукавички',

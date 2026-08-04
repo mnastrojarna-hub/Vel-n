@@ -289,7 +289,7 @@ return [
     // ===== Reservering — uitrusting =====
     'rez.gear.intro' => 'Kies maten door op de vakjes hieronder te klikken. Als u geen maat kiest, passen we hem op locatie.',
     'rez.gear.rider' => 'Uitrusting bestuurder',
-    'rez.gear.riderSub' => 'Helm, jas, handschoenen, broek',
+    'rez.gear.riderSub' => 'Helm, jas, handschoenen, broek, bivakmuts',
     'rez.gear.riderFree' => 'inbegrepen · gratis',
     'rez.gear.free' => 'GRATIS',
     'rez.gear.loyaltyFree' => 'Dankzij je rang zijn alle uitrusting en schoenen — ook voor de passagier — gratis.',

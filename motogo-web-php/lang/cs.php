@@ -424,7 +424,7 @@ return [
     // ===== Rezervace — výbava =====
     'rez.gear.intro' => 'Vyberte velikosti kliknutím na čtverečky níže. Pokud velikost nezvolíte, vyzkoušíme ji na místě.',
     'rez.gear.rider' => 'Výbava řidiče',
-    'rez.gear.riderSub' => 'Helma, bunda, rukavice, kalhoty',
+    'rez.gear.riderSub' => 'Helma, bunda, rukavice, kalhoty, kukla',
     'rez.gear.riderFree' => 'v ceně · zdarma',
     'rez.gear.free' => 'ZDARMA',
     'rez.gear.loyaltyFree' => 'Díky vašemu ranku máte veškerou výbavu i obuv — i pro spolujezdce — zdarma.',

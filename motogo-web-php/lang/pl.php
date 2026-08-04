@@ -289,7 +289,7 @@ return [
     // ===== Rezerwacja — wyposażenie =====
     'rez.gear.intro' => 'Wybierz rozmiary, klikając na kwadraty poniżej. Jeśli nie wybierzesz, przymierzymy je na miejscu.',
     'rez.gear.rider' => 'Wyposażenie kierowcy',
-    'rez.gear.riderSub' => 'Kask, kurtka, rękawice, spodnie',
+    'rez.gear.riderSub' => 'Kask, kurtka, rękawice, spodnie, kominiarka',
     'rez.gear.riderFree' => 'w cenie · gratis',
     'rez.gear.free' => 'GRATIS',
     'rez.gear.loyaltyFree' => 'Dzięki Twojej randze całe wyposażenie i obuwie — także pasażera — jest gratis.',
