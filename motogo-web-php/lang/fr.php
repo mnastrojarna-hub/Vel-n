@@ -1113,6 +1113,7 @@ return [
     'editRez.swap.net.surcharge' => 'Supplément pour le changement : +{amount}',
     'editRez.swap.net.refund' => 'Nous vous remboursons {amount}',
     'editRez.swap.net.same' => 'Pas de changement de prix',
+    'editRez.refund.manualNote' => 'Le paiement sera remboursé par virement sur votre compte sous 14 jours.',
     'editRez.swap.noOptions' => 'Aucune autre moto n’est disponible pour le moment.',
     'editRez.swap.err.unavailable' => 'La moto sélectionnée n’est pas disponible sur cette période. Veuillez en choisir une autre.',
     'editRez.swap.err.dateRange' => 'La date du changement doit être comprise dans la période de réservation.',

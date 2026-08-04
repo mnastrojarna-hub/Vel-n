@@ -668,6 +668,7 @@ return [
     'editRez.swap.net.surcharge' => 'Aufpreis für den Tausch: +{amount}',
     'editRez.swap.net.refund' => 'Wir erstatten Ihnen {amount}',
     'editRez.swap.net.same' => 'Keine Preisänderung',
+    'editRez.refund.manualNote' => 'Die Zahlung wird innerhalb von 14 Tagen per Überweisung auf Ihr Konto zurückerstattet.',
     'editRez.swap.noOptions' => 'Derzeit ist kein anderes Motorrad verfügbar.',
     'editRez.swap.err.unavailable' => 'Das gewählte Motorrad ist in diesem Zeitraum nicht verfügbar. Bitte wählen Sie ein anderes.',
     'editRez.swap.err.dateRange' => 'Das Wechseldatum muss innerhalb des Reservierungszeitraums liegen.',

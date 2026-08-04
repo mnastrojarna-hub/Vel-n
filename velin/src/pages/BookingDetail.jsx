@@ -38,6 +38,7 @@ export default function BookingDetail() {
   const [promoUsage, setPromoUsage] = useState([])
   const [voucherUsed, setVoucherUsed] = useState(null)
   const [hasCreditNote, setHasCreditNote] = useState(false)
+  const [creditNotes, setCreditNotes] = useState([])
 
   // Refy pro realtime subscription — callback se vytvoří jen jednou (deps [id]),
   // takže potřebuje vždy aktuální stav (status/platba) i příznak probíhajícího uložení.
@@ -125,8 +126,12 @@ export default function BookingDetail() {
       .then(({ data }) => { if (data) setPromoUsage(data) }).catch(() => {})
     supabase.from('vouchers').select('code, amount, currency, status').eq('booking_id', id).limit(1)
       .then(({ data }) => { if (data && data.length) setVoucherUsed(data[0]) }).catch(() => {})
-    supabase.from('invoices').select('id').eq('booking_id', id).eq('type', 'credit_note').limit(1)
-      .then(({ data }) => { setHasCreditNote(data && data.length > 0) }).catch(() => {})
+    // Plné řádky dobropisů (ne jen bool): manuální vratka (stripe_refund_id NULL)
+    // = „Vrátit X Kč na účet zákazníka" — banner + akce „Vratka odeslána".
+    supabase.from('invoices').select('id, number, total, stripe_refund_id, notes, issue_date, pdf_path')
+      .eq('booking_id', id).eq('type', 'credit_note').neq('status', 'cancelled')
+      .order('created_at', { ascending: false })
+      .then(({ data }) => { setCreditNotes(data || []); setHasCreditNote(!!(data && data.length)) }).catch(() => {})
   }
 
   async function changeStatus(newStatus) {
@@ -260,6 +265,26 @@ export default function BookingDetail() {
     // vyber způsob platby (QR/převod/hotově…), VS, datum, č. transakce → confirm_payment.
     if (booking.payment_status !== 'paid' && booking.status === 'pending') { setSurchargeMode(false); setShowPaymentModal(true); return }
     setConfirm(action)
+  }
+
+  // Manuální vratka odeslána — rezervace bez Stripe platby má po úpravě/stornu
+  // vystavený dobropis (stripe_refund_id NULL) a payment_status='refund_pending';
+  // po ručním odeslání peněz na účet zákazníka admin potvrdí a stav přejde na
+  // 'refunded'. Auditní stopa s částkou a číslem dobropisu.
+  async function confirmManualRefundSent() {
+    setSaving(true); setError(null)
+    try {
+      const cn = creditNotes.find(c => !c.stripe_refund_id)
+      const amount = cn ? Math.abs(Number(cn.total) || 0) : null
+      const res = await debugAction('booking.manual_refund_sent', 'BookingDetail', () =>
+        supabase.from('bookings').update({ payment_status: 'refunded' }).eq('id', id)
+      , { booking_id: id, amount })
+      if (res?.error) { setError(res.error.message); setSaving(false); return }
+      await logAudit('booking_manual_refund_sent', { booking_id: id, amount, credit_note: cn?.number || null })
+      setConfirm(null)
+      await loadBooking()
+    } catch (e) { setError(e.message) }
+    setSaving(false)
   }
 
   // Potvrzení DOPLATKU za úpravu rezervace — nezaplacená část se označí jako
@@ -398,6 +423,14 @@ export default function BookingDetail() {
   const actionsWithSurcharge = (surchargeDue > 0 && ['reserved', 'active'].includes(booking.status))
     ? [{ label: `Potvrdit doplatek (${surchargeDue.toLocaleString('cs-CZ')} Kč)`, status: 'confirm_surcharge', green: true, surcharge: true }, ...actions]
     : actions
+  // Manuální vratka (bez Stripe platby): refund_pending bez stripe_refund_id +
+  // dobropis bez Stripe refund id = peníze se vrací PŘEVODEM NA ÚČET zákazníka.
+  const manualRefundCn = (booking.payment_status === 'refund_pending' && !booking.stripe_refund_id)
+    ? creditNotes.find(c => !c.stripe_refund_id) : null
+  const manualRefundDue = manualRefundCn ? Math.abs(Number(manualRefundCn.total) || 0) : 0
+  const actionsWithRefund = manualRefundDue > 0
+    ? [{ label: `Vratka odeslána (${manualRefundDue.toLocaleString('cs-CZ')} Kč)`, status: 'confirm_manual_refund', green: true, refund: true }, ...actionsWithSurcharge]
+    : actionsWithSurcharge
 
   return (
     <div>
@@ -429,6 +462,13 @@ export default function BookingDetail() {
             style={{ padding: '3px 8px', background: '#fef3c7', color: '#b45309', border: '1px solid #fcd34d' }}
             title="Úprava rezervace čeká na doplatek — po připsání potvrď tlačítkem Potvrdit doplatek; teprve pak zákazníkovi odejde potvrzení úpravy">
             DOPLATEK — ČEKÁ · {surchargeDue.toLocaleString('cs-CZ')} Kč{booking.mod_surcharge_vs ? ` · VS ${booking.mod_surcharge_vs}` : ''}
+          </span>
+        )}
+        {manualRefundDue > 0 && (
+          <span className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase"
+            style={{ padding: '3px 8px', background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5' }}
+            title={`Rezervace bez Stripe platby — vratku z úpravy/storna pošli ručně PŘEVODEM na účet zákazníka (do 14 dnů) a potvrď tlačítkem Vratka odeslána. Dobropis ${manualRefundCn?.number || ''}`}>
+            VRÁTIT NA ÚČET · {manualRefundDue.toLocaleString('cs-CZ')} Kč
           </span>
         )}
         {booking.pay_channel === 'qr' && booking.payment_status !== 'paid' && (
@@ -463,13 +503,19 @@ export default function BookingDetail() {
         {error && <div style={{ color: '#dc2626' }}>ERROR: {error}</div>}
       </div>
       )}
-      {tab === 'Detail' && <DetailTab booking={booking} set={set} error={error} saving={saving} actions={actionsWithSurcharge} onAction={handleAction} navigate={navigate} promoUsage={promoUsage} voucherUsed={voucherUsed} onModify={() => setShowModifyModal(true)} />}
+      {tab === 'Detail' && <DetailTab booking={booking} set={set} error={error} saving={saving} actions={actionsWithRefund} onAction={handleAction} navigate={navigate} promoUsage={promoUsage} voucherUsed={voucherUsed} onModify={() => setShowModifyModal(true)} />}
       {showModifyModal && booking && <BookingModifyModal booking={booking} onClose={() => setShowModifyModal(false)} onSaved={() => { setShowModifyModal(false); loadBooking() }} />}
       {tab === 'Kalendář motorky' && booking.motorcycles?.id && <BookingsCalendar motoId={booking.motorcycles.id} />}
       {tab === 'Dokumenty' && <BookingDocumentsTab bookingId={id} userId={booking?.user_id} />}
       {tab === 'Platby' && <BookingPaymentsTab bookingId={id} />}
       {tab === 'Reklamace' && <ComplaintsTab bookingId={id} booking={booking} setBooking={setBooking} />}
-      {confirm && <ConfirmDialog open title={`${confirm.label}?`} message={`Změnit stav na "${confirm.label}"?`} danger={confirm.danger} onConfirm={() => changeStatus(confirm.status)} onCancel={() => setConfirm(null)} />}
+      {confirm && <ConfirmDialog open title={`${confirm.label}?`}
+        message={confirm.refund
+          ? 'Potvrď, že vratka byla ODESLÁNA převodem na účet zákazníka — rezervace se označí jako Vráceno.'
+          : `Změnit stav na "${confirm.label}"?`}
+        danger={confirm.danger}
+        onConfirm={() => confirm.refund ? confirmManualRefundSent() : changeStatus(confirm.status)}
+        onCancel={() => setConfirm(null)} />}
       <BookingCancelModal open={showCancelModal} onClose={() => setShowCancelModal(false)} cancelReason={cancelReason} setCancelReason={setCancelReason} cancelReasonCustom={cancelReasonCustom} setCancelReasonCustom={setCancelReasonCustom} onCancel={handleCancel} saving={saving} error={error} />
       <PaymentConfirmModal open={showPaymentModal} onClose={() => { setShowPaymentModal(false); setSurchargeMode(false); setError(null) }}
         onConfirm={surchargeMode ? confirmSurchargePayment : confirmManualPayment} saving={saving} error={error}

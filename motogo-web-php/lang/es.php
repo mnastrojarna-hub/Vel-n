@@ -1114,6 +1114,7 @@ return [
     'editRez.swap.net.surcharge' => 'Suplemento por el cambio: +{amount}',
     'editRez.swap.net.refund' => 'Te devolveremos {amount}',
     'editRez.swap.net.same' => 'Sin cambio de precio',
+    'editRez.refund.manualNote' => 'El pago se devolverá mediante transferencia bancaria a tu cuenta en un plazo de 14 días.',
     'editRez.swap.noOptions' => 'Ahora mismo no hay ninguna otra moto disponible.',
     'editRez.swap.err.unavailable' => 'La moto seleccionada no está disponible en este período. Elige otra.',
     'editRez.swap.err.dateRange' => 'La fecha del cambio debe estar dentro del período de la reserva.',

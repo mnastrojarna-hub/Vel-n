@@ -197,6 +197,7 @@
       not_paid: 'editRez.err.notPaid',
       invalid_new_moto: 'editRez.swap.err.unavailable',
       new_moto_unavailable: 'editRez.swap.err.unavailable',
+      license_insufficient: 'editRez.moto.licenseInsufficient',
       swap_date_out_of_range: 'editRez.swap.err.dateRange',
       already_split: 'editRez.swap.err.dateRange'
     };
@@ -220,7 +221,9 @@
       if (!r.ok || !j || j.success !== true) {
         return { ok: false, msg: (j && j.error) || MG.t('editRez.err.generic') };
       }
-      return { ok: true };
+      // manual:true = rezervace bez Stripe platby → dobropis vystaven, peníze
+      // vrátí obsluha převodem na účet (do 14 dnů) — řekneme to zákazníkovi.
+      return { ok: true, manual: j.manual === true };
     } catch (e) {
       console.error('[editRez] swap refund exception', e);
       return { ok: false, msg: MG.t('editRez.err.generic') };
@@ -228,8 +231,11 @@
   }
 
   // Úspěšná obrazovka po commitu (inline, net<=0).
-  function swapSuccessUI(swapDate) {
+  function swapSuccessUI(swapDate, manualRefund) {
     var msg = MG.t('editRez.swap.success', { date: MG.formatDate(swapDate) });
+    if (manualRefund) {
+      msg += '<br><span class="muted" style="font-size:.9em">' + MG.t('editRez.refund.manualNote') + '</span>';
+    }
     var content = document.getElementById('edit-rez-tab-content');
     if (!content) return;
     content.innerHTML = '<div class="edit-rez-success-box"><h3>✓</h3><p>' + msg + '</p>' +
@@ -302,15 +308,17 @@
       }
 
       // 2b) VRÁCENÍ (net<0) — refund PŘED commitem; když selže, NEcommituj.
+      var manualRefund = false;
       if (net < -0.5) {
         var rf = await swapRefund(b.id, -net);
         if (!rf.ok) { ER._showError(rf.msg || MG.t('editRez.err.generic')); return; }
+        manualRefund = rf.manual === true;
       }
 
       // 3) COMMIT — net (<=0) vypořádán, teprve teď zapiš.
       var done = await window.sb.rpc('split_booking_moto_swap', Object.assign({ p_dry_run: false }, base));
       if (done.error || !done.data || done.data.success === false) { swapErr(done, base); return; }
-      swapSuccessUI(swapDate);
+      swapSuccessUI(swapDate, manualRefund);
     } catch (e) {
       console.error('[editRez] swap exception', e);
       ER._showError(MG.t('editRez.err.generic'));

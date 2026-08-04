@@ -1092,6 +1092,7 @@ return [
     'editRez.swap.net.surcharge' => 'Toeslag voor de wissel: +{amount}',
     'editRez.swap.net.refund' => 'U krijgt {amount} terug',
     'editRez.swap.net.same' => 'Geen prijswijziging',
+    'editRez.refund.manualNote' => 'De betaling wordt binnen 14 dagen per bankoverschrijving op je rekening teruggestort.',
     'editRez.swap.noOptions' => 'Er is op dit moment geen andere motor beschikbaar.',
     'editRez.swap.err.unavailable' => 'De gekozen motor is niet beschikbaar in deze periode. Kies een andere.',
     'editRez.swap.err.dateRange' => 'De wisseldatum moet binnen de reserveringsperiode vallen.',

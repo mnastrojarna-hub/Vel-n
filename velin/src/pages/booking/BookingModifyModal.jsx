@@ -238,16 +238,27 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
           details: { booking_id: booking.id, dates_changed: datesChanged, times_changed: timesChanged, moto_changed: motoChanged, delivery_changed: deliveryChanged, price_diff: priceDiff, charged: chargeCustomer, new_total: chargeCustomer ? newTotalPrice : origPaidPrice }
         })
       } catch {}
-      // Při zkrácení rezervace (záporný rozdíl) + placeno kartou → automatický Stripe refund + dobropis.
+      // Při zkrácení rezervace (záporný rozdíl) → refund + dobropis přes process-refund.
       // Proběhne jen pokud admin označil "naúčtovat zákazníkovi" (jinak je zkrácení bez vratky).
       // refundAmount je už očištěný o případný nezaplacený doplatek (nevrací se, co nepřišlo).
-      if (chargeCustomer && refundAmount > 0 && booking.stripe_payment_intent_id) {
+      // 2026-08-04: dispatch i BEZ stripe_payment_intent_id — dřív se vratka u QR/převod/
+      // hotově plateb tiše ZAHODILA (spočítala se a nikam nezapsala). process-refund si PI
+      // dohledá ze session; bez Stripe platby vystaví dobropis + označí 'refund_pending'
+      // → detail rezervace ukáže „VRÁTIT NA ÚČET · X Kč" s akcí „Vratka odeslána".
+      if (chargeCustomer && refundAmount > 0) {
         try {
-          await supabase.functions.invoke('process-refund', {
+          const { data: rfd, error: rfe } = await supabase.functions.invoke('process-refund', {
             body: { booking_id: booking.id, amount: refundAmount, reason: 'shortening' },
           })
+          if (rfe || rfd?.success !== true) {
+            console.warn('[BookingModify] refund failed:', rfe?.message || rfd?.error)
+            window.alert('Úprava je uložená, ale vratka se nepodařila (' + (rfe?.message || rfd?.error || 'chyba') + '). Vyřiďte vrácení ručně z detailu rezervace.')
+          } else if (rfd?.manual === true) {
+            window.alert('Rezervace nemá Stripe platbu — dobropis je vystaven a vratku ' + refundAmount.toLocaleString('cs-CZ') + ' Kč pošlete PŘEVODEM na účet zákazníka (do 14 dnů). Detail rezervace ukazuje „VRÁTIT NA ÚČET"; po odeslání potvrďte „Vratka odeslána".')
+          }
         } catch (refundErr) {
           console.warn('[BookingModify] refund failed:', refundErr?.message)
+          window.alert('Úprava je uložená, ale vratka se nepodařila (' + (refundErr?.message || 'chyba') + '). Vyřiďte vrácení ručně z detailu rezervace.')
         }
       }
 

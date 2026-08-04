@@ -37,17 +37,36 @@ async function htmlToPdf(html: string): Promise<Uint8Array | null> {
 const fmtPrice = (n: number) => Math.abs(n || 0).toLocaleString('cs-CZ', { minimumFractionDigits: 2 })
 const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('cs-CZ') : '—'
 
+// Jednotné popisy důvodu vratky pro položky dobropisu (web/app/Velín posílají
+// různé reason kódy; volný text zákazníka NIKDY neinjektujeme do HTML dokladu).
+function reasonTextFor(reason: string | undefined | null): string {
+  switch (reason) {
+    case 'cancellation': return 'Storno rezervace'
+    case 'shortening':
+    case 'edit_shortening': return 'Zkrácení rezervace'
+    case 'moto_swap': return 'Výměna motorky'
+    case 'gear_edit': return 'Úprava výbavy'
+    case 'booking_modified':
+    case 'booking_modified_retry':
+    case 'edit': return 'Úprava rezervace'
+    case 'duplicate': return 'Duplicitní platba'
+    default: return 'Vrácení platby zákazníkovi'
+  }
+}
+
 function renderCreditNoteHtml(opts: {
   number: string; issueDate: string; reasonText: string; motoModel: string;
   refundAmount: number; refundPercent: number; bookingDates: string;
   customer: { full_name?: string; email?: string; phone?: string; street?: string; city?: string; zip?: string; ico?: string; dic?: string };
-  originalInvoiceNumber?: string | null; stripeRefundId: string;
-  cardBrand?: string | null; cardLast4?: string | null;
+  originalInvoiceNumber?: string | null; stripeRefundId: string | null;
+  cardBrand?: string | null; cardLast4?: string | null; manual?: boolean;
 }): string {
   const c = opts.customer || {}
-  const cardLine = opts.cardLast4
-    ? `Refund proběhl na kartu ${(opts.cardBrand || 'CARD').toUpperCase()} **** ${opts.cardLast4}.`
-    : 'Refund proběhl na původní platební kartu.'
+  const cardLine = opts.manual
+    ? 'Částka bude vrácena PŘEVODEM NA ÚČET do 14 dnů.'
+    : opts.cardLast4
+      ? `Refund proběhl na kartu ${(opts.cardBrand || 'CARD').toUpperCase()} **** ${opts.cardLast4}.`
+      : 'Refund proběhl na původní platební kartu.'
   return `<!DOCTYPE html><html lang="cs"><head><meta charset="UTF-8"><title>Dobropis ${opts.number}</title>
 <style>
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#0f1a14;margin:0;padding:24px;font-size:13px}
@@ -537,22 +556,139 @@ Deno.serve(async (req: Request) => {
     }
 
     if (!stripePaymentIntentId) {
-      // Výměna motorky (moto_swap) u rezervace BEZ Stripe platby (QR/převod/
-      // hotově/ručně označená paid): automatický refund nejde, ale výměnu kvůli
-      // tomu NEblokujeme — rezervace se označí 'refund_pending' („Čeká na
-      // vrácení" ve Velíně) a vrátíme success, aby swap commit proběhl.
-      // Peníze pošle admin ručně a stav pak ve Velíně přepne na refunded.
-      // Ostatní reasony (storno, zkrácení, Velín) se chovají jako dřív (400).
-      if (booking_id && reason === 'moto_swap') {
+      // Rezervace BEZ Stripe platby (QR/převod/hotově/ručně označená paid):
+      // automatický Stripe refund nejde, ale vratku kvůli tomu NEBLOKUJEME —
+      // platí pro VŠECHNY booking reasony (výměna motorky, zkrácení, úprava
+      // výbavy, storno, Velín úprava). Doplatky úprav jdou vždy jen přes Stripe;
+      // vratka jde v tomto případě PŘEVODEM NA ÚČET do 14 dnů (2026-08-04):
+      //  1. vystavíme DOBROPIS (credit_note, stripe_refund_id NULL = manuální)
+      //     + účetní záznam — položkově, stejně jako Stripe větev,
+      //  2. rezervace → 'refund_pending' („Čeká na vrácení" ve Velíně; banner
+      //     „Vrátit X Kč na účet zákazníka" + akce „Vratka odeslána"),
+      //  3. vrátíme success + manual:true, aby volající (web/app/RPC) commit
+      //     úpravy dokončil a zákazníkovi ukázal „vrátíme do 14 dnů".
+      // Shop objednávky se chovají jako dřív (400 — řeší se ručně).
+      if (booking_id) {
+        const { data: bkFull } = await supabase.from('bookings')
+          .select('user_id, total_price, start_date, end_date, motorcycles!moto_id(model), profiles:user_id(full_name, email, phone, street, city, zip, ico, dic)')
+          .eq('id', booking_id).single()
+        const totalPrice = Number(bkFull?.total_price || 0)
+        let manAmount = Number(amount) > 0 ? Number(amount) : totalPrice
+        if (totalPrice > 0 && manAmount > totalPrice) manAmount = totalPrice
+
+        if (manAmount <= 0) {
+          await dlog('manual_refund_noop_zero', 'info', { manual: true })
+          return new Response(
+            JSON.stringify({ success: true, manual: true, code: 'manual_refund_pending', amount: 0, credit_note_id: null }),
+            { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        const reasonText = reasonTextFor(reason)
+        const motoModel = (bkFull as any)?.motorcycles?.model || 'motorky'
+        const refundPercent = totalPrice > 0 ? Math.min(100, Math.round((manAmount / totalPrice) * 100)) : 100
+
+        // Dedup: souběžný dispatch téže manuální vratky (pg_net z RPC + retry
+        // v send-booking-email) → čerstvý manuální dobropis na stejnou částku
+        // (≤15 min, bez Stripe refund id) = už vystaveno, vrať existující.
+        const { data: freshManCn } = await supabase.from('invoices')
+          .select('id, number, pdf_path')
+          .eq('booking_id', booking_id).eq('type', 'credit_note').neq('status', 'cancelled')
+          .is('stripe_refund_id', null)
+          .eq('total', -manAmount)
+          .gte('created_at', new Date(Date.now() - 15 * 60_000).toISOString())
+          .order('created_at', { ascending: false }).limit(1)
+        let cnId: string | null = freshManCn?.[0]?.id || null
+        let cnNumber: string | null = freshManCn?.[0]?.number || null
+        let cnPdfPath: string | null = freshManCn?.[0]?.pdf_path || null
+
+        if (!cnId) {
+          const { data: origInvs } = await supabase.from('invoices')
+            .select('id, number')
+            .eq('booking_id', booking_id).neq('status', 'cancelled')
+            .in('type', ['final', 'payment_receipt', 'advance', 'proforma'])
+            .order('issue_date', { ascending: false }).limit(1)
+          const year = new Date().getFullYear()
+          const { data: lastCN } = await supabase.from('invoices')
+            .select('number').like('number', `DB-${year}-%`)
+            .order('number', { ascending: false }).limit(1)
+          let seq = 1
+          if (lastCN?.length) {
+            const m = lastCN[0].number.match(/-(\d+)$/)
+            if (m) seq = parseInt(m[1], 10) + 1
+          }
+          cnNumber = `DB-${year}-${String(seq).padStart(4, '0')}`
+          const issueDate = new Date().toISOString().slice(0, 10)
+
+          const { data: cnInv } = await supabase.from('invoices').insert({
+            number: cnNumber,
+            type: 'credit_note',
+            customer_id: bkFull?.user_id || null,
+            booking_id,
+            items: [{
+              description: `Dobropis – ${reasonText} (${motoModel})`,
+              qty: 1,
+              unit_price: -manAmount,
+            }],
+            subtotal: -manAmount,
+            tax_amount: 0,
+            total: -manAmount,
+            notes: `Dobropis k rezervaci. ${refundPercent < 100 ? `Částečný refund ${refundPercent}%.` : 'Plný refund.'} ${reasonText}. MANUÁLNÍ VRATKA — bez Stripe platby, k vrácení převodem na účet do 14 dnů.`,
+            issue_date: issueDate,
+            due_date: issueDate,
+            status: 'issued',
+            source: 'refund',
+            variable_symbol: cnNumber,
+            original_invoice_id: origInvs?.[0]?.id || null,
+            stripe_refund_id: null,
+          }).select('id').single()
+          cnId = cnInv?.id || null
+          await dlog('manual_credit_note_inserted', cnId ? 'info' : 'error', { credit_note_id: cnId, number: cnNumber, amount: manAmount })
+
+          if (cnId) {
+            await supabase.from('accounting_entries').insert({
+              type: 'expense',
+              amount: -manAmount,
+              description: `Dobropis ${cnNumber} – ${reasonText} (manuální vratka na účet)`,
+              category: 'refund',
+              date: issueDate,
+              booking_id,
+            })
+            try {
+              const html = renderCreditNoteHtml({
+                number: cnNumber, issueDate: fmtDate(issueDate), reasonText, motoModel,
+                refundAmount: manAmount, refundPercent,
+                bookingDates: `${fmtDate(String((bkFull as any)?.start_date || ''))} – ${fmtDate(String((bkFull as any)?.end_date || ''))}`,
+                customer: (bkFull as any)?.profiles || {},
+                originalInvoiceNumber: origInvs?.[0]?.number || null,
+                stripeRefundId: null, manual: true,
+              })
+              const pdfBytes = await htmlToPdf(html)
+              cnPdfPath = pdfBytes ? `invoices/${cnId}.pdf` : `invoices/${cnId}.html`
+              await supabase.storage.from('documents').upload(
+                cnPdfPath,
+                pdfBytes ? new Blob([pdfBytes], { type: 'application/pdf' }) : new Blob([html], { type: 'text/html' }),
+                { upsert: true, contentType: pdfBytes ? 'application/pdf' : 'text/html' },
+              )
+              await supabase.from('invoices').update({ pdf_path: cnPdfPath }).eq('id', cnId)
+            } catch (e) {
+              console.warn('[process-refund] manual CN pdf failed:', (e as Error).message)
+            }
+          }
+        }
+
         await supabase.from('bookings')
           .update({ payment_status: 'refund_pending' })
           .eq('id', booking_id)
         await dlog('manual_refund_pending', 'info', {
-          manual: true,
-          note: 'no Stripe payment — vratka za výměnu motorky k ručnímu vyřízení',
+          manual: true, amount: manAmount, credit_note_id: cnId,
+          note: 'no Stripe payment — vratka k ručnímu vyřízení převodem na účet (do 14 dnů)',
         })
         return new Response(
-          JSON.stringify({ success: true, manual: true, code: 'manual_refund_pending', amount: amount ?? null }),
+          JSON.stringify({
+            success: true, manual: true, code: 'manual_refund_pending',
+            amount: manAmount, credit_note_id: cnId, credit_note_pdf_path: cnPdfPath,
+          }),
           { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } }
         )
       }
@@ -703,10 +839,7 @@ Deno.serve(async (req: Request) => {
           .eq('id', booking_id).single()
         if (bk) {
           const refundPercent = amount ? Math.round((amount / Number(bk.total_price || 1)) * 100) : 100
-          const reasonText = reason === 'cancellation' ? 'Storno rezervace'
-            : reason === 'shortening' ? 'Zkrácení rezervace'
-            : reason === 'duplicate' ? 'Duplicitní platba'
-            : 'Vrácení platby zákazníkovi'
+          const reasonText = reasonTextFor(reason)
 
           // Find original invoice to reference
           const { data: origInvs } = await supabase.from('invoices')
