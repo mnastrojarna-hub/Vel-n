@@ -980,6 +980,7 @@ return [
     'editRez.swap.net.surcharge' => 'Doplatek za výměnu: +{amount}',
     'editRez.swap.net.refund' => 'Vrátíme vám {amount}',
     'editRez.swap.net.same' => 'Výměna beze změny ceny',
+    'editRez.refund.manualNote' => 'Platbu vrátíme převodem na váš účet do 14 dnů.',
     'editRez.swap.noOptions' => 'Momentálně není k dispozici žádná jiná motorka.',
     'editRez.swap.err.unavailable' => 'Vybraná motorka není v tomto termínu dostupná. Vyberte prosím jinou.',
     'editRez.swap.err.dateRange' => 'Datum výměny musí být uvnitř termínu rezervace.',

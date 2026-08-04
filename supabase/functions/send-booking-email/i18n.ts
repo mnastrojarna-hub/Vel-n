@@ -1045,14 +1045,37 @@ function renderModifiedBody(lang: Lang, v: Vars): string {
     fr: `votre réservation n° <strong>${v.booking_number}</strong> a été modifiée. Ci-dessous le récapitulatif complet — les valeurs originales sont barrées, les nouvelles surlignées en vert.`,
     pl: `Twoja rezerwacja nr <strong>${v.booking_number}</strong> została zmieniona. Poniżej pełne podsumowanie zmian — pierwotne wartości są przekreślone, nowe wyróżnione na zielono.`,
   }
+  // Vratka: cíl peněz dle způsobu platby — Stripe → zpět na kartu; bez Stripe
+  // platby (QR/převod/hotově; v.refund_manual='true' nastavuje index.ts) →
+  // PŘEVODEM NA ÚČET do 14 dnů.
+  const refundManual = String(v.refund_manual || '') === 'true'
+  const refundTail: Record<Lang, string> = refundManual
+    ? {
+        cs: 'Částku vrátíme převodem na váš účet do 14 dnů.',
+        en: 'The amount will be returned by bank transfer to your account within 14 days.',
+        de: 'Der Betrag wird innerhalb von 14 Tagen per Überweisung auf Ihr Konto zurückerstattet.',
+        nl: 'Het bedrag wordt binnen 14 dagen per bankoverschrijving op je rekening teruggestort.',
+        es: 'El importe se devolverá mediante transferencia bancaria a tu cuenta en un plazo de 14 días.',
+        fr: 'La somme sera remboursée par virement sur votre compte sous 14 jours.',
+        pl: 'Kwotę zwrócimy przelewem na Twoje konto w ciągu 14 dni.',
+      }
+    : {
+        cs: 'Refund jde zpět na původní platební kartu.',
+        en: 'The amount returns to your original card.',
+        de: 'Betrag geht zurück auf Ihre ursprüngliche Karte.',
+        nl: 'Bedrag terug op je oorspronkelijke kaart.',
+        es: 'El importe vuelve a tu tarjeta original.',
+        fr: 'La somme retourne sur votre carte d\'origine.',
+        pl: 'Środki wracają na pierwotną kartę.',
+      }
   const priceMsgs: Record<Lang, { plus: string; minus: string }> = {
-    cs: { plus: `K úpravě se vztahuje <strong>doplatek ${v.price_difference}</strong>. Po platbě dorazí doklad k přijaté platbě.`,                  minus: `K úpravě se vztahuje <strong>vrácení ${v.price_difference}</strong> formou dobropisu, který najdete v příloze. Refund jde zpět na původní platební kartu.` },
-    en: { plus: `An additional payment of <strong>${v.price_difference}</strong> applies. The payment receipt will follow after payment.`,    minus: `A refund of <strong>${v.price_difference}</strong> applies as a credit note (attached). The amount returns to your original card.` },
-    de: { plus: `Es fällt eine Nachzahlung von <strong>${v.price_difference}</strong> an. Der Beleg folgt nach Zahlungseingang.`,           minus: `Eine Rückerstattung von <strong>${v.price_difference}</strong> wird als Gutschrift (Anhang) erstattet — Betrag geht zurück auf Ihre ursprüngliche Karte.` },
-    nl: { plus: `Er volgt een bijbetaling van <strong>${v.price_difference}</strong>. Het betalingsbewijs komt na betaling.`,             minus: `Een terugbetaling van <strong>${v.price_difference}</strong> wordt verwerkt als creditnota (bijlage) — bedrag terug op je oorspronkelijke kaart.` },
-    es: { plus: `Se aplica un pago adicional de <strong>${v.price_difference}</strong>. El comprobante llegará tras el pago.`,             minus: `Se aplica un reembolso de <strong>${v.price_difference}</strong> mediante nota de crédito (adjunta) — el importe vuelve a tu tarjeta original.` },
-    fr: { plus: `Un supplément de <strong>${v.price_difference}</strong> s'applique. Le justificatif suivra après paiement.`,              minus: `Un remboursement de <strong>${v.price_difference}</strong> est émis sous forme d'avoir (joint) — la somme retourne sur votre carte d'origine.` },
-    pl: { plus: `Wymagana jest dopłata <strong>${v.price_difference}</strong>. Potwierdzenie płatności nadejdzie po płatności.`,                 minus: `Zwrot <strong>${v.price_difference}</strong> w formie noty kredytowej (załącznik) — środki wracają na pierwotną kartę.` },
+    cs: { plus: `K úpravě se vztahuje <strong>doplatek ${v.price_difference}</strong>. Po platbě dorazí doklad k přijaté platbě.`,                  minus: `K úpravě se vztahuje <strong>vrácení ${v.price_difference}</strong> formou dobropisu, který najdete v příloze. ${refundTail.cs}` },
+    en: { plus: `An additional payment of <strong>${v.price_difference}</strong> applies. The payment receipt will follow after payment.`,    minus: `A refund of <strong>${v.price_difference}</strong> applies as a credit note (attached). ${refundTail.en}` },
+    de: { plus: `Es fällt eine Nachzahlung von <strong>${v.price_difference}</strong> an. Der Beleg folgt nach Zahlungseingang.`,           minus: `Eine Rückerstattung von <strong>${v.price_difference}</strong> wird als Gutschrift (Anhang) erstattet — ${refundTail.de}` },
+    nl: { plus: `Er volgt een bijbetaling van <strong>${v.price_difference}</strong>. Het betalingsbewijs komt na betaling.`,             minus: `Een terugbetaling van <strong>${v.price_difference}</strong> wordt verwerkt als creditnota (bijlage) — ${refundTail.nl}` },
+    es: { plus: `Se aplica un pago adicional de <strong>${v.price_difference}</strong>. El comprobante llegará tras el pago.`,             minus: `Se aplica un reembolso de <strong>${v.price_difference}</strong> mediante nota de crédito (adjunta) — ${refundTail.es}` },
+    fr: { plus: `Un supplément de <strong>${v.price_difference}</strong> s'applique. Le justificatif suivra après paiement.`,              minus: `Un remboursement de <strong>${v.price_difference}</strong> est émis sous forme d'avoir (joint) — ${refundTail.fr}` },
+    pl: { plus: `Wymagana jest dopłata <strong>${v.price_difference}</strong>. Potwierdzenie płatności nadejdzie po płatności.`,                 minus: `Zwrot <strong>${v.price_difference}</strong> w formie noty kredytowej (załącznik) — ${refundTail.pl}` },
   }
   const attachInfo: Record<Lang, string> = {
     cs: `V příloze najdete <strong>aktualizovanou nájemní smlouvu, VOP</strong> a všechny <strong>nové doklady</strong> (zálohová faktura, doklad o platbě, případně dobropis).`,

@@ -192,6 +192,7 @@
         return;
       }
 
+      var manualRefund = false;
       if (net < 0) {
         // Vratka NEJDŘÍV (dobropis + Stripe refund přes process-refund), uložení
         // až po úspěchu — jinak by web tvrdil vrácení, které neproběhlo (parita
@@ -209,6 +210,8 @@
           console.error('[editRez] gear refund err', rf.status, rfd);
           return void ER._showError(rfd && rfd.error ? rfd.error : MG.t('editRez.err.generic'));
         }
+        // manual:true = bez Stripe platby → vratka převodem na účet do 14 dnů.
+        manualRefund = rfd.manual === true;
       }
 
       var commit = await window.sb.rpc('update_booking_gear', {
@@ -229,6 +232,9 @@
       var okMsg = net < 0
         ? MG.t('editRez.change.successWithRefund', { amount: MG.formatPrice(-net) })
         : MG.t('editRez.gear.saved');
+      if (manualRefund) {
+        okMsg += '<br><span class="muted" style="font-size:.9em">' + MG.t('editRez.refund.manualNote') + '</span>';
+      }
       var el = document.getElementById('edit-rez-tab-content');
       if (el) {
         el.innerHTML = '<div class="edit-rez-success-box"><h3>✓</h3><p>' + okMsg +

@@ -990,6 +990,21 @@ serve(async (req) => {
       // {{business_card}} placeholder se v DB šabloně auto-vyčistí — brand header/footer je v wrapInBrandedLayout
     }
 
+    // Manuální vratka (2026-08-04): rezervace bez Stripe platby vrací peníze
+    // PŘEVODEM NA ÚČET do 14 dnů — mail o úpravě to musí říct místo „zpět na
+    // původní platební kartu". Flag čtou šablony booking_modified (i18n minus
+    // větev) a je k dispozici i DB šablonám jako {{refund_manual}} ('true'/'').
+    if (type === 'booking_modified' && Number(price_difference || 0) < 0 && booking_id) {
+      try {
+        const { data: bkPay } = await supabase.from('bookings')
+          .select('stripe_payment_intent_id, stripe_session_id')
+          .eq('id', booking_id).maybeSingle()
+        if (bkPay && !bkPay.stripe_payment_intent_id && !bkPay.stripe_session_id) {
+          vars.refund_manual = 'true'
+        }
+      } catch { /* ignore — zůstane kartová formulace */ }
+    }
+
     // Load active door codes for this booking. Buffer raw rows — vlastní render
     // (released codes vs. „chybí doklady" CTA) proběhne až po detekci jazyka.
     let doorCodeRows: Array<{ code_type: string; door_code: string; sent_to_customer: boolean; withheld_reason: string | null; is_active: boolean }> = []
@@ -1262,7 +1277,7 @@ ${vars.door_codes_block || `<p style="color:#dc2626">K\u00f3dy se zobraz\u00ed p
         const pd = Number((price_difference || 0).toString().replace(/\s/g, '').replace(',', '.')) || 0
         let priceMessage = ''
         if (pd > 0)      priceMessage = `<p>K úpravě se vztahuje <strong>doplatek ${vars.price_difference}</strong>. Po platbě dorazí doklad k přijaté platbě.</p>`
-        else if (pd < 0) priceMessage = `<p>K úpravě se vztahuje <strong>vrácení ${vars.price_difference}</strong> formou dobropisu, který najdete v příloze. Refund jde zpět na původní platební kartu.</p>`
+        else if (pd < 0) priceMessage = `<p>K úpravě se vztahuje <strong>vrácení ${vars.price_difference}</strong> formou dobropisu, který najdete v příloze. ${vars.refund_manual === 'true' ? 'Částku vrátíme převodem na váš účet do 14 dnů.' : 'Refund jde zpět na původní platební kartu.'}</p>`
 
         templateHtml = `<p>Dobrý den,</p>
 <p>vaše rezervace č. <strong>${vars.booking_number}</strong> byla upravena. Níže najdete kompletní přehled změn — původní hodnoty jsou přeškrtnuté, nové zvýrazněné zeleně.</p>

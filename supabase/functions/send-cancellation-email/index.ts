@@ -279,6 +279,10 @@ serve(async (req) => {
     const attachments: { content: string; filename: string }[] = []
 
     if (booking_id) {
+      // Vratka bez Stripe platby (QR/převod/hotově) = manuální — mail dostane
+      // dovětek „převodem na účet do 14 dnů" místo karty (nastavuje se z odpovědi
+      // process-refund níže, čte se při skládání templateHtml).
+      var manualRefund = false
       try {
         // Load booking data for refund calculation
         const { data: booking } = await supabase.from('bookings')
@@ -343,7 +347,10 @@ serve(async (req) => {
               })
               const refundData = await refundRes.json().catch(() => ({}))
               if (refundData.success) {
-                console.log(`Refund OK (already=${refundData.already_refunded ? 'yes' : 'no'}, amount=${refund_amount})`)
+                // manual:true = bez Stripe platby → dobropis vystaven, peníze jdou
+                // PŘEVODEM NA ÚČET do 14 dnů — mail dostane dovětek (viz níže).
+                if (refundData.manual === true) manualRefund = true
+                console.log(`Refund OK (already=${refundData.already_refunded ? 'yes' : 'no'}, manual=${refundData.manual === true}, amount=${refund_amount})`)
               } else {
                 console.warn('process-refund returned error:', refundData.code || refundData.error)
                 await supabase.from('debug_log').insert({
@@ -541,6 +548,21 @@ serve(async (req) => {
         <p>V p\u0159\u00edpad\u011b dotaz\u016f n\u00e1s nev\u00e1hejte kontaktovat.</p>
         <p>D\u011bkujeme a t\u011b\u0161\u00edme se, \u017ee v\u00e1s p\u0159iv\u00edt\u00e1me p\u0159i dal\u0161\u00ed p\u0159\u00edle\u017eitosti.</p>
         <p>T\u00fdm MotoGo24</p>`
+    }
+
+    // Manuální vratka: dovětek o převodu na účet (DB šablony i fallbacky mluví
+    // o vrácení na kartu do 5–7 dnů — u rezervace bez Stripe platby to neplatí).
+    if (manualRefund && Number(refund_amount) > 0 && templateHtml) {
+      const manualNotes: Record<string, string> = {
+        cs: 'Částku vrátíme převodem na váš bankovní účet do 14 dnů (rezervace nebyla hrazena kartou).',
+        en: 'The amount will be returned by bank transfer to your account within 14 days (the booking was not paid by card).',
+        de: 'Der Betrag wird innerhalb von 14 Tagen per Überweisung auf Ihr Konto zurückerstattet (die Buchung wurde nicht per Karte bezahlt).',
+        nl: 'Het bedrag wordt binnen 14 dagen per bankoverschrijving teruggestort (de boeking is niet met kaart betaald).',
+        es: 'El importe se devolverá mediante transferencia bancaria a tu cuenta en un plazo de 14 días (la reserva no se pagó con tarjeta).',
+        fr: 'La somme sera remboursée par virement sur votre compte sous 14 jours (la réservation n\'a pas été payée par carte).',
+        pl: 'Kwotę zwrócimy przelewem na Twoje konto w ciągu 14 dni (rezerwacja nie została opłacona kartą).',
+      }
+      templateHtml += `<p><strong>${manualNotes[custLang] || manualNotes.cs}</strong></p>`
     }
 
     templateHtml = localizeBodyLinks(templateHtml, custLang)

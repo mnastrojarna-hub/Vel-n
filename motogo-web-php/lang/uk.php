@@ -977,6 +977,7 @@ return [
     'editRez.swap.net.surcharge' => 'Доплата за заміну: +{amount}',
     'editRez.swap.net.refund' => 'Повернемо вам {amount}',
     'editRez.swap.net.same' => 'Без зміни ціни',
+    'editRez.refund.manualNote' => 'Платіж буде повернено банківським переказом на ваш рахунок протягом 14 днів.',
     'editRez.swap.noOptions' => 'Наразі немає іншого доступного мотоцикла.',
     'editRez.swap.err.unavailable' => 'Обраний мотоцикл недоступний у цей період. Виберіть інший.',
     'editRez.swap.err.dateRange' => 'Дата заміни має бути в межах періоду бронювання.',

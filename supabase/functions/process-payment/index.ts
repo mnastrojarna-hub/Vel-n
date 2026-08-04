@@ -376,6 +376,62 @@ Deno.serve(async (req: Request) => {
       } catch (_e) { /* neserializovatelný payload → klientský fallback */ }
     }
 
+    // -- Serverová validace částky doplatku (2026-08-04) --
+    // `amount` u type='extension' dřív určoval čistě klient — šlo zaplatit 1 Kč
+    // za drahou změnu. Když payload změny umíme přepočítat dry-run RPC (pod
+    // JWT volajícího → vlastnictví a stavy hlídá RPC sama), částku vynucujeme:
+    //   change._swap → split_booking_moto_swap, change._gear → update_booking_gear,
+    //   p_new_* klíče (web) → apply_booking_changes.
+    // Vrátí-li dry-run chybu (overlap po závodě, wrong_status…), platbu
+    // odmítneme rovnou — zákazník by platil změnu, která se nedá aplikovat.
+    // App formát (DB názvy sloupců) zatím validovat neumíme → beze změny chování.
+    if (paymentType === 'extension' && booking_id && change && typeof change === 'object') {
+      const c = change as Record<string, unknown>
+      let expected: number | null = null
+      let dryErr: string | null = null
+      try {
+        const userClient = createClient(
+          Deno.env.get('SUPABASE_URL') ?? '',
+          Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+          { global: { headers: { Authorization: req.headers.get('Authorization') || '' } } }
+        )
+        const sw = c._swap as { m?: string; d?: string; t?: string } | undefined
+        const gear = c._gear as { sizes?: Record<string, unknown> } | undefined
+        if (sw && typeof sw === 'object' && sw.m && sw.d) {
+          const { data, error } = await userClient.rpc('split_booking_moto_swap', {
+            p_booking_id: booking_id, p_new_moto_id: sw.m, p_swap_date: sw.d,
+            p_swap_time: sw.t || null, p_dry_run: true,
+          })
+          if (!error && data?.success === true) expected = Number(data.net || 0)
+          else if (!error && data?.error) dryErr = String(data.error)
+        } else if (gear && typeof gear === 'object') {
+          const { data, error } = await userClient.rpc('update_booking_gear', {
+            p_booking_id: booking_id, p_sizes: gear.sizes || {}, p_dry_run: true,
+          })
+          if (!error && data?.success === true) expected = Number(data.net_diff || 0)
+          else if (!error && data?.error) dryErr = String(data.error)
+        } else if (Object.keys(c).some((k) => k.startsWith('p_new_'))) {
+          const params: Record<string, unknown> = { p_booking_id: booking_id, p_dry_run: true }
+          for (const [k, v] of Object.entries(c)) if (k.startsWith('p_new_')) params[k] = v
+          const { data, error } = await userClient.rpc('apply_booking_changes', params)
+          if (!error && data?.success === true) expected = Number(data.net_diff || 0)
+          else if (!error && data?.error) dryErr = String(data.error)
+        }
+      } catch (_e) { /* dry-run nedostupný → kompatibilně bez validace */ }
+      if (dryErr) {
+        return new Response(
+          JSON.stringify({ success: false, error: `Změnu nelze aplikovat (${dryErr}) — platba doplatku zrušena. Obnovte stránku a zkuste znovu.`, code: dryErr }),
+          { status: 409, headers: { ...CORS, 'Content-Type': 'application/json' } }
+        )
+      }
+      if (expected != null && Math.abs(Number(amount) - expected) > 1) {
+        return new Response(
+          JSON.stringify({ success: false, error: `Částka doplatku neodpovídá výpočtu serveru (${expected} Kč). Obnovte stránku a zkuste znovu.`, code: 'amount_mismatch', expected }),
+          { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } }
+        )
+      }
+    }
+
     // -- FREE BOOKING (100% discount) — POUZE pokud je sleva skutečně 100% --
     if (amount <= 0 && booking_id) {
       const { data: dbBooking } = await supabase.from('bookings')

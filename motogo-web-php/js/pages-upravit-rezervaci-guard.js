@@ -57,6 +57,64 @@
     }
   };
 
+  // Manuální vratka (rezervace bez Stripe platby — QR/převod/hotově): peníze
+  // jdou převodem na účet do 14 dnů. Heuristika dle chybějícího payment intentu
+  // (_loadBookings ho selectuje); autoritativní je odpověď process-refund
+  // (manual:true) tam, kde ji voláme přímo (gear/swap).
+  function manualRefundLikely(b) {
+    return !!b && !b.stripe_payment_intent_id;
+  }
+  function manualNoteHtml() {
+    return '<br><span class="muted" style="font-size:.9em">' + MG.t('editRez.refund.manualNote') + '</span>';
+  }
+
+  // ---- 1b) Zkrácení: hláška o manuální vratce (převod na účet do 14 dnů) ----
+  // Jinak 1:1 replika jádra (server RPC shorten_booking_with_refund, serverové
+  // refund_amount/refund_percent, mapa chybových kódů).
+  ER._submitShorten = async function (newStart, newEnd, reason, cliAmount, cliPct) {
+    var b = ER.selectedBooking;
+    ER._setBusy(true);
+    try {
+      var res = await window.sb.rpc('shorten_booking_with_refund', {
+        p_booking_id: b.id, p_new_start: newStart, p_new_end: newEnd, p_reason: reason || null
+      });
+      if (res.error || !res.data || res.data.success === false) {
+        console.error('[editRez] shorten err', res.error, res.data);
+        var key = {
+          wrong_status: 'editRez.err.wrongStatus', not_paid: 'editRez.err.notPaid',
+          active_start_locked: 'editRez.err.activeStartLocked', not_a_shortening: 'editRez.err.notShortening',
+          invalid_range: 'editRez.err.invalidRange', no_change: 'editRez.err.invalidRange',
+          no_diff: 'editRez.err.invalidRange', not_found: 'editRez.err.notFound',
+          unauthenticated: 'editRez.login.error'
+        }[res.data && res.data.error] || 'editRez.err.generic';
+        ER._showError(MG.t(key));
+        return;
+      }
+      var amount = res.data.refund_amount != null ? res.data.refund_amount : cliAmount;
+      var pct = res.data.refund_percent != null ? res.data.refund_percent : cliPct;
+      var text = (pct === 0 || amount <= 0)
+        ? MG.t('editRez.shorten.successNoRefund')
+        : MG.t('editRez.shorten.success', { amount: MG.formatPrice(amount), percent: pct });
+      if (amount > 0 && manualRefundLikely(b)) text += manualNoteHtml();
+      var content = document.getElementById('edit-rez-tab-content');
+      if (content) {
+        content.innerHTML = '<div class="edit-rez-success-box"><h3>✓</h3><p>' + text + '</p>' +
+          '<button type="button" class="btn btngreen-small" id="edit-rez-back-list">' + MG.t('editRez.list.title') + '</button></div>';
+      }
+      var back = document.getElementById('edit-rez-back-list');
+      if (back) back.addEventListener('click', async function () {
+        ER.selectedBooking = null;
+        await ER._loadBookings();
+        ER._goto('list');
+      });
+    } catch (e) {
+      console.error('[editRez] shorten exception', e);
+      ER._showError(MG.t('editRez.err.generic'));
+    } finally {
+      ER._setBusy(false);
+    }
+  };
+
   // ---- 2) Storno: číst tělo odpovědi RPC + serverovou částku vratky ----
   // cancel_booking_tracked vrací {success:true, refund_amount, refund_percent}
   // nebo {error:'…'} (bez success). Serverová vratka může být nižší než
@@ -77,6 +135,7 @@
       var srvAmount = (body.refund_amount != null) ? body.refund_amount : amount;
       var srvPct = (body.refund_percent != null) ? body.refund_percent : pct;
       var text = MG.t('editRez.cancel.success', { amount: MG.formatPrice(srvAmount), percent: srvPct });
+      if (srvAmount > 0 && manualRefundLikely(b)) text += manualNoteHtml();
       var content = document.getElementById('edit-rez-tab-content');
       if (content) {
         content.innerHTML = '<div class="edit-rez-success-box"><h3>✓</h3><p>' + text + '</p>' +
