@@ -240,6 +240,7 @@ if (typeof MG.t !== "function") {
 <script src="' . assetUrl('/js/pages-upravit-rezervaci-swap.js') . '"></script>
 <script src="' . assetUrl('/js/pages-upravit-rezervaci-gear.js') . '"></script>
 <script src="' . assetUrl('/js/pages-upravit-rezervaci-resume.js') . '"></script>
+<script src="' . assetUrl('/js/pages-upravit-rezervaci-guard.js') . '"></script>
 <script>
 (function(){
   function tryInit(){

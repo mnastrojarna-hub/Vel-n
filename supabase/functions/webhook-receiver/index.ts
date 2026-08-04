@@ -119,6 +119,10 @@ async function applyExtensionChange(
   if (def(a.p_new_pickup_fee) || def(a.p_new_return_fee)) {
     d.delivery_fee = Number(a.p_new_pickup_fee || 0) + Number(a.p_new_return_fee || 0)
   }
+  // Time-only úprava z webu posílá pickup_time jako p_new_pickup_time (RPC arg),
+  // ne v _time_update — bez tohoto mapování zákazník zaplatil ztrátu late-pickup
+  // slevy, ale čas vyzvednutí se po platbě nikdy nezapsal.
+  if (a.p_new_pickup_time) d.pickup_time = a.p_new_pickup_time
   const tu = a._time_update as Record<string, unknown> | undefined
   if (tu && typeof tu === 'object') {
     if (def(tu.pickup_time)) d.pickup_time = tu.pickup_time
@@ -127,9 +131,11 @@ async function applyExtensionChange(
   // App formát (Flutter posílá kompaktní `change` přímo s DB názvy sloupců —
   // payment_screen.dart) — stejná záchranná síť jako web: doplatková změna se
   // uloží server-side, i když je appka po platbě zabita / spadne před apply.
+  // delivery_fee/extras_price appka do metadat posílá — bez nich by rozpis KF
+  // po webhook-aplikované změně neseděl (generate_final_invoice čte delivery_fee).
   for (const col of ['start_date', 'end_date', 'moto_id', 'pickup_method', 'pickup_address',
                      'return_method', 'return_address', 'pickup_time', 'return_time',
-                     'discount_amount'] as const) {
+                     'discount_amount', 'delivery_fee', 'extras_price'] as const) {
     if (def(a[col]) && d[col] === undefined) d[col] = a[col]
   }
   // Absolutní cílová cena (z dry-run RPC) — idempotentní, na rozdíl od klienta,
