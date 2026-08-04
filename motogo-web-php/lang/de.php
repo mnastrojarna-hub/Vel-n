@@ -303,7 +303,7 @@ return [
     // ===== Reservierung — Ausrüstung =====
     'rez.gear.intro' => 'Wählen Sie Größen durch Klicken auf die Quadrate unten. Wenn Sie keine Größe wählen, probieren wir sie vor Ort an.',
     'rez.gear.rider' => 'Fahrerausrüstung',
-    'rez.gear.riderSub' => 'Helm, Jacke, Handschuhe, Hose',
+    'rez.gear.riderSub' => 'Helm, Jacke, Handschuhe, Hose, Sturmhaube',
     'rez.gear.riderFree' => 'inklusive · kostenlos',
     'rez.gear.free' => 'GRATIS',
     'rez.gear.loyaltyFree' => 'Dank deines Rangs sind die gesamte Ausrüstung und Schuhe — auch für den Beifahrer — gratis.',

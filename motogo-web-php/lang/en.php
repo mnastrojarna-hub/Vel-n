@@ -303,7 +303,7 @@ return [
     // ===== Booking — gear =====
     'rez.gear.intro' => 'Pick sizes by clicking the squares below. If you don\'t pick a size, we\'ll try it on at the rental.',
     'rez.gear.rider' => 'Rider gear',
-    'rez.gear.riderSub' => 'Helmet, jacket, gloves, trousers',
+    'rez.gear.riderSub' => 'Helmet, jacket, gloves, trousers, balaclava',
     'rez.gear.riderFree' => 'included · free of charge',
     'rez.gear.free' => 'FREE',
     'rez.gear.loyaltyFree' => 'Thanks to your rank, all gear and footwear — including the passenger — is free.',

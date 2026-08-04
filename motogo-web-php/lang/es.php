@@ -304,7 +304,7 @@ return [
     // ===== Reserva — equipo =====
     'rez.gear.intro' => 'Elija las tallas haciendo clic en los cuadros a continuación. Si no elige talla, la probaremos en el alquiler.',
     'rez.gear.rider' => 'Equipo del conductor',
-    'rez.gear.riderSub' => 'Casco, chaqueta, guantes, pantalones',
+    'rez.gear.riderSub' => 'Casco, chaqueta, guantes, pantalones, pasamontañas',
     'rez.gear.riderFree' => 'incluido · gratis',
     'rez.gear.free' => 'GRATIS',
     'rez.gear.loyaltyFree' => 'Gracias a tu rango, todo el equipo y el calzado — también del pasajero — es gratis.',

@@ -64,6 +64,7 @@ class _ProtocolState extends State<ProtocolScreen> {
 
   late final List<_HandoverCheck> _extraGear = [
     _HandoverCheck('phone_holder', 'Držák na telefon'),
+    _HandoverCheck('usb_adapter', 'USB 12V přechodka'),
     _HandoverCheck('disc_lock', 'Kotoučový zámek'),
     _HandoverCheck('rain_suit', 'Set nepromokavé bundy a kalhot'),
     _HandoverCheck('rain_boots', 'Nepromoky na nohy'),

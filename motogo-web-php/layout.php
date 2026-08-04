@@ -147,6 +147,16 @@ function renderFooter() {
     $menuHtml .= '<li><a data-route="/rezervace" href="' . BASE_URL . '/rezervace">' . tc('menu.reservation') . '</a></li>';
     $menuHtml .= '<li><a data-route="/upravit-rezervaci" href="' . BASE_URL . '/upravit-rezervaci">' . tc('menu.editReservation') . '</a></li>';
 
+    // Partner: destinační značka Vysočina (logo dle manuálu na znacka.vysocinatourism.cz).
+    // Renderuje se, až když je soubor loga nahraný v gfx/ — do té doby se odkaz nezobrazí.
+    $vysocinaHtml = '';
+    foreach (['vysocina.webp', 'vysocina.png', 'vysocina.svg', 'vysocina.jpg'] as $vysF) {
+        if (is_file(__DIR__ . '/gfx/' . $vysF)) {
+            $vysocinaHtml = '<a class="footer-partner" href="https://www.vysocina.eu" target="_blank" rel="noopener" aria-label="Vysočina"><img src="' . BASE_URL . '/gfx/' . $vysF . '" alt="Vysočina – oficiální destinační značka" loading="lazy" height="90"></a>';
+            break;
+        }
+    }
+
     $helpTitleRaw = trim((string)t('footer.helpTitle'));
     $callUsRaw = trim((string)t('footer.callUs'));
     $helpTitleHtml = $helpTitleRaw !== '' ? '<h3>' . tc('footer.helpTitle') . '</h3>' : '';
@@ -176,6 +186,7 @@ function renderFooter() {
         '<a class="footer-partner" href="https://www.kudyznudy.cz/?utm_source=kzn&amp;utm_medium=partneri_kzn&amp;utm_campaign=banner" target="_blank" rel="noopener" aria-label="Kudy z nudy"><img src="https://www.kudyznudy.cz/getmedia/e258ea1e-6a92-4443-940f-fdafe8da106e/1012102023-online-bannery-hq-180x150.jpg.aspx" alt="Kudyznudy.cz – nejlepší začátek výletu" loading="lazy" width="180" height="150"></a>' .
         '<a class="footer-partner" href="https://www.slevomat.cz" target="_blank" rel="noopener" aria-label="Slevomat Group"><img src="' . BASE_URL . '/gfx/slevomat-group.png" alt="Slevomat Group" loading="lazy" width="494" height="116"></a>' .
         '<a class="footer-partner" href="https://www.atlasceska.cz" target="_blank" rel="noopener" aria-label="Atlas Česka"><img src="' . BASE_URL . '/gfx/atlasceska.png" alt="Atlas Česka" loading="lazy" width="265" height="55"></a>' .
+        $vysocinaHtml .
         '<div class="footer-partner footer-partner-ta"><div id="TA_rated863" class="TA_rated"><ul id="AKTO3nY" class="TA_links ewSpz5"><li id="gRjuuxDtbpg" class="JzvG62adkG6"><a target="_blank" href="https://www.tripadvisor.com.au/Attraction_Review-g1600819-d34461468-Reviews-MotoGo24-Pelhrimov_Vysocina_Region_Moravia.html"><img src="https://www.tripadvisor.com.au/img/cdsi/img2/badges/ollie-11424-2.gif" alt="TripAdvisor"/></a></li></ul></div><script async src="https://www.jscache.com/wejs?wtype=rated&amp;uniq=863&amp;locationId=34461468&amp;lang=en_AU&amp;display_version=2" data-loadtrk onload="this.loadtrk=true"></script></div>' .
     '</div></div>' .
     '<div class="copyright"><div class="container">' .
