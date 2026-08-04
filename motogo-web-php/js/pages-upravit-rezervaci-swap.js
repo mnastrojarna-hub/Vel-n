@@ -17,6 +17,14 @@
 
   var TAB = 'swap';
 
+  // Styl řádku cenového rozdílu v potvrzovacím dialogu (jádro styly injektuje
+  // vlastním <style> blokem, sem patří jen to, co používá tento soubor).
+  try {
+    var _st = document.createElement('style');
+    _st.textContent = '.erez-swap-net{display:block;margin-top:.5rem;font-size:.9rem;font-weight:600;color:#3a4a40}';
+    document.head.appendChild(_st);
+  } catch (e) { /* noop */ }
+
   function esc(x) { return String(x == null ? '' : x).replace(/"/g, '&quot;'); }
 
   // ---- Obsah záložky ----
@@ -62,7 +70,7 @@
       try {
         var res = await Promise.all([
           window.sb.from('motorcycles')
-            .select('id,model,brand,image_url,images,license_required,engine_cc,power_kw,year')
+            .select('id,model,brand,image_url,images,license_required,license_groups,engine_cc,power_kw,year')
             .in('status', ['active', 'maintenance']).order('model'),
           window.sb.from('profiles').select('license_group').eq('id', ER.user.id).maybeSingle()
         ]);
@@ -84,7 +92,11 @@
 
         grid.innerHTML = withOcc.map(function (x) {
           var m = x.moto;
-          var allowed = ER._licenseAllows(lic, m.license_required);
+          // OR-match přes všechny přijímané skupiny ŘP (license_groups; fallback
+          // license_required) — stejně jako appka (licenseGroupsOrFallback), aby
+          // např. skútr {A1,B} viděl i zákazník se skupinou B.
+          var licGroups = (m.license_groups && m.license_groups.length) ? m.license_groups : [m.license_required];
+          var allowed = licGroups.some(function (g) { return ER._licenseAllows(lic, g); });
           // Dostupnost nové motorky POUZE od data výměny do konce rezervace.
           var free = !ER._rangeOverlapsOccupied(swapDate, origEnd, x.occupied);
           var disabled = !allowed || !free;
@@ -124,12 +136,39 @@
         }).join('');
 
         grid.querySelectorAll('.erez-moto-cta:not(.disabled)').forEach(function (btn) {
-          btn.addEventListener('click', function () {
+          btn.addEventListener('click', async function () {
+            if (ER.busy) return;
             var id = btn.getAttribute('data-id');
             var nm = btn.getAttribute('data-name');
             var timeVal = (document.getElementById('erez-swap-time') || {}).value || defTime;
+
+            // Náhled cenového rozdílu z dry-run RPC (vč. věrnostní slevy a stropu
+            // vratky) — zákazník vidí doplatek / vratku UŽ v potvrzovacím dialogu,
+            // ne až na platební bráně. Parita s appkou (swap.net.*).
+            var dryParams = { p_booking_id: b.id, p_new_moto_id: id, p_swap_date: swapDate, p_dry_run: true };
+            if (timeVal) dryParams.p_swap_time = timeVal;
+            ER._setBusy(true);
+            var netLine;
+            try {
+              var dry = await window.sb.rpc('split_booking_moto_swap', dryParams);
+              if (dry.error || !dry.data || dry.data.success === false) { swapErr(dry, dryParams); return; }
+              var net = Number(dry.data.net || 0);
+              netLine = net > 0.5
+                ? MG.t('editRez.swap.net.surcharge', { amount: MG.formatPrice(net) })
+                : net < -0.5
+                  ? MG.t('editRez.swap.net.refund', { amount: MG.formatPrice(-net) })
+                  : MG.t('editRez.swap.net.same');
+            } catch (e) {
+              console.error('[editRez] swap dry-run err', e);
+              ER._showError(MG.t('editRez.err.generic'));
+              return;
+            } finally {
+              ER._setBusy(false);
+            }
+
             ER._confirmDialog(
-              MG.t('editRez.moto.confirmTitle', { name: nm }),
+              MG.t('editRez.moto.confirmTitle', { name: nm }) +
+                '<br><span class="erez-swap-net">' + netLine + '</span>',
               function () { ER._submitSwap(id, swapDate, timeVal); },
               { yesLabel: MG.t('editRez.moto.confirmYes'), noLabel: MG.t('editRez.moto.confirmNo') }
             );
@@ -206,9 +245,10 @@
   // ---- Odeslání výměny (dvoukrokový backend) ----
   // POŘADÍ (kritické): 1) dry-run zjistí net → 2) vypořádej net → 3) COMMIT (dry_run:false).
   //   • net>0 → doplatek přes STÁVAJÍCÍ edit-platbu (process-payment typu 'extension',
-  //     checkout redirect); COMMIT až PO návratu z úspěšné platby (paid_booking →
-  //     _applyPendingAfterPayment, viz wrap níže). BEZ `change` → webhook původní
-  //     rezervaci nezmění, jen potvrdí doplatek.
+  //     checkout redirect) s `change:{_swap:{m,d,t}}` → COMMIT provede server-side
+  //     webhook-receiver po potvrzení platby (pojistka, incident EEC9CA33) A ZÁROVEŇ
+  //     klient po návratu z platby (paid_booking → _applyPendingAfterPayment, viz
+  //     wrap níže) — souběh je idempotentní (already_split / invalid_new_moto = OK).
   //   • net<0 → refund na PŮVODNÍ rezervaci PŘED commitem (process-refund).
   //   • net==0 → rovnou COMMIT.
   //   COMMIT sám server-side vytvoří druhou (paid) rezervaci a rozešle její mail + smlouvu.
@@ -237,9 +277,14 @@
           headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + stok, apikey: window.MOTOGO_CONFIG.SUPABASE_ANON_KEY },
           body: JSON.stringify({
             type: 'extension', mode: 'checkout', booking_id: b.id, amount: net,
-            // Záměrně BEZ `change` → applyExtensionChange se přeskočí a webhook
-            // původní rezervaci nezmění (jen potvrdí doplatek). COMMIT výměny
-            // provede _applyPendingAfterPayment po návratu z úspěšné platby.
+            // `_swap` metadata (kompaktní m/d/t kvůli Stripe limitu 500 znaků na
+            // metadata.chg) → webhook-receiver po zaplacení provede COMMIT
+            // server-side (větev _swap v applyExtensionChange; incident EEC9CA33),
+            // i když se zákazník už na web nevrátí. Generický bookings.update se
+            // ve webhooku u _swap přeskakuje — původní rezervaci nemění.
+            // Klientský commit v _applyPendingAfterPayment zůstává (rychlejší UX);
+            // souběh řeší idempotence (already_split / invalid_new_moto = OK).
+            change: { _swap: { m: newMotoId, d: swapDate, t: swapTime || null } },
             success_url: window.location.origin + '/upravit-rezervaci?paid_booking=' + b.id,
             cancel_url: window.location.origin + '/upravit-rezervaci?edit_booking=' + b.id + '&edit_tab=' + TAB
           })
@@ -293,7 +338,12 @@
       if (!pend || !pend.base) return false;
       try {
         var done = await window.sb.rpc('split_booking_moto_swap', Object.assign({ p_dry_run: false }, pend.base));
-        if (done.error || !done.data || done.data.success === false) {
+        // `already_split` (split už vznikl) / `invalid_new_moto` (replace už
+        // proběhl → moto_id == nová) = COMMIT stihl webhook z `_swap` metadat
+        // dřív než my — to je úspěch, ne chyba.
+        var code = done.data && done.data.error;
+        if (done.error || !done.data ||
+            (done.data.success === false && code !== 'already_split' && code !== 'invalid_new_moto')) {
           console.error('[editRez] swap commit after payment failed', done.error, done.data);
           return false;
         }
