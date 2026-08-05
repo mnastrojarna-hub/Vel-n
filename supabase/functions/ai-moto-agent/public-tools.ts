@@ -582,23 +582,43 @@ export async function execPublicReadTool(
       }
     }
     case 'get_branches': {
-      const { data } = await sb.from('branches')
-        .select('id, name, address, city, zip, lat, lng, gps_lat, gps_lng, phone, email, opening_hours, is_open, type, notes')
-        .order('name')
+      // select('*') SCHVÁLNĚ — dřívější výčet sloupců obsahoval i sloupce, které v DB
+      // `branches` neexistují (zip, lat, lng, email, opening_hours) → PostgREST 42703,
+      // chyba se tiše zahodila a tool vrátil prázdný seznam. Reálný incident 2026-08-05:
+      // zákazník v appce bez rezervace dostal „seznam poboček je prázdný, adresy nedostupné".
+      const { data, error } = await sb.from('branches').select('*').order('name')
+      const rows = ((data || []) as Array<Record<string, unknown>>).filter((b) => b.active !== false)
+      if (error || rows.length === 0) {
+        // Prázdno/chyba NIKDY nesmí vést k „pobočky nemáme" — dej agentovi fallback adresu firmy.
+        const { data: ci } = await sb.from('app_settings').select('value').eq('key', 'company_info').maybeSingle()
+        const c = (ci?.value || {}) as Record<string, unknown>
+        return {
+          branches: [],
+          ...(error ? { error: `Načtení poboček selhalo: ${error.message}` } : {}),
+          fallback_contact: {
+            name: c.name || 'MotoGo24',
+            address: c.address || 'Mezná 9, 393 01 Pelhřimov',
+            phone: c.phone || '+420 774 256 271',
+            email: c.email || 'info@motogo24.cz',
+          },
+          notice: 'Seznam poboček se teď nepodařilo načíst — TECHNICKÁ chyba, NE stav reality. NIKDY zákazníkovi netvrď, že žádné pobočky nemáme nebo že je seznam v databázi prázdný. Vyzvednutí motorky probíhá na naší pobočce — pošli zákazníka na adresu ve `fallback_contact` (hlavní výdejní místo) a nabídni telefon/e-mail pro potvrzení detailů.',
+        }
+      }
       return {
-        branches: (data || []).map((b: Record<string, unknown>) => {
+        branches: rows.map((b) => {
           const lat = b.lat ?? b.gps_lat ?? null
           const lng = b.lng ?? b.gps_lng ?? null
           return {
-            id: b.id, name: b.name, address: `${b.address || ''}, ${b.zip || ''} ${b.city || ''}`.trim(),
+            id: b.id, name: b.name,
+            address: [b.address, `${b.zip || ''} ${b.city || ''}`.trim()].filter(Boolean).join(', '),
             lat, lng,
             maps_url: (lat != null && lng != null) ? `https://mapy.cz/zakladni?q=${lat},${lng}` : null,
-            phone: b.phone, email: b.email,
+            phone: b.phone ?? null, email: b.email ?? null,
             opening_hours: b.opening_hours || null,
             is_open_nonstop: !!b.is_open, type: b.type, notes: b.notes,
           }
         }),
-        notice: 'Provoz je NONSTOP (samoobslužný výdej přes přístupové kódy) a rezervaci lze vytvořit 24/7 — ALE výdej motorky proběhne vždy až 1–6 hodin PO vytvoření a zaplacení rezervace (příprava stroje). Nikdy neslibuj okamžité vyzvednutí hned po rezervaci. Pokud má pobočka vyplněné `opening_hours`, platí pro ni tento údaj.',
+        notice: 'REŽIM výdeje/vrácení urči VÝHRADNĚ z pole `type` konkrétní pobočky: "samoobslužná" = výdej i vrácení 24/7 přístupovým kódem; "obslužná" = motorku předává a přebírá OBSLUHA osobně (řiď se `opening_hours` / domluvou, o přístupových kódech nemluv). NIKDY netvrď paušálně, že výdej je samoobslužný a nonstop. Rezervaci lze VYTVOŘIT 24/7 u obou typů — ALE výdej motorky proběhne vždy až 1–6 hodin PO vytvoření a zaplacení rezervace (příprava stroje). Nikdy neslibuj okamžité vyzvednutí hned po rezervaci.',
       }
     }
     case 'validate_promo_or_voucher': {

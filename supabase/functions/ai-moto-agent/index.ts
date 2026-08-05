@@ -168,12 +168,41 @@ serve(async (req) => {
 
       if (!bookingContext) {
         bookingContext = `\n\n## KONTEXT REZERVACE:
-Zákazník nemá aktivní rezervaci nebo se nepodařilo načíst data. Při dotazech na konkrétní motorku použij nástroj get_active_booking. NIKDY si nevymýšlej, jakou motorku má zákazník.`
+Zákazník nemá aktivní rezervaci nebo se nepodařilo načíst data. Při dotazech na konkrétní motorku použij nástroj get_active_booking. NIKDY si nevymýšlej, jakou motorku má zákazník. Na dotaz, kde si motorku vyzvedne / kde je pobočka („kde jste", „kde je filiálka"), odpověz podle sekce POBOČKY níže (detaily přes get_branches) a pošli ho na pobočku — NIKDY netvrď, že informace o pobočkách není dostupná.`
       }
     } catch (prefetchErr) {
       console.error('ai-moto-agent: booking prefetch error', prefetchErr)
       bookingContext = '\n\nNepodařilo se předem načíst rezervaci. Použij get_active_booking.'
     }
+
+    // -- Pre-fetch poboček (live snapshot do promptu) --
+    // Reálný incident 2026-08-05 (konverzace v appce, zákazník bez rezervace, rusky):
+    // na „kde je pobočka / kde si motorku vyzvednu" agent odpověděl „seznam poboček je
+    // v databázi prázdný, adresy nedostupné" — get_branches tiše selhal na výčtu
+    // neexistujících sloupců. Snapshot v promptu (stejný princip jako ai-public-agent)
+    // zaručuje, že agent zná pobočku (Mezná) od první zprávy i bez volání toolu.
+    let branchesContext = ''
+    try {
+      const { data: brData, error: brErr } = await supabaseAdmin.from('branches').select('*').order('name')
+      const brRows = ((brData || []) as Array<Record<string, unknown>>).filter((b) => b.active !== false)
+      if (!brErr && brRows.length > 0) {
+        const brLines = brRows.map((b, i) => {
+          const addr = [b.address, `${b.zip || ''} ${b.city || ''}`.trim()].filter(Boolean).join(', ')
+          const typ = b.type === 'samoobslužná'
+            ? 'SAMOOBSLUŽNÁ (výdej i vrácení 24/7 přístupovým kódem)'
+            : b.type === 'obslužná'
+              ? 'OBSLUŽNÁ (motorku předává a přebírá OBSLUHA osobně; čas dle domluvy — o přístupových kódech nemluv)'
+              : 'typ neuveden — režim výdeje ověř přes get_branches, netvrď samoobsluhu'
+          return `${i + 1}. **${b.name || addr || 'pobočka'}** — ${addr || 'adresa přes get_branches'} — ${typ}${b.notes ? `; pozn.: ${b.notes}` : ''}`
+        })
+        branchesContext = `\n\n## POBOČKY (live snapshot z DB — JEDINÝ autoritativní seznam provozoven):
+${brLines.join('\n')}
+- Zákazník BEZ rezervace („kde si motorku vyzvednu", „kde je pobočka", „kde jste"): odpověz ROVNOU adresou pobočky z tohoto seznamu — vyzvednutí probíhá na pobočce (je-li jich víc, volí se při rezervaci). NIKDY netvrď, že seznam poboček je prázdný nebo že adresy nejsou dostupné.
+- Režim výdeje/vrácení říkej VÝHRADNĚ podle typu konkrétní pobočky výše; GPS, telefon a další detaily → get_branches.`
+      } else {
+        branchesContext = `\n\n## POBOČKY: snapshot se nepodařilo načíst${brErr ? ` (${brErr.message})` : ''} — na dotaz na pobočku/vyzvednutí zavolej get_branches. NIKDY netvrď, že žádné pobočky nemáme; když selže i tool, pošli zákazníka na kontakt firmy z jeho \`fallback_contact\`.`
+      }
+    } catch { /* snapshot je best-effort — pravidla + get_branches to jistí */ }
 
     // Fotky: novější buildy appky umí přiložit fotky budíků (posílají supports_images=true)
     // — agent o ně smí AKTIVNĚ požádat. Starší buildy tlačítko nemají, tam žádost o fotku
@@ -183,7 +212,7 @@ Zákazník nemá aktivní rezervaci nebo se nepodařilo načíst data. Při dota
 Appka umí k zprávě přiložit až 3 fotky (tlačítko fotoaparátu v chatu). Když si nejsi jistý, kterou kontrolku zákazník vidí nebo jak přesně vypadá problém, AKTIVNĚ ho popros o fotku budíků / přístrojové desky — je to rychlejší a přesnější než slovní popis. Došlou fotku vyhodnoť: popiš, které kontrolky/údaje na ní vidíš, a jejich význam VŽDY ověř v návodu té konkrétní motorky (get_motorcycle_manual) — nikdy jen „od oka".`
       : `\n\n## FOTKY OD ZÁKAZNÍKA:
 Tato verze appky přílohy NEUMÍ — o fotku NEŽÁDEJ, doptávej se slovně. Když fotka přesto přijde, vyhodnoť ji.`
-    const systemPrompt = dynamicSystemPrompt + buildDateHeader() + photoRules + bookingContext
+    const systemPrompt = dynamicSystemPrompt + buildDateHeader() + photoRules + bookingContext + branchesContext
 
     // -- Agentic loop --
     let finalText = ''

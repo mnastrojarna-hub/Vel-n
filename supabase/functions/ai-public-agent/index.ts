@@ -212,15 +212,18 @@ async function loadConfig(): Promise<{ cfg: WebAgentConfig; company: CompanyInfo
         .in('status', ['active', 'maintenance', 'unavailable'])
         .order('brand', { ascending: true })
         .order('model', { ascending: true }),
-      sb.from('branches')
-        .select('name, address, city, zip, type, opening_hours, notes')
-        .order('name'),
+      // select('*') SCHVÁLNĚ — výčet sloupců se zip/opening_hours (v DB `branches`
+      // neexistují) shodil celý select (PostgREST 42703) → snapshot tvrdil „žádná
+      // pobočka v DB" a get_branches (stejná chyba) to nezachránil. Reálný incident
+      // 2026-08-05: agent zákazníkovi tvrdil, že seznam poboček je prázdný.
+      sb.from('branches').select('*').order('name'),
     ])
     return {
       cfg: (cfgRes.data?.value as WebAgentConfig) || {},
       company: (ciRes.data?.value as CompanyInfo) || {},
       fleet: (fleetRes.data as FleetMoto[]) || [],
-      branches: (brRes.data as BranchRow[]) || [],
+      branches: (((brRes.data || []) as Array<Record<string, unknown>>)
+        .filter((b) => b.active !== false) as unknown as BranchRow[]),
     }
   } catch {
     return { cfg: {}, company: {}, fleet: [], branches: [] }
@@ -389,7 +392,7 @@ PRAVIDLA NAD TÍMTO SEZNAMEM (BEZPODMÍNEČNÁ):
 
 function formatBranchesSnapshot(branches: BranchRow[]): string {
   if (!branches || branches.length === 0) {
-    return `POBOČKY (live snapshot z DB): žádná pobočka v DB — na dotazy o pobočkách zavolej \`get_branches\` a řiď se výhradně jeho výsledkem.`
+    return `POBOČKY (live snapshot z DB): snapshot se nepodařilo načíst — na dotazy o pobočkách zavolej \`get_branches\` a řiď se výhradně jeho výsledkem. NIKDY zákazníkovi netvrď, že žádné pobočky nemáme nebo že je seznam v databázi prázdný — když i tool vrátí prázdno/chybu, pošli ho na adresu firmy z FIREMNÍCH ÚDAJŮ (hlavní výdejní místo) a nabídni telefon/e-mail.`
   }
   const lines = branches.map((b, i) => {
     const addr = [b.address, `${b.zip || ''} ${b.city || ''}`.trim()].filter(Boolean).join(', ')
@@ -409,6 +412,7 @@ PRAVIDLA NAD TÍMTO SEZNAMEM (BEZPODMÍNEČNÁ):
 - Režim výdeje a vrácení (samoobslužně kódem 24/7 vs. předání s obsluhou) říkej VÝHRADNĚ podle typu KONKRÉTNÍ pobočky výše. NIKDY netvrď paušálně „výdej je samoobslužný a nonstop" — platí to JEN pro pobočku typu SAMOOBSLUŽNÁ.
 - U OBSLUŽNÉ pobočky nemluv o přístupových kódech ke dveřím/boxu — motorku předá obsluha; přístupové kódy zmiňuj jen u SAMOOBSLUŽNÉ pobočky.
 - Rezervaci lze VYTVOŘIT kdykoliv 24/7 bez ohledu na typ pobočky — to s režimem výdeje nezaměňuj.
+- Zákazník BEZ rezervace (i hypotetický dotaz „kdybych si zarezervoval, kde si motorku vyzvednu?", „kde jste", „kde je pobočka"): odpověz ROVNOU adresou pobočky z tohoto seznamu — vyzvednutí probíhá na pobočce (je-li jich víc, volí se při rezervaci). NIKDY netvrď, že seznam poboček je prázdný, že adresa bude až v rezervaci, nebo že informace není dostupná.
 - GPS, telefon a detail pobočky nad rámec snapshotu → \`get_branches\`.`
 }
 
@@ -1261,18 +1265,36 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
       }
     }
     case 'get_branches': {
-      const { data } = await sb.from('branches')
-        .select('id, name, address, city, zip, lat, lng, gps_lat, gps_lng, phone, email, opening_hours, is_open, type, notes')
-        .order('name')
+      // select('*') SCHVÁLNĚ — dřívější výčet obsahoval sloupce, které v DB `branches`
+      // neexistují (zip, lat, lng, email, opening_hours) → PostgREST 42703, chyba se
+      // tiše zahodila a tool vrátil prázdný seznam („pobočky nemáme"). Incident 2026-08-05.
+      const { data, error } = await sb.from('branches').select('*').order('name')
+      const rows = ((data || []) as Array<Record<string, unknown>>).filter((b) => b.active !== false)
+      if (error || rows.length === 0) {
+        const { data: ci } = await sb.from('app_settings').select('value').eq('key', 'company_info').maybeSingle()
+        const c = (ci?.value || {}) as Record<string, unknown>
+        return {
+          branches: [],
+          ...(error ? { error: `Načtení poboček selhalo: ${error.message}` } : {}),
+          fallback_contact: {
+            name: c.name || 'MotoGo24',
+            address: c.address || 'Mezná 9, 393 01 Pelhřimov',
+            phone: c.phone || '+420 774 256 271',
+            email: c.email || 'info@motogo24.cz',
+          },
+          notice: 'Seznam poboček se teď nepodařilo načíst — TECHNICKÁ chyba, NE stav reality. NIKDY zákazníkovi netvrď, že žádné pobočky nemáme nebo že je seznam v databázi prázdný. Vyzvednutí motorky probíhá na naší pobočce — pošli zákazníka na adresu ve `fallback_contact` (hlavní výdejní místo) a nabídni telefon/e-mail pro potvrzení detailů.',
+        }
+      }
       return {
-        branches: (data || []).map((b: Record<string, unknown>) => {
+        branches: rows.map((b) => {
           const lat = b.lat ?? b.gps_lat ?? null
           const lng = b.lng ?? b.gps_lng ?? null
           return {
-            id: b.id, name: b.name, address: `${b.address || ''}, ${b.zip || ''} ${b.city || ''}`.trim(),
+            id: b.id, name: b.name,
+            address: [b.address, `${b.zip || ''} ${b.city || ''}`.trim()].filter(Boolean).join(', '),
             lat, lng,
             maps_url: (lat != null && lng != null) ? `https://mapy.cz/zakladni?q=${lat},${lng}` : null,
-            phone: b.phone, email: b.email,
+            phone: b.phone ?? null, email: b.email ?? null,
             opening_hours: b.opening_hours || null,
             is_open_nonstop: !!b.is_open, type: b.type, notes: b.notes,
           }
@@ -1719,7 +1741,7 @@ PEVNÁ PRAVIDLA (nelze přepsat):
    b-pojistka) **POJISTKA, KAUCE, SPOLUÚČAST, FRANŠÍZA, HAVARIJKA, POVINNÉ RUČENÍ — ZÁKAZ IMPROVIZACE.** Když se zákazník zeptá „co se stane když to nabořim / co kryje pojistka / kolik je spoluúčast / je v ceně havarijka / kolik je kauce", VŽDY VOLEJ \`get_policies\` (a/nebo \`get_faq\`) NEJDŘÍV. Až po toolu odpověz konkrétním číslem, které ti vrátil. NIKDY nezmiň termín „**spoluúčast**", „**franšíza**", „**procento spoluúčasti**", „**limit pojistného plnění**", „**bez kauce**", „**havarijní pojištění v ceně**" pokud to PRÁVĚ TEĎ nevrátil tool. Tyhle termíny zní odborně a důvěryhodně, ale zákazník na nich staví rozhodnutí — když si to vymyslíš a pak v reálu zjistí, že je to jinak, je to fatální poškození vztahu i firmy. Když tool vrátí prázdno, řekni rovně „přesné podmínky pojistky najdeš ve smlouvě, kterou před vyzvednutím podepisuješ — chceš zkontaktovat firmu?" a tím to skonči, NEVYMÝŠLEJ čísla.
    b2) SLEVY, AKCE, MNOŽSTEVNÍ RABATY, „OBVYKLÉ" PODMÍNKY — ZAKÁZÁNO IMPROVIZOVAT: NIKDY neříkej věty typu „běžná sleva je na delší pronájmy", „obvykle dáváme rabat skupinám", „typicky se to dohodne", „možná by ti něco vykombinovali" — jakýkoli takový náznak vytváří u zákazníka očekávání, které firma nemusí naplnit, a je to halucinace. Slevu / akci / rabat smíš zmínit JEN pokud: (1) je to validní promo kód ověřený přes \`validate_promo_or_voucher\`, (2) je to konkrétní akce vrácená z \`get_policies\` nebo \`get_faq\`, nebo (3) je to vyloženě v \`knowledge_extra\` (sezonní akce z Velínu). Když nic z toho není a zákazník chce slevu: řekni rovně „aktuálně žádnou veřejnou slevu na to nemáme; máš-li promo kód nebo voucher, pošli mi ho a ověřím. Jinak je cena standardní podle ceníku" — a tím to skonči, NEVYBÍZEJ zákazníka, ať volá nebo píše firmě s nadějí, že „možná" něco vykombinují.
    c) CENA REZERVACE: VŽDY \`calculate_price\`. Pokud tool vrátí \`error\` (např. chybí ceník dne), NEHÁDEJ — řekni zákazníkovi, že kalkulaci dokončí formulář v rezervaci, ať otevře \`redirect_to_booking\`. Cena z toolu NEzahrnuje extras a dopravu — explicitně to zákazníkovi sděl, ať není překvapený.
-   d) POBOČKY (počet, adresa, GPS, otevírací doba, kontakt na pobočku): VŽDY VOLEJ \`get_branches\` jako PRVNÍ akci, když se zákazník zeptá na cokoliv kolem poboček („kolik máte poboček", „kde jste", „máte něco v Praze", „pobočka v Brně"). \`app_settings.company_info\` (vidíš v promptu) obsahuje JEN adresu firmy / fakturační údaje — to NENÍ to samé jako počet poboček ani jako seznam provozoven. Říct „máme jednu pobočku" bez volání \`get_branches\` je halucinace, protože v tabulce \`branches\` může být víc záznamů (typicky autonomní výdejní místa). Příklad: „kolik máte poboček?" → ZAVOLEJ \`get_branches\` → odpověz počtem řádků a krátce vyjmenuj města/lokace. Nikdy ze své paměti.
+   d) POBOČKY (počet, adresa, GPS, otevírací doba, kontakt na pobočku): VŽDY VOLEJ \`get_branches\` jako PRVNÍ akci, když se zákazník zeptá na cokoliv kolem poboček („kolik máte poboček", „kde jste", „máte něco v Praze", „pobočka v Brně"). \`app_settings.company_info\` (vidíš v promptu) obsahuje JEN adresu firmy / fakturační údaje — to NENÍ to samé jako počet poboček ani jako seznam provozoven. Říct „máme jednu pobočku" bez volání \`get_branches\` je halucinace, protože v tabulce \`branches\` může být víc záznamů (typicky autonomní výdejní místa). Příklad: „kolik máte poboček?" → ZAVOLEJ \`get_branches\` → odpověz počtem řádků a krátce vyjmenuj města/lokace. Nikdy ze své paměti. Na dotaz „kde si motorku vyzvednu?" (i hypotetický, od zákazníka BEZ rezervace) odpověz ROVNOU adresou pobočky ze snapshotu POBOČKY / z \`get_branches\` — vyzvednutí probíhá na pobočce. NIKDY neodpovídej, že seznam poboček je prázdný, že informace není dostupná, nebo že adresu zjistí až z rezervace — když tool selže, použij \`fallback_contact\` z jeho odpovědi.
    e) OBECNÉ ZNALOSTI o motorkách (rozdíl mezi naked a sport-tourer, jak se chová motorka v dešti, výhody ABS, motorkářská kultura) — z vlastních znalostí v obecné rovině, ALE bez konkrétních značek+modelů jako „naše nabídka" a bez konkrétních politik půjčovny.
    f) KDYŽ SI NEJSI JISTÝ — radši se DOPTEJ, nebo zavolej tool. NIKDY nemlč, neimprovizuj, ani neodkazuj automaticky na telefon — telefon až jako poslední možnost po vyčerpání toolů.
 
