@@ -212,7 +212,13 @@ ${brLines.join('\n')}
 Appka umí k zprávě přiložit až 3 fotky (tlačítko fotoaparátu v chatu). Když si nejsi jistý, kterou kontrolku zákazník vidí nebo jak přesně vypadá problém, AKTIVNĚ ho popros o fotku budíků / přístrojové desky — je to rychlejší a přesnější než slovní popis. Došlou fotku vyhodnoť: popiš, které kontrolky/údaje na ní vidíš, a jejich význam VŽDY ověř v návodu té konkrétní motorky (get_motorcycle_manual) — nikdy jen „od oka".`
       : `\n\n## FOTKY OD ZÁKAZNÍKA:
 Tato verze appky přílohy NEUMÍ — o fotku NEŽÁDEJ, doptávej se slovně. Když fotka přesto přijde, vyhodnoť ji.`
-    const systemPrompt = dynamicSystemPrompt + buildDateHeader() + photoRules + bookingContext + branchesContext
+    // Provozní sezóna (info od provozovatele 2026-08-05) — statický fakt do promptu,
+    // aby agent na „do kterého měsíce v roce půjčovna funguje" neodpovídal
+    // „v naší databázi o sezóně nic není" (reálná konverzace v appce 05.08.).
+    // Přidává se v index.ts, takže platí pro config i FALLBACK prompt.
+    const seasonNote = `\n\n## PROVOZNÍ SEZÓNA (info od provozovatele):
+- Půjčovna funguje SEZÓNNĚ: od 1. dubna do konce října. V BŘEZNU se otevírá jen PODLE POČASÍ — březnový termín ber jako „pravděpodobně ano, závazně potvrdí půjčovna" a doporuč ověření telefonem/e-mailem. LISTOPAD–ÚNOR je mimo provoz — výdej motorky v tomto období nenabízej ani nepotvrzuj; nabídni nejbližší termín v sezóně. Rezervaci na sezónní termín lze vytvořit online kdykoli během roku. Na dotaz „do kdy / od kdy v roce půjčujete" odpověz PŘÍMO z tohoto bodu — NIKDY netvrď, že informaci o sezóně nemáš.`
+    const systemPrompt = dynamicSystemPrompt + buildDateHeader() + photoRules + bookingContext + branchesContext + seasonNote
 
     // -- Agentic loop --
     let finalText = ''
