@@ -533,9 +533,9 @@ UPDATE app_settings
  WHERE key = 'company_info' AND value->>'address' LIKE '%393 01 Mezná%';
 
 UPDATE cms_variables
-   SET value = replace(replace(value, '393 01 Mezná', '393 01 Pelhřimov'),
-                       'Mezná 9, Mezná', 'Mezná 9, Pelhřimov')
- WHERE value LIKE '%393 01 Mezná%' OR value LIKE '%Mezná 9, Mezná%';
+   SET value = replace(replace(value::text, '393 01 Mezná', '393 01 Pelhřimov'),
+                       'Mezná 9, Mezná', 'Mezná 9, Pelhřimov')::jsonb
+ WHERE value::text LIKE '%393 01 Mezná%' OR value::text LIKE '%Mezná 9, Mezná%';
 
 UPDATE email_templates SET body_html = replace(body_html, '393 01 Mezná', '393 01 Pelhřimov')
  WHERE body_html LIKE '%393 01 Mezná%';
