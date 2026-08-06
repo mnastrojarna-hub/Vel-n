@@ -44,7 +44,7 @@ async function htmlToPdf(html: string): Promise<Uint8Array | null> {
 }
 
 const COMPANY_FALLBACK = {
-  name: 'Bc. Petra Semorádová', address: 'Mezná 9, 393 01 Mezná',
+  name: 'Bc. Petra Semorádová', address: 'Mezná 9, 393 01 Pelhřimov',
   ico: '21874263', dic: null, vat_payer: false,
   bank_account: '670100-2225851630/6210', phone: '+420 774 256 271',
   email: 'info@motogo24.cz', web: 'www.motogo24.cz',

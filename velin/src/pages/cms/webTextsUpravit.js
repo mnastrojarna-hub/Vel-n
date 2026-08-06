@@ -316,7 +316,7 @@ export const PAGE_UPRAVIT_REZERVACE = {
         { key: 'web.layout.editRez.loc.return', label: 'Label „Vrácení"', default: 'Vrácení' },
         { key: 'web.layout.editRez.loc.headPickup', label: 'Hlavička „Vyzvednutí motorky"', default: '📥 Vyzvednutí motorky' },
         { key: 'web.layout.editRez.loc.headReturn', label: 'Hlavička „Vrácení motorky"', default: '📤 Vrácení motorky' },
-        { key: 'web.layout.editRez.loc.atRental', label: 'Možnost „V půjčovně"', default: 'V půjčovně Mezná 9, 393 01 Mezná' },
+        { key: 'web.layout.editRez.loc.atRental', label: 'Možnost „V půjčovně"', default: 'V půjčovně Mezná 9, 393 01 Pelhřimov' },
         { key: 'web.layout.editRez.loc.atRentalTitle', label: 'Karta „V půjčovně Mezná"', default: 'V půjčovně Mezná' },
         { key: 'web.layout.editRez.loc.atRentalDescPickup', label: 'Popis (vyzvednutí v půjčovně)', type: 'textarea', default: 'Mezná 9, 393 01 Pelhřimov — obslužná pobočka, otevřeno nonstop. <strong>0 Kč.</strong>' },
         { key: 'web.layout.editRez.loc.atRentalDescReturn', label: 'Popis (vrácení v půjčovně)', type: 'textarea', default: 'Vrátíte v autonomní pobočce. <strong>0 Kč.</strong>' },

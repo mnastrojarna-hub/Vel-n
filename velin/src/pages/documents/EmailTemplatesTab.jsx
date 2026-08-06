@@ -12,7 +12,7 @@ const SAMPLE_VARS = {
   // Booking email vars
   booking_number: 'A1B2C3D4', customer_name: ' Jan Novák', moto_model: 'BMW R 1200 GS Adventure',
   motorcycle: 'BMW R 1200 GS Adventure', start_date: '15. 6. 2026', end_date: '18. 6. 2026',
-  total_price: '7 800', pickup_location: 'Mezná 9, 393 01 Mezná',
+  total_price: '7 800', pickup_location: 'Mezná 9, 393 01 Pelhřimov',
   resume_link: 'https://www.motogo24.cz/#/rezervace?resume=abc123',
   voucher_code: 'MGABC123 (3 000 Kč)', voucher_amount: '3 000', voucher_value: '3 000',
   voucher_expiry: '15. 6. 2029', order_number: 'OBJ-2026-01001', discount_code: 'DIKY200',
@@ -35,17 +35,17 @@ const SAMPLE_VARS = {
   delivery_fee: '1 500,00', discount_amount: '200,00', deposit: '10 000,00',
   insurance: '500,00', insurance_type: 'Základní', pickup_time: '10:00',
   pickup_method: 'Přistavení', pickup_address: 'Hlavní 123, Praha 1',
-  return_method: 'Na pobočce', return_address: 'Mezná 9, 393 01 Mezná',
-  branch_name: 'Pobočka Mezná', branch_address: 'Mezná 9, 393 01 Mezná',
+  return_method: 'Na pobočce', return_address: 'Mezná 9, 393 01 Pelhřimov',
+  branch_name: 'Pobočka Mezná', branch_address: 'Mezná 9, 393 01 Pelhřimov',
   today: '30. 3. 2026',
-  company_name: 'Bc. Petra Semorádová', company_address: 'Mezná 9, 393 01 Mezná',
+  company_name: 'Bc. Petra Semorádová', company_address: 'Mezná 9, 393 01 Pelhřimov',
   company_ico: '21874263', company_dic: '',
   company_phone: '+420 774 256 271', company_email: 'info@motogo24.cz',
   company_web: 'www.motogo24.cz', company_bank: 'mBank', company_account: '670100-2225851630/6210',
   // Time & period
   start_time: '10:00', end_time: '10:00', rental_period: '3 dny',
   total_price_words: 'sedm tisíc osm set korun českých',
-  pickup_location: 'Mezná 9, 393 01 Mezná', return_location: 'Mezná 9, 393 01 Mezná',
+  pickup_location: 'Mezná 9, 393 01 Pelhřimov', return_location: 'Mezná 9, 393 01 Pelhřimov',
   // Cancellation vars
   cancellation_reason: 'Změna plánů', refund_amount: '7 800', refund_percent: '100',
   // Odkazy na tlačítka v mailech (nahrazuje je send-booking-email živě; tady mock pro náhled)

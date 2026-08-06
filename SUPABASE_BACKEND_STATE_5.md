@@ -246,7 +246,7 @@ Důsledek: tlačítko „Stáhnout" v `motogo24.cz/upravit-rezervaci?` (Doklady 
     "ico": "21874263",
     "dic": null,
     "vat_payer": false,
-    "address": "Mezná 9, 393 01 Mezná",
+    "address": "Mezná 9, 393 01 Pelhřimov",
     "bank_account": "670100-2225851630/6210",
     "phone": "+420 774 256 271",
     "email": "info@motogo24.cz",

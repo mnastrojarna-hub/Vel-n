@@ -99,7 +99,7 @@ class _AddressPickerWidgetState extends State<AddressPickerWidget> {
       children: [
         _RadioOption(
           label: 'Na pobočce',
-          sublabel: 'Mezná 9, Mezná',
+          sublabel: 'Mezná 9, Pelhřimov',
           price: 'Zdarma',
           selected: widget.method == 'store',
           onTap: () => widget.onMethodChanged('store'),

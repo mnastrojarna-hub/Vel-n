@@ -30,7 +30,7 @@ class BookingFormPickupSection extends ConsumerWidget {
         children: [
           bookingRadio(
             t(context).tr('atBranch'),
-            'Mezná 9, Mezná',
+            'Mezná 9, Pelhřimov',
             t(context).free,
             draft.pickupMethod == 'store',
             () => onUpd((d) => d.copyWith(pickupMethod: 'store')),

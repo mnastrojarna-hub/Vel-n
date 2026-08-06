@@ -17,7 +17,7 @@ const QR_URL = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=
 
 const COMPANY = {
   name: 'Bc. Petra Semorádová',
-  address: 'Mezná 9, 393 01 Mezná',
+  address: 'Mezná 9, 393 01 Pelhřimov',
   ico: '21874263',
   dic: null,
   vatPayer: false,

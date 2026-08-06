@@ -10,7 +10,7 @@ class InvoiceHtmlBuilder {
   // Supplier info (matches COMPANY object from app_settings.company_info)
   static const _company = 'Bc. Petra Semorádová';
   static const _ic = '21874263';
-  static const _address = 'Mezná 9, 393 01 Mezná';
+  static const _address = 'Mezná 9, 393 01 Pelhřimov';
   static const _email = 'info@motogo24.cz';
   static const _phone = '+420 774 256 271';
   static const _web = 'www.motogo24.cz';

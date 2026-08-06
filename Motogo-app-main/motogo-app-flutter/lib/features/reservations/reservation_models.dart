@@ -31,6 +31,8 @@ class Reservation {
   final double? extrasPrice;
   final double? discountAmount;
   final double? latePickupDiscount;
+  final double? loyaltyDiscountAmount;
+  final String? bookingSource; // 'app' | 'web' | null (legacy)
   final String? discountCode;
   final bool sosReplacement;
   final bool endedBySos;
@@ -96,6 +98,8 @@ class Reservation {
     this.extrasPrice,
     this.discountAmount,
     this.latePickupDiscount,
+    this.loyaltyDiscountAmount,
+    this.bookingSource,
     this.discountCode,
     this.sosReplacement = false,
     this.endedBySos = false,
@@ -177,6 +181,8 @@ class Reservation {
       extrasPrice: (json['extras_price'] as num?)?.toDouble(),
       discountAmount: (json['discount_amount'] as num?)?.toDouble(),
       latePickupDiscount: (json['late_pickup_discount_amount'] as num?)?.toDouble(),
+      loyaltyDiscountAmount: (json['loyalty_discount_amount'] as num?)?.toDouble(),
+      bookingSource: json['booking_source'] as String?,
       discountCode: json['discount_code'] as String?,
       sosReplacement: json['sos_replacement'] as bool? ?? false,
       endedBySos: json['ended_by_sos'] as bool? ?? false,

@@ -208,7 +208,7 @@ class _SosServiceState extends ConsumerState<SosServiceScreen> {
         const SizedBox(height: 4),
         const Text('Bc. Petra Semorádová', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: MotoGoColors.g600)),
         const Text('IČO: 21874263 · neplátce DPH', style: TextStyle(fontSize: 10, color: MotoGoColors.g400)),
-        const Text('Mezná 9, 393 01 Mezná', style: TextStyle(fontSize: 10, color: MotoGoColors.g400)),
+        const Text('Mezná 9, 393 01 Pelhřimov', style: TextStyle(fontSize: 10, color: MotoGoColors.g400)),
       ]),
     );
   }

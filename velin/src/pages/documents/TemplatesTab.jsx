@@ -18,7 +18,7 @@ const SAMPLE_VARS = {
   end_date: '18. 6. 2026',
   total_price: '7 800 Kč',
   deposit: '3 000 Kč',
-  pickup_location: 'Mezná 9, 393 01 Mezná',
+  pickup_location: 'Mezná 9, 393 01 Pelhřimov',
   booking_number: '#RES-2026-0099',
   contract_date: '14. 6. 2026',
   company_name: 'MotoGo24 s.r.o.',

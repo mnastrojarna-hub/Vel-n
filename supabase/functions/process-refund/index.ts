@@ -94,7 +94,7 @@ tr.total td{background:#fef2f2;font-weight:800;font-size:15px;color:#dc2626;bord
   <div style="text-align:right">
     <div style="font-size:18px;font-weight:800">MotoGo24</div>
     <div style="color:#4a5a52">Bc. Petra Semorádová</div>
-    <div style="color:#4a5a52">Mezná 9, 393 01 Mezná</div>
+    <div style="color:#4a5a52">Mezná 9, 393 01 Pelhřimov</div>
     <div style="color:#4a5a52">IČO: 21874263</div>
   </div>
 </div>

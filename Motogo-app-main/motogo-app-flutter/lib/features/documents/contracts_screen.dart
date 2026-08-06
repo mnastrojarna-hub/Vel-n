@@ -19,7 +19,7 @@ import 'document_provider.dart';
 const _company = (
   name: 'Bc. Petra Semorádová',
   ic: '21874263',
-  sidlo: 'Mezná 9, 393 01 Mezná',
+  sidlo: 'Mezná 9, 393 01 Pelhřimov',
   email: 'info@motogo24.cz',
 );
 
@@ -359,8 +359,8 @@ class ContractsScreen extends ConsumerWidget {
       'booking_id': resNum,
       'today': fmtDate(now),
       'today_time': '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}',
-      'pickup_location': b['pickup_address'] as String? ?? 'Mezná 9, 393 01 Mezná',
-      'return_location': b['return_address'] as String? ?? 'Mezná 9, 393 01 Mezná',
+      'pickup_location': b['pickup_address'] as String? ?? 'Mezná 9, 393 01 Pelhřimov',
+      'return_location': b['return_address'] as String? ?? 'Mezná 9, 393 01 Pelhřimov',
       'mileage': '${b['mileage_start'] ?? ''}',
       'fuel_state': '',
       'technical_state': '',

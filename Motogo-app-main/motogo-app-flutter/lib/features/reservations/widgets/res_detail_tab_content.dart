@@ -9,6 +9,7 @@ import '../../../core/i18n/i18n_provider.dart';
 import '../../auth/widgets/toast_helper.dart';
 import '../../booking/booking_provider.dart';
 import '../../booking/booking_models.dart';
+import '../../booking/price_calculator.dart' show branchLat, branchLng;
 import '../../catalog/catalog_provider.dart';
 import '../reservation_models.dart';
 import '../reservation_provider.dart';
@@ -116,20 +117,24 @@ class ResDetailTabContent extends ConsumerWidget {
             ResDetailRow(label: t(context).tr('resDuration'), value: '${res.dayCount} ${res.dayCount == 1 ? t(context).tr("day1") : res.dayCount < 5 ? t(context).tr("days24") : t(context).tr("days5")}'),
             ResDetailRow(label: t(context).tr('resDurationTotal'), value: '${res.dayCount} ${t(context).tr("days5")}'),
             if (res.pickupTime != null) ResDetailRow(label: t(context).pickupTime, value: res.pickupTime!),
+            // Navigace na pobočku VŽDY přes GPS — textová adresa „Mezná 9" je
+            // nejednoznačná (obec Mezná existuje i u Hřenska → mapy navigovaly
+            // špatně). Když pobočka nemá GPS v DB, použijí se souřadnice
+            // hlavní pobočky (branchLat/branchLng z price_calculator).
             ResLocationRow(
               label: t(context).pickup,
               isDelivery: res.pickupMethod == 'delivery',
               address: res.pickupMethod == 'delivery' ? res.pickupAddress : branchFullAddress,
-              lat: res.pickupMethod == 'delivery' ? res.pickupLat : res.branchLat,
-              lng: res.pickupMethod == 'delivery' ? res.pickupLng : res.branchLng,
+              lat: res.pickupMethod == 'delivery' ? res.pickupLat : (res.branchLat ?? branchLat),
+              lng: res.pickupMethod == 'delivery' ? res.pickupLng : (res.branchLng ?? branchLng),
               fallbackAddress: res.pickupMethod == 'delivery' ? res.pickupAddress : branchFullAddress,
             ),
             ResLocationRow(
               label: t(context).returnLabel,
               isDelivery: res.returnMethod == 'delivery',
               address: res.returnMethod == 'delivery' ? res.returnAddress : branchFullAddress,
-              lat: res.returnMethod == 'delivery' ? res.returnLat : res.branchLat,
-              lng: res.returnMethod == 'delivery' ? res.returnLng : res.branchLng,
+              lat: res.returnMethod == 'delivery' ? res.returnLat : (res.branchLat ?? branchLat),
+              lng: res.returnMethod == 'delivery' ? res.returnLng : (res.branchLng ?? branchLng),
               fallbackAddress: res.returnMethod == 'delivery' ? res.returnAddress : branchFullAddress,
             ),
           ]),

@@ -36,7 +36,7 @@ class MapPickerScreen extends StatefulWidget {
 }
 
 class _MapPickerState extends State<MapPickerScreen> {
-  // Branch location — Mezná 9, 393 01 Mezná (obec ~9 km jižně od Pelhřimova).
+  // Branch location — Mezná 9, 393 01 Pelhřimov (obec ~9 km jižně od Pelhřimova).
   // Pozn.: dřívější 49.4147, 15.2953 mířila k Proseči pod Křemešníkem (~10 km).
   static const _branchLat = 49.3464;
   static const _branchLng = 15.2119;
