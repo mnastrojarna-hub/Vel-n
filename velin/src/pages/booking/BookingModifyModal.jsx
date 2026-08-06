@@ -55,6 +55,17 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
   const [loadingMotos, setLoadingMotos] = useState(false)
+  // Věrnostní rank zákazníka (jen app rezervace) — doplatek za pronájem se
+  // automaticky snižuje o % dle aktuálního ranku (RPC get_booking_loyalty_rate;
+  // když RPC/SQL ještě není nasazená, zůstává 0 = původní chování).
+  const [loyalty, setLoyalty] = useState({ level: 0, percent: 0 })
+  useEffect(() => {
+    supabase.rpc('get_booking_loyalty_rate', { p_booking_id: booking.id })
+      .then(({ data }) => {
+        if (data && Number(data.percent) > 0) setLoyalty({ level: Number(data.level) || 0, percent: Number(data.percent) })
+      })
+      .catch(() => {})
+  }, [booking.id])
 
   useEffect(() => {
     async function load() {
@@ -113,7 +124,12 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
   // Doplatek/vratka = ROZDÍL dle ceníku (nový termín/motorka − původní) + změna
   // přistavného. NE „nová cena − zaplaceno": zaplacená částka obsahuje i výbavu,
   // slevy apod., které se úpravou termínu nemění — ty v ceně zůstávají (extrasCarry).
-  const priceDiff = (newCalcPrice - origCalcPrice) + (newDeliveryFee - origDeliveryFee)
+  // U app rezervací se KLADNÝ rozdíl pronájmu snižuje o věrnostní slevu dle
+  // aktuálního ranku (parita s appkou a SQL _apply_booking_changes_core;
+  // doprava slevě nepodléhá).
+  const rentalDiff = newCalcPrice - origCalcPrice
+  const loyaltyDisc = loyalty.percent > 0 && rentalDiff > 0 ? Math.round(rentalDiff * loyalty.percent / 100) : 0
+  const priceDiff = (rentalDiff - loyaltyDisc) + (newDeliveryFee - origDeliveryFee)
   const extrasCarry = origPaidPrice - origCalcPrice - origDeliveryFee
   const newTotalPrice = origPaidPrice + priceDiff
 
@@ -179,6 +195,13 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
         saveData.return_time = returnTime || null
       }
       if (motoChanged) saveData.moto_id = selectedMotoId
+      // Věrnostní sleva na doplatek (app rezervace) — kumuluje se do
+      // loyalty_discount_amount, aby seděl rozpis dokladů i detail rezervace.
+      if (chargeCustomer && loyaltyDisc > 0) {
+        saveData.loyalty_discount_amount = (Number(booking.loyalty_discount_amount) || 0) + loyaltyDisc
+        saveData.loyalty_level = loyalty.level || null
+        saveData.loyalty_percent = loyalty.percent || null
+      }
       // Doplatek u zaplacené rezervace: dlužná částka = předchozí nezaplacený doplatek
       // + rozdíl této úpravy. mod_surcharge_due jde ve STEJNÉM UPDATE jako úprava —
       // DB trigger díky tomu booking_modified mail odloží (payload uschová) místo
@@ -368,7 +391,7 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
         <BookingDeliverySection pickupMethod={pickupMethod} setPickupMethod={setPickupMethod} pickupAddress={pickupAddress} setPickupAddress={setPickupAddress} returnMethod={returnMethod} setReturnMethod={setReturnMethod} returnAddress={returnAddress} setReturnAddress={setReturnAddress} deliveryFee={deliveryFee} setDeliveryFee={setDeliveryFee} setShowMapPicker={setShowMapPicker} />
 
         {/* PRICE CALCULATION */}
-        <BookingPriceCalc newBreakdown={newBreakdown} selectedMoto={selectedMoto} booking={booking} origCalcPrice={origCalcPrice} origPaidPrice={origPaidPrice} origDays={origDays} newCalcPrice={newCalcPrice} newDeliveryFee={newDeliveryFee} extrasCarry={extrasCarry} newTotalPrice={newTotalPrice} priceDiff={priceDiff} days={days} chargeCustomer={chargeCustomer} setChargeCustomer={setChargeCustomer} />
+        <BookingPriceCalc newBreakdown={newBreakdown} selectedMoto={selectedMoto} booking={booking} origCalcPrice={origCalcPrice} origPaidPrice={origPaidPrice} origDays={origDays} newCalcPrice={newCalcPrice} newDeliveryFee={newDeliveryFee} extrasCarry={extrasCarry} newTotalPrice={newTotalPrice} priceDiff={priceDiff} days={days} chargeCustomer={chargeCustomer} setChargeCustomer={setChargeCustomer} loyaltyDisc={loyaltyDisc} loyaltyPercent={loyalty.percent} />
 
         {/* NOTES */}
         <div className="mb-5">

@@ -22,7 +22,7 @@ const translationsUkMain = <String, Map<String, String>>{
     'freeGearList': 'Шолом, рукавички, куртка, штани',
     'noDeposit': 'Застава не стягується',
     'discountCode': 'Промокод', 'apply': 'Застосувати',
-    'branchAddress': 'Філія: Mezná 9, 393 01 Mezná',
+    'branchAddress': 'Філія: Mezná 9, 393 01 Pelhřimov',
     'storePickup': 'Особисте отримання у філії',
     'deliveryOption': 'Доставка на вашу адресу',
     'deliveryPrice': '1 000 Kč + 40 Kč/км від філії',

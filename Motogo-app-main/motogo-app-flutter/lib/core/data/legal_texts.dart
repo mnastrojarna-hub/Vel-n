@@ -5,7 +5,7 @@ class LegalTexts {
 
   static const companyName = 'Bc. Petra Semorádová';
   static const companyIco = '21874263';
-  static const companyAddress = 'Mezná 9, 393 01 Mezná';
+  static const companyAddress = 'Mezná 9, 393 01 Pelhřimov';
   static const companyPhone = '+420 774 256 271';
   static const companyEmail = 'info@motogo24.cz';
   static const companyWeb = 'https://motogo24.cz';

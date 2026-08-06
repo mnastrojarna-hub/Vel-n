@@ -200,6 +200,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
       'start_date', 'end_date', 'moto_id', 'pickup_method', 'pickup_address',
       'return_method', 'return_address', 'pickup_time', 'return_time',
       'total_price', 'discount_amount', 'delivery_fee', 'extras_price',
+      'loyalty_discount_amount',
     };
     final out = <String, dynamic>{};
     for (final e in src.entries) {

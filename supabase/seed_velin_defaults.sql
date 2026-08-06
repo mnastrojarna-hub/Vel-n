@@ -240,11 +240,11 @@ INSERT INTO cms_variables (key, value, category) VALUES ('web.layout.rez.pickup.
 INSERT INTO cms_variables (key, value, category) VALUES ('web.layout.rez.pickup.atRental', 'Vyzvednutí v motopůjčovně', 'web') ON CONFLICT (key) DO NOTHING;
 INSERT INTO cms_variables (key, value, category) VALUES ('web.layout.rez.pickup.atRentalSub', 'Zdarma · 24/7 přístup s kódem · základní nastavení', 'web') ON CONFLICT (key) DO NOTHING;
 INSERT INTO cms_variables (key, value, category) VALUES ('web.layout.rez.pickup.delivery', 'Přistavení motorky jinam', 'web') ON CONFLICT (key) DO NOTHING;
-INSERT INTO cms_variables (key, value, category) VALUES ('web.layout.rez.pickup.deliveryTip', 'Motorku vám dovezeme na domluvené místo. Cena: {base} + {perKm}/km od pobočky Mezná 9, 393 01 Mezná. Trasu spočítáme automaticky po zadání adresy.', 'web') ON CONFLICT (key) DO NOTHING;
+INSERT INTO cms_variables (key, value, category) VALUES ('web.layout.rez.pickup.deliveryTip', 'Motorku vám dovezeme na domluvené místo. Cena: {base} + {perKm}/km od pobočky Mezná 9, 393 01 Pelhřimov. Trasu spočítáme automaticky po zadání adresy.', 'web') ON CONFLICT (key) DO NOTHING;
 INSERT INTO cms_variables (key, value, category) VALUES ('web.layout.rez.pickup.deliveryAddr', 'Zadejte adresu přistavení (ulice, město)', 'web') ON CONFLICT (key) DO NOTHING;
 INSERT INTO cms_variables (key, value, category) VALUES ('web.layout.rez.pickup.sameAsDel', 'Vrátit motorku na stejné adrese', 'web') ON CONFLICT (key) DO NOTHING;
 INSERT INTO cms_variables (key, value, category) VALUES ('web.layout.rez.pickup.returnOther', 'Vrácení motorky jinde, než kde bylo vyzvednuto', 'web') ON CONFLICT (key) DO NOTHING;
-INSERT INTO cms_variables (key, value, category) VALUES ('web.layout.rez.pickup.returnTip', 'Motorku vám rádi vyzvedneme jinde. Cena: {base} + {perKm}/km od pobočky Mezná 9, 393 01 Mezná. Trasu spočítáme automaticky po zadání adresy.', 'web') ON CONFLICT (key) DO NOTHING;
+INSERT INTO cms_variables (key, value, category) VALUES ('web.layout.rez.pickup.returnTip', 'Motorku vám rádi vyzvedneme jinde. Cena: {base} + {perKm}/km od pobočky Mezná 9, 393 01 Pelhřimov. Trasu spočítáme automaticky po zadání adresy.', 'web') ON CONFLICT (key) DO NOTHING;
 INSERT INTO cms_variables (key, value, category) VALUES ('web.layout.rez.pickup.returnAddr', 'Zadejte adresu vrácení', 'web') ON CONFLICT (key) DO NOTHING;
 INSERT INTO cms_variables (key, value, category) VALUES ('web.layout.rez.pickup.map', 'Mapa', 'web') ON CONFLICT (key) DO NOTHING;
 INSERT INTO cms_variables (key, value, category) VALUES ('web.layout.rez.pickup.gps', 'Moje poloha', 'web') ON CONFLICT (key) DO NOTHING;
@@ -600,7 +600,7 @@ INSERT INTO cms_variables (key, value, category) VALUES ('web.layout.editRez.loc
 INSERT INTO cms_variables (key, value, category) VALUES ('web.layout.editRez.loc.return', 'Vrácení', 'web') ON CONFLICT (key) DO NOTHING;
 INSERT INTO cms_variables (key, value, category) VALUES ('web.layout.editRez.loc.headPickup', '📥 Vyzvednutí motorky', 'web') ON CONFLICT (key) DO NOTHING;
 INSERT INTO cms_variables (key, value, category) VALUES ('web.layout.editRez.loc.headReturn', '📤 Vrácení motorky', 'web') ON CONFLICT (key) DO NOTHING;
-INSERT INTO cms_variables (key, value, category) VALUES ('web.layout.editRez.loc.atRental', 'V půjčovně Mezná 9, 393 01 Mezná', 'web') ON CONFLICT (key) DO NOTHING;
+INSERT INTO cms_variables (key, value, category) VALUES ('web.layout.editRez.loc.atRental', 'V půjčovně Mezná 9, 393 01 Pelhřimov', 'web') ON CONFLICT (key) DO NOTHING;
 INSERT INTO cms_variables (key, value, category) VALUES ('web.layout.editRez.loc.atRentalTitle', 'V půjčovně Mezná', 'web') ON CONFLICT (key) DO NOTHING;
 INSERT INTO cms_variables (key, value, category) VALUES ('web.layout.editRez.loc.atRentalDescPickup', 'Mezná 9, 393 01 Pelhřimov — obslužná pobočka, otevřeno nonstop. <strong>0 Kč.</strong>', 'web') ON CONFLICT (key) DO NOTHING;
 INSERT INTO cms_variables (key, value, category) VALUES ('web.layout.editRez.loc.atRentalDescReturn', 'Vrátíte v autonomní pobočce. <strong>0 Kč.</strong>', 'web') ON CONFLICT (key) DO NOTHING;

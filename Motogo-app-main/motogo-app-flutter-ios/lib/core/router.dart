@@ -733,7 +733,7 @@ class _BDWState extends ConsumerState<_BookingDebugWrapper> {
     secs.add(bookingCard(4, 'VYZVEDNUTÍ MOTORKY',
       Column(crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-        bookingRadio('Na pobočce', 'Mezná 9, Mezná', 'Zdarma',
+        bookingRadio('Na pobočce', 'Mezná 9, Pelhřimov', 'Zdarma',
           draft.pickupMethod == 'store',
           () => _upd((d) => d.copyWith(pickupMethod: 'store'))),
         const SizedBox(height: 6),
@@ -762,7 +762,7 @@ class _BDWState extends ConsumerState<_BookingDebugWrapper> {
     secs.add(bookingCard(5, 'VRÁCENÍ MOTORKY',
       Column(crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-        bookingRadio('Na pobočce', 'Mezná 9, Mezná', 'Zdarma',
+        bookingRadio('Na pobočce', 'Mezná 9, Pelhřimov', 'Zdarma',
           draft.returnMethod == 'store',
           () => _upd((d) => d.copyWith(returnMethod: 'store'))),
         const SizedBox(height: 6),

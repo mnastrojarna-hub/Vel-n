@@ -32,6 +32,12 @@ class EditPriceCalc {
   /// úpravě rezervace.
   final int loyaltyLevel;
 
+  /// Aktuální věrnostní sleva v % dle ranku — aplikuje se na KLADNÝ rozdíl
+  /// (doplatek za pronájem + výbavu, bez dopravy) při úpravě APP rezervace.
+  /// Screen ji předává jen pro booking_source='app', jinak 0 (parita se
+  /// serverem: _apply_booking_changes_core / split_booking_moto_swap).
+  final int loyaltyPercent;
+
   const EditPriceCalc({
     required this.booking,
     required this.newStart,
@@ -53,6 +59,7 @@ class EditPriceCalc {
     this.passengerBootsSize,
     this.discountType,
     this.loyaltyLevel = 0,
+    this.loyaltyPercent = 0,
   });
 
   static const _extraPrices = {'spolujezdec': 690.0, 'boty_ridic': 290.0, 'boty_spolujezdec': 290.0};
@@ -232,9 +239,26 @@ class EditPriceCalc {
     return 0;
   }
 
+  // ── Věrnostní sleva na doplatek (2026-08-06) ──
+  // Kladný rozdíl pronájmu + výbavy (bez dopravy — parita se vznikem rezervace,
+  // kde loyalty base = pronájem + výbava) se snižuje o % dle aktuálního ranku.
+  // Vratky se nemění. Zrcadlí SQL _apply_booking_changes_core.
+
+  /// Část rozdílu podléhající věrnostní slevě — doprava se vyjímá.
+  double get _loyaltyEligibleDiff {
+    final d = priceDiff - deliveryFeeDelta;
+    return d > 0 ? d : 0;
+  }
+
+  /// Věrnostní sleva na doplatek v Kč — přičítá se k bookings.loyalty_discount_amount.
+  double get loyaltySurchargeDiscount {
+    if (loyaltyPercent <= 0) return 0;
+    return (_loyaltyEligibleDiff * loyaltyPercent / 100).roundToDouble();
+  }
+
   /// Nová celková cena (netto, po slevě) — ukládá se do bookings.total_price.
   double get newTotal {
-    final t = newGross - newDiscountAmount;
+    final t = newGross - newDiscountAmount - loyaltySurchargeDiscount;
     return t > 0 ? t.roundToDouble() : 0;
   }
 

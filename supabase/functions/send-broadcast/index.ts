@@ -402,7 +402,7 @@ function buildMarketingHtml(body: string, subject: string): string {
         <div style="border:1px solid #74FB71;border-radius:6px;padding:16px;color:#ffffff;font-size:12px;line-height:1.7">
           <div style="font-size:14px;font-weight:800;color:#ffffff">Motogo24</div>
           <div style="font-size:14px;font-weight:800;color:#ffffff;margin-bottom:6px">Bc. Petra Semorádová</div>
-          <div style="color:#9ca3af">Mezná 9, 393 01 Mezná</div>
+          <div style="color:#9ca3af">Mezná 9, 393 01 Pelhřimov</div>
           <div style="color:#9ca3af">IČO: 21874263</div>
           <div><span style="color:#9ca3af">Telefon:</span> <span style="color:#74FB71">+420 774 256 271</span></div>
           <div><span style="color:#9ca3af">E-mail:</span> <span style="color:#74FB71">info@motogo24.cz</span></div>

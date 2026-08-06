@@ -30,7 +30,7 @@ class BookingFormReturnSection extends ConsumerWidget {
         children: [
           bookingRadio(
             t(context).tr('atBranch'),
-            'Mezná 9, Mezná',
+            'Mezná 9, Pelhřimov',
             t(context).free,
             draft.returnMethod == 'store',
             () => onUpd((d) => d.copyWith(returnMethod: 'store')),

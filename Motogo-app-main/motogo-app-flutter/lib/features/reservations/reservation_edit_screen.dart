@@ -236,6 +236,11 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
       passengerBootsSize: _passengerBootsSize,
       discountType: _discountType,
       loyaltyLevel: ref.read(loyaltyStatusProvider).valueOrNull?.level ?? 0,
+      // Věrnostní % sleva na doplatek — JEN pro app rezervace (parita se
+      // serverem; web rezervace loyalty nemají).
+      loyaltyPercent: _booking!.bookingSource == 'app'
+          ? (ref.read(loyaltyStatusProvider).valueOrNull?.percent ?? 0)
+          : 0,
     );
   }
 
@@ -454,6 +459,12 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
       changes['total_price'] = calc.newTotal;
       if ((_booking!.discountAmount ?? 0) > 0) {
         changes['discount_amount'] = calc.newDiscountAmount;
+      }
+      // Věrnostní sleva na doplatek (app rezervace) — kumuluje se do
+      // loyalty_discount_amount, aby seděl rozpis dokladů i Velín.
+      if (calc.loyaltySurchargeDiscount > 0) {
+        changes['loyalty_discount_amount'] =
+            (_booking!.loyaltyDiscountAmount ?? 0) + calc.loyaltySurchargeDiscount;
       }
       // Sleva 50 % na 1. den (pozdní vyzvednutí) — ulož přepočtenou hodnotu,
       // i 0 při ztrátě slevy (posun času před 12:00 / pod 2 dny). Posílá se jen

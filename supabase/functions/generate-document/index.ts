@@ -202,7 +202,7 @@ serve(async (req) => {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
     // Načtení firemních údajů z app_settings
-    let companyInfo = { name: 'Bc. Petra Semorádová', address: 'Mezná 9, 393 01 Mezná', ico: '21874263', dic: '' }
+    let companyInfo = { name: 'Bc. Petra Semorádová', address: 'Mezná 9, 393 01 Pelhřimov', ico: '21874263', dic: '' }
     try {
       const { data: settings } = await supabase
         .from('app_settings').select('value').eq('key', 'company_info').limit(1)

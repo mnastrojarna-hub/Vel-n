@@ -135,7 +135,8 @@ async function applyExtensionChange(
   // po webhook-aplikované změně neseděl (generate_final_invoice čte delivery_fee).
   for (const col of ['start_date', 'end_date', 'moto_id', 'pickup_method', 'pickup_address',
                      'return_method', 'return_address', 'pickup_time', 'return_time',
-                     'discount_amount', 'delivery_fee', 'extras_price'] as const) {
+                     'discount_amount', 'delivery_fee', 'extras_price',
+                     'loyalty_discount_amount'] as const) {
     if (def(a[col]) && d[col] === undefined) d[col] = a[col]
   }
   // Absolutní cílová cena (z dry-run RPC) — idempotentní, na rozdíl od klienta,
