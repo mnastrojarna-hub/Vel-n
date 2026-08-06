@@ -1,6 +1,8 @@
 # MotoGo24 iOS — CocoaPods konfigurace
-# iOS 13.0 = minimum pro flutter_stripe (Apple Pay / PaymentSheet).
-platform :ios, '13.0'
+# iOS 15.0 = požadavek Apple ITMS-90068 (od jara 2027 musí být MinimumOSVersion
+# aspoň 15.0, jinak App Store Connect binárku nepřijme); flutter_stripe
+# vyžaduje jen 13.0+, takže 15.0 vyhovuje všem pinovaným balíčkům.
+platform :ios, '15.0'
 
 # CocoaPods analytics sends network stats synchronously affecting flutter build latency.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
@@ -56,7 +58,7 @@ post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
     target.build_configurations.each do |config|
-      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
 
       # firebase_messaging 14.7.10 importuje v hlavičce ne-modulární
       # <Firebase/Firebase.h>; při modulárním buildu (use_frameworks! +
