@@ -1102,6 +1102,15 @@ serve(async (req) => {
     if (type === 'invoice_payment_receipt' && !vars.docs_url && booking_id) {
       vars.docs_url = `${siteForLang(custLang)}/rezervace?resume=${booking_id}`
     }
+    // Ruční přeposlání z Velína (ResendMailTab) neposílá pay_url/docs_url/resume_link —
+    // bez defaultu by CTA tlačítka šablon abandoned/missing_docs mířila na prázdný href.
+    // Stejné cíle, jaké plní cron send_abandoned_booking_emails.
+    if ((type === 'booking_abandoned' || type === 'booking_abandoned_full') && !vars.pay_url && booking_id) {
+      vars.pay_url = `${siteForLang(custLang)}/rezervace?resume=${booking_id}`
+    }
+    if ((type === 'booking_missing_docs' || type === 'booking_abandoned_full') && !vars.docs_url && booking_id) {
+      vars.docs_url = `${siteForLang(custLang)}/rezervace?resume=${booking_id}`
+    }
 
     // Try to load template from DB (first web-specific, then generic)
     const slug = resolveSlug(type, source)

@@ -52,7 +52,9 @@ export default function ResendMailTab() {
   async function loadTemplates() {
     try {
       const { data } = await supabase.from('email_templates').select('slug, name, active, attachments').eq('active', true).order('name')
-      setTemplates(data || [])
+      // Protokolové maily nejdou smysluplně přeposlat — přílohu protokolu předává
+      // odesílací flow ve Velíně přes attachment_paths, tady by odešly bez ní.
+      setTemplates((data || []).filter(t => !['handover_protocol_sent', 'damage_protocol_sent'].includes(t.slug)))
     } catch (e) { debugError('ResendMailTab', 'loadTemplates', e) }
   }
 
@@ -135,6 +137,26 @@ export default function ResendMailTab() {
       }
       // type = logický typ; source rozhodne web_/app variantu (edge fn fallbackuje na base slug).
       const type = slug.replace(/^web_/, '')
+      // Platební QR šablony umí naplnit JEN edge `qr-payment` (částka, účet, IBAN, VS,
+      // QR kód, ZF v příloze) — přes send-booking-email by odešly s prázdnými placeholdery.
+      if (type === 'booking_qr_payment' || type === 'booking_qr_payment_surcharge') {
+        if (selected.kind !== 'booking') throw new Error('Šablona platebních údajů jde poslat jen k rezervaci.')
+        const surcharge = type === 'booking_qr_payment_surcharge'
+        const { data, error: err } = await debugAction('functions.qr-payment', 'ResendMailTab', () =>
+          supabase.functions.invoke('qr-payment', { body: { booking_id: selected.data.id, surcharge, locale: effectiveLang() } }), { type })
+        if (err) throw err
+        if (!data?.success) {
+          const msg = {
+            already_paid: 'Rezervace je už zaplacená — platební údaje nedávají smysl.',
+            not_web_booking: 'Platba QR / převodem funguje jen pro webové rezervace.',
+            no_surcharge_pending: 'Rezervace nemá evidovaný doplatek k úhradě.',
+          }[data?.error]
+          throw new Error(msg || data?.error || 'qr-payment selhala')
+        }
+        setResult({ ok: true, email, lang: effectiveLang(), warnings })
+        setSending(false)
+        return
+      }
       let body
       if (selected.kind === 'booking') {
         const b = selected.data
