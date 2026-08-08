@@ -606,8 +606,12 @@ serve(async (req) => {
             } catch { /* file missing */ }
           }
           if (htmlExists) {
+            // pdf_path MUSÍ jít s sebou — send-booking-email/qr-payment z něj přikládají
+            // doklad; bez něj padaly na fallback `invoices/<id>.html`, který neexistuje,
+            // a mail odešel tiše bez přílohy (incident B120420C, abandoned bez ZF).
             return new Response(JSON.stringify({
-              success: true, invoice_id: sameSource[0].id, number: sameSource[0].number, existing: true
+              success: true, invoice_id: sameSource[0].id, number: sameSource[0].number,
+              pdf_path: sameSource[0].pdf_path, existing: true
             }), { headers: { ...CORS, 'Content-Type': 'application/json' } })
           }
           // Doklad existuje, ale PDF/HTML chybí → přepiš stávající řádek (negeneruj duplicitu).
