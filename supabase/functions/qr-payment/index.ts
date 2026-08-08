@@ -99,8 +99,10 @@ serve(async (req) => {
     let invoiceNumber: string | null = null
     let invoicePath: string | null = null
     if (!surcharge) try {
+      // generate-invoice ukládá ZF s type='proforma' (historicky i 'advance') —
+      // samotné .eq('type','advance') existující ZF nikdy nenašlo a generovalo znovu.
       const { data: existing } = await sb.from('invoices')
-        .select('number, pdf_path').eq('booking_id', booking_id).eq('type', 'advance')
+        .select('number, pdf_path').eq('booking_id', booking_id).in('type', ['advance', 'proforma'])
         .neq('status', 'cancelled').order('created_at', { ascending: false }).limit(1)
       if (existing?.[0]?.pdf_path) {
         invoiceNumber = existing[0].number

@@ -653,10 +653,12 @@ async function autoGenerateAttachments(
   // Volány z attachmentTypeMap. Fetchnou existující fakturu, jinak vygenerují přes generate-invoice.
   if (type === 'booking_advance') {
     try {
+      // generate-invoice ukládá ZF s type='proforma' (historicky i 'advance') —
+      // samotné .eq('type','advance') existující ZF nenašlo → zbytečný regenerate.
       const { data: existing } = await supabase.from('invoices')
         .select('id, number, pdf_path')
         .eq('booking_id', booking_id)
-        .eq('type', 'advance')
+        .in('type', ['advance', 'proforma'])
         .neq('status', 'cancelled')
         .order('created_at', { ascending: false })
         .limit(1)
@@ -716,10 +718,20 @@ async function autoGenerateAttachments(
         body: JSON.stringify({ type: 'advance', booking_id, send_email: false }),
       })
       const data = await res.json().catch(() => ({}))
+      let attached = false
       if (data.success && data.invoice_id) {
         const path = data.pdf_path || `invoices/${data.invoice_id}.html`
         const b64 = await downloadAsBase64(supabase, path)
-        if (b64) atts.push({ content: b64, filename: `Zalohova-faktura-${data.number || 'ZF'}.${fileExt(path)}`, storage_path: path })
+        if (b64) { atts.push({ content: b64, filename: `Zalohova-faktura-${data.number || 'ZF'}.${fileExt(path)}`, storage_path: path }); attached = true }
+      }
+      // Selhání přílohy nesmí zablokovat mail, ale nesmí být neviditelné (incident B120420C).
+      if (!attached) {
+        try {
+          await supabase.from('debug_log').insert({
+            source: 'send-booking-email', action: 'abandoned_zf_attach_failed', component: 'attachments',
+            status: 'warning', request_data: { booking_id, invoice_response: data },
+          })
+        } catch { /* ignore */ }
       }
     } catch { /* ignore */ }
   }
