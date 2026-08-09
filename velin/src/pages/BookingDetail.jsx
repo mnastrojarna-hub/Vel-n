@@ -267,6 +267,65 @@ export default function BookingDetail() {
     setConfirm(action)
   }
 
+  // Obnovení ZRUŠENÉ rezervace → Nadcházející (reserved) + Nezaplaceno. Podmínky:
+  // termín nesmí být v minulosti (dnešek a budoucnost OK) a motorku mezitím nesmí
+  // nikdo zabookovat na daný termín ani jeho část. Kolizi kontrolujeme tady ZÁMĚRNĚ —
+  // DB trigger check_booking_overlap se spouští jen při UPDATE start_date/end_date/moto_id,
+  // samotnou změnu statusu cancelled→reserved nehlídá. (Vozík check_trailer_overlap
+  // a per-user check_user_booking_overlap na status reagují — jejich chybu zobrazíme.)
+  // Záměrně BEZ mailů a generování dokladů — rezervace je nezaplacená, ZF/DP/smlouva
+  // vzniknou standardní cestou až při potvrzení platby.
+  async function handleRestore() {
+    setSaving(true); setError(null)
+    try {
+      const today = new Date().toLocaleDateString('sv-SE')
+      const startLocal = (booking.start_date || '').slice(0, 10)
+      const endLocal = (booking.end_date || '').slice(0, 10) || startLocal
+      if (!startLocal || startLocal < today) {
+        setError('Rezervaci nelze obnovit — termín zapůjčení je v minulosti.')
+        setConfirm(null); setSaving(false); return
+      }
+      // Živá rezervace (pending/reserved/active) stejné motorky překrývající se byť jen
+      // jedním dnem — včetně případu, kdy je kus u jiné rezervace přiřazen jako vozík
+      // (trailer_moto_id). Sdílený den = kolize (shodně s check_booking_overlap).
+      const endNext = new Date(endLocal); endNext.setDate(endNext.getDate() + 1)
+      const endExclusive = endNext.toLocaleDateString('sv-SE')
+      const { data: conflicts, error: confErr } = await supabase.from('bookings')
+        .select('id, start_date, end_date, status')
+        .neq('id', id)
+        .in('status', ['pending', 'reserved', 'active'])
+        .or(`moto_id.eq.${booking.moto_id},trailer_moto_id.eq.${booking.moto_id}`)
+        .lt('start_date', endExclusive)
+        .gte('end_date', startLocal)
+        .limit(1)
+      if (confErr) { setError(confErr.message); setConfirm(null); setSaving(false); return }
+      if (conflicts && conflicts.length > 0) {
+        const c = conflicts[0]
+        const fmt = d => d ? new Date(d).toLocaleDateString('cs-CZ') : '—'
+        setError(`Rezervaci nelze obnovit — motorka je mezitím zabookovaná ${fmt(c.start_date)} – ${fmt(c.end_date)} (rezervace #${c.id.slice(-8).toUpperCase()}).`)
+        setConfirm(null); setSaving(false); return
+      }
+
+      const update = {
+        status: 'reserved',
+        payment_status: 'unpaid',
+        cancelled_at: null,
+        cancelled_by: null,
+        cancelled_by_source: null,
+        cancellation_reason: null,
+        cancellation_notified: false,
+      }
+      const res = await debugAction('booking.restore', 'BookingDetail', () =>
+        supabase.from('bookings').update(update).eq('id', id)
+      , { booking_id: id })
+      if (res?.error) { setError(res.error.message); setConfirm(null); setSaving(false); return }
+      await logAudit('booking_restored', { booking_id: id, restored_to: 'reserved/unpaid' })
+      setConfirm(null)
+      await loadBooking()
+    } catch (e) { setError(e.message) }
+    setSaving(false)
+  }
+
   // Manuální vratka odeslána — rezervace bez Stripe platby má po úpravě/stornu
   // vystavený dobropis (stripe_refund_id NULL) a payment_status='refund_pending';
   // po ručním odeslání peněz na účet zákazníka admin potvrdí a stav přejde na
@@ -416,8 +475,12 @@ export default function BookingDetail() {
   if (loading && !booking) return <div className="flex justify-center py-16"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
   if (!booking) return <div className="p-4" style={{ color: '#1a2e22' }}>{error || 'Rezervace nenalezena'}</div>
 
-  const actions = (booking.status === 'completed' && booking.sos_replacement && !booking.ended_by_sos)
+  const actionsRaw = (booking.status === 'completed' && booking.sos_replacement && !booking.ended_by_sos)
     ? ACTIONS.completed_sos_replacement || [] : ACTIONS[booking.status] || []
+  // „Obnovit" u zrušené rezervace jen když termín zapůjčení není v minulosti
+  // (dnešek a budoucnost OK) — jinak nemá obnovení smysl a tlačítko se skryje.
+  const todayLocal = new Date().toLocaleDateString('sv-SE')
+  const actions = actionsRaw.filter(a => !a.restore || (booking.start_date || '').slice(0, 10) >= todayLocal)
   // Nezaplacený doplatek za úpravu (zaplacená rezervace) → samostatná akce.
   const surchargeDue = Number(booking.mod_surcharge_due) || 0
   const actionsWithSurcharge = (surchargeDue > 0 && ['reserved', 'active'].includes(booking.status))
@@ -512,9 +575,11 @@ export default function BookingDetail() {
       {confirm && <ConfirmDialog open title={`${confirm.label}?`}
         message={confirm.refund
           ? 'Potvrď, že vratka byla ODESLÁNA převodem na účet zákazníka — rezervace se označí jako Vráceno.'
-          : `Změnit stav na "${confirm.label}"?`}
+          : confirm.restore
+            ? 'Rezervace se obnoví do stavu Nadcházející / Nezaplaceno. Před obnovením se ověří, že motorka není na termín (ani jeho část) mezitím zabookovaná.'
+            : `Změnit stav na "${confirm.label}"?`}
         danger={confirm.danger}
-        onConfirm={() => confirm.refund ? confirmManualRefundSent() : changeStatus(confirm.status)}
+        onConfirm={() => confirm.refund ? confirmManualRefundSent() : confirm.restore ? handleRestore() : changeStatus(confirm.status)}
         onCancel={() => setConfirm(null)} />}
       <BookingCancelModal open={showCancelModal} onClose={() => setShowCancelModal(false)} cancelReason={cancelReason} setCancelReason={setCancelReason} cancelReasonCustom={cancelReasonCustom} setCancelReasonCustom={setCancelReasonCustom} onCancel={handleCancel} saving={saving} error={error} />
       <PaymentConfirmModal open={showPaymentModal} onClose={() => { setShowPaymentModal(false); setSurchargeMode(false); setError(null) }}

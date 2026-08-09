@@ -14,6 +14,12 @@ export const ACTIONS = {
   completed_sos_replacement: [
     { label: 'Reaktivovat', status: 'active', green: true },
   ],
+  // Obnovení zrušené rezervace → Nadcházející (reserved) + Nezaplaceno. Tlačítko se
+  // zobrazí jen když termín není v minulosti (filtr v BookingDetail); kolizi na motorce
+  // kontroluje handleRestore těsně před uložením.
+  cancelled: [
+    { label: 'Obnovit', status: 'restored', green: true, restore: true },
+  ],
 }
 
 export const CANCEL_REASONS = [
