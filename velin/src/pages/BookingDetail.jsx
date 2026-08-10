@@ -39,6 +39,8 @@ export default function BookingDetail() {
   const [voucherUsed, setVoucherUsed] = useState(null)
   const [hasCreditNote, setHasCreditNote] = useState(false)
   const [creditNotes, setCreditNotes] = useState([])
+  // Navazující rezervace (prodloužení): rezervace, které navazují na tuto
+  const [extendedBy, setExtendedBy] = useState([])
 
   // Refy pro realtime subscription — callback se vytvoří jen jednou (deps [id]),
   // takže potřebuje vždy aktuální stav (status/platba) i příznak probíhajícího uložení.
@@ -48,6 +50,15 @@ export default function BookingDetail() {
   useEffect(() => { savingRef.current = saving }, [saving])
 
   useEffect(() => { loadBooking() }, [id])
+
+  // Prodloužení: zjisti, jestli na tuto rezervaci navazuje jiná (extends_booking_id → tato).
+  // Jen zobrazení — při chybě (např. sloupec ještě nenasazen) se badge prostě neukáže.
+  useEffect(() => {
+    if (!id) return
+    supabase.from('bookings').select('id, start_date, end_date, status')
+      .eq('extends_booking_id', id).neq('status', 'cancelled')
+      .then(({ data }) => setExtendedBy(data || []), () => setExtendedBy([]))
+  }, [id])
 
   // Realtime: tabulka `bookings` je v supabase_realtime publikaci, ale detail rezervace
   // se dosud načítal jen jednou při otevření. Když admin nechal kartu otevřenou,
@@ -535,6 +546,22 @@ export default function BookingDetail() {
             </span>
           )
         })()}
+        {booking.extends_booking_id && (
+          <span onClick={() => navigate(`/rezervace/${booking.extends_booking_id}`)}
+            className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase cursor-pointer"
+            style={{ padding: '3px 8px', background: '#e0e7ff', color: '#4338ca', border: '1px solid #c7d2fe' }}
+            title="Navazující rezervace stejného zákazníka na stejnou motorku — jde o úpravu/prodloužení původní rezervace, ne o novou. Kliknutím otevřeš původní.">
+            PRODLOUŽENÍ · #{booking.extends_booking_id.slice(-8).toUpperCase()}
+          </span>
+        )}
+        {extendedBy.length > 0 && (
+          <span onClick={() => navigate(`/rezervace/${extendedBy[0].id}`)}
+            className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase cursor-pointer"
+            style={{ padding: '3px 8px', background: '#e0e7ff', color: '#4338ca', border: '1px solid #c7d2fe' }}
+            title={`Na tuto rezervaci navazuje prodloužení #${extendedBy[0].id.slice(-8).toUpperCase()} (${extendedBy.length}×). Kliknutím otevřeš navazující.`}>
+            PRODLOUŽENO · #{extendedBy[0].id.slice(-8).toUpperCase()}
+          </span>
+        )}
         {surchargeDue > 0 && (
           <span className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase"
             style={{ padding: '3px 8px', background: '#fef3c7', color: '#b45309', border: '1px solid #fcd34d' }}

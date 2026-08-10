@@ -74,7 +74,9 @@ export default function Dashboard() {
             .select('id, number, type, status, total, issue_date, created_at, booking_id, order_id, bookings:booking_id(is_test), profiles:customer_id(full_name, is_test_account)')
             .order('created_at', { ascending: false }).limit(1000),
           supabase.from('accounting_entries').select('type, amount, category, description').gte('date', monthStart),
-          supabase.from('bookings').select('id, user_id, moto_id, start_date, end_date, status, total_price, created_at, created_via_ai')
+          // select('*') záměrně (jen 5 řádků): explicitní výčet s extends_booking_id
+          // by mezi deployem Velína a aplikací SQL migrace vracel 42703 → prázdný widget
+          supabase.from('bookings').select('*')
             .order('created_at', { ascending: false }).limit(5),
           supabase.from('sent_emails').select('id, subject, recipient_email, template_slug, status, created_at')
             .order('created_at', { ascending: false }).limit(5),
