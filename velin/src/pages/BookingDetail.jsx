@@ -270,14 +270,17 @@ export default function BookingDetail() {
     setConfirm(action)
   }
 
-  // Obnovení ZRUŠENÉ rezervace → Nadcházející (reserved) + Nezaplaceno. Podmínky:
+  // Obnovení ZRUŠENÉ rezervace → Čeká na platbu (pending) + Nezaplaceno. Podmínky:
   // termín nesmí být v minulosti (dnešek a budoucnost OK) a motorku mezitím nesmí
   // nikdo zabookovat na daný termín ani jeho část. Kolizi kontrolujeme tady ZÁMĚRNĚ —
   // DB trigger check_booking_overlap se spouští jen při UPDATE start_date/end_date/moto_id,
   // samotnou změnu statusu cancelled→reserved nehlídá. (Vozík check_trailer_overlap
   // a per-user check_user_booking_overlap na status reagují — jejich chybu zobrazíme.)
   // Záměrně BEZ mailů a generování dokladů — rezervace je nezaplacená, ZF/DP/smlouva
-  // vzniknou standardní cestou až při potvrzení platby.
+  // vzniknou standardní cestou až při potvrzení platby. `restored_at` je marker pro
+  // cron auto_cancel_expired_pending() (a abandoned mail): obnovenou pending+unpaid
+  // rezervaci NIKDY neruší automaticky — created_at je hodiny starý, bez markeru by
+  // ji cron do 2 minut zase zrušil. Obnovenou rezervaci řeší admin ručně.
   async function handleRestore() {
     setSaving(true); setError(null)
     try {
@@ -310,8 +313,9 @@ export default function BookingDetail() {
       }
 
       const update = {
-        status: 'reserved',
+        status: 'pending',
         payment_status: 'unpaid',
+        restored_at: new Date().toISOString(),
         cancelled_at: null,
         cancelled_by: null,
         cancelled_by_source: null,
@@ -322,7 +326,7 @@ export default function BookingDetail() {
         supabase.from('bookings').update(update).eq('id', id)
       , { booking_id: id })
       if (res?.error) { setError(res.error.message); setConfirm(null); setSaving(false); return }
-      await logAudit('booking_restored', { booking_id: id, restored_to: 'reserved/unpaid' })
+      await logAudit('booking_restored', { booking_id: id, restored_to: 'pending/unpaid' })
       setConfirm(null)
       await loadBooking()
     } catch (e) { setError(e.message) }
@@ -587,7 +591,7 @@ export default function BookingDetail() {
         message={confirm.refund
           ? 'Potvrď, že vratka byla ODESLÁNA převodem na účet zákazníka — rezervace se označí jako Vráceno.'
           : confirm.restore
-            ? 'Rezervace se obnoví do stavu Nadcházející / Nezaplaceno. Před obnovením se ověří, že motorka není na termín (ani jeho část) mezitím zabookovaná.'
+            ? 'Rezervace se obnoví do stavu Čeká na platbu / Nezaplaceno (bez automatického zrušení — platbu potvrď tlačítkem Potvrdit, nebo rezervaci zruš ručně). Před obnovením se ověří, že motorka není na termín (ani jeho část) mezitím zabookovaná.'
             : `Změnit stav na "${confirm.label}"?`}
         danger={confirm.danger}
         onConfirm={() => confirm.refund ? confirmManualRefundSent() : confirm.restore ? handleRestore() : changeStatus(confirm.status)}
