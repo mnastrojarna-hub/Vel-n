@@ -14,7 +14,8 @@ export const ACTIONS = {
   completed_sos_replacement: [
     { label: 'Reaktivovat', status: 'active', green: true },
   ],
-  // Obnovení zrušené rezervace → Nadcházející (reserved) + Nezaplaceno. Tlačítko se
+  // Obnovení zrušené rezervace → Čeká na platbu (pending) + Nezaplaceno + restored_at
+  // (marker: cron auto_cancel_expired_pending obnovené rezervace neruší). Tlačítko se
   // zobrazí jen když termín není v minulosti (filtr v BookingDetail); kolizi na motorce
   // kontroluje handleRestore těsně před uložením.
   cancelled: [
