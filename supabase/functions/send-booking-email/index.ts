@@ -1002,6 +1002,61 @@ serve(async (req) => {
       // {{business_card}} placeholder se v DB šabloně auto-vyčistí — brand header/footer je v wrapInBrandedLayout
     }
 
+    // ── Navazující rezervace = prodloužení (bookings.extends_booking_id) ─────
+    // Nová rezervace, která navazuje na ŽIVOU rezervaci téhož zákazníka na téže
+    // motorce (trigger detect_consecutive_booking), se zákazníkovi prezentuje
+    // jako ÚPRAVA/PRODLOUŽENÍ původní rezervace: tělo+předmět mailu se
+    // vyrenderují ze šablony (web_)booking_modified s payloadem prodloužení.
+    // VŠE OSTATNÍ zůstává na typu booking_reserved — přílohy (konfigurace
+    // (web_)booking_reserved šablony), door codes / docs CTA blok i slug
+    // logovaný do message_log/sent_emails. Slug se měnit NESMÍ: dedup cronu
+    // send_missing_booking_reserved_emails kontroluje template_slug
+    // (web_)booking_reserved a při jiném slugu by mail posílal opakovaně.
+    let renderType = type
+    if (type === 'booking_reserved' && booking_id) {
+      try {
+        const { data: bk } = await supabase.from('bookings')
+          .select('extends_booking_id, start_date, end_date, total_price')
+          .eq('id', booking_id).maybeSingle()
+        if (bk?.extends_booking_id) {
+          const { data: prev } = await supabase.from('bookings')
+            .select('id, start_date, end_date, total_price, status')
+            .eq('id', bk.extends_booking_id).maybeSingle()
+          // Prodloužení prezentuj jen dokud je původní rezervace živá a termíny
+          // na sebe (i po případných úpravách) pořád navazují — jinak jde o
+          // běžné potvrzení nové rezervace.
+          const day = (v: string | null) => String(v || '').slice(0, 10)
+          const dayAfter = (v: string | null) => {
+            const t = new Date(day(v) + 'T00:00:00Z')
+            t.setUTCDate(t.getUTCDate() + 1)
+            return t.toISOString().slice(0, 10)
+          }
+          const adjacent = !!prev && (
+            dayAfter(prev.end_date) === day(bk.start_date) ||
+            dayAfter(bk.end_date) === day(prev.start_date)
+          )
+          if (prev && ['reserved', 'active'].includes(prev.status) && adjacent) {
+            renderType = 'booking_modified'
+            const combStart = day(prev.start_date) < day(bk.start_date) ? prev.start_date : bk.start_date
+            const combEnd = day(prev.end_date) > day(bk.end_date) ? prev.end_date : bk.end_date
+            const prevTotal = Number(prev.total_price) || 0
+            const newTotal = Number(bk.total_price) || 0
+            // Zákazník zná číslo PŮVODNÍ rezervace — mail je o její úpravě.
+            vars.booking_number = (prev.id || '').slice(-8).toUpperCase()
+            vars.original_motorcycle = vars.motorcycle
+            vars.original_start_date = fmtDate(prev.start_date)
+            vars.original_end_date = fmtDate(prev.end_date)
+            vars.original_total_price = fmtPrice(prevTotal)
+            vars.start_date = fmtDate(combStart)
+            vars.end_date = fmtDate(combEnd)
+            vars.total_price = fmtPrice(prevTotal + newTotal)
+            // Doplatek = cena navazující části (už zaplacená vlastní platbou).
+            vars.price_difference = fmtPrice(newTotal)
+          }
+        }
+      } catch { /* ignore — pošle se běžný booking_reserved */ }
+    }
+
     // Manuální vratka (2026-08-04): rezervace bez Stripe platby vrací peníze
     // PŘEVODEM NA ÚČET do 14 dnů — mail o úpravě to musí říct místo „zpět na
     // původní platební kartu". Flag čtou šablony booking_modified (i18n minus
@@ -1113,12 +1168,15 @@ serve(async (req) => {
     }
 
     // Try to load template from DB (first web-specific, then generic)
+    // `slug` = logovaný slug (message_log/sent_emails) — VŽDY dle původního
+    // `type`, i když se tělo renderuje z jiné šablony (prodloužení, viz výše).
     const slug = resolveSlug(type, source)
     let templateHtml = ''
     let subject = ''
 
-    // Try web-specific slug first if source=web, then fall back to generic
-    const slugsToTry = source === 'web' ? [slug, type] : [type]
+    // Try web-specific slug first if source=web, then fall back to generic.
+    // Render jde dle `renderType` (u prodloužení (web_)booking_modified).
+    const slugsToTry = source === 'web' ? [resolveSlug(renderType, source), renderType] : [renderType]
 
     // Capture attachments[] z DB \u0161ablony \u2014 admin Vel\u00edn konfigurace mus\u00ed b\u00fdt
     // respektov\u00e1na i pro legacy type=... cesty (booking_reserved, voucher_purchased,
@@ -1151,9 +1209,29 @@ serve(async (req) => {
       }
     }
 
+    // Prodloužení: tělo jde ze šablony booking_modified, ale PŘÍLOHY se řídí
+    // původní (web_)booking_reserved konfigurací z Velína — chování příloh
+    // potvrzovacího mailu se nesmí změnit (Smlouva/VOP/ZF/DP dle adminem
+    // nastavené reserved šablony, žádné rozdílové doklady navíc).
+    if (renderType !== type) {
+      dbAttachmentsList = []
+      for (const trySlug of (source === 'web' ? [slug, type] : [type])) {
+        const { data: tplAtt } = await supabase
+          .from('email_templates')
+          .select('attachments')
+          .eq('slug', trySlug)
+          .eq('active', true)
+          .maybeSingle()
+        if (tplAtt) {
+          if (Array.isArray(tplAtt.attachments)) dbAttachmentsList = tplAtt.attachments as string[]
+          break
+        }
+      }
+    }
+
     // i18n hardcoded p\u0159eklady (priorita 2 \u2014 kdy\u017e DB \u0161ablona chyb\u00ed)
     if (!templateHtml) {
-      const i18nResult = renderEmail(type, custLang, vars)
+      const i18nResult = renderEmail(renderType, custLang, vars)
       if (i18nResult) {
         subject = i18nResult.subject
         templateHtml = i18nResult.body
@@ -1162,7 +1240,7 @@ serve(async (req) => {
 
     // If no template found anywhere, use legacy fallback subject (priorita 3 \u2014 cs only)
     if (!subject) {
-      const fallbackFn = FALLBACK_SUBJECTS[type]
+      const fallbackFn = FALLBACK_SUBJECTS[renderType]
       subject = fallbackFn ? fallbackFn(vars) : `Ozn\u00e1men\u00ed \u2014 MOTO GO 24`
     }
 
@@ -1207,7 +1285,7 @@ ${vars.docs_url ? `<div style="text-align:center;margin:24px 0"><a href="${vars.
 <p>Ještě jeden krok: doplňte prosím údaje z dokladů (občanka/pas + řidičák) — teprve pak vám pošleme <strong>nájemní smlouvu a přístupové kódy</strong> k motorce a výbavě.</p>
 <div style="text-align:center;margin:24px 0"><a href="${paidDocsUrl}" style="display:inline-block;background:#74FB71;color:#1a2e22;padding:14px 28px;border-radius:25px;text-decoration:none;font-weight:800;font-size:15px">Doplnit údaje</a></div>
 <p>Tým MotoGo24</p>`
-      } else if (type === 'booking_reserved') {
+      } else if (renderType === 'booking_reserved') {
         templateHtml = `<p>Dobr\u00fd den,</p>
 <p>d\u011bkujeme za va\u0161i d\u016fv\u011bru a za rezervaci \u010d. <strong>${vars.booking_number}</strong> motocyklu u MotoGo24.</p>
 <p>Va\u0161e rezervace byla \u00fasp\u011b\u0161n\u011b p\u0159ijata a uhrazena.</p>
@@ -1279,7 +1357,7 @@ ${vars.door_codes_block || `<p style="color:#dc2626">K\u00f3dy se zobraz\u00ed p
 <p><strong>Omlouv\u00e1me se za nep\u0159\u00edjemnosti a jsme na cest\u011b.</strong></p>
 <p>N\u00e1\u0161 t\u00fdm se v\u00e1m ozve v nejbli\u017e\u0161\u00edch minut\u00e1ch. Pokud pot\u0159ebujete okam\u017eitou pomoc, volejte na <a href="tel:+420774256271" style="color:#2563eb;font-weight:700">+420 774 256 271</a>.</p>
 <p>T\u00fdm MotoGo24</p>`
-      } else if (type === 'booking_modified') {
+      } else if (renderType === 'booking_modified') {
         // Diff tabulka — řádek per pole, jen pokud se změnilo (nebo neznáme original)
         const diffRow = (label: string, oldVal: string, newVal: string): string => {
           if (!oldVal && !newVal) return ''
@@ -1357,6 +1435,13 @@ ${vars.tracking_number ? `<table style="width:100%;border-collapse:collapse;marg
       templateHtml = templateHtml + googleReviewBlock(custLang, vars.google_review_url)
     }
 
+    // Prodloužení: šablona booking_modified typicky nemá {{door_codes_block}}
+    // placeholder — pokud má rezervace uvolněné kódy nebo výzvu k dokladům,
+    // blok doplníme na konec, aby zákazník o informaci z reserved mailu nepřišel.
+    if (renderType !== type && vars.door_codes_block && !templateHtml.includes(vars.door_codes_block)) {
+      templateHtml += vars.door_codes_block
+    }
+
     // Zdoménuj odkazy v těle mailu na zákazníkovu doménu (jen non-cs; e-mail
     // info@motogo24.cz se nemění). Pokrývá DB šablonu, i18n překlad i CZ fallback.
     templateHtml = localizeBodyLinks(templateHtml, custLang)
@@ -1386,11 +1471,11 @@ ${vars.tracking_number ? `<table style="width:100%;border-collapse:collapse;marg
         }
       }
       if (!csTemplateHtml) {
-        const i18nCs = renderEmail(type, 'cs', vars)
+        const i18nCs = renderEmail(renderType, 'cs', vars)
         if (i18nCs) { csSubject = i18nCs.subject; csTemplateHtml = i18nCs.body }
       }
       if (!csSubject) {
-        const fallbackFn = FALLBACK_SUBJECTS[type]
+        const fallbackFn = FALLBACK_SUBJECTS[renderType]
         csSubject = fallbackFn ? fallbackFn(vars) : `Oznámení — MOTO GO 24`
       }
       if (csTemplateHtml) {

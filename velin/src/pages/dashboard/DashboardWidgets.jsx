@@ -76,7 +76,7 @@ export function BookingRowsCard({ icon, title, bookings, nav, dateField }) {
     <WidgetCard icon={icon} title={title} onOpen={() => nav('/rezervace')}>
       {bookings.length === 0 ? <Empty>Žádné rezervace</Empty> : bookings.map(b => (
         <Row key={b.id} onClick={() => nav(`/rezervace/${b.id}`)}
-          title={<>{b.customer_name || 'Zákazník'}{b.created_via_ai ? ' 🤖' : ''}</>}
+          title={<>{b.customer_name || 'Zákazník'}{b.created_via_ai ? ' 🤖' : ''}{b.extends_booking_id ? <span className="ml-1 text-[9px] font-extrabold px-1 py-0.5 rounded-btn align-middle" title={`Navazuje na rezervaci #${b.extends_booking_id.slice(-8).toUpperCase()} — prodloužení, ne nová rezervace`} style={{ background: '#e0e7ff', color: '#4338ca' }}>PRODLOUŽENÍ</span> : null}</>}
           sub={`${b.motorcycle_name || 'Motorka'} · ${fmtD(b.start_date)} – ${fmtD(b.end_date)}${dateField === 'created_at' ? ` · vytvořeno ${fmtDT(b.created_at)}` : ''}`}
           right={b.total_price ? fmtKc(b.total_price) : null}
           badge={STATUS_MAP[getDisplayStatus(b)] && <Badge {...STATUS_MAP[getDisplayStatus(b)]} />}
