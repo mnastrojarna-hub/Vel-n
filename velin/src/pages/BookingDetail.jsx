@@ -261,6 +261,9 @@ export default function BookingDetail() {
     // část (doplatek) — původní platba zůstává. RPC confirm_booking_surcharge pak
     // odešle odložený booking_modified mail. Rozlišeno od potvrzení celé rezervace.
     if (action.surcharge) { setSurchargeMode(true); setShowPaymentModal(true); return }
+    // „Potvrdit platbu" u nezaplacené Nadcházející/Aktivní rezervace (např. obnovená
+    // zrušená rezervace → reserved+unpaid) → stejný ruční platební modal jako u pending.
+    if (action.confirmPayment) { setSurchargeMode(false); setShowPaymentModal(true); return }
     // Potvrzení NEZAPLACENÉ rezervace → ruční potvrzení platby (parita se Stripe):
     // vyber způsob platby (QR/převod/hotově…), VS, datum, č. transakce → confirm_payment.
     if (booking.payment_status !== 'paid' && booking.status === 'pending') { setSurchargeMode(false); setShowPaymentModal(true); return }
@@ -486,14 +489,22 @@ export default function BookingDetail() {
   const actionsWithSurcharge = (surchargeDue > 0 && ['reserved', 'active'].includes(booking.status))
     ? [{ label: `Potvrdit doplatek (${surchargeDue.toLocaleString('cs-CZ')} Kč)`, status: 'confirm_surcharge', green: true, surcharge: true }, ...actions]
     : actions
+  // „Potvrdit platbu" u NEZAPLACENÉ Nadcházející/Aktivní rezervace — typicky zrušená
+  // rezervace obnovená tlačítkem Obnovit (reserved+unpaid), kterou zákazník mezitím
+  // zaplatil převodem. U status='pending' modal otevírá už akce „Potvrdit" (handleAction);
+  // pro reserved/active dosud žádná cesta k potvrzení platby neexistovala. confirm_payment
+  // RPC status mimo pending/cancelled nemění — rezervace zůstane reserved/active, jen paid.
+  const actionsWithPayment = (booking.payment_status === 'unpaid' && ['reserved', 'active'].includes(booking.status))
+    ? [{ label: 'Potvrdit platbu', status: 'confirm_payment', green: true, confirmPayment: true }, ...actionsWithSurcharge]
+    : actionsWithSurcharge
   // Manuální vratka (bez Stripe platby): refund_pending bez stripe_refund_id +
   // dobropis bez Stripe refund id = peníze se vrací PŘEVODEM NA ÚČET zákazníka.
   const manualRefundCn = (booking.payment_status === 'refund_pending' && !booking.stripe_refund_id)
     ? creditNotes.find(c => !c.stripe_refund_id) : null
   const manualRefundDue = manualRefundCn ? Math.abs(Number(manualRefundCn.total) || 0) : 0
   const actionsWithRefund = manualRefundDue > 0
-    ? [{ label: `Vratka odeslána (${manualRefundDue.toLocaleString('cs-CZ')} Kč)`, status: 'confirm_manual_refund', green: true, refund: true }, ...actionsWithSurcharge]
-    : actionsWithSurcharge
+    ? [{ label: `Vratka odeslána (${manualRefundDue.toLocaleString('cs-CZ')} Kč)`, status: 'confirm_manual_refund', green: true, refund: true }, ...actionsWithPayment]
+    : actionsWithPayment
 
   return (
     <div>
