@@ -405,6 +405,35 @@ Deno.serve(async (req: Request) => {
         return forbidden(CORS, 'not_owner')
       }
 
+      // RECOVERY-ONLY dispatche (reason '…_retry' z attach smyček
+      // send-booking-email / send-cancellation-email) NIKDY nevytvářejí nový
+      // Stripe refund — jen dohrají chybějící dobropis/PDF k vratce, která už
+      // proběhla. Incident #DDC5A69D (2026-08-12): retry se s primární vratkou
+      // minul o ~1 s (credit_note ještě nebyla v DB a Stripe idempotency klíč
+      // se lišil kvůli mezitím změněnému refundable) → vznikla DRUHÁ reálná
+      // 556Kč vratka a duplicitní dobropis DB-2026-0002.
+      if (typeof reason === 'string' && /_retry$/.test(reason)) {
+        let result = await ensureCreditNotePdf(supabase, booking_id, data)
+        if (!result.creditNoteId && data.stripe_refund_id) {
+          result = await createCreditNoteForExistingRefund(supabase, booking_id, data)
+        }
+        await dlog('recovery_only_dispatch', result.creditNoteId ? 'ok' : 'info', {
+          credit_note_id: result.creditNoteId, pdf_path: result.pdfPath,
+        })
+        return new Response(
+          JSON.stringify({
+            success: !!result.creditNoteId,
+            recovery_only: true,
+            refund_id: result.refundId,
+            credit_note_id: result.creditNoteId,
+            credit_note_pdf_path: result.pdfPath,
+            card_brand: data.card_brand,
+            card_last4: data.card_last4,
+          }),
+          { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } }
+        )
+      }
+
       // Idempotency: if booking is already refunded, ensure the credit note has pdf_path
       // (regenerate if missing) and return success — DON'T call Stripe again.
       // This handles the scenario where a previous refund attempt partially succeeded

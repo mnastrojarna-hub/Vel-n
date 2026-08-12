@@ -547,16 +547,23 @@ export async function ingestFinancialEvent(
   }
 ) {
   try {
-    const stripeId = eventData.metadata.stripe_payment_intent_id
+    // stripe_refund_id má přednost: na jednom charge může být VÍC vratek
+    // (částečná úprava + pozdější storno) — dedup přes stripe_charge_id druhou
+    // a další vratku tiše zahodil (incident #DDC5A69D: vratka 1 143 Kč chyběla
+    // ve financial_events). Refund eventy nesou stripe_refund_id od 2026-08-12.
+    const stripeId = eventData.metadata.stripe_refund_id
+      || eventData.metadata.stripe_payment_intent_id
       || eventData.metadata.stripe_charge_id
       || eventData.metadata.stripe_payout_id
 
     if (stripeId) {
-      const idempotencyKey = eventData.metadata.stripe_payment_intent_id
-        ? 'stripe_payment_intent_id'
-        : eventData.metadata.stripe_charge_id
-          ? 'stripe_charge_id'
-          : 'stripe_payout_id'
+      const idempotencyKey = eventData.metadata.stripe_refund_id
+        ? 'stripe_refund_id'
+        : eventData.metadata.stripe_payment_intent_id
+          ? 'stripe_payment_intent_id'
+          : eventData.metadata.stripe_charge_id
+            ? 'stripe_charge_id'
+            : 'stripe_payout_id'
 
       const { data: existing } = await supabase
         .from('financial_events')
