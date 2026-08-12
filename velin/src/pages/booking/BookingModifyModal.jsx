@@ -270,8 +270,11 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
       // → detail rezervace ukáže „VRÁTIT NA ÚČET · X Kč" s akcí „Vratka odeslána".
       if (chargeCustomer && refundAmount > 0) {
         try {
+          // Důvod dle skutečné změny — dobropis pak nese „Výměna motorky" místo
+          // matoucího „Zkrácení rezervace", když se měnila jen motorka.
+          const refundReason = motoChanged && !datesChanged ? 'moto_swap' : 'shortening'
           const { data: rfd, error: rfe } = await supabase.functions.invoke('process-refund', {
-            body: { booking_id: booking.id, amount: refundAmount, reason: 'shortening' },
+            body: { booking_id: booking.id, amount: refundAmount, reason: refundReason },
           })
           if (rfe || rfd?.success !== true) {
             console.warn('[BookingModify] refund failed:', rfe?.message || rfd?.error)
