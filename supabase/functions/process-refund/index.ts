@@ -764,10 +764,19 @@ Deno.serve(async (req: Request) => {
       )
     }
 
-    // Create Stripe refund
+    // Create Stripe refund. Metadata mg_* označují refund jako NÁŠ (interní) —
+    // webhook-receiver charge.refunded podle nich pozná, že dobropis/mail/stavy
+    // řeší tohle flow, a rezervaci NEzruší jako „Stripe portál storno"
+    // (incident #DDC5A69D 2026-08-12: částečná vratka výměny motorky → auto-storno).
     const refundParams: Stripe.RefundCreateParams = {
       payment_intent: stripePaymentIntentId,
       reason: reason === 'duplicate' ? 'duplicate' : 'requested_by_customer',
+      metadata: {
+        mg_source: 'process-refund',
+        mg_reason: reason || '',
+        mg_booking_id: booking_id || '',
+        mg_order_id: order_id || '',
+      },
     }
     if (effectiveAmountHaleru != null && (refundableHaleru == null || effectiveAmountHaleru < refundableHaleru)) {
       refundParams.amount = effectiveAmountHaleru

@@ -251,6 +251,33 @@ serve(async (req) => {
     // Pokud se mail za posledních 30 min úspěšně odeslal, druhý nepošleme.
     // Force=true v body request přepíše idempotency (admin manuální dotaz "pošli znovu").
     const force = (reqBody as any).force === true
+    // ATOMICKÝ claim (incident #DDC5A69D 2026-08-12: 4 souběžné invokace prošly
+    // read-then-write kontrolou sent_emails dřív, než první stihla zapsat →
+    // 4 duplicitní storno maily). RPC claim_email_send drží zámek v
+    // email_send_locks (INSERT ON CONFLICT — vyhrává právě jedna invokace,
+    // další dostanou false po dobu okna 30 min). Když RPC v DB ještě není
+    // (SQL nenasazena), spadne do stávající sent_emails kontroly níže.
+    if (booking_id && !force) {
+      try {
+        const { data: claimed, error: claimErr } = await supabase.rpc('claim_email_send', {
+          p_booking_id: booking_id,
+          p_slug: 'booking_cancelled',
+          p_window_minutes: 30,
+        })
+        if (!claimErr && claimed === false) {
+          await supabase.from('debug_log').insert({
+            source: 'send-cancellation-email',
+            action: 'idempotent_skip_claim',
+            status: 'info',
+            request_data: { booking_id },
+          }).then(() => {}, () => {})
+          return new Response(JSON.stringify({ success: true, skipped: 'claim_held' }), {
+            status: 200,
+            headers: { ...CORS, 'Content-Type': 'application/json' },
+          })
+        }
+      } catch { /* RPC nenasazena / chyba — pokračuje fallback kontrola níže */ }
+    }
     if (booking_id && !force) {
       try {
         const { data: existing } = await supabase.from('sent_emails')
