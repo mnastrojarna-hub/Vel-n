@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase'
 import TimePeriodSelector, { filterByPeriod, hasMinimumData, diffDays } from './TimePeriodSelector'
 import { isRealizedBooking, voucherRevenueByBooking } from '../../lib/revenueUtils'
 import NavratnostKapitalu from './NavratnostKapitalu'
+import RezervaceDnyTydne from './RezervaceDnyTydne'
 
 const NoData = () => (
   <div className="p-6 text-center" style={{ background: '#fffbeb', borderRadius: 14, border: '1px solid #fde68a', color: '#854d0e', fontSize: 13 }}>
@@ -139,6 +140,9 @@ export default function VykonMotorek() {
           </tbody>
         </table>
       </div>
+
+      {/* Výjezdy dle dne v týdnu — vždy za celou dobu fungování */}
+      <RezervaceDnyTydne bookings={bookings} motorcycles={motorcycles} />
 
       {/* KPI: návratnost kapitálu (tržby vs. pořizovací cena) */}
       <NavratnostKapitalu motoStats={motoStats} />
