@@ -18,6 +18,7 @@ import { TABS, ACTIONS, CANCEL_REASONS, paymentStatusInfo } from './booking/book
 import { sendBookingMessage, logAudit, cancelBookingFromVelin } from './booking/bookingMessageHelpers'
 import BookingCancelModal from './booking/BookingCancelModal'
 import PaymentConfirmModal from './booking/PaymentConfirmModal'
+import AppInstallBadge, { loadAppInstalls } from '../components/AppInstallBadge'
 
 export default function BookingDetail() {
   const debugMode = useDebugMode()
@@ -41,6 +42,14 @@ export default function BookingDetail() {
   const [creditNotes, setCreditNotes] = useState([])
   // Navazující rezervace (prodloužení): rezervace, které navazují na tuto
   const [extendedBy, setExtendedBy] = useState([])
+  // Indikátor „zákazník má nainstalovanou appku" (app_installations, aktivní do 30 dní)
+  const [appInstall, setAppInstall] = useState(null)
+
+  useEffect(() => {
+    const uid = booking?.user_id
+    if (!uid) { setAppInstall(null); return }
+    loadAppInstalls(supabase, [uid]).then(m => setAppInstall(m[uid] || null), () => setAppInstall(null))
+  }, [booking?.user_id])
 
   // Refy pro realtime subscription — callback se vytvoří jen jednou (deps [id]),
   // takže potřebuje vždy aktuální stav (status/platba) i příznak probíhajícího uložení.
@@ -537,6 +546,7 @@ export default function BookingDetail() {
             )}
           </span>
         )}
+        <AppInstallBadge install={appInstall} />
         {booking.payment_status && (() => {
           const pay = paymentStatusInfo(booking)
           return (

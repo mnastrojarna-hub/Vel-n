@@ -15,6 +15,7 @@ import CustomerScoreWidget, { ScoreBadge } from './customer/CustomerScoreWidget'
 import CustomerComplaintsTab from './customer/CustomerComplaintsTab'
 import ProfileTab from './CustomerProfileTab'
 import { CustomerBookings, CustomerReviews } from './CustomerSubTabs'
+import AppInstallBadge, { loadAppInstalls } from '../components/AppInstallBadge'
 
 const TABS = ['Profil', 'Skóre', 'Rezervace', 'Dokumenty', 'Hodnocení', 'SOS', 'Reklamace']
 
@@ -35,8 +36,15 @@ export default function CustomerDetail() {
   const [resetPwMsg, setResetPwMsg] = useState(null)
   const [confirmBlock, setConfirmBlock] = useState(false)
   const [blockReason, setBlockReason] = useState('')
+  // Indikátor „zákazník má nainstalovanou appku" (app_installations, aktivní do 30 dní)
+  const [appInstall, setAppInstall] = useState(null)
 
   useEffect(() => { loadCustomer() }, [id])
+
+  useEffect(() => {
+    if (!id) { setAppInstall(null); return }
+    loadAppInstalls(supabase, [id]).then(m => setAppInstall(m[id] || null), () => setAppInstall(null))
+  }, [id])
 
   async function loadCustomer() {
     setLoading(true)
@@ -224,6 +232,7 @@ export default function CustomerDetail() {
         <button onClick={() => navigate('/zakaznici')} className="cursor-pointer" style={{ background: 'none', border: 'none', fontSize: 18, color: '#1a2e22' }}>←</button>
         <h2 className="font-extrabold text-lg" style={{ color: '#0f1a14' }}>{customer.full_name || 'Zákazník'}</h2>
         <ScoreBadge userId={id} />
+        <AppInstallBadge install={appInstall} />
       </div>
 
       {/* Blocked banner */}

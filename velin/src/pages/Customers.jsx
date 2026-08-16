@@ -12,6 +12,7 @@ import Pagination from '../components/ui/Pagination'
 import Modal from '../components/ui/Modal'
 import CustomersBulkActionsModal from './CustomersBulkActionsModal'
 import DocsStatusPills, { loadDocScans } from '../components/DocsStatusPills'
+import AppInstallBadge, { loadAppInstalls } from '../components/AppInstallBadge'
 
 const PER_PAGE = 25
 
@@ -45,6 +46,8 @@ export default function Customers() {
   // Map<user_id, {license,id,passport}> — skeny dokladů pro sloupec „Doklady"
   // (stejné UI jako v seznamu rezervací; čísla dokladů jdou přímo z profilu)
   const [scanStatus, setScanStatus] = useState({})
+  // Map<user_id, {active, platforms, lastSeen}> — indikátor „má nainstalovanou appku"
+  const [appInstalls, setAppInstalls] = useState({})
   const [filters, setFilters] = useState(() => {
     try {
       const saved = localStorage.getItem('velin_customers_filters')
@@ -86,6 +89,8 @@ export default function Customers() {
       loadStats(data)
       // Sloupec „Doklady": dávkově skeny dokladů zobrazené stránky (jeden dotaz s `in`)
       loadDocScans(supabase, data.map(c => c.id)).then(setScanStatus)
+      // Indikátor appky: dávkově zjisti, kdo ze zobrazené stránky má aktivní instalaci
+      loadAppInstalls(supabase, data.map(c => c.id)).then(setAppInstalls)
     } catch (e) {
       setError(e.message)
     } finally {
@@ -257,7 +262,7 @@ export default function Customers() {
                         setSelected(next)
                       }} />
                   </TD>
-                  <TD bold>{c.full_name || '—'}</TD>
+                  <TD bold>{c.full_name || '—'}<AppInstallBadge install={appInstalls[c.id]} /></TD>
                   <TD>{c.email || '—'}</TD>
                   <TD mono>{c.phone || '—'}</TD>
                   <TD>

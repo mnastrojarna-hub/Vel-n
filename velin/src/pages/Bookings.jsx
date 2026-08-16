@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { debugAction } from '../lib/debugLog'
 import { useDebugMode } from '../hooks/useDebugMode'
 import { loadDocScans } from '../components/DocsStatusPills'
+import { loadAppInstalls } from '../components/AppInstallBadge'
 import Button from '../components/ui/Button'
 import SearchInput from '../components/ui/SearchInput'
 import Pagination from '../components/ui/Pagination'
@@ -70,6 +71,8 @@ export default function Bookings() {
   // Map<user_id, {count, ok}> — počet nahraných skenů dokladů (OP/ŘP/pas) zákazníka
   // pro sloupec „Doklady" v seznamu (sken ano/ne + kolik ověřeno OCR).
   const [scanStatus, setScanStatus] = useState({})
+  // Map<user_id, {active, platforms, lastSeen}> — indikátor „má nainstalovanou appku"
+  const [appInstalls, setAppInstalls] = useState({})
 
   useEffect(() => { if (view === 'Seznam') loadBookings() }, [page, filters, view])
   useEffect(() => {
@@ -194,6 +197,8 @@ export default function Bookings() {
       // pas) má každý zákazník ze zobrazené stránky. Jeden dotaz s `in`. Sken se počítá
       // BEZ ohledu na Mindee status (i ručně nahraná / neověřená fotka je sken).
       setScanStatus(await loadDocScans(supabase, data.map(b => b.user_id)))
+      // Indikátor appky: dávkově zjisti, kdo ze zobrazené stránky má aktivní instalaci
+      setAppInstalls(await loadAppInstalls(supabase, data.map(b => b.user_id)))
     } catch (e) {
       setError(e.message)
     } finally {
@@ -309,7 +314,7 @@ export default function Bookings() {
         <div className="flex justify-center py-16"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
       ) : (
         <>
-          <BookingsTable bookings={bookings} navigate={navigate} fmtDateRange={fmtDateRange} dpTotals={dpTotals} scanStatus={scanStatus} setDeleteConfirm={setDeleteConfirm} setCancelTarget={setCancelTarget}
+          <BookingsTable bookings={bookings} navigate={navigate} fmtDateRange={fmtDateRange} dpTotals={dpTotals} scanStatus={scanStatus} appInstalls={appInstalls} setDeleteConfirm={setDeleteConfirm} setCancelTarget={setCancelTarget}
             selected={selected} setSelected={setSelected} />
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
         </>
