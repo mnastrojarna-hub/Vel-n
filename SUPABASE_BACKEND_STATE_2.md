@@ -172,7 +172,7 @@
 - license_required, has_abs, has_asc
 - **license_required** (ENUM `license_group` DEFAULT 'A' — OPRAVA 2026-06-24: v reálné DB je typ `public.license_group`, ne TEXT) — JEDNA kanonická skupina ŘP. Drží legacy logiku: dětská/`'N'` check (door codes, docs status, gear audience, AI agenti, smlouvy, web `create_web_booking` overlap). Velín ji **auto-odvozuje** z `license_groups` (`'N'` má přednost; jinak nejnižší moto rank AM<A1<A2<A; jinak B).
 - **license_groups** (TEXT[] NOT NULL DEFAULT '{}', **NEW 2026-06-15** — migrace `20260615_moto_license_groups.sql`) — pole VŠECH přijímaných skupin ŘP (OR — stačí, aby zákazník měl kteroukoliv). Umožňuje skútr = `{A1,B}`, přívěs = `{B}` apod. Zadává se ve **Velíně** Fleet detail → „ŘP skupiny (lze vybrat více)" (chip multi-select, `'N'` výlučné). Backfill z `license_required` (jedna hodnota → pole). **Web** (`katalog.php` filtr ŘP + `katalog-detail.php`/karty výpis přes helper `motoLicenseGroups()` v `components.php`) i **App** (`Motorcycle.licenseGroups`/`licenseGroupsOrFallback`, filtr `CatalogFilter.apply` coverage mapa, `BookingValidator.checkLicense`) čtou pole, fallback na `[license_required]` když prázdné. Web `select *` / app `select('*, branches…')` propíše sloupec automaticky.
-- description, ideal_usage, features, manual_url
+- description (text), **ideal_usage (text[] — POZOR: pole krátkých tagů, NE text!** mig. `20260306_moto_specs_and_debug.sql`; zápis textu sem shodil deploy 2026-08-16), features (text[]), manual_url (text)
 - **manual_external_url** (TEXT) — externí URL na návod (např. stránka výrobce); použije se pouze pokud není nahrán PDF (`manual_url` je prázdný). PDF má vždy přednost.
 - engine_type, power_hp
 - **branch_id** — pobočka (FK→branches)
