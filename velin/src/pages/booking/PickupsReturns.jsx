@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import StatusBadge, { getDisplayStatus } from '../../components/ui/StatusBadge'
 import Card from '../../components/ui/Card'
+import DocsStatusPills, { loadDocScans } from '../../components/DocsStatusPills'
 import CheckInModal from './CheckInModal'
 import SwapModal from './SwapModal'
 
@@ -182,7 +183,15 @@ const SwapBtn = ({ ev, onSwap }) => (
 
 // Jednořádková kompaktní položka události. `dense` = úzký dvouřádkový layout
 // (pro boční panel detailu dne, kde by horizontální řádek přetékal).
-function EventRow({ ev, onClick, showStatus, dense, onCheckIn, onSwap }) {
+// Stav dokladů zákazníka (Č = vypsaná čísla, 📷 = sken/fotka) — stejné pilulky
+// jako v seznamu rezervací (BookingsTable), ať je před odbavením hned vidět,
+// jestli má zákazník nahrané fotky dokladů a vyplněná čísla.
+const DocsPills = ({ ev, scans }) => ev.booking.user_id ? (
+  <DocsStatusPills profile={ev.booking.profiles} scan={scans?.[ev.booking.user_id]}
+    requireLicense={String(ev.booking.motorcycles?.license_required || '').toUpperCase() !== 'N'} />
+) : null
+
+function EventRow({ ev, onClick, showStatus, dense, onCheckIn, onSwap, scans }) {
   const t = TYPE[ev.type]
   const wrap = {
     padding: dense ? '8px 10px' : '7px 10px', borderLeft: `4px solid ${t.color}`,
@@ -207,7 +216,10 @@ function EventRow({ ev, onClick, showStatus, dense, onCheckIn, onSwap }) {
           <span className="ml-auto text-sm"><TimeCell ev={ev} t={t} /></span>
         </div>
         <div className="font-extrabold text-sm mt-1 truncate" style={{ color: '#0f1a14' }}>{ev.moto}{ev.spz ? ` · ${ev.spz}` : ''}</div>
-        <div className="text-sm truncate" style={{ color: '#1a2e22' }}>{ev.customer} <span className="font-mono" style={{ color: '#64748b' }}>{bookingNo(ev.booking.id)}</span></div>
+        <div className="flex items-center gap-2">
+          <span className="text-sm truncate" style={{ color: '#1a2e22', minWidth: 0 }}>{ev.customer} <span className="font-mono" style={{ color: '#64748b' }}>{bookingNo(ev.booking.id)}</span></span>
+          <span className="shrink-0 ml-auto"><DocsPills ev={ev} scans={scans} /></span>
+        </div>
         <div className="flex items-center gap-2">
           <span className="text-sm truncate" style={{ color: '#64748b' }}>{place}</span>
           {canSwap && <span className="ml-auto"><SwapBtn ev={ev} onSwap={onSwap} /></span>}
@@ -225,6 +237,7 @@ function EventRow({ ev, onClick, showStatus, dense, onCheckIn, onSwap }) {
       <span className="shrink-0 sm:hidden text-base" title={t.label}>{t.emoji}</span>
       <span className="font-extrabold text-sm truncate" style={{ color: '#0f1a14', minWidth: 0, flex: '1 1 130px' }}>{ev.moto}{ev.spz ? ` · ${ev.spz}` : ''}</span>
       <span className="text-sm truncate hidden md:block" style={{ color: '#1a2e22', flex: '1 1 100px', minWidth: 0 }}>{ev.customer}</span>
+      <span className="shrink-0"><DocsPills ev={ev} scans={scans} /></span>
       <span className="text-sm font-mono shrink-0 hidden lg:inline" style={{ color: '#64748b' }}>{bookingNo(ev.booking.id)}</span>
       <span className="text-sm truncate hidden lg:block" style={{ color: '#64748b', flex: '1 1 90px', minWidth: 0 }}>{ev.delivery ? '🚚 ' + (ev.address || 'na adresu') : '🏍️ ' + (ev.branch || 'pobočka')}</span>
       <span className="shrink-0 text-sm text-right" style={{ minWidth: 96 }}><TimeCell ev={ev} t={t} /></span>
@@ -236,12 +249,12 @@ function EventRow({ ev, onClick, showStatus, dense, onCheckIn, onSwap }) {
   )
 }
 
-function EventList({ events, onOpen, limit, showStatus, onCheckIn, onSwap }) {
+function EventList({ events, onOpen, limit, showStatus, onCheckIn, onSwap, scans }) {
   const shown = limit ? events.slice(0, limit) : events
   if (shown.length === 0) return <p className="text-sm" style={{ color: '#64748b', padding: '8px 4px' }}>Žádné nadcházející odjezdy ani návraty</p>
   return (
     <div className="rounded-lg overflow-hidden" style={{ border: '1px solid #eef5f1' }}>
-      {shown.map((ev, i) => <EventRow key={ev.booking.id + '_' + ev.type + '_' + i} ev={ev} showStatus={showStatus} onCheckIn={onCheckIn} onSwap={onSwap} onClick={() => onOpen(ev.booking.id)} />)}
+      {shown.map((ev, i) => <EventRow key={ev.booking.id + '_' + ev.type + '_' + i} ev={ev} showStatus={showStatus} onCheckIn={onCheckIn} onSwap={onSwap} scans={scans} onClick={() => onOpen(ev.booking.id)} />)}
     </div>
   )
 }
@@ -259,6 +272,7 @@ export default function PickupsReturns({ compact = false, onExpand }) {
   const [checkInEvent, setCheckInEvent] = useState(null) // událost odbavovaná v CheckInModal
   const [swapEvent, setSwapEvent] = useState(null) // odjezd odbavovaný jako výměna motorky
   const [protocolIds, setProtocolIds] = useState(() => new Set()) // rezervace s předávacím protokolem
+  const [scanStatus, setScanStatus] = useState({}) // user_id → { license, id, passport } (skeny dokladů)
 
   useEffect(() => { loadData() }, [])
   useEffect(() => {
@@ -269,7 +283,7 @@ export default function PickupsReturns({ compact = false, onExpand }) {
   async function loadData() {
     setLoading(true)
     const { data } = await supabase.from('bookings')
-      .select('id, start_date, end_date, pickup_time, return_time, status, payment_status, picked_up_at, returned_at, handover_protocol_filled_at, pickup_method, return_method, pickup_address, return_address, user_id, moto_id, ended_by_sos, profiles(full_name), motorcycles!moto_id(model, spz, branch_id, branches(name, type))')
+      .select('id, start_date, end_date, pickup_time, return_time, status, payment_status, picked_up_at, returned_at, handover_protocol_filled_at, pickup_method, return_method, pickup_address, return_address, user_id, moto_id, ended_by_sos, profiles(full_name, id_number, license_number, id_verified_at, license_verified_at, passport_verified_at), motorcycles!moto_id(model, spz, branch_id, license_required, branches(name, type))')
       .in('status', ['reserved', 'active', 'pending'])
       // Nezaplacené rezervace (unpaid) se v odjezdech a návratech nezobrazují —
       // dokud zákazník nezaplatí, není co odbavovat.
@@ -286,6 +300,8 @@ export default function PickupsReturns({ compact = false, onExpand }) {
       pSet = new Set((docs || []).map(d => d.booking_id))
     }
     setProtocolIds(pSet)
+    // Skeny dokladů pro pilulky „Č / 📷" (stejný dávkový dotaz jako Rezervace/Zákazníci).
+    loadDocScans(supabase, list.map(b => b.user_id)).then(setScanStatus)
     setLoading(false)
   }
 
@@ -320,7 +336,7 @@ export default function PickupsReturns({ compact = false, onExpand }) {
         {loading ? (
           <div className="py-6 text-center"><div className="animate-spin inline-block rounded-full h-6 w-6 border-t-2 border-brand-gd" /></div>
         ) : (
-          <EventList events={upcoming} onOpen={openBooking} limit={8} onSwap={setSwapEvent} />
+          <EventList events={upcoming} onOpen={openBooking} limit={8} onSwap={setSwapEvent} scans={scanStatus} />
         )}
         {swapEvent && (
           <SwapModal open prev={swapEvent.swapPrev} next={swapEvent.booking} onClose={() => setSwapEvent(null)} onDone={handleSwapDone} />
@@ -387,7 +403,7 @@ export default function PickupsReturns({ compact = false, onExpand }) {
                 <h3 className="text-sm font-extrabold uppercase tracking-wide" style={{ color: TYPE.pickup.color }}>Odjezdy (vyzvednutí)</h3>
                 <span className="inline-block rounded-full text-sm font-extrabold ml-auto" style={{ background: '#dcfce7', color: '#15803d', padding: '1px 9px' }}>{upcomingPickups.length}</span>
               </div>
-              <EventList events={upcomingPickups} onOpen={openBooking} showStatus onCheckIn={setCheckInEvent} onSwap={setSwapEvent} />
+              <EventList events={upcomingPickups} onOpen={openBooking} showStatus onCheckIn={setCheckInEvent} onSwap={setSwapEvent} scans={scanStatus} />
             </Card>
             <Card style={{ padding: 14 }}>
               <div className="flex items-center gap-2 mb-3">
@@ -395,12 +411,12 @@ export default function PickupsReturns({ compact = false, onExpand }) {
                 <h3 className="text-sm font-extrabold uppercase tracking-wide" style={{ color: TYPE.return.color }}>Návraty (vrácení)</h3>
                 <span className="inline-block rounded-full text-sm font-extrabold ml-auto" style={{ background: '#fef3c7', color: '#b45309', padding: '1px 9px' }}>{upcomingReturns.length}</span>
               </div>
-              <EventList events={upcomingReturns} onOpen={openBooking} showStatus onCheckIn={setCheckInEvent} />
+              <EventList events={upcomingReturns} onOpen={openBooking} showStatus onCheckIn={setCheckInEvent} scans={scanStatus} />
             </Card>
           </div>
         ) : (
           <Card style={{ padding: 14 }}>
-            <EventList events={upcoming} onOpen={openBooking} showStatus onCheckIn={setCheckInEvent} onSwap={setSwapEvent} />
+            <EventList events={upcoming} onOpen={openBooking} showStatus onCheckIn={setCheckInEvent} onSwap={setSwapEvent} scans={scanStatus} />
           </Card>
         )
       ) : (
@@ -462,7 +478,7 @@ export default function PickupsReturns({ compact = false, onExpand }) {
                 <p className="text-sm" style={{ color: '#64748b' }}>Žádné odjezdy ani návraty v tento den</p>
               ) : (
                 <div className="rounded-lg overflow-hidden" style={{ border: '1px solid #eef5f1' }}>
-                  {selected.map((ev, i) => <EventRow key={ev.booking.id + '_' + ev.type + '_' + i} ev={ev} dense onCheckIn={setCheckInEvent} onSwap={setSwapEvent} onClick={() => openBooking(ev.booking.id)} />)}
+                  {selected.map((ev, i) => <EventRow key={ev.booking.id + '_' + ev.type + '_' + i} ev={ev} dense onCheckIn={setCheckInEvent} onSwap={setSwapEvent} scans={scanStatus} onClick={() => openBooking(ev.booking.id)} />)}
                 </div>
               )}
             </Card>

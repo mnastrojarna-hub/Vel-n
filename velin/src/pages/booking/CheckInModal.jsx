@@ -7,8 +7,10 @@ import PickupReadiness from './PickupReadiness'
 
 // Odbavení odjezdu (vyzvednutí) a návratu (vrácení) přímo z přehledu „Odjezdy a návraty".
 // Pravidla:
-//  • Odjezd na OBSLUŽNÉ pobočce → zákazník podepíše předávací protokol (ElectronicProtocolModal).
-//  • Odjezd na SAMOOBSLUŽNÉ pobočce → zadání kódu k motorce do systému (ověření identity).
+//  • Odjezd na OBSLUŽNÉ pobočce → naváděné flow (doklady → údaje → protokol), viz PickupReadiness.
+//  • Odjezd na SAMOOBSLUŽNÉ pobočce → VŽDY zadání kódu k motorce do systému (ověření
+//    identity). Zákazník musí mít doklady nahrané předem — bez nich kód nedostal a
+//    odbavení kódem není možné (doklady si doplní sám, kód se mu uvolní automaticky).
 //  • Návrat na SAMOOBSLUŽNÉ pobočce → zadání kódu, nejdříve však 2 hodiny od vyzvednutí.
 //  • Ostatní návraty (obslužná pobočka / svoz) → jen ruční potvrzení vrácení (např. zapomenutý mobil apod.).
 
@@ -156,6 +158,7 @@ export default function CheckInModal({ open, event, onClose, onDone }) {
           <>
             <div style={noteBox('#2563eb', '#eff6ff', '#1e3a8a')}>
               <strong>Samoobslužná pobočka.</strong> Zákazník zadá svůj kód k motorce do systému — ověřte jej a odbavte odjezd.
+              Doklady musí mít nahrané předem (bez nich se mu kód nevydal).
             </div>
             {codeBlock('Odbavit odjezd', () => markPickedUp('self_service_code'))}
           </>

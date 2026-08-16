@@ -77,10 +77,14 @@ export default function CustomerDocumentsTab({ userId }) {
   const [sortOrder, setSortOrder] = useState('date_desc')
   const [page, setPage] = useState(1)
 
-  useEffect(() => { loadAll() }, [userId])
+  useEffect(() => { loadAll(true) }, [userId])
 
-  async function loadAll() {
-    setLoading(true)
+  // `initial` — celoplošný spinner jen při prvním načtení. Refresh po změně
+  // (onChanged z CustomerVerificationSection → AdminDocUploadModal.onUploaded)
+  // běží na pozadí, jinak by early-return spinner odmountoval otevřený modal
+  // focení dokladů (po uložení líce se operátorovi „samo zavřelo okno").
+  async function loadAll(initial = false) {
+    if (initial) setLoading(true)
     setError(null)
     try {
       const [docsRes, invRes, genRes, profRes, bkRes] = await Promise.all([

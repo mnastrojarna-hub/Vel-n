@@ -42,10 +42,15 @@ export default function PickupReadiness({ booking, onClose, onProtocolDone, veri
   const [idNo, setIdNo] = useState('')
   const [savingData, setSavingData] = useState(false)
 
-  useEffect(() => { load() }, [booking?.id])
+  useEffect(() => { load(true) }, [booking?.id])
 
-  async function load() {
-    setLoading(true); setError(null)
+  // `initial` — celoplošný spinner jen při PRVNÍM načtení. Refresh po uložení
+  // (onUploaded z AdminDocUploadModal) běží na pozadí: dřívější setLoading(true)
+  // způsobil early-return se spinnerem, který ODMOUNTOVAL otevřený modal focení
+  // → operátorovi se po uložení každé strany (líc → rub) „samo zavřelo okno".
+  async function load(initial = false) {
+    if (initial) setLoading(true)
+    setError(null)
     try {
       const [docsRes, profRes, bkRes] = await Promise.all([
         supabase.from('documents').select('id, type, metadata, created_at').eq('user_id', booking.user_id).in('type', VERIFICATION_TYPES).order('created_at', { ascending: false }),
@@ -121,14 +126,15 @@ export default function PickupReadiness({ booking, onClose, onProtocolDone, veri
       <div style={note('#2563eb', '#eff6ff', '#1e3a8a')}>
         <strong>Obslužná pobočka.</strong> {isChild
           ? 'Dětská motorka — doklady nejsou potřeba, stačí podepsat předávací protokol.'
-          : 'Než zákazník podepíše předávací protokol, doplňte chybějící údaje a doklady.'}
+          : 'Než zákazník podepíše předávací protokol: nejdřív vyfoťte chybějící doklady (OCR doplní čísla), pak zkontrolujte a doplňte údaje.'}
       </div>
 
       {!isChild && (
-        <>
-          {/* 1) ÚDAJE ŘP */}
-          <div className="p-3 rounded-card" style={{ background: '#f8faf9', border: '1px solid #eef5f1' }}>
-            <StepHead n={1} label="Údaje dokladů (ŘP + číslo OP/pasu)" done={dataOk} />
+        <div className="flex flex-col gap-4">
+          {/* 2) ÚDAJE ŘP — až PO fotkách (OCR z nich čísla předvyplní, operátor jen
+              zkontroluje/doplní); pořadí kroků řídí CSS order v tomto flex sloupci */}
+          <div className="p-3 rounded-card" style={{ background: '#f8faf9', border: '1px solid #eef5f1', order: 2 }}>
+            <StepHead n={2} label="Údaje dokladů (ŘP + číslo OP/pasu)" done={dataOk} />
             {dataOk ? (
               <div className="text-sm" style={{ color: '#15803d' }}>✓ Čísla dokladů, platnost i skupiny ŘP v pořádku ({(profile?.license_group || []).join(', ')}, platí do {profile?.license_expiry}).</div>
             ) : (
@@ -170,9 +176,9 @@ export default function PickupReadiness({ booking, onClose, onProtocolDone, veri
             )}
           </div>
 
-          {/* 2) DOKLADY */}
-          <div className="p-3 rounded-card" style={{ background: '#f8faf9', border: '1px solid #eef5f1' }}>
-            <StepHead n={2} label="Doklady (ŘP + OP/pas)" done={docsOk} />
+          {/* 1) DOKLADY (fotky) — PRVNÍ krok: vyfotit, OCR doplní čísla do profilu */}
+          <div className="p-3 rounded-card" style={{ background: '#f8faf9', border: '1px solid #eef5f1', order: 1 }}>
+            <StepHead n={1} label="Doklady (ŘP + OP/pas)" done={docsOk} />
             {docsOk ? (
               <div className="text-sm" style={{ color: '#15803d' }}>✓ Doklady ověřeny.</div>
             ) : (
@@ -185,7 +191,7 @@ export default function PickupReadiness({ booking, onClose, onProtocolDone, veri
               </div>
             )}
           </div>
-        </>
+        </div>
       )}
 
       {/* 3) PROTOKOL */}
@@ -202,7 +208,7 @@ export default function PickupReadiness({ booking, onClose, onProtocolDone, veri
             </div>
           </div>
         ) : (
-          <div className="text-sm" style={{ color: '#b45309' }}>Nejprve doplňte chybějící údaje a doklady výše.</div>
+          <div className="text-sm" style={{ color: '#b45309' }}>Nejprve doplňte chybějící doklady a údaje výše.</div>
         )}
       </div>
 
