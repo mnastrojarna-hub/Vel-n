@@ -27,11 +27,7 @@ function StepHead({ n, label, done }) {
 
 // `verifiedCode` — kód motorky, kterým byla rezervace nalezena a identita ověřena
 // (rychlé odbavení z Velína); v protokolu je pak předvyplněný jako ověřený.
-// `selfService` — odbavení na SAMOOBSLUŽNÉ pobočce, kde zákazník NEDOSTAL kód
-// (zadržen kvůli chybějícím dokladům): flow vede operátora nejdřív FOTKAMI
-// dokladů (OCR doplní čísla), pak čísly, a místo protokolu končí přímým
-// odbavením BEZ kódu — identita je ověřena doklady na místě.
-export default function PickupReadiness({ booking, onClose, onProtocolDone, verifiedCode = '', selfService = false }) {
+export default function PickupReadiness({ booking, onClose, onProtocolDone, verifiedCode = '' }) {
   const [loading, setLoading] = useState(true)
   const [profile, setProfile] = useState(null)
   const [docs, setDocs] = useState([])
@@ -128,23 +124,17 @@ export default function PickupReadiness({ booking, onClose, onProtocolDone, veri
       {error && <div style={note('#dc2626', '#fee2e2', '#dc2626')}>{error}</div>}
 
       <div style={note('#2563eb', '#eff6ff', '#1e3a8a')}>
-        {selfService ? (
-          <><strong>Samoobslužná pobočka — ověření doklady.</strong> {isChild
-            ? 'Dětská motorka — doklady nejsou potřeba, odjezd rovnou odbavte.'
-            : 'Nejdřív vyfoťte doklady (OCR doplní čísla), pak zkontrolujte/doplňte čísla. Po dokončení odbavíte bez kódu — identita je ověřena doklady.'}</>
-        ) : (
-          <><strong>Obslužná pobočka.</strong> {isChild
-            ? 'Dětská motorka — doklady nejsou potřeba, stačí podepsat předávací protokol.'
-            : 'Než zákazník podepíše předávací protokol, doplňte chybějící údaje a doklady.'}</>
-        )}
+        <strong>Obslužná pobočka.</strong> {isChild
+          ? 'Dětská motorka — doklady nejsou potřeba, stačí podepsat předávací protokol.'
+          : 'Než zákazník podepíše předávací protokol: nejdřív vyfoťte chybějící doklady (OCR doplní čísla), pak zkontrolujte a doplňte údaje.'}
       </div>
 
       {!isChild && (
         <div className="flex flex-col gap-4">
-          {/* ÚDAJE ŘP — na samoobslužné až PO fotkách (OCR čísla předvyplní);
-              pořadí kroků řídí CSS order v tomto flex sloupci */}
-          <div className="p-3 rounded-card" style={{ background: '#f8faf9', border: '1px solid #eef5f1', order: selfService ? 2 : 1 }}>
-            <StepHead n={selfService ? 2 : 1} label="Údaje dokladů (ŘP + číslo OP/pasu)" done={dataOk} />
+          {/* 2) ÚDAJE ŘP — až PO fotkách (OCR z nich čísla předvyplní, operátor jen
+              zkontroluje/doplní); pořadí kroků řídí CSS order v tomto flex sloupci */}
+          <div className="p-3 rounded-card" style={{ background: '#f8faf9', border: '1px solid #eef5f1', order: 2 }}>
+            <StepHead n={2} label="Údaje dokladů (ŘP + číslo OP/pasu)" done={dataOk} />
             {dataOk ? (
               <div className="text-sm" style={{ color: '#15803d' }}>✓ Čísla dokladů, platnost i skupiny ŘP v pořádku ({(profile?.license_group || []).join(', ')}, platí do {profile?.license_expiry}).</div>
             ) : (
@@ -186,9 +176,9 @@ export default function PickupReadiness({ booking, onClose, onProtocolDone, veri
             )}
           </div>
 
-          {/* DOKLADY (fotky) — na samoobslužné jako PRVNÍ krok */}
-          <div className="p-3 rounded-card" style={{ background: '#f8faf9', border: '1px solid #eef5f1', order: selfService ? 1 : 2 }}>
-            <StepHead n={selfService ? 1 : 2} label="Doklady (ŘP + OP/pas)" done={docsOk} />
+          {/* 1) DOKLADY (fotky) — PRVNÍ krok: vyfotit, OCR doplní čísla do profilu */}
+          <div className="p-3 rounded-card" style={{ background: '#f8faf9', border: '1px solid #eef5f1', order: 1 }}>
+            <StepHead n={1} label="Doklady (ŘP + OP/pas)" done={docsOk} />
             {docsOk ? (
               <div className="text-sm" style={{ color: '#15803d' }}>✓ Doklady ověřeny.</div>
             ) : (
@@ -204,30 +194,21 @@ export default function PickupReadiness({ booking, onClose, onProtocolDone, veri
         </div>
       )}
 
-      {/* 3) PROTOKOL (obslužná) / ODBAVENÍ BEZ KÓDU (samoobslužná — kód zadržen) */}
+      {/* 3) PROTOKOL */}
       <div className="p-3 rounded-card" style={{ background: '#f8faf9', border: '1px solid #eef5f1' }}>
-        <StepHead n={3} label={selfService ? 'Odbavení (bez kódu — ověřeno doklady)' : 'Předávací protokol'} done={false} />
+        <StepHead n={3} label="Předávací protokol" done={false} />
         {ready ? (
-          selfService ? (
-            <div className="space-y-2">
-              <Button green onClick={() => {
-                if (window.confirm('Odbavit odjezd bez kódu? Identita zákazníka je ověřena doklady, kód se po nahrání dokladů zákazníkovi uvolní automaticky.')) onProtocolDone?.()
-              }}>✓ Odbavit odjezd (ověřeno doklady)</Button>
-              <p className="text-xs" style={{ color: '#64748b' }}>Kód se nevyžaduje — zákazník ho nedostal (byl zadržen kvůli dokladům). Samoobslužný protokol si vyplní v aplikaci.</p>
+          <div className="space-y-2">
+            <Button green onClick={() => setShowProtocol(true)}>✍️ Otevřít předávací protokol (elektronicky)</Button>
+            <div>
+              <Button onClick={() => {
+                if (window.confirm('Potvrdit, že byl s klientem vyplněn a podepsán TIŠTĚNÝ předávací protokol? Rezervace se aktivuje (předání) a zaznamená se čas.')) onProtocolDone?.()
+              }}>🖨️ Potvrdit tištěný protokol</Button>
+              <p className="text-xs mt-1" style={{ color: '#64748b' }}>Použijte, když protokol vyplňujete na papír — bez elektronického podpisu.</p>
             </div>
-          ) : (
-            <div className="space-y-2">
-              <Button green onClick={() => setShowProtocol(true)}>✍️ Otevřít předávací protokol (elektronicky)</Button>
-              <div>
-                <Button onClick={() => {
-                  if (window.confirm('Potvrdit, že byl s klientem vyplněn a podepsán TIŠTĚNÝ předávací protokol? Rezervace se aktivuje (předání) a zaznamená se čas.')) onProtocolDone?.()
-                }}>🖨️ Potvrdit tištěný protokol</Button>
-                <p className="text-xs mt-1" style={{ color: '#64748b' }}>Použijte, když protokol vyplňujete na papír — bez elektronického podpisu.</p>
-              </div>
-            </div>
-          )
+          </div>
         ) : (
-          <div className="text-sm" style={{ color: '#b45309' }}>Nejprve doplňte chybějící {selfService ? 'doklady a údaje' : 'údaje a doklady'} výše.</div>
+          <div className="text-sm" style={{ color: '#b45309' }}>Nejprve doplňte chybějící doklady a údaje výše.</div>
         )}
       </div>
 

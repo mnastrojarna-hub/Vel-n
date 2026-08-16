@@ -2,21 +2,17 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import Modal from '../../components/ui/Modal'
 import Button from '../../components/ui/Button'
-import { computeDocVerification } from '../../lib/docVerification'
 import { logAudit } from './bookingMessageHelpers'
 import PickupReadiness from './PickupReadiness'
 
 // Odbavení odjezdu (vyzvednutí) a návratu (vrácení) přímo z přehledu „Odjezdy a návraty".
 // Pravidla:
-//  • Odjezd na OBSLUŽNÉ pobočce → zákazník podepíše předávací protokol (ElectronicProtocolModal).
-//  • Odjezd na SAMOOBSLUŽNÉ pobočce → zadání kódu k motorce do systému (ověření identity).
-//    Pokud ale zákazník NEMÁ kompletní doklady (fotky/čísla) — kód mu byl zadržen a nemá
-//    ho jak nadiktovat — flow vede operátora: nejdřív vyfotit doklady, pak doplnit čísla,
-//    a odbaví se BEZ kódu (identita ověřena doklady, viz PickupReadiness selfService).
+//  • Odjezd na OBSLUŽNÉ pobočce → naváděné flow (doklady → údaje → protokol), viz PickupReadiness.
+//  • Odjezd na SAMOOBSLUŽNÉ pobočce → VŽDY zadání kódu k motorce do systému (ověření
+//    identity). Zákazník musí mít doklady nahrané předem — bez nich kód nedostal a
+//    odbavení kódem není možné (doklady si doplní sám, kód se mu uvolní automaticky).
 //  • Návrat na SAMOOBSLUŽNÉ pobočce → zadání kódu, nejdříve však 2 hodiny od vyzvednutí.
 //  • Ostatní návraty (obslužná pobočka / svoz) → jen ruční potvrzení vrácení (např. zapomenutý mobil apod.).
-
-const DOCS_TYPES = ['drivers_license', 'license_photo', 'id_card', 'id_photo', 'passport']
 
 const TWO_HOURS_MS = 2 * 60 * 60 * 1000
 const fmtDT = (s) => (s ? new Date(s).toLocaleString('cs-CZ', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—')
@@ -47,10 +43,6 @@ export default function CheckInModal({ open, event, onClose, onDone }) {
   const [codeOk, setCodeOk] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
-  // Odjezd na samoobslužné: má zákazník ověřené doklady + vyplněná čísla?
-  // null = zjišťuje se; true → klasické odbavení kódem; false → naváděné flow
-  // (foto → čísla → odbavit bez kódu) přes PickupReadiness selfService.
-  const [docsReady, setDocsReady] = useState(null)
 
   useEffect(() => {
     if (!open || !booking?.id) return
@@ -61,26 +53,6 @@ export default function CheckInModal({ open, event, onClose, onDone }) {
       .order('created_at', { ascending: false }).limit(1)
       .then(({ data }) => { setMotoCode(data?.[0]?.door_code || ''); setLoadingCode(false) })
   }, [open, booking?.id])
-
-  useEffect(() => {
-    if (!open || !booking?.id) return
-    if (!(isPickup && selfService) || !booking.user_id) { setDocsReady(true); return }
-    let dead = false
-    setDocsReady(null)
-    ;(async () => {
-      try {
-        const [docsRes, profRes, bkRes] = await Promise.all([
-          supabase.from('documents').select('id, type').eq('user_id', booking.user_id).in('type', DOCS_TYPES),
-          supabase.from('profiles').select('id_number, license_number, license_expiry, license_group, id_verified_at, license_verified_at, passport_verified_at').eq('id', booking.user_id).single(),
-          supabase.from('bookings').select('motorcycles!moto_id(license_required)').eq('id', booking.id).single(),
-        ])
-        const vs = computeDocVerification(docsRes.data || [], profRes.data, bkRes?.data?.motorcycles?.license_required)
-        // Stejná podmínka „ready" jako v PickupReadiness: čísla dokladů + ověřené doklady.
-        if (!dead) setDocsReady(vs.isChildMoto || (vs.licenseNumberFilled && vs.idNumberFilled && vs.allOk))
-      } catch { if (!dead) setDocsReady(true) /* při chybě necháme původní odbavení kódem */ }
-    })()
-    return () => { dead = true }
-  }, [open, booking?.id, isPickup, selfService])
 
   // Odjezd je vyřízen, když má rezervace picked_up_at / aktivní stav / protokol
   // (event.pickupDone). 2h pravidlo měří od reálného vyzvednutí (event.pickupAt),
@@ -183,24 +155,13 @@ export default function CheckInModal({ open, event, onClose, onDone }) {
 
         {/* ── ODJEZD ── */}
         {isPickup && (selfService ? (
-          docsReady === null ? (
-            <div className="py-6 text-center"><div className="animate-spin inline-block rounded-full h-6 w-6 border-t-2 border-brand-gd" /></div>
-          ) : docsReady ? (
-            <>
-              <div style={noteBox('#2563eb', '#eff6ff', '#1e3a8a')}>
-                <strong>Samoobslužná pobočka.</strong> Zákazník zadá svůj kód k motorce do systému — ověřte jej a odbavte odjezd.
-              </div>
-              {codeBlock('Odbavit odjezd', () => markPickedUp('self_service_code'))}
-            </>
-          ) : (
-            <>
-              <div style={noteBox('#b45309', '#fffbeb', '#92400e')}>
-                <strong>Zákazník nemá kompletní doklady</strong> (chybí fotky nebo čísla) — kód k motorce mu byl
-                zadržen, takže ho nemá jak nadiktovat. Ověřte ho doklady na místě: nejdřív vyfoťte, pak doplňte čísla.
-              </div>
-              <PickupReadiness booking={booking} selfService onClose={onClose} onProtocolDone={() => markPickedUp('docs_verified')} />
-            </>
-          )
+          <>
+            <div style={noteBox('#2563eb', '#eff6ff', '#1e3a8a')}>
+              <strong>Samoobslužná pobočka.</strong> Zákazník zadá svůj kód k motorce do systému — ověřte jej a odbavte odjezd.
+              Doklady musí mít nahrané předem (bez nich se mu kód nevydal).
+            </div>
+            {codeBlock('Odbavit odjezd', () => markPickedUp('self_service_code'))}
+          </>
         ) : (
           <PickupReadiness booking={booking} onClose={onClose} onProtocolDone={() => markPickedUp('protocol')} />
         ))}
