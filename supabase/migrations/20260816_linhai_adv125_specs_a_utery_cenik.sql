@@ -41,8 +41,15 @@ UPDATE public.motorcycles SET
     'Emisní norma Euro 5+'
   ],
   description   = 'Adventure skútr v matně černém provedení — kombinuje pohodlnou jízdu po městě s odolností malého cestovního endura. Zážehový jednoválec LH152MI-A (124,4 cm³) dává 8,3 kW / 11 koní při 8 000 ot./min a o řazení se stará bezstarostný CVT automat — prostě přidáš plyn a jedeš. Spotřeba jen 3,3 l/100 km (Euro 5+), maximálka 94 km/h. Polooffroadové pneumatiky (14"/13"), ABS a trakční kontrola TCS si poradí i s horší cestou, vysoké plexi a chrániče rukou přidají komfort a do hliníkového kufru se vejde helma i nákup. Homologován pro dvě osoby. Stačí ti řidičák skupiny B (nebo A1).',
-  ideal_usage   = 'Město a dojíždění, lehké výlety po okreskách i občasná šotolina. Ideální první stroj — stačí řidičák skupiny B.',
-  suitable_for  = '<p>Pro každého, kdo se chce svézt bez motorkářského řidičáku — stačí skupina B (automat) nebo A1. Skvělý pro začátečníky a dojíždění po městě, ale díky adventure podvozku, vyšší stavbě a prostornému kufru zvládne i celodenní výlet po okreskách či lehkou šotolinu. Vezme i spolujezdce.</p>',
+  ideal_usage   = ARRAY[         -- POZOR: sloupec je text[] (pole krátkých tagů)
+    'Město a dojíždění',
+    'Lehké výlety po okreskách',
+    'Občasná lehká šotolina',
+    'První stroj — stačí ŘP skupiny B'
+  ],
+  suitable_for  = 'Pro každého, kdo se chce svézt bez motorkářského řidičáku — stačí skupina B (automat) nebo A1.
+Skvělý pro začátečníky a dojíždění po městě, ale díky adventure podvozku, vyšší stavbě a prostornému kufru zvládne i celodenní výlet po okreskách či lehkou šotolinu.
+Vezme i spolujezdce.',
   image_alts    = ARRAY[
     'zepředu z boku, s hliníkovým kufrem',
     'z boku',
