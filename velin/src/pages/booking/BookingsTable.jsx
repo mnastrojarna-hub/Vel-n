@@ -3,8 +3,9 @@ import StatusBadge, { getDisplayStatus } from '../../components/ui/StatusBadge'
 import { paymentStatusInfo } from './bookingConstants'
 import { rentalDays } from '../../lib/rentalDays'
 import DocsStatusPills from '../../components/DocsStatusPills'
+import AppInstallBadge from '../../components/AppInstallBadge'
 
-export default function BookingsTable({ bookings, navigate, fmtDateRange, dpTotals, scanStatus = {}, setDeleteConfirm, setCancelTarget, selected, setSelected }) {
+export default function BookingsTable({ bookings, navigate, fmtDateRange, dpTotals, scanStatus = {}, appInstalls = {}, setDeleteConfirm, setCancelTarget, selected, setSelected }) {
   // `selected` je Map<id, row> — drží celé řádky napříč stránkami, aby hromadná akce zahrnula i výběr z jiných stránek
   const allSelected = bookings.length > 0 && selected && bookings.every(b => selected.has(b.id))
   const toggleAll = e => {
@@ -59,7 +60,7 @@ export default function BookingsTable({ bookings, navigate, fmtDateRange, dpTota
                 </TD>
               )}
               <TD mono>{b.id?.slice(-8).toUpperCase()}</TD>
-              <TD bold>{b.customer_name || b.profiles?.full_name || '—'}{b.booking_source === 'web' ? <span className="ml-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-btn" style={{ background: '#dbeafe', color: '#2563eb' }}>WEB</span> : b.booking_source === 'app' ? <span className="ml-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-btn" style={{ background: '#dcfce7', color: '#16a34a' }}>APP</span> : null}{b.created_via_ai ? <span className="ml-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-btn" style={{ background: '#fef3c7', color: '#92400e' }} title="Vytvořeno přes AI asistenta">🤖 AI</span> : null}</TD>
+              <TD bold>{b.customer_name || b.profiles?.full_name || '—'}{b.booking_source === 'web' ? <span className="ml-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-btn" style={{ background: '#dbeafe', color: '#2563eb' }}>WEB</span> : b.booking_source === 'app' ? <span className="ml-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-btn" style={{ background: '#dcfce7', color: '#16a34a' }}>APP</span> : null}{b.created_via_ai ? <span className="ml-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-btn" style={{ background: '#fef3c7', color: '#92400e' }} title="Vytvořeno přes AI asistenta">🤖 AI</span> : null}<AppInstallBadge install={appInstalls[b.user_id]} /></TD>
               <TD>{b.motorcycles?.model || '—'} <span className="text-sm font-mono" style={{ color: '#1a2e22' }}>{b.motorcycles?.spz}</span></TD>
               <TD>{fmtDateRange(b.start_date)}</TD>
               <TD>{fmtDateRange(b.end_date)}</TD>
