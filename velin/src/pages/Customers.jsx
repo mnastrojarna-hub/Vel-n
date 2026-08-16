@@ -348,16 +348,33 @@ function AddCustomerModal({ onClose, onSaved }) {
   const [err, setErr] = useState(null)
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
+  // profiles.id má FK na auth.users → zákazník se zakládá přes RPC admin_create_customer,
+  // která vytvoří skutečný auth účet (přímý insert s náhodným UUID padal na profiles_id_fkey)
+  const RPC_ERRORS = {
+    forbidden: 'Nemáte oprávnění přidávat zákazníky.',
+    missing_name: 'Vyplňte jméno zákazníka.',
+    email_exists: 'Zákazník s tímto emailem už existuje.',
+  }
+
   async function handleSave() {
     setSaving(true)
     setErr(null)
     try {
       const result = await debugAction('customers.create', 'AddCustomerModal', () =>
-        supabase.from('profiles').insert({ ...form, id: crypto.randomUUID() })
+        supabase.rpc('admin_create_customer', {
+          p_full_name: form.full_name,
+          p_email: form.email || null,
+          p_phone: form.phone || null,
+          p_street: form.street || null,
+          p_city: form.city || null,
+          p_zip: form.zip || null,
+          p_country: form.country || 'CZ',
+        })
       , form)
       if (result?.error) throw result.error
-      const { data: { user } } = await supabase.auth.getUser()
-      await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action: 'customer_created', details: { email: form.email } })
+      if (result?.data && result.data.success === false) {
+        throw new Error(RPC_ERRORS[result.data.error] || result.data.error)
+      }
       onSaved()
     } catch (e) {
       setErr(e.message)
