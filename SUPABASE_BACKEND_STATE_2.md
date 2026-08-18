@@ -110,6 +110,7 @@
 - id (refs auth.users), full_name, email, phone
 - street, city, zip, country
 - ico, dic, license_number, license_expiry
+- **company_name**, **company_address** (text, **NEW 2026-08-18**, mig. `20260818_web_booking_company_fields.sql`, APLIKUJE AUTO-DEPLOY po merge) — firemní fakturační údaje z web rezervačního formuláře (krok 3, checkbox „Firemní údaje"); plní RPC `set_web_booking_company` (STATE_3), na doklad je čte `generate-invoice` (ODBĚRATEL: Firma + Sídlo)
 - license_group (`license_group[]` — pole ENUM hodnot AM/A1/A2/A/B/N, **OPRAVA 2026-06-11:** dříve chybně dokumentováno jako text[]; update vyžaduje cast `ARRAY['A']::license_group[]`), riding_experience
 - emergency_contact, emergency_phone
 - gear_sizes (jsonb), reliability_score (jsonb)

@@ -633,8 +633,8 @@ return [
                     'cls' => 'btngreen',
                 ],
                 'cta_secondary' => [
-                    'label' => 'JAK TO DZIAŁA',
-                    'href' => '/jak-pujcit',
+                    'label' => 'REZERWACJA',
+                    'href' => '/rezervace',
                     'cls' => 'btndark',
                 ],
             ],

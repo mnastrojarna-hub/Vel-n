@@ -215,6 +215,7 @@ export function generateInvoiceHtml(p: TemplateParams): string {
           <table role="presentation" cellpadding="0" cellspacing="0" style="font-size:11.5px;line-height:1.5">
             <tr><td style="color:#16a34a;padding-right:14px;vertical-align:top">Jméno</td><td style="color:#0f1a14;font-weight:700">${p.customer.full_name || p.customer.name || '—'}</td></tr>
             ${p.customer.company ? `<tr><td style="color:#16a34a;padding-right:14px;vertical-align:top">Firma</td><td style="color:#0f1a14;font-weight:700">${p.customer.company}</td></tr>` : ''}
+            ${p.customer.company_address ? `<tr><td style="color:#16a34a;padding-right:14px;vertical-align:top">Sídlo</td><td style="color:#0f1a14;font-weight:700">${p.customer.company_address}</td></tr>` : ''}
             <tr><td style="color:#16a34a;padding-right:14px;vertical-align:top">Adresa</td><td style="color:#0f1a14;font-weight:700">${customerAddr || '—'}</td></tr>
             ${p.customer.ico ? `<tr><td style="color:#16a34a;padding-right:14px;vertical-align:top">IČO</td><td style="color:#0f1a14;font-weight:700">${p.customer.ico}${p.customer.dic ? ` / DIČ ${p.customer.dic}` : ''}</td></tr>` : ''}
             <tr><td style="color:#16a34a;padding-right:14px;vertical-align:top">E-mail</td><td style="color:#0f1a14;font-weight:700">${p.customer.email || '—'}</td></tr>

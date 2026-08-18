@@ -35,6 +35,7 @@ $rezKeys = [
     'step.moto','step.date','step.contact','step.location','step.gear','step.agreements',
     'contact.name','contact.street','contact.zip','contact.city','contact.country',
     'contact.countryDefault','contact.email','contact.phone','contact.voucher','contact.apply','contact.required','contact.dob',
+    'contact.companyToggle','contact.companyName','contact.companyIco','contact.companyDic','contact.companyAddress',
     'pickup.title','pickup.sub','pickup.recommended','pickup.orCustom',
     'pickup.atRental','pickup.atRentalSub','pickup.delivery','pickup.deliverySub','pickup.deliveryTip',
     'pickup.deliveryAddr','pickup.sameAsDel','pickup.returnOther','pickup.returnTip','pickup.returnAddr','pickup.map','pickup.gps',
