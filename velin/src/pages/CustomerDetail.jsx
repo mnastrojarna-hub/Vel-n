@@ -65,6 +65,7 @@ export default function CustomerDetail() {
     setError(null)
     const {
       full_name, phone, street, city, zip, country,
+      ico, dic, company_name, company_address,
       date_of_birth, license_group, marketing_consent,
       id_number, license_number, license_expiry,
       reliability_score, is_blocked, blocked_at, blocked_reason,
@@ -73,6 +74,7 @@ export default function CustomerDetail() {
       consent_whatsapp, consent_contract,
     } = customer
     const updateData = { full_name, phone, street, city, zip, country,
+      ico, dic, company_name, company_address,
       date_of_birth, license_group, marketing_consent,
       id_number, license_number, license_expiry,
       reliability_score, is_blocked, blocked_at, blocked_reason,

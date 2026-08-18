@@ -246,6 +246,17 @@ export default function ProfileTab({ customer, set, error, saving, onSave, onDel
           </div>
         </Card>
 
+        {/* Firemní údaje (web rezervace — checkbox „Firemní údaje" v kroku 3) */}
+        <Card>
+          <SectionTitle>Firemní údaje</SectionTitle>
+          <div className="grid grid-cols-2 gap-3.5">
+            <div className="col-span-2"><Field label="Název firmy" value={customer.company_name} onChange={v => set('company_name', v)} /></div>
+            <Field label="IČO" value={customer.ico} onChange={v => set('ico', v)} />
+            <Field label="DIČ" value={customer.dic} onChange={v => set('dic', v)} />
+            <div className="col-span-2"><Field label="Adresa firmy (sídlo)" value={customer.company_address} onChange={v => set('company_address', v)} /></div>
+          </div>
+        </Card>
+
         {/* Doklady a oprávnění */}
         <Card className="lg:col-span-2">
           <SectionTitle>Doklady a oprávnění</SectionTitle>
