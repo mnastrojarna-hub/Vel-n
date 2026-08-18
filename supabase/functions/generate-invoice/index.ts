@@ -43,6 +43,19 @@ async function htmlToPdf(html: string): Promise<Uint8Array | null> {
   }
 }
 
+// Firemní údaje zákazníka (web rezervace — checkbox „Firemní údaje" v kroku 3).
+// Samostatný tolerantní dotaz: sloupce company_name/company_address přidává
+// migrace 20260818 — kdyby ještě nebyla aplikovaná, hlavní select nesmí spadnout.
+async function loadCustomerCompany(supabase: any, customer: any) {
+  if (!customer || !customer.id) return
+  const { data, error } = await supabase.from('profiles')
+    .select('company_name, company_address').eq('id', customer.id).maybeSingle()
+  if (!error && data) {
+    customer.company = data.company_name || customer.company || null
+    customer.company_address = data.company_address || null
+  }
+}
+
 const COMPANY_FALLBACK = {
   name: 'Bc. Petra Semorádová', address: 'Mezná 9, 393 01 Pelhřimov',
   ico: '21874263', dic: null, vat_payer: false,
@@ -225,6 +238,7 @@ serve(async (req) => {
           .select('id, full_name, email, phone, street, city, zip, country, ico, dic')
           .eq('id', inv.customer_id).single()
         if (prof) cust = prof
+        await loadCustomerCompany(supabase, cust)
       }
 
       const isFinalKf = inv.type === 'final'
@@ -330,6 +344,7 @@ serve(async (req) => {
 
       customer = booking.profiles || {}
       customerId = customer.id || booking.user_id
+      await loadCustomerCompany(supabase, customer)
 
       // Load per-booking extras with proper names (sizes derived from booking columns)
       const { data: bookExtras } = await supabase.from('booking_extras')
@@ -792,6 +807,7 @@ serve(async (req) => {
     const customerSnapshot = {
       name: customer.full_name || customer.name || null,
       company: customer.company || null,
+      company_address: customer.company_address || null,
       ico: customer.ico || null,
       dic: customer.dic || null,
       email: customer.email || null,

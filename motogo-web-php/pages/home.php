@@ -22,7 +22,7 @@ $defaults = [
         'eyebrow' => '<strong>Motopůjčovna</strong> a <strong>půjčovna motorek</strong> na Vysočině',
         'body' => 'Půjč si motorku na Vysočině snadno online.<br>Vyber si z cestovních, sportovních i enduro modelů.<br>Rezervace s platbou kartou a rychlým převzetím.',
         'cta_primary' => ['label' => 'VYBER SI MOTORKU', 'href' => '/katalog', 'cls' => 'btngreen'],
-        'cta_secondary' => ['label' => 'JAK TO FUNGUJE', 'href' => '/jak-pujcit', 'cls' => 'btndark'],
+        'cta_secondary' => ['label' => 'REZERVACE', 'href' => '/rezervace', 'cls' => 'btndark'],
     ],
     'h1' => 'Motopůjčovna Vysočina Motogo24 – půjčovna motorek bez kauce a nonstop',
     'intro' => 'Vítejte v <strong>Motogo24</strong> – vaší <strong>motopůjčovně</strong> a půjčovně motorek na Vysočině. U nás si půjčíte motorku <strong>bez kauce</strong>, s výbavou v ceně a v režimu <strong>nonstop</strong>. Ať hledáte cestovní, sportovní, enduro nebo dětskou motorku, Motogo24 vám v srdci Vysočiny nabídne motorku na míru.',
