@@ -54,10 +54,23 @@ function reasonTextFor(reason: string | undefined | null): string {
   }
 }
 
+// Firemní údaje zákazníka (web rezervace — checkbox „Firemní údaje" v kroku 3).
+// Tolerantní samostatný dotaz: sloupce company_name/company_address přidává
+// migrace 20260818 — kdyby ještě nebyla aplikovaná, dobropis nesmí spadnout.
+async function loadCustomerCompany(supabase: any, customer: any) {
+  if (!customer || !customer.id) return
+  const { data, error } = await supabase.from('profiles')
+    .select('company_name, company_address').eq('id', customer.id).maybeSingle()
+  if (!error && data) {
+    customer.company = data.company_name || null
+    customer.company_address = data.company_address || null
+  }
+}
+
 function renderCreditNoteHtml(opts: {
   number: string; issueDate: string; reasonText: string; motoModel: string;
   refundAmount: number; refundPercent: number; bookingDates: string;
-  customer: { full_name?: string; email?: string; phone?: string; street?: string; city?: string; zip?: string; ico?: string; dic?: string };
+  customer: { full_name?: string; email?: string; phone?: string; street?: string; city?: string; zip?: string; ico?: string; dic?: string; company?: string | null; company_address?: string | null };
   originalInvoiceNumber?: string | null; stripeRefundId: string | null;
   cardBrand?: string | null; cardLast4?: string | null; manual?: boolean;
 }): string {
@@ -101,6 +114,8 @@ tr.total td{background:#fef2f2;font-weight:800;font-size:15px;color:#dc2626;bord
 <div class="grid">
   <div class="box"><h3>Odběratel</h3>
     <p><strong>${c.full_name || '—'}</strong></p>
+    ${c.company ? `<p>Firma: <strong>${c.company}</strong></p>` : ''}
+    ${c.company_address ? `<p>Sídlo: ${c.company_address}</p>` : ''}
     ${c.street ? `<p>${c.street}</p>` : ''}
     ${(c.city || c.zip) ? `<p>${c.zip || ''} ${c.city || ''}</p>` : ''}
     ${c.ico ? `<p>IČO: ${c.ico}</p>` : ''}
@@ -168,7 +183,7 @@ async function ensureCreditNotePdf(
 
     // Regenerate PDF — load booking + customer for the template
     const { data: bk2 } = await supabase.from('bookings')
-      .select('start_date, end_date, motorcycles!moto_id(model), profiles:user_id(full_name, email, phone, street, city, zip, ico, dic)')
+      .select('start_date, end_date, motorcycles!moto_id(model), profiles:user_id(id, full_name, email, phone, street, city, zip, ico, dic)')
       .eq('id', bookingId).single()
     const refundedAmount = Math.abs(Number(cn.total || 0))
     const refundPercent = 100 // unknown without booking.total_price comparison; default 100%
@@ -183,6 +198,8 @@ async function ensureCreditNotePdf(
       originalNumber = orig?.number || null
     }
 
+    const cust1 = (bk2 as any)?.profiles || {}
+    await loadCustomerCompany(supabase, cust1)
     const html = renderCreditNoteHtml({
       number: cn.number,
       issueDate: fmtDate(new Date().toISOString().slice(0, 10)),
@@ -191,7 +208,7 @@ async function ensureCreditNotePdf(
       refundAmount: refundedAmount,
       refundPercent,
       bookingDates: `${fmtDate(bk2?.start_date)} – ${fmtDate(bk2?.end_date)}`,
-      customer: (bk2 as any)?.profiles || {},
+      customer: cust1,
       originalInvoiceNumber: originalNumber,
       stripeRefundId: refundId || '',
       cardBrand: bk.card_brand,
@@ -259,7 +276,7 @@ async function createCreditNoteForExistingRefund(
 
     // Načti booking + customer pro template
     const { data: bkRow } = await supabase.from('bookings')
-      .select('user_id, total_price, start_date, end_date, motorcycles!moto_id(model), profiles:user_id(full_name, email, phone, street, city, zip, ico, dic)')
+      .select('user_id, total_price, start_date, end_date, motorcycles!moto_id(model), profiles:user_id(id, full_name, email, phone, street, city, zip, ico, dic)')
       .eq('id', bookingId).single()
     if (!bkRow) return { creditNoteId: null, pdfPath: null, refundId: bk.stripe_refund_id }
     const refundPercent = (bkRow.total_price && bkRow.total_price > 0)
@@ -319,11 +336,13 @@ async function createCreditNoteForExistingRefund(
       date: issueDate, booking_id: bookingId, invoice_id: cnInv.id,
     }).then(() => {}, () => {})
 
+    const cust2 = (bkRow as any).profiles || {}
+    await loadCustomerCompany(supabase, cust2)
     const html = renderCreditNoteHtml({
       number: cnNumber, issueDate: fmtDate(issueDate), reasonText, motoModel,
       refundAmount: refundedAmountCZK, refundPercent,
       bookingDates: `${fmtDate(bkRow.start_date)} – ${fmtDate(bkRow.end_date)}`,
-      customer: (bkRow as any).profiles || {}, originalInvoiceNumber,
+      customer: cust2, originalInvoiceNumber,
       stripeRefundId: bk.stripe_refund_id, cardBrand, cardLast4,
     })
     const pdfBytes = await htmlToPdf(html)
@@ -599,7 +618,7 @@ Deno.serve(async (req: Request) => {
       // Shop objednávky se chovají jako dřív (400 — řeší se ručně).
       if (booking_id) {
         const { data: bkFull } = await supabase.from('bookings')
-          .select('user_id, total_price, start_date, end_date, motorcycles!moto_id(model), profiles:user_id(full_name, email, phone, street, city, zip, ico, dic)')
+          .select('user_id, total_price, start_date, end_date, motorcycles!moto_id(model), profiles:user_id(id, full_name, email, phone, street, city, zip, ico, dic)')
           .eq('id', booking_id).single()
         const totalPrice = Number(bkFull?.total_price || 0)
         let manAmount = Number(amount) > 0 ? Number(amount) : totalPrice
@@ -684,11 +703,13 @@ Deno.serve(async (req: Request) => {
               booking_id,
             })
             try {
+              const cust3 = (bkFull as any)?.profiles || {}
+              await loadCustomerCompany(supabase, cust3)
               const html = renderCreditNoteHtml({
                 number: cnNumber, issueDate: fmtDate(issueDate), reasonText, motoModel,
                 refundAmount: manAmount, refundPercent,
                 bookingDates: `${fmtDate(String((bkFull as any)?.start_date || ''))} – ${fmtDate(String((bkFull as any)?.end_date || ''))}`,
-                customer: (bkFull as any)?.profiles || {},
+                customer: cust3,
                 originalInvoiceNumber: origInvs?.[0]?.number || null,
                 stripeRefundId: null, manual: true,
               })
@@ -873,7 +894,7 @@ Deno.serve(async (req: Request) => {
       try {
         // Fetch booking data for the credit note
         const { data: bk } = await supabase.from('bookings')
-          .select('user_id, total_price, start_date, end_date, motorcycles!moto_id(model), profiles:user_id(full_name, email, phone, street, city, zip, ico, dic)')
+          .select('user_id, total_price, start_date, end_date, motorcycles!moto_id(model), profiles:user_id(id, full_name, email, phone, street, city, zip, ico, dic)')
           .eq('id', booking_id).single()
         if (bk) {
           const refundPercent = amount ? Math.round((amount / Number(bk.total_price || 1)) * 100) : 100
@@ -963,6 +984,8 @@ Deno.serve(async (req: Request) => {
           if (cnId) {
             try {
               const motoModel2 = (bk as any).motorcycles?.model || 'motorky'
+              const cust4 = (bk as any).profiles || {}
+              await loadCustomerCompany(supabase, cust4)
               const html = renderCreditNoteHtml({
                 number: cnNumber,
                 issueDate: fmtDate(new Date().toISOString().slice(0, 10)),
@@ -971,7 +994,7 @@ Deno.serve(async (req: Request) => {
                 refundAmount: refundedAmountCZK,
                 refundPercent,
                 bookingDates: `${fmtDate(bk.start_date)} – ${fmtDate(bk.end_date)}`,
-                customer: (bk as any).profiles || {},
+                customer: cust4,
                 originalInvoiceNumber,
                 stripeRefundId: refund.id,
                 cardBrand,

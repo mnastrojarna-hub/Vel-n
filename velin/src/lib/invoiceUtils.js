@@ -537,6 +537,7 @@ export function invoiceCustomer(data) {
     return {
       name: cs.name || '', company: cs.company || '', email: cs.email || '', phone: cs.phone || '',
       address: cs.address || '', ico: cs.ico || '', dic: cs.dic || '',
+      company_address: cs.company_address || '',
     }
   }
   const p = data?.profiles
@@ -544,6 +545,7 @@ export function invoiceCustomer(data) {
     name: p?.full_name || '', email: p?.email || '', phone: p?.phone || '',
     address: [p?.street, p?.city, p?.zip, p?.country].filter(Boolean).join(', ') || '',
     ico: p?.ico || '', dic: p?.dic || '',
+    company: p?.company_name || '', company_address: p?.company_address || '',
   }
 }
 
@@ -553,7 +555,7 @@ export function invoiceCustomer(data) {
 export async function loadInvoiceData(invoiceId) {
   const { data, error } = await supabase
     .from('invoices')
-    .select('*, profiles:customer_id(full_name, email, phone, street, city, zip, country, ico, dic), bookings:booking_id(id, start_date, end_date, total_price, motorcycles!moto_id(model, spz)), shop_orders:order_id(stripe_payment_intent_id, stripe_session_id, payment_method)')
+    .select('*, profiles:customer_id(full_name, email, phone, street, city, zip, country, ico, dic, company_name, company_address), bookings:booking_id(id, start_date, end_date, total_price, motorcycles!moto_id(model, spz)), shop_orders:order_id(stripe_payment_intent_id, stripe_session_id, payment_method)')
     .eq('id', invoiceId)
     .single()
 
