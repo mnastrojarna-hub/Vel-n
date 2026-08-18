@@ -303,7 +303,8 @@ serve(async (req) => {
     }
 
     // ── Auto Stripe refund + dobropis ──
-    const attachments: { content: string; filename: string }[] = []
+    // storage_path je interní pro Velín log (sent_emails.attachments_meta) — do Resendu se neposílá
+    const attachments: { content: string; filename: string; storage_path?: string }[] = []
 
     if (booking_id) {
       // Vratka bez Stripe platby (QR/převod/hotově) = manuální — mail dostane
@@ -427,7 +428,7 @@ serve(async (req) => {
                   const b64 = await downloadAsBase64(supabase, path)
                   if (b64) {
                     const ext = path.toLowerCase().endsWith('.pdf') ? 'pdf' : 'html'
-                    attachments.push({ content: b64, filename: `Dobropis-${cn.number || 'DB'}.${ext}` })
+                    attachments.push({ content: b64, filename: `Dobropis-${cn.number || 'DB'}.${ext}`, storage_path: path })
                     attached = true
                     await supabase.from('debug_log').insert({
                       source: 'send-cancellation-email',
@@ -478,8 +479,6 @@ serve(async (req) => {
       start_date: start_date || '',
       end_date: end_date || '',
       cancellation_reason: cancellation_reason || 'Neuvedeno',
-      refund_amount: refund_amount ? Number(refund_amount).toLocaleString('cs-CZ') : '',
-      refund_percent: refund_percent ? String(refund_percent) : '100',
       site_url: SITE_URL,
       refund_amount: refund_amount ? Number(refund_amount).toLocaleString('cs-CZ') : '',
       refund_percent: refund_percent ? String(refund_percent) : '',
@@ -548,7 +547,7 @@ serve(async (req) => {
           const b64 = await downloadAsBase64(supabase, cn[0].pdf_path)
           if (b64) {
             const ext = /\.pdf$/i.test(cn[0].pdf_path) ? 'pdf' : 'html'
-            attachments.push({ content: b64, filename: `Dobropis-${cn[0].number || 'DB'}.${ext}` })
+            attachments.push({ content: b64, filename: `Dobropis-${cn[0].number || 'DB'}.${ext}`, storage_path: cn[0].pdf_path })
           }
         }
       } catch { /* ignore */ }
@@ -625,7 +624,8 @@ serve(async (req) => {
       html,
     }
     if (attachments.length > 0) {
-      emailPayload.attachments = attachments
+      // Resend přijímá pouze content+filename — storage_path je interní pro Velín log
+      emailPayload.attachments = attachments.map((a) => ({ content: a.content, filename: a.filename }))
     }
     const result = await sendWithRetry(emailPayload)
 
@@ -659,6 +659,7 @@ serve(async (req) => {
         body: html,
         external_id: result.provider_id || null,
         status: result.success ? 'sent' : 'failed',
+        metadata: { attachments: attachments.map((a) => ({ filename: a.filename, storage_path: a.storage_path || null })) },
         error_message: result.error || null,
       })
     } catch (e) { /* ignore */ }
@@ -674,6 +675,11 @@ serve(async (req) => {
         status: result.success ? 'sent' : 'failed',
         error_message: result.error || null,
         provider_id: result.provider_id || null,
+        // Velín → Dokumenty → Zaslané maily z toho zobrazí přílohy (dřív se
+        // nezapisovalo → u storno mailů nešlo poznat, zda dobropis reálně odešel)
+        attachments_meta: attachments.length
+          ? attachments.map((a) => ({ filename: a.filename, storage_path: a.storage_path || null }))
+          : null,
       })
     } catch (e) { /* ignore */ }
 
