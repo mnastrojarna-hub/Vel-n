@@ -125,6 +125,23 @@ export default function SentEmailsTab() {
           .not('file_path', 'is', null).order('created_at', { ascending: false })
         return (data || []).map(d => ({ filename: d.file_name || d.name || 'protokol.pdf', storage_path: d.file_path }))
       }
+      // Storno rezervace — dobropis (credit_note; historicky payment_receipt se
+      // source='cancellation'). Edge fn přikládá vždy NEJNOVĚJŠÍ → limit 1.
+      // Refund 0 % (storno <48 h) dobropis nemá → prázdný seznam je v pořádku.
+      if (slug.includes('cancel') || slug.includes('storno')) {
+        const { data } = await supabase.from('invoices')
+          .select('number, type, pdf_path, created_at')
+          .eq('booking_id', bookingId)
+          .or('type.eq.credit_note,and(type.eq.payment_receipt,source.eq.cancellation)')
+          .neq('status', 'cancelled')
+          .not('pdf_path', 'is', null)
+          .order('created_at', { ascending: false })
+          .limit(1)
+        return (data || []).map(r => ({
+          filename: `Dobropis-${r.number || 'DB'}.${/\.pdf$/i.test(r.pdf_path) ? 'pdf' : 'html'}`,
+          storage_path: r.pdf_path,
+        }))
+      }
       // Faktury / daňové doklady
       if (slug.includes('invoice') || slug.includes('faktur')) {
         let types = null
