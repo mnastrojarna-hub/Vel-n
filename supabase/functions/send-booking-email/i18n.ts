@@ -1026,13 +1026,26 @@ ${v.tracking_number ? `<table style="width:100%;border-collapse:collapse;margin:
 <p>${t.closing}<br>${SIGN[lang]}</p>`
 }
 
+// DB hodnoty metod nejsou jednotné ('store'/'pickup'/'branch'/'rental'/'' =
+// pobočka, jen 'delivery' = adresa) — zákazníkovi patří popisek, ne syrová hodnota.
+const METHOD_LABELS: Record<Lang, { branch: string; delivery: string }> = {
+  cs: { branch: 'Na pobočce', delivery: 'Přistavení na adresu' },
+  en: { branch: 'At the branch', delivery: 'Delivery to address' },
+  de: { branch: 'In der Filiale', delivery: 'Lieferung an Adresse' },
+  nl: { branch: 'Bij het filiaal', delivery: 'Bezorging op adres' },
+  es: { branch: 'En la sucursal', delivery: 'Entrega a domicilio' },
+  fr: { branch: 'En agence', delivery: "Livraison à l'adresse" },
+  pl: { branch: 'W oddziale', delivery: 'Dostawa na adres' },
+}
+
 function renderModifiedBody(lang: Lang, v: Vars): string {
   const L = DIFF_LABELS[lang]
+  const mLbl = (m?: string) => m ? (m === 'delivery' ? METHOD_LABELS[lang].delivery : METHOD_LABELS[lang].branch) : ''
   // pickup_time/return_time je text 'HH:MM' — pokud je vyplněný, přilepíme za adresu
-  const pickupOrig = [v.original_pickup_method, v.original_pickup_address, v.original_pickup_time ? '@' + v.original_pickup_time : ''].filter(Boolean).join(' — ')
-  const pickupNew  = [v.pickup_method, v.pickup_address, v.pickup_time ? '@' + v.pickup_time : ''].filter(Boolean).join(' — ')
-  const returnOrig = [v.original_return_method, v.original_return_address, v.original_return_time ? '@' + v.original_return_time : ''].filter(Boolean).join(' — ')
-  const returnNew  = [v.return_method, v.return_address, v.return_time ? '@' + v.return_time : ''].filter(Boolean).join(' — ')
+  const pickupOrig = [mLbl(v.original_pickup_method), v.original_pickup_address, v.original_pickup_time ? '@' + v.original_pickup_time : ''].filter(Boolean).join(' — ')
+  const pickupNew  = [mLbl(v.pickup_method), v.pickup_address, v.pickup_time ? '@' + v.pickup_time : ''].filter(Boolean).join(' — ')
+  const returnOrig = [mLbl(v.original_return_method), v.original_return_address, v.original_return_time ? '@' + v.original_return_time : ''].filter(Boolean).join(' — ')
+  const returnNew  = [mLbl(v.return_method), v.return_address, v.return_time ? '@' + v.return_time : ''].filter(Boolean).join(' — ')
 
   const pd = Number((v.price_difference || '0').toString().replace(/\s/g, '').replace(',', '.')) || 0
 

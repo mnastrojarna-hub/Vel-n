@@ -268,8 +268,10 @@ class EditPriceCalc {
   bool get hasChanges =>
       diffDays != 0 ||
       (newMotoId != null && newMotoId != booking.motoId) ||
-      pickupMethod != booking.pickupMethod ||
-      returnMethod != booking.returnMethod ||
+      // Metody sémanticky (pobočka↔adresa) — DB drží synonyma pobočky
+      // ('store'/'pickup'/'branch'/'rental'), obrazovka normalizuje na store.
+      (pickupMethod == 'delivery') != (booking.pickupMethod == 'delivery') ||
+      (returnMethod == 'delivery') != (booking.returnMethod == 'delivery') ||
       pickupTime != (booking.pickupTime ?? '09:00') ||
       returnTime != (booking.returnTime ?? '19:00') ||
       extrasChanged ||
