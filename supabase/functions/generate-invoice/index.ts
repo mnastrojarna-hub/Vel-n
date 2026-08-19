@@ -641,8 +641,10 @@ serve(async (req) => {
     if (reuseInvoice) {
       number = reuseInvoice.number
     } else {
+      // Automatická řada = 0001–4999; čísla >= 5000 patří ruční řadě z Velína — ignorovat
       const { data: lastInv } = await supabase.from('invoices').select('number')
-        .like('number', `${prefix}-${year}-%`).order('number', { ascending: false }).limit(1)
+        .like('number', `${prefix}-${year}-%`).lt('number', `${prefix}-${year}-5000`)
+        .order('number', { ascending: false }).limit(1)
       let seq = 1
       if (lastInv?.length) { const m = lastInv[0].number.match(/-(\d+)$/); if (m) seq = parseInt(m[1], 10) + 1 }
       number = `${prefix}-${year}-${String(seq).padStart(4, '0')}`

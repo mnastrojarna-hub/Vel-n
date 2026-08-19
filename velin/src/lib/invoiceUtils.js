@@ -81,23 +81,34 @@ function buildBookingItems(moto, booking) {
   return items
 }
 
+// Hranice číselných řad: automatické doklady (rezervace, e-shop, refundy) běží
+// v intervalu 0001–4999, RUČNÍ doklady (Velín → Nová faktura) mají vlastní řadu
+// 5001+ (PREFIX-ROK-5001, 5002…). Obě řady se nesmí míchat — automatické
+// generátory (tady, DB fce next_document_number, edge generate-invoice /
+// process-refund) proto čísla >= 5000 ignorují.
+const MANUAL_SEQ_START = 5000
+
 /**
  * Generate next invoice number
  * Format: ZF-2026-0001 (advance), DP-2026-0001 (receipt), KF-2026-0001 (final)
+ * manual=true → ruční řada: ZF-2026-5001, KF-2026-5001…
  */
-export async function generateInvoiceNumber(type) {
+export async function generateInvoiceNumber(type, manual = false) {
   const prefix = PREFIX_MAP[type] || 'FV'
   const year = new Date().getFullYear()
   const pattern = `${prefix}-${year}-%`
+  const boundary = `${prefix}-${year}-${MANUAL_SEQ_START}`
 
-  const { data } = await supabase
+  let query = supabase
     .from('invoices')
     .select('number')
     .like('number', pattern)
+  query = manual ? query.gte('number', boundary) : query.lt('number', boundary)
+  const { data } = await query
     .order('number', { ascending: false })
     .limit(1)
 
-  let seq = 1
+  let seq = manual ? MANUAL_SEQ_START + 1 : 1
   if (data && data.length > 0) {
     const match = data[0].number.match(/-(\d+)$/)
     if (match) seq = parseInt(match[1], 10) + 1
@@ -124,32 +135,13 @@ export function calculateTotals(items) {
  * concurrent number generators — typically caused by React StrictMode double-mount,
  * concurrent autoGenerateKF + DB trigger, or two open tabs).
  */
-export async function createInvoice({ type, customer_id, booking_id, order_id, items, notes, due_date, issue_date, source, status, payment }) {
+export async function createInvoice({ type, customer_id, booking_id, order_id, items, notes, due_date, issue_date, source, status, payment, manual }) {
   const { subtotal, taxAmount, total } = calculateTotals(items)
-  // Datum vystavení: ručně zadané (Velín → Nová faktura) má přednost, jinak datum
-  // přijetí ruční platby (převod / QR / hotově / krypto), jinak dnešek (jako dosud).
-  let issueDate = issue_date || (payment && payment.paid_date) || new Date().toISOString().slice(0, 10)
-
-  // ÚČETNÍ PRAVIDLO: nové číslo dokladu (= vždy nejvyšší v řadě) nesmí mít STARŠÍ
-  // datum vystavení než dosud nejnovější doklad té samé řady (KF/FV/ZF/DP/DB).
-  // Tedy „novější číslo = novější (nebo stejné) datum". Když uživatel zadá starší
-  // datum, srovnáme ho nahoru na datum posledního dokladu řady (jinak by řada měla
-  // vyšší číslo se starším datem — účetně nepřípustné).
-  try {
-    const prefix = PREFIX_MAP[type] || 'FV'
-    const year = new Date().getFullYear()
-    const { data: lastDoc } = await supabase
-      .from('invoices')
-      .select('issue_date')
-      .like('number', `${prefix}-${year}-%`)
-      .order('issue_date', { ascending: false })
-      .limit(1)
-    const lastDate = lastDoc?.[0]?.issue_date ? String(lastDoc[0].issue_date).slice(0, 10) : null
-    if (lastDate && issueDate < lastDate) {
-      console.warn(`[createInvoice] Datum vystavení ${issueDate} je starší než poslední doklad řady ${prefix} (${lastDate}) — srovnáno na ${lastDate}, aby vyšší číslo nemělo starší datum.`)
-      issueDate = lastDate
-    }
-  } catch (e) { /* clamp je best-effort — nesmí zablokovat vystavení dokladu */ }
+  // Datum vystavení: ručně zadané (Velín → Nová faktura) má přednost VŽDY a ukládá
+  // se beze změny — i zpětné datum (rozhodnutí provozovatele; řada pak může mít
+  // vyšší číslo se starším datem). Jinak datum přijetí ruční platby
+  // (převod / QR / hotově / krypto), jinak dnešek (jako dosud).
+  const issueDate = issue_date || (payment && payment.paid_date) || new Date().toISOString().slice(0, 10)
 
   const buildPayload = (number, withOptional) => {
     const p = {
@@ -191,7 +183,7 @@ export async function createInvoice({ type, customer_id, booking_id, order_id, i
   let useOptional = true
 
   for (let attempt = 0; attempt < 5; attempt++) {
-    const number = await generateInvoiceNumber(type)
+    const number = await generateInvoiceNumber(type, !!manual)
     const result = await supabase
       .from('invoices')
       .insert(buildPayload(number, useOptional))
