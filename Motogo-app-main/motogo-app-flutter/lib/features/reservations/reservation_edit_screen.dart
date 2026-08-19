@@ -95,8 +95,10 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
         _isActive = res.displayStatus == ResStatus.aktivni;
         _newStart = res.startDate;
         _newEnd = res.endDate;
-        _pickupMethod = res.pickupMethod;
-        _returnMethod = res.returnMethod;
+        // DB hodnoty metod nejsou jednotné ('store'/'pickup'/'branch'/'rental'/
+        // NULL = pobočka, jen 'delivery' = adresa) — picker zná jen store/delivery.
+        _pickupMethod = res.pickupMethod == 'delivery' ? 'delivery' : 'store';
+        _returnMethod = res.returnMethod == 'delivery' ? 'delivery' : 'store';
         _pickupTime = res.pickupTime ?? '09:00';
         _returnTime = res.returnTime ?? '19:00';
         _helmetSize = res.helmetSize;
@@ -431,10 +433,16 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
     }
 
     try {
+      // Metody zapisuj JEN při skutečné změně pobočka↔adresa — DB drží historická
+      // synonyma pobočky ('store'/'pickup'/'branch'/'rental'/NULL) a bezdůvodný
+      // přepis by trigger booking_modified poslal zákazníkovi jako změnu místa.
+      bool isDelivery(String? m) => m == 'delivery';
+      final pickupMethodChanged = isDelivery(_pickupMethod) != isDelivery(_booking!.pickupMethod);
+      final returnMethodChanged = isDelivery(_returnMethod) != isDelivery(_booking!.returnMethod);
       final changes = <String, dynamic>{
         'end_date': _newEnd!.toIso8601String().substring(0, 10),
-        'pickup_method': _pickupMethod,
-        'return_method': _returnMethod,
+        if (pickupMethodChanged) 'pickup_method': _pickupMethod,
+        if (returnMethodChanged) 'return_method': _returnMethod,
         'pickup_time': _pickupTime,
         'return_time': _returnTime,
       };
@@ -505,8 +513,6 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
       final datesChanged = fmtD(_newStart!) != fmtD(_booking!.startDate) ||
           fmtD(_newEnd!) != fmtD(_booking!.endDate);
       final motoChanged = _newMotoId != null && _newMotoId != _booking!.motoId;
-      final pickupMethodChanged = _pickupMethod != _booking!.pickupMethod;
-      final returnMethodChanged = _returnMethod != _booking!.returnMethod;
       // Čas se porovnává na HH:MM (DB může vracet HH:MM:SS); default zrcadlí init.
       String normT(String? v, String def) {
         final s = (v == null || v.isEmpty) ? def : v;
