@@ -126,30 +126,11 @@ export function calculateTotals(items) {
  */
 export async function createInvoice({ type, customer_id, booking_id, order_id, items, notes, due_date, issue_date, source, status, payment }) {
   const { subtotal, taxAmount, total } = calculateTotals(items)
-  // Datum vystavení: ručně zadané (Velín → Nová faktura) má přednost, jinak datum
-  // přijetí ruční platby (převod / QR / hotově / krypto), jinak dnešek (jako dosud).
-  let issueDate = issue_date || (payment && payment.paid_date) || new Date().toISOString().slice(0, 10)
-
-  // ÚČETNÍ PRAVIDLO: nové číslo dokladu (= vždy nejvyšší v řadě) nesmí mít STARŠÍ
-  // datum vystavení než dosud nejnovější doklad té samé řady (KF/FV/ZF/DP/DB).
-  // Tedy „novější číslo = novější (nebo stejné) datum". Když uživatel zadá starší
-  // datum, srovnáme ho nahoru na datum posledního dokladu řady (jinak by řada měla
-  // vyšší číslo se starším datem — účetně nepřípustné).
-  try {
-    const prefix = PREFIX_MAP[type] || 'FV'
-    const year = new Date().getFullYear()
-    const { data: lastDoc } = await supabase
-      .from('invoices')
-      .select('issue_date')
-      .like('number', `${prefix}-${year}-%`)
-      .order('issue_date', { ascending: false })
-      .limit(1)
-    const lastDate = lastDoc?.[0]?.issue_date ? String(lastDoc[0].issue_date).slice(0, 10) : null
-    if (lastDate && issueDate < lastDate) {
-      console.warn(`[createInvoice] Datum vystavení ${issueDate} je starší než poslední doklad řady ${prefix} (${lastDate}) — srovnáno na ${lastDate}, aby vyšší číslo nemělo starší datum.`)
-      issueDate = lastDate
-    }
-  } catch (e) { /* clamp je best-effort — nesmí zablokovat vystavení dokladu */ }
+  // Datum vystavení: ručně zadané (Velín → Nová faktura) má přednost VŽDY a ukládá
+  // se beze změny — i zpětné datum (rozhodnutí provozovatele; řada pak může mít
+  // vyšší číslo se starším datem). Jinak datum přijetí ruční platby
+  // (převod / QR / hotově / krypto), jinak dnešek (jako dosud).
+  const issueDate = issue_date || (payment && payment.paid_date) || new Date().toISOString().slice(0, 10)
 
   const buildPayload = (number, withOptional) => {
     const p = {
