@@ -180,6 +180,7 @@ export default function InvoiceCreateModal({ onClose, onSaved, prefillBooking })
       } : null
 
       const invoice = await createInvoice({
+        manual: true, // ruční řada PREFIX-ROK-5001+ (odděleno od automatické 0001–4999)
         type: form.type,
         customer_id: form.customer_id,
         booking_id: form.booking_id || null,

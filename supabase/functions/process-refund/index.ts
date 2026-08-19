@@ -292,10 +292,10 @@ async function createCreditNoteForExistingRefund(
     const originalInvoiceId = origInvs?.[0]?.id || null
     const originalInvoiceNumber = origInvs?.[0]?.number || null
 
-    // Generuj číslo dobropisu (DB-YYYY-NNNN)
+    // Generuj číslo dobropisu (DB-YYYY-NNNN) — automatická řada < 5000 (>= 5000 = ruční řada z Velína)
     const year = new Date().getFullYear()
     const { data: lastCN } = await supabase.from('invoices')
-      .select('number').like('number', `DB-${year}-%`)
+      .select('number').like('number', `DB-${year}-%`).lt('number', `DB-${year}-5000`)
       .order('number', { ascending: false }).limit(1)
     let seq = 1
     if (lastCN?.length) {
@@ -658,7 +658,7 @@ Deno.serve(async (req: Request) => {
             .order('issue_date', { ascending: false }).limit(1)
           const year = new Date().getFullYear()
           const { data: lastCN } = await supabase.from('invoices')
-            .select('number').like('number', `DB-${year}-%`)
+            .select('number').like('number', `DB-${year}-%`).lt('number', `DB-${year}-5000`)
             .order('number', { ascending: false }).limit(1)
           let seq = 1
           if (lastCN?.length) {
@@ -925,11 +925,12 @@ Deno.serve(async (req: Request) => {
             cnId = existingCn[0].id
             cnNumber = existingCn[0].number
           } else {
-            // Generate credit note number (DB-YYYY-NNNN)
+            // Generate credit note number (DB-YYYY-NNNN) — automatická řada < 5000
             const year = new Date().getFullYear()
             const { data: lastCN } = await supabase.from('invoices')
               .select('number')
               .like('number', `DB-${year}-%`)
+              .lt('number', `DB-${year}-5000`)
               .order('number', { ascending: false })
               .limit(1)
             let seq = 1
