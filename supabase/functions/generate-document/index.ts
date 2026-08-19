@@ -1,118 +1,165 @@
-import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
-const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
-const PDFSHIFT_API_KEY = Deno.env.get('PDFSHIFT_API_KEY') || ''
-const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY') || ''
-const DOC_TRANSLATE_MODEL = 'claude-sonnet-4-6'
-const DOC_LANG_NAMES: Record<string, string> = {
-  en: 'English', de: 'German (Deutsch)', es: 'Spanish (Español)',
-  fr: 'French (Français)', nl: 'Dutch (Nederlands)', pl: 'Polish (Polski)',
-}
-
+import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || '';
+const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+const PDFSHIFT_API_KEY = Deno.env.get('PDFSHIFT_API_KEY') || '';
+const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY') || '';
+const DOC_TRANSLATE_MODEL = 'claude-sonnet-4-6';
+const DOC_LANG_NAMES = {
+  en: 'English',
+  de: 'German (Deutsch)',
+  es: 'Spanish (Español)',
+  fr: 'French (Français)',
+  nl: 'Dutch (Nederlands)',
+  pl: 'Polish (Polski)'
+};
 /** Strojový překlad RAW šablony dokumentu (název + content_html s {{placeholdery}})
  *  z CZ do cílového jazyka přes Anthropic (tool-forced output, Sonnet — právní text).
  *  Vrací {name, content} nebo null při chybě (caller pak nechá CZ). Placeholdery
- *  {{var}} i HTML struktura zůstávají beze změny. */
-async function autoTranslateDocTemplate(nameCz: string, contentCz: string, lang: string): Promise<{ name: string; content: string } | null> {
-  if (!ANTHROPIC_API_KEY || !contentCz) return null
-  const langName = DOC_LANG_NAMES[lang] || lang
+ *  {{var}} i HTML struktura zůstávají beze změny. */ async function autoTranslateDocTemplate(nameCz, contentCz, lang) {
+  if (!ANTHROPIC_API_KEY || !contentCz) return null;
+  const langName = DOC_LANG_NAMES[lang] || lang;
   const system = [
     `You are a professional Czech-to-${langName} legal/business document translator for MotoGo24 — a Czech motorcycle rental company.`,
     'Translate the document name and HTML body into the target language. Call the submit_translation tool with the translated values.',
     `- Language: ${langName} (${lang}). Natural, native, fluent, faithful to the legal meaning.`,
     '- Preserve ALL HTML tags, attributes and structure EXACTLY. Keep clause numbering and order.',
     '- DO NOT translate or change: URLs, email addresses, phone numbers, prices in Kč, IČO, DIČ, SPZ, VIN, brand names, postal codes, dates. Keep "MotoGo24" and Czech place names (Mezná, Pelhřimov) unchanged. Keep currency "Kč" as is.',
-    '- IMPORTANT: keep ALL template placeholders like {{customer_name}}, {{today}}, {{var}} EXACTLY unchanged — do not translate, remove or alter the braces.',
-  ].join('\n')
+    '- IMPORTANT: keep ALL template placeholders like {{customer_name}}, {{today}}, {{var}} EXACTLY unchanged — do not translate, remove or alter the braces.'
+  ].join('\n');
   const tool = {
     name: 'submit_translation',
     description: `Submit the ${langName} translation of the provided Czech document template.`,
     input_schema: {
       type: 'object',
       properties: {
-        name: { type: 'string', description: `Translated document name (${langName}).` },
-        content_html: { type: 'string', description: `Translated HTML body (${langName}); structure and {{placeholders}} intact.` },
+        name: {
+          type: 'string',
+          description: `Translated document name (${langName}).`
+        },
+        content_html: {
+          type: 'string',
+          description: `Translated HTML body (${langName}); structure and {{placeholders}} intact.`
+        }
       },
-      required: ['name', 'content_html'],
-    },
-  }
+      required: [
+        'name',
+        'content_html'
+      ]
+    }
+  };
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: { 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+      headers: {
+        'x-api-key': ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json'
+      },
       body: JSON.stringify({
-        model: DOC_TRANSLATE_MODEL, max_tokens: 32000, system,
-        tools: [tool], tool_choice: { type: 'tool', name: 'submit_translation' },
-        messages: [{ role: 'user', content: `Czech source JSON: ${JSON.stringify({ name: nameCz, content_html: contentCz })}` }],
-      }),
-    })
-    if (!res.ok) { console.warn('[autoTranslateDocTemplate] anthropic', res.status); return null }
-    const data = await res.json()
-    const toolUse = Array.isArray(data?.content)
-      ? data.content.find((c: { type?: string; name?: string }) => c?.type === 'tool_use' && c?.name === 'submit_translation')
-      : null
-    const input = toolUse?.input as { name?: unknown; content_html?: unknown } | undefined
-    if (!input || typeof input !== 'object') return null
-    const content = typeof input.content_html === 'string' && input.content_html.trim() ? input.content_html : contentCz
-    const name = typeof input.name === 'string' && input.name.trim() ? input.name : nameCz
-    return { name, content }
-  } catch (e) { console.warn('[autoTranslateDocTemplate]', (e as Error).message); return null }
+        model: DOC_TRANSLATE_MODEL,
+        max_tokens: 32000,
+        system,
+        tools: [
+          tool
+        ],
+        tool_choice: {
+          type: 'tool',
+          name: 'submit_translation'
+        },
+        messages: [
+          {
+            role: 'user',
+            content: `Czech source JSON: ${JSON.stringify({
+              name: nameCz,
+              content_html: contentCz
+            })}`
+          }
+        ]
+      })
+    });
+    if (!res.ok) {
+      console.warn('[autoTranslateDocTemplate] anthropic', res.status);
+      return null;
+    }
+    const data = await res.json();
+    const toolUse = Array.isArray(data?.content) ? data.content.find((c)=>c?.type === 'tool_use' && c?.name === 'submit_translation') : null;
+    const input = toolUse?.input;
+    if (!input || typeof input !== 'object') return null;
+    const content = typeof input.content_html === 'string' && input.content_html.trim() ? input.content_html : contentCz;
+    const name = typeof input.name === 'string' && input.name.trim() ? input.name : nameCz;
+    return {
+      name,
+      content
+    };
+  } catch (e) {
+    console.warn('[autoTranslateDocTemplate]', e.message);
+    return null;
+  }
 }
-
-/** HTML → PDF přes PDFShift API. Vrací Uint8Array nebo null při chybě / no key. */
-async function htmlToPdf(html: string): Promise<Uint8Array | null> {
-  if (!PDFSHIFT_API_KEY) return null
+/** HTML → PDF přes PDFShift API. Vrací Uint8Array nebo null při chybě / no key. */ async function htmlToPdf(html) {
+  if (!PDFSHIFT_API_KEY) return null;
   try {
     const res = await fetch('https://api.pdfshift.io/v3/convert/pdf', {
       method: 'POST',
-      headers: { 'X-API-Key': PDFSHIFT_API_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ source: html, format: 'A4', margin: '12mm', landscape: false, sandbox: false, use_print: false }),
-    })
+      headers: {
+        'X-API-Key': PDFSHIFT_API_KEY,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        source: html,
+        format: 'A4',
+        margin: '12mm',
+        landscape: false,
+        sandbox: false,
+        use_print: false
+      })
+    });
     if (!res.ok) {
-      console.warn('[htmlToPdf] PDFShift HTTP', res.status, await res.text().catch(() => ''))
-      return null
+      console.warn('[htmlToPdf] PDFShift HTTP', res.status, await res.text().catch(()=>''));
+      return null;
     }
-    return new Uint8Array(await res.arrayBuffer())
+    return new Uint8Array(await res.arrayBuffer());
   } catch (e) {
-    console.warn('[htmlToPdf] PDFShift fetch failed:', (e as Error).message)
-    return null
+    console.warn('[htmlToPdf] PDFShift fetch failed:', e.message);
+    return null;
   }
 }
-
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
-
-const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('cs-CZ') : '—'
-const fmtPrice = (n: number) => (n || 0).toLocaleString('cs-CZ', { minimumFractionDigits: 2 })
-
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type'
+};
+const fmtDate = (d)=>d ? new Date(d).toLocaleDateString('cs-CZ') : '—';
+const fmtPrice = (n)=>(n || 0).toLocaleString('cs-CZ', {
+    minimumFractionDigits: 2
+  });
 // ── i18n: jazyk + doména zákazníka ─────────────────────────────────────────
 // Stejný vzor jako process-payment/stripe-customer.ts: cs → motogo24.cz,
 // ostatní podporované jazyky → motogo24.com. CZ chování zůstává beze změny.
-const SUPPORTED_LANGS = ['cs', 'en', 'de', 'es', 'fr', 'nl', 'pl']
-const DOMAIN_INTL = 'https://motogo24.com'
-
-/** Normalizuj jazyk na podporovaný kód (cs/en/de/es/fr/nl/pl), jinak 'cs'. */
-function normLang(l: unknown): string {
-  const s = String(l || '').toLowerCase().slice(0, 2)
-  return SUPPORTED_LANGS.includes(s) ? s : 'cs'
+const SUPPORTED_LANGS = [
+  'cs',
+  'en',
+  'de',
+  'es',
+  'fr',
+  'nl',
+  'pl'
+];
+const DOMAIN_INTL = 'https://motogo24.com';
+/** Normalizuj jazyk na podporovaný kód (cs/en/de/es/fr/nl/pl), jinak 'cs'. */ function normLang(l) {
+  const s = String(l || '').toLowerCase().slice(0, 2);
+  return SUPPORTED_LANGS.includes(s) ? s : 'cs';
 }
-/** Webový label (bez protokolu) do firemních údajů dokumentu dle jazyka. */
-function webLabelForLang(lang: string): string {
-  return lang === 'cs' ? 'motogo24.cz' : 'motogo24.com'
+/** Webový label (bez protokolu) do firemních údajů dokumentu dle jazyka. */ function webLabelForLang(lang) {
+  return lang === 'cs' ? 'motogo24.cz' : 'motogo24.com';
 }
 /** Přepiš URL odkazy na motogo24.cz → zákazníkovu doménu (jen pro non-cs).
  *  Mění POUZE `http(s)://(www.)motogo24.cz...` — e-mail `info@motogo24.cz`
- *  ani holý textový label se NEdotkne (label řídí {{company_web}}). */
-function localizeDocLinks(html: string, lang: string): string {
-  if (lang === 'cs' || !html) return html
-  return html.replace(/https?:\/\/(?:www\.)?motogo24\.cz/gi, DOMAIN_INTL)
+ *  ani holý textový label se NEdotkne (label řídí {{company_web}}). */ function localizeDocLinks(html, lang) {
+  if (lang === 'cs' || !html) return html;
+  return html.replace(/https?:\/\/(?:www\.)?motogo24\.cz/gi, DOMAIN_INTL);
 }
-
 /**
  * Sestaví seznam zapůjčeného příslušenství (velikosti) z reálné rezervace.
  * - vždy řádky pro řidiče (helma/bunda/kalhoty/boty/rukavice) podle vyplněných `*_size`
@@ -120,194 +167,278 @@ function localizeDocLinks(html: string, lang: string): string {
  *   (klidně chybí boty / jen 2 velikosti — vypíše se jen to, co je objednané)
  * - u dětských motorek (`motorcycles.license_required === 'N'`) přidá "(dětská velikost)"
  * Vrací HTML tabulku pro {{accessories_block}} a textovou variantu pro {{accessories}}.
- */
-function buildAccessoriesBlock(booking: any, moto: any): { html: string; text: string } {
-  const isChild = String(moto?.license_required || '').toUpperCase() === 'N'
-  const childSuffix = isChild ? ' (dětská velikost)' : ''
+ */ function buildAccessoriesBlock(booking, moto) {
+  const isChild = String(moto?.license_required || '').toUpperCase() === 'N';
+  const childSuffix = isChild ? ' (dětská velikost)' : '';
   const items = [
-    { key: 'helmet', label: 'Helma' },
-    { key: 'jacket', label: 'Bunda / vesta' },
-    { key: 'pants', label: 'Kalhoty' },
-    { key: 'boots', label: 'Boty' },
-    { key: 'gloves', label: 'Rukavice' },
-  ]
-  const rows: string[] = []
-  const textParts: string[] = []
-  const td = 'padding:6px 8px;border:1px solid #ddd;text-align:left'
-  const addRow = (label: string, size: string) => {
-    rows.push(`<tr><td style="${td};background:#f8faf9;font-weight:600">${label}${childSuffix}</td><td style="${td}">${size}</td><td style="${td};text-align:center;width:60px">☐</td></tr>`)
-    textParts.push(`${label} ${size}`)
+    {
+      key: 'helmet',
+      label: 'Helma'
+    },
+    {
+      key: 'jacket',
+      label: 'Bunda / vesta'
+    },
+    {
+      key: 'pants',
+      label: 'Kalhoty'
+    },
+    {
+      key: 'boots',
+      label: 'Boty'
+    },
+    {
+      key: 'gloves',
+      label: 'Rukavice'
+    }
+  ];
+  const rows = [];
+  const textParts = [];
+  const td = 'padding:6px 8px;border:1px solid #ddd;text-align:left';
+  const addRow = (label, size)=>{
+    rows.push(`<tr><td style="${td};background:#f8faf9;font-weight:600">${label}${childSuffix}</td><td style="${td}">${size}</td><td style="${td};text-align:center;width:60px">☐</td></tr>`);
+    textParts.push(`${label} ${size}`);
+  };
+  let hasRider = false;
+  for (const it of items){
+    const size = booking?.[`${it.key}_size`];
+    if (size) {
+      addRow(`${it.label} (řidič)`, String(size));
+      hasRider = true;
+    }
   }
-  let hasRider = false
-  for (const it of items) {
-    const size = booking?.[`${it.key}_size`]
-    if (size) { addRow(`${it.label} (řidič)`, String(size)); hasRider = true }
-  }
-  let hasPassenger = false
-  for (const it of items) {
-    const size = booking?.[`passenger_${it.key}_size`]
-    if (size) { addRow(`${it.label} (spolujezdec)`, String(size)); hasPassenger = true }
+  let hasPassenger = false;
+  for (const it of items){
+    const size = booking?.[`passenger_${it.key}_size`];
+    if (size) {
+      addRow(`${it.label} (spolujezdec)`, String(size));
+      hasPassenger = true;
+    }
   }
   if (!hasRider && !hasPassenger) {
-    return { html: '<p style="font-size:12px">Žádné zapůjčené příslušenství.</p>', text: 'Žádné' }
+    return {
+      html: '<p style="font-size:12px">Žádné zapůjčené příslušenství.</p>',
+      text: 'Žádné'
+    };
   }
-  const th = 'padding:6px 8px;border:1px solid #ddd;text-align:left;background:#f0f7ff;font-weight:700;font-size:10px;text-transform:uppercase'
-  const html = `<table class="checklist" style="width:100%;border-collapse:collapse;font-size:11px;margin:6px 0;border:1px solid #ddd"><tr><th style="${th}">Položka</th><th style="${th}">Velikost</th><th style="${th}">Předáno</th></tr>${rows.join('')}</table>`
-  return { html, text: textParts.join(', ') }
+  const th = 'padding:6px 8px;border:1px solid #ddd;text-align:left;background:#f0f7ff;font-weight:700;font-size:10px;text-transform:uppercase';
+  const html = `<table class="checklist" style="width:100%;border-collapse:collapse;font-size:11px;margin:6px 0;border:1px solid #ddd"><tr><th style="${th}">Položka</th><th style="${th}">Velikost</th><th style="${th}">Předáno</th></tr>${rows.join('')}</table>`;
+  return {
+    html,
+    text: textParts.join(', ')
+  };
 }
-
-/** Convert number to Czech words (e.g. 7800 → "sedm tisíc osm set") */
-function numberToWordsCZ(n: number): string {
-  if (n === 0) return 'nula'
-  const ones = ['', 'jedna', 'dvě', 'tři', 'čtyři', 'pět', 'šest', 'sedm', 'osm', 'devět']
-  const teens = ['deset', 'jedenáct', 'dvanáct', 'třináct', 'čtrnáct', 'patnáct', 'šestnáct', 'sedmnáct', 'osmnáct', 'devatenáct']
-  const tens = ['', 'deset', 'dvacet', 'třicet', 'čtyřicet', 'padesát', 'šedesát', 'sedmdesát', 'osmdesát', 'devadesát']
-  const hundreds = ['', 'sto', 'dvě stě', 'tři sta', 'čtyři sta', 'pět set', 'šest set', 'sedm set', 'osm set', 'devět set']
-
-  const parts: string[] = []
-  const abs = Math.abs(Math.floor(n))
-  if (abs >= 1000000) { const m = Math.floor(abs / 1000000); parts.push(m === 1 ? 'milion' : m < 5 ? m + ' miliony' : m + ' milionů'); }
-  const thousands = Math.floor((abs % 1000000) / 1000)
+/** Convert number to Czech words (e.g. 7800 → "sedm tisíc osm set") */ function numberToWordsCZ(n) {
+  if (n === 0) return 'nula';
+  const ones = [
+    '',
+    'jedna',
+    'dvě',
+    'tři',
+    'čtyři',
+    'pět',
+    'šest',
+    'sedm',
+    'osm',
+    'devět'
+  ];
+  const teens = [
+    'deset',
+    'jedenáct',
+    'dvanáct',
+    'třináct',
+    'čtrnáct',
+    'patnáct',
+    'šestnáct',
+    'sedmnáct',
+    'osmnáct',
+    'devatenáct'
+  ];
+  const tens = [
+    '',
+    'deset',
+    'dvacet',
+    'třicet',
+    'čtyřicet',
+    'padesát',
+    'šedesát',
+    'sedmdesát',
+    'osmdesát',
+    'devadesát'
+  ];
+  const hundreds = [
+    '',
+    'sto',
+    'dvě stě',
+    'tři sta',
+    'čtyři sta',
+    'pět set',
+    'šest set',
+    'sedm set',
+    'osm set',
+    'devět set'
+  ];
+  const parts = [];
+  const abs = Math.abs(Math.floor(n));
+  if (abs >= 1000000) {
+    const m = Math.floor(abs / 1000000);
+    parts.push(m === 1 ? 'milion' : m < 5 ? m + ' miliony' : m + ' milionů');
+  }
+  const thousands = Math.floor(abs % 1000000 / 1000);
   if (thousands > 0) {
-    if (thousands === 1) parts.push('tisíc')
-    else if (thousands < 5) parts.push(numberToWordsCZ(thousands).replace('dvě', 'dva') + ' tisíce')
-    else parts.push(numberToWordsCZ(thousands).replace('dvě', 'dva') + ' tisíc')
+    if (thousands === 1) parts.push('tisíc');
+    else if (thousands < 5) parts.push(numberToWordsCZ(thousands).replace('dvě', 'dva') + ' tisíce');
+    else parts.push(numberToWordsCZ(thousands).replace('dvě', 'dva') + ' tisíc');
   }
-  const rest = abs % 1000
+  const rest = abs % 1000;
   if (rest > 0) {
-    const h = Math.floor(rest / 100)
-    const t = Math.floor((rest % 100) / 10)
-    const o = rest % 10
-    if (h > 0) parts.push(hundreds[h])
-    if (rest % 100 >= 10 && rest % 100 < 20) { parts.push(teens[rest % 100 - 10]) }
-    else { if (t > 0) parts.push(tens[t]); if (o > 0) parts.push(ones[o]) }
+    const h = Math.floor(rest / 100);
+    const t = Math.floor(rest % 100 / 10);
+    const o = rest % 10;
+    if (h > 0) parts.push(hundreds[h]);
+    if (rest % 100 >= 10 && rest % 100 < 20) {
+      parts.push(teens[rest % 100 - 10]);
+    } else {
+      if (t > 0) parts.push(tens[t]);
+      if (o > 0) parts.push(ones[o]);
+    }
   }
-  const result = parts.join(' ').trim()
-  const dec = Math.round((Math.abs(n) - abs) * 100)
-  if (dec > 0) return `${n < 0 ? 'mínus ' : ''}${result} korun českých a ${dec}/100`
-  return `${n < 0 ? 'mínus ' : ''}${result} korun českých`
+  const result = parts.join(' ').trim();
+  const dec = Math.round((Math.abs(n) - abs) * 100);
+  if (dec > 0) return `${n < 0 ? 'mínus ' : ''}${result} korun českých a ${dec}/100`;
+  return `${n < 0 ? 'mínus ' : ''}${result} korun českých`;
 }
-
-serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
-
+serve(async (req)=>{
+  if (req.method === 'OPTIONS') return new Response('ok', {
+    headers: CORS
+  });
   try {
-    const { template_slug, booking_id, language } = await req.json()
+    const { template_slug, booking_id, language } = await req.json();
     if (!template_slug || !booking_id) {
-      return new Response(JSON.stringify({ error: 'Missing template_slug or booking_id' }), { status: 400 })
+      return new Response(JSON.stringify({
+        error: 'Missing template_slug or booking_id'
+      }), {
+        status: 400
+      });
     }
     // i18n — jazyk zákazníka (cs default). Pro cs zůstává vše 1:1 jako dřív.
-    const lang = normLang(language)
-
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
-
+    const lang = normLang(language);
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
     // Načtení firemních údajů z app_settings
-    let companyInfo = { name: 'Bc. Petra Semorádová', address: 'Mezná 9, 393 01 Pelhřimov', ico: '21874263', dic: '' }
+    let companyInfo = {
+      name: 'Bc. Petra Semorádová',
+      address: 'Mezná 9, 393 01 Pelhřimov',
+      ico: '21874263',
+      dic: ''
+    };
     try {
-      const { data: settings } = await supabase
-        .from('app_settings').select('value').eq('key', 'company_info').limit(1)
-      const info = settings?.[0]?.value
+      const { data: settings } = await supabase.from('app_settings').select('value').eq('key', 'company_info').limit(1);
+      const info = settings?.[0]?.value;
       if (info && info.name) {
-        companyInfo = { name: info.name, address: info.address || companyInfo.address, ico: info.ico || companyInfo.ico, dic: info.dic || '' }
+        companyInfo = {
+          name: info.name,
+          address: info.address || companyInfo.address,
+          ico: info.ico || companyInfo.ico,
+          dic: info.dic || ''
+        };
       }
-    } catch (e) { console.warn('Failed to load company_info:', e) }
-
-    // Load template from DB (avoid .single() — errors on 0 or 2+ rows)
-    const { data: templates, error: tErr } = await supabase
-      .from('document_templates')
-      .select('*')
-      .eq('type', template_slug)
-      .eq('active', true)
-      .order('version', { ascending: false })
-      .limit(1)
-
-    const template = templates?.[0] || null
-    if (tErr) console.error('Template query error:', tErr.message, 'slug:', template_slug)
-
-    if (!template) {
-      console.warn('No DB template for slug:', template_slug, '— using fallback')
-      const fallbackHtml = getFallbackTemplate(template_slug)
-      if (!fallbackHtml) {
-        return new Response(JSON.stringify({ error: `Template '${template_slug}' not found` }), { status: 404 })
-      }
-      // Continue with fallback
-    } else {
-      console.log('Loaded DB template:', template.id, template.name, 'content length:', (template.content_html || '').length)
+    } catch (e) {
+      console.warn('Failed to load company_info:', e);
     }
-
+    // Load template from DB (avoid .single() — errors on 0 or 2+ rows)
+    const { data: templates, error: tErr } = await supabase.from('document_templates').select('*').eq('type', template_slug).eq('active', true).order('version', {
+      ascending: false
+    }).limit(1);
+    const template = templates?.[0] || null;
+    if (tErr) console.error('Template query error:', tErr.message, 'slug:', template_slug);
+    if (!template) {
+      console.warn('No DB template for slug:', template_slug, '— using fallback');
+      const fallbackHtml = getFallbackTemplate(template_slug);
+      if (!fallbackHtml) {
+        return new Response(JSON.stringify({
+          error: `Template '${template_slug}' not found`
+        }), {
+          status: 404
+        });
+      }
+    // Continue with fallback
+    } else {
+      console.log('Loaded DB template:', template.id, template.name, 'content length:', (template.content_html || '').length);
+    }
     // Load booking with relations (separate profile query to avoid FK ambiguity)
-    const { data: booking, error: bErr } = await supabase
-      .from('bookings')
-      .select('*, motorcycles!moto_id(model, spz, vin, year, brand, category, engine_cc, power_kw, color, deposit_amount, insurance_price, image_url, license_required)')
-      .eq('id', booking_id).single()
+    const { data: booking, error: bErr } = await supabase.from('bookings').select('*, motorcycles!moto_id(model, spz, vin, year, brand, category, engine_cc, power_kw, color, deposit_amount, insurance_price, image_url, license_required)').eq('id', booking_id).single();
     if (bErr || !booking) {
-      console.error('Booking query error:', bErr?.message, 'booking_id:', booking_id)
-      return new Response(JSON.stringify({ error: 'Booking not found: ' + (bErr?.message || 'no data') }), { status: 404 })
+      console.error('Booking query error:', bErr?.message, 'booking_id:', booking_id);
+      return new Response(JSON.stringify({
+        error: 'Booking not found: ' + (bErr?.message || 'no data')
+      }), {
+        status: 404
+      });
     }
     // Fetch profile separately to avoid PostgREST FK ambiguity
-    let customer: Record<string, unknown> = {}
+    let customer = {};
     if (booking.user_id) {
-      const { data: prof } = await supabase.from('profiles')
-        .select('id, full_name, email, phone, street, city, zip, country, ico, dic, license_number, license_expiry, license_group, date_of_birth, id_number, id_verified_until, license_verified_until, passport_verified_until')
-        .eq('id', booking.user_id).single()
-      if (prof) customer = prof
+      const { data: prof } = await supabase.from('profiles').select('id, full_name, email, phone, street, city, zip, country, ico, dic, license_number, license_expiry, license_group, date_of_birth, id_number, id_verified_until, license_verified_until, passport_verified_until').eq('id', booking.user_id).single();
+      if (prof) customer = prof;
     }
-
     // Load booking extras
-    let extrasHtml = ''
+    let extrasHtml = '';
     try {
-      const { data: extras } = await supabase.from('booking_extras')
-        .select('name, quantity, unit_price').eq('booking_id', booking_id)
+      const { data: extras } = await supabase.from('booking_extras').select('name, quantity, unit_price').eq('booking_id', booking_id);
       if (extras?.length) {
-        extrasHtml = extras.map((e: any) => `${e.name}${e.quantity > 1 ? ' ×' + e.quantity : ''} — ${fmtPrice(e.unit_price)} Kč`).join(', ')
+        extrasHtml = extras.map((e)=>`${e.name}${e.quantity > 1 ? ' ×' + e.quantity : ''} — ${fmtPrice(e.unit_price)} Kč`).join(', ');
       }
-    } catch { /* ignore */ }
-
+    } catch  {}
     // Load branch info
-    let branchName = ''
-    let branchAddress = ''
+    let branchName = '';
+    let branchAddress = '';
     if (booking.pickup_address) {
-      branchAddress = booking.pickup_address
+      branchAddress = booking.pickup_address;
     } else {
       try {
-        const { data: motoWithBranch } = await supabase.from('motorcycles')
-          .select('branch_id, branches(name, address, city)').eq('id', booking.moto_id).single()
+        const { data: motoWithBranch } = await supabase.from('motorcycles').select('branch_id, branches(name, address, city)').eq('id', booking.moto_id).single();
         if (motoWithBranch?.branches) {
-          const br = motoWithBranch.branches as any
-          branchName = br.name || ''
-          branchAddress = [br.address, br.city].filter(Boolean).join(', ')
+          const br = motoWithBranch.branches;
+          branchName = br.name || '';
+          branchAddress = [
+            br.address,
+            br.city
+          ].filter(Boolean).join(', ');
         }
-      } catch { /* ignore */ }
+      } catch  {}
     }
-
-    const moto = booking.motorcycles || {} as any
-    const accessories = buildAccessoriesBlock(booking, moto)
+    const moto = booking.motorcycles || {};
+    const accessories = buildAccessoriesBlock(booking, moto);
     // Inclusive day count — system pricing počítá start i end den (May 5 → May 6 = 2 dny).
     // Math.ceil dříve dávalo 1 den (24h diff) a smlouva nesouhlasila s cenou.
-    const days = Math.max(1, Math.floor((new Date(booking.end_date).getTime() - new Date(booking.start_date).getTime()) / 86400000) + 1)
-    const baseRental = (booking.total_price || 0) - (booking.extras_price || 0) - (booking.delivery_fee || 0) + (booking.discount_amount || 0)
-
+    const days = Math.max(1, Math.floor((new Date(booking.end_date).getTime() - new Date(booking.start_date).getTime()) / 86400000) + 1);
+    const baseRental = (booking.total_price || 0) - (booking.extras_price || 0) - (booking.delivery_fee || 0) + (booking.discount_amount || 0);
     // Complete variable substitution map
-    const vars: Record<string, string> = {
+    const vars = {
       // Customer
-      customer_name: (customer.full_name as string) || '—',
-      customer_email: (customer.email as string) || '',
-      customer_phone: (customer.phone as string) || '',
-      customer_address: [customer.street, customer.city, customer.zip, customer.country].filter(Boolean).join(', ') || '',
-      customer_street: (customer.street as string) || '',
-      customer_city: (customer.city as string) || '',
-      customer_zip: (customer.zip as string) || '',
-      customer_country: (customer.country as string) || 'Česká republika',
-      customer_ico: (customer.ico as string) || '',
-      customer_dic: (customer.dic as string) || '',
-      customer_license: (customer.license_number as string) || '',
-      customer_license_expiry: fmtDate(customer.license_expiry as string),
-      customer_license_group: Array.isArray(customer.license_group) ? (customer.license_group as string[]).join(', ') : (customer.license_group as string) || '',
-      customer_dob: fmtDate(customer.date_of_birth as string),
-      customer_id_number: (customer.id_number as string) || '',
+      customer_name: customer.full_name || '—',
+      customer_email: customer.email || '',
+      customer_phone: customer.phone || '',
+      customer_address: [
+        customer.street,
+        customer.city,
+        customer.zip,
+        customer.country
+      ].filter(Boolean).join(', ') || '',
+      customer_street: customer.street || '',
+      customer_city: customer.city || '',
+      customer_zip: customer.zip || '',
+      customer_country: customer.country || 'Česká republika',
+      customer_ico: customer.ico || '',
+      customer_dic: customer.dic || '',
+      customer_license: customer.license_number || '',
+      customer_license_expiry: fmtDate(customer.license_expiry),
+      customer_license_group: Array.isArray(customer.license_group) ? customer.license_group.join(', ') : customer.license_group || '',
+      customer_dob: fmtDate(customer.date_of_birth),
+      customer_id_number: customer.id_number || '',
       // Platnost OP (z Mindee OCR `id_verified_until`) — pokud nebyl OP naskenován,
       // zůstane prázdné a zákazník platnost potvrzuje při převzetí motorky na pobočce.
-      customer_id_expiry: fmtDate((customer.id_verified_until || customer.passport_verified_until) as string),
+      customer_id_expiry: fmtDate(customer.id_verified_until || customer.passport_verified_until),
       // Motorcycle
       moto_model: moto.model || '—',
       moto_brand: moto.brand || '',
@@ -368,61 +499,68 @@ serve(async (req) => {
       // Handover protocol — stav vozidla + automaticky vyplněné příslušenství
       mileage: String(booking.mileage_start || ''),
       technical_state: '',
-      today_time: new Date().toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' }),
+      today_time: new Date().toLocaleTimeString('cs-CZ', {
+        hour: '2-digit',
+        minute: '2-digit'
+      }),
       accessories_block: accessories.html,
-      accessories: accessories.text,
-    }
-
+      accessories: accessories.text
+    };
     // i18n: pro cizojazyčného zákazníka vyzvedni přeložený obsah z DB
     // (`content_translations[lang]` / `name_translations[lang]` — plní edge fn
     // translate-document). cs i chybějící překlad → původní CZ `content_html`,
     // takže česká verze zůstává 1:1 beze změny.
-    let baseContent = template?.content_html || template?.html_content || ''
-    let docTitle = template?.name || template_slug
+    let baseContent = template?.content_html || template?.html_content || '';
+    let docTitle = template?.name || template_slug;
     if (lang !== 'cs' && template) {
-      const ct = (template.content_translations || {}) as Record<string, string>
-      const nt = (template.name_translations || {}) as Record<string, string>
-      const haveContent = typeof ct[lang] === 'string' && ct[lang].trim()
+      const ct = template.content_translations || {};
+      const nt = template.name_translations || {};
+      const haveContent = typeof ct[lang] === 'string' && ct[lang].trim();
       if (haveContent) {
         // Existující překlad (ruční z Velína nebo dřívější autopřeklad) → použij.
-        baseContent = ct[lang]
-        if (typeof nt[lang] === 'string' && nt[lang].trim()) docTitle = nt[lang]
+        baseContent = ct[lang];
+        if (typeof nt[lang] === 'string' && nt[lang].trim()) docTitle = nt[lang];
       } else {
         // Strojový autopřeklad JEN při CHYBĚJÍCÍM překladu — vyplní mezeru, ale
         // NIKDY nepřepíše ručně zrevidovaný překlad z Velína. Selhání → CZ fallback.
-        const srcContent = template.content_html || template.html_content || ''
-        const tr = await autoTranslateDocTemplate(template.name || template_slug, srcContent, lang)
+        const srcContent = template.content_html || template.html_content || '';
+        const tr = await autoTranslateDocTemplate(template.name || template_slug, srcContent, lang);
         if (tr) {
-          baseContent = tr.content
-          docTitle = tr.name
+          baseContent = tr.content;
+          docTitle = tr.name;
           try {
-            const newCt = { ...ct, [lang]: tr.content }
-            const newNt = { ...nt, [lang]: tr.name }
-            await supabase.from('document_templates')
-              .update({ content_translations: newCt, name_translations: newNt })
-              .eq('id', template.id)
-          } catch { /* cache best-effort — i bez uložení se dokument vygeneruje */ }
+            const newCt = {
+              ...ct,
+              [lang]: tr.content
+            };
+            const newNt = {
+              ...nt,
+              [lang]: tr.name
+            };
+            await supabase.from('document_templates').update({
+              content_translations: newCt,
+              name_translations: newNt
+            }).eq('id', template.id);
+          } catch  {}
         }
-        // tr === null → baseContent/docTitle zůstávají CZ (fallback)
+      // tr === null → baseContent/docTitle zůstávají CZ (fallback)
       }
     }
-
     // Substitute variables in template HTML
-    let htmlContent = baseContent || getFallbackTemplate(template_slug) || ''
-    for (const [key, val] of Object.entries(vars)) {
-      htmlContent = htmlContent.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), val)
+    let htmlContent = baseContent || getFallbackTemplate(template_slug) || '';
+    for (const [key, val] of Object.entries(vars)){
+      htmlContent = htmlContent.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), val);
     }
     // Odkazy na motogo24.cz → zákazníkova doména (jen non-cs; e-mail se nemění).
-    htmlContent = localizeDocLinks(htmlContent, lang)
-
+    htmlContent = localizeDocLinks(htmlContent, lang);
     // Velín RichTextEditor ukládá obsah jako fragment (<p>/<table>… bez <!DOCTYPE>).
     // PDFShift potřebuje plný HTML dokument — fakturní šablona ho generuje, ale
     // VOP/smlouvy/protokoly v DB ne, takže konverze selhávala a v mailu chodilo
     // .html místo .pdf. Pokud HTML není kompletní, obalíme ho minimální stránkou
     // se základní typografií (mirror styly z RichTextEditor preview).
-    const isFullDoc = /^\s*(?:<!doctype|<html\b)/i.test(htmlContent)
+    const isFullDoc = /^\s*(?:<!doctype|<html\b)/i.test(htmlContent);
     if (!isFullDoc) {
-      const title = docTitle
+      const title = docTitle;
       htmlContent = `<!DOCTYPE html><html lang="${lang}"><head><meta charset="utf-8"><title>${title}</title><style>
 body { margin: 0; padding: 24px; font-family: 'Segoe UI', system-ui, sans-serif; font-size: 12px; line-height: 1.6; color: #0f1a14; background: #fff; }
 p { margin: 0 0 10px; }
@@ -438,30 +576,42 @@ img { max-width: 100%; height: auto; }
 hr { border: none; border-top: 1px solid #d4e8e0; margin: 12px 0; }
 table { border-collapse: collapse; }
 table td, table th { border: 1px solid #d4e8e0; padding: 4px 8px; }
-</style></head><body>${htmlContent}</body></html>`
+</style></head><body>${htmlContent}</body></html>`;
     }
-
     // Store as PDF přes PDFShift; fallback na HTML když API key není / konverze selže.
-    const docId = crypto.randomUUID()
-    let path: string
-    let upErr: any = null
-    const pdfBytes = await htmlToPdf(htmlContent)
+    const docId = crypto.randomUUID();
+    let path;
+    let upErr = null;
+    const pdfBytes = await htmlToPdf(htmlContent);
     if (pdfBytes) {
-      path = `generated/${docId}.pdf`
-      const pdfBlob = new Blob([pdfBytes], { type: 'application/pdf' })
-      const r = await supabase.storage.from('documents').upload(path, pdfBlob, { upsert: true, contentType: 'application/pdf' })
-      upErr = r.error
+      path = `generated/${docId}.pdf`;
+      const pdfBlob = new Blob([
+        pdfBytes
+      ], {
+        type: 'application/pdf'
+      });
+      const r = await supabase.storage.from('documents').upload(path, pdfBlob, {
+        upsert: true,
+        contentType: 'application/pdf'
+      });
+      upErr = r.error;
     } else {
-      path = `generated/${docId}.html`
-      const htmlBlob = new Blob([htmlContent], { type: 'text/html' })
-      const r = await supabase.storage.from('documents').upload(path, htmlBlob, { upsert: true, contentType: 'text/html' })
-      upErr = r.error
+      path = `generated/${docId}.html`;
+      const htmlBlob = new Blob([
+        htmlContent
+      ], {
+        type: 'text/html'
+      });
+      const r = await supabase.storage.from('documents').upload(path, htmlBlob, {
+        upsert: true,
+        contentType: 'text/html'
+      });
+      upErr = r.error;
     }
     if (upErr) {
-      console.error('Storage upload error:', upErr)
-      // Continue — document will still be created in DB with filled_data for client-side rendering
+      console.error('Storage upload error:', upErr);
+    // Continue — document will still be created in DB with filled_data for client-side rendering
     }
-
     // ── Přemazání starých verzí ────────────────────────────────────────────
     // Při přegenerování téhož typu dokumentu pro tutéž rezervaci posbíráme
     // předchozí generated_documents řádky, ať je po vložení nové verze smažeme
@@ -469,18 +619,13 @@ table td, table th { border: 1px solid #d4e8e0; padding: 4px 8px; }
     // smlouvy / protokoly / VOP. Identita "stejného typu" = stejný booking_id
     // + stejný template_id (fallback dokumenty bez template_id se nepřemazávají,
     // aby se neodstranil cizí typ).
-    let oldDocs: Array<{ id: string; pdf_path: string | null }> = []
+    let oldDocs = [];
     if (booking_id && template?.id) {
       try {
-        const { data: prev } = await supabase
-          .from('generated_documents')
-          .select('id, pdf_path')
-          .eq('booking_id', booking_id)
-          .eq('template_id', template.id)
-        if (Array.isArray(prev)) oldDocs = prev as Array<{ id: string; pdf_path: string | null }>
-      } catch { /* ignore */ }
+        const { data: prev } = await supabase.from('generated_documents').select('id, pdf_path').eq('booking_id', booking_id).eq('template_id', template.id);
+        if (Array.isArray(prev)) oldDocs = prev;
+      } catch  {}
     }
-
     // Insert generated_documents record
     const { error: gErr } = await supabase.from('generated_documents').insert({
       id: docId,
@@ -488,55 +633,80 @@ table td, table th { border: 1px solid #d4e8e0; padding: 4px 8px; }
       booking_id,
       customer_id: customer.id || booking.user_id,
       filled_data: vars,
-      pdf_path: path,
-    })
+      pdf_path: path
+    });
     if (gErr) {
-      console.error('Insert error:', gErr)
-      return new Response(JSON.stringify({ error: 'Failed to insert generated document: ' + gErr.message }), {
-        status: 500, headers: { ...CORS, 'Content-Type': 'application/json' },
-      })
+      console.error('Insert error:', gErr);
+      return new Response(JSON.stringify({
+        error: 'Failed to insert generated document: ' + gErr.message
+      }), {
+        status: 500,
+        headers: {
+          ...CORS,
+          'Content-Type': 'application/json'
+        }
+      });
     }
-
     // Po úspěšném vložení nové verze: přesměruj synchronizovaný `documents` řádek
     // na nový soubor a ukliď staré verze (řádky + soubory). Trigger
     // sync_generated_doc_to_documents vkládá do `documents` jen když řádek ještě
     // neexistuje (NOT EXISTS), takže `file_path` staré verze bychom jinak nechali
     // viset na smazaný soubor.
     if (booking_id && oldDocs.length) {
-      const vDocType = (() => {
-        const s = String(template_slug || '').toLowerCase()
-        if (s.includes('contract')) return 'contract'
-        if (s.includes('protocol')) return 'protocol'
-        if (s === 'vop') return 'vop'
-        return 'contract'
-      })()
+      const vDocType = (()=>{
+        const s = String(template_slug || '').toLowerCase();
+        if (s.includes('contract')) return 'contract';
+        if (s.includes('protocol')) return 'protocol';
+        if (s === 'vop') return 'vop';
+        return 'contract';
+      })();
       try {
-        await supabase.from('documents').update({ file_path: path }).eq('booking_id', booking_id).eq('type', vDocType)
-      } catch { /* ignore */ }
-      const oldIds = oldDocs.map(d => d.id)
-      const oldFiles = oldDocs.map(d => d.pdf_path).filter((p): p is string => !!p && p !== path)
-      try { await supabase.from('generated_documents').delete().in('id', oldIds) } catch { /* ignore */ }
-      if (oldFiles.length) { try { await supabase.storage.from('documents').remove(oldFiles) } catch { /* ignore */ } }
+        await supabase.from('documents').update({
+          file_path: path
+        }).eq('booking_id', booking_id).eq('type', vDocType);
+      } catch  {}
+      const oldIds = oldDocs.map((d)=>d.id);
+      const oldFiles = oldDocs.map((d)=>d.pdf_path).filter((p)=>!!p && p !== path);
+      try {
+        await supabase.from('generated_documents').delete().in('id', oldIds);
+      } catch  {}
+      if (oldFiles.length) {
+        try {
+          await supabase.storage.from('documents').remove(oldFiles);
+        } catch  {}
+      }
     }
-
     // Audit log
     try {
       await supabase.from('admin_audit_log').insert({
         action: 'document_generated',
-        details: { document_id: docId, template_slug, booking_id },
-      })
-    } catch (e) { /* ignore */ }
-
-    return new Response(JSON.stringify({ success: true, document_id: docId, path }), {
-      headers: { ...CORS, 'Content-Type': 'application/json' },
-    })
+        details: {
+          document_id: docId,
+          template_slug,
+          booking_id
+        }
+      });
+    } catch (e) {}
+    return new Response(JSON.stringify({
+      success: true,
+      document_id: docId,
+      path
+    }), {
+      headers: {
+        ...CORS,
+        'Content-Type': 'application/json'
+      }
+    });
   } catch (err) {
-    console.error('Error:', err)
-    return new Response(JSON.stringify({ error: (err as Error).message }), { status: 500 })
+    console.error('Error:', err);
+    return new Response(JSON.stringify({
+      error: err.message
+    }), {
+      status: 500
+    });
   }
-})
-
-function getFallbackTemplate(slug: string): string | null {
+});
+function getFallbackTemplate(slug) {
   if (slug === 'rental_contract') {
     return `<!DOCTYPE html><html lang="cs"><head><meta charset="utf-8"><title>Smlouva o pronájmu</title></head>
 <body style="margin:0;padding:0;font-family:'Segoe UI',sans-serif;color:#1a1a1a">
@@ -577,9 +747,8 @@ function getFallbackTemplate(slug: string): string | null {
     <p style="margin:8px 0 0;font-size:11px;color:#166534">Pronajímatel: {{company_name}} &nbsp;·&nbsp; Nájemce: {{customer_name}}</p>
     <p style="margin:4px 0 0;font-size:11px;color:#166534">Datum: {{today}} &nbsp;·&nbsp; Smlouva č. {{booking_number}}</p>
   </div>
-</div></body></html>`
+</div></body></html>`;
   }
-
   if (slug === 'handover_protocol') {
     return `<!DOCTYPE html><html lang="cs"><head><meta charset="utf-8"><title>Předávací protokol</title></head>
 <body style="margin:0;padding:0;font-family:'Segoe UI',sans-serif;color:#1a1a1a">
@@ -604,9 +773,8 @@ function getFallbackTemplate(slug: string): string | null {
     <div style="text-align:center;width:45%"><div style="border-top:1px solid #999;padding-top:8px;font-size:11px">Předávající</div></div>
     <div style="text-align:center;width:45%"><div style="border-top:1px solid #999;padding-top:8px;font-size:11px">Přebírající — {{customer_name}}</div></div>
   </div>
-</div></body></html>`
+</div></body></html>`;
   }
-
   if (slug === 'vop') {
     return `<!DOCTYPE html><html lang="cs"><head><meta charset="utf-8"><title>Všeobecné obchodní podmínky</title></head>
 <body style="margin:0;padding:0;font-family:'Segoe UI',sans-serif;color:#1a1a1a">
@@ -632,9 +800,8 @@ function getFallbackTemplate(slug: string): string | null {
     <p style="margin:0">{{company_name}} | {{company_address}} | IČO: {{company_ico}}</p>
     <p style="margin:4px 0 0">Kontakt: info@motogo24.cz | +420 774 256 271 | motogo24.cz</p>
   </div>
-</div></body></html>`
+</div></body></html>`;
   }
-
   if (slug === 'damage_protocol') {
     return `<!DOCTYPE html><html lang="cs"><head><meta charset="utf-8"><title>Protokol o zjištěném poškození</title></head>
 <body style="margin:0;padding:0;font-family:'Segoe UI',sans-serif;color:#1a1a1a;font-size:12px">
@@ -674,9 +841,8 @@ function getFallbackTemplate(slug: string): string | null {
     <div style="text-align:center;width:45%"><div style="border-top:1px solid #999;padding-top:8px;font-size:11px">Podpis nájemce<br>{{customer_name}}</div></div>
   </div>
   <div style="margin-top:32px;text-align:center;font-size:10px;color:#888;border-top:1px solid #ddd;padding-top:12px">{{company_name}} · IČO: {{company_ico}} · {{company_address}} · info@motogo24.cz · +420 774 256 271</div>
-</div></body></html>`
+</div></body></html>`;
   }
-
   if (slug === 'gdpr') {
     return `<!DOCTYPE html><html lang="cs"><head><meta charset="utf-8"><title>Souhlas se zpracováním osobních údajů</title></head>
 <body style="margin:0;padding:0;font-family:'Segoe UI',sans-serif;color:#1a1a1a;font-size:12px">
@@ -700,8 +866,7 @@ function getFallbackTemplate(slug: string): string | null {
     <div style="text-align:center;width:45%"><div style="border-top:1px solid #999;padding-top:8px;font-size:11px">{{customer_name}}</div></div>
   </div>
   <div style="margin-top:32px;text-align:center;font-size:10px;color:#888;border-top:1px solid #ddd;padding-top:12px">{{company_name}} · IČO: {{company_ico}} · {{company_address}} · info@motogo24.cz · +420 774 256 271</div>
-</div></body></html>`
+</div></body></html>`;
   }
-
-  return null
+  return null;
 }

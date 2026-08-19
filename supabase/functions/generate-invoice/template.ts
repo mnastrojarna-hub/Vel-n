@@ -1,103 +1,99 @@
 // ===== INVOICE HTML TEMPLATE GENERATOR =====
 // Unified design — used for ZF / DP / KF / Shop / Credit note
-
-const SITE_URL = 'https://www.motogo24.cz'
-const LOGO_URL = `${SITE_URL}/gfx/logo-icon.png`
-
+const SITE_URL = 'https://www.motogo24.cz';
+const LOGO_URL = `${SITE_URL}/gfx/logo-icon.png`;
 // ── i18n: doména zákazníka pro odkazy/QR (cs → .cz, ostatní → .com) ──────────
 // Účetní text faktury zůstává česky (doklad k přijaté platbě), localizují se jen ODKAZY,
 // aby vedly na doménu zákazníka. Logo zůstává na .cz (asset).
-function siteForLang(lang: string): string { return lang === 'cs' ? SITE_URL : 'https://motogo24.com' }
-function webLabelForLang(lang: string): string { return lang === 'cs' ? 'motogo24.cz' : 'motogo24.com' }
-
-const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('cs-CZ') : '—'
-const fmtPrice = (n: number) => `${(n || 0).toLocaleString('cs-CZ', { maximumFractionDigits: 0 })} Kč`
-
-interface InvoiceItem { description: string; qty: number; unit_price: number }
-
-interface TemplateParams {
-  title: string; number: string; accent: string
-  issueDate: string; dueDate: string; total: number
-  company: any; customer: any
-  items: InvoiceItem[]
-  voucher_codes?: string[]; voucherValidUntil?: string | null
-  doorCodes?: any[]
-  isProforma: boolean; isPaymentReceipt: boolean; isShopFinal: boolean
-  dpNumber?: string
-  bookingNumber?: string
-  paymentMethodLabel?: string
-  cardInfo?: { brand: string; last4: string } | null
-  isEdit?: boolean
-  // optional — for richer payment block:
-  stripePaymentIntentId?: string
-  paidDate?: string
-  // i18n — jazyk zákazníka; localizuje pouze ODKAZY (web/QR), text zůstává CZ.
-  lang?: string
-  // QR / bankovní převod ZF — VS pro párování + text splatnosti do bankovního bloku.
-  variableSymbol?: string | null
-  dueNote?: string | null
+function siteForLang(lang) {
+  return lang === 'cs' ? SITE_URL : 'https://motogo24.com';
 }
-
+function webLabelForLang(lang) {
+  return lang === 'cs' ? 'motogo24.cz' : 'motogo24.com';
+}
+const fmtDate = (d)=>d ? new Date(d).toLocaleDateString('cs-CZ') : '—';
+const fmtPrice = (n)=>`${(n || 0).toLocaleString('cs-CZ', {
+    maximumFractionDigits: 0
+  })} Kč`;
 // Split "Pronájem BMW R 1200 GS — 13.5.2026 – 13.5.2026" → name + desc
-function splitItem(desc: string): { name: string; detail: string } {
-  if (!desc) return { name: '—', detail: '' }
-  const m = desc.split(/\s+—\s+/)
-  if (m.length >= 2) return { name: m[0].trim(), detail: m.slice(1).join(' — ').trim() }
-  return { name: desc.trim(), detail: '' }
+function splitItem(desc) {
+  if (!desc) return {
+    name: '—',
+    detail: ''
+  };
+  const m = desc.split(/\s+—\s+/);
+  if (m.length >= 2) return {
+    name: m[0].trim(),
+    detail: m.slice(1).join(' — ').trim()
+  };
+  return {
+    name: desc.trim(),
+    detail: ''
+  };
 }
-
-function typeLabel(p: TemplateParams): string {
-  if (p.isProforma) return 'ZF'
-  if (p.isPaymentReceipt) return 'DOKLAD K PŘIJATÉ PLATBĚ'
-  return 'FAKTURA'
+function typeLabel(p) {
+  if (p.isProforma) return 'ZF';
+  if (p.isPaymentReceipt) return 'DOKLAD K PŘIJATÉ PLATBĚ';
+  return 'FAKTURA';
 }
-
-function statusBadge(p: TemplateParams): { label: string; tone: 'paid' | 'pending' } {
-  if (p.isProforma) return { label: 'K ÚHRADĚ', tone: 'pending' }
-  if (p.isPaymentReceipt) return { label: 'UHRAZENO', tone: 'paid' }
-  if (p.isShopFinal) return { label: 'UHRAZENO', tone: 'paid' }
-  return { label: 'VYÚČTOVÁNO', tone: 'paid' }
+function statusBadge(p) {
+  if (p.isProforma) return {
+    label: 'K ÚHRADĚ',
+    tone: 'pending'
+  };
+  if (p.isPaymentReceipt) return {
+    label: 'UHRAZENO',
+    tone: 'paid'
+  };
+  if (p.isShopFinal) return {
+    label: 'UHRAZENO',
+    tone: 'paid'
+  };
+  return {
+    label: 'VYÚČTOVÁNO',
+    tone: 'paid'
+  };
 }
-
-function statusLabelFull(p: TemplateParams): string {
-  if (p.isProforma) return 'K úhradě'
-  return 'Uhrazena'
+function statusLabelFull(p) {
+  if (p.isProforma) return 'K úhradě';
+  return 'Uhrazena';
 }
-
-export function generateInvoiceHtml(p: TemplateParams): string {
-  const badge = statusBadge(p)
-  const tcode = typeLabel(p)
-  const status = statusLabelFull(p)
-  const customerAddr = [p.customer.street, p.customer.city, p.customer.zip].filter(Boolean).join(', ')
-  const vc = p.voucher_codes || []
-  const dc = p.doorCodes || []
+export function generateInvoiceHtml(p) {
+  const badge = statusBadge(p);
+  const tcode = typeLabel(p);
+  const status = statusLabelFull(p);
+  const customerAddr = [
+    p.customer.street,
+    p.customer.city,
+    p.customer.zip
+  ].filter(Boolean).join(', ');
+  const vc = p.voucher_codes || [];
+  const dc = p.doorCodes || [];
   // i18n odkazy — doména/label dle jazyka zákazníka (cs default = .cz beze změny)
-  const lang = p.lang || 'cs'
-  const site = siteForLang(lang)
-  const webLabel = webLabelForLang(lang)
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=8&data=${encodeURIComponent(site)}`
-
+  const lang = p.lang || 'cs';
+  const site = siteForLang(lang);
+  const webLabel = webLabelForLang(lang);
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=8&data=${encodeURIComponent(site)}`;
   // Item rows
-  const itemsHtml = p.items.map((it) => {
+  const itemsHtml = p.items.map((it)=>{
     if (it.description && it.description.startsWith('──') && (it.unit_price || 0) === 0) {
-      const label = it.description.replace(/──/g, '').trim()
-      return `<tr><td colspan="4" style="padding:9px 12px 4px;font-weight:700;font-size:11px;color:#16a34a;text-transform:uppercase;letter-spacing:.5px">${label}</td></tr>`
+      const label = it.description.replace(/──/g, '').trim();
+      return `<tr><td colspan="4" style="padding:9px 12px 4px;font-weight:700;font-size:11px;color:#16a34a;text-transform:uppercase;letter-spacing:.5px">${label}</td></tr>`;
     }
-    const { name, detail } = splitItem(it.description)
-    const lineTotal = (it.unit_price || 0) * (it.qty || 1)
-    const neg = lineTotal < 0 ? 'color:#b91c1c;' : 'color:#0f1a14;'
+    const { name, detail } = splitItem(it.description);
+    const lineTotal = (it.unit_price || 0) * (it.qty || 1);
+    const neg = lineTotal < 0 ? 'color:#b91c1c;' : 'color:#0f1a14;';
     return `<tr>
       <td style="padding:9px 12px;border-top:1px solid #e5e7eb;font-size:13px;font-weight:700;color:#0f1a14;vertical-align:top;width:30%">${name}</td>
       <td style="padding:9px 12px;border-top:1px solid #e5e7eb;font-size:12px;color:#6b7280;vertical-align:top">${detail}</td>
       <td style="padding:9px 12px;border-top:1px solid #e5e7eb;font-size:13px;color:#0f1a14;text-align:right;vertical-align:top;white-space:nowrap;width:60px">${it.qty || 1}</td>
       <td style="padding:9px 12px;border-top:1px solid #e5e7eb;font-size:13px;text-align:right;vertical-align:top;white-space:nowrap;width:110px;font-variant-numeric:tabular-nums;${neg}">${fmtPrice(lineTotal)}</td>
-    </tr>`
-  }).join('')
-
+    </tr>`;
+  }).join('');
   // Payment block — Stripe (karta NEBO existující Stripe PI) vs bank.
   // Pozn.: rozhoduje i samotné `stripePaymentIntentId` — app rezervace placené
   // Stripe často nemají uloženou kartu (payment_methods), přesto je to Stripe.
-  const paymentBlock = (p.cardInfo || p.stripePaymentIntentId) ? `
+  const paymentBlock = p.cardInfo || p.stripePaymentIntentId ? `
     <div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0">
       <span style="color:#16a34a;font-weight:600">Stav</span>
       <span style="color:#0f1a14;font-weight:700">${status}</span>
@@ -136,11 +132,9 @@ export function generateInvoiceHtml(p: TemplateParams): string {
       <span style="color:#b91c1c;font-weight:700">Splatnost</span>
       <span style="color:#b91c1c;font-weight:700">${p.dueNote}</span>
     </div>` : ''}
-  `
-
-  const badgeBg = badge.tone === 'paid' ? '#74FB71' : '#fbbf24'
-  const badgeText = '#000000'
-
+  `;
+  const badgeBg = badge.tone === 'paid' ? '#74FB71' : '#fbbf24';
+  const badgeText = '#000000';
   return `<!DOCTYPE html><html lang="${lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${p.title} ${p.number}</title>
 <style>
   /* Zhuštěná verze pro 1-stránkové PDF (PDFShift A4, margin 8mm).
@@ -285,15 +279,15 @@ export function generateInvoiceHtml(p: TemplateParams): string {
 
   ${vc.length > 0 && !p.isProforma ? `<div style="margin:0 32px 8px;padding:10px;background:#dcfce7;border-radius:6px;border:1px solid #86efac">
     <div style="font-size:11px;font-weight:800;color:#166534;letter-spacing:1.5px;margin-bottom:4px">DÁRKOVÉ POUKAZY</div>
-    ${vc.map((c: string) => `<div style="font-size:13px;font-weight:700;font-family:'Courier New',monospace;color:#166534;padding:1px 0">${c}</div>`).join('')}
+    ${vc.map((c)=>`<div style="font-size:13px;font-weight:700;font-family:'Courier New',monospace;color:#166534;padding:1px 0">${c}</div>`).join('')}
     ${p.voucherValidUntil ? `<div style="font-size:11px;color:#166534;margin-top:4px">Platnost: 3 roky (do ${fmtDate(p.voucherValidUntil)})</div>` : ''}
     <div style="font-size:10px;color:#4a6357;margin-top:3px">Kód uplatníte při rezervaci na ${webLabel} nebo v aplikaci MotoGo24.</div>
   </div>` : ''}
 
   ${dc.length > 0 ? `<div style="margin:0 32px 8px;padding:10px;background:#e0f2fe;border-radius:6px;border:1px solid #0284c7">
     <div style="font-size:11px;font-weight:800;color:#0c4a6e;letter-spacing:1.5px;margin-bottom:4px">PŘÍSTUPOVÉ KÓDY K POBOČCE</div>
-    ${dc.filter((c: any) => !c.withheld_reason).map((d: any) => `<div style="font-size:12px;font-weight:700;color:#0c4a6e;padding:2px 0">${d.code_type === 'motorcycle' ? 'Kód k motorce' : 'Kód k příslušenství'}: <span style="font-size:16px;letter-spacing:3px;color:#0369a1;font-family:'Courier New',monospace">${d.door_code}</span></div>`).join('')}
-    ${dc.some((c: any) => c.withheld_reason) ? '<div style="font-size:11px;font-weight:600;color:#b45309;margin-top:4px">Kódy budou zaslány po ověření dokladů (OP/pas/ŘP).</div>' : '<div style="font-size:10px;color:#164e63;margin-top:4px">Kódy jsou platné pouze po dobu trvání pronájmu.</div>'}
+    ${dc.filter((c)=>!c.withheld_reason).map((d)=>`<div style="font-size:12px;font-weight:700;color:#0c4a6e;padding:2px 0">${d.code_type === 'motorcycle' ? 'Kód k motorce' : 'Kód k příslušenství'}: <span style="font-size:16px;letter-spacing:3px;color:#0369a1;font-family:'Courier New',monospace">${d.door_code}</span></div>`).join('')}
+    ${dc.some((c)=>c.withheld_reason) ? '<div style="font-size:11px;font-weight:600;color:#b45309;margin-top:4px">Kódy budou zaslány po ověření dokladů (OP/pas/ŘP).</div>' : '<div style="font-size:10px;color:#164e63;margin-top:4px">Kódy jsou platné pouze po dobu trvání pronájmu.</div>'}
   </div>` : ''}
 
   ${p.isProforma ? `<div style="margin:0 32px 8px;padding:7px 12px;background:#fef3c7;border-left:3px solid #f59e0b;font-size:11px;color:#78350f">Tento doklad není dokladem o přijaté platbě. Po přijetí platby Vám bude vystaven doklad k přijaté platbě.</div>` : ''}
@@ -332,6 +326,5 @@ export function generateInvoiceHtml(p: TemplateParams): string {
   </div>
 
 </div>
-</body></html>`
+</body></html>`;
 }
-

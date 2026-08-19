@@ -6,70 +6,37 @@
  * POST /functions/v1/generate-tax
  * Auth: Bearer JWT (admin, superadmin only)
  * Body: { type, period_from, period_to }
- */
-
-import { corsResponse, jsonResponse, errorResponse } from '../_shared/cors.ts';
+ */ import { corsResponse, jsonResponse, errorResponse } from '../_shared/cors.ts';
 import { getAdminClient, getUserClient } from '../_shared/supabase-client.ts';
-import type { TaxRequest, TaxResponse, TaxType } from '../_shared/types.ts';
-
-interface DphData {
-  zaklad_dan_21: number;
-  dan_21: number;
-  zaklad_dan_15: number;
-  dan_15: number;
-  zaklad_dan_10: number;
-  dan_10: number;
-  odpocet_zaklad_21: number;
-  odpocet_dan_21: number;
-  odpocet_zaklad_15: number;
-  odpocet_dan_15: number;
-  odpocet_zaklad_10: number;
-  odpocet_dan_10: number;
-  celkem_dan: number;
-  celkem_odpocet: number;
-  k_odvodu: number;
-}
-
-/** Vypočítá DPH základ a daň za období. */
-async function calculateDPH(
-  admin: ReturnType<typeof getAdminClient>,
-  periodFrom: string,
-  periodTo: string,
-): Promise<DphData> {
+/** Vypočítá DPH základ a daň za období. */ async function calculateDPH(admin, periodFrom, periodTo) {
   // Příjmy (výstupní DPH)
-  const { data: incomeEntries } = await admin
-    .from('accounting_entries')
-    .select('amount, vat_rate, vat_amount')
-    .eq('type', 'income')
-    .gte('date', periodFrom)
-    .lte('date', periodTo);
-
+  const { data: incomeEntries } = await admin.from('accounting_entries').select('amount, vat_rate, vat_amount').eq('type', 'income').gte('date', periodFrom).lte('date', periodTo);
   // Výdaje (vstupní DPH — odpočet)
-  const { data: expenseEntries } = await admin
-    .from('accounting_entries')
-    .select('amount, vat_rate, vat_amount')
-    .eq('type', 'expense')
-    .gte('date', periodFrom)
-    .lte('date', periodTo);
-
-  const result: DphData = {
-    zaklad_dan_21: 0, dan_21: 0,
-    zaklad_dan_15: 0, dan_15: 0,
-    zaklad_dan_10: 0, dan_10: 0,
-    odpocet_zaklad_21: 0, odpocet_dan_21: 0,
-    odpocet_zaklad_15: 0, odpocet_dan_15: 0,
-    odpocet_zaklad_10: 0, odpocet_dan_10: 0,
-    celkem_dan: 0, celkem_odpocet: 0, k_odvodu: 0,
+  const { data: expenseEntries } = await admin.from('accounting_entries').select('amount, vat_rate, vat_amount').eq('type', 'expense').gte('date', periodFrom).lte('date', periodTo);
+  const result = {
+    zaklad_dan_21: 0,
+    dan_21: 0,
+    zaklad_dan_15: 0,
+    dan_15: 0,
+    zaklad_dan_10: 0,
+    dan_10: 0,
+    odpocet_zaklad_21: 0,
+    odpocet_dan_21: 0,
+    odpocet_zaklad_15: 0,
+    odpocet_dan_15: 0,
+    odpocet_zaklad_10: 0,
+    odpocet_dan_10: 0,
+    celkem_dan: 0,
+    celkem_odpocet: 0,
+    k_odvodu: 0
   };
-
   // Výstupní DPH (z příjmů)
-  for (const entry of incomeEntries ?? []) {
+  for (const entry of incomeEntries ?? []){
     const amount = Number(entry.amount ?? 0);
     const vatRate = Number(entry.vat_rate ?? 21);
     const vatAmount = Number(entry.vat_amount ?? 0) || Math.round(amount * (vatRate / (100 + vatRate)) * 100) / 100;
     const baseAmount = amount - vatAmount;
-
-    switch (vatRate) {
+    switch(vatRate){
       case 21:
         result.zaklad_dan_21 += baseAmount;
         result.dan_21 += vatAmount;
@@ -84,15 +51,13 @@ async function calculateDPH(
         break;
     }
   }
-
   // Vstupní DPH (z výdajů — odpočet)
-  for (const entry of expenseEntries ?? []) {
+  for (const entry of expenseEntries ?? []){
     const amount = Number(entry.amount ?? 0);
     const vatRate = Number(entry.vat_rate ?? 21);
     const vatAmount = Number(entry.vat_amount ?? 0) || Math.round(amount * (vatRate / (100 + vatRate)) * 100) / 100;
     const baseAmount = amount - vatAmount;
-
-    switch (vatRate) {
+    switch(vatRate){
       case 21:
         result.odpocet_zaklad_21 += baseAmount;
         result.odpocet_dan_21 += vatAmount;
@@ -107,24 +72,14 @@ async function calculateDPH(
         break;
     }
   }
-
   result.celkem_dan = result.dan_21 + result.dan_15 + result.dan_10;
   result.celkem_odpocet = result.odpocet_dan_21 + result.odpocet_dan_15 + result.odpocet_dan_10;
   result.k_odvodu = Math.round((result.celkem_dan - result.celkem_odpocet) * 100) / 100;
-
   return result;
 }
-
-/** Generuje XML pro DPH přiznání ve formátu EPO portálu Finanční správy ČR. */
-function generateDphXml(
-  data: DphData,
-  periodFrom: string,
-  periodTo: string,
-  dic: string,
-): string {
+/** Generuje XML pro DPH přiznání ve formátu EPO portálu Finanční správy ČR. */ function generateDphXml(data, periodFrom, periodTo, dic) {
   const periodYear = periodFrom.substring(0, 4);
   const periodMonth = periodFrom.substring(5, 7);
-
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Pisemnost nazevSW="MotoGo24" verzeSW="1.0">
   <DPHDP3 verzePis="03.02">
@@ -155,50 +110,29 @@ function generateDphXml(
   </DPHDP3>
 </Pisemnost>`;
 }
-
-/** Generuje XML pro kontrolní hlášení. */
-async function generateKontrolniHlaseni(
-  admin: ReturnType<typeof getAdminClient>,
-  periodFrom: string,
-  periodTo: string,
-  dic: string,
-): Promise<{ data: Record<string, unknown>; xml: string }> {
+/** Generuje XML pro kontrolní hlášení. */ async function generateKontrolniHlaseni(admin, periodFrom, periodTo, dic) {
   // Načti faktury za období
-  const { data: invoices } = await admin
-    .from('invoices')
-    .select('id, number, customer_name, customer_dic, total_amount, vat_amount, issue_date, type')
-    .gte('issue_date', periodFrom)
-    .lte('issue_date', periodTo)
-    .order('issue_date');
-
-  const issuedInvoices = (invoices ?? []).filter((i) => i.type === 'issued');
-  const receivedInvoices = (invoices ?? []).filter((i) => i.type === 'received');
-
+  const { data: invoices } = await admin.from('invoices').select('id, number, customer_name, customer_dic, total_amount, vat_amount, issue_date, type').gte('issue_date', periodFrom).lte('issue_date', periodTo).order('issue_date');
+  const issuedInvoices = (invoices ?? []).filter((i)=>i.type === 'issued');
+  const receivedInvoices = (invoices ?? []).filter((i)=>i.type === 'received');
   const periodYear = periodFrom.substring(0, 4);
   const periodMonth = periodFrom.substring(5, 7);
-
   // Sekce A — přijatá plnění nad 10 000 Kč
-  const sectionA = issuedInvoices
-    .filter((i) => Number(i.total_amount) > 10000)
-    .map((i) => `    <VetaA
-      dic_odb="${(i.customer_dic as string) ?? ''}"
+  const sectionA = issuedInvoices.filter((i)=>Number(i.total_amount) > 10000).map((i)=>`    <VetaA
+      dic_odb="${i.customer_dic ?? ''}"
       c_evid_dd="${i.number}"
       dppd="${i.issue_date}"
       zakl_dane1="${Math.round(Number(i.total_amount) - Number(i.vat_amount ?? 0))}"
       dan1="${Math.round(Number(i.vat_amount ?? 0))}"
     />`);
-
   // Sekce B — uskutečněná plnění nad 10 000 Kč
-  const sectionB = receivedInvoices
-    .filter((i) => Number(i.total_amount) > 10000)
-    .map((i) => `    <VetaB
-      dic_dod="${(i.customer_dic as string) ?? ''}"
+  const sectionB = receivedInvoices.filter((i)=>Number(i.total_amount) > 10000).map((i)=>`    <VetaB
+      dic_dod="${i.customer_dic ?? ''}"
       c_evid_dd="${i.number}"
       dppd="${i.issue_date}"
       zakl_dane1="${Math.round(Number(i.total_amount) - Number(i.vat_amount ?? 0))}"
       dan1="${Math.round(Number(i.vat_amount ?? 0))}"
     />`);
-
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <Pisemnost nazevSW="MotoGo24" verzeSW="1.0">
   <DPHKH1 verzePis="02.01">
@@ -213,191 +147,138 @@ ${sectionA.join('\n')}
 ${sectionB.join('\n')}
   </DPHKH1>
 </Pisemnost>`;
-
   return {
     data: {
       section_a_count: sectionA.length,
       section_b_count: sectionB.length,
-      total_invoices: invoices?.length ?? 0,
+      total_invoices: invoices?.length ?? 0
     },
-    xml,
+    xml
   };
 }
-
-Deno.serve(async (req: Request): Promise<Response> => {
+Deno.serve(async (req)=>{
   if (req.method === 'OPTIONS') {
     return corsResponse();
   }
-
   try {
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       return errorResponse('Missing Authorization header', 401);
     }
-
     const userClient = getUserClient(authHeader);
     const { data: { user }, error: authError } = await userClient.auth.getUser();
     if (authError || !user) {
       return errorResponse('Unauthorized', 401);
     }
-
     // Ověř superadmin roli
     const admin = getAdminClient();
-    const { data: adminUser, error: adminError } = await admin
-      .from('admin_users')
-      .select('id, role')
-      .eq('user_id', user.id)
-      .eq('is_active', true)
-      .single();
-
+    const { data: adminUser, error: adminError } = await admin.from('admin_users').select('id, role').eq('user_id', user.id).eq('is_active', true).single();
     if (adminError || !adminUser) {
       return errorResponse('Admin access required', 403);
     }
-
     if (adminUser.role !== 'superadmin') {
       return errorResponse('Superadmin role required for tax generation', 403);
     }
-
-    const body = await req.json() as TaxRequest;
+    const body = await req.json();
     if (!body.type || !body.period_from || !body.period_to) {
       return errorResponse('Missing required fields: type, period_from, period_to');
     }
-
-    const validTypes: TaxType[] = ['dph_monthly', 'dph_quarterly', 'dppo_annual', 'kontrolni_hlaseni'];
+    const validTypes = [
+      'dph_monthly',
+      'dph_quarterly',
+      'dppo_annual',
+      'kontrolni_hlaseni'
+    ];
     if (!validTypes.includes(body.type)) {
       return errorResponse(`Invalid type. Valid types: ${validTypes.join(', ')}`);
     }
-
     // Načti DIČ firmy
-    const { data: companyVar } = await admin
-      .from('cms_variables')
-      .select('value')
-      .eq('key', 'company_dic')
-      .single();
-    const dic = (companyVar?.value as string) ?? Deno.env.get('COMPANY_DIC') ?? '';
-
-    let responseData: TaxResponse;
-
-    switch (body.type) {
+    const { data: companyVar } = await admin.from('cms_variables').select('value').eq('key', 'company_dic').single();
+    const dic = companyVar?.value ?? Deno.env.get('COMPANY_DIC') ?? '';
+    let responseData;
+    switch(body.type){
       case 'dph_monthly':
-      case 'dph_quarterly': {
-        const dphData = await calculateDPH(admin, body.period_from, body.period_to);
-        const xml = generateDphXml(dphData, body.period_from, body.period_to, dic);
-
-        // Ulož do tax_records
-        const { data: taxRecord } = await admin
-          .from('tax_records')
-          .insert({
+      case 'dph_quarterly':
+        {
+          const dphData = await calculateDPH(admin, body.period_from, body.period_to);
+          const xml = generateDphXml(dphData, body.period_from, body.period_to, dic);
+          // Ulož do tax_records
+          const { data: taxRecord } = await admin.from('tax_records').insert({
             type: body.type,
             period_from: body.period_from,
             period_to: body.period_to,
             data: dphData,
             xml_content: xml,
             status: 'draft',
-            generated_by: user.id,
-          })
-          .select('id')
-          .single();
-
-        responseData = {
-          success: true,
-          data: dphData as unknown as Record<string, unknown>,
-          xml,
-          tax_record_id: taxRecord?.id as string,
-        };
-        break;
-      }
-
-      case 'dppo_annual': {
-        // DPPO — zjednodušený výpočet
-        const { data: incomeTotal } = await admin
-          .from('accounting_entries')
-          .select('amount')
-          .eq('type', 'income')
-          .gte('date', body.period_from)
-          .lte('date', body.period_to);
-
-        const { data: expenseTotal } = await admin
-          .from('accounting_entries')
-          .select('amount')
-          .eq('type', 'expense')
-          .gte('date', body.period_from)
-          .lte('date', body.period_to);
-
-        const totalIncome = incomeTotal?.reduce((s, e) => s + Number(e.amount), 0) ?? 0;
-        const totalExpense = expenseTotal?.reduce((s, e) => s + Number(e.amount), 0) ?? 0;
-        const zakladDane = Math.max(0, totalIncome - totalExpense);
-        const danSazba = 0.21; // 21% DPPO sazba
-        const dan = Math.round(zakladDane * danSazba);
-
-        const dppoData = {
-          celkove_prijmy: totalIncome,
-          celkove_vydaje: totalExpense,
-          zaklad_dane: zakladDane,
-          sazba_dane: danSazba * 100,
-          dan: dan,
-          obdobi_od: body.period_from,
-          obdobi_do: body.period_to,
-        };
-
-        const { data: taxRecord } = await admin
-          .from('tax_records')
-          .insert({
+            generated_by: user.id
+          }).select('id').single();
+          responseData = {
+            success: true,
+            data: dphData,
+            xml,
+            tax_record_id: taxRecord?.id
+          };
+          break;
+        }
+      case 'dppo_annual':
+        {
+          // DPPO — zjednodušený výpočet
+          const { data: incomeTotal } = await admin.from('accounting_entries').select('amount').eq('type', 'income').gte('date', body.period_from).lte('date', body.period_to);
+          const { data: expenseTotal } = await admin.from('accounting_entries').select('amount').eq('type', 'expense').gte('date', body.period_from).lte('date', body.period_to);
+          const totalIncome = incomeTotal?.reduce((s, e)=>s + Number(e.amount), 0) ?? 0;
+          const totalExpense = expenseTotal?.reduce((s, e)=>s + Number(e.amount), 0) ?? 0;
+          const zakladDane = Math.max(0, totalIncome - totalExpense);
+          const danSazba = 0.21; // 21% DPPO sazba
+          const dan = Math.round(zakladDane * danSazba);
+          const dppoData = {
+            celkove_prijmy: totalIncome,
+            celkove_vydaje: totalExpense,
+            zaklad_dane: zakladDane,
+            sazba_dane: danSazba * 100,
+            dan: dan,
+            obdobi_od: body.period_from,
+            obdobi_do: body.period_to
+          };
+          const { data: taxRecord } = await admin.from('tax_records').insert({
             type: body.type,
             period_from: body.period_from,
             period_to: body.period_to,
             data: dppoData,
             status: 'draft',
-            generated_by: user.id,
-          })
-          .select('id')
-          .single();
-
-        responseData = {
-          success: true,
-          data: dppoData,
-          tax_record_id: taxRecord?.id as string,
-        };
-        break;
-      }
-
-      case 'kontrolni_hlaseni': {
-        const { data: khData, xml } = await generateKontrolniHlaseni(
-          admin,
-          body.period_from,
-          body.period_to,
-          dic,
-        );
-
-        const { data: taxRecord } = await admin
-          .from('tax_records')
-          .insert({
+            generated_by: user.id
+          }).select('id').single();
+          responseData = {
+            success: true,
+            data: dppoData,
+            tax_record_id: taxRecord?.id
+          };
+          break;
+        }
+      case 'kontrolni_hlaseni':
+        {
+          const { data: khData, xml } = await generateKontrolniHlaseni(admin, body.period_from, body.period_to, dic);
+          const { data: taxRecord } = await admin.from('tax_records').insert({
             type: body.type,
             period_from: body.period_from,
             period_to: body.period_to,
             data: khData,
             xml_content: xml,
             status: 'draft',
-            generated_by: user.id,
-          })
-          .select('id')
-          .single();
-
-        responseData = {
-          success: true,
-          data: khData,
-          xml,
-          tax_record_id: taxRecord?.id as string,
-        };
-        break;
-      }
-
+            generated_by: user.id
+          }).select('id').single();
+          responseData = {
+            success: true,
+            data: khData,
+            xml,
+            tax_record_id: taxRecord?.id
+          };
+          break;
+        }
       default:
         return errorResponse('Unknown tax type');
     }
-
     return jsonResponse(responseData);
-  } catch (err: unknown) {
+  } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);
     console.error('generate-tax error:', errorMessage);
     return errorResponse('Internal server error', 500);

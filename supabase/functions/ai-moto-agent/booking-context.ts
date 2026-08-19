@@ -1,8 +1,5 @@
 // ===== ai-moto-agent/booking-context.ts =====
 // Booking context formatting + agent config + system prompt building
-
-import { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
-
 export const FALLBACK_SYSTEM_PROMPT = `Jsi AI servisní technik MotoGo24 — půjčovny motorek.
 
 ## KRITICKÁ PRAVIDLA (NIKDY neporušuj):
@@ -114,104 +111,102 @@ Na konci každé odpovědi přidej JSON blok:
 ---END---
 suggest_sos: true pokud je závada vážná a zákazník by měl kontaktovat SOS.
 
-Výchozí jazyk je čeština; když zákazník píše jiným jazykem, odpověz JEHO jazykem (nikdy nemíchej dva jazyky v jedné odpovědi). Odpovídej stručně a konkrétně pro daný model motorky.`
-
+Výchozí jazyk je čeština; když zákazník píše jiným jazykem, odpověz JEHO jazykem (nikdy nemíchej dva jazyky v jedné odpovědi). Odpovídej stručně a konkrétně pro daný model motorky.`;
 // Hlavička s aktuálním datem (Europe/Prague) — počítá se PER REQUEST a připojuje k system
 // promptu v index.ts. Bez ní model hádal rok z trénovacích dat (reálná konverzace: zákazník
 // chtěl „neděli 19. 7." r. 2026, agent tvrdil „neděle je fakticky sobota 19. 7. 2025" a
 // nacenil sobotním ceníkem). Stejný princip jako „DNES JE" v ai-public-agent.
-export function buildDateHeader(): string {
-  const now = new Date()
-  const fmtIso = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Prague', year: 'numeric', month: '2-digit', day: '2-digit' })
-  const fmtCsLong = new Intl.DateTimeFormat('cs-CZ', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Prague' })
-  const fmtCs = new Intl.DateTimeFormat('cs-CZ', { weekday: 'long', day: 'numeric', month: 'numeric', year: 'numeric', timeZone: 'Europe/Prague' })
-  const label = (d: Date) => `${fmtIso.format(d)} (${fmtCs.format(d)})`
-  const add = (n: number) => new Date(now.getTime() + n * 86_400_000)
-  const dowMap: Record<string, number> = { Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6, Sun: 7 }
-  const dow = dowMap[new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: 'Europe/Prague' }).format(now)] || 1
-  const satOff = dow <= 5 ? 6 - dow : dow === 6 ? 0 : -1
+export function buildDateHeader() {
+  const now = new Date();
+  const fmtIso = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Prague',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+  const fmtCsLong = new Intl.DateTimeFormat('cs-CZ', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'Europe/Prague'
+  });
+  const fmtCs = new Intl.DateTimeFormat('cs-CZ', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'numeric',
+    year: 'numeric',
+    timeZone: 'Europe/Prague'
+  });
+  const label = (d)=>`${fmtIso.format(d)} (${fmtCs.format(d)})`;
+  const add = (n)=>new Date(now.getTime() + n * 86_400_000);
+  const dowMap = {
+    Mon: 1,
+    Tue: 2,
+    Wed: 3,
+    Thu: 4,
+    Fri: 5,
+    Sat: 6,
+    Sun: 7
+  };
+  const dow = dowMap[new Intl.DateTimeFormat('en-US', {
+    weekday: 'short',
+    timeZone: 'Europe/Prague'
+  }).format(now)] || 1;
+  const satOff = dow <= 5 ? 6 - dow : dow === 6 ? 0 : -1;
   return `
 
 ## DNES JE ${fmtCsLong.format(now)} (ISO ${fmtIso.format(now)}, Europe/Prague) — JEDINÝ zdroj pravdy o aktuálním datu.
 - Dnes: ${label(now)} | Zítra: ${label(add(1))} | Tento víkend: ${label(add(satOff))} + ${label(add(satOff + 1))}
 - Rok ani den v týdnu NIKDY nehádej z hlavy ani z trénovacích dat — vždy vycházej z těchto hodnot. Když zákazník řekne datum bez roku (např. „19. 7."), platí AKTUÁLNÍ rok z hlavičky (příští rok jen pokud datum letos už proběhlo).
-- Den v týdnu k datu urči VÝHRADNĚ z ISO kalendáře aktuálního roku. NIKDY zákazníka „neopravuj" na jiný den v týdnu podle jiného roku; pokud jeho datum a den v týdnu opravdu nesedí ani v aktuálním roce, zdvořile se doptej, co platí.`
+- Den v týdnu k datu urči VÝHRADNĚ z ISO kalendáře aktuálního roku. NIKDY zákazníka „neopravuj" na jiný den v týdnu podle jiného roku; pokud jeho datum a den v týdnu opravdu nesedí ani v aktuálním roce, zdvořile se doptej, co platí.`;
 }
-
-const TONE_MAP: Record<string, string> = {
+const TONE_MAP = {
   friendly: 'Komunikuj přátelsky a neformálně, buď vlídný a vstřícný.',
   professional: 'Komunikuj profesionálně a formálně, buď věcný a stručný.',
   concise: 'Odpovídej maximálně stručně — krátké, jasné věty bez zbytečností.',
-  detailed: 'Poskytuj podrobná vysvětlení s kontextem a pozadím problému.',
-}
-
-export interface AgentConfig {
-  persona_name?: string
-  system_prompt?: string
-  situations?: string[]
-  forbidden?: string[]
-  mustDo?: string[]
-  tone?: string
-  max_tokens?: number
-  enabled?: boolean
-  knowledge_extra?: string  // freetext z Velínu (AppAgentSettingsPanel „Aktuální znalosti") — inject do promptu
-}
-
-export async function loadAgentConfig(supabaseAdmin: SupabaseClient): Promise<AgentConfig | null> {
+  detailed: 'Poskytuj podrobná vysvětlení s kontextem a pozadím problému.'
+};
+export async function loadAgentConfig(supabaseAdmin) {
   try {
-    const { data, error } = await supabaseAdmin
-      .from('app_settings')
-      .select('value')
-      .eq('key', 'ai_moto_agent_config')
-      .single()
-
-    if (error || !data?.value) return null
-    return data.value as AgentConfig
-  } catch {
-    return null
+    const { data, error } = await supabaseAdmin.from('app_settings').select('value').eq('key', 'ai_moto_agent_config').single();
+    if (error || !data?.value) return null;
+    return data.value;
+  } catch  {
+    return null;
   }
 }
-
-export function buildSystemPrompt(config: AgentConfig | null): string {
-  if (!config || !config.enabled) return FALLBACK_SYSTEM_PROMPT
-
-  let prompt = ''
-
+export function buildSystemPrompt(config) {
+  if (!config || !config.enabled) return FALLBACK_SYSTEM_PROMPT;
+  let prompt = '';
   if (config.persona_name) {
-    prompt += `Jsi ${config.persona_name} pro MotoGo24 — půjčovnu motorek.\n\n`
+    prompt += `Jsi ${config.persona_name} pro MotoGo24 — půjčovnu motorek.\n\n`;
   }
-
   if (config.system_prompt) {
-    prompt += config.system_prompt
+    prompt += config.system_prompt;
   } else {
-    prompt += FALLBACK_SYSTEM_PROMPT
+    prompt += FALLBACK_SYSTEM_PROMPT;
   }
-
   if (config.tone && TONE_MAP[config.tone]) {
-    prompt += `\n\n## TÓN KOMUNIKACE:\n${TONE_MAP[config.tone]}`
+    prompt += `\n\n## TÓN KOMUNIKACE:\n${TONE_MAP[config.tone]}`;
   }
-
   if (config.situations && config.situations.length > 0) {
-    prompt += '\n\n## SITUAČNÍ PRAVIDLA:'
-    for (const s of config.situations) prompt += `\n- ${s}`
+    prompt += '\n\n## SITUAČNÍ PRAVIDLA:';
+    for (const s of config.situations)prompt += `\n- ${s}`;
   }
-
   if (config.mustDo && config.mustDo.length > 0) {
-    prompt += '\n\n## VŽDY MUSÍ UDĚLAT:'
-    for (const m of config.mustDo) prompt += `\n- ✅ ${m}`
+    prompt += '\n\n## VŽDY MUSÍ UDĚLAT:';
+    for (const m of config.mustDo)prompt += `\n- ✅ ${m}`;
   }
-
   if (config.forbidden && config.forbidden.length > 0) {
-    prompt += '\n\n## ZAKÁZÁNO:'
-    for (const f of config.forbidden) prompt += `\n- ❌ ${f}`
+    prompt += '\n\n## ZAKÁZÁNO:';
+    for (const f of config.forbidden)prompt += `\n- ❌ ${f}`;
   }
-
   // „Aktuální znalosti" z Velínu (sezonní info, známé vady konkrétních strojů, ad-hoc pokyny).
   // Panel je ukládá do knowledge_extra a slibuje okamžitou platnost — dosud je edge fn NEČETLA.
   if (config.knowledge_extra && config.knowledge_extra.trim()) {
-    prompt += '\n\n## AKTUÁLNÍ ZNALOSTI Z VELÍNU (ad-hoc info od provozovatele — při kolizi má přednost před ostatními pravidly):\n' + config.knowledge_extra.trim()
+    prompt += '\n\n## AKTUÁLNÍ ZNALOSTI Z VELÍNU (ad-hoc info od provozovatele — při kolizi má přednost před ostatními pravidly):\n' + config.knowledge_extra.trim();
   }
-
   prompt += `
 
 ## TVOJE ROLE: technická podpora a pomocník (NE prodejce)
@@ -262,20 +257,17 @@ Na konci každé odpovědi přidej JSON blok:
 ---END---
 suggest_sos: true pokud je závada vážná a zákazník by měl kontaktovat SOS.
 
-Výchozí jazyk je čeština; když zákazník píše jiným jazykem, odpověz JEHO jazykem (nikdy nemíchej dva jazyky v jedné odpovědi).`
-
-  return prompt
+Výchozí jazyk je čeština; když zákazník píše jiným jazykem, odpověz JEHO jazykem (nikdy nemíchej dva jazyky v jedné odpovědi).`;
+  return prompt;
 }
-
-export function formatBookingContext(b: Record<string, unknown>, otherBookings: Array<Record<string, unknown>> | null): string {
-  const m = b.motorcycles as Record<string, unknown> | null
+export function formatBookingContext(b, otherBookings) {
+  const m = b.motorcycles;
   if (!m) {
     return `\n\n## KONTEXT REZERVACE:
-Zákazník má rezervaci #${(b.id as string).slice(-8).toUpperCase()} (stav: ${b.status}), ale detaily motorky se nepodařilo načíst. Použij nástroj get_active_booking pro zjištění detailů.`
+Zákazník má rezervaci #${b.id.slice(-8).toUpperCase()} (stav: ${b.status}), ale detaily motorky se nepodařilo načíst. Použij nástroj get_active_booking pro zjištění detailů.`;
   }
-
   let ctx = `\n\n## KONTEXT REZERVACE (reálná data z DB — toto je PRAVDA):
-- Rezervace #${(b.id as string).slice(-8).toUpperCase()}
+- Rezervace #${b.id.slice(-8).toUpperCase()}
 - Stav: ${b.status}
 - Stav platby: ${b.payment_status || '?'}
 - Motorka: ${m.brand || '?'} ${m.model || '?'}
@@ -296,27 +288,24 @@ Zákazník má rezervaci #${(b.id as string).slice(-8).toUpperCase()} (stav: ${b
 - Vrácení: ${b.return_method || '?'} ${b.return_address ? '(' + b.return_address + ')' : ''}
 - Pojištění: ${b.insurance_type || 'N/A'}
 
-DŮLEŽITÉ: Zákazník má AKTIVNÍ motorku "${m.brand} ${m.model}". Veškeré odpovědi MUSÍ být pro tento konkrétní model. NIKDY nezmiňuj jinou motorku.`
-
+DŮLEŽITÉ: Zákazník má AKTIVNÍ motorku "${m.brand} ${m.model}". Veškeré odpovědi MUSÍ být pro tento konkrétní model. NIKDY nezmiňuj jinou motorku.`;
   if (otherBookings && otherBookings.length > 0) {
-    ctx += `\n\nZákazník má také nadcházející rezervace:`
-    for (const ob of otherBookings) {
-      const om = ob.motorcycles as Record<string, unknown> | null
-      ctx += `\n- #${(ob.id as string).slice(-8).toUpperCase()}: ${om ? (om.brand + ' ' + om.model) : '?'} (${ob.status}, ${ob.start_date} – ${ob.end_date})`
+    ctx += `\n\nZákazník má také nadcházející rezervace:`;
+    for (const ob of otherBookings){
+      const om = ob.motorcycles;
+      ctx += `\n- #${ob.id.slice(-8).toUpperCase()}: ${om ? om.brand + ' ' + om.model : '?'} (${ob.status}, ${ob.start_date} – ${ob.end_date})`;
     }
-    ctx += `\nAle tyto rezervace NEJSOU aktivní — odpovídej pouze o aktuálně aktivní motorce.`
+    ctx += `\nAle tyto rezervace NEJSOU aktivní — odpovídej pouze o aktuálně aktivní motorce.`;
   }
-
-  return ctx
+  return ctx;
 }
-
-export function formatMultipleBookingsContext(bookings: Array<Record<string, unknown>>): string {
+export function formatMultipleBookingsContext(bookings) {
   let ctx = `\n\n## KONTEXT REZERVACE — VÍCE REZERVACÍ:
-Zákazník má více rezervací, žádná zatím nemá stav "active". MUSÍŠ se nejdříve ZEPTAT, o kterou motorku/rezervaci jde:\n`
-  for (const b of bookings) {
-    const m = b.motorcycles as Record<string, unknown> | null
-    ctx += `- #${(b.id as string).slice(-8).toUpperCase()}: ${m ? (m.brand + ' ' + m.model) : '?'} (${b.status}, ${b.start_date} – ${b.end_date})\n`
+Zákazník má více rezervací, žádná zatím nemá stav "active". MUSÍŠ se nejdříve ZEPTAT, o kterou motorku/rezervaci jde:\n`;
+  for (const b of bookings){
+    const m = b.motorcycles;
+    ctx += `- #${b.id.slice(-8).toUpperCase()}: ${m ? m.brand + ' ' + m.model : '?'} (${b.status}, ${b.start_date} – ${b.end_date})\n`;
   }
-  ctx += `\nDŮLEŽITÉ: NIKDY nepředpokládej, o kterou motorku jde. Vždy se ZEPTEJ: "Vidím, že máte více rezervací: [seznam]. O kterou motorku se jedná?"`
-  return ctx
+  ctx += `\nDŮLEŽITÉ: NIKDY nepředpokládej, o kterou motorku jde. Vždy se ZEPTEJ: "Vidím, že máte více rezervací: [seznam]. O kterou motorku se jedná?"`;
+  return ctx;
 }
