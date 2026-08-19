@@ -227,7 +227,9 @@ export async function createInvoice({ type, customer_id, booking_id, order_id, i
     await supabase.from('admin_audit_log').insert({
       admin_id: user?.id,
       action: 'invoice_created',
-      details: { invoice_id: data.id, number, type, source },
+      // `data.number` — proměnná `number` žila jen uvnitř retry smyčky; odkaz na ni
+      // tady házel ReferenceError a celý audit insert se tiše zahazoval.
+      details: { invoice_id: data.id, number: data.number, type, source },
     })
   } catch {} // non-blocking
 

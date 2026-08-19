@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { supabase } from '../../lib/supabase'
+import { debugLog, debugError } from '../../lib/debugLog'
 import { createInvoice, calculateTotals, renderAndStoreInvoicePdf } from '../../lib/invoiceUtils'
 import Modal from '../../components/ui/Modal'
 import Button from '../../components/ui/Button'
@@ -193,11 +194,13 @@ export default function InvoiceCreateModal({ onClose, onSaved, prefillBooking })
         payment,
       })
 
+      debugLog('InvoiceCreateModal', 'created', { invoice_id: invoice.id, number: invoice.number, type: form.type, issue_date: form.issue_date })
+
       // Odečíst vydané kusy ze skladu (neblokující — doklad zůstává platný i kdyby sklad selhal)
       try { await decrementStock() } catch (e) { console.warn('[InvoiceCreate] decrementStock failed:', e?.message) }
 
       // Vyrenderovat a uložit PDF, aby ho mail mohl přiložit jako přílohu
-      try { await renderAndStoreInvoicePdf(invoice.id) } catch (e) { console.warn('[InvoiceCreate] renderAndStoreInvoicePdf failed:', e?.message) }
+      try { await renderAndStoreInvoicePdf(invoice.id) } catch (e) { debugError('InvoiceCreateModal', 'render_pdf', e, { invoice_id: invoice.id }) }
 
       // Odeslat zákazníkovi (s PDF přílohou — pdf_path už je uložen).
       // Přes `send-invoice-email`, aby se použila e-mailová ŠABLONA z Velína
@@ -212,8 +215,11 @@ export default function InvoiceCreateModal({ onClose, onSaved, prefillBooking })
               body: { invoice_id: invoice.id, customer_email: customer.email, customer_name: customer.full_name, invoice_number: invoice.number },
             })
             if (efErr || (efData && efData.success === false)) {
+              debugError('InvoiceCreateModal', 'send_email', efErr || new Error(efData?.error || 'send-invoice-email vrátil success=false'), { invoice_id: invoice.id })
+              // POZOR: sloupec recipient_id v živé sent_emails NEEXISTUJE — nesmí
+              // se posílat, jinak celý fallback insert tiše spadne.
               await supabase.from('sent_emails').insert({
-                template_slug: 'invoice', recipient_email: customer.email, recipient_id: form.customer_id,
+                template_slug: 'invoice', recipient_email: customer.email,
                 booking_id: form.booking_id || null, subject: `Faktura ${invoice.number} — MotoGo24`,
                 body_html: `<p>Dobrý den, byla Vám vystavena faktura č. ${invoice.number} na částku ${fmt(total)}.</p>`,
                 status: 'queued',
@@ -223,7 +229,10 @@ export default function InvoiceCreateModal({ onClose, onSaved, prefillBooking })
         }
       }
       onSaved()
-    } catch (e) { setErr(e.message) } finally { setSaving(false) }
+    } catch (e) {
+      debugError('InvoiceCreateModal', 'create_failed', e, { type: form.type, issue_date: form.issue_date })
+      setErr(e.message)
+    } finally { setSaving(false) }
   }
 
   return (
