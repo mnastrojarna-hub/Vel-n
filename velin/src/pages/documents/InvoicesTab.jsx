@@ -10,6 +10,7 @@ import Pagination from '../../components/ui/Pagination'
 import ConfirmDialog from '../../components/ui/ConfirmDialog'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 import { summarizeInvoices } from '../../lib/revenueUtils'
+import { applyInvoiceSearch } from '../../lib/invoiceSearch'
 import InvoiceCreateModal from '../accounting/InvoiceCreateModal'
 import InvoicePreviewModal from './InvoicePreviewModal'
 
@@ -88,7 +89,8 @@ export default function InvoicesTab() {
         query = query.in('type', expandedTypes)
       }
       if (filters.statuses?.length > 0) query = query.in('status', filters.statuses)
-      if (filters.search) query = query.or(`number.ilike.%${filters.search}%`)
+      // Sdílené hledání: číslo dokladu, VS, jméno (snapshot i profiles) — viz lib/invoiceSearch
+      query = await applyInvoiceSearch(query, filters.search)
       query = query.range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
 
       const { data, count, error: err } = await debugAction('invoices.list', 'DocInvoicesTab', () => query)
