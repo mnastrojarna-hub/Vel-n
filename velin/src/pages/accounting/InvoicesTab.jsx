@@ -54,6 +54,10 @@ export default function InvoicesTab() {
   })
   useEffect(() => { localStorage.setItem('velin_acc_invoices_filters', JSON.stringify(filters)) }, [filters])
   const [showAdd, setShowAdd] = useState(false)
+  // Potvrzení posledního ručně vytvořeného dokladu — s datem vystavení v minulosti
+  // se řádek zařadí hlouběji do seznamu (řazení dle data vystavení) a bez potvrzení
+  // to vypadá, že se doklad neuložil.
+  const [savedInv, setSavedInv] = useState(null)
   const [detailInv, setDetailInv] = useState(null)
   const [selectedIds, setSelectedIds] = useState(new Set())
 
@@ -71,7 +75,17 @@ export default function InvoicesTab() {
         const expandedTypes = filters.types.includes('advance') ? [...filters.types, 'proforma'] : filters.types
         query = query.in('type', expandedTypes)
       }
-      if (filters.search) query = query.or(`number.ilike.%${filters.search}%`)
+      if (filters.search) {
+        // Hledá číslo dokladu, VS, jméno ze snapshotu i zákazníka dle profilu
+        // (placeholder „Hledat číslo, zákazníka…" dřív lhal — hledalo se JEN číslo).
+        const s = filters.search.trim().replace(/[(),]/g, ' ')
+        const ors = [`number.ilike.%${s}%`, `variable_symbol.ilike.%${s}%`, `customer_snapshot->>name.ilike.%${s}%`]
+        try {
+          const { data: profs } = await supabase.from('profiles').select('id').ilike('full_name', `%${s}%`).limit(50)
+          if (profs?.length) ors.push(`customer_id.in.(${profs.map(p => p.id).join(',')})`)
+        } catch {}
+        query = query.or(ors.join(','))
+      }
       query = query.order(filters.sort.startsWith('amount') ? 'total' : 'issue_date', { ascending: filters.sort.endsWith('_asc'), nullsFirst: false }).range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
       const { data, count, error: err } = await debugAction('invoices.list', 'AccInvoicesTab', () => query)
       if (err) throw err
@@ -198,6 +212,22 @@ export default function InvoicesTab() {
 
       {error && <div className="mb-4 p-3 rounded-card" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>{error}</div>}
 
+      {savedInv && (
+        <div className="mb-4 p-3 rounded-card flex flex-wrap items-center justify-between gap-2"
+          style={{ background: '#e8fde8', border: '1px solid #74FB71', color: '#1a2e22', fontSize: 13 }}>
+          <span>
+            ✓ Faktura <strong>{savedInv.number}</strong> vytvořena — vystavení{' '}
+            {savedInv.issue_date ? new Date(savedInv.issue_date).toLocaleDateString('cs-CZ') : '—'}, {fmt(savedInv.total)}.
+            Seznam je řazen dle data vystavení, doklad se zpětným datem je proto níže.
+          </span>
+          <span className="flex items-center gap-2">
+            <SmallBtn onClick={() => setDetailInv(savedInv)}>Detail</SmallBtn>
+            <button onClick={() => setSavedInv(null)} className="cursor-pointer"
+              style={{ background: 'none', border: 'none', color: '#1a2e22', fontSize: 14 }}>✕</button>
+          </span>
+        </div>
+      )}
+
       {loading ? (
         <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
       ) : (
@@ -252,7 +282,7 @@ export default function InvoicesTab() {
         </>
       )}
 
-      {showAdd && <InvoiceCreateModal onClose={() => setShowAdd(false)} onSaved={() => { setShowAdd(false); load() }} />}
+      {showAdd && <InvoiceCreateModal onClose={() => setShowAdd(false)} onSaved={(inv) => { setShowAdd(false); setSavedInv(inv || null); load() }} />}
 
       {detailInv && (
         <Modal open title={`Faktura ${detailInv.number || '—'}`} onClose={() => setDetailInv(null)}>

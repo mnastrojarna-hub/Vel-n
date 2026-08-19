@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { supabase } from '../../lib/supabase'
 import { debugLog, debugError } from '../../lib/debugLog'
-import { createInvoice, calculateTotals, renderAndStoreInvoicePdf } from '../../lib/invoiceUtils'
+import { createInvoice, calculateTotals, renderAndStoreInvoicePdf, generateInvoiceNumber } from '../../lib/invoiceUtils'
 import Modal from '../../components/ui/Modal'
 import Button from '../../components/ui/Button'
 
@@ -59,6 +59,17 @@ export default function InvoiceCreateModal({ onClose, onSaved, prefillBooking })
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState(null)
   const [showStock, setShowStock] = useState(false)
+  // Náhled čísla dokladu ruční řady (5001+) pro zvolený typ — VS = číslo dokladu,
+  // takže uživatel vidí obojí dopředu (skutečné číslo se přidělí až při uložení).
+  const [nextNumber, setNextNumber] = useState('')
+  useEffect(() => {
+    let cancelled = false
+    setNextNumber('')
+    generateInvoiceNumber(form.type, true)
+      .then(n => { if (!cancelled) setNextNumber(n) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [form.type])
   // Odpočty (DP/ZF) přijaté platby pro vybranou rezervaci — doklad k úhradě 0 Kč.
   const [deductibles, setDeductibles] = useState([])
 
@@ -228,7 +239,7 @@ export default function InvoiceCreateModal({ onClose, onSaved, prefillBooking })
           } catch {}
         }
       }
-      onSaved()
+      onSaved(invoice)
     } catch (e) {
       debugError('InvoiceCreateModal', 'create_failed', e, { type: form.type, issue_date: form.issue_date })
       setErr(e.message)
@@ -393,7 +404,8 @@ export default function InvoiceCreateModal({ onClose, onSaved, prefillBooking })
           <div>
             <Label>Variabilní symbol</Label>
             <input value={form.variable_symbol} onChange={e => set('variable_symbol', e.target.value)}
-              className="w-full rounded-btn text-sm outline-none" style={inputStyle} placeholder="Výchozí = číslo dokladu" />
+              className="w-full rounded-btn text-sm outline-none" style={inputStyle}
+              placeholder={nextNumber ? `Auto = ${nextNumber}` : 'Výchozí = číslo dokladu'} />
           </div>
           <div>
             <Label>Datum úhrady</Label>
