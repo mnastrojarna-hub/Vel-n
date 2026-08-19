@@ -63,8 +63,10 @@ export function listAccessoryItems(booking, moto) {
     { key: 'gloves', label: 'Rukavice' },
   ]
   const out = []
-  for (const d of defs) { const s = booking?.[`${d.key}_size`]; if (s) out.push({ label: `${d.label} (řidič)${suffix}`, size: String(s) }) }
-  for (const d of defs) { const s = booking?.[`passenger_${d.key}_size`]; if (s) out.push({ label: `${d.label} (spolujezdec)${suffix}`, size: String(s) }) }
+  // `type` + `field` nese vazbu na fyzický typ výbavy a size sloupec v bookings —
+  // elektronický protokol přes ně propisuje změněnou velikost zpět do rezervace.
+  for (const d of defs) { const s = booking?.[`${d.key}_size`]; if (s) out.push({ label: `${d.label} (řidič)${suffix}`, size: String(s), type: d.key, field: `${d.key}_size` }) }
+  for (const d of defs) { const s = booking?.[`passenger_${d.key}_size`]; if (s) out.push({ label: `${d.label} (spolujezdec)${suffix}`, size: String(s), type: d.key, field: `passenger_${d.key}_size` }) }
   return out
 }
 
