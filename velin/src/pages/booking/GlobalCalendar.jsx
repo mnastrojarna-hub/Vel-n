@@ -21,6 +21,10 @@ export default function GlobalCalendar() {
   const [loading, setLoading] = useState(true)
   const [selectedDay, setSelectedDay] = useState(null)
   const [showFree, setShowFree] = useState(false)
+  // Skrýt testovací rezervace (is_test) z kalendáře — jen pohled admina;
+  // pro zákazníky (web/app přes get_moto_booked_dates) zůstávají obsazené vždy.
+  const [hideTest, setHideTest] = useState(() => localStorage.getItem('velin_calendar_hide_test') === '1')
+  useEffect(() => { localStorage.setItem('velin_calendar_hide_test', hideTest ? '1' : '0') }, [hideTest])
 
   useEffect(() => { loadData() }, [month])
 
@@ -35,7 +39,7 @@ export default function GlobalCalendar() {
       // trailer_moto_id = kus přiřazený jako příslušenství „Vozík" — blokuje
       // jeho kalendář stejně jako přímá rezervace (parita s get_moto_booked_dates).
       supabase.from('bookings')
-        .select('id, start_date, end_date, status, moto_id, trailer_moto_id, profiles(full_name), motorcycles!moto_id(model, spz), trailer:motorcycles!trailer_moto_id(model, spz), total_price')
+        .select('id, start_date, end_date, status, moto_id, trailer_moto_id, is_test, profiles(full_name), motorcycles!moto_id(model, spz), trailer:motorcycles!trailer_moto_id(model, spz), total_price')
         .in('status', ['pending', 'active', 'reserved', 'completed'])
         .gte('end_date', startStr).lte('start_date', endStr),
       supabase.from('motorcycles').select('id, model, spz, branch_id, branches(name)').eq('status', 'active'),
@@ -52,9 +56,11 @@ export default function GlobalCalendar() {
   const todayStr = localIso(new Date())
   const totalMotos = motos.length || 1
 
+  const visibleBookings = hideTest ? bookings.filter(b => !b.is_test) : bookings
+
   function getDayBookings(day) {
     const dateStr = `${year}-${String(mon + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-    return bookings.filter(b => dateStr >= b.start_date.split('T')[0] && dateStr <= b.end_date.split('T')[0])
+    return visibleBookings.filter(b => dateStr >= b.start_date.split('T')[0] && dateStr <= b.end_date.split('T')[0])
   }
 
   function getDayInfo(day) {
@@ -80,11 +86,17 @@ export default function GlobalCalendar() {
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
       <div className="lg:col-span-2">
         <Card>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
             <button onClick={prevMonth} style={navBtnStyle}>←</button>
             <span style={{ fontWeight: 800, fontSize: 15 }}>{MONTHS_FULL[mon]} {year}</span>
             <button onClick={nextMonth} style={navBtnStyle}>→</button>
           </div>
+          <label className="flex items-center gap-1.5 cursor-pointer mb-3 text-sm font-extrabold uppercase tracking-wide"
+            title="Skrýt testovací rezervace z kalendáře — pro zákazníky na webu/v appce zůstávají obsazené"
+            style={{ color: hideTest ? '#1a8a18' : '#1a2e22', width: 'fit-content' }}>
+            <input type="checkbox" checked={hideTest} onChange={e => setHideTest(e.target.checked)} className="accent-[#1a8a18]" />
+            Skrýt testovací
+          </label>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 3 }}>
             {DAYS.map(d => (
               <div key={d} style={{ textAlign: 'center', fontSize: 13, fontWeight: 800, color: '#1a2e22', padding: 4 }}>{d}</div>
@@ -129,6 +141,7 @@ export default function GlobalCalendar() {
                         <span className="font-bold text-sm">{b.motorcycles?.model || '—'}</span>
                         <span className="text-sm font-mono" style={{ color: '#1a2e22' }}>{b.motorcycles?.spz}</span>
                         <StatusBadge status={getDisplayStatus(b)} />
+                        {b.is_test && <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded-btn" title="Testovací rezervace (obsazenost kalendáře)" style={{ background: '#f3e8ff', color: '#7c3aed' }}>TEST</span>}
                       </div>
                       <div className="text-sm" style={{ color: '#1a2e22' }}>
                         {b.profiles?.full_name || 'Zákazník'}

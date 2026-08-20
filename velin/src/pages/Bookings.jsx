@@ -43,7 +43,7 @@ export default function Bookings() {
     paymentStatuses: [], customer: '', motoModel: '', branch: '',
     priceMin: '', priceMax: '', durationMin: '', durationMax: '',
     hasInvoice: '', hasContract: '', country: '', licenseGroup: '',
-    sortBy: 'start_date', sortDir: 'desc', futureOnly: false
+    sortBy: 'start_date', sortDir: 'desc', futureOnly: false, hideTest: false
   }
   const [filters, setFilters] = useState(() => {
     try {
@@ -146,6 +146,8 @@ export default function Bookings() {
         if (filters.priceMin) query = query.gte('total_price', Number(filters.priceMin))
         if (filters.priceMax) query = query.lte('total_price', Number(filters.priceMax))
         if (filters.futureOnly) query = query.gte('start_date', localIso(new Date()))
+        // Skrýt testovací rezervace (is_test) — NULL/false = reálná, projde vždy
+        if (filters.hideTest) query = query.not('is_test', 'is', true)
         if (searchOr) query = query.or(searchOr)
         return query.order(filters.sortBy, { ascending: filters.sortDir === 'asc' })
           .range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
@@ -210,7 +212,7 @@ export default function Bookings() {
   const fmtDateRange = d => d ? new Date(d).toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric', year: 'numeric' }) : '—'
   const setF = (k, v) => { setPage(1); setFilters(f => ({ ...f, [k]: v })) }
   const activeFilterCount = Object.entries(filters).filter(([k, v]) => {
-    if (['search', 'sortBy', 'sortDir', 'futureOnly'].includes(k)) return false
+    if (['search', 'sortBy', 'sortDir', 'futureOnly', 'hideTest'].includes(k)) return false
     if (Array.isArray(v)) return v.length > 0
     return !!v
   }).length
@@ -266,6 +268,12 @@ export default function Bookings() {
               style={{ padding: '8px 14px', background: filters.futureOnly ? '#74FB71' : '#f1faf7', border: '1px solid #d4e8e0', color: filters.futureOnly ? '#1a2e22' : '#1a2e22' }}>
               <input type="checkbox" checked={filters.futureOnly} onChange={e => setF('futureOnly', e.target.checked)} className="accent-[#1a8a18]" />
               Jen budoucí
+            </label>
+            <label className="flex items-center gap-1.5 cursor-pointer rounded-btn text-sm font-extrabold uppercase tracking-wide"
+              title="Skrýt testovací rezervace (obsazenost kalendáře) — pro zákazníky na webu/v appce zůstávají viditelné"
+              style={{ padding: '8px 14px', background: filters.hideTest ? '#74FB71' : '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
+              <input type="checkbox" checked={filters.hideTest} onChange={e => setF('hideTest', e.target.checked)} className="accent-[#1a8a18]" />
+              Skrýt testovací
             </label>
             <button onClick={() => setShowFilters(!showFilters)}
               className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"

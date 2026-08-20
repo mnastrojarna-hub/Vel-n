@@ -86,6 +86,7 @@ export default function BookingsTable({ bookings, navigate, fmtDateRange, dpTota
                 <StatusBadge status={getDisplayStatus(b)} />
                 {/* Navazující rezervace (stejný zákazník + motorka, termín den po dni) = prezentuje se jako prodloužení, ne nová */}
                 {b.extends_booking_id && <span className="ml-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-btn" title={`Navazuje na rezervaci #${b.extends_booking_id.slice(-8).toUpperCase()} — úprava/prodloužení, ne nová rezervace`} style={{ background: '#e0e7ff', color: '#4338ca' }}>PRODLOUŽENÍ</span>}
+                {b.is_test && <span className="ml-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-btn" title="Testovací rezervace (obsazenost kalendáře) — pro zákazníky viditelná jako obsazeno" style={{ background: '#f3e8ff', color: '#7c3aed' }}>TEST</span>}
                 {b.sos_replacement && <span className="ml-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-btn" style={{ background: '#dcfce7', color: '#1a8a18' }}>SOS</span>}
                 {b.ended_by_sos && <span className="ml-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-btn" style={{ background: '#fee2e2', color: '#b91c1c' }}>SOS</span>}
                 {b.complaint_status && <span className="ml-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-btn" style={{ background: '#fef3c7', color: '#92400e' }}>RKL</span>}

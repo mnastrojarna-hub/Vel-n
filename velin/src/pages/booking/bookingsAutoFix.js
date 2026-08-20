@@ -53,6 +53,7 @@ async function _autoActivateReserved() {
     const today = localIso(new Date())
     const { data: ready } = await supabase.from('bookings').select('id, user_id')
       .eq('status', 'reserved').eq('payment_status', 'paid')
+      .not('is_test', 'is', true) // testovací rezervace se nikdy neaktivují (parita se SQL cronem)
       .lte('start_date', today)
     if (!ready || !ready.length) return
 
@@ -101,6 +102,7 @@ async function _autoFixPendingPaid() {
     const today = localIso(new Date())
     const { data: stuck } = await supabase.from('bookings').select('id, start_date')
       .eq('status', 'pending').eq('payment_status', 'paid')
+      .not('is_test', 'is', true) // testovací rezervace nechat na pokoji
     if (stuck && stuck.length > 0) {
       for (const b of stuck) {
         const startLocal = b.start_date ? b.start_date.slice(0, 10) : ''
@@ -121,6 +123,7 @@ async function _autoGenerateKF() {
     const today = localIso(new Date())
     const { data: expired } = await supabase.from('bookings').select('id, status, end_date')
       .in('status', ['active', 'reserved', 'completed']).eq('payment_status', 'paid')
+      .not('is_test', 'is', true) // testovací rezervace nikdy negenerují KF
       .lt('end_date', today)
     if (!expired || expired.length === 0) return
     for (const b of expired) {
