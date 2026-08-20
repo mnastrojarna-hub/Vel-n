@@ -59,7 +59,7 @@ export default function PromoCodes() {
   const [selectedIds, setSelectedIds] = useState(new Set())
 
   useEffect(() => { loadCodes() }, [page, filters])
-  useEffect(() => { autoExpirePromos(); loadSummary() }, [])
+  useEffect(() => { autoExpirePromos(); autoDeactivateExhausted(); loadSummary() }, [])
 
   async function autoExpirePromos() {
     try {
@@ -68,6 +68,23 @@ export default function PromoCodes() {
         .eq('active', true)
         .lt('valid_to', new Date().toISOString().slice(0, 10))
     } catch (e) { console.warn('Auto-expire promos error:', e) }
+  }
+
+  // Kód uplatněný tolikrát, kolik dovoluje max_uses → automaticky neaktivní.
+  // PostgREST neumí porovnat dva sloupce, proto select kandidátů + update dle id.
+  async function autoDeactivateExhausted() {
+    try {
+      const { data } = await supabase.from('promo_codes')
+        .select('id, used_count, max_uses')
+        .eq('active', true)
+        .not('max_uses', 'is', null)
+        .gt('used_count', 0)
+      const ids = (data || []).filter(c => (c.used_count || 0) >= c.max_uses).map(c => c.id)
+      if (ids.length) {
+        await supabase.from('promo_codes').update({ active: false }).in('id', ids)
+        loadCodes(); loadSummary()
+      }
+    } catch (e) { console.warn('Auto-deactivate exhausted promos error:', e) }
   }
 
   async function loadCodes() {
