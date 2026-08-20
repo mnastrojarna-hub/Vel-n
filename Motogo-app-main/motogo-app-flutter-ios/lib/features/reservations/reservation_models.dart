@@ -410,12 +410,14 @@ class ModificationEntry {
   bool get hasReturnTimeChange =>
       toReturnTime != null && _hm(fromReturnTime) != _hm(toReturnTime);
   bool get hasGearChange => gearChanges.isNotEmpty;
+  // Metody sémanticky (pobočka↔adresa) — DB drží synonyma pobočky
+  // ('store'/'pickup'/'branch'/'rental'), přejmenování synonyma není změna.
   bool get hasPickupMethodChange =>
       fromPickupMethod != null && toPickupMethod != null &&
-      fromPickupMethod != toPickupMethod;
+      (fromPickupMethod == 'delivery') != (toPickupMethod == 'delivery');
   bool get hasReturnMethodChange =>
       fromReturnMethod != null && toReturnMethod != null &&
-      fromReturnMethod != toReturnMethod;
+      (fromReturnMethod == 'delivery') != (toReturnMethod == 'delivery');
   bool get hasPickupAddressChange =>
       fromPickupAddress != null && toPickupAddress != null &&
       fromPickupAddress != toPickupAddress;

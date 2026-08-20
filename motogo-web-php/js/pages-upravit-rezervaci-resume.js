@@ -90,8 +90,11 @@
         if (evt) fire(f, evt);
       }
       // Pořadí: nejdřív způsob (zobrazí panel s adresou) a souřadnice, pak adresa.
-      setRadio('pickup', ui.p_new_pickup_method);
-      setRadio('returnM', ui.p_new_return_method);
+      // DB hodnoty metod nejsou jednotné ('store'/'branch'/'rental'/… = pobočka),
+      // karty mají value jen 'pickup'/'delivery' — synonyma mapuj na 'pickup'.
+      function locRadioVal(v) { return v ? (v === 'delivery' ? 'delivery' : 'pickup') : v; }
+      setRadio('pickup', locRadioVal(ui.p_new_pickup_method));
+      setRadio('returnM', locRadioVal(ui.p_new_return_method));
       setVal('pickupLat', ui.p_new_pickup_lat);
       setVal('pickupLng', ui.p_new_pickup_lng);
       setVal('returnLat', ui.p_new_return_lat);

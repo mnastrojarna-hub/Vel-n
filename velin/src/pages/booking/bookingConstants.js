@@ -85,9 +85,11 @@ const GEAR_CHANGE_LABELS = {
   passenger_gloves: 'Rukavice spolujezdce',
 }
 
-const METHOD_CHANGE_LABELS = {
-  delivery: 'přistavení na adresu', pickup_at_rental: 'na pobočce', return_to_rental: 'na pobočce', branch: 'na pobočce',
-}
+// DB hodnoty metod nejsou jednotné: pobočku značí 'store'/'pickup'/'branch'/
+// 'rental'/'pickup_at_rental'/'return_to_rental'/NULL, adresu jen 'delivery'.
+// Přejmenování synonyma (např. store → pickup z webové editace) NENÍ změna místa.
+const _locKind = m => m === 'delivery' ? 'delivery' : 'branch'
+const _locLbl = m => _locKind(m) === 'delivery' ? 'přistavení na adresu' : 'na pobočce'
 
 const _histTime = t => t ? String(t).slice(0, 5) : null
 const _histDate = d => d ? new Date(d).toLocaleDateString('cs-CZ') : '—'
@@ -118,10 +120,9 @@ export function describeHistoryEntry(h) {
     else changes.push('výměna motorky')
   }
 
-  const methodLbl = m => METHOD_CHANGE_LABELS[m] || m || '—'
-  if (h.to_pickup_method && h.to_pickup_method !== h.from_pickup_method) changes.push(`vyzvednutí: ${methodLbl(h.from_pickup_method)} → ${methodLbl(h.to_pickup_method)}`)
+  if (h.to_pickup_method && _locKind(h.to_pickup_method) !== _locKind(h.from_pickup_method)) changes.push(`vyzvednutí: ${_locLbl(h.from_pickup_method)} → ${_locLbl(h.to_pickup_method)}`)
   if (h.to_pickup_address && h.to_pickup_address !== h.from_pickup_address) changes.push(`adresa přistavení: ${h.to_pickup_address}`)
-  if (h.to_return_method && h.to_return_method !== h.from_return_method) changes.push(`vrácení: ${methodLbl(h.from_return_method)} → ${methodLbl(h.to_return_method)}`)
+  if (h.to_return_method && _locKind(h.to_return_method) !== _locKind(h.from_return_method)) changes.push(`vrácení: ${_locLbl(h.from_return_method)} → ${_locLbl(h.to_return_method)}`)
   if (h.to_return_address && h.to_return_address !== h.from_return_address) changes.push(`adresa vrácení: ${h.to_return_address}`)
 
   const gear = h.gear_changes && typeof h.gear_changes === 'object' ? h.gear_changes : null
