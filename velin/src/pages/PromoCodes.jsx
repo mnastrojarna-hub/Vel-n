@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { findCustomerReturnCodes, resolveCodeOwners } from '../lib/promoOwners'
 import { debugAction } from '../lib/debugLog'
 import { useDebugMode } from '../hooks/useDebugMode'
 import { Table, TRow, TH, TD } from '../components/ui/Table'
@@ -33,12 +35,14 @@ const SORT_OPTIONS = [
 
 export default function PromoCodes() {
   const debugMode = useDebugMode()
+  const navigate = useNavigate()
   const [codes, setCodes] = useState([])
+  const [owners, setOwners] = useState({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
-  const defaultFilters = { statuses: [], redeemed: [], types: [], sources: [], search: '', sortBy: 'created_at', sortDir: 'desc' }
+  const defaultFilters = { statuses: [], redeemed: [], types: [], sources: [], search: '', customer: '', sortBy: 'created_at', sortDir: 'desc' }
   const [filters, setFilters] = useState(() => {
     try {
       const saved = localStorage.getItem('velin_promo_filters')
@@ -71,6 +75,17 @@ export default function PromoCodes() {
     setError(null)
     try {
       const sortBy = SORT_OPTIONS.some(o => o.value === filters.sortBy) ? filters.sortBy : 'created_at'
+
+      // Filtr dle zákazníka: kódy z vrácení (VRACENI-*) náležící jeho rezervacím
+      let customerCodes = null
+      if (filters.customer?.trim()) {
+        customerCodes = await findCustomerReturnCodes(filters.customer)
+        if (customerCodes !== null && customerCodes.length === 0) {
+          setCodes([]); setOwners({}); setTotal(0); setLoading(false)
+          return
+        }
+      }
+
       let query = supabase
         .from('promo_codes')
         .select('*', { count: 'exact' })
@@ -112,11 +127,16 @@ export default function PromoCodes() {
         query = query.ilike('code', `%${filters.search}%`)
       }
 
+      if (customerCodes?.length) {
+        query = query.in('code', customerCodes)
+      }
+
       query = query.range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
       const { data, count, error: err } = await debugAction('loadCodes', 'PromoCodes', () => query, { page, filters })
       if (err) throw err
       setCodes(data || [])
       setTotal(count || 0)
+      resolveCodeOwners(data || []).then(setOwners).catch(() => setOwners({}))
     } catch (e) {
       setError(e.message)
     } finally {
@@ -214,7 +234,7 @@ export default function PromoCodes() {
         <div>codes: {codes.length} zobrazeno / {total} celkem (strana {page}/{totalPages || 1})</div>
         <div>summary: total={summary.total}, active={summary.active}, inactive={summary.inactive}, expired={summary.expired}</div>
         <div>totalUsed: {summary.totalUsed}</div>
-        <div>filtry: status={filters.statuses?.length > 0 ? filters.statuses.join(',') : 'vše'}, search="{filters.search}"</div>
+        <div>filtry: status={filters.statuses?.length > 0 ? filters.statuses.join(',') : 'vše'}, search="{filters.search}", zákazník="{filters.customer}"</div>
         {error && <div style={{ color: '#dc2626' }}>ERROR: {error}</div>}
       </div>
       )}
@@ -234,6 +254,11 @@ export default function PromoCodes() {
           value={filters.search}
           onChange={v => { setPage(1); setFilters(f => ({ ...f, search: v })) }}
           placeholder="Hledat kód…"
+        />
+        <SearchInput
+          value={filters.customer}
+          onChange={v => { setPage(1); setFilters(f => ({ ...f, customer: v })) }}
+          placeholder="Zákazník (kódy z vrácení)…"
         />
         <CheckboxFilterGroup label="Stav" values={filters.statuses || []}
           onChange={v => { setPage(1); setFilters(f => ({ ...f, statuses: v })) }}
@@ -275,7 +300,7 @@ export default function PromoCodes() {
             <thead>
               <TRow header>
                 <TH><SelectAllCheckbox items={codes} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TH>
-                <TH>Kód</TH><TH>Sleva</TH><TH>Platnost</TH>
+                <TH>Kód</TH><TH>Zákazník</TH><TH>Sleva</TH><TH>Platnost</TH>
                 <TH>Použití / Limit</TH><TH>Stav</TH><TH>Akce</TH>
               </TRow>
             </thead>
@@ -295,6 +320,18 @@ export default function PromoCodes() {
                       >
                         {c.code}
                       </button>
+                    </TD>
+                    <TD>
+                      {owners[c.code] ? (
+                        <button
+                          onClick={() => navigate(`/zakaznici/${owners[c.code].userId}`)}
+                          className="text-sm font-bold cursor-pointer"
+                          style={{ color: '#2563eb', background: 'none', border: 'none', padding: 0 }}
+                          title="Detail zákazníka"
+                        >
+                          {owners[c.code].name || 'Zákazník'}
+                        </button>
+                      ) : <span className="text-sm" style={{ color: '#6b7280' }}>—</span>}
                     </TD>
                     <TD bold>
                       {c.type === 'percent'
@@ -346,7 +383,7 @@ export default function PromoCodes() {
                   </tr>
                 )
               })}
-              {codes.length === 0 && <TRow><TD colSpan={7}>Žádné promo kódy</TD></TRow>}
+              {codes.length === 0 && <TRow><TD colSpan={8}>Žádné promo kódy</TD></TRow>}
             </tbody>
           </Table>
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
@@ -355,7 +392,7 @@ export default function PromoCodes() {
 
       {/* Detail panel */}
       {detailCode && (
-        <PromoDetailModal code={detailCode} onClose={() => setDetailCode(null)} onEdit={() => openEdit(detailCode)} />
+        <PromoDetailModal code={detailCode} owner={owners[detailCode.code]} onClose={() => setDetailCode(null)} onEdit={() => openEdit(detailCode)} />
       )}
 
       {/* Create/Edit modal */}

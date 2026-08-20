@@ -55,7 +55,7 @@ export function PromoModal({ existing, onClose, onSaved }) {
   )
 }
 
-export function PromoDetailModal({ code, onClose, onEdit }) {
+export function PromoDetailModal({ code, owner, onClose, onEdit }) {
   const [usage, setUsage] = useState([])
   const [loadingUsage, setLoadingUsage] = useState(true)
 
@@ -76,6 +76,7 @@ export function PromoDetailModal({ code, onClose, onEdit }) {
         <DetailRow label="Pouzito" value={`${code.used_count ?? 0}x`} />
         <DetailRow label="Limit" value={code.max_uses ?? 'Neomezeno'} />
         <DetailRow label="Vytvoreno" value={code.created_at ? new Date(code.created_at).toLocaleString('cs-CZ') : '\u2014'} />
+        {owner && <DetailRow label="Zakaznik (z vraceni)" value={owner.name || owner.userId} />}
       </div>
       <div className="mt-5">
         <h4 className="text-sm font-extrabold uppercase tracking-widest mb-3" style={{ color: '#1a2e22' }}>Historie pouziti</h4>
