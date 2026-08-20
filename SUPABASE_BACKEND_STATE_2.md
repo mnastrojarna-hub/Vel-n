@@ -24,7 +24,7 @@
 - id, user_id, moto_id, start_date, end_date, pickup_time, **return_time** (TEXT DEFAULT NULL — čas vrácení motorky HH:MM, default UI 19:00)
 - status (`booking_status` ENUM)
 - payment_status (`payment_status` ENUM)
-- payment_method, total_price, delivery_fee, deposit
+- payment_method, total_price, delivery_fee, ~~deposit~~ — **OPRAVA 2026-08-21: sloupec `deposit` v ŽIVÉ DB NEEXISTUJE** (ověřeno snapshotem 2026-08-19; kauce je jen `motorcycles.deposit_amount`). Kvůli chybnému údaji v docs seed 20260820 vložil 0 řádků (42703 chycená v EXCEPTION). **POZOR — LATENTNÍ BUG:** živá RPC `split_booking_moto_swap` sloupec `deposit` v INSERTu nové rezervace B stále uvádí → commit výměny motorky na živé DB musí padat; řešit samostatně (odstranit sloupec z INSERTu v příští revizi RPC).
 - promo_code_id, voucher_id, notes
 - confirmed_at, picked_up_at, returned_at
 - cancelled_by, cancelled_by_source, cancellation_reason, cancelled_at, cancellation_notified
