@@ -116,7 +116,7 @@
 | Trigger | Tabulka | Funkce |
 |---------|---------|--------|
 | `trg_auto_liabilities_payroll` | acc_payrolls (AFTER INSERT) | auto_liabilities_from_payroll() — z vypočtené mzdy vytvoří závazky (SP/ZP/daň) do `acc_liabilities` |
-| `trg_check_user_booking_overlap` | bookings (BEFORE INSERT/UPDATE OF start_date, end_date, user_id, status) | check_user_booking_overlap() — zákazník nesmí mít 2 překrývající se rezervace (výjimka dětské motorky). Pozn.: odlišné od `trg_check_booking_overlap` (overlap na motorce). |
+| `trg_check_user_booking_overlap` | bookings (BEFORE INSERT/UPDATE OF start_date, end_date, user_id, status) | check_user_booking_overlap() — zákazník nesmí mít 2 překrývající se rezervace (výjimka dětské motorky). Pozn.: odlišné od `trg_check_booking_overlap` (overlap na motorce). **UPDATE 2026-08-20 (`20260820_test_calendar_seed_sep_oct.sql`):** výjimka `is_test IS TRUE` v OBOU směrech (NEW.is_test projde bez kontroly; `o.is_test IS NOT TRUE` v EXISTS) — testovací seed obsazenosti kalendáře (jeden účet, mnoho motorek souběžně) nesmí blokovat INSERT seedů ani pozdější cron UPDATE stavů reálných rezervací téhož zákazníka. |
 | `trg_release_codes_on_profile_verify` | profiles (AFTER UPDATE OF id_verified_at, passport_verified_at, license_verified_at, id_number, license_number) | release_codes_on_profile_verify() — po ověření dokladů v profilu uvolní zadržené door codes (souběžně s `trg_release_codes_on_doc_upload` na `documents`) |
 | `trg_sync_moto_to_assets` | motorcycles (AFTER INSERT/UPDATE) | sync_motorcycle_to_assets() — zrcadlí motorku do `acc_long_term_assets` (dlouhodobý majetek) |
 
