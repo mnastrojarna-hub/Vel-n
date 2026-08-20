@@ -85,6 +85,8 @@ export default function Fleet() {
       const { data: allBookings } = await supabase
         .from('bookings').select('moto_id, start_date, end_date')
         .in('status', ['pending', 'active', 'reserved'])
+        // Testovací rezervace (obsazenost kalendáře) nepatří do statistik flotily
+        .not('is_test', 'is', true)
       const counts = {}
       const todaySet = new Set()
       ;(allBookings || []).forEach(b => {
@@ -115,6 +117,9 @@ export default function Fleet() {
 
   async function loadDateOccupied() {
     try {
+      // ZÁMĚRNĚ BEZ filtru is_test: testovací rezervace reálně blokují kalendář
+      // motorky (moto-level overlap trigger je nezná) — filtr „volné v období"
+      // musí ukazovat skutečnou dostupnost, jinak by admin zarezervoval kolizi.
       const { data } = await supabase
         .from('bookings').select('moto_id')
         .in('status', ['pending', 'active', 'reserved'])
