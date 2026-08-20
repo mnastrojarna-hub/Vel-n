@@ -27,7 +27,7 @@ export function BookingsByStatus() {
   useEffect(() => { load() }, [])
 
   async function load() {
-    const { data: bookings } = await supabase.from('bookings').select('status')
+    const { data: bookings } = await supabase.from('bookings').select('status').not('is_test', 'is', true)
     if (bookings) {
       const counts = {}
       bookings.forEach(b => { counts[b.status] = (counts[b.status] || 0) + 1 })
@@ -89,6 +89,7 @@ export function CustomerRetention() {
     const { data: bookings } = await supabase
       .from('bookings')
       .select('user_id, start_date')
+      .not('is_test', 'is', true)
       .gte('start_date', months[0].start)
 
     if (bookings) {

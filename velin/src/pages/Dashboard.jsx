@@ -57,12 +57,13 @@ export default function Dashboard() {
         newBookR, emailsR, shopR, msgsR, serviceR, visitorsR, aiR, modsR] =
         await debugAction('dashboard.fetchAll', 'Dashboard', () => Promise.allSettled([
           supabase.from('motorcycles').select('id, model, spz, status, stk_valid_until'),
-          supabase.from('bookings').select('id, status').in('status', ['active', 'pending', 'reserved']),
+          supabase.from('bookings').select('id, status').in('status', ['active', 'pending', 'reserved']).not('is_test', 'is', true),
           supabase.from('messages').select('id', { count: 'exact', head: true }).eq('direction', 'customer').is('read_at', null),
           supabase.from('inventory').select('id, stock, min_stock'),
           supabase.from('bookings').select('id, user_id, moto_id, start_date, end_date, status, total_price, created_via_ai')
             .or(`start_date.gte.${today},status.eq.active`)
             .in('status', ['active', 'reserved', 'pending'])
+            .not('is_test', 'is', true)
             .order('start_date', { ascending: true }).limit(5),
           supabase.from('sos_incidents').select('id, type, title, severity, status, created_at')
             .in('status', ['reported', 'acknowledged', 'in_progress']).order('created_at', { ascending: false }),
@@ -77,6 +78,7 @@ export default function Dashboard() {
           // select('*') záměrně (jen 5 řádků): explicitní výčet s extends_booking_id
           // by mezi deployem Velína a aplikací SQL migrace vracel 42703 → prázdný widget
           supabase.from('bookings').select('*')
+            .not('is_test', 'is', true)
             .order('created_at', { ascending: false }).limit(5),
           supabase.from('sent_emails').select('id, subject, recipient_email, template_slug, status, created_at')
             .order('created_at', { ascending: false }).limit(5),
@@ -90,6 +92,7 @@ export default function Dashboard() {
           supabase.rpc('get_visitor_stats', { p_from: weekAgo, p_to: now.toISOString(), p_host: null, p_granularity: 'day' }),
           supabase.from('ai_public_conversations').select('id, outcome').gte('started_at', weekAgo).limit(1000),
           supabase.from('bookings').select('id, user_id, moto_id, start_date, end_date, status, modification_history, updated_at')
+            .not('is_test', 'is', true)
             .neq('modification_history', '[]').order('updated_at', { ascending: false }).limit(5),
         ]))
 
