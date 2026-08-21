@@ -17,6 +17,7 @@ import ComplaintsTab from './booking/ComplaintsTab'
 import { TABS, ACTIONS, CANCEL_REASONS, paymentStatusInfo } from './booking/bookingConstants'
 import { sendBookingMessage, logAudit, cancelBookingFromVelin } from './booking/bookingMessageHelpers'
 import BookingCancelModal from './booking/BookingCancelModal'
+import RefundConfirmModal from './booking/RefundConfirmModal'
 import PaymentConfirmModal from './booking/PaymentConfirmModal'
 import AppInstallBadge, { loadAppInstalls } from '../components/AppInstallBadge'
 
@@ -31,6 +32,7 @@ export default function BookingDetail() {
   const [confirm, setConfirm] = useState(null)
   const [saving, setSaving] = useState(false)
   const [showCancelModal, setShowCancelModal] = useState(false)
+  const [showRefundModal, setShowRefundModal] = useState(false)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [surchargeMode, setSurchargeMode] = useState(false)
   const [cancelReason, setCancelReason] = useState('')
@@ -296,6 +298,8 @@ export default function BookingDetail() {
   const set = (k, v) => setBooking(b => ({ ...b, [k]: v }))
   function handleAction(action) {
     if (action.status === 'cancelled') { setShowCancelModal(true); return }
+    // „Potvrdit vrácení" u zrušené rezervace → modal s volbou výše vratky.
+    if (action.cancelledRefund) { setShowRefundModal(true); return }
     // „Potvrdit doplatek" (úprava zaplacené rezervace): potvrzuje se JEN nezaplacená
     // část (doplatek) — původní platba zůstává. RPC confirm_booking_surcharge pak
     // odešle odložený booking_modified mail. Rozlišeno od potvrzení celé rezervace.
@@ -391,6 +395,86 @@ export default function BookingDetail() {
       if (res?.error) { setError(res.error.message); setSaving(false); return }
       await logAudit('booking_manual_refund_sent', { booking_id: id, amount, credit_note: cn?.number || null })
       setConfirm(null)
+      await loadBooking()
+    } catch (e) { setError(e.message) }
+    setSaving(false)
+  }
+
+  // „Potvrdit vrácení" u ZRUŠENÉ rezervace (Čeká na vrácení / Částečně vráceno):
+  // dle zvolené částky provede vratku (Stripe reálně vrátí; u QR/převodu/hotově
+  // vystaví dobropis a peníze posílá admin převodem), aktualizuje záznam storna,
+  // označí stav platby a pošle storno mail ze šablony s přiloženým dobropisem.
+  async function confirmCancelledRefund(refund) {
+    setSaving(true); setError(null)
+    try {
+      const total = Math.max(0, Math.round(Number(booking.total_price) || 0))
+      const amt = Math.min(total, Math.max(0, Math.round(Number(refund?.amount) || 0)))
+      const pct = total > 0 ? Math.round(amt / total * 100) : 0
+
+      // 1) Vratka/dobropis přes process-refund (idempotentní). Přeskočí se, když
+      //    už existuje nezrušený dobropis PŘESNĚ na tuto částku — potvrzení
+      //    dřívějšího storna se stejnou vratkou nesmí vystavit duplicitní dobropis.
+      if (amt > 0 && !creditNotes.find(c => Math.abs(Number(c.total) || 0) === amt)) {
+        const res = await debugAction('booking.refund_confirm.process', 'BookingDetail', () =>
+          supabase.functions.invoke('process-refund', {
+            body: { booking_id: id, reason: 'cancellation', ...(amt >= total ? {} : { amount: amt }) },
+          })
+        , { booking_id: id, amount: amt })
+        if (res?.error) { setError('Vratka selhala: ' + res.error.message); setSaving(false); return }
+        if (res?.data && res.data.success === false) { setError('Vratka selhala: ' + (res.data.error || res.data.code || 'neznámá chyba')); setSaving(false); return }
+      }
+
+      // 2) Záznam storna nese skutečně potvrzenou výši vratky (badge „bez vratky"
+      //    z něj čte refund_amount = 0).
+      try {
+        const { data: lastCan } = await supabase.from('booking_cancellations')
+          .select('id').eq('booking_id', id).order('created_at', { ascending: false }).limit(1)
+        if (lastCan?.length) {
+          await supabase.from('booking_cancellations').update({ refund_amount: amt, refund_percent: pct }).eq('id', lastCan[0].id)
+        } else {
+          const { data: { user } } = await supabase.auth.getUser()
+          await supabase.from('booking_cancellations').insert({ booking_id: id, cancelled_by: user?.id || null, reason: booking.cancellation_reason || 'Storno (Velín)', refund_amount: amt, refund_percent: pct })
+        }
+      } catch { /* auditní záznam — neblokuje potvrzení */ }
+
+      // 3) Stav platby: u MANUÁLNÍ vratky (bez Stripe refundu) označí potvrzení
+      //    rovnou finální stav (admin peníze posílá/poslal převodem); u Stripe
+      //    nastavil stav process-refund/webhook — nepřepisovat.
+      let manual = false
+      try {
+        const { data: fresh } = await supabase.from('bookings').select('payment_status, stripe_refund_id').eq('id', id).single()
+        if (fresh && !fresh.stripe_refund_id) {
+          manual = amt > 0
+          const newStatus = amt <= 0 ? 'paid' : (amt >= total ? 'refunded' : 'partial_refund')
+          if (fresh.payment_status !== newStatus) await supabase.from('bookings').update({ payment_status: newStatus }).eq('id', id)
+        }
+      } catch { /* ponech stávající stav */ }
+
+      // 4) Storno mail ze šablony + dobropis v příloze. skip_refund: vratka je
+      //    vyřízená v kroku 1, mail už žádnou nespouští (recovery attach smyčka
+      //    v edge fn dobropis jen dohledá/dorendruje); force: storno mail mohl
+      //    odejít už při zrušení — tenhle jde vědomě znovu s dobropisem.
+      const mailRes = await debugAction('booking.refund_confirm.email', 'BookingDetail', () =>
+        supabase.functions.invoke('send-cancellation-email', {
+          body: {
+            booking_id: id,
+            customer_email: booking.profiles?.email || booking.customer_email,
+            customer_name: booking.profiles?.full_name || booking.customer_name,
+            motorcycle: booking.motorcycles?.model,
+            start_date: booking.start_date, end_date: booking.end_date,
+            cancellation_reason: booking.cancellation_reason || 'Storno rezervace',
+            cancelled_by_source: booking.cancelled_by_source || 'velin',
+            source: booking.booking_source || 'app',
+            refund_amount: amt, refund_percent: pct,
+            skip_refund: true, force: true, ...(manual ? { manual_refund: true } : {}),
+          },
+        })
+      , { booking_id: id, amount: amt, percent: pct })
+      if (mailRes?.error) setError('Vratka zpracována, ale odeslání emailu selhalo: ' + mailRes.error.message)
+      else await supabase.from('bookings').update({ cancellation_notified: true }).eq('id', id)
+
+      await logAudit('booking_refund_confirmed', { booking_id: id, amount: amt, percent: pct })
+      setShowRefundModal(false)
       await loadBooking()
     } catch (e) { setError(e.message) }
     setSaving(false)
@@ -552,6 +636,16 @@ export default function BookingDetail() {
   const actionsWithRefund = manualRefundDue > 0
     ? [{ label: `Vratka odeslána (${manualRefundDue.toLocaleString('cs-CZ')} Kč)`, status: 'confirm_manual_refund', green: true, refund: true }, ...actionsWithPayment]
     : actionsWithPayment
+  // „Potvrdit vrácení" u ZRUŠENÉ rezervace čekající na vrácení / částečně
+  // vrácené (vedle „Obnovit") — otevře modal s volbou výše vratky v % / Kč
+  // (RefundConfirmModal): provede vratku, pošle storno mail s dobropisem a
+  // označí stav. U zrušených nahrazuje prosté „Vratka odeslána" (to zůstává
+  // pro manuální vratky z úprav u nezrušených rezervací).
+  const payKey = paymentStatusInfo(booking).key
+  const canConfirmRefund = booking.status === 'cancelled' && ['refund_pending', 'partial_refund'].includes(payKey)
+  const actionsAll = canConfirmRefund
+    ? [{ label: booking.payment_status === 'partial_refund' ? 'Potvrdit částečné vrácení' : 'Potvrdit vrácení', status: 'confirm_cancelled_refund', green: true, cancelledRefund: true }, ...actionsWithRefund.filter(a => !a.refund)]
+    : actionsWithRefund
 
   return (
     <div>
@@ -641,7 +735,7 @@ export default function BookingDetail() {
         {error && <div style={{ color: '#dc2626' }}>ERROR: {error}</div>}
       </div>
       )}
-      {tab === 'Detail' && <DetailTab booking={booking} set={set} error={error} saving={saving} actions={actionsWithRefund} onAction={handleAction} navigate={navigate} promoUsage={promoUsage} voucherUsed={voucherUsed} onModify={() => setShowModifyModal(true)} />}
+      {tab === 'Detail' && <DetailTab booking={booking} set={set} error={error} saving={saving} actions={actionsAll} onAction={handleAction} navigate={navigate} promoUsage={promoUsage} voucherUsed={voucherUsed} onModify={() => setShowModifyModal(true)} />}
       {showModifyModal && booking && <BookingModifyModal booking={booking} onClose={() => setShowModifyModal(false)} onSaved={() => { setShowModifyModal(false); loadBooking() }} />}
       {tab === 'Kalendář motorky' && booking.motorcycles?.id && <BookingsCalendar motoId={booking.motorcycles.id} />}
       {tab === 'Dokumenty' && <BookingDocumentsTab bookingId={id} userId={booking?.user_id} />}
@@ -658,6 +752,9 @@ export default function BookingDetail() {
         onCancel={() => setConfirm(null)} />}
       <BookingCancelModal open={showCancelModal} onClose={() => setShowCancelModal(false)} cancelReason={cancelReason} setCancelReason={setCancelReason} cancelReasonCustom={cancelReasonCustom} setCancelReasonCustom={setCancelReasonCustom} onCancel={handleCancel} saving={saving} error={error}
         paid={booking.payment_status === 'paid'} totalPrice={booking.total_price} />
+      <RefundConfirmModal open={showRefundModal} onClose={() => { setShowRefundModal(false); setError(null) }}
+        totalPrice={booking.total_price} defaultAmount={manualRefundDue > 0 ? manualRefundDue : booking.total_price}
+        saving={saving} error={error} onConfirm={confirmCancelledRefund} />
       <PaymentConfirmModal open={showPaymentModal} onClose={() => { setShowPaymentModal(false); setSurchargeMode(false); setError(null) }}
         onConfirm={surchargeMode ? confirmSurchargePayment : confirmManualPayment} saving={saving} error={error}
         total={surchargeMode ? surchargeDue : booking?.total_price} bookingId={id} payChannel={booking?.pay_channel} paymentVs={booking?.payment_vs}
