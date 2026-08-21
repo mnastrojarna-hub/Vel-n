@@ -199,8 +199,14 @@ export function paymentStatusInfo(booking) {
     return { key: 'refund_pending', label: 'Čeká na vrácení', icon: '⏳', color: '#b45309', bg: '#fef3c7' }
   // Odvozený mezistav: zaplacená rezervace byla stornována, ale refund ještě
   // neproběhl (Stripe nepotvrdil) → peníze jsou pořád u nás, čekáme na vrácení.
-  if (ps === 'paid' && st === 'cancelled')
+  // Výjimka: storno BEZ vratky (booking.refund_none — detail rezervace ho doplní
+  // z booking_cancellations, refund_amount = 0) → nic se vracet nebude, peníze
+  // zůstávají u nás.
+  if (ps === 'paid' && st === 'cancelled') {
+    if (booking.refund_none)
+      return { key: 'paid', label: 'Zaplaceno · bez vratky', icon: '✅', color: '#1a8a18', bg: '#dcfce7' }
     return { key: 'refund_pending', label: 'Čeká na vrácení', icon: '⏳', color: '#b45309', bg: '#fef3c7' }
+  }
   if (ps === 'paid' && st !== 'pending')
     return { key: 'paid', label: 'Zaplaceno', icon: '✅', color: '#1a8a18', bg: '#dcfce7' }
   return { key: 'unpaid', label: 'Nezaplaceno', icon: '⚠️', color: '#dc2626', bg: '#fee2e2' }
