@@ -551,7 +551,7 @@ Deno.serve(async (req: Request) => {
 
     if (booking_id) {
       const { data } = await supabase.from('bookings')
-        .select('user_id, stripe_payment_intent_id, stripe_session_id, total_price, payment_status, stripe_refund_id, card_brand, card_last4')
+        .select('user_id, stripe_payment_intent_id, stripe_session_id, total_price, payment_status, payment_method, pay_channel, stripe_refund_id, card_brand, card_last4')
         .eq('id', booking_id)
         .single()
 
@@ -682,6 +682,22 @@ Deno.serve(async (req: Request) => {
           { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } }
         )
       }
+      // DŮVĚŘUJ ZPŮSOBU PLATBY (2026-08-21c, zadání provozovatele): rezervace
+      // zaplacená RUČNĚ potvrzenou platbou (QR / bankovní převod / hotově /
+      // krypto / voucher) nemá na Stripe žádné peníze — případný PaymentIntent
+      // nebo session na řádku je jen pozůstatek opuštěného pokusu o kartu.
+      // Stripe API se u ní VŮBEC nevolá: rovnou manuální vratka (dobropis +
+      // refund_pending, peníze pošle admin převodem). Řeší i chybu
+      // „This PaymentIntent ... does not have a successful charge to refund".
+      // pay_channel='qr' je pojistka pro řádky bez payment_method; kartové
+      // metody (card/stripe/google_pay/apple_pay/klarna/paypal) jdou dál na Stripe.
+      const MANUAL_PAY_METHODS = ['bank_transfer', 'qr', 'cash', 'crypto', 'voucher', 'wire']
+      const payMethod = String((data as any).payment_method || '').toLowerCase().trim()
+      if (MANUAL_PAY_METHODS.includes(payMethod) || (!payMethod && (data as any).pay_channel === 'qr')) {
+        await dlog('manual_method_direct', 'info', { payment_method: payMethod, pay_channel: (data as any).pay_channel })
+        return await manualBookingRefund(supabase, booking_id, amount, reason, dlog)
+      }
+
       stripePaymentIntentId = data.stripe_payment_intent_id
 
       // Robustnost: `stripe_payment_intent_id` může být prázdný — typicky u web
