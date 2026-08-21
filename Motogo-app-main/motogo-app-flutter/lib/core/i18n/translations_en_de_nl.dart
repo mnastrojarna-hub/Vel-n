@@ -193,6 +193,7 @@ const translationsEnDeNl = <String, Map<String, String>>{
     'loginUnknownEmailTitle': 'Account not found',
     'loginUnknownEmailBody': 'We don’t have this e-mail yet. Please create an account.',
     'refundFailedRetry': 'Refund failed. Please try again.',
+    'refundSettleManual': 'Automatic refund failed — our staff will settle it and you will get your money back (we will contact you, no action needed).',
     // Reservations screens
     'myReservations': 'My reservations',
     'resOverview': 'Overview of all reservations',
@@ -711,6 +712,7 @@ const translationsEnDeNl = <String, Map<String, String>>{
     'loginUnknownEmailTitle': 'Konto nicht gefunden',
     'loginUnknownEmailBody': 'Diese E-Mail haben wir noch nicht. Bitte registrieren Sie sich.',
     'refundFailedRetry': 'Rückerstattung fehlgeschlagen. Bitte versuchen Sie es erneut.',
+    'refundSettleManual': 'Automatische Rückerstattung fehlgeschlagen — unser Team kümmert sich darum und Sie erhalten Ihr Geld zurück (wir melden uns, keine Aktion nötig).',
     // Reservations screens
     'myReservations': 'Meine Reservierungen',
     'resOverview': 'Übersicht aller Reservierungen',
@@ -1122,6 +1124,7 @@ const translationsEnDeNl = <String, Map<String, String>>{
     'loginUnknownEmailTitle': 'Account niet gevonden',
     'loginUnknownEmailBody': 'We hebben dit e-mailadres nog niet. Maak een account aan.',
     'refundFailedRetry': 'Terugbetaling mislukt. Probeer het opnieuw.',
+    'refundSettleManual': 'Automatische terugbetaling mislukt — ons team handelt dit af en u krijgt uw geld terug (wij nemen contact op, geen actie nodig).',
     // Reservations screens
     'myReservations': 'Mijn reserveringen',
     'resOverview': 'Overzicht van alle reserveringen',

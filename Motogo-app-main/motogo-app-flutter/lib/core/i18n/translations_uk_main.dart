@@ -201,6 +201,7 @@ const translationsUkMain = <String, Map<String, String>>{
     'loginUnknownEmailTitle': 'Обліковий запис не знайдено',
     'loginUnknownEmailBody': 'Цієї електронної пошти у нас поки що немає. Будь ласка, створіть реєстрацію.',
     'refundFailedRetry': 'Повернення коштів не вдалося. Будь ласка, спробуйте знову.',
+    'refundSettleManual': 'Автоматичне повернення не вдалося — його опрацює персонал, і ви отримаєте гроші назад (ми зв\'яжемося з вами, нічого робити не потрібно).',
     // Reservations screens
     'myReservations': 'Мої бронювання',
     'resOverview': 'Огляд усіх бронювань',
