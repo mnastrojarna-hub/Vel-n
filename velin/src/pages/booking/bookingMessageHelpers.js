@@ -6,6 +6,19 @@ export const MSG_TEMPLATES = {
   completed: (b) => `Vaše jízda na ${b.motorcycles?.model || ''} byla dokončena. Děkujeme a těšíme se na příště! Konečnou fakturu najdete v sekci Dokumenty.`,
 }
 
+// Rozbalí skutečnou chybu z edge funkce — supabase.functions.invoke vrací jen
+// generické „Edge Function returned a non-2xx status code"; tělo odpovědi
+// s {error, code} je schované v error.context (Response).
+export async function edgeErrorDetail(error) {
+  try {
+    if (error?.context && typeof error.context.json === 'function') {
+      const j = await error.context.json()
+      if (j?.error || j?.code) return [j.error, j.code && j.error !== j.code ? `(${j.code})` : null].filter(Boolean).join(' ')
+    }
+  } catch { /* tělo odpovědi nejde přečíst — fallback níže */ }
+  return error?.message || String(error)
+}
+
 export async function logAudit(action, details) {
   try { const { data: { user } } = await supabase.auth.getUser(); await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action, details }) } catch {}
 }

@@ -360,6 +360,150 @@ async function createCreditNoteForExistingRefund(
   }
 }
 
+// Manuální vratka pro booking BEZ reálně zaplacené Stripe platby (QR/převod/
+// hotově/ručně označená paid) — 2026-08-04 flow:
+//  1. vystaví DOBROPIS (credit_note, stripe_refund_id NULL = manuální)
+//     + účetní záznam — položkově, stejně jako Stripe větev,
+//  2. rezervace → 'refund_pending' („Čeká na vrácení" ve Velíně; banner
+//     „Vrátit X Kč na účet zákazníka" + akce „Vratka odeslána"/„Potvrdit vrácení"),
+//  3. vrátí success + manual:true, aby volající (web/app/RPC/Velín) commit
+//     dokončil a zákazníkovi ukázal „vrátíme do 14 dnů".
+// Volá se ze dvou míst: a) booking nemá PI ani (zaplacenou) session,
+// b) PI existuje, ale Stripe na něm nikdy nepřijal peníze (stale PI
+//    z opuštěného pokusu o kartu — viz fix 2026-08-21 v serve handleru).
+async function manualBookingRefund(
+  supabase: any,
+  booking_id: string,
+  amount: number | undefined,
+  reason: string | undefined,
+  dlog: (action: string, status: string, extra?: Record<string, unknown>) => unknown,
+): Promise<Response> {
+  const { data: bkFull } = await supabase.from('bookings')
+    .select('user_id, total_price, start_date, end_date, motorcycles!moto_id(model), profiles:user_id(id, full_name, email, phone, street, city, zip, ico, dic)')
+    .eq('id', booking_id).single()
+  const totalPrice = Number(bkFull?.total_price || 0)
+  let manAmount = Number(amount) > 0 ? Number(amount) : totalPrice
+  if (totalPrice > 0 && manAmount > totalPrice) manAmount = totalPrice
+
+  if (manAmount <= 0) {
+    await dlog('manual_refund_noop_zero', 'info', { manual: true })
+    return new Response(
+      JSON.stringify({ success: true, manual: true, code: 'manual_refund_pending', amount: 0, credit_note_id: null }),
+      { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } }
+    )
+  }
+
+  const reasonText = reasonTextFor(reason)
+  const motoModel = (bkFull as any)?.motorcycles?.model || 'motorky'
+  const refundPercent = totalPrice > 0 ? Math.min(100, Math.round((manAmount / totalPrice) * 100)) : 100
+
+  // Dedup: souběžný dispatch téže manuální vratky (pg_net z RPC + retry
+  // v send-booking-email) → čerstvý manuální dobropis na stejnou částku
+  // (≤15 min, bez Stripe refund id) = už vystaveno, vrať existující.
+  const { data: freshManCn } = await supabase.from('invoices')
+    .select('id, number, pdf_path')
+    .eq('booking_id', booking_id).eq('type', 'credit_note').neq('status', 'cancelled')
+    .is('stripe_refund_id', null)
+    .eq('total', -manAmount)
+    .gte('created_at', new Date(Date.now() - 15 * 60_000).toISOString())
+    .order('created_at', { ascending: false }).limit(1)
+  let cnId: string | null = freshManCn?.[0]?.id || null
+  let cnNumber: string | null = freshManCn?.[0]?.number || null
+  let cnPdfPath: string | null = freshManCn?.[0]?.pdf_path || null
+
+  if (!cnId) {
+    const { data: origInvs } = await supabase.from('invoices')
+      .select('id, number')
+      .eq('booking_id', booking_id).neq('status', 'cancelled')
+      .in('type', ['final', 'payment_receipt', 'advance', 'proforma'])
+      .order('issue_date', { ascending: false }).limit(1)
+    const year = new Date().getFullYear()
+    const { data: lastCN } = await supabase.from('invoices')
+      .select('number').like('number', `DB-${year}-%`).lt('number', `DB-${year}-5000`)
+      .order('number', { ascending: false }).limit(1)
+    let seq = 1
+    if (lastCN?.length) {
+      const m = lastCN[0].number.match(/-(\d+)$/)
+      if (m) seq = parseInt(m[1], 10) + 1
+    }
+    cnNumber = `DB-${year}-${String(seq).padStart(4, '0')}`
+    const issueDate = new Date().toISOString().slice(0, 10)
+
+    const { data: cnInv } = await supabase.from('invoices').insert({
+      number: cnNumber,
+      type: 'credit_note',
+      customer_id: bkFull?.user_id || null,
+      booking_id,
+      items: [{
+        description: `Dobropis – ${reasonText} (${motoModel})`,
+        qty: 1,
+        unit_price: -manAmount,
+      }],
+      subtotal: -manAmount,
+      tax_amount: 0,
+      total: -manAmount,
+      notes: `Dobropis k rezervaci. ${refundPercent < 100 ? `Částečný refund ${refundPercent}%.` : 'Plný refund.'} ${reasonText}. MANUÁLNÍ VRATKA — bez Stripe platby, k vrácení převodem na účet do 14 dnů.`,
+      issue_date: issueDate,
+      due_date: issueDate,
+      status: 'issued',
+      source: 'refund',
+      variable_symbol: cnNumber,
+      original_invoice_id: origInvs?.[0]?.id || null,
+      stripe_refund_id: null,
+    }).select('id').single()
+    cnId = cnInv?.id || null
+    await dlog('manual_credit_note_inserted', cnId ? 'info' : 'error', { credit_note_id: cnId, number: cnNumber, amount: manAmount })
+
+    if (cnId) {
+      await supabase.from('accounting_entries').insert({
+        type: 'expense',
+        amount: -manAmount,
+        description: `Dobropis ${cnNumber} – ${reasonText} (manuální vratka na účet)`,
+        category: 'refund',
+        date: issueDate,
+        booking_id,
+      })
+      try {
+        const cust3 = (bkFull as any)?.profiles || {}
+        await loadCustomerCompany(supabase, cust3)
+        const html = renderCreditNoteHtml({
+          number: cnNumber, issueDate: fmtDate(issueDate), reasonText, motoModel,
+          refundAmount: manAmount, refundPercent,
+          bookingDates: `${fmtDate(String((bkFull as any)?.start_date || ''))} – ${fmtDate(String((bkFull as any)?.end_date || ''))}`,
+          customer: cust3,
+          originalInvoiceNumber: origInvs?.[0]?.number || null,
+          stripeRefundId: null, manual: true,
+        })
+        const pdfBytes = await htmlToPdf(html)
+        cnPdfPath = pdfBytes ? `invoices/${cnId}.pdf` : `invoices/${cnId}.html`
+        await supabase.storage.from('documents').upload(
+          cnPdfPath,
+          pdfBytes ? new Blob([pdfBytes], { type: 'application/pdf' }) : new Blob([html], { type: 'text/html' }),
+          { upsert: true, contentType: pdfBytes ? 'application/pdf' : 'text/html' },
+        )
+        await supabase.from('invoices').update({ pdf_path: cnPdfPath }).eq('id', cnId)
+      } catch (e) {
+        console.warn('[process-refund] manual CN pdf failed:', (e as Error).message)
+      }
+    }
+  }
+
+  await supabase.from('bookings')
+    .update({ payment_status: 'refund_pending' })
+    .eq('id', booking_id)
+  await dlog('manual_refund_pending', 'info', {
+    manual: true, amount: manAmount, credit_note_id: cnId,
+    note: 'no Stripe payment — vratka k ručnímu vyřízení převodem na účet (do 14 dnů)',
+  })
+  return new Response(
+    JSON.stringify({
+      success: true, manual: true, code: 'manual_refund_pending',
+      amount: manAmount, credit_note_id: cnId, credit_note_pdf_path: cnPdfPath,
+    }),
+    { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } }
+  )
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: CORS })
@@ -615,141 +759,10 @@ Deno.serve(async (req: Request) => {
     if (!stripePaymentIntentId) {
       // Rezervace BEZ Stripe platby (QR/převod/hotově/ručně označená paid):
       // automatický Stripe refund nejde, ale vratku kvůli tomu NEBLOKUJEME —
-      // platí pro VŠECHNY booking reasony (výměna motorky, zkrácení, úprava
-      // výbavy, storno, Velín úprava). Doplatky úprav jdou vždy jen přes Stripe;
-      // vratka jde v tomto případě PŘEVODEM NA ÚČET do 14 dnů (2026-08-04):
-      //  1. vystavíme DOBROPIS (credit_note, stripe_refund_id NULL = manuální)
-      //     + účetní záznam — položkově, stejně jako Stripe větev,
-      //  2. rezervace → 'refund_pending' („Čeká na vrácení" ve Velíně; banner
-      //     „Vrátit X Kč na účet zákazníka" + akce „Vratka odeslána"),
-      //  3. vrátíme success + manual:true, aby volající (web/app/RPC) commit
-      //     úpravy dokončil a zákazníkovi ukázal „vrátíme do 14 dnů".
+      // manuální dobropis + refund_pending, viz manualBookingRefund.
       // Shop objednávky se chovají jako dřív (400 — řeší se ručně).
       if (booking_id) {
-        const { data: bkFull } = await supabase.from('bookings')
-          .select('user_id, total_price, start_date, end_date, motorcycles!moto_id(model), profiles:user_id(id, full_name, email, phone, street, city, zip, ico, dic)')
-          .eq('id', booking_id).single()
-        const totalPrice = Number(bkFull?.total_price || 0)
-        let manAmount = Number(amount) > 0 ? Number(amount) : totalPrice
-        if (totalPrice > 0 && manAmount > totalPrice) manAmount = totalPrice
-
-        if (manAmount <= 0) {
-          await dlog('manual_refund_noop_zero', 'info', { manual: true })
-          return new Response(
-            JSON.stringify({ success: true, manual: true, code: 'manual_refund_pending', amount: 0, credit_note_id: null }),
-            { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } }
-          )
-        }
-
-        const reasonText = reasonTextFor(reason)
-        const motoModel = (bkFull as any)?.motorcycles?.model || 'motorky'
-        const refundPercent = totalPrice > 0 ? Math.min(100, Math.round((manAmount / totalPrice) * 100)) : 100
-
-        // Dedup: souběžný dispatch téže manuální vratky (pg_net z RPC + retry
-        // v send-booking-email) → čerstvý manuální dobropis na stejnou částku
-        // (≤15 min, bez Stripe refund id) = už vystaveno, vrať existující.
-        const { data: freshManCn } = await supabase.from('invoices')
-          .select('id, number, pdf_path')
-          .eq('booking_id', booking_id).eq('type', 'credit_note').neq('status', 'cancelled')
-          .is('stripe_refund_id', null)
-          .eq('total', -manAmount)
-          .gte('created_at', new Date(Date.now() - 15 * 60_000).toISOString())
-          .order('created_at', { ascending: false }).limit(1)
-        let cnId: string | null = freshManCn?.[0]?.id || null
-        let cnNumber: string | null = freshManCn?.[0]?.number || null
-        let cnPdfPath: string | null = freshManCn?.[0]?.pdf_path || null
-
-        if (!cnId) {
-          const { data: origInvs } = await supabase.from('invoices')
-            .select('id, number')
-            .eq('booking_id', booking_id).neq('status', 'cancelled')
-            .in('type', ['final', 'payment_receipt', 'advance', 'proforma'])
-            .order('issue_date', { ascending: false }).limit(1)
-          const year = new Date().getFullYear()
-          const { data: lastCN } = await supabase.from('invoices')
-            .select('number').like('number', `DB-${year}-%`).lt('number', `DB-${year}-5000`)
-            .order('number', { ascending: false }).limit(1)
-          let seq = 1
-          if (lastCN?.length) {
-            const m = lastCN[0].number.match(/-(\d+)$/)
-            if (m) seq = parseInt(m[1], 10) + 1
-          }
-          cnNumber = `DB-${year}-${String(seq).padStart(4, '0')}`
-          const issueDate = new Date().toISOString().slice(0, 10)
-
-          const { data: cnInv } = await supabase.from('invoices').insert({
-            number: cnNumber,
-            type: 'credit_note',
-            customer_id: bkFull?.user_id || null,
-            booking_id,
-            items: [{
-              description: `Dobropis – ${reasonText} (${motoModel})`,
-              qty: 1,
-              unit_price: -manAmount,
-            }],
-            subtotal: -manAmount,
-            tax_amount: 0,
-            total: -manAmount,
-            notes: `Dobropis k rezervaci. ${refundPercent < 100 ? `Částečný refund ${refundPercent}%.` : 'Plný refund.'} ${reasonText}. MANUÁLNÍ VRATKA — bez Stripe platby, k vrácení převodem na účet do 14 dnů.`,
-            issue_date: issueDate,
-            due_date: issueDate,
-            status: 'issued',
-            source: 'refund',
-            variable_symbol: cnNumber,
-            original_invoice_id: origInvs?.[0]?.id || null,
-            stripe_refund_id: null,
-          }).select('id').single()
-          cnId = cnInv?.id || null
-          await dlog('manual_credit_note_inserted', cnId ? 'info' : 'error', { credit_note_id: cnId, number: cnNumber, amount: manAmount })
-
-          if (cnId) {
-            await supabase.from('accounting_entries').insert({
-              type: 'expense',
-              amount: -manAmount,
-              description: `Dobropis ${cnNumber} – ${reasonText} (manuální vratka na účet)`,
-              category: 'refund',
-              date: issueDate,
-              booking_id,
-            })
-            try {
-              const cust3 = (bkFull as any)?.profiles || {}
-              await loadCustomerCompany(supabase, cust3)
-              const html = renderCreditNoteHtml({
-                number: cnNumber, issueDate: fmtDate(issueDate), reasonText, motoModel,
-                refundAmount: manAmount, refundPercent,
-                bookingDates: `${fmtDate(String((bkFull as any)?.start_date || ''))} – ${fmtDate(String((bkFull as any)?.end_date || ''))}`,
-                customer: cust3,
-                originalInvoiceNumber: origInvs?.[0]?.number || null,
-                stripeRefundId: null, manual: true,
-              })
-              const pdfBytes = await htmlToPdf(html)
-              cnPdfPath = pdfBytes ? `invoices/${cnId}.pdf` : `invoices/${cnId}.html`
-              await supabase.storage.from('documents').upload(
-                cnPdfPath,
-                pdfBytes ? new Blob([pdfBytes], { type: 'application/pdf' }) : new Blob([html], { type: 'text/html' }),
-                { upsert: true, contentType: pdfBytes ? 'application/pdf' : 'text/html' },
-              )
-              await supabase.from('invoices').update({ pdf_path: cnPdfPath }).eq('id', cnId)
-            } catch (e) {
-              console.warn('[process-refund] manual CN pdf failed:', (e as Error).message)
-            }
-          }
-        }
-
-        await supabase.from('bookings')
-          .update({ payment_status: 'refund_pending' })
-          .eq('id', booking_id)
-        await dlog('manual_refund_pending', 'info', {
-          manual: true, amount: manAmount, credit_note_id: cnId,
-          note: 'no Stripe payment — vratka k ručnímu vyřízení převodem na účet (do 14 dnů)',
-        })
-        return new Response(
-          JSON.stringify({
-            success: true, manual: true, code: 'manual_refund_pending',
-            amount: manAmount, credit_note_id: cnId, credit_note_pdf_path: cnPdfPath,
-          }),
-          { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } }
-        )
+        return await manualBookingRefund(supabase, booking_id, amount, reason, dlog)
       }
       return new Response(
         JSON.stringify({
@@ -769,9 +782,15 @@ Deno.serve(async (req: Request) => {
     // sees "Něco se pokazilo. Zkus to prosím znovu."
     let refundableHaleru: number | null = null
     let refundableCZK: number | null = null
+    let chargedHaleru: number | null = null
     try {
       const pi = await stripe.paymentIntents.retrieve(stripePaymentIntentId)
-      const charged = pi.amount_received || pi.amount || 0
+      // POZOR (fix 2026-08-21): dřívější fallback `|| pi.amount` počítal i
+      // NEZAPLACENÝ PI jako nabitý (pi.amount = pouze POŽADOVANÁ částka) —
+      // refunds.create pak na PI bez charge spadl („no successful charge")
+      // → 500 a vratka se nikdy nevyřídila. amount_received = skutečně přijato.
+      const charged = pi.amount_received || 0
+      chargedHaleru = charged
       // Subtract refunds already issued on this PI
       let alreadyRefunded = 0
       try {
@@ -784,6 +803,16 @@ Deno.serve(async (req: Request) => {
       refundableCZK = refundableHaleru / 100
     } catch (e) {
       console.warn('[process-refund] PI lookup failed:', (e as Error).message)
+    }
+
+    // PI existuje, ale Stripe na něm NIKDY nepřijal peníze → rezervace byla
+    // reálně zaplacená jinak (QR/převod/hotově; stale PI z opuštěného pokusu
+    // o kartu, který si starší verze uložila do bookings.stripe_payment_intent_id).
+    // Bez tohoto fallbacku by no_op větev níže chybně označila 'refunded'
+    // (peníze by se nikdy nevrátily a nevznikl by ani dobropis).
+    if (booking_id && chargedHaleru === 0) {
+      await dlog('pi_never_charged_manual_fallback', 'info', { payment_intent_id: stripePaymentIntentId })
+      return await manualBookingRefund(supabase, booking_id, amount, reason, dlog)
     }
 
     // Decide effective amount (in haléře). Null = full refund.
