@@ -15,7 +15,7 @@ import BookingModifyModal from './booking/BookingModifyModal'
 import DetailTab from './booking/DetailTab'
 import ComplaintsTab from './booking/ComplaintsTab'
 import { TABS, ACTIONS, CANCEL_REASONS, paymentStatusInfo } from './booking/bookingConstants'
-import { sendBookingMessage, logAudit, cancelBookingFromVelin } from './booking/bookingMessageHelpers'
+import { sendBookingMessage, logAudit, cancelBookingFromVelin, edgeErrorDetail } from './booking/bookingMessageHelpers'
 import BookingCancelModal from './booking/BookingCancelModal'
 import RefundConfirmModal from './booking/RefundConfirmModal'
 import PaymentConfirmModal from './booking/PaymentConfirmModal'
@@ -420,7 +420,7 @@ export default function BookingDetail() {
             body: { booking_id: id, reason: 'cancellation', ...(amt >= total ? {} : { amount: amt }) },
           })
         , { booking_id: id, amount: amt })
-        if (res?.error) { setError('Vratka selhala: ' + res.error.message); setSaving(false); return }
+        if (res?.error) { setError('Vratka selhala: ' + await edgeErrorDetail(res.error)); setSaving(false); return }
         if (res?.data && res.data.success === false) { setError('Vratka selhala: ' + (res.data.error || res.data.code || 'neznámá chyba')); setSaving(false); return }
       }
 
@@ -470,7 +470,7 @@ export default function BookingDetail() {
           },
         })
       , { booking_id: id, amount: amt, percent: pct })
-      if (mailRes?.error) setError('Vratka zpracována, ale odeslání emailu selhalo: ' + mailRes.error.message)
+      if (mailRes?.error) setError('Vratka zpracována, ale odeslání emailu selhalo: ' + await edgeErrorDetail(mailRes.error))
       else await supabase.from('bookings').update({ cancellation_notified: true }).eq('id', id)
 
       await logAudit('booking_refund_confirmed', { booking_id: id, amount: amt, percent: pct })
