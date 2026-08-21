@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
 import { CANCEL_REASONS } from './bookingConstants'
+import RefundAmountPicker, { refundAmountValid } from './RefundAmountPicker'
 
 const inputStyle = { padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }
 
@@ -11,24 +12,12 @@ const inputStyle = { padding: '8px 12px', background: '#f1faf7', border: '1px so
 // částky (plná / částečná / žádná vratka).
 export default function BookingCancelModal({ open, onClose, cancelReason, setCancelReason, cancelReasonCustom, setCancelReasonCustom, onCancel, saving, error, paid, totalPrice }) {
   const total = Math.max(0, Math.round(Number(totalPrice) || 0))
-  const [pct, setPct] = useState('100')
-  const [amount, setAmount] = useState('0')
-  useEffect(() => { if (open) { setPct('100'); setAmount(String(total)) } }, [open, total])
+  const [refund, setRefund] = useState({ pct: '100', amount: '0' })
+  useEffect(() => { if (open) setRefund({ pct: '100', amount: String(total) }) }, [open, total])
   if (!open) return null
 
-  const amountNum = Math.round(Number(amount))
-  const amountValid = !paid || (Number.isFinite(amountNum) && amountNum >= 0 && amountNum <= total)
-
-  const applyPct = (p) => {
-    const pc = Math.min(100, Math.max(0, Math.round(Number(p) || 0)))
-    setPct(String(pc))
-    setAmount(String(Math.round(total * pc / 100)))
-  }
-  const applyAmount = (a) => {
-    setAmount(a)
-    const an = Number(a)
-    if (total > 0 && Number.isFinite(an)) setPct(String(Math.round(Math.min(100, Math.max(0, an / total * 100)))))
-  }
+  const amountNum = Math.round(Number(refund.amount))
+  const amountValid = !paid || refundAmountValid(refund.amount, total)
 
   return (
     <Modal open title="Zrušit rezervaci" onClose={onClose}>
@@ -37,27 +26,7 @@ export default function BookingCancelModal({ open, onClose, cancelReason, setCan
         <>
           <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>1. Vrácení platby (zaplaceno {total.toLocaleString('cs-CZ')} Kč)</label>
           <div className="rounded-btn mb-3" style={inputStyle}>
-            <div className="flex gap-2 mb-2">
-              {[100, 50, 0].map(p => (
-                <button key={p} type="button" onClick={() => applyPct(p)}
-                  className="rounded-btn text-sm font-extrabold cursor-pointer"
-                  style={{ padding: '6px 14px', border: '1px solid #d4e8e0', background: Number(pct) === p && amountNum === Math.round(total * p / 100) ? '#74FB71' : '#fff', color: '#1a2e22' }}>
-                  {p} %
-                </button>
-              ))}
-            </div>
-            <div className="flex items-center gap-3">
-              <label className="flex items-center gap-1 text-sm" style={{ color: '#1a2e22' }}>
-                <input type="number" min="0" max="100" step="1" value={pct} onChange={e => applyPct(e.target.value)}
-                  className="rounded-btn text-sm outline-none" style={{ ...inputStyle, background: '#fff', width: 70, padding: '6px 8px' }} />
-                %
-              </label>
-              <label className="flex items-center gap-1 text-sm" style={{ color: '#1a2e22' }}>
-                <input type="number" min="0" max={total} step="1" value={amount} onChange={e => applyAmount(e.target.value)}
-                  className="rounded-btn text-sm outline-none" style={{ ...inputStyle, background: '#fff', width: 110, padding: '6px 8px' }} />
-                Kč
-              </label>
-            </div>
+            <RefundAmountPicker total={total} pct={refund.pct} amount={refund.amount} onChange={setRefund} />
             {!amountValid && (
               <p className="text-sm mt-2" style={{ color: '#dc2626' }}>Částka musí být mezi 0 a {total.toLocaleString('cs-CZ')} Kč.</p>
             )}
