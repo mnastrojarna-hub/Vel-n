@@ -618,39 +618,40 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
         }
       } else {
         // effDiff <= 0 — zkrácení / levnější motorka / místo blíže
-        // Při effDiff < 0 musíme nejdřív vystavit credit_note + Stripe refund
-        // přes process-refund (jinak by KF nesedla na 0). UPDATE bookings až poté
-        // (DB trigger trg_booking_modified_email pošle mail s diff + dobropisem).
+        // POŘADÍ (2026-08-22): NEJDŘÍV uložit změnu, refund AŽ POTÉ. Refund
+        // před commitem nechával při selhaném uložení „osiřelou" vratku bez
+        // jakékoli změny rezervace a opakovaný pokus pak vrátil peníze
+        // podruhé (duplicitní dobropisy, incident DB-2026-0008/-0009).
+        // Stejné pořadí používá server (_apply_booking_changes_core) i Velín;
+        // dobropis k mailu o úpravě dotáhne retry loop v send-booking-email.
+        await MotoGoSupabase.client.from('bookings').update(changes).eq('id', widget.bookingId);
+        var refundOk = true;
         if (effDiff < 0) {
+          refundOk = false;
+          String? refundErr;
           try {
             final refundRes = await MotoGoSupabase.client.functions.invoke('process-refund', body: {
               'booking_id': widget.bookingId,
               'amount': -effDiff,
               'reason': 'edit_shortening',
             });
-            // Realita > optimismus: process-refund vrací {success:bool,error}.
-            // Když refund neproběhl (success != true / je error), NEUKLÁDÁME
-            // změnu a NEhlásíme úspěch — jinak by appka tvrdila vrácení, které
-            // se nestalo.
             final rd = refundRes.data;
-            final refundOk = rd is Map && rd['success'] == true;
-            if (!refundOk) {
-              final msg = (rd is Map && rd['error'] != null)
-                  ? rd['error'].toString()
-                  : t(context).tr('refundFailedRetry');
-              if (mounted) showMotoGoToast(context, icon: '✗',
-                title: t(context).error, message: msg);
-              return;
+            refundOk = rd is Map && rd['success'] == true;
+            if (!refundOk && rd is Map && rd['error'] != null) {
+              refundErr = rd['error'].toString();
             }
           } catch (e) {
-            if (mounted) showMotoGoToast(context, icon: '✗',
+            refundErr = '$e';
+          }
+          // Realita > optimismus: změna JE uložená; když vratka selhala,
+          // řekneme to na rovinu (vyřídí obsluha ručně) a NEslibujeme
+          // automatické vrácení. Zákazník nesmí zůstat v nejistotě.
+          if (!refundOk && mounted) {
+            showMotoGoToast(context, icon: '⚠️',
               title: t(context).error,
-              message: 'Refund failed: $e');
-            return;
+              message: refundErr ?? t(context).tr('refundSettleManual'));
           }
         }
-        // No surcharge or refund — save directly
-        await MotoGoSupabase.client.from('bookings').update(changes).eq('id', widget.bookingId);
         // Nahraď modelované doplňky novým stavem (přidané vlož, odebrané smaž).
         if (extrasChanged) {
           await _replaceModeledExtras(extrasRows);
@@ -659,12 +660,16 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
           ref.invalidate(reservationsProvider);
           ref.invalidate(reservationByIdProvider(widget.bookingId));
           ref.invalidate(doorCodesProvider(widget.bookingId));
+          // Vrácení peněz slibuj JEN když refund reálně proběhl — při selhání
+          // vratky (změna uložena, vyřídí obsluha) nechává text jen o úpravě.
           _showConfirmation(
             title: effDiff < 0 ? t(context).tr('shorteningConfirmed') : t(context).tr('changesSavedTitle'),
             message: effDiff < 0
-                ? '${t(context).tr('reservationShortened')}\n${t(context).tr('refundAmount').replaceAll('{amount}', '${(-effDiff).toStringAsFixed(0)}').replaceAll('{percent}', '${StornoCalc.refundPercent(_newEnd ?? _booking!.endDate)}')}\n${t(context).tr('refundToOriginalMethod')}'
+                ? (refundOk
+                    ? '${t(context).tr('reservationShortened')}\n${t(context).tr('refundAmount').replaceAll('{amount}', '${(-effDiff).toStringAsFixed(0)}').replaceAll('{percent}', '${StornoCalc.refundPercent(_newEnd ?? _booking!.endDate)}')}\n${t(context).tr('refundToOriginalMethod')}'
+                    : '${t(context).tr('reservationShortened')}\n${t(context).tr('refundSettleManual')}')
                 : '${t(context).tr('changesSaved')}\n${t(context).tr('reservationRange').replaceAll('{start}', _fmt(_newStart)).replaceAll('{end}', _fmt(_newEnd))}',
-            isRefund: effDiff < 0,
+            isRefund: effDiff < 0 && refundOk,
           );
         }
       }

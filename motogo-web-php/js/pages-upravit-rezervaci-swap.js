@@ -205,31 +205,6 @@
     ER._showError(key ? MG.t(key) : (code || MG.t('editRez.err.generic')));
   }
 
-  // Vrácení (net<0) na PŮVODNÍ rezervaci přes edge process-refund. Vrací {ok, msg}.
-  async function swapRefund(bookingId, amount) {
-    try {
-      var d = await window.sb.auth.getSession();
-      var tok = d && d.data && d.data.session && d.data.session.access_token;
-      if (!tok) return { ok: false, msg: MG.t('editRez.err.generic') };
-      var url = window.MOTOGO_CONFIG.SUPABASE_URL + '/functions/v1/process-refund';
-      var r = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tok, apikey: window.MOTOGO_CONFIG.SUPABASE_ANON_KEY },
-        body: JSON.stringify({ booking_id: bookingId, amount: amount, reason: 'moto_swap' })
-      });
-      var j = await r.json().catch(function () { return null; });
-      if (!r.ok || !j || j.success !== true) {
-        return { ok: false, msg: (j && j.error) || MG.t('editRez.err.generic') };
-      }
-      // manual:true = rezervace bez Stripe platby → dobropis vystaven, peníze
-      // vrátí obsluha převodem na účet (do 14 dnů) — řekneme to zákazníkovi.
-      return { ok: true, manual: j.manual === true };
-    } catch (e) {
-      console.error('[editRez] swap refund exception', e);
-      return { ok: false, msg: MG.t('editRez.err.generic') };
-    }
-  }
-
   // Úspěšná obrazovka po commitu (inline, net<=0).
   function swapSuccessUI(swapDate, manualRefund) {
     var msg = MG.t('editRez.swap.success', { date: MG.formatDate(swapDate) });
@@ -249,14 +224,15 @@
   }
 
   // ---- Odeslání výměny (dvoukrokový backend) ----
-  // POŘADÍ (kritické): 1) dry-run zjistí net → 2) vypořádej net → 3) COMMIT (dry_run:false).
+  // POŘADÍ (kritické): 1) dry-run zjistí net → 2) net>0 vypořádej platbou → 3) COMMIT.
   //   • net>0 → doplatek přes STÁVAJÍCÍ edit-platbu (process-payment typu 'extension',
   //     checkout redirect) s `change:{_swap:{m,d,t}}` → COMMIT provede server-side
   //     webhook-receiver po potvrzení platby (pojistka, incident EEC9CA33) A ZÁROVEŇ
   //     klient po návratu z platby (paid_booking → _applyPendingAfterPayment, viz
   //     wrap níže) — souběh je idempotentní (already_split / invalid_new_moto = OK).
-  //   • net<0 → refund na PŮVODNÍ rezervaci PŘED commitem (process-refund).
-  //   • net==0 → rovnou COMMIT.
+  //   • net<=0 → rovnou COMMIT s p_settle_refund:true — vratku na PŮVODNÍ
+  //     rezervaci dispatchne RPC server-side AŽ PO úspěšném zápisu (nikdy
+  //     před ním — jinak selhaný commit nechá osiřelou vratku).
   //   COMMIT sám server-side vytvoří druhou (paid) rezervaci a rozešle její mail + smlouvu.
   ER._submitSwap = async function (newMotoId, swapDate, swapTime) {
     if (ER.busy) return;
@@ -307,17 +283,15 @@
         return;
       }
 
-      // 2b) VRÁCENÍ (net<0) — refund PŘED commitem; když selže, NEcommituj.
-      var manualRefund = false;
-      if (net < -0.5) {
-        var rf = await swapRefund(b.id, -net);
-        if (!rf.ok) { ER._showError(rf.msg || MG.t('editRez.err.generic')); return; }
-        manualRefund = rf.manual === true;
-      }
-
-      // 3) COMMIT — net (<=0) vypořádán, teprve teď zapiš.
-      var done = await window.sb.rpc('split_booking_moto_swap', Object.assign({ p_dry_run: false }, base));
+      // 2b+3) VRÁCENÍ (net<0) i net==0 → rovnou COMMIT. Vratku dispatchne RPC
+      // server-side AŽ PO úspěšném zápisu (p_settle_refund) — klientský refund
+      // před commitem vytvářel při selhaném commitu „osiřelou" vratku a následně
+      // duplicitní dobropisy (incident DB-2026-0008/-0009, 21.8.2026).
+      var done = await window.sb.rpc('split_booking_moto_swap', Object.assign({ p_dry_run: false, p_settle_refund: true }, base));
       if (done.error || !done.data || done.data.success === false) { swapErr(done, base); return; }
+      // refund_manual = rezervace bez Stripe platby → dobropis vystaven, peníze
+      // vrátí obsluha převodem na účet (do 14 dnů) — řekneme to zákazníkovi.
+      var manualRefund = Number(done.data.refund_amount || 0) > 0 && done.data.refund_manual === true;
       swapSuccessUI(swapDate, manualRefund);
     } catch (e) {
       console.error('[editRez] swap exception', e);

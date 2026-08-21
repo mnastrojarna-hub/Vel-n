@@ -194,13 +194,14 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
     showMotoGoToast(context, icon: '⚠️', title: t(context).error, message: msg);
   }
 
-  /// Dvoukrokový flow výměny — POŘADÍ: dry-run → vypořádání net → COMMIT.
+  /// Dvoukrokový flow výměny — POŘADÍ: dry-run → net>0 vypořádej platbou → COMMIT.
   ///  1) `p_dry_run:true` zjistí `net` (kolik zákazník doplatí >0 / dostane <0), nic nezapíše.
   ///  2) net>0 → doplatek přes STÁVAJÍCÍ edit-platbu (extension) a COMMIT až PO úspěšné platbě
-  ///     (řeší payment_screen přes speciální klíč `_swap_commit`); net<0 → refund na PŮVODNÍ
-  ///     rezervaci přes edge `process-refund` PŘED commitem; net==0 → rovnou commit.
-  ///  3) `p_dry_run:false` = COMMIT — server zkrátí původní, vytvoří druhou (paid) rezervaci
-  ///     a sám rozešle její „reserved" mail + smlouvu. COMMIT platbu ANI refund nedělá.
+  ///     (řeší payment_screen přes speciální klíč `_swap_commit`).
+  ///  3) net<=0 → rovnou COMMIT s `p_settle_refund:true` — vratku na PŮVODNÍ rezervaci
+  ///     dispatchne RPC server-side AŽ PO úspěšném zápisu. Klientský refund před commitem
+  ///     nechával při selhaném commitu „osiřelou" vratku a vedl k duplicitním dobropisům
+  ///     (incident DB-2026-0008/-0009, 21.8.2026 — parita s webem).
   Future<void> _confirm() async {
     final date = _swapDate;
     final motoId = _newMotoId;
@@ -252,30 +253,11 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
         return;
       }
 
-      // 2b) VRÁCENÍ (net<0) — refund na PŮVODNÍ rezervaci PŘED commitem. Když selže, NEcommituj.
-      if (net < -0.5) {
-        final refundRes = await MotoGoSupabase.client.functions.invoke('process-refund', body: {
-          'booking_id': widget.booking.id,
-          'amount': -net,
-          'reason': 'moto_swap',
-        });
-        final rd = refundRes.data;
-        final refundOk = rd is Map && rd['success'] == true;
-        if (!refundOk) {
-          final msg = (rd is Map && rd['error'] != null)
-              ? rd['error'].toString()
-              : t(context).tr('refundFailedRetry');
-          if (mounted) {
-            showMotoGoToast(context, icon: '✗', title: t(context).error, message: msg);
-          }
-          return;
-        }
-      }
-
-      // 3) COMMIT — net (<=0) je vypořádán, teprve teď zapiš.
+      // 2b+3) net<=0 → rovnou COMMIT; vratku dispatchne server po úspěšném zápisu.
       final commit = await MotoGoSupabase.client.rpc('split_booking_moto_swap', params: {
         ...swapParams,
         'p_dry_run': false,
+        'p_settle_refund': true,
       });
       if (!_rpcOk(commit)) {
         _showSwapError(commit);

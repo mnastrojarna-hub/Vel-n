@@ -263,6 +263,54 @@ final bookingValidationErrorProvider = Provider<String?>((ref) {
       ref.watch(pickupLeadTimeValidationProvider);
 });
 
+/// Povinné údaje profilu před rezervací (2026-08-22): adresa (ulice, město,
+/// PSČ) VŽDY; číslo + platnost ŘP jen když motorka vyžaduje ŘP (ne dětské /
+/// 'N'). Foto dokladů povinné NENÍ — lze doplnit dodatečně. Vrací
+/// lokalizovanou hlášku s výčtem chybějících polí (formulář k ní přidá
+/// tlačítko „Doplnit v profilu"), null = vše vyplněno. Stejná kontrola běží
+/// i v payment_screen před insertem rezervace (pojistka).
+final profileCompletenessValidationProvider = Provider<String?>((ref) {
+  final moto = ref.watch(bookingMotoProvider);
+  final profile = ref.watch(profileProvider).valueOrNull;
+  // Profil se ještě načítá / nepřihlášený uživatel — gate řeší login flow;
+  // po načtení profilu se provider přepočítá.
+  if (profile == null) return null;
+  final lang = ref.watch(localeProvider).languageCode;
+  String trKey(String key) =>
+      translations[lang]?[key] ?? translations['cs']?[key] ?? key;
+  String val(String k) => (profile[k] ?? '').toString().trim();
+
+  final needsLicense =
+      !(moto?.licenseGroupsOrFallback.map((g) => g.toUpperCase()).contains('N') ??
+          true);
+
+  final missing = <String>[];
+  if (val('street').isEmpty) missing.add(trKey('streetShort'));
+  if (val('city').isEmpty) missing.add(trKey('city'));
+  if (val('zip').isEmpty) missing.add(trKey('zip'));
+  if (needsLicense) {
+    if (val('license_number').isEmpty) missing.add(trKey('licenseNumber'));
+    if (val('license_expiry').isEmpty) missing.add(trKey('licenseExpiry'));
+  }
+  if (missing.isNotEmpty) {
+    return trKey('validationMissingProfile')
+        .replaceAll('{fields}', missing.join(', '));
+  }
+
+  // Platnost ŘP nesmí skončit před koncem pronájmu (bez termínu: před dneškem).
+  if (needsLicense) {
+    final exp = DateTime.tryParse(val('license_expiry'));
+    if (exp != null) {
+      final draft = ref.watch(bookingDraftProvider);
+      final limit = draft.endDate ?? DateTime.now();
+      if (exp.isBefore(DateTime(limit.year, limit.month, limit.day))) {
+        return trKey('validationLicenseExpired');
+      }
+    }
+  }
+  return null;
+});
+
 /// Fetch extras catalog from Supabase.
 final extrasCatalogProvider =
     FutureProvider<List<ExtraCatalogItem>>((ref) async {

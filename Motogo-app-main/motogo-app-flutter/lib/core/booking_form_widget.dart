@@ -341,6 +341,9 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
     final draft = ref.watch(bookingDraftProvider);
     final bd = ref.watch(priceBreakdownProvider);
     final err = ref.watch(bookingValidationErrorProvider);
+    // Povinné údaje profilu (adresa; ŘP u motorek s ŘP) — bez nich appka
+    // rezervaci NEPUSTÍ; foto dokladů lze doplnit dodatečně (2026-08-22).
+    final profileErr = ref.watch(profileCompletenessValidationProvider);
     final hasDates = draft.startDate != null && draft.endDate != null;
     final dc = hasDates ? draft.dayCount : 0;
     final isKids = moto.licenseRequired == 'N';
@@ -386,16 +389,37 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
                 BookingFormPriceSection(draft: draft, bd: bd, dayCount: dc),
                 BookingFormPromoSection(draft: draft, onUpd: _upd),
                 _buildNoteSection(context),
-                // SOUHLASY — only kids consent needed for children's bikes
-                if (isKids)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                    child: bookingCheckbox(
-                      t(context).tr('consentKidsGuardian'),
-                      draft.consentKids,
-                      (v) => _upd((d) => d.copyWith(consentKids: v)),
-                    ),
+                // SOUHLASY — VOP + GDPR jsou POVINNÉ vždy (parita s webem;
+                // 2026-08-22 — dřív tu checkboxy chyběly a payment_screen pak
+                // zapisoval consent_vop/gdpr=false do profilu). U dětských
+                // motorek navíc povinný souhlas zákonného zástupce.
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      bookingCheckbox(
+                        t(context).tr('consentTermsVop'),
+                        draft.consentVop,
+                        (v) => _upd((d) => d.copyWith(consentVop: v)),
+                      ),
+                      const SizedBox(height: 8),
+                      bookingCheckbox(
+                        t(context).tr('consentPersonalData'),
+                        draft.consentGdpr,
+                        (v) => _upd((d) => d.copyWith(consentGdpr: v)),
+                      ),
+                      if (isKids) ...[
+                        const SizedBox(height: 8),
+                        bookingCheckbox(
+                          t(context).tr('consentKidsGuardian'),
+                          draft.consentKids,
+                          (v) => _upd((d) => d.copyWith(consentKids: v)),
+                        ),
+                      ],
+                    ],
                   ),
+                ),
                 // WARNING — chybějící velikosti výbavy při přistavení
                 if (missingSizes.isNotEmpty)
                   Padding(
@@ -483,16 +507,104 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
                       ),
                     ),
                   ),
-                // CTA — disabled when sizes are missing (přistavení) or there is
-                // a validation error (err).
+                // Neúplný profil (adresa / ŘP) — rezervaci NELZE odeslat,
+                // tlačítko vede rovnou do profilu na doplnění údajů.
+                if (profileErr != null)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF9E6),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: const Color(0xFFFFD54F),
+                          width: 1,
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Icon(Icons.badge_outlined,
+                                  size: 18, color: Color(0xFF92400E)),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  profileErr,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF92400E),
+                                    decoration: TextDecoration.none,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          SizedBox(
+                            height: 36,
+                            child: ElevatedButton(
+                              onPressed: () =>
+                                  GoRouter.of(context).push('/profile'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF92400E),
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(18),
+                                ),
+                              ),
+                              child: Text(
+                                t(context).tr('completeProfileBtn'),
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                // Nepotvrzené povinné souhlasy — jen hint, CTA je zamčené.
+                if (!(draft.consentVop &&
+                    draft.consentGdpr &&
+                    (!isKids || draft.consentKids)))
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                    child: Text(
+                      t(context).tr('consentsRequired'),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF8AAB99),
+                        decoration: TextDecoration.none,
+                      ),
+                    ),
+                  ),
+                // CTA — disabled when sizes are missing (přistavení), there is
+                // a validation error (err), profile is incomplete (profileErr)
+                // or mandatory consents are not ticked.
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
                   child: SizedBox(
                     height: 52,
-                    child: PressableScale(
-                    enabled: missingSizes.isEmpty && err == null,
+                    child: Builder(builder: (context) {
+                    final consentsOk = draft.consentVop &&
+                        draft.consentGdpr &&
+                        (!isKids || draft.consentKids);
+                    final canProceed = missingSizes.isEmpty &&
+                        err == null &&
+                        profileErr == null &&
+                        consentsOk;
+                    return PressableScale(
+                    enabled: canProceed,
                     child: ElevatedButton(
-                      onPressed: (missingSizes.isEmpty && err == null)
+                      onPressed: canProceed
                           ? () => GoRouter.of(context).push('/payment')
                           : null,
                       style: ElevatedButton.styleFrom(
@@ -520,7 +632,8 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
                         ],
                       ),
                     ),
-                    ),
+                    );
+                    }),
                   ),
                 ),
                 const SizedBox(height: 100),
