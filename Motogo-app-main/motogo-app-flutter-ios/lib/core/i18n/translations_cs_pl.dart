@@ -202,6 +202,7 @@ const translationsCsPl = <String, Map<String, String>>{
     'loginUnknownEmailTitle': 'Účet nenalezen',
     'loginUnknownEmailBody': 'Tento e-mail u nás zatím nemáme. Vytvořte si prosím registraci.',
     'refundFailedRetry': 'Vrácení peněz se nezdařilo. Zkuste to prosím znovu.',
+    'refundSettleManual': 'Automatická vratka se nezdařila — vyřídí ji obsluha a peníze vám vrátíme (ozveme se, není třeba nic dělat).',
     // Reservations screens
     'myReservations': 'Moje rezervace',
     'resOverview': 'Přehled všech rezervací',
@@ -1093,6 +1094,7 @@ const translationsCsPl = <String, Map<String, String>>{
     'loginUnknownEmailTitle': 'Nie znaleziono konta',
     'loginUnknownEmailBody': 'Nie mamy jeszcze tego adresu e-mail. Utwórz rejestrację.',
     'refundFailedRetry': 'Zwrot środków nie powiódł się. Spróbuj ponownie.',
+    'refundSettleManual': 'Automatyczny zwrot się nie powiódł — zajmie się nim obsługa i pieniądze zostaną zwrócone (odezwiemy się, nie musisz nic robić).',
     // Reservations screens
     'myReservations': 'Moje rezerwacje',
     'resOverview': 'Przegląd wszystkich rezerwacji',

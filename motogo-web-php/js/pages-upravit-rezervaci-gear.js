@@ -8,7 +8,8 @@
 //  - změna velikosti už vybrané výbavy = zdarma (uloží se hned),
 //  - přidání placené výbavy (boty řidiče, výbava/boty spolujezdce) = doplatek
 //    přes process-payment (type=extension) — stejný pending flow jako prodloužení,
-//  - odebrání placené výbavy = refund přes process-refund, pak uložení.
+//  - odebrání placené výbavy = uložení s p_settle_refund:true; vratku
+//    dispatchne RPC server-side až PO úspěšném commitu.
 // Záznam do historie úprav zajistí DB trigger track_booking_content_changes
 // (gear_changes {pole:{from,to}}) — Velín, appka i web ho zobrazí.
 (function () {
@@ -192,35 +193,19 @@
         return;
       }
 
-      var manualRefund = false;
-      if (net < 0) {
-        // Vratka NEJDŘÍV (dobropis + Stripe refund přes process-refund), uložení
-        // až po úspěchu — jinak by web tvrdil vrácení, které neproběhlo (parita
-        // s appkou reservation_edit_screen).
-        var s2 = await window.sb.auth.getSession();
-        var tk = s2 && s2.data && s2.data.session && s2.data.session.access_token;
-        if (!tk) throw new Error('no-auth');
-        var rf = await fetch(window.MOTOGO_CONFIG.SUPABASE_URL + '/functions/v1/process-refund', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tk, apikey: window.MOTOGO_CONFIG.SUPABASE_ANON_KEY },
-          body: JSON.stringify({ booking_id: b.id, amount: -net, reason: 'gear_edit', source: 'edit' }),
-        });
-        var rfd = await rf.json().catch(function () { return null; });
-        if (!rf.ok || !rfd || rfd.success !== true) {
-          console.error('[editRez] gear refund err', rf.status, rfd);
-          return void ER._showError(rfd && rfd.error ? rfd.error : MG.t('editRez.err.generic'));
-        }
-        // manual:true = bez Stripe platby → vratka převodem na účet do 14 dnů.
-        manualRefund = rfd.manual === true;
-      }
-
+      // net<=0 → rovnou COMMIT. Vratku dispatchne RPC server-side AŽ PO
+      // úspěšném uložení (p_settle_refund) — klientský refund před commitem
+      // nechával při selhaném uložení „osiřelou" vratku a vedl k duplicitním
+      // dobropisům (incident DB-2026-0008/-0009, 21.8.2026).
       var commit = await window.sb.rpc('update_booking_gear', {
-        p_booking_id: b.id, p_sizes: sizes, p_dry_run: false,
+        p_booking_id: b.id, p_sizes: sizes, p_dry_run: false, p_settle_refund: true,
       });
       if (commit.error || !commit.data || commit.data.success === false) {
         console.error('[editRez] gear commit failed', commit.error, commit.data);
         return void ER._showError(MG.t('editRez.err.generic'));
       }
+      // refund_manual = bez Stripe platby → vratka převodem na účet do 14 dnů.
+      var manualRefund = net < 0 && commit.data.refund_manual === true;
 
       // Propsat lokální stav (velikosti + cenu), ať detail sedí bez reloadu
       TYPES.forEach(function (tp) {

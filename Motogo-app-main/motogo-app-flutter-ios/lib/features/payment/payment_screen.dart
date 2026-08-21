@@ -282,6 +282,14 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
       _draftError = t(context).tr('selectDatesFirst');
       return null;
     }
+    // Pojistka (2026-08-22): bez povinných údajů profilu (adresa; číslo a
+    // platnost ŘP u motorek s ŘP) rezervace NEVZNIKNE — primárně to hlídá
+    // rezervační formulář, tohle kryje starý draft / přímý vstup na platbu.
+    final profileGate = ref.read(profileCompletenessValidationProvider);
+    if (profileGate != null) {
+      _draftError = profileGate;
+      return null;
+    }
 
     String _fmtDate(DateTime d) =>
         '${d.year}-${d.month.toString().padLeft(2, "0")}-${d.day.toString().padLeft(2, "0")}';
@@ -481,12 +489,15 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
       };
       () async {
         try {
+          // Souhlasy jen POTVRZUJEME (true z checkboxů formuláře) — nikdy je
+          // nepřepisujeme na false: dřív formulář checkboxy neměl a každá app
+          // rezervace tu smazala souhlasy z registrace (consent_vop/gdpr=false).
           await MotoGoSupabase.client.from('profiles').update({
-            'consent_vop': draft.consentVop,
-            'consent_gdpr': draft.consentGdpr,
+            if (draft.consentVop) 'consent_vop': true,
+            if (draft.consentGdpr) 'consent_gdpr': true,
             // Zpracování osobních údajů = tentýž souhlas jako GDPR checkbox
-            // (povinné pole ve Velíně). Bez toho zůstávalo „NE"/NULL i po rezervaci.
-            'consent_data_processing': draft.consentGdpr,
+            // (povinné pole ve Velíně).
+            if (draft.consentGdpr) 'consent_data_processing': true,
             'gear_sizes': gearSizes,
           }).eq('id', user.id);
         } catch (_) {/* ignore */}

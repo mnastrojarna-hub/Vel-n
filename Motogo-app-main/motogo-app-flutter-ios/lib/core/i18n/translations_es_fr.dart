@@ -193,6 +193,7 @@ const translationsEsFr = <String, Map<String, String>>{
     'loginUnknownEmailTitle': 'Cuenta no encontrada',
     'loginUnknownEmailBody': 'Todavía no tenemos este correo. Crea una cuenta, por favor.',
     'refundFailedRetry': 'El reembolso ha fallado. Inténtalo de nuevo.',
+    'refundSettleManual': 'El reembolso automático ha fallado: nuestro equipo lo gestionará y te devolveremos el dinero (te contactaremos, no es necesario hacer nada).',
     // Reservations screens
     'myReservations': 'Mis reservas',
     'resOverview': 'Resumen de todas las reservas',
@@ -586,6 +587,7 @@ const translationsEsFr = <String, Map<String, String>>{
     'loginUnknownEmailTitle': 'Compte introuvable',
     'loginUnknownEmailBody': 'Nous n’avons pas encore cet e-mail. Veuillez créer un compte.',
     'refundFailedRetry': 'Le remboursement a échoué. Veuillez réessayer.',
+    'refundSettleManual': 'Le remboursement automatique a échoué — notre équipe s\'en chargera et vous serez remboursé (nous vous contacterons, rien à faire de votre côté).',
     // Reservations screens
     'myReservations': 'Mes réservations',
     'resOverview': 'Aperçu de toutes les réservations',
