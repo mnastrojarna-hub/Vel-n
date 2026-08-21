@@ -35,6 +35,7 @@ export default function BookingDetail() {
   const [surchargeMode, setSurchargeMode] = useState(false)
   const [cancelReason, setCancelReason] = useState('')
   const [cancelReasonCustom, setCancelReasonCustom] = useState('')
+  const [cancelRefundMode, setCancelRefundMode] = useState('full')
   const [showModifyModal, setShowModifyModal] = useState(false)
   const [promoUsage, setPromoUsage] = useState([])
   const [voucherUsed, setVoucherUsed] = useState(null)
@@ -139,6 +140,17 @@ export default function BookingDetail() {
           ]).catch(() => {})
         }
       }
+      // Storno bez vratky: paid + cancelled by paymentStatusInfo odvodilo „Čeká na
+      // vrácení". Když ale záznam storna nese vratku 0 (admin „Nevracet peníze",
+      // příp. zákaznické storno <48 h), žádné vrácení se nechystá → refund_none.
+      if (d && d.status === 'cancelled' && d.payment_status === 'paid') {
+        try {
+          const { data: cans } = await supabase.from('booking_cancellations')
+            .select('refund_amount').eq('booking_id', d.id)
+            .order('created_at', { ascending: false }).limit(1)
+          if (cans && cans.length) d.refund_none = Number(cans[0].refund_amount || 0) === 0
+        } catch { /* bez záznamu ponech odvozené chování */ }
+      }
       setBooking(d)
     }
     setLoading(false)
@@ -241,11 +253,17 @@ export default function BookingDetail() {
     if (!reason) { setError('Vyplňte důvod zrušení'); setSaving(false); return }
 
     const result = await debugAction('booking.cancel', 'BookingDetail',
-      () => cancelBookingFromVelin(booking, reason, cancelReason),
-      { booking_id: id, reason, source: cancelReason })
+      () => cancelBookingFromVelin(booking, reason, cancelReason, { noRefund: cancelRefundMode === 'none' }),
+      { booking_id: id, reason, source: cancelReason, refund_mode: cancelRefundMode })
     if (result?.error) { setError(result.error); setSaving(false); return }
     setBooking(b => ({ ...b, ...(result.updatePayload || {}) }))
-    setShowCancelModal(false); setCancelReason(''); setCancelReasonCustom(''); setSaving(false)
+    setShowCancelModal(false); setCancelReason(''); setCancelReasonCustom(''); setCancelRefundMode('full')
+    // Reload z DB: u rezervace bez Stripe platby (QR/převod/hotově) vystavil
+    // process-refund právě MANUÁLNÍ dobropis — bez znovunačtení creditNotes by se
+    // banner „VRÁTIT NA ÚČET" a tlačítko „Vratka odeslána" ukázaly až po ručním
+    // refreshi stránky.
+    await loadBooking()
+    setSaving(false)
   }
 
   async function handleSave() {
@@ -633,7 +651,8 @@ export default function BookingDetail() {
         danger={confirm.danger}
         onConfirm={() => confirm.refund ? confirmManualRefundSent() : confirm.restore ? handleRestore() : changeStatus(confirm.status)}
         onCancel={() => setConfirm(null)} />}
-      <BookingCancelModal open={showCancelModal} onClose={() => setShowCancelModal(false)} cancelReason={cancelReason} setCancelReason={setCancelReason} cancelReasonCustom={cancelReasonCustom} setCancelReasonCustom={setCancelReasonCustom} onCancel={handleCancel} saving={saving} error={error} />
+      <BookingCancelModal open={showCancelModal} onClose={() => { setShowCancelModal(false); setCancelRefundMode('full') }} cancelReason={cancelReason} setCancelReason={setCancelReason} cancelReasonCustom={cancelReasonCustom} setCancelReasonCustom={setCancelReasonCustom} onCancel={handleCancel} saving={saving} error={error}
+        paid={booking.payment_status === 'paid'} totalPrice={booking.total_price} refundMode={cancelRefundMode} setRefundMode={setCancelRefundMode} />
       <PaymentConfirmModal open={showPaymentModal} onClose={() => { setShowPaymentModal(false); setSurchargeMode(false); setError(null) }}
         onConfirm={surchargeMode ? confirmSurchargePayment : confirmManualPayment} saving={saving} error={error}
         total={surchargeMode ? surchargeDue : booking?.total_price} bookingId={id} payChannel={booking?.pay_channel} paymentVs={booking?.payment_vs}

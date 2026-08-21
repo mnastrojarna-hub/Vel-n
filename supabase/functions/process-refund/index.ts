@@ -551,10 +551,18 @@ Deno.serve(async (req: Request) => {
           const piFromSess = typeof sess.payment_intent === 'string'
             ? sess.payment_intent
             : (sess.payment_intent as any)?.id || null
-          if (piFromSess) {
+          // PI ze session převezmi JEN když session byla skutečně ZAPLACENÁ.
+          // Rezervace placená QR/převodem může nést stripe_session_id z dřívějšího
+          // opuštěného pokusu o kartu — jeho nezaplacený PI by níže vedl na
+          // „refundable 0 → no_op → payment_status='refunded'" (peníze by se nikdy
+          // nevrátily a nevznikl by ani manuální dobropis). Nezaplacená session →
+          // PI ignoruj a spadni do manuální větve (dobropis + refund_pending).
+          if (piFromSess && sess.payment_status === 'paid') {
             stripePaymentIntentId = piFromSess
             await supabase.from('bookings').update({ stripe_payment_intent_id: piFromSess }).eq('id', booking_id)
             await dlog('pi_resolved_from_session', 'info', { session_id: data.stripe_session_id, payment_intent_id: piFromSess })
+          } else if (piFromSess) {
+            await dlog('pi_from_session_ignored_unpaid', 'info', { session_id: data.stripe_session_id, payment_intent_id: piFromSess, session_payment_status: sess.payment_status })
           }
         } catch (e) { console.warn('[process-refund] session PI resolve failed:', (e as Error).message) }
       }
@@ -595,7 +603,8 @@ Deno.serve(async (req: Request) => {
           const piFromSess = typeof sess.payment_intent === 'string'
             ? sess.payment_intent
             : (sess.payment_intent as any)?.id || null
-          if (piFromSess) {
+          // Stejný guard jako u bookingu: PI jen ze ZAPLACENÉ session.
+          if (piFromSess && sess.payment_status === 'paid') {
             stripePaymentIntentId = piFromSess
             await supabase.from('shop_orders').update({ stripe_payment_intent_id: piFromSess }).eq('id', order_id)
           }

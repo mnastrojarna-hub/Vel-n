@@ -30,12 +30,22 @@ export async function sendBookingMessage(status, bk) {
 // zápis booking_cancellations, Stripe refund (process-refund) a generování dobropisu
 // pokud byla rezervace zaplacená, audit log a finálně send-cancellation-email
 // (důvod se posílá v emailu i zobrazí ve Velínu z bookings.cancellation_reason).
-export async function cancelBookingFromVelin(booking, reasonText, sourceCode) {
+// opts.noRefund = true → storno BEZ vratky (volba „Nevracet peníze" v modalu):
+// peníze zůstávají u nás, refund/dobropis se přeskočí, payment_status zůstává 'paid'.
+export async function cancelBookingFromVelin(booking, reasonText, sourceCode, opts = {}) {
   if (!booking?.id) return { error: 'Chybí ID rezervace' }
   if (!reasonText) return { error: 'Vyplňte důvod zrušení' }
 
   const { data: { user } } = await supabase.auth.getUser()
   const wasPaid = booking.payment_status === 'paid'
+  // Admin zvolil „Nevracet peníze" (storno bez vratky): peníze zůstávají u nás —
+  // žádný Stripe refund, žádný dobropis, payment_status zůstává 'paid'.
+  // booking_cancellations dostane refund 0 % (auditní stopa, stejně jako
+  // zákaznické storno <48 h) a refund_percent: 0 se posílá i do
+  // send-cancellation-email — bez toho by si edge fn vratku dopočítala sama
+  // (fallback dle storno tabulky běží jen při refund_percent == null) a peníze
+  // by přes process-refund vrátila proti vůli admina.
+  const noRefund = wasPaid && opts.noRefund === true
   // POZOR: payment_status='refunded' tu ZÁMĚRNĚ NENASTAVUJEME před refundem.
   // process-refund musí načíst booking ve stavu, který umožní reálný Stripe refund
   // ('paid' nebo 'refund_pending'); kdyby viděl 'refunded'/'partial_refund', spadne do
@@ -50,7 +60,7 @@ export async function cancelBookingFromVelin(booking, reasonText, sourceCode) {
     cancelled_by_source: sourceCode,
     cancellation_reason: reasonText,
     cancelled_at: new Date().toISOString(),
-    ...(wasPaid ? { payment_status: 'refund_pending' } : {}),
+    ...(wasPaid && !noRefund ? { payment_status: 'refund_pending' } : {}),
   }
 
   const { error: updErr } = await supabase.from('bookings').update(updatePayload).eq('id', booking.id)
@@ -62,8 +72,8 @@ export async function cancelBookingFromVelin(booking, reasonText, sourceCode) {
         booking_id: booking.id,
         cancelled_by: user?.id || null,
         reason: reasonText,
-        refund_amount: booking.total_price,
-        refund_percent: 100,
+        refund_amount: noRefund ? 0 : booking.total_price,
+        refund_percent: noRefund ? 0 : 100,
       })
     } catch {}
 
@@ -71,18 +81,20 @@ export async function cancelBookingFromVelin(booking, reasonText, sourceCode) {
     // booking nemá načtený stripe_payment_intent_id — process-refund si ho umí
     // dohledat ze stripe_session_id. Je idempotentní, takže následné volání ze
     // send-cancellation-email už jen dohraje dobropis (Stripe podruhé nestrhne).
-    try {
-      await supabase.functions.invoke('process-refund', {
-        body: { booking_id: booking.id, reason: 'cancellation' },
-      })
-    } catch (e) { console.error('[Stripe refund]', e.message) }
+    if (!noRefund) {
+      try {
+        await supabase.functions.invoke('process-refund', {
+          body: { booking_id: booking.id, reason: 'cancellation' },
+        })
+      } catch (e) { console.error('[Stripe refund]', e.message) }
+    }
 
     // Dobropis (PDF) generuje send-cancellation-email níže — má vlastní idempotentní flow
     // přes generate-invoice s extra_items (negativní cena = dobropis). Přidá ho i jako přílohu mailu.
     // Žádné samostatné generování ve Velínu — jeden zdroj pravdy.
   }
 
-  await logAudit('booking_cancelled', { booking_id: booking.id, reason: reasonText, source: sourceCode, refund: wasPaid ? '100%' : 'n/a' })
+  await logAudit('booking_cancelled', { booking_id: booking.id, reason: reasonText, source: sourceCode, refund: wasPaid ? (noRefund ? '0% (bez vratky)' : '100%') : 'n/a' })
 
   let emailNotified = false
   if (booking.profiles?.email || booking.customer_email) {
@@ -98,7 +110,7 @@ export async function cancelBookingFromVelin(booking, reasonText, sourceCode) {
           cancellation_reason: reasonText,
           cancelled_by_source: sourceCode,
           source: booking.booking_source || 'app',
-          ...(wasPaid ? { refund_amount: booking.total_price, refund_percent: 100 } : {}),
+          ...(wasPaid ? { refund_amount: noRefund ? 0 : booking.total_price, refund_percent: noRefund ? 0 : 100 } : {}),
         },
       })
       await supabase.from('bookings').update({ cancellation_notified: true }).eq('id', booking.id)
@@ -111,12 +123,13 @@ export async function cancelBookingFromVelin(booking, reasonText, sourceCode) {
   // 'refunded' (Stripe potvrdil plné vrácení), 'partial_refund' (částečně, např. 50 %),
   // nebo zůstane 'refund_pending' (Stripe ještě nepotvrdil / refund se nepovedl).
   // Fallback: když read selže, držíme 'refund_pending' (nikdy ne falešné 'refunded').
-  let finalPaymentStatus = wasPaid ? 'refund_pending' : undefined
-  if (wasPaid) {
+  // Storno bez vratky žádný refund nespouští — payment_status zůstává 'paid'.
+  let finalPaymentStatus = wasPaid && !noRefund ? 'refund_pending' : undefined
+  if (wasPaid && !noRefund) {
     try {
       const { data: fresh } = await supabase.from('bookings').select('payment_status').eq('id', booking.id).single()
       if (fresh?.payment_status) finalPaymentStatus = fresh.payment_status
     } catch {}
   }
-  return { success: true, updatePayload: { ...updatePayload, ...(finalPaymentStatus ? { payment_status: finalPaymentStatus } : {}), ...(emailNotified ? { cancellation_notified: true } : {}) } }
+  return { success: true, no_refund: noRefund, updatePayload: { ...updatePayload, ...(finalPaymentStatus ? { payment_status: finalPaymentStatus } : {}), ...(noRefund ? { refund_none: true } : {}), ...(emailNotified ? { cancellation_notified: true } : {}) } }
 }

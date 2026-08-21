@@ -65,6 +65,7 @@ export default function Bookings() {
   const [cancelTarget, setCancelTarget] = useState(null)
   const [cancelReason, setCancelReason] = useState('')
   const [cancelReasonCustom, setCancelReasonCustom] = useState('')
+  const [cancelRefundMode, setCancelRefundMode] = useState('full')
   const [cancelSaving, setCancelSaving] = useState(false)
   const [cancelError, setCancelError] = useState(null)
   const [dpTotals, setDpTotals] = useState({})
@@ -224,9 +225,9 @@ export default function Bookings() {
     const reasonObj = CANCEL_REASONS.find(r => r.value === cancelReason)
     const reasonText = cancelReason === 'admin' ? cancelReasonCustom : (reasonObj?.label || cancelReason)
     if (!reasonText) { setCancelError('Vyplňte důvod zrušení'); setCancelSaving(false); return }
-    const result = await cancelBookingFromVelin(cancelTarget, reasonText, cancelReason)
+    const result = await cancelBookingFromVelin(cancelTarget, reasonText, cancelReason, { noRefund: cancelRefundMode === 'none' })
     if (result?.error) { setCancelError(result.error); setCancelSaving(false); return }
-    setCancelTarget(null); setCancelReason(''); setCancelReasonCustom(''); setCancelSaving(false)
+    setCancelTarget(null); setCancelReason(''); setCancelReasonCustom(''); setCancelRefundMode('full'); setCancelSaving(false)
     loadBookings()
   }
 
@@ -345,10 +346,12 @@ export default function Bookings() {
 
       <BookingCancelModal
         open={!!cancelTarget}
-        onClose={() => { setCancelTarget(null); setCancelReason(''); setCancelReasonCustom(''); setCancelError(null) }}
+        onClose={() => { setCancelTarget(null); setCancelReason(''); setCancelReasonCustom(''); setCancelRefundMode('full'); setCancelError(null) }}
         cancelReason={cancelReason} setCancelReason={setCancelReason}
         cancelReasonCustom={cancelReasonCustom} setCancelReasonCustom={setCancelReasonCustom}
         onCancel={handleConfirmCancel} saving={cancelSaving} error={cancelError}
+        paid={cancelTarget?.payment_status === 'paid'} totalPrice={cancelTarget?.total_price}
+        refundMode={cancelRefundMode} setRefundMode={setCancelRefundMode}
       />
     </div>
   )
