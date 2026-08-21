@@ -35,7 +35,6 @@ export default function BookingDetail() {
   const [surchargeMode, setSurchargeMode] = useState(false)
   const [cancelReason, setCancelReason] = useState('')
   const [cancelReasonCustom, setCancelReasonCustom] = useState('')
-  const [cancelRefundMode, setCancelRefundMode] = useState('full')
   const [showModifyModal, setShowModifyModal] = useState(false)
   const [promoUsage, setPromoUsage] = useState([])
   const [voucherUsed, setVoucherUsed] = useState(null)
@@ -246,18 +245,20 @@ export default function BookingDetail() {
     setConfirm(null); setSaving(false)
   }
 
-  async function handleCancel() {
+  // refund = { amount } ze storno modalu (výše vratky v Kč zvolená adminem;
+  // undefined u nezaplacené rezervace).
+  async function handleCancel(refund) {
     setSaving(true)
     const reasonObj = CANCEL_REASONS.find(r => r.value === cancelReason)
     const reason = cancelReason === 'admin' ? cancelReasonCustom : (reasonObj?.label || cancelReason)
     if (!reason) { setError('Vyplňte důvod zrušení'); setSaving(false); return }
 
     const result = await debugAction('booking.cancel', 'BookingDetail',
-      () => cancelBookingFromVelin(booking, reason, cancelReason, { noRefund: cancelRefundMode === 'none' }),
-      { booking_id: id, reason, source: cancelReason, refund_mode: cancelRefundMode })
+      () => cancelBookingFromVelin(booking, reason, cancelReason, { refundAmount: refund?.amount }),
+      { booking_id: id, reason, source: cancelReason, refund_amount: refund?.amount })
     if (result?.error) { setError(result.error); setSaving(false); return }
     setBooking(b => ({ ...b, ...(result.updatePayload || {}) }))
-    setShowCancelModal(false); setCancelReason(''); setCancelReasonCustom(''); setCancelRefundMode('full')
+    setShowCancelModal(false); setCancelReason(''); setCancelReasonCustom('')
     // Reload z DB: u rezervace bez Stripe platby (QR/převod/hotově) vystavil
     // process-refund právě MANUÁLNÍ dobropis — bez znovunačtení creditNotes by se
     // banner „VRÁTIT NA ÚČET" a tlačítko „Vratka odeslána" ukázaly až po ručním
@@ -380,9 +381,13 @@ export default function BookingDetail() {
     try {
       const cn = creditNotes.find(c => !c.stripe_refund_id)
       const amount = cn ? Math.abs(Number(cn.total) || 0) : null
+      // Částečná manuální vratka (dobropis < celková cena) → 'partial_refund',
+      // plná → 'refunded'.
+      const newStatus = amount != null && Number(booking.total_price) > 0 && amount < Number(booking.total_price)
+        ? 'partial_refund' : 'refunded'
       const res = await debugAction('booking.manual_refund_sent', 'BookingDetail', () =>
-        supabase.from('bookings').update({ payment_status: 'refunded' }).eq('id', id)
-      , { booking_id: id, amount })
+        supabase.from('bookings').update({ payment_status: newStatus }).eq('id', id)
+      , { booking_id: id, amount, new_status: newStatus })
       if (res?.error) { setError(res.error.message); setSaving(false); return }
       await logAudit('booking_manual_refund_sent', { booking_id: id, amount, credit_note: cn?.number || null })
       setConfirm(null)
@@ -644,15 +649,15 @@ export default function BookingDetail() {
       {tab === 'Reklamace' && <ComplaintsTab bookingId={id} booking={booking} setBooking={setBooking} />}
       {confirm && <ConfirmDialog open title={`${confirm.label}?`}
         message={confirm.refund
-          ? 'Potvrď, že vratka byla ODESLÁNA převodem na účet zákazníka — rezervace se označí jako Vráceno.'
+          ? 'Potvrď, že vratka byla ODESLÁNA převodem na účet zákazníka — rezervace se označí jako Vráceno (u částečné vratky jako Částečně vráceno).'
           : confirm.restore
             ? 'Rezervace se obnoví do stavu Čeká na platbu / Nezaplaceno (bez automatického zrušení — platbu potvrď tlačítkem Potvrdit, nebo rezervaci zruš ručně). Před obnovením se ověří, že motorka není na termín (ani jeho část) mezitím zabookovaná.'
             : `Změnit stav na "${confirm.label}"?`}
         danger={confirm.danger}
         onConfirm={() => confirm.refund ? confirmManualRefundSent() : confirm.restore ? handleRestore() : changeStatus(confirm.status)}
         onCancel={() => setConfirm(null)} />}
-      <BookingCancelModal open={showCancelModal} onClose={() => { setShowCancelModal(false); setCancelRefundMode('full') }} cancelReason={cancelReason} setCancelReason={setCancelReason} cancelReasonCustom={cancelReasonCustom} setCancelReasonCustom={setCancelReasonCustom} onCancel={handleCancel} saving={saving} error={error}
-        paid={booking.payment_status === 'paid'} totalPrice={booking.total_price} refundMode={cancelRefundMode} setRefundMode={setCancelRefundMode} />
+      <BookingCancelModal open={showCancelModal} onClose={() => setShowCancelModal(false)} cancelReason={cancelReason} setCancelReason={setCancelReason} cancelReasonCustom={cancelReasonCustom} setCancelReasonCustom={setCancelReasonCustom} onCancel={handleCancel} saving={saving} error={error}
+        paid={booking.payment_status === 'paid'} totalPrice={booking.total_price} />
       <PaymentConfirmModal open={showPaymentModal} onClose={() => { setShowPaymentModal(false); setSurchargeMode(false); setError(null) }}
         onConfirm={surchargeMode ? confirmSurchargePayment : confirmManualPayment} saving={saving} error={error}
         total={surchargeMode ? surchargeDue : booking?.total_price} bookingId={id} payChannel={booking?.pay_channel} paymentVs={booking?.payment_vs}
