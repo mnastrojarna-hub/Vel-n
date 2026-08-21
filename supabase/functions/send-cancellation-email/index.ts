@@ -306,11 +306,19 @@ serve(async (req) => {
     // storage_path je interní pro Velín log (sent_emails.attachments_meta) — do Resendu se neposílá
     const attachments: { content: string; filename: string; storage_path?: string }[] = []
 
+    // skip_refund: volající (Velín „Potvrdit vrácení" u zrušené rezervace) už
+    // refund/dobropis vyřídil sám přes process-refund — mail má JEN přiložit
+    // existující dobropis a odeslat šablonu, ne spouštět další vratku (recovery
+    // attach loop níže používá reason 'cancellation_retry', který nový refund
+    // nikdy nevytvoří). manual_refund: true = volající ví, že jde o vratku
+    // převodem na účet → dovětek do mailu i bez interního volání process-refund.
+    const skipRefund = (reqBody as any).skip_refund === true
+
     if (booking_id) {
       // Vratka bez Stripe platby (QR/převod/hotově) = manuální — mail dostane
       // dovětek „převodem na účet do 14 dnů" místo karty (nastavuje se z odpovědi
       // process-refund níže, čte se při skládání templateHtml).
-      var manualRefund = false
+      var manualRefund = (reqBody as any).manual_refund === true
       try {
         // Load booking data for refund calculation
         const { data: booking } = await supabase.from('bookings')
@@ -366,7 +374,7 @@ serve(async (req) => {
           // rezervace, race s webhookem) refund tiše přeskočila a Stripe by o vrácení
           // vůbec nevěděl. Když PI ani session neexistují, process-refund vrátí
           // `no_stripe_payment` a níže to zalogujeme.
-          const willCallRefund = (wasPaid || alreadyRefunded) && (refund_amount > 0 || alreadyRefunded)
+          const willCallRefund = !skipRefund && (wasPaid || alreadyRefunded) && (refund_amount > 0 || alreadyRefunded)
           if (willCallRefund) {
             try {
               const refundRes = await fetch(`${SUPABASE_URL}/functions/v1/process-refund`, {
