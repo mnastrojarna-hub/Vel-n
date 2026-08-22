@@ -278,6 +278,50 @@ class StornoCalc {
   static double refundAmount(double amount, DateTime removedDate) {
     return amount * refundPercent(removedDate) / 100;
   }
+
+  /// Strop vratky po POSUNU termínu — zrcadlí SQL `_storno_cap_after_move`.
+  /// Jakmile byl start rezervace kdykoli posunut (modification_history se
+  /// změněným from_start→to_start), storno už nikdy není 100 %: posun
+  /// provedený ≥168 h před TEHDEJŠÍM startem → max 50 %, pozdější posun → 0 %.
+  /// Při více posunech platí nejpřísnější strop.
+  static int capAfterMove(Reservation res) {
+    var cap = 100;
+    var moved = false;
+    for (final e in res.modificationHistory) {
+      final from = e.fromStart.length >= 10 ? e.fromStart.substring(0, 10) : e.fromStart;
+      final to = e.toStart.length >= 10 ? e.toStart.substring(0, 10) : e.toStart;
+      if (from.isEmpty || to.isEmpty || from == to) continue;
+      final fromDt = DateTime.tryParse(from);
+      if (fromDt == null) continue;
+      moved = true;
+      final hours = fromDt.difference(e.at).inHours;
+      final entryCap = hours >= 168 ? 50 : 0;
+      if (entryCap < cap) cap = entryCap;
+    }
+    // Pojistka: start se od původního liší, ale historie posun nezachytila —
+    // čas posunu neznáme, platí přísnější odhad z původního startu vůči teď.
+    final orig = res.originalStartDate;
+    if (!moved && orig != null && !_sameDay(orig, res.startDate)) {
+      final hours = orig.difference(DateTime.now()).inHours;
+      final fallbackCap = hours >= 168 ? 50 : 0;
+      if (fallbackCap < cap) cap = fallbackCap;
+    }
+    return cap;
+  }
+
+  /// Storno % s uplatněným stropem po posunu — vždy přísnější sazba.
+  static int effectiveRefundPercent(DateTime removedDate, Reservation res) {
+    final base = refundPercent(removedDate);
+    final cap = capAfterMove(res);
+    return base < cap ? base : cap;
+  }
+
+  static double effectiveRefundAmount(double amount, DateTime removedDate, Reservation res) {
+    return amount * effectiveRefundPercent(removedDate, res) / 100;
+  }
+
+  static bool _sameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
 }
 
 /// Single entry in modification_history JSONB array.

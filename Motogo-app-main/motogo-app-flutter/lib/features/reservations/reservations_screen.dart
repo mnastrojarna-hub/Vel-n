@@ -233,8 +233,8 @@ class _CancelDialogState extends State<_CancelDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final pct = StornoCalc.refundPercent(widget.reservation.startDate);
-    final refund = StornoCalc.refundAmount(widget.reservation.totalPrice, widget.reservation.startDate);
+    final pct = StornoCalc.effectiveRefundPercent(widget.reservation.startDate, widget.reservation);
+    final refund = StornoCalc.effectiveRefundAmount(widget.reservation.totalPrice, widget.reservation.startDate, widget.reservation);
 
     return AlertDialog(
       title: Text(t(context).tr('cancelReservationTitle'), style: const TextStyle(fontWeight: FontWeight.w800)),
