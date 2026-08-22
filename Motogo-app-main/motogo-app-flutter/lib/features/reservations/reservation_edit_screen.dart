@@ -253,7 +253,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
 
   Widget _buildStornoWarning(BuildContext context) {
     final targetDate = _newEnd ?? _booking!.endDate;
-    final pct = StornoCalc.refundPercent(targetDate);
+    final pct = StornoCalc.effectiveRefundPercent(targetDate, _booking!);
     final Color bgColor;
     final Color textColor;
     final IconData icon;
@@ -666,7 +666,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
             title: effDiff < 0 ? t(context).tr('shorteningConfirmed') : t(context).tr('changesSavedTitle'),
             message: effDiff < 0
                 ? (refundOk
-                    ? '${t(context).tr('reservationShortened')}\n${t(context).tr('refundAmount').replaceAll('{amount}', '${(-effDiff).toStringAsFixed(0)}').replaceAll('{percent}', '${StornoCalc.refundPercent(_newEnd ?? _booking!.endDate)}')}\n${t(context).tr('refundToOriginalMethod')}'
+                    ? '${t(context).tr('reservationShortened')}\n${t(context).tr('refundAmount').replaceAll('{amount}', '${(-effDiff).toStringAsFixed(0)}').replaceAll('{percent}', '${StornoCalc.effectiveRefundPercent(_newEnd ?? _booking!.endDate, _booking!)}')}\n${t(context).tr('refundToOriginalMethod')}'
                     : '${t(context).tr('reservationShortened')}\n${t(context).tr('refundSettleManual')}')
                 : '${t(context).tr('changesSaved')}\n${t(context).tr('reservationRange').replaceAll('{start}', _fmt(_newStart)).replaceAll('{end}', _fmt(_newEnd))}',
             isRefund: effDiff < 0 && refundOk,
@@ -946,7 +946,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
               ]),
               if (calc.effectivePriceDiff < 0 && calc.diffDays < 0)
                 Padding(padding: const EdgeInsets.only(top: 4),
-                  child: Text('${t(context).tr('stornoRefundPercent').replaceAll('{percent}', '${StornoCalc.refundPercent(_newEnd ?? _booking!.endDate)}')}',
+                  child: Text('${t(context).tr('stornoRefundPercent').replaceAll('{percent}', '${StornoCalc.effectiveRefundPercent(_newEnd ?? _booking!.endDate, _booking!)}')}',
                     style: const TextStyle(fontSize: 10, color: MotoGoColors.g400))),
             ])),
 

@@ -109,13 +109,13 @@ class EditPriceCalc {
         return newRange - origRange;
       } else {
         final raw = origRange - newRange;
-        final pct = StornoCalc.refundPercent(newEnd!);
+        final pct = StornoCalc.effectiveRefundPercent(newEnd!, booking);
         return -(raw * pct / 100);
       }
     }
     if (diffDays > 0) return diffDays * origDailyPrice;
     final raw = diffDays.abs() * origDailyPrice;
-    final pct = StornoCalc.refundPercent(newEnd ?? booking.endDate);
+    final pct = StornoCalc.effectiveRefundPercent(newEnd ?? booking.endDate, booking);
     return -(raw * pct / 100);
   }
 
