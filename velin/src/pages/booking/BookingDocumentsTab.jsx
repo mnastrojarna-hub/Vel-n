@@ -3,7 +3,7 @@ import { openPrintWindow } from '../../lib/sanitize'
 import { supabase } from '../../lib/supabase'
 import { debugAction, debugLog, debugError } from '../../lib/debugLog'
 import { generateInvoiceHtml } from '../../lib/invoiceTemplate'
-import { loadInvoiceData, printInvoiceHtml, storeInvoicePdf, generateAdvanceInvoice, generatePaymentReceipt } from '../../lib/invoiceUtils'
+import { loadInvoiceData, printInvoiceHtml, storeInvoicePdf, generateAdvanceInvoice, generatePaymentReceipt, invoiceCustomer, renderAndStoreInvoicePdf } from '../../lib/invoiceUtils'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import Badge from '../../components/ui/Badge'
@@ -112,7 +112,7 @@ export default function BookingDocumentsTab({ bookingId, userId }) {
 
   function downloadBlob(html, filename) { const b = new Blob([html], { type: 'text/html' }); const u = URL.createObjectURL(b); const a = document.createElement('a'); a.href = u; a.download = filename; a.click(); URL.revokeObjectURL(u) }
 
-  async function generateInvoiceHtmlForDoc(inv) { try { const f = await loadInvoiceData(inv.id); return generateInvoiceHtml({ ...f, customer: f.profiles || {}, items: f.items || [] }) } catch { return null } }
+  async function generateInvoiceHtmlForDoc(inv) { try { const f = await loadInvoiceData(inv.id); return generateInvoiceHtml({ ...f, customer: invoiceCustomer(f), items: f.items || [] }) } catch { return null } }
 
   async function handleViewGeneratedDoc(doc) {
     if ((doc.document_templates?.content_html || doc.document_templates?.html_content) && doc.filled_data) {
@@ -157,12 +157,12 @@ export default function BookingDocumentsTab({ bookingId, userId }) {
   }
 
   async function handleViewInvoice(inv) {
-    try { const fullInv = await loadInvoiceData(inv.id); const html = generateInvoiceHtml({ ...fullInv, customer: fullInv.profiles || {}, items: fullInv.items || [] }); setViewHtml(html); setViewDoc(inv) }
+    try { const fullInv = await loadInvoiceData(inv.id); const html = generateInvoiceHtml({ ...fullInv, customer: invoiceCustomer(fullInv), items: fullInv.items || [] }); setViewHtml(html); setViewDoc(inv) }
     catch (e) { setError(`Nahled faktury selhal: ${e.message}`) }
   }
 
   async function handlePrintInvoice(inv) {
-    try { const fullInv = await loadInvoiceData(inv.id); const html = generateInvoiceHtml({ ...fullInv, customer: fullInv.profiles || {}, items: fullInv.items || [] }); printInvoiceHtml(html) }
+    try { const fullInv = await loadInvoiceData(inv.id); const html = generateInvoiceHtml({ ...fullInv, customer: invoiceCustomer(fullInv), items: fullInv.items || [] }); printInvoiceHtml(html) }
     catch (e) { setError(`Tisk faktury selhal: ${e.message}`) }
   }
 
@@ -179,7 +179,7 @@ export default function BookingDocumentsTab({ bookingId, userId }) {
   }
 
   async function handleStoreInvoice(inv) {
-    try { const f = await loadInvoiceData(inv.id); const h = generateInvoiceHtml({ ...f, customer: f.profiles || {}, items: f.items || [] }); try { await storeInvoicePdf(inv.id, h) } catch {}; await loadAll() }
+    try { const f = await loadInvoiceData(inv.id); const h = generateInvoiceHtml({ ...f, customer: invoiceCustomer(f), items: f.items || [] }); try { await storeInvoicePdf(inv.id, h) } catch {}; await loadAll() }
     catch (e) { setError(`Ulozeni: ${e.message}`) }
   }
 
@@ -189,13 +189,22 @@ export default function BookingDocumentsTab({ bookingId, userId }) {
   async function handleRegenerateInvoice(inv) {
     setGenerating(`regen-${inv.id}`); setError(null)
     try {
-      let body
-      if (inv.type === 'final' || inv.type === 'issued') body = { render_existing: true, booking_id: bookingId, type: 'final' }
-      else if (inv.type === 'payment_receipt') body = { regenerate: true, booking_id: bookingId, type: 'payment_receipt', send_email: false }
-      else body = { regenerate: true, booking_id: bookingId, type: 'advance', send_email: false } // advance/proforma → ZF
-      const { error: err } = await debugAction('functions.generate-invoice.regen', 'BookingDocumentsTab', () => supabase.functions.invoke('generate-invoice', { body }), { invoice_id: inv.id, type: inv.type })
-      if (err) throw err
-      await loadAll()
+      // Rozdílové doklady z úprav (source='edit') a dobropisy NEJDOU přes serverový
+      // regenerate — ten cílí na hlavní doklad rezervace (source='booking') a edit
+      // DP/dobropis by nechal být. Přerenderuj PDF z ULOŽENÝCH položek řádku
+      // (číslo i položky zůstávají, aktualizuje se jen odběratel/vzhled).
+      if (inv.source === 'edit' || inv.type === 'credit_note') {
+        await renderAndStoreInvoicePdf(inv.id)
+        await loadAll()
+      } else {
+        let body
+        if (inv.type === 'final' || inv.type === 'issued') body = { render_existing: true, booking_id: bookingId, type: 'final' }
+        else if (inv.type === 'payment_receipt') body = { regenerate: true, booking_id: bookingId, type: 'payment_receipt', send_email: false }
+        else body = { regenerate: true, booking_id: bookingId, type: 'advance', send_email: false } // advance/proforma → ZF
+        const { error: err } = await debugAction('functions.generate-invoice.regen', 'BookingDocumentsTab', () => supabase.functions.invoke('generate-invoice', { body }), { invoice_id: inv.id, type: inv.type })
+        if (err) throw err
+        await loadAll()
+      }
     } catch (e) { setError(`Přegenerování selhalo: ${e.message}`) }
     setGenerating(null)
   }
@@ -287,7 +296,7 @@ export default function BookingDocumentsTab({ bookingId, userId }) {
         ) : invoices.map(inv => { const tp = INV_TYPE_MAP[inv.type] || { label: inv.type || 'Faktura', color: '#1a2e22', bg: '#f3f4f6' }; const isCN = inv.type === 'credit_note'; return (
           <div key={inv.id} className="flex items-center gap-4 p-3 rounded-lg mb-2 cursor-pointer hover:shadow-sm transition-shadow" style={{ background: isCN ? '#fef2f2' : '#f1faf7', border: isCN ? '1px solid #fca5a5' : 'none' }} onClick={() => handleViewInvoice(inv)}>
             <span style={{ fontSize: 16 }}>{isCN ? '\u274c' : '\ud83e\uddfe'}</span><span className="text-sm font-bold font-mono" style={isCN ? { color: '#dc2626' } : {}}>{inv.number || '\u2014'}</span><Badge label={tp.label} color={tp.color} bg={tp.bg} /><span className="text-sm font-bold" style={{ color: isCN ? '#dc2626' : '#0f1a14' }}>{isCN ? '\u2212' : ''}{Math.abs(inv.total || 0).toLocaleString('cs-CZ')} Kč</span><span className="text-sm" style={{ color: '#1a2e22' }}>{inv.issue_date || '\u2014'}</span>
-            <div className="flex gap-2 ml-auto" onClick={e => e.stopPropagation()}><button onClick={() => handleViewInvoice(inv)} className="text-sm font-bold cursor-pointer" style={{ color: '#2563eb', background: 'none', border: 'none' }}>Nahled</button><button onClick={() => handlePrintInvoice(inv)} className="text-sm font-bold cursor-pointer" style={{ color: '#1a2e22', background: 'none', border: 'none' }}>Tisk</button><button onClick={() => handleDownload(inv)} className="text-sm font-bold cursor-pointer" style={{ color: '#1a2e22', background: 'none', border: 'none' }}>Stahnout</button>{!isCN && <button onClick={() => handleRegenerateInvoice(inv)} disabled={generating === `regen-${inv.id}`} className="text-sm font-bold cursor-pointer" style={{ color: '#7c3aed', background: 'none', border: 'none' }}>{generating === `regen-${inv.id}` ? 'Generuji…' : 'Přegenerovat'}</button>}<button onClick={() => handleDeleteInvoice(inv)} className="text-sm font-bold cursor-pointer" style={{ color: '#dc2626', background: 'none', border: 'none' }}>Smazat</button></div>
+            <div className="flex gap-2 ml-auto" onClick={e => e.stopPropagation()}><button onClick={() => handleViewInvoice(inv)} className="text-sm font-bold cursor-pointer" style={{ color: '#2563eb', background: 'none', border: 'none' }}>Nahled</button><button onClick={() => handlePrintInvoice(inv)} className="text-sm font-bold cursor-pointer" style={{ color: '#1a2e22', background: 'none', border: 'none' }}>Tisk</button><button onClick={() => handleDownload(inv)} className="text-sm font-bold cursor-pointer" style={{ color: '#1a2e22', background: 'none', border: 'none' }}>Stahnout</button><button onClick={() => handleRegenerateInvoice(inv)} disabled={generating === `regen-${inv.id}`} className="text-sm font-bold cursor-pointer" style={{ color: '#7c3aed', background: 'none', border: 'none' }}>{generating === `regen-${inv.id}` ? 'Generuji…' : 'Přegenerovat'}</button><button onClick={() => handleDeleteInvoice(inv)} className="text-sm font-bold cursor-pointer" style={{ color: '#dc2626', background: 'none', border: 'none' }}>Smazat</button></div>
           </div>
         ) })}
       </Card>

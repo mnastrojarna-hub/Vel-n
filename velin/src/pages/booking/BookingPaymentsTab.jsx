@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { debugAction, debugLog, debugError } from '../../lib/debugLog'
-import { generateAdvanceInvoice, generatePaymentReceipt, generateFinalInvoice, loadInvoiceData, printInvoiceHtml } from '../../lib/invoiceUtils'
+import { generateAdvanceInvoice, generatePaymentReceipt, generateFinalInvoice, loadInvoiceData, printInvoiceHtml, invoiceCustomer } from '../../lib/invoiceUtils'
 import { generateInvoiceHtml } from '../../lib/invoiceTemplate'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
@@ -167,7 +167,7 @@ function InvoiceViewModal({ invoice, onClose }) {
       const fullInv = await loadInvoiceData(invoice.id)
       const generated = generateInvoiceHtml({
         ...fullInv,
-        customer: fullInv.profiles || {},
+        customer: invoiceCustomer(fullInv),
         items: fullInv.items || [],
       })
       setHtml(generated)
