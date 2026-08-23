@@ -618,7 +618,7 @@ export async function execPublicReadTool(
             is_open_nonstop: !!b.is_open, type: b.type, notes: b.notes,
           }
         }),
-        notice: 'REŽIM výdeje/vrácení urči VÝHRADNĚ z pole `type` konkrétní pobočky: "samoobslužná" = výdej i vrácení 24/7 přístupovým kódem; "obslužná" = motorku předává a přebírá OBSLUHA osobně (řiď se `opening_hours` / domluvou, o přístupových kódech nemluv). NIKDY netvrď paušálně, že výdej je samoobslužný a nonstop. Rezervaci lze VYTVOŘIT 24/7 u obou typů — ALE výdej motorky proběhne vždy až 1–6 hodin PO vytvoření a zaplacení rezervace (příprava stroje). Nikdy neslibuj okamžité vyzvednutí hned po rezervaci.',
+        notice: 'REŽIM výdeje/vrácení urči VÝHRADNĚ z pole `type` konkrétní pobočky: "samoobslužná" = výdej i vrácení 24/7 přístupovým kódem; "obslužná" = motorku předává a přebírá OBSLUHA osobně (řiď se `opening_hours` / domluvou). Přístupové kódy chodí e-mailem u OBOU typů — u obslužné pobočky neotvírají dveře, slouží jako IDENTIFIKACE: zákazník je řekne obsluze, ta podle nich rezervaci dohledá, foto dokladů předem není potřeba, předání ~2 minuty. NIKDY netvrď paušálně, že výdej je samoobslužný a nonstop, ani že u obslužné pobočky kódy nechodí. Rezervaci lze VYTVOŘIT 24/7 u obou typů — ALE výdej motorky proběhne vždy až 1–6 hodin PO vytvoření a zaplacení rezervace (příprava stroje). Nikdy neslibuj okamžité vyzvednutí hned po rezervaci.',
       }
     }
     case 'validate_promo_or_voucher': {
