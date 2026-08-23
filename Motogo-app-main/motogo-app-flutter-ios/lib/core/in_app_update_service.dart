@@ -14,15 +14,36 @@ import 'i18n/i18n_provider.dart';
 /// set in Play Console) trigger a blocking immediate update; everything else
 /// downloads in the background (flexible) and prompts a restart when ready.
 class InAppUpdateService {
-  static bool _checked = false;
+  static DateTime? _lastOfferAt;
 
-  /// Call once after first frame. Safe to await — never throws.
+  /// Minimum gap between UPDATE OFFERS (flexible download / immediate flow).
+  /// The cheap local Play availability query itself runs on every call so a
+  /// backgrounded immediate update is always resumed right away.
+  static const _reofferInterval = Duration(hours: 6);
+
+  /// Call after first frame AND on every app resume. Safe to await — never
+  /// throws.
   static Future<void> check(BuildContext context) async {
-    if (_checked || !Platform.isAndroid) return;
-    _checked = true;
+    if (!Platform.isAndroid) return;
     try {
       final info = await InAppUpdate.checkForUpdate();
+
+      // User backgrounded a blocking immediate update — Play requires the
+      // app to resume the flow itself, otherwise the update stays stuck.
+      if (info.updateAvailability ==
+          UpdateAvailability.developerTriggeredUpdateInProgress) {
+        await InAppUpdate.performImmediateUpdate();
+        return;
+      }
+
       if (info.updateAvailability != UpdateAvailability.updateAvailable) return;
+
+      final now = DateTime.now();
+      if (_lastOfferAt != null &&
+          now.difference(_lastOfferAt!) < _reofferInterval) {
+        return;
+      }
+      _lastOfferAt = now;
 
       final priority = info.updatePriority;
 
