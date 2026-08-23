@@ -594,7 +594,7 @@ serve(async (req) => {
     // Při přegenerování (regenerate=true z Velína) přepíšeme existující doklad
     // aktuálními údaji — zachováme číslo i řádek v `invoices`, jen aktualizujeme
     // položky/zákazníka a znovu vyrenderujeme PDF (upsert do stejné storage cesty).
-    let reuseInvoice: { id: string; number: string; pdf_path: string | null; issue_date: string | null; due_date: string | null; paid_date: string | null; status: string | null } | null = null
+    let reuseInvoice: { id: string; number: string; pdf_path: string | null; issue_date: string | null; due_date: string | null; paid_date: string | null; status: string | null; created_at: string | null } | null = null
     if (!isEdit) {
       const dedupTypes = isPaymentReceipt
         ? ['payment_receipt']
@@ -603,7 +603,7 @@ serve(async (req) => {
           : isShopFinalLocal
             ? ['shop_final']
             : ['final', 'issued']
-      let q = supabase.from('invoices').select('id, number, pdf_path, issue_date, due_date, paid_date, status')
+      let q = supabase.from('invoices').select('id, number, pdf_path, issue_date, due_date, paid_date, status, created_at')
         .in('type', dedupTypes).neq('status', 'cancelled').limit(1)
       if (booking_id) q = q.eq('booking_id', booking_id).eq('source', 'booking')
       else if (order_id) q = q.eq('order_id', order_id)
@@ -713,8 +713,16 @@ serve(async (req) => {
       // PŮVODNÍ vystavení a splatnost (jinak po přegenerování "nesedí pořadí"
       // dokladů a historická faktura mění datum). Explicitní invoice_date od
       // volajícího má dál přednost.
-      if (reuseInvoice.issue_date) issueDate = String(reuseInvoice.issue_date).slice(0, 10)
-      dueDate = reuseInvoice.due_date ? String(reuseInvoice.due_date).slice(0, 10) : issueDate
+      // Samoléčba: dřívější (vadná) regenerace už mohla vystavení posunout na
+      // den kliknutí — vystavení nikdy nemůže být PO dni vzniku řádku dokladu
+      // (created_at = den vytvoření rezervace/objednávky) → srovnej zpět.
+      const createdDate = reuseInvoice.created_at ? String(reuseInvoice.created_at).slice(0, 10) : null
+      let origIssue = reuseInvoice.issue_date ? String(reuseInvoice.issue_date).slice(0, 10) : createdDate
+      if (origIssue && createdDate && origIssue > createdDate) origIssue = createdDate
+      if (origIssue) issueDate = origIssue
+      let origDue = reuseInvoice.due_date ? String(reuseInvoice.due_date).slice(0, 10) : issueDate
+      if (createdDate && origDue > createdDate) origDue = createdDate
+      dueDate = origDue
       // DP (doklad k přijaté platbě): vystavení = splatnost = datum přijetí platby.
       if (isPaymentReceipt && reuseInvoice.paid_date) {
         issueDate = String(reuseInvoice.paid_date).slice(0, 10)
