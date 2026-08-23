@@ -3,7 +3,7 @@ import { openPrintWindow } from '../../lib/sanitize'
 import { supabase } from '../../lib/supabase'
 import { debugLog, debugError } from '../../lib/debugLog'
 import { generateInvoiceHtml } from '../../lib/invoiceTemplate'
-import { loadInvoiceData, printInvoiceHtml } from '../../lib/invoiceUtils'
+import { loadInvoiceData, printInvoiceHtml, invoiceCustomer } from '../../lib/invoiceUtils'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
@@ -91,7 +91,7 @@ export default function CreditNotesTab() {
       const fullInv = await loadInvoiceData(inv.id)
       const html = generateInvoiceHtml({
         ...fullInv,
-        customer: fullInv.profiles || {},
+        customer: invoiceCustomer(fullInv),
         items: fullInv.items || [],
       })
       setViewHtml(html)
@@ -104,7 +104,7 @@ export default function CreditNotesTab() {
   async function handlePrint(inv) {
     try {
       const fullInv = await loadInvoiceData(inv.id)
-      const html = generateInvoiceHtml({ ...fullInv, customer: fullInv.profiles || {}, items: fullInv.items || [] })
+      const html = generateInvoiceHtml({ ...fullInv, customer: invoiceCustomer(fullInv), items: fullInv.items || [] })
       printInvoiceHtml(html)
     } catch (e) {
       setError(`Tisk dobropisu selhal: ${e.message}`)

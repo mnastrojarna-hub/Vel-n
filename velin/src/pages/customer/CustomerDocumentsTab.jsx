@@ -3,7 +3,7 @@ import { openPrintWindow } from '../../lib/sanitize'
 import { supabase } from '../../lib/supabase'
 import { useDebugMode } from '../../hooks/useDebugMode'
 import { generateInvoiceHtml } from '../../lib/invoiceTemplate'
-import { loadInvoiceData, printInvoiceHtml } from '../../lib/invoiceUtils'
+import { loadInvoiceData, printInvoiceHtml, invoiceCustomer } from '../../lib/invoiceUtils'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import Badge from '../../components/ui/Badge'
@@ -182,7 +182,7 @@ export default function CustomerDocumentsTab({ userId }) {
     if (item.kind === 'invoice') {
       try {
         const fullInv = await loadInvoiceData(item.raw.id)
-        const html = generateInvoiceHtml({ ...fullInv, customer: fullInv.profiles || {}, items: fullInv.items || [] })
+        const html = generateInvoiceHtml({ ...fullInv, customer: invoiceCustomer(fullInv), items: fullInv.items || [] })
         setViewHtml(html); setViewDoc(item.raw)
       } catch (e) { setError(`Náhled faktury selhal: ${e.message}`) }
       return
@@ -241,7 +241,7 @@ export default function CustomerDocumentsTab({ userId }) {
     try {
       if (item.kind === 'invoice') {
         const fullInv = await loadInvoiceData(item.raw.id)
-        const html = generateInvoiceHtml({ ...fullInv, customer: fullInv.profiles || {}, items: fullInv.items || [] })
+        const html = generateInvoiceHtml({ ...fullInv, customer: invoiceCustomer(fullInv), items: fullInv.items || [] })
         downloadBlob(html, `faktura_${item.raw.number || item.raw.id}.html`); return
       }
       const doc = item.raw || item
@@ -271,7 +271,7 @@ export default function CustomerDocumentsTab({ userId }) {
     try {
       if (item.kind === 'invoice') {
         const fullInv = await loadInvoiceData(item.raw.id)
-        const html = generateInvoiceHtml({ ...fullInv, customer: fullInv.profiles || {}, items: fullInv.items || [] })
+        const html = generateInvoiceHtml({ ...fullInv, customer: invoiceCustomer(fullInv), items: fullInv.items || [] })
         printInvoiceHtml(html); return
       }
       if (viewHtml) printInvoiceHtml(viewHtml)

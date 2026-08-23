@@ -221,6 +221,29 @@ export async function createInvoice({ type, customer_id, booking_id, order_id, i
   // Document sync is handled by DB trigger (sync_invoice_to_documents)
   // Do NOT manually insert into documents — the trigger does it automatically
 
+  // Zamraž fakturační údaje odběratele (customer_snapshot) — STEJNĚ jako
+  // generate-invoice na serveru. Bez toho by doklady vystavené z Velína
+  // (ruční faktury, DP z potvrzení platby, dobropisy) zpětně měnily
+  // odběratele při každé úpravě profilu. Non-fatal.
+  if (data?.id && customer_id) {
+    try {
+      const { data: p } = await supabase.from('profiles')
+        .select('full_name, email, phone, street, city, zip, ico, dic, company_name, company_address')
+        .eq('id', customer_id).maybeSingle()
+      if (p) {
+        await supabase.from('invoices').update({
+          customer_snapshot: {
+            name: p.full_name || null, company: p.company_name || null,
+            company_address: p.company_address || null,
+            ico: p.ico || null, dic: p.dic || null,
+            email: p.email || null, phone: p.phone || null,
+            address: [p.street, p.city, p.zip].filter(Boolean).join(', ') || null,
+          },
+        }).eq('id', data.id)
+      }
+    } catch {} // non-blocking
+  }
+
   // Audit log (non-blocking)
   try {
     const { data: { user } } = await supabase.auth.getUser()
