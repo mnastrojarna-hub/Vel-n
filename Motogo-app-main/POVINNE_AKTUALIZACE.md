@@ -48,6 +48,37 @@ Cíl: žádný uživatel nesmí zůstat na staré verzi. Mechanismus má 3 vrstv
 6. Ověřit na zařízení se starou verzí: otevřít appku → musí naskočit
    dialog „Vyžadována aktualizace" a tlačítko musí otevřít správný store.
 
+## Stav vydání 3.0.1 (záznam 23. 8. 2026)
+
+- **Release 96 (2.5.0) v Play Console ZAHOZEN** — build běžel před opravou
+  verzování (`b26340f`), nesl versionName 2.5.0. Nevydávat podobné buildy:
+  s min 3.0.1 by DB gate zablokoval i aktualizované uživatele.
+- **Publikování do Play jde přes API z Codemagicu** (jediná cesta, jak
+  nastavit `inAppUpdatePriority`): GCP projekt `directed-galaxy-488222-c3`
+  (účet mnastrojarna@gmail.com; Firebase projekt `motogo24-518b4` je pod
+  jiným přístupem), zapnuté androidpublisher.googleapis.com, service account
+  `codemagic-play-publisher@directed-galaxy-488222-c3.iam.gserviceaccount.com`
+  (bez GCP rolí; v Play Console oprávnění „Vydávání v produkční verzi,
+  vyloučení zařízení a Play App Signing"). JSON klíč je v Codemagicu jako
+  secure var `GCLOUD_SERVICE_ACCOUNT_CREDENTIALS` v env group **`goole_play`**
+  — ⚠️ PŘEKLEP v názvu skupiny je záměrně ponechán a codemagic.yaml na něj
+  odkazuje; při přejmenování změnit OBOJE současně. Dluh: Codemagic hlásí
+  deprecation názvu proměnné → časem přejmenovat na
+  `GOOGLE_PLAY_SERVICE_ACCOUNT_CREDENTIALS` (UI i yaml zároveň).
+- **Commit `e5d30ec`:** workflow `motogo-android-release` publikuje sám:
+  `track: production`, `in_app_update_priority: 5`, bez `rollout_fraction`
+  (= 100 %). Každý build tohoto workflow jde rovnou do produkce.
+- **Build 97 = 3.0.1 (97) nahrán do produkce** (23. 8. ~17:24 CEST, log:
+  Version 3.0.1, code 97, track production, priority 5). Řízené publikování
+  je VYPNUTÉ → po schválení Googlem se vydá samo na 100 %. Nic nemačkat.
+- **Zbývá:** (1) počkat na „Dostupné na Google Play" (~24 h) a ověřit na
+  zařízení; (2) TEPRVE POTOM spustit SQL `min_app_version = "3.0.1"` (viz
+  checklist krok 5); (3) ověřit force-update dialog na staré verzi.
+- **iOS vědomě neřešeno** (rozhodnutí Jiřího — iOS není v produkci, gate mu
+  neublíží). ⚠️ iOS build #35 v App Store Connect nese 2.5.0 (běžel před
+  `b26340f`) — NEVYDÁVAT. Před budoucím iOS vydáním: doplnit Apple ID
+  (placeholdery níže), vydat iOS ≥ min_app_version dřív, než se min zvedne.
+
 ## Známé podmínky funkčnosti
 
 - **iOS store URL:** v `motogo-app-flutter-ios/lib/core/update_check_provider.dart`
