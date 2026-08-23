@@ -29,14 +29,14 @@ export default function VykonMotorek() {
         supabase.from('bookings').select('id, moto_id, start_date, end_date, total_price, status, created_at, payment_status, is_test'),
         supabase.from('branches').select('id, name'),
         supabase.from('vouchers').select('booking_id, amount, status, source').not('booking_id', 'is', null),
-        supabase.rpc('analytics_moto_rental_km'),
+        supabase.rpc('analytics_moto_km'),
       ])
       if (mRes.error) throw mRes.error
       if (bRes.error) throw bRes.error
       if (brRes.error) throw brRes.error
       if (vRes.error) throw vRes.error
       if (kmRes.error) throw kmRes.error
-      setRaw({ motorcycles: mRes.data || [], bookings: bRes.data || [], branches: brRes.data || [], vouchers: vRes.data || [], kmSegments: kmRes.data || [] })
+      setRaw({ motorcycles: mRes.data || [], bookings: bRes.data || [], branches: brRes.data || [], vouchers: vRes.data || [], motoKm: kmRes.data || [] })
     } catch (e) { setError(e.message) } finally { setLoading(false) }
   }
 
@@ -44,20 +44,20 @@ export default function VykonMotorek() {
   if (error) return <div className="p-4 text-center" style={{ color: '#dc2626' }}>{error}</div>
   if (!raw || raw.motorcycles.length === 0) return <div className="p-8 text-center" style={{ color: '#888' }}>Žádné motorky</div>
 
-  const { motorcycles, bookings, branches, vouchers, kmSegments } = raw
+  const { motorcycles, bookings, branches, vouchers, motoKm } = raw
   const branchMap = Object.fromEntries((branches || []).map(b => [b.id, b.name]))
   const voucherByBooking = voucherRevenueByBooking(vouchers)
-  const completed = filterByPeriod(bookings.filter(isRealizedBooking), period, 'created_at')
+  const allRealized = bookings.filter(isRealizedBooking)
+  const completed = filterByPeriod(allRealized, period, 'created_at')
   const has3mo = hasMinimumData(bookings)
 
-  // Skutečně najeté km z předávacích protokolů (RPC analytics_moto_rental_km):
-  // uzavřené segmenty (mají další čtení) vážeme přes booking_id na stejnou množinu
-  // rezervací jako revenue, aby Kč/km srovnávalo tržby a nájezd za totéž období.
-  const completedIds = new Set(completed.map(b => b.id))
-  const kmByMoto = {}
-  for (const s of (kmSegments || [])) {
-    if (s.next_reading == null || !completedIds.has(s.booking_id)) continue
-    kmByMoto[s.moto_id] = (kmByMoto[s.moto_id] || 0) + (Number(s.km_driven) || 0)
+  // Zisk na 1 km — vždy CELKOVĚ (nezávisle na zvoleném období): celkové tržby
+  // motorky / celkový skutečný nájezd. Nájezd z RPC analytics_moto_km:
+  // total_driven = aktuální km (nejvyšší čtení z předávacích protokolů) − km při nákupu.
+  const kmByMoto = Object.fromEntries((motoKm || []).map(r => [r.moto_id, r]))
+  const totalRevenueByMoto = {}
+  for (const b of allRealized) {
+    totalRevenueByMoto[b.moto_id] = (totalRevenueByMoto[b.moto_id] || 0) + (Number(b.total_price) || 0) + (voucherByBooking[b.id] || 0)
   }
 
   let periodDays = 365
@@ -90,16 +90,17 @@ export default function VykonMotorek() {
     const utilizationIndex = periodDays > 0 ? (rentedDays / periodDays) * 100 : 0
     const avgDailyRate = rentedDays > 0 ? revenue / rentedDays : 0
     const branchName = branchMap[m.branch_id] || '—'
-    const kmDriven = kmByMoto[m.id] || 0
-    const revenuePerKm = kmDriven > 0 ? revenue / kmDriven : null
+    const kmDriven = Number(kmByMoto[m.id]?.total_driven) || 0
+    const totalRevenue = totalRevenueByMoto[m.id] || 0
+    const revenuePerKm = kmDriven > 0 ? totalRevenue / kmDriven : null
     const kmUnit = m.tracking_unit === 'mh' ? 'mh' : 'km'
-    return { ...m, rentedDays, revenue, reservationCount, avgDaysPerReservation, utilizationIndex, avgDailyRate, branchName, opDays, kmDriven, revenuePerKm, kmUnit }
+    return { ...m, rentedDays, revenue, reservationCount, avgDaysPerReservation, utilizationIndex, avgDailyRate, branchName, opDays, kmDriven, totalRevenue, revenuePerKm, kmUnit }
   }).sort((a, b) => {
-    // Cíl analýzy: pořadí podle zisku na 1 km; motorky bez najetých km až za nimi (dle revenue).
+    // Cíl analýzy: pořadí podle zisku na 1 km; motorky bez najetých km až za nimi (dle celkových tržeb).
     if (a.revenuePerKm != null && b.revenuePerKm != null) return b.revenuePerKm - a.revenuePerKm
     if (a.revenuePerKm != null) return -1
     if (b.revenuePerKm != null) return 1
-    return b.revenue - a.revenue
+    return b.totalRevenue - a.totalRevenue
   })
 
   // Brand aggregation
@@ -127,11 +128,11 @@ export default function VykonMotorek() {
       {/* Ranking table */}
       <div style={{ background: '#fff', borderRadius: 14, padding: 16, marginBottom: 24, overflowX: 'auto', boxShadow: '0 1px 4px rgba(0,0,0,.06)' }}>
         <div className="font-bold" style={{ color: '#1a2e22' }}>Ranking motorek podle zisku na 1 km</div>
-        <div className="mb-3" style={{ fontSize: 11, color: '#888' }}>Revenue = zaplacené rezervace vč. hodnoty zakoupených dárkových poukazů uplatněných na motorce. Najeto = skutečně najeté km z předávacích protokolů (jen půjčení s uzavřeným čtením km). Řazeno dle Kč/km; motorky bez záznamu km jsou na konci.</div>
+        <div className="mb-3" style={{ fontSize: 11, color: '#888' }}>Revenue = zaplacené rezervace vč. hodnoty zakoupených dárkových poukazů uplatněných na motorce (dle zvoleného období). Zisk na 1 km se počítá vždy CELKOVĚ: celkové tržby motorky / celkový nájezd (aktuální km dle posledního předávacího protokolu − km při nákupu). Řazeno dle Kč/km; motorky bez nájezdu jsou na konci.</div>
         <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
-              {['Model', 'Značka', 'Kategorie', 'Pobočka', 'Počet rezervací', 'Pronajato dní', 'Dní/rezervace', 'Revenue', 'Najeto', 'Kč/km', 'Revenue/100 km', 'Obsazenost %', 'Avg Kč/den'].map(h => (
+              {['Model', 'Značka', 'Kategorie', 'Pobočka', 'Počet rezervací', 'Pronajato dní', 'Dní/rezervace', 'Revenue', 'Najeto celkem', 'Kč/km', 'Revenue/100 km', 'Obsazenost %', 'Avg Kč/den'].map(h => (
                 <th key={h} className="text-left font-bold py-2 px-3" style={{ color: '#1a2e22' }}>{h}</th>
               ))}
             </tr>
