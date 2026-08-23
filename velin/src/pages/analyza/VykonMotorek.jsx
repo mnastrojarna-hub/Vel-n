@@ -24,17 +24,19 @@ export default function VykonMotorek() {
   async function loadData() {
     setLoading(true); setError(null)
     try {
-      const [mRes, bRes, brRes, vRes] = await Promise.all([
-        supabase.from('motorcycles').select('id, model, brand, category, purchase_price, branch_id, status, acquired_at'),
+      const [mRes, bRes, brRes, vRes, kmRes] = await Promise.all([
+        supabase.from('motorcycles').select('id, model, brand, category, purchase_price, branch_id, status, acquired_at, tracking_unit'),
         supabase.from('bookings').select('id, moto_id, start_date, end_date, total_price, status, created_at, payment_status, is_test'),
         supabase.from('branches').select('id, name'),
         supabase.from('vouchers').select('booking_id, amount, status, source').not('booking_id', 'is', null),
+        supabase.rpc('analytics_moto_rental_km'),
       ])
       if (mRes.error) throw mRes.error
       if (bRes.error) throw bRes.error
       if (brRes.error) throw brRes.error
       if (vRes.error) throw vRes.error
-      setRaw({ motorcycles: mRes.data || [], bookings: bRes.data || [], branches: brRes.data || [], vouchers: vRes.data || [] })
+      if (kmRes.error) throw kmRes.error
+      setRaw({ motorcycles: mRes.data || [], bookings: bRes.data || [], branches: brRes.data || [], vouchers: vRes.data || [], kmSegments: kmRes.data || [] })
     } catch (e) { setError(e.message) } finally { setLoading(false) }
   }
 
@@ -42,11 +44,21 @@ export default function VykonMotorek() {
   if (error) return <div className="p-4 text-center" style={{ color: '#dc2626' }}>{error}</div>
   if (!raw || raw.motorcycles.length === 0) return <div className="p-8 text-center" style={{ color: '#888' }}>Žádné motorky</div>
 
-  const { motorcycles, bookings, branches, vouchers } = raw
+  const { motorcycles, bookings, branches, vouchers, kmSegments } = raw
   const branchMap = Object.fromEntries((branches || []).map(b => [b.id, b.name]))
   const voucherByBooking = voucherRevenueByBooking(vouchers)
   const completed = filterByPeriod(bookings.filter(isRealizedBooking), period, 'created_at')
   const has3mo = hasMinimumData(bookings)
+
+  // Skutečně najeté km z předávacích protokolů (RPC analytics_moto_rental_km):
+  // uzavřené segmenty (mají další čtení) vážeme přes booking_id na stejnou množinu
+  // rezervací jako revenue, aby Kč/km srovnávalo tržby a nájezd za totéž období.
+  const completedIds = new Set(completed.map(b => b.id))
+  const kmByMoto = {}
+  for (const s of (kmSegments || [])) {
+    if (s.next_reading == null || !completedIds.has(s.booking_id)) continue
+    kmByMoto[s.moto_id] = (kmByMoto[s.moto_id] || 0) + (Number(s.km_driven) || 0)
+  }
 
   let periodDays = 365
   if (period.type === 'month') periodDays = new Date(period.year, period.month + 1, 0).getDate()
@@ -78,8 +90,17 @@ export default function VykonMotorek() {
     const utilizationIndex = periodDays > 0 ? (rentedDays / periodDays) * 100 : 0
     const avgDailyRate = rentedDays > 0 ? revenue / rentedDays : 0
     const branchName = branchMap[m.branch_id] || '—'
-    return { ...m, rentedDays, revenue, reservationCount, avgDaysPerReservation, utilizationIndex, avgDailyRate, branchName, opDays }
-  }).sort((a, b) => b.revenue - a.revenue)
+    const kmDriven = kmByMoto[m.id] || 0
+    const revenuePerKm = kmDriven > 0 ? revenue / kmDriven : null
+    const kmUnit = m.tracking_unit === 'mh' ? 'mh' : 'km'
+    return { ...m, rentedDays, revenue, reservationCount, avgDaysPerReservation, utilizationIndex, avgDailyRate, branchName, opDays, kmDriven, revenuePerKm, kmUnit }
+  }).sort((a, b) => {
+    // Cíl analýzy: pořadí podle zisku na 1 km; motorky bez najetých km až za nimi (dle revenue).
+    if (a.revenuePerKm != null && b.revenuePerKm != null) return b.revenuePerKm - a.revenuePerKm
+    if (a.revenuePerKm != null) return -1
+    if (b.revenuePerKm != null) return 1
+    return b.revenue - a.revenue
+  })
 
   // Brand aggregation
   const brandMap = {}
@@ -105,12 +126,12 @@ export default function VykonMotorek() {
 
       {/* Ranking table */}
       <div style={{ background: '#fff', borderRadius: 14, padding: 16, marginBottom: 24, overflowX: 'auto', boxShadow: '0 1px 4px rgba(0,0,0,.06)' }}>
-        <div className="font-bold" style={{ color: '#1a2e22' }}>Ranking motorek podle revenue</div>
-        <div className="mb-3" style={{ fontSize: 11, color: '#888' }}>Revenue = zaplacené rezervace vč. hodnoty zakoupených dárkových poukazů uplatněných na motorce.</div>
+        <div className="font-bold" style={{ color: '#1a2e22' }}>Ranking motorek podle zisku na 1 km</div>
+        <div className="mb-3" style={{ fontSize: 11, color: '#888' }}>Revenue = zaplacené rezervace vč. hodnoty zakoupených dárkových poukazů uplatněných na motorce. Najeto = skutečně najeté km z předávacích protokolů (jen půjčení s uzavřeným čtením km). Řazeno dle Kč/km; motorky bez záznamu km jsou na konci.</div>
         <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
-              {['Model', 'Značka', 'Kategorie', 'Pobočka', 'Počet rezervací', 'Pronajato dní', 'Dní/rezervace', 'Revenue', 'Obsazenost %', 'Avg Kč/den'].map(h => (
+              {['Model', 'Značka', 'Kategorie', 'Pobočka', 'Počet rezervací', 'Pronajato dní', 'Dní/rezervace', 'Revenue', 'Najeto', 'Kč/km', 'Revenue/100 km', 'Obsazenost %', 'Avg Kč/den'].map(h => (
                 <th key={h} className="text-left font-bold py-2 px-3" style={{ color: '#1a2e22' }}>{h}</th>
               ))}
             </tr>
@@ -126,6 +147,9 @@ export default function VykonMotorek() {
                 <td className="py-2 px-3">{m.rentedDays}</td>
                 <td className="py-2 px-3">{m.avgDaysPerReservation.toFixed(1)}</td>
                 <td className="py-2 px-3">{Math.round(m.revenue).toLocaleString('cs-CZ')} Kč</td>
+                <td className="py-2 px-3">{m.kmDriven > 0 ? `${Math.round(m.kmDriven).toLocaleString('cs-CZ')} ${m.kmUnit}` : '—'}</td>
+                <td className="py-2 px-3 font-semibold" style={{ color: '#166534' }}>{m.revenuePerKm != null ? `${m.revenuePerKm.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} Kč` : '—'}</td>
+                <td className="py-2 px-3">{m.revenuePerKm != null ? `${Math.round(m.revenuePerKm * 100).toLocaleString('cs-CZ')} Kč` : '—'}</td>
                 <td className="py-2 px-3" style={{ minWidth: 120 }}>
                   <div className="flex items-center gap-2">
                     <div style={{ flex: 1, height: 8, borderRadius: 4, background: '#e5e7eb' }}>
