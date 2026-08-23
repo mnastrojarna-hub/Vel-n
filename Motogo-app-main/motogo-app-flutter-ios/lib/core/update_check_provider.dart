@@ -13,9 +13,17 @@ import 'i18n/i18n_provider.dart';
 /// Checks app_settings.min_app_version against the running app version.
 /// If current < minimum → shows a blocking force-update dialog.
 ///
-/// Usage: call UpdateChecker.check(context) once after first frame.
+/// Usage: call UpdateChecker.check(context) after first frame AND on every
+/// app resume (lifecycle) — a long-running session must hit the gate too,
+/// not only fresh launches. Re-checks are throttled internally.
 class UpdateChecker {
   static bool _dialogShown = false;
+  static DateTime? _lastCheckAt;
+
+  /// Minimum gap between checks so a resume-happy user doesn't hammer
+  /// app_settings; one query per interval is enough to catch a version bump.
+  static const _recheckInterval = Duration(minutes: 15);
+
   static const _playStoreUrl =
       'https://play.google.com/store/apps/details?id=com.motogo24.app';
 
@@ -44,6 +52,12 @@ class UpdateChecker {
   /// Shows blocking dialog if update is required.
   static Future<void> check(BuildContext context) async {
     if (_dialogShown) return;
+    final now = DateTime.now();
+    if (_lastCheckAt != null &&
+        now.difference(_lastCheckAt!) < _recheckInterval) {
+      return;
+    }
+    _lastCheckAt = now;
     try {
       final res = await MotoGoSupabase.client
           .from('app_settings')

@@ -258,6 +258,14 @@ class _MotoGoAppState extends ConsumerState<MotoGoApp>
     } else if (state == AppLifecycleState.resumed) {
       // Refresh installation heartbeat on resume (throttled internally).
       InstallationService.beat();
+      // Re-run the forced-update gate + Play in-app update on resume —
+      // an app kept open for days must not survive below min_app_version.
+      // Both checks throttle themselves internally.
+      final ctx = rootNavigatorKey.currentContext;
+      if (ctx != null) {
+        UpdateChecker.check(ctx);
+        InAppUpdateService.check(ctx);
+      }
     }
   }
 
