@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabase'
 import { debugAction, debugLog, debugError } from '../../lib/debugLog'
 import { useDebugMode } from '../../hooks/useDebugMode'
 import { renderAndStoreInvoicePdf } from '../../lib/invoiceUtils'
-import { applyInvoiceSearch } from '../../lib/invoiceSearch'
+import { invoiceSearchOrFilter } from '../../lib/invoiceSearch'
 import InvoiceCreateModal from './InvoiceCreateModal'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 import Button from '../../components/ui/Button'
@@ -76,9 +76,10 @@ export default function InvoicesTab() {
         const expandedTypes = filters.types.includes('advance') ? [...filters.types, 'proforma'] : filters.types
         query = query.in('type', expandedTypes)
       }
-      // Hledá číslo dokladu, VS, jméno ze snapshotu i zákazníka dle profilu
-      // (placeholder „Hledat číslo, zákazníka…" dřív lhal — hledalo se JEN číslo).
-      query = await applyInvoiceSearch(query, filters.search)
+      // Hledá číslo dokladu, VS, jméno/e-mail ze snapshotu i zákazníka dle profilu
+      // (jméno, e-mail, telefon) — or() filtr přijde jako string, viz lib/invoiceSearch.
+      const orFilter = await invoiceSearchOrFilter(filters.search)
+      if (orFilter) query = query.or(orFilter)
       query = query.order(filters.sort.startsWith('amount') ? 'total' : 'issue_date', { ascending: filters.sort.endsWith('_asc'), nullsFirst: false }).range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
       const { data, count, error: err } = await debugAction('invoices.list', 'AccInvoicesTab', () => query)
       if (err) throw err

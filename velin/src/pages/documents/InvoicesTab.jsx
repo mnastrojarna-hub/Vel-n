@@ -10,7 +10,7 @@ import Pagination from '../../components/ui/Pagination'
 import ConfirmDialog from '../../components/ui/ConfirmDialog'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 import { summarizeInvoices } from '../../lib/revenueUtils'
-import { applyInvoiceSearch } from '../../lib/invoiceSearch'
+import { invoiceSearchOrFilter } from '../../lib/invoiceSearch'
 import InvoiceCreateModal from '../accounting/InvoiceCreateModal'
 import InvoicePreviewModal from './InvoicePreviewModal'
 
@@ -89,8 +89,9 @@ export default function InvoicesTab() {
         query = query.in('type', expandedTypes)
       }
       if (filters.statuses?.length > 0) query = query.in('status', filters.statuses)
-      // Sdílené hledání: číslo dokladu, VS, jméno (snapshot i profiles) — viz lib/invoiceSearch
-      query = await applyInvoiceSearch(query, filters.search)
+      // Sdílené hledání: číslo dokladu, VS, jméno/e-mail/telefon (snapshot i profiles) — viz lib/invoiceSearch
+      const orFilter = await invoiceSearchOrFilter(filters.search)
+      if (orFilter) query = query.or(orFilter)
       query = query.range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
 
       const { data, count, error: err } = await debugAction('invoices.list', 'DocInvoicesTab', () => query)
