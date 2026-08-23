@@ -594,7 +594,7 @@ serve(async (req) => {
     // Při přegenerování (regenerate=true z Velína) přepíšeme existující doklad
     // aktuálními údaji — zachováme číslo i řádek v `invoices`, jen aktualizujeme
     // položky/zákazníka a znovu vyrenderujeme PDF (upsert do stejné storage cesty).
-    let reuseInvoice: { id: string; number: string; pdf_path: string | null } | null = null
+    let reuseInvoice: { id: string; number: string; pdf_path: string | null; issue_date: string | null; due_date: string | null; paid_date: string | null; status: string | null } | null = null
     if (!isEdit) {
       const dedupTypes = isPaymentReceipt
         ? ['payment_receipt']
@@ -603,7 +603,7 @@ serve(async (req) => {
           : isShopFinalLocal
             ? ['shop_final']
             : ['final', 'issued']
-      let q = supabase.from('invoices').select('id, number, pdf_path')
+      let q = supabase.from('invoices').select('id, number, pdf_path, issue_date, due_date, paid_date, status')
         .in('type', dedupTypes).neq('status', 'cancelled').limit(1)
       if (booking_id) q = q.eq('booking_id', booking_id).eq('source', 'booking')
       else if (order_id) q = q.eq('order_id', order_id)
@@ -706,15 +706,29 @@ serve(async (req) => {
     // Datum vystavení: override z `invoice_date` (Velín u přegenerování zadá ručně),
     // jinak dnešek. Splatnost = stejné datum (kartová platba je okamžitá).
     const validDate = typeof invoice_date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(invoice_date)
-    const issueDate = validDate ? invoice_date : new Date().toISOString().slice(0, 10)
-    const dueDate = issueDate
+    let issueDate = validDate ? invoice_date : new Date().toISOString().slice(0, 10)
+    let dueDate = issueDate
+    if (reuseInvoice && !validDate) {
+      // PŘEGENEROVÁNÍ NESMÍ posunout data dokladu na dnešek — ZF/DP si drží
+      // PŮVODNÍ vystavení a splatnost (jinak po přegenerování "nesedí pořadí"
+      // dokladů a historická faktura mění datum). Explicitní invoice_date od
+      // volajícího má dál přednost.
+      if (reuseInvoice.issue_date) issueDate = String(reuseInvoice.issue_date).slice(0, 10)
+      dueDate = reuseInvoice.due_date ? String(reuseInvoice.due_date).slice(0, 10) : issueDate
+      // DP (doklad k přijaté platbě): vystavení = splatnost = datum přijetí platby.
+      if (isPaymentReceipt && reuseInvoice.paid_date) {
+        issueDate = String(reuseInvoice.paid_date).slice(0, 10)
+        dueDate = issueDate
+      }
+    }
 
     let invoice: any
     if (reuseInvoice) {
       // Přepiš existující doklad aktuálními údaji (číslo a vazby zůstávají).
       const updatePayload: any = {
         items, subtotal, tax_amount: 0, total, customer_id: customerId,
-        issue_date: issueDate, due_date: dueDate, status: 'issued',
+        // Status se přegenerováním nemění — uhrazený DP/ZF nesmí spadnout na 'issued'.
+        issue_date: issueDate, due_date: dueDate, status: reuseInvoice.status || 'issued',
       }
       const { data: upd, error: uErr } = await supabase.from('invoices')
         .update(updatePayload).eq('id', reuseInvoice.id).select().single()
@@ -777,6 +791,7 @@ serve(async (req) => {
 
     const html = generateInvoiceHtml({
       title, number, accent, issueDate, dueDate, total, company: COMPANY, customer, items,
+      paidDate: reuseInvoice?.paid_date ? String(reuseInvoice.paid_date).slice(0, 10) : undefined,
       voucher_codes, voucherValidUntil, doorCodes, isProforma, isPaymentReceipt, isShopFinal, dpNumber, bookingNumber,
       paymentMethodLabel, cardInfo, isEdit, lang: invLang, stripePaymentIntentId: stripePaymentId,
       variableSymbol: (reqVariableSymbol && String(reqVariableSymbol).trim()) ? String(reqVariableSymbol).trim() : null,
