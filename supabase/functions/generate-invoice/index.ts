@@ -297,6 +297,9 @@ serve(async (req) => {
           .select('id, full_name, email, phone, street, city, zip, country, ico, dic')
           .eq('id', order.customer_id).single()
         if (profile) customer = profile
+        // Firemní údaje z profilu (company_name/company_address) — bez tohohle se
+        // na shop DP/ZF/KF tiskla jen osoba + IČO a název firmy chyběl.
+        await loadCustomerCompany(supabase, customer)
       }
       // Web objednávka poukazu je anonymní (bez customer_id) — fakturační údaje
       // (firma, IČO, DIČ, adresa) drží přímo shop_orders. Doplníme je do customer,

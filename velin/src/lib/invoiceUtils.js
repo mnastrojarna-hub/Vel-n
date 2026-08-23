@@ -527,14 +527,17 @@ export async function generateCreditNote(bookingId, { refundAmount, refundPercen
  */
 export function invoiceCustomer(data) {
   const cs = data?.customer_snapshot
+  const p = data?.profiles
   if (cs && (cs.name || cs.company || cs.ico || cs.email)) {
+    // Zamražené hodnoty mají přednost; CHYBĚJÍCÍ pole doplní aktuální profil —
+    // starší snapshoty vznikly před firemními sloupci a firma/sídlo v nich není.
     return {
-      name: cs.name || '', company: cs.company || '', email: cs.email || '', phone: cs.phone || '',
-      address: cs.address || '', ico: cs.ico || '', dic: cs.dic || '',
-      company_address: cs.company_address || '',
+      name: cs.name || p?.full_name || '', email: cs.email || p?.email || '', phone: cs.phone || p?.phone || '',
+      address: cs.address || '', ico: cs.ico || p?.ico || '', dic: cs.dic || p?.dic || '',
+      company: cs.company || p?.company_name || '',
+      company_address: cs.company_address || p?.company_address || '',
     }
   }
-  const p = data?.profiles
   return {
     name: p?.full_name || '', email: p?.email || '', phone: p?.phone || '',
     address: [p?.street, p?.city, p?.zip, p?.country].filter(Boolean).join(', ') || '',
