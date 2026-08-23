@@ -23,6 +23,10 @@ class InvoiceHtmlBuilder {
     String? customerAddress,
     String? customerEmail,
     String? customerPhone,
+    String? customerCompany,
+    String? customerCompanyAddress,
+    String? customerIco,
+    String? customerDic,
   }) {
     final issueDate = inv.issuedAt ?? inv.createdAt;
     final issueDateStr = _fmtDate(issueDate);
@@ -129,7 +133,10 @@ class InvoiceHtmlBuilder {
           <div style="font-size:11px;font-weight:800;color:#16a34a;letter-spacing:1.5px;margin-bottom:10px">ODBĚRATEL</div>
           <table role="presentation" cellpadding="0" cellspacing="0" style="font-size:12px;line-height:1.7">
             <tr><td style="color:#16a34a;padding-right:18px;vertical-align:top">Jméno</td><td style="color:#0f1a14;font-weight:700">${_esc(customerName ?? '—')}</td></tr>
+            ${(customerCompany ?? '').isEmpty ? '' : '<tr><td style="color:#16a34a;padding-right:18px;vertical-align:top">Firma</td><td style="color:#0f1a14;font-weight:700">${_esc(customerCompany!)}</td></tr>'}
+            ${(customerCompanyAddress ?? '').isEmpty ? '' : '<tr><td style="color:#16a34a;padding-right:18px;vertical-align:top">Sídlo</td><td style="color:#0f1a14;font-weight:700">${_esc(customerCompanyAddress!)}</td></tr>'}
             <tr><td style="color:#16a34a;padding-right:18px;vertical-align:top">Adresa</td><td style="color:#0f1a14;font-weight:700">${_esc((customerAddress ?? '').isEmpty ? '—' : customerAddress!)}</td></tr>
+            ${(customerIco ?? '').isEmpty ? '' : '<tr><td style="color:#16a34a;padding-right:18px;vertical-align:top">IČO</td><td style="color:#0f1a14;font-weight:700">${_esc(customerIco!)}${(customerDic ?? '').isEmpty ? '' : ' / DIČ ${_esc(customerDic!)}'}</td></tr>'}
             <tr><td style="color:#16a34a;padding-right:18px;vertical-align:top">E-mail</td><td style="color:#0f1a14;font-weight:700">${_esc((customerEmail ?? '').isEmpty ? '—' : customerEmail!)}</td></tr>
             <tr><td style="color:#16a34a;padding-right:18px;vertical-align:top">Telefon</td><td style="color:#0f1a14;font-weight:700">${_esc((customerPhone ?? '').isEmpty ? '—' : customerPhone!)}</td></tr>
           </table>
