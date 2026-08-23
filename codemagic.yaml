@@ -225,6 +225,9 @@ workflows:
     environment:
       flutter: stable
       java: 17
+      groups:
+        # skupina v Codemagic se jmenuje "goole_play" (preklep pri zalozeni, ale funkcni)
+        - goole_play
       android_signing:
         - motogo24_upload
     scripts:
@@ -282,6 +285,12 @@ workflows:
       - Motogo-app-main/motogo-app-flutter/build/**/outputs/**/*.aab
       - qr_download.png
     publishing:
+      google_play:
+        # Publikace AAB do Google Play pres Play Developer API.
+        # in_app_update_priority 5 => blokujici IMMEDIATE in-app update u uzivatelu.
+        credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
+        track: production
+        in_app_update_priority: 5
       email:
         recipients:
           - mnastrojarna@gmail.com
