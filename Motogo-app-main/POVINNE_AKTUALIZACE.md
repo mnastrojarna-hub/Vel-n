@@ -19,8 +19,12 @@ Cíl: žádný uživatel nesmí zůstat na staré verzi. Mechanismus má 3 vrstv
 ## Checklist vydání povinné verze (např. 3.0.1)
 
 1. **Bump verze v OBOU pubspec.yaml** (`motogo-app-flutter` = Android,
-   `motogo-app-flutter-ios` = iOS) — build number vždy +1.
-   Android/iOS Gradle i Info.plist verzi přebírají z pubspec.
+   `motogo-app-flutter-ios` = iOS). Pubspec je JEDINÝ zdroj versionName
+   (x.y.z) — release workflows v `codemagic.yaml` už NESMÍ předávat
+   `--build-name` (hardcoded 2.5.0 tam dřív přepisoval pubspec a buildy
+   hlásily starou verzi). Build number (versionCode/CFBundleVersion)
+   dodává Codemagic přes `--build-number=$BUILD_NUMBER` — číslo v pubspec
+   za `+` je jen lokální fallback, storům je jedno.
 2. **Build přes Codemagic** (oba stromy) → nahrát do Play Console
    a App Store Connect, projít review a **vydat na 100 % uživatelů**
    (žádný staged rollout — jinak část uživatelů uvidí blokaci bez
