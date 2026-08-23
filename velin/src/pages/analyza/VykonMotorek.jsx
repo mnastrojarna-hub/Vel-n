@@ -13,11 +13,29 @@ const NoData = () => (
   </div>
 )
 
+// Sloupce ranking tabulky — key odpovídá poli v motoStats (textové řadíme abecedně).
+const RANK_COLUMNS = [
+  { label: 'Model', key: 'model', str: true },
+  { label: 'Značka', key: 'brand', str: true },
+  { label: 'Kategorie', key: 'category', str: true },
+  { label: 'Pobočka', key: 'branchName', str: true },
+  { label: 'Počet rezervací', key: 'reservationCount' },
+  { label: 'Pronajato dní', key: 'rentedDays' },
+  { label: 'Dní/rezervace', key: 'avgDaysPerReservation' },
+  { label: 'Revenue', key: 'revenue' },
+  { label: 'Najeto celkem', key: 'kmDriven' },
+  { label: 'Kč/km', key: 'revenuePerKm' },
+  { label: 'Revenue/100 km', key: 'revenuePer100km' },
+  { label: 'Obsazenost %', key: 'utilizationIndex' },
+  { label: 'Avg Kč/den', key: 'avgDailyRate' },
+]
+
 export default function VykonMotorek() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [raw, setRaw] = useState(null)
   const [period, setPeriod] = useState({ type: 'all' })
+  const [sort, setSort] = useState({ key: 'revenuePerKm', dir: 'desc' })
 
   useEffect(() => { loadData() }, [])
 
@@ -95,13 +113,21 @@ export default function VykonMotorek() {
     const revenuePerKm = kmDriven > 0 ? totalRevenue / kmDriven : null
     const kmUnit = m.tracking_unit === 'mh' ? 'mh' : 'km'
     return { ...m, rentedDays, revenue, reservationCount, avgDaysPerReservation, utilizationIndex, avgDailyRate, branchName, opDays, kmDriven, totalRevenue, revenuePerKm, kmUnit }
-  }).sort((a, b) => {
-    // Cíl analýzy: pořadí podle zisku na 1 km; motorky bez najetých km až za nimi (dle celkových tržeb).
-    if (a.revenuePerKm != null && b.revenuePerKm != null) return b.revenuePerKm - a.revenuePerKm
-    if (a.revenuePerKm != null) return -1
-    if (b.revenuePerKm != null) return 1
-    return b.totalRevenue - a.totalRevenue
   })
+
+  // Řazení dle zvoleného sloupce (klik na záhlaví); prázdné hodnoty vždy na konci.
+  const sortCol = RANK_COLUMNS.find(c => c.key === sort.key) || RANK_COLUMNS[9]
+  const dirMul = sort.dir === 'asc' ? 1 : -1
+  const sortVal = m => (sort.key === 'revenuePer100km' ? m.revenuePerKm : m[sort.key])
+  motoStats.sort((a, b) => {
+    const av = sortVal(a), bv = sortVal(b)
+    if (sortCol.str) return dirMul * String(av || '').localeCompare(String(bv || ''), 'cs')
+    if (av == null && bv == null) return b.totalRevenue - a.totalRevenue
+    if (av == null) return 1
+    if (bv == null) return -1
+    return dirMul * (av - bv)
+  })
+  const toggleSort = (key, str) => setSort(s => (s.key === key ? { key, dir: s.dir === 'desc' ? 'asc' : 'desc' } : { key, dir: str ? 'asc' : 'desc' }))
 
   // Brand aggregation
   const brandMap = {}
@@ -128,12 +154,15 @@ export default function VykonMotorek() {
       {/* Ranking table */}
       <div style={{ background: '#fff', borderRadius: 14, padding: 16, marginBottom: 24, overflowX: 'auto', boxShadow: '0 1px 4px rgba(0,0,0,.06)' }}>
         <div className="font-bold" style={{ color: '#1a2e22' }}>Ranking motorek podle zisku na 1 km</div>
-        <div className="mb-3" style={{ fontSize: 11, color: '#888' }}>Revenue = zaplacené rezervace vč. hodnoty zakoupených dárkových poukazů uplatněných na motorce (dle zvoleného období). Zisk na 1 km se počítá vždy CELKOVĚ: celkové tržby motorky / celkový nájezd (aktuální km dle posledního předávacího protokolu − km při nákupu). Řazeno dle Kč/km; motorky bez nájezdu jsou na konci.</div>
+        <div className="mb-3" style={{ fontSize: 11, color: '#888' }}>Revenue = zaplacené rezervace vč. hodnoty zakoupených dárkových poukazů uplatněných na motorce (dle zvoleného období). Zisk na 1 km se počítá vždy CELKOVĚ: celkové tržby motorky / celkový nájezd (aktuální km dle posledního předávacího protokolu − km při nákupu). Kliknutím na záhlaví sloupce seřadíš sestupně, dalším klikem vzestupně; motorky bez hodnoty jsou vždy na konci.</div>
         <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
-              {['Model', 'Značka', 'Kategorie', 'Pobočka', 'Počet rezervací', 'Pronajato dní', 'Dní/rezervace', 'Revenue', 'Najeto celkem', 'Kč/km', 'Revenue/100 km', 'Obsazenost %', 'Avg Kč/den'].map(h => (
-                <th key={h} className="text-left font-bold py-2 px-3" style={{ color: '#1a2e22' }}>{h}</th>
+              {RANK_COLUMNS.map(c => (
+                <th key={c.key} className="text-left font-bold py-2 px-3" style={{ color: '#1a2e22', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                    onClick={() => toggleSort(c.key, c.str)} title="Seřadit dle sloupce">
+                  {c.label}{sort.key === c.key ? (sort.dir === 'desc' ? ' ▼' : ' ▲') : ''}
+                </th>
               ))}
             </tr>
           </thead>
