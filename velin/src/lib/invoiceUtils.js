@@ -533,7 +533,8 @@ export function invoiceCustomer(data) {
     // starší snapshoty vznikly před firemními sloupci a firma/sídlo v nich není.
     return {
       name: cs.name || p?.full_name || '', email: cs.email || p?.email || '', phone: cs.phone || p?.phone || '',
-      address: cs.address || '', ico: cs.ico || p?.ico || '', dic: cs.dic || p?.dic || '',
+      address: cs.address || [p?.street, p?.city, p?.zip, p?.country].filter(Boolean).join(', ') || '',
+      ico: cs.ico || p?.ico || '', dic: cs.dic || p?.dic || '',
       company: cs.company || p?.company_name || '',
       company_address: cs.company_address || p?.company_address || '',
     }

@@ -439,18 +439,26 @@ class _DetailState extends ConsumerState<ReservationDetailScreen> {
       String? customerAddress;
       String? customerEmail;
       String? customerPhone;
+      String? customerCompany;
+      String? customerCompanyAddress;
+      String? customerIco;
+      String? customerDic;
       final user = MotoGoSupabase.currentUser;
       if (user != null) {
         try {
           final profile = await MotoGoSupabase.client
               .from('profiles')
-              .select('full_name, email, phone, street, city, zip, country')
+              .select('full_name, email, phone, street, city, zip, country, ico, dic, company_name, company_address')
               .eq('id', user.id)
               .maybeSingle();
           if (profile != null) {
             customerName = profile['full_name'] as String?;
             customerEmail = profile['email'] as String?;
             customerPhone = profile['phone'] as String?;
+            customerCompany = profile['company_name'] as String?;
+            customerCompanyAddress = profile['company_address'] as String?;
+            customerIco = profile['ico'] as String?;
+            customerDic = profile['dic'] as String?;
             final parts = [profile['street'], profile['city'], profile['zip'], profile['country']]
                 .where((s) => s != null && (s as String).isNotEmpty)
                 .join(', ');
@@ -467,6 +475,10 @@ class _DetailState extends ConsumerState<ReservationDetailScreen> {
         customerAddress: customerAddress,
         customerEmail: customerEmail,
         customerPhone: customerPhone,
+        customerCompany: customerCompany,
+        customerCompanyAddress: customerCompanyAddress,
+        customerIco: customerIco,
+        customerDic: customerDic,
       );
       if (!mounted) return;
       Navigator.of(context).push(MaterialPageRoute(
