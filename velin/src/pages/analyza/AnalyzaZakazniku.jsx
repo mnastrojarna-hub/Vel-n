@@ -3,8 +3,20 @@ import { supabase } from '../../lib/supabase'
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import TimePeriodSelector, { filterByPeriod, hasMinimumData, diffDays } from './TimePeriodSelector'
 import { isRealizedBooking } from '../../lib/revenueUtils'
+import { useTableSort, sortRows, SortableHeaderRow } from '../../components/sortableTable'
 
 const COLORS = ['#74FB71', '#22c55e', '#16a34a', '#15803d', '#166534', '#14532d', '#eab308', '#f59e0b', '#dc2626', '#7c3aed']
+
+const CUSTOMER_COLUMNS = [
+  { label: 'Jméno', key: 'name', str: true, value: c => c.full_name || c.email || '' },
+  { label: 'Město', key: 'city', str: true },
+  { label: 'Rezervací', key: 'bookingCount' },
+  { label: 'Prům. dní', key: 'avgDays' },
+  { label: 'Obrat', key: 'revenue' },
+  { label: 'Hodnocení', key: 'avgRating' },
+  { label: 'Kategorie', key: 'categories', value: c => c.categories.length },
+  { label: 'Poslední rezervace', key: 'lastBooking', value: c => (c.lastBooking ? new Date(c.lastBooking).getTime() : null) },
+]
 
 const NoData = () => (
   <div className="p-6 text-center" style={{ background: '#fffbeb', borderRadius: 14, border: '1px solid #fde68a', color: '#854d0e', fontSize: 13 }}>
@@ -20,6 +32,7 @@ export default function AnalyzaZakazniku() {
   const [raw, setRaw] = useState(null)
   const [period, setPeriod] = useState({ type: 'all' })
   const [appStats, setAppStats] = useState(null)
+  const custSort = useTableSort(CUSTOMER_COLUMNS, { key: 'revenue', dir: 'desc' })
 
   useEffect(() => { loadData() }, [])
 
@@ -288,16 +301,13 @@ export default function AnalyzaZakazniku() {
       {/* Top customers table */}
       <div style={{ ...cardStyle, overflowX: 'auto', marginBottom: 24 }}>
         <div className="font-bold mb-3" style={{ color: '#1a2e22' }}>Top zákazníci podle obratu</div>
+        <div className="mb-2" style={{ fontSize: 11, color: '#888' }}>Zobrazuje se 20 zákazníků dle zvoleného řazení (klik na záhlaví sloupce, ▼/▲).</div>
         <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
           <thead>
-            <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
-              {['Jméno', 'Město', 'Rezervací', 'Prům. dní', 'Obrat', 'Hodnocení', 'Kategorie', 'Poslední rezervace'].map(h => (
-                <th key={h} className="text-left font-bold py-2 px-3" style={{ color: '#1a2e22' }}>{h}</th>
-              ))}
-            </tr>
+            <SortableHeaderRow columns={CUSTOMER_COLUMNS} sort={custSort.sort} toggle={custSort.toggle} />
           </thead>
           <tbody>
-            {customerStats.slice(0, 20).map((c, i) => (
+            {sortRows(customerStats, CUSTOMER_COLUMNS, custSort.sort).slice(0, 20).map((c, i) => (
               <tr key={c.id} style={{ borderBottom: '1px solid #f3f4f6', background: i % 2 === 1 ? '#f9fdfb' : 'transparent' }}>
                 <td className="py-2 px-3 font-semibold">{c.full_name || c.email || '—'}</td>
                 <td className="py-2 px-3">{c.city || '—'}</td>

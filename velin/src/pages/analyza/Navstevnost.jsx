@@ -18,6 +18,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { isRealizedBooking } from '../../lib/revenueUtils'
+import { useTableSort, sortRows } from '../../components/sortableTable'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, Legend, CartesianGrid } from 'recharts'
 
 const GRANULARITIES = [
@@ -526,15 +527,33 @@ function KpiTile({ label, value, hint, color = '#1a2e22' }) {
   )
 }
 
+const LIST_COLUMNS = [
+  { label: 'Položka', key: 'label', str: true },
+  { label: 'Počet', key: 'count' },
+]
+
 function ListCard({ title, hint, rows, mono, link }) {
+  const listSort = useTableSort(LIST_COLUMNS)
+  const sorted = sortRows((rows || []).map(([label, count]) => ({ label, count })), LIST_COLUMNS, listSort.sort)
   return (
     <div style={{ background: '#fff', borderRadius: 14, padding: 16, border: '1px solid #e3e8e5' }}>
       <h3 className="font-extrabold text-sm" style={{ color: '#1a2e22' }}>{title}</h3>
       {hint && <p style={{ color: '#888', fontSize: 11, marginBottom: 6 }}>{hint}</p>}
       {(!rows || rows.length === 0) ? <NoData /> : (
         <table className="w-full text-xs mt-2">
+          <thead>
+            <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
+              {LIST_COLUMNS.map((c, ci) => (
+                <th key={c.key} className={`p-2 font-bold ${ci === 1 ? 'text-right' : 'text-left'}`}
+                    style={{ color: '#888', cursor: 'pointer', userSelect: 'none', fontSize: 10, textTransform: 'uppercase' }}
+                    title="Seřadit dle sloupce" onClick={() => listSort.toggle(c.key)}>
+                  {c.label}{listSort.sort?.key === c.key ? (listSort.sort.dir === 'desc' ? ' ▼' : ' ▲') : ''}
+                </th>
+              ))}
+            </tr>
+          </thead>
           <tbody>
-            {rows.map(([label, count], i) => (
+            {sorted.map(({ label, count }, i) => (
               <tr key={i} style={{ borderBottom: '1px solid #f5f5f5' }}>
                 <td className="p-2" style={{ maxWidth: 360, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={label}>
                   {mono

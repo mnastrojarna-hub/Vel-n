@@ -2,8 +2,28 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import TimePeriodSelector, { filterByPeriod, hasMinimumData, diffDays } from './TimePeriodSelector'
 import { isRealizedBooking } from '../../lib/revenueUtils'
+import { useTableSort, sortRows, SortableHeaderRow } from '../../components/sortableTable'
 
 const TOTAL_SLOTS = 8
+
+const CURRENT_COLUMNS = [
+  { label: 'Kategorie', key: 'category', str: true },
+  { label: 'Počet', key: 'motorcycleCount' },
+  { label: 'Obsazenost %', key: 'utilizationPct' },
+  { label: 'Rev/slot', key: 'revenuePerSlot' },
+]
+const RECOMMENDED_COLUMNS = [
+  { label: 'Kategorie', key: 'category', str: true },
+  { label: 'Doporučeno', key: 'recommended' },
+  { label: 'Est. Rev/slot', key: 'revenuePerSlot' },
+]
+const BENCHMARK_COLUMNS = [
+  { label: 'Pobočka', key: 'name', str: true },
+  { label: 'Typ', key: 'location', str: true },
+  { label: 'Aktuální rev/slot', key: 'currentRevPerSlot', value: b => (b.hasBookings ? b.currentRevPerSlot : null) },
+  { label: 'Optimalizovaný rev/slot', key: 'optimizedRevPerSlot', value: b => (b.hasBookings ? b.optimizedRevPerSlot : null) },
+  { label: 'Potenciál %', key: 'potentialPct', value: b => (b.hasBookings ? b.potentialPct : null) },
+]
 
 function computeOptimalFleet(catScores) {
   const eligible = catScores.filter(c => c.utilizationPct > 40).sort((a, b) => b.score - a.score)
@@ -44,6 +64,9 @@ export default function OptimalniFlotila() {
   const [raw, setRaw] = useState(null)
   const [period, setPeriod] = useState({ type: 'all' })
   const [selectedLoc, setSelectedLoc] = useState(null)
+  const currentSort = useTableSort(CURRENT_COLUMNS)
+  const recommendedSort = useTableSort(RECOMMENDED_COLUMNS)
+  const benchmarkSort = useTableSort(BENCHMARK_COLUMNS, { key: 'potentialPct', dir: 'desc' })
 
   useEffect(() => { loadData() }, [])
 
@@ -138,10 +161,10 @@ export default function OptimalniFlotila() {
             <div style={{ ...cardStyle, overflowX: 'auto' }}>
               <div className="font-bold mb-3" style={{ color: '#1a2e22' }}>Aktuální složení</div>
               <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
-                <thead><tr style={{ borderBottom: '2px solid #e5e7eb' }}>{['Kategorie', 'Počet', 'Obsazenost %', 'Rev/slot'].map(h => <th key={h} className="text-left font-bold py-2 px-3" style={{ color: '#1a2e22' }}>{h}</th>)}</tr></thead>
+                <thead><SortableHeaderRow columns={CURRENT_COLUMNS} sort={currentSort.sort} toggle={currentSort.toggle} /></thead>
                 <tbody>
                   {cats.length === 0 && <tr><td colSpan={4} className="py-4 text-center" style={{ color: '#888' }}>Žádné motorky</td></tr>}
-                  {cats.map(c => (
+                  {sortRows(cats, CURRENT_COLUMNS, currentSort.sort).map(c => (
                     <tr key={c.category} style={{ borderBottom: '1px solid #f3f4f6', background: c.recommended !== c.motorcycleCount ? '#fffbeb' : 'transparent' }}>
                       <td className="py-2 px-3 font-semibold">{c.category}</td>
                       <td className="py-2 px-3">{c.motorcycleCount}</td>
@@ -155,10 +178,10 @@ export default function OptimalniFlotila() {
             <div style={{ ...cardStyle, overflowX: 'auto' }}>
               <div className="font-bold mb-3" style={{ color: '#1a2e22' }}>Doporučené složení</div>
               <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
-                <thead><tr style={{ borderBottom: '2px solid #e5e7eb' }}>{['Kategorie', 'Doporučeno', 'Est. Rev/slot'].map(h => <th key={h} className="text-left font-bold py-2 px-3" style={{ color: '#1a2e22' }}>{h}</th>)}</tr></thead>
+                <thead><SortableHeaderRow columns={RECOMMENDED_COLUMNS} sort={recommendedSort.sort} toggle={recommendedSort.toggle} /></thead>
                 <tbody>
                   {cats.length === 0 && <tr><td colSpan={3} className="py-4 text-center" style={{ color: '#888' }}>Žádné motorky</td></tr>}
-                  {cats.map(c => (
+                  {sortRows(cats, RECOMMENDED_COLUMNS, recommendedSort.sort).map(c => (
                     <tr key={c.category} style={{ borderBottom: '1px solid #f3f4f6', background: c.recommended !== c.motorcycleCount ? '#fffbeb' : 'transparent' }}>
                       <td className="py-2 px-3 font-semibold">{c.category}</td>
                       <td className="py-2 px-3">{c.recommended}</td>
@@ -183,9 +206,9 @@ export default function OptimalniFlotila() {
           <div style={{ ...cardStyle, overflowX: 'auto' }}>
             <div className="font-bold mb-3" style={{ color: '#1a2e22' }}>Benchmark všech poboček</div>
             <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
-              <thead><tr style={{ borderBottom: '2px solid #e5e7eb' }}>{['Pobočka', 'Typ', 'Aktuální rev/slot', 'Optimalizovaný rev/slot', 'Potenciál %'].map(h => <th key={h} className="text-left font-bold py-2 px-3" style={{ color: '#1a2e22' }}>{h}</th>)}</tr></thead>
+              <thead><SortableHeaderRow columns={BENCHMARK_COLUMNS} sort={benchmarkSort.sort} toggle={benchmarkSort.toggle} /></thead>
               <tbody>
-                {benchmark.map(b => (
+                {sortRows(benchmark, BENCHMARK_COLUMNS, benchmarkSort.sort).map(b => (
                   <tr key={b.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
                     <td className="py-2 px-3 font-semibold">{b.name}</td>
                     <td className="py-2 px-3"><span style={{ background: '#f3f4f6', color: '#6b7280', borderRadius: 8, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>{b.location || '—'}</span></td>

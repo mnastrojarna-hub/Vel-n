@@ -3,14 +3,25 @@ import { supabase } from '../../lib/supabase'
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import TimePeriodSelector, { filterByPeriod, hasMinimumData, diffDays } from './TimePeriodSelector'
 import { isRealizedBooking } from '../../lib/revenueUtils'
+import { useTableSort, sortRows, SortableHeaderRow } from '../../components/sortableTable'
 
 const COLORS = ['#74FB71', '#22c55e', '#16a34a', '#15803d', '#166534', '#14532d', '#0d3520', '#eab308', '#f59e0b', '#dc2626']
+
+const CAT_COLUMNS = [
+  { label: 'Kategorie', key: 'category', str: true },
+  { label: 'Motorek', key: 'motorcycleCount' },
+  { label: 'Rezervací', key: 'reservationCount' },
+  { label: 'Obsazenost %', key: 'avgUtilization' },
+  { label: 'Revenue celkem', key: 'totalRevenue' },
+  { label: 'Revenue/motorku', key: 'revenuePerMoto' },
+]
 
 export default function PoptavkaKategorii() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [raw, setRaw] = useState(null)
   const [period, setPeriod] = useState({ type: 'all' })
+  const catSort = useTableSort(CAT_COLUMNS, { key: 'avgUtilization', dir: 'desc' })
 
   useEffect(() => { loadData() }, [])
 
@@ -66,14 +77,10 @@ export default function PoptavkaKategorii() {
         <div className="font-bold mb-3" style={{ color: '#1a2e22' }}>Poptávka podle kategorií</div>
         <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
           <thead>
-            <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
-              {['Kategorie', 'Motorek', 'Rezervací', 'Obsazenost %', 'Revenue celkem', 'Revenue/motorku'].map(h => (
-                <th key={h} className="text-left font-bold py-2 px-3" style={{ color: '#1a2e22' }}>{h}</th>
-              ))}
-            </tr>
+            <SortableHeaderRow columns={CAT_COLUMNS} sort={catSort.sort} toggle={catSort.toggle} />
           </thead>
           <tbody>
-            {catStats.map(c => (
+            {sortRows(catStats, CAT_COLUMNS, catSort.sort).map(c => (
               <tr key={c.category} style={{ borderBottom: '1px solid #f3f4f6' }}>
                 <td className="py-2 px-3 font-semibold">{c.category}</td>
                 <td className="py-2 px-3">{c.motorcycleCount}</td>

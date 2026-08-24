@@ -18,6 +18,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, Legend } from 'recharts'
 import { CreateApiKeyModal, RevokeApiKeyConfirm } from './ApiKeyModals'
+import { useTableSort, sortRows } from '../../components/sortableTable'
 
 const PERIODS = [
   { id: '7d',  label: '7 dní',  ms: 7  * 24 * 3600 * 1000 },
@@ -84,6 +85,31 @@ export default function AiTraffic() {
   const [showAddCitation, setShowAddCitation] = useState(false)
   const [showCreateKey, setShowCreateKey] = useState(false)
   const [revokeKey, setRevokeKey] = useState(null)
+  const PARTNER_COLUMNS = [
+    { label: 'Partner', key: 'partner_name', str: true },
+    { label: 'E-mail', key: 'partner_email', str: true },
+    { label: 'Prefix', key: 'key_prefix', str: true },
+    { label: 'Rate / min', key: 'rate_limit_rpm', right: true },
+    { label: 'Scopes', key: 'scopes', str: true, value: p => (p.scopes || []).join(', ') },
+    { label: 'Requests', key: 'requests', right: true, value: p => Number(byPartner[p.id] || 0) },
+    { label: 'Last used', key: 'last_used_at', value: p => (p.last_used_at ? new Date(p.last_used_at).getTime() : null) },
+    { label: 'Status', key: 'status', value: p => (p.is_active && !p.revoked_at ? 1 : 0) },
+    { label: '' },
+  ]
+  const partnerSort = useTableSort(PARTNER_COLUMNS)
+  const CITATION_COLUMNS = [
+    { label: 'Datum', key: 'observed_at', value: c => (c.observed_at ? new Date(c.observed_at).getTime() : null) },
+    { label: 'Platforma', key: 'ai_platform', str: true },
+    { label: 'Query', key: 'query', str: true },
+    { label: 'Citovaná URL', key: 'cited_url', str: true },
+    { label: 'Pozice', key: 'rank', right: true },
+  ]
+  const citationSort = useTableSort(CITATION_COLUMNS)
+  const PATH_COLUMNS = [
+    { label: 'Stránka / endpoint', key: 'path', str: true, value: r => r[0] || '' },
+    { label: 'Počet', key: 'count', right: true, value: r => Number(r[1]) || 0 },
+  ]
+  const pathSort = useTableSort(PATH_COLUMNS)
 
   useEffect(() => { loadData() }, [period])
 
@@ -238,19 +264,19 @@ export default function AiTraffic() {
           <table className="w-full text-xs">
             <thead>
               <tr style={{ borderBottom: '1px solid #e3e8e5', textAlign: 'left' }}>
-                <th className="p-2">Partner</th>
-                <th className="p-2">E-mail</th>
-                <th className="p-2">Prefix</th>
-                <th className="p-2 text-right">Rate / min</th>
-                <th className="p-2">Scopes</th>
-                <th className="p-2 text-right">Requests ({periodObj.label})</th>
-                <th className="p-2">Last used</th>
-                <th className="p-2">Status</th>
-                <th className="p-2"></th>
+                {PARTNER_COLUMNS.map(c => (
+                  <th key={c.key || 'akce'} className={`p-2${c.right ? ' text-right' : ''}`}
+                      style={{ cursor: c.key ? 'pointer' : 'default', userSelect: 'none', whiteSpace: 'nowrap' }}
+                      title={c.key ? 'Seřadit dle sloupce' : undefined}
+                      onClick={() => c.key && partnerSort.toggle(c.key)}>
+                    {c.key === 'requests' ? `Requests (${periodObj.label})` : c.label}
+                    {partnerSort.sort?.key === c.key ? (partnerSort.sort.dir === 'desc' ? ' ▼' : ' ▲') : ''}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
-              {partners.map(p => (
+              {sortRows(partners, PARTNER_COLUMNS, partnerSort.sort).map(p => (
                 <tr key={p.id} style={{ borderBottom: '1px solid #f1f1f1' }}>
                   <td className="p-2 font-bold" style={{ color: '#1a2e22' }}>{p.partner_name}</td>
                   <td className="p-2">{p.partner_email}</td>
@@ -289,8 +315,19 @@ export default function AiTraffic() {
         <h3 className="font-extrabold text-sm mb-3" style={{ color: '#1a2e22' }}>Top stránky / endpointy</h3>
         {topPathsList.length === 0 ? <NoData /> : (
           <table className="w-full text-xs">
+            <thead>
+              <tr style={{ borderBottom: '1px solid #e3e8e5' }}>
+                {PATH_COLUMNS.map((c, ci) => (
+                  <th key={c.key} className={`p-2 ${ci === 1 ? 'text-right' : 'text-left'}`}
+                      style={{ color: '#888', cursor: 'pointer', userSelect: 'none', fontSize: 10, textTransform: 'uppercase' }}
+                      title="Seřadit dle sloupce" onClick={() => pathSort.toggle(c.key)}>
+                    {c.label}{pathSort.sort?.key === c.key ? (pathSort.sort.dir === 'desc' ? ' ▼' : ' ▲') : ''}
+                  </th>
+                ))}
+              </tr>
+            </thead>
             <tbody>
-              {topPathsList.map(([ep, c]) => (
+              {sortRows(topPathsList, PATH_COLUMNS, pathSort.sort).map(([ep, c]) => (
                 <tr key={ep || 'unknown'}>
                   <td className="p-2"><code style={{ background: '#f1faf7', padding: '2px 6px', borderRadius: 4 }}>{ep || '—'}</code></td>
                   <td className="p-2 text-right font-bold" style={{ color: '#1a2e22' }}>{c.toLocaleString('cs-CZ')}</td>
@@ -324,15 +361,17 @@ export default function AiTraffic() {
           <table className="w-full text-xs mt-3">
             <thead>
               <tr style={{ borderBottom: '1px solid #e3e8e5', textAlign: 'left' }}>
-                <th className="p-2">Datum</th>
-                <th className="p-2">Platforma</th>
-                <th className="p-2">Query</th>
-                <th className="p-2">Citovaná URL</th>
-                <th className="p-2">Pozice</th>
+                {CITATION_COLUMNS.map(cc => (
+                  <th key={cc.key} className={`p-2${cc.right ? ' text-right' : ''}`}
+                      style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                      title="Seřadit dle sloupce" onClick={() => citationSort.toggle(cc.key)}>
+                    {cc.label}{citationSort.sort?.key === cc.key ? (citationSort.sort.dir === 'desc' ? ' ▼' : ' ▲') : ''}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
-              {citations.map(c => {
+              {sortRows(citations, CITATION_COLUMNS, citationSort.sort).map(c => {
                 const pl = PLATFORMS.find(p => p.id === c.ai_platform) || PLATFORMS[7]
                 return (
                   <tr key={c.id} style={{ borderBottom: '1px solid #f1f1f1' }}>

@@ -1,6 +1,13 @@
 import { isRealizedBooking } from '../../lib/revenueUtils'
+import { useTableSort, sortRows } from '../../components/sortableTable'
 
 const DAYS_CS = ['Po', 'Út', 'St', 'Čt', 'Pá', 'So', 'Ne']
+
+const DAY_COLUMNS = [
+  { label: 'Kategorie', key: 'label', str: true },
+  ...DAYS_CS.map((d, i) => ({ label: d, key: `day${i}`, value: r => r.days[i], center: true })),
+  { label: 'Celkem', key: 'total', center: true },
+]
 
 // Den v týdnu z data výjezdu (start_date) bez posunů časovou zónou —
 // parsuje se jen datumová část, ne ISO timestamp (ten by se bral jako UTC).
@@ -31,6 +38,7 @@ function HeatCell({ count, rowMax, total, bold }) {
  * Řádky: kategorie motorek + souhrn napříč všemi stroji.
  */
 export default function RezervaceDnyTydne({ bookings, motorcycles }) {
+  const daySort = useTableSort(DAY_COLUMNS, { key: 'total', dir: 'desc' })
   const categoryByMoto = Object.fromEntries((motorcycles || []).map(m => [m.id, m.category || 'Bez kategorie']))
 
   const rowsMap = {}
@@ -45,7 +53,7 @@ export default function RezervaceDnyTydne({ bookings, motorcycles }) {
     totalRow.days[idx]++
     totalRow.total++
   }
-  const catRows = Object.values(rowsMap).sort((a, b) => b.total - a.total)
+  const catRows = sortRows(Object.values(rowsMap), DAY_COLUMNS, daySort.sort)
 
   if (totalRow.total === 0) return null
 
@@ -61,9 +69,13 @@ export default function RezervaceDnyTydne({ bookings, motorcycles }) {
       <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
         <thead>
           <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
-            <th className="text-left font-bold py-2 px-3" style={{ color: '#1a2e22' }}>Kategorie</th>
-            {DAYS_CS.map(d => <th key={d} className="text-center font-bold py-2 px-3" style={{ color: '#1a2e22' }}>{d}</th>)}
-            <th className="text-center font-bold py-2 px-3" style={{ color: '#1a2e22' }}>Celkem</th>
+            {DAY_COLUMNS.map(c => (
+              <th key={c.key} className={`${c.center ? 'text-center' : 'text-left'} font-bold py-2 px-3`}
+                  style={{ color: '#1a2e22', cursor: 'pointer', userSelect: 'none' }}
+                  title="Seřadit dle sloupce" onClick={() => daySort.toggle(c.key)}>
+                {c.label}{daySort.sort?.key === c.key ? (daySort.sort.dir === 'desc' ? ' ▼' : ' ▲') : ''}
+              </th>
+            ))}
           </tr>
         </thead>
         <tbody>

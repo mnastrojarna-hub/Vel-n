@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import TimePeriodSelector, { filterByPeriod, hasMinimumData, diffDays } from './TimePeriodSelector'
 import { isRealizedBooking, voucherRevenueByBooking } from '../../lib/revenueUtils'
+import { useTableSort, sortRows, SortableHeaderRow } from '../../components/sortableTable'
 import NavratnostKapitalu from './NavratnostKapitalu'
 import RezervaceDnyTydne from './RezervaceDnyTydne'
 
@@ -25,9 +26,17 @@ const RANK_COLUMNS = [
   { label: 'Revenue', key: 'revenue' },
   { label: 'Najeto celkem', key: 'kmDriven' },
   { label: 'Kč/km', key: 'revenuePerKm' },
-  { label: 'Revenue/100 km', key: 'revenuePer100km' },
+  { label: 'Revenue/100 km', key: 'revenuePer100km', value: m => m.revenuePerKm },
   { label: 'Obsazenost %', key: 'utilizationIndex' },
   { label: 'Avg Kč/den', key: 'avgDailyRate' },
+]
+
+const BRAND_COLUMNS = [
+  { label: 'Značka', key: 'brand', str: true },
+  { label: 'Počet motorek', key: 'count' },
+  { label: 'Prům. obsazenost %', key: 'avgUtilization' },
+  { label: 'Revenue/motorku', key: 'revenuePerMoto' },
+  { label: 'Performance Score', key: 'performanceScore' },
 ]
 
 export default function VykonMotorek() {
@@ -35,7 +44,8 @@ export default function VykonMotorek() {
   const [error, setError] = useState(null)
   const [raw, setRaw] = useState(null)
   const [period, setPeriod] = useState({ type: 'all' })
-  const [sort, setSort] = useState({ key: 'revenuePerKm', dir: 'desc' })
+  const rankSort = useTableSort(RANK_COLUMNS, { key: 'revenuePerKm', dir: 'desc' })
+  const brandSort = useTableSort(BRAND_COLUMNS, { key: 'performanceScore', dir: 'desc' })
 
   useEffect(() => { loadData() }, [])
 
@@ -113,21 +123,8 @@ export default function VykonMotorek() {
     const revenuePerKm = kmDriven > 0 ? totalRevenue / kmDriven : null
     const kmUnit = m.tracking_unit === 'mh' ? 'mh' : 'km'
     return { ...m, rentedDays, revenue, reservationCount, avgDaysPerReservation, utilizationIndex, avgDailyRate, branchName, opDays, kmDriven, totalRevenue, revenuePerKm, kmUnit }
-  })
-
-  // Řazení dle zvoleného sloupce (klik na záhlaví); prázdné hodnoty vždy na konci.
-  const sortCol = RANK_COLUMNS.find(c => c.key === sort.key) || RANK_COLUMNS[9]
-  const dirMul = sort.dir === 'asc' ? 1 : -1
-  const sortVal = m => (sort.key === 'revenuePer100km' ? m.revenuePerKm : m[sort.key])
-  motoStats.sort((a, b) => {
-    const av = sortVal(a), bv = sortVal(b)
-    if (sortCol.str) return dirMul * String(av || '').localeCompare(String(bv || ''), 'cs')
-    if (av == null && bv == null) return b.totalRevenue - a.totalRevenue
-    if (av == null) return 1
-    if (bv == null) return -1
-    return dirMul * (av - bv)
-  })
-  const toggleSort = (key, str) => setSort(s => (s.key === key ? { key, dir: s.dir === 'desc' ? 'asc' : 'desc' } : { key, dir: str ? 'asc' : 'desc' }))
+  }).sort((a, b) => b.totalRevenue - a.totalRevenue) // výchozí pořadí prázdných hodnot při řazení
+  const sortedMotoStats = sortRows(motoStats, RANK_COLUMNS, rankSort.sort)
 
   // Brand aggregation
   const brandMap = {}
@@ -157,17 +154,10 @@ export default function VykonMotorek() {
         <div className="mb-3" style={{ fontSize: 11, color: '#888' }}>Revenue = zaplacené rezervace vč. hodnoty zakoupených dárkových poukazů uplatněných na motorce (dle zvoleného období). Zisk na 1 km se počítá vždy CELKOVĚ: celkové tržby motorky / celkový nájezd (aktuální km dle posledního předávacího protokolu − km při nákupu). Kliknutím na záhlaví sloupce seřadíš sestupně, dalším klikem vzestupně; motorky bez hodnoty jsou vždy na konci.</div>
         <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
           <thead>
-            <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
-              {RANK_COLUMNS.map(c => (
-                <th key={c.key} className="text-left font-bold py-2 px-3" style={{ color: '#1a2e22', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
-                    onClick={() => toggleSort(c.key, c.str)} title="Seřadit dle sloupce">
-                  {c.label}{sort.key === c.key ? (sort.dir === 'desc' ? ' ▼' : ' ▲') : ''}
-                </th>
-              ))}
-            </tr>
+            <SortableHeaderRow columns={RANK_COLUMNS} sort={rankSort.sort} toggle={rankSort.toggle} />
           </thead>
           <tbody>
-            {motoStats.map((m, i) => (
+            {sortedMotoStats.map((m, i) => (
               <tr key={m.id} style={{ borderBottom: '1px solid #f3f4f6', background: i % 2 === 1 ? '#f9fdfb' : 'transparent' }}>
                 <td className="py-2 px-3 font-semibold">{m.model}</td>
                 <td className="py-2 px-3">{m.brand || '—'}</td>
@@ -207,14 +197,10 @@ export default function VykonMotorek() {
           <div className="font-bold mb-3" style={{ color: '#1a2e22' }}>Výkon značek</div>
           <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
             <thead>
-              <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
-                {['Značka', 'Počet motorek', 'Prům. obsazenost %', 'Revenue/motorku', 'Performance Score'].map(h => (
-                  <th key={h} className="text-left font-bold py-2 px-3" style={{ color: '#1a2e22' }}>{h}</th>
-                ))}
-              </tr>
+              <SortableHeaderRow columns={BRAND_COLUMNS} sort={brandSort.sort} toggle={brandSort.toggle} />
             </thead>
             <tbody>
-              {brandStats.map(b => {
+              {sortRows(brandStats, BRAND_COLUMNS, brandSort.sort).map(b => {
                 const sc = b.performanceScore
                 const dotColor = sc > 0.6 ? '#22c55e' : sc >= 0.3 ? '#eab308' : '#dc2626'
                 return (
