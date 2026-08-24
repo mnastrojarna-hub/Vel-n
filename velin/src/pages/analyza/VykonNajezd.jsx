@@ -68,12 +68,26 @@ export default function VykonNajezd() {
   const closed = segments.filter(s => s.next_reading != null)
   const inPeriod = filterByPeriod(closed, period, 'start_date')
 
+  // Sanitizace najetých km segmentu: stav tachometru nemůže být pod „koupeno
+  // s km" (purchase_mileage). Historicky se u části protokolů zapsal nájezd
+  // BEZ nákupních km (motorka koupená s vysokým nájezdem, např. BMW GS) a
+  // surový rozdíl čtení (km_driven z RPC) pak nákupní km spolkl → nesmyslné
+  // „najeto za půjčení". Čtení pod purchase_km se proto podlaží na purchase_km
+  // a najeté km segmentu se tím stropují na (další čtení − koupeno s km).
+  const segKm = s => {
+    const p = Number(motoKmMap[s.moto_id]?.purchase_km) || 0
+    const a = Number(s.reading) || 0
+    const b = Number(s.next_reading) || 0
+    if (b >= p) return Math.max(0, b - Math.max(a, p))
+    return Math.max(0, b - a)
+  }
+
   // Per motorka — v tabulce jsou i motorky bez segmentu v období, pokud mají
   // celkový nájezd (total_driven = aktuální km dle posledního protokolu − km při nákupu).
   const byMoto = {}
   for (const s of inPeriod) {
     if (!byMoto[s.moto_id]) byMoto[s.moto_id] = { moto_id: s.moto_id, totalKm: 0, rentals: 0 }
-    byMoto[s.moto_id].totalKm += Number(s.km_driven) || 0
+    byMoto[s.moto_id].totalKm += segKm(s)
     byMoto[s.moto_id].rentals++
   }
   const motoIds = new Set([...Object.keys(byMoto), ...motoKm.filter(k => Number(k.total_driven) > 0).map(k => k.moto_id)])
@@ -97,7 +111,7 @@ export default function VykonNajezd() {
   for (const s of inPeriod) {
     if (!s.user_id) continue
     if (!byCust[s.user_id]) byCust[s.user_id] = { user_id: s.user_id, totalKm: 0, rentals: 0 }
-    byCust[s.user_id].totalKm += Number(s.km_driven) || 0
+    byCust[s.user_id].totalKm += segKm(s)
     byCust[s.user_id].rentals++
   }
   const custStats = Object.values(byCust).map(r => {
@@ -105,7 +119,7 @@ export default function VykonNajezd() {
     return { ...r, name: p.full_name || p.email || '—', kmPerRental: r.rentals > 0 ? Math.round(r.totalKm / r.rentals) : 0 }
   }).sort((a, b) => b.totalKm - a.totalKm)
 
-  const totalKm = inPeriod.reduce((s, x) => s + (Number(x.km_driven) || 0), 0)
+  const totalKm = inPeriod.reduce((s, x) => s + segKm(x), 0)
   const cardStyle = { background: '#fff', borderRadius: 14, padding: 16, marginBottom: 24, overflowX: 'auto', boxShadow: '0 1px 4px rgba(0,0,0,.06)' }
   const th = { color: '#1a2e22' }
 
