@@ -4,6 +4,25 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recha
 import { calcBikeEconomicsReal, calcBikeEconomicsIdle } from '../../lib/fleetCalc'
 import TimePeriodSelector, { filterByPeriod, hasMinimumData, diffDays } from './TimePeriodSelector'
 import { isRealizedBooking } from '../../lib/revenueUtils'
+import { useTableSort, sortRows, SortableHeaderRow } from '../../components/sortableTable'
+
+const BRANCH_COLUMNS = [
+  { label: 'Název', key: 'name', str: true },
+  { label: 'Typ', key: 'location', str: true },
+  { label: 'Obrat', key: 'revenue' },
+  { label: 'Obrat/motorku', key: 'revenuePerMoto' },
+  { label: 'Odhad ročního zisku/motorku', key: 'avgProfitPerBike', title: 'Roční projekce zisku na motorku jen ze skutečných rezervací pobočky (nevypůjčené kusy = jen fixní roční náklady, mohou jít do mínusu). NE zisk za zvolené období — proto není srovnatelný s Obratem/motorku za období.' },
+  { label: 'Rezervace', key: 'reservationCount' },
+  { label: 'Obsazenost %', key: 'utilizationPct' },
+  { label: 'Klasifikace', key: 'classification', str: true },
+]
+
+const TYPE_COLUMNS = [
+  { label: 'Typ', key: 'type', str: true },
+  { label: 'Počet poboček', key: 'count' },
+  { label: 'Průměrný obrat', key: 'avgRevenue' },
+  { label: 'Průměrná obsazenost', key: 'avgUtilization' },
+]
 
 function classifyGrowth(cur, prev) {
   if (!prev || !cur) return 'Nedostatek dat'
@@ -34,6 +53,8 @@ export default function VykonPobocek() {
   const [error, setError] = useState(null)
   const [raw, setRaw] = useState(null)
   const [period, setPeriod] = useState({ type: 'all' })
+  const branchSort = useTableSort(BRANCH_COLUMNS)
+  const typeSort = useTableSort(TYPE_COLUMNS)
 
   useEffect(() => { loadData() }, [])
 
@@ -170,15 +191,10 @@ export default function VykonPobocek() {
       <div style={{ background: '#fff', borderRadius: 14, padding: 16, marginBottom: 24, overflowX: 'auto', boxShadow: '0 1px 4px rgba(0,0,0,.06)' }}>
         <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
           <thead>
-            <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
-              {['Název', 'Typ', 'Obrat', 'Obrat/motorku', 'Odhad ročního zisku/motorku', 'Rezervace', 'Obsazenost %', has3mo ? 'Klasifikace' : null].filter(Boolean).map(h => (
-                <th key={h} className="text-left font-bold py-2 px-3" style={{ color: '#1a2e22' }}
-                  title={h === 'Odhad ročního zisku/motorku' ? 'Roční projekce zisku na motorku jen ze skutečných rezervací pobočky (nevypůjčené kusy = jen fixní roční náklady, mohou jít do mínusu). NE zisk za zvolené období — proto není srovnatelný s Obratem/motorku za období.' : undefined}>{h}</th>
-              ))}
-            </tr>
+            <SortableHeaderRow columns={has3mo ? BRANCH_COLUMNS : BRANCH_COLUMNS.filter(c => c.key !== 'classification')} sort={branchSort.sort} toggle={branchSort.toggle} />
           </thead>
           <tbody>
-            {branchStats.map(b => (
+            {sortRows(branchStats, BRANCH_COLUMNS, branchSort.sort).map(b => (
               <tr key={b.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
                 <td className="py-2 px-3 font-semibold">{b.name}</td>
                 <td className="py-2 px-3">
@@ -218,14 +234,10 @@ export default function VykonPobocek() {
         <div className="font-bold mb-3" style={{ color: '#1a2e22' }}>Srovnání podle typu pobočky</div>
         <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
           <thead>
-            <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
-              {['Typ', 'Počet poboček', 'Průměrný obrat', 'Průměrná obsazenost'].map(h => (
-                <th key={h} className="text-left font-bold py-2 px-3" style={{ color: '#1a2e22' }}>{h}</th>
-              ))}
-            </tr>
+            <SortableHeaderRow columns={TYPE_COLUMNS} sort={typeSort.sort} toggle={typeSort.toggle} />
           </thead>
           <tbody>
-            {byType.map(t => (
+            {sortRows(byType, TYPE_COLUMNS, typeSort.sort).map(t => (
               <tr key={t.type} style={{ borderBottom: '1px solid #f3f4f6' }}>
                 <td className="py-2 px-3 font-semibold">{t.type}</td>
                 <td className="py-2 px-3">{t.count}</td>

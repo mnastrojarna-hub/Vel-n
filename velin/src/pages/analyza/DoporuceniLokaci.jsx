@@ -3,6 +3,14 @@ import { supabase } from '../../lib/supabase'
 import { FLEET_CALC, calcLocationEconomics } from '../../lib/fleetCalc'
 import TimePeriodSelector, { filterByPeriod, diffDays } from './TimePeriodSelector'
 import { isRealizedBooking } from '../../lib/revenueUtils'
+import { useTableSort, sortRows, SortableHeaderRow } from '../../components/sortableTable'
+
+const FLEET_COLUMNS = [
+  { label: 'Kategorie', key: 'category', str: true },
+  { label: 'Ks', key: 'count' },
+  { label: 'Rev/ks/rok', key: 'annualRevenue' },
+  { label: 'Zisk/ks/rok', key: 'annualProfit' },
+]
 
 function DataSourceBadge({ source, derivedFrom }) {
   if (source === 'real') return <span style={{ background: 'rgba(116,251,113,0.15)', color: '#166534', fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 99 }}>📊 Real data</span>
@@ -30,6 +38,7 @@ export default function DoporuceniLokaci() {
   const [calcEnv, setCalcEnv] = useState('Centrum města')
   const [calcSeason, setCalcSeason] = useState('Celoroční')
   const [calcResult, setCalcResult] = useState(null)
+  const fleetSort = useTableSort(FLEET_COLUMNS)
 
   useEffect(() => { loadData() }, [])
 
@@ -191,9 +200,9 @@ export default function DoporuceniLokaci() {
                   <div className="text-xs font-bold mb-2" style={{ color: '#888' }}>Doporučená flotila ({calcResult.fleet.reduce((s, f) => s + f.n, 0)} motorek)</div>
                   <div className="overflow-x-auto">
                   <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
-                    <thead><tr style={{ borderBottom: '2px solid #e5e7eb' }}><th className="text-left font-bold py-1 px-2" style={{ color: '#1a2e22' }}>Kategorie</th><th className="text-left font-bold py-1 px-2" style={{ color: '#1a2e22' }}>Ks</th><th className="text-left font-bold py-1 px-2" style={{ color: '#1a2e22' }}>Rev/ks/rok</th><th className="text-left font-bold py-1 px-2" style={{ color: '#1a2e22' }}>Zisk/ks/rok</th></tr></thead>
+                    <thead><SortableHeaderRow columns={FLEET_COLUMNS} sort={fleetSort.sort} toggle={fleetSort.toggle} /></thead>
                     <tbody>
-                      {calcResult.econ.breakdown.map((b, i) => (
+                      {sortRows(calcResult.econ.breakdown, FLEET_COLUMNS, fleetSort.sort).map((b, i) => (
                         <tr key={i} style={{ borderBottom: '1px solid #f3f4f6' }}>
                           <td className="py-1 px-2 font-semibold">{b.category}</td>
                           <td className="py-1 px-2 font-bold" style={{ color: '#166534' }}>{b.count}×</td>

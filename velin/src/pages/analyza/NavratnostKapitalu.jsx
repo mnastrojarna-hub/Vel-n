@@ -5,7 +5,20 @@
 // (`opDays` z VykonMotorek: od data pořízení, nejdéle po dnešek) — motorka koupená
 // před 2 měsíci se splaceným 35 % tak ukáže odhad doplacení v řádu měsíců, ne roků.
 
+import { useTableSort, sortRows, SortableHeaderRow } from '../../components/sortableTable'
+
 const fmtKc = n => `${Math.round(n).toLocaleString('cs-CZ')} Kč`
+
+const ROI_COLUMNS = [
+  { label: 'Model', key: 'model', str: true },
+  { label: 'Značka', key: 'brand', str: true },
+  { label: 'Pobočka', key: 'branchName', str: true },
+  { label: 'Pořizovací cena', key: 'pp' },
+  { label: 'Tržby', key: 'revenue' },
+  { label: 'Návratnost', key: 'returnPct' },
+  { label: 'Roční tempo', key: 'annualReturnPct' },
+  { label: 'Odhad splacení', key: 'paybackMonths', value: m => (m.remaining === 0 ? 0 : m.paybackMonths) },
+]
 
 const Card = ({ label, value, sub, accent }) => (
   <div style={{ background: '#fff', borderRadius: 14, padding: 16, boxShadow: '0 1px 4px rgba(0,0,0,.06)', flex: '1 1 160px', minWidth: 160 }}>
@@ -16,6 +29,7 @@ const Card = ({ label, value, sub, accent }) => (
 )
 
 export default function NavratnostKapitalu({ motoStats }) {
+  const roiSort = useTableSort(ROI_COLUMNS, { key: 'returnPct', dir: 'desc' })
   const withPrice = motoStats.filter(m => Number(m.purchase_price) > 0)
   const missingPrice = motoStats.length - withPrice.length
 
@@ -54,14 +68,10 @@ export default function NavratnostKapitalu({ motoStats }) {
           <div style={{ background: '#fff', borderRadius: 14, padding: 16, overflowX: 'auto', boxShadow: '0 1px 4px rgba(0,0,0,.06)' }}>
             <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
               <thead>
-                <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
-                  {['Model', 'Značka', 'Pobočka', 'Pořizovací cena', 'Tržby', 'Návratnost', 'Roční tempo', 'Odhad splacení'].map(h => (
-                    <th key={h} className="text-left font-bold py-2 px-3" style={{ color: '#1a2e22' }}>{h}</th>
-                  ))}
-                </tr>
+                <SortableHeaderRow columns={ROI_COLUMNS} sort={roiSort.sort} toggle={roiSort.toggle} />
               </thead>
               <tbody>
-                {rows.map((m, i) => (
+                {sortRows(rows, ROI_COLUMNS, roiSort.sort).map((m, i) => (
                   <tr key={m.id} style={{ borderBottom: '1px solid #f3f4f6', background: i % 2 === 1 ? '#f9fdfb' : 'transparent' }}>
                     <td className="py-2 px-3 font-semibold">{m.model}</td>
                     <td className="py-2 px-3">{m.brand || '—'}</td>

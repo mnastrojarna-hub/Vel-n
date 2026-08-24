@@ -1,6 +1,27 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import TimePeriodSelector, { filterByPeriod } from './TimePeriodSelector'
+import { useTableSort, sortRows, SortableHeaderRow } from '../../components/sortableTable'
+
+const MOTO_COLUMNS = [
+  { label: 'Model', key: 'model', str: true },
+  { label: 'SPZ', key: 'spz', str: true },
+  { label: 'Najeto (období)', key: 'totalKm' },
+  { label: 'Půjčení', key: 'rentals' },
+  { label: 'Km/půjčení', key: 'kmPerRental' },
+  { label: 'Km při nákupu', key: 'purchaseKm' },
+  { label: 'Aktuální km', key: 'currentKm' },
+  { label: 'Najeto celkem', key: 'totalDriven' },
+  { label: 'Ø na kalend. den', key: 'perCalDay' },
+  { label: 'Ø na půjč. den', key: 'perRentalDay' },
+]
+
+const CUST_COLUMNS = [
+  { label: 'Zákazník', key: 'name', str: true },
+  { label: 'Najeto km (období)', key: 'totalKm' },
+  { label: 'Půjčení', key: 'rentals' },
+  { label: 'Km/půjčení', key: 'kmPerRental' },
+]
 
 // Nájezd km — odvozeno z předávacích protokolů (mileage_start). „Najeto za půjčení"
 // = rozdíl po sobě jdoucích předávacích čtení téže motorky (RPC analytics_moto_rental_km).
@@ -10,6 +31,8 @@ export default function VykonNajezd() {
   const [error, setError] = useState(null)
   const [raw, setRaw] = useState(null)
   const [period, setPeriod] = useState({ type: 'all' })
+  const motoSort = useTableSort(MOTO_COLUMNS, { key: 'totalKm', dir: 'desc' })
+  const custSort = useTableSort(CUST_COLUMNS, { key: 'totalKm', dir: 'desc' })
 
   useEffect(() => { loadData() }, [])
 
@@ -45,23 +68,28 @@ export default function VykonNajezd() {
   const closed = segments.filter(s => s.next_reading != null)
   const inPeriod = filterByPeriod(closed, period, 'start_date')
 
-  // Per motorka
+  // Per motorka — v tabulce jsou i motorky bez segmentu v období, pokud mají
+  // celkový nájezd (total_driven = aktuální km dle posledního protokolu − km při nákupu).
   const byMoto = {}
   for (const s of inPeriod) {
     if (!byMoto[s.moto_id]) byMoto[s.moto_id] = { moto_id: s.moto_id, totalKm: 0, rentals: 0 }
     byMoto[s.moto_id].totalKm += Number(s.km_driven) || 0
     byMoto[s.moto_id].rentals++
   }
-  const motoStats = Object.values(byMoto).map(r => {
-    const m = motoMap[r.moto_id] || {}
-    const km = motoKmMap[r.moto_id] || {}
+  const motoIds = new Set([...Object.keys(byMoto), ...motoKm.filter(k => Number(k.total_driven) > 0).map(k => k.moto_id)])
+  const motoStats = [...motoIds].map(id => {
+    const r = byMoto[id] || { moto_id: id, totalKm: 0, rentals: 0 }
+    const m = motoMap[id] || {}
+    const km = motoKmMap[id] || {}
     return {
       ...r,
       model: m.model || '—', spz: m.spz || '—', unit: (m.tracking_unit === 'mh' ? 'MH' : 'km'),
       kmPerRental: r.rentals > 0 ? Math.round(r.totalKm / r.rentals) : 0,
+      purchaseKm: Number(km.purchase_km) || 0, currentKm: Number(km.current_km) || 0,
+      totalDriven: Number(km.total_driven) || 0,
       perCalDay: km.avg_km_per_calendar_day, perRentalDay: km.avg_km_per_rental_day,
     }
-  }).sort((a, b) => b.totalKm - a.totalKm)
+  }).sort((a, b) => (b.totalKm - a.totalKm) || (b.totalDriven - a.totalDriven))
   const maxMotoKm = Math.max(...motoStats.map(m => m.totalKm), 1)
 
   // Per zákazník
@@ -103,14 +131,10 @@ export default function VykonNajezd() {
         <div className="font-bold mb-3" style={th}>Nájezd podle motorky</div>
         <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
           <thead>
-            <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
-              {['Model', 'SPZ', 'Najeto (období)', 'Půjčení', 'Km/půjčení', 'Ø na kalend. den', 'Ø na půjč. den'].map(h => (
-                <th key={h} className="text-left font-bold py-2 px-3" style={th}>{h}</th>
-              ))}
-            </tr>
+            <SortableHeaderRow columns={MOTO_COLUMNS} sort={motoSort.sort} toggle={motoSort.toggle} />
           </thead>
           <tbody>
-            {motoStats.map((m, i) => (
+            {sortRows(motoStats, MOTO_COLUMNS, motoSort.sort).map((m, i) => (
               <tr key={m.moto_id} style={{ borderBottom: '1px solid #f3f4f6', background: i % 2 === 1 ? '#f9fdfb' : 'transparent' }}>
                 <td className="py-2 px-3 font-semibold">{m.model}</td>
                 <td className="py-2 px-3 font-mono">{m.spz}</td>
@@ -124,14 +148,17 @@ export default function VykonNajezd() {
                 </td>
                 <td className="py-2 px-3">{m.rentals}</td>
                 <td className="py-2 px-3">{m.kmPerRental.toLocaleString('cs-CZ')} {m.unit}</td>
+                <td className="py-2 px-3">{m.purchaseKm > 0 ? `${m.purchaseKm.toLocaleString('cs-CZ')} ${m.unit}` : '0'}</td>
+                <td className="py-2 px-3">{m.currentKm > 0 ? `${m.currentKm.toLocaleString('cs-CZ')} ${m.unit}` : '—'}</td>
+                <td className="py-2 px-3 font-semibold" style={{ color: '#166534' }}>{m.totalDriven > 0 ? `${m.totalDriven.toLocaleString('cs-CZ')} ${m.unit}` : '—'}</td>
                 <td className="py-2 px-3">{m.perCalDay != null ? `${Number(m.perCalDay).toLocaleString('cs-CZ')} ${m.unit}` : '—'}</td>
                 <td className="py-2 px-3">{m.perRentalDay != null ? `${Number(m.perRentalDay).toLocaleString('cs-CZ')} ${m.unit}` : '—'}</td>
               </tr>
             ))}
-            {motoStats.length === 0 && <tr><td colSpan={7} className="py-3 px-3" style={{ color: '#888' }}>Žádná data pro vybrané období.</td></tr>}
+            {motoStats.length === 0 && <tr><td colSpan={10} className="py-3 px-3" style={{ color: '#888' }}>Žádná data pro vybrané období.</td></tr>}
           </tbody>
         </table>
-        <p className="text-xs mt-2" style={{ color: '#6b7280' }}>Ø na kalendářní/půjčovní den = celkový průměr od pořízení (nezávisí na zvoleném období).</p>
+        <p className="text-xs mt-2" style={{ color: '#6b7280' }}>Najeto celkem = aktuální km (dle posledního předávacího protokolu) − km při nákupu; km, se kterými byla motorka koupena, se do nájezdu nepočítají. Ø na kalendářní/půjčovní den = celkový průměr od pořízení (nezávisí na zvoleném období).</p>
       </div>
 
       {/* Per zákazník */}
@@ -139,14 +166,10 @@ export default function VykonNajezd() {
         <div className="font-bold mb-3" style={th}>Nájezd podle zákazníka</div>
         <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
           <thead>
-            <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
-              {['Zákazník', 'Najeto km (období)', 'Půjčení', 'Km/půjčení'].map(h => (
-                <th key={h} className="text-left font-bold py-2 px-3" style={th}>{h}</th>
-              ))}
-            </tr>
+            <SortableHeaderRow columns={CUST_COLUMNS} sort={custSort.sort} toggle={custSort.toggle} />
           </thead>
           <tbody>
-            {custStats.map((c, i) => (
+            {sortRows(custStats, CUST_COLUMNS, custSort.sort).map((c, i) => (
               <tr key={c.user_id} style={{ borderBottom: '1px solid #f3f4f6', background: i % 2 === 1 ? '#f9fdfb' : 'transparent' }}>
                 <td className="py-2 px-3 font-semibold">{c.name}</td>
                 <td className="py-2 px-3">{c.totalKm.toLocaleString('cs-CZ')} km</td>

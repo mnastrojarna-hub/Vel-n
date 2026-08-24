@@ -2,6 +2,35 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import TimePeriodSelector, { filterByPeriod, hasMinimumData, diffDays } from './TimePeriodSelector'
 import { isRealizedBooking } from '../../lib/revenueUtils'
+import { useTableSort, sortRows, SortableHeaderRow } from '../../components/sortableTable'
+
+const SEASONAL_COLUMNS = [
+  { label: 'Pobočka', key: 'locName', str: true },
+  { label: 'Kategorie', key: 'cat', str: true },
+  { label: 'Léto', key: 'leto' },
+  { label: 'Jaro/Podzim', key: 'jaro_podzim' },
+  { label: 'Zima', key: 'zima' },
+  { label: 'Doporučení', key: 'recommendation', str: true },
+]
+const BULK_COLUMNS = [
+  { label: 'Kategorie', key: 'category', str: true },
+  { label: 'Z pobočky', key: 'fromName', str: true, value: r => r.fromLoc.name },
+  { label: 'Obsazenost', key: 'fromUtil' },
+  { label: 'Do pobočky', key: 'toName', str: true, value: r => r.toLoc.name },
+  { label: 'Obsazenost', key: 'toUtil' },
+  { label: 'Počet', key: 'count' },
+  { label: 'Akce' },
+]
+const BUY_COLUMNS = [
+  { label: 'Model', key: 'model', str: true },
+  { label: 'Značka', key: 'brand', str: true },
+  { label: 'Kategorie', key: 'category', str: true },
+  { label: 'ROI', key: 'roi' },
+  { label: 'Utilization', key: 'utilization' },
+  { label: 'Demand', key: 'demandIndex' },
+  { label: 'Buy Score', key: 'buyScore' },
+  { label: 'Doporučení', key: 'recommendation', str: true },
+]
 
 const NoData = () => (
   <div className="p-6 text-center" style={{ background: '#fffbeb', borderRadius: 14, border: '1px solid #fde68a', color: '#854d0e', fontSize: 13 }}>
@@ -18,6 +47,9 @@ export default function DoporuceniPresunu() {
   const [period, setPeriod] = useState({ type: 'all' })
   const [planned, setPlanned] = useState(() => { try { return JSON.parse(localStorage.getItem('velin_relocations') || '[]') } catch { return [] } })
   const [bulkPlanned, setBulkPlanned] = useState(() => { try { return JSON.parse(localStorage.getItem('velin_bulk_relocations') || '[]') } catch { return [] } })
+  const seasonalSort = useTableSort(SEASONAL_COLUMNS)
+  const bulkSort = useTableSort(BULK_COLUMNS)
+  const buySort = useTableSort(BUY_COLUMNS, { key: 'buyScore', dir: 'desc' })
 
   useEffect(() => { loadData() }, [])
 
@@ -215,9 +247,9 @@ export default function DoporuceniPresunu() {
             {seasonalRows.length === 0 ? <div style={{ ...cardStyle, textAlign: 'center', padding: 24, color: '#888' }}>Žádná sezónní data</div> : (
               <div style={{ ...cardStyle, overflowX: 'auto' }}>
                 <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
-                  <thead><tr style={{ borderBottom: '2px solid #e5e7eb' }}>{['Pobočka', 'Kategorie', 'Léto', 'Jaro/Podzim', 'Zima', 'Doporučení'].map(h => <th key={h} className="text-left font-bold py-2 px-3" style={{ color: '#1a2e22' }}>{h}</th>)}</tr></thead>
+                  <thead><SortableHeaderRow columns={SEASONAL_COLUMNS} sort={seasonalSort.sort} toggle={seasonalSort.toggle} /></thead>
                   <tbody>
-                    {seasonalRows.map((r, i) => (
+                    {sortRows(seasonalRows, SEASONAL_COLUMNS, seasonalSort.sort).map((r, i) => (
                       <tr key={i} style={{ borderBottom: '1px solid #f3f4f6' }}>
                         <td className="py-2 px-3 font-semibold">{r.locName}</td>
                         <td className="py-2 px-3">{r.cat}</td>
@@ -239,9 +271,9 @@ export default function DoporuceniPresunu() {
             ) : (
               <div style={{ ...cardStyle, overflowX: 'auto' }}>
                 <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
-                  <thead><tr style={{ borderBottom: '2px solid #e5e7eb' }}>{['Kategorie', 'Z pobočky', 'Obsazenost', 'Do pobočky', 'Obsazenost', 'Počet', 'Akce'].map(h => <th key={h} className="text-left font-bold py-2 px-3" style={{ color: '#1a2e22' }}>{h}</th>)}</tr></thead>
+                  <thead><SortableHeaderRow columns={BULK_COLUMNS} sort={bulkSort.sort} toggle={bulkSort.toggle} /></thead>
                   <tbody>
-                    {bulkRelocations.map((r, i) => {
+                    {sortRows(bulkRelocations, BULK_COLUMNS, bulkSort.sort).map((r, i) => {
                       const bKey = `${r.category}_${r.fromLoc.id}_${r.toLoc.id}`
                       const isBP = bulkPlanned.some(b => `${b.category}_${b.fromLocationId}_${b.toLocationId}` === bKey)
                       return (
@@ -267,9 +299,9 @@ export default function DoporuceniPresunu() {
             <div className="text-lg font-extrabold mb-4" style={{ color: '#1a2e22' }}>Top kandidáti na dokoupení</div>
             <div style={{ ...cardStyle, overflowX: 'auto' }}>
               <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
-                <thead><tr style={{ borderBottom: '2px solid #e5e7eb' }}>{['Model', 'Značka', 'Kategorie', 'ROI', 'Utilization', 'Demand', 'Buy Score', 'Doporučení'].map(h => <th key={h} className="text-left font-bold py-2 px-3" style={{ color: '#1a2e22' }}>{h}</th>)}</tr></thead>
+                <thead><SortableHeaderRow columns={BUY_COLUMNS} sort={buySort.sort} toggle={buySort.toggle} /></thead>
                 <tbody>
-                  {buyScores.map((b, i) => {
+                  {sortRows(buyScores, BUY_COLUMNS, buySort.sort).map((b, i) => {
                     const sc = b.buyScore > 0.4 ? '#166534' : b.buyScore >= 0.2 ? '#854d0e' : '#991b1b'
                     const sbg = b.buyScore > 0.4 ? '#dcfce7' : b.buyScore >= 0.2 ? '#fef9c3' : '#fecaca'
                     return (

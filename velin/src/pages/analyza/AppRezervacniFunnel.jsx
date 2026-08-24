@@ -4,6 +4,7 @@ import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveCo
 import TimePeriodSelector, { filterByPeriod, getTimePeriodLabel } from './TimePeriodSelector'
 import { PAID_BOOKING_STATUSES } from '../../lib/revenueUtils'
 import { computeDocVerification } from '../../lib/docVerification'
+import { useTableSort, sortRows } from '../../components/sortableTable'
 
 // ───────────────────────────────────────────────────────────────────────────
 // App rezervační funnel — kde zákazníci v mobilní appce (booking_source='app')
@@ -45,6 +46,12 @@ const PLATFORM_META = {
 }
 const PLATFORM_ORDER = ['android', 'ios', 'unknown']
 
+const STAGE_PLATFORM_COLUMNS = [
+  { label: 'Stav', key: 'stage', str: true, value: r => r.short },
+  ...PLATFORM_ORDER.map(p => ({ label: PLATFORM_META[p].label, key: p, right: true, value: r => r.row[p] || 0 })),
+  { label: 'Σ', key: 'sum', right: true },
+]
+
 const cardStyle = { background: '#fff', borderRadius: 14, padding: 16, boxShadow: '0 1px 4px rgba(0,0,0,.06)' }
 
 const platNorm = (p) => {
@@ -59,6 +66,7 @@ export default function AppRezervacniFunnel() {
   const [error, setError] = useState(null)
   const [raw, setRaw] = useState(null)
   const [period, setPeriod] = useState({ type: 'all' })
+  const stageSort = useTableSort(STAGE_PLATFORM_COLUMNS)
 
   useEffect(() => { loadData() }, [])
 
@@ -306,26 +314,29 @@ export default function AppRezervacniFunnel() {
             <table className="w-full text-xs" style={{ borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ color: '#888' }}>
-                  <th className="text-left py-1 pr-2">Stav</th>
-                  {PLATFORM_ORDER.map(p => <th key={p} className="text-right py-1 px-2">{PLATFORM_META[p].label}</th>)}
-                  <th className="text-right py-1 pl-2">Σ</th>
+                  {STAGE_PLATFORM_COLUMNS.map(c => (
+                    <th key={c.key} className={`${c.right ? 'text-right' : 'text-left'} py-1 px-2`}
+                        style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                        title="Seřadit dle sloupce" onClick={() => stageSort.toggle(c.key)}>
+                      {c.label}{stageSort.sort?.key === c.key ? (stageSort.sort.dir === 'desc' ? ' ▼' : ' ▲') : ''}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
-                {STAGE_ORDER.map(s => {
-                  const row = model.stagePlatform[s] || {}
-                  const sum = model.byStage[s]
-                  return (
-                    <tr key={s} style={{ borderTop: '1px solid #f0f0f0' }}>
-                      <td className="py-1 pr-2" style={{ color: '#1a2e22' }}>
-                        <span style={{ width: 10, height: 10, borderRadius: 2, background: STAGE_META[s].color, display: 'inline-block', marginRight: 6 }} />
-                        {STAGE_META[s].short}
-                      </td>
-                      {PLATFORM_ORDER.map(p => <td key={p} className="text-right py-1 px-2" style={{ color: '#444' }}>{row[p] || 0}</td>)}
-                      <td className="text-right py-1 pl-2 font-bold" style={{ color: '#1a2e22' }}>{sum}</td>
-                    </tr>
-                  )
-                })}
+                {sortRows(
+                  STAGE_ORDER.map(s => ({ s, short: STAGE_META[s].short, color: STAGE_META[s].color, row: model.stagePlatform[s] || {}, sum: model.byStage[s] })),
+                  STAGE_PLATFORM_COLUMNS, stageSort.sort
+                ).map(r => (
+                  <tr key={r.s} style={{ borderTop: '1px solid #f0f0f0' }}>
+                    <td className="py-1 pr-2" style={{ color: '#1a2e22' }}>
+                      <span style={{ width: 10, height: 10, borderRadius: 2, background: r.color, display: 'inline-block', marginRight: 6 }} />
+                      {r.short}
+                    </td>
+                    {PLATFORM_ORDER.map(p => <td key={p} className="text-right py-1 px-2" style={{ color: '#444' }}>{r.row[p] || 0}</td>)}
+                    <td className="text-right py-1 pl-2 font-bold" style={{ color: '#1a2e22' }}>{r.sum}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>

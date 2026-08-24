@@ -8,6 +8,7 @@
  */
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabase'
+import { useTableSort, sortRows } from '../../components/sortableTable'
 
 const PERIODS = [
   { id: '24h', label: '24 h',   ms: 24 * 3600 * 1000 },
@@ -41,6 +42,15 @@ export default function AiAppConversations() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [selected, setSelected] = useState(null)
+  const CONV_COLUMNS = [
+    { label: 'Začátek', key: 'created_at', value: r => (r.created_at ? new Date(r.created_at).getTime() : null) },
+    { label: 'Poslední aktivita', key: 'updated_at', value: r => (r.updated_at ? new Date(r.updated_at).getTime() : null) },
+    { label: 'Zpráv', key: 'msgCount', value: r => (Array.isArray(r.messages) ? r.messages.length : 0) },
+    { label: 'Zákazník', key: 'customer', str: true, value: r => { const p = profiles[r.user_id] || {}; return p.full_name || p.email || '' } },
+    { label: 'Rezervace', key: 'booking', value: r => (r.booking_id ? 1 : 0) },
+    { label: 'Náhled' },
+  ]
+  const convSort = useTableSort(CONV_COLUMNS)
 
   useEffect(() => { loadData() }, [period])
 
@@ -146,16 +156,17 @@ export default function AiAppConversations() {
           <table style={{ width: '100%', fontSize: 13, borderCollapse: 'collapse' }}>
             <thead style={{ background: '#f1faf7' }}>
               <tr style={{ textAlign: 'left' }}>
-                <th style={{ padding: '8px 12px' }}>Začátek</th>
-                <th style={{ padding: '8px 12px' }}>Poslední aktivita</th>
-                <th style={{ padding: '8px 12px' }}>Zpráv</th>
-                <th style={{ padding: '8px 12px' }}>Zákazník</th>
-                <th style={{ padding: '8px 12px' }}>Rezervace</th>
-                <th style={{ padding: '8px 12px' }}>Náhled</th>
+                {CONV_COLUMNS.map(c => (
+                  <th key={c.key || c.label} style={{ padding: '8px 12px', cursor: c.key ? 'pointer' : 'default', userSelect: 'none', whiteSpace: 'nowrap' }}
+                      title={c.key ? 'Seřadit dle sloupce' : undefined}
+                      onClick={() => c.key && convSort.toggle(c.key)}>
+                    {c.label}{convSort.sort?.key === c.key ? (convSort.sort.dir === 'desc' ? ' ▼' : ' ▲') : ''}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
-              {filtered.map(r => {
+              {sortRows(filtered, CONV_COLUMNS, convSort.sort).map(r => {
                 const msgs = Array.isArray(r.messages) ? r.messages : []
                 const lastUserMsg = (() => {
                   for (let i = msgs.length - 1; i >= 0; i--) if (msgs[i] && msgs[i].role === 'user') return msgs[i].content

@@ -11,6 +11,7 @@
  */
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabase'
+import { useTableSort, sortRows } from '../../components/sortableTable'
 
 const PERIODS = [
   { id: '24h', label: '24 h',   ms: 24 * 3600 * 1000 },
@@ -67,6 +68,16 @@ export default function AiPublicConversations() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [selected, setSelected] = useState(null) // celá row vč. messages
+  const CONV_COLUMNS = [
+    { label: 'Začátek', key: 'started_at', value: r => (r.started_at ? new Date(r.started_at).getTime() : null) },
+    { label: 'Poslední aktivita', key: 'last_activity_at', value: r => (r.last_activity_at ? new Date(r.last_activity_at).getTime() : null) },
+    { label: 'Zpráv', key: 'message_count', value: r => Number(r.message_count) || 0 },
+    { label: 'Stránka', key: 'page', str: true, value: r => (r.page_context && (r.page_context.type || r.page_context.path)) || '' },
+    { label: 'Jazyk', key: 'lang', str: true },
+    { label: 'Výsledek', key: 'outcome', str: true, value: r => OUTCOME_LABEL[r.outcome] || r.outcome || '' },
+    { label: 'Náhled' },
+  ]
+  const convSort = useTableSort(CONV_COLUMNS)
 
   useEffect(() => { loadData() }, [period, outcome])
 
@@ -166,17 +177,17 @@ export default function AiPublicConversations() {
           <table style={{ width: '100%', fontSize: 13, borderCollapse: 'collapse' }}>
             <thead style={{ background: '#f1faf7' }}>
               <tr style={{ textAlign: 'left' }}>
-                <th style={{ padding: '8px 12px' }}>Začátek</th>
-                <th style={{ padding: '8px 12px' }}>Poslední aktivita</th>
-                <th style={{ padding: '8px 12px' }}>Zpráv</th>
-                <th style={{ padding: '8px 12px' }}>Stránka</th>
-                <th style={{ padding: '8px 12px' }}>Jazyk</th>
-                <th style={{ padding: '8px 12px' }}>Výsledek</th>
-                <th style={{ padding: '8px 12px' }}>Náhled</th>
+                {CONV_COLUMNS.map(c => (
+                  <th key={c.key || c.label} style={{ padding: '8px 12px', cursor: c.key ? 'pointer' : 'default', userSelect: 'none', whiteSpace: 'nowrap' }}
+                      title={c.key ? 'Seřadit dle sloupce' : undefined}
+                      onClick={() => c.key && convSort.toggle(c.key)}>
+                    {c.label}{convSort.sort?.key === c.key ? (convSort.sort.dir === 'desc' ? ' ▼' : ' ▲') : ''}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
-              {filtered.map(r => {
+              {sortRows(filtered, CONV_COLUMNS, convSort.sort).map(r => {
                 const lastUserMsg = (() => {
                   const arr = Array.isArray(r.messages) ? r.messages : []
                   for (let i = arr.length - 1; i >= 0; i--) if (arr[i] && arr[i].role === 'user') return arr[i].content
