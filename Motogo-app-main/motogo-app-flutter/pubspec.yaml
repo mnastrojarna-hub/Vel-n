@@ -7,10 +7,10 @@ publish_to: 'none'
 #                       automaticky přes --build-number=$BUILD_NUMBER, aby byl vždy
 #                       unikátní a rostoucí → Google Play nikdy neodmítne "verze už použita".
 # POZOR: 4místné verze (2.0.9.1) NEJSOU validní pubspec semver → `flutter pub get`
-#        by spadl. Pro release se proto skutečné versionName nastavuje v
-#        codemagic.yaml přes `--build-name=2.0.9.1` (workflow motogo-android/ios-release).
-#        Zde držíme jen semver fallback pro lokální/debug build.
-version: 3.0.1+22
+#        by spadl. versionName pro release se bere ODSUD (pubspec = jediný
+#        zdroj pravdy — viz codemagic.yaml, hardcoded --build-name byl zrušen);
+#        build number v CI přepisuje Codemagic přes --build-number=$BUILD_NUMBER.
+version: 3.0.2+23
 
 environment:
   sdk: '>=3.6.0 <4.0.0'
