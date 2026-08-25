@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import TimePeriodSelector, { filterByPeriod, hasMinimumData, diffDays } from './TimePeriodSelector'
-import { isRealizedBooking, voucherRevenueByBooking } from '../../lib/revenueUtils'
+import { isRealizedBooking } from '../../lib/revenueUtils'
 import { useTableSort, sortRows, SortableHeaderRow } from '../../components/sortableTable'
 import NavratnostKapitalu from './NavratnostKapitalu'
 import RezervaceDnyTydne from './RezervaceDnyTydne'
@@ -52,19 +52,17 @@ export default function VykonMotorek() {
   async function loadData() {
     setLoading(true); setError(null)
     try {
-      const [mRes, bRes, brRes, vRes, kmRes] = await Promise.all([
+      const [mRes, bRes, brRes, kmRes] = await Promise.all([
         supabase.from('motorcycles').select('id, model, brand, category, purchase_price, branch_id, status, acquired_at, tracking_unit'),
         supabase.from('bookings').select('id, moto_id, start_date, end_date, total_price, status, created_at, payment_status, is_test'),
         supabase.from('branches').select('id, name'),
-        supabase.from('vouchers').select('booking_id, amount, status, source').not('booking_id', 'is', null),
         supabase.rpc('analytics_moto_km'),
       ])
       if (mRes.error) throw mRes.error
       if (bRes.error) throw bRes.error
       if (brRes.error) throw brRes.error
-      if (vRes.error) throw vRes.error
       if (kmRes.error) throw kmRes.error
-      setRaw({ motorcycles: mRes.data || [], bookings: bRes.data || [], branches: brRes.data || [], vouchers: vRes.data || [], motoKm: kmRes.data || [] })
+      setRaw({ motorcycles: mRes.data || [], bookings: bRes.data || [], branches: brRes.data || [], motoKm: kmRes.data || [] })
     } catch (e) { setError(e.message) } finally { setLoading(false) }
   }
 
@@ -72,11 +70,12 @@ export default function VykonMotorek() {
   if (error) return <div className="p-4 text-center" style={{ color: '#dc2626' }}>{error}</div>
   if (!raw || raw.motorcycles.length === 0) return <div className="p-8 text-center" style={{ color: '#888' }}>Žádné motorky</div>
 
-  const { motorcycles, bookings, branches, vouchers, motoKm } = raw
+  const { motorcycles, bookings, branches, motoKm } = raw
   const branchMap = Object.fromEntries((branches || []).map(b => [b.id, b.name]))
-  const voucherByBooking = voucherRevenueByBooking(vouchers)
-  const allRealized = bookings.filter(isRealizedBooking)
-  const completed = filterByPeriod(allRealized, period, 'created_at')
+  // Výkon motorek počítá VÝHRADNĚ ukončené (completed) zaplacené rezervace —
+  // bez nadcházejících/probíhajících a bez přičítání hodnoty dárkových poukazů.
+  const allCompleted = bookings.filter(b => isRealizedBooking(b) && b.status === 'completed')
+  const completed = filterByPeriod(allCompleted, period, 'created_at')
   const has3mo = hasMinimumData(bookings)
 
   // Zisk na 1 km — vždy CELKOVĚ (nezávisle na zvoleném období): celkové tržby
@@ -84,8 +83,8 @@ export default function VykonMotorek() {
   // total_driven = aktuální km (nejvyšší čtení z předávacích protokolů) − km při nákupu.
   const kmByMoto = Object.fromEntries((motoKm || []).map(r => [r.moto_id, r]))
   const totalRevenueByMoto = {}
-  for (const b of allRealized) {
-    totalRevenueByMoto[b.moto_id] = (totalRevenueByMoto[b.moto_id] || 0) + (Number(b.total_price) || 0) + (voucherByBooking[b.id] || 0)
+  for (const b of allCompleted) {
+    totalRevenueByMoto[b.moto_id] = (totalRevenueByMoto[b.moto_id] || 0) + (Number(b.total_price) || 0)
   }
 
   let periodDays = 365
@@ -106,7 +105,7 @@ export default function VykonMotorek() {
   const motoStats = motorcycles.map(m => {
     const mCompleted = completed.filter(b => b.moto_id === m.id)
     const rentedDays = mCompleted.reduce((s, b) => s + diffDays(b.start_date, b.end_date), 0)
-    const revenue = mCompleted.reduce((s, b) => s + (Number(b.total_price) || 0) + (voucherByBooking[b.id] || 0), 0)
+    const revenue = mCompleted.reduce((s, b) => s + (Number(b.total_price) || 0), 0)
     const reservationCount = mCompleted.length
     // Doba, po kterou motorka v okně reálně vydělávala — od data pořízení
     // (bez něj od první rezervace motorky). Základ ročního tempa splácení.
@@ -151,7 +150,7 @@ export default function VykonMotorek() {
       {/* Ranking table */}
       <div style={{ background: '#fff', borderRadius: 14, padding: 16, marginBottom: 24, overflowX: 'auto', boxShadow: '0 1px 4px rgba(0,0,0,.06)' }}>
         <div className="font-bold" style={{ color: '#1a2e22' }}>Ranking motorek podle zisku na 1 km</div>
-        <div className="mb-3" style={{ fontSize: 11, color: '#888' }}>Revenue = zaplacené rezervace vč. hodnoty zakoupených dárkových poukazů uplatněných na motorce (dle zvoleného období). Zisk na 1 km se počítá vždy CELKOVĚ: celkové tržby motorky / celkový nájezd (aktuální km dle posledního předávacího protokolu − km při nákupu). Kliknutím na záhlaví sloupce seřadíš sestupně, dalším klikem vzestupně; motorky bez hodnoty jsou vždy na konci.</div>
+        <div className="mb-3" style={{ fontSize: 11, color: '#888' }}>Revenue = pouze UKONČENÉ zaplacené rezervace (dle zvoleného období), bez přičítání dárkových poukazů. Zisk na 1 km se počítá vždy CELKOVĚ: celkové tržby motorky z ukončených rezervací / celkový nájezd (aktuální km dle posledního předávacího protokolu − km při nákupu). Kliknutím na záhlaví sloupce seřadíš sestupně, dalším klikem vzestupně; motorky bez hodnoty jsou vždy na konci.</div>
         <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
           <thead>
             <SortableHeaderRow columns={RANK_COLUMNS} sort={rankSort.sort} toggle={rankSort.toggle} />
