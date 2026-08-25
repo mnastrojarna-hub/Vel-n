@@ -106,7 +106,8 @@ export default function AddMotoModal({ branches, onClose, onSaved }) {
           { moto_id: newMoto.id, schedule_type: 'mileage', interval_km: tireKm, description: 'Výměna pneumatik', active: true },
           { moto_id: newMoto.id, schedule_type: 'both', interval_km: fullKm, interval_days: fullDays, description: 'Kompletní servis', active: true },
         ]
-        await supabase.from('maintenance_schedules').insert(schedules)
+        const { error: schedErr } = await supabase.from('maintenance_schedules').insert(schedules)
+        if (schedErr) console.error('[AddMotoModal] default schedules insert failed:', schedErr)
         await supabase.from('moto_day_prices').insert({
           moto_id: newMoto.id, price_mon: 0, price_tue: 0, price_wed: 0, price_thu: 0, price_fri: 0, price_sat: 0, price_sun: 0,
         })

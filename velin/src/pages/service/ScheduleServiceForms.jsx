@@ -32,15 +32,19 @@ export function RecurringForm({ motos, branches = [], onBack, onDone }) {
     if (selectedIds.size === 0 || !intervalValue) return
     setBusy(true)
     const val = Number(intervalValue)
+    const errors = []
     for (const motoId of selectedIds) {
       const payload = { moto_id: motoId, active: true, description: desc || `Pravidelný: ${interval?.label.replace('X', intervalValue)}`, schedule_type: intervalType === 'km' ? 'km_interval' : intervalType === 'reservations' ? 'reservation_interval' : 'time_interval', preferred_days: Array.from(preferredDays) }
       if (intervalType === 'days') { payload.interval_days = val; payload.next_due = startDate }
       else if (intervalType === 'km') { payload.interval_km = val; payload.next_due = startDate }
       else if (intervalType === 'monthly') { payload.interval_days = 30; payload.next_due = startDate }
       else if (intervalType === 'reservations') { payload.interval_days = null; payload.interval_km = null; payload.interval_reservations = val; payload.next_due = startDate }
-      await supabase.from('maintenance_schedules').insert(payload)
+      const { error } = await supabase.from('maintenance_schedules').insert(payload)
+      if (error) { console.error('[RecurringForm] schedule insert failed:', error); errors.push(error.message) }
     }
-    setBusy(false); onDone?.()
+    setBusy(false)
+    if (errors.length > 0) { alert(`Nepodařilo se vytvořit ${errors.length} z ${selectedIds.size} servisních plánů: ${errors[0]}`); return }
+    onDone?.()
   }
 
   return (
