@@ -127,7 +127,12 @@ class PaymentMethodsScreen extends ConsumerWidget {
     );
     if (confirmed != true || !context.mounted) return;
 
-    final ok = await deletePaymentMethod(card.stripeId);
+    // Historický řádek bez Stripe pm id (vznikal dřívějším ručním formulářem
+    // na Androidu) — edge `delete` by ho neuměl smazat (vyžaduje pm id),
+    // maže se přímo v tabulce.
+    final ok = card.stripeId.isEmpty
+        ? await deleteLocalPaymentMethod(card.id)
+        : await deletePaymentMethod(card.stripeId);
     if (!context.mounted) return;
 
     if (ok) {
@@ -141,6 +146,8 @@ class PaymentMethodsScreen extends ConsumerWidget {
 
   Future<void> _setDefault(
       BuildContext context, WidgetRef ref, SavedCard card) async {
+    // Historický řádek bez Stripe pm id nejde strhnout → nesmí být prioritní.
+    if (card.stripeId.isEmpty) return;
     final ok = await setDefaultPaymentMethod(card.stripeId);
     if (!context.mounted) return;
 
@@ -214,7 +221,9 @@ class _CardTile extends StatelessWidget {
           ),
           Column(
             children: [
-              if (!card.isDefault)
+              // Hvězdička (nastavit jako prioritní) jen u karet se Stripe pm
+              // id — historický ručně zapsaný řádek nejde strhnout.
+              if (!card.isDefault && card.stripeId.isNotEmpty)
                 GestureDetector(
                   onTap: onSetDefault,
                   child: const Text('⭐',

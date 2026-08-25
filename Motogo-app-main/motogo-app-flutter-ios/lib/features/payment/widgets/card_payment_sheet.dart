@@ -90,16 +90,34 @@ class _CardSheetBodyState extends State<_CardSheetBody>
   bool _processing = false;
   bool _platformPayReady = false;
 
+  /// Vlastní controller CardFieldu. Plugin drží zadané údaje v nativním view,
+  /// které přežívá zavření sheetu — bez explicitního clear() se po
+  /// znovuotevření (po zamítnuté platbě nebo „Obnovit rezervaci") ukáže
+  /// staré (chybné) číslo, po dokončení sbalené na „•••• 1234", které laik
+  /// nedokáže přepsat → opakovaně platí špatnou kartou. Proto pole při
+  /// každém otevření sheetu čistíme.
+  final CardEditController _cardController = CardEditController();
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // clear() potřebuje připojený nativní CardField → až po prvním framu.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      try {
+        _cardController.clear();
+      } catch (_) {
+        // Pole se ještě nepřipojilo — pak je prázdné a není co čistit.
+      }
+    });
     if (widget.allowPlatformPay) _checkPlatformPay();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _cardController.dispose();
     super.dispose();
   }
 
@@ -317,6 +335,7 @@ class _CardSheetBodyState extends State<_CardSheetBody>
               child: SizedBox(
                 height: 56,
                 child: CardField(
+                  controller: _cardController,
                   autofocus: true,
                   // Bílé pozadí sheetu → text karty MUSÍ být tmavý (jinak
                   // bílá na bílé = neviditelné).

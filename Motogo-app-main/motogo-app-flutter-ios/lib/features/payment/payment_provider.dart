@@ -27,9 +27,16 @@ final paymentMethodsProvider =
 });
 
 /// Default saved card (first with is_default=true).
+///
+/// Bere v úvahu JEN karty se Stripe payment method id. Historické řádky
+/// zapsané dřívějším ručním formulářem (bez stripe_payment_method_id) nejde
+/// strhnout — nesmí spouštět off-session flow ani náhled „uložené karty"
+/// na platbě/checkoutu (mátl by: ukázal kartu, kterou nelze použít).
 final defaultCardProvider = Provider<SavedCard?>((ref) {
-  final cards = ref.watch(paymentMethodsProvider).valueOrNull;
-  if (cards == null || cards.isEmpty) return null;
+  final all = ref.watch(paymentMethodsProvider).valueOrNull;
+  if (all == null) return null;
+  final cards = all.where((c) => c.stripeId.isNotEmpty).toList();
+  if (cards.isEmpty) return null;
   return cards.firstWhere((c) => c.isDefault, orElse: () => cards.first);
 });
 
@@ -95,6 +102,39 @@ Future<bool> setDefaultPaymentMethod(String pmId) async {
       'manage-payment-methods',
       body: {'action': 'set_default', 'payment_method_id': pmId},
     );
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+/// Attach a Stripe payment method (created client-side via Stripe SDK
+/// CardField → createPaymentMethod) to the customer and sync it into the
+/// payment_methods table. Používá obrazovka „Platební metody" pro nativní
+/// přidání karty — číslo karty/CVV jdou POUZE do Stripe, k nám jen pm id.
+Future<bool> attachPaymentMethod(String pmId) async {
+  try {
+    final res = await MotoGoSupabase.client.functions.invoke(
+      'manage-payment-methods',
+      body: {'action': 'attach', 'payment_method_id': pmId},
+    );
+    final data = res.data as Map<String, dynamic>?;
+    return data?['success'] == true;
+  } catch (_) {
+    return false;
+  }
+}
+
+/// Delete a legacy local-only card row (missing stripe_payment_method_id —
+/// vznikaly dřívějším ručním formulářem). Maže přímo v tabulce podle PK;
+/// RLS dovoluje uživateli mazat vlastní řádky. Edge `delete` tu nejde použít,
+/// protože vyžaduje Stripe pm id, které řádek nemá.
+Future<bool> deleteLocalPaymentMethod(String rowId) async {
+  try {
+    await MotoGoSupabase.client
+        .from('payment_methods')
+        .delete()
+        .eq('id', rowId);
     return true;
   } catch (_) {
     return false;
