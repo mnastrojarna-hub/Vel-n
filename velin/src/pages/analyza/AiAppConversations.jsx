@@ -160,7 +160,7 @@ export default function AiAppConversations() {
                   <th key={c.key || c.label} style={{ padding: '8px 12px', cursor: c.key ? 'pointer' : 'default', userSelect: 'none', whiteSpace: 'nowrap' }}
                       title={c.key ? 'Seřadit dle sloupce' : undefined}
                       onClick={() => c.key && convSort.toggle(c.key)}>
-                    {c.label}{convSort.sort?.key === c.key ? (convSort.sort.dir === 'desc' ? ' ▼' : ' ▲') : ''}
+                    {c.label}{c.key && convSort.sort?.key === c.key ? (convSort.sort.dir === 'desc' ? ' ▼' : ' ▲') : ''}
                   </th>
                 ))}
               </tr>
@@ -189,7 +189,7 @@ export default function AiAppConversations() {
                       {r.booking_id ? <span style={{ color: '#166534', fontWeight: 700 }}>✓</span> : <span style={{ color: '#ccc' }}>—</span>}
                     </td>
                     <td style={{ padding: '8px 12px', color: '#444', maxWidth: 360, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {String(lastUserMsg).slice(0, 120)}
+                      {String(lastUserMsg ?? '').slice(0, 120)}
                     </td>
                   </tr>
                 )
@@ -263,7 +263,7 @@ function ConversationDrawer({ row, profile, onClose }) {
                 <div style={{ fontSize: 10, fontWeight: 700, opacity: .7, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '.5px' }}>
                   {m.role === 'user' ? 'Zákazník' : 'AI'}
                 </div>
-                {m.content}
+                {typeof m.content === 'string' ? m.content : JSON.stringify(m.content ?? '')}
               </div>
             ))}
           </div>

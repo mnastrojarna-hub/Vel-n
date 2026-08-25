@@ -270,7 +270,7 @@ export default function AiTraffic() {
                       title={c.key ? 'Seřadit dle sloupce' : undefined}
                       onClick={() => c.key && partnerSort.toggle(c.key)}>
                     {c.key === 'requests' ? `Requests (${periodObj.label})` : c.label}
-                    {partnerSort.sort?.key === c.key ? (partnerSort.sort.dir === 'desc' ? ' ▼' : ' ▲') : ''}
+                    {c.key && partnerSort.sort?.key === c.key ? (partnerSort.sort.dir === 'desc' ? ' ▼' : ' ▲') : ''}
                   </th>
                 ))}
               </tr>
