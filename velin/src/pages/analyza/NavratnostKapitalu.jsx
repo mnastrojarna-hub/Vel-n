@@ -1,7 +1,8 @@
 // Návratnost kapitálu motorek — tržby za období vztažené k pořizovací ceně.
-// Počítá se z TRŽEB (isRealizedBooking, vč. hodnoty uplatněných dárkových poukazů),
-// ne ze zisku — provozní náklady se neodečítají; jde o hrubou návratnost vloženého
-// kapitálu. Roční tempo přepočítává tržby na 365 dní z REÁLNÉ doby provozu motorky
+// Počítá se z TRŽEB pouze UKONČENÝCH zaplacených rezervací (bez dárkových
+// poukazů — viz VykonMotorek), ne ze zisku — provozní náklady se neodečítají;
+// jde o hrubou návratnost vloženého kapitálu.
+// Roční tempo přepočítává tržby na 365 dní z REÁLNÉ doby provozu motorky
 // (`opDays` z VykonMotorek: od data pořízení, nejdéle po dnešek) — motorka koupená
 // před 2 měsíci se splaceným 35 % tak ukáže odhad doplacení v řádu měsíců, ne roků.
 
@@ -99,7 +100,7 @@ export default function NavratnostKapitalu({ motoStats }) {
               </tbody>
             </table>
             <div style={{ fontSize: 11, color: '#888', marginTop: 10 }}>
-              Návratnost = tržby z realizovaných rezervací za vybrané období (vč. hodnoty zakoupených dárkových poukazů uplatněných na motorce) / pořizovací cena (hrubá, bez odečtu nákladů).
+              Návratnost = tržby z UKONČENÝCH zaplacených rezervací za vybrané období (bez přičítání dárkových poukazů) / pořizovací cena (hrubá, bez odečtu nákladů).
               Roční tempo a odhad splacení se počítají z reálné doby provozu motorky — od data pořízení (bez něj od první rezervace), nejdéle po dnešek.
               {missingPrice > 0 && <> U {missingPrice} {missingPrice === 1 ? 'motorky' : 'motorek'} chybí pořizovací cena — nejsou zahrnuty.</>}
             </div>
