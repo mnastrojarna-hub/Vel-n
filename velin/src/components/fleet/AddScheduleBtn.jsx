@@ -31,7 +31,10 @@ export default function AddScheduleBtn({ onAdd, saving, unitLabel = 'km', existi
 
   if (!open) return <button onClick={() => setOpen(true)} className="rounded-btn text-sm font-extrabold uppercase cursor-pointer" style={{ padding: '6px 16px', background: '#74FB71', color: '#1a2e22', border: 'none' }}>+ Novy servisni plan</button>
 
-  const existingLower = existingTypes.map(t => (t || '').toLowerCase())
+  // Diakritika-necitlivé porovnání celého názvu — plánů může mít motorka neomezeně,
+  // štítek „Jiz pridano" je jen informativní a nesmí označovat jiné typy servisu
+  const norm = t => (t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()
+  const existingNorm = existingTypes.map(norm)
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,.4)' }} onClick={e => { if (e.target === e.currentTarget) reset() }}>
@@ -43,7 +46,7 @@ export default function AddScheduleBtn({ onAdd, saving, unitLabel = 'km', existi
         {step === 1 && (
           <div className="p-4"><div className="grid grid-cols-2 gap-2">
             {SERVICE_PRESETS.map(p => {
-              const alreadyExists = p.key !== 'custom' && existingLower.some(e => e.includes(p.label.toLowerCase().split(' ')[0]))
+              const alreadyExists = p.key !== 'custom' && existingNorm.includes(norm(p.label))
               return (
                 <button key={p.key} onClick={() => selectPreset(p)} className="flex items-center gap-3 p-3 rounded-lg text-left cursor-pointer transition-all"
                   style={{ background: alreadyExists ? '#f9fafb' : '#f1faf7', border: '2px solid transparent', opacity: alreadyExists ? 0.6 : 1 }}

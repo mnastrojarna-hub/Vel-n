@@ -125,7 +125,7 @@
 | Tabulka | Popis |
 |---------|-------|
 | `maintenance_log` | Log údržby (service_date NOT NULL, km_at_service, completed_date, scheduled_date, service_type, status, description, performed_by, cost, technician_id FK→acc_employees, labor_hours, extra_cost) |
-| `maintenance_schedules` | Plány údržby (schedule_type, interval_km, interval_days, first_service_km, first_service_desc) |
+| `maintenance_schedules` | Plány údržby — motorka jich může mít NEOMEZENĚ (žádný UNIQUE na moto_id). Sloupce: schedule_type, interval_km, interval_days, first_service_km, first_service_desc, last_service_km, last_service_date, next_due, last_performed, active; **NEW 2026-08-25** (`20260825_maintenance_schedules_plan_columns.sql`): preferred_days integer[] (0=Po…6=Ne) + interval_reservations (interval „po X rezervacích") |
 | `service_parts` | Díly potřebné pro konkrétní servisní plán (schedule_id FK→maintenance_schedules, inventory_item_id FK→inventory, quantity, notes). UNIQUE(schedule_id, inventory_item_id) |
 | `service_orders` | Servisní objednávky (status: pending/in_service/completed/cancelled) |
 | `moto_locations` | GPS pozice motorek (lat, lng, source: gps/manual/tracker) |
