@@ -5,7 +5,7 @@ import { StatusBtn, UnavailableReasonPicker } from './MotoActionHelpers'
 export default function MotoStatusPanel({
   moto, branches, selectedBranch, setSelectedBranch,
   handleMigrate, handleStatusChange, handleCloseServiceAndActivate,
-  handleDeactivateSimple, setShowChecklist, setShowDeactReplace,
+  handleDeactivateSimple, openChecklist, setShowDeactReplace,
   reason, setReason, customReason, setCustomReason,
   unavailableUntil, setUnavailableUntil,
   openLogs, busy, success, error, onClose, isSamoobsluzna,
@@ -76,12 +76,19 @@ export default function MotoStatusPanel({
               title="Ukončit servis" desc={`Uzavře ${openLogs.length} otevřený servisní záznam(y)`} />
           )}
           {hasOpenLogs ? (
-            <StatusBtn color="#2563eb" bg="#dbeafe" onClick={() => setShowChecklist(true)} disabled={busy}
-              title="Upravit servisní plán" desc={`Upravit checklist a údaje (${openLogs.length} otevřený záznam)`} />
+            <>
+              <StatusBtn color="#2563eb" bg="#dbeafe" onClick={() => openChecklist(true)} disabled={busy}
+                title="Upravit servisní plán" desc={`Upravit checklist a údaje (${openLogs.length} otevřený záznam)`} />
+              <StatusBtn color="#b45309" bg="#fef3c7" onClick={() => openChecklist(false)} disabled={busy}
+                title="Přidat další servis" desc="Nový servisní záznam vedle otevřeného — otevře checklist" />
+            </>
           ) : !isMaintenance ? (
-            <StatusBtn color="#b45309" bg="#fef3c7" onClick={() => setShowChecklist(true)} disabled={busy}
+            <StatusBtn color="#b45309" bg="#fef3c7" onClick={() => openChecklist(false)} disabled={busy}
               title="Odeslat do servisu" desc="Otevře checklist závad a údržby" />
-          ) : null}
+          ) : (
+            <StatusBtn color="#b45309" bg="#fef3c7" onClick={() => openChecklist(false)} disabled={busy}
+              title="Přidat další servis" desc="Nový servisní záznam — otevře checklist" />
+          )}
           {!isOut && <StatusBtn color="#7c3aed" bg="#ede9fe" onClick={() => { if (reason) handleStatusChange('unavailable') }} disabled={busy || !reason}
             title="Dočasně vyřadit" desc="Čištění, tankování, přeprava — vyberte důvod níže" />}
           {moto.status !== 'retired' && <StatusBtn color="#1a2e22" bg="#f3f4f6" onClick={() => { if (window.confirm('Opravdu trvale vyřadit?')) handleStatusChange('retired') }} disabled={busy}

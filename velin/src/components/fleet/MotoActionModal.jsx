@@ -18,6 +18,10 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
   const [error, setError] = useState(null)
   const [success, setSuccess] = useState(null)
   const [showChecklist, setShowChecklist] = useState(false)
+  // Checklist má dva režimy: úprava otevřeného záznamu vs. NOVÝ servis.
+  // Režim nesmí být odvozen z hasOpenLogs — motorka může mít otevřený záznam
+  // (např. zimní odstávku) a přesto potřebuje přidat další servis.
+  const [checklistEdit, setChecklistEdit] = useState(false)
   const [showReplacement, setShowReplacement] = useState(false)
   const [pendingLogId, setPendingLogId] = useState(null)
   const [unavailableUntil, setUnavailableUntil] = useState('')
@@ -33,7 +37,7 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
         .eq('moto_id', moto.id).is('completed_date', null)
         .then(({ data }) => setOpenLogs(data || []))
       setSelectedBranch(''); setReason(''); setCustomReason(''); setError(null); setSuccess(null)
-      setShowChecklist(false); setShowReplacement(false); setShowDeactReplace(false); setPendingLogId(null); setUnavailableUntil('')
+      setShowChecklist(false); setChecklistEdit(false); setShowReplacement(false); setShowDeactReplace(false); setPendingLogId(null); setUnavailableUntil('')
     }
   }, [open, moto?.id])
 
@@ -249,17 +253,18 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
   }
 
   const hasOpenLogs = openLogs.length > 0
+  const openChecklist = (edit) => { setChecklistEdit(edit); setError(null); setShowChecklist(true) }
 
   return (
     <Modal open={open} onClose={showChecklist ? () => setShowChecklist(false) : onClose}
-      title={showChecklist ? `${moto.model} — ${hasOpenLogs ? 'Upravit servisní plán' : 'Servisní checklist'}` : `${moto.model} — Správa`} wide>
+      title={showChecklist ? `${moto.model} — ${checklistEdit ? 'Upravit servisní plán' : 'Servisní checklist'}` : `${moto.model} — Správa`} wide>
 
       {showChecklist ? (
         <ServiceChecklistView moto={moto}
-          onConfirm={hasOpenLogs ? handleUpdateService : handleSendToService}
+          onConfirm={checklistEdit ? handleUpdateService : handleSendToService}
           onBack={() => setShowChecklist(false)} busy={busy} error={error}
-          initialData={hasOpenLogs ? openLogs[0] : null}
-          editMode={hasOpenLogs} />
+          initialData={checklistEdit ? openLogs[0] : null}
+          editMode={checklistEdit} />
       ) : showReplacement ? (
         <div className="p-3 rounded-lg" style={{ background: '#fef3c7', border: '1px solid #fde68a' }}>
           <div className="text-sm font-bold mb-2" style={{ color: '#b45309' }}>Servis &gt;3 dny v sezóně — vyberte náhradu na {moto.branches?.name || '—'}:</div>
@@ -279,7 +284,7 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
           handleMigrate={handleMigrate} handleStatusChange={handleStatusChange}
           handleCloseServiceAndActivate={handleCloseServiceAndActivate}
           handleDeactivateSimple={handleDeactivateSimple}
-          setShowChecklist={setShowChecklist} setShowDeactReplace={setShowDeactReplace}
+          openChecklist={openChecklist} setShowDeactReplace={setShowDeactReplace}
           reason={reason} setReason={setReason} customReason={customReason} setCustomReason={setCustomReason}
           unavailableUntil={unavailableUntil} setUnavailableUntil={setUnavailableUntil}
           openLogs={openLogs} busy={busy} success={success} error={error}
