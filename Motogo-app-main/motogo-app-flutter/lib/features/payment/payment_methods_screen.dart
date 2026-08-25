@@ -1,16 +1,23 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_stripe/flutter_stripe.dart';
 
 import '../../core/theme.dart';
 import '../../core/widgets/moto_fx.dart';
 import '../../core/i18n/i18n_provider.dart';
-import '../../core/supabase_client.dart';
 import '../auth/widgets/toast_helper.dart';
 import 'payment_provider.dart';
 
 /// Payment methods management — mirrors profile → Platební metody
 /// from profile-ui-2.js + api-payment-methods.js.
+///
+/// Přidání karty jde NATIVNĚ přes Stripe SDK (CardField →
+/// Stripe.instance.createPaymentMethod → edge fn `manage-payment-methods`
+/// action=attach, která PM připojí ke Stripe zákazníkovi a synchronizuje do
+/// tabulky payment_methods). Číslo karty ani CVV se NIKDY nedotknou naší DB.
+/// Dřívější ruční formulář ukládal jen „atrapu" (řádek bez
+/// stripe_payment_method_id), se kterou nešlo platit, a sbíral citlivá data
+/// mimo Stripe (PCI problém) — proto byl nahrazen.
 class PaymentMethodsScreen extends ConsumerWidget {
   const PaymentMethodsScreen({super.key});
 
@@ -129,7 +136,11 @@ class PaymentMethodsScreen extends ConsumerWidget {
     );
     if (confirmed != true || !context.mounted) return;
 
-    final ok = await deletePaymentMethod(card.stripeId);
+    // Historický řádek bez Stripe pm id (dřívější ruční formulář) — edge
+    // `delete` by ho neuměl smazat (vyžaduje pm id), maže se přímo v tabulce.
+    final ok = card.stripeId.isEmpty
+        ? await deleteLocalPaymentMethod(card.id)
+        : await deletePaymentMethod(card.stripeId);
     if (!context.mounted) return;
 
     if (ok) {
@@ -143,6 +154,8 @@ class PaymentMethodsScreen extends ConsumerWidget {
 
   Future<void> _setDefault(
       BuildContext context, WidgetRef ref, SavedCard card) async {
+    // Historický řádek bez Stripe pm id nejde strhnout → nesmí být prioritní.
+    if (card.stripeId.isEmpty) return;
     final ok = await setDefaultPaymentMethod(card.stripeId);
     if (!context.mounted) return;
 
@@ -157,151 +170,186 @@ class PaymentMethodsScreen extends ConsumerWidget {
   }
 
   Future<void> _addNewCard(BuildContext context, WidgetRef ref) async {
-    final cardNumberCtrl = TextEditingController();
-    final expCtrl = TextEditingController();
-    final holderCtrl = TextEditingController();
-    final cvvCtrl = TextEditingController();
-
-    final result = await showModalBottomSheet<bool>(
+    final saved = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
+      backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (ctx) => SingleChildScrollView(
-        padding: EdgeInsets.fromLTRB(
-            20, 0, 20, MediaQuery.of(ctx).viewInsets.bottom + 16),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          // Drag handle
-          Container(
-            width: 40,
-            height: 4,
-            margin: const EdgeInsets.only(top: 12, bottom: 12),
-            decoration: BoxDecoration(
-              color: MotoGoColors.g300,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          Text(t(context).tr('addPaymentCard'),
-              style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w900,
-                  color: MotoGoColors.black)),
-          const SizedBox(height: 4),
-          Text(t(context).tr('cardSavedInApp'),
-              style: TextStyle(fontSize: 11, color: MotoGoColors.g400),
-              textAlign: TextAlign.center),
-          const SizedBox(height: 16),
-          TextField(
-            controller: holderCtrl,
-            decoration: InputDecoration(
-                labelText: t(context).tr('cardHolderName')),
-            textInputAction: TextInputAction.next,
-            textCapitalization: TextCapitalization.words,
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: cardNumberCtrl,
-            decoration: InputDecoration(
-                labelText: t(context).tr('cardNumber'),
-                hintText: '1234 5678 9012 3456'),
-            keyboardType: TextInputType.number,
-            inputFormatters: [_CardNumberFormatter()],
-            textInputAction: TextInputAction.next,
-          ),
-          const SizedBox(height: 12),
-          Row(children: [
-            Expanded(
-              child: TextField(
-                controller: expCtrl,
-                decoration: InputDecoration(
-                    labelText: t(context).tr('cardExpiry'),
-                    hintText: 'MM/YY'),
-                keyboardType: TextInputType.number,
-                inputFormatters: [_ExpiryDateFormatter()],
-                textInputAction: TextInputAction.next,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: TextField(
-                controller: cvvCtrl,
-                decoration: const InputDecoration(
-                    labelText: 'CVV',
-                    hintText: '123'),
-                keyboardType: TextInputType.number,
-                obscureText: true,
-                inputFormatters: [_CvvFormatter()],
-                textInputAction: TextInputAction.done,
-              ),
-            ),
-          ]),
-          const SizedBox(height: 16),
-          PressableScale(child: ElevatedButton(
-            onPressed: () {
-              final digits =
-                  cardNumberCtrl.text.replaceAll(RegExp(r'\s'), '');
-              if (digits.length < 13) return;
-              if (cvvCtrl.text.length < 3) return;
-              if (expCtrl.text.length < 5) return;
-              Navigator.pop(ctx, true);
-            },
-            style: ElevatedButton.styleFrom(
-                minimumSize: const Size.fromHeight(48)),
-            child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.save, size: 18),
-                  const SizedBox(width: 8),
-                  Text(t(context).tr('saveCard')),
-                ]),
-          )),
-        ]),
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+        child: const _AddCardSheetBody(),
       ),
     );
-    if (result != true || !context.mounted) return;
+    if (saved == null || !context.mounted) return;
 
-    // Save to Supabase payment_methods table
-    final user = MotoGoSupabase.currentUser;
-    if (user == null) return;
-    try {
-      final digits = cardNumberCtrl.text.replaceAll(RegExp(r'\s'), '');
-      final last4 = digits.length >= 4
-          ? digits.substring(digits.length - 4)
-          : digits;
-      // Detect brand from card number prefix
-      String brand = 'Card';
-      if (digits.startsWith('4')) {
-        brand = 'Visa';
-      } else if (digits.startsWith('5') || digits.startsWith('2')) {
-        brand = 'Mastercard';
-      }
-      final expParts = expCtrl.text.split('/');
-      await MotoGoSupabase.client.from('payment_methods').insert({
-        'user_id': user.id,
-        'type': 'card',
-        'brand': brand,
-        'last4': last4,
-        'exp_month': expParts.isNotEmpty ? int.tryParse(expParts[0]) : null,
-        'exp_year': expParts.length > 1
-            ? int.tryParse('20${expParts[1]}')
-            : null,
-        'holder_name': holderCtrl.text.trim(),
-        'is_default': true,
-      });
-      if (context.mounted) {
-        showMotoGoToast(context,
-            icon: '✓',
-            title: t(context).tr('cardSaved'),
-            message: '•••• $last4');
-        ref.invalidate(paymentMethodsProvider);
-      }
-    } catch (e) {
-      if (context.mounted) {
-        showMotoGoToast(context,
-            icon: '✗', title: t(context).error, message: '$e');
-      }
+    if (saved) {
+      showMotoGoToast(context,
+          icon: '✓', title: t(context).tr('cardSaved'), message: '');
+      ref.invalidate(paymentMethodsProvider);
+    } else {
+      showMotoGoToast(context,
+          icon: '✗',
+          title: t(context).error,
+          message: t(context).tr('cardSaveFailed'));
     }
+  }
+}
+
+/// Sheet pro nativní přidání karty přes Stripe SDK — stejné pole (CardField)
+/// jako platební sheet, ale místo platby se karta jen uloží (createPaymentMethod
+/// + attach na Stripe zákazníka).
+class _AddCardSheetBody extends StatefulWidget {
+  const _AddCardSheetBody();
+
+  @override
+  State<_AddCardSheetBody> createState() => _AddCardSheetBodyState();
+}
+
+class _AddCardSheetBodyState extends State<_AddCardSheetBody> {
+  bool _cardComplete = false;
+  bool _processing = false;
+
+  // Plugin drží zadané údaje v nativním view, které přežívá zavření sheetu —
+  // při otevření čistíme, aby tu nestrašila karta z předchozího zadávání
+  // (např. z platebního sheetu).
+  final CardEditController _cardController = CardEditController();
+
+  @override
+  void initState() {
+    super.initState();
+    // clear() potřebuje připojený nativní CardField → až po prvním framu.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      try {
+        _cardController.clear();
+      } catch (_) {
+        // Pole se ještě nepřipojilo — pak je prázdné a není co čistit.
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _cardController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (_processing || !_cardComplete) return;
+    setState(() => _processing = true);
+    FocusManager.instance.primaryFocus?.unfocus();
+    try {
+      // Karta jde POUZE do Stripe (SDK → payment method), k nám jen pm id.
+      final pm = await Stripe.instance.createPaymentMethod(
+        params: const PaymentMethodParams.card(
+          paymentMethodData: PaymentMethodData(),
+        ),
+      );
+      final ok = await attachPaymentMethod(pm.id);
+      if (!mounted) return;
+      Navigator.of(context).pop(ok);
+    } on StripeException {
+      // Nevalidní karta / zrušeno — zůstaň v sheetu, ať může opravit.
+      if (!mounted) return;
+      setState(() => _processing = false);
+    } catch (_) {
+      if (!mounted) return;
+      Navigator.of(context).pop(false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = t(context);
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Drag handle
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: MotoGoColors.g300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+
+            Text(
+              tt.tr('addPaymentCard'),
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
+                color: MotoGoColors.black,
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Nativní pole karty — celý rámeček klikací, vkládání ze schránky OK
+            Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1FAF7),
+                borderRadius: BorderRadius.circular(MotoGoTheme.radiusSm),
+                border: Border.all(color: const Color(0xFFD4E8E0)),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: SizedBox(
+                height: 56,
+                child: CardField(
+                  controller: _cardController,
+                  autofocus: true,
+                  // Sheet má bílé pozadí — text karty MUSÍ být tmavý (jinak
+                  // bílá na bílé = neviditelné). Placeholder zešedlý, kurzor zelený.
+                  style: const TextStyle(
+                    color: Color(0xFF0F1A14),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  cursorColor: MotoGoColors.greenDark,
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    hintStyle: TextStyle(color: Color(0xFF8AAB99)),
+                  ),
+                  onCardChanged: (card) {
+                    setState(() => _cardComplete = card?.complete ?? false);
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            PressableScale(child: ElevatedButton(
+              onPressed: (_processing || !_cardComplete) ? null : _save,
+              style: ElevatedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(52)),
+              child: _processing
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white),
+                    )
+                  : Text(tt.tr('saveCard')),
+            )),
+            const SizedBox(height: 10),
+            Text(
+              '🔒 ${tt.tr('encryptedPayment')} · Stripe PCI DSS Level 1',
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 10, color: MotoGoColors.g400),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -364,7 +412,9 @@ class _CardTile extends StatelessWidget {
           ),
           Column(
             children: [
-              if (!card.isDefault)
+              // Hvězdička (nastavit jako prioritní) jen u karet se Stripe pm
+              // id — historický ručně zapsaný řádek nejde strhnout.
+              if (!card.isDefault && card.stripeId.isNotEmpty)
                 GestureDetector(
                   onTap: onSetDefault,
                   child: const Text('⭐',
@@ -379,62 +429,6 @@ class _CardTile extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-/// Formats card number: digits only, spaces every 4, max 16 digits.
-/// "1234567890123456" → "1234 5678 9012 3456"
-class _CardNumberFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-      TextEditingValue oldValue, TextEditingValue newValue) {
-    final digits = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
-    final limited = digits.length > 16 ? digits.substring(0, 16) : digits;
-    final buf = StringBuffer();
-    for (var i = 0; i < limited.length; i++) {
-      if (i > 0 && i % 4 == 0) buf.write(' ');
-      buf.write(limited[i]);
-    }
-    final formatted = buf.toString();
-    return TextEditingValue(
-      text: formatted,
-      selection: TextSelection.collapsed(offset: formatted.length),
-    );
-  }
-}
-
-/// Formats expiry date: digits only, auto-slash after MM, max 4 digits.
-/// "1228" → "12/28"
-class _ExpiryDateFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-      TextEditingValue oldValue, TextEditingValue newValue) {
-    final digits = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
-    final limited = digits.length > 4 ? digits.substring(0, 4) : digits;
-    final buf = StringBuffer();
-    for (var i = 0; i < limited.length; i++) {
-      if (i == 2) buf.write('/');
-      buf.write(limited[i]);
-    }
-    final formatted = buf.toString();
-    return TextEditingValue(
-      text: formatted,
-      selection: TextSelection.collapsed(offset: formatted.length),
-    );
-  }
-}
-
-/// CVV formatter: digits only, max 4.
-class _CvvFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-      TextEditingValue oldValue, TextEditingValue newValue) {
-    final digits = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
-    final limited = digits.length > 4 ? digits.substring(0, 4) : digits;
-    return TextEditingValue(
-      text: limited,
-      selection: TextSelection.collapsed(offset: limited.length),
     );
   }
 }

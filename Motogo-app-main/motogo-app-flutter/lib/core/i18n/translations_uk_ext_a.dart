@@ -321,6 +321,8 @@ const translationsUkExt8 = <String, Map<String, String>>{
     'restoreDatePassed': 'Термін бронювання вже минув.',
     'restoreMotoOccupied': 'Мотоцикл уже зайнятий на цей термін.',
     'restorePaymentLabel': 'Відновити та оплатити',
+    'payWithAnotherCard': 'Оплатити іншою карткою',
+    'cardSaveFailed': 'Не вдалося зберегти картку. Спробуйте ще раз.',
     'searchingAddress': 'Шукаю адресу...',
     'sectionDateTitle': 'ДАТА',
     'selectAllSizes': 'ВИБЕРІТЬ УСІ РОЗМІРИ',

@@ -658,10 +658,12 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
   /// expirace, banka zamítla…) přes `PaymentErrorMapper`.
   ///
   /// DŮLEŽITÉ (požadavek zákazníka): tlačítko „Zkusit znovu" znovu strhne
-  /// ULOŽENOU kartu — NIKDY samo neotevře Stripe Payment Sheet (zadávání karty).
-  /// Po vyčerpání pokusů (maxPaymentAttempts) jde uživatel do Rezervací, kde si
-  /// může kartu změnit v profilu. Payment Sheet se na platbě s uloženou kartou
-  /// už nezobrazí.
+  /// ULOŽENOU kartu — NIKDY samo neotevře kartový sheet (zadávání karty).
+  /// Nově je ale pod ním sekundární tlačítko „Zaplatit jinou kartou" —
+  /// VÝSLOVNÁ volba zákazníka otevřít kartový sheet a zaplatit jednorázově
+  /// jinou kartou (řeší slepou uličku: uložená karta se zamítá a jinak by
+  /// nebylo jak platbu dokončit). Po vyčerpání pokusů (maxPaymentAttempts)
+  /// jde uživatel do Rezervací, kde si může kartu změnit v profilu.
   void _handleSavedCardFailure(PaymentResult result) {
     if (_attempts >= maxPaymentAttempts) {
       _handleMaxAttempts();
@@ -700,6 +702,12 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
           // Uložená karta zmizela (smazaná v profilu) → klasický flow.
           _runPaymentSheetFlow(_amount);
         }
+      },
+      secondaryLabel: t(context).tr('payWithAnotherCard'),
+      onSecondary: () {
+        // Výslovná volba zákazníka: jednorázově zaplatit jinou kartou přes
+        // kartový sheet (pole se při otevření čistí — viz CardPaymentSheet).
+        if (mounted) _runPaymentSheetFlow(_amount);
       },
     );
   }
@@ -824,6 +832,11 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
       title: info.title,
       message: info.message + counter,
       buttonLabel: t(context).tr('retry'),
+      onButton: () {
+        // Rovnou znovu otevři kartový sheet — pole se při otevření čistí
+        // (viz CardPaymentSheet), takže špatně zadané číslo jde hned opravit.
+        if (mounted) _runPaymentSheetFlow(_amount);
+      },
     );
   }
 
@@ -853,6 +866,11 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
       title: info.title,
       message: info.message + counter,
       buttonLabel: t(context).tr('retry'),
+      onButton: () {
+        // Sheet obsahuje kartu i platformní peněženku — po chybě ho rovnou
+        // znovu otevři (s čistým polem), ať má zákazník kde pokračovat.
+        if (mounted) _runPaymentSheetFlow(_amount);
+      },
     );
   }
 
