@@ -234,6 +234,15 @@ class ContractsScreen extends ConsumerWidget {
     final title = doc.name ?? doc.typeLabel;
     debugPrint('[CONTRACTS] Opening doc: id=${doc.id}, type=${doc.type}, bookingId=${doc.bookingId}');
 
+    // Historický záznam přímo z generated_documents → otevři PŘESNĚ tento
+    // dokument (ne poslední daného typu).
+    if (doc.generatedDocId != null) {
+      final opened = await openGeneratedDocument(context,
+          generatedDocId: doc.generatedDocId!, title: title);
+      if (opened) return;
+      if (!context.mounted) return;
+    }
+
     if (doc.bookingId != null) {
       final opened = await openBookingDocument(context,
           bookingId: doc.bookingId!, type: doc.type, title: title);

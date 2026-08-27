@@ -37,7 +37,12 @@ final documentsProvider = FutureProvider<List<UserDocument>>((ref) async {
   return (res as List).map((e) => UserDocument.fromJson(e)).toList();
 });
 
-/// Contracts & protocols from Supabase documents table.
+/// Contracts & protocols — sjednocení `documents` (sync řádky) s KOMPLETNÍ
+/// historií z `generated_documents` (Velín i edge submit-handover-protocol).
+/// Sync trigger zapisuje do `documents` jen PRVNÍ dokument daného typu k
+/// rezervaci a dokumenty z doby před triggerem tam chybí úplně — proto se
+/// historie (všechny smlouvy a protokoly, i zpětně z Velína) dočítá přímo
+/// z `generated_documents` (RLS: customer_id = uid).
 final contractsProvider = FutureProvider<List<UserDocument>>((ref) async {
   final user = MotoGoSupabase.currentUser;
   if (user == null) {
@@ -56,8 +61,99 @@ final contractsProvider = FutureProvider<List<UserDocument>>((ref) async {
     return UserDocument.fromJson(e);
   }).toList();
   debugPrint('[CONTRACTS] Loaded ${docs.length} documents');
-  return docs;
+
+  try {
+    final merged = await _mergeGeneratedHistory(user.id, docs);
+    merged.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    debugPrint('[CONTRACTS] With generated history: ${merged.length} documents');
+    return merged;
+  } catch (e) {
+    // Historie je bonus — když dotaz selže, zobrazí se aspoň sync řádky.
+    debugPrint('[CONTRACTS] generated_documents merge failed: $e');
+    return docs;
+  }
 });
+
+/// `filled_data._doc_type` / `document_templates.type` → `documents.type`.
+const _generatedTypeMap = {
+  'handover_protocol': 'protocol',
+  'damage_protocol': 'protocol_damage',
+  'rental_contract': 'contract',
+  'contract': 'contract',
+  'vop': 'vop',
+};
+
+Future<List<UserDocument>> _mergeGeneratedHistory(String userId, List<UserDocument> docs) async {
+  final gen = await MotoGoSupabase.client
+      .from('generated_documents')
+      .select('id, booking_id, template_id, pdf_path, created_at, '
+          'doc_type:filled_data->>_doc_type, doc_name:filled_data->>_doc_name')
+      .eq('customer_id', userId)
+      .order('created_at', ascending: false);
+  final rows = (gen as List).cast<Map<String, dynamic>>();
+
+  // Názvy/typy šablonových dokumentů (smlouva/VOP) — stejně jako Velín
+  // druhým dotazem dle template_id (bez závislosti na FK embeddingu).
+  final templateIds = rows.map((r) => r['template_id']).whereType<String>().toSet().toList();
+  final templates = <String, Map<String, dynamic>>{};
+  if (templateIds.isNotEmpty) {
+    try {
+      final tpls = await MotoGoSupabase.client
+          .from('document_templates')
+          .select('id, name, type')
+          .inFilter('id', templateIds);
+      for (final t in (tpls as List).cast<Map<String, dynamic>>()) {
+        templates[t['id'] as String] = t;
+      }
+    } catch (e) {
+      debugPrint('[CONTRACTS] templates fetch failed: $e');
+    }
+  }
+
+  // Dedup: sync řádek v `documents` ukazuje na tentýž soubor (file_path ==
+  // pdf_path, příp. fallback generated/<id>.html) → generated verzi přeskoč,
+  // ale sync řádku přiřaď generatedDocId, ať otevírá PŘESNĚ svůj dokument.
+  final byPath = <String, Map<String, dynamic>>{};
+  for (final r in rows) {
+    final id = r['id'] as String;
+    final path = r['pdf_path'] as String?;
+    if (path != null) byPath[path] = r;
+    byPath['generated/$id.html'] = r;
+  }
+  final out = <UserDocument>[];
+  final consumedIds = <String>{};
+  for (final d in docs) {
+    final twin = d.filePath != null ? byPath[d.filePath] : null;
+    if (twin != null) {
+      consumedIds.add(twin['id'] as String);
+      out.add(UserDocument(
+        id: d.id, type: d.type, fileName: d.fileName, filePath: d.filePath,
+        fileSize: d.fileSize, bookingId: d.bookingId, createdAt: d.createdAt,
+        generatedDocId: twin['id'] as String,
+      ));
+    } else {
+      out.add(d);
+    }
+  }
+  for (final r in rows) {
+    final tpl = templates[r['template_id']];
+    final rawType = (r['doc_type'] as String?) ?? (tpl?['type'] as String?);
+    final type = _generatedTypeMap[rawType];
+    if (type == null) continue; // jiné typy (gdpr…) do sekce nepatří
+    final id = r['id'] as String;
+    if (consumedIds.contains(id)) continue;
+    out.add(UserDocument(
+      id: id,
+      type: type,
+      fileName: (r['doc_name'] as String?) ?? (tpl?['name'] as String?),
+      filePath: r['pdf_path'] as String?,
+      bookingId: r['booking_id'] as String?,
+      createdAt: DateTime.parse(r['created_at'] as String),
+      generatedDocId: id,
+    ));
+  }
+  return out;
+}
 
 /// User invoices from Supabase.
 final invoicesProvider = FutureProvider<List<UserInvoice>>((ref) async {

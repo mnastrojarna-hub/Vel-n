@@ -101,6 +101,42 @@ Future<bool> openBookingDocument(
       debugPrint('[BOOKING_DOC] documents fetch failed: $e');
     }
   }
+  return _openStoragePath(context, filePath, title);
+}
+
+/// Otevře KONKRÉTNÍ dokument z `generated_documents` (historická verze) —
+/// podepsané HTML 1:1, jinak soubor z bucketu přes signed URL.
+Future<bool> openGeneratedDocument(
+  BuildContext context, {
+  required String generatedDocId,
+  required String title,
+}) async {
+  try {
+    final row = await MotoGoSupabase.client
+        .from('generated_documents')
+        .select('filled_data, pdf_path')
+        .eq('id', generatedDocId)
+        .maybeSingle();
+    if (row == null) return false;
+    final fd = row['filled_data'];
+    final html = fd is Map ? fd['_signed_html'] as String? : null;
+    if (html != null && html.isNotEmpty) {
+      if (!context.mounted) return false;
+      Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => DocWebViewScreen(htmlContent: html, title: title),
+      ));
+      return true;
+    }
+    return _openStoragePath(context, row['pdf_path'] as String?, title);
+  } catch (e) {
+    debugPrint('[BOOKING_DOC] generated doc open failed ($generatedDocId): $e');
+    return false;
+  }
+}
+
+/// Soubor z bucketu `documents` přes signed URL — .html ve WebView,
+/// .pdf na Androidu externě (WebView tam PDF nevyrenderuje).
+Future<bool> _openStoragePath(BuildContext context, String? filePath, String title) async {
   // marker řádky (mindee_verified/...) nejsou reálné soubory
   if (filePath == null || filePath.isEmpty || filePath.startsWith('mindee_verified/')) {
     return false;
@@ -113,7 +149,6 @@ Future<bool> openBookingDocument(
     if (!context.mounted) return false;
     final isPdf = filePath.toLowerCase().endsWith('.pdf');
     if (isPdf && defaultTargetPlatform == TargetPlatform.android) {
-      // Android WebView PDF nevyrenderuje — otevři v systémovém prohlížeči.
       await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
     } else {
       Navigator.of(context).push(MaterialPageRoute(
