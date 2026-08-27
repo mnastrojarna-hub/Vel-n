@@ -12,6 +12,7 @@ import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/supabase_client.dart';
 import '../../core/data/legal_texts.dart';
+import 'booking_doc_viewer.dart';
 import 'document_models.dart';
 import 'document_provider.dart';
 
@@ -54,7 +55,7 @@ class ContractsScreen extends ConsumerWidget {
         title: Row(children: [ClipRRect(borderRadius: BorderRadius.circular(8), child: Image.asset('assets/logo.webp', width: 24, height: 24, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(width: 24, height: 24, decoration: BoxDecoration(color: MotoGoColors.green, borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.motorcycle, size: 14, color: Colors.black)))), const SizedBox(width: 8), Text(t(context).tr('documentsAndContracts'))]), backgroundColor: MotoGoColors.dark),
       body: docsAsync.when(
         data: (docs) {
-          final contracts = docs.where((d) => ['contract', 'protocol', 'vop'].contains(d.type)).toList();
+          final contracts = docs.where((d) => ['contract', 'protocol', 'protocol_damage', 'vop'].contains(d.type)).toList();
           debugPrint('[CONTRACTS_SCREEN] Total docs: ${docs.length}, filtered contracts: ${contracts.length}');
 
           return ListView(
@@ -93,7 +94,7 @@ class ContractsScreen extends ConsumerWidget {
                   child: Center(child: Text(t(context).tr('noOtherDocs'), style: const TextStyle(fontSize: 12, color: MotoGoColors.g400))),
                 ),
               ...contracts.map((d) => _DocTile(
-                icon: d.type == 'contract' ? '📄' : '📝',
+                icon: switch (d.type) { 'contract' => '📄', 'protocol_damage' => '⚠️', _ => '📝' },
                 title: d.name ?? d.typeLabel,
                 subtitle: '${d.createdAt.day}. ${d.createdAt.month}. ${d.createdAt.year}',
                 onTap: () => _openDoc(context, d),
@@ -226,11 +227,19 @@ class ContractsScreen extends ConsumerWidget {
     return raw is String ? raw.trim() : '';
   }
 
-  /// Open contract/protocol — render from document_templates + booking data.
-  /// Mirrors showRentalContract / showDigitalProtocol from documents-booking.js.
+  /// Open contract/protocol — REÁLNÝ dokument 1:1 (podepsané HTML z
+  /// generated_documents / soubor z bucketu). Teprve když neexistuje,
+  /// fallback na render šablony z document_templates + dat rezervace.
   Future<void> _openDoc(BuildContext context, UserDocument doc) async {
     final title = doc.name ?? doc.typeLabel;
     debugPrint('[CONTRACTS] Opening doc: id=${doc.id}, type=${doc.type}, bookingId=${doc.bookingId}');
+
+    if (doc.bookingId != null) {
+      final opened = await openBookingDocument(context,
+          bookingId: doc.bookingId!, type: doc.type, title: title);
+      if (opened) return;
+      if (!context.mounted) return;
+    }
 
     // Fetch template from document_templates
     final dbType = _docTypeToTemplateType(doc.type);

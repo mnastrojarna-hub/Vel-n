@@ -1426,6 +1426,7 @@ return [
     'rez.auth.err.server' => 'De server is niet beschikbaar, probeer het zo meteen opnieuw.',
     'editRez.doc.type.rental_contract' => 'Huurovereenkomst',
     'editRez.doc.type.handover_protocol' => 'Overdrachtsprotocol',
+    'editRez.doc.type.damage_protocol' => 'Schaderapport',
     'editRez.doc.uploadTitle' => 'Documenten uploaden / bijwerken',
     'editRez.doc.uploadHelp' => 'Upload je ID-kaart/paspoort en rijbewijs — de scan verloopt via Mindee OCR. Zonder geverifieerde documenten geeft het systeem geen toegangscodes voor de motor af.',
     'editRez.doc.idLabel' => 'ID-kaart / paspoort',

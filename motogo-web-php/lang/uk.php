@@ -842,6 +842,7 @@ return [
     'editRez.doc.type.unknown' => 'Документ',
     'editRez.doc.type.rental_contract' => 'Договір оренди',
     'editRez.doc.type.handover_protocol' => 'Акт приймання-передачі',
+    'editRez.doc.type.damage_protocol' => 'Протокол про пошкодження',
 
     // Sekce „Nahrát / aktualizovat doklady" + archiv ke stažení
     'editRez.doc.uploadTitle' => 'Завантажити / оновити документи',

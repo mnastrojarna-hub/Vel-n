@@ -1447,6 +1447,7 @@ return [
     'rez.auth.err.server' => 'Le serveur est indisponible, veuillez réessayer dans un instant.',
     'editRez.doc.type.rental_contract' => 'Contrat de location',
     'editRez.doc.type.handover_protocol' => 'Procès-verbal de remise',
+    'editRez.doc.type.damage_protocol' => 'Constat de dommages',
     'editRez.doc.uploadTitle' => 'Téléverser / mettre à jour les documents',
     'editRez.doc.uploadHelp' => 'Téléversez votre carte d\'identité/passeport et votre permis de conduire — le scan est effectué via Mindee OCR. Sans documents vérifiés, le système ne délivre pas les codes d\'accès à la moto.',
     'editRez.doc.idLabel' => 'Carte d\'identité / passeport',

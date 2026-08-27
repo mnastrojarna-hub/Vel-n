@@ -1461,6 +1461,7 @@ return [
     'rez.auth.err.server' => 'Der Server ist nicht erreichbar, bitte versuchen Sie es in Kürze erneut.',
     'editRez.doc.type.rental_contract' => 'Mietvertrag',
     'editRez.doc.type.handover_protocol' => 'Übergabeprotokoll',
+    'editRez.doc.type.damage_protocol' => 'Schadensprotokoll',
     'editRez.doc.uploadTitle' => 'Dokumente hochladen / aktualisieren',
     'editRez.doc.uploadHelp' => 'Laden Sie Ihren Personalausweis/Reisepass und Führerschein hoch — der Scan erfolgt über Mindee OCR. Ohne verifizierte Dokumente gibt das System keine Zugangscodes für das Motorrad aus.',
     'editRez.doc.idLabel' => 'Personalausweis / Reisepass',

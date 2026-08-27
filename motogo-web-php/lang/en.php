@@ -1470,6 +1470,7 @@ return [
     'rez.auth.err.server' => 'The server is unavailable, please try again in a moment.',
     'editRez.doc.type.rental_contract' => 'Rental contract',
     'editRez.doc.type.handover_protocol' => 'Handover protocol',
+    'editRez.doc.type.damage_protocol' => 'Damage Report',
     'editRez.doc.uploadTitle' => 'Upload / update documents',
     'editRez.doc.uploadHelp' => 'Upload your ID card/passport and driving licence — the scan runs via Mindee OCR. Without verified documents, the system will not issue the motorcycle access codes.',
     'editRez.doc.idLabel' => 'ID card / passport',
