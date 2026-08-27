@@ -1321,11 +1321,12 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
                     point: _me!,
                     width: 34,
                     height: 34,
-                    // Šipka drží reálný směr jízdy (na trase směr trasy) i při
-                    // otočené mapě — viz [_arrowBearing].
-                    child: NavMeMarker(
-                      arrowDeg: arrowBrg == null ? null : arrowBrg + _mapRot,
-                    ),
+                    // Marker rotuje SPOLU s mapou (flutter_map otáčí celou
+                    // vrstvu markerů rotací kamery), proto se předává směr
+                    // vůči světu (od severu) BEZ přičítání rotace mapy —
+                    // šipka je tak na obrazovce vždy souosá s linkou trasy,
+                    // v north-up i heading-up režimu. Viz [_arrowBearing].
+                    child: NavMeMarker(arrowDeg: arrowBrg),
                   ),
               ]),
               RichAttributionWidget(
