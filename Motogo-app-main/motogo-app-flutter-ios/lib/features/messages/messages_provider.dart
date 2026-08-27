@@ -205,6 +205,16 @@ Future<void> markThreadRead(String threadId) async {
   } catch (_) {}
 }
 
+/// Mark admin notification as read — RLS: user UPDATE (own).
+Future<void> markAdminMessageRead(String id) async {
+  try {
+    await MotoGoSupabase.client
+        .from('admin_messages')
+        .update({'read': true})
+        .eq('id', id);
+  } catch (_) {}
+}
+
 /// Create new thread — mirrors _createNewThreadWithSubject.
 Future<String?> createThread(String subject) async {
   final user = MotoGoSupabase.currentUser;
