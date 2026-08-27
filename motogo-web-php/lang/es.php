@@ -1448,6 +1448,7 @@ return [
     'rez.auth.err.server' => 'El servidor no está disponible, inténtalo de nuevo en un momento.',
     'editRez.doc.type.rental_contract' => 'Contrato de alquiler',
     'editRez.doc.type.handover_protocol' => 'Acta de entrega',
+    'editRez.doc.type.damage_protocol' => 'Informe de daños',
     'editRez.doc.uploadTitle' => 'Subir / actualizar documentos',
     'editRez.doc.uploadHelp' => 'Sube tu DNI/pasaporte y carné de conducir; el escaneo se realiza con Mindee OCR. Sin documentos verificados, el sistema no emitirá los códigos de acceso a la moto.',
     'editRez.doc.idLabel' => 'DNI / pasaporte',

@@ -9,6 +9,11 @@ class UserDocument {
   final String? bookingId;
   final DateTime createdAt;
 
+  /// Vyplněno u záznamů načtených přímo z `generated_documents` (kompletní
+  /// historie z Velína) — otevírá se pak PŘESNĚ tento dokument, ne poslední
+  /// daného typu.
+  final String? generatedDocId;
+
   const UserDocument({
     required this.id,
     required this.type,
@@ -17,6 +22,7 @@ class UserDocument {
     this.fileSize,
     this.bookingId,
     required this.createdAt,
+    this.generatedDocId,
   });
 
   factory UserDocument.fromJson(Map<String, dynamic> json) => UserDocument(

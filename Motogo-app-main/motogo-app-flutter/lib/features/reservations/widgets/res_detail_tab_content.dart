@@ -11,6 +11,7 @@ import '../../booking/booking_provider.dart';
 import '../../booking/booking_models.dart';
 import '../../booking/price_calculator.dart' show branchLat, branchLng;
 import '../../catalog/catalog_provider.dart';
+import '../../documents/booking_doc_viewer.dart';
 import '../reservation_models.dart';
 import '../reservation_provider.dart';
 import 'res_detail_card.dart';
@@ -72,6 +73,30 @@ class ResDetailTabContent extends ConsumerWidget {
     } else {
       showMotoGoToast(context, icon: '⚠️', title: t(context).tr('error'), message: t(context).tr('codesStillWithheld'));
     }
+  }
+
+  /// Otevře reálný dokument rezervace 1:1 (podepsaný protokol / smlouva).
+  Future<void> _openBookingDoc(BuildContext context, String type, String title) async {
+    final opened = await openBookingDocument(context, bookingId: res.id, type: type, title: title);
+    if (!opened && context.mounted) {
+      showMotoGoToast(context, icon: '📄', title: title, message: t(context).tr('loadingError'));
+    }
+  }
+
+  /// Tlačítka na existující dokumenty rezervace (protokoly, příp. smlouva) —
+  /// zobrazí se jen ty, které v `documents` reálně existují.
+  List<Widget> _bookingDocButtons(BuildContext context, WidgetRef ref, {bool includeContract = false}) {
+    final docs = ref.watch(bookingDocsProvider(res.id)).valueOrNull ?? const [];
+    bool has(String type) => docs.any((d) => d['type'] == type);
+    final out = <Widget>[];
+    void add(String emoji, String label, String type) {
+      out.add(ResDetailButton.outlined(emoji: emoji, label: label, onTap: () => _openBookingDoc(context, type, label)));
+      out.add(const SizedBox(height: 8));
+    }
+    if (includeContract && has('contract')) add('📄', t(context).tr('rentalContract'), 'contract');
+    if (has('protocol')) add('📝', t(context).tr('handoverProtocol'), 'protocol');
+    if (has('protocol_damage')) add('⚠️', t(context).tr('damageProtocol'), 'protocol_damage');
+    return out;
   }
 
   @override
@@ -320,7 +345,10 @@ class ResDetailTabContent extends ConsumerWidget {
               label: t(context).tr('rentalContract'),
               onTap: () => onOpenContract(context, res.id),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
+            // Historické protokoly (předávací / o poškození) — 1:1 podepsaný dokument
+            ..._bookingDocButtons(context, ref),
+            const SizedBox(height: 4),
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: Text(t(context).tr('ratingSection'), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: MotoGoColors.g400, letterSpacing: 0.5)),
@@ -384,6 +412,15 @@ class ResDetailTabContent extends ConsumerWidget {
                 label: t(context).tr('handoverProtocol'),
                 onTap: () => context.push(Routes.protocol, extra: res),
               ),
+            ],
+            // Dokumenty aktivní rezervace — smlouva + podepsané protokoly 1:1.
+            if (_bookingDocButtons(context, ref, includeContract: true).isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(t(context).tr('documentsSection'), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: MotoGoColors.g400, letterSpacing: 0.5)),
+              ),
+              ..._bookingDocButtons(context, ref, includeContract: true),
             ],
           ],
 

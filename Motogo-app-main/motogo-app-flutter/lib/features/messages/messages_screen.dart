@@ -19,6 +19,7 @@ class MessagesScreen extends ConsumerStatefulWidget {
 
 class _MessagesState extends ConsumerState<MessagesScreen> {
   bool _chatTab = false;
+  final Set<String> _expanded = {};
 
   @override
   Widget build(BuildContext context) {
@@ -78,22 +79,31 @@ class _MessagesState extends ConsumerState<MessagesScreen> {
           itemBuilder: (_, i) {
             final m = msgs[i];
             final date = '${m.createdAt.day}. ${m.createdAt.month}. ${m.createdAt.hour}:${m.createdAt.minute.toString().padLeft(2, '0')}';
-            return Container(
-              padding: const EdgeInsets.all(12), margin: const EdgeInsets.only(bottom: 6),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(MotoGoTheme.radiusSm),
-                border: m.read ? null : Border.all(color: MotoGoColors.green.withValues(alpha: 0.4), width: 1.5),
+            final expanded = _expanded.contains(m.id);
+            return GestureDetector(
+              onTap: () {
+                setState(() => expanded ? _expanded.remove(m.id) : _expanded.add(m.id));
+                if (!m.read) markAdminMessageRead(m.id);
+              },
+              child: Container(
+                padding: const EdgeInsets.all(12), margin: const EdgeInsets.only(bottom: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(MotoGoTheme.radiusSm),
+                  border: m.read ? null : Border.all(color: MotoGoColors.green.withValues(alpha: 0.4), width: 1.5),
+                ),
+                child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(m.icon, style: const TextStyle(fontSize: 20)),
+                  const SizedBox(width: 10),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(m.title ?? t(context).tr('messageFromMotoGo'), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: MotoGoColors.black)),
+                    if (m.message != null) Text(m.message!, style: const TextStyle(fontSize: 12, color: MotoGoColors.g600), maxLines: expanded ? null : 3, overflow: expanded ? null : TextOverflow.ellipsis),
+                    Text(date, style: const TextStyle(fontSize: 10, color: MotoGoColors.g400)),
+                  ])),
+                  const SizedBox(width: 6),
+                  Icon(expanded ? Icons.expand_less : Icons.expand_more, size: 18, color: MotoGoColors.g400),
+                ]),
               ),
-              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(m.icon, style: const TextStyle(fontSize: 20)),
-                const SizedBox(width: 10),
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(m.title ?? t(context).tr('messageFromMotoGo'), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: MotoGoColors.black)),
-                  if (m.message != null) Text(m.message!, style: const TextStyle(fontSize: 12, color: MotoGoColors.g600), maxLines: 3),
-                  Text(date, style: const TextStyle(fontSize: 10, color: MotoGoColors.g400)),
-                ])),
-              ]),
             );
           },
         );

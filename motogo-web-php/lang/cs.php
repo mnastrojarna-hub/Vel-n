@@ -845,6 +845,7 @@ return [
     'editRez.doc.type.unknown' => 'Doklad',
     'editRez.doc.type.rental_contract' => 'Smlouva o pronájmu',
     'editRez.doc.type.handover_protocol' => 'Předávací protokol',
+    'editRez.doc.type.damage_protocol' => 'Protokol o poškození',
 
     // Sekce „Nahrát / aktualizovat doklady" + archiv ke stažení
     'editRez.doc.uploadTitle' => 'Nahrát / aktualizovat doklady',

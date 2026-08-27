@@ -11,6 +11,7 @@ import '../../core/i18n/i18n_provider.dart';
 import '../../core/supabase_client.dart';
 import '../auth/widgets/toast_helper.dart';
 import '../catalog/catalog_provider.dart';
+import '../documents/booking_doc_viewer.dart';
 import '../documents/document_models.dart';
 import '../documents/doc_webview_screen.dart';
 import '../documents/invoice_html_builder.dart';
@@ -363,51 +364,14 @@ class _DetailState extends ConsumerState<ReservationDetailScreen> {
     context.go(Routes.search);
   }
 
-  /// Open rental contract for this specific booking.
+  /// Open rental contract for this specific booking — reálný dokument 1:1
+  /// (podepsané HTML z generated_documents / soubor z bucketu documents).
   Future<void> _openContract(BuildContext context, String bookingId) async {
     try {
-      final res = await MotoGoSupabase.client
-          .from('documents')
-          .select()
-          .eq('booking_id', bookingId)
-          .eq('type', 'contract')
-          .order('created_at', ascending: false)
-          .limit(1);
-
-      final docs = (res as List);
-      if (docs.isEmpty) {
-        if (!mounted) return;
-        showMotoGoToast(context, icon: '📄', title: t(context).tr('contractLabel'), message: t(context).tr('contractNotReady'));
-        return;
-      }
-
-      final doc = docs.first as Map<String, dynamic>;
-      final fileUrl = doc['file_url'] as String?;
-      final storagePath = doc['storage_path'] as String?;
-
-      // Try to get a signed URL from storage
-      String? url;
-      if (storagePath != null && storagePath.isNotEmpty) {
-        try {
-          url = MotoGoSupabase.client.storage
-              .from('documents')
-              .getPublicUrl(storagePath);
-        } catch (_) {}
-      }
-      url ??= fileUrl;
-
-      if (url != null && url.isNotEmpty) {
-        if (!mounted) return;
-        Navigator.of(context).push(MaterialPageRoute(
-          builder: (_) => DocWebViewScreen(
-            url: url!,
-            title: t(context).tr('rentalContract'),
-          ),
-        ));
-      } else {
-        if (!mounted) return;
-        showMotoGoToast(context, icon: '📄', title: t(context).tr('contractLabel'), message: t(context).tr('contractNotReady'));
-      }
+      final opened = await openBookingDocument(context,
+          bookingId: bookingId, type: 'contract', title: t(context).tr('rentalContract'));
+      if (opened || !mounted) return;
+      showMotoGoToast(context, icon: '📄', title: t(context).tr('contractLabel'), message: t(context).tr('contractNotReady'));
     } catch (e) {
       debugPrint('[CONTRACT] Error opening contract: $e');
       if (!mounted) return;

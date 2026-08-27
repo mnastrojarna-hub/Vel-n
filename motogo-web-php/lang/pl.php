@@ -1426,6 +1426,7 @@ return [
     'rez.auth.err.server' => 'Serwer jest niedostępny, spróbuj ponownie za chwilę.',
     'editRez.doc.type.rental_contract' => 'Umowa najmu',
     'editRez.doc.type.handover_protocol' => 'Protokół przekazania',
+    'editRez.doc.type.damage_protocol' => 'Protokół uszkodzeń',
     'editRez.doc.uploadTitle' => 'Prześlij / zaktualizuj dokumenty',
     'editRez.doc.uploadHelp' => 'Prześlij dowód osobisty/paszport i prawo jazdy — skan przebiega przez Mindee OCR. Bez zweryfikowanych dokumentów system nie wyda kodów dostępu do motocykla.',
     'editRez.doc.idLabel' => 'Dowód osobisty / paszport',
