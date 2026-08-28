@@ -103,7 +103,7 @@ class _RouteMapViewState extends State<RouteMapView> {
         TileLayer(
           urlTemplate:
               'https://api.mapy.cz/v1/maptiles/outdoor/256/{z}/{x}/{y}?apikey=$mapyApiKey',
-          userAgentPackageName: 'com.motogo24.app',
+          userAgentPackageName: 'com.motogo24.rental',
           maxZoom: 19,
         ),
         if (widget.geometry.length >= 2)

@@ -119,7 +119,7 @@ Future<void> _initAndRun() async {
   // Initialize Stripe — wrapped in try-catch so a native SDK failure
   // does not block the entire app from starting.
   Stripe.publishableKey = MotoGoSupabase.stripePublishableKey;
-  Stripe.merchantIdentifier = 'merchant.cz.motogo24';
+  Stripe.merchantIdentifier = 'merchant.cz.motogo24.rental';
   Stripe.urlScheme = 'motogo24';
   debugPrint('[Stripe] publishableKey: ${Stripe.publishableKey.substring(0, 12)}...');
   debugPrint('[Stripe] urlScheme: ${Stripe.urlScheme}');

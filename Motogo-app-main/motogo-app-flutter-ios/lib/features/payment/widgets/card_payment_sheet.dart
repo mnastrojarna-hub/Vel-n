@@ -32,7 +32,7 @@ class CardSheetResult {
 ///
 /// iOS varianta: místo Google Pay se nabízí Apple Pay přes nativní
 /// `PlatformPayButton` (PKPaymentButton — vyžaduje Apple Pay merchant ID
-/// `merchant.cz.motogo24`, nastavené v main.dart + Runner.entitlements).
+/// `merchant.cz.motogo24.rental`, nastavené v main.dart + Runner.entitlements).
 ///
 /// POZOR: tento sheet se otevírá JEN když zákazník nemá uloženou kartu. Uloženou
 /// (default) kartu strhne `_chargeSavedCard` off-session úplně bez sheetu —

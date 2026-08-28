@@ -24,12 +24,13 @@ class UpdateChecker {
   /// app_settings; one query per interval is enough to catch a version bump.
   static const _recheckInterval = Duration(minutes: 15);
 
+  // Android balíček na Google Play zůstává com.motogo24.app (iOS bundle ID
+  // je od přechodu na firemní účet com.motogo24.rental — netýká se této URL).
   static const _playStoreUrl =
       'https://play.google.com/store/apps/details?id=com.motogo24.app';
 
-  // TODO: po prvním publikování v App Store Connect doplň skutečné Apple ID
-  // aplikace (App Store Connect → App Information → Apple ID) místo APPLE_ID.
-  static const _appStoreUrl = 'https://apps.apple.com/cz/app/idAPPLE_ID';
+  // App Store Connect Apple ID aplikace (firemní účet Mnástrojárna s.r.o.).
+  static const _appStoreUrl = 'https://apps.apple.com/cz/app/id6806045151';
 
   static String get _storeUrl =>
       Platform.isIOS ? _appStoreUrl : _playStoreUrl;

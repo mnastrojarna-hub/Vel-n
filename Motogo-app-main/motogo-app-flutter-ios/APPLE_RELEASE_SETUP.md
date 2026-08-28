@@ -3,15 +3,28 @@
 Tato složka je **duplikát `motogo-app-flutter` připravený pro Apple App Store**.
 Staví ji Codemagic workflow **`motogo-ios-release`** (kořenový `codemagic.yaml`).
 
+## Firemní Apple účet (od 8/2026) — klíčové identifikátory
+
+Aplikace přešla z původního individuálního Apple účtu na **firemní Apple
+Developer účet Mnástrojárna s.r.o.** Apple nepustí staré identifikátory na
+jiný účet, proto strategie „nový iOS Bundle ID" — Android/Google Play se nemění.
+
+| Identifikátor | Hodnota | Poznámka |
+|---|---|---|
+| Apple Developer Team ID | `YP7TF3APAV` | Mnástrojárna s.r.o. |
+| iOS Bundle ID | `com.motogo24.rental` | dříve `com.motogo24.app` (to zůstává jen Androidu) |
+| Apple Pay Merchant ID | `merchant.cz.motogo24.rental` | dříve `merchant.cz.motogo24` |
+| App Store Connect Apple ID | `6806045151` | SKU `motogo24-ios`, název „MotoGO24 - Půjčovna motorek" |
+
 ## Co se liší od Android verze
 
 | Oblast | Android (`motogo-app-flutter`) | iOS (tato složka) |
 |---|---|---|
 | Platforma | `android/` | `ios/` (Xcode projekt Runner) |
-| Peněženka | Google Pay | **Apple Pay** (nativní PKPaymentButton, merchant `merchant.cz.motogo24`) |
+| Peněženka | Google Pay | **Apple Pay** (nativní PKPaymentButton, merchant `merchant.cz.motogo24.rental`) |
 | Push | FCM (Android kanál) | **FCM → APNs** (`aps-environment: production`, backend `send-push` už APNS payload posílá) |
 | In-app update | Google Play in_app_update | neaktivní (guard `Platform.isAndroid`); force-update dialog vede do App Store |
-| Bundle/App ID | `com.motogo24.app` | `com.motogo24.app` (stejné — viz Firebase) |
+| Bundle/App ID | `com.motogo24.app` | **`com.motogo24.rental`** (firemní účet — viz tabulka výše) |
 | Verze | 1.1.0, build = $BUILD_NUMBER | **1.1.0**, build = $BUILD_NUMBER (Codemagic) |
 
 Změněné soubory oproti Android kopii: `lib/features/payment/widgets/card_payment_sheet.dart`
@@ -20,33 +33,37 @@ Zbytek `lib/` + `assets/` je 1:1 kopie z 1.1.0.
 
 ## Jednorázové kroky před prvním buildem (ručně)
 
-### 1. Apple Developer portál (developer.apple.com)
-1. **Identifiers → App IDs** — registruj `com.motogo24.app` a zapni capabilities:
+### 1. Apple Developer portál (developer.apple.com, Team `YP7TF3APAV`)
+1. **Identifiers → App IDs** — registruj `com.motogo24.rental` a zapni capabilities:
    - **Push Notifications**
    - **Apple Pay Payment Processing**
    - **Associated Domains**
-2. **Identifiers → Merchant IDs** — registruj **`merchant.cz.motogo24`**
+2. **Identifiers → Merchant IDs** — registruj **`merchant.cz.motogo24.rental`**
    (musí přesně odpovídat `Stripe.merchantIdentifier` v `lib/main.dart`)
-   a přiřaď ho k App ID `com.motogo24.app`.
+   a přiřaď ho k App ID `com.motogo24.rental`.
 
 ### 2. Stripe Dashboard (LIVE)
 Settings → Payments → **Apple Pay** → *iOS certificates* → Add new application:
 1. stáhni CSR od Stripe,
-2. v Apple portálu u merchant ID `merchant.cz.motogo24` vytvoř
+2. v Apple portálu u merchant ID `merchant.cz.motogo24.rental` vytvoř
    **Apple Pay Payment Processing Certificate** z toho CSR,
 3. vzniklý `.cer` nahraj zpět do Stripe.
 Bez tohoto kroku Apple Pay platby selžou (karta v sheetu funguje i bez něj).
 
 ### 3. Firebase console (projekt `motogo24-518b4`)
-1. Project settings → **Add app → iOS**, bundle ID **`com.motogo24.app`**.
-2. Stáhni `GoogleService-Info.plist`.
+1. Project settings → **Add app → iOS**, bundle ID **`com.motogo24.rental`**
+   (nová iOS appka; původní registrace pro `com.motogo24.app` zůstává Androidu).
+2. Stáhni nový `GoogleService-Info.plist` a přenastav jeho base64 do env var
+   `GOOGLE_SERVICE_INFO_PLIST` v Codemagicu (env group `firebase_ios`).
 3. Project settings → Cloud Messaging → **Apple app configuration** → nahraj
-   **APNs Authentication Key (.p8)** (vytvoř v Apple portálu → Keys → APNs)
-   + Key ID + Team ID. Bez něj FCM nedoručí push na iOS.
+   **APNs Authentication Key (.p8)** (vytvoř v Apple portálu firemního účtu →
+   Keys → APNs) + Key ID + Team ID `YP7TF3APAV`. Bez něj FCM nedoručí push na iOS.
 
 ### 4. Codemagic
 1. **Teams → Integrations → Developer Portal** — přidej App Store Connect API
    klíč a pojmenuj ho **`motogo24_app_store_connect`** (název odkazovaný ve workflow).
+   Po přechodu na firemní účet přepoj tuto integraci na API klíč NOVÉHO účtu
+   (název integrace zůstává stejný, mění se jen klíč).
    Klíč vytvoř v App Store Connect → Users and Access → Integrations → API Keys
    s rolí **App Manager** + zaškrtnutým „Access to Certificates, Identifiers &
    Profiles" — slabší role (Developer) nestačí na automatické podepisování
@@ -58,10 +75,11 @@ Bez tohoto kroku Apple Pay platby selžou (karta v sheetu funguje i bez něj).
    do **TestFlightu** (do App Store recenze se posílá ručně z ASC).
 
 ### 5. App Store Connect
-1. **My Apps → +** — založ aplikaci „MotoGo24", bundle ID `com.motogo24.app`,
-   primární jazyk čeština, verze **1.1.0**.
-2. Po založení zkopíruj **Apple ID** aplikace (App Information) a doplň ho do
-   `lib/core/update_check_provider.dart` (konstanta `_appStoreUrl`, místo `APPLE_ID`).
+1. **My Apps → +** — appka „MotoGO24 - Půjčovna motorek" je založená na firemním
+   účtu: bundle ID `com.motogo24.rental`, SKU `motogo24-ios`,
+   **Apple ID `6806045151`**, primární jazyk čeština.
+2. Apple ID aplikace je doplněné v `lib/core/update_check_provider.dart`
+   (konstanta `_appStoreUrl` = `https://apps.apple.com/cz/app/id6806045151`).
 3. Vyplň privacy (App Privacy: poloha, fotky, kontaktní údaje, platby),
    screenshoty iPhone (target je iPhone-only — iPad screenshoty nejsou potřeba).
 
@@ -70,9 +88,9 @@ Na web nasaď `https://motogo24.cz/.well-known/apple-app-site-association`
 (Content-Type `application/json`, bez přípony):
 ```json
 { "applinks": { "apps": [], "details": [
-  { "appID": "TEAMID.com.motogo24.app", "paths": ["/app/*"] } ] } }
+  { "appID": "YP7TF3APAV.com.motogo24.rental", "paths": ["/app/*"] } ] } }
 ```
-`TEAMID` = Apple Team ID. Bez něj funguje vše ostatní (Stripe návrat používá
+Bez něj funguje vše ostatní (Stripe návrat používá
 custom scheme `motogo24://payment`, který je v Info.plist).
 
 ## Audit oprávnění (proti reálnému použití v kódu)
