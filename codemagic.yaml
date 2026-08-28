@@ -120,12 +120,18 @@ workflows:
       # a profil jen HLEDÁ (nevytváří) → míchání s manuálním fetch-signing-files
       # níže vyhazuje "No matching profiles found for bundle identifier ...".
       # Podepisování řešíme plně MANUÁLNĚ v krocích níže (fetch-signing-files --create
-      # + use-profiles). App ID com.motogo24.app musí mít v Apple Developer portálu
-      # zapnuté capabilities: Push Notifications, Apple Pay (merchant.cz.motogo24),
-      # Associated Domains — viz APPLE_RELEASE_SETUP.md.
+      # + use-profiles). App ID com.motogo24.rental (firemní účet Mnástrojárna s.r.o.,
+      # Team ID YP7TF3APAV; dříve com.motogo24.app na individuálním účtu) musí mít
+      # v Apple Developer portálu zapnuté capabilities: Push Notifications,
+      # Apple Pay (merchant.cz.motogo24.rental), Associated Domains —
+      # viz APPLE_RELEASE_SETUP.md. Team se NEuvádí natvrdo: bere se z API klíče
+      # integrace app_store_connect (motogo24_app_store_connect v Codemagic UI).
       groups:
         # Env group "firebase_ios" se secure proměnnou GOOGLE_SERVICE_INFO_PLIST
         # (base64 obsahu GoogleService-Info.plist z Firebase console).
+        # TODO (přechod na firemní účet): po registraci iOS appky s bundle ID
+        # com.motogo24.rental ve Firebase konzoli nahradit hodnotu
+        # GOOGLE_SERVICE_INFO_PLIST base64 NOVÉHO plistu (řeší se v Codemagic UI).
         - firebase_ios
         # Env group "ios_signing" se secure proměnnou CERTIFICATE_PRIVATE_KEY
         # (RSA privátní klíč pro distribuční certifikát — viz krok níže).
@@ -138,7 +144,7 @@ workflows:
             echo "ERROR: GOOGLE_SERVICE_INFO_PLIST env var is not set."
             echo "Create env group 'firebase_ios' with secure variable GOOGLE_SERVICE_INFO_PLIST"
             echo "(base64 of GoogleService-Info.plist downloaded from Firebase console,"
-            echo " iOS app with bundle ID com.motogo24.app in project motogo24-518b4)."
+            echo " iOS app with bundle ID com.motogo24.rental in project motogo24-518b4)."
             exit 1
           fi
           echo "$GOOGLE_SERVICE_INFO_PLIST" | base64 --decode > "$PLIST_PATH"
@@ -177,8 +183,8 @@ workflows:
           keychain initialize
           # --certificate-key: privátní klíč pro certifikát; --create vytvoří nový
           # distribuční cert (spárovaný s tímto klíčem) i App Store provisioning
-          # profil pro com.motogo24.app, pokud ještě nejsou v Apple Developer portálu.
-          app-store-connect fetch-signing-files "com.motogo24.app" \
+          # profil pro com.motogo24.rental, pokud ještě nejsou v Apple Developer portálu.
+          app-store-connect fetch-signing-files "com.motogo24.rental" \
             --type IOS_APP_STORE \
             --certificate-key @env:CERTIFICATE_PRIVATE_KEY \
             --create

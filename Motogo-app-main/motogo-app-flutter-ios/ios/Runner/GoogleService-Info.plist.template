@@ -5,9 +5,12 @@
   ŠABLONA — skutečný soubor stáhni z Firebase console:
   1. https://console.firebase.google.com → projekt motogo24-518b4
   2. Project settings → Your apps → Add app → iOS
-  3. Bundle ID: com.motogo24.app
+  3. Bundle ID: com.motogo24.rental (NOVÉ — firemní účet Mnástrojárna s.r.o.;
+     dříve com.motogo24.app, to zůstává jen Androidu)
   4. Stáhni GoogleService-Info.plist a ulož vedle této šablony
-  CI: Codemagic ho vytváří z env var GOOGLE_SERVICE_INFO_PLIST (base64).
+  CI: Codemagic ho vytváří z env var GOOGLE_SERVICE_INFO_PLIST (base64) —
+  TODO: po registraci nové iOS appky ve Firebase přenastavit tuto env var
+  v Codemagic UI na base64 nového plistu (env group firebase_ios).
 -->
 <dict>
 	<key>API_KEY</key>
@@ -17,7 +20,7 @@
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.motogo24.app</string>
+	<string>com.motogo24.rental</string>
 	<key>PROJECT_ID</key>
 	<string>motogo24-518b4</string>
 	<key>STORAGE_BUCKET</key>

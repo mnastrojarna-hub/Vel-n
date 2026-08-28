@@ -7,11 +7,13 @@
 	<string>production</string>
 
 	<!-- Apple Pay — merchant ID musí existovat v Apple Developer účtu
+	     (firemní účet Mnástrojárna s.r.o., Team ID YP7TF3APAV)
 	     a být propojený se Stripe (viz APPLE_RELEASE_SETUP.md).
-	     Hodnota odpovídá Stripe.merchantIdentifier v lib/main.dart. -->
+	     Hodnota odpovídá Stripe.merchantIdentifier v lib/main.dart.
+	     Dříve merchant.cz.motogo24 (individuální účet). -->
 	<key>com.apple.developer.in-app-payments</key>
 	<array>
-		<string>merchant.cz.motogo24</string>
+		<string>merchant.cz.motogo24.rental</string>
 	</array>
 
 	<!-- Universal linky https://motogo24.cz/app (zrcadlí Android App Links) -->
