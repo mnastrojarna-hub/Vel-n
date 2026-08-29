@@ -170,3 +170,10 @@ verify_jwt = false
 # JWT; autorizaci si dělá sama uvnitř → verify_jwt=false.
 [functions.backfill-poi-photos]
 verify_jwt = false
+
+# Fio API — automatické potvrzování QR / bankovních plateb. Volá cron
+# (fio_sync_tick) klíčem z app_settings.service_role_key (sb_secret_ → NENÍ
+# JWT, verify_jwt=true by bránil), autorizaci si funkce dělá sama uvnitř
+# (service key / service_role claim / app_settings klíč / admin JWT).
+[functions.fio-sync]
+verify_jwt = false
