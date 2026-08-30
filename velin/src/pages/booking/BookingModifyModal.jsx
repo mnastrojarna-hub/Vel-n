@@ -279,6 +279,8 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
           if (rfe || rfd?.success !== true) {
             console.warn('[BookingModify] refund failed:', rfe?.message || rfd?.error)
             window.alert('Úprava je uložená, ale vratka se nepodařila (' + (rfe?.message || rfd?.error || 'chyba') + '). Vyřiďte vrácení ručně z detailu rezervace.')
+          } else if (rfd?.fio_sent === true) {
+            window.alert('Vratka ' + refundAmount.toLocaleString('cs-CZ') + ' Kč byla odeslána AUTOMATICKY převodem přes Fio API (dávka ' + (rfd?.fio_instruction_id || '—') + '). Dobropis je vystaven — není potřeba nic posílat ručně.')
           } else if (rfd?.manual === true) {
             window.alert('Rezervace nemá Stripe platbu — dobropis je vystaven a vratku ' + refundAmount.toLocaleString('cs-CZ') + ' Kč pošlete PŘEVODEM na účet zákazníka (do 14 dnů). Detail rezervace ukazuje „VRÁTIT NA ÚČET"; po odeslání potvrďte „Vratka odeslána".')
           }
