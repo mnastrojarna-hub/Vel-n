@@ -371,6 +371,182 @@ async function createCreditNoteForExistingRefund(
 // Volá se ze dvou míst: a) booking nemá PI ani (zaplacenou) session,
 // b) PI existuje, ale Stripe na něm nikdy nepřijal peníze (stale PI
 //    z opuštěného pokusu o kartu — viz fix 2026-08-21 v serve handleru).
+// ===== Fio API — automatické odeslání vratky převodem (parita se Stripe) =====
+// Rezervace zaplacené QR / převodem na Fio účet se vrací AUTOMATICKY: platební
+// příkaz se podá přes Fio API Bankovnictví (POST /v1/rest/import/, Fio XML
+// DomesticTransaction — viz https://www.fio.cz/docs/cz/API_Bankovnictvi.pdf).
+// Cílový účet = protiúčet příchozí platby z `fio_transactions` (plní fio-sync).
+// Idempotence: UNIQUE(credit_note_id) v `fio_payment_orders` — jeden dobropis
+// = maximálně JEDEN odeslaný příkaz, souběžný dispatch dostane konflikt.
+// Když příkaz nejde odeslat (chybí token / protiúčet / platba nešla na Fio /
+// banka odmítla), flow spadne na dosavadní ruční fallback (refund_pending +
+// banner „VRÁTIT NA ÚČET" ve Velíně) — peníze se NIKDY nepošlou dvakrát ani
+// naslepo. Token: FIO_PAYMENT_TOKEN (doporučený samostatný token s právem
+// zadávání příkazů — vlastní 30s limit), fallback FIO_API_TOKEN.
+const FIO_REFUND_TOKEN = Deno.env.get('FIO_PAYMENT_TOKEN') || Deno.env.get('FIO_API_TOKEN') || ''
+const FIO_IMPORT_URL = 'https://fioapi.fio.cz/v1/rest/import/'
+const OPS_EMAIL = 'info@motogo24.cz'
+
+const xmlEscape = (s: string) =>
+  s.replace(/[<>&'"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' }[c] || c))
+
+async function sendOpsMail(subject: string, html: string) {
+  try {
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
+    const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    await fetch(`${SUPABASE_URL}/functions/v1/send-email`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + SERVICE_KEY, apikey: SERVICE_KEY },
+      body: JSON.stringify({ to: OPS_EMAIL, subject, raw_html: html }),
+    })
+  } catch (e) { console.warn('[process-refund] ops mail failed:', (e as Error).message) }
+}
+
+async function tryFioRefund(
+  supabase: any,
+  booking_id: string,
+  cnId: string | null,
+  cnNumber: string | null,
+  amount: number,
+  reasonText: string,
+  dlog: (action: string, status: string, extra?: Record<string, unknown>) => unknown,
+): Promise<{ sent: boolean; instructionId?: string | null }> {
+  if (!FIO_REFUND_TOKEN || !cnId || !(amount > 0)) return { sent: false }
+  const bookingNumber = String(booking_id).slice(-8).toUpperCase()
+  try {
+    // 1) Zdrojový účet = účet tokenu. Bereme z company_info.bank_account a
+    //    vyžadujeme kód banky 2010 (Fio) — dokud company_info míří na starý
+    //    účet (mBank), automatická vratka se nepokouší (peníze tam nepřišly).
+    const { data: ci } = await supabase.from('app_settings').select('value').eq('key', 'company_info').maybeSingle()
+    const bankAccount = String((ci?.value as any)?.bank_account || '').replace(/\s+/g, '')
+    const accMatch = bankAccount.match(/^(?:(\d{1,6})-)?(\d{2,10})\/(\d{4})$/)
+    if (!accMatch || accMatch[3] !== '2010') {
+      await dlog('fio_refund_skipped_not_fio_account', 'info', { bank_account: bankAccount })
+      return { sent: false }
+    }
+    const accountFrom = accMatch[1] ? `${accMatch[1]}-${accMatch[2]}` : accMatch[2]
+
+    // 2) Cílový účet = protiúčet PŘÍCHOZÍ platby této rezervace (fio_transactions
+    //    plní fio-sync). Primárně dle booking_id (spárované auto-potvrzení),
+    //    fallback dle VS (platba zaevidovaná, ale potvrzená ručně).
+    const { data: bk } = await supabase.from('bookings')
+      .select('payment_vs, mod_surcharge_vs').eq('id', booking_id).maybeSingle()
+    let src: { counter_account: string | null; counter_bank: string | null } | null = null
+    const { data: byBooking } = await supabase.from('fio_transactions')
+      .select('counter_account, counter_bank').eq('booking_id', booking_id)
+      .gt('amount', 0).not('counter_account', 'is', null)
+      .order('fio_id', { ascending: false }).limit(1)
+    src = byBooking?.[0] || null
+    if (!src) {
+      const vses = [bk?.payment_vs, bk?.mod_surcharge_vs].filter(Boolean).map(String)
+      if (vses.length > 0) {
+        const { data: byVs } = await supabase.from('fio_transactions')
+          .select('counter_account, counter_bank').in('vs', vses)
+          .gt('amount', 0).not('counter_account', 'is', null)
+          .order('fio_id', { ascending: false }).limit(1)
+        src = byVs?.[0] || null
+      }
+    }
+    if (!src?.counter_account || !src?.counter_bank) {
+      await dlog('fio_refund_no_source_account', 'info', { note: 'platba rezervace nedohledána ve fio_transactions — ruční vratka' })
+      return { sent: false }
+    }
+
+    // 3) Idempotentní claim: UNIQUE(credit_note_id). Konflikt = příkaz už
+    //    vznikl dřív — submitted vrátíme jako hotovo, cokoli jiného necháme
+    //    na ručním fallbacku (žádné opakované odeslání peněz).
+    const vsOut = String(bk?.payment_vs || cnNumber || '').replace(/\D/g, '').slice(0, 10) || null
+    const msg = `MotoGo24 vratka ${bookingNumber} - ${reasonText}`.slice(0, 140)
+    const { data: claim } = await supabase.from('fio_payment_orders')
+      .upsert({
+        credit_note_id: cnId, booking_id, amount,
+        account_to: src.counter_account, bank_code: src.counter_bank,
+        vs: vsOut, message: msg, status: 'pending',
+      }, { onConflict: 'credit_note_id', ignoreDuplicates: true })
+      .select('id').maybeSingle()
+    if (!claim?.id) {
+      const { data: prev } = await supabase.from('fio_payment_orders')
+        .select('status, fio_instruction_id').eq('credit_note_id', cnId).maybeSingle()
+      await dlog('fio_refund_claim_conflict', 'info', { prev_status: prev?.status || null })
+      return prev?.status === 'submitted'
+        ? { sent: true, instructionId: prev?.fio_instruction_id || null }
+        : { sent: false }
+    }
+
+    // 4) Fio XML tuzemský příkaz (pořadí elementů dle importIB.xsd).
+    const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Prague' })
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<Import xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.fio.cz/schema/importIB.xsd">
+<Orders>
+<DomesticTransaction>
+<accountFrom>${xmlEscape(accountFrom)}</accountFrom>
+<currency>CZK</currency>
+<amount>${amount.toFixed(2)}</amount>
+<accountTo>${xmlEscape(String(src.counter_account))}</accountTo>
+<bankCode>${xmlEscape(String(src.counter_bank))}</bankCode>
+${vsOut ? `<vs>${vsOut}</vs>\n` : ''}<date>${today}</date>
+<messageForRecipient>${xmlEscape(msg)}</messageForRecipient>
+<comment>${xmlEscape('Dobropis ' + (cnNumber || ''))}</comment>
+<paymentType>431001</paymentType>
+</DomesticTransaction>
+</Orders>
+</Import>`
+
+    // 5) Upload (multipart/form-data). 409 = 30s interval tokenu (sdílený se
+    //    sync cronem) → jednou počkej a zopakuj.
+    const submit = async () => {
+      const fd = new FormData()
+      fd.append('type', 'xml')
+      fd.append('token', FIO_REFUND_TOKEN)
+      fd.append('file', new Blob([xml], { type: 'application/xml' }), 'vratka.xml')
+      return await fetch(FIO_IMPORT_URL, { method: 'POST', body: fd })
+    }
+    let resp = await submit()
+    if (resp.status === 409) {
+      await new Promise((r) => setTimeout(r, 31_000))
+      resp = await submit()
+    }
+    const text = await resp.text()
+    const errorCode = Number((text.match(/<errorCode>(\d+)<\/errorCode>/) || [])[1] ?? NaN)
+    const instructionId = (text.match(/<idInstruction>(\d+)<\/idInstruction>/) || [])[1] || null
+    // errorCode 0 = přijato, 2 = varování kontrol (příkazy s warning banka přijala)
+    const ok = resp.ok && (errorCode === 0 || errorCode === 2)
+
+    await supabase.from('fio_payment_orders').update({
+      status: ok ? 'submitted' : 'failed',
+      fio_instruction_id: instructionId,
+      error: ok ? null : `HTTP ${resp.status}, errorCode ${Number.isNaN(errorCode) ? '?' : errorCode}: ${text.slice(0, 400)}`,
+      submitted_at: ok ? new Date().toISOString() : null,
+    }).eq('id', claim.id)
+    await dlog(ok ? 'fio_refund_submitted' : 'fio_refund_failed', ok ? 'ok' : 'error', {
+      amount, account_to: src.counter_account + '/' + src.counter_bank,
+      fio_instruction_id: instructionId, http_status: resp.status,
+      error_code: Number.isNaN(errorCode) ? null : errorCode,
+      ...(ok ? {} : { response: text.slice(0, 400) }),
+    })
+
+    if (ok) {
+      await sendOpsMail(
+        `✅ Fio: vratka ${amount.toLocaleString('cs-CZ')} Kč odeslána (rez. #${bookingNumber}, dávka ${instructionId || '—'})`,
+        `<h2 style="margin:0 0 8px;font-size:18px;color:#0f1a14">✅ Vratka odeslána automaticky přes Fio API</h2>
+         <p style="margin:0 0 12px;color:#374151;font-size:14px">Vratka <strong>${amount.toLocaleString('cs-CZ')} Kč</strong> (${reasonText.toLowerCase()}, dobropis ${cnNumber || '—'}) k rezervaci <strong>#${bookingNumber}</strong> byla podána jako platební příkaz na účet <strong>${src.counter_account}/${src.counter_bank}</strong>, VS ${vsOut || '—'}, dávka č. ${instructionId || '—'}${errorCode === 2 ? ' (přijato s varováním kontrol)' : ''}.</p>
+         <p style="margin:0;color:#b45309;font-size:13px">Pokud má účet nastavenou dodatečnou autorizaci API dávek, potvrďte dávku v internetbankingu — bez toho banka příkaz nezpracuje.</p>`
+      )
+    } else {
+      await sendOpsMail(
+        `⚠️ Fio: vratku ${amount.toLocaleString('cs-CZ')} Kč se NEPODAŘILO odeslat (rez. #${bookingNumber})`,
+        `<h2 style="margin:0 0 8px;font-size:18px;color:#0f1a14">⚠️ Automatická vratka přes Fio selhala — pošlete ručně</h2>
+         <p style="margin:0 0 12px;color:#374151;font-size:14px">Platební příkaz na <strong>${amount.toLocaleString('cs-CZ')} Kč</strong> (dobropis ${cnNumber || '—'}, rezervace <strong>#${bookingNumber}</strong>, účet ${src.counter_account}/${src.counter_bank}) banka nepřijala. Rezervace zůstává ve stavu „Čeká na vrácení" — pošlete vratku ručně převodem a potvrďte ve Velíně tlačítkem „Vratka odeslána".</p>
+         <p style="margin:0;color:#6b7280;font-size:12px">Detail chyby: HTTP ${resp.status}, errorCode ${Number.isNaN(errorCode) ? '?' : errorCode}. Viz debug log (fio_refund_failed).</p>`
+      )
+    }
+    return ok ? { sent: true, instructionId } : { sent: false }
+  } catch (e) {
+    await dlog('fio_refund_exception', 'error', { error: (e as Error).message })
+    return { sent: false }
+  }
+}
+
 async function manualBookingRefund(
   supabase: any,
   booking_id: string,
@@ -486,6 +662,35 @@ async function manualBookingRefund(
         console.warn('[process-refund] manual CN pdf failed:', (e as Error).message)
       }
     }
+  }
+
+  // AUTOMATICKÁ VRATKA PŘES FIO API (parita se Stripe): platba přijatá na Fio
+  // účet se vrací platebním příkazem na protiúčet, ze kterého přišla. Když
+  // příkaz odejde, rezervace jde rovnou do finálního stavu (refunded /
+  // partial_refund — stejně jako Stripe refund) a ruční banner se nezobrazí.
+  const fio = await tryFioRefund(supabase, booking_id, cnId, cnNumber, manAmount, reasonText, dlog)
+  if (fio.sent) {
+    const newStatus = refundPercent >= 100 ? 'refunded' : 'partial_refund'
+    await supabase.from('bookings').update({ payment_status: newStatus }).eq('id', booking_id)
+    try {
+      if (cnId) {
+        await supabase.from('invoices').update({
+          notes: `Dobropis k rezervaci. ${refundPercent < 100 ? `Částečný refund ${refundPercent}%.` : 'Plný refund.'} ${reasonText}. Vratka odeslána automaticky převodem přes Fio API (dávka ${fio.instructionId || '—'}).`,
+        }).eq('id', cnId)
+      }
+    } catch { /* poznámka na dokladu — neblokuje */ }
+    await dlog('fio_refund_done', 'ok', {
+      manual: true, fio_sent: true, amount: manAmount, credit_note_id: cnId,
+      new_payment_status: newStatus, fio_instruction_id: fio.instructionId || null,
+    })
+    return new Response(
+      JSON.stringify({
+        success: true, manual: true, fio_sent: true, code: 'fio_refund_sent',
+        amount: manAmount, credit_note_id: cnId, credit_note_pdf_path: cnPdfPath,
+        fio_instruction_id: fio.instructionId || null,
+      }),
+      { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } }
+    )
   }
 
   await supabase.from('bookings')

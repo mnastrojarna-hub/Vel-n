@@ -61,7 +61,7 @@ export default function BookingCancelModal({ open, onClose, cancelReason, setCan
               )}
               {amountValid && amountNum > 0 && amountNum < total && (
                 <p className="text-sm mt-2" style={{ color: '#b45309' }}>
-                  Částečná vratka {amountNum.toLocaleString('cs-CZ')} Kč — u Stripe platby se vrátí na kartu, u QR/převodu/hotovosti se vystaví dobropis a vratku pošlete převodem na účet (tlačítko „Vratka odeslána" v detailu).
+                  Částečná vratka {amountNum.toLocaleString('cs-CZ')} Kč — u Stripe platby se vrátí na kartu, u QR/převodu na Fio účet se odešle automaticky převodem přes Fio API; u ostatních (hotovost, platba mimo Fio) se vystaví dobropis a vratku pošlete převodem na účet (tlačítko „Vratka odeslána" v detailu).
                 </p>
               )}
             </div>
