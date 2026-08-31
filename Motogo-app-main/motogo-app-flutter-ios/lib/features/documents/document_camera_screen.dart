@@ -29,6 +29,20 @@ class _DocumentCameraScreenState extends State<DocumentCameraScreen>
   bool _isCapturing = false;
   String? _error;
 
+  /// Bezpečný dispose kamery. CameraX hodí PlatformException
+  /// „releaseFlutterSurfaceTexture() … has not yet been initialized", když
+  /// dispose přijde dřív, než se stihl inicializovat preview surface (rychlé
+  /// inactive/resumed během initu). Controller je stejně zahozený a resume
+  /// vytvoří nový — chybu jen zalogujeme, appka nesmí spadnout.
+  static Future<void> _safeDisposeCam(CameraController? controller) async {
+    if (controller == null) return;
+    try {
+      await controller.dispose();
+    } catch (e) {
+      debugPrint('[DocCam] camera dispose ignored: $e');
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -49,7 +63,7 @@ class _DocumentCameraScreenState extends State<DocumentCameraScreen>
         state == AppLifecycleState.detached) {
       if (controller != null) {
         if (mounted) setState(() => _isInitialized = false);
-        controller.dispose();
+        _safeDisposeCam(controller);
         _controller = null;
       }
     } else if (state == AppLifecycleState.resumed) {
@@ -82,7 +96,7 @@ class _DocumentCameraScreenState extends State<DocumentCameraScreen>
       await controller.initialize();
       if (!mounted || _controller != controller) {
         // Mezitím zavřeno (pauza appky) → uklidit osiřelý controller.
-        if (_controller != controller) await controller.dispose();
+        if (_controller != controller) await _safeDisposeCam(controller);
         return;
       }
       setState(() => _isInitialized = true);
@@ -97,7 +111,7 @@ class _DocumentCameraScreenState extends State<DocumentCameraScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _isInitialized = false;
-    _controller?.dispose();
+    _safeDisposeCam(_controller);
     _controller = null;
     super.dispose();
   }

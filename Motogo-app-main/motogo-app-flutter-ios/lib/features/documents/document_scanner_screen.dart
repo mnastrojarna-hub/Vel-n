@@ -89,6 +89,20 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen>
 
   // ── Camera ──
 
+  /// Bezpečný dispose kamery. CameraX hodí PlatformException
+  /// „releaseFlutterSurfaceTexture() … has not yet been initialized", když
+  /// dispose přijde dřív, než se stihl inicializovat preview surface (rychlé
+  /// inactive/resumed během initu). Controller je stejně zahozený a resume
+  /// vytvoří nový — chybu jen zalogujeme, appka nesmí spadnout.
+  static Future<void> _safeDisposeCam(CameraController? cam) async {
+    if (cam == null) return;
+    try {
+      await cam.dispose();
+    } catch (e) {
+      debugPrint('[DocScan] camera dispose ignored: $e');
+    }
+  }
+
   Future<void> _initCamera() async {
     CameraController? cam;
     try {
@@ -109,7 +123,7 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen>
       await cam.initialize();
       if (!mounted || _cam != cam) {
         // Mezitím zavřeno (pauza appky / odchod ze skeneru) → uklidit.
-        if (_cam != cam) await cam.dispose();
+        if (_cam != cam) await _safeDisposeCam(cam);
         return;
       }
       setState(() => _camReady = true);
@@ -149,7 +163,7 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen>
     _cam = null;
     _camReady = false;
     if (mounted) setState(() {});
-    await cam?.dispose();
+    await _safeDisposeCam(cam);
   }
 
   /// Zpět ze skeneru i bez zásobníku (deep link / context.go) — jinak by
@@ -165,7 +179,7 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _cam?.dispose();
+    _safeDisposeCam(_cam);
     _cam = null;
     super.dispose();
   }
