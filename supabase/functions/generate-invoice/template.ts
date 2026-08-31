@@ -23,6 +23,8 @@ interface TemplateParams {
   voucher_codes?: string[]; voucherValidUntil?: string | null
   doorCodes?: any[]
   isProforma: boolean; isPaymentReceipt: boolean; isShopFinal: boolean
+  // Reálný stav úhrady řádku — uhrazená ZF ukáže UHRAZENO místo K ÚHRADĚ.
+  isPaid?: boolean
   dpNumber?: string
   bookingNumber?: string
   paymentMethodLabel?: string
@@ -53,14 +55,14 @@ function typeLabel(p: TemplateParams): string {
 }
 
 function statusBadge(p: TemplateParams): { label: string; tone: 'paid' | 'pending' } {
-  if (p.isProforma) return { label: 'K ÚHRADĚ', tone: 'pending' }
+  if (p.isProforma) return p.isPaid ? { label: 'UHRAZENO', tone: 'paid' } : { label: 'K ÚHRADĚ', tone: 'pending' }
   if (p.isPaymentReceipt) return { label: 'UHRAZENO', tone: 'paid' }
   if (p.isShopFinal) return { label: 'UHRAZENO', tone: 'paid' }
   return { label: 'VYÚČTOVÁNO', tone: 'paid' }
 }
 
 function statusLabelFull(p: TemplateParams): string {
-  if (p.isProforma) return 'K úhradě'
+  if (p.isProforma && !p.isPaid) return 'K úhradě'
   return 'Uhrazena'
 }
 
@@ -129,10 +131,10 @@ export function generateInvoiceHtml(p: TemplateParams): string {
       <span style="color:#0f1a14;font-weight:700;font-variant-numeric:tabular-nums">${p.variableSymbol}</span>
     </div>` : ''}
     <div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0">
-      <span style="color:#16a34a;font-weight:600">Částka k úhradě</span>
-      <span style="color:#0f1a14;font-weight:700;font-variant-numeric:tabular-nums">${fmtPrice(p.total)} Kč</span>
+      <span style="color:#16a34a;font-weight:600">${p.isPaid ? 'Uhrazeno' : 'Částka k úhradě'}</span>
+      <span style="color:#0f1a14;font-weight:700;font-variant-numeric:tabular-nums">${fmtPrice(p.total)}</span>
     </div>
-    ${p.dueNote ? `<div style="display:flex;justify-content:space-between;font-size:12px;padding:6px 0">
+    ${!p.isPaid && p.dueNote ? `<div style="display:flex;justify-content:space-between;font-size:12px;padding:6px 0">
       <span style="color:#b91c1c;font-weight:700">Splatnost</span>
       <span style="color:#b91c1c;font-weight:700">${p.dueNote}</span>
     </div>` : ''}
@@ -234,7 +236,7 @@ export function generateInvoiceHtml(p: TemplateParams): string {
           <div style="font-size:11px;font-weight:800;color:#16a34a;letter-spacing:1.5px;margin-bottom:6px">FAKTURAČNÍ ÚDAJE</div>
           <table role="presentation" cellpadding="0" cellspacing="0" style="font-size:11.5px;line-height:1.5">
             <tr><td style="color:#16a34a;padding-right:14px;vertical-align:top">Číslo faktury</td><td style="color:#0f1a14;font-weight:700">${p.number}</td></tr>
-            <tr><td style="color:#16a34a;padding-right:14px;vertical-align:top">Variabilní symbol</td><td style="color:#0f1a14;font-weight:700">${p.number}</td></tr>
+            <tr><td style="color:#16a34a;padding-right:14px;vertical-align:top">Variabilní symbol</td><td style="color:#0f1a14;font-weight:700">${p.variableSymbol || p.number.replace(/\D/g, '')}</td></tr>
             ${p.bookingNumber ? `<tr><td style="color:#16a34a;padding-right:14px;vertical-align:top">Číslo rezervace</td><td style="color:#0f1a14;font-weight:700">${p.bookingNumber}</td></tr>` : ''}
             <tr><td style="color:#16a34a;padding-right:14px;vertical-align:top">Datum vystavení</td><td style="color:#0f1a14;font-weight:700">${fmtDate(p.issueDate)}</td></tr>
             <tr><td style="color:#16a34a;padding-right:14px;vertical-align:top">Datum splatnosti</td><td style="color:#0f1a14;font-weight:700">${fmtDate(p.dueDate)}</td></tr>

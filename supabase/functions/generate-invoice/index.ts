@@ -215,7 +215,7 @@ serve(async (req) => {
     if (render_existing && booking_id) {
       const wantType = type || 'final'
       const { data: existRows } = await supabase.from('invoices')
-        .select('id, number, type, items, total, customer_id, issue_date, due_date, pdf_path')
+        .select('id, number, type, items, total, customer_id, issue_date, due_date, pdf_path, variable_symbol, paid_date')
         .eq('booking_id', booking_id).eq('type', wantType).neq('status', 'cancelled')
         .order('created_at', { ascending: false }).limit(1)
       const inv = existRows?.[0]
@@ -250,6 +250,8 @@ serve(async (req) => {
         total: Number(inv.total || 0), company: COMPANY, customer: cust,
         items: Array.isArray(inv.items) ? inv.items : [],
         isProforma: false, isPaymentReceipt: false, isShopFinal: isFinalKf,
+        paidDate: inv.paid_date ? String(inv.paid_date).slice(0, 10) : undefined,
+        variableSymbol: String(inv.variable_symbol || inv.number || '').replace(/\D/g, '') || null,
         bookingNumber: booking_id.slice(-8).toUpperCase(), lang: 'cs',
       })
 
@@ -570,10 +572,15 @@ serve(async (req) => {
       }
 
       if (isPaymentReceipt) {
-        try {
-          const { data: codes } = await supabase.from('branch_door_codes').select('code_type, door_code, withheld_reason').eq('booking_id', booking_id)
-          if (codes && codes.length > 0) doorCodes = codes
-        } catch (e) { console.warn('Failed to fetch door codes:', e) }
+        // Přístupové kódy jen dokud pronájem trvá — regenerace/doposlání dokladu
+        // PO konci nájmu nesmí nést (už neplatné) kódy k pobočce.
+        const bkEndDate = booking.end_date ? String(booking.end_date).slice(0, 10) : null
+        if (!bkEndDate || bkEndDate >= new Date().toISOString().slice(0, 10)) {
+          try {
+            const { data: codes } = await supabase.from('branch_door_codes').select('code_type, door_code, withheld_reason').eq('booking_id', booking_id)
+            if (codes && codes.length > 0) doorCodes = codes
+          } catch (e) { console.warn('Failed to fetch door codes:', e) }
+        }
       }
     }
 
@@ -591,10 +598,10 @@ serve(async (req) => {
     // Edits (isEdit) vždy vytvářejí nový. Bez tohoto dedupu webhook při 2 Stripe
     // eventech vytvořil 2 DP záznamy → 2 přílohy v mailu.
     const isShopFinalLocal = invoiceType === 'shop_final'
-    // Při přegenerování (regenerate=true z Velína) přepíšeme existující doklad
-    // aktuálními údaji — zachováme číslo i řádek v `invoices`, jen aktualizujeme
-    // položky/zákazníka a znovu vyrenderujeme PDF (upsert do stejné storage cesty).
-    let reuseInvoice: { id: string; number: string; pdf_path: string | null; issue_date: string | null; due_date: string | null; paid_date: string | null; status: string | null; created_at: string | null } | null = null
+    // Při přegenerování (regenerate=true z Velína) přepíšeme existující doklad —
+    // zachováme číslo, položky, částky i data (viz POJISTKA 1/2 níže), aktualizuje
+    // se jen odběratel a PDF se znovu vyrenderuje (upsert do stejné storage cesty).
+    let reuseInvoice: { id: string; number: string; pdf_path: string | null; issue_date: string | null; due_date: string | null; paid_date: string | null; status: string | null; created_at: string | null; items: any; total: number | null; variable_symbol: string | null; customer_snapshot: any } | null = null
     if (!isEdit) {
       const dedupTypes = isPaymentReceipt
         ? ['payment_receipt']
@@ -603,7 +610,7 @@ serve(async (req) => {
           : isShopFinalLocal
             ? ['shop_final']
             : ['final', 'issued']
-      let q = supabase.from('invoices').select('id, number, pdf_path, issue_date, due_date, paid_date, status, created_at')
+      let q = supabase.from('invoices').select('id, number, pdf_path, issue_date, due_date, paid_date, status, created_at, items, total, variable_symbol, customer_snapshot')
         .in('type', dedupTypes).neq('status', 'cancelled').limit(1)
       if (booking_id) q = q.eq('booking_id', booking_id).eq('source', 'booking')
       else if (order_id) q = q.eq('order_id', order_id)
@@ -639,6 +646,30 @@ serve(async (req) => {
       }
     }
 
+    // ── POJISTKA 1: regenerace NIKDY nepřepisuje položky ani částky. ──
+    // Doklad zachycuje stav rezervace V DOBĚ vystavení — při reuse se položky
+    // berou z ULOŽENÉHO řádku; z aktuální rezervace se počítají jen když řádek
+    // žádné nemá (legacy). Dřív regenerace po úpravě rezervace přepsala ZF/DP
+    // na novou celkovou částku, zatímco odpočty na KF držely původní hodnoty →
+    // doklady vykazovaly přeplatek, který nikdy nevznikl.
+    let usedStoredItems = false
+    if (reuseInvoice && Array.isArray(reuseInvoice.items) && reuseInvoice.items.length > 0) {
+      items = reuseInvoice.items
+      usedStoredItems = true
+    }
+
+    // ── POJISTKA 2: po vystavení KONEČNÉ faktury se starší doklady už nemění
+    // (oprava jen storno / opravný doklad). Regenerace je pak POUZE re-render
+    // PDF z uložených dat — bez jakéhokoli zápisu do řádku (ani odběratel). ──
+    let lockedByFinal = false
+    if (reuseInvoice && !['final', 'issued', 'shop_final'].includes(invoiceType)) {
+      const finalTypes = (order_id && isShop) ? ['shop_final'] : ['final', 'issued']
+      let fq = supabase.from('invoices').select('id').in('type', finalTypes).neq('status', 'cancelled').limit(1)
+      fq = booking_id ? fq.eq('booking_id', booking_id) : fq.eq('order_id', order_id)
+      const { data: finals } = await fq
+      lockedByFinal = !!finals?.length
+    }
+
     // Generate number — při přegenerování zachováme původní číslo dokladu.
     let number: string
     if (reuseInvoice) {
@@ -653,13 +684,21 @@ serve(async (req) => {
       number = `${prefix}-${year}-${String(seq).padStart(4, '0')}`
     }
 
+    // VS musí být ČÍSELNÝ — textový VS („ZF-2026-0204") banka nepřijme a platba
+    // se nespáruje. Explicitní VS od volajícího (QR/fio) má přednost, jinak
+    // číslice z čísla dokladu (ZF-2026-0204 → 20260204).
+    const numericVs = (reqVariableSymbol && String(reqVariableSymbol).trim())
+      ? String(reqVariableSymbol).trim()
+      : number.replace(/\D/g, '')
+
     // Pro shop_final: odečti VŠECHNY DP (doklady k přijaté platbě) → konečná faktura
     // za 0 Kč doplatku. DP jsou na 100 % ceny objednávky; ať je jeden nebo několik,
     // jejich součet musí dát nulový doplatek. Případný dobropis (refund) je samostatný
     // doklad a doplatek KF neovlivňuje.
     let dpDeduction = 0; let dpNumber = ''
     const isShopFinal = invoiceType === 'shop_final'
-    if (isShopFinal && order_id) {
+    // Uložené položky reuse dokladu už odečet DP OBSAHUJÍ — nepřidávat podruhé.
+    if (isShopFinal && order_id && !usedStoredItems) {
       let { data: dpRows } = await supabase.from('invoices').select('number, total')
         .eq('order_id', order_id).eq('type', 'payment_receipt')
         .neq('status', 'cancelled')
@@ -708,7 +747,7 @@ serve(async (req) => {
     const validDate = typeof invoice_date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(invoice_date)
     let issueDate = validDate ? invoice_date : new Date().toISOString().slice(0, 10)
     let dueDate = issueDate
-    if (reuseInvoice && !validDate) {
+    if (reuseInvoice && (!validDate || lockedByFinal)) {
       // PŘEGENEROVÁNÍ NESMÍ posunout data dokladu na dnešek — ZF/DP si drží
       // PŮVODNÍ vystavení a splatnost (jinak po přegenerování "nesedí pořadí"
       // dokladů a historická faktura mění datum). Explicitní invoice_date od
@@ -731,25 +770,55 @@ serve(async (req) => {
     }
 
     let invoice: any
-    if (reuseInvoice) {
-      // Přepiš existující doklad aktuálními údaji (číslo a vazby zůstávají).
+    if (reuseInvoice && lockedByFinal) {
+      // POJISTKA 2: KF už existuje → žádný zápis, jen re-render z uloženého řádku.
+      invoice = reuseInvoice
+    } else if (reuseInvoice) {
+      // Přepiš existující doklad aktuálním odběratelem (číslo, položky, částky
+      // a data zůstávají — viz POJISTKA 1 a zachování dat výše).
+      // Samoléčba stavu ZF: existuje-li k rezervaci/objednávce DP (přijatá platba),
+      // je ZF fakticky uhrazená — starší ZF vznikaly jako 'issued' a nic je
+      // nepřepínalo, takže na dokladu navždy svítilo „K ÚHRADĚ".
+      let healedStatus = reuseInvoice.status || 'issued'
+      let healedPaidDate: string | null = reuseInvoice.paid_date
+      if (isProforma && healedStatus !== 'paid') {
+        let dq = supabase.from('invoices').select('paid_date, issue_date')
+          .eq('type', 'payment_receipt').neq('status', 'cancelled').limit(1)
+        dq = booking_id ? dq.eq('booking_id', booking_id) : dq.eq('order_id', order_id)
+        const { data: dpRow } = await dq
+        if (dpRow?.length) {
+          healedStatus = 'paid'
+          healedPaidDate = healedPaidDate || dpRow[0].paid_date || dpRow[0].issue_date
+        }
+      }
       const updatePayload: any = {
         items, subtotal, tax_amount: 0, total, customer_id: customerId,
         // Status se přegenerováním nemění — uhrazený DP/ZF nesmí spadnout na 'issued'.
-        issue_date: issueDate, due_date: dueDate, status: reuseInvoice.status || 'issued',
+        issue_date: issueDate, due_date: dueDate, status: healedStatus,
+      }
+      if (healedPaidDate && !reuseInvoice.paid_date) updatePayload.paid_date = String(healedPaidDate).slice(0, 10)
+      // Samoléčba VS: prázdný nebo textový VS sjednoť na číselný.
+      const vsStored = String(reuseInvoice.variable_symbol || '').trim()
+      if (!vsStored || /\D/.test(vsStored)) {
+        updatePayload.variable_symbol = vsStored.replace(/\D/g, '') || numericVs
       }
       const { data: upd, error: uErr } = await supabase.from('invoices')
         .update(updatePayload).eq('id', reuseInvoice.id).select().single()
       if (uErr) return new Response(JSON.stringify({ error: uErr.message }), { status: 500 })
       invoice = upd
+      // Bezpečná pojistka: kdyby update vrátil prázdno, renderuj z uloženého řádku.
+      if (!invoice) invoice = reuseInvoice
     } else {
       const invoicePayload: any = {
         number, type: invoiceType, customer_id: customerId,
         items, subtotal, tax_amount: 0, total,
-        issue_date: issueDate, due_date: dueDate, status: 'issued',
-        variable_symbol: (reqVariableSymbol && String(reqVariableSymbol).trim()) ? String(reqVariableSymbol).trim() : number,
+        issue_date: issueDate, due_date: dueDate,
+        // DP = doklad o PŘIJATÉ platbě → vzniká rovnou jako uhrazený.
+        status: isPaymentReceipt ? 'paid' : 'issued',
+        variable_symbol: numericVs,
         source: invoiceSource,
       }
+      if (isPaymentReceipt) invoicePayload.paid_date = issueDate
       if (booking_id) invoicePayload.booking_id = booking_id
       if (order_id) invoicePayload.order_id = order_id
 
@@ -772,6 +841,34 @@ serve(async (req) => {
         return new Response(JSON.stringify({ error: iErr.message }), { status: 500 })
       }
       invoice = ins
+    }
+
+    // DP = doklad o PŘIJATÉ platbě → související ZF téže rezervace/objednávky už
+    // není „K úhradě". Pokrývá VŠECHNY cesty (Stripe webhook, fio-sync, ruční
+    // potvrzení, regenerace DP) — dřív ZF zůstala navždy 'issued' a doklad
+    // i seznam ve Velíně lhaly „K ÚHRADĚ" i po zaplacení.
+    if (isPaymentReceipt) {
+      try {
+        let zq = supabase.from('invoices')
+          .update({ status: 'paid', paid_date: invoice.paid_date || issueDate })
+          .in('type', ['advance', 'proforma', 'shop_proforma'])
+          .neq('status', 'cancelled').neq('status', 'paid')
+        zq = booking_id ? zq.eq('booking_id', booking_id) : zq.eq('order_id', order_id)
+        await zq
+      } catch (e) { console.warn('[generate-invoice] ZF paid update failed:', (e as Error).message) }
+    }
+
+    // Zamčený doklad (po KF) se renderuje ze ZAMRAŽENÉHO odběratele (snapshot
+    // při vystavení), ne z aktuálního profilu — profil se mezitím mohl změnit.
+    if (lockedByFinal && reuseInvoice?.customer_snapshot) {
+      const cs = reuseInvoice.customer_snapshot
+      customer = {
+        full_name: cs.name || customer.full_name, company: cs.company || null,
+        company_address: cs.company_address || null, ico: cs.ico || null, dic: cs.dic || null,
+        email: cs.email || customer.email, phone: cs.phone || customer.phone,
+        street: cs.address || customer.street, city: cs.address ? null : customer.city,
+        zip: cs.address ? null : customer.zip,
+      }
     }
 
     const accent = isPaymentReceipt ? '#0891b2' : isProforma ? '#2563eb' : '#1a8a18'
@@ -799,10 +896,12 @@ serve(async (req) => {
 
     const html = generateInvoiceHtml({
       title, number, accent, issueDate, dueDate, total, company: COMPANY, customer, items,
-      paidDate: reuseInvoice?.paid_date ? String(reuseInvoice.paid_date).slice(0, 10) : undefined,
+      paidDate: invoice.paid_date ? String(invoice.paid_date).slice(0, 10) : (isPaymentReceipt ? issueDate : undefined),
+      // Uhrazená ZF nesmí na dokladu svítit „K ÚHRADĚ" — badge se řídí reálným stavem řádku.
+      isPaid: invoice.status === 'paid' || !!invoice.paid_date,
       voucher_codes, voucherValidUntil, doorCodes, isProforma, isPaymentReceipt, isShopFinal, dpNumber, bookingNumber,
       paymentMethodLabel, cardInfo, isEdit, lang: invLang, stripePaymentIntentId: stripePaymentId,
-      variableSymbol: (reqVariableSymbol && String(reqVariableSymbol).trim()) ? String(reqVariableSymbol).trim() : null,
+      variableSymbol: String(invoice.variable_symbol || numericVs).replace(/\D/g, '') || numericVs,
       dueNote: (reqDueNote && String(reqDueNote).trim()) ? String(reqDueNote).trim() : null,
     })
 
@@ -832,18 +931,20 @@ serve(async (req) => {
     // (customer_id=null) je profil prázdný → ODBĚRATEL prázdný. Tento snapshot dává
     // Velínu zamražené fakturační údaje k zobrazení. NON-FATAL: když sloupec
     // `customer_snapshot` ještě neexistuje, jen warning (doklad i PDF jsou OK).
-    const customerSnapshot = {
-      name: customer.full_name || customer.name || null,
-      company: customer.company || null,
-      company_address: customer.company_address || null,
-      ico: customer.ico || null,
-      dic: customer.dic || null,
-      email: customer.email || null,
-      phone: customer.phone || null,
-      address: [customer.street, customer.city, customer.zip].filter(Boolean).join(', ') || customer.street || null,
+    if (!lockedByFinal) {
+      const customerSnapshot = {
+        name: customer.full_name || customer.name || null,
+        company: customer.company || null,
+        company_address: customer.company_address || null,
+        ico: customer.ico || null,
+        dic: customer.dic || null,
+        email: customer.email || null,
+        phone: customer.phone || null,
+        address: [customer.street, customer.city, customer.zip].filter(Boolean).join(', ') || customer.street || null,
+      }
+      const { error: snapErr } = await supabase.from('invoices').update({ customer_snapshot: customerSnapshot }).eq('id', invoice.id)
+      if (snapErr) console.warn('[generate-invoice] customer_snapshot update failed (sloupec chybí?):', snapErr.message)
     }
-    const { error: snapErr } = await supabase.from('invoices').update({ customer_snapshot: customerSnapshot }).eq('id', invoice.id)
-    if (snapErr) console.warn('[generate-invoice] customer_snapshot update failed (sloupec chybí?):', snapErr.message)
 
     // ⚠️ MAIL Z GENERATE-INVOICE BYL ODSTRANĚN (2026-05-08).
     // Velín mail šablony jsou jediný zdroj pravdy — žádný mail mimo systém šablon.
@@ -863,12 +964,12 @@ serve(async (req) => {
         action: 'invoice_generated',
         component: 'generate-invoice',
         status: 'success',
-        request_data: { type: invoiceType, order_id: order_id || null, booking_id: booking_id || null, regenerate: !!reuseInvoice },
+        request_data: { type: invoiceType, order_id: order_id || null, booking_id: booking_id || null, regenerate: !!reuseInvoice, locked_by_final: lockedByFinal },
         response_data: { number, pdf_path: path, fn_version: 'v2-customer-2026-06-04', customer: { name: customer.full_name || null, company: customer.company || null, ico: customer.ico || null, dic: customer.dic || null, street: customer.street || null } },
       })
     } catch { /* ignore */ }
 
-    return new Response(JSON.stringify({ success: true, invoice_id: invoice.id, number, pdf_path: path }), {
+    return new Response(JSON.stringify({ success: true, invoice_id: invoice.id, number, pdf_path: path, locked: lockedByFinal || undefined }), {
       headers: { ...CORS, 'Content-Type': 'application/json' },
     })
   } catch (err) {

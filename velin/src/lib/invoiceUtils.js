@@ -161,8 +161,12 @@ export async function createInvoice({ type, customer_id, booking_id, order_id, i
     if (withOptional) {
       p.source = source || 'booking'
       if (order_id) p.order_id = order_id
-      // VS = ručně zadaný (převod) NEBO číslo dokladu (default jako dosud).
-      if (number) p.variable_symbol = (payment && payment.vs) || number
+      // VS = ručně zadaný (převod) NEBO číslo dokladu — VŽDY číselný (textový
+      // VS „ZF-2026-0204" banka nepřijme, platba by se nespárovala).
+      if (number) {
+        const rawVs = String((payment && payment.vs) || number)
+        p.variable_symbol = rawVs.replace(/\D/g, '') || rawVs
+      }
       // Ruční platební údaje na doklad (DP/ZF) — způsob platby, datum úhrady, č. transakce.
       if (payment) {
         if (payment.method) p.payment_method = payment.method
@@ -324,7 +328,7 @@ export async function generatePaymentReceipt(bookingId, source = 'booking', paym
   // Vazba na zálohovou fakturu (ZF) na dokladu — pro spárování platby a dokladů.
   const advanceNote = payment?.advance_number ? `\nK zálohové faktuře ${payment.advance_number}` : ''
 
-  return createInvoice({
+  const dp = await createInvoice({
     type: 'payment_receipt',
     customer_id: booking.profiles?.id || booking.user_id,
     booking_id: bookingId,
@@ -334,6 +338,17 @@ export async function generatePaymentReceipt(bookingId, source = 'booking', paym
     status: 'paid',
     payment,
   })
+
+  // DP = doklad o PŘIJATÉ platbě → ZF téže rezervace už není „K úhradě".
+  // Bez tohohle zůstala ZF navždy 'issued' a doklad i seznam ukazovaly K ÚHRADĚ.
+  try {
+    await supabase.from('invoices')
+      .update({ status: 'paid', paid_date: (payment && payment.paid_date) || new Date().toISOString().slice(0, 10) })
+      .eq('booking_id', bookingId).in('type', ['advance', 'proforma'])
+      .neq('status', 'cancelled').neq('status', 'paid')
+  } catch {} // non-blocking
+
+  return dp
 }
 
 /**
@@ -609,18 +624,30 @@ export async function loadInvoiceData(invoiceId) {
     }
   }
 
-  // Pro DP (payment_receipt) načti přístupové kódy
+  // Pro DP (payment_receipt) načti přístupové kódy — ale jen dokud pronájem
+  // trvá. Re-render/doposlání dokladu PO konci nájmu nesmí nést už neplatné kódy.
   if (data && data.type === 'payment_receipt' && data.booking_id) {
-    try {
-      const { data: codes } = await supabase
-        .from('branch_door_codes')
-        .select('code_type, door_code, withheld_reason')
-        .eq('booking_id', data.booking_id)
-      if (codes && codes.length > 0) {
-        data.door_codes = codes
+    const endDate = data.bookings?.end_date ? String(data.bookings.end_date).slice(0, 10) : null
+    const rentalOver = endDate && endDate < new Date().toISOString().slice(0, 10)
+    if (!rentalOver) {
+      try {
+        const { data: codes } = await supabase
+          .from('branch_door_codes')
+          .select('code_type, door_code, withheld_reason')
+          .eq('booking_id', data.booking_id)
+        if (codes && codes.length > 0) {
+          data.door_codes = codes
+        }
+      } catch (e) {
+        console.warn('[loadInvoiceData] Failed to fetch door codes:', e.message)
       }
-    } catch (e) {
-      console.warn('[loadInvoiceData] Failed to fetch door codes:', e.message)
+    }
+    // Zastaralá poznámka z doby vystavení („kódy budou zaslány po ověření
+    // dokladů") si protiřečí s blokem už uvolněných kódů — jakmile kódy nejsou
+    // zadržené (nebo pronájem skončil), poznámku z renderu odstraň.
+    const stillWithheld = (data.door_codes || []).some(c => c.withheld_reason)
+    if (data.notes && !stillWithheld) {
+      data.notes = data.notes.replace(/\s*Přístupové kódy budou zaslány po ověření dokladů\.?/g, '').trim() || null
     }
   }
 
