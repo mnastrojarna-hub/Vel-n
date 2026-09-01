@@ -183,7 +183,10 @@ export default function BookingDocumentsTab({ bookingId, userId }) {
     catch (e) { setError(`Ulozeni: ${e.message}`) }
   }
 
-  // Přegeneruje doklad aktuálními údaji a PŘEPÍŠE stávající řádek (zachová číslo).
+  // Přegeneruje doklad — aktualizuje POUZE odběratele/vzhled a znovu vyrenderuje
+  // PDF. Číslo, datum vystavení, položky i částky VŽDY zůstávají (server bere
+  // položky z uloženého řádku; po vystavení KF je doklad zamčený úplně — server
+  // vrátí locked:true a jen přerenderuje PDF beze změny údajů).
   // ZF/DP → generate-invoice regenerate:true; KF (final) → render_existing
   // (KF vystavuje DB trigger s číslem KF-…, regenerate by vyrobil jiný doklad FV).
   async function handleRegenerateInvoice(inv) {
@@ -201,8 +204,9 @@ export default function BookingDocumentsTab({ bookingId, userId }) {
         if (inv.type === 'final' || inv.type === 'issued') body = { render_existing: true, booking_id: bookingId, type: 'final' }
         else if (inv.type === 'payment_receipt') body = { regenerate: true, booking_id: bookingId, type: 'payment_receipt', send_email: false }
         else body = { regenerate: true, booking_id: bookingId, type: 'advance', send_email: false } // advance/proforma → ZF
-        const { error: err } = await debugAction('functions.generate-invoice.regen', 'BookingDocumentsTab', () => supabase.functions.invoke('generate-invoice', { body }), { invoice_id: inv.id, type: inv.type })
+        const { data: regenData, error: err } = await debugAction('functions.generate-invoice.regen', 'BookingDocumentsTab', () => supabase.functions.invoke('generate-invoice', { body }), { invoice_id: inv.id, type: inv.type })
         if (err) throw err
+        if (regenData?.locked) setError('Konečná faktura už je vystavená — doklad byl pouze znovu vyrenderován z uložených dat. Údaje vystaveného dokladu se po KF nemění; oprava jde jen přes storno / opravný doklad.')
         await loadAll()
       }
     } catch (e) { setError(`Přegenerování selhalo: ${e.message}`) }

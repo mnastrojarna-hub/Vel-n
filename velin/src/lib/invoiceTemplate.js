@@ -81,11 +81,15 @@ export function generateInvoiceHtml(data) {
     : isProforma ? 'ZF'
     : 'FAKTURA'
 
+  // Uhrazená ZF (status 'paid' / paid_date) nesmí svítit „K ÚHRADĚ" — badge se
+  // řídí reálným stavem řádku, ne jen typem dokladu.
+  const zfPaid = isProforma && (data.status === 'paid' || !!data.paid_date)
+
   const badge = isCreditNote ? { label: 'VRÁCENO', tone: 'refund' }
-    : isProforma ? { label: 'K ÚHRADĚ', tone: 'pending' }
+    : (isProforma && !zfPaid) ? { label: 'K ÚHRADĚ', tone: 'pending' }
     : { label: 'UHRAZENO', tone: 'paid' }
 
-  const status = isProforma ? 'K úhradě' : isCreditNote ? 'Vráceno' : 'Uhrazena'
+  const status = (isProforma && !zfPaid) ? 'K úhradě' : isCreditNote ? 'Vráceno' : 'Uhrazena'
 
   const supplier = data.supplier || COMPANY
   const customer = data.customer || {}
@@ -255,7 +259,7 @@ export function generateInvoiceHtml(data) {
           <div style="font-size:11px;font-weight:800;color:#16a34a;letter-spacing:1.5px;margin-bottom:6px">FAKTURAČNÍ ÚDAJE</div>
           <table role="presentation" cellpadding="0" cellspacing="0" style="font-size:11.5px;line-height:1.5">
             <tr><td style="color:#16a34a;padding-right:14px;vertical-align:top">Číslo faktury</td><td style="color:#0f1a14;font-weight:700">${number}</td></tr>
-            <tr><td style="color:#16a34a;padding-right:14px;vertical-align:top">Variabilní symbol</td><td style="color:#0f1a14;font-weight:700">${data.variable_symbol || number}</td></tr>
+            <tr><td style="color:#16a34a;padding-right:14px;vertical-align:top">Variabilní symbol</td><td style="color:#0f1a14;font-weight:700">${String(data.variable_symbol || number).replace(/\D/g, '') || number}</td></tr>
             ${bookingNumber ? `<tr><td style="color:#16a34a;padding-right:14px;vertical-align:top">Číslo rezervace</td><td style="color:#0f1a14;font-weight:700">${bookingNumber}</td></tr>` : ''}
             <tr><td style="color:#16a34a;padding-right:14px;vertical-align:top">Datum vystavení</td><td style="color:#0f1a14;font-weight:700">${fmtDate(data.issue_date)}</td></tr>
             <tr><td style="color:#16a34a;padding-right:14px;vertical-align:top">Datum splatnosti</td><td style="color:#0f1a14;font-weight:700">${fmtDate(data.due_date)}</td></tr>
