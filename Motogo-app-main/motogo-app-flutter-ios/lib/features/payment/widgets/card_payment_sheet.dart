@@ -5,6 +5,7 @@ import 'package:flutter_stripe/flutter_stripe.dart';
 
 import '../../../core/theme.dart';
 import '../../../core/i18n/i18n_provider.dart';
+import '../payment_error_mapper.dart';
 
 /// Výsledek vlastního platebního sheetu s kartou.
 enum CardSheetStatus { paid, processing, cancelled, failed }
@@ -143,6 +144,42 @@ class _CardSheetBodyState extends State<_CardSheetBody>
     } catch (_) {
       // Platformní peněženka nedostupná — zaplatí se kartou.
     }
+  }
+
+  /// App Review 2.1 (build 38): `isPlatformPaySupported()` vrací false na
+  /// zařízení bez karty ve Walletu (typicky recenzní zařízení Apple) → tlačítko
+  /// se skrylo a recenzent Apple Pay integraci „neviděl". Na iOS proto tlačítko
+  /// zobrazujeme VŽDY a nedostupnost řešíme až při tapnutí: živý re-check, a
+  /// když peněženka opravdu není k dispozici, srozumitelná hláška (mapper
+  /// substituuje Google Pay → Apple Pay) místo prázdné obrazovky.
+  Future<void> _tapApplePay() async {
+    if (_processing) return;
+    if (!_platformPayReady) {
+      bool ok = false;
+      try {
+        ok = await Stripe.instance.isPlatformPaySupported();
+      } catch (_) {}
+      if (!mounted) return;
+      if (!ok) {
+        final info = PaymentErrorMapper.wallet(t(context).lang);
+        await showDialog<void>(
+          context: context,
+          builder: (dctx) => AlertDialog(
+            title: Text(info.title),
+            content: Text(info.message),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dctx).pop(),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+        return;
+      }
+      setState(() => _platformPayReady = true);
+    }
+    await _payWithPlatformPay();
   }
 
   /// Mapuje finální stav PaymentIntentu na výsledek sheetu.
@@ -287,8 +324,10 @@ class _CardSheetBodyState extends State<_CardSheetBody>
             ),
             const SizedBox(height: 16),
 
-            // Apple Pay / Google Pay (jen na podporovaných zařízeních)
-            if (_platformPayReady) ...[
+            // Apple Pay: na iOS VŽDY viditelné (App Review 2.1 — recenzent bez
+            // karty ve Walletu musí integraci vidět; nedostupnost řeší
+            // _tapApplePay hláškou). Google Pay (Android) jen na podporovaných.
+            if (Platform.isIOS || _platformPayReady) ...[
               if (Platform.isIOS)
                 // Nativní PKPaymentButton — vzhled vyžadovaný Apple HIG.
                 SizedBox(
@@ -298,7 +337,7 @@ class _CardSheetBodyState extends State<_CardSheetBody>
                     appearance: PlatformButtonStyle.black,
                     borderRadius: 8,
                     onPressed: () {
-                      if (!_processing) _payWithPlatformPay();
+                      if (!_processing) _tapApplePay();
                     },
                   ),
                 )
