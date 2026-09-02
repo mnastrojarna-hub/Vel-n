@@ -301,8 +301,8 @@ const bootSizes = ['39', '40', '41', '42', '43', '44', '45', '46', '47', '48'];
 //    rozšířené až do 6XL dle požadavku. ──
 const helmetSizesAdult = ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'];
 const jacketSizesAdult = ['S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL', '6XL'];
-const glovesSizesAdult = ['M', 'L', 'XL', '2XL', '3XL'];
-const pantsSizesAdult = ['M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL', '6XL'];
+const glovesSizesAdult = ['S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL'];
+const pantsSizesAdult = ['S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL', '6XL'];
 const bootSizesAdult = ['39', '40', '41', '42', '43', '44', '45', '46', '47', '48'];
 
 // ── Velikosti výbavy pro DĚTSKÉ motorky — dle motogo-web-php childSizes. ──

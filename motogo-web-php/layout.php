@@ -106,9 +106,15 @@ function renderHeader($currentPath = '/') {
                             '<img class="header-app-qr" src="' . BASE_URL . '/gfx/qr-google-play.svg" alt="' . te('header.app.qrAlt') . '" width="120" height="120" loading="lazy">' .
                             '<div class="header-app-col">' .
                                 '<a class="header-app-cta" href="' . PLAY_STORE_LIVE_URL . '" target="_blank" rel="noopener">' . tc('header.app.getPlay') . '</a>' .
-                                '<p class="header-app-note">' . tc('header.app.whitelist') . '</p>' .
                             '</div>' .
                         '</div>' .
+                        '<div class="header-app-body">' .
+                            '<img class="header-app-qr" src="' . BASE_URL . '/gfx/qr-app-store.svg" alt="' . te('header.app.qrAltIos') . '" width="120" height="120" loading="lazy">' .
+                            '<div class="header-app-col">' .
+                                '<a class="header-app-cta" href="' . APP_STORE_LIVE_URL . '" target="_blank" rel="noopener">' . tc('header.app.getIos') . '</a>' .
+                            '</div>' .
+                        '</div>' .
+                        '<p class="header-app-note">' . tc('header.app.whitelist') . '</p>' .
                         '<p class="header-app-loyalty"><strong>' . tc('header.app.loyaltyTitle') . '</strong> ' . tc('header.app.loyaltyText') . '</p>' .
                     '</div>' .
                 '</div>' .
