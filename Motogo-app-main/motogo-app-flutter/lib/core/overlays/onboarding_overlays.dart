@@ -119,7 +119,7 @@ class _LangBtn extends StatelessWidget {
 /// Permission request overlay — shown after language selection.
 /// Mirrors perm-overlay from index.html + grantPerms() from native-bridge.js.
 /// Actually requests native permissions when user taps "Povolit vše".
-class PermissionOverlay extends StatelessWidget {
+class PermissionOverlay extends StatefulWidget {
   final VoidCallback onAllow;
   final VoidCallback onSkip;
   const PermissionOverlay({super.key, required this.onAllow, required this.onSkip});
@@ -147,6 +147,27 @@ class PermissionOverlay extends StatelessWidget {
   }
 
   @override
+  State<PermissionOverlay> createState() => _PermissionOverlayState();
+}
+
+class _PermissionOverlayState extends State<PermissionOverlay> {
+  // Blokuje druhý tap během běžícího nativního requestu — souběžný request
+  // permission_handler odmítá PlatformException a shodil by appku.
+  bool _requesting = false;
+
+  Future<void> _onAllowTap() async {
+    if (_requesting) return;
+    setState(() => _requesting = true);
+    try {
+      await PermissionOverlay.requestAllPermissions();
+    } finally {
+      if (mounted) setState(() => _requesting = false);
+    }
+    if (!mounted) return;
+    widget.onAllow();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Material(
       color: MotoGoColors.black.withValues(alpha: 0.97),
@@ -162,22 +183,19 @@ class PermissionOverlay extends StatelessWidget {
               Text(t(context).tr('needConsentForFull'),
                 style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.5))),
               const SizedBox(height: 24),
-              ..._perms.map((p) => _PermItem(icon: p.$1, title: p.$2, desc: p.$3)),
+              ...PermissionOverlay._perms.map((p) => _PermItem(icon: p.$1, title: p.$2, desc: p.$3)),
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
                 height: 52,
                 child: ElevatedButton(
-                  onPressed: () async {
-                    await requestAllPermissions();
-                    onAllow();
-                  },
+                  onPressed: _requesting ? null : _onAllowTap,
                   child: Text(t(context).tr('allowAllContinue')),
                 ),
               ),
               const SizedBox(height: 8),
               TextButton(
-                onPressed: onSkip,
+                onPressed: _requesting ? null : widget.onSkip,
                 child: Text(t(context).tr('skipSetupLater'),
                   style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 13)),
               ),

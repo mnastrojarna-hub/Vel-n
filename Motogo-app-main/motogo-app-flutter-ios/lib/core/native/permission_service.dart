@@ -1,5 +1,6 @@
 import 'dart:io' show Platform;
 
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:permission_handler/permission_handler.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -27,11 +28,25 @@ class PermissionService {
         if (Platform.isIOS) Permission.photos,
       ];
 
+  /// In-flight requestAll — concurrent callers share this future instead of
+  /// firing a second native request (permission_handler allows only one at a
+  /// time and throws "A request for permissions is already running").
+  static Future<void>? _requestAllInFlight;
+
   /// Request ALL permissions at once. Called from onboarding overlay.
   /// Sets the permissions in system settings so point-of-use never re-asks.
-  static Future<void> requestAll() async {
-    // Request all permissions via permission_handler (shows system dialogs)
-    await _allPermissions.request();
+  static Future<void> requestAll() {
+    return _requestAllInFlight ??=
+        _requestAllImpl().whenComplete(() => _requestAllInFlight = null);
+  }
+
+  static Future<void> _requestAllImpl() async {
+    // Request all permissions via permission_handler (shows system dialogs).
+    // PlatformException here (e.g. a dialog from another plugin already open)
+    // must not crash the app — the flow continues and marks the step done.
+    try {
+      await _allPermissions.request();
+    } on PlatformException catch (_) {}
 
     // Firebase messaging needs its own request for iOS token registration
     try {

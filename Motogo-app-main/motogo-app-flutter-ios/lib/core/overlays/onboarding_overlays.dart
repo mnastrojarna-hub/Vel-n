@@ -125,7 +125,7 @@ class _LangBtn extends StatelessWidget {
 /// NOT offer a skip/close exit — the user always proceeds to the system prompt
 /// after reading it. So this screen has a single "Continue" (next) button that
 /// leads straight into the native permission dialogs.
-class PermissionOverlay extends StatelessWidget {
+class PermissionOverlay extends StatefulWidget {
   final VoidCallback onAllow;
   const PermissionOverlay({super.key, required this.onAllow});
 
@@ -152,6 +152,27 @@ class PermissionOverlay extends StatelessWidget {
   }
 
   @override
+  State<PermissionOverlay> createState() => _PermissionOverlayState();
+}
+
+class _PermissionOverlayState extends State<PermissionOverlay> {
+  // Blokuje druhý tap během běžícího nativního requestu — souběžný request
+  // permission_handler odmítá PlatformException a shodil by appku.
+  bool _requesting = false;
+
+  Future<void> _onContinueTap() async {
+    if (_requesting) return;
+    setState(() => _requesting = true);
+    try {
+      await PermissionOverlay.requestAllPermissions();
+    } finally {
+      if (mounted) setState(() => _requesting = false);
+    }
+    if (!mounted) return;
+    widget.onAllow();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Material(
       color: MotoGoColors.black.withValues(alpha: 0.97),
@@ -167,16 +188,13 @@ class PermissionOverlay extends StatelessWidget {
               Text(t(context).tr('needConsentForFull'),
                 style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.5))),
               const SizedBox(height: 24),
-              ..._perms.map((p) => _PermItem(icon: p.$1, title: p.$2, desc: p.$3)),
+              ...PermissionOverlay._perms.map((p) => _PermItem(icon: p.$1, title: p.$2, desc: p.$3)),
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
                 height: 52,
                 child: ElevatedButton(
-                  onPressed: () async {
-                    await requestAllPermissions();
-                    onAllow();
-                  },
+                  onPressed: _requesting ? null : _onContinueTap,
                   child: Text(t(context).tr('next')),
                 ),
               ),
