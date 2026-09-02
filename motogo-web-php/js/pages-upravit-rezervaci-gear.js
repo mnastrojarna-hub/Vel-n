@@ -21,9 +21,9 @@
   var FALLBACK_SIZES = {
     helmet: ['XS', 'S', 'M', 'L', 'XL', '2XL'],
     jacket: ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'],
-    pants: ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'],
+    pants: ['S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL', '6XL'],
     boots: ['36', '37', '38', '39', '40', '41', '42', '43', '44', '45', '46', '47'],
-    gloves: ['XS', 'S', 'M', 'L', 'XL', '2XL'],
+    gloves: ['S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL'],
   };
   var _sizeCatalog = null; // {helmet:[...], ...} z accessory_types (cache)
 

@@ -30,6 +30,8 @@ define('YT_URL', 'https://www.youtube.com/@Motogo24');
 
 // Mobilní aplikace — veřejný odkaz na živou appku v Obchodě Google Play
 define('PLAY_STORE_LIVE_URL', 'https://play.google.com/store/apps/details?id=com.motogo24.app');
+// iOS appka v App Store (App Store Connect Apple ID 6806045151, bundle com.motogo24.rental)
+define('APP_STORE_LIVE_URL', 'https://apps.apple.com/cz/app/id6806045151');
 
 // Logo
 define('LOGO_SVG', 'gfx/logo.svg');

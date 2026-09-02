@@ -42,12 +42,13 @@
   "related_applications": [
     {
       "platform": "play",
-      "url": "https://play.google.com/store/apps/details?id=cz.motogo24.app",
-      "id": "cz.motogo24.app"
+      "url": "https://play.google.com/store/apps/details?id=com.motogo24.app",
+      "id": "com.motogo24.app"
     },
     {
       "platform": "itunes",
-      "url": "https://apps.apple.com/cz/app/motogo24/id0000000000"
+      "url": "https://apps.apple.com/cz/app/id6806045151",
+      "id": "6806045151"
     }
   ],
   "prefer_related_applications": false
