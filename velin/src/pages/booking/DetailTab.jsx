@@ -2,10 +2,25 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import Card from '../../components/ui/Card'
 import { InfoRow } from './BookingUIHelpers'
-import { CANCEL_REASONS } from './bookingConstants'
+import { CANCEL_SOURCE_LABELS } from './bookingConstants'
 import BookingSummary from './BookingSummary'
 import Timeline from './BookingTimeline'
 import { SOSSection, DoorCodesSection, DatesAndPaymentSection } from './DetailTabSections'
+
+// Stav motorky pro zobrazení: syrový `motorcycles.status` říká „V servisu" i motorce,
+// která má jen NAPLÁNOVANÝ servis v budoucnu (pending log). Otevřené záznamy
+// z maintenance_log proto rozliší skutečný probíhající servis od plánu.
+function motoStatusDisplay(status, openLogs) {
+  const base = { active: 'Aktivní', maintenance: 'V servisu', unavailable: 'Dočasně vyřazena', retired: 'Trvale vyřazena' }[status] || status
+  if (!Array.isArray(openLogs)) return base
+  const today = new Date().toLocaleDateString('sv-SE')
+  const inServiceNow = openLogs.some(l => l.status === 'in_service' || (l.status === 'pending' && l.service_date && l.service_date.slice(0, 10) <= today))
+  const futurePlan = openLogs.find(l => l.status === 'pending' && l.service_date && l.service_date.slice(0, 10) > today)
+  const planLbl = futurePlan ? `servis naplánován od ${new Date(futurePlan.service_date).toLocaleDateString('cs-CZ')}` : null
+  if (status === 'maintenance' && !inServiceNow && planLbl) return `Aktivní · ${planLbl}`
+  if (status === 'active' && planLbl) return `Aktivní · ${planLbl}`
+  return base
+}
 
 export default function DetailTab({ booking, set, error, saving, actions, onAction, navigate, promoUsage, voucherUsed, onModify }) {
   const [sosIncidents, setSosIncidents] = useState([])
@@ -13,6 +28,7 @@ export default function DetailTab({ booking, set, error, saving, actions, onActi
   const [cancellation, setCancellation] = useState(null)
   const [doorCodes, setDoorCodes] = useState([])
   const [bookingDiscounts, setBookingDiscounts] = useState([])
+  const [motoOpenLogs, setMotoOpenLogs] = useState(null)
 
   useEffect(() => {
     if (!booking?.id) return
@@ -35,6 +51,54 @@ export default function DetailTab({ booking, set, error, saving, actions, onActi
         .then(({ data }) => { if (data) setCancellation(data) }).catch(() => {})
     }
   }, [booking?.id])
+
+  useEffect(() => {
+    const mid = booking?.motorcycles?.id
+    if (!mid) { setMotoOpenLogs(null); return }
+    supabase.from('maintenance_log').select('id, status, service_date')
+      .eq('moto_id', mid).is('completed_date', null).in('status', ['pending', 'in_service'])
+      .order('service_date', { ascending: true })
+      .then(({ data }) => setMotoOpenLogs(data || []), () => setMotoOpenLogs(null))
+  }, [booking?.motorcycles?.id])
+
+  // Jednotný, DEDUPLIKOVANÝ seznam slev: stejný kód bývá zapsaný v booking_discounts
+  // I v promo_code_usage (např. Slevomat) — zobrazí se jen jednou. Fallback na
+  // bookings.discount_code jen když neexistuje žádný strukturovaný záznam.
+  const discountRows = (() => {
+    const rows = []
+    const seen = new Set()
+    const norm = c => String(c || '').trim().toUpperCase()
+    for (const d of bookingDiscounts) {
+      seen.add(norm(d.code))
+      rows.push({
+        key: `bd-${d.id}`,
+        label: d.kind === 'voucher' ? 'Dárkový poukaz' : (d.discount_type === 'percent' ? `Slevový kód (${d.value} %)` : 'Slevový kód'),
+        value: `${d.code} → -${Number(d.amount || 0).toLocaleString('cs-CZ')} Kč`,
+      })
+    }
+    for (const pu of (promoUsage || [])) {
+      const pc = pu.promo_codes
+      if (!pc?.code || seen.has(norm(pc.code))) continue
+      seen.add(norm(pc.code))
+      const applied = Number(pu.discount_applied || 0)
+      rows.push({
+        key: `pu-${pu.id}`,
+        label: pc.type === 'percent' ? `Slevový kód (${pc.value} %)` : `Slevový kód (${pc.value} Kč)`,
+        value: applied > 0 ? `${pc.code} → -${applied.toLocaleString('cs-CZ')} Kč` : pc.code,
+      })
+    }
+    if (voucherUsed?.code && !seen.has(norm(voucherUsed.code))) {
+      seen.add(norm(voucherUsed.code))
+      rows.push({ key: 'voucher', label: 'Dárkový poukaz', value: `${voucherUsed.code} — ${Number(voucherUsed.amount).toLocaleString('cs-CZ')} ${voucherUsed.currency}` })
+    }
+    if (rows.length === 0 && booking.discount_code) {
+      rows.push({ key: 'code', label: 'Slevový kód', value: booking.discount_code })
+    }
+    if (booking.loyalty_discount_amount > 0) {
+      rows.push({ key: 'loyalty', label: `★ Věrnostní sleva${booking.loyalty_percent ? ` ${booking.loyalty_percent} %` : ''} (jen app)`, value: `-${Number(booking.loyalty_discount_amount).toLocaleString('cs-CZ')} Kč` })
+    }
+    return rows
+  })()
 
   return (
     <div className="grid grid-cols-2 gap-5">
@@ -60,30 +124,25 @@ export default function DetailTab({ booking, set, error, saving, actions, onActi
         </div>
         <InfoRow label="Model" value={booking.motorcycles?.model} />
         <InfoRow label="SPZ" value={booking.motorcycles?.spz} />
-        <InfoRow label="Stav" value={{ active: 'Aktivní', maintenance: 'V servisu', unavailable: 'Dočasně vyřazena', retired: 'Trvale vyřazena' }[booking.motorcycles?.status] || booking.motorcycles?.status} />
+        <InfoRow label="Stav" value={motoStatusDisplay(booking.motorcycles?.status, motoOpenLogs)} />
         <InfoRow label="Pobočka" value={booking.motorcycles?.branches?.name} />
       </Card>
 
       <SOSSection booking={booking} sosIncidents={sosIncidents} navigate={navigate} />
 
-      {(booking.discount_amount > 0 || booking.discount_code || (promoUsage && promoUsage.length > 0) || voucherUsed || bookingDiscounts.length > 0) && (
+      {(discountRows.length > 0 || booking.discount_amount > 0) && (
         <Card className="col-span-2">
           <h3 className="text-sm font-extrabold uppercase tracking-wide mb-4" style={{ color: '#b45309' }}>Uplatněné slevy a kódy</h3>
           <div className="p-4 rounded-lg" style={{ background: '#fffbeb', border: '1px solid #fde68a' }}>
             <div className="grid grid-cols-3 gap-3">
-              {bookingDiscounts.map((d, i) => (
-                <div key={d.id || i}>
-                  <InfoRow label={d.kind === 'voucher' ? 'Voucher' : (d.discount_type === 'percent' ? `Slevový kód (${d.value} %)` : 'Slevový kód')} value={`${d.code} → -${Number(d.amount || 0).toLocaleString('cs-CZ')} Kč`} />
+              {discountRows.map(r => (
+                <div key={r.key}>
+                  <InfoRow label={r.label} value={r.value} />
                 </div>
               ))}
-              {bookingDiscounts.length === 0 && booking.discount_code && <InfoRow label="Slevový kód" value={booking.discount_code} />}
-              {booking.discount_amount > 0 && <InfoRow label="Sleva celkem" value={`-${Number(booking.discount_amount).toLocaleString('cs-CZ')} Kč`} />}
-              {promoUsage && promoUsage.map((pu, i) => (
-                <div key={pu.id || i}>
-                  <InfoRow label={`Promo kód ${i + 1}`} value={`${pu.promo_codes?.code || '—'} (${pu.promo_codes?.type === 'percent' ? pu.promo_codes.value + '%' : pu.promo_codes?.value + ' Kč'}) → sleva ${pu.promo_codes?.type === 'percent' ? pu.promo_codes.value + '%' : Number(pu.discount_applied || 0).toLocaleString('cs-CZ') + ' Kč'}`} />
-                </div>
-              ))}
-              {voucherUsed && <InfoRow label="Dárkový poukaz" value={`${voucherUsed.code} — ${Number(voucherUsed.amount).toLocaleString('cs-CZ')} ${voucherUsed.currency}`} />}
+              {booking.discount_amount > 0 && discountRows.length !== 1 && (
+                <InfoRow label="Sleva celkem" value={`-${Number(booking.discount_amount).toLocaleString('cs-CZ')} Kč`} />
+              )}
             </div>
           </div>
         </Card>
@@ -98,18 +157,23 @@ export default function DetailTab({ booking, set, error, saving, actions, onActi
           <h3 className="text-sm font-extrabold uppercase tracking-wide mb-4" style={{ color: '#dc2626' }}>Informace o zrušení</h3>
           <div className="p-4 rounded-lg" style={{ background: '#fef2f2', border: '1px solid #fecaca' }}>
             <div className="grid grid-cols-2 gap-3">
-              <InfoRow label="Zdroj" value={CANCEL_REASONS.find(r => r.value === booking.cancelled_by_source)?.label || booking.cancelled_by_source || '—'} />
+              <InfoRow label="Zdroj" value={CANCEL_SOURCE_LABELS[booking.cancelled_by_source] || booking.cancelled_by_source || '—'} />
               <InfoRow label="Kdy" value={booking.cancelled_at ? new Date(booking.cancelled_at).toLocaleString('cs-CZ') : '—'} />
               <div className="col-span-2"><InfoRow label="Důvod" value={booking.cancellation_reason || '—'} /></div>
               <InfoRow label="Email odeslán" value={booking.cancellation_notified ? 'Ano' : 'Ne'} />
+              {cancellation && (
+                <InfoRow label="Vráceno" value={Number(cancellation.refund_amount) > 0
+                  ? `${Number(cancellation.refund_amount).toLocaleString('cs-CZ')} Kč${cancellation.refund_percent != null ? ` (${cancellation.refund_percent} %)` : ''}`
+                  : 'Bez vratky'} />
+              )}
             </div>
           </div>
         </Card>
       )}
 
       <Card className="col-span-2">
-        <h3 className="text-sm font-extrabold uppercase tracking-wide mb-4" style={{ color: '#1a2e22' }}>Kompletní přehled rezervace</h3>
-        <BookingSummary booking={booking} sosIncidents={sosIncidents} bookingExtras={bookingExtras} cancellation={cancellation} promoUsage={promoUsage} voucherUsed={voucherUsed} />
+        <h3 className="text-sm font-extrabold uppercase tracking-wide mb-4" style={{ color: '#1a2e22' }}>Doplňující informace</h3>
+        <BookingSummary booking={booking} bookingExtras={bookingExtras} />
       </Card>
 
       <Card className="col-span-2">

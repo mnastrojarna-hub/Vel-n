@@ -1,6 +1,6 @@
 import Card from '../../components/ui/Card'
 import { InfoRow } from './BookingUIHelpers'
-import { CANCEL_REASONS, describeModification, describeHistoryEntry, paymentMethodInfo, paymentStatusInfo, stripePaymentIntentUrl, stripeRefundUrl, cardLabel } from './bookingConstants'
+import { describeModification, describeHistoryEntry, fmtDT, paymentMethodInfo, paymentStatusInfo, stripePaymentIntentUrl, stripeRefundUrl, cardLabel } from './bookingConstants'
 import Button from '../../components/ui/Button'
 import { mapyLinkUrl, mapyNavigateUrl } from '../../lib/mapyCz'
 import { fmtTimeHM, DEFAULT_PICKUP_TIME, DEFAULT_RETURN_TIME } from './bookingModifyHelpers'
@@ -98,6 +98,23 @@ export function SOSSection({ booking, sosIncidents, navigate }) {
             </button>
           )}
         </div>
+        {sosIncidents.length > 1 && (
+          <div className="mt-3 pt-2" style={{ borderTop: '1px dashed #fca5a5' }}>
+            <div className="text-xs font-extrabold uppercase tracking-wide mb-1" style={{ color: '#b91c1c' }}>Další incidenty ({sosIncidents.length - 1})</div>
+            {sosIncidents.slice(1).map(i2 => (
+              <div key={i2.id} className="py-1 flex items-center flex-wrap gap-x-2" style={{ fontSize: 13 }}>
+                <button onClick={() => navigate('/sos', { state: { openIncidentId: i2.id } })}
+                  className="font-bold cursor-pointer" style={{ color: '#dc2626', background: 'none', border: 'none', fontFamily: 'monospace', fontSize: 13, padding: 0 }}>
+                  #{i2.id.slice(-8).toUpperCase()}
+                </button>
+                <span>{SOS_TYPE_LABELS[i2.type] || i2.type}{i2.severity ? ` (${i2.severity})` : ''} — {SOS_STATUS_LABELS[i2.status] || i2.status}</span>
+                {i2.title && <span>— {i2.title}</span>}
+                <span style={{ color: '#1a2e22' }}>{fmtDT(i2.created_at)}</span>
+                {i2.resolved_at && <span style={{ color: '#1a8a18' }}>→ vyřešeno {fmtDT(i2.resolved_at)}</span>}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </Card>
   )
@@ -246,18 +263,7 @@ export function DatesAndPaymentSection({ booking, bookingExtras, sosIncidents, o
   return (
     <Card className="col-span-2">
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-        <div className="flex items-center gap-3 flex-wrap">
-          <h3 className="text-base font-extrabold uppercase tracking-wider" style={{ color: '#0f1a14' }}>Termín a platba</h3>
-          {booking.booking_source && (
-            <span className="inline-flex items-center gap-1 rounded-btn text-xs font-extrabold uppercase tracking-wide"
-              style={{ padding: '3px 10px', background: booking.booking_source === 'web' ? '#dbeafe' : '#dcfce7', color: booking.booking_source === 'web' ? '#1d4ed8' : '#166534', border: `1px solid ${booking.booking_source === 'web' ? '#bfdbfe' : '#bbf7d0'}` }}>
-              {booking.booking_source === 'web' ? 'Rezervace z webu' : 'Rezervace z aplikace'}
-              {booking.created_via_ai && (
-                <span title="Vytvořeno přes AI asistenta" style={{ background: '#fef3c7', color: '#92400e', padding: '0 5px', borderRadius: 6, fontSize: 10 }}>🤖 AI</span>
-              )}
-            </span>
-          )}
-        </div>
+        <h3 className="text-base font-extrabold uppercase tracking-wider" style={{ color: '#0f1a14' }}>Termín a platba</h3>
         {!['cancelled', 'completed'].includes(booking.status) && (
           <button onClick={onModify} className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
             style={{ padding: '6px 16px', background: '#2563eb', color: '#fff', border: 'none', boxShadow: '0 2px 8px rgba(37,99,235,.25)' }}>Upravit rezervaci</button>
@@ -326,7 +332,7 @@ export function DatesAndPaymentSection({ booking, bookingExtras, sosIncidents, o
       {/* Platba — silně zvýrazněný blok */}
       <div className="mt-3 p-3 rounded-lg" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
         <div className="text-xs font-extrabold uppercase tracking-wider mb-2" style={{ color: '#4a5a52' }}>Platba</div>
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-3 gap-3">
           <div className="rounded-lg p-2.5" style={{ background: '#fff', border: '1px solid #d4e8e0' }}>
             <div className="text-[11px] font-extrabold uppercase tracking-wider mb-1" style={{ color: '#4a5a52' }}>Stav platby</div>
             <div className="text-sm font-extrabold" style={{ color: payInfo.color }}>
@@ -346,18 +352,12 @@ export function DatesAndPaymentSection({ booking, bookingExtras, sosIncidents, o
               <div className="text-[11px] font-bold mt-0.5" style={{ color: '#4a5a52' }}>Č. transakce: {booking.payment_reference}</div>
             )}
             {stripeUrl && (
-              <a href={stripeUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 mt-1 text-[11px] font-extrabold rounded-btn"
+              <a href={stripeUrl} target="_blank" rel="noopener noreferrer" title={booking.stripe_payment_intent_id}
+                className="inline-flex items-center gap-1 mt-1 text-[11px] font-extrabold rounded-btn"
                 style={{ padding: '2px 6px', background: '#ede9fe', color: '#6d28d9', textDecoration: 'none', border: '1px solid #ddd6fe' }}>
                 Stripe ↗
               </a>
             )}
-          </div>
-          <div className="rounded-lg p-2.5" style={{ background: '#fff', border: '1px solid #d4e8e0' }}>
-            <div className="text-[11px] font-extrabold uppercase tracking-wider mb-1" style={{ color: '#4a5a52' }}>Sleva</div>
-            <div className="text-sm font-extrabold" style={{ color: booking.discount_amount > 0 ? '#1a8a18' : '#0f1a14' }}>
-              {booking.discount_amount > 0 ? `-${Number(booking.discount_amount).toLocaleString('cs-CZ')} Kč` : '—'}
-            </div>
-            {booking.discount_code && <div className="text-[11px] font-bold mt-0.5" style={{ color: '#4a5a52' }}>{booking.discount_code}</div>}
           </div>
           <div className="rounded-lg p-2.5" style={{ background: '#fff', border: '1px solid #d4e8e0' }}>
             <div className="text-[11px] font-extrabold uppercase tracking-wider mb-1" style={{ color: '#4a5a52' }}>Kauce</div>
@@ -396,7 +396,7 @@ export function DatesAndPaymentSection({ booking, bookingExtras, sosIncidents, o
       </div>
 
       {/* Příslušenství — přehledná tabulka */}
-      {(bookingExtras?.length > 0 || booking.extras_price > 0) && (
+      {(bookingExtras?.length > 0 || booking.extras_price > 0 || booking.delivery_fee > 0) && (
         <div className="mt-3 p-3 rounded-lg" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
           <div className="flex items-center justify-between mb-2">
             <div className="text-xs font-extrabold uppercase tracking-wider" style={{ color: '#4a5a52' }}>Příslušenství a poplatky</div>
