@@ -1,9 +1,5 @@
-import { useNavigate } from 'react-router-dom'
-import { getDisplayStatus } from '../../components/ui/StatusBadge'
 import { SumRow } from './BookingUIHelpers'
-import { STATUS_LABELS, CANCEL_SOURCE_LABELS, describeModification, describeHistoryEntry, fmtDT, paymentMethodInfo, paymentStatusInfo, stripePaymentIntentUrl, hasPassengerGearOrdered } from './bookingConstants'
-import { mapyLinkUrl } from '../../lib/mapyCz'
-import { fmtTimeHM, DEFAULT_PICKUP_TIME, DEFAULT_RETURN_TIME } from './bookingModifyHelpers'
+import { fmtDT, hasPassengerGearOrdered } from './bookingConstants'
 
 // Doba vyplnění formuláře v sekundách → čitelný formát (např. „2 min 15 s")
 function fmtDuration(s) {
@@ -16,55 +12,12 @@ function fmtDuration(s) {
   return `${h} h ${m % 60} min`
 }
 
-// Spáruje booking_extras.name s velikostí z bookings.*_size (driver/passenger)
-function matchExtraSize(name, b) {
-  const n = (name || '').toLowerCase()
-  const passenger = n.includes('spolujez') || n.includes('passenger')
-  const pick = (driver, pas) => passenger ? (b[pas] || null) : (b[driver] || null)
-  if (n.includes('boty') || n.includes('boots')) return pick('boots_size', 'passenger_boots_size')
-  if (n.includes('helma') || n.includes('helmet')) return pick('helmet_size', 'passenger_helmet_size')
-  if (n.includes('bunda') || n.includes('jacket')) return pick('jacket_size', 'passenger_jacket_size')
-  if (n.includes('kalhoty') || n.includes('pants')) return pick('pants_size', 'passenger_pants_size')
-  if (n.includes('rukavice') || n.includes('gloves')) return pick('gloves_size', 'passenger_gloves_size')
-  if (n.includes('výbava') || n.includes('vybava') || n.includes('set')) {
-    if (passenger) {
-      const parts = [
-        b.passenger_helmet_size && `helma ${b.passenger_helmet_size}`,
-        b.passenger_jacket_size && `bunda/vesta ${b.passenger_jacket_size}`,
-        b.passenger_pants_size && `kalhoty ${b.passenger_pants_size}`,
-        b.passenger_boots_size && `boty ${b.passenger_boots_size}`,
-        b.passenger_gloves_size && `rukavice ${b.passenger_gloves_size}`,
-      ].filter(Boolean)
-      return parts.length ? parts.join(', ') : null
-    }
-    const parts = [
-      b.helmet_size && `helma ${b.helmet_size}`,
-      b.jacket_size && `bunda ${b.jacket_size}`,
-      b.pants_size && `kalhoty ${b.pants_size}`,
-      b.boots_size && `boty ${b.boots_size}`,
-      b.gloves_size && `rukavice ${b.gloves_size}`,
-    ].filter(Boolean)
-    return parts.length ? parts.join(', ') : null
-  }
-  return null
-}
-
-export default function BookingSummary({ booking, sosIncidents, bookingExtras, cancellation, promoUsage, voucherUsed }) {
-  const navigate = useNavigate()
+// Doplňující informace k rezervaci — JEN údaje, které nejsou nikde jinde na
+// stránce: výbava (velikosti), nájezd, poškození, průběh webového flow a
+// stav smlouvy/reklamace. Zbytek (zákazník, motorka, termín, platba, slevy,
+// adresy, SOS, zrušení, poznámky, milníky) mají vlastní karty / Timeline.
+export default function BookingSummary({ booking, bookingExtras }) {
   const b = booking
-  const _sd = new Date(b.start_date); _sd.setHours(0,0,0,0)
-  const _ed = new Date(b.end_date); _ed.setHours(0,0,0,0)
-  const days = Math.max(1, Math.round((_ed - _sd) / 86400000) + 1)
-  const branchName = b.motorcycles?.branches?.name || '—'
-
-  const toLD = d => d ? new Date(d).toLocaleDateString('sv-SE') : ''
-  const hasModification = b.original_start_date && b.original_end_date &&
-    (toLD(b.start_date) !== toLD(b.original_start_date) || toLD(b.end_date) !== toLD(b.original_end_date))
-  let mod
-  if (hasModification) {
-    mod = describeModification(b.original_start_date, b.original_end_date, b.start_date, b.end_date)
-  }
-  const history = Array.isArray(b.modification_history) ? b.modification_history : []
   const devLabel = d => d === 'pc' ? 'PC' : d === 'mobile' ? 'Mobil' : d === 'tablet' ? 'Tablet' : null
   const devStart = devLabel(b.created_device)
   const devEnd = devLabel(b.completed_device)
@@ -74,79 +27,9 @@ export default function BookingSummary({ booking, sosIncidents, bookingExtras, c
 
   return (
     <div className="space-y-1">
-      <div className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>Základní údaje</div>
-      <SumRow label="Stav" value={STATUS_LABELS[getDisplayStatus(b)] || b.status} color={getDisplayStatus(b) === 'cancelled' ? '#dc2626' : getDisplayStatus(b) === 'active' ? '#1a8a18' : getDisplayStatus(b) === 'upcoming' ? '#7c3aed' : undefined} />
-      <SumRow label="ID" value={`#${b.id?.slice(-8).toUpperCase()}`} />
-      <SumRow label="Motorka" value={`${b.motorcycles?.model || '—'}${b.motorcycles?.spz ? ` (${b.motorcycles.spz})` : ''}`} />
-      <SumRow label="Pobočka" value={branchName} />
-      <SumRow label="Zákazník" value={`${b.profiles?.full_name || '—'} (${b.profiles?.email || '—'}, ${b.profiles?.phone || '—'})`} />
-      <SumRow label="Zdroj" value={`${b.booking_source === 'web' ? 'Web (motogo24.cz)' : b.booking_source === 'app' ? 'Mobilní aplikace' : '—'}${b.created_via_ai ? ' 🤖 (přes AI asistenta)' : ''}`} color={b.booking_source === 'web' ? '#2563eb' : b.booking_source === 'app' ? '#16a34a' : undefined} />
-
-      <div className="text-sm font-extrabold uppercase tracking-wide mt-4 mb-2" style={{ color: '#1a2e22' }}>Termín</div>
-      <SumRow label="Začátek" value={`${new Date(b.start_date).toLocaleDateString('cs-CZ')} v ${fmtTimeHM(b.pickup_time, DEFAULT_PICKUP_TIME)}`} />
-      <SumRow label="Konec" value={`${new Date(b.end_date).toLocaleDateString('cs-CZ')} v ${fmtTimeHM(b.return_time, DEFAULT_RETURN_TIME)}`} />
-      <SumRow label="Délka" value={`${days} ${days === 1 ? 'den' : days < 5 ? 'dny' : 'dní'}`} />
-
-      {(hasModification || history.length > 0) && (() => {
-        // I změna bez posunu termínu (čas, výbava, motorka, místo) se hlásí jako úprava
-        const last = history.length > 0 ? describeHistoryEntry(history[history.length - 1]) : null
-        const banner = mod || { bg: last?.bg || '#fef3c7', color: last?.color || '#d97706', type: last?.typeLabel || 'upraveno', detail: last ? last.changes.join(' · ') : 'Rezervace byla upravena' }
-        return (
-        <div className="my-3 p-3 rounded-lg" style={{ background: banner.bg, border: `1px solid ${banner.color}55` }}>
-          <div className="flex items-center gap-2 mb-2 flex-wrap">
-            <span className="inline-block rounded-btn text-[11px] font-extrabold uppercase tracking-wider" style={{ padding: '2px 8px', background: banner.color, color: '#fff' }}>
-              ✏️ Záznam úprav
-            </span>
-            <span className="text-xs font-extrabold uppercase" style={{ color: banner.color }}>{banner.type}</span>
-            <span className="text-xs font-bold" style={{ color: '#1a2e22' }}>{banner.detail}</span>
-          </div>
-          {hasModification && (
-          <div className="grid grid-cols-2 gap-3 text-xs">
-            <div className="rounded p-2" style={{ background: 'rgba(255,255,255,.7)' }}>
-              <div className="font-extrabold uppercase tracking-wider mb-0.5" style={{ color: '#4a5a52' }}>Původní termín</div>
-              <div className="font-semibold" style={{ color: '#0f1a14' }}>
-                {new Date(b.original_start_date).toLocaleDateString('cs-CZ')} – {new Date(b.original_end_date).toLocaleDateString('cs-CZ')} ({mod.origDays} d)
-              </div>
-            </div>
-            <div className="rounded p-2" style={{ background: 'rgba(255,255,255,.7)' }}>
-              <div className="font-extrabold uppercase tracking-wider mb-0.5" style={{ color: '#4a5a52' }}>Nový termín</div>
-              <div className="font-semibold" style={{ color: mod.color }}>
-                {new Date(b.start_date).toLocaleDateString('cs-CZ')} – {new Date(b.end_date).toLocaleDateString('cs-CZ')} ({mod.newDays} d)
-              </div>
-            </div>
-          </div>
-          )}
-          {history.length > 0 && (
-            <div className="mt-2 pt-2 text-xs" style={{ borderTop: `1px dashed ${banner.color}55` }}>
-              <div className="font-extrabold uppercase tracking-wider mb-1" style={{ color: '#4a5a52' }}>Historie úprav ({history.length}×)</div>
-              {history.map((h, i) => {
-                const hm = describeHistoryEntry(h)
-                return (
-                  <div key={i} className="py-0.5 flex items-baseline gap-2 flex-wrap" style={{ color: '#0f1a14' }}>
-                    <span className="font-bold">{i + 1}.</span>
-                    <span className="font-mono">{new Date(h.at).toLocaleString('cs-CZ')}</span>
-                    <span className="font-extrabold" style={{ color: hm.color }}>{hm.typeLabel}</span>
-                    <span>({hm.changes.join(' · ')})</span>
-                    <span className="rounded-btn font-extrabold uppercase" style={{ padding: '1px 6px', fontSize: 10, background: h.source === 'admin' || h.source === 'velin' ? '#dbeafe' : '#dcfce7', color: h.source === 'admin' || h.source === 'velin' ? '#1d4ed8' : '#166534' }}>
-                      {hm.sourceLabel}
-                    </span>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
-        )
-      })()}
-
-      <div className="text-sm font-extrabold uppercase tracking-wide mt-4 mb-2" style={{ color: '#1a2e22' }}>Vyzvednutí a vrácení</div>
-      <SumAddressRow label="Přistavení" method={b.pickup_method} address={b.pickup_address} branchName={branchName} lat={b.pickup_lat} lng={b.pickup_lng} />
-      <SumAddressRow label="Vrácení" method={b.return_method} address={b.return_address} branchName={branchName} lat={b.return_lat} lng={b.return_lng} />
-      <SumLocationShares sosIncidents={sosIncidents} />
-
       {(b.helmet_size || b.jacket_size || b.pants_size || b.boots_size || b.gloves_size) && (
         <>
-          <div className="text-sm font-extrabold uppercase tracking-wide mt-4 mb-2" style={{ color: '#1a2e22' }}>Výbava — řidič</div>
+          <div className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>Výbava — řidič</div>
           <SumRow label="Helma" value={b.helmet_size ? `vel. ${b.helmet_size}` : null} />
           <SumRow label="Bunda" value={b.jacket_size ? `vel. ${b.jacket_size}` : null} />
           <SumRow label="Kalhoty" value={b.pants_size ? `vel. ${b.pants_size}` : null} />
@@ -169,66 +52,6 @@ export default function BookingSummary({ booking, sosIncidents, bookingExtras, c
         </>
       )}
 
-      {b.insurance_type && <SumRow label="Pojištění" value={b.insurance_type} />}
-
-      {bookingExtras.length > 0 && (
-        <>
-          <div className="text-sm font-extrabold uppercase tracking-wide mt-4 mb-2" style={{ color: '#1a2e22' }}>Příslušenství</div>
-          {bookingExtras.map((ex, i) => {
-            const name = ex.name || ex.extras_catalog?.name || `Extra ${i + 1}`
-            const size = matchExtraSize(name, b)
-            const labeled = size ? `${name} (${size})` : name
-            return <SumRow key={i} label={labeled} value={`${Number(ex.unit_price || ex.extras_catalog?.price_per_day || 0).toLocaleString('cs-CZ')} Kč${ex.quantity > 1 ? ` × ${ex.quantity}` : ''}`} />
-          })}
-        </>
-      )}
-
-      <div className="text-sm font-extrabold uppercase tracking-wide mt-4 mb-2" style={{ color: '#1a2e22' }}>Platba</div>
-      <SumRow label="Celkem" value={`${Number(b.total_price || 0).toLocaleString('cs-CZ')} Kč`} />
-      {b.extras_price > 0 && <SumRow label="Příslušenství" value={`${b.extras_price.toLocaleString('cs-CZ')} Kč`} />}
-      {bookingExtras.length > 0 && (
-        <div className="pl-4" style={{ fontSize: 12, color: '#4a5a52' }}>
-          {bookingExtras.map((ex, i) => {
-            const name = ex.name || ex.extras_catalog?.name || `Extra ${i + 1}`
-            const size = matchExtraSize(name, b)
-            const qty = Number(ex.quantity || 1)
-            const price = Number(ex.unit_price || ex.extras_catalog?.price_per_day || 0)
-            return (
-              <div key={i} className="py-[2px] flex justify-between" style={{ borderBottom: '1px dashed #e5e7eb' }}>
-                <span>— {name}{size ? ` (${size})` : ''}{qty > 1 ? ` × ${qty}` : ''}</span>
-                <span style={{ color: '#1a2e22', fontWeight: 600 }}>{(price * qty).toLocaleString('cs-CZ')} Kč</span>
-              </div>
-            )
-          })}
-        </div>
-      )}
-      {b.delivery_fee > 0 && <SumRow label="Doručení" value={`${b.delivery_fee.toLocaleString('cs-CZ')} Kč`} />}
-      {b.discount_amount > 0 && <SumRow label="Sleva" value={`-${Number(b.discount_amount).toLocaleString('cs-CZ')} Kč${b.discount_code ? ` (${b.discount_code})` : ''}`} color="#1a8a18" />}
-      {b.loyalty_discount_amount > 0 && <SumRow label={`★ Věrnostní sleva${b.loyalty_percent ? ` ${b.loyalty_percent} %` : ''} (jen app)`} value={`-${Number(b.loyalty_discount_amount).toLocaleString('cs-CZ')} Kč`} color="#1a8a18" />}
-      {(() => { const pay = paymentStatusInfo(b); return (
-        <SumRow label="Stav platby" value={`${pay.icon} ${pay.label}`} color={pay.color} strong />
-      ) })()}
-      {b.payment_method && (() => {
-        const pm = paymentMethodInfo(b.payment_method)
-        return <SumRow label="Způsob platby" value={`${pm.icon} ${pm.label}`} color={pm.tone} strong />
-      })()}
-      {b.stripe_payment_intent_id && (
-        <SumRow label="Stripe Payment Intent" value={
-          <span>
-            <a href={stripePaymentIntentUrl(b.stripe_payment_intent_id)} target="_blank" rel="noopener noreferrer"
-              style={{ color: '#6d28d9', textDecoration: 'none', fontFamily: 'monospace', fontWeight: 700 }}>
-              {b.stripe_payment_intent_id} ↗
-            </a>
-          </span>
-        } />
-      )}
-      {b.deposit > 0 && <SumRow label="Kauce" value={`${Number(b.deposit).toLocaleString('cs-CZ')} Kč`} />}
-
-      {promoUsage?.length > 0 && promoUsage.map((pu, i) => (
-        <SumRow key={pu.id || i} label={`Promo kód ${i + 1}`} value={`${pu.promo_codes?.code || '—'} (${pu.promo_codes?.type === 'percent' ? pu.promo_codes.value + '%' : pu.promo_codes?.value + ' Kč'}) → sleva ${pu.promo_codes?.type === 'percent' ? pu.promo_codes.value + '%' : Number(pu.discount_applied || 0).toLocaleString('cs-CZ') + ' Kč'}`} />
-      ))}
-      {voucherUsed && <SumRow label="Dárkový poukaz" value={`${voucherUsed.code} — ${Number(voucherUsed.amount).toLocaleString('cs-CZ')} ${voucherUsed.currency}`} />}
-
       {(b.mileage_start || b.mileage_end) && (
         <>
           <div className="text-sm font-extrabold uppercase tracking-wide mt-4 mb-2" style={{ color: '#1a2e22' }}>Nájezd</div>
@@ -239,58 +62,6 @@ export default function BookingSummary({ booking, sosIncidents, bookingExtras, c
       )}
 
       {b.damage_report && <SumRow label="Poškození" value={b.damage_report} color="#dc2626" />}
-
-      {(b.sos_replacement || b.ended_by_sos || sosIncidents.length > 0) && (
-        <>
-          <div className="text-sm font-extrabold uppercase tracking-wide mt-4 mb-2" style={{ color: '#dc2626' }}>SOS</div>
-          {b.sos_replacement && (
-            <div className="flex items-center gap-2 py-1" style={{ borderBottom: '1px solid #e5e7eb', fontSize: 13 }}>
-              <span className="font-extrabold" style={{ color: '#1a2e22', minWidth: 130 }}>SOS náhrada</span>
-              <span style={{ color: '#1a8a18' }}>Ano</span>
-              {b.replacement_for_booking_id && (
-                <button onClick={() => navigate(`/rezervace/${b.replacement_for_booking_id}`)}
-                  className="font-bold cursor-pointer ml-1" style={{ color: '#2563eb', background: 'none', border: 'none', fontFamily: 'monospace', fontSize: 13 }}>
-                  (za #{b.replacement_for_booking_id.slice(-8).toUpperCase()})
-                </button>
-              )}
-            </div>
-          )}
-          {b.ended_by_sos && (
-            <div className="flex items-center gap-2 py-1 flex-wrap" style={{ borderBottom: '1px solid #e5e7eb', fontSize: 13 }}>
-              <span className="font-extrabold" style={{ color: '#1a2e22', minWidth: 130 }}>Ukončeno SOS</span>
-              <span style={{ color: '#dc2626' }}>Ano</span>
-              {b.sos_incident_id && (
-                <button onClick={() => navigate('/sos', { state: { openIncidentId: b.sos_incident_id } })}
-                  className="font-bold cursor-pointer ml-1" style={{ color: '#dc2626', background: 'none', border: 'none', fontFamily: 'monospace', fontSize: 13 }}>
-                  (incident #{b.sos_incident_id.slice(-8).toUpperCase()})
-                </button>
-              )}
-            </div>
-          )}
-          {sosIncidents.map(inc => (
-            <div key={inc.id} className="py-1 flex items-center flex-wrap gap-x-2" style={{ borderBottom: '1px solid #fef2f2', fontSize: 13 }}>
-              <button onClick={() => navigate('/sos', { state: { openIncidentId: inc.id } })}
-                className="font-bold cursor-pointer" style={{ color: '#dc2626', background: 'none', border: 'none', fontFamily: 'monospace', fontSize: 13, padding: 0 }}>
-                #{inc.id.slice(-8).toUpperCase()}
-              </button>
-              <span>{inc.type} ({inc.severity}) — {inc.status}</span>
-              {inc.title && <span>— {inc.title}</span>}
-              <span style={{ color: '#1a2e22' }}>{fmtDT(inc.created_at)}</span>
-              {inc.resolved_at && <span style={{ color: '#1a8a18' }}>→ vyřešeno {fmtDT(inc.resolved_at)}</span>}
-            </div>
-          ))}
-        </>
-      )}
-
-      {b.status === 'cancelled' && (
-        <>
-          <div className="text-sm font-extrabold uppercase tracking-wide mt-4 mb-2" style={{ color: '#dc2626' }}>Zrušení</div>
-          <SumRow label="Zrušeno" value={fmtDT(b.cancelled_at)} color="#dc2626" />
-          <SumRow label="Zdroj" value={CANCEL_SOURCE_LABELS[b.cancelled_by_source] || b.cancelled_by_source || '—'} />
-          <SumRow label="Důvod" value={b.cancellation_reason || '—'} />
-          {cancellation && <SumRow label="Vráceno" value={cancellation.refund_amount ? `${Number(cancellation.refund_amount).toLocaleString('cs-CZ')} Kč (${cancellation.refund_percent}%)` : 'Bez refundu'} />}
-        </>
-      )}
 
       <div className="text-sm font-extrabold uppercase tracking-wide mt-4 mb-2" style={{ color: '#1a2e22' }}>Průběh</div>
       {b.booking_source === 'web' && (() => {
@@ -304,7 +75,6 @@ export default function BookingSummary({ booking, sosIncidents, bookingExtras, c
         else { step = 2; label = 'přehled'; color = '#dc2626' }
         return <SumRow label="Krok ve flow" value={`${step}/4 — ${label}`} color={color} />
       })()}
-      <SumRow label="Vytvořeno" value={fmtDT(b.created_at)} />
       {b.booking_source === 'web' && deviceVal && (
         <SumRow label="Zařízení" value={deviceVal} color={devStart && devEnd && devEnd !== devStart ? '#7c3aed' : undefined} />
       )}
@@ -320,87 +90,11 @@ export default function BookingSummary({ booking, sosIncidents, bookingExtras, c
       {b.docs_completed_at && (
         <SumRow label="Doklady doplněny (po platbě)" value={fmtDT(b.docs_completed_at)} color="#7c3aed" />
       )}
-      <SumRow label="Potvrzeno" value={fmtDT(b.confirmed_at)} />
-      <SumRow label="Vydáno" value={fmtDT(b.picked_up_at)} />
-      <SumRow label="Vráceno" value={fmtDT(b.returned_at)} />
       {b.actual_return_date && <SumRow label="Skutečné vrácení" value={fmtDT(b.actual_return_date)} />}
       {b.rated_at && <SumRow label="Hodnoceno" value={`${fmtDT(b.rated_at)} (${b.rating}/5)`} />}
-
-      {(() => {
-        const cleanNotes = b.notes
-          ? b.notes.replace(/Čas převzetí:\s*\d{1,2}:\d{2}\s*/gi, '').replace(/pickup_time[=:]\s*\S+\s*/gi, '').trim()
-          : ''
-        return cleanNotes ? (
-          <>
-            <div className="text-sm font-extrabold uppercase tracking-wide mt-4 mb-2" style={{ color: '#1a2e22' }}>Poznámky</div>
-            <p className="text-sm" style={{ color: '#1a2e22' }}>{cleanNotes}</p>
-          </>
-        ) : null
-      })()}
 
       {b.contract_url && <SumRow label="Smlouva" value={b.signed_contract ? 'Podepsána' : 'Nepodepsána'} />}
       {b.complaint_status && <SumRow label="Reklamace" value={b.complaint_status} color="#b45309" />}
     </div>
   )
-}
-
-function SumAddressRow({ label, method, address, branchName, lat, lng }) {
-  const isDelivery = method === 'delivery'
-  const displayAddr = address || branchName || '—'
-  const methodLabel = isDelivery ? (label === 'Přistavení' ? 'Přistavení na adresu' : 'Svoz z adresy') : 'Na pobočce'
-  const mapLink = isDelivery && (lat && lng)
-    ? mapyLinkUrl(lat, lng)
-    : isDelivery && address ? `https://mapy.cz/zakladni?q=${encodeURIComponent(address)}` : null
-
-  return (
-    <div className="py-[3px]" style={{ borderBottom: '1px solid #f1faf7', fontSize: 12 }}>
-      <div className="flex gap-2">
-        <span className="font-bold" style={{ color: '#1a2e22', minWidth: 160, flexShrink: 0 }}>{label}</span>
-        <span className="font-medium" style={{ color: '#0f1a14' }}>{methodLabel} — {displayAddr}</span>
-      </div>
-      {isDelivery && (lat && lng) && (
-        <div className="ml-[168px]" style={{ fontSize: 11, color: '#6b7280' }}>GPS: {Number(lat).toFixed(6)}, {Number(lng).toFixed(6)}</div>
-      )}
-      {mapLink && (
-        <div className="ml-[168px]">
-          <a href={mapLink} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: '#2563eb', textDecoration: 'none', fontWeight: 700 }}>
-            📍 Zobrazit na mapě ↗
-          </a>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function SumLocationShares({ sosIncidents }) {
-  const withLocation = (sosIncidents || []).filter(i => i.type === 'location_share' || (i.latitude && i.longitude))
-  if (withLocation.length === 0) return null
-
-  return withLocation.map(inc => {
-    const hasGps = inc.latitude && inc.longitude
-    const isLocShare = inc.type === 'location_share'
-    const link = hasGps
-      ? mapyLinkUrl(inc.latitude, inc.longitude)
-      : inc.address ? `https://mapy.cz/zakladni?q=${encodeURIComponent(inc.address)}` : null
-
-    return (
-      <div key={inc.id} className="py-[3px]" style={{ borderBottom: '1px solid #dbeafe', fontSize: 12 }}>
-        <div className="flex gap-2">
-          <span className="font-bold" style={{ color: '#2563eb', minWidth: 160, flexShrink: 0 }}>{isLocShare ? '📍 Sdílení polohy' : '📍 Poloha při SOS'}</span>
-          <span className="font-medium" style={{ color: '#0f1a14' }}>
-            {new Date(inc.created_at).toLocaleString('cs-CZ')}
-            {inc.address ? ` — ${inc.address}` : ''}
-          </span>
-        </div>
-        {hasGps && <div className="ml-[168px]" style={{ fontSize: 11, color: '#6b7280' }}>GPS: {Number(inc.latitude).toFixed(6)}, {Number(inc.longitude).toFixed(6)}</div>}
-        {link && (
-          <div className="ml-[168px]">
-            <a href={link} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: '#2563eb', textDecoration: 'none', fontWeight: 700 }}>
-              📍 Zobrazit na mapě ↗
-            </a>
-          </div>
-        )}
-      </div>
-    )
-  })
 }
