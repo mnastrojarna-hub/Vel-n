@@ -274,7 +274,7 @@ return [
 
     // ===== Reservering — ophalen / terugbrengen =====
     'rez.pickup.title' => 'Ophaal- of bezorgtijd',
-    'rez.pickup.sub' => 'Kies uit het menu of voer eigen tijd in',
+    'rez.pickup.sub' => 'Kies uit het menu of voer een eigen tijd in. Vanaf 12:00 krijgt u 50% korting op de 1e dag (2+ dagen).',
     'rez.pickup.recommended' => 'Aanbevolen tijden (06:00 — 14:00)',
     'rez.pickup.orCustom' => '· of kies een eigen tijd links',
     'rez.pickup.atRental' => 'Ophalen bij de verhuur',
@@ -1058,7 +1058,7 @@ return [
     'editRez.change.successWithRefund' => 'Wijziging is opgeslagen. De terugbetaling van {amount} is gestart — het geld staat doorgaans binnen 5–7 werkdagen op je oorspronkelijke kaart.',
     'editRez.err.activeMotoLocked' => 'Tijdens een lopende verhuur kan de motor niet worden gewisseld.',
     'editRez.loc.title' => 'Ophaal- / inleverlocatie wijzigen',
-    'editRez.loc.help' => 'Wijzig de methode en locatie voor ophalen of inleveren. De bezorgkosten worden voor 100 % terugbetaald ongeacht het tijdstip; nieuwe kosten worden via Stripe afgerekend of als overbetaling terugbetaald.',
+    'editRez.loc.help' => 'Wijzig de methode, locatie en tijd van ophalen of terugbrengen. Bezorgkosten worden 100% terugbetaald; het wijzigen van de ophaaltijd kan de 50%-korting op de 1e dag (vanaf 12:00) veranderen — de bijbetaling of terugbetaling berekent de server, terugbetalingen volgen de annuleringsvoorwaarden.',
     'editRez.loc.pickup' => 'Ophalen',
     'editRez.loc.return' => 'Inleveren',
     'editRez.loc.atRental' => 'Bij de verhuur Mezná 9, 393 01 Pelhřimov',
@@ -1472,7 +1472,9 @@ return [
     'editRez.loc.timesHelp' => 'De tijd wijzigen is gratis — als je alleen de tijd wijzigt, geen bijbetaling.',
     'editRez.loc.pickupTime' => 'Ophaaltijd',
     'editRez.loc.returnTime' => 'Retourtijd',
-    'editRez.loc.timeOnly' => 'Tijdwijziging (gratis)',
+    'editRez.loc.timeOnly' => 'Tijdswijziging',
+    'editRez.detail.priceLatePickup' => '50% korting op de 1e dag (laat ophalen)',
+    'editRez.timeHint12' => 'Ophalen vanaf 12:00 = 1e dag voor de halve prijs (bij boekingen van 2+ dagen).',
     'editRez.shorten.ctaNoRefund' => 'Inkorten (geen terugbetaling)',
     'editRez.shorten.successNoRefund' => 'Reservering ingekort. Een terugbetaling volgens de annuleringsvoorwaarden was niet mogelijk.',
     'editRez.consents.lockedBadge' => 'Vergrendeld',

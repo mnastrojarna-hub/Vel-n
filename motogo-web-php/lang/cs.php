@@ -388,7 +388,7 @@ return [
 
     // ===== Rezervace — vyzvednutí / vrácení =====
     'rez.pickup.title' => 'Čas převzetí nebo přistavení',
-    'rez.pickup.sub' => 'Vyberte z nabídky nebo zadejte vlastní čas',
+    'rez.pickup.sub' => 'Vyberte z nabídky nebo zadejte vlastní čas. Od 12:00 máte 1. den se slevou 50 % (u 2 a více dní).',
     'rez.pickup.recommended' => 'Doporučené časy (06:00 — 14:00)',
     'rez.pickup.orCustom' => '· nebo vyberte vlastní čas vlevo',
     'rez.pickup.atRental' => 'Vyzvednutí v motopůjčovně',
@@ -934,7 +934,7 @@ return [
     'editRez.change.successWithRefund' => 'Změna byla uložena. Vrácení {amount} jsme zahájili — peníze obvykle dorazí na původní kartu do 5–7 pracovních dnů.',
     'editRez.err.activeMotoLocked' => 'U probíhající rezervace nelze změnit motorku.',
     'editRez.loc.title' => 'Čas a místo — vyzvednutí / vrácení',
-    'editRez.loc.help' => 'Změňte způsob, místo a čas vyzvednutí nebo vrácení. Cena za přistavení/odvoz se počítá podle vzdálenosti od pobočky Mezná (1 000 Kč základ + 40 Kč/km). Rozdíl se vrací 100 % bez ohledu na čas, nový poplatek doplatíte přes Stripe.',
+    'editRez.loc.help' => 'Změňte způsob, místo a čas vyzvednutí nebo vrácení. Cena za přistavení/odvoz se počítá podle vzdálenosti od pobočky Mezná (1 000 Kč základ + 40 Kč/km). Rozdíl poplatku za přistavení se vrací 100 %; změna času vyzvednutí může změnit slevu 50 % na 1. den (od 12:00) — doplatek či vratku spočítá server, vratka podléhá storno podmínkám.',
     'editRez.loc.helpActive' => 'Probíhající rezervaci už můžete měnit jen na straně vrácení (motorku máte vyzvednutou). Místo a čas vrácení lze upravit kdykoliv — rozdíl ceny dorovnáme automaticky.',
     'editRez.loc.refundNote' => 'Změna místa nepodléhá storno tabulce — vratku za přistavení dostanete vždy v plné výši, i pokud měníte den vyzvednutí.',
     'editRez.loc.pickupLockedTitle' => 'Vyzvednutí už proběhlo',
@@ -960,7 +960,9 @@ return [
     'editRez.loc.timesHelp' => 'Změna času je zdarma — pokud měníte jen čas, žádný doplatek.',
     'editRez.loc.pickupTime' => 'Čas vyzvednutí',
     'editRez.loc.returnTime' => 'Čas vrácení',
-    'editRez.loc.timeOnly' => 'Změna času (zdarma)',
+    'editRez.loc.timeOnly' => 'Změna času',
+    'editRez.detail.priceLatePickup' => 'Sleva 50 % na 1. den (pozdní vyzvednutí)',
+    'editRez.timeHint12' => 'Vyzvednutí od 12:00 = 1. den za polovinu (u rezervací na 2 a více dní).',
 
     // Posun termínu (zdarma)
     'editRez.move.title' => 'Posunout termín zdarma',

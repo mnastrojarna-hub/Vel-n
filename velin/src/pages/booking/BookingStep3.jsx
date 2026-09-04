@@ -1,13 +1,19 @@
 import { useState } from 'react'
 import Button from '../../components/ui/Button'
+import { latePickupDiscount, LATE_PICKUP_LABEL, LATE_PICKUP_HINT } from '../../lib/latePickup'
 
 function fmtDate(d) { return d ? d.toLocaleDateString('cs-CZ') : '—' }
 
-export default function BookingStep3({ selectedMoto, startDate, endDate, days, totalPrice, customers, onBack, onCreate, saving, noPayment, setNoPayment }) {
+export default function BookingStep3({ selectedMoto, startDate, endDate, days, totalPrice, firstDayPrice, customers, onBack, onCreate, saving, noPayment, setNoPayment }) {
   const [customerSearch, setCustomerSearch] = useState('')
   const [selectedCustomer, setSelectedCustomer] = useState(null)
   const [pickupTime, setPickupTime] = useState('09:00')
   const [notes, setNotes] = useState('')
+
+  // Sleva 50 % na 1. den při vyzvednutí od 12:00 (2+ dní) — stejný výpočet
+  // provede handleCreate při uložení (lib/latePickup.js).
+  const lateDiscount = latePickupDiscount(startDate, endDate, pickupTime, firstDayPrice || 0)
+  const finalPrice = totalPrice != null ? Math.max(0, totalPrice - lateDiscount) : null
 
   const filteredCustomers = customerSearch.length > 1
     ? customers.filter(c =>
@@ -58,6 +64,7 @@ export default function BookingStep3({ selectedMoto, startDate, endDate, days, t
           <input type="time" value={pickupTime} onChange={e => setPickupTime(e.target.value)}
             className="w-full rounded-btn text-sm outline-none"
             style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
+          <p className="text-sm mt-1" style={{ color: '#4a6357' }}>🌗 {LATE_PICKUP_HINT}</p>
 
           <label className="block text-sm font-extrabold uppercase tracking-wide mb-1 mt-4" style={{ color: '#1a2e22' }}>Poznámka</label>
           <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2}
@@ -74,10 +81,16 @@ export default function BookingStep3({ selectedMoto, startDate, endDate, days, t
             <div className="flex justify-between text-sm mb-1"><span style={{ color: '#1a2e22' }}>Vyzvednutí</span><span className="font-bold" style={{ color: '#0f1a14' }}>{fmtDate(startDate)}</span></div>
             <div className="flex justify-between text-sm mb-1"><span style={{ color: '#1a2e22' }}>Vrácení</span><span className="font-bold" style={{ color: '#0f1a14' }}>{fmtDate(endDate)}</span></div>
             <div className="flex justify-between text-sm mb-3"><span style={{ color: '#1a2e22' }}>Počet dní</span><span className="font-bold" style={{ color: '#0f1a14' }}>{days}</span></div>
+            {lateDiscount > 0 && (
+              <div className="flex justify-between text-sm mb-1">
+                <span style={{ color: '#1a2e22' }}>🌗 {LATE_PICKUP_LABEL}</span>
+                <span className="font-bold" style={{ color: '#1a8a18' }}>−{lateDiscount.toLocaleString('cs-CZ')} Kč</span>
+              </div>
+            )}
             <div style={{ borderTop: '1px solid #d4e8e0', paddingTop: 8 }}>
               <div className="flex justify-between">
                 <span className="text-sm font-extrabold" style={{ color: '#0f1a14' }}>Celkem</span>
-                <span className="text-sm font-extrabold" style={{ color: '#1a8a18' }}>{totalPrice ? totalPrice.toLocaleString('cs-CZ') + ' Kč' : '—'}</span>
+                <span className="text-sm font-extrabold" style={{ color: '#1a8a18' }}>{finalPrice != null ? finalPrice.toLocaleString('cs-CZ') + ' Kč' : '—'}</span>
               </div>
             </div>
           </div>

@@ -93,7 +93,7 @@ class PriceSummaryCard extends StatelessWidget {
           // Sleva 50 % na 1. den při pozdním vyzvednutí (>=12:00, >=2 dny)
           if (breakdown.latePickupDiscount > 0)
             _PriceRow(
-              label: 'Sleva 50 % na 1. den (pozdní vyzvednutí)',
+              label: t(context).tr('latePickupDiscountLabel'),
               value: '−${Money.czk(breakdown.latePickupDiscount)}',
               valueColor: MotoGoColors.greenDarker,
               valueBold: true,

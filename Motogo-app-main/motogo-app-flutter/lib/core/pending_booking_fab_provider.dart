@@ -27,9 +27,10 @@ class PendingBooking {
     required this.createdAt,
   });
 
-  /// Remaining milliseconds before expiry (10 min from created_at).
+  /// Remaining milliseconds before expiry (30 min from created_at) —
+  /// zrcadlí serverové okno auto_cancel_expired_pending (mig. 20260904b).
   int get remainingMs {
-    const expiryMs = 600000; // 10 minutes
+    const expiryMs = 1800000; // 30 minutes
     return expiryMs - DateTime.now().difference(createdAt).inMilliseconds;
   }
 

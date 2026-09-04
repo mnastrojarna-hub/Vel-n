@@ -136,7 +136,7 @@ async function applyExtensionChange(
   for (const col of ['start_date', 'end_date', 'moto_id', 'pickup_method', 'pickup_address',
                      'return_method', 'return_address', 'pickup_time', 'return_time',
                      'discount_amount', 'delivery_fee', 'extras_price',
-                     'loyalty_discount_amount'] as const) {
+                     'loyalty_discount_amount', 'late_pickup_discount_amount'] as const) {
     if (def(a[col]) && d[col] === undefined) d[col] = a[col]
   }
   // Absolutní cílová cena (z dry-run RPC) — idempotentní, na rozdíl od klienta,
@@ -145,6 +145,33 @@ async function applyExtensionChange(
     d.total_price = Number(a.new_total)
   } else if (a.total_price != null && Number.isFinite(Number(a.total_price))) {
     d.total_price = Number(a.total_price) // app formát
+  }
+
+  // Late-pickup sleva (50 % 1. dne při vyzvednutí >= 12:00 a >= 2 dnech):
+  // u doplatkové změny přes RPC se sloupec nikdy nezapsal (core končí PŘED
+  // UPDATE, když je payment_required) — total_price pak seděl, ale
+  // late_pickup_discount_amount držel před-editovou hodnotu a rozpad KF
+  // nevycházel na 0. Autoritativní přepočet z FINÁLNÍHO stavu (aktuální řádek
+  // + aplikovaná změna) přes _late_pickup_discount; přepíše i klientem poslanou
+  // hodnotu (app formát). Best-effort — selhání nesmí zablokovat apply.
+  if (d.start_date || d.end_date || d.moto_id || d.pickup_time || def(a.late_pickup_discount_amount)) {
+    try {
+      const { data: cur } = await supabase.from('bookings')
+        .select('moto_id, start_date, end_date, pickup_time')
+        .eq('id', bookingId).maybeSingle()
+      if (cur) {
+        const pt = d.pickup_time !== undefined ? d.pickup_time : cur.pickup_time
+        const { data: late, error: lateErr } = await supabase.rpc('_late_pickup_discount', {
+          p_moto_id: (d.moto_id ?? cur.moto_id) as string,
+          p_start: String(d.start_date ?? cur.start_date),
+          p_end: String(d.end_date ?? cur.end_date),
+          p_pickup_time: pt == null ? null : String(pt),
+        })
+        if (!lateErr && late != null && Number.isFinite(Number(late))) {
+          d.late_pickup_discount_amount = Number(late)
+        }
+      }
+    } catch { /* best-effort */ }
   }
 
   if (Object.keys(d).length === 0) return

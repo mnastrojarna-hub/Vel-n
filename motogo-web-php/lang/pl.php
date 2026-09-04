@@ -274,7 +274,7 @@ return [
 
     // ===== Rezerwacja — odbiór / zwrot =====
     'rez.pickup.title' => 'Czas odbioru lub dostawy',
-    'rez.pickup.sub' => 'Wybierz z menu lub wpisz własny czas',
+    'rez.pickup.sub' => 'Wybierz z menu lub wpisz własny czas. Od 12:00 masz 50% zniżki na 1. dzień (2+ dni).',
     'rez.pickup.recommended' => 'Zalecane godziny (06:00 — 14:00)',
     'rez.pickup.orCustom' => '· lub wybierz własny czas po lewej',
     'rez.pickup.atRental' => 'Odbiór w wypożyczalni',
@@ -1058,7 +1058,7 @@ return [
     'editRez.change.successWithRefund' => 'Zmiana została zapisana. Zwrot {amount} został zainicjowany — pieniądze zwykle docierają na pierwotną kartę w ciągu 5–7 dni roboczych.',
     'editRez.err.activeMotoLocked' => 'Podczas trwającej rezerwacji nie można zmienić motocykla.',
     'editRez.loc.title' => 'Zmień miejsce odbioru / zwrotu',
-    'editRez.loc.help' => 'Zmień sposób i miejsce odbioru lub zwrotu. Opłata za dostawę/odbiór jest zwracana w 100 % niezależnie od czasu; nowa opłata jest pobierana przez Stripe lub zwracana jako nadpłata.',
+    'editRez.loc.help' => 'Zmień sposób, miejsce i godzinę odbioru lub zwrotu. Opłaty za dostawę są zwracane w 100%; zmiana godziny odbioru może zmienić zniżkę 50% na 1. dzień (od 12:00) — dopłatę lub zwrot wylicza serwer, zwroty podlegają warunkom anulowania.',
     'editRez.loc.pickup' => 'Odbiór',
     'editRez.loc.return' => 'Zwrot',
     'editRez.loc.atRental' => 'W wypożyczalni Mezná 9, 393 01 Pelhřimov',
@@ -1472,7 +1472,9 @@ return [
     'editRez.loc.timesHelp' => 'Zmiana godziny jest bezpłatna — jeśli zmieniasz tylko godzinę, brak dopłaty.',
     'editRez.loc.pickupTime' => 'Godzina odbioru',
     'editRez.loc.returnTime' => 'Godzina zwrotu',
-    'editRez.loc.timeOnly' => 'Zmiana godziny (bezpłatnie)',
+    'editRez.loc.timeOnly' => 'Zmiana godziny',
+    'editRez.detail.priceLatePickup' => '50% zniżki na 1. dzień (późny odbiór)',
+    'editRez.timeHint12' => 'Odbiór od 12:00 = 1. dzień za pół ceny (rezerwacje na 2+ dni).',
     'editRez.shorten.ctaNoRefund' => 'Skróć (bez zwrotu pieniędzy)',
     'editRez.shorten.successNoRefund' => 'Rezerwacja skrócona. Zwrot zgodnie z warunkami rezygnacji nie był możliwy.',
     'editRez.consents.lockedBadge' => 'Zablokowane',

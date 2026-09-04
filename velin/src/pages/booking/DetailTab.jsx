@@ -97,6 +97,9 @@ export default function DetailTab({ booking, set, error, saving, actions, onActi
     if (booking.loyalty_discount_amount > 0) {
       rows.push({ key: 'loyalty', label: `★ Věrnostní sleva${booking.loyalty_percent ? ` ${booking.loyalty_percent} %` : ''} (jen app)`, value: `-${Number(booking.loyalty_discount_amount).toLocaleString('cs-CZ')} Kč` })
     }
+    if (booking.late_pickup_discount_amount > 0) {
+      rows.push({ key: 'late-pickup', label: '🌗 Sleva 50 % na 1. den (pozdní vyzvednutí)', value: `-${Number(booking.late_pickup_discount_amount).toLocaleString('cs-CZ')} Kč` })
+    }
     return rows
   })()
 

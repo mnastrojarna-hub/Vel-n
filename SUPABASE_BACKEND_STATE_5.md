@@ -305,7 +305,7 @@ Strukturované oficiální podmínky půjčovny pro AI public agent (`get_polici
 
 | Job | Čas | Funkce |
 |-----|-----|--------|
-| `auto-cancel-pending-bookings` (1) | každé 2 min (`*/2 * * * *`) | `SELECT auto_cancel_expired_pending()` — ruší pending+unpaid bookings: app=10min, web=4h |
+| `auto-cancel-pending-bookings` (1) | každé 2 min (`*/2 * * * *`) | `SELECT auto_cancel_expired_pending()` — ruší pending+unpaid bookings: app=30min (do 2026-09-04 10min), web=4h |
 | `send-abandoned-booking-emails` (12) | každé 2 min (`*/2 * * * *`) | `SELECT send_abandoned_booking_emails()` — pošle „nedokončená rezervace" mail web bookingu po 20 min od kroku 1, resp. 10 min od kliknutí „Pokračovat k platbě" (Stripe session). Dedup přes `bookings.abandoned_email_sent_at`. |
 | `send-missing-booking-reserved-emails` | každé 2 min (`*/2 * * * *`) | **NEW 2026-06-17 (`20260617_catchup_booking_reserved_email.sql`):** `SELECT send_missing_booking_reserved_emails()` — záchranný cron, došle `booking_reserved` mail web rezervacím reserved/active+paid, kterým v `message_log` chybí `web_booking_reserved`/`booking_reserved` (webhook ho v časově omezené cestě „utnul" při generaci 4 PDF příloh). 3 min grace od `confirmed_at`. Dedup: `message_log` NOT EXISTS + marker `bookings.reserved_email_sent_at`. Vrací `{sent_reserved}`. |
 | `auto-complete-expired-bookings` (4) | denně 00:01 (`1 0 * * *`) | `SELECT auto_complete_expired_bookings()` — active/reserved + end_date < today + paid → completed |

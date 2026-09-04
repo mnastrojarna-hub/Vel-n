@@ -100,23 +100,41 @@ class EditPriceCalc {
     return base / origDays;
   }
 
+  /// Hrubá cena pronájmu původního rozsahu (ceník staré motorky).
+  double get _rentalGrossOld => motoPrices != null
+      ? motoPrices!.totalForRange(booking.startDate, booking.endDate)
+      : origDailyPrice * origDays;
+
+  /// Hrubá cena pronájmu nového rozsahu (ceník efektivní motorky — při výměně
+  /// nové, jinak staré).
+  double get _rentalGrossNew {
+    if (newStart == null || newEnd == null) return _rentalGrossOld;
+    final p = _effPrices;
+    if (p != null) return p.totalForRange(newStart!, newEnd!);
+    return origDailyPrice * newDays;
+  }
+
+  /// Informativní řádek UI: hrubý rozdíl pronájmu (bez storna a late slevy) —
+  /// finální Doplatek/Vrácení počítá [rentalDiff]/[effectivePriceDiff].
   double get dateChangeAmount {
-    if (diffDays == 0 || newStart == null || newEnd == null) return 0;
-    if (motoPrices != null) {
-      final origRange = motoPrices!.totalForRange(booking.startDate, booking.endDate);
-      final newRange = motoPrices!.totalForRange(newStart!, newEnd!);
-      if (diffDays > 0) {
-        return newRange - origRange;
-      } else {
-        final raw = origRange - newRange;
-        final pct = StornoCalc.effectiveRefundPercent(newEnd!, booking);
-        return -(raw * pct / 100);
-      }
-    }
-    if (diffDays > 0) return diffDays * origDailyPrice;
-    final raw = diffDays.abs() * origDailyPrice;
-    final pct = StornoCalc.effectiveRefundPercent(newEnd ?? booking.endDate, booking);
-    return -(raw * pct / 100);
+    if (newStart == null || newEnd == null) return 0;
+    return _rentalGrossNew - _rentalGrossOld;
+  }
+
+  /// Storno % pro vratkovou část — server (_apply_booking_changes_core) ho
+  /// počítá z NOVÉHO STARTU (v_fs), ne z konce. Vč. stropu po posunu termínu.
+  int get stornoPercent =>
+      StornoCalc.effectiveRefundPercent(newStart ?? booking.startDate, booking);
+
+  /// Rozdíl pronájmu vč. late-pickup slevy — zrcadlí server:
+  /// v_dates_diff = (nová hrubá − nová late) − (stará hrubá − stará late);
+  /// ZÁPORNÝ rozdíl (vratka) se krátí storno % (i ztráta/zisk půldne podléhá
+  /// stornu společně se zkrácenými dny), kladný doplatek je vždy 100 %.
+  double get rentalDiff {
+    if (newStart == null || newEnd == null) return 0;
+    var d = (_rentalGrossNew - newLatePickup) - (_rentalGrossOld - oldLatePickup);
+    if (d < 0) d = (d * stornoPercent / 100).roundToDouble();
+    return d;
   }
 
   /// Rozdíl poplatku za přistavení/odvoz oproti původní rezervaci.
@@ -189,25 +207,25 @@ class EditPriceCalc {
   double get oldLatePickup => booking.latePickupDiscount ?? 0;
 
   /// Nová sleva na 1. den (po úpravě dat / motorky / času vyzvednutí).
+  /// Bez načteného ceníku motorky nelze slevu přepočítat — drží se uložená
+  /// hodnota (jinak by výpadek načtení ceníku vytvořil fantomový doplatek
+  /// +oldLatePickup a tichý reset sloupce na 0).
   double get newLatePickup {
     if (newStart == null || newEnd == null) return 0;
-    return _lateFor(_effPrices, newStart!, newEnd!, pickupTime);
+    final p = _effPrices;
+    if (p == null) return oldLatePickup;
+    return _lateFor(p, newStart!, newEnd!, pickupTime);
   }
+
+  /// Dopad změny late slevy na cenu (kladný = zákazník platí víc — o slevu
+  /// přišel; záporný = slevu získal). Jen pro zobrazení řádku v UI.
+  double get latePickupDelta => oldLatePickup - newLatePickup;
 
   double get priceDiff {
     if (newStart == null || newEnd == null) return 0;
-    double diff = dateChangeAmount;
-    diff += deliveryFeeDelta;
-    diff += extrasDelta;
-    if (newMotoId != null && newMotoId != booking.motoId && newMotoPrices != null) {
-      final newTotal = newMotoPrices!.totalForRange(newStart!, newEnd!);
-      final origTotal = motoPrices?.totalForRange(newStart!, newEnd!)
-          ?? (origDailyPrice * newDays);
-      diff += newTotal - origTotal;
-    }
-    // Sleva 50 % na 1. den — víc slevy snižuje cenu (vratka), míň zvyšuje (doplatek).
-    diff += oldLatePickup - newLatePickup;
-    return diff;
+    // rentalDiff už obsahuje rozdíl ceníku (vč. výměny motorky), late-pickup
+    // slevu i storno na záporné části — zrcadlí server, viz výše.
+    return rentalDiff + deliveryFeeDelta + extrasDelta;
   }
 
   // ── Varianta B (2026-06-11): sleva se přepočítá na nový obsah rezervace ──
