@@ -288,7 +288,7 @@ return [
 
     // ===== Reservierung — Abholung / Rückgabe =====
     'rez.pickup.title' => 'Abhol- oder Lieferzeit',
-    'rez.pickup.sub' => 'Aus dem Menü wählen oder eigene Zeit eingeben',
+    'rez.pickup.sub' => 'Aus dem Menü wählen oder eigene Zeit eingeben. Ab 12:00 erhalten Sie 50 % Rabatt auf den 1. Tag (ab 2 Tagen).',
     'rez.pickup.recommended' => 'Empfohlene Zeiten (06:00 — 14:00)',
     'rez.pickup.orCustom' => '· oder eigene Zeit links wählen',
     'rez.pickup.atRental' => 'Abholung im Motorradverleih',
@@ -1170,7 +1170,7 @@ return [
     'editRez.change.successWithRefund' => 'Änderung wurde gespeichert. Erstattung {amount} wurde veranlasst — das Geld trifft üblicherweise innerhalb von 5–7 Werktagen auf der ursprünglichen Karte ein.',
     'editRez.err.activeMotoLocked' => 'Während einer laufenden Reservierung kann das Motorrad nicht gewechselt werden.',
     'editRez.loc.title' => 'Abhol- / Rückgabeort ändern',
-    'editRez.loc.help' => 'Ändern Sie Methode und Ort für Abholung oder Rückgabe. Liefer-/Abholgebühren werden zu 100 % erstattet, unabhängig vom Zeitpunkt; neue Gebühren werden über Stripe abgerechnet oder als Überzahlung erstattet.',
+    'editRez.loc.help' => 'Ändern Sie Methode, Ort und Zeit für Abholung oder Rückgabe. Liefergebühren werden zu 100 % erstattet; eine geänderte Abholzeit kann den 50-%-Rabatt auf den 1. Tag (ab 12:00) ändern — Nachzahlung oder Erstattung berechnet der Server, Erstattungen unterliegen den Stornobedingungen.',
     'editRez.loc.pickup' => 'Abholung',
     'editRez.loc.return' => 'Rückgabe',
     'editRez.loc.atRental' => 'In der Vermietung Mezná 9, 393 01 Pelhřimov',
@@ -1507,7 +1507,9 @@ return [
     'editRez.loc.timesHelp' => 'Das Ändern der Uhrzeit ist kostenlos — wenn Sie nur die Uhrzeit ändern, fällt kein Aufpreis an.',
     'editRez.loc.pickupTime' => 'Abholzeit',
     'editRez.loc.returnTime' => 'Rückgabezeit',
-    'editRez.loc.timeOnly' => 'Zeitänderung (kostenlos)',
+    'editRez.loc.timeOnly' => 'Zeitänderung',
+    'editRez.detail.priceLatePickup' => '50 % Rabatt auf den 1. Tag (späte Abholung)',
+    'editRez.timeHint12' => 'Abholung ab 12:00 = 1. Tag zum halben Preis (bei Buchungen ab 2 Tagen).',
     'editRez.shorten.ctaNoRefund' => 'Verkürzen (ohne Rückerstattung)',
     'editRez.shorten.successNoRefund' => 'Buchung verkürzt. Eine Rückerstattung gemäß den Stornobedingungen war nicht möglich.',
     'editRez.consents.lockedBadge' => 'Gesperrt',

@@ -72,6 +72,14 @@ class BookingFormPriceSection extends StatelessWidget {
                 '−${Money.czk(bd.discountTotal)}',
                 color: const Color(0xFF1A8A18),
               ),
+            // Sleva 50 % na 1. den (pozdní vyzvednutí >=12:00, >=2 dny) —
+            // total ji vždy obsahoval, řádek chyběl a rozpis neseděl na součet.
+            if (bd.latePickupDiscount > 0)
+              bookingPriceRow(
+                t(context).tr('latePickupDiscountLabel'),
+                '−${Money.czk(bd.latePickupDiscount)}',
+                color: const Color(0xFF1A8A18),
+              ),
             bookingPriceRow('✓ ${t(context).tr('depositNotCharged')}', '0 Kč', subtle: true),
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 8),

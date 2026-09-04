@@ -446,14 +446,28 @@ class DayPrices {
   });
 
   factory DayPrices.fromMotoJson(Map<String, dynamic> json) {
+    // Fallback price_<den> → price_weekend (So/Ne) → price_weekday zrcadlí
+    // SQL (_late_pickup_discount i ceníkové smyčky RPC): bez něj měla motorka
+    // oceněná jen přes weekday/weekend klientský ceník 0 → mj. nulová late
+    // sleva, kterou INSERT trigger nikdy nedorovná nahoru.
+    double d(String key, {bool weekend = false}) {
+      final v = (json[key] as num?)?.toDouble();
+      if (v != null) return v;
+      if (weekend) {
+        final w = (json['price_weekend'] as num?)?.toDouble();
+        if (w != null) return w;
+      }
+      return (json['price_weekday'] as num?)?.toDouble() ?? 0;
+    }
+
     return DayPrices(
-      mon: (json['price_mon'] as num?)?.toDouble() ?? 0,
-      tue: (json['price_tue'] as num?)?.toDouble() ?? 0,
-      wed: (json['price_wed'] as num?)?.toDouble() ?? 0,
-      thu: (json['price_thu'] as num?)?.toDouble() ?? 0,
-      fri: (json['price_fri'] as num?)?.toDouble() ?? 0,
-      sat: (json['price_sat'] as num?)?.toDouble() ?? 0,
-      sun: (json['price_sun'] as num?)?.toDouble() ?? 0,
+      mon: d('price_mon'),
+      tue: d('price_tue'),
+      wed: d('price_wed'),
+      thu: d('price_thu'),
+      fri: d('price_fri'),
+      sat: d('price_sat', weekend: true),
+      sun: d('price_sun', weekend: true),
     );
   }
 

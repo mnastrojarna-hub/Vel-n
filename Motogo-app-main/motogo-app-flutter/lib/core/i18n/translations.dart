@@ -28,6 +28,7 @@ import 'translations_ext_13_note.dart';
 import 'translations_ext_14_aiphoto.dart';
 import 'translations_ext_15_history.dart';
 import 'translations_ext_16_booking_gate.dart';
+import 'translations_ext_17_latepickup.dart';
 import 'translations_uk_main.dart';
 import 'translations_uk_ext_a.dart';
 import 'translations_uk_ext_b.dart';
@@ -56,6 +57,7 @@ final translations = _mergeAll([
   translationsExt14AiPhoto,
   translationsExt15History,
   translationsExt16BookingGate,
+  translationsExt17LatePickup,
   translationsUkMain,
   translationsUkExt1,
   translationsUkExt6,

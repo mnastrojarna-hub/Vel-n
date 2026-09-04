@@ -4,6 +4,7 @@ import { debugAction } from '../../lib/debugLog'
 import Modal from '../../components/ui/Modal'
 import Button from '../../components/ui/Button'
 import BookingStep3 from './BookingStep3'
+import { latePickupDiscount } from '../../lib/latePickup'
 
 const STEP_LABELS = ['Termín', 'Motorka', 'Zákazník & shrnutí']
 const DAY_NAMES = ['Po', 'Út', 'St', 'Čt', 'Pá', 'So', 'Ne']
@@ -111,6 +112,15 @@ export default function NewBookingModal({ onClose, onSaved }) {
     return total
   }
 
+  // Cena 1. dne (stejný zdroj jako calcPrice) — pro slevu 50 % při pozdním vyzvednutí.
+  function firstDayPrice(motoId) {
+    if (!startDate) return 0
+    const dp = motoPrices[motoId]
+    const moto = allMotos.find(m => m.id === motoId)
+    const dow = startDate.getDay()
+    return (dp && Number(dp[PRICES_DAY_MAP[dow]])) || (moto && Number(moto[MOTO_DAY_MAP[dow]])) || 0
+  }
+
   const days = startDate && endDate ? Math.max(1, Math.round((endDate - startDate) / 86400000) + 1) : 0
   const totalPrice = selectedMoto ? calcPrice(selectedMoto.id) : null
   const filteredMotos = branchFilter ? motos.filter(m => m.branch_id === branchFilter) : motos
@@ -168,7 +178,10 @@ export default function NewBookingModal({ onClose, onSaved }) {
         const nonKids = (overlapping || []).filter(b => b.motorcycles?.license_required !== 'N')
         if (nonKids.length > 0) throw new Error(`Zákazník má překrývající se rezervaci: ${nonKids[0].motorcycles?.model || ''} (${nonKids[0].start_date} – ${nonKids[0].end_date})`)
       }
-      const bookingData = { user_id: selectedCustomer.id, moto_id: selectedMoto.id, start_date: isoDate(startDate), end_date: isoDate(endDate), pickup_time: pickupTime, total_price: totalPrice || 0, status: 'reserved', payment_status: noPayment ? 'paid' : 'pending', notes: notes || null }
+      // Sleva 50 % na 1. den (vyzvednutí >= 12:00, 2+ dní) — parita s webem/appkou;
+      // bez ní zákazník platil přes Velín víc než za stejnou rezervaci online.
+      const lateDiscount = latePickupDiscount(startDate, endDate, pickupTime, firstDayPrice(selectedMoto.id))
+      const bookingData = { user_id: selectedCustomer.id, moto_id: selectedMoto.id, start_date: isoDate(startDate), end_date: isoDate(endDate), pickup_time: pickupTime, total_price: Math.max(0, (totalPrice || 0) - lateDiscount), late_pickup_discount_amount: lateDiscount, status: 'reserved', payment_status: noPayment ? 'paid' : 'pending', notes: notes || null }
       const result = await debugAction('bookings.create', 'NewBookingModal', () => supabase.from('bookings').insert(bookingData).select().single(), bookingData)
       if (result?.error) throw result.error
       const { data: { user } } = await supabase.auth.getUser()
@@ -277,7 +290,7 @@ export default function NewBookingModal({ onClose, onSaved }) {
         </div>
       )}
 
-      {step === 3 && <BookingStep3 selectedMoto={selectedMoto} startDate={startDate} endDate={endDate} days={days} totalPrice={totalPrice} customers={customers} onBack={() => setStep(2)} onCreate={handleCreate} saving={saving} noPayment={noPayment} setNoPayment={setNoPayment} />}
+      {step === 3 && <BookingStep3 selectedMoto={selectedMoto} startDate={startDate} endDate={endDate} days={days} totalPrice={totalPrice} firstDayPrice={selectedMoto ? firstDayPrice(selectedMoto.id) : 0} customers={customers} onBack={() => setStep(2)} onCreate={handleCreate} saving={saving} noPayment={noPayment} setNoPayment={setNoPayment} />}
     </Modal>
   )
 }

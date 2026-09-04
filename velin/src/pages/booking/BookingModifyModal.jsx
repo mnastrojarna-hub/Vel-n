@@ -9,6 +9,7 @@ import BookingPriceCalc from './BookingPriceCalc'
 import BookingDeliverySection from './BookingDeliverySection'
 import { isoDate, toDate, fmtDate, fmtCZK, fmtTimeHM, countDays, calcDayBreakdown } from './bookingModifyHelpers'
 import { findFeeExtra, feeAmount } from './DetailTabSections'
+import { latePickupDiscount } from '../../lib/latePickup'
 
 export default function BookingModifyModal({ booking, onClose, onSaved }) {
   const origStart = toDate(booking.start_date)
@@ -127,7 +128,13 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
   // U app rezervací se KLADNÝ rozdíl pronájmu snižuje o věrnostní slevu dle
   // aktuálního ranku (parita s appkou a SQL _apply_booking_changes_core;
   // doprava slevě nepodléhá).
-  const rentalDiff = newCalcPrice - origCalcPrice
+  // Sleva 50 % na 1. den (vyzvednutí >= 12:00, 2+ dní) — stará hodnota je
+  // REÁLNĚ uložená (ne přepočet), nová se přepočítává z nového termínu, ceníku
+  // a času; rozdíl vstupuje do doplatku/vratky (parita s webem, appkou i SQL
+  // _apply_booking_changes_core: diff = (nová − nováLate) − (stará − staráLate)).
+  const origLate = Number(booking.late_pickup_discount_amount) || 0
+  const newLate = latePickupDiscount(startDate, endDate, pickupTime, newBreakdown[0]?.price || 0)
+  const rentalDiff = (newCalcPrice - newLate) - (origCalcPrice - origLate)
   const loyaltyDisc = loyalty.percent > 0 && rentalDiff > 0 ? Math.round(rentalDiff * loyalty.percent / 100) : 0
   const priceDiff = (rentalDiff - loyaltyDisc) + (newDeliveryFee - origDeliveryFee)
   const extrasCarry = origPaidPrice - origCalcPrice - origDeliveryFee
@@ -195,6 +202,9 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
         saveData.return_time = returnTime || null
       }
       if (motoChanged) saveData.moto_id = selectedMotoId
+      // Late-pickup sleva: přepočtená hodnota se persistuje (i 0 při ztrátě
+      // slevy), jen když se rozdíl reálně účtuje — u „Zdarma" cena nemění.
+      if (chargeCustomer && newLate !== origLate) saveData.late_pickup_discount_amount = newLate
       // Věrnostní sleva na doplatek (app rezervace) — kumuluje se do
       // loyalty_discount_amount, aby seděl rozpis dokladů i detail rezervace.
       if (chargeCustomer && loyaltyDisc > 0) {
@@ -237,6 +247,7 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
             at: new Date().toISOString(), from_start: toLD(dbBooking.start_date), from_end: toLD(dbBooking.end_date),
             to_start: isoDate(startDate), to_end: isoDate(endDate), source: 'admin',
             ...(motoChanged ? { moto_changed: true, from_moto: booking.motorcycles?.model, to_moto: selectedMoto?.model } : {}),
+            ...(newLate !== origLate ? { from_late_pickup: origLate, to_late_pickup: newLate } : {}),
             ...(priceDiff !== 0 ? { price_diff: priceDiff, charged: chargeCustomer } : {}),
           })
           saveData.modification_history = history
@@ -396,7 +407,7 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
         <BookingDeliverySection pickupMethod={pickupMethod} setPickupMethod={setPickupMethod} pickupAddress={pickupAddress} setPickupAddress={setPickupAddress} returnMethod={returnMethod} setReturnMethod={setReturnMethod} returnAddress={returnAddress} setReturnAddress={setReturnAddress} deliveryFee={deliveryFee} setDeliveryFee={setDeliveryFee} setShowMapPicker={setShowMapPicker} />
 
         {/* PRICE CALCULATION */}
-        <BookingPriceCalc newBreakdown={newBreakdown} selectedMoto={selectedMoto} booking={booking} origCalcPrice={origCalcPrice} origPaidPrice={origPaidPrice} origDays={origDays} newCalcPrice={newCalcPrice} newDeliveryFee={newDeliveryFee} extrasCarry={extrasCarry} newTotalPrice={newTotalPrice} priceDiff={priceDiff} days={days} chargeCustomer={chargeCustomer} setChargeCustomer={setChargeCustomer} loyaltyDisc={loyaltyDisc} loyaltyPercent={loyalty.percent} />
+        <BookingPriceCalc newBreakdown={newBreakdown} selectedMoto={selectedMoto} booking={booking} origCalcPrice={origCalcPrice} origPaidPrice={origPaidPrice} origDays={origDays} newCalcPrice={newCalcPrice} newDeliveryFee={newDeliveryFee} extrasCarry={extrasCarry} newTotalPrice={newTotalPrice} priceDiff={priceDiff} days={days} chargeCustomer={chargeCustomer} setChargeCustomer={setChargeCustomer} loyaltyDisc={loyaltyDisc} loyaltyPercent={loyalty.percent} lateDiscount={newLate} />
 
         {/* NOTES */}
         <div className="mb-5">

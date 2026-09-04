@@ -39,6 +39,17 @@ class BookingFormTimeSection extends StatelessWidget {
             value: pickupLabel,
             onChanged: onTimeChanged,
           ),
+          const SizedBox(height: 6),
+          // Hint: pozdní vyzvednutí = 50 % sleva na 1. den (>=12:00, >=2 dny)
+          Text(
+            '🌗 ${t(context).tr('latePickupHint12')}',
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF4A6357),
+              decoration: TextDecoration.none,
+            ),
+          ),
           const SizedBox(height: 12),
           Text(
             t(context).tr('returnTimeLabel'),

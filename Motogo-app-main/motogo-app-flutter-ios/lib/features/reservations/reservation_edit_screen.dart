@@ -252,7 +252,9 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
   }
 
   Widget _buildStornoWarning(BuildContext context) {
-    final targetDate = _newEnd ?? _booking!.endDate;
+    // Server (_apply_booking_changes_core) pocita storno % z NOVEHO STARTU
+    // (v_fs), ne z konce — zrcadlime, jinak UI slibuje jiny tier nez server.
+    final targetDate = _newStart ?? _booking!.startDate;
     final pct = StornoCalc.effectiveRefundPercent(targetDate, _booking!);
     final Color bgColor;
     final Color textColor;
@@ -583,6 +585,14 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
         // Track gear size changes {field: {from, to}}
         if (gearChanges.isNotEmpty) entry['gear_changes'] = gearChanges;
         if (extrasChanged) entry['extras_changed'] = true;
+        // Late-pickup sleva + finální dopad — serverové RPC tyhle klíče
+        // zapisují taky (generate-invoice edit fallback čte price_diff).
+        if (calc.newLatePickup != calc.oldLatePickup) {
+          entry['from_late_pickup'] = calc.oldLatePickup;
+          entry['to_late_pickup'] = calc.newLatePickup;
+        }
+        entry['price_diff'] = calc.effectivePriceDiff;
+        if (calc.rentalDiff < 0) entry['storno_pct'] = calc.stornoPercent;
         // Track address changes (delivery addresses)
         if (_pickupMethod == 'delivery' && _booking!.pickupMethod == 'delivery' &&
             _booking!.pickupAddress != null) {
@@ -666,7 +676,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
             title: effDiff < 0 ? t(context).tr('shorteningConfirmed') : t(context).tr('changesSavedTitle'),
             message: effDiff < 0
                 ? (refundOk
-                    ? '${t(context).tr('reservationShortened')}\n${t(context).tr('refundAmount').replaceAll('{amount}', '${(-effDiff).toStringAsFixed(0)}').replaceAll('{percent}', '${StornoCalc.effectiveRefundPercent(_newEnd ?? _booking!.endDate, _booking!)}')}\n${t(context).tr('refundToOriginalMethod')}'
+                    ? '${t(context).tr('reservationShortened')}\n${t(context).tr('refundAmount').replaceAll('{amount}', '${(-effDiff).toStringAsFixed(0)}').replaceAll('{percent}', '${calc.stornoPercent}')}\n${t(context).tr('refundToOriginalMethod')}'
                     : '${t(context).tr('reservationShortened')}\n${t(context).tr('refundSettleManual')}')
                 : '${t(context).tr('changesSaved')}\n${t(context).tr('reservationRange').replaceAll('{start}', _fmt(_newStart)).replaceAll('{end}', _fmt(_newEnd))}',
             isRefund: effDiff < 0 && refundOk,
@@ -925,6 +935,10 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
                 '+${Money.czk(calc.dateChangeAmount)}'),
               if (calc.diffDays < 0) EditPriceRow('${t(context).tr('shorteningLabel')} (${calc.diffDays.abs()} ${calc.diffDays.abs() == 1 ? t(context).tr("day1") : calc.diffDays.abs() < 5 ? t(context).tr("days24") : t(context).tr("days5")})',
                 '-${Money.czk(calc.dateChangeAmount.abs())}'),
+              // Sleva 50 % na 1. den (pozdní vyzvednutí) — dopad změny na cenu
+              if (calc.latePickupDelta != 0)
+                EditPriceRow(t(context).tr('latePickupDiscountLabel'),
+                  '${calc.latePickupDelta > 0 ? "+" : "−"}${Money.czk(calc.latePickupDelta.abs())}'),
               // Doprava: účtuje/vrací se ROZDÍL oproti původní rezervaci
               if (calc.deliveryFeeDelta != 0)
                 EditPriceRow(
@@ -944,9 +958,9 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900,
                     color: calc.effectivePriceDiff > 0 ? MotoGoColors.red : calc.effectivePriceDiff < 0 ? MotoGoColors.greenDarker : MotoGoColors.black)),
               ]),
-              if (calc.effectivePriceDiff < 0 && calc.diffDays < 0)
+              if (calc.effectivePriceDiff < 0 && calc.rentalDiff < 0)
                 Padding(padding: const EdgeInsets.only(top: 4),
-                  child: Text('${t(context).tr('stornoRefundPercent').replaceAll('{percent}', '${StornoCalc.effectiveRefundPercent(_newEnd ?? _booking!.endDate, _booking!)}')}',
+                  child: Text('${t(context).tr('stornoRefundPercent').replaceAll('{percent}', '${calc.stornoPercent}')}',
                     style: const TextStyle(fontSize: 10, color: MotoGoColors.g400))),
             ])),
 

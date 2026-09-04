@@ -289,7 +289,7 @@ return [
 
     // ===== Reserva — recogida / devolución =====
     'rez.pickup.title' => 'Hora de recogida o entrega',
-    'rez.pickup.sub' => 'Elija del menú o introduzca su propia hora',
+    'rez.pickup.sub' => 'Elige del menú o introduce tu propia hora. Desde las 12:00 tienes un 50 % de descuento en el 1.er día (2 o más días).',
     'rez.pickup.recommended' => 'Horarios recomendados (06:00 — 14:00)',
     'rez.pickup.orCustom' => '· o elija otra hora a la izquierda',
     'rez.pickup.atRental' => 'Recogida en el alquiler',
@@ -1080,7 +1080,7 @@ return [
     'editRez.change.successWithRefund' => 'Cambio guardado. Se ha iniciado el reembolso de {amount} — el dinero suele llegar a tu tarjeta original en 5–7 días hábiles.',
     'editRez.err.activeMotoLocked' => 'No se puede cambiar la moto durante un alquiler en curso.',
     'editRez.loc.title' => 'Cambiar lugar de recogida / devolución',
-    'editRez.loc.help' => 'Cambia el método y lugar de recogida o devolución. Las tarifas de entrega se reembolsan al 100 % independientemente del momento; las nuevas tarifas se cobran por Stripe o se devuelven como sobrepago.',
+    'editRez.loc.help' => 'Cambia el método, el lugar y la hora de recogida o devolución. Las tarifas de entrega se reembolsan al 100 %; cambiar la hora de recogida puede modificar el descuento del 50 % del primer día (desde las 12:00): el recargo o reembolso lo calcula el servidor y los reembolsos siguen la política de cancelación.',
     'editRez.loc.pickup' => 'Recogida',
     'editRez.loc.return' => 'Devolución',
     'editRez.loc.atRental' => 'En la tienda Mezná 9, 393 01 Pelhřimov',
@@ -1494,7 +1494,9 @@ return [
     'editRez.loc.timesHelp' => 'Cambiar la hora es gratis: si solo cambias la hora, no hay coste adicional.',
     'editRez.loc.pickupTime' => 'Hora de recogida',
     'editRez.loc.returnTime' => 'Hora de devolución',
-    'editRez.loc.timeOnly' => 'Cambio de hora (gratis)',
+    'editRez.loc.timeOnly' => 'Cambio de hora',
+    'editRez.detail.priceLatePickup' => '50 % de descuento el 1.er día (recogida tardía)',
+    'editRez.timeHint12' => 'Recogida desde las 12:00 = 1.er día a mitad de precio (reservas de 2 o más días).',
     'editRez.shorten.ctaNoRefund' => 'Acortar (sin reembolso)',
     'editRez.shorten.successNoRefund' => 'Reserva acortada. No fue posible un reembolso según las condiciones de cancelación.',
     'editRez.consents.lockedBadge' => 'Bloqueado',

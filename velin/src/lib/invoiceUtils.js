@@ -78,6 +78,16 @@ function buildBookingItems(moto, booking) {
   if (booking.discount_amount > 0) items.push({ description: `Sleva${booking.discount_code ? ` (${booking.discount_code})` : ''}`, qty: 1, unit_price: -booking.discount_amount })
   if (booking.loyalty_discount_amount > 0) items.push({ description: `Věrnostní sleva${booking.loyalty_percent ? ` ${booking.loyalty_percent} %` : ''} — rezervace přes aplikaci MotoGo24`, qty: 1, unit_price: -booking.loyalty_discount_amount })
   if (booking.late_pickup_discount_amount > 0) items.push({ description: 'Sleva 50 % na 1. den (pozdní vyzvednutí)', qty: 1, unit_price: -booking.late_pickup_discount_amount })
+  // Korekce SMĚREM DOLŮ: když rozpis převyšuje bookings.total_price (zastaralá
+  // late sleva po bezplatném posunu, historické úpravy…), dorovnej záporným
+  // řádkem — jinak ZF/DP vyjde vyšší než skutečná cena a KF nevyjde na 0.
+  // Zrcadlí „Korekce ceny pronájmu" v edge generate-invoice. Opačný směr
+  // (total > rozpis) řeší KF řádek „Storno poplatek" v generateFinalInvoice.
+  const itemsSum = items.reduce((s, i) => s + (Number(i.unit_price) || 0) * (Number(i.qty) || 1), 0)
+  const bookingNet = Number(booking.total_price) || 0
+  if (bookingNet > 0 && itemsSum - bookingNet >= 1) {
+    items.push({ description: 'Korekce ceny pronájmu', qty: 1, unit_price: -Math.round(itemsSum - bookingNet) })
+  }
   return items
 }
 

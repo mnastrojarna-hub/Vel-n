@@ -288,7 +288,7 @@ return [
 
     // ===== Réservation — prise en charge / retour =====
     'rez.pickup.title' => 'Heure de prise en charge ou de livraison',
-    'rez.pickup.sub' => 'Choisissez dans le menu ou saisissez votre propre heure',
+    'rez.pickup.sub' => 'Choisissez dans le menu ou saisissez votre propre heure. À partir de 12h00, profitez de 50 % de remise sur le 1er jour (2 jours et plus).',
     'rez.pickup.recommended' => 'Heures recommandées (06:00 — 14:00)',
     'rez.pickup.orCustom' => '· ou choisissez une heure personnalisée à gauche',
     'rez.pickup.atRental' => 'Prise en charge au loueur',
@@ -1079,7 +1079,7 @@ return [
     'editRez.change.successWithRefund' => 'Le changement a été enregistré. Le remboursement de {amount} a été lancé — les fonds arrivent généralement sur votre carte d\'origine sous 5 à 7 jours ouvrés.',
     'editRez.err.activeMotoLocked' => 'Impossible de changer de moto pendant une location en cours.',
     'editRez.loc.title' => 'Changer le lieu de retrait / retour',
-    'editRez.loc.help' => 'Modifiez le mode et le lieu de retrait ou de retour. Les frais de livraison sont remboursés à 100 % quel que soit le moment ; les nouveaux frais sont facturés via Stripe ou remboursés en cas de surplus.',
+    'editRez.loc.help' => 'Modifiez le mode, le lieu et l\'heure de retrait ou de retour. Les frais de livraison sont remboursés à 100 % ; changer l\'heure de retrait peut modifier la remise de 50 % sur le 1er jour (à partir de 12h00) — le supplément ou le remboursement est calculé par le serveur et les remboursements suivent les conditions d\'annulation.',
     'editRez.loc.pickup' => 'Retrait',
     'editRez.loc.return' => 'Retour',
     'editRez.loc.atRental' => 'À l\'agence Mezná 9, 393 01 Pelhřimov',
@@ -1493,7 +1493,9 @@ return [
     'editRez.loc.timesHelp' => 'Changer l\'heure est gratuit — si vous ne modifiez que l\'heure, aucun supplément.',
     'editRez.loc.pickupTime' => 'Heure de retrait',
     'editRez.loc.returnTime' => 'Heure de retour',
-    'editRez.loc.timeOnly' => 'Changement d\'heure (gratuit)',
+    'editRez.loc.timeOnly' => 'Changement d\'heure',
+    'editRez.detail.priceLatePickup' => '50 % de réduction le 1er jour (retrait tardif)',
+    'editRez.timeHint12' => 'Retrait à partir de 12h00 = 1er jour à moitié prix (réservations de 2 jours ou plus).',
     'editRez.shorten.ctaNoRefund' => 'Raccourcir (sans remboursement)',
     'editRez.shorten.successNoRefund' => 'Réservation raccourcie. Un remboursement selon les conditions d\'annulation n\'était pas possible.',
     'editRez.consents.lockedBadge' => 'Verrouillé',

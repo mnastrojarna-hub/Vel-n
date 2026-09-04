@@ -75,10 +75,28 @@ export default function BookingsBulkActionsModal({ open, onClose, selectedBookin
         if (!b.start_date || !b.end_date) continue
         const newStart = new Date(b.start_date); newStart.setDate(newStart.getDate() + n)
         const newEnd = new Date(b.end_date); newEnd.setDate(newEnd.getDate() + n)
-        await supabase.from('bookings').update({
+        const upd = {
           start_date: newStart.toISOString().slice(0, 10),
           end_date: newEnd.toISOString().slice(0, 10),
-        }).eq('id', b.id)
+        }
+        // Late-pickup sleva (50 % 1. dne od 12:00) závisí na dni v týdnu startu —
+        // po posunu se sloupec přepočítá serverovým helperem, aby řádek slevy na
+        // dokladech odpovídal novému termínu. Cena se (jako u posunu zdarma)
+        // nemění; rozdíl srovná korekční řádek v invoiceUtils. Best-effort.
+        if (Number(b.late_pickup_discount_amount) > 0 || b.pickup_time) {
+          try {
+            const { data: late, error: lateErr } = await supabase.rpc('_late_pickup_discount', {
+              p_moto_id: b.moto_id,
+              p_start: upd.start_date,
+              p_end: upd.end_date,
+              p_pickup_time: b.pickup_time || null,
+            })
+            if (!lateErr && late != null && Number.isFinite(Number(late))) {
+              upd.late_pickup_discount_amount = Number(late)
+            }
+          } catch { /* posun proběhne i bez přepočtu */ }
+        }
+        await supabase.from('bookings').update(upd).eq('id', b.id)
       }
       await logAudit('booking_bulk_dates_shifted', { count, days: n, ids })
     })

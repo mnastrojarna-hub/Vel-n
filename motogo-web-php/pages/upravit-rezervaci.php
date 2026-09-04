@@ -115,6 +115,7 @@ $keys = [
     'editRez.detail.pickupPlace','editRez.detail.returnPlace','editRez.detail.priceBreakdown',
     'editRez.detail.gearTitle','editRez.detail.historyTitle','editRez.detail.gearRider','editRez.detail.gearPassenger',
     'editRez.detail.priceRental','editRez.detail.priceExtras','editRez.detail.priceDelivery',
+    'editRez.detail.priceLatePickup','editRez.timeHint12',
     'editRez.detail.deliveryAddr','editRez.detail.pickupAtRental','editRez.detail.returnAtAddr','editRez.detail.returnAtRental',
     'editRez.detail.licenseRequired','editRez.detail.licenseNone',
     'editRez.detail.deliveryShort','editRez.detail.pickupShort',

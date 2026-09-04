@@ -288,7 +288,7 @@ return [
 
     // ===== Booking — pickup / return =====
     'rez.pickup.title' => 'Pickup or delivery time',
-    'rez.pickup.sub' => 'Pick from the menu or enter a custom time',
+    'rez.pickup.sub' => 'Pick from the menu or enter a custom time. From 12:00 you get 50% off the 1st day (2+ days).',
     'rez.pickup.recommended' => 'Recommended times (06:00 — 14:00)',
     'rez.pickup.orCustom' => '· or pick a custom time on the left',
     'rez.pickup.atRental' => 'Pickup at the rental',
@@ -719,7 +719,7 @@ return [
     'editRez.change.successWithRefund' => 'Change has been saved. A refund of {amount} has been initiated — funds usually arrive on your original card within 5–7 business days.',
     'editRez.err.activeMotoLocked' => 'Cannot change motorcycle during an active rental.',
     'editRez.loc.title' => 'Change pickup / return location',
-    'editRez.loc.help' => 'Change the pickup or return method and address. Delivery fees are refunded 100% regardless of timing; new fees are charged via Stripe or refunded as overpayment.',
+    'editRez.loc.help' => 'Change the pickup or return method, address and time. Delivery fees are refunded 100%; changing the pickup time may change the 50% first-day discount (from 12:00) — the surcharge or refund is calculated by the server and refunds follow the cancellation policy.',
     'editRez.loc.pickup' => 'Pickup',
     'editRez.loc.return' => 'Return',
     'editRez.loc.atRental' => 'At rental Mezná 9, 393 01 Pelhřimov',
@@ -738,7 +738,9 @@ return [
     'editRez.loc.timesHelp' => 'Time changes are free — if you only change the time, no extra payment.',
     'editRez.loc.pickupTime' => 'Pickup time',
     'editRez.loc.returnTime' => 'Return time',
-    'editRez.loc.timeOnly' => 'Time change (free)',
+    'editRez.loc.timeOnly' => 'Time change',
+    'editRez.detail.priceLatePickup' => '50% off the 1st day (late pickup)',
+    'editRez.timeHint12' => 'Pickup from 12:00 = 50% off the 1st day (bookings of 2+ days).',
 
     // Reschedule (free move)
     'editRez.move.title' => 'Reschedule for free',
