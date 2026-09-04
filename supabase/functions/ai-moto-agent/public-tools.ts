@@ -51,7 +51,7 @@ export const PUBLIC_READ_TOOLS = [
   },
   {
     name: 'get_availability',
-    description: 'Zkontroluje obsazené termíny pro konkrétní motorku. Vrací seznam booked ranges.',
+    description: 'Zkontroluje obsazené termíny pro konkrétní motorku. Vrací `today` (dnešní datum), `booked` (rezervace), `service_blocks` (plánované servisní odstávky s rozsahem `from`–`to` a příznakem `in_progress`) a `in_service_today`. Servisní blok blokuje motorku JEN ve svém rozsahu datumů — budoucí plánovaný servis NEZNAMENÁ, že je motorka v servisu teď. Zavolej VŽDY, než o motorce tvrdíš, že je/bude v servisu.',
     input_schema: {
       type: 'object' as const,
       properties: { moto_id: { type: 'string' } },
@@ -177,18 +177,29 @@ export async function execPublicReadTool(
       const availFrom = args.available_on ? String(args.available_on) : (args.available_from ? String(args.available_from) : null)
       const availTo = args.available_on ? String(args.available_on) : (args.available_to ? String(args.available_to) : null)
       // Jména strojů, které filtrům vyhověly, ale v termínu jsou OBSAZENÉ — agent pak umí říct
-      // „máme, ale v tom termínu je obsazený" místo nepravdivého „nemáme".
+      // „máme, ale v tom termínu je obsazený" místo nepravdivého „nemáme". Kolize se SERVISNÍM
+      // blokem se hlásí zvlášť VČETNĚ datumů from–to: plánovaný servis blokuje jen svůj rozsah
+      // a agent nesmí tvrdit „je v servisu", když tam stroj v požadovaný den reálně není.
       let bookedInWindow: string[] = []
+      const serviceInWindow: Array<{ name: string; service_from: string; service_to: string }> = []
       if (availFrom && availTo) {
         const checks = await Promise.all(result.map(async (m: Record<string, unknown>) => {
           const { data: booked } = await sb.rpc('get_moto_booked_dates', { p_moto_id: m.id })
-          const ranges = (booked || []) as Array<{ start_date: string; end_date: string }>
-          const conflict = ranges.some((r) => !(availTo < r.start_date || availFrom > r.end_date))
-          return { moto: m, free: !conflict }
+          const ranges = (booked || []) as Array<{ start_date: string; end_date: string; status?: string }>
+          const conflicts = ranges.filter((r) => !(availTo < r.start_date || availFrom > r.end_date))
+          return { moto: m, conflicts }
         }))
-        bookedInWindow = checks.filter((c) => !c.free)
-          .map((c) => motoDisplayName((c.moto as Record<string, unknown>).brand as string, (c.moto as Record<string, unknown>).model as string))
-        result = checks.filter((c) => c.free).map((c) => c.moto as Record<string, unknown>)
+        for (const c of checks) {
+          if (c.conflicts.length === 0) continue
+          const name = motoDisplayName((c.moto as Record<string, unknown>).brand as string, (c.moto as Record<string, unknown>).model as string)
+          const svc = c.conflicts.find((r) => r.status === 'service')
+          if (svc && c.conflicts.every((r) => r.status === 'service')) {
+            serviceInWindow.push({ name, service_from: svc.start_date, service_to: svc.end_date })
+          } else {
+            bookedInWindow.push(name)
+          }
+        }
+        result = checks.filter((c) => c.conflicts.length === 0).map((c) => c.moto as Record<string, unknown>)
       }
 
       // Nic nevyhovělo, ale hledala se konkrétní kategorie/značka/model → zjisti, jestli takový
@@ -197,7 +208,7 @@ export async function execPublicReadTool(
       // POZOR: `retired` sem NESMÍ — vyřazený stroj už ve flotile NENÍ (prodaný/odepsaný); hlásit ho
       // jako „v servisu" je dezinformace (reálný incident: agent sliboval choppery, které firma nemá).
       let outOfService: Array<Record<string, unknown>> = []
-      if (result.length === 0 && bookedInWindow.length === 0 && (args.category || args.brand || args.model_query)) {
+      if (result.length === 0 && bookedInWindow.length === 0 && serviceInWindow.length === 0 && (args.category || args.brand || args.model_query)) {
         let q2 = sb.from('motorcycles').select('brand, model, status, category, license_required').in('status', ['maintenance', 'unavailable'])
         if (args.category) q2 = q2.ilike('category', `%${args.category}%`)
         if (args.brand) q2 = q2.ilike('brand', `%${String(args.brand)}%`)
@@ -209,7 +220,7 @@ export async function execPublicReadTool(
           .map((m) => ({
             name: motoDisplayName(m.brand as string, m.model as string),
             status: m.status,
-            status_note: m.status === 'maintenance' ? 'v servisu' : 'dočasně mimo nabídku',
+            status_note: m.status === 'maintenance' ? 'právě v servisu (aktuální stav)' : 'dočasně mimo nabídku',
             category: m.category, license: m.license_required,
           }))
       }
@@ -250,14 +261,18 @@ export async function execPublicReadTool(
         availability_window: availFrom ? { from: availFrom, to: availTo } : null,
         // Stroje vyhovující filtrům, ale OBSAZENÉ v požadovaném termínu (jen když nic volného nezbylo).
         booked_in_window: (result.length === 0 && bookedInWindow.length > 0) ? bookedInWindow : undefined,
+        // Stroje blokované v POŽADOVANÉM termínu plánovaným servisem — s datumy from–to.
+        service_in_window: (result.length === 0 && serviceInWindow.length > 0) ? serviceInWindow : undefined,
         // Stroje, které ve flotile existují, ale nejsou právě v nabídce (servis/mimo provoz).
         out_of_service_matches: outOfService.length > 0 ? outOfService : undefined,
         notice: result.length === 0
           ? (bookedInWindow.length > 0
             ? 'Stroje v `booked_in_window` MÁME a filtrům vyhovují, ale v požadovaném termínu jsou OBSAZENÉ. Řekni to zákazníkovi přesně takto a nabídni jiný termín (get_availability ukáže obsazené rozsahy). NIKDY netvrď, že takový stroj nemáme.'
-            : (outOfService.length > 0
-              ? 'Stroje v `out_of_service_matches` ve flotile EXISTUJÍ, ale právě NEJSOU v nabídce — použij přesně důvod ze `status_note` každého stroje („v servisu" vs. „dočasně mimo nabídku") a nabídni alternativu nebo pozdější termín. NIKDY netvrď, že takový stroj vůbec nemáme. Stroje mimo tento seznam a mimo aktivní flotilu NEEXISTUJÍ — žádné jiné modely si nedomýšlej.'
-              : undefined))
+            : (serviceInWindow.length > 0
+              ? 'Stroje v `service_in_window` MÁME, ale v POŽADOVANÉM termínu mají plánovaný servis (rozsah `service_from`–`service_to`). Řekni to zákazníkovi S TĚMITO DATUMY („v termínu od–do má plánovaný servis") a nabídni termín mimo tento rozsah nebo alternativu. Mimo uvedený rozsah je stroj normálně dostupný — NIKDY netvrď, že „je v servisu" teď, když servis teprve proběhne v budoucnu.'
+              : (outOfService.length > 0
+                ? 'Stroje v `out_of_service_matches` ve flotile EXISTUJÍ, ale právě NEJSOU v nabídce — použij přesně důvod ze `status_note` každého stroje („právě v servisu" vs. „dočasně mimo nabídku") a nabídni alternativu nebo pozdější termín. NIKDY netvrď, že takový stroj vůbec nemáme. Stroje mimo tento seznam a mimo aktivní flotilu NEEXISTUJÍ — žádné jiné modely si nedomýšlej.'
+                : undefined)))
           : undefined,
         motorcycles: result.slice(0, 20).map((m: Record<string, unknown>) => {
           const base: Record<string, unknown> = {
@@ -306,7 +321,23 @@ export async function execPublicReadTool(
     }
     case 'get_availability': {
       const { data } = await sb.rpc('get_moto_booked_dates', { p_moto_id: args.moto_id })
-      return { booked: data || [] }
+      const rows = (data || []) as Array<{ start_date: string; end_date: string; status?: string; created_at?: string }>
+      // Servisní bloky se oddělují od rezervací a posuzují se PODLE DATUMŮ vůči dnešku
+      // (Europe/Prague). Plánovaný servis (např. zimní) blokuje VÝHRADNĚ svůj rozsah —
+      // agent NESMÍ tvrdit „motorka je v servisu", když tam dnes / v požadovaný den není.
+      const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Prague', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
+      const serviceRows = rows.filter((r) => r.status === 'service')
+      const bookedRows = rows.filter((r) => r.status !== 'service')
+      const inServiceToday = serviceRows.some((r) => r.start_date <= today && today <= r.end_date)
+      return {
+        today,
+        booked: bookedRows,
+        service_blocks: serviceRows.map((r) => ({ from: r.start_date, to: r.end_date, in_progress: r.start_date <= today && today <= r.end_date })),
+        in_service_today: inServiceToday,
+        notice: serviceRows.length > 0
+          ? 'PRÁCE S DATUMY (POVINNÉ): servisní blok v `service_blocks` blokuje motorku VÝHRADNĚ v rozsahu `from`–`to` — mimo něj je motorka normálně dostupná. „Motorka je v servisu" smíš říct JEN když `in_service_today`=true (dotaz na dnešek), nebo když zákazníkem požadovaný den spadá DO rozsahu bloku. Budoucí plánovaný servis (např. zimní) NIKDY nepopisuj jako „je v servisu" — správně: „od <from> do <to> má plánovaný servis, do té doby je normálně k dispozici".'
+          : undefined,
+      }
     }
     case 'calculate_price': {
       const { moto_id, start_date, end_date, promo_code } = args
