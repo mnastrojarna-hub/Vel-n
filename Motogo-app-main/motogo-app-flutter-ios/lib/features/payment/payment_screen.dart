@@ -339,7 +339,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
     // Sleva: kromě textového kódu zapiš i FK na promo_codes / vouchers —
     // parita s webovou create_web_booking. Bez promo_code_id/voucher_id
     // process-payment ZAMÍTNE potvrzení 100% slevy (free booking) a
-    // rezervace by zůstala unpaid → auto-storno za 10 minut.
+    // rezervace by zůstala unpaid → auto-storno za 30 minut.
     final firstDiscount = draft.discounts.isNotEmpty ? draft.discounts.first : null;
     final promoCodeId =
         (firstDiscount != null && !firstDiscount.isVoucher) ? firstDiscount.promoId : null;
@@ -392,7 +392,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
         'status': 'pending',
         'payment_status': 'unpaid',
         // Zdroj rezervace = app (web hardcoduje 'web'). Řídí výběr e-mailových
-        // šablon (app/sdílené, ne web_*), auto-cancel okno (app=10 min) a
+        // šablon (app/sdílené, ne web_*), auto-cancel okno (app=30 min) a
         // vyloučení z webových abandoned/missing-docs cronů.
         'booking_source': 'app',
         // i18n: jazyk zákazníka (z aktuálního locale appky) → maily/SMS/push
@@ -1007,7 +1007,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
 
   /// Potvrzen\u00ed rezervace pln\u011b pokryt\u00e9 slevou (0 K\u010d). KRITICK\u00c9: \u00fasp\u011bch se
   /// NESM\u00cd p\u0159edst\u00edrat \u2014 d\u0159\u00edv se v\u00fdsledek confirm_free ignoroval, z\u00e1kazn\u00edk
-  /// vid\u011bl d\u011bkovac\u00ed str\u00e1nku, ale rezervace z\u016fstala `unpaid` a za 10 minut
+  /// vid\u011bl d\u011bkovac\u00ed str\u00e1nku, ale rezervace z\u016fstala `unpaid` a za 30 minut
   /// p\u0159i\u0161el storno mail. Te\u010f flow pokra\u010duje na \u00fasp\u011bch JEN kdy\u017e backend
   /// rezervaci re\u00e1ln\u011b ozna\u010dil jako zaplacenou.
   Future<void> _confirmFree() async {

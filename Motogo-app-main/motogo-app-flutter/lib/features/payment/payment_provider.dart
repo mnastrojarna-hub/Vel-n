@@ -155,8 +155,9 @@ Future<String?> setupNewCard() async {
   }
 }
 
-/// Auto-cancel timer constant (10 minutes) — matches _PAYMENT_TIMEOUT_MS.
-const paymentTimeoutDuration = Duration(minutes: 10);
+/// Auto-cancel timer constant (30 minutes) — musí sedět se serverovým oknem
+/// v auto_cancel_expired_pending() (app = 30 min, mig. 20260904b).
+const paymentTimeoutDuration = Duration(minutes: 30);
 
 /// Max payment attempts before auto-cancel.
 const maxPaymentAttempts = 3;
