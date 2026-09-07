@@ -173,6 +173,9 @@ const translationsExt1EsFr = <String, Map<String, String>>{
     'updateNow': 'ACTUALIZAR',
     'updateDownloaded': 'Actualización descargada. Reinicie para instalar.',
     'updateRestart': 'REINICIAR',
+    'updateAvailable': 'Nueva versión disponible',
+    'updateAvailableDesc': 'Hay una nueva versión de la aplicación disponible (v{version}). Actualice para obtener las últimas novedades y correcciones.',
+    'updateLater': 'Más tarde',
   },
 
   'fr': {
@@ -348,5 +351,8 @@ const translationsExt1EsFr = <String, Map<String, String>>{
     'updateNow': 'METTRE À JOUR',
     'updateDownloaded': 'Mise à jour téléchargée. Redémarrez pour installer.',
     'updateRestart': 'REDÉMARRER',
+    'updateAvailable': 'Nouvelle version disponible',
+    'updateAvailableDesc': 'Une nouvelle version de l\'application est disponible (v{version}). Mettez à jour pour profiter des dernières nouveautés et corrections.',
+    'updateLater': 'Plus tard',
   },
 };
