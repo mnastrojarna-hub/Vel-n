@@ -1,0 +1,79 @@
+# MotoGo Box — výchozí hardwarová mapa: Brno, 9 zón (specifikace §4–§7).
+# Stejný tvar má `branch_kiosk_config.hardware` (vše kromě `zones`) a `branch_doors.hw`
+# (jedna položka `zones`). Konfigurace z Velína má přednost před tímto souborem.
+version: 1
+
+network:
+  subnet: 192.168.50.0/24
+  raspberry_ip: 192.168.50.10
+  switch_ip: 192.168.50.2
+  default_gateway_on_eth0: null      # výchozí trasa jde přes LTE (SIM7600), NE přes eth0
+  internet_interface: LTE
+
+devices:
+  wav645:  { type: wav645,       host: 192.168.50.20, port: 502, unit_id: 1 }   # 16 relé: zámky R1–R9, audio R10–R11, R12–R16 rezerva
+  wav617a: { type: wav617,       host: 192.168.50.21, port: 502, unit_id: 1 }   # DI1–8 kontakty zón 1–8, R1–R8 bílé světlo zón 1–8
+  wav617b: { type: wav617,       host: 192.168.50.22, port: 502, unit_id: 1 }   # DI1 kontakt zóny 9, R1 světlo zóny 9, R2–R8 audio zón 1–7
+  shelly1: { type: shelly_rgbww, host: 192.168.50.31 }
+  shelly2: { type: shelly_rgbww, host: 192.168.50.32 }
+  shelly3: { type: shelly_rgbww, host: 192.168.50.33 }
+  shelly4: { type: shelly_rgbww, host: 192.168.50.34 }
+
+timings:
+  lock_pulse_ms: 800
+  door_open_timeout_s: 30
+  door_close_debounce_ms: 1000
+  light_after_close_s: 30
+  music_after_close_s: 10
+  maximum_session_s: 600
+  forced_open_debounce_ms: 500
+  pin_entry_timeout_s: 20
+  overtime_alert_minutes: [10, 20, 30]
+
+polling:
+  door_input_poll_ms: 100
+  software_debounce_ms: 300
+  modbus_timeout_ms: 500
+  retry_delays_ms: [100, 250, 500]
+  device_offline_after_failures: 3
+
+contacts:
+  # Hodnota vstupu WAV617 při ZAVŘENÝCH dveřích (NC kontakt). §13.5: ověřit fyzicky
+  # po zapojení; přerušený kabel se musí vyhodnotit jako otevřeno/porucha.
+  closed_level: 1
+
+security:
+  maximum_failed_attempts: 5
+  attempt_window_minutes: 5
+  lockout_minutes: 15
+  pin_length: 6
+  mask_pin_on_screen: true
+  service_token_minutes: 10
+
+audio:
+  volume: 70
+  fade_in_ms: 1500
+  fade_out_ms: 500
+  selector_settle_ms: 200
+  selector_on_ms: 100
+  device: null            # např. "alsa/plughw:CARD=Device" (AXAGON USB); null = výchozí
+  shuffle: true
+
+signal:
+  brightness: 100
+  blink_ms: 500
+  pulse_ms: 1500
+  transition_s: 0.2
+
+# Modbus adresy začínají 0 (coil 0 = fyzické relé R1, input 0 = DI1). Shelly light id 0–4.
+zones:
+  - { zone: 1, lock: { dev: wav645, coil: 0 }, contact: { dev: wav617a, input: 0 }, light: { dev: wav617a, coil: 0 }, audio: { dev: wav617b, coil: 1 },  red: { dev: shelly1, light: 0 }, green: { dev: shelly1, light: 1 } }
+  - { zone: 2, lock: { dev: wav645, coil: 1 }, contact: { dev: wav617a, input: 1 }, light: { dev: wav617a, coil: 1 }, audio: { dev: wav617b, coil: 2 },  red: { dev: shelly1, light: 2 }, green: { dev: shelly1, light: 3 } }
+  - { zone: 3, lock: { dev: wav645, coil: 2 }, contact: { dev: wav617a, input: 2 }, light: { dev: wav617a, coil: 2 }, audio: { dev: wav617b, coil: 3 },  red: { dev: shelly1, light: 4 }, green: { dev: shelly2, light: 0 } }
+  - { zone: 4, lock: { dev: wav645, coil: 3 }, contact: { dev: wav617a, input: 3 }, light: { dev: wav617a, coil: 3 }, audio: { dev: wav617b, coil: 4 },  red: { dev: shelly2, light: 1 }, green: { dev: shelly2, light: 2 } }
+  - { zone: 5, lock: { dev: wav645, coil: 4 }, contact: { dev: wav617a, input: 4 }, light: { dev: wav617a, coil: 4 }, audio: { dev: wav617b, coil: 5 },  red: { dev: shelly2, light: 3 }, green: { dev: shelly2, light: 4 } }
+  - { zone: 6, lock: { dev: wav645, coil: 5 }, contact: { dev: wav617a, input: 5 }, light: { dev: wav617a, coil: 5 }, audio: { dev: wav617b, coil: 6 },  red: { dev: shelly3, light: 0 }, green: { dev: shelly3, light: 1 } }
+  - { zone: 7, lock: { dev: wav645, coil: 6 }, contact: { dev: wav617a, input: 6 }, light: { dev: wav617a, coil: 6 }, audio: { dev: wav617b, coil: 7 },  red: { dev: shelly3, light: 2 }, green: { dev: shelly3, light: 3 } }
+  - { zone: 8, lock: { dev: wav645, coil: 7 }, contact: { dev: wav617a, input: 7 }, light: { dev: wav617a, coil: 7 }, audio: { dev: wav645,  coil: 9 },  red: { dev: shelly3, light: 4 }, green: { dev: shelly4, light: 0 } }
+  - { zone: 9, lock: { dev: wav645, coil: 8 }, contact: { dev: wav617b, input: 0 }, light: { dev: wav617b, coil: 0 }, audio: { dev: wav645,  coil: 10 }, red: { dev: shelly4, light: 1 }, green: { dev: shelly4, light: 2 } }
+# rezerva: shelly4 light 3 (červená) / light 4 (zelená); wav645 coil 11–15 (R12–R16)

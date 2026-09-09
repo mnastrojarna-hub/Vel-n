@@ -13,3 +13,8 @@ motogo-web-php/.cache/
 # Python cache
 __pycache__/
 *.pyc
+
+# MotoGo Box (Raspberry) / build
+.pytest_cache/
+raspberry/motogo-box/.venv/
+velin/dist/

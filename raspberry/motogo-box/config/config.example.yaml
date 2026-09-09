@@ -1,0 +1,43 @@
+# MotoGo Box — lokální konfigurace (kopírovat do /etc/motogo/config.yaml).
+# Identitu zařízení (ID + token) vytvoříš ve Velíně → Pobočky → Samoobsluha → Zařízení.
+# Alternativně lze spárovat z dotykového UI (setup obrazovka) — uloží se do SQLite.
+
+supabase:
+  url: https://vnwnqteskbykeucanlhk.supabase.co
+  anon_key: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZud25xdGVza2J5a2V1Y2FubGhrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI0OTEzNjMsImV4cCI6MjA4ODA2NzM2M30.AiHfmfEQK9KD9TvxX5XLWVGaOhEV7kiMwwMwMWp0Ruo"
+
+device:
+  id: ""            # UUID zařízení z Velína (kiosk_devices.id)
+  token: ""         # device_token z Velína
+  name: "Brno — box"
+
+paths:
+  data_dir: /var/lib/motogo            # SQLite (cache kódů, fronta událostí, lokální audit)
+  music_dir: /var/lib/motogo/music     # mp3/ogg/flac/wav — playlist pro reproduktory kójí
+  hardware_file: /etc/motogo/hardware.yaml   # výchozí HW mapa (instalátor kopíruje config/brno-9zone.yaml)
+  mpv_socket: /run/motogo/mpv.sock
+
+web:
+  host: 127.0.0.1
+  port: 8080
+
+intervals:
+  heartbeat_s: 30        # online stav ve Velíně
+  sync_s: 60             # stažení konfigurace + cache kódů (kiosk_sync_config)
+  command_poll_s: 10     # pojistka pro vzdálené příkazy (primárně realtime broadcast)
+  status_report_s: 30    # kiosk_report_status (živý stav zón do Velína)
+  outbox_flush_s: 60
+  io_poll_ms: 100        # čtení dveřních kontaktů
+
+health:
+  check_interval_s: 30
+  probe_url: https://vnwnqteskbykeucanlhk.supabase.co/auth/v1/health
+  nm_connection: motogo-lte
+  modem_vid_pid: "1e0e:9001"      # SIM7600E-H
+  usb_reset_script: /opt/motogo/scripts/usbreset-modem.sh
+  reconnect_after: 5              # neúspěšných kontrol internetu → nmcli con up
+  usb_reset_after: 5              # neúspěšných reconnectů → USB reset modemu
+  reboot_after: 3                 # USB resetů bez obnovy → reboot (max 1× za min_uptime_before_reboot_s)
+  min_uptime_before_reboot_s: 1800
+
+log_level: INFO
