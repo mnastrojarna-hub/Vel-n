@@ -21,8 +21,10 @@ Future<void> showBranchesSheet(BuildContext context) async {
           .from('motorcycles')
           .select(
               'id, model, brand, category, license_required, image_url, images,'
-              ' status, branch_id, power_kw, engine_cc')
+              ' status, branch_id, power_kw, engine_cc, sort_order')
           .eq('status', 'active')
+          // Stejné pořadí jako katalog/web: ruční sort_order z Velína, NULL na konec.
+          .order('sort_order', ascending: true, nullsFirst: false)
           .order('model'),
     ]);
     if (!context.mounted) return;

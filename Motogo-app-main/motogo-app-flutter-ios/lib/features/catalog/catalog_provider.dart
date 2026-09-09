@@ -14,6 +14,10 @@ final motorcyclesProvider = FutureProvider<List<Motorcycle>>((ref) async {
         .from('motorcycles')
         .select('*, branches(name, address, city, type)')
         .inFilter('status', ['active', 'maintenance'])
+        // Pořadí = ruční „Pořadí zobrazení (1-X)" z Velína (motorcycles.sort_order),
+        // stejné jako web (fetchMotos: sort_order asc nulls last, model asc) a
+        // hero banner. Neočíslované (NULL) jdou ZA očíslované podle modelu.
+        .order('sort_order', ascending: true, nullsFirst: false)
         .order('model');
 
     final motos = (res as List).map((e) => Motorcycle.fromJson(e)).toList();
