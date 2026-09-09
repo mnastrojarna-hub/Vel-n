@@ -24,6 +24,8 @@ Toto je soustava propojených aplikací pro MotoGo24 (půjčovna motorek):
 - **velin/** — Velín = superadmin dashboard (React 18 + Vite + TailwindCSS)
 - **supabase/** — Backend: Edge Functions + SQL migrace
 - **doc-scanner/** - Mobilní capacitor vstup pro účetní přijaté dokumenty všeho druhu do velínu
+- **raspberry/motogo-box/** — Řídicí program autonomní pobočky Brno pro Raspberry Pi 5 (Python/asyncio): Modbus TCP relé Waveshare (zámky, světla, audio selektor, dveřní kontakty), Shelly RGBWW signalizace, mpv audio, dotykové UI (Chromium kiosk), Supabase sync přes stejné `kiosk_*` RPC jako tabletový kiosk. Vše HW mapování se nastavuje z Velína (Pobočky → Samoobsluha). Viz `raspberry/motogo-box/README.md`, `SPEC.md`, `CONTRACT.md`.
+- **Motogo-app-main/motogo-locker-kiosk/** — Původní tabletový kiosk (Flutter, Shelly HTTP) — stejná logika/backend jako RPi program
 
 ## Appka: dva stromy (Android + iOS) — POVINNÁ synchronizace
 
