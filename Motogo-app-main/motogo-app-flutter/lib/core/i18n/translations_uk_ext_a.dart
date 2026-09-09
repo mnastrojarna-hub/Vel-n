@@ -173,6 +173,9 @@ const translationsUkExt1 = <String, Map<String, String>>{
     'updateNow': 'ОНОВИТИ',
     'updateDownloaded': 'Оновлення завантажено. Перезапустіть для встановлення.',
     'updateRestart': 'ПЕРЕЗАПУСТИТИ',
+    'updateAvailable': 'Доступна нова версія',
+    'updateAvailableDesc': 'Доступна нова версія застосунку (v{version}). Оновіть, щоб отримати останні функції та виправлення.',
+    'updateLater': 'Пізніше',
   },
 };
 const translationsUkExt6 = <String, Map<String, String>>{

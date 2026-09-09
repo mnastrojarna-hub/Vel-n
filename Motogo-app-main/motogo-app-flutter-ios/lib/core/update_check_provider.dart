@@ -69,10 +69,16 @@ class UpdateChecker {
       if (res == null || res['value'] == null) return;
 
       final value = res['value'];
-      // value can be a plain string "2.4.0" or a map {"version": "2.4.0"}
+      // value can be a plain string "2.4.0" (applies to both platforms),
+      // a map {"version": "2.4.0"} (both platforms), or a per-platform map
+      // {"ios": "3.5.0", "android": "3.6.0"} — the two store releases can
+      // carry different versions, so each platform reads its own key first.
+      final platformKey = Platform.isIOS ? 'ios' : 'android';
       final String minVersion;
       if (value is String) {
         minVersion = value;
+      } else if (value is Map && value[platformKey] is String) {
+        minVersion = value[platformKey] as String;
       } else if (value is Map && value['version'] is String) {
         minVersion = value['version'] as String;
       } else {

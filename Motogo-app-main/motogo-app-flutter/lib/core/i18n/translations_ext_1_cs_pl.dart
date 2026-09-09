@@ -173,6 +173,9 @@ const translationsExt1CsPl = <String, Map<String, String>>{
     'updateNow': 'AKTUALIZOVAT',
     'updateDownloaded': 'Aktualizace stažena. Restartujte pro instalaci.',
     'updateRestart': 'RESTARTOVAT',
+    'updateAvailable': 'Nová verze k dispozici',
+    'updateAvailableDesc': 'Je k dispozici nová verze aplikace (v{version}). Doporučujeme aktualizovat, ať máte všechny novinky a opravy.',
+    'updateLater': 'Později',
   },
 
   'pl': {
@@ -348,5 +351,8 @@ const translationsExt1CsPl = <String, Map<String, String>>{
     'updateNow': 'AKTUALIZUJ',
     'updateDownloaded': 'Aktualizacja pobrana. Uruchom ponownie, aby zainstalować.',
     'updateRestart': 'URUCHOM PONOWNIE',
+    'updateAvailable': 'Dostępna nowa wersja',
+    'updateAvailableDesc': 'Dostępna jest nowa wersja aplikacji (v{version}). Zalecamy aktualizację, aby korzystać z nowości i poprawek.',
+    'updateLater': 'Później',
   },
 };
