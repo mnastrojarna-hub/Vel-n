@@ -204,7 +204,7 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
           <div>
             <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Pořadí zobrazení (1-X)</label>
             <input type="text" inputMode="numeric" value={moto.sort_order ?? ''} onChange={e => set('sort_order', e.target.value)} placeholder="např. 1, 2, 3… (prázdné = na konec)" className="w-full rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }} />
-            <p className="text-xs mt-1" style={{ color: '#5b7065' }}>Řídí pořadí na webu: výběr stroje v rezervaci, katalog i pořadí fotek/videí v hero banneru na úvodní stránce. Nižší číslo = dřív. Prázdné se řadí za očíslované podle modelu.</p>
+            <p className="text-xs mt-1" style={{ color: '#5b7065' }}>Řídí pořadí na webu (výběr stroje v rezervaci, katalog, pořadí fotek/videí v hero banneru na úvodní stránce) i výchozí pořadí motorek v mobilní appce. Nižší číslo = dřív. Prázdné se řadí za očíslované podle modelu.</p>
           </div>
           <Field label="VIN" value={moto.vin} onChange={v => set('vin', v)} />
           <Field label="Značka" value={moto.brand} onChange={v => set('brand', v)} placeholder="např. BMW, Honda, Yamaha" />
