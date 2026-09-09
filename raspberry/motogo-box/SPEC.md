@@ -380,3 +380,12 @@ Další pravidla: nikdy nedržet zámek trvale pod napětím; nikdy neaktivovat 
 5. Logická polarita vstupů WAV617 při připojeném NC kontaktu.
 6. Zda jsou dveřní protiplechy mechanicky nastavené na paměťový režim a nemají zapnutou trvalou aretaci.
 7. Zda má být povoleno současné otevření více kójí. Současný audio systém podporuje bezpečně jen jednu aktivní audiozónu.
+
+### Rozhodnutí uživatele (2026-09-09)
+
+- **13.7 — ANO, současné otevření více kójí je povoleno.** Každá zóna má vlastní nezávislou relaci
+  (stavový automat), takže několik zákazníků může mít otevřené své kóje zároveň. Zůstávají tvrdá
+  pravidla §12: zámkové pulzy se nikdy nepřekrývají (globální zámek pulzu — další zámek dostane
+  impulz až po doběhnutí předchozího 800ms pulzu) a hudba hraje vždy jen v JEDNÉ kóji: reproduktor
+  přebírá nejnovější povolený přístup; po skončení této relace se hudba vypne (do dřívější kóje se
+  nevrací). Světla a signalizace jsou plně nezávislé per zóna.

@@ -291,6 +291,14 @@ class ZoneController:
 ```
 Pravidla: nikdy nesepnout zámek mimo `grant_access`; zámek jen HW pulz; hudbu ovládat výhradně přes `audio` (exkluzivita).
 
+**Souběh více zón (rozhodnutí uživatele, SPEC §13.7 = ANO):** každá zóna má nezávislou relaci, víc
+kójí smí být otevřených současně. Povinné zábrany: (a) `BoxController.lock_gate: asyncio.Lock` —
+`grant_access` drží gate po dobu pulzu zámku (`await io.pulse(...)` + `asyncio.sleep(lock_pulse_ms/1000)`
+uvnitř gate), takže dva zámky nikdy nemají impulz zároveň; (b) audio: `audio.play_zone(new)` u nové
+relace převezme reproduktor (stará zóna přestane hrát, její stav zůstává DOOR_OPEN); zóna volá
+`audio.stop()` jen pokud `audio.playing_zone == zone.number` (viz výše) — hudba se do dřívější kóje
+nevrací; (c) světla/signalizace per zóna bez omezení.
+
 ## 12. `controller.py` — `BoxController`
 
 ```python
