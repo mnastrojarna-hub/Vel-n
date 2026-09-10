@@ -154,12 +154,12 @@ async def diagnostics_run(srv: Any, request: web.Request) -> web.Response:
     code = body.get("code")
     if not isinstance(code, str) or not code.strip():
         return srv.error("forbidden", 403)
-    res = await srv.ctrl.submit_code(code, "diag_ui")
+    # diagnostics_only: lokální kód nebo servisní heslo → jen diagnostika; zákaznický kód = neplatný,
+    # žádné otevření dveří ani servisní token (viz controller_codes.submit_code).
+    res = await srv.ctrl.submit_code(code, "diag_ui", diagnostics_only=True)
     res = res if isinstance(res, dict) else {}
     if res.get("ok") and res.get("kind") == "diagnostics":
         return srv.json({"ok": True, **(res.get("diagnostics") or {})})
-    if res.get("ok") and res.get("kind") == "service":       # servisní heslo smí i diagnostiku
-        return srv.json(diag.start(source="service_code", reason="service_code"))
     return srv.json({"ok": False, "error": res.get("error") or "invalid_code",
                      "message": res.get("message") or "", "locked_until": res.get("locked_until")}, 403)
 

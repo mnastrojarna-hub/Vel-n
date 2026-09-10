@@ -42,6 +42,7 @@ class MpvPlayer:
         self._req_id = 0
         self._write_lock = asyncio.Lock()
         self._dummy = False
+        self._missing_binary = False   # mpv není nainstalováno → restart nemá smysl (jiné selhání ano)
         self._shuffle = True
         self._last_restart = 0.0
 
@@ -80,7 +81,7 @@ class MpvPlayer:
                 stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL,
             )
         except FileNotFoundError:
-            self._dummy = True
+            self._dummy = self._missing_binary = True
             log.warning("mpv není nainstalováno — audio běží v dummy režimu (bez zvuku)")
             return
         except OSError as exc:
@@ -228,7 +229,7 @@ class MpvPlayer:
         (nejvýš jednou za `RESTART_MIN_INTERVAL_S`) a znovu načíst playlist. Vrací `alive`."""
         if self.alive:
             return True
-        if self._dummy and self._proc is None:
+        if self._missing_binary:
             return False
         now = asyncio.get_running_loop().time()
         if now - self._last_restart < RESTART_MIN_INTERVAL_S:

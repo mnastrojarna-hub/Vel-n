@@ -53,10 +53,10 @@ MG.Keyboard = (function () {
 
   /**
    * Postaví klávesnici do kontejneru.
-   * opts: { mode: 'num'|'qwerty'|'text', onChar, onBackspace, onEnter, onClear, onToggle, enterLabel }
+   * opts: { mode: 'num'|'qwerty'|'text', onChar, onBackspace, onEnter, onClear, onToggle, enterLabel, clearLabel }
    */
   function build(container, opts) {
-    const o = Object.assign({ mode: 'num', onChar() {}, onBackspace() {}, onEnter() {}, onClear() {}, onToggle() {} }, opts || {});
+    const o = Object.assign({ mode: 'num', onChar() {}, onBackspace() {}, onEnter() {}, onClear() {}, onToggle() {}, clearLabel: 'SMAZAT' }, opts || {});
     container.textContent = '';
     const kb = document.createElement('div');
     kb.className = 'kb kb-' + o.mode;
@@ -64,13 +64,13 @@ MG.Keyboard = (function () {
       kb.appendChild(numericBlock('kb-num', o));
       kb.appendChild(block('kb-num-side', [
         row([key('ABC', 'small', o.onToggle)]),
-        row([key('SMAZAT', 'small amber', o.onClear)]),
+        row([key(o.clearLabel, 'small amber', o.onClear)]),
       ]));
     } else if (o.mode === 'qwerty') {
       const rows = letterRows(o);
       rows.push(row([
         key('123', 'small f2', o.onToggle),
-        key('SMAZAT', 'small amber f3', o.onClear),
+        key(o.clearLabel, 'small amber f3', o.onClear),
         key('⌫', 'f2', o.onBackspace),
       ]));
       kb.appendChild(block('kb-letters', rows));
@@ -80,7 +80,7 @@ MG.Keyboard = (function () {
       rows.push(...letterRows(o));
       rows.push(row([
         key('-', 'small', () => o.onChar('-')),
-        key('SMAZAT', 'small amber f2', o.onClear),
+        key(o.clearLabel, 'small amber f2', o.onClear),
         key('⌫', 'f2', o.onBackspace),
         key(o.enterLabel || 'OK', 'small green f2', o.onEnter),
       ]));

@@ -113,15 +113,19 @@ def test_failures_outside_window_do_not_count(storage):
     assert guard.register_failure("e") is not None
 
 
-def test_success_clears_lockout(storage):
+def test_success_does_not_reset_failure_window(storage):
+    """§10: platný kód mezi neplatnými nesmí vynulovat počítadlo — držitel jednoho platného kódu
+    by jinak hádal cizí PINy bez lockoutu. Lockout sám o sobě úspěch neruší (během něj se neověřuje)."""
     clock = FakeClock()
-    sec = SecurityCfg(maximum_failed_attempts=2, attempt_window_minutes=5, lockout_minutes=15)
+    sec = SecurityCfg(maximum_failed_attempts=3, attempt_window_minutes=5, lockout_minutes=15)
     guard = PinGuard(storage, sec, clock)
     guard.register_failure("x")
-    assert guard.register_failure("x") is not None
+    guard.register_success("12••••")
+    guard.register_failure("y")
+    assert guard.register_failure("z") is not None        # 3 selhání v okně i přes úspěch uprostřed
     assert guard.locked_until() is not None
     guard.register_success("12••••")
-    assert guard.locked_until() is None
+    assert guard.locked_until() is not None
 
 
 # ─── LocalResolver ──────────────────────────────────────────────────────────

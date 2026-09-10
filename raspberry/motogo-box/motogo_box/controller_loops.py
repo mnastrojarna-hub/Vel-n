@@ -228,9 +228,10 @@ async def heartbeat_loop(ctrl: "BoxController") -> None:
     """`kiosk_heartbeat` → název pobočky + konfigurace power pollingu."""
     while True:
         try:
-            res = await ctrl.api.heartbeat()
-            if isinstance(res, dict) and res.get("ok", True):
-                ctrl.apply_heartbeat(res)
+            if _paired(ctrl):
+                res = await ctrl.api.heartbeat()
+                if isinstance(res, dict) and res.get("ok", True):
+                    ctrl.apply_heartbeat(res)
         except Exception:  # noqa: BLE001
             log.exception("heartbeat_loop: selhal")
         await asyncio.sleep(max(5, ctrl.local.intervals.heartbeat_s))
@@ -241,9 +242,16 @@ async def sync_loop(ctrl: "BoxController") -> None:
     while True:
         await asyncio.sleep(max(10, ctrl.local.intervals.sync_s))
         try:
-            await ctrl.resync()
+            if _paired(ctrl):
+                await ctrl.resync()
         except Exception:  # noqa: BLE001
             log.exception("sync_loop: resync selhal")
+
+
+def _paired(ctrl: "BoxController") -> bool:
+    """Nespárované zařízení nevolá RPC (PostgREST by odmítl prázdné uuid) — párování spustí resync samo."""
+    paired = getattr(ctrl.api, "paired", None)
+    return bool(paired) if paired is not None else bool(getattr(ctrl.api, "device_id", ""))
 
 
 class HandledCommands:
@@ -328,7 +336,7 @@ async def command_loop(ctrl: "BoxController") -> None:
     while True:
         try:
             await _flush_outbox(ctrl)
-            for cmd in await ctrl.api.fetch_commands() or []:
+            for cmd in (await ctrl.api.fetch_commands() if _paired(ctrl) else []) or []:
                 if not isinstance(cmd, dict):
                     continue
                 cid = str(cmd.get("id") or "")
@@ -353,7 +361,8 @@ async def status_loop(ctrl: "BoxController") -> None:
     while True:
         await asyncio.sleep(max(5, ctrl.local.intervals.status_report_s))
         try:
-            await ctrl.api.report_status(ctrl.snapshot())
+            if _paired(ctrl):
+                await ctrl.api.report_status(ctrl.snapshot())
         except Exception:  # noqa: BLE001
             log.exception("status_loop: report_status selhal")
 

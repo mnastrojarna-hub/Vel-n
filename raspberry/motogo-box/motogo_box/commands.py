@@ -156,7 +156,7 @@ async def _identify(ctrl: "BoxController", params: dict) -> tuple[bool, dict]:
 
 async def _reload(ctrl: "BoxController", params: dict) -> tuple[bool, dict]:
     res = await ctrl.resync()
-    return True, res
+    return bool(res.get("ok", True)), res
 
 
 async def _restart(ctrl: "BoxController", params: dict) -> tuple[bool, dict]:
@@ -166,8 +166,13 @@ async def _restart(ctrl: "BoxController", params: dict) -> tuple[bool, dict]:
 
 
 async def _reboot(ctrl: "BoxController", params: dict) -> tuple[bool, dict]:
+    """Potvrzení odchází PŘED rebootem (TERMINAL_COMMANDS) — systemd proces zabije dřív, než by
+    se potvrzení přes LTE doručilo; selhání sudo se hlásí zvlášť přes kiosk_log_event."""
     log.warning("Vzdálený příkaz reboot")
-    return await _run("sudo", "systemctl", "reboot")
+    ok, res = await _run("sudo", "systemctl", "reboot")
+    if not ok:
+        await ctrl.api.log_event("error", "controller", "Příkaz reboot selhal (sudo)", res)
+    return ok, res
 
 
 async def _update(ctrl: "BoxController", params: dict) -> tuple[bool, dict]:
@@ -214,8 +219,8 @@ HANDLERS: dict[str, Handler] = {
     "diagnostics": _diagnostics,
 }
 
-# Příkaz, který ukončí proces uvnitř execute — controller ho dokončí v Supabase PŘED spuštěním.
-TERMINAL_COMMANDS = frozenset({"restart"})
+# Příkazy, které ukončí proces — controller je dokončí v Supabase PŘED spuštěním.
+TERMINAL_COMMANDS = frozenset({"restart", "reboot"})
 # Příkazy sahající na hardware — jen když je jednotka `ready` (po startu / mimo přestavbu).
 HW_COMMANDS = frozenset({"open_door", "music_on", "music_off", "light_on", "light_off", "set_signal",
                          "zone_test", "audio_test", "all_off", "identify"})

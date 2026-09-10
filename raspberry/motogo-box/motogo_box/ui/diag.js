@@ -112,10 +112,9 @@ MG.Diag = (function () {
     const p = $('diag-progress');
     if (!st || !st.running) { p.hidden = true; return; }
     p.hidden = false;
-    p.textContent = '';
-    p.appendChild(el('div', 'spinner small'));
+    if (!p.firstChild) { p.appendChild(el('div', 'spinner small')); p.appendChild(el('div', 'diag-progress-text')); }
     const done = st.done || [];
-    p.appendChild(el('div', 'diag-progress-text', 'Probíhá diagnostika… ' + (st.step_title || '') + ' (' + done.length + '/' + (st.steps || []).length + ', ' + fmt(st.elapsed_s) + ' s)'));
+    p.lastChild.textContent = 'Probíhá diagnostika… ' + (st.step_title || '') + ' (' + done.length + '/' + (st.steps || []).length + ', ' + fmt(st.elapsed_s) + ' s)';
   }
 
   async function fetchReport() {

@@ -23,7 +23,7 @@ from .realtime import RealtimeListener
 from .shelly import ShellyRgbww, SignalController
 from .storage import Storage
 from .supabase_api import SupabaseApi
-from .zone import ZoneController
+from .zone import ACTIVE_STATES, ZoneController
 
 log = logging.getLogger("motogo.controller")
 
@@ -47,7 +47,9 @@ class BoxController:
         self.last_error: str | None = None
         self.ui_notice: dict | None = None
         self.lock_gate = asyncio.Lock()
+        self.resync_lock = asyncio.Lock()      # sync_loop, příkaz sync_config i párování → nikdy 2 přestavby naráz
         self.wake = asyncio.Event()
+        self._last_wake = 0.0
         self.handled_commands: set[str] = set()
         self.last_poll: float = 0.0
         self.power_status_url: str | None = None
@@ -110,6 +112,7 @@ class BoxController:
     async def _build_runtime(self) -> None:
         hw = self.hardware
         self.io = IoBus(hw)
+        self.io.on_reinit = self._module_reinit     # obnova modulu (all_off) → znovu sepnout audio relé hrající zóny
         shellies = {n: ShellyRgbww.from_device(d, offline_after=hw.polling.device_offline_after_failures)
                     for n, d in hw.shelly_devices().items()}
         self.signals = SignalController(shellies, hw.signal)
@@ -125,7 +128,13 @@ class BoxController:
     async def _hw_startup(self) -> None:
         """§12: all relays off → Shelly off → audio off → načíst kontakty → stav zón."""
         await self.io.start()
-        await self.io.all_off()
+        for name, ok in (await self.io.all_off()).items():
+            module = self.io.modules.get(name)
+            if not ok and module is not None and module.online:
+                # Modul odpovídá, ale relé nezhasla (zaseklé/svařené) → zóny na něm zůstanou io_offline,
+                # dokud opakovaná obnova (reinit = all_off) neprojde (§12 krok 1–2, ověření relé).
+                log.error("%s: all_off při startu neprošlo — modul v obnově, jeho zóny jsou mimo provoz", name)
+                self.io.mark_reinit(name)
         await self.signals.all_off()
         await self.audio.start()
         await self.audio.all_off()
@@ -187,6 +196,13 @@ class BoxController:
         await self.diagnostics.cancel()
         await self._shutdown_hw(final=True)
 
+    async def _module_reinit(self, name: str) -> None:
+        if self.audio is not None:
+            try:
+                await self.audio.reselect_if_playing(name)
+            except Exception:  # noqa: BLE001
+                log.exception("Obnova audio relé po reinit %s selhala", name)
+
     def _start_realtime(self) -> None:
         device_id = self._device_id()
         if not device_id or device_id == self._realtime_device:
@@ -195,6 +211,10 @@ class BoxController:
             self._realtime.stop()
 
         async def on_wake() -> None:
+            now = time.monotonic()
+            if now - self._last_wake < 2.0:      # veřejný broadcast topic: spam probuzení nesmí roztočit polling
+                return
+            self._last_wake = now
             self.wake.set()
 
         self._realtime = RealtimeListener(self.local.supabase.url, self.local.supabase.anon_key,
@@ -256,13 +276,21 @@ class BoxController:
         Pořadí: identita (resolver/realtime) → RPC → legacy plaintext přehashovat → sestavit
         a ZVALIDOVAT HW mapu → teprve potom uložit do kv (`remote_config` bez kódů) a code cache.
         Neparsovatelná nebo neplatná mapa se NIKDY neuloží (jinak by po restartu shodila start).
+        Běží pod `resync_lock` (sync smyčka, příkaz sync_config a párování se nesmí prolnout).
         """
+        async with self.resync_lock:
+            return await self._resync_locked()
+
+    def _sessions_active(self) -> list[int]:
+        return [zc.number for zc in self.zones.values() if zc.state in ACTIVE_STATES]
+
+    async def _resync_locked(self) -> dict:
         # Přepárování mohlo změnit identitu — resolver a realtime hned, nezávisle na výsledku RPC.
         self.resolver = LocalResolver(self._device_id(), self._device_token())
         self._start_realtime()
         payload = await self.api.sync_config()
         if not isinstance(payload, dict) or not payload.get("ok", True):
-            return {"changed": False, "problems": self.config_problems}
+            return {"ok": False, "error": "sync_failed", "changed": False, "problems": self.config_problems}
         payload = cc.hash_legacy_payload(payload, self._device_id(), self._device_token())
         try:
             hw = chw.build_hardware(self._local_hw_raw, payload)
@@ -271,7 +299,7 @@ class BoxController:
             await self.emit(Event(kind=EventKind.CONFIG_PROBLEM, success=False, level="error",
                                   message="Konfigurace z Velína nejde načíst", detail={"error": str(exc)}))
             self.storage.save_code_cache(payload)      # kódy na HW mapě nezávisí — cache aktualizovat
-            return {"changed": False, "problems": [str(exc)]}
+            return {"ok": False, "error": "config_invalid", "changed": False, "problems": [str(exc)]}
         problems = validate_hardware(hw)
         sig = chw.hw_signature(hw)
         changed = sig != self._hw_signature
@@ -283,7 +311,13 @@ class BoxController:
             log.error("Nová konfigurace má chyby, HW se nepřestavuje: %s", problems)
             await self.emit(Event(kind=EventKind.CONFIG_PROBLEM, success=False, level="error",
                                   message="Konfigurace z Velína je neplatná", detail={"problems": problems}))
-            return {"changed": False, "problems": problems}
+            return {"ok": False, "error": "config_invalid", "changed": False, "problems": problems}
+        active = self._sessions_active() if changed else []
+        if active:
+            # Přestavba = all_off (zhasnutí světla v obsazené kóji, konec relací) → počkat, až všechny
+            # relace skončí; další sync (60 s) to zkusí znovu. Nová cache kódů už platí.
+            log.warning("Změna HW mapy odložena — běží relace v zónách %s", active)
+            return {"ok": True, "changed": False, "deferred": True, "active_zones": active, "problems": problems}
         self.storage.kv_set("remote_config", cc.config_part(payload))   # až po validaci, bez kódů
         self.hardware, self.config_problems, self._hw_signature = hw, problems, sig
         self.pin_guard.sec = hw.security
@@ -296,7 +330,7 @@ class BoxController:
                 zc = self.zones.get(z.number)
                 if zc is not None:
                     zc.hw, zc.zone = hw, z
-        return {"changed": changed, "problems": problems}
+        return {"ok": True, "changed": changed, "problems": problems}
 
     # ─── stav, události, pomocné ─────────────────────────────────────────────
     def snapshot(self) -> dict:
@@ -311,7 +345,9 @@ class BoxController:
             "config_source": self.hardware.source, "config_problems": list(self.config_problems),
             "modules": modules,
             "audio": {"playing_zone": self.audio.playing_zone if self.audio else None,
-                      "player_ok": bool(self.audio and self.audio.player_ok)},
+                      "player_ok": bool(self.audio and self.audio.player_ok),
+                      "playlist_count": int(getattr(getattr(self.audio, "player", None), "playlist_count", 0) or 0) if self.audio else 0,
+                      "device": getattr(getattr(self.audio, "player", None), "device", None) if self.audio else None},
             "health": self.health, "last_error": self.last_error,
             "zones": [zc.status().to_dict() for zc in sorted(self.zones.values(), key=lambda z: z.number)],
             "notice": copy.deepcopy(notice) if notice else None,

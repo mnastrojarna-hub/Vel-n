@@ -410,16 +410,30 @@ async def test_shelly_offline_signals_io_offline():
     assert r.zone.hw.red.dev in r.events[-1].detail["devices"]
 
 
-async def test_lock_module_offline_mid_session_aborts_and_lights_off():
-    """WAV645 vypadne s otevřenými dveřmi a svítícím světlem → hudba stop, světlo zhasnout (modul světla online)."""
+async def test_lock_module_offline_mid_session_keeps_session_but_denies_new_access():
+    """§12: výpadek WAV645 (pulz už proběhl) s otevřenými dveřmi → relace pokračuje (světlo svítí,
+    hudba hraje, kontakt je čitelný), jen nový přístup je zakázán; po zavření a doběhu → io_offline."""
     r = await rig_door_open()
     r.io.offline_devs.add("wav645")
     await r.zc.tick()
-    assert r.zc.fault == "io_offline" and r.audio.playing_zone is None
-    assert r.light() is False and r.zc.light_on is False
-    r.io.offline_devs.clear()
-    await r.zc.on_input(False)                             # dveře stále otevřené → open_at_startup
-    assert r.zc.state == ZoneState.FAULT and r.zc.fault == "open_at_startup"
+    assert r.zc.state == ZoneState.DOOR_OPEN and r.zc.fault is None and r.zc.degraded
+    assert r.audio.playing_zone == 1 and r.light() is True and r.zc.light_on is True
+    assert (await r.zc.grant_access(booking_id="b2", kind="motorcycle", source="ui")) == (False, "io_offline")
+    await r.zc.on_input(True)
+    r.clock.advance(1.5)
+    await r.zc.on_input(True)                              # zavření po debounce → CLOSED_CONFIRMATION
+    assert r.zc.state == ZoneState.CLOSED_CONFIRMATION
+    r.clock.advance(31.0)
+    await r.zc.tick()                                      # doběh světla → SECURED → modul stále offline → io_offline
+    assert r.zc.state == ZoneState.FAULT and r.zc.fault == "io_offline" and r.light() is False
+
+
+async def test_contact_module_offline_mid_session_aborts():
+    """Výpadek modulu KONTAKTU (dveře nelze sledovat) relaci ukončí jako dřív: hudba stop, světlo zhasnout."""
+    r = await rig_door_open()
+    r.io.offline_devs.add(r.zone.hw.contact.dev)
+    await r.zc.on_input(None)
+    assert r.zc.fault == "io_offline" and r.audio.playing_zone is None and r.zc.light_on is False
 
 
 async def test_concurrent_grant_access_only_one_wins():
@@ -538,9 +552,38 @@ async def test_open_timeout_not_overwritten_by_concurrent_input():
     await r.zc.on_input(False)                             # otevření během fade → jen zaznamenáno
     r.audio.gate.set()
     await tick_task
-    assert r.kinds()[-1] == EventKind.OPEN_TIMEOUT and r.zc.booking_id is None
-    assert EventKind.DOOR_OPENED not in r.kinds()[1:]      # relace po timeoutu už neběží
-    assert r.light() is False and r.signals.current(1) == Signal.RED
+    # Zámek IBFM zůstal po pulzu odjištěný (SPEC §2): otevření po timeoutu = pozdní pokračování relace,
+    # ne násilné otevření — jednotka rozsvítí, zelená, hudba, původní rezervace.
+    assert EventKind.OPEN_TIMEOUT in r.kinds() and r.kinds()[-1] == EventKind.DOOR_OPENED
+    assert r.events[-1].detail.get("late_open") is True and r.events[-1].level == "warn"
+    assert r.zc.state == ZoneState.DOOR_OPEN and r.zc.booking_id == "b" and r.zc.code_kind == "motorcycle"
+    assert r.light() is True and r.signals.current(1) == Signal.GREEN and r.audio.playing_zone == 1
+    assert EventKind.FORCED_OPEN not in r.kinds()
+
+
+async def test_late_open_after_timeout_is_not_forced_open():
+    """Zákazník otevře dveře až 45 s po platném kódu (timeout 30 s) → pokračování relace, ne forced_open."""
+    r = await rig_secured()
+    assert (await r.zc.grant_access(booking_id="b", kind="motorcycle", source="ui"))[0]
+    r.clock.advance(31.0)
+    await r.zc.tick()
+    assert r.zc.state == ZoneState.SECURED and r.zc.latch_released and r.light() is False
+    r.clock.advance(14.0)
+    await r.zc.on_input(False)
+    assert r.zc.state == ZoneState.DOOR_OPEN and r.zc.booking_id == "b" and not r.zc.latch_released
+    assert r.kinds()[-1] == EventKind.DOOR_OPENED and r.light() is True
+    # zavření → normální dokončení relace; další otevření bez kódu = násilné (zámek už zajištěn)
+    await r.zc.on_input(True)
+    r.clock.advance(1.5)
+    await r.zc.on_input(True)
+    assert r.zc.state == ZoneState.CLOSED_CONFIRMATION
+    r.clock.advance(31.0)
+    await r.zc.tick()
+    assert r.zc.state == ZoneState.SECURED
+    await r.zc.on_input(False)
+    r.clock.advance(1.0)
+    await r.zc.on_input(False)
+    assert r.zc.fault == "forced_open" and r.events[-1].detail.get("source") == "contact"
 
 
 async def test_closed_confirmation_runoff_does_not_kill_new_access():

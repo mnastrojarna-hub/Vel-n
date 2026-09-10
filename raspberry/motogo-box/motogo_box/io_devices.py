@@ -16,7 +16,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Callable
+import time
+from typing import Awaitable, Callable
 
 from .config import DeviceCfg, HardwareConfig, PollingCfg
 from .io_probe import OfflineProbes, raw_read
@@ -144,12 +145,25 @@ class RelayModule:
         steps = min(max(1, round(ms / FLASH_STEP_MS)), 0xFFFF)
         try:
             self._check_open()
-            await self.client.write_coil_raw(FLASH_ON_BASE + idx, steps)
-            state = await self.client.read_coils(idx, 1)
+            # Flash-on není idempotentní: opakovaný zápis by restartoval časovač pulzu (zámek pod
+            # napětím déle) — bez retry; potvrzené echo = modul příkaz přijal.
+            await self.client.write_coil_raw(FLASH_ON_BASE + idx, steps, retry=False)
         except ModbusError as exc:
             log.warning("%s: flash-on relé %d selhal: %s", self.name, idx, exc)
             return False
+        t0 = time.monotonic()
+        try:
+            state = await self.client.read_coils(idx, 1)
+        except ModbusError as exc:
+            state = None
+            log.warning("%s: ověření relé %d po flash-on selhalo: %s", self.name, idx, exc)
         ok = bool(state) and state[0]
+        if not ok and (time.monotonic() - t0) * 1000.0 >= steps * FLASH_STEP_MS:
+            # Ověření (retry řetězec) doběhlo až po skončení pulzu — relé už legitimně odpadlo;
+            # echo FC05 přišlo, zámek byl sepnutý. Nehlásit lock_failed (dveře jsou odjištěné).
+            log.warning("%s: ověření relé %d doběhlo až po pulzu (%d×100 ms) — pulz považován za doručený",
+                        self.name, idx, steps)
+            ok = True
         if not ok:
             log.error("%s: relé %d po flash-on (%d×100 ms) není sepnuté", self.name, idx, steps)
         return ok
@@ -182,7 +196,9 @@ class RelayModule:
         off_ok = self.online and await self.all_off()
         ok = mode_ok and off_ok
         comm_failed = not ok and self.client.failures > 0
-        self.needs_reinit = comm_failed
+        # Dokud obnova neproběhla (komunikace NEBO relé odmítlo vypnout = zaseklé/svařené), zůstává
+        # modul „v obnově“: IoBus.is_online → False → zóny na něm jsou FAULT io_offline (§12 krok 1–2).
+        self.needs_reinit = not ok
         level = log.info if ok else (log.warning if comm_failed else log.error)
         level("%s: obnova po výpadku %s (režim=%s, all_off=%s)", self.name, "OK" if ok else "SELHALA", mode_ok, off_ok)
         return ok
@@ -252,6 +268,7 @@ class IoBus:
     def __init__(self, hw: HardwareConfig) -> None:
         self.modules: dict[str, RelayModule] = {}
         self.on_online_change: Callable[[str, bool], None] | None = None
+        self.on_reinit: Callable[[str], Awaitable[None]] | None = None   # po úspěšné obnově modulu (all_off)
         self.closed = False
         self._probes = OfflineProbes(lambda: self.closed)   # offline moduly / probíhající obnova
         for name, dev in hw.modbus_devices().items():
@@ -292,8 +309,15 @@ class IoBus:
         await asyncio.gather(*(m.stop() for m in self.modules.values()), return_exceptions=True)
 
     def is_online(self, name: str) -> bool:
+        """Online = modul odpovídá A má dokončenou obnovu (Normal mode + ověřené all_off)."""
         m = self.modules.get(name)
-        return bool(m and m.online and not self._probes.active(name))
+        return bool(m and m.online and not m.needs_reinit and not self._probes.active(name))
+
+    def mark_reinit(self, name: str) -> None:
+        """Vynutí obnovu modulu (např. all_off při startu selhalo) — zóny na něm jsou zatím io_offline."""
+        m = self.modules.get(name)
+        if m is not None:
+            m.needs_reinit = True
 
     def get(self, name: str) -> RelayModule:
         return self.modules[name]
@@ -361,9 +385,13 @@ class IoBus:
             self._probes.ensure(module)
             return None
         try:
-            if module.needs_reinit and not await module.reinit() and not module.online:
-                self._probes.ensure(module)
-                return None
+            if module.needs_reinit:
+                if not await module.reinit():
+                    if not module.online:
+                        self._probes.ensure(module)
+                    return None
+                if self.on_reinit is not None:
+                    asyncio.create_task(self.on_reinit(module.name), name=f"motogo.reinit.{module.name}")
             return await raw_read(module)
         except ModbusError as exc:
             log.debug("%s: čtení vstupů selhalo: %s", module.name, exc)

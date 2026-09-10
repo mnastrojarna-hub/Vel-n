@@ -271,23 +271,30 @@ class ZoneController:
     async def on_input(self, door_closed: bool | None) -> None
         # volá poller po sw debounce (cfg.polling.software_debounce_ms). Přechody:
         #  SECURED + otevřeno (stabilní ≥ forced_open_debounce_ms) → FAULT 'forced_open', RED_BLINK, event FORCED_OPEN (success False)
+        #    VÝJIMKA (paměťový zámek IBFM 9500): po OPEN_TIMEOUT zůstává zámek mechanicky odjištěný do prvního otevření
+        #    (`latch_released=True`) → pozdní otevření = pokračování relace (`_late_open_locked`: obnoví booking, DOOR_OPEN,
+        #    světlo, GREEN, hudba, event DOOR_OPENED late_open=True warn), NE forced_open. Latch se maže při dalším grantu/otevření.
         #  FAULT 'forced_open'/'open_at_startup' + zavřeno → SECURED, RED, event DOOR_CLOSED
         #  WAITING_FOR_OPEN + otevřeno → DOOR_OPEN, event DOOR_OPENED (zámek už bez napětí — pulz byl HW)
         #  DOOR_OPEN + zavřeno stabilně ≥ door_close_debounce_ms → CLOSED_CONFIRMATION, RED, event DOOR_CLOSED (+ SESSION_COMPLETED)
         #  CLOSED_CONFIRMATION + otevřeno → zpět DOOR_OPEN (stejná relace)
-        #  None (modul offline) v jakémkoli stavu → FAULT 'io_offline', BOTH_BLINK, hudba stop, event IO_OFFLINE; návrat hodnoty → startup(door_closed)
+        #  None (modul kontaktu offline) v jakémkoli stavu → FAULT 'io_offline', BOTH_BLINK, hudba stop, event IO_OFFLINE; návrat hodnoty → startup(door_closed)
+        #  jiný modul offline (zámek/světlo/Shelly) během aktivní relace (WAITING/DOOR_OPEN/CLOSED_CONF) → relace pokračuje
+        #    v režimu `degraded=True` (nový přístup zamítnut io_ready=False); io_offline až po skončení relace (evaluate po SECURED)
     async def grant_access(self, *, booking_id: str | None, kind: str, source: str) -> tuple[bool, str]
         # §9 „Platný PIN" kroky 4–12: io_ready? ne → (False,'io_offline'); state ∉ {SECURED, CLOSED_CONFIRMATION} → (False,'busy'/'door_open');
-        # door_closed is not True → (False,'door_open'); světlo ON (ověřeno); GREEN; audio.play_zone; io.pulse(lock, lock_pulse_ms) — neúspěch → světlo/zelená zpět, (False,'lock_failed');
+        # door_closed is not True → (False,'door_open'); reset_session (ukončí doběh); světlo ON (ověřeno); GREEN; audio.play_zone; io.pulse(lock, lock_pulse_ms, retry=False)
+        # — gate drží max(pulse, zaokrouhlení na kroky 100 ms WAV645); neúspěch → světlo/zelená zpět, (False,'lock_failed'); po pomalých krocích znovu kontrola dveří/modulů;
         # event ACCESS_GRANTED (booking_id, kind, source); state WAITING_FOR_OPEN; návrat (True,'ok')
     async def tick(self) -> None
-        # WAITING_FOR_OPEN: > door_open_timeout_s → hudba stop, světlo off, RED, SECURED, event OPEN_TIMEOUT
+        # WAITING_FOR_OPEN: > door_open_timeout_s → hudba stop, světlo off, RED, SECURED, event OPEN_TIMEOUT; latch_released=True + _late_booking (viz pozdní otevření)
         # DOOR_OPEN: > maximum_session_s a not overtime → overtime=True, hudba stop, GREEN_PULSE, event SESSION_OVERTIME (warn); dále každých overtime_alert_minutes → event SESSION_OVERTIME_ALERT
-        # CLOSED_CONFIRMATION: po music_after_close_s hudba stop; po light_after_close_s světlo off → SECURED (RED už svítí)
+        # CLOSED_CONFIRMATION: po music_after_close_s hudba stop; po light_after_close_s světlo off → SECURED (RED už svítí) → evaluate (degraded → io_offline)
     async def force_secure(self) -> None      # all_off pro zónu: hudba stop (pokud hraje tato zóna), světlo off, RED (nebo RED_BLINK při faultu), state dle door_closed
     async def set_light(self, on: bool) -> bool
     async def set_signal(self, signal: Signal) -> None      # ruční override (Velín)
-    async def test_sequence(self) -> dict     # BEZ zámku: světlo on → GREEN 1 s → RED → světlo off; audio test 3 s; vrací {light:bool, signal:bool, audio:bool}
+    async def test_sequence(self) -> dict     # BEZ zámku: světlo on → GREEN 1 s → obnoví předchozí signál/světlo; audio test 3 s jen když nic nehraje;
+                                              # vrací {light:bool, signal:bool, audio:bool|None}; při aktivní relaci {'error':'busy'} (nic nesepne)
 ```
 Pravidla: nikdy nesepnout zámek mimo `grant_access`; zámek jen HW pulz; hudbu ovládat výhradně přes `audio` (exkluzivita).
 
@@ -297,7 +304,8 @@ kójí smí být otevřených současně. Povinné zábrany: (a) `BoxController.
 uvnitř gate), takže dva zámky nikdy nemají impulz zároveň; (b) audio: `audio.play_zone(new)` u nové
 relace převezme reproduktor (stará zóna přestane hrát, její stav zůstává DOOR_OPEN); zóna volá
 `audio.stop()` jen pokud `audio.playing_zone == zone.number` (viz výše) — hudba se do dřívější kóje
-nevrací; (c) světla/signalizace per zóna bez omezení.
+nevrací; (c) světla/signalizace per zóna bez omezení. `audio.stop_zone(zone)` je atomické (pod zámkem přehrávače)
+— zastaví jen pokud stále hraje daná zóna, takže doběh staré relace nikdy neutne hudbu nové.
 
 ## 12. `controller.py` — `BoxController`
 
@@ -347,12 +355,14 @@ async def execute(ctrl: BoxController, command: str, params: dict) -> tuple[bool
 | `audio_test` | `zone`, `seconds?` | `audio.test_tone` |
 | `all_off` | – | `ctrl.all_off()` |
 | `identify` | `label?` | ui_notice „Tady jsem" + 3× bliknutí zelené všech zón, pak obnovit |
-| `reload` / `sync_config` | – | `ctrl.resync()` |
+| `reload` / `sync_config` | – | `ctrl.resync()` → `{ok, error?, deferred?}`; při aktivní relaci se přestavba zón odloží (config se stáhne, zóny až po SECURED) |
 | `restart` | – | complete_command PŘED ukončením, pak `os._exit(0)` (systemd restartuje) |
-| `reboot` | – | complete, pak `sudo systemctl reboot` |
-| `update_software` | – | `sudo /opt/motogo/scripts/update.sh` (git pull + pip + restart) |
+| `reboot` | – | complete, pak `sudo systemctl reboot`; selhání sudo → `log_event` (Velín vidí důvod). `restart`/`reboot` = `TERMINAL_COMMANDS` (dokončí se před ukončením procesu) |
+| `update_software` | – | `sudo /usr/local/sbin/motogo-update` (root-owned kopie `scripts/update.sh`: git pull --ff-only jako vlastník checkoutu, pip v rozsazích requirements, restart; chyba pullu → exit 3, nic se neinstaluje) |
 | `http_get` / `camera_control` | `url` | httpx GET (timeout 6 s) |
 | `diagnostics` | `reason?` | `ctrl.diagnostics.start(source='velin')` — běží na pozadí (§24), `{ok, started, id}` / `already_running`; není HW příkaz (funguje i při `not ready`) |
+
+Příkazy `pending` nevyzvednuté do 10 min označí `kiosk_fetch_commands` jako `expired` (`20260910b_kiosk_commands_ttl.sql`) — Velín tak nečeká věčně na offline jednotku.
 Neznámý příkaz → `(False, {"error":"unknown_command"})`.
 
 ## 14. Status payload (`BoxController.snapshot()` = UI state = `kiosk_report_status`)
@@ -361,11 +371,12 @@ Neznámý příkaz → `(False, {"error":"unknown_command"})`.
 {"ts":"2026-09-09T10:00:00+02:00","version":"1.0.0+abc123","uptime_s":123,"ready":true,"branch_name":"Brno",
  "internet":true,"config_source":"remote|local","config_problems":[],
  "modules":{"wav645":true,"wav617a":true,"wav617b":true,"shelly1":true,"shelly2":true,"shelly3":true,"shelly4":true},
- "audio":{"playing_zone":null,"player_ok":true},
+ "audio":{"playing_zone":null,"player_ok":true,"playlist_count":12,"device":"alsa/plughw:CARD=Headphones"},
+ "diagnostics":{"running":false,"last":{"id":"…","ok":true,"problems":0,"ts":"…"}},
  "health":{"lte":{"state":"connected","operator":"T-Mobile CZ","rssi":-71,"rsrp":-98,"reconnects":0,"usb_resets":0},
            "sys":{"cpu_temp":48.2,"throttled":"0x0","disk_free_pct":81,"mem_free_pct":60,"load1":0.3,"uptime_s":9999},"internet":true,"ts":"…"},
  "zones":[{"zone":1,"door_id":"uuid|null","box_number":1,"kind":"motorcycle","label":"Kóje 1","state":"SECURED",
-           "door_closed":true,"fault":null,"light":false,"signal":"red","music":false,
+           "door_closed":true,"fault":null,"light":false,"signal":"red","music":false,"latch_released":false,"degraded":false,
            "session_started_at":null,"booking_id":null,"last_event":"DOOR_CLOSED"}],
  "notice":null}
 ```
@@ -400,8 +411,11 @@ aiohttp na `local.web.host:port` (default 127.0.0.1:8080):
 - `GET /api/events?limit=` → `storage.events_recent`.
 - `GET /api/diagnostics[?report=0]` (jen 127.0.0.1) → `{ok, status: diagnostics.status(), report: poslední report|null}`.
 - `POST /api/diagnostics/run {"service_token"} | {"code"}` → spustí diagnostiku (§24); `code` jde přes
-  `ctrl.submit_code(code, "diag_ui")` (lokální diagnostický kód, servisní heslo s účelem `diagnostics`
-  nebo běžné servisní heslo); neplatný → 403 `{ok:false, error, message, locked_until}`.
+  `ctrl.submit_code(code, "diag_ui", diagnostics_only=True)`: lokální diagnostický kód, servisní heslo
+  s účelem `diagnostics` nebo běžné servisní heslo (spustí JEN diagnostiku, bez servisního tokenu);
+  zákaznický PIN/kód rezervace je tu `invalid_code` a počítá se do lockoutu; neplatný → 403
+  `{ok:false, error, message, locked_until}`. Lockout blokuje i diagnostický kód (kromě `/api/diagnostics/run`
+  se service_token).
 Chybové odpovědi `{"ok":false,"error":"…"}`; neplatný service_token → 403.
 
 UI (`ui/index.html`, `ui/app.js`, `ui/style.css`; vanilla JS, žádné CDN, offline):
@@ -433,7 +447,7 @@ class HealthMonitor:
     async def run(self) -> None   # smyčka každých cfg.check_interval_s (30):
         # internet = HTTP GET cfg.probe_url (timeout 8 s) ; LTE info: `mmcli -m any -J` (signal/operator/state), `nmcli -t -f GENERAL.STATE dev show <iface>`;
         # sys: /sys/class/thermal/thermal_zone0/temp, `vcgencmd get_throttled`, shutil.disk_usage('/'), /proc/meminfo, os.getloadavg(), /proc/uptime
-        # politika: failures>=cfg.reconnect_after (5) → `nmcli con up <cfg.nm_connection>` ; reconnect_failures>=cfg.usb_reset_after (5) → `sudo <cfg.usb_reset_script>` (VID:PID) ;
+        # politika: failures>=cfg.reconnect_after (5) → `nmcli con up <cfg.nm_connection>` ; reconnect_failures>=cfg.usb_reset_after (5) → `sudo <cfg.usb_reset_script>` (bez argumentů; VID:PID bere skript z `/etc/motogo/modem_vidpid`) ; SIM locked/missing → `lte.error`, politika se přeskočí ;
         # dále >= cfg.reboot_after (3 USB resety bez úspěchu) a uptime > cfg.min_uptime_before_reboot_s (1800) → `sudo systemctl reboot`
         # každý cyklus POST controller_url/api/health {internet, lte, sys, ts, actions:[…]} ; sd_notify WATCHDOG=1
 def read_cpu_temp() -> float | None ; def read_throttled() -> str | None ; def disk_free_pct(path='/') -> float ; def mem_free_pct() -> float
@@ -518,7 +532,8 @@ class NetworkDiagnostics:
     async def run(self, source, reason) -> dict             # kroky system→interfaces→lte→internet→supabase→devices→lan→arp→summary
     async def cancel(self) / async def wait(self)
 ```
-Zdroje spuštění: lokální kód (`submit_code` PŘED kontrolou `ready`/lockoutu → `kind:"diagnostics"`),
+Zdroje spuštění: lokální kód (`submit_code`: lockout → lokální diag. kód → `not_ready` → resolve;
+`kind:"diagnostics"`; offline servisní heslo z cache starší než 72 h → `service_cache_expired`),
 servisní heslo s `action == "diagnostics"` (`ResolveResult.is_diagnostics`; offline z cache
 `service_codes[{h, action}]`), `/api/diagnostics/run` (service_token / code), příkaz `diagnostics`.
 Report (`{id, ts, source, reason, version, device_id, branch_name, paired, steps{name:{ok, ms, error}},

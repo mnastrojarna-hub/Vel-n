@@ -91,8 +91,8 @@ class FakeCtrl:
     async def emit(self, event) -> None:
         self.events.append(event)
 
-    async def submit_code(self, code: str, source: str = "ui") -> dict:
-        return await cc.submit_code(self, code, source)
+    async def submit_code(self, code: str, source: str = "ui", **kw) -> dict:
+        return await cc.submit_code(self, code, source, **kw)
 
     def check_service_token(self, token) -> bool:
         return token == "svc-ok"
@@ -221,6 +221,14 @@ async def test_submit_code_local_diag_code_even_when_not_ready(tmp_path, sim):
     ctrl.ready = False
     res = await ctrl.submit_code("NETDIAG", "ui")
     assert res["ok"] and res["kind"] == "diagnostics" and res["diagnostics"]["started"]
+    report = await ctrl.diagnostics.wait()
+    assert report["source"] == "local_code" and report["reason"] == "ui"     # Velín SOURCE_CZ
+    # během PIN lockoutu se ani diagnostický kód nepřijme (hádání kódů)
+    ctrl.storage.set_lockout_until(time.time() + 600)
+    assert (await ctrl.submit_code("netdiag", "ui"))["error"] == "locked"
+    ctrl.storage.set_lockout_until(None)
+    res = await ctrl.submit_code("netdiag", "ui")
+    assert res["ok"] and res["kind"] == "diagnostics" and res["diagnostics"]["started"]
     again = await ctrl.submit_code("netdiag", "ui")
     assert again["ok"] and again["kind"] == "diagnostics" and again["message"].endswith("už běží")
     await ctrl.diagnostics.wait()
@@ -270,6 +278,18 @@ async def test_command_and_web_api(tmp_path, sim):
         ctrl.api.resolve = {"ok": False, "error": "invalid_code"}
         r = await client.post("/api/diagnostics/run", json={"code": "spatne"})
         assert r.status == 403 and (await r.json())["error"] == "invalid_code"
+        ctrl.api.resolve = None
+        # zákaznický PIN v okně diagnostiky NIKDY neotevře dveře a odpovídá jako neplatný kód (bez orákula)
+        ctrl.api.resolve = {"ok": True, "kind": "motorcycle", "booking_id": "bk", "box_number": 1, "door": {"id": "d1"}}
+        ctrl.zones = {1: type("Z", (), {"number": 1, "zone": type("ZZ", (), {"door_id": "d1", "box_number": 1, "display_name": "Kóje 1"})()})()}
+        r = await client.post("/api/diagnostics/run", json={"code": "123456"})
+        assert r.status == 403 and (await r.json())["error"] == "invalid_code"
+        assert ctrl.storage.pin_failures_since(0) == 2 and not ctrl.diagnostics.running
+        # běžné servisní heslo v okně diagnostiky → jen diagnostika, žádný servisní token
+        ctrl.api.resolve = {"ok": True, "kind": "service", "doors": []}
+        r = await client.post("/api/diagnostics/run", json={"code": "servis1"})
+        assert (await r.json())["started"] is True and not ctrl.service_tokens
+        await ctrl.diagnostics.wait()
         ctrl.api.resolve = None
         r = await client.post("/api/diagnostics/run", json={"service_token": "svc-ok"})
         body = await r.json()

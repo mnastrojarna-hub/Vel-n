@@ -98,7 +98,8 @@ MG.Panel = (function () {
       if (c.json !== j) { c.json = j; updateCard(c.el, z, playing); }
     });
     cardCache.forEach((c, zone) => { if (!seen.has(zone)) { c.el.remove(); cardCache.delete(zone); } });
-    if (!zones.length && !grid.textContent) grid.textContent = 'Pro tuto pobočku nejsou nastavené žádné zóny.';
+    if (!zones.length) { if (!cardCache.size) grid.textContent = 'Pro tuto pobočku nejsou nastavené žádné zóny.'; }
+    else if (grid.firstChild && grid.firstChild.nodeType === 3) grid.firstChild.remove();   // placeholder pryč, jakmile zóny dorazí
 
     const h = st.health || {};
     const lte = h.lte || {};
@@ -204,7 +205,8 @@ MG.Setup = (function () {
     setError('');
     $('setup-save').disabled = true;
     $('setup-save').textContent = 'Ověřuji…';
-    const res = await deps.post('/api/service/pair', { device_id: id, device_token: tok, service_token: token });
+    // Párování = ověření přes Supabase + resync + přestavba HW (může trvat přes 20 s po LTE) → delší timeout.
+    const res = await deps.post('/api/service/pair', { device_id: id, device_token: tok, service_token: token }, 90000);
     busy = false;
     $('setup-save').disabled = false;
     $('setup-save').textContent = 'Spárovat a spustit';
@@ -243,5 +245,6 @@ MG.Setup = (function () {
     paint();
   }
 
-  return { init, show, hide, isVisible: () => visible, keys: { onChar, onBackspace, onEnter, onClear, onEscape: () => { if (cancelable) hide(); } } };
+  return { init, show, hide, isVisible: () => visible, isCancelable: () => cancelable,
+    keys: { onChar, onBackspace, onEnter, onClear, onEscape: () => { if (cancelable) hide(); } } };
 })();

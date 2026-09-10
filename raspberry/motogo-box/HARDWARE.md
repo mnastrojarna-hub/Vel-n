@@ -17,7 +17,7 @@ v `config/brno-9zone.yaml` a ve Velíně (Samoobsluha → Řídicí jednotka →
 | WAV617-A | 192.168.50.21 | Modbus TCP 502, unit 1 |
 | WAV617-B | 192.168.50.22 | Modbus TCP 502, unit 1 |
 | Shelly 1–4 | 192.168.50.31–34 | HTTP RPC, profil Lights ×5 |
-| internet | LTE SIM7600E-H (USB) | profil `motogo-lte`, výchozí trasa jen tudy |
+| internet | LTE SIM7600E-H (USB) | profil `motogo-lte`, výchozí trasa jen tudy; PIN SIM do profilu (`MOTOGO_SIM_PIN` v install.sh) nebo PIN vypnout |
 
 Waveshare: `TCP server`, `Modbus TCP`, port `502`, unit id `1`, gateway `multi-host non-storage`,
 interní sériovka `115200-8-N-1`. Shelly: režim Lights ×5, cloud/BT vypnout, statická IP.
@@ -78,6 +78,9 @@ Raspberry USB → AXAGON USB zvuková karta → oddělovací člen → TPA3116D2
 výše) → reproduktor kóje. Nikdy nesmí být sepnuté dva selektory (impedance ‖ → zničení zesilovače);
 program to hlídá (vše off → 200 ms → jedno relé → 100 ms → hudba → fade-in; při ukončení fade-out
 500 ms → stop → 200 ms → relé off). Hlasitost: `audio.volume` (0–100) ve Velíně, mixér karty `alsamixer`.
+Výchozí ALSA zařízení RPi 5 je HDMI monitoru — `audio.device` MUSÍ mířit na USB kartu
+(`alsa/plughw:CARD=<název z aplay -l>`); install.sh ji při založení `hardware.yaml` doplní sám, ve Velíně
+ji zadej ručně (Velín má přednost).
 
 ## 5. Napájení (SPEC §3)
 
@@ -140,10 +143,14 @@ Odběr IBFM 9500 není doložený — hodnotu pojistky **neodhadovat**:
 - [ ] Waveshare: statické IP .20/.21/.22, TCP server, Modbus TCP 502, unit 1, non-storage; WAV617 relé Normal mode
 - [ ] Shelly ×4: Lights ×5, statické IP .31–.34, cloud/BT vypnut; každý kanál rozsvítí správnou barvu ve správné kóji
 - [ ] eth0 = 192.168.50.10/24 bez brány (`set-static-lan.sh` OK), internet přes LTE (`mmcli -m any` connected)
+- [ ] PIN SIM vypnut, nebo zadán při instalaci (`MOTOGO_SIM_PIN` → `[gsm] pin=` v `motogo-lte`); `mmcli -m any` NENÍ `locked`, health nehlásí `lte.error`
+- [ ] USB zvuková karta nalezena instalátorem (`aplay -l`, shrnutí install.sh) a `audio.device` = `alsa/plughw:CARD=<název>` i ve Velíně
+- [ ] UI naběhlo na tty7 bez „Could not activate session“ (`journalctl -u motogo-ui`; `chvt 7` v unitě + polkit pravidlo `50-motogo-kiosk.rules`)
+- [ ] microSD průmyslová (pSLC/„High Endurance“, A2), UPS/záložní napájení RPi — root je rw, overlay se nezapíná (rozhodnutí SPEC §11)
 - [ ] Zámek každé zóny reaguje na servisní „Otevřít" (800ms impulz, nezůstává pod napětím — změřit napětí na cívce po impulzu = 0 V)
 - [ ] Bílé světlo a červená/zelená každé zóny odpovídají číslu kóje (servisní panel / `zone_test`)
 - [ ] Hudba hraje jen ve vybrané kóji (`audio_test` zóna po zóně); nikdy dvě relé současně
-- [ ] Zvuková karta nastavena (`audio.device`), hlasitost karty a `audio.volume` přiměřené
+- [ ] Hlasitost karty (`alsamixer -c <název>`) a `audio.volume` přiměřené
 - [ ] Zařízení spárováno, Velín ukazuje online, `kiosk_report_status` zobrazuje 9 zón SECURED/červená
 - [ ] Cache kódů stažena (odpojit LTE → zadat platný kód → dveře se otevřou offline)
 - [ ] Po restartu RPi (výpadek 230 V) vše naběhne samo: all off → červená → UI; RTC drží čas (`timedatectl`)

@@ -184,15 +184,18 @@ class ModbusTcpClient:
             self._set_online(False)
 
     # ── request ──
-    async def request(self, pdu: bytes) -> bytes:
-        """Odešle PDU a vrátí PDU odpovědi (bez MBAP). Viz docstring třídy."""
+    async def request(self, pdu: bytes, *, retry: bool = True) -> bytes:
+        """Odešle PDU a vrátí PDU odpovědi (bez MBAP). Viz docstring třídy.
+
+        `retry=False` = jediný pokus (neidempotentní zápisy, např. flash-on WAV645).
+        """
         if not pdu or len(pdu) > MAX_PDU_LEN:
             raise ValueError("neplatná délka PDU")
         async with self._lock:
-            return await self._request_locked(bytes(pdu))
+            return await self._request_locked(bytes(pdu), retry)
 
-    async def _request_locked(self, pdu: bytes) -> bytes:
-        attempts = len(self.retry_delays_s) + 1
+    async def _request_locked(self, pdu: bytes, retry: bool = True) -> bytes:
+        attempts = len(self.retry_delays_s) + 1 if retry else 1
         last_err: Exception | None = None
         for attempt in range(attempts):
             if attempt:
@@ -254,10 +257,10 @@ class ModbusTcpClient:
         """FC05 — zapnutí/vypnutí jednoho relé (0xFF00 / 0x0000)."""
         await self.write_coil_raw(addr, COIL_ON if on else COIL_OFF)
 
-    async def write_coil_raw(self, addr: int, value: int) -> None:
+    async def write_coil_raw(self, addr: int, value: int, *, retry: bool = True) -> None:
         """FC05 s libovolnou 16bit hodnotou (Waveshare flash-on, all-off 0x00FF). Ověřuje echo."""
         req = struct.pack(">BHH", FC_WRITE_SINGLE_COIL, _check_u16(addr, "addr"), _check_u16(value, "value"))
-        resp = await self.request(req)
+        resp = await self.request(req, retry=retry)
         if resp != req:
             raise ModbusError(f"{self.name}: FC05 echo nesouhlasí: {resp.hex()} != {req.hex()}")
 

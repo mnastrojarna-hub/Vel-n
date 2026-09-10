@@ -1,0 +1,11 @@
+// MotoGo Box — polkit pravidlo: uživatel motogo (motogo-ui.service, cage na tty7) smí přepínat VT
+// (akce org.freedesktop.login1.chvt). cage při startu volá logind Session.Activate; ve výchozím
+// nastavení polkitu je to pro NEaktivní session jen auth_admin_keep → bez agenta zamítnuto, cage
+// spadne a služba se restartuje do nekonečna (černý displej). Unit navíc dělá `chvt 7` před startem
+// (ExecStartPre=-+…), toto pravidlo je pojistka (např. VT přepnuté ručně na konzoli a restart UI).
+// Instaluje install.sh do /etc/polkit-1/rules.d/50-motogo-kiosk.rules (root, 0644).
+polkit.addRule(function(action, subject) {
+    if (action.id == "org.freedesktop.login1.chvt" && subject.user == "motogo") {
+        return polkit.Result.YES;
+    }
+});

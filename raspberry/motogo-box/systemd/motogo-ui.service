@@ -1,6 +1,14 @@
 # MotoGo Box — dotykové UI (Wayland kiosk: cage + Chromium) na EDATEC 1920x1080, tty7.
 # Přihlášení přes PAM/logind zajistí XDG_RUNTIME_DIR (/run/user/<uid>) a přístup k DRM/input.
 # Vlastní skript čeká na dostupnost http://127.0.0.1:8080/ (controller) a pak spustí prohlížeč.
+#
+# Proč `chvt 7` před startem: pam_systemd založí session uživatele motogo na seat0/VT7. Po bootu je
+# ale v popředí VT1 (getty), takže session je NEaktivní; cage přes libseat volá logind
+# Session.Activate → polkit akce org.freedesktop.login1.chvt, která je pro neaktivní session jen
+# auth_admin → bez agenta zamítnuto („Could not activate session“), cage skončí a služba se
+# restartuje do nekonečna (černý displej). Prefix `+` = příkaz běží jako root (bez User=/PAM),
+# `-` = chyba nezastaví start. Pojistka pro ruční přepnutí VT: polkit pravidlo
+# systemd/50-motogo-kiosk.rules (instaluje install.sh), které motogo tuto akci povoluje vždy.
 [Unit]
 Description=MotoGo Box kiosk UI (cage + Chromium, Wayland)
 Documentation=file:///opt/motogo/README.md
@@ -28,6 +36,7 @@ WorkingDirectory=/opt/motogo
 Environment=MOTOGO_UI_URL=http://127.0.0.1:8080/
 Environment=WLR_LIBINPUT_NO_DEVICES=1
 Environment=XDG_SESSION_TYPE=wayland
+ExecStartPre=-+/usr/bin/chvt 7
 ExecStart=/opt/motogo/scripts/kiosk-ui.sh
 Restart=always
 RestartSec=3

@@ -3,53 +3,13 @@
 'use strict';
 window.MG = window.MG || {};
 
-/* ── Texty (CZ) ─────────────────────────────────────────────────────────── */
-MG.i18n = (function () {
-  const SUPPORT = '+420 774 256 271';
-  const RETRY = 'Zkuste to prosím znovu nebo kontaktujte podporu: ' + SUPPORT + '.';
-  const STATES = { SECURED: 'Zamčeno', WAITING_FOR_OPEN: 'Otevřete dveře', DOOR_OPEN: 'Otevřeno',
-    CLOSED_CONFIRMATION: 'Zavřeno', FAULT: 'Porucha' };
-  const SIGNALS = { red: 'červená', green: 'zelená', green_pulse: 'zelená pulzuje', red_blink: 'červená bliká',
-    both_blink: 'obě blikají', off: 'vypnuto' };
-  const FAULTS = { io_offline: 'I/O modul nedostupný', forced_open: 'dveře otevřeny bez kódu',
-    open_at_startup: 'dveře otevřené při startu', contact_fault: 'porucha dveřního kontaktu' };
-  const ERR_TITLE = { invalid_code: 'Neplatný kód', network: 'Chyba spojení', locked: 'Zadávání dočasně zablokováno',
-    zone_not_configured: 'Dveře nejsou nastaveny', io_offline: 'Kóje je mimo provoz', door_open: 'Dveře jsou otevřené',
-    busy: 'Kóje je právě používána', lock_failed: 'Dveře se neozvaly', fault: 'Porucha kóje',
-    unauthorized: 'Neplatný kód', branch_not_found: 'Neplatný kód', empty_code: 'Zadejte kód' };
-  const ERR_SUB = { invalid_code: 'Kód nebyl rozpoznán nebo už není platný.',
-    network: 'Chyba spojení. Zkontrolujte internet a zkuste znovu.',
-    zone_not_configured: 'Kód je platný, ale dveře nejsou ve Velíně nastaveny. Kontaktujte podporu: ' + SUPPORT + '.',
-    io_offline: 'Řídicí modul kóje je nedostupný. Kontaktujte podporu: ' + SUPPORT + '.',
-    door_open: 'Dveře jsou už otevřené — zavřete je a zadejte kód znovu.',
-    busy: 'Dveře jsou už otevřené — zavřete je a zadejte kód znovu.',
-    lock_failed: RETRY, fault: 'Kóje hlásí poruchu. Kontaktujte podporu: ' + SUPPORT + '.',
-    unauthorized: 'Kiosk není správně spárovaný s pobočkou.', branch_not_found: 'Kiosk není správně spárovaný s pobočkou.' };
-  function lockedSubtitle(lockedUntil) {
-    const min = lockedUntil ? Math.max(1, Math.ceil((Number(lockedUntil) - Date.now() / 1000) / 60)) : null;
-    return 'Příliš mnoho neplatných pokusů.' + (min ? ' Zkuste to znovu za ' + min + ' min.' : ' Zkuste to později.')
-      + '\nPodpora: ' + SUPPORT;
-  }
-  return {
-    SUPPORT, RETRY,
-    zoneState: (s) => STATES[s] || s || '—',
-    signal: (s) => SIGNALS[(s || '').toLowerCase()] || s || '—',
-    fault: (f) => FAULTS[f] || f || '',
-    door: (c) => (c === true ? 'zavřeno' : c === false ? 'otevřeno' : 'neznámo'),
-    zoneName: (z) => z.label || (z.kind === 'accessories' ? 'Oblečení' : 'Kóje ' + (z.box_number != null ? z.box_number : z.zone)),
-    errorTitle: (e) => ERR_TITLE[e] || 'Neplatný kód',
-    errorSubtitle: (e, lockedUntil) => (e === 'locked' ? lockedSubtitle(lockedUntil) : (ERR_SUB[e] || 'Zkuste to prosím znovu.')),
-    successSubtitle: (kind, name) => (kind === 'accessories' ? name + '\n\nPo vyzvednutí oblečení zavřete dveře a zadejte kód k motorce.'
-      : kind === 'motorcycle' ? name + '\n\nPříjemnou cestu! 🏍️' : name),
-  };
-})();
-
 /* ── Aplikace ───────────────────────────────────────────────────────────── */
 (function () {
   const $ = (id) => document.getElementById(id);
   const MAX_LEN = 24, AUTO_HIDE_MS = 6000, WS_RECONNECT_MS = 2000, POLL_MS = 5000, STALE_MS = 4500;
+  const LANG_IDLE_MS = 120000;   // po 2 min bez dotyku zpět do výchozího jazyka (další zákazník)
   const S = { state: null, ws: null, wsOk: false, lastStateAt: 0, entry: '', busy: false, mode: 'num',
-    pinTimer: null, pinDeadline: 0, hideTimer: null, noticeTs: null, kb: null };
+    pinTimer: null, pinDeadline: 0, hideTimer: null, noticeTs: null, kb: null, langTimer: null, version: null };
   const tiles = new Map();   // zone → { el, json }
 
   /* ── HTTP ─────────────────────────────────────────────────────────── */
@@ -113,13 +73,18 @@ MG.i18n = (function () {
 
   function render() {
     const st = S.state || {};
-    setText($('branch-name'), st.branch_name || 'Samoobslužná pobočka');
+    setText($('branch-name'), st.branch_name || MG.i18n.t('branch'));
     const dot = $('online-dot');
     const cls = st.internet === true ? 'dot dot-on' : 'dot dot-off';
     if (dot.className !== cls) dot.className = cls;
     renderTiles(st.zones || []);
     renderAlert(st);
     if (st.paired === false && !MG.Setup.isVisible()) MG.Setup.show({ cancelable: false });
+    else if (st.paired === true && MG.Setup.isVisible() && !MG.Setup.isCancelable()) MG.Setup.hide();   // spárováno jinou cestou (config.yaml, Velín)
+    if (st.version) {                      // po update_software načíst nové UI (JS/CSS) — WS by se jen znovu připojil
+      if (S.version && S.version !== st.version) { location.reload(); return; }
+      S.version = st.version;
+    }
     MG.Panel.render(st);
     MG.Diag.onState(st);
     if (st.notice && st.notice.ts && st.notice.ts !== S.noticeTs) {
@@ -144,11 +109,12 @@ MG.i18n = (function () {
   function renderTiles(zones) {
     const box = $('zones');
     const seen = new Set();
+    let added = false;
     zones.forEach((z) => {
       seen.add(z.zone);
       const j = JSON.stringify(z);
       let t = tiles.get(z.zone);
-      if (!t) { t = { el: tileEl(z), json: '' }; tiles.set(z.zone, t); box.appendChild(t.el); }
+      if (!t) { t = { el: tileEl(z), json: '' }; tiles.set(z.zone, t); box.appendChild(t.el); added = true; }
       if (t.json === j) return;
       t.json = j;
       const sig = (z.signal || 'off').toLowerCase();
@@ -159,17 +125,18 @@ MG.i18n = (function () {
       setText(t.el.querySelector('.tile-door'), z.door_closed === true ? '🔒' : z.door_closed === false ? '🚪' : '❔');
     });
     tiles.forEach((t, zone) => { if (!seen.has(zone)) { t.el.remove(); tiles.delete(zone); } });
+    if (added) box.append(...zones.map((z) => tiles.get(z.zone).el));   // pořadí dle čísla zóny i po doplnění
   }
 
   function renderAlert(st) {
     const el = $('zone-alert');
     let text = '', kind = '';
-    if (st.ready === false && st.last_error) { text = 'Řídicí jednotka: ' + st.last_error; kind = 'error'; }
+    if (st.ready === false && st.last_error) { text = MG.i18n.alert('unit') + st.last_error; kind = 'error'; }
     (st.zones || []).forEach((z) => {
       if (text) return;
       const name = MG.i18n.zoneName(z);
-      if (isOvertime(z)) { text = '⚠ ' + name + ': dveře jsou otevřené příliš dlouho — zavřete je prosím.'; kind = 'warn'; }
-      else if (z.fault || z.state === 'FAULT') { text = '⚠ ' + name + ': ' + (MG.i18n.fault(z.fault) || 'porucha') + ' — kontaktujte podporu ' + MG.i18n.SUPPORT; kind = 'error'; }
+      if (isOvertime(z)) { text = '⚠ ' + MG.i18n.alert('overtime', { z: name }); kind = 'warn'; }
+      else if (z.fault || z.state === 'FAULT') { text = '⚠ ' + MG.i18n.alert('fault', { z: name, f: MG.i18n.fault(z.fault) || MG.i18n.fault('fault') }); kind = 'error'; }
     });
     setText(el, text);
     const cls = 'zone-alert' + (kind ? ' ' + kind : '');
@@ -208,8 +175,21 @@ MG.i18n = (function () {
   function onClear() { if (S.busy) return; S.entry = ''; paintEntry(); armPinTimeout(); }
   function toggleMode() { S.mode = S.mode === 'num' ? 'qwerty' : 'num'; buildKeys(); }
   function buildKeys() {
-    S.kb = MG.Keyboard.build($('keys'), { mode: S.mode, onChar, onBackspace, onEnter: submit, onClear, onToggle: toggleMode });
+    S.kb = MG.Keyboard.build($('keys'), { mode: S.mode, onChar, onBackspace, onEnter: submit, onClear, onToggle: toggleMode,
+      clearLabel: MG.i18n.t('clear') });
     S.kb.setEnabled(!S.busy);
+  }
+
+  /* ── Jazyk: lišta v hlavičce, ?lang=xx, návrat k výchozímu po nečinnosti ── */
+  function armLangIdle() {
+    clearTimeout(S.langTimer);
+    if (MG.i18n.lang !== MG.i18n.DEFAULT) S.langTimer = setTimeout(() => MG.i18n.setLang(MG.i18n.DEFAULT), LANG_IDLE_MS);
+  }
+  function onLangChange() {
+    buildKeys();
+    tiles.forEach((t) => { t.json = ''; });   // dlaždice + hlášky překreslit v novém jazyce
+    render();
+    armLangIdle();
   }
 
   async function submit() {
@@ -218,21 +198,23 @@ MG.i18n = (function () {
     S.busy = true;
     S.kb.setEnabled(false);
     clearTimeout(S.pinTimer);
-    showStatus('working', 'Ověřuji kód…', '', false);
+    showStatus('working', MG.i18n.t('verifying'), '', false);
     const res = await post('/api/pin', { code });
     S.entry = '';
     paintEntry();
     S.busy = false;
     S.kb.setEnabled(true);
+    // Server posílá hlášky česky — v jiném jazyce se skládají lokálně z kódu chyby / druhu kódu.
+    const cz = MG.i18n.lang === MG.i18n.DEFAULT;
     if (!res.ok) {
-      showStatus('error', MG.i18n.errorTitle(res.error), res.message || MG.i18n.errorSubtitle(res.error, res.locked_until), true);
+      showStatus('error', MG.i18n.errorTitle(res.error), (cz && res.message) || MG.i18n.errorSubtitle(res.error, res.locked_until), true);
       return;
     }
     if (res.kind === 'service') { hideStatus(); MG.Panel.show(res.service_token); return; }
     if (res.kind === 'diagnostics') { hideStatus(); MG.Diag.open({ started: true }); return; }
     const z = res.zone != null ? (S.state && (S.state.zones || []).find((x) => x.zone === res.zone)) : null;
-    const name = z ? MG.i18n.zoneName(z) : (res.kind === 'accessories' ? 'Oblečení' : 'Dveře');
-    showStatus('success', 'Otevřeno', res.message || MG.i18n.successSubtitle(res.kind, name), true);
+    const name = z ? MG.i18n.zoneName(z) : (res.kind === 'accessories' ? MG.i18n.t('acc') : MG.i18n.t('opened'));
+    showStatus('success', MG.i18n.t('opened'), (cz && res.message) || MG.i18n.successSubtitle(res.kind, name), true);
   }
 
   /* ── Overlay stavů ────────────────────────────────────────────────── */
@@ -262,14 +244,22 @@ MG.i18n = (function () {
 
   /* ── Init ─────────────────────────────────────────────────────────── */
   function init() {
+    const q = new URLSearchParams(location.search).get('lang');
+    MG.i18n.setLang(q || MG.i18n.DEFAULT, true);
+    MG.i18n.renderBar($('lang-bar'));
+    MG.i18n.onChange(onLangChange);
+    document.addEventListener('pointerdown', armLangIdle, { passive: true });
     MG.Panel.init({ post, showStatus, getState: () => S.state });
     MG.Setup.init({ post, onPaired: () => { showStatus('success', 'Spárováno', 'Zařízení je připojeno k pobočce.', true); pollFallback(); } });
     MG.Diag.init({ post, getState: () => S.state });
     buildKeys();
     paintEntry();
     $('status').addEventListener('click', () => { if (!$('status-dismiss').hidden) hideStatus(); });
-    // Fyzická klávesnice: diagnostika (zadání kódu) > setup > hlavní zadávání kódu
-    const target = () => (MG.Diag.wantsKeys() ? MG.Diag.keys : MG.Setup.isVisible() ? MG.Setup.keys : null);
+    // Fyzická klávesnice: diagnostika (zadání kódu) > setup > hlavní zadávání kódu.
+    // Otevřený report diagnostiky (bez zadávání) klávesy POLYKÁ — Enter nesmí odeslat skrytý PIN.
+    const SWALLOW = { onChar() {}, onBackspace() {}, onEnter() {}, onClear() {} };
+    const target = () => (MG.Diag.wantsKeys() ? MG.Diag.keys : MG.Diag.isVisible() ? SWALLOW
+      : MG.Setup.isVisible() ? MG.Setup.keys : null);
     MG.Keyboard.bindPhysical({
       isActive: () => !MG.Panel.isOpen() || MG.Setup.isVisible() || MG.Diag.isVisible(),
       onChar: (c) => { const t = target(); if (t) t.onChar(c); else if (/[0-9a-z]/.test(c)) onChar(c); },

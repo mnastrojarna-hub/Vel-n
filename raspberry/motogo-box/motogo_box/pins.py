@@ -118,10 +118,10 @@ class PinGuard:
         return until
 
     def register_success(self, masked: str) -> None:
-        """Úspěšný kód ruší lockout i počítání selhání."""
+        """Úspěšný kód se jen zaznamená — okno selhání NEresetuje (jinak by držitel jednoho platného
+        kódu mohl hádat cizí PINy bez lockoutu, §10); lockout během platného lockoutu nikdy nenastane
+        (submit_code ho kontroluje dřív)."""
         self.storage.pin_attempt(True, masked, ts=self.clock())
-        self.storage.set_lockout_until(None)
-        self.storage.kv_set(KV_LOCKOUT_STARTED, self.clock())
 
 
 class LocalResolver:

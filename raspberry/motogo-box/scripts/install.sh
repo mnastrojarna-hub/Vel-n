@@ -6,8 +6,12 @@
 #   sudo ./scripts/install.sh
 # Volitelné proměnné prostředí (jinak se instalátor ptá interaktivně, pokud má terminál):
 #   MOTOGO_DEVICE_ID=<uuid>  MOTOGO_DEVICE_TOKEN=<uuid>  MOTOGO_APN=internet.t-mobile.cz
-#   MOTOGO_DIAG_CODE=<kód>  (kód pro diagnostiku sítě z displeje; výchozí netdiag)
+#   MOTOGO_SIM_PIN=1234      (prázdné = SIM bez PINu; zapíše se do NM profilu motogo-lte, [gsm] pin=)
+#   MOTOGO_DIAG_CODE=<kód>   (kód diagnostiky sítě z displeje, [0-9a-z-]{4,32}; při založení config.yaml se
+#                             jinak vygeneruje náhodný „diagNNNN“; existující kód se BEZ této proměnné nemění)
+#   MOTOGO_MODEM_VIDPID=1e0e:9001  (USB ID modemu → /etc/motogo/modem_vidpid pro motogo-usbreset)
 #   MOTOGO_SKIP_APT=1 (přeskočí apt), MOTOGO_NO_START=1 (na konci služby nespouští)
+# Rozhodnutí k souborovému systému: root zůstává READ-WRITE, overlay se NEzapíná (krok 12, README).
 set -euo pipefail
 
 APP_DIR="/opt/motogo"
@@ -16,14 +20,17 @@ DATA_DIR="/var/lib/motogo"
 APP_USER="motogo"
 APP_GROUPS="audio,video,input,render,dialout,plugdev,netdev"
 NM_DIR="/etc/NetworkManager/system-connections"
+LTE_PROF="$NM_DIR/motogo-lte.nmconnection"
+POLKIT_RULE="50-motogo-kiosk.rules"
 SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APT_PKGS=(python3 python3-venv python3-pip git mpv cage chromium network-manager modemmanager
-          alsa-utils rsync curl usbutils fonts-dejavu fonts-noto-color-emoji)
+          alsa-utils rsync curl usbutils kbd fonts-dejavu fonts-noto-color-emoji)
 
 step() { echo; echo "──── $* ────"; }
 ok()   { echo "  ✔ $*"; }
 warn() { echo "  ! $*"; }
 die()  { echo "CHYBA: $*" >&2; exit 1; }
+as_app() { runuser -u "$APP_USER" -- "$@"; }   # venv patří motogo → root ho nikdy nespouští (pip ani python)
 
 [[ "$(id -u)" -eq 0 ]] || die "spusť jako root: sudo $0"
 [[ -f "$SRC_DIR/motogo_box/__main__.py" ]] || die "spouštěj ze složky raspberry/motogo-box (nenalezen motogo_box/)"
@@ -50,9 +57,13 @@ else
   export DEBIAN_FRONTEND=noninteractive
   apt-get update -qq
   apt-get install -y -qq --no-install-recommends "${APT_PKGS[@]}"
-  ok "nainstalováno: ${APT_PKGS[*]}"
+  # polkit (logind chvt pro motogo-ui): Bookworm = polkitd, starší image = policykit-1
+  apt-get install -y -qq --no-install-recommends polkitd >/dev/null 2>&1 \
+    || apt-get install -y -qq --no-install-recommends policykit-1 >/dev/null 2>&1 || warn "polkit nenainstalován"
+  ok "nainstalováno: ${APT_PKGS[*]} polkitd"
 fi
 command -v chromium >/dev/null 2>&1 || command -v chromium-browser >/dev/null 2>&1 || warn "chromium nenalezeno — UI nepoběží"
+command -v chvt >/dev/null 2>&1 || warn "chvt (balík kbd) chybí — motogo-ui spoléhá jen na polkit pravidlo"
 
 # ── 2. uživatel ────────────────────────────────────────────────────────────────
 step "2/12 Uživatel $APP_USER"
@@ -77,41 +88,50 @@ chmod 755 "$APP_DIR"/scripts/*.sh
 # Program vlastní root (uživatel motogo jen čte) — skripty spouštěné přes sudo nesmí být zapisovatelné
 # procesem controlleru. Zapisovat smí motogo jen do venv (pip) a do /var/lib/motogo.
 chown -R root:root "$APP_DIR"; chmod -R a+rX "$APP_DIR"
-# root-owned kopie skriptů pro sudo (viz systemd/motogo-sudoers)
+# root-owned kopie skriptů pro sudo (viz systemd/motogo-sudoers — povoleny JEN bez argumentů)
 install -m 755 -o root -g root "$APP_DIR/scripts/update.sh"         /usr/local/sbin/motogo-update
 install -m 755 -o root -g root "$APP_DIR/scripts/usbreset-modem.sh" /usr/local/sbin/motogo-usbreset
 ok "sudo skripty: /usr/local/sbin/motogo-update, /usr/local/sbin/motogo-usbreset (root:root)"
-# Zdroj pro budoucí aktualizace (update.sh / příkaz update_software z Velína)
+# Zdroj pro budoucí aktualizace (update.sh / příkaz update_software z Velína) — root-owned soubor,
+# přes sudo je to JEDINÝ přijímaný zdroj. git pull dělá update.sh jako vlastník checkoutu.
 mkdir -p "$ETC_DIR"
 if [[ "$SRC_DIR" != "$APP_DIR" ]]; then
-  echo "$SRC_DIR" > "$ETC_DIR/source_dir"
-  if git -C "$SRC_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-    git config --global --add safe.directory "$(git -C "$SRC_DIR" rev-parse --show-toplevel)" >/dev/null 2>&1 || true
-    ok "zdroj aktualizací: $SRC_DIR (git checkout → update = git pull + rsync)"
+  echo "$SRC_DIR" > "$ETC_DIR/source_dir"; chown root:root "$ETC_DIR/source_dir"; chmod 644 "$ETC_DIR/source_dir"
+  src_owner="$(stat -c %U "$SRC_DIR")"
+  if runuser -u "$src_owner" -- git -C "$SRC_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    ok "zdroj aktualizací: $SRC_DIR (git checkout uživatele $src_owner → update = git pull jako $src_owner + rsync;"
+    echo "    bezobslužný update z Velína potřebuje u $src_owner credential helper / deploy key bez hesla)"
   else
     ok "zdroj aktualizací: $SRC_DIR (bez gitu → update = rsync; nový balík rozbal na stejné místo)"
   fi
+  [[ "$src_owner" != "$APP_USER" ]] || warn "zdroj patří uživateli $APP_USER — motogo-update ho odmítne (nesmí z něj brát sudoers/unity)"
 else
-  warn "instaluješ přímo z $APP_DIR — vzdálený update_software nebude mít odkud brát novou verzi (zadej ho ručně: motogo-update /cesta)"
+  warn "instaluješ přímo z $APP_DIR — vzdálený update_software nebude mít odkud brát novou verzi (ručně jako root: motogo-update /cesta)"
 fi
 
 # ── 4. venv + závislosti ──────────────────────────────────────────────────────
 step "4/12 Python venv"
 if [[ ! -x "$APP_DIR/venv/bin/python" ]]; then
   mkdir -p "$APP_DIR/venv"; chown "$APP_USER:$APP_USER" "$APP_DIR/venv"
-  sudo -u "$APP_USER" python3 -m venv "$APP_DIR/venv"
+  as_app python3 -m venv "$APP_DIR/venv" || die "python3 -m venv selhal (chybí python3-venv?)"
   ok "venv vytvořen"
 fi
 chown -R "$APP_USER:$APP_USER" "$APP_DIR/venv"
-sudo -u "$APP_USER" "$APP_DIR/venv/bin/pip" install --quiet --upgrade pip
-sudo -u "$APP_USER" "$APP_DIR/venv/bin/pip" install --quiet -r "$APP_DIR/requirements.txt"
-app_version() { (cd "$APP_DIR" && "$APP_DIR/venv/bin/python" -m motogo_box version 2>/dev/null) || echo '?'; }
-ok "requirements nainstalovány ($(app_version))"
+# pip kroky tolerují chybějící internet (LTE ještě nejede, eth0 = izolovaná I/O síť): varování, instalace pokračuje.
+as_app "$APP_DIR/venv/bin/pip" install --quiet --upgrade pip 2>/dev/null || warn "pip upgrade přeskočen (offline?)"
+if as_app "$APP_DIR/venv/bin/pip" install --quiet -r "$APP_DIR/requirements.txt"; then
+  ok "requirements nainstalovány (v mezích requirements.txt)"
+else
+  warn "pip install -r requirements.txt selhal (offline?) — po připojení: sudo /usr/local/sbin/motogo-update"
+fi
+app_version() { (cd "$APP_DIR" && as_app "$APP_DIR/venv/bin/python" -m motogo_box version 2>/dev/null) || echo '?'; }
+ok "verze programu: $(app_version)"
 
 # ── 5. konfigurace /etc/motogo ────────────────────────────────────────────────
 step "5/12 Konfigurace $ETC_DIR"
 mkdir -p "$ETC_DIR"
 ask MOTOGO_APN "APN operátora (např. internet.t-mobile.cz, internet, ointernet)" "internet"
+config_created=0
 if [[ -f "$ETC_DIR/config.yaml" ]]; then
   ok "config.yaml existuje — ponechán (ID/token lze změnit v UI → Přepárovat)"
 else
@@ -121,59 +141,104 @@ else
   ask MOTOGO_DEVICE_TOKEN "DEVICE_TOKEN (uuid)" ""
   cp "$APP_DIR/config/config.example.yaml" "$ETC_DIR/config.yaml"
   sed -i "s|^  id: \"\"|  id: \"${MOTOGO_DEVICE_ID}\"|; s|^  token: \"\"|  token: \"${MOTOGO_DEVICE_TOKEN}\"|" "$ETC_DIR/config.yaml"
+  config_created=1
   ok "config.yaml vytvořen z config.example.yaml"
 fi
-# Diagnostický kód: zadáním na displeji (i před spárováním) se spustí kompletní diagnostika sítě
-# (rozhraní, LTE, internet, Velín, scan LAN, identifikace Waveshare/Shelly) — zobrazí se a odešle do Velína.
-echo "  Diagnostika sítě: kód, který zadáš na displeji (hlavní klávesnice nebo setup → „Diagnostika sítě“)."
-ask MOTOGO_DIAG_CODE "Diagnostický kód" "netdiag"
-if grep -q '^diagnostics:' "$ETC_DIR/config.yaml"; then
-  sed -i "/^diagnostics:/,/^[a-z_]*:/ s|^  code: .*|  code: \"${MOTOGO_DIAG_CODE}\"|" "$ETC_DIR/config.yaml"
+# Diagnostický kód (diagnostics.code): zadáním na displeji (i před spárováním) se spustí kompletní diagnostika
+# sítě (rozhraní, LTE, internet, Velín, scan LAN, Waveshare/Shelly) → displej + Velín. Žádný veřejný default:
+# při založení config.yaml se vygeneruje náhodný kód; existující kód se mění JEN přes env MOTOGO_DIAG_CODE.
+diag_explicit=0; [[ -n "${MOTOGO_DIAG_CODE:-}" ]] && diag_explicit=1
+cur_diag="$(sed -n '/^diagnostics:/,/^[a-z_]*:/ s/^  code: *"\?\([^"#]*\)"\?.*/\1/p' "$ETC_DIR/config.yaml" | head -1 | tr -d '[:space:]')"
+(( config_created )) && cur_diag=""   # čerstvá kopie vzoru obsahuje veřejný "netdiag" → nahradit náhodným
+if (( diag_explicit || config_created )) || [[ -z "$cur_diag" ]]; then
+  gen="$(printf 'diag%04d' "$(( $(od -An -N2 -tu2 /dev/urandom | tr -d ' ') % 10000 ))")"
+  while :; do
+    ask MOTOGO_DIAG_CODE "Diagnostický kód pro displej ([0-9a-z-]{4,32})" "${cur_diag:-$gen}"
+    [[ "$MOTOGO_DIAG_CODE" =~ ^[0-9a-z-]{4,32}$ ]] && break
+    (( INTERACTIVE && ! diag_explicit )) || die "MOTOGO_DIAG_CODE '$MOTOGO_DIAG_CODE' neodpovídá ^[0-9a-z-]{4,32}$"
+    warn "neplatný kód — jen malá písmena, číslice a pomlčka, 4–32 znaků"; MOTOGO_DIAG_CODE=""
+  done
+  if grep -q '^diagnostics:' "$ETC_DIR/config.yaml"; then
+    sed -i "/^diagnostics:/,/^[a-z_]*:/ s|^  code: .*|  code: \"${MOTOGO_DIAG_CODE}\"|" "$ETC_DIR/config.yaml"
+  else
+    printf '\ndiagnostics:\n  code: "%s"\n' "${MOTOGO_DIAG_CODE}" >> "$ETC_DIR/config.yaml"
+  fi
+  ok "diagnostický kód nastaven: ${MOTOGO_DIAG_CODE}"
 else
-  printf '\ndiagnostics:\n  code: "%s"\n' "${MOTOGO_DIAG_CODE}" >> "$ETC_DIR/config.yaml"
+  MOTOGO_DIAG_CODE="$cur_diag"
+  ok "diagnostický kód ponechán: ${MOTOGO_DIAG_CODE} (změna: MOTOGO_DIAG_CODE=<kód> sudo ./scripts/install.sh)"
 fi
-ok "diagnostický kód nastaven (diagnostics.code)"
 chown root:"$APP_USER" "$ETC_DIR/config.yaml"; chmod 640 "$ETC_DIR/config.yaml"   # obsahuje token
+# USB zvuková karta (AXAGON) pro audio.device: výchozí ALSA zařízení RPi 5 je HDMI monitoru → kóje by mlčely.
+USB_CARD="$(aplay -l 2>/dev/null | sed -n 's/^card [0-9]*: \([^ ]*\) \[\([^]]*\)\].*/\1 \2/p' \
+            | grep -i -m1 -E 'usb|axagon' | cut -d' ' -f1 || true)"
 if [[ -f "$ETC_DIR/hardware.yaml" ]]; then
   ok "hardware.yaml existuje — ponechán (Velín má přednost)"
 else
   install -m 644 "$APP_DIR/config/brno-9zone.yaml" "$ETC_DIR/hardware.yaml"
-  ok "hardware.yaml = výchozí mapa Brno 9 zón"
+  if [[ -n "$USB_CARD" ]]; then
+    sed -i "/^audio:/,/^[a-z_]*:/ s|^  device: .*|  device: \"alsa/plughw:CARD=${USB_CARD}\"   # USB karta nalezená instalátorem (aplay -l)|" "$ETC_DIR/hardware.yaml"
+  fi
+  ok "hardware.yaml = výchozí mapa Brno 9 zón${USB_CARD:+, audio.device = alsa/plughw:CARD=$USB_CARD}"
 fi
-if (cd "$APP_DIR" && "$APP_DIR/venv/bin/python" -m motogo_box check-config "$ETC_DIR/hardware.yaml" >/dev/null); then
+[[ -n "$USB_CARD" ]] || warn "USB zvuková karta nenalezena (aplay -l) — připoj AXAGON kartu a nastav audio.device (Velín / hardware.yaml)"
+if (cd "$APP_DIR" && as_app "$APP_DIR/venv/bin/python" -m motogo_box check-config "$ETC_DIR/hardware.yaml" >/dev/null); then
   ok "hardware.yaml je konzistentní"
 else
   warn "hardware.yaml má problémy — spusť: cd $APP_DIR && venv/bin/python -m motogo_box check-config $ETC_DIR/hardware.yaml"
 fi
 
-# ── 6. data ────────────────────────────────────────────────────────────────────
+# ── 6. data + logy ─────────────────────────────────────────────────────────────
 step "6/12 Data $DATA_DIR"
 mkdir -p "$DATA_DIR/music"
 chown -R "$APP_USER:$APP_USER" "$DATA_DIR"; chmod 750 "$DATA_DIR"
-touch /var/log/motogo-update.log /var/log/motogo-usbreset.log
-chown "$APP_USER:$APP_USER" /var/log/motogo-update.log /var/log/motogo-usbreset.log
+# Logy sudo skriptů patří rootu (skripty běží jako root). Soubor vlastněný motogo = symlink → root by psal kamkoli;
+# starší instalace (chown motogo) se opraví.
+for f in /var/log/motogo-update.log /var/log/motogo-usbreset.log; do
+  if [[ -L "$f" || ( -e "$f" && "$(stat -c %u "$f")" != "0" ) ]]; then rm -f "$f"; fi
+  touch "$f"; chmod 644 "$f"
+done
 n="$(find "$DATA_DIR/music" -maxdepth 1 -type f \( -iname '*.mp3' -o -iname '*.ogg' -o -iname '*.flac' -o -iname '*.wav' \) | wc -l)"
-ok "hudba: $n souborů v $DATA_DIR/music (nahraj mp3/ogg/flac/wav)"
+ok "hudba: $n souborů v $DATA_DIR/music (nahraj mp3/ogg/flac/wav); logy /var/log/motogo-*.log root-owned"
 
-# ── 7. udev ────────────────────────────────────────────────────────────────────
-step "7/12 udev (SIM7600 → /dev/motogo-lte-at)"
+# ── 7. udev + modem ────────────────────────────────────────────────────────────
+step "7/12 udev (SIM7600 → /dev/motogo-lte-at) + VID:PID modemu"
 install -m 644 "$APP_DIR/systemd/99-motogo-lte.rules" /etc/udev/rules.d/99-motogo-lte.rules
 udevadm control --reload && udevadm trigger --subsystem-match=tty || true
 ok "pravidlo nainstalováno"
+# VID:PID pro motogo-usbreset: sudoers skript povoluje jen bez argumentů → čte tento root-owned soubor
+ask MOTOGO_MODEM_VIDPID "USB VID:PID LTE modemu" "1e0e:9001"
+MOTOGO_MODEM_VIDPID="${MOTOGO_MODEM_VIDPID,,}"
+[[ "$MOTOGO_MODEM_VIDPID" =~ ^[0-9a-f]{4}:[0-9a-f]{4}$ ]] || die "MOTOGO_MODEM_VIDPID '$MOTOGO_MODEM_VIDPID' není ve tvaru 1e0e:9001"
+printf '%s\n' "$MOTOGO_MODEM_VIDPID" > "$ETC_DIR/modem_vidpid"; chown root:root "$ETC_DIR/modem_vidpid"; chmod 644 "$ETC_DIR/modem_vidpid"
+ok "modem $MOTOGO_MODEM_VIDPID → $ETC_DIR/modem_vidpid (musí odpovídat health.modem_vid_pid v config.yaml)"
 
 # ── 8. NetworkManager profily ─────────────────────────────────────────────────
 step "8/12 Síť (NetworkManager: motogo-lte + motogo-lan)"
 systemctl enable --now NetworkManager ModemManager >/dev/null 2>&1 || true
 mkdir -p "$NM_DIR"
-if [[ -f "$NM_DIR/motogo-lte.nmconnection" ]]; then
+# PIN SIM: bez něj zůstane modem ve stavu „locked“ a LTE nikdy nenaběhne (health hlásí lte.error=sim_locked).
+pin_explicit=0; [[ -n "${MOTOGO_SIM_PIN+x}" ]] && pin_explicit=1
+cur_pin=""; [[ -f "$LTE_PROF" ]] && cur_pin="$(sed -n '/^\[gsm\]/,/^\[/ s/^pin=//p' "$LTE_PROF" | head -1)"
+(( pin_explicit )) || ask MOTOGO_SIM_PIN "PIN SIM karty (prázdné = SIM bez PINu${cur_pin:+; Enter = ponechat uložený, '-' = smazat})" "$cur_pin"
+MOTOGO_SIM_PIN="${MOTOGO_SIM_PIN:-}"; [[ "$MOTOGO_SIM_PIN" == "-" ]] && MOTOGO_SIM_PIN=""
+[[ -z "$MOTOGO_SIM_PIN" || "$MOTOGO_SIM_PIN" =~ ^[0-9]{4,8}$ ]] || die "MOTOGO_SIM_PIN musí být 4–8 číslic (nebo prázdné)"
+write_gsm_pin() {  # write_gsm_pin <profil> <pin|""> — [gsm] pin=… + pin-flags=0 (NM PIN uloží a zadá sám); prázdný = řádky pryč
+  sed -i '/^\[gsm\]/,/^\[/{/^pin=/d;/^pin-flags=/d}' "$1"
+  [[ -z "$2" ]] || sed -i -e "/^\[gsm\]/a pin-flags=0" -e "/^\[gsm\]/a pin=$2" "$1"
+}
+if [[ -f "$LTE_PROF" ]]; then
   ok "motogo-lte existuje — ponechán"
-  if [[ "${MOTOGO_APN}" != "internet" ]] && ! grep -q "^apn=${MOTOGO_APN}$" "$NM_DIR/motogo-lte.nmconnection"; then
-    sed -i "s|^apn=.*|apn=${MOTOGO_APN}|" "$NM_DIR/motogo-lte.nmconnection"; ok "APN aktualizováno na ${MOTOGO_APN}"
+  if [[ "${MOTOGO_APN}" != "internet" ]] && ! grep -q "^apn=${MOTOGO_APN}$" "$LTE_PROF"; then
+    sed -i "s|^apn=.*|apn=${MOTOGO_APN}|" "$LTE_PROF"; ok "APN aktualizováno na ${MOTOGO_APN}"
   fi
 else
-  sed "s|^apn=.*|apn=${MOTOGO_APN}|" "$APP_DIR/systemd/motogo-lte.nmconnection" > "$NM_DIR/motogo-lte.nmconnection"
+  sed "s|^apn=.*|apn=${MOTOGO_APN}|" "$APP_DIR/systemd/motogo-lte.nmconnection" > "$LTE_PROF"
   ok "motogo-lte vytvořen (APN ${MOTOGO_APN})"
 fi
+write_gsm_pin "$LTE_PROF" "$MOTOGO_SIM_PIN"
+SIM_PIN_STATE="${MOTOGO_SIM_PIN:+nastaven (pin-flags=0)}"; SIM_PIN_STATE="${SIM_PIN_STATE:-žádný (SIM bez PINu)}"
+ok "PIN SIM: $SIM_PIN_STATE"
 if [[ -f "$NM_DIR/motogo-lan.nmconnection" ]]; then
   ok "motogo-lan existuje — ponechán"
 else
@@ -187,13 +252,18 @@ for prof in motogo-lte motogo-lan; do
   if nmcli -t -f NAME con show 2>/dev/null | grep -qx "$prof"; then ok "NM profil $prof načten"
   else warn "NM profil $prof NENÍ načten — zkontroluj: journalctl -u NetworkManager | grep $prof"; fi
 done
-echo "  → statickou LAN aplikuj: sudo $APP_DIR/scripts/set-static-lan.sh (ověří, že default route nevede přes eth0)"
+echo "  → statickou LAN aplikuj: sudo $APP_DIR/scripts/set-static-lan.sh (přes SSH na eth0 spojení spadne — skript doběhne sám)"
 
-# ── 9. sudoers ─────────────────────────────────────────────────────────────────
-step "9/12 sudoers"
+# ── 9. sudoers + polkit ───────────────────────────────────────────────────────
+step "9/12 sudoers + polkit"
 visudo -c -q -f "$APP_DIR/systemd/motogo-sudoers" || die "motogo-sudoers má chybu syntaxe"
 install -m 440 -o root -g root "$APP_DIR/systemd/motogo-sudoers" /etc/sudoers.d/motogo
-ok "/etc/sudoers.d/motogo (reboot, restart motogo-*, /usr/local/sbin/motogo-usbreset|update, nmcli lte, mmcli signal-setup)"
+ok "/etc/sudoers.d/motogo (reboot, restart motogo-*, motogo-usbreset|motogo-update BEZ argumentů, nmcli lte, mmcli signal-setup)"
+# polkit: motogo smí org.freedesktop.login1.chvt — cage (motogo-ui na tty7) volá logind Session.Activate; pro
+# NEaktivní session by polkit chtěl auth_admin → cage spadne. Unit dělá `chvt 7` před startem, pravidlo je pojistka.
+mkdir -p /etc/polkit-1/rules.d
+install -m 644 -o root -g root "$APP_DIR/systemd/$POLKIT_RULE" "/etc/polkit-1/rules.d/$POLKIT_RULE"
+ok "/etc/polkit-1/rules.d/$POLKIT_RULE (chvt pro motogo-ui; polkitd si rules.d načte sám)"
 
 # ── 10. systemd ────────────────────────────────────────────────────────────────
 step "10/12 systemd služby"
@@ -202,7 +272,7 @@ for unit in motogo-controller.service motogo-health.service motogo-ui.service; d
 done
 systemctl daemon-reload
 systemctl enable motogo-controller motogo-health motogo-ui >/dev/null 2>&1
-ok "unity nainstalovány a povoleny"
+ok "unity nainstalovány a povoleny (motogo-ui: chvt 7 před startem)"
 # UI běží na tty7 vlastní službou — getty tam nesmí (kolize o terminál).
 systemctl disable --now getty@tty7.service >/dev/null 2>&1 || true
 systemctl mask getty@tty7.service >/dev/null 2>&1 || true
@@ -227,14 +297,14 @@ else
   warn "config.txt nenalezen — RTC dobíjení nastav ručně"
 fi
 
-# ── 12. overlayfs (volitelné) ─────────────────────────────────────────────────
-step "12/12 Read-only root (volitelné, SPEC §11)"
+# ── 12. souborový systém ──────────────────────────────────────────────────────
+step "12/12 Souborový systém: rw root, BEZ overlay (rozhodnutí k SPEC §11)"
 cat <<'TXT'
-  Až bude vše odladěné, lze zapnout overlay root (SD karta v read-only, zápisy jen do RAM):
-    sudo raspi-config → Performance Options → Overlay File System → Enable  (nebo: raspi-config nonint enable_overlayfs)
-  POZOR: /var/lib/motogo (SQLite cache kódů, fronta událostí, hudba) a /var/log pak nepřežijí restart —
-  před zapnutím přesuň data na samostatný zapisovatelný oddíl/USB a upravte paths.data_dir v config.yaml.
-  Instalátor overlay NEZAPÍNÁ.
+  Rozhodnutí: root zůstává read-write, overlay root (raspi-config → Overlay File System) se NEZAPÍNÁ.
+  Důvod: /var/lib/motogo (SQLite cache kódů + fronta událostí, health.json, hudba), /var/log a NM profily
+  musí přežít restart; overlay by je při každém výpadku 230 V (FVE střídač) zahodil a oddělený rw oddíl
+  program ani instalátor nepodporují. Ochrana dat: SQLite WAL, průmyslová microSD (pSLC/„High Endurance“, A2)
+  a záložní napájení RPi (UPS). Overlay nikdy nezapínat před go-live ani bez přesunu dat (viz README).
 TXT
 
 # ── start ──────────────────────────────────────────────────────────────────────
@@ -253,9 +323,10 @@ done
 echo "  program:     $APP_DIR ($(app_version))"
 echo "  konfigurace: $ETC_DIR/config.yaml, $ETC_DIR/hardware.yaml (zdroj update: $ETC_DIR/source_dir)"
 echo "  data/hudba:  $DATA_DIR, $DATA_DIR/music"
-echo "  LTE APN:     ${MOTOGO_APN}   (nmcli con show motogo-lte)"
+echo "  LTE:         APN ${MOTOGO_APN}, PIN SIM $SIM_PIN_STATE, modem ${MOTOGO_MODEM_VIDPID}   (nmcli con show motogo-lte; mmcli -m any)"
+echo "  zvuk:        ${USB_CARD:+USB karta „$USB_CARD“ → audio.device alsa/plughw:CARD=$USB_CARD}${USB_CARD:-USB zvuková karta NENALEZENA — nastav audio.device (aplay -l)}"
 echo "  diagnostika: kód „${MOTOGO_DIAG_CODE}“ na displeji (nebo Velín → Diagnostika sítě) = scan sítě + report do Velína"
-echo "  LAN:         sudo $APP_DIR/scripts/set-static-lan.sh"
+echo "  UI:          motogo-ui na tty7 (chvt 7 + polkit chvt pro motogo); LAN: sudo $APP_DIR/scripts/set-static-lan.sh"
 echo "  logy:        journalctl -u motogo-controller -u motogo-health -u motogo-ui -f"
 echo "  stav:        curl -s http://127.0.0.1:8080/api/state | python3 -m json.tool"
 echo "  Další kroky: 1) na displeji zadat diagnostický kód → ověřit LTE/LAN/moduly, 2) spárovat zařízení (UI nebo config.yaml),"

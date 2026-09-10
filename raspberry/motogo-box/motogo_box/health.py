@@ -1,14 +1,17 @@
 """Health monitor (kontrakt §17) — `python -m motogo_box health` (motogo-health.service).
 
 Smyčka každých `cfg.check_interval_s`:
-1. sonda internetu (HTTP GET `cfg.probe_url`, 8 s),
+1. sonda internetu: 3 nezávislé cíle souběžně (HTTP `cfg.probe_url`, HTTP google `generate_204`,
+   TCP 1.1.1.1:443) — „down“ jen když selžou VŠECHNY (výpadek Supabase/DNS ≠ výpadek LTE),
 2. LTE info z ModemManageru (`mmcli -J`) + stav NM profilu (`nmcli`),
 3. systémové metriky (teplota, throttling, disk, RAM, load, uptime),
-4. politika obnovy LTE (`LtePolicy`): reconnect → USB reset modemu → reboot,
+4. politika obnovy LTE (`LtePolicy`): reconnect → USB reset modemu → reboot; při `locked` (SIM PIN)
+   nebo `failed` kvůli SIM politika STOJÍ a chyba jde do `lte.error` + logu (reboot PIN nezadá),
 5. `POST <controller>/api/health` (3 s, chyby se ignorují) + `sd_notify WATCHDOG=1`.
 
-Počítadla politiky přežívají restart služby v `<paths.data_dir>/health.json`.
-Vše, co spouští procesy, jde přes injektovatelné `run_cmd` (testy bez sudo).
+Počítadla politiky přežívají restart služby v `<paths.data_dir>/health.json`. Procesy jdou přes
+injektovatelné `run_cmd`, TCP sonda přes `tcp_probe` (testy bez sudo/sítě); sudo argv odpovídají
+přesně aliasům v systemd/motogo-sudoers (motogo-usbreset se volá BEZ argumentů).
 """
 from __future__ import annotations
 
@@ -17,14 +20,14 @@ import json
 import logging
 import os
 import time
-from typing import Any, Awaitable, Callable
+from typing import Awaitable, Callable
 
 import httpx
 
 from .config import HealthCfg
 from .health_probe import (  # noqa: F401 — veřejné API dle kontraktu §17
-    disk_free_pct, mem_free_pct, parse_meminfo, parse_mmcli_modem, parse_mmcli_signal,
-    parse_nmcli_connection, read_cpu_temp, read_throttled, read_uptime_s, sys_metrics,
+    disk_free_pct, lte_error, mem_free_pct, parse_meminfo, parse_mmcli_modem, parse_mmcli_signal,
+    parse_nmcli_connection, read_cpu_temp, read_throttled, read_uptime_s, sys_metrics, tcp_probe,
 )
 from .models import now_iso
 
@@ -50,11 +53,15 @@ log = logging.getLogger("motogo.health")
 
 DEFAULT_STATE_PATH = "/var/lib/motogo/health.json"
 PROBE_TIMEOUT_S = 8.0
+PROBE_URL_2 = "https://www.google.com/generate_204"   # nezávislý HTTP cíl mimo Supabase
+PROBE_TCP = ("1.1.1.1", 443)                          # TCP connect bez DNS (výpadek DNS operátora ≠ výpadek LTE)
 POST_TIMEOUT_S = 3.0
 MMCLI_TIMEOUT_S = 15.0
 SIGNAL_SETUP_RATE_S = 30
+KILL_WAIT_S = 5.0            # po timeoutu: jak dlouho čekat na konec (ne)zabitého potomka
 
 RunCmd = Callable[..., Awaitable[tuple[int, str]]]
+TcpProbe = Callable[..., Awaitable[bool]]
 
 
 async def run_cmd(*args: str, timeout: float = 20) -> tuple[int, str]:
@@ -67,10 +74,13 @@ async def run_cmd(*args: str, timeout: float = 20) -> tuple[int, str]:
     try:
         out, _ = await asyncio.wait_for(proc.communicate(), timeout=timeout)
     except asyncio.TimeoutError:
-        proc.kill()
         try:
-            await proc.wait()
-        except Exception:  # noqa: BLE001
+            proc.kill()
+        except (ProcessLookupError, PermissionError):
+            pass   # už skončil / potomek je sudo (root) — kill nesmí shodit cyklus health
+        try:
+            await asyncio.wait_for(proc.wait(), timeout=KILL_WAIT_S)
+        except Exception:  # noqa: BLE001 — nezabitelný root potomek běží dál; nečekáme na něj
             pass
         return 124, f"timeout po {timeout:.0f} s: {' '.join(args)}"
     return proc.returncode if proc.returncode is not None else 1, out.decode("utf-8", "replace")
@@ -161,7 +171,8 @@ class HealthMonitor:
     def __init__(self, cfg: HealthCfg, controller_url: str = "http://127.0.0.1:8080", *,
                  run_cmd: RunCmd = run_cmd, clock: Callable[[], float] = time.time,
                  state_path: str = DEFAULT_STATE_PATH, http: httpx.AsyncClient | None = None,
-                 uptime: Callable[[], float | None] = read_uptime_s) -> None:
+                 uptime: Callable[[], float | None] = read_uptime_s,
+                 tcp_probe: TcpProbe = tcp_probe) -> None:
         self.cfg = cfg
         self.controller_url = controller_url.rstrip("/")
         self.run_cmd = run_cmd
@@ -169,10 +180,13 @@ class HealthMonitor:
         self.state_path = state_path
         self._http = http
         self._uptime = uptime
+        self._tcp_probe = tcp_probe
         self.policy = LtePolicy(cfg, clock)
         self.policy.load(self._load_state())
         self.last_payload: dict | None = None
+        self.last_probe: dict[str, bool] = {}   # výsledek posledních sond per cíl
         self._signal_setup_done = False
+        self._lte_error: str | None = None
         self._stop = asyncio.Event()
 
     # ─── perzistence ─────────────────────────────────────────────────────────
@@ -198,20 +212,33 @@ class HealthMonitor:
 
     # ─── sondy ───────────────────────────────────────────────────────────────
     async def probe_internet(self) -> bool:
-        """HTTP GET `probe_url`; jakákoli HTTP odpověď = internet funguje."""
+        """≥ 2 nezávislé cíle souběžně; internet je „down“ jen když selžou všechny."""
+        targets = {"probe_url": self._http_probe(self.cfg.probe_url),
+                   "google_204": self._http_probe(PROBE_URL_2),
+                   "tcp_1.1.1.1": self._tcp_probe(*PROBE_TCP, timeout=PROBE_TIMEOUT_S)}
+        results = await asyncio.gather(*targets.values())
+        self.last_probe = dict(zip(targets, (bool(r) for r in results)))
+        failed = [k for k, v in self.last_probe.items() if not v]
+        if failed:
+            log.info("Sonda internetu: nedostupné %s%s", ", ".join(failed),
+                     "" if len(failed) == len(targets) else " — internet OK (ostatní cíle odpověděly)")
+        return len(failed) < len(targets)
+
+    async def _http_probe(self, url: str) -> bool:
+        """HTTP GET; jakákoli HTTP odpověď (i 4xx/5xx) = spojení do internetu funguje."""
         try:
-            await self._client().get(self.cfg.probe_url, timeout=PROBE_TIMEOUT_S)
+            await self._client().get(url, timeout=PROBE_TIMEOUT_S)
             return True
         except Exception as exc:  # noqa: BLE001 — httpx i DNS chyby
-            log.info("Sonda internetu selhala: %s", exc)
+            log.debug("Sonda %s selhala: %s", url, exc)
             return False
 
     async def lte_info(self) -> dict:
-        """Sloučí `mmcli -m any -J`, `--signal-get -J` a stav NM profilu."""
+        """Sloučí `mmcli -m any -J`, `--signal-get -J`, stav NM profilu a `error` (viz `lte_error`)."""
         rc, out = await self.run_cmd("mmcli", "-m", "any", "-J", timeout=MMCLI_TIMEOUT_S)
         modem = parse_mmcli_modem(out) if rc == 0 else {
             "state": "no_modem", "signal_quality": None, "operator": None,
-            "access_tech": None, "registration": None}
+            "access_tech": None, "registration": None, "failed_reason": None}
         signal = {"rssi": None, "rsrp": None, "rsrq": None, "snr": None, "refresh_rate": 0}
         if rc == 0:
             rc2, out2 = await self.run_cmd("mmcli", "-m", "any", "--signal-get", "-J", timeout=MMCLI_TIMEOUT_S)
@@ -234,7 +261,8 @@ class HealthMonitor:
         p = self.policy
         return {**modem, **{k: v for k, v in signal.items() if k != "refresh_rate"}, **nm,
                 "reconnects": p.reconnects, "usb_resets": p.usb_resets, "reboots": p.reboots,
-                "internet_failures": p.internet_failures, "last_action": p.last_action}
+                "internet_failures": p.internet_failures, "last_action": p.last_action,
+                "error": lte_error(modem)}
 
     # ─── akce politiky ───────────────────────────────────────────────────────
     async def perform(self, action: str, payload: dict) -> None:
@@ -250,7 +278,9 @@ class HealthMonitor:
         elif action == "usb_reset":
             log.warning("LTE: reconnecty nepomohly → USB reset modemu %s (celkem %d)",
                         self.cfg.modem_vid_pid, self.policy.usb_resets)
-            rc, out = await self.run_cmd("sudo", "-n", self.cfg.usb_reset_script, self.cfg.modem_vid_pid, timeout=60)
+            # sudoers povoluje skript JEN bez argumentů; VID:PID čte skript z root-owned
+            # /etc/motogo/modem_vidpid (install.sh, MOTOGO_MODEM_VIDPID) — má odpovídat cfg.modem_vid_pid.
+            rc, out = await self.run_cmd("sudo", "-n", self.cfg.usb_reset_script, timeout=60)
             if rc != 0:
                 log.error("USB reset selhal (rc=%s): %s", rc, out.strip()[:300])
         elif action == "reboot":
@@ -283,7 +313,16 @@ class HealthMonitor:
         lte = await self.lte_info()
         sysm = sys_metrics()
         uptime = self._uptime()
-        actions = self.policy.step(internet, uptime if uptime is not None else 0.0)
+        error = lte.get("error")
+        if error:
+            # SIM PIN / chybějící SIM: reconnect, USB reset ani reboot nepomůže → politika stojí, jen hlásit.
+            actions: list[str] = []
+            if error != self._lte_error:
+                log.error("LTE: modem hlásí %s (stav %s) — obnova pozastavena; PIN zadej do NM profilu "
+                          "(install.sh, MOTOGO_SIM_PIN) nebo zkontroluj SIM", error, lte.get("state"))
+        else:
+            actions = self.policy.step(internet, uptime if uptime is not None else 0.0)
+        self._lte_error = error
         self._save_state()
         payload = {"internet": internet, "lte": lte, "sys": sysm, "ts": now_iso(), "actions": actions}
         for action in actions:
@@ -298,15 +337,17 @@ class HealthMonitor:
         """Nekonečná smyčka každých `cfg.check_interval_s`; chyba cyklu nesmí službu shodit."""
         sd_notify("READY=1")
         interval = max(5, int(self.cfg.check_interval_s))
-        log.info("Health monitor běží (interval %d s, sonda %s, profil %s)",
-                 interval, self.cfg.probe_url, self.cfg.nm_connection)
+        log.info("Health monitor běží (interval %d s, sondy %s + %s + tcp %s:%d, profil %s)",
+                 interval, self.cfg.probe_url, PROBE_URL_2, *PROBE_TCP, self.cfg.nm_connection)
         try:
             while not self._stop.is_set():
                 started = time.monotonic()
                 try:
                     payload = await self.cycle()
+                    lte = payload["lte"]
+                    err = f" error={lte['error']}" if lte.get("error") else ""
                     sd_notify(f"STATUS=internet={'ok' if payload['internet'] else 'DOWN'} "
-                              f"lte={payload['lte'].get('state')} rssi={payload['lte'].get('rssi')}")
+                              f"lte={lte.get('state')} rssi={lte.get('rssi')}{err}")
                 except Exception:  # noqa: BLE001
                     log.exception("Cyklus health selhal")
                     sd_notify("WATCHDOG=1")

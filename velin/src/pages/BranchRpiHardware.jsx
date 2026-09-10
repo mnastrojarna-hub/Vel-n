@@ -4,33 +4,50 @@ import { RpiSection, Btn, Chip, Input, Select, Checkbox } from './BranchRpiUi'
 import { DoorHwEditor } from './BranchRpiDoorHw'
 import {
   BRNO_DEFAULT_HARDWARE, BRNO_DEFAULT_ZONES, DEVICE_TYPES, HW_SECTIONS,
-  fieldToText, textToField, sectionWithDefaults,
+  fieldToText, textToField, sectionWithDefaults, pickAccessoriesZone,
 } from './BranchRpiHardwareDefaults'
 
 // ─── Řídicí jednotka (Raspberry) — hardware ──────────────────────────────────
 // Editor `branch_kiosk_config.hardware` (zařízení + časování/polling/kontakty/
 // bezpečnost/audio/signál) a `branch_doors.hw` (mapování zón). Uložení tlačítky;
 // řídicí jednotka si změny stáhne při dalším syncu (nebo příkazem sync_config).
+// onSaveCfg/onSaveDoor aktualizují stav záložky optimisticky a vrací true/false.
+
+const clone = v => JSON.parse(JSON.stringify(v))
+const NOTE_STYLE = { green: { background: '#dcfce7', color: '#1a8a18' }, amber: { background: '#fef3c7', color: '#b45309' }, red: { background: '#fee2e2', color: '#dc2626' } }
 
 function RpiHardwareBlock({ cfg, doors, busy, onSaveCfg, onSaveDoor, onRefresh }) {
   const hardware = (cfg?.hardware && typeof cfg.hardware === 'object') ? cfg.hardware : {}
   const [loadingDefaults, setLoadingDefaults] = useState(false)
-  const [note, setNote] = useState(null)
+  const [note, setNote] = useState(null)   // { tone, text }
 
   async function loadBrnoDefaults() {
-    const targets = (doors || []).filter(d => d.door_kind === 'motorcycle' && d.box_number >= 1 && d.box_number <= 9)
+    const zonesN = BRNO_DEFAULT_ZONES.length
+    const targets = (doors || []).filter(d => d.door_kind === 'motorcycle' && d.box_number >= 1 && d.box_number <= zonesN)
+    // Skříň oblečení (box_number NULL) = nejvyšší zóna šablony, kterou nezabírá žádná kóje
+    const accDoor = (doors || []).find(d => d.door_kind === 'accessories')
+    const accZone = accDoor ? pickAccessoriesZone(targets.map(d => d.box_number)) : null
+    const accText = !accDoor ? 'Dveře oblečení neexistují (blok „Dveře“ → Vytvořit dveře z kojí) — namapují se jen kóje.'
+      : accZone ? `Skříň oblečení dostane zónu ${accZone} (nejvyšší volná zóna šablony).`
+        : `POZOR: pro skříň oblečení nezbyla volná zóna (kóje obsadily všech ${zonesN} zón) — kód k oblečení nebude fungovat, dokud jí nenastavíte zónu ručně.`
     const ok = window.confirm(
-      `Načíst výchozí mapu (šablona Brno, 9 zón)?\n\nPřepíše zařízení a všechna nastavení hardwaru pobočky a HW mapu ${targets.length} dveří (kóje 1–9). Pro jinou pobočku pak upravte adresy zařízení a počet zón.`,
+      `Načíst výchozí mapu (šablona Brno, ${zonesN} zón)?\n\nPřepíše zařízení a všechna nastavení hardwaru pobočky a HW mapu ${targets.length} dveří (kóje 1–${zonesN}). ${accText}\n\nPro jinou pobočku pak upravte adresy zařízení a počet zón.`,
     )
     if (!ok) return
     setLoadingDefaults(true)
+    setNote(null)
     try {
-      await onSaveCfg({ hardware: JSON.parse(JSON.stringify(BRNO_DEFAULT_HARDWARE)) })
+      let failed = 0
+      if ((await onSaveCfg({ hardware: clone(BRNO_DEFAULT_HARDWARE) })) === false) failed++
       for (const d of targets) {
-        await onSaveDoor(d.id, { hw: JSON.parse(JSON.stringify(BRNO_DEFAULT_ZONES[d.box_number - 1])) })
+        if ((await onSaveDoor(d.id, { hw: clone(BRNO_DEFAULT_ZONES[d.box_number - 1]) })) === false) failed++
       }
-      setNote(`Výchozí mapa (šablona Brno) načtena (${Object.keys(BRNO_DEFAULT_HARDWARE.devices).length} zařízení, ${targets.length} dveří).`)
-      if (onRefresh) await onRefresh()
+      if (accDoor && accZone && (await onSaveDoor(accDoor.id, { hw: clone(BRNO_DEFAULT_ZONES[accZone - 1]) })) === false) failed++
+      const summary = `${Object.keys(BRNO_DEFAULT_HARDWARE.devices).length} zařízení, ${targets.length} kójí${accDoor && accZone ? `, oblečení = zóna ${accZone}` : ''}`
+      // Stav záložky je už aktualizovaný optimisticky — bez onRefresh (spinner celé záložky by blok odmontoval a poznámku ztratil)
+      if (failed) setNote({ tone: 'red', text: `Výchozí mapa: ${failed}× uložení selhalo (viz chyba nahoře). Uloženo: ${summary}.` })
+      else if (accDoor && !accZone) setNote({ tone: 'amber', text: `Výchozí mapa (šablona Brno) načtena (${summary}). Skříň oblečení NEMÁ zónu — všech ${zonesN} zón obsadily kóje; nastavte ji ručně v mapování níže.` })
+      else setNote({ tone: 'green', text: `Výchozí mapa (šablona Brno) načtena (${summary}). Jednotka si ji stáhne do 60 s nebo příkazem „Synchronizovat konfiguraci“.` })
     } finally {
       setLoadingDefaults(false)
     }
@@ -39,7 +56,7 @@ function RpiHardwareBlock({ cfg, doors, busy, onSaveCfg, onSaveDoor, onRefresh }
   const disabled = busy || loadingDefaults
   return (
     <RpiSection title="Řídicí jednotka (Raspberry) — hardware"
-      hint="Modbus relé Waveshare + Shelly signalizace. Změny se do jednotky propíší při synchronizaci konfigurace (do 60 s nebo příkazem „Synchronizovat konfiguraci“)."
+      hint="Modbus relé Waveshare + Shelly signalizace. Časování, audio, PIN bezpečnost i signalizaci řídicí jednotky nastavíte ZDE (blok „Hudba & časování“ výše platí jen pro tablet). Změny se do jednotky propíší při synchronizaci konfigurace (do 60 s nebo příkazem „Synchronizovat konfiguraci“)."
       action={
         <div className="flex gap-2">
           <Btn tone="blue" onClick={onRefresh} disabled={disabled}>Obnovit</Btn>
@@ -47,13 +64,13 @@ function RpiHardwareBlock({ cfg, doors, busy, onSaveCfg, onSaveDoor, onRefresh }
         </div>
       }>
       <div className="space-y-3">
-        {note && <div className="p-2 rounded-lg text-[12px] font-bold" style={{ background: '#dcfce7', color: '#1a8a18' }}>{note}</div>}
+        {note && <div className="p-2 rounded-lg text-[12px] font-bold" style={NOTE_STYLE[note.tone] || NOTE_STYLE.green}>{note.text}</div>}
         <DevicesEditor hardware={hardware} disabled={disabled} onSave={devices => onSaveCfg({ hardware: { ...hardware, devices } })} />
         <SettingsEditor hardware={hardware} disabled={disabled} onSave={patch => onSaveCfg({ hardware: { ...hardware, ...patch } })} />
         <SubBlock title="Mapování dveří → zóny (branch_doors.hw)"
-          hint="Zóna = číslo kóje. Zámek/světlo/audio = coil relé, kontakt = vstup WAV617 (input), červená/zelená = Shelly light id (0–4). Zámek a kontakt jsou povinné.">
+          hint="Zóna = číslo kóje (skříň oblečení = volné číslo). Zámek = coil VÝHRADNĚ na WAV645 (HW flash-on), kontakt = vstup WAV617 (input), světlo/audio = coil WAV645/WAV617, červená/zelená = Shelly light id (0–4). Zámek a kontakt jsou povinné; čísla zón i kanály musí být unikátní — jinak jednotka celou mapu odmítne.">
           {(doors || []).length === 0
-            ? <EmptyState text="Žádné dveře. Nejdřív vytvořte dveře z kojí (blok výše)." />
+            ? <EmptyState text="Žádné dveře. Nejdřív vytvořte dveře z kojí (blok „Dveře“ výše)." />
             : <DoorHwEditor doors={doors} devices={hardware.devices || {}} busy={disabled} onSaveDoor={onSaveDoor} />}
         </SubBlock>
       </div>

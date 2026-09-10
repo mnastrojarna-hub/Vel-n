@@ -72,12 +72,23 @@ bezpečně přestaví I/O (vše vypnout → nové zóny).
    sudo MOTOGO_APN=internet.t-mobile.cz ./scripts/install.sh
    ```
    Instalátor je idempotentní: nainstaluje balíčky (python3-venv, mpv, cage, chromium,
-   network-manager, modemmanager, alsa-utils, rsync), vytvoří uživatele `motogo`, zkopíruje program
-   do `/opt/motogo` (venv + pip), založí `/etc/motogo/config.yaml` a `hardware.yaml` (existující
-   nepřepisuje), `/var/lib/motogo/music`, udev pravidlo modemu, NM profily, sudoers, systemd unity,
-   dobíjení RTC baterie (`dtparam=rtc_bbat_vchg=3000000`), vypne `getty@tty7`, služby spustí.
-   ID/token/APN/diagnostický kód se zadají interaktivně nebo přes env `MOTOGO_DEVICE_ID`, `MOTOGO_DEVICE_TOKEN`,
-   `MOTOGO_APN`, `MOTOGO_DIAG_CODE` (výchozí `netdiag`).
+   network-manager, modemmanager, alsa-utils, rsync, kbd, polkitd), vytvoří uživatele `motogo`, zkopíruje
+   program do `/opt/motogo` (venv + pip — bez internetu jen varuje a pokračuje), založí
+   `/etc/motogo/config.yaml` a `hardware.yaml` (existující nepřepisuje), `/var/lib/motogo/music`, udev
+   pravidlo modemu, `/etc/motogo/modem_vidpid`, NM profily, sudoers, polkit pravidlo pro UI, systemd
+   unity, dobíjení RTC baterie (`dtparam=rtc_bbat_vchg=3000000`), vypne `getty@tty7`, služby spustí.
+   Zadává se interaktivně nebo přes env: `MOTOGO_DEVICE_ID`, `MOTOGO_DEVICE_TOKEN`, `MOTOGO_APN`,
+   **`MOTOGO_SIM_PIN`** (PIN SIM karty — prázdné = SIM bez PINu; zapíše se do `[gsm] pin=` profilu
+   `motogo-lte`, jinak zůstane modem ve stavu `locked` a LTE nikdy nenaběhne), `MOTOGO_DIAG_CODE`
+   (při založení `config.yaml` se jinak vygeneruje náhodný kód `diagNNNN` — žádný veřejný default z repa;
+   existující kód se bez této proměnné nemění; kód se zadává na zákaznické klávesnici a chybné pokusy se
+   počítají do lockoutu) a `MOTOGO_MODEM_VIDPID` (výchozí `1e0e:9001`).
+   **USB zvuková karta:** instalátor ji najde přes `aplay -l` (název obsahuje `USB`/`AXAGON`) a při založení
+   `hardware.yaml` nastaví `audio.device: alsa/plughw:CARD=<název>`; není-li karta připojená, varuje
+   (bez toho hraje hudba z HDMI monitoru). Výsledný diagnostický kód, PIN, kartu i VID:PID vypíše shrnutí.
+   **UI na tty7:** unit `motogo-ui` před startem přepne VT (`ExecStartPre=-+/usr/bin/chvt 7`) a instalátor
+   nainstaluje `/etc/polkit-1/rules.d/50-motogo-kiosk.rules` (motogo smí `org.freedesktop.login1.chvt`);
+   bez toho logind odmítne `Session.Activate` pro neaktivní session a cage se restartuje do nekonečna.
 3. **Diagnostika sítě hned po nahrání:** na displeji (setup obrazovka → „Diagnostika sítě", nebo hlavní
    klávesnice) zadej diagnostický kód → program prověří rozhraní/routy/DNS, LTE, internet, spojení
    s Velínem, dostupnost všech modulů z HW mapy, **oskenuje celou LAN** (TCP porty 502/80/443/22/8080…,
@@ -86,8 +97,12 @@ bezpečně přestaví I/O (vše vypnout → nové zóny).
 4. **Párování:** ve Velíně → Samoobsluha → Řídicí jednotka → přidat zařízení → ID + token.
    Zadej do `config.yaml` (`device.id/token`) nebo na dotykovém UI (setup obrazovka / servisní panel → Přepárovat).
 5. **Síť (SPEC §4):** `sudo /opt/motogo/scripts/set-static-lan.sh` — eth0 = `192.168.50.10/24`
-   **bez výchozí brány**, internet výhradně přes LTE (`motogo-lte`, route-metric 100). Skript ověří,
-   že `ip route` nemá `default via … dev eth0`. Kontrola LTE: `mmcli -m any`, `nmcli con show motogo-lte`.
+   **bez výchozí brány**, internet výhradně přes LTE (`motogo-lte`, route-metric 100). Skript nejdřív
+   aktivuje `motogo-lan` (NM nahradí DHCP profil atomicky), pak konkurenčním profilům vypne autoconnect
+   a ověří, že `ip route` nemá `default via … dev eth0`. **Přes SSH na eth0 spojení spadne** (IP se
+   mění) — skript se sám odpojí od terminálu, doběhne a výstup nechá v `/var/log/motogo-set-static-lan.log`;
+   připoj se znovu na `192.168.50.10`. Kontrola LTE: `mmcli -m any`, `nmcli con show motogo-lte`
+   (stav `locked` = chybí PIN → `sudo MOTOGO_SIM_PIN=1234 ./scripts/install.sh`).
 6. **Waveshare (SPEC §4/§6)** — ve webovém rozhraní modulu (výchozí IP viz manuál Waveshare):
    statická IP `192.168.50.20` (WAV645), `.21` (WAV617-A), `.22` (WAV617-B), maska `/24`, bez brány;
    `mode: TCP server`, `protocol: Modbus TCP`, `port 502`, `unit id 1`, `gateway type: multi-host
@@ -96,9 +111,10 @@ bezpečně přestaví I/O (vše vypnout → nové zóny).
 7. **Shelly Pro RGBWW PM (SPEC §5/§7):** profil **Lights ×5**, statická IP `192.168.50.31–34`,
    cloud vypnout, Bluetooth vypnout, autentizaci RPC nezapínat (LAN je izolovaná). Ověření:
    `curl -s http://192.168.50.31/rpc/Shelly.GetStatus`.
-8. **Zvuková karta:** `aplay -l` → název karty (např. `Device`); do Velína `audio.device` =
-   `alsa/plughw:CARD=Device` (nebo lokálně do `hardware.yaml`). Hlasitost karty `alsamixer -c Device`.
-   Test bez zón: `speaker-test -D plughw:CARD=Device -c 1 -t wav -l 1`.
+8. **Zvuková karta:** instalátor USB kartu (AXAGON) najde sám a při založení `hardware.yaml` nastaví
+   `audio.device` (viz krok 2); zkontroluj shrnutí instalace nebo `aplay -l` → název karty (např. `Device`)
+   a do Velína zadej `audio.device` = `alsa/plughw:CARD=Device` (Velín má přednost před `hardware.yaml`).
+   Hlasitost karty `alsamixer -c Device`. Test bez zón: `speaker-test -D plughw:CARD=Device -c 1 -t wav -l 1`.
 9. **Hudba:** mp3/ogg/flac/wav do `/var/lib/motogo/music` (vlastník `motogo`); playlist se náhodně
    míchá, přehrává se ve smyčce jen během relace v kóji.
 10. **Ověření na místě:** servisní heslo → servisní panel → u každé zóny „Otevřít" (světlo, zelená,
@@ -115,9 +131,20 @@ curl -s http://127.0.0.1:8080/api/state | python3 -m json.tool   # živý stav (
 curl -s 'http://127.0.0.1:8080/api/events?limit=50'              # posledních N událostí
 sudo systemctl restart motogo-controller    # bezpečný restart (all relays off při startu i stopu)
 ```
-Watchdog: controller posílá `WATCHDOG=1` jen pokud běží čtení kontaktů (jinak restart do 60 s);
-health má watchdog 120 s. Při startu program VŽDY vypne všechna relé, Shelly a audio, načte
-kontakty, zavřeným zónám rozsvítí červenou a teprve pak povolí zadávání kódů (SPEC §12).
+Watchdog: controller posílá `WATCHDOG=1` jen pokud běží čtení kontaktů (jinak restart do 60 s,
+`WatchdogSec=60`); health má `WatchdogSec=300` (jeden cyklus s nmcli/USB resetem trvá až ~100 s).
+Při startu program VŽDY vypne všechna relé, Shelly a audio, načte kontakty, zavřeným zónám rozsvítí
+červenou a teprve pak povolí zadávání kódů (SPEC §12).
+
+Health sonduje internet na **třech nezávislých cílech** (`health.probe_url` = Supabase, `google.com/generate_204`,
+TCP 1.1.1.1:443) a za výpadek považuje jen stav, kdy selžou všechny — výpadek Supabase nebo DNS operátora
+tedy nespustí reconnect/USB reset/reboot. Hlásí-li modem `locked` (SIM PIN) nebo `failed` kvůli SIM, politika
+obnovy stojí a v payloadu je `lte.error` (`sim_locked`/`sim_missing`/`sim_error`) — viz Řešení problémů.
+
+**Souborový systém — rozhodnutí (SPEC §11):** root zůstává **read-write, overlay se nezapíná**. `/var/lib/motogo`
+(SQLite cache kódů + fronta událostí, `health.json`, hudba), `/var/log` a NM profily musí přežít restart a oddělený
+rw oddíl program nepodporuje. Ochrana dat: SQLite WAL, průmyslová microSD (pSLC/„High Endurance“, A2) a záložní
+napájení RPi (UPS); overlay nikdy nezapínat před go-live ani bez přesunu dat na jiný oddíl.
 
 **Simulátor pro vývoj (bez hardwaru):**
 ```bash
@@ -147,7 +174,7 @@ venv/bin/python -m motogo_box check-config config/brno-9zone.yaml            # v
 | `reload` / `sync_config` | – | stáhnout konfiguraci a cache kódů |
 | `restart` | – | restart procesu controlleru |
 | `reboot` | – | `systemctl reboot` |
-| `update_software` | – | `scripts/update.sh` (git pull / pip / restart) |
+| `update_software` | – | `sudo /usr/local/sbin/motogo-update` (root-owned kopie `scripts/update.sh`: git pull / pip / restart) |
 | `http_get` / `camera_control` | `url` | HTTP GET na LAN (kamery, měnič) |
 | `diagnostics` | `reason?` | kompletní diagnostika sítě na pozadí; report → `kiosk_report_diagnostics` (Velín blok „Diagnostika sítě") |
 
@@ -176,10 +203,17 @@ na zařízení) přes `kiosk_report_diagnostics` (frontuje se v outboxu), souhrn
 
 ## Aktualizace
 
-- Z Velína: příkaz `update_software` → `sudo /opt/motogo/scripts/update.sh`.
-- Ručně: `sudo /opt/motogo/scripts/update.sh` (git checkout → `git pull --ff-only`), nebo
-  `sudo /opt/motogo/scripts/update.sh /cesta/k/nove/verzi` (rsync). Log `/var/log/motogo-update.log`.
-  Skript aktualizuje pip závislosti a změněné unity/sudoers a restartuje controller + health.
+- Z Velína: příkaz `update_software` → `sudo /usr/local/sbin/motogo-update` — **root-owned kopie**
+  `scripts/update.sh`, kterou install/update instaluje do `/usr/local/sbin` (sudoers ji povoluje jen bez
+  argumentů). Změna v `/opt/motogo/scripts/update.sh` se projeví až po dalším install/update.
+- Zdroj = `/etc/motogo/source_dir` (git checkout uložený instalátorem). `git pull --ff-only` běží **jako
+  vlastník checkoutu** (jeho credential helper / deploy key bez hesla — root žádné nemá); když pull selže,
+  skript končí kódem 3, nic neinstaluje a Velín vidí selhání příkazu.
+- Ručně jako root: `sudo /usr/local/sbin/motogo-update` (nebo `sudo /opt/motogo/scripts/update.sh /cesta/k/nove/verzi`
+  — argument se přijímá jen při ručním spuštění rootem, ne přes sudo od uživatele `motogo`).
+  Log `/var/log/motogo-update.log` (root-owned). pip instaluje jen v mezích `requirements.txt` (žádné slepé
+  `--upgrade`; `MOTOGO_PIP_UPGRADE=1` povýší v rámci rozsahů), aktualizuje změněné unity/sudoers/polkit
+  a restartuje controller + health. Venv patří uživateli `motogo` a root ho nikdy nespouští.
 
 ## Řešení problémů
 
@@ -189,8 +223,11 @@ na zařízení) přes `kiosk_report_diagnostics` (frontuje se v outboxu), souhrn
 | **červená bliká** (RED_BLINK), `forced_open` / `open_at_startup` | dveře otevřené bez přístupu, přerušený kabel kontaktu, špatná polarita (`closed_level`) | zkontrolovat dveře a kontakt; ověřit polaritu podle `HARDWARE.md`; po zavření se zóna vrátí do SECURED |
 | kód odmítnut „Chyba spojení" | není internet ani cache | `journalctl -u motogo-health`, `mmcli -m any`; cache se plní po prvním úspěšném `kiosk_sync_config` |
 | „Příliš mnoho neplatných pokusů" | PIN lockout (5 pokusů / 5 min → 15 min) | počkat nebo restart controlleru (lockout je v SQLite — přežije restart) |
-| LTE offline dlouhodobě | slabý signál / modem zamrzl | health sám: 5× výpadek → `nmcli con up`, 5× reconnect → USB reset modemu, 3× reset → reboot (jen při uptime ≥ 30 min). Ručně: `sudo /opt/motogo/scripts/usbreset-modem.sh`; `mmcli -m any --signal-get` |
+| LTE offline dlouhodobě | slabý signál / modem zamrzl | health sám: 5× výpadek (všechny 3 sondy) → `nmcli con up`, 5× reconnect → USB reset modemu, 3× reset → reboot (jen při uptime ≥ 30 min). Ručně: `sudo /usr/local/sbin/motogo-usbreset` (VID:PID z `/etc/motogo/modem_vidpid`; jako root přímo lze `usbreset-modem.sh 1e0e:9001`); `mmcli -m any --signal-get` |
+| `mmcli -m any` = `locked`, health hlásí `lte.error=sim_locked` (nebo `sim_missing`) | SIM má PIN a profil ho nezná / SIM chybí | `sudo MOTOGO_SIM_PIN=1234 ./scripts/install.sh` (zapíše `[gsm] pin=` do `motogo-lte`) nebo PIN na SIM vypnout; health v tomto stavu záměrně nedělá reconnect/USB reset/reboot |
+| Velín: `update_software` selhal (kód 3) | `git pull` ve zdrojovém checkoutu selhal (síť, přihlášení, větev bez upstreamu) | `sudo cat /var/log/motogo-update.log`; jako vlastník checkoutu ověř `git pull --ff-only` (credential helper / deploy key), nebo ručně `sudo /usr/local/sbin/motogo-update` |
 | UI černé / „Řídicí jednotka nedostupná" | controller neběží nebo startuje | `systemctl status motogo-controller`; UI se samo připojí po startu |
+| UI černé, `journalctl -u motogo-ui` opakuje „Could not activate session“ | session motogo na tty7 není aktivní (VT nepřepnuto / chybí polkit pravidlo) | `chvt 7` ručně, ověř `/etc/polkit-1/rules.d/50-motogo-kiosk.rules` a balík `kbd` (unit dělá `chvt 7` v `ExecStartPre`); `loginctl session-status` |
 | bez zvuku | špatný `audio.device`, hlasitost karty, sepnuté relé jiné zóny | `aplay -l`, `alsamixer`, servisní panel → Hudba v zóně; `api/state` → `audio.playing_zone` |
 | Velín hlásí zařízení offline | LTE / token | `nmcli con show motogo-lte`; přepárovat v servisním panelu |
 | nevím, co v síti nefunguje | — | na displeji zadat diagnostický kód (`diagnostics.code`) nebo Velín → Diagnostika sítě → Spustit; report ukáže rozhraní, LTE, internet, moduly, celou LAN a seznam problémů |

@@ -26,6 +26,7 @@ log = logging.getLogger("motogo.storage")
 
 EVENTS_MAX = 5000            # ring buffer událostí
 OUTBOX_MAX_ATTEMPTS = 50     # po více pokusech se položka zahodí
+OUTBOX_MAX = 3000            # strop fronty: nad ním se zahazují nejstarší log_event (audit dveří zůstává)
 PIN_ATTEMPTS_KEEP_S = 7 * 24 * 3600   # starší pokusy se průběžně mažou
 KV_LOCKOUT_UNTIL = "pin_lockout_until"
 
@@ -149,6 +150,13 @@ class Storage:
                 (kind, _dumps(payload), time.time()),
             )
             oid = int(cur.lastrowid or 0)
+            n = int(self._db.execute("SELECT COUNT(*) FROM outbox").fetchone()[0])
+            if n > OUTBOX_MAX:
+                # nejdřív nejstarší log_event (diagnostika), audit otevření a potvrzení příkazů až nakonec
+                self._db.execute(
+                    "DELETE FROM outbox WHERE id IN (SELECT id FROM outbox ORDER BY "
+                    "CASE kind WHEN 'log_event' THEN 0 ELSE 1 END, id LIMIT ?)", (n - OUTBOX_MAX,))
+                log.warning("Outbox přetekl (%d) — nejstarší položky zahozeny", n)
         log.debug("Outbox +%s (#%d)", kind, oid)
         return oid
 
