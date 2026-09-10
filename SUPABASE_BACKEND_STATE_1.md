@@ -219,6 +219,7 @@
 | `app_debug_logs` | **NEW v docs 2026-06-04 (ze snapshotu)** — Debug logy z appky (user_id, app_version, platform, category, action, detail, data jsonb, duration_ms, created_at) |
 | `visitor_log` | **NEW v docs 2026-06-04 (ze snapshotu)** — Návštěvnost webu (id bigint, ts, host, path, referrer, referrer_domain, referrer_type, lang, device, country, ip_hash, visitor_hash, user_agent, utm_source/medium/campaign) |
 ### Samoobslužná pobočka (kiosk / AlzaBox na motorky) — **NEW 2026-06-29 (`20260628_selfservice_kiosk.sql` + `20260629_kiosk_cameras_power.sql`, APLIKOVÁNO + OVĚŘENO uživatelem)**
+> **2026-09-10:** tabletová appka `Motogo-app-main/motogo-locker-kiosk` byla z repa odstraněna — samoobslužné pobočky řídí univerzální RPi program `raspberry/motogo-box`. Backend (tabulky, RPC `kiosk_*`, sloupce `relay_url`/`light_url`) zůstává beze změny kvůli kompatibilitě a historii.
 > **UPDATE 2026-09-09 (RPi řídicí jednotka — `20260909_kiosk_rpi_controller.sql`, APLIKUJE AUTO-DEPLOY po merge):** pobočku Brno (9 zón) řídí místo tabletu Raspberry Pi 5 (program `raspberry/motogo-box`, Modbus TCP Waveshare + Shelly RPC + audio). Stejná identita/auth/příkazy/audit; nové sloupce `branch_kiosk_config.hardware`, `branch_doors.hw`, `kiosk_devices.status`/`status_at`, nové příkazy v `kiosk_commands`, RPC `kiosk_sync_config` + `kiosk_report_status` (STATE_3). Doplněna i tabulka `kiosk_logs` z `20260630_kiosk_diag_ota_offline.sql` (mergnuto PR #1940, dosud nebylo v docs).
 
 | Tabulka | Popis |
