@@ -35,7 +35,8 @@ def notify(state: str) -> None:
 
 
 def watchdog_interval_s(default: float | None = None) -> float | None:
-    """Interval pro `WATCHDOG=1` odvozený z env `WATCHDOG_USEC` (polovina), jinak `default`."""
+    """Interval pro `WATCHDOG=1` odvozený z env `WATCHDOG_USEC` (třetina — jeden vynechaný ping
+    kvůli přechodnému stavu modulů ještě nesmí znamenat restart), jinak `default`."""
     raw = os.environ.get("WATCHDOG_USEC")
     if not raw:
         return default
@@ -45,7 +46,7 @@ def watchdog_interval_s(default: float | None = None) -> float | None:
         return default
     if usec <= 0:
         return default
-    return max(0.5, usec / 2_000_000.0)
+    return max(0.5, usec / 3_000_000.0)
 
 
 async def watchdog_loop(interval_s: float, healthy: Callable[[], bool]) -> None:

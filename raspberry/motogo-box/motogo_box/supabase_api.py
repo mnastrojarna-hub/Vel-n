@@ -10,6 +10,7 @@ poslední stav.
 from __future__ import annotations
 
 import logging
+import uuid
 from typing import Any
 
 import httpx
@@ -28,6 +29,16 @@ OUTBOX_RPC: dict[str, str] = {
 _MISSING_HINTS = ("not find", "does not exist", "pgrst202")
 
 
+def canonical_uuid(value: str | None) -> str:
+    """UUID v kanonickém tvaru (malá písmena, bez `{}`/`urn:uuid:`) — HMAC v SQL počítá z `uuid::text`.
+    Ne-UUID hodnota se vrací jen oříznutá (párování ji odmítne)."""
+    text = str(value or "").strip()
+    try:
+        return str(uuid.UUID(text))
+    except (ValueError, AttributeError, TypeError):
+        return text
+
+
 class ApiError(Exception):
     """Chyba RPC volání. ``status`` 0 = síťová chyba (timeout, DNS, odmítnuté spojení)."""
 
@@ -42,8 +53,8 @@ class ApiError(Exception):
 
     @property
     def is_transient(self) -> bool:
-        """Síť nebo 5xx — má smysl to zkusit později (outbox)."""
-        return self.status == 0 or self.status >= 500
+        """Síť, 5xx, nebo 401/403/408/429 (rotovaný klíč, rate limit, timeout) — zkusit později (outbox)."""
+        return self.status == 0 or self.status >= 500 or self.status in (401, 403, 408, 429)
 
     def is_missing_function(self, name: str) -> bool:
         """PostgREST nezná RPC (migrace ještě není nasazená): 404 nebo PGRST202."""
@@ -60,8 +71,8 @@ class SupabaseApi:
                  storage: Storage, version: str) -> None:
         self.url = (url or "").rstrip("/")
         self.anon_key = anon_key or ""
-        self.device_id = device_id or ""
-        self.device_token = device_token or ""
+        self.device_id = canonical_uuid(device_id)
+        self.device_token = canonical_uuid(device_token)
         self.storage = storage
         self.version = version
         self.online = False
@@ -84,8 +95,8 @@ class SupabaseApi:
         return bool(self.device_id and self.device_token)
 
     def set_device(self, device_id: str, device_token: str) -> None:
-        self.device_id = (device_id or "").strip()
-        self.device_token = (device_token or "").strip()
+        self.device_id = canonical_uuid(device_id)
+        self.device_token = canonical_uuid(device_token)
 
     def _auth(self, device_id: str | None = None, token: str | None = None) -> dict:
         return {"p_device_id": device_id if device_id is not None else self.device_id,
@@ -218,7 +229,7 @@ class SupabaseApi:
                 self.storage.outbox_done(oid)
                 continue
             try:
-                await self.rpc(name, {**self._auth(), **payload})
+                res = await self.rpc(name, {**self._auth(), **payload})
             except ApiError as exc:
                 if exc.is_transient:
                     # Výpadek sítě/serveru se do limitu pokusů NEpočítá — auditní události
@@ -228,6 +239,11 @@ class SupabaseApi:
                 self.storage.outbox_fail(oid)     # trvalé odmítnutí (4xx) → po limitu zahodit
                 log.warning("Outbox #%d (%s) odmítnut: %s", oid, kind, exc)
                 continue
+            if isinstance(res, dict) and res.get("ok") is False and res.get("error") == "rate_limited":
+                # RPC dočasně odmítá (kiosk_report_diagnostics: 1 report / 30 s) → zkusit při dalším flush
+                self.storage.outbox_fail(oid)
+                log.info("Outbox #%d (%s): rate_limited, zbytek později", oid, kind)
+                break
             self.storage.outbox_done(oid)
             sent += 1
         if sent:

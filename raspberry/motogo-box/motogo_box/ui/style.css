@@ -18,17 +18,23 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 .mono { font-family: "DejaVu Sans Mono", Consolas, monospace; }
 
 /* ── Banner ────────────────────────────────────────────────────────────── */
-.banner { position: absolute; left: 0; top: 0; width: 100%; height: 52px; z-index: 50;
+.banner { position: absolute; left: 0; top: 0; width: 100%; height: 52px; z-index: 100;   /* nad setup i diagnostikou */
   background: var(--red); color: #fff; font-size: 22px; font-weight: 800; display: flex;
   align-items: center; justify-content: center; letter-spacing: .5px; }
 
 /* ── Hlavička ─────────────────────────────────────────────────────────── */
 .header { height: 96px; flex: 0 0 96px; display: flex; align-items: center; justify-content: space-between;
   padding-bottom: 14px; border-bottom: 1px solid rgba(255,255,255,0.2); }
-.brand { display: flex; align-items: center; gap: 18px; }
-.brand-logo { height: 64px; width: 64px; }
-.brand-name { color: var(--green); font-size: 42px; font-weight: 900; line-height: 1; }
-.brand-sub { color: rgba(255,255,255,0.75); font-size: 18px; font-weight: 700; letter-spacing: 6px; margin-top: 4px; }
+.brand { display: flex; align-items: center; }
+.brand-logo { height: 72px; width: auto; }   /* oficiální logo: emblém + MOTO GO 24 / PŮJČOVNA MOTOREK (gfx/logo.svg) */
+.lang-bar { display: flex; align-items: center; gap: 8px; }
+.lang-btn { min-height: 62px; min-width: 96px; padding: 0 10px; border-radius: 14px; background: rgba(255,255,255,0.08);
+  border: 1px solid var(--key-border); color: rgba(255,255,255,0.85); display: inline-flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 2px; line-height: 1; }
+.lang-btn .lang-flag { font-size: 28px; font-family: "Noto Color Emoji", "Segoe UI Emoji", sans-serif; }
+.lang-btn .lang-code { font-size: 13px; font-weight: 800; letter-spacing: 1px; }
+.lang-btn:active { background: rgba(255,255,255,0.22); }
+.lang-btn.on { background: var(--green); border-color: var(--green); color: var(--black); }
 .branch { display: flex; align-items: center; gap: 14px; }
 .branch-name { color: rgba(255,255,255,0.85); font-size: 22px; font-weight: 800; }
 .dot { width: 14px; height: 14px; border-radius: 50%; display: inline-block; }
@@ -62,7 +68,7 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 .key.f2 { flex-grow: 2; } .key.f3 { flex-grow: 3; }
 .kb.disabled .key { opacity: .35; pointer-events: none; }
 .kb-num { width: 720px; } .kb-num-side { width: 230px; }
-.kb-qwerty .kb-letters { width: 1180px; } .kb-qwerty .kb-digits { width: 470px; }
+.kb-qwerty .kb-letters { width: 1290px; } .kb-qwerty .kb-digits { width: 470px; }   /* 10 kláves × (120 + 8) = 1280 px */
 
 /* ── Chyba zóny + spodní lišta ──────────────────────────────────────── */
 .zone-alert { flex: 0 0 44px; height: 44px; border-radius: 12px; display: flex; align-items: center;
@@ -70,7 +76,7 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 .zone-alert.warn { background: rgba(245,158,11,0.18); border: 1px solid var(--amber); color: #fff; }
 .zone-alert.error { background: rgba(220,38,38,0.2); border: 1px solid var(--red); color: #fff; }
 .zones { flex: 0 0 112px; display: flex; gap: 10px; }
-.tile { flex: 1 1 0; border-radius: 18px; background: var(--glass); border: 2px solid var(--glass-border);
+.tile { flex: 1 1 0; min-width: 0; overflow: hidden; border-radius: 18px; background: var(--glass); border: 2px solid var(--glass-border);
   padding: 10px 14px; display: flex; flex-direction: column; justify-content: space-between; position: relative; }
 .tile-top { display: flex; align-items: center; justify-content: space-between; }
 .tile-num { font-size: 30px; font-weight: 900; line-height: 1; }
@@ -130,7 +136,8 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 .service-title { font-size: 26px; font-weight: 900; flex: 1; }
 .section-label { color: rgba(255,255,255,0.5); font-size: 13px; font-weight: 800; letter-spacing: 1px;
   text-transform: uppercase; margin-top: 4px; }
-.service-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.service-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; min-height: 0; overflow-y: auto;
+  -webkit-overflow-scrolling: touch; touch-action: pan-y; }
 .zcard { border-radius: 16px; background: rgba(255,255,255,0.07); border: 1px solid var(--glass-border);
   padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
 .zcard.fault { border-color: var(--red); } .zcard.open { border-color: rgba(116,251,113,0.6); }
@@ -161,7 +168,7 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
   padding: 24px 40px; }
 .setup-card { width: 760px; padding: 28px 36px; border-radius: 24px; background: var(--glass);
   border: 1px solid var(--glass-border); display: flex; flex-direction: column; gap: 12px; align-items: stretch; }
-.setup-logo { height: 64px; width: 64px; align-self: center; }
+.setup-logo { height: 84px; width: auto; align-self: center; }
 .setup-title { text-align: center; font-size: 26px; font-weight: 900; }
 .setup-hint { text-align: center; color: rgba(255,255,255,0.7); font-size: 15px; }
 .field { display: flex; flex-direction: column; gap: 6px; }

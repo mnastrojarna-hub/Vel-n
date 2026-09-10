@@ -124,7 +124,8 @@ class RealtimeListener:
 
     async def _session(self) -> None:
         """Jedno spojení: join → čtení zpráv + heartbeat; končí výjimkou nebo `stop()`."""
-        async with connect(self.url, open_timeout=JOIN_TIMEOUT_S, ping_interval=None,
+        # WS ping/pong odhalí polootevřené TCP (výpadek LTE, nová IP) — jinak by se čekalo na kernel.
+        async with connect(self.url, open_timeout=JOIN_TIMEOUT_S, ping_interval=HEARTBEAT_S, ping_timeout=10,
                            max_size=1 << 20) as ws:
             self._ws = ws
             join_ref = self._next_ref()

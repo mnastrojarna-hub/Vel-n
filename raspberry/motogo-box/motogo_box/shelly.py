@@ -98,7 +98,10 @@ class ShellyRgbww:
             log.warning("Shelly %s %s: chyba: %s", self.name, method, exc)
             return None
         if resp.status_code < 200 or resp.status_code >= 300:
-            self._mark(False)
+            # 4xx = zařízení odpovědělo a příkaz odmítlo (špatné id/parametry) → je ONLINE, jen chyba
+            # konfigurace; jako výpadek se počítá až síťová chyba / 5xx (jinak by 3 odmítnutí shodila
+            # celé Shelly do offline a všechny jeho zóny do poruchy io_offline).
+            self._mark(400 <= resp.status_code < 500)
             log.warning("Shelly %s %s: HTTP %s %s", self.name, method, resp.status_code, resp.text[:200])
             return None
         try:
@@ -152,6 +155,7 @@ class SignalController:
         self._tasks: dict[int, asyncio.Task] = {}
         self._hw: dict[int, ZoneHw] = {}
         self._refreshing = asyncio.Lock()
+        self._zone_locks: dict[int, asyncio.Lock] = {}   # set/refresh jedné zóny se nikdy neprolnou
         for dev in shellies.values():
             dev.on_online_change = self._online_changed
 
@@ -181,15 +185,23 @@ class SignalController:
         """
         zone = zone_hw.zone
         self._hw[zone] = zone_hw
-        if self._current.get(zone) == signal and self._confirmed.get(zone, False):
-            return
-        self._current[zone] = signal
-        self._confirmed[zone] = await self._apply(zone_hw, signal)
+        async with self._zlock(zone):
+            if self._current.get(zone) == signal and self._confirmed.get(zone, False):
+                return
+            self._current[zone] = signal
+            self._confirmed[zone] = await self._apply(zone_hw, signal)
 
     async def refresh(self, zone_hw: ZoneHw) -> None:
         """Vynutí znovuposlání aktuálního vzoru (např. po návratu Shelly online)."""
         self._hw[zone_hw.zone] = zone_hw
-        self._confirmed[zone_hw.zone] = await self._apply(zone_hw, self.current(zone_hw.zone))
+        async with self._zlock(zone_hw.zone):
+            self._confirmed[zone_hw.zone] = await self._apply(zone_hw, self.current(zone_hw.zone))
+
+    def _zlock(self, zone: int) -> asyncio.Lock:
+        lock = self._zone_locks.get(zone)
+        if lock is None:
+            lock = self._zone_locks[zone] = asyncio.Lock()
+        return lock
 
     def unconfirmed(self) -> list[int]:
         return [z for z, hw in self._hw.items() if not self._confirmed.get(z, True)]
@@ -258,12 +270,12 @@ class SignalController:
             ok = await self._send(hw.green, False, None, t) and ok
         elif signal == Signal.GREEN_PULSE:
             ok = await self._send(hw.red, False, None, t)
-            self._start_task(hw.zone, self._pulse_loop(hw))
+            self._start_task(hw.zone, signal, self._pulse_loop(hw))
         elif signal == Signal.RED_BLINK:
             ok = await self._send(hw.green, False, None, t)
-            self._start_task(hw.zone, self._blink_loop(hw, [hw.red]))
+            self._start_task(hw.zone, signal, self._blink_loop(hw, [hw.red]))
         elif signal == Signal.BOTH_BLINK:
-            self._start_task(hw.zone, self._blink_loop(hw, [hw.red, hw.green]))
+            self._start_task(hw.zone, signal, self._blink_loop(hw, [hw.red, hw.green]))
         else:  # pragma: no cover — všechny hodnoty enumu jsou pokryté
             log.error("Neznámý signál %r pro zónu %s", signal, hw.zone)
             ok = False
@@ -280,9 +292,15 @@ class SignalController:
             return True     # chyba konfigurace (hlásí validate_hardware), ne výpadek → neobnovovat dokola
         return await dev.light_set(ref.idx, on, brightness, transition_s)
 
-    def _start_task(self, zone: int, coro) -> None:
-        task = asyncio.create_task(coro, name=f"signal-zone-{zone}")
-        self._tasks[zone] = task
+    def _start_task(self, zone: int, signal: Signal, coro) -> None:
+        """Spustí blikací/pulzní task; nikdy nenechá běžet dva a nespustí zastaralý vzor."""
+        old = self._tasks.pop(zone, None)
+        if old is not None and not old.done():
+            old.cancel()
+        if self._current.get(zone) != signal:      # během čekání na Light.Set už zónu přepsal jiný vzor
+            coro.close()
+            return
+        self._tasks[zone] = asyncio.create_task(coro, name=f"signal-zone-{zone}")
 
     async def _cancel_task(self, zone: int) -> None:
         task = self._tasks.pop(zone, None)

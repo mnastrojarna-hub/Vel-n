@@ -192,6 +192,32 @@ class AudioController:
         async with self._lock:
             await self._stop_locked(fade)
 
+    async def stop_zone(self, zone: int, fade: bool = True) -> bool:
+        """Zastaví hudbu JEN pokud (pod zámkem) stále hraje v `zone` — čekající stop jedné zóny
+        nesmí vypnout hudbu zóně, která reproduktor mezitím převzala (§13.7). Vrací, zda zastavila."""
+        async with self._lock:
+            if self.playing_zone != zone:
+                return False
+            await self._stop_locked(fade)
+            return True
+
+    async def reselect_if_playing(self, module: str) -> None:
+        """Po obnově modulu (reinit = all_off) znovu sepne audio relé hrající zóny, pokud leží na něm."""
+        async with self._lock:
+            zone = self.playing_zone
+            ref = self.selector.ref_for(zone) if zone is not None else None
+            if ref is None or ref.dev != module:
+                return
+            log.warning("Audio: modul %s byl obnoven (all_off) — znovu vybírám reproduktor zóny %s", module, zone)
+            await self._cancel_fade()
+            await self.player.set_volume(0)
+            await self.player.pause()
+            if not await self.selector.select(zone):
+                self.playing_zone = None
+                return
+            await self.player.play()
+            self._start_fade(self.cfg.volume, self.cfg.fade_in_ms)
+
     async def _stop_locked(self, fade: bool) -> None:
         zone = self.playing_zone
         await self._cancel_fade()
@@ -224,6 +250,10 @@ class AudioController:
         Zastaví jen svoji hudbu — pokud mezitím reproduktor převzala jiná relace
         (`play_zone`), zákazníkovi hudba nezmizí.
         """
+        count = getattr(self.player, "playlist_count", None)
+        if not self.player.alive or (count is not None and int(count or 0) <= 0):
+            log.warning("Audio test zóny %s: přehrávač neběží nebo je playlist prázdný (%s souborů)", zone, count)
+            return False
         ok = await self.play_zone(zone)
         if ok:
             gen = self._generation

@@ -160,8 +160,8 @@ async def tcp_probe(host: str, port: int, timeout_s: float = 0.6) -> tuple[bool,
         return True, _ms(t0), None
     except asyncio.TimeoutError:
         return False, _ms(t0), "timeout"
-    except OSError as exc:
-        return False, _ms(t0), exc.strerror or type(exc).__name__
+    except (OSError, ValueError, OverflowError) as exc:
+        return False, _ms(t0), getattr(exc, "strerror", None) or type(exc).__name__
 
 
 def subnet_hosts(cidr: str, max_hosts: int = 1024) -> list[str]:

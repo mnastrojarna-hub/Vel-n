@@ -82,9 +82,11 @@ export const BRNO_DEFAULT_ZONES = [
   z(9, 8, 'wav617b', 0, 'wav617b', 0, 'wav645', 10, 'shelly4', 1, 'shelly4', 2),
 ]
 
-// Role kanálů v `branch_doors.hw`: klíč indexu + druh kanálu (pro detekci duplicit)
+// Role kanálů v `branch_doors.hw`: klíč indexu + druh kanálu (pro detekci duplicit).
+// `types` = povolené typy zařízení 1:1 s validate_hardware() v jednotce (config.py):
+// zámek VÝHRADNĚ WAV645 (HW flash-on — nezůstane pod napětím ani při pádu procesu), kontakt jen vstup WAV617.
 export const ZONE_REFS = [
-  { key: 'lock', label: 'Zámek', idx: 'coil', kind: 'coil', types: ['wav645', 'wav617'] },
+  { key: 'lock', label: 'Zámek', idx: 'coil', kind: 'coil', types: ['wav645'] },
   { key: 'contact', label: 'Kontakt', idx: 'input', kind: 'input', types: ['wav617'] },
   { key: 'light', label: 'Světlo', idx: 'coil', kind: 'coil', types: ['wav645', 'wav617'] },
   { key: 'audio', label: 'Audio', idx: 'coil', kind: 'coil', types: ['wav645', 'wav617'] },
@@ -193,16 +195,49 @@ export function findDuplicateChannels(hwByDoor) {
   return new Set([...counts.entries()].filter(([, c]) => c > 1).map(([k]) => k))
 }
 
-// Editorový draft → čisté `hw` pro uložení (neúplné odkazy = null, prázdný zone = chyba)
-export function draftToHw(draft) {
+// Chyba typu zařízení pro roli — stejné texty jako validate_hardware() v jednotce (config.py); null = OK
+export function roleTypeError(zone, role, dev, devices) {
+  if (!dev) return null
+  const d = devices?.[dev]
+  if (!d) return `Zóna ${zone}: ${role.key} odkazuje na neznámé zařízení '${dev}'.`
+  if (role.types.includes(d.type)) return null
+  if (role.key === 'lock') return `Zóna ${zone}: lock musí být relé WAV645 s HW flash-on (je ${d.type}).`
+  if (role.key === 'contact') return `Zóna ${zone}: contact musí být vstup WAV617 (je ${d.type}).`
+  if (role.kind === 'light') return `Zóna ${zone}: ${role.key} musí být na Shelly (je ${d.type}).`
+  return `Zóna ${zone}: ${role.key} musí být relé Waveshare (je ${d.type}).`
+}
+
+// Set čísel zón, která má víc než jedny dveře (jednotka odmítá: „Duplicitní čísla zón.“)
+export function findDuplicateZones(hwByDoor) {
+  const counts = new Map()
+  Object.values(hwByDoor || {}).forEach(hw => {
+    const n = parseInt(hw?.zone, 10)
+    if (Number.isFinite(n) && n >= 1) counts.set(n, (counts.get(n) || 0) + 1)
+  })
+  return new Set([...counts.entries()].filter(([, c]) => c > 1).map(([n]) => n))
+}
+
+// Šablona: číslo zóny pro dveře oblečení = nejvyšší zóna šablony, kterou nezabírá žádná kóje (null = žádná volná)
+export function pickAccessoriesZone(usedZones, template = BRNO_DEFAULT_ZONES) {
+  const used = new Set([...usedZones].map(n => parseInt(n, 10)))
+  const free = template.map(z => z.zone).filter(n => !used.has(n))
+  return free.length ? Math.max(...free) : null
+}
+
+// Editorový draft → čisté `hw` pro uložení (neúplné odkazy = null, prázdný zone = chyba).
+// `devices` (hardware.devices) → kontrola typů zařízení jako v jednotce; bez něj se typy nekontrolují.
+export function draftToHw(draft, devices) {
   const zone = parseInt(draft?.zone, 10)
   if (!Number.isFinite(zone) || zone < 1) return { error: 'Zóna musí být kladné číslo.' }
   const hw = { zone }
-  ZONE_REFS.forEach(role => {
+  for (const role of ZONE_REFS) {
     const ref = draft[role.key]
     const idx = ref ? parseInt(ref[role.idx], 10) : NaN
     hw[role.key] = ref && ref.dev && Number.isFinite(idx) ? { dev: ref.dev, [role.idx]: idx } : null
-  })
+    if (hw[role.key] && idx < 0) return { error: `Zóna ${zone}: ${role.key} má záporný index ${idx}.`, hw }
+    const typeErr = devices && hw[role.key] ? roleTypeError(zone, role, ref.dev, devices) : null
+    if (typeErr) return { error: typeErr, hw }
+  }
   if (!hw.lock || !hw.contact) return { error: 'Zámek a kontakt jsou povinné.', hw }
   const cl = String(draft.closed_level ?? '').trim()
   if (cl !== '') {

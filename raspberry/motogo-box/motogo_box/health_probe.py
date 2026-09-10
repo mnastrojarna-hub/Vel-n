@@ -1,11 +1,12 @@
 """Čisté sondy pro health monitor (kontrakt §17) — parsování výstupů a systémové metriky.
 
 Nic tady nespouští procesy s vedlejšími účinky: parsery dostávají text a vrací
-dict/číslo, čtení metrik jen čte `/sys`, `/proc` a `shutil.disk_usage`.
-Vše je bezpečné volat mimo Raspberry (vrací `None`, když zdroj chybí).
+dict/číslo, čtení metrik jen čte `/sys`, `/proc` a `shutil.disk_usage`; `tcp_probe`
+jen otevře a zavře TCP spojení. Vše je bezpečné volat mimo Raspberry (vrací `None`/False).
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -59,10 +60,12 @@ def parse_mmcli_modem(text: str) -> dict:
     """Z `mmcli -m any -J` vytáhne stav, kvalitu signálu, operátora a technologii.
 
     Vrací `{"state": str, "signal_quality": int|None, "operator": str|None,
-    "access_tech": str|None, "registration": str|None}`; nečitelný vstup → state `unknown`.
+    "access_tech": str|None, "registration": str|None, "failed_reason": str|None}`;
+    nečitelný vstup → state `unknown`. `failed_reason` = mmcli `state-failed-reason`
+    (`sim-missing`, `sim-error`, …) — health podle něj pozná, že obnova LTE nemá smysl.
     """
     out: dict[str, Any] = {"state": "unknown", "signal_quality": None, "operator": None,
-                           "access_tech": None, "registration": None}
+                           "access_tech": None, "registration": None, "failed_reason": None}
     data = _load_json(text)
     if data is None:
         return out
@@ -80,6 +83,9 @@ def parse_mmcli_modem(text: str) -> dict:
         out["access_tech"] = ",".join(str(t) for t in techs)
     reg = gpp.get("registration-state")
     out["registration"] = reg if isinstance(reg, str) and reg not in ("", "--") else None
+    reason = generic.get("state-failed-reason")
+    if isinstance(reason, str) and reason.strip().lower() not in ("", "--", "none"):
+        out["failed_reason"] = reason.strip().lower()
     return out
 
 
@@ -106,6 +112,19 @@ def parse_mmcli_signal(text: str) -> dict:
     return out
 
 
+SIM_FAILED_REASONS = {"sim-missing": "sim_missing", "sim-error": "sim_error"}
+
+
+def lte_error(modem: dict) -> str | None:
+    """`sim_locked` (PIN), `sim_missing`/`sim_error` — stavy, kdy reconnect/USB reset/reboot nepomůže."""
+    state = modem.get("state")
+    if state == "locked":
+        return "sim_locked"
+    if state == "failed":
+        return SIM_FAILED_REASONS.get(str(modem.get("failed_reason") or ""))
+    return None
+
+
 # ─── NetworkManager (nmcli -t) ───────────────────────────────────────────────
 def parse_nmcli_connection(rc: int, text: str) -> dict:
     """Z `nmcli -t -f GENERAL.STATE,GENERAL.DEVICES con show <id>` udělá `{"nm_state","nm_device"}`.
@@ -123,6 +142,21 @@ def parse_nmcli_connection(rc: int, text: str) -> dict:
         elif key == "GENERAL.DEVICES" and val:
             device = val
     return {"nm_state": state, "nm_device": device}
+
+
+# ─── Internet: TCP sonda ─────────────────────────────────────────────────────
+async def tcp_probe(host: str, port: int, timeout: float = 8.0) -> bool:
+    """TCP connect (bez dat) — sonda internetu nezávislá na HTTP i DNS; nikdy nevyhazuje."""
+    try:
+        _, writer = await asyncio.wait_for(asyncio.open_connection(host, port), timeout=timeout)
+    except Exception:  # noqa: BLE001 — OSError, TimeoutError, …
+        return False
+    writer.close()
+    try:
+        await writer.wait_closed()
+    except Exception:  # noqa: BLE001
+        pass
+    return True
 
 
 # ─── Systémové metriky ───────────────────────────────────────────────────────

@@ -63,6 +63,11 @@ class FakePostgrest:
             if self.status_missing:
                 return web.json_response({"code": "PGRST202", "message": "Could not find the function public.kiosk_report_status"}, status=404)
             return web.Response(status=204)
+        if name == "kiosk_report_diagnostics":
+            n = sum(1 for c in self.calls if c[0] == name)
+            if n > 1:
+                return web.json_response({"ok": False, "error": "rate_limited"})
+            return web.json_response({"ok": True, "id": "diag-1"})
         if name in ("kiosk_log_open", "kiosk_log_event", "kiosk_complete_command", "kiosk_report_power"):
             if name == "kiosk_log_open" and params.get("p_door_id") == "not-a-uuid":
                 return web.json_response({"code": "22P02", "message": "invalid input syntax for type uuid"}, status=400)
@@ -267,5 +272,20 @@ async def test_validate_pairing_network_error(storage):
         assert await api.validate_pairing(DEVICE_ID, TOKEN) == "network"
         assert await api.flush_outbox() == 0               # nespárováno → nic
         await asyncio.sleep(0)
+    finally:
+        await api.close()
+
+
+async def test_flush_retries_rate_limited_report_later(server, storage):
+    """Dva reporty diagnostiky ve frontě (např. po spárování): druhý dostane rate_limited → zůstává na příště."""
+    api = make_api(server, storage)
+    try:
+        storage.outbox_add("report_diagnostics", {"p_report": {"id": "a"}})
+        storage.outbox_add("report_diagnostics", {"p_report": {"id": "b"}})
+        storage.outbox_add("log_event", {"p_level": "info", "p_source": "t", "p_message": "m"})
+        assert await api.flush_outbox() == 1
+        pending = storage.outbox_pending()
+        assert [k for _, k, _ in pending] == ["report_diagnostics", "log_event"]
+        assert pending[0][2]["p_report"]["id"] == "b"
     finally:
         await api.close()

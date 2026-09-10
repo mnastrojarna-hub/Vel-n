@@ -1,13 +1,15 @@
 """Testy health monitoru (kontrakt §17): parsery, politika LTE, cyklus s falešnými příkazy."""
 from __future__ import annotations
 
+import asyncio
 import json
 
 import httpx
 import pytest
 
 from motogo_box.config import HealthCfg
-from motogo_box.health import HealthMonitor, LtePolicy, run_cmd
+from motogo_box import health as health_mod
+from motogo_box.health import HealthMonitor, LtePolicy, lte_error, run_cmd
 from motogo_box.health_probe import (
     disk_free_pct, mem_free_pct, parse_meminfo, parse_mmcli_modem, parse_mmcli_signal,
     parse_nmcli_connection, parse_throttled, read_cpu_temp,
@@ -42,7 +44,20 @@ def test_parse_mmcli_modem_garbage_and_missing():
                                                               "signal-quality": {"value": "--"}},
                                                   "3gpp": {"operator-name": "--"}}}))
     assert m == {"state": "searching", "signal_quality": None, "operator": None,
-                 "access_tech": None, "registration": None}
+                 "access_tech": None, "registration": None, "failed_reason": None}
+
+
+def test_parse_mmcli_modem_failed_reason_and_lte_error():
+    failed = json.dumps({"modem": {"generic": {"state": "failed", "state-failed-reason": "sim-missing"}}})
+    m = parse_mmcli_modem(failed)
+    assert m["state"] == "failed" and m["failed_reason"] == "sim-missing"
+    assert lte_error(m) == "sim_missing"
+    assert lte_error({"state": "locked"}) == "sim_locked"
+    assert lte_error({"state": "failed", "failed_reason": "sim-error"}) == "sim_error"
+    assert lte_error({"state": "failed", "failed_reason": "unknown"}) is None   # jiná porucha → USB reset má smysl
+    assert lte_error({"state": "connected"}) is None
+    assert parse_mmcli_modem(json.dumps({"modem": {"generic": {"state": "connected",
+                                                                "state-failed-reason": "none"}}}))["failed_reason"] is None
 
 
 def test_parse_mmcli_signal():
@@ -175,11 +190,22 @@ def test_policy_persist_roundtrip():
 class FakeEnv:
     """Falešné `run_cmd` + HTTP transport: nic nesahá na síť ani sudo."""
 
-    def __init__(self, internet_ok: bool = True, modem_ok: bool = True) -> None:
-        self.internet_ok = internet_ok
-        self.modem_ok = modem_ok
+    def __init__(self, internet_ok: bool = True, modem_ok: bool = True, *, tcp_ok: bool | None = None,
+                 failing_hosts: set[str] | None = None, modem_state: str = "connected",
+                 failed_reason: str | None = None) -> None:
+        self.internet_ok, self.modem_ok = internet_ok, modem_ok
+        self.tcp_ok = internet_ok if tcp_ok is None else tcp_ok
+        self.failing_hosts = failing_hosts or set()   # HTTP cíle, které selžou i při internet_ok
+        d = json.loads(MMCLI_MODEM)
+        d["modem"]["generic"].update({"state": modem_state, "state-failed-reason": failed_reason or "none"})
+        self.modem_json = json.dumps(d)
         self.cmds: list[tuple[str, ...]] = []
         self.posted: list[dict] = []
+        self.tcp_probes = 0
+
+    async def tcp_probe(self, host: str, port: int, timeout: float = 8.0) -> bool:
+        self.tcp_probes += 1
+        return self.tcp_ok
 
     async def run_cmd(self, *args: str, timeout: float = 20) -> tuple[int, str]:
         self.cmds.append(args)
@@ -188,7 +214,7 @@ class FakeEnv:
         if args[0] == "mmcli" and "-J" in args and "--signal-get" in args:
             return 0, MMCLI_SIGNAL
         if args[0] == "mmcli" and "-J" in args:
-            return 0, MMCLI_MODEM
+            return 0, self.modem_json
         if args[0] == "nmcli":
             return 0, "GENERAL.STATE:activated\nGENERAL.DEVICES:wwan0\n"
         return 0, ""
@@ -197,7 +223,7 @@ class FakeEnv:
         if request.url.path == "/api/health":
             self.posted.append(json.loads(request.content))
             return httpx.Response(200, json={"ok": True})
-        if not self.internet_ok:
+        if not self.internet_ok or request.url.host in self.failing_hosts:
             raise httpx.ConnectError("no route", request=request)
         return httpx.Response(200, json={"status": "ok"})
 
@@ -208,7 +234,7 @@ class FakeEnv:
 def _monitor(env: FakeEnv, tmp_path, cfg: HealthCfg | None = None, uptime: float = 5000.0) -> HealthMonitor:
     return HealthMonitor(cfg or _cfg(), "http://127.0.0.1:8080", run_cmd=env.run_cmd,
                          clock=FakeClock(), state_path=str(tmp_path / "health.json"),
-                         http=env.client(), uptime=lambda: uptime)
+                         http=env.client(), uptime=lambda: uptime, tcp_probe=env.tcp_probe)
 
 
 async def test_cycle_online_posts_payload(tmp_path):
@@ -242,7 +268,9 @@ async def test_cycle_failures_run_actions_without_real_sudo(tmp_path):
     assert ("sudo", "-n", "nmcli", "-w", "30", "con", "up", "motogo-lte") in env.cmds
     p2 = await mon.cycle()
     assert p2["actions"] == ["usb_reset"]
-    assert ("sudo", "-n", cfg.usb_reset_script, "1e0e:9001") in env.cmds
+    # sudoers povoluje skript jen BEZ argumentů (VID:PID čte z /etc/motogo/modem_vidpid)
+    assert ("sudo", "-n", cfg.usb_reset_script) in env.cmds
+    assert not any(c[:3] == ("sudo", "-n", cfg.usb_reset_script) and len(c) > 3 for c in env.cmds)
     env.cmds.clear()
     p3 = await mon.cycle()
     assert p3["actions"] == ["reboot"]
@@ -265,14 +293,65 @@ async def test_cycle_survives_controller_down(tmp_path):
 
     mon = HealthMonitor(_cfg(), "http://127.0.0.1:8080", run_cmd=env.run_cmd, clock=FakeClock(),
                         state_path=str(tmp_path / "h.json"),
-                        http=httpx.AsyncClient(transport=httpx.MockTransport(down)), uptime=lambda: 1.0)
+                        http=httpx.AsyncClient(transport=httpx.MockTransport(down)), uptime=lambda: 1.0,
+                        tcp_probe=env.tcp_probe)
     payload = await mon.cycle()
     assert payload["internet"] is True and mon.last_payload is payload
 
 
-async def test_run_loop_stops(tmp_path):
-    import asyncio
+SUPABASE_HOST = "vnwnqteskbykeucanlhk.supabase.co"
 
+
+async def test_probe_internet_down_only_when_all_targets_fail(tmp_path):
+    # Supabase nedostupná, google + TCP OK → internet funguje
+    env = FakeEnv(failing_hosts={SUPABASE_HOST}, tcp_ok=True)
+    mon = _monitor(env, tmp_path)
+    assert await mon.probe_internet() is True
+    assert mon.last_probe == {"probe_url": False, "google_204": True, "tcp_1.1.1.1": True}
+    # jen TCP 1.1.1.1 OK (výpadek DNS operátora) → stále internet OK
+    env = FakeEnv(internet_ok=False, tcp_ok=True)
+    mon = _monitor(env, tmp_path)
+    assert await mon.probe_internet() is True and env.tcp_probes == 1
+    # všechny tři cíle dole → DOWN
+    env = FakeEnv(internet_ok=False)
+    mon = _monitor(env, tmp_path)
+    assert await mon.probe_internet() is False
+    assert mon.last_probe == {"probe_url": False, "google_204": False, "tcp_1.1.1.1": False}
+
+
+async def test_cycle_backend_outage_does_not_escalate(tmp_path):
+    env = FakeEnv(failing_hosts={SUPABASE_HOST})
+    cfg = _cfg(reconnect_after=1, usb_reset_after=1, reboot_after=1, min_uptime_before_reboot_s=10)
+    mon = _monitor(env, tmp_path, cfg)
+    for _ in range(6):
+        payload = await mon.cycle()
+        assert payload["internet"] is True and payload["actions"] == []
+    assert not any(c[0] == "sudo" for c in env.cmds)
+    assert mon.policy.reconnects == 0 and mon.policy.usb_resets == 0 and mon.policy.reboots == 0
+
+
+@pytest.mark.parametrize("state,reason,error", [("locked", None, "sim_locked"),
+                                                ("failed", "sim-missing", "sim_missing")])
+async def test_cycle_sim_problem_reports_error_without_escalation(tmp_path, state, reason, error):
+    env = FakeEnv(internet_ok=False, modem_state=state, failed_reason=reason)
+    cfg = _cfg(reconnect_after=1, usb_reset_after=1, reboot_after=1, min_uptime_before_reboot_s=10)
+    mon = _monitor(env, tmp_path, cfg)
+    for _ in range(4):
+        payload = await mon.cycle()
+        assert payload["internet"] is False and payload["actions"] == []
+        assert payload["lte"]["state"] == state and payload["lte"]["error"] == error
+    assert not any(c[0] == "sudo" for c in env.cmds)          # žádný nmcli/usbreset/reboot
+    assert mon.policy.internet_failures == 0 and mon.policy.reconnects == 0 and mon.policy.reboots == 0
+    assert env.posted and env.posted[-1]["lte"]["error"] == error   # controller/Velín chybu vidí
+
+
+async def test_cycle_failed_modem_other_reason_still_escalates(tmp_path):
+    env = FakeEnv(internet_ok=False, modem_state="failed", failed_reason="unknown")
+    payload = await _monitor(env, tmp_path, _cfg(reconnect_after=1)).cycle()
+    assert payload["lte"]["error"] is None and payload["actions"] == ["reconnect"]
+
+
+async def test_run_loop_stops(tmp_path):
     env = FakeEnv()
     mon = _monitor(env, tmp_path, _cfg(check_interval_s=5))
     task = asyncio.create_task(mon.run())
@@ -292,6 +371,34 @@ async def test_run_cmd_never_raises():
     assert rc == 3 and out.strip() == "hi"
     rc, out = await run_cmd("sleep", "5", timeout=0.2)
     assert rc == 124 and "timeout" in out
+
+
+class _RootChild:
+    """Potomek pod sudo: kill() je zakázaný (root) / proces už není, wait() by čekal donekonečna."""
+    returncode = None
+
+    def __init__(self, kill_exc: type[BaseException]) -> None:
+        self.kill_exc = kill_exc
+
+    async def communicate(self):
+        await asyncio.sleep(10)
+
+    def kill(self) -> None:
+        raise self.kill_exc()
+
+    async def wait(self):
+        await asyncio.sleep(10)
+
+
+@pytest.mark.parametrize("exc", [PermissionError, ProcessLookupError])
+async def test_run_cmd_timeout_survives_unkillable_sudo_child(monkeypatch, exc):
+    async def fake_exec(*args, **kwargs):
+        return _RootChild(exc)
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", fake_exec)
+    monkeypatch.setattr(health_mod, "KILL_WAIT_S", 0.05)
+    rc, out = await run_cmd("sudo", "-n", "/usr/local/sbin/motogo-usbreset", timeout=0.05)
+    assert rc == 124 and "timeout" in out and "motogo-usbreset" in out
 
 
 def test_state_file_unreadable_is_tolerated(tmp_path):

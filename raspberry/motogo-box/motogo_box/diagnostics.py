@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import hmac
+import ipaddress
 import logging
 import platform
 import socket
@@ -56,6 +57,8 @@ class NetworkDiagnostics:
         self._task: asyncio.Task | None = None
         self.current_id: str | None = None
         self.last_error: str | None = None
+        self._partial: dict[str, Any] = {}           # rozpracované výsledky kroků (přežijí timeout kroku)
+        self._last_summary: dict | None = self._summary_of(self.last_report())   # snapshot() ho čte 5× za s
 
     # ─── kód / stav ──────────────────────────────────────────────────────
     def matches_local_code(self, code: str) -> bool:
@@ -67,17 +70,22 @@ class NetworkDiagnostics:
         rep = self.ctrl.storage.kv_get(KV_LAST)
         return rep if isinstance(rep, dict) else None
 
+    @staticmethod
+    def _summary_of(last: dict | None) -> dict | None:
+        if not last:
+            return None
+        summary = last.get("summary") or {}
+        return {"id": last.get("id"), "ts": last.get("ts"), "ok": summary.get("ok"),
+                "problems": len(summary.get("problems") or []), "hosts": summary.get("hosts"),
+                "duration_s": last.get("duration_s"), "source": last.get("source")}
+
     def status(self) -> dict:
-        last = self.last_report()
-        summary = (last or {}).get("summary") or {}
         return {
             "running": self.running, "id": self.current_id, "step": self.step,
             "step_title": STEP_TITLES.get(self.step or "", self.step), "done": list(self.done), "steps": list(STEPS),
-            "elapsed_s": round(time.monotonic() - self.started_at, 1) if self.running and self.started_at else None,
+            "elapsed_s": int(time.monotonic() - self.started_at) if self.running and self.started_at else None,
             "error": self.last_error,
-            "last": {"id": last.get("id"), "ts": last.get("ts"), "ok": summary.get("ok"),
-                     "problems": len(summary.get("problems") or []), "hosts": summary.get("hosts"),
-                     "duration_s": last.get("duration_s"), "source": last.get("source")} if last else None,
+            "last": dict(self._last_summary) if self._last_summary else None,
         }
 
     # ─── spuštění ────────────────────────────────────────────────────────
@@ -113,6 +121,12 @@ class NetworkDiagnostics:
     async def _run_safe(self, source: str, reason: str) -> dict:
         try:
             return await self.run(source, reason)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001 — chyba mimo kroky (souhrn, uložení) nesmí zmizet beze stopy
+            self.last_error = f"{type(exc).__name__}: {str(exc)[:200]}"
+            log.exception("Diagnostika %s selhala", self.current_id)
+            raise
         finally:
             self.running, self.step = False, None
 
@@ -131,6 +145,8 @@ class NetworkDiagnostics:
             ("lan", self._lan), ("arp", self._arp),
         ]
         deadline = t0 + max(20, int(self.cfg.timeout_s))
+        self._partial = {}
+        self.last_error = None
         for name, fn in steps:
             self.step = name
             ts = time.monotonic()
@@ -143,8 +159,10 @@ class NetworkDiagnostics:
             except asyncio.CancelledError:
                 raise
             except asyncio.TimeoutError:
-                report[name] = None
-                report["steps"][name] = {"ok": False, "error": "timeout", "ms": round((time.monotonic() - ts) * 1000)}
+                # co se stihlo, zůstává (scan LAN s desítkami hostů) — jen označeno jako neúplné
+                report[name] = self._partial.get(name)
+                report["steps"][name] = {"ok": False, "error": "timeout", "partial": report[name] is not None,
+                                         "ms": round((time.monotonic() - ts) * 1000)}
             except Exception as exc:  # noqa: BLE001 — jeden krok nesmí shodit celý běh
                 log.exception("Diagnostika: krok %s selhal", name)
                 report[name] = None
@@ -155,6 +173,7 @@ class NetworkDiagnostics:
         self.done.append("summary")
         report["duration_s"] = round(time.monotonic() - t0, 1)
         report["finished_at"] = now_iso()
+        self._last_summary = self._summary_of(report)
         try:
             ctrl.storage.kv_set(KV_LAST, report)
         except Exception:  # noqa: BLE001
@@ -178,9 +197,10 @@ class NetworkDiagnostics:
         rc, out = await net_scan.run_cmd("timedatectl", "show", "-p", "NTPSynchronized", "-p", "TimeUSec", timeout=5)
         ntp = dict(ln.split("=", 1) for ln in out.splitlines() if "=" in ln) if rc == 0 else {}
         u = platform.uname()
+        metrics = await asyncio.get_running_loop().run_in_executor(None, sys_metrics)   # vcgencmd = subprocess.run
         return {"hostname": socket.gethostname(), "kernel": u.release, "machine": u.machine, "python": platform.python_version(),
                 "time": now_iso(), "ntp_synced": {"yes": True, "no": False}.get(ntp.get("NTPSynchronized", ""), None),
-                "metrics": sys_metrics(), "controller_uptime_s": int(time.monotonic() - self.ctrl._started_at),
+                "metrics": metrics, "controller_uptime_s": int(time.monotonic() - self.ctrl._started_at),
                 "ready": self.ctrl.ready, "config_source": self.ctrl.hardware.source,
                 "config_problems": list(self.ctrl.config_problems)}
 
@@ -205,8 +225,11 @@ class NetworkDiagnostics:
                     probes.append({"url": u, "status": r.status_code, "ms": round((time.monotonic() - t) * 1000), "error": None})
                 except Exception as exc:  # noqa: BLE001
                     probes.append({"url": u, "status": None, "ms": round((time.monotonic() - t) * 1000), "error": type(exc).__name__})
+        http_ok = any(p["status"] is not None and p["status"] < 500 for p in probes)
+        dns_ok = any(d.get("addresses") for d in dns)
+        # bez HTTP sond (prázdné internet_urls / bez DNS) rozhoduje TCP na 1.1.1.1 + DNS
         return {"dns": dns, "tcp": {"host": INTERNET_TCP[0], "port": INTERNET_TCP[1], "open": ok, "ms": ms, "error": err},
-                "http": probes, "ok": any(p["status"] is not None and p["status"] < 500 for p in probes)}
+                "http": probes, "ok": http_ok or (not probes and ok and (dns_ok or not dns))}
 
     async def _supabase(self, report: dict) -> dict:
         api = self.ctrl.api
@@ -244,12 +267,27 @@ class NetworkDiagnostics:
         return out
 
     async def _lan(self, report: dict) -> dict:
+        """TCP scan LAN: jen podsítě rozhraní BEZ výchozí brány (eth*) a privátní IPv4 — nikdy WWAN/LTE
+        (metrovaná linka, cizí síť operátora) — plus `scan_subnets`. Identifikace hostů běží souběžně
+        (semafor), rozpracovaný výsledek přežije timeout kroku (`self._partial`)."""
+        ifc = report.get("interfaces") or {}
+        wan_devs = {str(r.get("dev")) for r in ifc.get("default_routes") or [] if r.get("dev")}
         subnets: list[str] = []
-        for it in (report.get("interfaces") or {}).get("interfaces") or []:
+        skipped: list[dict] = []
+        for it in ifc.get("interfaces") or []:
             for a in it.get("ipv4") or []:
-                if a.get("addr") and a.get("prefix"):
-                    subnets.append(f"{a['addr']}/{a['prefix']}")
-        subnets += [s for s in (self.cfg.scan_subnets or []) if isinstance(s, str)]
+                if not (a.get("addr") and a.get("prefix")):
+                    continue
+                cidr = f"{a['addr']}/{a['prefix']}"
+                try:
+                    private = ipaddress.ip_address(str(a["addr"])).is_private
+                except ValueError:
+                    continue
+                if it.get("name") in wan_devs or not private or str(it.get("name") or "").startswith(("wwan", "ppp", "wwp")):
+                    skipped.append({"subnet": cidr, "reason": "wan"})
+                else:
+                    subnets.append(cidr)
+        subnets += [x for x in (self.cfg.scan_subnets or []) if isinstance(x, str)]
         subnets = list(dict.fromkeys(subnets))          # bez duplicit (rozhraní + scan_subnets)
         hosts: dict[str, None] = {}
         scanned: list[str] = []
@@ -258,28 +296,38 @@ class NetworkDiagnostics:
             if hs:
                 scanned.append(cidr)
                 hosts.update(dict.fromkeys(hs))
-        ports = [int(p) for p in (self.cfg.scan_ports or []) if str(p).isdigit()] or [502, 80]
+            else:
+                skipped.append({"subnet": cidr, "reason": "too_large_or_invalid"})
+        ports = sorted({int(p) for p in (self.cfg.scan_ports or []) if str(p).isdigit() and 1 <= int(p) <= 65535}) or [502, 80]
+        out: dict[str, Any] = {"subnets": scanned, "skipped_subnets": [x["subnet"] for x in skipped], "skipped": skipped,
+                               "ports": ports, "scanned_hosts": len(hosts), "hosts": [], "partial": True}
+        self._partial["lan"] = out
         found = await net_scan.scan_hosts(hosts, ports, timeout_s=self.cfg.scan_timeout_ms / 1000, concurrency=self.cfg.scan_concurrency)
         configured: dict[str, list[str]] = {}
         for n, d in self.ctrl.hardware.devices.items():
             configured.setdefault(d.host, []).append(n)      # více jmen = IP konflikt v konfiguraci
         arp = {a["ip"]: a["mac"] for a in await net_scan.arp_table()}
-        result: list[dict] = []
-        for ip, open_ports in found.items():
+        sem = asyncio.Semaphore(8)
+
+        async def identify(ip: str, open_ports: dict) -> None:
             item: dict[str, Any] = {"ip": ip, "mac": arp.get(ip), "ports": open_ports,
                                     "configured_as": ", ".join(configured.get(ip, [])) or None,
                                     "modbus": None, "shelly": None, "http": None}
-            mb_port = next((p for p in MODBUS_PORTS if p in open_ports), None)
-            if mb_port is not None:
-                item["modbus"] = await net_scan.modbus_identify(ip, mb_port)
-            web_port = next((p for p in WEB_PORTS if p in open_ports), None)
-            if web_port is not None:
-                item["shelly"] = await net_scan.shelly_identify(ip, web_port) if web_port not in (443, 8443) else None
-                if item["shelly"] is None:
-                    item["http"] = await net_scan.http_info(ip, web_port)
-            result.append(item)
-        return {"subnets": scanned, "skipped_subnets": [s for s in subnets if s not in scanned], "ports": ports,
-                "scanned_hosts": len(hosts), "hosts": result}
+            async with sem:
+                mb_port = next((p for p in MODBUS_PORTS if p in open_ports), None)
+                if mb_port is not None:
+                    item["modbus"] = await net_scan.modbus_identify(ip, mb_port)
+                web_port = next((p for p in WEB_PORTS if p in open_ports), None)
+                if web_port is not None:
+                    item["shelly"] = await net_scan.shelly_identify(ip, web_port) if web_port not in (443, 8443) else None
+                    if item["shelly"] is None:
+                        item["http"] = await net_scan.http_info(ip, web_port)
+            out["hosts"].append(item)
+
+        await asyncio.gather(*(identify(ip, p) for ip, p in found.items()))
+        out["hosts"].sort(key=lambda h: ipaddress.ip_address(h["ip"]))
+        out["partial"] = False
+        return out
 
     async def _arp(self, report: dict) -> list[dict]:
         return await net_scan.arp_table()
@@ -328,8 +376,9 @@ class NetworkDiagnostics:
         unknown = [h["ip"] for h in lan.get("hosts") or [] if not h.get("configured_as") and (h.get("modbus") or h.get("shelly"))]
         if unknown:
             p.append("V LAN jsou Modbus/Shelly zařízení mimo konfiguraci: " + ", ".join(unknown[:8]) + ".")
-        if lan.get("skipped_subnets"):
-            p.append("Přeskočené podsítě (příliš velké): " + ", ".join(lan["skipped_subnets"]) + ".")
+        too_big = [x["subnet"] for x in lan.get("skipped") or [] if x.get("reason") != "wan"]
+        if too_big:
+            p.append("Přeskočené podsítě (příliš velké / neplatné): " + ", ".join(too_big) + ".")
         m = sysinfo.get("metrics") or {}
         if (m.get("cpu_temp") or 0) > 75:
             p.append(f"Vysoká teplota CPU {m['cpu_temp']} °C.")

@@ -92,8 +92,8 @@ async def _api_middleware(request: web.Request, handler: Callable) -> web.Stream
         resp = _err("internal", 500)
     if is_api:
         resp.headers["Cache-Control"] = "no-store"
-    elif request.path == "/":
-        resp.headers["Cache-Control"] = "no-cache"
+    elif request.path == "/" or request.path.startswith("/static/"):
+        resp.headers["Cache-Control"] = "no-cache"      # po update_software musí Chromium načíst nové JS/CSS
     return resp
 
 

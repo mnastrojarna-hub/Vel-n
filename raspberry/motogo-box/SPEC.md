@@ -389,3 +389,24 @@ Další pravidla: nikdy nedržet zámek trvale pod napětím; nikdy neaktivovat 
   impulz až po doběhnutí předchozího 800ms pulzu) a hudba hraje vždy jen v JEDNÉ kóji: reproduktor
   přebírá nejnovější povolený přístup; po skončení této relace se hudba vypne (do dřívější kóje se
   nevrací). Světla a signalizace jsou plně nezávislé per zóna.
+
+### Doplněné body z revize (2026-09-10) — implementované chování a otevřená rozhodnutí
+
+- **Paměťový zámek IBFM 9500 po timeoutu (§9 „Dveře se do 30 s neotevřou“):** zámek zůstává po impulzu
+  mechanicky odjištěný až do prvního otevření. Program proto po OPEN_TIMEOUT drží příznak
+  `latch_released` a pozdní otevření dveří bere jako pokračování téže relace (světlo, zelená, hudba,
+  událost `DOOR_OPENED` s `late_open=true`, úroveň warn) — NE jako `FORCED_OPEN`. Násilné otevření se
+  hlásí jen u zóny, která žádný impulz nedostala.
+- **Výpadek modulu během relace (§12):** offline modul kontaktu = okamžitá porucha `io_offline`
+  (stav dveří nelze zjistit). Offline modul zámku/světla/Shelly během otevřené kóje = relace pokračuje
+  (`degraded`, zákazník není zamčen uvnitř bez světla kvůli sítí), nový přístup je zamítnut; porucha
+  se vyhlásí po skončení relace.
+- **K rozhodnutí — signalizace při otevřených dveřích:** §7 tabulka uvádí „Čekání na zavření: zelená
+  pulzuje“, §9 „Dveře se otevřou: ponechat zelenou“. Program drží zelenou TRVALE a pulzuje až při
+  překročení maximální doby (overtime). Pokud má zelená pulzovat po celou dobu otevření, změnit
+  `zone.py` (`Signal.GREEN_PULSE` po `DOOR_OPENED`).
+- **K rozhodnutí — vzdálené upozornění (§9 overtime, FORCED_OPEN):** události jdou do `kiosk_logs`
+  (Velín → Diagnostika chyb & událostí) a do stavu zóny; push/e-mail/SMS notifikace obsluze NENÍ
+  implementována (backend nemá kanál pro provozní alerty). Návrh: edge funkce nad `kiosk_logs`
+  (level=warn/error) → e-mail přes Resend na kontakt pobočky.
+- `security.pin_length` v config.yaml je jen informativní (délku kódů určuje Velín / `kiosk_resolve_code`).

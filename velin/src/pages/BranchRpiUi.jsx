@@ -1,5 +1,47 @@
+import { Component } from 'react'
+
 // ─── Sdílené UI prvky pro bloky Raspberry řídicí jednotky (Samoobsluha) ─────
 // Stejný vizuální jazyk jako BranchSelfService.jsx (inline styly + Tailwind utility).
+
+// ── Typ zařízení (kiosk_devices.platform) ───────────────────────────────────
+// Řídicí jednotka hlásí 'rpi' až prvním heartbeatem; hned po založení ve Velíně je platform NULL.
+// Tablet (stará appka) hlásil 'android'. Proto: tablet = jen známá tabletová hodnota, vše ostatní
+// (rpi / prázdné / neznámé) = řídicí jednotka (Raspberry).
+const TABLET_PLATFORMS = new Set(['android', 'ios', 'flutter', 'tablet'])
+const platformOf = dev => String(dev?.platform ?? '').trim().toLowerCase()
+function isTabletDevice(dev) { return TABLET_PLATFORMS.has(platformOf(dev)) }
+function isRpiDevice(dev) { return !!dev && !isTabletDevice(dev) }
+// Popisek platformy pro UI ('' = zatím se neozvalo)
+function platformLabel(dev) {
+  const p = platformOf(dev)
+  if (p === 'rpi') return 'Raspberry'
+  if (TABLET_PLATFORMS.has(p)) return `Tablet (${p})`
+  return p ? `Neznámá platforma (${p})` : ''
+}
+
+// ── Defenzivní vykreslení hodnot ze zařízení (status/report jsou JSON z jednotky — nevěřit tvaru) ──
+// txt: null → '—', objekt/pole → JSON, jinak text; num: konečné číslo nebo null; arr: pole nebo []
+const txt = v => (v == null ? '—' : typeof v === 'object' ? JSON.stringify(v) : String(v))
+const num = v => { const n = typeof v === 'boolean' ? NaN : Number(v); return v == null || v === '' || !Number.isFinite(n) ? null : n }
+const arr = v => (Array.isArray(v) ? v : [])
+
+// Chybová hranice pro jeden blok — vadný payload ze zařízení nesmí shodit celou stránku Pobočky
+class ErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { error: null } }
+  static getDerivedStateFromError(error) { return { error } }
+  componentDidCatch(error) { console.error('[Samoobsluha] blok selhal:', this.props.title, error) }
+  render() {
+    if (!this.state.error) return this.props.children
+    return (
+      <div className="p-3 rounded-card text-[12px]" style={{ background: '#fee2e2', border: '1px solid #fca5a5', color: '#dc2626' }}>
+        <div className="font-bold">{this.props.title || 'Blok'} — zobrazení selhalo (neplatná data ze zařízení).</div>
+        <div className="mt-1" style={{ color: '#b45309' }}>{String(this.state.error?.message || this.state.error)}</div>
+        <button type="button" onClick={() => this.setState({ error: null })}
+          className="rounded-btn text-[11px] font-bold cursor-pointer border-none mt-2" style={{ padding: '4px 8px', background: '#fff', color: '#dc2626' }}>Zkusit znovu</button>
+      </div>
+    )
+  }
+}
 
 const TONES = {
   dark: { background: '#1a2e22', color: '#74FB71' },
@@ -115,4 +157,7 @@ function formatAge(sec) {
   return `před ${Math.round(sec / 3600)} h`
 }
 
-export { RpiSection, Btn, Chip, Label, Input, Select, Checkbox, TONES, formatUptime, ageSeconds, formatAge }
+export {
+  RpiSection, Btn, Chip, Label, Input, Select, Checkbox, TONES, formatUptime, ageSeconds, formatAge,
+  ErrorBoundary, txt, num, arr, isRpiDevice, isTabletDevice, platformLabel,
+}

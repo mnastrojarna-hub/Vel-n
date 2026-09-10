@@ -56,6 +56,10 @@ async def _run_controller() -> None:
             # Type=notify: bez READY=1 by systemd službu po TimeoutStartSec zabil a restartoval
             # v nekonečné smyčce; takto běží UI se srozumitelnou chybou a health/servis dál fungují.
             sdnotify.notify(f"READY=1\nSTATUS=start selhal: {str(exc)[:120]}")
+            # WatchdogSec by jinak proces každou minutu zabil (watchdog smyčka startuje až po úspěšném startu).
+            interval = sdnotify.watchdog_interval_s()
+            if interval:
+                asyncio.create_task(sdnotify.watchdog_loop(interval, lambda: True), name="motogo.watchdog_failed_start")
         log.info("MotoGo Box %s běží (web %s:%s)", version, local.web.host, local.web.port)
         await stop_task
     else:

@@ -37,6 +37,8 @@ LOG_EVENT_SOURCES: dict[EventKind, str] = {
 NOTICE_KINDS = frozenset({EventKind.FORCED_OPEN, EventKind.SESSION_OVERTIME, EventKind.SESSION_OVERTIME_ALERT})
 # Jen tyto chyby ověření znamenají „zákazník zadal špatný kód" → počítají se do lockoutu (§10).
 INVALID_CODE_ERRORS = frozenset({"invalid_code", "code_expired", "code_not_yet_valid"})
+# Servisní hesla z offline cache platí nejvýš 3 dny bez synchronizace — odvolání hesla ve Velíně musí dojít.
+SERVICE_CACHE_MAX_AGE_S = 72 * 3600
 
 
 def error_text(error: str | None) -> str:
@@ -51,6 +53,8 @@ def error_text(error: str | None) -> str:
         return f"Příliš mnoho neplatných pokusů. Zkuste to později nebo kontaktujte podporu: {SUPPORT}."
     if error == "not_ready":
         return "Řídicí jednotka právě startuje. Zkuste to prosím za chvíli."
+    if error == "service_cache_expired":
+        return "Servisní heslo nelze ověřit bez spojení (offline cache je starší než 3 dny)."
     return "Zkuste to prosím znovu."
 
 
@@ -154,33 +158,45 @@ def log_open_kind(event: Event) -> str:
 
 
 def start_diagnostics(ctrl: "BoxController", base: dict, source: str, reason: str) -> dict:
-    """Kód pro diagnostiku sítě: spustí běh (nebo vrátí ten probíhající) a UI otevře přehled."""
-    res = ctrl.diagnostics.start(source=source, reason=reason)
+    """Kód pro diagnostiku sítě: spustí běh (nebo vrátí ten probíhající) a UI otevře přehled.
+
+    `source` = odkud přišel kód (ui/diag_ui), `reason` = jaký kód (local_code/service_code) —
+    do reportu jde jako source=local_code|service_code (Velín SOURCE_CZ), reason=ui|diag_ui.
+    """
+    res = ctrl.diagnostics.start(source=reason, reason=source)
     running = bool(res.get("started")) or res.get("error") == "already_running"
     return {**base, "ok": running, "kind": "diagnostics", "error": None if running else res.get("error"),
             "message": "Diagnostika sítě spuštěna" if res.get("started") else "Diagnostika sítě už běží",
             "diagnostics": res}
 
 
-async def submit_code(ctrl: "BoxController", code: str, source: str) -> dict:
+def _cache_age_s(ctrl: "BoxController") -> float | None:
+    saved = getattr(ctrl.storage, "code_cache_saved_at", lambda: None)()
+    return None if saved is None else max(0.0, time.time() - float(saved))
+
+
+async def submit_code(ctrl: "BoxController", code: str, source: str, *, diagnostics_only: bool = False) -> dict:
     """Ověří kód (online RPC → offline cache), servisní heslo vydá token, zákaznický otevře zónu.
 
     Diagnostický kód (lokální `diagnostics.code` nebo servisní heslo s účelem `diagnostics`)
-    spustí diagnostiku sítě — funguje i před spárováním a při `not ready` (odlaďování instalace).
+    spustí diagnostiku sítě — funguje i před spárováním a při `not ready` (odlaďování instalace),
+    ale ne během PIN lockoutu (hádání kódů). `diagnostics_only=True` (okno diagnostiky): smí jen
+    spustit diagnostiku (lokální kód / kterékoli servisní heslo) — nikdy neotevře dveře ani nevydá
+    servisní token; zákaznický kód se tam chová přesně jako neplatný (žádné orákulum).
     """
     code = normalize_code(code or "")
     base = {"ok": False, "kind": "invalid", "error": None, "message": "", "zone": None,
             "locked_until": None, "doors": [], "service_token": None}
     if not code:
         return {**base, "error": "empty", "message": "Zadejte přístupový kód."}
+    locked = ctrl.pin_guard.locked_until()
+    if locked:
+        return {**base, "error": "locked", "message": error_text("locked"), "locked_until": locked}
     diag = getattr(ctrl, "diagnostics", None)
     if diag is not None and diag.matches_local_code(code):
         return start_diagnostics(ctrl, base, source, "local_code")
     if not ctrl.ready:              # §12 krok 8: PIN až po dokončení startu / přestavby HW
         return {**base, "error": "not_ready", "message": error_text("not_ready")}
-    locked = ctrl.pin_guard.locked_until()
-    if locked:
-        return {**base, "error": "locked", "message": error_text("locked"), "locked_until": locked}
     masked = mask(code)
     raw = await ctrl.api.resolve_code(code)
     if isinstance(raw, dict):
@@ -190,6 +206,10 @@ async def submit_code(ctrl: "BoxController", code: str, source: str) -> dict:
         rr = ctrl.resolver.resolve(code, cache, datetime.now(timezone.utc)) if cache else None
         if rr is None:
             rr = ResolveResult(ok=False, error="invalid_code" if cache else "network", offline=True)
+        elif rr.is_service and (_cache_age_s(ctrl) or 0) > SERVICE_CACHE_MAX_AGE_S:
+            rr = ResolveResult(ok=False, error="service_cache_expired", offline=True)
+    if diagnostics_only and rr.ok and not rr.is_service:
+        rr = ResolveResult(ok=False, error="invalid_code", offline=rr.offline)   # zákaznický kód zde neotevírá
     if not rr.ok:
         err = rr.error or "invalid_code"
         if err in INVALID_CODE_ERRORS:      # jen skutečně neplatný kód se počítá do lockoutu
@@ -210,7 +230,7 @@ async def submit_code(ctrl: "BoxController", code: str, source: str) -> dict:
                                   detail={"source": source, "error": err, "code_masked": masked}))
         return {**base, "error": err, "message": error_text(err)}
     ctrl.pin_guard.register_success(masked)
-    if rr.is_diagnostics and diag is not None:
+    if diag is not None and (rr.is_diagnostics or (diagnostics_only and rr.is_service)):
         return start_diagnostics(ctrl, base, source, "service_code")
     if rr.is_service:
         token = secrets.token_urlsafe(24)

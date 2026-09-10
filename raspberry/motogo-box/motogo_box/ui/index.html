@@ -5,23 +5,20 @@
   <meta name="viewport" content="width=1920, height=1080, initial-scale=1, user-scalable=no">
   <meta http-equiv="Cache-Control" content="no-store">
   <title>MotoGo24 — Samoobslužná pobočka</title>
-  <link rel="icon" href="/static/logo.svg" type="image/svg+xml">
+  <link rel="icon" href="/static/logo-icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
 <div id="app">
   <!-- Banner při ztrátě spojení s řídicí jednotkou -->
-  <div id="banner" class="banner" hidden>Řídicí jednotka nedostupná — zkuste to prosím za chvíli</div>
+  <div id="banner" class="banner" data-i18n="banner" hidden>Řídicí jednotka nedostupná — zkuste to prosím za chvíli</div>
 
-  <!-- Hlavička: logo + značka + název pobočky -->
+  <!-- Hlavička: oficiální logo + přepínání jazyků + název pobočky -->
   <header class="header">
     <div class="brand">
-      <img class="brand-logo" src="/static/logo.svg" alt="MotoGo24">
-      <div class="brand-text">
-        <div class="brand-name">MotoGo24</div>
-        <div class="brand-sub">PŮJČOVNA MOTOREK</div>
-      </div>
+      <img class="brand-logo" src="/static/logo.svg" alt="MotoGo24 — půjčovna motorek">
     </div>
+    <nav id="lang-bar" class="lang-bar" aria-label="Jazyk / Language"></nav>
     <div class="branch">
       <span id="branch-name" class="branch-name">Samoobslužná pobočka</span>
       <span id="online-dot" class="dot dot-off" title="Stav připojení"></span>
@@ -30,10 +27,10 @@
 
   <!-- Výzva + stručný postup -->
   <section class="prompt">
-    <div class="prompt-title">Zadejte přístupový kód</div>
+    <div class="prompt-title" data-i18n="promptTitle">Zadejte přístupový kód</div>
     <div class="prompt-hint">
-      Kód najdete v potvrzení rezervace — e‑mail nebo aplikace MotoGo24.<br>
-      1) Kód k oblečení otevře skříň &nbsp;·&nbsp; 2) po zavření kód k motorce otevře vaši garáž.
+      <span data-i18n="hint1">Kód najdete v potvrzení rezervace — e‑mail nebo aplikace MotoGo24.</span><br>
+      <span data-i18n="hint2">1) Kód k oblečení otevře skříň  ·  2) po zavření kód k motorce otevře vaši garáž.</span>
     </div>
   </section>
 
@@ -59,7 +56,7 @@
       <div id="status-icon" class="status-icon" hidden></div>
       <div id="status-title" class="status-title"></div>
       <div id="status-sub" class="status-sub"></div>
-      <div id="status-dismiss" class="status-dismiss" hidden>Klepnutím zavřete</div>
+      <div id="status-dismiss" class="status-dismiss" data-i18n="tap" hidden>Klepnutím zavřete</div>
     </div>
   </div>
 
@@ -103,7 +100,7 @@
   <div id="setup" class="overlay overlay-solid" hidden>
     <div class="setup-wrap">
       <div class="setup-card">
-        <img class="setup-logo" src="/static/logo.svg" alt="MotoGo24">
+        <img class="setup-logo" src="/static/logo-icon.svg" alt="MotoGo24">
         <div class="setup-title">Nastavení kiosku</div>
         <div class="setup-hint">Spárujte řídicí jednotku se zařízením. Údaje najdete ve Velíně → Pobočky → Samoobsluha → Zařízení.</div>
         <label class="field">
@@ -152,6 +149,7 @@
     </div>
   </div>
 </div>
+<script src="/static/i18n.js"></script>
 <script src="/static/keyboard.js"></script>
 <script src="/static/panel.js"></script>
 <script src="/static/diag.js"></script>

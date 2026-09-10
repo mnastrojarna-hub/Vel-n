@@ -56,7 +56,9 @@ audio:
   fade_out_ms: 500
   selector_settle_ms: 200
   selector_on_ms: 100
-  device: null            # např. "alsa/plughw:CARD=Device" (AXAGON USB); null = výchozí
+  device: null            # "alsa/plughw:CARD=<jméno>" dle `aplay -l` (AXAGON USB karta). null = výchozí ALSA
+                          # zařízení = na RPi 5 HDMI monitoru → kóje mlčí! install.sh při založení
+                          # /etc/motogo/hardware.yaml doplní nalezenou USB kartu (Velín má přednost).
   shuffle: true
 
 signal:

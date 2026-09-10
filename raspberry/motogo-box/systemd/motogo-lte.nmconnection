@@ -1,6 +1,9 @@
 # MotoGo Box — LTE profil NetworkManageru (SIM7600E-H přes ModemManager). SPEC §4/§8:
 # výchozí internetová trasa vede JEN přes LTE (route-metric 100 < 500 u eth0).
 # APN "internet" je placeholder — install.sh ho nahradí dle zadaného APN (env MOTOGO_APN).
+# PIN SIM: install.sh (env MOTOGO_SIM_PIN / dotaz) doplní do [gsm] řádky `pin=<PIN>` a `pin-flags=0`
+# (NM PIN uloží a zadá sám); bez nich zůstane SIM s PINem ve stavu „locked“ a LTE nikdy nenaběhne
+# (health to hlásí jako lte.error=sim_locked a neeskaluje). Prázdný PIN = řádky se nezapisují.
 # Umístění: /etc/NetworkManager/system-connections/motogo-lte.nmconnection (chmod 600, root).
 [connection]
 id=motogo-lte

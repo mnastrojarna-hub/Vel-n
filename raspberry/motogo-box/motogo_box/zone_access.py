@@ -11,6 +11,7 @@ import asyncio
 import logging
 from typing import TYPE_CHECKING
 
+from .io_devices import FLASH_STEP_MS
 from .models import EventKind, Signal, ZoneState, now_iso
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -21,8 +22,9 @@ log = logging.getLogger("motogo.zone")
 
 async def grant_locked(zc: "ZoneController", booking_id: str | None, kind: str, source: str) -> tuple[bool, str]:
     """Kroky 6–12 §9 po ověřených podmínkách: světlo, zelená, hudba, HW pulz zámku, událost, WAITING_FOR_OPEN."""
-    zc.code_kind, zc.source = kind, source
     zc.reset_session()                      # ukončí doběh předchozí relace (CLOSED_CONFIRMATION)
+    zc.code_kind, zc.source = kind, source
+    zc.latch_released, zc._late_booking = False, None
     detail: dict = {}
     if not await zc.set_light(True):
         detail["light_failed"] = True        # světlo není bezpečnostní prvek — pokračujeme
@@ -39,10 +41,12 @@ async def grant_locked(zc: "ZoneController", booking_id: str | None, kind: str, 
     if not reason:
         lock = zc.zone.hw.lock
         pulse_ms = int(zc.timings.lock_pulse_ms)
+        # WAV645 flash-on běží v krocích po 100 ms (zaokrouhleno) — brána musí držet i tuto dobu.
+        hold_ms = max(pulse_ms, max(1, round(pulse_ms / FLASH_STEP_MS)) * FLASH_STEP_MS)
         async with zc.lock_gate:                  # dva zámky nikdy nemají impulz zároveň
             ok = lock is not None and await zc.io.pulse(lock, pulse_ms)
             if ok:
-                await asyncio.sleep(pulse_ms / 1000.0)
+                await asyncio.sleep(hold_ms / 1000.0)
         reason = "" if ok else "lock_failed"
     if not ok:
         log.error("Zóna %s: přístup neproveden (%s)", zc.number, reason)
@@ -70,12 +74,17 @@ async def tick_locked(zc: "ZoneController") -> None:
     if zc.state == ZoneState.WAITING_FOR_OPEN and zc.waiting_since is not None:
         if now - zc.waiting_since > t.door_open_timeout_s:
             zc.state = ZoneState.SECURED         # nejdřív stav, teprve pak pomalé HW kroky
+            # Zámek IBFM zůstává mechanicky odjištěný do prvního otevření (SPEC §2) → pozdní otevření
+            # dveří je pokračování této relace (zone._late_open_locked), ne násilné otevření.
+            zc._late_booking = (zc.booking_id, zc.code_kind, zc.source)
+            zc.latch_released = True
             await zc.music_stop()
             await zc.set_light(False)
             await zc.signal(Signal.RED)
             await zc.emit_event(EventKind.OPEN_TIMEOUT, success=False, level="warn",
                                 message=f"{zc.zone.display_name}: dveře nebyly otevřeny do {t.door_open_timeout_s} s")
             zc.reset_session()
+            await zc.evaluate_locked()           # dveře otevřené během pomalých kroků → pozdní otevření hned
     elif zc.state == ZoneState.DOOR_OPEN and zc.opened_at is not None:
         await _tick_door_open(zc, now - zc.opened_at)
     elif zc.state == ZoneState.CLOSED_CONFIRMATION and zc.closed_at is not None:
@@ -90,6 +99,7 @@ async def tick_locked(zc: "ZoneController") -> None:
             await zc.set_light(False)
             await zc.signal(Signal.RED)          # idempotentní — jistota, že SECURED = červená
             log.info("Zóna %s: relace uzavřena, SECURED", zc.number)
+            await zc.evaluate_locked()           # modul offline během relace (degraded) → teď už porucha
 
 
 async def _tick_door_open(zc: "ZoneController", elapsed: float) -> None:

@@ -185,6 +185,8 @@ class ZoneStatus:
     session_started_at: str | None
     booking_id: str | None
     last_event: str | None
+    latch_released: bool = False   # IBFM po OPEN_TIMEOUT stále odjištěný (pozdní otevření = relace, ne forced_open)
+    degraded: bool = False         # relace běží s částí I/O offline (nový přístup zamítnut)
 
     def to_dict(self) -> dict:
         return asdict(self)

@@ -1,4 +1,6 @@
-httpx>=0.27
-aiohttp>=3.9
-PyYAML>=6.0
-websockets>=12
+# Rozsahy jsou shora ohraničené: install.sh/update.sh instalují jen v těchto mezích (bez slepého --upgrade).
+# websockets >= 13: realtime.py importuje websockets.asyncio.client (ve 12.x neexistuje → pád při startu).
+httpx>=0.27,<1
+aiohttp>=3.9,<4
+PyYAML>=6,<7
+websockets>=13,<16

@@ -343,6 +343,11 @@ def merge_hardware(local: dict, remote: dict | None) -> dict:
     return out
 
 
+# Počet kanálů modulů (index je 0-based): WAV645 16 relé, WAV617 8 relé + 8 vstupů, Shelly 5 světel.
+CHANNEL_LIMITS = {"wav645": {"coil": 16, "input": 0}, "wav617": {"coil": 8, "input": 8}, "shelly_rgbww": {"light": 5}}
+LOCK_PULSE_RANGE_MS = (100, 5000)
+
+
 def validate_hardware(hw: HardwareConfig) -> list[str]:
     """Vrátí seznam problémů konfigurace (prázdný = OK).
 
@@ -377,6 +382,9 @@ def validate_hardware(hw: HardwareConfig) -> list[str]:
             if ref.idx < 0:
                 problems.append(f"Zóna {z.number}: {role} má záporný index {ref.idx}.")
             kind = "input" if role == "contact" else ("light" if role in ("red", "green") else "coil")
+            limit = CHANNEL_LIMITS.get(dev.type, {}).get(kind)
+            if limit is not None and ref.idx >= limit:
+                problems.append(f"Zóna {z.number}: {role} {ref.dev}[{ref.idx}] je mimo rozsah modulu {dev.type} (0–{limit - 1}).")
             key = (ref.dev, kind, ref.idx)
             if key in seen:
                 other_zone, other_role = seen[key]
@@ -390,4 +398,8 @@ def validate_hardware(hw: HardwareConfig) -> list[str]:
     nums = [z.number for z in hw.zones]
     if len(nums) != len(set(nums)):
         problems.append("Duplicitní čísla zón.")
+    lo, hi = LOCK_PULSE_RANGE_MS
+    if not lo <= int(hw.timings.lock_pulse_ms) <= hi:
+        problems.append(f"timings.lock_pulse_ms {hw.timings.lock_pulse_ms} je mimo rozsah {lo}–{hi} ms "
+                        f"(WAV645 flash-on v krocích 100 ms).")
     return problems

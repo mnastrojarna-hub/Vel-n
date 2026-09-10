@@ -24,6 +24,8 @@ name: Denni kompletni zaloha (Supabase + git)
 #
 # Pozadovane GitHub secrets (Settings -> Secrets and variables -> Actions):
 #   SUPABASE_DB_URL              = postgresql://postgres:<HESLO>@db.vnwnqteskbykeucanlhk.supabase.co:5432/postgres
+#                                  (primy host je jen IPv6 bez add-onu; stejny secret pouziva deploy-sql.yml
+#                                   a bezi zelene — pri zmene pouzij Supavisor session string z Dashboardu)
 #   SUPABASE_SERVICE_ROLE_KEY    = service_role klic (Dashboard -> Settings -> API) - bez nej se
 #                                  Storage NEzalohuje (beh skonci chybou + issue, DB + git se ulozi jako -partial)
 #   BACKUP_PASSPHRASE            = libovolne silne heslo pro sifrovani archivu (GPG AES256)
@@ -71,7 +73,8 @@ jobs:
               return;
             }
             const { data } = await github.rest.actions.listArtifactsForRepo({ ...context.repo, per_page: 100 });
-            const done = (data.artifacts || []).find(a => !a.expired && a.name.startsWith(prefix));
+            // castecna zaloha (-partial, bez Storage) se nepocita — pojistny beh ma zkusit plnou
+            const done = (data.artifacts || []).find(a => !a.expired && a.name.startsWith(prefix) && !a.name.includes('-partial'));
             core.setOutput('name', prefix);
             if (done) {
               core.setOutput('run', 'false');
@@ -244,8 +247,9 @@ jobs:
             } catch (e) { /* label uz existuje */ }
             const detail = `**Workflow:** ${context.workflow}\n**Běh:** ${runUrl}\n**Datum zálohy:** ${{ toJSON(steps.guard.outputs.stamp) }}`;
             const { data: open } = await github.rest.issues.listForRepo({ ...context.repo, state: 'open', labels: LABEL });
-            if (open.length) {
-              await github.rest.issues.createComment({ ...context.repo, issue_number: open[0].number, body: `🔴 Další selhání:\n\n${detail}` });
+            const mine = open.find(i => /Denní záloha/.test(i.title));   // snapshot ma vlastni issue
+            if (mine) {
+              await github.rest.issues.createComment({ ...context.repo, issue_number: mine.number, body: `🔴 Další selhání:\n\n${detail}` });
             } else {
               const body = [
                 '@claude DENNÍ ZÁLOHA SELHALA — data z dnešního dne nejsou zálohovaná. Oprav to prioritně:',
