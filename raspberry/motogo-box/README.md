@@ -57,7 +57,8 @@ bezpečně přestaví I/O (vše vypnout → nové zóny).
 
 **Na Raspberry se lokálně nastavuje jen:**
 - `/etc/motogo/config.yaml` — Supabase URL/anon key, ID + token zařízení (nebo párování z UI),
-  cesty, intervaly, sekce `health` (LTE watchdog); vzor `config/config.example.yaml`;
+  cesty, intervaly, sekce `health` (LTE watchdog) a `diagnostics` (kód pro diagnostiku sítě
+  z displeje, porty/podsítě scanu); vzor `config/config.example.yaml`;
 - `/etc/motogo/hardware.yaml` — **výchozí** HW mapa (kopie `config/brno-9zone.yaml`), použije se
   jen dokud Velín nepošle vlastní; Velín má vždy přednost.
 
@@ -75,26 +76,32 @@ bezpečně přestaví I/O (vše vypnout → nové zóny).
    do `/opt/motogo` (venv + pip), založí `/etc/motogo/config.yaml` a `hardware.yaml` (existující
    nepřepisuje), `/var/lib/motogo/music`, udev pravidlo modemu, NM profily, sudoers, systemd unity,
    dobíjení RTC baterie (`dtparam=rtc_bbat_vchg=3000000`), vypne `getty@tty7`, služby spustí.
-   ID/token/APN se zadají interaktivně nebo přes env `MOTOGO_DEVICE_ID`, `MOTOGO_DEVICE_TOKEN`, `MOTOGO_APN`.
-3. **Párování:** ve Velíně → Samoobsluha → Řídicí jednotka → přidat zařízení → ID + token.
+   ID/token/APN/diagnostický kód se zadají interaktivně nebo přes env `MOTOGO_DEVICE_ID`, `MOTOGO_DEVICE_TOKEN`,
+   `MOTOGO_APN`, `MOTOGO_DIAG_CODE` (výchozí `netdiag`).
+3. **Diagnostika sítě hned po nahrání:** na displeji (setup obrazovka → „Diagnostika sítě", nebo hlavní
+   klávesnice) zadej diagnostický kód → program prověří rozhraní/routy/DNS, LTE, internet, spojení
+   s Velínem, dostupnost všech modulů z HW mapy, **oskenuje celou LAN** (TCP porty 502/80/443/22/8080…,
+   identifikace Waveshare přes Modbus a Shelly přes RPC, MAC z ARP) a výsledek **zobrazí na displeji
+   a odešle do Velína** (blok „Diagnostika sítě"; před spárováním se odešle po spárování). Viz níže.
+4. **Párování:** ve Velíně → Samoobsluha → Řídicí jednotka → přidat zařízení → ID + token.
    Zadej do `config.yaml` (`device.id/token`) nebo na dotykovém UI (setup obrazovka / servisní panel → Přepárovat).
-4. **Síť (SPEC §4):** `sudo /opt/motogo/scripts/set-static-lan.sh` — eth0 = `192.168.50.10/24`
+5. **Síť (SPEC §4):** `sudo /opt/motogo/scripts/set-static-lan.sh` — eth0 = `192.168.50.10/24`
    **bez výchozí brány**, internet výhradně přes LTE (`motogo-lte`, route-metric 100). Skript ověří,
    že `ip route` nemá `default via … dev eth0`. Kontrola LTE: `mmcli -m any`, `nmcli con show motogo-lte`.
-5. **Waveshare (SPEC §4/§6)** — ve webovém rozhraní modulu (výchozí IP viz manuál Waveshare):
+6. **Waveshare (SPEC §4/§6)** — ve webovém rozhraní modulu (výchozí IP viz manuál Waveshare):
    statická IP `192.168.50.20` (WAV645), `.21` (WAV617-A), `.22` (WAV617-B), maska `/24`, bez brány;
    `mode: TCP server`, `protocol: Modbus TCP`, `port 502`, `unit id 1`, `gateway type: multi-host
    non-storage`, interní sériovka `115200-8-N-1`. WAV617: všech 8 relé v režimu **Normal** (program
    si to při startu vynutí zápisem `0x1000–0x1007 = 0`).
-6. **Shelly Pro RGBWW PM (SPEC §5/§7):** profil **Lights ×5**, statická IP `192.168.50.31–34`,
+7. **Shelly Pro RGBWW PM (SPEC §5/§7):** profil **Lights ×5**, statická IP `192.168.50.31–34`,
    cloud vypnout, Bluetooth vypnout, autentizaci RPC nezapínat (LAN je izolovaná). Ověření:
    `curl -s http://192.168.50.31/rpc/Shelly.GetStatus`.
-7. **Zvuková karta:** `aplay -l` → název karty (např. `Device`); do Velína `audio.device` =
+8. **Zvuková karta:** `aplay -l` → název karty (např. `Device`); do Velína `audio.device` =
    `alsa/plughw:CARD=Device` (nebo lokálně do `hardware.yaml`). Hlasitost karty `alsamixer -c Device`.
    Test bez zón: `speaker-test -D plughw:CARD=Device -c 1 -t wav -l 1`.
-8. **Hudba:** mp3/ogg/flac/wav do `/var/lib/motogo/music` (vlastník `motogo`); playlist se náhodně
+9. **Hudba:** mp3/ogg/flac/wav do `/var/lib/motogo/music` (vlastník `motogo`); playlist se náhodně
    míchá, přehrává se ve smyčce jen během relace v kóji.
-9. **Ověření na místě:** servisní heslo → servisní panel → u každé zóny „Otevřít" (světlo, zelená,
+10. **Ověření na místě:** servisní heslo → servisní panel → u každé zóny „Otevřít" (světlo, zelená,
    hudba, zámek) a zkontrolovat, že po zavření dveří přejde stav na `CLOSED_CONFIRMATION → SECURED`.
    Checklist před provozem je v `HARDWARE.md`.
 
@@ -142,9 +149,30 @@ venv/bin/python -m motogo_box check-config config/brno-9zone.yaml            # v
 | `reboot` | – | `systemctl reboot` |
 | `update_software` | – | `scripts/update.sh` (git pull / pip / restart) |
 | `http_get` / `camera_control` | `url` | HTTP GET na LAN (kamery, měnič) |
+| `diagnostics` | `reason?` | kompletní diagnostika sítě na pozadí; report → `kiosk_report_diagnostics` (Velín blok „Diagnostika sítě") |
 
 Příkazy chodí přes Supabase Realtime (broadcast) s pojistkou pollingu každých 10 s; výsledek
 se hlásí přes `kiosk_complete_command`. Živý stav zón vidí Velín z `kiosk_report_status` (30 s).
+
+## Diagnostika sítě
+
+Jeden běh (10–60 s, `motogo_box/diagnostics.py` + `net_scan.py`) zjistí: systém (hostname, verze,
+teplota, throttling, disk, NTP), rozhraní + IP/MAC + výchozí brány + DNS, LTE modem (mmcli/nmcli:
+stav, operátor, RSSI/RSRP/RSRQ/SNR), internet (DNS překlad, TCP 1.1.1.1:443, HTTP sondy), spojení
+s Velínem (heartbeat, outbox), **každé zařízení z HW mapy** (TCP, ping, identifikace: WAV645/WAV617
+přes Modbus FC01/FC02, Shelly přes `Shelly.GetDeviceInfo`, shoda typu s konfigurací), **scan celé LAN**
+(všechny podsítě vlastních rozhraní + `diagnostics.scan_subnets`, porty `scan_ports`, identifikace
+Modbus/Shelly/HTTP, MAC z ARP, přiřazení ke konfiguraci) a tabulku ARP. Vyhodnocení = seznam problémů
+(bez brány, brána přes eth0, LTE odpojeno, bez internetu, modul nedostupný / jiný typ, IP konflikt,
+cizí Modbus/Shelly v LAN, teplota, throttling, disk, NTP, chyby konfigurace).
+
+**Spuštění:** (a) na displeji zadat `diagnostics.code` z `config.yaml` (funguje i před spárováním a
+při startu HW), (b) servisní heslo z Velína s účelem „diagnostika" (jen diagnostika, nic neotevírá)
+nebo běžné servisní heslo → servisní panel → „Diagnostika sítě", (c) Velín → Samoobsluha →
+„Diagnostika sítě" → Spustit (příkaz `diagnostics`). **Výsledek:** overlay na displeji (souhrn,
+tabulky, průběh), `GET /api/diagnostics` (localhost), Supabase `kiosk_diagnostics` (posledních 30
+na zařízení) přes `kiosk_report_diagnostics` (frontuje se v outboxu), souhrn i v `kiosk_logs`
+(zdroj `diagnostics`) a poslední report v SQLite kv `last_diagnostics`.
 
 ## Aktualizace
 
@@ -165,6 +193,7 @@ se hlásí přes `kiosk_complete_command`. Živý stav zón vidí Velín z `kios
 | UI černé / „Řídicí jednotka nedostupná" | controller neběží nebo startuje | `systemctl status motogo-controller`; UI se samo připojí po startu |
 | bez zvuku | špatný `audio.device`, hlasitost karty, sepnuté relé jiné zóny | `aplay -l`, `alsamixer`, servisní panel → Hudba v zóně; `api/state` → `audio.playing_zone` |
 | Velín hlásí zařízení offline | LTE / token | `nmcli con show motogo-lte`; přepárovat v servisním panelu |
+| nevím, co v síti nefunguje | — | na displeji zadat diagnostický kód (`diagnostics.code`) nebo Velín → Diagnostika sítě → Spustit; report ukáže rozhraní, LTE, internet, moduly, celou LAN a seznam problémů |
 
 ## Bezpečnostní chování (SPEC §12)
 

@@ -31,6 +31,7 @@ LOG_EVENT_SOURCES: dict[EventKind, str] = {
     EventKind.CONTACT_FAULT: "zone", EventKind.PIN_LOCKOUT: "pin", EventKind.STARTUP: "controller",
     EventKind.LTE_RESET: "lte", EventKind.REBOOT: "lte", EventKind.CONFIG_PROBLEM: "config",
     EventKind.RPC_ERROR: "rpc",
+    EventKind.DIAGNOSTICS: "diagnostics",
 }
 # Události, které se zobrazí jako upozornění v UI
 NOTICE_KINDS = frozenset({EventKind.FORCED_OPEN, EventKind.SESSION_OVERTIME, EventKind.SESSION_OVERTIME_ALERT})
@@ -71,10 +72,11 @@ def hash_legacy_payload(payload: dict, device_id: str, device_token: str) -> dic
     services: list[dict] = []
     for item in payload.get("service_codes") or []:
         if isinstance(item, dict):
+            meta = {k: item[k] for k in ("action", "label") if item.get(k)}    # účel hesla (service|diagnostics)
             if item.get("h") is not None:
-                services.append({"h": item["h"]})
+                services.append({"h": item["h"], **meta})
             elif item.get("code"):
-                services.append({"h": hmac_code(device_id, device_token, str(item["code"]).strip())})
+                services.append({"h": hmac_code(device_id, device_token, str(item["code"]).strip()), **meta})
         elif str(item).strip():
             services.append({"h": hmac_code(device_id, device_token, str(item).strip())})
     out["codes"], out["service_codes"] = codes, services
@@ -151,13 +153,29 @@ def log_open_kind(event: Event) -> str:
     return event.code_kind or "unknown"
 
 
+def start_diagnostics(ctrl: "BoxController", base: dict, source: str, reason: str) -> dict:
+    """Kód pro diagnostiku sítě: spustí běh (nebo vrátí ten probíhající) a UI otevře přehled."""
+    res = ctrl.diagnostics.start(source=source, reason=reason)
+    running = bool(res.get("started")) or res.get("error") == "already_running"
+    return {**base, "ok": running, "kind": "diagnostics", "error": None if running else res.get("error"),
+            "message": "Diagnostika sítě spuštěna" if res.get("started") else "Diagnostika sítě už běží",
+            "diagnostics": res}
+
+
 async def submit_code(ctrl: "BoxController", code: str, source: str) -> dict:
-    """Ověří kód (online RPC → offline cache), servisní heslo vydá token, zákaznický otevře zónu."""
+    """Ověří kód (online RPC → offline cache), servisní heslo vydá token, zákaznický otevře zónu.
+
+    Diagnostický kód (lokální `diagnostics.code` nebo servisní heslo s účelem `diagnostics`)
+    spustí diagnostiku sítě — funguje i před spárováním a při `not ready` (odlaďování instalace).
+    """
     code = normalize_code(code or "")
     base = {"ok": False, "kind": "invalid", "error": None, "message": "", "zone": None,
             "locked_until": None, "doors": [], "service_token": None}
     if not code:
         return {**base, "error": "empty", "message": "Zadejte přístupový kód."}
+    diag = getattr(ctrl, "diagnostics", None)
+    if diag is not None and diag.matches_local_code(code):
+        return start_diagnostics(ctrl, base, source, "local_code")
     if not ctrl.ready:              # §12 krok 8: PIN až po dokončení startu / přestavby HW
         return {**base, "error": "not_ready", "message": error_text("not_ready")}
     locked = ctrl.pin_guard.locked_until()
@@ -192,6 +210,8 @@ async def submit_code(ctrl: "BoxController", code: str, source: str) -> dict:
                                   detail={"source": source, "error": err, "code_masked": masked}))
         return {**base, "error": err, "message": error_text(err)}
     ctrl.pin_guard.register_success(masked)
+    if rr.is_diagnostics and diag is not None:
+        return start_diagnostics(ctrl, base, source, "service_code")
     if rr.is_service:
         token = secrets.token_urlsafe(24)
         ctrl.service_tokens[token] = time.time() + ctrl.hardware.security.service_token_minutes * 60

@@ -175,6 +175,12 @@ async def _update(ctrl: "BoxController", params: dict) -> tuple[bool, dict]:
     return await _run("sudo", UPDATE_SCRIPT)
 
 
+async def _diagnostics(ctrl: "BoxController", params: dict) -> tuple[bool, dict]:
+    """Diagnostika sítě z Velína — běží na pozadí, report dorazí přes `kiosk_report_diagnostics`."""
+    res = ctrl.diagnostics.start(source="velin", reason=str(params.get("reason") or "velin"))
+    return bool(res.get("ok")), res
+
+
 async def _http_get(ctrl: "BoxController", params: dict) -> tuple[bool, dict]:
     url = str(params.get("url") or "").strip()
     if not url.lower().startswith(("http://", "https://")):
@@ -205,6 +211,7 @@ HANDLERS: dict[str, Handler] = {
     "update_software": _update,
     "http_get": _http_get,
     "camera_control": _http_get,
+    "diagnostics": _diagnostics,
 }
 
 # Příkaz, který ukončí proces uvnitř execute — controller ho dokončí v Supabase PŘED spuštěním.

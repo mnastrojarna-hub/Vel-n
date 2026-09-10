@@ -352,6 +352,7 @@ async def execute(ctrl: BoxController, command: str, params: dict) -> tuple[bool
 | `reboot` | – | complete, pak `sudo systemctl reboot` |
 | `update_software` | – | `sudo /opt/motogo/scripts/update.sh` (git pull + pip + restart) |
 | `http_get` / `camera_control` | `url` | httpx GET (timeout 6 s) |
+| `diagnostics` | `reason?` | `ctrl.diagnostics.start(source='velin')` — běží na pozadí (§24), `{ok, started, id}` / `already_running`; není HW příkaz (funguje i při `not ready`) |
 Neznámý příkaz → `(False, {"error":"unknown_command"})`.
 
 ## 14. Status payload (`BoxController.snapshot()` = UI state = `kiosk_report_status`)
@@ -397,6 +398,10 @@ aiohttp na `local.web.host:port` (default 127.0.0.1:8080):
 - `POST /api/service/restart {"service_token"}` → `os._exit(0)`.
 - `POST /api/health {…}` (jen 127.0.0.1) → `ctrl.health = payload`.
 - `GET /api/events?limit=` → `storage.events_recent`.
+- `GET /api/diagnostics[?report=0]` (jen 127.0.0.1) → `{ok, status: diagnostics.status(), report: poslední report|null}`.
+- `POST /api/diagnostics/run {"service_token"} | {"code"}` → spustí diagnostiku (§24); `code` jde přes
+  `ctrl.submit_code(code, "diag_ui")` (lokální diagnostický kód, servisní heslo s účelem `diagnostics`
+  nebo běžné servisní heslo); neplatný → 403 `{ok:false, error, message, locked_until}`.
 Chybové odpovědi `{"ok":false,"error":"…"}`; neplatný service_token → 403.
 
 UI (`ui/index.html`, `ui/app.js`, `ui/style.css`; vanilla JS, žádné CDN, offline):
@@ -413,7 +418,12 @@ servisním heslu): mřížka zón (stav, dveře, signál, tlačítka Otevřít/S
 Vše vypnout, stav zařízení (online, ID, verze, moduly, LTE), Přepárovat (formulář),
 Restart. Setup obrazovka když není spárováno. Spodní lišta: 9 dlaždic zón (barva dle
 signálu/stavu) pro rychlou orientaci. Při ztrátě WS → reconnect + banner „Řídicí
-jednotka nedostupná". Klávesnice fyzická (numpad) funguje také.
+jednotka nedostupná". Klávesnice fyzická (numpad) funguje také. **Diagnostika sítě** (`ui/diag.js`,
+overlay `#diag`, z-index nad setupem): otevře se po diagnostickém kódu z hlavní klávesnice (`/api/pin` →
+`kind: "diagnostics"`), tlačítkem na setup obrazovce (zadání kódu textovou klávesnicí → `/api/diagnostics/run`)
+nebo ze servisního panelu (service_token); zobrazuje průběh (`snapshot().diagnostics`) a po dokončení
+celý report (souhrn + problémy, systém, rozhraní/brány/DNS, LTE, internet, Velín, konfigurovaná
+zařízení, hosty v LAN, ARP, kroky) z `GET /api/diagnostics`; „Spustit znovu".
 
 ## 17. `health.py`
 
@@ -476,9 +486,51 @@ kde `h = encode(extensions.hmac(convert_to(p_device_id::text||':'||code,'UTF8'),
 (`SET search_path = public, extensions`); RPC `kiosk_report_status(p_device_id, p_device_token, p_status jsonb) RETURNS void`
 (upsert `kiosk_devices.status/status_at`, touch last_seen). GRANT anon/authenticated/service_role, REVOKE public.
 
+**`supabase/migrations/20260910_kiosk_diagnostics.sql`** (idempotentní): `branch_service_codes.action text
+NOT NULL DEFAULT 'service'` CHECK (`service` | `diagnostics`); CHECK `kiosk_commands.command` + `diagnostics`;
+tabulka `kiosk_diagnostics (id, device_id FK, branch_id FK, report_id, source, ok, problems jsonb, summary jsonb,
+report jsonb, app_version, started_at, finished_at, created_at)` + indexy (branch_id/device_id, created_at DESC),
+RLS `kiosk_diagnostics_admin FOR ALL is_admin()`; RPC `kiosk_report_diagnostics(p_device_id, p_device_token,
+p_report jsonb) RETURNS jsonb` (`{ok, id}` / `{ok:false, error}`, drží posledních 30 reportů na zařízení);
+`kiosk_sync_config.service_codes` nově `[{h, action, label}]`; `kiosk_resolve_code` u servisního hesla vrací
+i `action` a `label` (tablety ignorují).
+
 ## 23. Velín
 
 `velin/src/pages/BranchRpiZones.jsx` (živý stav zón + příkazy per zóna/celek) a
 `velin/src/pages/BranchRpiHardware.jsx` (editor `hardware` + `hw` per dveře, tlačítko
 „Načíst výchozí mapu Brno (9 zón)"). Napojení v `BranchSelfService.jsx` (import + render
 bloků; existující bloky beze změny). Příkazy přes existující `kiosk_commands` insert.
+`velin/src/pages/BranchRpiDiagnostics.jsx` — blok „Diagnostika sítě (Raspberry)": tlačítko Spustit
+(příkaz `diagnostics`, pak polling `kiosk_diagnostics` á 5 s do 150 s), seznam reportů (ok/problémy/
+internet/LTE/moduly/hosty) + detail (načte `report` jsonb; tabulky jako na displeji + celý JSON).
+`ServiceCodesBlock` má select „Účel“ (`action`: servisní panel | jen diagnostika).
+
+## 24. `diagnostics.py` + `net_scan.py` — diagnostika sítě
+
+```python
+class NetworkDiagnostics:
+    def __init__(self, ctrl: BoxController)                 # cfg = ctrl.local.diagnostics (DiagnosticsCfg)
+    def matches_local_code(self, code: str) -> bool         # diagnostics.code (normalize, case-insensitive, compare_digest)
+    def start(self, source: str, reason: str | None = None) -> dict   # {ok, started, id} | {ok:false, error:'already_running', id}
+    def status(self) -> dict     # {running, id, step, step_title, done[], steps[], elapsed_s, error, last:{id, ts, ok, problems, hosts, duration_s, source}|null}
+    def last_report(self) -> dict | None                    # Storage.kv 'last_diagnostics'
+    async def run(self, source, reason) -> dict             # kroky system→interfaces→lte→internet→supabase→devices→lan→arp→summary
+    async def cancel(self) / async def wait(self)
+```
+Zdroje spuštění: lokální kód (`submit_code` PŘED kontrolou `ready`/lockoutu → `kind:"diagnostics"`),
+servisní heslo s `action == "diagnostics"` (`ResolveResult.is_diagnostics`; offline z cache
+`service_codes[{h, action}]`), `/api/diagnostics/run` (service_token / code), příkaz `diagnostics`.
+Report (`{id, ts, source, reason, version, device_id, branch_name, paired, steps{name:{ok, ms, error}},
+system, interfaces{interfaces[], default_routes[], dns[]}, lte, internet{dns[], tcp, http[], ok},
+supabase{paired, ok, ms, branch_name, outbox_pending, error}, devices[{name, type, host, port, reachable, ms,
+error, ping_ms, identified, online}], lan{subnets[], skipped_subnets[], ports[], scanned_hosts,
+hosts[{ip, mac, ports{port:ms}, configured_as, modbus, shelly, http}]}, arp[], summary{ok, problems[],
+hosts, internet, lte, devices_ok, devices_total}, duration_s, finished_at}`) se uloží do kv, pošle
+`api.report_diagnostics` (outbox `report_diagnostics` → RPC `kiosk_report_diagnostics`) a zaloguje
+`EventKind.DIAGNOSTICS` (`kiosk_log_event`, zdroj `diagnostics`). Každý krok má vlastní try/except a
+společný limit `timeout_s`; jeden běh najednou. `net_scan`: `interfaces()` (`ip -j addr`, fallback
+ioctl), `routes()`, `dns_servers()`, `arp_table()`, `resolve()`, `tcp_probe()`, `subnet_hosts()`,
+`scan_hosts()` (semafor `scan_concurrency`), `http_info()`, `ping()`, `modbus_identify()` (FC01 16/8 +
+FC02 8 → wav645/wav617/modbus), `shelly_identify()` (`/rpc/Shelly.GetDeviceInfo`, Gen1 `/shelly`),
+`lte_info()`; nic nezapisuje do zařízení.

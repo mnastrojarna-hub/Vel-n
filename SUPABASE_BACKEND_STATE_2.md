@@ -480,9 +480,10 @@ Klíčové sloupce (plný popis tabulek v STATE_1, RPC v STATE_3, triggery STATE
 
 #### branch_service_codes
 - **code** (text), **label**, **is_active**, **created_by** — UNIQUE(branch_id, code) WHERE is_active
+- **action** (text NOT NULL DEFAULT 'service' CHECK service/diagnostics) — **NEW 2026-09-10** účel hesla: `service` = servisní panel (otevírání, světla, hudba, restart, diagnostika), `diagnostics` = na RPi JEN spuštění diagnostiky sítě (nic neotevírá). Do zařízení jde přes `kiosk_sync_config.service_codes[{h, action, label}]` a `kiosk_resolve_code.action`; tablet ignoruje.
 
 #### kiosk_commands
-- **device_id** (uuid FK→kiosk_devices CASCADE), **command** (CHECK open_door/music_on/music_off/identify/reload/camera_control/http_get/restart + **NEW 2026-09-09 pro RPi:** light_on/light_off/set_signal/zone_test/audio_test/all_off/reboot/sync_config/update_software)
+- **device_id** (uuid FK→kiosk_devices CASCADE), **command** (CHECK open_door/music_on/music_off/identify/reload/camera_control/http_get/restart + **NEW 2026-09-09 pro RPi:** light_on/light_off/set_signal/zone_test/audio_test/all_off/reboot/sync_config/update_software + **NEW 2026-09-10:** diagnostics)
 - **params** (jsonb — např. {relay_url, light_url, music_url, url}), **status** (pending/done/failed/expired), **result** (jsonb), **executed_at**
 
 #### branch_door_events
@@ -498,6 +499,12 @@ Klíčové sloupce (plný popis tabulek v STATE_1, RPC v STATE_3, triggery STATE
 #### kiosk_logs (NEW v docs 2026-09-09, z `20260630_kiosk_diag_ota_offline.sql`)
 - **device_id** (uuid FK→kiosk_devices CASCADE), **branch_id** (uuid FK→branches SET NULL), **level** (text CHECK info/warn/error/crash DEFAULT info)
 - **source** (text — relay/camera/power/rpc/flutter/platform; RPi: modbus/shelly/zone/pin/lte/config/controller), **message** (text, RPC ořezává na 4000 zn.), **detail** (jsonb), **app_version**, **created_at**; indexy (branch_id, created_at DESC), (level, created_at DESC)
+
+#### kiosk_diagnostics (NEW 2026-09-10, `20260910_kiosk_diagnostics.sql`)
+- **id** (uuid PK), **device_id** (uuid FK→kiosk_devices CASCADE), **branch_id** (uuid FK→branches SET NULL), **report_id** (text — id běhu z RPi), **source** (text — local_code/service_code/service_panel/velin)
+- **ok** (bool — summary.ok), **problems** (jsonb DEFAULT '[]' — texty problémů), **summary** (jsonb DEFAULT '{}' — `{ok, problems[], hosts, internet, lte, devices_ok, devices_total}`)
+- **report** (jsonb DEFAULT '{}' — celý report RPi: `{id, ts, source, reason, version, device_id, branch_name, paired, steps{name:{ok,ms,error}}, system{hostname, kernel, time, ntp_synced, metrics{cpu_temp, throttled, disk_free_pct, mem_free_pct, load1, uptime_s}, config_source, config_problems[]}, interfaces{interfaces[{name, mac, state, ipv4[], ipv6[]}], default_routes[{gateway, dev, metric}], dns[]}, lte{state, operator, access_tech, signal_quality, rssi, rsrp, rsrq, snr, nm_state}, internet{dns[], tcp, http[], ok}, supabase{paired, ok, ms, branch_name, outbox_pending}, devices[{name, type, host, port, reachable, ms, ping_ms, identified, online}], lan{subnets[], ports[], scanned_hosts, hosts[{ip, mac, ports, configured_as, modbus, shelly, http}]}, arp[], summary, duration_s, finished_at}`)
+- **app_version**, **started_at**, **finished_at**, **created_at**; indexy (branch_id, created_at DESC), (device_id, created_at DESC); RPC `kiosk_report_diagnostics` drží posledních 30 řádků na zařízení
 
 #### points_of_interest (doplněk 2026-07-25)
 - **translations_names** (jsonb GENERATED ALWAYS AS `jsonb_name_translations(translations)` STORED) — jen názvy překladů `{lang:{name}}`; čte `get_pois_catalog` (seznam v appce), ať se nerozbaluje velké `translations` (příčina statement timeoutu). Samoúdržba při UPDATE translations (crony).

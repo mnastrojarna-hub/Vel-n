@@ -121,6 +121,7 @@ MG.i18n = (function () {
     renderAlert(st);
     if (st.paired === false && !MG.Setup.isVisible()) MG.Setup.show({ cancelable: false });
     MG.Panel.render(st);
+    MG.Diag.onState(st);
     if (st.notice && st.notice.ts && st.notice.ts !== S.noticeTs) {
       S.noticeTs = st.notice.ts;
       if (!S.busy) showStatus(st.notice.kind === 'error' ? 'error' : 'success', st.notice.title || 'Tady jsem 👋', st.notice.subtitle || '', true);
@@ -228,6 +229,7 @@ MG.i18n = (function () {
       return;
     }
     if (res.kind === 'service') { hideStatus(); MG.Panel.show(res.service_token); return; }
+    if (res.kind === 'diagnostics') { hideStatus(); MG.Diag.open({ started: true }); return; }
     const z = res.zone != null ? (S.state && (S.state.zones || []).find((x) => x.zone === res.zone)) : null;
     const name = z ? MG.i18n.zoneName(z) : (res.kind === 'accessories' ? 'Oblečení' : 'Dveře');
     showStatus('success', 'Otevřeno', res.message || MG.i18n.successSubtitle(res.kind, name), true);
@@ -262,16 +264,24 @@ MG.i18n = (function () {
   function init() {
     MG.Panel.init({ post, showStatus, getState: () => S.state });
     MG.Setup.init({ post, onPaired: () => { showStatus('success', 'Spárováno', 'Zařízení je připojeno k pobočce.', true); pollFallback(); } });
+    MG.Diag.init({ post, getState: () => S.state });
     buildKeys();
     paintEntry();
     $('status').addEventListener('click', () => { if (!$('status-dismiss').hidden) hideStatus(); });
+    // Fyzická klávesnice: diagnostika (zadání kódu) > setup > hlavní zadávání kódu
+    const target = () => (MG.Diag.wantsKeys() ? MG.Diag.keys : MG.Setup.isVisible() ? MG.Setup.keys : null);
     MG.Keyboard.bindPhysical({
-      isActive: () => !MG.Panel.isOpen() || MG.Setup.isVisible(),
-      onChar: (c) => (MG.Setup.isVisible() ? MG.Setup.keys.onChar(c) : (/[0-9a-z]/.test(c) && onChar(c))),
-      onBackspace: () => (MG.Setup.isVisible() ? MG.Setup.keys.onBackspace() : onBackspace()),
-      onEnter: () => (MG.Setup.isVisible() ? MG.Setup.keys.onEnter() : submit()),
-      onClear: () => (MG.Setup.isVisible() ? MG.Setup.keys.onClear() : onClear()),
-      onEscape: () => { if (MG.Setup.isVisible()) MG.Setup.keys.onEscape(); else if (!$('status').hidden && !S.busy) hideStatus(); else onClear(); },
+      isActive: () => !MG.Panel.isOpen() || MG.Setup.isVisible() || MG.Diag.isVisible(),
+      onChar: (c) => { const t = target(); if (t) t.onChar(c); else if (/[0-9a-z]/.test(c)) onChar(c); },
+      onBackspace: () => { const t = target(); if (t) t.onBackspace(); else onBackspace(); },
+      onEnter: () => { const t = target(); if (t) t.onEnter(); else submit(); },
+      onClear: () => { const t = target(); if (t) t.onClear(); else onClear(); },
+      onEscape: () => {
+        if (MG.Diag.isVisible()) MG.Diag.keys.onEscape();
+        else if (MG.Setup.isVisible()) MG.Setup.keys.onEscape();
+        else if (!$('status').hidden && !S.busy) hideStatus();
+        else onClear();
+      },
     });
     document.addEventListener('contextmenu', (e) => e.preventDefault());
     window.addEventListener('resize', fit);

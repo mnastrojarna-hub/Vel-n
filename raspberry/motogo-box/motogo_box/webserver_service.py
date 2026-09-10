@@ -129,6 +129,41 @@ async def service_pair(srv: Any, request: web.Request) -> web.Response:
     return srv.json({"ok": True, "device_id": device_id, "resync": resync})
 
 
+# ─── diagnostika sítě ─────────────────────────────────────────────────────────
+async def diagnostics_get(srv: Any, request: web.Request) -> web.Response:
+    """Stav + poslední report (jen z localhostu — report obsahuje mapu LAN); `?report=0` = bez reportu."""
+    from .webserver import is_local_request      # lazy: webserver importuje tento modul
+    if not is_local_request(request):
+        return srv.error("forbidden", 403)
+    diag = getattr(srv.ctrl, "diagnostics", None)
+    if diag is None:
+        return srv.error("unavailable", 503)
+    with_report = request.query.get("report") not in ("0", "false", "no")
+    return srv.json({"ok": True, "status": diag.status(), "report": diag.last_report() if with_report else None})
+
+
+async def diagnostics_run(srv: Any, request: web.Request) -> web.Response:
+    """Spuštění: platný `service_token`, nebo `code` (lokální diagnostický kód / servisní heslo)."""
+    body = await srv.read_body(request)
+    diag = getattr(srv.ctrl, "diagnostics", None)
+    if diag is None:
+        return srv.error("unavailable", 503)
+    token = body.get("service_token")
+    if isinstance(token, str) and token and srv.ctrl.check_service_token(token):
+        return srv.json(diag.start(source="service_panel", reason="service_panel"))
+    code = body.get("code")
+    if not isinstance(code, str) or not code.strip():
+        return srv.error("forbidden", 403)
+    res = await srv.ctrl.submit_code(code, "diag_ui")
+    res = res if isinstance(res, dict) else {}
+    if res.get("ok") and res.get("kind") == "diagnostics":
+        return srv.json({"ok": True, **(res.get("diagnostics") or {})})
+    if res.get("ok") and res.get("kind") == "service":       # servisní heslo smí i diagnostiku
+        return srv.json(diag.start(source="service_code", reason="service_code"))
+    return srv.json({"ok": False, "error": res.get("error") or "invalid_code",
+                     "message": res.get("message") or "", "locked_until": res.get("locked_until")}, 403)
+
+
 async def service_restart(srv: Any, request: web.Request) -> web.Response:
     body = await srv.read_body(request)
     if (denied := service_denied(srv, body)) is not None:

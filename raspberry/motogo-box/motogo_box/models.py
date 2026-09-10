@@ -67,6 +67,7 @@ class EventKind(str, Enum):
     REBOOT = "REBOOT"
     REMOTE_COMMAND = "REMOTE_COMMAND"
     RPC_ERROR = "RPC_ERROR"                      # ověření kódu selhalo na straně serveru/párování (ne neplatný PIN)
+    DIAGNOSTICS = "DIAGNOSTICS"                  # dokončená diagnostika sítě (souhrn; celý report → kiosk_diagnostics)
 
 
 @dataclass(frozen=True)
@@ -217,10 +218,15 @@ class ResolveResult:
     door_configured: bool = False
     doors: list[ServiceDoor] = field(default_factory=list)
     offline: bool = False           # ověřeno z lokální cache
+    action: str = "service"         # u servisního hesla: service (panel) | diagnostics (jen diagnostika sítě)
 
     @property
     def is_service(self) -> bool:
         return self.kind == "service"
+
+    @property
+    def is_diagnostics(self) -> bool:
+        return self.kind == "service" and self.action == "diagnostics"
 
     @classmethod
     def from_rpc(cls, m: dict) -> "ResolveResult":
@@ -246,6 +252,7 @@ class ResolveResult:
             box_number=box,
             door_configured=bool(m.get("door_configured")) or bool(door),
             doors=doors,
+            action=str(m.get("action") or "service"),
         )
 
 

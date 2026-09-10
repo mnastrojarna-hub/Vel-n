@@ -6,6 +6,7 @@
 #   sudo ./scripts/install.sh
 # Volitelné proměnné prostředí (jinak se instalátor ptá interaktivně, pokud má terminál):
 #   MOTOGO_DEVICE_ID=<uuid>  MOTOGO_DEVICE_TOKEN=<uuid>  MOTOGO_APN=internet.t-mobile.cz
+#   MOTOGO_DIAG_CODE=<kód>  (kód pro diagnostiku sítě z displeje; výchozí netdiag)
 #   MOTOGO_SKIP_APT=1 (přeskočí apt), MOTOGO_NO_START=1 (na konci služby nespouští)
 set -euo pipefail
 
@@ -122,6 +123,16 @@ else
   sed -i "s|^  id: \"\"|  id: \"${MOTOGO_DEVICE_ID}\"|; s|^  token: \"\"|  token: \"${MOTOGO_DEVICE_TOKEN}\"|" "$ETC_DIR/config.yaml"
   ok "config.yaml vytvořen z config.example.yaml"
 fi
+# Diagnostický kód: zadáním na displeji (i před spárováním) se spustí kompletní diagnostika sítě
+# (rozhraní, LTE, internet, Velín, scan LAN, identifikace Waveshare/Shelly) — zobrazí se a odešle do Velína.
+echo "  Diagnostika sítě: kód, který zadáš na displeji (hlavní klávesnice nebo setup → „Diagnostika sítě“)."
+ask MOTOGO_DIAG_CODE "Diagnostický kód" "netdiag"
+if grep -q '^diagnostics:' "$ETC_DIR/config.yaml"; then
+  sed -i "/^diagnostics:/,/^[a-z_]*:/ s|^  code: .*|  code: \"${MOTOGO_DIAG_CODE}\"|" "$ETC_DIR/config.yaml"
+else
+  printf '\ndiagnostics:\n  code: "%s"\n' "${MOTOGO_DIAG_CODE}" >> "$ETC_DIR/config.yaml"
+fi
+ok "diagnostický kód nastaven (diagnostics.code)"
 chown root:"$APP_USER" "$ETC_DIR/config.yaml"; chmod 640 "$ETC_DIR/config.yaml"   # obsahuje token
 if [[ -f "$ETC_DIR/hardware.yaml" ]]; then
   ok "hardware.yaml existuje — ponechán (Velín má přednost)"
@@ -243,9 +254,11 @@ echo "  program:     $APP_DIR ($(app_version))"
 echo "  konfigurace: $ETC_DIR/config.yaml, $ETC_DIR/hardware.yaml (zdroj update: $ETC_DIR/source_dir)"
 echo "  data/hudba:  $DATA_DIR, $DATA_DIR/music"
 echo "  LTE APN:     ${MOTOGO_APN}   (nmcli con show motogo-lte)"
+echo "  diagnostika: kód „${MOTOGO_DIAG_CODE}“ na displeji (nebo Velín → Diagnostika sítě) = scan sítě + report do Velína"
 echo "  LAN:         sudo $APP_DIR/scripts/set-static-lan.sh"
 echo "  logy:        journalctl -u motogo-controller -u motogo-health -u motogo-ui -f"
 echo "  stav:        curl -s http://127.0.0.1:8080/api/state | python3 -m json.tool"
-echo "  Další kroky: 1) spárovat zařízení (UI nebo config.yaml), 2) nastavit Waveshare/Shelly (HARDWARE.md),"
-echo "               3) servisní heslo → servisní panel → test každé zóny, 4) po odladění restart (RTC dtparam)."
+echo "  Další kroky: 1) na displeji zadat diagnostický kód → ověřit LTE/LAN/moduly, 2) spárovat zařízení (UI nebo config.yaml),"
+echo "               3) nastavit Waveshare/Shelly (HARDWARE.md), 4) servisní heslo → servisní panel → test každé zóny,"
+echo "               5) po odladění restart (RTC dtparam)."
 echo "═══════════════════════════════════════════════════════════════════════"

@@ -5,7 +5,7 @@ Servíruje statické UI (``ui/``), JSON API nad ``BoxController`` a WebSocket
 sekundu a navíc okamžitě, jakmile se snapshot změní (porovnání hashe bez
 proměnlivých klíčů ``ts``/``uptime_s``). Servisní endpointy vyžadují platný
 ``service_token`` (vydává ``BoxController.submit_code`` po servisním hesle);
-``/api/health`` a ``/api/events`` jsou jen pro localhost (health monitor).
+``/api/health``, ``/api/events`` a ``/api/diagnostics`` (report) jsou jen pro localhost.
 Chyby se vrací jako ``{"ok": false, "error": "…"}`` — nikdy traceback.
 """
 from __future__ import annotations
@@ -126,6 +126,8 @@ class WebServer:
         r.add_get("/api/events", self._events)
         r.add_post("/api/pin", self._pin)
         r.add_post("/api/health", self._health)
+        r.add_get("/api/diagnostics", self._delegate(svc.diagnostics_get))
+        r.add_post("/api/diagnostics/run", self._delegate(svc.diagnostics_run))
         for name, handler in (("open", svc.service_open), ("music", svc.service_music),
                               ("light", svc.service_light), ("all_off", svc.service_all_off),
                               ("pair", svc.service_pair), ("restart", svc.service_restart)):
