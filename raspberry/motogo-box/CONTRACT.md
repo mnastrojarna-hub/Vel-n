@@ -49,7 +49,21 @@ Enumy `ZoneState`, `Signal`, `EventKind`; dataclassy `HwRef`, `ZoneHw`, `Zone`,
 - `HardwareConfig.from_dict(d: dict, doors: list[dict] | None = None) -> HardwareConfig`
   — zóny se berou z `doors` (řádky `branch_doors` s neprázdným `hw`); pokud žádné,
   z lokálního `d["zones"]` (door_id=None, box_number=zone).
-- `validate_hardware(hw: HardwareConfig) -> list[str]` — seznam problémů (prázdný = OK).
+- `validate_hardware(hw: HardwareConfig) -> list[str]` — seznam problémů (prázdný = OK). Položky s prefixem
+  **`Upozornění:`** (`WARNING_PREFIX`) NEblokují — controller mapu uplatní a jen je zaloguje; `blocking_problems(problems)`
+  je odfiltruje (jen zbytek brání přestavbě v `resync`).
+- **Audio (2026-09-10, `AudioCfg` + `config_audio.py`):** `audio {volume, fade_in_ms, fade_out_ms, selector_settle_ms,
+  selector_on_ms, device, shuffle}` + **`mode`** (`selector` výchozí | `multi`), **`outputs`** (jen multi:
+  `{out1: {device: "alsa/plughw:CARD=Box1"}, …}` — název → ALSA zařízení dle `aplay -L`), **`channels`** (jen multi: kanály
+  bez dveří `{outdoor: {out: out9, trigger: any, dev?, coil?}}`). Metody: `engine_mode` (normalizace; neznámé → `selector`),
+  `output_devices() -> {název: device|None}`, `channel_map() -> {název: {out, trigger, relay: HwRef|None}}`.
+  `ZoneHw.audio_out: str | None` = `hw.audio.out` (multi: výstup zóny); `hw.audio.{dev,coil}` zůstává = relé selektoru
+  (selector) / volitelné „enable“ relé zesilovače (multi); `to_dict` zapíše `audio: {dev, coil, out}`.
+  `validate_audio(hw, CHANNEL_LIMITS)` (volá `validate_hardware`): **blokující** — multi bez `outputs`; výstup zóny/kanálu
+  není v `outputs` nebo ho sdílí dvě zóny / zóna + kanál; kanál bez `out`; relé kanálu není Waveshare, je mimo rozsah
+  modulu nebo koliduje s cívkou zóny (lock/light/audio) či jiného kanálu (§12). **Upozornění** — neznámý `audio.mode`
+  (jede selector), `channels` v režimu selector („venek nelze“), výstup bez `device` (výchozí ALSA), zóna bez `audio.out`
+  v multi (nehraje), `trigger` ≠ `any`.
 
 ## 3. `modbus.py` — raw Modbus TCP klient (bez pymodbus)
 
@@ -143,38 +157,84 @@ class SignalController:
     def online(self, name: str) -> bool
 ```
 
-## 6. `audio.py` — mpv + reléový selektor reproduktorů
+## 6. Audio — `audio.py` (společné + selektor), `audio_multi.py` (režim multi), `audio_build.py`, `mpv_player.py`
+
+Engine vybírá `audio_build.build_audio(hw, local, io, library)` podle `hw.audio.mode`: **`selector`** (výchozí — jeden
+mpv, jeden mono zesilovač, reléový selektor reproduktorů, hraje vždy jen jedna zóna) nebo **`multi`** (2026-09-10 —
+na každý výstup z `audio.outputs` vlastní proces mpv `--audio-device=<device>`, socket `<mpv_socket>.<out>`; hudba hraje
+současně v libovolném počtu místností, každá svůj playlist; kanál venek bez dveří). Zóny, UI, `commands.py` i
+diagnostika používají jen společné rozhraní:
 
 ```python
-class MpvPlayer:
-    def __init__(self, socket_path: str, music_dir: str, device: str | None = None) -> None
-    async def start(self) -> None        # spawn: mpv --idle=yes --no-video --no-terminal --input-ipc-server=<sock> --volume=0 --loop-playlist=inf [--audio-device=<device>] ; čeká na socket
-    async def stop(self) -> None         # ukončí proces
-    async def command(self, *args) -> Any            # JSON IPC {"command":[...]}
-    async def load_playlist(self, shuffle: bool = True) -> int   # loadfile pro soubory (mp3/ogg/flac/wav) v music_dir; vrací počet
-    async def play(self) -> None ; async def pause(self) -> None
-    async def set_volume(self, vol: int) -> None
-    async def fade(self, to: int, ms: int, steps: int = 10) -> None
-    alive -> bool
-
-class AudioSelector:
-    def __init__(self, bus: IoBus, zones: list[Zone], cfg: AudioCfg) -> None
-    active_zone: int | None
-    async def select(self, zone: int) -> bool
-        # §8: (1) volající ztlumil; (2) VŠECHNA audio relé všech zón off (ověřeno); (3) sleep cfg.selector_settle_ms;
-        # (4) set audio coil zóny on (ověřeno, jinak False + vše off); (5) sleep cfg.selector_on_ms. Nikdy ne 2 relé současně.
-    async def release(self) -> None      # všechna audio relé off, active_zone=None
-
-class AudioController:
-    def __init__(self, player: MpvPlayer, selector: AudioSelector, cfg: AudioCfg) -> None
-    playing_zone: int | None
-    async def start(self) -> None ; async def close(self) -> None
-    async def play_zone(self, zone: int) -> bool
-        # asyncio.Lock; pokud hraje jiná zóna → stop(fade) ; pak selector.select, play, fade-in na cfg.volume
-    async def stop(self, fade: bool = True) -> None   # fade-out cfg.fade_out_ms → pause → sleep settle → selector.release
-    async def all_off(self) -> None                   # bez fade: pause, volume 0, release
-    async def test_tone(self, zone: int, seconds: int = 5) -> bool   # play_zone, sleep, stop
+# společné rozhraní obou enginů (AudioController = selector, AudioMulti = multi)
+mode: str                                   # "selector" | "multi"
+player_ok -> bool                           # selector: mpv alive; multi: VŠECHNY mpv alive
+playing_zone -> int | None                  # selector: hrající zóna; multi: první hrající (kompatibilita UI/Velín)
+playing_zones -> list[int] ; channels_playing -> list[str]      # multi: např. [3, 7] / ["outdoor"]; selector: [z] / []
+def is_playing(zone: int) -> bool           # zone.py: status().music
+async def start() ; async def close()       # start: mpv + playlist, hlasitost 0, pauza; close: all_off + stop mpv
+async def play_zone(zone) -> bool ; async def stop_zone(zone, fade=True) -> bool   # stop_zone zastaví JEN pokud v zóně stále hraje (§13.7)
+async def stop(fade=True)                   # vše (selector: jedinou zónu; multi: všechny zóny i kanály)
+async def all_off()                         # bez fade: pauza, hlasitost 0, všechna relé off (start, příkaz all_off, stop programu)
+async def sync_channels(active_zones: list[int])   # multi: kanály bez dveří dle běžících relací; selector: no-op (volá tick smyčka §12)
+async def reload_playlists()                # knihovna se změnila (po sync): hrající kanál NErušit — playlist se vymění až po zastavení
+async def reselect_if_playing(module: str)  # po reinit modulu (all_off) znovu sepnout audio/enable relé hrajících zón a kanálů
+async def test_tone(zone, seconds=5) -> bool ; async def wait_fade()
+def update_cfg(cfg: AudioCfg, timings=None) ; def status() -> dict   # → snapshot()['audio'] (§14)
 ```
+
+**Cíle playlistu (`target`):** zóna → `door:<uuid branch_doors.id>` (dveře z Velína) / `zone:<n>` (lokální mapa) —
+`audio.zone_target(zone)`; kanál bez dveří → jeho název (`outdoor`). Playlist dodává `MusicLibrary.playlist_for(target)`
+(§7a): vlastní skladby cíle, jinak společné `all` + ruční soubory v `music_dir`, jinak `[]`; bez knihovny
+(`library=None`) legacy `load_playlist` = všechny soubory v `music_dir`. Do mpv se playlist načítá `load_files` jen když se
+cíl liší od právě načteného (nebo je „dirty“ po `reload_playlists`).
+
+**Selector — `AudioController(player, selector, cfg, library=None, zones=None)` + `AudioSelector(bus, zones, cfg)`:**
+`play_zone`: hraje-li jiná zóna → `_stop_locked(fade)`; `ensure_running` (padlý mpv); hlasitost 0 + pauza → playlist cíle
+zóny → `selector.select(zone)` (§8: všechna audio relé off ověřeně, 2 pokusy → `selector_settle_ms` → relé zóny on ověřeně,
+jinak vše off + False → `selector_on_ms`; NIKDY 2 relé současně) → play → fade-in na pozadí (`_fade_task`, `wait_fade`).
+`stop`: fade-out `fade_out_ms` → pauza → settle → `selector.release()`. `channels_playing = []`, `sync_channels` no-op —
+kanál `outdoor` v selectoru nelze (validace §2 = upozornění). `reload_playlists`: zapomene načtený cíl; nehraje-li nic,
+načte hned.
+
+**Multi — `AudioMulti(players{out: MpvPlayer}, zone_out{zóna: out}, channel_out{kanál: out}, relays{zóna|kanál: HwRef}|None,
+cfg, library=None, *, bus, zone_targets, timings, clock=time.monotonic)`:** stav per výstup (`_Channel`: player, lock,
+`playing` (zóna|kanál|None), `target`, `dirty`, `generation`, `fade_task`, `sync_task`, `off_at`). `play_zone(z)` = na výstupu
+zóny (`zone_out`): jiný hrající klíč → zastavit; `ensure_running` (mrtvý mpv → restart, rate-limit 30 s); hlasitost 0, pauza,
+`_load(target)`, **enable relé** ON (volitelné `audio: {out, dev, coil}` zóny / `channels.<k>.{dev,coil}`; `bus.set`) → play →
+fade-in. Zóna bez výstupu → warning + False. `stop_zone`/`stop`: fade-out, pauza, relé OFF. Selhání jednoho mpv neovlivní
+ostatní (zámek per výstup); `player = None` (kompatibilita). `test_tone` hraje jen na výstupu zóny a zastaví jen svoji
+hudbu (`generation` — relace, která mezitím výstup převzala, hraje dál).
+**Kanál venek (`audio.channels.outdoor: {out, trigger: any}`):** `sync_channels(active_zones)` z tick smyčky zón (§12,
+každých 250 ms): `active_zones` neprázdné → kanál hraje (start jako úloha na pozadí — tick na IPC/fade nečeká; dokud
+úloha běží, další tick nic nespouští); prázdné → `off_at = now + timings.music_after_close_s`, po uplynutí stop (fade).
+Nová relace během doběhu stop zruší. Jediný podporovaný `trigger` je `any` („po jakémkoli kódu“).
+`reload_playlists`: všechny kanály `dirty`; volné výstupy načtou hned, hrající až při dalším startu. `all_off` navíc
+zruší běžící `sync_task`. `status()` viz §14.
+
+**Bezpečnost (§12, dvě vrstvy):** audio/enable relé nikdy nesmí být cívka zámku ani světla — `validate_hardware` to
+odmítne a engine (`AudioSelector`, `audio_build._drop_reserved_relays`) takové relé navíc vyřadí; relé jen Waveshare;
+každý zápis ověřený (`bus.set`). Kanál venek nikdy nedrží zámek (relé kanálu je jen „enable“ zesilovače).
+
+```python
+class MpvPlayer:   # mpv_player.py — jeden proces mpv (idle, bez videa, playlist ve smyčce)
+    def __init__(self, socket_path: str, music_dir: str, device: str | None = None, name: str = "mpv") -> None
+    async def start(self) -> None        # spawn: mpv --idle=yes --no-video --no-terminal --input-ipc-server=<sock> --volume=0 --loop-playlist=inf [--audio-device=<device>]; bez mpv/IPC = dummy (alive False, nic nevyhazuje)
+    async def stop(self) -> None ; async def command(self, *args) -> Any        # JSON IPC {"command":[...]}; timeout 2 s → přehrávač označen mrtvý (MpvError)
+    async def ensure_running(self, shuffle: bool | None = None) -> bool         # mrtvý mpv → restart (max 1× za 30 s) + znovu playlist
+    async def load_playlist(self, shuffle: bool = True) -> int   # legacy: VŠECHNY soubory v music_dir (MUSIC_EXTENSIONS)
+    async def load_files(self, files: list[str], shuffle: bool = True) -> int   # explicitní playlist cíle z knihovny; pamatuje si ho pro restart
+    async def play(self) ; async def pause(self) ; async def set_volume(self, vol: int) -> bool
+    async def fade(self, to: int, ms: int, steps: int = 10) -> bool            # končí při první neúspěšné změně hlasitosti
+    alive -> bool ; volume: int ; playlist_count: int ; device ; name
+MUSIC_EXTENSIONS = .mp3 .ogg .oga .opus .flac .wav .m4a .aac .wma .aiff .aif .webm .mkv   # vše, co přehraje mpv/ffmpeg
+```
+
+`audio_build.py`: `build_audio(hw, local, io, library)` (selector: `MpvPlayer(mpv_socket, music_dir, cfg.device)`; multi:
+`MpvPlayer(f"{mpv_socket}.{out}", music_dir, device, name=out)` per výstup, `zone_out` z `ZoneHw.audio_out`, `channel_out`
++ relé z `AudioCfg.channel_map()`), `audio_signature(cfg)` = `[engine_mode, device, output_devices(), {kanál: [out,
+trigger, relay]}]` (změna = nové procesy mpv → přestavba §12), `make_music_library(storage, music_dir, supabase_url,
+on_changed)` (import hlídaný — bez `music_sync` jede legacy playlist).
 
 ## 7. `storage.py` — SQLite (`<data_dir>/motogo.db`), synchronní `sqlite3`
 
@@ -193,6 +253,36 @@ class Storage:
     def events_recent(self, limit: int = 100) -> list[dict]
     def close(self) -> None
 ```
+
+## 7a. `music_sync.py` — knihovna hudby pobočky (`MusicLibrary`, 2026-09-10)
+
+```python
+class MusicLibrary:
+    def __init__(self, storage: Storage, music_dir: str, supabase_url: str, *,
+                 on_changed: Callable[[], Awaitable[None]] | None = None) -> None
+    tracks_dir: str                        # <music_dir>/tracks/<id>.<ext>  (jen program; ruční soubory přímo v music_dir = legacy)
+    sync_reason: str | None                # "stahování běží" | "N skladeb se nepodařilo stáhnout" | None (vše staženo)
+    def start_sync(self, tracks: list[dict]) -> asyncio.Task | None   # sync na pozadí (task `music-sync`); běží-li už, None
+    async def sync(self, tracks: list[dict]) -> dict   # {added, removed, failed, unchanged}; serializované zámkem, NIKDY nevyhazuje
+    def retry_failed(self) -> int          # zruší odstup opakování všech chyb („Znovu synchronizovat“ = příkaz reload/sync_config)
+    def playlist_for(self, target: str) -> list[str]   # vlastní skladby cíle (sort_order, title) → jinak all + legacy_files() → jinak []
+    def legacy_files(self) -> list[str]    # ruční soubory přímo v music_dir (MUSIC_EXTENSIONS, abecedně) = cíl all
+    def targets(self) -> dict[str, int]    # stažené skladby po cílech (vždy klíče `all`, `legacy`)
+    def status(self) -> dict               # {tracks, synced, pending, failed, last_sync_at, targets, syncing, reason} → snapshot()['audio']['library']
+def normalize_track(raw) -> dict | None    # id = uuid (lower), ext ^[a-z0-9]{1,8}$, path bez "\n"; jinak None (neplatný záznam)
+```
+- Vstup = `kiosk_sync_config.music.tracks[{id, target, path, ext, size, sort_order, updated_at}]` (§22); cíl `door:<uuid>` |
+  `outdoor` | `all` (lokální mapa hledá i `zone:<n>`). URL souboru = `<supabase.url>/storage/v1/object/public/branch-music/<path>`
+  (bucket je public read). Neplatný záznam → `failed` se stabilním klíčem (warning jen 1×), ostatní se zpracují.
+- Index `Storage.kv['music_index']` = `{tracks: {id: {target, path, ext, size, updated_at, file, sort_order, title}}, synced_at}`
+  — ukládá se po KAŽDÉ stažené skladbě (přerušený sync o hotové soubory nepřijde; hotový soubor správné velikosti bez
+  záznamu se při dalším syncu adoptuje). Metadata (target/sort_order/title) se u nezměněných souborů jen přepíšou.
+- `sync`: stáhne nové/změněné (jiné `updated_at` nebo `size`, chybějící / špatně velký soubor) httpx streaming → `.part` →
+  `os.replace`, ověří velikost; smaže skladby, které v konfiguraci nejsou, a osiřelé soubory v `tracks/`; max 3 paralelně;
+  timeout = 120 s nečinnosti spojení (+ connect 15 s) a strop přenosu `120 s + size / 50 kB/s`. Chyba (HTTP ≠ 200, velikost,
+  timeout, I/O) → `_failed[id] = {reason, attempts, next_at}` s exponenciálním odstupem 2 min · 2^(n−1) … max 6 h; odstup
+  ruší změna path/size/updated_at nebo `retry_failed()`. Po `added`/`removed` → `await on_changed()`
+  (= `controller._music_changed` → `audio.reload_playlists()`, §6). Nikdy neblokuje HW smyčky.
 
 ## 8. `pins.py`
 
@@ -301,11 +391,13 @@ Pravidla: nikdy nesepnout zámek mimo `grant_access`; zámek jen HW pulz; hudbu 
 **Souběh více zón (rozhodnutí uživatele, SPEC §13.7 = ANO):** každá zóna má nezávislou relaci, víc
 kójí smí být otevřených současně. Povinné zábrany: (a) `BoxController.lock_gate: asyncio.Lock` —
 `grant_access` drží gate po dobu pulzu zámku (`await io.pulse(...)` + `asyncio.sleep(lock_pulse_ms/1000)`
-uvnitř gate), takže dva zámky nikdy nemají impulz zároveň; (b) audio: `audio.play_zone(new)` u nové
+uvnitř gate), takže dva zámky nikdy nemají impulz zároveň; (b) audio (režim `selector`): `audio.play_zone(new)` u nové
 relace převezme reproduktor (stará zóna přestane hrát, její stav zůstává DOOR_OPEN); zóna volá
-`audio.stop()` jen pokud `audio.playing_zone == zone.number` (viz výše) — hudba se do dřívější kóje
-nevrací; (c) světla/signalizace per zóna bez omezení. `audio.stop_zone(zone)` je atomické (pod zámkem přehrávače)
-— zastaví jen pokud stále hraje daná zóna, takže doběh staré relace nikdy neutne hudbu nové.
+`audio.stop_zone(self.number)` — zastaví jen pokud v ní stále hraje — hudba se do dřívější kóje
+nevrací; v režimu `multi` (§6) má každá kóje vlastní výstup, hraje ve všech otevřených současně a `stop_zone`
+utne jen její kanál; `status().music = audio.is_playing(zone)`; (c) světla/signalizace per zóna bez omezení.
+`audio.stop_zone(zone)` je atomické (pod zámkem přehrávače) — zastaví jen pokud stále hraje daná zóna, takže doběh
+staré relace nikdy neutne hudbu nové.
 
 ## 12. `controller.py` — `BoxController`
 
@@ -313,7 +405,8 @@ nevrací; (c) světla/signalizace per zóna bez omezení. `audio.stop_zone(zone)
 class BoxController:
     def __init__(self, local: LocalConfig, storage: Storage, api: SupabaseApi, version: str) -> None
     ready: bool ; branch_name: str | None ; hardware: HardwareConfig ; zones: dict[int, ZoneController]
-    io: IoBus ; signals: SignalController ; audio: AudioController ; health: dict ; last_error: str | None
+    io: IoBus ; signals: SignalController ; audio: AudioController | AudioMulti ; health: dict ; last_error: str | None
+    music: MusicLibrary | None                 # knihovna hudby (§7a) — vzniká JEDNOU (make_music_library), přežije přestavby; None = legacy playlist z music_dir
     ui_notice: dict | None                     # {"title","subtitle","kind","ts"} pro UI (identify apod.)
     async def start(self) -> None
         # 1) načti HW: local hardware_file + storage.kv 'remote_config' (poslední sync) → HardwareConfig
@@ -333,6 +426,11 @@ class BoxController:
     async def service_open(self, door_id: str | None, zone: int | None) -> dict     # grant_access(kind='service', source='service_panel')
     async def handle_command(self, cmd: dict) -> None    # → commands.execute → api.complete_command
     async def resync(self) -> dict          # api.sync_config → uložit kv 'remote_config' + code cache; při změně devices/zones → rebuild (all_off + nové zóny) ; vrací {changed:bool, problems:[…]}
+        # podpis přestavby `_signature(hw)` = hw_signature (zařízení/zóny/polling) + `audio_signature(hw.audio)` (režim/device/výstupy/kanály = nové mpv procesy);
+        # beze změny podpisu jen `audio.update_cfg(hw.audio, hw.timings)`. Blokují jen `blocking_problems(problems)` (§2); „Upozornění:“ se zalogují.
+        # `payload['music']` (§22) → po uložení remote_config `self.music.start_sync(music['tracks'])` (na pozadí; i při odložené přestavbě se
+        # kódy uloží, hudba se ale synchronizuje až po uplatnění konfigurace). `_music_changed()` (on_changed knihovny) → `audio.reload_playlists()`.
+        # `_rebuild`: `build_audio(hw, local, io, self.music)` — engine dle hw.audio.mode (§6); `_module_reinit` → `audio.reselect_if_playing(name)`
     def snapshot(self) -> dict              # viz §14 payload statusu (pro UI i kiosk_report_status)
     async def all_off(self) -> None         # audio.all_off, io.all_off (vše), signals.all_off, zóny force_secure
     async def emit(self, event: Event) -> None   # storage.event_add + log_open/log_event dle druhu (viz §15) + UI
@@ -347,15 +445,15 @@ async def execute(ctrl: BoxController, command: str, params: dict) -> tuple[bool
 | command | params | akce |
 |---|---|---|
 | `open_door` | `door_id` / `zone` / `box_number` (+ ignoruje `relay_url`,`light_url`) | plná přístupová sekvence zóny (`grant_access(kind='service', source='velin')`) |
-| `music_on` | `zone?` | `audio.play_zone(zone or první zóna)` |
-| `music_off` | – | `audio.stop()` |
+| `music_on` | `zone?` / `door_id?` / `box_number?` | `audio.play_zone(zone)`; bez zóny první zóna; zadaná neexistující → `(False, {error:'zone_not_found'})` (nikdy cizí reproduktor) |
+| `music_off` | `zone?` / `door_id?` / `box_number?` | se zónou `audio.stop_zone(zone)` = jen tato kóje (multi: ostatní kanály hrají dál; selector = totéž co stop); bez zóny `audio.stop()` = vše |
 | `light_on` / `light_off` | `zone`/`door_id` | `zone.set_light` |
 | `set_signal` | `zone`, `signal` (red/green/off/green_pulse/red_blink/both_blink) | `zone.set_signal` |
 | `zone_test` | `zone` | `zone.test_sequence()` |
 | `audio_test` | `zone`, `seconds?` | `audio.test_tone` |
 | `all_off` | – | `ctrl.all_off()` |
 | `identify` | `label?` | ui_notice „Tady jsem" + 3× bliknutí zelené všech zón, pak obnovit |
-| `reload` / `sync_config` | – | `ctrl.resync()` → `{ok, error?, deferred?}`; při aktivní relaci se přestavba zón odloží (config se stáhne, zóny až po SECURED) |
+| `reload` / `sync_config` | – | nejdřív `ctrl.music.retry_failed()` (skladby v backoffu se zkusí hned znovu — Velín „Znovu synchronizovat“), pak `ctrl.resync()` → `{ok, error?, deferred?}` (stáhne konfiguraci, cache kódů i seznam hudby → sync knihovny na pozadí); při aktivní relaci se přestavba zón odloží (config se stáhne, zóny až po SECURED) |
 | `restart` | – | complete_command PŘED ukončením, pak `os._exit(0)` (systemd restartuje) |
 | `reboot` | `wait_idle?` (bool), `wait_idle_s?` | bez `wait_idle`: complete, pak `sudo systemctl reboot`; selhání sudo → `log_event` (Velín vidí důvod). S `wait_idle:true` (Velín „Restart OS“ v bloku Aktualizace řídicích jednotek): `ctrl.updater.start('reboot', params)` → hned `{scheduled:true, wait_idle_s}`, reboot až když je box volný (§25; `update.kind='reboot'`, `waiting` → `rebooting`, selhání `failed` `reboot_failed: rc=N`; `last` se NEpřepisuje). `restart`/`reboot` = `TERMINAL_COMMANDS` (dokončí se před ukončením procesu) |
 | `update_software` | `ref?` (sha 7–40 hex), `rollout_id?`, `wait_idle_s?` (0–14400, výchozí 1800) | `ctrl.updater.start('software', params)` (§25) — jen NAPLÁNUJE a hned vrací `(True, {scheduled:true, ref, wait_idle_s})`; v klidu `sudo /usr/local/sbin/motogo-update` (root-owned kopie `scripts/update.sh`: `git fetch` + `git merge --ff-only <ref\|@{upstream}>` jako vlastník checkoutu, pip v rozsazích requirements, restart; timeout 900 s). Odmítne `invalid_ref`, `update_in_progress` (+`state`, `kind`; po timeoutu `reason:'timeout_orphan'`, `retry_after_s`). Výsledek Velín pozná z hlášené verze / `status.update`, ne z výsledku příkazu |
@@ -375,7 +473,12 @@ Dokud běží root skript aktualizace (`updater.state == 'running'`) nebo trvá 
 {"ts":"2026-09-09T10:00:00+02:00","version":"1.0.0+abc123","uptime_s":123,"ready":true,"branch_name":"Brno",
  "internet":true,"config_source":"remote|local","config_problems":[],
  "modules":{"wav645":true,"wav617a":true,"wav617b":true,"shelly1":true,"shelly2":true,"shelly3":true,"shelly4":true},
- "audio":{"playing_zone":null,"player_ok":true,"playlist_count":12,"device":"alsa/plughw:CARD=Headphones"},
+ "audio":{"mode":"multi","playing_zone":3,"playing_zones":[3,7],"channels":["outdoor"],"player_ok":true,"playlist_count":27,
+          "device":"out1=alsa/plughw:CARD=Box1, out9=alsa/plughw:CARD=Venek",
+          "players":{"out1":{"alive":true,"playlist_count":8,"device":"alsa/plughw:CARD=Box1","playing":null,"target":"door:uuid"},
+                     "out9":{"alive":true,"playlist_count":4,"device":"alsa/plughw:CARD=Venek","playing":"outdoor","target":"outdoor"}},
+          "library":{"tracks":20,"synced":19,"pending":1,"failed":1,"last_sync_at":"…","targets":{"all":8,"legacy":0,"outdoor":4,"door:uuid":7},
+                     "syncing":false,"reason":"1 skladeb se nepodařilo stáhnout"}},
  "diagnostics":{"running":false,"id":null,"mode":"full","step":null,"step_title":null,"done":[],"steps":["system","…","summary"],
                 "elapsed_s":null,"error":null,
                 "last":{"id":"…","ts":"…","ok":true,"mode":"full","problems":0,"warnings":1,"hosts":7,"zones_ok":9,"zones_total":9,"duration_s":95.2,"source":"velin"}},
@@ -393,6 +496,15 @@ Dokud běží root skript aktualizace (`updater.state == 'running'`) nebo trvá 
 ```
 
 Hodnoty `state` = `ZoneState.value` (velká písmena), `signal` = `Signal.value` (malá písmena: red, green, green_pulse, red_blink, both_blink, off).
+
+`audio` = `audio.status()` (§6; 2026-09-10): `mode` selector|multi; `playing_zone` (selector: hrající zóna, multi: první hrající
+— ZŮSTÁVÁ pro Velín/UI), `playing_zones` (multi: všechny), `channels` (hrající kanály bez dveří, např. `["outdoor"]`),
+`player_ok` (multi: všechny mpv), `playlist_count` (multi: součet), `device` (multi: `"out=device, …"`), `players{název:{alive,
+playlist_count, device}}` (selector jeden klíč `mpv`; multi navíc `playing` = zóna|kanál|null a `target` = načtený cíl),
+`library` = `MusicLibrary.status()` (§7a) nebo `null` (bez knihovny). Zóna: `music` = `audio.is_playing(zone)`. Bez audio
+enginu (před startem) `{mode, playing_zone:null, playing_zones:[], channels:[], player_ok:false, playlist_count:0, device:null,
+players:{}, library:null}`. Velín `BranchMusicParts.jsx` (`UnitSyncStatus`) z `library` kreslí chip „Jednotka: n/m staženo /
+stahuje k / k selhalo“ a z `mode` chip režimu; `panel.js` (servisní panel Hudba) bere hrající zóny z `playing_zones` / `zone.music`.
 
 `diagnostics` = `NetworkDiagnostics.status()` (§24): `mode` full|network, `steps` = pořadí kroků dle režimu (`STEPS` / `NETWORK_STEPS`),
 `step_title` ze `STEP_TITLES`, `last` = souhrn posledního reportu (`problems`/`warnings` = počty, `zones_*` jen u full). Velín
@@ -441,21 +553,28 @@ aiohttp na `local.web.host:port` (default 127.0.0.1:8080):
   `/api/diagnostics/run` se service_token). Odpověď `{ok, started, id, mode}` / `{ok:false, error:'already_running', id, mode}`.
 Chybové odpovědi `{"ok":false,"error":"…"}`; neplatný service_token → 403.
 
-UI (`ui/index.html`, `ui/app.js`, `ui/style.css`; vanilla JS, žádné CDN, offline):
-1920×1080, tmavé téma jako Flutter kiosk (gradient #0f1a14→#1a2e22, zelená #74FB71,
-červená #dc2626, amber). Hlavička: logo (`ui/logo.svg`/text) „MotoGo24 / PŮJČOVNA MOTOREK" + název pobočky
-+ indikátor online. Výzva „Zadejte přístupový kód", maskované pole (● za každý znak,
-`mask_pin_on_screen`), numerická klávesnice (velká tlačítka ≥ 120 px) + tlačítko
-„ABC" přepínající na QWERTY (servisní hesla), ⌫, Smazat, OK. Timeout zadávání
-`pin_entry_timeout_s` (vymaže vstup). Overlay stavů (working/success/error, auto-hide
-6 s, texty z Flutter kiosku: „Ověřuji kód…", „Otevřeno — Po vyzvednutí oblečení zavřete
-dveře a zadejte kód k motorce.", „Příjemnou cestu! 🏍️", „Neplatný kód", „Zkuste to
-prosím znovu nebo kontaktujte podporu: +420 774 256 271."). Servisní panel (jen po
-servisním heslu): mřížka zón (stav, dveře, signál, tlačítka Otevřít/Světlo/Hudba),
-Vše vypnout, stav zařízení (online, ID, verze, moduly, LTE), Přepárovat (formulář),
-Restart. Setup obrazovka když není spárováno. Spodní lišta: 9 dlaždic zón (barva dle
-signálu/stavu) pro rychlou orientaci. Při ztrátě WS → reconnect + banner „Řídicí
-jednotka nedostupná". Klávesnice fyzická (numpad) funguje také. **Diagnostika pobočky** (`ui/diag.js`,
+UI (`ui/index.html`, `ui/app.js`, `ui/style.css` + `ui/style-overlays.css`, `ui/i18n.js`, `ui/keyboard.js`; vanilla JS,
+žádné CDN, offline). **Redesign 2026-09-10 pro široký nízký dotykový displej:** rozložení **100vw × 100vh, responzivní** —
+žádné pevné 1920×1080 ani `fit()` transformace (ověřeno 1920×1080, 2560×1080, 1920×720, 3840×1080, 1280×400; nic se
+nepřekrývá). **Světlé téma MotoGo24** v barvách webu/appky (zelená #74FB71, tmavá #1A2E22, pozadí #F1FAF7…); technické
+overlaye (servisní panel, setup, diagnostika) zůstávají tmavé, ale responzivní (`style-overlays.css`). **Hlavička:** logo
+`ui/logo-light.svg` (emblém MG + „MOTO GO 24“), lišta 8 jazyků VŽDY viditelná (CS/EN/DE/PL/SK/UK/FR/ES, návrat do CS po
+nečinnosti), **název pobočky VÝHRADNĚ z Velína** (`snapshot().branch_name` = `branches.name`; bez něj je místo prázdné —
+žádný automatický text) + tečka online. **Tělo ve třech sloupcích:** (1) výzva „Zadejte přístupový kód“ + vysvětlivky
+`hint1` „Kód najdete v aplikaci MotoGo24 — v detailu rezervace a ve zprávách — nebo v potvrzovacím e‑mailu.“ / `hint2`
+„Kód k výbavě otevře šatnu · kód k motorce otevře vaši garáž s vaší motorkou.“ + maskované pole (● za znak,
+`mask_pin_on_screen`) + upozornění zóny; (2) klávesnice — rozměr kláves se počítá z kontejneru (CSS container query,
+`--k`), numerická i QWERTY (tlačítko „ABC“ pro servisní hesla) se nikdy nepřekrývají, klávesy ≥ 48 px, ⌫, Smazat, OK;
+(3) dlaždice zón v 1–2 sloupcích (barva dle signálu/stavu, stav se zalamuje; šatna = `acc` „Šatna“, kóje „Kóje {n}“).
+Texty `hint1/hint2/okAcc/acc` jsou ve všech 8 jazycích (`i18n.js`); `MG.i18n.signal(sig)` = český popis signálu pro
+servisní panel; `MG.__debug` = neškodný hook (`toggleKeyboard/setLang/applyState/showStatus/hideStatus`) pro screenshot
+harness. Timeout zadávání `pin_entry_timeout_s` (vymaže vstup). Overlay stavů (working/success/error, auto-hide 6 s):
+„Ověřuji kód…“, `okAcc` „Po vyzvednutí výbavy zavřete šatnu a zadejte kód k motorce.“, „Příjemnou cestu! 🏍️“, „Neplatný
+kód“, „Zkuste to prosím znovu nebo kontaktujte podporu: +420 774 256 271.“. Servisní panel (jen po servisním heslu):
+mřížka zón (stav, dveře, signál, tlačítka Otevřít/Světlo/Hudba — hrající = `audio.playing_zones` / `zone.music`), Vše
+vypnout, stav zařízení (online, ID, verze, moduly, LTE), Přepárovat (formulář), Restart. Setup obrazovka když není
+spárováno. Při ztrátě WS → reconnect + banner „Řídicí jednotka nedostupná“. Fyzická klávesnice (numpad) funguje také.
+**Diagnostika pobočky** (`ui/diag.js`,
 overlay `#diag`, z-index nad setupem): otevře se po diagnostickém kódu z hlavní klávesnice (`/api/pin` →
 `kind: "diagnostics"`), tlačítkem „🔍 Diagnostika pobočky (kód z config.yaml)“ na setup obrazovce (zadání kódu
 textovou klávesnicí → `/api/diagnostics/run`) nebo ze servisního panelu „🔍 Diagnostika pobočky“ (service_token);
@@ -523,7 +642,18 @@ Třídy `SimRelayModule`, `SimShelly` použitelné v testech in-process (`await 
 - `test_io.py`: `all_off` ověřený; `pulse` na WAV645 = flash (coil se sám vypne); WAV617 `set_normal_mode`.
 - `test_zone.py`: fake IoBus/Signal/Audio (in-memory); průchod SECURED→ACCESS_GRANTED→WAITING→DOOR_OPEN→CLOSED_CONFIRMATION→SECURED s falešnými hodinami; open timeout; forced open; io offline → přístup zamítnut; overtime.
 - `test_pins.py`: hmac shoda s referenční hodnotou; lockout 5 pokusů/5 min → 15 min; LocalResolver na hashované i legacy cache.
-- `test_audio.py`: selector nikdy nesepne 2 relé, pořadí kroků, fade.
+- `test_audio.py`: selector nikdy nesepne 2 relé, pořadí kroků, fade; playlist cíle zóny z knihovny (`load_files`).
+- `test_audio_multi.py` (2026-09-10): dvě zóny hrají současně každá svůj playlist; venek startuje s první relací a
+  stopne po `music_after_close_s` od poslední; fallback `all` + prázdný playlist; mrtvý mpv jednoho výstupu neovlivní
+  ostatní; `test_tone` jen na výstupu zóny a neutne hudbu převzatou relací; `reload_playlists` u hrajícího odloženo;
+  enable relé + `all_off`; `build_audio`/`audio_signature`; `sync_channels` neblokuje na pomalém přehrávači; relé na
+  cívce zámku/světla se vyřadí.
+- `test_music_sync.py` (2026-09-10, lokální aiohttp „bucket“): první sync stáhne, druhý nic; změna velikosti = nové
+  stažení, odebraná skladba smazána; chyba stahování → `failed` + backoff + `retry_failed`; timeout = nečinnost, ne
+  wall-clock; přerušený sync nepřijde o hotové soubory; souběžné `sync` serializované; legacy soubory + fallback
+  `playlist_for`; `start_sync` dedup; sanitizace id/ext/URL.
+- `test_config.py` (doplněno): multi — neznámý výstup, sdílený výstup, kanál bez výstupu (blokují); `channels` v
+  selectoru = jen „Upozornění:“; kolize relé kanálu s cívkou zóny blokuje.
 
 ---
 
@@ -548,6 +678,21 @@ p_report jsonb) RETURNS jsonb` (`{ok, id}` / `{ok:false, error}`, drží posledn
 `kiosk_sync_config.service_codes` nově `[{h, action, label}]`; `kiosk_resolve_code` u servisního hesla vrací
 i `action` a `label` (tablety ignorují).
 
+**`supabase/migrations/20260910d_branch_music.sql`** (2026-09-10, idempotentní, PG16 validace, hudba pobočky §6/§7a):
+tabulka **`branch_music_tracks`** `(id uuid PK, branch_id FK→branches CASCADE, target text NOT NULL DEFAULT 'all' CHECK
+(all | outdoor | ^door:[0-9a-f-]{36}$), title, file_path text UNIQUE (cesta v bucketu), ext, mime, size_bytes, duration_s,
+sort_order, is_active, created_by, created_at, updated_at)` + index `idx_branch_music_tracks_branch (branch_id, target,
+sort_order)`, trigger `trg_branch_music_tracks_touch` (`touch_updated_at`), RLS `branch_music_tracks_admin FOR ALL is_admin()`.
+Storage bucket **`branch-music`** (public read — cesty jsou uuid; `file_size_limit` 200 MB) + politiky `storage.objects`:
+`branch_music_admin_insert/update/delete` (authenticated ∧ `bucket_id='branch-music'` ∧ `is_admin()`),
+`branch_music_public_select` (public SELECT). Cesta objektu `<branch_id>/<track_id>.<ext>`.
+`kiosk_sync_config` (tělo 1:1 z 20260910 + nový klíč) vrací **`music: {updated_at, tracks:[{id, target, path (=file_path),
+ext, size, sort_order, updated_at}]}`** — jen `is_active`, ORDER BY target, sort_order, created_at; **`tracks[].updated_at`
+= čas SOUBORU** (`storage.objects.updated_at` LEFT JOIN dle `name = file_path`, fallback `created_at` řádku) — jednotka podle
+něj stahuje znovu, takže přejmenování / přesun / změna pořadí soubor nemění a nic nestahuje; `music.updated_at` =
+`max(updated_at)` řádků (jakákoli změna metadat, pro Velín/diagnostiku). Režim audia (selector|multi) NENÍ sloupec —
+je součástí HW mapy `branch_kiosk_config.hardware.audio.mode`.
+
 ## 23. Velín
 
 `velin/src/pages/BranchRpiZones.jsx` (živý stav zón + příkazy per zóna/celek) a
@@ -562,6 +707,28 @@ moduly, LAN, trvání) + „Protokol“ (`BranchRpiDiagProtocol.jsx`: hlavička,
 a sbalenými OK kontrolami, sbalený „Technický detail sítě“ = `BranchRpiDiagNetwork.jsx`, **Stáhnout protokol (.txt)**
 `diagnostika-<pobocka>-<YYYYMMDD-HHMM>.txt` + **Kopírovat**); starší report bez `protocol` → jen síťový detail (§24).
 `ServiceCodesBlock` má select „Účel“ (`action`: servisní panel | jen diagnostika).
+
+**Blok „Hudba pobočky“ (2026-09-10; `velin/src/pages/BranchMusic.jsx` + `BranchMusicParts.jsx` + `branchMusicHelpers.js`,
+mount v `BranchSelfService.jsx`; starší „Hudba & časování (jen tablet)“ zůstává):** drop zóna „Přetáhněte hudbu z PC“
+(+ klik = výběr více souborů; `ACCEPT` = `audio/*` + přípony mp3/wav/flac/ogg/oga/opus/m4a/aac/wma/aiff/aif/webm/mkv/mp4a,
+max 200 MB/soubor) se selectem cíle **Všechny kóje (společná)** / **Šatna** (`door_kind` accessories) / **Kóje N**
+(motorcycle dle `box_number`) / **Venek**; upload `supabase.storage.from('branch-music').upload('<branch_id>/<uuid>.<ext>')`
+(`contentType` z `file.type` nebo dle přípony) → INSERT `branch_music_tracks` (title = název bez přípony, ext, mime,
+size_bytes, target, `sort_order` = max+1, created_by); chyba insertu → objekt se smaže; průběh n/m. Seznam skladeb po
+cílech (pořadí Venek, Šatna, Kóje 1–N, Společná; „smazané dveře“ chip u cíle bez dveří): ▲▼ (přečísluje `sort_order`
+celé skupiny), přejmenování (`title`), zapnout/vypnout (`is_active`), přesun do jiného cíle (select → `target` +
+nový `sort_order`), smazat (confirm; smaže objekt v bucketu i řádek), přehrát v prohlížeči (`<audio>` z public URL),
+stáhnout (public URL s `download=`). Souhrn per cíl: „N skladeb (vlastní)“ / „společná hudba (M)“ / „0 — nehraje nic“
+(varování). `UnitSyncStatus`: per RPi jednotka chip z `kiosk_devices.status.audio.library` („Jednotka: n/m staženo“ /
+„stahuje k“ / „k selhalo“, title = počty po cílech) + chip režimu (`status.audio.mode`), tlačítko **„Znovu synchronizovat“**
+= příkaz `sync_config` (jednotka zruší backoff a stáhne znovu). Hint vysvětluje trigger kódem, společnou hudbu, formáty a
+že venek + souběžné přehrávání vyžadují režim multi v HW mapě.
+**HW editor — sekce Audio (`BranchRpiAudioHw.jsx`, `BranchRpiDoorHw.jsx`, `BranchRpiHardwareDefaults.js`):** režim
+(`hardware.audio.mode` selector|multi), seznam výstupů (název + ALSA zařízení dle `aplay -L`, tlačítko „Vzor 9 výstupů“
+= `BRNO_AUDIO_OUTPUTS_EXAMPLE` out1–out9 bez přepnutí režimu), „Kanál venek → výstup“ (`audio.channels.outdoor = {out,
+trigger:'any'}`); u dveří role **Audio** = v selectoru relé `{dev, coil}`, v multi select výstupu `hw.audio.out` (+ volitelné
+enable relé). Validace zrcadlí `validate_audio`: multi bez výstupu, venek mimo multi, neznámý / sdílený výstup (zóna ×
+zóna, zóna × venek) blokují uložení; v selectoru se `out` nekontroluje ani neukazuje (zachová se pro pozdější multi).
 
 ## 24. Diagnostika pobočky — `diagnostics.py` + `diag_steps.py` + `diag_protocol.py` + `diag_hints.py` + `net_scan.py`
 
