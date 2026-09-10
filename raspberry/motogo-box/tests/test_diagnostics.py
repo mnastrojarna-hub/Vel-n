@@ -232,3 +232,12 @@ async def test_command_and_web_api(tmp_path, sim):
         assert ok and res["started"] and "diagnostics" not in commands.HW_COMMANDS
         await ctrl.diagnostics.wait()
     await ctrl.diagnostics.cancel()
+
+
+async def test_empty_local_code_never_matches(tmp_path, sim):
+    """Výchozí `diagnostics.code` je prázdný = diagnostika z displeje vypnutá (žádný veřejný default)."""
+    from motogo_box.config import DiagnosticsCfg
+    assert DiagnosticsCfg().code == ""
+    ctrl = FakeCtrl(tmp_path, hw_for(sim))
+    ctrl.local.diagnostics.code = ""
+    assert not ctrl.diagnostics.matches_local_code("") and not ctrl.diagnostics.matches_local_code("netdiag")

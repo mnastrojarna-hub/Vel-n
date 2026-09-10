@@ -82,7 +82,7 @@ class HealthCfg:
 class DiagnosticsCfg:
     """Diagnostika sítě (`diagnostics.py`): kód z displeje + parametry scanu LAN."""
 
-    code: str = "netdiag"           # kód zadaný na displeji (install.sh se ptá); prázdný = jen Velín/servis
+    code: str = ""                  # kód zadaný na displeji (install.sh generuje náhodný); prázdný = jen Velín/servisní heslo
     scan_ports: list = field(default_factory=lambda: [502, 80, 443, 22, 8080, 8443, 1883])
     scan_timeout_ms: int = 600
     scan_concurrency: int = 96

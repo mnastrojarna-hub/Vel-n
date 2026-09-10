@@ -23,6 +23,9 @@ name: Release MotoGo Box
 #
 # Pozadovany GitHub secret (uz existuje pro deploy-sql.yml):
 #   SUPABASE_DB_URL = postgresql://postgres:<HESLO>@db.<ref>.supabase.co:5432/postgres
+#                     (primy host je jen IPv6 bez add-onu a GitHub runnery IPv6 nemaji — pri zmene/rotaci
+#                      hesla pouzij Supavisor SESSION string z Dashboardu -> Connect -> Session pooler (IPv4):
+#                      postgresql://postgres.<ref>:<HESLO>@aws-0-<region>.pooler.supabase.com:5432/postgres)
 
 on:
   push:

@@ -17,7 +17,10 @@ name: Snapshot Supabase to git
 # Secrets (Settings -> Secrets and variables -> Actions -> Repository secrets):
 #   ACCESS_TOKEN     = Supabase personal access token (https://supabase.com/dashboard/account/tokens)
 #   SUPABASE_DB_URL  = postgresql://postgres:<DB_HESLO>@db.vnwnqteskbykeucanlhk.supabase.co:5432/postgres
-#                      (Dashboard -> Project Settings -> Database -> Connection string -> URI)
+#                      (primy host je jen IPv6 bez add-onu a GitHub runnery IPv6 nemaji; stejny secret
+#                       pouziva deploy-sql.yml a bezi zelene — pri zmene/rotaci hesla pouzij Supavisor
+#                       SESSION string z Dashboardu -> Connect -> Session pooler (IPv4):
+#                       postgresql://postgres.<ref>:<HESLO>@aws-0-<region>.pooler.supabase.com:5432/postgres)
 
 on:
   schedule:

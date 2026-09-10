@@ -130,6 +130,7 @@ class FakeCtrl:
         self.local = LocalConfig()
         self.local.supabase.url = "http://127.0.0.1:1"
         self.local.diagnostics.internet_urls = []
+        self.local.diagnostics.code = "netdiag"     # výchozí je prázdný (vypnuto) — testy kód nastavují explicitně
         self.local.diagnostics.scan_subnets = ["127.0.0.1/30"]
         # scan hledá porty simulátoru (v hw mapě) místo 502/80
         self.local.diagnostics.scan_ports = sorted({int(d.get("port") or 502) for d in (hw.get("devices") or {}).values()}) or [502]

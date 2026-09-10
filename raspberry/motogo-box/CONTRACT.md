@@ -26,7 +26,7 @@ Logování přes `logging.getLogger("motogo.<modul>")`.
 |---|---|---|
 | `motogo-controller.service` | `python -m motogo_box controller` | Modbus I/O, Shelly signalizace, audio, stavové automaty zón, Supabase sync, lokální HTTP/WS server pro UI, vzdálené příkazy, status report, systemd watchdog |
 | `motogo-health.service` | `python -m motogo_box health` | LTE watchdog (ModemManager/NetworkManager), USB reset modemu, reboot policy, teploty/disk/throttling → `POST http://127.0.0.1:8080/api/health` |
-| `motogo-ui.service` | `cage -- chromium --kiosk http://127.0.0.1:8080/` | Dotykové UI na EDATEC (1920×1080) |
+| `motogo-ui.service` | `scripts/kiosk-ui.sh` (= `cage -- chromium --kiosk http://127.0.0.1:8080/`, po `ExecStartPre=chvt 7`) | Dotykové UI na EDATEC (responzivní 100vw×100vh, §16) |
 
 `python -m motogo_box simulate` spustí lokální simulátor hardwaru (vývoj/testy).
 
@@ -492,7 +492,7 @@ Dokud běží root skript aktualizace (`updater.state == 'running'`) nebo trvá 
  "zones":[{"zone":1,"door_id":"uuid|null","box_number":1,"kind":"motorcycle","label":"Kóje 1","state":"SECURED",
            "door_closed":true,"fault":null,"light":false,"signal":"red","music":false,"latch_released":false,"degraded":false,
            "session_started_at":null,"booking_id":null,"last_event":"DOOR_CLOSED"}],
- "notice":null}
+ "notice":null,"last_error":null}
 ```
 
 Hodnoty `state` = `ZoneState.value` (velká písmena), `signal` = `Signal.value` (malá písmena: red, green, green_pulse, red_blink, both_blink, off).
@@ -528,6 +528,14 @@ source 'modbus'|'shelly'), SESSION_OVERTIME(+ALERT) (warn 'zone'), CONTACT_FAULT
 PIN_LOCKOUT (warn 'pin'), STARTUP (info 'controller', verze + problémy konfigurace),
 LTE_RESET/REBOOT (warn 'lte', posílá health přes controller), CONFIG_PROBLEM (error 'config').
 
+Limity na straně DB (`20260910e_kiosk_log_guards.sql`, obě RPC jsou void — jednotka nic neopakuje):
+`kiosk_log_event` zahodí záznamy nad **120 / zařízení / minutu** a `detail` > 64 KiB nahradí
+`{truncated:true,size}` (detail události má stovky bajtů — bouři událostí řeší jednotka, ne DB);
+`kiosk_log_open` uloží `door_id` jen z pobočky zařízení, jinak `door_id=NULL` +
+`detail.door_mismatch=true` (+`detail.door_id`). `kiosk_logs` se v DB mažou po 90 dnech
+(pg_cron `kiosk-logs-retention`), `branch_door_events` (audit) zůstávají. `kiosk_report_diagnostics`
+vrací při chybě INSERTu `error:'insert_failed'` (ne SQLERRM) — outbox položku zahodí (§9 `flush_outbox`).
+
 ## 16. `webserver.py` + `ui/`
 
 aiohttp na `local.web.host:port` (default 127.0.0.1:8080):
@@ -558,7 +566,7 @@ UI (`ui/index.html`, `ui/app.js`, `ui/style.css` + `ui/style-overlays.css`, `ui/
 žádné pevné 1920×1080 ani `fit()` transformace (ověřeno 1920×1080, 2560×1080, 1920×720, 3840×1080, 1280×400; nic se
 nepřekrývá). **Světlé téma MotoGo24** v barvách webu/appky (zelená #74FB71, tmavá #1A2E22, pozadí #F1FAF7…); technické
 overlaye (servisní panel, setup, diagnostika) zůstávají tmavé, ale responzivní (`style-overlays.css`). **Hlavička:** logo
-`ui/logo-light.svg` (emblém MG + „MOTO GO 24“), lišta 8 jazyků VŽDY viditelná (CS/EN/DE/PL/SK/UK/FR/ES, návrat do CS po
+`ui/logo-light.svg` (emblém MG + „MOTO GO 24“), lišta 8 jazyků VŽDY viditelná (`i18n.js` `LANGS`: CS/EN/DE/ES/FR/NL/PL/UK, návrat do CS po
 nečinnosti), **název pobočky VÝHRADNĚ z Velína** (`snapshot().branch_name` = `branches.name`; bez něj je místo prázdné —
 žádný automatický text) + tečka online. **Tělo ve třech sloupcích:** (1) výzva „Zadejte přístupový kód“ + vysvětlivky
 `hint1` „Kód najdete v aplikaci MotoGo24 — v detailu rezervace a ve zprávách — nebo v potvrzovacím e‑mailu.“ / `hint2`
@@ -654,6 +662,16 @@ Třídy `SimRelayModule`, `SimShelly` použitelné v testech in-process (`await 
   `playlist_for`; `start_sync` dedup; sanitizace id/ext/URL.
 - `test_config.py` (doplněno): multi — neznámý výstup, sdílený výstup, kanál bez výstupu (blokují); `channels` v
   selectoru = jen „Upozornění:“; kolize relé kanálu s cívkou zóny blokuje.
+- `test_updater.py` (2026-09-10, §25): čekání na klid (relace / diagnostika) a strop `wait_idle_s`; `update_ref` zápis/smazání;
+  `invalid_ref` / `update_in_progress` (+ `timeout_orphan` lhůta software 900 s / system 2700 s); `script_running`; rc≠0 →
+  `failed` + `kiosk_log_event`; system: `REBOOT_REQUIRED` parsování, `sysupdate_missing`, `auto_reboot` až po klidu, selhání
+  rebootu; kind `reboot` (`wait_idle`) nepřepisuje `last`; `last` z kv přežije restart.
+- `test_webserver.py`: `GET /` + všechny statické soubory z `index.html` (`app.js`, `diag.js`, `i18n.js`, `keyboard.js`,
+  `panel.js`, `style.css`, `style-overlays.css`, `logo*.svg`), path traversal 403/404, PIN, service_token, párování, WS push,
+  `/api/health` jen z localhostu + `actions` reconnect/usb_reset/reboot → události LTE_RESET/REBOOT (§15).
+- `test_commands.py`, `test_health.py`, `test_audit_fixes.py`: příkazy §13 (vč. `update_blocks`, `zone_not_found`, timeout
+  sudo potomka bez EPERM), politika LTE watchdogu (3 sondy, SIM locked → `lte.error`, USB reset / reboot prahy), regresní
+  testy nálezů bezpečnostní revize.
 
 ---
 
@@ -909,7 +927,7 @@ služby ani systém; exit 0 / 2. Logy `/var/log/motogo-update.log`, `/var/log/mo
 **Systém:** `systemd/52motogo-unattended` → `/etc/apt/apt.conf.d/` (`#clear Origins-Pattern` + jen `Debian-Security`,
 `Automatic-Reboot "false"`, `Periodic` 1, `DPkg::Post-Invoke` hook → `/run/reboot-required`); `systemd/apt-daily-upgrade-override.conf`
 → `/etc/systemd/system/apt-daily-upgrade.timer.d/motogo.conf` (`OnCalendar=*-*-* 04:00`, `RandomizedDelaySec=20m`,
-`Persistent=false`); `systemd/motogo-sudoers` `MOTOGO_SCRIPTS` + `/usr/local/sbin/motogo-sysupdate ""`; `install.sh` krok 10/13.
+`Persistent=false`); `systemd/motogo-sudoers` `MOTOGO_SCRIPTS` + `/usr/local/sbin/motogo-sysupdate ""`; `install.sh` krok 10/14 (sudoers + polkit) a 11/14 (apt konfigurace + timer).
 
 **Release evidence:** `.github/workflows/release-motogo-box.yml` — push do `main` v `raspberry/motogo-box/**` (nebo ručně,
 vstup `commit` = plný sha z `main`; commit mimo main / neznámý se odmítne) → `INSERT INTO kiosk_releases (commit, version =

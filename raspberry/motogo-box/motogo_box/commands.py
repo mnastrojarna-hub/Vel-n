@@ -63,7 +63,10 @@ async def _run(*argv: str) -> tuple[bool, dict]:
         try:
             out, _ = await asyncio.wait_for(proc.communicate(), timeout=SUBPROCESS_TIMEOUT_S)
         except asyncio.TimeoutError:
-            proc.kill()
+            try:
+                proc.kill()
+            except (ProcessLookupError, PermissionError):
+                pass   # už skončil / potomek je sudo (root) — Velín musí dostat 'timeout', ne EPERM
             return False, {"error": "timeout", "argv": list(argv)}
         text = (out or b"").decode("utf-8", "replace")[-2000:]
         return proc.returncode == 0, {"returncode": proc.returncode, "output": text}

@@ -9,6 +9,7 @@ from aiohttp.test_utils import TestClient, TestServer
 
 from motogo_box import webserver, webserver_service
 from motogo_box.config import LocalConfig
+from motogo_box.models import EventKind
 from motogo_box.webserver import WebServer
 
 SERVICE_TOKEN = "svc-token-ok"
@@ -48,6 +49,10 @@ class FakeController:
         self.calls: list[tuple] = []
         self.tick = 0
         self.all_off_called = False
+        self.events: list = []
+
+    async def emit(self, event) -> None:
+        self.events.append(event)
 
     def snapshot(self) -> dict:
         return {
@@ -133,8 +138,10 @@ async def test_state_and_static(env):
     assert st["zones"][0]["zone"] == 1
     r = await client.get("/")
     assert r.status == 200 and "Zadejte přístupový kód" in await r.text()
-    for f in ("app.js", "keyboard.js", "panel.js", "style.css", "logo.svg"):
-        assert (await client.get(f"/static/{f}")).status == 200
+    # všechny soubory, na které se odkazuje index.html (redesign 2026-09-10: diag/i18n/overlays/logo-light/logo-icon)
+    for f in ("app.js", "diag.js", "i18n.js", "keyboard.js", "panel.js", "style.css", "style-overlays.css",
+              "logo.svg", "logo-light.svg", "logo-icon.svg"):
+        assert (await client.get(f"/static/{f}")).status == 200, f
     assert (await client.get("/static/../config.py")).status in (403, 404)
     r = await client.get("/api/neexistuje")
     assert r.status == 404 and (await r.json()) == {"ok": False, "error": "not_found"}
@@ -218,6 +225,22 @@ async def test_health_and_events_localhost_only(env, monkeypatch):
     monkeypatch.setattr(webserver, "is_local_request", lambda request: False)
     assert (await client.post("/api/health", json={"internet": True})).status == 403
     assert (await client.get("/api/events")).status == 403
+
+
+async def test_health_actions_emit_lte_reset_and_reboot_events(env):
+    """CONTRACT §15: reconnect/usb_reset → LTE_RESET, reboot → REBOOT (warn), neznámé akce ignorovat."""
+    client, ctrl, *_ = env
+    r = await client.post("/api/health", json={"internet": False, "lte": {"rssi": -90},
+                                               "actions": ["reconnect", "usb_reset", "reboot", "x"]})
+    assert (await r.json())["ok"] is True
+    assert [e.kind for e in ctrl.events] == [EventKind.LTE_RESET, EventKind.LTE_RESET, EventKind.REBOOT]
+    assert all(e.level == "warn" for e in ctrl.events)
+    assert ctrl.events[0].detail == {"source": "health", "action": "reconnect", "lte": {"rssi": -90}}
+    assert ctrl.events[2].message == "LTE obnova: reboot"
+    ctrl.events.clear()
+    for body in ({"internet": True}, {"internet": True, "actions": []}, {"internet": True, "actions": "x"}):
+        assert (await client.post("/api/health", json=body)).status == 200
+    assert ctrl.events == []
 
 
 async def test_websocket_state_and_push_on_change(env):

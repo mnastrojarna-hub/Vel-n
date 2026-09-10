@@ -365,6 +365,14 @@ store_plain_pin: false
 | motogo-sync.service | Server, rezervace a odesílání událostí |
 | motogo-health.service | Watchdog, teploty, disk, LTE a dostupnost modulů |
 
+**Skutečná implementace (`raspberry/motogo-box`, viz CONTRACT.md §0):** tři systemd jednotky —
+`motogo-ui.service` (Chromium kiosk), `motogo-controller.service` (v JEDNOM procesu asyncio: Modbus,
+Shelly, audio, stavové automaty zón, Supabase sync + příkazy, lokální web/WS pro UI, systemd watchdog)
+a `motogo-health.service` (LTE watchdog, teploty, disk). Sloučení modbus/lighting/audio/sync do
+controlleru je záměrné zjednodušení (sdílený stav zón a relé bez IPC); jeho důsledek: pád nebo
+watchdog-restart controlleru projde §12 startem (all-off, zóny zavřené → SECURED) pro všechny zóny
+najednou. Rozdělení na samostatné služby zůstává otevřené rozhodnutí (viz níže).
+
 Doporučené technologie: Raspberry Pi OS 64-bit; Python; asyncio; pymodbus plus raw PDU pro hardware impulz; httpx pro Shelly; SQLite pro lokální frontu událostí; NetworkManager/ModemManager; mpv nebo GStreamer pro audio; systemd watchdog; read-only nebo overlay root filesystem, pokud to aplikace dovolí.
 
 ## 12. Povinné bezpečné chování
@@ -425,4 +433,7 @@ Další pravidla: nikdy nedržet zámek trvale pod napětím; nikdy neaktivovat 
   (Velín → Diagnostika chyb & událostí) a do stavu zóny; push/e-mail/SMS notifikace obsluze NENÍ
   implementována (backend nemá kanál pro provozní alerty). Návrh: edge funkce nad `kiosk_logs`
   (level=warn/error) → e-mail přes Resend na kontakt pobočky.
+- **K rozhodnutí — jedna služba místo sedmi (§11):** controller sdružuje modbus/lighting/audio/sync
+  (viz poznámka pod tabulkou §11). Chce-li uživatel izolaci (pád audio/sync vrstvy bez restartu
+  stavových automatů), je třeba rozdělit aspoň sync/web a audio do samostatných unit s IPC.
 - `security.pin_length` v config.yaml je jen informativní (délku kódů určuje Velín / `kiosk_resolve_code`).

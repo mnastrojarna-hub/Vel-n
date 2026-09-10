@@ -31,7 +31,7 @@ intervals:
   io_poll_ms: 100        # čtení dveřních kontaktů
 
 diagnostics:
-  code: "netdiag"                 # kód zadaný na displeji (hlavní klávesnice, setup obrazovka) → kompletní diagnostika sítě
+  code: ""                 # kód zadaný na displeji (hlavní klávesnice, setup obrazovka) → kompletní diagnostika sítě
                                   # (funguje i před spárováním; report se zobrazí na displeji a odešle do Velína).
                                   # Z Velína: servisní heslo s účelem „diagnostika" nebo příkaz „Diagnostika sítě".
   scan_ports: [502, 80, 443, 22, 8080, 8443, 1883]   # TCP porty scanu LAN (502 Modbus, 80 Shelly/web)

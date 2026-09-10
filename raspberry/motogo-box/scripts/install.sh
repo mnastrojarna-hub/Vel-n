@@ -154,7 +154,7 @@ fi
 # při založení config.yaml se vygeneruje náhodný kód; existující kód se mění JEN přes env MOTOGO_DIAG_CODE.
 diag_explicit=0; [[ -n "${MOTOGO_DIAG_CODE:-}" ]] && diag_explicit=1
 cur_diag="$(sed -n '/^diagnostics:/,/^[a-z_]*:/ s/^  code: *"\?\([^"#]*\)"\?.*/\1/p' "$ETC_DIR/config.yaml" | head -1 | tr -d '[:space:]')"
-(( config_created )) && cur_diag=""   # čerstvá kopie vzoru obsahuje veřejný "netdiag" → nahradit náhodným
+(( config_created )) && cur_diag=""   # čerstvá kopie vzoru má kód prázdný → vygenerovat náhodný
 if (( diag_explicit || config_created )) || [[ -z "$cur_diag" ]]; then
   gen="$(printf 'diag%04d' "$(( $(od -An -N2 -tu2 /dev/urandom | tr -d ' ') % 10000 ))")"
   while :; do
