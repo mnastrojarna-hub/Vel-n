@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { Spinner, EmptyState } from './BranchHelpers'
 import { RpiStatusBlock } from './BranchRpiZones'
 import { RpiHardwareBlock } from './BranchRpiHardware'
+import { RpiDiagnosticsBlock } from './BranchRpiDiagnostics'
 
 // ─── Tab: Samoobsluha (kiosk) ─────────────────────────────────────────────
 // Konfigurace samoobslužné pobočky pro kiosk appku:
@@ -24,6 +25,7 @@ function TabSelfService({ branchId, branchName, motos }) {
   const [power, setPower] = useState(null)
   const [logs, setLogs] = useState([])
   const [ota, setOta] = useState({})
+  const [diags, setDiags] = useState([])
   const [busy, setBusy] = useState(false)
   const [now, setNow] = useState(Date.now())
 
@@ -36,7 +38,7 @@ function TabSelfService({ branchId, branchName, motos }) {
     setLoading(true)
     setError(null)
     try {
-      const [c, dev, d, s, ev, cam, pw, lg, otaRow] = await Promise.all([
+      const [c, dev, d, s, ev, cam, pw, lg, otaRow, dg] = await Promise.all([
         supabase.from('branch_kiosk_config').select('*').eq('branch_id', branchId).maybeSingle(),
         supabase.from('kiosk_devices').select('*').eq('branch_id', branchId).order('created_at'),
         supabase.from('branch_doors').select('*').eq('branch_id', branchId).order('door_kind').order('box_number'),
@@ -46,6 +48,9 @@ function TabSelfService({ branchId, branchName, motos }) {
         supabase.from('branch_power_status').select('*').eq('branch_id', branchId).maybeSingle(),
         supabase.from('kiosk_logs').select('*').eq('branch_id', branchId).order('created_at', { ascending: false }).limit(40),
         supabase.from('app_settings').select('value').eq('key', 'kiosk_app').maybeSingle(),
+        // reporty diagnostiky sítě RPi (bez sloupce report — ten se načítá až v detailu)
+        supabase.from('kiosk_diagnostics').select('id, device_id, report_id, source, ok, problems, summary, app_version, started_at, finished_at, created_at')
+          .eq('branch_id', branchId).order('created_at', { ascending: false }).limit(15),
       ])
       setCfg(c.data || null)
       setDevices(dev.data || [])
@@ -56,6 +61,7 @@ function TabSelfService({ branchId, branchName, motos }) {
       setPower(pw.data || null)
       setLogs(lg.data || [])
       setOta(otaRow.data?.value || {})
+      setDiags(dg.error ? [] : (dg.data || []))   // tabulka nemusí být ještě nasazená (migrace) → prázdný blok
     } catch (e) {
       setError(e.message)
     } finally {
@@ -180,14 +186,14 @@ function TabSelfService({ branchId, branchName, motos }) {
   }
 
   // ── Servisní hesla ──
-  async function addCode(code, label) {
+  async function addCode(code, label, action = 'service') {
     if (!code.trim()) return
     setBusy(true)
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      const { error } = await supabase.from('branch_service_codes').insert({
-        branch_id: branchId, code: code.trim(), label: label.trim() || null, created_by: user?.id || null,
-      })
+      const row = { branch_id: branchId, code: code.trim(), label: label.trim() || null, created_by: user?.id || null }
+      if (action === 'diagnostics') row.action = 'diagnostics'   // sloupec z 20260910_kiosk_diagnostics.sql
+      const { error } = await supabase.from('branch_service_codes').insert(row)
       if (error) throw error
       await load()
     } catch (e) { setError(e.message) } finally { setBusy(false) }
@@ -227,6 +233,7 @@ function TabSelfService({ branchId, branchName, motos }) {
         <>
           <ControlPanelBlock doors={doors} cfg={cfg} onlineDevice={onlineDevice} onRemote={remote} onRefresh={load} />
           <RpiStatusBlock devices={devices} doors={doors} now={now} onCommand={sendCommand} />
+          <RpiDiagnosticsBlock branchId={branchId} devices={devices} diags={diags} now={now} onCommand={sendCommand} />
           <PowerBlock power={power} cfg={cfg} now={now} onSave={saveCfg} onRefresh={load} />
           <CamerasBlock cameras={cameras} onlineDevice={onlineDevice} busy={busy}
             onAdd={addCamera} onSave={saveCamera} onDelete={deleteCamera} onRemote={remote} />
@@ -533,8 +540,9 @@ function DoorsBlock({ doors, onEnsure, onSave, onDelete, busy }) {
 function ServiceCodesBlock({ codes, onAdd, onToggle, onDelete, busy }) {
   const [code, setCode] = useState('')
   const [label, setLabel] = useState('')
+  const [action, setAction] = useState('service')
   return (
-    <Section title="Servisní hesla" hint="Otevírají všechny dveře. Appka se zeptá, které dveře otevřít.">
+    <Section title="Servisní hesla" hint="Otevírají všechny dveře. Appka se zeptá, které dveře otevřít. Účel „jen diagnostika sítě“ spustí na Raspberry pouze diagnostiku (nic neotevírá).">
       <div className="flex items-end gap-2 mb-2 flex-wrap">
         <label className="flex flex-col gap-0.5" style={{ width: 160 }}>
           <span className="text-[11px] font-bold" style={{ color: '#6b8c7a' }}>Heslo</span>
@@ -546,7 +554,15 @@ function ServiceCodesBlock({ codes, onAdd, onToggle, onDelete, busy }) {
           <input value={label} onChange={e => setLabel(e.target.value)} placeholder="Technik Petr"
             className="rounded-btn text-sm outline-none" style={{ padding: '6px 8px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
         </label>
-        <button onClick={() => { onAdd(code, label); setCode(''); setLabel('') }} disabled={busy || !code.trim()}
+        <label className="flex flex-col gap-0.5" style={{ width: 190 }}>
+          <span className="text-[11px] font-bold" style={{ color: '#6b8c7a' }}>Účel</span>
+          <select value={action} onChange={e => setAction(e.target.value)}
+            className="rounded-btn text-sm outline-none" style={{ padding: '6px 8px', background: '#fff', border: '1px solid #d4e8e0' }}>
+            <option value="service">Servisní panel (vše)</option>
+            <option value="diagnostics">Jen diagnostika sítě</option>
+          </select>
+        </label>
+        <button onClick={() => { onAdd(code, label, action); setCode(''); setLabel(''); setAction('service') }} disabled={busy || !code.trim()}
           className="rounded-btn text-sm font-bold cursor-pointer border-none"
           style={{ padding: '6px 12px', background: '#1a2e22', color: '#74FB71', opacity: (busy || !code.trim()) ? 0.5 : 1 }}>Přidat</button>
       </div>
@@ -558,6 +574,9 @@ function ServiceCodesBlock({ codes, onAdd, onToggle, onDelete, busy }) {
             <div key={c.id} className="flex items-center gap-2 p-2 rounded-lg" style={{ background: '#f8fcfa', border: '1px solid #d4e8e0' }}>
               <span className="font-mono font-extrabold text-sm" style={{ color: '#0f1a14' }}>{c.code}</span>
               {c.label && <span className="text-sm" style={{ color: '#1a2e22' }}>{c.label}</span>}
+              {c.action === 'diagnostics' && (
+                <span className="inline-block rounded-btn text-[9px] font-extrabold uppercase" style={{ padding: '2px 6px', background: '#dbeafe', color: '#2563eb' }}>jen diagnostika</span>
+              )}
               <span className="inline-block rounded-btn text-[9px] font-extrabold uppercase"
                 style={{ padding: '2px 6px', background: c.is_active ? '#dcfce7' : '#f3f4f6', color: c.is_active ? '#1a8a18' : '#6b8c7a' }}>
                 {c.is_active ? 'Aktivní' : 'Vypnuté'}

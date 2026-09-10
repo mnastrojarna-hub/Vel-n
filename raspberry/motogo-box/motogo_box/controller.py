@@ -15,6 +15,7 @@ import time
 from . import commands, controller_codes as cc, controller_hw as chw, controller_loops as loops, sdnotify
 from .audio import AudioController, AudioSelector, MpvPlayer
 from .config import HardwareConfig, LocalConfig, validate_hardware
+from .diagnostics import NetworkDiagnostics
 from .io_devices import IoBus
 from .models import Event, EventKind, Signal, now_iso
 from .pins import LocalResolver, PinGuard
@@ -63,6 +64,7 @@ class BoxController:
         self._started_at = time.monotonic()
         self.pin_guard = PinGuard(storage, self.hardware.security)
         self.resolver = LocalResolver(self._device_id(), self._device_token())
+        self.diagnostics = NetworkDiagnostics(self)      # diagnostika sítě (kód z displeje / Velín / servis)
 
     # ─── konfigurace ─────────────────────────────────────────────────────────
     def _device_id(self) -> str:
@@ -182,6 +184,7 @@ class BoxController:
         if self._power_task is not None:
             await loops.cancel_all([self._power_task])
             self._power_task = None
+        await self.diagnostics.cancel()
         await self._shutdown_hw(final=True)
 
     def _start_realtime(self) -> None:
@@ -312,6 +315,7 @@ class BoxController:
             "health": self.health, "last_error": self.last_error,
             "zones": [zc.status().to_dict() for zc in sorted(self.zones.values(), key=lambda z: z.number)],
             "notice": copy.deepcopy(notice) if notice else None,
+            "diagnostics": self.diagnostics.status(),
         }
 
     async def all_off(self) -> None:

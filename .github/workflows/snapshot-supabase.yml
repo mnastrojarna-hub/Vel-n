@@ -1,7 +1,10 @@
 name: Snapshot Supabase to git
 
-# Rucni workflow: stahne KOMPLETNI zivy stav Supabase do vetve
+# DENNI (03:15 UTC) + rucni workflow: stahne KOMPLETNI zivy stav Supabase do vetve
 # `supabase-live-snapshot` pro diff vuci `main`. NIC v main neprepisuje.
+# (Do 2026-09-10 bezel JEN rucne -> snapshot se sam neaktualizoval; ted denne.
+#  Seznam edge funkci se bere zive z projektu (`supabase functions list`), s fallbackem
+#  na adresare v supabase/functions/. Pri selhani se zalozi issue `backup-failed`.)
 #
 # Obsah snapshotu:
 #   - vsechny edge funkce (supabase functions download)  -> potrebuje secret ACCESS_TOKEN
@@ -17,10 +20,17 @@ name: Snapshot Supabase to git
 #                      (Dashboard -> Project Settings -> Database -> Connection string -> URI)
 
 on:
+  schedule:
+    - cron: "15 3 * * *"    # denne (5:15 CEST / 4:15 CET); GitHub muze spustit s zpozdenim
   workflow_dispatch: {}
 
 permissions:
   contents: write
+  issues: write    # issue `backup-failed` pri selhani
+
+concurrency:
+  group: snapshot-supabase
+  cancel-in-progress: false
 
 jobs:
   snapshot:
@@ -51,12 +61,21 @@ jobs:
       - name: Stahni vsechny edge funkce
         run: |
           set +e
-          FNS="admin-auth admin-reset-password ai-copilot ai-moto-agent ai-public-agent auto-check-service-parts cms-save datova-schranka flexi-sync generate-document generate-invoice generate-report generate-tax manage-payment-methods mcp-server process-payment process-refund public-api receive-invoice save-verification-document scan-document send-booking-email send-broadcast send-cancellation-email send-email send-invoice-email send-message send-order-email send-push send-recovery-otp seo-check translate-content translate-document translate-pages-master webhook-receiver"
+          # 1) zivy seznam z projektu, 2) adresare v repu, 3) historicky pevny seznam - sjednoceno
+          LIVE="$(supabase functions list --project-ref "$PROJECT_REF" -o json 2>/dev/null | jq -r '.[] | (.slug // .name) // empty' 2>/dev/null)"
+          LOCAL="$(ls -d supabase/functions/*/ 2>/dev/null | xargs -n1 basename | grep -v -E '^(_shared|migrations)$')"
+          FIXED="admin-auth admin-reset-password ai-copilot ai-moto-agent ai-public-agent auto-check-service-parts cms-save datova-schranka flexi-sync generate-document generate-invoice generate-report generate-tax manage-payment-methods mcp-server process-payment process-refund public-api receive-invoice save-verification-document scan-document send-booking-email send-broadcast send-cancellation-email send-email send-invoice-email send-message send-order-email send-push send-recovery-otp seo-check translate-content translate-document translate-pages-master webhook-receiver"
+          FNS="$(printf '%s\n' $LIVE $LOCAL $FIXED | sort -u | tr '\n' ' ')"
+          echo "Zive funkce z projektu: $(echo $LIVE | wc -w), celkem ke stazeni: $(echo $FNS | wc -w)"
           mkdir -p supabase/functions
+          OK=0; SKIP=0
           for fn in $FNS; do
             echo "download $fn"
-            supabase functions download "$fn" --project-ref "$PROJECT_REF" || echo "skip $fn"
+            if supabase functions download "$fn" --project-ref "$PROJECT_REF"; then OK=$((OK+1)); else echo "skip $fn"; SKIP=$((SKIP+1)); fi
           done
+          echo "Stazeno: $OK, preskoceno (neexistuje v projektu): $SKIP"
+          echo "| Edge funkce | stazeno $OK, preskoceno $SKIP |" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$OK" -lt 20 ]; then echo "::error::Stazeno jen $OK edge funkci - ACCESS_TOKEN neplatny nebo API nedostupne"; exit 1; fi
 
       - name: Dump celeho DB schematu (struktura, bez dat)
         if: ${{ env.SUPABASE_DB_URL != '' }}
@@ -94,3 +113,38 @@ jobs:
       - name: Jak porovnat
         run: |
           echo "Compare v GitHubu: main ... supabase-live-snapshot = uplny rozdil git vs Supabase."
+          echo "| Snapshot | vetev supabase-live-snapshot aktualizovana |" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Pri selhani zaloz issue backup-failed
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const LABEL = 'backup-failed';
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            try {
+              await github.rest.issues.createLabel({ ...context.repo, name: LABEL, color: 'b60205',
+                description: 'Denni zaloha / snapshot Supabase selhal' });
+            } catch (e) { /* label uz existuje */ }
+            const { data: open } = await github.rest.issues.listForRepo({ ...context.repo, state: 'open', labels: LABEL });
+            const mine = open.find(i => /Snapshot Supabase/.test(i.title));
+            if (mine) {
+              await github.rest.issues.createComment({ ...context.repo, issue_number: mine.number, body: `🔴 Další selhání: ${runUrl}` });
+            } else {
+              await github.rest.issues.create({ ...context.repo, title: '🔴 Snapshot Supabase do gitu selhal', labels: [LABEL],
+                body: `@claude Denní snapshot živého stavu Supabase (větev supabase-live-snapshot) selhal: ${runUrl}\n\nZkontroluj log (secret ACCESS_TOKEN / SUPABASE_DB_URL, supabase CLI). Po zeleném běhu se issue zavře samo.` });
+            }
+
+      - name: Po uspechu zavri snapshot issues
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const LABEL = 'backup-failed';
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const { data: open } = await github.rest.issues.listForRepo({ ...context.repo, state: 'open', labels: LABEL });
+            for (const i of open) {
+              if (!/Snapshot Supabase/.test(i.title)) continue;
+              await github.rest.issues.createComment({ ...context.repo, issue_number: i.number, body: `✅ Vyřešeno — snapshot proběhl zeleně: ${runUrl}` });
+              await github.rest.issues.update({ ...context.repo, issue_number: i.number, state: 'closed', state_reason: 'completed' });
+            }

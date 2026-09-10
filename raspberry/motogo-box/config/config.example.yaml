@@ -29,6 +29,20 @@ intervals:
   outbox_flush_s: 60
   io_poll_ms: 100        # čtení dveřních kontaktů
 
+diagnostics:
+  code: "netdiag"                 # kód zadaný na displeji (hlavní klávesnice, setup obrazovka) → kompletní diagnostika sítě
+                                  # (funguje i před spárováním; report se zobrazí na displeji a odešle do Velína).
+                                  # Z Velína: servisní heslo s účelem „diagnostika" nebo příkaz „Diagnostika sítě".
+  scan_ports: [502, 80, 443, 22, 8080, 8443, 1883]   # TCP porty scanu LAN (502 Modbus, 80 Shelly/web)
+  scan_timeout_ms: 600
+  scan_concurrency: 96
+  scan_subnets: []                # CIDR navíc k podsítím vlastních rozhraní, např. ["192.168.50.0/24"]
+  max_hosts: 1024                 # větší podsíť se přeskočí
+  internet_urls:
+    - https://vnwnqteskbykeucanlhk.supabase.co/auth/v1/health
+    - https://www.google.com/generate_204
+  timeout_s: 120                  # celkový limit jednoho běhu
+
 health:
   check_interval_s: 30
   probe_url: https://vnwnqteskbykeucanlhk.supabase.co/auth/v1/health

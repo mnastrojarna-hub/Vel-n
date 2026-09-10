@@ -178,7 +178,9 @@ class LocalResolver:
 
         for item in cache.get("service_codes") or []:
             if self._matches(item, code, digest):
-                return ResolveResult(ok=True, kind="service", doors=self._service_doors(cache), offline=True)
+                action = str(item.get("action") or "service") if isinstance(item, dict) else "service"
+                return ResolveResult(ok=True, kind="service", doors=self._service_doors(cache), offline=True,
+                                     action=action)
 
         matched_expired: str | None = None
         for row in cache.get("codes") or []:

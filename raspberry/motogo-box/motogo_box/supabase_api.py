@@ -23,6 +23,7 @@ OUTBOX_RPC: dict[str, str] = {
     "log_open": "kiosk_log_open",
     "log_event": "kiosk_log_event",
     "complete_command": "kiosk_complete_command",
+    "report_diagnostics": "kiosk_report_diagnostics",
 }
 _MISSING_HINTS = ("not find", "does not exist", "pgrst202")
 
@@ -200,6 +201,10 @@ class SupabaseApi:
         await self._send_or_queue("complete_command", {
             "p_command_id": command_id, "p_success": bool(success), "p_result": result or {},
         })
+
+    async def report_diagnostics(self, report: dict) -> None:
+        """``kiosk_report_diagnostics`` — celý report diagnostiky sítě (přes outbox; nespárované → jen fronta)."""
+        await self._send_or_queue("report_diagnostics", {"p_report": report or {}})
 
     async def flush_outbox(self) -> int:
         """Odešle čekající položky; vrací počet odeslaných. Při výpadku sítě končí hned."""

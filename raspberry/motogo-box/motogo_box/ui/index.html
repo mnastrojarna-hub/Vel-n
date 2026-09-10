@@ -91,6 +91,7 @@
         </div>
       </div>
       <div class="service-row service-actions">
+        <button id="service-diag" class="btn btn-ghost" type="button">🔍 Diagnostika sítě</button>
         <button id="service-pair" class="btn btn-ghost" type="button">🔗 Přepárovat</button>
         <button id="service-restart" class="btn btn-amber" type="button">↻ Restart řídicí jednotky</button>
         <button id="service-close2" class="btn btn-ghost" type="button">Zavřít</button>
@@ -118,13 +119,42 @@
           <button id="setup-cancel" class="btn btn-ghost" type="button" hidden>Zrušit</button>
           <button id="setup-save" class="btn btn-primary" type="button">Spárovat a spustit</button>
         </div>
+        <div class="setup-actions">
+          <button id="setup-diag" class="btn btn-ghost" type="button">🔍 Diagnostika sítě (kód z config.yaml)</button>
+        </div>
       </div>
       <div id="setup-keys" class="setup-keys"></div>
+    </div>
+  </div>
+
+  <!-- Diagnostika sítě — progres + kompletní report (spouští kód z displeje, servisní panel nebo Velín) -->
+  <div id="diag" class="overlay overlay-dark" hidden>
+    <div class="service-panel diag-panel">
+      <div class="service-head">
+        <span class="service-icon">🔍</span>
+        <span class="service-title">Diagnostika sítě</span>
+        <span id="diag-state" class="diag-state"></span>
+        <button id="diag-close" class="icon-btn" type="button" aria-label="Zavřít">✕</button>
+      </div>
+      <div id="diag-auth" class="diag-auth" hidden>
+        <div class="setup-hint">Zadejte diagnostický kód (diagnostics.code v /etc/motogo/config.yaml) nebo servisní heslo z Velína.</div>
+        <div id="diag-code" class="field-input active diag-code" data-placeholder="diagnostický kód"></div>
+        <div id="diag-error" class="setup-error" hidden></div>
+        <div id="diag-keys" class="diag-keys"></div>
+      </div>
+      <div id="diag-progress" class="diag-progress" hidden></div>
+      <div id="diag-report" class="diag-report"></div>
+      <div class="service-row service-actions">
+        <span id="diag-msg" class="service-msg"></span>
+        <button id="diag-rerun" class="btn btn-amber" type="button" hidden>↻ Spustit znovu</button>
+        <button id="diag-close2" class="btn btn-ghost" type="button">Zavřít</button>
+      </div>
     </div>
   </div>
 </div>
 <script src="/static/keyboard.js"></script>
 <script src="/static/panel.js"></script>
+<script src="/static/diag.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>

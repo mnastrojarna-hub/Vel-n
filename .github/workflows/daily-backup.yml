@@ -1,14 +1,26 @@
 name: Denni kompletni zaloha (Supabase + git)
 
-# Kazdy den v 6:00 rano (Europe/Prague) kompletni zaloha:
+# KAZDY DEN kompletni zaloha:
 #   1. Cela databaze: role + schema + 100% DAT (public, auth, storage metadata) - pg_dump pres supabase CLI
-#   2. Vsechny Storage buckety (documents, media, sos-photos) - vsechny soubory
+#   2. Vsechny Storage buckety (documents, media, sos-photos, ...) - vsechny soubory
 #   3. Cely git repozitar (vsechny vetve + tagy) - git bundle
 #
 # Vysledek se zabali do jednoho sifrovaneho archivu a ulozi jako GitHub Actions
 # artifact (retence 30 dni). Az bude rozhodnuto KAM zalohovat (S3 / Backblaze /
 # NAS / Google Drive...), odkomentuje se prislusny "Upload do ciloveho uloziste"
 # krok dole - zbytek workflow se nemeni.
+#
+# PROC DVA CRONY A ZADNY "HODINOVY GUARD" (oprava 2026-09-10):
+#   GitHub spousti scheduled workflows se zpozdenim (bezne 1-5 h, behy chodily v 10-11 h
+#   prazskeho casu). Puvodni guard "bezi jen v 6:00 Europe/Prague" proto KAZDY beh
+#   preskocil -> workflow byl zeleny, ale zaloha se NIKDY neudelala. Nyni:
+#   - hlavni cron 03:30 UTC (5:30 CEST / 4:30 CET) + zalozni 13:30 UTC,
+#   - kazdy beh se nejdriv podiva, jestli uz dnes (Europe/Prague) existuje artifact
+#     motogo24-backup-<datum>; kdyz ano, preskoci (zaloha uz je), kdyz ne, zalohuje,
+#   - rucni spusteni (workflow_dispatch) zalohuje VZDY (artifact ma navic cas),
+#   - kazda zaloha se OVERI (velikost dumpu, pocet tabulek, git bundle, pocet souboru),
+#   - pri selhani se automaticky zalozi GitHub issue s labelem `backup-failed`
+#     (Claude ho resi prioritne, viz CLAUDE.md), po zelenem behu se zavre samo.
 #
 # Pozadovane GitHub secrets (Settings -> Secrets and variables -> Actions):
 #   SUPABASE_DB_URL              = postgresql://postgres:<HESLO>@db.vnwnqteskbykeucanlhk.supabase.co:5432/postgres
@@ -19,15 +31,14 @@ name: Denni kompletni zaloha (Supabase + git)
 
 on:
   schedule:
-    # 6:00 Europe/Prague = 4:00 UTC (letni cas CEST) / 5:00 UTC (zimni cas CET).
-    # Spousti se oboji a guard krok nize nechá probehnout jen ten beh,
-    # ktery odpovida 6. hodine prazskeho casu.
-    - cron: "0 4 * * *"
-    - cron: "0 5 * * *"
+    - cron: "30 3 * * *"    # hlavni beh (5:30 CEST / 4:30 CET)
+    - cron: "30 13 * * *"   # pojistka: kdyz ranni beh GitHub nespustil nebo spadl
   workflow_dispatch: {}
 
 permissions:
   contents: read
+  actions: read    # kontrola, jestli uz dnes existuje artifact zalohy
+  issues: write    # zpetna vazba: issue `backup-failed` pri selhani
 
 concurrency:
   group: daily-backup
@@ -43,18 +54,31 @@ jobs:
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
     steps:
-      - name: Guard - bezi jen v 6:00 Europe/Prague
+      - name: Guard - uz dnes zaloha existuje?
         id: guard
-        run: |
-          HOUR=$(TZ=Europe/Prague date +%-H)
-          echo "Prazsky cas: $(TZ=Europe/Prague date '+%Y-%m-%d %H:%M')"
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "$HOUR" = "6" ]; then
-            echo "run=true >> guard OK"
-            echo "run=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "Mimo 6. hodinu prazskeho casu - tento beh se preskakuje (druhy cron ho pokryje)."
-            echo "run=false" >> "$GITHUB_OUTPUT"
-          fi
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const stamp = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Prague' }); // YYYY-MM-DD
+            const prefix = `motogo24-backup-${stamp}`;
+            core.setOutput('stamp', stamp);
+            if (context.eventName === 'workflow_dispatch') {
+              const hm = new Date().toLocaleTimeString('sv-SE', { timeZone: 'Europe/Prague', hour12: false }).slice(0, 5).replace(':', '');
+              core.setOutput('name', `${prefix}-${hm}`);
+              core.setOutput('run', 'true');
+              core.notice(`Rucni spusteni -> zalohuji vzdy (${prefix}-${hm})`);
+              return;
+            }
+            const { data } = await github.rest.actions.listArtifactsForRepo({ ...context.repo, per_page: 100 });
+            const done = (data.artifacts || []).find(a => !a.expired && a.name.startsWith(prefix));
+            core.setOutput('name', prefix);
+            if (done) {
+              core.setOutput('run', 'false');
+              core.notice(`Zaloha ${done.name} uz dnes existuje (${done.created_at}) - tento beh se preskakuje.`);
+            } else {
+              core.setOutput('run', 'true');
+              core.notice(`Zaloha pro ${stamp} jeste neexistuje -> zalohuji.`);
+            }
 
       - name: Kontrola secretu
         if: steps.guard.outputs.run == 'true'
@@ -111,19 +135,45 @@ jobs:
           set -e
           node backup/storage-backup.mjs _backup/storage
 
+      - name: Overeni uplnosti zalohy
+        if: steps.guard.outputs.run == 'true'
+        run: |
+          set -e
+          FAIL=0
+          for f in roles.sql schema_public.sql data_public.sql; do
+            if [ ! -s "_backup/db/$f" ]; then echo "::error::Dump $f chybi nebo je prazdny"; FAIL=1; fi
+          done
+          TABLES=$(grep -c '^CREATE TABLE' _backup/db/schema_public.sql || true)
+          COPIES=$(grep -c '^COPY ' _backup/db/data_public.sql || true)
+          FILES=$(find _backup/storage -type f 2>/dev/null | wc -l)
+          echo "Tabulek ve schematu: $TABLES, COPY bloku dat: $COPIES, souboru ve Storage: $FILES"
+          [ "$TABLES" -ge 50 ] || { echo "::error::Schema obsahuje jen $TABLES tabulek (ocekavano >= 50) - dump je neuplny"; FAIL=1; }
+          [ "$COPIES" -ge 50 ] || { echo "::error::Data obsahuji jen $COPIES COPY bloku (ocekavano >= 50) - dump je neuplny"; FAIL=1; }
+          [ "$FILES" -ge 1 ] || { echo "::error::Storage zaloha neobsahuje zadny soubor"; FAIL=1; }
+          git bundle verify _backup/git-repo.bundle >/dev/null || { echo "::error::git bundle neprosel verifikaci"; FAIL=1; }
+          {
+            echo "## Denni zaloha ${{ steps.guard.outputs.stamp }}"
+            echo "| Cast | Vysledek |"; echo "|---|---|"
+            echo "| DB schema | $TABLES tabulek, $(du -h _backup/db/schema_public.sql | cut -f1) |"
+            echo "| DB data | $COPIES tabulek s daty, $(du -h _backup/db/data_public.sql | cut -f1) |"
+            echo "| Storage | $FILES souboru, $(du -sh _backup/storage 2>/dev/null | cut -f1) |"
+            echo "| git bundle | $(du -h _backup/git-repo.bundle | cut -f1) |"
+          } >> "$GITHUB_STEP_SUMMARY"
+          [ "$FAIL" = "0" ]
+
       - name: Zabaleni a sifrovani archivu (GPG AES256)
         if: steps.guard.outputs.run == 'true'
         run: |
           set -e
-          STAMP=$(TZ=Europe/Prague date +%Y-%m-%d)
-          tar -czf "motogo24-backup-$STAMP.tar.gz" -C _backup .
+          NAME="${{ steps.guard.outputs.name }}"
+          tar -czf "$NAME.tar.gz" -C _backup .
           gpg --batch --yes --symmetric --cipher-algo AES256 \
             --passphrase "$BACKUP_PASSPHRASE" \
-            -o "motogo24-backup-$STAMP.tar.gz.gpg" "motogo24-backup-$STAMP.tar.gz"
-          rm "motogo24-backup-$STAMP.tar.gz"
+            -o "$NAME.tar.gz.gpg" "$NAME.tar.gz"
+          rm "$NAME.tar.gz"
           rm -rf _backup
           ls -lh motogo24-backup-*.tar.gz.gpg
-          echo "STAMP=$STAMP" >> "$GITHUB_ENV"
+          echo "| Archiv | $NAME.tar.gz.gpg ($(du -h "$NAME.tar.gz.gpg" | cut -f1)) |" >> "$GITHUB_STEP_SUMMARY"
           # Desifrovani pri obnove:
           #   gpg --batch --passphrase '<BACKUP_PASSPHRASE>' -d motogo24-backup-<datum>.tar.gz.gpg | tar -xz
 
@@ -131,7 +181,7 @@ jobs:
         if: steps.guard.outputs.run == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: motogo24-backup-${{ env.STAMP }}
+          name: ${{ steps.guard.outputs.name }}
           path: motogo24-backup-*.tar.gz.gpg
           retention-days: 30
           if-no-files-found: error
@@ -161,7 +211,47 @@ jobs:
       #     rclone --config rclone.conf copy motogo24-backup-*.tar.gz.gpg remote:motogo24-backups/
       #     rm rclone.conf
 
-      - name: Upozorneni pri selhani
+      # Pri selhani se automaticky zalozi (nebo doplni) GitHub issue s labelem
+      # `backup-failed` - CLAUDE.md prikazuje toto issue resit prioritne.
+      - name: Pri selhani zaloz issue backup-failed
         if: failure() && steps.guard.outputs.run == 'true'
-        run: |
-          echo "::error::DENNI ZALOHA SELHALA - zkontroluj log behu. Data z dnesniho dne nejsou zalohovana!"
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const LABEL = 'backup-failed';
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            try {
+              await github.rest.issues.createLabel({ ...context.repo, name: LABEL, color: 'b60205',
+                description: 'Denni zaloha / snapshot Supabase selhal' });
+            } catch (e) { /* label uz existuje */ }
+            const detail = `**Workflow:** ${context.workflow}\n**Běh:** ${runUrl}\n**Datum zálohy:** ${{ toJSON(steps.guard.outputs.stamp) }}`;
+            const { data: open } = await github.rest.issues.listForRepo({ ...context.repo, state: 'open', labels: LABEL });
+            if (open.length) {
+              await github.rest.issues.createComment({ ...context.repo, issue_number: open[0].number, body: `🔴 Další selhání:\n\n${detail}` });
+            } else {
+              const body = [
+                '@claude DENNÍ ZÁLOHA SELHALA — data z dnešního dne nejsou zálohovaná. Oprav to prioritně:',
+                '', detail, '',
+                '### Postup (pro Claude)',
+                '1. Otevři log běhu výše a najdi padající krok (secrets, `supabase db dump`, Storage, verifikace).',
+                '2. Chybějící/neplatný secret opraví uživatel v Settings → Secrets and variables → Actions (SUPABASE_DB_URL, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, BACKUP_PASSPHRASE) — napiš mu přesně který.',
+                '3. Chybu ve workflow oprav na větvi `claude/…`, PR do `main`, merge; pak spusť workflow ručně (Actions → Run workflow) a ověř zelený běh.',
+                '4. Toto issue se po prvním zeleném běhu **zavře samo**.',
+              ].join('\n');
+              await github.rest.issues.create({ ...context.repo, title: '🔴 Denní záloha selhala — data nejsou zálohovaná', labels: [LABEL], body });
+            }
+            core.setFailed('DENNI ZALOHA SELHALA - zkontroluj log behu. Data z dnesniho dne nejsou zalohovana!');
+
+      - name: Po uspechu zavri backup-failed issues
+        if: success() && steps.guard.outputs.run == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const LABEL = 'backup-failed';
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const { data: open } = await github.rest.issues.listForRepo({ ...context.repo, state: 'open', labels: LABEL });
+            for (const i of open) {
+              if (!/Denní záloha/.test(i.title)) continue;
+              await github.rest.issues.createComment({ ...context.repo, issue_number: i.number, body: `✅ Vyřešeno — záloha proběhla zeleně: ${runUrl}` });
+              await github.rest.issues.update({ ...context.repo, issue_number: i.number, state: 'closed', state_reason: 'completed' });
+            }

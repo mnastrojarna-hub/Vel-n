@@ -4,6 +4,9 @@ Dvě vrstvy:
 1. **Lokální** (`/etc/motogo/config.yaml`) — Supabase, identita zařízení, cesty, intervaly, health.
 2. **Hardwarová** — výchozí mapa z YAML (`config/brno-9zone.yaml`), kterou přepisuje
    konfigurace z Velína (`branch_kiosk_config.hardware` + `branch_doors.hw`).
+
+Lokální sekce `diagnostics` (kód pro diagnostiku sítě z displeje, porty a podsítě scanu)
+patří do vrstvy 1 — je vázaná na konkrétní Raspberry, ne na pobočku.
 """
 from __future__ import annotations
 
@@ -75,6 +78,21 @@ class HealthCfg:
 
 
 @dataclass
+class DiagnosticsCfg:
+    """Diagnostika sítě (`diagnostics.py`): kód z displeje + parametry scanu LAN."""
+
+    code: str = "netdiag"           # kód zadaný na displeji (install.sh se ptá); prázdný = jen Velín/servis
+    scan_ports: list = field(default_factory=lambda: [502, 80, 443, 22, 8080, 8443, 1883])
+    scan_timeout_ms: int = 600
+    scan_concurrency: int = 96
+    scan_subnets: list = field(default_factory=list)   # CIDR navíc k podsítím rozhraní, např. 192.168.50.0/24
+    max_hosts: int = 1024            # strop hostů na jednu podsíť (větší než /22 se přeskočí)
+    internet_urls: list = field(default_factory=lambda: [
+        "https://vnwnqteskbykeucanlhk.supabase.co/auth/v1/health", "https://www.google.com/generate_204"])
+    timeout_s: int = 120             # celkový limit jednoho běhu
+
+
+@dataclass
 class LocalConfig:
     supabase: SupabaseCfg = field(default_factory=SupabaseCfg)
     device: DeviceCfgLocal = field(default_factory=DeviceCfgLocal)
@@ -82,6 +100,7 @@ class LocalConfig:
     web: WebCfg = field(default_factory=WebCfg)
     intervals: IntervalsCfg = field(default_factory=IntervalsCfg)
     health: HealthCfg = field(default_factory=HealthCfg)
+    diagnostics: DiagnosticsCfg = field(default_factory=DiagnosticsCfg)
     log_level: str = "INFO"
 
 
@@ -145,8 +164,11 @@ def load_local(path: str | None = None) -> LocalConfig:
         web=_fill(WebCfg, raw.get("web")),
         intervals=_fill(IntervalsCfg, raw.get("intervals")),
         health=_fill(HealthCfg, raw.get("health")),
+        diagnostics=_fill(DiagnosticsCfg, raw.get("diagnostics")),
         log_level=str(raw.get("log_level") or "INFO"),
     )
+    if os.environ.get("MOTOGO_DIAG_CODE"):
+        cfg.diagnostics.code = os.environ["MOTOGO_DIAG_CODE"]
     if os.environ.get("MOTOGO_DEVICE_ID"):
         cfg.device.id = os.environ["MOTOGO_DEVICE_ID"]
     if os.environ.get("MOTOGO_DEVICE_TOKEN"):
