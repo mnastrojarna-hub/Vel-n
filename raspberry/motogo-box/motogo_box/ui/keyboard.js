@@ -1,5 +1,6 @@
 /* MotoGo24 kiosk — dotykové klávesnice (numerická / QWERTY / textová) + fyzická klávesnice.
-   Vanilla JS, bez závislostí. Rozložení a texty odpovídají Flutter kiosku (widgets/keyboards.dart). */
+   Vanilla JS, bez závislostí. Rozložení a texty odpovídají Flutter kiosku (widgets/keyboards.dart).
+   Velikost kláves řeší jen CSS (style.css: `.kb-mode-*` počítá --k z místa v kontejneru) — žádné pevné px. */
 'use strict';
 window.MG = window.MG || {};
 
@@ -59,7 +60,7 @@ MG.Keyboard = (function () {
     const o = Object.assign({ mode: 'num', onChar() {}, onBackspace() {}, onEnter() {}, onClear() {}, onToggle() {}, clearLabel: 'SMAZAT' }, opts || {});
     container.textContent = '';
     const kb = document.createElement('div');
-    kb.className = 'kb kb-' + o.mode;
+    kb.className = 'kb kb-mode-' + o.mode;   // režim na obalu; bloky uvnitř: kb-num, kb-num-side, kb-letters, kb-digits, kb-text
     if (o.mode === 'num') {
       kb.appendChild(numericBlock('kb-num', o));
       kb.appendChild(block('kb-num-side', [
