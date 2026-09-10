@@ -34,7 +34,7 @@ health:
   probe_url: https://vnwnqteskbykeucanlhk.supabase.co/auth/v1/health
   nm_connection: motogo-lte
   modem_vid_pid: "1e0e:9001"      # SIM7600E-H
-  usb_reset_script: /opt/motogo/scripts/usbreset-modem.sh
+  usb_reset_script: /usr/local/sbin/motogo-usbreset
   reconnect_after: 5              # neúspěšných kontrol internetu → nmcli con up
   usb_reset_after: 5              # neúspěšných reconnectů → USB reset modemu
   reboot_after: 3                 # USB resetů bez obnovy → reboot (max 1× za min_uptime_before_reboot_s)

@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=1920, height=1080, initial-scale=1, user-scalable=no">
+  <meta http-equiv="Cache-Control" content="no-store">
+  <title>MotoGo24 — Samoobslužná pobočka</title>
+  <link rel="icon" href="/static/logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div id="app">
+  <!-- Banner při ztrátě spojení s řídicí jednotkou -->
+  <div id="banner" class="banner" hidden>Řídicí jednotka nedostupná — zkuste to prosím za chvíli</div>
+
+  <!-- Hlavička: logo + značka + název pobočky -->
+  <header class="header">
+    <div class="brand">
+      <img class="brand-logo" src="/static/logo.svg" alt="MotoGo24">
+      <div class="brand-text">
+        <div class="brand-name">MotoGo24</div>
+        <div class="brand-sub">PŮJČOVNA MOTOREK</div>
+      </div>
+    </div>
+    <div class="branch">
+      <span id="branch-name" class="branch-name">Samoobslužná pobočka</span>
+      <span id="online-dot" class="dot dot-off" title="Stav připojení"></span>
+    </div>
+  </header>
+
+  <!-- Výzva + stručný postup -->
+  <section class="prompt">
+    <div class="prompt-title">Zadejte přístupový kód</div>
+    <div class="prompt-hint">
+      Kód najdete v potvrzení rezervace — e‑mail nebo aplikace MotoGo24.<br>
+      1) Kód k oblečení otevře skříň &nbsp;·&nbsp; 2) po zavření kód k motorce otevře vaši garáž.
+    </div>
+  </section>
+
+  <!-- Pole kódu (maskované) -->
+  <div class="code-wrap">
+    <div id="code-box" class="code-box empty">— — — — — —</div>
+    <div id="code-timer" class="code-timer" hidden></div>
+  </div>
+
+  <!-- Klávesnice (numerická / QWERTY) -->
+  <section id="keys" class="keys"></section>
+
+  <!-- Chyba zóny (porucha / překročený čas) -->
+  <div id="zone-alert" class="zone-alert" aria-live="polite"></div>
+
+  <!-- Spodní lišta: dlaždice zón -->
+  <footer id="zones" class="zones"></footer>
+
+  <!-- Overlay stavů (ověřuji / otevřeno / chyba / notice) -->
+  <div id="status" class="overlay" hidden>
+    <div class="status-card">
+      <div id="status-spinner" class="spinner" hidden></div>
+      <div id="status-icon" class="status-icon" hidden></div>
+      <div id="status-title" class="status-title"></div>
+      <div id="status-sub" class="status-sub"></div>
+      <div id="status-dismiss" class="status-dismiss" hidden>Klepnutím zavřete</div>
+    </div>
+  </div>
+
+  <!-- Servisní panel — jen po servisním hesle -->
+  <div id="service" class="overlay overlay-dark" hidden>
+    <div class="service-panel">
+      <div class="service-head">
+        <span class="service-icon">🔧</span>
+        <span id="service-title" class="service-title">Servisní režim</span>
+        <button id="service-close" class="icon-btn" type="button" aria-label="Zavřít">✕</button>
+      </div>
+      <div class="section-label">Zóny</div>
+      <div id="service-zones" class="service-grid"></div>
+      <div class="service-row">
+        <button id="service-all-off" class="btn btn-danger" type="button">⏻ Vše vypnout</button>
+        <span id="service-msg" class="service-msg"></span>
+      </div>
+      <div class="section-label">Stav zařízení</div>
+      <div class="device-box">
+        <div class="device-grid">
+          <div><span class="k">Stav</span><span id="dev-online" class="v">—</span></div>
+          <div><span class="k">Pobočka</span><span id="dev-branch" class="v">—</span></div>
+          <div><span class="k">ID zařízení</span><span id="dev-id" class="v mono">—</span></div>
+          <div><span class="k">Verze</span><span id="dev-version" class="v mono">—</span></div>
+          <div class="wide"><span class="k">Moduly</span><span id="dev-modules" class="v"></span></div>
+          <div><span class="k">LTE</span><span id="dev-lte" class="v">—</span></div>
+          <div><span class="k">Teplota CPU</span><span id="dev-temp" class="v">—</span></div>
+          <div><span class="k">Konfigurace</span><span id="dev-config" class="v">—</span></div>
+        </div>
+      </div>
+      <div class="service-row service-actions">
+        <button id="service-pair" class="btn btn-ghost" type="button">🔗 Přepárovat</button>
+        <button id="service-restart" class="btn btn-amber" type="button">↻ Restart řídicí jednotky</button>
+        <button id="service-close2" class="btn btn-ghost" type="button">Zavřít</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Setup / přepárování — když není spárováno nebo po tlačítku Přepárovat -->
+  <div id="setup" class="overlay overlay-solid" hidden>
+    <div class="setup-wrap">
+      <div class="setup-card">
+        <img class="setup-logo" src="/static/logo.svg" alt="MotoGo24">
+        <div class="setup-title">Nastavení kiosku</div>
+        <div class="setup-hint">Spárujte řídicí jednotku se zařízením. Údaje najdete ve Velíně → Pobočky → Samoobsluha → Zařízení.</div>
+        <label class="field">
+          <span class="field-label">ID zařízení</span>
+          <div id="setup-id" class="field-input" data-field="id" data-placeholder="UUID z Velína"></div>
+        </label>
+        <label class="field">
+          <span class="field-label">Token zařízení</span>
+          <div id="setup-token" class="field-input" data-field="token" data-placeholder="UUID z Velína"></div>
+        </label>
+        <div id="setup-error" class="setup-error" hidden></div>
+        <div class="setup-actions">
+          <button id="setup-cancel" class="btn btn-ghost" type="button" hidden>Zrušit</button>
+          <button id="setup-save" class="btn btn-primary" type="button">Spárovat a spustit</button>
+        </div>
+      </div>
+      <div id="setup-keys" class="setup-keys"></div>
+    </div>
+  </div>
+</div>
+<script src="/static/keyboard.js"></script>
+<script src="/static/panel.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>

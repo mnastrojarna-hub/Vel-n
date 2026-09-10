@@ -7,7 +7,7 @@ import os
 import signal
 import sys
 
-from . import full_version
+from . import full_version, sdnotify
 from .config import HardwareConfig, load_hardware_file, load_local, validate_hardware
 
 
@@ -43,12 +43,25 @@ async def _run_controller() -> None:
         loop.add_signal_handler(sig, stop.set)
 
     await web.start()
-    try:
-        await ctrl.start()
-    except Exception:  # noqa: BLE001 — UI musí běžet i při chybě HW, chybu ukáže
-        log.exception("Start controlleru selhal")
-    log.info("MotoGo Box %s běží (web %s:%s)", version, local.web.host, local.web.port)
-    await stop.wait()
+    # Start HW vrstvy může trvat sekundy (moduly offline → retry); SIGTERM ho musí umět přerušit,
+    # jinak by systemd při stopu čekal na doběhnutí startu (TimeoutStopSec).
+    start_task = asyncio.create_task(ctrl.start(), name="motogo.start")
+    stop_task = asyncio.create_task(stop.wait(), name="motogo.stop_wait")
+    await asyncio.wait({start_task, stop_task}, return_when=asyncio.FIRST_COMPLETED)
+    if start_task.done():
+        if start_task.exception() is not None:  # UI musí běžet i při chybě HW, chybu ukáže
+            exc = start_task.exception()
+            log.error("Start controlleru selhal", exc_info=exc)
+            ctrl.last_error = f"Start řídicí jednotky selhal: {exc}"
+            # Type=notify: bez READY=1 by systemd službu po TimeoutStartSec zabil a restartoval
+            # v nekonečné smyčce; takto běží UI se srozumitelnou chybou a health/servis dál fungují.
+            sdnotify.notify(f"READY=1\nSTATUS=start selhal: {str(exc)[:120]}")
+        log.info("MotoGo Box %s běží (web %s:%s)", version, local.web.host, local.web.port)
+        await stop_task
+    else:
+        log.warning("Ukončení vyžádáno během startu — přerušuji start")
+        start_task.cancel()
+        await asyncio.gather(start_task, return_exceptions=True)
     log.info("Ukončuji…")
     await ctrl.stop()
     await web.stop()
@@ -61,7 +74,8 @@ async def _run_health() -> None:
 
     local = load_local()
     _setup_logging(local.log_level)
-    mon = HealthMonitor(local.health, controller_url=f"http://{local.web.host}:{local.web.port}")
+    mon = HealthMonitor(local.health, controller_url=f"http://{local.web.host}:{local.web.port}",
+                        state_path=os.path.join(local.paths.data_dir, "health.json"))
     await mon.run()
 
 

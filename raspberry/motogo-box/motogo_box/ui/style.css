@@ -1,0 +1,178 @@
+/* MotoGo24 kiosk UI — 1920×1080, dotykové, tmavé téma (podle Flutter kiosku, theme.dart) */
+:root {
+  --green: #74FB71; --green-dark: #3DBA3A; --red: #dc2626; --amber: #f59e0b;
+  --black: #0f1a14; --dark: #1a2e22; --white: #ffffff;
+  --glass: rgba(255,255,255,0.06); --glass-border: rgba(255,255,255,0.12);
+  --key: rgba(255,255,255,0.08); --key-border: rgba(255,255,255,0.10);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-user-select: none; user-select: none;
+    -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+html, body { width: 1920px; height: 1080px; overflow: hidden; background: var(--black);
+  font-family: "Segoe UI", Roboto, "Noto Sans", "DejaVu Sans", Arial, sans-serif; color: var(--white);
+  overscroll-behavior: none; cursor: default; }
+#app { position: relative; width: 1920px; height: 1080px; overflow: hidden; transform-origin: 0 0;
+  display: flex; flex-direction: column; gap: 12px; padding: 16px 28px 18px;
+  background: linear-gradient(135deg, #0f1a14 0%, #152a1c 55%, #1a2e22 100%); }
+button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; }
+[hidden] { display: none !important; }
+.mono { font-family: "DejaVu Sans Mono", Consolas, monospace; }
+
+/* ── Banner ────────────────────────────────────────────────────────────── */
+.banner { position: absolute; left: 0; top: 0; width: 100%; height: 52px; z-index: 50;
+  background: var(--red); color: #fff; font-size: 22px; font-weight: 800; display: flex;
+  align-items: center; justify-content: center; letter-spacing: .5px; }
+
+/* ── Hlavička ─────────────────────────────────────────────────────────── */
+.header { height: 96px; flex: 0 0 96px; display: flex; align-items: center; justify-content: space-between;
+  padding-bottom: 14px; border-bottom: 1px solid rgba(255,255,255,0.2); }
+.brand { display: flex; align-items: center; gap: 18px; }
+.brand-logo { height: 64px; width: 64px; }
+.brand-name { color: var(--green); font-size: 42px; font-weight: 900; line-height: 1; }
+.brand-sub { color: rgba(255,255,255,0.75); font-size: 18px; font-weight: 700; letter-spacing: 6px; margin-top: 4px; }
+.branch { display: flex; align-items: center; gap: 14px; }
+.branch-name { color: rgba(255,255,255,0.85); font-size: 22px; font-weight: 800; }
+.dot { width: 14px; height: 14px; border-radius: 50%; display: inline-block; }
+.dot-on { background: var(--green); box-shadow: 0 0 10px var(--green); }
+.dot-off { background: var(--red); box-shadow: 0 0 8px var(--red); }
+
+/* ── Výzva + pole kódu ───────────────────────────────────────────────── */
+.prompt { text-align: center; flex: 0 0 auto; }
+.prompt-title { font-size: 24px; font-weight: 800; }
+.prompt-hint { color: rgba(255,255,255,0.6); font-size: 15px; line-height: 1.35; margin-top: 4px; }
+.code-wrap { position: relative; display: flex; justify-content: center; flex: 0 0 78px; }
+.code-box { width: 720px; height: 78px; border-radius: 18px; background: var(--glass);
+  border: 1px solid var(--glass-border); display: flex; align-items: center; justify-content: center;
+  font-size: 44px; font-weight: 900; letter-spacing: 8px; color: var(--green); white-space: nowrap; overflow: hidden; }
+.code-box.empty { color: rgba(255,255,255,0.3); }
+.code-timer { position: absolute; right: calc(50% - 360px); top: 50%; transform: translateY(-50%);
+  margin-right: -80px; color: rgba(255,255,255,0.35); font-size: 18px; font-weight: 700; }
+
+/* ── Klávesnice ─────────────────────────────────────────────────────── */
+.keys { flex: 1 1 auto; min-height: 0; display: flex; justify-content: center; }
+.kb { display: flex; height: 100%; gap: 12px; }
+.kb-block { display: flex; flex-direction: column; }
+.kb-row { flex: 1 1 0; display: flex; }
+.key { flex: 1 1 0; margin: 4px; min-width: 120px; min-height: 120px; border-radius: 14px; background: var(--key);
+  border: 1px solid var(--key-border); color: var(--white); font-weight: 800; display: flex;
+  align-items: center; justify-content: center; font-size: 56px; line-height: 1; transition: background .08s; }
+.key.small { font-size: 26px; letter-spacing: 1px; }
+.key:active, .key.pressed { background: rgba(255,255,255,0.22); }
+.key.amber { background: var(--amber); color: var(--black); }
+.key.green { background: var(--green); color: var(--black); }
+.key.f2 { flex-grow: 2; } .key.f3 { flex-grow: 3; }
+.kb.disabled .key { opacity: .35; pointer-events: none; }
+.kb-num { width: 720px; } .kb-num-side { width: 230px; }
+.kb-qwerty .kb-letters { width: 1180px; } .kb-qwerty .kb-digits { width: 470px; }
+
+/* ── Chyba zóny + spodní lišta ──────────────────────────────────────── */
+.zone-alert { flex: 0 0 44px; height: 44px; border-radius: 12px; display: flex; align-items: center;
+  justify-content: center; font-size: 19px; font-weight: 700; color: transparent; }
+.zone-alert.warn { background: rgba(245,158,11,0.18); border: 1px solid var(--amber); color: #fff; }
+.zone-alert.error { background: rgba(220,38,38,0.2); border: 1px solid var(--red); color: #fff; }
+.zones { flex: 0 0 112px; display: flex; gap: 10px; }
+.tile { flex: 1 1 0; border-radius: 18px; background: var(--glass); border: 2px solid var(--glass-border);
+  padding: 10px 14px; display: flex; flex-direction: column; justify-content: space-between; position: relative; }
+.tile-top { display: flex; align-items: center; justify-content: space-between; }
+.tile-num { font-size: 30px; font-weight: 900; line-height: 1; }
+.tile-sig { width: 22px; height: 22px; border-radius: 50%; background: rgba(255,255,255,0.15); }
+.tile-name { font-size: 15px; font-weight: 700; color: rgba(255,255,255,0.85); white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; }
+.tile-bottom { display: flex; align-items: center; justify-content: space-between; font-size: 14px; color: rgba(255,255,255,0.65); }
+.tile-door { font-size: 18px; }
+.tile.sig-red { border-color: rgba(220,38,38,0.7); } .tile.sig-red .tile-sig { background: var(--red); box-shadow: 0 0 10px var(--red); }
+.tile.sig-green { border-color: rgba(116,251,113,0.8); } .tile.sig-green .tile-sig { background: var(--green); box-shadow: 0 0 12px var(--green); }
+.tile.sig-green_pulse { border-color: rgba(116,251,113,0.8); } .tile.sig-green_pulse .tile-sig { background: var(--green); animation: pulse 1.5s ease-in-out infinite; }
+.tile.sig-red_blink { border-color: var(--red); } .tile.sig-red_blink .tile-sig { background: var(--red); animation: blink .5s steps(1) infinite; }
+.tile.sig-both_blink { border-color: var(--amber); } .tile.sig-both_blink .tile-sig { background: var(--amber); animation: both .5s steps(1) infinite; }
+.tile.sig-off .tile-sig { background: rgba(255,255,255,0.12); }
+.tile.fault { background: rgba(220,38,38,0.12); } .tile.overtime { background: rgba(245,158,11,0.12); }
+.tile.unconfigured { opacity: .45; }
+@keyframes pulse { 0%,100% { opacity: .25; box-shadow: none; } 50% { opacity: 1; box-shadow: 0 0 14px var(--green); } }
+@keyframes blink { 0%,49% { opacity: 1; } 50%,100% { opacity: .15; } }
+@keyframes both { 0%,49% { background: var(--red); } 50%,100% { background: var(--green); } }
+
+/* ── Overlay + status ───────────────────────────────────────────────── */
+.overlay { position: absolute; inset: 0; z-index: 40; background: rgba(0,0,0,0.78); display: flex;
+  align-items: center; justify-content: center; }
+.overlay-dark { background: rgba(0,0,0,0.88); }
+.overlay-solid { background: linear-gradient(135deg, #0a1a10, #152a1c 50%, #1a3524); z-index: 60; }
+.status-card { width: 560px; padding: 56px 48px; border-radius: 28px; background: rgba(20,32,25,0.96);
+  border: 1px solid var(--glass-border); text-align: center; display: flex; flex-direction: column; align-items: center; }
+.spinner { width: 96px; height: 96px; border-radius: 50%; border: 6px solid rgba(116,251,113,0.2);
+  border-top-color: var(--green); animation: spin .9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.status-icon { width: 120px; height: 120px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-size: 64px; border: 3px solid var(--white); background: rgba(255,255,255,0.15); }
+.status-icon.success { border-color: var(--green); background: rgba(116,251,113,0.15); color: var(--green); }
+.status-icon.error { border-color: var(--red); background: rgba(220,38,38,0.15); color: var(--red); }
+.status-title { margin-top: 28px; font-size: 34px; font-weight: 900; }
+.status-sub { margin-top: 12px; font-size: 20px; color: rgba(255,255,255,0.75); line-height: 1.4; white-space: pre-line; }
+.status-sub:empty { display: none; }
+.status-dismiss { margin-top: 28px; font-size: 15px; color: rgba(255,255,255,0.4); }
+
+/* ── Tlačítka ───────────────────────────────────────────────────────── */
+.btn { min-height: 64px; padding: 0 22px; border-radius: 14px; font-size: 18px; font-weight: 800;
+  background: rgba(255,255,255,0.1); color: var(--white); display: inline-flex; align-items: center; gap: 8px; }
+.btn:active { background: rgba(255,255,255,0.25); }
+.btn-primary { background: var(--green); color: var(--black); }
+.btn-ghost { background: rgba(255,255,255,0.1); }
+.btn-amber { background: rgba(245,158,11,0.25); }
+.btn-danger { background: rgba(220,38,38,0.35); }
+.btn.on { background: var(--green); color: var(--black); }
+.btn[disabled] { opacity: .4; pointer-events: none; }
+.icon-btn { width: 64px; height: 64px; border-radius: 14px; font-size: 30px; font-weight: 700; background: rgba(255,255,255,0.08); }
+
+/* ── Servisní panel ─────────────────────────────────────────────────── */
+.service-panel { width: 1600px; max-height: 1020px; padding: 28px 32px; border-radius: 28px;
+  background: rgba(16,26,20,0.97); border: 1px solid var(--glass-border); display: flex; flex-direction: column; gap: 8px; }
+.service-head { display: flex; align-items: center; gap: 12px; }
+.service-icon { font-size: 30px; }
+.service-title { font-size: 26px; font-weight: 900; flex: 1; }
+.section-label { color: rgba(255,255,255,0.5); font-size: 13px; font-weight: 800; letter-spacing: 1px;
+  text-transform: uppercase; margin-top: 4px; }
+.service-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.zcard { border-radius: 16px; background: rgba(255,255,255,0.07); border: 1px solid var(--glass-border);
+  padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.zcard.fault { border-color: var(--red); } .zcard.open { border-color: rgba(116,251,113,0.6); }
+.zcard-head { display: flex; align-items: center; gap: 10px; }
+.zcard-num { font-size: 26px; font-weight: 900; width: 44px; height: 44px; border-radius: 12px; display: flex;
+  align-items: center; justify-content: center; background: rgba(255,255,255,0.08); }
+.zcard-name { font-size: 18px; font-weight: 800; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.zcard-info { display: flex; gap: 14px; font-size: 14px; color: rgba(255,255,255,0.7); flex-wrap: wrap; }
+.zcard-info b { color: var(--white); font-weight: 700; }
+.zcard-btns { display: flex; gap: 8px; }
+.zcard-btns .btn { flex: 1; min-height: 64px; padding: 0 10px; font-size: 16px; justify-content: center; }
+.service-row { display: flex; align-items: center; gap: 14px; margin-top: 4px; }
+.service-actions { justify-content: flex-end; }
+.service-msg { font-size: 16px; color: rgba(255,255,255,0.7); flex: 1; }
+.service-msg.err { color: #fca5a5; } .service-msg.ok { color: var(--green); }
+.device-box { border-radius: 14px; background: var(--glass); border: 1px solid var(--glass-border); padding: 12px 16px; }
+.device-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px 20px; font-size: 15px; }
+.device-grid .wide { grid-column: span 4; }
+.device-grid .k { color: rgba(255,255,255,0.5); font-size: 12px; font-weight: 800; letter-spacing: 1px;
+  text-transform: uppercase; display: block; }
+.device-grid .v { color: rgba(255,255,255,0.9); }
+.mod { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 13px; font-weight: 700; margin: 2px 6px 0 0;
+  background: rgba(220,38,38,0.25); border: 1px solid var(--red); }
+.mod.on { background: rgba(116,251,113,0.15); border-color: var(--green); }
+
+/* ── Setup / párování ───────────────────────────────────────────────── */
+.setup-wrap { display: flex; flex-direction: column; align-items: center; gap: 16px; width: 100%; height: 100%;
+  padding: 24px 40px; }
+.setup-card { width: 760px; padding: 28px 36px; border-radius: 24px; background: var(--glass);
+  border: 1px solid var(--glass-border); display: flex; flex-direction: column; gap: 12px; align-items: stretch; }
+.setup-logo { height: 64px; width: 64px; align-self: center; }
+.setup-title { text-align: center; font-size: 26px; font-weight: 900; }
+.setup-hint { text-align: center; color: rgba(255,255,255,0.7); font-size: 15px; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field-label { color: rgba(255,255,255,0.8); font-size: 14px; font-weight: 700; }
+.field-input { min-height: 60px; padding: 0 16px; display: flex; align-items: center; border-radius: 12px;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); font-size: 20px;
+  font-family: "DejaVu Sans Mono", Consolas, monospace; white-space: nowrap; overflow: hidden; }
+.field-input.active { border-color: var(--green); box-shadow: 0 0 0 2px rgba(116,251,113,0.25); }
+.field-input:empty::before { content: attr(data-placeholder); color: rgba(255,255,255,0.35); }
+.setup-error { padding: 12px; border-radius: 12px; background: rgba(220,38,38,0.15); border: 1px solid var(--red); font-size: 15px; }
+.setup-actions { display: flex; gap: 12px; justify-content: stretch; }
+.setup-actions .btn { flex: 1; justify-content: center; min-height: 64px; font-size: 20px; }
+.setup-keys { flex: 1 1 auto; width: 1700px; min-height: 0; display: flex; justify-content: center; }
+.setup-keys .key { min-height: 72px; font-size: 34px; }

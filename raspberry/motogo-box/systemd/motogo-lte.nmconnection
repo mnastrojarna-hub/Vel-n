@@ -1,0 +1,29 @@
+# MotoGo Box — LTE profil NetworkManageru (SIM7600E-H přes ModemManager). SPEC §4/§8:
+# výchozí internetová trasa vede JEN přes LTE (route-metric 100 < 500 u eth0).
+# APN "internet" je placeholder — install.sh ho nahradí dle zadaného APN (env MOTOGO_APN).
+# Umístění: /etc/NetworkManager/system-connections/motogo-lte.nmconnection (chmod 600, root).
+[connection]
+id=motogo-lte
+type=gsm
+autoconnect=true
+autoconnect-retries=0
+autoconnect-priority=10
+
+[gsm]
+apn=internet
+auto-config=false
+home-only=false
+
+[ppp]
+
+[ipv4]
+method=auto
+route-metric=100
+never-default=false
+dns-priority=10
+
+[ipv6]
+method=ignore
+addr-gen-mode=default
+
+[proxy]

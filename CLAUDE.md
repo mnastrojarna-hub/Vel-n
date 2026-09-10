@@ -23,9 +23,10 @@ Toto je soustava propojených aplikací pro MotoGo24 (půjčovna motorek):
 - **Motogo-app-main/motogo-app-flutter-ios/** — iOS kopie appky pro App Store (codemagic build) — viz pravidla synchronizace níže
 - **velin/** — Velín = superadmin dashboard (React 18 + Vite + TailwindCSS)
 - **supabase/** — Backend: Edge Functions + SQL migrace
-- **doc-scanner/** - Mobilní capacitor vstup pro účetní přijaté dokumenty všeho druhu do velínu
-- **raspberry/motogo-box/** — Řídicí program autonomní pobočky Brno pro Raspberry Pi 5 (Python/asyncio): Modbus TCP relé Waveshare (zámky, světla, audio selektor, dveřní kontakty), Shelly RGBWW signalizace, mpv audio, dotykové UI (Chromium kiosk), Supabase sync přes stejné `kiosk_*` RPC jako tabletový kiosk. Vše HW mapování se nastavuje z Velína (Pobočky → Samoobsluha). Viz `raspberry/motogo-box/README.md`, `SPEC.md`, `CONTRACT.md`.
-- **Motogo-app-main/motogo-locker-kiosk/** — Původní tabletový kiosk (Flutter, Shelly HTTP) — stejná logika/backend jako RPi program
+- **raspberry/motogo-box/** — Univerzální řídicí jednotka samoobslužných poboček pro Raspberry Pi 5 (Python/asyncio): Modbus TCP relé Waveshare (zámky, světla, audio selektor, dveřní kontakty), Shelly RGBWW signalizace, mpv audio, dotykové UI (Chromium kiosk), Supabase sync přes `kiosk_*` RPC. Počet zón, zařízení i HW mapa se nastavují VÝHRADNĚ z Velína (Pobočky → Samoobsluha); `config/brno-9zone.yaml` je jen výchozí šablona. Viz `raspberry/motogo-box/README.md`, `SPEC.md`, `CONTRACT.md`. Původní tabletový kiosk (`motogo-locker-kiosk`) byl 2026-09-10 z repa odstraněn.
+- **slevomat-bot/**, **backup/** — automatizace spouštěné GitHub Actions (`slevomat-vouchers.yml`, `daily-backup.yml`)
+
+Repo bylo 2026-09-10 pročištěno (zadání uživatele): smazány staré analýzy/plány/náhledy, fotky, PDF, `doc-scanner`, tabletový kiosk, návrhy a jednorázové skripty. Nezakládat nové pomocné soubory do kořene repa — dokumentace patří do STATE souborů, do `raspberry/motogo-box/*.md` nebo k danému projektu.
 
 ## Appka: dva stromy (Android + iOS) — POVINNÁ synchronizace
 

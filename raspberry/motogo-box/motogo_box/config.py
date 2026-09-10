@@ -8,6 +8,7 @@ Dvě vrstvy:
 from __future__ import annotations
 
 import copy
+import logging
 import os
 from dataclasses import dataclass, field
 from typing import Any
@@ -15,6 +16,8 @@ from typing import Any
 import yaml
 
 from .models import Zone, ZoneHw
+
+log = logging.getLogger("motogo.config")
 
 DEFAULT_CONFIG_PATH = "/etc/motogo/config.yaml"
 HW_TOP_KEYS = ("devices", "timings", "polling", "contacts", "security", "audio", "signal")
@@ -64,7 +67,7 @@ class HealthCfg:
     probe_url: str = "https://vnwnqteskbykeucanlhk.supabase.co/auth/v1/health"
     nm_connection: str = "motogo-lte"
     modem_vid_pid: str = "1e0e:9001"
-    usb_reset_script: str = "/opt/motogo/scripts/usbreset-modem.sh"
+    usb_reset_script: str = "/usr/local/sbin/motogo-usbreset"
     reconnect_after: int = 5
     usb_reset_after: int = 5
     reboot_after: int = 3
@@ -82,14 +85,49 @@ class LocalConfig:
     log_level: str = "INFO"
 
 
+_BOOL_TRUE = ("1", "true", "yes", "on", "ano")
+_BOOL_FALSE = ("0", "false", "no", "off", "ne", "")
+
+
+def _coerce(cur: Any, v: Any) -> Any:
+    """Převede `v` na typ výchozí hodnoty `cur` (None/dict/list = beze změny); neplatné → ValueError.
+
+    bool bere i řetězce "true"/"false"/"1"/"0"/"ano"/"ne"; int odmítne desetinnou část.
+    """
+    if cur is None or isinstance(cur, (dict, list)):
+        return v
+    if isinstance(cur, bool):
+        if isinstance(v, (bool, int, float)):
+            return bool(v)
+        sv = str(v).strip().lower()
+        if sv in _BOOL_TRUE or sv in _BOOL_FALSE:
+            return sv in _BOOL_TRUE
+        raise ValueError(f"neplatná logická hodnota {v!r}")
+    if isinstance(cur, int):
+        f = float(v)
+        if not f.is_integer():
+            raise ValueError(f"očekáváno celé číslo, je {v!r}")
+        return int(f)
+    return type(cur)(v)
+
+
 def _fill(dc_cls, d: Any):
-    """Vytvoří dataclass z dictu, neznámé klíče ignoruje, chybějící nechá default."""
+    """Vytvoří dataclass z dictu; neznámé klíče ignoruje, chybějící nechá default.
+
+    Neplatná hodnota (např. text v číselném poli z Velína) NIKDY neshodí start —
+    zaloguje se a pole si ponechá výchozí hodnotu.
+    """
     obj = dc_cls()
     if isinstance(d, dict):
         for k, v in d.items():
-            if hasattr(obj, k) and v is not None:
-                cur = getattr(obj, k)
-                setattr(obj, k, type(cur)(v) if not isinstance(cur, (dict, list)) else v)
+            if not hasattr(obj, k) or v is None:
+                continue
+            cur = getattr(obj, k)
+            try:
+                setattr(obj, k, _coerce(cur, v))
+            except (TypeError, ValueError) as exc:
+                log.warning("%s.%s: hodnota %r neplatná (%s) — ponechávám výchozí %r",
+                            dc_cls.__name__, k, v, exc, cur)
     return obj
 
 
@@ -284,11 +322,16 @@ def merge_hardware(local: dict, remote: dict | None) -> dict:
 
 
 def validate_hardware(hw: HardwareConfig) -> list[str]:
-    """Vrátí seznam problémů konfigurace (prázdný = OK)."""
+    """Vrátí seznam problémů konfigurace (prázdný = OK).
+
+    §12: zámek VÝHRADNĚ na WAV645 (HW flash-on — nezůstane pod napětím ani při pádu procesu);
+    žádný kanál nesdílí dvě role ani uvnitř jedné zóny (lock==audio by držel zámek pod
+    proudem po dobu hudby, light==audio by obcházel exkluzivitu audio selektoru).
+    """
     problems: list[str] = []
     if not hw.zones:
         problems.append("Žádné zóny (branch_doors.hw ani lokální zones).")
-    seen: dict[tuple[str, str, int], int] = {}
+    seen: dict[tuple[str, str, int], tuple[int, str]] = {}
     for z in hw.zones:
         refs = {"lock": z.hw.lock, "contact": z.hw.contact, "light": z.hw.light,
                 "audio": z.hw.audio, "red": z.hw.red, "green": z.hw.green}
@@ -303,15 +346,25 @@ def validate_hardware(hw: HardwareConfig) -> list[str]:
                 continue
             if role in ("red", "green") and dev.type != "shelly_rgbww":
                 problems.append(f"Zóna {z.number}: {role} musí být na Shelly (je {dev.type}).")
-            if role in ("lock", "light", "audio") and dev.type not in ("wav645", "wav617"):
+            if role == "lock" and dev.type != "wav645":
+                problems.append(f"Zóna {z.number}: lock musí být relé WAV645 s HW flash-on (je {dev.type}).")
+            if role in ("light", "audio") and dev.type not in ("wav645", "wav617"):
                 problems.append(f"Zóna {z.number}: {role} musí být relé Waveshare (je {dev.type}).")
             if role == "contact" and dev.type != "wav617":
                 problems.append(f"Zóna {z.number}: contact musí být vstup WAV617 (je {dev.type}).")
+            if ref.idx < 0:
+                problems.append(f"Zóna {z.number}: {role} má záporný index {ref.idx}.")
             kind = "input" if role == "contact" else ("light" if role in ("red", "green") else "coil")
             key = (ref.dev, kind, ref.idx)
-            if key in seen and seen[key] != z.number:
-                problems.append(f"Zóna {z.number}: {role} {ref.dev}[{ref.idx}] už používá zóna {seen[key]}.")
-            seen.setdefault(key, z.number)
+            if key in seen:
+                other_zone, other_role = seen[key]
+                if other_zone == z.number:
+                    problems.append(f"Zóna {z.number}: {role} a {other_role} sdílí {ref.dev}[{ref.idx}].")
+                else:
+                    problems.append(f"Zóna {z.number}: {role} {ref.dev}[{ref.idx}] už používá "
+                                    f"zóna {other_zone} ({other_role}).")
+                continue
+            seen[key] = (z.number, role)
     nums = [z.number for z in hw.zones]
     if len(nums) != len(set(nums)):
         problems.append("Duplicitní čísla zón.")

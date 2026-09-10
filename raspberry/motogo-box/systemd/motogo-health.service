@@ -1,0 +1,32 @@
+# MotoGo Box — health monitor (LTE watchdog, USB reset modemu, reboot policy, teploty/disk).
+# Hlásí stav do controlleru (POST http://127.0.0.1:8080/api/health) a drží systemd watchdog.
+[Unit]
+Description=MotoGo Box health monitor (LTE watchdog, system metrics)
+Documentation=file:///opt/motogo/README.md
+After=network.target NetworkManager.service ModemManager.service
+Wants=ModemManager.service
+StartLimitIntervalSec=0
+
+[Service]
+Type=notify
+NotifyAccess=all
+User=motogo
+Group=motogo
+SupplementaryGroups=dialout netdev
+WorkingDirectory=/opt/motogo
+Environment=MOTOGO_CONFIG=/etc/motogo/config.yaml
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/motogo/venv/bin/python -m motogo_box health
+Restart=always
+RestartSec=5
+# Jeden cyklus může trvat až ~100 s (mmcli timeouty + nmcli up 30 s + USB reset 60 s);
+# health navíc posílá WATCHDOG=1 před každou dlouhou akcí.
+WatchdogSec=300
+TimeoutStartSec=60
+TimeoutStopSec=15
+StateDirectory=motogo
+StateDirectoryMode=0750
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target

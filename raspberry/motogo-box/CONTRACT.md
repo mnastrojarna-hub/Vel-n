@@ -364,10 +364,12 @@ Neznámý příkaz → `(False, {"error":"unknown_command"})`.
  "health":{"lte":{"state":"connected","operator":"T-Mobile CZ","rssi":-71,"rsrp":-98,"reconnects":0,"usb_resets":0},
            "sys":{"cpu_temp":48.2,"throttled":"0x0","disk_free_pct":81,"mem_free_pct":60,"load1":0.3,"uptime_s":9999},"internet":true,"ts":"…"},
  "zones":[{"zone":1,"door_id":"uuid|null","box_number":1,"kind":"motorcycle","label":"Kóje 1","state":"SECURED",
-           "door_closed":true,"fault":null,"light":false,"signal":"RED","music":false,
+           "door_closed":true,"fault":null,"light":false,"signal":"red","music":false,
            "session_started_at":null,"booking_id":null,"last_event":"DOOR_CLOSED"}],
  "notice":null}
 ```
+
+Hodnoty `state` = `ZoneState.value` (velká písmena), `signal` = `Signal.value` (malá písmena: red, green, green_pulse, red_blink, both_blink, off).
 
 ## 15. Události → Supabase
 

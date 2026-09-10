@@ -1,0 +1,38 @@
+# MotoGo Box — řídicí proces (Modbus I/O, Shelly, audio, zóny, Supabase, lokální web pro UI).
+# Instaluje scripts/install.sh do /etc/systemd/system/. Watchdog: proces posílá WATCHDOG=1
+# jen když běží čtení dveřních kontaktů — jinak ho systemd do 60 s restartuje.
+[Unit]
+Description=MotoGo Box controller (zones, Modbus, Shelly, audio, Supabase)
+Documentation=file:///opt/motogo/README.md
+# Bez network-online.target: controller musí naběhnout i bez LTE (Modbus/Shelly jsou na lokální eth0),
+# Supabase vrstva si výpadek řeší sama (retry, outbox). Čekání na nm-online by zdrželo UI i zámky až o 60 s.
+After=network.target NetworkManager.service ModemManager.service
+StartLimitIntervalSec=0
+
+[Service]
+Type=notify
+NotifyAccess=all
+User=motogo
+Group=motogo
+SupplementaryGroups=audio dialout
+WorkingDirectory=/opt/motogo
+Environment=MOTOGO_CONFIG=/etc/motogo/config.yaml
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/motogo/venv/bin/python -m motogo_box controller
+Restart=always
+RestartSec=3
+WatchdogSec=60
+TimeoutStartSec=120
+TimeoutStopSec=20
+KillSignal=SIGTERM
+RuntimeDirectory=motogo
+RuntimeDirectoryMode=0755
+RuntimeDirectoryPreserve=yes
+StateDirectory=motogo
+StateDirectoryMode=0750
+UMask=0027
+NoNewPrivileges=no
+LimitNOFILE=8192
+
+[Install]
+WantedBy=multi-user.target
