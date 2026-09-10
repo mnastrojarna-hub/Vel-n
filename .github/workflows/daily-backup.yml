@@ -24,10 +24,11 @@ name: Denni kompletni zaloha (Supabase + git)
 #
 # Pozadovane GitHub secrets (Settings -> Secrets and variables -> Actions):
 #   SUPABASE_DB_URL              = postgresql://postgres:<HESLO>@db.vnwnqteskbykeucanlhk.supabase.co:5432/postgres
-#   SUPABASE_URL                 = https://vnwnqteskbykeucanlhk.supabase.co
-#   SUPABASE_SERVICE_ROLE_KEY    = service_role klic (Dashboard -> Settings -> API)
+#   SUPABASE_SERVICE_ROLE_KEY    = service_role klic (Dashboard -> Settings -> API) - bez nej se
+#                                  Storage NEzalohuje (beh skonci chybou + issue, DB + git se ulozi jako -partial)
 #   BACKUP_PASSPHRASE            = libovolne silne heslo pro sifrovani archivu (GPG AES256)
 #                                  POVINNE - archiv obsahuje osobni udaje zakazniku (GDPR)
+#   SUPABASE_URL                 = nepovinne (vychozi https://vnwnqteskbykeucanlhk.supabase.co)
 
 on:
   schedule:
@@ -50,7 +51,7 @@ jobs:
     timeout-minutes: 120
     env:
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
-      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://vnwnqteskbykeucanlhk.supabase.co' }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
     steps:
@@ -81,16 +82,21 @@ jobs:
             }
 
       - name: Kontrola secretu
+        id: secrets
         if: steps.guard.outputs.run == 'true'
         run: |
           MISSING=""
           [ -z "$SUPABASE_DB_URL" ] && MISSING="$MISSING SUPABASE_DB_URL"
-          [ -z "$SUPABASE_URL" ] && MISSING="$MISSING SUPABASE_URL"
-          [ -z "$SUPABASE_SERVICE_ROLE_KEY" ] && MISSING="$MISSING SUPABASE_SERVICE_ROLE_KEY"
           [ -z "$BACKUP_PASSPHRASE" ] && MISSING="$MISSING BACKUP_PASSPHRASE"
           if [ -n "$MISSING" ]; then
-            echo "::error::Chybi GitHub secrets:$MISSING - zaloha nemuze probehnout. Pridej je v Settings -> Secrets and variables -> Actions."
+            echo "::error::Chybi GitHub secrets:$MISSING - zaloha nemuze probehnout (bez DB URL neni co zalohovat, bez passphrase nelze archiv s osobnimi udaji sifrovat). Pridej je v Settings -> Secrets and variables -> Actions."
             exit 1
+          fi
+          if [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "::error::Chybi secret SUPABASE_SERVICE_ROLE_KEY - Storage (dokumenty, fotky) se NEzalohuje. DB + git se ulozi jako castecna zaloha (-partial) a beh skonci chybou, dokud secret nepridas."
+            echo "storage=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "storage=true" >> "$GITHUB_OUTPUT"
           fi
 
       - uses: actions/checkout@v4
@@ -130,7 +136,7 @@ jobs:
           ls -lh _backup/db/
 
       - name: Zaloha Storage bucketu (vsechny soubory)
-        if: steps.guard.outputs.run == 'true'
+        if: steps.guard.outputs.run == 'true' && steps.secrets.outputs.storage == 'true'
         run: |
           set -e
           node backup/storage-backup.mjs _backup/storage
@@ -149,7 +155,11 @@ jobs:
           echo "Tabulek ve schematu: $TABLES, COPY bloku dat: $COPIES, souboru ve Storage: $FILES"
           [ "$TABLES" -ge 50 ] || { echo "::error::Schema obsahuje jen $TABLES tabulek (ocekavano >= 50) - dump je neuplny"; FAIL=1; }
           [ "$COPIES" -ge 50 ] || { echo "::error::Data obsahuji jen $COPIES COPY bloku (ocekavano >= 50) - dump je neuplny"; FAIL=1; }
-          [ "$FILES" -ge 1 ] || { echo "::error::Storage zaloha neobsahuje zadny soubor"; FAIL=1; }
+          if [ "${{ steps.secrets.outputs.storage }}" = "true" ]; then
+            [ "$FILES" -ge 1 ] || { echo "::error::Storage zaloha neobsahuje zadny soubor"; FAIL=1; }
+          else
+            echo "::warning::Storage preskocen (chybi SUPABASE_SERVICE_ROLE_KEY) - castecna zaloha"
+          fi
           git bundle verify _backup/git-repo.bundle >/dev/null || { echo "::error::git bundle neprosel verifikaci"; FAIL=1; }
           {
             echo "## Denni zaloha ${{ steps.guard.outputs.stamp }}"
@@ -166,6 +176,8 @@ jobs:
         run: |
           set -e
           NAME="${{ steps.guard.outputs.name }}"
+          [ "${{ steps.secrets.outputs.storage }}" = "true" ] || NAME="$NAME-partial"
+          echo "NAME=$NAME" >> "$GITHUB_ENV"
           tar -czf "$NAME.tar.gz" -C _backup .
           gpg --batch --yes --symmetric --cipher-algo AES256 \
             --passphrase "$BACKUP_PASSPHRASE" \
@@ -181,10 +193,16 @@ jobs:
         if: steps.guard.outputs.run == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ steps.guard.outputs.name }}
+          name: ${{ env.NAME }}
           path: motogo24-backup-*.tar.gz.gpg
           retention-days: 30
           if-no-files-found: error
+
+      - name: Castecna zaloha = chyba (chybi SUPABASE_SERVICE_ROLE_KEY)
+        if: steps.guard.outputs.run == 'true' && steps.secrets.outputs.storage != 'true'
+        run: |
+          echo "::error::Zaloha je jen castecna (DB + git, BEZ Storage). Pridej secret SUPABASE_SERVICE_ROLE_KEY (Supabase Dashboard -> Project Settings -> API -> service_role)."
+          exit 1
 
       # ------------------------------------------------------------------
       # AZ BUDE ROZHODNUTO KAM ZALOHOVAT, odkomentuj JEDEN z kroku nize
