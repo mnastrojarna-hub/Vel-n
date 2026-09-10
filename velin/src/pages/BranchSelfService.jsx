@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { Spinner, EmptyState } from './BranchHelpers'
+import { RpiStatusBlock } from './BranchRpiZones'
+import { RpiHardwareBlock } from './BranchRpiHardware'
 
 // ─── Tab: Samoobsluha (kiosk) ─────────────────────────────────────────────
 // Konfigurace samoobslužné pobočky pro kiosk appku:
@@ -224,6 +226,7 @@ function TabSelfService({ branchId, branchName, motos }) {
       ) : (
         <>
           <ControlPanelBlock doors={doors} cfg={cfg} onlineDevice={onlineDevice} onRemote={remote} onRefresh={load} />
+          <RpiStatusBlock devices={devices} doors={doors} now={now} onCommand={sendCommand} />
           <PowerBlock power={power} cfg={cfg} now={now} onSave={saveCfg} onRefresh={load} />
           <CamerasBlock cameras={cameras} onlineDevice={onlineDevice} busy={busy}
             onAdd={addCamera} onSave={saveCamera} onDelete={deleteCamera} onRemote={remote} />
@@ -232,6 +235,7 @@ function TabSelfService({ branchId, branchName, motos }) {
           <KioskConfigBlock cfg={cfg} onSave={saveCfg} />
           <OtaBlock ota={ota} onSave={saveOta} />
           <DoorsBlock doors={doors} onEnsure={ensureDoors} onSave={saveDoor} onDelete={deleteDoor} busy={busy} />
+          <RpiHardwareBlock cfg={cfg} doors={doors} busy={busy} onSaveCfg={saveCfg} onSaveDoor={saveDoor} onRefresh={load} />
           <ServiceCodesBlock codes={codes} onAdd={addCode} onToggle={toggleCode} onDelete={deleteCode} busy={busy} />
           <AuditBlock events={events} doors={doors} devices={devices} onRefresh={load} />
           <DiagnosticsBlock logs={logs} devices={devices} onRefresh={load} />

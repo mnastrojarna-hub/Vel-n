@@ -66,6 +66,7 @@ class EventKind(str, Enum):
     LTE_RESET = "LTE_RESET"
     REBOOT = "REBOOT"
     REMOTE_COMMAND = "REMOTE_COMMAND"
+    RPC_ERROR = "RPC_ERROR"                      # ověření kódu selhalo na straně serveru/párování (ne neplatný PIN)
 
 
 @dataclass(frozen=True)

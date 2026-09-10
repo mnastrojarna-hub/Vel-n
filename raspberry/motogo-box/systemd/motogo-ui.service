@@ -1,0 +1,37 @@
+# MotoGo Box — dotykové UI (Wayland kiosk: cage + Chromium) na EDATEC 1920x1080, tty7.
+# Přihlášení přes PAM/logind zajistí XDG_RUNTIME_DIR (/run/user/<uid>) a přístup k DRM/input.
+# Vlastní skript čeká na dostupnost http://127.0.0.1:8080/ (controller) a pak spustí prohlížeč.
+[Unit]
+Description=MotoGo Box kiosk UI (cage + Chromium, Wayland)
+Documentation=file:///opt/motogo/README.md
+After=motogo-controller.service systemd-user-sessions.service
+Wants=motogo-controller.service
+Conflicts=getty@tty7.service
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=motogo
+Group=motogo
+SupplementaryGroups=video render input audio
+PAMName=login
+TTYPath=/dev/tty7
+TTYReset=yes
+TTYVHangup=yes
+TTYVTDisallocate=yes
+StandardInput=tty
+StandardOutput=journal
+StandardError=journal
+UtmpIdentifier=tty7
+UtmpMode=user
+WorkingDirectory=/opt/motogo
+Environment=MOTOGO_UI_URL=http://127.0.0.1:8080/
+Environment=WLR_LIBINPUT_NO_DEVICES=1
+Environment=XDG_SESSION_TYPE=wayland
+ExecStart=/opt/motogo/scripts/kiosk-ui.sh
+Restart=always
+RestartSec=3
+TimeoutStopSec=10
+
+[Install]
+WantedBy=multi-user.target

@@ -453,7 +453,7 @@ Přesná evidence instalací appky (zdroj pravdy pro DAU/WAU/MAU, instalace, už
 - RLS: `app_installations_owner_rw` (FOR ALL, `user_id = auth.uid()`) + `app_installations_admin_read` (SELECT, `is_admin()`)
 - Realtime: NE
 
-### Samoobslužná pobočka (kiosk) — NEW 2026-06-29
+### Samoobslužná pobočka (kiosk) — NEW 2026-06-29 (UPDATE 2026-09-09: RPi řídicí jednotka `20260909_kiosk_rpi_controller.sql`)
 Klíčové sloupce (plný popis tabulek v STATE_1, RPC v STATE_3, triggery STATE_4, RLS STATE_5):
 
 #### branch_kiosk_config
@@ -462,23 +462,27 @@ Klíčové sloupce (plný popis tabulek v STATE_1, RPC v STATE_3, triggery STATE
 - **door_open_seconds** (int DEFAULT 8) / **light_seconds** (int DEFAULT 120) / **music_seconds** (int DEFAULT 90)
 - **power_status_url** (text) — LAN JSON endpoint měniče, který tablet stahuje a hlásí přes `kiosk_report_power`
 - **power_poll_seconds** (int DEFAULT 60), **relay_base_url** (text, informativní), **is_active** (bool DEFAULT true)
+- **hardware** (jsonb NOT NULL DEFAULT '{}') — **NEW 2026-09-09** HW mapa pobočky pro RPi řídicí jednotku (Velín → editor; přepisuje lokální `raspberry/motogo-box/config/brno-9zone.yaml` po top-level klíčích). Tvar: `devices {name:{type:wav645|wav617|shelly_rgbww, host, port:502, unit_id:1}}`, `timings {lock_pulse_ms, door_open_timeout_s, door_close_debounce_ms, light_after_close_s, music_after_close_s, maximum_session_s, forced_open_debounce_ms, pin_entry_timeout_s, overtime_alert_minutes[]}`, `polling {door_input_poll_ms, software_debounce_ms, modbus_timeout_ms, retry_delays_ms[], device_offline_after_failures}`, `contacts {closed_level:0|1}`, `security {maximum_failed_attempts, attempt_window_minutes, lockout_minutes, pin_length, mask_pin_on_screen, service_token_minutes}`, `audio {volume, fade_in_ms, fade_out_ms, selector_settle_ms, selector_on_ms, device, shuffle}`, `signal {brightness, blink_ms, pulse_ms, transition_s}`. Klíč `zones` sem NEPATŘÍ (zóny = `branch_doors.hw`); `{}` = lokální výchozí mapa.
 
 #### kiosk_devices
 - **id** (uuid PK) — unikátní identita zařízení (zadává se v appce při párování)
 - **device_token** (uuid DEFAULT gen_random_uuid()) — tajný párovací token (autentizace všech kiosk RPC)
 - **branch_id** (uuid FK→branches CASCADE), **name**, **platform**, **app_version**
 - **last_seen_at** (timestamptz) — heartbeat á 30 s; online = < 70 s; **is_active** (revokace)
+- **status** (jsonb NOT NULL DEFAULT '{}') — **NEW 2026-09-09** poslední snapshot stavu RPi řídicí jednotky (RPC `kiosk_report_status`, á `status_report_s`=30 s). Tvar (= `BoxController.snapshot()`, kontrakt §14): `{ts, version, uptime_s, ready, branch_name, internet, config_source:'local'|'remote', config_problems[], modules:{wav645:bool, wav617a:bool, wav617b:bool, shelly1..4:bool}, audio:{playing_zone, player_ok}, health:{lte:{state, operator, rssi, rsrp, reconnects, usb_resets}, sys:{cpu_temp, throttled, disk_free_pct, mem_free_pct, load1, uptime_s}, internet, ts}, zones:[{zone, door_id, box_number, kind, label, state:SECURED|WAITING_FOR_OPEN|DOOR_OPEN|CLOSED_CONFIRMATION|FAULT, door_closed, fault, light, signal, music, session_started_at, booking_id, last_event}], notice}`. U tabletů `{}`.
+- **status_at** (timestamptz) — **NEW 2026-09-09** čas posledního snapshotu; NULL = zařízení stav nehlásí (tablet)
 
 #### branch_doors
 - **door_kind** (text CHECK motorcycle/accessories), **box_number** (int; = `motorcycles.box_number`, NULL u oblečení)
 - **relay_url** (text — otevření zámku), **light_url** (text — světlo v garáži), **label**, **is_active**, **sort_order**
 - UNIQUE index (branch_id, box_number) WHERE motorcycle; UNIQUE (branch_id) WHERE accessories
+- **hw** (jsonb NOT NULL DEFAULT '{}') — **NEW 2026-09-09** HW mapa zóny pro RPi: `{zone:int, lock:{dev,coil}, contact:{dev,input}, light:{dev,coil}, audio:{dev,coil}, red:{dev,light}, green:{dev,light}, closed_level?:0|1}`; `dev` = klíč z `branch_kiosk_config.hardware.devices` (lock/light/audio = relé Waveshare coil 0-based, contact = vstup WAV617, red/green = Shelly light id 0–4), `closed_level` = override globálního `contacts.closed_level`. `{}` = dveře bez HW zóny (tabletový režim přes `relay_url`/`light_url`). Editor ve Velíně (`BranchRpiHardware.jsx`, tlačítko „Načíst výchozí mapu Brno (9 zón)").
 
 #### branch_service_codes
 - **code** (text), **label**, **is_active**, **created_by** — UNIQUE(branch_id, code) WHERE is_active
 
 #### kiosk_commands
-- **device_id** (uuid FK→kiosk_devices CASCADE), **command** (CHECK open_door/music_on/music_off/identify/reload/camera_control/http_get)
+- **device_id** (uuid FK→kiosk_devices CASCADE), **command** (CHECK open_door/music_on/music_off/identify/reload/camera_control/http_get/restart + **NEW 2026-09-09 pro RPi:** light_on/light_off/set_signal/zone_test/audio_test/all_off/reboot/sync_config/update_software)
 - **params** (jsonb — např. {relay_url, light_url, music_url, url}), **status** (pending/done/failed/expired), **result** (jsonb), **executed_at**
 
 #### branch_door_events
@@ -490,6 +494,10 @@ Klíčové sloupce (plný popis tabulek v STATE_1, RPC v STATE_3, triggery STATE
 #### branch_power_status
 - **branch_id** (uuid PK), **battery_soc** numeric(5,1), **battery_voltage** numeric(6,2), **battery_power_w**/**pv_power_w**/**load_power_w** numeric(10,1)
 - **grid_present** / **generator_on** (bool), **raw** (jsonb — celý payload z měniče), **updated_at**
+
+#### kiosk_logs (NEW v docs 2026-09-09, z `20260630_kiosk_diag_ota_offline.sql`)
+- **device_id** (uuid FK→kiosk_devices CASCADE), **branch_id** (uuid FK→branches SET NULL), **level** (text CHECK info/warn/error/crash DEFAULT info)
+- **source** (text — relay/camera/power/rpc/flutter/platform; RPi: modbus/shelly/zone/pin/lte/config/controller), **message** (text, RPC ořezává na 4000 zn.), **detail** (jsonb), **app_version**, **created_at**; indexy (branch_id, created_at DESC), (level, created_at DESC)
 
 #### points_of_interest (doplněk 2026-07-25)
 - **translations_names** (jsonb GENERATED ALWAYS AS `jsonb_name_translations(translations)` STORED) — jen názvy překladů `{lang:{name}}`; čte `get_pois_catalog` (seznam v appce), ať se nerozbaluje velké `translations` (příčina statement timeoutu). Samoúdržba při UPDATE translations (crony).

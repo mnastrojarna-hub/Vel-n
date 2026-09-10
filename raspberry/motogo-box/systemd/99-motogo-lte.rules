@@ -1,0 +1,9 @@
+# MotoGo Box — SIMCom SIM7600E-H (Waveshare 4G HAT přes USB): VID 1e0e, PID 9001.
+# Modem vytvoří /dev/ttyUSB0–3; AT port je zpravidla rozhraní 2, ale číslo ttyUSB se může měnit,
+# proto stabilní symlink /dev/motogo-lte-at podle čísla USB rozhraní (SPEC §8).
+# Používá proměnné builtinu usb_id (60-serial.rules běží dřív) — VID/PID a číslo rozhraní leží
+# na různých sysfs uzlech, takže je nelze spojit v jednom ATTRS{} pravidle.
+# Instaluje install.sh do /etc/udev/rules.d/99-motogo-lte.rules; ověření: udevadm info -q symlink /dev/ttyUSB2
+SUBSYSTEM=="tty", ENV{ID_VENDOR_ID}=="1e0e", ENV{ID_MODEL_ID}=="9001", ENV{ID_USB_INTERFACE_NUM}=="02", SYMLINK+="motogo-lte-at", GROUP="dialout", MODE="0660"
+# Ostatní porty modemu ať jsou dostupné skupině dialout (diagnostika mmcli/minicom bez rootu).
+SUBSYSTEM=="tty", ENV{ID_VENDOR_ID}=="1e0e", ENV{ID_MODEL_ID}=="9001", GROUP="dialout", MODE="0660"
