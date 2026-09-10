@@ -12,6 +12,7 @@ import logging
 import os
 import shutil
 import subprocess
+from datetime import datetime, timezone
 from typing import Any
 
 log = logging.getLogger("motogo.health")
@@ -19,6 +20,9 @@ log = logging.getLogger("motogo.health")
 THERMAL_PATH = "/sys/class/thermal/thermal_zone0/temp"
 MEMINFO_PATH = "/proc/meminfo"
 UPTIME_PATH = "/proc/uptime"
+REBOOT_REQUIRED_PATH = "/run/reboot-required"                 # zakládá apt/unattended-upgrades po jádru
+OS_RELEASE_PATH = "/etc/os-release"
+UNATTENDED_STAMP_PATH = "/var/lib/apt/periodic/upgrade-stamp"   # mtime = poslední běh unattended-upgrades
 
 
 # ─── Pomocné konverze ────────────────────────────────────────────────────────
@@ -245,8 +249,43 @@ def read_load1() -> float | None:
         return None
 
 
+def read_os_name(path: str = OS_RELEASE_PATH) -> str | None:
+    """`PRETTY_NAME` z `/etc/os-release` (bez uvozovek); chybí → None."""
+    try:
+        with open(path, "r", encoding="utf-8", errors="replace") as f:
+            for line in f:
+                key, sep, val = line.strip().partition("=")
+                if sep and key.strip() == "PRETTY_NAME":
+                    val = val.strip().strip('"').strip("'").strip()
+                    return val or None
+    except OSError:
+        return None
+    return None
+
+
+def read_kernel() -> str | None:
+    """Verze běžícího jádra (`uname -r`); None když ji nelze zjistit."""
+    try:
+        return os.uname().release or None
+    except (AttributeError, OSError):
+        return None
+
+
+def file_mtime_iso(path: str) -> str | None:
+    """ISO 8601 (UTC) čas poslední změny souboru; chybí → None."""
+    try:
+        ts = os.stat(path).st_mtime
+    except OSError:
+        return None
+    return datetime.fromtimestamp(ts, timezone.utc).isoformat(timespec="seconds")
+
+
 def sys_metrics() -> dict:
-    """Souhrn systémových metrik pro payload `health.sys` (kontrakt §14)."""
+    """Souhrn systémových metrik pro payload `health.sys` (kontrakt §14, §17).
+
+    OS pole (`reboot_required`, `os`, `kernel`, `last_unattended_at`) se čtou jen ze souborů
+    (bez rootu, bez spouštění apt) — Velín z nich ukazuje „Restart OS potřebný“ a stav záplat.
+    """
     return {
         "cpu_temp": read_cpu_temp(),
         "throttled": read_throttled(),
@@ -254,4 +293,8 @@ def sys_metrics() -> dict:
         "mem_free_pct": mem_free_pct(),
         "load1": read_load1(),
         "uptime_s": read_uptime_s(),
+        "reboot_required": os.path.exists(REBOOT_REQUIRED_PATH),
+        "os": read_os_name(OS_RELEASE_PATH),
+        "kernel": read_kernel(),
+        "last_unattended_at": file_mtime_iso(UNATTENDED_STAMP_PATH),
     }

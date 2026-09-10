@@ -71,12 +71,17 @@ bezpečně přestaví I/O (vše vypnout → nové zóny).
    cd raspberry/motogo-box
    sudo MOTOGO_APN=internet.t-mobile.cz ./scripts/install.sh
    ```
-   Instalátor je idempotentní: nainstaluje balíčky (python3-venv, mpv, cage, chromium,
-   network-manager, modemmanager, alsa-utils, rsync, kbd, polkitd), vytvoří uživatele `motogo`, zkopíruje
-   program do `/opt/motogo` (venv + pip — bez internetu jen varuje a pokračuje), založí
-   `/etc/motogo/config.yaml` a `hardware.yaml` (existující nepřepisuje), `/var/lib/motogo/music`, udev
-   pravidlo modemu, `/etc/motogo/modem_vidpid`, NM profily, sudoers, polkit pravidlo pro UI, systemd
-   unity, dobíjení RTC baterie (`dtparam=rtc_bbat_vchg=3000000`), vypne `getty@tty7`, služby spustí.
+   Instalátor je idempotentní (13 kroků): nainstaluje balíčky (python3-venv, mpv, cage, chromium,
+   network-manager, modemmanager, alsa-utils, rsync, kbd, polkitd, unattended-upgrades), vytvoří uživatele `motogo`,
+   zkopíruje program do `/opt/motogo` (venv + pip — bez internetu jen varuje a pokračuje) a root-owned kopie
+   `motogo-update` / `motogo-usbreset` / `motogo-sysupdate` do `/usr/local/sbin` (krok 3; zdroj aktualizací
+   `/etc/motogo/source_dir`), založí `/etc/motogo/config.yaml` a `hardware.yaml` (existující nepřepisuje),
+   `/var/lib/motogo/music` + root-owned logy `/var/log/motogo-*.log` (krok 6), udev pravidlo modemu,
+   `/etc/motogo/modem_vidpid`, NM profily, sudoers (krok 9: reboot, restart motogo-*, motogo-update / -usbreset /
+   -sysupdate BEZ argumentů, nmcli lte, mmcli signal-setup) + polkit pravidlo pro UI, **OS záplaty** (krok 10:
+   `/etc/apt/apt.conf.d/52motogo-unattended` = jen Debian-Security, bez automatického restartu, + drop-in
+   `apt-daily-upgrade.timer` 04:00 ± 20 min, `Persistent=false`; `MOTOGO_SKIP_APT=1` → jen varování, že balík chybí),
+   systemd unity, dobíjení RTC baterie (`dtparam=rtc_bbat_vchg=3000000`), vypne `getty@tty7`, služby spustí.
    Zadává se interaktivně nebo přes env: `MOTOGO_DEVICE_ID`, `MOTOGO_DEVICE_TOKEN`, `MOTOGO_APN`,
    **`MOTOGO_SIM_PIN`** (PIN SIM karty — prázdné = SIM bez PINu; zapíše se do `[gsm] pin=` profilu
    `motogo-lte`, jinak zůstane modem ve stavu `locked` a LTE nikdy nenaběhne), `MOTOGO_DIAG_CODE`
@@ -130,6 +135,10 @@ journalctl -u motogo-health -f              # LTE, teploty, reconnecty
 curl -s http://127.0.0.1:8080/api/state | python3 -m json.tool   # živý stav (= kiosk_report_status)
 curl -s 'http://127.0.0.1:8080/api/events?limit=50'              # posledních N událostí
 sudo systemctl restart motogo-controller    # bezpečný restart (all relays off při startu i stopu)
+sudo /usr/local/sbin/motogo-update          # aktualizace software ručně (viz Aktualizace; log /var/log/motogo-update.log)
+sudo /usr/local/sbin/motogo-sysupdate       # apt full-upgrade ručně (nikdy nerestartuje; REBOOT_REQUIRED=/UPGRADED= na konci)
+systemctl list-timers apt-daily-upgrade.timer   # záplaty OS: další běh 04:00 ± 20 min; log /var/log/unattended-upgrades/
+ls /run/reboot-required* 2>/dev/null        # existuje = OS čeká na restart (Velín chip „Restart OS potřebný“)
 ```
 Watchdog: controller posílá `WATCHDOG=1` jen pokud běží čtení kontaktů (jinak restart do 60 s,
 `WatchdogSec=60`); health má `WatchdogSec=300` (jeden cyklus s nmcli/USB resetem trvá až ~100 s).
@@ -173,13 +182,15 @@ venv/bin/python -m motogo_box check-config config/brno-9zone.yaml            # v
 | `identify` | `label?` | „Tady jsem" na displeji + 3× bliknutí zelené |
 | `reload` / `sync_config` | – | stáhnout konfiguraci a cache kódů |
 | `restart` | – | restart procesu controlleru |
-| `reboot` | – | `systemctl reboot` |
-| `update_software` | – | `sudo /usr/local/sbin/motogo-update` (root-owned kopie `scripts/update.sh`: git pull / pip / restart) |
+| `reboot` | `wait_idle?`, `wait_idle_s?` | `systemctl reboot`; s `wait_idle:true` (Velín „Restart OS“ v bloku Aktualizace) až když je box volný — hned vrací `{scheduled}`, průběh v `status.update` |
+| `update_software` | `ref?` (sha 7–40), `rollout_id?`, `wait_idle_s?` (výchozí 1800) | naplánuje `sudo /usr/local/sbin/motogo-update` (root-owned kopie `scripts/update.sh`: git fetch + ff-merge na `ref` / větev, pip, restart) — provede se, až je box volný; hned vrací `{scheduled}`; odmítne `invalid_ref` / `update_in_progress` |
+| `update_system` | `rollout_id?`, `wait_idle_s?`, `auto_reboot?` | naplánuje `sudo /usr/local/sbin/motogo-sysupdate` (apt full-upgrade, bez restartu); `auto_reboot` = po novém jádru `systemctl reboot`, až je box volný |
 | `http_get` / `camera_control` | `url` | HTTP GET na LAN (kamery, měnič) |
 | `diagnostics` | `reason?` | kompletní diagnostika sítě na pozadí; report → `kiosk_report_diagnostics` (Velín blok „Diagnostika sítě") |
 
 Příkazy chodí přes Supabase Realtime (broadcast) s pojistkou pollingu každých 10 s; výsledek
 se hlásí přes `kiosk_complete_command`. Živý stav zón vidí Velín z `kiosk_report_status` (30 s).
+Dokud běží aktualizační skript (git/pip/apt), jednotka odmítá `restart` i `reboot` s `update_in_progress`.
 
 ## Diagnostika sítě
 
@@ -203,17 +214,49 @@ na zařízení) přes `kiosk_report_diagnostics` (frontuje se v outboxu), souhrn
 
 ## Aktualizace
 
-- Z Velína: příkaz `update_software` → `sudo /usr/local/sbin/motogo-update` — **root-owned kopie**
-  `scripts/update.sh`, kterou install/update instaluje do `/usr/local/sbin` (sudoers ji povoluje jen bez
-  argumentů). Změna v `/opt/motogo/scripts/update.sh` se projeví až po dalším install/update.
-- Zdroj = `/etc/motogo/source_dir` (git checkout uložený instalátorem). `git pull --ff-only` běží **jako
-  vlastník checkoutu** (jeho credential helper / deploy key bez hesla — root žádné nemá); když pull selže,
-  skript končí kódem 3, nic neinstaluje a Velín vidí selhání příkazu.
-- Ručně jako root: `sudo /usr/local/sbin/motogo-update` (nebo `sudo /opt/motogo/scripts/update.sh /cesta/k/nove/verzi`
-  — argument se přijímá jen při ručním spuštění rootem, ne přes sudo od uživatele `motogo`).
-  Log `/var/log/motogo-update.log` (root-owned). pip instaluje jen v mezích `requirements.txt` (žádné slepé
-  `--upgrade`; `MOTOGO_PIP_UPGRADE=1` povýší v rámci rozsahů), aktualizuje změněné unity/sudoers/polkit
-  a restartuje controller + health. Venv patří uživateli `motogo` a root ho nikdy nespouští.
+**Verze a release.** Jednotka hlásí `<verze>+<git sha7>` (heartbeat); Velín porovnává sha s nejnovějším releasem. Release =
+commit v `main`, který změnil `raspberry/motogo-box/**` — po merge ho workflow `.github/workflows/release-motogo-box.yml`
+zapíše do `kiosk_releases` (verze, sha, zpráva, autor, datum). **Push do main NIKDY jednotky neaktualizuje sám.** Ruční běh
+workflow (Actions → Run workflow, vstup `commit` = plný sha z main) slouží jen k doplnění chybějícího NOVĚJŠÍHO commitu (např.
+tabulka při prvním nasazení ještě neexistovala — workflow na ni čeká ~5 min a pak skončí varováním); starší commit workflow
+odmítne; červený běh = chyba psql (issue se nezakládá).
+
+- **Jedna jednotka:** Velín → Samoobsluha → Řídicí jednotka → „Aktualizovat software“ (`update_software`). Příkaz se jen
+  NAPLÁNUJE a provede se, až v boxu nikdo není (žádná relace, neběží diagnostika — nejdéle „čekání na klid“ `wait_idle_s`,
+  výchozí 30 min, pak i tak). Výsledek poznáte z hlášené verze a řádku „Aktualizace: čeká na klid / probíhá / selhalo“
+  (`status.update`). Během běhu skriptu se `restart`/`reboot` odmítají (`update_in_progress`).
+- **Všechny pobočky:** Velín → Pobočky → „Aktualizace řídicích jednotek (všechny pobočky)“: seznam releasů, tabulka jednotek
+  (verze, Aktuální/Zastaralá, stav aktualizace, OS + jádro + datum záplat, chip „Restart OS potřebný“, tlačítka „Restart OS“
+  a „Aktualizovat OS“ pro jednu jednotku), „Aktualizovat všechny pobočky“ → dialog (kanárek, sledování min, čekání na klid s)
+  → **kanárek → sledování (soak: bez chyb v `kiosk_logs`, online) → zbytek poboček**; průběh po jednotkách, „Zrušit“,
+  „Zkontrolovat teď“ (jinak vyhodnocení každých 5 min přes pg_cron); nastavení automatiky; historie posledních 10. Chyba,
+  výpadek nebo timeout kanárka rollout zastaví — ostatní jednotky se netknou. Offline jednotky se zkouší až 24 h.
+- **Noční automatika:** v nastavenou hodinu (výchozí 03:00 Prahy) se sama spustí aktualizace na nejnovější release, pokud
+  nějaká jednotka viděná za posledních 24 h zaostává — stejný postup přes kanárka, nejvýš jednou za noc.
+- **OS (Debian):** bezpečnostní záplaty instaluje `unattended-upgrades` sám v noci ve **04:00 ± 20 min** (jen Debian-Security,
+  bez restartu, zmeškaná noc se nedohání v provozní době). Úplný `apt full-upgrade` = „Aktualizovat OS“ (jedna jednotka, bez
+  restartu), „Aktualizovat OS na všech pobočkách“ (kanárek → soak → zbytek, volba „automatický restart po novém jádru“) nebo
+  automaticky každých N dní (nastavení; stejná noční hodina, software má přednost). Restart OS: tlačítko „Restart OS“
+  (`reboot` s `wait_idle` — provede se, až je box volný), nebo automaticky po jádru, když je box volný. Chip „Restart OS
+  potřebný“ = `/run/reboot-required` (na Debianu ho zakládá až motogo-sysupdate / hook po unattended-upgrades).
+- **Rollback:** revert commit v `main` + nový rollout. Jednotka se posouvá jen dopředu (`git merge --ff-only` na cílový
+  commit; starší commit / jiná větev = kód 3).
+- **Jak to běží na jednotce:** `sudo /usr/local/sbin/motogo-update` (root-owned kopie `scripts/update.sh`, sudoers jen bez
+  argumentů; změna v `/opt/motogo/scripts/update.sh` se projeví až dalším během): cíl z `/var/lib/motogo/update_ref` (zapíše
+  controller z `ref`, jinak větev; soubor se vždy smaže), `git fetch origin` + `git merge --ff-only` **jako vlastník checkoutu**
+  (`/etc/motogo/source_dir`; credential helper / deploy key bez hesla — root žádné nemá), rsync do `/opt/motogo`, pip jen v
+  mezích `requirements.txt` (`MOTOGO_PIP_UPGRADE=1` povýší v rámci rozsahů), obnova změněných unit/sudoers/polkit/apt
+  konfigurace, doinstalování `unattended-upgrades`, restart controller + health (za 2 s přes systemd-run). Skript drží flock
+  (souběh = „už běží“, kód 2) a běží ve vlastním systemd scope, takže restart/pád controlleru ho nezabije. Ručně jako root:
+  `sudo /usr/local/sbin/motogo-update` (nebo `sudo /opt/motogo/scripts/update.sh /cesta/k/nove/verzi` — argument jen při
+  ručním spuštění rootem, ne přes sudo od `motogo`). OS: `sudo /usr/local/sbin/motogo-sysupdate` (žádné argumenty; apt update
+  → full-upgrade → autoremove → clean; nikdy nerestartuje; na konci vypíše `REBOOT_REQUIRED=0|1` a `UPGRADED=<n>`). Logy
+  `/var/log/motogo-update.log`, `/var/log/motogo-sysupdate.log` (root-owned). Venv patří uživateli `motogo`, root ho nespouští.
+- **První rollout na stávajících jednotkách:** provede ho ještě starý controller a starý `motogo-update` (hned, bez čekání na
+  klid, na větev; starý controller čeká na skript max 120 s — trvá-li pip déle, ohlásí příkaz timeout, což rollout
+  ignoruje: čeká dál na hlášenou novou verzi). `motogo-sysupdate` a
+  `unattended-upgrades` se nainstalují až dalším během — „Aktualizovat OS“ do té doby hlásí `sysupdate_missing` → spusťte
+  znovu „Aktualizovat software“.
 
 ## Řešení problémů
 
@@ -225,7 +268,11 @@ na zařízení) přes `kiosk_report_diagnostics` (frontuje se v outboxu), souhrn
 | „Příliš mnoho neplatných pokusů" | PIN lockout (5 pokusů / 5 min → 15 min) | počkat nebo restart controlleru (lockout je v SQLite — přežije restart) |
 | LTE offline dlouhodobě | slabý signál / modem zamrzl | health sám: 5× výpadek (všechny 3 sondy) → `nmcli con up`, 5× reconnect → USB reset modemu, 3× reset → reboot (jen při uptime ≥ 30 min). Ručně: `sudo /usr/local/sbin/motogo-usbreset` (VID:PID z `/etc/motogo/modem_vidpid`; jako root přímo lze `usbreset-modem.sh 1e0e:9001`); `mmcli -m any --signal-get` |
 | `mmcli -m any` = `locked`, health hlásí `lte.error=sim_locked` (nebo `sim_missing`) | SIM má PIN a profil ho nezná / SIM chybí | `sudo MOTOGO_SIM_PIN=1234 ./scripts/install.sh` (zapíše `[gsm] pin=` do `motogo-lte`) nebo PIN na SIM vypnout; health v tomto stavu záměrně nedělá reconnect/USB reset/reboot |
-| Velín: `update_software` selhal (kód 3) | `git pull` ve zdrojovém checkoutu selhal (síť, přihlášení, větev bez upstreamu) | `sudo cat /var/log/motogo-update.log`; jako vlastník checkoutu ověř `git pull --ff-only` (credential helper / deploy key), nebo ručně `sudo /usr/local/sbin/motogo-update` |
+| Velín: `update_software` selhal (kód 3) | `git fetch` / `git merge --ff-only` ve zdrojovém checkoutu selhal: síť, přihlášení, větev bez upstreamu, nebo cíl z Velína (`/var/lib/motogo/update_ref`) není dopředný potomek HEAD — starší commit, jiná větev, neznámý sha | `sudo cat /var/log/motogo-update.log`; jako vlastník checkoutu ověř `git fetch origin` (credential helper / deploy key); rollback = revert commit v main a nový rollout (checkout se nikdy necouvá); ručně `sudo /usr/local/sbin/motogo-update` (kód 2 = „už běží“ / chybný zdroj) |
+| Velín: `update_software` / `update_system` / `restart` / `reboot` → `update_in_progress` | běží jiná aktualizace, nebo předchozí běh vypršel a root skript možná ještě běží (`reason: timeout_orphan`, `retry_after_s`) | počkat (řádek „Aktualizace“ / `status.update`), `sudo cat /var/log/motogo-update.log /var/log/motogo-sysupdate.log`; lhůta = délka timeoutu skriptu (15 / 45 min), restart controlleru ji zruší |
+| Velín: „Aktualizovat OS“ selhalo `sysupdate_missing` | starší instalace bez `/usr/local/sbin/motogo-sysupdate` (nainstaluje ho až nový `motogo-update`) | spustit „Aktualizovat software“, pak OS aktualizaci znovu |
+| Velín: rollout `Selhalo` | `canary_failed: update_failed …` (kanárek nahlásil chybu — `status.update.last.error`, např. `rc=3`) / `command_failed` / `command_expired` (příkaz selhal nebo nebyl vyzvednut do 10 min); `canary_timeout` (kanárek se do čekání na klid + 45 min neaktualizoval — offline, dlouhá relace, pomalý git/pip); `canary_errors: N` (během sledování chyby error/crash v `kiosk_logs` — `result.errors`); `canary_offline` (kanárek > 10 min neviděn); `devices_failed: N` (po rozeslání selhaly jednotky — detail u řádků) | historie v bloku Aktualizace + logy kanárka (Samoobsluha → Logy), na jednotce `journalctl -u motogo-controller`, `/var/log/motogo-update.log`; opravit a spustit nový rollout (jednotky už na cíli přeskočí rovnou do soak / `updated`) |
+| OS záplaty se neinstalují / chip „Restart OS potřebný“ nezmizí | timer nebo balík `unattended-upgrades` chybí; nové jádro čeká na restart | `systemctl list-timers apt-daily-upgrade.timer` (04:00 ± 20 min), `unattended-upgrade --dry-run -d`, `/var/log/unattended-upgrades/unattended-upgrades.log`, `cat /run/reboot-required.pkgs`; restart z Velína („Restart OS“ — provede se, až je box volný) |
 | UI černé / „Řídicí jednotka nedostupná" | controller neběží nebo startuje | `systemctl status motogo-controller`; UI se samo připojí po startu |
 | UI černé, `journalctl -u motogo-ui` opakuje „Could not activate session“ | session motogo na tty7 není aktivní (VT nepřepnuto / chybí polkit pravidlo) | `chvt 7` ručně, ověř `/etc/polkit-1/rules.d/50-motogo-kiosk.rules` a balík `kbd` (unit dělá `chvt 7` v `ExecStartPre`); `loginctl session-status` |
 | bez zvuku | špatný `audio.device`, hlasitost karty, sepnuté relé jiné zóny | `aplay -l`, `alsamixer`, servisní panel → Hudba v zóně; `api/state` → `audio.playing_zone` |

@@ -1,0 +1,157 @@
+name: Release MotoGo Box
+
+# Evidence release ridici jednotky (raspberry/motogo-box) pro hromadnou aktualizaci z Velina.
+#
+# Kazdy commit v `main`, ktery zmenil raspberry/motogo-box/**, se zapise do tabulky
+# public.kiosk_releases (commit = plny sha, version = __version__ z motogo_box/__init__.py,
+# zprava, autor, cas commitu, pocet zmenenych souboru). Velin z ni bere „nejnovejsi verzi“
+# a rollout (kanarek -> soak -> flotila) posila boxum `update_software` s ref = commit.
+#
+# NIC se boxum nerozesila odsud — jen evidence. Samotnou aktualizaci spousti Velin
+# tlacitkem nebo nocni automatika (kiosk_rollout_tick), viz raspberry/motogo-box/README.md.
+#
+# Rucni beh (Actions -> Run workflow): vstup `commit` = plny sha (40 hex) commitu z `main`,
+# prazdne = HEAD vybrane vetve. Commit mimo `main` se odmitne (boxy sleduji origin/main).
+#
+# Kdyz tabulka kiosk_releases jeste neexistuje (migrace se nasazuje paralelne pres
+# deploy-sql.yml ze stejneho pushe), krok na ni az ~5 min ceka; kdyz se neobjevi, skonci
+# jen varovanim — po nasazeni migrace spust workflow rucne s prislusnym `commit`.
+# Commit STARSI (committed_at) nez nejnovejsi uz evidovany release se neeviduje (varovani):
+# Velin i nocni automatika berou „nejnovejsi“ podle poradi zapisu a starsi cil by na boxech
+# selhal (git merge --ff-only na predka HEAD). Jina chyba psql = workflow spadne
+# (zadne issue se nezaklada).
+#
+# Pozadovany GitHub secret (uz existuje pro deploy-sql.yml):
+#   SUPABASE_DB_URL = postgresql://postgres:<HESLO>@db.<ref>.supabase.co:5432/postgres
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "raspberry/motogo-box/**"
+  workflow_dispatch:
+    inputs:
+      commit:
+        description: "Volitelne: plny sha (40 hex) commitu z main, ktery zaevidovat. Prazdne = HEAD."
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-motogo-box
+  cancel-in-progress: false
+
+jobs:
+  register:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0  # cela historie: git log / diff i pro rucne zadany starsi commit
+
+      - name: Zjisti metadata release
+        id: meta
+        env:
+          INPUT_COMMIT: ${{ inputs.commit }}
+          DEFAULT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          sha="$(printf '%s' "${INPUT_COMMIT:-$DEFAULT_SHA}" | tr -d '[:space:]' | tr 'A-F' 'a-f')"
+          if ! [[ "$sha" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::Vstup 'commit' musi byt plny sha (40 hex malych znaku), zadano: '$sha'"
+            exit 1
+          fi
+          if ! git cat-file -e "${sha}^{commit}" 2>/dev/null; then
+            echo "::error::Commit $sha v repu neexistuje"
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor "$sha" origin/main; then
+            echo "::error::Commit $sha neni v main — boxy sleduji origin/main, release mimo main nelze zaevidovat"
+            exit 1
+          fi
+
+          # Verze z __init__.py PRESNE v danem commitu (ne z HEAD checkoutu)
+          version="$(git show "${sha}:raspberry/motogo-box/motogo_box/__init__.py" \
+                     | sed -nE 's/^__version__[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/p' | head -n1)"
+          if [ -z "$version" ]; then
+            echo "::error::V raspberry/motogo-box/motogo_box/__init__.py (commit $sha) chybi __version__ = \"x.y.z\""
+            exit 1
+          fi
+
+          subject="$(git log -1 --format='%s' "$sha")"
+          author="$(git log -1 --format='%an' "$sha")"
+          committed_at="$(git log -1 --format='%cI' "$sha")"
+          # Zmenene soubory boxu vuci prvnimu rodici (u merge = cely PR); root commit -> vse
+          if git rev-parse -q --verify "${sha}^" >/dev/null 2>&1; then
+            files_changed="$(git diff --name-only "${sha}^" "$sha" -- raspberry/motogo-box | wc -l | tr -d ' ')"
+          else
+            files_changed="$(git ls-tree -r --name-only "$sha" -- raspberry/motogo-box | wc -l | tr -d ' ')"
+          fi
+
+          {
+            echo "sha=$sha"
+            echo "version=$version"
+            echo "author=$author"
+            echo "committed_at=$committed_at"
+            echo "files_changed=$files_changed"
+            # subject muze obsahovat cokoli -> heredoc zapis do outputu
+            echo "subject<<__EOF__"
+            echo "$subject"
+            echo "__EOF__"
+          } >> "$GITHUB_OUTPUT"
+          echo "Release ${version}+${sha:0:7} — ${subject} (${author}, ${committed_at}, souboru: ${files_changed})"
+
+      - name: Zapis release do kiosk_releases
+        env:
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          SHA: ${{ steps.meta.outputs.sha }}
+          VERSION: ${{ steps.meta.outputs.version }}
+          SUBJECT: ${{ steps.meta.outputs.subject }}
+          AUTHOR: ${{ steps.meta.outputs.author }}
+          COMMITTED_AT: ${{ steps.meta.outputs.committed_at }}
+          FILES_CHANGED: ${{ steps.meta.outputs.files_changed }}
+        run: |
+          set -euo pipefail
+          if [ -z "$DB_URL" ]; then
+            echo "::error::Secret SUPABASE_DB_URL chybi/je prazdny. Pridej ho v Settings -> Secrets and variables -> Actions."
+            exit 1
+          fi
+          # Migrace s tabulkou se nasazuje paralelne (deploy-sql.yml, stejny push) -> pockej na ni
+          # az ~5 min (15 x 20 s). Chyba spojeni tady = workflow spadne (jako kazda jina chyba psql).
+          for i in $(seq 1 15); do
+            has_table="$(psql "$DB_URL" -v ON_ERROR_STOP=1 -qtAX \
+                         -c "SELECT to_regclass('public.kiosk_releases') IS NOT NULL")"
+            [ "$has_table" = "t" ] && break
+            echo "Tabulka public.kiosk_releases zatim neexistuje, cekam na deploy-sql.yml ($i/15)…"
+            sleep 20
+          done
+          # Hodnoty jdou do SQL VYHRADNE pres psql promenne (:'x'), nikdy interpolaci do textu.
+          # Chybejici tabulka (migrace stale nenasazena) = jen varovani, exit 0.
+          # Starsi commit nez nejnovejsi evidovany se neeviduje (poradi zapisu = „nejnovejsi“ pro Velin i cron).
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -qX \
+            -v commit="$SHA" -v version="$VERSION" -v message="$SUBJECT" -v author="$AUTHOR" \
+            -v committed_at="$COMMITTED_AT" -v files_changed="$FILES_CHANGED" <<'SQL'
+          SELECT to_regclass('public.kiosk_releases') IS NULL AS missing \gset
+          \if :missing
+            \echo ::warning::Tabulka public.kiosk_releases zatim neexistuje (migrace kiosk_fleet_updates neni nasazena) - release NEBYL zaevidovan. Po nasazeni spust workflow rucne se vstupem commit.
+          \else
+            SELECT EXISTS (
+              SELECT 1 FROM public.kiosk_releases
+              WHERE commit <> :'commit'
+                AND committed_at > NULLIF(:'committed_at', '')::timestamptz
+            ) AS older \gset
+            \if :older
+              \echo ::warning::V kiosk_releases uz je novejsi release nez commit :commit - starsi commit se neeviduje (Velin/nocni automatika by ho braly jako nejnovejsi a boxy by na nej neslo posunout).
+            \else
+              INSERT INTO public.kiosk_releases (commit, version, message, author, committed_at, files_changed)
+              VALUES (:'commit', :'version', :'message', :'author',
+                      NULLIF(:'committed_at', '')::timestamptz, NULLIF(:'files_changed', '')::int)
+              ON CONFLICT (commit) DO NOTHING;
+              SELECT count(*) AS existing FROM public.kiosk_releases WHERE commit = :'commit' \gset
+              \echo Zaevidovano: kiosk_releases commit :commit (verze :version), radku s timto commitem: :existing
+            \endif
+          \endif
+          SQL
+          echo "Release motogo-box: \`${VERSION}+${SHA:0:7}\` — ${SUBJECT}" >> "$GITHUB_STEP_SUMMARY"

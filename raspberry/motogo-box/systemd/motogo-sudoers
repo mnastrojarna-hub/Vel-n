@@ -4,16 +4,19 @@
 # instaluje z scripts/), aby je uživatel motogo nemohl přepsat a získat root.
 # Argumenty jsou přibité: "" = příkaz smí běžet JEN bez argumentů. motogo-update by jinak přijal
 # cizí zdrojový adresář a nainstaloval z něj sudoers/unity jako root; motogo-usbreset proto čte
-# VID:PID z root-owned /etc/motogo/modem_vidpid. Ostatní příkazy mají pevný argv (health.py
-# je volá přesně takto: nmcli -w 30 con up …, mmcli --signal-setup=30, systemctl reboot).
+# VID:PID z root-owned /etc/motogo/modem_vidpid; motogo-update bere cílový commit z
+# /var/lib/motogo/update_ref (validace ^[0-9a-f]{7,40}$); motogo-sysupdate (apt full-upgrade)
+# argumenty nemá vůbec — nikdy nerestartuje služby ani systém, restart OS dělá controller přes
+# `systemctl reboot` (MOTOGO_POWER). Ostatní příkazy mají pevný argv (health.py je volá přesně
+# takto: nmcli -w 30 con up …, mmcli --signal-setup=30, systemctl reboot).
 # Používá: health monitor (nmcli, USB reset, reboot, mmcli signal-setup), vzdálené příkazy
-# z Velína (reboot, update_software) a UI restart (systemctl restart motogo-*).
+# z Velína (reboot, update_software, update_system) a UI restart (systemctl restart motogo-*).
 Defaults:motogo !requiretty
 Defaults:motogo env_reset
 
 Cmnd_Alias MOTOGO_POWER   = /usr/bin/systemctl reboot
 Cmnd_Alias MOTOGO_SERVICE = /usr/bin/systemctl restart motogo-controller, /usr/bin/systemctl restart motogo-health, /usr/bin/systemctl restart motogo-ui, /usr/bin/systemctl restart motogo-controller motogo-health
-Cmnd_Alias MOTOGO_SCRIPTS = /usr/local/sbin/motogo-usbreset "", /usr/local/sbin/motogo-update ""
+Cmnd_Alias MOTOGO_SCRIPTS = /usr/local/sbin/motogo-usbreset "", /usr/local/sbin/motogo-update "", /usr/local/sbin/motogo-sysupdate ""
 Cmnd_Alias MOTOGO_LTE     = /usr/bin/nmcli -w 30 con up motogo-lte, /usr/bin/nmcli con up motogo-lte, /usr/bin/nmcli con down motogo-lte, /usr/bin/mmcli -m any --signal-setup=30
 
 motogo ALL=(root) NOPASSWD: MOTOGO_POWER, MOTOGO_SERVICE, MOTOGO_SCRIPTS, MOTOGO_LTE

@@ -41,6 +41,20 @@ const KEYFRAMES = `
 @keyframes rpiPulse { 0%,100% { opacity: 1 } 50% { opacity: .25 } }
 `
 
+// Řádek „Aktualizace: …“ ze status.update (kontrakt §14) — jen když není idle; null = nic nezobrazit
+function updateLineOf(upd) {
+  if (!upd || typeof upd !== 'object') return null
+  const state = txt(upd.state ?? 'idle')
+  const kind = upd.kind === 'system' ? 'OS' : 'software'
+  const since = upd.since ? ` od ${new Date(txt(upd.since)).toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' })}` : ''
+  if (state === 'waiting') return { text: `čeká na klid (${kind}${since}) — provede se, až v boxu nikdo nebude`, bg: '#fef3c7', color: '#b45309' }
+  if (state === 'running') return { text: `probíhá (${kind}${since})`, bg: '#dbeafe', color: '#2563eb' }
+  if (state === 'rebooting') return { text: 'restart OS', bg: '#fef3c7', color: '#b45309' }
+  if (state === 'failed') return { text: `selhalo (${kind}) — ${txt(upd.error ?? 'neznámá chyba')}`, bg: '#fee2e2', color: '#dc2626' }
+  if (state === 'done') return { text: `hotovo (${kind})`, bg: '#dcfce7', color: '#1a8a18' }
+  return null
+}
+
 function SignalDot({ signal }) {
   const s = String(signal || 'off').toLowerCase()
   const base = { width: 12, height: 12, borderRadius: 999, display: 'inline-block', border: '1px solid rgba(0,0,0,.08)' }
@@ -91,6 +105,7 @@ function RpiDeviceCard({ dev, doors, now, onCommand }) {
   const doorMap = Object.fromEntries(arr(doors).map(d => [d.id, d]))
   const cpuTemp = num(sys.cpu_temp), diskFree = num(sys.disk_free_pct)
   const playingZone = st.audio && typeof st.audio === 'object' ? num(st.audio.playing_zone) : null
+  const updateLine = updateLineOf(st.update)
 
   async function send(command, params = {}, label) {
     const ok = await onCommand(dev, command, params)
@@ -134,6 +149,11 @@ function RpiDeviceCard({ dev, doors, now, onCommand }) {
           {playingZone != null && <Chip tone="green">♪ hraje zóna {playingZone}</Chip>}
         </div>
       )}
+      {updateLine && (
+        <div className="mt-2 p-2 rounded-lg text-[12px] font-bold" style={{ background: updateLine.bg, color: updateLine.color }}>
+          Aktualizace: {updateLine.text}
+        </div>
+      )}
       {problems.length > 0 && (
         <div className="mt-2 p-2 rounded-lg text-[12px]" style={{ background: '#fee2e2', color: '#dc2626' }}>
           <div className="font-bold">Problémy konfigurace ({problems.length}):</div>
@@ -147,7 +167,7 @@ function RpiDeviceCard({ dev, doors, now, onCommand }) {
         <Btn tone="blue" onClick={() => send('sync_config', {}, 'Synchronizovat konfiguraci')}>Synchronizovat konfiguraci</Btn>
         <Btn tone="blue" onClick={() => send('identify', { label: 'Velín' }, 'Identifikuj')}>Identifikuj</Btn>
         <Btn tone="amber" onClick={() => confirmSend('Restartovat službu řídicí jednotky? Zóny se na pár sekund vypnou a znovu inicializují.', 'restart', {}, 'Restart služby')}>Restart služby</Btn>
-        <Btn tone="amber" onClick={() => confirmSend('Aktualizovat software řídicí jednotky (git pull + restart)?', 'update_software', {}, 'Aktualizovat software')}>Aktualizovat software</Btn>
+        <Btn tone="amber" onClick={() => confirmSend('Aktualizovat software řídicí jednotky (git pull + restart)? Naplánuje se a provede se, až bude kóje volná (nikdo uprostřed relace). Výsledek poznáte podle hlášené verze a řádku „Aktualizace“ níže.', 'update_software', {}, 'Aktualizovat software')}>Aktualizovat software</Btn>
         <Btn tone="red" onClick={() => confirmSend('Rebootovat Raspberry Pi? Pobočka bude cca 1 minutu nedostupná.', 'reboot', {}, 'Reboot RPi')}>Reboot RPi</Btn>
         {sent && (now - sent.ts) < 60000 && <span className="text-[11px] font-bold" style={{ color: '#1a8a18' }}>{sent.text}</span>}
       </div>

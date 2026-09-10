@@ -2,9 +2,11 @@
 
 `execute(ctrl, command, params)` vrací `(success, result)`; nikdy nevyhazuje.
 Příkaz `restart` ukončí proces uvnitř `execute`, proto ho `BoxController.handle_command`
-potvrdí v Supabase PŘEDEM; `reboot`/`update_software` vrací skutečný výsledek `sudo`
-(selhání sudoers/timeout se dostane do Velína). HW příkazy se odmítají, dokud jednotka
-není `ready` (start / přestavba HW vrstvy — §12 krok 8).
+potvrdí v Supabase PŘEDEM; `reboot` vrací skutečný výsledek `sudo` (selhání sudoers/timeout
+se dostane do Velína). `update_software` / `update_system` se jen naplánují
+(`ctrl.updater.start`, viz `updater.py`) — běží až když je box volný; dokud běží root skript
+(apt/git), `restart`/`reboot` se odmítají (`update_blocks`) — restart unity by ho zabil uprostřed
+dpkg. HW příkazy se odmítají, dokud jednotka není `ready` (start / přestavba HW — §12 krok 8).
 """
 from __future__ import annotations
 
@@ -23,7 +25,6 @@ if TYPE_CHECKING:  # pragma: no cover
 
 log = logging.getLogger("motogo.commands")
 
-UPDATE_SCRIPT = "/usr/local/sbin/motogo-update"   # root-owned kopie scripts/update.sh (sudoers)
 HTTP_TIMEOUT_S = 6.0
 SUBPROCESS_TIMEOUT_S = 120.0
 
@@ -168,6 +169,10 @@ async def _restart(ctrl: "BoxController", params: dict) -> tuple[bool, dict]:
 async def _reboot(ctrl: "BoxController", params: dict) -> tuple[bool, dict]:
     """Potvrzení odchází PŘED rebootem (TERMINAL_COMMANDS) — systemd proces zabije dřív, než by
     se potvrzení přes LTE doručilo; selhání sudo se hlásí zvlášť přes kiosk_log_event."""
+    if params.get("wait_idle"):
+        # Velín „Restart OS“ (po novém jádru): až bude box volný — plánuje updater (§25), potvrzení je
+        # `scheduled` (TERMINAL_COMMANDS), průběh v `snapshot()['update']`.
+        return ctrl.updater.start("reboot", params)
     log.warning("Vzdálený příkaz reboot")
     ok, res = await _run("sudo", "systemctl", "reboot")
     if not ok:
@@ -176,8 +181,13 @@ async def _reboot(ctrl: "BoxController", params: dict) -> tuple[bool, dict]:
 
 
 async def _update(ctrl: "BoxController", params: dict) -> tuple[bool, dict]:
-    log.warning("Vzdálený příkaz update_software: %s", UPDATE_SCRIPT)
-    return await _run("sudo", UPDATE_SCRIPT)
+    """Aktualizace software — jen naplánuje (`{scheduled, ref, wait_idle_s}`), běží až v klidu (§25)."""
+    return ctrl.updater.start("software", params)
+
+
+async def _update_system(ctrl: "BoxController", params: dict) -> tuple[bool, dict]:
+    """Aktualizace OS (apt full-upgrade) — naplánuje; `auto_reboot` restartuje po jádru, až je box volný."""
+    return ctrl.updater.start("system", params)
 
 
 async def _diagnostics(ctrl: "BoxController", params: dict) -> tuple[bool, dict]:
@@ -214,6 +224,7 @@ HANDLERS: dict[str, Handler] = {
     "restart": _restart,
     "reboot": _reboot,
     "update_software": _update,
+    "update_system": _update_system,
     "http_get": _http_get,
     "camera_control": _http_get,
     "diagnostics": _diagnostics,
@@ -226,6 +237,14 @@ HW_COMMANDS = frozenset({"open_door", "music_on", "music_off", "light_on", "ligh
                          "zone_test", "audio_test", "all_off", "identify"})
 
 
+def update_blocks(ctrl: "BoxController", command: str) -> dict | None:
+    """`restart`/`reboot` během běhu root skriptu aktualizace → `{error: update_in_progress, …}`, jinak None."""
+    updater = getattr(ctrl, "updater", None)
+    if command not in TERMINAL_COMMANDS or not getattr(updater, "script_running", False):
+        return None
+    return {"error": "update_in_progress", "command": command, "state": updater.state, "kind": updater.kind}
+
+
 async def execute(ctrl: "BoxController", command: str, params: dict) -> tuple[bool, dict]:
     """Provede příkaz z Velína; neznámý → `(False, {"error": "unknown_command"})`."""
     handler = HANDLERS.get(str(command or "").strip())
@@ -234,6 +253,10 @@ async def execute(ctrl: "BoxController", command: str, params: dict) -> tuple[bo
     params = params if isinstance(params, dict) else {}
     if command in HW_COMMANDS and not getattr(ctrl, "ready", True):
         return False, {"error": "not_ready", "command": command}
+    blocked = update_blocks(ctrl, command)
+    if blocked is not None:
+        log.warning("Příkaz %s odmítnut — běží aktualizace (%s)", command, blocked)
+        return False, blocked
     try:
         ok, result = await handler(ctrl, params)
         log.info("Příkaz %s %s → %s %s", command, params, "OK" if ok else "FAIL", result)

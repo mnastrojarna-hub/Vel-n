@@ -11,7 +11,9 @@
 #                             jinak vygeneruje náhodný „diagNNNN“; existující kód se BEZ této proměnné nemění)
 #   MOTOGO_MODEM_VIDPID=1e0e:9001  (USB ID modemu → /etc/motogo/modem_vidpid pro motogo-usbreset)
 #   MOTOGO_SKIP_APT=1 (přeskočí apt), MOTOGO_NO_START=1 (na konci služby nespouští)
-# Rozhodnutí k souborovému systému: root zůstává READ-WRITE, overlay se NEzapíná (krok 12, README).
+# Rozhodnutí k souborovému systému: root zůstává READ-WRITE, overlay se NEzapíná (krok 13, README).
+# OS záplaty: unattended-upgrades (jen Debian security, v noci 04:00, bez restartu — krok 10); úplný
+# apt full-upgrade + restart OS jen z Velína (příkaz update_system → /usr/local/sbin/motogo-sysupdate).
 set -euo pipefail
 
 APP_DIR="/opt/motogo"
@@ -22,9 +24,11 @@ APP_GROUPS="audio,video,input,render,dialout,plugdev,netdev"
 NM_DIR="/etc/NetworkManager/system-connections"
 LTE_PROF="$NM_DIR/motogo-lte.nmconnection"
 POLKIT_RULE="50-motogo-kiosk.rules"
+APT_CONF="52motogo-unattended"
+APT_TIMER_DIR="/etc/systemd/system/apt-daily-upgrade.timer.d"
 SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APT_PKGS=(python3 python3-venv python3-pip git mpv cage chromium network-manager modemmanager
-          alsa-utils rsync curl usbutils kbd fonts-dejavu fonts-noto-color-emoji)
+          alsa-utils rsync curl usbutils kbd fonts-dejavu fonts-noto-color-emoji unattended-upgrades)
 
 step() { echo; echo "──── $* ────"; }
 ok()   { echo "  ✔ $*"; }
@@ -50,7 +54,7 @@ ask() {  # ask VAR "Popis" [default] — jen když proměnná není v env a je t
 }
 
 # ── 1. balíčky ─────────────────────────────────────────────────────────────────
-step "1/12 Balíčky (apt)"
+step "1/13 Balíčky (apt)"
 if [[ "${MOTOGO_SKIP_APT:-0}" == "1" ]]; then
   warn "apt přeskočen (MOTOGO_SKIP_APT=1)"
 else
@@ -66,7 +70,7 @@ command -v chromium >/dev/null 2>&1 || command -v chromium-browser >/dev/null 2>
 command -v chvt >/dev/null 2>&1 || warn "chvt (balík kbd) chybí — motogo-ui spoléhá jen na polkit pravidlo"
 
 # ── 2. uživatel ────────────────────────────────────────────────────────────────
-step "2/12 Uživatel $APP_USER"
+step "2/13 Uživatel $APP_USER"
 if ! id "$APP_USER" >/dev/null 2>&1; then
   useradd --system --create-home --home-dir "/home/$APP_USER" --shell /usr/sbin/nologin "$APP_USER"
   ok "uživatel vytvořen"
@@ -76,7 +80,7 @@ usermod -a -G "$APP_GROUPS" "$APP_USER"
 ok "skupiny: $APP_GROUPS"
 
 # ── 3. kopie programu do /opt/motogo ──────────────────────────────────────────
-step "3/12 Program → $APP_DIR"
+step "3/13 Program → $APP_DIR"
 mkdir -p "$APP_DIR"
 if [[ "$SRC_DIR" == "$APP_DIR" ]]; then
   ok "instaluji přímo z $APP_DIR (bez kopie)"
@@ -91,7 +95,8 @@ chown -R root:root "$APP_DIR"; chmod -R a+rX "$APP_DIR"
 # root-owned kopie skriptů pro sudo (viz systemd/motogo-sudoers — povoleny JEN bez argumentů)
 install -m 755 -o root -g root "$APP_DIR/scripts/update.sh"         /usr/local/sbin/motogo-update
 install -m 755 -o root -g root "$APP_DIR/scripts/usbreset-modem.sh" /usr/local/sbin/motogo-usbreset
-ok "sudo skripty: /usr/local/sbin/motogo-update, /usr/local/sbin/motogo-usbreset (root:root)"
+install -m 755 -o root -g root "$APP_DIR/scripts/sysupdate.sh"      /usr/local/sbin/motogo-sysupdate
+ok "sudo skripty: /usr/local/sbin/motogo-update, motogo-usbreset, motogo-sysupdate (root:root)"
 # Zdroj pro budoucí aktualizace (update.sh / příkaz update_software z Velína) — root-owned soubor,
 # přes sudo je to JEDINÝ přijímaný zdroj. git pull dělá update.sh jako vlastník checkoutu.
 mkdir -p "$ETC_DIR"
@@ -99,7 +104,7 @@ if [[ "$SRC_DIR" != "$APP_DIR" ]]; then
   echo "$SRC_DIR" > "$ETC_DIR/source_dir"; chown root:root "$ETC_DIR/source_dir"; chmod 644 "$ETC_DIR/source_dir"
   src_owner="$(stat -c %U "$SRC_DIR")"
   if runuser -u "$src_owner" -- git -C "$SRC_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-    ok "zdroj aktualizací: $SRC_DIR (git checkout uživatele $src_owner → update = git pull jako $src_owner + rsync;"
+    ok "zdroj aktualizací: $SRC_DIR (git checkout uživatele $src_owner → update = git fetch + ff-merge jako $src_owner + rsync;"
     echo "    bezobslužný update z Velína potřebuje u $src_owner credential helper / deploy key bez hesla)"
   else
     ok "zdroj aktualizací: $SRC_DIR (bez gitu → update = rsync; nový balík rozbal na stejné místo)"
@@ -110,7 +115,7 @@ else
 fi
 
 # ── 4. venv + závislosti ──────────────────────────────────────────────────────
-step "4/12 Python venv"
+step "4/13 Python venv"
 if [[ ! -x "$APP_DIR/venv/bin/python" ]]; then
   mkdir -p "$APP_DIR/venv"; chown "$APP_USER:$APP_USER" "$APP_DIR/venv"
   as_app python3 -m venv "$APP_DIR/venv" || die "python3 -m venv selhal (chybí python3-venv?)"
@@ -128,7 +133,7 @@ app_version() { (cd "$APP_DIR" && as_app "$APP_DIR/venv/bin/python" -m motogo_bo
 ok "verze programu: $(app_version)"
 
 # ── 5. konfigurace /etc/motogo ────────────────────────────────────────────────
-step "5/12 Konfigurace $ETC_DIR"
+step "5/13 Konfigurace $ETC_DIR"
 mkdir -p "$ETC_DIR"
 ask MOTOGO_APN "APN operátora (např. internet.t-mobile.cz, internet, ointernet)" "internet"
 config_created=0
@@ -189,12 +194,12 @@ else
 fi
 
 # ── 6. data + logy ─────────────────────────────────────────────────────────────
-step "6/12 Data $DATA_DIR"
+step "6/13 Data $DATA_DIR"
 mkdir -p "$DATA_DIR/music"
 chown -R "$APP_USER:$APP_USER" "$DATA_DIR"; chmod 750 "$DATA_DIR"
 # Logy sudo skriptů patří rootu (skripty běží jako root). Soubor vlastněný motogo = symlink → root by psal kamkoli;
 # starší instalace (chown motogo) se opraví.
-for f in /var/log/motogo-update.log /var/log/motogo-usbreset.log; do
+for f in /var/log/motogo-update.log /var/log/motogo-usbreset.log /var/log/motogo-sysupdate.log; do
   if [[ -L "$f" || ( -e "$f" && "$(stat -c %u "$f")" != "0" ) ]]; then rm -f "$f"; fi
   touch "$f"; chmod 644 "$f"
 done
@@ -202,7 +207,7 @@ n="$(find "$DATA_DIR/music" -maxdepth 1 -type f \( -iname '*.mp3' -o -iname '*.o
 ok "hudba: $n souborů v $DATA_DIR/music (nahraj mp3/ogg/flac/wav); logy /var/log/motogo-*.log root-owned"
 
 # ── 7. udev + modem ────────────────────────────────────────────────────────────
-step "7/12 udev (SIM7600 → /dev/motogo-lte-at) + VID:PID modemu"
+step "7/13 udev (SIM7600 → /dev/motogo-lte-at) + VID:PID modemu"
 install -m 644 "$APP_DIR/systemd/99-motogo-lte.rules" /etc/udev/rules.d/99-motogo-lte.rules
 udevadm control --reload && udevadm trigger --subsystem-match=tty || true
 ok "pravidlo nainstalováno"
@@ -214,7 +219,7 @@ printf '%s\n' "$MOTOGO_MODEM_VIDPID" > "$ETC_DIR/modem_vidpid"; chown root:root 
 ok "modem $MOTOGO_MODEM_VIDPID → $ETC_DIR/modem_vidpid (musí odpovídat health.modem_vid_pid v config.yaml)"
 
 # ── 8. NetworkManager profily ─────────────────────────────────────────────────
-step "8/12 Síť (NetworkManager: motogo-lte + motogo-lan)"
+step "8/13 Síť (NetworkManager: motogo-lte + motogo-lan)"
 systemctl enable --now NetworkManager ModemManager >/dev/null 2>&1 || true
 mkdir -p "$NM_DIR"
 # PIN SIM: bez něj zůstane modem ve stavu „locked“ a LTE nikdy nenaběhne (health hlásí lte.error=sim_locked).
@@ -255,18 +260,44 @@ done
 echo "  → statickou LAN aplikuj: sudo $APP_DIR/scripts/set-static-lan.sh (přes SSH na eth0 spojení spadne — skript doběhne sám)"
 
 # ── 9. sudoers + polkit ───────────────────────────────────────────────────────
-step "9/12 sudoers + polkit"
+step "9/13 sudoers + polkit"
 visudo -c -q -f "$APP_DIR/systemd/motogo-sudoers" || die "motogo-sudoers má chybu syntaxe"
 install -m 440 -o root -g root "$APP_DIR/systemd/motogo-sudoers" /etc/sudoers.d/motogo
-ok "/etc/sudoers.d/motogo (reboot, restart motogo-*, motogo-usbreset|motogo-update BEZ argumentů, nmcli lte, mmcli signal-setup)"
+ok "/etc/sudoers.d/motogo (reboot, restart motogo-*, motogo-usbreset|motogo-update|motogo-sysupdate BEZ argumentů, nmcli lte, mmcli signal-setup)"
 # polkit: motogo smí org.freedesktop.login1.chvt — cage (motogo-ui na tty7) volá logind Session.Activate; pro
 # NEaktivní session by polkit chtěl auth_admin → cage spadne. Unit dělá `chvt 7` před startem, pravidlo je pojistka.
 mkdir -p /etc/polkit-1/rules.d
 install -m 644 -o root -g root "$APP_DIR/systemd/$POLKIT_RULE" "/etc/polkit-1/rules.d/$POLKIT_RULE"
 ok "/etc/polkit-1/rules.d/$POLKIT_RULE (chvt pro motogo-ui; polkitd si rules.d načte sám)"
 
-# ── 10. systemd ────────────────────────────────────────────────────────────────
-step "10/12 systemd služby"
+# ── 10. OS záplaty (unattended-upgrades) ──────────────────────────────────────
+step "10/13 OS záplaty: unattended-upgrades (jen Debian security, v noci 04:00, bez restartu)"
+# Bezpečnostní záplaty se instalují samy v noci; restart OS NIKDY automaticky (Automatic-Reboot false) —
+# jen z Velína (příkaz reboot / update_system s auto_reboot po jádru, až je kóje volná). Úplný apt
+# full-upgrade dělá /usr/local/sbin/motogo-sysupdate na pokyn Velína.
+if command -v unattended-upgrade >/dev/null 2>&1; then
+  ok "balík unattended-upgrades nainstalován"
+else
+  warn "balík unattended-upgrades chybí${MOTOGO_SKIP_APT:+ (MOTOGO_SKIP_APT=1)} — záplaty OS se nebudou instalovat samy (apt-get install unattended-upgrades)"
+fi
+mkdir -p /etc/apt/apt.conf.d
+install -m 644 -o root -g root "$APP_DIR/systemd/$APT_CONF" "/etc/apt/apt.conf.d/$APT_CONF"
+ok "/etc/apt/apt.conf.d/$APT_CONF (Origins-Pattern = Debian-Security, Automatic-Reboot false, Periodic 1, hook nové jádro → /run/reboot-required)"
+mkdir -p "$APT_TIMER_DIR"
+install -m 644 -o root -g root "$APP_DIR/systemd/apt-daily-upgrade-override.conf" "$APT_TIMER_DIR/motogo.conf"
+systemctl daemon-reload
+if systemctl cat apt-daily-upgrade.timer >/dev/null 2>&1; then
+  if systemctl enable --now apt-daily.timer apt-daily-upgrade.timer >/dev/null 2>&1; then
+    ok "apt-daily-upgrade.timer: OnCalendar 04:00 ± 20 min, bez dohánění po startu ($APT_TIMER_DIR/motogo.conf), povolen"
+  else
+    warn "apt-daily-upgrade.timer se nepodařilo povolit — systemctl status apt-daily-upgrade.timer"
+  fi
+else
+  warn "apt-daily-upgrade.timer neexistuje (balík apt?) — drop-in $APT_TIMER_DIR/motogo.conf ponechán pro později"
+fi
+
+# ── 11. systemd ────────────────────────────────────────────────────────────────
+step "11/13 systemd služby"
 for unit in motogo-controller.service motogo-health.service motogo-ui.service; do
   install -m 644 "$APP_DIR/systemd/$unit" "/etc/systemd/system/$unit"
 done
@@ -282,8 +313,8 @@ if command -v raspi-config >/dev/null 2>&1; then
 fi
 systemctl set-default multi-user.target >/dev/null 2>&1 || true
 
-# ── 11. RTC + firmware ─────────────────────────────────────────────────────────
-step "11/12 RTC baterie (dobíjení) v config.txt"
+# ── 12. RTC + firmware ─────────────────────────────────────────────────────────
+step "12/13 RTC baterie (dobíjení) v config.txt"
 BOOT_CFG=/boot/firmware/config.txt; [[ -f "$BOOT_CFG" ]] || BOOT_CFG=/boot/config.txt
 if [[ -f "$BOOT_CFG" ]]; then
   if grep -q '^dtparam=rtc_bbat_vchg=3000000' "$BOOT_CFG"; then
@@ -297,8 +328,8 @@ else
   warn "config.txt nenalezen — RTC dobíjení nastav ručně"
 fi
 
-# ── 12. souborový systém ──────────────────────────────────────────────────────
-step "12/12 Souborový systém: rw root, BEZ overlay (rozhodnutí k SPEC §11)"
+# ── 13. souborový systém ──────────────────────────────────────────────────────
+step "13/13 Souborový systém: rw root, BEZ overlay (rozhodnutí k SPEC §11)"
 cat <<'TXT'
   Rozhodnutí: root zůstává read-write, overlay root (raspi-config → Overlay File System) se NEZAPÍNÁ.
   Důvod: /var/lib/motogo (SQLite cache kódů + fronta událostí, health.json, hudba), /var/log a NM profily
@@ -323,6 +354,8 @@ done
 echo "  program:     $APP_DIR ($(app_version))"
 echo "  konfigurace: $ETC_DIR/config.yaml, $ETC_DIR/hardware.yaml (zdroj update: $ETC_DIR/source_dir)"
 echo "  data/hudba:  $DATA_DIR, $DATA_DIR/music"
+echo "  OS záplaty:  unattended-upgrades $(command -v unattended-upgrade >/dev/null 2>&1 && echo 'ano' || echo 'CHYBÍ') (jen Debian security, 04:00, bez restartu);"
+echo "               apt full-upgrade + restart OS jen z Velína (update_system → motogo-sysupdate, log /var/log/motogo-sysupdate.log)"
 echo "  LTE:         APN ${MOTOGO_APN}, PIN SIM $SIM_PIN_STATE, modem ${MOTOGO_MODEM_VIDPID}   (nmcli con show motogo-lte; mmcli -m any)"
 echo "  zvuk:        ${USB_CARD:+USB karta „$USB_CARD“ → audio.device alsa/plughw:CARD=$USB_CARD}${USB_CARD:-USB zvuková karta NENALEZENA — nastav audio.device (aplay -l)}"
 echo "  diagnostika: kód „${MOTOGO_DIAG_CODE}“ na displeji (nebo Velín → Diagnostika sítě) = scan sítě + report do Velína"
