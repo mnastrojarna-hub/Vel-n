@@ -57,8 +57,8 @@ bezpečně přestaví I/O (vše vypnout → nové zóny).
 
 **Na Raspberry se lokálně nastavuje jen:**
 - `/etc/motogo/config.yaml` — Supabase URL/anon key, ID + token zařízení (nebo párování z UI),
-  cesty, intervaly, sekce `health` (LTE watchdog) a `diagnostics` (kód pro diagnostiku sítě
-  z displeje, porty/podsítě scanu); vzor `config/config.example.yaml`;
+  cesty, intervaly, sekce `health` (LTE watchdog) a `diagnostics` (kód pro diagnostiku pobočky
+  z displeje, porty/podsítě scanu, limity běhu, `zone_test`); vzor `config/config.example.yaml`;
 - `/etc/motogo/hardware.yaml` — **výchozí** HW mapa (kopie `config/brno-9zone.yaml`), použije se
   jen dokud Velín nepošle vlastní; Velín má vždy přednost.
 
@@ -94,11 +94,13 @@ bezpečně přestaví I/O (vše vypnout → nové zóny).
    **UI na tty7:** unit `motogo-ui` před startem přepne VT (`ExecStartPre=-+/usr/bin/chvt 7`) a instalátor
    nainstaluje `/etc/polkit-1/rules.d/50-motogo-kiosk.rules` (motogo smí `org.freedesktop.login1.chvt`);
    bez toho logind odmítne `Session.Activate` pro neaktivní session a cage se restartuje do nekonečna.
-3. **Diagnostika sítě hned po nahrání:** na displeji (setup obrazovka → „Diagnostika sítě", nebo hlavní
-   klávesnice) zadej diagnostický kód → program prověří rozhraní/routy/DNS, LTE, internet, spojení
-   s Velínem, dostupnost všech modulů z HW mapy, **oskenuje celou LAN** (TCP porty 502/80/443/22/8080…,
-   identifikace Waveshare přes Modbus a Shelly přes RPC, MAC z ARP) a výsledek **zobrazí na displeji
-   a odešle do Velína** (blok „Diagnostika sítě"; před spárováním se odešle po spárování). Viz níže.
+3. **Diagnostika pobočky hned po nahrání:** na displeji (setup obrazovka → „🔍 Diagnostika pobočky", nebo hlavní
+   klávesnice) zadej diagnostický kód → kompletní běh: rozhraní/routy/DNS, LTE, internet, spojení s Velínem,
+   dostupnost všech modulů z HW mapy, software a služby, konfigurace zón, HW test každé prázdné kóje (světlo,
+   zelená, tón, dveřní kontakt, klidový stav zámku, Shelly), **scan celé LAN** (TCP porty 502/80/443/22/8080…,
+   identifikace Waveshare přes Modbus a Shelly přes RPC, MAC z ARP) a **protokol „kde je problém a co s tím“ na
+   displeji i ve Velíně** (blok „Kompletní diagnostika pobočky"; před spárováním se odešle po spárování, zóny se
+   berou z lokální `hardware.yaml`). Viz níže.
 4. **Párování:** ve Velíně → Samoobsluha → Řídicí jednotka → přidat zařízení → ID + token.
    Zadej do `config.yaml` (`device.id/token`) nebo na dotykovém UI (setup obrazovka / servisní panel → Přepárovat).
 5. **Síť (SPEC §4):** `sudo /opt/motogo/scripts/set-static-lan.sh` — eth0 = `192.168.50.10/24`
@@ -186,31 +188,63 @@ venv/bin/python -m motogo_box check-config config/brno-9zone.yaml            # v
 | `update_software` | `ref?` (sha 7–40), `rollout_id?`, `wait_idle_s?` (výchozí 1800) | naplánuje `sudo /usr/local/sbin/motogo-update` (root-owned kopie `scripts/update.sh`: git fetch + ff-merge na `ref` / větev, pip, restart) — provede se, až je box volný; hned vrací `{scheduled}`; odmítne `invalid_ref` / `update_in_progress` |
 | `update_system` | `rollout_id?`, `wait_idle_s?`, `auto_reboot?` | naplánuje `sudo /usr/local/sbin/motogo-sysupdate` (apt full-upgrade, bez restartu); `auto_reboot` = po novém jádru `systemctl reboot`, až je box volný |
 | `http_get` / `camera_control` | `url` | HTTP GET na LAN (kamery, měnič) |
-| `diagnostics` | `reason?` | kompletní diagnostika sítě na pozadí; report → `kiosk_report_diagnostics` (Velín blok „Diagnostika sítě") |
+| `diagnostics` | `mode?` (`full` výchozí / `network` = jen síť), `cameras?` (seznam z Velína), `reason?` | kompletní diagnostika pobočky na pozadí (1–4 min; `network` 10–60 s); report + protokol → `kiosk_report_diagnostics` (Velín blok „Kompletní diagnostika pobočky") |
 
 Příkazy chodí přes Supabase Realtime (broadcast) s pojistkou pollingu každých 10 s; výsledek
 se hlásí přes `kiosk_complete_command`. Živý stav zón vidí Velín z `kiosk_report_status` (30 s).
 Dokud běží aktualizační skript (git/pip/apt), jednotka odmítá `restart` i `reboot` s `update_in_progress`.
 
-## Diagnostika sítě
+## Diagnostika pobočky
 
-Jeden běh (10–60 s, `motogo_box/diagnostics.py` + `net_scan.py`) zjistí: systém (hostname, verze,
-teplota, throttling, disk, NTP), rozhraní + IP/MAC + výchozí brány + DNS, LTE modem (mmcli/nmcli:
-stav, operátor, RSSI/RSRP/RSRQ/SNR), internet (DNS překlad, TCP 1.1.1.1:443, HTTP sondy), spojení
-s Velínem (heartbeat, outbox), **každé zařízení z HW mapy** (TCP, ping, identifikace: WAV645/WAV617
-přes Modbus FC01/FC02, Shelly přes `Shelly.GetDeviceInfo`, shoda typu s konfigurací), **scan celé LAN**
-(všechny podsítě vlastních rozhraní + `diagnostics.scan_subnets`, porty `scan_ports`, identifikace
-Modbus/Shelly/HTTP, MAC z ARP, přiřazení ke konfiguraci) a tabulku ARP. Vyhodnocení = seznam problémů
-(bez brány, brána přes eth0, LTE odpojeno, bez internetu, modul nedostupný / jiný typ, IP konflikt,
-cizí Modbus/Shelly v LAN, teplota, throttling, disk, NTP, chyby konfigurace).
+Jeden běh (`motogo_box/diagnostics.py` + `diag_steps.py` + `diag_protocol.py` + `diag_hints.py` + `net_scan.py`)
+prověří celou pobočku a vydá **protokol „kde je problém a co s tím“**. Režim **kompletní** (`full`, výchozí,
+1–4 min, limit 240 s) kontroluje:
+- **Řídicí jednotka:** verze, uptime, teplota CPU, throttling/podpětí, disk, RAM, NTP, ready, chyby HW mapy.
+- **Program a služby:** `motogo-controller/health/ui` (systemctl), selhané jednotky, stáří health hlášení, mpv + hudba
+  (soubory/playlist), fronta neodeslaných RPC, cache kódů (stáří), PIN lockout, chyby za 24 h, poslední aktualizace,
+  „restart OS potřebný“.
+- **Síť:** rozhraní + IP/MAC, výchozí brána (chybí / vede přes eth0), DNS; **LTE** (mmcli/nmcli: stav, operátor,
+  RSSI/RSRP/RSRQ/SNR); **internet** (DNS překlad, TCP 1.1.1.1:443, HTTP sondy); **Velín** (párování, heartbeat, realtime).
+- **Moduly Waveshare/Shelly:** každé zařízení z HW mapy — TCP, ping, identifikace (WAV645/WAV617 přes Modbus FC01/FC02,
+  Shelly přes `Shelly.GetDeviceInfo`), shoda typu s konfigurací, IP konflikt, online v programu.
+- **Konfigurace pobočky:** zóny/dveře s HW mapou, chybějící role (zámek/kontakt = chyba, ostatní varování), dveře ve
+  Velíně bez mapy, duplicitní kanály, časování mimo rozsah.
+- **Zóny a periferie (každá kóje):** dveřní kontakt — hodnota z modulu vs. stav programu; zámek — modul online a relé
+  v klidu ROZEPNUTÉ (**jen čtení, zámek se nikdy nespíná**); HW test světlo → zelená 1 s → obnova → tón 3 s a
+  skutečný stav Shelly (`Light.GetStatus`) vs. požadovaná barva.
+- **Napájení (FV):** `power_status_url` pobočky (HTTP + JSON: SOC, napětí, výkony, síť) — nenastaveno = přeskočeno.
+- **Kamery:** snapshot/stream URL předané Velínem (HTTP, tělo streamu se nečte); bez seznamu = přeskočeno.
+- **Ostatní zařízení v LAN:** scan podsítí vlastních rozhraní + `diagnostics.scan_subnets` (porty `scan_ports`,
+  identifikace Modbus/Shelly/HTTP, MAC z ARP) — cizí Modbus/Shelly mimo mapu = varování; tabulka ARP; průběh kroků.
 
-**Spuštění:** (a) na displeji zadat `diagnostics.code` z `config.yaml` (funguje i před spárováním a
-při startu HW), (b) servisní heslo z Velína s účelem „diagnostika" (jen diagnostika, nic neotevírá)
-nebo běžné servisní heslo → servisní panel → „Diagnostika sítě", (c) Velín → Samoobsluha →
-„Diagnostika sítě" → Spustit (příkaz `diagnostics`). **Výsledek:** overlay na displeji (souhrn,
-tabulky, průběh), `GET /api/diagnostics` (localhost), Supabase `kiosk_diagnostics` (posledních 30
-na zařízení) přes `kiosk_report_diagnostics` (frontuje se v outboxu), souhrn i v `kiosk_logs`
-(zdroj `diagnostics`) a poslední report v SQLite kv `last_diagnostics`.
+Režim **jen síť** (`network`, 10–60 s, limit 120 s) = jen síťové kroky (systém, rozhraní, LTE, internet, Velín, moduly, LAN, ARP).
+
+**Bezpečnost HW testu:** světlo/zelená/tón se spíná JEN v kóji bez relace, bez poruchy, s online I/O a připravenou
+jednotkou; obsazená kóje se jen přečte (`session_active`). Zámek se **nikdy** nepulzuje. Test má rozpočet (nespustí
+se, když by se do limitu nevešel; při přerušení se světlo a signalizace vždy obnoví a tón zastaví). Pobočka, kde technik
+nechce blikat: `diagnostics.zone_test: false` v `config.yaml` (zóny se jen čtou).
+
+**Spuštění:** (a) Velín → Samoobsluha → „Kompletní diagnostika pobočky (Raspberry)“ → **🔍 Kompletní diagnostika**
+(příkaz `diagnostics {mode:'full', cameras}`) nebo malé **jen síť**; Velín ukazuje průběh „krok X (n/m)“ a čeká na
+report až 5 min; (b) na displeji zadat `diagnostics.code` z `config.yaml` (hlavní klávesnice nebo setup obrazovka →
+„🔍 Diagnostika pobočky“; funguje i před spárováním a při startu HW); (c) servisní heslo z Velína s účelem „diagnostika"
+(jen diagnostika, nic neotevírá) nebo běžné servisní heslo → servisní panel → „🔍 Diagnostika pobočky". Displej i hesla
+spouští vždy kompletní běh; jeden běh najednou (`already_running`).
+
+**Protokol** (stejný na displeji i ve Velíně): hlavička (pobočka, jednotka, verze, datum, trvání, režim, výsledek
+„Pobočka je v pořádku“ / „N problémů, M varování“, počty kontrol), blok **Kde je problém** (každá chyba: kontrola —
+zjištění — „→ Co s tím“ = konkrétní rada s modulem/kanálem/IP), **Varování**, pak sekce Řídicí jednotka, Program a
+služby, Síť, LTE, Internet, Spojení s Velínem, Moduly Waveshare / Shelly, Konfigurace pobočky, Zóny a periferie
+(souhrn kóje + položka na každý nález), Napájení (FV), Kamery, Ostatní zařízení v LAN, Průběh diagnostiky (kontroly OK
+sbalené). Velín: **Stáhnout protokol (.txt)** (`diagnostika-<pobocka>-<YYYYMMDD-HHMM>.txt` — hlavička, VÝSLEDEK, KDE JE
+PROBLÉM, VAROVÁNÍ, [SEKCE] …) a **Kopírovat** (schránka); sbalený „Technický detail sítě“ (syrové tabulky, celý JSON).
+Uložení: overlay na displeji + `GET /api/diagnostics` (localhost), Supabase `kiosk_diagnostics` (posledních 30 na
+zařízení, přes `kiosk_report_diagnostics` z outboxu — před spárováním se odešle po spárování), souhrn do `kiosk_logs`
+(zdroj `diagnostics`), SQLite kv `last_diagnostics`. Starší reporty bez protokolu se zobrazí jako dřív (jen síťový detail).
+
+**Konfigurace (`config.yaml` → `diagnostics:`):** `code`, `scan_ports`, `scan_timeout_ms`, `scan_concurrency`,
+`scan_subnets`, `max_hosts`, `internet_urls`, `timeout_s` (jen síť, 120), `full_timeout_s` (kompletní, 240),
+`zone_test` (true), `camera_timeout_s` (6 — kamery i měnič FV).
 
 ## Aktualizace
 
@@ -277,7 +311,14 @@ odmítne; červený běh = chyba psql (issue se nezakládá).
 | UI černé, `journalctl -u motogo-ui` opakuje „Could not activate session“ | session motogo na tty7 není aktivní (VT nepřepnuto / chybí polkit pravidlo) | `chvt 7` ručně, ověř `/etc/polkit-1/rules.d/50-motogo-kiosk.rules` a balík `kbd` (unit dělá `chvt 7` v `ExecStartPre`); `loginctl session-status` |
 | bez zvuku | špatný `audio.device`, hlasitost karty, sepnuté relé jiné zóny | `aplay -l`, `alsamixer`, servisní panel → Hudba v zóně; `api/state` → `audio.playing_zone` |
 | Velín hlásí zařízení offline | LTE / token | `nmcli con show motogo-lte`; přepárovat v servisním panelu |
-| nevím, co v síti nefunguje | — | na displeji zadat diagnostický kód (`diagnostics.code`) nebo Velín → Diagnostika sítě → Spustit; report ukáže rozhraní, LTE, internet, moduly, celou LAN a seznam problémů |
+| nevím, co na pobočce nefunguje | — | Velín → Samoobsluha → „Kompletní diagnostika pobočky“ → 🔍 (nebo diagnostický kód na displeji); protokol má blok „Kde je problém“ s radou „Co s tím“ u každé chyby, .txt ke stažení pro technika; rychlý přehled sítě = „jen síť“ |
+| protokol: „dveřní kontakt: program hlásí zavřeno, modul wav617a DI3 čte otevřeno“ (Kóje N — dveřní kontakt) | NC kontakt, vodič do DI vstupu WAV617 nebo obrácená polarita `closed_level` | podle rady v protokolu: kontakt / vodič / `closed_level` v HW mapě (Velín → Samoobsluha → Zóny); polarita viz `HARDWARE.md` |
+| protokol: „světlo: relé wav617a R2 nepotvrdilo sepnutí“ (Kóje N — světlo) | vodič ke světlu / svorky relé daného kanálu, modul není v režimu Normal | zkontrolovat vodič a svorky relé R<N>; Normal mode si program vynucuje při startu → restart controlleru |
+| protokol: „červená signalizace má svítit, Shelly shelly1 světlo 0 je vypnuté“ / „… neodpovídá na Light.GetStatus“ (Kóje N — Shelly signalizace) | LED pásek bez napájení, špatný `light id` kanálu v HW mapě, Shelly offline | napájení pásku, kanál (light id) v HW mapě, `curl http://<ip>/rpc/Shelly.GetStatus`; offline Shelly viz první řádek |
+| protokol: „zámek: relé wav645 R3 je SEPNUTÉ v klidu — NEBEZPEČÍ, odpojte modul“ (Kóje N — zámek) | relé zámku drží v klidu sepnuto = zámek pod proudem (program relé zámku nikdy nedrží) | **ihned odpojit modul / napájení zámku**, zkontrolovat konfiguraci relé (flash-on 800 ms) a zapojení; do opravy kóji nepoužívat |
+| protokol: „Kamera X (snapshot) neodpovídá: …“ | kamera bez napájení / LAN, špatná URL ve Velíně | napájení, LAN, URL kamery (Velín → Samoobsluha → Kamery); z RPi `curl -I <url>` |
+| protokol: „Stav napájení nelze stáhnout z <url> (…)“ | měnič/monitor FV nedostupný nebo URL nevrací JSON | `power_status_url` pobočky musí vracet JSON v LAN jednotky; z RPi `curl <url>` |
+| protokol: „Test přeskočen: …“ u kóje | relace v kóji, porucha, I/O offline, `zone_test: false`, došel limit běhu | spustit diagnostiku znovu, až bude kóje volná / porucha odezní; u limitu zkontrolovat odezvu modulů a Shelly (ping) |
 
 ## Bezpečnostní chování (SPEC §12)
 

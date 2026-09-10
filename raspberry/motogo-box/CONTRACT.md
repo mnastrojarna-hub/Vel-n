@@ -361,7 +361,7 @@ async def execute(ctrl: BoxController, command: str, params: dict) -> tuple[bool
 | `update_software` | `ref?` (sha 7–40 hex), `rollout_id?`, `wait_idle_s?` (0–14400, výchozí 1800) | `ctrl.updater.start('software', params)` (§25) — jen NAPLÁNUJE a hned vrací `(True, {scheduled:true, ref, wait_idle_s})`; v klidu `sudo /usr/local/sbin/motogo-update` (root-owned kopie `scripts/update.sh`: `git fetch` + `git merge --ff-only <ref\|@{upstream}>` jako vlastník checkoutu, pip v rozsazích requirements, restart; timeout 900 s). Odmítne `invalid_ref`, `update_in_progress` (+`state`, `kind`; po timeoutu `reason:'timeout_orphan'`, `retry_after_s`). Výsledek Velín pozná z hlášené verze / `status.update`, ne z výsledku příkazu |
 | `update_system` | `rollout_id?`, `wait_idle_s?`, `auto_reboot?` (bool) | `ctrl.updater.start('system', params)` → `(True, {scheduled:true, wait_idle_s, auto_reboot})`; v klidu `sudo /usr/local/sbin/motogo-sysupdate` (apt full-upgrade, timeout 2700 s), `REBOOT_REQUIRED=0\|1` z výstupu → `last.reboot_required`; chybí-li skript → `failed` `sysupdate_missing: …` (bez sudo); `auto_reboot` + nové jádro → znovu počkat na klid → `sudo systemctl reboot`. Není HW ani TERMINAL příkaz |
 | `http_get` / `camera_control` | `url` | httpx GET (timeout 6 s) |
-| `diagnostics` | `reason?` | `ctrl.diagnostics.start(source='velin')` — běží na pozadí (§24), `{ok, started, id}` / `already_running`; není HW příkaz (funguje i při `not ready`) |
+| `diagnostics` | `mode?` (`full` výchozí \| `network` = jen síť), `cameras?` (`[{name, kind, snapshot_url, stream_url}]`, max 20 — uloží se do kv `diag_cameras` i pro lokální běhy), `reason?` | `ctrl.diagnostics.start(source='velin', reason, mode=…, cameras=…)` — kompletní diagnostika pobočky na pozadí (§24), `{ok, started, id, mode}` / `already_running`; není HW příkaz (funguje i při `not ready`) |
 
 Příkazy `pending` nevyzvednuté do 10 min označí `kiosk_fetch_commands` jako `expired` (`20260910b_kiosk_commands_ttl.sql`) — Velín tak nečeká věčně na offline jednotku.
 Neznámý příkaz → `(False, {"error":"unknown_command"})`.
@@ -376,7 +376,9 @@ Dokud běží root skript aktualizace (`updater.state == 'running'`) nebo trvá 
  "internet":true,"config_source":"remote|local","config_problems":[],
  "modules":{"wav645":true,"wav617a":true,"wav617b":true,"shelly1":true,"shelly2":true,"shelly3":true,"shelly4":true},
  "audio":{"playing_zone":null,"player_ok":true,"playlist_count":12,"device":"alsa/plughw:CARD=Headphones"},
- "diagnostics":{"running":false,"last":{"id":"…","ok":true,"problems":0,"ts":"…"}},
+ "diagnostics":{"running":false,"id":null,"mode":"full","step":null,"step_title":null,"done":[],"steps":["system","…","summary"],
+                "elapsed_s":null,"error":null,
+                "last":{"id":"…","ts":"…","ok":true,"mode":"full","problems":0,"warnings":1,"hosts":7,"zones_ok":9,"zones_total":9,"duration_s":95.2,"source":"velin"}},
  "update":{"state":"idle","kind":null,"ref":null,"since":null,"error":null,
            "last":{"kind":"software","state":"done","ref":"8ceff42","rollout_id":"uuid|null","started_at":"…","finished_at":"…",
                    "error":null,"reboot_required":null,"output_tail":"…"}},
@@ -391,6 +393,10 @@ Dokud běží root skript aktualizace (`updater.state == 'running'`) nebo trvá 
 ```
 
 Hodnoty `state` = `ZoneState.value` (velká písmena), `signal` = `Signal.value` (malá písmena: red, green, green_pulse, red_blink, both_blink, off).
+
+`diagnostics` = `NetworkDiagnostics.status()` (§24): `mode` full|network, `steps` = pořadí kroků dle režimu (`STEPS` / `NETWORK_STEPS`),
+`step_title` ze `STEP_TITLES`, `last` = souhrn posledního reportu (`problems`/`warnings` = počty, `zones_*` jen u full). Velín
+(`BranchRpiDiagnostics.jsx`) z něj během čekání na report ukazuje „krok X (n/m)“; displej průběh „(n/m, s)“.
 
 `update` = `SoftwareUpdater.status()` (§25): `state` ∈ `idle|waiting|running|rebooting|done|failed`, `kind` ∈
 `software|system|reboot|null`, `ref` (cílový commit), `since` (= `started_at`), `error`; `last` = poslední dokončený běh
@@ -426,12 +432,13 @@ aiohttp na `local.web.host:port` (default 127.0.0.1:8080):
 - `POST /api/health {…}` (jen 127.0.0.1) → `ctrl.health = payload`.
 - `GET /api/events?limit=` → `storage.events_recent`.
 - `GET /api/diagnostics[?report=0]` (jen 127.0.0.1) → `{ok, status: diagnostics.status(), report: poslední report|null}`.
-- `POST /api/diagnostics/run {"service_token"} | {"code"}` → spustí diagnostiku (§24); `code` jde přes
-  `ctrl.submit_code(code, "diag_ui", diagnostics_only=True)`: lokální diagnostický kód, servisní heslo
-  s účelem `diagnostics` nebo běžné servisní heslo (spustí JEN diagnostiku, bez servisního tokenu);
-  zákaznický PIN/kód rezervace je tu `invalid_code` a počítá se do lockoutu; neplatný → 403
-  `{ok:false, error, message, locked_until}`. Lockout blokuje i diagnostický kód (kromě `/api/diagnostics/run`
-  se service_token).
+- `POST /api/diagnostics/run {"service_token"} | {"code"}` + volitelné `"mode": "full"|"network"` (jiné/chybí → full)
+  → spustí diagnostiku pobočky (§24); service_token → `diagnostics.start('service_panel', mode=…)`; `code` jde přes
+  `controller_codes.submit_code(ctrl, code, "diag_ui", diagnostics_only=True)` s hintem `diagnostics.pending_mode = mode`
+  (ve `finally` vždy `None`): lokální diagnostický kód, servisní heslo s účelem `diagnostics` nebo běžné servisní heslo
+  (spustí JEN diagnostiku, bez servisního tokenu); zákaznický PIN/kód rezervace je tu `invalid_code` a počítá se do
+  lockoutu; neplatný → 403 `{ok:false, error, message, locked_until}`. Lockout blokuje i diagnostický kód (kromě
+  `/api/diagnostics/run` se service_token). Odpověď `{ok, started, id, mode}` / `{ok:false, error:'already_running', id, mode}`.
 Chybové odpovědi `{"ok":false,"error":"…"}`; neplatný service_token → 403.
 
 UI (`ui/index.html`, `ui/app.js`, `ui/style.css`; vanilla JS, žádné CDN, offline):
@@ -448,12 +455,17 @@ servisním heslu): mřížka zón (stav, dveře, signál, tlačítka Otevřít/S
 Vše vypnout, stav zařízení (online, ID, verze, moduly, LTE), Přepárovat (formulář),
 Restart. Setup obrazovka když není spárováno. Spodní lišta: 9 dlaždic zón (barva dle
 signálu/stavu) pro rychlou orientaci. Při ztrátě WS → reconnect + banner „Řídicí
-jednotka nedostupná". Klávesnice fyzická (numpad) funguje také. **Diagnostika sítě** (`ui/diag.js`,
+jednotka nedostupná". Klávesnice fyzická (numpad) funguje také. **Diagnostika pobočky** (`ui/diag.js`,
 overlay `#diag`, z-index nad setupem): otevře se po diagnostickém kódu z hlavní klávesnice (`/api/pin` →
-`kind: "diagnostics"`), tlačítkem na setup obrazovce (zadání kódu textovou klávesnicí → `/api/diagnostics/run`)
-nebo ze servisního panelu (service_token); zobrazuje průběh (`snapshot().diagnostics`) a po dokončení
-celý report (souhrn + problémy, systém, rozhraní/brány/DNS, LTE, internet, Velín, konfigurovaná
-zařízení, hosty v LAN, ARP, kroky) z `GET /api/diagnostics`; „Spustit znovu".
+`kind: "diagnostics"`), tlačítkem „🔍 Diagnostika pobočky (kód z config.yaml)“ na setup obrazovce (zadání kódu
+textovou klávesnicí → `/api/diagnostics/run`) nebo ze servisního panelu „🔍 Diagnostika pobočky“ (service_token);
+vše `mode: 'full'`. Zobrazuje průběh (`snapshot().diagnostics`: krok, n/m, s) a po dokončení report z
+`GET /api/diagnostics`: souhrn („✔ Pobočka/Síť je v pořádku“ / „⚠ N problémů, M varování“ + režim, zóny OK x/y,
+moduly, LAN, kontrol, seznam problémů), sekce **Protokol** (za každou sekci `protocol` badge stavu + tabulka
+Kontrola | Stav | Zjištění | Co s tím; hint jen u warn/fail), pak detail (systém, rozhraní/brány/DNS, LTE, internet,
+Velín, konfigurovaná zařízení, hosty v LAN, ARP, **Zóny a periferie** (stav, dveře, kontakt z modulu, test
+světlo/signál/audio, zámek, Shelly, problémy), **Napájení (FV)**, **Kamery**, **Software**, kroky); starší report bez
+`protocol` = jen detail. „↻ Spustit znovu“ = full; hláška „Diagnostika spuštěna — trvá 1–4 min.“
 
 ## 17. `health.py`
 
@@ -542,40 +554,115 @@ i `action` a `label` (tablety ignorují).
 `velin/src/pages/BranchRpiHardware.jsx` (editor `hardware` + `hw` per dveře, tlačítko
 „Načíst výchozí mapu Brno (9 zón)"). Napojení v `BranchSelfService.jsx` (import + render
 bloků; existující bloky beze změny). Příkazy přes existující `kiosk_commands` insert.
-`velin/src/pages/BranchRpiDiagnostics.jsx` — blok „Diagnostika sítě (Raspberry)": tlačítko Spustit
-(příkaz `diagnostics`, pak polling `kiosk_diagnostics` á 5 s do 150 s), seznam reportů (ok/problémy/
-internet/LTE/moduly/hosty) + detail (načte `report` jsonb; tabulky jako na displeji + celý JSON).
+`velin/src/pages/BranchRpiDiagnostics.jsx` — blok „Kompletní diagnostika pobočky (Raspberry)": tlačítko
+„🔍 Kompletní diagnostika — <jednotka>“ (příkaz `diagnostics {mode:'full', cameras, reason:'velin'}`; `cameras` z props
+`BranchSelfService.jsx`) + malé „jen síť“ (`mode:'network'`), pak polling `kiosk_diagnostics` á 5 s do 300 s a průběh
+„krok X (n/m)“ z `kiosk_devices.status.diagnostics`; seznam běhů (chip OK / N problémů / M varování, režim, zóny x/y,
+moduly, LAN, trvání) + „Protokol“ (`BranchRpiDiagProtocol.jsx`: hlavička, „Kde je problém“, „Varování“, sekce s tabulkou
+a sbalenými OK kontrolami, sbalený „Technický detail sítě“ = `BranchRpiDiagNetwork.jsx`, **Stáhnout protokol (.txt)**
+`diagnostika-<pobocka>-<YYYYMMDD-HHMM>.txt` + **Kopírovat**); starší report bez `protocol` → jen síťový detail (§24).
 `ServiceCodesBlock` má select „Účel“ (`action`: servisní panel | jen diagnostika).
 
-## 24. `diagnostics.py` + `net_scan.py` — diagnostika sítě
+## 24. Diagnostika pobočky — `diagnostics.py` + `diag_steps.py` + `diag_protocol.py` + `diag_hints.py` + `net_scan.py`
 
 ```python
 class NetworkDiagnostics:
-    def __init__(self, ctrl: BoxController)                 # cfg = ctrl.local.diagnostics (DiagnosticsCfg)
-    def matches_local_code(self, code: str) -> bool         # diagnostics.code (normalize, case-insensitive, compare_digest)
-    def start(self, source: str, reason: str | None = None) -> dict   # {ok, started, id} | {ok:false, error:'already_running', id}
-    def status(self) -> dict     # {running, id, step, step_title, done[], steps[], elapsed_s, error, last:{id, ts, ok, problems, hosts, duration_s, source}|null}
-    def last_report(self) -> dict | None                    # Storage.kv 'last_diagnostics'
-    async def run(self, source, reason) -> dict             # kroky system→interfaces→lte→internet→supabase→devices→lan→arp→summary
+    def __init__(self, ctrl: BoxController)       # cfg = ctrl.local.diagnostics (DiagnosticsCfg); mode="full"; pending_mode=None
+    def matches_local_code(self, code: str) -> bool   # diagnostics.code (normalize, case-insensitive, compare_digest)
+    def start(self, source: str, reason: str | None = None, *, mode: str | None = None, cameras: list | None = None) -> dict
+        # {ok, started, id, mode} | {ok:false, error:'already_running', id, mode}; mode None → pending_mode nebo "full",
+        # neznámý → "full"; cameras (list dictů, max MAX_CAMERAS=20) se VŽDY uloží do Storage.kv['diag_cameras']
+    def status(self) -> dict   # {running, id, mode, step, step_title, done[], steps[] (NETWORK_STEPS|STEPS dle mode), elapsed_s, error,
+                               #  last:{id, ts, ok, mode, problems:int, warnings:int, hosts, zones_ok, zones_total, duration_s, source}|null}
+    def last_report(self) -> dict | None          # Storage.kv 'last_diagnostics'
+    def cameras_list(self) -> list[dict]          # kamery z parametrů běhu, jinak kv 'diag_cameras' (max 20)
+    def time_left(self) -> float | None           # deadline − now (None mimo běh); diag_steps.zones podle něj HW test nespustí
+    async def run(self, source, reason) -> dict   # kroky dle mode, každý izolovaně; pak protocol + summary, uložení, odeslání, událost
     async def cancel(self) / async def wait(self)
 ```
-Zdroje spuštění: lokální kód (`submit_code`: lockout → lokální diag. kód → `not_ready` → resolve;
-`kind:"diagnostics"`; offline servisní heslo z cache starší než 72 h → `service_cache_expired`),
-servisní heslo s `action == "diagnostics"` (`ResolveResult.is_diagnostics`; offline z cache
-`service_codes[{h, action}]`), `/api/diagnostics/run` (service_token / code), příkaz `diagnostics`.
-Report (`{id, ts, source, reason, version, device_id, branch_name, paired, steps{name:{ok, ms, error}},
-system, interfaces{interfaces[], default_routes[], dns[]}, lte, internet{dns[], tcp, http[], ok},
-supabase{paired, ok, ms, branch_name, outbox_pending, error}, devices[{name, type, host, port, reachable, ms,
-error, ping_ms, identified, online}], lan{subnets[], skipped_subnets[], ports[], scanned_hosts,
-hosts[{ip, mac, ports{port:ms}, configured_as, modbus, shelly, http}]}, arp[], summary{ok, problems[],
-hosts, internet, lte, devices_ok, devices_total}, duration_s, finished_at}`) se uloží do kv, pošle
-`api.report_diagnostics` (outbox `report_diagnostics` → RPC `kiosk_report_diagnostics`) a zaloguje
-`EventKind.DIAGNOSTICS` (`kiosk_log_event`, zdroj `diagnostics`). Každý krok má vlastní try/except a
-společný limit `timeout_s`; jeden běh najednou. `net_scan`: `interfaces()` (`ip -j addr`, fallback
-ioctl), `routes()`, `dns_servers()`, `arp_table()`, `resolve()`, `tcp_probe()`, `subnet_hosts()`,
-`scan_hosts()` (semafor `scan_concurrency`), `http_info()`, `ping()`, `modbus_identify()` (FC01 16/8 +
-FC02 8 → wav645/wav617/modbus), `shelly_identify()` (`/rpc/Shelly.GetDeviceInfo`, Gen1 `/shelly`),
-`lte_info()`; nic nezapisuje do zařízení.
+**Režimy** `MODES = ("full", "network")`, výchozí **full** všude (Velín, kód z displeje, servisní heslo, `/api/diagnostics/run`).
+`STEPS` (full): system → interfaces → lte → internet → supabase → devices → **software → config → zones → power → cameras**
+→ lan → arp → summary (HW testy zón před dlouhým scanem LAN, aby se stihly v limitu). `NETWORK_STEPS` = bez
+`FULL_ONLY = (software, config, zones, power, cameras)`. Limit běhu `timeout_s` (network, 120 s) / `full_timeout_s`
+(full, 240 s), min. 20 s; `deadline` (monotonic) — každý krok dostane `wait_for(zbytek)`; timeout kroku → `report[name] =
+_partial[name]` (rozpracované `lan`/`zones` zůstávají), `steps[name] = {ok:false, error:'timeout', partial:bool, ms}`;
+výjimka kroku → `report[name] = None`, `{ok:false, error:str, ms}`. Jeden běh najednou.
+
+**Zdroje spuštění** (vše full, není-li `mode` řečen): lokální kód (`submit_code`: lockout → lokální diag. kód → `not_ready`
+→ resolve; `kind:"diagnostics"`; offline servisní heslo z cache starší než 72 h → `service_cache_expired`), servisní heslo
+`action == "diagnostics"` (`ResolveResult.is_diagnostics`) nebo běžné servisní heslo v okně diagnostiky (`diagnostics_only`)
+— obojí přes `controller_codes.start_diagnostics` → `start(mode = diagnostics.pending_mode or "full")`; `POST
+/api/diagnostics/run {service_token|code, mode?}` (§16: service_token → `start('service_panel', mode=…)`, code → hint
+`pending_mode = mode`, po návratu vždy `None`); příkaz `diagnostics {mode?, cameras?, reason?}` (§13, source `velin`).
+
+**Report** `{id, ts, source, reason, mode, version, device_id, branch_name, paired, steps{name:{ok, ms, error?, partial?}},
+system{hostname, kernel, machine, python, time, ntp_synced, metrics, controller_uptime_s, ready, config_source, config_problems[]},
+interfaces{interfaces[], default_routes[], dns[]}, lte, internet{dns[], tcp, http[], ok}, supabase{url, paired, device_id,
+outbox_pending, ok, ms, branch_name, error}, devices[{name, type, host, port, reachable, ms, error, ping_ms, identified,
+online}], software, config, zones[], power, cameras[] (jen full), lan{subnets[], skipped_subnets[], skipped[], ports[],
+scanned_hosts, hosts[{ip, mac, ports{port:ms}, configured_as, modbus, shelly, http}], partial}, arp[≤256], duration_s,
+protocol[], summary, finished_at}` → kv `last_diagnostics`, `api.report_diagnostics` (outbox → RPC `kiosk_report_diagnostics`,
+limit 512 KiB: `max_hosts`, arp ≤ 256, `recent_errors` ≤ 10, `raw_keys` ≤ 64, kamery ≤ 20), událost `EventKind.DIAGNOSTICS`
+(`kiosk_log_event`, zdroj `diagnostics`, level info|warn, `success = summary.ok`): message „Diagnostika pobočky: OK | N problémů,
+M varování (Z/Ztot zón OK, H zařízení v LAN, D s)“ (zóny jen když krok `zones` běžel), `detail{source, report_id, mode,
+problems[≤20], warnings[≤20], hosts, internet, checks}`.
+
+**Nové kroky (`diag_steps.py`, `async fn(diag, report)`, vše jen čtení, bez rootu):**
+- `software`: `{version, uptime_s, ready, config_source, config_problems[], services{"motogo-controller"|"motogo-health"|"motogo-ui":
+  active|inactive|failed|activating|deactivating|null} (systemctl is-active), failed_units:int|null, audio{player_ok, playlist_count,
+  device, music_files:int|null}, realtime{connected:bool|null}, api{online, paired}, outbox_pending, events_total,
+  recent_errors[{ts, kind, message}] (≤10, level error/crash za 24 h), lockout_until:iso|null, code_cache{saved_at, age_s, codes,
+  service_codes}, last_update:dict|null (updater.last), reboot_required:bool|null (/run/reboot-required), health_age_s:float|null}`.
+- `config`: `{branch_name, source, zones_total, zones[{zone, label, kind, door_id, box_number, roles{lock,contact,light,audio,red,green:
+  "dev:idx"|null}, missing[role]}], doors_without_hw[label] (jen source remote: kv remote_config.doors bez hw.zone), duplicates[str]
+  (stejný dev:idx ve dvou rolích téhož druhu coil/input/light), timings{…}, timings_problems[str] (lock_pulse_ms mimo 100–5000,
+  door_open_timeout_s < 5, maximum_session_s < 60, light_after_close_s < music_after_close_s), devices{name:{type, host, port}},
+  power_status_url, cameras_provided:int, security{…}}`.
+- `zones` (list dle čísla zóny, **SEKVENČNĚ** — audio selektor je exkluzivní; `_partial['zones']` přežije timeout): per `ZoneController`
+  `{zone, label, kind, door_id, box_number, state, fault, door_closed, session_active, contact_raw:bool|null (io.read_all_inputs()
+  jednou + input_value; True = zavřeno dle closed_level), contact_consistent:bool|null (== door_closed), io_problems[], lock{configured,
+  module_online, coil_off:bool|null} (read_coils — JEN ČTENÍ), tested, skipped_reason, light, signal, audio (bool|null),
+  shelly{red{on, brightness}|null, green{…}|null, expected: red|green|off|…, matches:bool|null}, findings[{key, status, message, dev?,
+  ch?}], problems[str] (= messages)}`. **Bezpečnost HW testu** (`zc.test_sequence()`: světlo ON → zelená 1 s → `finally` obnova
+  signálu i světla → tón 3 s; `audio.test_tone` tón zastaví i při zrušení) — kontroly v tomto pořadí dávají `skipped_reason`:
+  `zone_test_disabled` (cfg.zone_test False) · `not_ready` (ctrl.ready False) · `fault` · `session_active` (state ∈ ACTIVE_STATES, nebo test
+  vrátil `{error:'busy'}`) · `io_offline` (`zc.io_ready()` False) · `timeout` (`time_left() < ZONE_TEST_BUDGET_S = 15 s` → test se vůbec
+  nespustí; nebo test nedoběhl do `ZONE_TEST_TIMEOUT_S = 30 s` — běží pod `asyncio.shield`, dokončí se na pozadí, nález `test` warn).
+  **Zámek se NIKDY nespíná.** `audio = None`, když reproduktor hraje jinde. `findings.key`: `contact` (modul nečte vstup / nenastaven /
+  program × modul nesouhlasí — fail), `lock` (nenastaven / modul offline / relé SEPNUTÉ v klidu — fail), `fault` (io_offline fail, jinak
+  warn), `io` (fail), `test` (warn), `light` (fail, + `dev`, `ch`), `signal`, `audio` (fail), `shelly` (Light.GetStatus neodpovídá /
+  stav ≠ `signals.current(zone)` — fail; blikání → `matches None`).
+- `power`: `{configured, url, ok:bool|null, status, ms, error, values{battery_soc, battery_voltage, battery_power_w, pv_power_w,
+  load_power_w, grid_present}|null, raw_keys[≤64]}` — GET `ctrl.power_status_url` (timeout `camera_timeout_s`), JSON zploštěný o 1
+  úroveň, klíče přes aliasy `POWER_KEYS`; nenastaveno → `configured False, ok None`.
+- `cameras`: pro každou kameru (`cameras_list()`, ≤ 20) a každé http(s) `snapshot_url` / `stream_url`: `{name, kind, url_kind:
+  snapshot|stream, url, ok, status, ms, error, content_type}`; stream = `client.stream("GET")` bez čtení těla; `control_url` se netestuje.
+
+**Protokol (`diag_protocol.py`)** — JEDINÝ formát, který displej i Velín vykreslují: `build_protocol(report) -> [section]`, sekce
+v pořadí `system, software*, network, lte, internet, velin, modules, config*, zones*, power*, cameras*, lan, steps` (* jen když krok
+v reportu je = full; krok běžel a selhal → 1 položka `<key>.step` skip). `section = {key, title, status, items[]}`, `item = {id, label,
+status: ok|warn|fail|skip, value, message, hint? (jen warn/fail; `diag_hints.hint(key, **fmt)` z tabulky `HINTS` — modul, kanál, IP
+doplněné), group?: true}`. `group: true` = souhrnná položka zóny `zone.N` (value „stav, dveře, test: světlo ✔ zelená ✔ tón –“, message
+„N nálezů: …“ / „Test přeskočen: <SKIP_CZ>.“ / „Vše v pořádku.“) — do `summary.checks/problems/warnings` se NEPOČÍTÁ; každý nález má
+vlastní položku `zone.N.<key>[.n]` (label „Kóje 3 — světlo“). `section_status` = nejhorší z položek (fail > warn > ok), skip
+neovlivňuje, bez položek = skip; vadná data jedné sekce → položka `<sec>.error` warn (protokol nespadne). `STEP_TITLES` zde.
+**Summary** `build_summary(report, protocol)`: `{ok: bool (žádný fail), problems[str] („label: message“ fail položek), warnings[str],
+checks{total, ok, warn, fail, skip}, mode, zones_total (při timeoutu kroku zones ≥ config.zones_total), zones_tested, zones_ok (zóny bez
+fail nálezu), sections{key: status}}` + legacy klíče `hosts, internet, lte, devices_ok, devices_total` (RPC `kiosk_report_diagnostics`
+z `ok/problems/summary` plní sloupce — beze změny).
+
+**`DiagnosticsCfg`** (`config.yaml` → `diagnostics:`): `code`, `scan_ports`, `scan_timeout_ms`, `scan_concurrency`, `scan_subnets`,
+`max_hosts`, `internet_urls`, `timeout_s = 120` (network), **`full_timeout_s = 240`**, **`zone_test = True`** (False = zóny se jen čtou,
+nic se nespíná), **`camera_timeout_s = 6`** (HTTP sondy kamer i měniče FV).
+
+**Displej** (`ui/diag.js`, §16) a **Velín** (`BranchRpiDiagnostics.jsx` blok + `BranchRpiDiagProtocol.jsx` protokol/export .txt +
+`BranchRpiDiagNetwork.jsx` technický detail sítě; §23) vykreslují `protocol` shodně; starší reporty bez `protocol` = jen síťový detail.
+
+`net_scan`: `interfaces()` (`ip -j addr`, fallback ioctl), `routes()`, `dns_servers()`, `arp_table()`, `resolve()`, `tcp_probe()`,
+`subnet_hosts()`, `scan_hosts()` (semafor `scan_concurrency`), `http_info()`, `ping()`, `modbus_identify()` (FC01 16/8 + FC02 8 →
+wav645/wav617/modbus), `shelly_identify()` (`/rpc/Shelly.GetDeviceInfo`, Gen1 `/shelly`), `lte_info()`; nic nezapisuje do zařízení.
+Testy: `tests/test_diagnostics.py` (síť, kódy, web API, příkaz), `tests/test_diag_protocol.py` + `tests/diag_fakes.py` (full běh,
+bezpečnostní pravidla zón, Shelly, power/kamery, rozpočet a shield HW testu, agregace protokolu, hinty).
 
 ## 25. Hromadná aktualizace z Velína (rollout) — `updater.py` + `supabase/migrations/20260910c_kiosk_fleet_updates.sql`
 
