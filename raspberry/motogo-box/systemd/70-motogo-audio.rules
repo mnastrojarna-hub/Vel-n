@@ -1,0 +1,35 @@
+# MotoGo Box — pojmenování USB zvukových karet podle USB portu (režim audio.mode: multi, CONTRACT §6).
+# ŠABLONA: ve výchozím stavu obsahuje JEN komentáře (žádné aktivní pravidlo). install.sh ji nakopíruje do
+# /etc/udev/rules.d/70-motogo-audio.rules jen tehdy, když tam ŽIVÝ soubor chybí nebo sám žádné aktivní
+# pravidlo nemá — má-li aktivní pravidla, install.sh ho PONECHÁ (je to konfigurace pobočky jako hardware.yaml).
+# Pravidla proto odkomentuj a upravuj v ŽIVÉM souboru /etc/udev/rules.d/70-motogo-audio.rules (ne v /opt/motogo,
+# ten update.sh přepisuje); po změně: sudo udevadm control --reload && sudo udevadm trigger --subsystem-match=sound
+# (nebo restart RPi, nebo znovu sudo ./scripts/install.sh — ten reload i výpis karet udělá sám).
+#
+# Proč: ALSA čísluje karty (card 1, card 2, …) podle pořadí detekce → po restartu nebo přepojení USB by
+# hudba kóje 3 hrála v kóji 5. Pojmenování podle FYZICKÉHO USB portu (KERNELS = cesta portu, např. 1-1.1)
+# dá kartě stálé jméno (ATTR{id}) nezávislé na pořadí — a to jméno se používá jako
+#   alsa/plughw:CARD=Box1      ← hodnota `device` výstupu v Velín → Samoobsluha → hardware → Audio → výstupy
+#
+# Jak zjistit cestu portu karty (příklad pro card 1; každou kartu zapoj a zjisti zvlášť):
+#   aplay -l                                   # která card N je která (zapojuj karty po jedné)
+#   udevadm info -a /dev/snd/controlC1 | grep KERNELS
+#   → mezi nadřazenými zařízeními hledej KERNELS=="1-1.1" (tvar <sběrnice>-<port>[.<port hubu>…]);
+#     RPi 5: přední/zadní USB porty mají různé cesty, USB hub přidá další „.N“ (např. 1-1.1.3).
+# Omezení ATTR{id}: max 15 znaků, jen písmena/číslice/podtržítko, NE začínat číslicí; jména nesmí kolidovat
+# s jinými kartami (vestavěné HDMI karty RPi 5 se jmenují vc4hdmi0/vc4hdmi1).
+# Ověření: aplay -L | grep CARD=  a  cat /proc/asound/cards ; test: speaker-test -D plughw:CARD=Box1 -c2 -t wav -l1
+#
+# PŘÍKLAD (7 kójí + šatna + venek = 9 karet; uprav KERNELS podle udevadm a odkomentuj):
+# SUBSYSTEM=="sound", KERNEL=="card*", KERNELS=="1-1.1",   ATTR{id}!="Box1", ATTR{id}="Box1"
+# SUBSYSTEM=="sound", KERNEL=="card*", KERNELS=="1-1.2",   ATTR{id}!="Box2", ATTR{id}="Box2"
+# SUBSYSTEM=="sound", KERNEL=="card*", KERNELS=="1-1.3",   ATTR{id}!="Box3", ATTR{id}="Box3"
+# SUBSYSTEM=="sound", KERNEL=="card*", KERNELS=="1-1.4",   ATTR{id}!="Box4", ATTR{id}="Box4"
+# SUBSYSTEM=="sound", KERNEL=="card*", KERNELS=="1-1.1.1", ATTR{id}!="Box5", ATTR{id}="Box5"
+# SUBSYSTEM=="sound", KERNEL=="card*", KERNELS=="1-1.1.2", ATTR{id}!="Box6", ATTR{id}="Box6"
+# SUBSYSTEM=="sound", KERNEL=="card*", KERNELS=="1-1.1.3", ATTR{id}!="Box7", ATTR{id}="Box7"
+# SUBSYSTEM=="sound", KERNEL=="card*", KERNELS=="1-1.1.4", ATTR{id}!="Satna", ATTR{id}="Satna"
+# SUBSYSTEM=="sound", KERNEL=="card*", KERNELS=="3-1",     ATTR{id}!="Venek", ATTR{id}="Venek"
+# (KERNEL=="card*" omezí přiřazení na uzel karty — bez něj udev zkouší nastavit id i na pcmC*/controlC* a loguje chyby.
+#  ATTR{id}!="…" = zapisovat jen když se jméno liší: jádro odmítá zápis už nastaveného id (EEXIST) a udev by při každém
+#  udevadm trigger / install.sh logoval „Failed to write ATTR{id}“. Bez ACTION=="add" — udevadm trigger posílá „change“.)

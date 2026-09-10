@@ -9,12 +9,14 @@ from __future__ import annotations
 
 import asyncio
 import copy
+import json
 import logging
 import time
 
 from . import commands, controller_codes as cc, controller_hw as chw, controller_loops as loops, sdnotify
-from .audio import AudioController, AudioSelector, MpvPlayer
-from .config import HardwareConfig, LocalConfig, validate_hardware
+from .audio import AudioController
+from .audio_build import audio_signature, build_audio, make_music_library
+from .config import WARNING_PREFIX, HardwareConfig, LocalConfig, blocking_problems, validate_hardware
 from .diagnostics import NetworkDiagnostics
 from .io_devices import IoBus
 from .models import Event, EventKind, Signal, now_iso
@@ -43,7 +45,8 @@ class BoxController:
         self.zones: dict[int, ZoneController] = {}
         self.io: IoBus = IoBus(self.hardware)
         self.signals: SignalController = SignalController({}, self.hardware.signal)
-        self.audio: AudioController | None = None
+        self.audio: AudioController | AudioMulti | None = None
+        self.music = None                  # music_sync.MusicLibrary (None = modul chybí → legacy playlist)
         self.health: dict = {}
         self.last_error: str | None = None
         self.ui_notice: dict | None = None
@@ -95,16 +98,16 @@ class BoxController:
             self.hardware = chw.build_hardware(self._local_hw_raw, None)
         if not self.branch_name and isinstance(remote, dict) and remote.get("branch_name"):
             self.branch_name = str(remote["branch_name"])     # offline start: název z poslední synchronizace
-        self._hw_signature = chw.hw_signature(self.hardware)
+        self._hw_signature = self._signature(self.hardware)
         self.config_problems = extra_problems + validate_hardware(self.hardware)
         for p in self.config_problems:
-            log.error("Konfigurace: %s", p)
+            log.log(logging.WARNING if p.startswith(WARNING_PREFIX) else logging.ERROR, "Konfigurace: %s", p)
         await self._build_runtime()
         await self._hw_startup()
         self.ready = True
         sdnotify.notify("READY=1")
         await self.emit(Event(kind=EventKind.STARTUP, message=f"MotoGo Box {self.version} spuštěn",
-                              level="error" if self.config_problems else "info",
+                              level="error" if blocking_problems(self.config_problems) else "info",
                               detail={"version": self.version, "problems": self.config_problems,
                                       "config_source": self.hardware.source, "zones": len(self.zones)}))
         self._hw_tasks = loops.spawn(loops.HW_LOOPS, self)
@@ -118,8 +121,10 @@ class BoxController:
         shellies = {n: ShellyRgbww.from_device(d, offline_after=hw.polling.device_offline_after_failures)
                     for n, d in hw.shelly_devices().items()}
         self.signals = SignalController(shellies, hw.signal)
-        player = MpvPlayer(self.local.paths.mpv_socket, self.local.paths.music_dir, hw.audio.device)
-        self.audio = AudioController(player, AudioSelector(self.io, hw.zones, hw.audio), hw.audio)
+        if self.music is None:      # knihovna hudby jen jednou (přežije přestavby; sync běží na pozadí)
+            self.music = make_music_library(self.storage, self.local.paths.music_dir, self.local.supabase.url,
+                                            self._music_changed)
+        self.audio = build_audio(hw, self.local, self.io, self.music)   # selector | multi dle hw.audio.mode
         self.zones = {}
         for z in hw.zones:
             zc = ZoneController(z, self.io, self.signals, self.audio, hw, self.emit)
@@ -198,6 +203,16 @@ class BoxController:
         await self.diagnostics.cancel()
         await self.updater.cancel()
         await self._shutdown_hw(final=True)
+
+    @staticmethod
+    def _signature(hw: HardwareConfig) -> str:
+        """Podpis HW + audio topologie (režim/výstupy/kanály = nové mpv procesy → přestavba)."""
+        return chw.hw_signature(hw) + json.dumps(audio_signature(hw.audio), sort_keys=True, default=str)
+
+    async def _music_changed(self) -> None:
+        """Knihovna hudby dosynchronizována → enginu vyměnit playlisty (hrající kanály až po stopu)."""
+        if self.audio is not None:
+            await self.audio.reload_playlists()
 
     async def _module_reinit(self, name: str) -> None:
         if self.audio is not None:
@@ -306,13 +321,13 @@ class BoxController:
             self.storage.save_code_cache(payload)      # kódy na HW mapě nezávisí — cache aktualizovat
             return {"ok": False, "error": "config_invalid", "changed": False, "problems": [str(exc)]}
         problems = validate_hardware(hw)
-        sig = chw.hw_signature(hw)
+        sig = self._signature(hw)
         changed = sig != self._hw_signature
         self.storage.save_code_cache(payload)
         if payload.get("branch_name"):
             self.apply_heartbeat({"branch_name": payload["branch_name"], "power_status_url": self.power_status_url,
                                   "power_poll_seconds": self.power_poll_s})
-        if changed and problems:
+        if changed and blocking_problems(problems):
             log.error("Nová konfigurace má chyby, HW se nepřestavuje: %s", problems)
             await self.emit(Event(kind=EventKind.CONFIG_PROBLEM, success=False, level="error",
                                   message="Konfigurace z Velína je neplatná", detail={"problems": problems}))
@@ -324,13 +339,17 @@ class BoxController:
             log.warning("Změna HW mapy odložena — běží relace v zónách %s", active)
             return {"ok": True, "changed": False, "deferred": True, "active_zones": active, "problems": problems}
         self.storage.kv_set("remote_config", cc.config_part(payload))   # až po validaci, bez kódů
+        if "music" in payload and self.music is not None:
+            music = payload.get("music")
+            self.music.start_sync(list(music.get("tracks") or []) if isinstance(music, dict) else [])
         self.hardware, self.config_problems, self._hw_signature = hw, problems, sig
         self.pin_guard.sec = hw.security
         if changed:
             log.warning("Změna zařízení/zón/pollingu — přestavuji HW vrstvu")
             await self._rebuild()
         else:
-            self.signals.cfg, self.audio.cfg, self.audio.selector.cfg = hw.signal, hw.audio, hw.audio
+            self.signals.cfg = hw.signal
+            self.audio.update_cfg(hw.audio, hw.timings)
             for z in hw.zones:
                 zc = self.zones.get(z.number)
                 if zc is not None:
@@ -349,10 +368,9 @@ class BoxController:
             "ready": self.ready, "branch_name": self.branch_name, "internet": bool(getattr(self.api, "online", False)),
             "config_source": self.hardware.source, "config_problems": list(self.config_problems),
             "modules": modules,
-            "audio": {"playing_zone": self.audio.playing_zone if self.audio else None,
-                      "player_ok": bool(self.audio and self.audio.player_ok),
-                      "playlist_count": int(getattr(getattr(self.audio, "player", None), "playlist_count", 0) or 0) if self.audio else 0,
-                      "device": getattr(getattr(self.audio, "player", None), "device", None) if self.audio else None},
+            "audio": self.audio.status() if self.audio else {
+                "mode": self.hardware.audio.engine_mode, "playing_zone": None, "playing_zones": [], "channels": [],
+                "player_ok": False, "playlist_count": 0, "device": None, "players": {}, "library": None},
             "health": self.health, "last_error": self.last_error,
             "zones": [zc.status().to_dict() for zc in sorted(self.zones.values(), key=lambda z: z.number)],
             "notice": copy.deepcopy(notice) if notice else None,

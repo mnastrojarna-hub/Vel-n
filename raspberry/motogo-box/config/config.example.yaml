@@ -13,9 +13,10 @@ device:
 
 paths:
   data_dir: /var/lib/motogo            # SQLite (cache kódů, fronta událostí, lokální audit)
-  music_dir: /var/lib/motogo/music     # mp3/ogg/flac/wav — playlist pro reproduktory kójí
+  music_dir: /var/lib/motogo/music     # hudba: <music_dir>/tracks/<id>.<ext> = skladby nahrané ve Velíně (Hudba pobočky,
+                                       # synchronizuje se automaticky); soubory přímo v music_dir = společný playlist (legacy)
   hardware_file: /etc/motogo/hardware.yaml   # výchozí HW mapa (instalátor kopíruje config/brno-9zone.yaml)
-  mpv_socket: /run/motogo/mpv.sock
+  mpv_socket: /run/motogo/mpv.sock     # režim multi (HW mapa audio.mode) má jeden mpv na výstup: mpv.sock.out1, mpv.sock.out9…
 
 web:
   host: 127.0.0.1

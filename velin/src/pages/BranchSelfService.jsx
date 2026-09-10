@@ -4,6 +4,7 @@ import { Spinner, EmptyState } from './BranchHelpers'
 import { RpiStatusBlock } from './BranchRpiZones'
 import { RpiHardwareBlock } from './BranchRpiHardware'
 import { RpiDiagnosticsBlock } from './BranchRpiDiagnostics'
+import { BranchMusicBlock } from './BranchMusic'
 import { isRpiDevice, platformLabel } from './BranchRpiUi'
 
 // ─── Tab: Samoobsluha (kiosk) ─────────────────────────────────────────────
@@ -246,6 +247,7 @@ function TabSelfService({ branchId, branchName, motos }) {
         <>
           <ControlPanelBlock doors={doors} cfg={cfg} onlineDevice={onlineDevice} onRemote={remote} onRefresh={load} />
           <RpiStatusBlock devices={devices} doors={doors} now={now} onCommand={sendCommand} />
+          <BranchMusicBlock branchId={branchId} doors={doors} devices={devices} now={now} onCommand={sendCommand} />
           <RpiDiagnosticsBlock branchId={branchId} devices={devices} diags={diags} cameras={cameras} now={now} onCommand={sendCommand} />
           <PowerBlock power={power} cfg={cfg} now={now} onSave={saveCfg} onRefresh={load} />
           <CamerasBlock cameras={cameras} onlineDevice={onlineDevice} busy={busy}

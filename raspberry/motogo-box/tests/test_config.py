@@ -6,7 +6,7 @@ import logging
 import os
 
 from motogo_box.config import (AudioCfg, HardwareConfig, SecurityCfg, SignalCfg, TimingsCfg, _fill,
-                               load_hardware_file, merge_hardware, validate_hardware)
+                               blocking_problems, load_hardware_file, merge_hardware, validate_hardware)
 
 HW_FILE = os.path.join(os.path.dirname(__file__), "..", "config", "brno-9zone.yaml")
 
@@ -151,3 +151,72 @@ def test_from_dict_raw_is_deep_copy():
     d["timings"]["lock_pulse_ms"] = 1
     assert hw.raw["timings"]["lock_pulse_ms"] == 800 and hw.timings.lock_pulse_ms == 800
     assert copy.deepcopy(hw.raw) == hw.raw
+
+
+# ─── audio: režim multi / kanály ─────────────────────────────────────────────
+def _multi(**audio) -> HardwareConfig:
+    d = _brno()
+    d["audio"].update({"mode": "multi", "outputs": {"out1": {"device": "alsa/a"}, "out2": {"device": "alsa/b"},
+                                                    "out9": {"device": "alsa/v"}}, **audio})
+    d["zones"] = [dict(d["zones"][0], audio={"out": "out1"}), dict(d["zones"][1], audio={"out": "out2"})]
+    return HardwareConfig.from_dict(d)
+
+
+def test_validate_multi_ok_and_unknown_output():
+    assert validate_hardware(_multi(channels={"outdoor": {"out": "out9"}})) == []
+    hw = _multi()
+    hw.zones[1].hw = hw.zones[1].hw.__class__(zone=2, lock=hw.zones[1].hw.lock, contact=hw.zones[1].hw.contact,
+                                              audio_out="outX")
+    assert any("Zóna 2: audio výstup 'outX' není v audio.outputs" in p for p in validate_hardware(hw))
+
+
+def test_validate_multi_shared_output_and_channel_without_output():
+    d = _brno()
+    d["audio"].update({"mode": "multi", "outputs": {"out1": {"device": "alsa/a"}}, "channels": {"outdoor": {}}})
+    d["zones"] = [dict(d["zones"][0], audio={"out": "out1"}), dict(d["zones"][1], audio={"out": "out1"})]
+    problems = validate_hardware(HardwareConfig.from_dict(d))
+    assert any("Zóna 2: audio výstup 'out1' už používá zóna 1" in p for p in problems)
+    assert any("Kanál outdoor: chybí výstup" in p for p in problems)
+    problems = validate_hardware(_multi(channels={"outdoor": {"out": "out2"}}))
+    assert any("Kanál outdoor: audio výstup 'out2' už používá zóna 2" in p for p in problems)
+    assert any("není v audio.outputs" in p for p in validate_hardware(_multi(channels={"outdoor": {"out": "out7"}})))
+
+
+def test_validate_selector_with_channels_is_only_warning():
+    d = _brno()
+    d["audio"]["channels"] = {"outdoor": {"out": "out9"}}
+    problems = validate_hardware(HardwareConfig.from_dict(d))
+    assert len(problems) == 1 and problems[0].startswith("Upozornění:") and "selector" in problems[0]
+    assert blocking_problems(problems) == []
+    d["audio"]["mode"] = "MULTI "                       # normalizace režimu
+    d["audio"]["outputs"] = {"out9": {"device": "alsa/v"}}
+    hw = HardwareConfig.from_dict(d)
+    assert hw.audio.engine_mode == "multi" and hw.audio.output_devices() == {"out9": "alsa/v"}
+    problems = validate_hardware(hw)
+    assert all(p.startswith("Upozornění:") and "nemá audio výstup" in p for p in problems) and len(problems) == 9
+    d["audio"]["mode"] = "divny"
+    assert any("audio.mode 'divny'" in p for p in validate_hardware(HardwareConfig.from_dict(d)))
+    d["audio"]["outputs"] = "nesmysl"                    # vadný tvar z Velína nesmí shodit start
+    hw = HardwareConfig.from_dict(d)
+    assert hw.audio.output_devices() == {} and hw.audio.engine_mode == "selector"
+
+
+def test_validate_multi_channel_relay_collisions_block():
+    """Relé „enable“ kanálu nesmí ležet na cívce zámku/světla zóny ani jiného kanálu, ani mimo rozsah (§12)."""
+    d = _brno()
+    lock = d["zones"][0]["lock"]
+    d["audio"].update({"mode": "multi", "outputs": {"out1": {"device": "alsa/a"}, "out8": {"device": "alsa/s"},
+                                                    "out9": {"device": "alsa/v"}},
+                       "channels": {"outdoor": {"out": "out9", "dev": lock["dev"], "coil": lock["coil"]}}})
+    d["zones"] = [dict(d["zones"][0], audio={"out": "out1"})]
+    problems = validate_hardware(HardwareConfig.from_dict(d))
+    assert any(f"Kanál outdoor: relé {lock['dev']}[{lock['coil']}] už používá zóna 1 (lock)" in p for p in problems)
+    assert blocking_problems(problems)                   # blokuje — mapa se neuplatní
+    d["audio"]["channels"] = {"outdoor": {"out": "out9", "dev": "wav645", "coil": 16},
+                              "satna": {"out": "out8", "dev": "wav645", "coil": 15},
+                              "chodba": {"out": "out8", "dev": "wav645", "coil": 15}}
+    problems = validate_hardware(HardwareConfig.from_dict(d))
+    assert any("Kanál outdoor: relé wav645[16] je mimo rozsah modulu wav645 (0–15)" in p for p in problems)
+    assert any("Kanál chodba: relé wav645[15] už používá kanál satna" in p for p in problems)
+    d["audio"]["channels"] = {"outdoor": {"out": "out9", "dev": "wav645", "coil": 15}}
+    assert blocking_problems(validate_hardware(HardwareConfig.from_dict(d))) == []

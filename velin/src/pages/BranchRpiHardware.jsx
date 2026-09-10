@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { EmptyState } from './BranchHelpers'
 import { RpiSection, Btn, Chip, Input, Select, Checkbox } from './BranchRpiUi'
 import { DoorHwEditor } from './BranchRpiDoorHw'
+import { AudioOutputsEditor } from './BranchRpiAudioHw'
 import {
   BRNO_DEFAULT_HARDWARE, BRNO_DEFAULT_ZONES, DEVICE_TYPES, HW_SECTIONS,
   fieldToText, textToField, sectionWithDefaults, pickAccessoriesZone,
@@ -9,7 +10,7 @@ import {
 
 // ─── Řídicí jednotka (Raspberry) — hardware ──────────────────────────────────
 // Editor `branch_kiosk_config.hardware` (zařízení + časování/polling/kontakty/
-// bezpečnost/audio/signál) a `branch_doors.hw` (mapování zón). Uložení tlačítky;
+// bezpečnost/audio/signál, audio režim + výstupy + kanál venek) a `branch_doors.hw` (mapování zón). Uložení tlačítky;
 // řídicí jednotka si změny stáhne při dalším syncu (nebo příkazem sync_config).
 // onSaveCfg/onSaveDoor aktualizují stav záložky optimisticky a vrací true/false.
 
@@ -67,11 +68,12 @@ function RpiHardwareBlock({ cfg, doors, busy, onSaveCfg, onSaveDoor, onRefresh }
         {note && <div className="p-2 rounded-lg text-[12px] font-bold" style={NOTE_STYLE[note.tone] || NOTE_STYLE.green}>{note.text}</div>}
         <DevicesEditor hardware={hardware} disabled={disabled} onSave={devices => onSaveCfg({ hardware: { ...hardware, devices } })} />
         <SettingsEditor hardware={hardware} disabled={disabled} onSave={patch => onSaveCfg({ hardware: { ...hardware, ...patch } })} />
+        <AudioOutputsEditor hardware={hardware} doors={doors} disabled={disabled} onSave={audio => onSaveCfg({ hardware: { ...hardware, audio } })} />
         <SubBlock title="Mapování dveří → zóny (branch_doors.hw)"
-          hint="Zóna = číslo kóje (skříň oblečení = volné číslo). Zámek = coil VÝHRADNĚ na WAV645 (HW flash-on), kontakt = vstup WAV617 (input), světlo/audio = coil WAV645/WAV617, červená/zelená = Shelly light id (0–4). Zámek a kontakt jsou povinné; čísla zón i kanály musí být unikátní — jinak jednotka celou mapu odmítne.">
+          hint="Zóna = číslo kóje (skříň oblečení = volné číslo). Zámek = coil VÝHRADNĚ na WAV645 (HW flash-on), kontakt = vstup WAV617 (input), světlo/audio = coil WAV645/WAV617, červená/zelená = Shelly light id (0–4). Audio v režimu multi = výstup ze seznamu výše (+ volitelné enable relé zesilovače). Zámek a kontakt jsou povinné; čísla zón, kanály i audio výstupy musí být unikátní — jinak jednotka celou mapu odmítne.">
           {(doors || []).length === 0
             ? <EmptyState text="Žádné dveře. Nejdřív vytvořte dveře z kojí (blok „Dveře“ výše)." />
-            : <DoorHwEditor doors={doors} devices={hardware.devices || {}} busy={disabled} onSaveDoor={onSaveDoor} />}
+            : <DoorHwEditor doors={doors} devices={hardware.devices || {}} audio={hardware.audio} busy={disabled} onSaveDoor={onSaveDoor} />}
         </SubBlock>
       </div>
     </RpiSection>

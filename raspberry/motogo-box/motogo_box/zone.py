@@ -100,10 +100,15 @@ class ZoneController:
             kind=self.zone.kind, label=self.zone.display_name, state=self.state.value,
             door_closed=self.door_closed, fault=self.fault, light=self.light_on,
             signal=self.signals.current(self.number).value,
-            music=self.audio.playing_zone == self.number,
+            music=self._music_playing(),
             session_started_at=self.session_started_at, booking_id=self.booking_id,
             last_event=self.last_event, latch_released=self.latch_released, degraded=self.degraded,
         )
+
+    def _music_playing(self) -> bool:
+        """Hraje hudba v této zóně (`audio.is_playing`; starší engine/fake jen `playing_zone`)."""
+        is_playing = getattr(self.audio, "is_playing", None)
+        return bool(is_playing(self.number)) if is_playing is not None else self.audio.playing_zone == self.number
 
     def io_problems(self) -> list[str]:
         """Nedostupné/chybějící I/O zóny (prázdný seznam = vše online): zámek, kontakt, světlo, Shelly."""

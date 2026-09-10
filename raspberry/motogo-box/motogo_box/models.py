@@ -99,10 +99,11 @@ class ZoneHw:
     lock: HwRef | None = None      # WAV645 coil (zámek — jen HW pulz)
     contact: HwRef | None = None   # WAV617 input (dveřní NC kontakt)
     light: HwRef | None = None     # WAV617 coil (bílé světlo)
-    audio: HwRef | None = None     # coil audio selektoru (reproduktor)
+    audio: HwRef | None = None     # coil audio selektoru (selector) / volitelné „enable" relé zesilovače (multi)
     red: HwRef | None = None       # Shelly light id (červená)
     green: HwRef | None = None     # Shelly light id (zelená)
     closed_level: int | None = None  # override globálního contacts.closed_level
+    audio_out: str | None = None   # režim multi: název výstupu z `audio.outputs` (`audio: {out: out1}`)
 
     @classmethod
     def from_dict(cls, d: dict, default_zone: int | None = None) -> "ZoneHw | None":
@@ -116,15 +117,18 @@ class ZoneHw:
         except (TypeError, ValueError):
             return None
         cl = d.get("closed_level")
+        audio = d.get("audio")
+        out = audio.get("out") if isinstance(audio, dict) else None
         return cls(
             zone=zone,
             lock=HwRef.from_dict(d.get("lock"), "coil"),
             contact=HwRef.from_dict(d.get("contact"), "input"),
             light=HwRef.from_dict(d.get("light"), "coil"),
-            audio=HwRef.from_dict(d.get("audio"), "coil"),
+            audio=HwRef.from_dict(audio, "coil"),
             red=HwRef.from_dict(d.get("red"), "light"),
             green=HwRef.from_dict(d.get("green"), "light"),
             closed_level=int(cl) if cl is not None else None,
+            audio_out=str(out).strip() or None if out not in (None, "") else None,
         )
 
     def to_dict(self) -> dict:
@@ -139,6 +143,8 @@ class ZoneHw:
             "red": ref(self.red, "light"),
             "green": ref(self.green, "light"),
         }
+        if self.audio_out:
+            out["audio"] = {**(out["audio"] or {}), "out": self.audio_out}
         if self.closed_level is not None:
             out["closed_level"] = self.closed_level
         return out

@@ -15,7 +15,8 @@ from typing import Any
 
 log = logging.getLogger("motogo.mpv")
 
-MUSIC_EXTENSIONS = (".mp3", ".ogg", ".flac", ".wav", ".m4a")
+MUSIC_EXTENSIONS = (".mp3", ".ogg", ".oga", ".opus", ".flac", ".wav", ".m4a", ".aac", ".wma",
+                    ".aiff", ".aif", ".webm", ".mkv")   # vše, co přehraje mpv/ffmpeg (kontrakt hudby §0)
 IPC_TIMEOUT_S = 2.0
 SOCKET_WAIT_S = 5.0
 RESTART_MIN_INTERVAL_S = 30.0   # ochrana proti restart smyčce zaseknutého mpv
@@ -28,10 +29,13 @@ class MpvError(Exception):
 class MpvPlayer:
     """Řídí jeden proces mpv (idle, bez videa, playlist ve smyčce)."""
 
-    def __init__(self, socket_path: str, music_dir: str, device: str | None = None) -> None:
+    def __init__(self, socket_path: str, music_dir: str, device: str | None = None,
+                 name: str = "mpv") -> None:
         self.socket_path = socket_path
         self.music_dir = music_dir
         self.device = device
+        self.name = name                # jméno výstupu pro log (multi: out1…; selector: mpv)
+        self._files: list[str] | None = None   # explicitní playlist (`load_files`); None = scan music_dir
         self.volume: int = 0
         self.playlist_count: int = 0
         self._proc: asyncio.subprocess.Process | None = None
@@ -235,11 +239,15 @@ class MpvPlayer:
         if now - self._last_restart < RESTART_MIN_INTERVAL_S:
             return False
         self._last_restart = now
-        log.warning("Restartuji mpv")
+        log.warning("Restartuji mpv (%s)", self.name)
         await self.stop()
         await self.start()
         if self.alive:
-            await self.load_playlist(self._shuffle if shuffle is None else shuffle)
+            sh = self._shuffle if shuffle is None else shuffle
+            if self._files is None:
+                await self.load_playlist(sh)
+            else:
+                await self.load_files(self._files, sh)
             await self.set_volume(0)
         return self.alive
 
@@ -265,17 +273,31 @@ class MpvPlayer:
                       and os.path.isfile(os.path.join(self.music_dir, n)))
 
     async def load_playlist(self, shuffle: bool = True) -> int:
-        """Načte soubory z `music_dir` (první `replace`, další `append-play`); vrací počet."""
+        """Načte VŠECHNY soubory z `music_dir` (legacy playlist); vrací počet."""
+        self._files = None
+        return await self._load(self.list_files(), shuffle, f"z {self.music_dir}")
+
+    async def load_files(self, files: list[str], shuffle: bool = True) -> int:
+        """Načte explicitní seznam souborů (playlist cíle z knihovny hudby); vrací počet.
+
+        Seznam si pamatuje — po restartu mpv (`ensure_running`) se načte znovu.
+        """
+        self._files = [str(f) for f in (files or []) if f]
+        return await self._load(list(self._files), shuffle, "z knihovny")
+
+    async def _load(self, files: list[str], shuffle: bool, what: str) -> int:
+        """Společné načtení (první `replace`, další `append-play`), na konci pauza."""
         self._shuffle = bool(shuffle)
-        files = self.list_files()
         if shuffle:
             random.shuffle(files)
         if not files:
-            log.warning("V %s nejsou žádné hudební soubory", self.music_dir)
+            log.warning("%s: playlist %s je prázdný", self.name, what)
+            if self.alive:
+                await self._safe("stop")      # --idle=yes: vyprázdní playlist, mpv běží dál (nesmí zůstat starý)
             self.playlist_count = 0
             return 0
         if not self.alive:
-            log.warning("mpv neběží — playlist (%d souborů) nenačten", len(files))
+            log.warning("%s: mpv neběží — playlist (%d souborů) nenačten", self.name, len(files))
             self.playlist_count = 0
             return 0
         loaded = 0
@@ -284,7 +306,7 @@ class MpvPlayer:
                 loaded += 1
         await self._safe("set_property", "pause", True)
         self.playlist_count = loaded
-        log.info("Playlist: %d souborů z %s", loaded, self.music_dir)
+        log.info("%s: playlist %d souborů %s", self.name, loaded, what)
         return loaded
 
     async def play(self) -> None:

@@ -67,10 +67,15 @@ async def service_music(srv: Any, request: web.Request) -> web.Response:
     audio = getattr(srv.ctrl, "audio", None)
     if audio is None:
         return srv.error("audio_unavailable")
-    if not on:
-        await audio.stop()
-        return srv.json({"ok": True, "on": False})
     zone = _to_int(body.get("zone"))
+    if not on:
+        # multi: vypnout jen kóji z panelu (jinde hudba hraje dál); bez zóny = vše (selector = vše vždy)
+        stop_zone = getattr(audio, "stop_zone", None)
+        if zone is not None and stop_zone is not None:
+            await stop_zone(zone)
+        else:
+            await audio.stop()
+        return srv.json({"ok": True, "on": False, "zone": zone})
     if zone is None:
         zones = getattr(srv.ctrl, "zones", None) or {}
         zone = min(zones) if zones else None

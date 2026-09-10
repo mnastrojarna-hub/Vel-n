@@ -7,13 +7,17 @@ nejsou VŠECHNA audio relé ověřeně vypnutá. `AudioController` serializuje v
 přes `asyncio.Lock` a hraje vždy jen jedna zóna.
 
 Veřejné API: `MpvPlayer` (implementace v `mpv_player.py`), `AudioSelector`,
-`AudioController`.
+`AudioController`. Režim `multi` (výstup + mpv na každou místnost) je v `audio_multi.py`;
+oba enginy sdílejí stejné rozhraní (`is_playing`, `playing_zones`, `channels_playing`,
+`sync_channels`, `reload_playlists`, `status`). Playlist cíle zóny dodává knihovna
+hudby (`music_sync.MusicLibrary.playlist_for(target)`, cíl = `door:<uuid>` | `zone:<n>`);
+bez knihovny hraje legacy playlist = všechny soubory v `music_dir`.
 """
 from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from .config import AudioCfg
 from .models import HwRef, Zone
@@ -22,9 +26,25 @@ from .mpv_player import MpvError, MpvPlayer
 if TYPE_CHECKING:  # pragma: no cover — jen typ, modul píše jiná část programu
     from .io_devices import IoBus
 
-__all__ = ["MpvPlayer", "MpvError", "AudioSelector", "AudioController"]
+__all__ = ["MpvPlayer", "MpvError", "AudioSelector", "AudioController", "zone_target", "library_status"]
 
 log = logging.getLogger("motogo.audio")
+
+
+def zone_target(zone: Zone) -> str:
+    """Cíl hudby zóny: `door:<uuid>` (dveře z Velína) nebo `zone:<n>` (lokální mapa)."""
+    return f"door:{zone.door_id}" if zone.door_id else f"zone:{zone.number}"
+
+
+def library_status(library: Any) -> dict | None:
+    """`library.status()` bez výjimek (knihovna je volitelná)."""
+    if library is None:
+        return None
+    try:
+        return dict(library.status() or {})
+    except Exception as exc:  # noqa: BLE001
+        log.warning("Stav knihovny hudby nelze zjistit: %s", exc)
+        return None
 
 
 class AudioSelector:
@@ -108,11 +128,17 @@ class AudioSelector:
 class AudioController:
     """Jediný vstupní bod pro hudbu — exkluzivita zón, fade in/out, bezpečné vypnutí."""
 
-    def __init__(self, player: MpvPlayer, selector: AudioSelector, cfg: AudioCfg) -> None:
+    mode = "selector"
+
+    def __init__(self, player: MpvPlayer, selector: AudioSelector, cfg: AudioCfg,
+                 library: Any = None, zones: list[Zone] | None = None) -> None:
         self.player = player
         self.selector = selector
         self.cfg = cfg
+        self.library = library        # MusicLibrary (volitelná) — playlisty cílů
+        self.targets: dict[int, str] = {z.number: zone_target(z) for z in (zones or [])}
         self.playing_zone: int | None = None
+        self._loaded_target: str | None = None   # cíl právě načteného playlistu (None = legacy/dirty)
         self._lock = asyncio.Lock()
         self._fade_task: asyncio.Task | None = None
         self._generation = 0          # roste s každým play_zone — test_tone nesmí vypnout cizí hudbu
@@ -120,6 +146,66 @@ class AudioController:
     @property
     def player_ok(self) -> bool:
         return bool(self.player.alive)
+
+    # ─── společné rozhraní enginů ────────────────────────────────────────────
+    def is_playing(self, zone: int) -> bool:
+        return self.playing_zone == zone
+
+    @property
+    def playing_zones(self) -> list[int]:
+        return [self.playing_zone] if self.playing_zone is not None else []
+
+    @property
+    def channels_playing(self) -> list[str]:
+        return []                     # selector nemá kanály bez dveří (venek nelze)
+
+    async def sync_channels(self, active_zones: list[int]) -> None:
+        """Selector kanály nemá — nic (rozhraní společné s multi)."""
+
+    def update_cfg(self, cfg: AudioCfg, timings: Any = None) -> None:
+        self.cfg = self.selector.cfg = cfg
+
+    async def reload_playlists(self) -> None:
+        """Knihovna hudby se změnila: hrající zónu nerušit, playlist se vymění při dalším play_zone."""
+        async with self._lock:
+            self._loaded_target = None
+            if self.playing_zone is None:
+                await self._load_target(self.targets.get(1) if len(self.targets) == 1 else "all")
+
+    def status(self) -> dict:
+        return {"mode": self.mode, "playing_zone": self.playing_zone, "playing_zones": self.playing_zones,
+                "channels": [], "player_ok": self.player_ok,
+                "playlist_count": int(getattr(self.player, "playlist_count", 0) or 0),
+                "device": getattr(self.player, "device", None),
+                "players": {getattr(self.player, "name", "mpv"): {
+                    "alive": self.player_ok, "playlist_count": int(getattr(self.player, "playlist_count", 0) or 0),
+                    "device": getattr(self.player, "device", None)}},
+                "library": library_status(self.library)}
+
+    def _target_of(self, zone: int) -> str:
+        return self.targets.get(zone) or f"zone:{zone}"
+
+    def _files_for(self, target: str) -> list[str] | None:
+        """Playlist cíle z knihovny; None = knihovna není (legacy scan adresáře)."""
+        if self.library is None:
+            return None
+        try:
+            return [str(f) for f in (self.library.playlist_for(target) or [])]
+        except Exception as exc:  # noqa: BLE001
+            log.warning("Playlist cíle %s nelze načíst: %s", target, exc)
+            return []
+
+    async def _load_target(self, target: str) -> None:
+        """Načte do mpv playlist cíle (jen když se liší od právě načteného; bez knihovny legacy 1×)."""
+        files = self._files_for(target)
+        key = target if files is not None else "legacy"
+        if key == self._loaded_target:
+            return
+        if files is None:
+            await self.player.load_playlist(self.cfg.shuffle)
+        else:
+            await self.player.load_files(files, self.cfg.shuffle)
+        self._loaded_target = key
 
     def _start_fade(self, to: int, ms: int) -> None:
         """Fade na pozadí — přístupová sekvence nečeká na náběh hlasitosti (pulz zámku dřív)."""
@@ -147,7 +233,7 @@ class AudioController:
         """Spustí přehrávač, načte playlist, hlasitost 0 a pauza (nic nehraje)."""
         try:
             await self.player.start()
-            await self.player.load_playlist(self.cfg.shuffle)
+            await self._load_target("all")
             await self.player.set_volume(0)
             await self.player.pause()
         except Exception as exc:  # noqa: BLE001 — audio nesmí shodit controller
@@ -173,9 +259,10 @@ class AudioController:
             ensure = getattr(self.player, "ensure_running", None)
             if ensure is not None and not self.player.alive:
                 await ensure(self.cfg.shuffle)          # zaseknutý/padlý mpv → pokus o restart (rate-limit)
-            # (1) ztlumit před přepínáním relé
+            # (1) ztlumit před přepínáním relé, playlist cíle zóny (door:<id> / zone:<n> → all)
             await self.player.set_volume(0)
             await self.player.pause()
+            await self._load_target(self._target_of(zone))
             if not await self.selector.select(zone):
                 self.playing_zone = None
                 return False
@@ -251,6 +338,9 @@ class AudioController:
         (`play_zone`), zákazníkovi hudba nezmizí.
         """
         count = getattr(self.player, "playlist_count", None)
+        files = self._files_for(self._target_of(zone))
+        if files is not None:
+            count = len(files)
         if not self.player.alive or (count is not None and int(count or 0) <= 0):
             log.warning("Audio test zóny %s: přehrávač neběží nebo je playlist prázdný (%s souborů)", zone, count)
             return False

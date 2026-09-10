@@ -76,6 +76,7 @@ async def software(diag: "NetworkDiagnostics", report: dict) -> dict:
     rc, out = await run_cmd("systemctl", "--failed", "--no-legend", "--plain", timeout=5)
     failed_units = sum(1 for ln in (out or "").splitlines() if ln.strip()) if rc == 0 else None
     audio = getattr(ctrl, "audio", None)
+    ast = _try(lambda: audio.status() if audio is not None and hasattr(audio, "status") else {}) or {}
     player = getattr(audio, "player", None)
     music_dir = str(getattr(getattr(ctrl.local, "paths", None), "music_dir", "") or "")
     music_files = _try(lambda: sum(1 for n in os.listdir(music_dir) if n.lower().endswith(MUSIC_EXTENSIONS)))
@@ -96,8 +97,9 @@ async def software(diag: "NetworkDiagnostics", report: dict) -> dict:
         "config_source": ctrl.hardware.source, "config_problems": list(ctrl.config_problems),
         "services": services, "failed_units": failed_units,
         "audio": {"player_ok": bool(audio and getattr(audio, "player_ok", False)),
-                  "playlist_count": int(getattr(player, "playlist_count", 0) or 0),
-                  "device": getattr(player, "device", None), "music_files": music_files},
+                  "playlist_count": int(ast.get("playlist_count", getattr(player, "playlist_count", 0)) or 0),
+                  "device": ast.get("device", getattr(player, "device", None)), "music_files": music_files,
+                  "mode": ast.get("mode"), "players": ast.get("players"), "library": ast.get("library")},
         "realtime": {"connected": getattr(realtime, "connected", None)},
         "api": {"online": getattr(ctrl.api, "online", None), "paired": bool(getattr(ctrl.api, "paired", False))},
         "outbox_pending": _try(storage.outbox_count), "events_total": _try(storage.events_count),

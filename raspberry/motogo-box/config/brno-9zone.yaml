@@ -60,6 +60,27 @@ audio:
                           # zařízení = na RPi 5 HDMI monitoru → kóje mlčí! install.sh při založení
                           # /etc/motogo/hardware.yaml doplní nalezenou USB kartu (Velín má přednost).
   shuffle: true
+  mode: selector          # selector = 1 mono zesilovač + relé (hraje vždy jen jedna zóna, venek nelze)
+                          # multi    = každá místnost má VLASTNÍ zvukový výstup (ALSA) + vlastní mpv:
+                          #            hudba hraje současně v libovolném počtu kójí, každá svůj playlist
+                          #            (Velín → Hudba pobočky), venek hraje při jakémkoli kódu.
+  # Příklad režimu multi pro Brno (7 kójí + šatna + venek = 9 kanálů, 9× USB zvukovka pojmenovaná
+  # udev pravidlem, viz HARDWARE.md; názvy karet dle `aplay -L`). Nastavuje se ve Velíně (HW mapa),
+  # zde jen jako vzor — odkomentovat a `mode: multi`:
+  # outputs:
+  #   out1: { device: "alsa/plughw:CARD=Box1" }     # kóje 1
+  #   out2: { device: "alsa/plughw:CARD=Box2" }     # kóje 2
+  #   out3: { device: "alsa/plughw:CARD=Box3" }     # kóje 3
+  #   out4: { device: "alsa/plughw:CARD=Box4" }     # kóje 4
+  #   out5: { device: "alsa/plughw:CARD=Box5" }     # kóje 5
+  #   out6: { device: "alsa/plughw:CARD=Box6" }     # kóje 6
+  #   out7: { device: "alsa/plughw:CARD=Box7" }     # kóje 7
+  #   out8: { device: "alsa/plughw:CARD=Satna" }    # šatna
+  #   out9: { device: "alsa/plughw:CARD=Venek" }    # venek (kanál bez dveří)
+  # channels:                                       # kanály bez dveří (jen multi)
+  #   outdoor: { out: out9, trigger: any }          # any = hraje, dokud běží aspoň jedna relace
+  #                                                 #       (+ music_after_close_s po poslední); volitelně dev/coil = enable relé
+  # zones[].audio v režimu multi: { out: out1 } nebo { out: out1, dev: wav617b, coil: 1 } (výstup + enable relé zesilovače)
 
 signal:
   brightness: 100

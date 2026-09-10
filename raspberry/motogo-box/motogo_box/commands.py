@@ -91,6 +91,18 @@ async def _music_on(ctrl: "BoxController", params: dict) -> tuple[bool, dict]:
 
 
 async def _music_off(ctrl: "BoxController", params: dict) -> tuple[bool, dict]:
+    """Se zónou vypne jen tuto kóji (multi: ostatní hrají dál); bez zóny = vše (§4)."""
+    selected = any(params.get(k) not in (None, "") for k in ("zone", "door_id", "box_number"))
+    if selected:
+        z = _zone_of(ctrl, params)
+        if z is None:
+            return False, {"error": "zone_not_found"}
+        stop_zone = getattr(ctrl.audio, "stop_zone", None)
+        if stop_zone is not None:
+            await stop_zone(z.number)
+        else:
+            await ctrl.audio.stop()
+        return True, {"zone": z.number}
     await ctrl.audio.stop()
     return True, {}
 
@@ -156,6 +168,9 @@ async def _identify(ctrl: "BoxController", params: dict) -> tuple[bool, dict]:
 
 
 async def _reload(ctrl: "BoxController", params: dict) -> tuple[bool, dict]:
+    music = getattr(ctrl, "music", None)
+    if music is not None and hasattr(music, "retry_failed"):
+        music.retry_failed()          # „Znovu synchronizovat“ z Velína = i skladby v backoffu hned znovu
     res = await ctrl.resync()
     return bool(res.get("ok", True)), res
 

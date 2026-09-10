@@ -18,7 +18,8 @@ from typing import Any
 
 import yaml
 
-from .models import Zone, ZoneHw
+from .config_audio import AUDIO_MODES, validate_audio
+from .models import HwRef, Zone, ZoneHw
 
 log = logging.getLogger("motogo.config")
 
@@ -228,8 +229,41 @@ class AudioCfg:
     fade_out_ms: int = 500
     selector_settle_ms: int = 200
     selector_on_ms: int = 100
-    device: str | None = None     # mpv --audio-device (None = výchozí)
+    device: str | None = None     # selector: mpv --audio-device (None = výchozí)
     shuffle: bool = True
+    mode: str = "selector"        # selector (1 zesilovač + relé) | multi (výstup + mpv na každou místnost)
+    outputs: dict = field(default_factory=dict)    # multi: {out1: {device: "alsa/plughw:CARD=Box1"}, …}
+    channels: dict = field(default_factory=dict)   # multi: kanály bez dveří {outdoor: {out: out9, trigger: any}}
+
+    @property
+    def engine_mode(self) -> str:
+        """Normalizovaný režim: 'multi' nebo 'selector' (neznámé → selector)."""
+        m = str(self.mode or "").strip().lower()
+        return m if m in AUDIO_MODES else "selector"
+
+    def output_devices(self) -> dict[str, str | None]:
+        """Výstupy multi režimu: název → ALSA zařízení (None = výchozí). Vadné položky se přeskočí."""
+        out: dict[str, str | None] = {}
+        if isinstance(self.outputs, dict):
+            for name, item in self.outputs.items():
+                dev = item.get("device") if isinstance(item, dict) else item
+                if str(name or "").strip():
+                    out[str(name).strip()] = str(dev).strip() if dev not in (None, "") else None
+        return out
+
+    def channel_map(self) -> dict[str, dict]:
+        """Kanály bez dveří: název → {out, trigger, relay: HwRef|None}."""
+        out: dict[str, dict] = {}
+        if isinstance(self.channels, dict):
+            for name, item in self.channels.items():
+                if not str(name or "").strip():
+                    continue
+                item = item if isinstance(item, dict) else {}
+                o = item.get("out")
+                out[str(name).strip()] = {"out": str(o).strip() if o not in (None, "") else None,
+                                          "trigger": str(item.get("trigger") or "any").strip().lower(),
+                                          "relay": HwRef.from_dict(item, "coil")}
+        return out
 
 
 @dataclass
@@ -347,6 +381,7 @@ def merge_hardware(local: dict, remote: dict | None) -> dict:
 
 
 # Počet kanálů modulů (index je 0-based): WAV645 16 relé, WAV617 8 relé + 8 vstupů, Shelly 5 světel.
+WARNING_PREFIX = "Upozornění:"
 CHANNEL_LIMITS = {"wav645": {"coil": 16, "input": 0}, "wav617": {"coil": 8, "input": 8}, "shelly_rgbww": {"light": 5}}
 LOCK_PULSE_RANGE_MS = (100, 5000)
 
@@ -405,4 +440,10 @@ def validate_hardware(hw: HardwareConfig) -> list[str]:
     if not lo <= int(hw.timings.lock_pulse_ms) <= hi:
         problems.append(f"timings.lock_pulse_ms {hw.timings.lock_pulse_ms} je mimo rozsah {lo}–{hi} ms "
                         f"(WAV645 flash-on v krocích 100 ms).")
+    problems.extend(validate_audio(hw, CHANNEL_LIMITS))
     return problems
+
+
+def blocking_problems(problems: list[str]) -> list[str]:
+    """Problémy bez nezávazných upozornění (prefix „Upozornění:") — jen ty blokují uplatnění mapy."""
+    return [p for p in problems if not str(p).startswith(WARNING_PREFIX)]
