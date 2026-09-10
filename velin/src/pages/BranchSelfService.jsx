@@ -246,7 +246,7 @@ function TabSelfService({ branchId, branchName, motos }) {
         <>
           <ControlPanelBlock doors={doors} cfg={cfg} onlineDevice={onlineDevice} onRemote={remote} onRefresh={load} />
           <RpiStatusBlock devices={devices} doors={doors} now={now} onCommand={sendCommand} />
-          <RpiDiagnosticsBlock branchId={branchId} devices={devices} diags={diags} now={now} onCommand={sendCommand} />
+          <RpiDiagnosticsBlock branchId={branchId} devices={devices} diags={diags} cameras={cameras} now={now} onCommand={sendCommand} />
           <PowerBlock power={power} cfg={cfg} now={now} onSave={saveCfg} onRefresh={load} />
           <CamerasBlock cameras={cameras} onlineDevice={onlineDevice} busy={busy}
             onAdd={addCamera} onSave={saveCamera} onDelete={deleteCamera} onRemote={remote} />

@@ -257,7 +257,10 @@ class AudioController:
         ok = await self.play_zone(zone)
         if ok:
             gen = self._generation
-            await asyncio.sleep(max(0, int(seconds)))
-            if self.playing_zone == zone and self._generation == gen:
-                await self.stop(fade=True)
+            try:
+                await asyncio.sleep(max(0, int(seconds)))
+            finally:
+                # i při zrušení (timeout diagnostiky) tón nesmí hrát dál — zastavit jen svoji hudbu
+                if self.playing_zone == zone and self._generation == gen:
+                    await self.stop(fade=True)
         return ok

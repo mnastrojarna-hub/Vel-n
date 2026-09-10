@@ -163,10 +163,12 @@ def start_diagnostics(ctrl: "BoxController", base: dict, source: str, reason: st
     `source` = odkud přišel kód (ui/diag_ui), `reason` = jaký kód (local_code/service_code) —
     do reportu jde jako source=local_code|service_code (Velín SOURCE_CZ), reason=ui|diag_ui.
     """
-    res = ctrl.diagnostics.start(source=reason, reason=source)
+    # režim: full (výchozí), nebo hint `pending_mode` z `/api/diagnostics/run` (jen síť)
+    res = ctrl.diagnostics.start(source=reason, reason=source,
+                                 mode=getattr(ctrl.diagnostics, "pending_mode", None) or "full")
     running = bool(res.get("started")) or res.get("error") == "already_running"
     return {**base, "ok": running, "kind": "diagnostics", "error": None if running else res.get("error"),
-            "message": "Diagnostika sítě spuštěna" if res.get("started") else "Diagnostika sítě už běží",
+            "message": "Diagnostika pobočky spuštěna" if res.get("started") else "Diagnostika pobočky už běží",
             "diagnostics": res}
 
 

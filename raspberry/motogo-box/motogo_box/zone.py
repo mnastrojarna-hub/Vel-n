@@ -387,11 +387,15 @@ class ZoneController:
             if self.state in ACTIVE_STATES:
                 return {"error": "busy", "light": False, "signal": False, "audio": False}
             prev_light = self.light_on
-            light = await self.set_light(True)
-            await self.signal(Signal.GREEN)
-            await asyncio.sleep(1.0)
-            await self.refresh_signal()
-            light = await self.set_light(prev_light) and light
+            light = False
+            try:
+                light = await self.set_light(True)
+                await self.signal(Signal.GREEN)
+                await asyncio.sleep(1.0)
+            finally:
+                # i při zrušení (timeout diagnostiky) se signál i světlo vždy vrátí do původního stavu
+                await self.refresh_signal()
+                light = await self.set_light(prev_light) and light
             z = self.zone.hw
             signal_ok = all(self.signals.online(r.dev) for r in (z.red, z.green) if r is not None)
             audio_ok = False

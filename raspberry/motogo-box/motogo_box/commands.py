@@ -191,8 +191,14 @@ async def _update_system(ctrl: "BoxController", params: dict) -> tuple[bool, dic
 
 
 async def _diagnostics(ctrl: "BoxController", params: dict) -> tuple[bool, dict]:
-    """Diagnostika sítě z Velína — běží na pozadí, report dorazí přes `kiosk_report_diagnostics`."""
-    res = ctrl.diagnostics.start(source="velin", reason=str(params.get("reason") or "velin"))
+    """Diagnostika pobočky z Velína — běží na pozadí, report dorazí přes `kiosk_report_diagnostics`.
+
+    `params {mode?: full|network (výchozí full), cameras?: [{name, kind, snapshot_url, stream_url}], reason?}`.
+    """
+    mode = "network" if str(params.get("mode") or "").strip().lower() == "network" else "full"
+    cams = params.get("cameras")
+    res = ctrl.diagnostics.start(source="velin", reason=str(params.get("reason") or "velin"), mode=mode,
+                                 cameras=cams if isinstance(cams, list) else None)
     return bool(res.get("ok")), res
 
 

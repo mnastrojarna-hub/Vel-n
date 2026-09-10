@@ -13,93 +13,12 @@ from aiohttp import web
 from aiohttp.test_utils import TestClient, TestServer
 
 from motogo_box import commands, controller_codes as cc, diagnostics as dg, net_scan
-from motogo_box.config import HardwareConfig, LocalConfig, SecurityCfg
-from motogo_box.diagnostics import NetworkDiagnostics
+from motogo_box.config import LocalConfig
 from motogo_box.models import EventKind
-from motogo_box.pins import LocalResolver, PinGuard, hmac_code
-from motogo_box.storage import Storage
+from motogo_box.pins import hmac_code
 from motogo_box.tools.simulator import SimRelayModule, SimShelly
 from motogo_box.webserver import WebServer
-
-DEVICE_ID, TOKEN = "6f1c2b8e-3a4d-4e5f-9a0b-1c2d3e4f5a6b", "0a1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d"
-
-
-# ─── falešný controller ──────────────────────────────────────────────────────
-class FakeApi:
-    def __init__(self, paired: bool = True) -> None:
-        self.device_id, self.device_token = (DEVICE_ID, TOKEN) if paired else ("", "")
-        self.reports: list[dict] = []
-        self.resolve: dict | None = None
-
-    @property
-    def paired(self) -> bool:
-        return bool(self.device_id)
-
-    async def heartbeat(self) -> dict:
-        return {"ok": True, "branch_name": "Test"}
-
-    async def report_diagnostics(self, report: dict) -> None:
-        self.reports.append(report)
-
-    async def resolve_code(self, code: str):
-        return self.resolve
-
-    async def log_event(self, *a, **k) -> None:
-        pass
-
-    async def log_open(self, *a, **k) -> None:
-        pass
-
-
-class FakeIo:
-    def is_online(self, name: str) -> bool:
-        return True
-
-
-class FakeSignals:
-    def online(self, name: str) -> bool:
-        return True
-
-
-class FakeCtrl:
-    def __init__(self, tmp_path, hw: dict, paired: bool = True) -> None:
-        self.local = LocalConfig()
-        self.local.supabase.url = "http://127.0.0.1:1"
-        self.local.diagnostics.internet_urls = []
-        self.local.diagnostics.scan_subnets = ["127.0.0.1/30"]
-        # scan hledá porty simulátoru (v hw mapě) místo 502/80
-        self.local.diagnostics.scan_ports = sorted({int(d.get("port") or 502) for d in (hw.get("devices") or {}).values()}) or [502]
-        self.storage = Storage(str(tmp_path / "d.db"))
-        self.api = FakeApi(paired)
-        self.version = "1.0.0+test"
-        self.branch_name = "Test"
-        self.ready = True
-        self.hardware = HardwareConfig.from_dict(hw)
-        self.config_problems: list[str] = []
-        self._started_at = time.monotonic()
-        self.io, self.signals = FakeIo(), FakeSignals()
-        self.events: list = []
-        self.zones: dict = {}
-        self.service_tokens: dict = {}
-        self.pin_guard = PinGuard(self.storage, SecurityCfg())
-        self.resolver = LocalResolver(DEVICE_ID, TOKEN)
-        self.diagnostics = NetworkDiagnostics(self)
-
-    def _device_id(self) -> str:
-        return self.api.device_id
-
-    async def emit(self, event) -> None:
-        self.events.append(event)
-
-    async def submit_code(self, code: str, source: str = "ui", **kw) -> dict:
-        return await cc.submit_code(self, code, source, **kw)
-
-    def check_service_token(self, token) -> bool:
-        return token == "svc-ok"
-
-    def snapshot(self) -> dict:
-        return {"ready": True, "zones": [], "diagnostics": self.diagnostics.status()}
-
+from tests.diag_fakes import DEVICE_ID, TOKEN, FakeCtrl
 
 @pytest.fixture
 async def sim(monkeypatch):
@@ -212,7 +131,8 @@ async def test_step_failure_is_isolated(tmp_path, sim, monkeypatch):
     ctrl.diagnostics.start("velin")
     report = await ctrl.diagnostics.wait()
     assert report["steps"]["arp"] == {"ok": False, "error": "kaboom", "ms": report["steps"]["arp"]["ms"]}
-    assert report["steps"]["system"]["ok"] and any("ARP" in p for p in report["summary"]["problems"])
+    assert report["steps"]["system"]["ok"] and any("ARP" in w for w in report["summary"]["warnings"])
+    assert not any("ARP" in p for p in report["summary"]["problems"])      # selhaný krok = varování, ne problém
 
 
 # ─── kódy: lokální diagnostický kód a servisní heslo s účelem diagnostics ───
@@ -291,9 +211,10 @@ async def test_command_and_web_api(tmp_path, sim):
         assert (await r.json())["started"] is True and not ctrl.service_tokens
         await ctrl.diagnostics.wait()
         ctrl.api.resolve = None
-        r = await client.post("/api/diagnostics/run", json={"service_token": "svc-ok"})
+        r = await client.post("/api/diagnostics/run", json={"service_token": "svc-ok", "mode": "network"})
         body = await r.json()
-        assert body["ok"] and body["started"]
+        assert body["ok"] and body["started"] and body["mode"] == "network"
+        assert ctrl.diagnostics.status()["mode"] == "network" and "zones" not in ctrl.diagnostics.status()["steps"]
         await ctrl.diagnostics.wait()
         r = await client.get("/api/diagnostics")
         body = await r.json()
@@ -302,8 +223,8 @@ async def test_command_and_web_api(tmp_path, sim):
         assert (await r.json())["report"] is None
         st = await (await client.get("/api/state")).json()
         assert st["diagnostics"]["last"]["id"] == body["report"]["id"]
-        r = await client.post("/api/diagnostics/run", json={"code": "netdiag"})
-        assert (await r.json())["started"] is True
+        r = await client.post("/api/diagnostics/run", json={"code": "netdiag", "mode": "network"})
+        assert (await r.json())["started"] is True and ctrl.diagnostics.mode == "network" and ctrl.diagnostics.pending_mode is None
         ok, res = await commands.execute(ctrl, "diagnostics", {"reason": "velin"})
         assert ok is False and res["error"] == "already_running"
         await ctrl.diagnostics.wait()

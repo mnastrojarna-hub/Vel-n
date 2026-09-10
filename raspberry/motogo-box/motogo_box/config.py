@@ -89,7 +89,10 @@ class DiagnosticsCfg:
     max_hosts: int = 1024            # strop hostů na jednu podsíť (větší než /22 se přeskočí)
     internet_urls: list = field(default_factory=lambda: [
         "https://vnwnqteskbykeucanlhk.supabase.co/auth/v1/health", "https://www.google.com/generate_204"])
-    timeout_s: int = 120             # celkový limit jednoho běhu
+    timeout_s: int = 120             # limit běhu v režimu `network` (jen síť)
+    full_timeout_s: int = 240        # limit kompletního běhu (`full`: síť + software, zóny, napájení, kamery)
+    zone_test: bool = True           # False = zóny se jen čtou, nic se nespíná (technik nechce blikat)
+    camera_timeout_s: int = 6        # timeout HTTP sond kamer a měniče FV
 
 
 @dataclass

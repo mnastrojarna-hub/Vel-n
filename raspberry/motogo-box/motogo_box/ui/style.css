@@ -212,8 +212,31 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 .diag-table td { padding: 4px 8px; border-bottom: 1px solid rgba(255,255,255,0.06); vertical-align: top; word-break: break-all; }
 .diag-kv { display: grid; grid-template-columns: repeat(5, auto 1fr); gap: 4px 14px; font-size: 14px; }
 .diag-kv .k { color: rgba(255,255,255,0.5); font-weight: 700; white-space: nowrap; }
-.diag-kv .v { color: rgba(255,255,255,0.9); word-break: break-all; }
-.diag-badge { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 800;
+.diag-kv .v { color: rgba(255,255,255,0.9); word-break: normal; overflow-wrap: anywhere; }
+.diag-badge { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 800; white-space: nowrap;
   background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2); }
 .diag-badge.ok { background: rgba(116,251,113,0.15); border-color: var(--green); color: var(--green); }
 .diag-badge.bad { background: rgba(220,38,38,0.2); border-color: var(--red); color: #fca5a5; }
+.diag-badge.warn { background: rgba(245,158,11,0.18); border-color: var(--amber); color: #fcd34d; }
+.diag-badge.na { color: rgba(255,255,255,0.6); }
+.diag-summary.warn { background: rgba(245,158,11,0.1); border-color: rgba(245,158,11,0.5); }
+/* PROTOKOL: sekce = badge + název + počty, tabulka Kontrola | Stav | Zjištění | Co s tím */
+.diag-proto { display: flex; flex-direction: column; gap: 8px; }
+.diag-proto-sec { border-radius: 10px; border: 1px solid rgba(255,255,255,0.08); padding: 6px 10px; background: rgba(255,255,255,0.03); }
+.diag-proto-sec.fail { border-color: rgba(220,38,38,0.55); background: rgba(220,38,38,0.08); }
+.diag-proto-sec.warn { border-color: rgba(245,158,11,0.5); background: rgba(245,158,11,0.06); }
+.diag-proto-head { display: flex; align-items: center; gap: 10px; }
+.diag-proto-title { font-size: 16px; font-weight: 800; }
+.diag-proto-cnt { font-size: 13px; color: rgba(255,255,255,0.55); }
+.diag-proto-table { margin-top: 4px; }
+.diag-proto-table td { word-break: normal; overflow-wrap: anywhere; }
+.diag-proto-table td:nth-child(1) { width: 22%; font-weight: 700; }
+.diag-proto-table td:nth-child(2) { width: 130px; white-space: nowrap; }
+.diag-proto-table td:nth-child(3) { width: 40%; }
+.diag-item.ok td { padding: 2px 8px; font-size: 13px; color: rgba(255,255,255,0.75); }
+.diag-item.fail td { background: rgba(220,38,38,0.16); font-size: 15px; }
+.diag-item.warn td { background: rgba(245,158,11,0.12); font-size: 15px; }
+.diag-item.skip td { color: rgba(255,255,255,0.4); }
+.diag-item td.hint { color: #fcd34d; }
+.diag-tests { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
+.diag-zones td { word-break: normal; overflow-wrap: anywhere; }

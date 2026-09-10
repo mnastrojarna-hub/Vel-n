@@ -88,7 +88,7 @@
         </div>
       </div>
       <div class="service-row service-actions">
-        <button id="service-diag" class="btn btn-ghost" type="button">🔍 Diagnostika sítě</button>
+        <button id="service-diag" class="btn btn-ghost" type="button">🔍 Diagnostika pobočky</button>
         <button id="service-pair" class="btn btn-ghost" type="button">🔗 Přepárovat</button>
         <button id="service-restart" class="btn btn-amber" type="button">↻ Restart řídicí jednotky</button>
         <button id="service-close2" class="btn btn-ghost" type="button">Zavřít</button>
@@ -117,19 +117,19 @@
           <button id="setup-save" class="btn btn-primary" type="button">Spárovat a spustit</button>
         </div>
         <div class="setup-actions">
-          <button id="setup-diag" class="btn btn-ghost" type="button">🔍 Diagnostika sítě (kód z config.yaml)</button>
+          <button id="setup-diag" class="btn btn-ghost" type="button">🔍 Diagnostika pobočky (kód z config.yaml)</button>
         </div>
       </div>
       <div id="setup-keys" class="setup-keys"></div>
     </div>
   </div>
 
-  <!-- Diagnostika sítě — progres + kompletní report (spouští kód z displeje, servisní panel nebo Velín) -->
+  <!-- Diagnostika pobočky — progres + kompletní report (spouští kód z displeje, servisní panel nebo Velín) -->
   <div id="diag" class="overlay overlay-dark" hidden>
     <div class="service-panel diag-panel">
       <div class="service-head">
         <span class="service-icon">🔍</span>
-        <span class="service-title">Diagnostika sítě</span>
+        <span class="service-title">Diagnostika pobočky</span>
         <span id="diag-state" class="diag-state"></span>
         <button id="diag-close" class="icon-btn" type="button" aria-label="Zavřít">✕</button>
       </div>

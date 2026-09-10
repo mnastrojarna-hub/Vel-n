@@ -237,9 +237,9 @@ class BoxController:
             self._power_task = asyncio.create_task(loops.power_loop(self), name="motogo.power_loop")
 
     # ─── kódy ────────────────────────────────────────────────────────────────
-    async def submit_code(self, code: str, source: str = "ui") -> dict:
+    async def submit_code(self, code: str, source: str = "ui", *, diagnostics_only: bool = False) -> dict:
         """Kód z UI/Velína → ověření + otevření (viz `controller_codes.submit_code`)."""
-        return await cc.submit_code(self, code, source)
+        return await cc.submit_code(self, code, source, diagnostics_only=diagnostics_only)
 
     def check_service_token(self, token: str | None) -> bool:
         now = time.time()
