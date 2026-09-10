@@ -469,7 +469,7 @@ Klíčové sloupce (plný popis tabulek v STATE_1, RPC v STATE_3, triggery STATE
 - **device_token** (uuid DEFAULT gen_random_uuid()) — tajný párovací token (autentizace všech kiosk RPC)
 - **branch_id** (uuid FK→branches CASCADE), **name**, **platform**, **app_version**
 - **last_seen_at** (timestamptz) — heartbeat á 30 s; online = < 70 s; **is_active** (revokace)
-- **status** (jsonb NOT NULL DEFAULT '{}') — **NEW 2026-09-09** poslední snapshot stavu RPi řídicí jednotky (RPC `kiosk_report_status`, á `status_report_s`=30 s). Tvar (= `BoxController.snapshot()`, kontrakt §14): `{ts, version, uptime_s, ready, branch_name, internet, config_source:'local'|'remote', config_problems[], modules:{wav645:bool, wav617a:bool, wav617b:bool, shelly1..4:bool}, audio:{playing_zone, player_ok}, health:{lte:{state, operator, rssi, rsrp, reconnects, usb_resets}, sys:{cpu_temp, throttled, disk_free_pct, mem_free_pct, load1, uptime_s}, internet, ts}, zones:[{zone, door_id, box_number, kind, label, state:SECURED|WAITING_FOR_OPEN|DOOR_OPEN|CLOSED_CONFIRMATION|FAULT, door_closed, fault, light, signal, music, session_started_at, booking_id, last_event}], notice}`. U tabletů `{}`.
+- **status** (jsonb NOT NULL DEFAULT '{}') — **NEW 2026-09-09** poslední snapshot stavu RPi řídicí jednotky (RPC `kiosk_report_status`, á `status_report_s`=30 s). Tvar (= `BoxController.snapshot()`, kontrakt §14): `{ts, version, uptime_s, ready, branch_name, internet, config_source:'local'|'remote', config_problems[], modules:{wav645:bool, wav617a:bool, wav617b:bool, shelly1..4:bool}, audio:{playing_zone, player_ok}, health:{lte:{state, operator, rssi, rsrp, reconnects, usb_resets}, sys:{cpu_temp, throttled, disk_free_pct, mem_free_pct, load1, uptime_s}, internet, ts}, zones:[{zone, door_id, box_number, kind, label, state:SECURED|WAITING_FOR_OPEN|DOOR_OPEN|CLOSED_CONFIRMATION|FAULT, door_closed, fault, light, signal, music, session_started_at, booking_id, last_event}], notice}`. U tabletů `{}`. **UPDATE 2026-09-10 (D):** navíc `update:{state:idle|waiting|running|rebooting|done|failed, kind:software|system|reboot, ref, since, error, last:{kind, state, ref, rollout_id, started_at, finished_at, error, reboot_required, output_tail, reboot_at?}}` (`SoftwareUpdater.status()`; `last` = poslední dokončený běh software/OS ze SQLite kv `last_update`, přežije restart i reboot — `kiosk_rollout_tick` z něj čte výsledek OS aktualizace; běh `reboot` ho nepřepisuje) a v `health.sys` nová pole `reboot_required` (bool — existuje `/run/reboot-required`; na Debianu ho zakládá motogo-sysupdate / hook po unattended-upgrades), `os` (PRETTY_NAME), `kernel` (`uname -r`), `last_unattended_at` (ISO mtime `/var/lib/apt/periodic/upgrade-stamp`). Velín: `FleetUpdates.jsx` (tabulka jednotek, chip „Restart OS potřebný“), `BranchRpiZones.jsx` (řádek „Aktualizace: …“), `BranchSelfService.jsx` (chip).
 - **status_at** (timestamptz) — **NEW 2026-09-09** čas posledního snapshotu; NULL = zařízení stav nehlásí (tablet)
 
 #### branch_doors
@@ -483,8 +483,8 @@ Klíčové sloupce (plný popis tabulek v STATE_1, RPC v STATE_3, triggery STATE
 - **action** (text NOT NULL DEFAULT 'service' CHECK service/diagnostics) — **NEW 2026-09-10** účel hesla: `service` = servisní panel (otevírání, světla, hudba, restart, diagnostika), `diagnostics` = na RPi JEN spuštění diagnostiky sítě (nic neotevírá). Do zařízení jde přes `kiosk_sync_config.service_codes[{h, action, label}]` a `kiosk_resolve_code.action`; tablet ignoruje.
 
 #### kiosk_commands
-- **device_id** (uuid FK→kiosk_devices CASCADE), **command** (CHECK open_door/music_on/music_off/identify/reload/camera_control/http_get/restart + **NEW 2026-09-09 pro RPi:** light_on/light_off/set_signal/zone_test/audio_test/all_off/reboot/sync_config/update_software + **NEW 2026-09-10:** diagnostics)
-- **params** (jsonb — např. {relay_url, light_url, music_url, url}), **status** (pending/done/failed/expired), **result** (jsonb), **executed_at**
+- **device_id** (uuid FK→kiosk_devices CASCADE), **command** (CHECK open_door/music_on/music_off/identify/reload/camera_control/http_get/restart + **NEW 2026-09-09 pro RPi:** light_on/light_off/set_signal/zone_test/audio_test/all_off/reboot/sync_config/update_software + **NEW 2026-09-10:** diagnostics + **NEW 2026-09-10 (D):** update_system)
+- **params** (jsonb — např. {relay_url, light_url, music_url, url}; **2026-09-10 (D):** `update_software {ref, rollout_id, wait_idle_s}`, `update_system {rollout_id, wait_idle_s, auto_reboot}`, `reboot {wait_idle, wait_idle_s}` — jednotka je provede, až je kóje volná), **status** (pending/done/failed/expired), **result** (jsonb), **executed_at**
 
 #### branch_door_events
 - **device_id** (uuid FK→kiosk_devices SET NULL), **door_id** (FK→branch_doors SET NULL), **kind**, **booking_id**, **success** (bool), **detail** (jsonb), **code_masked**
@@ -505,6 +505,29 @@ Klíčové sloupce (plný popis tabulek v STATE_1, RPC v STATE_3, triggery STATE
 - **ok** (bool — summary.ok), **problems** (jsonb DEFAULT '[]' — texty problémů), **summary** (jsonb DEFAULT '{}' — `{ok, problems[], hosts, internet, lte, devices_ok, devices_total}`)
 - **report** (jsonb DEFAULT '{}' — celý report RPi: `{id, ts, source, reason, version, device_id, branch_name, paired, steps{name:{ok,ms,error}}, system{hostname, kernel, time, ntp_synced, metrics{cpu_temp, throttled, disk_free_pct, mem_free_pct, load1, uptime_s}, config_source, config_problems[]}, interfaces{interfaces[{name, mac, state, ipv4[], ipv6[]}], default_routes[{gateway, dev, metric}], dns[]}, lte{state, operator, access_tech, signal_quality, rssi, rsrp, rsrq, snr, nm_state}, internet{dns[], tcp, http[], ok}, supabase{paired, ok, ms, branch_name, outbox_pending}, devices[{name, type, host, port, reachable, ms, ping_ms, identified, online}], lan{subnets[], ports[], scanned_hosts, hosts[{ip, mac, ports, configured_as, modbus, shelly, http}]}, arp[], summary, duration_s, finished_at}`)
 - **app_version**, **started_at**, **finished_at**, **created_at**; indexy (branch_id, created_at DESC), (device_id, created_at DESC); RPC `kiosk_report_diagnostics` drží posledních 30 řádků na zařízení
+
+#### kiosk_releases (NEW 2026-09-10 (D), `20260910c_kiosk_fleet_updates.sql`)
+- **id** (uuid PK), **commit** (text NOT NULL UNIQUE CHECK `^[0-9a-f]{40}$` — plný sha commitu v main), **version** (text NOT NULL — `__version__` z `motogo_box/__init__.py`)
+- **message**, **author** (text), **committed_at** (timestamptz — čas commitu; „nejnovější“ = `committed_at DESC NULLS LAST, created_at DESC`), **files_changed** (int — změněné soubory v `raspberry/motogo-box`), **created_at**; index `idx_kiosk_releases_created` (created_at DESC). Plní `release-motogo-box.yml`.
+
+#### kiosk_fleet_settings (NEW 2026-09-10 (D)) — singleton
+- **id** (boolean PK DEFAULT true CHECK (id)) — jediný řádek (INSERT v migraci, Velín upsert `onConflict: id`)
+- **nightly_enabled** (bool DEFAULT false), **nightly_hour** (int DEFAULT 3 CHECK 0–23 — hodina `Europe/Prague`), **canary_device_id** (uuid FK→kiosk_devices SET NULL — výchozí kanárek; NULL = naposledy viděná online RPi)
+- **soak_minutes** (int DEFAULT 180 CHECK 5–1440 — sledování kanárka), **wait_idle_s** (int DEFAULT 1800 CHECK 0–14400 — jak dlouho box nejdéle čeká, než v kóji nikdo není)
+- **system_enabled** (bool DEFAULT false), **system_every_days** (int DEFAULT 28 CHECK 1–365), **system_auto_reboot** (bool DEFAULT true — restart OS po novém jádru, až je box volný)
+- **last_nightly_date** (date — nastaví se i při neúspěšném startu: max. 1 pokus za noc), **last_system_date** (date — jen po ÚSPĚŠNÉM startu OS rolloutu), **updated_at**
+
+#### kiosk_rollouts (NEW 2026-09-10 (D))
+- **id** (uuid PK), **kind** (text CHECK software/system), **mode** (text CHECK manual/nightly), **status** (text CHECK canary/soak/rollout/done/failed/cancelled)
+- **release_id** (uuid FK→kiosk_releases SET NULL), **target_commit** (text — plný sha; NULL u system), **canary_device_id** (uuid FK→kiosk_devices SET NULL)
+- **soak_minutes**, **wait_idle_s** (int NOT NULL — hodnoty ze startu, ořezané na CHECK rozsahy), **auto_reboot** (bool DEFAULT false), **created_by** (uuid — `auth.uid()`, NULL u cronu)
+- **canary_started_at**, **canary_done_at**, **soak_until**, **rollout_started_at**, **finished_at** (timestamptz — časy fází), **created_at**, **updated_at**
+- **error** (text — `canary_failed: …`, `canary_missing`, `canary_timeout`, `canary_errors: N`, `canary_offline`, `devices_failed: N`), **result** (jsonb DEFAULT '{}' — `{updated, failed, offline, skipped, commanded, pending, total}` + `errors[]` (soak), `offline_ids[]` (konec s nedostupnými), `expired_commands` (cancel)), **note**; částečný index `idx_kiosk_rollouts_active` (status) WHERE canary/soak/rollout
+
+#### kiosk_rollout_devices (NEW 2026-09-10 (D))
+- PK (**rollout_id** uuid FK→kiosk_rollouts CASCADE, **device_id** uuid FK→kiosk_devices CASCADE)
+- **role** (text CHECK canary/fleet), **status** (text CHECK pending/commanded/updated/failed/offline/skipped)
+- **command_id** (uuid — id příkazu v `kiosk_commands`), **commanded_at**, **version_before** / **version_after** (text — `app_version` před/po), **detail** (jsonb DEFAULT '{}' — `{error:'…'}`, `{reason:'never_seen'}`, `{error:'unreachable'}`), **updated_at**
 
 #### points_of_interest (doplněk 2026-07-25)
 - **translations_names** (jsonb GENERATED ALWAYS AS `jsonb_name_translations(translations)` STORED) — jen názvy překladů `{lang:{name}}`; čte `get_pois_catalog` (seznam v appce), ať se nerozbaluje velké `translations` (příčina statement timeoutu). Samoúdržba při UPDATE translations (crony).

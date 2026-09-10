@@ -49,11 +49,14 @@ Flutter appka existuje ve DVOU kopiích se stejnou sadou souborů: `motogo-app-f
 | Velín (React) | Vercel | push do `main` | — (spravuje Vercel) |
 | Edge funkce | `.github/workflows/deploy-functions.yml` | push do `main` v `supabase/functions/**` nebo `config.toml` | `ACCESS_TOKEN` = Supabase personal access token (CLI ho čte jako `SUPABASE_ACCESS_TOKEN`) |
 | SQL migrace | `.github/workflows/deploy-sql.yml` | push do `main` v `supabase/migrations/**.sql` | `SUPABASE_DB_URL` = postgres connection string |
+| Release řídicí jednotky (motogo-box) | `.github/workflows/release-motogo-box.yml` | push do `main` v `raspberry/motogo-box/**` (nebo ručně se vstupem `commit` = plný sha z `main`) | `SUPABASE_DB_URL` (zapíše řádek do `kiosk_releases`) |
 
 **Jak funguje SQL autodeploy (`deploy-sql.yml`):**
 - Evidence aplikovaných souborů drží DB tabulka `public._git_migrations` (filename PK). Workflow projde `supabase/migrations/*.sql` abecedně a aplikuje JEN soubory, které v evidenci nejsou — každý v jedné transakci (`ON_ERROR_STOP`), při chybě se nic zpola neaplikuje a workflow spadne.
 - Chybující migrace **blokuje všechny další** — opakuje se při každém dalším pushi do migrations, dokud se neopraví. Proto: migrace commitovaná do main MUSÍ být finální, validní a idempotentní; název souboru po aplikaci neměnit (evidence je dle filename).
 - Ruční běh (Actions → Run workflow) má vstupy `baseline` (jen zaevidovat bez spuštění), `only` (filtr na název) a `force` (re-aplikace souborů vyhovujících `only`).
+
+**Release motogo-box (`release-motogo-box.yml`):** jen evidence verze (`__version__` + plný sha, zpráva, autor, počet souborů) do `kiosk_releases` pro hromadnou aktualizaci z Velína — boxům nic nerozesílá; na tabulku (nasazuje se paralelně přes `deploy-sql.yml`) čeká až ~5 min, pak skončí varováním (zeleně); commit starší než poslední evidovaný release se neeviduje (varování — pořadí zápisu = „nejnovější“ pro Velín i noční automatiku); jiná chyba psql = červený běh bez issue.
 
 **Edge funkce (`deploy-functions.yml`):** nasazuje VŠECHNY funkce z repa přes Supabase CLI, `verify_jwt` bere z `supabase/config.toml` (žádný fallback na true). Funkce existující jen v dashboardu (cron-*, …) se netknou.
 

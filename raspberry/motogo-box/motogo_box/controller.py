@@ -23,6 +23,7 @@ from .realtime import RealtimeListener
 from .shelly import ShellyRgbww, SignalController
 from .storage import Storage
 from .supabase_api import SupabaseApi
+from .updater import SoftwareUpdater
 from .zone import ACTIVE_STATES, ZoneController
 
 log = logging.getLogger("motogo.controller")
@@ -67,6 +68,7 @@ class BoxController:
         self.pin_guard = PinGuard(storage, self.hardware.security)
         self.resolver = LocalResolver(self._device_id(), self._device_token())
         self.diagnostics = NetworkDiagnostics(self)      # diagnostika sítě (kód z displeje / Velín / servis)
+        self.updater = SoftwareUpdater(self)             # aktualizace software/OS z Velína (§25) — běží v klidu
 
     # ─── konfigurace ─────────────────────────────────────────────────────────
     def _device_id(self) -> str:
@@ -194,6 +196,7 @@ class BoxController:
             await loops.cancel_all([self._power_task])
             self._power_task = None
         await self.diagnostics.cancel()
+        await self.updater.cancel()
         await self._shutdown_hw(final=True)
 
     async def _module_reinit(self, name: str) -> None:
@@ -259,12 +262,14 @@ class BoxController:
     async def handle_command(self, cmd: dict) -> None:
         cid, command, params = str(cmd.get("id") or ""), str(cmd.get("command") or ""), cmd.get("params") or {}
         log.info("Příkaz z Velína %s: %s %s", cid, command, params)
-        if command in commands.TERMINAL_COMMANDS:      # proces skončí uvnitř execute → potvrdit PŘEDEM
+        # proces skončí uvnitř execute → potvrdit PŘEDEM; ne když ho běžící aktualizace odmítne (update_blocks)
+        terminal = command in commands.TERMINAL_COMMANDS and commands.update_blocks(self, command) is None
+        if terminal:
             await self.api.complete_command(cid, True, {"scheduled": True})
         ok, result = await commands.execute(self, command, params)
         self.storage.event_add(Event(kind=EventKind.REMOTE_COMMAND, success=ok, message=f"Příkaz {command}",
                                      detail={"source": "velin", "command": command, "params": params, "result": result}))
-        if command not in commands.TERMINAL_COMMANDS:
+        if not terminal:
             # reboot/update_software: proces běží dál, dokud sudo skutečně nezabere → Velín dostane
             # skutečný výsledek (selhání sudoers/timeout se neztratí); po úspěšném rebootu se
             # nedoručené potvrzení odešle z outboxu po startu.
@@ -352,6 +357,7 @@ class BoxController:
             "zones": [zc.status().to_dict() for zc in sorted(self.zones.values(), key=lambda z: z.number)],
             "notice": copy.deepcopy(notice) if notice else None,
             "diagnostics": self.diagnostics.status(),
+            "update": self.updater.status(),
         }
 
     async def all_off(self) -> None:

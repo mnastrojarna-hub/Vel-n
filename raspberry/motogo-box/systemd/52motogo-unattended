@@ -1,0 +1,27 @@
+// MotoGo Box — unattended-upgrades: JEN bezpečnostní záplaty Debianu, v noci (timer override
+// apt-daily-upgrade.timer.d/motogo.conf = 04:00 ± 20 min, kdy je box prázdný), NIKDY automatický
+// restart OS — restart řídí Velín (příkaz `reboot` / `update_system` s auto_reboot po jádru, až je
+// kóje volná). Úplný `apt full-upgrade` dělá jen /usr/local/sbin/motogo-sysupdate na pokyn Velína.
+// Instaluje install.sh / motogo-update do /etc/apt/apt.conf.d/52motogo-unattended (přebíjí
+// 50unattended-upgrades a 20auto-upgrades; #clear zahodí výchozí seznam zdrojů — jinak by se seznamy sčítaly).
+#clear Unattended-Upgrade::Origins-Pattern;
+Unattended-Upgrade::Origins-Pattern {
+    "origin=Debian,codename=${distro_codename},label=Debian-Security";
+    "origin=Debian,codename=${distro_codename}-security,label=Debian-Security";
+};
+Unattended-Upgrade::Automatic-Reboot "false";
+Unattended-Upgrade::Remove-Unused-Dependencies "true";
+Unattended-Upgrade::Remove-New-Unused-Dependencies "true";
+Unattended-Upgrade::MinimalSteps "true";
+APT::Periodic::Update-Package-Lists "1";
+APT::Periodic::Unattended-Upgrade "1";
+APT::Periodic::AutocleanInterval "7";
+// Debian / Raspberry Pi OS soubor /run/reboot-required samy NEzakládají (píše ho jen ubuntí update-notifier-common)
+// → po každém běhu apt/dpkg (unattended-upgrades i motogo-sysupdate) porovnat nejnovější nainstalované jádro
+// BĚŽÍCÍ varianty (přípona za poslední pomlčkou, např. rpi-2712; RPi OS instaluje i -rpi-v8, proto jen stejná
+// varianta; jen adresáře s modules.dep = skutečně nainstalované) s uname -r; novější = touch /run/reboot-required
+// (+ název do /run/reboot-required.pkgs). Čte ho health_probe → Velín „Restart OS potřebný“; restart jen z Velína.
+// Syntaxe apt.conf NEUMÍ \" uvnitř řetězce (uvozovka vždy ukončí hodnotu) → tělo je POSIX sh BEZ dvojitých uvozovek.
+DPkg::Post-Invoke {
+  "r=$(uname -r); f=$(uname -r | sed 's/.*-//'); n=$(ls -d /lib/modules/*-$f/modules.dep 2>/dev/null | sed 's|^/lib/modules/||;s|/modules.dep$||' | sort -V | tail -n1); case $n in ''|$r) ;; *) touch /run/reboot-required; grep -qsx linux-image-$n /run/reboot-required.pkgs || echo linux-image-$n >> /run/reboot-required.pkgs;; esac; true";
+};

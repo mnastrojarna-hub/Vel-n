@@ -152,6 +152,7 @@ Odběr IBFM 9500 není doložený — hodnotu pojistky **neodhadovat**:
 - [ ] Hudba hraje jen ve vybrané kóji (`audio_test` zóna po zóně); nikdy dvě relé současně
 - [ ] Hlasitost karty (`alsamixer -c <název>`) a `audio.volume` přiměřené
 - [ ] Zařízení spárováno, Velín ukazuje online, `kiosk_report_status` zobrazuje 9 zón SECURED/červená
+- [ ] Aktualizace z Velína: Pobočky → „Aktualizace řídicích jednotek“ ukazuje jednotku s verzí („Aktuální“), OS a jádrem; `unattended-upgrade` nainstalován, `systemctl list-timers apt-daily-upgrade.timer` = 04:00 ± 20 min (záplaty OS bez restartu)
 - [ ] Cache kódů stažena (odpojit LTE → zadat platný kód → dveře se otevřou offline)
 - [ ] Po restartu RPi (výpadek 230 V) vše naběhne samo: all off → červená → UI; RTC drží čas (`timedatectl`)
 - [ ] LTE watchdog vyzkoušen (vyjmout anténu → `journalctl -u motogo-health` ukáže reconnect)

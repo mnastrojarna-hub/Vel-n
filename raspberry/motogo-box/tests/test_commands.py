@@ -1,6 +1,8 @@
 """Testy vzdálených příkazů (`motogo_box.commands.execute`) s falešným controllerem."""
 from __future__ import annotations
 
+import asyncio
+
 from motogo_box import commands
 from motogo_box.models import HwRef, Signal, Zone, ZoneHw
 
@@ -205,3 +207,84 @@ async def test_http_get_rejects_invalid_url():
     c = FakeController()
     ok, res = await commands.execute(c, "http_get", {"url": "ftp://x"})
     assert not ok and res["error"] == "invalid_url"
+
+
+# ─── aktualizace (update_software / update_system → SoftwareUpdater) ─────────
+class _Runner:
+    def __init__(self) -> None:
+        self.calls: list[list[str]] = []
+
+    async def __call__(self, argv, timeout_s):
+        self.calls.append(list(argv))
+        return 0, "UPGRADED=1\nREBOOT_REQUIRED=0\n"
+
+
+def _with_updater(tmp_path):
+    from motogo_box.updater import SoftwareUpdater
+
+    c = FakeController()
+    runner = _Runner()
+    c.updater = SoftwareUpdater(c, runner=runner, data_dir=str(tmp_path))
+    c.updater.script_exists = lambda _p: True     # testovací stroj nemá /usr/local/sbin/motogo-sysupdate
+    return c, runner
+
+
+async def test_update_software_is_scheduled_not_awaited(tmp_path):
+    c, runner = _with_updater(tmp_path)
+    ok, res = await commands.execute(c, "update_software", {"ref": "8ceff42", "rollout_id": "r", "wait_idle_s": 60})
+    assert ok and res == {"scheduled": True, "ref": "8ceff42", "wait_idle_s": 60}
+    assert runner.calls == []                 # odpověď odchází HNED, běh je na pozadí
+    assert "update_software" not in commands.TERMINAL_COMMANDS and "update_software" not in commands.HW_COMMANDS
+    await c.updater.wait()
+    assert runner.calls == [["sudo", "/usr/local/sbin/motogo-update"]] and c.updater.state == "done"
+    ok, res = await commands.execute(c, "update_software", {"ref": "v1.2"})
+    assert not ok and res["error"] == "invalid_ref"
+
+
+async def test_update_system_scheduled_and_in_progress(tmp_path):
+    c, runner = _with_updater(tmp_path)
+    c.ready = False                           # není HW příkaz — funguje i mimo ready
+    ok, res = await commands.execute(c, "update_system", {"auto_reboot": True})
+    assert ok and res == {"scheduled": True, "wait_idle_s": 1800, "auto_reboot": True}
+    ok, res = await commands.execute(c, "update_software", {})
+    assert not ok and res["error"] == "update_in_progress"
+    assert "update_system" not in commands.TERMINAL_COMMANDS
+    await c.updater.wait()
+    assert runner.calls == [["sudo", "/usr/local/sbin/motogo-sysupdate"]]
+    assert c.updater.state == "done" and c.updater.reboot_required is False
+
+
+async def test_restart_and_reboot_refused_while_update_script_runs(tmp_path):
+    c, runner = _with_updater(tmp_path)
+    started = asyncio.Event()
+
+    async def slow_runner(argv, timeout_s):
+        started.set()
+        await asyncio.sleep(3600)                 # apt běží…
+        return 0, ""
+
+    c.updater.runner = slow_runner
+    assert commands.update_blocks(c, "restart") is None
+    assert (await commands.execute(c, "update_system", {}))[0]
+    await asyncio.wait_for(started.wait(), 1)
+    assert c.updater.script_running
+    for cmd in ("restart", "reboot"):
+        assert commands.update_blocks(c, cmd) == {"error": "update_in_progress", "command": cmd,
+                                                  "state": "running", "kind": "system"}
+        ok, res = await commands.execute(c, cmd, {})
+        assert not ok and res["error"] == "update_in_progress"
+    assert commands.update_blocks(c, "identify") is None
+    await c.updater.cancel()
+    assert commands.update_blocks(c, "restart") is None
+    assert commands.update_blocks(FakeController(), "reboot") is None   # bez updateru → nic neblokuje
+
+
+async def test_reboot_with_wait_idle_is_scheduled_via_updater(tmp_path):
+    c, runner = _with_updater(tmp_path)
+    c.active = [1]
+    ok, res = await commands.execute(c, "reboot", {"wait_idle": True, "wait_idle_s": 60})
+    assert ok and res == {"scheduled": True, "wait_idle_s": 60}
+    assert runner.calls == [] and c.updater.state == "waiting" and c.updater.kind == "reboot"
+    c.active = []
+    await c.updater.wait()
+    assert runner.calls == [["sudo", "systemctl", "reboot"]] and c.updater.state == "rebooting"

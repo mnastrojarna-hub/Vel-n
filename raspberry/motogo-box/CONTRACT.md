@@ -357,13 +357,17 @@ async def execute(ctrl: BoxController, command: str, params: dict) -> tuple[bool
 | `identify` | `label?` | ui_notice „Tady jsem" + 3× bliknutí zelené všech zón, pak obnovit |
 | `reload` / `sync_config` | – | `ctrl.resync()` → `{ok, error?, deferred?}`; při aktivní relaci se přestavba zón odloží (config se stáhne, zóny až po SECURED) |
 | `restart` | – | complete_command PŘED ukončením, pak `os._exit(0)` (systemd restartuje) |
-| `reboot` | – | complete, pak `sudo systemctl reboot`; selhání sudo → `log_event` (Velín vidí důvod). `restart`/`reboot` = `TERMINAL_COMMANDS` (dokončí se před ukončením procesu) |
-| `update_software` | – | `sudo /usr/local/sbin/motogo-update` (root-owned kopie `scripts/update.sh`: git pull --ff-only jako vlastník checkoutu, pip v rozsazích requirements, restart; chyba pullu → exit 3, nic se neinstaluje) |
+| `reboot` | `wait_idle?` (bool), `wait_idle_s?` | bez `wait_idle`: complete, pak `sudo systemctl reboot`; selhání sudo → `log_event` (Velín vidí důvod). S `wait_idle:true` (Velín „Restart OS“ v bloku Aktualizace řídicích jednotek): `ctrl.updater.start('reboot', params)` → hned `{scheduled:true, wait_idle_s}`, reboot až když je box volný (§25; `update.kind='reboot'`, `waiting` → `rebooting`, selhání `failed` `reboot_failed: rc=N`; `last` se NEpřepisuje). `restart`/`reboot` = `TERMINAL_COMMANDS` (dokončí se před ukončením procesu) |
+| `update_software` | `ref?` (sha 7–40 hex), `rollout_id?`, `wait_idle_s?` (0–14400, výchozí 1800) | `ctrl.updater.start('software', params)` (§25) — jen NAPLÁNUJE a hned vrací `(True, {scheduled:true, ref, wait_idle_s})`; v klidu `sudo /usr/local/sbin/motogo-update` (root-owned kopie `scripts/update.sh`: `git fetch` + `git merge --ff-only <ref\|@{upstream}>` jako vlastník checkoutu, pip v rozsazích requirements, restart; timeout 900 s). Odmítne `invalid_ref`, `update_in_progress` (+`state`, `kind`; po timeoutu `reason:'timeout_orphan'`, `retry_after_s`). Výsledek Velín pozná z hlášené verze / `status.update`, ne z výsledku příkazu |
+| `update_system` | `rollout_id?`, `wait_idle_s?`, `auto_reboot?` (bool) | `ctrl.updater.start('system', params)` → `(True, {scheduled:true, wait_idle_s, auto_reboot})`; v klidu `sudo /usr/local/sbin/motogo-sysupdate` (apt full-upgrade, timeout 2700 s), `REBOOT_REQUIRED=0\|1` z výstupu → `last.reboot_required`; chybí-li skript → `failed` `sysupdate_missing: …` (bez sudo); `auto_reboot` + nové jádro → znovu počkat na klid → `sudo systemctl reboot`. Není HW ani TERMINAL příkaz |
 | `http_get` / `camera_control` | `url` | httpx GET (timeout 6 s) |
 | `diagnostics` | `reason?` | `ctrl.diagnostics.start(source='velin')` — běží na pozadí (§24), `{ok, started, id}` / `already_running`; není HW příkaz (funguje i při `not ready`) |
 
 Příkazy `pending` nevyzvednuté do 10 min označí `kiosk_fetch_commands` jako `expired` (`20260910b_kiosk_commands_ttl.sql`) — Velín tak nečeká věčně na offline jednotku.
 Neznámý příkaz → `(False, {"error":"unknown_command"})`.
+Dokud běží root skript aktualizace (`updater.state == 'running'`) nebo trvá ochranná lhůta po jeho timeoutu
+(`updater.script_running`), `execute` odmítá `restart`/`reboot` s `(False, {error:'update_in_progress', command, state, kind})`
+(`update_blocks`) — restart unity by zabil git/pip/apt uprostřed běhu; controller v tom případě příkaz nepotvrzuje předem.
 
 ## 14. Status payload (`BoxController.snapshot()` = UI state = `kiosk_report_status`)
 
@@ -373,8 +377,13 @@ Neznámý příkaz → `(False, {"error":"unknown_command"})`.
  "modules":{"wav645":true,"wav617a":true,"wav617b":true,"shelly1":true,"shelly2":true,"shelly3":true,"shelly4":true},
  "audio":{"playing_zone":null,"player_ok":true,"playlist_count":12,"device":"alsa/plughw:CARD=Headphones"},
  "diagnostics":{"running":false,"last":{"id":"…","ok":true,"problems":0,"ts":"…"}},
+ "update":{"state":"idle","kind":null,"ref":null,"since":null,"error":null,
+           "last":{"kind":"software","state":"done","ref":"8ceff42","rollout_id":"uuid|null","started_at":"…","finished_at":"…",
+                   "error":null,"reboot_required":null,"output_tail":"…"}},
  "health":{"lte":{"state":"connected","operator":"T-Mobile CZ","rssi":-71,"rsrp":-98,"reconnects":0,"usb_resets":0},
-           "sys":{"cpu_temp":48.2,"throttled":"0x0","disk_free_pct":81,"mem_free_pct":60,"load1":0.3,"uptime_s":9999},"internet":true,"ts":"…"},
+           "sys":{"cpu_temp":48.2,"throttled":"0x0","disk_free_pct":81,"mem_free_pct":60,"load1":0.3,"uptime_s":9999,
+                  "reboot_required":false,"os":"Debian GNU/Linux 12 (bookworm)","kernel":"6.6.51+rpt-rpi-2712","last_unattended_at":"…|null"},
+           "internet":true,"ts":"…"},
  "zones":[{"zone":1,"door_id":"uuid|null","box_number":1,"kind":"motorcycle","label":"Kóje 1","state":"SECURED",
            "door_closed":true,"fault":null,"light":false,"signal":"red","music":false,"latch_released":false,"degraded":false,
            "session_started_at":null,"booking_id":null,"last_event":"DOOR_CLOSED"}],
@@ -382,6 +391,13 @@ Neznámý příkaz → `(False, {"error":"unknown_command"})`.
 ```
 
 Hodnoty `state` = `ZoneState.value` (velká písmena), `signal` = `Signal.value` (malá písmena: red, green, green_pulse, red_blink, both_blink, off).
+
+`update` = `SoftwareUpdater.status()` (§25): `state` ∈ `idle|waiting|running|rebooting|done|failed`, `kind` ∈
+`software|system|reboot|null`, `ref` (cílový commit), `since` (= `started_at`), `error`; `last` = poslední dokončený běh
+software/OS (`Storage.kv['last_update']`, přežije restart i reboot; běh `reboot` ho nepřepisuje): `{kind, state, ref, rollout_id,
+started_at, finished_at, error, reboot_required, output_tail, reboot_at?}` — `kiosk_rollout_tick` z něj čte výsledek OS
+aktualizace (`kind='system'`, `state='done'`, `finished_at`). Velín: řádek „Aktualizace: čeká na klid / probíhá / selhalo“
+(`BranchRpiZones.jsx`), tabulka jednotek (`FleetUpdates.jsx`). `health.sys` OS pole viz §17.
 
 ## 15. Události → Supabase
 
@@ -446,7 +462,8 @@ class HealthMonitor:
     def __init__(self, cfg: HealthCfg, controller_url: str = "http://127.0.0.1:8080") -> None
     async def run(self) -> None   # smyčka každých cfg.check_interval_s (30):
         # internet = HTTP GET cfg.probe_url (timeout 8 s) ; LTE info: `mmcli -m any -J` (signal/operator/state), `nmcli -t -f GENERAL.STATE dev show <iface>`;
-        # sys: /sys/class/thermal/thermal_zone0/temp, `vcgencmd get_throttled`, shutil.disk_usage('/'), /proc/meminfo, os.getloadavg(), /proc/uptime
+        # sys: /sys/class/thermal/thermal_zone0/temp, `vcgencmd get_throttled`, shutil.disk_usage('/'), /proc/meminfo, os.getloadavg(), /proc/uptime ;
+        #      OS (2026-09-10): /run/reboot-required, PRETTY_NAME z /etc/os-release, os.uname().release, mtime /var/lib/apt/periodic/upgrade-stamp
         # politika: failures>=cfg.reconnect_after (5) → `nmcli con up <cfg.nm_connection>` ; reconnect_failures>=cfg.usb_reset_after (5) → `sudo <cfg.usb_reset_script>` (bez argumentů; VID:PID bere skript z `/etc/motogo/modem_vidpid`) ; SIM locked/missing → `lte.error`, politika se přeskočí ;
         # dále >= cfg.reboot_after (3 USB resety bez úspěchu) a uptime > cfg.min_uptime_before_reboot_s (1800) → `sudo systemctl reboot`
         # každý cyklus POST controller_url/api/health {internet, lte, sys, ts, actions:[…]} ; sd_notify WATCHDOG=1
@@ -456,6 +473,16 @@ async def run_cmd(*args, timeout: float = 20) -> tuple[int, str]   # subprocess,
 `HealthCfg` v `config.py` (sekce `health` v config.yaml): `check_interval_s, probe_url,
 nm_connection ('motogo-lte'), modem_vid_pid ('1e0e:9001'), usb_reset_script, reconnect_after,
 usb_reset_after, reboot_after, min_uptime_before_reboot_s`.
+
+`health_probe.sys_metrics()` = `health.sys` `{cpu_temp, throttled, disk_free_pct, mem_free_pct, load1, uptime_s, reboot_required,
+os, kernel, last_unattended_at}` — OS pole se čtou jen ze souborů (bez rootu, bez apt): `reboot_required` = existuje
+`/run/reboot-required`, `os` = `PRETTY_NAME` z `/etc/os-release`, `kernel` = `os.uname().release`, `last_unattended_at` = ISO mtime
+`/var/lib/apt/periodic/upgrade-stamp` (poslední běh unattended-upgrades), jinak `null`. **`/run/reboot-required` na Debianu/RPi OS
+nevzniká sám** (píše ho jen ubuntí `update-notifier-common`) — zakládá ho `motogo-sysupdate` (po `full-upgrade`) a hook
+`DPkg::Post-Invoke` v `/etc/apt/apt.conf.d/52motogo-unattended` (po každém běhu apt/dpkg vč. unattended-upgrades), když je
+v `/lib/modules` nainstalované novější jádro běžící varianty (přípona za poslední pomlčkou, např. `rpi-2712`) než `uname -r`
+(sysupdate navíc když apt nastavil linux-image/raspberrypi-kernel/libc6/libssl/systemd/dbus); názvy balíků do
+`/run/reboot-required.pkgs`. Velín z toho ukazuje chip „Restart OS potřebný“; restart jen z Velína (§25).
 
 ## 18. `sdnotify.py`
 
@@ -549,3 +576,102 @@ ioctl), `routes()`, `dns_servers()`, `arp_table()`, `resolve()`, `tcp_probe()`, 
 `scan_hosts()` (semafor `scan_concurrency`), `http_info()`, `ping()`, `modbus_identify()` (FC01 16/8 +
 FC02 8 → wav645/wav617/modbus), `shelly_identify()` (`/rpc/Shelly.GetDeviceInfo`, Gen1 `/shelly`),
 `lte_info()`; nic nezapisuje do zařízení.
+
+## 25. Hromadná aktualizace z Velína (rollout) — `updater.py` + `supabase/migrations/20260910c_kiosk_fleet_updates.sql`
+
+Zadání (2026-09-10): Velín rozešle „aktualizuj se“ všem RPi jednotkám a ohlídá výsledek podle hlášené verze
+(`kiosk_heartbeat.p_app_version` = `"<__version__>+<git sha7>"`, `full_version()`). Pojistky: (1) NIKDY slepě při každém
+pushi — vědomě tlačítkem, nebo noční automatika (`nightly_hour`, výchozí 03:00 Prahy); box sám odloží restart programu,
+dokud je v kóji zákazník (`wait_idle_s`); (2) postupně: kanárek → soak → zbytek; (3) OS: bezpečnostní záplaty
+`unattended-upgrades` (04:00 ± 20 min, bez restartu), `apt full-upgrade` + restart po jádru jen z Velína.
+
+**Tabulky** (RLS `<tabulka>_admin` FOR ALL `is_admin()`): `kiosk_releases(id, commit UNIQUE 40 hex, version, message, author,
+committed_at, files_changed, created_at)`; `kiosk_fleet_settings` singleton `id=true` (`nightly_enabled`, `nightly_hour` 0–23,
+`canary_device_id`, `soak_minutes` 5–1440, `wait_idle_s` 0–14400, `system_enabled`, `system_every_days` 1–365,
+`system_auto_reboot`, `last_nightly_date`, `last_system_date`); `kiosk_rollouts(id, kind software|system, mode manual|nightly,
+status canary|soak|rollout|done|failed|cancelled, release_id, target_commit, canary_device_id, soak_minutes, wait_idle_s,
+auto_reboot, created_by, canary_started_at, canary_done_at, soak_until, rollout_started_at, finished_at, error, result jsonb,
+note)`; `kiosk_rollout_devices(rollout_id, device_id, role canary|fleet, status pending|commanded|updated|failed|offline|skipped,
+command_id, commanded_at, version_before, version_after, detail)`. `kiosk_commands.command` CHECK + `update_system`.
+
+**RPC** (SECURITY DEFINER, GRANT authenticated + service_role, REVOKE public; guard `auth.uid() IS NOT NULL AND NOT is_admin()`
+→ `{ok:false, error:'forbidden'}` — cron bez uid a service_role projdou; advisory lock = max. 1 aktivní rollout):
+- `kiosk_version_matches(p_app_version, p_commit) → boolean` (IMMUTABLE, GRANT i anon): sha za `+` ≥ 7 hex a prefix commitu.
+- `kiosk_rollout_start(p_kind, p_release_id, p_canary_device_id, p_soak_minutes, p_wait_idle_s, p_auto_reboot, p_mode='manual')`
+  → `{ok:true, id, status:'canary'|'soak'}` | `{ok:false, error: forbidden|invalid_kind|invalid_mode|rollout_active(+id)|
+  release_not_found|no_canary|canary_not_found}`. Kanárek NULL = naposledy viděná online (< 90 s) aktivní RPi jednotka; zadaný
+  musí být aktivní RPi (tablet ne). Flotila = ostatní aktivní RPi → `pending` (nikdy neviděné `skipped` `{reason:'never_seen'}`).
+  Kanárek už na cíli → rovnou `soak`; jinak INSERT `kiosk_commands` (`update_software {ref, rollout_id, wait_idle_s}` /
+  `update_system {rollout_id, wait_idle_s, auto_reboot}`) → řádek `commanded` + `version_before`. Hodnoty ořezány na CHECK rozsahy.
+- `kiosk_rollout_cancel(p_id)` → `{ok:true, id, status:'cancelled', expired_commands}` | `not_found` | `not_active(+status)`;
+  pending příkazy rolloutu → `expired` (`result.error='cancelled'`).
+- `kiosk_rollout_tick()` → `{ok:true, ticked:[ids], started: id|null, nightly_error?}` — pg_cron `kiosk-fleet-update-tick`
+  (`*/5 * * * *`) + Velín „Zkontrolovat teď“; každý rollout ve vlastním bloku (chyba jednoho nezastaví ostatní).
+- Interní (REVOKE public, bez GRANT): `kiosk_rollout_jts`, `kiosk_device_updated` (software = shoda verze s `target_commit`;
+  system = `status.update.last` kind system / state done / `finished_at` ≥ od), `kiosk_device_update_error` (`update_failed: …`
+  z `status.update.last` failed, nebo `command_failed|command_expired: …`), `kiosk_rollout_send_command`, `kiosk_rollout_counts`.
+
+**Tick:** `canary` — kanárek aktualizován → řádek `updated`, rollout `soak` (`soak_until = now + soak_minutes`); chyba →
+`failed` (`canary_failed: <detail>`, `canary_missing`); `now > canary_started_at + wait_idle_s + 45 min` → `canary_timeout`.
+`soak` — `kiosk_logs` kanárka level error/crash od `canary_done_at` (mimo STARTUP událost controlleru) → `failed`
+`canary_errors: N` (`result.errors` = posledních 5 zpráv); kanárek neviděn > 10 min → `canary_offline`; `now ≥ soak_until`
+→ `rollout`. `rollout` — `pending/offline` online (< 90 s) → příkaz + `commanded`, jinak `offline`; `commanded` → `updated`
+/ `failed` (chyba, nebo `timeout` po wait_idle_s + 45 min). Konec: nic otevřeného, nebo 24 h od `rollout_started_at`, nebo
+po 2 h zbývají-li jen jednotky mrtvé už před rozesíláním → zbylé řádky `offline` (`{error:'unreachable'}`,
+`result.offline_ids`), rollout `done`, resp. `failed` `devices_failed: N`. `result` vždy `{updated, failed, offline, skipped,
+commanded, pending, total}`.
+**Noční automatika** (hodina `Europe/Prague` = `nightly_hour`, žádný aktivní rollout): `nightly_enabled` ∧ `last_nightly_date
+< dnes` ∧ nejnovější release (`committed_at DESC NULLS LAST, created_at DESC`) ∧ aspoň jedna aktivní RPi jednotka viděná
+< 24 h není na jeho commitu → `kiosk_rollout_start('software', …, 'nightly')`; `last_nightly_date = dnes` i při neúspěchu
+(žádné opakování téže noci). **OS:** `system_enabled` ∧ `last_system_date ≤ dnes − system_every_days` ∧ software dnes
+nestartoval ani neselhal → `kiosk_rollout_start('system', NULL, …, system_auto_reboot, 'nightly')`; `last_system_date` se
+posune až po ÚSPĚŠNÉM startu.
+
+**Box (`SoftwareUpdater`, kinds `software|system|reboot`):** `start()` (§13) → jeden task: čeká na klid
+(`ctrl._sessions_active()` prázdné a `diagnostics.running` False; poll 5 s, max `wait_idle_s`, pak pokračuje s varováním).
+software: zapíše `<data_dir>/update_ref` (`<ref>\n`; bez ref soubor smaže → větev) → `sudo /usr/local/sbin/motogo-update`
+(900 s) → rc 0 = `done` (proces se restartuje sám; `kiosk_log_event` jde přes outbox, nový proces ho pošle). system: chybí-li
+`/usr/local/sbin/motogo-sysupdate` → `failed` `sysupdate_missing: …` (bez sudo); jinak `sudo …/motogo-sysupdate` (2700 s),
+`REBOOT_REQUIRED=0|1` → `last.reboot_required`; `auto_reboot` ∧ reboot_required → znovu klid → `sudo systemctl reboot`
+(`last` = done + `reboot_at` uloženo PŘED rebootem; selhání → `last` failed `reboot_failed: rc=N`). reboot (`wait_idle`):
+klid → `rebooting` → `sudo systemctl reboot`; `last` se nepřepisuje. Timeout zabije jen sudo → ochranná lhůta (= timeout
+skriptu): další `start()` i `restart`/`reboot` → `update_in_progress` (`reason:'timeout_orphan'`, `retry_after_s`). Výsledek:
+`Storage.kv['last_update']`, `Event` (REMOTE_COMMAND, `detail.source` = `update`|`sysupdate`), `kiosk_log_event` (info/error).
+
+**Skripty:** `motogo-update` (= `scripts/update.sh`, root, sudoers bez argumentů): flock `/run/lock/motogo-update.lock`
+(souběh → „už běží“, exit 2); re-exec ve vlastním transientním scope (`systemd-run --scope --unit=motogo-update-<pid>`,
+marker `MOTOGO_UPDATE_SCOPE`; bez systemd-run pokračuje na místě) — restart/pád `motogo-controller.service` nezabije
+rsync/pip; čte `/var/lib/motogo/update_ref` jen jako regulární soubor (ne symlink), obsah `^[0-9a-f]{7,40}$` (jinak varování
+bez echa hodnoty, jede na větev), soubor VŽDY smaže; `git fetch origin` jako vlastník checkoutu → `git merge --ff-only
+<ref|@{upstream}>` → HEAD musí být přesně cíl (předek HEAD = „Already up to date“ → chyba). Exit 0 OK; 2 vstup/zdroj/souběh;
+3 fetch selhal / ff-merge selhal / cíl není dopředný potomek HEAD (starší commit, jiná větev, neznámý sha) → rollback = revert
+commit v main, ne couvání checkoutu. Instaluje i `motogo-sysupdate`, `52motogo-unattended`, drop-in timeru a chybí-li
+`unattended-upgrades`, doinstaluje ho (max 240 s). `motogo-sysupdate` (= `scripts/sysupdate.sh`, žádné argumenty ani od roota):
+flock `/run/lock/motogo-sysupdate.lock`, scope `motogo-sysupdate-<pid>` (`MOTOGO_SYSUPDATE_SCOPE`), `apt-get update` →
+`full-upgrade` (`--force-confdef/--force-confold`, `DPkg::Lock::Timeout=600`) → `autoremove --purge` → `clean`; příznak
+`/run/reboot-required` zakládá SÁM (§17); poslední dva řádky výstupu `REBOOT_REQUIRED=0|1` a `UPGRADED=<n>`; nikdy nerestartuje
+služby ani systém; exit 0 / 2. Logy `/var/log/motogo-update.log`, `/var/log/motogo-sysupdate.log` (root-owned, symlink → /dev/null).
+
+**Systém:** `systemd/52motogo-unattended` → `/etc/apt/apt.conf.d/` (`#clear Origins-Pattern` + jen `Debian-Security`,
+`Automatic-Reboot "false"`, `Periodic` 1, `DPkg::Post-Invoke` hook → `/run/reboot-required`); `systemd/apt-daily-upgrade-override.conf`
+→ `/etc/systemd/system/apt-daily-upgrade.timer.d/motogo.conf` (`OnCalendar=*-*-* 04:00`, `RandomizedDelaySec=20m`,
+`Persistent=false`); `systemd/motogo-sudoers` `MOTOGO_SCRIPTS` + `/usr/local/sbin/motogo-sysupdate ""`; `install.sh` krok 10/13.
+
+**Release evidence:** `.github/workflows/release-motogo-box.yml` — push do `main` v `raspberry/motogo-box/**` (nebo ručně,
+vstup `commit` = plný sha z `main`; commit mimo main / neznámý se odmítne) → `INSERT INTO kiosk_releases (commit, version =
+__version__ z daného commitu, message, author, committed_at, files_changed) ON CONFLICT DO NOTHING` přes `SUPABASE_DB_URL`
+(psql, hodnoty jen přes `:'x'`); na tabulku čeká až ~5 min, jinak jen varování; commit starší (`committed_at`) než nejnovější
+evidovaný se neeviduje (varování). Boxům nic nerozesílá.
+
+**Velín:** `velin/src/pages/FleetUpdates.jsx` (+ `FleetUpdatesParts.jsx`, `fleetUpdateHelpers.js`) — sbalený blok
+„Aktualizace řídicích jednotek (všechny pobočky)“ na stránce Pobočky: releasy, tabulka jednotek (verze/aktuálnost, `status.update`,
+OS/jádro, „Restart OS potřebný“, tlačítka „Restart OS“ = `reboot {wait_idle:true, wait_idle_s}` a „Aktualizovat OS“ =
+`update_system {auto_reboot:false, wait_idle_s}`), spuštění rolloutu (dialog: kanárek, soak, čekání na klid, u OS auto-reboot),
+průběh (auto-refresh 15 s jen dokud běží; „Zrušit“, „Zkontrolovat teď“), nastavení (`kiosk_fleet_settings` upsert), historie 10.
+
+**První rollout na stávajících boxech:** příkaz `update_software` vykoná ještě STARÝ controller + STARÝ `motogo-update`
+(hned, bez čekání na klid, `git pull --ff-only` na větev; starý controller čeká na skript max 120 s — trvá-li déle, ohlásí
+příkaz `failed` s `error: timeout`; `kiosk_device_update_error` tento výsledek IGNORUJE, rollout zůstává `canary` a rozhodne
+hlášená verze nebo celkový timeout). Nový `update.sh` se tím stane `motogo-update`, ale `motogo-sysupdate`, `52motogo-unattended` a
+`unattended-upgrades` se nainstalují až jeho DALŠÍM během. OS aktualizace před ním selže `sysupdate_missing`; náprava = znovu
+„Aktualizovat software“.

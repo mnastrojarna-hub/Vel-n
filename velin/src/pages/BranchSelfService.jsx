@@ -445,6 +445,8 @@ function DeviceRow({ dev, doors, cfg, now, onSave, onDelete, onCommand }) {
   const rpi = isRpiDevice(dev)
   const plat = platformLabel(dev)   // '' = zatím se neozvalo (platform NULL)
   const canMusicOn = rpi || !!cfg.music_on_url, canMusicOff = rpi || !!cfg.music_off_url
+  // status.health.sys.reboot_required — OS čeká na restart (nové jádro); status je JSON z jednotky, číst defenzivně
+  const rebootRequired = rpi && dev.status?.health?.sys?.reboot_required === true
 
   function openRemote() {
     if (!selectedDoor) return
@@ -469,6 +471,13 @@ function DeviceRow({ dev, doors, cfg, now, onSave, onDelete, onCommand }) {
           {plat || 'nespárováno'}
         </span>
         <span className="text-[11px]" style={{ color: '#6b8c7a' }}>posl. {lastSeen}{dev.app_version ? ` · v${dev.app_version}` : ''}</span>
+        {rebootRequired && (
+          <span className="inline-block rounded-btn text-[9px] font-extrabold uppercase"
+            title="OS má nainstalované nové jádro/knihovny (unattended-upgrades nebo Aktualizovat OS) — projeví se až po restartu OS. Restart spusťte z bloku Aktualizace řídicích jednotek na stránce Pobočky, až bude box volný."
+            style={{ padding: '2px 6px', background: '#fef3c7', color: '#b45309' }}>
+            Restart OS potřebný
+          </span>
+        )}
         <button onClick={() => onSave(dev.id, { is_active: !dev.is_active })}
           className="rounded-btn text-[11px] font-bold cursor-pointer border-none"
           style={{ padding: '4px 8px', background: dev.is_active ? '#fef3c7' : '#dcfce7', color: dev.is_active ? '#b45309' : '#1a8a18' }}>

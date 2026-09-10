@@ -412,3 +412,31 @@ def test_state_file_unreadable_is_tolerated(tmp_path):
 @pytest.mark.parametrize("text,expected", [("throttled=0x0", "0x0"), ("throttled=0xF000F", "0xF000F")])
 def test_throttled_variants(text, expected):
     assert parse_throttled(text) == expected
+
+
+# ─── OS pole v `sys` (reboot_required, os, kernel, last_unattended_at) ───────
+def test_sys_metrics_os_fields(tmp_path, monkeypatch):
+    from motogo_box import health_probe as hp
+
+    osr = tmp_path / "os-release"
+    osr.write_text('NAME="Debian GNU/Linux"\nPRETTY_NAME="Debian GNU/Linux 12 (bookworm)"\nID=debian\n')
+    stamp = tmp_path / "upgrade-stamp"
+    stamp.write_text("")
+    monkeypatch.setattr(hp, "OS_RELEASE_PATH", str(osr))
+    monkeypatch.setattr(hp, "UNATTENDED_STAMP_PATH", str(stamp))
+    monkeypatch.setattr(hp, "REBOOT_REQUIRED_PATH", str(tmp_path / "reboot-required"))
+    m = hp.sys_metrics()
+    assert m["reboot_required"] is False and m["os"] == "Debian GNU/Linux 12 (bookworm)"
+    assert isinstance(m["kernel"], str) and m["kernel"]
+    assert m["last_unattended_at"] and m["last_unattended_at"].endswith("+00:00")
+    (tmp_path / "reboot-required").write_text("*** System restart required ***\n")
+    assert hp.sys_metrics()["reboot_required"] is True
+    # chybějící soubory → None/False, nikdy výjimka
+    monkeypatch.setattr(hp, "OS_RELEASE_PATH", str(tmp_path / "nope"))
+    monkeypatch.setattr(hp, "UNATTENDED_STAMP_PATH", str(tmp_path / "nope2"))
+    m = hp.sys_metrics()
+    assert m["os"] is None and m["last_unattended_at"] is None
+    assert hp.read_os_name(str(tmp_path / "nope")) is None
+    (tmp_path / "junk").write_text("garbage\nPRETTY_NAME=\n")
+    assert hp.read_os_name(str(tmp_path / "junk")) is None
+    assert hp.file_mtime_iso(str(tmp_path / "missing")) is None

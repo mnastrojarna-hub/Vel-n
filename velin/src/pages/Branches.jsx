@@ -9,6 +9,7 @@ import SearchInput from '../components/ui/SearchInput'
 import { StatCard, SmallBtn } from './BranchHelpers'
 import BranchModal from './BranchModal'
 import BranchDetailModal from './BranchDetailModal'
+import FleetUpdatesBlock from './FleetUpdates'
 
 class BranchesErrorBoundary extends Component {
   constructor(props) { super(props); this.state = { hasError: false, error: null } }
@@ -256,6 +257,9 @@ function Branches() {
           <Button green onClick={() => { setEditing(null); setShowModal(true) }}>+ Nová pobočka</Button>
         </div>
       </div>
+
+      {/* Hromadná aktualizace řídicích jednotek (software + OS) — sbalený blok, kontrakt §6 */}
+      <FleetUpdatesBlock />
 
       {error && (
         <div className="mb-4 p-3 rounded-card" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13, whiteSpace: 'pre-wrap' }}>
