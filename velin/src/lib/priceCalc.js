@@ -179,7 +179,7 @@ export function calcMotoPrice(moto, segments, kmRow, bookings, svc, p, today = n
   const currentMon = Number(moto.price_mon ?? moto.price_weekday) || 0
 
   return {
-    purchase, own, kmSource, kmObserved, kmFrom, kmTo, kmEffDays, kmServiceDays, annualKm,
+    purchase, own, purchaseKm, kmSource, kmObserved, kmFrom, kmTo, kmEffDays, kmServiceDays, annualKm,
     rentedObserved, ownEffDays, ownServiceDays, rentedRaw, rentedDays, rentedSource,
     serviceYear, costsYear, costsPayback, baseNoMargin, base, days, currentMon,
     diffPct: currentMon > 0 ? (base - currentMon) / currentMon * 100 : null,

@@ -8,6 +8,7 @@ import { DEFAULT_PARAMS, DAY_COEF, DAY_LABELS, calcMotoPrice, serviceIntervals, 
 // Servis = roční nájezd × Kč/km, nájezd i půjčené dny z reálných dat (viz lib/priceCalc.js).
 // Jen analytika — reálný ceník (moto_day_prices / motorcycles.price_*) se NEMĚNÍ.
 const fmt = n => (n == null || isNaN(n)) ? '—' : Math.round(n).toLocaleString('cs-CZ')
+const fmtD = d => { const x = d ? new Date(d) : null; return x && !isNaN(x) ? `${x.getDate()}. ${x.getMonth() + 1}. ${String(x.getFullYear()).slice(2)}` : '?' }
 const fmtKc = n => (n == null || isNaN(n)) ? '—' : `${Math.round(n).toLocaleString('cs-CZ')} Kč`
 
 const COLUMNS = [
@@ -112,8 +113,9 @@ export default function KalkulaceCen() {
                 <td className="py-2 px-3 font-semibold">{r.model}</td>
                 <td className="py-2 px-3 font-mono">{r.spz}</td>
                 <td className="py-2 px-3">{r.ok ? fmtKc(r.purchase) : <span style={{ color: '#b45309' }}>chybí</span>}</td>
-                <td className="py-2 px-3" title={r.annualKm == null ? 'Bez protokolů ani nájezdu' : `${fmt(r.kmObserved)} ${r.unit} za ${r.kmEffDays} sezónních dní (−${r.kmServiceDays} servis), zdroj: ${r.kmSource}`}>
+                <td className="py-2 px-3" title={r.annualKm == null ? 'Bez protokolů ani nájezdu' : `Zdroj: ${r.kmSource}. Čtení pod „koupeno s km“ (${fmt(r.purchaseKm)}) se podlaží na tuto hodnotu; km, se kterými byla motorka koupena, se nepočítají. −${r.kmServiceDays} dní v servisu.`}>
                   {r.annualKm == null ? '—' : `${fmt(r.annualKm)} ${r.unit}`}{r.kmSource === 'tachometr' && r.annualKm != null && <sup style={{ color: '#b45309' }}> t</sup>}
+                  {r.annualKm != null && <div style={{ fontSize: 10, color: '#888' }}>{fmt(r.kmObserved)} {r.unit} / {r.kmEffDays} d ({fmtD(r.kmFrom)}–{fmtD(r.kmTo)})</div>}
                 </td>
                 <td className="py-2 px-3">{fmtKc(r.serviceYear)}</td>
                 <td className="py-2 px-3">{fmtKc(r.insurance)}</td>
