@@ -37,6 +37,7 @@ async function applyExtensionChange(
   supabase: ReturnType<typeof createClient>,
   bookingId: string,
   chgStr: string | undefined | null,
+  paidCzk: number | null = null,
 ) {
   if (!chgStr) return
   let a: Record<string, unknown>
@@ -147,6 +148,44 @@ async function applyExtensionChange(
     d.total_price = Number(a.total_price) // app formát
   }
 
+  // ── Výchozí stav, proti kterému klient změnu NACENIL (`_base` — app i web) ──
+  // Dřív se změna aplikovala slepě přes AKTUÁLNÍ řádek: když se rezervace mezi
+  // nacením a zaplacením změnila jinde (bezplatný posun z webu, zatímco appka
+  // držela starý stav — incident 0DC12164, 10. 9. 2026), historie i rozdílový
+  // DP popsaly rozdíl proti cizímu stavu („prodlouženo o 1 den" místo
+  // „čtvrtek odpoledne za polovinu") a klientova absolutní total_price přepsala
+  // cenu. Nově: zastaralý základ → total = aktuální cena + skutečně zaplacený
+  // doplatek (delta), historie nese naceněný rozdíl (od základu, vč. času
+  // vyzvednutí a late slevy) a jde do debug_log.
+  const base = a._base as { s?: string; e?: string; t?: string | null; p?: number; l?: number } | undefined
+  const day = (v: unknown) => String(v || '').slice(0, 10)
+  const hm = (v: unknown) => (v == null ? '' : String(v).slice(0, 5))
+  let cur: Record<string, unknown> | null = null
+  try {
+    const { data } = await supabase.from('bookings')
+      .select('moto_id, start_date, end_date, pickup_time, total_price, late_pickup_discount_amount, original_start_date, modification_history')
+      .eq('id', bookingId).maybeSingle()
+    cur = (data as Record<string, unknown> | null) || null
+  } catch { cur = null }
+  const stale = !!(base && typeof base === 'object' && cur && (
+    (base.s && day(base.s) !== day(cur.start_date)) ||
+    (base.e && day(base.e) !== day(cur.end_date)) ||
+    (base.t !== undefined && hm(base.t) !== hm(cur.pickup_time)) ||
+    (base.p != null && Math.round(Number(base.p)) !== Math.round(Number(cur.total_price || 0)))
+  ))
+  if (stale && cur) {
+    if (paidCzk != null && Number.isFinite(paidCzk)) {
+      d.total_price = Math.round(Number(cur.total_price || 0) + paidCzk)
+    }
+    try {
+      await supabase.from('debug_log').insert({
+        source: 'webhook-receiver', action: 'extension_change_stale_baseline', component: 'stripe', status: 'error',
+        error_message: 'Změna naceněna proti jinému stavu rezervace než je v DB — zapsána delta (aktuální cena + zaplaceno)',
+        request_data: { booking_id: bookingId, base, current: { start_date: cur.start_date, end_date: cur.end_date, pickup_time: cur.pickup_time, total_price: cur.total_price }, paid_czk: paidCzk, change: d },
+      })
+    } catch { /* ignore */ }
+  }
+
   // Late-pickup sleva (50 % 1. dne při vyzvednutí >= 12:00 a >= 2 dnech):
   // u doplatkové změny přes RPC se sloupec nikdy nezapsal (core končí PŘED
   // UPDATE, když je payment_required) — total_price pak seděl, ale
@@ -154,50 +193,59 @@ async function applyExtensionChange(
   // nevycházel na 0. Autoritativní přepočet z FINÁLNÍHO stavu (aktuální řádek
   // + aplikovaná změna) přes _late_pickup_discount; přepíše i klientem poslanou
   // hodnotu (app formát). Best-effort — selhání nesmí zablokovat apply.
-  if (d.start_date || d.end_date || d.moto_id || d.pickup_time || def(a.late_pickup_discount_amount)) {
+  if (cur && (d.start_date || d.end_date || d.moto_id || d.pickup_time || def(a.late_pickup_discount_amount))) {
     try {
-      const { data: cur } = await supabase.from('bookings')
-        .select('moto_id, start_date, end_date, pickup_time')
-        .eq('id', bookingId).maybeSingle()
-      if (cur) {
-        const pt = d.pickup_time !== undefined ? d.pickup_time : cur.pickup_time
-        const { data: late, error: lateErr } = await supabase.rpc('_late_pickup_discount', {
-          p_moto_id: (d.moto_id ?? cur.moto_id) as string,
-          p_start: String(d.start_date ?? cur.start_date),
-          p_end: String(d.end_date ?? cur.end_date),
-          p_pickup_time: pt == null ? null : String(pt),
-        })
-        if (!lateErr && late != null && Number.isFinite(Number(late))) {
-          d.late_pickup_discount_amount = Number(late)
-        }
+      const pt = d.pickup_time !== undefined ? d.pickup_time : cur.pickup_time
+      const { data: late, error: lateErr } = await supabase.rpc('_late_pickup_discount', {
+        p_moto_id: (d.moto_id ?? cur.moto_id) as string,
+        p_start: String(d.start_date ?? cur.start_date),
+        p_end: String(d.end_date ?? cur.end_date),
+        p_pickup_time: pt == null ? null : String(pt),
+      })
+      if (!lateErr && late != null && Number.isFinite(Number(late))) {
+        d.late_pickup_discount_amount = Number(late)
       }
     } catch { /* best-effort */ }
   }
 
   if (Object.keys(d).length === 0) return
 
-  // Změna termínu → zapiš modification_history (+ original_* při prvním zásahu),
-  // stejně jako RPC cesty. Bez záznamu by rozdílový doklad (generate-invoice
-  // source='edit') neměl čerstvý podklad pro denní rozpis přidaných dnů a Velín
-  // by webhook-aplikované prodloužení neviděl v historii úprav.
-  if (d.start_date || d.end_date) {
+  // Záznam do modification_history (+ original_* při prvním zásahu) — stejně
+  // jako RPC cesty. Od = základ, proti kterému klient nacenil (`_base`; bez něj
+  // aktuální řádek), do = finální stav. Nese i čas vyzvednutí a late slevu,
+  // aby rozdílový DP (generate-invoice source='edit') uměl vypsat přidané dny
+  // a změnu slevy 50 % na 1. den místo anonymní „korekce".
+  if (cur) {
     try {
-      const { data: cur } = await supabase.from('bookings')
-        .select('start_date, end_date, original_start_date, modification_history')
-        .eq('id', bookingId).maybeSingle()
-      if (cur) {
-        const day = (v: unknown) => String(v || '').slice(0, 10)
-        const fromS = day(cur.start_date); const fromE = day(cur.end_date)
-        const toS = d.start_date ? day(d.start_date) : fromS
-        const toE = d.end_date ? day(d.end_date) : fromE
-        if (toS !== fromS || toE !== fromE) {
-          const hist = Array.isArray(cur.modification_history) ? cur.modification_history : []
-          hist.push({ at: new Date().toISOString(), from_start: fromS, from_end: fromE, to_start: toS, to_end: toE, source: 'stripe_webhook' })
-          d.modification_history = hist
-          if (!cur.original_start_date) {
-            d.original_start_date = fromS
-            d.original_end_date = fromE
-          }
+      const fromS = day((base && base.s) || cur.start_date)
+      const fromE = day((base && base.e) || cur.end_date)
+      const toS = d.start_date ? day(d.start_date) : day(cur.start_date)
+      const toE = d.end_date ? day(d.end_date) : day(cur.end_date)
+      const fromT = hm(base && base.t !== undefined ? base.t : cur.pickup_time)
+      const toT = d.pickup_time !== undefined ? hm(d.pickup_time) : hm(cur.pickup_time)
+      const fromL = Math.round(Number((base && base.l != null) ? base.l : (cur.late_pickup_discount_amount ?? 0)))
+      const toL = Math.round(Number(d.late_pickup_discount_amount ?? cur.late_pickup_discount_amount ?? 0))
+      const datesChanged = toS !== fromS || toE !== fromE
+      const motoChanged = !!d.moto_id && String(d.moto_id) !== String(cur.moto_id || '')
+      if (datesChanged || motoChanged || toT !== fromT || fromL !== toL) {
+        const hist = Array.isArray(cur.modification_history) ? (cur.modification_history as unknown[]) : []
+        const priceDiff = (paidCzk != null && Number.isFinite(paidCzk))
+          ? Math.round(paidCzk)
+          : (d.total_price != null ? Math.round(Number(d.total_price) - Number(cur.total_price || 0)) : null)
+        hist.push({
+          at: new Date().toISOString(),
+          from_start: fromS, from_end: fromE, to_start: toS, to_end: toE,
+          from_pickup_time: fromT || null, to_pickup_time: toT || null,
+          from_late_pickup: fromL, to_late_pickup: toL,
+          ...(motoChanged ? { from_moto_id: cur.moto_id, to_moto_id: d.moto_id } : {}),
+          ...(priceDiff != null ? { price_diff: priceDiff } : {}),
+          source: 'stripe_webhook',
+          ...(stale ? { stale_baseline: true } : {}),
+        })
+        d.modification_history = hist
+        if (datesChanged && !cur.original_start_date) {
+          d.original_start_date = fromS
+          d.original_end_date = fromE
         }
       }
     } catch { /* history je best-effort — update změny proběhne i bez ní */ }
@@ -211,7 +259,7 @@ async function applyExtensionChange(
       component: 'stripe',
       status: error ? 'error' : 'ok',
       error_message: error?.message || null,
-      request_data: { booking_id: bookingId, fields: Object.keys(d) },
+      request_data: { booking_id: bookingId, fields: Object.keys(d), paid_czk: paidCzk, stale_baseline: stale },
     })
   } catch { /* ignore */ }
 }
@@ -350,7 +398,7 @@ Deno.serve(async (req: Request) => {
         await confirmBookingPayment(supabase, resolvedBookingId, session.id, stripePaymentIntentId, paymentType === 'extension')
         // Doplatková změna rezervace — aplikuj server-side (spustí web_booking_modified)
         if (paymentType === 'extension') {
-          try { await applyExtensionChange(supabase, resolvedBookingId, metadata.chg) }
+          try { await applyExtensionChange(supabase, resolvedBookingId, metadata.chg, (!metadata.shop_order_id && session.amount_total != null) ? session.amount_total / 100 : null) }
           catch (e) { console.warn('[webhook] extension change apply failed:', (e as Error).message) }
         }
         // Bundled e-shop upsell paid in the same session — confirm shop side too (separate invoice + email)
@@ -406,7 +454,7 @@ Deno.serve(async (req: Request) => {
       if ((paymentType === 'booking' || paymentType === 'extension') && resolvedBookingId) {
         await confirmBookingPayment(supabase, resolvedBookingId, paymentIntent.id, null, paymentType === 'extension')
         if (paymentType === 'extension') {
-          try { await applyExtensionChange(supabase, resolvedBookingId, metadata.chg) }
+          try { await applyExtensionChange(supabase, resolvedBookingId, metadata.chg, Number.isFinite(paymentIntent.amount) ? paymentIntent.amount / 100 : null) }
           catch (e) { console.warn('[webhook] extension change apply (intent) failed:', (e as Error).message) }
         }
         if (metadata.shop_order_id) {

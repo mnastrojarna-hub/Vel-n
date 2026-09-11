@@ -88,6 +88,10 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
   }
 
   Future<void> _loadBooking() async {
+    // Vždy čerstvě z DB — reservationByIdProvider je cachovaný a bez invalidace
+    // by obrazovka úprav pracovala se stavem před změnou z webu / jiného
+    // zařízení (incident 0DC12164: appka poslala starý konec termínu).
+    ref.invalidate(reservationByIdProvider(widget.bookingId));
     final res = await ref.read(reservationByIdProvider(widget.bookingId).future);
     if (res != null && mounted) {
       setState(() {
@@ -251,6 +255,48 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
     return '${d.day}.${d.month}.${d.year}';
   }
 
+  bool _sameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
+
+  String _hm(String? v) {
+    final s = v ?? '';
+    return s.length >= 5 ? s.substring(0, 5) : s;
+  }
+
+  /// Před placenou úpravou ověří, že rezervace v DB je stále ta, proti které
+  /// byl doplatek naceněn (termín, čas vyzvednutí, motorka, cena, late sleva).
+  /// Změnila-li se mezitím (web / jiné zařízení), načte nový stav a úpravu
+  /// nepustí — zákazník ji zopakuje nad aktuálními daty. Výpadek sítě
+  /// neblokuje (server má vlastní kontrolu přes `_base`).
+  Future<bool> _baselineStillValid() async {
+    final old = _booking;
+    if (old == null) return false;
+    Reservation? fresh;
+    try {
+      ref.invalidate(reservationByIdProvider(widget.bookingId));
+      fresh = await ref.read(reservationByIdProvider(widget.bookingId).future);
+    } catch (_) {
+      return true;
+    }
+    if (fresh == null) return true;
+    final same = _sameDay(fresh.startDate, old.startDate) &&
+        _sameDay(fresh.endDate, old.endDate) &&
+        _hm(fresh.pickupTime) == _hm(old.pickupTime) &&
+        fresh.motoId == old.motoId &&
+        fresh.totalPrice.round() == old.totalPrice.round() &&
+        (fresh.latePickupDiscount ?? 0).round() ==
+            (old.latePickupDiscount ?? 0).round();
+    if (same) return true;
+    if (mounted) {
+      await _loadBooking();
+      showMotoGoToast(context,
+          icon: '🔄',
+          title: t(context).tr('editStaleTitle'),
+          message: t(context).tr('editStaleReloaded'));
+    }
+    return false;
+  }
+
   Widget _buildStornoWarning(BuildContext context) {
     // Server (_apply_booking_changes_core) pocita storno % z NOVEHO STARTU
     // (v_fs), ne z konce — zrcadlime, jinak UI slibuje jiny tier nez server.
@@ -383,6 +429,9 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
         ref.invalidate(reservationsProvider);
         ref.invalidate(reservationByIdProvider(widget.bookingId));
         ref.invalidate(doorCodesProvider(widget.bookingId));
+        // Nový stav rezervace do obrazovky — další úprava (čas vyzvednutí,
+        // prodloužení) se musí naceňovat proti posunutému termínu.
+        await _loadBooking();
         _showConfirmation(
           title: t(context).tr('moveConfirmedTitle'),
           message: t(context).tr('moveConfirmed')
@@ -609,6 +658,13 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
         // Needs extra payment — do NOT update booking yet.
         // Store pending changes; apply only after Stripe confirms payment.
         // Mirrors window._pendingEditChanges from Capacitor app.
+        // Rezervace se mohla mezitím změnit jinde (web / jiné zařízení) —
+        // doplatek naceněný proti zastaralému stavu by po zaplacení přepsal
+        // cizí změnu (incident 0DC12164). Před platbou ověř aktuální stav.
+        if (!await _baselineStillValid()) {
+          if (mounted) setState(() => _saving = false);
+          return;
+        }
         if (mounted) {
           ref.read(paymentContextProvider.notifier).state = PaymentContext(
             flowType: PaymentFlowType.extension,
@@ -617,6 +673,16 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
             label: t(context).tr('extensionSurcharge'),
             pendingEditChanges: {
               ...changes,
+              // Výchozí stav pro server: process-payment odmítne platbu nad
+              // zastaralým stavem (409 stale_booking), webhook z něj zapíše
+              // historii úpravy pro rozdílový doklad.
+              '_base': {
+                's': fmtD(_booking!.startDate),
+                'e': fmtD(_booking!.endDate),
+                't': _booking!.pickupTime == null ? null : _hm(_booking!.pickupTime),
+                'p': _booking!.totalPrice.round(),
+                'l': (_booking!.latePickupDiscount ?? 0).round(),
+              },
               // Při doplatku se doplňky aplikují až PO platbě. `_extras_replace`
               // říká, ať se modelované řádky nahradí (i odebrání), `_extras_rows`
               // je nový stav (může být i prázdný = vše odebráno).

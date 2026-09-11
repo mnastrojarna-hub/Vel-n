@@ -206,6 +206,10 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
     for (final e in src.entries) {
       if (keep.contains(e.key) && e.value != null) out[e.key] = e.value;
     }
+    // Výchozí stav změny (`_base`, kompaktní klíče) — server kontrola
+    // zastaralého stavu + historie úpravy pro rozdílový doklad.
+    final base = src['_base'];
+    if (base is Map && base.isNotEmpty) out['_base'] = base;
     return out.isEmpty ? null : out;
   }
 
@@ -1168,6 +1172,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
                   Map<String, dynamic>.from(_ctx!.pendingEditChanges!);
               final extrasRows = pending.remove('_extras_rows');
               final extrasReplace = pending.remove('_extras_replace') == true;
+              pending.remove('_base'); // jen pro server (metadata), ne sloupec
               await MotoGoSupabase.client
                   .from('bookings')
                   .update(pending)

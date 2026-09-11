@@ -389,6 +389,30 @@ Deno.serve(async (req: Request) => {
       const c = change as Record<string, unknown>
       let expected: number | null = null
       let dryErr: string | null = null
+      // Výchozí stav klienta (`_base`: s/e = termín, t = čas vyzvednutí, p = cena)
+      // musí odpovídat AKTUÁLNÍ rezervaci. Změna naceněná proti zastaralému stavu
+      // (mezitím posun z webu / jiného zařízení — incident 0DC12164) se nesmí
+      // zaplatit: klient rezervaci znovu načte a úpravu zopakuje.
+      const base = c._base as { s?: string; e?: string; t?: string | null; p?: number } | undefined
+      if (base && typeof base === 'object') {
+        try {
+          const { data: cur } = await supabase.from('bookings')
+            .select('start_date, end_date, pickup_time, total_price').eq('id', booking_id).maybeSingle()
+          const day = (v: unknown) => String(v || '').slice(0, 10)
+          const hm = (v: unknown) => (v == null ? '' : String(v).slice(0, 5))
+          if (cur && (
+            (base.s && day(base.s) !== day(cur.start_date)) ||
+            (base.e && day(base.e) !== day(cur.end_date)) ||
+            (base.t !== undefined && hm(base.t) !== hm(cur.pickup_time)) ||
+            (base.p != null && Math.round(Number(base.p)) !== Math.round(Number(cur.total_price || 0)))
+          )) {
+            return new Response(
+              JSON.stringify({ success: false, error: 'Rezervace se mezitím změnila (jiné zařízení nebo web). Načtěte ji prosím znovu a úpravu zopakujte.', code: 'stale_booking' }),
+              { status: 409, headers: { ...CORS, 'Content-Type': 'application/json' } }
+            )
+          }
+        } catch (_e) { /* kontrola základu je best-effort */ }
+      }
       try {
         const userClient = createClient(
           Deno.env.get('SUPABASE_URL') ?? '',
@@ -416,6 +440,14 @@ Deno.serve(async (req: Request) => {
           const { data, error } = await userClient.rpc('apply_booking_changes', params)
           if (!error && data?.success === true) expected = Number(data.net_diff || 0)
           else if (!error && data?.error) dryErr = String(data.error)
+        } else if (c.total_price != null && Number.isFinite(Number(c.total_price))) {
+          // App formát (DB názvy sloupců, payment_screen.dart): appka účtuje
+          // effectivePriceDiff = nová total_price − total_price rezervace, takže
+          // doplatek MUSÍ sedět na rozdíl vůči AKTUÁLNÍ ceně v DB. Dřív se app
+          // částka vůbec nevalidovala (klient mohl zaplatit cokoliv).
+          const { data: curB } = await supabase.from('bookings')
+            .select('total_price').eq('id', booking_id).maybeSingle()
+          if (curB) expected = Math.round(Number(c.total_price) - Number(curB.total_price || 0))
         }
       } catch (_e) { /* dry-run nedostupný → kompatibilně bez validace */ }
       if (dryErr) {

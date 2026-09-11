@@ -24,6 +24,22 @@
   var ER = (window.MG && MG._editRez) ? MG._editRez : null;
   if (!ER) return;
 
+  // ---- 0) Výchozí stav změny pro server (`_base`) ----
+  // _submitChange přidá do Stripe metadat stav rezervace, proti kterému byl
+  // doplatek naceněn (termín, čas vyzvednutí, cena, late sleva). process-payment
+  // ho porovná s DB (zastaralý → 409 stale_booking, zákazník znovu načte) a
+  // webhook-receiver z něj zapíše historii úpravy (rozdílový DP popisuje
+  // skutečně naceněnou změnu, ne rozdíl proti stavu v okamžiku zápisu).
+  ER._baseOf = function (b) {
+    if (!b) return {};
+    var t = b.pickup_time == null ? null : String(b.pickup_time).slice(0, 5);
+    return { _base: {
+      s: ER._normIso(b.start_date), e: ER._normIso(b.end_date), t: t,
+      p: Math.round(Number(b.total_price || 0)),
+      l: Math.round(Number(b.late_pickup_discount_amount || 0))
+    } };
+  };
+
   // ---- 1) Prodloužení: cena a validace ze serveru (apply_booking_changes) ----
   ER._submitExtend = async function (newStart, newEnd) {
     var b = ER.selectedBooking;
