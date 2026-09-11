@@ -1,8 +1,11 @@
-"""Falešný controller, I/O, signalizace a zóny pro testy diagnostiky (`test_diagnostics.py`,
-`test_diag_protocol.py`). Zámek se v diagnostice NIKDY nepulzuje — `FakeIo.pulse` to hlídá."""
+"""Falešný controller, I/O, signalizace, zóny a venek pro testy diagnostiky (`test_diagnostics.py`,
+`test_diag_protocol.py`). Zámek se v diagnostice NIKDY nepulzuje — `FakeIo.pulse` to hlídá.
+`FakeOutdoor`/`FakeOutdoorCfg` = API `outdoor.py`/`config_outdoor.py` dle kontraktu §B (duck typing —
+testy diagnostiky běží i bez reálného modulu)."""
 from __future__ import annotations
 
 import time
+from dataclasses import dataclass, field
 
 from motogo_box import controller_codes as cc
 from motogo_box.config import HardwareConfig, LocalConfig, SecurityCfg
@@ -56,7 +59,7 @@ class FakeIo:
     def __init__(self) -> None:
         self.offline: set[str] = set()
         self.inputs: dict[str, list[bool]] = {"wav617a": [True] * 8, "wav617b": [True] * 8}
-        self.coils: dict[str, list[bool]] = {"wav645": [False] * 16}
+        self.coils: dict[str, list[bool]] = {"wav645": [False] * 16, "wav617b": [False] * 8}
         self.pulses: list = []
 
     def is_online(self, name: str) -> bool:
@@ -95,6 +98,58 @@ class FakePlayer:
 
 class FakeAudio:
     playing_zone, player_ok, player = None, True, FakePlayer()
+    mode = "selector"                 # venek hraje jen v "multi" — testy venku přepnou
+
+
+@dataclass
+class FakeOutdoorCfg:
+    """Tvar `OutdoorCfg` (kontrakt §B): venek = zóna 9, světlo wav617b[0] (WAV617-B R1), audio výstup out9."""
+
+    zone: int | None = 9
+    light: HwRef | None = field(default_factory=lambda: HwRef("wav617b", 0))
+    audio: HwRef | None = None
+    audio_out: str | None = "out9"
+    light_after_close_s: int | None = None
+    present: bool = True
+
+    @property
+    def configured(self) -> bool:
+        return self.light is not None or bool(self.audio_out)
+
+    def to_dict(self) -> dict:
+        d: dict = {"zone": self.zone, "light": None if self.light is None else {"dev": self.light.dev, "coil": self.light.idx},
+                   "light_after_close_s": self.light_after_close_s}
+        if self.audio_out:
+            d["audio"] = {"out": self.audio_out, **({"dev": self.audio.dev, "coil": self.audio.idx} if self.audio else {})}
+        return {k: v for k, v in d.items() if v is not None}
+
+
+class FakeOutdoor:
+    """Falešný OutdoorController: `cfg`, `status()`, `set_light()`, `test_sequence()` s nastavitelným výsledkem
+    (`audio` None v selektoru / bez výstupu jako v reálu); `active` = relace venku → test odmítne (busy)."""
+
+    def __init__(self, cfg: FakeOutdoorCfg | None = None, *, audio=None, result: dict | None = None, active: bool = False) -> None:
+        self.cfg = cfg if cfg is not None else FakeOutdoorCfg()
+        self.audio, self.result, self.active = audio, result or {"light": True, "audio": True}, active
+        self.light_on, self.manual, self.tests = False, None, 0
+
+    async def set_light(self, on: bool) -> bool:
+        self.light_on = self.manual = on
+        return True
+
+    async def test_sequence(self) -> dict:
+        self.tests += 1
+        if not self.cfg.configured:
+            return {"light": False, "audio": None, "error": "not_configured"}
+        if self.active:
+            return {"light": False, "audio": None, "error": "busy"}
+        multi = getattr(self.audio, "mode", None) == "multi" and bool(self.cfg.audio_out)
+        return {"light": bool(self.result.get("light")), "audio": self.result.get("audio") if multi else None}
+
+    def status(self) -> dict:
+        lt = self.cfg.light
+        return {"zone": self.cfg.zone, "configured": self.cfg.configured, "light": self.light_on, "active": self.active, "manual": self.manual,
+                "audio_out": self.cfg.audio_out, "music": False, "light_ref": None if lt is None else f"{lt.dev}[{lt.idx}]", "off_in_s": None}
 
 
 def zone_hw(n: int, shelly: str = "shelly1") -> ZoneHw:
@@ -143,6 +198,8 @@ class FakeCtrl:
         self.config_problems: list[str] = []
         self._started_at = time.monotonic()
         self.io, self.signals, self.audio = FakeIo(), FakeSignals(), FakeAudio()
+        self.outdoor = FakeOutdoor(audio=self.audio)
+        self.hardware.outdoor = self.outdoor.cfg        # jako controller: hw.outdoor je tentýž objekt jako outdoor.cfg
         self.events: list = []
         self.zones: dict = {}
         self.health: dict = {}
@@ -168,4 +225,4 @@ class FakeCtrl:
         return token == "svc-ok"
 
     def snapshot(self) -> dict:
-        return {"ready": True, "zones": [], "diagnostics": self.diagnostics.status()}
+        return {"ready": True, "zones": [], "diagnostics": self.diagnostics.status(), "outdoor": self.outdoor.status()}

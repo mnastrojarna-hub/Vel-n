@@ -4,7 +4,8 @@ Oddělené od ``webserver.py`` kvůli délce modulu; veřejné API (``WebServer`
 zůstává ve ``webserver.py``. Každý handler dostane instanci ``WebServer``
 (``srv``) a ``aiohttp`` request. Všechny endpointy kromě párování nespárovaného
 zařízení vyžadují platný ``service_token`` (``ctrl.check_service_token``);
-neplatný → ``403 {"ok": false, "error": "forbidden"}``.
+neplatný → ``403 {"ok": false, "error": "forbidden"}``. Zóna venku (``zone`` = ``hw.outdoor.zone``,
+venek není dveře): ``light`` → ``ctrl.outdoor.set_light``, ``music`` → kanál ``outdoor`` (jen multi).
 """
 from __future__ import annotations
 
@@ -34,6 +35,15 @@ def _to_bool(value: Any) -> bool:
     if isinstance(value, str):
         return value.strip().lower() in ("1", "true", "on", "yes")
     return bool(value)
+
+
+def outdoor_for(ctrl: Any, zone: int | None):
+    """`ctrl.outdoor`, když `zone` je číslo venku (nastaveného); jinak None."""
+    outdoor = getattr(ctrl, "outdoor", None)
+    cfg = getattr(outdoor, "cfg", None)
+    if zone is None or cfg is None or not getattr(cfg, "configured", False) or cfg.zone != zone:
+        return None
+    return outdoor
 
 
 def service_denied(srv: Any, body: dict) -> web.Response | None:
@@ -68,6 +78,15 @@ async def service_music(srv: Any, request: web.Request) -> web.Response:
     if audio is None:
         return srv.error("audio_unavailable")
     zone = _to_int(body.get("zone"))
+    outdoor = outdoor_for(srv.ctrl, zone)
+    if outdoor is not None:                     # venek: kanál outdoor (jen multi), nikdy reproduktor kóje
+        if getattr(audio, "mode", "") != "multi" or not hasattr(audio, "play_channel"):
+            return srv.json({"ok": False, "on": False, "zone": zone, "error": "outdoor_requires_multi"})
+        if on:
+            ok = bool(await audio.play_channel("outdoor"))
+            return srv.json({"ok": ok, "on": ok, "zone": zone, "error": None if ok else "audio_failed"})
+        await audio.stop_channel("outdoor")
+        return srv.json({"ok": True, "on": False, "zone": zone})
     if not on:
         # multi: vypnout jen kóji z panelu (jinde hudba hraje dál); bez zóny = vše (selector = vše vždy)
         stop_zone = getattr(audio, "stop_zone", None)
@@ -93,10 +112,11 @@ async def service_light(srv: Any, request: web.Request) -> web.Response:
     if zone is None:
         return srv.error("missing_zone")
     zc = srv.ctrl.find_zone(zone=zone)
-    if zc is None:
-        return srv.error("zone_not_found", 404)
     on = _to_bool(body.get("on"))
-    ok = bool(await zc.set_light(on))
+    outdoor = outdoor_for(srv.ctrl, zone) if zc is None else None
+    if zc is None and outdoor is None:
+        return srv.error("zone_not_found", 404)
+    ok = bool(await (outdoor.set_light(on) if zc is None else zc.set_light(on)))
     return srv.json({"ok": ok, "zone": zone, "on": on, "error": None if ok else "light_failed"})
 
 

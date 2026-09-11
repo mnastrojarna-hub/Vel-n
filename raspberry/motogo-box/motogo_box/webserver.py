@@ -195,7 +195,7 @@ class WebServer:
 
     # ── snapshot stavu ────────────────────────────────────────────────────
     def state(self) -> dict:
-        """Snapshot controlleru doplněný o údaje, které UI potřebuje (párování, timings, security)."""
+        """Snapshot controlleru doplněný o údaje, které UI potřebuje (párování, timings)."""
         try:
             snap = dict(self.ctrl.snapshot() or {})
         except Exception:  # noqa: BLE001
@@ -212,10 +212,6 @@ class WebServer:
         if "timings" not in snap and timings is not None:
             snap["timings"] = {k: getattr(timings, k) for k in ("pin_entry_timeout_s", "door_open_timeout_s",
                                                                  "maximum_session_s") if hasattr(timings, k)}
-        security = getattr(hw, "security", None)
-        if "security" not in snap and security is not None:
-            snap["security"] = {k: getattr(security, k) for k in ("mask_pin_on_screen", "pin_length")
-                                if hasattr(security, k)}
         snap.setdefault("last_error", getattr(self.ctrl, "last_error", None))
         return snap
 

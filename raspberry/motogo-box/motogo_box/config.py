@@ -19,12 +19,13 @@ from typing import Any
 import yaml
 
 from .config_audio import AUDIO_MODES, validate_audio
+from .config_outdoor import OutdoorCfg, apply_outdoor, validate_outdoor
 from .models import HwRef, Zone, ZoneHw
 
 log = logging.getLogger("motogo.config")
 
 DEFAULT_CONFIG_PATH = "/etc/motogo/config.yaml"
-HW_TOP_KEYS = ("devices", "timings", "polling", "contacts", "security", "audio", "signal")
+HW_TOP_KEYS = ("devices", "timings", "polling", "contacts", "security", "audio", "signal", "outdoor")
 
 
 # ─── Lokální konfigurace ─────────────────────────────────────────────────────
@@ -217,9 +218,7 @@ class SecurityCfg:
     maximum_failed_attempts: int = 5
     attempt_window_minutes: int = 5
     lockout_minutes: int = 15
-    pin_length: int = 6
-    mask_pin_on_screen: bool = True
-    service_token_minutes: int = 10
+    service_token_minutes: int = 10      # kód na displeji je viditelný (2026-09-11) — bez pin_length/mask_pin_on_screen
 
 
 @dataclass
@@ -286,6 +285,7 @@ class HardwareConfig:
     zones: list[Zone]
     source: str = "local"          # local | remote
     raw: dict = field(default_factory=dict)
+    outdoor: OutdoorCfg = field(default_factory=OutdoorCfg)   # venek (zóna bez dveří) — `config_outdoor.py`
 
     @classmethod
     def from_dict(cls, d: dict, doors: list[dict] | None = None) -> "HardwareConfig":
@@ -303,16 +303,19 @@ class HardwareConfig:
             zones = zones_from_local(d.get("zones") or [])
         zones.sort(key=lambda z: z.number)
         contacts = d.get("contacts") or {}
+        audio, outdoor = _fill(AudioCfg, d.get("audio")), OutdoorCfg.from_dict(d.get("outdoor"))
+        apply_outdoor(audio, outdoor)      # alias outdoor.audio ⇄ audio.channels.outdoor (upozornění hlásí validate_outdoor)
         return cls(
             devices=devices,
             timings=_fill(TimingsCfg, d.get("timings")),
             polling=_fill(PollingCfg, d.get("polling")),
             contacts_closed_level=int(contacts.get("closed_level", 1)),
             security=_fill(SecurityCfg, d.get("security")),
-            audio=_fill(AudioCfg, d.get("audio")),
+            audio=audio,
             signal=_fill(SignalCfg, d.get("signal")),
             zones=zones,
             raw=copy.deepcopy(d),
+            outdoor=outdoor,
         )
 
     def zone_by_number(self, n: int) -> Zone | None:
@@ -441,6 +444,7 @@ def validate_hardware(hw: HardwareConfig) -> list[str]:
         problems.append(f"timings.lock_pulse_ms {hw.timings.lock_pulse_ms} je mimo rozsah {lo}–{hi} ms "
                         f"(WAV645 flash-on v krocích 100 ms).")
     problems.extend(validate_audio(hw, CHANNEL_LIMITS))
+    problems.extend(validate_outdoor(hw, CHANNEL_LIMITS, seen))   # venek: světlo nikdy na kanálu zóny
     return problems
 
 

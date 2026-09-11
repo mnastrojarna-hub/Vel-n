@@ -52,6 +52,12 @@ HINTS = {
     "zone.io": "I/O zóny offline — zkontrolujte uvedené moduly (LAN, napájení).",
     "zone.skipped": "Spusťte diagnostiku znovu, až kóje nebude obsazená / porucha odezní.",
     "zone.test": "HW test zóny trvá příliš dlouho — zkontrolujte odezvu modulů/Shelly (ping, LAN) a spusťte diagnostiku znovu.",
+    # venek (zóna bez dveří, kontrakt §B/§C) — světlo = relé Waveshare, hudba jen v režimu multi
+    "outdoor_light": "Zkontrolujte relé venkovního osvětlení {dev} R{ch} (vodič ke světlu, svorky relé) a jistič venkovního okruhu; "
+                     "modul musí být v Normal mode.",
+    "outdoor_audio": "Venek hraje jen v režimu multi: nastavte audio výstup venku ve Velíně (Samoobsluha → hardware → Venek) a zkontrolujte "
+                     "zvukovou kartu výstupu (CARD=Venek), mpv a hudbu v music_dir.",
+    "outdoor_config": "Venek je v HW mapě bez světla i audio výstupu — doplňte je ve Velíně (Samoobsluha → hardware → Venek) nebo venek vymažte.",
     "power": "Zkontrolujte měnič/monitor FV (power_status_url) — URL musí vracet JSON v LAN jednotky.",
     "power_soc": "Nízké nabití baterie — zkontrolujte FV výrobu a spotřebu.",
     "camera": "Kamera {name} neodpovídá — zkontrolujte napájení, LAN a URL ({url_kind}) ve Velíně (Samoobsluha → Kamery).",

@@ -105,7 +105,9 @@ async def test_diagnostics_run_full_report(tmp_path, sim):
     summary = report["summary"]
     assert summary["ok"] is False and any("ghost" in p for p in summary["problems"])
     assert summary["devices_ok"] == 3 and summary["devices_total"] == 4 and summary["hosts"] >= 1
-    # uloženo, odesláno, zalogováno
+    o = report["outdoor"]                      # venek (FakeCtrl.outdoor) i bez zón: otestován, hudba jen v multi
+    assert o["zone"] == 9 and o["tested"] and o["light_ok"] is True and o["audio_ok"] is None and o["light"]["ref"] == "wav617b[0]"
+    assert summary["outdoor"] == "ok" and report["config"]["outdoor"]["light"] == {"dev": "wav617b", "coil": 0} and ctrl.outdoor.tests == 1
     assert diag.last_report()["id"] == report["id"] and ctrl.api.reports[-1]["id"] == report["id"]
     ev = [e for e in ctrl.events if e.kind == EventKind.DIAGNOSTICS]
     assert len(ev) == 1 and ev[0].detail["report_id"] == report["id"] and ev[0].level == "warn"

@@ -1,15 +1,14 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Btn, Chip, Input, Select, Label } from './BranchRpiUi'
-import {
-  AUDIO_MODES, BRNO_AUDIO_OUTPUTS_EXAMPLE, BRNO_AUDIO_OUTDOOR_EXAMPLE,
-  audioMode, audioOutputNames, outdoorOut, roleTypeError, ZONE_REFS,
-} from './BranchRpiHardwareDefaults'
+import { AUDIO_MODES, BRNO_AUDIO_OUTPUTS_EXAMPLE, audioMode, audioOutputNames, roleTypeError, ZONE_REFS } from './BranchRpiHardwareDefaults'
+import { outdoorOutOf } from './BranchRpiOutdoorHelpers'
 
-// ─── Audio: režim, výstupy, kanál venek (`hardware.audio.{mode,outputs,channels}`) ─────
+// ─── Audio: režim, výstupy (`hardware.audio.{mode,outputs}`) ─────────────────
 // Kontrakt (music_contract §2): selector = jeden zesilovač + relé (výchozí, beze změny chování),
 // multi = pojmenované výstupy (název → ALSA zařízení dle `aplay -L`), každá zóna má `audio.out`,
-// kanál `outdoor` (venek, bez dveří) hraje při jakémkoli kódu. Stejná pravidla jako validate_audio()
-// v jednotce: výstup musí existovat, dva cíle nesmí sdílet výstup, venek vyžaduje multi.
+// venek (zóna bez dveří) hraje při jakémkoli kódu — jeho výstup se nastavuje v bloku Venek (`outdoor.audio.out`;
+// legacy `audio.channels.outdoor` tento editor nemění, jen ho čte přes outdoorOutOf). Stejná pravidla jako
+// validate_audio() v jednotce: výstup musí existovat, dva cíle nesmí sdílet výstup, venek vyžaduje multi.
 
 const NAME_RE = /^[a-z0-9_-]+$/
 const AUDIO_ROLE = ZONE_REFS.find(r => r.key === 'audio')
@@ -35,19 +34,15 @@ function AudioOutputsEditor({ hardware, doors, disabled, onSave }) {
   const audio = useMemo(() => (rawAudio && typeof rawAudio === 'object' ? rawAudio : {}), [rawAudio])   // stabilní ref pro efekt
   const [mode, setMode] = useState(() => audioMode(audio))
   const [rows, setRows] = useState(() => outputsToRows(audio))
-  const [outdoor, setOutdoor] = useState(() => outdoorOut(audio))
   const [dirty, setDirty] = useState(false)
   const [err, setErr] = useState(null)
   useEffect(() => {
     if (dirty) return
-    setMode(audioMode(audio)); setRows(outputsToRows(audio)); setOutdoor(outdoorOut(audio))
+    setMode(audioMode(audio)); setRows(outputsToRows(audio))
   }, [audio, dirty])
 
   const nameCounts = useMemo(() => rows.reduce((m, r) => { m[r.name.trim()] = (m[r.name.trim()] || 0) + 1; return m }, {}), [rows])
-  const usage = useMemo(() => outputUsage(doors, outdoorOut(audio)), [doors, audio])
-  const names = rows.map(r => r.name.trim()).filter(Boolean)
-  const outOptions = [{ value: '', label: '— (venek nehraje)' }, ...names.map(n => ({ value: n, label: n }))]
-  if (outdoor && !names.includes(outdoor)) outOptions.push({ value: outdoor, label: `${outdoor} (?)` })
+  const usage = useMemo(() => outputUsage(doors, outdoorOutOf(hardware)), [doors, hardware])
 
   function edit(i, patch) { setRows(rs => rs.map((r, j) => j === i ? { ...r, ...patch } : r)); setDirty(true) }
   function add() {
@@ -56,13 +51,12 @@ function AudioOutputsEditor({ hardware, doors, disabled, onSave }) {
   }
   function remove(i) {
     const who = usage[rows[i]?.name?.trim()]
-    if (who?.length) { setErr(`Výstup „${rows[i].name}“ používá ${who.join(', ')} — nejdřív změňte výstup v mapování dveří / kanálu venek.`); return }
+    if (who?.length) { setErr(`Výstup „${rows[i].name}“ používá ${who.join(', ')} — nejdřív změňte výstup v mapování dveří / bloku Venek.`); return }
     setRows(rs => rs.filter((_, j) => j !== i)); setDirty(true)
   }
   function fillExample() {
-    if (rows.length && !window.confirm('Nahradit seznam výstupů vzorem out1–out9 (7 kójí, šatna, venek)? Režim se NEpřepne — zkontrolujte názvy karet (aplay -L) a uložte.')) return
+    if (rows.length && !window.confirm('Nahradit seznam výstupů vzorem out1–out9 (7 kójí, šatna, venek)? Režim se NEpřepne — zkontrolujte názvy karet (aplay -L) a uložte. Výstup venku (out9) pak nastavte v bloku Venek.')) return
     setRows(outputsToRows({ outputs: BRNO_AUDIO_OUTPUTS_EXAMPLE }))
-    setOutdoor(BRNO_AUDIO_OUTDOOR_EXAMPLE.out)
     setDirty(true)
     setErr(null)
   }
@@ -76,24 +70,15 @@ function AudioOutputsEditor({ hardware, doors, disabled, onSave }) {
       const prev = audio.outputs?.[name]
       outputs[name] = { ...(prev && typeof prev === 'object' ? prev : {}), device: r.device.trim() || null }
     }
-    const od = outdoor.trim()
     if (mode === 'multi' && !Object.keys(outputs).length) { setErr('Režim multi vyžaduje aspoň jeden výstup (název + ALSA zařízení dle aplay -L).'); return }
-    if (od && mode !== 'multi') { setErr('Kanál venek vyžaduje režim multi — přepněte režim, nebo výstup venku vymažte.'); return }
-    if (od && !outputs[od]) { setErr(`Kanál venek: audio výstup '${od}' není v audio.outputs.`); return }
-    const doorWithOut = od ? (doors || []).find(d => String(d?.hw?.audio?.out ?? '').trim() === od) : null
-    if (doorWithOut) { setErr(`Kanál venek: výstup '${od}' už používá ${doorWithOut.door_kind === 'accessories' ? 'oblečení' : `kóje #${doorWithOut.box_number}`}.`); return }
-    // Přejmenování/smazání výstupu, na který se odkazují uložené dveře (stejně jako remove()) — v multi jednotka
-    // celou mapu odmítne (validate_audio: „Zóna N: audio výstup 'x' není v audio.outputs.“). V selectoru blokujeme
-    // jen nově vzniklou díru (dříve stale `out` jednotka ignoruje a editor dveří ho v selectoru neukazuje).
+    // Přejmenování/smazání výstupu, na který se odkazují uložené dveře nebo venek (stejně jako remove()) — v multi
+    // jednotka celou mapu odmítne (validate_audio: „Zóna N: audio výstup 'x' není v audio.outputs.“ / „Kanál outdoor: …“).
+    // V selectoru blokujeme jen nově vzniklou díru (dříve stale `out` jednotka ignoruje a editor dveří ho v selectoru neukazuje).
     const before = audio.outputs && typeof audio.outputs === 'object' ? audio.outputs : {}
-    const orphan = Object.entries(usage).find(([n, who]) => !outputs[n] && who.some(w => w !== 'venek') && (mode === 'multi' || n in before))
-    if (orphan) { setErr(`Výstup „${orphan[0]}“ používá ${orphan[1].filter(w => w !== 'venek').join(', ')} — nejdřív změňte výstup v mapování dveří.`); return }
-    const next = { ...audio, mode }
+    const orphan = Object.entries(usage).find(([n, who]) => !outputs[n] && who.length && (mode === 'multi' || n in before))
+    if (orphan) { setErr(`Výstup „${orphan[0]}“ používá ${orphan[1].join(', ')} — nejdřív změňte výstup v mapování dveří / bloku Venek.`); return }
+    const next = { ...audio, mode }   // `channels` (vč. legacy venku) se zde nemění — venek spravuje blok Venek
     if (Object.keys(outputs).length) next.outputs = outputs; else delete next.outputs
-    const channels = { ...(audio.channels && typeof audio.channels === 'object' ? audio.channels : {}) }
-    if (od) channels.outdoor = { ...(channels.outdoor && typeof channels.outdoor === 'object' ? channels.outdoor : {}), out: od, trigger: 'any' }
-    else delete channels.outdoor
-    if (Object.keys(channels).length) next.channels = channels; else delete next.channels
     setErr(null)
     await onSave(next)
     setDirty(false)
@@ -104,24 +89,19 @@ function AudioOutputsEditor({ hardware, doors, disabled, onSave }) {
     <div className="p-3 rounded-card" style={{ background: '#f8fcfa', border: '1px solid #d4e8e0' }}>
       <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
         <div>
-          <div className="text-[12px] font-extrabold uppercase" style={{ color: '#1a2e22' }}>Audio — režim, výstupy, kanál venek</div>
+          <div className="text-[12px] font-extrabold uppercase" style={{ color: '#1a2e22' }}>Audio — režim, výstupy</div>
           <div className="text-[11px]" style={{ color: '#6b8c7a' }}>
-            selector = 1 zesilovač + relé (výchozí). multi = každá místnost vlastní zvukový výstup (USB zvukovka / pár vícekanálové karty) a vlastní mpv — hraje současně, venek při jakémkoli kódu. Zařízení = řetězek pro mpv, např. „alsa/plughw:CARD=Box1“ (názvy karet: na jednotce „aplay -L“).
+            selector = 1 zesilovač + relé (výchozí). multi = každá místnost vlastní zvukový výstup (USB zvukovka / pár vícekanálové karty) a vlastní mpv — hraje současně, venek při jakémkoli kódu (výstup venku nastavíte v bloku Venek). Zařízení = řetězek pro mpv, např. „alsa/plughw:CARD=Box1“ (názvy karet: na jednotce „aplay -L“).
           </div>
         </div>
         <div className="flex gap-2">
           <Btn tone="blue" onClick={add} disabled={disabled}>Přidat výstup</Btn>
-          <Btn tone="gray" onClick={fillExample} disabled={disabled} title="Vyplní out1–out9 a venek = out9; režim nepřepíná">Vzor 9 výstupů (7 kójí, šatna, venek)</Btn>
+          <Btn tone="gray" onClick={fillExample} disabled={disabled} title="Vyplní out1–out9 (venek = out9 nastavíte v bloku Venek); režim nepřepíná">Vzor 9 výstupů (7 kójí, šatna, venek)</Btn>
           <Btn tone="dark" onClick={save} disabled={disabled || !dirty}>{dirty ? 'Uložit audio' : 'Uloženo'}</Btn>
         </div>
       </div>
       <div className="flex gap-2 flex-wrap items-end mb-2">
         <Select label="Režim" width={460} value={mode} options={AUDIO_MODES} onChange={v => { setMode(v); setDirty(true) }} />
-        <Select label="Kanál venek → výstup" width={200} value={outdoor} options={outOptions}
-          invalid={!!outdoor && (!names.includes(outdoor) || !multi)}
-          title={multi ? 'Venek hraje, dokud běží aspoň jedna relace (+ hudba po zavření)' : 'Kanál venek vyžaduje režim multi'}
-          onChange={v => { setOutdoor(v); setDirty(true) }} />
-        {!multi && outdoor && <Chip tone="red">venek jen v multi</Chip>}
       </div>
       {rows.length === 0 ? (
         <div className="text-[12px]" style={{ color: '#6b8c7a' }}>{multi ? 'Žádné výstupy — režim multi bez výstupů jednotka odmítne.' : 'Žádné výstupy (v režimu selector nejsou potřeba).'}</div>

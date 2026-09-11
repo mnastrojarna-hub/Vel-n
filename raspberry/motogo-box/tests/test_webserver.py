@@ -9,15 +9,19 @@ from aiohttp.test_utils import TestClient, TestServer
 
 from motogo_box import webserver, webserver_service
 from motogo_box.config import LocalConfig
-from motogo_box.models import EventKind
+from motogo_box.config_outdoor import OutdoorCfg
+from motogo_box.models import EventKind, HwRef
 from motogo_box.webserver import WebServer
 
 SERVICE_TOKEN = "svc-token-ok"
 
 
 class FakeAudio:
+    mode = "selector"
+
     def __init__(self) -> None:
         self.playing_zone: int | None = None
+        self.channels: list[str] = []
 
     async def play_zone(self, zone: int) -> bool:
         self.playing_zone = zone
@@ -25,6 +29,28 @@ class FakeAudio:
 
     async def stop(self, fade: bool = True) -> None:
         self.playing_zone = None
+
+
+class FakeAudioMulti(FakeAudio):
+    mode = "multi"
+
+    async def play_channel(self, name: str) -> bool:
+        self.channels.append(name)
+        return True
+
+    async def stop_channel(self, name: str, fade: bool = True) -> bool:
+        self.channels = [c for c in self.channels if c != name]
+        return True
+
+
+class FakeOutdoor:
+    def __init__(self) -> None:
+        self.cfg = OutdoorCfg(zone=9, light=HwRef("wav617b", 0), present=True)
+        self.light_on = False
+
+    async def set_light(self, on: bool) -> bool:
+        self.light_on = on
+        return True
 
 
 class FakeZone:
@@ -45,6 +71,7 @@ class FakeController:
         self.hardware = None
         self.last_error = None
         self.audio = FakeAudio()
+        self.outdoor = FakeOutdoor()
         self.zones = {1: FakeZone(1), 2: FakeZone(2)}
         self.calls: list[tuple] = []
         self.tick = 0
@@ -170,7 +197,7 @@ async def test_service_token_required(env):
     assert (await r.json())["ok"] is True and ctrl.calls[-1] == ("service_open", None, 2)
     r = await client.post("/api/service/light", json={"service_token": SERVICE_TOKEN, "zone": 1, "on": True})
     assert (await r.json())["ok"] is True and ctrl.zones[1].light is True
-    r = await client.post("/api/service/light", json={"service_token": SERVICE_TOKEN, "zone": 9, "on": True})
+    r = await client.post("/api/service/light", json={"service_token": SERVICE_TOKEN, "zone": 5, "on": True})
     assert r.status == 404
     r = await client.post("/api/service/music", json={"service_token": SERVICE_TOKEN, "zone": 2, "on": True})
     assert (await r.json())["ok"] is True and ctrl.audio.playing_zone == 2
@@ -178,6 +205,28 @@ async def test_service_token_required(env):
     assert (await r.json())["ok"] is True and ctrl.audio.playing_zone is None
     r = await client.post("/api/service/all_off", json={"service_token": SERVICE_TOKEN})
     assert (await r.json())["ok"] is True and ctrl.all_off_called
+
+
+async def test_service_outdoor_light_and_music(env):
+    """Zóna venku (9 = hw.outdoor.zone): světlo přes ctrl.outdoor, hudba jen v multi (kanál outdoor)."""
+    client, ctrl, *_ = env
+    r = await client.post("/api/service/light", json={"service_token": SERVICE_TOKEN, "zone": 9, "on": True})
+    assert (await r.json()) == {"ok": True, "zone": 9, "on": True, "error": None} and ctrl.outdoor.light_on is True
+    r = await client.post("/api/service/light", json={"service_token": SERVICE_TOKEN, "zone": 9, "on": False})
+    assert (await r.json())["ok"] is True and ctrl.outdoor.light_on is False and ctrl.zones[1].light is False
+    r = await client.post("/api/service/music", json={"service_token": SERVICE_TOKEN, "zone": 9, "on": True})
+    assert (await r.json()) == {"ok": False, "on": False, "zone": 9, "error": "outdoor_requires_multi"}
+    assert ctrl.audio.playing_zone is None
+    ctrl.audio = FakeAudioMulti()
+    r = await client.post("/api/service/music", json={"service_token": SERVICE_TOKEN, "zone": 9, "on": True})
+    assert (await r.json())["ok"] is True and ctrl.audio.channels == ["outdoor"] and ctrl.audio.playing_zone is None
+    r = await client.post("/api/service/music", json={"service_token": SERVICE_TOKEN, "zone": 9, "on": False})
+    assert (await r.json()) == {"ok": True, "on": False, "zone": 9} and ctrl.audio.channels == []
+    ctrl.outdoor.cfg = OutdoorCfg(zone=9, present=True)              # venek bez světla/audia = nenastaven
+    r = await client.post("/api/service/light", json={"service_token": SERVICE_TOKEN, "zone": 9, "on": True})
+    assert r.status == 404
+    r = await client.get("/api/state")
+    assert "security" not in await r.json()                            # kód je viditelný — UI blok security nečte
 
 
 async def test_restart_calls_exit(env):

@@ -9,7 +9,8 @@ přes `asyncio.Lock` a hraje vždy jen jedna zóna.
 Veřejné API: `MpvPlayer` (implementace v `mpv_player.py`), `AudioSelector`,
 `AudioController`. Režim `multi` (výstup + mpv na každou místnost) je v `audio_multi.py`;
 oba enginy sdílejí stejné rozhraní (`is_playing`, `playing_zones`, `channels_playing`,
-`sync_channels`, `reload_playlists`, `status`). Playlist cíle zóny dodává knihovna
+`sync_channels`, `play_channel`/`stop_channel`/`test_channel` — selector vrací False, viz
+`audio_channels.py`, `reload_playlists`, `status`). Playlist cíle zóny dodává knihovna
 hudby (`music_sync.MusicLibrary.playlist_for(target)`, cíl = `door:<uuid>` | `zone:<n>`);
 bez knihovny hraje legacy playlist = všechny soubory v `music_dir`.
 """
@@ -19,6 +20,7 @@ import asyncio
 import logging
 from typing import TYPE_CHECKING, Any
 
+from .audio_channels import SelectorChannelStubs
 from .config import AudioCfg
 from .models import HwRef, Zone
 from .mpv_player import MpvError, MpvPlayer
@@ -125,7 +127,7 @@ class AudioSelector:
         self.active_zone = None
 
 
-class AudioController:
+class AudioController(SelectorChannelStubs):
     """Jediný vstupní bod pro hudbu — exkluzivita zón, fade in/out, bezpečné vypnutí."""
 
     mode = "selector"
@@ -154,13 +156,6 @@ class AudioController:
     @property
     def playing_zones(self) -> list[int]:
         return [self.playing_zone] if self.playing_zone is not None else []
-
-    @property
-    def channels_playing(self) -> list[str]:
-        return []                     # selector nemá kanály bez dveří (venek nelze)
-
-    async def sync_channels(self, active_zones: list[int]) -> None:
-        """Selector kanály nemá — nic (rozhraní společné s multi)."""
 
     def update_cfg(self, cfg: AudioCfg, timings: Any = None) -> None:
         self.cfg = self.selector.cfg = cfg

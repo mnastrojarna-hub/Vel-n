@@ -1,5 +1,6 @@
 """Kompletní diagnostika pobočky (režim `full`): kroky software/config/zones/power/cameras,
-protokol (`diag_protocol`) a souhrn; bezpečnost HW testu zón (busy/fault/not_ready/zámek se nepulzuje)."""
+protokol (`diag_protocol`) a souhrn; bezpečnost HW testu zón (busy/fault/not_ready/zámek se nepulzuje).
+Venek v diagnostice: `test_diag_outdoor.py` (zde jen výchozí venek FakeCtrl v kompletním běhu)."""
 from __future__ import annotations
 
 import asyncio
@@ -91,7 +92,7 @@ async def test_full_run_report_protocol_summary(tmp_path, sim, httpsrv):
     # config
     cfg = report["config"]
     assert cfg["zones_total"] == 4 and cfg["zones"][0]["roles"]["lock"] == "wav645:0" and cfg["cameras_provided"] == 2
-    assert cfg["power_status_url"] == ctrl.power_status_url and cfg["timings_problems"] == [] and "pin_length" in cfg["security"]
+    assert cfg["power_status_url"] == ctrl.power_status_url and cfg["timings_problems"] == [] and "lockout_minutes" in cfg["security"]
     # zóny: pořadí, HW test jen v prázdných zónách, zámek se nikdy nepulzuje
     zs = {z["zone"]: z for z in report["zones"]}
     assert [z["zone"] for z in report["zones"]] == [1, 2, 3, 4] and not ctrl.io.pulses
@@ -127,6 +128,16 @@ async def test_full_run_report_protocol_summary(tmp_path, sim, httpsrv):
     assert ev.detail["mode"] == "full" and ev.detail["checks"] == s["checks"]
     st = ctrl.diagnostics.status()["last"]
     assert st["mode"] == "full" and st["zones_ok"] == 2 and st["warnings"] == len(s["warnings"])
+    # venek (FakeCtrl.outdoor: světlo wav617b[0], audio out9, selektor → tón se netestuje); do zón se nepočítá
+    o = report["outdoor"]
+    assert o["zone"] == 9 and o["tested"] and o["light_ok"] is True and o["audio_ok"] is None and o["mode"] == "selector" and ctrl.outdoor.tests == 1
+    assert o["light"] == {"ref": "wav617b[0]", "module_online": True, "coil_on": False} and o["problems"] == [] and o["skipped_reason"] is None
+    assert ids["outdoor"]["group"] and ids["outdoor"]["status"] == "ok" and ids["outdoor"]["label"] == "Venek (zóna 9)"
+    assert ids["outdoor.light"]["status"] == "ok" and ids["outdoor.audio"]["status"] == "skip" and "multi" in ids["outdoor.audio"]["message"]
+    assert s["outdoor"] == "ok" and s["zones_total"] == 4 and cfg["outdoor"] == {"zone": 9, "light": {"dev": "wav617b", "coil": 0}, "audio": {"out": "out9"},
+                                                                                  "configured": True, "present": True}
+    csec = {i["id"]: i for sec in report["protocol"] if sec["key"] == "config" for i in sec["items"]}
+    assert csec["config.outdoor"]["status"] == "ok" and csec["config.outdoor"]["value"] == "zóna 9 — světlo wav617b R1, audio out9"
 
 
 async def test_network_mode_skips_full_steps(tmp_path, sim, httpsrv):

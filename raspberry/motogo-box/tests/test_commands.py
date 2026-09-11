@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 
 from motogo_box import commands
+from motogo_box.config_outdoor import OutdoorCfg
 from motogo_box.models import HwRef, Signal, Zone, ZoneHw
 
 
@@ -42,6 +43,8 @@ class FakeZone:
 
 
 class FakeAudio:
+    mode = "selector"
+
     def __init__(self) -> None:
         self.playing_zone: int | None = None
         self.tones: list[tuple[int, int]] = []
@@ -58,6 +61,46 @@ class FakeAudio:
         return True
 
 
+class FakeAudioMulti(FakeAudio):
+    mode = "multi"
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.channels: list[str] = []
+
+    async def play_channel(self, name: str) -> bool:
+        self.channels.append(name)
+        return True
+
+    async def stop_channel(self, name: str, fade: bool = True) -> bool:
+        was = name in self.channels
+        self.channels = [c for c in self.channels if c != name]
+        return was
+
+
+class FakeOutdoor:
+    """Falešný OutdoorController (kontrakt §26): cfg, set_light, test_sequence, status."""
+
+    def __init__(self, zone: int = 9, configured: bool = True) -> None:
+        self.cfg = OutdoorCfg(zone=zone, light=HwRef("wav617b", 0) if configured else None, present=True)
+        self.light_on = False
+        self.lights: list[bool] = []
+        self.tests = 0
+        self.result: dict = {"light": True, "audio": None}
+
+    async def set_light(self, on: bool) -> bool:
+        self.lights.append(on)
+        self.light_on = on
+        return True
+
+    async def test_sequence(self) -> dict:
+        self.tests += 1
+        return dict(self.result)
+
+    def status(self) -> dict:
+        return {"zone": self.cfg.zone, "configured": self.cfg.configured, "light": self.light_on}
+
+
 class FakeSignals:
     def __init__(self, zones) -> None:
         self._zones = zones
@@ -70,6 +113,7 @@ class FakeController:
     def __init__(self) -> None:
         self.zones = {1: FakeZone(1, "door-1", 1), 2: FakeZone(2, "door-2", 2)}
         self.audio = FakeAudio()
+        self.outdoor = FakeOutdoor()
         self.signals = FakeSignals(self.zones)
         self.ui_notice = None
         self.all_off_calls = 0
@@ -201,6 +245,53 @@ async def test_handler_exception_is_reported_not_raised():
     c.zones[1].set_light = boom
     ok, res = await commands.execute(c, "light_on", {"zone": 1})
     assert not ok and "kaboom" in res["error"]
+
+
+# ─── zóna venku (outdoor, zone 9 — není dveře) ───────────────────────────────
+async def test_outdoor_light_on_off_and_zone_test():
+    c = FakeController()
+    ok, res = await commands.execute(c, "light_on", {"zone": "9"})
+    assert ok and res == {"zone": 9, "light": True, "outdoor": True} and c.outdoor.lights == [True]
+    ok, res = await commands.execute(c, "light_off", {"zone": 9})
+    assert ok and res["light"] is False and c.outdoor.lights == [True, False] and c.zones[1].light_on is False
+    ok, res = await commands.execute(c, "zone_test", {"zone": 9})
+    assert ok and res == {"zone": 9, "outdoor": True, "light": True, "audio": None} and c.outdoor.tests == 1
+    c.outdoor.result = {"light": True, "audio": False}
+    ok, res = await commands.execute(c, "zone_test", {"zone": 9})
+    assert not ok and res["audio"] is False
+    c.outdoor.result = {"light": False, "audio": None, "error": "busy"}
+    ok, res = await commands.execute(c, "zone_test", {"zone": 9})
+    assert not ok and res["error"] == "busy"
+    # venek není dveře: open_door / set_signal / audio_test → zone_not_found; nenastavený venek → zone_not_found
+    for cmd, params in (("open_door", {"zone": 9}), ("set_signal", {"zone": 9, "signal": "green"}),
+                        ("audio_test", {"zone": 9})):
+        ok, res = await commands.execute(c, cmd, params)
+        assert not ok and res["error"] == "zone_not_found", cmd
+    assert c.zones[1].grants == [] and c.audio.tones == []
+    c.outdoor = FakeOutdoor(configured=False)
+    ok, res = await commands.execute(c, "light_on", {"zone": 9})
+    assert not ok and res["error"] == "zone_not_found"
+    del c.outdoor                                                # starší controller bez venku
+    ok, res = await commands.execute(c, "light_on", {"zone": 9})
+    assert not ok and res["error"] == "zone_not_found"
+
+
+async def test_outdoor_music_requires_multi():
+    c = FakeController()
+    ok, res = await commands.execute(c, "music_on", {"zone": 9})
+    assert not ok and res == {"error": "outdoor_requires_multi", "zone": 9} and c.audio.playing_zone is None
+    ok, res = await commands.execute(c, "music_off", {"zone": 9})          # bez stop_channel → jen potvrzení
+    assert ok and res == {"zone": 9, "channel": "outdoor"}
+    c.audio = FakeAudioMulti()
+    ok, res = await commands.execute(c, "music_on", {"zone": 9})
+    assert ok and res == {"zone": 9, "channel": "outdoor"} and c.audio.channels == ["outdoor"]
+    assert c.audio.playing_zone is None                                     # nikdy reproduktor kóje
+    ok, res = await commands.execute(c, "music_off", {"zone": 9})
+    assert ok and res == {"zone": 9, "channel": "outdoor"} and c.audio.channels == []
+    ok, res = await commands.execute(c, "music_on", {"zone": 2})            # kóje dál přes play_zone
+    assert ok and c.audio.playing_zone == 2 and c.audio.channels == []
+    ok, res = await commands.execute(c, "music_on", {"door_id": "door-2", "zone": 9})   # door_id má přednost
+    assert ok and res == {"zone": 2}
 
 
 async def test_http_get_rejects_invalid_url():

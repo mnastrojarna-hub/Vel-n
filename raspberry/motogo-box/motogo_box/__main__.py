@@ -97,6 +97,9 @@ def _check_config(path: str) -> int:
     print(f"Zón: {len(hw.zones)}")
     for z in hw.zones:
         print(f"  zóna {z.number}: {z.hw.to_dict()}")
+    o = hw.outdoor
+    if o.present or o.configured:
+        print(f"  venek: {o.to_dict()} ({'nastaven' if o.configured else 'bez světla i audio výstupu'})")
     if problems:
         print("PROBLÉMY:")
         for p in problems:

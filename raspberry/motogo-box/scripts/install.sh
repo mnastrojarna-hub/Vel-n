@@ -6,7 +6,8 @@
 #   sudo ./scripts/install.sh
 # Volitelné proměnné prostředí (jinak se instalátor ptá interaktivně, pokud má terminál):
 #   MOTOGO_DEVICE_ID=<uuid>  MOTOGO_DEVICE_TOKEN=<uuid>  MOTOGO_APN=internet.t-mobile.cz
-#   MOTOGO_SIM_PIN=1234      (prázdné = SIM bez PINu; zapíše se do NM profilu motogo-lte, [gsm] pin=)
+#   MOTOGO_SIM_PIN=1234      (výchozí 1234 — PIN SIM je u všech poboček 1234; explicitně prázdné = SIM bez PINu;
+#                             zapíše se do NM profilu motogo-lte, [gsm] pin=)
 #   MOTOGO_DIAG_CODE=<kód>   (kód diagnostiky sítě z displeje, [0-9a-z-]{4,32}; při založení config.yaml se
 #                             jinak vygeneruje náhodný „diagNNNN“; existující kód se BEZ této proměnné nemění)
 #   MOTOGO_MODEM_VIDPID=1e0e:9001  (USB ID modemu → /etc/motogo/modem_vidpid pro motogo-usbreset)
@@ -186,7 +187,7 @@ else
   if [[ -n "$USB_CARD" ]]; then
     sed -i "/^audio:/,/^[a-z_]*:/ s|^  device: .*|  device: \"alsa/plughw:CARD=${USB_CARD}\"   # USB karta nalezená instalátorem (aplay -l)|" "$ETC_DIR/hardware.yaml"
   fi
-  ok "hardware.yaml = výchozí mapa Brno 9 zón${USB_CARD:+, audio.device = alsa/plughw:CARD=$USB_CARD}"
+  ok "hardware.yaml = výchozí mapa Brno 8 zón + venek${USB_CARD:+, audio.device = alsa/plughw:CARD=$USB_CARD}"
 fi
 [[ -n "$USB_CARD" ]] || warn "USB zvuková karta nenalezena (aplay -l) — připoj AXAGON kartu a nastav audio.device (Velín / hardware.yaml)"
 if (cd "$APP_DIR" && as_app "$APP_DIR/venv/bin/python" -m motogo_box check-config "$ETC_DIR/hardware.yaml" >/dev/null); then
@@ -277,9 +278,10 @@ step "9/14 Síť (NetworkManager: motogo-lte + motogo-lan)"
 systemctl enable --now NetworkManager ModemManager >/dev/null 2>&1 || true
 mkdir -p "$NM_DIR"
 # PIN SIM: bez něj zůstane modem ve stavu „locked“ a LTE nikdy nenaběhne (health hlásí lte.error=sim_locked).
+# Výchozí 1234 (PIN SIM je u všech poboček 1234; neinteraktivně bez env → 1234; explicitní MOTOGO_SIM_PIN= → bez PINu).
 pin_explicit=0; [[ -n "${MOTOGO_SIM_PIN+x}" ]] && pin_explicit=1
 cur_pin=""; [[ -f "$LTE_PROF" ]] && cur_pin="$(sed -n '/^\[gsm\]/,/^\[/ s/^pin=//p' "$LTE_PROF" | head -1)"
-(( pin_explicit )) || ask MOTOGO_SIM_PIN "PIN SIM karty (prázdné = SIM bez PINu${cur_pin:+; Enter = ponechat uložený, '-' = smazat})" "$cur_pin"
+(( pin_explicit )) || ask MOTOGO_SIM_PIN "PIN SIM karty (u všech poboček 1234; '-' = SIM bez PINu${cur_pin:+; Enter = ponechat uložený})" "${cur_pin:-1234}"
 MOTOGO_SIM_PIN="${MOTOGO_SIM_PIN:-}"; [[ "$MOTOGO_SIM_PIN" == "-" ]] && MOTOGO_SIM_PIN=""
 [[ -z "$MOTOGO_SIM_PIN" || "$MOTOGO_SIM_PIN" =~ ^[0-9]{4,8}$ ]] || die "MOTOGO_SIM_PIN musí být 4–8 číslic (nebo prázdné)"
 write_gsm_pin() {  # write_gsm_pin <profil> <pin|""> — [gsm] pin=… + pin-flags=0 (NM PIN uloží a zadá sám); prázdný = řádky pryč

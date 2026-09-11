@@ -182,7 +182,7 @@ Waveshare výslovně doporučuje pro Modbus TCP port 502 a režim non-storage ga
 | 6 | WAV645 R6 / coil 5 | WAV617-A DI6 / input 5 | WAV617-A R6 / coil 5 |
 | 7 | WAV645 R7 / coil 6 | WAV617-A DI7 / input 6 | WAV617-A R7 / coil 6 |
 | 8 | WAV645 R8 / coil 7 | WAV617-A DI8 / input 7 | WAV617-A R8 / coil 7 |
-| 9 | WAV645 R9 / coil 8 | WAV617-B DI1 / input 0 | WAV617-B R1 / coil 0 |
+| 9 = venek (bez dveří) | — (WAV645 R9 rezerva) | — (WAV617-B DI1 rezerva) | WAV617-B R1 / coil 0 = venkovní osvětlení (`outdoor.light`) |
 
 **Audio selektory**
 
@@ -196,9 +196,9 @@ Waveshare výslovně doporučuje pro Modbus TCP port 502 a režim non-storage ga
 | 6 | WAV617-B R7 |
 | 7 | WAV617-B R8 |
 | 8 | WAV645 R10 |
-| 9 | WAV645 R11 |
+| 9 = venek | — (WAV645 R11 rezerva; režim multi: výstup `out9` v bloku Venek) |
 
-WAV645 R12–R16 zůstávají rezervní.
+WAV645 R9 a R11–R16 zůstávají rezervní (rozhodnutí 2026-09-11: zóna 9 = venek bez zámku a selektoru).
 
 Použít pouze jeden kanál zesilovače jako mono: všechny záporné vodiče reproduktorů na jeden výstup SPK−; kladný výstup SPK+ vést přes devět samostatných NO relé; současně smí být sepnutý maximálně jeden audio selektor.
 
@@ -214,8 +214,8 @@ Použít pouze jeden kanál zesilovače jako mono: všechny záporné vodiče re
 | 6 | Shelly 3, light:0 | Shelly 3, light:1 |
 | 7 | Shelly 3, light:2 | Shelly 3, light:3 |
 | 8 | Shelly 3, light:4 | Shelly 4, light:0 |
-| 9 | Shelly 4, light:1 | Shelly 4, light:2 |
-| rezerva | Shelly 4, light:3 | Shelly 4, light:4 |
+| 9 = venek | — (Shelly 4 light 1–2 rezerva) | — |
+| rezerva | Shelly 4, light:1, light:3 | Shelly 4, light:2, light:4 |
 
 ## 6. Modbus rozhraní pro program
 
@@ -273,10 +273,12 @@ Doporučená signalizace:
 | Kóje zabezpečená | 100 % | 0 % |
 | Přístup povolen | 0 % | 100 % |
 | Dveře otevřené | 0 % | 100 % |
-| Čekání na zavření | 0 % | pulzování |
+| Čekání na zavření | 0 % | 100 % |
 | Porucha kontaktu | blikání | 0 % |
 | I/O modul nedostupný | blikání | blikání |
 | Raspberry nenaběhlo | stav podle posledního hardwarového stavu; při startu se resetuje | |
+
+Rozhodnutí 2026-09-11: zelená svítí trvale od zadání kódu až do zavření; pulzuje jen při překročení maximální doby (§9).
 
 ## 8. Připojení periferií Raspberry
 
@@ -349,7 +351,6 @@ PIN neukládat v čistém textu. Protože šest číslic lze snadno projet hrubo
 maximum_failed_attempts: 5
 attempt_window_minutes: 5
 lockout_minutes: 15
-mask_pin_on_screen: true
 store_plain_pin: false
 ```
 
@@ -358,7 +359,7 @@ store_plain_pin: false
 | Služba | Funkce |
 |---|---|
 | motogo-ui.service | Dotykové zákaznické rozhraní |
-| motogo-controller.service | Stavový automat všech devíti zón |
+| motogo-controller.service | Stavový automat všech zón (kóje, šatna) + venek |
 | motogo-modbus.service | WAV645/WAV617 komunikace |
 | motogo-lighting.service | Shelly HTTP řízení |
 | motogo-audio.service | Hudba a audio selektor |
@@ -425,15 +426,29 @@ Další pravidla: nikdy nedržet zámek trvale pod napětím; nikdy neaktivovat 
   (stav dveří nelze zjistit). Offline modul zámku/světla/Shelly během otevřené kóje = relace pokračuje
   (`degraded`, zákazník není zamčen uvnitř bez světla kvůli sítí), nový přístup je zamítnut; porucha
   se vyhlásí po skončení relace.
-- **K rozhodnutí — signalizace při otevřených dveřích:** §7 tabulka uvádí „Čekání na zavření: zelená
-  pulzuje“, §9 „Dveře se otevřou: ponechat zelenou“. Program drží zelenou TRVALE a pulzuje až při
-  překročení maximální doby (overtime). Pokud má zelená pulzovat po celou dobu otevření, změnit
-  `zone.py` (`Signal.GREEN_PULSE` po `DOOR_OPENED`).
-- **K rozhodnutí — vzdálené upozornění (§9 overtime, FORCED_OPEN):** události jdou do `kiosk_logs`
-  (Velín → Diagnostika chyb & událostí) a do stavu zóny; push/e-mail/SMS notifikace obsluze NENÍ
-  implementována (backend nemá kanál pro provozní alerty). Návrh: edge funkce nad `kiosk_logs`
-  (level=warn/error) → e-mail přes Resend na kontakt pobočky.
+- **Rozhodnuto 2026-09-11 — signalizace při otevřených dveřích: trvale (program beze změny).** Zelená svítí
+  trvale od zadání kódu až do zavření dveří a pulzuje až při překročení maximální doby (overtime); §7 tabulka upravena.
+- **Rozhodnuto 2026-09-11 — vzdálené upozornění (§9 overtime, FORCED_OPEN): zatím ne (jen `kiosk_logs` + Velín).**
+  Události jdou do `kiosk_logs` (Velín → Diagnostika chyb & událostí) a do stavu zóny; push/e-mail/SMS notifikace
+  obsluze se zatím neimplementuje (případný návrh: edge funkce nad `kiosk_logs` level=warn/error → e-mail přes Resend).
 - **K rozhodnutí — jedna služba místo sedmi (§11):** controller sdružuje modbus/lighting/audio/sync
   (viz poznámka pod tabulkou §11). Chce-li uživatel izolaci (pád audio/sync vrstvy bez restartu
   stavových automatů), je třeba rozdělit aspoň sync/web a audio do samostatných unit s IPC.
-- `security.pin_length` v config.yaml je jen informativní (délku kódů určuje Velín / `kiosk_resolve_code`).
+
+### Rozhodnutí uživatele (2026-09-11)
+
+- **Kód na displeji je viditelný** — zadávané znaky se zobrazují (žádné maskování tečkami; platí pro kód rezervace, servisní
+  heslo i diagnostický kód). `security.mask_pin_on_screen` a `security.pin_length` odstraněny z konfigurace (délku kódů určuje
+  Velín / `kiosk_resolve_code`); starší mapy s těmito klíči jednotka ignoruje.
+- **Zelená signalizace svítí trvale** od zadání kódu až do zavření dveří (pulzuje jen při překročení maximální doby, §7/§9).
+- **Vzdálené upozornění obsluze (overtime, FORCED_OPEN): zatím ne** — jen `kiosk_logs` + Velín.
+- **8 jazyků displeje je finální** (CS/EN/DE/ES/FR/NL/PL/UK, bez slovenštiny).
+- **Zóna 9 = venek** — venkovní prostor před displejem + venkovní osvětlení. Není to dveře (bez zámku, kontaktu, signalizace,
+  rezervací a dlaždice na displeji): nová sekce HW mapy `outdoor {zone: 9, light: {dev: wav617b, coil: 0}, audio: {out: out9},
+  light_after_close_s}` (Velín → hardware → blok „Venek“). Světlo svítí od prvního zadaného kódu do doběhu po poslední relaci,
+  hudba venku hraje při jakémkoli kódu (jen režim `multi`; starší `audio.channels.outdoor` z rozhodnutí 2026-09-10 = alias).
+  Šablona Brno = 8 zón (7 kójí + šatna) + venek; WAV645 R9/R11, WAV617-B DI1 a Shelly 4 light 1–2 jsou rezerva (§5).
+- **PIN SIM je u všech poboček vždy 1234** (výchozí hodnota `install.sh`, `MOTOGO_SIM_PIN`).
+- **Limit Storage 200 MB na soubor hudby potvrzen.**
+- **Secrety zálohy (GitHub Actions) doplní uživatel sám.**
+- **Jedna služba místo sedmi (§11)** zůstává otevřené — uživatel si vyžádal seznam služeb.

@@ -145,11 +145,7 @@ window.MG = window.MG || {};
     if (el.className !== cls) el.className = cls;
   }
 
-  /* ── Zadávání kódu ────────────────────────────────────────────────── */
-  function masked() {
-    const sec = (S.state && S.state.security) || {};
-    return sec.mask_pin_on_screen !== false;
-  }
+  /* ── Zadávání kódu (znaky viditelné — rozhodnutí 2026-09-11, žádné maskování tečkami) ── */
   function pinTimeoutMs() {
     const t = S.state && S.state.timings && Number(S.state.timings.pin_entry_timeout_s);
     return (t > 0 ? t : 20) * 1000;
@@ -157,7 +153,7 @@ window.MG = window.MG || {};
   function paintEntry() {
     const box = $('code-box');
     if (!S.entry) { box.textContent = '— — — — — —'; box.classList.add('empty'); }
-    else { box.textContent = masked() ? '●'.repeat(S.entry.length) : S.entry.toUpperCase(); box.classList.remove('empty'); }
+    else { box.textContent = S.entry.toUpperCase(); box.classList.remove('empty'); }
   }
   function armPinTimeout() {
     clearTimeout(S.pinTimer);

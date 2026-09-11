@@ -3,6 +3,7 @@
 vykreslují jako protokol; `build_summary(report, protocol)` = souhrn (zpětně kompatibilní klíče
 ok/problems/hosts/internet/lte/devices_ok/devices_total + warnings/checks/zones_*/mode).
 Texty česky, konkrétně (zařízení, kanál, IP) — technik z nich pozná, kde je problém a co s tím.
+Venek (zóna bez dveří): položky a `summary.outdoor` staví `diag_outdoor.py` (lokální import — cyklus).
 """
 from __future__ import annotations
 
@@ -20,6 +21,13 @@ SKIP_CZ = {"session_active": "v kóji běží relace", "zone_test_disabled": "HW
            "timeout": "došel časový limit diagnostiky"}
 ROLE_CZ = {"light": "světlo", "signal": "signalizace", "audio": "audio", "contact": "dveřní kontakt", "lock": "zámek",
            "shelly": "Shelly signalizace", "fault": "porucha", "io": "I/O", "test": "HW test"}
+
+
+def _outdoor():
+    from . import diag_outdoor      # lokální import — diag_outdoor používá item/RANK/SKIP_CZ odtud
+    return diag_outdoor
+
+
 def item(id_: str, label: str, status: str, value: Any = None, message: str = "", hint_: str | None = None) -> dict:
     d = {"id": id_, "label": label, "status": status if status in RANK else "warn", "value": value, "message": message}
     if d["status"] in ("warn", "fail"):
@@ -244,6 +252,8 @@ def _config(r: dict) -> dict | None:
                    f"relace {t.get('maximum_session_s')} s, světlo {t.get('light_after_close_s')} s, hudba {t.get('music_after_close_s')} s"))
     for i, tp in enumerate(c.get("timings_problems") or []):
         it.append(item(f"config.timing.{i}", "Časování mimo rozsah", "warn", None, tp, hint("timings")))
+    if (venek := _outdoor().config_item(c)) is not None:
+        it.append(venek)
     return section("config", "Konfigurace pobočky", it)
 
 
@@ -251,9 +261,7 @@ def _zones(r: dict) -> dict | None:
     if (sec := _missing("zones", "Zóny a periferie", r, "zones")) is None or sec["items"]:
         return sec
     zs = r["zones"]
-    if not zs:
-        return section("zones", "Zóny a periferie", [item("zones.none", "Zóny", "warn", 0, "Žádné zóny (nespárováno / bez HW mapy).", hint("no_zones"))])
-    it: list[dict] = []
+    it: list[dict] = [] if zs else [item("zones.none", "Zóny", "warn", 0, "Žádné zóny (nespárováno / bez HW mapy).", hint("no_zones"))]
     for z in zs:
         n, label, f = z.get("zone"), z.get("label") or f"Zóna {z.get('zone')}", z.get("findings") or []
         worst = max((RANK.get(x.get("status"), 0) for x in f), default=0)
@@ -272,6 +280,7 @@ def _zones(r: dict) -> dict | None:
             used[key] = used.get(key, 0) + 1
             it.append(item(f"zone.{n}.{key}" + (f".{used[key]}" if used[key] > 1 else ""), f"{label} — {ROLE_CZ.get(key, key)}", x.get("status") or "warn",
                            None, str(x.get("message") or ""), hint(f"zone.{key}", dev=x.get("dev") or "?", ch=x.get("ch") or "?")))
+    it += _outdoor().items(r)             # skupina „Venek (zóna N)“ za zónami; bez venku nic
     return section("zones", "Zóny a periferie", it)
 
 
@@ -357,7 +366,7 @@ def build_summary(report: dict, protocol: list[dict]) -> dict:
     if ((r.get("steps") or {}).get("zones") or {}).get("error") == "timeout":      # krok nedoběhl → celkem zón z konfigurace
         zones_total = max(zones_total, int(cfg.get("zones_total") or 0))
     return {"ok": not problems, "problems": problems, "warnings": warnings, "checks": checks, "mode": r.get("mode") or "network",
-            "zones_total": zones_total, "zones_tested": sum(1 for z in zs if z.get("tested")),
+            "zones_total": zones_total, "zones_tested": sum(1 for z in zs if z.get("tested")), "outdoor": _outdoor().summary(r),
             "zones_ok": sum(1 for z in zs if not any(f.get("status") == "fail" for f in z.get("findings") or [])),
             "hosts": len(lan.get("hosts") or []), "internet": bool(inet.get("ok")), "lte": lte.get("state"),
             "devices_ok": sum(1 for d in r.get("devices") or [] if d.get("reachable")), "devices_total": len(r.get("devices") or []),

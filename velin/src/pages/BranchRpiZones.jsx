@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { EmptyState } from './BranchHelpers'
 import { RpiSection, Btn, Chip, ErrorBoundary, formatUptime, ageSeconds, formatAge, txt, num, arr, isRpiDevice } from './BranchRpiUi'
+import { OutdoorTile } from './BranchRpiOutdoorTile'
 
 // ─── Řídicí jednotka (Raspberry) — živý stav zón + příkazy ──────────────────
 // Zdroj: kiosk_devices.status (snapshot z kontraktu §14, RPC kiosk_report_status),
@@ -97,6 +98,7 @@ function RpiDeviceCard({ dev, doors, now, onCommand }) {
   const statusAge = ageSeconds(dev.status_at, now)
   const stale = statusAge == null || statusAge > STALE_S
   const zones = arr(st.zones).filter(z => z && typeof z === 'object').sort((a, b) => (num(a.zone) ?? 0) - (num(b.zone) ?? 0))
+  const outdoor = st.outdoor && typeof st.outdoor === 'object' && !Array.isArray(st.outdoor) && st.outdoor.configured === true ? st.outdoor : null   // venek (zóna bez dveří)
   const modules = st.modules && typeof st.modules === 'object' && !Array.isArray(st.modules) ? Object.entries(st.modules) : []
   const health = st.health && typeof st.health === 'object' ? st.health : {}
   const lte = health.lte && typeof health.lte === 'object' ? health.lte : {}
@@ -183,6 +185,12 @@ function RpiDeviceCard({ dev, doors, now, onCommand }) {
         ) : (
           <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))' }}>
             {zones.map((z, i) => <ZoneTile key={`${txt(z.zone)}-${txt(z.door_id)}-${i}`} z={z} door={doorMap[z.door_id]} onSend={send} onConfirm={confirmSend} />)}
+          </div>
+        )}
+        {/* Venek (zóna bez dveří) — za mřížkou zón, jen když je v HW mapě nastaven */}
+        {hasStatus && outdoor && (
+          <div className="grid gap-2 mt-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))' }}>
+            <OutdoorTile o={outdoor} onSend={send} />
           </div>
         )}
       </div>

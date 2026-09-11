@@ -231,19 +231,26 @@ async def test_enable_relays_and_all_off():
 
 def test_build_audio_multi_and_signature():
     d = load_hardware_file(HW_FILE)
+    # legacy alias `audio.channels.outdoor` (relé wav645 coil 10 = R11 rezerva) → doplní `outdoor.audio`
     d["audio"].update({"mode": "multi", "outputs": {f"out{i}": {"device": f"alsa/plughw:CARD=Box{i}"} for i in range(1, 10)},
                        "channels": {"outdoor": {"out": "out9", "trigger": "any", "dev": "wav645", "coil": 10}}})
-    for i, z in enumerate(d["zones"][:8], start=1):
+    for i, z in enumerate(d["zones"][:7], start=1):
         z["audio"] = {"out": f"out{i}"}
-    d["zones"][8]["audio"] = {"out": "out8", "dev": "wav645", "coil": 9}      # sdílený výstup → build ho přeskočí? ne — validace
+    d["zones"][7]["audio"] = {"out": "out8", "dev": "wav645", "coil": 9}      # šatna: výstup + enable relé (R10)
     hw = HardwareConfig.from_dict(d)
     assert hw.zones[0].hw.audio_out == "out1" and hw.zones[0].hw.audio is None
-    assert hw.zones[8].hw.audio == HwRef("wav645", 9) and hw.zones[8].hw.to_dict()["audio"] == {"dev": "wav645", "coil": 9, "out": "out8"}
+    assert hw.zones[7].hw.audio == HwRef("wav645", 9) and hw.zones[7].hw.to_dict()["audio"] == {"dev": "wav645", "coil": 9, "out": "out8"}
+    assert hw.outdoor.audio_out == "out9" and hw.outdoor.audio == HwRef("wav645", 10) and hw.outdoor.light == HwRef("wav617b", 0)
     eng = build_audio(hw, LocalConfig(), None, None)
     assert isinstance(eng, AudioMulti) and set(eng.players) == {f"out{i}" for i in range(1, 10)}
     assert eng.players["out3"].socket_path.endswith("mpv.sock.out3") and eng.players["out3"].name == "out3"
     assert eng.channel_out == {"outdoor": "out9"} and eng.relays["outdoor"] == HwRef("wav645", 10)
-    assert eng.relays[9] == HwRef("wav645", 9) and eng.targets[1] == "zone:1"
+    assert eng.relays[8] == HwRef("wav645", 9) and eng.targets[1] == "zone:1"
+    d["audio"].pop("channels")                                            # kanonický tvar dává stejný engine
+    d["outdoor"]["audio"] = {"out": "out9", "dev": "wav645", "coil": 10}
+    eng2 = build_audio(HardwareConfig.from_dict(d), LocalConfig(), None, None)
+    assert eng2.channel_out == eng.channel_out and eng2.relays == eng.relays
+    assert audio_signature(HardwareConfig.from_dict(d).audio) == audio_signature(hw.audio)
     sig = audio_signature(hw.audio)
     assert sig[0] == "multi" and sig != audio_signature(HardwareConfig.from_dict(load_hardware_file(HW_FILE)).audio)
     sel = build_audio(HardwareConfig.from_dict(load_hardware_file(HW_FILE)), LocalConfig(), None, None)
@@ -285,3 +292,69 @@ def test_build_audio_drops_relays_on_lock_or_light_coils(caplog):
         eng = build_audio(hw, LocalConfig(), None, None)
     assert isinstance(eng, AudioMulti) and eng.relays == {2: HwRef("wav645", 15)}
     assert sum("koliduje se zámkem/světlem" in r.message for r in caplog.records) == 2
+    d["audio"]["channels"] = {"outdoor": {"out": "out9", "dev": "wav617b", "coil": 0}}   # = venkovní světlo (outdoor.light)
+    with caplog.at_level("ERROR", logger="motogo.audio"):
+        eng = build_audio(HardwareConfig.from_dict(d), LocalConfig(), None, None)
+    assert "outdoor" not in eng.relays and eng.channel_out == {"outdoor": "out9"}
+
+
+async def test_manual_channel_play_stop_and_sessions():
+    """Ruční start venku drží do stop_channel; relace ruční režim ruší; stop_channel bez relace = ticho."""
+    eng, players, clock = _rig()
+    await eng.start()
+    assert await eng.play_channel("chodba") is False and await eng.stop_channel("chodba") is False
+    assert await eng.play_channel("outdoor") is True
+    ch = eng.channels["out9"]
+    assert eng.channels_playing == ["outdoor"] and ch.manual is True and eng.status()["players"]["out9"]["manual"] is True
+    await eng.sync_channels([])
+    clock.t += 1000
+    await eng.sync_channels([])                          # bez relací se ručně spuštěný kanál nezastaví
+    await eng.wait_fade()
+    assert eng.channels_playing == ["outdoor"] and ch.off_at is None
+    await eng.sync_channels([2])                         # relace → automatický režim
+    assert ch.manual is None and eng.channels_playing == ["outdoor"]
+    assert await eng.stop_channel("outdoor") is True
+    assert eng.channels_playing == [] and ch.manual is False
+    await eng.sync_channels([])
+    clock.t += 100
+    await eng.sync_channels([])
+    await eng.wait_fade()
+    assert eng.channels_playing == []                    # ručně zastavený se bez relace sám nespustí
+    await eng.sync_channels([1])                         # nová relace ho spustí
+    await eng.wait_fade()
+    assert eng.channels_playing == ["outdoor"] and ch.manual is None
+    await eng.sync_channels([])
+    clock.t += 10
+    await eng.sync_channels([])
+    await eng.wait_fade()
+    assert eng.channels_playing == [] and ch.manual is None
+    assert await eng.stop_channel("outdoor") is False    # nehraje → False, ale manual=False
+    assert ch.manual is False
+    await eng.play_channel("outdoor")
+    await eng.all_off()
+    assert ch.manual is None and eng.channels_playing == []
+
+
+async def test_test_channel_only_on_channel_output():
+    eng, players, _ = _rig()
+    await eng.start()
+    for p in players.values():
+        p.log.clear()
+    assert await eng.test_channel("outdoor", 0) is True
+    assert ("play",) in players["out9"].log and players["out9"].log[-2:] == [("fade", 0, 5), ("pause",)]
+    assert ("play",) not in players["out1"].log and ("play",) not in players["out2"].log
+    assert eng.channels_playing == [] and eng.channels["out9"].manual is None
+    assert await eng.test_channel("chodba", 0) is False
+    eng2, _, _ = _rig(lists={"all": []})
+    await eng2.start()
+    assert await eng2.test_channel("outdoor", 0) is False   # prázdný playlist
+
+
+async def test_selector_channel_stubs():
+    from motogo_box.audio import AudioController, AudioSelector
+    from motogo_box.config import AudioCfg as _AudioCfg
+    player = FakePlayer("mpv")
+    sel = AudioController(player, AudioSelector(FakeBus(), [], _AudioCfg()), _AudioCfg(), None, [])
+    assert sel.channels_playing == [] and await sel.play_channel("outdoor") is False
+    assert await sel.stop_channel("outdoor") is False and await sel.test_channel("outdoor", 1) is False
+    await sel.sync_channels([1])

@@ -51,12 +51,14 @@ def hw_signature(hw: HardwareConfig) -> str:
     """Podpis částí konfigurace, které se nedají změnit za běhu → nutná přestavba HW vrstvy.
 
     Zařízení, zóny, polling (timeouty/retry Modbus klientů), polarita kontaktů
-    (`closed_level` — změna za běhu by invertovala stav dveří uprostřed relací) a
-    zvukové zařízení mpv (`--audio-device` se nastavuje při startu přehrávače).
+    (`closed_level` — změna za běhu by invertovala stav dveří uprostřed relací),
+    zvukové zařízení mpv (`--audio-device` se nastavuje při startu přehrávače) a relé
+    venkovního světla (`outdoor.light` — staré relé musí přestavba bezpečně vypnout).
     """
     zones = [[z.hw.to_dict(), z.door_id] for z in hw.zones]
+    outdoor_light = getattr(getattr(hw, "outdoor", None), "light", None)
     return json.dumps([hw.raw.get("devices"), zones, hw.raw.get("polling"), hw.contacts_closed_level,
-                       hw.audio.device], sort_keys=True, default=str)
+                       hw.audio.device, str(outdoor_light)], sort_keys=True, default=str)
 
 
 def door_value(io: "IoBus", hw: HardwareConfig, zc: "ZoneController", snapshot: dict) -> bool | None:
