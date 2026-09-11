@@ -134,6 +134,7 @@ class CatalogFilter {
   final String? category;
   final String? licenseGroup;
   final String? branch;
+  final int? minPowerKw;
   final int? maxPowerKw;
   final List<String> usageTags;
   final DateTime? startDate;
@@ -143,6 +144,7 @@ class CatalogFilter {
     this.category,
     this.licenseGroup,
     this.branch,
+    this.minPowerKw,
     this.maxPowerKw,
     this.usageTags = const [],
     this.startDate,
@@ -153,6 +155,7 @@ class CatalogFilter {
     String? Function()? category,
     String? Function()? licenseGroup,
     String? Function()? branch,
+    int? Function()? minPowerKw,
     int? Function()? maxPowerKw,
     List<String>? usageTags,
     DateTime? Function()? startDate,
@@ -162,6 +165,7 @@ class CatalogFilter {
       category: category != null ? category() : this.category,
       licenseGroup: licenseGroup != null ? licenseGroup() : this.licenseGroup,
       branch: branch != null ? branch() : this.branch,
+      minPowerKw: minPowerKw != null ? minPowerKw() : this.minPowerKw,
       maxPowerKw: maxPowerKw != null ? maxPowerKw() : this.maxPowerKw,
       usageTags: usageTags ?? this.usageTags,
       startDate: startDate != null ? startDate() : this.startDate,
@@ -192,6 +196,8 @@ class CatalogFilter {
         if (!motoGroups.any(covered.contains)) return false;
       }
 
+      // Výkon od–do (posuvník na domů = rozsah, dropdown v hledání = jen max).
+      if (minPowerKw != null && (m.powerKw ?? 0) < minPowerKw!) return false;
       if (maxPowerKw != null && (m.powerKw ?? 0) > maxPowerKw!) return false;
       if (branch != null && m.branchId != branch) return false;
 
