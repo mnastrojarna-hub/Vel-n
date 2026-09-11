@@ -288,3 +288,33 @@ async def test_reboot_with_wait_idle_is_scheduled_via_updater(tmp_path):
     c.active = []
     await c.updater.wait()
     assert runner.calls == [["sudo", "systemctl", "reboot"]] and c.updater.state == "rebooting"
+
+
+class _UnkillableProc:
+    """Nezabitelný sudo (root) potomek: `kill()` hází PermissionError, `communicate()` nikdy neskončí."""
+
+    returncode = None
+
+    def __init__(self) -> None:
+        self.kill_calls = 0
+
+    async def communicate(self):
+        await asyncio.sleep(3600)
+
+    def kill(self) -> None:
+        self.kill_calls += 1
+        raise PermissionError(1, "Operation not permitted")
+
+
+async def test_run_timeout_survives_unkillable_sudo_child(monkeypatch):
+    """A10: timeout na sudo potomkovi → 'timeout' (ne EPERM z proc.kill), volání se nevyhodí."""
+    proc = _UnkillableProc()
+
+    async def fake_exec(*argv, **kw):
+        return proc
+
+    monkeypatch.setattr(commands.asyncio, "create_subprocess_exec", fake_exec)
+    monkeypatch.setattr(commands, "SUBPROCESS_TIMEOUT_S", 0.05)
+    ok, detail = await commands._run("sudo", "systemctl", "reboot")
+    assert ok is False and detail == {"error": "timeout", "argv": ["sudo", "systemctl", "reboot"]}
+    assert proc.kill_calls == 1

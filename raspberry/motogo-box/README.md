@@ -6,7 +6,8 @@ nastavují výhradně ve Velíně (první nasazení: 9zónový box Brno — jeho
 **Flow zákazníka, texty, servisní heslo i napojení na Velín zůstávají stejné** — mění se
 hardwarová vrstva: místo Shelly relé volaných z tabletu řídí Raspberry Pi přes Modbus TCP
 (Waveshare WAV645/WAV617) zámky, světla a dveřní kontakty, přes Shelly Pro RGBWW PM
-červenou/zelenou signalizaci a přes mpv + reléový selektor hudbu v konkrétní kóji.
+červenou/zelenou signalizaci a hudbu v konkrétní kóji (mpv + reléový selektor, nebo v režimu `multi`
+vlastní zvukový výstup každé místnosti — 7 kójí, šatna, venek; skladby z Velína, viz „Hudba“).
 Zadání: `SPEC.md`; rozhraní modulů: `CONTRACT.md`; zapojení a tabulky I/O: `HARDWARE.md`.
 
 ## Co program dělá
@@ -14,7 +15,8 @@ Zadání: `SPEC.md`; rozhraní modulů: `CONTRACT.md`; zapojení a tabulky I/O: 
 1. Zákazník zadá **kód k oblečení** → otevře se kóje s oblečením (kind `accessories`).
 2. Po zavření zadá **kód k motorce** → otevře se kóje konkrétní motorky (`box_number` → zóna).
 3. Při otevření se v kóji **rozsvítí bílé světlo, signalizace přejde na zelenou a začne hrát hudba**
-   (jen v té kóji). Po zavření dveří hudba doběhne (10 s) a světlo zhasne (30 s), svítí červená.
+   (skladby přiřazené té kóji ve Velíně → „Hudba pobočky“; v režimu `multi` hraje zároveň i venek).
+   Po zavření dveří hudba doběhne (10 s) a světlo zhasne (30 s), svítí červená.
 4. **Servisní heslo** (Velín → Samoobsluha → Servisní hesla) otevře servisní panel: otevřít
    libovolné dveře, světlo/hudba per zóna, Vše vypnout, stav zařízení, přepárování, restart.
 
@@ -29,8 +31,8 @@ Program je ověří přes RPC `kiosk_resolve_code`; při výpadku internetu prot
 800ms impulz** (WAV645 flash-on) — nikdy nezůstane pod napětím, ani při pádu programu.
 Dveře neotevřené do 30 s → relace končí (OPEN_TIMEOUT, kód lze použít znovu). Dveře
 otevřené > 10 min → zelená pulzuje, hudba stop, upozornění do Velína (10/20/30 min).
-Více kójí smí být otevřených současně (rozhodnutí §13.7); hudba hraje vždy jen v poslední
-otevřené, pulzy zámků se nikdy nepřekrývají.
+Více kójí smí být otevřených současně (rozhodnutí §13.7); v režimu `selector` hraje hudba jen v poslední
+otevřené, v režimu `multi` v každé otevřené kóji (+ venek); pulzy zámků se nikdy nepřekrývají.
 
 ## Architektura procesů
 
@@ -38,27 +40,43 @@ otevřené, pulzy zámků se nikdy nepřekrývají.
 |---|---|---|
 | `motogo-controller.service` | `python -m motogo_box controller` | Modbus I/O, Shelly, audio, stavové automaty zón, Supabase (heartbeat, sync, příkazy, status), lokální web+WS pro UI (`127.0.0.1:8080`), systemd watchdog |
 | `motogo-health.service` | `python -m motogo_box health` | LTE watchdog (ModemManager/NetworkManager → reconnect → USB reset modemu → reboot), teplota/throttling/disk/RAM → `POST /api/health` |
-| `motogo-ui.service` | `cage -- chromium --kiosk http://127.0.0.1:8080/` | Dotykové UI na EDATEC 1920×1080 (Wayland kiosk na tty7, skript `scripts/kiosk-ui.sh`) |
+| `motogo-ui.service` | `cage -- chromium --kiosk http://127.0.0.1:8080/` | Dotykové UI na EDATEC (responzivní 100vw×100vh, světlé téma MotoGo24 — viz „Displej“; Wayland kiosk na tty7, skript `scripts/kiosk-ui.sh`) |
 
 Lokální data: SQLite `/var/lib/motogo/motogo.db` (cache kódů, fronta neodeslaných událostí,
 PIN lockout, posledních 5000 událostí), stav health `/var/lib/motogo/health.json`.
+
+## Displej (dotykové UI)
+
+`motogo_box/ui/` (vanilla JS, offline). Od 2026-09-10 **responzivní rozložení 100vw × 100vh** pro široké a nízké
+dotykové displeje (žádné pevné 1920×1080; ověřeno 1920×1080, 2560×1080, 1920×720, 3840×1080, 1280×400) a **světlý
+design MotoGo24** (barvy webu/appky, logo `ui/logo-light.svg`). Hlavička: logo, lišta 8 jazyků (vždy viditelná, návrat
+do češtiny po nečinnosti), **název pobočky** a tečka online. Tělo ve třech sloupcích: výzva + vysvětlivky („Kód najdete
+v aplikaci MotoGo24 — v detailu rezervace a ve zprávách — nebo v potvrzovacím e‑mailu.“ / „Kód k výbavě otevře šatnu ·
+kód k motorce otevře vaši garáž s vaší motorkou.“) + pole kódu | klávesnice (numerická / „ABC“ pro servisní hesla,
+velikost kláves podle místa, vždy ≥ 48 px, nic se nepřekrývá) | dlaždice zón („Šatna“, „Kóje N“; 1–2 sloupce).
+Servisní panel, setup a diagnostika zůstávají tmavé overlaye (`ui/style-overlays.css`), použitelné i na nízkém displeji.
+**Název pobočky se bere VÝHRADNĚ z Velína → Pobočky (`name`)** — není-li vyplněný, zůstává místo v hlavičce prázdné
+(žádný náhradní text). Texty všech 8 jazyků: `ui/i18n.js`.
 
 ## Co se nastavuje kde (Velín vs. Raspberry)
 
 **Vše o hardwaru se nastavuje ve Velíně** → Pobočky → Samoobsluha → **„Řídicí jednotka (Raspberry)"**:
 - `branch_kiosk_config.hardware` (jsonb) — zařízení (IP Waveshare/Shelly), časování, polling,
-  polarita kontaktů (`contacts.closed_level`), bezpečnost (PIN lockout), audio, signalizace;
-- `branch_doors.hw` (jsonb per dveře) — mapa zóny: zámek (coil), kontakt (input), světlo, audio relé,
-  červená/zelená (Shelly light id). Tlačítko „Načíst výchozí mapu (šablona Brno, 9 zón)" předvyplní SPEC §5 — jiná pobočka
-  si mapu upraví (jiný počet zón, jiné adresy);
+  polarita kontaktů (`contacts.closed_level`), bezpečnost (PIN lockout), **audio** (sekce „Audio“: režim `audio.mode`
+  `selector`/`multi`, `device` selektoru, `outputs` = pojmenované ALSA výstupy dle `aplay -L`, kanál venek), signalizace;
+- `branch_doors.hw` (jsonb per dveře) — mapa zóny: zámek (coil), kontakt (input), světlo, audio (relé selektoru, v režimu
+  `multi` výstup `audio.out` + volitelné enable relé), červená/zelená (Shelly light id). Tlačítko „Načíst výchozí mapu
+  (šablona Brno, 9 zón)" předvyplní SPEC §5 — jiná pobočka si mapu upraví (jiný počet zón, jiné adresy);
+- **hudba** — blok **„Hudba pobočky“**: nahrání skladeb přetažením a přiřazení kóji / šatně / venku / společné
+  (`branch_music_tracks` + bucket `branch-music`); jednotka si soubory stáhne sama (viz „Hudba“);
 - servisní hesla, zařízení (ID + token), kamery, měnič FV — beze změny oproti tabletu.
 Program si konfiguraci stahuje každých 60 s (`kiosk_sync_config`) a při změně zařízení/zón
 bezpečně přestaví I/O (vše vypnout → nové zóny).
 
 **Na Raspberry se lokálně nastavuje jen:**
 - `/etc/motogo/config.yaml` — Supabase URL/anon key, ID + token zařízení (nebo párování z UI),
-  cesty, intervaly, sekce `health` (LTE watchdog) a `diagnostics` (kód pro diagnostiku sítě
-  z displeje, porty/podsítě scanu); vzor `config/config.example.yaml`;
+  cesty, intervaly, sekce `health` (LTE watchdog) a `diagnostics` (kód pro diagnostiku pobočky
+  z displeje, porty/podsítě scanu, limity běhu, `zone_test`); vzor `config/config.example.yaml`;
 - `/etc/motogo/hardware.yaml` — **výchozí** HW mapa (kopie `config/brno-9zone.yaml`), použije se
   jen dokud Velín nepošle vlastní; Velín má vždy přednost.
 
@@ -71,14 +89,17 @@ bezpečně přestaví I/O (vše vypnout → nové zóny).
    cd raspberry/motogo-box
    sudo MOTOGO_APN=internet.t-mobile.cz ./scripts/install.sh
    ```
-   Instalátor je idempotentní (13 kroků): nainstaluje balíčky (python3-venv, mpv, cage, chromium,
+   Instalátor je idempotentní (14 kroků): nainstaluje balíčky (python3-venv, mpv, cage, chromium,
    network-manager, modemmanager, alsa-utils, rsync, kbd, polkitd, unattended-upgrades), vytvoří uživatele `motogo`,
    zkopíruje program do `/opt/motogo` (venv + pip — bez internetu jen varuje a pokračuje) a root-owned kopie
    `motogo-update` / `motogo-usbreset` / `motogo-sysupdate` do `/usr/local/sbin` (krok 3; zdroj aktualizací
    `/etc/motogo/source_dir`), založí `/etc/motogo/config.yaml` a `hardware.yaml` (existující nepřepisuje),
-   `/var/lib/motogo/music` + root-owned logy `/var/log/motogo-*.log` (krok 6), udev pravidlo modemu,
-   `/etc/motogo/modem_vidpid`, NM profily, sudoers (krok 9: reboot, restart motogo-*, motogo-update / -usbreset /
-   -sysupdate BEZ argumentů, nmcli lte, mmcli signal-setup) + polkit pravidlo pro UI, **OS záplaty** (krok 10:
+   `/var/lib/motogo/music` + `music/tracks` + root-owned logy `/var/log/motogo-*.log` (krok 6), **Audio** (krok 7:
+   šablona udev pravidel `systemd/70-motogo-audio.rules` → `/etc/udev/rules.d/` pro stálá jména USB zvukovek — živý
+   soubor s aktivními pravidly se NEpřepisuje; reload udev; výpis karet `aplay -l` a zařízení pro `audio.outputs`
+   `aplay -L`), udev pravidlo modemu (krok 8), `/etc/motogo/modem_vidpid`, NM profily (krok 9), sudoers (krok 10:
+   reboot, restart motogo-*, motogo-update / -usbreset / -sysupdate BEZ argumentů, nmcli lte, mmcli signal-setup) +
+   polkit pravidlo pro UI, **OS záplaty** (krok 11:
    `/etc/apt/apt.conf.d/52motogo-unattended` = jen Debian-Security, bez automatického restartu, + drop-in
    `apt-daily-upgrade.timer` 04:00 ± 20 min, `Persistent=false`; `MOTOGO_SKIP_APT=1` → jen varování, že balík chybí),
    systemd unity, dobíjení RTC baterie (`dtparam=rtc_bbat_vchg=3000000`), vypne `getty@tty7`, služby spustí.
@@ -94,11 +115,13 @@ bezpečně přestaví I/O (vše vypnout → nové zóny).
    **UI na tty7:** unit `motogo-ui` před startem přepne VT (`ExecStartPre=-+/usr/bin/chvt 7`) a instalátor
    nainstaluje `/etc/polkit-1/rules.d/50-motogo-kiosk.rules` (motogo smí `org.freedesktop.login1.chvt`);
    bez toho logind odmítne `Session.Activate` pro neaktivní session a cage se restartuje do nekonečna.
-3. **Diagnostika sítě hned po nahrání:** na displeji (setup obrazovka → „Diagnostika sítě", nebo hlavní
-   klávesnice) zadej diagnostický kód → program prověří rozhraní/routy/DNS, LTE, internet, spojení
-   s Velínem, dostupnost všech modulů z HW mapy, **oskenuje celou LAN** (TCP porty 502/80/443/22/8080…,
-   identifikace Waveshare přes Modbus a Shelly přes RPC, MAC z ARP) a výsledek **zobrazí na displeji
-   a odešle do Velína** (blok „Diagnostika sítě"; před spárováním se odešle po spárování). Viz níže.
+3. **Diagnostika pobočky hned po nahrání:** na displeji (setup obrazovka → „🔍 Diagnostika pobočky", nebo hlavní
+   klávesnice) zadej diagnostický kód → kompletní běh: rozhraní/routy/DNS, LTE, internet, spojení s Velínem,
+   dostupnost všech modulů z HW mapy, software a služby, konfigurace zón, HW test každé prázdné kóje (světlo,
+   zelená, tón, dveřní kontakt, klidový stav zámku, Shelly), **scan celé LAN** (TCP porty 502/80/443/22/8080…,
+   identifikace Waveshare přes Modbus a Shelly přes RPC, MAC z ARP) a **protokol „kde je problém a co s tím“ na
+   displeji i ve Velíně** (blok „Kompletní diagnostika pobočky"; před spárováním se odešle po spárování, zóny se
+   berou z lokální `hardware.yaml`). Viz níže.
 4. **Párování:** ve Velíně → Samoobsluha → Řídicí jednotka → přidat zařízení → ID + token.
    Zadej do `config.yaml` (`device.id/token`) nebo na dotykovém UI (setup obrazovka / servisní panel → Přepárovat).
 5. **Síť (SPEC §4):** `sudo /opt/motogo/scripts/set-static-lan.sh` — eth0 = `192.168.50.10/24`
@@ -120,8 +143,12 @@ bezpečně přestaví I/O (vše vypnout → nové zóny).
    `audio.device` (viz krok 2); zkontroluj shrnutí instalace nebo `aplay -l` → název karty (např. `Device`)
    a do Velína zadej `audio.device` = `alsa/plughw:CARD=Device` (Velín má přednost před `hardware.yaml`).
    Hlasitost karty `alsamixer -c Device`. Test bez zón: `speaker-test -D plughw:CARD=Device -c 1 -t wav -l 1`.
-9. **Hudba:** mp3/ogg/flac/wav do `/var/lib/motogo/music` (vlastník `motogo`); playlist se náhodně
-   míchá, přehrává se ve smyčce jen během relace v kóji.
+   **Režim `multi` (9 nezávislých kanálů):** každá místnost vlastní kartu/výstup — kartám dej stálá jména podle USB
+   portu (`/etc/udev/rules.d/70-motogo-audio.rules`, `HARDWARE.md` §4), pak ve Velíně → hardware → Audio: režim
+   `multi`, výstupy `alsa/plughw:CARD=<jméno>` z `aplay -L`, kanál venek, u dveří role Audio = výstup.
+9. **Hudba:** ve Velíně → Samoobsluha → **„Hudba pobočky“** — přetáhnout soubory, zvolit cíl (společná / kóje /
+   šatna / venek); jednotka si je stáhne sama do `/var/lib/motogo/music/tracks`. Ruční soubory přímo v
+   `/var/lib/motogo/music` (vlastník `motogo`) = společná hudba. Náhodné míchání, smyčka, jen během relace (viz „Hudba“).
 10. **Ověření na místě:** servisní heslo → servisní panel → u každé zóny „Otevřít" (světlo, zelená,
    hudba, zámek) a zkontrolovat, že po zavření dveří přejde stav na `CLOSED_CONFIRMATION → SECURED`.
    Checklist před provozem je v `HARDWARE.md`.
@@ -168,49 +195,113 @@ venv/bin/python -m pytest -q                                                 # t
 venv/bin/python -m motogo_box check-config config/brno-9zone.yaml            # validace HW mapy
 ```
 
+## Hudba
+
+Hudba se nahrává **ve Velíně** → Pobočky → Samoobsluha → blok **„Hudba pobočky“**: přetažením souborů z PC do drop
+zóny (nebo kliknutím vybrat víc souborů) a volbou cíle — **Všechny kóje (společná)**, **Kóje 1–N**, **Šatna**, **Venek**.
+Formát libovolný, co přehraje mpv/ffmpeg (mp3, wav, flac, ogg/oga/opus, m4a/aac, wma, aiff, webm/mkv), max 200 MB na
+soubor, nic se nepřekódovává. V seznamu lze měnit pořadí (▲▼), název, cíl, skladbu vypnout, přehrát v prohlížeči,
+stáhnout nebo smazat (smaže i soubor v úložišti).
+
+**Co hraje po zadání kódu:** kód kóje → skladby té kóje; kód šatny → skladby šatny; **venek hraje při jakémkoli kódu**
+(dokud běží aspoň jedna relace, + doběh `timings.music_after_close_s` po poslední). Cíl bez vlastních skladeb hraje
+**společnou** hudbu (Všechny kóje + ruční soubory přímo v `/var/lib/motogo/music`); nemá-li ani tu, nehraje nic
+(Velín u cíle ukáže „0 — nehraje nic“). Náhodné míchání (`audio.shuffle`), smyčka, fade-in/out; po zavření dveří
+doběh `music_after_close_s` (10 s).
+
+**Režimy (Velín → hardware → sekce Audio, `audio.mode`):**
+- `selector` (výchozí, dosavadní zapojení): 1 mono zesilovač + reléový přepínač reproduktorů — hraje vždy jen **jedna**
+  kóje (poslední otevřená), ale už s vlastním playlistem; **venek v tomto režimu nefunguje** (jednotka to hlásí jako
+  „Upozornění:“ v `config_problems`).
+- `multi` (7 kójí + šatna + venek = 9 nezávislých kanálů): každá místnost má **vlastní zvukový výstup** (USB zvukovka
+  nebo pár vícekanálové karty, `HARDWARE.md` §4) a vlastní proces mpv → hraje současně v libovolném počtu kójí, každá
+  svůj playlist, venek při jakémkoli kódu. Ve Velíně: režim `multi`, seznam výstupů (název → ALSA zařízení dle
+  `aplay -L`, např. `alsa/plughw:CARD=Box1`; tlačítko „Vzor 9 výstupů“), kanál venek → výstup, u každých dveří role
+  Audio = výstup (volitelně + „enable“ relé zesilovače). Změna režimu/výstupů = bezpečná přestavba jednotky (počká,
+  až v žádné kóji nikdo není).
+
+**Synchronizace na jednotce:** seznam skladeb přichází s konfigurací (`kiosk_sync_config.music`, á 60 s); jednotka si
+soubory sama stáhne z bucketu `branch-music` do `/var/lib/motogo/music/tracks/<id>.<ext>` (max 3 najednou, index
+v SQLite kv `music_index`), odebrané smaže, hrající kanál nikdy neutne (nový playlist až po zastavení). Nestažená
+skladba se opakuje s rostoucím odstupem (2 min … 6 h); ve Velíně chip **„Jednotka: n/m staženo / stahuje k /
+k selhalo“** a tlačítko **„Znovu synchronizovat“** (= `sync_config`, selhané zkusí hned). Stav: `api/state → audio`
+(`mode`, `playing_zones`, `channels`, `players`, `library`), log `journalctl -u motogo-controller | grep motogo.music`.
+
 ## Vzdálené příkazy z Velína (`kiosk_commands`)
 
 | příkaz | parametry | akce |
 |---|---|---|
 | `open_door` | `door_id` / `zone` / `box_number` | plná přístupová sekvence zóny (servisní otevření) |
-| `music_on` / `music_off` | `zone?` | hudba v zóně / stop |
+| `music_on` / `music_off` | `zone?` / `door_id?` / `box_number?` | hudba v zóně (bez zóny první) / stop — se zónou jen tato kóje (multi: ostatní hrají dál), bez zóny vše |
 | `light_on` / `light_off` | `zone` / `door_id` | bílé světlo |
 | `set_signal` | `zone`, `signal` (`red/green/off/green_pulse/red_blink/both_blink`) | ruční signalizace |
 | `zone_test` | `zone` | test bez zámku: světlo → zelená 1 s → červená → světlo off; audio 3 s |
 | `audio_test` | `zone`, `seconds?` | hudba v zóně na N s |
 | `all_off` | – | vše vypnout (relé, Shelly, audio), zóny zabezpečit |
 | `identify` | `label?` | „Tady jsem" na displeji + 3× bliknutí zelené |
-| `reload` / `sync_config` | – | stáhnout konfiguraci a cache kódů |
+| `reload` / `sync_config` | – | stáhnout konfiguraci, cache kódů a seznam hudby (sync knihovny na pozadí; selhané stahování zkusí hned — Velín „Znovu synchronizovat“) |
 | `restart` | – | restart procesu controlleru |
 | `reboot` | `wait_idle?`, `wait_idle_s?` | `systemctl reboot`; s `wait_idle:true` (Velín „Restart OS“ v bloku Aktualizace) až když je box volný — hned vrací `{scheduled}`, průběh v `status.update` |
 | `update_software` | `ref?` (sha 7–40), `rollout_id?`, `wait_idle_s?` (výchozí 1800) | naplánuje `sudo /usr/local/sbin/motogo-update` (root-owned kopie `scripts/update.sh`: git fetch + ff-merge na `ref` / větev, pip, restart) — provede se, až je box volný; hned vrací `{scheduled}`; odmítne `invalid_ref` / `update_in_progress` |
 | `update_system` | `rollout_id?`, `wait_idle_s?`, `auto_reboot?` | naplánuje `sudo /usr/local/sbin/motogo-sysupdate` (apt full-upgrade, bez restartu); `auto_reboot` = po novém jádru `systemctl reboot`, až je box volný |
 | `http_get` / `camera_control` | `url` | HTTP GET na LAN (kamery, měnič) |
-| `diagnostics` | `reason?` | kompletní diagnostika sítě na pozadí; report → `kiosk_report_diagnostics` (Velín blok „Diagnostika sítě") |
+| `diagnostics` | `mode?` (`full` výchozí / `network` = jen síť), `cameras?` (seznam z Velína), `reason?` | kompletní diagnostika pobočky na pozadí (1–4 min; `network` 10–60 s); report + protokol → `kiosk_report_diagnostics` (Velín blok „Kompletní diagnostika pobočky") |
 
 Příkazy chodí přes Supabase Realtime (broadcast) s pojistkou pollingu každých 10 s; výsledek
 se hlásí přes `kiosk_complete_command`. Živý stav zón vidí Velín z `kiosk_report_status` (30 s).
 Dokud běží aktualizační skript (git/pip/apt), jednotka odmítá `restart` i `reboot` s `update_in_progress`.
 
-## Diagnostika sítě
+## Diagnostika pobočky
 
-Jeden běh (10–60 s, `motogo_box/diagnostics.py` + `net_scan.py`) zjistí: systém (hostname, verze,
-teplota, throttling, disk, NTP), rozhraní + IP/MAC + výchozí brány + DNS, LTE modem (mmcli/nmcli:
-stav, operátor, RSSI/RSRP/RSRQ/SNR), internet (DNS překlad, TCP 1.1.1.1:443, HTTP sondy), spojení
-s Velínem (heartbeat, outbox), **každé zařízení z HW mapy** (TCP, ping, identifikace: WAV645/WAV617
-přes Modbus FC01/FC02, Shelly přes `Shelly.GetDeviceInfo`, shoda typu s konfigurací), **scan celé LAN**
-(všechny podsítě vlastních rozhraní + `diagnostics.scan_subnets`, porty `scan_ports`, identifikace
-Modbus/Shelly/HTTP, MAC z ARP, přiřazení ke konfiguraci) a tabulku ARP. Vyhodnocení = seznam problémů
-(bez brány, brána přes eth0, LTE odpojeno, bez internetu, modul nedostupný / jiný typ, IP konflikt,
-cizí Modbus/Shelly v LAN, teplota, throttling, disk, NTP, chyby konfigurace).
+Jeden běh (`motogo_box/diagnostics.py` + `diag_steps.py` + `diag_protocol.py` + `diag_hints.py` + `net_scan.py`)
+prověří celou pobočku a vydá **protokol „kde je problém a co s tím“**. Režim **kompletní** (`full`, výchozí,
+1–4 min, limit 240 s) kontroluje:
+- **Řídicí jednotka:** verze, uptime, teplota CPU, throttling/podpětí, disk, RAM, NTP, ready, chyby HW mapy.
+- **Program a služby:** `motogo-controller/health/ui` (systemctl), selhané jednotky, stáří health hlášení, mpv + hudba
+  (soubory/playlist), fronta neodeslaných RPC, cache kódů (stáří), PIN lockout, chyby za 24 h, poslední aktualizace,
+  „restart OS potřebný“.
+- **Síť:** rozhraní + IP/MAC, výchozí brána (chybí / vede přes eth0), DNS; **LTE** (mmcli/nmcli: stav, operátor,
+  RSSI/RSRP/RSRQ/SNR); **internet** (DNS překlad, TCP 1.1.1.1:443, HTTP sondy); **Velín** (párování, heartbeat, realtime).
+- **Moduly Waveshare/Shelly:** každé zařízení z HW mapy — TCP, ping, identifikace (WAV645/WAV617 přes Modbus FC01/FC02,
+  Shelly přes `Shelly.GetDeviceInfo`), shoda typu s konfigurací, IP konflikt, online v programu.
+- **Konfigurace pobočky:** zóny/dveře s HW mapou, chybějící role (zámek/kontakt = chyba, ostatní varování), dveře ve
+  Velíně bez mapy, duplicitní kanály, časování mimo rozsah.
+- **Zóny a periferie (každá kóje):** dveřní kontakt — hodnota z modulu vs. stav programu; zámek — modul online a relé
+  v klidu ROZEPNUTÉ (**jen čtení, zámek se nikdy nespíná**); HW test světlo → zelená 1 s → obnova → tón 3 s a
+  skutečný stav Shelly (`Light.GetStatus`) vs. požadovaná barva.
+- **Napájení (FV):** `power_status_url` pobočky (HTTP + JSON: SOC, napětí, výkony, síť) — nenastaveno = přeskočeno.
+- **Kamery:** snapshot/stream URL předané Velínem (HTTP, tělo streamu se nečte); bez seznamu = přeskočeno.
+- **Ostatní zařízení v LAN:** scan podsítí vlastních rozhraní + `diagnostics.scan_subnets` (porty `scan_ports`,
+  identifikace Modbus/Shelly/HTTP, MAC z ARP) — cizí Modbus/Shelly mimo mapu = varování; tabulka ARP; průběh kroků.
 
-**Spuštění:** (a) na displeji zadat `diagnostics.code` z `config.yaml` (funguje i před spárováním a
-při startu HW), (b) servisní heslo z Velína s účelem „diagnostika" (jen diagnostika, nic neotevírá)
-nebo běžné servisní heslo → servisní panel → „Diagnostika sítě", (c) Velín → Samoobsluha →
-„Diagnostika sítě" → Spustit (příkaz `diagnostics`). **Výsledek:** overlay na displeji (souhrn,
-tabulky, průběh), `GET /api/diagnostics` (localhost), Supabase `kiosk_diagnostics` (posledních 30
-na zařízení) přes `kiosk_report_diagnostics` (frontuje se v outboxu), souhrn i v `kiosk_logs`
-(zdroj `diagnostics`) a poslední report v SQLite kv `last_diagnostics`.
+Režim **jen síť** (`network`, 10–60 s, limit 120 s) = jen síťové kroky (systém, rozhraní, LTE, internet, Velín, moduly, LAN, ARP).
+
+**Bezpečnost HW testu:** světlo/zelená/tón se spíná JEN v kóji bez relace, bez poruchy, s online I/O a připravenou
+jednotkou; obsazená kóje se jen přečte (`session_active`). Zámek se **nikdy** nepulzuje. Test má rozpočet (nespustí
+se, když by se do limitu nevešel; při přerušení se světlo a signalizace vždy obnoví a tón zastaví). Pobočka, kde technik
+nechce blikat: `diagnostics.zone_test: false` v `config.yaml` (zóny se jen čtou).
+
+**Spuštění:** (a) Velín → Samoobsluha → „Kompletní diagnostika pobočky (Raspberry)“ → **🔍 Kompletní diagnostika**
+(příkaz `diagnostics {mode:'full', cameras}`) nebo malé **jen síť**; Velín ukazuje průběh „krok X (n/m)“ a čeká na
+report až 5 min; (b) na displeji zadat `diagnostics.code` z `config.yaml` (hlavní klávesnice nebo setup obrazovka →
+„🔍 Diagnostika pobočky“; funguje i před spárováním a při startu HW); (c) servisní heslo z Velína s účelem „diagnostika"
+(jen diagnostika, nic neotevírá) nebo běžné servisní heslo → servisní panel → „🔍 Diagnostika pobočky". Displej i hesla
+spouští vždy kompletní běh; jeden běh najednou (`already_running`).
+
+**Protokol** (stejný na displeji i ve Velíně): hlavička (pobočka, jednotka, verze, datum, trvání, režim, výsledek
+„Pobočka je v pořádku“ / „N problémů, M varování“, počty kontrol), blok **Kde je problém** (každá chyba: kontrola —
+zjištění — „→ Co s tím“ = konkrétní rada s modulem/kanálem/IP), **Varování**, pak sekce Řídicí jednotka, Program a
+služby, Síť, LTE, Internet, Spojení s Velínem, Moduly Waveshare / Shelly, Konfigurace pobočky, Zóny a periferie
+(souhrn kóje + položka na každý nález), Napájení (FV), Kamery, Ostatní zařízení v LAN, Průběh diagnostiky (kontroly OK
+sbalené). Velín: **Stáhnout protokol (.txt)** (`diagnostika-<pobocka>-<YYYYMMDD-HHMM>.txt` — hlavička, VÝSLEDEK, KDE JE
+PROBLÉM, VAROVÁNÍ, [SEKCE] …) a **Kopírovat** (schránka); sbalený „Technický detail sítě“ (syrové tabulky, celý JSON).
+Uložení: overlay na displeji + `GET /api/diagnostics` (localhost), Supabase `kiosk_diagnostics` (posledních 30 na
+zařízení, přes `kiosk_report_diagnostics` z outboxu — před spárováním se odešle po spárování), souhrn do `kiosk_logs`
+(zdroj `diagnostics`), SQLite kv `last_diagnostics`. Starší reporty bez protokolu se zobrazí jako dřív (jen síťový detail).
+
+**Konfigurace (`config.yaml` → `diagnostics:`):** `code`, `scan_ports`, `scan_timeout_ms`, `scan_concurrency`,
+`scan_subnets`, `max_hosts`, `internet_urls`, `timeout_s` (jen síť, 120), `full_timeout_s` (kompletní, 240),
+`zone_test` (true), `camera_timeout_s` (6 — kamery i měnič FV).
 
 ## Aktualizace
 
@@ -275,9 +366,19 @@ odmítne; červený běh = chyba psql (issue se nezakládá).
 | OS záplaty se neinstalují / chip „Restart OS potřebný“ nezmizí | timer nebo balík `unattended-upgrades` chybí; nové jádro čeká na restart | `systemctl list-timers apt-daily-upgrade.timer` (04:00 ± 20 min), `unattended-upgrade --dry-run -d`, `/var/log/unattended-upgrades/unattended-upgrades.log`, `cat /run/reboot-required.pkgs`; restart z Velína („Restart OS“ — provede se, až je box volný) |
 | UI černé / „Řídicí jednotka nedostupná" | controller neběží nebo startuje | `systemctl status motogo-controller`; UI se samo připojí po startu |
 | UI černé, `journalctl -u motogo-ui` opakuje „Could not activate session“ | session motogo na tty7 není aktivní (VT nepřepnuto / chybí polkit pravidlo) | `chvt 7` ručně, ověř `/etc/polkit-1/rules.d/50-motogo-kiosk.rules` a balík `kbd` (unit dělá `chvt 7` v `ExecStartPre`); `loginctl session-status` |
-| bez zvuku | špatný `audio.device`, hlasitost karty, sepnuté relé jiné zóny | `aplay -l`, `alsamixer`, servisní panel → Hudba v zóně; `api/state` → `audio.playing_zone` |
+| bez zvuku (režim selector) | špatný `audio.device`, hlasitost karty, sepnuté relé jiné zóny | `aplay -l`, `alsamixer`, servisní panel → Hudba v zóně; `api/state` → `audio.playing_zone`, `audio.players.mpv.alive` |
+| kanál (kóje / šatna / venek) mlčí v režimu multi | zóna nemá výstup, špatné ALSA zařízení výstupu, mpv výstupu neběží, prázdný playlist | `api/state → audio.players[out]` (`alive`, `device`, `playlist_count`, `playing`); `aplay -L` → jméno karty musí odpovídat `audio.outputs[out].device` (`alsa/plughw:CARD=…`), stálá jména podle USB portu viz `HARDWARE.md` §4; `speaker-test -D plughw:CARD=<jméno> -c2 -t wav -l1`; `config_problems` („Zóna N: nemá audio výstup“) |
+| skladba z Velína se na jednotce nestáhla (chip „k selhalo“ / dlouho „stahuje“) | výpadek LTE, timeout, chyba velikosti, neplatný záznam — opakuje se s odstupem 2 min … 6 h | `api/state → audio.library` (`failed`, `reason`, `last_sync_at`); Velín → Hudba pobočky → „Znovu synchronizovat“ (zruší odstup); `journalctl -u motogo-controller \| grep motogo.music`; volné místo v `/var/lib/motogo/music/tracks` |
+| venek nehraje | jednotka běží v režimu `selector` (kanál venek jen v `multi`), nebo venek nemá vlastní ani společnou hudbu | Velín → hardware → Audio: režim `multi` + „Kanál venek → výstup“; `config_problems` „Upozornění: kanál outdoor (venek) nelze v režimu selector“; u cíle Venek nesmí být „0 — nehraje nic“ |
 | Velín hlásí zařízení offline | LTE / token | `nmcli con show motogo-lte`; přepárovat v servisním panelu |
-| nevím, co v síti nefunguje | — | na displeji zadat diagnostický kód (`diagnostics.code`) nebo Velín → Diagnostika sítě → Spustit; report ukáže rozhraní, LTE, internet, moduly, celou LAN a seznam problémů |
+| nevím, co na pobočce nefunguje | — | Velín → Samoobsluha → „Kompletní diagnostika pobočky“ → 🔍 (nebo diagnostický kód na displeji); protokol má blok „Kde je problém“ s radou „Co s tím“ u každé chyby, .txt ke stažení pro technika; rychlý přehled sítě = „jen síť“ |
+| protokol: „dveřní kontakt: program hlásí zavřeno, modul wav617a DI3 čte otevřeno“ (Kóje N — dveřní kontakt) | NC kontakt, vodič do DI vstupu WAV617 nebo obrácená polarita `closed_level` | podle rady v protokolu: kontakt / vodič / `closed_level` v HW mapě (Velín → Samoobsluha → Zóny); polarita viz `HARDWARE.md` |
+| protokol: „světlo: relé wav617a R2 nepotvrdilo sepnutí“ (Kóje N — světlo) | vodič ke světlu / svorky relé daného kanálu, modul není v režimu Normal | zkontrolovat vodič a svorky relé R<N>; Normal mode si program vynucuje při startu → restart controlleru |
+| protokol: „červená signalizace má svítit, Shelly shelly1 světlo 0 je vypnuté“ / „… neodpovídá na Light.GetStatus“ (Kóje N — Shelly signalizace) | LED pásek bez napájení, špatný `light id` kanálu v HW mapě, Shelly offline | napájení pásku, kanál (light id) v HW mapě, `curl http://<ip>/rpc/Shelly.GetStatus`; offline Shelly viz první řádek |
+| protokol: „zámek: relé wav645 R3 je SEPNUTÉ v klidu — NEBEZPEČÍ, odpojte modul“ (Kóje N — zámek) | relé zámku drží v klidu sepnuto = zámek pod proudem (program relé zámku nikdy nedrží) | **ihned odpojit modul / napájení zámku**, zkontrolovat konfiguraci relé (flash-on 800 ms) a zapojení; do opravy kóji nepoužívat |
+| protokol: „Kamera X (snapshot) neodpovídá: …“ | kamera bez napájení / LAN, špatná URL ve Velíně | napájení, LAN, URL kamery (Velín → Samoobsluha → Kamery); z RPi `curl -I <url>` |
+| protokol: „Stav napájení nelze stáhnout z <url> (…)“ | měnič/monitor FV nedostupný nebo URL nevrací JSON | `power_status_url` pobočky musí vracet JSON v LAN jednotky; z RPi `curl <url>` |
+| protokol: „Test přeskočen: …“ u kóje | relace v kóji, porucha, I/O offline, `zone_test: false`, došel limit běhu | spustit diagnostiku znovu, až bude kóje volná / porucha odezní; u limitu zkontrolovat odezvu modulů a Shelly (ping) |
 
 ## Bezpečnostní chování (SPEC §12)
 

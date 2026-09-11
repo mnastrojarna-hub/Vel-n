@@ -73,6 +73,7 @@ Z RGBW pásku je zapojeno jen **R = červená** a **G = zelená**; B a W nezapoj
 
 ## 4. Audio (SPEC §8)
 
+**Režim `selector` (výchozí, HW mapa `audio.mode`):**
 Raspberry USB → AXAGON USB zvuková karta → oddělovací člen → TPA3116D2 (**jen jeden kanál, mono**)
 → SPK− všech reproduktorů spojen na výstup zesilovače, **SPK+ přes 9 samostatných NO relé** (tabulka
 výše) → reproduktor kóje. Nikdy nesmí být sepnuté dva selektory (impedance ‖ → zničení zesilovače);
@@ -81,6 +82,35 @@ program to hlídá (vše off → 200 ms → jedno relé → 100 ms → hudba →
 Výchozí ALSA zařízení RPi 5 je HDMI monitoru — `audio.device` MUSÍ mířit na USB kartu
 (`alsa/plughw:CARD=<název z aplay -l>`); install.sh ji při založení `hardware.yaml` doplní sám, ve Velíně
 ji zadej ručně (Velín má přednost).
+
+**Režim `multi` — 9 nezávislých kanálů (2026-09-10: 7 kójí + šatna + venek, každý svůj program, venek při jakémkoli kódu):**
+- **9× stereo zesilovač** (např. TPA3116D2 2×50 W — jeden na místnost, nebo vícekanálový) a reproduktory každé
+  místnosti přímo na svém zesilovači — **žádný reléový selektor** (relé smí zůstat jen jako volitelné „enable“
+  zesilovače: `audio: {out, dev, coil}` u dveří / kanálu venek; nikdy cívka zámku ani světla).
+- **Jeden ALSA výstup na místnost:** 9× USB zvuková karta (nejjednodušší; přes napájený USB hub, RPi 5 má 4 porty)
+  NEBO vícekanálové USB rozhraní (≥ 18 kanálů) rozřezané v `/home/motogo/.asoundrc` na stereo páry
+  (`pcm.box1 { type plug; slave.pcm "hw:CARD=Iface"; ttable.0.0 1; ttable.1.1 1 }`, další páry přes `ttable` na
+  kanály 2–3, 4–5 …) a v HW mapě `device: alsa/box1`.
+- **Stálá jména USB karet podle USB portu** — ALSA čísluje karty podle pořadí detekce, po restartu/přepojení by hudba
+  kóje 3 hrála v kóji 5. Pravidla v ŽIVÉM souboru `/etc/udev/rules.d/70-motogo-audio.rules` (šablona
+  `systemd/70-motogo-audio.rules` je jen komentovaný vzor; `install.sh` ji nakopíruje jen když živý soubor chybí nebo nemá
+  aktivní pravidla — má-li je, ponechá ho; `/opt/motogo` přepisuje update), jedno pravidlo na kartu:
+  `SUBSYSTEM=="sound", KERNEL=="card*", KERNELS=="1-1.1", ATTR{id}!="Box1", ATTR{id}="Box1"`
+  (`KERNELS` = cesta USB portu; `KERNEL=="card*"` jen uzel karty; `ATTR{id}!="…"` = zapsat jen když se jméno liší —
+  jádro odmítá zápis už nastaveného id a udev by při každém triggeru logoval chybu; bez `ACTION=="add"`, protože
+  `udevadm trigger` posílá „change“). **Jak zjistit port:** zapoj karty po jedné, `aplay -l` (která je card N),
+  `udevadm info -a /dev/snd/controlC1 | grep KERNELS` → mezi nadřazenými zařízeními `KERNELS=="1-1.1"`
+  (RPi 5: přední/zadní porty mají různé cesty, hub přidá další `.N`, např. `1-1.1.3`). `ATTR{id}` max 15 znaků,
+  písmena/číslice/podtržítko, ne číslice na začátku, nesmí kolidovat s vestavěnými `vc4hdmi0/1`. Aktivace:
+  `sudo udevadm control --reload && sudo udevadm trigger --subsystem-match=sound` (nebo restart RPi / znovu
+  `sudo ./scripts/install.sh`). Ověření: `aplay -L | grep CARD=`, `cat /proc/asound/cards` (po restartu stejná jména),
+  test kanálu `speaker-test -D plughw:CARD=Box1 -c2 -t wav -l1`.
+- **Velín → Pobočky → Samoobsluha → hardware → Audio:** režim `multi`, výstupy `out1…out9` s ALSA zařízením
+  z `aplay -L` (`alsa/plughw:CARD=Box1` … `CARD=Satna`, `CARD=Venek`; tlačítko „Vzor 9 výstupů“), „Kanál venek → výstup“
+  (`out9`), u každých dveří role Audio = výstup. Hlasitost per karta `alsamixer -c Box1`, společná `audio.volume`.
+  Stav kanálů: `api/state → audio.players` (`alive`, `device`, `playlist_count`, `playing`).
+- Kabeláž: repro kabel 2×0,75 z každého zesilovače ke svému reproduktoru (stereo pár nebo mono most dle zesilovače);
+  zesilovače zakrytované, napájení z 12V větve dimenzovat na 9× klidový + špičkový odběr.
 
 ## 5. Napájení (SPEC §3)
 
@@ -100,7 +130,8 @@ dotyk a zvukovou kartu). Hlavní pojistka 12V větve zámků + pojistková svork
 - **I/O:** 1× Waveshare WAV645 (16 relé), 2× WAV617 (8 relé + 8 DI), 4× Shelly Pro RGBWW PM.
 - **Dveře:** 9× IBFM 9500 (fail-secure s pamětí, aretaci vypnout), 10× NC magnetický kontakt, 10× TVS, 9× pojistková svorka.
 - **UI:** EDATEC ED-MONITOR-156CA (HDMI + USB-C dotyk, 24 V), micro-HDMI→HDMI, USB-A→USB-C.
-- **Audio:** AXAGON USB zvuková karta, oddělovací člen, TPA3116D2 2×50 W, 10× reproduktor 8 Ω/5 W, repro kabel 2×0,75.
+- **Audio:** AXAGON USB zvuková karta, oddělovací člen, TPA3116D2 2×50 W, 10× reproduktor 8 Ω/5 W, repro kabel 2×0,75 (selector).
+  Režim multi (9 kanálů, kap. 4): 9× USB zvuková karta (nebo vícekanálové USB rozhraní) + napájený USB hub + 9× stereo zesilovač.
 - **Osvětlení:** 20 m bílý LED pásek 24 V IP65, RGBW pásek 24 V společný +, hliníkové profily.
 - **Rozvaděč:** IP65 ≥ 600×400×200, DIN lišty, oddělený 230 V / SELV, svorkovnice +24/+12/0 V, PE, WAGO 221, průchodky, větrání.
 
@@ -139,17 +170,18 @@ Odběr IBFM 9500 není doložený — hodnotu pojistky **neodhadovat**:
 - [ ] Ověřena logická polarita vstupů WAV617 s NC kontaktem (`closed_level`, kap. 7) na všech 9 zónách
 - [ ] Test přerušeného kabelu kontaktu → vyhodnoceno jako otevřeno/porucha
 - [ ] Protiplechy IBFM v paměťovém režimu, trvalá aretace vypnutá (dveře po zavření samy zajištěné)
-- [ ] Rozhodnutí o souběhu kójí zapsáno (ANO — SPEC §13.7); hudba jen v jedné kóji
+- [ ] Rozhodnutí o souběhu kójí zapsáno (ANO — SPEC §13.7); hudba jen v jedné kóji (režim selector) / každá místnost vlastní kanál (režim multi, SPEC §8, rozhodnutí 2026-09-10)
 - [ ] Waveshare: statické IP .20/.21/.22, TCP server, Modbus TCP 502, unit 1, non-storage; WAV617 relé Normal mode
 - [ ] Shelly ×4: Lights ×5, statické IP .31–.34, cloud/BT vypnut; každý kanál rozsvítí správnou barvu ve správné kóji
 - [ ] eth0 = 192.168.50.10/24 bez brány (`set-static-lan.sh` OK), internet přes LTE (`mmcli -m any` connected)
 - [ ] PIN SIM vypnut, nebo zadán při instalaci (`MOTOGO_SIM_PIN` → `[gsm] pin=` v `motogo-lte`); `mmcli -m any` NENÍ `locked`, health nehlásí `lte.error`
-- [ ] USB zvuková karta nalezena instalátorem (`aplay -l`, shrnutí install.sh) a `audio.device` = `alsa/plughw:CARD=<název>` i ve Velíně
+- [ ] USB zvuková karta nalezena instalátorem (`aplay -l`, shrnutí install.sh) a `audio.device` = `alsa/plughw:CARD=<název>` i ve Velíně (selector)
+- [ ] Režim multi: každá karta má stálé jméno z udev pravidla (`cat /proc/asound/cards` po restartu i přepojení = stejná jména), `audio.outputs` ve Velíně odpovídá `aplay -L`, žádný výstup nesdílí dvě zóny ani zóna + venek, kanál venek má výstup; `api/state → audio.players[*].alive = true`, `config_problems` bez audio chyb
 - [ ] UI naběhlo na tty7 bez „Could not activate session“ (`journalctl -u motogo-ui`; `chvt 7` v unitě + polkit pravidlo `50-motogo-kiosk.rules`)
 - [ ] microSD průmyslová (pSLC/„High Endurance“, A2), UPS/záložní napájení RPi — root je rw, overlay se nezapíná (rozhodnutí SPEC §11)
 - [ ] Zámek každé zóny reaguje na servisní „Otevřít" (800ms impulz, nezůstává pod napětím — změřit napětí na cívce po impulzu = 0 V)
 - [ ] Bílé světlo a červená/zelená každé zóny odpovídají číslu kóje (servisní panel / `zone_test`)
-- [ ] Hudba hraje jen ve vybrané kóji (`audio_test` zóna po zóně); nikdy dvě relé současně
+- [ ] Hudba hraje jen ve vybrané kóji (`audio_test` zóna po zóně): selector — nikdy dvě relé současně; multi — tón jen na výstupu dané zóny, ostatní kanály mlčí; venek se rozehraje s první relací a doběhne po poslední
 - [ ] Hlasitost karty (`alsamixer -c <název>`) a `audio.volume` přiměřené
 - [ ] Zařízení spárováno, Velín ukazuje online, `kiosk_report_status` zobrazuje 9 zón SECURED/červená
 - [ ] Aktualizace z Velína: Pobočky → „Aktualizace řídicích jednotek“ ukazuje jednotku s verzí („Aktuální“), OS a jádrem; `unattended-upgrade` nainstalován, `systemctl list-timers apt-daily-upgrade.timer` = 04:00 ± 20 min (záplaty OS bez restartu)
@@ -157,4 +189,4 @@ Odběr IBFM 9500 není doložený — hodnotu pojistky **neodhadovat**:
 - [ ] Po restartu RPi (výpadek 230 V) vše naběhne samo: all off → červená → UI; RTC drží čas (`timedatectl`)
 - [ ] LTE watchdog vyzkoušen (vyjmout anténu → `journalctl -u motogo-health` ukáže reconnect)
 - [ ] Rozvaděč: oddělené 230 V / SELV, PE, popisky všech kabelů a svorek, větrání, zakrytovaný zesilovač
-- [ ] Hudba nahrána do `/var/lib/motogo/music`; servisní heslo nastaveno ve Velíně a vyzkoušeno na displeji
+- [ ] Hudba nahrána ve Velíně (Samoobsluha → „Hudba pobočky“, přiřazená kójím / šatně / venku, žádný cíl „0 — nehraje nic“) a jednotka hlásí „Jednotka: n/n staženo“ (`/var/lib/motogo/music/tracks`); servisní heslo nastaveno ve Velíně a vyzkoušeno na displeji

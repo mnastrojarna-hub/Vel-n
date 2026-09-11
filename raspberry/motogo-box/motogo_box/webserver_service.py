@@ -14,6 +14,8 @@ from typing import Any
 
 from aiohttp import web
 
+from . import controller_codes as cc
+
 log = logging.getLogger("motogo.web")
 
 RESTART_DELAY_S = 0.5          # aby odešla odpověď před os._exit
@@ -65,10 +67,15 @@ async def service_music(srv: Any, request: web.Request) -> web.Response:
     audio = getattr(srv.ctrl, "audio", None)
     if audio is None:
         return srv.error("audio_unavailable")
-    if not on:
-        await audio.stop()
-        return srv.json({"ok": True, "on": False})
     zone = _to_int(body.get("zone"))
+    if not on:
+        # multi: vypnout jen kóji z panelu (jinde hudba hraje dál); bez zóny = vše (selector = vše vždy)
+        stop_zone = getattr(audio, "stop_zone", None)
+        if zone is not None and stop_zone is not None:
+            await stop_zone(zone)
+        else:
+            await audio.stop()
+        return srv.json({"ok": True, "on": False, "zone": zone})
     if zone is None:
         zones = getattr(srv.ctrl, "zones", None) or {}
         zone = min(zones) if zones else None
@@ -143,20 +150,28 @@ async def diagnostics_get(srv: Any, request: web.Request) -> web.Response:
 
 
 async def diagnostics_run(srv: Any, request: web.Request) -> web.Response:
-    """Spuštění: platný `service_token`, nebo `code` (lokální diagnostický kód / servisní heslo)."""
+    """Spuštění: platný `service_token`, nebo `code` (lokální diagnostický kód / servisní heslo).
+    Volitelné `mode` = full (výchozí) | network (jen síť)."""
     body = await srv.read_body(request)
     diag = getattr(srv.ctrl, "diagnostics", None)
     if diag is None:
         return srv.error("unavailable", 503)
+    mode = "network" if str(body.get("mode") or "").strip().lower() == "network" else "full"
     token = body.get("service_token")
     if isinstance(token, str) and token and srv.ctrl.check_service_token(token):
-        return srv.json(diag.start(source="service_panel", reason="service_panel"))
+        return srv.json(diag.start(source="service_panel", reason="service_panel", mode=mode))
     code = body.get("code")
     if not isinstance(code, str) or not code.strip():
         return srv.error("forbidden", 403)
     # diagnostics_only: lokální kód nebo servisní heslo → jen diagnostika; zákaznický kód = neplatný,
-    # žádné otevření dveří ani servisní token (viz controller_codes.submit_code).
-    res = await srv.ctrl.submit_code(code, "diag_ui", diagnostics_only=True)
+    # žádné otevření dveří ani servisní token. Volá se přímo `controller_codes.submit_code` —
+    # obálka `BoxController.submit_code(code, source)` parametr `diagnostics_only` nenese.
+    # Režim předá hint `pending_mode` (submit_code ho nenese); po návratu se vždy vynuluje.
+    diag.pending_mode = mode
+    try:
+        res = await cc.submit_code(srv.ctrl, code, "diag_ui", diagnostics_only=True)
+    finally:
+        diag.pending_mode = None
     res = res if isinstance(res, dict) else {}
     if res.get("ok") and res.get("kind") == "diagnostics":
         return srv.json({"ok": True, **(res.get("diagnostics") or {})})

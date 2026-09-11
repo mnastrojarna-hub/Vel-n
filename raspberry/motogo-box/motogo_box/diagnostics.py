@@ -1,12 +1,13 @@
-"""Diagnostika sítě řídicí jednotky — `NetworkDiagnostics` (kontrakt §24).
+"""Diagnostika pobočky řídicí jednotky — `NetworkDiagnostics` (kontrakt §24).
 
-Spouští se (1) diagnostickým kódem z displeje (`diagnostics.code` v config.yaml —
-funguje i před spárováním), (2) servisním heslem z Velína s účelem `diagnostics`
-(nebo běžným servisním heslem ze servisního panelu), (3) příkazem `diagnostics`
-z Velína. Běží jako jeden task na pozadí (další požadavek během běhu → `already_running`),
-po dokončení se report uloží do `Storage.kv` (`last_diagnostics`), odešle do Velína
-RPC `kiosk_report_diagnostics` (přes outbox — nespárované zařízení ho pošle po spárování)
-a zapíše souhrnnou událost `DIAGNOSTICS` (`kiosk_log_event`, zdroj `diagnostics`).
+Režimy: `full` (výchozí — síť + software, konfigurace, zóny a periferie, napájení FV, kamery
++ protokol) a `network` (jen síťové kroky, rychlý běh). Spouští se (1) diagnostickým kódem
+z displeje (`diagnostics.code` v config.yaml — funguje i před spárováním), (2) servisním heslem
+z Velína s účelem `diagnostics` (nebo běžným servisním heslem ze servisního panelu), (3) příkazem
+`diagnostics` z Velína (`params {mode, cameras, reason}`). Běží jako jeden task na pozadí (další
+požadavek během běhu → `already_running`), po dokončení se report uloží do `Storage.kv`
+(`last_diagnostics`), odešle do Velína RPC `kiosk_report_diagnostics` (přes outbox) a zapíše
+souhrnnou událost `DIAGNOSTICS`. Nové kroky: `diag_steps.py`; protokol a souhrn: `diag_protocol.py`.
 Zobrazení na displeji: `GET /api/diagnostics` + `snapshot()['diagnostics']` (progres).
 """
 from __future__ import annotations
@@ -24,7 +25,8 @@ from urllib.parse import urlsplit
 
 import httpx
 
-from . import net_scan
+from . import diag_steps, net_scan
+from .diag_protocol import STEP_TITLES, build_protocol, build_summary
 from .health_probe import sys_metrics
 from .models import Event, EventKind, now_iso
 from .pins import normalize_code
@@ -35,28 +37,35 @@ if TYPE_CHECKING:  # pragma: no cover
 log = logging.getLogger("motogo.diagnostics")
 
 KV_LAST = "last_diagnostics"
-STEPS = ("system", "interfaces", "lte", "internet", "supabase", "devices", "lan", "arp", "summary")
-STEP_TITLES = {"system": "Systém", "interfaces": "Síťová rozhraní", "lte": "LTE modem", "internet": "Internet a DNS",
-               "supabase": "Spojení s Velínem", "devices": "Konfigurovaná zařízení", "lan": "Scan LAN",
-               "arp": "Tabulka sousedů (ARP)", "summary": "Vyhodnocení"}
+KV_CAMERAS = "diag_cameras"
+NETWORK_STEPS = ("system", "interfaces", "lte", "internet", "supabase", "devices", "lan", "arp", "summary")
+STEPS = ("system", "interfaces", "lte", "internet", "supabase", "devices", "software", "config", "zones", "power",
+         "cameras", "lan", "arp", "summary")
+FULL_ONLY = ("software", "config", "zones", "power", "cameras")
+MODES = ("full", "network")
 INTERNET_TCP = ("1.1.1.1", 443)
 MODBUS_PORTS = (502,)                  # identifikace Waveshare (FC01/FC02)
 WEB_PORTS = (80, 8080, 443, 8443)      # identifikace Shelly (RPC) / HTTP banner
+MAX_CAMERAS = 20
 
 
 class NetworkDiagnostics:
-    """Jeden běh = report `{id, ts, …, summary}`; `status()` = krátký stav pro UI/Velín."""
+    """Jeden běh = report `{id, ts, mode, …, protocol, summary}`; `status()` = krátký stav pro UI/Velín."""
 
     def __init__(self, ctrl: "BoxController") -> None:
         self.ctrl = ctrl
         self.cfg = ctrl.local.diagnostics
         self.running = False
+        self.mode: str = "full"
+        self.pending_mode: str | None = None          # hint z `/api/diagnostics/run` pro start přes kód
         self.step: str | None = None
         self.done: list[str] = []
         self.started_at: float | None = None
+        self.deadline: float | None = None           # monotonic; kroky (HW test zón) podle něj hlídají zbývající čas
         self._task: asyncio.Task | None = None
         self.current_id: str | None = None
         self.last_error: str | None = None
+        self._cameras: list[dict] | None = None
         self._partial: dict[str, Any] = {}           # rozpracované výsledky kroků (přežijí timeout kroku)
         self._last_summary: dict | None = self._summary_of(self.last_report())   # snapshot() ho čte 5× za s
 
@@ -70,35 +79,65 @@ class NetworkDiagnostics:
         rep = self.ctrl.storage.kv_get(KV_LAST)
         return rep if isinstance(rep, dict) else None
 
+    def cameras_list(self) -> list[dict]:
+        """Kamery pro krok `cameras`: z parametrů běhu, jinak poslední seznam od Velína (`kv diag_cameras`)."""
+        cams = self._cameras
+        if cams is None:
+            cams = self.ctrl.storage.kv_get(KV_CAMERAS)
+        return [c for c in (cams if isinstance(cams, list) else []) if isinstance(c, dict)][:MAX_CAMERAS]
+
     @staticmethod
     def _summary_of(last: dict | None) -> dict | None:
         if not last:
             return None
         summary = last.get("summary") or {}
-        return {"id": last.get("id"), "ts": last.get("ts"), "ok": summary.get("ok"),
-                "problems": len(summary.get("problems") or []), "hosts": summary.get("hosts"),
+        return {"id": last.get("id"), "ts": last.get("ts"), "ok": summary.get("ok"), "mode": last.get("mode") or "network",
+                "problems": len(summary.get("problems") or []), "warnings": len(summary.get("warnings") or []),
+                "hosts": summary.get("hosts"), "zones_ok": summary.get("zones_ok"), "zones_total": summary.get("zones_total"),
                 "duration_s": last.get("duration_s"), "source": last.get("source")}
 
     def status(self) -> dict:
         return {
-            "running": self.running, "id": self.current_id, "step": self.step,
-            "step_title": STEP_TITLES.get(self.step or "", self.step), "done": list(self.done), "steps": list(STEPS),
+            "running": self.running, "id": self.current_id, "mode": self.mode, "step": self.step,
+            "step_title": STEP_TITLES.get(self.step or "", self.step), "done": list(self.done),
+            "steps": list(NETWORK_STEPS if self.mode == "network" else STEPS),
             "elapsed_s": int(time.monotonic() - self.started_at) if self.running and self.started_at else None,
             "error": self.last_error,
             "last": dict(self._last_summary) if self._last_summary else None,
         }
 
     # ─── spuštění ────────────────────────────────────────────────────────
-    def start(self, source: str, reason: str | None = None) -> dict:
-        """Spustí běh na pozadí; `{ok, started, id}` nebo `{ok:false, error:'already_running', id}`."""
+    def start(self, source: str, reason: str | None = None, *, mode: str | None = None,
+              cameras: list | None = None) -> dict:
+        """Spustí běh na pozadí; `{ok, started, id, mode}` nebo `{ok:false, error:'already_running', id}`.
+
+        `mode` = full (výchozí) | network; None → `pending_mode` (hint z webu) nebo full.
+        `cameras` (seznam z Velína) se uloží do kv `diag_cameras` pro lokální běhy bez Velína.
+        """
+        mode = str(mode or self.pending_mode or "full").lower()
+        self.pending_mode = None
+        if mode not in MODES:
+            mode = "full"
+        if isinstance(cameras, list):
+            cams = [c for c in cameras if isinstance(c, dict)][:MAX_CAMERAS]
+            try:
+                self.ctrl.storage.kv_set(KV_CAMERAS, cams)
+            except Exception:  # noqa: BLE001
+                log.exception("Uložení seznamu kamer selhalo")
         if self.running and self._task is not None and not self._task.done():
-            return {"ok": False, "error": "already_running", "id": self.current_id}
+            return {"ok": False, "error": "already_running", "id": self.current_id, "mode": self.mode}
+        self._cameras = [c for c in cameras if isinstance(c, dict)] if isinstance(cameras, list) else None
         self.current_id = uuid.uuid4().hex[:12]
+        self.mode = mode
         self.running, self.step, self.done, self.last_error = True, None, [], None
         self.started_at = time.monotonic()
         self._task = asyncio.create_task(self._run_safe(source, reason or source), name="motogo.diagnostics")
-        log.info("Diagnostika sítě %s spuštěna (%s)", self.current_id, source)
-        return {"ok": True, "started": True, "id": self.current_id}
+        log.info("Diagnostika %s (%s) spuštěna (%s)", self.current_id, mode, source)
+        return {"ok": True, "started": True, "id": self.current_id, "mode": mode}
+
+    def time_left(self) -> float | None:
+        """Zbývající čas běhu v s (None mimo běh) — HW test zóny se nespustí, když by se nestihl."""
+        return None if self.deadline is None else self.deadline - time.monotonic()
 
     async def cancel(self) -> None:
         if self._task is not None and not self._task.done():
@@ -130,24 +169,37 @@ class NetworkDiagnostics:
         finally:
             self.running, self.step = False, None
 
+    def _steps(self) -> list[tuple[str, Callable[[dict], Awaitable[Any]]]]:
+        """Pořadí kroků: HW testy zón dřív než dlouhý scan LAN, aby se stihly v limitu."""
+        full = self.mode != "network"
+        table: list[tuple[str, Any]] = [
+            ("system", self._system), ("interfaces", self._interfaces), ("lte", self._lte),
+            ("internet", self._internet), ("supabase", self._supabase), ("devices", self._devices),
+            ("software", self._delegate(diag_steps.software)), ("config", self._delegate(diag_steps.config)),
+            ("zones", self._delegate(diag_steps.zones)), ("power", self._delegate(diag_steps.power)),
+            ("cameras", self._delegate(diag_steps.cameras)), ("lan", self._lan), ("arp", self._arp),
+        ]
+        return [(n, fn) for n, fn in table if full or n not in FULL_ONLY]
+
+    def _delegate(self, fn):
+        async def run(report: dict):
+            return await fn(self, report)
+        return run
+
     async def run(self, source: str, reason: str) -> dict:
         """Provede všechny kroky (každý izolovaně, s limitem), uloží, odešle a zaloguje report."""
         ctrl = self.ctrl
         t0 = time.monotonic()
         report: dict[str, Any] = {
-            "id": self.current_id or uuid.uuid4().hex[:12], "ts": now_iso(), "source": source, "reason": reason,
+            "id": self.current_id or uuid.uuid4().hex[:12], "ts": now_iso(), "source": source, "reason": reason, "mode": self.mode,
             "version": ctrl.version, "device_id": ctrl._device_id() or None, "branch_name": ctrl.branch_name,
             "paired": bool(getattr(ctrl.api, "paired", False)), "steps": {},
         }
-        steps: list[tuple[str, Callable[[dict], Awaitable[Any]]]] = [
-            ("system", self._system), ("interfaces", self._interfaces), ("lte", self._lte),
-            ("internet", self._internet), ("supabase", self._supabase), ("devices", self._devices),
-            ("lan", self._lan), ("arp", self._arp),
-        ]
-        deadline = t0 + max(20, int(self.cfg.timeout_s))
+        limit = self.cfg.timeout_s if self.mode == "network" else getattr(self.cfg, "full_timeout_s", 240)
+        deadline = self.deadline = t0 + max(20, int(limit))
         self._partial = {}
         self.last_error = None
-        for name, fn in steps:
+        for name, fn in self._steps():
             self.step = name
             ts = time.monotonic()
             left = deadline - ts
@@ -159,7 +211,7 @@ class NetworkDiagnostics:
             except asyncio.CancelledError:
                 raise
             except asyncio.TimeoutError:
-                # co se stihlo, zůstává (scan LAN s desítkami hostů) — jen označeno jako neúplné
+                # co se stihlo, zůstává (scan LAN s desítkami hostů, část zón) — jen označeno jako neúplné
                 report[name] = self._partial.get(name)
                 report["steps"][name] = {"ok": False, "error": "timeout", "partial": report[name] is not None,
                                          "ms": round((time.monotonic() - ts) * 1000)}
@@ -169,9 +221,10 @@ class NetworkDiagnostics:
                 report["steps"][name] = {"ok": False, "error": str(exc)[:200], "ms": round((time.monotonic() - ts) * 1000)}
             self.done.append(name)
         self.step = "summary"
-        report["summary"] = self._summary(report)
-        self.done.append("summary")
         report["duration_s"] = round(time.monotonic() - t0, 1)
+        report["protocol"] = build_protocol(report)
+        report["summary"] = build_summary(report, report["protocol"])
+        self.done.append("summary")
         report["finished_at"] = now_iso()
         self._last_summary = self._summary_of(report)
         try:
@@ -182,17 +235,20 @@ class NetworkDiagnostics:
             await ctrl.api.report_diagnostics(report)
         except Exception:  # noqa: BLE001
             log.exception("Odeslání reportu diagnostiky selhalo")
-        summary = report["summary"]
-        await ctrl.emit(Event(kind=EventKind.DIAGNOSTICS, success=bool(summary["ok"]),
-                              level="info" if summary["ok"] else "warn",
-                              message=f"Diagnostika sítě: {'OK' if summary['ok'] else str(len(summary['problems'])) + ' problémů'}"
-                                      f" ({summary['hosts']} zařízení v LAN, {report['duration_s']} s)",
-                              detail={"source": source, "report_id": report["id"], "problems": summary["problems"][:20],
-                                      "hosts": summary["hosts"], "internet": summary.get("internet")}))
-        log.info("Diagnostika %s hotova za %s s: %s", report["id"], report["duration_s"], summary["problems"] or "OK")
+        self.deadline = None
+        s = report["summary"]
+        verdict = "OK" if s["ok"] else f"{len(s['problems'])} problémů, {len(s.get('warnings') or [])} varování"
+        # zóny do textu jen když krok `zones` běžel (režim full) — v režimu network by „0/0 zón OK“ mátlo
+        zones_txt = f"{s.get('zones_ok')}/{s.get('zones_total')} zón OK, " if isinstance(report.get("zones"), list) else ""
+        await ctrl.emit(Event(kind=EventKind.DIAGNOSTICS, success=bool(s["ok"]), level="info" if s["ok"] else "warn",
+                              message=f"Diagnostika pobočky: {verdict} ({zones_txt}{s['hosts']} zařízení v LAN, {report['duration_s']} s)",
+                              detail={"source": source, "report_id": report["id"], "mode": self.mode, "problems": s["problems"][:20],
+                                      "warnings": (s.get("warnings") or [])[:20], "hosts": s["hosts"], "internet": s.get("internet"),
+                                      "checks": s.get("checks")}))
+        log.info("Diagnostika %s hotova za %s s: %s", report["id"], report["duration_s"], s["problems"] or "OK")
         return report
 
-    # ─── kroky ───────────────────────────────────────────────────────────
+    # ─── síťové kroky ────────────────────────────────────────────────────
     async def _system(self, report: dict) -> dict:
         rc, out = await net_scan.run_cmd("timedatectl", "show", "-p", "NTPSynchronized", "-p", "TimeUSec", timeout=5)
         ntp = dict(ln.split("=", 1) for ln in out.splitlines() if "=" in ln) if rc == 0 else {}
@@ -330,66 +386,4 @@ class NetworkDiagnostics:
         return out
 
     async def _arp(self, report: dict) -> list[dict]:
-        return await net_scan.arp_table()
-
-    # ─── vyhodnocení ─────────────────────────────────────────────────────
-    def _summary(self, r: dict) -> dict:
-        p: list[str] = []
-        sysinfo, ifc, lte, inet, sb, lan = (r.get(k) or {} for k in ("system", "interfaces", "lte", "internet", "supabase", "lan"))
-        for name, st in (r.get("steps") or {}).items():
-            if not st.get("ok"):
-                p.append(f"Krok „{STEP_TITLES.get(name, name)}“ selhal: {st.get('error')}")
-        routes = ifc.get("default_routes") or []
-        if not routes:
-            p.append("Chybí výchozí brána (žádná default route) — internet nemůže fungovat.")
-        elif str(routes[0].get("dev") or "").startswith("eth"):
-            p.append(f"Výchozí brána vede přes {routes[0].get('dev')} (LAN modulů) místo LTE — zkontroluj profil motogo-lan (never-default).")
-        if not ifc.get("dns"):
-            p.append("Není nastaven žádný DNS server (/etc/resolv.conf).")
-        if lte and lte.get("state") not in (None, "connected", "unavailable"):
-            p.append(f"LTE modem není připojen (stav: {lte.get('state')}, NM: {lte.get('nm_state')}).")
-        elif lte.get("state") == "unavailable":
-            p.append("ModemManager nevidí žádný modem (mmcli) — LTE nedostupné.")
-        if inet and not inet.get("ok"):
-            p.append("Internet nedostupný (HTTP sondy selhaly)." + ("" if any(d.get("addresses") for d in inet.get("dns") or []) else " DNS nepřekládá."))
-        if sb.get("paired") and sb.get("ok") is False:
-            p.append("Velín (Supabase) neodpovídá na heartbeat — zkontroluj internet / párování.")
-        if not sb.get("paired"):
-            p.append("Zařízení není spárované s Velínem (report se odešle po spárování).")
-        for d in r.get("devices") or []:
-            if not d.get("reachable"):
-                p.append(f"Zařízení {d['name']} ({d['type']}) na {d['host']}:{d['port']} neodpovídá ({d.get('error') or 'timeout'}).")
-            elif d["type"] in ("wav645", "wav617"):
-                g = (d.get("identified") or {}).get("guess")
-                if g is None:
-                    p.append(f"{d['name']} na {d['host']} má otevřený port {d['port']}, ale nemluví Modbus (jiné zařízení?).")
-                elif g != d["type"] and g != "modbus":
-                    p.append(f"{d['name']} je nastaveno jako {d['type']}, ale na {d['host']} odpovídá {g}.")
-            elif d["type"] == "shelly_rgbww" and not d.get("identified"):
-                p.append(f"{d['name']} na {d['host']} neodpovídá jako Shelly (RPC Shelly.GetDeviceInfo).")
-        hosts_by_ip = {h["host"]: [] for h in r.get("devices") or []}
-        for d in r.get("devices") or []:
-            hosts_by_ip[d["host"]].append(d["name"])
-        for ip, names in hosts_by_ip.items():
-            if len(names) > 1:
-                p.append(f"Více zařízení sdílí IP {ip}: {', '.join(names)}.")
-        unknown = [h["ip"] for h in lan.get("hosts") or [] if not h.get("configured_as") and (h.get("modbus") or h.get("shelly"))]
-        if unknown:
-            p.append("V LAN jsou Modbus/Shelly zařízení mimo konfiguraci: " + ", ".join(unknown[:8]) + ".")
-        too_big = [x["subnet"] for x in lan.get("skipped") or [] if x.get("reason") != "wan"]
-        if too_big:
-            p.append("Přeskočené podsítě (příliš velké / neplatné): " + ", ".join(too_big) + ".")
-        m = sysinfo.get("metrics") or {}
-        if (m.get("cpu_temp") or 0) > 75:
-            p.append(f"Vysoká teplota CPU {m['cpu_temp']} °C.")
-        if m.get("throttled") not in (None, "0x0"):
-            p.append(f"Raspberry hlásí throttling/podpětí ({m['throttled']}).")
-        if m.get("disk_free_pct") is not None and m["disk_free_pct"] < 10:
-            p.append(f"Málo místa na disku ({m['disk_free_pct']} % volných).")
-        if sysinfo.get("ntp_synced") is False:
-            p.append("Čas není synchronizovaný (NTP) — platnost kódů se může vyhodnotit špatně.")
-        for cp in sysinfo.get("config_problems") or []:
-            p.append(f"Konfigurace: {cp}")
-        return {"ok": not p, "problems": p, "hosts": len(lan.get("hosts") or []), "internet": bool(inet.get("ok")),
-                "lte": lte.get("state"), "devices_ok": sum(1 for d in r.get("devices") or [] if d.get("reachable")),
-                "devices_total": len(r.get("devices") or [])}
+        return (await net_scan.arp_table())[:256]

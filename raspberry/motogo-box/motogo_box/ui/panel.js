@@ -57,10 +57,19 @@ MG.Panel = (function () {
     });
     el.querySelector('.b-music').addEventListener('click', () => {
       const st = deps.getState() || {};
-      const playing = st.audio && st.audio.playing_zone === z.zone;
+      const cur = latest(z.zone);
+      const playing = playingZones(st).includes(z.zone) || !!(cur && cur.music);
       call('/api/service/music', { zone: z.zone, on: !playing }, (playing ? 'Hudba vypnuta' : 'Hudba hraje') + ': ' + MG.i18n.zoneName(z));
     });
     return el;
+  }
+
+  /** Zóny, ve kterých hraje hudba (multi: `playing_zones`; selector: jen `playing_zone`). */
+  function playingZones(st) {
+    const a = st && st.audio;
+    if (!a) return [];
+    if (Array.isArray(a.playing_zones)) return a.playing_zones;
+    return a.playing_zone === null || a.playing_zone === undefined ? [] : [a.playing_zone];
   }
 
   function latest(zone) {
@@ -68,7 +77,7 @@ MG.Panel = (function () {
     return (st.zones || []).find((z) => z.zone === zone) || null;
   }
 
-  function updateCard(el, z, playingZone) {
+  function updateCard(el, z, playing) {
     setText(el.querySelector('.zcard-num'), String(z.zone));
     setText(el.querySelector('.zcard-name'), MG.i18n.zoneName(z));
     setText(el.querySelector('.i-state'), MG.i18n.zoneState(z.state));
@@ -78,7 +87,7 @@ MG.Panel = (function () {
     el.classList.toggle('fault', !!z.fault || z.state === 'FAULT');
     el.classList.toggle('open', z.state === 'DOOR_OPEN' || z.state === 'WAITING_FOR_OPEN');
     el.querySelector('.b-light').classList.toggle('on', !!z.light);
-    el.querySelector('.b-music').classList.toggle('on', playingZone === z.zone || !!z.music);
+    el.querySelector('.b-music').classList.toggle('on', playing.includes(z.zone) || !!z.music);
     el.querySelector('.b-open').disabled = !!z.fault && z.fault === 'io_offline';
   }
 
@@ -87,12 +96,12 @@ MG.Panel = (function () {
     if (!open || !st) return;
     setText($('service-title'), 'Servisní režim — ' + (st.branch_name || 'pobočka'));
     const grid = $('service-zones');
-    const playing = st.audio ? st.audio.playing_zone : null;
+    const playing = playingZones(st);
     const zones = st.zones || [];
     const seen = new Set();
     zones.forEach((z) => {
       seen.add(z.zone);
-      const j = JSON.stringify([z, playing === z.zone]);
+      const j = JSON.stringify([z, playing.includes(z.zone)]);
       let c = cardCache.get(z.zone);
       if (!c) { c = { el: zoneCard(z), json: '' }; cardCache.set(z.zone, c); grid.appendChild(c.el); }
       if (c.json !== j) { c.json = j; updateCard(c.el, z, playing); }

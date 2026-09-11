@@ -292,6 +292,8 @@ Při ukončení: 1. fade-out 500 ms; 2. zastavit přehrávač; 3. čekat 200 ms;
 
 Současně smí hrát pouze jedna kóje. Zapnutí více reproduktorů paralelně by snížilo výslednou impedanci a mohlo poškodit zesilovač.
 
+**Režim `multi` (doplněno 2026-09-10, viz „Rozhodnutí uživatele (2026-09-10)“):** sekvence selektoru výše a omezení „současně jen jedna kóje“ platí pro režim `selector` (HW mapa `audio.mode`, výchozí). V režimu `multi` má každá místnost (7 kójí, šatna, venek = 9 kanálů) VLASTNÍ zvukový výstup (USB zvuková karta nebo pár vícekanálového rozhraní se stálým jménem podle USB portu — HARDWARE.md §4), vlastní stereo zesilovač a vlastní proces přehrávače; reléový selektor se nepoužívá (relé smí být jen volitelné „enable“ zesilovače). Hudba hraje současně v libovolném počtu kójí, každá svůj playlist z Velína (blok „Hudba pobočky“ — nahrání přetažením v libovolném formátu, přiřazení kóji / šatně / venku / společné); kóje a šatna se spouští svým kódem, venek jakýmkoli kódem (hraje, dokud běží aspoň jedna relace, + doběh `music_after_close_s`). Cíl bez vlastních skladeb hraje společnou hudbu.
+
 ## 9. Stavový automat jedné zóny
 
 ```
@@ -363,6 +365,14 @@ store_plain_pin: false
 | motogo-sync.service | Server, rezervace a odesílání událostí |
 | motogo-health.service | Watchdog, teploty, disk, LTE a dostupnost modulů |
 
+**Skutečná implementace (`raspberry/motogo-box`, viz CONTRACT.md §0):** tři systemd jednotky —
+`motogo-ui.service` (Chromium kiosk), `motogo-controller.service` (v JEDNOM procesu asyncio: Modbus,
+Shelly, audio, stavové automaty zón, Supabase sync + příkazy, lokální web/WS pro UI, systemd watchdog)
+a `motogo-health.service` (LTE watchdog, teploty, disk). Sloučení modbus/lighting/audio/sync do
+controlleru je záměrné zjednodušení (sdílený stav zón a relé bez IPC); jeho důsledek: pád nebo
+watchdog-restart controlleru projde §12 startem (all-off, zóny zavřené → SECURED) pro všechny zóny
+najednou. Rozdělení na samostatné služby zůstává otevřené rozhodnutí (viz níže).
+
 Doporučené technologie: Raspberry Pi OS 64-bit; Python; asyncio; pymodbus plus raw PDU pro hardware impulz; httpx pro Shelly; SQLite pro lokální frontu událostí; NetworkManager/ModemManager; mpv nebo GStreamer pro audio; systemd watchdog; read-only nebo overlay root filesystem, pokud to aplikace dovolí.
 
 ## 12. Povinné bezpečné chování
@@ -379,7 +389,7 @@ Další pravidla: nikdy nedržet zámek trvale pod napětím; nikdy neaktivovat 
 4. Skutečný příkon jednoho metru bílého a RGBW pásku.
 5. Logická polarita vstupů WAV617 při připojeném NC kontaktu.
 6. Zda jsou dveřní protiplechy mechanicky nastavené na paměťový režim a nemají zapnutou trvalou aretaci.
-7. Zda má být povoleno současné otevření více kójí. Současný audio systém podporuje bezpečně jen jednu aktivní audiozónu.
+7. Zda má být povoleno současné otevření více kójí. Současný audio systém podporuje bezpečně jen jednu aktivní audiozónu (režim `selector`; režim `multi` s vlastním výstupem na místnost viz §8 a rozhodnutí 2026-09-10).
 
 ### Rozhodnutí uživatele (2026-09-09)
 
@@ -389,6 +399,20 @@ Další pravidla: nikdy nedržet zámek trvale pod napětím; nikdy neaktivovat 
   impulz až po doběhnutí předchozího 800ms pulzu) a hudba hraje vždy jen v JEDNÉ kóji: reproduktor
   přebírá nejnovější povolený přístup; po skončení této relace se hudba vypne (do dřívější kóje se
   nevrací). Světla a signalizace jsou plně nezávislé per zóna.
+
+### Rozhodnutí uživatele (2026-09-10) — hudba: 9 nezávislých kanálů
+
+- **§8 / §13.7 — hudba v každé místnosti zvlášť (režim `multi`).** Zadání uživatele: „samoobslužná pobočka bude mít
+  7 kójí s motorkami, šatnu a jeden venek = celkem 9 zvukových kanálů místností řízených skrze stereo zesilovače; každý
+  se spouští individuálně po zadání kódu: kóje 1–7 po zadání kódu kóje, šatna po zadání kódu šatny, venek VŽDY po zadání
+  jakéhokoliv kódu. Hudba musí jít snadno nahrát v jakémkoliv formátu skrze Velín jen přetažením z PC a přiřadit ji
+  kóji.“ Implementace: HW mapa `audio.mode: multi` + `audio.outputs` (9 pojmenovaných ALSA výstupů) + kanál
+  `audio.channels.outdoor` (trigger `any`), dveře `hw.audio.out`; skladby ve Velíně (blok „Hudba pobočky“, tabulka
+  `branch_music_tracks`, bucket `branch-music`, `kiosk_sync_config.music`), jednotka je stahuje sama do
+  `/var/lib/motogo/music/tracks`. **V režimu `multi` toto rozhodnutí NAHRAZUJE pravidlo z 13.7 „hudba hraje vždy jen
+  v JEDNÉ kóji“** — hraje ve všech otevřených kójích zároveň, každá svůj program, venek při jakémkoli kódu (doběh
+  `music_after_close_s` po poslední relaci). Režim `selector` (jeden mono zesilovač + relé, výchozí pro stávající
+  zapojení) pravidlo jedné kóje zachovává (jen s playlistem dané kóje) a venek v něm nefunguje.
 
 ### Doplněné body z revize (2026-09-10) — implementované chování a otevřená rozhodnutí
 
@@ -409,4 +433,7 @@ Další pravidla: nikdy nedržet zámek trvale pod napětím; nikdy neaktivovat 
   (Velín → Diagnostika chyb & událostí) a do stavu zóny; push/e-mail/SMS notifikace obsluze NENÍ
   implementována (backend nemá kanál pro provozní alerty). Návrh: edge funkce nad `kiosk_logs`
   (level=warn/error) → e-mail přes Resend na kontakt pobočky.
+- **K rozhodnutí — jedna služba místo sedmi (§11):** controller sdružuje modbus/lighting/audio/sync
+  (viz poznámka pod tabulkou §11). Chce-li uživatel izolaci (pád audio/sync vrstvy bez restartu
+  stavových automatů), je třeba rozdělit aspoň sync/web a audio do samostatných unit s IPC.
 - `security.pin_length` v config.yaml je jen informativní (délku kódů určuje Velín / `kiosk_resolve_code`).

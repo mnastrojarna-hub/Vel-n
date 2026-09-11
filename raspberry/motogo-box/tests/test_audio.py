@@ -217,6 +217,45 @@ async def test_controller_works_with_dead_player():
     assert bus.on_refs() == set()
 
 
+async def test_controller_switches_playlist_to_zone_target_with_library():
+    """Selector + knihovna: před play se načte playlist cíle zóny (door:<id> → all fallback), jen při změně."""
+    class Lib:
+        lists = {"door:d1": ["/m/a.mp3"], "all": ["/m/c.mp3"]}
+
+        def playlist_for(self, target: str) -> list[str]:
+            return list(self.lists.get(target) or self.lists.get("all") or [])
+
+        def status(self) -> dict:
+            return {"tracks": 2}
+
+    class Player(FakePlayer):
+        async def load_files(self, files: list[str], shuffle: bool = True) -> int:
+            self.log.append(("load_files", tuple(files)))
+            self.playlist_count = len(files)
+            return len(files)
+
+    zones = [Zone(hw=ZoneHw(zone=1, audio=HwRef("wav617b", 1)), door_id="d1"),
+             Zone(hw=ZoneHw(zone=2, audio=HwRef("wav617b", 2)), door_id="d2")]
+    bus, player, cfg = FakeIoBus(), Player(), _cfg()
+    ctl = AudioController(player, AudioSelector(bus, zones, cfg), cfg, Lib(), zones)
+    await ctl.start()
+    assert player.log[1] == ("load_files", ("/m/c.mp3",))            # start: společný playlist (all)
+    player.log.clear()
+    assert await ctl.play_zone(1) and ("load_files", ("/m/a.mp3",)) in player.log
+    assert ctl.is_playing(1) and ctl.playing_zones == [1] and ctl.channels_playing == []
+    st = ctl.status()
+    assert st["mode"] == "selector" and st["playlist_count"] == 1 and st["library"] == {"tracks": 2}
+    player.log.clear()
+    assert await ctl.play_zone(2) and ("load_files", ("/m/c.mp3",)) in player.log   # door:d2 → all
+    await ctl.reload_playlists()                                       # hraje → jen dirty, nic nenačte
+    assert ("load_files", ("/m/c.mp3",)) not in player.log[-1:]
+    await ctl.stop()
+    await ctl.sync_channels([1])                                       # selector: no-op
+    player.log.clear()
+    assert await ctl.play_zone(2) and player.log.count(("load_files", ("/m/c.mp3",))) == 1   # po stopu znovu načteno
+    await ctl.stop()
+
+
 # ─── MpvPlayer ─────────────────────────────────────────────────────────────
 async def test_mpv_dummy_mode_when_binary_missing(tmp_path, monkeypatch):
     music = tmp_path / "music"
@@ -233,6 +272,8 @@ async def test_mpv_dummy_mode_when_binary_missing(tmp_path, monkeypatch):
     assert player.alive is False
     assert player.list_files() == [str(music / "a.mp3")]
     assert await player.load_playlist() == 0
+    assert await player.load_files([str(music / "a.mp3")], shuffle=False) == 0 and player.name == "mpv"
+    assert MpvPlayer("s", "m", None, name="out1").name == "out1"
     assert await player.command("get_property", "volume") is None
     await player.play()
     await player.set_volume(50)
@@ -286,6 +327,11 @@ async def test_mpv_ipc_against_fake_socket(tmp_path):
         assert player.volume == 100
         await player.play()
         assert received[-1]["command"] == ["set_property", "pause", False]
+        assert await player.load_files(["/m/a.mp3", "/m/b.mp3"], shuffle=False) == 2
+        assert [m["command"] for m in received if m["command"][0] == "loadfile"] == [
+            ["loadfile", "/m/a.mp3", "replace"], ["loadfile", "/m/b.mp3", "append-play"]]
+        assert await player.load_files([], shuffle=False) == 0 and player.playlist_count == 0
+        assert received[-1]["command"] == ["stop"]        # prázdný cíl: starý playlist se v mpv vyprázdní
         import motogo_box.mpv_player as mp
         mp.IPC_TIMEOUT_S = 0.1
         with pytest.raises(MpvError):

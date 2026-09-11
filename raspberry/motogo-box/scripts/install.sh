@@ -11,8 +11,8 @@
 #                             jinak vygeneruje náhodný „diagNNNN“; existující kód se BEZ této proměnné nemění)
 #   MOTOGO_MODEM_VIDPID=1e0e:9001  (USB ID modemu → /etc/motogo/modem_vidpid pro motogo-usbreset)
 #   MOTOGO_SKIP_APT=1 (přeskočí apt), MOTOGO_NO_START=1 (na konci služby nespouští)
-# Rozhodnutí k souborovému systému: root zůstává READ-WRITE, overlay se NEzapíná (krok 13, README).
-# OS záplaty: unattended-upgrades (jen Debian security, v noci 04:00, bez restartu — krok 10); úplný
+# Rozhodnutí k souborovému systému: root zůstává READ-WRITE, overlay se NEzapíná (krok 14, README).
+# OS záplaty: unattended-upgrades (jen Debian security, v noci 04:00, bez restartu — krok 11); úplný
 # apt full-upgrade + restart OS jen z Velína (příkaz update_system → /usr/local/sbin/motogo-sysupdate).
 set -euo pipefail
 
@@ -54,7 +54,7 @@ ask() {  # ask VAR "Popis" [default] — jen když proměnná není v env a je t
 }
 
 # ── 1. balíčky ─────────────────────────────────────────────────────────────────
-step "1/13 Balíčky (apt)"
+step "1/14 Balíčky (apt)"
 if [[ "${MOTOGO_SKIP_APT:-0}" == "1" ]]; then
   warn "apt přeskočen (MOTOGO_SKIP_APT=1)"
 else
@@ -70,7 +70,7 @@ command -v chromium >/dev/null 2>&1 || command -v chromium-browser >/dev/null 2>
 command -v chvt >/dev/null 2>&1 || warn "chvt (balík kbd) chybí — motogo-ui spoléhá jen na polkit pravidlo"
 
 # ── 2. uživatel ────────────────────────────────────────────────────────────────
-step "2/13 Uživatel $APP_USER"
+step "2/14 Uživatel $APP_USER"
 if ! id "$APP_USER" >/dev/null 2>&1; then
   useradd --system --create-home --home-dir "/home/$APP_USER" --shell /usr/sbin/nologin "$APP_USER"
   ok "uživatel vytvořen"
@@ -80,7 +80,7 @@ usermod -a -G "$APP_GROUPS" "$APP_USER"
 ok "skupiny: $APP_GROUPS"
 
 # ── 3. kopie programu do /opt/motogo ──────────────────────────────────────────
-step "3/13 Program → $APP_DIR"
+step "3/14 Program → $APP_DIR"
 mkdir -p "$APP_DIR"
 if [[ "$SRC_DIR" == "$APP_DIR" ]]; then
   ok "instaluji přímo z $APP_DIR (bez kopie)"
@@ -115,7 +115,7 @@ else
 fi
 
 # ── 4. venv + závislosti ──────────────────────────────────────────────────────
-step "4/13 Python venv"
+step "4/14 Python venv"
 if [[ ! -x "$APP_DIR/venv/bin/python" ]]; then
   mkdir -p "$APP_DIR/venv"; chown "$APP_USER:$APP_USER" "$APP_DIR/venv"
   as_app python3 -m venv "$APP_DIR/venv" || die "python3 -m venv selhal (chybí python3-venv?)"
@@ -133,7 +133,7 @@ app_version() { (cd "$APP_DIR" && as_app "$APP_DIR/venv/bin/python" -m motogo_bo
 ok "verze programu: $(app_version)"
 
 # ── 5. konfigurace /etc/motogo ────────────────────────────────────────────────
-step "5/13 Konfigurace $ETC_DIR"
+step "5/14 Konfigurace $ETC_DIR"
 mkdir -p "$ETC_DIR"
 ask MOTOGO_APN "APN operátora (např. internet.t-mobile.cz, internet, ointernet)" "internet"
 config_created=0
@@ -154,7 +154,7 @@ fi
 # při založení config.yaml se vygeneruje náhodný kód; existující kód se mění JEN přes env MOTOGO_DIAG_CODE.
 diag_explicit=0; [[ -n "${MOTOGO_DIAG_CODE:-}" ]] && diag_explicit=1
 cur_diag="$(sed -n '/^diagnostics:/,/^[a-z_]*:/ s/^  code: *"\?\([^"#]*\)"\?.*/\1/p' "$ETC_DIR/config.yaml" | head -1 | tr -d '[:space:]')"
-(( config_created )) && cur_diag=""   # čerstvá kopie vzoru obsahuje veřejný "netdiag" → nahradit náhodným
+(( config_created )) && cur_diag=""   # čerstvá kopie vzoru má kód prázdný → vygenerovat náhodný
 if (( diag_explicit || config_created )) || [[ -z "$cur_diag" ]]; then
   gen="$(printf 'diag%04d' "$(( $(od -An -N2 -tu2 /dev/urandom | tr -d ' ') % 10000 ))")"
   while :; do
@@ -175,11 +175,13 @@ else
 fi
 chown root:"$APP_USER" "$ETC_DIR/config.yaml"; chmod 640 "$ETC_DIR/config.yaml"   # obsahuje token
 # USB zvuková karta (AXAGON) pro audio.device: výchozí ALSA zařízení RPi 5 je HDMI monitoru → kóje by mlčely.
-USB_CARD="$(aplay -l 2>/dev/null | sed -n 's/^card [0-9]*: \([^ ]*\) \[\([^]]*\)\].*/\1 \2/p' \
-            | grep -i -m1 -E 'usb|axagon' | cut -d' ' -f1 || true)"
+detect_usb_card() { aplay -l 2>/dev/null | sed -n 's/^card [0-9]*: \([^ ]*\) \[\([^]]*\)\].*/\1 \2/p' \
+                    | grep -i -m1 -E 'usb|axagon' | cut -d' ' -f1 || true; }
+USB_CARD="$(detect_usb_card)"; hw_created=0
 if [[ -f "$ETC_DIR/hardware.yaml" ]]; then
   ok "hardware.yaml existuje — ponechán (Velín má přednost)"
 else
+  hw_created=1
   install -m 644 "$APP_DIR/config/brno-9zone.yaml" "$ETC_DIR/hardware.yaml"
   if [[ -n "$USB_CARD" ]]; then
     sed -i "/^audio:/,/^[a-z_]*:/ s|^  device: .*|  device: \"alsa/plughw:CARD=${USB_CARD}\"   # USB karta nalezená instalátorem (aplay -l)|" "$ETC_DIR/hardware.yaml"
@@ -194,20 +196,72 @@ else
 fi
 
 # ── 6. data + logy ─────────────────────────────────────────────────────────────
-step "6/13 Data $DATA_DIR"
-mkdir -p "$DATA_DIR/music"
-chown -R "$APP_USER:$APP_USER" "$DATA_DIR"; chmod 750 "$DATA_DIR"
+step "6/14 Data $DATA_DIR"
+# music = ručně nahrané soubory (legacy, cíl „všechny kóje“); music/tracks = skladby stažené z Velína
+# (bucket branch-music, index v kv music_index) — jen motogo do nich zapisuje (music_sync).
+mkdir -p "$DATA_DIR/music/tracks"
+chown -R "$APP_USER:$APP_USER" "$DATA_DIR"; chmod 750 "$DATA_DIR" "$DATA_DIR/music" "$DATA_DIR/music/tracks"
 # Logy sudo skriptů patří rootu (skripty běží jako root). Soubor vlastněný motogo = symlink → root by psal kamkoli;
 # starší instalace (chown motogo) se opraví.
 for f in /var/log/motogo-update.log /var/log/motogo-usbreset.log /var/log/motogo-sysupdate.log; do
   if [[ -L "$f" || ( -e "$f" && "$(stat -c %u "$f")" != "0" ) ]]; then rm -f "$f"; fi
   touch "$f"; chmod 644 "$f"
 done
-n="$(find "$DATA_DIR/music" -maxdepth 1 -type f \( -iname '*.mp3' -o -iname '*.ogg' -o -iname '*.flac' -o -iname '*.wav' \) | wc -l)"
-ok "hudba: $n souborů v $DATA_DIR/music (nahraj mp3/ogg/flac/wav); logy /var/log/motogo-*.log root-owned"
+# Ruční soubory: jednotka (music_sync.legacy_files → mpv_player.MUSIC_EXTENSIONS) hraje mp3/ogg/oga/opus/flac/wav/m4a/aac/wma/aiff/webm/mkv.
+n_legacy="$(find "$DATA_DIR/music" -maxdepth 1 -type f \( -iname '*.mp3' -o -iname '*.ogg' -o -iname '*.oga' -o -iname '*.opus' \
+            -o -iname '*.flac' -o -iname '*.wav' -o -iname '*.m4a' -o -iname '*.aac' -o -iname '*.wma' \
+            -o -iname '*.aiff' -o -iname '*.aif' -o -iname '*.webm' -o -iname '*.mkv' \) | wc -l)"
+n_tracks="$(find "$DATA_DIR/music/tracks" -maxdepth 1 -type f ! -name '*.part' | wc -l)"
+ok "hudba: $n_tracks skladeb z Velína v $DATA_DIR/music/tracks (stahuje jednotka sama), $n_legacy ručních souborů (mp3/ogg/opus/flac/wav/m4a/aac/wma/aiff/webm/mkv) v $DATA_DIR/music"
+ok "logy /var/log/motogo-*.log root-owned"
 
-# ── 7. udev + modem ────────────────────────────────────────────────────────────
-step "7/13 udev (SIM7600 → /dev/motogo-lte-at) + VID:PID modemu"
+# ── 7. audio: ALSA výstupy + udev pojmenování karet ───────────────────────────
+step "7/14 Audio (ALSA výstupy, režim selector/multi, udev pojmenování USB karet)"
+# selector = jeden zesilovač + relé (audio.device, krok 5); multi = každá kóje/šatna/venek vlastní ALSA výstup
+# (audio.outputs) — čísla karet se po restartu prohazují, proto stálá jména podle USB portu (udev ATTR{id}).
+AUDIO_RULES="70-motogo-audio.rules"; LIVE_RULES="/etc/udev/rules.d/$AUDIO_RULES"
+AUDIO_RULES_STATE="nenainstalováno"
+has_rules() { [[ -f "$1" ]] && grep -Eq '^[[:space:]]*[^#[:space:]]' "$1"; }   # aspoň jeden nekomentářový řádek
+# Živý soubor je konfigurace pobočky (jako hardware.yaml): má-li aktivní pravidla, šablona z repa ho NEpřepíše.
+if has_rules "$LIVE_RULES"; then
+  AUDIO_RULES_STATE="existující aktivní pravidla — ponechána (šablona z $APP_DIR/systemd se nekopíruje)"
+elif [[ -s "$APP_DIR/systemd/$AUDIO_RULES" ]]; then
+  install -m 644 -o root -g root "$APP_DIR/systemd/$AUDIO_RULES" "$LIVE_RULES"
+  if has_rules "$LIVE_RULES"; then AUDIO_RULES_STATE="aktivní pravidla (nainstalována ze šablony)"
+  else AUDIO_RULES_STATE="jen šablona (samé komentáře, bez účinku)"; fi
+else
+  warn "$APP_DIR/systemd/$AUDIO_RULES chybí/prázdné — udev pojmenování karet přeskočeno"
+fi
+# Pravidla aplikovat (a počkat na udev) PŘED výpisem karet — jinak by výpis i hardware.yaml nesly stará jména.
+if has_rules "$LIVE_RULES"; then
+  udevadm control --reload && udevadm trigger --subsystem-match=sound && udevadm settle --timeout=5 || true
+  ok "$LIVE_RULES — $AUDIO_RULES_STATE (jména karet: cat /proc/asound/cards)"
+  new_card="$(detect_usb_card)"
+  if (( hw_created )) && [[ -n "$new_card" && "$new_card" != "$USB_CARD" ]]; then
+    sed -i "/^audio:/,/^[a-z_]*:/ s|^  device: .*|  device: \"alsa/plughw:CARD=${new_card}\"   # USB karta nalezená instalátorem (aplay -l)|" "$ETC_DIR/hardware.yaml"
+    ok "hardware.yaml audio.device přepsáno na alsa/plughw:CARD=$new_card (karta přejmenována udev pravidlem)"
+  fi
+  [[ -z "$new_card" ]] || USB_CARD="$new_card"
+elif [[ -f "$LIVE_RULES" ]]; then
+  ok "$LIVE_RULES — $AUDIO_RULES_STATE; pro multi odkomentuj pravidla podle USB portů (upravuj ŽIVÝ soubor, install.sh ho ponechá)"
+fi
+n_cards=0
+if command -v aplay >/dev/null 2>&1; then
+  n_cards="$(aplay -l 2>/dev/null | sed -n 's/^card \([0-9]*\):.*/\1/p' | sort -u | wc -l || true)"
+  echo "  ALSA karty (aplay -l): $n_cards"
+  aplay -l 2>/dev/null | sed -n 's/^card \([0-9]*\): \([^ ]*\) \[\([^]]*\)\].*/    card \1: CARD=\2  (\3)/p' | sort -u || true
+  echo "  ALSA zařízení pro audio.outputs[].device (aplay -L, jen plughw):"
+  aplay -L 2>/dev/null | sed -n 's/^plughw:CARD=\([^,]*\).*/    alsa\/plughw:CARD=\1/p' | sort -u || true
+  (( n_cards > 0 )) || warn "aplay -l nevidí žádnou kartu — zvuk nepůjde (připoj USB karty)"
+else
+  warn "aplay chybí (alsa-utils) — výpis karet přeskočen"
+fi
+echo "  → režim multi (nezávislé kanály kóje 1–7, šatna, venek): výstupy (název → ALSA zařízení) a kanál venek"
+echo "    nastav ve Velíně → Pobočky → Samoobsluha → hardware → Audio; hudbu nahraj tamtéž v bloku „Hudba pobočky“."
+echo "    Ověření kanálu: speaker-test -D plughw:CARD=<jméno> -c2 -t wav -l1 ; stav mpv: api/state → audio.players"
+
+# ── 8. udev + modem ────────────────────────────────────────────────────────────
+step "8/14 udev (SIM7600 → /dev/motogo-lte-at) + VID:PID modemu"
 install -m 644 "$APP_DIR/systemd/99-motogo-lte.rules" /etc/udev/rules.d/99-motogo-lte.rules
 udevadm control --reload && udevadm trigger --subsystem-match=tty || true
 ok "pravidlo nainstalováno"
@@ -218,8 +272,8 @@ MOTOGO_MODEM_VIDPID="${MOTOGO_MODEM_VIDPID,,}"
 printf '%s\n' "$MOTOGO_MODEM_VIDPID" > "$ETC_DIR/modem_vidpid"; chown root:root "$ETC_DIR/modem_vidpid"; chmod 644 "$ETC_DIR/modem_vidpid"
 ok "modem $MOTOGO_MODEM_VIDPID → $ETC_DIR/modem_vidpid (musí odpovídat health.modem_vid_pid v config.yaml)"
 
-# ── 8. NetworkManager profily ─────────────────────────────────────────────────
-step "8/13 Síť (NetworkManager: motogo-lte + motogo-lan)"
+# ── 9. NetworkManager profily ─────────────────────────────────────────────────
+step "9/14 Síť (NetworkManager: motogo-lte + motogo-lan)"
 systemctl enable --now NetworkManager ModemManager >/dev/null 2>&1 || true
 mkdir -p "$NM_DIR"
 # PIN SIM: bez něj zůstane modem ve stavu „locked“ a LTE nikdy nenaběhne (health hlásí lte.error=sim_locked).
@@ -259,8 +313,8 @@ for prof in motogo-lte motogo-lan; do
 done
 echo "  → statickou LAN aplikuj: sudo $APP_DIR/scripts/set-static-lan.sh (přes SSH na eth0 spojení spadne — skript doběhne sám)"
 
-# ── 9. sudoers + polkit ───────────────────────────────────────────────────────
-step "9/13 sudoers + polkit"
+# ── 10. sudoers + polkit ───────────────────────────────────────────────────────
+step "10/14 sudoers + polkit"
 visudo -c -q -f "$APP_DIR/systemd/motogo-sudoers" || die "motogo-sudoers má chybu syntaxe"
 install -m 440 -o root -g root "$APP_DIR/systemd/motogo-sudoers" /etc/sudoers.d/motogo
 ok "/etc/sudoers.d/motogo (reboot, restart motogo-*, motogo-usbreset|motogo-update|motogo-sysupdate BEZ argumentů, nmcli lte, mmcli signal-setup)"
@@ -270,8 +324,8 @@ mkdir -p /etc/polkit-1/rules.d
 install -m 644 -o root -g root "$APP_DIR/systemd/$POLKIT_RULE" "/etc/polkit-1/rules.d/$POLKIT_RULE"
 ok "/etc/polkit-1/rules.d/$POLKIT_RULE (chvt pro motogo-ui; polkitd si rules.d načte sám)"
 
-# ── 10. OS záplaty (unattended-upgrades) ──────────────────────────────────────
-step "10/13 OS záplaty: unattended-upgrades (jen Debian security, v noci 04:00, bez restartu)"
+# ── 11. OS záplaty (unattended-upgrades) ──────────────────────────────────────
+step "11/14 OS záplaty: unattended-upgrades (jen Debian security, v noci 04:00, bez restartu)"
 # Bezpečnostní záplaty se instalují samy v noci; restart OS NIKDY automaticky (Automatic-Reboot false) —
 # jen z Velína (příkaz reboot / update_system s auto_reboot po jádru, až je kóje volná). Úplný apt
 # full-upgrade dělá /usr/local/sbin/motogo-sysupdate na pokyn Velína.
@@ -296,8 +350,8 @@ else
   warn "apt-daily-upgrade.timer neexistuje (balík apt?) — drop-in $APT_TIMER_DIR/motogo.conf ponechán pro později"
 fi
 
-# ── 11. systemd ────────────────────────────────────────────────────────────────
-step "11/13 systemd služby"
+# ── 12. systemd ────────────────────────────────────────────────────────────────
+step "12/14 systemd služby"
 for unit in motogo-controller.service motogo-health.service motogo-ui.service; do
   install -m 644 "$APP_DIR/systemd/$unit" "/etc/systemd/system/$unit"
 done
@@ -313,8 +367,8 @@ if command -v raspi-config >/dev/null 2>&1; then
 fi
 systemctl set-default multi-user.target >/dev/null 2>&1 || true
 
-# ── 12. RTC + firmware ─────────────────────────────────────────────────────────
-step "12/13 RTC baterie (dobíjení) v config.txt"
+# ── 13. RTC + firmware ─────────────────────────────────────────────────────────
+step "13/14 RTC baterie (dobíjení) v config.txt"
 BOOT_CFG=/boot/firmware/config.txt; [[ -f "$BOOT_CFG" ]] || BOOT_CFG=/boot/config.txt
 if [[ -f "$BOOT_CFG" ]]; then
   if grep -q '^dtparam=rtc_bbat_vchg=3000000' "$BOOT_CFG"; then
@@ -328,8 +382,8 @@ else
   warn "config.txt nenalezen — RTC dobíjení nastav ručně"
 fi
 
-# ── 13. souborový systém ──────────────────────────────────────────────────────
-step "13/13 Souborový systém: rw root, BEZ overlay (rozhodnutí k SPEC §11)"
+# ── 14. souborový systém ──────────────────────────────────────────────────────
+step "14/14 Souborový systém: rw root, BEZ overlay (rozhodnutí k SPEC §11)"
 cat <<'TXT'
   Rozhodnutí: root zůstává read-write, overlay root (raspi-config → Overlay File System) se NEZAPÍNÁ.
   Důvod: /var/lib/motogo (SQLite cache kódů + fronta událostí, health.json, hudba), /var/log a NM profily
@@ -353,16 +407,19 @@ for s in motogo-controller motogo-health motogo-ui; do
 done
 echo "  program:     $APP_DIR ($(app_version))"
 echo "  konfigurace: $ETC_DIR/config.yaml, $ETC_DIR/hardware.yaml (zdroj update: $ETC_DIR/source_dir)"
-echo "  data/hudba:  $DATA_DIR, $DATA_DIR/music"
+echo "  data/hudba:  $DATA_DIR, $DATA_DIR/music (ruční soubory = společná), $DATA_DIR/music/tracks (skladby z Velína, sync automaticky)"
 echo "  OS záplaty:  unattended-upgrades $(command -v unattended-upgrade >/dev/null 2>&1 && echo 'ano' || echo 'CHYBÍ') (jen Debian security, 04:00, bez restartu);"
 echo "               apt full-upgrade + restart OS jen z Velína (update_system → motogo-sysupdate, log /var/log/motogo-sysupdate.log)"
 echo "  LTE:         APN ${MOTOGO_APN}, PIN SIM $SIM_PIN_STATE, modem ${MOTOGO_MODEM_VIDPID}   (nmcli con show motogo-lte; mmcli -m any)"
-echo "  zvuk:        ${USB_CARD:+USB karta „$USB_CARD“ → audio.device alsa/plughw:CARD=$USB_CARD}${USB_CARD:-USB zvuková karta NENALEZENA — nastav audio.device (aplay -l)}"
+echo "  zvuk:        ${USB_CARD:+USB karta „$USB_CARD“ → audio.device alsa/plughw:CARD=$USB_CARD}${USB_CARD:-USB zvuková karta NENALEZENA — nastav audio.device (aplay -l)} (režim selector)"
+echo "               režim multi: $n_cards ALSA karet; výstupy + venek nastav ve Velíně (Samoobsluha → hardware → Audio);"
+echo "               udev jména karet: /etc/udev/rules.d/$AUDIO_RULES — $AUDIO_RULES_STATE"
 echo "  diagnostika: kód „${MOTOGO_DIAG_CODE}“ na displeji (nebo Velín → Diagnostika sítě) = scan sítě + report do Velína"
 echo "  UI:          motogo-ui na tty7 (chvt 7 + polkit chvt pro motogo); LAN: sudo $APP_DIR/scripts/set-static-lan.sh"
 echo "  logy:        journalctl -u motogo-controller -u motogo-health -u motogo-ui -f"
 echo "  stav:        curl -s http://127.0.0.1:8080/api/state | python3 -m json.tool"
 echo "  Další kroky: 1) na displeji zadat diagnostický kód → ověřit LTE/LAN/moduly, 2) spárovat zařízení (UI nebo config.yaml),"
 echo "               3) nastavit Waveshare/Shelly (HARDWARE.md), 4) servisní heslo → servisní panel → test každé zóny,"
-echo "               5) po odladění restart (RTC dtparam)."
+echo "               5) hudba: Velín → Samoobsluha → Hudba pobočky (nahrát, přiřadit kójím; multi = výstupy v hardware → Audio),"
+echo "               6) po odladění restart (RTC dtparam)."
 echo "═══════════════════════════════════════════════════════════════════════"

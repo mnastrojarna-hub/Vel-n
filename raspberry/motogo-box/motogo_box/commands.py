@@ -63,7 +63,10 @@ async def _run(*argv: str) -> tuple[bool, dict]:
         try:
             out, _ = await asyncio.wait_for(proc.communicate(), timeout=SUBPROCESS_TIMEOUT_S)
         except asyncio.TimeoutError:
-            proc.kill()
+            try:
+                proc.kill()
+            except (ProcessLookupError, PermissionError):
+                pass   # už skončil / potomek je sudo (root) — Velín musí dostat 'timeout', ne EPERM
             return False, {"error": "timeout", "argv": list(argv)}
         text = (out or b"").decode("utf-8", "replace")[-2000:]
         return proc.returncode == 0, {"returncode": proc.returncode, "output": text}
@@ -91,6 +94,18 @@ async def _music_on(ctrl: "BoxController", params: dict) -> tuple[bool, dict]:
 
 
 async def _music_off(ctrl: "BoxController", params: dict) -> tuple[bool, dict]:
+    """Se zónou vypne jen tuto kóji (multi: ostatní hrají dál); bez zóny = vše (§4)."""
+    selected = any(params.get(k) not in (None, "") for k in ("zone", "door_id", "box_number"))
+    if selected:
+        z = _zone_of(ctrl, params)
+        if z is None:
+            return False, {"error": "zone_not_found"}
+        stop_zone = getattr(ctrl.audio, "stop_zone", None)
+        if stop_zone is not None:
+            await stop_zone(z.number)
+        else:
+            await ctrl.audio.stop()
+        return True, {"zone": z.number}
     await ctrl.audio.stop()
     return True, {}
 
@@ -156,6 +171,9 @@ async def _identify(ctrl: "BoxController", params: dict) -> tuple[bool, dict]:
 
 
 async def _reload(ctrl: "BoxController", params: dict) -> tuple[bool, dict]:
+    music = getattr(ctrl, "music", None)
+    if music is not None and hasattr(music, "retry_failed"):
+        music.retry_failed()          # „Znovu synchronizovat“ z Velína = i skladby v backoffu hned znovu
     res = await ctrl.resync()
     return bool(res.get("ok", True)), res
 
@@ -191,8 +209,14 @@ async def _update_system(ctrl: "BoxController", params: dict) -> tuple[bool, dic
 
 
 async def _diagnostics(ctrl: "BoxController", params: dict) -> tuple[bool, dict]:
-    """Diagnostika sítě z Velína — běží na pozadí, report dorazí přes `kiosk_report_diagnostics`."""
-    res = ctrl.diagnostics.start(source="velin", reason=str(params.get("reason") or "velin"))
+    """Diagnostika pobočky z Velína — běží na pozadí, report dorazí přes `kiosk_report_diagnostics`.
+
+    `params {mode?: full|network (výchozí full), cameras?: [{name, kind, snapshot_url, stream_url}], reason?}`.
+    """
+    mode = "network" if str(params.get("mode") or "").strip().lower() == "network" else "full"
+    cams = params.get("cameras")
+    res = ctrl.diagnostics.start(source="velin", reason=str(params.get("reason") or "velin"), mode=mode,
+                                 cameras=cams if isinstance(cams, list) else None)
     return bool(res.get("ok")), res
 
 

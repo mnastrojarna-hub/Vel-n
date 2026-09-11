@@ -1,5 +1,5 @@
 /* MotoGo24 kiosk — hlavní logika: WS klient, zadávání kódu, overlay stavů, dlaždice zón.
-   Vanilla JS (offline, bez CDN). Texty a flow převzaté z Flutter kiosku (kiosk_screen.dart). */
+   Vanilla JS (offline, bez CDN). Layout je plně responzivní (CSS), žádné škálování plátna. Texty a flow převzaté z Flutter kiosku (kiosk_screen.dart). */
 'use strict';
 window.MG = window.MG || {};
 
@@ -73,7 +73,7 @@ window.MG = window.MG || {};
 
   function render() {
     const st = S.state || {};
-    setText($('branch-name'), st.branch_name || MG.i18n.t('branch'));
+    setText($('branch-name'), st.branch_name || '');   // VÝHRADNĚ název z Velína — bez názvu prázdné
     const dot = $('online-dot');
     const cls = st.internet === true ? 'dot dot-on' : 'dot dot-off';
     if (dot.className !== cls) dot.className = cls;
@@ -96,8 +96,8 @@ window.MG = window.MG || {};
   function tileEl(z) {
     const el = document.createElement('div');
     el.className = 'tile';
-    el.innerHTML = '<div class="tile-top"><span class="tile-num"></span><span class="tile-sig"></span></div>' +
-      '<div class="tile-name"></div><div class="tile-bottom"><span class="tile-state"></span><span class="tile-door"></span></div>';
+    el.innerHTML = '<span class="tile-num"></span><div class="tile-txt"><div class="tile-name"></div>' +
+      '<div class="tile-bottom"><span class="tile-state"></span><span class="tile-door"></span></div></div><span class="tile-sig"></span>';
     return el;
   }
 
@@ -108,6 +108,8 @@ window.MG = window.MG || {};
 
   function renderTiles(zones) {
     const box = $('zones');
+    const cls = 'zones zones-n' + zones.length;   // mřížka dlaždic podle počtu zón (CSS)
+    if (box.className !== cls) box.className = cls;
     const seen = new Set();
     let added = false;
     zones.forEach((z) => {
@@ -234,14 +236,6 @@ window.MG = window.MG || {};
   }
   function hideStatus() { clearTimeout(S.hideTimer); $('status').hidden = true; }
 
-  /* ── Škálování na okno (1920×1080 fixní plátno) ───────────────────── */
-  function fit() {
-    const s = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
-    $('app').style.transform = s !== 1 ? 'scale(' + s + ')' : '';
-    document.body.style.width = (1920 * s) + 'px';
-    document.body.style.height = (1080 * s) + 'px';
-  }
-
   /* ── Init ─────────────────────────────────────────────────────────── */
   function init() {
     const q = new URLSearchParams(location.search).get('lang');
@@ -274,8 +268,6 @@ window.MG = window.MG || {};
       },
     });
     document.addEventListener('contextmenu', (e) => e.preventDefault());
-    window.addEventListener('resize', fit);
-    fit();
     connectWs();
     pollFallback();
     setInterval(pollFallback, POLL_MS);
@@ -283,6 +275,8 @@ window.MG = window.MG || {};
   }
 
   MG.app = { post, showStatus, hideStatus, getState: () => S.state };
+  // Jen pro náhledy/screenshoty (harness): přepnutí klávesnice, jazyka, podstrčení stavu. Appka to nepoužívá.
+  MG.__debug = { toggleKeyboard: toggleMode, setLang: (l) => MG.i18n.setLang(l), applyState, showStatus, hideStatus };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
 })();

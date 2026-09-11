@@ -21,6 +21,7 @@ from typing import Any, Awaitable, Callable
 from aiohttp import WSMsgType, web
 
 from . import webserver_service as svc
+from .models import Event, EventKind
 
 log = logging.getLogger("motogo.web")
 
@@ -96,6 +97,9 @@ async def _api_middleware(request: web.Request, handler: Callable) -> web.Stream
         resp.headers["Cache-Control"] = "no-cache"      # po update_software musí Chromium načíst nové JS/CSS
     return resp
 
+
+_HEALTH_ACTION_KINDS = {"reconnect": EventKind.LTE_RESET, "usb_reset": EventKind.LTE_RESET,
+                        "reboot": EventKind.REBOOT}
 
 # ─── server ──────────────────────────────────────────────────────────────────
 class WebServer:
@@ -308,6 +312,15 @@ class WebServer:
         if not body:
             return _err("bad_request")
         self.ctrl.health = body
+        # CONTRACT §15: obnova LTE (reconnect/usb_reset → LTE_RESET, reboot → REBOOT) musí zůstat
+        # v kiosk_logs, ne jen ve 30s snapshotu health.actions (reboot health posílá PŘED restartem).
+        actions = body.get("actions")
+        for action in actions if isinstance(actions, list) else []:
+            kind = _HEALTH_ACTION_KINDS.get(action)
+            if kind is not None:
+                await self.ctrl.emit(Event(kind=kind, level="warn", message=f"LTE obnova: {action}",
+                                           detail={"source": "health", "action": action,
+                                                   "lte": body.get("lte")}))
         return _json({"ok": True})
 
     async def _pin(self, request: web.Request) -> web.Response:

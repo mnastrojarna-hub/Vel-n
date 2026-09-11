@@ -1,0 +1,159 @@
+/* MotoGo24 kiosk UI — technické overlaye (servisní panel, setup/párování, diagnostika) — zůstávají TMAVÉ (technik),
+   ale responzivní: karty `min(96vw, …)`, `max-height: 92vh`, rolování uvnitř, klávesnice ze style.css (.kb-mode-text).
+   panel.js / diag.js se NEMĚNÍ — jen styly nad stávajícími třídami. Základ (proměnné, .key, .kb-*) → style.css. */
+.overlay-dark, .overlay-solid { --glass: rgba(255,255,255,0.06); --glass-border: rgba(255,255,255,0.12);
+  --amber-d: #f59e0b; --red-d: #dc2626; color: #fff; }
+.overlay-dark { background: rgba(0,0,0,0.88); }
+.overlay-solid { background: linear-gradient(135deg, #0a1a10, #152a1c 50%, #1a3524); z-index: 60; padding: 0; }
+/* klávesy uvnitř tmavých overlayů (setup, diagnostika) */
+.overlay-dark .key, .overlay-solid .key { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.10);
+  box-shadow: none; color: #fff; }
+.overlay-dark .key:active, .overlay-dark .key.pressed, .overlay-solid .key:active, .overlay-solid .key.pressed { background: rgba(255,255,255,0.22); transform: none; }
+.overlay-dark .key.amber, .overlay-solid .key.amber { background: var(--amber-d); border-color: var(--amber-d); color: var(--ink); }
+.overlay-dark .key.green, .overlay-solid .key.green { background: var(--green); border-color: var(--green); color: var(--ink); }
+
+/* ── Tlačítka (tmavé panely) ─────────────────────────────────────────────────────────────────────── */
+.btn { min-height: clamp(48px, 7vh, 64px); padding: 0 clamp(12px, 1.4vw, 22px); border-radius: 14px;
+  font-size: clamp(14px, 2vh, 18px); font-weight: 800; background: rgba(255,255,255,0.1); color: #fff;
+  display: inline-flex; align-items: center; gap: 8px; }
+.btn:active { background: rgba(255,255,255,0.25); }
+.btn-primary { background: var(--green); color: var(--ink); }
+.btn-ghost { background: rgba(255,255,255,0.1); }
+.btn-amber { background: rgba(245,158,11,0.25); }
+.btn-danger { background: rgba(220,38,38,0.35); }
+.btn.on { background: var(--green); color: var(--ink); }
+.btn[disabled] { opacity: .4; pointer-events: none; }
+.icon-btn { width: clamp(48px, 7vh, 64px); height: clamp(48px, 7vh, 64px); border-radius: 14px; font-size: clamp(22px, 3vh, 30px);
+  font-weight: 700; background: rgba(255,255,255,0.08); color: #fff; }
+
+/* ── Servisní panel ──────────────────────────────────────────────────────────────────────────────── */
+.service-panel { width: min(96vw, 1600px); max-height: 92vh; padding: clamp(10px, 1.6vh, 28px) clamp(14px, 2vw, 32px);
+  border-radius: 24px; background: rgba(16,26,20,0.97); border: 1px solid var(--glass-border); display: flex;
+  flex-direction: column; gap: clamp(4px, 1vh, 8px); overflow-y: auto; -webkit-overflow-scrolling: touch; touch-action: pan-y; }
+.service-head { display: flex; align-items: center; gap: 12px; }
+.service-icon { font-size: clamp(22px, 3vh, 30px); font-family: var(--emoji); }
+.service-title { font-size: clamp(18px, 2.8vh, 26px); font-weight: 900; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.section-label { color: rgba(255,255,255,0.5); font-size: 13px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; margin-top: 4px; }
+.service-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: clamp(6px, 1vh, 12px); min-height: 0;
+  flex: 1 1 auto; overflow-y: auto; -webkit-overflow-scrolling: touch; touch-action: pan-y; }
+.service-panel > * { flex-shrink: 0; }
+.service-panel > .service-grid { flex-shrink: 1; min-height: min(45vh, 240px); }   /* nízký displej: mřížka nikdy 0 px, panel roluje */
+.zcard { border-radius: 16px; background: rgba(255,255,255,0.07); border: 1px solid var(--glass-border);
+  padding: clamp(8px, 1.2vh, 12px) 14px; display: flex; flex-direction: column; gap: clamp(4px, 1vh, 8px); min-width: 0; }
+.zcard.fault { border-color: var(--red-d); } .zcard.open { border-color: rgba(116,251,113,0.6); }
+.zcard-head { display: flex; align-items: center; gap: 10px; }
+.zcard-num { font-size: clamp(18px, 2.6vh, 26px); font-weight: 900; width: clamp(34px, 4.4vh, 44px); height: clamp(34px, 4.4vh, 44px);
+  border-radius: 12px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.08); }
+.zcard-name { font-size: clamp(14px, 2vh, 18px); font-weight: 800; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.zcard-info { display: flex; gap: 14px; font-size: clamp(12px, 1.6vh, 14px); color: rgba(255,255,255,0.7); flex-wrap: wrap; }
+.zcard-info b { color: #fff; font-weight: 700; }
+.zcard-btns { display: flex; gap: 8px; }
+.zcard-btns .btn { flex: 1; min-height: clamp(44px, 6.5vh, 64px); padding: 0 10px; font-size: clamp(13px, 1.8vh, 16px); justify-content: center; }
+.service-row { display: flex; align-items: center; gap: clamp(8px, 1vw, 14px); margin-top: 4px; flex-wrap: wrap; }
+.service-actions { justify-content: flex-end; }
+.service-msg { font-size: clamp(13px, 1.8vh, 16px); color: rgba(255,255,255,0.7); flex: 1 1 200px; }
+.service-msg.err { color: #fca5a5; } .service-msg.ok { color: var(--green); }
+.device-box { border-radius: 14px; background: var(--glass); border: 1px solid var(--glass-border); padding: clamp(8px, 1.2vh, 12px) 16px; }
+.device-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px 20px; font-size: clamp(12px, 1.7vh, 15px); }
+.device-grid .wide { grid-column: span 4; }
+.device-grid .k { color: rgba(255,255,255,0.5); font-size: 12px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; display: block; }
+.device-grid .v { color: rgba(255,255,255,0.9); overflow-wrap: anywhere; }
+.mod { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 13px; font-weight: 700; margin: 2px 6px 0 0;
+  background: rgba(220,38,38,0.25); border: 1px solid var(--red-d); }
+.mod.on { background: rgba(116,251,113,0.15); border-color: var(--green); }
+
+/* ── Setup / párování — karta + textová klávesnice; na nízkém displeji vedle sebe ───────────────── */
+.setup-wrap { display: flex; flex-direction: column; align-items: center; gap: clamp(8px, 1.5vh, 16px); width: 100%; height: 100%;
+  padding: clamp(8px, 2vh, 24px) clamp(12px, 2vw, 40px); }
+.setup-card { flex: 0 1 auto; width: min(96vw, 760px); max-height: 100%; overflow-y: auto; padding: clamp(12px, 2.4vh, 28px) clamp(16px, 2.4vw, 36px);
+  border-radius: 24px; background: var(--glass); border: 1px solid var(--glass-border); display: flex; flex-direction: column;
+  gap: clamp(6px, 1.2vh, 12px); align-items: stretch; }
+.setup-logo { height: clamp(44px, 8vh, 84px); width: auto; align-self: center; }
+.setup-title { text-align: center; font-size: clamp(18px, 2.8vh, 26px); font-weight: 900; }
+.setup-hint { text-align: center; color: rgba(255,255,255,0.7); font-size: clamp(12px, 1.7vh, 15px); }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field-label { color: rgba(255,255,255,0.8); font-size: 14px; font-weight: 700; }
+.field-input { min-height: clamp(44px, 6.5vh, 60px); padding: 0 16px; display: flex; align-items: center; border-radius: 12px;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); font-size: clamp(15px, 2.2vh, 20px);
+  font-family: "DejaVu Sans Mono", Consolas, monospace; white-space: nowrap; overflow: hidden; }
+.field-input.active { border-color: var(--green); box-shadow: 0 0 0 2px rgba(116,251,113,0.25); }
+.field-input:empty::before { content: attr(data-placeholder); color: rgba(255,255,255,0.35); }
+.setup-error { padding: 12px; border-radius: 12px; background: rgba(220,38,38,0.15); border: 1px solid var(--red-d); font-size: 15px; }
+.setup-actions { display: flex; gap: 12px; justify-content: stretch; }
+.setup-actions .btn { flex: 1; justify-content: center; min-height: clamp(48px, 7vh, 64px); font-size: clamp(15px, 2.2vh, 20px); }
+.setup-keys { flex: 1 1 auto; width: min(100%, 1700px); min-height: 0; display: flex; justify-content: center; align-items: center;
+  container-type: size; }
+@media (max-height: 820px) {
+  .setup-wrap { flex-direction: row; justify-content: center; align-items: center; }
+  .setup-card { width: min(44vw, 640px); }
+  .setup-keys { height: 100%; width: auto; }
+}
+
+/* ── Diagnostika pobočky ─────────────────────────────────────────────────────────────────────────── */
+#diag { z-index: 70; }
+.diag-panel { width: min(96vw, 1760px); height: 92vh; max-height: 92vh; }
+.diag-state { color: var(--green); font-size: 16px; font-weight: 800; }
+.diag-auth { display: flex; flex-direction: column; gap: clamp(6px, 1.2vh, 10px); align-items: center; flex: 1 1 auto; min-height: 0; width: 100%;
+  overflow-y: auto; }   /* na extrémně nízkém displeji se roluje, klávesy zůstávají ≥ 48 px */
+.diag-code { width: min(100%, 720px); justify-content: center; font-size: clamp(20px, 3vh, 30px); letter-spacing: 6px; }
+.diag-keys { flex: 1 1 auto; width: min(100%, 1600px); min-height: calc(5 * 48px + 4 * var(--gap)); display: flex; justify-content: center;
+  align-items: center; container-type: size; }
+@media (max-height: 520px) {
+  #diag { padding: 0; }
+  .diag-panel { height: 100vh; max-height: 100vh; border-radius: 0; padding-block: 8px; }
+  .diag-auth { display: grid; grid-template-columns: clamp(220px, 28vw, 360px) minmax(0, 1fr); grid-template-rows: auto auto minmax(0, 1fr);
+    gap: 8px 12px; align-items: start; overflow-y: auto; }
+  .diag-auth .diag-code { grid-column: 1; grid-row: 1; width: 100%; min-height: 44px; font-size: 20px; letter-spacing: 4px; }
+  .diag-auth .setup-error { grid-column: 1; grid-row: 2; padding: 8px; font-size: 13px; }
+  .diag-auth .setup-hint { grid-column: 1; grid-row: 3; font-size: 12px; text-align: left; }
+  .diag-auth .diag-keys { grid-column: 2; grid-row: 1 / 4; height: 100%; }   /* floor 5 × 48 px zůstává; pod 400 px výšky roluje */
+}
+.diag-progress { display: flex; align-items: center; gap: 14px; padding: 10px 14px; border-radius: 12px;
+  background: rgba(116,251,113,0.1); border: 1px solid rgba(116,251,113,0.4); font-size: clamp(14px, 2vh, 18px); font-weight: 700; }
+.spinner.small { width: 32px; height: 32px; border-width: 4px; border-color: rgba(116,251,113,0.2); border-top-color: var(--green); }
+.diag-report { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; gap: 10px;
+  padding-right: 6px; -webkit-overflow-scrolling: touch; touch-action: pan-y; }
+.diag-summary { border-radius: 14px; padding: 12px 16px; border: 1px solid var(--glass-border); background: rgba(116,251,113,0.1); }
+.diag-summary.bad { background: rgba(220,38,38,0.14); border-color: rgba(220,38,38,0.6); }
+.diag-summary.warn { background: rgba(245,158,11,0.1); border-color: rgba(245,158,11,0.5); }
+.diag-summary-title { font-size: clamp(18px, 2.6vh, 24px); font-weight: 900; }
+.diag-summary-sub { color: rgba(255,255,255,0.7); font-size: 14px; margin-top: 4px; }
+.diag-problems { margin: 8px 0 0 22px; font-size: 16px; line-height: 1.4; }
+.diag-section { border-radius: 12px; background: var(--glass); border: 1px solid var(--glass-border); padding: 10px 14px; }
+.diag-h { font-size: 15px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: rgba(255,255,255,0.6); margin-bottom: 6px; }
+.diag-sub { font-size: 14px; color: rgba(255,255,255,0.7); margin: 6px 0 4px; }
+.diag-empty { font-size: 15px; color: rgba(255,255,255,0.55); }
+.diag-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.diag-table th { text-align: left; color: rgba(255,255,255,0.55); font-size: 12px; font-weight: 800; text-transform: uppercase;
+  padding: 3px 8px; border-bottom: 1px solid var(--glass-border); }
+.diag-table td { padding: 4px 8px; border-bottom: 1px solid rgba(255,255,255,0.06); vertical-align: top; word-break: break-all; }
+.diag-kv { display: grid; grid-template-columns: repeat(5, auto 1fr); gap: 4px 14px; font-size: 14px; }
+@media (max-width: 1500px) { .diag-kv { grid-template-columns: repeat(3, auto 1fr); } }
+.diag-kv .k { color: rgba(255,255,255,0.5); font-weight: 700; white-space: nowrap; }
+.diag-kv .v { color: rgba(255,255,255,0.9); word-break: normal; overflow-wrap: anywhere; }
+.diag-badge { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 800; white-space: nowrap;
+  background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2); }
+.diag-badge.ok { background: rgba(116,251,113,0.15); border-color: var(--green); color: var(--green); }
+.diag-badge.bad { background: rgba(220,38,38,0.2); border-color: var(--red-d); color: #fca5a5; }
+.diag-badge.warn { background: rgba(245,158,11,0.18); border-color: var(--amber-d); color: #fcd34d; }
+.diag-badge.na { color: rgba(255,255,255,0.6); }
+/* PROTOKOL: sekce = badge + název + počty, tabulka Kontrola | Stav | Zjištění | Co s tím */
+.diag-proto { display: flex; flex-direction: column; gap: 8px; }
+.diag-proto-sec { border-radius: 10px; border: 1px solid rgba(255,255,255,0.08); padding: 6px 10px; background: rgba(255,255,255,0.03); }
+.diag-proto-sec.fail { border-color: rgba(220,38,38,0.55); background: rgba(220,38,38,0.08); }
+.diag-proto-sec.warn { border-color: rgba(245,158,11,0.5); background: rgba(245,158,11,0.06); }
+.diag-proto-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.diag-proto-title { font-size: 16px; font-weight: 800; }
+.diag-proto-cnt { font-size: 13px; color: rgba(255,255,255,0.55); }
+.diag-proto-table { margin-top: 4px; }
+.diag-proto-table td { word-break: normal; overflow-wrap: anywhere; }
+.diag-proto-table td:nth-child(1) { width: 22%; font-weight: 700; }
+.diag-proto-table td:nth-child(2) { width: 130px; white-space: nowrap; }
+.diag-proto-table td:nth-child(3) { width: 40%; }
+.diag-item.ok td { padding: 2px 8px; font-size: 13px; color: rgba(255,255,255,0.75); }
+.diag-item.fail td { background: rgba(220,38,38,0.16); font-size: 15px; }
+.diag-item.warn td { background: rgba(245,158,11,0.12); font-size: 15px; }
+.diag-item.skip td { color: rgba(255,255,255,0.4); }
+.diag-item td.hint { color: #fcd34d; }
+.diag-tests { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
+.diag-zones td { word-break: normal; overflow-wrap: anywhere; }

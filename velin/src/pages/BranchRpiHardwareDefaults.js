@@ -82,6 +82,21 @@ export const BRNO_DEFAULT_ZONES = [
   z(9, 8, 'wav617b', 0, 'wav617b', 0, 'wav645', 10, 'shelly4', 1, 'shelly4', 2),
 ]
 
+// Režim audia (`hardware.audio.mode`): chybí = selector (stávající instalace beze změny chování).
+export const AUDIO_MODES = [
+  { value: 'selector', label: 'selector — 1 zesilovač + relé (hraje vždy jen jedna zóna, venek nelze)' },
+  { value: 'multi', label: 'multi — každá místnost vlastní zvukový výstup + mpv (hrají současně, venek)' },
+]
+
+// Vzor 9 výstupů pro Brno (7 kójí, šatna, venek) = KOMENTOVANÝ příklad v brno-9zone.yaml. Není součástí
+// BRNO_DEFAULT_HARDWARE (výchozí režim zůstává selector) — vyplní ho jen tlačítko „Vzor 9 výstupů“ v editoru.
+export const BRNO_AUDIO_OUTPUTS_EXAMPLE = {
+  out1: { device: 'alsa/plughw:CARD=Box1' }, out2: { device: 'alsa/plughw:CARD=Box2' }, out3: { device: 'alsa/plughw:CARD=Box3' },
+  out4: { device: 'alsa/plughw:CARD=Box4' }, out5: { device: 'alsa/plughw:CARD=Box5' }, out6: { device: 'alsa/plughw:CARD=Box6' },
+  out7: { device: 'alsa/plughw:CARD=Box7' }, out8: { device: 'alsa/plughw:CARD=Satna' }, out9: { device: 'alsa/plughw:CARD=Venek' },
+}
+export const BRNO_AUDIO_OUTDOOR_EXAMPLE = { out: 'out9', trigger: 'any' }
+
 // Role kanálů v `branch_doors.hw`: klíč indexu + druh kanálu (pro detekci duplicit).
 // `types` = povolené typy zařízení 1:1 s validate_hardware() v jednotce (config.py):
 // zámek VÝHRADNĚ WAV645 (HW flash-on — nezůstane pod napětím ani při pádu procesu), kontakt jen vstup WAV617.
@@ -171,6 +186,7 @@ export function sectionWithDefaults(hardware, key) {
 export function emptyZoneHw(zone) {
   const out = { zone: zone ?? '' }
   ZONE_REFS.forEach(r => { out[r.key] = { dev: '', [r.idx]: '' } })
+  out.audio.out = ''   // režim multi: název výstupu z audio.outputs
   return out
 }
 
@@ -207,6 +223,40 @@ export function roleTypeError(zone, role, dev, devices) {
   return `Zóna ${zone}: ${role.key} musí být relé Waveshare (je ${d.type}).`
 }
 
+// Názvy výstupů z `hardware.audio.outputs` (JSON z DB — nevěřit tvaru; prázdné názvy se přeskočí)
+export function audioOutputNames(audio) {
+  const outs = audio && typeof audio === 'object' && audio.outputs && typeof audio.outputs === 'object' ? audio.outputs : {}
+  return Object.keys(outs).map(n => String(n).trim()).filter(Boolean)
+}
+
+// Normalizovaný režim audia ('selector' | 'multi'); neznámý/chybějící = selector (stejně jako jednotka)
+export function audioMode(audio) {
+  const m = String(audio?.mode ?? '').trim().toLowerCase()
+  return m === 'multi' ? 'multi' : 'selector'
+}
+
+// Výstup kanálu venek (`audio.channels.outdoor.out`) nebo ''
+export function outdoorOut(audio) {
+  const ch = audio?.channels && typeof audio.channels === 'object' ? audio.channels.outdoor : null
+  return ch && typeof ch === 'object' && ch.out != null ? String(ch.out).trim() : ''
+}
+
+// Set názvů výstupů, které sdílí víc cílů (dveře mezi sebou nebo dveře + kanál venek) — jednotka odmítá
+export function findDuplicateOutputs(hwByDoor, outdoor) {
+  const counts = new Map()
+  const add = o => { const n = String(o ?? '').trim(); if (n) counts.set(n, (counts.get(n) || 0) + 1) }
+  Object.values(hwByDoor || {}).forEach(hw => add(hw?.audio?.out))
+  add(outdoor)
+  return new Set([...counts.entries()].filter(([, c]) => c > 1).map(([n]) => n))
+}
+
+// Chyba výstupu zóny — stejný text jako validate_audio() v jednotce; null = OK (bez `audio` se existence nekontroluje)
+export function audioOutError(zone, out, audio) {
+  const o = String(out ?? '').trim()
+  if (!o || !audio) return null
+  return audioOutputNames(audio).includes(o) ? null : `Zóna ${zone}: audio výstup '${o}' není v audio.outputs.`
+}
+
 // Set čísel zón, která má víc než jedny dveře (jednotka odmítá: „Duplicitní čísla zón.“)
 export function findDuplicateZones(hwByDoor) {
   const counts = new Map()
@@ -226,17 +276,27 @@ export function pickAccessoriesZone(usedZones, template = BRNO_DEFAULT_ZONES) {
 
 // Editorový draft → čisté `hw` pro uložení (neúplné odkazy = null, prázdný zone = chyba).
 // `devices` (hardware.devices) → kontrola typů zařízení jako v jednotce; bez něj se typy nekontrolují.
-export function draftToHw(draft, devices) {
+// `audio` (hardware.audio, volitelné) → v režimu multi kontrola, že výstup `audio.out` existuje v audio.outputs
+// (v selectoru jednotka `out` ignoruje a editor ho neukazuje — stale hodnota nesmí blokovat uložení; zůstává zachována).
+// Draft bez `audio.out` dává stejné `hw` jako dřív (selector: audio = {dev, coil} | null).
+export function draftToHw(draft, devices, audio) {
   const zone = parseInt(draft?.zone, 10)
   if (!Number.isFinite(zone) || zone < 1) return { error: 'Zóna musí být kladné číslo.' }
   const hw = { zone }
   for (const role of ZONE_REFS) {
     const ref = draft[role.key]
     const idx = ref ? parseInt(ref[role.idx], 10) : NaN
-    hw[role.key] = ref && ref.dev && Number.isFinite(idx) ? { dev: ref.dev, [role.idx]: idx } : null
-    if (hw[role.key] && idx < 0) return { error: `Zóna ${zone}: ${role.key} má záporný index ${idx}.`, hw }
-    const typeErr = devices && hw[role.key] ? roleTypeError(zone, role, ref.dev, devices) : null
+    const full = !!(ref && ref.dev && Number.isFinite(idx))
+    hw[role.key] = full ? { dev: ref.dev, [role.idx]: idx } : null
+    if (full && idx < 0) return { error: `Zóna ${zone}: ${role.key} má záporný index ${idx}.`, hw }
+    const typeErr = devices && full ? roleTypeError(zone, role, ref.dev, devices) : null
     if (typeErr) return { error: typeErr, hw }
+  }
+  const out = String(draft.audio?.out ?? '').trim()
+  if (out) {
+    hw.audio = { ...(hw.audio || {}), out }   // multi: {out} nebo {dev, coil, out} (výstup + enable relé)
+    const outErr = audioMode(audio) === 'multi' ? audioOutError(zone, out, audio) : null
+    if (outErr) return { error: outErr, hw }
   }
   if (!hw.lock || !hw.contact) return { error: 'Zámek a kontakt jsou povinné.', hw }
   const cl = String(draft.closed_level ?? '').trim()
@@ -255,6 +315,7 @@ export function hwToDraft(hw, fallbackZone) {
     const ref = hw?.[role.key]
     if (ref && typeof ref === 'object') d[role.key] = { dev: ref.dev || '', [role.idx]: ref[role.idx] ?? ref.idx ?? '' }
   })
+  d.audio.out = hw?.audio && typeof hw.audio === 'object' && hw.audio.out != null ? String(hw.audio.out).trim() : ''
   d.closed_level = hw?.closed_level == null ? '' : String(hw.closed_level)
   return d
 }

@@ -2,52 +2,55 @@
 <html lang="cs">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=1920, height=1080, initial-scale=1, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
   <meta http-equiv="Cache-Control" content="no-store">
   <title>MotoGo24 — Samoobslužná pobočka</title>
   <link rel="icon" href="/static/logo-icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/style-overlays.css">
 </head>
 <body>
 <div id="app">
   <!-- Banner při ztrátě spojení s řídicí jednotkou -->
   <div id="banner" class="banner" data-i18n="banner" hidden>Řídicí jednotka nedostupná — zkuste to prosím za chvíli</div>
 
-  <!-- Hlavička: oficiální logo + přepínání jazyků + název pobočky -->
+  <!-- Hlavička: oficiální logo (světlá varianta) · lišta jazyků (vždy viditelná) · název pobočky VÝHRADNĚ z Velína -->
   <header class="header">
     <div class="brand">
-      <img class="brand-logo" src="/static/logo.svg" alt="MotoGo24 — půjčovna motorek">
+      <img class="brand-logo" src="/static/logo-light.svg" alt="MotoGo24 — půjčovna motorek">
     </div>
     <nav id="lang-bar" class="lang-bar" aria-label="Jazyk / Language"></nav>
     <div class="branch">
-      <span id="branch-name" class="branch-name">Samoobslužná pobočka</span>
+      <span id="branch-name" class="branch-name"></span>
       <span id="online-dot" class="dot dot-off" title="Stav připojení"></span>
     </div>
   </header>
 
-  <!-- Výzva + stručný postup -->
-  <section class="prompt">
-    <div class="prompt-title" data-i18n="promptTitle">Zadejte přístupový kód</div>
-    <div class="prompt-hint">
-      <span data-i18n="hint1">Kód najdete v potvrzení rezervace — e‑mail nebo aplikace MotoGo24.</span><br>
-      <span data-i18n="hint2">1) Kód k oblečení otevře skříň  ·  2) po zavření kód k motorce otevře vaši garáž.</span>
-    </div>
-  </section>
+  <!-- Tělo: 3 sloupce vedle sebe — [A] výzva + vysvětlivky + kód · [B] klávesnice · [C] dlaždice zón -->
+  <main class="body">
+    <section class="side">
+      <div class="prompt-title" data-i18n="promptTitle">Zadejte přístupový kód</div>
+      <div class="prompt-hint">
+        <div class="hint"><span class="hint-ico" aria-hidden="true">📱</span>
+          <span data-i18n="hint1">Kód najdete v aplikaci MotoGo24 — v detailu rezervace a ve zprávách — nebo v potvrzovacím e‑mailu.</span></div>
+        <div class="hint"><span class="hint-ico" aria-hidden="true">🔑</span>
+          <span data-i18n="hint2">Kód k výbavě otevře šatnu · kód k motorce otevře vaši garáž s vaší motorkou.</span></div>
+      </div>
+      <!-- Pole kódu (maskované) + časovač -->
+      <div class="code-wrap">
+        <div id="code-box" class="code-box empty">— — — — — —</div>
+        <div id="code-timer" class="code-timer" hidden></div>
+      </div>
+      <!-- Chyba zóny (porucha / překročený čas) — pod polem kódu, nikdy přes klávesy -->
+      <div id="zone-alert" class="zone-alert" aria-live="polite"></div>
+    </section>
 
-  <!-- Pole kódu (maskované) -->
-  <div class="code-wrap">
-    <div id="code-box" class="code-box empty">— — — — — —</div>
-    <div id="code-timer" class="code-timer" hidden></div>
-  </div>
+    <!-- Klávesnice (numerická / QWERTY) — velikost kláves z dostupného místa (CSS container units) -->
+    <section id="keys" class="keys"></section>
 
-  <!-- Klávesnice (numerická / QWERTY) -->
-  <section id="keys" class="keys"></section>
-
-  <!-- Chyba zóny (porucha / překročený čas) -->
-  <div id="zone-alert" class="zone-alert" aria-live="polite"></div>
-
-  <!-- Spodní lišta: dlaždice zón -->
-  <footer id="zones" class="zones"></footer>
+    <!-- Dlaždice zón (1–2 sloupce podle výšky displeje) -->
+    <aside id="zones" class="zones"></aside>
+  </main>
 
   <!-- Overlay stavů (ověřuji / otevřeno / chyba / notice) -->
   <div id="status" class="overlay" hidden>
@@ -88,7 +91,7 @@
         </div>
       </div>
       <div class="service-row service-actions">
-        <button id="service-diag" class="btn btn-ghost" type="button">🔍 Diagnostika sítě</button>
+        <button id="service-diag" class="btn btn-ghost" type="button">🔍 Diagnostika pobočky</button>
         <button id="service-pair" class="btn btn-ghost" type="button">🔗 Přepárovat</button>
         <button id="service-restart" class="btn btn-amber" type="button">↻ Restart řídicí jednotky</button>
         <button id="service-close2" class="btn btn-ghost" type="button">Zavřít</button>
@@ -117,19 +120,19 @@
           <button id="setup-save" class="btn btn-primary" type="button">Spárovat a spustit</button>
         </div>
         <div class="setup-actions">
-          <button id="setup-diag" class="btn btn-ghost" type="button">🔍 Diagnostika sítě (kód z config.yaml)</button>
+          <button id="setup-diag" class="btn btn-ghost" type="button">🔍 Diagnostika pobočky (kód z config.yaml)</button>
         </div>
       </div>
       <div id="setup-keys" class="setup-keys"></div>
     </div>
   </div>
 
-  <!-- Diagnostika sítě — progres + kompletní report (spouští kód z displeje, servisní panel nebo Velín) -->
+  <!-- Diagnostika pobočky — progres + kompletní report (spouští kód z displeje, servisní panel nebo Velín) -->
   <div id="diag" class="overlay overlay-dark" hidden>
     <div class="service-panel diag-panel">
       <div class="service-head">
         <span class="service-icon">🔍</span>
-        <span class="service-title">Diagnostika sítě</span>
+        <span class="service-title">Diagnostika pobočky</span>
         <span id="diag-state" class="diag-state"></span>
         <button id="diag-close" class="icon-btn" type="button" aria-label="Zavřít">✕</button>
       </div>

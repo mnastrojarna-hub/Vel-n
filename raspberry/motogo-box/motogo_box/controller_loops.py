@@ -214,6 +214,12 @@ async def tick_loop(ctrl: "BoxController") -> None:
                 await zc.tick()
             except Exception:  # noqa: BLE001
                 log.exception("Zóna %s: tick selhal", zc.number)
+        sync_channels = getattr(ctrl.audio, "sync_channels", None)   # multi: kanál venek dle běžících relací
+        if sync_channels is not None:
+            try:
+                await sync_channels(ctrl._sessions_active())  # noqa: SLF001
+            except Exception:  # noqa: BLE001
+                log.exception("Audio kanály: sync selhal")
         now = time.monotonic()
         if now - last_refresh >= SIGNAL_REFRESH_S and (refresh_task is None or refresh_task.done()):
             last_refresh = now

@@ -18,6 +18,9 @@ name: Deploy SQL migrations
 #
 # Pozadovany GitHub secret (uz existuje pro daily-backup.yml):
 #   SUPABASE_DB_URL = postgresql://postgres:<HESLO>@db.<ref>.supabase.co:5432/postgres
+#                     (primy host je jen IPv6 bez add-onu a GitHub runnery IPv6 nemaji — pri zmene/rotaci
+#                      hesla pouzij Supavisor SESSION string z Dashboardu -> Connect -> Session pooler (IPv4):
+#                      postgresql://postgres.<ref>:<HESLO>@aws-0-<region>.pooler.supabase.com:5432/postgres)
 
 on:
   push:
@@ -90,7 +93,7 @@ jobs:
           fi
 
           applied=0; skipped=0
-          for f in $(ls supabase/migrations/*.sql | sort); do
+          for f in $(ls supabase/migrations/*.sql | LC_ALL=C sort); do   # bytové řazení: 20260910_ < 20260910b < c…
             base=$(basename "$f")
             if [ -n "${ONLY:-}" ] && [[ "$base" != *"$ONLY"* ]]; then
               continue

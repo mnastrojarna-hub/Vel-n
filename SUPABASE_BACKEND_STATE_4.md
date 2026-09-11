@@ -131,4 +131,5 @@
 | `trg_branch_doors_touch` | branch_doors | `touch_updated_at()` |
 | `trg_branch_service_codes_touch` | branch_service_codes | `touch_updated_at()` |
 | `trg_branch_cameras_touch` | branch_cameras | `touch_updated_at()` |
+| `trg_branch_music_tracks_touch` | branch_music_tracks | `touch_updated_at()` (BEFORE UPDATE) — **NEW 2026-09-10 (F)** (`20260910d_branch_music.sql`, APLIKUJE AUTO-DEPLOY po merge); skladby hudby pobočky |
 | `trg_kiosk_command_broadcast` | kiosk_commands | `kiosk_command_broadcast()` (AFTER INSERT WHEN status='pending') — DB Broadcast `realtime.send` na topic `kiosk:<device_id>` (vzdálené ovládání bez vystavení anon na admin-only tabulku) |
