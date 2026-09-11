@@ -29,7 +29,8 @@ const COLUMNS = [
 
 const PARAM_FIELDS = [
   ['kcPerKm', 'Servis Kč/km', 0.1], ['insuranceYear', 'Pojištění+čistírna / rok', 100], ['paybackYears', 'Návratnost (roky)', 0.5],
-  ['marginPct', 'Marže %', 1], ['seasonFrom', 'Sezóna od (měsíc)', 1], ['seasonTo', 'Sezóna do (měsíc)', 1], ['fallbackRentedDays', 'Půjč. dní bez dat', 1],
+  ['marginPct', 'Marže %', 1], ['seasonFrom', 'Sezóna od (měsíc)', 1], ['seasonTo', 'Sezóna do (měsíc)', 1],
+  ['fallbackRentedDays', 'Průměr půjč. dní', 1], ['rentedMin', 'Půjč. dní min', 1], ['rentedMax', 'Půjč. dní max', 1],
 ]
 
 export default function KalkulaceCen() {
@@ -62,7 +63,7 @@ export default function KalkulaceCen() {
   if (!raw) return null
 
   const p = { ...form, margin: (Number(form.marginPct) || 0) / 100 }
-  for (const k of ['kcPerKm', 'insuranceYear', 'paybackYears', 'seasonFrom', 'seasonTo', 'fallbackRentedDays']) p[k] = Number(form[k]) || DEFAULT_PARAMS[k]
+  for (const k of ['kcPerKm', 'insuranceYear', 'paybackYears', 'seasonFrom', 'seasonTo', 'fallbackRentedDays', 'rentedMin', 'rentedMax']) p[k] = Number(form[k]) || DEFAULT_PARAMS[k]
   const today = new Date()
   const kmMap = Object.fromEntries(raw.km.map(r => [r.moto_id, r]))
   const by = (arr, key = 'moto_id') => arr.reduce((acc, x) => ((acc[x[key]] ||= []).push(x), acc), {})
@@ -116,8 +117,10 @@ export default function KalkulaceCen() {
                 </td>
                 <td className="py-2 px-3">{fmtKc(r.serviceYear)}</td>
                 <td className="py-2 px-3">{fmtKc(r.insurance)}</td>
-                <td className="py-2 px-3" title={r.rentedSource === 'data' ? `${r.rentedObserved} dní za ${r.ownEffDays} sezónních dní vlastnění (−${r.ownServiceDays} servis)` : 'Bez dostatečných dat — výchozí odhad'}>
-                  {fmt(r.rentedDays)}{r.rentedSource === 'odhad' && <sup style={{ color: '#b45309' }}> o</sup>}
+                <td className="py-2 px-3" title={r.rentedRaw == null ? 'Bez dostatečných dat — průměr' : `Dopočet ${fmt(r.rentedRaw)} dní/rok (${r.rentedObserved} dní za ${r.ownEffDays} sezónních dní vlastnění, −${r.ownServiceDays} servis)${r.rentedSource === 'mimo' ? ` je mimo ${p.rentedMin}–${p.rentedMax} → průměr ${p.fallbackRentedDays}` : ''}`}>
+                  {fmt(r.rentedDays)}
+                  {r.rentedSource === 'mimo' && <span style={{ color: '#b45309', fontSize: 11 }}> ({fmt(r.rentedRaw)})</span>}
+                  {r.rentedSource === 'odhad' && <sup style={{ color: '#b45309' }}> o</sup>}
                 </td>
                 <td className="py-2 px-3">{fmtKc(r.costsYear)}</td>
                 <td className="py-2 px-3">{r.ok ? fmtKc(r.costsPayback) : '—'}</td>
@@ -134,7 +137,7 @@ export default function KalkulaceCen() {
         </table>
         <p className="text-xs mt-3" style={{ color: '#6b7280', whiteSpace: 'normal' }}>
           Servis/rok = nájezd/rok × Kč/km. Nájezd/rok = km z předávacích protokolů (jen za období, kdy se zapisují) / (sezónní dny − dny v servisu) × sezóna;
-          <sup> t</sup> = bez uzavřených protokolů, nájezd z tachometru za dobu vlastnění. Půjč. dní/rok stejně z realizovaných rezervací za dobu vlastnění; <sup>o</sup> = výchozí odhad (méně než {p.minObsDays} dní dat).
+          <sup> t</sup> = bez uzavřených protokolů, nájezd z tachometru za dobu vlastnění. Půjč. dní/rok stejně z realizovaných rezervací za dobu vlastnění; dopočet pod {p.rentedMin} nebo nad {p.rentedMax} dní se nahradí průměrem {p.fallbackRentedDays} (původní dopočet v závorce); <sup>o</sup> = průměr bez dat (méně než {p.minObsDays} dní).
           Náklady na návratnost = (cena moto + náklady/rok) × roky; základ bez marže = / (půjč. dní × roky); zákl. cena = + marže. Po=Pá=zákl., Út=St=×0,8, Čt=×0,9, So=×1,2, Ne=×1,1.
           Rozdíl = zákl. cena vs. aktuální pondělní ceník (červeně = ceník je pod kalkulací).
         </p>
