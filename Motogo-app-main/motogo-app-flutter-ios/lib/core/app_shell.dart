@@ -294,7 +294,11 @@ class AppShell extends ConsumerWidget {
                   child: PressableScale(
                     pressedScale: 0.9,
                     onTap: () {
-                      if (i != index) {
+                      // Obrazovky mimo záložky (profil/menu, zprávy, obchod,
+                      // faktury…) mají zvýrazněný tab Domů, ale poloha není '/'.
+                      // Klik na Domů tam musí fungovat, ne až přes Rezervace.
+                      final goHome = i == 0 && location != Routes.home;
+                      if (i != index || goHome) {
                         // Reset booking flow when navigating to home tab
                         if (i == 0) {
                           ref.read(bookingDraftProvider.notifier).state = BookingDraft();
