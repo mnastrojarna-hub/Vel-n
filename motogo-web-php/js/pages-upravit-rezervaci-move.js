@@ -108,6 +108,14 @@
         ER._showError(key ? MG.t(key) : ((code || MG.t('editRez.err.generic')) + (detail ? ' — ' + detail : '')));
         return;
       }
+      // Po posunu drž AKTUÁLNÍ stav rezervace — ostatní záložky (prodloužit,
+      // čas vyzvednutí, motorka) berou datumy/cenu ze selectedBooking a bez
+      // obnovení by naceňovaly změnu proti starému termínu.
+      try {
+        await ER._loadBookings();
+        var fresh = (ER.bookings || []).filter(function (x) { return x && x.id === b.id; })[0];
+        if (fresh) { ER.selectedBooking = fresh; ER.selectedMoto = fresh.motorcycles || ER.selectedMoto; }
+      } catch (e) { /* best-effort */ }
       var msg = MG.t('editRez.move.success', { start: MG.formatDate(newStart), end: MG.formatDate(newEnd) });
       var content = document.getElementById('edit-rez-tab-content');
       if (content) {

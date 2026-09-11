@@ -414,57 +414,78 @@ serve(async (req) => {
         // (placená výbava, doplatek aplikovaný webhookem) a rozpis by lhal.
         const lastAt = last?.at ? new Date(last.at).getTime() : 0
         const lastFresh = lastAt > 0 && (Date.now() - lastAt) < 15 * 60_000
-        const datesChanged = !!last && (last.from_start !== last.to_start || last.from_end !== last.to_end)
+        const dayS = (v: unknown) => String(v || '').slice(0, 10)
+        const datesChanged = !!last && (dayS(last.from_start) !== dayS(last.to_start) || dayS(last.from_end) !== dayS(last.to_end))
+        // Změna slevy 50 % na 1. den (pozdní vyzvednutí) — klíče píší RPC core,
+        // appka, Velín i webhook. Bez samostatných řádků se posun začátku /
+        // změna času vyzvednutí schovaly do „korekce" (incident 0DC12164:
+        // doklad tvrdil „pondělí 1 986 − korekce 1 092", reálně čtvrtek odpoledne).
+        const fromLate = Math.round(Number(last?.from_late_pickup ?? 0))
+        const toLate = Math.round(Number(last?.to_late_pickup ?? 0))
+        const lateChanged = !!last && last.from_late_pickup != null && last.to_late_pickup != null && fromLate !== toLate
+        const hmS = (v: unknown) => (v == null ? '' : String(v).slice(0, 5))
+        const fromT = hmS(last?.from_pickup_time), toT = hmS(last?.to_pickup_time)
 
-        if (lastFresh && datesChanged) {
+        if (lastFresh && (datesChanged || lateChanged)) {
           // Compute delta days (to_end - from_end for prodloužení)
           const fromEnd = last.from_end ? new Date(last.from_end).getTime() : 0
           const toEnd = last.to_end ? new Date(last.to_end).getTime() : 0
           const fromStart = last.from_start ? new Date(last.from_start).getTime() : 0
           const toStart = last.to_start ? new Date(last.to_start).getTime() : 0
-          const deltaDays = Math.round(((toEnd - fromEnd) - (toStart - fromStart)) / 86400000)
+          const deltaDays = datesChanged ? Math.round(((toEnd - fromEnd) - (toStart - fromStart)) / 86400000) : 0
 
           editLabel = deltaDays > 0
             ? `ÚPRAVA — prodloužení o ${deltaDays} ${deltaDays === 1 ? 'den' : deltaDays < 5 ? 'dny' : 'dní'}`
-            : `ÚPRAVA — změna termínu`
+            : (datesChanged ? `ÚPRAVA — změna termínu` : `ÚPRAVA — změna času vyzvednutí`)
 
           // Hlavička úpravy — section header (renderuje se přes colspan, bez ceny v řádku).
           items.push({
-            description: `── Úprava rezervace: ${motoLabel} — nový termín ${fmtD(last.to_start)} – ${fmtD(last.to_end)} (původně ${fmtD(last.from_start)} – ${fmtD(last.from_end)}) ──`,
+            description: datesChanged
+              ? `── Úprava rezervace: ${motoLabel} — nový termín ${fmtD(last.to_start)} – ${fmtD(last.to_end)} (původně ${fmtD(last.from_start)} – ${fmtD(last.from_end)}) ──`
+              : `── Úprava rezervace: ${motoLabel} — čas vyzvednutí ${fromT || '—'} → ${toT || '—'} (termín ${fmtD(booking.start_date)} – ${fmtD(booking.end_date)}) ──`,
             qty: 1,
             unit_price: 0,
           })
 
-          // Denní rozpis přidaných dnů (extend) — vychází z denních cen motorky.
-          // Bezpečné: pokud se rozpis nesejde s priceDiff (např. ruční override),
-          // přidáme korekční řádek aby součet seděl 1:1 s tím, co user platí.
-          const ext = calcPriceBreakdown(booking.motorcycles, last.to_start, last.to_end)
-          const orig = calcPriceBreakdown(booking.motorcycles, last.from_start, last.from_end)
-          const origIso = new Set((orig.days || []).map((d) => d.iso))
-          const addedDays = (ext.days || []).filter((d) => !origIso.has(d.iso))
-          const addedSum = addedDays.reduce((s, d) => s + (d.price || 0), 0)
-          if (addedDays.length && addedSum > 0) {
-            for (const ad of addedDays) {
-              items.push({
-                description: `Pronájem ${motoLabel} — ${ad.dowLabel} ${fmtD(ad.iso)}`,
-                qty: 1,
-                unit_price: ad.price,
-              })
+          // Denní rozpis přidaných (+) a odebraných (−) dnů — z denních cen motorky.
+          let itemized = 0
+          let itemsSum = 0
+          if (datesChanged) {
+            const ext = calcPriceBreakdown(booking.motorcycles, last.to_start, last.to_end)
+            const orig = calcPriceBreakdown(booking.motorcycles, last.from_start, last.from_end)
+            const origIso = new Set((orig.days || []).map((d) => d.iso))
+            const newIso = new Set((ext.days || []).map((d) => d.iso))
+            for (const ad of (ext.days || []).filter((d) => !origIso.has(d.iso))) {
+              if (!(ad.price > 0)) continue
+              items.push({ description: `Pronájem ${motoLabel} — ${ad.dowLabel} ${fmtD(ad.iso)}`, qty: 1, unit_price: ad.price })
+              itemized++; itemsSum += ad.price
             }
-            if (addedSum !== priceDiff) {
-              items.push({
-                description: `Korekce ceny prodloužení`,
-                qty: 1,
-                unit_price: priceDiff - addedSum,
-              })
+            for (const rd of (orig.days || []).filter((d) => !newIso.has(d.iso))) {
+              if (!(rd.price > 0)) continue
+              items.push({ description: `Odebraný den — ${rd.dowLabel} ${fmtD(rd.iso)}`, qty: 1, unit_price: -rd.price })
+              itemized++; itemsSum -= rd.price
             }
-          } else {
+          }
+          // Sleva 50 % na 1. den (pozdní vyzvednutí >= 12:00, 2+ dny): zrušení
+          // původní slevy = doplatek, nová sleva na nový 1. den = odpočet.
+          if (lateChanged) {
+            if (fromLate > 0) {
+              items.push({ description: `Zrušení slevy 50 % na 1. den (pozdní vyzvednutí) — původní 1. den ${fmtD(last.from_start)}`, qty: 1, unit_price: fromLate })
+              itemized++; itemsSum += fromLate
+            }
+            if (toLate > 0) {
+              items.push({ description: `Sleva 50 % na 1. den (pozdní vyzvednutí) — 1. den ${fmtD(last.to_start)}${toT ? ', vyzvednutí ' + toT : ''}`, qty: 1, unit_price: -toLate })
+              itemized++; itemsSum -= toLate
+            }
+          }
+          if (itemized === 0) {
             // Fallback: nemáme detailní rozpis (např. prázdné denní ceny) — jediný řádek.
-            items.push({
-              description: `Doplatek za prodloužení rezervace`,
-              qty: 1,
-              unit_price: priceDiff,
-            })
+            items.push({ description: `Doplatek za úpravu rezervace`, qty: 1, unit_price: priceDiff })
+          } else if (Math.round(itemsSum) !== priceDiff) {
+            // Bezpečné: pokud se rozpis nesejde s priceDiff (storno % u odebraných
+            // dnů, věrnostní sleva, ruční override), korekční řádek srovná součet
+            // 1:1 s tím, co zákazník platí.
+            items.push({ description: `Korekce ceny úpravy`, qty: 1, unit_price: priceDiff - Math.round(itemsSum) })
           }
         } else {
           // Generický doplatek — změna motorky / placená výbava / doplatek z webhooku.
