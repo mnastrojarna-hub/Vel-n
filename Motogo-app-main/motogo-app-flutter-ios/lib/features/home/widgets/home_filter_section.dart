@@ -8,28 +8,41 @@ import 'license_chip.dart';
 
 /// Filter card shown on the home screen (category, license group, branch, power, sort).
 ///
-/// The parent [HomeScreen] owns [maxPowerValue], [showAvailableToday] and
+/// The parent [HomeScreen] owns [powerRange], [showAvailableToday] and
 /// [sortOption] state and passes them in via callbacks so this widget stays
 /// stateless.
 class HomeFilterSection extends ConsumerWidget {
-  final double maxPowerValue;
+  final RangeValues powerRange;
   final bool showAvailableToday;
   final String sortOption;
-  final ValueChanged<double> onMaxPowerChanged;
+  final ValueChanged<RangeValues> onPowerRangeChanged;
   final ValueChanged<bool> onAvailableTodayChanged;
   final ValueChanged<String> onSortChanged;
   final VoidCallback onReset;
 
   const HomeFilterSection({
     super.key,
-    required this.maxPowerValue,
+    required this.powerRange,
     required this.showAvailableToday,
     required this.sortOption,
-    required this.onMaxPowerChanged,
+    required this.onPowerRangeChanged,
     required this.onAvailableTodayChanged,
     required this.onSortChanged,
     required this.onReset,
   });
+
+  /// „VŠE" / „od 50 kW" / „do 120 kW" / „50–120 kW" dle polohy obou jezdců.
+  String _powerLabel(BuildContext context) {
+    final tr = t(context);
+    final hasMin = powerRange.start > 0;
+    final hasMax = powerRange.end < 1.0;
+    final lo = (powerRange.start * 200).round();
+    final hi = (powerRange.end * 200).round();
+    if (!hasMin && !hasMax) return tr.tr('homeFilterAllPower');
+    if (hasMin && hasMax) return tr.tr('homeFilterPowerRange').replaceAll('{a}', '$lo').replaceAll('{b}', '$hi');
+    if (hasMin) return tr.tr('homeFilterPowerFrom').replaceAll('{n}', '$lo');
+    return tr.tr('homeFilterPowerTo').replaceAll('{n}', '$hi');
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -250,12 +263,12 @@ class HomeFilterSection extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
 
-            // MAX. VÝKON slider
+            // VÝKON od–do (range slider, 0–200 kW; krajní poloha = bez limitu)
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  t(context).tr('homeFilterMaxPower'),
+                  t(context).tr('homeFilterPower'),
                   style: const TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
@@ -264,7 +277,7 @@ class HomeFilterSection extends ConsumerWidget {
                   ),
                 ),
                 Text(
-                  maxPowerValue >= 1.0 ? t(context).tr('homeFilterAllPower') : '${(maxPowerValue * 200).round()} kW',
+                  _powerLabel(context),
                   style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w800,
@@ -281,18 +294,18 @@ class HomeFilterSection extends ConsumerWidget {
                 overlayColor: MotoGoColors.green.withValues(alpha: 0.2),
                 trackHeight: 4,
                 thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
+                rangeThumbShape: const RoundRangeSliderThumbShape(enabledThumbRadius: 8),
               ),
-              child: Slider(
-                value: maxPowerValue,
+              child: RangeSlider(
+                values: powerRange,
                 onChanged: (v) {
-                  onMaxPowerChanged(v);
-                  if (v >= 1.0) {
-                    ref.read(catalogFilterProvider.notifier).state =
-                        filter.copyWith(maxPowerKw: () => null);
-                  } else {
-                    ref.read(catalogFilterProvider.notifier).state =
-                        filter.copyWith(maxPowerKw: () => (v * 200).round());
-                  }
+                  onPowerRangeChanged(v);
+                  final minKw = v.start <= 0 ? null : (v.start * 200).round();
+                  final maxKw = v.end >= 1.0 ? null : (v.end * 200).round();
+                  ref.read(catalogFilterProvider.notifier).state = filter.copyWith(
+                    minPowerKw: () => minKw,
+                    maxPowerKw: () => maxKw,
+                  );
                 },
               ),
             ),

@@ -25,7 +25,7 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
-  double _maxPowerValue = 1.0; // 0.0 to 1.0 slider
+  RangeValues _powerRange = const RangeValues(0, 1); // 0.0–1.0 (× 200 kW)
   bool _showAvailableToday = false;
   String _sortOption = 'default';
   final ScrollController _scrollCtrl = ScrollController();
@@ -119,16 +119,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               // ===== FILTER SECTION =====
               SliverToBoxAdapter(
                 child: HomeFilterSection(
-                  maxPowerValue: _maxPowerValue,
+                  powerRange: _powerRange,
                   showAvailableToday: _showAvailableToday,
                   sortOption: _sortOption,
-                  onMaxPowerChanged: (v) => setState(() => _maxPowerValue = v),
+                  onPowerRangeChanged: (v) => setState(() => _powerRange = v),
                   onAvailableTodayChanged: (v) => setState(() => _showAvailableToday = v),
                   onSortChanged: (v) => setState(() => _sortOption = v),
                   onReset: () {
                     ref.read(catalogFilterProvider.notifier).state = const CatalogFilter();
                     setState(() {
-                      _maxPowerValue = 1.0;
+                      _powerRange = const RangeValues(0, 1);
                       _showAvailableToday = false;
                       _sortOption = 'default';
                     });
