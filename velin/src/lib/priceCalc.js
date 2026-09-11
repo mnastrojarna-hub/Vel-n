@@ -25,7 +25,9 @@ export const DEFAULT_PARAMS = {
   margin: 0.25,          // marže nad základ bez marže
   seasonFrom: 4,         // sezóna od měsíce (1–12)
   seasonTo: 10,          // sezóna do měsíce (včetně)
-  fallbackRentedDays: 60,// odhad půjčených dní, když motorka nemá žádná data
+  fallbackRentedDays: 60,// průměr půjčených dní: bez dat NEBO když dopočet vyjde mimo <rentedMin, rentedMax>
+  rentedMin: 40,         // dopočtené půjčené dny pod tímto → použije se průměr (původní v závorce)
+  rentedMax: 80,         // dopočtené půjčené dny nad tímto → použije se průměr (původní v závorce)
   minObsDays: 14,        // min. efektivních dní pozorování, aby odhad platil
 }
 
@@ -159,10 +161,12 @@ export function calcMotoPrice(moto, segments, kmRow, bookings, svc, p, today = n
   const ownSeasonDays = own ? seasonDaysBetween(own, today, p) : 0
   const ownServiceDays = own ? serviceDaysInWindow(svc, own, today, p) : 0
   const ownEffDays = Math.max(0, ownSeasonDays - ownServiceDays)
-  let rentedDays = own ? annualize(rentedObserved, ownEffDays, p) : null
-  // Bez dostatečných dat (nebo 0 půjčení → cena by šla k nekonečnu) = výchozí odhad.
-  const rentedSource = rentedDays == null || rentedDays < 1 ? 'odhad' : 'data'
-  if (rentedSource === 'odhad') rentedDays = p.fallbackRentedDays
+  const rentedRaw = own ? annualize(rentedObserved, ownEffDays, p) : null   // dopočet z dat (může být null)
+  // Bez dostatečných dat = výchozí průměr; dopočet mimo <rentedMin, rentedMax>
+  // (zadání: >80 nebo <40) = také průměr, původní dopočet zůstává v `rentedRaw` (UI v závorce).
+  let rentedSource = 'data', rentedDays = rentedRaw
+  if (rentedRaw == null) { rentedSource = 'odhad'; rentedDays = p.fallbackRentedDays }
+  else if (rentedRaw < p.rentedMin || rentedRaw > p.rentedMax) { rentedSource = 'mimo'; rentedDays = p.fallbackRentedDays }
   rentedDays = Math.min(rentedDays, seasonDaysPerYear(p))
 
   // ── Cena (excel) ─────────────────────────────────────────────────────────
@@ -176,7 +180,7 @@ export function calcMotoPrice(moto, segments, kmRow, bookings, svc, p, today = n
 
   return {
     purchase, own, kmSource, kmObserved, kmFrom, kmTo, kmEffDays, kmServiceDays, annualKm,
-    rentedObserved, ownEffDays, ownServiceDays, rentedDays, rentedSource,
+    rentedObserved, ownEffDays, ownServiceDays, rentedRaw, rentedDays, rentedSource,
     serviceYear, costsYear, costsPayback, baseNoMargin, base, days, currentMon,
     diffPct: currentMon > 0 ? (base - currentMon) / currentMon * 100 : null,
     ok: purchase > 0,
