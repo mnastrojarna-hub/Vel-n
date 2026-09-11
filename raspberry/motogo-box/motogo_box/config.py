@@ -368,11 +368,22 @@ def load_hardware_file(path: str) -> dict:
 
 
 def merge_hardware(local: dict, remote: dict | None) -> dict:
-    """Remote (Velín) přepisuje lokální po top-level klíčích; `zones` remote nikdy nenese."""
+    """Remote (Velín) přepisuje lokální po top-level klíčích; `zones` remote nikdy nenese.
+
+    Sekce `outdoor` (venek) je výjimka: neprázdná mapa z Velína má poslední slovo i o její
+    NEPŘÍTOMNOSTI — jinak by „Vymazat venek“ ve Velíně nechalo venek (světlo!) z lokální šablony.
+    `{}` z Velína = lokální výchozí mapa včetně venku.
+    """
     out = copy.deepcopy(local or {})
     if not isinstance(remote, dict):
         return out
+    if remote:
+        out.pop("outdoor", None)
     for key in HW_TOP_KEYS:
+        if key == "outdoor":
+            if isinstance(remote.get(key), dict):
+                out[key] = copy.deepcopy(remote[key])
+            continue
         if key in remote and remote[key] is not None:
             if isinstance(remote[key], dict) and isinstance(out.get(key), dict):
                 merged = copy.deepcopy(out[key])

@@ -45,7 +45,9 @@ Enumy `ZoneState`, `Signal`, `EventKind`; dataclassy `HwRef`, `ZoneHw`, `Zone`,
 - `merge_hardware(local: dict, remote: dict | None) -> dict` — remote (Velín
   `branch_kiosk_config.hardware`) přepisuje lokální po top-level klíčích
   (`devices`, `timings`, `polling`, `contacts`, `security`, `audio`, `signal`, `outdoor` — venek, §26);
-  klíč `zones` remote NIKDY nenese (zóny = `branch_doors.hw`).
+  klíč `zones` remote NIKDY nenese (zóny = `branch_doors.hw`). Výjimka `outdoor`: NEPRÁZDNÁ mapa z Velína
+  rozhoduje i o nepřítomnosti venku (klíč chybí → venek z lokální šablony se NEpoužije — „Vymazat venek“ ve
+  Velíně nesmí nechat světlo z `hardware.yaml`; `{}` z Velína = lokální mapa včetně venku).
 - `HardwareConfig.from_dict(d: dict, doors: list[dict] | None = None) -> HardwareConfig`
   — zóny se berou z `doors` (řádky `branch_doors` s neprázdným `hw`); pokud žádné,
   z lokálního `d["zones"]` (door_id=None, box_number=zone). `outdoor` → `OutdoorCfg.from_dict(d["outdoor"])` +

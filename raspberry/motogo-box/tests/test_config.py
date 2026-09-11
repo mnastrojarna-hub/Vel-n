@@ -73,6 +73,18 @@ def test_merge_remote_overrides_timings_but_never_zones():
     assert merge_hardware(local, None) == local
 
 
+def test_merge_outdoor_comes_only_from_remote_when_velin_has_map():
+    """Venek: neprázdná mapa z Velína rozhoduje i o nepřítomnosti venku („Vymazat venek“ nesmí
+    nechat světlo z lokální šablony); `{}` = lokální mapa včetně venku; remote venek se nesmí doplnit lokálním světlem."""
+    local = _brno()
+    assert local["outdoor"]["light"] == {"dev": "wav617b", "coil": 0}
+    assert "outdoor" not in merge_hardware(local, {"timings": {"lock_pulse_ms": 500}})
+    assert merge_hardware(local, {})["outdoor"] == local["outdoor"]
+    remote = {"timings": {}, "outdoor": {"zone": 9, "audio": {"out": "out9"}}}
+    assert merge_hardware(local, remote)["outdoor"] == {"zone": 9, "audio": {"out": "out9"}}
+    assert merge_hardware(local, {"timings": {}, "outdoor": None}).get("outdoor") is None
+
+
 # ─── validate_hardware ───────────────────────────────────────────────────────
 def test_validate_reports_unknown_device_and_missing_roles():
     hw = _with_zone1(lock={"dev": "neexistuje", "coil": 0}, contact=None)
