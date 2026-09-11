@@ -1,4 +1,4 @@
-# MotoGo Box — SIMULÁTOR: stejná mapa jako brno-9zone.yaml (9 zón), ale všechna zařízení
+# MotoGo Box — SIMULÁTOR: stejná mapa jako brno-9zone.yaml (8 zón + venek), ale všechna zařízení
 # běží lokálně (`python -m motogo_box simulate`, kontrakt §20). Pro vývoj a testy.
 # Stejný tvar má `branch_kiosk_config.hardware` (vše kromě `zones`) a `branch_doors.hw`
 # (jedna položka `zones`). Konfigurace z Velína má přednost před tímto souborem.
@@ -12,13 +12,13 @@ network:
   internet_interface: default
 
 devices:
-  wav645:  { type: wav645,       host: 127.0.0.1, port: 15020, unit_id: 1 }   # 16 relé: zámky R1–R9, audio R10–R11, R12–R16 rezerva
+  wav645:  { type: wav645,       host: 127.0.0.1, port: 15020, unit_id: 1 }   # 16 relé: R1–R8 zámky zón 1–8, R9 a R12–R16 rezerva, R10 audio zóny 8, R11 rezerva (dřív audio zóny 9)
   wav617a: { type: wav617,       host: 127.0.0.1, port: 15021, unit_id: 1 }   # DI1–8 kontakty zón 1–8, R1–R8 bílé světlo zón 1–8
-  wav617b: { type: wav617,       host: 127.0.0.1, port: 15022, unit_id: 1 }   # DI1 kontakt zóny 9, R1 světlo zóny 9, R2–R8 audio zón 1–7
+  wav617b: { type: wav617,       host: 127.0.0.1, port: 15022, unit_id: 1 }   # DI1 rezerva (dřív kontakt zóny 9), R1 venkovní osvětlení (outdoor), R2–R8 audio zón 1–7
   shelly1: { type: shelly_rgbww, host: 127.0.0.1, port: 18031 }
   shelly2: { type: shelly_rgbww, host: 127.0.0.1, port: 18032 }
   shelly3: { type: shelly_rgbww, host: 127.0.0.1, port: 18033 }
-  shelly4: { type: shelly_rgbww, host: 127.0.0.1, port: 18034 }
+  shelly4: { type: shelly_rgbww, host: 127.0.0.1, port: 18034 }                # light 0 = zelená zóny 8, light 1–4 rezerva
   # řídicí API simulátoru: http://127.0.0.1:18099/sim/state (není zařízení, jen pro vývoj)
 
 timings:
@@ -48,9 +48,7 @@ security:
   maximum_failed_attempts: 5
   attempt_window_minutes: 5
   lockout_minutes: 15
-  pin_length: 6
-  mask_pin_on_screen: true
-  service_token_minutes: 10
+  service_token_minutes: 10      # kód na displeji je viditelný (rozhodnutí 2026-09-11) — bez pin_length/mask_pin_on_screen
 
 audio:
   volume: 70
@@ -63,7 +61,8 @@ audio:
   mode: selector          # selector = 1 mono zesilovač + relé (hraje vždy jen jedna zóna, venek nelze)
                           # multi    = každá místnost má VLASTNÍ zvukový výstup (ALSA) + vlastní mpv:
                           #            hudba hraje současně v libovolném počtu kójí, každá svůj playlist
-                          #            (Velín → Hudba pobočky), venek hraje při jakémkoli kódu.
+                          #            (Velín → Hudba pobočky), venek hraje při jakémkoli kódu
+                          #            (výstup venku = `outdoor.audio.out`, viz sekce outdoor níže).
   # Příklad režimu multi pro Brno (7 kójí + šatna + venek = 9 kanálů, 9× USB zvukovka pojmenovaná
   # udev pravidlem, viz HARDWARE.md; názvy karet dle `aplay -L`). Nastavuje se ve Velíně (HW mapa),
   # zde jen jako vzor — odkomentovat a `mode: multi`:
@@ -76,10 +75,9 @@ audio:
   #   out6: { device: "alsa/plughw:CARD=Box6" }     # kóje 6
   #   out7: { device: "alsa/plughw:CARD=Box7" }     # kóje 7
   #   out8: { device: "alsa/plughw:CARD=Satna" }    # šatna
-  #   out9: { device: "alsa/plughw:CARD=Venek" }    # venek (kanál bez dveří)
-  # channels:                                       # kanály bez dveří (jen multi)
-  #   outdoor: { out: out9, trigger: any }          # any = hraje, dokud běží aspoň jedna relace
-  #                                                 #       (+ music_after_close_s po poslední); volitelně dev/coil = enable relé
+  #   out9: { device: "alsa/plughw:CARD=Venek" }    # venek (kanál bez dveří) → `outdoor.audio: { out: out9 }`
+  # channels.outdoor {out, trigger: any, dev?, coil?} = LEGACY alias `outdoor.audio` (stále podporovaný, ale
+  #   výstup venku se nastavuje v sekci `outdoor` níže; při rozdílu platí outdoor.audio).
   # zones[].audio v režimu multi: { out: out1 } nebo { out: out1, dev: wav617b, coil: 1 } (výstup + enable relé zesilovače)
 
 signal:
@@ -98,5 +96,14 @@ zones:
   - { zone: 6, lock: { dev: wav645, coil: 5 }, contact: { dev: wav617a, input: 5 }, light: { dev: wav617a, coil: 5 }, audio: { dev: wav617b, coil: 6 },  red: { dev: shelly3, light: 0 }, green: { dev: shelly3, light: 1 } }
   - { zone: 7, lock: { dev: wav645, coil: 6 }, contact: { dev: wav617a, input: 6 }, light: { dev: wav617a, coil: 6 }, audio: { dev: wav617b, coil: 7 },  red: { dev: shelly3, light: 2 }, green: { dev: shelly3, light: 3 } }
   - { zone: 8, lock: { dev: wav645, coil: 7 }, contact: { dev: wav617a, input: 7 }, light: { dev: wav617a, coil: 7 }, audio: { dev: wav645,  coil: 9 },  red: { dev: shelly3, light: 4 }, green: { dev: shelly4, light: 0 } }
-  - { zone: 9, lock: { dev: wav645, coil: 8 }, contact: { dev: wav617b, input: 0 }, light: { dev: wav617b, coil: 0 }, audio: { dev: wav645,  coil: 10 }, red: { dev: shelly4, light: 1 }, green: { dev: shelly4, light: 2 } }
-# rezerva: shelly4 light 3 (červená) / light 4 (zelená); wav645 coil 11–15 (R12–R16)
+# rezerva: shelly4 light 1–4; wav645 coil 8 (R9), coil 10–15 (R11–R16); wav617b input 0 (DI1)
+
+# Zóna 9 = venek (bez dveří): prostor před displejem + venkovní osvětlení (rozhodnutí 2026-09-11).
+# Není řádek branch_doors — bez zámku, kontaktu, signalizace a dlaždice na displeji. Světlo svítí od
+# zadání kódu (první relace) do `light_after_close_s` po poslední relaci; hudba venku hraje při jakémkoli
+# kódu (jen audio.mode multi). Ve Velíně: Pobočky → Samoobsluha → hardware → blok Venek.
+outdoor:
+  zone: 9                             # popisné číslo pro Velín/diagnostiku/příkazy; NESMÍ kolidovat s číslem zóny dveří
+  light: { dev: wav617b, coil: 0 }    # venkovní osvětlení = relé Waveshare (WAV617-B R1)
+  # audio: { out: out9 }              # jen multi: výstup venku (+ volitelně dev/coil = enable relé zesilovače); selector: nelze
+  light_after_close_s: null           # doběh venkovního světla; null/chybí = timings.light_after_close_s

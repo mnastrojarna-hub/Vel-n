@@ -214,12 +214,19 @@ async def tick_loop(ctrl: "BoxController") -> None:
                 await zc.tick()
             except Exception:  # noqa: BLE001
                 log.exception("Zóna %s: tick selhal", zc.number)
+        active = ctrl._sessions_active()  # noqa: SLF001
         sync_channels = getattr(ctrl.audio, "sync_channels", None)   # multi: kanál venek dle běžících relací
         if sync_channels is not None:
             try:
-                await sync_channels(ctrl._sessions_active())  # noqa: SLF001
+                await sync_channels(active)
             except Exception:  # noqa: BLE001
                 log.exception("Audio kanály: sync selhal")
+        outdoor = getattr(ctrl, "outdoor", None)      # venek: světlo dle běžících relací (fake controllery ho nemají)
+        if outdoor is not None:
+            try:
+                await outdoor.sync(active)
+            except Exception:  # noqa: BLE001
+                log.exception("Venek: sync selhal")
         now = time.monotonic()
         if now - last_refresh >= SIGNAL_REFRESH_S and (refresh_task is None or refresh_task.done()):
             last_refresh = now

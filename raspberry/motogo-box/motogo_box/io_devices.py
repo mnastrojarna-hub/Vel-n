@@ -205,7 +205,7 @@ class RelayModule:
 
 
 class Wav645(RelayModule):
-    """Waveshare Modbus POE ETH Relay 16CH — zámky R1–R9, audio R10–R11."""
+    """Waveshare Modbus POE ETH Relay 16CH — v šabloně Brno zámky R1–R8, audio R10, R9/R11–R16 rezerva (mapu určuje HW mapa)."""
 
     COILS = 16
     INPUTS = 0

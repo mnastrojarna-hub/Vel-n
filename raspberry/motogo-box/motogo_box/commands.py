@@ -7,6 +7,10 @@ se dostane do Velína). `update_software` / `update_system` se jen naplánují
 (`ctrl.updater.start`, viz `updater.py`) — běží až když je box volný; dokud běží root skript
 (apt/git), `restart`/`reboot` se odmítají (`update_blocks`) — restart unity by ho zabil uprostřed
 dpkg. HW příkazy se odmítají, dokud jednotka není `ready` (start / přestavba HW — §12 krok 8).
+Zóna venku (`params.zone == hw.outdoor.zone`, venek není dveře): `light_on/off` → `ctrl.outdoor.set_light`,
+`music_on/off` → `audio.play_channel/stop_channel("outdoor")` (selector → `outdoor_requires_multi`),
+`zone_test` → `outdoor.test_sequence()`; `open_door`/`set_signal`/`audio_test` → `zone_not_found`.
+Venek bez relé světla: `light_on/off` → `outdoor_no_light`; selhání relé → `light_failed`.
 """
 from __future__ import annotations
 
@@ -55,6 +59,21 @@ def _first_zone(ctrl: "BoxController"):
     return next(iter(sorted(ctrl.zones.values(), key=lambda zc: zc.number)), None)
 
 
+def _is_outdoor(ctrl: "BoxController", params: dict) -> bool:
+    """Zóna venku: `params.zone` = číslo venku v HW mapě (nastaven). Venek není dveře — `_zone_of` ho nenajde."""
+    zone_n = _int(params.get("zone"))
+    cfg = getattr(getattr(ctrl, "outdoor", None), "cfg", None)
+    return zone_n is not None and cfg is not None and bool(cfg.configured) and cfg.zone == zone_n
+
+
+def _outdoor_multi(ctrl: "BoxController"):
+    """Engine multi má `play_channel`; selector venek neumí (`outdoor_requires_multi`)."""
+    audio = ctrl.audio
+    if getattr(audio, "mode", "") != "multi" or not hasattr(audio, "play_channel"):
+        return None
+    return audio
+
+
 async def _run(*argv: str) -> tuple[bool, dict]:
     """Spustí proces (sudo …); chyby → (False, {error})."""
     try:
@@ -86,6 +105,12 @@ async def _open_door(ctrl: "BoxController", params: dict) -> tuple[bool, dict]:
 async def _music_on(ctrl: "BoxController", params: dict) -> tuple[bool, dict]:
     selected = any(params.get(k) not in (None, "") for k in ("zone", "door_id", "box_number"))
     z = _zone_of(ctrl, params) if selected else _first_zone(ctrl)
+    if z is None and _is_outdoor(ctrl, params):
+        audio = _outdoor_multi(ctrl)
+        if audio is None:
+            return False, {"error": "outdoor_requires_multi", "zone": _int(params.get("zone"))}
+        ok = bool(await audio.play_channel("outdoor"))
+        return ok, {"zone": _int(params.get("zone")), "channel": "outdoor"}
     if z is None:
         # Zadaná, ale neexistující zóna NESMÍ spadnout na první kóji (cizí reproduktor).
         return False, {"error": "zone_not_found"}
@@ -98,6 +123,11 @@ async def _music_off(ctrl: "BoxController", params: dict) -> tuple[bool, dict]:
     selected = any(params.get(k) not in (None, "") for k in ("zone", "door_id", "box_number"))
     if selected:
         z = _zone_of(ctrl, params)
+        if z is None and _is_outdoor(ctrl, params):
+            stop_channel = getattr(ctrl.audio, "stop_channel", None)
+            if stop_channel is not None:
+                await stop_channel("outdoor")
+            return True, {"zone": _int(params.get("zone")), "channel": "outdoor"}
         if z is None:
             return False, {"error": "zone_not_found"}
         stop_zone = getattr(ctrl.audio, "stop_zone", None)
@@ -113,6 +143,13 @@ async def _music_off(ctrl: "BoxController", params: dict) -> tuple[bool, dict]:
 def _light(on: bool) -> Handler:
     async def handler(ctrl: "BoxController", params: dict) -> tuple[bool, dict]:
         z = _zone_of(ctrl, params)
+        if z is None and _is_outdoor(ctrl, params):
+            res = {"zone": _int(params.get("zone")), "light": ctrl.outdoor.light_on, "outdoor": True}
+            if ctrl.outdoor.cfg.light is None:              # venek jen s audio výstupem — světlo v HW mapě není
+                return False, {**res, "error": "outdoor_no_light"}
+            ok = bool(await ctrl.outdoor.set_light(on))
+            res["light"] = ctrl.outdoor.light_on
+            return ok, res if ok else {**res, "error": "light_failed"}
         if z is None:
             return False, {"error": "zone_not_found"}
         ok = await z.set_light(on)
@@ -133,6 +170,10 @@ async def _set_signal(ctrl: "BoxController", params: dict) -> tuple[bool, dict]:
 
 async def _zone_test(ctrl: "BoxController", params: dict) -> tuple[bool, dict]:
     z = _zone_of(ctrl, params)
+    if z is None and _is_outdoor(ctrl, params):
+        res = await ctrl.outdoor.test_sequence()        # None = netestováno (light: bez relé světla; audio: selector / bez výstupu)
+        ok = "error" not in res and res.get("light") is not False and res.get("audio") is not False
+        return ok, {"zone": _int(params.get("zone")), "outdoor": True, **res}
     if z is None:
         return False, {"error": "zone_not_found"}
     res = await z.test_sequence()

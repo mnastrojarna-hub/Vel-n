@@ -7,6 +7,8 @@ Program hraje současně v libovolném počtu kanálů, každý svůj playlist z
 stop se odloží o `timings.music_after_close_s` po poslední. Selhání jednoho mpv neovlivní
 ostatní (per-výstup zámek, `ensure_running` per přehrávač). Volitelné relé „enable“
 zesilovače (`audio: {out, dev, coil}`) se sepne při startu hudby a vypne při zastavení.
+Ruční start/stop/test kanálu (`play_channel`, `stop_channel`, `test_channel`, `manual`) je
+v mixinu `audio_channels.MultiChannelOps`.
 
 Sestavení enginu podle `hw.audio.mode` (`build_audio`), podpis konfigurace a knihovna hudby
 jsou v `audio_build.py`.
@@ -20,6 +22,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable
 
 from .audio import library_status
+from .audio_channels import MultiChannelOps
 from .config import AudioCfg
 from .models import HwRef
 
@@ -42,9 +45,10 @@ class _Channel:
     fade_task: asyncio.Task | None = None
     sync_task: asyncio.Task | None = None   # kanál bez dveří: start/stop na pozadí (neblokuje tick zón)
     off_at: float | None = None    # kanál bez dveří: čas odloženého stopu
+    manual: bool | None = None     # kanál bez dveří: True = ručně spuštěn (drží), False = ručně zastaven, None = dle relací
 
 
-class AudioMulti:
+class AudioMulti(MultiChannelOps):
     """Nezávislé kanály: `players` {out: MpvPlayer}, `zone_out` {zóna: out}, `channel_out` {kanál: out},
     `relays` {zóna|kanál: HwRef} (volitelné enable relé, spíná přes `bus.set`)."""
 
@@ -92,7 +96,8 @@ class AudioMulti:
 
     def status(self) -> dict:
         players = {out: {"alive": bool(ch.player.alive), "playlist_count": int(getattr(ch.player, "playlist_count", 0) or 0),
-                         "device": getattr(ch.player, "device", None), "playing": ch.playing, "target": ch.target}
+                         "device": getattr(ch.player, "device", None), "playing": ch.playing, "target": ch.target,
+                         "manual": ch.manual}
                    for out, ch in self.channels.items()}
         devices = [f"{o}={p['device']}" for o, p in players.items() if p["device"]]
         return {"mode": self.mode, "playing_zone": self.playing_zone, "playing_zones": self.playing_zones,
@@ -242,7 +247,7 @@ class AudioMulti:
             log.warning("Zastavení hudby %s (%s): %s", key, ch.out, exc)
         if key is not None:
             await self._relay(key, False)
-        ch.playing, ch.off_at = None, None
+        ch.playing, ch.off_at, ch.manual = None, None, None
         if key is not None:
             log.info("Hudba: %s zastavena (výstup %s)", key, ch.out)
 
@@ -282,14 +287,16 @@ class AudioMulti:
                     log.warning("all_off přehrávače %s: %s", ch.out, exc)
                 if ch.playing is not None:
                     await self._relay(ch.playing, False)
-                ch.playing, ch.off_at = None, None
+                ch.playing, ch.off_at, ch.manual = None, None, None
 
     async def sync_channels(self, active_zones: list[int]) -> None:
         """Kanály bez dveří (trigger any): hrají, dokud běží aspoň jedna relace; stop po
         `music_after_close_s` od poslední (volá tick smyčka zón každých 250 ms).
 
         Start/stop (IPC, případný restart mpv, fade) běží jako úloha na pozadí — tick smyčka
-        (timeouty dveří, overtime) na ni nikdy nečeká; dokud úloha běží, další tick nic nespouští."""
+        (timeouty dveří, overtime) na ni nikdy nečeká; dokud úloha běží, další tick nic nespouští.
+        Ručně spuštěný kanál (`manual`, `play_channel`) se bez relací nezastavuje; první relace
+        ruční režim ruší (`manual = None`)."""
         delay = float(getattr(self.timings, "music_after_close_s", 10) or 0)
         for name in list(self.channel_out):
             ch = self._ch(name)
@@ -297,9 +304,11 @@ class AudioMulti:
                 continue
             busy = ch.sync_task is not None and not ch.sync_task.done()
             if active_zones:
-                ch.off_at = None
+                ch.off_at, ch.manual = None, None
                 if ch.playing != name and not busy:
                     ch.sync_task = asyncio.create_task(self._play(name), name=f"motogo.audio.sync.{ch.out}")
+            elif ch.manual:
+                continue                                  # ruční start drží do stop_channel
             elif ch.playing == name:
                 now = self.clock()
                 if ch.off_at is None:
@@ -326,23 +335,7 @@ class AudioMulti:
 
     async def test_tone(self, zone: int, seconds: int = 5) -> bool:
         """Servisní test: přehraje `seconds` s JEN na výstupu zóny a zastaví (jen svoji hudbu)."""
-        ch = self._ch(int(zone))
-        files = self._files_for(self._target_of(int(zone)))
-        count: Any = 0
-        if ch is not None:
-            count = len(files) if files is not None else getattr(ch.player, "playlist_count", None)
-        if ch is None or not ch.player.alive or (count is not None and int(count or 0) <= 0):
-            log.warning("Audio test zóny %s: výstup chybí, mpv neběží nebo je playlist prázdný (%s)", zone, count)
-            return False
-        ok = await self.play_zone(zone)
-        if ok:
-            gen = ch.generation
-            try:
-                await asyncio.sleep(max(0, int(seconds)))
-            finally:
-                if ch.playing == zone and ch.generation == gen:
-                    await self.stop_zone(zone, fade=True)
-        return ok
+        return await self._test_key(int(zone), seconds)
 
 
 __all__ = ["AudioMulti", "Key"]

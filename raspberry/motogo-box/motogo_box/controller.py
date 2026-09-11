@@ -20,6 +20,7 @@ from .config import WARNING_PREFIX, HardwareConfig, LocalConfig, blocking_proble
 from .diagnostics import NetworkDiagnostics
 from .io_devices import IoBus
 from .models import Event, EventKind, Signal, now_iso
+from .outdoor import OutdoorController
 from .pins import LocalResolver, PinGuard
 from .realtime import RealtimeListener
 from .shelly import ShellyRgbww, SignalController
@@ -46,6 +47,7 @@ class BoxController:
         self.io: IoBus = IoBus(self.hardware)
         self.signals: SignalController = SignalController({}, self.hardware.signal)
         self.audio: AudioController | AudioMulti | None = None
+        self.outdoor = OutdoorController(self.hardware.outdoor, self.io, self.hardware.timings, None)   # venek (§26)
         self.music = None                  # music_sync.MusicLibrary (None = modul chybí → legacy playlist)
         self.health: dict = {}
         self.last_error: str | None = None
@@ -125,6 +127,7 @@ class BoxController:
             self.music = make_music_library(self.storage, self.local.paths.music_dir, self.local.supabase.url,
                                             self._music_changed)
         self.audio = build_audio(hw, self.local, self.io, self.music)   # selector | multi dle hw.audio.mode
+        self.outdoor = OutdoorController(hw.outdoor, self.io, hw.timings, self.audio)   # venek: světlo + kanál outdoor
         self.zones = {}
         for z in hw.zones:
             zc = ZoneController(z, self.io, self.signals, self.audio, hw, self.emit)
@@ -220,6 +223,10 @@ class BoxController:
                 await self.audio.reselect_if_playing(name)
             except Exception:  # noqa: BLE001
                 log.exception("Obnova audio relé po reinit %s selhala", name)
+        try:
+            await self.outdoor.on_module_reinit(name)      # venkovní světlo mělo svítit → znovu sepnout
+        except Exception:  # noqa: BLE001
+            log.exception("Obnova venkovního světla po reinit %s selhala", name)
 
     def _start_realtime(self) -> None:
         device_id = self._device_id()
@@ -350,6 +357,7 @@ class BoxController:
         else:
             self.signals.cfg = hw.signal
             self.audio.update_cfg(hw.audio, hw.timings)
+            self.outdoor.update_cfg(hw.outdoor, hw.timings)
             for z in hw.zones:
                 zc = self.zones.get(z.number)
                 if zc is not None:
@@ -373,6 +381,7 @@ class BoxController:
                 "player_ok": False, "playlist_count": 0, "device": None, "players": {}, "library": None},
             "health": self.health, "last_error": self.last_error,
             "zones": [zc.status().to_dict() for zc in sorted(self.zones.values(), key=lambda z: z.number)],
+            "outdoor": self.outdoor.status(),
             "notice": copy.deepcopy(notice) if notice else None,
             "diagnostics": self.diagnostics.status(),
             "update": self.updater.status(),
@@ -382,6 +391,7 @@ class BoxController:
         """Vše bezpečně vypnout (audio, relé, Shelly) a zóny uvést do klidového stavu."""
         if self.audio:
             await self.audio.all_off()
+        await self.outdoor.all_off()
         await self.io.all_off()
         await self.signals.all_off()
         for zc in self.zones.values():

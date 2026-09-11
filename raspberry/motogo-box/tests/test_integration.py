@@ -3,7 +3,8 @@
 Bez sítě — Supabase míří na `http://127.0.0.1:1` (spojení odmítnuto ihned → offline
 cache), mpv chybí (přehrávač v dummy režimu, reléový selektor se přesto přepíná).
 Simulátor: 3× `SimRelayModule` (wav645, wav617a, wav617b) + 4× `SimShelly` na
-dynamických portech; hardwarová mapa je vygenerovaná ze `config/sim-9zone.yaml`.
+dynamických portech; hardwarová mapa je vygenerovaná ze `config/sim-9zone.yaml`
+(8 zón + venek: venkovní světlo wav617b R1 svítí po dobu relace + doběh).
 """
 from __future__ import annotations
 
@@ -38,9 +39,11 @@ PIN_OK = "123456"
 SERVICE_CODE = "servis1"
 
 # Zóna 3 dle brno mapy: zámek wav645[2], kontakt wav617a in 2, světlo wav617a[2],
-# audio wav617b[3], červená shelly1 light 4, zelená shelly2 light 0.
+# audio wav617b[3], červená shelly1 light 4, zelená shelly2 light 0. Venek: světlo wav617b[0].
 Z3_LOCK, Z3_CONTACT, Z3_LIGHT, Z3_AUDIO = 2, 2, 2, 3
 Z3_RED, Z3_GREEN = ("shelly1", 4), ("shelly2", 0)
+OUTDOOR_LIGHT = 0
+ZONES = 8
 
 
 # ─── pomocné ─────────────────────────────────────────────────────────────────
@@ -88,7 +91,7 @@ def write_local_config(path: str, data_dir: str, hw_file: str, web_port: int) ->
 
 
 def sync_payload(hw_raw: dict) -> dict:
-    """Payload ve tvaru `kiosk_sync_config`: 9 dveří s `hw` = zóny mapy, hashované kódy."""
+    """Payload ve tvaru `kiosk_sync_config`: 8 dveří s `hw` = zóny mapy, `hardware.outdoor` = venek, hashované kódy."""
     doors = []
     for item in hw_raw["zones"]:
         n = int(item["zone"])
@@ -96,7 +99,8 @@ def sync_payload(hw_raw: dict) -> dict:
                       "label": f"Kóje {n}", "hw": copy.deepcopy(item), "relay_url": None, "light_url": None})
     return {
         "ok": True, "synced_at": "2026-09-09T10:00:00+00:00", "branch_name": "Brno (sim)",
-        "hardware": {}, "timings": {"door_open_seconds": 30, "light_seconds": 30, "music_seconds": 10},
+        "hardware": {"outdoor": copy.deepcopy(hw_raw["outdoor"])},
+        "timings": {"door_open_seconds": 30, "light_seconds": 30, "music_seconds": 10},
         "music_on_url": None, "music_off_url": None, "power_status_url": None, "power_poll_seconds": 60,
         "doors": doors,
         "service_codes": [{"h": hmac_code(DEVICE_ID, DEVICE_TOKEN, SERVICE_CODE)}],
@@ -186,9 +190,10 @@ async def test_box_controller_end_to_end(sim: Sim, tmp_path) -> None:
 
     try:
         await asyncio.wait_for(ctrl.start(), 30)
-        assert ctrl.ready and ctrl.hardware.source == "remote" and len(ctrl.zones) == 9
+        assert ctrl.ready and ctrl.hardware.source == "remote" and len(ctrl.zones) == ZONES
         assert ctrl.branch_name == "Brno (sim)"
         assert ctrl.config_problems == []
+        assert ctrl.hardware.outdoor.zone == 9 and ctrl.outdoor.cfg.configured and not ctrl.outdoor.light_on
 
         # Start: all_off proběhl (špinavá relé jsou vypnutá), Shelly nejdřív vše zhasla, pak RED.
         assert sim.coils_all_off(), sim.all_coils()
@@ -208,6 +213,8 @@ async def test_box_controller_end_to_end(sim: Sim, tmp_path) -> None:
         snap = ctrl.snapshot()
         assert all(snap["modules"].values()) and set(snap["modules"]) == set(sim.ports)
         assert snap["audio"]["player_ok"] is False        # mpv není → dummy režim
+        assert snap["outdoor"]["configured"] is True and snap["outdoor"]["zone"] == 9 and snap["outdoor"]["light"] is False
+        assert snap["outdoor"]["light_ref"] == "wav617b[0]" and snap["outdoor"]["music"] is False
 
         # ── platný kód: API padne → offline cache → zóna 3 ──
         lock = sim.modules["wav645"]
@@ -228,6 +235,8 @@ async def test_box_controller_end_to_end(sim: Sim, tmp_path) -> None:
         audio = sim.audio_coils(hw_raw)
         assert audio[2] is True and sum(audio) == 1, audio        # jen wav617b coil 3
         assert not lock.coils[Z3_LOCK]
+        await wait_until(lambda: sim.modules["wav617b"].coils[OUTDOOR_LIGHT], 2, "venkovní světlo po zadání kódu")
+        assert ctrl.outdoor.light_on and ctrl.snapshot()["outdoor"]["active"] is True
 
         # ── otevření dveří → DOOR_OPEN, zavření → CLOSED_CONFIRMATION → SECURED ──
         sim.modules["wav617a"].set_input(Z3_CONTACT, False)
@@ -244,6 +253,10 @@ async def test_box_controller_end_to_end(sim: Sim, tmp_path) -> None:
         await wait_until(lambda: z3.state == ZoneState.SECURED, 4, "SECURED po doběhu světla")
         assert sim.modules["wav617a"].coils[Z3_LIGHT] is False and not z3.light_on
         assert sim.modules["wav617b"].coils[Z3_AUDIO] is False and sum(sim.audio_coils(hw_raw)) == 0
+        # venek: světlo svítí ještě light_after_close_s (2 s) po poslední relaci, pak zhasne
+        assert sim.modules["wav617b"].coils[OUTDOOR_LIGHT] is True and ctrl.snapshot()["outdoor"]["active"] is False
+        await wait_until(lambda: not sim.modules["wav617b"].coils[OUTDOOR_LIGHT], 4, "venkovní světlo zhaslo po doběhu")
+        assert not ctrl.outdoor.light_on
         assert sim.coils_all_off(), sim.all_coils()
         assert z3.booking_id is None and z3.last_event == "SESSION_COMPLETED"
         kinds = [e["kind"] for e in storage.events_recent(50)]
@@ -253,7 +266,7 @@ async def test_box_controller_end_to_end(sim: Sim, tmp_path) -> None:
         # ── servisní heslo ──
         res = await asyncio.wait_for(ctrl.submit_code(SERVICE_CODE), 10)
         assert res["ok"] is True and res["kind"] == "service" and res["service_token"]
-        assert len(res["doors"]) == 9 and all(d["configured"] for d in res["doors"])
+        assert len(res["doors"]) == ZONES and all(d["configured"] for d in res["doors"])
         assert ctrl.check_service_token(res["service_token"]) and not ctrl.check_service_token("x")
 
         # ── neplatný kód a lockout po 5 pokusech ──
@@ -271,6 +284,10 @@ async def test_box_controller_end_to_end(sim: Sim, tmp_path) -> None:
         # ── vzdálený příkaz přes handle_command (complete_command → outbox, síť není) ──
         await asyncio.wait_for(ctrl.handle_command({"id": "cmd-1", "command": "light_on", "params": {"zone": 1}}), 10)
         assert sim.modules["wav617a"].coils[0] is True
+        await asyncio.wait_for(ctrl.handle_command({"id": "cmd-2", "command": "light_on", "params": {"zone": 9}}), 10)
+        assert sim.modules["wav617b"].coils[OUTDOOR_LIGHT] is True and ctrl.outdoor.manual is True   # venek ručně
+        ok, result = await commands.execute(ctrl, "music_on", {"zone": 9})
+        assert ok is False and result["error"] == "outdoor_requires_multi"       # selector: venek nehraje
         await drain_log_tasks()
         assert any(kind == "complete_command" for _, kind, _ in storage.outbox_pending(200))
 
@@ -279,13 +296,14 @@ async def test_box_controller_end_to_end(sim: Sim, tmp_path) -> None:
         assert ok is True and result == {}
         assert sim.coils_all_off(), sim.all_coils()
         assert ctrl.audio.playing_zone is None and ctrl.audio.selector.active_zone is None
+        assert not ctrl.outdoor.light_on and ctrl.outdoor.manual is None
         assert all(zc.state == ZoneState.SECURED for zc in ctrl.zones.values())
         assert sim.light(*Z3_RED) is True and sim.light(*Z3_GREEN) is False
         ok, result = await commands.execute(ctrl, "neexistuje", {})
         assert ok is False and result["error"] == "unknown_command"
 
         snap = ctrl.snapshot()
-        assert len(snap["zones"]) == 9 and snap["zones"][2]["state"] == "SECURED"
+        assert len(snap["zones"]) == ZONES and snap["zones"][2]["state"] == "SECURED"
         assert snap["zones"][2]["door_id"] == "door-3" and snap["zones"][2]["signal"] == "red"
         assert snap["ready"] is True and snap["internet"] is False and snap["config_source"] == "remote"
         assert set(snap["modules"]) == set(sim.ports)

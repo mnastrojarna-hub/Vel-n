@@ -1,14 +1,18 @@
-// ─── Výchozí hardwarová mapa (šablona: Brno, 9 zón) + popisy polí editoru ───
+// ─── Výchozí hardwarová mapa (šablona Brno: 8 zón (7 kójí + šatna) + venek) + popisy polí editoru ───
 // Program v jednotce je univerzální — každá pobočka má vlastní mapu v DB; tato šablona je jen start.
 // Konstanty jsou 1:1 s raspberry/motogo-box/config/brno-9zone.yaml (bez `network`).
-// `branch_kiosk_config.hardware` = BRNO_DEFAULT_HARDWARE (bez `zones`),
+// `branch_kiosk_config.hardware` = BRNO_DEFAULT_HARDWARE (bez `zones`, včetně `outdoor` = venek),
 // `branch_doors.hw` = jedna položka BRNO_DEFAULT_ZONES (zóna = box_number).
+// Venek (zóna 9, bez dveří): sekce `hardware.outdoor` — helpery v BranchRpiOutdoorHelpers.js.
 
 export const DEVICE_TYPES = [
   { value: 'wav645', label: 'WAV645 (16 relé)' },
   { value: 'wav617', label: 'WAV617 (8 relé + 8 vstupů)' },
   { value: 'shelly_rgbww', label: 'Shelly Pro RGBWW PM' },
 ]
+
+// Venek = zóna 9 šablony: venkovní osvětlení WAV617-B R1 (coil 0); audio venku jen v režimu multi (blok Venek)
+export const BRNO_DEFAULT_OUTDOOR = { zone: 9, light: { dev: 'wav617b', coil: 0 } }
 
 export const BRNO_DEFAULT_HARDWARE = {
   version: 1,
@@ -44,8 +48,6 @@ export const BRNO_DEFAULT_HARDWARE = {
     maximum_failed_attempts: 5,
     attempt_window_minutes: 5,
     lockout_minutes: 15,
-    pin_length: 6,
-    mask_pin_on_screen: true,
     service_token_minutes: 10,
   },
   audio: {
@@ -58,6 +60,7 @@ export const BRNO_DEFAULT_HARDWARE = {
     shuffle: true,
   },
   signal: { brightness: 100, blink_ms: 500, pulse_ms: 1500, transition_s: 0.2 },
+  outdoor: BRNO_DEFAULT_OUTDOOR,
 }
 
 const z = (zone, lock, cDev, contact, lDev, light, aDev, audio, rDev, red, gDev, green) => ({
@@ -79,8 +82,8 @@ export const BRNO_DEFAULT_ZONES = [
   z(6, 5, 'wav617a', 5, 'wav617a', 5, 'wav617b', 6, 'shelly3', 0, 'shelly3', 1),
   z(7, 6, 'wav617a', 6, 'wav617a', 6, 'wav617b', 7, 'shelly3', 2, 'shelly3', 3),
   z(8, 7, 'wav617a', 7, 'wav617a', 7, 'wav645', 9, 'shelly3', 4, 'shelly4', 0),
-  z(9, 8, 'wav617b', 0, 'wav617b', 0, 'wav645', 10, 'shelly4', 1, 'shelly4', 2),
 ]
+// rezerva: shelly4 light 1–4; wav645 coil 8 (R9), coil 10–15 (R11–R16); wav617b input 0 (DI1)
 
 // Režim audia (`hardware.audio.mode`): chybí = selector (stávající instalace beze změny chování).
 export const AUDIO_MODES = [
@@ -90,12 +93,13 @@ export const AUDIO_MODES = [
 
 // Vzor 9 výstupů pro Brno (7 kójí, šatna, venek) = KOMENTOVANÝ příklad v brno-9zone.yaml. Není součástí
 // BRNO_DEFAULT_HARDWARE (výchozí režim zůstává selector) — vyplní ho jen tlačítko „Vzor 9 výstupů“ v editoru.
+// Výstup venku (`outdoor.audio.out`) se nastavuje v bloku Venek — BRNO_AUDIO_OUTDOOR_EXAMPLE je jen nápověda.
 export const BRNO_AUDIO_OUTPUTS_EXAMPLE = {
   out1: { device: 'alsa/plughw:CARD=Box1' }, out2: { device: 'alsa/plughw:CARD=Box2' }, out3: { device: 'alsa/plughw:CARD=Box3' },
   out4: { device: 'alsa/plughw:CARD=Box4' }, out5: { device: 'alsa/plughw:CARD=Box5' }, out6: { device: 'alsa/plughw:CARD=Box6' },
   out7: { device: 'alsa/plughw:CARD=Box7' }, out8: { device: 'alsa/plughw:CARD=Satna' }, out9: { device: 'alsa/plughw:CARD=Venek' },
 }
-export const BRNO_AUDIO_OUTDOOR_EXAMPLE = { out: 'out9', trigger: 'any' }
+export const BRNO_AUDIO_OUTDOOR_EXAMPLE = { out: 'out9' }
 
 // Role kanálů v `branch_doors.hw`: klíč indexu + druh kanálu (pro detekci duplicit).
 // `types` = povolené typy zařízení 1:1 s validate_hardware() v jednotce (config.py):
@@ -136,9 +140,7 @@ export const HW_SECTIONS = [
     { key: 'maximum_failed_attempts', label: 'Max. neúspěšných pokusů', unit: '×', type: 'int' },
     { key: 'attempt_window_minutes', label: 'Okno pokusů', unit: 'min', type: 'int' },
     { key: 'lockout_minutes', label: 'Uzamčení po překročení', unit: 'min', type: 'int' },
-    { key: 'pin_length', label: 'Délka PIN', unit: 'číslic', type: 'int' },
     { key: 'service_token_minutes', label: 'Platnost servisního přístupu', unit: 'min', type: 'int' },
-    { key: 'mask_pin_on_screen', label: 'Maskovat PIN na displeji', type: 'bool' },
   ] },
   { key: 'audio', title: 'Audio', fields: [
     { key: 'volume', label: 'Hlasitost', unit: '%', type: 'int' },
@@ -199,15 +201,13 @@ export function channelKey(ref, role) {
   return Number.isFinite(n) ? `${ref.dev}:${role.kind}:${n}` : null
 }
 
-// Vrátí Set klíčů kanálů, které se objevují ve více než jedné roli/dveřích
-export function findDuplicateChannels(hwByDoor) {
+// Vrátí Set klíčů kanálů, které se objevují ve více než jedné roli/dveřích.
+// `extraRefs` = [{ ref, role }] kanály mimo dveře (světlo / enable relé venku — outdoorRefs()), počítají se stejně.
+export function findDuplicateChannels(hwByDoor, extraRefs = []) {
   const counts = new Map()
-  Object.values(hwByDoor || {}).forEach(hw => {
-    ZONE_REFS.forEach(role => {
-      const k = channelKey(hw?.[role.key], role)
-      if (k) counts.set(k, (counts.get(k) || 0) + 1)
-    })
-  })
+  const add = (ref, role) => { const k = channelKey(ref, role); if (k) counts.set(k, (counts.get(k) || 0) + 1) }
+  Object.values(hwByDoor || {}).forEach(hw => ZONE_REFS.forEach(role => add(hw?.[role.key], role)))
+  ;(extraRefs || []).forEach(x => add(x?.ref, x?.role))
   return new Set([...counts.entries()].filter(([, c]) => c > 1).map(([k]) => k))
 }
 
@@ -235,13 +235,8 @@ export function audioMode(audio) {
   return m === 'multi' ? 'multi' : 'selector'
 }
 
-// Výstup kanálu venek (`audio.channels.outdoor.out`) nebo ''
-export function outdoorOut(audio) {
-  const ch = audio?.channels && typeof audio.channels === 'object' ? audio.channels.outdoor : null
-  return ch && typeof ch === 'object' && ch.out != null ? String(ch.out).trim() : ''
-}
-
-// Set názvů výstupů, které sdílí víc cílů (dveře mezi sebou nebo dveře + kanál venek) — jednotka odmítá
+// Set názvů výstupů, které sdílí víc cílů (dveře mezi sebou nebo dveře + venek) — jednotka odmítá.
+// `outdoor` = výstup venku (outdoorOutOf(hardware) z BranchRpiOutdoorHelpers.js) nebo ''.
 export function findDuplicateOutputs(hwByDoor, outdoor) {
   const counts = new Map()
   const add = o => { const n = String(o ?? '').trim(); if (n) counts.set(n, (counts.get(n) || 0) + 1) }
@@ -257,13 +252,13 @@ export function audioOutError(zone, out, audio) {
   return audioOutputNames(audio).includes(o) ? null : `Zóna ${zone}: audio výstup '${o}' není v audio.outputs.`
 }
 
-// Set čísel zón, která má víc než jedny dveře (jednotka odmítá: „Duplicitní čísla zón.“)
-export function findDuplicateZones(hwByDoor) {
+// Set čísel zón, která má víc než jedny dveře (jednotka odmítá: „Duplicitní čísla zón.“).
+// `outdoorZone` (volitelné) = číslo zóny venku — koliduje-li s dveřmi, jednotka mapu odmítne („Venek: číslo zóny N koliduje s dveřmi“).
+export function findDuplicateZones(hwByDoor, outdoorZone) {
   const counts = new Map()
-  Object.values(hwByDoor || {}).forEach(hw => {
-    const n = parseInt(hw?.zone, 10)
-    if (Number.isFinite(n) && n >= 1) counts.set(n, (counts.get(n) || 0) + 1)
-  })
+  const add = v => { const n = parseInt(v, 10); if (Number.isFinite(n) && n >= 1) counts.set(n, (counts.get(n) || 0) + 1) }
+  Object.values(hwByDoor || {}).forEach(hw => add(hw?.zone))
+  add(outdoorZone)
   return new Set([...counts.entries()].filter(([, c]) => c > 1).map(([n]) => n))
 }
 

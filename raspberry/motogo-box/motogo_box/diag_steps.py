@@ -1,6 +1,7 @@
 """Kroky kompletní diagnostiky pobočky mimo síť (kontrakt §24, režim `full`):
 `software`, `config`, `zones`, `power`, `cameras`. Každý krok je izolovaný — volá ho
 `NetworkDiagnostics.run` s limitem a chyba jednoho neshodí běh. Vše čitelné bez rootu.
+Venek (zóna bez dveří): `diag_outdoor.py` — krok `zones` doplní `report["outdoor"]`, `config` klíč `outdoor`.
 
 Bezpečnost HW testu zón: zámek se NIKDY nespíná (jen se čte stav relé); test světla/zelené/tónu
 (`ZoneController.test_sequence`) běží SEKVENČNĚ (audio selektor je exkluzivní) a jen v zóně
@@ -63,6 +64,11 @@ def _try(fn, default=None):
 
 def _ref(r) -> str | None:
     return None if r is None else f"{r.dev}:{r.idx}"
+
+
+def _outdoor():
+    from . import diag_outdoor      # lokální import — diag_outdoor staví na _hw_test/_read_coils odtud (cyklus)
+    return diag_outdoor
 
 
 # ─── software ────────────────────────────────────────────────────────────────
@@ -149,7 +155,7 @@ async def config(diag: "NetworkDiagnostics", report: dict) -> dict:
             "doors_without_hw": doors_without_hw, "duplicates": dups, "timings": dataclasses.asdict(t), "timings_problems": tp,
             "devices": {n: {"type": d.type, "host": d.host, "port": d.port} for n, d in hw.devices.items()},
             "power_status_url": getattr(ctrl, "power_status_url", None), "cameras_provided": len(diag.cameras_list()),
-            "security": dataclasses.asdict(hw.security)}
+            "security": dataclasses.asdict(hw.security), "outdoor": _outdoor().outdoor_config(ctrl)}
 
 
 # ─── zones ───────────────────────────────────────────────────────────────────
@@ -158,11 +164,11 @@ async def zones(diag: "NetworkDiagnostics", report: dict) -> list[dict]:
     zcs = sorted((getattr(ctrl, "zones", None) or {}).values(), key=lambda z: z.number)
     out: list[dict] = []
     diag._partial["zones"] = out          # rozpracované zóny přežijí timeout kroku
-    if not zcs:
-        return out
-    snapshot = await ctrl.io.read_all_inputs() if hasattr(ctrl.io, "read_all_inputs") else {}
-    for zc in zcs:                        # SEKVENČNĚ — audio selektor je exkluzivní
-        out.append(await _zone_one(diag, zc, snapshot or {}))
+    if zcs:
+        snapshot = await ctrl.io.read_all_inputs() if hasattr(ctrl.io, "read_all_inputs") else {}
+        for zc in zcs:                    # SEKVENČNĚ — audio selektor je exkluzivní
+            out.append(await _zone_one(diag, zc, snapshot or {}))
+    await _outdoor().outdoor_one(diag, report)   # venek (bez dveří) → report["outdoor"], jen když je nastaven
     return out
 
 
@@ -264,7 +270,7 @@ async def _hw_test(zc) -> dict | None:
             res = await zc.test_sequence()
             return res if isinstance(res, dict) else {"error": "invalid_result"}
         except Exception as exc:  # noqa: BLE001 — chyba testu = nález zóny, ne pád kroku (a ne „exception never retrieved“)
-            log.exception("Zóna %s: HW test selhal", zc.number)
+            log.exception("Zóna %s: HW test selhal", getattr(zc, "number", "venek"))
             return {"error": f"{type(exc).__name__}: {str(exc)[:120]}"}
 
     try:

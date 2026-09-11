@@ -26,8 +26,8 @@ Raspberry Pi je jediný nadřazený řídicí počítač.
 | 1 | Raspberry Pi 5, 4 GB | Hlavní řídicí počítač |
 | 1 | Waveshare SIM7600E-H 4G HAT | Mobilní internet, případně SMS/GPS/AT diagnostika |
 | 1 | EDATEC ED-MONITOR-156CA | Dotykové zákaznické rozhraní |
-| 9 | IBFM 9500 | Elektrické protiplechy jednotlivých dveří |
-| 9 | Dveře/zóny | Samostatně ovládané kóje |
+| 8 | IBFM 9500 | Elektrické protiplechy jednotlivých dveří (7 kójí + šatna; venek zámek nemá) |
+| 8 | Dveře/zóny | Samostatně ovládané kóje (7 kójí + šatna); zóna 9 = venek bez dveří (§5) |
 
 EDATEC má rozlišení 1920 × 1080, HDMI typu A, USB-C pro dotyk, napájení 12–24 V DC přes konektor 5,5 × 2,5 mm a nepotřebuje speciální dotykový ovladač.
 
@@ -37,7 +37,7 @@ IBFM 9500 je fail-secure protiplech s pamětí: elektrický impulz jej odblokuje
 
 | Počet | Komponenta | Funkce |
 |---|---|---|
-| 1 | Waveshare WAV645 / Modbus POE ETH Relay 16CH | 9 zámků, 2 audio selektory, 5 rezervních relé |
+| 1 | Waveshare WAV645 / Modbus POE ETH Relay 16CH | 8 zámků (R1–R8), 1 audio relé (R10), 7 rezervních (R9, R11–R16) |
 | 2 | Waveshare WAV617 / Modbus POE ETH Relay (B) | Celkem 16 digitálních vstupů a 16 reléových výstupů |
 | 4 | Shelly Pro RGBWW PM | 20 nezávislých PWM kanálů pro červenou/zelenou signalizaci |
 | 1 | Teltonika TSW202 | Centrální řízený Ethernet switch |
@@ -53,7 +53,7 @@ IBFM 9500 je fail-secure protiplech s pamětí: elektrický impulz jej odblokuje
 | 1 | Audio oddělovací/odrušovací člen | Potlačení zemních smyček a rušení |
 | 1 | 3,5mm audio kabel | Zvuková karta → zesilovač |
 | 1 | TPA3116D2 Class-D zesilovač 2×50 W | Centrální audio zesilovač |
-| 10 | Waveshare reproduktor 8 Ω / 5 W | 9 kójí + 1 náhradní |
+| 10 | Waveshare reproduktor 8 Ω / 5 W | 8 zón v selektoru (7 kójí + šatna) + venek (jen režim multi) + 1 náhradní |
 | 5 | CAT6 patch kabel | Síťové propojení modulů |
 
 WAV645 má 16 přepínacích relé 1NO/1NC, zatížitelnost maximálně 10 A při 30 V DC, napájení 7–36 V a podporuje Modbus TCP, Modbus RTU přes Ethernet, HTTP a MQTT.
@@ -81,11 +81,11 @@ Raspberry Pi napájet originálním 27W USB-C zdrojem ze 230 V. Raspberry Pi 5 p
 
 | Počet | Specifikace |
 |---|---|
-| 10 | Povrchový nebo zadlabací magnetický kontakt, NC, beznapěťový, průmyslový |
-| 10 | TVS dioda 1.5KE18CA nebo ekvivalent pro 12V zámek |
-| 9 | DIN pojistková svorka pro každý zámek |
-| 9 | Provozní pojistka – hodnotu určit měřením odběru zámku |
-| min. 9 | Náhradní pojistky |
+| 10 | Povrchový nebo zadlabací magnetický kontakt, NC, beznapěťový, průmyslový (8 dveří + 2 rezervní; venek kontakt nemá) |
+| 10 | TVS dioda 1.5KE18CA nebo ekvivalent pro 12V zámek (8 zámků + 2 rezervní) |
+| 8 | DIN pojistková svorka pro každý zámek (venek zámek nemá) |
+| 8 | Provozní pojistka – hodnotu určit měřením odběru zámku |
+| min. 8 | Náhradní pojistky |
 | 1 | Samostatná hlavní pojistka 12V větve zámků |
 
 U zámků zatím není doložený proud cívky. Proto se hodnota pojistky nesmí určit odhadem. Nejdříve změřit náběhový a ustálený proud jednoho zámku při 12 V DC.
@@ -96,13 +96,13 @@ U zámků zatím není doložený proud cívky. Proto se hodnota pojistky nesmí
 |---|---|
 | 20 m | Bílý LED pásek 24 V, přibližně 8–10 W/m, IP65, 4000–5000 K |
 | 20 m nebo kratší úseky podle konstrukce | RGB/RGBW pásek 24 V se společným kladným pólem |
-| 9 | Samostatně jištěná větev bílého světla |
-| 9 | Hliníkový profil s difuzorem pro hlavní světlo |
-| 9 | Profil/kryt pro stavovou signalizaci |
+| 9 | Samostatně jištěná větev bílého světla (8 zón + venkovní osvětlení WAV617-B R1) |
+| 9 | Hliníkový profil s difuzorem pro hlavní světlo (8 zón + venkovní osvětlení) |
+| 8 | Profil/kryt pro stavovou signalizaci (venek signalizaci nemá) |
 
 Z RGBW pásku se v současném zapojení používá pouze: R = červená signalizace; G = zelená signalizace; B a W zůstanou nezapojené.
 
-Plné nezávislé RGBW pro všech devět kójí by potřebovalo 36 PWM kanálů, tedy nejméně osm Shelly modulů. Současné čtyři moduly poskytují 20 kanálů, což stačí přesně na červenou a zelenou signalizaci devíti kójí plus dva rezervní kanály.
+Plné nezávislé RGBW pro všech osm zón by potřebovalo 32 PWM kanálů, tedy nejméně sedm Shelly modulů. Současné čtyři moduly poskytují 20 kanálů, což stačí na červenou a zelenou signalizaci osmi zón (16 kanálů) plus čtyři rezervní kanály (Shelly 4 light 1–4); venek signalizaci nemá.
 
 **Kabeláž**
 
@@ -127,7 +127,7 @@ Plné nezávislé RGBW pro všech devět kójí by potřebovalo 36 PWM kanálů,
 
 U TSW202 se objevují dvě specifikace. Aktuální rychlý návod uvádí napájení switche 7–57 V, ale PoE výstup funguje pouze při 44–57 V. Některé starší datasheety uvádějí pouze 44–57 V. Rozhodující je štítek konkrétního kusu. PoE se v tomto systému nepoužívá.
 
-**12 V DC** napájí: devět zámků IBFM; audiozesilovač. Všech devět zámků musí mít samostatnou pojistku a vlastní ochranu proti indukční špičce.
+**12 V DC** napájí: osm zámků IBFM (venek zámek nemá); audiozesilovač. Všech osm zámků musí mít samostatnou pojistku a vlastní ochranu proti indukční špičce.
 
 ## 4. Síťová konfigurace
 
@@ -182,7 +182,7 @@ Waveshare výslovně doporučuje pro Modbus TCP port 502 a režim non-storage ga
 | 6 | WAV645 R6 / coil 5 | WAV617-A DI6 / input 5 | WAV617-A R6 / coil 5 |
 | 7 | WAV645 R7 / coil 6 | WAV617-A DI7 / input 6 | WAV617-A R7 / coil 6 |
 | 8 | WAV645 R8 / coil 7 | WAV617-A DI8 / input 7 | WAV617-A R8 / coil 7 |
-| 9 | WAV645 R9 / coil 8 | WAV617-B DI1 / input 0 | WAV617-B R1 / coil 0 |
+| 9 = venek (bez dveří) | — (WAV645 R9 rezerva) | — (WAV617-B DI1 rezerva) | WAV617-B R1 / coil 0 = venkovní osvětlení (`outdoor.light`) |
 
 **Audio selektory**
 
@@ -196,11 +196,11 @@ Waveshare výslovně doporučuje pro Modbus TCP port 502 a režim non-storage ga
 | 6 | WAV617-B R7 |
 | 7 | WAV617-B R8 |
 | 8 | WAV645 R10 |
-| 9 | WAV645 R11 |
+| 9 = venek | — (WAV645 R11 rezerva; režim multi: výstup `out9` v bloku Venek) |
 
-WAV645 R12–R16 zůstávají rezervní.
+WAV645 R9 a R11–R16 zůstávají rezervní (rozhodnutí 2026-09-11: zóna 9 = venek bez zámku a selektoru).
 
-Použít pouze jeden kanál zesilovače jako mono: všechny záporné vodiče reproduktorů na jeden výstup SPK−; kladný výstup SPK+ vést přes devět samostatných NO relé; současně smí být sepnutý maximálně jeden audio selektor.
+Použít pouze jeden kanál zesilovače jako mono: všechny záporné vodiče reproduktorů na jeden výstup SPK−; kladný výstup SPK+ vést přes osm samostatných NO relé (WAV617-B R2–R8 + WAV645 R10; venek v selektoru nehraje — jen režim multi, §8); současně smí být sepnutý maximálně jeden audio selektor.
 
 **Stavová červená/zelená signalizace** — Shelly nastavit do režimu Lights x 5.
 
@@ -214,8 +214,8 @@ Použít pouze jeden kanál zesilovače jako mono: všechny záporné vodiče re
 | 6 | Shelly 3, light:0 | Shelly 3, light:1 |
 | 7 | Shelly 3, light:2 | Shelly 3, light:3 |
 | 8 | Shelly 3, light:4 | Shelly 4, light:0 |
-| 9 | Shelly 4, light:1 | Shelly 4, light:2 |
-| rezerva | Shelly 4, light:3 | Shelly 4, light:4 |
+| 9 = venek | — (Shelly 4 light 1–2 rezerva) | — |
+| rezerva | Shelly 4, light:1, light:3 | Shelly 4, light:2, light:4 |
 
 ## 6. Modbus rozhraní pro program
 
@@ -273,10 +273,12 @@ Doporučená signalizace:
 | Kóje zabezpečená | 100 % | 0 % |
 | Přístup povolen | 0 % | 100 % |
 | Dveře otevřené | 0 % | 100 % |
-| Čekání na zavření | 0 % | pulzování |
+| Čekání na zavření | 0 % | 100 % |
 | Porucha kontaktu | blikání | 0 % |
 | I/O modul nedostupný | blikání | blikání |
 | Raspberry nenaběhlo | stav podle posledního hardwarového stavu; při startu se resetuje | |
+
+Rozhodnutí 2026-09-11: zelená svítí trvale od zadání kódu až do zavření; pulzuje jen při překročení maximální doby (§9).
 
 ## 8. Připojení periferií Raspberry
 
@@ -284,7 +286,7 @@ Doporučená signalizace:
 
 **EDATEC** — Raspberry micro-HDMI → HDMI Type-A monitoru; Raspberry USB-A → USB-C USB TOUCH monitoru; 24 V DC → DC IN monitoru. Kiosk aplikace má běžet na 1920 × 1080, celoobrazovkově, bez systémových lišt.
 
-**Audio** — Raspberry USB → AXAGON USB zvuková karta → oddělovací filtr → TPA3116D2 → reléový selektor → jeden z devíti reproduktorů.
+**Audio** — Raspberry USB → AXAGON USB zvuková karta → oddělovací filtr → TPA3116D2 → reléový selektor → jeden z osmi reproduktorů (7 kójí + šatna; venek jen v režimu multi).
 
 Sekvence přepnutí reproduktoru: 1. ztlumit audio; 2. vypnout všechna audio relé; 3. čekat 200 ms; 4. zapnout relé požadované zóny; 5. čekat 100 ms; 6. spustit hudbu; 7. plynule zvýšit hlasitost.
 
@@ -323,7 +325,7 @@ forced_open_debounce_ms: 500
 pin_entry_timeout_s: 20
 ```
 
-**Platný PIN:** 1. Ověřit, že PIN má přesně šest číslic. 2. Ověřit rezervaci a časové okno. 3. Zjistit zone_id. 4. Ověřit dostupnost WAV645, příslušného WAV617 a Shelly. 5. Ověřit, že dveře nejsou už otevřené. 6. Zapnout bílé světlo. 7. Přepnout signalizaci červená → zelená. 8. Vybrat reproduktor. 9. Spustit hudbu. 10. Poslat zámku 800ms hardware impulz. 11. Zapsat událost ACCESS_GRANTED. 12. Čekat na otevření kontaktu.
+**Platný PIN:** 1. Ověřit kód dle Velína (`kiosk_resolve_code`, offline HMAC cache): rezervace = 6 číslic, servisní a diagnostické kódy alfanumerické — délku jednotka nekontroluje (`pin_length` odstraněno, §13 rozhodnutí 2026-09-11). 2. Ověřit rezervaci a časové okno. 3. Zjistit zone_id. 4. Ověřit dostupnost WAV645, příslušného WAV617 a Shelly. 5. Ověřit, že dveře nejsou už otevřené. 6. Zapnout bílé světlo. 7. Přepnout signalizaci červená → zelená. 8. Vybrat reproduktor. 9. Spustit hudbu. 10. Poslat zámku 800ms hardware impulz. 11. Zapsat událost ACCESS_GRANTED. 12. Čekat na otevření kontaktu.
 
 **Dveře se do 30 sekund neotevřou:** zámek už nesmí být napájen; vypnout hudbu; po 30 sekundách vypnout bílé světlo; vrátit červenou signalizaci; ukončit relaci; stejný PIN může být podle rezervace znovu použit.
 
@@ -349,7 +351,6 @@ PIN neukládat v čistém textu. Protože šest číslic lze snadno projet hrubo
 maximum_failed_attempts: 5
 attempt_window_minutes: 5
 lockout_minutes: 15
-mask_pin_on_screen: true
 store_plain_pin: false
 ```
 
@@ -358,7 +359,7 @@ store_plain_pin: false
 | Služba | Funkce |
 |---|---|
 | motogo-ui.service | Dotykové zákaznické rozhraní |
-| motogo-controller.service | Stavový automat všech devíti zón |
+| motogo-controller.service | Stavový automat všech zón (kóje, šatna) + venek |
 | motogo-modbus.service | WAV645/WAV617 komunikace |
 | motogo-lighting.service | Shelly HTTP řízení |
 | motogo-audio.service | Hudba a audio selektor |
@@ -425,15 +426,29 @@ Další pravidla: nikdy nedržet zámek trvale pod napětím; nikdy neaktivovat 
   (stav dveří nelze zjistit). Offline modul zámku/světla/Shelly během otevřené kóje = relace pokračuje
   (`degraded`, zákazník není zamčen uvnitř bez světla kvůli sítí), nový přístup je zamítnut; porucha
   se vyhlásí po skončení relace.
-- **K rozhodnutí — signalizace při otevřených dveřích:** §7 tabulka uvádí „Čekání na zavření: zelená
-  pulzuje“, §9 „Dveře se otevřou: ponechat zelenou“. Program drží zelenou TRVALE a pulzuje až při
-  překročení maximální doby (overtime). Pokud má zelená pulzovat po celou dobu otevření, změnit
-  `zone.py` (`Signal.GREEN_PULSE` po `DOOR_OPENED`).
-- **K rozhodnutí — vzdálené upozornění (§9 overtime, FORCED_OPEN):** události jdou do `kiosk_logs`
-  (Velín → Diagnostika chyb & událostí) a do stavu zóny; push/e-mail/SMS notifikace obsluze NENÍ
-  implementována (backend nemá kanál pro provozní alerty). Návrh: edge funkce nad `kiosk_logs`
-  (level=warn/error) → e-mail přes Resend na kontakt pobočky.
+- **Rozhodnuto 2026-09-11 — signalizace při otevřených dveřích: trvale (program beze změny).** Zelená svítí
+  trvale od zadání kódu až do zavření dveří a pulzuje až při překročení maximální doby (overtime); §7 tabulka upravena.
+- **Rozhodnuto 2026-09-11 — vzdálené upozornění (§9 overtime, FORCED_OPEN): zatím ne (jen `kiosk_logs` + Velín).**
+  Události jdou do `kiosk_logs` (Velín → Diagnostika chyb & událostí) a do stavu zóny; push/e-mail/SMS notifikace
+  obsluze se zatím neimplementuje (případný návrh: edge funkce nad `kiosk_logs` level=warn/error → e-mail přes Resend).
 - **K rozhodnutí — jedna služba místo sedmi (§11):** controller sdružuje modbus/lighting/audio/sync
   (viz poznámka pod tabulkou §11). Chce-li uživatel izolaci (pád audio/sync vrstvy bez restartu
   stavových automatů), je třeba rozdělit aspoň sync/web a audio do samostatných unit s IPC.
-- `security.pin_length` v config.yaml je jen informativní (délku kódů určuje Velín / `kiosk_resolve_code`).
+
+### Rozhodnutí uživatele (2026-09-11)
+
+- **Kód na displeji je viditelný** — zadávané znaky se zobrazují (žádné maskování tečkami; platí pro kód rezervace, servisní
+  heslo i diagnostický kód). `security.mask_pin_on_screen` a `security.pin_length` odstraněny z konfigurace (délku kódů určuje
+  Velín / `kiosk_resolve_code`); starší mapy s těmito klíči jednotka ignoruje.
+- **Zelená signalizace svítí trvale** od zadání kódu až do zavření dveří (pulzuje jen při překročení maximální doby, §7/§9).
+- **Vzdálené upozornění obsluze (overtime, FORCED_OPEN): zatím ne** — jen `kiosk_logs` + Velín.
+- **8 jazyků displeje je finální** (CS/EN/DE/ES/FR/NL/PL/UK, bez slovenštiny).
+- **Zóna 9 = venek** — venkovní prostor před displejem + venkovní osvětlení. Není to dveře (bez zámku, kontaktu, signalizace,
+  rezervací a dlaždice na displeji): nová sekce HW mapy `outdoor {zone: 9, light: {dev: wav617b, coil: 0}, audio: {out: out9},
+  light_after_close_s}` (Velín → hardware → blok „Venek“). Světlo svítí od prvního zadaného kódu do doběhu po poslední relaci,
+  hudba venku hraje při jakémkoli kódu (jen režim `multi`; starší `audio.channels.outdoor` z rozhodnutí 2026-09-10 = alias).
+  Šablona Brno = 8 zón (7 kójí + šatna) + venek; WAV645 R9/R11, WAV617-B DI1 a Shelly 4 light 1–2 jsou rezerva (§5).
+- **PIN SIM je u všech poboček vždy 1234** (výchozí hodnota `install.sh`, `MOTOGO_SIM_PIN`).
+- **Limit Storage 200 MB na soubor hudby potvrzen.**
+- **Secrety zálohy (GitHub Actions) doplní uživatel sám.**
+- **Jedna služba místo sedmi (§11)** zůstává otevřené — uživatel si vyžádal seznam služeb.

@@ -36,15 +36,18 @@ def build_audio(hw: HardwareConfig, local: LocalConfig, io: Any, library: Any = 
             channel_out[name] = ch["out"]
             if ch.get("relay") is not None:
                 relays[name] = ch["relay"]
-    relays = _drop_reserved_relays(relays, hw.zones)
+    relays = _drop_reserved_relays(relays, hw.zones, getattr(getattr(hw, "outdoor", None), "light", None))
     return AudioMulti(players, zone_out, channel_out, relays, cfg, library, bus=io,
                       zone_targets={z.number: zone_target(z) for z in hw.zones}, timings=hw.timings)
 
 
-def _drop_reserved_relays(relays: dict[Key, HwRef], zones: list) -> dict[Key, HwRef]:
+def _drop_reserved_relays(relays: dict[Key, HwRef], zones: list, outdoor_light: HwRef | None = None) -> dict[Key, HwRef]:
     """Druhá vrstva ochrany (první je validate_hardware, zrcadlí `AudioSelector`): relé „enable“
-    nikdy nesmí být cívka zámku ani světla kterékoli zóny — hrálo by pod ním po celou hudbu (§12)."""
+    nikdy nesmí být cívka zámku ani světla kterékoli zóny ani venkovního světla — hrálo by pod ním
+    po celou hudbu (§12)."""
     reserved = {z.hw.lock for z in zones if z.hw.lock is not None} | {z.hw.light for z in zones if z.hw.light is not None}
+    if outdoor_light is not None:
+        reserved.add(outdoor_light)
     kept: dict[Key, HwRef] = {}
     for key, ref in relays.items():
         if ref in reserved:

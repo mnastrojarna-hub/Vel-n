@@ -2,7 +2,7 @@
 
 Univerzální řídicí program pro VŠECHNY samoobslužné pobočky MotoGo24 (nástupce tabletového
 kiosku). Každá pobočka má vlastní řídicí jednotku; počet kójí, zařízení a mapování I/O se
-nastavují výhradně ve Velíně (první nasazení: 9zónový box Brno — jeho mapa je výchozí šablona).
+nastavují výhradně ve Velíně (první nasazení: box Brno — 8 zón (7 kójí + šatna) + venek; jeho mapa je výchozí šablona).
 **Flow zákazníka, texty, servisní heslo i napojení na Velín zůstávají stejné** — mění se
 hardwarová vrstva: místo Shelly relé volaných z tabletu řídí Raspberry Pi přes Modbus TCP
 (Waveshare WAV645/WAV617) zámky, světla a dveřní kontakty, přes Shelly Pro RGBWW PM
@@ -34,6 +34,22 @@ otevřené > 10 min → zelená pulzuje, hudba stop, upozornění do Velína (10
 Více kójí smí být otevřených současně (rozhodnutí §13.7); v režimu `selector` hraje hudba jen v poslední
 otevřené, v režimu `multi` v každé otevřené kóji (+ venek); pulzy zámků se nikdy nepřekrývají.
 
+### Venek (zóna 9)
+
+Zóna 9 v šabloně Brno je **venek** — prostor před displejem + venkovní osvětlení (rozhodnutí 2026-09-11). Není to řádek
+`branch_doors`: bez zámku, dveřního kontaktu, signalizace, rezervací i dlaždice na displeji. Nastavuje se ve Velíně → Samoobsluha →
+hardware → blok **„Venek (zóna bez dveří) — venkovní osvětlení + hudba venku“** (sekce `outdoor` HW mapy: číslo zóny, relé světla
+Waveshare — v Brně WAV617-B R1, v režimu `multi` audio výstup + volitelné enable relé zesilovače, doběh světla; „Vymazat venek“ sekci
+odstraní). **Světlo** se rozsvítí při zadání jakéhokoli kódu (první relace) a zhasne `light_after_close_s` po skončení poslední relace
+(vlastní doběh venku má přednost před globálním); **hudba venku** hraje při jakémkoli kódu (jen režim `multi`, doběh
+`music_after_close_s`). Z Velína (dlaždice „Venek“ v živém stavu zón) lze světlo ručně rozsvítit (drží do vypnutí) / zhasnout (do
+další relace), hudbu spustit / zastavit a spustit test (světlo 1 s + tón 3 s; venek bez relé světla = jen tón; při běžící relaci
+jednotka test odmítne). Ruční příkaz světla jednotka při chybě relé neopakuje — Velín dostane `ok:false`, příkaz zopakovat (jen
+automatické přechody relace/doběh se po chybě zkoušejí znovu po 5 s). Stav:
+`kiosk_devices.status.outdoor` (`api/state → outdoor`). Diagnostika pobočky venek kontroluje (skupina „Venek (zóna 9)“ v protokolu:
+relé světla, hudba venku; světlo nikdy nespíná při relaci) a nepočítá ho mezi zóny. Starší zápis výstupu venku
+`audio.channels.outdoor` jednotka dál čte (alias); Velín ho při uložení bloku Venek převede na `outdoor.audio`.
+
 ## Architektura procesů
 
 | systemd unit | proces | obsah |
@@ -52,7 +68,8 @@ dotykové displeje (žádné pevné 1920×1080; ověřeno 1920×1080, 2560×1080
 design MotoGo24** (barvy webu/appky, logo `ui/logo-light.svg`). Hlavička: logo, lišta 8 jazyků (vždy viditelná, návrat
 do češtiny po nečinnosti), **název pobočky** a tečka online. Tělo ve třech sloupcích: výzva + vysvětlivky („Kód najdete
 v aplikaci MotoGo24 — v detailu rezervace a ve zprávách — nebo v potvrzovacím e‑mailu.“ / „Kód k výbavě otevře šatnu ·
-kód k motorce otevře vaši garáž s vaší motorkou.“) + pole kódu | klávesnice (numerická / „ABC“ pro servisní hesla,
+kód k motorce otevře vaši garáž s vaší motorkou.“) + pole kódu (**zadávané znaky jsou viditelné** — žádné maskování tečkami,
+rozhodnutí 2026-09-11; platí pro kód rezervace, servisní heslo i diagnostický kód) | klávesnice (numerická / „ABC“ pro servisní hesla,
 velikost kláves podle místa, vždy ≥ 48 px, nic se nepřekrývá) | dlaždice zón („Šatna“, „Kóje N“; 1–2 sloupce).
 Servisní panel, setup a diagnostika zůstávají tmavé overlaye (`ui/style-overlays.css`), použitelné i na nízkém displeji.
 **Název pobočky se bere VÝHRADNĚ z Velína → Pobočky (`name`)** — není-li vyplněný, zůstává místo v hlavičce prázdné
@@ -63,10 +80,11 @@ Servisní panel, setup a diagnostika zůstávají tmavé overlaye (`ui/style-ove
 **Vše o hardwaru se nastavuje ve Velíně** → Pobočky → Samoobsluha → **„Řídicí jednotka (Raspberry)"**:
 - `branch_kiosk_config.hardware` (jsonb) — zařízení (IP Waveshare/Shelly), časování, polling,
   polarita kontaktů (`contacts.closed_level`), bezpečnost (PIN lockout), **audio** (sekce „Audio“: režim `audio.mode`
-  `selector`/`multi`, `device` selektoru, `outputs` = pojmenované ALSA výstupy dle `aplay -L`, kanál venek), signalizace;
+  `selector`/`multi`, `device` selektoru, `outputs` = pojmenované ALSA výstupy dle `aplay -L`), signalizace, **venek** (sekce
+  `outdoor` — blok „Venek“: číslo zóny, relé světla, audio výstup (multi), doběh světla; viz „Venek (zóna 9)“);
 - `branch_doors.hw` (jsonb per dveře) — mapa zóny: zámek (coil), kontakt (input), světlo, audio (relé selektoru, v režimu
   `multi` výstup `audio.out` + volitelné enable relé), červená/zelená (Shelly light id). Tlačítko „Načíst výchozí mapu
-  (šablona Brno, 9 zón)" předvyplní SPEC §5 — jiná pobočka si mapu upraví (jiný počet zón, jiné adresy);
+  (šablona Brno, 8 zón + venek)" předvyplní SPEC §5 — jiná pobočka si mapu upraví (jiný počet zón, jiné adresy);
 - **hudba** — blok **„Hudba pobočky“**: nahrání skladeb přetažením a přiřazení kóji / šatně / venku / společné
   (`branch_music_tracks` + bucket `branch-music`); jednotka si soubory stáhne sama (viz „Hudba“);
 - servisní hesla, zařízení (ID + token), kamery, měnič FV — beze změny oproti tabletu.
@@ -104,8 +122,10 @@ bezpečně přestaví I/O (vše vypnout → nové zóny).
    `apt-daily-upgrade.timer` 04:00 ± 20 min, `Persistent=false`; `MOTOGO_SKIP_APT=1` → jen varování, že balík chybí),
    systemd unity, dobíjení RTC baterie (`dtparam=rtc_bbat_vchg=3000000`), vypne `getty@tty7`, služby spustí.
    Zadává se interaktivně nebo přes env: `MOTOGO_DEVICE_ID`, `MOTOGO_DEVICE_TOKEN`, `MOTOGO_APN`,
-   **`MOTOGO_SIM_PIN`** (PIN SIM karty — prázdné = SIM bez PINu; zapíše se do `[gsm] pin=` profilu
-   `motogo-lte`, jinak zůstane modem ve stavu `locked` a LTE nikdy nenaběhne), `MOTOGO_DIAG_CODE`
+   **`MOTOGO_SIM_PIN`** (PIN SIM je u všech poboček **1234** — výchozí hodnota install.sh; jiný PIN = `MOTOGO_SIM_PIN`; při
+   opakované instalaci má přednost PIN už uložený v profilu `motogo-lte` (bez env se ponechá); explicitně prázdné `MOTOGO_SIM_PIN=`
+   = SIM bez PINu a uložený PIN z profilu odstraní; zapíše se do `[gsm] pin=` profilu `motogo-lte`, jinak zůstane modem ve stavu
+   `locked` a LTE nikdy nenaběhne), `MOTOGO_DIAG_CODE`
    (při založení `config.yaml` se jinak vygeneruje náhodný kód `diagNNNN` — žádný veřejný default z repa;
    existující kód se bez této proměnné nemění; kód se zadává na zákaznické klávesnici a chybné pokusy se
    počítají do lockoutu) a `MOTOGO_MODEM_VIDPID` (výchozí `1e0e:9001`).
@@ -130,7 +150,8 @@ bezpečně přestaví I/O (vše vypnout → nové zóny).
    a ověří, že `ip route` nemá `default via … dev eth0`. **Přes SSH na eth0 spojení spadne** (IP se
    mění) — skript se sám odpojí od terminálu, doběhne a výstup nechá v `/var/log/motogo-set-static-lan.log`;
    připoj se znovu na `192.168.50.10`. Kontrola LTE: `mmcli -m any`, `nmcli con show motogo-lte`
-   (stav `locked` = chybí PIN → `sudo MOTOGO_SIM_PIN=1234 ./scripts/install.sh`).
+   (stav `locked` = chybí PIN → `sudo ./scripts/install.sh`; PIN SIM je u všech poboček **1234** — výchozí hodnota install.sh,
+   jiný PIN = `MOTOGO_SIM_PIN`).
 6. **Waveshare (SPEC §4/§6)** — ve webovém rozhraní modulu (výchozí IP viz manuál Waveshare):
    statická IP `192.168.50.20` (WAV645), `.21` (WAV617-A), `.22` (WAV617-B), maska `/24`, bez brány;
    `mode: TCP server`, `protocol: Modbus TCP`, `port 502`, `unit id 1`, `gateway type: multi-host
@@ -145,7 +166,7 @@ bezpečně přestaví I/O (vše vypnout → nové zóny).
    Hlasitost karty `alsamixer -c Device`. Test bez zón: `speaker-test -D plughw:CARD=Device -c 1 -t wav -l 1`.
    **Režim `multi` (9 nezávislých kanálů):** každá místnost vlastní kartu/výstup — kartám dej stálá jména podle USB
    portu (`/etc/udev/rules.d/70-motogo-audio.rules`, `HARDWARE.md` §4), pak ve Velíně → hardware → Audio: režim
-   `multi`, výstupy `alsa/plughw:CARD=<jméno>` z `aplay -L`, kanál venek, u dveří role Audio = výstup.
+   `multi`, výstupy `alsa/plughw:CARD=<jméno>` z `aplay -L`, u dveří role Audio = výstup, výstup venku v bloku Venek.
 9. **Hudba:** ve Velíně → Samoobsluha → **„Hudba pobočky“** — přetáhnout soubory, zvolit cíl (společná / kóje /
    šatna / venek); jednotka si je stáhne sama do `/var/lib/motogo/music/tracks`. Ruční soubory přímo v
    `/var/lib/motogo/music` (vlastník `motogo`) = společná hudba. Náhodné míchání, smyčka, jen během relace (viz „Hudba“).
@@ -216,7 +237,7 @@ doběh `music_after_close_s` (10 s).
 - `multi` (7 kójí + šatna + venek = 9 nezávislých kanálů): každá místnost má **vlastní zvukový výstup** (USB zvukovka
   nebo pár vícekanálové karty, `HARDWARE.md` §4) a vlastní proces mpv → hraje současně v libovolném počtu kójí, každá
   svůj playlist, venek při jakémkoli kódu. Ve Velíně: režim `multi`, seznam výstupů (název → ALSA zařízení dle
-  `aplay -L`, např. `alsa/plughw:CARD=Box1`; tlačítko „Vzor 9 výstupů“), kanál venek → výstup, u každých dveří role
+  `aplay -L`, např. `alsa/plughw:CARD=Box1`; tlačítko „Vzor 9 výstupů“), výstup venku v bloku **Venek** (sekce `outdoor`), u každých dveří role
   Audio = výstup (volitelně + „enable“ relé zesilovače). Změna režimu/výstupů = bezpečná přestavba jednotky (počká,
   až v žádné kóji nikdo není).
 
@@ -232,10 +253,10 @@ k selhalo“** a tlačítko **„Znovu synchronizovat“** (= `sync_config`, sel
 | příkaz | parametry | akce |
 |---|---|---|
 | `open_door` | `door_id` / `zone` / `box_number` | plná přístupová sekvence zóny (servisní otevření) |
-| `music_on` / `music_off` | `zone?` / `door_id?` / `box_number?` | hudba v zóně (bez zóny první) / stop — se zónou jen tato kóje (multi: ostatní hrají dál), bez zóny vše |
-| `light_on` / `light_off` | `zone` / `door_id` | bílé světlo |
+| `music_on` / `music_off` | `zone?` / `door_id?` / `box_number?` | hudba v zóně (bez zóny první) / stop — se zónou jen tato kóje (multi: ostatní hrají dál), bez zóny vše; `zone` = venek → hudba venku ručně (jen multi, jinak `outdoor_requires_multi`) |
+| `light_on` / `light_off` | `zone` / `door_id` | bílé světlo; `zone` = číslo venku → venkovní světlo ručně (on drží, off zhasne do další relace) |
 | `set_signal` | `zone`, `signal` (`red/green/off/green_pulse/red_blink/both_blink`) | ruční signalizace |
-| `zone_test` | `zone` | test bez zámku: světlo → zelená 1 s → červená → světlo off; audio 3 s |
+| `zone_test` | `zone` | test bez zámku: světlo → zelená 1 s → červená → světlo off; audio 3 s; `zone` = venek → světlo 1 s (jen s relé světla) + tón venku 3 s (jen multi), při relaci `busy` |
 | `audio_test` | `zone`, `seconds?` | hudba v zóně na N s |
 | `all_off` | – | vše vypnout (relé, Shelly, audio), zóny zabezpečit |
 | `identify` | `label?` | „Tady jsem" na displeji + 3× bliknutí zelené |
@@ -269,6 +290,8 @@ prověří celou pobočku a vydá **protokol „kde je problém a co s tím“**
 - **Zóny a periferie (každá kóje):** dveřní kontakt — hodnota z modulu vs. stav programu; zámek — modul online a relé
   v klidu ROZEPNUTÉ (**jen čtení, zámek se nikdy nespíná**); HW test světlo → zelená 1 s → obnova → tón 3 s a
   skutečný stav Shelly (`Light.GetStatus`) vs. požadovaná barva.
+- **Venek (zóna 9, je-li nastaven):** modul relé venkovního světla online a stav relé (jen čtení), HW test světlo 1 s → obnova
+  + tón venku 3 s (jen `multi`; nikdy při běžící relaci); v konfiguraci položka „Venek“. Do počtu zón se nepočítá.
 - **Napájení (FV):** `power_status_url` pobočky (HTTP + JSON: SOC, napětí, výkony, síť) — nenastaveno = přeskočeno.
 - **Kamery:** snapshot/stream URL předané Velínem (HTTP, tělo streamu se nečte); bez seznamu = přeskočeno.
 - **Ostatní zařízení v LAN:** scan podsítí vlastních rozhraní + `diagnostics.scan_subnets` (porty `scan_ports`,
@@ -358,7 +381,7 @@ odmítne; červený běh = chyba psql (issue se nezakládá).
 | kód odmítnut „Chyba spojení" | není internet ani cache | `journalctl -u motogo-health`, `mmcli -m any`; cache se plní po prvním úspěšném `kiosk_sync_config` |
 | „Příliš mnoho neplatných pokusů" | PIN lockout (5 pokusů / 5 min → 15 min) | počkat nebo restart controlleru (lockout je v SQLite — přežije restart) |
 | LTE offline dlouhodobě | slabý signál / modem zamrzl | health sám: 5× výpadek (všechny 3 sondy) → `nmcli con up`, 5× reconnect → USB reset modemu, 3× reset → reboot (jen při uptime ≥ 30 min). Ručně: `sudo /usr/local/sbin/motogo-usbreset` (VID:PID z `/etc/motogo/modem_vidpid`; jako root přímo lze `usbreset-modem.sh 1e0e:9001`); `mmcli -m any --signal-get` |
-| `mmcli -m any` = `locked`, health hlásí `lte.error=sim_locked` (nebo `sim_missing`) | SIM má PIN a profil ho nezná / SIM chybí | `sudo MOTOGO_SIM_PIN=1234 ./scripts/install.sh` (zapíše `[gsm] pin=` do `motogo-lte`) nebo PIN na SIM vypnout; health v tomto stavu záměrně nedělá reconnect/USB reset/reboot |
+| `mmcli -m any` = `locked`, health hlásí `lte.error=sim_locked` (nebo `sim_missing`) | SIM má PIN a profil ho nezná / SIM chybí | `sudo ./scripts/install.sh` — PIN SIM je u všech poboček **1234** (výchozí hodnota install.sh; jiný PIN = `MOTOGO_SIM_PIN`; zapíše `[gsm] pin=` do `motogo-lte`); health v tomto stavu záměrně nedělá reconnect/USB reset/reboot |
 | Velín: `update_software` selhal (kód 3) | `git fetch` / `git merge --ff-only` ve zdrojovém checkoutu selhal: síť, přihlášení, větev bez upstreamu, nebo cíl z Velína (`/var/lib/motogo/update_ref`) není dopředný potomek HEAD — starší commit, jiná větev, neznámý sha | `sudo cat /var/log/motogo-update.log`; jako vlastník checkoutu ověř `git fetch origin` (credential helper / deploy key); rollback = revert commit v main a nový rollout (checkout se nikdy necouvá); ručně `sudo /usr/local/sbin/motogo-update` (kód 2 = „už běží“ / chybný zdroj) |
 | Velín: `update_software` / `update_system` / `restart` / `reboot` → `update_in_progress` | běží jiná aktualizace, nebo předchozí běh vypršel a root skript možná ještě běží (`reason: timeout_orphan`, `retry_after_s`) | počkat (řádek „Aktualizace“ / `status.update`), `sudo cat /var/log/motogo-update.log /var/log/motogo-sysupdate.log`; lhůta = délka timeoutu skriptu (15 / 45 min), restart controlleru ji zruší |
 | Velín: „Aktualizovat OS“ selhalo `sysupdate_missing` | starší instalace bez `/usr/local/sbin/motogo-sysupdate` (nainstaluje ho až nový `motogo-update`) | spustit „Aktualizovat software“, pak OS aktualizaci znovu |
@@ -369,7 +392,8 @@ odmítne; červený běh = chyba psql (issue se nezakládá).
 | bez zvuku (režim selector) | špatný `audio.device`, hlasitost karty, sepnuté relé jiné zóny | `aplay -l`, `alsamixer`, servisní panel → Hudba v zóně; `api/state` → `audio.playing_zone`, `audio.players.mpv.alive` |
 | kanál (kóje / šatna / venek) mlčí v režimu multi | zóna nemá výstup, špatné ALSA zařízení výstupu, mpv výstupu neběží, prázdný playlist | `api/state → audio.players[out]` (`alive`, `device`, `playlist_count`, `playing`); `aplay -L` → jméno karty musí odpovídat `audio.outputs[out].device` (`alsa/plughw:CARD=…`), stálá jména podle USB portu viz `HARDWARE.md` §4; `speaker-test -D plughw:CARD=<jméno> -c2 -t wav -l1`; `config_problems` („Zóna N: nemá audio výstup“) |
 | skladba z Velína se na jednotce nestáhla (chip „k selhalo“ / dlouho „stahuje“) | výpadek LTE, timeout, chyba velikosti, neplatný záznam — opakuje se s odstupem 2 min … 6 h | `api/state → audio.library` (`failed`, `reason`, `last_sync_at`); Velín → Hudba pobočky → „Znovu synchronizovat“ (zruší odstup); `journalctl -u motogo-controller \| grep motogo.music`; volné místo v `/var/lib/motogo/music/tracks` |
-| venek nehraje | jednotka běží v režimu `selector` (kanál venek jen v `multi`), nebo venek nemá vlastní ani společnou hudbu | Velín → hardware → Audio: režim `multi` + „Kanál venek → výstup“; `config_problems` „Upozornění: kanál outdoor (venek) nelze v režimu selector“; u cíle Venek nesmí být „0 — nehraje nic“ |
+| venek nehraje | jednotka běží v režimu `selector` (hudba venku jen v `multi`), venek nemá audio výstup, nebo nemá vlastní ani společnou hudbu | Velín → hardware → Audio: režim `multi`; blok **Venek** → Audio výstup (`outdoor.audio.out`); `config_problems` „Upozornění: kanál outdoor (venek) nelze v režimu selector“, příkaz z Velína `outdoor_requires_multi`; u cíle Venek nesmí být „0 — nehraje nic“ |
+| venkovní světlo nesvítí / nezhasne | relé venku (WAV617-B R1) neodpovídá nebo modul offline, ruční režim z Velína, chybí sekce `outdoor` | dlaždice „Venek“ ve Velíně (světlo „(ručně)“ → Světlo ⏹ vrátí automatiku po další relaci), `api/state → outdoor` (`light`, `manual`, `off_in_s`), diagnostika → „Venek (zóna 9) — venkovní světlo“; `journalctl -u motogo-controller \| grep motogo.outdoor` |
 | Velín hlásí zařízení offline | LTE / token | `nmcli con show motogo-lte`; přepárovat v servisním panelu |
 | nevím, co na pobočce nefunguje | — | Velín → Samoobsluha → „Kompletní diagnostika pobočky“ → 🔍 (nebo diagnostický kód na displeji); protokol má blok „Kde je problém“ s radou „Co s tím“ u každé chyby, .txt ke stažení pro technika; rychlý přehled sítě = „jen síť“ |
 | protokol: „dveřní kontakt: program hlásí zavřeno, modul wav617a DI3 čte otevřeno“ (Kóje N — dveřní kontakt) | NC kontakt, vodič do DI vstupu WAV617 nebo obrácená polarita `closed_level` | podle rady v protokolu: kontakt / vodič / `closed_level` v HW mapě (Velín → Samoobsluha → Zóny); polarita viz `HARDWARE.md` |

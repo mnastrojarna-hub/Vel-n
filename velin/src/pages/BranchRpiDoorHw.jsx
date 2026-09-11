@@ -2,8 +2,9 @@ import { useState, useEffect, useMemo } from 'react'
 import { Btn, Chip, Input, Select, Label } from './BranchRpiUi'
 import { DoorAudioCell } from './BranchRpiAudioHw'
 import {
-  ZONE_REFS, audioMode, channelKey, findDuplicateChannels, findDuplicateZones, findDuplicateOutputs, outdoorOut, roleTypeError, draftToHw, hwToDraft,
+  ZONE_REFS, audioMode, channelKey, findDuplicateChannels, findDuplicateZones, findDuplicateOutputs, roleTypeError, draftToHw, hwToDraft,
 } from './BranchRpiHardwareDefaults'
+import { outdoorRefs } from './BranchRpiOutdoorHelpers'
 
 // ─── Editor `branch_doors.hw` — mapování zóny na kanály hardwaru ────────────
 // Lokální drafty per dveře; uložení tlačítkem → onSaveDoor(id, { hw }).
@@ -11,14 +12,18 @@ import {
 // duplicitní čísla zón a špatný typ zařízení pro roli se zvýrazní červeně a BLOKUJÍ uložení
 // (jednotka by jinak celou mapu odmítla a Velín by ukazoval „Uloženo“).
 // `audio` = hardware.audio: v režimu multi je role Audio výstup `audio.out` (musí existovat v audio.outputs,
-// nesmí ho sdílet dvě zóny ani zóna + kanál venek); v režimu selector zůstává relé {dev, coil} beze změny
+// nesmí ho sdílet dvě zóny ani zóna + venek); v režimu selector zůstává relé {dev, coil} beze změny
 // a `out` se nekontroluje (jednotka ho v selectoru ignoruje) — zachová se pro připravené multi mapování.
+// `outdoor` = outdoorOf(hardware) (venek, zóna bez dveří): jeho číslo zóny, světlo/enable relé i audio výstup
+// se počítají do duplicit stejně jako jiné dveře (jednotka: „Venek: … už používá zóna N“, „koliduje s dveřmi“).
+// Enable relé venku a výstup venku jen v režimu multi — v selectoru je jednotka nevaliduje (validate_audio končí
+// upozorněním); světlo venku a číslo zóny venku platí v obou režimech (validate_outdoor).
 
 function doorTitle(d) {
   return d.door_kind === 'accessories' ? 'Oblečení' : `Kóje #${d.box_number}`
 }
 
-function DoorHwEditor({ doors, devices, audio, busy, onSaveDoor }) {
+function DoorHwEditor({ doors, devices, audio, outdoor, busy, onSaveDoor }) {
   const [drafts, setDrafts] = useState({})
   const [msg, setMsg] = useState({})
 
@@ -31,10 +36,11 @@ function DoorHwEditor({ doors, devices, audio, busy, onSaveDoor }) {
     })
   }, [doors])
 
-  const dupes = useMemo(() => findDuplicateChannels(drafts), [drafts])
-  const dupZones = useMemo(() => findDuplicateZones(drafts), [drafts])
+  const outdoorZone = outdoor?.zone ?? null
   const multi = audioMode(audio) === 'multi'
-  const dupOuts = useMemo(() => (multi ? findDuplicateOutputs(drafts, outdoorOut(audio)) : new Set()), [drafts, audio, multi])
+  const dupes = useMemo(() => findDuplicateChannels(drafts, outdoorRefs(outdoor, multi)), [drafts, outdoor, multi])
+  const dupZones = useMemo(() => findDuplicateZones(drafts, outdoorZone), [drafts, outdoorZone])
+  const dupOuts = useMemo(() => (multi ? findDuplicateOutputs(drafts, outdoor?.audio?.out) : new Set()), [drafts, outdoor, multi])
   const deviceNames = Object.keys(devices || {})
   const devOptions = [{ value: '', label: '—' }, ...deviceNames.map(n => ({ value: n, label: n }))]
 
@@ -45,12 +51,15 @@ function DoorHwEditor({ doors, devices, audio, busy, onSaveDoor }) {
   async function save(d) {
     const draft = drafts[d.id]
     const zoneNo = parseInt(draft?.zone, 10)
-    if (dupZones.has(zoneNo)) { setMsg(m => ({ ...m, [d.id]: { text: `Duplicitní čísla zón — zónu ${zoneNo} mají i jiné dveře.`, tone: 'red' } })); return }
+    if (dupZones.has(zoneNo)) {
+      const text = zoneNo === outdoorZone ? `Zónu ${zoneNo} má venek (blok Venek) — čísla zón musí být unikátní.` : `Duplicitní čísla zón — zónu ${zoneNo} mají i jiné dveře.`
+      setMsg(m => ({ ...m, [d.id]: { text, tone: 'red' } })); return
+    }
     const { hw, error } = draftToHw(draft, devices, audio)
     if (error) { setMsg(m => ({ ...m, [d.id]: { text: error, tone: 'red' } })); return }
-    if (hw.audio?.out && dupOuts.has(hw.audio.out)) { setMsg(m => ({ ...m, [d.id]: { text: `Audio výstup ${hw.audio.out} už používá jiná zóna nebo kanál venek.`, tone: 'red' } })); return }
+    if (hw.audio?.out && dupOuts.has(hw.audio.out)) { setMsg(m => ({ ...m, [d.id]: { text: `Audio výstup ${hw.audio.out} už používá jiná zóna nebo venek.`, tone: 'red' } })); return }
     const usedChannel = ZONE_REFS.map(role => channelKey(draft[role.key], role)).find(k => k && dupes.has(k))
-    if (usedChannel) { setMsg(m => ({ ...m, [d.id]: { text: `Kanál ${usedChannel} už používá jiná zóna/role.`, tone: 'red' } })); return }
+    if (usedChannel) { setMsg(m => ({ ...m, [d.id]: { text: `Kanál ${usedChannel} už používá jiná zóna/role nebo venek.`, tone: 'red' } })); return }
     const ok = await onSaveDoor(d.id, { hw })
     if (ok === false) { setMsg(m => ({ ...m, [d.id]: { text: 'Uložení selhalo (viz chyba nahoře).', tone: 'red' } })); return }
     setDrafts(prev => ({ ...prev, [d.id]: { ...prev[d.id], dirty: false } }))
@@ -72,29 +81,29 @@ function DoorHwEditor({ doors, devices, audio, busy, onSaveDoor }) {
         const draft = drafts[d.id] || hwToDraft(d.hw, d.box_number)
         return (
           <DoorHwRow key={d.id} door={d} draft={draft} devices={devices} audio={audio} devOptions={devOptions} dupes={dupes} dupZones={dupZones} dupOuts={dupOuts}
-            busy={busy} msg={msg[d.id]} onPatch={fn => patch(d.id, fn)} onSave={() => save(d)} onClear={() => clear(d)} />
+            outdoorZone={outdoorZone} busy={busy} msg={msg[d.id]} onPatch={fn => patch(d.id, fn)} onSave={() => save(d)} onClear={() => clear(d)} />
         )
       })}
       {dupes.size > 0 && (
         <div className="text-[12px] font-bold p-2 rounded-lg" style={{ background: '#fee2e2', color: '#dc2626' }}>
-          Duplicitní kanály: {[...dupes].join(', ')} — každý kanál smí používat jen jedna zóna/role.
+          Duplicitní kanály: {[...dupes].join(', ')} — každý kanál smí používat jen jedna zóna/role (nebo venek).
         </div>
       )}
       {dupZones.size > 0 && (
         <div className="text-[12px] font-bold p-2 rounded-lg" style={{ background: '#fee2e2', color: '#dc2626' }}>
-          Duplicitní čísla zón: {[...dupZones].join(', ')} — každé dveře musí mít vlastní číslo zóny (jednotka by celou mapu odmítla).
+          Duplicitní čísla zón: {[...dupZones].join(', ')} — každé dveře (i venek) musí mít vlastní číslo zóny (jednotka by celou mapu odmítla).
         </div>
       )}
       {dupOuts.size > 0 && (
         <div className="text-[12px] font-bold p-2 rounded-lg" style={{ background: '#fee2e2', color: '#dc2626' }}>
-          Sdílené audio výstupy: {[...dupOuts].join(', ')} — každý výstup smí používat jen jedna zóna nebo kanál venek.
+          Sdílené audio výstupy: {[...dupOuts].join(', ')} — každý výstup smí používat jen jedna zóna nebo venek.
         </div>
       )}
     </div>
   )
 }
 
-function DoorHwRow({ door, draft, devices, audio, devOptions, dupes, dupZones, dupOuts, busy, msg, onPatch, onSave, onClear }) {
+function DoorHwRow({ door, draft, devices, audio, devOptions, dupes, dupZones, dupOuts, outdoorZone, busy, msg, onPatch, onSave, onClear }) {
   const isAcc = door.door_kind === 'accessories'
   const configured = !!(door.hw && typeof door.hw === 'object' && Object.keys(door.hw).length)
   const zoneNo = parseInt(draft.zone, 10)
@@ -108,7 +117,7 @@ function DoorHwRow({ door, draft, devices, audio, devOptions, dupes, dupZones, d
           <Chip tone={configured ? 'gray' : isAcc ? 'red' : 'amber'}>{configured ? 'RPi mapa' : 'Bez mapy'}</Chip>
         </div>
         <Input label="Zóna" type="number" min={1} width={64} value={draft.zone} invalid={zoneBad || zoneDup}
-          title={zoneDup ? `Zónu ${zoneNo} mají i jiné dveře — čísla zón musí být unikátní` : 'Číslo zóny (kóje = číslo boxu; oblečení = volné číslo)'}
+          title={zoneDup ? (zoneNo === outdoorZone ? `Zónu ${zoneNo} má venek — čísla zón musí být unikátní` : `Zónu ${zoneNo} mají i jiné dveře — čísla zón musí být unikátní`) : 'Číslo zóny (kóje = číslo boxu; oblečení = volné číslo)'}
           onChange={v => onPatch(p => ({ ...p, zone: v }))} />
         {ZONE_REFS.map(role => {
           const ref = draft[role.key] || { dev: '', [role.idx]: '' }
@@ -120,7 +129,7 @@ function DoorHwRow({ door, draft, devices, audio, devOptions, dupes, dupZones, d
               devOptions={devOptions} dup={dup} dupOut={!!out && dupOuts.has(out)} onPatch={onPatch} />
           }
           const typeErr = roleTypeError(Number.isFinite(zoneNo) ? zoneNo : '?', role, ref.dev, devices)
-          const title = dup ? 'Kanál už používá jiná zóna/role' : typeErr ? `${typeErr} Povolené: ${role.types.join('/')}.` : `${role.label}: zařízení + ${role.idx}`
+          const title = dup ? 'Kanál už používá jiná zóna/role nebo venek (blok Venek)' : typeErr ? `${typeErr} Povolené: ${role.types.join('/')}.` : `${role.label}: zařízení + ${role.idx}`
           const unknownDev = !!(ref.dev && !devices?.[ref.dev])
           return (
             <div key={role.key} className="flex flex-col gap-0.5" title={title}>

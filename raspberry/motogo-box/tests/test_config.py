@@ -1,4 +1,5 @@
-"""Testy config.py: brno mapa, merge, validace (kolize kanálů, zámek jen WAV645) a `_fill`."""
+"""Testy config.py: brno mapa (8 zón + venek), merge, validace (kolize kanálů, zámek jen WAV645), `_fill`
+a sekce `outdoor` (`config_outdoor.py`: alias oběma směry, validate_outdoor)."""
 from __future__ import annotations
 
 import copy
@@ -7,6 +8,8 @@ import os
 
 from motogo_box.config import (AudioCfg, HardwareConfig, SecurityCfg, SignalCfg, TimingsCfg, _fill,
                                blocking_problems, load_hardware_file, merge_hardware, validate_hardware)
+from motogo_box.config_outdoor import OutdoorCfg, apply_outdoor, validate_outdoor
+from motogo_box.models import HwRef
 
 HW_FILE = os.path.join(os.path.dirname(__file__), "..", "config", "brno-9zone.yaml")
 
@@ -23,15 +26,21 @@ def _with_zone1(**overrides) -> HardwareConfig:
 
 
 # ─── Načtení výchozí mapy ────────────────────────────────────────────────────
-def test_brno_map_loads_nine_valid_zones():
+def test_brno_map_loads_eight_valid_zones_and_outdoor():
     hw = HardwareConfig.from_dict(_brno())
-    assert [z.number for z in hw.zones] == list(range(1, 10))
+    assert [z.number for z in hw.zones] == list(range(1, 9))
     for z in hw.zones:
         assert all(getattr(z.hw, r) is not None for r in ("lock", "contact", "light", "audio", "red", "green"))
         assert z.hw.lock.dev == "wav645"
     assert validate_hardware(hw) == []
     assert set(hw.modbus_devices()) == {"wav645", "wav617a", "wav617b"}
     assert len(hw.shelly_devices()) == 4
+    o = hw.outdoor                                       # zóna 9 = venek: jen světlo (audio vzor zakomentovaný)
+    assert o.present and o.configured and o.zone == 9 and o.light == HwRef("wav617b", 0)
+    assert o.audio_out is None and o.audio is None and o.light_after_close_s is None
+    assert o.to_dict() == {"zone": 9, "light": {"dev": "wav617b", "coil": 0}} and o.light_ref() == "wav617b[0]"
+    assert hw.audio.channels == {} and "pin_length" not in hw.raw["security"]
+    assert not hasattr(SecurityCfg(), "pin_length") and not hasattr(SecurityCfg(), "mask_pin_on_screen")
 
 
 def test_brno_map_channels_are_unique():
@@ -62,6 +71,18 @@ def test_merge_remote_overrides_timings_but_never_zones():
     assert merged["zones"] == local["zones"]
     assert merged["audio"] == local["audio"]
     assert merge_hardware(local, None) == local
+
+
+def test_merge_outdoor_comes_only_from_remote_when_velin_has_map():
+    """Venek: neprázdná mapa z Velína rozhoduje i o nepřítomnosti venku („Vymazat venek“ nesmí
+    nechat světlo z lokální šablony); `{}` = lokální mapa včetně venku; remote venek se nesmí doplnit lokálním světlem."""
+    local = _brno()
+    assert local["outdoor"]["light"] == {"dev": "wav617b", "coil": 0}
+    assert "outdoor" not in merge_hardware(local, {"timings": {"lock_pulse_ms": 500}})
+    assert merge_hardware(local, {})["outdoor"] == local["outdoor"]
+    remote = {"timings": {}, "outdoor": {"zone": 9, "audio": {"out": "out9"}}}
+    assert merge_hardware(local, remote)["outdoor"] == {"zone": 9, "audio": {"out": "out9"}}
+    assert merge_hardware(local, {"timings": {}, "outdoor": None}).get("outdoor") is None
 
 
 # ─── validate_hardware ───────────────────────────────────────────────────────
@@ -132,9 +153,10 @@ def test_audio_device_string_does_not_crash_from_dict():
 
 
 def test_fill_coerces_types_and_keeps_defaults_on_invalid(caplog):
-    assert _fill(SecurityCfg, {"mask_pin_on_screen": "false"}).mask_pin_on_screen is False
-    assert _fill(SecurityCfg, {"mask_pin_on_screen": "ano"}).mask_pin_on_screen is True
-    assert _fill(SecurityCfg, {"mask_pin_on_screen": 0}).mask_pin_on_screen is False
+    assert _fill(AudioCfg, {"shuffle": "false"}).shuffle is False
+    assert _fill(AudioCfg, {"shuffle": "ano"}).shuffle is True
+    assert _fill(AudioCfg, {"shuffle": 0}).shuffle is False
+    assert _fill(SecurityCfg, {"pin_length": 6, "mask_pin_on_screen": True}).lockout_minutes == 15   # staré klíče se ignorují
     assert _fill(AudioCfg, {"volume": "55", "fade_in_ms": 1000.0}).volume == 55
     assert _fill(SignalCfg, {"transition_s": 1}).transition_s == 1.0
     t = _fill(TimingsCfg, {"overtime_alert_minutes": [5], "unknown_key": 1, "lock_pulse_ms": None})
@@ -193,7 +215,7 @@ def test_validate_selector_with_channels_is_only_warning():
     hw = HardwareConfig.from_dict(d)
     assert hw.audio.engine_mode == "multi" and hw.audio.output_devices() == {"out9": "alsa/v"}
     problems = validate_hardware(hw)
-    assert all(p.startswith("Upozornění:") and "nemá audio výstup" in p for p in problems) and len(problems) == 9
+    assert all(p.startswith("Upozornění:") and "nemá audio výstup" in p for p in problems) and len(problems) == 8
     d["audio"]["mode"] = "divny"
     assert any("audio.mode 'divny'" in p for p in validate_hardware(HardwareConfig.from_dict(d)))
     d["audio"]["outputs"] = "nesmysl"                    # vadný tvar z Velína nesmí shodit start
@@ -220,3 +242,102 @@ def test_validate_multi_channel_relay_collisions_block():
     assert any("Kanál chodba: relé wav645[15] už používá kanál satna" in p for p in problems)
     d["audio"]["channels"] = {"outdoor": {"out": "out9", "dev": "wav645", "coil": 15}}
     assert blocking_problems(validate_hardware(HardwareConfig.from_dict(d))) == []
+
+
+# ─── venek (outdoor) ─────────────────────────────────────────────────────────
+def _outdoor(outdoor: dict | None, **audio) -> HardwareConfig:
+    d = _brno()
+    if outdoor is None:
+        d.pop("outdoor", None)
+    else:
+        d["outdoor"] = outdoor
+    if audio:
+        d["audio"].update(audio)
+    return HardwareConfig.from_dict(d)
+
+
+def test_outdoor_cfg_from_dict_tolerant_and_merge_key():
+    assert OutdoorCfg.from_dict(None) == OutdoorCfg() and OutdoorCfg.from_dict("x").present is False
+    o = OutdoorCfg.from_dict({"zone": "9", "light": {"dev": "wav617b", "coil": "0"}, "audio": {"out": " out9 ", "dev": "wav645", "coil": 11},
+                              "light_after_close_s": 45, "cizi": 1})
+    assert (o.zone, o.light, o.audio, o.audio_out, o.light_after_close_s, o.present) == (9, HwRef("wav617b", 0), HwRef("wav645", 11), "out9", 45, True)
+    assert o.to_dict() == {"zone": 9, "light": {"dev": "wav617b", "coil": 0}, "audio": {"out": "out9", "dev": "wav645", "coil": 11},
+                           "light_after_close_s": 45}
+    assert OutdoorCfg.from_dict({"zone": "x", "light": {"dev": "", "coil": 0}}).configured is False
+    hw = _outdoor(None)
+    assert hw.outdoor == OutdoorCfg() and hw.outdoor.configured is False and validate_hardware(hw) == []
+    merged = merge_hardware(_brno(), {"outdoor": {"zone": 9, "light": {"dev": "wav645", "coil": 15}}})   # Velín přepisuje lokální
+    assert HardwareConfig.from_dict(merged).outdoor.light == HwRef("wav645", 15)
+
+
+def test_outdoor_alias_both_directions():
+    outputs = {"out1": {"device": "alsa/a"}, "out9": {"device": "alsa/v"}, "out8": {"device": "alsa/s"}}
+    # kanonický → legacy kanál (build_audio/validate_audio beze změny)
+    hw = _outdoor({"zone": 9, "light": {"dev": "wav617b", "coil": 0}, "audio": {"out": "out9", "dev": "wav645", "coil": 11}},
+                  mode="multi", outputs=outputs)
+    assert hw.audio.channels == {"outdoor": {"out": "out9", "trigger": "any", "dev": "wav645", "coil": 11}}
+    assert hw.audio.channel_map()["outdoor"]["relay"] == HwRef("wav645", 11) and "channels" not in hw.raw["audio"]
+    assert all(p.startswith("Upozornění:") for p in validate_hardware(hw))       # jen zóny bez výstupu
+    # legacy kanál → kanonický venek
+    hw = _outdoor({"zone": 9, "light": {"dev": "wav617b", "coil": 0}}, mode="multi", outputs=outputs,
+                  channels={"outdoor": {"out": "out9", "trigger": "any", "dev": "wav645", "coil": 11}})
+    assert hw.outdoor.audio_out == "out9" and hw.outdoor.audio == HwRef("wav645", 11)
+    assert hw.outdoor.to_dict()["audio"] == {"out": "out9", "dev": "wav645", "coil": 11}
+    assert hw.raw["audio"]["channels"]["outdoor"]["out"] == "out9"                  # raw = původní dict
+    # oba zdroje a liší se → outdoor.audio má přednost + upozornění (nezávazné)
+    hw = _outdoor({"zone": 9, "light": {"dev": "wav617b", "coil": 0}, "audio": {"out": "out9"}}, mode="multi",
+                  outputs=outputs, channels={"outdoor": {"out": "out8"}})
+    assert hw.audio.channels["outdoor"] == {"out": "out9", "trigger": "any"} and hw.outdoor.audio_out == "out9"
+    problems = validate_hardware(hw)
+    assert any(p.startswith("Upozornění: venek: audio.channels.outdoor (out8) se liší") for p in problems)
+    assert blocking_problems(problems) == []
+    # apply_outdoor nemění vstupní dict a vrací upozornění
+    cfg = AudioCfg(channels={"outdoor": {"out": "out8"}})
+    src = cfg.channels
+    warnings = apply_outdoor(cfg, OutdoorCfg(audio_out="out9"))
+    assert len(warnings) == 1 and src == {"outdoor": {"out": "out8"}} and cfg.channels["outdoor"]["out"] == "out9"
+    assert apply_outdoor(AudioCfg(channels="nesmysl"), OutdoorCfg()) == []
+    # v selectoru: kanál outdoor → existující upozornění z validate_audio
+    hw = _outdoor({"zone": 9, "light": {"dev": "wav617b", "coil": 0}, "audio": {"out": "out9"}})
+    problems = validate_hardware(hw)
+    assert len(problems) == 1 and problems[0].startswith("Upozornění:") and "selector" in problems[0]
+
+
+def test_validate_outdoor_errors_and_warning():
+    light = {"dev": "wav617b", "coil": 0}
+    assert validate_hardware(_outdoor({"zone": 9, "light": {"dev": "neni", "coil": 0}})) == [
+        "Venek: light odkazuje na neznámé zařízení 'neni'."]
+    assert validate_hardware(_outdoor({"zone": 9, "light": {"dev": "shelly1", "coil": 0}})) == [
+        "Venek: light musí být relé Waveshare (je shelly_rgbww)."]
+    assert validate_hardware(_outdoor({"zone": 9, "light": {"dev": "wav617b", "coil": 8}})) == [
+        "Venek: light wav617b[8] je mimo rozsah modulu wav617 (0–7)."]
+    assert validate_hardware(_outdoor({"zone": 9, "light": {"dev": "wav617b", "coil": -1}})) == [
+        "Venek: light wav617b[-1] je mimo rozsah modulu wav617 (0–7)."]
+    problems = validate_hardware(_outdoor({"zone": 9, "light": {"dev": "wav645", "coil": 0}}))
+    assert problems == ["Venek: light wav645[0] už používá zóna 1 (lock)."] and blocking_problems(problems)
+    assert validate_hardware(_outdoor({"zone": 8, "light": light})) == ["Venek: číslo zóny 8 koliduje s dveřmi (zóna 8)."]
+    problems = validate_hardware(_outdoor({"zone": 9}))
+    assert problems == ["Upozornění: venek nemá světlo ani audio výstup."] and blocking_problems(problems) == []
+    assert validate_hardware(_outdoor({})) == ["Upozornění: venek nemá světlo ani audio výstup."]
+    hw = _outdoor({"zone": 9, "light": light, "audio": {"out": "out9", "dev": "wav617b", "coil": 0}}, mode="multi",
+                  outputs={"out9": {"device": "alsa/v"}})
+    assert "Venek: light a audio sdílí wav617b[0]." in validate_hardware(hw)
+    hw = _outdoor({"zone": 9, "light": light, "audio": {"out": "out9", "dev": "wav645", "coil": 0}}, mode="multi",
+                  outputs={"out9": {"device": "alsa/v"}})
+    assert any("Kanál outdoor: relé wav645[0] už používá zóna 1 (lock)" in p for p in validate_hardware(hw))
+    # validate_outdoor samostatně (bez `seen` si zóny projde) — stejný výsledek jako přes validate_hardware
+    hw = _outdoor({"zone": 9, "light": {"dev": "wav617a", "coil": 2}})
+    assert validate_outdoor(hw) == ["Venek: light wav617a[2] už používá zóna 3 (light)."]
+
+
+def test_validate_outdoor_light_vs_channel_relay():
+    """Relé „enable“ jiného kanálu na cívce venkovního světla blokuje už validace (ne až `_drop_reserved_relays`)."""
+    light = {"dev": "wav617b", "coil": 0}
+    outputs = {"out9": {"device": "alsa/v"}, "out10": {"device": "alsa/c"}}
+    hw = _outdoor({"zone": 9, "light": light, "audio": {"out": "out9"}}, mode="multi", outputs=outputs,
+                  channels={"chodba": {"out": "out10", "dev": "wav617b", "coil": 0}})
+    msg = "Venek: light wav617b[0] už používá kanál chodba (relé)."
+    assert validate_outdoor(hw) == [msg] and msg in blocking_problems(validate_hardware(hw))
+    hw = _outdoor({"zone": 9, "light": light}, mode="multi", outputs=outputs,
+                  channels={"chodba": {"out": "out10", "dev": "wav645", "coil": 10}})     # R11 rezerva → OK
+    assert validate_outdoor(hw) == []

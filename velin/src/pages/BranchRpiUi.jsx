@@ -99,23 +99,24 @@ const inputStyle = (invalid, warn) => ({
   color: '#0f1a14',
 })
 
-// Textové / číselné pole s popiskem (řízené, hodnota se drží v rodiči)
-function Input({ label, value, onChange, type = 'text', width, placeholder, invalid, warn, title, min, step }) {
+// Textové / číselné pole s popiskem (řízené, hodnota se drží v rodiči).
+// `disabled` = skutečně vypnuté pole (ani klávesnicí), zešedlé; `title` na obalu zůstává čitelný i při disabled.
+function Input({ label, value, onChange, type = 'text', width, placeholder, invalid, warn, title, min, step, disabled }) {
   return (
-    <label className="flex flex-col gap-0.5" style={{ width }} title={title}>
+    <label className="flex flex-col gap-0.5" style={{ width, opacity: disabled ? 0.5 : 1 }} title={title}>
       {label && <Label>{label}</Label>}
-      <input type={type} value={value ?? ''} placeholder={placeholder} min={min} step={step}
+      <input type={type} value={value ?? ''} placeholder={placeholder} min={min} step={step} disabled={disabled}
         onChange={e => onChange(e.target.value)}
         className="rounded-btn text-sm outline-none" style={inputStyle(invalid, warn)} />
     </label>
   )
 }
 
-function Select({ label, value, onChange, options, width, invalid, warn, title }) {
+function Select({ label, value, onChange, options, width, invalid, warn, title, disabled }) {
   return (
-    <label className="flex flex-col gap-0.5" style={{ width }} title={title}>
+    <label className="flex flex-col gap-0.5" style={{ width, opacity: disabled ? 0.5 : 1 }} title={title}>
       {label && <Label>{label}</Label>}
-      <select value={value ?? ''} onChange={e => onChange(e.target.value)}
+      <select value={value ?? ''} onChange={e => onChange(e.target.value)} disabled={disabled}
         className="rounded-btn text-sm outline-none" style={{ ...inputStyle(invalid, warn), background: invalid ? '#fee2e2' : '#fff' }}>
         {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
       </select>
