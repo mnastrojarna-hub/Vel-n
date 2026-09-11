@@ -16,6 +16,8 @@ import { outdoorRefs } from './BranchRpiOutdoorHelpers'
 // a `out` se nekontroluje (jednotka ho v selectoru ignoruje) — zachová se pro připravené multi mapování.
 // `outdoor` = outdoorOf(hardware) (venek, zóna bez dveří): jeho číslo zóny, světlo/enable relé i audio výstup
 // se počítají do duplicit stejně jako jiné dveře (jednotka: „Venek: … už používá zóna N“, „koliduje s dveřmi“).
+// Enable relé venku a výstup venku jen v režimu multi — v selectoru je jednotka nevaliduje (validate_audio končí
+// upozorněním); světlo venku a číslo zóny venku platí v obou režimech (validate_outdoor).
 
 function doorTitle(d) {
   return d.door_kind === 'accessories' ? 'Oblečení' : `Kóje #${d.box_number}`
@@ -35,9 +37,9 @@ function DoorHwEditor({ doors, devices, audio, outdoor, busy, onSaveDoor }) {
   }, [doors])
 
   const outdoorZone = outdoor?.zone ?? null
-  const dupes = useMemo(() => findDuplicateChannels(drafts, outdoorRefs(outdoor)), [drafts, outdoor])
-  const dupZones = useMemo(() => findDuplicateZones(drafts, outdoorZone), [drafts, outdoorZone])
   const multi = audioMode(audio) === 'multi'
+  const dupes = useMemo(() => findDuplicateChannels(drafts, outdoorRefs(outdoor, multi)), [drafts, outdoor, multi])
+  const dupZones = useMemo(() => findDuplicateZones(drafts, outdoorZone), [drafts, outdoorZone])
   const dupOuts = useMemo(() => (multi ? findDuplicateOutputs(drafts, outdoor?.audio?.out) : new Set()), [drafts, outdoor, multi])
   const deviceNames = Object.keys(devices || {})
   const devOptions = [{ value: '', label: '—' }, ...deviceNames.map(n => ({ value: n, label: n }))]
@@ -127,7 +129,7 @@ function DoorHwRow({ door, draft, devices, audio, devOptions, dupes, dupZones, d
               devOptions={devOptions} dup={dup} dupOut={!!out && dupOuts.has(out)} onPatch={onPatch} />
           }
           const typeErr = roleTypeError(Number.isFinite(zoneNo) ? zoneNo : '?', role, ref.dev, devices)
-          const title = dup ? 'Kanál už používá jiná zóna/role' : typeErr ? `${typeErr} Povolené: ${role.types.join('/')}.` : `${role.label}: zařízení + ${role.idx}`
+          const title = dup ? 'Kanál už používá jiná zóna/role nebo venek (blok Venek)' : typeErr ? `${typeErr} Povolené: ${role.types.join('/')}.` : `${role.label}: zařízení + ${role.idx}`
           const unknownDev = !!(ref.dev && !devices?.[ref.dev])
           return (
             <div key={role.key} className="flex flex-col gap-0.5" title={title}>

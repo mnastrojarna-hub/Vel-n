@@ -8,7 +8,7 @@ import {
   BRNO_DEFAULT_HARDWARE, BRNO_DEFAULT_ZONES, BRNO_DEFAULT_OUTDOOR, DEVICE_TYPES, HW_SECTIONS,
   fieldToText, textToField, sectionWithDefaults, pickAccessoriesZone,
 } from './BranchRpiHardwareDefaults'
-import { outdoorOf } from './BranchRpiOutdoorHelpers'
+import { outdoorOf, doorsCollidingWithOutdoor } from './BranchRpiOutdoorHelpers'
 
 // ─── Řídicí jednotka (Raspberry) — hardware ──────────────────────────────────
 // Editor `branch_kiosk_config.hardware` (zařízení + časování/polling/kontakty/
@@ -17,6 +17,7 @@ import { outdoorOf } from './BranchRpiOutdoorHelpers'
 // onSaveCfg/onSaveDoor aktualizují stav záložky optimisticky a vrací true/false.
 
 const clone = v => JSON.parse(JSON.stringify(v))
+const doorName = d => (d.door_kind === 'accessories' ? 'oblečení' : `kóje #${d.box_number}`)
 const NOTE_STYLE = { green: { background: '#dcfce7', color: '#1a8a18' }, amber: { background: '#fef3c7', color: '#b45309' }, red: { background: '#fee2e2', color: '#dc2626' } }
 
 function RpiHardwareBlock({ cfg, doors, busy, onSaveCfg, onSaveDoor, onRefresh }) {
@@ -42,8 +43,16 @@ function RpiHardwareBlock({ cfg, doors, busy, onSaveCfg, onSaveDoor, onRefresh }
     const accText = !accDoor ? 'Dveře oblečení neexistují (blok „Dveře“ → Vytvořit dveře z kojí) — namapují se jen kóje.'
       : accZone ? `Skříň oblečení dostane zónu ${accZone} (nejvyšší volná zóna šablony).`
         : `POZOR: pro skříň oblečení nezbyla volná zóna (kóje obsadily všech ${zonesN} zón) — kód k oblečení nebude fungovat, dokud jí nenastavíte zónu ručně.`
+    // Dveře, které šablona nepřepisuje (kóje mimo 1–zonesN, oblečení bez volné zóny), ale jejich mapa koliduje s venkem —
+    // typicky stará 9zónová šablona (zóna 9 = světlo wav617b R1): jednotka by celou mapu odmítla („Venek: … koliduje
+    // s dveřmi“ / „už používá zóna 9“). Při načtení se jim mapa vymaže (jako tlačítko „Vymazat“) — uživatel je vidí v potvrzení.
+    const rewritten = new Set([...targets, ...(accDoor && accZone ? [accDoor] : [])].map(d => d.id))
+    const colliding = doorsCollidingWithOutdoor((doors || []).filter(d => !rewritten.has(d.id)), BRNO_DEFAULT_OUTDOOR)
+    const collText = colliding.length
+      ? `\n\nPOZOR: HW mapa dveří ${colliding.map(doorName).join(', ')} koliduje s venkem (zóna ${BRNO_DEFAULT_OUTDOOR.zone} / světlo ${BRNO_DEFAULT_OUTDOOR.light.dev} R${BRNO_DEFAULT_OUTDOOR.light.coil + 1} — patrně starší šablona s 9 zónami) a bude VYMAZÁNA; pak jí nastavte volnou zónu ručně.`
+      : ''
     const ok = window.confirm(
-      `Načíst výchozí mapu (šablona Brno, ${zonesN} zón + venek)?\n\nPřepíše zařízení a všechna nastavení hardwaru pobočky (včetně venku = zóna ${BRNO_DEFAULT_OUTDOOR.zone}, světlo ${BRNO_DEFAULT_OUTDOOR.light.dev} R${BRNO_DEFAULT_OUTDOOR.light.coil + 1}) a HW mapu ${targets.length} dveří (kóje 1–${zonesN}). ${accText}\n\nPro jinou pobočku pak upravte adresy zařízení a počet zón.`,
+      `Načíst výchozí mapu (šablona Brno, ${zonesN} zón + venek)?\n\nPřepíše zařízení a všechna nastavení hardwaru pobočky (včetně venku = zóna ${BRNO_DEFAULT_OUTDOOR.zone}, světlo ${BRNO_DEFAULT_OUTDOOR.light.dev} R${BRNO_DEFAULT_OUTDOOR.light.coil + 1}) a HW mapu ${targets.length} dveří (kóje 1–${zonesN}). ${accText}${collText}\n\nPro jinou pobočku pak upravte adresy zařízení a počet zón.`,
     )
     if (!ok) return
     setLoadingDefaults(true)
@@ -55,10 +64,17 @@ function RpiHardwareBlock({ cfg, doors, busy, onSaveCfg, onSaveDoor, onRefresh }
         if ((await onSaveDoor(d.id, { hw: clone(BRNO_DEFAULT_ZONES[d.box_number - 1]) })) === false) failed++
       }
       if (accDoor && accZone && (await onSaveDoor(accDoor.id, { hw: clone(BRNO_DEFAULT_ZONES[accZone - 1]) })) === false) failed++
+      for (const d of colliding) {
+        if ((await onSaveDoor(d.id, { hw: {} })) === false) failed++
+      }
       const summary = `${Object.keys(BRNO_DEFAULT_HARDWARE.devices).length} zařízení, ${targets.length} kójí${accDoor && accZone ? `, oblečení = zóna ${accZone}` : ''}, venek = zóna ${BRNO_DEFAULT_OUTDOOR.zone} (světlo ${BRNO_DEFAULT_OUTDOOR.light.dev} R${BRNO_DEFAULT_OUTDOOR.light.coil + 1})`
+        + (colliding.length ? `; vymazána mapa ${colliding.map(doorName).join(', ')} (kolize s venkem)` : '')
+      const warn = []
+      if (accDoor && !accZone) warn.push(`Skříň oblečení nedostala zónu šablony (všech ${zonesN} zón obsadily kóje) — její mapa ${colliding.includes(accDoor) ? 'byla vymazána (kolidovala s venkem)' : 'zůstala beze změny'}; nastavte jí volnou zónu ručně v mapování níže.`)
+      if (colliding.some(d => d !== accDoor)) warn.push(`Mapa ${colliding.filter(d => d !== accDoor).map(doorName).join(', ')} kolidovala s venkem a byla vymazána — nastavte ji ručně v mapování níže.`)
       // Stav záložky je už aktualizovaný optimisticky — bez onRefresh (spinner celé záložky by blok odmontoval a poznámku ztratil)
       if (failed) setNote({ tone: 'red', text: `Výchozí mapa: ${failed}× uložení selhalo (viz chyba nahoře). Uloženo: ${summary}.` })
-      else if (accDoor && !accZone) setNote({ tone: 'amber', text: `Výchozí mapa (šablona Brno, ${zonesN} zón + venek) načtena (${summary}). Skříň oblečení NEMÁ zónu — všech ${zonesN} zón obsadily kóje; nastavte ji ručně v mapování níže.` })
+      else if (warn.length) setNote({ tone: 'amber', text: `Výchozí mapa (šablona Brno, ${zonesN} zón + venek) načtena (${summary}). ${warn.join(' ')}` })
       else setNote({ tone: 'green', text: `Výchozí mapa (šablona Brno, ${zonesN} zón + venek) načtena (${summary}). Jednotka si ji stáhne do 60 s nebo příkazem „Synchronizovat konfiguraci“.` })
     } finally {
       setLoadingDefaults(false)

@@ -47,7 +47,9 @@ Enumy `ZoneState`, `Signal`, `EventKind`; dataclassy `HwRef`, `ZoneHw`, `Zone`,
   (`devices`, `timings`, `polling`, `contacts`, `security`, `audio`, `signal`, `outdoor` — venek, §26);
   klíč `zones` remote NIKDY nenese (zóny = `branch_doors.hw`). Výjimka `outdoor`: NEPRÁZDNÁ mapa z Velína
   rozhoduje i o nepřítomnosti venku (klíč chybí → venek z lokální šablony se NEpoužije — „Vymazat venek“ ve
-  Velíně nesmí nechat světlo z `hardware.yaml`; `{}` z Velína = lokální mapa včetně venku).
+  Velíně nesmí nechat světlo z `hardware.yaml`). `build_hardware` (controller_hw) jde ještě dál: venek z lokální
+  šablony platí JEN při čistě lokální mapě — jakmile zóny přijdou z Velína (`doors[].hw`) a remote `hardware`
+  sekci `outdoor` nenese (i `{}`), lokální `outdoor` se zahodí (šablona = zóny + venek jako celek).
 - `HardwareConfig.from_dict(d: dict, doors: list[dict] | None = None) -> HardwareConfig`
   — zóny se berou z `doors` (řádky `branch_doors` s neprázdným `hw`); pokud žádné,
   z lokálního `d["zones"]` (door_id=None, box_number=zone). `outdoor` → `OutdoorCfg.from_dict(d["outdoor"])` +
@@ -497,7 +499,8 @@ Neznámý příkaz → `(False, {"error":"unknown_command"})`.
 outdoor: true})`; `music_on` → multi `audio.play_channel("outdoor")` → `(ok, {zone, channel: "outdoor"})`, selector / engine bez
 `play_channel` → `(False, {error: "outdoor_requires_multi", zone})`; `music_off` → `audio.stop_channel("outdoor")` → `(True, {zone,
 channel: "outdoor"})`; `zone_test` → `outdoor.test_sequence()` → `(ok, {zone, outdoor: true, light, audio, error?})`, ok = bez `error`
-∧ `light` ∧ `audio` není False (None = netestováno: selector / bez výstupu); `open_door`/`set_signal`/`audio_test` i nenastavený venek
+∧ `light` není False ∧ `audio` není False (None = netestováno: `light` u venku bez relé světla, `audio` selector / bez výstupu);
+`open_door`/`set_signal`/`audio_test` i nenastavený venek
 → `zone_not_found` jako dosud.
 Dokud běží root skript aktualizace (`updater.state == 'running'`) nebo trvá ochranná lhůta po jeho timeoutu
 (`updater.script_running`), `execute` odmítá `restart`/`reboot` s `(False, {error:'update_in_progress', command, state, kind})`
@@ -517,7 +520,7 @@ Dokud běží root skript aktualizace (`updater.state == 'running'`) nebo trvá 
                      "syncing":false,"reason":"1 skladeb se nepodařilo stáhnout"}},
  "diagnostics":{"running":false,"id":null,"mode":"full","step":null,"step_title":null,"done":[],"steps":["system","…","summary"],
                 "elapsed_s":null,"error":null,
-                "last":{"id":"…","ts":"…","ok":true,"mode":"full","problems":0,"warnings":1,"hosts":7,"zones_ok":9,"zones_total":9,"duration_s":95.2,"source":"velin"}},
+                "last":{"id":"…","ts":"…","ok":true,"mode":"full","problems":0,"warnings":1,"hosts":7,"zones_ok":8,"zones_total":8,"duration_s":95.2,"source":"velin"}},
  "update":{"state":"idle","kind":null,"ref":null,"since":null,"error":null,
            "last":{"kind":"software","state":"done","ref":"8ceff42","rollout_id":"uuid|null","started_at":"…","finished_at":"…",
                    "error":null,"reboot_required":null,"output_tail":"…"}},
@@ -716,7 +719,8 @@ Třídy `SimRelayModule`, `SimShelly` použitelné v testech in-process (`await 
   blokující chyby + upozornění.
 - `test_outdoor.py` (2026-09-11, §26; fake clock/io): světlo dle relací s doběhem (vlastní `light_after_close_s` má přednost před
   timings); ruční režim (`set_light` drží / zhasne do další relace, relace ruční režim ruší); `on_module_reinit` + `all_off`;
-  `test_sequence` busy/ok/not_configured + obnova původního stavu světla; chyba relé → další pokus až za 5 s; tvar `status()`.
+  `test_sequence` busy/ok/not_configured + obnova původního stavu světla, bez relé světla → `light: None` (relé se nesahá); chyba
+  relé → další pokus až za 5 s; tvar `status()`.
 - `test_audio_multi.py` (doplněno 2026-09-11): šablona 8 zón; `play_channel`/`stop_channel` (`manual`, relace ruční režim ruší),
   `test_channel`, selector stubs → False.
 - `test_commands.py` / `test_webserver.py` / `test_integration.py` (2026-09-11): zóna venku — `light_on/off`, `music_on` (selector →
@@ -811,15 +815,22 @@ zóna, zóna × venek) blokují uložení; v selectoru se `out` nekontroluje ani
 **Blok „Venek (zóna bez dveří) — venkovní osvětlení + hudba venku“ (2026-09-11; `BranchRpiOutdoorHw.jsx` `OutdoorHwEditor({hardware,
 doors, disabled, onSave})`, helpery `BranchRpiOutdoorHelpers.js`; mount v `BranchRpiHardware.jsx` mezi Audio a mapováním dveří):** pole
 Zóna (povinné kladné číslo; invalid při kolizi s `doors[].hw.zone`), Světlo (select jen zařízení wav645/wav617 + coil), Audio výstup
-(multi: select z `audio.outputs`; selector: jen ke čtení + chip „hudba venku jen v multi“), Enable relé (dev + coil), Doběh světla (s;
-prázdné = globální `timings.light_after_close_s`); „Uložit venek“ → kanonický `hardware.outdoor` bez null klíčů (`draftToOutdoor`) a
-zároveň `hardware.audio` bez legacy `channels.outdoor` (migrace); „Vymazat venek“ → klíč `outdoor` se SMAŽE (jednotka `present=False`).
-Validace 1:1 s texty jednotky (`validate_outdoor`/`validate_audio`); venek bez světla i výstupu Velín neuloží. Čtení `outdoorOf(hardware)`
-(kanonický `outdoor.audio` má přednost, fallback legacy `audio.channels.outdoor`); `BranchRpiDoorHw.jsx` hlídá duplicitu zóny („Zónu N má
-venek“), kanálů proti světlu/relé venku a sdílený výstup. Živý stav: `BranchRpiZones.jsx` za mřížkou zón → `BranchRpiOutdoorTile.jsx`
-(jen `status.outdoor.configured === true`): zóna, světlo svítí/zhasnuto (+ „(ručně)“ / „(ručně vypnuto)“, „zhasne za N s“), hudba,
-výstup, relé; tlačítka Světlo ▶/⏹ (`light_on`/`light_off {zone}`), Hudba ▶/⏹ (`music_on`/`music_off {zone}`), Test (`zone_test
-{zone}`); bez Otevřít a signálu.
+a Enable relé (dev + coil) — v multi select z `audio.outputs` / relé, v selectoru obě pole `disabled` (ani klávesnicí; title „Hudba venku
+hraje jen v režimu multi“) + chip „hudba venku jen v multi“, Doběh světla (s; prázdné = globální `timings.light_after_close_s`);
+„Uložit venek“ → kanonický `hardware.outdoor` bez null klíčů (`draftToOutdoor`) a zároveň `hardware.audio` bez legacy `channels.outdoor`
+(`audioWithoutOutdoorChannel`, migrace); „Vymazat venek“ (aktivní i když existuje jen legacy kanál) → `onSave({outdoor: null, audio})`
+= klíč `outdoor` se SMAŽE (jednotka `present=False`) + legacy kanál pryč. Validace 1:1 s texty jednotky (`validate_outdoor`/
+`validate_audio`): světlo (typ, rozsah, cívka dveří) a číslo zóny v obou režimech; výstup a enable relé proti dveřím jen v multi
+(`outdoorRefs(o, multi)` — v selectoru je jednotka nevaliduje); světlo × enable relé na téže cívce (`outdoorShareError`) blokuje vždy;
+venek bez světla i výstupu Velín neuloží. Čtení `outdoorOf(hardware)` (kanonický `outdoor.audio` má přednost, fallback legacy
+`audio.channels.outdoor`); `BranchRpiDoorHw.jsx` hlídá duplicitu zóny („Zónu N má venek“), kanálů proti světlu venku (vždy) / enable
+relé venku (jen multi) a sdílený výstup; `AudioOutputsEditor.save()` při přepnutí na multi odmítne enable relé venku na cívce dveří
+(`outdoorRelayError`) a `audio.channels` nemění. „Načíst výchozí mapu (šablona Brno, 8 zón + venek)“ (`loadBrnoDefaults`): dveřím mimo
+šablonu, jejichž mapa koliduje s venkem (`doorsCollidingWithOutdoor` — zóna 9 / světlo wav617b R1 ze staré 9zónové šablony), se mapa
+vymaže (`hw: {}`); uživatel je vidí v potvrzení. Živý stav: `BranchRpiZones.jsx` za mřížkou zón → `BranchRpiOutdoorTile.jsx` (jen
+`status.outdoor.configured === true`): zóna, světlo svítí/zhasnuto (+ „(ručně)“ / „(ručně vypnuto)“, „zhasne za N s“), hudba, výstup,
+relé; tlačítka Světlo ▶/⏹ (`light_on`/`light_off {zone}`), Hudba ▶/⏹ (`music_on`/`music_off {zone}`), Test (`zone_test {zone}`) — bez
+`status.outdoor.zone` (lokální YAML bez `zone`) jsou tlačítka vypnutá (jednotka příkaz bez čísla neadresuje); bez Otevřít a signálu.
 
 ## 24. Diagnostika pobočky — `diagnostics.py` + `diag_steps.py` + `diag_protocol.py` + `diag_hints.py` + `net_scan.py`
 
@@ -1066,10 +1077,13 @@ class OutdoorController:     # outdoor.py; RETRY_S = 5.0, TEST_LIGHT_S = 1.0
         # now >= off_at → io.set(light, False). Chyba/False z io.set → log.warning, další pokus nejdřív za RETRY_S (ruční/servisní volání
         # backoff obcházejí, force=True). Bez cfg.configured return.
     async def set_light(self, on: bool) -> bool              # Velín/servis: manual=on, off_at=None (True drží bez relací, False zhasne do další relace)
+        # chyba relé → False (Velín ok:false) a NEopakuje se (sync při manual nic nedělá) — příkaz zopakovat; retry po RETRY_S
+        # platí jen pro automatické přechody (relace / doběh)
     async def on_module_reinit(self, name: str) -> None      # modul světla obnoven po all_off a light_on → znovu set(True)
     async def all_off(self) -> None                          # manual=None, off_at=None, active=False, světlo off (jen když svítilo), light_on=False
-    async def test_sequence(self) -> dict                    # {"light": bool, "audio": bool|None, "error"?: "busy"|"not_configured"}
-        # busy když active; světlo on 1 s → obnovit předchozí stav (try/finally, i při zrušení); audio jen multi + cfg.audio_out + kanál
+    async def test_sequence(self) -> dict                    # {"light": bool|None, "audio": bool|None, "error"?: "busy"|"not_configured"}
+        # busy když active; světlo jen s cfg.light: on 1 s → obnovit předchozí stav (try/finally, i při zrušení), bez relé None;
+        # audio jen multi + cfg.audio_out + kanál
         # nehraje → audio.test_channel("outdoor", 3); selector / bez výstupu / kanál hraje → None; výjimka testu → False
     def update_cfg(self, cfg: OutdoorCfg, timings=None)     # změna bez přestavby HW (relé světla je v hw_signature → přestavba)
     def status(self) -> dict                                 # → snapshot()["outdoor"], tvar §14

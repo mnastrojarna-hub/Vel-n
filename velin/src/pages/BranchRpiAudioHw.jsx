@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Btn, Chip, Input, Select, Label } from './BranchRpiUi'
 import { AUDIO_MODES, BRNO_AUDIO_OUTPUTS_EXAMPLE, audioMode, audioOutputNames, roleTypeError, ZONE_REFS } from './BranchRpiHardwareDefaults'
-import { outdoorOutOf } from './BranchRpiOutdoorHelpers'
+import { outdoorOf, outdoorOutOf, outdoorRelayError, doorCoils } from './BranchRpiOutdoorHelpers'
 
 // ─── Audio: režim, výstupy (`hardware.audio.{mode,outputs}`) ─────────────────
 // Kontrakt (music_contract §2): selector = jeden zesilovač + relé (výchozí, beze změny chování),
@@ -9,6 +9,8 @@ import { outdoorOutOf } from './BranchRpiOutdoorHelpers'
 // venek (zóna bez dveří) hraje při jakémkoli kódu — jeho výstup se nastavuje v bloku Venek (`outdoor.audio.out`;
 // legacy `audio.channels.outdoor` tento editor nemění, jen ho čte přes outdoorOutOf). Stejná pravidla jako
 // validate_audio() v jednotce: výstup musí existovat, dva cíle nesmí sdílet výstup, venek vyžaduje multi.
+// V režimu selector jednotka výstup venku nevaliduje (validate_audio končí upozorněním) a blok Venek je jen ke čtení —
+// proto venek v selectoru NEBLOKUJE smazání/přejmenování výstupu (jinak by šel odstranit jen přes „Vymazat venek“).
 
 const NAME_RE = /^[a-z0-9_-]+$/
 const AUDIO_ROLE = ZONE_REFS.find(r => r.key === 'audio')
@@ -40,9 +42,15 @@ function AudioOutputsEditor({ hardware, doors, disabled, onSave }) {
     if (dirty) return
     setMode(audioMode(audio)); setRows(outputsToRows(audio))
   }, [audio, dirty])
+  const multi = mode === 'multi'
 
   const nameCounts = useMemo(() => rows.reduce((m, r) => { m[r.name.trim()] = (m[r.name.trim()] || 0) + 1; return m }, {}), [rows])
   const usage = useMemo(() => outputUsage(doors, outdoorOutOf(hardware)), [doors, hardware])
+  // Kdo smazání/přejmenování výstupu blokuje: dveře vždy, venek jen v multi (viz hlavička). Při přepínání selector → multi
+  // je blok Venek (řídí se ULOŽENÝM režimem) ještě ke čtení — nápověda, jak z toho ven.
+  const blockers = who => (who || []).filter(w => multi || w !== 'venek')
+  const usedMsg = (name, who) => `Výstup „${name}“ používá ${who.join(', ')} — nejdřív změňte výstup v mapování dveří / bloku Venek`
+    + (who.includes('venek') && audioMode(audio) !== 'multi' ? ' (blok Venek je v selectoru jen ke čtení: uložte režim multi s tímto výstupem, pak výstup venku změňte, nebo venek vymažte)' : '') + '.'
 
   function edit(i, patch) { setRows(rs => rs.map((r, j) => j === i ? { ...r, ...patch } : r)); setDirty(true) }
   function add() {
@@ -50,8 +58,8 @@ function AudioOutputsEditor({ hardware, doors, disabled, onSave }) {
     setRows(rs => [...rs, { _k: `new-${Date.now()}`, name: `out${n}`, device: '' }]); setDirty(true)
   }
   function remove(i) {
-    const who = usage[rows[i]?.name?.trim()]
-    if (who?.length) { setErr(`Výstup „${rows[i].name}“ používá ${who.join(', ')} — nejdřív změňte výstup v mapování dveří / bloku Venek.`); return }
+    const who = blockers(usage[rows[i]?.name?.trim()])
+    if (who.length) { setErr(usedMsg(rows[i].name, who)); return }
     setRows(rs => rs.filter((_, j) => j !== i)); setDirty(true)
   }
   function fillExample() {
@@ -75,8 +83,14 @@ function AudioOutputsEditor({ hardware, doors, disabled, onSave }) {
     // jednotka celou mapu odmítne (validate_audio: „Zóna N: audio výstup 'x' není v audio.outputs.“ / „Kanál outdoor: …“).
     // V selectoru blokujeme jen nově vzniklou díru (dříve stale `out` jednotka ignoruje a editor dveří ho v selectoru neukazuje).
     const before = audio.outputs && typeof audio.outputs === 'object' ? audio.outputs : {}
-    const orphan = Object.entries(usage).find(([n, who]) => !outputs[n] && who.length && (mode === 'multi' || n in before))
-    if (orphan) { setErr(`Výstup „${orphan[0]}“ používá ${orphan[1].join(', ')} — nejdřív změňte výstup v mapování dveří / bloku Venek.`); return }
+    const orphan = Object.entries(usage).map(([n, who]) => [n, blockers(who)]).find(([n, who]) => !outputs[n] && who.length && (multi || n in before))
+    if (orphan) { setErr(usedMsg(orphan[0], orphan[1])); return }
+    if (multi) {
+      // Přepnutí na multi: enable relé venku se v selectoru nehlídá (jednotka ho tam ignoruje), dveře mezitím mohly cívku
+      // obsadit — validate_audio by v multi celou mapu odmítl („Kanál outdoor: relé … už používá zóna N“).
+      const relayErr = outdoorRelayError(outdoorOf(hardware).audio, hardware?.devices, doorCoils(doors))
+      if (relayErr) { setErr(`${relayErr} Změňte cívku v mapování dveří, nebo venek vymažte a po uložení režimu multi nastavte znovu.`); return }
+    }
     const next = { ...audio, mode }   // `channels` (vč. legacy venku) se zde nemění — venek spravuje blok Venek
     if (Object.keys(outputs).length) next.outputs = outputs; else delete next.outputs
     setErr(null)
@@ -84,7 +98,6 @@ function AudioOutputsEditor({ hardware, doors, disabled, onSave }) {
     setDirty(false)
   }
 
-  const multi = mode === 'multi'
   return (
     <div className="p-3 rounded-card" style={{ background: '#f8fcfa', border: '1px solid #d4e8e0' }}>
       <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
@@ -140,7 +153,7 @@ function DoorAudioCell({ zoneNo, audioRef, audio, devices, devOptions, dup, dupO
   const out = String(ref.out ?? '').trim()
   const typeErr = roleTypeError(zoneNo, AUDIO_ROLE, ref.dev, devices)
   const unknownDev = !!(ref.dev && !devices?.[ref.dev])
-  const relayTitle = dup ? 'Kanál už používá jiná zóna/role' : typeErr ? `${typeErr} Povolené: wav645/wav617.`
+  const relayTitle = dup ? 'Kanál už používá jiná zóna/role nebo venek (blok Venek)' : typeErr ? `${typeErr} Povolené: wav645/wav617.`
     : multi ? 'Volitelné enable relé zesilovače (dev + coil)' : 'Audio selektor: zařízení + coil'
   const relay = (
     <div className="flex gap-1">

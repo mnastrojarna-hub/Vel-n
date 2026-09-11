@@ -120,7 +120,7 @@ ji zadej ručně (Velín má přednost).
 |---|---|---|
 | 230 V AC (ze střídače FVE) | hlavní jistič, RCBO, přepěťovka | Mean Well 24 V, Mean Well 12 V, USB-C zdroj RPi 27 W, servisní zásuvka |
 | 24 V DC | Mean Well NDR-480-24 (20 A) | WAV645, 2× WAV617, 4× Shelly, bílé + RGBW pásky, EDATEC, TSW202 (pokud štítek dovolí 24 V) |
-| 12 V DC | Mean Well NDR-240-12 (20 A) | 9× zámek IBFM 9500 (každý vlastní pojistka + TVS 1.5KE18CA), TPA3116D2 |
+| 12 V DC | Mean Well NDR-240-12 (20 A) | 8× zámek IBFM 9500 (každý vlastní pojistka + TVS 1.5KE18CA; venek zámek nemá), TPA3116D2 |
 
 Raspberry Pi 5 napájet **originálním 27W USB-C zdrojem** (5 V/5 A → plný proud pro USB modem,
 dotyk a zvukovou kartu). Hlavní pojistka 12V větve zámků + pojistková svorka na každý zámek.
@@ -130,7 +130,7 @@ dotyk a zvukovou kartu). Hlavní pojistka 12V větve zámků + pojistková svork
 - **Řízení:** Raspberry Pi 5 4 GB, Active Cooler, RTC baterie, 64 GB microSD A2, 52Pi DIN pouzdro, 2× 27W zdroj.
 - **Konektivita:** Waveshare SIM7600E-H (USB, micro-USB kabel), Teltonika TSW202, 5× CAT6 patch, 50 m CAT6 (plná měď).
 - **I/O:** 1× Waveshare WAV645 (16 relé), 2× WAV617 (8 relé + 8 DI), 4× Shelly Pro RGBWW PM.
-- **Dveře:** 9× IBFM 9500 (fail-secure s pamětí, aretaci vypnout), 10× NC magnetický kontakt, 10× TVS, 9× pojistková svorka.
+- **Dveře:** 8× IBFM 9500 (fail-secure s pamětí, aretaci vypnout; venek zámek nemá), 10× NC magnetický kontakt (8 dveří + 2 rezervní), 10× TVS (8 zámků + 2 rezervní), 8× pojistková svorka.
 - **UI:** EDATEC ED-MONITOR-156CA (HDMI + USB-C dotyk, 24 V), micro-HDMI→HDMI, USB-A→USB-C.
 - **Audio:** AXAGON USB zvuková karta, oddělovací člen, TPA3116D2 2×50 W, 10× reproduktor 8 Ω/5 W, repro kabel 2×0,75 (selector).
   Režim multi (9 kanálů, kap. 4): 9× USB zvuková karta (nebo vícekanálové USB rozhraní) + napájený USB hub + 9× stereo zesilovač.
@@ -161,11 +161,11 @@ Odběr IBFM 9500 není doložený — hodnotu pojistky **neodhadovat**:
    vybavit (u pomalé pojistky krátká špička 3–5× In projde; typicky vychází T1A–T2A). Hlavní pojistka 12V větve: ≥ součet 2 současně aktivních zámků + zesilovač
    (zámky se nespínají zároveň — program pulzy serializuje) s rezervou, ale menší než jmenovitý proud zdroje.
 4. Ke každému zámku TVS 1.5KE18CA přímo na svorky cívky (proti indukční špičce); kabel 2×0,75 mm².
-5. Zapiš naměřené hodnoty do dokumentace pobočky a nastav stejné pojistky do všech 9 svorek + náhradní.
+5. Zapiš naměřené hodnoty do dokumentace pobočky a nastav stejné pojistky do všech 8 svorek + náhradní.
 
 ## 9. Checklist před uvedením do provozu (SPEC §12/§13)
 
-- [ ] Změřen odběr IBFM 9500 (náběh/ustálený), zvoleny a osazeny pojistky všech 9 zámků + hlavní 12V pojistka
+- [ ] Změřen odběr IBFM 9500 (náběh/ustálený), zvoleny a osazeny pojistky všech 8 zámků (venek zámek nemá) + hlavní 12V pojistka
 - [ ] Ověřena polarita napájecího konektoru EDATEC (5,5×2,5 mm, 12–24 V) před připojením
 - [ ] Ověřen rozsah napájení na štítku TSW202 (24 V povoleno?) — jinak samostatný zdroj
 - [ ] Změřen příkon 1 m bílého a RGBW pásku, dimenzován 24V zdroj a jištění větví

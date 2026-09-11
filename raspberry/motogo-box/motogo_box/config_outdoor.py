@@ -84,6 +84,13 @@ def _int(v: Any) -> int | None:
         return None
 
 
+def _channel_map(hw: Any) -> dict[str, dict]:
+    """`hw.audio.channel_map()` (název → {out, trigger, relay: HwRef|None}); bez audio sekce {}."""
+    fn = getattr(getattr(hw, "audio", None), "channel_map", None)
+    out = fn() if callable(fn) else None
+    return out if isinstance(out, dict) else {}
+
+
 def legacy_channel(channels: Any) -> dict | None:
     """Položka `audio.channels.outdoor` (legacy alias), pokud existuje a je dict."""
     ch = channels.get(CHANNEL) if isinstance(channels, dict) else None
@@ -123,8 +130,9 @@ def validate_outdoor(hw: Any, channel_limits: dict | None = None,
                      seen: dict[tuple[str, str, int], tuple[int, str]] | None = None) -> list[str]:
     """Problémy sekce `outdoor` (prázdný = OK). `seen` = kanály obsazené zónami z `validate_hardware`
     ({(dev, kind, idx): (zóna, role)}); bez něj se zóny projdou znovu. Blokující: neznámé zařízení,
-    světlo mimo Waveshare, index mimo rozsah, kanál obsazený zónou, číslo zóny kolidující s dveřmi.
-    Audio výstup v režimu selector hlídá `validate_audio` (kanál outdoor)."""
+    světlo mimo Waveshare, index mimo rozsah, kanál obsazený zónou nebo relé „enable“ jiného kanálu
+    (`audio.channels.*`, ne outdoor), číslo zóny kolidující s dveřmi. Audio výstup v režimu selector
+    hlídá `validate_audio` (kanál outdoor)."""
     o: OutdoorCfg = getattr(hw, "outdoor", None) or OutdoorCfg()
     problems: list[str] = []
     if seen is None:
@@ -150,6 +158,9 @@ def validate_outdoor(hw: Any, channel_limits: dict | None = None,
             elif (ref.dev, "coil", ref.idx) in seen:
                 zone, role = seen[(ref.dev, "coil", ref.idx)]
                 problems.append(f"Venek: light {ref.dev}[{ref.idx}] už používá zóna {zone} ({role}).")
+            for name, ch in _channel_map(hw).items():      # relé „enable“ jiného kanálu na cívce světla (§12)
+                if name != CHANNEL and ch.get("relay") == ref:
+                    problems.append(f"Venek: light {ref.dev}[{ref.idx}] už používá kanál {name} (relé).")
         if o.audio == ref:               # enable relé venku vs. zóny hlídá validate_audio (kanál outdoor)
             problems.append(f"Venek: light a audio sdílí {ref.dev}[{ref.idx}].")
     raw_audio = (getattr(hw, "raw", None) or {}).get("audio")

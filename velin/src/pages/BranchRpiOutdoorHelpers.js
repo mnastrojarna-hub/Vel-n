@@ -35,6 +35,8 @@ export function legacyOutdoorChannel(audio) {
 
 // Normalizovaný venek z `hardware.outdoor`: { present, configured, zone, light, audio: { out, dev, coil }, light_after_close_s }.
 // `present` = klíč `outdoor` existuje. Audio se bere z legacy kanálu, když kanonický `outdoor.audio.out` chybí (jako jednotka).
+// `configured` jako v jednotce (OutdoorCfg.configured): světlo se počítá jen ÚPLNÉ (dev + číselný coil — HwRef.from_dict
+// neúplný odkaz zahodí); v `light` zůstává i neúplný odkaz, aby ho editor ukázal a uložení zachytilo (`fullRef.partial`).
 export function outdoorOf(hardware) {
   const hw = obj(hardware)
   const raw = obj(hw?.outdoor)
@@ -44,7 +46,7 @@ export function outdoorOf(hardware) {
   const relay = refOf(src)
   const light = refOf(raw?.light)
   return {
-    present: !!raw, configured: !!light || !!out,
+    present: !!raw, configured: !!fullRef(light).ref || !!out,
     zone: intOrNull(raw?.zone), light,
     audio: { out, dev: relay?.dev ?? '', coil: relay?.coil ?? '' },
     light_after_close_s: intOrNull(raw?.light_after_close_s),
@@ -54,12 +56,29 @@ export function outdoorOf(hardware) {
 // Výstup venku ('' = žádný): kanonický `outdoor.audio.out`, pak legacy `audio.channels.outdoor.out`
 export function outdoorOutOf(hardware) { return outdoorOf(hardware).audio.out }
 
-// Kanály venku pro findDuplicateChannels(drafts, outdoorRefs(outdoorOf(hardware)))
-export function outdoorRefs(o) {
+// Kanály venku pro findDuplicateChannels(drafts, outdoorRefs(outdoorOf(hardware), multi)).
+// Světlo se počítá vždy (validate_outdoor blokuje v obou režimech). Enable relé jen v režimu multi — v selectoru ho
+// jednotka nevaliduje ani nepoužívá (validate_audio končí upozorněním; venek v selectoru nehraje), takže dveře smí v
+// selectoru cívku obsadit; kolizi při přepnutí na multi hlídá AudioOutputsEditor (save) — stejně přísně jako jednotka.
+export function outdoorRefs(o, multi = true) {
   const refs = []
   if (o?.light) refs.push({ ref: o.light, role: OUTDOOR_LIGHT_ROLE })
-  if (o?.audio?.dev) refs.push({ ref: { dev: o.audio.dev, coil: o.audio.coil }, role: OUTDOOR_RELAY_ROLE })
+  if (multi && o?.audio?.dev) refs.push({ ref: { dev: o.audio.dev, coil: o.audio.coil }, role: OUTDOOR_RELAY_ROLE })
   return refs
+}
+
+// Dveře, jejichž uložená mapa koliduje s venkem `outdoor` (tvar `hardware.outdoor`): stejné číslo zóny, nebo cívka
+// zámku/světla/audia = světlo či enable relé venku (validate_outdoor: „koliduje s dveřmi“ / „už používá zóna N“ — blokuje).
+// Použití: načtení šablony Brno — dveře mimo šablonu s mapou ze staré 9zónové šablony (zóna 9 = wav617b R1).
+export function doorsCollidingWithOutdoor(doors, outdoor) {
+  const o = outdoorOf({ outdoor })
+  const keys = new Set(outdoorRefs(o, true).map(x => channelKey(x.ref, x.role)).filter(Boolean))
+  return (doors || []).filter(d => {
+    const hw = obj(d?.hw)
+    if (!hw) return false
+    if (o.zone != null && intOrNull(hw.zone) === o.zone) return true
+    return ZONE_REFS.filter(r => r.kind === 'coil').some(role => { const k = channelKey(hw[role.key], role); return !!k && keys.has(k) })
+  })
 }
 
 // Cívky relé obsazené uloženými dveřmi: klíč channelKey → { zone, role } (jako `seen` ve validate_hardware)
@@ -91,6 +110,12 @@ function relayError(who, ref, devices, coils) {
 // Chyba světla venku (validate_outdoor) / enable relé venku (validate_audio, kanál outdoor); null = OK
 export function outdoorLightError(ref, devices, coils) { return relayError('Venek: light', ref, devices, coils) }
 export function outdoorRelayError(ref, devices, coils) { return relayError('Kanál outdoor: relé', ref, devices, coils) }
+// Světlo a enable relé venku na téže cívce — jednotka (validate_outdoor) blokuje v OBOU režimech (v selectoru si
+// `outdoor.audio` doplní i z legacy kanálu); null = OK / některý odkaz neúplný
+export function outdoorShareError(light, audio) {
+  const l = fullRef(light).ref, a = fullRef(audio).ref
+  return l && a && l.dev === a.dev && l.coil === a.coil ? `Venek: light a audio sdílí ${l.dev}[${l.coil}].` : null
+}
 
 // Výstup venku v režimu multi — texty 1:1 s validate_audio() (kanál outdoor); v selectoru se nekontroluje (jednotka jen upozorní)
 export function outdoorOutError(out, audio, doors) {
@@ -120,7 +145,8 @@ export function outdoorToDraft(hardware) {
 }
 
 // Draft → kanonický `outdoor` + validace jako jednotka: { outdoor } nebo { error }.
-// Audio (výstup + enable relé) se kontroluje jen v režimu multi; v selectoru projde beze změny (jednotka jen upozorní).
+// Audio (výstup + enable relé vs. dveře) se kontroluje jen v režimu multi; v selectoru projde beze změny (jednotka jen
+// upozorní). Kolize světla a enable relé venku (`outdoorShareError`) platí v obou režimech jako v jednotce.
 export function draftToOutdoor(draft, { devices, audio, doors }) {
   const zoneErr = outdoorZoneError(draft?.zone, doors)
   if (zoneErr) return { error: zoneErr }
@@ -131,11 +157,12 @@ export function draftToOutdoor(draft, { devices, audio, doors }) {
   if (lightErr) return { error: lightErr }
   const relay = fullRef(draft?.audio)
   if (relay.partial) return { error: 'Venek: enable relé — vyplňte zařízení i coil, nebo obojí vymažte.' }
+  const shareErr = outdoorShareError(draft?.light, draft?.audio)
+  if (shareErr) return { error: shareErr }
   const out = String(draft?.audio?.out ?? '').trim()
   if (audioMode(audio) === 'multi') {
     const relayErr = outdoorRelayError(draft?.audio, devices, coils)
     if (relayErr) return { error: relayErr }
-    if (light.ref && relay.ref && light.ref.dev === relay.ref.dev && light.ref.coil === relay.ref.coil) return { error: `Venek: light a audio sdílí ${light.ref.dev}[${light.ref.coil}].` }
     const outErr = outdoorOutError(out, audio, doors)
     if (outErr) return { error: outErr }
     if (relay.ref && !out) return { error: 'Venek: enable relé bez audio výstupu — vyberte výstup venku, nebo relé vymažte.' }

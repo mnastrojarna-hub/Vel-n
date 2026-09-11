@@ -3,7 +3,7 @@ import { Btn, Chip, Input, Select, Label } from './BranchRpiUi'
 import { audioMode, audioOutputNames } from './BranchRpiHardwareDefaults'
 import {
   outdoorOf, outdoorToDraft, draftToOutdoor, doorCoils, legacyOutdoorChannel, audioWithoutOutdoorChannel,
-  outdoorLightError, outdoorRelayError, outdoorOutError, outdoorZoneError,
+  outdoorLightError, outdoorRelayError, outdoorShareError, outdoorOutError, outdoorZoneError,
 } from './BranchRpiOutdoorHelpers'
 
 // ─── Venek (zóna bez dveří) — editor `hardware.outdoor` ──────────────────────
@@ -16,12 +16,9 @@ import {
 const HINT = 'Zóna 9 v šabloně Brno: prostor před displejem. Světlo svítí od zadání kódu do doběhu po poslední relaci, '
   + 'hudba venku hraje při jakémkoli kódu (jen režim multi). Bez zámku, kontaktu a signalizace — na displeji se neukazuje.'
 const MSG_COLOR = { red: '#dc2626', amber: '#b45309', green: '#1a8a18' }
-
-// V režimu selector jsou audio pole jen ke čtení (jednotka: kanál venek v selectoru = upozornění, hudba venku nehraje)
-function ReadOnly({ on, title, children }) {
-  if (!on) return children
-  return <div className="flex items-end gap-2" title={title} style={{ opacity: 0.5, pointerEvents: 'none' }}>{children}</div>
-}
+// V režimu selector jsou audio pole vypnutá (`disabled` — ani klávesnicí; jednotka: kanál venek v selectoru = upozornění,
+// hudba venku nehraje). Výstup venku pak nejde v bloku Venek změnit — editor audia proto v selectoru venek neblokuje.
+const SELECTOR_TITLE = 'Hudba venku hraje jen v režimu multi (Audio → režim)'
 
 function OutdoorHwEditor({ hardware, doors, disabled, onSave }) {
   const hw = useMemo(() => (hardware && typeof hardware === 'object' ? hardware : {}), [hardware])
@@ -46,8 +43,10 @@ function OutdoorHwEditor({ hardware, doors, disabled, onSave }) {
   if (out && !names.includes(out)) outOptions.push({ value: out, label: `${out} (?)` })
 
   const zoneErr = draft.zone === '' ? null : outdoorZoneError(draft.zone, doors)
-  const lightErr = outdoorLightError(draft.light, devices, coils)
-  const relayErr = multi ? outdoorRelayError(draft.audio, devices, coils) : null
+  const shareErr = outdoorShareError(draft.light, draft.audio)   // světlo × enable relé na téže cívce: blokuje v obou režimech
+  const lightErr = outdoorLightError(draft.light, devices, coils) || shareErr
+  // Enable relé vs. dveře jen v multi (v selectoru ho jednotka nevaliduje — viz outdoorRefs v helperech)
+  const relayErr = (multi ? outdoorRelayError(draft.audio, devices, coils) : null) || shareErr
   const outErr = outdoorOutError(out, audio, doors)
   const afterBad = draft.light_after_close_s !== '' && !(parseInt(draft.light_after_close_s, 10) >= 0)
 
@@ -100,18 +99,16 @@ function OutdoorHwEditor({ hardware, doors, disabled, onSave }) {
             <Input width={54} type="number" min={0} value={draft.light.coil} placeholder="coil" invalid={!!lightErr} onChange={setRef('light', 'coil')} />
           </div>
         </div>
-        <ReadOnly on={!multi} title="Hudba venku hraje jen v režimu multi (Audio → režim)">
-          <Select label="Audio výstup" width={150} value={out} options={outOptions} invalid={!!outErr} warn={multi && !out}
-            title={outErr || (out ? `Výstup ${out} (outdoor.audio.out) — hraje při jakémkoli kódu` : 'Bez výstupu hudba venku nehraje')}
-            onChange={setRef('audio', 'out')} />
-          <div className="flex flex-col gap-0.5" title={relayErr || 'Volitelné enable relé zesilovače venku (zařízení + coil)'}>
-            <Label>Enable relé (volit.)</Label>
-            <div className="flex gap-1">
-              <Select width={96} value={draft.audio.dev} options={devOpts(draft.audio.dev)} invalid={!!relayErr} onChange={setRef('audio', 'dev')} />
-              <Input width={54} type="number" min={0} value={draft.audio.coil} placeholder="coil" invalid={!!relayErr} onChange={setRef('audio', 'coil')} />
-            </div>
+        <Select label="Audio výstup" width={150} value={out} options={outOptions} invalid={!!outErr} warn={multi && !out} disabled={!multi}
+          title={outErr || (!multi ? SELECTOR_TITLE : out ? `Výstup ${out} (outdoor.audio.out) — hraje při jakémkoli kódu` : 'Bez výstupu hudba venku nehraje')}
+          onChange={setRef('audio', 'out')} />
+        <div className="flex flex-col gap-0.5" title={relayErr || (!multi ? SELECTOR_TITLE : 'Volitelné enable relé zesilovače venku (zařízení + coil)')}>
+          <Label>Enable relé (volit.)</Label>
+          <div className="flex gap-1">
+            <Select width={96} value={draft.audio.dev} options={devOpts(draft.audio.dev)} invalid={!!relayErr} disabled={!multi} onChange={setRef('audio', 'dev')} />
+            <Input width={54} type="number" min={0} value={draft.audio.coil} placeholder="coil" invalid={!!relayErr} disabled={!multi} onChange={setRef('audio', 'coil')} />
           </div>
-        </ReadOnly>
+        </div>
         {!multi && <Chip tone="amber" title="Přepněte Audio → režim na multi a nastavte výstup venku">hudba venku jen v multi</Chip>}
         <Input label="Doběh světla (s)" type="number" min={0} width={110} value={draft.light_after_close_s} placeholder="glob." invalid={afterBad}
           title="Za kolik sekund po poslední relaci zhasne venkovní světlo (prázdné = globální „Světlo po zavření“ v časování)"

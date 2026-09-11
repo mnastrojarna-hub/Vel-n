@@ -256,6 +256,9 @@ async def test_outdoor_light_on_off_and_zone_test():
     assert ok and res["light"] is False and c.outdoor.lights == [True, False] and c.zones[1].light_on is False
     ok, res = await commands.execute(c, "zone_test", {"zone": 9})
     assert ok and res == {"zone": 9, "outdoor": True, "light": True, "audio": None} and c.outdoor.tests == 1
+    c.outdoor.result = {"light": None, "audio": True}          # venek bez relé světla (jen audio výstup) → light None = OK
+    ok, res = await commands.execute(c, "zone_test", {"zone": 9})
+    assert ok and res["light"] is None and res["audio"] is True
     c.outdoor.result = {"light": True, "audio": False}
     ok, res = await commands.execute(c, "zone_test", {"zone": 9})
     assert not ok and res["audio"] is False

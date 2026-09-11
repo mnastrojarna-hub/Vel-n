@@ -6,6 +6,8 @@ enginu `AudioMulti` (`sync_channels`, jen režim multi). Volá ho tick smyčka z
 (`sync(active_zones)`) — nikdy nečeká déle než jeden `io.set` (Modbus timeout); po chybě relé
 se další pokus odloží o `RETRY_S`. Bez `cfg.configured` je vše no-op. Žádné nové EventKind —
 selhání relé jen `log.warning`. Konfigurace: `config_outdoor.OutdoorCfg`.
+Venek nemá zámek `_busy` jako zóna — tick `sync` běží i během `test_sequence`; test proto po skončení
+obnovuje stav podle AKTUÁLNÍ relace / ručního režimu, ne podle stavu před testem.
 """
 from __future__ import annotations
 
@@ -35,6 +37,7 @@ class OutdoorController:
         self.manual: bool | None = None
         self.off_at: float | None = None
         self._retry_at: float | None = None
+        self._testing: bool = False          # běží test_sequence (druhý souběžný test → busy)
 
     # ─── konfigurace ─────────────────────────────────────────────────────────
     def update_cfg(self, cfg: OutdoorCfg, timings: Any = None) -> None:
@@ -75,7 +78,8 @@ class OutdoorController:
 
     # ─── řízení z tick smyčky ────────────────────────────────────────────────
     async def sync(self, active_zones: list[int]) -> None:
-        """Relace běží → světlo svítí (ruční režim se ruší); jinak doběh a zhasnout."""
+        """Relace běží → světlo svítí (ruční režim se ruší); jinak doběh a zhasnout.
+        Ruční režim: když `set_light` na relé selhalo, `sync` stav dorovná (backoff `RETRY_S` v `_set`)."""
         if not self.cfg.configured:
             return
         if active_zones:
@@ -84,8 +88,12 @@ class OutdoorController:
                 await self._set(True)
             return
         self.active = False
-        if self.manual is not None or not self.light_on:
-            return                       # True drží rozsvíceno, False už je zhasnuté; bez světla nic
+        if self.manual is not None:
+            if self.light_on != self.manual:
+                await self._set(self.manual)     # ruční příkaz selhal (relé) → opakovat, bez doběhu
+            return                               # True drží rozsvíceno, False zhasnuté
+        if not self.light_on:
+            return
         now = self.clock()
         if self.off_at is None:
             self.off_at = now + self._delay()
@@ -115,31 +123,59 @@ class OutdoorController:
 
     # ─── servis ──────────────────────────────────────────────────────────────
     async def test_sequence(self) -> dict:
-        """Servisní test: světlo 1 s → obnovit; audio 3 s na výstupu venku (jen multi, když nehraje).
-        `{"light": bool, "audio": bool|None, "error"?: "busy"|"not_configured"}`."""
+        """Servisní test: světlo 1 s → obnovit (jen s relé světla, jinak None); audio 3 s na výstupu venku
+        (jen multi, když nehraje). `{"light": bool|None, "audio": bool|None, "error"?: "busy"|"not_configured"}`.
+        Relace zahájená během testu (tick `sync` nemá zámek): světlo zůstane svítit a hudba venku se hned
+        obnoví — test zákazníkovi nikdy nic nezhasne. Souběžný druhý test → `busy`."""
         if not self.cfg.configured:
             return {"light": False, "audio": None, "error": "not_configured"}
-        if self.active:
+        if self.active or self._testing:
             return {"light": False, "audio": None, "error": "busy"}
-        prev, light = self.light_on, False
-        if self.cfg.light is not None:
-            try:
-                light = await self._set(True, force=True)
-                await asyncio.sleep(TEST_LIGHT_S)
-            finally:
-                light = await self._set(prev, force=True) and light      # i při zrušení vrátit původní stav
-        audio: bool | None = None
-        test_channel = getattr(self.audio, "test_channel", None)
-        if self.cfg.audio_out and test_channel is not None and getattr(self.audio, "mode", "") == "multi":
-            if CHANNEL in (getattr(self.audio, "channels_playing", None) or []):
-                log.info("Venek: audio test přeskočen — kanál venku právě hraje")
-            else:
-                try:
-                    audio = bool(await test_channel(CHANNEL, 3))
-                except Exception:  # noqa: BLE001
-                    log.exception("Venek: audio test selhal")
-                    audio = False
+        self._testing = True
+        try:
+            light = await self._test_light()
+            audio = await self._test_audio()
+        finally:
+            self._testing = False
         return {"light": light, "audio": audio}
+
+    async def _test_light(self) -> bool | None:
+        """Světlo 1 s → obnovit; None = venek bez relé světla (jen audio výstup) — relé se nesahá."""
+        if self.cfg.light is None:
+            return None
+        prev, light = self.light_on, False
+        try:
+            light = await self._set(True, force=True)
+            await asyncio.sleep(TEST_LIGHT_S)
+        finally:
+            # relace během testu → svítit dál; ruční příkaz během testu → jeho stav; jinak původní (i po zrušení)
+            want = self.active or (prev if self.manual is None else self.manual)
+            light = await self._set(want, force=True) and light
+        return light
+
+    async def _test_audio(self) -> bool | None:
+        """Tón 3 s na výstupu venku (jen multi, když kanál nehraje); None = netestováno."""
+        test_channel = getattr(self.audio, "test_channel", None)
+        if not self.cfg.audio_out or test_channel is None or getattr(self.audio, "mode", "") != "multi":
+            return None
+        if CHANNEL in self._playing():
+            log.info("Venek: audio test přeskočen — kanál venku právě hraje")
+            return None
+        try:
+            audio = bool(await test_channel(CHANNEL, 3))
+        except Exception:  # noqa: BLE001
+            log.exception("Venek: audio test selhal")
+            audio = False
+        play = getattr(self.audio, "play_channel", None)
+        if play is not None and self.active and CHANNEL not in self._playing():
+            # relace začala během tónu: `_test_key` kanál zastavil → hned zpět (jinak až další tick s fade);
+            # bez ručního režimu (`hold=False`) — dál ho řídí `sync_channels` (doběh po poslední relaci)
+            log.info("Venek: relace během audio testu — hudba venku pokračuje")
+            await play(CHANNEL, hold=False)
+        return audio
+
+    def _playing(self) -> list[str]:
+        return list(getattr(self.audio, "channels_playing", None) or [])
 
     def status(self) -> dict:
         """Stav do `snapshot()["outdoor"]` (Velín, displej, diagnostika)."""

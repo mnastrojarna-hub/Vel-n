@@ -28,7 +28,7 @@ class SelectorChannelStubs:
     async def sync_channels(self, active_zones: list[int]) -> None:
         """Selector kanály nemá — nic."""
 
-    async def play_channel(self, name: str) -> bool:
+    async def play_channel(self, name: str, *, hold: bool = True) -> bool:
         log.warning("Kanál %s: v režimu selector nelze (venek vyžaduje audio.mode multi)", name)
         return False
 
@@ -44,8 +44,10 @@ class MultiChannelOps:
 
     channel_out: dict[str, str]
 
-    async def play_channel(self, name: str) -> bool:
-        """Ruční start kanálu (Velín/servis): hraje, dokud nepřijde `stop_channel` nebo relace."""
+    async def play_channel(self, name: str, *, hold: bool = True) -> bool:
+        """Ruční start kanálu (Velín/servis): hraje, dokud nepřijde `stop_channel` nebo relace.
+        `hold=False` = bez ručního režimu (`manual = None`, dál řídí `sync_channels`) — obnova hudby
+        venku po servisním testu, když mezitím začala relace (`OutdoorController._test_audio`)."""
         name = str(name)
         ch = self._ch(name) if name in self.channel_out else None
         if ch is None:
@@ -53,7 +55,7 @@ class MultiChannelOps:
             return False
         ok = await self._play(name)
         if ok:
-            ch.manual, ch.off_at = True, None
+            ch.manual, ch.off_at = (True if hold else None), None
         return ok
 
     async def stop_channel(self, name: str, fade: bool = True) -> bool:

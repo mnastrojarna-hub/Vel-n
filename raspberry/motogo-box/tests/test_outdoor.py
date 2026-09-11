@@ -32,10 +32,16 @@ class FakeAudio:
         self.channels_playing: list[str] = []
         self.tests: list[tuple[str, int]] = []
         self.test_ok = True
+        self.plays: list[tuple[str, bool]] = []
 
     async def test_channel(self, name: str, seconds: int = 3) -> bool:
         self.tests.append((name, seconds))
         return self.test_ok
+
+    async def play_channel(self, name: str, *, hold: bool = True) -> bool:
+        self.plays.append((name, hold))
+        self.channels_playing = [*self.channels_playing, name]
+        return True
 
 
 class Clock:
@@ -148,6 +154,14 @@ async def test_test_sequence_busy_ok_not_configured(monkeypatch):
     assert empty.status()["configured"] is False and empty.light_on is False
 
 
+async def test_test_sequence_without_light_relay(monkeypatch):
+    """Venek jen s audio výstupem: světlo se netestuje (None) a relé se nesahá, audio ano."""
+    monkeypatch.setattr("motogo_box.outdoor.TEST_LIGHT_S", 0)
+    ctl, io, _ = _rig(OutdoorCfg(zone=9, audio_out="out9", present=True))
+    assert await ctl.test_sequence() == {"light": None, "audio": True} and io.calls == []
+    assert ctl.audio.tests == [("outdoor", 3)] and ctl.light_on is False
+
+
 async def test_test_sequence_restores_previous_light(monkeypatch):
     monkeypatch.setattr("motogo_box.outdoor.TEST_LIGHT_S", 0)
     ctl, io, clock = _rig()
@@ -204,3 +218,84 @@ async def test_status_shape():
     assert ctl.status()["audio_out"] is None and ctl.status()["off_in_s"] == 7
     none = OutdoorController(OutdoorCfg(), io, TimingsCfg(), None)
     assert none.status()["configured"] is False and none.status()["music"] is False
+
+
+# ─── relace / ruční příkaz během testu, souběžný test, selhání ručního příkazu ──
+async def test_session_during_light_test_keeps_light_on(monkeypatch):
+    """Relace zahájená během testu světla (tick `sync` nemá zámek): test světlo NEzhasne — obnoví se dle relace."""
+    monkeypatch.setattr("motogo_box.outdoor.TEST_LIGHT_S", 0.05)
+    ctl, io, clock = _rig()
+    task = asyncio.create_task(ctl.test_sequence())
+    await asyncio.sleep(0.01)
+    await ctl.sync([3])                                  # tick: zákazník zadal kód během testu
+    res = await task
+    assert res["light"] is True and ctl.light_on is True and ctl.active is True
+    assert io.calls == [(LIGHT, True), (LIGHT, True)]    # test → obnova = svítí dál, žádné (LIGHT, False)
+    await ctl.sync([3])
+    assert len(io.calls) == 2                            # relace řídí normálně dál
+    await ctl.sync([])
+    clock.t += 30
+    await ctl.sync([])
+    io.calls.clear()
+    task = asyncio.create_task(ctl.test_sequence())      # ruční příkaz během testu → obnoví se jeho stav
+    await asyncio.sleep(0.01)
+    await ctl.set_light(True)
+    assert (await task)["light"] is True and ctl.light_on is True and ctl.manual is True
+    assert io.calls == [(LIGHT, True), (LIGHT, True), (LIGHT, True)]
+
+
+async def test_session_during_audio_test_resumes_channel(monkeypatch):
+    """Relace během tónu: `_test_key` kanál zastaví → test ho hned obnoví bez ručního režimu (hold=False)."""
+    monkeypatch.setattr("motogo_box.outdoor.TEST_LIGHT_S", 0)
+    ctl, io, clock = _rig()
+    audio = ctl.audio
+
+    async def tone_with_session(name, seconds=3):
+        await ctl.sync([2])                              # tick během tónu: relace začala
+        audio.channels_playing = []                      # tón skončil → _test_key kanál zastavil
+        return True
+
+    audio.test_channel = tone_with_session
+    assert await ctl.test_sequence() == {"light": True, "audio": True}
+    assert audio.plays == [("outdoor", False)] and audio.channels_playing == ["outdoor"]
+    assert ctl.light_on is True and ctl.active is True   # světlo relace zůstalo svítit
+    del audio.test_channel
+    await ctl.sync([])
+    clock.t += 30
+    await ctl.sync([])
+    audio.channels_playing, audio.plays = [], []
+    assert (await ctl.test_sequence())["audio"] is True and audio.plays == []   # bez relace se nic nespouští
+
+
+async def test_concurrent_test_sequence_is_busy(monkeypatch):
+    monkeypatch.setattr("motogo_box.outdoor.TEST_LIGHT_S", 0.05)
+    ctl, io, clock = _rig()
+    task = asyncio.create_task(ctl.test_sequence())
+    await asyncio.sleep(0.01)
+    assert await ctl.test_sequence() == {"light": False, "audio": None, "error": "busy"}
+    assert (await task)["light"] is True and ctl.light_on is False
+    assert (await ctl.test_sequence())["light"] is True   # po doběhu testu zase volno
+
+
+async def test_manual_command_failure_is_retried_by_sync():
+    """`set_light` selže na relé → `sync` stav dorovná po RETRY_S (bez doběhu), světlo nezůstane viset."""
+    ctl, io, clock = _rig()
+    await ctl.sync([1])
+    await ctl.sync([])
+    io.ok = False
+    assert await ctl.set_light(False) is False           # relé selhalo → světlo dál svítí, manual False
+    assert ctl.manual is False and ctl.light_on is True and io.calls[-1] == (LIGHT, False)
+    await ctl.sync([])
+    assert len(io.calls) == 2                            # backoff: bez dalšího pokusu
+    clock.t += RETRY_S
+    io.ok = True
+    await ctl.sync([])
+    assert ctl.light_on is False and io.calls[-1] == (LIGHT, False) and len(io.calls) == 3
+    await ctl.sync([])
+    assert len(io.calls) == 3 and ctl.manual is False    # zhasnuto = nic dalšího
+    io.ok = False
+    assert await ctl.set_light(True) is False            # ruční rozsvícení selhalo → sync dorovná
+    clock.t += RETRY_S
+    io.ok = True
+    await ctl.sync([])
+    assert ctl.light_on is True and ctl.manual is True and io.calls[-1] == (LIGHT, True)

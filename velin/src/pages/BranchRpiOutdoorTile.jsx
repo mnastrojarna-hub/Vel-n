@@ -3,10 +3,15 @@ import { Btn, Chip, txt, num } from './BranchRpiUi'
 // ─── Dlaždice „Venek“ v živém stavu zón (status.outdoor, kontrakt §14) ───────
 // Venek není dveře — bez Otevřít a signálu. Příkazy light_on/light_off, music_on/music_off, zone_test
 // s { zone } = číslo venku z HW mapy (jednotka je pozná, protože zónu dveří s tímto číslem nemá).
+// Bez čísla zóny (lokální YAML může `outdoor.zone` vynechat; `configured` ho nevyžaduje) jednotka příkazy
+// neadresuje (`_is_outdoor` → zone_not_found) — tlačítka jsou pak vypnutá.
 // Hodnoty ze zařízení jdou přes txt()/num() — JSON z jednotky nesmí shodit stránku.
+
+const NO_ZONE_TITLE = 'Venek nemá číslo zóny (hardware.outdoor.zone) — příkazy nelze adresovat'
 
 function OutdoorTile({ o, onSend }) {
   const zoneNo = num(o.zone)
+  const noZone = zoneNo == null
   const params = { zone: zoneNo }
   const light = o.light === true
   const music = o.music === true
@@ -31,15 +36,17 @@ function OutdoorTile({ o, onSend }) {
         {o.light_ref != null && <span>· relé {txt(o.light_ref)}</span>}
       </div>
       <div className="flex items-center gap-1 flex-wrap mt-2 pt-2" style={{ borderTop: '1px dashed #d4e8e0' }}>
-        <Btn tone={light ? 'amber' : 'gray'} small title={light ? 'Zhasnout venkovní světlo (do další relace)' : 'Rozsvítit venkovní světlo (drží, dokud ho nevypnete)'}
+        <Btn tone={light ? 'amber' : 'gray'} small disabled={noZone}
+          title={noZone ? NO_ZONE_TITLE : light ? 'Zhasnout venkovní světlo (do další relace)' : 'Rozsvítit venkovní světlo (drží do vypnutí nebo do další relace — pak zhasne po doběhu)'}
           onClick={() => onSend(light ? 'light_off' : 'light_on', params, `světlo ${light ? '⏹' : '▶'} (venek, zóna ${txt(zoneNo)})`)}>
           Světlo {light ? '⏹' : '▶'}
         </Btn>
-        <Btn tone={music ? 'red' : 'green'} small title={out ? (music ? 'Zastavit hudbu venku' : 'Spustit hudbu venku (hraje do zastavení / doběhu)') : 'Venek nemá audio výstup (hudba venku jen v režimu multi)'}
+        <Btn tone={music ? 'red' : 'green'} small disabled={noZone}
+          title={noZone ? NO_ZONE_TITLE : out ? (music ? 'Zastavit hudbu venku' : 'Spustit hudbu venku (hraje do zastavení / doběhu)') : 'Venek nemá audio výstup (hudba venku jen v režimu multi)'}
           onClick={() => onSend(music ? 'music_off' : 'music_on', params, `hudba ${music ? '⏹' : '▶'} (venek, zóna ${txt(zoneNo)})`)}>
           Hudba {music ? '⏹' : '▶'}
         </Btn>
-        <Btn tone="blue" small title="Test venkovního světla (1 s) a hudby venku (3 s, jen multi); při běžící relaci jednotka test odmítne"
+        <Btn tone="blue" small disabled={noZone} title={noZone ? NO_ZONE_TITLE : 'Test venkovního světla (1 s) a hudby venku (3 s, jen multi); při běžící relaci jednotka test odmítne'}
           onClick={() => onSend('zone_test', params, `test venku (zóna ${txt(zoneNo)})`)}>Test</Btn>
       </div>
     </div>

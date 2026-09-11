@@ -10,6 +10,7 @@ dpkg. HW příkazy se odmítají, dokud jednotka není `ready` (start / přestav
 Zóna venku (`params.zone == hw.outdoor.zone`, venek není dveře): `light_on/off` → `ctrl.outdoor.set_light`,
 `music_on/off` → `audio.play_channel/stop_channel("outdoor")` (selector → `outdoor_requires_multi`),
 `zone_test` → `outdoor.test_sequence()`; `open_door`/`set_signal`/`audio_test` → `zone_not_found`.
+Venek bez relé světla: `light_on/off` → `outdoor_no_light`; selhání relé → `light_failed`.
 """
 from __future__ import annotations
 
@@ -143,8 +144,12 @@ def _light(on: bool) -> Handler:
     async def handler(ctrl: "BoxController", params: dict) -> tuple[bool, dict]:
         z = _zone_of(ctrl, params)
         if z is None and _is_outdoor(ctrl, params):
+            res = {"zone": _int(params.get("zone")), "light": ctrl.outdoor.light_on, "outdoor": True}
+            if ctrl.outdoor.cfg.light is None:              # venek jen s audio výstupem — světlo v HW mapě není
+                return False, {**res, "error": "outdoor_no_light"}
             ok = bool(await ctrl.outdoor.set_light(on))
-            return ok, {"zone": _int(params.get("zone")), "light": ctrl.outdoor.light_on, "outdoor": True}
+            res["light"] = ctrl.outdoor.light_on
+            return ok, res if ok else {**res, "error": "light_failed"}
         if z is None:
             return False, {"error": "zone_not_found"}
         ok = await z.set_light(on)
@@ -166,8 +171,8 @@ async def _set_signal(ctrl: "BoxController", params: dict) -> tuple[bool, dict]:
 async def _zone_test(ctrl: "BoxController", params: dict) -> tuple[bool, dict]:
     z = _zone_of(ctrl, params)
     if z is None and _is_outdoor(ctrl, params):
-        res = await ctrl.outdoor.test_sequence()        # audio None = netestováno (selector / bez výstupu)
-        ok = "error" not in res and bool(res.get("light")) and res.get("audio") is not False
+        res = await ctrl.outdoor.test_sequence()        # None = netestováno (light: bez relé světla; audio: selector / bez výstupu)
+        ok = "error" not in res and res.get("light") is not False and res.get("audio") is not False
         return ok, {"zone": _int(params.get("zone")), "outdoor": True, **res}
     if z is None:
         return False, {"error": "zone_not_found"}

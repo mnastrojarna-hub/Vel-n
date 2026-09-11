@@ -328,3 +328,16 @@ def test_validate_outdoor_errors_and_warning():
     # validate_outdoor samostatně (bez `seen` si zóny projde) — stejný výsledek jako přes validate_hardware
     hw = _outdoor({"zone": 9, "light": {"dev": "wav617a", "coil": 2}})
     assert validate_outdoor(hw) == ["Venek: light wav617a[2] už používá zóna 3 (light)."]
+
+
+def test_validate_outdoor_light_vs_channel_relay():
+    """Relé „enable“ jiného kanálu na cívce venkovního světla blokuje už validace (ne až `_drop_reserved_relays`)."""
+    light = {"dev": "wav617b", "coil": 0}
+    outputs = {"out9": {"device": "alsa/v"}, "out10": {"device": "alsa/c"}}
+    hw = _outdoor({"zone": 9, "light": light, "audio": {"out": "out9"}}, mode="multi", outputs=outputs,
+                  channels={"chodba": {"out": "out10", "dev": "wav617b", "coil": 0}})
+    msg = "Venek: light wav617b[0] už používá kanál chodba (relé)."
+    assert validate_outdoor(hw) == [msg] and msg in blocking_problems(validate_hardware(hw))
+    hw = _outdoor({"zone": 9, "light": light}, mode="multi", outputs=outputs,
+                  channels={"chodba": {"out": "out10", "dev": "wav645", "coil": 10}})     # R11 rezerva → OK
+    assert validate_outdoor(hw) == []

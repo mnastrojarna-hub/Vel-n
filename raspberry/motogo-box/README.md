@@ -43,7 +43,9 @@ Waveshare — v Brně WAV617-B R1, v režimu `multi` audio výstup + volitelné 
 odstraní). **Světlo** se rozsvítí při zadání jakéhokoli kódu (první relace) a zhasne `light_after_close_s` po skončení poslední relace
 (vlastní doběh venku má přednost před globálním); **hudba venku** hraje při jakémkoli kódu (jen režim `multi`, doběh
 `music_after_close_s`). Z Velína (dlaždice „Venek“ v živém stavu zón) lze světlo ručně rozsvítit (drží do vypnutí) / zhasnout (do
-další relace), hudbu spustit / zastavit a spustit test (světlo 1 s + tón 3 s; při běžící relaci jednotka test odmítne). Stav:
+další relace), hudbu spustit / zastavit a spustit test (světlo 1 s + tón 3 s; venek bez relé světla = jen tón; při běžící relaci
+jednotka test odmítne). Ruční příkaz světla jednotka při chybě relé neopakuje — Velín dostane `ok:false`, příkaz zopakovat (jen
+automatické přechody relace/doběh se po chybě zkoušejí znovu po 5 s). Stav:
 `kiosk_devices.status.outdoor` (`api/state → outdoor`). Diagnostika pobočky venek kontroluje (skupina „Venek (zóna 9)“ v protokolu:
 relé světla, hudba venku; světlo nikdy nespíná při relaci) a nepočítá ho mezi zóny. Starší zápis výstupu venku
 `audio.channels.outdoor` jednotka dál čte (alias); Velín ho při uložení bloku Venek převede na `outdoor.audio`.
@@ -120,8 +122,9 @@ bezpečně přestaví I/O (vše vypnout → nové zóny).
    `apt-daily-upgrade.timer` 04:00 ± 20 min, `Persistent=false`; `MOTOGO_SKIP_APT=1` → jen varování, že balík chybí),
    systemd unity, dobíjení RTC baterie (`dtparam=rtc_bbat_vchg=3000000`), vypne `getty@tty7`, služby spustí.
    Zadává se interaktivně nebo přes env: `MOTOGO_DEVICE_ID`, `MOTOGO_DEVICE_TOKEN`, `MOTOGO_APN`,
-   **`MOTOGO_SIM_PIN`** (PIN SIM je u všech poboček **1234** — výchozí hodnota install.sh; jiný PIN = `MOTOGO_SIM_PIN`, explicitně
-   prázdné `MOTOGO_SIM_PIN=` = SIM bez PINu; zapíše se do `[gsm] pin=` profilu `motogo-lte`, jinak zůstane modem ve stavu
+   **`MOTOGO_SIM_PIN`** (PIN SIM je u všech poboček **1234** — výchozí hodnota install.sh; jiný PIN = `MOTOGO_SIM_PIN`; při
+   opakované instalaci má přednost PIN už uložený v profilu `motogo-lte` (bez env se ponechá); explicitně prázdné `MOTOGO_SIM_PIN=`
+   = SIM bez PINu a uložený PIN z profilu odstraní; zapíše se do `[gsm] pin=` profilu `motogo-lte`, jinak zůstane modem ve stavu
    `locked` a LTE nikdy nenaběhne), `MOTOGO_DIAG_CODE`
    (při založení `config.yaml` se jinak vygeneruje náhodný kód `diagNNNN` — žádný veřejný default z repa;
    existující kód se bez této proměnné nemění; kód se zadává na zákaznické klávesnici a chybné pokusy se
@@ -253,7 +256,7 @@ k selhalo“** a tlačítko **„Znovu synchronizovat“** (= `sync_config`, sel
 | `music_on` / `music_off` | `zone?` / `door_id?` / `box_number?` | hudba v zóně (bez zóny první) / stop — se zónou jen tato kóje (multi: ostatní hrají dál), bez zóny vše; `zone` = venek → hudba venku ručně (jen multi, jinak `outdoor_requires_multi`) |
 | `light_on` / `light_off` | `zone` / `door_id` | bílé světlo; `zone` = číslo venku → venkovní světlo ručně (on drží, off zhasne do další relace) |
 | `set_signal` | `zone`, `signal` (`red/green/off/green_pulse/red_blink/both_blink`) | ruční signalizace |
-| `zone_test` | `zone` | test bez zámku: světlo → zelená 1 s → červená → světlo off; audio 3 s; `zone` = venek → světlo 1 s + tón venku 3 s (jen multi), při relaci `busy` |
+| `zone_test` | `zone` | test bez zámku: světlo → zelená 1 s → červená → světlo off; audio 3 s; `zone` = venek → světlo 1 s (jen s relé světla) + tón venku 3 s (jen multi), při relaci `busy` |
 | `audio_test` | `zone`, `seconds?` | hudba v zóně na N s |
 | `all_off` | – | vše vypnout (relé, Shelly, audio), zóny zabezpečit |
 | `identify` | `label?` | „Tady jsem" na displeji + 3× bliknutí zelené |
