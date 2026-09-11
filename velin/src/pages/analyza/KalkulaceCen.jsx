@@ -8,7 +8,6 @@ import { DEFAULT_PARAMS, DAY_COEF, DAY_LABELS, calcMotoPrice, serviceIntervals, 
 // Servis = roční nájezd × Kč/km, nájezd i půjčené dny z reálných dat (viz lib/priceCalc.js).
 // Jen analytika — reálný ceník (moto_day_prices / motorcycles.price_*) se NEMĚNÍ.
 const fmt = n => (n == null || isNaN(n)) ? '—' : Math.round(n).toLocaleString('cs-CZ')
-const fmtD = d => { const x = d ? new Date(d) : null; return x && !isNaN(x) ? `${x.getDate()}. ${x.getMonth() + 1}. ${String(x.getFullYear()).slice(2)}` : '?' }
 const fmtKc = n => (n == null || isNaN(n)) ? '—' : `${Math.round(n).toLocaleString('cs-CZ')} Kč`
 
 const COLUMNS = [
@@ -32,6 +31,7 @@ const PARAM_FIELDS = [
   ['kcPerKm', 'Servis Kč/km', 0.1], ['insuranceYear', 'Pojištění+čistírna / rok', 100], ['paybackYears', 'Návratnost (roky)', 0.5],
   ['marginPct', 'Marže %', 1], ['seasonFrom', 'Sezóna od (měsíc)', 1], ['seasonTo', 'Sezóna do (měsíc)', 1],
   ['fallbackRentedDays', 'Průměr půjč. dní', 1], ['rentedMin', 'Půjč. dní min', 1], ['rentedMax', 'Půjč. dní max', 1],
+  ['kmPerDay', 'Průměr km/den', 10], ['kmPerDayMin', 'Km/den min', 10], ['kmPerDayMax', 'Km/den max', 10],
 ]
 
 export default function KalkulaceCen() {
@@ -48,7 +48,7 @@ export default function KalkulaceCen() {
     try {
       const [mRes, bRes, lRes, oRes, segRes, kmRes] = await Promise.all([
         supabase.from('motorcycles').select('id, model, brand, spz, status, is_trailer, purchase_price, acquired_at, price_mon, price_weekday, tracking_unit'),
-        supabase.from('bookings').select('moto_id, start_date, end_date, status, payment_status, is_test'),
+        supabase.from('bookings').select('id, moto_id, start_date, end_date, status, payment_status, is_test'),
         supabase.from('maintenance_log').select('moto_id, service_date, completed_date, status, is_test'),
         supabase.from('service_orders').select('moto_id, created_at, completed_at, status, is_test'),
         supabase.rpc('analytics_moto_rental_km'),
@@ -64,7 +64,7 @@ export default function KalkulaceCen() {
   if (!raw) return null
 
   const p = { ...form, margin: (Number(form.marginPct) || 0) / 100 }
-  for (const k of ['kcPerKm', 'insuranceYear', 'paybackYears', 'seasonFrom', 'seasonTo', 'fallbackRentedDays', 'rentedMin', 'rentedMax']) p[k] = Number(form[k]) || DEFAULT_PARAMS[k]
+  for (const k of ['kcPerKm', 'insuranceYear', 'paybackYears', 'seasonFrom', 'seasonTo', 'fallbackRentedDays', 'rentedMin', 'rentedMax', 'kmPerDay', 'kmPerDayMin', 'kmPerDayMax']) p[k] = Number(form[k]) || DEFAULT_PARAMS[k]
   const today = new Date()
   const kmMap = Object.fromEntries(raw.km.map(r => [r.moto_id, r]))
   const by = (arr, key = 'moto_id') => arr.reduce((acc, x) => ((acc[x[key]] ||= []).push(x), acc), {})
@@ -79,7 +79,7 @@ export default function KalkulaceCen() {
   })
   const priced = rows.filter(r => r.ok)
   const avgBase = priced.length ? priced.reduce((s, r) => s + r.base, 0) / priced.length : 0
-  const noKm = rows.filter(r => r.annualKm == null).length
+  const noKm = rows.filter(r => r.kmPerDayRaw == null).length
   const setF = (k, v) => setForm(f => ({ ...f, [k]: v }))
   const card = { background: '#fff', borderRadius: 14, padding: 16, marginBottom: 20, boxShadow: '0 1px 4px rgba(0,0,0,.06)' }
 
@@ -101,7 +101,7 @@ export default function KalkulaceCen() {
         <Kpi value={fmtKc(avgBase)} label="Ø základní cena (excel B1)" />
         <Kpi value={`${priced.length} / ${rows.length}`} label="Motorek s pořizovací cenou" />
         <Kpi value={`${seasonDaysPerYear(p)} dní`} label="Sezóna / rok (roční přepočet)" />
-        <Kpi value={noKm} label="Bez dat o nájezdu (servis = 0)" />
+        <Kpi value={noKm} label="Bez dat o km/den (průměr)" />
       </div>
 
       <div style={{ ...card, overflowX: 'auto' }}>
@@ -113,9 +113,13 @@ export default function KalkulaceCen() {
                 <td className="py-2 px-3 font-semibold">{r.model}</td>
                 <td className="py-2 px-3 font-mono">{r.spz}</td>
                 <td className="py-2 px-3">{r.ok ? fmtKc(r.purchase) : <span style={{ color: '#b45309' }}>chybí</span>}</td>
-                <td className="py-2 px-3" title={r.annualKm == null ? 'Bez protokolů ani nájezdu' : `Zdroj: ${r.kmSource}. Čtení pod „koupeno s km“ (${fmt(r.purchaseKm)}) se podlaží na tuto hodnotu; km, se kterými byla motorka koupena, se nepočítají. −${r.kmServiceDays} dní v servisu.`}>
-                  {r.annualKm == null ? '—' : `${fmt(r.annualKm)} ${r.unit}`}{r.kmSource === 'tachometr' && r.annualKm != null && <sup style={{ color: '#b45309' }}> t</sup>}
-                  {r.annualKm != null && <div style={{ fontSize: 10, color: '#888' }}>{fmt(r.kmObserved)} {r.unit} / {r.kmEffDays} d ({fmtD(r.kmFrom)}–{fmtD(r.kmTo)})</div>}
+                <td className="py-2 px-3" title={r.kmPerDayRaw == null ? `Bez protokolů s km — průměr ${p.kmPerDay} km/den` : `Z dat: ${fmt(r.kmObserved)} ${r.unit} za ${r.kmObservedDays} půjčených dní (${r.kmSource === 'tachometr' ? 'tachometr − koupeno s km' : 'předávací protokoly'}; čtení pod „koupeno s km“ ${fmt(r.purchaseKm)} podlaženo)${r.kmSource === 'mimo' ? ` → mimo ${p.kmPerDayMin}–${p.kmPerDayMax} km/den, použit průměr ${p.kmPerDay}` : ''}`}>
+                  {fmt(r.annualKm)} {r.unit}
+                  <div style={{ fontSize: 10, color: '#888' }}>
+                    {fmt(r.kmPerDay)} {r.unit}/den × {fmt(r.rentedDays)} d
+                    {r.kmSource === 'mimo' && <span style={{ color: '#b45309' }}> (z dat {fmt(r.kmPerDayRaw)}/den)</span>}
+                    {r.kmSource === 'odhad' && <sup style={{ color: '#b45309' }}> o</sup>}
+                  </div>
                 </td>
                 <td className="py-2 px-3">{fmtKc(r.serviceYear)}</td>
                 <td className="py-2 px-3">{fmtKc(r.insurance)}</td>
@@ -138,8 +142,9 @@ export default function KalkulaceCen() {
           </tbody>
         </table>
         <p className="text-xs mt-3" style={{ color: '#6b7280', whiteSpace: 'normal' }}>
-          Servis/rok = nájezd/rok × Kč/km. Nájezd/rok = km z předávacích protokolů (jen za období, kdy se zapisují) / (sezónní dny − dny v servisu) × sezóna;
-          <sup> t</sup> = bez uzavřených protokolů, nájezd z tachometru za dobu vlastnění. Půjč. dní/rok stejně z realizovaných rezervací za dobu vlastnění; dopočet pod {p.rentedMin} nebo nad {p.rentedMax} dní se nahradí průměrem {p.fallbackRentedDays} (původní dopočet v závorce); <sup>o</sup> = průměr bez dat (méně než {p.minObsDays} dní).
+          Servis/rok = nájezd/rok × Kč/km. Nájezd/rok = km na půjčený den × půjčené dny/rok; km/den z předávacích protokolů (najeté km rezervace / její dny, čtení pod „koupeno s km“ podlaženo),
+          mimo {p.kmPerDayMin}–{p.kmPerDayMax} km/den se nahradí průměrem {p.kmPerDay} (hodnota z dat v závorce); <sup>o</sup> = průměr bez dat.
+          Půjč. dní/rok z realizovaných rezervací za dobu vlastnění (jen sezónní dny minus dny v servisu, přepočet na sezónu); dopočet pod {p.rentedMin} nebo nad {p.rentedMax} dní se nahradí průměrem {p.fallbackRentedDays} (původní dopočet v závorce); <sup>o</sup> = průměr bez dat (méně než {p.minObsDays} dní).
           Náklady na návratnost = (cena moto + náklady/rok) × roky; základ bez marže = / (půjč. dní × roky); zákl. cena = + marže. Po=Pá=zákl., Út=St=×0,8, Čt=×0,9, So=×1,2, Ne=×1,1.
           Rozdíl = zákl. cena vs. aktuální pondělní ceník (červeně = ceník je pod kalkulací).
         </p>
