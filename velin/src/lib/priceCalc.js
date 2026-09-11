@@ -3,7 +3,10 @@
  * do Velína (Analýza → Kalkulace cen). ANALYTICKÝ nástroj: NEMĚNÍ reálný ceník.
  *
  * Excel:  Náklady/rok Q = servis×četnost + pojištění+čistírna
- *         Náklady na návratnost S = cena_moto×R + Q×R
+ *         Náklady na návratnost S = cena_moto×R + Q×R   ← CHYBA excelu: R se
+ *         v T = S/(P×R) pokrátí a délka návratnosti nemá na cenu vliv.
+ *         Zde OPRAVENO: S = cena_moto + Q×R (pořízení se rozpočte na R let,
+ *         roční náklady se přičtou za každý rok) → delší návratnost = levnější den.
  *         Základ bez marže T = S / (půjčené_dny×R),  Zákl. cena U = T×1,25
  *         Po = U, Út = St = U×0,8, Čt = U×0,9, Pá = U, So = U×1,2, Ne = U×1,1
  *
@@ -174,7 +177,7 @@ export function calcMotoPrice(moto, segments, kmRow, bookings, svc, p, today = n
   // ── Cena (excel) ─────────────────────────────────────────────────────────
   const serviceYear = (annualKm || 0) * p.kcPerKm
   const costsYear = serviceYear + p.insuranceYear
-  const costsPayback = purchase * p.paybackYears + costsYear * p.paybackYears
+  const costsPayback = purchase + costsYear * p.paybackYears   // pořízení jednou, provoz × roky
   const baseNoMargin = rentedDays > 0 ? costsPayback / (rentedDays * p.paybackYears) : 0
   const base = baseNoMargin * (1 + p.margin)
   const days = Object.fromEntries(Object.keys(DAY_COEF).map(k => [k, Math.round(base * DAY_COEF[k])]))

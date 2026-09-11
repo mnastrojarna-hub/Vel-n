@@ -145,7 +145,7 @@ export default function KalkulaceCen() {
           Servis/rok = nájezd/rok × Kč/km. Nájezd/rok = km na půjčený den × půjčené dny/rok; km/den z předávacích protokolů (najeté km rezervace / její dny, čtení pod „koupeno s km“ podlaženo),
           mimo {p.kmPerDayMin}–{p.kmPerDayMax} km/den se nahradí průměrem {p.kmPerDay} (hodnota z dat v závorce); <sup>o</sup> = průměr bez dat.
           Půjč. dní/rok z realizovaných rezervací za dobu vlastnění (jen sezónní dny minus dny v servisu, přepočet na sezónu); dopočet pod {p.rentedMin} nebo nad {p.rentedMax} dní se nahradí průměrem {p.fallbackRentedDays} (původní dopočet v závorce); <sup>o</sup> = průměr bez dat (méně než {p.minObsDays} dní).
-          Náklady na návratnost = (cena moto + náklady/rok) × roky; základ bez marže = / (půjč. dní × roky); zákl. cena = + marže. Po=Pá=zákl., Út=St=×0,8, Čt=×0,9, So=×1,2, Ne=×1,1.
+          Náklady na návratnost = cena moto + náklady/rok × roky (pořízení se rozpočte na roky návratnosti, servis a pojištění se přičtou za každý rok → delší návratnost = levnější den); základ bez marže = / (půjč. dní × roky); zákl. cena = + marže. Po=Pá=zákl., Út=St=×0,8, Čt=×0,9, So=×1,2, Ne=×1,1.
           Rozdíl = zákl. cena vs. aktuální pondělní ceník (červeně = ceník je pod kalkulací).
         </p>
       </div>
