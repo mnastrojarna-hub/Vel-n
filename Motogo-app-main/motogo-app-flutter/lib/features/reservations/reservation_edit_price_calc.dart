@@ -100,18 +100,31 @@ class EditPriceCalc {
     return base / origDays;
   }
 
+  /// Výměna motorky s dostupným ceníkem nové motorky (bez ceníku by rozdíl
+  /// nešel spočítat — pak se počítá jako beze změny motorky).
+  bool get motoChanged =>
+      newMotoId != null && newMotoId != booking.motoId && newMotoPrices != null;
+
+  /// Hrubá cena pronájmu rozsahu podle ceníku STARÉ motorky (fallback =
+  /// průměrná zaplacená denní cena, když ceník není načtený).
+  double _oldGrossFor(DateTime start, DateTime end) => motoPrices != null
+      ? motoPrices!.totalForRange(start, end)
+      : origDailyPrice * (end.difference(start).inDays + 1);
+
   /// Hrubá cena pronájmu původního rozsahu (ceník staré motorky).
-  double get _rentalGrossOld => motoPrices != null
-      ? motoPrices!.totalForRange(booking.startDate, booking.endDate)
-      : origDailyPrice * origDays;
+  double get _rentalGrossOld => _oldGrossFor(booking.startDate, booking.endDate);
+
+  /// Nový rozsah oceněný ceníkem STARÉ motorky — základ rozdílu termínu.
+  double get _rentalGrossNewOnOld => (newStart == null || newEnd == null)
+      ? _rentalGrossOld
+      : _oldGrossFor(newStart!, newEnd!);
 
   /// Hrubá cena pronájmu nového rozsahu (ceník efektivní motorky — při výměně
   /// nové, jinak staré).
   double get _rentalGrossNew {
     if (newStart == null || newEnd == null) return _rentalGrossOld;
-    final p = _effPrices;
-    if (p != null) return p.totalForRange(newStart!, newEnd!);
-    return origDailyPrice * newDays;
+    if (motoChanged) return newMotoPrices!.totalForRange(newStart!, newEnd!);
+    return _rentalGrossNewOnOld;
   }
 
   /// Informativní řádek UI: hrubý rozdíl pronájmu (bez storna a late slevy) —
@@ -126,16 +139,41 @@ class EditPriceCalc {
   int get stornoPercent =>
       StornoCalc.effectiveRefundPercent(newStart ?? booking.startDate, booking);
 
-  /// Rozdíl pronájmu vč. late-pickup slevy — zrcadlí server:
-  /// v_dates_diff = (nová hrubá − nová late) − (stará hrubá − stará late);
-  /// ZÁPORNÝ rozdíl (vratka) se krátí storno % (i ztráta/zisk půldne podléhá
-  /// stornu společně se zkrácenými dny), kladný doplatek je vždy 100 %.
-  double get rentalDiff {
+  /// Late sleva nového rozsahu podle ceníku STARÉ motorky (bez ceníku se drží
+  /// uložená hodnota — stejná pojistka jako [newLatePickup]).
+  double get _lateNewOnOld {
     if (newStart == null || newEnd == null) return 0;
-    var d = (_rentalGrossNew - newLatePickup) - (_rentalGrossOld - oldLatePickup);
+    if (motoPrices == null) return oldLatePickup;
+    return _lateFor(motoPrices, newStart!, newEnd!, pickupTime);
+  }
+
+  /// Rozdíl TERMÍNU podle ceníku STARÉ motorky (vč. late slevy) před stornem —
+  /// zrcadlí server: (nová hrubá − nová late) − (stará hrubá − stará late).
+  double get datesDiffRaw {
+    if (newStart == null || newEnd == null) return 0;
+    return (_rentalGrossNewOnOld - _lateNewOnOld) - (_rentalGrossOld - oldLatePickup);
+  }
+
+  /// Rozdíl termínu po stornu: ZÁPORNÝ rozdíl (odebrané dny, ztráta půldne) se
+  /// krátí storno %, kladný doplatek je vždy 100 %.
+  double get datesDiff {
+    var d = datesDiffRaw;
     if (d < 0) d = (d * stornoPercent / 100).roundToDouble();
     return d;
   }
+
+  /// Rozdíl VÝMĚNY MOTORKY na novém rozsahu (nový ceník − starý ceník, vč.
+  /// late slevy). Storno se na něj NEvztahuje — vrací/účtuje se 100 % v obou
+  /// směrech (parita se záložkou Výměna motorky, Velínem i SQL
+  /// _apply_booking_changes_core; incident C69236EB 2026-09-12: levnější
+  /// motorka den před startem = storno 0 % → rozdíl 0 Kč, žádný dobropis).
+  double get motoDiff {
+    if (newStart == null || newEnd == null || !motoChanged) return 0;
+    return (_rentalGrossNew - newLatePickup) - (_rentalGrossNewOnOld - _lateNewOnOld);
+  }
+
+  /// Rozdíl pronájmu celkem = termín (po stornu) + výměna motorky (100 %).
+  double get rentalDiff => datesDiff + motoDiff;
 
   /// Rozdíl poplatku za přistavení/odvoz oproti původní rezervaci.
   ///
