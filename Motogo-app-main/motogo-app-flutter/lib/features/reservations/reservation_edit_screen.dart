@@ -641,7 +641,9 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
           entry['to_late_pickup'] = calc.newLatePickup;
         }
         entry['price_diff'] = calc.effectivePriceDiff;
-        if (calc.rentalDiff < 0) entry['storno_pct'] = calc.stornoPercent;
+        // Storno % se týká JEN odebraných dnů (datesDiffRaw) — rozdíl ceníku
+        // při výměně motorky se vrací/účtuje 100 % (viz EditPriceCalc.motoDiff).
+        if (calc.datesDiffRaw < 0) entry['storno_pct'] = calc.stornoPercent;
         // Track address changes (delivery addresses)
         if (_pickupMethod == 'delivery' && _booking!.pickupMethod == 'delivery' &&
             _booking!.pickupAddress != null) {
@@ -706,10 +708,12 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
           refundOk = false;
           String? refundErr;
           try {
+            // Důvod dle skutečné změny — dobropis pak nese „Výměna motorky"
+            // místo matoucího „Zkrácení rezervace" (parita s Velínem/RPC).
             final refundRes = await MotoGoSupabase.client.functions.invoke('process-refund', body: {
               'booking_id': widget.bookingId,
               'amount': -effDiff,
-              'reason': 'edit_shortening',
+              'reason': motoChanged && !datesChanged ? 'moto_swap' : 'edit_shortening',
             });
             final rd = refundRes.data;
             refundOk = rd is Map && rd['success'] == true;
@@ -1024,7 +1028,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900,
                     color: calc.effectivePriceDiff > 0 ? MotoGoColors.red : calc.effectivePriceDiff < 0 ? MotoGoColors.greenDarker : MotoGoColors.black)),
               ]),
-              if (calc.effectivePriceDiff < 0 && calc.rentalDiff < 0)
+              if (calc.effectivePriceDiff < 0 && calc.datesDiffRaw < 0)
                 Padding(padding: const EdgeInsets.only(top: 4),
                   child: Text('${t(context).tr('stornoRefundPercent').replaceAll('{percent}', '${calc.stornoPercent}')}',
                     style: const TextStyle(fontSize: 10, color: MotoGoColors.g400))),
