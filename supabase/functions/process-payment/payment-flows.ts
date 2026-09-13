@@ -1,190 +1,209 @@
 // ===== process-payment/payment-flows.ts =====
 // Web checkout flows: booking checkout + shop (voucher) checkout
-
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import Stripe from 'https://esm.sh/stripe@14'
-import { stripe, SITE_URL, PRODUCT_NAMES, CORS, PaymentRequest, resolveReturnOrigin, resolveStripeLocale, withLangParam } from './stripe-customer.ts'
-
-/** Handle web anonymous booking checkout (no auth required) */
-export async function handleWebBookingCheckout(
-  body: PaymentRequest,
-  supabaseAdmin: ReturnType<typeof createClient>
-): Promise<Response> {
-  const { data: booking, error: bErr } = await supabaseAdmin
-    .from('bookings')
-    .select('*, profiles:user_id(full_name, email, phone, stripe_customer_id)')
-    .eq('id', body.booking_id!)
-    .eq('booking_source', 'web')
-    .eq('payment_status', 'unpaid')
-    .single()
-
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { stripe, SITE_URL, PRODUCT_NAMES, CORS, resolveReturnOrigin, resolveStripeLocale, withLangParam } from './stripe-customer.ts';
+/** Handle web anonymous booking checkout (no auth required) */ export async function handleWebBookingCheckout(body, supabaseAdmin) {
+  const { data: booking, error: bErr } = await supabaseAdmin.from('bookings').select('*, profiles:user_id(full_name, email, phone, stripe_customer_id)').eq('id', body.booking_id).eq('booking_source', 'web').eq('payment_status', 'unpaid').single();
   if (bErr || !booking) {
-    console.error('Web booking lookup failed:', bErr?.message, 'booking_id:', body.booking_id)
-    return new Response(JSON.stringify({ error: 'Booking not found or already paid' }), {
-      status: 400, headers: { ...CORS, 'Content-Type': 'application/json' }
-    })
+    console.error('Web booking lookup failed:', bErr?.message, 'booking_id:', body.booking_id);
+    return new Response(JSON.stringify({
+      error: 'Booking not found or already paid'
+    }), {
+      status: 400,
+      headers: {
+        ...CORS,
+        'Content-Type': 'application/json'
+      }
+    });
   }
-
-  const amountCzk = booking.total_price || body.amount || 0
-  const amount = Math.round(amountCzk * 100)
-  const currency = body.currency || 'czk'
-
+  const amountCzk = booking.total_price || body.amount || 0;
+  const amount = Math.round(amountCzk * 100);
+  const currency = body.currency || 'czk';
   // 100% sleva pro web — Stripe nestrhne nic, ale projde se přes Stripe Checkout v setup módu
   // (ověření karty, žádný charge). Po session.completed webhook potvrdí rezervaci jako paid.
-  const isFreeBooking = amount < 1
-  let isTrue100 = false
+  const isFreeBooking = amount < 1;
+  let isTrue100 = false;
   if (isFreeBooking) {
-    const originalPrice = (booking.total_price || 0) + (booking.discount_amount || 0)
-
+    const originalPrice = (booking.total_price || 0) + (booking.discount_amount || 0);
     // Ověření promo kódu — percent=100 NEBO fixed value pokrývající celou původní cenu
     if (booking.promo_code_id) {
-      const { data: promo } = await supabaseAdmin.from('promo_codes')
-        .select('type, value')
-        .eq('id', booking.promo_code_id)
-        .single()
+      const { data: promo } = await supabaseAdmin.from('promo_codes').select('type, value').eq('id', booking.promo_code_id).single();
       if (promo && promo.type === 'percent' && promo.value >= 100) {
-        isTrue100 = true
+        isTrue100 = true;
       } else if (promo && promo.type === 'fixed' && promo.value >= originalPrice && originalPrice > 0) {
-        isTrue100 = true
+        isTrue100 = true;
       }
     }
-
     // Ověření voucheru — musí pokrýt celou původní cenu
     if (!isTrue100 && booking.voucher_id) {
-      const { data: voucher } = await supabaseAdmin.from('vouchers')
-        .select('amount')
-        .eq('id', booking.voucher_id)
-        .single()
+      const { data: voucher } = await supabaseAdmin.from('vouchers').select('amount').eq('id', booking.voucher_id).single();
       if (voucher && voucher.amount >= originalPrice && originalPrice > 0) {
-        isTrue100 = true
+        isTrue100 = true;
       }
     }
-
     if (!isTrue100) {
       console.error('Free booking rejected — discount is not truly 100%:', {
-        booking_id: body.booking_id, total_price: booking.total_price,
-        discount_amount: booking.discount_amount, promo_code_id: booking.promo_code_id
-      })
+        booking_id: body.booking_id,
+        total_price: booking.total_price,
+        discount_amount: booking.discount_amount,
+        promo_code_id: booking.promo_code_id
+      });
       return new Response(JSON.stringify({
         error: 'Chyba kalkulace ceny. Sleva není 100%. Obnovte stránku a zkuste znovu.'
       }), {
-        status: 400, headers: { ...CORS, 'Content-Type': 'application/json' }
-      })
+        status: 400,
+        headers: {
+          ...CORS,
+          'Content-Type': 'application/json'
+        }
+      });
     }
   }
-
-  const profile = booking.profiles as { full_name?: string; email?: string; phone?: string; stripe_customer_id?: string } | null
-  const customerEmail = profile?.email || ''
-  const customerName = profile?.full_name || ''
-
-  let customerId = profile?.stripe_customer_id || null
+  const profile = booking.profiles;
+  const customerEmail = profile?.email || '';
+  const customerName = profile?.full_name || '';
+  let customerId = profile?.stripe_customer_id || null;
   if (!customerId && customerEmail) {
-    const customers = await stripe.customers.list({ email: customerEmail, limit: 1 })
-    customerId = customers.data.length > 0 ? customers.data[0].id : null
+    const customers = await stripe.customers.list({
+      email: customerEmail,
+      limit: 1
+    });
+    customerId = customers.data.length > 0 ? customers.data[0].id : null;
   }
   if (!customerId) {
     const newCust = await stripe.customers.create({
       email: customerEmail || undefined,
       name: customerName || undefined,
-      metadata: { source: 'web', booking_id: body.booking_id! }
-    })
-    customerId = newCust.id
+      metadata: {
+        source: 'web',
+        booking_id: body.booking_id
+      }
+    });
+    customerId = newCust.id;
     if (booking.user_id) {
-      await supabaseAdmin.from('profiles').update({ stripe_customer_id: customerId }).eq('id', booking.user_id)
+      await supabaseAdmin.from('profiles').update({
+        stripe_customer_id: customerId
+      }).eq('id', booking.user_id);
     }
   }
-
   // -- 0 Kč rezervace: Stripe Checkout v `setup` módu (ověření karty bez stržení) --
   // Po dokončení webhook `checkout.session.completed` (mode=setup) potvrdí rezervaci.
   if (isFreeBooking) {
-    const setupMetadata: Record<string, string> = {
-      booking_id: body.booking_id!, type: 'booking', source: 'web', action: 'verify_free_booking'
-    }
-    const returnOriginFree = resolveReturnOrigin(body.origin, body.locale)
+    const setupMetadata = {
+      booking_id: body.booking_id,
+      type: 'booking',
+      source: 'web',
+      action: 'verify_free_booking'
+    };
+    const returnOriginFree = resolveReturnOrigin(body.origin, body.locale);
     const freeSession = await stripe.checkout.sessions.create({
       customer: customerId,
       mode: 'setup',
-      payment_method_types: ['card'],
+      payment_method_types: [
+        'card'
+      ],
       metadata: setupMetadata,
-      setup_intent_data: { metadata: setupMetadata },
-      client_reference_id: body.booking_id!,
+      setup_intent_data: {
+        metadata: setupMetadata
+      },
+      client_reference_id: body.booking_id,
       success_url: withLangParam(`${returnOriginFree}/potvrzeni?session_id={CHECKOUT_SESSION_ID}`, body.locale),
       cancel_url: withLangParam(`${returnOriginFree}/rezervace?resume=${body.booking_id}&payfail=1`, body.locale),
-      locale: resolveStripeLocale(body.locale) as Stripe.Checkout.SessionCreateParams.Locale,
-    })
-
+      locale: resolveStripeLocale(body.locale)
+    });
     await supabaseAdmin.from('bookings').update({
       stripe_session_id: freeSession.id,
       stripe_checkout_url: freeSession.url,
-      checkout_started_at: new Date().toISOString(),
-    }).eq('id', body.booking_id!)
-
+      checkout_started_at: new Date().toISOString()
+    }).eq('id', body.booking_id);
     // ZF (zálohová faktura) — generujeme stejně jako u placené rezervace, aby měl zákazník
     // doklad o ceně i o slevě (dobropis nepotřebujeme, žádné peníze se nehýbou).
     try {
-      const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
-      const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
+      const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
       await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SERVICE_KEY}`, 'apikey': SERVICE_KEY },
-        body: JSON.stringify({ type: 'proforma', booking_id: body.booking_id, send_email: false }),
-      })
-    } catch (e) { console.warn('[WebBookingCheckout free] ZF generation failed:', e) }
-
-    return new Response(JSON.stringify({ checkout_url: freeSession.url, session_id: freeSession.id, free: true }), {
-      headers: { ...CORS, 'Content-Type': 'application/json' }
-    })
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${SERVICE_KEY}`,
+          'apikey': SERVICE_KEY
+        },
+        body: JSON.stringify({
+          type: 'proforma',
+          booking_id: body.booking_id,
+          send_email: false
+        })
+      });
+    } catch (e) {
+      console.warn('[WebBookingCheckout free] ZF generation failed:', e);
+    }
+    return new Response(JSON.stringify({
+      checkout_url: freeSession.url,
+      session_id: freeSession.id,
+      free: true
+    }), {
+      headers: {
+        ...CORS,
+        'Content-Type': 'application/json'
+      }
+    });
   }
-
   // -- Bundled e-shop order (upsell from step 2): one Stripe session, two invoices --
-  const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [{
-    price_data: {
-      currency,
-      unit_amount: amount,
-      product_data: { name: PRODUCT_NAMES.booking, description: `Rezervace #${body.booking_id!.slice(-8).toUpperCase()}` }
-    },
-    quantity: 1
-  }]
-  const sessionMetadata: Record<string, string> = { booking_id: body.booking_id!, type: 'booking', source: 'web' }
-
-  const shopOrderId = (body as Record<string, unknown>).shop_order_id as string | undefined
+  const lineItems = [
+    {
+      price_data: {
+        currency,
+        unit_amount: amount,
+        product_data: {
+          name: PRODUCT_NAMES.booking,
+          description: `Rezervace #${body.booking_id.slice(-8).toUpperCase()}`
+        }
+      },
+      quantity: 1
+    }
+  ];
+  const sessionMetadata = {
+    booking_id: body.booking_id,
+    type: 'booking',
+    source: 'web'
+  };
+  const shopOrderId = body.shop_order_id;
   if (shopOrderId) {
-    const { data: shopOrder } = await supabaseAdmin
-      .from('shop_orders')
-      .select('id, payment_status, shipping_cost, shop_order_items(product_name, quantity, unit_price, size)')
-      .eq('id', shopOrderId)
-      .single()
-    if (shopOrder && (shopOrder as Record<string, unknown>).payment_status !== 'paid') {
-      const items = ((shopOrder as Record<string, unknown>).shop_order_items as Array<Record<string, unknown>>) || []
-      for (const it of items) {
-        const qty = Number(it.quantity) || 1
-        const unit = Number(it.unit_price) || 0
-        if (unit <= 0) continue
-        const sizeLbl = it.size ? ` (${it.size})` : ''
+    const { data: shopOrder } = await supabaseAdmin.from('shop_orders').select('id, payment_status, shipping_cost, shop_order_items(product_name, quantity, unit_price, size)').eq('id', shopOrderId).single();
+    if (shopOrder && shopOrder.payment_status !== 'paid') {
+      const items = shopOrder.shop_order_items || [];
+      for (const it of items){
+        const qty = Number(it.quantity) || 1;
+        const unit = Number(it.unit_price) || 0;
+        if (unit <= 0) continue;
+        const sizeLbl = it.size ? ` (${it.size})` : '';
         lineItems.push({
           price_data: {
             currency,
             unit_amount: Math.round(unit * 100),
-            product_data: { name: `${it.product_name}${sizeLbl}` }
+            product_data: {
+              name: `${it.product_name}${sizeLbl}`
+            }
           },
           quantity: qty
-        })
+        });
       }
-      const ship = Number((shopOrder as Record<string, unknown>).shipping_cost) || 0
+      const ship = Number(shopOrder.shipping_cost) || 0;
       if (ship > 0) {
         lineItems.push({
           price_data: {
             currency,
             unit_amount: Math.round(ship * 100),
-            product_data: { name: 'Doprava' }
+            product_data: {
+              name: 'Doprava'
+            }
           },
           quantity: 1
-        })
+        });
       }
-      sessionMetadata.shop_order_id = shopOrderId
+      sessionMetadata.shop_order_id = shopOrderId;
     }
   }
-
   // Platební metody hosted Checkoutu (webová „stránka stripe"): JEN `['card']`.
   // `payment_method_types: ['card']` (2026-07-09) — na webu chceme primárně KARTU +
   // Apple Pay / Google Pay a NE Link. Apple Pay / Google Pay jsou card wallets → Stripe je
@@ -194,53 +213,68 @@ export async function handleWebBookingCheckout(
   // (matoucí — lidé nevěděli, jak zaplatit kartou). Odebráním `link` z výčtu se Link jako
   // metoda na hosted stránce nenabízí a rovnou naskočí zadání karty / peněženky. Shodné
   // s voucher/shop/SOS Session níže. (App native Payment Sheet v index.ts Link ZÁMĚRNĚ drží.)
-  const returnOrigin = resolveReturnOrigin(body.origin, body.locale)
+  const returnOrigin = resolveReturnOrigin(body.origin, body.locale);
   const session = await stripe.checkout.sessions.create({
     customer: customerId,
     mode: 'payment',
-    payment_method_types: ['card'],
+    payment_method_types: [
+      'card'
+    ],
     line_items: lineItems,
     metadata: sessionMetadata,
-    payment_intent_data: { metadata: sessionMetadata },
-    client_reference_id: body.booking_id!,
+    payment_intent_data: {
+      metadata: sessionMetadata
+    },
+    client_reference_id: body.booking_id,
     success_url: withLangParam(`${returnOrigin}/potvrzeni?session_id={CHECKOUT_SESSION_ID}`, body.locale),
     cancel_url: withLangParam(`${returnOrigin}/rezervace?resume=${body.booking_id}&payfail=1`, body.locale),
-    locale: resolveStripeLocale(body.locale) as Stripe.Checkout.SessionCreateParams.Locale,
-  })
-
+    locale: resolveStripeLocale(body.locale)
+  });
   await supabaseAdmin.from('bookings').update({
     stripe_session_id: session.id,
-    stripe_payment_intent_id: session.payment_intent as string,
+    stripe_payment_intent_id: session.payment_intent,
     stripe_checkout_url: session.url,
-    checkout_started_at: new Date().toISOString(),
-  }).eq('id', body.booking_id!)
-
+    checkout_started_at: new Date().toISOString()
+  }).eq('id', body.booking_id);
   if (sessionMetadata.shop_order_id) {
     await supabaseAdmin.from('shop_orders').update({
       stripe_session_id: session.id,
-      stripe_payment_intent_id: session.payment_intent as string,
-    }).eq('id', sessionMetadata.shop_order_id)
+      stripe_payment_intent_id: session.payment_intent
+    }).eq('id', sessionMetadata.shop_order_id);
   }
-
   // ZF (zálohová faktura) — generujeme při kliknutí na "Zaplatit" / přesměrování na Stripe.
   // DP zůstává vázaná na webhook-receiver po reálné Stripe platbě. Generate-invoice má
   // dedup per booking_id, takže opakované kliknutí ZF nezdvojí; webhook-receiver po platbě
   // existující ZF přeskočí a jen ji připne k potvrzovacímu emailu.
   try {
-    const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
-    const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
+    const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
     await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SERVICE_KEY}`, 'apikey': SERVICE_KEY },
-      body: JSON.stringify({ type: 'proforma', booking_id: body.booking_id, send_email: false }),
-    })
-  } catch (e) { console.warn('[WebBookingCheckout] ZF generation failed:', e) }
-
-  return new Response(JSON.stringify({ checkout_url: session.url, session_id: session.id }), {
-    headers: { ...CORS, 'Content-Type': 'application/json' }
-  })
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${SERVICE_KEY}`,
+        'apikey': SERVICE_KEY
+      },
+      body: JSON.stringify({
+        type: 'proforma',
+        booking_id: body.booking_id,
+        send_email: false
+      })
+    });
+  } catch (e) {
+    console.warn('[WebBookingCheckout] ZF generation failed:', e);
+  }
+  return new Response(JSON.stringify({
+    checkout_url: session.url,
+    session_id: session.id
+  }), {
+    headers: {
+      ...CORS,
+      'Content-Type': 'application/json'
+    }
+  });
 }
-
 /** Velín operátor → vygeneruje Stripe Checkout ODKAZ pro PLACENOU SOS náhradu.
  *
  *  Volá se z Velína (Nový incident / detail incidentu) přes
@@ -249,282 +283,347 @@ export async function handleWebBookingCheckout(
  *  `bookings.total_price` ale ZŮSTÁVÁ jen nájem+přistavení (spoluúčast je vratná
  *  kauce, ne tržba) — shodné s tím, jak appka účtovala přes PaymentIntent.
  *  Metadata `type:'sos'` → po zaplacení webhook-receiver zavolá `confirmSosPayment`
- *  a označí náhradní rezervaci jako `paid` (stejná cesta jako aplikace). */
-export async function handleSosPaymentLink(
-  body: PaymentRequest,
-  supabaseAdmin: ReturnType<typeof createClient>
-): Promise<Response> {
-  const bookingId = body.booking_id
-  const incidentId = body.incident_id
-  const amountCzk = Number(body.amount) || 0
+ *  a označí náhradní rezervaci jako `paid` (stejná cesta jako aplikace). */ export async function handleSosPaymentLink(body, supabaseAdmin) {
+  const bookingId = body.booking_id;
+  const incidentId = body.incident_id;
+  const amountCzk = Number(body.amount) || 0;
   if (!bookingId || amountCzk <= 0) {
-    return new Response(JSON.stringify({ success: false, error: 'Missing booking_id or amount' }), {
-      status: 400, headers: { ...CORS, 'Content-Type': 'application/json' }
-    })
+    return new Response(JSON.stringify({
+      success: false,
+      error: 'Missing booking_id or amount'
+    }), {
+      status: 400,
+      headers: {
+        ...CORS,
+        'Content-Type': 'application/json'
+      }
+    });
   }
-
-  const { data: booking, error: bErr } = await supabaseAdmin
-    .from('bookings')
-    .select('id, payment_status, user_id, profiles:user_id(full_name, email, stripe_customer_id)')
-    .eq('id', bookingId)
-    .single()
+  const { data: booking, error: bErr } = await supabaseAdmin.from('bookings').select('id, payment_status, user_id, profiles:user_id(full_name, email, stripe_customer_id)').eq('id', bookingId).single();
   if (bErr || !booking) {
-    return new Response(JSON.stringify({ success: false, error: 'Booking not found' }), {
-      status: 404, headers: { ...CORS, 'Content-Type': 'application/json' }
-    })
+    return new Response(JSON.stringify({
+      success: false,
+      error: 'Booking not found'
+    }), {
+      status: 404,
+      headers: {
+        ...CORS,
+        'Content-Type': 'application/json'
+      }
+    });
   }
   if (booking.payment_status === 'paid') {
-    return new Response(JSON.stringify({ success: false, error: 'Tato rezervace je již zaplacena.' }), {
-      status: 409, headers: { ...CORS, 'Content-Type': 'application/json' }
-    })
+    return new Response(JSON.stringify({
+      success: false,
+      error: 'Tato rezervace je již zaplacena.'
+    }), {
+      status: 409,
+      headers: {
+        ...CORS,
+        'Content-Type': 'application/json'
+      }
+    });
   }
-
-  const profile = booking.profiles as { full_name?: string; email?: string; stripe_customer_id?: string } | null
-  const customerEmail = profile?.email || ''
-  const customerName = profile?.full_name || ''
-  let customerId = profile?.stripe_customer_id || null
+  const profile = booking.profiles;
+  const customerEmail = profile?.email || '';
+  const customerName = profile?.full_name || '';
+  let customerId = profile?.stripe_customer_id || null;
   if (!customerId && customerEmail) {
-    const customers = await stripe.customers.list({ email: customerEmail, limit: 1 })
-    customerId = customers.data.length > 0 ? customers.data[0].id : null
+    const customers = await stripe.customers.list({
+      email: customerEmail,
+      limit: 1
+    });
+    customerId = customers.data.length > 0 ? customers.data[0].id : null;
   }
   if (!customerId && customerEmail) {
     const newCust = await stripe.customers.create({
       email: customerEmail || undefined,
       name: customerName || undefined,
-      metadata: { source: 'velin_sos', booking_id: bookingId },
-    })
-    customerId = newCust.id
+      metadata: {
+        source: 'velin_sos',
+        booking_id: bookingId
+      }
+    });
+    customerId = newCust.id;
     if (booking.user_id) {
-      await supabaseAdmin.from('profiles').update({ stripe_customer_id: customerId }).eq('id', booking.user_id)
+      await supabaseAdmin.from('profiles').update({
+        stripe_customer_id: customerId
+      }).eq('id', booking.user_id);
     }
   }
-
-  const currency = body.currency || 'czk'
-  const metadata: Record<string, string> = { type: 'sos', source: 'velin', booking_id: bookingId }
-  if (incidentId) metadata.incident_id = incidentId
-
+  const currency = body.currency || 'czk';
+  const metadata = {
+    type: 'sos',
+    source: 'velin',
+    booking_id: bookingId
+  };
+  if (incidentId) metadata.incident_id = incidentId;
   const session = await stripe.checkout.sessions.create({
     customer: customerId || undefined,
     mode: 'payment',
     // JEN karta + Apple Pay/Google Pay (card wallets), bez Linku — viz booking checkout.
-    payment_method_types: ['card'],
-    line_items: [{
-      price_data: {
-        currency,
-        unit_amount: Math.round(amountCzk * 100),
-        product_data: { name: PRODUCT_NAMES.sos, description: `SOS náhrada #${bookingId.slice(-8).toUpperCase()}` },
-      },
-      quantity: 1,
-    }],
+    payment_method_types: [
+      'card'
+    ],
+    line_items: [
+      {
+        price_data: {
+          currency,
+          unit_amount: Math.round(amountCzk * 100),
+          product_data: {
+            name: PRODUCT_NAMES.sos,
+            description: `SOS náhrada #${bookingId.slice(-8).toUpperCase()}`
+          }
+        },
+        quantity: 1
+      }
+    ],
     metadata,
-    payment_intent_data: { metadata },
+    payment_intent_data: {
+      metadata
+    },
     client_reference_id: bookingId,
     success_url: `${SITE_URL}/potvrzeni?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${SITE_URL}`,
-  })
-
+    cancel_url: `${SITE_URL}`
+  });
   await supabaseAdmin.from('bookings').update({
     stripe_session_id: session.id,
-    stripe_payment_intent_id: session.payment_intent as string,
+    stripe_payment_intent_id: session.payment_intent,
     stripe_checkout_url: session.url,
-    checkout_started_at: new Date().toISOString(),
-  }).eq('id', bookingId)
-
-  return new Response(JSON.stringify({ success: true, checkout_url: session.url, session_id: session.id }), {
-    headers: { ...CORS, 'Content-Type': 'application/json' }
-  })
+    checkout_started_at: new Date().toISOString()
+  }).eq('id', bookingId);
+  return new Response(JSON.stringify({
+    success: true,
+    checkout_url: session.url,
+    session_id: session.id
+  }), {
+    headers: {
+      ...CORS,
+      'Content-Type': 'application/json'
+    }
+  });
 }
-
-/** Handle web anonymous PRODUCT checkout (e-shop produkty z motogo24.cz). */
-async function handleWebProductCheckout(
-  body: PaymentRequest,
-  webBody: Record<string, unknown>
-): Promise<Response> {
-  const orderId = body.order_id as string
-  const customerEmail = (webBody.customer_email as string) || ''
-  const customerName  = (webBody.customer_name as string)  || ''
-  const customerPhone = (webBody.customer_phone as string) || ''
-  const currency = body.currency || 'czk'
-
-  const supabaseAdmin = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-  )
-
+/** Handle web anonymous PRODUCT checkout (e-shop produkty z motogo24.cz). */ async function handleWebProductCheckout(body, webBody) {
+  const orderId = body.order_id;
+  const customerEmail = webBody.customer_email || '';
+  const customerName = webBody.customer_name || '';
+  const customerPhone = webBody.customer_phone || '';
+  const currency = body.currency || 'czk';
+  const supabaseAdmin = createClient(Deno.env.get('SUPABASE_URL'), Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'));
   // Načti objednávku + položky (RPC create_web_shop_order je už vytvořilo)
-  const { data: order, error: orderErr } = await supabaseAdmin
-    .from('shop_orders')
-    .select('id, total, subtotal, shipping_cost, discount, customer_email, customer_name, customer_phone, payment_status, shipping_method')
-    .eq('id', orderId)
-    .single()
+  const { data: order, error: orderErr } = await supabaseAdmin.from('shop_orders').select('id, total, subtotal, shipping_cost, discount, customer_email, customer_name, customer_phone, payment_status, shipping_method').eq('id', orderId).single();
   if (orderErr || !order) {
-    return new Response(JSON.stringify({ success: false, error: 'Objednávka nenalezena.' }),
-      { status: 404, headers: { ...CORS, 'Content-Type': 'application/json' } })
+    return new Response(JSON.stringify({
+      success: false,
+      error: 'Objednávka nenalezena.'
+    }), {
+      status: 404,
+      headers: {
+        ...CORS,
+        'Content-Type': 'application/json'
+      }
+    });
   }
   if (order.payment_status === 'paid') {
-    return new Response(JSON.stringify({ success: false, error: 'Tato objednávka je již zaplacena.' }),
-      { status: 409, headers: { ...CORS, 'Content-Type': 'application/json' } })
+    return new Response(JSON.stringify({
+      success: false,
+      error: 'Tato objednávka je již zaplacena.'
+    }), {
+      status: 409,
+      headers: {
+        ...CORS,
+        'Content-Type': 'application/json'
+      }
+    });
   }
-
-  const { data: items } = await supabaseAdmin
-    .from('shop_order_items')
-    .select('product_name, product_sku, size, quantity, unit_price, total_price')
-    .eq('order_id', orderId)
-  const orderItems = items || []
+  const { data: items } = await supabaseAdmin.from('shop_order_items').select('product_name, product_sku, size, quantity, unit_price, total_price').eq('order_id', orderId);
+  const orderItems = items || [];
   if (orderItems.length === 0) {
-    return new Response(JSON.stringify({ success: false, error: 'Objednávka neobsahuje žádné položky.' }),
-      { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } })
+    return new Response(JSON.stringify({
+      success: false,
+      error: 'Objednávka neobsahuje žádné položky.'
+    }), {
+      status: 400,
+      headers: {
+        ...CORS,
+        'Content-Type': 'application/json'
+      }
+    });
   }
-
   // Stripe customer (re-use po e-mailu)
-  const email = customerEmail || order.customer_email || ''
-  const name  = customerName  || order.customer_name  || ''
-  const customers = email ? await stripe.customers.list({ email, limit: 1 }) : { data: [] }
-  let custId = customers.data.length > 0 ? customers.data[0].id : null
+  const email = customerEmail || order.customer_email || '';
+  const name = customerName || order.customer_name || '';
+  const customers = email ? await stripe.customers.list({
+    email,
+    limit: 1
+  }) : {
+    data: []
+  };
+  let custId = customers.data.length > 0 ? customers.data[0].id : null;
   if (!custId && email) {
     const newCust = await stripe.customers.create({
-      email, name, phone: customerPhone || order.customer_phone || undefined,
-      metadata: { source: 'web_shop_products' }
-    })
-    custId = newCust.id
+      email,
+      name,
+      phone: customerPhone || order.customer_phone || undefined,
+      metadata: {
+        source: 'web_shop_products'
+      }
+    });
+    custId = newCust.id;
   }
-
   // Sestavit Stripe line items z DB (cena pochází z DB, ne z klienta)
-  const lineItems: Record<string, unknown>[] = orderItems.map((it: Record<string, unknown>) => {
-    const baseName = String(it.product_name || 'Produkt')
-    const size = it.size ? ` (vel. ${it.size})` : ''
+  const lineItems = orderItems.map((it)=>{
+    const baseName = String(it.product_name || 'Produkt');
+    const size = it.size ? ` (vel. ${it.size})` : '';
     return {
       price_data: {
         currency,
         unit_amount: Math.round(Number(it.unit_price) * 100),
         product_data: {
           name: baseName + size,
-          ...(it.product_sku ? { metadata: { sku: String(it.product_sku) } } : {})
+          ...it.product_sku ? {
+            metadata: {
+              sku: String(it.product_sku)
+            }
+          } : {}
         }
       },
       quantity: Number(it.quantity) || 1
-    }
-  })
-
+    };
+  });
   // Doprava jako samostatný line item (Stripe ji tak ukáže na účtence)
-  const shipCost = Number(order.shipping_cost) || 0
+  const shipCost = Number(order.shipping_cost) || 0;
   if (shipCost > 0) {
-    const shipName = order.shipping_method === 'zasilkovna' ? 'Doprava — Zásilkovna'
-                   : order.shipping_method === 'post'       ? 'Doprava — Česká pošta'
-                   : 'Doprava'
+    const shipName = order.shipping_method === 'zasilkovna' ? 'Doprava — Zásilkovna' : order.shipping_method === 'post' ? 'Doprava — Česká pošta' : 'Doprava';
     lineItems.push({
       price_data: {
         currency,
         unit_amount: Math.round(shipCost * 100),
-        product_data: { name: shipName }
+        product_data: {
+          name: shipName
+        }
       },
       quantity: 1
-    })
+    });
   }
-
   // Sleva přes Stripe coupon (jen ad-hoc, neukládáme)
-  let discounts: Record<string, unknown>[] | undefined
-  const discount = Number(order.discount) || 0
+  let discounts;
+  const discount = Number(order.discount) || 0;
   if (discount > 0) {
     const coupon = await stripe.coupons.create({
       amount_off: Math.round(discount * 100),
       currency,
       duration: 'once',
-      name: 'Sleva',
-    })
-    discounts = [{ coupon: coupon.id }]
+      name: 'Sleva'
+    });
+    discounts = [
+      {
+        coupon: coupon.id
+      }
+    ];
   }
-
-  const returnOrigin = resolveReturnOrigin(body.origin, body.locale)
-  const productMetadata = { order_id: orderId, type: 'shop', source: 'web' }
-  const sessionParams: Record<string, unknown> = {
+  const returnOrigin = resolveReturnOrigin(body.origin, body.locale);
+  const productMetadata = {
+    order_id: orderId,
+    type: 'shop',
+    source: 'web'
+  };
+  const sessionParams = {
     mode: 'payment',
     // Jen karta + Apple Pay/Google Pay (card wallets), bez Linku — viz booking checkout.
-    payment_method_types: ['card'],
-    line_items: lineItems as Stripe.Checkout.SessionCreateParams.LineItem[],
+    payment_method_types: [
+      'card'
+    ],
+    line_items: lineItems,
     metadata: productMetadata,
-    payment_intent_data: { metadata: productMetadata },
+    payment_intent_data: {
+      metadata: productMetadata
+    },
     client_reference_id: orderId,
     success_url: withLangParam(`${returnOrigin}/potvrzeni?order_id=${orderId}&session_id={CHECKOUT_SESSION_ID}`, body.locale),
-    cancel_url:  withLangParam(`${returnOrigin}/kosik`, body.locale),
-    locale: resolveStripeLocale(body.locale),
-  }
-  if (custId) sessionParams.customer = custId
-  if (discounts) sessionParams.discounts = discounts
-
-  const session = await stripe.checkout.sessions.create(sessionParams as Stripe.Checkout.SessionCreateParams)
-
+    cancel_url: withLangParam(`${returnOrigin}/kosik`, body.locale),
+    locale: resolveStripeLocale(body.locale)
+  };
+  if (custId) sessionParams.customer = custId;
+  if (discounts) sessionParams.discounts = discounts;
+  const session = await stripe.checkout.sessions.create(sessionParams);
   await supabaseAdmin.from('shop_orders').update({
     stripe_session_id: session.id,
-    stripe_payment_intent_id: session.payment_intent as string,
-  }).eq('id', orderId)
-
+    stripe_payment_intent_id: session.payment_intent
+  }).eq('id', orderId);
   // ZF (proforma) — best-effort, neblokuje
   try {
-    const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
-    const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
+    const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
     await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SERVICE_KEY}`, 'apikey': SERVICE_KEY },
-      body: JSON.stringify({ type: 'shop_proforma', order_id: orderId, send_email: true }),
-    })
-  } catch (e) { console.warn('[WebProductCheckout] ZF generation failed:', e) }
-
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${SERVICE_KEY}`,
+        'apikey': SERVICE_KEY
+      },
+      body: JSON.stringify({
+        type: 'shop_proforma',
+        order_id: orderId,
+        send_email: true
+      })
+    });
+  } catch (e) {
+    console.warn('[WebProductCheckout] ZF generation failed:', e);
+  }
   return new Response(JSON.stringify({
     success: true,
-    url: session.url,           // alias pro web (kompatibilita s checkout.js)
+    url: session.url,
     checkout_url: session.url,
     session_id: session.id,
     order_id: orderId
-  }), { headers: { ...CORS, 'Content-Type': 'application/json' } })
+  }), {
+    headers: {
+      ...CORS,
+      'Content-Type': 'application/json'
+    }
+  });
 }
-
-/** Handle web anonymous SHOP checkout — produkty (kind=products) NEBO voucher (default). */
-export async function handleWebShopCheckout(
-  body: PaymentRequest
-): Promise<Response> {
-  const webBody = body as Record<string, unknown>
-
+/** Handle web anonymous SHOP checkout — produkty (kind=products) NEBO voucher (default). */ export async function handleWebShopCheckout(body) {
+  const webBody = body;
   // Větvení: produkty z e-shopu (mají order_id z create_web_shop_order, nemají voucher_amount)
   // vs. dárkový poukaz (existující flow).
-  if (webBody.kind === 'products' || (body.order_id && webBody.voucher_amount == null)) {
-    return await handleWebProductCheckout(body, webBody)
+  if (webBody.kind === 'products' || body.order_id && webBody.voucher_amount == null) {
+    return await handleWebProductCheckout(body, webBody);
   }
-
-  const customerEmail = webBody.customer_email as string
-  const customerName = (webBody.customer_name as string) || ''
-  const customerPhone = (webBody.customer_phone as string) || ''
-  const isPrint = !!(webBody.is_print)
-  const voucherAmount = (webBody.voucher_amount as number) || body.amount
-  const printFee = isPrint ? 180 : 0
-  const shippingAddress = (webBody.shipping_address as string) || ''
+  const customerEmail = webBody.customer_email;
+  const customerName = webBody.customer_name || '';
+  const customerPhone = webBody.customer_phone || '';
+  const isPrint = !!webBody.is_print;
+  const voucherAmount = webBody.voucher_amount || body.amount;
+  const printFee = isPrint ? 180 : 0;
+  const shippingAddress = webBody.shipping_address || '';
   // Fakturační údaje z web formuláře poukazu (poukazy-objednat.php) — uloží se na
   // shop_orders, aby je generate-invoice dostal na DP/fakturu i u anonymní objednávky.
-  const billingAddress = (webBody.billing_address as string) || ''
-  const customerCompany = (webBody.customer_company as string) || ''
-  const customerIco = (webBody.customer_ico as string) || ''
-  const customerDic = (webBody.customer_dic as string) || ''
-  const amountCzk = body.amount
-  const amountCents = Math.round(amountCzk * 100)
-  const currency = body.currency || 'czk'
-
-  const customers = await stripe.customers.list({ email: customerEmail, limit: 1 })
-  let custId = customers.data.length > 0 ? customers.data[0].id : null
+  const billingAddress = webBody.billing_address || '';
+  const customerCompany = webBody.customer_company || '';
+  const customerIco = webBody.customer_ico || '';
+  const customerDic = webBody.customer_dic || '';
+  const amountCzk = body.amount;
+  const amountCents = Math.round(amountCzk * 100);
+  const currency = body.currency || 'czk';
+  const customers = await stripe.customers.list({
+    email: customerEmail,
+    limit: 1
+  });
+  let custId = customers.data.length > 0 ? customers.data[0].id : null;
   if (!custId) {
     const newCust = await stripe.customers.create({
       email: customerEmail,
       name: customerName,
-      metadata: { source: 'web_shop' }
-    })
-    custId = newCust.id
+      metadata: {
+        source: 'web_shop'
+      }
+    });
+    custId = newCust.id;
   }
-
-  const supabaseAdmin = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-  )
-
-  const orderId = body.order_id || crypto.randomUUID()
+  const supabaseAdmin = createClient(Deno.env.get('SUPABASE_URL'), Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'));
+  const orderId = body.order_id || crypto.randomUUID();
   if (!body.order_id) {
     // payment_status musí matchovat CHECK constraint shop_orders → pending/paid/refunded/failed.
     // Dříve zde bylo 'unpaid' (legacy z bookings.payment_status enum), což CHECK porušuje a INSERT
@@ -552,10 +651,10 @@ export async function handleWebShopCheckout(
       notes: isPrint ? 'Fyzický poukaz (tisk + poštovné)' : 'Elektronický poukaz',
       // i18n: jazyk zákazníka z webu (cs/en/de/nl/es/fr/pl) → voucher_purchased mail
       // i SMS dorazí přeložené (detect_customer_language čte shop_orders.language).
-      language: resolveStripeLocale(body.locale),
-    })
+      language: resolveStripeLocale(body.locale)
+    });
     if (insertOrderError) {
-      console.error('[WebShopCheckout] shop_orders insert failed:', insertOrderError.message)
+      console.error('[WebShopCheckout] shop_orders insert failed:', insertOrderError.message);
       try {
         await supabaseAdmin.from('debug_log').insert({
           source: 'process-payment',
@@ -563,23 +662,35 @@ export async function handleWebShopCheckout(
           component: 'voucher_checkout',
           status: 'error',
           error_message: insertOrderError.message,
-          request_data: { order_id: orderId, customer_email: customerEmail, voucher_amount: voucherAmount, is_print: isPrint },
-        })
-      } catch { /* ignore */ }
-      return new Response(JSON.stringify({ error: 'Order creation failed', details: insertOrderError.message }), {
-        status: 500, headers: { ...CORS, 'Content-Type': 'application/json' },
-      })
+          request_data: {
+            order_id: orderId,
+            customer_email: customerEmail,
+            voucher_amount: voucherAmount,
+            is_print: isPrint
+          }
+        });
+      } catch  {}
+      return new Response(JSON.stringify({
+        error: 'Order creation failed',
+        details: insertOrderError.message
+      }), {
+        status: 500,
+        headers: {
+          ...CORS,
+          'Content-Type': 'application/json'
+        }
+      });
     }
-
     // Hlavní položka: dárkový poukaz
-    const orderItems: Record<string, unknown>[] = [{
-      order_id: orderId,
-      product_name: 'Dárkový poukaz',
-      quantity: 1,
-      unit_price: voucherAmount,
-      total_price: voucherAmount,
-    }]
-
+    const orderItems = [
+      {
+        order_id: orderId,
+        product_name: 'Dárkový poukaz',
+        quantity: 1,
+        unit_price: voucherAmount,
+        total_price: voucherAmount
+      }
+    ];
     // Fyzický tisk + poštovné (název BEZ "poukaz" aby trigger negeneroval voucher)
     if (isPrint) {
       orderItems.push({
@@ -587,69 +698,94 @@ export async function handleWebShopCheckout(
         product_name: 'Tisk a poštovné',
         quantity: 1,
         unit_price: printFee,
-        total_price: printFee,
-      })
+        total_price: printFee
+      });
     }
-
-    await supabaseAdmin.from('shop_order_items').insert(orderItems)
+    await supabaseAdmin.from('shop_order_items').insert(orderItems);
   }
-
   // Stripe line items (separate for clarity on Stripe receipt)
-  const lineItems: Record<string, unknown>[] = [{
-    price_data: {
-      currency,
-      unit_amount: Math.round(voucherAmount * 100),
-      product_data: { name: 'MotoGo24 — Dárkový poukaz' }
-    },
-    quantity: 1
-  }]
+  const lineItems = [
+    {
+      price_data: {
+        currency,
+        unit_amount: Math.round(voucherAmount * 100),
+        product_data: {
+          name: 'MotoGo24 — Dárkový poukaz'
+        }
+      },
+      quantity: 1
+    }
+  ];
   if (isPrint) {
     lineItems.push({
       price_data: {
         currency,
         unit_amount: Math.round(printFee * 100),
-        product_data: { name: 'Tisk a poštovné' }
+        product_data: {
+          name: 'Tisk a poštovné'
+        }
       },
       quantity: 1
-    })
+    });
   }
-
-  const voucherReturnOrigin = resolveReturnOrigin(body.origin, body.locale)
-  const voucherMetadata = { order_id: orderId, type: 'shop', source: 'web' }
+  const voucherReturnOrigin = resolveReturnOrigin(body.origin, body.locale);
+  const voucherMetadata = {
+    order_id: orderId,
+    type: 'shop',
+    source: 'web'
+  };
   const session = await stripe.checkout.sessions.create({
     customer: custId,
     mode: 'payment',
     // Jen karta + Apple Pay/Google Pay (card wallets), bez Linku — viz booking checkout.
-    payment_method_types: ['card'],
-    line_items: lineItems as Stripe.Checkout.SessionCreateParams.LineItem[],
+    payment_method_types: [
+      'card'
+    ],
+    line_items: lineItems,
     metadata: voucherMetadata,
-    payment_intent_data: { metadata: voucherMetadata },
+    payment_intent_data: {
+      metadata: voucherMetadata
+    },
     client_reference_id: orderId,
     success_url: withLangParam(`${voucherReturnOrigin}/potvrzeni?order_id=${orderId}&session_id={CHECKOUT_SESSION_ID}`, body.locale),
     cancel_url: withLangParam(`${voucherReturnOrigin}/poukazy`, body.locale),
-    locale: resolveStripeLocale(body.locale) as Stripe.Checkout.SessionCreateParams.Locale,
-  })
-
+    locale: resolveStripeLocale(body.locale)
+  });
   await supabaseAdmin.from('shop_orders').update({
     stripe_session_id: session.id,
-    stripe_payment_intent_id: session.payment_intent as string,
-  }).eq('id', orderId)
-
+    stripe_payment_intent_id: session.payment_intent
+  }).eq('id', orderId);
   // ZF doklad pro voucher objednávku ANO (účetní doklad), ale e-mail s ním NE.
   // Voucher objednávky jsou speciální — zákazník dostane jen "Váš dárkový poukaz od MotoGo24"
   // mail po platbě (z webhook-receiver/confirmShopPayment) s DP + HTML voucher přílohami.
   try {
-    const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
-    const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SERVICE_KEY}`, 'apikey': SERVICE_KEY }
-
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
+    const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+    const headers = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${SERVICE_KEY}`,
+      'apikey': SERVICE_KEY
+    };
     await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
-      method: 'POST', headers,
-      body: JSON.stringify({ type: 'shop_proforma', order_id: orderId, send_email: false }),
-    })
-  } catch (e) { console.warn('[WebShopCheckout] ZF generation failed:', e) }
-
-  return new Response(JSON.stringify({ checkout_url: session.url, session_id: session.id, order_id: orderId }), {
-    headers: { ...CORS, 'Content-Type': 'application/json' }
-  })
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        type: 'shop_proforma',
+        order_id: orderId,
+        send_email: false
+      })
+    });
+  } catch (e) {
+    console.warn('[WebShopCheckout] ZF generation failed:', e);
+  }
+  return new Response(JSON.stringify({
+    checkout_url: session.url,
+    session_id: session.id,
+    order_id: orderId
+  }), {
+    headers: {
+      ...CORS,
+      'Content-Type': 'application/json'
+    }
+  });
 }
