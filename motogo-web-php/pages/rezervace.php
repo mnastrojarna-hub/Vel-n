@@ -55,7 +55,7 @@ $rezKeys = [
     'note.toggle','note.placeholder',
     'agree.terms','agree.gdpr','agree.guardian','agree.marketing','agree.photo',
     'cta.continue','cta.continuePay','totalPrice','discount','latePickupDiscount',
-    'motoSelect.label','motoSelect.any',
+    'motoSelect.label','motoSelect.any','branchSelect.label','branchSelect.any',
     'voucher.enter','voucher.duplicate','voucher.verifying','voucher.error',
     'voucher.invalid','voucher.percentOnce','voucher.discountApplied','voucher.voucherApplied',
     'alert.name','alert.dob','alert.street','alert.city','alert.zip','alert.email','alert.phone',

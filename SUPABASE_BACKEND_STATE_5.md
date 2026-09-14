@@ -314,6 +314,7 @@ Strukturované oficiální podmínky půjčovny pro AI public agent (`get_polici
 | `auto-complete-expired-bookings` (4) | denně 00:01 (`1 0 * * *`) | `SELECT auto_complete_expired_bookings()` — active/reserved + end_date < today + paid → completed |
 | `expire-vouchers` (8) | denně 01:00 UTC (`0 1 * * *`) | `SELECT expire_vouchers()` |
 | `cron-daily` (9) | denně 02:00 UTC (`0 2 * * *`) | `SELECT snapshot_daily_stats(); SELECT auto_schedule_services();` |
+| `moto-service-status-sync` | denně 00:05 UTC (`5 0 * * *`) | **NEW 2026-09-14 (`20260914_moto_service_status_and_door_code_relocation.sql`, APLIKUJE AUTO-DEPLOY po merge):** `SELECT public.sync_moto_service_status()` — v den začátku servisu (`maintenance_log.service_date`) přepne otevřený záznam na `in_service` a motorku na `maintenance`; motorku `maintenance` jen s BUDOUCÍM záznamem vrátí na `active`. Registrace v migraci: DO blok `cron.unschedule` + `cron.schedule` (EXCEPTION → WARNING). |
 | `auto-check-service-parts` (10) | denně 06:00 UTC (`0 6 * * *`) | `SELECT auto_check_service_parts()` — kontrola dílů, auto PO + email dodavateli |
 | `auto-activate-reserved` (11) | denně 00:01 (`1 0 * * *`) | `SELECT auto_activate_reserved_bookings()` — reserved + paid + start_date <= today → active |
 | `mirror-route-images` (18) | každých 6 min (`*/6 * * * *`) | **NEW 2026-07-03 (APLIKOVÁNO, job id 18):** `SELECT mirror_route_images_tick()` — pg_net POST na edge fn `mirror-route-images` (zrcadlení wiki fotek tras). Po dokončení backfillu (~1800 fotek) zůstává jako levný no-op pro budoucí wiki URL. |

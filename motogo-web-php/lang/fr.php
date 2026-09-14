@@ -359,6 +359,8 @@ return [
     'rez.latePickupDiscount' => '50 % de réduction le 1er jour (retrait tardif)',
     'rez.motoSelect.label' => 'Modèle précis ou n\'importe quelle moto',
     'rez.motoSelect.any' => 'n\'importe quelle moto disponible à mes dates',
+    'rez.branchSelect.label' => 'Agence',
+    'rez.branchSelect.any' => 'Toutes les agences',
 
     // ===== Réservation — messages bons =====
     'rez.voucher.enter' => 'Saisissez un code',
@@ -589,6 +591,8 @@ return [
     'filters.licenseAny' => 'Permis de conduire',
     'filters.licenseNone' => 'Sans permis (enfants)',
     'filters.licenseGroup' => 'Catégorie {group}',
+    'filters.branch' => 'Agence',
+    'filters.branchAll' => 'Agence — toutes',
     'filters.power' => 'Puissance',
     'filters.power.aria.min' => 'Puissance minimale en kW',
     'filters.power.aria.max' => 'Puissance maximale en kW',
@@ -1113,6 +1117,8 @@ return [
     'editRez.swap.pickDate' => 'Date du changement',
     'editRez.swap.pickTime' => 'Heure du changement',
     'editRez.swap.pickMoto' => 'Choisissez la nouvelle moto',
+    'editRez.moto.branchLabel' => 'Agence',
+    'editRez.moto.branchAll' => 'Toutes les agences',
     'editRez.swap.confirm' => 'Choisir celle-ci',
     'editRez.swap.confirming' => 'Changement…',
     'editRez.swap.success' => 'Terminé ! À partir du {date}, vous roulez sur la nouvelle moto.',

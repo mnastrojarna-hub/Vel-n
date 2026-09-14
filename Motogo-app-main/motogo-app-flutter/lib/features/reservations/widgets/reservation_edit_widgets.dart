@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/theme.dart';
+import '../../catalog/catalog_provider.dart';
 import '../../../core/widgets/moto_fx.dart';
 import '../../booking/booking_models.dart';
 import '../../../core/currency.dart';
@@ -265,6 +268,47 @@ class EditGearSizePicker extends StatelessWidget {
             );
           }).toList()),
       ]),
+    );
+  }
+}
+
+// ─── _BranchFilter ────────────────────────────────────────────────────────────
+
+/// Filtr dle pobočky nad seznamem motorek (změna motorky / výměna motorky).
+/// Pobočky = z načtených motorek (branchesProvider); null = všechny pobočky.
+class EditBranchFilter extends ConsumerWidget {
+  final String? value;
+  final ValueChanged<String?> onChanged;
+  const EditBranchFilter({super.key, required this.value, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final branches = ref.watch(branchesProvider);
+    if (branches.isEmpty) return const SizedBox.shrink();
+    // Hodnota mimo nabídku (pobočka bez motorek) by DropdownButton shodila.
+    final safeValue = branches.any((b) => b['id'] == value) ? value : null;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: MotoGoColors.g200, width: 1.5)),
+        child: DropdownButtonHideUnderline(child: DropdownButton<String?>(
+          value: safeValue, isExpanded: true, dropdownColor: Colors.white,
+          icon: const Icon(Icons.keyboard_arrow_down, color: MotoGoColors.g400),
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: MotoGoColors.black),
+          items: [
+            DropdownMenuItem(value: null, child: Row(children: [
+              const Icon(Icons.store_outlined, size: 16, color: MotoGoColors.g400),
+              const SizedBox(width: 6),
+              Text(t(context).tr('filtersAllBranches')),
+            ])),
+            ...branches.map((b) => DropdownMenuItem(value: b['id'] as String,
+              child: Text(b['name'] as String, overflow: TextOverflow.ellipsis))),
+          ],
+          onChanged: onChanged,
+        )),
+      ),
     );
   }
 }

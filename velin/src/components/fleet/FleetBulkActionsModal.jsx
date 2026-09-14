@@ -70,7 +70,7 @@ export default function FleetBulkActionsModal({ open, onClose, selectedMotos, on
   async function handleMigrate() {
     if (!targetBranch) { setError('Vyber pobočku'); return }
     const target = branches.find(b => b.id === targetBranch)
-    await run(`Přesunuto na ${target?.name}`, async () => {
+    await run(`Přesunuto na ${target?.name} · zákazníkům s rezervací byly vygenerovány nové kódy a znovu odeslány`, async () => {
       const { error: err } = await supabase.from('motorcycles').update({ branch_id: targetBranch }).in('id', ids)
       if (err) throw err
       await logAudit('motorcycle_bulk_migrated', { count: ids.length, to_branch: target?.name, ids })

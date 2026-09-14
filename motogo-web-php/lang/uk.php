@@ -479,6 +479,8 @@ return [
     'rez.latePickupDiscount' => 'Знижка 50 % на 1-й день (пізнє отримання)',
     'rez.motoSelect.label' => 'Конкретна модель або будь-який мотоцикл',
     'rez.motoSelect.any' => 'будь-який доступний мотоцикл у мою дату',
+    'rez.branchSelect.label' => 'Філія',
+    'rez.branchSelect.any' => 'Усі філії',
 
     // ===== Rezervace — voucher messages =====
     'rez.voucher.enter' => 'Введіть код',
@@ -980,6 +982,8 @@ return [
     'editRez.swap.pickDate' => 'Дата заміни',
     'editRez.swap.pickTime' => 'Час заміни',
     'editRez.swap.pickMoto' => 'Виберіть новий мотоцикл',
+    'editRez.moto.branchLabel' => 'Філія',
+    'editRez.moto.branchAll' => 'Усі філії',
     'editRez.swap.confirm' => 'Замінити на цей',
     'editRez.swap.confirming' => 'Замінюю…',
     'editRez.swap.success' => 'Готово! Від {date} ви їдете на новому мотоциклі.',
@@ -1287,6 +1291,8 @@ return [
     'filters.licenseAny' => 'Посвідчення водія',
     'filters.licenseNone' => 'Без посвідчення (дитячі)',
     'filters.licenseGroup' => 'Категорія {group}',
+    'filters.branch' => 'Філія',
+    'filters.branchAll' => 'Філія — усі',
     'filters.power' => 'Потужність',
     'filters.power.aria.min' => 'Мінімальна потужність у кВт',
     'filters.power.aria.max' => 'Максимальна потужність у кВт',

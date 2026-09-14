@@ -267,20 +267,24 @@ export default function ServiceTab({ motoId, motoMileage, purchaseMileage, track
               const endDate = fmtDate(l.completed_date)
               const km = l.km_at_service || l.mileage_at_service
               const isCompleted = !!l.completed_date || l.status === 'completed'
+              // Budoucí service_date = servis teprve naplánovaný (motorka zůstává aktivní)
+              const todayIso = new Date().toISOString().slice(0, 10)
+              const isPlanned = !isCompleted && !!l.service_date && String(l.service_date).slice(0, 10) > todayIso
+              const plannedEnd = !isCompleted && l.scheduled_date ? fmtDate(l.scheduled_date) : null
               return (
                 <div key={l.id} className="p-3 rounded-lg" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
                   <div className="flex items-center gap-3 mb-2">
                     <span className="font-extrabold text-sm" style={{ color: '#0f1a14' }}>{{ regular: 'Pravidelný servis', extraordinary: 'Mimořádný servis', repair: 'Oprava' }[l.service_type] || l.type || 'Servis'}</span>
                     <span className="text-sm font-bold" style={{
                       padding: '2px 8px', borderRadius: 6,
-                      background: isCompleted ? '#dcfce7' : '#fef3c7',
-                      color: isCompleted ? '#166534' : '#b45309',
-                    }}>{isCompleted ? 'Dokončeno' : 'V servisu'}</span>
+                      background: isCompleted ? '#dcfce7' : isPlanned ? '#eef2ff' : '#fef3c7',
+                      color: isCompleted ? '#166534' : isPlanned ? '#4f46e5' : '#b45309',
+                    }}>{isCompleted ? 'Dokončeno' : isPlanned ? 'Naplánováno' : 'V servisu'}</span>
                     {(l.cost || l.total_cost) && <span className="text-sm font-bold ml-auto">{(l.cost || l.total_cost).toLocaleString('cs-CZ')} Kč</span>}
                   </div>
                   <div className="grid grid-cols-3 gap-2 text-sm mb-2" style={{ color: '#1a2e22' }}>
                     <div><span className="font-bold">Do servisu:</span> {startDate || '—'}</div>
-                    <div><span className="font-bold">Ze servisu:</span> {endDate || '—'}</div>
+                    <div><span className="font-bold">Ze servisu:</span> {endDate || (plannedEnd ? `plán ${plannedEnd}` : '—')}</div>
                     <div><span className="font-bold">Km:</span> {km ? km.toLocaleString('cs-CZ') : '—'}</div>
                   </div>
                   {l.performed_by && <div className="text-sm mb-1" style={{ color: '#1a2e22' }}><span className="font-bold">Technik:</span> {l.performed_by}</div>}

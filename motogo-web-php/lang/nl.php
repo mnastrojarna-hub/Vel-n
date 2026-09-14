@@ -345,6 +345,8 @@ return [
     'rez.latePickupDiscount' => '50% korting op de 1e dag (laat ophalen)',
     'rez.motoSelect.label' => 'Specifiek model of elke motor',
     'rez.motoSelect.any' => 'elke motor beschikbaar op mijn datums',
+    'rez.branchSelect.label' => 'Filiaal',
+    'rez.branchSelect.any' => 'Alle filialen',
 
     // ===== Reservering — voucher meldingen =====
     'rez.voucher.enter' => 'Voer een code in',
@@ -574,6 +576,8 @@ return [
     'filters.licenseAny' => 'Rijbewijs',
     'filters.licenseNone' => 'Zonder rijbewijs (kinderen)',
     'filters.licenseGroup' => 'Klasse {group}',
+    'filters.branch' => 'Filiaal',
+    'filters.branchAll' => 'Filiaal — alle',
     'filters.power' => 'Vermogen',
     'filters.power.aria.min' => 'Minimaal vermogen in kW',
     'filters.power.aria.max' => 'Maximaal vermogen in kW',
@@ -1092,6 +1096,8 @@ return [
     'editRez.swap.pickDate' => 'Wisseldatum',
     'editRez.swap.pickTime' => 'Wisseltijd',
     'editRez.swap.pickMoto' => 'Kies de nieuwe motor',
+    'editRez.moto.branchLabel' => 'Filiaal',
+    'editRez.moto.branchAll' => 'Alle filialen',
     'editRez.swap.confirm' => 'Naar deze wisselen',
     'editRez.swap.confirming' => 'Wisselen…',
     'editRez.swap.success' => 'Klaar! Vanaf {date} rijd je op de nieuwe motor.',

@@ -107,7 +107,9 @@ export default function ServiceLogModal({ entry, onClose, onSaved }) {
       const finalCost = Number(form.cost) || calculatedCost || null
       const today = new Date().toISOString().slice(0, 10)
       const isNewService = !entry
-      const shouldSetMaintenance = form.status === 'in_service' && form.moto_id
+      // Motorku vyřadit JEN když servis začíná dnes nebo dřív — záznam s budoucím
+      // „Servis od" je naplánovaný (DB ho drží jako pending) a motorka zůstává aktivní.
+      const shouldSetMaintenance = form.status === 'in_service' && form.moto_id && (form.service_from || today) <= today
 
       if (isNewService && shouldSetMaintenance) {
         const { data: active } = await supabase.from('bookings').select('id, status, profiles(full_name)').eq('moto_id', form.moto_id).eq('status', 'active').gte('end_date', today)

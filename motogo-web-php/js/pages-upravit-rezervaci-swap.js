@@ -52,6 +52,7 @@
       '</div>' +
       '<p class="muted" style="font-size:.9em">' + MG.t('editRez.swap.priceNote') + '</p>' +
       '<h4 style="margin-top:16px">' + MG.t('editRez.swap.pickMoto') + '</h4>' +
+      '<div id="erez-swap-branch-wrap"></div>' +
       '<div id="erez-swap-motos" class="erez-moto-grid">' +
         '<div class="edit-rez-loading"><span class="spinner"></span> ' + MG.t('editRez.moto.loading') + '</div>' +
       '</div>';
@@ -70,7 +71,7 @@
       try {
         var res = await Promise.all([
           window.sb.from('motorcycles')
-            .select('id,model,brand,image_url,images,license_required,license_groups,engine_cc,power_kw,year')
+            .select('id,model,brand,image_url,images,license_required,license_groups,engine_cc,power_kw,year,branch_id,branches(name,city)')
             .in('status', ['active', 'maintenance']).order('model'),
           window.sb.from('profiles').select('license_group').eq('id', ER.user.id).maybeSingle()
         ]);
@@ -78,6 +79,14 @@
         var lic = (res[1] && res[1].data && res[1].data.license_group) || [];
 
         if (!motos.length) { grid.innerHTML = '<p class="muted">' + MG.t('editRez.swap.noOptions') + '</p>'; return; }
+
+        // Filtr dle pobočky — select se vykreslí jednou (přežije změnu data),
+        // karty nesou data-branch a po každém překreslení se filtr znovu aplikuje.
+        var branchWrap = document.getElementById('erez-swap-branch-wrap');
+        if (branchWrap && !branchWrap.innerHTML && typeof ER._branchPickHtml === 'function') {
+          branchWrap.innerHTML = ER._branchPickHtml('erez-swap-branch', motos);
+          ER._bindBranchPick('erez-swap-branch', grid);
+        }
 
         var withOcc = await Promise.all(motos.map(function (m) {
           return MG.fetchMotoBookings(m.id).then(function (occ) {
@@ -129,11 +138,12 @@
             ? '<button type="button" class="erez-moto-cta disabled" disabled>' + MG.t('editRez.moto.unavailable') + '</button>'
             : '<button type="button" class="erez-moto-cta" data-id="' + esc(m.id) + '" data-name="' + esc(name) + '">' + MG.t('editRez.swap.confirm') + '</button>';
 
-          return '<article class="erez-moto-card' + (disabled ? ' is-disabled' : '') + '">' +
+          return '<article class="erez-moto-card' + (disabled ? ' is-disabled' : '') + '" data-branch="' + esc(m.branch_id || '') + '">' +
             '<div class="erez-moto-hero">' + hero + pill + '</div>' +
             '<div class="erez-moto-meta"><h4>' + name + '</h4>' + specsHtml + reasonsHtml + cta + '</div>' +
             '</article>';
         }).join('');
+        if (typeof ER._applyBranchPick === 'function') ER._applyBranchPick('erez-swap-branch', grid);
 
         grid.querySelectorAll('.erez-moto-cta:not(.disabled)').forEach(function (btn) {
           btn.addEventListener('click', async function () {

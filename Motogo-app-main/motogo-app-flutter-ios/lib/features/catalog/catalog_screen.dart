@@ -134,6 +134,43 @@ class CatalogScreen extends ConsumerWidget {
                       ),
                     ),
                   ),
+                  const SizedBox(width: 8),
+                  // Branch (pobočka) — stejný filtr jako v hledání (/search)
+                  Expanded(
+                    child: Builder(builder: (context) {
+                      final branches = ref.watch(branchesProvider);
+                      // Hodnota mimo nabídku (ještě nenačteno) by DropdownButton shodila.
+                      final branchValue = branches.any((b) => b['id'] == filter.branch) ? filter.branch : null;
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(MotoGoTheme.radiusSm),
+                          border: Border.all(color: MotoGoColors.g200),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String?>(
+                            value: branchValue,
+                            isExpanded: true,
+                            dropdownColor: Colors.white,
+                            hint: Text(t(context).tr('filtersAllBranches'), style: const TextStyle(fontSize: 12)),
+                            style: const TextStyle(fontSize: 12, color: MotoGoColors.black),
+                            items: [
+                              DropdownMenuItem(value: null, child: Text(t(context).tr('filtersAllBranches'))),
+                              ...branches.map((b) => DropdownMenuItem(
+                                value: b['id'] as String,
+                                child: Text(b['name'] as String, overflow: TextOverflow.ellipsis),
+                              )),
+                            ],
+                            onChanged: (v) {
+                              ref.read(catalogFilterProvider.notifier).state =
+                                  filter.copyWith(branch: () => v);
+                            },
+                          ),
+                        ),
+                      );
+                    }),
+                  ),
                 ],
               ),
             ),

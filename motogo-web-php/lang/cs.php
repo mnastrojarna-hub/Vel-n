@@ -480,6 +480,8 @@ return [
     'rez.latePickupDiscount' => 'Sleva 50 % na 1. den (pozdní vyzvednutí)',
     'rez.motoSelect.label' => 'Konkrétní model nebo libovolná motorka',
     'rez.motoSelect.any' => 'libovolná dostupná motorka v mém termínu',
+    'rez.branchSelect.label' => 'Pobočka',
+    'rez.branchSelect.any' => 'Všechny pobočky',
 
     // ===== Rezervace — voucher messages =====
     'rez.voucher.enter' => 'Zadejte kód',
@@ -983,6 +985,8 @@ return [
     'editRez.swap.pickDate' => 'Datum výměny',
     'editRez.swap.pickTime' => 'Čas výměny',
     'editRez.swap.pickMoto' => 'Vyberte novou motorku',
+    'editRez.moto.branchLabel' => 'Pobočka',
+    'editRez.moto.branchAll' => 'Všechny pobočky',
     'editRez.swap.confirm' => 'Vyměnit za tuto',
     'editRez.swap.confirming' => 'Vyměňuji…',
     'editRez.swap.success' => 'Hotovo! Od {date} pojedete na nové motorce.',
@@ -1290,6 +1294,8 @@ return [
     'filters.licenseAny' => 'Řidičský průkaz',
     'filters.licenseNone' => 'Bez ŘP (dětské)',
     'filters.licenseGroup' => 'Skupina {group}',
+    'filters.branch' => 'Pobočka',
+    'filters.branchAll' => 'Pobočka — všechny',
     'filters.power' => 'Výkon',
     'filters.power.aria.min' => 'Minimální výkon v kW',
     'filters.power.aria.max' => 'Maximální výkon v kW',
