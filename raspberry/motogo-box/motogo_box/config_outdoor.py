@@ -8,6 +8,12 @@ Je to top-level klíč `outdoor` v `branch_kiosk_config.hardware` (Velín) i v l
       light: { dev: wav617b, coil: 0 }    # venkovní osvětlení = relé Waveshare
       audio: { out: out9 }                # jen multi: výstup venku (+ volitelně dev/coil = enable relé zesilovače)
       light_after_close_s: null           # doběh světla; null/chybí = timings.light_after_close_s
+      light_mode: always                  # auto (výchozí, dle relací) | always (NONSTOP) | off (trvale zhasnuto)
+      music_mode: session                 # session (výchozí, při kódu) | always (nonstop) | off (venku nehraje)
+
+Venek se nastavuje JINAK než kóje a šatna (zadání uživatele 2026-09-14): jeho světlo má jet nonstop,
+zatímco v kójích svítí jen během relace. Proto `light_mode`/`music_mode` — kóje a šatna dál používají
+`timings` (`light_after_close_s`, `music_after_close_s`), venek je na nich nezávislý.
 
 Legacy alias `audio.channels.outdoor {out, trigger: any, dev?, coil?}` zůstává podporovaný —
 `apply_outdoor` ho doplní oběma směry, takže `build_audio`, `validate_audio`, `audio_signature`
@@ -26,6 +32,27 @@ from .models import HwRef
 WARN = "Upozornění:"
 CHANNEL = "outdoor"          # název kanálu bez dveří v `audio.channels` (legacy alias venku)
 
+# Režim venkovního SVĚTLA (`outdoor.light_mode`, 2026-09-14) — venek se nastavuje jinak než kóje a šatna:
+#   auto   = dosavadní chování: svítí od první relace do `light_after_close_s` po poslední,
+#   always = NONSTOP, nezávisle na relacích (venkovní prostor u pobočky svítí pořád),
+#   off    = trvale zhasnuto (sezóna, porucha svítidla) — relace světlo nerozsvítí.
+LIGHT_AUTO, LIGHT_ALWAYS, LIGHT_OFF = "auto", "always", "off"
+LIGHT_MODES = (LIGHT_AUTO, LIGHT_ALWAYS, LIGHT_OFF)
+
+# Režim HUDBY venku (`outdoor.music_mode`, 2026-09-14) — připraveno, než se rozhodne, jak má venek hrát:
+#   session = dosavadní chování: hraje při jakémkoli zadaném kódu, doběh `music_after_close_s`,
+#   always  = nonstop (otevírací doba pobočky se řeší vypnutím/zapnutím ve Velíně),
+#   off     = venku nehraje nic (výstup zůstane nastavený, jen se nepoužije).
+# Hudba venku funguje jen v režimu audio `multi` (v selectoru hraje vždy jen jedna kóje).
+MUSIC_SESSION, MUSIC_ALWAYS, MUSIC_OFF = "session", "always", "off"
+MUSIC_MODES = (MUSIC_SESSION, MUSIC_ALWAYS, MUSIC_OFF)
+
+
+def _mode(value: Any, allowed: tuple[str, ...], default: str) -> str:
+    """Hodnota režimu z JSON; cokoli neznámého (i None) → `default` (jednotka nikdy nespadne na překlepu)."""
+    text = str(value or "").strip().lower()
+    return text if text in allowed else default
+
 
 @dataclass
 class OutdoorCfg:
@@ -36,11 +63,23 @@ class OutdoorCfg:
     audio: HwRef | None = None          # volitelné enable relé zesilovače (multi)
     audio_out: str | None = None        # výstup z audio.outputs (multi)
     light_after_close_s: int | None = None
+    light_mode: str = LIGHT_AUTO        # auto | always | off (viz LIGHT_MODES)
+    music_mode: str = MUSIC_SESSION     # session | always | off (viz MUSIC_MODES)
     present: bool = False
 
     @property
     def configured(self) -> bool:
         return self.light is not None or bool(self.audio_out)
+
+    @property
+    def light_always(self) -> bool:
+        """Světlo venku má svítit nonstop (bez ohledu na relace)."""
+        return self.light_mode == LIGHT_ALWAYS
+
+    @property
+    def light_disabled(self) -> bool:
+        """Světlo venku je trvale zhasnuté (ani relace ho nerozsvítí)."""
+        return self.light_mode == LIGHT_OFF
 
     @classmethod
     def from_dict(cls, d: Any) -> "OutdoorCfg":
@@ -52,7 +91,9 @@ class OutdoorCfg:
         return cls(zone=_int(d.get("zone")), light=HwRef.from_dict(d.get("light"), "coil"),
                    audio=HwRef.from_dict(audio, "coil"),
                    audio_out=str(out).strip() or None if out not in (None, "") else None,
-                   light_after_close_s=_int(d.get("light_after_close_s")), present=True)
+                   light_after_close_s=_int(d.get("light_after_close_s")),
+                   light_mode=_mode(d.get("light_mode"), LIGHT_MODES, LIGHT_AUTO),
+                   music_mode=_mode(d.get("music_mode"), MUSIC_MODES, MUSIC_SESSION), present=True)
 
     def to_dict(self) -> dict:
         """Kanonický tvar (bez None klíčů)."""
@@ -70,6 +111,10 @@ class OutdoorCfg:
             out["audio"] = audio
         if self.light_after_close_s is not None:
             out["light_after_close_s"] = self.light_after_close_s
+        if self.light_mode != LIGHT_AUTO:          # výchozí režimy se do mapy nepíšou (kanonický tvar zůstává krátký)
+            out["light_mode"] = self.light_mode
+        if self.music_mode != MUSIC_SESSION:
+            out["music_mode"] = self.music_mode
         return out
 
     def light_ref(self) -> str | None:
@@ -169,7 +214,16 @@ def validate_outdoor(hw: Any, channel_limits: dict | None = None,
         problems.append(warning)
     if o.present and not o.configured:
         problems.append(f"{WARN} venek nemá světlo ani audio výstup.")
+    # Režimy venku (2026-09-14) — neblokující: jednotka běží dál, jen upozorní, že nastavení nic nedělá.
+    if o.light_mode != LIGHT_AUTO and o.light is None:
+        problems.append(f"{WARN} venek: režim světla '{o.light_mode}' nemá co ovládat — venek nemá relé světla.")
+    if o.light_mode == LIGHT_ALWAYS and o.light_after_close_s is not None:
+        problems.append(f"{WARN} venek: doběh světla se v režimu 'nonstop' nepoužije (světlo svítí trvale).")
+    if o.music_mode != MUSIC_SESSION and not o.audio_out:
+        problems.append(f"{WARN} venek: režim hudby '{o.music_mode}' nemá co přehrávat — venek nemá audio výstup.")
     return problems
 
 
-__all__ = ["OutdoorCfg", "apply_outdoor", "validate_outdoor", "legacy_channel", "alias_conflict", "CHANNEL"]
+__all__ = ["OutdoorCfg", "apply_outdoor", "validate_outdoor", "legacy_channel", "alias_conflict", "CHANNEL",
+           "LIGHT_MODES", "LIGHT_AUTO", "LIGHT_ALWAYS", "LIGHT_OFF",
+           "MUSIC_MODES", "MUSIC_SESSION", "MUSIC_ALWAYS", "MUSIC_OFF"]

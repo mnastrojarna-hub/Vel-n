@@ -170,6 +170,10 @@ MG.i18n = (function () {
     if (code === lang && !silent) return;
     lang = code;
     document.documentElement.lang = code;
+    // Změna `lang` je přesně to, co prohlížeči nabídne překlad stránky. Kiosk má vlastní překlady
+    // (lišta jazyků nahoře), takže překladač musí zůstat vypnutý — atribut jistíme při každém přepnutí.
+    document.documentElement.setAttribute('translate', 'no');
+    document.documentElement.classList.add('notranslate');
     applyStatic();
     if (!silent) listeners.forEach((fn) => { try { fn(code); } catch (e) { /* noop */ } });
   }
@@ -207,7 +211,17 @@ MG.i18n = (function () {
     door: (c) => t(c === true ? 'closed' : c === false ? 'open' : 'unknown'),
     /** Signalizace zóny pro servisní panel (technik, česky) — panel.js volá MG.i18n.signal(z.signal). */
     signal: (s) => SIGNAL[String(s || '').toLowerCase()] || s || '—',
-    zoneName: (z) => z.label || (z.kind === 'accessories' ? t('acc') : t('box', { n: z.box_number != null ? z.box_number : z.zone })),
+    /** Název zóny na displeji. Jednotka posílá `label` už složený (kontrakt §14) a vždy česky, takže
+        by v cizím jazyce zůstala česká „Kóje 3" / „Šatna". Když se `label` rovná názvu, který si jednotka
+        složila sama (viz Zone.display_name v models.py — včetně starších „Oblečení"), přeložíme ho z `kind`
+        a `box_number`; vlastní popis dveří z Velína se naopak nepřekládá a zobrazí se přesně tak, jak ho zadal. */
+    zoneName: (z) => {
+      const n = z.box_number != null ? z.box_number : z.zone;
+      const generated = [z.kind === 'accessories' ? 'Šatna' : '', z.kind === 'accessories' ? 'Oblečení' : '',
+        z.box_number != null ? 'Kóje ' + z.box_number : '', 'Zóna ' + z.zone];
+      const custom = z.label && generated.indexOf(z.label) === -1 ? z.label : '';
+      return custom || (z.kind === 'accessories' ? t('acc') : t('box', { n: n }));
+    },
     errorTitle: (e) => sub('et', e === 'unauthorized' || e === 'branch_not_found' ? 'invalid_code' : e) || sub('et', 'unavailable'),
     errorSubtitle: (e, lockedUntil) => {
       if (e === 'locked') return lockedSubtitle(lockedUntil);

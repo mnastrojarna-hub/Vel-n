@@ -26,7 +26,7 @@ function outputsToRows(audio) {
 function outputUsage(doors, outdoor) {
   const use = {}
   const add = (o, who) => { const n = String(o ?? '').trim(); if (n) (use[n] = use[n] || []).push(who) }
-  ;(doors || []).forEach(d => add(d?.hw?.audio?.out, d.door_kind === 'accessories' ? 'oblečení' : `kóje #${d.box_number}`))
+  ;(doors || []).forEach(d => add(d?.hw?.audio?.out, d.door_kind === 'accessories' ? 'šatna' : `kóje ${d.box_number}`))
   add(outdoor, 'venek')
   return use
 }

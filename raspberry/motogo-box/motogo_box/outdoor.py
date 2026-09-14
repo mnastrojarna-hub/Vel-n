@@ -16,7 +16,7 @@ import logging
 import time
 from typing import Any, Callable
 
-from .config_outdoor import CHANNEL, OutdoorCfg
+from .config_outdoor import CHANNEL, LIGHT_AUTO, MUSIC_ALWAYS, MUSIC_OFF, MUSIC_SESSION, OutdoorCfg
 
 log = logging.getLogger("motogo.outdoor")
 
@@ -79,8 +79,14 @@ class OutdoorController:
     # ─── řízení z tick smyčky ────────────────────────────────────────────────
     async def sync(self, active_zones: list[int]) -> None:
         """Relace běží → světlo svítí (ruční režim se ruší); jinak doběh a zhasnout.
-        Ruční režim: když `set_light` na relé selhalo, `sync` stav dorovná (backoff `RETRY_S` v `_set`)."""
+        Ruční režim: když `set_light` na relé selhalo, `sync` stav dorovná (backoff `RETRY_S` v `_set`).
+        Režimy `light_mode`/`music_mode` (2026-09-14) relace neřeší vůbec — viz `_sync_light_mode`
+        a `_sync_music_mode`; venek tak může svítit nonstop, zatímco v kójích se světlo řídí relací."""
         if not self.cfg.configured:
+            return
+        await self._sync_music_mode()
+        if self.cfg.light_mode != LIGHT_AUTO:
+            await self._sync_light_mode(active_zones)
             return
         if active_zones:
             self.active, self.manual, self.off_at = True, None, None
@@ -100,8 +106,37 @@ class OutdoorController:
         elif now >= self.off_at:
             await self._set(False)
 
+    async def _sync_light_mode(self, active_zones: list[int]) -> None:
+        """Režim `always` (nonstop) / `off` (trvale zhasnuto): relace ani doběh se neřeší.
+        Ruční příkaz z Velína/servisu má i tady přednost (technik smí venku zhasnout při údržbě) —
+        drží, dokud ho někdo nezruší nebo jednotka nerestartuje. `_set` si sám hlídá backoff po chybě relé."""
+        self.active = bool(active_zones)
+        self.off_at = None
+        want = self.manual if self.manual is not None else self.cfg.light_always
+        if self.light_on != want:
+            await self._set(want)
+
+    async def _sync_music_mode(self) -> None:
+        """Hudba venku mimo výchozí režim `session`. `always` = drží hrát i bez relace (kanál se pouští
+        s `hold=True`, takže ho `AudioMulti.sync_channels` nezastaví); `off` = venku nikdy nehraje.
+        Relace `manual` kanálu ruší (`sync_channels`), proto se režim vyhodnocuje při každém ticku.
+        V režimu audio `selector` kanály bez dveří neexistují — `play_channel`/`stop_channel` vrací False."""
+        mode = self.cfg.music_mode
+        if mode == MUSIC_SESSION or not self.cfg.audio_out:
+            return
+        playing = CHANNEL in self._playing()
+        if mode == MUSIC_ALWAYS and not playing:
+            play = getattr(self.audio, "play_channel", None)
+            if play is not None:
+                await play(CHANNEL, hold=True)
+        elif mode == MUSIC_OFF and playing:
+            stop = getattr(self.audio, "stop_channel", None)
+            if stop is not None:
+                await stop(CHANNEL)
+
     async def set_light(self, on: bool) -> bool:
-        """Ruční z Velína/servisu: True drží rozsvíceno, False zhasne do další relace."""
+        """Ruční z Velína/servisu: True drží rozsvíceno, False zhasne do další relace.
+        V režimu `always`/`off` drží ruční stav, dokud ho někdo nezruší (relace ho neruší)."""
         if not self.cfg.configured or self.cfg.light is None:
             return False
         self.manual, self.off_at = on, None
@@ -115,8 +150,12 @@ class OutdoorController:
             await self._set(True, force=True)
 
     async def all_off(self) -> None:
-        """Bezpečné vypnutí (start, all_off příkaz): světlo off, ruční režim i doběh zrušen."""
-        self.manual, self.off_at, self.active = None, None, False
+        """Bezpečné vypnutí (start, all_off příkaz): světlo off, ruční režim i doběh zrušen.
+        V režimu `always` (nonstop) by ho další tick za 250 ms hned rozsvítil a tlačítko „Vše vypnout“
+        by venku nic neudělalo — proto se tam uloží ruční vypnutí (`manual=False`), které drží do dalšího
+        `light_on` z Velína/servisu nebo do restartu jednotky (po startu platí zase nastavený režim)."""
+        self.manual = False if self.cfg.light_always else None
+        self.off_at, self.active = None, False
         if self.cfg.light is not None and self.light_on:
             await self._set(False, force=True)
         self.light_on = False
@@ -186,7 +225,8 @@ class OutdoorController:
         return {"zone": cfg.zone, "configured": cfg.configured, "light": self.light_on, "active": self.active,
                 "manual": self.manual, "audio_out": cfg.audio_out,
                 "music": CHANNEL in (getattr(self.audio, "channels_playing", None) or []),
-                "light_ref": cfg.light_ref(), "off_in_s": off_in}
+                "light_ref": cfg.light_ref(), "off_in_s": off_in,
+                "light_mode": cfg.light_mode, "music_mode": cfg.music_mode}
 
 
 __all__ = ["OutdoorController", "RETRY_S"]

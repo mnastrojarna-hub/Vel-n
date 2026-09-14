@@ -31,6 +31,8 @@ REF_FILE="/var/lib/motogo/update_ref"   # zapisuje controller (uživatel motogo)
 POLKIT_RULE="50-motogo-kiosk.rules"
 APT_CONF="52motogo-unattended"
 APT_TIMER_DIR="/etc/systemd/system/apt-daily-upgrade.timer.d"
+CHROMIUM_POLICY_SRC="systemd/motogo-chromium-policy.json"
+CHROMIUM_POLICY_DIRS=(/etc/chromium/policies/managed /etc/chromium-browser/policies/managed /etc/opt/chrome/policies/managed)
 SRC="${1:-}"
 SERVICES="motogo-controller motogo-health"
 APP_USER="motogo"
@@ -193,6 +195,17 @@ if [[ -f "$APP_DIR/systemd/$POLKIT_RULE" ]] && ! cmp -s "$APP_DIR/systemd/$POLKI
   mkdir -p /etc/polkit-1/rules.d
   install -m 644 -o root -g root "$APP_DIR/systemd/$POLKIT_RULE" "/etc/polkit-1/rules.d/$POLKIT_RULE"
   log "aktualizováno polkit pravidlo $POLKIT_RULE"
+fi
+# Politika Chromia (TranslateEnabled=false — nabídka překladu se na displeji nikdy nesmí objevit).
+# Dorovná i pobočky nainstalované dřív, než politika existovala — proto v update.sh, ne jen v install.sh.
+if [[ -f "$APP_DIR/$CHROMIUM_POLICY_SRC" ]]; then
+  for pol_dir in "${CHROMIUM_POLICY_DIRS[@]}"; do
+    if ! cmp -s "$APP_DIR/$CHROMIUM_POLICY_SRC" "$pol_dir/motogo-kiosk.json"; then
+      mkdir -p "$pol_dir"
+      install -m 644 -o root -g root "$APP_DIR/$CHROMIUM_POLICY_SRC" "$pol_dir/motogo-kiosk.json"
+      log "aktualizována politika Chromia $pol_dir/motogo-kiosk.json (bez nabídky překladu)"
+    fi
+  done
 fi
 # unattended-upgrades (jen Debian security, v noci, bez restartu) + drop-in timeru — jako polkit: cmp + install
 if [[ -f "$APP_DIR/systemd/$APT_CONF" ]] && ! cmp -s "$APP_DIR/systemd/$APT_CONF" "/etc/apt/apt.conf.d/$APT_CONF"; then

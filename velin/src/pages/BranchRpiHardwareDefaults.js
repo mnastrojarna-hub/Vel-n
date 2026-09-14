@@ -114,48 +114,95 @@ export const ZONE_REFS = [
 ]
 
 // Popisy polí editoru (sekce → pole). type: int | float | bool | list | text
+// `hint` = vysvětlivka pro obsluhu Velína (bublina po najetí myší): CO to znamená, K ČEMU to slouží
+// a jaká je typická hodnota. Píše se lidsky, bez žargonu — nastavuje to i netechnický člověk.
+// Chování odpovídá jednotce: časování → zone.py / zone_access.py, polling → modbus.py a io_devices.py,
+// kontakty → io_devices.py, bezpečnost → controller_codes.py, audio → audio.py / audio_multi.py,
+// signalizace → shelly.py. Výchozí hodnoty jsou v BRNO_DEFAULT_HARDWARE výše (šablona Brno).
 export const HW_SECTIONS = [
-  { key: 'timings', title: 'Časování', fields: [
-    { key: 'lock_pulse_ms', label: 'Pulz zámku', unit: 'ms', type: 'int' },
-    { key: 'door_open_timeout_s', label: 'Timeout otevření dveří', unit: 's', type: 'int' },
-    { key: 'door_close_debounce_ms', label: 'Debounce zavření', unit: 'ms', type: 'int' },
-    { key: 'light_after_close_s', label: 'Světlo po zavření', unit: 's', type: 'int' },
-    { key: 'music_after_close_s', label: 'Hudba po zavření', unit: 's', type: 'int' },
-    { key: 'maximum_session_s', label: 'Max. délka relace', unit: 's', type: 'int' },
-    { key: 'forced_open_debounce_ms', label: 'Debounce násilného otevření', unit: 'ms', type: 'int' },
-    { key: 'pin_entry_timeout_s', label: 'Timeout zadávání PIN', unit: 's', type: 'int' },
-    { key: 'overtime_alert_minutes', label: 'Upozornění při překročení', unit: 'min, čárkami', type: 'list' },
+  { key: 'timings', title: 'Časování',
+    hint: 'Kdy se co stane od zadání kódu po zavření dveří. Platí pro kóje 1–7 i šatnu; venkovní prostor má vlastní režim v bloku „Venek“ níže.',
+    fields: [
+    { key: 'lock_pulse_ms', label: 'Pulz zámku', unit: 'ms', type: 'int',
+      hint: 'Jak dlouho dostane elektrický zámek proud, aby odjistil dveře. Je to krátký impulz — zámek pak zůstane odjištěný mechanicky, dokud zákazník neotevře. Příliš krátký pulz dveře neotevře, příliš dlouhý zbytečně hřeje cívku. Typicky 800 ms.' },
+    { key: 'door_open_timeout_s', label: 'Timeout otevření dveří', unit: 's', type: 'int',
+      hint: 'Kolik sekund má zákazník na to, aby po zadání kódu opravdu otevřel dveře. Když je neotevře, relace se zruší, světlo a hudba zhasnou a stejný kód lze použít znovu. Typicky 30 s.' },
+    { key: 'door_close_debounce_ms', label: 'Debounce zavření', unit: 'ms', type: 'int',
+      hint: 'Jak dlouho musí dveřní kontakt hlásit „zavřeno“ v kuse, aby to jednotka uznala. Brání tomu, aby zadrnčení dveří nebo zákmit kontaktu předčasně ukončily relaci. Typicky 1000 ms.' },
+    { key: 'light_after_close_s', label: 'Světlo po zavření', unit: 's', type: 'int',
+      hint: 'Za jak dlouho po zavření dveří zhasne světlo v kóji. Zákazník tak neodchází ze tmy. Typicky 30 s.' },
+    { key: 'music_after_close_s', label: 'Hudba po zavření', unit: 's', type: 'int',
+      hint: 'Za jak dlouho po zavření dveří ztichne hudba v kóji (pozvolna, ne rázem). Typicky 10 s.' },
+    { key: 'maximum_session_s', label: 'Max. délka relace', unit: 's', type: 'int',
+      hint: 'Jak dlouho smí být kóje otevřená, než to jednotka označí za překročený čas: hudba se vypne, zelená začne blikat, na displeji se objeví výzva k zavření a Velín dostane upozornění. Dveře se NEZAMKNOU. Typicky 600 s (10 min).' },
+    { key: 'forced_open_debounce_ms', label: 'Debounce násilného otevření', unit: 'ms', type: 'int',
+      hint: 'Jak dlouho musí být dveře otevřené BEZ zadaného kódu, aby jednotka vyhlásila poruchu „násilné otevření“. Krátká prodleva odfiltruje falešné poplachy z otřesů a zákmitů. Typicky 500 ms.' },
+    { key: 'pin_entry_timeout_s', label: 'Timeout zadávání PIN', unit: 's', type: 'int',
+      hint: 'Za jak dlouho se na displeji smaže rozepsaný kód, když zákazník přestane ťukat. Aby po odchozím zákazníkovi nezůstal na obrazovce půlka kódu. Typicky 20 s.' },
+    { key: 'overtime_alert_minutes', label: 'Upozornění při překročení', unit: 'min, čárkami', type: 'list',
+      hint: 'Po kolika minutách otevřených dveří se opakuje upozornění do Velína. Zadejte čísla oddělená čárkou, např. 10, 20, 30.' },
   ] },
-  { key: 'polling', title: 'Polling (Modbus)', fields: [
-    { key: 'door_input_poll_ms', label: 'Čtení kontaktů', unit: 'ms', type: 'int' },
-    { key: 'software_debounce_ms', label: 'SW debounce', unit: 'ms', type: 'int' },
-    { key: 'modbus_timeout_ms', label: 'Timeout Modbus', unit: 'ms', type: 'int' },
-    { key: 'retry_delays_ms', label: 'Prodlevy opakování', unit: 'ms, čárkami', type: 'list' },
-    { key: 'device_offline_after_failures', label: 'Offline po selháních', unit: '×', type: 'int' },
+  { key: 'polling', title: 'Polling (Modbus)',
+    hint: 'Jak často a jak trpělivě se jednotka ptá relé modulů Waveshare po síti LAN. Měňte jen při problémech se sítí — výchozí hodnoty jsou ověřené.',
+    fields: [
+    { key: 'door_input_poll_ms', label: 'Čtení kontaktů', unit: 'ms', type: 'int',
+      hint: 'Jak často jednotka čte stav dveřních kontaktů. Nižší číslo = rychlejší reakce na otevření, vyšší zátěž sítě. Typicky 100 ms.' },
+    { key: 'software_debounce_ms', label: 'SW debounce', unit: 'ms', type: 'int',
+      hint: 'Jak dlouho musí být nová hodnota kontaktu stabilní, než ji jednotka vezme vážně. Filtruje zákmity mechanického kontaktu. Typicky 300 ms.' },
+    { key: 'modbus_timeout_ms', label: 'Timeout Modbus', unit: 'ms', type: 'int',
+      hint: 'Jak dlouho jednotka čeká na odpověď relé modulu, než pokus prohlásí za neúspěšný. Typicky 500 ms.' },
+    { key: 'retry_delays_ms', label: 'Prodlevy opakování', unit: 'ms, čárkami', type: 'list',
+      hint: 'Po jakých prodlevách se zopakuje neúspěšný dotaz na relé modul. Počet čísel = počet opakování. Typicky 100, 250, 500.' },
+    { key: 'device_offline_after_failures', label: 'Offline po selháních', unit: '×', type: 'int',
+      hint: 'Po kolika neúspěšných pokusech za sebou se modul označí za nedostupný. Zóny na něm pak hlásí poruchu „I/O modul nedostupný“ a nejde je otevřít. Typicky 3.' },
   ] },
-  { key: 'contacts', title: 'Dveřní kontakty', fields: [
-    { key: 'closed_level', label: 'Úroveň vstupu při zavřených dveřích', unit: '0/1', type: 'int' },
+  { key: 'contacts', title: 'Dveřní kontakty',
+    hint: 'Jak jednotka pozná, že jsou dveře zavřené. Závisí na typu čidla (NC / NO) a na zapojení.',
+    fields: [
+    { key: 'closed_level', label: 'Úroveň vstupu při zavřených dveřích', unit: '0/1', type: 'int',
+      hint: 'Jakou hodnotu hlásí vstup modulu, když jsou dveře ZAVŘENÉ. Pro běžný NC kontakt je to 1. Když je to nastavené obráceně, jednotka považuje otevřené dveře za zavřené — ověřte na prázdné kóji (blok Diagnostika → HW test).' },
   ] },
-  { key: 'security', title: 'Bezpečnost (PIN)', fields: [
-    { key: 'maximum_failed_attempts', label: 'Max. neúspěšných pokusů', unit: '×', type: 'int' },
-    { key: 'attempt_window_minutes', label: 'Okno pokusů', unit: 'min', type: 'int' },
-    { key: 'lockout_minutes', label: 'Uzamčení po překročení', unit: 'min', type: 'int' },
-    { key: 'service_token_minutes', label: 'Platnost servisního přístupu', unit: 'min', type: 'int' },
+  { key: 'security', title: 'Bezpečnost (PIN)',
+    hint: 'Ochrana proti hádání kódů na displeji a platnost servisního přístupu.',
+    fields: [
+    { key: 'maximum_failed_attempts', label: 'Max. neúspěšných pokusů', unit: '×', type: 'int',
+      hint: 'Kolik špatných kódů po sobě smí kdokoli na displeji zadat, než se zadávání dočasně zablokuje. Typicky 5.' },
+    { key: 'attempt_window_minutes', label: 'Okno pokusů', unit: 'min', type: 'int',
+      hint: 'Za jak dlouhou dobu se neúspěšné pokusy počítají dohromady. Po uplynutí se počítadlo nuluje. Typicky 5 min.' },
+    { key: 'lockout_minutes', label: 'Uzamčení po překročení', unit: 'min', type: 'int',
+      hint: 'Jak dlouho displej po překročení počtu pokusů odmítá další kódy. Zákazník uvidí, za kolik minut to může zkusit znovu. Typicky 15 min.' },
+    { key: 'service_token_minutes', label: 'Platnost servisního přístupu', unit: 'min', type: 'int',
+      hint: 'Jak dlouho zůstane po zadání servisního hesla otevřený servisní panel na displeji, než se sám zamkne. Typicky 10 min.' },
   ] },
-  { key: 'audio', title: 'Audio', fields: [
-    { key: 'volume', label: 'Hlasitost', unit: '%', type: 'int' },
-    { key: 'fade_in_ms', label: 'Náběh hlasitosti', unit: 'ms', type: 'int' },
-    { key: 'fade_out_ms', label: 'Doběh hlasitosti', unit: 'ms', type: 'int' },
-    { key: 'selector_settle_ms', label: 'Prodleva po vypnutí relé', unit: 'ms', type: 'int' },
-    { key: 'selector_on_ms', label: 'Prodleva po sepnutí relé', unit: 'ms', type: 'int' },
-    { key: 'device', label: 'Zvukové zařízení (mpv)', unit: 'prázdné = výchozí', type: 'text' },
-    { key: 'shuffle', label: 'Náhodné pořadí skladeb', type: 'bool' },
+  { key: 'audio', title: 'Audio',
+    hint: 'Hlasitost a chování přehrávání. Skladby se nahrávají v bloku „Hudba pobočky“; výstupy a režim (selector / multi) nastavíte v sekci „Audio — režim, výstupy“ níže.',
+    fields: [
+    { key: 'volume', label: 'Hlasitost', unit: '%', type: 'int',
+      hint: 'Hlasitost přehrávače na jednotce v procentech (0–100). Celkovou hlasitost dolaďte i na zesilovači. Typicky 70 %.' },
+    { key: 'fade_in_ms', label: 'Náběh hlasitosti', unit: 'ms', type: 'int',
+      hint: 'Jak dlouho hudba po zadání kódu plynule naběhne z ticha na nastavenou hlasitost, aby zákazníka nevylekala. Typicky 1500 ms.' },
+    { key: 'fade_out_ms', label: 'Doběh hlasitosti', unit: 'ms', type: 'int',
+      hint: 'Jak dlouho hudba na konci plynule ztichne místo rázového vypnutí. Typicky 500 ms.' },
+    { key: 'selector_settle_ms', label: 'Prodleva po vypnutí relé', unit: 'ms', type: 'int',
+      hint: 'Jen režim „selector“ (jeden zesilovač + přepínací relé): jak dlouho se počká po rozepnutí všech audio relé, než se sepne relé nové kóje. Zabrání lupnutí a sepnutí dvou reproduktorů naráz. Typicky 200 ms.' },
+    { key: 'selector_on_ms', label: 'Prodleva po sepnutí relé', unit: 'ms', type: 'int',
+      hint: 'Jen režim „selector“: jak dlouho se počká po sepnutí relé kóje, než se spustí přehrávání. Typicky 100 ms.' },
+    { key: 'device', label: 'Zvukové zařízení (mpv)', unit: 'prázdné = výchozí', type: 'text',
+      hint: 'Jen režim „selector“: jméno zvukové karty pro přehrávač, např. „alsa/plughw:CARD=Box1“. Seznam získáte na jednotce příkazem „aplay -L“. Prázdné = výchozí výstup systému (na Raspberry je to HDMI — pak z reproduktorů nic nehraje). V režimu „multi“ se zařízení nastavuje u každého výstupu zvlášť.' },
+    { key: 'shuffle', label: 'Náhodné pořadí skladeb', type: 'bool',
+      hint: 'Zapnuto = skladby se přehrávají zamíchaně, takže zákazník neslyší pořád stejnou písničku jako první. Vypnuto = hraje se v pořadí nastaveném v bloku „Hudba pobočky“.' },
   ] },
-  { key: 'signal', title: 'Signalizace (Shelly)', fields: [
-    { key: 'brightness', label: 'Jas', unit: '%', type: 'int' },
-    { key: 'blink_ms', label: 'Perioda blikání', unit: 'ms', type: 'int' },
-    { key: 'pulse_ms', label: 'Perioda pulzování', unit: 'ms', type: 'int' },
-    { key: 'transition_s', label: 'Přechod', unit: 's', type: 'float' },
+  { key: 'signal', title: 'Signalizace (Shelly)',
+    hint: 'Barevná světla u kójí (Shelly RGBWW): červená = zamčeno, zelená = otevřeno / probíhá relace, blikání = porucha nebo překročený čas.',
+    fields: [
+    { key: 'brightness', label: 'Jas', unit: '%', type: 'int',
+      hint: 'Jas signalizačních světel v procentech (0–100). Ve tmavé hale stačí méně, na přímém světle dejte 100 %.' },
+    { key: 'blink_ms', label: 'Perioda blikání', unit: 'ms', type: 'int',
+      hint: 'Jak rychle bliká výstražná signalizace (porucha, obě barvy). Nižší číslo = rychlejší blikání. Typicky 500 ms.' },
+    { key: 'pulse_ms', label: 'Perioda pulzování', unit: 'ms', type: 'int',
+      hint: 'Jak rychle pulzuje zelená při překročeném čase otevření (plynulé zesilování a zeslabování). Typicky 1500 ms.' },
+    { key: 'transition_s', label: 'Přechod', unit: 's', type: 'float',
+      hint: 'Jak dlouho trvá plynulý přechod mezi barvami, aby světlo neskákalo skokově. Typicky 0,2 s.' },
   ] },
 ]
 
@@ -262,7 +309,7 @@ export function findDuplicateZones(hwByDoor, outdoorZone) {
   return new Set([...counts.entries()].filter(([, c]) => c > 1).map(([n]) => n))
 }
 
-// Šablona: číslo zóny pro dveře oblečení = nejvyšší zóna šablony, kterou nezabírá žádná kóje (null = žádná volná)
+// Šablona: číslo zóny pro dveře šatny = nejvyšší zóna šablony, kterou nezabírá žádná kóje (null = žádná volná)
 export function pickAccessoriesZone(usedZones, template = BRNO_DEFAULT_ZONES) {
   const used = new Set([...usedZones].map(n => parseInt(n, 10)))
   const free = template.map(z => z.zone).filter(n => !used.has(n))

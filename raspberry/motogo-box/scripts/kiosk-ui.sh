@@ -49,6 +49,18 @@ if [[ -f "$PROFILE/Default/Preferences" ]]; then
     "$PROFILE/Default/Preferences" 2>/dev/null || true
 fi
 
+# ── překladač VYPNUTÝ (3. vrstva) ─────────────────────────────────────────────
+# Bublina „Přeložit tuto stránku?“ v pravém horním rohu se na displeji NESMÍ objevit: přeložila by
+# vlastní texty kiosku (i18n.js má 8 jazyků v liště) a na dotykovém displeji to nejde vzít zpět.
+# Vrstvy: 1) politika /etc/chromium/policies/managed/motogo-kiosk.json (install.sh/update.sh, nejsilnější),
+# 2) meta notranslate + translate="no" v index.html, 3) tyto přepínače + Preferences profilu níže.
+# Preferences se sází jen do NOVÉHO profilu (jinak by přepsal stav po pádu opravený výše).
+if [[ ! -f "$PROFILE/Default/Preferences" ]]; then
+  mkdir -p "$PROFILE/Default"
+  printf '%s' '{"translate":{"enabled":false},"translate_blocked_languages":["cs","en","de","es","fr","nl","pl","uk"]}' \
+    > "$PROFILE/Default/Preferences" 2>/dev/null || true
+fi
+
 log "spouštím cage + $BROWSER → $URL"
 exec cage -- "$BROWSER" \
   --kiosk \
@@ -64,6 +76,11 @@ exec cage -- "$BROWSER" \
   --autoplay-policy=no-user-gesture-required \
   --user-data-dir="$PROFILE" \
   --no-first-run \
-  --disable-features=TranslateUI \
+  --no-default-browser-check \
+  --disable-features=Translate,TranslateUI,TranslateSubFrames \
+  --disable-translate \
+  --disable-translate-new-ux \
+  --lang=cs \
+  --accept-lang=cs \
   --password-store=basic \
   "$URL"

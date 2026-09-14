@@ -106,4 +106,7 @@ outdoor:
   zone: 9                             # popisné číslo pro Velín/diagnostiku/příkazy; NESMÍ kolidovat s číslem zóny dveří
   light: { dev: wav617b, coil: 0 }    # venkovní osvětlení = relé Waveshare (WAV617-B R1)
   # audio: { out: out9 }              # jen multi: výstup venku (+ volitelně dev/coil = enable relé zesilovače); selector: nelze
-  light_after_close_s: null           # doběh venkovního světla; null/chybí = timings.light_after_close_s
+  light_after_close_s: null           # doběh venkovního světla; null/chybí = timings.light_after_close_s (jen v režimu auto)
+  # Venek se nastavuje JINAK než kóje 1–7 a šatna — ty se řídí `timings`, venek má vlastní režimy:
+  light_mode: auto                    # auto = svítí od zadání kódu, po doběhu zhasne | always = NONSTOP | off = trvale zhasnuto
+  music_mode: session                 # session = hraje při jakémkoli kódu | always = nonstop | off = venku nehraje nic

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Btn, Chip, Input, Select, Label } from './BranchRpiUi'
+import { Btn, Chip, Input, Select, Label, doorKindLabel } from './BranchRpiUi'
 import { DoorAudioCell } from './BranchRpiAudioHw'
 import {
   ZONE_REFS, audioMode, channelKey, findDuplicateChannels, findDuplicateZones, findDuplicateOutputs, roleTypeError, draftToHw, hwToDraft,
@@ -20,7 +20,7 @@ import { outdoorRefs } from './BranchRpiOutdoorHelpers'
 // upozorněním); světlo venku a číslo zóny venku platí v obou režimech (validate_outdoor).
 
 function doorTitle(d) {
-  return d.door_kind === 'accessories' ? 'Oblečení' : `Kóje #${d.box_number}`
+  return doorKindLabel(d)
 }
 
 function DoorHwEditor({ doors, devices, audio, outdoor, busy, onSaveDoor }) {
@@ -117,7 +117,7 @@ function DoorHwRow({ door, draft, devices, audio, devOptions, dupes, dupZones, d
           <Chip tone={configured ? 'gray' : isAcc ? 'red' : 'amber'}>{configured ? 'RPi mapa' : 'Bez mapy'}</Chip>
         </div>
         <Input label="Zóna" type="number" min={1} width={64} value={draft.zone} invalid={zoneBad || zoneDup}
-          title={zoneDup ? (zoneNo === outdoorZone ? `Zónu ${zoneNo} má venek — čísla zón musí být unikátní` : `Zónu ${zoneNo} mají i jiné dveře — čísla zón musí být unikátní`) : 'Číslo zóny (kóje = číslo boxu; oblečení = volné číslo)'}
+          title={zoneDup ? (zoneNo === outdoorZone ? `Zónu ${zoneNo} má venek — čísla zón musí být unikátní` : `Zónu ${zoneNo} mají i jiné dveře — čísla zón musí být unikátní`) : 'Číslo zóny (kóje = číslo boxu, např. 1–7; šatna = volné číslo, v šabloně 8). Podle něj jednotka pozná, který zámek, světlo a reproduktor k těmto dveřím patří.'}
           onChange={v => onPatch(p => ({ ...p, zone: v }))} />
         {ZONE_REFS.map(role => {
           const ref = draft[role.key] || { dev: '', [role.idx]: '' }
@@ -156,7 +156,7 @@ function DoorHwRow({ door, draft, devices, audio, devOptions, dupes, dupZones, d
       </div>
       {isAcc && !configured && (
         <div className="text-[11px] font-bold mt-1" style={{ color: '#dc2626' }}>
-          Skříň oblečení nemá HW zónu — kód k oblečení na displeji nebude fungovat (jednotka hlásí „relé pro tyto dveře není ve Velíně nastaveno“). Zadejte volné číslo zóny, zámek (WAV645) a kontakt (WAV617) a uložte.
+          Šatna nemá HW zónu — kód k výbavě na displeji nebude fungovat (jednotka hlásí „relé pro tyto dveře není ve Velíně nastaveno“). Zadejte volné číslo zóny, zámek (WAV645) a kontakt (WAV617) a uložte.
         </div>
       )}
       {msg && <div className="text-[11px] font-bold mt-1" style={{ color: msg.tone === 'red' ? '#dc2626' : msg.tone === 'amber' ? '#b45309' : '#1a8a18' }}>{msg.text}</div>}

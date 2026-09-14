@@ -40,9 +40,16 @@ Zóna 9 v šabloně Brno je **venek** — prostor před displejem + venkovní os
 `branch_doors`: bez zámku, dveřního kontaktu, signalizace, rezervací i dlaždice na displeji. Nastavuje se ve Velíně → Samoobsluha →
 hardware → blok **„Venek (zóna bez dveří) — venkovní osvětlení + hudba venku“** (sekce `outdoor` HW mapy: číslo zóny, relé světla
 Waveshare — v Brně WAV617-B R1, v režimu `multi` audio výstup + volitelné enable relé zesilovače, doběh světla; „Vymazat venek“ sekci
-odstraní). **Světlo** se rozsvítí při zadání jakéhokoli kódu (první relace) a zhasne `light_after_close_s` po skončení poslední relace
-(vlastní doběh venku má přednost před globálním); **hudba venku** hraje při jakémkoli kódu (jen režim `multi`, doběh
-`music_after_close_s`). Z Velína (dlaždice „Venek“ v živém stavu zón) lze světlo ručně rozsvítit (drží do vypnutí) / zhasnout (do
+odstraní). Ve VÝCHOZÍM nastavení se **světlo** rozsvítí při zadání jakéhokoli kódu (první relace) a zhasne `light_after_close_s`
+po skončení poslední relace (vlastní doběh venku má přednost před globálním); **hudba venku** hraje při jakémkoli kódu (jen režim
+`multi`, doběh `music_after_close_s`).
+
+**Režimy venku (2026-09-14):** venek se nastavuje JINAK než kóje 1–7 a šatna — ty se řídí společným časováním (sekce „Časování“),
+venek má v bloku „Venek“ vlastní dvojici přepínačů. **Venkovní světlo:** `Podle relací` (výchozí) \| **`NONSTOP`** (svítí pořád bez
+ohledu na zákazníky — pro venkovní prostor u pobočky; doběh se pak neuplatní) \| `Trvale zhasnuto` (nerozsvítí ani relace).
+**Hudba venku:** `Při zadání kódu` (výchozí) \| `NONSTOP` \| `Venku nehraje nic`. V HW mapě jde o klíče `outdoor.light_mode`
+(`auto`/`always`/`off`) a `outdoor.music_mode` (`session`/`always`/`off`); výchozí hodnoty se do mapy nezapisují. Ruční příkaz
+z Velína má přednost i v těchto režimech a drží do zrušení nebo restartu jednotky; „Vše vypnout“ venek zhasne i v režimu nonstop. Z Velína (dlaždice „Venek“ v živém stavu zón) lze světlo ručně rozsvítit (drží do vypnutí) / zhasnout (do
 další relace), hudbu spustit / zastavit a spustit test (světlo 1 s + tón 3 s; venek bez relé světla = jen tón; při běžící relaci
 jednotka test odmítne). Ruční příkaz světla jednotka při chybě relé neopakuje — Velín dostane `ok:false`, příkaz zopakovat (jen
 automatické přechody relace/doběh se po chybě zkoušejí znovu po 5 s). Stav:

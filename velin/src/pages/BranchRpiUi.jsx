@@ -19,6 +19,21 @@ function platformLabel(dev) {
   return p ? `Neznámá platforma (${p})` : ''
 }
 
+// ── Jednotné pojmenování zón (2026-09-14) ───────────────────────────────────
+// Samoobslužná pobočka: zóny 1–7 = kóje na motorku, zóna 8 = ŠATNA (dveře `door_kind='accessories'`),
+// zóna 9 = VENEK (nemá dveře — sekce hardware.outdoor). Stejné názvy musí být ve Velíně i na displeji
+// pobočky (motogo_box/models.py Zone.display_name, ui/i18n.js). `door_kind` v DB zůstává 'accessories' —
+// páruje se podle něj kód k výbavě, takže se mění VÝHRADNĚ zobrazovaný text.
+const ACCESSORIES_LABEL = 'Šatna'
+const OUTDOOR_LABEL = 'Venek'
+const isAccessoriesDoor = d => d?.door_kind === 'accessories'
+// Název kóje podle čísla boxu ('Kóje 3'); bez čísla jen 'Kóje'
+function boxLabel(n) { return n == null || n === '' ? 'Kóje' : `Kóje ${n}` }
+// Název typu dveří BEZ vlastního popisu — pro chipy a potvrzovací dialogy ('Šatna' / 'Kóje 3')
+function doorKindLabel(door) { return isAccessoriesDoor(door) ? ACCESSORIES_LABEL : boxLabel(door?.box_number) }
+// Název dveří pro seznamy a log: vlastní popis z Velína má přednost, jinak 'Šatna' / 'Kóje 3'
+function doorLabel(door) { return door ? (door.label || doorKindLabel(door)) : '—' }
+
 // ── Defenzivní vykreslení hodnot ze zařízení (status/report jsou JSON z jednotky — nevěřit tvaru) ──
 // txt: null → '—', objekt/pole → JSON, jinak text; num: konečné číslo nebo null; arr: pole nebo []
 const txt = v => (v == null ? '—' : typeof v === 'object' ? JSON.stringify(v) : String(v))
@@ -161,4 +176,5 @@ function formatAge(sec) {
 export {
   RpiSection, Btn, Chip, Label, Input, Select, Checkbox, TONES, formatUptime, ageSeconds, formatAge,
   ErrorBoundary, txt, num, arr, isRpiDevice, isTabletDevice, platformLabel,
+  ACCESSORIES_LABEL, OUTDOOR_LABEL, isAccessoriesDoor, boxLabel, doorKindLabel, doorLabel,
 }

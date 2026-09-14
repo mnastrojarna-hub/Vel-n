@@ -150,6 +150,11 @@ class ZoneHw:
         return out
 
 
+# Zóna s výbavou (`kind='accessories'`) se od 2026-09-14 jmenuje „Šatna" — ve Velíně, na displeji i v logu.
+# Historicky „Oblečení" / „Skříň oblečení"; `door_kind` v DB se NEMĚNÍ (páruje se podle něj kód k výbavě).
+ACCESSORIES_NAME = "Šatna"
+
+
 @dataclass
 class Zone:
     """Logická zóna = řádek `branch_doors` (nebo lokální fallback) + HW mapa."""
@@ -166,10 +171,14 @@ class Zone:
 
     @property
     def display_name(self) -> str:
+        """Název zóny pro Velín, displej a logy. Jednotné pojmenování (2026-09-14):
+        kóje na motorku = „Kóje N", zóna s výbavou (`kind='accessories'`) = „Šatna", venek řeší
+        `OutdoorController` mimo zóny. `kind` v DB zůstává `accessories` — mění se jen text.
+        Vlastní popis dveří z Velína (`branch_doors.label`) má vždy přednost."""
         if self.label:
             return self.label
         if self.kind == "accessories":
-            return "Oblečení"
+            return ACCESSORIES_NAME
         if self.box_number is not None:
             return f"Kóje {self.box_number}"
         return f"Zóna {self.number}"
