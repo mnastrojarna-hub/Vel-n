@@ -175,14 +175,15 @@ CREATE TRIGGER trg_sync_moto_service_status
   AFTER INSERT OR UPDATE OF service_date, status, completed_date, moto_id ON public.maintenance_log
   FOR EACH ROW EXECUTE FUNCTION public.trg_sync_moto_service_status();
 
--- (A4) pg_cron — denně 00:05 UTC (den začátku servisu → maintenance)
+-- (A4) pg_cron — každých 10 min (den začátku servisu → maintenance hned po
+--      půlnoci, ne až při otevření Velína; funkce je levná a idempotentní)
 DO $$
 BEGIN
   BEGIN
     PERFORM cron.unschedule('moto-service-status-sync');
   EXCEPTION WHEN OTHERS THEN NULL;
   END;
-  PERFORM cron.schedule('moto-service-status-sync', '5 0 * * *',
+  PERFORM cron.schedule('moto-service-status-sync', '*/10 * * * *',
     $cron$ SELECT public.sync_moto_service_status(); $cron$);
 EXCEPTION WHEN OTHERS THEN
   RAISE WARNING 'cron.schedule moto-service-status-sync selhalo (pg_cron nedostupné?): %', SQLERRM;
@@ -448,6 +449,133 @@ CREATE TRIGGER trg_regen_codes_on_moto_relocation
   FOR EACH ROW
   WHEN (OLD.branch_id IS DISTINCT FROM NEW.branch_id OR OLD.box_number IS DISTINCT FROM NEW.box_number)
   EXECUTE FUNCTION public.regen_door_codes_on_moto_relocation();
+
+-- ==========================================================================
+-- (C) OKAMŽITÁ PROPAGACE ZMĚN (zadání: „vše se musí okamžitě aktualizovat")
+-- ==========================================================================
+-- (C1) Web motogo24.cz drží server-side cache (supabase.php 30 min +
+--      page_cache 10 min). Velín ji purguje jen po vlastních akcích; změny
+--      z DB (sync stavu, cron, trigger) se dosud projevily až po TTL.
+--      Nově DB sama zavolá purge endpoint webu (stejný jako Velín
+--      `purgeWebCache`: POST /api/cms-cache-purge, hlavička X-CMS-Admin-Token
+--      = app_settings.cms_admin_token; URL = app_settings.web_base_url,
+--      výchozí https://www.motogo24.cz). Max 1× za transakci (GUC).
+CREATE OR REPLACE FUNCTION public.web_cache_purge() RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+DECLARE
+  v_token text;
+  v_url text;
+BEGIN
+  IF current_setting('motogo.web_cache_purged', true) = '1' THEN RETURN; END IF;
+  SELECT value #>> '{}' INTO v_token FROM app_settings WHERE key = 'cms_admin_token';
+  IF v_token IS NULL OR v_token = '' THEN RETURN; END IF;
+  SELECT value #>> '{}' INTO v_url FROM app_settings WHERE key = 'web_base_url';
+  v_url := rtrim(COALESCE(NULLIF(v_url, ''), 'https://www.motogo24.cz'), '/');
+  PERFORM set_config('motogo.web_cache_purged', '1', true);
+  PERFORM net.http_post(
+    url := v_url || '/api/cms-cache-purge',
+    headers := jsonb_build_object('X-CMS-Admin-Token', v_token, 'Content-Type', 'application/json'),
+    body := '{}'::jsonb
+  );
+EXCEPTION WHEN OTHERS THEN
+  RAISE WARNING 'web_cache_purge failed: %', SQLERRM;
+END $$;
+
+COMMENT ON FUNCTION public.web_cache_purge() IS
+  'Zneplatní server-side cache veřejného webu (POST /api/cms-cache-purge s cms_admin_token) — max 1× za transakci. Volají triggery na motorcycles a maintenance_log, aby se změna stavu/pobočky/kóje/servisu projevila na webu hned, ne po TTL.';
+
+REVOKE ALL ON FUNCTION public.web_cache_purge() FROM PUBLIC, anon, authenticated;
+
+CREATE OR REPLACE FUNCTION public.trg_web_cache_purge() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+BEGIN
+  PERFORM public.web_cache_purge();
+  RETURN NULL;
+END $$;
+
+DROP TRIGGER IF EXISTS trg_web_cache_purge_motorcycles ON public.motorcycles;
+CREATE TRIGGER trg_web_cache_purge_motorcycles
+  AFTER INSERT OR DELETE OR UPDATE OF status, branch_id, box_number, unavailable_until, unavailable_reason, sort_order, is_trailer
+  ON public.motorcycles
+  FOR EACH ROW EXECUTE FUNCTION public.trg_web_cache_purge();
+
+DROP TRIGGER IF EXISTS trg_web_cache_purge_maintenance_log ON public.maintenance_log;
+CREATE TRIGGER trg_web_cache_purge_maintenance_log
+  AFTER INSERT OR DELETE OR UPDATE OF service_date, scheduled_date, status, completed_date, moto_id
+  ON public.maintenance_log
+  FOR EACH ROW EXECUTE FUNCTION public.trg_web_cache_purge();
+
+-- (C2) Řídicí jednotka / tablet samoobslužné pobočky: offline cache kódů se
+--      obnovuje jen příkazem `sync_config` (nebo restartem). Po každé změně
+--      kódů pobočky proto DB zařadí `sync_config` všem aktivním zařízením
+--      pobočky (DB broadcast → box si stáhne kódy hned). Bez duplicit: když
+--      už čeká pending `sync_config`, nový se nezakládá; 1× za transakci
+--      a zařízení (GUC).
+CREATE OR REPLACE FUNCTION public.kiosk_request_sync(p_branch_id uuid) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+DECLARE
+  d record;
+  v_guard text;
+BEGIN
+  IF p_branch_id IS NULL THEN RETURN; END IF;
+  FOR d IN SELECT id FROM kiosk_devices WHERE branch_id = p_branch_id AND is_active LOOP
+    v_guard := 'motogo.kiosk_sync_' || replace(d.id::text, '-', '');
+    IF current_setting(v_guard, true) = '1' THEN CONTINUE; END IF;
+    PERFORM set_config(v_guard, '1', true);
+    IF EXISTS (SELECT 1 FROM kiosk_commands
+                WHERE device_id = d.id AND command = 'sync_config' AND status = 'pending') THEN
+      CONTINUE;
+    END IF;
+    INSERT INTO kiosk_commands (device_id, branch_id, command, params)
+    VALUES (d.id, p_branch_id, 'sync_config', jsonb_build_object('reason', 'door_codes_changed'));
+  END LOOP;
+EXCEPTION WHEN OTHERS THEN
+  RAISE WARNING 'kiosk_request_sync failed for branch %: %', p_branch_id, SQLERRM;
+END $$;
+
+REVOKE ALL ON FUNCTION public.kiosk_request_sync(uuid) FROM PUBLIC, anon, authenticated;
+
+CREATE OR REPLACE FUNCTION public.trg_door_codes_kiosk_sync() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    PERFORM public.kiosk_request_sync(OLD.branch_id);
+    RETURN NULL;
+  END IF;
+  PERFORM public.kiosk_request_sync(NEW.branch_id);
+  IF TG_OP = 'UPDATE' AND OLD.branch_id IS DISTINCT FROM NEW.branch_id THEN
+    PERFORM public.kiosk_request_sync(OLD.branch_id);
+  END IF;
+  RETURN NULL;
+END $$;
+
+DROP TRIGGER IF EXISTS trg_door_codes_kiosk_sync ON public.branch_door_codes;
+CREATE TRIGGER trg_door_codes_kiosk_sync
+  AFTER INSERT OR DELETE OR UPDATE OF door_code, is_active, sent_to_customer, withheld_reason, valid_from, valid_until, branch_id
+  ON public.branch_door_codes
+  FOR EACH ROW EXECUTE FUNCTION public.trg_door_codes_kiosk_sync();
+
+-- (C3) Realtime: Velín (Flotila, detail motorky) i appka poslouchají změny
+--      `motorcycles` (už v publikaci) a `maintenance_log` (nově).
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+     WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'maintenance_log'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.maintenance_log;
+  END IF;
+EXCEPTION WHEN OTHERS THEN
+  RAISE WARNING 'ALTER PUBLICATION supabase_realtime ADD maintenance_log selhalo: %', SQLERRM;
+END $$;
 
 -- ==========================================================================
 -- (A5) Backfill: srovnat stav motorek podle skutečného termínu servisu

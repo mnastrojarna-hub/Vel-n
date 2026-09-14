@@ -5,40 +5,74 @@ import 'moto_model.dart';
 
 /// Fetches all active motorcycles with branch info.
 /// Mirrors enrichMOTOS() from api-core.js.
-final motorcyclesProvider = FutureProvider<List<Motorcycle>>((ref) async {
+Future<List<Motorcycle>> _fetchMotorcycles() async {
+  // active + maintenance: motorka v servisu zůstává v nabídce — servisní dny
+  // blokuje kalendář (get_moto_booked_dates vrací status='service'), ostatní
+  // volné dny jdou normálně rezervovat. unavailable/retired se nezobrazují.
+  final res = await MotoGoSupabase.client
+      .from('motorcycles')
+      .select('*, branches(name, address, city, type)')
+      .inFilter('status', ['active', 'maintenance'])
+      // Pořadí = ruční „Pořadí zobrazení (1-X)" z Velína (motorcycles.sort_order),
+      // stejné jako web (fetchMotos: sort_order asc nulls last, model asc) a
+      // hero banner. Neočíslované (NULL) jdou ZA očíslované podle modelu.
+      .order('sort_order', ascending: true, nullsFirst: false)
+      .order('model');
+
+  final motos = (res as List).map((e) => Motorcycle.fromJson(e)).toList();
+
+  // Batch-check today's availability for badge display.
+  // POZOR: get_moto_booked_dates (NE check_moto_availability) — zahrnuje i
+  // SERVISNÍ bloky (status='service'), takže motorka v servisu se dnes
+  // správně tváří jako nedostupná. check_moto_availability servis IGNORUJE
+  // (kontroluje jen rezervace) → falešně ukazovala „dnes dostupné". Stejný
+  // zdroj jako kalendář v detailu i jako web.
+  final today = DateTime.now();
+  final checks = await Future.wait(
+    motos.map((m) => motoFreeToday(m.id, today)),
+  );
+  return [
+    for (int i = 0; i < motos.length; i++)
+      motos[i].withAvailableToday(checks[i]),
+  ];
+}
+
+/// Seznam motorek — REALTIME. Změna motorky ve Velíně / v DB (stav servisu,
+/// pobočka, kóje, ceník…) se v katalogu, hledání, rezervačním formuláři i
+/// změně/výměně motorky projeví hned, bez restartu appky. API stejné jako
+/// dřívější FutureProvider (`.future`, `valueOrNull`, `invalidate`).
+final motorcyclesProvider = StreamProvider<List<Motorcycle>>((ref) async* {
   try {
-    // active + maintenance: motorka v servisu zůstává v nabídce — servisní dny
-    // blokuje kalendář (get_moto_booked_dates vrací status='service'), ostatní
-    // volné dny jdou normálně rezervovat. unavailable/retired se nezobrazují.
-    final res = await MotoGoSupabase.client
-        .from('motorcycles')
-        .select('*, branches(name, address, city, type)')
-        .inFilter('status', ['active', 'maintenance'])
-        // Pořadí = ruční „Pořadí zobrazení (1-X)" z Velína (motorcycles.sort_order),
-        // stejné jako web (fetchMotos: sort_order asc nulls last, model asc) a
-        // hero banner. Neočíslované (NULL) jdou ZA očíslované podle modelu.
-        .order('sort_order', ascending: true, nullsFirst: false)
-        .order('model');
-
-    final motos = (res as List).map((e) => Motorcycle.fromJson(e)).toList();
-
-    // Batch-check today's availability for badge display.
-    // POZOR: get_moto_booked_dates (NE check_moto_availability) — zahrnuje i
-    // SERVISNÍ bloky (status='service'), takže motorka v servisu se dnes
-    // správně tváří jako nedostupná. check_moto_availability servis IGNORUJE
-    // (kontroluje jen rezervace) → falešně ukazovala „dnes dostupné". Stejný
-    // zdroj jako kalendář v detailu i jako web.
-    final today = DateTime.now();
-    final checks = await Future.wait(
-      motos.map((m) => motoFreeToday(m.id, today)),
-    );
-    return [
-      for (int i = 0; i < motos.length; i++)
-        motos[i].withAvailableToday(checks[i]),
-    ];
+    yield await _fetchMotorcycles();
   } catch (e) {
-    if (await handleAuthError(e)) return [];
+    if (await handleAuthError(e)) {
+      yield [];
+      return;
+    }
     rethrow;
+  }
+
+  // Realtime na `motorcycles` — první událost = počáteční snapshot tabulky
+  // (data už máme), každá další = změna → znovu načíst vč. dostupnosti.
+  // Chyby transportu neshazují UI (stejně jako reservationsProvider).
+  try {
+    var first = true;
+    await for (final _ in MotoGoSupabase.client
+        .from('motorcycles')
+        .stream(primaryKey: ['id'])) {
+      if (first) {
+        first = false;
+        continue;
+      }
+      try {
+        yield await _fetchMotorcycles();
+      } catch (e) {
+        if (await handleAuthError(e)) return;
+      }
+    }
+  } catch (e) {
+    if (await handleAuthError(e)) return;
+    return;
   }
 });
 

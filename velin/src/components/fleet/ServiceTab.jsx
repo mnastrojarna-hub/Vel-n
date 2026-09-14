@@ -25,6 +25,18 @@ export default function ServiceTab({ motoId, motoMileage, purchaseMileage, track
 
   useEffect(() => { loadAll() }, [motoId])
 
+  // Realtime: servisní záznamy motorky (i změny z DB triggeru / cronu —
+  // pending → in_service v den servisu) se v historii projeví hned.
+  useEffect(() => {
+    let timer = null
+    const channel = supabase.channel(`service-tab-${motoId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'maintenance_log', filter: `moto_id=eq.${motoId}` }, () => {
+        clearTimeout(timer); timer = setTimeout(() => { loadAll() }, 500)
+      })
+      .subscribe()
+    return () => { clearTimeout(timer); supabase.removeChannel(channel) }
+  }, [motoId])
+
   async function loadAll() {
     setLoading(true)
     const [logRes, schedRes, invRes] = await Promise.all([

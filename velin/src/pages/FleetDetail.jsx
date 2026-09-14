@@ -35,6 +35,22 @@ export default function FleetDetail() {
 
   useEffect(() => { loadMoto() }, [id])
 
+  // Realtime: stav / pobočka / kóje motorky se změní i mimo tuto obrazovku
+  // (DB trigger, cron, jiný admin) → hlavička a status se obnoví hned.
+  useEffect(() => {
+    let timer = null
+    const channel = supabase.channel(`fleet-detail-${id}`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'motorcycles', filter: `id=eq.${id}` }, () => {
+        clearTimeout(timer)
+        timer = setTimeout(() => {
+          supabase.from('motorcycles').select('*, branches(id, name)').eq('id', id).single()
+            .then(({ data }) => { if (data) setMoto(prev => prev ? { ...prev, ...data } : data) })
+        }, 500)
+      })
+      .subscribe()
+    return () => { clearTimeout(timer); supabase.removeChannel(channel) }
+  }, [id])
+
   async function loadMoto() {
     setLoading(true)
     const result = await debugAction('fleet.load', 'FleetDetail', () =>

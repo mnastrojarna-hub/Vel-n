@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { debugAction } from '../lib/debugLog'
@@ -65,6 +65,20 @@ export default function Fleet() {
   useEffect(() => {
     loadMotos()
   }, [page, filters])
+
+  // Realtime: změna motorky (stav, pobočka, kóje) nebo servisního záznamu
+  // (i z DB triggeru / cronu) → seznam se obnoví hned, bez reloadu stránky.
+  const loadMotosRef = useRef(null)
+  useEffect(() => { loadMotosRef.current = loadMotos })
+  useEffect(() => {
+    let timer = null
+    const bump = () => { clearTimeout(timer); timer = setTimeout(() => { loadMotosRef.current?.() }, 600) }
+    const channel = supabase.channel('fleet-list-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'motorcycles' }, bump)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'maintenance_log' }, bump)
+      .subscribe()
+    return () => { clearTimeout(timer); supabase.removeChannel(channel) }
+  }, [])
 
   useEffect(() => {
     if (filters.occupiedFrom && filters.occupiedTo) loadDateOccupied()
