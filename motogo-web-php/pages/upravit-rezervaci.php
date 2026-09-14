@@ -65,7 +65,7 @@ $keys = [
     'editRez.swap.err.unavailable','editRez.swap.err.dateRange',
     'editRez.doc.help','editRez.moto.title','editRez.moto.help','editRez.loc.title','editRez.loc.help',
     'editRez.moto.licReq','editRez.moto.licenseInsufficient','editRez.moto.notAvailable',
-    'editRez.moto.noOptions','editRez.moto.confirm',
+    'editRez.moto.noOptions','editRez.moto.confirm','editRez.moto.branchLabel','editRez.moto.branchAll',
     'editRez.change.success','editRez.change.successWithRefund','editRez.err.activeMotoLocked',
     'editRez.postStripe.applying','editRez.postStripe.error',
     'editRez.loc.pickup','editRez.loc.return','editRez.loc.atRental','editRez.loc.delivery','editRez.loc.deliveryReturn',

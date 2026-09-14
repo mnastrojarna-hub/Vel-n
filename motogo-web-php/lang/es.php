@@ -360,6 +360,8 @@ return [
     'rez.latePickupDiscount' => '50 % de descuento el 1.er día (recogida tardía)',
     'rez.motoSelect.label' => 'Modelo concreto o cualquier moto',
     'rez.motoSelect.any' => 'cualquier moto disponible en mis fechas',
+    'rez.branchSelect.label' => 'Sucursal',
+    'rez.branchSelect.any' => 'Todas las sucursales',
 
     // ===== Reserva — mensajes de vale =====
     'rez.voucher.enter' => 'Introduzca un código',
@@ -590,6 +592,8 @@ return [
     'filters.licenseAny' => 'Permiso de conducir',
     'filters.licenseNone' => 'Sin permiso (infantiles)',
     'filters.licenseGroup' => 'Grupo {group}',
+    'filters.branch' => 'Sucursal',
+    'filters.branchAll' => 'Sucursal — todas',
     'filters.power' => 'Potencia',
     'filters.power.aria.min' => 'Potencia mínima en kW',
     'filters.power.aria.max' => 'Potencia máxima en kW',
@@ -1114,6 +1118,8 @@ return [
     'editRez.swap.pickDate' => 'Fecha del cambio',
     'editRez.swap.pickTime' => 'Hora del cambio',
     'editRez.swap.pickMoto' => 'Elige la nueva moto',
+    'editRez.moto.branchLabel' => 'Sucursal',
+    'editRez.moto.branchAll' => 'Todas las sucursales',
     'editRez.swap.confirm' => 'Cambiar a esta',
     'editRez.swap.confirming' => 'Cambiando…',
     'editRez.swap.success' => '¡Listo! Desde el {date} conducirás la nueva moto.',

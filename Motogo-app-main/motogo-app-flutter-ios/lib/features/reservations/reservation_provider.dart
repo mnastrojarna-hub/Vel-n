@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/auth_guard.dart';
 import '../../core/supabase_client.dart';
+import '../catalog/catalog_provider.dart';
 import 'reservation_models.dart';
 
 /// Booking select query — matches _getBookingById from reservations-ui.js.
@@ -45,6 +46,11 @@ final googleReviewUrlProvider = FutureProvider<String>((ref) async {
 /// Mirrors apiFetchMyBookings() + realtime channel.
 final reservationsProvider =
     StreamProvider<List<Reservation>>((ref) async* {
+  // Motorka rezervace (pobočka, kóje, stav) se může změnit i bez změny řádku
+  // bookings (přesun motorky ve Velíně) → po realtime změně motorek načíst znovu.
+  ref.listen(motorcyclesProvider, (prev, next) {
+    if (prev != null && next.hasValue) ref.invalidateSelf();
+  });
   final user = MotoGoSupabase.currentUser;
   if (user == null) {
     yield [];
@@ -108,6 +114,10 @@ final hasActiveReservationProvider = Provider<bool>((ref) {
 /// Single reservation by ID.
 final reservationByIdProvider =
     FutureProvider.family<Reservation?, String>((ref, id) async {
+  // Přesun motorky (pobočka/kóje) → detail rezervace se obnoví hned.
+  ref.listen(motorcyclesProvider, (prev, next) {
+    if (prev != null && next.hasValue) ref.invalidateSelf();
+  });
   final res = await MotoGoSupabase.client
       .from('bookings')
       .select(_bookingSelect)

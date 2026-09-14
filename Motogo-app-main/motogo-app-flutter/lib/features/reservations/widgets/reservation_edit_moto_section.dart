@@ -48,6 +48,7 @@ class _EditMotoChangeSectionState extends ConsumerState<EditMotoChangeSection> {
   bool _availLoading = false;
   int _availToken = 0; // proti zápisu zastaralého výsledku
   String? _rangeKey;   // "start|end" — detekce změny termínu
+  String? _branch;     // filtr dle pobočky (null = všechny)
 
   Future<void> _recomputeAvail(List<Motorcycle> motos) async {
     final token = ++_availToken;
@@ -149,10 +150,23 @@ class _EditMotoChangeSectionState extends ConsumerState<EditMotoChangeSection> {
         const SizedBox(height: 8),
         Text(t(context).tr('selectNewMoto'), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: MotoGoColors.g400)),
         const SizedBox(height: 6),
+        // Filtr dle pobočky — zvolená motorka mimo pobočku se odznačí.
+        EditBranchFilter(
+          value: _branch,
+          onChanged: (v) {
+            setState(() => _branch = v);
+            if (v != null && widget.newMotoId != null) {
+              final list = motosAsync.valueOrNull ?? const <Motorcycle>[];
+              final keep = list.any((m) => m.id == widget.newMotoId && m.branchId == v);
+              if (!keep) widget.onMotoSelected(null);
+            }
+          },
+        ),
         motosAsync.when(
           data: (motos) {
             final available = motos.where((m) {
               if (m.id == widget.currentMotoId) return false;
+              if (_branch != null && m.branchId != _branch) return false;
               // OR-match přes přijímané skupiny ŘP vozidla (vč. B pro skútry/přívěs).
               if (widget.userLicense != null) {
                 final ok = BookingValidator.checkLicense(

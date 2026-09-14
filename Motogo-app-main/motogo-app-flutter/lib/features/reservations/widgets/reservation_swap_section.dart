@@ -44,6 +44,7 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
   String _swapTime = '09:00';
   String? _newMotoId;
   bool _saving = false;
+  String? _branch; // filtr dle pobočky (null = všechny)
 
   // Dostupnost kandidátních motorek od data výměny do konce rezervace.
   // motoId -> volná? (null = ještě nezjištěno / počítá se).
@@ -386,9 +387,25 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
             style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: MotoGoColors.g400),
           ),
           const SizedBox(height: 8),
+          // Filtr dle pobočky — zvolená motorka mimo pobočku se odznačí.
+          EditBranchFilter(
+            value: _branch,
+            onChanged: (v) {
+              final list = motosAsync.valueOrNull ?? const <Motorcycle>[];
+              final keep = v == null || _newMotoId == null ||
+                  list.any((m) => m.id == _newMotoId && m.branchId == v);
+              setState(() {
+                _branch = v;
+                if (!keep) _newMotoId = null;
+              });
+              if (!keep) _recomputeNet();
+            },
+          ),
           motosAsync.when(
             data: (motos) {
-              final cands = _candidates(motos);
+              final cands = _candidates(motos)
+                  .where((m) => _branch == null || m.branchId == _branch)
+                  .toList();
               if (cands.isEmpty) {
                 return Text(t(context).tr('swap.noMoto'),
                     style: const TextStyle(fontSize: 12, color: MotoGoColors.g400));

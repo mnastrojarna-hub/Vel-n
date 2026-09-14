@@ -302,6 +302,7 @@ function TabMotorcycles({ motos, loading, statusLabels, branchId, onRefresh }) {
       <div className="flex items-center justify-between mb-2">
         <div className="text-sm" style={{ color: '#1a2e22' }}>
           <strong>{motos.length}</strong> motorek na pobočce (max {MAX_MOTOS})
+          <div className="text-xs" style={{ color: '#6b7280' }}>Změna kóje vygeneruje zákazníkům s rezervací nové kódy a znovu je odešle.</div>
         </div>
         <div className="flex gap-2">
           {hasUnassigned && (

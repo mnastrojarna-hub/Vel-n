@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { debugAction } from '../lib/debugLog'
@@ -65,6 +65,20 @@ export default function Fleet() {
   useEffect(() => {
     loadMotos()
   }, [page, filters])
+
+  // Realtime: změna motorky (stav, pobočka, kóje) nebo servisního záznamu
+  // (i z DB triggeru / cronu) → seznam se obnoví hned, bez reloadu stránky.
+  const loadMotosRef = useRef(null)
+  useEffect(() => { loadMotosRef.current = loadMotos })
+  useEffect(() => {
+    let timer = null
+    const bump = () => { clearTimeout(timer); timer = setTimeout(() => { loadMotosRef.current?.() }, 600) }
+    const channel = supabase.channel('fleet-list-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'motorcycles' }, bump)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'maintenance_log' }, bump)
+      .subscribe()
+    return () => { clearTimeout(timer); supabase.removeChannel(channel) }
+  }, [])
 
   useEffect(() => {
     if (filters.occupiedFrom && filters.occupiedTo) loadDateOccupied()
@@ -133,6 +147,9 @@ export default function Fleet() {
     setLoading(true)
     setError(null)
     try {
+      // Stav motorek dle termínu servisu řeší DB (sync_moto_service_status):
+      // servis, který začíná dnes → maintenance; jen budoucí servis → active.
+      try { await supabase.rpc('sync_moto_service_status') } catch {}
       const result = await debugAction('fleet.load', 'Fleet', () => {
         let query = supabase.from('motorcycles').select('*, branches(name), image_url, images', { count: 'exact' })
         if (filters.statuses?.length > 0) query = query.in('status', filters.statuses)
@@ -149,50 +166,22 @@ export default function Fleet() {
       }, { page, filters })
       if (result?.error) throw result.error
       let data = result?.data || []
-      // Auto-reactivate motorcycles past unavailable_until
+      // Auto-reactivate motorcycles past unavailable_until → active; skutečný
+      // stav (active ⇄ maintenance) pak srovná DB RPC sync_moto_service_status
+      // (motorka je „V servisu" JEN po dobu otevřeného servisu se service_date
+      // <= dnes; budoucí servis ji nevyřazuje).
       const now = new Date().toISOString()
       const toReactivate = data.filter(m =>
         m.status === 'unavailable' && m.unavailable_until && m.unavailable_until <= now
       )
-      if (toReactivate.length > 0) {
-        // Check which motos have open maintenance_log entries (were in service before deactivation)
-        const reactivateIds = toReactivate.map(m => m.id)
-        const { data: openServiceLogs } = await supabase.from('maintenance_log')
-          .select('moto_id').is('completed_date', null).in('status', ['in_service', 'pending'])
-          .in('moto_id', reactivateIds)
-        const motosWithOpenService = new Set((openServiceLogs || []).map(l => l.moto_id))
-        for (const m of toReactivate) {
-          if (motosWithOpenService.has(m.id)) {
-            // Has open service logs → return to maintenance, not active
-            await supabase.from('motorcycles').update({ status: 'maintenance', unavailable_until: null, unavailable_reason: null }).eq('id', m.id)
-            m.status = 'maintenance'
-          } else {
-            await supabase.from('motorcycles').update({ status: 'active', unavailable_until: null, unavailable_reason: null }).eq('id', m.id)
-            m.status = 'active'
-          }
-          m.unavailable_until = null
-        }
-      }
-      // Auto-activate pending services where service_date <= today
-      const pendingService = data.filter(m => m.status === 'active')
-      if (pendingService.length > 0) {
-        const today = new Date().toISOString().slice(0, 10)
-        const { data: pendingLogs } = await supabase.from('maintenance_log')
-          .select('id, moto_id')
-          .eq('status', 'pending')
-          .lte('service_date', today)
-          .is('completed_date', null)
-          .in('moto_id', pendingService.map(m => m.id))
-        if (pendingLogs?.length > 0) {
-          const motoIds = [...new Set(pendingLogs.map(l => l.moto_id))]
-          for (const mid of motoIds) {
-            await supabase.from('motorcycles').update({ status: 'maintenance' }).eq('id', mid)
-            const m = data.find(d => d.id === mid)
-            if (m) m.status = 'maintenance'
-          }
-          await supabase.from('maintenance_log').update({ status: 'in_service' })
-            .in('id', pendingLogs.map(l => l.id))
-        }
+      for (const m of toReactivate) {
+        await supabase.from('motorcycles').update({ status: 'active', unavailable_until: null, unavailable_reason: null }).eq('id', m.id)
+        m.status = 'active'; m.unavailable_until = null; m.unavailable_reason = null
+        try {
+          await supabase.rpc('sync_moto_service_status', { p_moto_id: m.id })
+          const { data: fresh } = await supabase.from('motorcycles').select('status').eq('id', m.id).maybeSingle()
+          if (fresh?.status) m.status = fresh.status
+        } catch {}
       }
       if (filters.occupiedToday) data = data.filter(m => todayOccupied.has(m.id))
       if (filters.occupiedFrom && filters.occupiedTo) data = data.filter(m => dateOccupied.has(m.id))

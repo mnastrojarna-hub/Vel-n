@@ -345,6 +345,8 @@ return [
     'rez.latePickupDiscount' => '50% zniżki na 1. dzień (późny odbiór)',
     'rez.motoSelect.label' => 'Konkretny model lub dowolny motocykl',
     'rez.motoSelect.any' => 'dowolny motocykl dostępny w moim terminie',
+    'rez.branchSelect.label' => 'Oddział',
+    'rez.branchSelect.any' => 'Wszystkie oddziały',
 
     // ===== Rezerwacja — komunikaty bonów =====
     'rez.voucher.enter' => 'Wpisz kod',
@@ -574,6 +576,8 @@ return [
     'filters.licenseAny' => 'Prawo jazdy',
     'filters.licenseNone' => 'Bez prawa jazdy (dziecięce)',
     'filters.licenseGroup' => 'Kategoria {group}',
+    'filters.branch' => 'Oddział',
+    'filters.branchAll' => 'Oddział — wszystkie',
     'filters.power' => 'Moc',
     'filters.power.aria.min' => 'Minimalna moc w kW',
     'filters.power.aria.max' => 'Maksymalna moc w kW',
@@ -1092,6 +1096,8 @@ return [
     'editRez.swap.pickDate' => 'Data zmiany',
     'editRez.swap.pickTime' => 'Godzina zmiany',
     'editRez.swap.pickMoto' => 'Wybierz nowy motocykl',
+    'editRez.moto.branchLabel' => 'Oddział',
+    'editRez.moto.branchAll' => 'Wszystkie oddziały',
     'editRez.swap.confirm' => 'Zmień na ten',
     'editRez.swap.confirming' => 'Zmieniam…',
     'editRez.swap.success' => 'Gotowe! Od {date} jedziesz na nowym motocyklu.',

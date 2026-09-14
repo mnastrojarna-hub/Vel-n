@@ -359,6 +359,8 @@ return [
     'rez.latePickupDiscount' => '50% off the 1st day (late pickup)',
     'rez.motoSelect.label' => 'Specific model or any motorcycle',
     'rez.motoSelect.any' => 'any motorcycle available on my dates',
+    'rez.branchSelect.label' => 'Branch',
+    'rez.branchSelect.any' => 'All branches',
 
     // ===== Booking — voucher messages =====
     'rez.voucher.enter' => 'Enter a code',
@@ -761,6 +763,8 @@ return [
     'editRez.swap.pickDate' => 'Swap date',
     'editRez.swap.pickTime' => 'Swap time',
     'editRez.swap.pickMoto' => 'Choose the new motorcycle',
+    'editRez.moto.branchLabel' => 'Branch',
+    'editRez.moto.branchAll' => 'All branches',
     'editRez.swap.confirm' => 'Swap to this one',
     'editRez.swap.confirming' => 'Swapping…',
     'editRez.swap.success' => 'Done! From {date} you ride the new motorcycle.',
@@ -837,6 +841,8 @@ return [
     'filters.licenseAny' => 'Driving licence',
     'filters.licenseNone' => 'No licence (kids)',
     'filters.licenseGroup' => 'Group {group}',
+    'filters.branch' => 'Branch',
+    'filters.branchAll' => 'Branch — all',
     'filters.power' => 'Power',
     'filters.power.aria.min' => 'Minimum power in kW',
     'filters.power.aria.max' => 'Maximum power in kW',

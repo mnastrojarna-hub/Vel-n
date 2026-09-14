@@ -176,6 +176,7 @@ $getAbs     = isset($_GET['abs']) && $_GET['abs'] === '1';
 $getRiders  = (int)($_GET['jezdci'] ?? 0); // 1=sólo, 2=se spolujezdcem
 $getQuery   = trim($_GET['q'] ?? '');
 $getSort    = $_GET['razeni'] ?? 'default';
+$getBranch  = trim($_GET['pobocka'] ?? ''); // filtr dle pobočky (motorcycles.branch_id)
 
 if ($getCat) $category = $getCat;
 
@@ -219,6 +220,11 @@ if ($getLic) {
         // OR-match: motorka projde, pokud přijímanou skupinu obsahuje v poli
         // license_groups (fallback na legacy license_required řeší helper).
         return in_array($wantLic, motoLicenseGroups($m), true);
+    });
+}
+if ($getBranch !== '') {
+    $filtered = array_filter($filtered, function ($m) use ($getBranch) {
+        return (string)($m['branch_id'] ?? '') === $getBranch;
     });
 }
 if ($getKwMin > $kwBoundMin || $getKwMax < $kwBoundMax) {
@@ -338,6 +344,17 @@ uksort($lics, function ($a, $b) use ($licOrder) {
     return $ra === $rb ? strcmp($a, $b) : $ra - $rb;
 });
 
+// Pobočky do filtru — z motorek (branch_id + branches.name / city z fetchMotos).
+$branchOpts = [];
+foreach ($motos as $m) {
+    $bid = (string)($m['branch_id'] ?? '');
+    if ($bid === '' || isset($branchOpts[$bid])) continue;
+    $br = $m['branches'] ?? null;
+    $bn = is_array($br) ? safeStr(($br['name'] ?? '') ?: ($br['city'] ?? '')) : '';
+    $branchOpts[$bid] = $bn !== '' ? $bn : $bid;
+}
+asort($branchOpts, SORT_NATURAL | SORT_FLAG_CASE);
+
 $activeCat = $category ?: '';
 $activeLic = $getLic ?: '';
 
@@ -368,8 +385,14 @@ $filterHtml .= '</select></div>'
 foreach (array_keys($lics) as $l) {
     $filterHtml .= $opt($l, ($l === 'N') ? t('filters.licenseNone') : t('filters.licenseGroup', ['group' => $l]), $activeLic);
 }
-$filterHtml .= '</select></div>'
-    . '<div class="filter-field filter-field-range">'
+$filterHtml .= '</select></div>';
+if (!empty($branchOpts)) {
+    $filterHtml .= '<div class="filter-field"><label class="sr-only" for="flt-branch">' . te('filters.branch') . '</label>'
+        . '<select id="flt-branch" name="pobocka"><option value="">' . te('filters.branchAll') . '</option>';
+    foreach ($branchOpts as $bId => $bName) { $filterHtml .= $opt($bId, $bName, $getBranch); }
+    $filterHtml .= '</select></div>';
+}
+$filterHtml .= '<div class="filter-field filter-field-range">'
         . '<div class="range-header">'
             . '<span class="range-title">' . te('filters.power') . '</span>'
             . '<span class="range-value" id="flt-kw-display">'

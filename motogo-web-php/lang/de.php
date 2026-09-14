@@ -359,6 +359,8 @@ return [
     'rez.latePickupDiscount' => '50 % Rabatt auf den 1. Tag (späte Abholung)',
     'rez.motoSelect.label' => 'Bestimmtes Modell oder beliebiges Motorrad',
     'rez.motoSelect.any' => 'beliebiges Motorrad verfügbar in meinem Termin',
+    'rez.branchSelect.label' => 'Filiale',
+    'rez.branchSelect.any' => 'Alle Filialen',
 
     // ===== Reservierung — Gutscheinmeldungen =====
     'rez.voucher.enter' => 'Code eingeben',
@@ -668,6 +670,8 @@ return [
     'editRez.swap.pickDate' => 'Wechseldatum',
     'editRez.swap.pickTime' => 'Wechselzeit',
     'editRez.swap.pickMoto' => 'Neues Motorrad wählen',
+    'editRez.moto.branchLabel' => 'Filiale',
+    'editRez.moto.branchAll' => 'Alle Filialen',
     'editRez.swap.confirm' => 'Dieses wählen',
     'editRez.swap.confirming' => 'Wechsle…',
     'editRez.swap.success' => 'Fertig! Ab {date} fahren Sie das neue Motorrad.',
@@ -740,6 +744,8 @@ return [
     'filters.licenseAny' => 'Führerschein',
     'filters.licenseNone' => 'Ohne Führerschein (Kinder)',
     'filters.licenseGroup' => 'Klasse {group}',
+    'filters.branch' => 'Filiale',
+    'filters.branchAll' => 'Filiale — alle',
     'filters.power' => 'Leistung',
     'filters.power.aria.min' => 'Mindestleistung in kW',
     'filters.power.aria.max' => 'Maximale Leistung in kW',

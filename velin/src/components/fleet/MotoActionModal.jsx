@@ -63,7 +63,7 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
       const { error: err } = await supabase.from('motorcycles').update({ branch_id: selectedBranch }).eq('id', moto.id)
       if (err) throw err
       await logAudit('motorcycle_migrated', { moto_id: moto.id, from_branch: moto.branches?.name, to_branch: target?.name })
-      setSuccess(`Přesunuto na ${target?.name}`); refresh()
+      setSuccess(`Přesunuto na ${target?.name} · zákazníkům s rezervací byly vygenerovány nové kódy a znovu odeslány`); refresh()
     } catch (e) { setError(e.message) } finally { setBusy(false) }
   }
 
