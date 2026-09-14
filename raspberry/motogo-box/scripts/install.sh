@@ -28,6 +28,8 @@ LTE_PROF="$NM_DIR/motogo-lte.nmconnection"
 POLKIT_RULE="50-motogo-kiosk.rules"
 APT_CONF="52motogo-unattended"
 APT_TIMER_DIR="/etc/systemd/system/apt-daily-upgrade.timer.d"
+CHROMIUM_POLICY_SRC="systemd/motogo-chromium-policy.json"
+CHROMIUM_POLICY_DIRS=(/etc/chromium/policies/managed /etc/chromium-browser/policies/managed /etc/opt/chrome/policies/managed)
 SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APT_PKGS=(python3 python3-venv python3-pip git mpv cage chromium network-manager modemmanager
           alsa-utils rsync curl usbutils kbd fonts-dejavu fonts-noto-color-emoji unattended-upgrades)
@@ -327,6 +329,14 @@ ok "/etc/sudoers.d/motogo (reboot, restart motogo-*, motogo-usbreset|motogo-upda
 mkdir -p /etc/polkit-1/rules.d
 install -m 644 -o root -g root "$APP_DIR/systemd/$POLKIT_RULE" "/etc/polkit-1/rules.d/$POLKIT_RULE"
 ok "/etc/polkit-1/rules.d/$POLKIT_RULE (chvt pro motogo-ui; polkitd si rules.d načte sám)"
+# Vynucená politika Chromia — hlavně TranslateEnabled=false: bublina „Přeložit tuto stránku?“ v pravém horním
+# rohu se na displeji NESMÍ nikdy objevit (přeložila by vlastní texty kiosku a na dotyku to nejde vrátit).
+# Politika je nad přepínači i Preferences — uživatel ji na pobočce nepřepne. Cesty pro všechny varianty balíčku.
+for _pol_dir in "${CHROMIUM_POLICY_DIRS[@]}"; do
+  mkdir -p "$_pol_dir"
+  install -m 644 -o root -g root "$APP_DIR/$CHROMIUM_POLICY_SRC" "$_pol_dir/motogo-kiosk.json"
+done
+ok "politika Chromia (TranslateEnabled=false — žádná nabídka překladu): ${CHROMIUM_POLICY_DIRS[*]}/motogo-kiosk.json"
 
 # ── 11. OS záplaty (unattended-upgrades) ──────────────────────────────────────
 step "11/14 OS záplaty: unattended-upgrades (jen Debian security, v noci 04:00, bez restartu)"

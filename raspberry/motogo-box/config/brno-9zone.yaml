@@ -49,6 +49,9 @@ security:
   service_token_minutes: 10      # kód na displeji je viditelný (rozhodnutí 2026-09-11) — bez pin_length/mask_pin_on_screen
 
 audio:
+  music_enabled: true     # HLAVNÍ VYPÍNAČ hudby pobočky. false = po zadání kódu se hudba nespustí nikde
+                          # (kóje, šatna ani venek); dveře se otevírají normálně a ruční „Hudba ▶“ z Velína
+                          # funguje dál. Jednotlivé zóny to přepíšou přes `zones[].music_enabled`.
   volume: 70
   fade_in_ms: 1500
   fade_out_ms: 500
@@ -87,6 +90,10 @@ signal:
   transition_s: 0.2
 
 # Modbus adresy začínají 0 (coil 0 = fyzické relé R1, input 0 = DI1). Shelly light id 0–4.
+# Zóny 1–7 = kóje na motorku, zóna 8 = šatna (`kind: accessories` — bez něj by se v lokálním
+# režimu bez Velína jmenovala „Kóje 8“); zóna 9 = venek, ta není dveře (sekce `outdoor` níže).
+# Volitelně u zóny: `music_enabled: false` (tahle zóna nehraje, ostatní ano — chybí = dle pobočky)
+# a `timings: { light_after_close_s: 120, … }` (individuální časování, chybí = globální `timings`).
 zones:
   - { zone: 1, lock: { dev: wav645, coil: 0 }, contact: { dev: wav617a, input: 0 }, light: { dev: wav617a, coil: 0 }, audio: { dev: wav617b, coil: 1 },  red: { dev: shelly1, light: 0 }, green: { dev: shelly1, light: 1 } }
   - { zone: 2, lock: { dev: wav645, coil: 1 }, contact: { dev: wav617a, input: 1 }, light: { dev: wav617a, coil: 1 }, audio: { dev: wav617b, coil: 2 },  red: { dev: shelly1, light: 2 }, green: { dev: shelly1, light: 3 } }
@@ -95,7 +102,7 @@ zones:
   - { zone: 5, lock: { dev: wav645, coil: 4 }, contact: { dev: wav617a, input: 4 }, light: { dev: wav617a, coil: 4 }, audio: { dev: wav617b, coil: 5 },  red: { dev: shelly2, light: 3 }, green: { dev: shelly2, light: 4 } }
   - { zone: 6, lock: { dev: wav645, coil: 5 }, contact: { dev: wav617a, input: 5 }, light: { dev: wav617a, coil: 5 }, audio: { dev: wav617b, coil: 6 },  red: { dev: shelly3, light: 0 }, green: { dev: shelly3, light: 1 } }
   - { zone: 7, lock: { dev: wav645, coil: 6 }, contact: { dev: wav617a, input: 6 }, light: { dev: wav617a, coil: 6 }, audio: { dev: wav617b, coil: 7 },  red: { dev: shelly3, light: 2 }, green: { dev: shelly3, light: 3 } }
-  - { zone: 8, lock: { dev: wav645, coil: 7 }, contact: { dev: wav617a, input: 7 }, light: { dev: wav617a, coil: 7 }, audio: { dev: wav645,  coil: 9 },  red: { dev: shelly3, light: 4 }, green: { dev: shelly4, light: 0 } }
+  - { zone: 8, kind: accessories, lock: { dev: wav645, coil: 7 }, contact: { dev: wav617a, input: 7 }, light: { dev: wav617a, coil: 7 }, audio: { dev: wav645,  coil: 9 },  red: { dev: shelly3, light: 4 }, green: { dev: shelly4, light: 0 } }   # ŠATNA (kód k výbavě)
 # rezerva: shelly4 light 1–4; wav645 coil 8 (R9), coil 10–15 (R11–R16); wav617b input 0 (DI1)
 
 # Zóna 9 = venek (bez dveří): prostor před displejem + venkovní osvětlení (rozhodnutí 2026-09-11).
@@ -106,4 +113,7 @@ outdoor:
   zone: 9                             # popisné číslo pro Velín/diagnostiku/příkazy; NESMÍ kolidovat s číslem zóny dveří
   light: { dev: wav617b, coil: 0 }    # venkovní osvětlení = relé Waveshare (WAV617-B R1)
   # audio: { out: out9 }              # jen multi: výstup venku (+ volitelně dev/coil = enable relé zesilovače); selector: nelze
-  light_after_close_s: null           # doběh venkovního světla; null/chybí = timings.light_after_close_s
+  light_after_close_s: null           # doběh venkovního světla; null/chybí = timings.light_after_close_s (jen v režimu auto)
+  # Venek se nastavuje JINAK než kóje 1–7 a šatna — ty se řídí `timings`, venek má vlastní režimy:
+  light_mode: auto                    # auto = svítí od zadání kódu, po doběhu zhasne | always = NONSTOP | off = trvale zhasnuto
+  music_mode: session                 # session = hraje při jakémkoli kódu | always = nonstop | off = venku nehraje nic

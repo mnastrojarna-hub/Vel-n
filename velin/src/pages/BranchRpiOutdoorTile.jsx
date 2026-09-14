@@ -19,12 +19,25 @@ function OutdoorTile({ o, onSend }) {
   const offIn = light ? num(o.off_in_s) : null
   const out = o.audio_out != null && o.audio_out !== '' ? txt(o.audio_out) : ''
   const manualTxt = o.manual === true ? ' (ručně)' : o.manual === false ? ' (ručně vypnuto)' : ''
+  // Režimy venku (hardware.outdoor.light_mode / music_mode) — starší jednotka je nehlásí, pak se chip neukáže
+  const lightMode = txt(o.light_mode) === '—' ? '' : String(o.light_mode)
+  const musicMode = txt(o.music_mode) === '—' ? '' : String(o.music_mode)
+  const LIGHT_MODE_CZ = { auto: 'světlo dle relací', always: 'světlo NONSTOP', off: 'světlo trvale zhasnuto' }
+  const MUSIC_MODE_CZ = { session: 'hudba při kódu', always: 'hudba NONSTOP', off: 'hudba vypnuta' }
   return (
     <div className="p-2 rounded-card" style={{ background: active ? '#dcfce7' : '#f1faf7', border: '1px solid #d4e8e0' }}>
       <div className="flex items-center gap-2">
         <span className="font-extrabold" style={{ color: '#0f1a14', fontSize: 15 }}>{txt(o.zone)}</span>
         <span className="font-bold text-sm truncate" style={{ color: '#1a2e22' }} title="Venek — prostor před displejem (zóna bez dveří)">Venek</span>
-        <span className="ml-auto"><Chip tone={active ? 'green' : 'gray'} title="Venek je aktivní, dokud běží aspoň jedna relace">{active ? 'relace' : 'klid'}</Chip></span>
+        <span className="ml-auto flex items-center gap-1 flex-wrap justify-end">
+          {lightMode && lightMode !== 'auto' && (
+            <Chip tone="blue" title="Režim venkovního světla z nastavení hardwaru (blok Venek) — venek se nastavuje jinak než kóje a šatna">{LIGHT_MODE_CZ[lightMode] || lightMode}</Chip>
+          )}
+          {musicMode && musicMode !== 'session' && (
+            <Chip tone="blue" title="Režim hudby venku z nastavení hardwaru (blok Venek)">{MUSIC_MODE_CZ[musicMode] || musicMode}</Chip>
+          )}
+          <Chip tone={active ? 'green' : 'gray'} title="Venek je aktivní, dokud běží aspoň jedna relace">{active ? 'relace' : 'klid'}</Chip>
+        </span>
       </div>
       <div className="text-[12px] mt-1" style={{ color: '#1a2e22' }}>
         <span className="font-bold">{active ? 'Běží relace (kód zadán)' : 'Bez relace'}</span>

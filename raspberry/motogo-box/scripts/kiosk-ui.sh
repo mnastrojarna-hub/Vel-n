@@ -40,14 +40,25 @@ until curl -fsS --max-time 2 -o /dev/null "$URL"; do
   fi
 done
 
-# ── profil Chromia: čistý start (žádné dialogy o pádu/obnově relace) ───────────
+# ── profil Chromia: VŽDY čistý start ──────────────────────────────────────────
+# Profil leží v $XDG_RUNTIME_DIR (tmpfs), takže o nic trvalého nepřicházíme — smazat ho je
+# nejjistější cesta k tomu, aby na pobočce nezůstaly staré Preferences (dialog o pádu, zapnutý
+# překladač) z doby před aktualizací. Zároveň se tím vždy uplatní seed níže.
 PROFILE="${XDG_RUNTIME_DIR}/motogo-chromium"
-mkdir -p "$PROFILE"
-rm -f "$PROFILE/SingletonLock" "$PROFILE/SingletonSocket" "$PROFILE/SingletonCookie" 2>/dev/null || true
-if [[ -f "$PROFILE/Default/Preferences" ]]; then
-  sed -i 's/"exit_type":"Crashed"/"exit_type":"Normal"/; s/"exited_cleanly":false/"exited_cleanly":true/' \
-    "$PROFILE/Default/Preferences" 2>/dev/null || true
-fi
+rm -rf "$PROFILE" 2>/dev/null || true
+mkdir -p "$PROFILE/Default"
+
+# ── překladač VYPNUTÝ (3. vrstva) ─────────────────────────────────────────────
+# Bublina „Přeložit tuto stránku?“ v pravém horním rohu se na displeji NESMÍ objevit: přeložila by
+# vlastní texty kiosku (i18n.js má 8 jazyků v liště) a na dotykovém displeji to nejde vzít zpět.
+# Vrstvy: 1) politika /etc/chromium/policies/managed/motogo-kiosk.json (install.sh/update.sh, nejsilnější),
+# 2) meta notranslate + translate="no" v index.html, 3) tyto přepínače + Preferences profilu.
+# `intl.accept_languages` i přepínač --accept-lang musí obsahovat VŠECH 8 jazyků lišty: Chromium nabízí
+# překlad právě tehdy, když jazyk stránky NENÍ mezi jazyky uživatele — se samotným „cs“ by po přepnutí
+# lišty na UA/PL/DE byla stránka „cizí“ a tlak na bublinu největší.
+KIOSK_LANGS="cs,en,de,es,fr,nl,pl,uk"
+printf '%s' "{\"translate\":{\"enabled\":false},\"translate_blocked_languages\":[\"cs\",\"en\",\"de\",\"es\",\"fr\",\"nl\",\"pl\",\"uk\"],\"intl\":{\"accept_languages\":\"$KIOSK_LANGS\",\"selected_languages\":\"$KIOSK_LANGS\"},\"exit_type\":\"Normal\",\"exited_cleanly\":true}" \
+  > "$PROFILE/Default/Preferences" 2>/dev/null || true
 
 log "spouštím cage + $BROWSER → $URL"
 exec cage -- "$BROWSER" \
@@ -64,6 +75,9 @@ exec cage -- "$BROWSER" \
   --autoplay-policy=no-user-gesture-required \
   --user-data-dir="$PROFILE" \
   --no-first-run \
-  --disable-features=TranslateUI \
+  --no-default-browser-check \
+  --disable-features=Translate,TranslateUI,TranslateSubFrames \
+  --lang=cs \
+  --accept-lang="$KIOSK_LANGS" \
   --password-store=basic \
   "$URL"

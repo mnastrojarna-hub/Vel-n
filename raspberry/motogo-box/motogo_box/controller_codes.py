@@ -10,7 +10,7 @@ import time
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
-from .models import Event, EventKind, ResolveResult, ServiceDoor
+from .models import ACCESSORIES_NAME, Event, EventKind, ResolveResult, ServiceDoor
 from .pins import hmac_code, mask, normalize_code
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -93,11 +93,13 @@ def config_part(payload: dict) -> dict:
 
 
 def door_name(kind: str, zc: "ZoneController | None", box_number: int | None) -> str:
+    """Název dveří do hlášky na displeji. Jednotné názvosloví (2026-09-14): zóna s výbavou = „Šatna",
+    kóje na motorku = „Kóje N" — stejně jako `Zone.display_name` a Velín."""
     if zc is not None:
         return zc.zone.display_name
     if kind == "accessories":
-        return "Oblečení"
-    return f"Garáž #{box_number}" if box_number is not None else "Dveře"
+        return ACCESSORIES_NAME
+    return f"Kóje {box_number}" if box_number is not None else "Dveře"
 
 
 def not_configured_text(name: str) -> str:

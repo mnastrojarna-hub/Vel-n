@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Btn, Chip, Input, Select, Label } from './BranchRpiUi'
+import { Btn, Chip, Input, Select, Label, doorKindLabel } from './BranchRpiUi'
 import { DoorAudioCell } from './BranchRpiAudioHw'
 import {
-  ZONE_REFS, audioMode, channelKey, findDuplicateChannels, findDuplicateZones, findDuplicateOutputs, roleTypeError, draftToHw, hwToDraft,
+  ZONE_REFS, ZONE_TIMING_FIELDS, ZONE_MUSIC_OPTIONS, audioMode, channelKey, findDuplicateChannels, findDuplicateZones, findDuplicateOutputs, roleTypeError, draftToHw, hwToDraft,
 } from './BranchRpiHardwareDefaults'
 import { outdoorRefs } from './BranchRpiOutdoorHelpers'
 
@@ -20,7 +20,7 @@ import { outdoorRefs } from './BranchRpiOutdoorHelpers'
 // upozorněním); světlo venku a číslo zóny venku platí v obou režimech (validate_outdoor).
 
 function doorTitle(d) {
-  return d.door_kind === 'accessories' ? 'Oblečení' : `Kóje #${d.box_number}`
+  return doorKindLabel(d)
 }
 
 function DoorHwEditor({ doors, devices, audio, outdoor, busy, onSaveDoor }) {
@@ -117,7 +117,7 @@ function DoorHwRow({ door, draft, devices, audio, devOptions, dupes, dupZones, d
           <Chip tone={configured ? 'gray' : isAcc ? 'red' : 'amber'}>{configured ? 'RPi mapa' : 'Bez mapy'}</Chip>
         </div>
         <Input label="Zóna" type="number" min={1} width={64} value={draft.zone} invalid={zoneBad || zoneDup}
-          title={zoneDup ? (zoneNo === outdoorZone ? `Zónu ${zoneNo} má venek — čísla zón musí být unikátní` : `Zónu ${zoneNo} mají i jiné dveře — čísla zón musí být unikátní`) : 'Číslo zóny (kóje = číslo boxu; oblečení = volné číslo)'}
+          title={zoneDup ? (zoneNo === outdoorZone ? `Zónu ${zoneNo} má venek — čísla zón musí být unikátní` : `Zónu ${zoneNo} mají i jiné dveře — čísla zón musí být unikátní`) : 'Číslo zóny (kóje = číslo boxu, např. 1–7; šatna = volné číslo, v šabloně 8). Podle něj jednotka pozná, který zámek, světlo a reproduktor k těmto dveřím patří.'}
           onChange={v => onPatch(p => ({ ...p, zone: v }))} />
         {ZONE_REFS.map(role => {
           const ref = draft[role.key] || { dev: '', [role.idx]: '' }
@@ -129,7 +129,7 @@ function DoorHwRow({ door, draft, devices, audio, devOptions, dupes, dupZones, d
               devOptions={devOptions} dup={dup} dupOut={!!out && dupOuts.has(out)} onPatch={onPatch} />
           }
           const typeErr = roleTypeError(Number.isFinite(zoneNo) ? zoneNo : '?', role, ref.dev, devices)
-          const title = dup ? 'Kanál už používá jiná zóna/role nebo venek (blok Venek)' : typeErr ? `${typeErr} Povolené: ${role.types.join('/')}.` : `${role.label}: zařízení + ${role.idx}`
+          const title = dup ? 'Tenhle kanál už používá jiná zóna nebo venek — každý zámek, kontakt, světlo i reproduktor smí patřit jen jedné zóně.' : typeErr ? `${typeErr} Povolené: ${role.types.join('/')}.` : role.hint
           const unknownDev = !!(ref.dev && !devices?.[ref.dev])
           return (
             <div key={role.key} className="flex flex-col gap-0.5" title={title}>
@@ -146,7 +146,7 @@ function DoorHwRow({ door, draft, devices, audio, devOptions, dupes, dupZones, d
           )
         })}
         <Input label="Zavřeno =" width={70} value={draft.closed_level} placeholder="glob."
-          title="Úroveň vstupu při zavřených dveřích (prázdné = globální nastavení)"
+          title="Jakou hodnotu hlásí vstup modulu, když jsou TYTO dveře zavřené (0 nebo 1). Prázdné = společné nastavení ze sekce „Dveřní kontakty“. Měňte jen když má tato zóna jinak zapojené čidlo."
           invalid={draft.closed_level !== '' && draft.closed_level !== '0' && draft.closed_level !== '1'}
           onChange={v => onPatch(p => ({ ...p, closed_level: v }))} />
         <div className="flex gap-1 self-center ml-auto">
@@ -154,9 +154,30 @@ function DoorHwRow({ door, draft, devices, audio, devOptions, dupes, dupZones, d
           <Btn tone="red" disabled={busy || !configured} onClick={onClear}>Vymazat</Btn>
         </div>
       </div>
+      {/* Individuální časování zóny — kóje 1–7 se obvykle nechávají prázdné (jedou na společném nastavení),
+          šatna se tu dá nastavit jinak (převlékání trvá déle než zaparkování motorky) */}
+      <div className="flex items-end gap-2 flex-wrap mt-1 pt-1" style={{ borderTop: '1px dashed #d4e8e0' }}>
+        <span className="text-[10px] font-extrabold uppercase self-center" style={{ color: '#6b8c7a', minWidth: 76 }}
+          title="Časování jen pro tuto zónu. Prázdné pole = platí společné nastavení ze sekce „Časování“ výše. Kóje 1–7 nechte prázdné, aby byly stejné; šatně můžete nastavit vlastní doby.">
+          Vlastní čas
+        </span>
+        <Select label="Hudba" width={168} value={draft.music_enabled ?? ''} options={ZONE_MUSIC_OPTIONS}
+          warn={draft.music_enabled === '0'}
+          title="Hraje v této kóji / šatně hudba po zadání kódu? „Podle pobočky“ = řídí se hlavním vypínačem v sekci Audio (výchozí, nechte u kójí 1–7). „Nehraje“ umlčí jen tuhle zónu, ostatní hrají dál. Dveří se to nijak netýká, otevírají se vždy."
+          onChange={v => onPatch(p => ({ ...p, music_enabled: v }))} />
+        {ZONE_TIMING_FIELDS.map(f => {
+          const v = draft.timings?.[f.key] ?? ''
+          const bad = v !== '' && !(parseInt(v, 10) >= 0)
+          return (
+            <Input key={f.key} label={`${f.label} (${f.unit})`} width={132} type="number" min={0} value={v} placeholder="glob."
+              invalid={bad} title={f.hint}
+              onChange={val => onPatch(p => ({ ...p, timings: { ...(p.timings || {}), [f.key]: val } }))} />
+          )
+        })}
+      </div>
       {isAcc && !configured && (
         <div className="text-[11px] font-bold mt-1" style={{ color: '#dc2626' }}>
-          Skříň oblečení nemá HW zónu — kód k oblečení na displeji nebude fungovat (jednotka hlásí „relé pro tyto dveře není ve Velíně nastaveno“). Zadejte volné číslo zóny, zámek (WAV645) a kontakt (WAV617) a uložte.
+          Šatna nemá HW zónu — kód k výbavě na displeji nebude fungovat (jednotka hlásí „relé pro tyto dveře není ve Velíně nastaveno“). Zadejte volné číslo zóny, zámek (WAV645) a kontakt (WAV617) a uložte.
         </div>
       )}
       {msg && <div className="text-[11px] font-bold mt-1" style={{ color: msg.tone === 'red' ? '#dc2626' : msg.tone === 'amber' ? '#b45309' : '#1a8a18' }}>{msg.text}</div>}

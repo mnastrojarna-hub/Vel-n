@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+from dataclasses import replace
 
 import pytest
 
@@ -644,3 +645,105 @@ async def test_force_secure_reports_io_offline_when_module_down():
     await r.zc.force_secure()
     assert r.zc.state == ZoneState.FAULT and r.zc.fault == "io_offline"
     assert r.signals.current(1) == Signal.BOTH_BLINK
+
+
+# ─── Individuální časování zóny (branch_doors.hw.timings, 2026-09-14) ──────────
+# Kóje 1–7 zůstávají na společném nastavení, šatna se nastavuje jinak (převlékání trvá déle).
+
+async def test_zone_timings_override():
+    r = Rig()
+    assert r.zc.timings is r.hw.timings                  # bez override = přesně globální objekt
+
+    zone = r.hw.zone_by_number(1)
+    zone.hw = ZoneHw.from_dict({**zone.hw.to_dict(), "timings": {"light_after_close_s": 180, "maximum_session_s": 1800}})
+    t = r.zc.timings
+    assert t.light_after_close_s == 180 and t.maximum_session_s == 1800
+    assert t.music_after_close_s == r.hw.timings.music_after_close_s   # nepřepsané zůstává globální
+    assert t.lock_pulse_ms == r.hw.timings.lock_pulse_ms               # pulz zámku se per zóna nenastavuje
+    assert r.hw.timings.light_after_close_s != 180                     # globální nastavení se NEZMĚNILO
+    assert r.zc.timings is t                                           # cache: stejný objekt, dokud se globál nemění
+
+    r.hw.timings = replace(r.hw.timings, light_after_close_s=45)       # změna z Velína → přepočet
+    t2 = r.zc.timings
+    assert t2 is not t and t2.light_after_close_s == 180 and t2.music_after_close_s == r.hw.timings.music_after_close_s
+
+
+async def test_zone_timings_override_applies_to_light_runoff():
+    """Šatna s delším doběhem světla: po zavření svítí déle, než říká globální nastavení."""
+    r = await rig_secured()
+    zone = r.hw.zone_by_number(1)
+    zone.hw = ZoneHw.from_dict({**zone.hw.to_dict(), "timings": {"light_after_close_s": 120}})
+    assert r.hw.timings.light_after_close_s < 120                      # globální doběh je kratší
+    await r.zc.grant_access(booking_id="b-1", kind="motorcycle", source="ui")
+    await r.zc.on_input(False)                                         # otevřeno
+    await r.zc.on_input(True)                                          # zavřeno
+    r.clock.advance(1.1)
+    await r.zc.tick()
+    assert r.zc.state == ZoneState.CLOSED_CONFIRMATION and r.light() is True
+
+    r.clock.advance(r.hw.timings.light_after_close_s + 1)              # globální doběh by už zhasnul
+    await r.zc.tick()
+    assert r.light() is True                                           # …ale tahle zóna má vlastních 120 s
+
+    r.clock.advance(120)
+    await r.zc.tick()
+    assert r.light() is False and r.zc.state == ZoneState.SECURED
+
+
+async def test_zone_timings_not_in_hw_signature():
+    """Změna individuálního časování zóny NESMÍ vyvolat přestavbu HW vrstvy — ta dělá `all_off`
+    a zhasla by světlo v právě obsazené kóji. Podpis se proto musí změnit jen u skutečně
+    hardwarových věcí (zde kontrolně cívka zámku)."""
+    from motogo_box.controller_hw import hw_signature
+
+    r = Rig()
+    before = hw_signature(r.hw)
+    zone = r.hw.zone_by_number(1)
+    zone.hw = ZoneHw.from_dict({**zone.hw.to_dict(), "timings": {"light_after_close_s": 120}})
+    assert hw_signature(r.hw) == before                    # jen časování → žádná přestavba
+    assert r.zc.timings.light_after_close_s == 120         # …ale projeví se hned
+
+    zone.hw = ZoneHw.from_dict({**zone.hw.to_dict(), "lock": {"dev": "wav645", "coil": 15}})
+    assert hw_signature(r.hw) != before                    # změna hardwaru → přestavba ano
+
+
+# ─── Vypínač hudby (2026-09-14) ─────────────────────────────────────────────────
+# Zesilovače na pobočce jsou napájené trvale, takže hudba musí jít vypnout softwarově —
+# bez toho ji každý další zadaný kód zase spustil.
+
+async def test_music_disabled_branch_wide():
+    """Hlavní vypínač pobočky: po zadání kódu se hudba nespustí, dveře se otevřou normálně."""
+    r = await rig_secured()
+    r.hw.audio.music_enabled = False
+    assert r.zc.music_enabled is False
+    ok, reason = await r.zc.grant_access(booking_id="b-1", kind="motorcycle", source="ui")
+    assert (ok, reason) == (True, "ok")                   # dveře se otevřou
+    assert r.audio.playing_zone is None                   # …ale hudba nehraje
+    assert r.events[-1].detail.get("music_disabled") is True
+
+
+async def test_music_zone_override_wins_over_branch():
+    """Přepis zóny má přednost: vypnutá pobočka + zapnutá zóna = hraje, a naopak."""
+    r = await rig_secured()
+    zone = r.hw.zone_by_number(1)
+
+    r.hw.audio.music_enabled = False
+    zone.hw = ZoneHw.from_dict({**zone.hw.to_dict(), "music_enabled": True})
+    assert r.zc.music_enabled is True
+    await r.zc.grant_access(booking_id="b-1", kind="motorcycle", source="ui")
+    assert r.audio.playing_zone == 1
+
+    r.hw.audio.music_enabled = True
+    zone.hw = ZoneHw.from_dict({**zone.hw.to_dict(), "music_enabled": False})
+    assert r.zc.music_enabled is False
+
+
+async def test_music_enabled_not_in_hw_signature():
+    """Vypnutí hudby nesmí vyvolat přestavbu HW (zhasla by světlo v obsazené kóji)."""
+    from motogo_box.controller_hw import hw_signature
+
+    r = Rig()
+    before = hw_signature(r.hw)
+    zone = r.hw.zone_by_number(1)
+    zone.hw = ZoneHw.from_dict({**zone.hw.to_dict(), "music_enabled": False})
+    assert hw_signature(r.hw) == before

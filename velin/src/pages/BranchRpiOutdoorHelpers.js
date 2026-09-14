@@ -11,6 +11,26 @@ import { ZONE_REFS, channelKey, audioMode, audioOutputNames } from './BranchRpiH
 export const COIL_LIMITS = { wav645: 16, wav617: 8 }
 const WAVESHARE = ['wav645', 'wav617']
 
+// ── Režimy venku (`outdoor.light_mode` / `outdoor.music_mode`) — 1:1 s config_outdoor.py ──
+// Venek se nastavuje JINAK než kóje a šatna: v kójích se světlo i hudba řídí relací (zadaným kódem),
+// venek může jet nonstop. Výchozí hodnoty ('auto' / 'session') = dosavadní chování a do mapy se nezapisují.
+export const LIGHT_MODE_AUTO = 'auto'
+export const MUSIC_MODE_SESSION = 'session'
+export const OUTDOOR_LIGHT_MODES = [
+  { value: 'auto', label: 'Podle relací — svítí od zadání kódu, po doběhu zhasne' },
+  { value: 'always', label: 'NONSTOP — svítí trvale, bez ohledu na relace' },
+  { value: 'off', label: 'Trvale zhasnuto — nerozsvítí se ani při relaci' },
+]
+export const OUTDOOR_MUSIC_MODES = [
+  { value: 'session', label: 'Při zadání kódu — hraje během relací, po doběhu ztichne' },
+  { value: 'always', label: 'NONSTOP — hraje trvale' },
+  { value: 'off', label: 'Venku nehraje nic' },
+]
+const modeOf = (v, options, fallback) => {
+  const t = String(v ?? '').trim().toLowerCase()
+  return options.some(o => o.value === t) ? t : fallback
+}
+
 // Role kanálů venku pro detekci duplicit (channelKey / findDuplicateChannels — `extraRefs`)
 export const OUTDOOR_LIGHT_ROLE = { key: 'light', label: 'Světlo venku', idx: 'coil', kind: 'coil', types: WAVESHARE }
 export const OUTDOOR_RELAY_ROLE = { key: 'audio', label: 'Enable relé venku', idx: 'coil', kind: 'coil', types: WAVESHARE }
@@ -50,6 +70,8 @@ export function outdoorOf(hardware) {
     zone: intOrNull(raw?.zone), light,
     audio: { out, dev: relay?.dev ?? '', coil: relay?.coil ?? '' },
     light_after_close_s: intOrNull(raw?.light_after_close_s),
+    light_mode: modeOf(raw?.light_mode, OUTDOOR_LIGHT_MODES, LIGHT_MODE_AUTO),
+    music_mode: modeOf(raw?.music_mode, OUTDOOR_MUSIC_MODES, MUSIC_MODE_SESSION),
   }
 }
 
@@ -141,6 +163,8 @@ export function outdoorToDraft(hardware) {
     light: { dev: o.light?.dev ?? '', coil: o.light ? String(o.light.coil) : '' },
     audio: { out: o.audio.out, dev: o.audio.dev, coil: o.audio.coil === '' ? '' : String(o.audio.coil) },
     light_after_close_s: o.light_after_close_s == null ? '' : String(o.light_after_close_s),
+    light_mode: o.light_mode,
+    music_mode: o.music_mode,
   }
 }
 
@@ -179,6 +203,12 @@ export function draftToOutdoor(draft, { devices, audio, doors }) {
     if (!Number.isFinite(n) || n < 0) return { error: 'Venek: doběh světla musí být celé nezáporné číslo sekund (prázdné = globální světlo po zavření).' }
     outdoor.light_after_close_s = n
   }
+  const lightMode = modeOf(draft?.light_mode, OUTDOOR_LIGHT_MODES, LIGHT_MODE_AUTO)
+  const musicMode = modeOf(draft?.music_mode, OUTDOOR_MUSIC_MODES, MUSIC_MODE_SESSION)
+  if (lightMode !== LIGHT_MODE_AUTO) outdoor.light_mode = lightMode
+  if (musicMode !== MUSIC_MODE_SESSION) outdoor.music_mode = musicMode
+  if (lightMode !== LIGHT_MODE_AUTO && !light.ref) return { error: 'Venek: režim světla lze nastavit jen s relé venkovního osvětlení — vyplňte světlo, nebo režim vraťte na „Podle relací".' }
+  if (musicMode !== MUSIC_MODE_SESSION && !out) return { error: 'Venek: režim hudby lze nastavit jen s audio výstupem venku — vyberte výstup, nebo režim vraťte na „Při zadání kódu".' }
   if (!outdoor.light && !out) return { error: 'Upozornění: venek nemá světlo ani audio výstup. Vyplňte světlo nebo výstup venku, nebo venek vymažte.' }
   return { outdoor }
 }

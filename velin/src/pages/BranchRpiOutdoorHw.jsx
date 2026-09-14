@@ -4,6 +4,7 @@ import { audioMode, audioOutputNames } from './BranchRpiHardwareDefaults'
 import {
   outdoorOf, outdoorToDraft, draftToOutdoor, doorCoils, legacyOutdoorChannel, audioWithoutOutdoorChannel,
   outdoorLightError, outdoorRelayError, outdoorShareError, outdoorOutError, outdoorZoneError,
+  OUTDOOR_LIGHT_MODES, OUTDOOR_MUSIC_MODES, LIGHT_MODE_AUTO,
 } from './BranchRpiOutdoorHelpers'
 
 // ─── Venek (zóna bez dveří) — editor `hardware.outdoor` ──────────────────────
@@ -13,8 +14,9 @@ import {
 // / validate_audio() v jednotce (BranchRpiOutdoorHelpers.js). Uložení → onSave({ outdoor, audio }): `outdoor`
 // kanonický tvar (null = smazat klíč), `audio` = hardware.audio bez legacy kanálu `channels.outdoor`.
 
-const HINT = 'Zóna 9 v šabloně Brno: prostor před displejem. Světlo svítí od zadání kódu do doběhu po poslední relaci, '
-  + 'hudba venku hraje při jakémkoli kódu (jen režim multi). Bez zámku, kontaktu a signalizace — na displeji se neukazuje.'
+const HINT = 'Zóna 9: venkovní prostor před displejem. Na rozdíl od kójí 1–7 a šatny má VLASTNÍ režim světla a hudby — '
+  + 'světlo může jet nonstop, nebo jen podle relací; hudba venku hraje při jakémkoli kódu, nonstop, nebo vůbec (hudba jen v režimu multi). '
+  + 'Venek nemá zámek, kontakt ani signalizaci a na displeji se neukazuje jako dlaždice.'
 const MSG_COLOR = { red: '#dc2626', amber: '#b45309', green: '#1a8a18' }
 // V režimu selector jsou audio pole vypnutá (`disabled` — ani klávesnicí; jednotka: kanál venek v selectoru = upozornění,
 // hudba venku nehraje). Výstup venku pak nejde v bloku Venek změnit — editor audia proto v selectoru venek neblokuje.
@@ -111,8 +113,31 @@ function OutdoorHwEditor({ hardware, doors, disabled, onSave }) {
         </div>
         {!multi && <Chip tone="amber" title="Přepněte Audio → režim na multi a nastavte výstup venku">hudba venku jen v multi</Chip>}
         <Input label="Doběh světla (s)" type="number" min={0} width={110} value={draft.light_after_close_s} placeholder="glob." invalid={afterBad}
-          title="Za kolik sekund po poslední relaci zhasne venkovní světlo (prázdné = globální „Světlo po zavření“ v časování)"
+          disabled={draft.light_mode !== LIGHT_MODE_AUTO}
+          title={draft.light_mode !== LIGHT_MODE_AUTO
+            ? 'Doběh se používá jen v režimu „Podle relací“ — v režimu nonstop / trvale zhasnuto nemá co dobíhat.'
+            : 'Za kolik sekund po poslední relaci zhasne venkovní světlo (prázdné = globální „Světlo po zavření“ v časování). Typicky 30–120 s, aby zákazník odcházel ze osvětleného prostoru.'}
           onChange={v => patch(d => ({ ...d, light_after_close_s: v }))} />
+      </div>
+
+      {/* Režimy venku: venek se nastavuje jinak než kóje a šatna — světlo tu může jet nonstop */}
+      <div className="flex items-end gap-2 flex-wrap p-2 rounded-lg mt-2" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
+        <div className="flex flex-col gap-1 self-center" style={{ minWidth: 76 }}>
+          <Chip tone="gray" title="Venek má vlastní režim světla a hudby — kóje 1–7 a šatna se řídí časováním v sekci Časování">Režimy</Chip>
+        </div>
+        <Select label="Venkovní světlo" width={330} value={draft.light_mode} options={OUTDOOR_LIGHT_MODES}
+          warn={draft.light_mode !== LIGHT_MODE_AUTO && !draft.light.dev}
+          title={'Jak se chová venkovní osvětlení. „Podle relací“ = jako v kójích (rozsvítí se po zadání kódu a po doběhu zhasne). '
+            + '„NONSTOP“ = svítí pořád, nezávisle na zákaznících — pro venkovní prostor u pobočky. „Trvale zhasnuto“ = nesvítí vůbec '
+            + '(sezóna, vadné svítidlo). Tlačítko „Vše vypnout“ venek zhasne i v režimu nonstop, dokud ho někdo znovu nezapne nebo se jednotka nerestartuje.'}
+          onChange={v => patch(d => ({ ...d, light_mode: v }))} />
+        <Select label="Hudba venku" width={300} value={draft.music_mode} options={OUTDOOR_MUSIC_MODES} disabled={!multi}
+          warn={multi && draft.music_mode !== 'session' && !out}
+          title={!multi ? SELECTOR_TITLE
+            : 'Kdy hraje hudba ve venkovním prostoru. „Při zadání kódu“ = hraje, dokud běží aspoň jedna relace (výchozí). '
+              + '„NONSTOP“ = hraje pořád. „Venku nehraje nic“ = výstup zůstane nastavený, ale nepoužije se. '
+              + 'Skladby venku nahrajete v bloku „Hudba pobočky“ do cíle Venek.'}
+          onChange={v => patch(d => ({ ...d, music_mode: v }))} />
       </div>
       {legacy && (
         <div className="text-[11px] font-bold mt-1" style={{ color: '#b45309' }}>

@@ -19,6 +19,37 @@ function platformLabel(dev) {
   return p ? `Neznámá platforma (${p})` : ''
 }
 
+// ── Jednotné pojmenování zón (2026-09-14) ───────────────────────────────────
+// Samoobslužná pobočka: zóny 1–7 = kóje na motorku, zóna 8 = ŠATNA (dveře `door_kind='accessories'`),
+// zóna 9 = VENEK (nemá dveře — sekce hardware.outdoor). Stejné názvy musí být ve Velíně i na displeji
+// pobočky (motogo_box/models.py Zone.display_name, ui/i18n.js). `door_kind` v DB zůstává 'accessories' —
+// páruje se podle něj kód k výbavě, takže se mění VÝHRADNĚ zobrazovaný text.
+const ACCESSORIES_LABEL = 'Šatna'
+const OUTDOOR_LABEL = 'Venek'
+const isAccessoriesDoor = d => d?.door_kind === 'accessories'
+// Název kóje podle čísla boxu ('Kóje 3'); bez čísla jen 'Kóje'
+function boxLabel(n) { return n == null || n === '' ? 'Kóje' : `Kóje ${n}` }
+// Název typu dveří BEZ vlastního popisu — pro chipy a potvrzovací dialogy ('Šatna' / 'Kóje 3')
+function doorKindLabel(door) { return isAccessoriesDoor(door) ? ACCESSORIES_LABEL : boxLabel(door?.box_number) }
+// Název dveří pro seznamy a log: vlastní popis z Velína má přednost, jinak 'Šatna' / 'Kóje 3'
+function doorLabel(door) { return door ? (door.label || doorKindLabel(door)) : '—' }
+
+// Je popis dveří jen automaticky složený český název, ne vlastní text od obsluhy?
+// Velín historicky zakládal dveřím popisy „Garáž #3 — Honda CB500“ a „Skříň oblečení“ — ty neodpovídají
+// jednotnému názvosloví (kóje 1–7 / šatna / venek) a na displeji by navíc zůstaly česky ve všech jazycích.
+// Stejné pravidlo má displej pobočky (motogo_box/ui/i18n.js `isGeneratedLabel`), aby Velín i displej
+// ukazovaly totéž. Vlastní popis („U vjezdu vlevo“) se nikdy nepřepisuje.
+const ACCESSORIES_GENERATED = ['Šatna', 'Satna', 'Oblečení', 'Obleceni', 'Skříň oblečení', 'Skrin obleceni']
+function isGeneratedZoneLabel(label, { kind, boxNumber, zone } = {}) {
+  const text = String(label ?? '').trim()
+  if (!text) return true
+  if (kind === 'accessories') return ACCESSORIES_GENERATED.includes(text)
+  if (zone != null && text === `Zóna ${zone}`) return true
+  if (boxNumber == null) return false
+  // „Kóje 3“ / „Koje 3“ / „Garáž #3“ / „Garáž 3“ — volitelně s doplňkem za pomlčkou (model motorky)
+  return new RegExp(`^(?:K[óo]je|Gar[áa][žz])\\s*#?\\s*${boxNumber}(?:\\s*[—–-]\\s*.*)?$`, 'i').test(text)
+}
+
 // ── Defenzivní vykreslení hodnot ze zařízení (status/report jsou JSON z jednotky — nevěřit tvaru) ──
 // txt: null → '—', objekt/pole → JSON, jinak text; num: konečné číslo nebo null; arr: pole nebo []
 const txt = v => (v == null ? '—' : typeof v === 'object' ? JSON.stringify(v) : String(v))
@@ -161,4 +192,5 @@ function formatAge(sec) {
 export {
   RpiSection, Btn, Chip, Label, Input, Select, Checkbox, TONES, formatUptime, ageSeconds, formatAge,
   ErrorBoundary, txt, num, arr, isRpiDevice, isTabletDevice, platformLabel,
+  ACCESSORIES_LABEL, OUTDOOR_LABEL, isAccessoriesDoor, boxLabel, doorKindLabel, doorLabel, isGeneratedZoneLabel,
 }

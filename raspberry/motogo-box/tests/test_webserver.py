@@ -138,6 +138,9 @@ class FakeStorage:
     def kv_set(self, key: str, value) -> None:
         self.kv[key] = value
 
+    def kv_delete(self, key: str) -> None:
+        self.kv.pop(key, None)
+
     def events_recent(self, limit: int = 100) -> list[dict]:
         return [{"kind": "STARTUP", "limit": limit}]
 
@@ -263,6 +266,19 @@ async def test_pair_without_token_when_unpaired():
         r = await client.post("/api/service/pair", json={"device_id": "", "device_token": "t",
                                                         "service_token": SERVICE_TOKEN})
         assert r.status == 400 and (await r.json())["error"] == "missing_inputs"
+
+
+async def test_pair_clears_cached_branch_name():
+    """Přepárování na jinou pobočku musí zahodit název z předchozího párování — jinak by displej
+    do prvního úspěšného heartbeatu ukazoval název STARÉ pobočky (musí být 1:1 s Velínem)."""
+    ctrl, api, storage = FakeController(), FakeApi(device_id=""), FakeStorage()
+    storage.kv["branch_name"] = "Brno"
+    ctrl.branch_name = "Brno"
+    server = WebServer(ctrl, api, storage, LocalConfig())
+    async with TestClient(TestServer(server.app)) as client:
+        r = await client.post("/api/service/pair", json={"device_id": "d2", "device_token": "t2"})
+        assert (await r.json())["ok"] is True
+    assert "branch_name" not in storage.kv and ctrl.branch_name is None
 
 
 async def test_health_and_events_localhost_only(env, monkeypatch):

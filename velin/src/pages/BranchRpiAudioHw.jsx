@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Btn, Chip, Input, Select, Label } from './BranchRpiUi'
+import { Btn, Chip, Input, Select, Label, Checkbox } from './BranchRpiUi'
 import { AUDIO_MODES, BRNO_AUDIO_OUTPUTS_EXAMPLE, audioMode, audioOutputNames, roleTypeError, ZONE_REFS } from './BranchRpiHardwareDefaults'
 import { outdoorOf, outdoorOutOf, outdoorRelayError, doorCoils } from './BranchRpiOutdoorHelpers'
 
@@ -26,7 +26,7 @@ function outputsToRows(audio) {
 function outputUsage(doors, outdoor) {
   const use = {}
   const add = (o, who) => { const n = String(o ?? '').trim(); if (n) (use[n] = use[n] || []).push(who) }
-  ;(doors || []).forEach(d => add(d?.hw?.audio?.out, d.door_kind === 'accessories' ? 'oblečení' : `kóje #${d.box_number}`))
+  ;(doors || []).forEach(d => add(d?.hw?.audio?.out, d.door_kind === 'accessories' ? 'šatna' : `kóje ${d.box_number}`))
   add(outdoor, 'venek')
   return use
 }
@@ -35,12 +35,15 @@ function AudioOutputsEditor({ hardware, doors, disabled, onSave }) {
   const rawAudio = hardware?.audio
   const audio = useMemo(() => (rawAudio && typeof rawAudio === 'object' ? rawAudio : {}), [rawAudio])   // stabilní ref pro efekt
   const [mode, setMode] = useState(() => audioMode(audio))
+  // Hlavní vypínač hudby pobočky (`audio.music_enabled`; chybí = zapnuto). Vypnuto = po zadání kódu
+  // se hudba nespustí nikde — zesilovače jsou napájené trvale, takže jinak hudbu nešlo vypnout.
+  const [musicOn, setMusicOn] = useState(() => audio.music_enabled !== false)
   const [rows, setRows] = useState(() => outputsToRows(audio))
   const [dirty, setDirty] = useState(false)
   const [err, setErr] = useState(null)
   useEffect(() => {
     if (dirty) return
-    setMode(audioMode(audio)); setRows(outputsToRows(audio))
+    setMode(audioMode(audio)); setRows(outputsToRows(audio)); setMusicOn(audio.music_enabled !== false)
   }, [audio, dirty])
   const multi = mode === 'multi'
 
@@ -92,6 +95,7 @@ function AudioOutputsEditor({ hardware, doors, disabled, onSave }) {
       if (relayErr) { setErr(`${relayErr} Změňte cívku v mapování dveří, nebo venek vymažte a po uložení režimu multi nastavte znovu.`); return }
     }
     const next = { ...audio, mode }   // `channels` (vč. legacy venku) se zde nemění — venek spravuje blok Venek
+    if (musicOn) delete next.music_enabled; else next.music_enabled = false   // výchozí (zapnuto) se do mapy nepíše
     if (Object.keys(outputs).length) next.outputs = outputs; else delete next.outputs
     setErr(null)
     await onSave(next)
@@ -114,7 +118,14 @@ function AudioOutputsEditor({ hardware, doors, disabled, onSave }) {
         </div>
       </div>
       <div className="flex gap-2 flex-wrap items-end mb-2">
-        <Select label="Režim" width={460} value={mode} options={AUDIO_MODES} onChange={v => { setMode(v); setDirty(true) }} />
+        <div className="p-2 rounded-lg self-center" style={{ background: musicOn ? '#f1faf7' : '#fef3c7', border: `1px solid ${musicOn ? '#d4e8e0' : '#fde68a'}` }}>
+          <Checkbox label={musicOn ? 'Hudba na pobočce zapnutá' : 'Hudba na pobočce VYPNUTÁ'} checked={musicOn}
+            title="Hlavní vypínač hudby pro celou pobočku. Zapnuto = po zadání kódu se v dané kóji (šatně) spustí hudba. Vypnuto = nehraje nikde, ani venku — dveře se otevírají normálně. Jednotlivé kóje a šatna si to můžou přepsat v mapování dveří níže („Hudba“)."
+            onChange={v => { setMusicOn(v); setDirty(true) }} />
+        </div>
+        <Select label="Režim" width={460} value={mode} options={AUDIO_MODES}
+          title="Jak je pobočka ozvučená. „selector“ = jeden zesilovač a přepínací relé: hraje vždy jen JEDNA kóje a venku nehraje nic. „multi“ = každá kóje, šatna i venek má vlastní zvukovou kartu a vlastní přehrávač, takže hrají současně a každá své skladby. Pro vlastní hudbu v každé kóji (blok „Hudba pobočky“) je potřeba „multi“."
+          onChange={v => { setMode(v); setDirty(true) }} />
       </div>
       {rows.length === 0 ? (
         <div className="text-[12px]" style={{ color: '#6b8c7a' }}>{multi ? 'Žádné výstupy — režim multi bez výstupů jednotka odmítne.' : 'Žádné výstupy (v režimu selector nejsou potřeba).'}</div>
@@ -130,7 +141,9 @@ function AudioOutputsEditor({ hardware, doors, disabled, onSave }) {
                   title={badName ? 'Název musí být unikátní, malá písmena/číslice/-/_' : 'Odkaz z mapování dveří (audio.out)'}
                   onChange={v => edit(i, { name: v })} />
                 <Input label="ALSA zařízení (aplay -L)" width={260} value={r.device} placeholder="alsa/plughw:CARD=Box1" warn={!r.device.trim()}
-                  title={r.device.trim() ? '' : 'Prázdné = výchozí ALSA výstup (na RPi 5 HDMI → místnost mlčí)'}
+                  title={r.device.trim()
+                    ? 'Konkrétní zvuková karta pro tento výstup. Přesný název zjistíte na jednotce příkazem „aplay -L“ (např. alsa/plughw:CARD=Box1).'
+                    : 'Prázdné = výchozí zvukový výstup systému. Na Raspberry je to HDMI, takže z reproduktorů v místnosti nic nehraje — vyplňte kartu dle „aplay -L“ na jednotce.'}
                   onChange={v => edit(i, { device: v })} />
                 <Chip tone={who?.length ? 'green' : 'gray'} title="Kdo výstup používá (dle uložené mapy)">{who?.length ? who.join(', ') : 'volný'}</Chip>
                 <Btn tone="red" small onClick={() => remove(i)} disabled={disabled} style={{ alignSelf: 'center', marginLeft: 'auto' }}>Smazat</Btn>
@@ -153,8 +166,9 @@ function DoorAudioCell({ zoneNo, audioRef, audio, devices, devOptions, dup, dupO
   const out = String(ref.out ?? '').trim()
   const typeErr = roleTypeError(zoneNo, AUDIO_ROLE, ref.dev, devices)
   const unknownDev = !!(ref.dev && !devices?.[ref.dev])
-  const relayTitle = dup ? 'Kanál už používá jiná zóna/role nebo venek (blok Venek)' : typeErr ? `${typeErr} Povolené: wav645/wav617.`
-    : multi ? 'Volitelné enable relé zesilovače (dev + coil)' : 'Audio selektor: zařízení + coil'
+  const relayTitle = dup ? 'Tenhle kanál už používá jiná zóna nebo venek — každý kanál smí patřit jen jedné zóně.' : typeErr ? `${typeErr} Povolené: wav645/wav617.`
+    : multi ? 'Nepovinné: relé, které zapne zesilovač této místnosti, když v ní má hrát hudba (modul + relé). Nechte prázdné, pokud je zesilovač napájený trvale.'
+      : 'Relé audio přepínače pro tuto místnost (modul + relé). V režimu „selector“ je jen jedno ozvučení a relé přepíná, do které kóje jde zvuk.'
   const relay = (
     <div className="flex gap-1">
       <Select width={96} value={ref.dev} options={unknownDev ? [...devOptions, { value: ref.dev, label: `${ref.dev} (?)` }] : devOptions}
@@ -167,8 +181,10 @@ function DoorAudioCell({ zoneNo, audioRef, audio, devices, devOptions, dup, dupO
   const unknownOut = !!(out && !names.includes(out))
   const outOptions = [{ value: '', label: '—' }, ...names.map(n => ({ value: n, label: n }))]
   if (unknownOut) outOptions.push({ value: out, label: `${out} (?)` })
-  const outTitle = dupOut ? `Výstup ${out} už používá jiná zóna nebo venek` : unknownOut ? `Výstup '${out}' není v audio.outputs`
-    : !out ? 'Bez výstupu v této místnosti hudba nehraje' : `Výstup ${out} (audio.out)`
+  const outTitle = dupOut ? `Výstup ${out} už používá jiná zóna nebo venek — každý zvukový výstup smí patřit jen jedné místnosti.`
+    : unknownOut ? `Výstup „${out}“ v seznamu výstupů nahoře neexistuje — jednotka by celou mapu odmítla. Vyberte existující, nebo ho doplňte v sekci Audio.`
+      : !out ? 'Zvuková karta, přes kterou hraje hudba v této místnosti. Bez vybraného výstupu tu hudba nehraje vůbec.'
+        : `Hudba této místnosti hraje přes výstup „${out}“ (nastavuje se v sekci Audio výše).`
   return (
     <div className="flex flex-col gap-0.5">
       <Label>Audio výstup / relé (volit.)</Label>

@@ -145,6 +145,11 @@ async def service_pair(srv: Any, request: web.Request) -> web.Response:
         return srv.json({"ok": False, "error": str(error)})
     srv.storage.kv_set("device_id", device_id)
     srv.storage.kv_set("device_token", device_token)
+    # Název pobočky z předchozího párování zahodit: po přepárování na JINOU pobočku by displej
+    # do prvního úspěšného heartbeatu (a při jeho selhání i trvale) ukazoval starý název —
+    # a ten musí být 1:1 s názvem pobočky ve Velíně. Resync níže si doplní nový.
+    srv.storage.kv_delete("branch_name")
+    srv.ctrl.branch_name = None
     srv.api.set_device(device_id, device_token)
     resync: Any
     try:

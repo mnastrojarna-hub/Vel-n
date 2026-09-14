@@ -208,7 +208,8 @@ async def test_status_shape():
     ctl, io, clock = _rig()
     st = ctl.status()
     assert st == {"zone": 9, "configured": True, "light": False, "active": False, "manual": None,
-                  "audio_out": "out9", "music": False, "light_ref": "wav617b[0]", "off_in_s": None}
+                  "audio_out": "out9", "music": False, "light_ref": "wav617b[0]", "off_in_s": None,
+                  "light_mode": "auto", "music_mode": "session", "music_manual": None}
     ctl.audio.channels_playing = ["outdoor"]
     await ctl.sync([1])
     st = ctl.status()
@@ -299,3 +300,105 @@ async def test_manual_command_failure_is_retried_by_sync():
     io.ok = True
     await ctl.sync([])
     assert ctl.light_on is True and ctl.manual is True and io.calls[-1] == (LIGHT, True)
+
+
+# ─── Režimy venku (light_mode / music_mode, 2026-09-14) ─────────────────────────
+# Venek se nastavuje jinak než kóje a šatna: jeho světlo může jet nonstop, zatímco
+# v kójích svítí jen během relace (zadání uživatele).
+
+async def test_light_mode_always_svitit_nonstop():
+    ctl, io, clock = _rig(OutdoorCfg(zone=9, light=LIGHT, audio_out="out9", light_mode="always", present=True))
+    await ctl.sync([])                                   # bez relace → svítí (na rozdíl od režimu auto)
+    assert io.calls == [(LIGHT, True)] and ctl.light_on
+    await ctl.sync([3])
+    assert io.calls == [(LIGHT, True)]                   # relace nic nemění
+    await ctl.sync([])
+    clock.t += 3600                                      # doběh se v nonstop režimu neuplatní
+    await ctl.sync([])
+    assert ctl.light_on and ctl.off_at is None and io.calls == [(LIGHT, True)]
+    assert ctl.status()["light_mode"] == "always"
+
+
+async def test_light_mode_always_all_off_drzi_zhasnuto():
+    """„Vše vypnout“ musí venku zhasnout i v nonstop režimu — jinak by ho další tick hned rozsvítil."""
+    ctl, io, _ = _rig(OutdoorCfg(zone=9, light=LIGHT, light_mode="always", present=True))
+    await ctl.sync([])
+    assert ctl.light_on
+    await ctl.all_off()
+    assert ctl.light_on is False and ctl.manual is False
+    await ctl.sync([])
+    assert ctl.light_on is False and io.calls[-1] == (LIGHT, False)
+    assert await ctl.set_light(True) and ctl.light_on   # ruční zapnutí se vrací k nonstop
+
+
+async def test_light_mode_off_nerozsviti_ani_relace():
+    ctl, io, _ = _rig(OutdoorCfg(zone=9, light=LIGHT, light_mode="off", present=True))
+    await ctl.sync([3])
+    assert ctl.light_on is False and io.calls == [] and ctl.active is True
+
+
+async def test_music_mode_always_hraje_bez_relace():
+    audio = FakeAudio()
+    ctl, _, _ = _rig(OutdoorCfg(zone=9, light=LIGHT, audio_out="out9", music_mode="always", present=True), audio=audio)
+    await ctl.sync([])
+    assert audio.plays == [("outdoor", True)]            # hold=True → sync_channels ho nezastaví
+    await ctl.sync([])
+    assert audio.plays == [("outdoor", True)]            # už hraje → nespouští se znovu
+    assert ctl.status()["music_mode"] == "always"
+
+
+async def test_music_mode_off_zastavi_hudbu_venku():
+    audio = FakeAudio()
+    stopped: list[str] = []
+
+    async def stop_channel(name, fade=True):
+        stopped.append(name)
+        audio.channels_playing = [c for c in audio.channels_playing if c != name]
+        return True
+
+    audio.stop_channel = stop_channel
+    audio.channels_playing = ["outdoor"]
+    ctl, _, _ = _rig(OutdoorCfg(zone=9, light=LIGHT, audio_out="out9", music_mode="off", present=True), audio=audio)
+    await ctl.sync([3])
+    assert stopped == ["outdoor"] and audio.plays == []
+
+
+async def test_music_mode_always_backoff_pri_selhani():
+    """Selector (nebo chybný výstup) → play_channel vrací False; bez backoffu by se pokus
+    opakoval 4×/s a zaplavil log. Další pokus smí být až po RETRY_S."""
+    audio = FakeAudio()
+
+    async def play_channel(name, *, hold=True):
+        audio.plays.append((name, hold))
+        return False                                      # kanál neexistuje (selector)
+
+    audio.play_channel = play_channel
+    ctl, _, clock = _rig(OutdoorCfg(zone=9, light=LIGHT, audio_out="out9", music_mode="always", present=True), audio=audio)
+    await ctl.sync([])
+    await ctl.sync([])
+    await ctl.sync([])
+    assert len(audio.plays) == 1                          # backoff drží
+    clock.t += RETRY_S
+    await ctl.sync([])
+    assert len(audio.plays) == 2
+
+
+async def test_music_manual_prebiji_rezim():
+    """Ruční „Hudba ▶“ z Velína musí držet i v režimu off — jinak ji tick za 250 ms zruší."""
+    audio = FakeAudio()
+    stopped = []
+
+    async def stop_channel(name, fade=True):
+        stopped.append(name)
+        audio.channels_playing = [c for c in audio.channels_playing if c != name]
+        return True
+
+    audio.stop_channel = stop_channel
+    ctl, _, _ = _rig(OutdoorCfg(zone=9, light=LIGHT, audio_out="out9", music_mode="off", present=True), audio=audio)
+    audio.channels_playing = ["outdoor"]
+    ctl.set_music_manual(True)                            # ruční zapnutí (commands._music_on)
+    await ctl.sync([])
+    assert stopped == [] and ctl.status()["music_manual"] is True
+    ctl.set_music_manual(None)                            # zpět na režim → hudba se zastaví
+    await ctl.sync([])
+    assert stopped == ["outdoor"]

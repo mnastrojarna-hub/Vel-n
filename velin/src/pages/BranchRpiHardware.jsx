@@ -17,7 +17,7 @@ import { outdoorOf, doorsCollidingWithOutdoor } from './BranchRpiOutdoorHelpers'
 // onSaveCfg/onSaveDoor aktualizují stav záložky optimisticky a vrací true/false.
 
 const clone = v => JSON.parse(JSON.stringify(v))
-const doorName = d => (d.door_kind === 'accessories' ? 'oblečení' : `kóje #${d.box_number}`)
+const doorName = d => (d.door_kind === 'accessories' ? 'šatna' : `kóje ${d.box_number}`)
 const NOTE_STYLE = { green: { background: '#dcfce7', color: '#1a8a18' }, amber: { background: '#fef3c7', color: '#b45309' }, red: { background: '#fee2e2', color: '#dc2626' } }
 
 function RpiHardwareBlock({ cfg, doors, busy, onSaveCfg, onSaveDoor, onRefresh }) {
@@ -37,13 +37,13 @@ function RpiHardwareBlock({ cfg, doors, busy, onSaveCfg, onSaveDoor, onRefresh }
   async function loadBrnoDefaults() {
     const zonesN = BRNO_DEFAULT_ZONES.length
     const targets = (doors || []).filter(d => d.door_kind === 'motorcycle' && d.box_number >= 1 && d.box_number <= zonesN)
-    // Skříň oblečení (box_number NULL) = nejvyšší zóna šablony, kterou nezabírá žádná kóje
+    // Šatna (box_number NULL) = nejvyšší zóna šablony, kterou nezabírá žádná kóje
     const accDoor = (doors || []).find(d => d.door_kind === 'accessories')
     const accZone = accDoor ? pickAccessoriesZone(targets.map(d => d.box_number)) : null
-    const accText = !accDoor ? 'Dveře oblečení neexistují (blok „Dveře“ → Vytvořit dveře z kojí) — namapují se jen kóje.'
-      : accZone ? `Skříň oblečení dostane zónu ${accZone} (nejvyšší volná zóna šablony).`
-        : `POZOR: pro skříň oblečení nezbyla volná zóna (kóje obsadily všech ${zonesN} zón) — kód k oblečení nebude fungovat, dokud jí nenastavíte zónu ručně.`
-    // Dveře, které šablona nepřepisuje (kóje mimo 1–zonesN, oblečení bez volné zóny), ale jejich mapa koliduje s venkem —
+    const accText = !accDoor ? 'Dveře šatny neexistují (blok „Dveře“ → Vytvořit dveře z kójí) — namapují se jen kóje.'
+      : accZone ? `Šatna dostane zónu ${accZone} (nejvyšší volná zóna šablony).`
+        : `POZOR: pro šatnu nezbyla volná zóna (kóje obsadily všech ${zonesN} zón) — kód k výbavě nebude fungovat, dokud jí nenastavíte zónu ručně.`
+    // Dveře, které šablona nepřepisuje (kóje mimo 1–zonesN, šatna bez volné zóny), ale jejich mapa koliduje s venkem —
     // typicky stará 9zónová šablona (zóna 9 = světlo wav617b R1): jednotka by celou mapu odmítla („Venek: … koliduje
     // s dveřmi“ / „už používá zóna 9“). Při načtení se jim mapa vymaže (jako tlačítko „Vymazat“) — uživatel je vidí v potvrzení.
     const rewritten = new Set([...targets, ...(accDoor && accZone ? [accDoor] : [])].map(d => d.id))
@@ -67,10 +67,10 @@ function RpiHardwareBlock({ cfg, doors, busy, onSaveCfg, onSaveDoor, onRefresh }
       for (const d of colliding) {
         if ((await onSaveDoor(d.id, { hw: {} })) === false) failed++
       }
-      const summary = `${Object.keys(BRNO_DEFAULT_HARDWARE.devices).length} zařízení, ${targets.length} kójí${accDoor && accZone ? `, oblečení = zóna ${accZone}` : ''}, venek = zóna ${BRNO_DEFAULT_OUTDOOR.zone} (světlo ${BRNO_DEFAULT_OUTDOOR.light.dev} R${BRNO_DEFAULT_OUTDOOR.light.coil + 1})`
+      const summary = `${Object.keys(BRNO_DEFAULT_HARDWARE.devices).length} zařízení, ${targets.length} kójí${accDoor && accZone ? `, šatna = zóna ${accZone}` : ''}, venek = zóna ${BRNO_DEFAULT_OUTDOOR.zone} (světlo ${BRNO_DEFAULT_OUTDOOR.light.dev} R${BRNO_DEFAULT_OUTDOOR.light.coil + 1})`
         + (colliding.length ? `; vymazána mapa ${colliding.map(doorName).join(', ')} (kolize s venkem)` : '')
       const warn = []
-      if (accDoor && !accZone) warn.push(`Skříň oblečení nedostala zónu šablony (všech ${zonesN} zón obsadily kóje) — její mapa ${colliding.includes(accDoor) ? 'byla vymazána (kolidovala s venkem)' : 'zůstala beze změny'}; nastavte jí volnou zónu ručně v mapování níže.`)
+      if (accDoor && !accZone) warn.push(`Šatna nedostala zónu šablony (všech ${zonesN} zón obsadily kóje) — její mapa ${colliding.includes(accDoor) ? 'byla vymazána (kolidovala s venkem)' : 'zůstala beze změny'}; nastavte jí volnou zónu ručně v mapování níže.`)
       if (colliding.some(d => d !== accDoor)) warn.push(`Mapa ${colliding.filter(d => d !== accDoor).map(doorName).join(', ')} kolidovala s venkem a byla vymazána — nastavte ji ručně v mapování níže.`)
       // Stav záložky je už aktualizovaný optimisticky — bez onRefresh (spinner celé záložky by blok odmontoval a poznámku ztratil)
       if (failed) setNote({ tone: 'red', text: `Výchozí mapa: ${failed}× uložení selhalo (viz chyba nahoře). Uloženo: ${summary}.` })
@@ -98,7 +98,7 @@ function RpiHardwareBlock({ cfg, doors, busy, onSaveCfg, onSaveDoor, onRefresh }
         <AudioOutputsEditor hardware={hardware} doors={doors} disabled={disabled} onSave={audio => onSaveCfg({ hardware: { ...hardware, audio } })} />
         <OutdoorHwEditor hardware={hardware} doors={doors} disabled={disabled} onSave={saveOutdoor} />
         <SubBlock title="Mapování dveří → zóny (branch_doors.hw)"
-          hint="Zóna = číslo kóje (skříň oblečení = volné číslo). Zámek = coil VÝHRADNĚ na WAV645 (HW flash-on), kontakt = vstup WAV617 (input), světlo/audio = coil WAV645/WAV617, červená/zelená = Shelly light id (0–4). Audio v režimu multi = výstup ze seznamu výše (+ volitelné enable relé zesilovače). Zámek a kontakt jsou povinné; čísla zón, kanály i audio výstupy musí být unikátní (i vůči venku) — jinak jednotka celou mapu odmítne.">
+          hint="Zóna = číslo kóje (šatna = volné číslo, v šabloně 8). Zámek = coil VÝHRADNĚ na WAV645 (HW flash-on), kontakt = vstup WAV617 (input), světlo/audio = coil WAV645/WAV617, červená/zelená = Shelly light id (0–4). Audio v režimu multi = výstup ze seznamu výše (+ volitelné enable relé zesilovače). Zámek a kontakt jsou povinné; čísla zón, kanály i audio výstupy musí být unikátní (i vůči venku) — jinak jednotka celou mapu odmítne.">
           {(doors || []).length === 0
             ? <EmptyState text="Žádné dveře. Nejdřív vytvořte dveře z kojí (blok „Dveře“ výše)." />
             : <DoorHwEditor doors={doors} devices={hardware.devices || {}} audio={hardware.audio} outdoor={outdoor} busy={disabled} onSaveDoor={onSaveDoor} />}
@@ -169,7 +169,7 @@ function DevicesEditor({ hardware, disabled, onSave }) {
   }
 
   return (
-    <SubBlock title="Zařízení (Modbus TCP / Shelly)" hint="Název je odkaz z mapování dveří — po přejmenování upravte i zóny."
+    <SubBlock title="Zařízení (Modbus TCP / Shelly)" hint="Seznam hardwaru na pobočkové síti LAN: reléové moduly Waveshare (zámky, světla, audio, dveřní kontakty) a Shelly RGBWW (barevná signalizace u kójí). Název si volíte sami — odkazuje se na něj mapování dveří níže, takže po přejmenování zařízení upravte i zóny."
       action={
         <div className="flex gap-2">
           <Btn tone="blue" onClick={add} disabled={disabled}>Přidat zařízení</Btn>
@@ -184,12 +184,17 @@ function DevicesEditor({ hardware, disabled, onSave }) {
             return (
               <div key={r._k} className="flex items-end gap-2 flex-wrap p-2 rounded-lg" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
                 <Input label="Název" width={110} value={r.name} placeholder="wav645" invalid={badName}
-                  title={badName ? 'Název musí být unikátní, malá písmena/číslice/-/_' : ''}
+                  title={badName ? 'Název musí být unikátní, malá písmena/číslice/-/_'
+                    : 'Vlastní zkratka zařízení, kterou se na něj odkazuje mapování dveří níže (např. wav645, shelly1). Malá písmena, číslice, - a _.'}
                   onChange={v => edit(i, { name: v })} />
-                <Select label="Typ" width={200} value={r.type} options={DEVICE_TYPES} onChange={v => edit(i, { type: v })} />
-                <Input label="Host (IP)" width={140} value={r.host} placeholder="192.168.50.20" invalid={!r.host.trim()} onChange={v => edit(i, { host: v })} />
-                {!isShelly && <Input label="Port" type="number" width={70} value={r.port} onChange={v => edit(i, { port: v })} />}
-                {!isShelly && <Input label="Unit ID" type="number" width={70} value={r.unit_id} onChange={v => edit(i, { unit_id: v })} />}
+                <Select label="Typ" width={200} value={r.type} options={DEVICE_TYPES}
+                  title="Druh modulu. WAV645 (16 relé) = VÝHRADNĚ zámky a další relé; WAV617 (8 relé + 8 vstupů) = dveřní kontakty, světla a audio; Shelly Pro RGBWW PM = barevná signalizace u kójí."
+                  onChange={v => edit(i, { type: v })} />
+                <Input label="Host (IP)" width={140} value={r.host} placeholder="192.168.50.20" invalid={!r.host.trim()}
+                  title="Pevná IP adresa modulu v pobočkové síti LAN. Musí být stálá (rezervace v routeru nebo statická v modulu) — po změně adresy jednotka modul nenajde a zóny hlásí „I/O modul nedostupný“."
+                  onChange={v => edit(i, { host: v })} />
+                {!isShelly && <Input label="Port" type="number" width={70} value={r.port} title="Síťový port Modbus TCP na relé modulu. Standardně 502 — měňte jen když jste ho v modulu přenastavili." onChange={v => edit(i, { port: v })} />}
+                {!isShelly && <Input label="Unit ID" type="number" width={70} value={r.unit_id} title="Adresa zařízení v protokolu Modbus (na štítku/v konfiguraci modulu). U modulů Waveshare standardně 1." onChange={v => edit(i, { unit_id: v })} />}
                 {isShelly && <Chip tone="blue" title="HTTP RPC, port 80">HTTP /rpc</Chip>}
                 <Btn tone="red" small onClick={() => remove(i)} disabled={disabled} style={{ alignSelf: 'center', marginLeft: 'auto' }}>Smazat</Btn>
               </div>
@@ -244,20 +249,22 @@ function SettingsEditor({ hardware, disabled, onSave }) {
 
   return (
     <SubBlock title="Časování, polling, kontakty, bezpečnost, audio, signalizace"
-      hint="Hodnoty dle specifikace §6–§10. Uloží se celý blok hardware najednou."
+      hint="Chování jednotky na pobočce — jak dlouho drží zámek, kdy zhasne světlo, jak nahlas hraje hudba a kdy se displej zamkne po špatných kódech. U KAŽDÉHO pole je po najetí myší vysvětlivka, co znamená a k čemu slouží. Platí pro všechny kóje a šatnu stejně; venkovní prostor má vlastní režim v bloku „Venek“. Ukládá se celý blok najednou."
       action={<Btn tone="dark" onClick={save} disabled={disabled || !dirty}>{dirty ? 'Uložit nastavení' : 'Uloženo'}</Btn>}>
       <div className="space-y-2">
         {HW_SECTIONS.map(sec => (
           <div key={sec.key} className="pt-2" style={{ borderTop: '1px dashed #d4e8e0' }}>
-            <div className="text-[11px] font-extrabold uppercase mb-1" style={{ color: '#6b8c7a' }}>{sec.title}</div>
+            <div className="text-[11px] font-extrabold uppercase" style={{ color: '#6b8c7a' }}>{sec.title}</div>
+            {/* Vysvětlivka celé sekce je vidět rovnou; u jednotlivých polí je v bublině (title) po najetí myší */}
+            {sec.hint && <div className="text-[11px] mb-1" style={{ color: '#8aa99a' }}>{sec.hint}</div>}
             <div className="flex gap-2 flex-wrap items-end">
               {sec.fields.map(f => {
                 const v = text[sec.key]?.[f.key]
-                if (f.type === 'bool') return <Checkbox key={f.key} label={f.label} checked={v} onChange={c => edit(sec.key, f.key, c)} />
+                if (f.type === 'bool') return <Checkbox key={f.key} label={f.label} checked={v} title={f.hint} onChange={c => edit(sec.key, f.key, c)} />
                 const invalid = f.type !== 'text' && textToField(f, v) == null
                 const label = f.unit ? `${f.label} (${f.unit})` : f.label
                 return (
-                  <Input key={f.key} label={label} value={v} invalid={invalid}
+                  <Input key={f.key} label={label} value={v} invalid={invalid} title={f.hint}
                     width={f.type === 'list' || f.type === 'text' ? 190 : 150}
                     type={f.type === 'int' ? 'number' : 'text'} step={f.type === 'float' ? '0.1' : undefined}
                     onChange={val => edit(sec.key, f.key, val)} />

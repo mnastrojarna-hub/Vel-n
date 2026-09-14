@@ -127,7 +127,8 @@ class BoxController:
             self.music = make_music_library(self.storage, self.local.paths.music_dir, self.local.supabase.url,
                                             self._music_changed)
         self.audio = build_audio(hw, self.local, self.io, self.music)   # selector | multi dle hw.audio.mode
-        self.outdoor = OutdoorController(hw.outdoor, self.io, hw.timings, self.audio)   # venek: světlo + kanál outdoor
+        self.outdoor = OutdoorController(hw.outdoor, self.io, hw.timings, self.audio,
+                                        music_allowed=bool(hw.audio.music_enabled))   # venek: světlo + kanál outdoor
         self.zones = {}
         for z in hw.zones:
             zc = ZoneController(z, self.io, self.signals, self.audio, hw, self.emit)
@@ -357,7 +358,7 @@ class BoxController:
         else:
             self.signals.cfg = hw.signal
             self.audio.update_cfg(hw.audio, hw.timings)
-            self.outdoor.update_cfg(hw.outdoor, hw.timings)
+            self.outdoor.update_cfg(hw.outdoor, hw.timings, music_allowed=bool(hw.audio.music_enabled))
             for z in hw.zones:
                 zc = self.zones.get(z.number)
                 if zc is not None:

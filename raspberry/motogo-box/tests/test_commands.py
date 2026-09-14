@@ -87,6 +87,10 @@ class FakeOutdoor:
         self.lights: list[bool] = []
         self.tests = 0
         self.result: dict = {"light": True, "audio": None}
+        self.music_manual: bool | None = None
+
+    def set_music_manual(self, on: bool | None) -> None:
+        self.music_manual = on
 
     async def set_light(self, on: bool) -> bool:
         self.lights.append(on)

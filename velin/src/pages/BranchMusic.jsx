@@ -3,15 +3,16 @@ import { supabase } from '../lib/supabase'
 import { EmptyState } from './BranchHelpers'
 import { RpiSection, Btn, Chip, ErrorBoundary } from './BranchRpiUi'
 import { MusicDropZone, TrackRow, UnitSyncStatus } from './BranchMusicParts'
-import { fetchTracks, uploadTrack, updateTrack, deleteTrack, groupTracks, targetLabel, summaryFor, nextSortOrder, isAllowedFile, MAX_SIZE_BYTES } from './branchMusicHelpers'
+import { fetchTracks, uploadTrack, updateTrack, deleteTrack, groupTracks, targetLabel, summaryFor, nextSortOrder, isAllowedFile, MAX_SIZE_BYTES, audioModeOf } from './branchMusicHelpers'
 
 // ─── Hudba pobočky — knihovna skladeb (branch_music_tracks + bucket branch-music) ──
 // Kód kóje → hudba kóje; kód šatny → hudba šatny; venek hraje při jakémkoli kódu; cíl bez vlastních skladeb hraje společnou (all).
 // Jednotka si soubory stáhne sama (kiosk_sync_config.music) — stav v kiosk_devices.status.audio.library.
 
-const HINT = 'Zadání kódu kóje spustí hudbu dané kóje, kód šatny hudbu šatny, venek hraje při zadání jakéhokoli kódu. Cíl bez vlastních skladeb '
-  + 'hraje společnou hudbu. Formát libovolný (mp3, wav, flac, ogg, m4a, aac, wma, aiff…) — nic se nepřekódovává. Nezávislé kanály vyžadují režim '
-  + '„multi“ se samostatnými zvukovými výstupy v bloku „Řídicí jednotka (Raspberry) — hardware“ → Audio; v režimu „selector“ hraje vždy jen jedna kóje a venek nefunguje.'
+const HINT = 'Každá kóje, šatna i venek může mít VLASTNÍ hudbu: zadání kódu kóje spustí hudbu té kóje, kód šatny hudbu šatny, venek hraje podle svého '
+  + 'režimu (blok „Venek“). Cíl bez vlastních skladeb hraje společnou hudbu. Formát libovolný (mp3, wav, flac, ogg, m4a, aac, wma, aiff…) — nic se nepřekódovává. '
+  + 'Aby mohly kóje hrát každá své a současně, musí být v bloku „Řídicí jednotka (Raspberry) — hardware“ → Audio zapnutý režim „multi“ a každá kóje, šatna i venek '
+  + 'musí mít vlastní zvukový výstup (tlačítko „Vzor 9 výstupů“). V režimu „selector“ je jeden zesilovač s přepínacím relé — hraje vždy jen jedna kóje a venek nehraje vůbec.'
 
 function BranchMusicBlock(props) {
   return (
@@ -109,11 +110,24 @@ function BranchMusicInner({ branchId, doors, devices, now, onCommand }) {
 
   const groups = groupTracks(tracks, doors)
   const total = tracks.length
+  // Vlastní hudba per kóje/šatna/venek funguje jen v režimu multi. Když jsou skladby přiřazené konkrétním
+  // cílům, ale jednotka hlásí selector, hrálo by se jinak, než uživatel čeká — proto viditelné varování.
+  const perZoneTargets = groups.filter(g => g.target !== 'all' && g.items.some(t => t.is_active)).length
+  const selectorDevice = (Array.isArray(devices) ? devices : []).find(d => audioModeOf(d) === 'selector')
+  const selectorWarning = perZoneTargets > 0 && !!selectorDevice
   return (
     <RpiSection title="Hudba pobočky" hint={HINT}
       action={<Btn tone="blue" onClick={() => load()} disabled={busy || uploading}>Obnovit</Btn>}>
       <div className="p-3 rounded-card space-y-3" style={{ background: '#f8fcfa', border: '1px solid #d4e8e0' }}>
         {error && <div className="p-2 rounded-card text-[12px]" style={{ background: '#fee2e2', color: '#dc2626' }}>{error}</div>}
+        {selectorWarning && (
+          <div className="p-2 rounded-card text-[12px]" style={{ background: '#fef3c7', color: '#b45309' }}>
+            <b>Vlastní hudba pro jednotlivé kóje zatím nebude hrát.</b> Máte skladby přiřazené konkrétním cílům ({perZoneTargets}),
+            ale jednotka běží v režimu „selector“ — jeden zesilovač s přepínacím relé, kde hraje vždy jen jedna kóje a venek nehraje vůbec.
+            Přepněte v bloku „Řídicí jednotka (Raspberry) — hardware“ → Audio režim na „multi“, tlačítkem „Vzor 9 výstupů“ vyplňte výstupy
+            a každé kóji, šatně i venku přiřaďte vlastní zvukový výstup.
+          </div>
+        )}
         <MusicDropZone doors={doors} target={target} onTarget={setTarget} uploading={uploading} progress={progress} onFiles={handleFiles} />
         {notes.length > 0 && (
           <div className="p-2 rounded-card text-[12px] space-y-0.5" style={{ background: '#fef3c7', color: '#b45309' }}>
