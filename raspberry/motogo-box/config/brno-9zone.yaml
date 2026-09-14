@@ -49,6 +49,9 @@ security:
   service_token_minutes: 10      # kód na displeji je viditelný (rozhodnutí 2026-09-11) — bez pin_length/mask_pin_on_screen
 
 audio:
+  music_enabled: true     # HLAVNÍ VYPÍNAČ hudby pobočky. false = po zadání kódu se hudba nespustí nikde
+                          # (kóje, šatna ani venek); dveře se otevírají normálně a ruční „Hudba ▶“ z Velína
+                          # funguje dál. Jednotlivé zóny to přepíšou přes `zones[].music_enabled`.
   volume: 70
   fade_in_ms: 1500
   fade_out_ms: 500
@@ -89,6 +92,8 @@ signal:
 # Modbus adresy začínají 0 (coil 0 = fyzické relé R1, input 0 = DI1). Shelly light id 0–4.
 # Zóny 1–7 = kóje na motorku, zóna 8 = šatna (`kind: accessories` — bez něj by se v lokálním
 # režimu bez Velína jmenovala „Kóje 8“); zóna 9 = venek, ta není dveře (sekce `outdoor` níže).
+# Volitelně u zóny: `music_enabled: false` (tahle zóna nehraje, ostatní ano — chybí = dle pobočky)
+# a `timings: { light_after_close_s: 120, … }` (individuální časování, chybí = globální `timings`).
 zones:
   - { zone: 1, lock: { dev: wav645, coil: 0 }, contact: { dev: wav617a, input: 0 }, light: { dev: wav617a, coil: 0 }, audio: { dev: wav617b, coil: 1 },  red: { dev: shelly1, light: 0 }, green: { dev: shelly1, light: 1 } }
   - { zone: 2, lock: { dev: wav645, coil: 1 }, contact: { dev: wav617a, input: 1 }, light: { dev: wav617a, coil: 1 }, audio: { dev: wav617b, coil: 2 },  red: { dev: shelly1, light: 2 }, green: { dev: shelly1, light: 3 } }

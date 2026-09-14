@@ -233,6 +233,11 @@ class AudioCfg:
     mode: str = "selector"        # selector (1 zesilovač + relé) | multi (výstup + mpv na každou místnost)
     outputs: dict = field(default_factory=dict)    # multi: {out1: {device: "alsa/plughw:CARD=Box1"}, …}
     channels: dict = field(default_factory=dict)   # multi: kanály bez dveří {outdoor: {out: out9, trigger: any}}
+    # HLAVNÍ VYPÍNAČ hudby pro celou pobočku (2026-09-14, zadání uživatele). False = po zadání kódu
+    # se hudba nespustí nikde (kóje, šatna ani venek) — zesilovače jsou napájené trvale, takže bez
+    # tohoto přepínače nešla hudba vůbec vypnout. Jednotlivé zóny si to smí přepsat (`ZoneHw.music_enabled`).
+    # Ruční „Hudba ▶“ z Velína (servisní zkouška) funguje dál i při vypnuté hudbě.
+    music_enabled: bool = True
 
     @property
     def engine_mode(self) -> str:

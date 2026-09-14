@@ -30,11 +30,18 @@ async def grant_locked(zc: "ZoneController", booking_id: str | None, kind: str, 
         detail["light_failed"] = True        # světlo není bezpečnostní prvek — pokračujeme
         log.warning("Zóna %s: bílé světlo nepotvrzeno", zc.number)
     await zc.signal(Signal.GREEN)
-    try:
-        detail["music"] = bool(await zc.audio.play_zone(zc.number))
-    except Exception:  # noqa: BLE001
-        log.exception("Zóna %s: spuštění hudby selhalo", zc.number)
+    # Hudba se po zadání kódu spustí, JEN pokud je zapnutá (hlavní vypínač pobočky `audio.music_enabled`
+    # nebo přepis této zóny `hw.music_enabled` — zadání uživatele 2026-09-14). Vypnutá hudba nijak
+    # neovlivňuje otevření dveří; ruční „Hudba ▶“ z Velína funguje dál (servisní zkouška).
+    if zc.music_enabled:
+        try:
+            detail["music"] = bool(await zc.audio.play_zone(zc.number))
+        except Exception:  # noqa: BLE001
+            log.exception("Zóna %s: spuštění hudby selhalo", zc.number)
+            detail["music"] = False
+    else:
         detail["music"] = False
+        detail["music_disabled"] = True
     # Znovu po pomalých krocích: dveře mezitím otevřené (bez odjištění) nebo modul offline → bez pulzu.
     reason = "door_open" if zc.door_closed is not True else ("io_offline" if not zc.io_ready() else "")
     ok = False

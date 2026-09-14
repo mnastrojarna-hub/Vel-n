@@ -44,6 +44,12 @@ odstraní). Ve VÝCHOZÍM nastavení se **světlo** rozsvítí při zadání jak
 po skončení poslední relace (vlastní doběh venku má přednost před globálním); **hudba venku** hraje při jakémkoli kódu (jen režim
 `multi`, doběh `music_after_close_s`).
 
+**Vypnutí hudby (2026-09-14):** hudba se spouští po zadání kódu, jinak je ticho. Protože jsou zesilovače napájené trvale,
+má pobočka softwarový vypínač: zaškrtávátko **„Hudba na pobočce"** v sekci Audio umlčí všechno (kóje, šatnu i venek) a sloupec
+**„Hudba"** u každých dveří (mapování dveří → zóny) umlčí jen tu jednu zónu — „Podle pobočky" u kójí 1–7, „Nehraje" třeba jen
+u šatny. Dveře se otevírají úplně stejně; ruční „Hudba ▶" ve Velíně funguje dál jako servisní zkouška. V HW mapě jde o
+`audio.music_enabled` a `zones[].music_enabled`.
+
 **Individuální časování zóny (2026-09-14):** kóje 1–7 mají společné nastavení (sekce „Časování“), ale jedna zóna si smí přepsat
 doby `door_open_timeout_s`, `light_after_close_s`, `music_after_close_s` a `maximum_session_s` — typicky ŠATNA, kde se zákazník
 převléká déle, než parkuje motorku. Nastavuje se v řádku dveří („Vlastní čas“) v mapování dveří → zóny, prázdné pole = globální

@@ -705,3 +705,45 @@ async def test_zone_timings_not_in_hw_signature():
 
     zone.hw = ZoneHw.from_dict({**zone.hw.to_dict(), "lock": {"dev": "wav645", "coil": 15}})
     assert hw_signature(r.hw) != before                    # změna hardwaru → přestavba ano
+
+
+# ─── Vypínač hudby (2026-09-14) ─────────────────────────────────────────────────
+# Zesilovače na pobočce jsou napájené trvale, takže hudba musí jít vypnout softwarově —
+# bez toho ji každý další zadaný kód zase spustil.
+
+async def test_music_disabled_branch_wide():
+    """Hlavní vypínač pobočky: po zadání kódu se hudba nespustí, dveře se otevřou normálně."""
+    r = await rig_secured()
+    r.hw.audio.music_enabled = False
+    assert r.zc.music_enabled is False
+    ok, reason = await r.zc.grant_access(booking_id="b-1", kind="motorcycle", source="ui")
+    assert (ok, reason) == (True, "ok")                   # dveře se otevřou
+    assert r.audio.playing_zone is None                   # …ale hudba nehraje
+    assert r.events[-1].detail.get("music_disabled") is True
+
+
+async def test_music_zone_override_wins_over_branch():
+    """Přepis zóny má přednost: vypnutá pobočka + zapnutá zóna = hraje, a naopak."""
+    r = await rig_secured()
+    zone = r.hw.zone_by_number(1)
+
+    r.hw.audio.music_enabled = False
+    zone.hw = ZoneHw.from_dict({**zone.hw.to_dict(), "music_enabled": True})
+    assert r.zc.music_enabled is True
+    await r.zc.grant_access(booking_id="b-1", kind="motorcycle", source="ui")
+    assert r.audio.playing_zone == 1
+
+    r.hw.audio.music_enabled = True
+    zone.hw = ZoneHw.from_dict({**zone.hw.to_dict(), "music_enabled": False})
+    assert r.zc.music_enabled is False
+
+
+async def test_music_enabled_not_in_hw_signature():
+    """Vypnutí hudby nesmí vyvolat přestavbu HW (zhasla by světlo v obsazené kóji)."""
+    from motogo_box.controller_hw import hw_signature
+
+    r = Rig()
+    before = hw_signature(r.hw)
+    zone = r.hw.zone_by_number(1)
+    zone.hw = ZoneHw.from_dict({**zone.hw.to_dict(), "music_enabled": False})
+    assert hw_signature(r.hw) == before

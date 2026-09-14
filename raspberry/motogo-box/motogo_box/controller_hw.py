@@ -66,12 +66,14 @@ def hw_signature(hw: HardwareConfig) -> str:
     zvukové zařízení mpv (`--audio-device` se nastavuje při startu přehrávače) a relé
     venkovního světla (`outdoor.light` — staré relé musí přestavba bezpečně vypnout).
 
-    Individuální časování zóny (`hw.timings`, 2026-09-14) se do podpisu ZÁMĚRNĚ nepočítá:
-    `ZoneController.timings` ho čte při každém ticku, takže se projeví hned a bez přestavby.
-    Kdyby v podpisu bylo, změna doby ve Velíně by vyvolala `all_off` a zhasla světlo
-    v právě obsazené kóji (přestavba se navíc odkládá, dokud běží relace).
+    Individuální časování zóny (`hw.timings`) a vypínač hudby zóny (`hw.music_enabled`) se do podpisu
+    ZÁMĚRNĚ nepočítají (2026-09-14): `ZoneController.timings` i `.music_enabled` je čtou při každém
+    ticku, takže se projeví hned a bez přestavby. Kdyby v podpisu byly, změna doby nebo vypnutí hudby
+    ve Velíně by vyvolalo `all_off` a zhaslo světlo v právě obsazené kóji (přestavba se navíc odkládá,
+    dokud běží relace). Ze stejného důvodu není `music_enabled` ani v `audio_signature`.
     """
-    zones = [[{k: v for k, v in z.hw.to_dict().items() if k != "timings"}, z.door_id] for z in hw.zones]
+    skip = ("timings", "music_enabled")
+    zones = [[{k: v for k, v in z.hw.to_dict().items() if k not in skip}, z.door_id] for z in hw.zones]
     outdoor_light = getattr(getattr(hw, "outdoor", None), "light", None)
     return json.dumps([hw.raw.get("devices"), zones, hw.raw.get("polling"), hw.contacts_closed_level,
                        hw.audio.device, str(outdoor_light)], sort_keys=True, default=str)

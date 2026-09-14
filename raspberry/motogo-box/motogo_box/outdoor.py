@@ -30,8 +30,10 @@ class OutdoorController:
     relace, None = automaticky dle relací."""
 
     def __init__(self, cfg: OutdoorCfg, io: Any, timings: Any, audio: Any,
-                 clock: Callable[[], float] = time.monotonic) -> None:
+                 clock: Callable[[], float] = time.monotonic, music_allowed: bool = True) -> None:
         self.cfg, self.io, self.timings, self.audio, self.clock = cfg, io, timings, audio, clock
+        # Hlavní vypínač hudby pobočky (`hardware.audio.music_enabled`) — vypnutý umlčí i venek.
+        self.music_allowed: bool = music_allowed
         self.light_on: bool = False
         self.active: bool = False
         self.manual: bool | None = None
@@ -42,11 +44,14 @@ class OutdoorController:
         self._music_retry_at: float | None = None
 
     # ─── konfigurace ─────────────────────────────────────────────────────────
-    def update_cfg(self, cfg: OutdoorCfg, timings: Any = None) -> None:
-        """Změna bez přestavby HW (doběh, číslo zóny, audio výstup); relé světla mění podpis → přestavba."""
+    def update_cfg(self, cfg: OutdoorCfg, timings: Any = None, music_allowed: bool | None = None) -> None:
+        """Změna bez přestavby HW (doběh, číslo zóny, audio výstup, hlavní vypínač hudby);
+        relé světla mění podpis → přestavba."""
         self.cfg = cfg
         if timings is not None:
             self.timings = timings
+        if music_allowed is not None:
+            self.music_allowed = music_allowed
 
     def _delay(self) -> float:
         if self.cfg.light_after_close_s is not None:
@@ -131,6 +136,8 @@ class OutdoorController:
         backoffu by se pokus opakoval 4×/s a zaplavil log. Po neúspěchu se proto další pokus odloží
         o `RETRY_S`, stejně jako u relé světla."""
         mode = self.cfg.music_mode
+        if not self.music_allowed:
+            mode = MUSIC_OFF          # hlavní vypínač pobočky umlčí venek bez ohledu na jeho režim
         if mode == MUSIC_SESSION or not self.cfg.audio_out or self.music_manual is not None:
             return
         playing = CHANNEL in self._playing()

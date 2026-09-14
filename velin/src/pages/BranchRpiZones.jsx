@@ -265,7 +265,10 @@ function ZoneTile({ z, door, onSend, onConfirm }) {
       <div className="flex items-center gap-1.5 flex-wrap mt-1 text-[11px]" style={{ color: '#6b8c7a' }}>
         <span>dveře <b style={{ color: doorColor }}>{doorTxt}</b></span>
         <span>· světlo <b style={{ color: z.light ? '#b45309' : '#6b8c7a' }}>{z.light ? 'svítí' : 'zhasnuto'}</b></span>
-        <span>· hudba <b style={{ color: z.music ? '#1a8a18' : '#6b8c7a' }}>{z.music ? 'hraje' : 'ne'}</b></span>
+        <span title={z.music_enabled === false ? 'Hudba je v této zóně vypnutá — po zadání kódu se nespustí (nastavení „Hudba“ u dveří nebo hlavní vypínač v sekci Audio)' : undefined}>
+          · hudba <b style={{ color: z.music ? '#1a8a18' : z.music_enabled === false ? '#b45309' : '#6b8c7a' }}>
+            {z.music ? 'hraje' : z.music_enabled === false ? 'vypnuta' : 'ne'}</b>
+        </span>
         <span>· signál {SIGNAL_CZ[signalKey] || (signalKey ? signalKey : '—')}</span>
       </div>
       {(z.booking_id || started) && (
@@ -282,7 +285,10 @@ function ZoneTile({ z, door, onSend, onConfirm }) {
           onClick={() => onSend(z.light ? 'light_off' : 'light_on', zoneParams, `světlo ${z.light ? '⏹' : '▶'} (zóna ${txt(zoneNo)})`)}>
           Světlo {z.light ? '⏹' : '▶'}
         </Btn>
-        <Btn tone={z.music ? 'red' : 'green'} small title={z.music ? 'Zastavit hudbu' : 'Spustit hudbu v této zóně'}
+        <Btn tone={z.music ? 'red' : 'green'} small
+          title={z.music ? 'Zastavit hudbu, která teď v této zóně hraje.'
+            : z.music_enabled === false ? 'Ruční zkušební spuštění. Hudba je v této zóně vypnutá, takže po zadání kódu se sama nespustí.'
+              : 'Spustit hudbu v této zóně (ručně, mimo relaci).'}
           onClick={() => onSend(z.music ? 'music_off' : 'music_on', zoneParams, `hudba ${z.music ? '⏹' : '▶'} (zóna ${txt(zoneNo)})`)}>
           Hudba {z.music ? '⏹' : '▶'}
         </Btn>

@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { Btn, Chip, Input, Select, Label, doorKindLabel } from './BranchRpiUi'
 import { DoorAudioCell } from './BranchRpiAudioHw'
 import {
-  ZONE_REFS, ZONE_TIMING_FIELDS, audioMode, channelKey, findDuplicateChannels, findDuplicateZones, findDuplicateOutputs, roleTypeError, draftToHw, hwToDraft,
+  ZONE_REFS, ZONE_TIMING_FIELDS, ZONE_MUSIC_OPTIONS, audioMode, channelKey, findDuplicateChannels, findDuplicateZones, findDuplicateOutputs, roleTypeError, draftToHw, hwToDraft,
 } from './BranchRpiHardwareDefaults'
 import { outdoorRefs } from './BranchRpiOutdoorHelpers'
 
@@ -161,6 +161,10 @@ function DoorHwRow({ door, draft, devices, audio, devOptions, dupes, dupZones, d
           title="Časování jen pro tuto zónu. Prázdné pole = platí společné nastavení ze sekce „Časování“ výše. Kóje 1–7 nechte prázdné, aby byly stejné; šatně můžete nastavit vlastní doby.">
           Vlastní čas
         </span>
+        <Select label="Hudba" width={168} value={draft.music_enabled ?? ''} options={ZONE_MUSIC_OPTIONS}
+          warn={draft.music_enabled === '0'}
+          title="Hraje v této kóji / šatně hudba po zadání kódu? „Podle pobočky“ = řídí se hlavním vypínačem v sekci Audio (výchozí, nechte u kójí 1–7). „Nehraje“ umlčí jen tuhle zónu, ostatní hrají dál. Dveří se to nijak netýká, otevírají se vždy."
+          onChange={v => onPatch(p => ({ ...p, music_enabled: v }))} />
         {ZONE_TIMING_FIELDS.map(f => {
           const v = draft.timings?.[f.key] ?? ''
           const bad = v !== '' && !(parseInt(v, 10) >= 0)

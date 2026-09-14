@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Btn, Chip, Input, Select, Label } from './BranchRpiUi'
+import { Btn, Chip, Input, Select, Label, Checkbox } from './BranchRpiUi'
 import { AUDIO_MODES, BRNO_AUDIO_OUTPUTS_EXAMPLE, audioMode, audioOutputNames, roleTypeError, ZONE_REFS } from './BranchRpiHardwareDefaults'
 import { outdoorOf, outdoorOutOf, outdoorRelayError, doorCoils } from './BranchRpiOutdoorHelpers'
 
@@ -35,12 +35,15 @@ function AudioOutputsEditor({ hardware, doors, disabled, onSave }) {
   const rawAudio = hardware?.audio
   const audio = useMemo(() => (rawAudio && typeof rawAudio === 'object' ? rawAudio : {}), [rawAudio])   // stabilní ref pro efekt
   const [mode, setMode] = useState(() => audioMode(audio))
+  // Hlavní vypínač hudby pobočky (`audio.music_enabled`; chybí = zapnuto). Vypnuto = po zadání kódu
+  // se hudba nespustí nikde — zesilovače jsou napájené trvale, takže jinak hudbu nešlo vypnout.
+  const [musicOn, setMusicOn] = useState(() => audio.music_enabled !== false)
   const [rows, setRows] = useState(() => outputsToRows(audio))
   const [dirty, setDirty] = useState(false)
   const [err, setErr] = useState(null)
   useEffect(() => {
     if (dirty) return
-    setMode(audioMode(audio)); setRows(outputsToRows(audio))
+    setMode(audioMode(audio)); setRows(outputsToRows(audio)); setMusicOn(audio.music_enabled !== false)
   }, [audio, dirty])
   const multi = mode === 'multi'
 
@@ -92,6 +95,7 @@ function AudioOutputsEditor({ hardware, doors, disabled, onSave }) {
       if (relayErr) { setErr(`${relayErr} Změňte cívku v mapování dveří, nebo venek vymažte a po uložení režimu multi nastavte znovu.`); return }
     }
     const next = { ...audio, mode }   // `channels` (vč. legacy venku) se zde nemění — venek spravuje blok Venek
+    if (musicOn) delete next.music_enabled; else next.music_enabled = false   // výchozí (zapnuto) se do mapy nepíše
     if (Object.keys(outputs).length) next.outputs = outputs; else delete next.outputs
     setErr(null)
     await onSave(next)
@@ -114,6 +118,11 @@ function AudioOutputsEditor({ hardware, doors, disabled, onSave }) {
         </div>
       </div>
       <div className="flex gap-2 flex-wrap items-end mb-2">
+        <div className="p-2 rounded-lg self-center" style={{ background: musicOn ? '#f1faf7' : '#fef3c7', border: `1px solid ${musicOn ? '#d4e8e0' : '#fde68a'}` }}>
+          <Checkbox label={musicOn ? 'Hudba na pobočce zapnutá' : 'Hudba na pobočce VYPNUTÁ'} checked={musicOn}
+            title="Hlavní vypínač hudby pro celou pobočku. Zapnuto = po zadání kódu se v dané kóji (šatně) spustí hudba. Vypnuto = nehraje nikde, ani venku — dveře se otevírají normálně. Jednotlivé kóje a šatna si to můžou přepsat v mapování dveří níže („Hudba“)."
+            onChange={v => { setMusicOn(v); setDirty(true) }} />
+        </div>
         <Select label="Režim" width={460} value={mode} options={AUDIO_MODES}
           title="Jak je pobočka ozvučená. „selector“ = jeden zesilovač a přepínací relé: hraje vždy jen JEDNA kóje a venku nehraje nic. „multi“ = každá kóje, šatna i venek má vlastní zvukovou kartu a vlastní přehrávač, takže hrají současně a každá své skladby. Pro vlastní hudbu v každé kóji (blok „Hudba pobočky“) je potřeba „multi“."
           onChange={v => { setMode(v); setDirty(true) }} />

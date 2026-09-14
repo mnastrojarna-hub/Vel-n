@@ -98,6 +98,16 @@ class HwRef:
 ZONE_TIMING_KEYS = ("door_open_timeout_s", "light_after_close_s", "music_after_close_s", "maximum_session_s")
 
 
+def _opt_bool(value: Any) -> bool | None:
+    """Volitelný přepínač z JSON: None/prázdné = „dle pobočky“, jinak pravdivostní hodnota.
+    Tolerantní jako zbytek `from_dict` — text „false“/„0“ z Velína se bere jako vypnuto."""
+    if value is None or value == "":
+        return None
+    if isinstance(value, str):
+        return value.strip().lower() not in ("false", "0", "ne", "off", "")
+    return bool(value)
+
+
 def zone_timings(value: Any) -> dict | None:
     """Override časování zóny z JSON: jen známé klíče s nezáporným celým číslem; jinak None.
     Tolerantní jako zbytek `from_dict` — nesmysl z Velína zónu nikdy neshodí, jen se ignoruje."""
@@ -131,6 +141,7 @@ class ZoneHw:
     closed_level: int | None = None  # override globálního contacts.closed_level
     audio_out: str | None = None   # režim multi: název výstupu z `audio.outputs` (`audio: {out: out1}`)
     timings: dict | None = None    # override globálního `timings` jen pro tuto zónu (ZONE_TIMING_KEYS)
+    music_enabled: bool | None = None   # hudba v této zóně: None = dle pobočky (`audio.music_enabled`), True/False = přepis
 
     @classmethod
     def from_dict(cls, d: dict, default_zone: int | None = None) -> "ZoneHw | None":
@@ -157,6 +168,7 @@ class ZoneHw:
             closed_level=int(cl) if cl is not None else None,
             audio_out=str(out).strip() or None if out not in (None, "") else None,
             timings=zone_timings(d.get("timings")),
+            music_enabled=_opt_bool(d.get("music_enabled")),
         )
 
     def to_dict(self) -> dict:
@@ -177,6 +189,8 @@ class ZoneHw:
             out["closed_level"] = self.closed_level
         if self.timings:
             out["timings"] = dict(self.timings)
+        if self.music_enabled is not None:
+            out["music_enabled"] = self.music_enabled
         return out
 
 
@@ -232,6 +246,7 @@ class ZoneStatus:
     last_event: str | None
     latch_released: bool = False   # IBFM po OPEN_TIMEOUT stále odjištěný (pozdní otevření = relace, ne forced_open)
     degraded: bool = False         # relace běží s částí I/O offline (nový přístup zamítnut)
+    music_enabled: bool = True     # smí v této zóně po kódu hrát hudba (vypínač pobočky / přepis zóny)
 
     def to_dict(self) -> dict:
         return asdict(self)

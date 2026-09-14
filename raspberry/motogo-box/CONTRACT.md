@@ -69,6 +69,15 @@ Enumy `ZoneState`, `Signal`, `EventKind`; dataclassy `HwRef`, `ZoneHw`, `Zone`,
   modulu nebo koliduje s cívkou zóny (lock/light/audio) či jiného kanálu (§12). **Upozornění** — neznámý `audio.mode`
   (jede selector), `channels` v režimu selector („venek nelze“), výstup bez `device` (výchozí ALSA), zóna bez `audio.out`
   v multi (nehraje), `trigger` ≠ `any`.
+- **Vypínač hudby (2026-09-14, zadání uživatele):** `hardware.audio.music_enabled: bool` (chybí = True) = HLAVNÍ vypínač
+  hudby pobočky; `branch_doors.hw.music_enabled: bool | null` (null = dle pobočky) = přepis jedné zóny. Efektivní hodnotu
+  dává `ZoneController.music_enabled` (přepis zóny vyhrává). `zone_access.grant_locked` spustí `audio.play_zone` JEN když je
+  hudba povolená — jinak `detail{"music": false, "music_disabled": true}`; otevření dveří to nijak neovlivní. Venek řídí
+  `OutdoorController.music_allowed` (z `hw.audio.music_enabled`, nastavuje `_build_runtime` i `update_cfg`): vypnutý hlavní
+  vypínač přebije `outdoor.music_mode` na `off`. Ruční `music_on` z Velína funguje dál (servisní zkouška). Do `hw_signature`
+  ani `audio_signature` se `music_enabled` NEPOČÍTÁ — vypnutí hudby nesmí vyvolat přestavbu HW. Zesilovače na pobočce jsou
+  napájené trvale, takže bez tohoto přepínače nešla hudba vypnout: `music_off` zastavil jen to, co hrálo, a další kód ji
+  zase spustil. Editor: zaškrtávátko v sekci „Audio — režim, výstupy“ + sloupec „Hudba“ v mapování dveří.
 - **Individuální časování zóny (2026-09-14):** `branch_doors.hw.timings {door_open_timeout_s?, light_after_close_s?, music_after_close_s?, maximum_session_s?}` (`models.ZONE_TIMING_KEYS`, parser `models.zone_timings` — jiné klíče a záporné hodnoty se ignorují). `ZoneController.timings` vrací globální `hw.timings` přepsané těmito hodnotami (`dataclasses.replace`, cache se přepočítá jen při změně globálního časování — čte se každý tick). Kóje 1–7 zůstávají na společném nastavení, šatna se nastavuje individuálně. **Do `hw_signature` se `timings` ZÁMĚRNĚ nepočítá** (`controller_hw.hw_signature` klíč odfiltruje) — jinak by změna doby ve Velíně vyvolala přestavbu HW (`all_off`) a zhasla světlo v obsazené kóji. Editor: řádek „Vlastní čas“ v mapování dveří (`BranchRpiDoorHw.jsx`, `ZONE_TIMING_FIELDS`).
 - **`SecurityCfg` (2026-09-11):** `{maximum_failed_attempts, attempt_window_minutes, lockout_minutes, service_token_minutes}` — pole
   `pin_length` a `mask_pin_on_screen` ODSTRANĚNA (kód na displeji je viditelný, §16); `_fill` staré klíče z map v DB ignoruje.
@@ -530,7 +539,7 @@ Dokud běží root skript aktualizace (`updater.state == 'running'`) nebo trvá 
                   "reboot_required":false,"os":"Debian GNU/Linux 12 (bookworm)","kernel":"6.6.51+rpt-rpi-2712","last_unattended_at":"…|null"},
            "internet":true,"ts":"…"},
  "zones":[{"zone":1,"door_id":"uuid|null","box_number":1,"kind":"motorcycle","label":"Kóje 1","state":"SECURED",
-           "door_closed":true,"fault":null,"light":false,"signal":"red","music":false,"latch_released":false,"degraded":false,
+           "door_closed":true,"fault":null,"light":false,"signal":"red","music":false,"music_enabled":true,"latch_released":false,"degraded":false,
            "session_started_at":null,"booking_id":null,"last_event":"DOOR_CLOSED"}],
  "outdoor":{"zone":9,"configured":true,"light":true,"active":false,"manual":null,"audio_out":"out9","music":true,
             "light_ref":"wav617b[0]","off_in_s":87,"light_mode":"always","music_mode":"session","music_manual":null},

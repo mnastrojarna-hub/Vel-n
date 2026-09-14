@@ -252,12 +252,21 @@ export const ZONE_TIMING_FIELDS = [
     hint: 'Jen pro tuto zónu: po jaké době otevřených dveří se hlásí překročený čas (blikne zelená, upozornění do Velína). Dveře se nezamknou. Prázdné = globální hodnota.' },
 ]
 
+// Přepínač hudby u jedné zóny (`branch_doors.hw.music_enabled`): prázdné = řídí se hlavním
+// vypínačem pobočky (`hardware.audio.music_enabled`), jinak vlastní zapnuto/vypnuto.
+export const ZONE_MUSIC_OPTIONS = [
+  { value: '', label: 'Podle pobočky' },
+  { value: '1', label: 'Hraje po zadání kódu' },
+  { value: '0', label: 'Nehraje' },
+]
+
 // Prázdná HW mapa zóny pro editor dveří
 export function emptyZoneHw(zone) {
   const out = { zone: zone ?? '' }
   ZONE_REFS.forEach(r => { out[r.key] = { dev: '', [r.idx]: '' } })
   out.audio.out = ''   // režim multi: název výstupu z audio.outputs
   out.timings = {}     // individuální časování zóny (prázdné pole = globální hodnota)
+  out.music_enabled = ''   // '' = dle pobočky, '1' = hraje, '0' = nehraje
   return out
 }
 
@@ -378,6 +387,8 @@ export function draftToHw(draft, devices, audio) {
     timings[f.key] = n
   }
   if (Object.keys(timings).length) hw.timings = timings
+  const music = String(draft.music_enabled ?? '').trim()
+  if (music === '1' || music === '0') hw.music_enabled = music === '1'   // prázdné = řídí hlavní vypínač pobočky
   return { hw }
 }
 
@@ -392,5 +403,6 @@ export function hwToDraft(hw, fallbackZone) {
   d.closed_level = hw?.closed_level == null ? '' : String(hw.closed_level)
   const t = hw?.timings && typeof hw.timings === 'object' ? hw.timings : {}
   d.timings = Object.fromEntries(ZONE_TIMING_FIELDS.map(f => [f.key, t[f.key] == null ? '' : String(t[f.key])]))
+  d.music_enabled = hw?.music_enabled == null ? '' : (hw.music_enabled ? '1' : '0')
   return d
 }
