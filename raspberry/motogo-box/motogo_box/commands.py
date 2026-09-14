@@ -110,6 +110,8 @@ async def _music_on(ctrl: "BoxController", params: dict) -> tuple[bool, dict]:
         if audio is None:
             return False, {"error": "outdoor_requires_multi", "zone": _int(params.get("zone"))}
         ok = bool(await audio.play_channel("outdoor"))
+        if ok:
+            ctrl.outdoor.set_music_manual(True)   # ruční příkaz drží i proti `music_mode` (jinak by ho tick zrušil)
         return ok, {"zone": _int(params.get("zone")), "channel": "outdoor"}
     if z is None:
         # Zadaná, ale neexistující zóna NESMÍ spadnout na první kóji (cizí reproduktor).
@@ -127,6 +129,7 @@ async def _music_off(ctrl: "BoxController", params: dict) -> tuple[bool, dict]:
             stop_channel = getattr(ctrl.audio, "stop_channel", None)
             if stop_channel is not None:
                 await stop_channel("outdoor")
+            ctrl.outdoor.set_music_manual(False)  # ruční vypnutí drží i v režimu „nonstop“
             return True, {"zone": _int(params.get("zone")), "channel": "outdoor"}
         if z is None:
             return False, {"error": "zone_not_found"}

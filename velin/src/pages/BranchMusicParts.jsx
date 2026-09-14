@@ -17,7 +17,8 @@ function MusicDropZone({ doors, target, onTarget, uploading, progress, onFiles }
   return (
     <div className="space-y-2">
       <div className="flex items-end gap-2 flex-wrap">
-        <Select label="Cíl nahrávaných skladeb (lze změnit i po nahrání)" value={target} onChange={onTarget} options={targetOptions(doors)} width={320} />
+        <Select label="Cíl nahrávaných skladeb (lze změnit i po nahrání)" value={target} onChange={onTarget} options={targetOptions(doors)} width={320}
+          title="Kam se nahrané skladby přiřadí. „Všechny kóje (společná hudba)“ hraje tam, kde cíl nemá vlastní skladby. Konkrétní kóje / šatna = hraje se po zadání kódu právě té zóny. „Venek“ hraje podle režimu venku (blok „Venek“). Cíl lze u každé skladby změnit i dodatečně." />
         <span className="text-[11px] pb-1.5" style={{ color: '#6b8c7a' }}>Max 200 MB na soubor · více souborů najednou</span>
       </div>
       <div role="button" tabIndex={0}
@@ -68,7 +69,7 @@ function TrackRow({ track, doors, index, count, busy, onMove, onRename, onToggle
           onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setEditing(false); setDraft(track.title || '') } }}
           className="rounded-btn text-sm outline-none" style={{ padding: '4px 8px', background: '#fff', border: '1px solid #74FB71', minWidth: 200 }} />
       ) : (
-        <button type="button" onClick={() => setEditing(true)} title="Kliknutím přejmenujete" className="text-sm font-bold text-left cursor-pointer border-none"
+        <button type="button" onClick={() => setEditing(true)} title="Název skladby ve Velíně — kliknutím ho přejmenujete. Slouží jen k orientaci v seznamu, zákazník ho nikde nevidí." className="text-sm font-bold text-left cursor-pointer border-none"
           style={{ background: 'none', color: '#0f1a14', padding: 0, minWidth: 120 }}>{txt(track.title)}</button>
       )}
       <span className="text-[11px]" style={{ color: '#6b8c7a' }}>{txt(track.ext).toUpperCase()} · {formatBytes(track.size_bytes)}</span>

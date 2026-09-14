@@ -69,6 +69,7 @@ Enumy `ZoneState`, `Signal`, `EventKind`; dataclassy `HwRef`, `ZoneHw`, `Zone`,
   modulu nebo koliduje s cívkou zóny (lock/light/audio) či jiného kanálu (§12). **Upozornění** — neznámý `audio.mode`
   (jede selector), `channels` v režimu selector („venek nelze“), výstup bez `device` (výchozí ALSA), zóna bez `audio.out`
   v multi (nehraje), `trigger` ≠ `any`.
+- **Individuální časování zóny (2026-09-14):** `branch_doors.hw.timings {door_open_timeout_s?, light_after_close_s?, music_after_close_s?, maximum_session_s?}` (`models.ZONE_TIMING_KEYS`, parser `models.zone_timings` — jiné klíče a záporné hodnoty se ignorují). `ZoneController.timings` vrací globální `hw.timings` přepsané těmito hodnotami (`dataclasses.replace`, cache se přepočítá jen při změně globálního časování — čte se každý tick). Kóje 1–7 zůstávají na společném nastavení, šatna se nastavuje individuálně. **Do `hw_signature` se `timings` ZÁMĚRNĚ nepočítá** (`controller_hw.hw_signature` klíč odfiltruje) — jinak by změna doby ve Velíně vyvolala přestavbu HW (`all_off`) a zhasla světlo v obsazené kóji. Editor: řádek „Vlastní čas“ v mapování dveří (`BranchRpiDoorHw.jsx`, `ZONE_TIMING_FIELDS`).
 - **`SecurityCfg` (2026-09-11):** `{maximum_failed_attempts, attempt_window_minutes, lockout_minutes, service_token_minutes}` — pole
   `pin_length` a `mask_pin_on_screen` ODSTRANĚNA (kód na displeji je viditelný, §16); `_fill` staré klíče z map v DB ignoruje.
 - **Venek (2026-09-11, `config_outdoor.py`, §26):** `HardwareConfig.outdoor: OutdoorCfg` z top-level klíče `outdoor {zone,
@@ -532,7 +533,7 @@ Dokud běží root skript aktualizace (`updater.state == 'running'`) nebo trvá 
            "door_closed":true,"fault":null,"light":false,"signal":"red","music":false,"latch_released":false,"degraded":false,
            "session_started_at":null,"booking_id":null,"last_event":"DOOR_CLOSED"}],
  "outdoor":{"zone":9,"configured":true,"light":true,"active":false,"manual":null,"audio_out":"out9","music":true,
-            "light_ref":"wav617b[0]","off_in_s":87,"light_mode":"always","music_mode":"session"},
+            "light_ref":"wav617b[0]","off_in_s":87,"light_mode":"always","music_mode":"session","music_manual":null},
  "notice":null,"last_error":null}
 ```
 
@@ -543,7 +544,7 @@ Hodnoty `state` = `ZoneState.value` (velká písmena), `signal` = `Signal.value`
 automaticky dle relací, true = ručně drží rozsvíceno, false = ručně zhasnuto do další relace), `audio_out` (výstup venku | null),
 `music` (`"outdoor"` v `audio.channels_playing`), `light_ref` (`"wav617b[0]"` | null), `off_in_s` (sekundy do zhasnutí — jen když
 svítí a běží doběh, jinak null), **`light_mode`** (`auto` | `always` | `off`) a **`music_mode`** (`session` | `always` | `off`)
-— režimy venku z HW mapy (2026-09-14, §26); Velín z nich kreslí chipy na dlaždici Venek, když nejsou výchozí. Velín `BranchRpiOutdoorTile.jsx` kreslí dlaždici „Venek“ jen při `configured === true` (§23).
+— režimy venku z HW mapy (2026-09-14, §26); Velín z nich kreslí chipy na dlaždici Venek, když nejsou výchozí. `music_manual` (null = řídí `music_mode`, true/false = ruční Hudba ▶/⏹ z Velína, drží do dalšího příkazu nebo restartu). Velín `BranchRpiOutdoorTile.jsx` kreslí dlaždici „Venek“ jen při `configured === true` (§23).
 
 `audio` = `audio.status()` (§6; 2026-09-10): `mode` selector|multi; `playing_zone` (selector: hrající zóna, multi: první hrající
 — ZŮSTÁVÁ pro Velín/UI), `playing_zones` (multi: všechny), `channels` (hrající kanály bez dveří, např. `["outdoor"]`),
@@ -1084,7 +1085,10 @@ class OutdoorController:     # outdoor.py; RETRY_S = 5.0, TEST_LIGHT_S = 1.0
     async def _sync_light_mode(self, active_zones) -> None   # always/off: active dle relací, off_at=None, want = manual ?? light_always
     async def _sync_music_mode(self) -> None                 # music_mode always → play_channel("outdoor", hold=True) když nehraje;
         # off → stop_channel("outdoor") když hraje; session = beze změny (řídí AudioMulti.sync_channels). Relace `manual` kanálu ruší,
-        # proto se režim vyhodnocuje při každém ticku. Bez cfg.audio_out no-op; v selectoru vrací play/stop_channel False.
+        # proto se režim vyhodnocuje při každém ticku. Bez cfg.audio_out no-op. `music_manual is not None` → režim se NEuplatní
+        # (ruční příkaz z Velína má přednost, jinak by v režimu off šla hudba zapnout jen na 250 ms).
+        # V selectoru vrací play_channel False → backoff RETRY_S (jinak by se pokus opakoval 4×/s a zaplavil log).
+    def set_music_manual(self, on: bool | None) -> None      # commands._music_on/_music_off (venek); None = zpět na režim
     async def set_light(self, on: bool) -> bool              # Velín/servis: manual=on, off_at=None (True drží bez relací, False zhasne do další relace)
         # chyba relé → False (Velín ok:false) a NEopakuje se (sync při manual nic nedělá) — příkaz zopakovat; retry po RETRY_S
         # platí jen pro automatické přechody (relace / doběh)

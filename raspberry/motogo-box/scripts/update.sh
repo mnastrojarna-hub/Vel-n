@@ -18,7 +18,7 @@
 # Poté: rsync do /opt/motogo, pip jako motogo (jen v mezích requirements.txt, bez slepého --upgrade),
 # root-owned kopie skriptů do /usr/local/sbin (motogo-update, motogo-usbreset, motogo-sysupdate),
 # změněné systemd unity + sudoers + polkit pravidlo + unattended-upgrades konfigurace (52motogo-unattended
-# + drop-in apt-daily-upgrade.timer), restart motogo-controller + motogo-health. Venv patří uživateli
+# + drop-in apt-daily-upgrade.timer + politika Chromia), restart motogo-controller + motogo-health + motogo-ui. Venv patří uživateli
 # motogo → root ho NIKDY nespouští (verze se zjišťuje přes runuser -u motogo). Log: /var/log/motogo-update.log.
 # Návratové kódy: 0 OK, 2 chyba vstupu/zdroje, 3 git fetch/ff-merge selhal.
 set -euo pipefail
@@ -34,7 +34,10 @@ APT_TIMER_DIR="/etc/systemd/system/apt-daily-upgrade.timer.d"
 CHROMIUM_POLICY_SRC="systemd/motogo-chromium-policy.json"
 CHROMIUM_POLICY_DIRS=(/etc/chromium/policies/managed /etc/chromium-browser/policies/managed /etc/opt/chrome/policies/managed)
 SRC="${1:-}"
-SERVICES="motogo-controller motogo-health"
+# motogo-ui se restartuje taky: přepínače Chromia a seed Preferences (překladač VYPNUTÝ) jsou
+# v scripts/kiosk-ui.sh, který se čte až při startu služby — bez restartu by se na EXISTUJÍCÍ
+# pobočce nová obrana proti bublině „Přeložit tuto stránku?“ projevila až po rebootu.
+SERVICES="motogo-controller motogo-health motogo-ui"
 APP_USER="motogo"
 [[ -L "$LOG" ]] && LOG=/dev/null      # do symlinku root nikdy nepíše
 

@@ -26,6 +26,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from dataclasses import replace
 from typing import TYPE_CHECKING, Awaitable, Callable
 
 from . import zone_access
@@ -84,6 +85,8 @@ class ZoneController:
         self._late_booking: tuple | None = None       # (booking_id, code_kind, source) relace po timeoutu
         self.degraded: bool = False                    # relace běží, ale část I/O je offline (§12: jen zákaz nového přístupu)
         self._busy = asyncio.Lock()                    # serializuje všechny přechody stavu
+        self._timings_base = None                      # cache pro `timings` (override zóny nad globálním časováním)
+        self._timings_cache = None
 
     # ─── pomocné ─────────────────────────────────────────────────────────────
     @property
@@ -92,7 +95,18 @@ class ZoneController:
 
     @property
     def timings(self):
-        return self.hw.timings
+        """Časování platné pro TUTO zónu: globální `timings` z HW mapy, případně přepsané
+        hodnotami z `branch_doors.hw.timings` (2026-09-14 — šatna se nastavuje individuálně,
+        kóje 1–7 zůstávají na společném nastavení). Výsledek se drží v cache a přepočítá se,
+        až když se globální časování z Velína změní — `timings` se čte v každém ticku (250 ms)."""
+        base = self.hw.timings
+        override = self.zone.hw.timings
+        if not override:
+            return base
+        if self._timings_base is not base:
+            self._timings_base = base
+            self._timings_cache = replace(base, **override)
+        return self._timings_cache
 
     def status(self) -> ZoneStatus:
         return ZoneStatus(

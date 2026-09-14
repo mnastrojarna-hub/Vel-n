@@ -105,12 +105,18 @@ export const BRNO_AUDIO_OUTDOOR_EXAMPLE = { out: 'out9' }
 // `types` = povolené typy zařízení 1:1 s validate_hardware() v jednotce (config.py):
 // zámek VÝHRADNĚ WAV645 (HW flash-on — nezůstane pod napětím ani při pádu procesu), kontakt jen vstup WAV617.
 export const ZONE_REFS = [
-  { key: 'lock', label: 'Zámek', idx: 'coil', kind: 'coil', types: ['wav645'] },
-  { key: 'contact', label: 'Kontakt', idx: 'input', kind: 'input', types: ['wav617'] },
-  { key: 'light', label: 'Světlo', idx: 'coil', kind: 'coil', types: ['wav645', 'wav617'] },
-  { key: 'audio', label: 'Audio', idx: 'coil', kind: 'coil', types: ['wav645', 'wav617'] },
-  { key: 'red', label: 'Červená', idx: 'light', kind: 'light', types: ['shelly_rgbww'] },
-  { key: 'green', label: 'Zelená', idx: 'light', kind: 'light', types: ['shelly_rgbww'] },
+  { key: 'lock', label: 'Zámek', idx: 'coil', kind: 'coil', types: ['wav645'],
+    hint: 'Elektrický zámek těchto dveří: na kterém modulu WAV645 a na kterém relé je zapojený (coil 0 = relé R1). Jednotka sem po zadání kódu pošle krátký impulz. POVINNÉ — bez toho se dveře neotevřou.' },
+  { key: 'contact', label: 'Kontakt', idx: 'input', kind: 'input', types: ['wav617'],
+    hint: 'Dveřní čidlo, podle kterého jednotka pozná, jestli jsou dveře otevřené: na kterém modulu WAV617 a na kterém vstupu je zapojené (input 0 = DI1). POVINNÉ — bez něj by relace nikdy neskončila.' },
+  { key: 'light', label: 'Světlo', idx: 'coil', kind: 'coil', types: ['wav645', 'wav617'],
+    hint: 'Bílé světlo v této kóji / šatně: modul a relé, které ho spíná. Rozsvítí se po zadání kódu a zhasne po doběhu (sekce „Časování“, nebo vlastní čas této zóny níže).' },
+  { key: 'audio', label: 'Audio', idx: 'coil', kind: 'coil', types: ['wav645', 'wav617'],
+    hint: 'Ozvučení této místnosti. V režimu „selector“ je to relé audio přepínače (modul + relé). V režimu „multi“ se místo něj vybírá vlastní zvukový výstup a relé je jen nepovinné „zapnutí“ zesilovače.' },
+  { key: 'red', label: 'Červená', idx: 'light', kind: 'light', types: ['shelly_rgbww'],
+    hint: 'Červené signalizační světlo u těchto dveří (svítí, když je kóje zamčená): které Shelly a které jeho světlo (id 0–4).' },
+  { key: 'green', label: 'Zelená', idx: 'light', kind: 'light', types: ['shelly_rgbww'],
+    hint: 'Zelené signalizační světlo u těchto dveří (svítí během relace, bliká při překročeném čase): které Shelly a které jeho světlo (id 0–4).' },
 ]
 
 // Popisy polí editoru (sekce → pole). type: int | float | bool | list | text
@@ -231,11 +237,27 @@ export function sectionWithDefaults(hardware, key) {
   return { ...(BRNO_DEFAULT_HARDWARE[key] || {}), ...((hardware && hardware[key]) || {}) }
 }
 
+// Časování, které smí být nastavené ZVLÁŠŤ pro jednu zónu (`branch_doors.hw.timings`) — 1:1 s ZONE_TIMING_KEYS
+// v raspberry/motogo-box/motogo_box/models.py. Kóje 1–7 mají stejné nastavení (globální sekce „Časování“),
+// ale šatnu lze nastavit individuálně (zákazník se v ní převléká déle než parkuje motorku).
+// Prázdné pole = použije se globální hodnota. Ostatní časování (pulz zámku, debounce, PIN) je vždy společné.
+export const ZONE_TIMING_FIELDS = [
+  { key: 'door_open_timeout_s', label: 'Timeout otevření', unit: 's',
+    hint: 'Jen pro tuto zónu: kolik sekund má zákazník na otevření dveří po zadání kódu. Prázdné = globální hodnota ze sekce „Časování“.' },
+  { key: 'light_after_close_s', label: 'Světlo po zavření', unit: 's',
+    hint: 'Jen pro tuto zónu: za jak dlouho po zavření zhasne světlo. U šatny se hodí delší doba než u kóje. Prázdné = globální hodnota.' },
+  { key: 'music_after_close_s', label: 'Hudba po zavření', unit: 's',
+    hint: 'Jen pro tuto zónu: za jak dlouho po zavření ztichne hudba. Prázdné = globální hodnota.' },
+  { key: 'maximum_session_s', label: 'Max. délka relace', unit: 's',
+    hint: 'Jen pro tuto zónu: po jaké době otevřených dveří se hlásí překročený čas (blikne zelená, upozornění do Velína). Dveře se nezamknou. Prázdné = globální hodnota.' },
+]
+
 // Prázdná HW mapa zóny pro editor dveří
 export function emptyZoneHw(zone) {
   const out = { zone: zone ?? '' }
   ZONE_REFS.forEach(r => { out[r.key] = { dev: '', [r.idx]: '' } })
   out.audio.out = ''   // režim multi: název výstupu z audio.outputs
+  out.timings = {}     // individuální časování zóny (prázdné pole = globální hodnota)
   return out
 }
 
@@ -347,6 +369,15 @@ export function draftToHw(draft, devices, audio) {
     if (n !== 0 && n !== 1) return { error: 'Úroveň zavřeno musí být 0 nebo 1.', hw }
     hw.closed_level = n
   }
+  const timings = {}
+  for (const f of ZONE_TIMING_FIELDS) {
+    const raw = String(draft.timings?.[f.key] ?? '').trim()
+    if (raw === '') continue                     // prázdné = globální hodnota (klíč se do mapy nezapíše)
+    const n = parseInt(raw, 10)
+    if (!Number.isFinite(n) || n < 0) return { error: `Zóna ${zone}: ${f.label} musí být celé nezáporné číslo sekund (prázdné = globální hodnota).`, hw }
+    timings[f.key] = n
+  }
+  if (Object.keys(timings).length) hw.timings = timings
   return { hw }
 }
 
@@ -359,5 +390,7 @@ export function hwToDraft(hw, fallbackZone) {
   })
   d.audio.out = hw?.audio && typeof hw.audio === 'object' && hw.audio.out != null ? String(hw.audio.out).trim() : ''
   d.closed_level = hw?.closed_level == null ? '' : String(hw.closed_level)
+  const t = hw?.timings && typeof hw.timings === 'object' ? hw.timings : {}
+  d.timings = Object.fromEntries(ZONE_TIMING_FIELDS.map(f => [f.key, t[f.key] == null ? '' : String(t[f.key])]))
   return d
 }

@@ -522,6 +522,7 @@ function DeviceRow({ dev, doors, cfg, now, onSave, onDelete, onCommand }) {
       <div className="flex items-center gap-2 flex-wrap pt-2" style={{ borderTop: '1px dashed #d4e8e0' }}>
         <span className="text-[11px] font-extrabold uppercase" style={{ color: '#6b8c7a' }}>Na dálku:</span>
         <select value={doorId} onChange={e => setDoorId(e.target.value)}
+          title="Které dveře otevřít na dálku přes tuto jednotku. Vyberte kóji nebo šatnu a pak stiskněte „Otevřít dveře“ — proběhne stejná sekvence jako po zadání kódu (světlo, hudba, impulz zámku)."
           className="rounded-btn text-sm outline-none" style={{ padding: '5px 8px', background: '#fff', border: '1px solid #d4e8e0' }}>
           <option value="">— vyber dveře —</option>
           {doors.map(d => <option key={d.id} value={d.id}>{doorLabel(d)}</option>)}

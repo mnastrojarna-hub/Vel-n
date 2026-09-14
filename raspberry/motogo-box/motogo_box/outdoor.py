@@ -38,6 +38,8 @@ class OutdoorController:
         self.off_at: float | None = None
         self._retry_at: float | None = None
         self._testing: bool = False          # běží test_sequence (druhý souběžný test → busy)
+        self.music_manual: bool | None = None   # ruční hudba venku z Velína (None = řídí `music_mode`)
+        self._music_retry_at: float | None = None
 
     # ─── konfigurace ─────────────────────────────────────────────────────────
     def update_cfg(self, cfg: OutdoorCfg, timings: Any = None) -> None:
@@ -120,19 +122,35 @@ class OutdoorController:
         """Hudba venku mimo výchozí režim `session`. `always` = drží hrát i bez relace (kanál se pouští
         s `hold=True`, takže ho `AudioMulti.sync_channels` nezastaví); `off` = venku nikdy nehraje.
         Relace `manual` kanálu ruší (`sync_channels`), proto se režim vyhodnocuje při každém ticku.
-        V režimu audio `selector` kanály bez dveří neexistují — `play_channel`/`stop_channel` vrací False."""
+
+        Ruční příkaz z Velína (`music_manual`, tlačítko Hudba ▶/⏹) má přednost před režimem — stejně
+        jako u světla; jinak by v režimu `off` šla hudba zapnout jen na čtvrt sekundy. Drží do dalšího
+        ručního příkazu nebo restartu jednotky.
+
+        V režimu audio `selector` kanály bez dveří neexistují (`play_channel` vrací False) — bez
+        backoffu by se pokus opakoval 4×/s a zaplavil log. Po neúspěchu se proto další pokus odloží
+        o `RETRY_S`, stejně jako u relé světla."""
         mode = self.cfg.music_mode
-        if mode == MUSIC_SESSION or not self.cfg.audio_out:
+        if mode == MUSIC_SESSION or not self.cfg.audio_out or self.music_manual is not None:
             return
         playing = CHANNEL in self._playing()
         if mode == MUSIC_ALWAYS and not playing:
+            now = self.clock()
+            if self._music_retry_at is not None and now < self._music_retry_at:
+                return
             play = getattr(self.audio, "play_channel", None)
-            if play is not None:
-                await play(CHANNEL, hold=True)
+            ok = bool(await play(CHANNEL, hold=True)) if play is not None else False
+            self._music_retry_at = None if ok else now + RETRY_S
         elif mode == MUSIC_OFF and playing:
             stop = getattr(self.audio, "stop_channel", None)
             if stop is not None:
                 await stop(CHANNEL)
+
+    def set_music_manual(self, on: bool | None) -> None:
+        """Ruční zapnutí/vypnutí hudby venku z Velína nebo servisu (None = zpět na nastavený režim).
+        Volá `commands._music_on` / `_music_off`; drží do dalšího příkazu nebo restartu jednotky."""
+        self.music_manual = on
+        self._music_retry_at = None
 
     async def set_light(self, on: bool) -> bool:
         """Ruční z Velína/servisu: True drží rozsvíceno, False zhasne do další relace.
@@ -155,6 +173,7 @@ class OutdoorController:
         by venku nic neudělalo — proto se tam uloží ruční vypnutí (`manual=False`), které drží do dalšího
         `light_on` z Velína/servisu nebo do restartu jednotky (po startu platí zase nastavený režim)."""
         self.manual = False if self.cfg.light_always else None
+        self.music_manual, self._music_retry_at = None, None
         self.off_at, self.active = None, False
         if self.cfg.light is not None and self.light_on:
             await self._set(False, force=True)
@@ -226,7 +245,7 @@ class OutdoorController:
                 "manual": self.manual, "audio_out": cfg.audio_out,
                 "music": CHANNEL in (getattr(self.audio, "channels_playing", None) or []),
                 "light_ref": cfg.light_ref(), "off_in_s": off_in,
-                "light_mode": cfg.light_mode, "music_mode": cfg.music_mode}
+                "light_mode": cfg.light_mode, "music_mode": cfg.music_mode, "music_manual": self.music_manual}
 
 
 __all__ = ["OutdoorController", "RETRY_S"]

@@ -44,6 +44,12 @@ odstraní). Ve VÝCHOZÍM nastavení se **světlo** rozsvítí při zadání jak
 po skončení poslední relace (vlastní doběh venku má přednost před globálním); **hudba venku** hraje při jakémkoli kódu (jen režim
 `multi`, doběh `music_after_close_s`).
 
+**Individuální časování zóny (2026-09-14):** kóje 1–7 mají společné nastavení (sekce „Časování“), ale jedna zóna si smí přepsat
+doby `door_open_timeout_s`, `light_after_close_s`, `music_after_close_s` a `maximum_session_s` — typicky ŠATNA, kde se zákazník
+převléká déle, než parkuje motorku. Nastavuje se v řádku dveří („Vlastní čas“) v mapování dveří → zóny, prázdné pole = globální
+hodnota. Uloží se do `branch_doors.hw.timings`; změna se projeví hned a BEZ přestavby hardwaru (není v `hw_signature`), takže
+nezhasne světlo v právě obsazené kóji.
+
 **Režimy venku (2026-09-14):** venek se nastavuje JINAK než kóje 1–7 a šatna — ty se řídí společným časováním (sekce „Časování“),
 venek má v bloku „Venek“ vlastní dvojici přepínačů. **Venkovní světlo:** `Podle relací` (výchozí) \| **`NONSTOP`** (svítí pořád bez
 ohledu na zákazníky — pro venkovní prostor u pobočky; doběh se pak neuplatní) \| `Trvale zhasnuto` (nerozsvítí ani relace).

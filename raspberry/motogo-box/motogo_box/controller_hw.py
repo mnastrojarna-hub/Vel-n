@@ -65,8 +65,13 @@ def hw_signature(hw: HardwareConfig) -> str:
     (`closed_level` — změna za běhu by invertovala stav dveří uprostřed relací),
     zvukové zařízení mpv (`--audio-device` se nastavuje při startu přehrávače) a relé
     venkovního světla (`outdoor.light` — staré relé musí přestavba bezpečně vypnout).
+
+    Individuální časování zóny (`hw.timings`, 2026-09-14) se do podpisu ZÁMĚRNĚ nepočítá:
+    `ZoneController.timings` ho čte při každém ticku, takže se projeví hned a bez přestavby.
+    Kdyby v podpisu bylo, změna doby ve Velíně by vyvolala `all_off` a zhasla světlo
+    v právě obsazené kóji (přestavba se navíc odkládá, dokud běží relace).
     """
-    zones = [[z.hw.to_dict(), z.door_id] for z in hw.zones]
+    zones = [[{k: v for k, v in z.hw.to_dict().items() if k != "timings"}, z.door_id] for z in hw.zones]
     outdoor_light = getattr(getattr(hw, "outdoor", None), "light", None)
     return json.dumps([hw.raw.get("devices"), zones, hw.raw.get("polling"), hw.contacts_closed_level,
                        hw.audio.device, str(outdoor_light)], sort_keys=True, default=str)

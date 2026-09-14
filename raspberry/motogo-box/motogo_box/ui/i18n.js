@@ -157,6 +157,25 @@ MG.i18n = (function () {
       al: { unit: 'Блок керування: ', overtime: '{z}: двері відчинені надто довго — будь ласка, зачиніть їх.', fault: '{z}: {f} — зверніться до підтримки {s}' } },
   };
 
+  /** Je `label` jen automaticky složený český název, ne vlastní popis od obsluhy?
+      Jednotka posílá `label` už složený (kontrakt §14) a Velín historicky zakládal dveřím popisy
+      „Garáž #3 — Honda CB500“ a „Skříň oblečení“ — ty by na displeji zůstaly česky ve všech jazycích
+      a neodpovídaly by jednotnému názvosloví (kóje 1–7 / šatna / venek). Takové názvy tedy přeložíme
+      z `kind` a `box_number`; cokoli jiného je vlastní popis a zobrazí se přesně tak, jak byl zadán. */
+  function isGeneratedLabel(label, z) {
+    const text = String(label || '').trim();
+    if (!text) return true;
+    if (z && z.kind === 'accessories') {
+      return ['Šatna', 'Satna', 'Oblečení', 'Obleceni', 'Skříň oblečení', 'Skrin obleceni'].indexOf(text) !== -1;
+    }
+    if (text === 'Zóna ' + (z && z.zone)) return true;
+    const box = z && z.box_number != null ? z.box_number : null;
+    if (box == null) return false;
+    // „Kóje 3“ / „Koje 3“ / „Garáž #3“ / „Garáž 3“ — volitelně s doplňkem za pomlčkou (model motorky)
+    const re = new RegExp('^(?:K[óo]je|Gar[áa][žz])\\s*#?\\s*' + box + '(?:\\s*[—–-]\\s*.*)?$', 'i');
+    return re.test(text);
+  }
+
   const SIGNAL = { red: 'červená', green: 'zelená', green_pulse: 'zelená (pulzuje)', red_blink: 'červená (bliká)', both_blink: 'červená/zelená', off: 'vypnuto' };
   let lang = DEFAULT;
   const listeners = [];
@@ -215,11 +234,10 @@ MG.i18n = (function () {
         by v cizím jazyce zůstala česká „Kóje 3" / „Šatna". Když se `label` rovná názvu, který si jednotka
         složila sama (viz Zone.display_name v models.py — včetně starších „Oblečení"), přeložíme ho z `kind`
         a `box_number`; vlastní popis dveří z Velína se naopak nepřekládá a zobrazí se přesně tak, jak ho zadal. */
+    isGenerated: isGeneratedLabel,
     zoneName: (z) => {
       const n = z.box_number != null ? z.box_number : z.zone;
-      const generated = [z.kind === 'accessories' ? 'Šatna' : '', z.kind === 'accessories' ? 'Oblečení' : '',
-        z.box_number != null ? 'Kóje ' + z.box_number : '', 'Zóna ' + z.zone];
-      const custom = z.label && generated.indexOf(z.label) === -1 ? z.label : '';
+      const custom = z.label && !isGeneratedLabel(z.label, z) ? z.label : '';
       return custom || (z.kind === 'accessories' ? t('acc') : t('box', { n: n }));
     },
     errorTitle: (e) => sub('et', e === 'unauthorized' || e === 'branch_not_found' ? 'invalid_code' : e) || sub('et', 'unavailable'),

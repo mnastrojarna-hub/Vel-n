@@ -209,7 +209,7 @@ async def test_status_shape():
     st = ctl.status()
     assert st == {"zone": 9, "configured": True, "light": False, "active": False, "manual": None,
                   "audio_out": "out9", "music": False, "light_ref": "wav617b[0]", "off_in_s": None,
-                  "light_mode": "auto", "music_mode": "session"}
+                  "light_mode": "auto", "music_mode": "session", "music_manual": None}
     ctl.audio.channels_playing = ["outdoor"]
     await ctl.sync([1])
     st = ctl.status()
@@ -361,3 +361,44 @@ async def test_music_mode_off_zastavi_hudbu_venku():
     ctl, _, _ = _rig(OutdoorCfg(zone=9, light=LIGHT, audio_out="out9", music_mode="off", present=True), audio=audio)
     await ctl.sync([3])
     assert stopped == ["outdoor"] and audio.plays == []
+
+
+async def test_music_mode_always_backoff_pri_selhani():
+    """Selector (nebo chybný výstup) → play_channel vrací False; bez backoffu by se pokus
+    opakoval 4×/s a zaplavil log. Další pokus smí být až po RETRY_S."""
+    audio = FakeAudio()
+
+    async def play_channel(name, *, hold=True):
+        audio.plays.append((name, hold))
+        return False                                      # kanál neexistuje (selector)
+
+    audio.play_channel = play_channel
+    ctl, _, clock = _rig(OutdoorCfg(zone=9, light=LIGHT, audio_out="out9", music_mode="always", present=True), audio=audio)
+    await ctl.sync([])
+    await ctl.sync([])
+    await ctl.sync([])
+    assert len(audio.plays) == 1                          # backoff drží
+    clock.t += RETRY_S
+    await ctl.sync([])
+    assert len(audio.plays) == 2
+
+
+async def test_music_manual_prebiji_rezim():
+    """Ruční „Hudba ▶“ z Velína musí držet i v režimu off — jinak ji tick za 250 ms zruší."""
+    audio = FakeAudio()
+    stopped = []
+
+    async def stop_channel(name, fade=True):
+        stopped.append(name)
+        audio.channels_playing = [c for c in audio.channels_playing if c != name]
+        return True
+
+    audio.stop_channel = stop_channel
+    ctl, _, _ = _rig(OutdoorCfg(zone=9, light=LIGHT, audio_out="out9", music_mode="off", present=True), audio=audio)
+    audio.channels_playing = ["outdoor"]
+    ctl.set_music_manual(True)                            # ruční zapnutí (commands._music_on)
+    await ctl.sync([])
+    assert stopped == [] and ctl.status()["music_manual"] is True
+    ctl.set_music_manual(None)                            # zpět na režim → hudba se zastaví
+    await ctl.sync([])
+    assert stopped == ["outdoor"]

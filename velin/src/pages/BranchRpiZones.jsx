@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { EmptyState } from './BranchHelpers'
-import { RpiSection, Btn, Chip, ErrorBoundary, formatUptime, ageSeconds, formatAge, txt, num, arr, isRpiDevice, ACCESSORIES_LABEL, boxLabel } from './BranchRpiUi'
+import { RpiSection, Btn, Chip, ErrorBoundary, formatUptime, ageSeconds, formatAge, txt, num, arr, isRpiDevice, ACCESSORIES_LABEL, boxLabel, isGeneratedZoneLabel } from './BranchRpiUi'
 import { OutdoorTile } from './BranchRpiOutdoorTile'
 
 // ─── Řídicí jednotka (Raspberry) — živý stav zón + příkazy ──────────────────
@@ -220,12 +220,15 @@ function RpiDeviceCard({ dev, doors, now, onCommand, branchName }) {
   )
 }
 
-// Název zóny: vlastní popis (z jednotky / dveří) má přednost, jinak jednotné „Šatna" / „Kóje N"
+// Název zóny: vlastní popis (z jednotky / dveří) má přednost, jinak jednotné „Šatna" / „Kóje N".
+// Automaticky složené popisy („Garáž #3 — Honda“, „Skříň oblečení“) se za vlastní NEPOVAŽUJÍ —
+// stejné pravidlo má displej pobočky (ui/i18n.js), takže Velín i displej ukazují stejný název.
 function zoneName(z, door) {
-  if (z.label != null && z.label !== '') return txt(z.label)
-  if (door?.label) return String(door.label)
-  if (z.kind === 'accessories') return ACCESSORIES_LABEL
-  if (num(z.box_number) != null) return boxLabel(num(z.box_number))
+  const meta = { kind: z.kind ?? door?.door_kind, boxNumber: num(z.box_number) ?? door?.box_number ?? null, zone: z.zone }
+  const custom = [z.label, door?.label].find(l => l != null && l !== '' && !isGeneratedZoneLabel(l, meta))
+  if (custom) return txt(custom)
+  if (meta.kind === 'accessories') return ACCESSORIES_LABEL
+  if (meta.boxNumber != null) return boxLabel(meta.boxNumber)
   return `Zóna ${txt(z.zone)}`
 }
 

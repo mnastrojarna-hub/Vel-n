@@ -114,7 +114,9 @@ function AudioOutputsEditor({ hardware, doors, disabled, onSave }) {
         </div>
       </div>
       <div className="flex gap-2 flex-wrap items-end mb-2">
-        <Select label="Režim" width={460} value={mode} options={AUDIO_MODES} onChange={v => { setMode(v); setDirty(true) }} />
+        <Select label="Režim" width={460} value={mode} options={AUDIO_MODES}
+          title="Jak je pobočka ozvučená. „selector“ = jeden zesilovač a přepínací relé: hraje vždy jen JEDNA kóje a venku nehraje nic. „multi“ = každá kóje, šatna i venek má vlastní zvukovou kartu a vlastní přehrávač, takže hrají současně a každá své skladby. Pro vlastní hudbu v každé kóji (blok „Hudba pobočky“) je potřeba „multi“."
+          onChange={v => { setMode(v); setDirty(true) }} />
       </div>
       {rows.length === 0 ? (
         <div className="text-[12px]" style={{ color: '#6b8c7a' }}>{multi ? 'Žádné výstupy — režim multi bez výstupů jednotka odmítne.' : 'Žádné výstupy (v režimu selector nejsou potřeba).'}</div>
@@ -130,7 +132,9 @@ function AudioOutputsEditor({ hardware, doors, disabled, onSave }) {
                   title={badName ? 'Název musí být unikátní, malá písmena/číslice/-/_' : 'Odkaz z mapování dveří (audio.out)'}
                   onChange={v => edit(i, { name: v })} />
                 <Input label="ALSA zařízení (aplay -L)" width={260} value={r.device} placeholder="alsa/plughw:CARD=Box1" warn={!r.device.trim()}
-                  title={r.device.trim() ? '' : 'Prázdné = výchozí ALSA výstup (na RPi 5 HDMI → místnost mlčí)'}
+                  title={r.device.trim()
+                    ? 'Konkrétní zvuková karta pro tento výstup. Přesný název zjistíte na jednotce příkazem „aplay -L“ (např. alsa/plughw:CARD=Box1).'
+                    : 'Prázdné = výchozí zvukový výstup systému. Na Raspberry je to HDMI, takže z reproduktorů v místnosti nic nehraje — vyplňte kartu dle „aplay -L“ na jednotce.'}
                   onChange={v => edit(i, { device: v })} />
                 <Chip tone={who?.length ? 'green' : 'gray'} title="Kdo výstup používá (dle uložené mapy)">{who?.length ? who.join(', ') : 'volný'}</Chip>
                 <Btn tone="red" small onClick={() => remove(i)} disabled={disabled} style={{ alignSelf: 'center', marginLeft: 'auto' }}>Smazat</Btn>
@@ -153,8 +157,9 @@ function DoorAudioCell({ zoneNo, audioRef, audio, devices, devOptions, dup, dupO
   const out = String(ref.out ?? '').trim()
   const typeErr = roleTypeError(zoneNo, AUDIO_ROLE, ref.dev, devices)
   const unknownDev = !!(ref.dev && !devices?.[ref.dev])
-  const relayTitle = dup ? 'Kanál už používá jiná zóna/role nebo venek (blok Venek)' : typeErr ? `${typeErr} Povolené: wav645/wav617.`
-    : multi ? 'Volitelné enable relé zesilovače (dev + coil)' : 'Audio selektor: zařízení + coil'
+  const relayTitle = dup ? 'Tenhle kanál už používá jiná zóna nebo venek — každý kanál smí patřit jen jedné zóně.' : typeErr ? `${typeErr} Povolené: wav645/wav617.`
+    : multi ? 'Nepovinné: relé, které zapne zesilovač této místnosti, když v ní má hrát hudba (modul + relé). Nechte prázdné, pokud je zesilovač napájený trvale.'
+      : 'Relé audio přepínače pro tuto místnost (modul + relé). V režimu „selector“ je jen jedno ozvučení a relé přepíná, do které kóje jde zvuk.'
   const relay = (
     <div className="flex gap-1">
       <Select width={96} value={ref.dev} options={unknownDev ? [...devOptions, { value: ref.dev, label: `${ref.dev} (?)` }] : devOptions}
@@ -167,8 +172,10 @@ function DoorAudioCell({ zoneNo, audioRef, audio, devices, devOptions, dup, dupO
   const unknownOut = !!(out && !names.includes(out))
   const outOptions = [{ value: '', label: '—' }, ...names.map(n => ({ value: n, label: n }))]
   if (unknownOut) outOptions.push({ value: out, label: `${out} (?)` })
-  const outTitle = dupOut ? `Výstup ${out} už používá jiná zóna nebo venek` : unknownOut ? `Výstup '${out}' není v audio.outputs`
-    : !out ? 'Bez výstupu v této místnosti hudba nehraje' : `Výstup ${out} (audio.out)`
+  const outTitle = dupOut ? `Výstup ${out} už používá jiná zóna nebo venek — každý zvukový výstup smí patřit jen jedné místnosti.`
+    : unknownOut ? `Výstup „${out}“ v seznamu výstupů nahoře neexistuje — jednotka by celou mapu odmítla. Vyberte existující, nebo ho doplňte v sekci Audio.`
+      : !out ? 'Zvuková karta, přes kterou hraje hudba v této místnosti. Bez vybraného výstupu tu hudba nehraje vůbec.'
+        : `Hudba této místnosti hraje přes výstup „${out}“ (nastavuje se v sekci Audio výše).`
   return (
     <div className="flex flex-col gap-0.5">
       <Label>Audio výstup / relé (volit.)</Label>
