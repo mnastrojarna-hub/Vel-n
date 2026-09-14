@@ -13,9 +13,13 @@ import 'routes_model.dart';
 import 'routes_provider.dart' show CustomNavArgs;
 import 'route_image.dart';
 import 'my_experiences_provider.dart';
+import 'route_poi_sheet.dart';
 
-/// „Moje zážitky" — osobní cestovní deník jezdce: vlastní uložené trasy
-/// (Moje trasy) a místa objevená navigací (Moje místa) + statistiky.
+/// „Moje zážitky" — osobní cestovní deník jezdce: vlastní vytvořené trasy
+/// (Vytvořené trasy), místa objevená navigací (Moje místa) a projeté jízdy
+/// (Moje trasy) + statistiky. Záložky se přepínají tapem i swipem do stran,
+/// klepnutí na statistiku v hlavičce otevře příslušnou záložku a klepnutí na
+/// trasu / místo otevře jeho detail.
 class MyExperiencesScreen extends ConsumerStatefulWidget {
   const MyExperiencesScreen({super.key});
 
@@ -24,7 +28,24 @@ class MyExperiencesScreen extends ConsumerStatefulWidget {
 }
 
 class _MyExperiencesScreenState extends ConsumerState<MyExperiencesScreen> {
-  int _tab = 0; // 0 = Moje trasy, 1 = Moje místa, 2 = Historie jízd
+  int _tab = 0; // 0 = Vytvořené trasy, 1 = Moje místa, 2 = Moje trasy (jízdy)
+  final PageController _page = PageController();
+
+  @override
+  void dispose() {
+    _page.dispose();
+    super.dispose();
+  }
+
+  /// Přepnutí záložky (tap na záložku / statistiku) — stránka se doanimuje.
+  void _goTab(int i) {
+    if (i == _tab) return;
+    setState(() => _tab = i);
+    if (_page.hasClients) {
+      _page.animateToPage(i,
+          duration: const Duration(milliseconds: 320), curve: Curves.easeOutCubic);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -41,26 +62,35 @@ class _MyExperiencesScreenState extends ConsumerState<MyExperiencesScreen> {
             _header(context, routes.valueOrNull?.length, places.valueOrNull?.length),
             _tabBar(context),
             Expanded(
-              // Historie jízd je lokální (funguje i bez přihlášení);
-              // trasy a místa vyžadují účet.
-              child: _tab == 2
-                  ? _historyList(context)
-                  : !loggedIn
-                      ? _loginPrompt(context)
-                      : RefreshIndicator(
-                          color: MotoGoColors.greenDark,
-                          onRefresh: () async {
-                            ref.invalidate(mySavedRoutesProvider);
-                            ref.invalidate(myPlacesProvider);
-                          },
-                          child: _tab == 0
-                              ? _routesList(context, routes)
-                              : _placesList(context, places),
-                        ),
+              // Záložky jdou přepínat i swipem do stran. Historie jízd je
+              // lokální (funguje i bez přihlášení); trasy a místa vyžadují účet.
+              child: PageView(
+                controller: _page,
+                onPageChanged: (i) => setState(() => _tab = i),
+                children: [
+                  _accountPage(context, loggedIn, _routesList(context, routes)),
+                  _accountPage(context, loggedIn, _placesList(context, places)),
+                  _historyList(context),
+                ],
+              ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  /// Stránka vyžadující účet: bez přihlášení výzva k loginu, jinak obsah
+  /// s obnovením tažením dolů.
+  Widget _accountPage(BuildContext context, bool loggedIn, Widget child) {
+    if (!loggedIn) return _loginPrompt(context);
+    return RefreshIndicator(
+      color: MotoGoColors.greenDark,
+      onRefresh: () async {
+        ref.invalidate(mySavedRoutesProvider);
+        ref.invalidate(myPlacesProvider);
+      },
+      child: child,
     );
   }
 
@@ -121,9 +151,12 @@ class _MyExperiencesScreenState extends ConsumerState<MyExperiencesScreen> {
             const SizedBox(height: 14),
             Row(
               children: [
-                _statChip('📍', '${placeCount ?? 0}', t(context).tr('myExpStatsPlaces')),
+                // Statistiky jsou klikací — otevřou příslušnou záložku.
+                _statChip('📍', '${placeCount ?? 0}', t(context).tr('myExpStatsPlaces'),
+                    active: _tab == 1, onTap: () => _goTab(1)),
                 const SizedBox(width: 10),
-                _statChip('🗺️', '${routeCount ?? 0}', t(context).tr('myExpStatsRoutes')),
+                _statChip('🗺️', '${routeCount ?? 0}', t(context).tr('myExpStatsRoutes'),
+                    active: _tab == 0, onTap: () => _goTab(0)),
               ],
             ),
           ],
@@ -132,12 +165,20 @@ class _MyExperiencesScreenState extends ConsumerState<MyExperiencesScreen> {
     );
   }
 
-  Widget _statChip(String emoji, String value, String label) => Expanded(
-        child: Container(
+  Widget _statChip(String emoji, String value, String label,
+          {bool active = false, required VoidCallback onTap}) =>
+      Expanded(
+        child: PressableScale(
+          pressedScale: 0.96,
+          onTap: onTap,
+          child: AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.10),
+            color: Colors.white.withValues(alpha: active ? 0.18 : 0.10),
             borderRadius: BorderRadius.circular(MotoGoRadius.card),
+            border: Border.all(
+                color: active ? MotoGoColors.green : Colors.transparent, width: 1.3),
           ),
           child: Row(
             children: [
@@ -153,18 +194,27 @@ class _MyExperiencesScreenState extends ConsumerState<MyExperiencesScreen> {
                             fontWeight: MotoGoTypo.w900,
                             color: Colors.white,
                             decoration: TextDecoration.none)),
-                    Text(label,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                            fontSize: 10.5,
-                            fontWeight: MotoGoTypo.w600,
-                            color: Color(0xFF8AAB99),
-                            decoration: TextDecoration.none)),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: MotoGoTypo.w600,
+                                  color: Color(0xFF8AAB99),
+                                  decoration: TextDecoration.none)),
+                        ),
+                        const SizedBox(width: 3),
+                        const Icon(Icons.chevron_right, size: 12, color: Color(0xFF8AAB99)),
+                      ],
+                    ),
                   ],
                 ),
               ),
             ],
+          ),
           ),
         ),
       );
@@ -175,7 +225,7 @@ class _MyExperiencesScreenState extends ConsumerState<MyExperiencesScreen> {
       return Expanded(
         child: PressableScale(
           pressedScale: 0.96,
-          onTap: () => setState(() => _tab = i),
+          onTap: () => _goTab(i),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
             padding: const EdgeInsets.symmetric(vertical: 10),
@@ -230,12 +280,51 @@ class _MyExperiencesScreenState extends ConsumerState<MyExperiencesScreen> {
     );
   }
 
+  /// Detail projeté jízdy: trasa z DB → detail trasy, vlastní trasa →
+  /// náhled v editoru (mapa + zastávky).
+  void _openRideDetail(BuildContext context, ActiveRide r) {
+    final id = r.routeId;
+    if (id != null && id.isNotEmpty) {
+      context.push('/routes/$id');
+      return;
+    }
+    final item = r.customRouteItem();
+    if (item == null) return;
+    context.push('/route-build',
+        extra: RouteBuilderArgs(item, _stopsFromRoute(item)));
+  }
+
+  /// Zastávky pro editor z vlastní trasy — bodům zájmu se přiřadí
+  /// odpovídající waypoint (≤ 40 m).
+  List<BuilderStopSpec> _stopsFromRoute(RouteItem item) {
+    const dist = Distance();
+    final out = <BuilderStopSpec>[];
+    for (final w in item.waypoints) {
+      RoutePoi? best;
+      var bd = 40.0;
+      for (final p in item.pois) {
+        final ll = p.latLng;
+        if (ll == null) continue;
+        final d = dist.as(LengthUnit.Meter, ll, w);
+        if (d < bd) {
+          bd = d;
+          best = p;
+        }
+      }
+      out.add(BuilderStopSpec(w, name: best?.name, poi: best));
+    }
+    return out;
+  }
+
   Widget _historyCard(BuildContext context, ActiveRide r,
       {required bool isActive}) {
     final chipLabel = isActive
         ? t(context).tr('myExpRideActive')
         : (r.done ? t(context).tr('myExpRideDone') : null);
-    return Container(
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => _openRideDetail(context, r),
+      child: Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -324,6 +413,7 @@ class _MyExperiencesScreenState extends ConsumerState<MyExperiencesScreen> {
             },
           ),
         ],
+      ),
       ),
     );
   }
@@ -423,7 +513,14 @@ class _MyExperiencesScreenState extends ConsumerState<MyExperiencesScreen> {
   }
 
   Widget _routeCard(BuildContext context, SavedRoute r) {
-    return Container(
+    // Tap na kartu = detail trasy (náhled v editoru s mapou a zastávkami).
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => context.push(
+        '/route-build',
+        extra: RouteBuilderArgs(r.toRouteItem(), savedRouteStops(r), savedRouteId: r.id),
+      ),
+      child: Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -515,6 +612,7 @@ class _MyExperiencesScreenState extends ConsumerState<MyExperiencesScreen> {
           ),
         ],
       ),
+      ),
     );
   }
 
@@ -564,8 +662,24 @@ class _MyExperiencesScreenState extends ConsumerState<MyExperiencesScreen> {
     );
   }
 
+  /// Bod zájmu z objeveného místa (pro detail i navigaci).
+  RoutePoi _placePoi(VisitedPlace p) => RoutePoi(
+        id: p.routePoiId ?? p.userPoiId ?? p.poiId ?? '',
+        name: p.name,
+        lat: p.lat,
+        lng: p.lng,
+        imageUrl: p.imageUrl,
+        isUserPoi: p.userPoiId != null,
+        isCatalogPoi: p.poiId != null,
+      );
+
   Widget _placeCard(BuildContext context, VisitedPlace p) {
-    return Container(
+    final lang = ref.watch(localeProvider).languageCode;
+    // Tap na kartu = detail místa (popis, fotky, hodnocení a komentáře).
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => showRoutePoiSheet(context, _placePoi(p), lang),
+      child: Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -656,21 +770,14 @@ class _MyExperiencesScreenState extends ConsumerState<MyExperiencesScreen> {
           ),
         ],
       ),
+      ),
     );
   }
 
   void _navigateToPlace(BuildContext context, VisitedPlace p) {
     final ll = p.latLng;
     if (ll == null) return;
-    final poi = RoutePoi(
-      id: p.routePoiId ?? p.userPoiId ?? p.poiId ?? '',
-      name: p.name,
-      lat: p.lat,
-      lng: p.lng,
-      imageUrl: p.imageUrl,
-      isUserPoi: p.userPoiId != null,
-      isCatalogPoi: p.poiId != null,
-    );
+    final poi = _placePoi(p);
     final route = RouteItem(
       id: 'custom',
       name: p.name,

@@ -109,6 +109,35 @@ class RouteGeoCache {
   /// Směr jízdy (bearing) ve vzdálenosti [alongM] po trase.
   double bearingAt(double alongM) => segBearing(segAt(alongM));
 
+  /// Pozice PRVNÍHO průjezdu trasy kolem bodu [p] (≤ [maxDistM] metrů) od
+  /// [fromAlongM] dál. Okruh / křížící se trasa vede kolem bodu klidně
+  /// dvakrát — prostá projekce ([project]) vrátí libovolný (třeba až
+  /// zpáteční) průjezd a zelená linka by se pak natáhla přes celý okruh.
+  /// Průjezd končí, až se trasa od bodu vzdálí o víc než ~600 m po trase.
+  /// null = trasa kolem bodu nevede.
+  double? firstAlongNear(LatLng p,
+      {double fromAlongM = 0, double maxDistM = 150}) {
+    const dist = Distance();
+    final start = segAt(fromAlongM);
+    double? bestAlong;
+    var bestD = double.infinity;
+    double? lastInM; // along posledního segmentu v dosahu (konec průjezdu)
+    for (var i = start; i < segLen.length; i++) {
+      final snap = closestOnSeg(pts[i], pts[i + 1], p);
+      final d = dist.as(LengthUnit.Meter, p, snap);
+      if (d <= maxDistM) {
+        lastInM = cum[i + 1];
+        if (d < bestD) {
+          bestD = d;
+          bestAlong = cum[i] + dist.as(LengthUnit.Meter, pts[i], snap);
+        }
+      } else if (lastInM != null && cum[i] - lastInM > 600) {
+        break;
+      }
+    }
+    return bestAlong;
+  }
+
   /// Směr jízdy (bearing ve stupních) segmentu [seg] — stabilnější než GPS
   /// heading, když jedu po trase.
   double segBearing(int seg) {
