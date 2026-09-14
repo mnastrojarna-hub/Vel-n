@@ -14,6 +14,7 @@ import 'route_image.dart';
 import 'route_reviews.dart';
 import 'community_submit.dart';
 import 'animated_route_icon.dart';
+import 'routes_quick_links.dart';
 
 /// Řazení seznamu tras.
 enum _RouteSort { random, length, duration, nearMe, nearRoute }
@@ -27,7 +28,20 @@ class RoutesScreen extends ConsumerStatefulWidget {
   ConsumerState<RoutesScreen> createState() => _RoutesScreenState();
 }
 
-class _RoutesScreenState extends ConsumerState<RoutesScreen> {
+class _RoutesScreenState extends ConsumerState<RoutesScreen>
+    with SingleTickerProviderStateMixin {
+  // Pořadí připnutých rychlých vstupů (body zájmu / moje zážitky) — swipe po
+  // liště je prohodí (0 = body zájmu první, 1 = moje zážitky první).
+  late final AnimationController _quickOrder = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 420),
+  );
+
+  void _cycleQuickLinks() {
+    final target = _quickOrder.value < 0.5 ? 1.0 : 0.0;
+    _quickOrder.animateTo(target, curve: Curves.easeOutCubic);
+  }
+
   // Hloubkové vyhledávání — název, popis, města na cestě i body zájmu trasy.
   String _query = '';
   final TextEditingController _searchCtl = TextEditingController();
@@ -74,6 +88,7 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen> {
   @override
   void dispose() {
     _searchCtl.dispose();
+    _quickOrder.dispose();
     super.dispose();
   }
 
@@ -304,109 +319,16 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen> {
       onRefresh: () async => ref.invalidate(routesDataProvider),
       child: CustomScrollView(
         slivers: [
-          // CTA: katalog všech bodů zájmu — vlastní vyjížďka
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-              child: PressableScale(
-                pressedScale: 0.98,
-                onTap: () => context.push('/pois'),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: MotoGoColors.greenPale,
-                    borderRadius: BorderRadius.circular(MotoGoRadius.card),
-                    border: Border.all(color: MotoGoColors.green, width: 1.5),
-                  ),
-                  child: Row(
-                    children: [
-                      const Text('📍', style: TextStyle(fontSize: 22)),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              t(context).tr('poiBrowseAll'),
-                              style: const TextStyle(
-                                fontSize: MotoGoTypo.sizeLg,
-                                fontWeight: MotoGoTypo.w900,
-                                color: MotoGoColors.black,
-                                decoration: TextDecoration.none,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              t(context).tr('poiBrowseSub'),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: MotoGoTypo.sizeMd,
-                                fontWeight: MotoGoTypo.w600,
-                                color: MotoGoColors.g600,
-                                decoration: TextDecoration.none,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const Icon(Icons.arrow_forward_ios, size: 14, color: MotoGoColors.greenDark),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-          // CTA: Moje zážitky — uložené trasy a objevená místa jezdce
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-              child: PressableScale(
-                pressedScale: 0.98,
-                onTap: () => context.push('/my-experiences'),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: MotoGoColors.dark,
-                    borderRadius: BorderRadius.circular(MotoGoRadius.card),
-                  ),
-                  child: Row(
-                    children: [
-                      const Text('🏍️', style: TextStyle(fontSize: 22)),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              t(context).tr('myExpEntryTitle'),
-                              style: const TextStyle(
-                                fontSize: MotoGoTypo.sizeLg,
-                                fontWeight: MotoGoTypo.w900,
-                                color: Colors.white,
-                                decoration: TextDecoration.none,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              t(context).tr('myExpEntrySub'),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: MotoGoTypo.sizeMd,
-                                fontWeight: MotoGoTypo.w600,
-                                color: Color(0xFF8AAB99),
-                                decoration: TextDecoration.none,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const Icon(Icons.arrow_forward_ios, size: 14, color: MotoGoColors.green),
-                    ],
-                  ),
-                ),
-              ),
+          // Připnuté rychlé vstupy: „Všechny body zájmu" + „Moje zážitky" —
+          // při scrollování zůstávají vidět (plné karty → kompaktní lišta),
+          // swipe do strany je prohodí, tap otevře.
+          SliverPersistentHeader(
+            pinned: true,
+            delegate: QuickLinksHeaderDelegate(
+              order: _quickOrder,
+              onCycle: _cycleQuickLinks,
+              onOpenPois: () => context.push('/pois'),
+              onOpenMyExp: () => context.push('/my-experiences'),
             ),
           ),
           // Rozšířené filtry (typ, obtížnost, délka, čas, země, dojezd) + řazení

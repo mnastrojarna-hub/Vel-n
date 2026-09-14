@@ -67,6 +67,15 @@ class _NavStop {
   _NavStop(this.point, {this.label, this.poi, this.isBranch = false});
 }
 
+/// Křižovatka, kde trasa vede na obě strany (okruh / křížení): kam vede
+/// levá a kam pravá odbočka + která z nich je PŘÍŠTÍ bod dle pořadí.
+class _ForkInfo {
+  final _NavStop left;
+  final _NavStop right;
+  final bool nextIsLeft;
+  const _ForkInfo(this.left, this.right, this.nextIsLeft);
+}
+
 class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
     with SingleTickerProviderStateMixin {
   // Pod touto rychlostí (km/h) je GPS heading nespolehlivý → mapou neotáčíme.
@@ -87,6 +96,11 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
   static const double _kReachM = 150;
   // Průjezdní bod je „projetý", když jsem po trase dál než bod + rezerva.
   static const double _kPassedSlackM = 400;
+  // Křižovatka: jiný (pozdější) průjezd trasy protíná moji linku do této
+  // vzdálenosti; hledá se od jezdce až [_kForkAheadM] před ním.
+  static const double _kForkNearM = 30;
+  static const double _kForkAheadM = 180;
+  static const double _kForkMinSeparationM = 500; // ne serpentiny téže silnice
 
   final MapController _ctrl = MapController();
   // MapController je použitelný AŽ po vykreslení FlutterMap (onMapReady) —
@@ -136,6 +150,12 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
   _NavStop? _clipStop;
   RouteGeoCache? _clipCache;
   double? _clipAlongM;
+  // Ořez, když první průjezd kolem bodu je už za jezdcem (bod minut bez
+  // potvrzení) — hledá se další průjezd od jezdce dál (cache po 100 m).
+  int? _clipBehindKey;
+  double? _clipBehindAlongM;
+  // Aktuální křižovatka (počítá se při každém GPS fixu, ne každý frame).
+  _ForkInfo? _fork;
 
   // Projetá cesta (vzorky à ~30 m) — koridor pro „nejezdi zpátky po stejné
   // silnici": při přepočtu se nový nájezd porovnává s tím, kudy jezdec přijel.
@@ -382,10 +402,12 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
     if (prog.distM > _kOffRouteM) {
       // Mimo trasu — po několika fixech přepočítej od aktuální polohy.
       _offRouteFixes++;
+      _fork = null;
       if (_offRouteFixes >= _kOffRouteFixes) _reroute();
     } else {
       _offRouteFixes = 0;
       _autoPassStops(prog);
+      _fork = _detectFork(cache, prog);
       // Na lince, ale PROTI jejímu směru (otočka / jiná cesta po stejné
       // silnici) → taky přepočet, jinak zelená linka zůstane stará. Výjimka:
       // trasa tu legitimně vede oběma směry (tam a zpět ke slepému bodu).
@@ -420,6 +442,101 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
       if (angleDiff(brg, cache.segBearing(i)) <= 60) return true;
     }
     return false;
+  }
+
+  /// Křižovatka před jezdcem: trasa (okruh / křížení) tudy vede ještě jednou
+  /// později — jezdec může odbočit na obě strany a musí vědět, kam která
+  /// vede. Vrací levou/pravou odbočku s cílovým bodem, nebo null.
+  ///
+  /// Druhý průjezd se hledá jen tam, kde skutečně PROTÍNÁ moji linku
+  /// (≤ [_kForkNearM] m od bodu na trase; serpentiny téže silnice se
+  /// neprotínají) a je po trase dál než [_kForkMinSeparationM]. Odsud se po
+  /// něm dá jet buď PROTI jeho směru (zpáteční část okruhu → poslední bod
+  /// před návratem sem), nebo PO směru (trasa se sem vrátí a odbočí jinam →
+  /// první bod za tímto místem). Směr shodný s mojí trasou nebo vedoucí
+  /// zpátky, odkud jsem přijel, křižovatka není.
+  _ForkInfo? _detectFork(RouteGeoCache c, RouteProgress prog) {
+    final next = _nextStop;
+    if (next == null || _stops.where((s) => !s.reached).length < 2) return null;
+    const dist = Distance();
+    final riderAlong = prog.alongM;
+    final anchors = <LatLng>[
+      prog.snapped,
+      c.pointAt(riderAlong + _kForkAheadM / 2),
+      c.pointAt(riderAlong + _kForkAheadM),
+    ];
+    double? otherAlong;
+    var bestD = _kForkNearM;
+    for (var i = 0; i < c.segLen.length; i++) {
+      if (c.cum[i + 1] < riderAlong + _kForkMinSeparationM) continue;
+      for (final a in anchors) {
+        final snap = closestOnSeg(c.pts[i], c.pts[i + 1], a);
+        final d = dist.as(LengthUnit.Meter, a, snap);
+        if (d < bestD) {
+          bestD = d;
+          otherAlong = c.cum[i] + dist.as(LengthUnit.Meter, c.pts[i], snap);
+        }
+      }
+    }
+    if (otherAlong == null) return null;
+    final ref = _travelBearing() ?? c.bearingAt(riderAlong);
+    final mine = c.bearingAt(riderAlong + _kForkAheadM + 60); // kam vede moje trasa
+    final options = <(_NavStop, double)>[];
+    final back = _lastStopBefore(otherAlong);
+    if (back != null) {
+      options.add((back, (c.bearingAt(otherAlong - 60) + 180) % 360));
+    }
+    final fwd = _firstStopAfter(otherAlong);
+    if (fwd != null) options.add((fwd, c.bearingAt(otherAlong + 60)));
+    for (final (stop, brg) in options) {
+      if (identical(stop, next)) continue;
+      if (angleDiff(brg, mine) < 35) continue; // stejná silnice jako moje trasa
+      if (angleDiff(brg, (ref + 180) % 360) < 35) continue; // zpátky, odkud jedu
+      final turnMine = _signedTurn(ref, mine);
+      final turnOther = _signedTurn(ref, brg);
+      if ((turnMine - turnOther).abs() < 25) continue;
+      return turnMine < turnOther
+          ? _ForkInfo(next, stop, true)
+          : _ForkInfo(stop, next, false);
+    }
+    return null;
+  }
+
+  /// Úhel odbočení ze směru [from] do [to] (−180..180; záporně = vlevo).
+  static double _signedTurn(double from, double to) {
+    var d = (to - from) % 360;
+    if (d > 180) d -= 360;
+    return d;
+  }
+
+  /// Poslední neprojetá zastávka PŘED pozicí [along] po trase.
+  _NavStop? _lastStopBefore(double along) {
+    _NavStop? best;
+    var ba = -1.0;
+    for (final s in _stops) {
+      if (s.reached) continue;
+      final a = _stopAlongM[s];
+      if (a != null && a < along - 150 && a > ba) {
+        ba = a;
+        best = s;
+      }
+    }
+    return best;
+  }
+
+  /// První neprojetá zastávka ZA pozicí [along] po trase.
+  _NavStop? _firstStopAfter(double along) {
+    _NavStop? best;
+    var ba = double.infinity;
+    for (final s in _stops) {
+      if (s.reached) continue;
+      final a = _stopAlongM[s];
+      if (a != null && a > along + 150 && a < ba) {
+        ba = a;
+        best = s;
+      }
+    }
+    return best;
   }
 
   /// Dojezd na zastávky trasy (vzdušná vzdálenost). Bod zájmu / pojmenovaná
@@ -588,6 +705,8 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
     _navSegHint = null;
     _navLengthM = info?.lengthM ?? polylineLengthM(geo);
     _navDurationS = info?.durationS;
+    _fork = null;
+    _clipBehindKey = null;
     _computeStopAlong();
   }
 
@@ -597,10 +716,15 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
     _stopAlongM.clear();
     final cache = _navCache;
     if (cache == null) return;
+    // Zastávky v pořadí trasy: každá se hledá jako PRVNÍ průjezd až ZA
+    // předchozí zastávkou — u okruhu / křížení se tak bod nepřiřadí ke
+    // zpáteční části trasy (a neodbaví se předčasně / v jiném pořadí).
+    var from = 0.0;
     for (final s in _stops) {
       if (s.reached) continue;
-      final p = cache.project(s.point);
-      _stopAlongM[s] = p.distM <= 120 ? p.alongM : null;
+      final a = cache.firstAlongNear(s.point, fromAlongM: from, maxDistM: 120);
+      _stopAlongM[s] = a;
+      if (a != null) from = a;
     }
   }
 
@@ -703,10 +827,31 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
     if (!identical(_clipStop, next) || !identical(_clipCache, c)) {
       _clipStop = next;
       _clipCache = c;
-      final p = c.project(next.point);
-      _clipAlongM = p.distM <= 150 ? p.alongM : null;
+      _clipBehindKey = null;
+      // PRVNÍ průjezd kolem bodu (okruh vede kolem bodu klidně dvakrát) —
+      // linka končí u příštího bodu, nikdy se nenatáhne přes celý okruh.
+      _clipAlongM = c.firstAlongNear(next.point) ??
+          c.firstAlongNear(next.point, maxDistM: 600);
+      if (_clipAlongM == null) {
+        final p = c.project(next.point);
+        _clipAlongM = p.distM <= 3000 ? p.alongM : null;
+      }
     }
     return _clipAlongM;
+  }
+
+  /// Konec zelené linky před jezdcem: první průjezd kolem příštího bodu;
+  /// je-li už za jezdcem (bod minut bez potvrzení), další průjezd od jezdce.
+  double? _aheadClipAlong(RouteGeoCache c, _NavStop next, double riderAlong) {
+    final na = _nextStopAlong(c, next);
+    if (na == null || na > riderAlong) return na;
+    final key = (riderAlong / 100).floor();
+    if (_clipBehindKey != key) {
+      _clipBehindKey = key;
+      _clipBehindAlongM =
+          c.firstAlongNear(next.point, fromAlongM: riderAlong + 50, maxDistM: 600);
+    }
+    return _clipBehindAlongM;
   }
 
   String _stopLabel(_NavStop s, String lang) {
@@ -1204,7 +1349,7 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
       aheadGeo = [prog.snapped, ...geometry.sublist(prog.segIndex + 1)];
       if (navTarget != null) {
         final c = _dispCache!;
-        final na = _nextStopAlong(c, navTarget);
+        final na = _aheadClipAlong(c, navTarget, prog.alongM);
         if (na != null && na > prog.alongM) {
           final endSeg = c.segAt(na);
           if (endSeg >= prog.segIndex) {
@@ -1215,6 +1360,14 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
             ];
           }
         }
+      }
+    } else if (navTarget != null && _dispCache != null) {
+      // Ještě bez polohy: i náhled vede jen od startu k PRVNÍMU bodu —
+      // celý okruh naráz (s křížícími se úseky) jezdce mate.
+      final c = _dispCache!;
+      final na = _nextStopAlong(c, navTarget);
+      if (na != null && na > 0) {
+        aheadGeo = [...c.pts.sublist(0, c.segAt(na) + 1), c.pointAt(na)];
       }
     }
     final fraction = (prog != null && prog.totalM > 0)
@@ -1484,6 +1637,17 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
                 _saveCustomRoute();
               },
               onClose: () => setState(() => _doneCardDismissed = true),
+            ),
+          )
+        // Křižovatka: trasa vede na obě strany — kam vede levá a pravá.
+        else if (_fork != null && !_denied)
+          Positioned(
+            left: 12, right: 64, bottom: bottomInset + 134,
+            child: NavForkHint(
+              leftLabel: _stopLabel(_fork!.left, lang),
+              rightLabel: _stopLabel(_fork!.right, lang),
+              nextIsLeft: _fork!.nextIsLeft,
+              onTap: () => _openStopsSheet(lang),
             ),
           )
         // Příští zastávka trasy — pilulka nad HUD (klik = seznam zastávek).

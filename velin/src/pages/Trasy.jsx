@@ -10,6 +10,7 @@ import { StatCard, SmallBtn } from './BranchHelpers'
 import TrasyModal, { computeGeometry } from './TrasyModal'
 import TrasyReviewsModal from './TrasyReviewsModal'
 import TrasyKatalogMist from './TrasyKatalogMist'
+import TrasyRecenze from './TrasyRecenze'
 
 // ─── Error boundary (stejný vzor jako Branches) ──────────────────────
 class TrasyErrorBoundary extends Component {
@@ -52,7 +53,7 @@ function Trasy() {
   const [catalogCount, setCatalogCount] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [tab, setTab] = useState('routes')              // 'routes' | 'catalog'
+  const [tab, setTab] = useState('routes')              // 'routes' | 'catalog' | 'reviews'
   const [search, setSearch] = useState('')
   const [countryFilter, setCountryFilter] = useState('all')
   const [sortBy, setSortBy] = useState('default')       // řazení seznamu tras
@@ -61,6 +62,7 @@ function Trasy() {
   const [deleteConfirm, setDeleteConfirm] = useState(null)
   const [pendingPois, setPendingPois] = useState([])
   const [reviewStats, setReviewStats] = useState({})
+  const [reviewTotals, setReviewTotals] = useState({ count: 0, comments: 0 }) // všechny recenze (i skryté)
   const [reviewsFor, setReviewsFor] = useState(null)
   const [selected, setSelected] = useState(new Set())          // hromadný výběr tras
   const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false)
@@ -124,11 +126,12 @@ function Trasy() {
         const revs = []
         for (let from = 0; ; from += 1000) {
           const { data: page, error: re } = await supabase
-            .from('route_reviews').select('route_id, rating, status').range(from, from + 999)
+            .from('route_reviews').select('route_id, rating, status, review_text').range(from, from + 999)
           if (re) throw re
           revs.push(...(page || []))
           if (!page || page.length < 1000) break
         }
+        setReviewTotals({ count: revs.length, comments: revs.filter(r => r.review_text?.trim()).length })
         const agg = {}
         ;(revs || []).forEach(r => {
           if (r.status !== 'approved') return
@@ -308,7 +311,7 @@ function Trasy() {
 
   return (
     <div>
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-5">
         <div onClick={() => setTab('routes')} className="cursor-pointer" title="Zobrazit trasy">
           <StatCard label="Tras celkem" value={routes.length} color="#0f1a14" />
         </div>
@@ -318,6 +321,9 @@ function Trasy() {
         <div onClick={() => setTab('catalog')} className="cursor-pointer" title="Otevřít katalog míst">
           <StatCard label="Katalog míst" value={catalogCount ?? '…'} color="#0d9488" />
         </div>
+        <div onClick={() => setTab('reviews')} className="cursor-pointer" title="Recenze a komentáře tras">
+          <StatCard label="Recenze tras" value={`${reviewTotals.count} · 💬 ${reviewTotals.comments}`} color="#f59e0b" />
+        </div>
       </div>
 
       {/* Přepínač: seznam tras vs. katalog samostatných zajímavých míst */}
@@ -325,6 +331,7 @@ function Trasy() {
         {[
           { id: 'routes', label: `🛣️ Trasy (${routes.length})` },
           { id: 'catalog', label: `📍 Katalog míst (${catalogCount ?? '…'})` },
+          { id: 'reviews', label: `💬 Recenze tras (${reviewTotals.count})` },
         ].map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
             className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
@@ -342,6 +349,12 @@ function Trasy() {
 
       {tab === 'catalog' ? (
         <TrasyKatalogMist />
+      ) : tab === 'reviews' ? (
+        <TrasyRecenze
+          routes={routes}
+          onOpenRoute={r => { setEditing(r); setShowModal(true) }}
+          onChanged={load}
+        />
       ) : (
       <>
       <div className="flex items-center gap-3 mb-5 flex-wrap">

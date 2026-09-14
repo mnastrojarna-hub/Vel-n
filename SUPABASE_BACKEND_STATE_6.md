@@ -536,3 +536,18 @@ a dlouhé úseky bez jediné zastávky (např. „Sozopol a jižní Černomoří
    nezachytí. Migrace doplňuje uk názvy ručně (popisy se rename neměnily).
 3. Cron přeplánován — podle nové detekce dopřeloží i 26 kurátorovaných bodů
    z `20260705_route_pois_fill_gaps.sql` a všechny částečné řádky, pak se odplánuje.
+
+---
+
+### 2026-09-14 — Appka: připnuté vstupy na Trasách, swipe záložek v Mých zážitcích, navigace jen k nejbližšímu bodu + křižovatky; Velín: přehled recenzí tras
+
+**Bez změn DB** (žádná migrace, RLS ani RPC). Oba Flutter stromy (Android + iOS) změněny shodně; `diff -rq lib/` = jen záměrné rozdíly.
+
+- **Trasy (`routes_screen.dart` + nový `routes_quick_links.dart`):** karty „Všechny body zájmu" a „Moje zážitky" jsou nově `SliverPersistentHeader(pinned)` — při scrollování seznamu tras ZŮSTÁVAJÍ vidět a plynule (podle posunu, `Curves.easeInOutCubic`) se zmenší z plných karet pod sebou do kompaktní lišty dvou pilulek vedle sebe. Vodorovný swipe po liště obě tlačítka animovaně prohodí (cyklicky), tap otevře.
+- **Moje zážitky (`my_experiences_screen.dart`):** záložky přejmenovány — „Moje trasy" → **„Vytvořené trasy"**, „Historie" → **„Moje trasy"** (klíče `myExpRoutesTab`, `myExpHistoryTab`, `myExpStatsRoutes` ve všech 8 jazycích; uk doplněno). Záložky jsou `PageView` (swipe do stran + tap), statistiky v hlavičce (objevená místa / vytvořené trasy) jsou klikací → otevřou záložku. Tap na jízdu v Mých trasách otevře detail (DB trasa → `/routes/:id`, vlastní → náhled v editoru), tap na místo otevře detail bodu (`showRoutePoiSheet`), tap na vytvořenou trasu náhled v editoru.
+- **Všechny body zájmu (`all_pois_screen.dart`):** tlačítko info (i) zvětšeno na 40 px zelený kruh (`greenDark`, bílá ikona 24 px).
+- **Navigace (`route_navigation_screen.dart`, `route_nav_motion.dart`, `route_nav_widgets.dart`):**
+  - `RouteGeoCache.firstAlongNear()` — pozice PRVNÍHO průjezdu trasy kolem bodu (průjezd končí, až se trasa vzdálí > 600 m po trase). Zelená linka se kreslí VŽDY jen k příštímu bodu dle pořadí (i před prvním GPS fixem od startu k prvnímu bodu; bod minutý bez potvrzení → další průjezd od jezdce; bod daleko od linky → fallback 600 m / projekce ≤ 3 km). Nikdy se nezobrazí celý okruh. `_computeStopAlong` přiřazuje zastávky sekvenčně (každá až za předchozí) — u okruhu se bod nepřiřadí ke zpáteční části.
+  - **Křižovatky:** `_detectFork` při každém GPS fixu hledá pozdější průjezd trasy (≥ 500 m po trase dál) protínající moji linku (≤ 30 m) od jezdce až 180 m před ním. Z druhého průjezdu se odvodí, kam vede odbočka PROTI jeho směru (zpáteční část okruhu → poslední bod před návratem) nebo PO směru (první bod za místem); směr shodný s mojí trasou / zpátky odkud jedu se ignoruje. Výsledek = karta `NavForkHint` místo pilulky „Další": vlevo/vpravo + název bodu, zvýrazněná strana = příští bod, druhá „jiný směr" (klíče `navForkTitle`, `navForkOther`, 8 jazyků).
+- **Velín (`velin/src/pages/Trasy.jsx` + nový `TrasyRecenze.jsx`):** nová záložka **„💬 Recenze tras"** + dlaždice „Recenze tras" (počet · s komentářem): přehled VŠECH `route_reviews` napříč trasami (stránkovaně po 1000), jména z `profiles`, filtry (vše / s komentářem / s fotkami / skryté / ★ ≤ 2), hledání (trasa, autor, text), moderace skrýt/zobrazit/smazat (s potvrzením), klik na název trasy otevře její editaci. Modal recenzí jedné trasy (sloupec „Recenze") zůstává.
+- **Denní záloha (issue #2002, label `backup-failed`):** padá na chybějících GitHub secrets — `BACKUP_PASSPHRASE` (POVINNÉ) a prázdný `SUPABASE_SERVICE_ROLE_KEY`. Workflow je v pořádku; doplní uživatel v Settings → Secrets and variables → Actions.

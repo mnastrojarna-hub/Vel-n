@@ -1178,12 +1178,28 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
                   ),
                 ),
               ),
-              // Detail (i) + výběr
-              GestureDetector(
-                onTap: () => showRoutePoiSheet(context, e.poi, lang),
-                child: const Padding(
-                  padding: EdgeInsets.all(8),
-                  child: Icon(Icons.info_outline, size: 20, color: MotoGoColors.g400),
+              // Detail (i) — výrazné zelené tlačítko + výběr
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: PressableScale(
+                  pressedScale: 0.9,
+                  onTap: () => showRoutePoiSheet(context, e.poi, lang),
+                  child: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: MotoGoColors.greenDark,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: MotoGoColors.greenDark.withValues(alpha: 0.35),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(Icons.info_outline, size: 24, color: Colors.white),
+                  ),
                 ),
               ),
               Padding(

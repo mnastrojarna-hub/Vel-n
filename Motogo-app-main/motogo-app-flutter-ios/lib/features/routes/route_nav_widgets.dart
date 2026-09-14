@@ -801,3 +801,125 @@ void showNavStopsSheet(
     ),
   );
 }
+
+/// Nápověda na křižovatce, kde trasa (okruh) vede na obě strany: kam vede
+/// levá a kam pravá odbočka. Zvýrazněná strana = PŘÍŠTÍ bod dle pořadí trasy,
+/// druhá vede k jinému bodu okruhu (jezdec se tam dostane později).
+class NavForkHint extends StatelessWidget {
+  final String leftLabel;
+  final String rightLabel;
+  final bool nextIsLeft;
+  final VoidCallback? onTap;
+  const NavForkHint({
+    super.key,
+    required this.leftLabel,
+    required this.rightLabel,
+    required this.nextIsLeft,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(MotoGoRadius.card),
+          boxShadow: MotoGoShadows.motoCard,
+          border: Border.all(color: MotoGoColors.green, width: 1.5),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.call_split, size: 16, color: MotoGoColors.greenDarker),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    t(context).tr('navForkTitle'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: MotoGoTypo.sizeMd,
+                        fontWeight: MotoGoTypo.w800,
+                        color: MotoGoColors.g600,
+                        decoration: TextDecoration.none),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: _side(context, Icons.turn_left, leftLabel, nextIsLeft, left: true),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _side(context, Icons.turn_right, rightLabel, !nextIsLeft, left: false),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _side(BuildContext context, IconData icon, String label, bool isNext,
+      {required bool left}) {
+    final fg = isNext ? Colors.white : MotoGoColors.g600;
+    final text = Column(
+      crossAxisAlignment: left ? CrossAxisAlignment.start : CrossAxisAlignment.end,
+      children: [
+        Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: left ? TextAlign.left : TextAlign.right,
+          style: TextStyle(
+              fontSize: MotoGoTypo.sizeLg,
+              fontWeight: MotoGoTypo.w900,
+              color: fg,
+              decoration: TextDecoration.none),
+        ),
+        Text(
+          t(context).tr(isNext ? 'routeNavNext' : 'navForkOther'),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+              fontSize: MotoGoTypo.sizeSm,
+              fontWeight: MotoGoTypo.w700,
+              color: isNext ? MotoGoColors.greenPale : MotoGoColors.g400,
+              decoration: TextDecoration.none),
+        ),
+      ],
+    );
+    return Container(
+      height: 48,
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(
+        color: isNext ? MotoGoColors.greenDark : MotoGoColors.g100,
+        borderRadius: BorderRadius.circular(MotoGoRadius.xl),
+        border: isNext ? null : Border.all(color: MotoGoColors.g200, width: 1.2),
+      ),
+      child: Row(
+        children: [
+          if (left) ...[
+            Icon(icon, size: 24, color: fg),
+            const SizedBox(width: 6),
+          ],
+          Expanded(child: text),
+          if (!left) ...[
+            const SizedBox(width: 6),
+            Icon(icon, size: 24, color: fg),
+          ],
+        ],
+      ),
+    );
+  }
+}
