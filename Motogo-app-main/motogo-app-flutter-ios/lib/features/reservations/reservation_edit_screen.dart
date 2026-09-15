@@ -54,6 +54,10 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
   final Set<String> _selectedExtras = {};
   // Původní zaplacené doplňky (baseline) — přidání = doplatek, odebrání = refund.
   final Set<String> _origExtras = {};
+
+  /// Skutečně zaplacená suma za modelované doplňky (`booking_extras.unit_price`).
+  /// NULL = ještě nenačteno / načtení selhalo → EditPriceCalc použije ceník.
+  double? _origExtrasPaid;
   String? _helmetSize;
   String? _jacketSize;
   String? _pantsSize;
@@ -158,6 +162,17 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
     'boty_spolujezdec': ('Boty spolujezdce', 290.0),
   };
 
+  /// Věrnostní rank pro cenu doplňků — VÝHRADNĚ u app rezervací
+  /// (`booking_source='app'`). Web rezervace žádnou věrnostní výhodu nemají,
+  /// ani když je zákazník upravuje v aplikaci (parita s `loyaltyPercent`
+  /// a se serverem: `update_booking_gear` / `_apply_booking_changes_core`).
+  int _appOnlyLevel(int level) =>
+      _booking?.bookingSource == 'app' ? level : 0;
+
+  /// Rank mimo `build` (výpočet ceny, uložení) — `read`.
+  int get _effectiveLoyaltyLevel =>
+      _appOnlyLevel(ref.read(loyaltyStatusProvider).valueOrNull?.level ?? 0);
+
   /// Mapuje název řádku booking_extras na náš id doplňku.
   static String? _extraIdFromName(String name) {
     final n = name.toLowerCase();
@@ -177,15 +192,23 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
     try {
       final rows = await MotoGoSupabase.client
           .from('booking_extras')
-          .select('name')
+          .select('name, unit_price, quantity')
           .eq('booking_id', widget.bookingId);
       final orig = <String>{};
+      // Skutečně zaplacená suma MODELOVANÝCH doplňků — jen z nich se počítá
+      // rozdíl, ostatní řádky (vozík…) zůstávají v `extras_price` nedotčené.
+      double paid = 0;
       for (final r in (rows as List)) {
         final id = _extraIdFromName((r['name'] ?? '').toString());
-        if (id != null) orig.add(id);
+        if (id == null) continue;
+        orig.add(id);
+        final up = (r['unit_price'] as num?)?.toDouble() ?? 0;
+        final qty = (r['quantity'] as num?)?.toDouble() ?? 1;
+        paid += up * qty;
       }
       if (mounted) {
         setState(() {
+          _origExtrasPaid = paid;
           _origExtras
             ..clear()
             ..addAll(orig);
@@ -230,6 +253,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
       returnDelivFee: _returnDelivFee,
       selectedExtras: _selectedExtras,
       origExtras: _origExtras,
+      origExtrasPaidTotal: _origExtrasPaid,
       pickupMethod: _pickupMethod,
       returnMethod: _returnMethod,
       pickupTime: _pickupTime,
@@ -241,7 +265,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
       passengerPantsSize: _passengerPantsSize,
       passengerBootsSize: _passengerBootsSize,
       discountType: _discountType,
-      loyaltyLevel: ref.read(loyaltyStatusProvider).valueOrNull?.level ?? 0,
+      loyaltyLevel: _effectiveLoyaltyLevel,
       // Věrnostní % sleva na doplatek — JEN pro app rezervace (parita se
       // serverem; web rezervace loyalty nemají).
       loyaltyPercent: _booking!.bookingSource == 'app'
@@ -550,7 +574,17 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
               {
                 'booking_id': widget.bookingId,
                 'name': _extraDefs[id]!.$1,
-                'unit_price': _extraDefs[id]!.$2,
+                // MUSÍ souhlasit s EditPriceCalc (od [loyaltyFreeGearLevel]
+                // je gear za 0 Kč). Jinak `bookings.extras_price` a
+                // SUM(booking_extras.unit_price) nesouhlasí a faktury
+                // (ZF/DP/KF) vykážou jinou cenu pronájmu.
+                // Rank ze STEJNÉHO snapshotu, z jakého vyšel `extras_price`
+                // (`calc` výše). `_save()` mezitím awaituje dostupnost
+                // motorky a dotyk může rank obnovit — dvě různá čtení by
+                // rozešla `extras_price` a SUM(booking_extras.unit_price).
+                'unit_price': isGearFreeAt(calc.loyaltyLevel)
+                    ? 0.0
+                    : _extraDefs[id]!.$2,
                 'quantity': 1,
               },
         ];
@@ -964,7 +998,8 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
               returnMethod: _returnMethod,
               isKids: _booking!.motoLicenseRequired == 'N',
               ownGear: _ownGear,
-              loyaltyLevel: ref.watch(loyaltyStatusProvider).valueOrNull?.level ?? 0,
+              loyaltyLevel: _appOnlyLevel(
+                  ref.watch(loyaltyStatusProvider).valueOrNull?.level ?? 0),
               helmetSize: _helmetSize, jacketSize: _jacketSize, pantsSize: _pantsSize,
               bootsSize: _bootsSize, glovesSize: _glovesSize,
               passengerHelmetSize: _passengerHelmetSize,

@@ -12,11 +12,17 @@ class BookingFormPriceSection extends StatelessWidget {
     required this.draft,
     required this.bd,
     required this.dayCount,
+    this.pricedExtras,
   });
 
   final BookingDraft draft;
   final PriceBreakdown bd;
   final int dayCount;
+
+  /// Doplňky s cenami dle věrnostního ranku (`effectiveExtrasProvider`) —
+  /// od [loyaltyFreeGearLevel] je placená výbava za 0 Kč. Když není předané,
+  /// použijí se ceny z draftu (fallback = původní chování).
+  final List<SelectedExtra>? pricedExtras;
 
   @override
   Widget build(BuildContext context) {
@@ -51,10 +57,12 @@ class BookingFormPriceSection extends StatelessWidget {
               '${t(context).motorcycle} × $dc ${dc == 1 ? t(context).tr("day1") : dc < 5 ? t(context).tr("days24") : t(context).tr("days5")}',
               '${Money.czk(bd.basePrice)}',
             ),
-            for (final e in draft.extras)
+            for (final e in (pricedExtras ?? draft.extras))
               bookingPriceRow(
                 e.name,
-                '+${Money.czk((e.price * e.quantity))}',
+                e.price == 0
+                    ? t(context).tr('gearFree')
+                    : '+${Money.czk((e.price * e.quantity))}',
               ),
             if (bd.pickupDeliveryFee > 0)
               bookingPriceRow(

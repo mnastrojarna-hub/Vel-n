@@ -14,6 +14,13 @@ import 'supabase_client.dart';
 /// plovoucí FAB panely, aby nepřekrývaly tlačítko „Zaplatit".
 final paymentScreenActiveProvider = StateProvider<bool>((ref) => false);
 
+/// True dokud je na obrazovce některý z APP-LEVEL overlayů (jazyk, oprávnění,
+/// intro). Ty sedí ve `Stack`u v `MaterialApp.builder` AŽ ZA `child!`, takže
+/// se kreslí NAD dialogem level-up oslavy — kdyby se oslava spustila pod nimi,
+/// 67s video by běželo neviditelně a zapsalo by se jako „už oslaveno".
+/// `LoyaltyLevelUpWatcher` proto oslavu odloží (bez zápisu) dokud je true.
+final onboardingOverlayActiveProvider = StateProvider<bool>((ref) => false);
+
 /// Pending booking data for the FAB — mirrors _checkAndShowBookingFab()
 /// from reservations-ui.js. Shows unpaid bookings within 10-min window.
 class PendingBooking {

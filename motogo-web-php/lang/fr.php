@@ -312,8 +312,6 @@ return [
     'rez.gear.rider' => 'Équipement du conducteur',
     'rez.gear.riderSub' => 'Casque, blouson, gants, pantalon, cagoule',
     'rez.gear.riderFree' => 'inclus · gratuit',
-    'rez.gear.free' => 'OFFERT',
-    'rez.gear.loyaltyFree' => 'Grâce à votre rang, tout l’équipement et les chaussures — passager compris — sont offerts.',
     'rez.gear.riderOwn' => 'J\'ai mon propre équipement — je ne loue pas',
     'rez.gear.passenger' => 'Équipement du passager',
     'rez.gear.passengerSub' => 'Casque, blouson, gants, cagoule',

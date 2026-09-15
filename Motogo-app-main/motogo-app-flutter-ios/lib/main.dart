@@ -29,7 +29,10 @@ import 'core/widgets/moto_fx.dart';
 import 'core/update_check_provider.dart';
 import 'core/in_app_update_service.dart';
 import 'core/widgets/logo_header.dart' show initAppVersion;
+import 'core/pending_booking_fab_provider.dart'
+    show onboardingOverlayActiveProvider;
 import 'features/loyalty/loyalty_levelup_overlay.dart';
+import 'features/loyalty/loyalty_provider.dart' show maybeRefreshLoyalty;
 import 'features/routes/active_ride_provider.dart'
     show maybeResumeActiveRideOnLaunch;
 
@@ -343,30 +346,52 @@ class _MotoGoAppState extends ConsumerState<MotoGoApp>
       // a přepnutí jazyka se v UI neprojeví.
       supportedLocales: supportedLocales,
       builder: (context, child) {
+        // App-level overlaye (jazyk / oprávnění / intro) jsou v tomto Stacku
+        // AŽ ZA `child!`, takže se kreslí NAD dialogem level-up oslavy. Dokud
+        // je některý vidět (nebo onboarding ještě není vyhodnocený), hlídač
+        // oslavu ODLOŽÍ — nic si nezapíše, takže se dožene hned po zavření.
+        final overlayUp = !_onboardingChecked ||
+            _showLangOverlay ||
+            _showPermOverlay ||
+            _showIntro;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          final n = ref.read(onboardingOverlayActiveProvider.notifier);
+          if (n.state != overlayUp) n.state = overlayUp;
+        });
         return MediaQuery(
           data: MediaQuery.of(context).copyWith(textScaler: TextScaler.noScaling),
-          child: Stack(
-            children: [
-              child!,
-              // Věrnostní ranky — neviditelný hlídač postupu na vyšší level.
-              // Sedí NAD celou navigací, takže celoobrazovkovou oslavu
-              // (postup o 1 = standard, o 2+ = turbo „MEGA POSTUP") zobrazí
-              // na jakékoli obrazovce — i mimo spodní lištu (login, platba,
-              // „success" potvrzení rezervace…).
-              const LoyaltyLevelUpWatcher(),
-              // Language selection overlay (first launch)
-              if (_onboardingChecked && _showLangOverlay)
-                LanguageOverlay(onDone: _onLangDone),
-              // Permission request overlay (after language)
-              if (_onboardingChecked && _showPermOverlay)
-                PermissionOverlay(
-                  onAllow: _onPermDone,
-                ),
-              // Intro animace při prvním spuštění — NAD ostatními overlayi,
-              // po doběhnutí odhalí výběr jazyka.
-              if (_onboardingChecked && _showIntro)
-                MotoIntroOverlay(onDone: _onIntroDone),
-            ],
+          // Každý dotyk = levná kontrola věrnostního ranku (throttle 45 s je
+          // v `maybeRefreshLoyalty`). Díky tomu zákazník uvidí oslavu i když
+          // povýšení nastalo server-side, zatímco měl appku otevřenou —
+          // stačí, že na cokoli klikne. `Listener` nic nepohlcuje ani
+          // nemění layout, takže UX/UI/flow zůstává beze změny.
+          child: Listener(
+            behavior: HitTestBehavior.translucent,
+            onPointerDown: (_) => maybeRefreshLoyalty(ref),
+            child: Stack(
+              children: [
+                child!,
+                // Věrnostní ranky — neviditelný hlídač postupu na vyšší level.
+                // Sedí NAD celou navigací, takže celoobrazovkovou oslavu
+                // (postup o 1 = standard, o 2+ = turbo „MEGA POSTUP") zobrazí
+                // na jakékoli obrazovce — i mimo spodní lištu (login, platba,
+                // „success" potvrzení rezervace…).
+                const LoyaltyLevelUpWatcher(),
+                // Language selection overlay (first launch)
+                if (_onboardingChecked && _showLangOverlay)
+                  LanguageOverlay(onDone: _onLangDone),
+                // Permission request overlay (after language)
+                if (_onboardingChecked && _showPermOverlay)
+                  PermissionOverlay(
+                    onAllow: _onPermDone,
+                  ),
+                // Intro animace při prvním spuštění — NAD ostatními overlayi,
+                // po doběhnutí odhalí výběr jazyka.
+                if (_onboardingChecked && _showIntro)
+                  MotoIntroOverlay(onDone: _onIntroDone),
+              ],
+            ),
           ),
         );
       },

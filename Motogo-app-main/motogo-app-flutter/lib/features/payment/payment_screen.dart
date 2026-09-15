@@ -270,6 +270,12 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
     final draft = ref.read(bookingDraftProvider);
     final moto = ref.read(bookingMotoProvider);
     final breakdown = ref.read(priceBreakdownProvider);
+    // JEDEN snapshot doplňků pro CELÝ insert — `breakdown.extrasTotal` a řádky
+    // v `booking_extras` MUSÍ pocházet ze stejného stavu. Kdyby se rank změnil
+    // mezi čtením breakdownu a zápisem řádků (insert je await), rozešly by se
+    // `bookings.extras_price` a SUM(`booking_extras.unit_price`) a faktury by
+    // vykázaly jinou cenu pronájmu.
+    final pricedExtras = ref.read(effectiveExtrasProvider);
     final user = MotoGoSupabase.currentUser;
     if (user == null) {
       _draftError = t(context).tr('notLoggedIn');
@@ -431,8 +437,10 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
         return null;
       }
 
-      // Save extras to booking_extras table (fire-and-forget, like original)
-      _saveBookingExtras(bookingId, draft.extras);
+      // Save extras to booking_extras table (fire-and-forget, like original).
+      // Ceny ze SNAPSHOTU z začátku téhle metody (od [loyaltyFreeGearLevel]
+      // je gear za 0 Kč) — stejný stav, z jakého vyšel `extras_price` výše.
+      _saveBookingExtras(bookingId, pricedExtras);
 
       // Multi-sleva: zapiš VŠECHNY slevy do booking_discounts (zdroj pravdy pro
       // rozpad na fakturách ZF/DP/KF + uplatnění voucherů/promo po platbě).
@@ -1312,7 +1320,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
                     if (_isNewBooking)
                       PriceSummaryCard(
                         breakdown: breakdown,
-                        extras: ref.read(bookingDraftProvider).extras,
+                        extras: ref.watch(effectiveExtrasProvider),
                         upsellItems: ref.watch(bookingUpsellProvider),
                       ),
                     if (!_isNewBooking)

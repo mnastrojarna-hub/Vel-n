@@ -1,6 +1,6 @@
 # MotoGo24 Flutter App — iOS / App Store release
 
-**Duplikát `motogo-app-flutter` pro Apple App Store** (verze 1.1.0): Apple Pay
+**Duplikát `motogo-app-flutter` pro Apple App Store** (verze 4.0.0): Apple Pay
 místo Google Pay, APNs push, Xcode projekt v `ios/`. Builduje Codemagic workflow
 `motogo-ios-release`. Kompletní setup viz **APPLE_RELEASE_SETUP.md**.
 

@@ -50,7 +50,10 @@ class PriceSummaryCard extends StatelessWidget {
           for (final extra in extras)
             _PriceRow(
               label: '${extra.name}${extra.size != null ? ' (vel. ${extra.size})' : ''}',
-              value: '+${Money.czk((extra.price * extra.quantity))}',
+              // Od [loyaltyFreeGearLevel] je gear za 0 Kč → „Zdarma".
+              value: extra.price == 0
+                  ? t(context).tr('gearFree')
+                  : '+${Money.czk((extra.price * extra.quantity))}',
             ),
 
           // Pickup delivery with km × 40 + 1000 detail

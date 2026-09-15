@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../features/booking/booking_models.dart';
 import '../features/booking/booking_provider.dart';
+import '../features/loyalty/loyalty_provider.dart';
 import 'i18n/i18n_provider.dart';
 
 // ═══════════════════════════════════════════════════════════════════
@@ -90,8 +91,12 @@ void showPassengerGearSheet(
                   final ne = List<SelectedExtra>.from(
                     ref.read(bookingDraftProvider).extras);
                   ne.removeWhere((e) => e.id == item.id);
+                  // Od [loyaltyFreeGearLevel] je tento gear zdarma.
+                  final lvl = ref
+                      .read(loyaltyStatusProvider).valueOrNull?.level ?? 0;
                   ne.add(SelectedExtra(id: item.id,
-                    name: item.name, price: item.price,
+                    name: item.name,
+                    price: effectiveExtraPrice(item.id, item.price, lvl),
                     size: sizeStr));
                   onExtrasUpdated(ne);
                   Navigator.pop(c);
@@ -168,8 +173,12 @@ void showSizeDialog(
                 final ne = List<SelectedExtra>.from(
                   ref.read(bookingDraftProvider).extras);
                 ne.removeWhere((e) => e.id == item.id);
+                // Od [loyaltyFreeGearLevel] je tento gear zdarma.
+                final lvl = ref
+                    .read(loyaltyStatusProvider).valueOrNull?.level ?? 0;
                 ne.add(SelectedExtra(id: item.id,
-                  name: item.name, price: item.price,
+                  name: item.name,
+                  price: effectiveExtraPrice(item.id, item.price, lvl),
                   size: size));
                 onExtrasUpdated(ne);
                 Navigator.pop(c);

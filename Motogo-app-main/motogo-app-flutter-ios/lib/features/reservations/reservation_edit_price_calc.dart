@@ -15,6 +15,11 @@ class EditPriceCalc {
   final Set<String> selectedExtras;
   /// Původně zaplacené doplňky — účtuje/vrací se jen ROZDÍL vůči nim.
   final Set<String> origExtras;
+
+  /// Skutečně zaplacená suma za modelované doplňky ze `booking_extras`
+  /// (`SUM(unit_price * quantity)`). NULL = screen ji nenačetl → fallback na
+  /// ceník (staré chování). Viz [origExtrasTotal].
+  final double? origExtrasPaidTotal;
   final String pickupMethod;
   final String returnMethod;
   final String pickupTime;
@@ -49,6 +54,7 @@ class EditPriceCalc {
     required this.returnDelivFee,
     required this.selectedExtras,
     this.origExtras = const {},
+    this.origExtrasPaidTotal,
     required this.pickupMethod,
     required this.returnMethod,
     required this.pickupTime,
@@ -74,12 +80,28 @@ class EditPriceCalc {
   double get extrasTotal =>
       selectedExtras.fold(0.0, (sum, id) => sum + _priceFor(id));
 
-  /// Cena původně zaplacených doplňků (baseline).
+  /// Cena původně ZAPLACENÝCH doplňků (baseline).
+  ///
+  /// Když screen zná skutečně zaplacené částky z `booking_extras.unit_price`
+  /// ([origExtrasPaidTotal]), použije se ONA. Ceník dneška by baseline
+  /// zkreslil: zákazník, který platil výbavu na ranku 1 (690 Kč) a dnes je na
+  /// ranku 3, by měl baseline 0 → rozdíl by vyšel 0 a `extras_price` by zůstal
+  /// na 690, zatímco řádky se přepíšou na 0 → faktura by vykázala jinou cenu
+  /// pronájmu (a při odebrání výbavy by se vracelo, co nikdo nezaplatil).
   double get origExtrasTotal =>
+      origExtrasPaidTotal ??
       origExtras.fold(0.0, (sum, id) => sum + _priceFor(id));
 
   /// ROZDÍL doplňků vůči původním — kladný = doplatek, záporný = refund.
-  double get extrasDelta => extrasTotal - origExtrasTotal;
+  ///
+  /// Počítá se JEN když se výběr doplňků reálně změnil. Jinak by po povýšení
+  /// ranku (baseline = skutečně zaplaceno, dnešní cena = 0) vyskočil refund
+  /// i při úpravě, která se doplňků vůbec netýká (třeba jen posun termínu) —
+  /// a to bez přepsání `booking_extras` / `extras_price`, tedy rozbitě.
+  /// Screen přepisuje řádky a `extras_price` právě a jen při [extrasChanged],
+  /// takže obojí zůstává v souladu.
+  double get extrasDelta =>
+      extrasChanged ? (extrasTotal - origExtrasTotal) : 0.0;
 
   bool get extrasChanged => !(selectedExtras.length == origExtras.length &&
       selectedExtras.containsAll(origExtras));

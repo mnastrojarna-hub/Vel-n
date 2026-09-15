@@ -1,4 +1,4 @@
-# MotoGo24 — iOS / App Store release (v 1.1.0)
+# MotoGo24 — iOS / App Store release (v 4.0.0)
 
 Tato složka je **duplikát `motogo-app-flutter` připravený pro Apple App Store**.
 Staví ji Codemagic workflow **`motogo-ios-release`** (kořenový `codemagic.yaml`).
@@ -25,11 +25,11 @@ jiný účet, proto strategie „nový iOS Bundle ID" — Android/Google Play se
 | Push | FCM (Android kanál) | **FCM → APNs** (`aps-environment: production`, backend `send-push` už APNS payload posílá) |
 | In-app update | Google Play in_app_update | neaktivní (guard `Platform.isAndroid`); force-update dialog vede do App Store |
 | Bundle/App ID | `com.motogo24.app` | **`com.motogo24.rental`** (firemní účet — viz tabulka výše) |
-| Verze | 1.1.0, build = $BUILD_NUMBER | **1.1.0**, build = $BUILD_NUMBER (Codemagic) |
+| Verze | 4.0.0, build = $BUILD_NUMBER | **4.0.0**, build = $BUILD_NUMBER (Codemagic) |
 
 Změněné soubory oproti Android kopii: `lib/features/payment/widgets/card_payment_sheet.dart`
 (Apple Pay větev), `lib/core/update_check_provider.dart` (App Store URL), `pubspec.yaml` (komentáře).
-Zbytek `lib/` + `assets/` je 1:1 kopie z 1.1.0.
+Zbytek `lib/` + `assets/` je 1:1 kopie z 4.0.0.
 
 ## Jednorázové kroky před prvním buildem (ručně)
 

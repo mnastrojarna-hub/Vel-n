@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -5,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_player/video_player.dart';
 
+import '../../core/pending_booking_fab_provider.dart';
 import '../../core/supabase_client.dart';
 import '../../core/widgets/net_image.dart';
 import '../../core/i18n/i18n_provider.dart';
@@ -38,14 +40,27 @@ class _LoyaltyLevelUpWatcherState extends ConsumerState<LoyaltyLevelUpWatcher>
     with WidgetsBindingObserver {
   bool _showing = false;
 
+  /// Pojistka: i když se uživatel displeje ani nedotkne, povýšení zaznamenáme
+  /// nejpozději do ~3 minut. Tiká JEN v popředí (viz kontrola uvnitř).
+  Timer? _poll;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _poll = Timer.periodic(const Duration(minutes: 3), (_) {
+      if (!mounted || _showing) return;
+      if (WidgetsBinding.instance.lifecycleState !=
+          AppLifecycleState.resumed) {
+        return; // na pozadí RPC netlučeme
+      }
+      maybeRefreshLoyalty(ref, force: true);
+    });
   }
 
   @override
   void dispose() {
+    _poll?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -57,7 +72,8 @@ class _LoyaltyLevelUpWatcherState extends ConsumerState<LoyaltyLevelUpWatcher>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed &&
         MotoGoSupabase.currentUser != null) {
-      ref.invalidate(loyaltyStatusProvider);
+      resetLoyaltyPollClock();
+      maybeRefreshLoyalty(ref, force: true);
     }
   }
 
@@ -70,10 +86,18 @@ class _LoyaltyLevelUpWatcherState extends ConsumerState<LoyaltyLevelUpWatcher>
   /// povýšení uvidí uživatel VŽDY a právě JEDNOU: přežije reinstal, nové
   /// zařízení i smazaná data. Vrací null, když RPC ještě není nasazené →
   /// fallback na lokální SharedPreferences baseline (appka funguje jako dřív).
+  /// Strop pro oba „celebrated" dotazy. Supabase/postgrest sám žádný timeout
+  /// nemá, takže na mrtvém-ale-otevřeném socketu by await visel minuty — a
+  /// protože se drží latch `_showing`, zablokovalo by to oslavu do restartu
+  /// appky. Fail-open: timeout = jako by RPC nebylo nasazené.
+  static const _rpcTimeout = Duration(seconds: 5);
+
   Future<int?> _serverCelebrated() async {
     if (MotoGoSupabase.currentUser == null) return null;
     try {
-      final res = await MotoGoSupabase.client.rpc('loyalty_get_celebrated');
+      final Future<dynamic> call =
+          MotoGoSupabase.client.rpc('loyalty_get_celebrated');
+      final res = await call.timeout(_rpcTimeout);
       if (res is num) return res.toInt();
       return null;
     } catch (_) {
@@ -84,8 +108,9 @@ class _LoyaltyLevelUpWatcherState extends ConsumerState<LoyaltyLevelUpWatcher>
   Future<void> _advanceServer(int level) async {
     if (MotoGoSupabase.currentUser == null) return;
     try {
-      await MotoGoSupabase.client
+      final Future<dynamic> call = MotoGoSupabase.client
           .rpc('loyalty_advance_celebrated', params: {'p_level': level});
+      await call.timeout(_rpcTimeout);
     } catch (_) {/* fail-open */}
   }
 
@@ -95,67 +120,106 @@ class _LoyaltyLevelUpWatcherState extends ConsumerState<LoyaltyLevelUpWatcher>
     await prefs.setString(_colorKey, status.colorHex);
   }
 
+  /// Odloží oslavu, dokud je na obrazovce app-level overlay (jazyk/oprávnění/
+  /// intro) nebo platba. Tyto vrstvy se kreslí NAD dialogem oslavy, takže by
+  /// video běželo neviditelně. NEZAPISUJEME nic → dožene se při dalším dotyku.
+  bool get _blockedByOverlay =>
+      ref.read(onboardingOverlayActiveProvider) ||
+      ref.read(paymentScreenActiveProvider);
+
   Future<void> _maybeCelebrate(LoyaltyStatus status) async {
     if (!mounted || _showing) return;
-    final prefs = await SharedPreferences.getInstance();
-    final lastColorHex = prefs.getString(_colorKey);
+    if (_blockedByOverlay) return;
 
-    // Baseline = server (autoritativní, přežije reinstal), jinak lokální mirror.
-    final serverBaseline = await _serverCelebrated();
-    final bool serverMode = serverBaseline != null;
-    final int? baseline = serverBaseline ?? prefs.getInt(_lvlKey);
+    // Latch zvedáme HNED (před prvním await) — mezi kontrolou a zobrazením je
+    // několik awaitů a dvě emise providera by jinak otevřely dva dialogy.
+    _showing = true;
+    loyaltyPollPaused = true;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final lastColorHex = prefs.getString(_colorKey);
 
-    // Neseednuto (server 0 nebo lokálně nic) → jen zaznamenej aktuální level,
-    // NEoslavuj (na úplně prvním pozorování není co „povyšovat").
-    if (baseline == null || (serverMode && baseline == 0)) {
+      // Baseline = server (autoritativní, přežije reinstal), jinak lokální
+      // mirror.
+      final serverBaseline = await _serverCelebrated();
+      final bool serverMode = serverBaseline != null;
+      final int? baseline = serverBaseline ?? prefs.getInt(_lvlKey);
+
+      // Neseednuto (server 0 nebo lokálně nic) → jen zaznamenej aktuální level,
+      // NEoslavuj (na úplně prvním pozorování není co „povyšovat").
+      if (baseline == null || (serverMode && baseline == 0)) {
+        await _persistLocal(prefs, status);
+        if (serverMode) await _advanceServer(status.level);
+        return;
+      }
+
+      if (status.level <= baseline) {
+        await _persistLocal(prefs, status);
+        return;
+      }
+
+      if (!mounted) return;
+      final gained = status.level - baseline;
+
+      // Médium je BONUS, ne podmínka — oslava umí běžet i bez hero videa
+      // (`if (_moto != null)`). Bez timeoutu by jedno zaseknuté RPC na špatné
+      // síti zablokovalo oslavu na celý zbytek session.
+      final motos = await fetchLoyaltyCelebrationMotos().timeout(
+        const Duration(seconds: 6),
+        onTimeout: () => const <CelebrationMoto>[],
+      );
+
+      // Watcher sedí v MaterialApp.builder VEDLE navigátoru (ne pod ním),
+      // takže jeho vlastní context žádný Navigator nemá a Navigator.of() by
+      // spadl na null check. Dialog proto otevíráme přes context root
+      // navigátoru.
+      final navCtx = rootNavigatorKey.currentContext;
+      if (!mounted || navCtx == null || !navCtx.mounted) {
+        // Navigátor ještě neexistuje (první frame / redirect na /login).
+        // NEukládÁME — naplánuj jeden opakovaný pokus, ať se oslava neztratí,
+        // než uživatel na něco klikne.
+        Future.delayed(const Duration(milliseconds: 800), () {
+          if (mounted && !_showing) {
+            resetLoyaltyPollClock();
+            maybeRefreshLoyalty(ref, force: true);
+          }
+        });
+        return;
+      }
+
+      await showGeneralDialog(
+        context: navCtx,
+        barrierDismissible: false,
+        barrierColor: Colors.transparent,
+        barrierLabel: 'levelup',
+        transitionDuration: const Duration(milliseconds: 250),
+        pageBuilder: (_, __, ___) => LevelUpCelebration(
+          status: status,
+          fromColor: colorFromHex(lastColorHex ?? '#9CA3AF'),
+          gained: gained,
+          motos: motos,
+        ),
+      );
+
+      // Zapiš „oslaveno" AŽ po přehrání → přežije zabití appky uprostřed videa
+      // (příště se dožene). Server GREATEST → i napříč zařízeními jen jednou.
       await _persistLocal(prefs, status);
       if (serverMode) await _advanceServer(status.level);
-      return;
-    }
-
-    if (status.level <= baseline) {
-      await _persistLocal(prefs, status);
-      return;
-    }
-
-    if (!mounted || _showing) return;
-    final gained = status.level - baseline;
-    _showing = true;
-
-    final motos = await fetchLoyaltyCelebrationMotos();
-    // Watcher sedí v MaterialApp.builder VEDLE navigátoru (ne pod ním), takže
-    // jeho vlastní context žádný Navigator nemá a Navigator.of() by spadl na
-    // null check. Dialog proto otevíráme přes context root navigátoru.
-    final navCtx = rootNavigatorKey.currentContext;
-    if (!mounted || navCtx == null || !navCtx.mounted) {
+    } finally {
+      // I při výjimce (prefs, RPC, dialog) se latch MUSÍ uvolnit — jinak by
+      // jedna chyba zablokovala oslavu do restartu appky.
       _showing = false;
-      return; // NEukládáme — oslava se dožene příště (baseline zůstává nižší).
+      loyaltyPollPaused = false;
     }
-
-    await showGeneralDialog(
-      context: navCtx,
-      barrierDismissible: false,
-      barrierColor: Colors.transparent,
-      barrierLabel: 'levelup',
-      transitionDuration: const Duration(milliseconds: 250),
-      pageBuilder: (_, __, ___) => LevelUpCelebration(
-        status: status,
-        fromColor: colorFromHex(lastColorHex ?? '#9CA3AF'),
-        gained: gained,
-        motos: motos,
-      ),
-    );
-    _showing = false;
-
-    // Zapiš „oslaveno" AŽ po přehrání → přežije zabití appky uprostřed videa
-    // (příště se dožene). Server GREATEST → i napříč zařízeními jen jednou.
-    await _persistLocal(prefs, status);
-    if (serverMode) await _advanceServer(status.level);
   }
 
   @override
   Widget build(BuildContext context) {
     ref.listen(loyaltyStatusProvider, (prev, next) {
+      // JEN ustálená data: `invalidate` emituje AsyncLoading, které s sebou
+      // nese PŘEDCHOZÍ hodnotu, takže bez tohoto filtru se _maybeCelebrate
+      // volá dvakrát na každé obnovení (2× RPC + riziko dvou dialogů).
+      if (next.isLoading || next.hasError) return;
       final s = next.valueOrNull;
       if (s == null) return;
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -164,7 +228,10 @@ class _LoyaltyLevelUpWatcherState extends ConsumerState<LoyaltyLevelUpWatcher>
     });
     ref.listen(reservationsProvider, (prev, next) {
       if (next.hasValue && prev?.valueOrNull != next.valueOrNull) {
-        ref.invalidate(loyaltyStatusProvider);
+        // Změna rezervací = nejpravděpodobnější příčina povýšení → kontroluj
+        // ihned (force), ale ne během běžící oslavy (hlídá helper).
+        resetLoyaltyPollClock();
+        maybeRefreshLoyalty(ref, force: true);
       }
     });
     return const SizedBox.shrink();

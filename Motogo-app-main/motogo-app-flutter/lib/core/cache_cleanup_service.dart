@@ -39,7 +39,17 @@ class CacheCleanupService {
   /// SharedPreferences key prefixes that MUST survive — the login session is
   /// persisted by supabase_flutter under these keys, so wiping them would log
   /// the user out on every cleanup / update.
-  static const _preservePrefixes = <String>['supabase', 'sb-'];
+  ///
+  /// `mg_loyalty_` = baseline level-up oslavy (`mg_loyalty_last_level_<uid>`,
+  /// `mg_loyalty_last_color_<uid>`). Klíč nese uid, proto PREFIX. Bez něj se
+  /// baseline mazal při každém zavření appky i při aktualizaci → povýšení,
+  /// které nastalo, když appka neběžela, se zaznamenalo jako nový výchozí
+  /// stav a personalizované video se NIKDY nepřehrálo.
+  static const _preservePrefixes = <String>[
+    'supabase',
+    'sb-',
+    'mg_loyalty_',
+  ];
 
   /// True if [key] must be kept during cleanup.
   static bool _keep(String key) {

@@ -8,13 +8,10 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/widgets/moto_fx.dart';
+import '../booking/booking_models.dart' show loyaltyFreeGearLevel;
 import 'loyalty_provider.dart';
 import 'loyalty_levels_provider.dart';
 import 'loyalty_leaderboard_section.dart';
-
-/// Od tohoto ranku má zákazník veškerou výbavu i obuv (vč. spolujezdce) zdarma
-/// — shodné s `loyaltyFreeGearLevel` v booking_models.dart.
-const _gearBenefitLevel = 3;
 
 /// Celostránkový animovaný přehled věrnostních ranků.
 ///
@@ -440,7 +437,7 @@ class _RankTile extends StatelessWidget {
                   ),
                 ),
                 // Od 3. ranku: výbava spolujezdce i veškerá obuv zdarma.
-                if (level.level >= _gearBenefitLevel) ...[
+                if (level.level >= loyaltyFreeGearLevel) ...[
                   const SizedBox(height: 3),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
