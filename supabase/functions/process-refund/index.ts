@@ -3,83 +3,83 @@
 // Endpoint: POST /functions/v1/process-refund
 // Body: { booking_id?, order_id?, amount?, reason? }
 // If amount is omitted, full refund is issued.
-
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import Stripe from 'https://esm.sh/stripe@14'
-import { authClassify, forbidden } from '../_shared/auth.ts'
-
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import Stripe from 'https://esm.sh/stripe@14';
+import { authClassify, forbidden } from '../_shared/auth.ts';
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-}
-
-const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!, {
+  'Access-Control-Allow-Methods': 'POST, OPTIONS'
+};
+const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY'), {
   apiVersion: '2024-04-10',
-  httpClient: Stripe.createFetchHttpClient(),
-})
-
-const PDFSHIFT_API_KEY = Deno.env.get('PDFSHIFT_API_KEY') || ''
-
-async function htmlToPdf(html: string): Promise<Uint8Array | null> {
-  if (!PDFSHIFT_API_KEY) return null
+  httpClient: Stripe.createFetchHttpClient()
+});
+const PDFSHIFT_API_KEY = Deno.env.get('PDFSHIFT_API_KEY') || '';
+async function htmlToPdf(html) {
+  if (!PDFSHIFT_API_KEY) return null;
   try {
     const res = await fetch('https://api.pdfshift.io/v3/convert/pdf', {
       method: 'POST',
-      headers: { 'X-API-Key': PDFSHIFT_API_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ source: html, format: 'A4', margin: '12mm', sandbox: false, use_print: false }),
-    })
-    if (!res.ok) return null
-    return new Uint8Array(await res.arrayBuffer())
-  } catch { return null }
-}
-
-const fmtPrice = (n: number) => Math.abs(n || 0).toLocaleString('cs-CZ', { minimumFractionDigits: 2 })
-const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('cs-CZ') : '—'
-
-// Jednotné popisy důvodu vratky pro položky dobropisu (web/app/Velín posílají
-// různé reason kódy; volný text zákazníka NIKDY neinjektujeme do HTML dokladu).
-function reasonTextFor(reason: string | undefined | null): string {
-  switch (reason) {
-    case 'cancellation': return 'Storno rezervace'
-    case 'shortening':
-    case 'edit_shortening': return 'Zkrácení rezervace'
-    case 'moto_swap': return 'Výměna motorky'
-    case 'gear_edit': return 'Úprava výbavy'
-    case 'booking_modified':
-    case 'booking_modified_retry':
-    case 'edit': return 'Úprava rezervace'
-    case 'duplicate': return 'Duplicitní platba'
-    default: return 'Vrácení platby zákazníkovi'
+      headers: {
+        'X-API-Key': PDFSHIFT_API_KEY,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        source: html,
+        format: 'A4',
+        margin: '12mm',
+        sandbox: false,
+        use_print: false
+      })
+    });
+    if (!res.ok) return null;
+    return new Uint8Array(await res.arrayBuffer());
+  } catch  {
+    return null;
   }
 }
-
+const fmtPrice = (n)=>Math.abs(n || 0).toLocaleString('cs-CZ', {
+    minimumFractionDigits: 2
+  });
+const fmtDate = (d)=>d ? new Date(d).toLocaleDateString('cs-CZ') : '—';
+// Jednotné popisy důvodu vratky pro položky dobropisu (web/app/Velín posílají
+// různé reason kódy; volný text zákazníka NIKDY neinjektujeme do HTML dokladu).
+function reasonTextFor(reason) {
+  switch(reason){
+    case 'cancellation':
+      return 'Storno rezervace';
+    case 'shortening':
+    case 'edit_shortening':
+      return 'Zkrácení rezervace';
+    case 'moto_swap':
+      return 'Výměna motorky';
+    case 'gear_edit':
+      return 'Úprava výbavy';
+    case 'booking_modified':
+    case 'booking_modified_retry':
+    case 'edit':
+      return 'Úprava rezervace';
+    case 'duplicate':
+      return 'Duplicitní platba';
+    default:
+      return 'Vrácení platby zákazníkovi';
+  }
+}
 // Firemní údaje zákazníka (web rezervace — checkbox „Firemní údaje" v kroku 3).
 // Tolerantní samostatný dotaz: sloupce company_name/company_address přidává
 // migrace 20260818 — kdyby ještě nebyla aplikovaná, dobropis nesmí spadnout.
-async function loadCustomerCompany(supabase: any, customer: any) {
-  if (!customer || !customer.id) return
-  const { data, error } = await supabase.from('profiles')
-    .select('company_name, company_address').eq('id', customer.id).maybeSingle()
+async function loadCustomerCompany(supabase, customer) {
+  if (!customer || !customer.id) return;
+  const { data, error } = await supabase.from('profiles').select('company_name, company_address').eq('id', customer.id).maybeSingle();
   if (!error && data) {
-    customer.company = data.company_name || null
-    customer.company_address = data.company_address || null
+    customer.company = data.company_name || null;
+    customer.company_address = data.company_address || null;
   }
 }
-
-function renderCreditNoteHtml(opts: {
-  number: string; issueDate: string; reasonText: string; motoModel: string;
-  refundAmount: number; refundPercent: number; bookingDates: string;
-  customer: { full_name?: string; email?: string; phone?: string; street?: string; city?: string; zip?: string; ico?: string; dic?: string; company?: string | null; company_address?: string | null };
-  originalInvoiceNumber?: string | null; stripeRefundId: string | null;
-  cardBrand?: string | null; cardLast4?: string | null; manual?: boolean;
-}): string {
-  const c = opts.customer || {}
-  const cardLine = opts.manual
-    ? 'Částka bude vrácena PŘEVODEM NA ÚČET do 14 dnů.'
-    : opts.cardLast4
-      ? `Refund proběhl na kartu ${(opts.cardBrand || 'CARD').toUpperCase()} **** ${opts.cardLast4}.`
-      : 'Refund proběhl na původní platební kartu.'
+function renderCreditNoteHtml(opts) {
+  const c = opts.customer || {};
+  const cardLine = opts.manual ? 'Částka bude vrácena PŘEVODEM NA ÚČET do 14 dnů.' : opts.cardLast4 ? `Refund proběhl na kartu ${(opts.cardBrand || 'CARD').toUpperCase()} **** ${opts.cardLast4}.` : 'Refund proběhl na původní platební kartu.';
   return `<!DOCTYPE html><html lang="cs"><head><meta charset="UTF-8"><title>Dobropis ${opts.number}</title>
 <style>
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#0f1a14;margin:0;padding:24px;font-size:13px}
@@ -117,7 +117,7 @@ tr.total td{background:#fef2f2;font-weight:800;font-size:15px;color:#dc2626;bord
     ${c.company ? `<p>Firma: <strong>${c.company}</strong></p>` : ''}
     ${c.company_address ? `<p>Sídlo: ${c.company_address}</p>` : ''}
     ${c.street ? `<p>${c.street}</p>` : ''}
-    ${(c.city || c.zip) ? `<p>${c.zip || ''} ${c.city || ''}</p>` : ''}
+    ${c.city || c.zip ? `<p>${c.zip || ''} ${c.city || ''}</p>` : ''}
     ${c.ico ? `<p>IČO: ${c.ico}</p>` : ''}
     ${c.dic ? `<p>DIČ: ${c.dic}</p>` : ''}
     ${c.email ? `<p>${c.email}</p>` : ''}
@@ -143,68 +143,52 @@ tr.total td{background:#fef2f2;font-weight:800;font-size:15px;color:#dc2626;bord
   Tento dobropis slouží jako doklad o vrácení platby.
 </div>
 <div class="foot">www.motogo24.cz · info@motogo24.cz · +420 774 256 271</div>
-</body></html>`
+</body></html>`;
 }
-
-interface RefundRequest {
-  booking_id?: string
-  order_id?: string
-  amount?: number      // partial refund in CZK (omit for full refund)
-  reason?: string      // 'cancellation' | 'shortening' | 'duplicate' | 'requested_by_customer'
-}
-
 // Idempotent helper: for an already-refunded booking, locate the credit note,
 // regenerate its PDF if the storage file is missing or pdf_path is empty.
 // Returns { creditNoteId, pdfPath, refundId } so the caller can return success.
-async function ensureCreditNotePdf(
-  supabase: any,
-  bookingId: string,
-  bk: { stripe_refund_id?: string | null; card_brand?: string | null; card_last4?: string | null },
-): Promise<{ creditNoteId: string | null; pdfPath: string | null; refundId: string | null }> {
+async function ensureCreditNotePdf(supabase, bookingId, bk) {
   try {
-    const { data: cnRows } = await supabase.from('invoices')
-      .select('id, number, pdf_path, stripe_refund_id, total, original_invoice_id, notes, created_at')
-      .eq('booking_id', bookingId)
-      .eq('type', 'credit_note')
-      .neq('status', 'cancelled')
-      .order('created_at', { ascending: false })
-      .limit(1)
-    if (!cnRows?.length) return { creditNoteId: null, pdfPath: null, refundId: bk.stripe_refund_id || null }
-
-    const cn = cnRows[0]
-    const refundId = cn.stripe_refund_id || bk.stripe_refund_id || null
+    const { data: cnRows } = await supabase.from('invoices').select('id, number, pdf_path, stripe_refund_id, total, original_invoice_id, notes, created_at').eq('booking_id', bookingId).eq('type', 'credit_note').neq('status', 'cancelled').order('created_at', {
+      ascending: false
+    }).limit(1);
+    if (!cnRows?.length) return {
+      creditNoteId: null,
+      pdfPath: null,
+      refundId: bk.stripe_refund_id || null
+    };
+    const cn = cnRows[0];
+    const refundId = cn.stripe_refund_id || bk.stripe_refund_id || null;
     if (cn.pdf_path) {
       // Verify file actually exists in storage; if missing, regenerate.
       try {
-        const { data: blob } = await supabase.storage.from('documents').download(cn.pdf_path)
-        if (blob && blob.size > 0) return { creditNoteId: cn.id, pdfPath: cn.pdf_path, refundId }
-      } catch { /* file missing — fall through to regenerate */ }
+        const { data: blob } = await supabase.storage.from('documents').download(cn.pdf_path);
+        if (blob && blob.size > 0) return {
+          creditNoteId: cn.id,
+          pdfPath: cn.pdf_path,
+          refundId
+        };
+      } catch  {}
     }
-
     // Regenerate PDF — load booking + customer for the template
-    const { data: bk2 } = await supabase.from('bookings')
-      .select('start_date, end_date, motorcycles!moto_id(model), profiles:user_id(id, full_name, email, phone, street, city, zip, ico, dic)')
-      .eq('id', bookingId).single()
-    const refundedAmount = Math.abs(Number(cn.total || 0))
+    const { data: bk2 } = await supabase.from('bookings').select('start_date, end_date, motorcycles!moto_id(model), profiles:user_id(id, full_name, email, phone, street, city, zip, ico, dic)').eq('id', bookingId).single();
+    const refundedAmount = Math.abs(Number(cn.total || 0));
     const refundPercent = 100 // unknown without booking.total_price comparison; default 100%
-    const reasonText = (cn.notes || '').includes('Storno') ? 'Storno rezervace'
-      : (cn.notes || '').includes('Zkrácení') ? 'Zkrácení rezervace'
-      : 'Vrácení platby zákazníkovi'
-
-    let originalNumber: string | null = null
+    ;
+    const reasonText = (cn.notes || '').includes('Storno') ? 'Storno rezervace' : (cn.notes || '').includes('Zkrácení') ? 'Zkrácení rezervace' : 'Vrácení platby zákazníkovi';
+    let originalNumber = null;
     if (cn.original_invoice_id) {
-      const { data: orig } = await supabase.from('invoices')
-        .select('number').eq('id', cn.original_invoice_id).single()
-      originalNumber = orig?.number || null
+      const { data: orig } = await supabase.from('invoices').select('number').eq('id', cn.original_invoice_id).single();
+      originalNumber = orig?.number || null;
     }
-
-    const cust1 = (bk2 as any)?.profiles || {}
-    await loadCustomerCompany(supabase, cust1)
+    const cust1 = bk2?.profiles || {};
+    await loadCustomerCompany(supabase, cust1);
     const html = renderCreditNoteHtml({
       number: cn.number,
       issueDate: fmtDate(new Date().toISOString().slice(0, 10)),
       reasonText,
-      motoModel: (bk2 as any)?.motorcycles?.model || 'motorky',
+      motoModel: bk2?.motorcycles?.model || 'motorky',
       refundAmount: refundedAmount,
       refundPercent,
       bookingDates: `${fmtDate(bk2?.start_date)} – ${fmtDate(bk2?.end_date)}`,
@@ -212,107 +196,130 @@ async function ensureCreditNotePdf(
       originalInvoiceNumber: originalNumber,
       stripeRefundId: refundId || '',
       cardBrand: bk.card_brand,
-      cardLast4: bk.card_last4,
-    })
-
-    const pdfBytes = await htmlToPdf(html)
-    let path: string
+      cardLast4: bk.card_last4
+    });
+    const pdfBytes = await htmlToPdf(html);
+    let path;
     if (pdfBytes) {
-      path = `invoices/${cn.id}.pdf`
-      await supabase.storage.from('documents').upload(
-        path, new Blob([pdfBytes], { type: 'application/pdf' }),
-        { upsert: true, contentType: 'application/pdf' },
-      )
+      path = `invoices/${cn.id}.pdf`;
+      await supabase.storage.from('documents').upload(path, new Blob([
+        pdfBytes
+      ], {
+        type: 'application/pdf'
+      }), {
+        upsert: true,
+        contentType: 'application/pdf'
+      });
     } else {
-      path = `invoices/${cn.id}.html`
-      await supabase.storage.from('documents').upload(
-        path, new Blob([html], { type: 'text/html' }),
-        { upsert: true, contentType: 'text/html' },
-      )
+      path = `invoices/${cn.id}.html`;
+      await supabase.storage.from('documents').upload(path, new Blob([
+        html
+      ], {
+        type: 'text/html'
+      }), {
+        upsert: true,
+        contentType: 'text/html'
+      });
     }
-    await supabase.from('invoices').update({ pdf_path: path }).eq('id', cn.id)
-    return { creditNoteId: cn.id, pdfPath: path, refundId }
+    await supabase.from('invoices').update({
+      pdf_path: path
+    }).eq('id', cn.id);
+    return {
+      creditNoteId: cn.id,
+      pdfPath: path,
+      refundId
+    };
   } catch (e) {
-    console.warn('[ensureCreditNotePdf] failed:', (e as Error).message)
-    return { creditNoteId: null, pdfPath: null, refundId: bk.stripe_refund_id || null }
+    console.warn('[ensureCreditNotePdf] failed:', e.message);
+    return {
+      creditNoteId: null,
+      pdfPath: null,
+      refundId: bk.stripe_refund_id || null
+    };
   }
 }
-
 // Safety-net: pro booking, kde Stripe refund proběhl (charge.refunded webhook fired,
 // payment_status='refunded') ale credit_note v invoices NEexistuje (process-refund
 // crashed po refunds.create() ale před INSERT). Vytvoří credit_note + PDF z dat,
 // která dohledá ze Stripe API (refund.amount, refund.charge → card brand/last4).
 // Volá se z process-refund's already_refunded branche, když ensureCreditNotePdf
 // vrátí creditNoteId=null. Idempotentní (stripe_refund_id unique).
-async function createCreditNoteForExistingRefund(
-  supabase: any,
-  bookingId: string,
-  bk: { stripe_refund_id?: string | null; stripe_payment_intent_id?: string | null; total_price?: number | null },
-): Promise<{ creditNoteId: string | null; pdfPath: string | null; refundId: string | null }> {
+async function createCreditNoteForExistingRefund(supabase, bookingId, bk) {
   if (!bk.stripe_refund_id) {
-    return { creditNoteId: null, pdfPath: null, refundId: null }
+    return {
+      creditNoteId: null,
+      pdfPath: null,
+      refundId: null
+    };
   }
   try {
     // Idempotency: nemáme duplikát pro stejný refund.id
-    const { data: dupe } = await supabase.from('invoices')
-      .select('id, pdf_path').eq('stripe_refund_id', bk.stripe_refund_id).limit(1)
+    const { data: dupe } = await supabase.from('invoices').select('id, pdf_path').eq('stripe_refund_id', bk.stripe_refund_id).limit(1);
     if (dupe?.length) {
-      return { creditNoteId: dupe[0].id, pdfPath: dupe[0].pdf_path, refundId: bk.stripe_refund_id }
+      return {
+        creditNoteId: dupe[0].id,
+        pdfPath: dupe[0].pdf_path,
+        refundId: bk.stripe_refund_id
+      };
     }
-
     // Načti Stripe refund + charge pro autoritní data (amount, card brand/last4)
-    const refund = await stripe.refunds.retrieve(bk.stripe_refund_id)
-    const refundedAmountCZK = (refund.amount || 0) / 100
-    let cardBrand: string | null = null
-    let cardLast4: string | null = null
+    const refund = await stripe.refunds.retrieve(bk.stripe_refund_id);
+    const refundedAmountCZK = (refund.amount || 0) / 100;
+    let cardBrand = null;
+    let cardLast4 = null;
     try {
-      const chargeId = typeof refund.charge === 'string' ? refund.charge : (refund.charge as any)?.id
+      const chargeId = typeof refund.charge === 'string' ? refund.charge : refund.charge?.id;
       if (chargeId) {
-        const ch = await stripe.charges.retrieve(chargeId)
-        cardBrand = ch?.payment_method_details?.card?.brand || null
-        cardLast4 = ch?.payment_method_details?.card?.last4 || null
+        const ch = await stripe.charges.retrieve(chargeId);
+        cardBrand = ch?.payment_method_details?.card?.brand || null;
+        cardLast4 = ch?.payment_method_details?.card?.last4 || null;
       }
-    } catch { /* non-fatal */ }
-
+    } catch  {}
     // Načti booking + customer pro template
-    const { data: bkRow } = await supabase.from('bookings')
-      .select('user_id, total_price, start_date, end_date, motorcycles!moto_id(model), profiles:user_id(id, full_name, email, phone, street, city, zip, ico, dic)')
-      .eq('id', bookingId).single()
-    if (!bkRow) return { creditNoteId: null, pdfPath: null, refundId: bk.stripe_refund_id }
-    const refundPercent = (bkRow.total_price && bkRow.total_price > 0)
-      ? Math.round((refundedAmountCZK / Number(bkRow.total_price)) * 100) : 100
-
+    const { data: bkRow } = await supabase.from('bookings').select('user_id, total_price, start_date, end_date, motorcycles!moto_id(model), profiles:user_id(id, full_name, email, phone, street, city, zip, ico, dic)').eq('id', bookingId).single();
+    if (!bkRow) return {
+      creditNoteId: null,
+      pdfPath: null,
+      refundId: bk.stripe_refund_id
+    };
+    const refundPercent = bkRow.total_price && bkRow.total_price > 0 ? Math.round(refundedAmountCZK / Number(bkRow.total_price) * 100) : 100;
     // Najít původní fakturu (payment_receipt / final / proforma) pro reference
-    const { data: origInvs } = await supabase.from('invoices')
-      .select('id, number')
-      .eq('booking_id', bookingId)
-      .neq('status', 'cancelled')
-      .in('type', ['final', 'payment_receipt', 'advance', 'proforma'])
-      .order('issue_date', { ascending: false }).limit(1)
-    const originalInvoiceId = origInvs?.[0]?.id || null
-    const originalInvoiceNumber = origInvs?.[0]?.number || null
-
+    const { data: origInvs } = await supabase.from('invoices').select('id, number').eq('booking_id', bookingId).neq('status', 'cancelled').in('type', [
+      'final',
+      'payment_receipt',
+      'advance',
+      'proforma'
+    ]).order('issue_date', {
+      ascending: false
+    }).limit(1);
+    const originalInvoiceId = origInvs?.[0]?.id || null;
+    const originalInvoiceNumber = origInvs?.[0]?.number || null;
     // Generuj číslo dobropisu (DB-YYYY-NNNN) — automatická řada < 5000 (>= 5000 = ruční řada z Velína)
-    const year = new Date().getFullYear()
-    const { data: lastCN } = await supabase.from('invoices')
-      .select('number').like('number', `DB-${year}-%`).lt('number', `DB-${year}-5000`)
-      .order('number', { ascending: false }).limit(1)
-    let seq = 1
+    const year = new Date().getFullYear();
+    const { data: lastCN } = await supabase.from('invoices').select('number').like('number', `DB-${year}-%`).lt('number', `DB-${year}-5000`).order('number', {
+      ascending: false
+    }).limit(1);
+    let seq = 1;
     if (lastCN?.length) {
-      const m = lastCN[0].number.match(/-(\d+)$/)
-      if (m) seq = parseInt(m[1], 10) + 1
+      const m = lastCN[0].number.match(/-(\d+)$/);
+      if (m) seq = parseInt(m[1], 10) + 1;
     }
-    const cnNumber = `DB-${year}-${String(seq).padStart(4, '0')}`
-    const issueDate = new Date().toISOString().slice(0, 10)
-    const motoModel = (bkRow as any).motorcycles?.model || 'motorky'
-    const reasonText = 'Storno rezervace'
-
+    const cnNumber = `DB-${year}-${String(seq).padStart(4, '0')}`;
+    const issueDate = new Date().toISOString().slice(0, 10);
+    const motoModel = bkRow.motorcycles?.model || 'motorky';
+    const reasonText = 'Storno rezervace';
     const { data: cnInv } = await supabase.from('invoices').insert({
       number: cnNumber,
       type: 'credit_note',
       customer_id: bkRow.user_id,
       booking_id: bookingId,
-      items: [{ description: `Dobropis – ${reasonText} (${motoModel})`, qty: 1, unit_price: -refundedAmountCZK }],
+      items: [
+        {
+          description: `Dobropis – ${reasonText} (${motoModel})`,
+          qty: 1,
+          unit_price: -refundedAmountCZK
+        }
+      ],
       subtotal: -refundedAmountCZK,
       tax_amount: 0,
       total: -refundedAmountCZK,
@@ -323,43 +330,71 @@ async function createCreditNoteForExistingRefund(
       source: 'refund',
       variable_symbol: cnNumber,
       original_invoice_id: originalInvoiceId,
-      stripe_refund_id: bk.stripe_refund_id,
-    }).select('id').single()
-    if (!cnInv?.id) return { creditNoteId: null, pdfPath: null, refundId: bk.stripe_refund_id }
-
+      stripe_refund_id: bk.stripe_refund_id
+    }).select('id').single();
+    if (!cnInv?.id) return {
+      creditNoteId: null,
+      pdfPath: null,
+      refundId: bk.stripe_refund_id
+    };
     // accounting_entries nemá sloupce vat_rate/source/entry_date — insert s nimi
     // tiše padal (chyba se zahazovala) a dobropis se nikdy nezaúčtoval
     await supabase.from('accounting_entries').insert({
-      type: 'expense', amount: -refundedAmountCZK,
+      type: 'expense',
+      amount: -refundedAmountCZK,
       description: `Dobropis ${cnNumber} - ${reasonText}`,
       category: 'refund',
-      date: issueDate, booking_id: bookingId, invoice_id: cnInv.id,
-    }).then(() => {}, () => {})
-
-    const cust2 = (bkRow as any).profiles || {}
-    await loadCustomerCompany(supabase, cust2)
+      date: issueDate,
+      booking_id: bookingId,
+      invoice_id: cnInv.id
+    }).then(()=>{}, ()=>{});
+    const cust2 = bkRow.profiles || {};
+    await loadCustomerCompany(supabase, cust2);
     const html = renderCreditNoteHtml({
-      number: cnNumber, issueDate: fmtDate(issueDate), reasonText, motoModel,
-      refundAmount: refundedAmountCZK, refundPercent,
+      number: cnNumber,
+      issueDate: fmtDate(issueDate),
+      reasonText,
+      motoModel,
+      refundAmount: refundedAmountCZK,
+      refundPercent,
       bookingDates: `${fmtDate(bkRow.start_date)} – ${fmtDate(bkRow.end_date)}`,
-      customer: cust2, originalInvoiceNumber,
-      stripeRefundId: bk.stripe_refund_id, cardBrand, cardLast4,
-    })
-    const pdfBytes = await htmlToPdf(html)
-    const path = pdfBytes ? `invoices/${cnInv.id}.pdf` : `invoices/${cnInv.id}.html`
-    await supabase.storage.from('documents').upload(
-      path,
-      pdfBytes ? new Blob([pdfBytes], { type: 'application/pdf' }) : new Blob([html], { type: 'text/html' }),
-      { upsert: true, contentType: pdfBytes ? 'application/pdf' : 'text/html' },
-    )
-    await supabase.from('invoices').update({ pdf_path: path }).eq('id', cnInv.id)
-    return { creditNoteId: cnInv.id, pdfPath: path, refundId: bk.stripe_refund_id }
+      customer: cust2,
+      originalInvoiceNumber,
+      stripeRefundId: bk.stripe_refund_id,
+      cardBrand,
+      cardLast4
+    });
+    const pdfBytes = await htmlToPdf(html);
+    const path = pdfBytes ? `invoices/${cnInv.id}.pdf` : `invoices/${cnInv.id}.html`;
+    await supabase.storage.from('documents').upload(path, pdfBytes ? new Blob([
+      pdfBytes
+    ], {
+      type: 'application/pdf'
+    }) : new Blob([
+      html
+    ], {
+      type: 'text/html'
+    }), {
+      upsert: true,
+      contentType: pdfBytes ? 'application/pdf' : 'text/html'
+    });
+    await supabase.from('invoices').update({
+      pdf_path: path
+    }).eq('id', cnInv.id);
+    return {
+      creditNoteId: cnInv.id,
+      pdfPath: path,
+      refundId: bk.stripe_refund_id
+    };
   } catch (e) {
-    console.warn('[createCreditNoteForExistingRefund] failed:', (e as Error).message)
-    return { creditNoteId: null, pdfPath: null, refundId: bk.stripe_refund_id || null }
+    console.warn('[createCreditNoteForExistingRefund] failed:', e.message);
+    return {
+      creditNoteId: null,
+      pdfPath: null,
+      refundId: bk.stripe_refund_id || null
+    };
   }
 }
-
 // Manuální vratka pro booking BEZ reálně zaplacené Stripe platby (QR/převod/
 // hotově/ručně označená paid) — 2026-08-04 flow:
 //  1. vystaví DOBROPIS (credit_note, stripe_refund_id NULL = manuální)
@@ -383,98 +418,121 @@ async function createCreditNoteForExistingRefund(
 // banner „VRÁTIT NA ÚČET" ve Velíně) — peníze se NIKDY nepošlou dvakrát ani
 // naslepo. Token: FIO_PAYMENT_TOKEN (doporučený samostatný token s právem
 // zadávání příkazů — vlastní 30s limit), fallback FIO_API_TOKEN.
-const FIO_REFUND_TOKEN = Deno.env.get('FIO_PAYMENT_TOKEN') || Deno.env.get('FIO_API_TOKEN') || ''
-const FIO_IMPORT_URL = 'https://fioapi.fio.cz/v1/rest/import/'
-const OPS_EMAIL = 'info@motogo24.cz'
-
-const xmlEscape = (s: string) =>
-  s.replace(/[<>&'"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' }[c] || c))
-
-async function sendOpsMail(subject: string, html: string) {
+const FIO_REFUND_TOKEN = Deno.env.get('FIO_PAYMENT_TOKEN') || Deno.env.get('FIO_API_TOKEN') || '';
+const FIO_IMPORT_URL = 'https://fioapi.fio.cz/v1/rest/import/';
+const OPS_EMAIL = 'info@motogo24.cz';
+const xmlEscape = (s)=>s.replace(/[<>&'"]/g, (c)=>({
+      '<': '&lt;',
+      '>': '&gt;',
+      '&': '&amp;',
+      "'": '&apos;',
+      '"': '&quot;'
+    })[c] || c);
+async function sendOpsMail(subject, html) {
   try {
-    const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
-    const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
+    const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
     await fetch(`${SUPABASE_URL}/functions/v1/send-email`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + SERVICE_KEY, apikey: SERVICE_KEY },
-      body: JSON.stringify({ to: OPS_EMAIL, subject, raw_html: html }),
-    })
-  } catch (e) { console.warn('[process-refund] ops mail failed:', (e as Error).message) }
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer ' + SERVICE_KEY,
+        apikey: SERVICE_KEY
+      },
+      body: JSON.stringify({
+        to: OPS_EMAIL,
+        subject,
+        raw_html: html
+      })
+    });
+  } catch (e) {
+    console.warn('[process-refund] ops mail failed:', e.message);
+  }
 }
-
-async function tryFioRefund(
-  supabase: any,
-  booking_id: string,
-  cnId: string | null,
-  cnNumber: string | null,
-  amount: number,
-  reasonText: string,
-  dlog: (action: string, status: string, extra?: Record<string, unknown>) => unknown,
-): Promise<{ sent: boolean; instructionId?: string | null }> {
-  if (!FIO_REFUND_TOKEN || !cnId || !(amount > 0)) return { sent: false }
-  const bookingNumber = String(booking_id).slice(-8).toUpperCase()
+async function tryFioRefund(supabase, booking_id, cnId, cnNumber, amount, reasonText, dlog) {
+  if (!FIO_REFUND_TOKEN || !cnId || !(amount > 0)) return {
+    sent: false
+  };
+  const bookingNumber = String(booking_id).slice(-8).toUpperCase();
   try {
     // 1) Zdrojový účet = účet tokenu. Bereme z company_info.bank_account a
     //    vyžadujeme kód banky 2010 (Fio) — dokud company_info míří na starý
     //    účet (mBank), automatická vratka se nepokouší (peníze tam nepřišly).
-    const { data: ci } = await supabase.from('app_settings').select('value').eq('key', 'company_info').maybeSingle()
-    const bankAccount = String((ci?.value as any)?.bank_account || '').replace(/\s+/g, '')
-    const accMatch = bankAccount.match(/^(?:(\d{1,6})-)?(\d{2,10})\/(\d{4})$/)
+    const { data: ci } = await supabase.from('app_settings').select('value').eq('key', 'company_info').maybeSingle();
+    const bankAccount = String(ci?.value?.bank_account || '').replace(/\s+/g, '');
+    const accMatch = bankAccount.match(/^(?:(\d{1,6})-)?(\d{2,10})\/(\d{4})$/);
     if (!accMatch || accMatch[3] !== '2010') {
-      await dlog('fio_refund_skipped_not_fio_account', 'info', { bank_account: bankAccount })
-      return { sent: false }
+      await dlog('fio_refund_skipped_not_fio_account', 'info', {
+        bank_account: bankAccount
+      });
+      return {
+        sent: false
+      };
     }
-    const accountFrom = accMatch[1] ? `${accMatch[1]}-${accMatch[2]}` : accMatch[2]
-
+    const accountFrom = accMatch[1] ? `${accMatch[1]}-${accMatch[2]}` : accMatch[2];
     // 2) Cílový účet = protiúčet PŘÍCHOZÍ platby této rezervace (fio_transactions
     //    plní fio-sync). Primárně dle booking_id (spárované auto-potvrzení),
     //    fallback dle VS (platba zaevidovaná, ale potvrzená ručně).
-    const { data: bk } = await supabase.from('bookings')
-      .select('payment_vs, mod_surcharge_vs').eq('id', booking_id).maybeSingle()
-    let src: { counter_account: string | null; counter_bank: string | null } | null = null
-    const { data: byBooking } = await supabase.from('fio_transactions')
-      .select('counter_account, counter_bank').eq('booking_id', booking_id)
-      .gt('amount', 0).not('counter_account', 'is', null)
-      .order('fio_id', { ascending: false }).limit(1)
-    src = byBooking?.[0] || null
+    const { data: bk } = await supabase.from('bookings').select('payment_vs, mod_surcharge_vs').eq('id', booking_id).maybeSingle();
+    let src = null;
+    const { data: byBooking } = await supabase.from('fio_transactions').select('counter_account, counter_bank').eq('booking_id', booking_id).gt('amount', 0).not('counter_account', 'is', null).order('fio_id', {
+      ascending: false
+    }).limit(1);
+    src = byBooking?.[0] || null;
     if (!src) {
-      const vses = [bk?.payment_vs, bk?.mod_surcharge_vs].filter(Boolean).map(String)
+      const vses = [
+        bk?.payment_vs,
+        bk?.mod_surcharge_vs
+      ].filter(Boolean).map(String);
       if (vses.length > 0) {
-        const { data: byVs } = await supabase.from('fio_transactions')
-          .select('counter_account, counter_bank').in('vs', vses)
-          .gt('amount', 0).not('counter_account', 'is', null)
-          .order('fio_id', { ascending: false }).limit(1)
-        src = byVs?.[0] || null
+        const { data: byVs } = await supabase.from('fio_transactions').select('counter_account, counter_bank').in('vs', vses).gt('amount', 0).not('counter_account', 'is', null).order('fio_id', {
+          ascending: false
+        }).limit(1);
+        src = byVs?.[0] || null;
       }
     }
     if (!src?.counter_account || !src?.counter_bank) {
-      await dlog('fio_refund_no_source_account', 'info', { note: 'platba rezervace nedohledána ve fio_transactions — ruční vratka' })
-      return { sent: false }
+      await dlog('fio_refund_no_source_account', 'info', {
+        note: 'platba rezervace nedohledána ve fio_transactions — ruční vratka'
+      });
+      return {
+        sent: false
+      };
     }
-
     // 3) Idempotentní claim: UNIQUE(credit_note_id). Konflikt = příkaz už
     //    vznikl dřív — submitted vrátíme jako hotovo, cokoli jiného necháme
     //    na ručním fallbacku (žádné opakované odeslání peněz).
-    const vsOut = String(bk?.payment_vs || cnNumber || '').replace(/\D/g, '').slice(0, 10) || null
-    const msg = `MotoGo24 vratka ${bookingNumber} - ${reasonText}`.slice(0, 140)
-    const { data: claim } = await supabase.from('fio_payment_orders')
-      .upsert({
-        credit_note_id: cnId, booking_id, amount,
-        account_to: src.counter_account, bank_code: src.counter_bank,
-        vs: vsOut, message: msg, status: 'pending',
-      }, { onConflict: 'credit_note_id', ignoreDuplicates: true })
-      .select('id').maybeSingle()
+    const vsOut = String(bk?.payment_vs || cnNumber || '').replace(/\D/g, '').slice(0, 10) || null;
+    const msg = `MotoGo24 vratka ${bookingNumber} - ${reasonText}`.slice(0, 140);
+    const { data: claim } = await supabase.from('fio_payment_orders').upsert({
+      credit_note_id: cnId,
+      booking_id,
+      amount,
+      account_to: src.counter_account,
+      bank_code: src.counter_bank,
+      vs: vsOut,
+      message: msg,
+      status: 'pending'
+    }, {
+      onConflict: 'credit_note_id',
+      ignoreDuplicates: true
+    }).select('id').maybeSingle();
     if (!claim?.id) {
-      const { data: prev } = await supabase.from('fio_payment_orders')
-        .select('status, fio_instruction_id').eq('credit_note_id', cnId).maybeSingle()
-      await dlog('fio_refund_claim_conflict', 'info', { prev_status: prev?.status || null })
-      return prev?.status === 'submitted'
-        ? { sent: true, instructionId: prev?.fio_instruction_id || null }
-        : { sent: false }
+      const { data: prev } = await supabase.from('fio_payment_orders').select('status, fio_instruction_id').eq('credit_note_id', cnId).maybeSingle();
+      await dlog('fio_refund_claim_conflict', 'info', {
+        prev_status: prev?.status || null
+      });
+      return prev?.status === 'submitted' ? {
+        sent: true,
+        instructionId: prev?.fio_instruction_id || null
+      } : {
+        sent: false
+      };
     }
-
     // 4) Fio XML tuzemský příkaz (pořadí elementů dle importIB.xsd).
-    const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Prague' })
+    const today = new Date().toLocaleDateString('sv-SE', {
+      timeZone: 'Europe/Prague'
+    });
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <Import xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.fio.cz/schema/importIB.xsd">
 <Orders>
@@ -490,131 +548,140 @@ ${vsOut ? `<vs>${vsOut}</vs>\n` : ''}<date>${today}</date>
 <paymentType>431001</paymentType>
 </DomesticTransaction>
 </Orders>
-</Import>`
-
+</Import>`;
     // 5) Upload (multipart/form-data). 409 = 30s interval tokenu (sdílený se
     //    sync cronem) → jednou počkej a zopakuj.
-    const submit = async () => {
-      const fd = new FormData()
-      fd.append('type', 'xml')
-      fd.append('token', FIO_REFUND_TOKEN)
-      fd.append('file', new Blob([xml], { type: 'application/xml' }), 'vratka.xml')
-      return await fetch(FIO_IMPORT_URL, { method: 'POST', body: fd })
-    }
-    let resp = await submit()
+    const submit = async ()=>{
+      const fd = new FormData();
+      fd.append('type', 'xml');
+      fd.append('token', FIO_REFUND_TOKEN);
+      fd.append('file', new Blob([
+        xml
+      ], {
+        type: 'application/xml'
+      }), 'vratka.xml');
+      return await fetch(FIO_IMPORT_URL, {
+        method: 'POST',
+        body: fd
+      });
+    };
+    let resp = await submit();
     if (resp.status === 409) {
-      await new Promise((r) => setTimeout(r, 31_000))
-      resp = await submit()
+      await new Promise((r)=>setTimeout(r, 31_000));
+      resp = await submit();
     }
-    const text = await resp.text()
-    const errorCode = Number((text.match(/<errorCode>(\d+)<\/errorCode>/) || [])[1] ?? NaN)
-    const instructionId = (text.match(/<idInstruction>(\d+)<\/idInstruction>/) || [])[1] || null
+    const text = await resp.text();
+    const errorCode = Number((text.match(/<errorCode>(\d+)<\/errorCode>/) || [])[1] ?? NaN);
+    const instructionId = (text.match(/<idInstruction>(\d+)<\/idInstruction>/) || [])[1] || null;
     // errorCode 0 = přijato, 2 = varování kontrol (příkazy s warning banka přijala)
-    const ok = resp.ok && (errorCode === 0 || errorCode === 2)
-
+    const ok = resp.ok && (errorCode === 0 || errorCode === 2);
     await supabase.from('fio_payment_orders').update({
       status: ok ? 'submitted' : 'failed',
       fio_instruction_id: instructionId,
       error: ok ? null : `HTTP ${resp.status}, errorCode ${Number.isNaN(errorCode) ? '?' : errorCode}: ${text.slice(0, 400)}`,
-      submitted_at: ok ? new Date().toISOString() : null,
-    }).eq('id', claim.id)
+      submitted_at: ok ? new Date().toISOString() : null
+    }).eq('id', claim.id);
     await dlog(ok ? 'fio_refund_submitted' : 'fio_refund_failed', ok ? 'ok' : 'error', {
-      amount, account_to: src.counter_account + '/' + src.counter_bank,
-      fio_instruction_id: instructionId, http_status: resp.status,
+      amount,
+      account_to: src.counter_account + '/' + src.counter_bank,
+      fio_instruction_id: instructionId,
+      http_status: resp.status,
       error_code: Number.isNaN(errorCode) ? null : errorCode,
-      ...(ok ? {} : { response: text.slice(0, 400) }),
-    })
-
+      ...ok ? {} : {
+        response: text.slice(0, 400)
+      }
+    });
     if (ok) {
-      await sendOpsMail(
-        `✅ Fio: vratka ${amount.toLocaleString('cs-CZ')} Kč odeslána (rez. #${bookingNumber}, dávka ${instructionId || '—'})`,
-        `<h2 style="margin:0 0 8px;font-size:18px;color:#0f1a14">✅ Vratka odeslána automaticky přes Fio API</h2>
+      await sendOpsMail(`✅ Fio: vratka ${amount.toLocaleString('cs-CZ')} Kč odeslána (rez. #${bookingNumber}, dávka ${instructionId || '—'})`, `<h2 style="margin:0 0 8px;font-size:18px;color:#0f1a14">✅ Vratka odeslána automaticky přes Fio API</h2>
          <p style="margin:0 0 12px;color:#374151;font-size:14px">Vratka <strong>${amount.toLocaleString('cs-CZ')} Kč</strong> (${reasonText.toLowerCase()}, dobropis ${cnNumber || '—'}) k rezervaci <strong>#${bookingNumber}</strong> byla podána jako platební příkaz na účet <strong>${src.counter_account}/${src.counter_bank}</strong>, VS ${vsOut || '—'}, dávka č. ${instructionId || '—'}${errorCode === 2 ? ' (přijato s varováním kontrol)' : ''}.</p>
-         <p style="margin:0;color:#b45309;font-size:13px">Pokud má účet nastavenou dodatečnou autorizaci API dávek, potvrďte dávku v internetbankingu — bez toho banka příkaz nezpracuje.</p>`
-      )
+         <p style="margin:0;color:#b45309;font-size:13px">Pokud má účet nastavenou dodatečnou autorizaci API dávek, potvrďte dávku v internetbankingu — bez toho banka příkaz nezpracuje.</p>`);
     } else {
-      await sendOpsMail(
-        `⚠️ Fio: vratku ${amount.toLocaleString('cs-CZ')} Kč se NEPODAŘILO odeslat (rez. #${bookingNumber})`,
-        `<h2 style="margin:0 0 8px;font-size:18px;color:#0f1a14">⚠️ Automatická vratka přes Fio selhala — pošlete ručně</h2>
+      await sendOpsMail(`⚠️ Fio: vratku ${amount.toLocaleString('cs-CZ')} Kč se NEPODAŘILO odeslat (rez. #${bookingNumber})`, `<h2 style="margin:0 0 8px;font-size:18px;color:#0f1a14">⚠️ Automatická vratka přes Fio selhala — pošlete ručně</h2>
          <p style="margin:0 0 12px;color:#374151;font-size:14px">Platební příkaz na <strong>${amount.toLocaleString('cs-CZ')} Kč</strong> (dobropis ${cnNumber || '—'}, rezervace <strong>#${bookingNumber}</strong>, účet ${src.counter_account}/${src.counter_bank}) banka nepřijala. Rezervace zůstává ve stavu „Čeká na vrácení" — pošlete vratku ručně převodem a potvrďte ve Velíně tlačítkem „Vratka odeslána".</p>
-         <p style="margin:0;color:#6b7280;font-size:12px">Detail chyby: HTTP ${resp.status}, errorCode ${Number.isNaN(errorCode) ? '?' : errorCode}. Viz debug log (fio_refund_failed).</p>`
-      )
+         <p style="margin:0;color:#6b7280;font-size:12px">Detail chyby: HTTP ${resp.status}, errorCode ${Number.isNaN(errorCode) ? '?' : errorCode}. Viz debug log (fio_refund_failed).</p>`);
     }
-    return ok ? { sent: true, instructionId } : { sent: false }
+    return ok ? {
+      sent: true,
+      instructionId
+    } : {
+      sent: false
+    };
   } catch (e) {
-    await dlog('fio_refund_exception', 'error', { error: (e as Error).message })
-    return { sent: false }
+    await dlog('fio_refund_exception', 'error', {
+      error: e.message
+    });
+    return {
+      sent: false
+    };
   }
 }
-
-async function manualBookingRefund(
-  supabase: any,
-  booking_id: string,
-  amount: number | undefined,
-  reason: string | undefined,
-  dlog: (action: string, status: string, extra?: Record<string, unknown>) => unknown,
-): Promise<Response> {
-  const { data: bkFull } = await supabase.from('bookings')
-    .select('user_id, total_price, start_date, end_date, motorcycles!moto_id(model), profiles:user_id(id, full_name, email, phone, street, city, zip, ico, dic)')
-    .eq('id', booking_id).single()
-  const totalPrice = Number(bkFull?.total_price || 0)
-  let manAmount = Number(amount) > 0 ? Number(amount) : totalPrice
-  if (totalPrice > 0 && manAmount > totalPrice) manAmount = totalPrice
-
+async function manualBookingRefund(supabase, booking_id, amount, reason, dlog) {
+  const { data: bkFull } = await supabase.from('bookings').select('user_id, total_price, start_date, end_date, motorcycles!moto_id(model), profiles:user_id(id, full_name, email, phone, street, city, zip, ico, dic)').eq('id', booking_id).single();
+  const totalPrice = Number(bkFull?.total_price || 0);
+  let manAmount = Number(amount) > 0 ? Number(amount) : totalPrice;
+  if (totalPrice > 0 && manAmount > totalPrice) manAmount = totalPrice;
   if (manAmount <= 0) {
-    await dlog('manual_refund_noop_zero', 'info', { manual: true })
-    return new Response(
-      JSON.stringify({ success: true, manual: true, code: 'manual_refund_pending', amount: 0, credit_note_id: null }),
-      { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } }
-    )
+    await dlog('manual_refund_noop_zero', 'info', {
+      manual: true
+    });
+    return new Response(JSON.stringify({
+      success: true,
+      manual: true,
+      code: 'manual_refund_pending',
+      amount: 0,
+      credit_note_id: null
+    }), {
+      status: 200,
+      headers: {
+        ...CORS,
+        'Content-Type': 'application/json'
+      }
+    });
   }
-
-  const reasonText = reasonTextFor(reason)
-  const motoModel = (bkFull as any)?.motorcycles?.model || 'motorky'
-  const refundPercent = totalPrice > 0 ? Math.min(100, Math.round((manAmount / totalPrice) * 100)) : 100
-
+  const reasonText = reasonTextFor(reason);
+  const motoModel = bkFull?.motorcycles?.model || 'motorky';
+  const refundPercent = totalPrice > 0 ? Math.min(100, Math.round(manAmount / totalPrice * 100)) : 100;
   // Dedup: souběžný dispatch téže manuální vratky (pg_net z RPC + retry
   // v send-booking-email) → čerstvý manuální dobropis na stejnou částku
   // (≤15 min, bez Stripe refund id) = už vystaveno, vrať existující.
-  const { data: freshManCn } = await supabase.from('invoices')
-    .select('id, number, pdf_path')
-    .eq('booking_id', booking_id).eq('type', 'credit_note').neq('status', 'cancelled')
-    .is('stripe_refund_id', null)
-    .eq('total', -manAmount)
-    .gte('created_at', new Date(Date.now() - 15 * 60_000).toISOString())
-    .order('created_at', { ascending: false }).limit(1)
-  let cnId: string | null = freshManCn?.[0]?.id || null
-  let cnNumber: string | null = freshManCn?.[0]?.number || null
-  let cnPdfPath: string | null = freshManCn?.[0]?.pdf_path || null
-
+  const { data: freshManCn } = await supabase.from('invoices').select('id, number, pdf_path').eq('booking_id', booking_id).eq('type', 'credit_note').neq('status', 'cancelled').is('stripe_refund_id', null).eq('total', -manAmount).gte('created_at', new Date(Date.now() - 15 * 60_000).toISOString()).order('created_at', {
+    ascending: false
+  }).limit(1);
+  let cnId = freshManCn?.[0]?.id || null;
+  let cnNumber = freshManCn?.[0]?.number || null;
+  let cnPdfPath = freshManCn?.[0]?.pdf_path || null;
   if (!cnId) {
-    const { data: origInvs } = await supabase.from('invoices')
-      .select('id, number')
-      .eq('booking_id', booking_id).neq('status', 'cancelled')
-      .in('type', ['final', 'payment_receipt', 'advance', 'proforma'])
-      .order('issue_date', { ascending: false }).limit(1)
-    const year = new Date().getFullYear()
-    const { data: lastCN } = await supabase.from('invoices')
-      .select('number').like('number', `DB-${year}-%`).lt('number', `DB-${year}-5000`)
-      .order('number', { ascending: false }).limit(1)
-    let seq = 1
+    const { data: origInvs } = await supabase.from('invoices').select('id, number').eq('booking_id', booking_id).neq('status', 'cancelled').in('type', [
+      'final',
+      'payment_receipt',
+      'advance',
+      'proforma'
+    ]).order('issue_date', {
+      ascending: false
+    }).limit(1);
+    const year = new Date().getFullYear();
+    const { data: lastCN } = await supabase.from('invoices').select('number').like('number', `DB-${year}-%`).lt('number', `DB-${year}-5000`).order('number', {
+      ascending: false
+    }).limit(1);
+    let seq = 1;
     if (lastCN?.length) {
-      const m = lastCN[0].number.match(/-(\d+)$/)
-      if (m) seq = parseInt(m[1], 10) + 1
+      const m = lastCN[0].number.match(/-(\d+)$/);
+      if (m) seq = parseInt(m[1], 10) + 1;
     }
-    cnNumber = `DB-${year}-${String(seq).padStart(4, '0')}`
-    const issueDate = new Date().toISOString().slice(0, 10)
-
+    cnNumber = `DB-${year}-${String(seq).padStart(4, '0')}`;
+    const issueDate = new Date().toISOString().slice(0, 10);
     const { data: cnInv } = await supabase.from('invoices').insert({
       number: cnNumber,
       type: 'credit_note',
       customer_id: bkFull?.user_id || null,
       booking_id,
-      items: [{
-        description: `Dobropis – ${reasonText} (${motoModel})`,
-        qty: 1,
-        unit_price: -manAmount,
-      }],
+      items: [
+        {
+          description: `Dobropis – ${reasonText} (${motoModel})`,
+          qty: 1,
+          unit_price: -manAmount
+        }
+      ],
       subtotal: -manAmount,
       tax_amount: 0,
       total: -manAmount,
@@ -625,11 +692,14 @@ async function manualBookingRefund(
       source: 'refund',
       variable_symbol: cnNumber,
       original_invoice_id: origInvs?.[0]?.id || null,
-      stripe_refund_id: null,
-    }).select('id').single()
-    cnId = cnInv?.id || null
-    await dlog('manual_credit_note_inserted', cnId ? 'info' : 'error', { credit_note_id: cnId, number: cnNumber, amount: manAmount })
-
+      stripe_refund_id: null
+    }).select('id').single();
+    cnId = cnInv?.id || null;
+    await dlog('manual_credit_note_inserted', cnId ? 'info' : 'error', {
+      credit_note_id: cnId,
+      number: cnNumber,
+      amount: manAmount
+    });
     if (cnId) {
       await supabase.from('accounting_entries').insert({
         type: 'expense',
@@ -637,142 +707,183 @@ async function manualBookingRefund(
         description: `Dobropis ${cnNumber} – ${reasonText} (manuální vratka na účet)`,
         category: 'refund',
         date: issueDate,
-        booking_id,
-      })
+        booking_id
+      });
       try {
-        const cust3 = (bkFull as any)?.profiles || {}
-        await loadCustomerCompany(supabase, cust3)
+        const cust3 = bkFull?.profiles || {};
+        await loadCustomerCompany(supabase, cust3);
         const html = renderCreditNoteHtml({
-          number: cnNumber, issueDate: fmtDate(issueDate), reasonText, motoModel,
-          refundAmount: manAmount, refundPercent,
-          bookingDates: `${fmtDate(String((bkFull as any)?.start_date || ''))} – ${fmtDate(String((bkFull as any)?.end_date || ''))}`,
+          number: cnNumber,
+          issueDate: fmtDate(issueDate),
+          reasonText,
+          motoModel,
+          refundAmount: manAmount,
+          refundPercent,
+          bookingDates: `${fmtDate(String(bkFull?.start_date || ''))} – ${fmtDate(String(bkFull?.end_date || ''))}`,
           customer: cust3,
           originalInvoiceNumber: origInvs?.[0]?.number || null,
-          stripeRefundId: null, manual: true,
-        })
-        const pdfBytes = await htmlToPdf(html)
-        cnPdfPath = pdfBytes ? `invoices/${cnId}.pdf` : `invoices/${cnId}.html`
-        await supabase.storage.from('documents').upload(
-          cnPdfPath,
-          pdfBytes ? new Blob([pdfBytes], { type: 'application/pdf' }) : new Blob([html], { type: 'text/html' }),
-          { upsert: true, contentType: pdfBytes ? 'application/pdf' : 'text/html' },
-        )
-        await supabase.from('invoices').update({ pdf_path: cnPdfPath }).eq('id', cnId)
+          stripeRefundId: null,
+          manual: true
+        });
+        const pdfBytes = await htmlToPdf(html);
+        cnPdfPath = pdfBytes ? `invoices/${cnId}.pdf` : `invoices/${cnId}.html`;
+        await supabase.storage.from('documents').upload(cnPdfPath, pdfBytes ? new Blob([
+          pdfBytes
+        ], {
+          type: 'application/pdf'
+        }) : new Blob([
+          html
+        ], {
+          type: 'text/html'
+        }), {
+          upsert: true,
+          contentType: pdfBytes ? 'application/pdf' : 'text/html'
+        });
+        await supabase.from('invoices').update({
+          pdf_path: cnPdfPath
+        }).eq('id', cnId);
       } catch (e) {
-        console.warn('[process-refund] manual CN pdf failed:', (e as Error).message)
+        console.warn('[process-refund] manual CN pdf failed:', e.message);
       }
     }
   }
-
   // AUTOMATICKÁ VRATKA PŘES FIO API (parita se Stripe): platba přijatá na Fio
   // účet se vrací platebním příkazem na protiúčet, ze kterého přišla. Když
   // příkaz odejde, rezervace jde rovnou do finálního stavu (refunded /
   // partial_refund — stejně jako Stripe refund) a ruční banner se nezobrazí.
-  const fio = await tryFioRefund(supabase, booking_id, cnId, cnNumber, manAmount, reasonText, dlog)
+  const fio = await tryFioRefund(supabase, booking_id, cnId, cnNumber, manAmount, reasonText, dlog);
   if (fio.sent) {
-    const newStatus = refundPercent >= 100 ? 'refunded' : 'partial_refund'
-    await supabase.from('bookings').update({ payment_status: newStatus }).eq('id', booking_id)
+    const newStatus = refundPercent >= 100 ? 'refunded' : 'partial_refund';
+    await supabase.from('bookings').update({
+      payment_status: newStatus
+    }).eq('id', booking_id);
     try {
       if (cnId) {
         await supabase.from('invoices').update({
-          notes: `Dobropis k rezervaci. ${refundPercent < 100 ? `Částečný refund ${refundPercent}%.` : 'Plný refund.'} ${reasonText}. Vratka odeslána automaticky převodem přes Fio API (dávka ${fio.instructionId || '—'}).`,
-        }).eq('id', cnId)
+          notes: `Dobropis k rezervaci. ${refundPercent < 100 ? `Částečný refund ${refundPercent}%.` : 'Plný refund.'} ${reasonText}. Vratka odeslána automaticky převodem přes Fio API (dávka ${fio.instructionId || '—'}).`
+        }).eq('id', cnId);
       }
-    } catch { /* poznámka na dokladu — neblokuje */ }
+    } catch  {}
     await dlog('fio_refund_done', 'ok', {
-      manual: true, fio_sent: true, amount: manAmount, credit_note_id: cnId,
-      new_payment_status: newStatus, fio_instruction_id: fio.instructionId || null,
-    })
-    return new Response(
-      JSON.stringify({
-        success: true, manual: true, fio_sent: true, code: 'fio_refund_sent',
-        amount: manAmount, credit_note_id: cnId, credit_note_pdf_path: cnPdfPath,
-        fio_instruction_id: fio.instructionId || null,
-      }),
-      { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } }
-    )
+      manual: true,
+      fio_sent: true,
+      amount: manAmount,
+      credit_note_id: cnId,
+      new_payment_status: newStatus,
+      fio_instruction_id: fio.instructionId || null
+    });
+    return new Response(JSON.stringify({
+      success: true,
+      manual: true,
+      fio_sent: true,
+      code: 'fio_refund_sent',
+      amount: manAmount,
+      credit_note_id: cnId,
+      credit_note_pdf_path: cnPdfPath,
+      fio_instruction_id: fio.instructionId || null
+    }), {
+      status: 200,
+      headers: {
+        ...CORS,
+        'Content-Type': 'application/json'
+      }
+    });
   }
-
-  await supabase.from('bookings')
-    .update({ payment_status: 'refund_pending' })
-    .eq('id', booking_id)
+  await supabase.from('bookings').update({
+    payment_status: 'refund_pending'
+  }).eq('id', booking_id);
   await dlog('manual_refund_pending', 'info', {
-    manual: true, amount: manAmount, credit_note_id: cnId,
-    note: 'no Stripe payment — vratka k ručnímu vyřízení převodem na účet (do 14 dnů)',
-  })
-  return new Response(
-    JSON.stringify({
-      success: true, manual: true, code: 'manual_refund_pending',
-      amount: manAmount, credit_note_id: cnId, credit_note_pdf_path: cnPdfPath,
-    }),
-    { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } }
-  )
+    manual: true,
+    amount: manAmount,
+    credit_note_id: cnId,
+    note: 'no Stripe payment — vratka k ručnímu vyřízení převodem na účet (do 14 dnů)'
+  });
+  return new Response(JSON.stringify({
+    success: true,
+    manual: true,
+    code: 'manual_refund_pending',
+    amount: manAmount,
+    credit_note_id: cnId,
+    credit_note_pdf_path: cnPdfPath
+  }), {
+    status: 200,
+    headers: {
+      ...CORS,
+      'Content-Type': 'application/json'
+    }
+  });
 }
-
-Deno.serve(async (req: Request) => {
+Deno.serve(async (req)=>{
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: CORS })
+    return new Response('ok', {
+      headers: CORS
+    });
   }
-
   // Bezpečnostní gate: refund smí spustit service_role (DB triggery / webhook),
   // admin (Velín), NEBO přihlášený zákazník POUZE pro VLASTNÍ rezervaci/objednávku
   // (appka — zkrácení rezervace). Anon (jen apikey) je odmítnut. Ověření
   // vlastnictví u 'user' proběhne po načtení booking/order níže.
-  const caller = await authClassify(req)
-  if (caller.kind === 'none') return forbidden(CORS, 'auth_required')
-
-  const supabase = createClient(
-    Deno.env.get('SUPABASE_URL') ?? '',
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-  )
-
+  const caller = await authClassify(req);
+  if (caller.kind === 'none') return forbidden(CORS, 'auth_required');
+  const supabase = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '');
   try {
-    const body: RefundRequest = await req.json()
-    const { booking_id, order_id, amount, reason } = body
-
+    const body = await req.json();
+    const { booking_id, order_id, amount, reason } = body;
     // Diagnostika — admin v Velin → Dokumenty → Debug log uvidí každý krok
     // refund flow a okamžitě pozná, kde to padá. Helper, aby fail v debug_log
     // insertu nezablokoval hlavní flow.
-    const dlog = (action: string, status: string, extra?: Record<string, unknown>) =>
-      supabase.from('debug_log').insert({
-        source: 'process-refund', action, status,
-        request_data: { booking_id, order_id, amount, reason, ...(extra || {}) },
-      }).then(() => {}, () => {})
-    await dlog('request_received', 'info')
-
+    const dlog = (action, status, extra)=>supabase.from('debug_log').insert({
+        source: 'process-refund',
+        action,
+        status,
+        request_data: {
+          booking_id,
+          order_id,
+          amount,
+          reason,
+          ...extra || {}
+        }
+      }).then(()=>{}, ()=>{});
+    await dlog('request_received', 'info');
     if (!booking_id && !order_id) {
-      await dlog('missing_identifier', 'error')
-      return new Response(
-        JSON.stringify({ success: false, error: 'Missing booking_id or order_id', code: 'missing_identifier' }),
-        { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } }
-      )
+      await dlog('missing_identifier', 'error');
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Missing booking_id or order_id',
+        code: 'missing_identifier'
+      }), {
+        status: 400,
+        headers: {
+          ...CORS,
+          'Content-Type': 'application/json'
+        }
+      });
     }
-
     // Look up the Stripe payment_intent_id
-    let stripePaymentIntentId: string | null = null
-    let entityType = 'booking'
-    let entityId = booking_id || order_id || ''
-    let alreadyRefunded = false
-
+    let stripePaymentIntentId = null;
+    let entityType = 'booking';
+    let entityId = booking_id || order_id || '';
+    let alreadyRefunded = false;
     if (booking_id) {
-      const { data } = await supabase.from('bookings')
-        .select('user_id, stripe_payment_intent_id, stripe_session_id, total_price, payment_status, payment_method, pay_channel, stripe_refund_id, card_brand, card_last4')
-        .eq('id', booking_id)
-        .single()
-
+      const { data } = await supabase.from('bookings').select('user_id, stripe_payment_intent_id, stripe_session_id, total_price, payment_status, payment_method, pay_channel, stripe_refund_id, card_brand, card_last4').eq('id', booking_id).single();
       if (!data) {
-        return new Response(
-          JSON.stringify({ success: false, error: 'Booking not found', code: 'not_found' }),
-          { status: 404, headers: { ...CORS, 'Content-Type': 'application/json' } }
-        )
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'Booking not found',
+          code: 'not_found'
+        }), {
+          status: 404,
+          headers: {
+            ...CORS,
+            'Content-Type': 'application/json'
+          }
+        });
       }
-
       // Vlastnictví: přihlášený zákazník smí refundovat jen SVOU rezervaci.
       if (caller.kind === 'user' && data.user_id !== caller.userId) {
-        await dlog('ownership_denied', 'error')
-        return forbidden(CORS, 'not_owner')
+        await dlog('ownership_denied', 'error');
+        return forbidden(CORS, 'not_owner');
       }
-
       // RECOVERY-ONLY dispatche (reason '…_retry' z attach smyček
       // send-booking-email / send-cancellation-email) NIKDY nevytvářejí nový
       // Stripe refund — jen dohrají chybějící dobropis/PDF k vratce, která už
@@ -781,27 +892,30 @@ Deno.serve(async (req: Request) => {
       // se lišil kvůli mezitím změněnému refundable) → vznikla DRUHÁ reálná
       // 556Kč vratka a duplicitní dobropis DB-2026-0002.
       if (typeof reason === 'string' && /_retry$/.test(reason)) {
-        let result = await ensureCreditNotePdf(supabase, booking_id, data)
+        let result = await ensureCreditNotePdf(supabase, booking_id, data);
         if (!result.creditNoteId && data.stripe_refund_id) {
-          result = await createCreditNoteForExistingRefund(supabase, booking_id, data)
+          result = await createCreditNoteForExistingRefund(supabase, booking_id, data);
         }
         await dlog('recovery_only_dispatch', result.creditNoteId ? 'ok' : 'info', {
-          credit_note_id: result.creditNoteId, pdf_path: result.pdfPath,
-        })
-        return new Response(
-          JSON.stringify({
-            success: !!result.creditNoteId,
-            recovery_only: true,
-            refund_id: result.refundId,
-            credit_note_id: result.creditNoteId,
-            credit_note_pdf_path: result.pdfPath,
-            card_brand: data.card_brand,
-            card_last4: data.card_last4,
-          }),
-          { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } }
-        )
+          credit_note_id: result.creditNoteId,
+          pdf_path: result.pdfPath
+        });
+        return new Response(JSON.stringify({
+          success: !!result.creditNoteId,
+          recovery_only: true,
+          refund_id: result.refundId,
+          credit_note_id: result.creditNoteId,
+          credit_note_pdf_path: result.pdfPath,
+          card_brand: data.card_brand,
+          card_last4: data.card_last4
+        }), {
+          status: 200,
+          headers: {
+            ...CORS,
+            'Content-Type': 'application/json'
+          }
+        });
       }
-
       // Idempotency: if booking is already refunded, ensure the credit note has pdf_path
       // (regenerate if missing) and return success — DON'T call Stripe again.
       // This handles the scenario where a previous refund attempt partially succeeded
@@ -812,80 +926,92 @@ Deno.serve(async (req: Request) => {
       // Další úprava se slevou musí umět vystavit DALŠÍ částečný Stripe refund +
       // dobropis. Proto se 'partial_refund' chová idempotentně jen BEZ explicitní
       // částky; s `amount > 0` pokračuje na nový refund (po fresh-CN dedup checku níže).
-      const wantsNewPartial = data.payment_status === 'partial_refund' && Number.isFinite(Number(amount)) && Number(amount) > 0
-      if (data.payment_status === 'refunded' || (data.payment_status === 'partial_refund' && !wantsNewPartial)) {
-        alreadyRefunded = true
-        let result = await ensureCreditNotePdf(supabase, booking_id, data)
+      const wantsNewPartial = data.payment_status === 'partial_refund' && Number.isFinite(Number(amount)) && Number(amount) > 0;
+      if (data.payment_status === 'refunded' || data.payment_status === 'partial_refund' && !wantsNewPartial) {
+        alreadyRefunded = true;
+        let result = await ensureCreditNotePdf(supabase, booking_id, data);
         // Recovery: pokud credit_note row vůbec neexistuje (process-refund spadl
         // dřív než stihl INSERT), vytvoř ho ze Stripe refund dat. Tohle je hlavní
         // safety-net cesta, kterou volá webhook-receiver charge.refunded.
         if (!result.creditNoteId && data.stripe_refund_id) {
-          await dlog('credit_note_recovery_create', 'info', { stripe_refund_id: data.stripe_refund_id })
-          result = await createCreditNoteForExistingRefund(supabase, booking_id, data)
-          await dlog('credit_note_recovery_create_done', result.creditNoteId ? 'ok' : 'error', { credit_note_id: result.creditNoteId, pdf_path: result.pdfPath })
-        }
-        return new Response(
-          JSON.stringify({
-            success: true,
-            already_refunded: true,
-            refund_id: data.stripe_refund_id || result.refundId,
+          await dlog('credit_note_recovery_create', 'info', {
+            stripe_refund_id: data.stripe_refund_id
+          });
+          result = await createCreditNoteForExistingRefund(supabase, booking_id, data);
+          await dlog('credit_note_recovery_create_done', result.creditNoteId ? 'ok' : 'error', {
             credit_note_id: result.creditNoteId,
-            credit_note_pdf_path: result.pdfPath,
-            card_brand: data.card_brand,
-            card_last4: data.card_last4,
-          }),
-          { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } }
-        )
+            pdf_path: result.pdfPath
+          });
+        }
+        return new Response(JSON.stringify({
+          success: true,
+          already_refunded: true,
+          refund_id: data.stripe_refund_id || result.refundId,
+          credit_note_id: result.creditNoteId,
+          credit_note_pdf_path: result.pdfPath,
+          card_brand: data.card_brand,
+          card_last4: data.card_last4
+        }), {
+          status: 200,
+          headers: {
+            ...CORS,
+            'Content-Type': 'application/json'
+          }
+        });
       }
-
       // Duplicitní dispatch téže rozdílové úpravy (RPC pg_net + retry v
       // send-booking-email běží souběžně): čerstvý dobropis na STEJNOU částku
       // (≤15 min) znamená, že refund téhle úpravy už proběhl → vrať existující.
       if (wantsNewPartial) {
-        const { data: freshCn } = await supabase.from('invoices')
-          .select('id, number, pdf_path')
-          .eq('booking_id', booking_id).eq('type', 'credit_note').neq('status', 'cancelled')
-          .eq('total', -Math.abs(Number(amount)))
-          .gte('created_at', new Date(Date.now() - 15 * 60_000).toISOString())
-          .order('created_at', { ascending: false }).limit(1)
+        const { data: freshCn } = await supabase.from('invoices').select('id, number, pdf_path').eq('booking_id', booking_id).eq('type', 'credit_note').neq('status', 'cancelled').eq('total', -Math.abs(Number(amount))).gte('created_at', new Date(Date.now() - 15 * 60_000).toISOString()).order('created_at', {
+          ascending: false
+        }).limit(1);
         if (freshCn?.length) {
-          await dlog('partial_refund_dedup_fresh_cn', 'info', { credit_note_id: freshCn[0].id, amount })
+          await dlog('partial_refund_dedup_fresh_cn', 'info', {
+            credit_note_id: freshCn[0].id,
+            amount
+          });
           // Dobropis existuje, ale PDF mohlo selhat (PDFShift/Storage) → dorenderuj,
           // ať má retry loop v send-booking-email co přiložit.
-          let pdfPath = freshCn[0].pdf_path
+          let pdfPath = freshCn[0].pdf_path;
           if (!pdfPath) {
-            const ensured = await ensureCreditNotePdf(supabase, booking_id, data)
-            if (ensured.creditNoteId === freshCn[0].id && ensured.pdfPath) pdfPath = ensured.pdfPath
+            const ensured = await ensureCreditNotePdf(supabase, booking_id, data);
+            if (ensured.creditNoteId === freshCn[0].id && ensured.pdfPath) pdfPath = ensured.pdfPath;
           }
-          return new Response(
-            JSON.stringify({
-              success: true,
-              already_refunded: true,
-              refund_id: data.stripe_refund_id,
-              credit_note_id: freshCn[0].id,
-              credit_note_pdf_path: pdfPath,
-              card_brand: data.card_brand,
-              card_last4: data.card_last4,
-            }),
-            { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } }
-          )
+          return new Response(JSON.stringify({
+            success: true,
+            already_refunded: true,
+            refund_id: data.stripe_refund_id,
+            credit_note_id: freshCn[0].id,
+            credit_note_pdf_path: pdfPath,
+            card_brand: data.card_brand,
+            card_last4: data.card_last4
+          }), {
+            status: 200,
+            headers: {
+              ...CORS,
+              'Content-Type': 'application/json'
+            }
+          });
         }
       }
-
       // Refund povolíme pro 'paid' i 'refund_pending' (= „Čeká na vrácení" — storno už
       // proběhlo, peníze jsou stále u nás a čeká se na vrácení), plus 'partial_refund'
       // s explicitní částkou (další rozdílová úprava). 'refunded' (a 'partial_refund'
       // bez částky) řeší idempotentní větev výše. Cokoli jiného (unpaid) refundovat nelze.
       if (data.payment_status !== 'paid' && data.payment_status !== 'refund_pending' && !wantsNewPartial) {
-        return new Response(
-          JSON.stringify({
-            success: false,
-            error: `Booking is not paid (current: ${data.payment_status}) — cannot refund`,
-            code: 'not_paid',
-            current_status: data.payment_status,
-          }),
-          { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } }
-        )
+        return new Response(JSON.stringify({
+          success: false,
+          error: `Booking is not paid (current: ${data.payment_status}) — cannot refund`,
+          code: 'not_paid',
+          current_status: data.payment_status
+        }), {
+          status: 400,
+          headers: {
+            ...CORS,
+            'Content-Type': 'application/json'
+          }
+        });
       }
       // DŮVĚŘUJ ZPŮSOBU PLATBY (2026-08-21c, zadání provozovatele): rezervace
       // zaplacená RUČNĚ potvrzenou platbou (QR / bankovní převod / hotově /
@@ -896,15 +1022,23 @@ Deno.serve(async (req: Request) => {
       // „This PaymentIntent ... does not have a successful charge to refund".
       // pay_channel='qr' je pojistka pro řádky bez payment_method; kartové
       // metody (card/stripe/google_pay/apple_pay/klarna/paypal) jdou dál na Stripe.
-      const MANUAL_PAY_METHODS = ['bank_transfer', 'qr', 'cash', 'crypto', 'voucher', 'wire']
-      const payMethod = String((data as any).payment_method || '').toLowerCase().trim()
-      if (MANUAL_PAY_METHODS.includes(payMethod) || (!payMethod && (data as any).pay_channel === 'qr')) {
-        await dlog('manual_method_direct', 'info', { payment_method: payMethod, pay_channel: (data as any).pay_channel })
-        return await manualBookingRefund(supabase, booking_id, amount, reason, dlog)
+      const MANUAL_PAY_METHODS = [
+        'bank_transfer',
+        'qr',
+        'cash',
+        'crypto',
+        'voucher',
+        'wire'
+      ];
+      const payMethod = String(data.payment_method || '').toLowerCase().trim();
+      if (MANUAL_PAY_METHODS.includes(payMethod) || !payMethod && data.pay_channel === 'qr') {
+        await dlog('manual_method_direct', 'info', {
+          payment_method: payMethod,
+          pay_channel: data.pay_channel
+        });
+        return await manualBookingRefund(supabase, booking_id, amount, reason, dlog);
       }
-
-      stripePaymentIntentId = data.stripe_payment_intent_id
-
+      stripePaymentIntentId = data.stripe_payment_intent_id;
       // Robustnost: `stripe_payment_intent_id` může být prázdný — typicky u web
       // rezervací, kde se PI uloží až po dokončení Checkoutu (race s webhookem),
       // nebo když booking nikdy neprošel přes náš confirm flow. Bez PI by refund
@@ -912,10 +1046,8 @@ Deno.serve(async (req: Request) => {
       // Dohledáme ho proto ze `stripe_session_id` přes Stripe API a doplníme do DB.
       if (!stripePaymentIntentId && data.stripe_session_id) {
         try {
-          const sess = await stripe.checkout.sessions.retrieve(data.stripe_session_id)
-          const piFromSess = typeof sess.payment_intent === 'string'
-            ? sess.payment_intent
-            : (sess.payment_intent as any)?.id || null
+          const sess = await stripe.checkout.sessions.retrieve(data.stripe_session_id);
+          const piFromSess = typeof sess.payment_intent === 'string' ? sess.payment_intent : sess.payment_intent?.id || null;
           // PI ze session převezmi JEN když session byla skutečně ZAPLACENÁ.
           // Rezervace placená QR/převodem může nést stripe_session_id z dřívějšího
           // opuštěného pokusu o kartu — jeho nezaplacený PI by níže vedl na
@@ -923,174 +1055,200 @@ Deno.serve(async (req: Request) => {
           // nevrátily a nevznikl by ani manuální dobropis). Nezaplacená session →
           // PI ignoruj a spadni do manuální větve (dobropis + refund_pending).
           if (piFromSess && sess.payment_status === 'paid') {
-            stripePaymentIntentId = piFromSess
-            await supabase.from('bookings').update({ stripe_payment_intent_id: piFromSess }).eq('id', booking_id)
-            await dlog('pi_resolved_from_session', 'info', { session_id: data.stripe_session_id, payment_intent_id: piFromSess })
+            stripePaymentIntentId = piFromSess;
+            await supabase.from('bookings').update({
+              stripe_payment_intent_id: piFromSess
+            }).eq('id', booking_id);
+            await dlog('pi_resolved_from_session', 'info', {
+              session_id: data.stripe_session_id,
+              payment_intent_id: piFromSess
+            });
           } else if (piFromSess) {
-            await dlog('pi_from_session_ignored_unpaid', 'info', { session_id: data.stripe_session_id, payment_intent_id: piFromSess, session_payment_status: sess.payment_status })
+            await dlog('pi_from_session_ignored_unpaid', 'info', {
+              session_id: data.stripe_session_id,
+              payment_intent_id: piFromSess,
+              session_payment_status: sess.payment_status
+            });
           }
-        } catch (e) { console.warn('[process-refund] session PI resolve failed:', (e as Error).message) }
+        } catch (e) {
+          console.warn('[process-refund] session PI resolve failed:', e.message);
+        }
       }
     } else if (order_id) {
-      entityType = 'shop'
-      const { data } = await supabase.from('shop_orders')
-        .select('customer_id, stripe_payment_intent_id, stripe_session_id, total_amount, payment_status')
-        .eq('id', order_id)
-        .single()
-
+      entityType = 'shop';
+      const { data } = await supabase.from('shop_orders').select('customer_id, stripe_payment_intent_id, stripe_session_id, total_amount, payment_status').eq('id', order_id).single();
       if (!data) {
-        return new Response(
-          JSON.stringify({ success: false, error: 'Order not found', code: 'not_found' }),
-          { status: 404, headers: { ...CORS, 'Content-Type': 'application/json' } }
-        )
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'Order not found',
+          code: 'not_found'
+        }), {
+          status: 404,
+          headers: {
+            ...CORS,
+            'Content-Type': 'application/json'
+          }
+        });
       }
-
       // Vlastnictví: přihlášený zákazník smí refundovat jen SVOU objednávku.
       if (caller.kind === 'user' && data.customer_id !== caller.userId) {
-        await dlog('ownership_denied', 'error')
-        return forbidden(CORS, 'not_owner')
+        await dlog('ownership_denied', 'error');
+        return forbidden(CORS, 'not_owner');
       }
       if (data.payment_status !== 'paid') {
-        return new Response(
-          JSON.stringify({
-            success: false,
-            error: `Order is not paid (current: ${data.payment_status}) — cannot refund`,
-            code: 'not_paid',
-            current_status: data.payment_status,
-          }),
-          { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } }
-        )
+        return new Response(JSON.stringify({
+          success: false,
+          error: `Order is not paid (current: ${data.payment_status}) — cannot refund`,
+          code: 'not_paid',
+          current_status: data.payment_status
+        }), {
+          status: 400,
+          headers: {
+            ...CORS,
+            'Content-Type': 'application/json'
+          }
+        });
       }
-      stripePaymentIntentId = data.stripe_payment_intent_id
+      stripePaymentIntentId = data.stripe_payment_intent_id;
       if (!stripePaymentIntentId && data.stripe_session_id) {
         try {
-          const sess = await stripe.checkout.sessions.retrieve(data.stripe_session_id)
-          const piFromSess = typeof sess.payment_intent === 'string'
-            ? sess.payment_intent
-            : (sess.payment_intent as any)?.id || null
+          const sess = await stripe.checkout.sessions.retrieve(data.stripe_session_id);
+          const piFromSess = typeof sess.payment_intent === 'string' ? sess.payment_intent : sess.payment_intent?.id || null;
           // Stejný guard jako u bookingu: PI jen ze ZAPLACENÉ session.
           if (piFromSess && sess.payment_status === 'paid') {
-            stripePaymentIntentId = piFromSess
-            await supabase.from('shop_orders').update({ stripe_payment_intent_id: piFromSess }).eq('id', order_id)
+            stripePaymentIntentId = piFromSess;
+            await supabase.from('shop_orders').update({
+              stripe_payment_intent_id: piFromSess
+            }).eq('id', order_id);
           }
-        } catch (e) { console.warn('[process-refund] session PI resolve failed (order):', (e as Error).message) }
+        } catch (e) {
+          console.warn('[process-refund] session PI resolve failed (order):', e.message);
+        }
       }
     }
-
     if (!stripePaymentIntentId) {
       // Rezervace BEZ Stripe platby (QR/převod/hotově/ručně označená paid):
       // automatický Stripe refund nejde, ale vratku kvůli tomu NEBLOKUJEME —
       // manuální dobropis + refund_pending, viz manualBookingRefund.
       // Shop objednávky se chovají jako dřív (400 — řeší se ručně).
       if (booking_id) {
-        return await manualBookingRefund(supabase, booking_id, amount, reason, dlog)
+        return await manualBookingRefund(supabase, booking_id, amount, reason, dlog);
       }
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: `No Stripe payment found for this ${entityType}. Refund must be processed manually.`,
-          code: 'no_stripe_payment',
-        }),
-        { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } }
-      )
+      return new Response(JSON.stringify({
+        success: false,
+        error: `No Stripe payment found for this ${entityType}. Refund must be processed manually.`,
+        code: 'no_stripe_payment'
+      }), {
+        status: 400,
+        headers: {
+          ...CORS,
+          'Content-Type': 'application/json'
+        }
+      });
     }
-
     // Cap refund at the amount actually charged on Stripe.
     // Without this, edge cases (100% promo code → tiny payment, but DB-side
     // refund_amount computed from gross per-day pricing) make us request a
     // refund larger than the captured charge — Stripe then errors with
     // "Refund amount ... is greater than charge amount ..." and the user
     // sees "Něco se pokazilo. Zkus to prosím znovu."
-    let refundableHaleru: number | null = null
-    let refundableCZK: number | null = null
-    let chargedHaleru: number | null = null
+    let refundableHaleru = null;
+    let refundableCZK = null;
+    let chargedHaleru = null;
     try {
-      const pi = await stripe.paymentIntents.retrieve(stripePaymentIntentId)
+      const pi = await stripe.paymentIntents.retrieve(stripePaymentIntentId);
       // POZOR (fix 2026-08-21): dřívější fallback `|| pi.amount` počítal i
       // NEZAPLACENÝ PI jako nabitý (pi.amount = pouze POŽADOVANÁ částka) —
       // refunds.create pak na PI bez charge spadl („no successful charge")
       // → 500 a vratka se nikdy nevyřídila. amount_received = skutečně přijato.
-      const charged = pi.amount_received || 0
-      chargedHaleru = charged
+      const charged = pi.amount_received || 0;
+      chargedHaleru = charged;
       // Subtract refunds already issued on this PI
-      let alreadyRefunded = 0
+      let alreadyRefunded = 0;
       try {
-        const refundsList = await stripe.refunds.list({ payment_intent: stripePaymentIntentId, limit: 100 })
-        for (const r of refundsList.data) {
-          if (r.status === 'succeeded' || r.status === 'pending') alreadyRefunded += r.amount
+        const refundsList = await stripe.refunds.list({
+          payment_intent: stripePaymentIntentId,
+          limit: 100
+        });
+        for (const r of refundsList.data){
+          if (r.status === 'succeeded' || r.status === 'pending') alreadyRefunded += r.amount;
         }
-      } catch { /* non-fatal */ }
-      refundableHaleru = Math.max(0, charged - alreadyRefunded)
-      refundableCZK = refundableHaleru / 100
+      } catch  {}
+      refundableHaleru = Math.max(0, charged - alreadyRefunded);
+      refundableCZK = refundableHaleru / 100;
     } catch (e) {
-      console.warn('[process-refund] PI lookup failed:', (e as Error).message)
+      console.warn('[process-refund] PI lookup failed:', e.message);
     }
-
     // PI existuje, ale Stripe na něm NIKDY nepřijal peníze → rezervace byla
     // reálně zaplacená jinak (QR/převod/hotově; stale PI z opuštěného pokusu
     // o kartu, který si starší verze uložila do bookings.stripe_payment_intent_id).
     // Bez tohoto fallbacku by no_op větev níže chybně označila 'refunded'
     // (peníze by se nikdy nevrátily a nevznikl by ani dobropis).
     if (booking_id && chargedHaleru === 0) {
-      await dlog('pi_never_charged_manual_fallback', 'info', { payment_intent_id: stripePaymentIntentId })
-      return await manualBookingRefund(supabase, booking_id, amount, reason, dlog)
+      await dlog('pi_never_charged_manual_fallback', 'info', {
+        payment_intent_id: stripePaymentIntentId
+      });
+      return await manualBookingRefund(supabase, booking_id, amount, reason, dlog);
     }
-
     // Decide effective amount (in haléře). Null = full refund.
-    let effectiveAmountHaleru: number | null = null
+    let effectiveAmountHaleru = null;
     if (amount && amount > 0) {
-      effectiveAmountHaleru = Math.round(amount * 100)
+      effectiveAmountHaleru = Math.round(amount * 100);
       if (refundableHaleru != null && effectiveAmountHaleru > refundableHaleru) {
-        console.warn(`[process-refund] requested ${effectiveAmountHaleru/100} CZK > refundable ${refundableHaleru/100} CZK — clamping`)
-        effectiveAmountHaleru = refundableHaleru
+        console.warn(`[process-refund] requested ${effectiveAmountHaleru / 100} CZK > refundable ${refundableHaleru / 100} CZK — clamping`);
+        effectiveAmountHaleru = refundableHaleru;
       }
     } else if (refundableHaleru != null) {
-      effectiveAmountHaleru = refundableHaleru
+      effectiveAmountHaleru = refundableHaleru;
     }
-
     // Nothing left to refund (e.g. fully discounted booking that paid 0 Kč,
     // or already-refunded PI) — short-circuit with success so the caller
     // (web "Zkrátit a vrátit peníze" / change-bike flow) doesn't error out.
     if (effectiveAmountHaleru === 0) {
       if (booking_id) {
-        await supabase.from('bookings').update({ payment_status: 'refunded' }).eq('id', booking_id)
+        await supabase.from('bookings').update({
+          payment_status: 'refunded'
+        }).eq('id', booking_id);
       } else if (order_id) {
-        await supabase.from('shop_orders').update({ payment_status: 'refunded' }).eq('id', order_id)
+        await supabase.from('shop_orders').update({
+          payment_status: 'refunded'
+        }).eq('id', order_id);
       }
-      return new Response(
-        JSON.stringify({
-          success: true,
-          refund_id: null,
-          status: 'no_op',
-          amount_refunded: 0,
-          currency: 'czk',
-          credit_note_id: null,
-          card_brand: null,
-          card_last4: null,
-          note: 'Nothing left to refund (already refunded or amount paid was 0)',
-        }),
-        { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } }
-      )
+      return new Response(JSON.stringify({
+        success: true,
+        refund_id: null,
+        status: 'no_op',
+        amount_refunded: 0,
+        currency: 'czk',
+        credit_note_id: null,
+        card_brand: null,
+        card_last4: null,
+        note: 'Nothing left to refund (already refunded or amount paid was 0)'
+      }), {
+        status: 200,
+        headers: {
+          ...CORS,
+          'Content-Type': 'application/json'
+        }
+      });
     }
-
     // Create Stripe refund. Metadata mg_* označují refund jako NÁŠ (interní) —
     // webhook-receiver charge.refunded podle nich pozná, že dobropis/mail/stavy
     // řeší tohle flow, a rezervaci NEzruší jako „Stripe portál storno"
     // (incident #DDC5A69D 2026-08-12: částečná vratka výměny motorky → auto-storno).
-    const refundParams: Stripe.RefundCreateParams = {
+    const refundParams = {
       payment_intent: stripePaymentIntentId,
       reason: reason === 'duplicate' ? 'duplicate' : 'requested_by_customer',
       metadata: {
         mg_source: 'process-refund',
         mg_reason: reason || '',
         mg_booking_id: booking_id || '',
-        mg_order_id: order_id || '',
-      },
-    }
+        mg_order_id: order_id || ''
+      }
+    };
     if (effectiveAmountHaleru != null && (refundableHaleru == null || effectiveAmountHaleru < refundableHaleru)) {
-      refundParams.amount = effectiveAmountHaleru
+      refundParams.amount = effectiveAmountHaleru;
     }
-
     // Stripe idempotency key — dva souběžné dispatche TÉŽE refundace (pg_net z RPC
     // + recovery retry v send-booking-email startují dřív, než první stihne zapsat
     // credit_note) se na Stripe srazí do JEDNOHO refundu. Sekvenční složka =
@@ -1098,119 +1256,122 @@ Deno.serve(async (req: Request) => {
     // vidí stejné → stejný klíč → jeden refund; legitimní DALŠÍ refund (klidně
     // stejné částky) přijde až po provedení předchozího → refundable kleslo →
     // jiný klíč. Fallback na počet dobropisů, když PI lookup selhal.
-    let seqPart: number | string | null = refundableHaleru
+    let seqPart = refundableHaleru;
     if (seqPart == null) {
       try {
-        let cq = supabase.from('invoices')
-          .select('id', { count: 'exact', head: true })
-          .eq('type', 'credit_note').neq('status', 'cancelled')
-        cq = booking_id ? cq.eq('booking_id', booking_id) : cq.eq('order_id', order_id)
-        const { count } = await cq
-        seqPart = `cn${count || 0}`
-      } catch { seqPart = 'na' }
-    }
-    const idempotencyKey = `refund:${booking_id || order_id}:${effectiveAmountHaleru ?? 'full'}:${seqPart}`
-
-    await dlog('stripe_refund_create_pre', 'info', { effectiveAmountHaleru, refundableHaleru, idempotency_key: idempotencyKey })
-    const refund = await stripe.refunds.create(refundParams, { idempotencyKey })
-    await dlog('stripe_refund_create_ok', 'info', { refund_id: refund.id, refund_status: refund.status, refund_amount: refund.amount })
-
-    // Look up card brand/last4 from the underlying Charge (used both on credit note and bookings).
-    let cardBrand: string | null = null
-    let cardLast4: string | null = null
-    try {
-      const chargeId = typeof refund.charge === 'string' ? refund.charge : (refund.charge as any)?.id
-      if (chargeId) {
-        const ch = await stripe.charges.retrieve(chargeId)
-        cardBrand = ch?.payment_method_details?.card?.brand || null
-        cardLast4 = ch?.payment_method_details?.card?.last4 || null
+        let cq = supabase.from('invoices').select('id', {
+          count: 'exact',
+          head: true
+        }).eq('type', 'credit_note').neq('status', 'cancelled');
+        cq = booking_id ? cq.eq('booking_id', booking_id) : cq.eq('order_id', order_id);
+        const { count } = await cq;
+        seqPart = `cn${count || 0}`;
+      } catch  {
+        seqPart = 'na';
       }
-    } catch (e) { console.warn('[process-refund] charge retrieve failed:', (e as Error).message) }
-
+    }
+    const idempotencyKey = `refund:${booking_id || order_id}:${effectiveAmountHaleru ?? 'full'}:${seqPart}`;
+    await dlog('stripe_refund_create_pre', 'info', {
+      effectiveAmountHaleru,
+      refundableHaleru,
+      idempotency_key: idempotencyKey
+    });
+    const refund = await stripe.refunds.create(refundParams, {
+      idempotencyKey
+    });
+    await dlog('stripe_refund_create_ok', 'info', {
+      refund_id: refund.id,
+      refund_status: refund.status,
+      refund_amount: refund.amount
+    });
+    // Look up card brand/last4 from the underlying Charge (used both on credit note and bookings).
+    let cardBrand = null;
+    let cardLast4 = null;
+    try {
+      const chargeId = typeof refund.charge === 'string' ? refund.charge : refund.charge?.id;
+      if (chargeId) {
+        const ch = await stripe.charges.retrieve(chargeId);
+        cardBrand = ch?.payment_method_details?.card?.brand || null;
+        cardLast4 = ch?.payment_method_details?.card?.last4 || null;
+      }
+    } catch (e) {
+      console.warn('[process-refund] charge retrieve failed:', e.message);
+    }
     // Update payment_status in DB
-    const refundedAmountCZK = refund.amount / 100
+    const refundedAmountCZK = refund.amount / 100;
     if (booking_id) {
       // Mapování na payment_status dle reality vrácení peněz:
       //  - Stripe refund ještě nepotvrzen (status='pending') → 'refund_pending' (Čeká na vrácení).
       //    Finální stav dorazí webhookem charge.refunded / refund.updated.
       //  - částečné vrácení (zadaná `amount` menší než zbývající k vrácení) → 'partial_refund'.
       //  - jinak (plné vrácení / succeeded) → 'refunded'.
-      const isPartial = !!amount && refundableHaleru != null && effectiveAmountHaleru != null && effectiveAmountHaleru < refundableHaleru
-      const newStatus = refund.status === 'pending' ? 'refund_pending' : (isPartial ? 'partial_refund' : 'refunded')
-      const bkPatch: Record<string, any> = { payment_status: newStatus, stripe_refund_id: refund.id }
-      if (cardBrand) bkPatch.card_brand = cardBrand
-      if (cardLast4) bkPatch.card_last4 = cardLast4
-      await supabase.from('bookings').update(bkPatch).eq('id', booking_id)
+      const isPartial = !!amount && refundableHaleru != null && effectiveAmountHaleru != null && effectiveAmountHaleru < refundableHaleru;
+      const newStatus = refund.status === 'pending' ? 'refund_pending' : isPartial ? 'partial_refund' : 'refunded';
+      const bkPatch = {
+        payment_status: newStatus,
+        stripe_refund_id: refund.id
+      };
+      if (cardBrand) bkPatch.card_brand = cardBrand;
+      if (cardLast4) bkPatch.card_last4 = cardLast4;
+      await supabase.from('bookings').update(bkPatch).eq('id', booking_id);
     } else if (order_id) {
-      await supabase.from('shop_orders')
-        .update({ payment_status: 'refunded' })
-        .eq('id', order_id)
+      await supabase.from('shop_orders').update({
+        payment_status: 'refunded'
+      }).eq('id', order_id);
     }
-
     // Auto-generate credit note (dobropis) for booking refunds
-    let creditNoteId: string | null = null
+    let creditNoteId = null;
     if (booking_id) {
       try {
         // Fetch booking data for the credit note
-        const { data: bk } = await supabase.from('bookings')
-          .select('user_id, total_price, start_date, end_date, motorcycles!moto_id(model), profiles:user_id(id, full_name, email, phone, street, city, zip, ico, dic)')
-          .eq('id', booking_id).single()
+        const { data: bk } = await supabase.from('bookings').select('user_id, total_price, start_date, end_date, motorcycles!moto_id(model), profiles:user_id(id, full_name, email, phone, street, city, zip, ico, dic)').eq('id', booking_id).single();
         if (bk) {
-          const refundPercent = amount ? Math.round((amount / Number(bk.total_price || 1)) * 100) : 100
-          const reasonText = reasonTextFor(reason)
-
+          const refundPercent = amount ? Math.round(amount / Number(bk.total_price || 1) * 100) : 100;
+          const reasonText = reasonTextFor(reason);
           // Find original invoice to reference
-          const { data: origInvs } = await supabase.from('invoices')
-            .select('id, type, number')
-            .eq('booking_id', booking_id)
-            .neq('status', 'cancelled')
-            .in('type', ['final', 'payment_receipt', 'advance', 'proforma'])
-            .order('issue_date', { ascending: false })
-            .limit(1)
-          const originalInvoiceId = origInvs?.[0]?.id || null
-          const originalInvoiceNumber = origInvs?.[0]?.number || null
-
+          const { data: origInvs } = await supabase.from('invoices').select('id, type, number').eq('booking_id', booking_id).neq('status', 'cancelled').in('type', [
+            'final',
+            'payment_receipt',
+            'advance',
+            'proforma'
+          ]).order('issue_date', {
+            ascending: false
+          }).limit(1);
+          const originalInvoiceId = origInvs?.[0]?.id || null;
+          const originalInvoiceNumber = origInvs?.[0]?.number || null;
           // Idempotency: if a credit_note already exists for this booking + refund, reuse it
-          const { data: existingCn } = await supabase.from('invoices')
-            .select('id, number, pdf_path')
-            .eq('booking_id', booking_id)
-            .eq('type', 'credit_note')
-            .eq('stripe_refund_id', refund.id)
-            .limit(1)
-          let cnNumber: string
-          let cnId: string | null = null
-
+          const { data: existingCn } = await supabase.from('invoices').select('id, number, pdf_path').eq('booking_id', booking_id).eq('type', 'credit_note').eq('stripe_refund_id', refund.id).limit(1);
+          let cnNumber;
+          let cnId = null;
           if (existingCn?.length) {
-            cnId = existingCn[0].id
-            cnNumber = existingCn[0].number
+            cnId = existingCn[0].id;
+            cnNumber = existingCn[0].number;
           } else {
             // Generate credit note number (DB-YYYY-NNNN) — automatická řada < 5000
-            const year = new Date().getFullYear()
-            const { data: lastCN } = await supabase.from('invoices')
-              .select('number')
-              .like('number', `DB-${year}-%`)
-              .lt('number', `DB-${year}-5000`)
-              .order('number', { ascending: false })
-              .limit(1)
-            let seq = 1
+            const year = new Date().getFullYear();
+            const { data: lastCN } = await supabase.from('invoices').select('number').like('number', `DB-${year}-%`).lt('number', `DB-${year}-5000`).order('number', {
+              ascending: false
+            }).limit(1);
+            let seq = 1;
             if (lastCN?.length) {
-              const m = lastCN[0].number.match(/-(\d+)$/)
-              if (m) seq = parseInt(m[1], 10) + 1
+              const m = lastCN[0].number.match(/-(\d+)$/);
+              if (m) seq = parseInt(m[1], 10) + 1;
             }
-            cnNumber = `DB-${year}-${String(seq).padStart(4, '0')}`
-
-            const issueDate = new Date().toISOString().slice(0, 10)
-            const motoModel = (bk as any).motorcycles?.model || 'motorky'
+            cnNumber = `DB-${year}-${String(seq).padStart(4, '0')}`;
+            const issueDate = new Date().toISOString().slice(0, 10);
+            const motoModel = bk.motorcycles?.model || 'motorky';
             const { data: cnInv } = await supabase.from('invoices').insert({
               number: cnNumber,
               type: 'credit_note',
               customer_id: bk.user_id,
               booking_id,
-              items: [{
-                description: `Dobropis – ${reasonText} (${motoModel})`,
-                qty: 1,
-                unit_price: -refundedAmountCZK,
-              }],
+              items: [
+                {
+                  description: `Dobropis – ${reasonText} (${motoModel})`,
+                  qty: 1,
+                  unit_price: -refundedAmountCZK
+                }
+              ],
               subtotal: -refundedAmountCZK,
               tax_amount: 0,
               total: -refundedAmountCZK,
@@ -1221,12 +1382,13 @@ Deno.serve(async (req: Request) => {
               source: 'refund',
               variable_symbol: cnNumber,
               original_invoice_id: originalInvoiceId,
-              stripe_refund_id: refund.id,
-            }).select('id').single()
-
-            cnId = cnInv?.id || null
-            await dlog('credit_note_inserted', 'info', { credit_note_id: cnId, number: cnNumber })
-
+              stripe_refund_id: refund.id
+            }).select('id').single();
+            cnId = cnInv?.id || null;
+            await dlog('credit_note_inserted', 'info', {
+              credit_note_id: cnId,
+              number: cnNumber
+            });
             // Create negative accounting entry only on first creation
             await supabase.from('accounting_entries').insert({
               type: 'expense',
@@ -1234,18 +1396,16 @@ Deno.serve(async (req: Request) => {
               description: `Dobropis ${cnNumber} – ${reasonText}`,
               category: 'refund',
               date: issueDate,
-              booking_id,
-            })
+              booking_id
+            });
           }
-
-          creditNoteId = cnId
-
+          creditNoteId = cnId;
           // Render and upload dobropis PDF/HTML so it can be attached to the cancellation email.
           if (cnId) {
             try {
-              const motoModel2 = (bk as any).motorcycles?.model || 'motorky'
-              const cust4 = (bk as any).profiles || {}
-              await loadCustomerCompany(supabase, cust4)
+              const motoModel2 = bk.motorcycles?.model || 'motorky';
+              const cust4 = bk.profiles || {};
+              await loadCustomerCompany(supabase, cust4);
               const html = renderCreditNoteHtml({
                 number: cnNumber,
                 issueDate: fmtDate(new Date().toISOString().slice(0, 10)),
@@ -1258,40 +1418,66 @@ Deno.serve(async (req: Request) => {
                 originalInvoiceNumber,
                 stripeRefundId: refund.id,
                 cardBrand,
-                cardLast4,
-              })
-              const pdfBytes = await htmlToPdf(html)
-              await dlog('pdfshift_render_done', 'info', { credit_note_id: cnId, has_pdf: !!pdfBytes, pdf_bytes: pdfBytes?.length || 0 })
-              let path: string
+                cardLast4
+              });
+              const pdfBytes = await htmlToPdf(html);
+              await dlog('pdfshift_render_done', 'info', {
+                credit_note_id: cnId,
+                has_pdf: !!pdfBytes,
+                pdf_bytes: pdfBytes?.length || 0
+              });
+              let path;
               if (pdfBytes) {
-                path = `invoices/${cnId}.pdf`
-                const { error: upErr } = await supabase.storage.from('documents').upload(
-                  path, new Blob([pdfBytes], { type: 'application/pdf' }),
-                  { upsert: true, contentType: 'application/pdf' },
-                )
-                if (upErr) await dlog('pdf_upload_failed', 'error', { path, error: upErr.message })
+                path = `invoices/${cnId}.pdf`;
+                const { error: upErr } = await supabase.storage.from('documents').upload(path, new Blob([
+                  pdfBytes
+                ], {
+                  type: 'application/pdf'
+                }), {
+                  upsert: true,
+                  contentType: 'application/pdf'
+                });
+                if (upErr) await dlog('pdf_upload_failed', 'error', {
+                  path,
+                  error: upErr.message
+                });
               } else {
-                path = `invoices/${cnId}.html`
-                const { error: upErr } = await supabase.storage.from('documents').upload(
-                  path, new Blob([html], { type: 'text/html' }),
-                  { upsert: true, contentType: 'text/html' },
-                )
-                if (upErr) await dlog('pdf_upload_failed', 'error', { path, error: upErr.message })
+                path = `invoices/${cnId}.html`;
+                const { error: upErr } = await supabase.storage.from('documents').upload(path, new Blob([
+                  html
+                ], {
+                  type: 'text/html'
+                }), {
+                  upsert: true,
+                  contentType: 'text/html'
+                });
+                if (upErr) await dlog('pdf_upload_failed', 'error', {
+                  path,
+                  error: upErr.message
+                });
               }
-              const { error: updErr } = await supabase.from('invoices').update({ pdf_path: path }).eq('id', cnId)
-              await dlog('credit_note_finalized', updErr ? 'error' : 'ok', { credit_note_id: cnId, pdf_path: path, update_error: updErr?.message })
+              const { error: updErr } = await supabase.from('invoices').update({
+                pdf_path: path
+              }).eq('id', cnId);
+              await dlog('credit_note_finalized', updErr ? 'error' : 'ok', {
+                credit_note_id: cnId,
+                pdf_path: path,
+                update_error: updErr?.message
+              });
             } catch (pdfErr) {
-              console.warn('[process-refund] credit note PDF render failed:', (pdfErr as Error).message)
-              await dlog('pdfshift_render_failed', 'error', { credit_note_id: cnId, error: (pdfErr as Error).message })
+              console.warn('[process-refund] credit note PDF render failed:', pdfErr.message);
+              await dlog('pdfshift_render_failed', 'error', {
+                credit_note_id: cnId,
+                error: pdfErr.message
+              });
             }
           }
         }
       } catch (cnErr) {
-        console.error('Credit note generation failed:', (cnErr as Error).message)
-        // Non-blocking — refund was already processed
+        console.error('Credit note generation failed:', cnErr.message);
+      // Non-blocking — refund was already processed
       }
     }
-
     // Log to debug_log
     try {
       await supabase.from('debug_log').insert({
@@ -1299,43 +1485,59 @@ Deno.serve(async (req: Request) => {
         action: 'stripe_refund_created',
         component: entityType,
         status: 'ok',
-        request_data: { booking_id, order_id, amount, reason },
-        response_data: { refund_id: refund.id, status: refund.status, amount_refunded: refundedAmountCZK, credit_note_id: creditNoteId },
-      })
-    } catch (e) { /* ignore */ }
-
-    return new Response(
-      JSON.stringify({
-        success: true,
-        refund_id: refund.id,
-        status: refund.status,
-        amount_refunded: refundedAmountCZK,
-        currency: refund.currency,
-        credit_note_id: creditNoteId,
-        card_brand: cardBrand,
-        card_last4: cardLast4,
-      }),
-      { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } }
-    )
+        request_data: {
+          booking_id,
+          order_id,
+          amount,
+          reason
+        },
+        response_data: {
+          refund_id: refund.id,
+          status: refund.status,
+          amount_refunded: refundedAmountCZK,
+          credit_note_id: creditNoteId
+        }
+      });
+    } catch (e) {}
+    return new Response(JSON.stringify({
+      success: true,
+      refund_id: refund.id,
+      status: refund.status,
+      amount_refunded: refundedAmountCZK,
+      currency: refund.currency,
+      credit_note_id: creditNoteId,
+      card_brand: cardBrand,
+      card_last4: cardLast4
+    }), {
+      status: 200,
+      headers: {
+        ...CORS,
+        'Content-Type': 'application/json'
+      }
+    });
   } catch (err) {
-    console.error('Refund error:', err)
-
+    console.error('Refund error:', err);
     try {
       await supabase.from('debug_log').insert({
         source: 'process-refund',
         action: 'stripe_refund_error',
         component: 'stripe',
         status: 'error',
-        error_message: (err as Error).message,
-      })
-      // Pozn.: konkrétní booking_id už zachytí dlog('request_received', ...) na začátku
-      // request flow + dlog na každém kroku. Pokud catch fire-nul po request_received,
-      // korelace přes timestamp + sekvence akcí pro daný booking je v debug_log evidentní.
-    } catch (e) { /* ignore */ }
-
-    return new Response(
-      JSON.stringify({ success: false, error: 'Refund failed: ' + (err as Error).message }),
-      { status: 500, headers: { ...CORS, 'Content-Type': 'application/json' } }
-    )
+        error_message: err.message
+      });
+    // Pozn.: konkrétní booking_id už zachytí dlog('request_received', ...) na začátku
+    // request flow + dlog na každém kroku. Pokud catch fire-nul po request_received,
+    // korelace přes timestamp + sekvence akcí pro daný booking je v debug_log evidentní.
+    } catch (e) {}
+    return new Response(JSON.stringify({
+      success: false,
+      error: 'Refund failed: ' + err.message
+    }), {
+      status: 500,
+      headers: {
+        ...CORS,
+        'Content-Type': 'application/json'
+      }
+    });
   }
-})
+});

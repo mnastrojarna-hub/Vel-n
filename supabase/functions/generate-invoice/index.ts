@@ -1,27 +1,24 @@
-import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { generateInvoiceHtml } from './template.ts'
-import { authClassify, forbidden } from '../_shared/auth.ts'
-
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
-const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
-const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') || ''
-const FROM_EMAIL = Deno.env.get('FROM_EMAIL') || 'noreply@motogo24.cz'
-const PDFSHIFT_API_KEY = Deno.env.get('PDFSHIFT_API_KEY') || ''
-
+import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { generateInvoiceHtml } from './template.ts';
+import { authClassify, forbidden } from '../_shared/auth.ts';
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || '';
+const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') || '';
+const FROM_EMAIL = Deno.env.get('FROM_EMAIL') || 'noreply@motogo24.cz';
+const PDFSHIFT_API_KEY = Deno.env.get('PDFSHIFT_API_KEY') || '';
 /**
  * Konverze HTML → PDF přes PDFShift API (https://pdfshift.io).
  * Vrací Uint8Array s PDF byty, nebo null při chybě / chybějícím API key.
  * Caller musí mít HTML fallback, aby flow nikdy nespadl tvrdě.
- */
-async function htmlToPdf(html: string): Promise<Uint8Array | null> {
-  if (!PDFSHIFT_API_KEY) return null
+ */ async function htmlToPdf(html) {
+  if (!PDFSHIFT_API_KEY) return null;
   try {
     const res = await fetch('https://api.pdfshift.io/v3/convert/pdf', {
       method: 'POST',
       headers: {
         'X-API-Key': PDFSHIFT_API_KEY,
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({
         source: html,
@@ -29,183 +26,232 @@ async function htmlToPdf(html: string): Promise<Uint8Array | null> {
         margin: '8mm',
         landscape: false,
         sandbox: false,
-        use_print: false,
-      }),
-    })
+        use_print: false
+      })
+    });
     if (!res.ok) {
-      console.warn('[htmlToPdf] PDFShift HTTP', res.status, await res.text().catch(() => ''))
-      return null
+      console.warn('[htmlToPdf] PDFShift HTTP', res.status, await res.text().catch(()=>''));
+      return null;
     }
-    return new Uint8Array(await res.arrayBuffer())
+    return new Uint8Array(await res.arrayBuffer());
   } catch (e) {
-    console.warn('[htmlToPdf] PDFShift fetch failed:', (e as Error).message)
-    return null
+    console.warn('[htmlToPdf] PDFShift fetch failed:', e.message);
+    return null;
   }
 }
-
 // Firemní údaje zákazníka (web rezervace — checkbox „Firemní údaje" v kroku 3).
 // Samostatný tolerantní dotaz: sloupce company_name/company_address přidává
 // migrace 20260818 — kdyby ještě nebyla aplikovaná, hlavní select nesmí spadnout.
-async function loadCustomerCompany(supabase: any, customer: any) {
-  if (!customer || !customer.id) return
-  const { data, error } = await supabase.from('profiles')
-    .select('company_name, company_address').eq('id', customer.id).maybeSingle()
+async function loadCustomerCompany(supabase, customer) {
+  if (!customer || !customer.id) return;
+  const { data, error } = await supabase.from('profiles').select('company_name, company_address').eq('id', customer.id).maybeSingle();
   if (!error && data) {
-    customer.company = data.company_name || customer.company || null
-    customer.company_address = data.company_address || null
+    customer.company = data.company_name || customer.company || null;
+    customer.company_address = data.company_address || null;
   }
 }
-
 const COMPANY_FALLBACK = {
-  name: 'Bc. Petra Semorádová', address: 'Mezná 9, 393 01 Pelhřimov',
-  ico: '21874263', dic: null, vat_payer: false,
-  bank_account: '670100-2225851630/6210', phone: '+420 774 256 271',
-  email: 'info@motogo24.cz', web: 'www.motogo24.cz',
-}
-
-async function loadCompanyInfo(supabase: any) {
+  name: 'Bc. Petra Semorádová',
+  address: 'Mezná 9, 393 01 Pelhřimov',
+  ico: '21874263',
+  dic: null,
+  vat_payer: false,
+  bank_account: '670100-2225851630/6210',
+  phone: '+420 774 256 271',
+  email: 'info@motogo24.cz',
+  web: 'www.motogo24.cz'
+};
+async function loadCompanyInfo(supabase) {
   try {
-    const { data } = await supabase.from('app_settings').select('value').eq('key', 'company_info').limit(1)
-    const info = data?.[0]?.value
+    const { data } = await supabase.from('app_settings').select('value').eq('key', 'company_info').limit(1);
+    const info = data?.[0]?.value;
     if (info && info.name) {
       return {
-        name: info.name || COMPANY_FALLBACK.name, address: info.address || COMPANY_FALLBACK.address,
-        ico: info.ico || COMPANY_FALLBACK.ico, dic: info.dic || null, vatPayer: info.vat_payer || false,
-        bank: 'mBank', account: info.bank_account || COMPANY_FALLBACK.bank_account,
-        phone: info.phone || COMPANY_FALLBACK.phone, email: info.email || COMPANY_FALLBACK.email,
-        web: info.web || COMPANY_FALLBACK.web,
-      }
+        name: info.name || COMPANY_FALLBACK.name,
+        address: info.address || COMPANY_FALLBACK.address,
+        ico: info.ico || COMPANY_FALLBACK.ico,
+        dic: info.dic || null,
+        vatPayer: info.vat_payer || false,
+        bank: 'mBank',
+        account: info.bank_account || COMPANY_FALLBACK.bank_account,
+        phone: info.phone || COMPANY_FALLBACK.phone,
+        email: info.email || COMPANY_FALLBACK.email,
+        web: info.web || COMPANY_FALLBACK.web
+      };
     }
-  } catch (e) { console.warn('Failed to load company_info:', e) }
-  return { ...COMPANY_FALLBACK, vatPayer: false, bank: 'mBank', account: COMPANY_FALLBACK.bank_account }
+  } catch (e) {
+    console.warn('Failed to load company_info:', e);
+  }
+  return {
+    ...COMPANY_FALLBACK,
+    vatPayer: false,
+    bank: 'mBank',
+    account: COMPANY_FALLBACK.bank_account
+  };
 }
-
-const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('cs-CZ') : '—'
-const fmtPrice = (n: number) => (n || 0).toLocaleString('cs-CZ', { minimumFractionDigits: 2 })
-
+const fmtDate = (d)=>d ? new Date(d).toLocaleDateString('cs-CZ') : '—';
+const fmtPrice = (n)=>(n || 0).toLocaleString('cs-CZ', {
+    minimumFractionDigits: 2
+  });
 // ===== PRICE BREAKDOWN PER DAY =====
 // Motorky mají denní ceny v sloupcích price_mon..price_sun + fallback price_weekday.
 // Vstup: motorcycles row (může být null), startDate, endDate (date string nebo ISO timestamp).
 // Výstup: { total, days: [{iso,dow,dowLabel,price}], uniform } — uniform=true když všechny dny stejná cena.
-const DOW_LABELS_CS = ['Ne', 'Po', 'Út', 'St', 'Čt', 'Pá', 'So']
-const DOW_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
-function calcPriceBreakdown(moto: any, startDate: string, endDate: string): { total: number; days: Array<{ iso: string; dow: number; dowLabel: string; price: number }>; uniform: boolean } {
-  if (!moto || !startDate || !endDate) return { total: 0, days: [], uniform: true }
-  const s = new Date(startDate); const e = new Date(endDate)
-  if (isNaN(s.getTime()) || isNaN(e.getTime()) || s > e) return { total: 0, days: [], uniform: true }
-  const d = new Date(s.getFullYear(), s.getMonth(), s.getDate())
-  const eDate = new Date(e.getFullYear(), e.getMonth(), e.getDate())
-  const arr: Array<{ iso: string; dow: number; dowLabel: string; price: number }> = []
-  let total = 0
-  while (d <= eDate) {
-    const dow = d.getDay()
-    const price = Number(moto['price_' + DOW_KEYS[dow]] || moto.price_weekday || 0)
-    const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-    arr.push({ iso, dow, dowLabel: DOW_LABELS_CS[dow], price })
-    total += price
-    d.setDate(d.getDate() + 1)
+const DOW_LABELS_CS = [
+  'Ne',
+  'Po',
+  'Út',
+  'St',
+  'Čt',
+  'Pá',
+  'So'
+];
+const DOW_KEYS = [
+  'sun',
+  'mon',
+  'tue',
+  'wed',
+  'thu',
+  'fri',
+  'sat'
+];
+function calcPriceBreakdown(moto, startDate, endDate) {
+  if (!moto || !startDate || !endDate) return {
+    total: 0,
+    days: [],
+    uniform: true
+  };
+  const s = new Date(startDate);
+  const e = new Date(endDate);
+  if (isNaN(s.getTime()) || isNaN(e.getTime()) || s > e) return {
+    total: 0,
+    days: [],
+    uniform: true
+  };
+  const d = new Date(s.getFullYear(), s.getMonth(), s.getDate());
+  const eDate = new Date(e.getFullYear(), e.getMonth(), e.getDate());
+  const arr = [];
+  let total = 0;
+  while(d <= eDate){
+    const dow = d.getDay();
+    const price = Number(moto['price_' + DOW_KEYS[dow]] || moto.price_weekday || 0);
+    const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    arr.push({
+      iso,
+      dow,
+      dowLabel: DOW_LABELS_CS[dow],
+      price
+    });
+    total += price;
+    d.setDate(d.getDate() + 1);
   }
-  const uniform = arr.length <= 1 || arr.every((x) => x.price === arr[0].price)
-  return { total, days: arr, uniform }
+  const uniform = arr.length <= 1 || arr.every((x)=>x.price === arr[0].price);
+  return {
+    total,
+    days: arr,
+    uniform
+  };
 }
-
 const CORS = {
-  'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
-
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type'
+};
 // Map booking_extras.name → size column on bookings row
-function matchExtraSize(name: string, b: any): string | null {
-  const n = (name || '').toLowerCase()
-  const passenger = n.includes('spolujez') || n.includes('passenger')
-  const pick = (driver: string, pas: string) => passenger ? (b[pas] || null) : (b[driver] || null)
-  if (n.includes('boty') || n.includes('boots')) return pick('boots_size', 'passenger_boots_size')
-  if (n.includes('helma') || n.includes('helmet')) return pick('helmet_size', 'passenger_helmet_size')
-  if (n.includes('bunda') || n.includes('jacket')) return pick('jacket_size', 'passenger_jacket_size')
-  if (n.includes('kalhoty') || n.includes('pants')) return pick('pants_size', 'passenger_pants_size')
-  if (n.includes('rukavice') || n.includes('gloves')) return pick('gloves_size', 'passenger_gloves_size')
+function matchExtraSize(name, b) {
+  const n = (name || '').toLowerCase();
+  const passenger = n.includes('spolujez') || n.includes('passenger');
+  const pick = (driver, pas)=>passenger ? b[pas] || null : b[driver] || null;
+  if (n.includes('boty') || n.includes('boots')) return pick('boots_size', 'passenger_boots_size');
+  if (n.includes('helma') || n.includes('helmet')) return pick('helmet_size', 'passenger_helmet_size');
+  if (n.includes('bunda') || n.includes('jacket')) return pick('jacket_size', 'passenger_jacket_size');
+  if (n.includes('kalhoty') || n.includes('pants')) return pick('pants_size', 'passenger_pants_size');
+  if (n.includes('rukavice') || n.includes('gloves')) return pick('gloves_size', 'passenger_gloves_size');
   if (n.includes('výbava') || n.includes('vybava') || n.includes('set')) {
     if (passenger) {
-      const parts = [b.passenger_helmet_size && `helma ${b.passenger_helmet_size}`, b.passenger_jacket_size && `bunda/vesta ${b.passenger_jacket_size}`, b.passenger_pants_size && `kalhoty ${b.passenger_pants_size}`, b.passenger_boots_size && `boty ${b.passenger_boots_size}`, b.passenger_gloves_size && `rukavice ${b.passenger_gloves_size}`].filter(Boolean)
-      return parts.length ? parts.join(', ') : null
+      const parts = [
+        b.passenger_helmet_size && `helma ${b.passenger_helmet_size}`,
+        b.passenger_jacket_size && `bunda/vesta ${b.passenger_jacket_size}`,
+        b.passenger_pants_size && `kalhoty ${b.passenger_pants_size}`,
+        b.passenger_boots_size && `boty ${b.passenger_boots_size}`,
+        b.passenger_gloves_size && `rukavice ${b.passenger_gloves_size}`
+      ].filter(Boolean);
+      return parts.length ? parts.join(', ') : null;
     }
-    const parts = [b.helmet_size && `helma ${b.helmet_size}`, b.jacket_size && `bunda ${b.jacket_size}`, b.pants_size && `kalhoty ${b.pants_size}`, b.boots_size && `boty ${b.boots_size}`, b.gloves_size && `rukavice ${b.gloves_size}`].filter(Boolean)
-    return parts.length ? parts.join(', ') : null
+    const parts = [
+      b.helmet_size && `helma ${b.helmet_size}`,
+      b.jacket_size && `bunda ${b.jacket_size}`,
+      b.pants_size && `kalhoty ${b.pants_size}`,
+      b.boots_size && `boty ${b.boots_size}`,
+      b.gloves_size && `rukavice ${b.gloves_size}`
+    ].filter(Boolean);
+    return parts.length ? parts.join(', ') : null;
   }
-  return null
+  return null;
 }
-
 // Load primary card info for a booking paid via Stripe (brand + last4)
-async function loadPaymentCardInfo(supabase: any, booking: any): Promise<{ brand: string; last4: string; wallet?: string } | null> {
-  if (!booking?.stripe_payment_intent_id) return null
-  const userId = booking.user_id || booking.profiles?.id
-  if (!userId) return null
+async function loadPaymentCardInfo(supabase, booking) {
+  if (!booking?.stripe_payment_intent_id) return null;
+  const userId = booking.user_id || booking.profiles?.id;
+  if (!userId) return null;
   try {
-    const { data: pms } = await supabase.from('payment_methods')
-      .select('brand, last4, is_default, created_at')
-      .eq('user_id', userId)
-      .order('is_default', { ascending: false })
-      .order('created_at', { ascending: false })
-      .limit(1)
+    const { data: pms } = await supabase.from('payment_methods').select('brand, last4, is_default, created_at').eq('user_id', userId).order('is_default', {
+      ascending: false
+    }).order('created_at', {
+      ascending: false
+    }).limit(1);
     if (pms?.length) {
-      return { brand: pms[0].brand || 'card', last4: pms[0].last4 || '****' }
+      return {
+        brand: pms[0].brand || 'card',
+        last4: pms[0].last4 || '****'
+      };
     }
-  } catch { /* ignore */ }
-  return { brand: 'card', last4: '****' }
+  } catch  {}
+  return {
+    brand: 'card',
+    last4: '****'
+  };
 }
-
 // Build label for an extra row (name + size if applicable)
-function extraLabel(name: string, booking: any): string {
-  const size = matchExtraSize(name, booking)
-  if (!size) return name
+function extraLabel(name, booking) {
+  const size = matchExtraSize(name, booking);
+  if (!size) return name;
   // If size is a composite (contains comma) show it on a second segment
-  return `${name} (${size})`
+  return `${name} (${size})`;
 }
-
-serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
-
+serve(async (req)=>{
+  if (req.method === 'OPTIONS') return new Response('ok', {
+    headers: CORS
+  });
   // Bezpečnostní gate: doklad (s PII) smí generovat service_role (webhook/trigger),
   // admin (Velín), NEBO přihlášený zákazník POUZE pro VLASTNÍ rezervaci/objednávku
   // (appka). Anon (jen apikey) odmítnut. Vlastnictví u 'user' ověříme níže.
-  const caller = await authClassify(req)
-  if (caller.kind === 'none') return forbidden(CORS, 'auth_required')
-
+  const caller = await authClassify(req);
+  if (caller.kind === 'none') return forbidden(CORS, 'auth_required');
   try {
-    const {
-      type, booking_id, order_id, send_email,
-      extra_items, voucher_codes: explicitVoucherCodes,
-      source: reqSource,
-      language: reqLanguage, // i18n: jazyk zákazníka (localizuje ODKAZY na faktuře)
-      regenerate, // přepiš existující doklad aktuálními údaji (stejné číslo, stejný řádek)
-      invoice_date, // YYYY-MM-DD — override data vystavení i splatnosti (využívá Velín u přegenerování)
-      render_existing, // dorenderuj PDF pro EXISTUJÍCÍ doklad bez pdf_path (NEpřepočítává položky)
-      price_difference, // source='edit': částka doplatku (Kč) — posílá send-booking-email z trigger payloadu
-      variable_symbol: reqVariableSymbol, // QR/převod ZF: číselný VS pro párování platby (jinak = číslo dokladu)
-      due_note: reqDueNote, // QR/převod ZF: text splatnosti do bloku bankovní platby (např. "Splatnost do 4 hodin")
-    } = await req.json()
-    if (!booking_id && !order_id) return new Response(JSON.stringify({ error: 'Missing booking_id or order_id' }), { status: 400 })
-
-    let voucher_codes: string[] | undefined = explicitVoucherCodes
-    let voucherValidUntil: string | null = null
-    let doorCodes: any[] = []
-
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
-
+    const { type, booking_id, order_id, send_email, extra_items, voucher_codes: explicitVoucherCodes, source: reqSource, language: reqLanguage, regenerate, invoice_date, render_existing, price_difference, variable_symbol: reqVariableSymbol, due_note: reqDueNote } = await req.json();
+    if (!booking_id && !order_id) return new Response(JSON.stringify({
+      error: 'Missing booking_id or order_id'
+    }), {
+      status: 400
+    });
+    let voucher_codes = explicitVoucherCodes;
+    let voucherValidUntil = null;
+    let doorCodes = [];
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
     // Vlastnictví: přihlášený zákazník smí generovat doklad jen pro SVOU rezervaci/objednávku.
     if (caller.kind === 'user') {
-      let ownerOk = false
+      let ownerOk = false;
       if (booking_id) {
-        const { data: bk } = await supabase.from('bookings').select('user_id').eq('id', booking_id).maybeSingle()
-        ownerOk = !!bk && bk.user_id === caller.userId
+        const { data: bk } = await supabase.from('bookings').select('user_id').eq('id', booking_id).maybeSingle();
+        ownerOk = !!bk && bk.user_id === caller.userId;
       } else if (order_id) {
-        const { data: ord } = await supabase.from('shop_orders').select('customer_id').eq('id', order_id).maybeSingle()
-        ownerOk = !!ord && ord.customer_id === caller.userId
+        const { data: ord } = await supabase.from('shop_orders').select('customer_id').eq('id', order_id).maybeSingle();
+        ownerOk = !!ord && ord.customer_id === caller.userId;
       }
-      if (!ownerOk) return forbidden(CORS, 'not_owner')
+      if (!ownerOk) return forbidden(CORS, 'not_owner');
     }
-    const COMPANY = await loadCompanyInfo(supabase)
-
+    const COMPANY = await loadCompanyInfo(supabase);
     // ── Render-only pro EXISTUJÍCÍ doklad bez PDF ──────────────────────────────
     // KF (konečnou fakturu) k rezervaci vytváří DB trigger
     // generate_final_invoice_on_complete(), který ale PDF nikdy nevyrenderuje →
@@ -213,95 +259,138 @@ serve(async (req) => {
     // ale mail booking_completed nemá co přiložit. Tato větev dorenderuje PDF z
     // ULOŽENÝCH položek řádku (nepřepočítává je) a doplní pdf_path — beze změny čísla/řádku.
     if (render_existing && booking_id) {
-      const wantType = type || 'final'
-      const { data: existRows } = await supabase.from('invoices')
-        .select('id, number, type, items, total, customer_id, issue_date, due_date, pdf_path, variable_symbol, paid_date')
-        .eq('booking_id', booking_id).eq('type', wantType).neq('status', 'cancelled')
-        .order('created_at', { ascending: false }).limit(1)
-      const inv = existRows?.[0]
-      if (!inv) return new Response(JSON.stringify({ error: 'Invoice not found' }), { status: 404, headers: { ...CORS, 'Content-Type': 'application/json' } })
-
+      const wantType = type || 'final';
+      const { data: existRows } = await supabase.from('invoices').select('id, number, type, items, total, customer_id, issue_date, due_date, pdf_path, variable_symbol, paid_date').eq('booking_id', booking_id).eq('type', wantType).neq('status', 'cancelled').order('created_at', {
+        ascending: false
+      }).limit(1);
+      const inv = existRows?.[0];
+      if (!inv) return new Response(JSON.stringify({
+        error: 'Invoice not found'
+      }), {
+        status: 404,
+        headers: {
+          ...CORS,
+          'Content-Type': 'application/json'
+        }
+      });
       // Už má použitelné PDF/HTML? Vrať ho (idempotence).
       if (inv.pdf_path) {
         try {
-          const { data: blob } = await supabase.storage.from('documents').download(inv.pdf_path)
+          const { data: blob } = await supabase.storage.from('documents').download(inv.pdf_path);
           if (blob && blob.size > 0) {
-            return new Response(JSON.stringify({ success: true, invoice_id: inv.id, number: inv.number, pdf_path: inv.pdf_path, existing: true }), { headers: { ...CORS, 'Content-Type': 'application/json' } })
+            return new Response(JSON.stringify({
+              success: true,
+              invoice_id: inv.id,
+              number: inv.number,
+              pdf_path: inv.pdf_path,
+              existing: true
+            }), {
+              headers: {
+                ...CORS,
+                'Content-Type': 'application/json'
+              }
+            });
           }
-        } catch { /* soubor chybí → dorenderuj */ }
+        } catch  {}
       }
-
       // ODBĚRATEL (zákazník)
-      let cust: any = {}
+      let cust = {};
       if (inv.customer_id) {
-        const { data: prof } = await supabase.from('profiles')
-          .select('id, full_name, email, phone, street, city, zip, country, ico, dic')
-          .eq('id', inv.customer_id).single()
-        if (prof) cust = prof
-        await loadCustomerCompany(supabase, cust)
+        const { data: prof } = await supabase.from('profiles').select('id, full_name, email, phone, street, city, zip, country, ico, dic').eq('id', inv.customer_id).single();
+        if (prof) cust = prof;
+        await loadCustomerCompany(supabase, cust);
       }
-
-      const isFinalKf = inv.type === 'final'
-      const today = new Date().toISOString().slice(0, 10)
+      const isFinalKf = inv.type === 'final';
+      const today = new Date().toISOString().slice(0, 10);
       const html = generateInvoiceHtml({
         title: isFinalKf ? 'KONEČNÁ FAKTURA' : 'FAKTURA',
-        number: inv.number, accent: '#1a8a18',
-        issueDate: inv.issue_date || today, dueDate: inv.due_date || inv.issue_date || today,
-        total: Number(inv.total || 0), company: COMPANY, customer: cust,
+        number: inv.number,
+        accent: '#1a8a18',
+        issueDate: inv.issue_date || today,
+        dueDate: inv.due_date || inv.issue_date || today,
+        total: Number(inv.total || 0),
+        company: COMPANY,
+        customer: cust,
         items: Array.isArray(inv.items) ? inv.items : [],
-        isProforma: false, isPaymentReceipt: false, isShopFinal: isFinalKf,
+        isProforma: false,
+        isPaymentReceipt: false,
+        isShopFinal: isFinalKf,
         paidDate: inv.paid_date ? String(inv.paid_date).slice(0, 10) : undefined,
         variableSymbol: String(inv.variable_symbol || inv.number || '').replace(/\D/g, '') || null,
-        bookingNumber: booking_id.slice(-8).toUpperCase(), lang: 'cs',
-      })
-
-      let outPath: string
-      const pdfBytes = await htmlToPdf(html)
+        bookingNumber: booking_id.slice(-8).toUpperCase(),
+        lang: 'cs'
+      });
+      let outPath;
+      const pdfBytes = await htmlToPdf(html);
       if (pdfBytes) {
-        outPath = `invoices/${inv.id}.pdf`
-        await supabase.storage.from('documents').upload(outPath, new Blob([pdfBytes], { type: 'application/pdf' }), { upsert: true, contentType: 'application/pdf' })
+        outPath = `invoices/${inv.id}.pdf`;
+        await supabase.storage.from('documents').upload(outPath, new Blob([
+          pdfBytes
+        ], {
+          type: 'application/pdf'
+        }), {
+          upsert: true,
+          contentType: 'application/pdf'
+        });
       } else {
-        outPath = `invoices/${inv.id}.html`
-        await supabase.storage.from('documents').upload(outPath, new Blob([html], { type: 'text/html' }), { upsert: true, contentType: 'text/html' })
+        outPath = `invoices/${inv.id}.html`;
+        await supabase.storage.from('documents').upload(outPath, new Blob([
+          html
+        ], {
+          type: 'text/html'
+        }), {
+          upsert: true,
+          contentType: 'text/html'
+        });
       }
-      await supabase.from('invoices').update({ pdf_path: outPath }).eq('id', inv.id)
-
-      return new Response(JSON.stringify({ success: true, invoice_id: inv.id, number: inv.number, pdf_path: outPath }), { headers: { ...CORS, 'Content-Type': 'application/json' } })
+      await supabase.from('invoices').update({
+        pdf_path: outPath
+      }).eq('id', inv.id);
+      return new Response(JSON.stringify({
+        success: true,
+        invoice_id: inv.id,
+        number: inv.number,
+        pdf_path: outPath
+      }), {
+        headers: {
+          ...CORS,
+          'Content-Type': 'application/json'
+        }
+      });
     }
-
-    const invoiceType = type || 'proforma'
-    const isShop = invoiceType === 'shop_proforma' || invoiceType === 'shop_final' || (order_id && !booking_id)
-    const isProforma = invoiceType === 'proforma' || invoiceType === 'shop_proforma' || invoiceType === 'advance'
-    const isPaymentReceipt = invoiceType === 'payment_receipt'
-    const prefix = isPaymentReceipt ? 'DP' : isProforma ? 'ZF' : 'FV'
-    const year = new Date().getFullYear()
-
+    const invoiceType = type || 'proforma';
+    const isShop = invoiceType === 'shop_proforma' || invoiceType === 'shop_final' || order_id && !booking_id;
+    const isProforma = invoiceType === 'proforma' || invoiceType === 'shop_proforma' || invoiceType === 'advance';
+    const isPaymentReceipt = invoiceType === 'payment_receipt';
+    const prefix = isPaymentReceipt ? 'DP' : isProforma ? 'ZF' : 'FV';
+    const year = new Date().getFullYear();
     // Source defaults to 'booking' for standard flow; 'edit' marks per-modification invoices
-    const invoiceSource: string = reqSource || 'booking'
-    const isEdit = invoiceSource === 'edit' && !isShop
-
-    let customer: any = {}
-    let items: { description: string; qty: number; unit_price: number }[] = []
-    let customerId: string | null = null
-    let cardInfo: { brand: string; last4: string } | null = null
+    const invoiceSource = reqSource || 'booking';
+    const isEdit = invoiceSource === 'edit' && !isShop;
+    let customer = {};
+    let items = [];
+    let customerId = null;
+    let cardInfo = null;
     let editLabel = '' // e.g. "ÚPRAVA — +2 dny"
+    ;
     let paymentMethodLabel = '' // "Bankovní převod" / "Platba kartou Visa **** 4242"
+    ;
     let stripePaymentId = '' // Stripe payment intent / session id (na doklad místo bank. účtu)
-
+    ;
     if (isShop && order_id) {
-      const { data: order, error: oErr } = await supabase
-        .from('shop_orders').select('*, shop_order_items(*)').eq('id', order_id).single()
-      if (oErr || !order) return new Response(JSON.stringify({ error: 'Order not found' }), { status: 404 })
-
-      customerId = order.customer_id
+      const { data: order, error: oErr } = await supabase.from('shop_orders').select('*, shop_order_items(*)').eq('id', order_id).single();
+      if (oErr || !order) return new Response(JSON.stringify({
+        error: 'Order not found'
+      }), {
+        status: 404
+      });
+      customerId = order.customer_id;
       if (order.customer_id) {
-        const { data: profile } = await supabase.from('profiles')
-          .select('id, full_name, email, phone, street, city, zip, country, ico, dic')
-          .eq('id', order.customer_id).single()
-        if (profile) customer = profile
+        const { data: profile } = await supabase.from('profiles').select('id, full_name, email, phone, street, city, zip, country, ico, dic').eq('id', order.customer_id).single();
+        if (profile) customer = profile;
         // Firemní údaje z profilu (company_name/company_address) — bez tohohle se
         // na shop DP/ZF/KF tiskla jen osoba + IČO a název firmy chyběl.
-        await loadCustomerCompany(supabase, customer)
+        await loadCustomerCompany(supabase, customer);
       }
       // Web objednávka poukazu je anonymní (bez customer_id) — fakturační údaje
       // (firma, IČO, DIČ, adresa) drží přímo shop_orders. Doplníme je do customer,
@@ -315,59 +404,65 @@ serve(async (req) => {
         ico: customer.ico || order.customer_ico || null,
         dic: customer.dic || order.customer_dic || null,
         // Profil má street/city/zip; u web poukazu je adresa spojená v billing_address.
-        street: customer.street || order.billing_address || null,
-      }
-
+        street: customer.street || order.billing_address || null
+      };
       // E-shop/voucher objednávka je placená kartou přes Stripe — na dokladu má být
       // místo bankovního účtu (mBank) uvedena platba kartou + identifikátor platby.
-      stripePaymentId = order.stripe_payment_intent_id || order.stripe_session_id || ''
+      stripePaymentId = order.stripe_payment_intent_id || order.stripe_session_id || '';
       if (stripePaymentId) {
-        cardInfo = { brand: 'card', last4: '' }
-        paymentMethodLabel = 'Platba kartou (Stripe)'
+        cardInfo = {
+          brand: 'card',
+          last4: ''
+        };
+        paymentMethodLabel = 'Platba kartou (Stripe)';
       }
-
-      for (const it of (order.shop_order_items || [])) {
-        items.push({ description: it.product_name, qty: it.quantity || 1, unit_price: it.unit_price || 0 })
+      for (const it of order.shop_order_items || []){
+        items.push({
+          description: it.product_name,
+          qty: it.quantity || 1,
+          unit_price: it.unit_price || 0
+        });
       }
-      if (order.shipping_cost > 0) items.push({ description: 'Doprava', qty: 1, unit_price: Number(order.shipping_cost) })
-      if (order.discount > 0) items.push({ description: 'Sleva', qty: 1, unit_price: -Number(order.discount) })
-
+      if (order.shipping_cost > 0) items.push({
+        description: 'Doprava',
+        qty: 1,
+        unit_price: Number(order.shipping_cost)
+      });
+      if (order.discount > 0) items.push({
+        description: 'Sleva',
+        qty: 1,
+        unit_price: -Number(order.discount)
+      });
       // Kódy poukazů jen na ZAPLACENÝ doklad (DP/konečná) — NIKDY na ZF (shop_proforma):
       // zálohová faktura nemusí být uhrazená a zveřejnění kódů by je „uvolnilo" před platbou.
       if (!isProforma && (!explicitVoucherCodes || explicitVoucherCodes.length === 0)) {
-        const { data: orderVouchers } = await supabase.from('vouchers').select('code, amount, valid_until').eq('order_id', order_id)
+        const { data: orderVouchers } = await supabase.from('vouchers').select('code, amount, valid_until').eq('order_id', order_id);
         if (orderVouchers && orderVouchers.length > 0) {
-          voucher_codes = orderVouchers.map((v: any) => `${v.code} — ${fmtPrice(v.amount)} Kč, platný do ${fmtDate(v.valid_until)}`)
-          voucherValidUntil = orderVouchers[0].valid_until
+          voucher_codes = orderVouchers.map((v)=>`${v.code} — ${fmtPrice(v.amount)} Kč, platný do ${fmtDate(v.valid_until)}`);
+          voucherValidUntil = orderVouchers[0].valid_until;
         }
       }
     } else {
-      const { data: booking, error: bErr } = await supabase
-        .from('bookings').select('*, motorcycles!moto_id(model, spz, price_mon, price_tue, price_wed, price_thu, price_fri, price_sat, price_sun, price_weekday, price_weekend), profiles(id, full_name, email, phone, street, city, zip, country, ico, dic)')
-        .eq('id', booking_id).single()
-      if (bErr || !booking) return new Response(JSON.stringify({ error: 'Booking not found' }), { status: 404 })
-
-      customer = booking.profiles || {}
-      customerId = customer.id || booking.user_id
-      await loadCustomerCompany(supabase, customer)
-
+      const { data: booking, error: bErr } = await supabase.from('bookings').select('*, motorcycles!moto_id(model, spz, price_mon, price_tue, price_wed, price_thu, price_fri, price_sat, price_sun, price_weekday, price_weekend), profiles(id, full_name, email, phone, street, city, zip, country, ico, dic)').eq('id', booking_id).single();
+      if (bErr || !booking) return new Response(JSON.stringify({
+        error: 'Booking not found'
+      }), {
+        status: 404
+      });
+      customer = booking.profiles || {};
+      customerId = customer.id || booking.user_id;
+      await loadCustomerCompany(supabase, customer);
       // Load per-booking extras with proper names (sizes derived from booking columns)
-      const { data: bookExtras } = await supabase.from('booking_extras')
-        .select('name, unit_price, quantity')
-        .eq('booking_id', booking_id)
-      const extras = bookExtras || []
-
+      const { data: bookExtras } = await supabase.from('booking_extras').select('name, unit_price, quantity').eq('booking_id', booking_id);
+      const extras = bookExtras || [];
       // Identify card info for payment method display
-      cardInfo = await loadPaymentCardInfo(supabase, booking)
-      stripePaymentId = booking.stripe_payment_intent_id || ''
+      cardInfo = await loadPaymentCardInfo(supabase, booking);
+      stripePaymentId = booking.stripe_payment_intent_id || '';
       // Když rezervaci platil Stripe (existuje PI), doklad MUSÍ ukázat „Platba
       // kartou (Stripe)" + ID transakce — i když nemáme uloženou kartu
       // (payment_methods řádek). App rezervace často kartu neukládají, takže
       // dřív padaly do větve „Bankovní převod" a doklad lhal.
-      paymentMethodLabel = cardInfo
-        ? `Platba kartou ${cardInfo.brand?.toUpperCase() || 'CARD'} **** ${cardInfo.last4 || '****'}`
-        : (stripePaymentId ? 'Platba kartou (Stripe)' : 'Bankovní převod')
-
+      paymentMethodLabel = cardInfo ? `Platba kartou ${cardInfo.brand?.toUpperCase() || 'CARD'} **** ${cardInfo.last4 || '****'}` : stripePaymentId ? 'Platba kartou (Stripe)' : 'Bankovní převod';
       if (isEdit) {
         // ===== EDIT: rozdílový doklad (ZF/DP) za doplatek při úpravě rezervace =====
         // Částka doplatku: primárně explicitní `price_difference` od volajícího —
@@ -377,353 +472,419 @@ serve(async (req) => {
         // Fallback `last.price_diff` z modification_history je jen pro historická
         // volání — RPC do historie zapisují {at, from/to dates, source} BEZ price_diff,
         // proto dřívější spoléhání čistě na history vracelo 0 a rozdílový DP nikdy nevznikl.
-        const history = Array.isArray(booking.modification_history) ? booking.modification_history : []
-        const last = history[history.length - 1]
-        const explicitDiff = Number(price_difference)
-        const priceDiff = Number.isFinite(explicitDiff) && explicitDiff > 0
-          ? Math.round(explicitDiff)
-          : Number(last?.price_diff || 0)
+        const history = Array.isArray(booking.modification_history) ? booking.modification_history : [];
+        const last = history[history.length - 1];
+        const explicitDiff = Number(price_difference);
+        const priceDiff = Number.isFinite(explicitDiff) && explicitDiff > 0 ? Math.round(explicitDiff) : Number(last?.price_diff || 0);
         if (priceDiff <= 0) {
           return new Response(JSON.stringify({
-            success: false, skipped: true,
+            success: false,
+            skipped: true,
             error: 'Edit price_diff <= 0 — use process-refund for shortening'
-          }), { headers: { ...CORS, 'Content-Type': 'application/json' } })
+          }), {
+            headers: {
+              ...CORS,
+              'Content-Type': 'application/json'
+            }
+          });
         }
-
         // Idempotence: stejný rozdílový doklad mohl už vystavit souběžný dispatch
         // (hardcoded mail + dispatch_email_event, retry, dvojitý Stripe event).
         // Stejný typ + stejná částka + čerstvý (≤15 min) → vrať existující.
-        const { data: freshEdit } = await supabase.from('invoices')
-          .select('id, number, pdf_path')
-          .eq('booking_id', booking_id).eq('type', invoiceType).eq('source', 'edit')
-          .neq('status', 'cancelled').eq('total', priceDiff)
-          .gte('created_at', new Date(Date.now() - 15 * 60_000).toISOString())
-          .order('created_at', { ascending: false }).limit(1)
+        const { data: freshEdit } = await supabase.from('invoices').select('id, number, pdf_path').eq('booking_id', booking_id).eq('type', invoiceType).eq('source', 'edit').neq('status', 'cancelled').eq('total', priceDiff).gte('created_at', new Date(Date.now() - 15 * 60_000).toISOString()).order('created_at', {
+          ascending: false
+        }).limit(1);
         if (freshEdit?.length && freshEdit[0].pdf_path) {
           return new Response(JSON.stringify({
-            success: true, invoice_id: freshEdit[0].id, number: freshEdit[0].number,
-            pdf_path: freshEdit[0].pdf_path, existing: true,
-          }), { headers: { ...CORS, 'Content-Type': 'application/json' } })
+            success: true,
+            invoice_id: freshEdit[0].id,
+            number: freshEdit[0].number,
+            pdf_path: freshEdit[0].pdf_path,
+            existing: true
+          }), {
+            headers: {
+              ...CORS,
+              'Content-Type': 'application/json'
+            }
+          });
         }
-
-        const motoLabel = `${booking.motorcycles?.model || 'motorky'}${booking.motorcycles?.spz ? ' (' + booking.motorcycles.spz + ')' : ''}`
-        const fmtD = (s: string) => s ? new Date(s).toLocaleDateString('cs-CZ') : '—'
-
+        const motoLabel = `${booking.motorcycles?.model || 'motorky'}${booking.motorcycles?.spz ? ' (' + booking.motorcycles.spz + ')' : ''}`;
+        const fmtD = (s)=>s ? new Date(s).toLocaleDateString('cs-CZ') : '—';
         // Denní rozpis dává smysl jen pro ČERSTVÝ history záznam se změnou termínu
         // (zapsala ho tatáž úprava). Starý/žádný záznam = úprava přišla jinou cestou
         // (placená výbava, doplatek aplikovaný webhookem) a rozpis by lhal.
-        const lastAt = last?.at ? new Date(last.at).getTime() : 0
-        const lastFresh = lastAt > 0 && (Date.now() - lastAt) < 15 * 60_000
-        const dayS = (v: unknown) => String(v || '').slice(0, 10)
-        const datesChanged = !!last && (dayS(last.from_start) !== dayS(last.to_start) || dayS(last.from_end) !== dayS(last.to_end))
+        const lastAt = last?.at ? new Date(last.at).getTime() : 0;
+        const lastFresh = lastAt > 0 && Date.now() - lastAt < 15 * 60_000;
+        const dayS = (v)=>String(v || '').slice(0, 10);
+        const datesChanged = !!last && (dayS(last.from_start) !== dayS(last.to_start) || dayS(last.from_end) !== dayS(last.to_end));
         // Změna slevy 50 % na 1. den (pozdní vyzvednutí) — klíče píší RPC core,
         // appka, Velín i webhook. Bez samostatných řádků se posun začátku /
         // změna času vyzvednutí schovaly do „korekce" (incident 0DC12164:
         // doklad tvrdil „pondělí 1 986 − korekce 1 092", reálně čtvrtek odpoledne).
-        const fromLate = Math.round(Number(last?.from_late_pickup ?? 0))
-        const toLate = Math.round(Number(last?.to_late_pickup ?? 0))
-        const lateChanged = !!last && last.from_late_pickup != null && last.to_late_pickup != null && fromLate !== toLate
-        const hmS = (v: unknown) => (v == null ? '' : String(v).slice(0, 5))
-        const fromT = hmS(last?.from_pickup_time), toT = hmS(last?.to_pickup_time)
-
+        const fromLate = Math.round(Number(last?.from_late_pickup ?? 0));
+        const toLate = Math.round(Number(last?.to_late_pickup ?? 0));
+        const lateChanged = !!last && last.from_late_pickup != null && last.to_late_pickup != null && fromLate !== toLate;
+        const hmS = (v)=>v == null ? '' : String(v).slice(0, 5);
+        const fromT = hmS(last?.from_pickup_time), toT = hmS(last?.to_pickup_time);
         if (lastFresh && (datesChanged || lateChanged)) {
           // Compute delta days (to_end - from_end for prodloužení)
-          const fromEnd = last.from_end ? new Date(last.from_end).getTime() : 0
-          const toEnd = last.to_end ? new Date(last.to_end).getTime() : 0
-          const fromStart = last.from_start ? new Date(last.from_start).getTime() : 0
-          const toStart = last.to_start ? new Date(last.to_start).getTime() : 0
-          const deltaDays = datesChanged ? Math.round(((toEnd - fromEnd) - (toStart - fromStart)) / 86400000) : 0
-
-          editLabel = deltaDays > 0
-            ? `ÚPRAVA — prodloužení o ${deltaDays} ${deltaDays === 1 ? 'den' : deltaDays < 5 ? 'dny' : 'dní'}`
-            : (datesChanged ? `ÚPRAVA — změna termínu` : `ÚPRAVA — změna času vyzvednutí`)
-
+          const fromEnd = last.from_end ? new Date(last.from_end).getTime() : 0;
+          const toEnd = last.to_end ? new Date(last.to_end).getTime() : 0;
+          const fromStart = last.from_start ? new Date(last.from_start).getTime() : 0;
+          const toStart = last.to_start ? new Date(last.to_start).getTime() : 0;
+          const deltaDays = datesChanged ? Math.round((toEnd - fromEnd - (toStart - fromStart)) / 86400000) : 0;
+          editLabel = deltaDays > 0 ? `ÚPRAVA — prodloužení o ${deltaDays} ${deltaDays === 1 ? 'den' : deltaDays < 5 ? 'dny' : 'dní'}` : datesChanged ? `ÚPRAVA — změna termínu` : `ÚPRAVA — změna času vyzvednutí`;
           // Hlavička úpravy — section header (renderuje se přes colspan, bez ceny v řádku).
           items.push({
-            description: datesChanged
-              ? `── Úprava rezervace: ${motoLabel} — nový termín ${fmtD(last.to_start)} – ${fmtD(last.to_end)} (původně ${fmtD(last.from_start)} – ${fmtD(last.from_end)}) ──`
-              : `── Úprava rezervace: ${motoLabel} — čas vyzvednutí ${fromT || '—'} → ${toT || '—'} (termín ${fmtD(booking.start_date)} – ${fmtD(booking.end_date)}) ──`,
+            description: datesChanged ? `── Úprava rezervace: ${motoLabel} — nový termín ${fmtD(last.to_start)} – ${fmtD(last.to_end)} (původně ${fmtD(last.from_start)} – ${fmtD(last.from_end)}) ──` : `── Úprava rezervace: ${motoLabel} — čas vyzvednutí ${fromT || '—'} → ${toT || '—'} (termín ${fmtD(booking.start_date)} – ${fmtD(booking.end_date)}) ──`,
             qty: 1,
-            unit_price: 0,
-          })
-
+            unit_price: 0
+          });
           // Denní rozpis přidaných (+) a odebraných (−) dnů — z denních cen motorky.
-          let itemized = 0
-          let itemsSum = 0
+          let itemized = 0;
+          let itemsSum = 0;
           if (datesChanged) {
-            const ext = calcPriceBreakdown(booking.motorcycles, last.to_start, last.to_end)
-            const orig = calcPriceBreakdown(booking.motorcycles, last.from_start, last.from_end)
-            const origIso = new Set((orig.days || []).map((d) => d.iso))
-            const newIso = new Set((ext.days || []).map((d) => d.iso))
-            for (const ad of (ext.days || []).filter((d) => !origIso.has(d.iso))) {
-              if (!(ad.price > 0)) continue
-              items.push({ description: `Pronájem ${motoLabel} — ${ad.dowLabel} ${fmtD(ad.iso)}`, qty: 1, unit_price: ad.price })
-              itemized++; itemsSum += ad.price
+            const ext = calcPriceBreakdown(booking.motorcycles, last.to_start, last.to_end);
+            const orig = calcPriceBreakdown(booking.motorcycles, last.from_start, last.from_end);
+            const origIso = new Set((orig.days || []).map((d)=>d.iso));
+            const newIso = new Set((ext.days || []).map((d)=>d.iso));
+            for (const ad of (ext.days || []).filter((d)=>!origIso.has(d.iso))){
+              if (!(ad.price > 0)) continue;
+              items.push({
+                description: `Pronájem ${motoLabel} — ${ad.dowLabel} ${fmtD(ad.iso)}`,
+                qty: 1,
+                unit_price: ad.price
+              });
+              itemized++;
+              itemsSum += ad.price;
             }
-            for (const rd of (orig.days || []).filter((d) => !newIso.has(d.iso))) {
-              if (!(rd.price > 0)) continue
-              items.push({ description: `Odebraný den — ${rd.dowLabel} ${fmtD(rd.iso)}`, qty: 1, unit_price: -rd.price })
-              itemized++; itemsSum -= rd.price
+            for (const rd of (orig.days || []).filter((d)=>!newIso.has(d.iso))){
+              if (!(rd.price > 0)) continue;
+              items.push({
+                description: `Odebraný den — ${rd.dowLabel} ${fmtD(rd.iso)}`,
+                qty: 1,
+                unit_price: -rd.price
+              });
+              itemized++;
+              itemsSum -= rd.price;
             }
           }
           // Sleva 50 % na 1. den (pozdní vyzvednutí >= 12:00, 2+ dny): zrušení
           // původní slevy = doplatek, nová sleva na nový 1. den = odpočet.
           if (lateChanged) {
             if (fromLate > 0) {
-              items.push({ description: `Zrušení slevy 50 % na 1. den (pozdní vyzvednutí) — původní 1. den ${fmtD(last.from_start)}`, qty: 1, unit_price: fromLate })
-              itemized++; itemsSum += fromLate
+              items.push({
+                description: `Zrušení slevy 50 % na 1. den (pozdní vyzvednutí) — původní 1. den ${fmtD(last.from_start)}`,
+                qty: 1,
+                unit_price: fromLate
+              });
+              itemized++;
+              itemsSum += fromLate;
             }
             if (toLate > 0) {
-              items.push({ description: `Sleva 50 % na 1. den (pozdní vyzvednutí) — 1. den ${fmtD(last.to_start)}${toT ? ', vyzvednutí ' + toT : ''}`, qty: 1, unit_price: -toLate })
-              itemized++; itemsSum -= toLate
+              items.push({
+                description: `Sleva 50 % na 1. den (pozdní vyzvednutí) — 1. den ${fmtD(last.to_start)}${toT ? ', vyzvednutí ' + toT : ''}`,
+                qty: 1,
+                unit_price: -toLate
+              });
+              itemized++;
+              itemsSum -= toLate;
             }
           }
           if (itemized === 0) {
             // Fallback: nemáme detailní rozpis (např. prázdné denní ceny) — jediný řádek.
-            items.push({ description: `Doplatek za úpravu rezervace`, qty: 1, unit_price: priceDiff })
+            items.push({
+              description: `Doplatek za úpravu rezervace`,
+              qty: 1,
+              unit_price: priceDiff
+            });
           } else if (Math.round(itemsSum) !== priceDiff) {
             // Bezpečné: pokud se rozpis nesejde s priceDiff (storno % u odebraných
             // dnů, věrnostní sleva, ruční override), korekční řádek srovná součet
             // 1:1 s tím, co zákazník platí.
-            items.push({ description: `Korekce ceny úpravy`, qty: 1, unit_price: priceDiff - Math.round(itemsSum) })
+            items.push({
+              description: `Korekce ceny úpravy`,
+              qty: 1,
+              unit_price: priceDiff - Math.round(itemsSum)
+            });
           }
         } else {
           // Generický doplatek — změna motorky / placená výbava / doplatek z webhooku.
-          editLabel = `ÚPRAVA — doplatek`
+          editLabel = `ÚPRAVA — doplatek`;
           items.push({
             description: `Doplatek za úpravu rezervace ${motoLabel} — ${fmtD(booking.start_date)} – ${fmtD(booking.end_date)}`,
             qty: 1,
-            unit_price: priceDiff,
-          })
+            unit_price: priceDiff
+          });
         }
-
-        // Booking-level ref in title; exposed via bookingNumber below
+      // Booking-level ref in title; exposed via bookingNumber below
       } else {
         // ===== STANDARD: full invoice for the booking =====
-        const startDate = fmtDate(booking.start_date); const endDate = fmtDate(booking.end_date)
-        const days = Math.max(1, Math.ceil((new Date(booking.end_date).getTime() - new Date(booking.start_date).getTime()) / 86400000))
-        const extrasTotal = extras.reduce((s, e) => s + Number(e.unit_price || 0) * Number(e.quantity || 1), 0)
+        const startDate = fmtDate(booking.start_date);
+        const endDate = fmtDate(booking.end_date);
+        const days = Math.max(1, Math.ceil((new Date(booking.end_date).getTime() - new Date(booking.start_date).getTime()) / 86400000));
+        const extrasTotal = extras.reduce((s, e)=>s + Number(e.unit_price || 0) * Number(e.quantity || 1), 0);
         // Věrnostní sleva (ranky, jen app rezervace) je uložená odděleně od promo/voucher
         // slevy — pro brutto pronájmu se přičítá zpět stejně jako discount_amount.
-        const loyaltyDiscount = Number(booking.loyalty_discount_amount || 0)
+        const loyaltyDiscount = Number(booking.loyalty_discount_amount || 0);
         // Sleva 50 % na 1. den (pozdní vyzvednutí >=12:00, rezervace >=2 dny) je
         // uložená odděleně — pro brutto pronájmu se přičítá zpět jako discount_amount.
-        const latePickupDiscount = Number(booking.late_pickup_discount_amount || 0)
-        const baseRental = (booking.total_price || 0) - extrasTotal - (booking.delivery_fee || 0) + (booking.discount_amount || 0) + loyaltyDiscount + latePickupDiscount
-        const motoLabelStd = `${booking.motorcycles?.model || 'motorky'}${booking.motorcycles?.spz ? ' (' + booking.motorcycles.spz + ')' : ''}`
-        const bd = calcPriceBreakdown(booking.motorcycles, booking.start_date, booking.end_date)
-
+        const latePickupDiscount = Number(booking.late_pickup_discount_amount || 0);
+        const baseRental = (booking.total_price || 0) - extrasTotal - (booking.delivery_fee || 0) + (booking.discount_amount || 0) + loyaltyDiscount + latePickupDiscount;
+        const motoLabelStd = `${booking.motorcycles?.model || 'motorky'}${booking.motorcycles?.spz ? ' (' + booking.motorcycles.spz + ')' : ''}`;
+        const bd = calcPriceBreakdown(booking.motorcycles, booking.start_date, booking.end_date);
         if (!bd.uniform && bd.days.length > 1 && bd.total > 0) {
           // Hlavička + per-day rozpis (každý den ≠ stejná cena → vlastní řádek).
           // `── ... ──` značí section header — template ho vyrenderuje přes colspan.
           items.push({
             description: `── Pronájem ${motoLabelStd} — ${startDate} – ${endDate} ──`,
             qty: 1,
-            unit_price: 0,
-          })
-          for (const ad of bd.days) {
+            unit_price: 0
+          });
+          for (const ad of bd.days){
             items.push({
               description: `${ad.dowLabel} ${fmtDate(ad.iso)}`,
               qty: 1,
-              unit_price: ad.price,
-            })
+              unit_price: ad.price
+            });
           }
           // Korekce: pokud Σ(rozpisu) ≠ baseRental (slevy/ruční override v bookingu), srovnáme.
           if (Math.round(bd.total) !== Math.round(baseRental)) {
             items.push({
               description: `Korekce ceny pronájmu`,
               qty: 1,
-              unit_price: Math.round(baseRental - bd.total),
-            })
+              unit_price: Math.round(baseRental - bd.total)
+            });
           }
         } else {
           // Uniformní cena nebo chybějící denní rozpis → jeden řádek (qty × unit).
           items.push({
             description: `Pronájem ${motoLabelStd} — ${startDate} – ${endDate}`,
             qty: days,
-            unit_price: Math.round(baseRental / days),
-          })
+            unit_price: Math.round(baseRental / days)
+          });
         }
-
         // Itemize accessories with sizes from booking gear columns
-        for (const ex of extras) {
+        for (const ex of extras){
           items.push({
             description: extraLabel(ex.name || 'Příslušenství', booking),
             qty: Number(ex.quantity || 1),
-            unit_price: Number(ex.unit_price || 0),
-          })
+            unit_price: Number(ex.unit_price || 0)
+          });
         }
-
         if (extra_items && Array.isArray(extra_items)) {
-          extra_items.forEach((ei: any) => items.push({ description: ei.description || 'Položka', qty: ei.qty || 1, unit_price: ei.unit_price || 0 }))
+          extra_items.forEach((ei)=>items.push({
+              description: ei.description || 'Položka',
+              qty: ei.qty || 1,
+              unit_price: ei.unit_price || 0
+            }));
         }
-        if (booking.delivery_fee && Number(booking.delivery_fee) > 0) items.push({ description: 'Přistavení / odvoz motorky', qty: 1, unit_price: Number(booking.delivery_fee) })
-        if (booking.sos_replacement && !extra_items) items.push({ description: 'Záloha na poškození motorky', qty: 1, unit_price: 30000 })
+        if (booking.delivery_fee && Number(booking.delivery_fee) > 0) items.push({
+          description: 'Přistavení / odvoz motorky',
+          qty: 1,
+          unit_price: Number(booking.delivery_fee)
+        });
+        if (booking.sos_replacement && !extra_items) items.push({
+          description: 'Záloha na poškození motorky',
+          qty: 1,
+          unit_price: 30000
+        });
         // Slevy — KAŽDÝ promo kód i voucher samostatný řádek (z booking_discounts).
         // Fallback: legacy rezervace bez booking_discounts → jeden souhrnný řádek.
-        const { data: bookingDiscounts } = await supabase
-          .from('booking_discounts')
-          .select('kind, code, discount_type, value, amount')
-          .eq('booking_id', booking.id)
-          .order('created_at')
+        const { data: bookingDiscounts } = await supabase.from('booking_discounts').select('kind, code, discount_type, value, amount').eq('booking_id', booking.id).order('created_at');
         if (bookingDiscounts && bookingDiscounts.length > 0) {
-          for (const d of bookingDiscounts) {
-            if (!d.amount || Number(d.amount) <= 0) continue
-            const lbl = d.kind === 'voucher'
-              ? `Voucher (${d.code})`
-              : (d.discount_type === 'percent'
-                  ? `Slevový kód ${d.code} (${d.value} %)`
-                  : `Slevový kód ${d.code}`)
-            items.push({ description: lbl, qty: 1, unit_price: -Number(d.amount) })
+          for (const d of bookingDiscounts){
+            if (!d.amount || Number(d.amount) <= 0) continue;
+            const lbl = d.kind === 'voucher' ? `Voucher (${d.code})` : d.discount_type === 'percent' ? `Slevový kód ${d.code} (${d.value} %)` : `Slevový kód ${d.code}`;
+            items.push({
+              description: lbl,
+              qty: 1,
+              unit_price: -Number(d.amount)
+            });
           }
         } else if (booking.discount_amount && Number(booking.discount_amount) > 0) {
-          items.push({ description: booking.discount_code ? `Sleva (kód: ${booking.discount_code})` : 'Sleva / voucher', qty: 1, unit_price: -Number(booking.discount_amount) })
+          items.push({
+            description: booking.discount_code ? `Sleva (kód: ${booking.discount_code})` : 'Sleva / voucher',
+            qty: 1,
+            unit_price: -Number(booking.discount_amount)
+          });
         }
         // Věrnostní sleva (ranky) — samostatný řádek; platí JEN pro rezervace
         // vytvořené v aplikaci MotoGo24 (booking_source='app').
         if (loyaltyDiscount > 0) {
-          const pctLabel = booking.loyalty_percent ? ` ${booking.loyalty_percent} %` : ''
-          items.push({ description: `Věrnostní sleva${pctLabel} — rezervace přes aplikaci MotoGo24`, qty: 1, unit_price: -loyaltyDiscount })
+          const pctLabel = booking.loyalty_percent ? ` ${booking.loyalty_percent} %` : '';
+          items.push({
+            description: `Věrnostní sleva${pctLabel} — rezervace přes aplikaci MotoGo24`,
+            qty: 1,
+            unit_price: -loyaltyDiscount
+          });
         }
         // Sleva 50 % na 1. den při pozdním vyzvednutí (>=12:00) a rezervaci >=2 dny —
         // samostatný záporný řádek. Platí pro web i app.
         if (latePickupDiscount > 0) {
-          items.push({ description: `Sleva 50 % na 1. den (pozdní vyzvednutí)`, qty: 1, unit_price: -latePickupDiscount })
+          items.push({
+            description: `Sleva 50 % na 1. den (pozdní vyzvednutí)`,
+            qty: 1,
+            unit_price: -latePickupDiscount
+          });
         }
       }
-
       if (isPaymentReceipt) {
         // Přístupové kódy jen dokud pronájem trvá — regenerace/doposlání dokladu
         // PO konci nájmu nesmí nést (už neplatné) kódy k pobočce.
-        const bkEndDate = booking.end_date ? String(booking.end_date).slice(0, 10) : null
+        const bkEndDate = booking.end_date ? String(booking.end_date).slice(0, 10) : null;
         if (!bkEndDate || bkEndDate >= new Date().toISOString().slice(0, 10)) {
           try {
-            const { data: codes } = await supabase.from('branch_door_codes').select('code_type, door_code, withheld_reason').eq('booking_id', booking_id)
-            if (codes && codes.length > 0) doorCodes = codes
-          } catch (e) { console.warn('Failed to fetch door codes:', e) }
+            const { data: codes } = await supabase.from('branch_door_codes').select('code_type, door_code, withheld_reason').eq('booking_id', booking_id);
+            if (codes && codes.length > 0) doorCodes = codes;
+          } catch (e) {
+            console.warn('Failed to fetch door codes:', e);
+          }
         }
       }
     }
-
     // ── Guard: skip ZF/DP generation for zero-amount bookings (free modifications, SOS without payment) ──
     if (booking_id && !isShop && (isProforma || isPaymentReceipt) && !isEdit) {
-      const { data: bkCheck } = await supabase.from('bookings').select('total_price').eq('id', booking_id).single()
+      const { data: bkCheck } = await supabase.from('bookings').select('total_price').eq('id', booking_id).single();
       if (bkCheck && Number(bkCheck.total_price || 0) <= 0) {
         return new Response(JSON.stringify({
-          success: false, error: 'Booking has zero amount — ZF/DP not generated', skipped: true
-        }), { headers: { ...CORS, 'Content-Type': 'application/json' } })
+          success: false,
+          error: 'Booking has zero amount — ZF/DP not generated',
+          skipped: true
+        }), {
+          headers: {
+            ...CORS,
+            'Content-Type': 'application/json'
+          }
+        });
       }
     }
-
     // ── Dedup: kontroluj existující doklad pro stejný booking_id NEBO order_id.
     // Edits (isEdit) vždy vytvářejí nový. Bez tohoto dedupu webhook při 2 Stripe
     // eventech vytvořil 2 DP záznamy → 2 přílohy v mailu.
-    const isShopFinalLocal = invoiceType === 'shop_final'
+    const isShopFinalLocal = invoiceType === 'shop_final';
     // Při přegenerování (regenerate=true z Velína) přepíšeme existující doklad —
     // zachováme číslo, položky, částky i data (viz POJISTKA 1/2 níže), aktualizuje
     // se jen odběratel a PDF se znovu vyrenderuje (upsert do stejné storage cesty).
-    let reuseInvoice: { id: string; number: string; pdf_path: string | null; issue_date: string | null; due_date: string | null; paid_date: string | null; status: string | null; created_at: string | null; items: any; total: number | null; variable_symbol: string | null; customer_snapshot: any } | null = null
+    let reuseInvoice = null;
     if (!isEdit) {
-      const dedupTypes = isPaymentReceipt
-        ? ['payment_receipt']
-        : isProforma
-          ? ['advance', 'proforma', 'shop_proforma']
-          : isShopFinalLocal
-            ? ['shop_final']
-            : ['final', 'issued']
-      let q = supabase.from('invoices').select('id, number, pdf_path, issue_date, due_date, paid_date, status, created_at, items, total, variable_symbol, customer_snapshot')
-        .in('type', dedupTypes).neq('status', 'cancelled').limit(1)
-      if (booking_id) q = q.eq('booking_id', booking_id).eq('source', 'booking')
-      else if (order_id) q = q.eq('order_id', order_id)
+      const dedupTypes = isPaymentReceipt ? [
+        'payment_receipt'
+      ] : isProforma ? [
+        'advance',
+        'proforma',
+        'shop_proforma'
+      ] : isShopFinalLocal ? [
+        'shop_final'
+      ] : [
+        'final',
+        'issued'
+      ];
+      let q = supabase.from('invoices').select('id, number, pdf_path, issue_date, due_date, paid_date, status, created_at, items, total, variable_symbol, customer_snapshot').in('type', dedupTypes).neq('status', 'cancelled').limit(1);
+      if (booking_id) q = q.eq('booking_id', booking_id).eq('source', 'booking');
+      else if (order_id) q = q.eq('order_id', order_id);
       else q = q.eq('id', '00000000-0000-0000-0000-000000000000') // never matches if no key
-
-      const { data: sameSource } = await q
+      ;
+      const { data: sameSource } = await q;
       if (sameSource?.length) {
         if (regenerate) {
           // Přegenerování — nevracíme existující, ale přepíšeme ho níže.
-          reuseInvoice = sameSource[0]
-          console.log(`Invoice ${sameSource[0].number} — regenerating (overwrite) with updated data`)
+          reuseInvoice = sameSource[0];
+          console.log(`Invoice ${sameSource[0].number} — regenerating (overwrite) with updated data`);
         } else {
-          let htmlExists = false
+          let htmlExists = false;
           if (sameSource[0].pdf_path) {
             try {
-              const { data: blob } = await supabase.storage.from('documents').download(sameSource[0].pdf_path)
-              if (blob && blob.size > 0) htmlExists = true
-            } catch { /* file missing */ }
+              const { data: blob } = await supabase.storage.from('documents').download(sameSource[0].pdf_path);
+              if (blob && blob.size > 0) htmlExists = true;
+            } catch  {}
           }
           if (htmlExists) {
             // pdf_path MUSÍ jít s sebou — send-booking-email/qr-payment z něj přikládají
             // doklad; bez něj padaly na fallback `invoices/<id>.html`, který neexistuje,
             // a mail odešel tiše bez přílohy (incident B120420C, abandoned bez ZF).
             return new Response(JSON.stringify({
-              success: true, invoice_id: sameSource[0].id, number: sameSource[0].number,
-              pdf_path: sameSource[0].pdf_path, existing: true
-            }), { headers: { ...CORS, 'Content-Type': 'application/json' } })
+              success: true,
+              invoice_id: sameSource[0].id,
+              number: sameSource[0].number,
+              pdf_path: sameSource[0].pdf_path,
+              existing: true
+            }), {
+              headers: {
+                ...CORS,
+                'Content-Type': 'application/json'
+              }
+            });
           }
           // Doklad existuje, ale PDF/HTML chybí → přepiš stávající řádek (negeneruj duplicitu).
-          reuseInvoice = sameSource[0]
-          console.log(`Invoice ${sameSource[0].number} exists but HTML missing — overwriting (no duplicate)`)
+          reuseInvoice = sameSource[0];
+          console.log(`Invoice ${sameSource[0].number} exists but HTML missing — overwriting (no duplicate)`);
         }
       }
     }
-
     // ── POJISTKA 1: regenerace NIKDY nepřepisuje položky ani částky. ──
     // Doklad zachycuje stav rezervace V DOBĚ vystavení — při reuse se položky
     // berou z ULOŽENÉHO řádku; z aktuální rezervace se počítají jen když řádek
     // žádné nemá (legacy). Dřív regenerace po úpravě rezervace přepsala ZF/DP
     // na novou celkovou částku, zatímco odpočty na KF držely původní hodnoty →
     // doklady vykazovaly přeplatek, který nikdy nevznikl.
-    let usedStoredItems = false
+    let usedStoredItems = false;
     if (reuseInvoice && Array.isArray(reuseInvoice.items) && reuseInvoice.items.length > 0) {
-      items = reuseInvoice.items
-      usedStoredItems = true
+      items = reuseInvoice.items;
+      usedStoredItems = true;
     }
-
     // ── POJISTKA 2: po vystavení KONEČNÉ faktury se starší doklady už nemění
     // (oprava jen storno / opravný doklad). Regenerace je pak POUZE re-render
     // PDF z uložených dat — bez jakéhokoli zápisu do řádku (ani odběratel). ──
-    let lockedByFinal = false
-    if (reuseInvoice && !['final', 'issued', 'shop_final'].includes(invoiceType)) {
-      const finalTypes = (order_id && isShop) ? ['shop_final'] : ['final', 'issued']
-      let fq = supabase.from('invoices').select('id').in('type', finalTypes).neq('status', 'cancelled').limit(1)
-      fq = booking_id ? fq.eq('booking_id', booking_id) : fq.eq('order_id', order_id)
-      const { data: finals } = await fq
-      lockedByFinal = !!finals?.length
+    let lockedByFinal = false;
+    if (reuseInvoice && ![
+      'final',
+      'issued',
+      'shop_final'
+    ].includes(invoiceType)) {
+      const finalTypes = order_id && isShop ? [
+        'shop_final'
+      ] : [
+        'final',
+        'issued'
+      ];
+      let fq = supabase.from('invoices').select('id').in('type', finalTypes).neq('status', 'cancelled').limit(1);
+      fq = booking_id ? fq.eq('booking_id', booking_id) : fq.eq('order_id', order_id);
+      const { data: finals } = await fq;
+      lockedByFinal = !!finals?.length;
     }
-
     // Generate number — při přegenerování zachováme původní číslo dokladu.
-    let number: string
+    let number;
     if (reuseInvoice) {
-      number = reuseInvoice.number
+      number = reuseInvoice.number;
     } else {
       // Automatická řada = 0001–4999; čísla >= 5000 patří ruční řadě z Velína — ignorovat
-      const { data: lastInv } = await supabase.from('invoices').select('number')
-        .like('number', `${prefix}-${year}-%`).lt('number', `${prefix}-${year}-5000`)
-        .order('number', { ascending: false }).limit(1)
-      let seq = 1
-      if (lastInv?.length) { const m = lastInv[0].number.match(/-(\d+)$/); if (m) seq = parseInt(m[1], 10) + 1 }
-      number = `${prefix}-${year}-${String(seq).padStart(4, '0')}`
+      const { data: lastInv } = await supabase.from('invoices').select('number').like('number', `${prefix}-${year}-%`).lt('number', `${prefix}-${year}-5000`).order('number', {
+        ascending: false
+      }).limit(1);
+      let seq = 1;
+      if (lastInv?.length) {
+        const m = lastInv[0].number.match(/-(\d+)$/);
+        if (m) seq = parseInt(m[1], 10) + 1;
+      }
+      number = `${prefix}-${year}-${String(seq).padStart(4, '0')}`;
     }
-
     // VS musí být ČÍSELNÝ — textový VS („ZF-2026-0204") banka nepřijme a platba
     // se nespáruje. Explicitní VS od volajícího (QR/fio) má přednost, jinak
     // číslice z čísla dokladu (ZF-2026-0204 → 20260204).
-    const numericVs = (reqVariableSymbol && String(reqVariableSymbol).trim())
-      ? String(reqVariableSymbol).trim()
-      : number.replace(/\D/g, '')
-
+    const numericVs = reqVariableSymbol && String(reqVariableSymbol).trim() ? String(reqVariableSymbol).trim() : number.replace(/\D/g, '');
     // Pro shop_final: odečti VŠECHNY DP (doklady k přijaté platbě) → konečná faktura
     // za 0 Kč doplatku. DP jsou na 100 % ceny objednávky; ať je jeden nebo několik,
     // jejich součet musí dát nulový doplatek. Případný dobropis (refund) je samostatný
     // doklad a doplatek KF neovlivňuje.
-    let dpDeduction = 0; let dpNumber = ''
-    const isShopFinal = invoiceType === 'shop_final'
+    let dpDeduction = 0;
+    let dpNumber = '';
+    const isShopFinal = invoiceType === 'shop_final';
     // Uložené položky reuse dokladu už odečet DP OBSAHUJÍ — nepřidávat podruhé.
     if (isShopFinal && order_id && !usedStoredItems) {
-      let { data: dpRows } = await supabase.from('invoices').select('number, total')
-        .eq('order_id', order_id).eq('type', 'payment_receipt')
-        .neq('status', 'cancelled')
-        .order('created_at', { ascending: true })
+      let { data: dpRows } = await supabase.from('invoices').select('number, total').eq('order_id', order_id).eq('type', 'payment_receipt').neq('status', 'cancelled').order('created_at', {
+        ascending: true
+      });
       // Konečná faktura MUSÍ odečíst DP → doplatek 0 Kč. shop_final se ale často
       // generuje DŘÍV, než vznikne DP (DB trigger generate_shop_final_on_ship +
       // confirmShopPayment volají KF hned, DP se doplní až přílohou
@@ -739,35 +900,42 @@ serve(async (req) => {
             headers: {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
-              'apikey': SUPABASE_SERVICE_KEY,
+              'apikey': SUPABASE_SERVICE_KEY
             },
-            body: JSON.stringify({ type: 'payment_receipt', order_id, source: 'shop', send_email: false }),
-          })
+            body: JSON.stringify({
+              type: 'payment_receipt',
+              order_id,
+              source: 'shop',
+              send_email: false
+            })
+          });
         } catch (e) {
-          console.warn('[generate-invoice] shop_final: auto-DP generate failed:', (e as Error).message)
+          console.warn('[generate-invoice] shop_final: auto-DP generate failed:', e.message);
         }
-        const reDp = await supabase.from('invoices').select('number, total')
-          .eq('order_id', order_id).eq('type', 'payment_receipt')
-          .neq('status', 'cancelled')
-          .order('created_at', { ascending: true })
-        dpRows = reDp.data
+        const reDp = await supabase.from('invoices').select('number, total').eq('order_id', order_id).eq('type', 'payment_receipt').neq('status', 'cancelled').order('created_at', {
+          ascending: true
+        });
+        dpRows = reDp.data;
       }
       if (dpRows?.length) {
-        dpRows.forEach((dp: any) => {
-          items.push({ description: `Odečet DP ${dp.number || ''} (již uhrazeno)`, qty: 1, unit_price: -Number(dp.total || 0) })
-        })
-        dpDeduction = dpRows.reduce((s: number, dp: any) => s + Number(dp.total || 0), 0)
-        dpNumber = dpRows.map((dp: any) => dp.number).filter(Boolean).join(', ')
+        dpRows.forEach((dp)=>{
+          items.push({
+            description: `Odečet DP ${dp.number || ''} (již uhrazeno)`,
+            qty: 1,
+            unit_price: -Number(dp.total || 0)
+          });
+        });
+        dpDeduction = dpRows.reduce((s, dp)=>s + Number(dp.total || 0), 0);
+        dpNumber = dpRows.map((dp)=>dp.number).filter(Boolean).join(', ');
       }
     }
-
-    const subtotal = items.reduce((s, it) => s + it.unit_price * it.qty, 0)
-    const total = subtotal
+    const subtotal = items.reduce((s, it)=>s + it.unit_price * it.qty, 0);
+    const total = subtotal;
     // Datum vystavení: override z `invoice_date` (Velín u přegenerování zadá ručně),
     // jinak dnešek. Splatnost = stejné datum (kartová platba je okamžitá).
-    const validDate = typeof invoice_date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(invoice_date)
-    let issueDate = validDate ? invoice_date : new Date().toISOString().slice(0, 10)
-    let dueDate = issueDate
+    const validDate = typeof invoice_date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(invoice_date);
+    let issueDate = validDate ? invoice_date : new Date().toISOString().slice(0, 10);
+    let dueDate = issueDate;
     if (reuseInvoice && (!validDate || lockedByFinal)) {
       // PŘEGENEROVÁNÍ NESMÍ posunout data dokladu na dnešek — ZF/DP si drží
       // PŮVODNÍ vystavení a splatnost (jinak po přegenerování "nesedí pořadí"
@@ -776,177 +944,254 @@ serve(async (req) => {
       // Samoléčba: dřívější (vadná) regenerace už mohla vystavení posunout na
       // den kliknutí — vystavení nikdy nemůže být PO dni vzniku řádku dokladu
       // (created_at = den vytvoření rezervace/objednávky) → srovnej zpět.
-      const createdDate = reuseInvoice.created_at ? String(reuseInvoice.created_at).slice(0, 10) : null
-      let origIssue = reuseInvoice.issue_date ? String(reuseInvoice.issue_date).slice(0, 10) : createdDate
-      if (origIssue && createdDate && origIssue > createdDate) origIssue = createdDate
-      if (origIssue) issueDate = origIssue
-      let origDue = reuseInvoice.due_date ? String(reuseInvoice.due_date).slice(0, 10) : issueDate
-      if (createdDate && origDue > createdDate) origDue = createdDate
-      dueDate = origDue
+      const createdDate = reuseInvoice.created_at ? String(reuseInvoice.created_at).slice(0, 10) : null;
+      let origIssue = reuseInvoice.issue_date ? String(reuseInvoice.issue_date).slice(0, 10) : createdDate;
+      if (origIssue && createdDate && origIssue > createdDate) origIssue = createdDate;
+      if (origIssue) issueDate = origIssue;
+      let origDue = reuseInvoice.due_date ? String(reuseInvoice.due_date).slice(0, 10) : issueDate;
+      if (createdDate && origDue > createdDate) origDue = createdDate;
+      dueDate = origDue;
       // DP (doklad k přijaté platbě): vystavení = splatnost = datum přijetí platby.
       if (isPaymentReceipt && reuseInvoice.paid_date) {
-        issueDate = String(reuseInvoice.paid_date).slice(0, 10)
-        dueDate = issueDate
+        issueDate = String(reuseInvoice.paid_date).slice(0, 10);
+        dueDate = issueDate;
       }
     }
-
-    let invoice: any
+    let invoice;
     if (reuseInvoice && lockedByFinal) {
       // POJISTKA 2: KF už existuje → žádný zápis, jen re-render z uloženého řádku.
-      invoice = reuseInvoice
+      invoice = reuseInvoice;
     } else if (reuseInvoice) {
       // Přepiš existující doklad aktuálním odběratelem (číslo, položky, částky
       // a data zůstávají — viz POJISTKA 1 a zachování dat výše).
       // Samoléčba stavu ZF: existuje-li k rezervaci/objednávce DP (přijatá platba),
       // je ZF fakticky uhrazená — starší ZF vznikaly jako 'issued' a nic je
       // nepřepínalo, takže na dokladu navždy svítilo „K ÚHRADĚ".
-      let healedStatus = reuseInvoice.status || 'issued'
-      let healedPaidDate: string | null = reuseInvoice.paid_date
+      let healedStatus = reuseInvoice.status || 'issued';
+      let healedPaidDate = reuseInvoice.paid_date;
       if (isProforma && healedStatus !== 'paid') {
-        let dq = supabase.from('invoices').select('paid_date, issue_date')
-          .eq('type', 'payment_receipt').neq('status', 'cancelled').limit(1)
-        dq = booking_id ? dq.eq('booking_id', booking_id) : dq.eq('order_id', order_id)
-        const { data: dpRow } = await dq
+        let dq = supabase.from('invoices').select('paid_date, issue_date').eq('type', 'payment_receipt').neq('status', 'cancelled').limit(1);
+        dq = booking_id ? dq.eq('booking_id', booking_id) : dq.eq('order_id', order_id);
+        const { data: dpRow } = await dq;
         if (dpRow?.length) {
-          healedStatus = 'paid'
-          healedPaidDate = healedPaidDate || dpRow[0].paid_date || dpRow[0].issue_date
+          healedStatus = 'paid';
+          healedPaidDate = healedPaidDate || dpRow[0].paid_date || dpRow[0].issue_date;
         }
       }
-      const updatePayload: any = {
-        items, subtotal, tax_amount: 0, total, customer_id: customerId,
+      const updatePayload = {
+        items,
+        subtotal,
+        tax_amount: 0,
+        total,
+        customer_id: customerId,
         // Status se přegenerováním nemění — uhrazený DP/ZF nesmí spadnout na 'issued'.
-        issue_date: issueDate, due_date: dueDate, status: healedStatus,
-      }
-      if (healedPaidDate && !reuseInvoice.paid_date) updatePayload.paid_date = String(healedPaidDate).slice(0, 10)
+        issue_date: issueDate,
+        due_date: dueDate,
+        status: healedStatus
+      };
+      if (healedPaidDate && !reuseInvoice.paid_date) updatePayload.paid_date = String(healedPaidDate).slice(0, 10);
       // Samoléčba VS: prázdný nebo textový VS sjednoť na číselný.
-      const vsStored = String(reuseInvoice.variable_symbol || '').trim()
+      const vsStored = String(reuseInvoice.variable_symbol || '').trim();
       if (!vsStored || /\D/.test(vsStored)) {
-        updatePayload.variable_symbol = vsStored.replace(/\D/g, '') || numericVs
+        updatePayload.variable_symbol = vsStored.replace(/\D/g, '') || numericVs;
       }
-      const { data: upd, error: uErr } = await supabase.from('invoices')
-        .update(updatePayload).eq('id', reuseInvoice.id).select().single()
-      if (uErr) return new Response(JSON.stringify({ error: uErr.message }), { status: 500 })
-      invoice = upd
+      const { data: upd, error: uErr } = await supabase.from('invoices').update(updatePayload).eq('id', reuseInvoice.id).select().single();
+      if (uErr) return new Response(JSON.stringify({
+        error: uErr.message
+      }), {
+        status: 500
+      });
+      invoice = upd;
       // Bezpečná pojistka: kdyby update vrátil prázdno, renderuj z uloženého řádku.
-      if (!invoice) invoice = reuseInvoice
+      if (!invoice) invoice = reuseInvoice;
     } else {
-      const invoicePayload: any = {
-        number, type: invoiceType, customer_id: customerId,
-        items, subtotal, tax_amount: 0, total,
-        issue_date: issueDate, due_date: dueDate,
+      const invoicePayload = {
+        number,
+        type: invoiceType,
+        customer_id: customerId,
+        items,
+        subtotal,
+        tax_amount: 0,
+        total,
+        issue_date: issueDate,
+        due_date: dueDate,
         // DP = doklad o PŘIJATÉ platbě → vzniká rovnou jako uhrazený.
         status: isPaymentReceipt ? 'paid' : 'issued',
         variable_symbol: numericVs,
-        source: invoiceSource,
-      }
-      if (isPaymentReceipt) invoicePayload.paid_date = issueDate
-      if (booking_id) invoicePayload.booking_id = booking_id
-      if (order_id) invoicePayload.order_id = order_id
-
-      const { data: ins, error: iErr } = await supabase.from('invoices').insert(invoicePayload).select().single()
+        source: invoiceSource
+      };
+      if (isPaymentReceipt) invoicePayload.paid_date = issueDate;
+      if (booking_id) invoicePayload.booking_id = booking_id;
+      if (order_id) invoicePayload.order_id = order_id;
+      const { data: ins, error: iErr } = await supabase.from('invoices').insert(invoicePayload).select().single();
       if (iErr) {
         // Souběžné generování stejného dokladu (race confirmShopPayment × DB trigger
         // generate_shop_final_on_ship × Velín updateStatus) → unikátní index
         // `uq_invoices_active_order_type` zabrání duplicitě. Vrať existující doklad.
-        const isDup = iErr.code === '23505' || /duplicate key|unique constraint/i.test(iErr.message || '')
+        const isDup = iErr.code === '23505' || /duplicate key|unique constraint/i.test(iErr.message || '');
         if (isDup && order_id) {
-          const { data: ex } = await supabase.from('invoices')
-            .select('id, number').eq('order_id', order_id).eq('type', invoiceType)
-            .neq('status', 'cancelled').order('created_at', { ascending: false }).limit(1)
+          const { data: ex } = await supabase.from('invoices').select('id, number').eq('order_id', order_id).eq('type', invoiceType).neq('status', 'cancelled').order('created_at', {
+            ascending: false
+          }).limit(1);
           if (ex?.length) {
             return new Response(JSON.stringify({
-              success: true, invoice_id: ex[0].id, number: ex[0].number, existing: true, deduped: true
-            }), { headers: { ...CORS, 'Content-Type': 'application/json' } })
+              success: true,
+              invoice_id: ex[0].id,
+              number: ex[0].number,
+              existing: true,
+              deduped: true
+            }), {
+              headers: {
+                ...CORS,
+                'Content-Type': 'application/json'
+              }
+            });
           }
         }
-        return new Response(JSON.stringify({ error: iErr.message }), { status: 500 })
+        return new Response(JSON.stringify({
+          error: iErr.message
+        }), {
+          status: 500
+        });
       }
-      invoice = ins
+      invoice = ins;
     }
-
     // DP = doklad o PŘIJATÉ platbě → související ZF téže rezervace/objednávky už
     // není „K úhradě". Pokrývá VŠECHNY cesty (Stripe webhook, fio-sync, ruční
     // potvrzení, regenerace DP) — dřív ZF zůstala navždy 'issued' a doklad
     // i seznam ve Velíně lhaly „K ÚHRADĚ" i po zaplacení.
     if (isPaymentReceipt) {
       try {
-        let zq = supabase.from('invoices')
-          .update({ status: 'paid', paid_date: invoice.paid_date || issueDate })
-          .in('type', ['advance', 'proforma', 'shop_proforma'])
-          .neq('status', 'cancelled').neq('status', 'paid')
-        zq = booking_id ? zq.eq('booking_id', booking_id) : zq.eq('order_id', order_id)
-        await zq
-      } catch (e) { console.warn('[generate-invoice] ZF paid update failed:', (e as Error).message) }
+        let zq = supabase.from('invoices').update({
+          status: 'paid',
+          paid_date: invoice.paid_date || issueDate
+        }).in('type', [
+          'advance',
+          'proforma',
+          'shop_proforma'
+        ]).neq('status', 'cancelled').neq('status', 'paid');
+        zq = booking_id ? zq.eq('booking_id', booking_id) : zq.eq('order_id', order_id);
+        await zq;
+      } catch (e) {
+        console.warn('[generate-invoice] ZF paid update failed:', e.message);
+      }
     }
-
     // Zamčený doklad (po KF) se renderuje ze ZAMRAŽENÉHO odběratele (snapshot
     // při vystavení), ne z aktuálního profilu — profil se mezitím mohl změnit.
     if (lockedByFinal && reuseInvoice?.customer_snapshot) {
-      const cs = reuseInvoice.customer_snapshot
+      const cs = reuseInvoice.customer_snapshot;
       customer = {
-        full_name: cs.name || customer.full_name, company: cs.company || null,
-        company_address: cs.company_address || null, ico: cs.ico || null, dic: cs.dic || null,
-        email: cs.email || customer.email, phone: cs.phone || customer.phone,
-        street: cs.address || customer.street, city: cs.address ? null : customer.city,
-        zip: cs.address ? null : customer.zip,
-      }
+        full_name: cs.name || customer.full_name,
+        company: cs.company || null,
+        company_address: cs.company_address || null,
+        ico: cs.ico || null,
+        dic: cs.dic || null,
+        email: cs.email || customer.email,
+        phone: cs.phone || customer.phone,
+        street: cs.address || customer.street,
+        city: cs.address ? null : customer.city,
+        zip: cs.address ? null : customer.zip
+      };
     }
-
-    const accent = isPaymentReceipt ? '#0891b2' : isProforma ? '#2563eb' : '#1a8a18'
-    const baseTitle = isPaymentReceipt ? 'DOKLAD K PŘIJATÉ PLATBĚ' : isProforma ? 'ZÁLOHOVÁ FAKTURA' : isShopFinal ? 'KONEČNÁ FAKTURA' : 'FAKTURA'
-    const title = isEdit ? `${baseTitle} — ${editLabel}` : baseTitle
-    const bookingNumber = booking_id ? booking_id.slice(-8).toUpperCase() : ''
-
+    const accent = isPaymentReceipt ? '#0891b2' : isProforma ? '#2563eb' : '#1a8a18';
+    const baseTitle = isPaymentReceipt ? 'DOKLAD K PŘIJATÉ PLATBĚ' : isProforma ? 'ZÁLOHOVÁ FAKTURA' : isShopFinal ? 'KONEČNÁ FAKTURA' : 'FAKTURA';
+    const title = isEdit ? `${baseTitle} — ${editLabel}` : baseTitle;
+    const bookingNumber = booking_id ? booking_id.slice(-8).toUpperCase() : '';
     // i18n — jazyk zákazníka: explicitní z volajícího > detect_customer_language
     // (z bookings.language / shop_orders.language) > 'cs'. Localizuje pouze ODKAZY
     // (web/QR) na faktuře — účetní text zůstává česky (doklad k přijaté platbě).
-    let invLang = 'cs'
+    let invLang = 'cs';
     try {
-      const SUP = ['cs', 'en', 'de', 'es', 'fr', 'nl', 'pl']
-      const explicit = String(reqLanguage || '').toLowerCase().slice(0, 2)
+      const SUP = [
+        'cs',
+        'en',
+        'de',
+        'es',
+        'fr',
+        'nl',
+        'pl'
+      ];
+      const explicit = String(reqLanguage || '').toLowerCase().slice(0, 2);
       if (SUP.includes(explicit)) {
-        invLang = explicit
+        invLang = explicit;
       } else {
         const { data: detected } = await supabase.rpc('detect_customer_language', {
-          p_user_id: null, p_booking_id: booking_id || null, p_order_id: order_id || null,
-        })
-        const d = String(detected || '').toLowerCase().slice(0, 2)
-        if (SUP.includes(d)) invLang = d
+          p_user_id: null,
+          p_booking_id: booking_id || null,
+          p_order_id: order_id || null
+        });
+        const d = String(detected || '').toLowerCase().slice(0, 2);
+        if (SUP.includes(d)) invLang = d;
       }
-    } catch { /* ignore → 'cs' */ }
-
+    } catch  {}
     const html = generateInvoiceHtml({
-      title, number, accent, issueDate, dueDate, total, company: COMPANY, customer, items,
-      paidDate: invoice.paid_date ? String(invoice.paid_date).slice(0, 10) : (isPaymentReceipt ? issueDate : undefined),
+      title,
+      number,
+      accent,
+      issueDate,
+      dueDate,
+      total,
+      company: COMPANY,
+      customer,
+      items,
+      paidDate: invoice.paid_date ? String(invoice.paid_date).slice(0, 10) : isPaymentReceipt ? issueDate : undefined,
       // Uhrazená ZF nesmí na dokladu svítit „K ÚHRADĚ" — badge se řídí reálným stavem řádku.
       isPaid: invoice.status === 'paid' || !!invoice.paid_date,
-      voucher_codes, voucherValidUntil, doorCodes, isProforma, isPaymentReceipt, isShopFinal, dpNumber, bookingNumber,
-      paymentMethodLabel, cardInfo, isEdit, lang: invLang, stripePaymentIntentId: stripePaymentId,
+      voucher_codes,
+      voucherValidUntil,
+      doorCodes,
+      isProforma,
+      isPaymentReceipt,
+      isShopFinal,
+      dpNumber,
+      bookingNumber,
+      paymentMethodLabel,
+      cardInfo,
+      isEdit,
+      lang: invLang,
+      stripePaymentIntentId: stripePaymentId,
       variableSymbol: String(invoice.variable_symbol || numericVs).replace(/\D/g, '') || numericVs,
-      dueNote: (reqDueNote && String(reqDueNote).trim()) ? String(reqDueNote).trim() : null,
-    })
-
+      dueNote: reqDueNote && String(reqDueNote).trim() ? String(reqDueNote).trim() : null
+    });
     // Pokus o PDF přes PDFShift; když není API key nebo konverze selže, fallback na HTML.
-    let path: string
-    const pdfBytes = await htmlToPdf(html)
+    let path;
+    const pdfBytes = await htmlToPdf(html);
     if (pdfBytes) {
-      path = `invoices/${invoice.id}.pdf`
-      const pdfBlob = new Blob([pdfBytes], { type: 'application/pdf' })
-      await supabase.storage.from('documents').upload(path, pdfBlob, { upsert: true, contentType: 'application/pdf' })
+      path = `invoices/${invoice.id}.pdf`;
+      const pdfBlob = new Blob([
+        pdfBytes
+      ], {
+        type: 'application/pdf'
+      });
+      await supabase.storage.from('documents').upload(path, pdfBlob, {
+        upsert: true,
+        contentType: 'application/pdf'
+      });
     } else {
-      path = `invoices/${invoice.id}.html`
-      const htmlBlob = new Blob([html], { type: 'text/html' })
-      await supabase.storage.from('documents').upload(path, htmlBlob, { upsert: true, contentType: 'text/html' })
+      path = `invoices/${invoice.id}.html`;
+      const htmlBlob = new Blob([
+        html
+      ], {
+        type: 'text/html'
+      });
+      await supabase.storage.from('documents').upload(path, htmlBlob, {
+        upsert: true,
+        contentType: 'text/html'
+      });
     }
-    await supabase.from('invoices').update({ pdf_path: path }).eq('id', invoice.id)
-
+    await supabase.from('invoices').update({
+      pdf_path: path
+    }).eq('id', invoice.id);
     // Při přegenerování přesměruj i případný `documents` řádek na nový soubor —
     // jinak by zákaznický portál / Velín dál ukazoval starý soubor pod původní cestou
     // (typicky když PDFShift teď selže a render spadne z .pdf na .html).
     if (reuseInvoice && reuseInvoice.pdf_path && reuseInvoice.pdf_path !== path) {
-      try { await supabase.from('documents').update({ file_path: path }).eq('file_path', reuseInvoice.pdf_path) } catch { /* ignore */ }
+      try {
+        await supabase.from('documents').update({
+          file_path: path
+        }).eq('file_path', reuseInvoice.pdf_path);
+      } catch  {}
     }
-
     // Snapshot ODBĚRATELE na doklad. Velín (Finance/Dokumenty) renderuje fakturu
     // CLIENT-SIDE z invoice řádku přes profiles join — u anonymní voucher objednávky
     // (customer_id=null) je profil prázdný → ODBĚRATEL prázdný. Tento snapshot dává
@@ -961,12 +1206,17 @@ serve(async (req) => {
         dic: customer.dic || null,
         email: customer.email || null,
         phone: customer.phone || null,
-        address: [customer.street, customer.city, customer.zip].filter(Boolean).join(', ') || customer.street || null,
-      }
-      const { error: snapErr } = await supabase.from('invoices').update({ customer_snapshot: customerSnapshot }).eq('id', invoice.id)
-      if (snapErr) console.warn('[generate-invoice] customer_snapshot update failed (sloupec chybí?):', snapErr.message)
+        address: [
+          customer.street,
+          customer.city,
+          customer.zip
+        ].filter(Boolean).join(', ') || customer.street || null
+      };
+      const { error: snapErr } = await supabase.from('invoices').update({
+        customer_snapshot: customerSnapshot
+      }).eq('id', invoice.id);
+      if (snapErr) console.warn('[generate-invoice] customer_snapshot update failed (sloupec chybí?):', snapErr.message);
     }
-
     // ⚠️ MAIL Z GENERATE-INVOICE BYL ODSTRANĚN (2026-05-08).
     // Velín mail šablony jsou jediný zdroj pravdy — žádný mail mimo systém šablon.
     // Doklad se zde jen vystaví, mail si zařídí dedikovaný flow přes send-booking-email:
@@ -975,8 +1225,7 @@ serve(async (req) => {
     //   - shop_order_confirmed → DB trigger trg_shop_order_confirmed_email (přes Velín šablony)
     //   - manuální resend z Velínu → admin UI volá send-booking-email s template_slug
     // Parametr `send_email` zůstává v API pro zpětnou kompatibilitu, ale nic nedělá.
-    void send_email
-
+    void send_email;
     // Diagnostika do debug_log (admin_audit_log nemá sloupec `details`) — verze funkce
     // + co reálně přečetla o zákazníkovi → z SQL ověřitelné, která verze běží a co četla.
     try {
@@ -985,16 +1234,45 @@ serve(async (req) => {
         action: 'invoice_generated',
         component: 'generate-invoice',
         status: 'success',
-        request_data: { type: invoiceType, order_id: order_id || null, booking_id: booking_id || null, regenerate: !!reuseInvoice, locked_by_final: lockedByFinal },
-        response_data: { number, pdf_path: path, fn_version: 'v2-customer-2026-06-04', customer: { name: customer.full_name || null, company: customer.company || null, ico: customer.ico || null, dic: customer.dic || null, street: customer.street || null } },
-      })
-    } catch { /* ignore */ }
-
-    return new Response(JSON.stringify({ success: true, invoice_id: invoice.id, number, pdf_path: path, locked: lockedByFinal || undefined }), {
-      headers: { ...CORS, 'Content-Type': 'application/json' },
-    })
+        request_data: {
+          type: invoiceType,
+          order_id: order_id || null,
+          booking_id: booking_id || null,
+          regenerate: !!reuseInvoice,
+          locked_by_final: lockedByFinal
+        },
+        response_data: {
+          number,
+          pdf_path: path,
+          fn_version: 'v2-customer-2026-06-04',
+          customer: {
+            name: customer.full_name || null,
+            company: customer.company || null,
+            ico: customer.ico || null,
+            dic: customer.dic || null,
+            street: customer.street || null
+          }
+        }
+      });
+    } catch  {}
+    return new Response(JSON.stringify({
+      success: true,
+      invoice_id: invoice.id,
+      number,
+      pdf_path: path,
+      locked: lockedByFinal || undefined
+    }), {
+      headers: {
+        ...CORS,
+        'Content-Type': 'application/json'
+      }
+    });
   } catch (err) {
-    console.error('Error:', err)
-    return new Response(JSON.stringify({ error: (err as Error).message }), { status: 500 })
+    console.error('Error:', err);
+    return new Response(JSON.stringify({
+      error: err.message
+    }), {
+      status: 500
+    });
   }
-})
+});
