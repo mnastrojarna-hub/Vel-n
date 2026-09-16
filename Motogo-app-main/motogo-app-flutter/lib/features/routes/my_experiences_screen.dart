@@ -9,6 +9,10 @@ import '../../core/i18n/i18n_provider.dart';
 import '../../core/supabase_client.dart';
 import '../../core/widgets/moto_fx.dart';
 import 'active_ride_provider.dart';
+import 'ride_card.dart';
+import 'ride_model.dart';
+import 'ride_provider.dart';
+import 'ride_recorder.dart';
 import 'routes_model.dart';
 import 'routes_provider.dart' show CustomNavArgs;
 import 'route_image.dart';
@@ -89,6 +93,7 @@ class _MyExperiencesScreenState extends ConsumerState<MyExperiencesScreen> {
       onRefresh: () async {
         ref.invalidate(mySavedRoutesProvider);
         ref.invalidate(myPlacesProvider);
+        ref.invalidate(myRidesProvider);
       },
       child: child,
     );
@@ -237,13 +242,21 @@ class _MyExperiencesScreenState extends ConsumerState<MyExperiencesScreen> {
                   color: active ? MotoGoColors.greenDark : MotoGoColors.g200, width: 1.5),
               boxShadow: active ? MotoGoShadows.cardSmall : null,
             ),
-            child: Text(
-              '$emoji $label',
-              style: TextStyle(
-                fontSize: MotoGoTypo.sizeLg,
-                fontWeight: MotoGoTypo.w800,
-                color: active ? Colors.white : MotoGoColors.black,
-                decoration: TextDecoration.none,
+            // Delší popisek („Vytvořené trasy") se dřív lámal na dva řádky a
+            // vylézal z pilulky — FittedBox ho zmenší, aby se vešel na jeden.
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                '$emoji $label',
+                maxLines: 1,
+                softWrap: false,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: MotoGoTypo.sizeLg,
+                  fontWeight: MotoGoTypo.w800,
+                  color: active ? Colors.white : MotoGoColors.black,
+                  decoration: TextDecoration.none,
+                ),
               ),
             ),
           ),
@@ -420,12 +433,14 @@ class _MyExperiencesScreenState extends ConsumerState<MyExperiencesScreen> {
 
   // ── Moje trasy ──
   Widget _routesList(BuildContext context, AsyncValue<List<SavedRoute>> async) {
+    final rides = ref.watch(myRidesProvider).valueOrNull ?? const <UserRide>[];
     return async.when(
       loading: () => const Center(child: CircularProgressIndicator(color: MotoGoColors.greenDark)),
       error: (_, __) => ListView(
         padding: const EdgeInsets.fromLTRB(16, 10, 16, 40),
         children: [
           _createRouteCard(context),
+          ..._ridesSection(context, rides),
           ..._emptyChildren(context, '🗺️', 'myExpEmptyRoutes', 'myExpEmptyRoutesSub'),
         ],
       ),
@@ -434,13 +449,95 @@ class _MyExperiencesScreenState extends ConsumerState<MyExperiencesScreen> {
         children: [
           // Vždy viditelný vstup do editoru — odtud vzniká nová vlastní trasa.
           _createRouteCard(context),
-          if (routes.isEmpty)
+          // Projeté jízdy zaznamenané při výpůjčce (jen s povolenou polohou).
+          ..._ridesSection(context, rides),
+          if (routes.isEmpty && rides.isEmpty)
             ..._emptyChildren(context, '🗺️', 'myExpEmptyRoutes', 'myExpEmptyRoutesSub')
           else
             ...routes.map((r) => _routeCard(context, r)),
         ],
       ),
     );
+  }
+
+  /// Sekce „Projeté jízdy" pod tlačítkem pro novou trasu: karty jízd s mapou
+  /// (vznikají automaticky při výpůjčce) + přepínač automatického záznamu.
+  /// Bez povolené polohy se místo karet ukáže vysvětlení, proč nic nevzniká.
+  List<Widget> _ridesSection(BuildContext context, List<UserRide> rides) {
+    final rec = ref.watch(rideRecorderProvider);
+    return [
+      Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(MotoGoRadius.card),
+            boxShadow: MotoGoShadows.cardSmall,
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          '🛰️ ${t(context).tr('rideRecordTitle')}',
+                          style: const TextStyle(
+                              fontSize: MotoGoTypo.sizeLg,
+                              fontWeight: MotoGoTypo.w800,
+                              color: MotoGoColors.black,
+                              decoration: TextDecoration.none),
+                        ),
+                        if (rec.recording) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 7, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: MotoGoColors.redBg,
+                              borderRadius:
+                                  BorderRadius.circular(MotoGoRadius.pill),
+                            ),
+                            child: Text(
+                              '⏺ ${t(context).tr('rideRecording')}',
+                              style: const TextStyle(
+                                  fontSize: MotoGoTypo.sizeSm,
+                                  fontWeight: MotoGoTypo.w800,
+                                  color: MotoGoColors.red,
+                                  decoration: TextDecoration.none),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      t(context).tr('rideRecordHint'),
+                      style: const TextStyle(
+                          fontSize: MotoGoTypo.sizeMd,
+                          fontWeight: MotoGoTypo.w600,
+                          color: MotoGoColors.g500,
+                          height: 1.35,
+                          decoration: TextDecoration.none),
+                    ),
+                  ],
+                ),
+              ),
+              Switch(
+                value: rec.enabled,
+                activeColor: MotoGoColors.greenDark,
+                onChanged: (v) =>
+                    ref.read(rideRecorderProvider.notifier).setEnabled(v),
+              ),
+            ],
+          ),
+        ),
+      ),
+      for (final r in rides) RideCard(ride: r),
+    ];
   }
 
   /// Výrazné tlačítko „Vytvořit novou trasu" → otevře editor s prázdnou

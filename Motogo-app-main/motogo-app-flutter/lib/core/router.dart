@@ -61,6 +61,7 @@ import '../features/routes/routes_model.dart' show RouteItem;
 import '../features/routes/routes_provider.dart' show CustomNavArgs;
 import '../features/routes/my_experiences_provider.dart' show RouteBuilderArgs;
 import '../features/routes/my_experiences_screen.dart';
+import '../features/routes/ride_detail_screen.dart';
 import 'currency.dart';
 
 /// All route paths — mirrors router.js screen IDs.
@@ -267,6 +268,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/my-experiences',
         builder: (context, state) => const MyExperiencesScreen(),
+      ),
+
+      // Detail projeté jízdy (stopa na mapě, zastávky s fotkami, sdílení)
+      GoRoute(
+        path: '/ride/:id',
+        builder: (context, state) =>
+            RideDetailScreen(rideId: state.pathParameters['id'] ?? ''),
       ),
 
       // Navigace přes vlastní (zákazníkem složenou) trasu z vybraných POI

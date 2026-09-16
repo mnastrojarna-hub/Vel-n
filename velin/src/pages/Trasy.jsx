@@ -11,6 +11,7 @@ import TrasyModal, { computeGeometry } from './TrasyModal'
 import TrasyReviewsModal from './TrasyReviewsModal'
 import TrasyKatalogMist from './TrasyKatalogMist'
 import TrasyRecenze from './TrasyRecenze'
+import TrasyJizdy from './TrasyJizdy'
 
 // ─── Error boundary (stejný vzor jako Branches) ──────────────────────
 class TrasyErrorBoundary extends Component {
@@ -53,7 +54,8 @@ function Trasy() {
   const [catalogCount, setCatalogCount] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [tab, setTab] = useState('routes')              // 'routes' | 'catalog' | 'reviews'
+  const [tab, setTab] = useState('routes')              // 'routes' | 'catalog' | 'reviews' | 'rides'
+  const [rideTotals, setRideTotals] = useState({ count: 0, public: 0 }) // jízdy zákazníků
   const [search, setSearch] = useState('')
   const [countryFilter, setCountryFilter] = useState('all')
   const [sortBy, setSortBy] = useState('default')       // řazení seznamu tras
@@ -185,6 +187,9 @@ function Trasy() {
 
     const reviewsTask = loadReviewStats()
 
+    // Projeté jízdy zákazníků (appka) — jen počty pro statistiku a záložku
+    const ridesTask = loadRideTotals()
+
     try {
       await routesTask
     } catch (e) {
@@ -193,7 +198,7 @@ function Trasy() {
       setLoading(false)
     }
     // Doplňková data doběhnou na pozadí — tabulka je zobrazená hned.
-    await Promise.allSettled([geoTask, poiTask, catalogTask, pendingTask, reviewsTask])
+    await Promise.allSettled([geoTask, poiTask, catalogTask, pendingTask, reviewsTask, ridesTask])
   }
 
   /** Otevření detailu trasy — plný řádek (geometry, waypoints, galerie,
@@ -216,6 +221,18 @@ function Trasy() {
     } finally {
       setOpeningRoute(null)
     }
+  }
+
+  /// Počty projetých jízd (celkem + zveřejněné) pro statistiku a název záložky.
+  async function loadRideTotals() {
+    try {
+      const { count } = await supabase.from('user_rides')
+        .select('id', { count: 'exact', head: true })
+      const { count: pub } = await supabase.from('user_rides')
+        .select('id', { count: 'exact', head: true })
+        .eq('visibility', 'public').eq('status', 'approved')
+      setRideTotals({ count: count ?? 0, public: pub ?? 0 })
+    } catch (e) { console.warn('[Trasy] user_rides count failed:', e.message) }
   }
 
   async function logAudit(action, details) {
@@ -399,6 +416,9 @@ function Trasy() {
         <div onClick={() => setTab('reviews')} className="cursor-pointer" title="Recenze a komentáře tras">
           <StatCard label="Recenze tras" value={`${reviewTotals.count} · 💬 ${reviewTotals.comments}`} color="#f59e0b" />
         </div>
+        <div onClick={() => setTab('rides')} className="cursor-pointer" title="Projeté jízdy zákazníků z appky">
+          <StatCard label="Jízdy zákazníků" value={`${rideTotals.count} · 🌍 ${rideTotals.public}`} color="#db2777" />
+        </div>
       </div>
 
       {/* Přepínač: seznam tras vs. katalog samostatných zajímavých míst */}
@@ -407,6 +427,7 @@ function Trasy() {
           { id: 'routes', label: `🛣️ Trasy (${routes.length})` },
           { id: 'catalog', label: `📍 Katalog míst (${catalogCount ?? '…'})` },
           { id: 'reviews', label: `💬 Recenze tras (${reviewTotals.count})` },
+          { id: 'rides', label: `🏍️ Jízdy zákazníků (${rideTotals.count})` },
         ].map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
             className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
@@ -424,6 +445,8 @@ function Trasy() {
 
       {tab === 'catalog' ? (
         <TrasyKatalogMist />
+      ) : tab === 'rides' ? (
+        <TrasyJizdy onChanged={loadRideTotals} />
       ) : tab === 'reviews' ? (
         <TrasyRecenze
           routes={routes}
