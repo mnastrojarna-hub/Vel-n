@@ -74,13 +74,16 @@ class QuickLink {
 /// Zobecněno 2026-09-16 na N položek — dřív uměl delegát přesně dvě dlaždice
 /// (slotA/slotB), takže třetí vstup „Mapa" nešlo přidat.
 class QuickLinksHeaderDelegate extends SliverPersistentHeaderDelegate {
-  /// Posun pořadí 0..N-1 (animovaná hodnota) — kdo je na kolikátém slotu.
+  /// Přechod 0→1 mezi předchozím a aktuálním pořadím.
   final Animation<double> order;
+  /// Aktuální posun pořadí (celé číslo 0..N-1).
+  final int index;
   final VoidCallback onCycle; // swipe doleva/doprava → posunout pořadí
   final List<QuickLink> links;
 
   const QuickLinksHeaderDelegate({
     required this.order,
+    required this.index,
     required this.onCycle,
     required this.links,
   });
@@ -101,7 +104,7 @@ class QuickLinksHeaderDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   bool shouldRebuild(covariant QuickLinksHeaderDelegate old) =>
-      old.order != order || old.links.length != links.length;
+      old.order != order || old.index != index || old.links.length != links.length;
 
   @override
   Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
@@ -122,14 +125,15 @@ class QuickLinksHeaderDelegate extends SliverPersistentHeaderDelegate {
                 t,
               )!;
           final tr = t.clamp(0.0, 1.0);
-          // Plynulý posun pořadí: položka j sedí mezi slotem (j+shift) a
-          // (j+shift+1) podle desetinné části animace.
-          final shift = order.value % _n;
-          final base = shift.floor();
-          final frac = Curves.easeInOutCubic.transform(shift - base);
+          // Plynulý posun pořadí: položka j přechází ze slotu pro PŘEDCHOZÍ
+          // index do slotu pro aktuální. Pořadí je celé číslo (index), takže
+          // přerušený swipe nemůže zanést trvalý zlomek.
+          final frac = Curves.easeInOutCubic.transform(
+              order.value.clamp(0.0, 1.0));
+          final prev = (index - 1) % _n;
           Rect rectFor(int j) => Rect.lerp(
-                slot((j + base) % _n),
-                slot((j + base + 1) % _n),
+                slot((j + prev) % _n),
+                slot((j + index) % _n),
                 frac,
               )!;
           return GestureDetector(

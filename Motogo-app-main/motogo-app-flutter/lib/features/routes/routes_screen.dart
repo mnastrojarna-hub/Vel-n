@@ -8,7 +8,7 @@ import 'package:latlong2/latlong.dart';
 
 import '../../core/theme.dart';
 import '../../core/i18n/i18n_provider.dart';
-import '../../core/router.dart' show Routes;
+import '../../core/router.dart' show MotoGoBackNav, Routes;
 import '../../core/widgets/moto_fx.dart';
 import 'country_codes.dart';
 import 'routes_model.dart';
@@ -38,23 +38,20 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
   late final AnimationController _quickOrder = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 420),
-    lowerBound: 0,
-    upperBound: 3, // = _quickCount
   );
 
   static const int _quickCount = 3; // Místa / Mapa / Moje zážitky
 
+  // Pořadí drží CELÉ číslo; controller je jen 0→1 přechod mezi starým
+  // a novým pořadím. Dřív se cíl počítal ze SUROVÉ hodnoty controlleru,
+  // takže druhý swipe během animace (value např. 1.4) zanesl do pořadí
+  // desetinnou část a dlaždice zůstaly natrvalo rozjeté mezi sloty.
+  int _quickIndex = 0;
+
   void _cycleQuickLinks() {
-    final next = (_quickOrder.value + 1) % _quickCount;
-    if (next == 0) {
-      // Návrat na začátek cyklu — bez animace zpět přes všechny sloty.
-      _quickOrder.animateTo(_quickCount.toDouble(), curve: Curves.easeOutCubic)
-          .then((_) {
-        if (mounted) _quickOrder.value = 0;
-      });
-      return;
-    }
-    _quickOrder.animateTo(next, curve: Curves.easeOutCubic);
+    if (_quickOrder.isAnimating) return; // swipe během přechodu ignoruj
+    setState(() => _quickIndex = (_quickIndex + 1) % _quickCount);
+    _quickOrder.forward(from: 0);
   }
 
   // Hloubkové vyhledávání — název, popis, města na cestě i body zájmu trasy.
@@ -107,17 +104,6 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
       });
 
   @override
-  void initState() {
-    super.initState();
-    // Hledání je sdílené s Místy — dotaz se mezi obrazovkami nese s sebou.
-    final shared = ref.read(placesSearchProvider);
-    if (shared.isNotEmpty) {
-      _query = shared;
-      _searchCtl.text = shared;
-    }
-  }
-
-  @override
   void dispose() {
     _searchDebounce?.cancel();
     _searchCtl.dispose();
@@ -155,6 +141,18 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
     return est == null ? base : base + est.km * 2;
   }
 
+  /// Celkový čas jízdy pro filtr — volitelně včetně cesty od mojí polohy
+  /// (tam i zpět), aby čas odpovídal stejné trase jako délka. Bez toho
+  /// měkké OR na času vždy přebilo prodlouženou délku a přepínač „počítat
+  /// i cestu od mé polohy" neměl na výsledky žádný vliv.
+  static int? _totalMin(RouteItem r, LatLng? me, bool withApproach) {
+    final base = r.durationMin;
+    if (base == null) return null;
+    if (!withApproach || me == null) return base;
+    final est = approachEstimate(me, r);
+    return est == null ? base : base + est.min * 2;
+  }
+
   /// Vyhovuje trasa zadané kombinaci filtrů? (statické parametry — sdílí seznam i náhled v sheetu)
   ///
   /// Délka a čas jsou v UI svázané přes průměrnou rychlost, ale filtruje se
@@ -172,7 +170,7 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
   ) {
     if (dist != null || dur != null) {
       final km = _totalKm(r, me, withApproach);
-      final min = r.durationMin;
+      final min = _totalMin(r, me, withApproach);
       // Neznámé hodnoty nevyřazujeme — trasa bez km/min projde vždy.
       final kmChecked = dist != null && km != null;
       final minChecked = dur != null && min != null;
@@ -194,6 +192,20 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
 
   @override
   Widget build(BuildContext context) {
+    // Sdílený dotaz mezi Místy a Trasami — hlídá se v obou směrech, aby se
+    // napsaný text přenesl i při NÁVRATU na už existující obrazovku
+    // (initState by se podruhé nespustil).
+    ref.listen<String>(placesSearchProvider, (prev, next) {
+      if (!mounted || next == _query) return;
+      _searchDebounce?.cancel();
+      _searchCtl.text = next;
+      setState(() => _query = next);
+    });
+    final shared = ref.read(placesSearchProvider);
+    if (shared != _query) {
+      _query = shared;
+      _searchCtl.text = shared;
+    }
     final lang = ref.watch(localeProvider).languageCode;
     final dataAsync = ref.watch(routesDataProvider);
 
@@ -275,6 +287,15 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
         children: [
           Row(
             children: [
+              if (Navigator.of(context).canPop()) ...[
+                GestureDetector(
+                  onTap: () => context.backOr(Routes.routes),
+                  child: const Padding(
+                    padding: EdgeInsets.only(right: 8, top: 4, bottom: 4),
+                    child: Icon(Icons.arrow_back, color: Colors.white, size: 22),
+                  ),
+                ),
+              ],
               const AnimatedRouteIcon(size: 28),
               const SizedBox(width: 10),
               Text(
@@ -399,13 +420,14 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
             pinned: true,
             delegate: QuickLinksHeaderDelegate(
               order: _quickOrder,
+              index: _quickIndex,
               onCycle: _cycleQuickLinks,
               links: [
                 QuickLink.light(
                   emoji: '📍',
                   titleKey: 'poiBrowseAll',
                   subtitleKey: 'poiBrowseSub',
-                  onTap: () => context.go(Routes.routes),
+                  onTap: () => context.backOr(Routes.routes),
                 ),
                 QuickLink.light(
                   emoji: '🧭',
@@ -434,7 +456,10 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
                 itemBuilder: (context, i) {
                   final r = routes[i];
                   return StaggeredReveal(
-                    index: i,
+                    // Zpoždění jen pro prvních pár karet (90 ms na index).
+                    // Bez stropu čekala karta s indexem 50 přes čtyři
+                    // sekundy a po odscrollování zůstal seznam prázdný.
+                    index: i < 6 ? i : 0,
                     baseDelay: const Duration(milliseconds: 60),
                     child: Padding(
                       padding: const EdgeInsets.only(bottom: 14),
@@ -739,18 +764,36 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
   // s CZ/SK/AT/HU/IT/HR/SI napevno první a zbytkem pod rozbalovačem.
   void _openFilterSheet(BuildContext context, RoutesData data, LatLng? me) {
     final base = data.routes;
+    final lang = ref.read(localeProvider).languageCode;
     final q = _query.trim();
 
-    // Meze posuvníků z dat.
-    final dists = base.map((r) => r.distanceKm).whereType<double>().toList()..sort();
-    final hasDist = dists.length >= 2 && dists.first < dists.last;
-    final dMin = hasDist ? dists.first.floorToDouble() : 0.0;
-    final dMax = hasDist ? dists.last.ceilToDouble() : 0.0;
+    // Meze posuvníků z dat — ve DVOU variantách. Se zapnutým dojezdem od
+    // polohy jsou trasy delší, takže rozsah musí sedět na to, co se filtruje;
+    // jinak by přepínač buď nic nedělal, nebo by tiše vyhodil vzdálené trasy.
+    ({double min, double max, bool ok}) bounds(List<double> xs) {
+      xs.sort();
+      final ok = xs.length >= 2 && xs.first < xs.last;
+      return (
+        min: ok ? xs.first.floorToDouble() : 0.0,
+        max: ok ? xs.last.ceilToDouble() : 0.0,
+        ok: ok,
+      );
+    }
 
-    final durs = base.map((r) => r.durationMin).whereType<int>().toList()..sort();
-    final hasDur = durs.length >= 2 && durs.first < durs.last;
-    final tMin = hasDur ? durs.first.toDouble() : 0.0;
-    final tMax = hasDur ? durs.last.toDouble() : 0.0;
+    final dPlain = bounds(
+        base.map((r) => r.distanceKm).whereType<double>().toList());
+    final dAppr = bounds(base
+        .map((r) => _totalKm(r, me, true))
+        .whereType<double>()
+        .toList());
+    final tPlain = bounds(base
+        .map((r) => r.durationMin?.toDouble())
+        .whereType<double>()
+        .toList());
+    final tAppr = bounds(base
+        .map((r) => _totalMin(r, me, true)?.toDouble())
+        .whereType<double>()
+        .toList());
 
     // Průměrná rychlost pro přepočet km ↔ čas. Bere se MEDIÁN ze skutečných
     // dvojic v datech, ne konstanta — část tras má přepočtených 42 km/h,
@@ -774,9 +817,6 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
     var tApproach = _withApproach;
     var moreCountries = tCountry.any(split.rest.contains);
 
-    double clampD(double v) => v.clamp(dMin, dMax);
-    double clampT(double v) => v.clamp(tMin, tMax);
-
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.white,
@@ -787,11 +827,18 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
       builder: (sheetCtx) {
         return StatefulBuilder(
           builder: (sheetCtx, setSheet) {
+            final db = tApproach ? dAppr : dPlain;
+            final tb = tApproach ? tAppr : tPlain;
+            final hasDist = db.ok, dMin = db.min, dMax = db.max;
+            final hasDur = tb.ok, tMin = tb.min, tMax = tb.max;
             final count = base
                 .where((r) =>
                     (q.isEmpty || searchMatches(r.searchBlob, q)) &&
                     _routeMatches(r, tCountry, tDist, tDur, me, tApproach))
                 .length;
+
+            double clampD(double v) => v.clamp(dMin, dMax);
+            double clampT(double v) => v.clamp(tMin, tMax);
 
             // Posun délky dopočítá čas a naopak — hodnoty spolu korelují,
             // takže dvě nezávislá nastavení si jen protiřečila.
@@ -909,7 +956,7 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
                                       padding: const EdgeInsets.only(top: 8),
                                       child: Wrap(spacing: 8, runSpacing: 8, children: [
                                         for (final c in split.rest)
-                                          _selChip(countryFullLabel(c), tCountry.contains(c),
+                                          _selChip(countryFullLabel(c, lang), tCountry.contains(c),
                                               () => toggleCountry(c)),
                                       ]),
                                     )
@@ -968,9 +1015,15 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
                               () async {
                                 if (!tApproach && me == null) {
                                   final ok = await ensureLocation(ref);
-                                  if (!ok) return;
+                                  if (!ok || !sheetCtx.mounted) return;
                                 }
-                                setSheet(() => tApproach = !tApproach);
+                                setSheet(() {
+                                  tApproach = !tApproach;
+                                  // Rozsah se přepnutím změní — hodnoty mimo
+                                  // nové meze by RangeSlider shodily.
+                                  tDist = null;
+                                  tDur = null;
+                                });
                               },
                             ),
                           ],
@@ -991,12 +1044,15 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
                             // Plný rozsah = žádný filtr.
                             final td = tDist;
                             final tt = tDur;
-                            _fDist = (td == null || (td.start <= dMin && td.end >= dMax))
-                                ? null
-                                : td;
-                            _fDur = (tt == null || (tt.start <= tMin && tt.end >= tMax))
-                                ? null
-                                : tt;
+                            final fullD =
+                                td == null || (td.start <= dMin && td.end >= dMax);
+                            final fullT =
+                                tt == null || (tt.start <= tMin && tt.end >= tMax);
+                            // Osy jsou svázané: když je jedna na plném
+                            // rozsahu, dopočítaná druhá nesmí zůstat viset
+                            // jako skrytý filtr, o kterém uživatel neví.
+                            _fDist = (fullD || fullT) ? null : td;
+                            _fDur = (fullD || fullT) ? null : tt;
                             _withApproach = tApproach;
                           });
                           Navigator.of(sheetCtx).pop();

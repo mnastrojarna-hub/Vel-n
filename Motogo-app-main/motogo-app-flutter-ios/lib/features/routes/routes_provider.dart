@@ -231,6 +231,11 @@ class PoiEntry {
     final own = poi.country;
     if (own != null && own.isNotEmpty) return want.contains(own);
     final cs = route?.countries ?? const <String>[];
+    // Bod s NEZNÁMOU zemí filtr nevyhazuje. Komunitní body zemi vůbec nemají
+    // (tabulka `user_pois` sloupec `country` nemá a `get_user_pois` ho
+    // neposílá) a část tras má `countries` prázdné — jinak by zaškrtnutí
+    // jakékoli vlajky smazalo i bod, který si uživatel sám přidal.
+    if (cs.isEmpty) return true;
     return cs.any(want.contains);
   }
 }

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -40,6 +41,10 @@ class PlacesMapView extends StatefulWidget {
   final double initialZoom;
   final bool interactive;
 
+  /// Povolit posun prstem. Uvnitř scrollovaného seznamu se vypíná — jinak
+  /// si mapa vezme svislý drag a seznamem přes ni nejde scrollovat.
+  final bool allowDrag;
+
   const PlacesMapView({
     super.key,
     required this.places,
@@ -51,6 +56,7 @@ class PlacesMapView extends StatefulWidget {
     this.initialCenter,
     this.initialZoom = 7.2,
     this.interactive = true,
+    this.allowDrag = true,
   });
 
   @override
@@ -67,11 +73,38 @@ class PlacesMapViewState extends State<PlacesMapView> {
   final MapController _ctrl = MapController();
   LatLngBounds? _bounds;
   double _zoom = 7.2;
+  // Throttle překreslení: onPositionChanged chodí při každém snímku posunu
+  // a ořez výřezu prochází celý katalog (desítky tisíc bodů). Bez omezení by
+  // se ten průchod dělal 60× za sekundu a mapa by sekala.
+  Timer? _syncThrottle;
+  bool _syncPending = false;
+  /// Uživatel už s mapou sám hnul — pak ji poloha nepřetahuje pod rukama.
+  bool _userMoved = false;
 
   @override
   void initState() {
     super.initState();
     _zoom = widget.initialZoom;
+  }
+
+  @override
+  void didUpdateWidget(PlacesMapView old) {
+    super.didUpdateWidget(old);
+    // `initialCenter`/`initialZoom` platí jen pro PRVNÍ snímek. Poloha ale
+    // často dorazí až potom (uživatel ji zrovna povolil), takže se na ni
+    // musí kamera posunout ručně — jinak mapa zůstane nad středem ČR.
+    final me = widget.me;
+    if (me != null && old.me == null && !_userMoved) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _ctrl.move(me, math.max(_zoom, 10.5));
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _syncThrottle?.cancel();
+    super.dispose();
   }
 
   /// Přesune kameru na dané místo (volá ji celoobrazovková mapa z hledání).
@@ -147,15 +180,20 @@ class PlacesMapViewState extends State<PlacesMapView> {
         minZoom: 3,
         maxZoom: 18,
         interactionOptions: InteractionOptions(
-          flags: widget.interactive
-              ? InteractiveFlag.all & ~InteractiveFlag.rotate
-              : InteractiveFlag.none,
+          flags: !widget.interactive
+              ? InteractiveFlag.none
+              : widget.allowDrag
+                  ? InteractiveFlag.all & ~InteractiveFlag.rotate
+                  : (InteractiveFlag.pinchZoom |
+                      InteractiveFlag.doubleTapZoom |
+                      InteractiveFlag.scrollWheelZoom),
         ),
         onLongPress: widget.onLongPress == null
             ? null
             : (_, p) => widget.onLongPress!(p),
+        onPointerDown: (_, __) => _userMoved = true,
         onMapReady: _syncCamera,
-        onPositionChanged: (_, __) => _syncCamera(),
+        onPositionChanged: (_, __) => _scheduleSync(),
       ),
       children: [
         TileLayer(
@@ -190,8 +228,23 @@ class PlacesMapViewState extends State<PlacesMapView> {
     );
   }
 
-  /// Uloží aktuální výřez a zoom. Volá se z onMapReady i při každém posunu,
-  /// takže se překreslí jen to, co je vidět.
+  /// Naplánuje přepočet výřezu nejvýš ~8× za sekundu.
+  void _scheduleSync() {
+    if (_syncThrottle?.isActive ?? false) {
+      _syncPending = true;
+      return;
+    }
+    _syncCamera();
+    _syncThrottle = Timer(const Duration(milliseconds: 120), () {
+      if (!mounted) return;
+      if (_syncPending) {
+        _syncPending = false;
+        _syncCamera();
+      }
+    });
+  }
+
+  /// Uloží aktuální výřez a zoom. Překreslí se jen to, co je vidět.
   void _syncCamera() {
     if (!mounted) return;
     final cam = _ctrl.camera;

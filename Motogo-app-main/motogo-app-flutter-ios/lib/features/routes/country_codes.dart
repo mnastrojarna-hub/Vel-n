@@ -112,19 +112,21 @@ String _norm(String s) {
 String? countryIso2(dynamic raw) {
   final s = raw?.toString().trim() ?? '';
   if (s.isEmpty) return null;
-  if (s.length == 2) {
-    final up = s.toUpperCase();
-    return _flags.containsKey(up) ? up : up; // neznámý 2písmenný kód projde
-  }
+  // Dvoupísmenná hodnota se bere jako ISO kód i bez záznamu ve vlajkách —
+  // data mohou obsahovat i stát, pro který tu vlaječku nemáme (ukáže se 🏳️).
+  if (s.length == 2) return s.toUpperCase();
   return _nameToIso[_norm(s)];
 }
 
 /// Vlajka + kód, např. „🇨🇿 CZ" — kompaktní popisek chipu.
 String countryChipLabel(String iso) => '${_flags[iso] ?? '🏳️'} $iso';
 
-/// Vlajka + český název, např. „🇦🇹 Rakousko" — pro rozbalený seznam.
-String countryFullLabel(String iso) =>
-    '${_flags[iso] ?? '🏳️'} ${_namesCs[iso] ?? iso}';
+/// Vlajka + název, např. „🇦🇹 Rakousko" — pro rozbalený seznam států.
+/// Názvy jsou jen česky, takže v ostatních jazycích zůstává vlajka + ISO kód
+/// (lepší než ukázat Němci český název státu).
+String countryFullLabel(String iso, String lang) => lang == 'cs'
+    ? '${_flags[iso] ?? '🏳️'} ${_namesCs[iso] ?? iso}'
+    : countryChipLabel(iso);
 
 /// Seřadí kódy tak, že [kPriorityCountries] jdou první (v daném pořadí)
 /// a zbytek abecedně podle českého názvu.

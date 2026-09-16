@@ -6,6 +6,7 @@ import '../../core/i18n/i18n_provider.dart';
 import '../../core/router.dart' show MotoGoBackNav, Routes;
 import '../../core/theme.dart';
 import '../../core/widgets/moto_fx.dart';
+import 'all_pois_screen.dart' show dedupPlaces;
 import 'community_submit.dart';
 import 'places_map.dart';
 import 'route_poi_sheet.dart';
@@ -44,7 +45,9 @@ class _PlacesMapScreenState extends ConsumerState<PlacesMapScreen> {
   @override
   Widget build(BuildContext context) {
     final lang = ref.watch(localeProvider).languageCode;
-    final places = ref.watch(allPlacesProvider);
+    // Stejné sloučení duplicit jako v seznamu Míst — jinak by mapa hlásila
+    // jiný počet a kreslila dva markery na jedno fyzické místo.
+    final places = dedupPlaces(ref.watch(allPlacesProvider));
     final me = ref.watch(currentLocationProvider).valueOrNull;
     final loading = ref.watch(catalogPoisProvider).isLoading;
 
@@ -115,9 +118,7 @@ class _PlacesMapScreenState extends ConsumerState<PlacesMapScreen> {
                             Text(
                               loading
                                   ? t(context).tr('placesMapLoading')
-                                  : t(context)
-                                      .tr('placesMapCount')
-                                      .replaceFirst('{n}', '${places.length}'),
+                                  : '${t(context).tr('placesMapCount')} · ${places.length}',
                               style: const TextStyle(
                                 fontSize: MotoGoTypo.sizeSm,
                                 fontWeight: MotoGoTypo.w600,

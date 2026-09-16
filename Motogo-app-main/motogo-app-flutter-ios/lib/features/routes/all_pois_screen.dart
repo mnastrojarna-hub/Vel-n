@@ -24,6 +24,60 @@ import 'routes_quick_links.dart';
 /// smysluplné je náhodně, od polohy a od zvolené trasy.)
 enum _PoiSort { random, nearMe, nearRoute }
 
+// ── Slučování duplicitních míst — sdílí seznam Míst i mapa míst, aby obě
+// ukazovaly stejný počet a mapa nekreslila dva markery na jedno místo. ──
+
+/// Normalizovaný název místa pro slučování duplicit — malá písmena, sloučené
+/// mezery a bez vedoucího druhového slova (zámek/hrad/…), aby „Zámek Žirovnice"
+/// a „zámek Žirovnice" (i „Zámek Kamenice nad Lipou" vs „Kamenice nad Lipou")
+/// spadly na stejný klíč.
+String _placeName(String raw) {
+  var s = raw.trim().toLowerCase();
+  const prefixes = [
+    'zřícenina hradu ', 'zřícenina ', 'zámek ', 'hrad ', 'klášter ',
+    'burgruine ', 'schloss ', 'burg ', 'château ', 'castle ',
+  ];
+  for (final p in prefixes) {
+    if (s.startsWith(p)) {
+      s = s.substring(p.length);
+      break;
+    }
+  }
+  return s.replaceAll(RegExp(r'\s+'), ' ').trim();
+}
+
+/// Sloučí body, které představují STEJNÉ fyzické místo (shodný normalizovaný
+/// název + poloha v ~5 km rastru), do JEDNÉ položky. V katalogu „napříč
+/// trasami" se tak místo ležící na více trasách (Kamenice nad Lipou, zámek
+/// Žirovnice, Orlík…) ukáže jen jednou. Data tras se NEMĚNÍ — jde čistě o
+/// zobrazení. Jako reprezentanta upřednostní bod s fotkou, pak katalogový.
+List<PoiEntry> dedupPlaces(List<PoiEntry> src) {
+  String bucket(double v) => (v / 0.05).round().toString();
+  final index = <String, int>{};
+  final out = <PoiEntry>[];
+  for (final e in src) {
+    final ll = e.latLng;
+    // Body bez GPS nikdy neslučuj (nedají se spolehlivě ztotožnit).
+    final key = ll == null
+        ? 'id:${e.key}'
+        : 'p:${_placeName(e.poi.name)}@${bucket(ll.latitude)},${bucket(ll.longitude)}';
+    final at = index[key];
+    if (at == null) {
+      index[key] = out.length;
+      out.add(e);
+    } else {
+      final cur = out[at];
+      final curCover = cur.poi.cover != null;
+      final candCover = e.poi.cover != null;
+      final replace = curCover != candCover
+          ? candCover // bod s fotkou vyhrává
+          : (cur.catalog != e.catalog ? e.catalog : false); // katalog je kanonický
+      if (replace) out[at] = e;
+    }
+  }
+  return out;
+}
+
 /// Katalog VŠECH bodů zájmu napříč trasami. Trasa je jen doporučení — tady si
 /// zákazník vybere zastávky z různých tras (i ze dvou tras najednou) a sestaví
 /// si vlastní vyjížďku, kterou pak naviguje přímo v appce.
@@ -55,21 +109,18 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
   late final AnimationController _quickOrder = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 420),
-    lowerBound: 0,
-    upperBound: 3, // = _quickCount
   );
 
+  // Pořadí drží CELÉ číslo; controller je jen 0→1 přechod mezi starým
+  // a novým pořadím. Dřív se cíl počítal ze SUROVÉ hodnoty controlleru,
+  // takže druhý swipe během animace (value např. 1.4) zanesl do pořadí
+  // desetinnou část a dlaždice zůstaly natrvalo rozjeté mezi sloty.
+  int _quickIndex = 0;
+
   void _cycleQuickLinks() {
-    final next = (_quickOrder.value + 1) % _quickCount;
-    if (next == 0) {
-      _quickOrder
-          .animateTo(_quickCount.toDouble(), curve: Curves.easeOutCubic)
-          .then((_) {
-        if (mounted) _quickOrder.value = 0;
-      });
-      return;
-    }
-    _quickOrder.animateTo(next, curve: Curves.easeOutCubic);
+    if (_quickOrder.isAnimating) return; // swipe během přechodu ignoruj
+    setState(() => _quickIndex = (_quickIndex + 1) % _quickCount);
+    _quickOrder.forward(from: 0);
   }
 
   final Set<String> _selected = {};
@@ -142,12 +193,6 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
   void initState() {
     super.initState();
     if (widget.initialSelected != null) _selected.addAll(widget.initialSelected!);
-    // Hledání je sdílené s Trasami — co uživatel napsal tam, platí i tady.
-    final shared = ref.read(placesSearchProvider);
-    if (shared.isNotEmpty) {
-      _query = shared;
-      _searchCtl.text = shared;
-    }
   }
 
   @override
@@ -203,7 +248,7 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
 
   List<PoiEntry> _dedupAll(List<PoiEntry> all) {
     if (_dedupCache != null && identical(_dedupSrc, all)) return _dedupCache!;
-    final deduped = _dedupPlaces(all);
+    final deduped = dedupPlaces(all);
     _dedupCache = deduped;
     _dedupSrc = all;
     return deduped;
@@ -215,6 +260,45 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
   // porovnání na UI vlákně a appka na několik sekund ztuhla.
   Map<String, int>? _routeCountCache;
   List<PoiEntry>? _routeCountSrc;
+
+  // Země přítomné v datech — memoizace přes identitu zdroje, stejně jako
+  // _mergedAll. Bez ní se při každém setState procházel celý katalog.
+  List<String>? _countriesCache;
+  List<PoiEntry>? _countriesSrc;
+
+  List<String> _countriesIn(List<PoiEntry> all) {
+    if (_countriesCache != null && identical(_countriesSrc, all)) {
+      return _countriesCache!;
+    }
+    final out = <String>{
+      for (final e in all)
+        if (e.countryCode != null)
+          e.countryCode!
+        else
+          ...(e.route?.countries ?? const <String>[])
+    }.toList();
+    _countriesCache = out;
+    _countriesSrc = all;
+    return out;
+  }
+
+  // Počty kategorií nad aktuálním zdrojem — memoizace jako výše.
+  Map<String, int>? _catCountCache;
+  List<PoiEntry>? _catCountSrc;
+
+  Map<String, int> _catCounts(List<PoiEntry> src) {
+    if (_catCountCache != null && identical(_catCountSrc, src)) {
+      return _catCountCache!;
+    }
+    final counts = <String, int>{};
+    for (final e in src) {
+      final c = poiCategoryOf(e.poi);
+      counts[c] = (counts[c] ?? 0) + 1;
+    }
+    _catCountCache = counts;
+    _catCountSrc = src;
+    return counts;
+  }
 
   Map<String, int> _routePoiCounts(List<PoiEntry> all) {
     if (_routeCountCache != null && identical(_routeCountSrc, all)) {
@@ -236,56 +320,7 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
     return ll == null ? double.infinity : dist.as(LengthUnit.Meter, from, ll);
   }
 
-  /// Normalizovaný název místa pro slučování duplicit — malá písmena, sloučené
-  /// mezery a bez vedoucího druhového slova (zámek/hrad/…), aby „Zámek Žirovnice"
-  /// a „zámek Žirovnice" (i „Zámek Kamenice nad Lipou" vs „Kamenice nad Lipou")
-  /// spadly na stejný klíč.
-  static String _placeName(String raw) {
-    var s = raw.trim().toLowerCase();
-    const prefixes = [
-      'zřícenina hradu ', 'zřícenina ', 'zámek ', 'hrad ', 'klášter ',
-      'burgruine ', 'schloss ', 'burg ', 'château ', 'castle ',
-    ];
-    for (final p in prefixes) {
-      if (s.startsWith(p)) {
-        s = s.substring(p.length);
-        break;
-      }
-    }
-    return s.replaceAll(RegExp(r'\s+'), ' ').trim();
-  }
 
-  /// Sloučí body, které představují STEJNÉ fyzické místo (shodný normalizovaný
-  /// název + poloha v ~5 km rastru), do JEDNÉ položky. V katalogu „napříč
-  /// trasami" se tak místo ležící na více trasách (Kamenice nad Lipou, zámek
-  /// Žirovnice, Orlík…) ukáže jen jednou. Data tras se NEMĚNÍ — jde čistě o
-  /// zobrazení. Jako reprezentanta upřednostní bod s fotkou, pak katalogový.
-  static List<PoiEntry> _dedupPlaces(List<PoiEntry> src) {
-    String bucket(double v) => (v / 0.05).round().toString();
-    final index = <String, int>{};
-    final out = <PoiEntry>[];
-    for (final e in src) {
-      final ll = e.latLng;
-      // Body bez GPS nikdy neslučuj (nedají se spolehlivě ztotožnit).
-      final key = ll == null
-          ? 'id:${e.key}'
-          : 'p:${_placeName(e.poi.name)}@${bucket(ll.latitude)},${bucket(ll.longitude)}';
-      final at = index[key];
-      if (at == null) {
-        index[key] = out.length;
-        out.add(e);
-      } else {
-        final cur = out[at];
-        final curCover = cur.poi.cover != null;
-        final candCover = e.poi.cover != null;
-        final replace = curCover != candCover
-            ? candCover // bod s fotkou vyhrává
-            : (cur.catalog != e.catalog ? e.catalog : false); // katalog je kanonický
-        if (replace) out[at] = e;
-      }
-    }
-    return out;
-  }
 
   /// Kotva (start / první bod) naposledy zvolené trasy — pro řazení „od zvolené
   /// trasy". null = žádná trasa dosud otevřená / trasy nenačteny.
@@ -320,6 +355,20 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
 
   @override
   Widget build(BuildContext context) {
+    // Sdílený dotaz mezi Místy a Trasami — hlídá se v obou směrech, aby se
+    // napsaný text přenesl i při NÁVRATU na už existující obrazovku
+    // (initState by se podruhé nespustil).
+    ref.listen<String>(placesSearchProvider, (prev, next) {
+      if (!mounted || next == _query) return;
+      _searchDebounce?.cancel();
+      _searchCtl.text = next;
+      setState(() => _query = next);
+    });
+    final shared = ref.read(placesSearchProvider);
+    if (shared != _query) {
+      _query = shared;
+      _searchCtl.text = shared;
+    }
     final lang = ref.watch(localeProvider).languageCode;
     // Body z tras + komunitní (uživatelské) body zájmu.
     final routePois = ref.watch(allPoisProvider);
@@ -330,7 +379,11 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
     // Dokud se katalog / komunitní body teprve načítají, NErenderuj seznam
     // „po dávkách" — jinak se po otevření několikrát přeskládá (uživatel viděl
     // 3 rychlé změny po sobě). Počkej na zdroje a zobraz je naráz.
-    final sourcesLoading = catalogAsync.isLoading || userAsync.isLoading;
+    // Spinner JEN dokud nemáme co ukázat. `isLoading` je v Riverpodu true
+    // i při obnově s daty v ruce, takže dřív po přidání místa (invalidate)
+    // zmizel celý seznam i pozice scrollu.
+    final sourcesLoading = (catalogAsync.isLoading && catalogPois.isEmpty) ||
+        (userAsync.isLoading && userPois.isEmpty);
     final all = _mergedAll(routePois, catalogPois, userPois);
     final me = ref.watch(currentLocationProvider).valueOrNull;
 
@@ -439,13 +492,7 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
       if (e.route != null) routesWithPois[e.route!.id] = e.route!;
     }
     // Země přítomné v datech (z tras, ke kterým body patří) — pro filtr země.
-    final availableCountries = <String>{
-      for (final e in all)
-        if (e.countryCode != null)
-          e.countryCode!
-        else
-          ...(e.route?.countries ?? const <String>[])
-    }.toList();
+    final availableCountries = _countriesIn(all);
 
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
@@ -454,8 +501,9 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
         child: Column(
           children: [
             _header(context),
-            _filters(context, lang, routesWithPois.values.toList(), all, nearFiltered,
-                me != null, selRouteAnchor != null, availableCountries),
+            _filters(context, lang, routesWithPois.values.toList(), all, base,
+                nearFiltered, me != null, selRouteAnchor != null,
+                availableCountries, nearbyAnchor),
             Expanded(
               child: sourcesLoading
                   ? const Center(
@@ -469,6 +517,7 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
                             pinned: true,
                             delegate: QuickLinksHeaderDelegate(
                               order: _quickOrder,
+                              index: _quickIndex,
                               onCycle: _cycleQuickLinks,
                               links: [
                                 QuickLink.light(
@@ -519,10 +568,8 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
                                       const SizedBox(width: 10),
                                       Expanded(
                                         child: Text(
-                                          t(context)
-                                              .tr('searchAlsoRoutes')
-                                              .replaceFirst(
-                                                  '{n}', '$routeHits'),
+                                          '${t(context).tr('searchAlsoRoutes')} · '
+                                          '$routeHits',
                                           style: const TextStyle(
                                             fontSize: MotoGoTypo.sizeBase,
                                             fontWeight: MotoGoTypo.w800,
@@ -562,6 +609,12 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
                                           me: me,
                                           initialCenter: me,
                                           initialZoom: me == null ? 7.2 : 10.5,
+                                          // Uvnitř scrollovaného seznamu se
+                                          // mapou neposouvá — jinak by si
+                                          // vzala svislý drag a seznamem by
+                                          // přes ni nešlo scrollovat. Posun
+                                          // a přiblížení až po rozbalení.
+                                          allowDrag: false,
                                           onPlaceTap: (e) => setState(() =>
                                               _selected.contains(e.key)
                                                   ? _selected.remove(e.key)
@@ -741,18 +794,15 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
 
   // ── Filtry: řádek nástrojů (řazení/filtry, „v okolí", trasa) + řádek kategorií ──
   Widget _filters(BuildContext context, String lang, List<RouteItem> routes,
-      List<PoiEntry> all, List<PoiEntry> sourceFiltered,
-      bool meAvail, bool routeAvail, List<String> availableCountries) {
+      List<PoiEntry> all, List<PoiEntry> base, List<PoiEntry> sourceFiltered,
+      bool meAvail, bool routeAvail, List<String> availableCountries,
+      LatLng? nearAnchor) {
     if (routes.length < 2 && all.isEmpty && _selected.isEmpty) {
       return const SizedBox(height: 8);
     }
 
     // Počty kategorií z aktuálního zdroje (bez zapnutých kategorií).
-    final catCounts = <String, int>{};
-    for (final e in sourceFiltered) {
-      final c = poiCategoryOf(e.poi);
-      catCounts[c] = (catCounts[c] ?? 0) + 1;
-    }
+    final catCounts = _catCounts(sourceFiltered);
 
     RouteItem? selRoute;
     if (_routeFilter != null) {
@@ -779,8 +829,8 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
                 Icons.tune,
                 _allFilterCount > 0,
                 _allFilterCount > 0 ? _allFilterCount : null,
-                () => _openPoiToolsSheet(
-                    context, meAvail, routeAvail, availableCountries, all),
+                () => _openPoiToolsSheet(context, meAvail, routeAvail,
+                    availableCountries, base, nearAnchor),
                 trailing: Icons.arrow_drop_down,
               ),
               // „V okolí" — dostupné HNED, měří od aktuální polohy. Když poloha
@@ -869,7 +919,8 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
   // zbytek pod „Další státy"), řazení začíná vzdáleností a přibyl reset
   // i živý počet výsledků na potvrzovacím tlačítku.
   void _openPoiToolsSheet(BuildContext context, bool meAvail, bool routeAvail,
-      List<String> availableCountries, List<PoiEntry> all) {
+      List<String> availableCountries, List<PoiEntry> base, LatLng? nearAnchor) {
+    final lang = ref.read(localeProvider).languageCode;
     // Pracovní kopie (potvrdí se tlačítkem).
     var tSort = _sort;
     final tCountry = {..._fCountry};
@@ -894,8 +945,18 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
           builder: (sheetCtx, setSheet) {
             // Živý počet výsledků pro zvolenou kombinaci.
             final qq = tQuery.trim();
+            const dist = Distance();
             var count = 0;
-            for (final e in all) {
+            for (final e in base) {
+              // „V okolí" se v sheetu nenastavuje, ale výsledek ovlivňuje — bez
+              // něj tlačítko slibovalo jiné číslo, než se pak v seznamu ukázalo.
+              if (nearAnchor != null) {
+                final p = e.latLng;
+                if (p == null ||
+                    dist.as(LengthUnit.Meter, nearAnchor, p) > _nearbyKm * 1000) {
+                  continue;
+                }
+              }
               if (_routeFilter != null && e.route?.id != _routeFilter) continue;
               if (qq.isNotEmpty &&
                   !(searchMatches(e.poi.searchBlob, qq) ||
@@ -1079,7 +1140,9 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
                                 tSort == _PoiSort.nearMe, () async {
                               if (!meAvail) {
                                 final ok = await ensureLocation(ref);
-                                if (!ok) return;
+                                // Sheet mohl mezitím zmizet — setSheet na
+                                // odpojeném StatefulBuilderu shodí appku.
+                                if (!ok || !sheetCtx.mounted) return;
                               }
                               setSheet(() => tSort = _PoiSort.nearMe);
                             }),
@@ -1131,7 +1194,7 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
                                       padding: const EdgeInsets.only(top: 8),
                                       child: Wrap(spacing: 8, runSpacing: 8, children: [
                                         for (final c in split.rest)
-                                          chip(countryFullLabel(c),
+                                          chip(countryFullLabel(c, lang),
                                               tCountry.contains(c), () {
                                             setSheet(() => tCountry.contains(c)
                                                 ? tCountry.remove(c)
@@ -1526,12 +1589,27 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
   }
 
   // ── Karta POI ──
+  /// Minuty na „1 h 20 m" / „45 m" — u vzdálenosti místa od jezdce.
+  static String _fmtMin(int minutes) {
+    final h = minutes ~/ 60;
+    final m = minutes % 60;
+    if (h <= 0) return '${m}m';
+    return m == 0 ? '${h}h' : '${h}h ${m}m';
+  }
+
   Widget _poiCard(BuildContext context, PoiEntry e, String lang, LatLng? me) {
     final selected = _selected.contains(e.key);
     String? distTxt;
     if (me != null && e.latLng != null) {
       final m = const Distance().as(LengthUnit.Meter, me, e.latLng!);
       distTxt = m >= 1000 ? '${(m / 1000).toStringAsFixed(1)} km' : '${m.round()} m';
+      // Vzdálenost propojená s časem — kolik je to zhruba jízdy. Vzdušná čára
+      // se přepočte koeficientem 1,3 (klikatost silnic) a průměrem 60 km/h,
+      // stejně jako odhad dojezdu k trase (approachEstimate).
+      if (m >= 1500) {
+        final min = (m / 1000 * 1.3 / 60 * 60).round();
+        if (min >= 1) distTxt = '$distTxt · ${_fmtMin(min)}';
+      }
     }
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
