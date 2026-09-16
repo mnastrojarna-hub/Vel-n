@@ -8,7 +8,7 @@ UPDATE booking_extras SET unit_price = 0
  WHERE booking_id = (SELECT id FROM bookings WHERE right(id::text, 8) = 'a450c734')
    AND (lower(name) LIKE '%bot%' OR lower(name) LIKE '%spolujez%');
 
--- 2) o stejnou částku dolů extras_price i total_price (3520 -> 2540)
+-- 2) o stejnou částku dolů extras_price i total_price (3517 -> 2537)
 UPDATE bookings
    SET total_price  = total_price - extras_price,
        extras_price = 0
