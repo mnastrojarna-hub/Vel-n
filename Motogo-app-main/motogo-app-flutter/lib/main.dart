@@ -32,6 +32,7 @@ import 'core/widgets/logo_header.dart' show initAppVersion;
 import 'core/pending_booking_fab_provider.dart'
     show onboardingOverlayActiveProvider;
 import 'features/loyalty/loyalty_levelup_overlay.dart';
+import 'features/routes/ride_recorder.dart';
 import 'features/loyalty/loyalty_provider.dart' show maybeRefreshLoyalty;
 import 'features/routes/active_ride_provider.dart'
     show maybeResumeActiveRideOnLaunch;
@@ -388,6 +389,9 @@ class _MotoGoAppState extends ConsumerState<MotoGoApp>
                 // na jakékoli obrazovce — i mimo spodní lištu (login, platba,
                 // „success" potvrzení rezervace…).
                 const LoyaltyLevelUpWatcher(),
+                // Záznam projeté jízdy — při aktivní výpůjčce a povolené
+                // poloze sbírá stopu do „Mých zážitků". Nic nevykresluje.
+                const RideRecorderWatcher(),
                 // Language selection overlay (first launch)
                 if (_onboardingChecked && _showLangOverlay)
                   LanguageOverlay(onDone: _onLangDone),

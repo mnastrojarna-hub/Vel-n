@@ -33,6 +33,9 @@ class CacheCleanupService {
     'mg_perms_shown', // permission overlay shown
     'mg_active_ride', // rozjetá navigace trasy (ruší se jen křížkem)
     'mg_ride_history', // historie jízd (Moje zážitky → Historie)
+    'mg_ride_autorecord', // přepínač automatického záznamu jízd
+    'mg_ride_rec_id', // rozjetý záznam jízdy (pokračuje po restartu appky)
+    'mg_ride_rec_buf', // neodeslané GPS body rozjetého záznamu
     _versionKey, // app version marker (update detection)
   };
 

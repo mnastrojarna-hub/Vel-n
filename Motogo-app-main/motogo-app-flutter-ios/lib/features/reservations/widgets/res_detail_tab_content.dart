@@ -12,6 +12,7 @@ import '../../booking/booking_models.dart';
 import '../../booking/price_calculator.dart' show branchLat, branchLng;
 import '../../catalog/catalog_provider.dart';
 import '../../documents/booking_doc_viewer.dart';
+import '../../routes/ride_booking_section.dart';
 import '../reservation_models.dart';
 import '../reservation_provider.dart';
 import 'res_detail_card.dart';
@@ -438,6 +439,10 @@ class ResDetailTabContent extends ConsumerWidget {
               onTap: onShowCancelDialog,
             ),
           ],
+
+          // Projeté jízdy z této výpůjčky (vznikly automaticky s povolenou
+          // polohou) — otevírají detail jízdy s mapou, zastávkami a fotkami.
+          BookingRidesSection(bookingId: res.id),
 
           const SizedBox(height: 40),
         ],
